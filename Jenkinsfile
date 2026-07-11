@@ -131,6 +131,9 @@ pipeline {
               curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1/api/v1/health
             '''
           } catch (deploymentFailure) {
+            // 증거 수집은 best-effort로 수행한다: 진단 명령(ps/logs)의 실패가
+            // 원래의 배포 실패(deploymentFailure)를 가리면 안 되므로 || true를 의도적으로 사용한다.
+            // (PREV_TAG 캡처의 fail-closed 계약과는 별개 경로 — 원 실패는 아래에서 다시 throw된다.)
             sh '''
               docker compose ps || true
               docker compose logs --no-color || true
