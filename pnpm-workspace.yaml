@@ -8,3 +8,6 @@ allowBuilds:
   esbuild: true
   prisma: true
   sharp: true
+
+# Node engines 하한을 강제한다 (Node 24 미만 설치 차단)
+engineStrict: true
