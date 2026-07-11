@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build output
+.next/
+dist/
+build/
+coverage/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local agent state
+.gjc/
+
+# Next.js / TypeScript artifacts
+out/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+
+# direnv (dev DATABASE_URL 주입용, 비커밋)
+.envrc
+
+# Local package store
+.pnpm-store/
