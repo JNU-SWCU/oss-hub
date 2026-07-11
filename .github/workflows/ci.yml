@@ -1,0 +1,82 @@
+name: ci
+
+# paths 필터를 사용하지 않아 모든 PR에서 required check이 생성되어 교착을 방지한다.
+on:
+  pull_request:
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 변경된 앱만 검사해 CI 실행 시간과 과금을 절감한다.
+      - name: 변경 감지
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            frontend:
+              - 'apps/frontend/**'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'pnpm-lock.yaml'
+              - 'compose.dev.yml'
+            backend:
+              - 'apps/backend/**'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'pnpm-lock.yaml'
+              - 'compose.dev.yml'
+
+      # 변경이 없으면 이후 작업을 건너뛰어 성공하는 no-op gate로 과금을 절감한다.
+      - name: pnpm 설정
+        if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
+        uses: pnpm/action-setup@v4
+
+      - name: Node 설정
+        if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: 의존성 설치
+        if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
+        run: pnpm install --frozen-lockfile
+
+      - name: frontend lint
+        if: ${{ steps.changes.outputs.frontend == 'true' }}
+        run: pnpm --filter frontend lint
+
+      - name: frontend typecheck
+        if: ${{ steps.changes.outputs.frontend == 'true' }}
+        run: pnpm --filter frontend typecheck
+
+      - name: frontend test
+        if: ${{ steps.changes.outputs.frontend == 'true' }}
+        run: pnpm --filter frontend test
+
+      - name: frontend build
+        if: ${{ steps.changes.outputs.frontend == 'true' }}
+        run: pnpm --filter frontend build
+
+      - name: backend lint
+        if: ${{ steps.changes.outputs.backend == 'true' }}
+        run: pnpm --filter backend lint
+
+      - name: backend typecheck
+        if: ${{ steps.changes.outputs.backend == 'true' }}
+        run: pnpm --filter backend typecheck
+
+      - name: backend test
+        if: ${{ steps.changes.outputs.backend == 'true' }}
+        run: pnpm --filter backend test
+
+      - name: backend build
+        if: ${{ steps.changes.outputs.backend == 'true' }}
+        run: pnpm --filter backend build
