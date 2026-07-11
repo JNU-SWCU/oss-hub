@@ -31,12 +31,14 @@ jobs:
               - 'pnpm-workspace.yaml'
               - 'pnpm-lock.yaml'
               - 'compose.dev.yml'
+              - '.github/workflows/**'
             backend:
               - 'apps/backend/**'
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - 'pnpm-lock.yaml'
               - 'compose.dev.yml'
+              - '.github/workflows/**'
 
       # 변경이 없으면 이후 작업을 건너뛰어 성공하는 no-op gate로 과금을 절감한다.
       - name: pnpm 설정

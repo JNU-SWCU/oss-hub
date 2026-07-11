@@ -4,6 +4,7 @@ import {
   MemberResponseDto,
 } from './dto/member-response.dto';
 import { PaginationQueryDto } from './dto/pagination-query.dto';
+import { ParseCuidPipe } from './parse-cuid.pipe';
 import { MembersService } from './members.service';
 
 @Controller('members')
@@ -11,7 +12,9 @@ export class MembersController {
   constructor(private readonly membersService: MembersService) {}
 
   @Get(':id')
-  async getMember(@Param('id') id: string): Promise<MemberResponseDto> {
+  async getMember(
+    @Param('id', ParseCuidPipe) id: string,
+  ): Promise<MemberResponseDto> {
     const member = await this.membersService.getMember(id);
     return MemberResponseDto.from(member);
   }
