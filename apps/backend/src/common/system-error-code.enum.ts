@@ -1,0 +1,6 @@
+export enum SystemErrorCode {
+  INTERNAL_SERVER_ERROR = 'SYS_001',
+  ROUTE_NOT_FOUND = 'SYS_002',
+  VALIDATION_FAILED = 'SYS_003',
+  BAD_REQUEST = 'SYS_004',
+}
