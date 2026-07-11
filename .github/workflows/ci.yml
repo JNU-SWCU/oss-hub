@@ -4,6 +4,11 @@ name: ci
 on:
   pull_request:
 
+# dorny/paths-filter가 PR 변경 파일을 조회할 수 있도록 최소 권한을 명시한다.
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   ci:
     name: ci
