@@ -32,7 +32,8 @@ pipeline {
         script {
           def frontendImage = sh(
             script: '''
-              container="$(docker compose ps -q frontend || true)"
+              set -e
+              container="$(docker compose ps -q frontend)"
               if [ -n "$container" ]; then
                 docker inspect --format '{{.Config.Image}}' "$container"
               fi
@@ -41,7 +42,8 @@ pipeline {
           ).trim()
           def backendImage = sh(
             script: '''
-              container="$(docker compose ps -q backend || true)"
+              set -e
+              container="$(docker compose ps -q backend)"
               if [ -n "$container" ]; then
                 docker inspect --format '{{.Config.Image}}' "$container"
               fi
@@ -116,30 +118,26 @@ pipeline {
       }
     }
 
-    stage('서비스 배포') {
+    stage('서비스 교체 및 스모크 확인') {
       when {
         branch 'main'
       }
       steps {
-        sh 'docker compose up -d --no-build --wait --wait-timeout 90'
-      }
-    }
+        script {
+          try {
+            sh '''
+              docker compose up -d --no-build --wait --wait-timeout 90
+              curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1/
+              curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1/api/v1/health
+            '''
+          } catch (deploymentFailure) {
+            sh '''
+              docker compose ps || true
+              docker compose logs --no-color || true
+            '''
 
-    stage('스모크 확인') {
-      when {
-        branch 'main'
-      }
-      steps {
-        sh '''
-          curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1/
-          curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1/api/v1/health
-        '''
-      }
-      post {
-        failure {
-          script {
             if (env.PREV_TAG?.trim()) {
-              echo "스모크 확인 실패: ${env.PREV_TAG} 태그로 복구합니다."
+              echo "서비스 교체 또는 스모크 확인 실패: ${env.PREV_TAG} 태그로 복구합니다."
               withEnv(["IMAGE_TAG=${env.PREV_TAG}"]) {
                 sh '''
                   docker compose up -d --no-build --wait --wait-timeout 90
@@ -148,9 +146,10 @@ pipeline {
                 '''
               }
             } else {
-              echo '스모크 확인 실패: greenfield 배포이므로 자동 복구하지 않습니다. Jenkins 로그와 아래 Compose 로그를 보존하고 수동 복구 절차를 따르십시오.'
-              sh 'docker compose ps; docker compose logs --no-color || true'
+              echo '서비스 교체 또는 스모크 확인 실패: greenfield 배포이므로 자동 복구하지 않습니다. 보존한 Jenkins 및 Compose 로그를 확인하고 수동 복구 절차를 따르십시오.'
             }
+
+            throw deploymentFailure
           }
         }
       }

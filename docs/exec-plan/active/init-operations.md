@@ -30,7 +30,7 @@
 5. 3에서 빌드한 `IMAGE_TAG`의 backend 이미지를 그대로 사용하여 `prisma migrate deploy`를 실행한다.
 6. `up -d --no-build --wait --wait-timeout <n>`로 nginx, front, back, postgres를 동일 `IMAGE_TAG` digest로 기동한다.
 7. `/`와 `/api/v1/health`에 smoke check를 수행한다.
-8. smoke 실패 시 복구 절차를 따른다: `PREV_TAG`가 있으면 rollback, 없으면 greenfield 복구.
+8. 서비스 교체 시작 후 `up` 또는 smoke check가 실패하면 먼저 `docker compose ps`와 `docker compose logs`를 보존한 뒤 복구 절차를 따른다. `PREV_TAG`가 있으면 rollback하고, 없으면 greenfield 수동 복구를 안내한다.
 
 Compose 종료·재기동 절차에서 `down -v`를 실행하지 않는다. PostgreSQL 데이터는 named volume `pgdata`에 보존한다.
 
@@ -39,7 +39,7 @@ Compose 종료·재기동 절차에서 `down -v`를 실행하지 않는다. Post
 ### 배포 서버
 
 1. 배포 서버의 접근 제한된 경로에 `.env`를 배치한다.
-2. `.env`에는 운영 `POSTGRES_*` 값과 `DATABASE_URL`을 설정한다.
+2. `.env`에는 운영 `POSTGRES_*` 값과 `DATABASE_URL`을 설정한다. `DATABASE_URL`은 `postgres` 서비스 DNS를 가리켜야 하며 migration과 runtime이 동일한 URL을 사용한다.
 3. 저장소에는 `.env.example`만 두고 실제 `.env`는 커밋하지 않는다.
 4. Jenkins가 Compose 및 migration 실행 전에 해당 `.env`를 읽을 수 있는지 확인한다.
 
@@ -52,15 +52,15 @@ Compose 종료·재기동 절차에서 `down -v`를 실행하지 않는다. Post
 
 ## 복구 절차
 
-### PREV_TAG가 있는 배포 실패
+### PREV_TAG가 있는 서비스 교체 또는 smoke 실패
 
-1. 실패한 smoke check와 Jenkins 콘솔 로그를 보존한다.
+1. 실패한 `up` 또는 smoke check, `docker compose ps`, Compose 로그와 Jenkins 콘솔 로그를 보존한다.
 2. Compose 서비스의 이미지 태그를 `PREV_TAG`로 되돌린다.
 3. `up -d --no-build --wait`로 이전 이미지를 기동한다.
 4. `/`와 `/api/v1/health` smoke check를 다시 수행한다.
 5. 복구 결과, 실패 SHA, `PREV_TAG`, 로그 위치를 운영 기록에 남긴다.
 
-### greenfield 배포 실패
+### greenfield 서비스 교체 또는 smoke 실패
 
 `PREV_TAG`가 없는 첫 배포는 자동 rollback 대상이 없다. Jenkins 콘솔 로그와 Compose 서비스 로그를 보존하고, 배포 서버의 Jenkins build 기록 및 Compose 프로젝트 로그 위치를 운영 기록에 남긴다. 원인을 수정한 뒤 같은 SHA 규칙으로 수동 재배포한다. 데이터 볼륨 삭제를 위한 `down -v`는 사용하지 않는다.
 
