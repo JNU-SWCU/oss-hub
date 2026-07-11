@@ -30,3 +30,15 @@ Thumbs.db
 
 # Local agent state
 .gjc/
+
+# Next.js / TypeScript artifacts
+out/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+
+# direnv (dev DATABASE_URL 주입용, 비커밋)
+.envrc
+
+# Local package store
+.pnpm-store/

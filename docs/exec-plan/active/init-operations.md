@@ -24,12 +24,13 @@
 ### 배포 순서
 
 1. 대상 main 커밋 SHA를 읽어 `IMAGE_TAG`로 설정한다.
-2. 해당 SHA 태그로 front와 back 이미지를 서버 로컬에서 한 번만 빌드한다. 레지스트리에 push하거나 pull하지 않는다.
-3. PostgreSQL을 먼저 기동한다.
-4. `prisma migrate deploy`를 실행한다.
-5. `up -d --no-build --wait`로 nginx, front, back, postgres를 기동한다.
-6. `/`와 `/api/v1/health`에 smoke check를 수행한다.
-7. 성공한 배포의 `IMAGE_TAG`를 다음 배포에서 사용할 `PREV_TAG`로 기록한다.
+2. 새 이미지를 빌드하기 전에, 현재 실행 중인 front/back 컨테이너의 이미지 태그를 조회하여 `PREV_TAG`로 캡처한다. 실행 중인 컨테이너가 없으면 `PREV_TAG`는 빈 값이며 greenfield 배포로 간주한다. front와 back의 실행 태그가 서로 다르면 상태 불일치이므로 배포를 중단하고 두 태그와 로그를 증거로 보존한다.
+3. 해당 SHA 태그로 front와 back 이미지를 서버 로컬에서 한 번만 빌드한다. 레지스트리에 push하거나 pull하지 않는다.
+4. `docker compose up -d postgres --wait`로 PostgreSQL을 먼저 기동하고 `pg_isready`로 healthy를 확인한다.
+5. 3에서 빌드한 `IMAGE_TAG`의 backend 이미지를 그대로 사용하여 `prisma migrate deploy`를 실행한다.
+6. `up -d --no-build --wait`로 nginx, front, back, postgres를 동일 `IMAGE_TAG` digest로 기동한다.
+7. `/`와 `/api/v1/health`에 smoke check를 수행한다.
+8. smoke 실패 시 복구 절차를 따른다: `PREV_TAG`가 있으면 rollback, 없으면 greenfield 복구.
 
 Compose 종료·재기동 절차에서 `down -v`를 실행하지 않는다. PostgreSQL 데이터는 named volume `pgdata`에 보존한다.
 
