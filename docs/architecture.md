@@ -53,3 +53,4 @@ nginx는 `/` 요청을 front로, `/api` 요청을 back으로 전달한다. `/api
 2. Jenkins는 커밋 SHA를 이미지 태그로 사용해 서버에서 이미지를 한 번 빌드한다.
 3. PostgreSQL을 먼저 기동하고 migration을 적용한 뒤 Compose로 서비스를 기동한다.
 4. `/`와 `/api/v1/health` smoke check가 성공하면 배포를 유지하고, 실패하면 이전 태그 또는 수동 복구 절차를 따른다.
+
