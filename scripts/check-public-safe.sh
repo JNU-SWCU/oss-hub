@@ -19,7 +19,9 @@
 # 사용법:
 #   scripts/check-public-safe.sh [BASE_REF]     # 기본값 origin/main
 #
-# 검사 대상 3종 (deny-list가 정의한 공개 표면):
+# 검사 대상 4종 (deny-list가 정의한 공개 표면):
+#   0) 커밋된 파일 경로 자체 — .env·개인키·DB 파일 등 존재만으로 유출인 파일
+#      (.gitignore가 막지만 `git add -f`로 우회 가능하므로 CI에서 재차단)
 #   1) BASE_REF...HEAD 에서 추가·수정된 파일 내용
 #   2) BASE_REF..HEAD  커밋 메시지
 #   3) $PR_TEXT        (CI가 PR 제목+본문을 주입)
@@ -45,6 +47,10 @@ PATTERNS=(
 
 # 매치 라인 중 허용할 예외 — 봇 이메일, 문서용 예시 도메인 (RFC 2606 reserved)
 ALLOW_RE='noreply@|@users\.noreply\.github\.com|@(example|test|invalid|localhost)\.|@example\.(com|org|net)|example\.(com|org|net)'
+
+# 존재 자체가 유출인 파일 — env 실값, 개인키·인증서 키, 로컬 DB·덤프(실데이터 반입 금지, deny-list 6번)
+FORBIDDEN_FILE_RE='(^|/)\.env(\..+)?$|\.(pem|key|p12|pfx|jks|keystore)$|(^|/)id_(rsa|ed25519|ecdsa|dsa)$|(^|/)\.netrc$|\.(sqlite3?|db|dump)$'
+ALLOWED_FILE_RE='(^|/)\.env\.example$'
 
 report() { # $1=라벨 $2=매치 내용
   echo "::error::public-safe 위반 [$1]"
@@ -89,6 +95,13 @@ while IFS= read -r f; do
 done <<EOF
 $changed
 EOF
+
+# 0) 금지 파일 경로 — 내용과 무관하게 커밋 자체를 차단
+bad_files="$(printf '%s\n' "$changed" | grep -E "$FORBIDDEN_FILE_RE" | grep -Ev "$ALLOWED_FILE_RE" || true)"
+if [ -n "$bad_files" ]; then
+  report "금지 파일(.env 실값·개인키·로컬 DB류)" "$bad_files"
+  echo "  → env 실값은 secret store에, 실데이터는 repo 밖 격리 경로에 둔다 (docs/rules/security.md)"
+fi
 
 # 2) 커밋 메시지 — 파이프는 서브셸이라 FAIL이 유실되므로 프로세스 치환 사용
 scan_text "커밋 메시지" < <(git log --format='%h %s%n%b' "$BASE_REF"..HEAD)
