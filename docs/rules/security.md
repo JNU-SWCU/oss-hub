@@ -32,7 +32,7 @@ blocker를 기록할 때는 사람이 아니라 **작업을 주어로** 쓴다.
 - 커밋 대상은 `.env.example`뿐이다. 키 이름과 placeholder만 넣고 실값은 절대 넣지 않는다.
 - 실값은 GitHub repo secrets 또는 배포 환경의 secret store에만 둔다. 메신저·Notion·코드 주석으로도 전달하지 않는다.
 - CI 로그에 secret이 echo되지 않는지 워크플로 작성 시 확인한다. 디버그 목적으로 환경 변수를 dump하는 스텝을 만들지 않는다.
-- 도입 예정: gitleaks + 커스텀 regex(한글 실명, 학번, 전화번호, `/Users/` 개인 머신 경로 패턴)를 pre-commit 훅과 CI lint 양쪽에 건다. 도입 전까지는 PR 리뷰에서 같은 패턴을 사람이 확인한다.
+- 도입 완료(#6): gitleaks + 커스텀 regex(실명, 학번, 전화번호, 이메일, 개인 머신 경로)를 GitHub Actions의 `public-safe` job에서 모든 PR에 실행하고 required check로 강제한다. 실명 목록은 repo secret `BLOCKED_NAMES`로만 주입한다.
 
 ## 외부 데이터 반입: 합성 fixture 5단계
 
