@@ -87,3 +87,32 @@ jobs:
       - name: backend build
         if: ${{ steps.changes.outputs.backend == 'true' }}
         run: pnpm --filter backend build
+
+  # deny-list 표면은 문서·PR 본문이 핵심이므로 paths-filter 없이 모든 PR에서 항상 실행한다.
+  # branch protection에서 required check로 등록해야 강제된다.
+  public-safe:
+    name: public-safe
+    runs-on: ubuntu-latest
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # org repo는 gitleaks-action이 라이선스 키를 요구하므로 MIT 라이선스인 CLI를 직접 실행한다.
+      # https://github.com/gitleaks/gitleaks-action#environment-variables
+      - name: gitleaks 시크릿 스캔 (이 PR의 신규 커밋만)
+        run: |
+          curl -sSL -o gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks git --no-banner --redact --log-opts="origin/${GITHUB_BASE_REF}..HEAD" .
+
+      # PR 본문은 ${{ }} 인라인 치환이 아니라 env 주입 — script injection 방지 (GitHub 공식 권고)
+      - name: public-safe regex 스캔 (deny-list)
+        env:
+          BLOCKED_NAMES: ${{ secrets.BLOCKED_NAMES }}
+          PR_TEXT: |
+            ${{ github.event.pull_request.title }}
+            ${{ github.event.pull_request.body }}
+        run: bash scripts/check-public-safe.sh "origin/${GITHUB_BASE_REF}"
