@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# main에서 pull(merge)한 직후 로컬 브랜치를 정리한다 — merge된 브랜치의 잔재가 생기는 바로 그 시점.
+# 작업 브랜치에서의 merge/rebase 흐름은 방해하지 않는다.
+[ "$(git branch --show-current)" = "main" ] || exit 0
+exec "$(git rev-parse --show-toplevel)/scripts/tidy-branches.sh"
