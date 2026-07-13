@@ -71,3 +71,10 @@ type(scope): 한국어 요약 한 줄        # scope는 생략 가능
 이 repo는 PUBLIC이다. 코드뿐 아니라 Issue·PR 본문·CI 로그·스크린샷 전부가 공개 범위다.
 사람 표기는 GitHub @handle만 사용한다. 공개 가능 여부의 판단 기준과 deny-list는
 `docs/rules/security.md`가 원본이다.
+
+## 7. 브랜치 뒷정리 — 훅이 처리한다
+
+원격 브랜치는 merge 시 자동 삭제된다(repo 설정 `delete_branch_on_merge`). 로컬은
+`.githooks/post-merge`가 main에서 pull할 때 정리하며, 최초 1회 `pnpm install`
+(또는 `git config core.hooksPath .githooks`)로 활성화된다. 수동·주기 실행이 필요하면
+`scripts/tidy-branches.sh`를 그대로 쓴다.
