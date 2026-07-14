@@ -13,7 +13,6 @@
     "db:up": "docker compose -f compose.dev.yml up -d --wait",
     "db:migrate:dev": "pnpm --filter backend db:migrate:dev",
     "db:reset": "pnpm --filter backend db:reset",
-    "postinstall": "pnpm --filter backend exec prisma generate",
-    "prepare": "git config core.hooksPath .githooks || true"
+    "postinstall": "pnpm --filter backend exec prisma generate"
   }
 }
