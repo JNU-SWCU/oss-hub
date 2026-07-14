@@ -12,6 +12,7 @@
 3. 자기 기능의 exec-plan — `docs/exec-plan/active/<기능>.md`
 4. 위 문서들이 링크한 규칙(`docs/rules/`)과 ADR(`docs/decisions/`)만 추가로 읽는다.
 5. 착수 직전 `gh pr list --search "<기능>"` 1회 — 스냅샷 이후 열린 PR·Draft PR을 확인한다.
+6. `bash scripts/setup-hooks.sh` 1회 — 브랜치 정리 훅 활성화(멱등). "보존" 안내가 나오면 §7 참조.
 
 ## 2. Canonical Store — 정보 종류별 원본 위치
 
@@ -72,9 +73,15 @@ type(scope): 한국어 요약 한 줄        # scope는 생략 가능
 사람 표기는 GitHub @handle만 사용한다. 공개 가능 여부의 판단 기준과 deny-list는
 `docs/rules/security.md`가 원본이다.
 
-## 7. 브랜치 뒷정리 — 훅이 처리한다
+## 7. 브랜치 뒷정리
 
-원격 브랜치는 merge 시 자동 삭제된다(repo 설정 `delete_branch_on_merge`). 로컬은
-`.githooks/post-merge`가 main에서 pull할 때 정리하며, 최초 1회 `pnpm install`
-(또는 `git config core.hooksPath .githooks`)로 활성화된다. 수동·주기 실행이 필요하면
-`scripts/tidy-branches.sh`를 그대로 쓴다.
+목적: 에이전트가 main 동기화 직후, merge 완료된 로컬 브랜치를 자동 정리한다.
+원격 브랜치는 repo 설정 `delete_branch_on_merge`가 merge 시점에 자동 삭제한다.
+
+- 활성화: `bash scripts/setup-hooks.sh` (§1 부트스트랩 6번, 멱등) — `pnpm install`은 Git 설정을 건드리지 않는다.
+- 동작: `.githooks/post-merge`가 main에서 merge 기반 pull로 실제 FF/merge가 완료될 때
+  `scripts/tidy-branches.sh`를 실행한다. origin/main 이력에 포함된 gone 브랜치만 `git branch -d`로
+  삭제하고, 그 외에는 보류 안내만 한다. rebase 기반 pull·변경 없는 pull에서는 발화하지 않는다.
+- 다른 `core.hooksPath`를 쓰고 있으면 그 설정을 보존하고 이 훅은 비활성이다 — 이 경우
+  `scripts/tidy-branches.sh`를 수동 또는 자기 훅·주기 작업에서 직접 실행한다.
+  기존 설정 확인: `git config --show-origin --get core.hooksPath`
