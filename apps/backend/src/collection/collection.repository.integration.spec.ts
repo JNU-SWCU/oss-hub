@@ -12,6 +12,7 @@ import type { CollectionUser } from './domain/collection-run';
 
 const TEST_DATABASE_URL =
   'postgresql://oss:oss-dev@localhost:5432/oss_hub';
+const DATABASE_SETUP_TIMEOUT_MS = 60_000;
 process.env.DATABASE_URL ??= TEST_DATABASE_URL;
 
 const backendDirectory = resolve(__dirname, '../..');
@@ -76,7 +77,7 @@ describe('CollectionRunStarter integration', () => {
       stdio: 'pipe',
     });
     await prisma.$connect();
-  });
+  }, DATABASE_SETUP_TIMEOUT_MS);
 
   afterEach(async () => {
     await prisma.collectionRun.deleteMany({
