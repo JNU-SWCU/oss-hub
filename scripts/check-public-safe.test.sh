@@ -8,14 +8,14 @@ TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/public-safe-email-test.XXXXXX")"
 trap 'rm -rf "$TEMP_ROOT"' EXIT
 
 # 완성된 이메일 literal을 저장소에 남기지 않고 실행 시점에만 합성한다.
-allowed_noreply='noreply'"@"'synthetic.invalid'
+allowed_noreply='noreply'"@"'synthetic.local'
 allowed_reserved='fixture'"@"'sub.example.com'
 allowed_reserved_upper='FIXTURE'"@"'SYNTHETIC.INVALID'
 blocked_contact='contact'"@"'synthetic.local'
 blocked_lookalike='contact'"@"'notexample.com'
 blocked_test_lookalike='contact'"@"'test.co'
 mixed_same_line="$allowed_noreply $blocked_contact"
-git_identity='noreply'"@"'example.com'
+git_identity="$allowed_noreply"
 
 passed=0
 failed=0
