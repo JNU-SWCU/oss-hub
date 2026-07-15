@@ -10,6 +10,7 @@
 | ADR-002 | Accepted | CI/CD 파이프라인 | [ADR-002-CI-CD-파이프라인](ADR-002-CI-CD-파이프라인.md) |
 | ADR-003 | Accepted | Backend Architecture | [ADR-003-backend-architecture](ADR-003-backend-architecture.md) |
 | ADR-004 | Accepted | REST API 규격 | [ADR-004-REST-API-규격](ADR-004-REST-API-규격.md) |
+| ADR-005 | Proposed | Agent-Driven Review Cycle | [ADR-005-agent-driven-review-cycle](ADR-005-agent-driven-review-cycle.md) |
 
 ## ADR 라이프사이클
 
