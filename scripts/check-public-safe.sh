@@ -45,7 +45,7 @@ PATTERNS=(
   '학번 추정(20으로 시작하는 연속 9자리)|(^|[^0-9])20[0-9]{7}($|[^0-9])'
 )
 
-# 매치 라인 중 허용할 예외 — 봇 이메일, 문서용 예시 도메인 (RFC 2606 reserved)
+# 이메일 매치 중 허용할 예외 — 봇 이메일, 문서용 예시 도메인 (RFC 2606 reserved)
 ALLOW_RE='noreply@|@users\.noreply\.github\.com|@(example|test|invalid|localhost)\.|@example\.(com|org|net)|example\.(com|org|net)'
 
 # 존재 자체가 유출인 파일 — env 실값, 개인키·인증서 키, 로컬 DB·덤프(실데이터 반입 금지, deny-list 6번)
@@ -65,7 +65,11 @@ scan_text() { # $1=출처 라벨, stdin=텍스트
   for entry in "${PATTERNS[@]}"; do
     label="${entry%%|*}"
     re="${entry#*|}"
-    hits="$(printf '%s\n' "$text" | grep -EIn "$re" | grep -Ev "$ALLOW_RE" || true)"
+    if [ "$label" = "이메일" ]; then
+      hits="$(printf '%s\n' "$text" | grep -EIno "$re" | grep -Ev "$ALLOW_RE" || true)"
+    else
+      hits="$(printf '%s\n' "$text" | grep -EIn "$re" | grep -Ev "$ALLOW_RE" || true)"
+    fi
     [ -n "$hits" ] && report "$label @ $src" "$hits"
   done
   if [ -n "${BLOCKED_NAMES:-}" ]; then
