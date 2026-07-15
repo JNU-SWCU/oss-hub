@@ -125,6 +125,12 @@ init_fixture_repo commit-message
 commit_fixture commit --allow-empty -qm "$mixed_same_line"
 expect_fail '허용·금지 주소가 같은 줄인 커밋 메시지' scan_fixture_repo
 
+init_fixture_repo changed-symlink
+ln -s "$blocked_contact" "$FIXTURE_REPO/synthetic-link"
+git -C "$FIXTURE_REPO" add synthetic-link
+commit_fixture commit -qm 'test: synthetic symlink fixture'
+expect_fail '금지 주소가 target인 변경 symlink' scan_fixture_repo
+
 init_fixture_repo test-source
 cp "$ROOT/scripts/check-public-safe.test.sh" \
   "$FIXTURE_REPO/scripts/check-public-safe.test.sh"

@@ -107,8 +107,12 @@ fi
 changed="$(printf '%s\n' "$changed_all" \
   | grep -v -e "^${SELF}\$" -e '^pnpm-lock\.yaml$' || true)"
 while IFS= read -r f; do
-  [ -n "$f" ] && [ -f "$f" ] || continue
-  scan_text "파일 $f" <"$f"
+  [ -n "$f" ] || continue
+  if ! file_text="$(git show "HEAD:$f")"; then
+    echo "::error::public-safe 변경 파일 blob을 읽을 수 없습니다."
+    exit 2
+  fi
+  scan_text "파일 $f" <<<"$file_text"
 done <<EOF
 $changed
 EOF
