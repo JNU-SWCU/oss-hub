@@ -28,8 +28,9 @@ function sessionSecret(): string {
   return randomBytes(32).toString('base64url');
 }
 
-function credentialUrl(): string {
+function credentialUrl(pathname = ''): string {
   const url = new URL('https://oss.example');
+  url.pathname = pathname;
   url.username = 'synthetic-user';
   url.password = 'synthetic-password';
   return url.toString();
@@ -100,7 +101,7 @@ describe('AuthConfig', () => {
     ['hash', 'https://oss.example/api/v1/auth/github/callback#fragment'],
     [
       'credentials',
-      'https://synthetic-user:synthetic-password@oss.example/api/v1/auth/github/callback',
+      credentialUrl('/api/v1/auth/github/callback'),
     ],
     ['non-http', 'ftp://oss.example/api/v1/auth/github/callback'],
   ])('configured callback이 canonical callback이 아니면 거부한다: %s', (_label, callbackUrl) => {
