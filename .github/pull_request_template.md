@@ -10,7 +10,12 @@
 - 작업 Issue는 `Closes #N` — merge 시 GitHub이 자동으로 닫는다.
 - 논의·proposal Issue는 `Refs #N` — 참조만 하고 닫지 않는다.
 - 여러 개면 키워드를 반복한다: `Closes #1, closes #2`.
-- stacked PR은 default branch로 retarget한 뒤 Development 링크 생성을 확인하고 merge한다. -->
+- stacked PR은 다음 순서를 지킨다:
+  1. parent PR 병합 확인
+  2. child를 default branch로 retarget 또는 rebase
+  3. child diff가 child 고유 범위만 포함하는지 확인
+  4. Development의 closing Issue 링크 확인
+  5. required checks·review·mergeability 통과 후 merge -->
 
 - Closes #
 - exec-plan: `docs/exec-plan/active/<기능>.md`
