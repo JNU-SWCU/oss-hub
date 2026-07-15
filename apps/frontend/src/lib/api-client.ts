@@ -43,9 +43,15 @@ function createUnexpectedProblem(response: Response, instance: string): ProblemD
   };
 }
 
-export async function apiClient<T>(path: string, init?: RequestInit): Promise<T> {
+/** baseURL(`/api/v1`)의 유일한 소유자로서 브라우저용 경로를 만든다 — 링크 href 등에도 이것만 쓴다. */
+export function apiPath(path: string): string {
   const endpoint = path.startsWith("/") ? path : `/${path}`;
-  const response = await fetch(`${baseURL}${endpoint}`, init);
+  return `${baseURL}${endpoint}`;
+}
+
+export async function apiClient<T>(path: string, init?: RequestInit): Promise<T> {
+  const target = apiPath(path);
+  const response = await fetch(target, init);
 
   if (response.ok) {
     return response.json() as Promise<T>;
@@ -54,7 +60,7 @@ export async function apiClient<T>(path: string, init?: RequestInit): Promise<T>
   const body: unknown = await response.json().catch(() => undefined);
   const problem = isProblemDetail(body)
     ? body
-    : createUnexpectedProblem(response, `${baseURL}${endpoint}`);
+    : createUnexpectedProblem(response, target);
 
   throw new ApiError(problem);
 }
