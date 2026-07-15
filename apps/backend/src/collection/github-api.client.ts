@@ -117,7 +117,7 @@ export class GithubApiClient {
     });
 
     if (!response.ok) {
-      if (this.isRateLimited(response)) {
+      if (await this.isRateLimited(response)) {
         throw new RateLimitedError(this.retryNotBeforeAt(response.headers));
       }
       throw new UpstreamError(response.status);
@@ -137,13 +137,39 @@ export class GithubApiClient {
     }
   }
 
-  private isRateLimited(response: Response): boolean {
-    const isRateLimitStatus = response.status === 403 || response.status === 429;
-    const isPrimary =
-      isRateLimitStatus &&
-      response.headers.get('x-ratelimit-remaining') === '0';
-    const isSecondary = response.headers.get('retry-after') !== null;
-    return isPrimary || isSecondary;
+  private async isRateLimited(response: Response): Promise<boolean> {
+    if (response.status === 429) {
+      return true;
+    }
+    if (response.status !== 403) {
+      return false;
+    }
+    if (
+      response.headers.get('x-ratelimit-remaining') === '0' ||
+      response.headers.get('retry-after') !== null
+    ) {
+      return true;
+    }
+
+    try {
+      const body: unknown = await response.clone().json();
+      if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+        return false;
+      }
+      if (!('message' in body)) {
+        return false;
+      }
+      const message = body.message;
+      return (
+        typeof message === 'string' &&
+        message.toLowerCase().includes('secondary rate limit')
+      );
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   private retryNotBeforeAt(headers: Headers): Date {

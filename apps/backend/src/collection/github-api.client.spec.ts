@@ -69,6 +69,38 @@ describe('GithubApiClient', () => {
     });
   });
 
+  it('헤더가 없는 429도 rate limit으로 분류하고 60초 fallback을 사용한다', async () => {
+    const fetcher = jest.fn<ReturnType<Fetcher>, Parameters<Fetcher>>();
+    fetcher.mockResolvedValue(
+      jsonResponse(429, { message: 'synthetic-too-many-requests' }),
+    );
+    const client = new GithubApiClient(() => credentials, fetcher, () => NOW);
+
+    const promise = client.getUser('synthetic-login');
+
+    await expect(promise).rejects.toMatchObject({
+      retryNotBeforeAt: new Date('2026-01-01T00:01:00.000Z'),
+    });
+  });
+
+  it('Retry-After 없는 secondary 403은 오류 메시지로 rate limit을 판별한다', async () => {
+    const fetcher = jest.fn<ReturnType<Fetcher>, Parameters<Fetcher>>();
+    fetcher.mockResolvedValue(
+      jsonResponse(
+        403,
+        { message: 'You have exceeded a secondary rate limit.' },
+        { 'x-ratelimit-remaining': '42' },
+      ),
+    );
+    const client = new GithubApiClient(() => credentials, fetcher, () => NOW);
+
+    const promise = client.getUser('synthetic-login');
+
+    await expect(promise).rejects.toMatchObject({
+      retryNotBeforeAt: new Date('2026-01-01T00:01:00.000Z'),
+    });
+  });
+
   it('Link next를 따라 repository 전 페이지를 수집하고 고정 헤더를 보낸다', async () => {
     const fetcher = jest.fn<ReturnType<Fetcher>, Parameters<Fetcher>>();
     fetcher
