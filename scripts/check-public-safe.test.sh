@@ -9,8 +9,11 @@ trap 'rm -rf "$TEMP_ROOT"' EXIT
 
 # 완성된 이메일 literal을 저장소에 남기지 않고 실행 시점에만 합성한다.
 allowed_noreply='noreply'"@"'synthetic.invalid'
-allowed_reserved='fixture'"@"'example.com'
-blocked_contact='contact'"@"'synthetic.invalid'
+allowed_reserved='fixture'"@"'sub.example.com'
+allowed_reserved_upper='FIXTURE'"@"'SYNTHETIC.INVALID'
+blocked_contact='contact'"@"'synthetic.local'
+blocked_lookalike='contact'"@"'notexample.com'
+blocked_test_lookalike='contact'"@"'test.co'
 mixed_same_line="$allowed_noreply $blocked_contact"
 git_identity='noreply'"@"'example.com'
 
@@ -48,6 +51,25 @@ scan_pr_text() {
   )
 }
 
+scan_invalid_ref() {
+  (
+    cd "$ROOT"
+    PR_TEXT='' bash "$SCANNER" refs/heads/missing-public-safe-base
+  )
+}
+
+expect_blocked_redacted() {
+  local output status=0
+  output="$(scan_pr_text "$blocked_contact" 2>&1)" || status=$?
+  if [ "$status" -ne 0 ] && ! printf '%s\n' "$output" | grep -Fq "$blocked_contact"; then
+    printf 'ok - 차단값을 로그에 원문 출력하지 않음\n'
+    passed=$((passed + 1))
+  else
+    printf 'not ok - 차단값 로그 redaction\n'
+    failed=$((failed + 1))
+  fi
+}
+
 init_fixture_repo() {
   FIXTURE_REPO="$TEMP_ROOT/$1"
   mkdir -p "$FIXTURE_REPO/scripts"
@@ -80,10 +102,18 @@ expect_pass 'noreply 주소만 있는 PR 텍스트' \
   scan_pr_text "$allowed_noreply"
 expect_pass 'RFC 2606 예약 예시 주소만 있는 PR 텍스트' \
   scan_pr_text "$allowed_reserved"
+expect_pass '대문자 RFC 2606 예약 주소만 있는 PR 텍스트' \
+  scan_pr_text "$allowed_reserved_upper"
 expect_fail '금지 합성 연락처 주소만 있는 PR 텍스트' \
   scan_pr_text "$blocked_contact"
+expect_fail '예약 도메인 유사 이름인 PR 텍스트' \
+  scan_pr_text "$blocked_lookalike"
+expect_fail '예약 TLD 유사 이름인 PR 텍스트' \
+  scan_pr_text "$blocked_test_lookalike"
 expect_fail '허용·금지 주소가 같은 줄인 PR 텍스트' \
   scan_pr_text "$mixed_same_line"
+expect_fail '존재하지 않는 기준 ref' scan_invalid_ref
+expect_blocked_redacted
 
 init_fixture_repo changed-file
 printf '%s\n' "$mixed_same_line" >"$FIXTURE_REPO/synthetic-fixture.txt"

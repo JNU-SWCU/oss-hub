@@ -36,6 +36,11 @@ BASE_REF="${1:-origin/main}"
 SELF="scripts/check-public-safe.sh"
 FAIL=0
 
+if ! git rev-parse --verify --quiet "${BASE_REF}^{commit}" >/dev/null; then
+  echo "::error::public-safe 기준 ref를 확인할 수 없습니다."
+  exit 2
+fi
+
 # "라벨|extended regex" — 첫 번째 |까지가 라벨, 나머지가 정규식. 새 금지 패턴은 한 줄 추가.
 PATTERNS=(
   '주민등록번호|(^|[^0-9])[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])[- ]?[1-8][0-9]{6}($|[^0-9])'
@@ -46,7 +51,8 @@ PATTERNS=(
 )
 
 # 이메일 매치 중 허용할 예외 — 봇 이메일, 문서용 예시 도메인 (RFC 2606 reserved)
-ALLOW_RE='noreply@|@users\.noreply\.github\.com|@(example|test|invalid|localhost)\.|@example\.(com|org|net)|example\.(com|org|net)'
+# grep -n 출력의 "line:email" 전체를 고정해 유사 도메인의 부분 일치를 막는다.
+ALLOW_EMAIL_RE='^[0-9]+:(noreply@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|[A-Za-z0-9._%+-]+@users\.noreply\.github\.com|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.(example|test|invalid|localhost)|[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+\.)*example\.(com|org|net))$'
 
 # 존재 자체가 유출인 파일 — env 실값, 개인키·인증서 키, 로컬 DB·덤프(실데이터 반입 금지, deny-list 6번)
 FORBIDDEN_FILE_RE='(^|/)\.env(\..+)?$|\.(pem|key|p12|pfx|jks|keystore)$|(^|/)id_(rsa|ed25519|ecdsa|dsa)$|(^|/)\.netrc$|\.(sqlite3?|db|dump)$'
@@ -59,18 +65,21 @@ report() { # $1=라벨 $2=매치 내용
 }
 
 scan_text() { # $1=출처 라벨, stdin=텍스트
-  local src="$1" text entry label re hits name
+  local src="$1" text entry label re hits evidence name
   text="$(cat)"
   [ -z "$text" ] && return 0
   for entry in "${PATTERNS[@]}"; do
     label="${entry%%|*}"
     re="${entry#*|}"
     if [ "$label" = "이메일" ]; then
-      hits="$(printf '%s\n' "$text" | grep -EIno "$re" | grep -Ev "$ALLOW_RE" || true)"
+      hits="$(printf '%s\n' "$text" | grep -EIno "$re" | grep -Eiv "$ALLOW_EMAIL_RE" || true)"
     else
-      hits="$(printf '%s\n' "$text" | grep -EIn "$re" | grep -Ev "$ALLOW_RE" || true)"
+      hits="$(printf '%s\n' "$text" | grep -EIn "$re" || true)"
     fi
-    [ -n "$hits" ] && report "$label @ $src" "$hits"
+    if [ -n "$hits" ]; then
+      evidence="$(printf '%s\n' "$hits" | cut -d: -f1 | sort -nu | sed 's/^/  line /')"
+      report "$label @ $src" "$evidence"
+    fi
   done
   if [ -n "${BLOCKED_NAMES:-}" ]; then
     local OLDIFS="$IFS"
@@ -91,7 +100,11 @@ scan_text() { # $1=출처 라벨, stdin=텍스트
 
 # 1) 변경 파일 내용 (신규 A·복사 C·수정 M·이름변경 R만 — 삭제 제외)
 #    자기 자신(패턴 정의)과 lockfile(해시 오탐)은 제외
-changed="$(git diff --name-only --diff-filter=ACMR "$BASE_REF"...HEAD -- \
+if ! changed_all="$(git diff --name-only --diff-filter=ACMR "$BASE_REF"...HEAD --)"; then
+  echo "::error::public-safe 변경 파일 목록을 읽을 수 없습니다."
+  exit 2
+fi
+changed="$(printf '%s\n' "$changed_all" \
   | grep -v -e "^${SELF}\$" -e '^pnpm-lock\.yaml$' || true)"
 while IFS= read -r f; do
   [ -n "$f" ] && [ -f "$f" ] || continue
@@ -107,8 +120,12 @@ if [ -n "$bad_files" ]; then
   echo "  → env 실값은 secret store에, 실데이터는 repo 밖 격리 경로에 둔다 (docs/rules/security.md)"
 fi
 
-# 2) 커밋 메시지 — 파이프는 서브셸이라 FAIL이 유실되므로 프로세스 치환 사용
-scan_text "커밋 메시지" < <(git log --format='%h %s%n%b' "$BASE_REF"..HEAD)
+# 2) 커밋 메시지
+if ! commit_text="$(git log --format='%h %s%n%b' "$BASE_REF"..HEAD)"; then
+  echo "::error::public-safe 커밋 메시지를 읽을 수 없습니다."
+  exit 2
+fi
+scan_text "커밋 메시지" <<<"$commit_text"
 
 # 3) PR 제목·본문 (CI에서 env로 주입)
 scan_text "PR 제목·본문" <<<"${PR_TEXT:-}"
