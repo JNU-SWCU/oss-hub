@@ -55,7 +55,7 @@
 | 운영 TLS 부재 시 Secure/__Host- 쿠키 미작동 | @GoBeromsu | 운영 배포 시점 | 배포 전 | 외부 terminator 계약 명시 or nginx TLS 추가 |
 | 수집 App Basic 한도(5,000/hr) 부족 | @Lumiere001 | 수집 대상 확대 | 8월 실전 전 | GitHub App 인증 ADR (#15와 연계) |
 | 실데이터 게이트 미충족 상태의 수합 시작 | @Lumiere001 | 8월 중순 데이터 수합 | 2026-08-15 | 리전/VM/부서검토 중 하나 선행, 전까지 합성·본인 계정만 |
-| enforce_admins 해제로 admin 2인 리뷰 미강제 | @GoBeromsu @Lumiere001 | 상시 | - | 활성화 여부 팀 논의 (hotfix 경로 트레이드오프) |
+| `enforce_admins=false`로 관리자가 branch protection 우회 가능 (code-owner 승인 요구 1개; push 허용 사용자 2명은 리뷰 수 아님) | @GoBeromsu @Lumiere001 | 상시 | - | 관리자 적용 여부 팀 논의 (hotfix 경로 트레이드오프) |
 | 구현 마감(8/21) 대비 리뷰 병목 | @GoBeromsu | PR 대기 누적 | 2026-08-21 | 리뷰 SLA 합의 or merge 권한 위임 범위 논의 |
 
 ## CONFLICT · stale
