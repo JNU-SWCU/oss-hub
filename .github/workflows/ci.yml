@@ -126,6 +126,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: public-safe regex 회귀 테스트
+        run: bash scripts/check-public-safe.test.sh
+
       # org repo는 gitleaks-action이 라이선스 키를 요구하므로 MIT 라이선스인 CLI를 직접 실행한다.
       # https://github.com/gitleaks/gitleaks-action#environment-variables
       - name: gitleaks 시크릿 스캔 (이 PR의 신규 커밋만)
