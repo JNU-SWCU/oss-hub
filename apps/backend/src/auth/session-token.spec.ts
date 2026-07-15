@@ -24,8 +24,10 @@ describe('session-token', () => {
   it('각 segment 변조를 거부한다', async () => {
     const token = await issueSessionToken(secret, githubId);
     const [header = '', payload = '', signature = ''] = token.split('.');
+    // 마지막 base64url 문자는 padding에 쓰이지 않는 bit만 바뀔 수 있다.
+    // 첫 문자를 바꿔 디코딩된 바이트가 반드시 달라지게 한다.
     const tamper = (value: string): string =>
-      value.slice(0, -1) + (value.endsWith('A') ? 'B' : 'A');
+      (value.startsWith('A') ? 'B' : 'A') + value.slice(1);
     for (const tampered of [
       `${tamper(header)}.${payload}.${signature}`,
       `${header}.${tamper(payload)}.${signature}`,

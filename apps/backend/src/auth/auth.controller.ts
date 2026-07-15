@@ -18,6 +18,7 @@ import {
   serializeCookie,
   sessionCookieName,
 } from './cookies';
+import { decodeFlowCookie, isSameState } from './oauth-flow';
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { MeResponseDto } from './dto/me-response.dto';
 import { OriginGuard } from './origin.guard';
@@ -65,19 +66,26 @@ export class AuthController {
     @Res() res: Response,
   ): Promise<void> {
     const secure = this.config.useSecureCookies;
+    this.setCallbackSecurityHeaders(res);
+    const cookies = parseCookies(req.headers.cookie);
     const clearFlowCookie = serializeCookie(flowCookieName(secure), '', {
       maxAgeSeconds: 0,
       secure,
     });
 
     if (oauthError || !code || !state) {
-      // 사용자가 GitHub에서 거부(access_denied)했거나 필수 파라미터 누락
-      this.redirectWithError(res, clearFlowCookie);
+      // 사용자가 GitHub에서 거부(access_denied)했거나 필수 파라미터 누락.
+      // state가 현재 flow와 일치할 때만 flow 쿠키를 지워 unrelated flow를 보존한다.
+      this.redirectWithError(
+        res,
+        this.shouldClearFlowCookie(state, cookies[flowCookieName(secure)])
+          ? clearFlowCookie
+          : undefined,
+      );
       return;
     }
 
     try {
-      const cookies = parseCookies(req.headers.cookie);
       const user = await this.authService.completeLogin({
         code,
         state,
@@ -99,7 +107,14 @@ export class AuthController {
           error instanceof Error ? error.name : 'UnknownError'
         } @ ${req.path}`,
       );
-      this.redirectWithError(res, clearFlowCookie);
+      // completeLogin은 state 불일치도 예외로 보고하므로, 공격자가 보낸 callback이
+      // unrelated flow를 취소하지 못하게 현재 flow와 일치할 때만 소비한다.
+      this.redirectWithError(
+        res,
+        this.shouldClearFlowCookie(state, cookies[flowCookieName(secure)])
+          ? clearFlowCookie
+          : undefined,
+      );
     }
   }
 
@@ -125,8 +140,26 @@ export class AuthController {
     return new LogoutResponseDto(false);
   }
 
-  private redirectWithError(res: Response, clearFlowCookie: string): void {
-    res.setHeader('Set-Cookie', clearFlowCookie);
+  private redirectWithError(res: Response, clearFlowCookie?: string): void {
+    if (clearFlowCookie) {
+      res.setHeader('Set-Cookie', clearFlowCookie);
+    }
     res.redirect(302, `${this.config.frontendUrl}/?authError=1`);
+  }
+
+  private shouldClearFlowCookie(
+    receivedState: string | undefined,
+    flowCookie: string | undefined,
+  ): boolean {
+    if (!receivedState) {
+      return false;
+    }
+    const flow = decodeFlowCookie(flowCookie);
+    return flow !== null && isSameState(flow.state, receivedState);
+  }
+
+  private setCallbackSecurityHeaders(res: Response): void {
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('Cache-Control', 'no-store');
   }
 }
