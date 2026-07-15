@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { fetchMe, githubLoginPath, logout } from "../api";
+import { applyLogoutFailure, applyLogoutSuccess } from "../session-state";
 import type { Me } from "../types";
 
 export function LoginButton() {
   const [me, setMe] = useState<Me | null>(null);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -36,11 +38,22 @@ export function LoginButton() {
         <button
           type="button"
           onClick={() => {
-            void logout().finally(() => setMe(null));
+            void logout()
+              .then((result) => {
+                const next = applyLogoutSuccess({ me, logoutError }, result);
+                setMe(next.me);
+                setLogoutError(next.logoutError);
+              })
+              .catch(() => {
+                const next = applyLogoutFailure({ me, logoutError });
+                setMe(next.me);
+                setLogoutError(next.logoutError);
+              });
           }}
         >
           로그아웃
         </button>
+        {logoutError ? <span role="alert"> {logoutError}</span> : null}
       </p>
     );
   }
