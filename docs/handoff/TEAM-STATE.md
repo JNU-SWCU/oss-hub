@@ -34,7 +34,7 @@
 | GitHub OAuth 로그인 | @Lumiere001 | review | #9 | #13 | pass | 없음 |
 | GitHub 활동 수집기 | @Lumiere001 | review | #10 | #14 | pass | #13 merge 후 base 전환 (@GoBeromsu 리뷰) |
 | 중첩 AGENTS 가이드 | @Lumiere001 | review | #11 | #12 | pass | 없음 |
-| 학생용 수집 App(private) | @Lumiere001 | planned | #15 | - | - | 방향 합의 + 사업단 전제 4건 (#15 체크리스트) |
+| 학생용 수집 App(private) | @Lumiere001 | planned | #15 | - | - | 방향 합의 + 정책 전제 4건: 산정 범위·보존·동의·App 운영 (#15) |
 | (기능 1 — 지정 예정) | @GoBeromsu | planned | - | - | - | 없음 |
 | (기능 3·4 — 지정 예정) | @<designer-1> @<designer-2> | planned | - | - | - | 없음 |
 
