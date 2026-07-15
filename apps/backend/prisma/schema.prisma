@@ -23,3 +23,48 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+enum CollectionTrigger {
+  SELF
+  BATCH
+}
+
+enum CollectionRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+  RATE_LIMITED
+}
+
+enum ObservationSourceType {
+  PROFILE
+  REPO
+  EVENT
+}
+
+model CollectionRun {
+  id                   String                 @id @default(cuid())
+  targetGithubId       BigInt
+  targetLogin          String
+  trigger              CollectionTrigger
+  status               CollectionRunStatus
+  profileCount         Int                    @default(0)
+  repoCount            Int                    @default(0)
+  eventCount           Int                    @default(0)
+  retryNotBeforeAt     DateTime?
+  startedAt            DateTime               @default(now())
+  finishedAt           DateTime?
+  observations         GithubRawObservation[]
+}
+
+model GithubRawObservation {
+  id         String                @id @default(cuid())
+  runId      String
+  run        CollectionRun         @relation(fields: [runId], references: [id])
+  sourceType ObservationSourceType
+  sourceId   String
+  payload    Json
+  fetchedAt  DateTime              @default(now())
+
+  @@unique([runId, sourceType, sourceId])
+}
