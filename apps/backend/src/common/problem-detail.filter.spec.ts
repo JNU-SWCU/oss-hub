@@ -64,6 +64,32 @@ describe('ProblemDetailFilter', () => {
     });
   });
 
+  it('도메인 예외의 retryNotBeforeAt 확장 필드를 보존한다', () => {
+    const { response, json } = createResponse();
+    const retryNotBeforeAt = '2026-01-01T00:01:00.000Z';
+    const exception = new DomainException(
+      {
+        code: 'COL_001',
+        status: 429,
+        message: 'GitHub API 요청 한도에 도달했습니다.',
+      },
+      { retryNotBeforeAt },
+    );
+
+    new ProblemDetailFilter().catch(
+      exception,
+      createHost(response, '/api/v1/collection-runs'),
+    );
+
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'COL_001',
+        status: 429,
+        retryNotBeforeAt,
+      }),
+    );
+  });
+
   it.each([
     [
       '일반 잘못된 요청',

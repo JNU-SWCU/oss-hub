@@ -19,6 +19,7 @@ interface ProblemDetail {
   detail: string;
   instance: string;
   code: string;
+  retryNotBeforeAt?: string;
 }
 
 @Catch()
@@ -54,6 +55,7 @@ export class ProblemDetailFilter implements ExceptionFilter {
         detail: exception.errorCode.message,
         instance,
         code: exception.errorCode.code,
+        ...exception.extensions,
       };
     }
 
