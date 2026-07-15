@@ -46,6 +46,23 @@ export interface CollectionRun {
   finishedAt: Date | null;
 }
 
+export const COLLECTION_RUN_START_KINDS = {
+  STARTED: 'STARTED',
+  REJECTED: 'REJECTED',
+} as const;
+
+export const COLLECTION_RUN_COOLDOWN_MS = 60_000 as const;
+
+export type CollectionRunStartResult =
+  | {
+      readonly kind: typeof COLLECTION_RUN_START_KINDS.STARTED;
+      readonly run: CollectionRun;
+    }
+  | {
+      readonly kind: typeof COLLECTION_RUN_START_KINDS.REJECTED;
+      readonly retryNotBeforeAt: Date;
+    };
+
 export interface SuccessfulRunInput {
   runId: string;
   profiles: GithubObservation[];

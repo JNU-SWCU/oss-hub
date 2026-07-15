@@ -3,6 +3,7 @@ import { AuthModule } from '../auth/auth.module';
 import { CollectionConfig } from './collection.config';
 import { CollectionController } from './collection.controller';
 import { CollectionRepository } from './collection.repository';
+import { CollectionRunStarter } from './collection-run-starter.service';
 import { CollectionService } from './collection.service';
 import { GithubApiClient } from './github-api.client';
 
@@ -12,6 +13,7 @@ import { GithubApiClient } from './github-api.client';
   providers: [
     CollectionConfig,
     CollectionRepository,
+    CollectionRunStarter,
     CollectionService,
     {
       provide: GithubApiClient,

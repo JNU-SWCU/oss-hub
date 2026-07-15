@@ -8,14 +8,15 @@ import { CollectionConfig } from './collection.config';
 import { CollectionRepository } from './collection.repository';
 import {
   COLLECTION_RUN_STATUSES,
+  COLLECTION_RUN_START_KINDS,
   COLLECTION_TRIGGERS,
   CollectionRun,
-  CollectionTrigger,
   CollectionUser,
 } from './domain/collection-run';
 import { GithubObservation } from './domain/github-observation';
 import { GithubApiClient } from './github-api.client';
 import { RateLimitedError } from './github-api.error';
+import { CollectionRunStarter } from './collection-run-starter.service';
 
 class CollectionTargetNotFoundError extends Error {
   override readonly name = 'CollectionTargetNotFoundError';
@@ -33,6 +34,7 @@ export class CollectionService {
     private readonly config: CollectionConfig,
     private readonly repository: CollectionRepository,
     private readonly githubApiClient: GithubApiClient,
+    private readonly runStarter: CollectionRunStarter,
   ) {}
 
   async runSelf(githubId: bigint): Promise<CollectionRun> {
@@ -40,7 +42,25 @@ export class CollectionService {
     if (!user) {
       throw new CollectionTargetNotFoundError();
     }
-    return this.collect(user, COLLECTION_TRIGGERS.SELF);
+    const startResult = await this.runStarter.start(
+      user,
+      COLLECTION_TRIGGERS.SELF,
+    );
+    switch (startResult.kind) {
+      case COLLECTION_RUN_START_KINDS.STARTED:
+        return this.collect(startResult.run, user);
+      case COLLECTION_RUN_START_KINDS.REJECTED:
+        throw new DomainException(
+          COLLECTION_ERROR_CODES[
+            CollectionErrorCode.COLLECTION_RUN_NOT_READY
+          ],
+          {
+            retryNotBeforeAt: startResult.retryNotBeforeAt.toISOString(),
+          },
+        );
+      default:
+        return startResult;
+    }
   }
 
   async runBatch(logins: string[]): Promise<CollectionRun[]> {
@@ -76,14 +96,26 @@ export class CollectionService {
         continue;
       }
 
-      const run = await this.collect(
+      const startResult = await this.runStarter.start(
         target,
         COLLECTION_TRIGGERS.BATCH,
-        profiles,
       );
-      runs.push(run);
-      if (run.status === COLLECTION_RUN_STATUSES.RATE_LIMITED) {
-        break;
+      switch (startResult.kind) {
+        case COLLECTION_RUN_START_KINDS.REJECTED:
+          this.logger.warn(
+            'Batch collection target skipped because collection is already running or cooling down',
+          );
+          continue;
+        case COLLECTION_RUN_START_KINDS.STARTED: {
+          const run = await this.collect(startResult.run, target, profiles);
+          runs.push(run);
+          if (run.status === COLLECTION_RUN_STATUSES.RATE_LIMITED) {
+            return runs;
+          }
+          break;
+        }
+        default:
+          return startResult;
       }
     }
     return runs;
@@ -101,11 +133,10 @@ export class CollectionService {
   }
 
   private async collect(
+    run: CollectionRun,
     user: CollectionUser,
-    trigger: CollectionTrigger,
     prefetchedProfiles?: GithubObservation[],
   ): Promise<CollectionRun> {
-    const run = await this.repository.createRun(user, trigger);
 
     try {
       const profiles =

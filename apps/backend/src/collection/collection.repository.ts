@@ -16,6 +16,45 @@ import {
 } from './domain/collection-run';
 import { GithubObservation } from './domain/github-observation';
 
+type DatabaseClockRow = {
+  readonly now: Date;
+};
+
+type AdvisoryLockRow = {
+  readonly locked: boolean;
+};
+
+class MissingDatabaseClockError extends Error {
+  override readonly name = 'MissingDatabaseClockError';
+
+  constructor() {
+    super('Database did not return its current time');
+  }
+}
+
+class MissingAdvisoryLockResultError extends Error {
+  override readonly name = 'MissingAdvisoryLockResultError';
+
+  constructor() {
+    super('Database did not return the advisory lock result');
+  }
+}
+
+export type CollectionRunRetryState = Readonly<
+  Pick<CollectionRun, 'retryNotBeforeAt' | 'startedAt'>
+>;
+
+export interface CollectionRunStartStore {
+  getDatabaseTime(): Promise<Date>;
+  tryAcquireUserLock(githubId: bigint): Promise<boolean>;
+  hasActiveRun(githubId: bigint): Promise<boolean>;
+  findLatestRun(githubId: bigint): Promise<CollectionRunRetryState | null>;
+  createRun(
+    user: CollectionUser,
+    trigger: CollectionTrigger,
+  ): Promise<CollectionRun>;
+}
+
 @Injectable()
 export class CollectionRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -25,19 +64,61 @@ export class CollectionRepository {
     return user ? this.toUser(user) : null;
   }
 
-  async createRun(
-    user: CollectionUser,
-    trigger: CollectionTrigger,
-  ): Promise<CollectionRun> {
-    const run = await this.prisma.collectionRun.create({
-      data: {
-        targetGithubId: user.githubId,
-        targetLogin: user.login,
-        trigger,
-        status: COLLECTION_RUN_STATUSES.RUNNING,
-      },
+  async withTransaction<T>(
+    operation: (store: CollectionRunStartStore) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction(async (transaction) => {
+      const store: CollectionRunStartStore = {
+        getDatabaseTime: async () => {
+          const clockRows = await transaction.$queryRaw<DatabaseClockRow[]>`
+            SELECT CURRENT_TIMESTAMP AS "now"
+          `;
+          const now = clockRows[0]?.now;
+          if (!now) {
+            throw new MissingDatabaseClockError();
+          }
+          return now;
+        },
+        tryAcquireUserLock: async (githubId) => {
+          const lockRows = await transaction.$queryRaw<AdvisoryLockRow[]>`
+            SELECT pg_try_advisory_xact_lock(${githubId}) AS "locked"
+          `;
+          const locked = lockRows[0]?.locked;
+          if (locked === undefined) {
+            throw new MissingAdvisoryLockResultError();
+          }
+          return locked;
+        },
+        hasActiveRun: async (targetGithubId) => {
+          const activeRun = await transaction.collectionRun.findFirst({
+            where: {
+              targetGithubId,
+              status: COLLECTION_RUN_STATUSES.RUNNING,
+            },
+            select: { id: true },
+          });
+          return activeRun !== null;
+        },
+        findLatestRun: (targetGithubId) =>
+          transaction.collectionRun.findFirst({
+            where: { targetGithubId },
+            orderBy: { startedAt: 'desc' },
+            select: { retryNotBeforeAt: true, startedAt: true },
+          }),
+        createRun: async (user, trigger) => {
+          const run = await transaction.collectionRun.create({
+            data: {
+              targetGithubId: user.githubId,
+              targetLogin: user.login,
+              trigger,
+              status: COLLECTION_RUN_STATUSES.RUNNING,
+            },
+          });
+          return this.toRun(run);
+        },
+      };
+      return operation(store);
     });
-    return this.toRun(run);
   }
 
   async markSucceeded(input: SuccessfulRunInput): Promise<CollectionRun> {

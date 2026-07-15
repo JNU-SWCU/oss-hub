@@ -3,8 +3,10 @@ import { DomainException } from '../common/error-code';
 import { CollectionErrorCode } from './collection-error-code.enum';
 import { CollectionConfig } from './collection.config';
 import { CollectionRepository } from './collection.repository';
+import { CollectionRunStarter } from './collection-run-starter.service';
 import {
   COLLECTION_RUN_STATUSES,
+  COLLECTION_RUN_START_KINDS,
   COLLECTION_TRIGGERS,
   CollectionRun,
   CollectionUser,
@@ -48,7 +50,6 @@ describe('CollectionService', () => {
     Pick<
       CollectionRepository,
       | 'findUserByGithubId'
-      | 'createRun'
       | 'markSucceeded'
       | 'markRateLimited'
       | 'markFailed'
@@ -57,6 +58,7 @@ describe('CollectionService', () => {
   let githubApiClient: jest.Mocked<
     Pick<GithubApiClient, 'getUser' | 'getRepos' | 'getPublicEvents'>
   >;
+  let runStarter: jest.Mocked<Pick<CollectionRunStarter, 'start'>>;
 
   function buildService(batchLogins = ['synthetic-login']): CollectionService {
     const config = { batchLogins } as unknown as CollectionConfig;
@@ -64,13 +66,13 @@ describe('CollectionService', () => {
       config,
       repository as unknown as CollectionRepository,
       githubApiClient as unknown as GithubApiClient,
+      runStarter as unknown as CollectionRunStarter,
     );
   }
 
   beforeEach(() => {
     repository = {
       findUserByGithubId: jest.fn(),
-      createRun: jest.fn(),
       markSucceeded: jest.fn(),
       markRateLimited: jest.fn(),
       markFailed: jest.fn(),
@@ -80,6 +82,7 @@ describe('CollectionService', () => {
       getRepos: jest.fn(),
       getPublicEvents: jest.fn(),
     };
+    runStarter = { start: jest.fn() };
   });
 
   it('runSelf는 run 생성 후 세 소스를 순서대로 fetch하고 마지막에 성공 저장한다', async () => {
@@ -96,9 +99,12 @@ describe('CollectionService', () => {
       order.push('find-user');
       return Promise.resolve(syntheticUser);
     });
-    repository.createRun.mockImplementation(() => {
+    runStarter.start.mockImplementation(() => {
       order.push('create-run');
-      return Promise.resolve(runningRun);
+      return Promise.resolve({
+        kind: COLLECTION_RUN_START_KINDS.STARTED,
+        run: runningRun,
+      });
     });
     githubApiClient.getUser.mockImplementation(() => {
       order.push('fetch-profile');
@@ -145,7 +151,10 @@ describe('CollectionService', () => {
       finishedAt: new Date('2026-01-01T00:00:01.000Z'),
     };
     repository.findUserByGithubId.mockResolvedValue(syntheticUser);
-    repository.createRun.mockResolvedValue(runningRun);
+    runStarter.start.mockResolvedValue({
+      kind: COLLECTION_RUN_START_KINDS.STARTED,
+      run: runningRun,
+    });
     githubApiClient.getUser.mockRejectedValue(
       new RateLimitedError(retryNotBeforeAt),
     );
@@ -174,9 +183,30 @@ describe('CollectionService', () => {
       errorCode: { code: CollectionErrorCode.BATCH_LOGIN_NOT_ALLOWED },
     });
     await expect(promise).rejects.toBeInstanceOf(DomainException);
-    expect(repository.createRun).not.toHaveBeenCalled();
+    expect(runStarter.start).not.toHaveBeenCalled();
     expect(githubApiClient.getUser).not.toHaveBeenCalled();
     logger.mockRestore();
+  });
+
+  it('시작 gate가 거부하면 COL_002와 ISO retryNotBeforeAt로 응답한다', async () => {
+    const retryNotBeforeAt = new Date('2026-01-01T00:01:00.000Z');
+    repository.findUserByGithubId.mockResolvedValue(syntheticUser);
+    runStarter.start.mockResolvedValue({
+      kind: COLLECTION_RUN_START_KINDS.REJECTED,
+      retryNotBeforeAt,
+    });
+
+    const promise = buildService().runSelf(syntheticUser.githubId);
+
+    await expect(promise).rejects.toBeInstanceOf(DomainException);
+    await expect(promise).rejects.toMatchObject({
+      errorCode: {
+        code: CollectionErrorCode.COLLECTION_RUN_NOT_READY,
+        status: 429,
+      },
+      extensions: { retryNotBeforeAt: retryNotBeforeAt.toISOString() },
+    });
+    expect(githubApiClient.getUser).not.toHaveBeenCalled();
   });
 
   it('batch는 로그인 이력 없이 GitHub 프로필에서 신원을 해석해 수집한다', async () => {
@@ -192,9 +222,12 @@ describe('CollectionService', () => {
     githubApiClient.getUser.mockResolvedValue(profile);
     githubApiClient.getRepos.mockResolvedValue(repositories);
     githubApiClient.getPublicEvents.mockResolvedValue(events);
-    repository.createRun.mockResolvedValue({
-      ...runningRun,
-      trigger: COLLECTION_TRIGGERS.BATCH,
+    runStarter.start.mockResolvedValue({
+      kind: COLLECTION_RUN_START_KINDS.STARTED,
+      run: {
+        ...runningRun,
+        trigger: COLLECTION_TRIGGERS.BATCH,
+      },
     });
     repository.markSucceeded.mockResolvedValue(batchRun);
 
@@ -203,7 +236,7 @@ describe('CollectionService', () => {
     expect(runs).toEqual([batchRun]);
     // 신원은 DB가 아니라 프로필 관측값(sourceId)에서 왔다
     expect(repository.findUserByGithubId).not.toHaveBeenCalled();
-    expect(repository.createRun).toHaveBeenCalledWith(
+    expect(runStarter.start).toHaveBeenCalledWith(
       { githubId: 424242n, login: 'synthetic-login' },
       COLLECTION_TRIGGERS.BATCH,
     );
@@ -224,7 +257,7 @@ describe('CollectionService', () => {
 
     expect(runs).toEqual([]);
     expect(githubApiClient.getUser).toHaveBeenCalledTimes(1);
-    expect(repository.createRun).not.toHaveBeenCalled();
+    expect(runStarter.start).not.toHaveBeenCalled();
     logger.mockRestore();
   });
 });
