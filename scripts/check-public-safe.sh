@@ -64,17 +64,45 @@ report() { # $1=라벨 $2=매치 내용
   FAIL=1
 }
 
+run_grep() { # grep의 1(매치 없음)과 2+(검사 오류)를 구분한다.
+  local output status
+  if output="$(grep "$@")"; then
+    printf '%s' "$output"
+    return 0
+  else
+    status=$?
+  fi
+  [ "$status" -eq 1 ] && return 1
+  echo "::error::public-safe 텍스트 검사를 실행할 수 없습니다." >&2
+  return 2
+}
+
 scan_text() { # $1=출처 라벨, stdin=텍스트
-  local src="$1" text entry label re hits evidence name
+  local src="$1" text entry label re hits filtered evidence name name_hits status
   text="$(cat)"
   [ -z "$text" ] && return 0
   for entry in "${PATTERNS[@]}"; do
     label="${entry%%|*}"
     re="${entry#*|}"
     if [ "$label" = "이메일" ]; then
-      hits="$(printf '%s\n' "$text" | grep -EIno "$re" | grep -Eiv "$ALLOW_EMAIL_RE" || true)"
+      if hits="$(printf '%s\n' "$text" | run_grep -EIno "$re")"; then
+        if filtered="$(printf '%s\n' "$hits" | run_grep -Eiv "$ALLOW_EMAIL_RE")"; then
+          hits="$filtered"
+        else
+          status=$?
+          [ "$status" -eq 1 ] && hits="" || return 2
+        fi
+      else
+        status=$?
+        [ "$status" -eq 1 ] && hits="" || return 2
+      fi
     else
-      hits="$(printf '%s\n' "$text" | grep -EIn "$re" || true)"
+      if hits="$(printf '%s\n' "$text" | run_grep -EIn "$re")"; then
+        :
+      else
+        status=$?
+        [ "$status" -eq 1 ] && hits="" || return 2
+      fi
     fi
     if [ -n "$hits" ]; then
       evidence="$(printf '%s\n' "$hits" | cut -d: -f1 | sort -nu | sed 's/^/  line /')"
@@ -88,9 +116,12 @@ scan_text() { # $1=출처 라벨, stdin=텍스트
       IFS="$OLDIFS"
       name="$(printf '%s' "$name" | sed 's/^ *//;s/ *$//')"
       [ -z "$name" ] && continue
-      if printf '%s\n' "$text" | grep -Fq "$name"; then
+      if name_hits="$(printf '%s\n' "$text" | run_grep -Fn "$name")"; then
         # 이름 자체를 로그에 남기면 그것도 유출이므로 라인 번호만 출력
-        report "실명 @ $src" "$(printf '%s\n' "$text" | grep -Fn "$name" | cut -d: -f1 | sed 's/^/  line /')"
+        report "실명 @ $src" "$(printf '%s\n' "$name_hits" | cut -d: -f1 | sed 's/^/  line /')"
+      else
+        status=$?
+        [ "$status" -eq 1 ] || return 2
       fi
     done
     IFS="$OLDIFS"
@@ -104,8 +135,13 @@ if ! changed_all="$(git diff --name-only --diff-filter=ACMR "$BASE_REF"...HEAD -
   echo "::error::public-safe 변경 파일 목록을 읽을 수 없습니다."
   exit 2
 fi
-changed="$(printf '%s\n' "$changed_all" \
-  | grep -v -e "^${SELF}\$" -e '^pnpm-lock\.yaml$' || true)"
+if changed="$(printf '%s\n' "$changed_all" \
+  | run_grep -v -e "^${SELF}\$" -e '^pnpm-lock\.yaml$')"; then
+  :
+else
+  status=$?
+  [ "$status" -eq 1 ] && changed="" || exit 2
+fi
 while IFS= read -r f; do
   [ -n "$f" ] || continue
   if ! file_text="$(git show "HEAD:$f")"; then
@@ -118,7 +154,17 @@ $changed
 EOF
 
 # 0) 금지 파일 경로 — 내용과 무관하게 커밋 자체를 차단
-bad_files="$(printf '%s\n' "$changed" | grep -E "$FORBIDDEN_FILE_RE" | grep -Ev "$ALLOWED_FILE_RE" || true)"
+if bad_files="$(printf '%s\n' "$changed" | run_grep -E "$FORBIDDEN_FILE_RE")"; then
+  if bad_files="$(printf '%s\n' "$bad_files" | run_grep -Ev "$ALLOWED_FILE_RE")"; then
+    :
+  else
+    status=$?
+    [ "$status" -eq 1 ] && bad_files="" || exit 2
+  fi
+else
+  status=$?
+  [ "$status" -eq 1 ] && bad_files="" || exit 2
+fi
 if [ -n "$bad_files" ]; then
   report "금지 파일(.env 실값·개인키·로컬 DB류)" "$bad_files"
   echo "  → env 실값은 secret store에, 실데이터는 repo 밖 격리 경로에 둔다 (docs/rules/security.md)"

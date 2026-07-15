@@ -34,13 +34,29 @@ expect_pass() {
 
 expect_fail() {
   local label="$1"
+  local status=0
   shift
-  if "$@" >/dev/null 2>&1; then
-    printf 'not ok - %s (expected failure)\n' "$label"
-    failed=$((failed + 1))
-  else
+  "$@" >/dev/null 2>&1 || status=$?
+  if [ "$status" -eq 1 ]; then
     printf 'ok - %s\n' "$label"
     passed=$((passed + 1))
+  else
+    printf 'not ok - %s (expected exit 1, got %s)\n' "$label" "$status"
+    failed=$((failed + 1))
+  fi
+}
+
+expect_error() {
+  local label="$1" expected="$2" status=0
+  shift 2
+  "$@" >/dev/null 2>&1 || status=$?
+  if [ "$status" -eq "$expected" ]; then
+    printf 'ok - %s\n' "$label"
+    passed=$((passed + 1))
+  else
+    printf 'not ok - %s (expected exit %s, got %s)\n' \
+      "$label" "$expected" "$status"
+    failed=$((failed + 1))
   fi
 }
 
@@ -58,10 +74,23 @@ scan_invalid_ref() {
   )
 }
 
+scan_broken_grep() {
+  local bin="$TEMP_ROOT/broken-grep"
+  mkdir -p "$bin"
+  printf '#!/usr/bin/env bash\nexit 2\n' >"$bin/grep"
+  chmod +x "$bin/grep"
+  (
+    cd "$ROOT"
+    PATH="$bin:$PATH" PR_TEXT="$blocked_contact" bash "$SCANNER" HEAD
+  )
+}
+
 expect_blocked_redacted() {
   local output status=0
   output="$(scan_pr_text "$blocked_contact" 2>&1)" || status=$?
-  if [ "$status" -ne 0 ] && ! printf '%s\n' "$output" | grep -Fq "$blocked_contact"; then
+  if [ "$status" -eq 1 ] \
+    && [[ "$output" != *"$blocked_contact"* ]] \
+    && [[ "$output" == *"line 1"* ]]; then
     printf 'ok - 차단값을 로그에 원문 출력하지 않음\n'
     passed=$((passed + 1))
   else
@@ -112,7 +141,8 @@ expect_fail '예약 TLD 유사 이름인 PR 텍스트' \
   scan_pr_text "$blocked_test_lookalike"
 expect_fail '허용·금지 주소가 같은 줄인 PR 텍스트' \
   scan_pr_text "$mixed_same_line"
-expect_fail '존재하지 않는 기준 ref' scan_invalid_ref
+expect_error '존재하지 않는 기준 ref' 2 scan_invalid_ref
+expect_error 'grep 실행 오류' 2 scan_broken_grep
 expect_blocked_redacted
 
 init_fixture_repo changed-file
