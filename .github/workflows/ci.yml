@@ -42,15 +42,16 @@ jobs:
 
       # 변경이 없으면 이후 작업을 건너뛰어 성공하는 no-op gate로 과금을 절감한다.
       - name: pnpm 설정
-        if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
         uses: pnpm/action-setup@v4
 
       - name: Node 설정
-        if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
+
+      - name: TEAM-STATE drift 검사기 단위테스트
+        run: node --test scripts/team-state-check.test.mjs
 
       - name: 의존성 설치
         if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
@@ -87,6 +88,32 @@ jobs:
       - name: backend build
         if: ${{ steps.changes.outputs.backend == 'true' }}
         run: pnpm --filter backend build
+
+  # 1차 도입은 advisory다. drift·unknown은 non-zero로 보고하되 required ci를 차단하지 않는다.
+  team-state-drift:
+    name: team-state-drift (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Node 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: GitHub 상태 drift 검사
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/team-state-check.mjs
 
   # deny-list 표면은 문서·PR 본문이 핵심이므로 paths-filter 없이 모든 PR에서 항상 실행한다.
   # branch protection에서 required check로 등록해야 강제된다.
