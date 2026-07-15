@@ -23,6 +23,12 @@ services:
     environment:
       # migration과 runtime은 서버 .env의 postgres 서비스 DNS를 가리키는 동일한 DATABASE_URL을 사용한다.
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
+      GITHUB_OAUTH_CLIENT_ID: ${GITHUB_OAUTH_CLIENT_ID:?GITHUB_OAUTH_CLIENT_ID is required}
+      GITHUB_OAUTH_CLIENT_SECRET: ${GITHUB_OAUTH_CLIENT_SECRET:?GITHUB_OAUTH_CLIENT_SECRET is required}
+      # Optional compatibility placeholder. Runtime derives and validates the callback from FRONTEND_URL.
+      GITHUB_OAUTH_CALLBACK_URL: ${GITHUB_OAUTH_CALLBACK_URL:-}
     depends_on:
       postgres:
         condition: service_healthy
