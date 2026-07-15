@@ -28,7 +28,8 @@
 #
 # 실명 차단:
 #   실명 목록 파일을 repo에 두면 그 자체가 deny-list 1번(실명) 위반이므로,
-#   목록은 GitHub repo secret `BLOCKED_NAMES` (쉼표 구분)로만 주입한다.
+#   `BLOCKED_NAMES`(쉼표 구분)는 신뢰된 수동 실행에서만 주입한다.
+#   pull_request CI는 PR-controlled script에 repository secret을 전달하지 않는다.
 
 set -euo pipefail
 
@@ -116,7 +117,7 @@ scan_text() { # $1=출처 라벨, stdin=텍스트
       IFS="$OLDIFS"
       name="$(printf '%s' "$name" | sed 's/^ *//;s/ *$//')"
       [ -z "$name" ] && continue
-      if name_hits="$(printf '%s\n' "$text" | run_grep -Fn "$name")"; then
+      if name_hits="$(printf '%s\n' "$text" | run_grep -Fn -- "$name")"; then
         # 이름 자체를 로그에 남기면 그것도 유출이므로 라인 번호만 출력
         report "실명 @ $src" "$(printf '%s\n' "$name_hits" | cut -d: -f1 | sed 's/^/  line /')"
       else

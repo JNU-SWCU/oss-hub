@@ -141,7 +141,6 @@ jobs:
       # PR 본문은 ${{ }} 인라인 치환이 아니라 env 주입 — script injection 방지 (GitHub 공식 권고)
       - name: public-safe regex 스캔 (deny-list)
         env:
-          BLOCKED_NAMES: ${{ secrets.BLOCKED_NAMES }}
           PR_TEXT: |
             ${{ github.event.pull_request.title }}
             ${{ github.event.pull_request.body }}

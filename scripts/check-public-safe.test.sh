@@ -14,6 +14,7 @@ allowed_reserved_upper='FIXTURE'"@"'SYNTHETIC.INVALID'
 blocked_contact='contact'"@"'synthetic.local'
 blocked_lookalike='contact'"@"'notexample.com'
 blocked_test_lookalike='contact'"@"'test.co'
+blocked_name='-SyntheticName'
 mixed_same_line="$allowed_noreply $blocked_contact"
 git_identity="$allowed_noreply"
 
@@ -85,6 +86,20 @@ scan_broken_grep() {
   )
 }
 
+scan_blocked_name() {
+  (
+    cd "$ROOT"
+    BLOCKED_NAMES="$blocked_name" PR_TEXT="$blocked_name" \
+      bash "$SCANNER" HEAD
+  )
+}
+
+workflow_omits_blocked_names_secret() {
+  local status=0
+  grep -Fq 'secrets.BLOCKED_NAMES' "$ROOT/.github/workflows/ci.yml" || status=$?
+  [ "$status" -eq 1 ]
+}
+
 expect_blocked_redacted() {
   local output status=0
   output="$(scan_pr_text "$blocked_contact" 2>&1)" || status=$?
@@ -143,6 +158,9 @@ expect_fail '허용·금지 주소가 같은 줄인 PR 텍스트' \
   scan_pr_text "$mixed_same_line"
 expect_error '존재하지 않는 기준 ref' 2 scan_invalid_ref
 expect_error 'grep 실행 오류' 2 scan_broken_grep
+expect_fail '하이픈으로 시작하는 BLOCKED_NAMES 값' scan_blocked_name
+expect_pass 'PR workflow에 BLOCKED_NAMES secret 미주입' \
+  workflow_omits_blocked_names_secret
 expect_blocked_redacted
 
 init_fixture_repo changed-file
