@@ -94,7 +94,6 @@ jobs:
     name: team-state-drift (advisory)
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    continue-on-error: true
     permissions:
       contents: read
       issues: read
@@ -111,6 +110,7 @@ jobs:
           node-version: 24
 
       - name: GitHub 상태 drift 검사
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/team-state-check.mjs
