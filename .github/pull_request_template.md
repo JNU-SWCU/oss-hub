@@ -6,9 +6,13 @@
 
 ## 1. 연결
 
-<!-- 이 PR이 속한 Issue 번호와 exec-plan 경로를 적는다. 둘 다 없으면 "없음" + 사유 1줄. -->
+<!-- 이 PR이 속한 Issue 번호와 exec-plan 경로를 적는다. 둘 다 없으면 "없음" + 사유 1줄.
+- 작업 Issue는 `Closes #N` — merge 시 GitHub이 자동으로 닫는다.
+- 논의·proposal Issue는 `Refs #N` — 참조만 하고 닫지 않는다.
+- 여러 개면 키워드를 반복한다: `Closes #1, closes #2`.
+- stacked PR은 default branch로 retarget한 뒤 Development 링크 생성을 확인하고 merge한다. -->
 
-- Issue: #
+- Closes #
 - exec-plan: `docs/exec-plan/active/<기능>.md`
 
 ## 2. push 완결 선언
