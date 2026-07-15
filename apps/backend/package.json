@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "db:migrate:dev": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub prisma migrate dev",
-    "db:reset": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub prisma migrate reset --force"
+    "db:reset": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub prisma migrate reset --force",
+    "collect:batch": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub ts-node src/collection/cli/collect-batch.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

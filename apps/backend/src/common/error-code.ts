@@ -4,8 +4,15 @@ export interface ErrorCode {
   message: string;
 }
 
+export interface ProblemDetailExtensions {
+  retryNotBeforeAt?: string;
+}
+
 export class DomainException extends Error {
-  constructor(public readonly errorCode: ErrorCode) {
+  constructor(
+    public readonly errorCode: ErrorCode,
+    public readonly extensions: ProblemDetailExtensions = {},
+  ) {
     super(errorCode.message);
     this.name = 'DomainException';
   }
