@@ -34,8 +34,11 @@ describe('oauth-flow', () => {
 
   it('state 비교: 동일하면 true, 다르거나 길이가 다르면 false', () => {
     const { state } = createFlowState();
+    const mutated = `${state.slice(0, 42)}${state[42] === 'A' ? 'B' : 'A'}`;
+    expect(mutated).toHaveLength(43);
+    expect(mutated).not.toBe(state);
     expect(isSameState(state, state)).toBe(true);
-    expect(isSameState(state, `${state.slice(0, 42)}A`)).toBe(false);
+    expect(isSameState(state, mutated)).toBe(false);
     expect(isSameState(state, state.slice(0, 42))).toBe(false);
   });
 

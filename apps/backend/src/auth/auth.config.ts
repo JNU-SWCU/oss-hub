@@ -9,7 +9,7 @@ export interface OauthSettings {
 
 const MIN_SESSION_SECRET_BYTES = 32;
 const DEV_FRONTEND_URL = 'http://localhost:3000';
-const DEV_CALLBACK_URL = 'http://localhost:4000/api/v1/auth/github/callback';
+const CALLBACK_PATH = '/api/v1/auth/github/callback';
 
 /**
  * auth 관련 env를 시작 시 한 번 검증해 고정한다.
@@ -31,7 +31,7 @@ export class AuthConfig {
   constructor() {
     this.sessionSecret = this.loadSessionSecret();
     this.frontendUrl = this.loadFrontendUrl();
-    this.allowedOrigin = new URL(this.frontendUrl).origin;
+    this.allowedOrigin = this.frontendUrl;
     this.useSecureCookies = this.isProduction;
     this.oauth = this.loadOauthSettings();
   }
@@ -71,21 +71,31 @@ export class AuthConfig {
     if (!raw) {
       throw new Error('운영 환경에는 FRONTEND_URL이 필수입니다.');
     }
-    // open redirect 방지 — 시작 시 검증된 고정 URL만 redirect 대상으로 쓴다.
-    return new URL(raw).toString().replace(/\/$/, '');
+    return this.parseCanonicalOrigin(raw, 'FRONTEND_URL');
   }
 
   private loadOauthSettings(): OauthSettings | null {
     const clientId = process.env.GITHUB_OAUTH_CLIENT_ID;
     const clientSecret = process.env.GITHUB_OAUTH_CLIENT_SECRET;
-    const callbackUrl =
-      process.env.GITHUB_OAUTH_CALLBACK_URL ??
-      (this.isProduction ? undefined : DEV_CALLBACK_URL);
+    const callbackUrl = this.deriveCallbackUrl();
+    const configuredCallbackUrl = process.env.GITHUB_OAUTH_CALLBACK_URL;
 
-    if (!clientId || !clientSecret || !callbackUrl) {
+    if (configuredCallbackUrl !== undefined && configuredCallbackUrl !== '') {
+      const normalizedConfiguredCallbackUrl = this.parseAbsoluteUrl(
+        configuredCallbackUrl,
+        'GITHUB_OAUTH_CALLBACK_URL',
+      ).toString();
+      if (normalizedConfiguredCallbackUrl !== callbackUrl) {
+        throw new Error(
+          `GITHUB_OAUTH_CALLBACK_URL은 FRONTEND_URL과 같은 origin의 ${CALLBACK_PATH}이어야 합니다.`,
+        );
+      }
+    }
+
+    if (!clientId || !clientSecret) {
       if (this.isProduction) {
         throw new Error(
-          '운영 환경에는 GITHUB_OAUTH_CLIENT_ID/SECRET과 GITHUB_OAUTH_CALLBACK_URL이 필수입니다.',
+          '운영 환경에는 GITHUB_OAUTH_CLIENT_ID/SECRET이 필수입니다.',
         );
       }
       this.logger.warn(
@@ -93,6 +103,38 @@ export class AuthConfig {
       );
       return null;
     }
-    return { clientId, clientSecret, callbackUrl: new URL(callbackUrl).toString() };
+    return { clientId, clientSecret, callbackUrl };
+  }
+
+  private deriveCallbackUrl(): string {
+    return `${this.frontendUrl}${CALLBACK_PATH}`;
+  }
+
+  private parseCanonicalOrigin(raw: string, envName: string): string {
+    const url = this.parseAbsoluteUrl(raw, envName);
+    if (url.pathname !== '/' || url.search !== '' || url.hash !== '') {
+      throw new Error(`${envName}은 path/query/hash 없는 origin이어야 합니다.`);
+    }
+    return url.origin;
+  }
+
+  private parseAbsoluteUrl(raw: string, envName: string): URL {
+    let url: URL;
+    try {
+      url = new URL(raw);
+    } catch {
+      throw new Error(`${envName}은 절대 URL이어야 합니다.`);
+    }
+
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      throw new Error(`${envName}은 http(s) URL이어야 합니다.`);
+    }
+    if (url.username || url.password) {
+      throw new Error(`${envName}에는 credentials를 포함할 수 없습니다.`);
+    }
+    if (this.isProduction && url.protocol !== 'https:') {
+      throw new Error(`운영 환경의 ${envName}은 HTTPS여야 합니다.`);
+    }
+    return url;
   }
 }
