@@ -59,6 +59,30 @@ const rejectedEnvironments = [
       databaseUrl: 'not-a-database-url',
     },
   },
+  {
+    name: 'query parameter가 socket host를 덮어쓸 때',
+    environment: {
+      ...isolatedEnvironment,
+      databaseUrl:
+        'postgresql://oss:oss-dev@127.0.0.1:5432/oss_hub_test?host=%2Fvar%2Frun%2Fpostgresql&schema=public',
+    },
+  },
+  {
+    name: 'schema가 public이 아닐 때',
+    environment: {
+      ...isolatedEnvironment,
+      databaseUrl:
+        'postgresql://oss:oss-dev@127.0.0.1:5432/oss_hub_test?schema=private',
+    },
+  },
+  {
+    name: 'schema query가 중복될 때',
+    environment: {
+      ...isolatedEnvironment,
+      databaseUrl:
+        'postgresql://oss:oss-dev@127.0.0.1:5432/oss_hub_test?schema=public&schema=public',
+    },
+  },
 ] as const satisfies readonly {
   readonly name: string;
   readonly environment: IntegrationDatabaseEnvironment;

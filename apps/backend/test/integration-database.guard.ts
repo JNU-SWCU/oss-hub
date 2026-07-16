@@ -27,12 +27,16 @@ export function assertIsolatedIntegrationDatabase(
     throw new IntegrationDatabaseGuardError();
   }
   const databaseUrl = new URL(environment.databaseUrl);
+  const queryEntries = [...databaseUrl.searchParams.entries()];
 
   if (
     databaseUrl.protocol !== 'postgresql:' ||
     databaseUrl.hostname !== '127.0.0.1' ||
     databaseUrl.port === '' ||
-    databaseUrl.pathname !== '/oss_hub_test'
+    databaseUrl.pathname !== '/oss_hub_test' ||
+    queryEntries.length !== 1 ||
+    queryEntries[0]?.[0] !== 'schema' ||
+    queryEntries[0]?.[1] !== 'public'
   ) {
     throw new IntegrationDatabaseGuardError();
   }
