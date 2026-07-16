@@ -16,10 +16,11 @@ describe('ProblemDetailFilter', () => {
   const createHost = (
     response: Response,
     url = '/api/v1/members/missing',
+    path = '/api/v1/members/missing',
   ): ArgumentsHost =>
     ({
       switchToHttp: () => ({
-        getRequest: () => ({ method: 'GET', originalUrl: url }),
+        getRequest: () => ({ method: 'GET', originalUrl: url, path }),
         getResponse: () => response,
       }),
     }) as ArgumentsHost;
@@ -125,28 +126,33 @@ describe('ProblemDetailFilter', () => {
         }),
       );
       expect(debug).toHaveBeenCalledWith(
-        expect.stringContaining(
-          `method=GET url=/api/v1/members/missing message=${exception.message}`,
-        ),
+        {
+          event: 'http.exception',
+          method: 'GET',
+          path: '/api/v1/members/missing',
+          status: exception.getStatus(),
+          code: expectedCode,
+        },
       );
 
       debug.mockRestore();
     },
   );
 
-  it('5xx framework 예외는 진단을 error 로그에 남기고 응답을 sanitize한다', () => {
+  it('5xx framework 예외는 안전한 진단을 error 로그에 남기고 응답을 sanitize한다', () => {
     const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
     const { response, json } = createResponse();
     const exception = new InternalServerErrorException('민감한 내부 오류');
 
     new ProblemDetailFilter().catch(exception, createHost(response));
 
-    expect(error).toHaveBeenCalledWith(
-      expect.stringContaining(
-        'method=GET url=/api/v1/members/missing message=민감한 내부 오류 stack=',
-      ),
-      exception.stack,
-    );
+    expect(error).toHaveBeenCalledWith({
+      event: 'http.exception',
+      method: 'GET',
+      path: '/api/v1/members/missing',
+      status: 500,
+      code: SystemErrorCode.INTERNAL_SERVER_ERROR,
+    });
     expect(json).toHaveBeenCalledWith({
       type: 'about:blank',
       title: 'INTERNAL_SERVER_ERROR',
@@ -159,19 +165,20 @@ describe('ProblemDetailFilter', () => {
     error.mockRestore();
   });
 
-  it('unknown 예외는 진단을 error 로그에 남기고 응답을 sanitize한다', () => {
+  it('unknown 예외는 안전한 진단을 error 로그에 남기고 응답을 sanitize한다', () => {
     const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
     const { response, json } = createResponse();
     const exception = new Error('데이터베이스 연결 문자열 노출');
 
     new ProblemDetailFilter().catch(exception, createHost(response));
 
-    expect(error).toHaveBeenCalledWith(
-      expect.stringContaining(
-        'method=GET url=/api/v1/members/missing message=데이터베이스 연결 문자열 노출 stack=',
-      ),
-      exception.stack,
-    );
+    expect(error).toHaveBeenCalledWith({
+      event: 'http.exception',
+      method: 'GET',
+      path: '/api/v1/members/missing',
+      status: 500,
+      code: SystemErrorCode.INTERNAL_SERVER_ERROR,
+    });
     expect(json).toHaveBeenCalledWith(
       expect.objectContaining({
         status: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -179,6 +186,64 @@ describe('ProblemDetailFilter', () => {
         code: SystemErrorCode.INTERNAL_SERVER_ERROR,
       }),
     );
+
+    error.mockRestore();
+  });
+
+  it('query string과 원문 예외 정보를 ProblemDetail 응답에 노출하지 않는다', () => {
+    // Given
+    const sensitiveQuery = 'synthetic-query-secret';
+    const sensitiveMessage = 'synthetic-storage-credential';
+    const path = '/api/v1/members/missing';
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    const { response, json } = createResponse();
+
+    // When
+    new ProblemDetailFilter().catch(
+      new Error(sensitiveMessage),
+      createHost(response, `${path}?token=${sensitiveQuery}`, path),
+    );
+
+    // Then
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        instance: path,
+        code: SystemErrorCode.INTERNAL_SERVER_ERROR,
+      }),
+    );
+    const serializedResponse = JSON.stringify(json.mock.calls);
+    expect(serializedResponse).not.toContain(sensitiveQuery);
+    expect(serializedResponse).not.toContain(sensitiveMessage);
+
+    error.mockRestore();
+  });
+
+  it('unknown 예외 로그에는 안전한 진단 필드만 남긴다', () => {
+    // Given
+    const sensitiveQuery = 'synthetic-query-secret';
+    const sensitiveMessage = 'synthetic-storage-credential';
+    const path = '/api/v1/members/missing';
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    const { response } = createResponse();
+
+    // When
+    new ProblemDetailFilter().catch(
+      new Error(sensitiveMessage),
+      createHost(response, `${path}?token=${sensitiveQuery}`, path),
+    );
+
+    // Then
+    expect(error).toHaveBeenCalledWith({
+      event: 'http.exception',
+      method: 'GET',
+      path,
+      status: 500,
+      code: SystemErrorCode.INTERNAL_SERVER_ERROR,
+    });
+    const serializedLog = JSON.stringify(error.mock.calls);
+    expect(serializedLog).not.toContain(sensitiveQuery);
+    expect(serializedLog).not.toContain(sensitiveMessage);
 
     error.mockRestore();
   });
