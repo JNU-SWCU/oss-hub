@@ -40,18 +40,27 @@ jobs:
               - 'compose.dev.yml'
               - '.github/workflows/**'
 
-      # 변경이 없으면 이후 작업을 건너뛰어 성공하는 no-op gate로 과금을 절감한다.
-      - name: pnpm 설정
-        uses: pnpm/action-setup@v4
-
+      # 의존성이 없는 Node 내장 테스트는 모든 PR에서 실행한다.
       - name: Node 설정
         uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: pnpm
 
       - name: TEAM-STATE drift 검사기 단위테스트
         run: node --test scripts/team-state-check.test.mjs
+
+      # 앱 변경이 있을 때만 pnpm store를 만들고 캐시한다. docs-only PR에서
+      # 존재하지 않는 store를 저장하려는 setup-node 후처리 실패를 막는다.
+      - name: pnpm 설정
+        if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
+        uses: pnpm/action-setup@v4
+
+      - name: pnpm 캐시 설정
+        if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
 
       - name: 의존성 설치
         if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
@@ -126,6 +135,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: public-safe regex 회귀 테스트
+        run: bash scripts/check-public-safe.test.sh
+
       # org repo는 gitleaks-action이 라이선스 키를 요구하므로 MIT 라이선스인 CLI를 직접 실행한다.
       # https://github.com/gitleaks/gitleaks-action#environment-variables
       - name: gitleaks 시크릿 스캔 (이 PR의 신규 커밋만)
@@ -138,7 +150,6 @@ jobs:
       # PR 본문은 ${{ }} 인라인 치환이 아니라 env 주입 — script injection 방지 (GitHub 공식 권고)
       - name: public-safe regex 스캔 (deny-list)
         env:
-          BLOCKED_NAMES: ${{ secrets.BLOCKED_NAMES }}
           PR_TEXT: |
             ${{ github.event.pull_request.title }}
             ${{ github.event.pull_request.body }}
