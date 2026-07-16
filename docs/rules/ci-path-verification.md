@@ -11,6 +11,7 @@
 | `deploy/nginx/**` | `probe-nginx-callback-log.sh`의 합성 callback 로그 계약 | 실제 OAuth 값·요청 없음 |
 | `compose.yml`, `.env.example` | `.env.example`을 파싱하고 합성 process env만 주입한 `docker compose config --quiet` | 컨테이너 기동·이미지 빌드 없음 |
 | `Jenkinsfile` | `check-jenkinsfile.test.sh`와 실제 파일의 배포 불변식 검사 | Jenkins 실행·이미지 빌드 없음 |
+| `apps/*/Dockerfile`, `.dockerignore` | `check-docker-context.test.sh`와 실제 context의 deny 규칙·COPY 경계 검사 | Docker daemon·이미지 빌드 없음 |
 | `scripts/check-public-safe*.sh` | shell 문법 검사 + `public-safe` job의 regex 회귀 테스트 | PR-controlled 코드에 secret 미주입 |
 | `scripts/team-state-check*.mjs` | Node 문법 검사 + TEAM-STATE 합성 fixture 단위테스트 | GitHub 조회 실패를 성공으로 추정하지 않음 |
 | 그 밖의 `scripts/*.sh`, `scripts/*.mjs` | 각 런타임의 문법 검사 | 외부 서비스·실데이터 사용 없음 |

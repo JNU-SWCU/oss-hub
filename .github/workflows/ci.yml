@@ -53,6 +53,13 @@ jobs:
               - 'scripts/check-jenkinsfile.sh'
               - 'scripts/check-jenkinsfile.test.sh'
               - '.github/workflows/**'
+            docker_context:
+              - 'apps/frontend/Dockerfile'
+              - 'apps/backend/Dockerfile'
+              - '.dockerignore'
+              - 'scripts/check-docker-context.sh'
+              - 'scripts/check-docker-context.test.sh'
+              - '.github/workflows/**'
             shell_scripts:
               - 'scripts/*.sh'
               - '.github/workflows/**'
@@ -116,6 +123,12 @@ jobs:
         run: |
           bash scripts/check-jenkinsfile.test.sh
           bash scripts/check-jenkinsfile.sh Jenkinsfile
+
+      - name: Docker build context 계약 회귀 테스트
+        if: ${{ steps.changes.outputs.docker_context == 'true' }}
+        run: |
+          bash scripts/check-docker-context.test.sh
+          bash scripts/check-docker-context.sh
 
       - name: 의존성 설치
         if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
