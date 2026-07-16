@@ -21,6 +21,13 @@ interface ProblemDetail {
   code: string;
   retryNotBeforeAt?: string;
 }
+interface ExceptionLogEvent {
+  readonly event: 'http.exception';
+  readonly method: string;
+  readonly path: string;
+  readonly status: number;
+  readonly code: SystemErrorCode;
+}
 
 @Catch()
 export class ProblemDetailFilter implements ExceptionFilter {
@@ -30,7 +37,7 @@ export class ProblemDetailFilter implements ExceptionFilter {
     const context = host.switchToHttp();
     const request = context.getRequest<Request>();
     const response = context.getResponse<Response>();
-    const instance = request.originalUrl ?? request.url;
+    const instance = request.path;
     const problem = this.toProblemDetail(exception, request, instance);
 
     response
@@ -63,7 +70,14 @@ export class ProblemDetailFilter implements ExceptionFilter {
       const status = exception.getStatus();
 
       if (status >= INTERNAL_SERVER_ERROR_STATUS) {
-        this.logException('error', exception, request, instance);
+        this.logException(
+          'error',
+          this.exceptionLogEvent(
+            request,
+            status,
+            SystemErrorCode.INTERNAL_SERVER_ERROR,
+          ),
+        );
         return this.systemProblem(
           status,
           instance,
@@ -71,8 +85,12 @@ export class ProblemDetailFilter implements ExceptionFilter {
         );
       }
 
-      this.logException('debug', exception, request, instance);
       const exceptionResponse = exception.getResponse();
+      const code = this.httpExceptionCode(status, exceptionResponse);
+      this.logException(
+        'debug',
+        this.exceptionLogEvent(request, status, code),
+      );
 
       return {
         type: 'about:blank',
@@ -80,11 +98,18 @@ export class ProblemDetailFilter implements ExceptionFilter {
         status,
         detail: this.httpExceptionDetail(exceptionResponse, exception.message),
         instance,
-        code: this.httpExceptionCode(status, exceptionResponse),
+        code,
       };
     }
 
-    this.logException('error', exception, request, instance);
+    this.logException(
+      'error',
+      this.exceptionLogEvent(
+        request,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        SystemErrorCode.INTERNAL_SERVER_ERROR,
+      ),
+    );
     return this.systemProblem(
       HttpStatus.INTERNAL_SERVER_ERROR,
       instance,
@@ -147,21 +172,28 @@ export class ProblemDetailFilter implements ExceptionFilter {
 
   private logException(
     level: 'debug' | 'error',
-    exception: unknown,
-    request: Request,
-    instance: string,
+    event: ExceptionLogEvent,
   ): void {
-    const message =
-      exception instanceof Error ? exception.message : String(exception);
-    const stack = exception instanceof Error ? exception.stack : undefined;
-    const logMessage = `method=${request.method} url=${instance} message=${message} stack=${stack ?? '없음'}`;
-
     if (level === 'error') {
-      this.logger.error(logMessage, stack);
+      this.logger.error(event);
       return;
     }
 
-    this.logger.debug(logMessage);
+    this.logger.debug(event);
+  }
+
+  private exceptionLogEvent(
+    request: Request,
+    status: number,
+    code: SystemErrorCode,
+  ): ExceptionLogEvent {
+    return {
+      event: 'http.exception',
+      method: request.method,
+      path: request.path,
+      status,
+      code,
+    };
   }
 
   private statusTitle(status: number): string {
