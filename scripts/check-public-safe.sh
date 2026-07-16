@@ -65,6 +65,36 @@ report() { # $1=라벨 $2=매치 내용
   FAIL=1
 }
 
+safe_path_id() { # 파일명 원문을 로그에 내보내지 않는 안정적 식별자
+  local path="$1" digest
+  if ! digest="$(printf '%s' "$path" | git hash-object --stdin 2>/dev/null)"; then
+    return 1
+  fi
+  printf 'path-id:%s' "$digest"
+}
+
+is_forbidden_file() { # 금지 확장자는 대소문자 무관, 허용 예외는 정확한 소문자만
+  local path="$1" matched=1 nocase_was_set=0
+  if shopt -q nocasematch; then
+    nocase_was_set=1
+  fi
+
+  shopt -s nocasematch
+  if [[ "$path" =~ $FORBIDDEN_FILE_RE ]]; then
+    matched=0
+  fi
+  shopt -u nocasematch
+
+  if [ "$matched" -eq 0 ] && [[ "$path" =~ $ALLOWED_FILE_RE ]]; then
+    matched=1
+  fi
+
+  if [ "$nocase_was_set" -eq 1 ]; then
+    shopt -s nocasematch
+  fi
+  return "$matched"
+}
+
 run_grep() { # grep의 1(매치 없음)과 2+(검사 오류)를 구분한다.
   local output status
   if output="$(grep "$@")"; then
@@ -80,6 +110,7 @@ run_grep() { # grep의 1(매치 없음)과 2+(검사 오류)를 구분한다.
 
 scan_text() { # $1=출처 라벨, stdin=텍스트
   local src="$1" text entry label re hits filtered evidence name name_hits status
+  local candidates non_ascii_candidates punycode_candidates unsupported_candidates
   text="$(cat)"
   [ -z "$text" ] && return 0
   for entry in "${PATTERNS[@]}"; do
@@ -110,6 +141,32 @@ scan_text() { # $1=출처 라벨, stdin=텍스트
       report "$label @ $src" "$evidence"
     fi
   done
+
+  # EAI·Unicode domain은 허용 예외로 지원하지 않는다. 비ASCII email-shaped token과
+  # punycode IDN 후보는 ASCII 이메일 허용 목록보다 우선해 보수적으로 차단한다.
+  if candidates="$(printf '%s\n' "$text" | run_grep -EIno '[^[:space:]@]+@[^[:space:]@]+')"; then
+    unsupported_candidates=""
+    if non_ascii_candidates="$(printf '%s\n' "$candidates" | LC_ALL=C run_grep -E '[^ -~]')"; then
+      unsupported_candidates="$non_ascii_candidates"
+    else
+      status=$?
+      [ "$status" -eq 1 ] || return 2
+    fi
+    if punycode_candidates="$(printf '%s\n' "$candidates" | run_grep -Ei '@[^[:space:]@]*xn--')"; then
+      unsupported_candidates="${unsupported_candidates}${unsupported_candidates:+$'\n'}${punycode_candidates}"
+    else
+      status=$?
+      [ "$status" -eq 1 ] || return 2
+    fi
+    if [ -n "$unsupported_candidates" ]; then
+      evidence="$(printf '%s\n' "$unsupported_candidates" | cut -d: -f1 | sort -nu | sed 's/^/  line /')"
+      report "비ASCII·IDN 이메일 후보 @ $src" "$evidence"
+    fi
+  else
+    status=$?
+    [ "$status" -eq 1 ] || return 2
+  fi
+
   if [ -n "${BLOCKED_NAMES:-}" ]; then
     local OLDIFS="$IFS"
     IFS=','
@@ -143,27 +200,33 @@ if ! git diff --name-only -z --diff-filter=ACMR "$BASE_REF"...HEAD -- \
   exit 2
 fi
 changed_files=()
+changed_file_ids=()
 changed_file_count=0
 while IFS= read -r -d '' f; do
   [ "$f" = "$SELF" ] && continue
   [ "$f" = "pnpm-lock.yaml" ] && continue
+  if ! file_id="$(safe_path_id "$f")"; then
+    echo "::error::public-safe 변경 파일 식별자를 만들 수 없습니다."
+    exit 2
+  fi
   changed_files+=("$f")
+  changed_file_ids+=("$file_id")
   changed_file_count=$((changed_file_count + 1))
-  if ! file_text="$(git show "HEAD:$f")"; then
+  if ! file_text="$(git show "HEAD:$f" 2>/dev/null)"; then
     echo "::error::public-safe 변경 파일 blob을 읽을 수 없습니다."
     exit 2
   fi
-  scan_text "파일 $f" <<<"$file_text"
+  scan_text "파일 $file_id" <<<"$file_text"
 done <"$changed_file_list"
 
 # 0) 금지 파일 경로 — 내용과 무관하게 커밋 자체를 차단
 bad_files=()
 bad_file_count=0
 if [ "$changed_file_count" -gt 0 ]; then
-  for f in "${changed_files[@]}"; do
-    if [[ "$f" =~ $FORBIDDEN_FILE_RE ]] \
-      && ! [[ "$f" =~ $ALLOWED_FILE_RE ]]; then
-      bad_files+=("$f")
+  for ((i = 0; i < changed_file_count; i++)); do
+    f="${changed_files[$i]}"
+    if is_forbidden_file "$f"; then
+      bad_files+=("${changed_file_ids[$i]}")
       bad_file_count=$((bad_file_count + 1))
     fi
   done
