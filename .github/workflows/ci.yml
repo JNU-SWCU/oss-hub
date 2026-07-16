@@ -38,6 +38,7 @@ jobs:
               - 'pnpm-workspace.yaml'
               - 'pnpm-lock.yaml'
               - 'compose.dev.yml'
+              - 'scripts/run-backend-integration*.sh'
               - '.github/workflows/**'
 
       # 의존성이 없는 Node 내장 테스트는 모든 PR에서 실행한다.
@@ -90,9 +91,17 @@ jobs:
         if: ${{ steps.changes.outputs.backend == 'true' }}
         run: pnpm --filter backend typecheck
 
-      - name: backend test
+      - name: backend unit test
         if: ${{ steps.changes.outputs.backend == 'true' }}
-        run: pnpm --filter backend test
+        run: pnpm --filter backend test:unit
+
+      - name: backend integration runner contract
+        if: ${{ steps.changes.outputs.backend == 'true' }}
+        run: bash scripts/run-backend-integration.test.sh
+
+      - name: backend integration test
+        if: ${{ steps.changes.outputs.backend == 'true' }}
+        run: pnpm --filter backend test:integration
 
       - name: backend build
         if: ${{ steps.changes.outputs.backend == 'true' }}
