@@ -110,7 +110,7 @@ run_grep() { # grep의 1(매치 없음)과 2+(검사 오류)를 구분한다.
 
 scan_text() { # $1=출처 라벨, stdin=텍스트
   local src="$1" text entry label re hits filtered evidence name name_hits status
-  local candidates non_ascii_candidates punycode_candidates unsupported_candidates
+  local candidates quoted_candidates non_ascii_candidates punycode_candidates unsupported_candidates
   text="$(cat)"
   [ -z "$text" ] && return 0
   for entry in "${PATTERNS[@]}"; do
@@ -144,10 +144,16 @@ scan_text() { # $1=출처 라벨, stdin=텍스트
 
   # EAI·Unicode domain은 허용 예외로 지원하지 않는다. 비ASCII email-shaped token과
   # punycode IDN 후보는 ASCII 이메일 허용 목록보다 우선해 보수적으로 차단한다.
-  if candidates="$(printf '%s\n' "$text" | run_grep -EIno '("[^"]*"|[^[:space:]@]+)@[^[:space:]@]+')"; then
+  if candidates="$(printf '%s\n' "$text" | run_grep -EIno '("([^"\\]|\\.)*"|[^[:space:]@"]+)@[^[:space:]@"]+')"; then
     unsupported_candidates=""
+    if quoted_candidates="$(printf '%s\n' "$candidates" | run_grep -E '^[0-9]+:"')"; then
+      unsupported_candidates="$quoted_candidates"
+    else
+      status=$?
+      [ "$status" -eq 1 ] || return 2
+    fi
     if non_ascii_candidates="$(printf '%s\n' "$candidates" | LC_ALL=C run_grep -E '[^ -~]')"; then
-      unsupported_candidates="$non_ascii_candidates"
+      unsupported_candidates="${unsupported_candidates}${unsupported_candidates:+$'\n'}${non_ascii_candidates}"
     else
       status=$?
       [ "$status" -eq 1 ] || return 2
@@ -160,7 +166,7 @@ scan_text() { # $1=출처 라벨, stdin=텍스트
     fi
     if [ -n "$unsupported_candidates" ]; then
       evidence="$(printf '%s\n' "$unsupported_candidates" | cut -d: -f1 | sort -nu | sed 's/^/  line /')"
-      report "비ASCII·IDN 이메일 후보 @ $src" "$evidence"
+      report "quoted·비ASCII·IDN 이메일 후보 @ $src" "$evidence"
     fi
   else
     status=$?

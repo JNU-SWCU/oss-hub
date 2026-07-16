@@ -17,6 +17,8 @@ blocked_test_lookalike='contact'"@"'test.co'
 at_sign="$(printf '\100')"
 blocked_eai_local="합성${at_sign}synthetic.invalid"
 blocked_quoted_eai_local="\"합성 ascii\"${at_sign}synthetic.invalid"
+blocked_quoted_escaped_eai_local='"합성\" ascii"'"${at_sign}"'synthetic.invalid'
+blocked_quoted_ascii_contact='"synthetic local"'"${at_sign}"'notexample.com'
 blocked_unicode_domain="fixture${at_sign}합성.invalid"
 blocked_punycode_domain="fixture${at_sign}xn--synthetic.invalid"
 blocked_name='-SyntheticName'
@@ -177,6 +179,10 @@ expect_fail 'EAI local-part 이메일 후보를 보수적으로 차단' \
   scan_pr_text "$blocked_eai_local"
 expect_fail '공백을 포함한 quoted EAI local-part를 보수적으로 차단' \
   scan_pr_text "$blocked_quoted_eai_local"
+expect_fail 'escaped quote가 있는 quoted EAI local-part를 보수적으로 차단' \
+  scan_pr_text "$blocked_quoted_escaped_eai_local"
+expect_fail 'quoted ASCII 연락처 후보를 보수적으로 차단' \
+  scan_pr_text "$blocked_quoted_ascii_contact"
 expect_fail 'Unicode domain 이메일 후보를 보수적으로 차단' \
   scan_pr_text "$blocked_unicode_domain"
 expect_fail 'punycode IDN 이메일 후보를 연락처로 차단' \
