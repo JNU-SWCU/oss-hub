@@ -2,7 +2,7 @@
 
 ## 대원칙: 이 repo는 PUBLIC이다
 
-oss-hub는 공개 저장소다. 코드뿐 아니라 Issue 본문, PR 제목·본문·코멘트, 커밋 메시지, CI(Actions) 로그, 첨부 스크린샷까지 전부 전 세계에 공개된다.
+oss-hub는 공개 저장소다. 코드뿐 아니라 Issue 본문, PR 제목·본문·코멘트, 커밋 메시지와 author·committer identity, CI(Actions) 로그, 첨부 스크린샷까지 전부 전 세계에 공개된다.
 
 **올라간 순간 유출로 간주한다. 삭제는 회수가 아니다.** force-push로 지워도 포크, 캐시, 알림 메일, 크롤러에 이미 복제됐다고 가정한다. 따라서 방어선은 "올리기 전"에만 존재한다.
 
@@ -14,11 +14,21 @@ oss-hub는 공개 저장소다. 코드뿐 아니라 Issue 본문, PR 제목·본
 | --- | --- | --- |
 | 1 | 실명 (팀원 포함) | GitHub ID만 (@GoBeromsu, @Lumiere001, @<designer-1>, @<designer-2>) |
 | 2 | 교수·사업단·외부 관계자 언급 | 역할 중립 표현 ("외부 의존", "데이터 제공처") |
-| 3 | 학번·이메일·전화번호 | 쓰지 않는다. 연락은 repo 밖에서 |
+| 3 | 학번·연락처 이메일·전화번호 | 쓰지 않는다. 연락은 repo 밖에서. 단, 아래 Git commit identity 이메일 예외를 적용한다 |
 | 4 | 미공지 행사의 일정·규모·장소 | 공식 공지 이후에만, 공지된 범위만 |
 | 5 | 예산·계약·정산 정보 | 쓰지 않는다 |
 | 6 | 실데이터 값·실데이터가 보이는 스크린샷 | 합성 fixture (아래 반입 절차 참조) |
 | 7 | Notion 문서 본문 인용 | Decision ID 색인만 (아래 참조 규칙 참조) |
+
+### Git commit identity 이메일 예외
+
+- 기여자가 자신의 Git 설정으로 선택한 commit author·committer identity 이메일은 허용한다.
+- GitHub noreply 이메일은 권장 선택지지만 필수는 아니다.
+- 이 예외는 다른 사람의 이메일을 대신 입력하거나 공개할 권한을 주지 않는다.
+- 본인이 선택하지 않은 identity이거나 제3자 이메일 공개가 의심되면 아래 유출 사고 절차로 처리한다.
+- 자동화 계정 식별용 noreply 주소와 RFC 2606 예약 도메인의 합성 예시는 연락처 이메일로 보지 않는다.
+- tracked file, Issue·PR 본문, 댓글, 커밋 메시지, CI 로그, 스크린샷에 연락처 이메일을 직접 기록하는 행위는 계속 금지한다.
+- `scripts/check-public-safe.sh`는 변경된 tracked file의 커밋된 Git blob 내용(`scripts/check-public-safe.sh` 자체와 `pnpm-lock.yaml` 제외), 커밋 메시지, PR 제목·본문의 이메일을 검사하되 위 noreply·합성 예시는 허용한다. author·committer identity 메타데이터는 검사하지 않는다. Issue 본문·댓글, CI 로그, 스크린샷은 이 스크립트의 자동 검사 대상이 아니며 금지 정책과 리뷰로 통제한다.
 
 blocker를 기록할 때는 사람이 아니라 **작업을 주어로** 쓴다.
 
@@ -32,7 +42,7 @@ blocker를 기록할 때는 사람이 아니라 **작업을 주어로** 쓴다.
 - 커밋 대상은 `.env.example`뿐이다. 키 이름과 placeholder만 넣고 실값은 절대 넣지 않는다.
 - 실값은 GitHub repo secrets 또는 배포 환경의 secret store에만 둔다. 메신저·Notion·코드 주석으로도 전달하지 않는다.
 - CI 로그에 secret이 echo되지 않는지 워크플로 작성 시 확인한다. 디버그 목적으로 환경 변수를 dump하는 스텝을 만들지 않는다.
-- 도입 완료(#6): gitleaks + 커스텀 regex(학번, 전화번호, 이메일, 개인 머신 경로)를 GitHub Actions의 `public-safe` job에서 모든 PR에 실행하고 required check로 강제한다. 실명 목록은 repo에 두지 않으며, PR-controlled script에 repository secret을 전달하지 않도록 `pull_request` CI에는 주입하지 않는다. 실명 검사는 신뢰된 수동 실행의 `BLOCKED_NAMES`와 PR 리뷰로 수행한다.
+- 도입 완료(#6): gitleaks + 커스텀 regex(학번, 전화번호, 연락처 이메일, 개인 머신 경로)를 GitHub Actions의 `public-safe` job에서 모든 PR에 실행하고 required check로 강제한다. commit identity 이메일은 위 예외를 적용한다. 실명 목록은 repo에 두지 않으며, PR-controlled script에 repository secret을 전달하지 않도록 `pull_request` CI에는 주입하지 않는다. 실명 검사는 신뢰된 수동 실행의 `BLOCKED_NAMES`와 PR 리뷰로 수행한다.
 
 ## 외부 데이터 반입: 합성 fixture 5단계
 
@@ -74,4 +84,4 @@ Notion은 회의·기획의 canonical store이고, repo에는 색인만 둔다.
 
 ## 위반 탐지
 
-PR 리뷰에서 deny-list 7종과 `/Users/` 경로, 한글 실명 패턴을 확인한다. gitleaks + 커스텀 regex lint 도입 후에는 CI 실패로 자동 차단하며, lint를 우회한 merge는 유출 사고 절차를 따른다.
+PR 리뷰에서 deny-list 7종과 `/Users/` 경로, 한글 실명 패턴을 확인한다. 기여자가 자신의 Git 설정으로 선택한 author·committer identity 이메일은 위반으로 보지 않는다. gitleaks + 커스텀 regex lint 도입 후에는 CI 실패로 자동 차단하며, lint를 우회한 merge는 유출 사고 절차를 따른다.
