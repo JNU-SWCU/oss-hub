@@ -1,7 +1,7 @@
 # exec-plan: GitHub OAuth 로그인 (auth)
 
 - owner: @Lumiere001 / Issue: #9 / 브랜치: `feat/github-oauth-login`
-- 상태: 구현 중 (2026-07-15)
+- 상태: done — PR #13·#22 merge (2026-07-17 archive)
 
 ## 목표
 
