@@ -179,6 +179,12 @@ git -C "$FIXTURE_REPO" add synthetic-link
 commit_fixture commit -qm 'test: synthetic symlink fixture'
 expect_fail '금지 주소가 target인 변경 symlink' scan_fixture_repo
 
+init_fixture_repo changed-korean-path
+printf '%s\n' "$blocked_contact" >"$FIXTURE_REPO/합성-경로.md"
+git -C "$FIXTURE_REPO" add '합성-경로.md'
+commit_fixture commit -qm 'test: synthetic Korean path fixture'
+expect_fail '한글 경로의 금지 주소가 있는 변경 파일' scan_fixture_repo
+
 init_fixture_repo test-source
 cp "$ROOT/scripts/check-public-safe.test.sh" \
   "$FIXTURE_REPO/scripts/check-public-safe.test.sh"

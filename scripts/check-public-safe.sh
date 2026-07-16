@@ -132,42 +132,45 @@ scan_text() { # $1=출처 라벨, stdin=텍스트
 
 # 1) 변경 파일 내용 (신규 A·복사 C·수정 M·이름변경 R만 — 삭제 제외)
 #    자기 자신(패턴 정의)과 lockfile(해시 오탐)은 제외
-if ! changed_all="$(git diff --name-only --diff-filter=ACMR "$BASE_REF"...HEAD --)"; then
+if ! changed_file_list="$(mktemp "${TMPDIR:-/tmp}/public-safe-files.XXXXXX")"; then
+  echo "::error::public-safe 임시 파일을 만들 수 없습니다."
+  exit 2
+fi
+trap 'rm -f "$changed_file_list"' EXIT
+if ! git diff --name-only -z --diff-filter=ACMR "$BASE_REF"...HEAD -- \
+  >"$changed_file_list"; then
   echo "::error::public-safe 변경 파일 목록을 읽을 수 없습니다."
   exit 2
 fi
-if changed="$(printf '%s\n' "$changed_all" \
-  | run_grep -v -e "^${SELF}\$" -e '^pnpm-lock\.yaml$')"; then
-  :
-else
-  status=$?
-  [ "$status" -eq 1 ] && changed="" || exit 2
-fi
-while IFS= read -r f; do
-  [ -n "$f" ] || continue
+changed_files=()
+changed_file_count=0
+while IFS= read -r -d '' f; do
+  [ "$f" = "$SELF" ] && continue
+  [ "$f" = "pnpm-lock.yaml" ] && continue
+  changed_files+=("$f")
+  changed_file_count=$((changed_file_count + 1))
   if ! file_text="$(git show "HEAD:$f")"; then
     echo "::error::public-safe 변경 파일 blob을 읽을 수 없습니다."
     exit 2
   fi
   scan_text "파일 $f" <<<"$file_text"
-done <<EOF
-$changed
-EOF
+done <"$changed_file_list"
 
 # 0) 금지 파일 경로 — 내용과 무관하게 커밋 자체를 차단
-if bad_files="$(printf '%s\n' "$changed" | run_grep -E "$FORBIDDEN_FILE_RE")"; then
-  if bad_files="$(printf '%s\n' "$bad_files" | run_grep -Ev "$ALLOWED_FILE_RE")"; then
-    :
-  else
-    status=$?
-    [ "$status" -eq 1 ] && bad_files="" || exit 2
-  fi
-else
-  status=$?
-  [ "$status" -eq 1 ] && bad_files="" || exit 2
+bad_files=()
+bad_file_count=0
+if [ "$changed_file_count" -gt 0 ]; then
+  for f in "${changed_files[@]}"; do
+    if [[ "$f" =~ $FORBIDDEN_FILE_RE ]] \
+      && ! [[ "$f" =~ $ALLOWED_FILE_RE ]]; then
+      bad_files+=("$f")
+      bad_file_count=$((bad_file_count + 1))
+    fi
+  done
 fi
-if [ -n "$bad_files" ]; then
-  report "금지 파일(.env 실값·개인키·로컬 DB류)" "$bad_files"
+if [ "$bad_file_count" -gt 0 ]; then
+  report "금지 파일(.env 실값·개인키·로컬 DB류)" \
+    "$(printf '  %s\n' "${bad_files[@]}")"
   echo "  → env 실값은 secret store에, 실데이터는 repo 밖 격리 경로에 둔다 (docs/rules/security.md)"
 fi
 
