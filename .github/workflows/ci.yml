@@ -54,8 +54,7 @@ jobs:
               - 'scripts/check-jenkinsfile.test.sh'
               - '.github/workflows/**'
             docker_context:
-              - 'apps/frontend/Dockerfile'
-              - 'apps/backend/Dockerfile'
+              - 'apps/*/Dockerfile'
               - '.dockerignore'
               - 'scripts/check-docker-context.sh'
               - 'scripts/check-docker-context.test.sh'

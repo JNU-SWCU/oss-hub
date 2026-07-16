@@ -117,6 +117,14 @@ ctx=$(make_context add-instruction)
 printf '%s\n' 'ADD context.tar /tmp/' >>"$ctx/apps/frontend/Dockerfile"
 expect_fail 'ADD instruction 사용' "$ctx"
 
+ctx=$(make_context exec-form-copy)
+printf '%s\n' 'COPY [".", "/app"]' >>"$ctx/apps/backend/Dockerfile"
+expect_fail 'exec form COPY로 우회' "$ctx"
+
+ctx=$(make_context glob-copy)
+printf '%s\n' 'COPY * /app/' >>"$ctx/apps/frontend/Dockerfile"
+expect_fail 'glob(*) 소스 COPY' "$ctx"
+
 ctx=$(make_context commented-broad-copy)
 printf '%s\n' '# COPY . .' >>"$ctx/apps/backend/Dockerfile"
 expect_pass '주석뿐인 전체 COPY' "$ctx"

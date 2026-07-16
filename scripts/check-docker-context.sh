@@ -96,7 +96,7 @@ while IFS= read -r dockerfile; do
     }
   ' "$dockerfile" >"$scan_file"
 
-  add_lines=$(grep -En '^[[:space:]]*[Aa][Dd][Dd][[:space:]]' "$scan_file" | cut -d: -f1 || true)
+  add_lines=$(grep -En '^[[:space:]]*[Aa][Dd][Dd]([[:space:]]|\[)' "$scan_file" | cut -d: -f1 || true)
   if [[ -n "$add_lines" ]]; then
     for lineno in $add_lines; do
       echo "docker-context contract: ADD instruction prohibited in $rel_path (scan line $lineno) — use COPY with explicit paths" >&2
@@ -104,7 +104,17 @@ while IFS= read -r dockerfile; do
     done
   fi
 
-  broad_copy_lines=$(grep -En '^[[:space:]]*[Cc][Oo][Pp][Yy][[:space:]]+(--[^[:space:]]+[[:space:]]+)*(\.|\./|\.\.[^[:space:]]*)([[:space:]]|$)' "$scan_file" | cut -d: -f1 || true)
+  # exec(JSON) form COPY는 아래 shell form 검사를 우회하므로 전면 금지한다.
+  exec_copy_lines=$(grep -En '^[[:space:]]*[Cc][Oo][Pp][Yy][[:space:]]*\[' "$scan_file" | cut -d: -f1 || true)
+  if [[ -n "$exec_copy_lines" ]]; then
+    for lineno in $exec_copy_lines; do
+      echo "docker-context contract: exec-form COPY prohibited in $rel_path (scan line $lineno) — use shell form with explicit paths" >&2
+      violations=$((violations + 1))
+    done
+  fi
+
+  # 소스가 . / ./ / ..으로 시작하거나 glob(*)이면 context root 전체·비명시 복사로 본다.
+  broad_copy_lines=$(grep -En '^[[:space:]]*[Cc][Oo][Pp][Yy][[:space:]]+(--[^[:space:]]+[[:space:]]+)*(\.|\./|\.\.[^[:space:]]*|\*[^[:space:]]*)([[:space:]]|$)' "$scan_file" | cut -d: -f1 || true)
   if [[ -n "$broad_copy_lines" ]]; then
     for lineno in $broad_copy_lines; do
       echo "docker-context contract: broad COPY of context root prohibited in $rel_path (scan line $lineno) — copy explicit paths only" >&2
