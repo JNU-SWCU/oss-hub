@@ -144,7 +144,7 @@ scan_text() { # $1=출처 라벨, stdin=텍스트
 
   # EAI·Unicode domain은 허용 예외로 지원하지 않는다. 비ASCII email-shaped token과
   # punycode IDN 후보는 ASCII 이메일 허용 목록보다 우선해 보수적으로 차단한다.
-  if candidates="$(printf '%s\n' "$text" | run_grep -EIno '[^[:space:]@]+@[^[:space:]@]+')"; then
+  if candidates="$(printf '%s\n' "$text" | run_grep -EIno '("[^"]*"|[^[:space:]@]+)@[^[:space:]@]+')"; then
     unsupported_candidates=""
     if non_ascii_candidates="$(printf '%s\n' "$candidates" | LC_ALL=C run_grep -E '[^ -~]')"; then
       unsupported_candidates="$non_ascii_candidates"
