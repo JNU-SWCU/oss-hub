@@ -14,6 +14,13 @@ allowed_reserved_upper='FIXTURE'"@"'SYNTHETIC.INVALID'
 blocked_contact='contact'"@"'synthetic.local'
 blocked_lookalike='contact'"@"'notexample.com'
 blocked_test_lookalike='contact'"@"'test.co'
+at_sign="$(printf '\100')"
+blocked_eai_local="합성${at_sign}synthetic.invalid"
+blocked_quoted_eai_local="\"합성 ascii\"${at_sign}synthetic.invalid"
+blocked_quoted_escaped_eai_local='"합성\" ascii"'"${at_sign}"'synthetic.invalid'
+blocked_quoted_ascii_contact='"synthetic local"'"${at_sign}"'notexample.com'
+blocked_unicode_domain="fixture${at_sign}합성.invalid"
+blocked_punycode_domain="fixture${at_sign}xn--synthetic.invalid"
 blocked_name='-SyntheticName'
 mixed_same_line="$allowed_noreply $blocked_contact"
 git_identity="$allowed_noreply"
@@ -114,6 +121,20 @@ expect_blocked_redacted() {
   fi
 }
 
+expect_forbidden_path_redacted() {
+  local output status=0
+  output="$(scan_fixture_repo 2>&1)" || status=$?
+  if [ "$status" -eq 1 ] \
+    && [[ "$output" =~ path-id:[0-9a-f]{40} ]] \
+    && [[ "$output" != *"forged-annotation"* ]]; then
+    printf 'ok - 제어문자 파일 경로를 안전한 식별자로 대체\n'
+    passed=$((passed + 1))
+  else
+    printf 'not ok - 제어문자 파일 경로 redaction\n'
+    failed=$((failed + 1))
+  fi
+}
+
 init_fixture_repo() {
   FIXTURE_REPO="$TEMP_ROOT/$1"
   mkdir -p "$FIXTURE_REPO/scripts"
@@ -154,6 +175,18 @@ expect_fail '예약 도메인 유사 이름인 PR 텍스트' \
   scan_pr_text "$blocked_lookalike"
 expect_fail '예약 TLD 유사 이름인 PR 텍스트' \
   scan_pr_text "$blocked_test_lookalike"
+expect_fail 'EAI local-part 이메일 후보를 보수적으로 차단' \
+  scan_pr_text "$blocked_eai_local"
+expect_fail '공백을 포함한 quoted EAI local-part를 보수적으로 차단' \
+  scan_pr_text "$blocked_quoted_eai_local"
+expect_fail 'escaped quote가 있는 quoted EAI local-part를 보수적으로 차단' \
+  scan_pr_text "$blocked_quoted_escaped_eai_local"
+expect_fail 'quoted ASCII 연락처 후보를 보수적으로 차단' \
+  scan_pr_text "$blocked_quoted_ascii_contact"
+expect_fail 'Unicode domain 이메일 후보를 보수적으로 차단' \
+  scan_pr_text "$blocked_unicode_domain"
+expect_fail 'punycode IDN 이메일 후보를 연락처로 차단' \
+  scan_pr_text "$blocked_punycode_domain"
 expect_fail '허용·금지 주소가 같은 줄인 PR 텍스트' \
   scan_pr_text "$mixed_same_line"
 expect_error '존재하지 않는 기준 ref' 2 scan_invalid_ref
@@ -191,6 +224,32 @@ cp "$ROOT/scripts/check-public-safe.test.sh" \
 git -C "$FIXTURE_REPO" add scripts/check-public-safe.test.sh
 commit_fixture commit -qm 'test: synthetic regression source'
 expect_pass '회귀 테스트 소스 자체 public-safe 검사' scan_fixture_repo
+
+init_fixture_repo forbidden-upper-env
+printf 'synthetic config\n' >"$FIXTURE_REPO/.ENV"
+git -C "$FIXTURE_REPO" add .ENV
+commit_fixture commit -qm 'test: uppercase env path fixture'
+expect_fail '대문자 .ENV 파일 경로' scan_fixture_repo
+
+init_fixture_repo forbidden-upper-env-example
+printf 'SYNTHETIC_KEY=placeholder\n' >"$FIXTURE_REPO/.ENV.EXAMPLE"
+git -C "$FIXTURE_REPO" add .ENV.EXAMPLE
+commit_fixture commit -qm 'test: uppercase env example path fixture'
+expect_fail '비정규 대문자 .ENV.EXAMPLE 파일 경로' scan_fixture_repo
+
+init_fixture_repo allowed-canonical-env-example
+printf 'SYNTHETIC_KEY=placeholder\n' >"$FIXTURE_REPO/.env.example"
+git -C "$FIXTURE_REPO" add .env.example
+commit_fixture commit -qm 'test: canonical env example path fixture'
+expect_pass '정규 소문자 .env.example 파일 경로' scan_fixture_repo
+
+init_fixture_repo control-character-path
+control_dir=$'synthetic\n::error::forged-annotation'
+mkdir -p "$FIXTURE_REPO/$control_dir"
+printf 'synthetic config\n' >"$FIXTURE_REPO/$control_dir/.ENV"
+git -C "$FIXTURE_REPO" add -- "$control_dir/.ENV"
+commit_fixture commit -qm 'test: control character path fixture'
+expect_forbidden_path_redacted
 
 printf 'tests=%s passed=%s failed=%s\n' \
   "$((passed + failed))" "$passed" "$failed"
