@@ -12,3 +12,9 @@
 
 # public-safe 스캔 스크립트 — 검사 로직을 약화시키는 변경 방지
 /scripts/        @GoBeromsu @Lumiere001
+
+# 배포 정의 — 자동 검사의 한계를 독립 리뷰로 보완
+/Jenkinsfile     @GoBeromsu @Lumiere001
+/compose.yml     @GoBeromsu @Lumiere001
+/.env.example    @GoBeromsu @Lumiere001
+/deploy/         @GoBeromsu @Lumiere001
