@@ -126,6 +126,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: public-safe regex 회귀 테스트
+        run: bash scripts/check-public-safe.test.sh
+
       # org repo는 gitleaks-action이 라이선스 키를 요구하므로 MIT 라이선스인 CLI를 직접 실행한다.
       # https://github.com/gitleaks/gitleaks-action#environment-variables
       - name: gitleaks 시크릿 스캔 (이 PR의 신규 커밋만)
@@ -138,7 +141,6 @@ jobs:
       # PR 본문은 ${{ }} 인라인 치환이 아니라 env 주입 — script injection 방지 (GitHub 공식 권고)
       - name: public-safe regex 스캔 (deny-list)
         env:
-          BLOCKED_NAMES: ${{ secrets.BLOCKED_NAMES }}
           PR_TEXT: |
             ${{ github.event.pull_request.title }}
             ${{ github.event.pull_request.body }}
