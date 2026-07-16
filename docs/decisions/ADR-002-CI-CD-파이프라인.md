@@ -58,12 +58,14 @@ CD는 main 병합 시 GitHub webhook으로 배포 서버 Jenkins를 호출한다
 ### New constraints
 
 - GitHub Actions required job 이름은 반드시 `ci`이고 모든 PR에서 보고되어야 한다.
+- 경로별 검증 대상과 synthetic-only 경계는 [CI 경로별 검증 계약](../rules/ci-path-verification.md)을 따른다.
 - Jenkins는 main webhook만 처리하고 동시 배포를 금지한다.
 - Compose는 `COMPOSE_PROJECT_NAME`을 고정하며 `pgdata`와 기존 데이터를 삭제하는 `down -v`를 사용하지 않는다.
 - nginx(80/443)는 `/`를 front로, `/api`를 back으로 라우팅하고 `/api/v1` 접두사는 제거하지 않는다. 런타임은 nginx, front, back, postgres 네 컨테이너다.
 
 ## Changelog
 
+- 2026-07-16: 경로별 검증 계약 링크 추가
 - 2026-07-11: initial decision
 
 ## References
