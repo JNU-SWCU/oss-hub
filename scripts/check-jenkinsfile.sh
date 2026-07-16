@@ -55,11 +55,25 @@ checkout_count=$(grep -Ec '^[[:space:]]*skipDefaultCheckout\(true\)[[:space:]]*$
 compose_project_count=$(grep -Ec "^[[:space:]]*COMPOSE_PROJECT_NAME[[:space:]]*=[[:space:]]*'oss-hub'[[:space:]]*$" "$active_jenkinsfile" || true)
 image_tag_count=$(grep -Ec "^[[:space:]]*env\.IMAGE_TAG[[:space:]]*=[[:space:]]*sh\(script:[[:space:]]*'git rev-parse HEAD',[[:space:]]*returnStdout:[[:space:]]*true\)\.trim\(\)[[:space:]]*$" "$active_jenkinsfile" || true)
 image_tag_assignment_count=$({ grep -Eo 'env\.IMAGE_TAG[[:space:]]*=' "$active_jenkinsfile" || true; } | wc -l | tr -d ' ')
+rollback_image_tag_scope_count=$(grep -Ec '^[[:space:]]*withEnv\(\["IMAGE_TAG=\$\{env\.PREV_TAG\}"\]\)[[:space:]]*\{[[:space:]]*$' "$active_jenkinsfile" || true)
+unexpected_image_tag_line_count=$(awk '
+  /IMAGE_TAG/ {
+    line=$0
+    sub(/^[[:space:]]*/, "", line)
+    if (line == "env.IMAGE_TAG = sh(script: \047git rev-parse HEAD\047, returnStdout: true).trim()") next
+    if (line == "echo \"IMAGE_TAG=${env.IMAGE_TAG}\"") next
+    if (line == "withEnv([\"IMAGE_TAG=${env.PREV_TAG}\"]) {") next
+    if (line ~ /^docker build --file apps\/(frontend|backend)\/Dockerfile --tag "oss-hub-(frontend|backend):\$\{IMAGE_TAG\}" \.$/) next
+    if (line ~ /^"oss-hub-backend:\$\{IMAGE_TAG\}"[[:space:]]*\\$/) next
+    count++
+  }
+  END { print count + 0 }
+' "$active_jenkinsfile")
 rollback_guard_count=$(grep -Ec '^[[:space:]]*if[[:space:]]*\(env\.PREV_TAG\?\.trim\(\)\)[[:space:]]*\{[[:space:]]*$' "$active_jenkinsfile" || true)
 migration_count=$(grep -Ec '^[[:space:]]*npx[[:space:]]+prisma[[:space:]]+migrate[[:space:]]+deploy[[:space:]]*$' "$active_jenkinsfile" || true)
 
-if ((concurrency_count != 1 || checkout_count != 1 || compose_project_count != 1 || image_tag_count != 1 || image_tag_assignment_count != 1 || rollback_guard_count != 1 || migration_count != 1)); then
-  echo "Jenkinsfile contract: required active directives must each appear exactly once (concurrency=$concurrency_count, checkout=$checkout_count, compose_project=$compose_project_count, image_tag=$image_tag_count/$image_tag_assignment_count, rollback=$rollback_guard_count, migration=$migration_count)" >&2
+if ((concurrency_count != 1 || checkout_count != 1 || compose_project_count != 1 || image_tag_count != 1 || image_tag_assignment_count != 1 || rollback_image_tag_scope_count != 1 || unexpected_image_tag_line_count != 0 || rollback_guard_count != 1 || migration_count != 1)); then
+  echo "Jenkinsfile contract: required active directives must each appear exactly once (concurrency=$concurrency_count, checkout=$checkout_count, compose_project=$compose_project_count, image_tag=$image_tag_count/$image_tag_assignment_count, rollback_image_tag=$rollback_image_tag_scope_count, unexpected_image_tag=$unexpected_image_tag_line_count, rollback=$rollback_guard_count, migration=$migration_count)" >&2
   exit 1
 fi
 
