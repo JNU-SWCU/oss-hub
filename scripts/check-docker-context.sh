@@ -113,13 +113,35 @@ while IFS= read -r dockerfile; do
     done
   fi
 
-  # 소스가 . / ./ / ..으로 시작하거나 glob(*)이면 context root 전체·비명시 복사로 본다.
-  broad_copy_lines=$(grep -En '^[[:space:]]*[Cc][Oo][Pp][Yy][[:space:]]+(--[^[:space:]]+[[:space:]]+)*(\.|\./|\.\.[^[:space:]]*|\*[^[:space:]]*)([[:space:]]|$)' "$scan_file" | cut -d: -f1 || true)
-  if [[ -n "$broad_copy_lines" ]]; then
-    for lineno in $broad_copy_lines; do
-      echo "docker-context contract: broad COPY of context root prohibited in $rel_path (scan line $lineno) — copy explicit paths only" >&2
+  # shell-form COPY는 마지막 token이 destination이고 그 앞 전부가 source다.
+  # 모든 source token을 검사한다 — . / ./ / ..시작 / glob(*)시작이면 비명시 복사로 본다.
+  # (leading --flag는 건너뛰고, source·destination 없는 COPY는 fail-closed로 위반 처리.)
+  broad_copy_report=$(awk -v rel="$rel_path" '
+    tolower($1) == "copy" {
+      n = 0
+      for (i = 2; i <= NF; i++) {
+        if (n == 0 && $i ~ /^--/) continue
+        tokens[++n] = $i
+      }
+      if (n < 2) {
+        printf "docker-context contract: malformed COPY (source and destination required) in %s (scan line %d)\n", rel, NR
+        delete tokens
+        next
+      }
+      for (j = 1; j < n; j++) {
+        t = tokens[j]
+        if (t == "." || t == "./" || t ~ /^\.\./ || t ~ /^\*/) {
+          printf "docker-context contract: broad COPY source prohibited in %s (scan line %d, source position %d) — copy explicit paths only\n", rel, NR, j
+        }
+      }
+      delete tokens
+    }
+  ' "$scan_file")
+  if [[ -n "$broad_copy_report" ]]; then
+    while IFS= read -r report_line; do
+      echo "$report_line" >&2
       violations=$((violations + 1))
-    done
+    done <<<"$broad_copy_report"
   fi
 done <<<"$dockerfiles"
 

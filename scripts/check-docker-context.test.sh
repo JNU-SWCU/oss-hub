@@ -125,6 +125,22 @@ ctx=$(make_context glob-copy)
 printf '%s\n' 'COPY * /app/' >>"$ctx/apps/frontend/Dockerfile"
 expect_fail 'glob(*) 소스 COPY' "$ctx"
 
+ctx=$(make_context multi-source-broad-dot)
+printf '%s\n' 'COPY package.json . /app/' >>"$ctx/apps/backend/Dockerfile"
+expect_fail '다중 source 중 후속 . 우회' "$ctx"
+
+ctx=$(make_context multi-source-broad-parent)
+printf '%s\n' 'COPY package.json ../secret /app/' >>"$ctx/apps/backend/Dockerfile"
+expect_fail '다중 source 중 후속 상위 경로 우회' "$ctx"
+
+ctx=$(make_context multi-source-broad-glob)
+printf '%s\n' 'COPY package.json * /app/' >>"$ctx/apps/frontend/Dockerfile"
+expect_fail '다중 source 중 후속 glob 우회' "$ctx"
+
+ctx=$(make_context malformed-copy)
+printf '%s\n' 'COPY package.json' >>"$ctx/apps/backend/Dockerfile"
+expect_fail 'source·destination 미달 COPY (fail-closed)' "$ctx"
+
 ctx=$(make_context commented-broad-copy)
 printf '%s\n' '# COPY . .' >>"$ctx/apps/backend/Dockerfile"
 expect_pass '주석뿐인 전체 COPY' "$ctx"
@@ -132,6 +148,10 @@ expect_pass '주석뿐인 전체 COPY' "$ctx"
 ctx=$(make_context scoped-copy)
 printf '%s\n' 'COPY apps/backend/prisma ./prisma-extra' >>"$ctx/apps/backend/Dockerfile"
 expect_pass '명시 경로 COPY 추가' "$ctx"
+
+ctx=$(make_context multi-source-scoped-copy)
+printf '%s\n' 'COPY package.json pnpm-lock.yaml ./meta/' >>"$ctx/apps/backend/Dockerfile"
+expect_pass '다중 명시 source COPY (destination ./ 허용)' "$ctx"
 
 ctx=$(make_context no-dockerfiles)
 rm "$ctx/apps/backend/Dockerfile" "$ctx/apps/frontend/Dockerfile"
