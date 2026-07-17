@@ -114,13 +114,22 @@ while IFS= read -r dockerfile; do
   fi
 
   # shell-form COPY는 마지막 token이 destination이고 그 앞 전부가 source다.
-  # 모든 source token을 검사한다 — . / ./ / ..시작 / glob(*)시작이면 비명시 복사로 본다.
-  # (leading --flag는 건너뛰고, source·destination 없는 COPY는 fail-closed로 위반 처리.)
+  # source는 표기 열거가 아니라 정규화 후 의미로 분류한다 (동치 표기 우회 차단):
+  #   1) wildcard 문자(* ? [)를 포함하면 거부 — 비명시 복사
+  #   2) /로 시작하면 거부 — Docker는 context 기준으로 해석하므로 절대 표기 자체를 금지
+  #   3) 경로를 세그먼트로 해석해 빈 세그먼트·"."을 제거하고, ".."이 있으면 거부,
+  #      실제 세그먼트가 0개면 context root 동치(., ./, ./. 등)로 거부
+  # --from= 이 있는 COPY는 build context가 아니라 이전 stage/이미지에서 복사하므로 제외.
+  # leading --flag는 건너뛰고, source·destination 미달 COPY는 fail-closed로 위반 처리.
   broad_copy_report=$(awk -v rel="$rel_path" '
     tolower($1) == "copy" {
       n = 0
+      from_stage = 0
       for (i = 2; i <= NF; i++) {
-        if (n == 0 && $i ~ /^--/) continue
+        if (n == 0 && $i ~ /^--/) {
+          if (tolower($i) ~ /^--from=/) from_stage = 1
+          continue
+        }
         tokens[++n] = $i
       }
       if (n < 2) {
@@ -128,10 +137,33 @@ while IFS= read -r dockerfile; do
         delete tokens
         next
       }
+      if (from_stage) {
+        delete tokens
+        next
+      }
       for (j = 1; j < n; j++) {
         t = tokens[j]
-        if (t == "." || t == "./" || t ~ /^\.\./ || t ~ /^\*/) {
-          printf "docker-context contract: broad COPY source prohibited in %s (scan line %d, source position %d) — copy explicit paths only\n", rel, NR, j
+        if (t ~ /[*?\[]/) {
+          printf "docker-context contract: wildcard COPY source prohibited in %s (scan line %d, source position %d) — copy explicit paths only\n", rel, NR, j
+          continue
+        }
+        if (t ~ /^\//) {
+          printf "docker-context contract: absolute COPY source prohibited in %s (scan line %d, source position %d) — use explicit context-relative paths\n", rel, NR, j
+          continue
+        }
+        m = split(t, seg, "/")
+        real = 0
+        parent = 0
+        for (k = 1; k <= m; k++) {
+          s = seg[k]
+          if (s == "" || s == ".") continue
+          if (s == "..") { parent = 1; break }
+          real++
+        }
+        if (parent) {
+          printf "docker-context contract: parent-traversal COPY source prohibited in %s (scan line %d, source position %d)\n", rel, NR, j
+        } else if (real == 0) {
+          printf "docker-context contract: context-root COPY source prohibited in %s (scan line %d, source position %d) — copy explicit paths only\n", rel, NR, j
         }
       }
       delete tokens

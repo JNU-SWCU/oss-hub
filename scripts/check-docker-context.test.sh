@@ -141,6 +141,26 @@ ctx=$(make_context malformed-copy)
 printf '%s\n' 'COPY package.json' >>"$ctx/apps/backend/Dockerfile"
 expect_fail 'source·destination 미달 COPY (fail-closed)' "$ctx"
 
+ctx=$(make_context root-equivalent-dot-slash-dot)
+printf '%s\n' 'COPY ./. /app' >>"$ctx/apps/backend/Dockerfile"
+expect_fail '루트 동치 표기 ./. 우회' "$ctx"
+
+ctx=$(make_context dot-slash-glob)
+printf '%s\n' 'COPY ./* /app' >>"$ctx/apps/frontend/Dockerfile"
+expect_fail './ 접두 glob 우회' "$ctx"
+
+ctx=$(make_context absolute-root)
+printf '%s\n' 'COPY / /app' >>"$ctx/apps/backend/Dockerfile"
+expect_fail '절대경로 / 우회' "$ctx"
+
+ctx=$(make_context single-char-glob)
+printf '%s\n' 'COPY ? /app' >>"$ctx/apps/frontend/Dockerfile"
+expect_fail '단일문자 wildcard ? 우회' "$ctx"
+
+ctx=$(make_context mid-path-traversal)
+printf '%s\n' 'COPY apps/backend/../../secret /app' >>"$ctx/apps/backend/Dockerfile"
+expect_fail '경로 중간 .. 우회' "$ctx"
+
 ctx=$(make_context commented-broad-copy)
 printf '%s\n' '# COPY . .' >>"$ctx/apps/backend/Dockerfile"
 expect_pass '주석뿐인 전체 COPY' "$ctx"
@@ -152,6 +172,10 @@ expect_pass '명시 경로 COPY 추가' "$ctx"
 ctx=$(make_context multi-source-scoped-copy)
 printf '%s\n' 'COPY package.json pnpm-lock.yaml ./meta/' >>"$ctx/apps/backend/Dockerfile"
 expect_pass '다중 명시 source COPY (destination ./ 허용)' "$ctx"
+
+ctx=$(make_context stage-copy-root)
+printf '%s\n' 'COPY --from=builder . /app' >>"$ctx/apps/backend/Dockerfile"
+expect_pass 'stage 간 복사는 context 아님 (--from)' "$ctx"
 
 ctx=$(make_context no-dockerfiles)
 rm "$ctx/apps/backend/Dockerfile" "$ctx/apps/frontend/Dockerfile"
