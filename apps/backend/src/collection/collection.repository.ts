@@ -1,59 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import {
-  CollectionRun as PrismaCollectionRun,
-  ObservationSourceType as PrismaObservationSourceType,
-  Prisma,
-  User as PrismaUser,
-} from '@prisma/client';
+import { ObservationSourceType as PrismaObservationSourceType } from '@prisma/client';
+import type { Prisma, User as PrismaUser } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  COLLECTION_RUN_STATUSES,
+import { COLLECTION_RUN_STATUSES } from './domain/collection-run';
+import type {
   CollectionRun,
-  CollectionTrigger,
   CollectionUser,
   ObservationSourceType,
   SuccessfulRunInput,
 } from './domain/collection-run';
-import { GithubObservation } from './domain/github-observation';
+import { PrismaCollectionRunStartStore } from './collection-run-start.store';
+import type { CollectionRunStartStore } from './collection-run-start.store';
+import { toCollectionRun } from './collection-run.mapper';
+import type { GithubObservation } from './domain/github-observation';
 
-type DatabaseClockRow = {
-  readonly now: Date;
-};
-
-type AdvisoryLockRow = {
-  readonly locked: boolean;
-};
-
-class MissingDatabaseClockError extends Error {
-  override readonly name = 'MissingDatabaseClockError';
-
-  constructor() {
-    super('Database did not return its current time');
-  }
-}
-
-class MissingAdvisoryLockResultError extends Error {
-  override readonly name = 'MissingAdvisoryLockResultError';
-
-  constructor() {
-    super('Database did not return the advisory lock result');
-  }
-}
-
-export type CollectionRunRetryState = Readonly<
-  Pick<CollectionRun, 'retryNotBeforeAt' | 'startedAt'>
->;
-
-export interface CollectionRunStartStore {
-  getDatabaseTime(): Promise<Date>;
-  tryAcquireUserLock(githubId: bigint): Promise<boolean>;
-  hasActiveRun(githubId: bigint): Promise<boolean>;
-  findLatestRun(githubId: bigint): Promise<CollectionRunRetryState | null>;
-  createRun(
-    user: CollectionUser,
-    trigger: CollectionTrigger,
-  ): Promise<CollectionRun>;
-}
+const FINALIZATION_TRANSACTION_TIMEOUT_MS = 30_000;
 
 @Injectable()
 export class CollectionRepository {
@@ -67,58 +28,9 @@ export class CollectionRepository {
   async withTransaction<T>(
     operation: (store: CollectionRunStartStore) => Promise<T>,
   ): Promise<T> {
-    return this.prisma.$transaction(async (transaction) => {
-      const store: CollectionRunStartStore = {
-        getDatabaseTime: async () => {
-          const clockRows = await transaction.$queryRaw<DatabaseClockRow[]>`
-            SELECT CURRENT_TIMESTAMP AS "now"
-          `;
-          const now = clockRows[0]?.now;
-          if (!now) {
-            throw new MissingDatabaseClockError();
-          }
-          return now;
-        },
-        tryAcquireUserLock: async (githubId) => {
-          const lockRows = await transaction.$queryRaw<AdvisoryLockRow[]>`
-            SELECT pg_try_advisory_xact_lock(${githubId}) AS "locked"
-          `;
-          const locked = lockRows[0]?.locked;
-          if (locked === undefined) {
-            throw new MissingAdvisoryLockResultError();
-          }
-          return locked;
-        },
-        hasActiveRun: async (targetGithubId) => {
-          const activeRun = await transaction.collectionRun.findFirst({
-            where: {
-              targetGithubId,
-              status: COLLECTION_RUN_STATUSES.RUNNING,
-            },
-            select: { id: true },
-          });
-          return activeRun !== null;
-        },
-        findLatestRun: (targetGithubId) =>
-          transaction.collectionRun.findFirst({
-            where: { targetGithubId },
-            orderBy: { startedAt: 'desc' },
-            select: { retryNotBeforeAt: true, startedAt: true },
-          }),
-        createRun: async (user, trigger) => {
-          const run = await transaction.collectionRun.create({
-            data: {
-              targetGithubId: user.githubId,
-              targetLogin: user.login,
-              trigger,
-              status: COLLECTION_RUN_STATUSES.RUNNING,
-            },
-          });
-          return this.toRun(run);
-        },
-      };
-      return operation(store);
-    });
+    return this.prisma.$transaction((transaction) =>
+      operation(new PrismaCollectionRunStartStore(transaction)),
+    );
   }
 
   async markSucceeded(input: SuccessfulRunInput): Promise<CollectionRun> {
@@ -139,46 +51,73 @@ export class CollectionRepository {
         input.events,
       ),
     ];
-    const [, run] = await this.prisma.$transaction([
-      this.prisma.githubRawObservation.createMany({ data: observations }),
-      this.prisma.collectionRun.update({
-        where: { id: input.runId },
-        data: {
-          status: COLLECTION_RUN_STATUSES.SUCCEEDED,
-          profileCount: input.profiles.length,
-          repoCount: input.repositories.length,
-          eventCount: input.events.length,
-          finishedAt: new Date(),
-        },
-      }),
-    ]);
-    return this.toRun(run);
+    return this.prisma.$transaction(
+      async (transaction) => {
+        const transition = await transaction.collectionRun.updateMany({
+          where: {
+            id: input.runId,
+            status: COLLECTION_RUN_STATUSES.RUNNING,
+          },
+          data: {
+            status: COLLECTION_RUN_STATUSES.SUCCEEDED,
+            profileCount: input.profiles.length,
+            repoCount: input.repositories.length,
+            eventCount: input.events.length,
+            finishedAt: new Date(),
+          },
+        });
+        if (transition.count === 1) {
+          await transaction.githubRawObservation.createMany({
+            data: observations,
+          });
+        }
+        const run = await transaction.collectionRun.findUniqueOrThrow({
+          where: { id: input.runId },
+        });
+        return toCollectionRun(run);
+      },
+      { timeout: FINALIZATION_TRANSACTION_TIMEOUT_MS },
+    );
   }
 
   async markRateLimited(
     runId: string,
     retryNotBeforeAt: Date,
   ): Promise<CollectionRun> {
-    const run = await this.prisma.collectionRun.update({
-      where: { id: runId },
-      data: {
-        status: COLLECTION_RUN_STATUSES.RATE_LIMITED,
-        retryNotBeforeAt,
-        finishedAt: new Date(),
-      },
+    return this.finalizeRunning(runId, {
+      status: COLLECTION_RUN_STATUSES.RATE_LIMITED,
+      retryNotBeforeAt,
+      finishedAt: new Date(),
     });
-    return this.toRun(run);
   }
 
   async markFailed(runId: string): Promise<CollectionRun> {
-    const run = await this.prisma.collectionRun.update({
-      where: { id: runId },
-      data: {
-        status: COLLECTION_RUN_STATUSES.FAILED,
-        finishedAt: new Date(),
-      },
+    return this.finalizeRunning(runId, {
+      status: COLLECTION_RUN_STATUSES.FAILED,
+      finishedAt: new Date(),
     });
-    return this.toRun(run);
+  }
+
+  private async finalizeRunning(
+    runId: string,
+    data: Prisma.CollectionRunUpdateManyMutationInput,
+  ): Promise<CollectionRun> {
+    return this.prisma.$transaction(
+      async (transaction) => {
+        await transaction.collectionRun.updateMany({
+          where: {
+            id: runId,
+            status: COLLECTION_RUN_STATUSES.RUNNING,
+          },
+          data,
+        });
+        const run = await transaction.collectionRun.findUniqueOrThrow({
+          where: { id: runId },
+        });
+        return toCollectionRun(run);
+      },
+      { timeout: FINALIZATION_TRANSACTION_TIMEOUT_MS },
+    );
   }
 
   private toObservationRows(
@@ -198,22 +137,6 @@ export class CollectionRepository {
     return {
       githubId: user.githubId,
       login: user.login,
-    };
-  }
-
-  private toRun(run: PrismaCollectionRun): CollectionRun {
-    return {
-      id: run.id,
-      targetGithubId: run.targetGithubId,
-      targetLogin: run.targetLogin,
-      trigger: run.trigger,
-      status: run.status,
-      profileCount: run.profileCount,
-      repoCount: run.repoCount,
-      eventCount: run.eventCount,
-      retryNotBeforeAt: run.retryNotBeforeAt,
-      startedAt: run.startedAt,
-      finishedAt: run.finishedAt,
     };
   }
 }
