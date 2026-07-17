@@ -18,3 +18,5 @@
 /compose.yml     @GoBeromsu @Lumiere001
 /.env.example    @GoBeromsu @Lumiere001
 /deploy/         @GoBeromsu @Lumiere001
+/apps/*/Dockerfile @GoBeromsu @Lumiere001
+/.dockerignore   @GoBeromsu @Lumiere001
