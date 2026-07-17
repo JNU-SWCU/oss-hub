@@ -1,23 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import {
-  ObservationSourceType as PrismaObservationSourceType,
-  Prisma,
-  User as PrismaUser,
-} from '@prisma/client';
+import { ObservationSourceType as PrismaObservationSourceType } from '@prisma/client';
+import type { Prisma, User as PrismaUser } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  COLLECTION_RUN_STATUSES,
+import { COLLECTION_RUN_STATUSES } from './domain/collection-run';
+import type {
   CollectionRun,
   CollectionUser,
   ObservationSourceType,
   SuccessfulRunInput,
 } from './domain/collection-run';
-import {
-  CollectionRunStartStore,
-  PrismaCollectionRunStartStore,
-} from './collection-run-start.store';
+import { PrismaCollectionRunStartStore } from './collection-run-start.store';
+import type { CollectionRunStartStore } from './collection-run-start.store';
 import { toCollectionRun } from './collection-run.mapper';
-import { GithubObservation } from './domain/github-observation';
+import type { GithubObservation } from './domain/github-observation';
+
+const FINALIZATION_TRANSACTION_TIMEOUT_MS = 30_000;
 
 @Injectable()
 export class CollectionRepository {
@@ -54,46 +51,73 @@ export class CollectionRepository {
         input.events,
       ),
     ];
-    const [, run] = await this.prisma.$transaction([
-      this.prisma.githubRawObservation.createMany({ data: observations }),
-      this.prisma.collectionRun.update({
-        where: { id: input.runId },
-        data: {
-          status: COLLECTION_RUN_STATUSES.SUCCEEDED,
-          profileCount: input.profiles.length,
-          repoCount: input.repositories.length,
-          eventCount: input.events.length,
-          finishedAt: new Date(),
-        },
-      }),
-    ]);
-    return toCollectionRun(run);
+    return this.prisma.$transaction(
+      async (transaction) => {
+        const transition = await transaction.collectionRun.updateMany({
+          where: {
+            id: input.runId,
+            status: COLLECTION_RUN_STATUSES.RUNNING,
+          },
+          data: {
+            status: COLLECTION_RUN_STATUSES.SUCCEEDED,
+            profileCount: input.profiles.length,
+            repoCount: input.repositories.length,
+            eventCount: input.events.length,
+            finishedAt: new Date(),
+          },
+        });
+        if (transition.count === 1) {
+          await transaction.githubRawObservation.createMany({
+            data: observations,
+          });
+        }
+        const run = await transaction.collectionRun.findUniqueOrThrow({
+          where: { id: input.runId },
+        });
+        return toCollectionRun(run);
+      },
+      { timeout: FINALIZATION_TRANSACTION_TIMEOUT_MS },
+    );
   }
 
   async markRateLimited(
     runId: string,
     retryNotBeforeAt: Date,
   ): Promise<CollectionRun> {
-    const run = await this.prisma.collectionRun.update({
-      where: { id: runId },
-      data: {
-        status: COLLECTION_RUN_STATUSES.RATE_LIMITED,
-        retryNotBeforeAt,
-        finishedAt: new Date(),
-      },
+    return this.finalizeRunning(runId, {
+      status: COLLECTION_RUN_STATUSES.RATE_LIMITED,
+      retryNotBeforeAt,
+      finishedAt: new Date(),
     });
-    return toCollectionRun(run);
   }
 
   async markFailed(runId: string): Promise<CollectionRun> {
-    const run = await this.prisma.collectionRun.update({
-      where: { id: runId },
-      data: {
-        status: COLLECTION_RUN_STATUSES.FAILED,
-        finishedAt: new Date(),
-      },
+    return this.finalizeRunning(runId, {
+      status: COLLECTION_RUN_STATUSES.FAILED,
+      finishedAt: new Date(),
     });
-    return toCollectionRun(run);
+  }
+
+  private async finalizeRunning(
+    runId: string,
+    data: Prisma.CollectionRunUpdateManyMutationInput,
+  ): Promise<CollectionRun> {
+    return this.prisma.$transaction(
+      async (transaction) => {
+        await transaction.collectionRun.updateMany({
+          where: {
+            id: runId,
+            status: COLLECTION_RUN_STATUSES.RUNNING,
+          },
+          data,
+        });
+        const run = await transaction.collectionRun.findUniqueOrThrow({
+          where: { id: runId },
+        });
+        return toCollectionRun(run);
+      },
+      { timeout: FINALIZATION_TRANSACTION_TIMEOUT_MS },
+    );
   }
 
   private toObservationRows(
@@ -115,5 +139,4 @@ export class CollectionRepository {
       login: user.login,
     };
   }
-
 }

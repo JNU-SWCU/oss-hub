@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CollectionRepository } from './collection.repository';
 import {
   COLLECTION_RUN_COOLDOWN_MS,
+  COLLECTION_RUN_STALE_AFTER_MS,
   COLLECTION_RUN_START_KINDS,
 } from './domain/collection-run';
 import type {
@@ -29,6 +30,11 @@ export class CollectionRunStarter {
             ),
           };
         }
+        await store.recoverStaleRun(
+          user.githubId,
+          new Date(now.getTime() - COLLECTION_RUN_STALE_AFTER_MS),
+          now,
+        );
         if (await store.hasActiveRun(user.githubId)) {
           return {
             kind: COLLECTION_RUN_START_KINDS.REJECTED,

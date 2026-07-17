@@ -52,6 +52,7 @@ export const COLLECTION_RUN_START_KINDS = {
 } as const;
 
 export const COLLECTION_RUN_COOLDOWN_MS = 60_000 as const;
+export const COLLECTION_RUN_STALE_AFTER_MS = 30 * 60_000;
 
 export type CollectionRunStartResult =
   | {

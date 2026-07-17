@@ -38,6 +38,11 @@ export type CollectionRunRetryState = Readonly<
 export interface CollectionRunStartStore {
   getDatabaseTime(): Promise<Date>;
   tryAcquireUserLock(githubId: bigint): Promise<boolean>;
+  recoverStaleRun(
+    githubId: bigint,
+    staleBeforeAt: Date,
+    finishedAt: Date,
+  ): Promise<void>;
   hasActiveRun(githubId: bigint): Promise<boolean>;
   findLatestRun(githubId: bigint): Promise<CollectionRunRetryState | null>;
   createRun(
@@ -69,6 +74,24 @@ export class PrismaCollectionRunStartStore implements CollectionRunStartStore {
       throw new MissingAdvisoryLockResultError();
     }
     return locked;
+  }
+
+  async recoverStaleRun(
+    targetGithubId: bigint,
+    staleBeforeAt: Date,
+    finishedAt: Date,
+  ): Promise<void> {
+    await this.transaction.collectionRun.updateMany({
+      where: {
+        targetGithubId,
+        status: COLLECTION_RUN_STATUSES.RUNNING,
+        startedAt: { lte: staleBeforeAt },
+      },
+      data: {
+        status: COLLECTION_RUN_STATUSES.FAILED,
+        finishedAt,
+      },
+    });
   }
 
   async hasActiveRun(targetGithubId: bigint): Promise<boolean> {
