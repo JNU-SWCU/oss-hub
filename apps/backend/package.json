@@ -7,7 +7,9 @@
     "build": "nest build",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "typecheck": "tsc --noEmit",
-    "test": "jest",
+    "test": "pnpm run test:unit",
+    "test:unit": "jest --testPathIgnorePatterns='\\.integration\\.spec\\.ts$'",
+    "test:integration": "bash ../../scripts/run-backend-integration.sh",
     "db:migrate:dev": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub prisma migrate dev",
     "db:reset": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub prisma migrate reset --force",
     "collect:batch": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub ts-node src/collection/cli/collect-batch.ts"

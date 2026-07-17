@@ -1,0 +1,29 @@
+# Docker build context 방어선 (Issue #44).
+# Jenkins가 repository root를 build context로 사용하므로(ADR-002), 로컬 전용·민감 파일이
+# context에 진입하지 못하게 명시적으로 제외한다. 이 파일과 Dockerfile 변경은
+# CODEOWNERS 독립 리뷰와 scripts/check-docker-context.sh 검사를 함께 거친다.
+
+# 버전 관리·의존성·빌드 산출물
+.git
+**/node_modules
+**/dist
+**/.next
+**/build
+**/coverage
+
+# env 파일 — 대소문자 변형 포함 전면 제외, 정확한 소문자 .env.example만 재포함
+**/.[eE][nN][vV]
+**/.[eE][nN][vV].*
+**/*.[eE][nN][vV]
+!.env.example
+
+# 개인키·인증서
+**/*.pem
+**/*.key
+**/id_rsa*
+**/id_ed25519*
+
+# 로컬 데이터베이스
+**/*.sqlite
+**/*.sqlite3
+**/*.db

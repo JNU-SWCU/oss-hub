@@ -38,6 +38,32 @@ jobs:
               - 'pnpm-workspace.yaml'
               - 'pnpm-lock.yaml'
               - 'compose.dev.yml'
+              - 'scripts/run-backend-integration*.sh'
+              - '.github/workflows/**'
+            nginx:
+              - 'deploy/nginx/**'
+              - 'scripts/probe-nginx-callback-log.sh'
+              - '.github/workflows/**'
+            production_compose:
+              - 'compose.yml'
+              - '.env.example'
+              - '.github/workflows/**'
+            jenkins:
+              - 'Jenkinsfile'
+              - 'scripts/check-jenkinsfile.sh'
+              - 'scripts/check-jenkinsfile.test.sh'
+              - '.github/workflows/**'
+            docker_context:
+              - 'apps/*/Dockerfile'
+              - '.dockerignore'
+              - 'scripts/check-docker-context.sh'
+              - 'scripts/check-docker-context.test.sh'
+              - '.github/workflows/**'
+            shell_scripts:
+              - 'scripts/*.sh'
+              - '.github/workflows/**'
+            node_scripts:
+              - 'scripts/*.mjs'
               - '.github/workflows/**'
 
       # 의존성이 없는 Node 내장 테스트는 모든 PR에서 실행한다.
@@ -61,6 +87,47 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+
+      - name: shell script 문법 검사
+        if: ${{ steps.changes.outputs.shell_scripts == 'true' }}
+        run: bash -n scripts/*.sh
+
+      - name: Node script 문법 검사
+        if: ${{ steps.changes.outputs.node_scripts == 'true' }}
+        run: |
+          for script in scripts/*.mjs; do
+            node --check "$script"
+          done
+
+      - name: nginx callback 로그 계약 검사
+        if: ${{ steps.changes.outputs.nginx == 'true' }}
+        run: bash scripts/probe-nginx-callback-log.sh
+
+      - name: 운영 Compose 설정 검사
+        if: ${{ steps.changes.outputs.production_compose == 'true' }}
+        env:
+          POSTGRES_USER: synthetic_user
+          POSTGRES_PASSWORD: synthetic_password_for_config_only
+          POSTGRES_DB: synthetic_db
+          IMAGE_TAG: synthetic-commit-sha
+          DATABASE_URL: postgresql://synthetic_user:synthetic_password_for_config_only@postgres:5432/synthetic_db
+          SESSION_SECRET: synthetic_session_secret_for_config_only
+          FRONTEND_URL: https://synthetic.invalid
+          GITHUB_OAUTH_CLIENT_ID: synthetic_client_id
+          GITHUB_OAUTH_CLIENT_SECRET: synthetic_client_secret
+        run: docker compose --env-file .env.example -f compose.yml config --quiet
+
+      - name: Jenkins 배포 계약 회귀 테스트
+        if: ${{ steps.changes.outputs.jenkins == 'true' }}
+        run: |
+          bash scripts/check-jenkinsfile.test.sh
+          bash scripts/check-jenkinsfile.sh Jenkinsfile
+
+      - name: Docker build context 계약 회귀 테스트
+        if: ${{ steps.changes.outputs.docker_context == 'true' }}
+        run: |
+          bash scripts/check-docker-context.test.sh
+          bash scripts/check-docker-context.sh
 
       - name: 의존성 설치
         if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
@@ -90,9 +157,17 @@ jobs:
         if: ${{ steps.changes.outputs.backend == 'true' }}
         run: pnpm --filter backend typecheck
 
-      - name: backend test
+      - name: backend unit test
         if: ${{ steps.changes.outputs.backend == 'true' }}
-        run: pnpm --filter backend test
+        run: pnpm --filter backend test:unit
+
+      - name: backend integration runner contract
+        if: ${{ steps.changes.outputs.backend == 'true' }}
+        run: bash scripts/run-backend-integration.test.sh
+
+      - name: backend integration test
+        if: ${{ steps.changes.outputs.backend == 'true' }}
+        run: pnpm --filter backend test:integration
 
       - name: backend build
         if: ${{ steps.changes.outputs.backend == 'true' }}

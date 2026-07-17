@@ -1,7 +1,7 @@
 # exec-plan: GitHub 활동 수집기 (collection)
 
 - owner: @Lumiere001 / Issue: #10 / 브랜치: `feat/github-collector`
-- 상태: review (2026-07-15)
+- 상태: done — PR #14 merge (2026-07-17 archive)
 
 ## 목표
 

@@ -1,6 +1,5 @@
-import { execFileSync } from 'node:child_process';
-import { join, resolve } from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
+import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { CollectionRepository } from './collection.repository';
 import { CollectionRunStarter } from './collection-run-starter.service';
 import {
@@ -10,17 +9,12 @@ import {
 } from './domain/collection-run';
 import type { CollectionUser } from './domain/collection-run';
 
-const TEST_DATABASE_URL =
-  'postgresql://oss:oss-dev@localhost:5432/oss_hub';
-const DATABASE_SETUP_TIMEOUT_MS = 60_000;
-process.env.DATABASE_URL ??= TEST_DATABASE_URL;
+assertIsolatedIntegrationDatabase({
+  databaseUrl: process.env.DATABASE_URL,
+  runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
+});
 
-const backendDirectory = resolve(__dirname, '../..');
-const composeFile = resolve(__dirname, '../../../../compose.dev.yml');
-const prismaExecutable = join(
-  backendDirectory,
-  'node_modules/.bin/prisma',
-);
+const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 
 const parallelUser: CollectionUser = {
   githubId: 9_000_000_000_000_001n,
@@ -66,18 +60,8 @@ describe('CollectionRunStarter integration', () => {
   ];
 
   beforeAll(async () => {
-    execFileSync(
-      'docker',
-      ['compose', '-p', 'oss-hub', '-f', composeFile, 'up', '-d', '--wait'],
-      { stdio: 'pipe' },
-    );
-    execFileSync(prismaExecutable, ['migrate', 'deploy'], {
-      cwd: backendDirectory,
-      env: process.env,
-      stdio: 'pipe',
-    });
     await prisma.$connect();
-  }, DATABASE_SETUP_TIMEOUT_MS);
+  }, DATABASE_CONNECTION_TIMEOUT_MS);
 
   afterEach(async () => {
     await prisma.collectionRun.deleteMany({
