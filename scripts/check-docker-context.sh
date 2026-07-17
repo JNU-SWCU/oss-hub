@@ -143,6 +143,10 @@ while IFS= read -r dockerfile; do
       }
       for (j = 1; j < n; j++) {
         t = tokens[j]
+        if (t ~ /\$/) {
+          printf "docker-context contract: variable-expansion COPY source prohibited in %s (scan line %d, source position %d) — ARG/ENV 값에 따라 root·glob 동치가 될 수 있으므로 literal 명시 경로만 허용\n", rel, NR, j
+          continue
+        }
         if (t ~ /[*?\[]/) {
           printf "docker-context contract: wildcard COPY source prohibited in %s (scan line %d, source position %d) — copy explicit paths only\n", rel, NR, j
           continue

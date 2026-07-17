@@ -161,6 +161,14 @@ ctx=$(make_context mid-path-traversal)
 printf '%s\n' 'COPY apps/backend/../../secret /app' >>"$ctx/apps/backend/Dockerfile"
 expect_fail '경로 중간 .. 우회' "$ctx"
 
+ctx=$(make_context env-expansion-source)
+printf '%s\n' 'COPY $CONTEXT_SOURCE /app' >>"$ctx/apps/backend/Dockerfile"
+expect_fail '환경변수 확장 source 우회' "$ctx"
+
+ctx=$(make_context env-expansion-braced)
+printf '%s\n' 'COPY ${CONTEXT_SOURCE} /app' >>"$ctx/apps/frontend/Dockerfile"
+expect_fail '중괄호 환경변수 확장 source 우회' "$ctx"
+
 ctx=$(make_context commented-broad-copy)
 printf '%s\n' '# COPY . .' >>"$ctx/apps/backend/Dockerfile"
 expect_pass '주석뿐인 전체 COPY' "$ctx"
