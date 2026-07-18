@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
+import { TestRole, TestRoleMap, loadTestRoleMap } from './test-role-map';
 
 export interface OauthSettings {
   clientId: string;
@@ -28,12 +29,24 @@ export class AuthConfig {
   readonly allowedOrigin: string;
   readonly useSecureCookies: boolean;
 
+  private readonly testRoleMap: TestRoleMap;
+
   constructor() {
     this.sessionSecret = this.loadSessionSecret();
     this.frontendUrl = this.loadFrontendUrl();
     this.allowedOrigin = this.frontendUrl;
     this.useSecureCookies = this.isProduction;
     this.oauth = this.loadOauthSettings();
+    // 테스트 전용 역할 매핑 (Issue #65) — 운영에서 설정이 존재하면 여기서 즉시 실패한다.
+    this.testRoleMap = loadTestRoleMap(
+      process.env.AUTH_TEST_ROLE_MAP,
+      this.isProduction,
+    );
+  }
+
+  /** 세션 JWT·User 영속화와 무관한 조회 전용 계약 — 미등록 ID는 null. */
+  resolveTestRole(githubId: bigint): TestRole | null {
+    return this.testRoleMap.get(githubId) ?? null;
   }
 
   requireOauth(): OauthSettings {

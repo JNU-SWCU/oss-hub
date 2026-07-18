@@ -2,6 +2,7 @@
 
 이 문서는 oss-hub에서 작업하는 모든 AI 에이전트(Claude Code·Codex 등)와 사람의 공용 진입점이다.
 본문은 라우팅·프로토콜·표만 담는다. 상세 규칙은 링크된 문서가 원본이다. 이 문서는 100줄을 넘기지 않는다.
+문서는 한 문장을 한 줄에 쓴다 — 열 폭 하드랩은 렌더링 공백과 diff 노이즈를 만들므로 쓰지 않는다.
 
 ## 1. 세션 부트스트랩 — 읽기 순서 고정
 
@@ -13,6 +14,7 @@
 4. 위 문서들이 링크한 규칙(`docs/rules/`)과 ADR(`docs/decisions/`)만 추가로 읽는다.
 5. 착수 직전 `gh pr list --search "<기능>"` 1회 — 스냅샷 이후 열린 PR·Draft PR을 확인한다.
 6. `bash scripts/setup-hooks.sh` 1회 — 브랜치 정리 훅 활성화(멱등). "보존" 안내가 나오면 §7 참조.
+7. 로컬 실행이 필요하면 `docs/rules/local-dev.md`의 순서를 따른다.
 
 ## 2. Canonical Store — 정보 종류별 원본 위치
 
@@ -66,8 +68,7 @@ Hermes를 포함한 독립 리뷰는 적용되는 `AGENTS.md`·팀 컨벤션 준
 
 ## 5. 커밋 규칙 — 아토믹 + Conventional Commits
 
-한 커밋 = 하나의 논리적 변경. 두 가지 일을 했으면 두 커밋으로 쪼갠다 — 요약에 "및·그리고"가
-들어가면 쪼개라는 신호다. 중간 상태로 빌드가 깨지는 커밋을 만들지 않는다.
+한 커밋 = 하나의 논리적 변경. 두 가지 일을 했으면 두 커밋으로 쪼갠다 — 요약에 "및·그리고"가 들어가면 쪼개라는 신호다. 중간 상태로 빌드가 깨지는 커밋을 만들지 않는다.
 형식은 기존 커밋 이력과 동일하게 유지한다:
 
 ```text
@@ -96,5 +97,4 @@ type(scope): 한국어 요약 한 줄        # scope는 생략 가능
   `scripts/tidy-branches.sh`를 실행한다. origin/main 이력에 포함된 gone 브랜치만 `git branch -d`로
   삭제하고, 그 외에는 보류 안내만 한다. rebase 기반 pull·변경 없는 pull에서는 발화하지 않는다.
 - 다른 `core.hooksPath`를 쓰고 있으면 그 설정을 보존하고 이 훅은 비활성이다 — 이 경우
-  `scripts/tidy-branches.sh`를 수동 또는 자기 훅·주기 작업에서 직접 실행한다.
-  기존 설정 확인: `git config --show-origin --get core.hooksPath`
+  `scripts/tidy-branches.sh`를 수동 또는 자기 훅·주기 작업에서 직접 실행한다. 기존 설정 확인: `git config --show-origin --get core.hooksPath`
