@@ -19,5 +19,5 @@
 ## 동작 참고
 
 - frontend dev 모드는 `/api/v1/*` 요청을 `BACKEND_ORIGIN`(기본값 `http://localhost:4000`)으로 rewrite한다 (`apps/frontend/next.config.ts`).
-- backend `dev` 스크립트에는 개발용 `DATABASE_URL`(`oss`/`oss-dev`@`localhost:5432`/`oss_hub`)이 이미 내장돼 있어 별도 env 설정이 필요 없다.
+- backend `dev` 스크립트에는 개발용 `DATABASE_URL`이 이미 내장돼 있어 별도 env 설정이 필요 없다. 값은 `apps/backend/package.json`의 backend `dev` 스크립트 정의가 원본이다.
 - 종료 시 `docker compose -f compose.dev.yml down`으로 로컬 Postgres 컨테이너를 정리한다.
