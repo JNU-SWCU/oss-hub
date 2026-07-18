@@ -5,3 +5,9 @@ export { NavBar } from "./nav-bar";
 export type { NavItem } from "./nav-bar";
 export { PageHeader } from "./page-header";
 export { StatusMessagePage } from "./status-message-page";
+export { DataTable } from "./data-table"
+export type { DataTableColumn, DataTableProps } from "./data-table"
+export { RowActions } from "./row-actions"
+export type { RowActionsProps } from "./row-actions"
+export { DetailPanelLayout } from "./detail-panel-layout"
+export type { DetailPanelLayoutProps } from "./detail-panel-layout"
