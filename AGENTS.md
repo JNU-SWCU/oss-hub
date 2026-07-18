@@ -13,6 +13,7 @@
 4. 위 문서들이 링크한 규칙(`docs/rules/`)과 ADR(`docs/decisions/`)만 추가로 읽는다.
 5. 착수 직전 `gh pr list --search "<기능>"` 1회 — 스냅샷 이후 열린 PR·Draft PR을 확인한다.
 6. `bash scripts/setup-hooks.sh` 1회 — 브랜치 정리 훅 활성화(멱등). "보존" 안내가 나오면 §7 참조.
+7. 로컬 실행이 필요하면 `docs/rules/local-dev.md`의 순서를 따른다.
 
 ## 2. Canonical Store — 정보 종류별 원본 위치
 
@@ -96,5 +97,4 @@ type(scope): 한국어 요약 한 줄        # scope는 생략 가능
   `scripts/tidy-branches.sh`를 실행한다. origin/main 이력에 포함된 gone 브랜치만 `git branch -d`로
   삭제하고, 그 외에는 보류 안내만 한다. rebase 기반 pull·변경 없는 pull에서는 발화하지 않는다.
 - 다른 `core.hooksPath`를 쓰고 있으면 그 설정을 보존하고 이 훅은 비활성이다 — 이 경우
-  `scripts/tidy-branches.sh`를 수동 또는 자기 훅·주기 작업에서 직접 실행한다.
-  기존 설정 확인: `git config --show-origin --get core.hooksPath`
+  `scripts/tidy-branches.sh`를 수동 또는 자기 훅·주기 작업에서 직접 실행한다. 기존 설정 확인: `git config --show-origin --get core.hooksPath`
