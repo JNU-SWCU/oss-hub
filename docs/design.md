@@ -10,7 +10,7 @@
 
 `package.json`에 추가된 의존성과 이 문서의 대응 관계다.
 
-- `tailwindcss` / `@tailwindcss/postcss` / `postcss` — Tailwind v4 CSS-first 설정(`@theme inline`, JS 설정 파일 없음).
+- `tailwindcss` / `@tailwindcss/postcss` / `postcss` — Tailwind v4 CSS-first 설정. `@theme inline`을 쓰며 JS 설정 파일이 없다.
 - `shadcn` — 프리미티브 생성 CLI. 생성 직후부터 소유권이 레포 코드로 귀속되며 이후 이 패키지 자체에 런타임 의존은 없다.
 - `radix-ui` — 프리미티브의 접근성 동작(포커스 트랩, ARIA, 키보드 내비게이션)을 제공하는 헤드리스 라이브러리.
 - `class-variance-authority` — 컴포넌트 variant(색상/크기 등) 클래스 조합 관리.
