@@ -82,6 +82,28 @@ scan_invalid_ref() {
   )
 }
 
+scan_issue_text() {
+  (
+    cd "$ROOT"
+    ISSUE_TEXT="$1" bash "$SCANNER" --text-only
+  )
+}
+
+scan_issue_text_ignores_missing_ref() {
+  (
+    cd "$ROOT"
+    ISSUE_TEXT="$1" bash "$SCANNER" --text-only refs/heads/missing-public-safe-base
+  )
+}
+
+scan_issue_blocked_name() {
+  (
+    cd "$ROOT"
+    BLOCKED_NAMES="$blocked_name" ISSUE_TEXT="$blocked_name" \
+      bash "$SCANNER" --text-only
+  )
+}
+
 scan_broken_grep() {
   local bin="$TEMP_ROOT/broken-grep"
   mkdir -p "$bin"
@@ -195,6 +217,17 @@ expect_fail '하이픈으로 시작하는 BLOCKED_NAMES 값' scan_blocked_name
 expect_pass 'PR workflow에 BLOCKED_NAMES secret 미주입' \
   workflow_omits_blocked_names_secret
 expect_blocked_redacted
+
+expect_pass 'noreply 주소만 있는 Issue 본문·댓글 텍스트' \
+  scan_issue_text "$allowed_noreply"
+expect_fail '금지 합성 연락처 주소만 있는 Issue 본문·댓글 텍스트' \
+  scan_issue_text "$blocked_contact"
+expect_fail '허용·금지 주소가 같은 줄인 Issue 본문·댓글 텍스트' \
+  scan_issue_text "$mixed_same_line"
+expect_fail 'text-only 모드에서도 BLOCKED_NAMES 검사 적용' \
+  scan_issue_blocked_name
+expect_pass 'text-only 모드는 기준 ref 인자 없이도 통과 (git diff·커밋 메시지 스캔 생략)' \
+  scan_issue_text_ignores_missing_ref "$allowed_noreply"
 
 init_fixture_repo changed-file
 printf '%s\n' "$mixed_same_line" >"$FIXTURE_REPO/synthetic-fixture.txt"
