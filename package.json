@@ -12,9 +12,14 @@
     "test": "pnpm -r test",
     "team-state:check": "node scripts/team-state-check.mjs",
     "team-state:check:test": "node --test scripts/team-state-check.test.mjs",
+    "commitlint": "commitlint --config commitlint.config.cjs",
     "db:up": "docker compose -f compose.dev.yml up -d --wait",
     "db:migrate:dev": "pnpm --filter backend db:migrate:dev",
     "db:reset": "pnpm --filter backend db:reset",
     "postinstall": "pnpm --filter backend exec prisma generate"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.1",
+    "@commitlint/config-conventional": "^21.2.0"
   }
 }
