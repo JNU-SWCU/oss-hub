@@ -1,0 +1,228 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * 디자인 토큰 3-tier: primitive → semantic → component.
+ * 자세한 설명·팔레트·타이포 스케일 표는 docs/design.md 참고.
+ *
+ * 1) primitive — 의미 없는 원시 값(색상 램프). 아래 `--palette-*`.
+ * 2) semantic  — 역할 토큰. `:root`/`.dark`의 `--background` 등과 `--status-*` 그룹.
+ *    shadcn 컴포넌트(Button/Input/Field/Card/Alert/Table)가 이 계층을 직접 참조한다.
+ * 3) component — Tailwind 유틸리티 매핑. 아래 `@theme inline` 블록.
+ *    프리미티브가 `bg-primary`처럼 유틸리티 클래스로 소비하는 지점이다.
+ */
+
+/* ---------- 1) Primitive ---------- */
+:root {
+  /* Navy — sojoong.kr 주조색 anchor #003399 = --palette-navy-600 */
+  --palette-navy-50: #eef2fb;
+  --palette-navy-100: #d6e0f5;
+  --palette-navy-200: #adc1eb;
+  --palette-navy-300: #7f9cdb;
+  --palette-navy-400: #4a70c4;
+  --palette-navy-500: #1f4aa8;
+  --palette-navy-600: #003399;
+  --palette-navy-700: #002b80;
+  --palette-navy-800: #002266;
+  --palette-navy-900: #001a4d;
+
+  /* Green — sojoong.kr 보조색 anchor #00923F = --palette-green-500 */
+  --palette-green-50: #e8f8ee;
+  --palette-green-100: #c6edd4;
+  --palette-green-200: #96dcae;
+  --palette-green-300: #5cc687;
+  --palette-green-400: #2aab63;
+  --palette-green-500: #00923f;
+  --palette-green-600: #007a34;
+  --palette-green-700: #00622a;
+  --palette-green-800: #004a20;
+  --palette-green-900: #003215;
+
+  /* Gray — sojoong.kr 본문색 anchor #444444 = --palette-gray-700 */
+  --palette-gray-50: #f7f7f7;
+  --palette-gray-100: #eeeeee;
+  --palette-gray-200: #dddddd;
+  --palette-gray-300: #c4c4c4;
+  --palette-gray-400: #9e9e9e;
+  --palette-gray-500: #757575;
+  --palette-gray-600: #5c5c5c;
+  --palette-gray-700: #444444;
+  --palette-gray-800: #2b2b2b;
+  --palette-gray-900: #1a1a1a;
+
+  /* 상태색 — 브랜드 팔레트 밖의 보조 램프. semantic --status-* 그룹이 참조한다 */
+  --palette-amber-50: #fdf3e2;
+  --palette-amber-100: #f8e2b8;
+  --palette-amber-500: #e0a030;
+  --palette-amber-700: #a06f1a;
+  --palette-red-50: #fbe9e9;
+  --palette-red-100: #f3c6c6;
+  --palette-red-500: #d64545;
+  --palette-red-700: #a02f2f;
+
+  --palette-white: #ffffff;
+  --palette-black: #000000;
+}
+
+/* ---------- 3) Component (Tailwind 유틸리티 매핑) ---------- */
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  /* 도메인 상태색 — StatusBadge(B-6)가 소비할 component 계층 매핑 */
+  --color-status-recruiting-bg: var(--status-recruiting-bg);
+  --color-status-recruiting-fg: var(--status-recruiting-fg);
+  --color-status-closed-bg: var(--status-closed-bg);
+  --color-status-closed-fg: var(--status-closed-fg);
+  --color-status-pending-bg: var(--status-pending-bg);
+  --color-status-pending-fg: var(--status-pending-fg);
+  --color-status-approved-bg: var(--status-approved-bg);
+  --color-status-approved-fg: var(--status-approved-fg);
+  --color-status-rejected-bg: var(--status-rejected-bg);
+  --color-status-rejected-fg: var(--status-rejected-fg);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* ---------- 2) Semantic (역할 토큰) ---------- */
+:root {
+  --background: var(--palette-white);
+  --foreground: var(--palette-gray-700);
+  --card: var(--palette-white);
+  --card-foreground: var(--palette-gray-700);
+  --popover: var(--palette-white);
+  --popover-foreground: var(--palette-gray-700);
+  --primary: var(--palette-navy-600);
+  --primary-foreground: var(--palette-white);
+  --secondary: var(--palette-gray-100);
+  --secondary-foreground: var(--palette-gray-800);
+  --muted: var(--palette-gray-50);
+  --muted-foreground: var(--palette-gray-500);
+  --accent: var(--palette-green-500);
+  --accent-foreground: var(--palette-white);
+  --destructive: var(--palette-red-500);
+  --border: var(--palette-gray-200);
+  --input: var(--palette-gray-200);
+  --ring: var(--palette-navy-400);
+  --chart-1: var(--palette-navy-600);
+  --chart-2: var(--palette-green-500);
+  --chart-3: var(--palette-amber-500);
+  --chart-4: var(--palette-navy-300);
+  --chart-5: var(--palette-gray-500);
+  --radius: 0.625rem;
+  --sidebar: var(--palette-white);
+  --sidebar-foreground: var(--palette-gray-700);
+  --sidebar-primary: var(--palette-navy-600);
+  --sidebar-primary-foreground: var(--palette-white);
+  --sidebar-accent: var(--palette-gray-50);
+  --sidebar-accent-foreground: var(--palette-gray-800);
+  --sidebar-border: var(--palette-gray-200);
+  --sidebar-ring: var(--palette-navy-400);
+
+  /* 상태 그룹 — StatusBadge(B-6)가 참조할 이름. 값은 브랜드 팔레트 재사용 */
+  --status-recruiting-bg: var(--palette-green-50); /* 모집중 */
+  --status-recruiting-fg: var(--palette-green-700);
+  --status-closed-bg: var(--palette-gray-100); /* 마감 */
+  --status-closed-fg: var(--palette-gray-600);
+  --status-pending-bg: var(--palette-amber-50); /* 대기 */
+  --status-pending-fg: var(--palette-amber-700);
+  --status-approved-bg: var(--palette-green-50); /* 승인 */
+  --status-approved-fg: var(--palette-green-700);
+  --status-rejected-bg: var(--palette-red-50); /* 반려 */
+  --status-rejected-fg: var(--palette-red-700);
+}
+
+.dark {
+  --background: var(--palette-gray-900);
+  --foreground: var(--palette-gray-100);
+  --card: var(--palette-gray-800);
+  --card-foreground: var(--palette-gray-100);
+  --popover: var(--palette-gray-800);
+  --popover-foreground: var(--palette-gray-100);
+  --primary: var(--palette-navy-300);
+  --primary-foreground: var(--palette-navy-900);
+  --secondary: var(--palette-gray-800);
+  --secondary-foreground: var(--palette-gray-100);
+  --muted: var(--palette-gray-800);
+  --muted-foreground: var(--palette-gray-400);
+  --accent: var(--palette-green-400);
+  --accent-foreground: var(--palette-green-900);
+  --destructive: var(--palette-red-500);
+  --border: color-mix(in oklch, var(--palette-white) 12%, transparent);
+  --input: color-mix(in oklch, var(--palette-white) 16%, transparent);
+  --ring: var(--palette-navy-300);
+  --chart-1: var(--palette-navy-300);
+  --chart-2: var(--palette-green-400);
+  --chart-3: var(--palette-amber-500);
+  --chart-4: var(--palette-navy-200);
+  --chart-5: var(--palette-gray-400);
+  --sidebar: var(--palette-gray-800);
+  --sidebar-foreground: var(--palette-gray-100);
+  --sidebar-primary: var(--palette-navy-300);
+  --sidebar-primary-foreground: var(--palette-navy-900);
+  --sidebar-accent: var(--palette-gray-700);
+  --sidebar-accent-foreground: var(--palette-gray-100);
+  --sidebar-border: color-mix(in oklch, var(--palette-white) 12%, transparent);
+  --sidebar-ring: var(--palette-navy-300);
+
+  --status-recruiting-bg: var(--palette-green-800);
+  --status-recruiting-fg: var(--palette-green-100);
+  --status-closed-bg: var(--palette-gray-700);
+  --status-closed-fg: var(--palette-gray-200);
+  --status-pending-bg: var(--palette-amber-700);
+  --status-pending-fg: var(--palette-amber-50);
+  --status-approved-bg: var(--palette-green-800);
+  --status-approved-fg: var(--palette-green-100);
+  --status-rejected-bg: var(--palette-red-700);
+  --status-rejected-fg: var(--palette-red-50);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
