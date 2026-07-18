@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { githubLoginPath } from "./api";
 import { ClosingCtaSection } from "./components/closing-cta-section";
 import { LandingHero } from "./components/landing-hero";
 import { ProgramTypeSection } from "./components/program-type-section";
@@ -13,7 +14,7 @@ describe("landing page sections", () => {
 
     expect(html).toContain("오픈소스 프로그램을 한 곳에서");
     expect(html).toContain("GitHub으로 로그인");
-    expect(html).toContain("/api/v1/auth/github");
+    expect(html).toContain(githubLoginPath);
   });
 
   it("renders the hero auth error alert when a message is passed", () => {
@@ -44,6 +45,6 @@ describe("landing page sections", () => {
     const html = renderToStaticMarkup(<ClosingCtaSection />);
 
     expect(html).toContain("지금 GitHub 계정으로 시작하세요");
-    expect(html).toContain("/api/v1/auth/github");
+    expect(html).toContain(githubLoginPath);
   });
 });
