@@ -7,6 +7,14 @@
 /docs/rules/     @GoBeromsu @Lumiere001
 /docs/decisions/ @GoBeromsu @Lumiere001
 
+# 저장소 규칙 원본·설계 문서 — 이 파일들의 변경은 owner 승인이 필요
+/AGENTS.md       @GoBeromsu @Lumiere001
+/docs/design.md  @GoBeromsu @Lumiere001
+
+# 애플리케이션 코드 — 아키텍처 경계 lint 규칙 우회 등 구조 변경을 조기에 잡기 위해 리뷰 대상
+/apps/frontend/  @GoBeromsu @Lumiere001
+/apps/backend/   @GoBeromsu @Lumiere001
+
 # CI 워크플로·CODEOWNERS 자체 보호 — 이 파일을 고쳐 자물쇠를 빼는 변경도 리뷰 대상
 /.github/        @GoBeromsu @Lumiere001
 

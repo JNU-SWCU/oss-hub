@@ -1,0 +1,20 @@
+# 빌드 산출물 · 의존성
+node_modules
+dist
+build
+coverage
+.next
+out
+.vercel
+
+# 잠금 파일 — 도구가 소유한 포맷
+pnpm-lock.yaml
+
+# Prisma가 생성하는 마이그레이션 SQL — 도구 산출물
+apps/backend/prisma/migrations
+
+# 문서는 "한 문장 한 줄" 규칙(AGENTS.md)을 따로 쓴다 — prettier 프로즈 재포맷 대상 아님
+*.md
+
+# 에이전트 로컬 상태 — 커밋 대상 아님
+.omc

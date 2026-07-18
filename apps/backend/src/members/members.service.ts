@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { DomainException } from '../common/error-code';
 import { Member, MemberPage } from './domain/member';
-import { MEMBER_ERROR_CODES, MembersErrorCode } from './members-error-code.enum';
+import {
+  MEMBER_ERROR_CODES,
+  MembersErrorCode,
+} from './members-error-code.enum';
 import { MembersRepository } from './members.repository';
 
 @Injectable()
