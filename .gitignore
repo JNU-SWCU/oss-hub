@@ -36,6 +36,11 @@ out/
 .vercel/
 *.tsbuildinfo
 
+# Playwright artifacts
+playwright-report/
+test-results/
+blob-report/
+
 # direnv (dev DATABASE_URL 주입용, 비커밋)
 .envrc
 
