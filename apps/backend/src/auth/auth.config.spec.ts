@@ -9,6 +9,7 @@ const AUTH_ENV_KEYS = [
   'GITHUB_OAUTH_CLIENT_ID',
   'GITHUB_OAUTH_CLIENT_SECRET',
   'GITHUB_OAUTH_CALLBACK_URL',
+  'AUTH_TEST_ROLE_MAP',
 ] as const;
 
 function withEnv(env: NodeJS.ProcessEnv, run: () => void): void {
@@ -136,5 +137,18 @@ describe('AuthConfig', () => {
         );
       },
     );
+  });
+});
+
+describe('AuthConfig 테스트 역할 매핑 (Issue #65)', () => {
+  it('설정되면 역할을, 미등록·미설정이면 null을 반환한다', () => {
+    withEnv({ AUTH_TEST_ROLE_MAP: '101:STAFF' }, () => {
+      const config = new AuthConfig();
+      expect(config.resolveTestRole(101n)).toBe('STAFF');
+      expect(config.resolveTestRole(999n)).toBeNull();
+    });
+    withEnv({}, () => {
+      expect(new AuthConfig().resolveTestRole(101n)).toBeNull();
+    });
   });
 });

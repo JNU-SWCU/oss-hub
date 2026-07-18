@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { flowCookieName, serializeCookie } from './cookies';
 import { AuthUser } from './domain/auth-user';
 import { createFlowState, encodeFlowCookie } from './oauth-flow';
+import { AuthenticatedRequest } from './session.guard';
 
 const syntheticUser: AuthUser = {
   id: 'synthetic-id',
@@ -151,5 +152,28 @@ describe('AuthController github callback', () => {
       'Set-Cookie',
       serializeCookie(flowCookieName(true), '', { maxAgeSeconds: 0, secure: true }),
     );
+  });
+});
+
+describe('AuthController getMe', () => {
+  it('테스트 역할 매핑을 응답에 포함하고, 미등록은 null이다', async () => {
+    const getMe = jest.fn().mockResolvedValue(syntheticUser);
+    const resolveTestRole = jest.fn().mockReturnValue('STAFF');
+    const controller = new AuthController(
+      { getMe } as unknown as AuthService,
+      { resolveTestRole } as unknown as AuthConfig,
+    );
+    const request = {
+      sessionGithubId: syntheticUser.githubId,
+    } as AuthenticatedRequest;
+
+    const withRole = await controller.getMe(request);
+    expect(withRole.role).toBe('STAFF');
+    expect(withRole.login).toBe('synthetic-login');
+    expect(resolveTestRole).toHaveBeenCalledWith(syntheticUser.githubId);
+
+    resolveTestRole.mockReturnValue(null);
+    const withoutRole = await controller.getMe(request);
+    expect(withoutRole.role).toBeNull();
   });
 });

@@ -14,6 +14,7 @@
 4. 위 문서들이 링크한 규칙(`docs/rules/`)과 ADR(`docs/decisions/`)만 추가로 읽는다.
 5. 착수 직전 `gh pr list --search "<기능>"` 1회 — 스냅샷 이후 열린 PR·Draft PR을 확인한다.
 6. `bash scripts/setup-hooks.sh` 1회 — 브랜치 정리 훅 활성화(멱등). "보존" 안내가 나오면 §7 참조.
+7. 로컬 실행이 필요하면 `docs/rules/local-dev.md`의 순서를 따른다.
 
 ## 2. Canonical Store — 정보 종류별 원본 위치
 
@@ -42,7 +43,7 @@ Draft는 사전 승인 게이트가 아니라 진행 상황과 위험을 일찍 
 | (기능 3 — 지정 예정) | @<designer-1> | `docs/exec-plan/active/<기능3>.md` | (지정 예정) |
 | (기능 4 — 지정 예정) | @<designer-2> | `docs/exec-plan/active/<기능4>.md` | (지정 예정) |
 
-공용 경로(공유 lib·설정·CI)는 독립 소형 PR로만 수정하고, 착수 전 Issue로 선점을 선언한다.
+공용 경로(공유 lib·설정·CI)는 독립 소형 PR로만 수정하고, 착수 전 Issue로 선점을 선언한다. PR 범위·분해 기준은 `docs/rules/pr-scope.md`가 원본이다.
 DB 마이그레이션은 직렬로만 진행한다. 동시 마이그레이션 PR을 만들지 않는다.
 
 ### 리뷰 결과 운용 — ADR-005 waypoint
@@ -90,5 +91,4 @@ Hermes를 포함한 독립 리뷰는 적용되는 `AGENTS.md`·팀 컨벤션 준
   `scripts/tidy-branches.sh`를 실행한다. origin/main 이력에 포함된 gone 브랜치만 `git branch -d`로
   삭제하고, 그 외에는 보류 안내만 한다. rebase 기반 pull·변경 없는 pull에서는 발화하지 않는다.
 - 다른 `core.hooksPath`를 쓰고 있으면 그 설정을 보존하고 이 훅은 비활성이다 — 이 경우
-  `scripts/tidy-branches.sh`를 수동 또는 자기 훅·주기 작업에서 직접 실행한다.
-  기존 설정 확인: `git config --show-origin --get core.hooksPath`
+  `scripts/tidy-branches.sh`를 수동 또는 자기 훅·주기 작업에서 직접 실행한다. 기존 설정 확인: `git config --show-origin --get core.hooksPath`
