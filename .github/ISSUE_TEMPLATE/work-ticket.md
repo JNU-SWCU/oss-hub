@@ -1,6 +1,6 @@
 ---
 name: 작업 티켓
-about: 화면 1개 단위 작업 티켓 — 발행·할당은 @GoBeromsu·@Lumiere001만
+about: 화면 1개 단위 작업 티켓 — 발행·할당은 @GoBeromsu · @Lumiere001만
 title: "[P0] <화면 이름>"
 labels: [ticket]
 ---
