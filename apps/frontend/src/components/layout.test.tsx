@@ -66,3 +66,83 @@ describe("layout components", () => {
     expect(html).toContain("새로고침");
   });
 });
+
+// header/footer가 선택(optional)인 grid 레이아웃에서, DOM 순서 기반 auto-placement에
+// 의존하지 않고 각 슬롯이 명시적 row-start로 고정 트랙에 배치되는지 회귀 방지.
+describe("AppShell grid row placement with optional header/footer", () => {
+  it("keeps body on row-start-2 when header is omitted", () => {
+    const html = renderToStaticMarkup(
+      <AppShell footer={<span>푸터</span>}>
+        <p>본문</p>
+      </AppShell>,
+    );
+
+    expect(html).not.toContain('data-slot="app-shell-header"');
+    expect(html).toMatch(/data-slot="app-shell-body"[^>]*class="[^"]*\brow-start-2\b/);
+    expect(html).toMatch(/data-slot="app-shell-footer"[^>]*class="[^"]*\brow-start-3\b/);
+  });
+
+  it("keeps body on row-start-2 when footer is omitted", () => {
+    const html = renderToStaticMarkup(
+      <AppShell header={<span>헤더</span>}>
+        <p>본문</p>
+      </AppShell>,
+    );
+
+    expect(html).toMatch(/data-slot="app-shell-header"[^>]*class="[^"]*\brow-start-1\b/);
+    expect(html).toMatch(/data-slot="app-shell-body"[^>]*class="[^"]*\brow-start-2\b/);
+    expect(html).not.toContain('data-slot="app-shell-footer"');
+  });
+
+  it("keeps body on row-start-2 when both header and footer are omitted", () => {
+    const html = renderToStaticMarkup(
+      <AppShell>
+        <p>본문</p>
+      </AppShell>,
+    );
+
+    expect(html).not.toContain('data-slot="app-shell-header"');
+    expect(html).toMatch(/data-slot="app-shell-body"[^>]*class="[^"]*\brow-start-2\b/);
+    expect(html).not.toContain('data-slot="app-shell-footer"');
+  });
+});
+
+describe("StatusMessagePage grid row placement with optional header/footer", () => {
+  it("keeps body on row-start-2 when header is omitted", () => {
+    const html = renderToStaticMarkup(
+      <StatusMessagePage title="제목" footer={<span>푸터</span>} />,
+    );
+
+    expect(html).not.toContain('data-slot="status-message-page-header"');
+    expect(html).toMatch(
+      /data-slot="status-message-page-body"[^>]*class="[^"]*\brow-start-2\b/,
+    );
+    expect(html).toMatch(
+      /data-slot="status-message-page-footer"[^>]*class="[^"]*\brow-start-3\b/,
+    );
+  });
+
+  it("keeps body on row-start-2 when footer is omitted", () => {
+    const html = renderToStaticMarkup(
+      <StatusMessagePage title="제목" header={<span>헤더</span>} />,
+    );
+
+    expect(html).toMatch(
+      /data-slot="status-message-page-header"[^>]*class="[^"]*\brow-start-1\b/,
+    );
+    expect(html).toMatch(
+      /data-slot="status-message-page-body"[^>]*class="[^"]*\brow-start-2\b/,
+    );
+    expect(html).not.toContain('data-slot="status-message-page-footer"');
+  });
+
+  it("keeps body on row-start-2 when both header and footer are omitted", () => {
+    const html = renderToStaticMarkup(<StatusMessagePage title="제목" />);
+
+    expect(html).not.toContain('data-slot="status-message-page-header"');
+    expect(html).toMatch(
+      /data-slot="status-message-page-body"[^>]*class="[^"]*\brow-start-2\b/,
+    );
+    expect(html).not.toContain('data-slot="status-message-page-footer"');
+  });
+});

@@ -23,15 +23,15 @@ function AppShell({
       {...props}
     >
       {header ? (
-        <header data-slot="app-shell-header" className="shrink-0">
+        <header data-slot="app-shell-header" className="row-start-1 shrink-0">
           {header}
         </header>
       ) : null}
-      <main data-slot="app-shell-body" className="min-h-0 overflow-y-auto">
+      <main data-slot="app-shell-body" className="row-start-2 min-h-0 overflow-y-auto">
         {children}
       </main>
       {footer ? (
-        <footer data-slot="app-shell-footer" className="shrink-0">
+        <footer data-slot="app-shell-footer" className="row-start-3 shrink-0">
           {footer}
         </footer>
       ) : null}

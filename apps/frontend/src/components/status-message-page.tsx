@@ -30,11 +30,13 @@ function StatusMessagePage({
       {...props}
     >
       {header ? (
-        <header data-slot="status-message-page-header">{header}</header>
+        <header data-slot="status-message-page-header" className="row-start-1">
+          {header}
+        </header>
       ) : null}
       <main
         data-slot="status-message-page-body"
-        className="flex flex-col items-center justify-center gap-3 text-center"
+        className="row-start-2 flex flex-col items-center justify-center gap-3 text-center"
       >
         {icon ? (
           <div data-slot="status-message-page-icon" className="text-muted-foreground">
@@ -52,7 +54,9 @@ function StatusMessagePage({
         ) : null}
       </main>
       {footer ? (
-        <footer data-slot="status-message-page-footer">{footer}</footer>
+        <footer data-slot="status-message-page-footer" className="row-start-3">
+          {footer}
+        </footer>
       ) : null}
     </div>
   )
