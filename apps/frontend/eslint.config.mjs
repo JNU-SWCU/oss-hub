@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { defineConfig } from "eslint/config";
 import nextPlugin from "@next/eslint-plugin-next";
+import prettier from "eslint-config-prettier";
 import typescriptParser from "@typescript-eslint/parser";
 
 // docs/rules/frontend.md — 의존 방향은 app → features → lib 단방향이며,
@@ -136,6 +137,7 @@ export default defineConfig([
     },
     rules: nextPlugin.configs.recommended.rules,
   },
+  prettier,
   apiClientEntryConfig,
   ...featureBoundaryConfigs,
   libBoundaryConfig,

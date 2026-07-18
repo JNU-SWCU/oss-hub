@@ -133,6 +133,10 @@ jobs:
         if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
         run: pnpm install --frozen-lockfile
 
+      - name: prettier 포맷 검사
+        if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
+        run: pnpm format:check
+
       - name: frontend lint
         if: ${{ steps.changes.outputs.frontend == 'true' }}
         run: pnpm --filter frontend lint
