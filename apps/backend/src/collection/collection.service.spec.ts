@@ -49,10 +49,7 @@ describe('CollectionService', () => {
   let repository: jest.Mocked<
     Pick<
       CollectionRepository,
-      | 'findUserByGithubId'
-      | 'markSucceeded'
-      | 'markRateLimited'
-      | 'markFailed'
+      'findUserByGithubId' | 'markSucceeded' | 'markRateLimited' | 'markFailed'
     >
   >;
   let githubApiClient: jest.Mocked<

@@ -1,7 +1,4 @@
-import {
-  CollectionRun,
-  CollectionRunStatus,
-} from '../domain/collection-run';
+import { CollectionRun, CollectionRunStatus } from '../domain/collection-run';
 
 export class CollectionRunResponseDto {
   runId: string;
