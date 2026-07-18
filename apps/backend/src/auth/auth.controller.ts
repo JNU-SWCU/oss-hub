@@ -122,7 +122,10 @@ export class AuthController {
   @UseGuards(SessionGuard)
   async getMe(@Req() req: AuthenticatedRequest): Promise<MeResponseDto> {
     const user = await this.authService.getMe(req.sessionGithubId);
-    return MeResponseDto.from(user);
+    return MeResponseDto.from(
+      user,
+      this.config.resolveTestRole(req.sessionGithubId),
+    );
   }
 
   @Post('logout')
