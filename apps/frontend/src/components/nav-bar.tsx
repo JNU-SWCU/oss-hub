@@ -1,3 +1,4 @@
+import Link from "next/link"
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
@@ -43,12 +44,12 @@ function NavBar({
       <ul data-slot="nav-bar-items" className="flex flex-1 items-center gap-1">
         {items.map((item) => (
           <li key={item.href}>
-            <a
+            <Link
               href={item.href}
               className="rounded-md px-2.5 py-1.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground"
             >
               {item.label}
-            </a>
+            </Link>
           </li>
         ))}
       </ul>
