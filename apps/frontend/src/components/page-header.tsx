@@ -2,8 +2,10 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
-interface PageHeaderProps
-  extends Omit<React.ComponentProps<'header'>, 'title'> {
+interface PageHeaderProps extends Omit<
+  React.ComponentProps<'header'>,
+  'title'
+> {
   title: React.ReactNode;
   description?: React.ReactNode;
   actions?: React.ReactNode;

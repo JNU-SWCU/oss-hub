@@ -19,13 +19,7 @@ interface NavBarProps extends Omit<React.ComponentProps<'nav'>, 'children'> {
  * 이 컴포넌트는 role prop을 받지 않고 역할 분기 로직도 갖지 않는다.
  * 역할별 메뉴 계산은 호출부(세션을 아는 쪽)의 책임이다.
  */
-function NavBar({
-  items,
-  brand,
-  actions,
-  className,
-  ...props
-}: NavBarProps) {
+function NavBar({ items, brand, actions, className, ...props }: NavBarProps) {
   return (
     <nav
       data-slot="nav-bar"
