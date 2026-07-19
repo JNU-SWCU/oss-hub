@@ -39,6 +39,8 @@
 - **HTTP 요청은 `lib/api-client.ts`만 사용한다.** `axios`/`ky` import, 직접 `fetch` 호출, `/api/v1` 문자열 리터럴은 그 파일 밖 어디서든 lint 에러(`no-restricted-imports`/`no-restricted-globals`/`no-restricted-syntax`)로 차단된다.
 - `src/features/auth/`는 @Lumiere001 전속 경로다(루트 AGENTS.md §3) — 다른 레인은 직접 수정하지 않고 Issue·PR 코멘트로 제안한다.
 - 테스트는 Vitest(`*.test.ts(x)`), 컴포넌트 곁에 위치.
+- **세션 상태 단일 소스**: `/auth/me`를 직접 호출하는 소비자를 새로 만들지 않는다. 세션 정보가 필요하면 `useSessionRole`(공유 경로)을 경유한다. 로그인·로그아웃 직후의 화면 정합성은 공유 상태 또는 전체 리로드로 보장한다 — 컴포넌트별 로컬 state에만 반영하면 다른 세션 소비자가 stale 상태로 남는다.
+- **슬롯 자식은 부모 레이아웃을 중복하지 않는다**: NavBar 같은 셸 컴포넌트의 슬롯(예: actions)이 이미 flex·gap 정렬을 제공하므로, 슬롯에 들어가는 자식이 동일한 레이아웃 래퍼를 다시 두지 않는다.
 
 ## Dependencies
 
