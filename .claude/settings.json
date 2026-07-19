@@ -1,0 +1,8 @@
+{
+  "extraKnownMarketplaces": {
+    "craft-skills": {
+      "source": { "source": "github", "repo": "GoBeromsu/craft-skills" }
+    }
+  },
+  "enabledPlugins": { "craft-skills@craft-skills": true }
+}
