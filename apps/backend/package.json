@@ -2,16 +2,20 @@
   "name": "backend",
   "version": "0.0.0",
   "private": true,
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
   "scripts": {
     "dev": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub nest start --watch",
     "build": "nest build",
-    "lint": "eslint \"{src,test}/**/*.ts\"",
+    "lint": "eslint \"{src,test,prisma}/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "test": "pnpm run test:unit",
     "test:unit": "jest --testPathIgnorePatterns='\\.integration\\.spec\\.ts$'",
     "test:integration": "bash ../../scripts/run-backend-integration.sh",
     "db:migrate:dev": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub prisma migrate dev",
     "db:reset": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub prisma migrate reset --force",
+    "db:seed": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub prisma db seed",
     "collect:batch": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub ts-node src/collection/cli/collect-batch.ts"
   },
   "dependencies": {

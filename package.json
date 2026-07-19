@@ -18,6 +18,7 @@
     "db:up": "docker compose -f compose.dev.yml up -d --wait",
     "db:migrate:dev": "pnpm --filter backend db:migrate:dev",
     "db:reset": "pnpm --filter backend db:reset",
+    "db:seed": "pnpm --filter backend db:seed",
     "postinstall": "pnpm --filter backend exec prisma generate"
   },
   "devDependencies": {
