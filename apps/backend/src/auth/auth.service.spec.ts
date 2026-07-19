@@ -14,6 +14,7 @@ const syntheticUser: AuthUser = {
   login: 'synthetic-login',
   name: null,
   avatarUrl: null,
+  role: null,
 };
 
 function buildConfig(): AuthConfig {

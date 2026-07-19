@@ -1,3 +1,4 @@
+import { Role } from '@prisma/client';
 import { Request, Response } from 'express';
 import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
@@ -13,6 +14,7 @@ const syntheticUser: AuthUser = {
   login: 'synthetic-login',
   name: null,
   avatarUrl: null,
+  role: null,
 };
 
 function createResponse(): Response & {
@@ -169,24 +171,48 @@ describe('AuthController github callback', () => {
 });
 
 describe('AuthController getMe', () => {
-  it('테스트 역할 매핑을 응답에 포함하고, 미등록은 null이다', async () => {
-    const getMe = jest.fn().mockResolvedValue(syntheticUser);
-    const resolveTestRole = jest.fn().mockReturnValue('STAFF');
+  function createController(
+    dbRole: Role | null,
+    testRole: 'STAFF' | 'STUDENT' | 'ADMIN' | null,
+  ): { controller: AuthController; resolveTestRole: jest.Mock } {
+    const getMe = jest
+      .fn()
+      .mockResolvedValue({ ...syntheticUser, role: dbRole });
+    const resolveTestRole = jest.fn().mockReturnValue(testRole);
     const controller = new AuthController(
       { getMe } as unknown as AuthService,
       { resolveTestRole } as unknown as AuthConfig,
     );
-    const request = {
-      sessionGithubId: syntheticUser.githubId,
-    } as AuthenticatedRequest;
+    return { controller, resolveTestRole };
+  }
 
-    const withRole = await controller.getMe(request);
-    expect(withRole.role).toBe('STAFF');
-    expect(withRole.login).toBe('synthetic-login');
+  const request = {
+    sessionGithubId: syntheticUser.githubId,
+  } as AuthenticatedRequest;
+
+  it('정식 소스는 DB role이다 — TestRoleMap 미설정이면 DB role을 그대로 노출한다', async () => {
+    const { controller, resolveTestRole } = createController(Role.ADMIN, null);
+
+    const result = await controller.getMe(request);
+
+    expect(result.role).toBe(Role.ADMIN);
+    expect(result.login).toBe('synthetic-login');
     expect(resolveTestRole).toHaveBeenCalledWith(syntheticUser.githubId);
+  });
 
-    resolveTestRole.mockReturnValue(null);
-    const withoutRole = await controller.getMe(request);
-    expect(withoutRole.role).toBeNull();
+  it('TestRoleMap(로컬 override)이 설정되면 DB role보다 우선한다', async () => {
+    const { controller } = createController(Role.STUDENT, 'STAFF');
+
+    const result = await controller.getMe(request);
+
+    expect(result.role).toBe(Role.STAFF);
+  });
+
+  it('역할 선택 전(DB role=null)이고 TestRoleMap도 미설정이면 null이다', async () => {
+    const { controller } = createController(null, null);
+
+    const result = await controller.getMe(request);
+
+    expect(result.role).toBeNull();
   });
 });

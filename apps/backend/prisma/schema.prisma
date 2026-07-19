@@ -7,14 +7,210 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// 사용자 역할. 신규 사용자는 역할 선택 전 null이다(#109 계약 잠금) — @default를 두지 않는다.
+enum Role {
+  STUDENT
+  STAFF
+  ADMIN
+}
+
 model User {
   id        String   @id @default(cuid())
   githubId  BigInt   @unique
   login     String
   name      String?
   avatarUrl String?
+  /// 역할 선택 전 null, 학생 선택 시 STUDENT, 교직원 요청 승인 시에만 STAFF가 된다(#109).
+  role      Role?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  roleRequests          RoleRequest[] @relation("RoleRequestUser")
+  decidedRoleRequests   RoleRequest[] @relation("RoleRequestDecidedBy")
+  consents              Consent[]
+  applications          Application[] @relation("ApplicationApplicant")
+  processedApplications Application[] @relation("ApplicationProcessedBy")
+  ledTeams              Team[]        @relation("TeamLeader")
+  teamMemberships       TeamMember[]
+}
+
+/// PENDING → APPROVED/REJECTED. REVOKED는 #113에서 additive로 추가한다(#109 계약 잠금, 이 마이그레이션에서 추가하지 않음).
+enum RoleRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// 교직원 권한 요청 이력. 회수(REVOKE)도 상태를 지우지 않고 이력으로 남긴다(#108이 소비, REVOKED enum 값은 #113에서 추가).
+model RoleRequest {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation("RoleRequestUser", fields: [userId], references: [id])
+
+  status          RoleRequestStatus @default(PENDING)
+  rejectionReason String?
+
+  decidedById String?
+  decidedBy   User?     @relation("RoleRequestDecidedBy", fields: [decidedById], references: [id])
+  decidedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+/// 전역 개인정보·활동 동의. MVP는 정책 버전별 1회 동의만 저장한다(#109 계약 잠금) — programId를 두지 않는다.
+model Consent {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  policyVersion String
+  consentedAt   DateTime @default(now())
+
+  @@unique([userId, policyVersion])
+}
+
+/// 프로그램 유형 7종 고정(#109 계약 잠금) — 임의 필드 빌더는 post-pilot.
+enum ProgramCategory {
+  BASIC
+  SW_VALUE_SPREAD
+  OSS_CONTEST
+  CAPSTONE
+  SW_CONVERGENCE
+  GLOBAL_MAKERTHON
+  CORPORATE_INTERNSHIP
+}
+
+model Program {
+  id        String          @id @default(cuid())
+  name      String
+  organizer String
+  category  ProgramCategory
+
+  /// 서버 고정 registry가 결정한다(#100) — 클라이언트가 임의 값을 보낼 수 없다.
+  applicationTemplateKey     String
+  applicationTemplateVersion Int
+
+  applicationStartAt DateTime
+  applicationEndAt   DateTime
+
+  /// 개인형 프로그램은 둘 다 null이다(#109 계약 잠금).
+  teamMinSize Int?
+  teamMaxSize Int?
+
+  description String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  milestones   Milestone[]
+  applications Application[]
+  teams        Team[]
+}
+
+/// 제출물 유형 — #113 Submission·#115 제출 API가 정확히 이 값 이름을 사용한다.
+enum MilestoneSubmissionType {
+  FILE
+  TEXT
+  REPOSITORY_RELEASE
+}
+
+model Milestone {
+  id        String  @id @default(cuid())
+  programId String
+  program   Program @relation(fields: [programId], references: [id])
+
+  name           String
+  dueAt          DateTime
+  submissionType MilestoneSubmissionType
+  instructions   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([programId])
+}
+
+enum ApplicationStatus {
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+/// teamId는 nullable이다 — 개인형은 null, 팀형만 API 검증으로 필수(#109 계약 잠금).
+model Application {
+  id        String  @id @default(cuid())
+  programId String
+  program   Program @relation(fields: [programId], references: [id])
+
+  applicantId String
+  applicant   User   @relation("ApplicationApplicant", fields: [applicantId], references: [id])
+
+  teamId String?
+  team   Team?   @relation(fields: [teamId], references: [id])
+
+  /// 7종 고정 템플릿 field별 응답(#118 계약을 따른다).
+  answers                    Json
+  applicationTemplateVersion Int
+
+  status          ApplicationStatus @default(SUBMITTED)
+  rejectionReason String?
+
+  submittedAt DateTime @default(now())
+
+  processedById String?
+  processedBy   User?     @relation("ApplicationProcessedBy", fields: [processedById], references: [id])
+  processedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([programId])
+  @@index([applicantId])
+  @@index([teamId])
+}
+
+model Team {
+  id        String  @id @default(cuid())
+  programId String
+  program   Program @relation(fields: [programId], references: [id])
+
+  name     String
+  /// 참여코드는 전역 고유다(프로그램 범위 고유보다 강한 조건이라 #105 요구를 포함한다). 로그에 남기지 않는다(#105).
+  joinCode String @unique
+
+  leaderId String
+  leader   User   @relation("TeamLeader", fields: [leaderId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members      TeamMember[]
+  applications Application[]
+
+  @@index([programId])
+}
+
+/// 학과·이름·연락처·이메일은 합류 시 본인 입력(#109) — 팀장 생성 시점엔 비어 있을 수 있어 nullable로 둔다.
+model TeamMember {
+  id     String @id @default(cuid())
+  teamId String
+  team   Team   @relation(fields: [teamId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  department String?
+  name       String?
+  phone      String?
+  email      String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([teamId, userId])
+  @@index([userId])
 }
 
 enum CollectionTrigger {
@@ -36,18 +232,18 @@ enum ObservationSourceType {
 }
 
 model CollectionRun {
-  id                   String                 @id @default(cuid())
-  targetGithubId       BigInt
-  targetLogin          String
-  trigger              CollectionTrigger
-  status               CollectionRunStatus
-  profileCount         Int                    @default(0)
-  repoCount            Int                    @default(0)
-  eventCount           Int                    @default(0)
-  retryNotBeforeAt     DateTime?
-  startedAt            DateTime               @default(now())
-  finishedAt           DateTime?
-  observations         GithubRawObservation[]
+  id               String                 @id @default(cuid())
+  targetGithubId   BigInt
+  targetLogin      String
+  trigger          CollectionTrigger
+  status           CollectionRunStatus
+  profileCount     Int                    @default(0)
+  repoCount        Int                    @default(0)
+  eventCount       Int                    @default(0)
+  retryNotBeforeAt DateTime?
+  startedAt        DateTime               @default(now())
+  finishedAt       DateTime?
+  observations     GithubRawObservation[]
 }
 
 model GithubRawObservation {
