@@ -68,6 +68,7 @@ jobs:
               - '.github/workflows/**'
             shell_scripts:
               - 'scripts/*.sh'
+              - '.githooks/**'
               - '.github/workflows/**'
             node_scripts:
               - 'scripts/*.mjs'
@@ -98,6 +99,10 @@ jobs:
       - name: shell script 문법 검사
         if: ${{ steps.changes.outputs.shell_scripts == 'true' }}
         run: bash -n scripts/*.sh
+
+      - name: TEAM-STATE pre-push 가드 회귀 테스트
+        if: ${{ steps.changes.outputs.shell_scripts == 'true' }}
+        run: bash scripts/check-team-state-updated.test.sh
 
       - name: Node script 문법 검사
         if: ${{ steps.changes.outputs.node_scripts == 'true' }}
