@@ -46,7 +46,7 @@ function NavBar({
           <li key={item.href}>
             <Link
               href={item.href}
-              className="rounded-md px-2.5 py-1.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground"
+              className="rounded-md px-2.5 py-1.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground"
             >
               {item.label}
             </Link>

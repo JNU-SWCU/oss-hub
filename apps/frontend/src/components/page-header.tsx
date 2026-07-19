@@ -28,7 +28,7 @@ function PageHeader({
       <div className="flex flex-col gap-1">
         <h1
           data-slot="page-header-title"
-          className="text-3xl font-bold tracking-tight"
+          className="font-heading text-3xl font-bold tracking-tight"
         >
           {title}
         </h1>

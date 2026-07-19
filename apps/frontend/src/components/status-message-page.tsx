@@ -44,12 +44,15 @@ function StatusMessagePage({
         {icon ? (
           <div
             data-slot="status-message-page-icon"
+            aria-hidden="true"
             className="text-muted-foreground"
           >
             {icon}
           </div>
         ) : null}
-        <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
+        <h1 className="font-heading text-3xl font-bold tracking-tight">
+          {title}
+        </h1>
         {description ? (
           <p className="text-sm text-muted-foreground">{description}</p>
         ) : null}
