@@ -133,6 +133,10 @@ jobs:
         if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
         run: pnpm install --frozen-lockfile
 
+      - name: prettier 포맷 검사
+        if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
+        run: pnpm format:check
+
       - name: frontend lint
         if: ${{ steps.changes.outputs.frontend == 'true' }}
         run: pnpm --filter frontend lint
@@ -198,6 +202,32 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/team-state-check.mjs
+
+  # 커밋 메시지 규칙(AGENTS.md §5)은 변경 경로와 무관하므로 paths-filter 없이 항상 실행한다.
+  commitlint:
+    name: commitlint
+    runs-on: ubuntu-latest
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: pnpm 설정
+        uses: pnpm/action-setup@v4
+
+      - name: Node 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # prisma generate 등 앱 postinstall은 이 검사에 불필요하므로 건너뛴다.
+      - name: 의존성 설치 (ignore-scripts)
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Conventional Commits 검사
+        run: pnpm exec commitlint --config commitlint.config.cjs --from "origin/${GITHUB_BASE_REF}" --to HEAD --verbose
 
   # deny-list 표면은 문서·PR 본문이 핵심이므로 paths-filter 없이 모든 PR에서 항상 실행한다.
   # branch protection에서 required check로 등록해야 강제된다.

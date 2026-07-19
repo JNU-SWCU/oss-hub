@@ -74,7 +74,9 @@ export class AuthService {
   async getMe(githubId: bigint): Promise<AuthUser> {
     const user = await this.repository.findByGithubId(githubId);
     if (!user) {
-      throw new DomainException(AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED]);
+      throw new DomainException(
+        AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
+      );
     }
     return user;
   }

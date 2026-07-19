@@ -23,7 +23,9 @@ export class SessionGuard implements CanActivate {
       ? await verifySessionToken(this.config.sessionSecret, token)
       : null;
     if (githubId === null) {
-      throw new DomainException(AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED]);
+      throw new DomainException(
+        AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
+      );
     }
     (request as AuthenticatedRequest).sessionGithubId = githubId;
     return true;
