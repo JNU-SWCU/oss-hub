@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useSessionRole, type SessionStatus } from './use-session-role';
 import { roleHomePath, type AppRole } from './role';
+import { ADMIN_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
 
 /**
  * 로그인 상태(#107 role 확정)로 랜딩(`/`)에 들어온 사용자가 자기 역할 홈으로
@@ -22,11 +23,14 @@ export function resolveRoleHome(
   return null;
 }
 
-/** nav 링크 라벨 — `role-menus.ts`의 역할별 첫 메뉴 라벨과 맞춘다. */
+/**
+ * nav 링크 라벨 — 리터럴을 따로 두지 않고 `role-menus.ts`의 역할별 첫 메뉴
+ * 라벨에서 파생시켜, 두 값이 갈라질 수 없게 한다.
+ */
 export const ROLE_HOME_LABEL: Record<AppRole, string> = {
-  STUDENT: '내 대시보드',
-  STAFF: '운영 대시보드',
-  ADMIN: '교직원 승인',
+  STUDENT: STUDENT_MENU[0].label,
+  STAFF: STAFF_MENU[0].label,
+  ADMIN: ADMIN_MENU[0].label,
 };
 
 /**
@@ -36,10 +40,8 @@ export const ROLE_HOME_LABEL: Record<AppRole, string> = {
  */
 export function RoleHomeNavLink() {
   const { status, role } = useSessionRole();
-  if (status !== 'assigned' || !role) return null;
-
   const target = resolveRoleHome(status, role);
-  if (!target) return null;
+  if (!role || !target) return null;
 
   return (
     <Button asChild variant="ghost">
