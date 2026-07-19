@@ -35,3 +35,4 @@ function FormSection({
 }
 
 export { FormSection };
+export type { FormSectionProps };

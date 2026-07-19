@@ -17,3 +17,8 @@ export type { ProgramCardProps } from './program-card';
 export { StatusBadge, statusBadgeVariants } from './status-badge';
 export { EmptyState } from './empty-state';
 export type { EmptyStateProps } from './empty-state';
+export type { FormSectionProps } from './form-section';
+export type { AppShellProps } from './app-shell';
+export type { NavBarProps } from './nav-bar';
+export type { PageHeaderProps } from './page-header';
+export type { StatusMessagePageProps } from './status-message-page';

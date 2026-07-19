@@ -28,7 +28,7 @@ const statusBadgeVariants = cva(
 
 function StatusBadge({
   className,
-  variant,
+  variant = 'recruiting',
   ...props
 }: React.ComponentProps<'span'> & VariantProps<typeof statusBadgeVariants>) {
   return (
