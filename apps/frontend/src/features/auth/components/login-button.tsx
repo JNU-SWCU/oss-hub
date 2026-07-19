@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { fetchMe, githubLoginPath, logout } from "../api";
-import { applyLogoutFailure, applyLogoutSuccess } from "../session-state";
-import type { Me } from "../types";
+import { useEffect, useState } from 'react';
+import { fetchMe, githubLoginPath, logout } from '../api';
+import { applyLogoutFailure, applyLogoutSuccess } from '../session-state';
+import type { Me } from '../types';
 
 export function LoginButton() {
   const [me, setMe] = useState<Me | null>(null);
@@ -34,7 +34,7 @@ export function LoginButton() {
   if (me) {
     return (
       <p>
-        <strong>{me.login}</strong> 님으로 로그인됨{" "}
+        <strong>{me.login}</strong> 님으로 로그인됨{' '}
         <button
           type="button"
           onClick={() => {

@@ -125,15 +125,13 @@ describe('ProblemDetailFilter', () => {
           code: expectedCode,
         }),
       );
-      expect(debug).toHaveBeenCalledWith(
-        {
-          event: 'http.exception',
-          method: 'GET',
-          path: '/api/v1/members/missing',
-          status: exception.getStatus(),
-          code: expectedCode,
-        },
-      );
+      expect(debug).toHaveBeenCalledWith({
+        event: 'http.exception',
+        method: 'GET',
+        path: '/api/v1/members/missing',
+        status: exception.getStatus(),
+        code: expectedCode,
+      });
 
       debug.mockRestore();
     },

@@ -76,7 +76,11 @@ async function inspectSourceCommit(sourceCommit, teamStatePath) {
     ]);
     run('git', ['merge-base', '--is-ancestor', sourceCommit, REMOTE_MAIN_REF]);
     const commitsBehind = Number(
-      run('git', ['rev-list', '--count', `${sourceCommit}..${REMOTE_MAIN_REF}`]),
+      run('git', [
+        'rev-list',
+        '--count',
+        `${sourceCommit}..${REMOTE_MAIN_REF}`,
+      ]),
     );
     const changedFiles = run('git', [
       'diff',

@@ -51,9 +51,7 @@ export class CollectionService {
         return this.collect(startResult.run, user);
       case COLLECTION_RUN_START_KINDS.REJECTED:
         throw new DomainException(
-          COLLECTION_ERROR_CODES[
-            CollectionErrorCode.COLLECTION_RUN_NOT_READY
-          ],
+          COLLECTION_ERROR_CODES[CollectionErrorCode.COLLECTION_RUN_NOT_READY],
           {
             retryNotBeforeAt: startResult.retryNotBeforeAt.toISOString(),
           },
@@ -137,11 +135,9 @@ export class CollectionService {
     user: CollectionUser,
     prefetchedProfiles?: GithubObservation[],
   ): Promise<CollectionRun> {
-
     try {
       const profiles =
-        prefetchedProfiles ??
-        (await this.githubApiClient.getUser(user.login));
+        prefetchedProfiles ?? (await this.githubApiClient.getUser(user.login));
       const repositories = await this.githubApiClient.getRepos(user.login);
       const events = await this.githubApiClient.getPublicEvents(user.login);
       return await this.repository.markSucceeded({
@@ -152,10 +148,7 @@ export class CollectionService {
       });
     } catch (error) {
       if (error instanceof RateLimitedError) {
-        return this.repository.markRateLimited(
-          run.id,
-          error.retryNotBeforeAt,
-        );
+        return this.repository.markRateLimited(run.id, error.retryNotBeforeAt);
       }
 
       const errorName = error instanceof Error ? error.name : 'UnknownError';
