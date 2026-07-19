@@ -34,7 +34,7 @@ export function LoginButton() {
 
   if (me) {
     return (
-      <span className="flex items-center gap-2">
+      <>
         <Button
           type="button"
           variant="ghost"
@@ -42,6 +42,12 @@ export function LoginButton() {
             void logout()
               .then((result) => {
                 const next = applyLogoutSuccess({ me, logoutError }, result);
+                if (next.me === null) {
+                  // 로그아웃 확정: 전체 내비게이션으로 모든 세션 소비자(예:
+                  // RoleHomeNavLink)를 초기화하고 랜딩(`/`)에 착지한다.
+                  window.location.assign('/');
+                  return;
+                }
                 setMe(next.me);
                 setLogoutError(next.logoutError);
               })
@@ -59,7 +65,7 @@ export function LoginButton() {
             {logoutError}
           </span>
         ) : null}
-      </span>
+      </>
     );
   }
 
