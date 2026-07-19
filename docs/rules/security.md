@@ -28,7 +28,7 @@ oss-hub는 공개 저장소다. 코드뿐 아니라 Issue 본문, PR 제목·본
 - 본인이 선택하지 않은 identity이거나 제3자 이메일 공개가 의심되면 아래 유출 사고 절차로 처리한다.
 - 자동화 계정 식별용 noreply 주소와 RFC 2606 예약 도메인의 합성 예시는 연락처 이메일로 보지 않는다.
 - tracked file, Issue·PR 본문, 댓글, 커밋 메시지, CI 로그, 스크린샷에 연락처 이메일을 직접 기록하는 행위는 계속 금지한다.
-- `scripts/check-public-safe.sh`는 변경된 tracked file의 커밋된 Git blob 내용(`scripts/check-public-safe.sh` 자체와 `pnpm-lock.yaml` 제외), 커밋 메시지, PR 제목·본문의 이메일을 검사하되 위 noreply·합성 예시는 허용한다. author·committer identity 메타데이터는 검사하지 않는다. Issue 본문·댓글, CI 로그, 스크린샷은 이 스크립트의 자동 검사 대상이 아니며 금지 정책과 리뷰로 통제한다.
+- `scripts/check-public-safe.sh`는 변경된 tracked file의 커밋된 Git blob 내용(`scripts/check-public-safe.sh` 자체와 `pnpm-lock.yaml` 제외), 커밋 메시지, PR 제목·본문의 이메일을 검사하되 위 noreply·합성 예시는 허용한다. author·committer identity 메타데이터는 검사하지 않는다. `--text-only` 모드(`ISSUE_TEXT` 주입)는 Issue 제목·본문과 Issue/PR 댓글에도 동일한 deny-list를 적용한다. CI 로그, 스크린샷은 이 스크립트의 자동 검사 대상이 아니며 금지 정책과 리뷰로 통제한다.
 - 금지 파일 경로의 `.env` 계열·개인키·로컬 DB 확장자는 대소문자와 무관하게 차단한다. 허용 예외는 정확한 소문자 `.env.example` 한 가지뿐이다.
 - PR이 제어할 수 있는 파일명은 CI 로그에 원문을 출력하지 않고 Git hash 기반 `path-id`로만 표시한다. 줄바꿈·제어문자·Actions annotation 문자열이 포함된 파일명도 같은 규칙을 적용한다.
 - quoted local-part, EAI local-part, Unicode domain은 자동 검사의 허용 예외로 지원하지 않는다. quoted·비ASCII email-shaped token과 punycode IDN 후보는 우회 방지를 위해 보수적으로 차단하며, 실제 제품 입력에서 지원하려면 별도 입력 검증 계약과 합성 fixture를 먼저 추가한다.
