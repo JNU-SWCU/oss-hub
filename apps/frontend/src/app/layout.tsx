@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { NavBar, type NavItem } from '@/components';
 import { LoginButton } from '@/features/auth/components/login-button';
+import { RoleHomeNavLink } from './_shell/role-home-link';
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -30,7 +31,12 @@ export default function RootLayout({
         <NavBar
           brand={<Link href="/">OSS Hub</Link>}
           items={NAV_ITEMS}
-          actions={<LoginButton />}
+          actions={
+            <>
+              <RoleHomeNavLink />
+              <LoginButton />
+            </>
+          }
         />
         {children}
       </body>
