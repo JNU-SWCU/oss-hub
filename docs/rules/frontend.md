@@ -8,7 +8,7 @@ frontend 코드는 화면 또는 업무 기능을 기준으로 묶는다. 한 fe
 apps/frontend/
 ├── app/                       # 라우팅과 페이지 조합
 ├── features/
-│   └── members/
+│   └── users/
 │       ├── components/
 │       ├── hooks/
 │       ├── types.ts
