@@ -123,7 +123,9 @@ function githubFixture({ failIssue = null } = {}) {
       return issues.get(number) ?? { state: 'open' };
     },
     async getPull(number) {
-      return pulls.get(number) ?? { state: 'open', mergedAt: null, base: 'main' };
+      return (
+        pulls.get(number) ?? { state: 'open', mergedAt: null, base: 'main' }
+      );
     },
     async findPullsByHead(branch) {
       if (branch === 'feat/synthetic-login') {
@@ -221,9 +223,7 @@ test('generated_at 48시간 초과를 stale로 보고한다', async () => {
     inspectSourceCommit: async () => ({ status: 'clean', commitsBehind: 0 }),
   });
 
-  assert.ok(
-    result.findings.some(({ code }) => code === 'GENERATED_AT_STALE'),
-  );
+  assert.ok(result.findings.some(({ code }) => code === 'GENERATED_AT_STALE'));
 });
 
 test('active exec-plan의 선언됐지만 파싱할 수 없는 참조를 unknown으로 보고한다', async () => {
@@ -276,10 +276,7 @@ test('TEAM-STATE의 파싱할 수 없는 기능 행을 unknown으로 보고한�
 });
 
 for (const [label, pull] of [
-  [
-    'open PR',
-    { number: 202, state: 'open', mergedAt: null, base: 'main' },
-  ],
+  ['open PR', { number: 202, state: 'open', mergedAt: null, base: 'main' }],
   [
     'closed-unmerged PR',
     { number: 202, state: 'closed', mergedAt: null, base: 'main' },

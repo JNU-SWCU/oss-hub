@@ -80,7 +80,8 @@ export class AuthConfig {
   }
 
   private loadFrontendUrl(): string {
-    const raw = process.env.FRONTEND_URL ?? (this.isProduction ? '' : DEV_FRONTEND_URL);
+    const raw =
+      process.env.FRONTEND_URL ?? (this.isProduction ? '' : DEV_FRONTEND_URL);
     if (!raw) {
       throw new Error('운영 환경에는 FRONTEND_URL이 필수입니다.');
     }

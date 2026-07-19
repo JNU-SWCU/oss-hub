@@ -34,10 +34,10 @@
      전부 통과만 정답이 아니다 — 의도적으로 실패 상태인 것이 있으면 반드시 명시한다. -->
 
 ```bash
-# 예: pnpm test --filter members
+# 예: pnpm test --filter users
 ```
 
-- 기대 결과: <!-- 예: 12개 통과, members.api.spec 2개는 API 미구현으로 의도된 실패 -->
+- 기대 결과: <!-- 예: 12개 통과, users.api.spec 2개는 API 미구현으로 의도된 실패 -->
 
 ## 4. 상태 변화 · 후속 Issue · blocker
 

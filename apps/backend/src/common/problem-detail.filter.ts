@@ -87,10 +87,7 @@ export class ProblemDetailFilter implements ExceptionFilter {
 
       const exceptionResponse = exception.getResponse();
       const code = this.httpExceptionCode(status, exceptionResponse);
-      this.logException(
-        'debug',
-        this.exceptionLogEvent(request, status, code),
-      );
+      this.logException('debug', this.exceptionLogEvent(request, status, code));
 
       return {
         type: 'about:blank',
@@ -157,7 +154,10 @@ export class ProblemDetailFilter implements ExceptionFilter {
     );
   }
 
-  private httpExceptionDetail(response: string | object, fallback: string): string {
+  private httpExceptionDetail(
+    response: string | object,
+    fallback: string,
+  ): string {
     if (typeof response === 'string') {
       return response;
     }

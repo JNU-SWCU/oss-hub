@@ -6,11 +6,11 @@ services:
       POSTGRES_PASSWORD: oss-dev
       POSTGRES_DB: ${POSTGRES_DB:-oss_hub}
     ports:
-      - "${POSTGRES_BIND_HOST:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
+      - '${POSTGRES_BIND_HOST:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432'
     volumes:
       - pgdata_dev:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U oss -d \"$${POSTGRES_DB}\""]
+      test: ['CMD-SHELL', 'pg_isready -U oss -d "$${POSTGRES_DB}"']
       interval: 5s
       timeout: 5s
       retries: 5

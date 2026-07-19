@@ -1,3 +1,4 @@
+import { Role } from '@prisma/client';
 import { Request, Response } from 'express';
 import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
@@ -13,6 +14,7 @@ const syntheticUser: AuthUser = {
   login: 'synthetic-login',
   name: null,
   avatarUrl: null,
+  role: null,
 };
 
 function createResponse(): Response & {
@@ -25,7 +27,9 @@ function createResponse(): Response & {
   } as unknown as Response & { setHeader: jest.Mock; redirect: jest.Mock };
 }
 
-function createController(serviceOverrides: Partial<AuthService> = {}): AuthController {
+function createController(
+  serviceOverrides: Partial<AuthService> = {},
+): AuthController {
   const service = {
     completeLogin: jest.fn().mockResolvedValue(syntheticUser),
     issueSession: jest.fn().mockResolvedValue('synthetic-session'),
@@ -54,13 +58,14 @@ describe('AuthController github callback', () => {
       'synthetic-code',
       flow.state,
       undefined,
-      requestWithCookie(
-        `${flowCookieName(true)}=${encodeFlowCookie(flow)}`,
-      ),
+      requestWithCookie(`${flowCookieName(true)}=${encodeFlowCookie(flow)}`),
       res,
     );
 
-    expect(res.setHeader).toHaveBeenCalledWith('Referrer-Policy', 'no-referrer');
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Referrer-Policy',
+      'no-referrer',
+    );
     expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
     expect(res.redirect).toHaveBeenCalledWith(302, 'https://oss.example');
   });
@@ -79,7 +84,10 @@ describe('AuthController github callback', () => {
 
     expect(res.setHeader).toHaveBeenCalledWith(
       'Set-Cookie',
-      serializeCookie(flowCookieName(true), '', { maxAgeSeconds: 0, secure: true }),
+      serializeCookie(flowCookieName(true), '', {
+        maxAgeSeconds: 0,
+        secure: true,
+      }),
     );
     expect(res.redirect).toHaveBeenCalledWith(
       302,
@@ -115,7 +123,9 @@ describe('AuthController github callback', () => {
   it('code가 있는 mismatched callback 실패도 unrelated flow cookie를 보존한다', async () => {
     const flow = createFlowState();
     const res = createResponse();
-    const completeLogin = jest.fn().mockRejectedValue(new Error('invalid flow'));
+    const completeLogin = jest
+      .fn()
+      .mockRejectedValue(new Error('invalid flow'));
 
     await createController({ completeLogin }).githubCallback(
       'synthetic-code',
@@ -138,7 +148,9 @@ describe('AuthController github callback', () => {
   it('state가 일치한 callback의 provider 실패는 flow cookie를 삭제한다', async () => {
     const flow = createFlowState();
     const res = createResponse();
-    const completeLogin = jest.fn().mockRejectedValue(new Error('provider failure'));
+    const completeLogin = jest
+      .fn()
+      .mockRejectedValue(new Error('provider failure'));
 
     await createController({ completeLogin }).githubCallback(
       'synthetic-code',
@@ -150,30 +162,57 @@ describe('AuthController github callback', () => {
 
     expect(res.setHeader).toHaveBeenCalledWith(
       'Set-Cookie',
-      serializeCookie(flowCookieName(true), '', { maxAgeSeconds: 0, secure: true }),
+      serializeCookie(flowCookieName(true), '', {
+        maxAgeSeconds: 0,
+        secure: true,
+      }),
     );
   });
 });
 
 describe('AuthController getMe', () => {
-  it('테스트 역할 매핑을 응답에 포함하고, 미등록은 null이다', async () => {
-    const getMe = jest.fn().mockResolvedValue(syntheticUser);
-    const resolveTestRole = jest.fn().mockReturnValue('STAFF');
+  function createController(
+    dbRole: Role | null,
+    testRole: 'STAFF' | 'STUDENT' | 'ADMIN' | null,
+  ): { controller: AuthController; resolveTestRole: jest.Mock } {
+    const getMe = jest
+      .fn()
+      .mockResolvedValue({ ...syntheticUser, role: dbRole });
+    const resolveTestRole = jest.fn().mockReturnValue(testRole);
     const controller = new AuthController(
       { getMe } as unknown as AuthService,
       { resolveTestRole } as unknown as AuthConfig,
     );
-    const request = {
-      sessionGithubId: syntheticUser.githubId,
-    } as AuthenticatedRequest;
+    return { controller, resolveTestRole };
+  }
 
-    const withRole = await controller.getMe(request);
-    expect(withRole.role).toBe('STAFF');
-    expect(withRole.login).toBe('synthetic-login');
+  const request = {
+    sessionGithubId: syntheticUser.githubId,
+  } as AuthenticatedRequest;
+
+  it('정식 소스는 DB role이다 — TestRoleMap 미설정이면 DB role을 그대로 노출한다', async () => {
+    const { controller, resolveTestRole } = createController(Role.ADMIN, null);
+
+    const result = await controller.getMe(request);
+
+    expect(result.role).toBe(Role.ADMIN);
+    expect(result.login).toBe('synthetic-login');
     expect(resolveTestRole).toHaveBeenCalledWith(syntheticUser.githubId);
+  });
 
-    resolveTestRole.mockReturnValue(null);
-    const withoutRole = await controller.getMe(request);
-    expect(withoutRole.role).toBeNull();
+  it('TestRoleMap(로컬 override)이 설정되면 DB role보다 우선한다', async () => {
+    const { controller } = createController(Role.STUDENT, 'STAFF');
+
+    const result = await controller.getMe(request);
+
+    expect(result.role).toBe(Role.STAFF);
+  });
+
+  it('역할 선택 전(DB role=null)이고 TestRoleMap도 미설정이면 null이다', async () => {
+    const { controller } = createController(null, null);
+
+    const result = await controller.getMe(request);
+
+    expect(result.role).toBeNull();
   });
 });

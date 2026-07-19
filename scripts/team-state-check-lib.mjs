@@ -23,7 +23,7 @@ function metadataValue(text, key) {
   const line = text
     .split('\n')
     .find((candidate) => tableCells(candidate)[0] === key);
-  return line ? tableCells(line)[1] ?? null : null;
+  return line ? (tableCells(line)[1] ?? null) : null;
 }
 
 function parseFeatureRows(text) {
@@ -67,7 +67,9 @@ function parseFeatureRows(text) {
       reasons.push(`지원하지 않는 상태입니다 (${cells[2] || '비어 있음'}).`);
     }
     if (issue === null && cells[3] !== '-') {
-      reasons.push(`parent Issue 참조를 읽지 못했습니다 (${cells[3] || '비어 있음'}).`);
+      reasons.push(
+        `parent Issue 참조를 읽지 못했습니다 (${cells[3] || '비어 있음'}).`,
+      );
     }
     if (pull === null && cells[4] !== '-') {
       reasons.push(`PR 참조를 읽지 못했습니다 (${cells[4] || '비어 있음'}).`);
@@ -476,8 +478,12 @@ export function formatReport(result) {
       `  action: ${item.action}`,
     );
   }
-  const stale = result.findings.filter(({ status }) => status === 'stale').length;
-  const unknown = result.findings.filter(({ status }) => status === 'unknown').length;
+  const stale = result.findings.filter(
+    ({ status }) => status === 'stale',
+  ).length;
+  const unknown = result.findings.filter(
+    ({ status }) => status === 'unknown',
+  ).length;
   lines.push(
     '',
     `summary: stale=${stale}, unknown=${unknown}`,

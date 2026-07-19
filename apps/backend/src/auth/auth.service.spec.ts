@@ -14,6 +14,7 @@ const syntheticUser: AuthUser = {
   login: 'synthetic-login',
   name: null,
   avatarUrl: null,
+  role: null,
 };
 
 function buildConfig(): AuthConfig {
@@ -110,15 +111,18 @@ describe('AuthService', () => {
     ['flow 쿠키 없음', undefined, 'any-state'],
     ['state 불일치', encodeFlowCookie(createFlowState()), 'x'.repeat(43)],
     ['형식 위반 쿠키', 'malformed-cookie', 'x'.repeat(43)],
-  ])('%s이면 AUT_001로 거부하고 GitHub를 호출하지 않는다', async (_label, flowCookie, state) => {
-    await expect(
-      service.completeLogin({ code: 'c', state, flowCookie }),
-    ).rejects.toMatchObject({
-      errorCode: { code: AuthErrorCode.OAUTH_FLOW_INVALID },
-    });
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(upsertUser).not.toHaveBeenCalled();
-  });
+  ])(
+    '%s이면 AUT_001로 거부하고 GitHub를 호출하지 않는다',
+    async (_label, flowCookie, state) => {
+      await expect(
+        service.completeLogin({ code: 'c', state, flowCookie }),
+      ).rejects.toMatchObject({
+        errorCode: { code: AuthErrorCode.OAUTH_FLOW_INVALID },
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(upsertUser).not.toHaveBeenCalled();
+    },
+  );
 
   it('code 교환 응답에 access_token이 없으면 실패한다 (DB 쓰기 없음)', async () => {
     const flow = createFlowState();

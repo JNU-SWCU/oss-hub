@@ -189,12 +189,10 @@ export class GithubApiClient {
   private parseObservation(value: unknown): GithubObservation {
     const payload = this.parseJsonObject(value);
     const id = payload.id;
-    if (
-      !(
-        (typeof id === 'string' && id.length > 0) ||
-        (typeof id === 'number' && Number.isSafeInteger(id) && id >= 0)
-      )
-    ) {
+    if (!(
+      (typeof id === 'string' && id.length > 0) ||
+      (typeof id === 'number' && Number.isSafeInteger(id) && id >= 0)
+    )) {
       throw new UpstreamResponseError();
     }
     return { sourceId: String(id), payload };

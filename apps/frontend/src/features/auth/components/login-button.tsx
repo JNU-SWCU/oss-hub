@@ -1,9 +1,10 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { fetchMe, githubLoginPath, logout } from "../api";
-import { applyLogoutFailure, applyLogoutSuccess } from "../session-state";
-import type { Me } from "../types";
+import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { fetchMe, githubLoginPath, logout } from '../api';
+import { applyLogoutFailure, applyLogoutSuccess } from '../session-state';
+import type { Me } from '../types';
 
 export function LoginButton() {
   const [me, setMe] = useState<Me | null>(null);
@@ -28,19 +29,25 @@ export function LoginButton() {
   }, []);
 
   if (isLoading) {
-    return <p>로그인 상태 확인 중…</p>;
+    return null;
   }
 
   if (me) {
     return (
-      <p>
-        <strong>{me.login}</strong> 님으로 로그인됨{" "}
-        <button
+      <>
+        <Button
           type="button"
+          variant="ghost"
           onClick={() => {
             void logout()
               .then((result) => {
                 const next = applyLogoutSuccess({ me, logoutError }, result);
+                if (next.me === null) {
+                  // 로그아웃 확정: 전체 내비게이션으로 모든 세션 소비자(예:
+                  // RoleHomeNavLink)를 초기화하고 랜딩(`/`)에 착지한다.
+                  window.location.assign('/');
+                  return;
+                }
                 setMe(next.me);
                 setLogoutError(next.logoutError);
               })
@@ -51,12 +58,20 @@ export function LoginButton() {
               });
           }}
         >
-          로그아웃
-        </button>
-        {logoutError ? <span role="alert"> {logoutError}</span> : null}
-      </p>
+          {me.login} · 로그아웃
+        </Button>
+        {logoutError ? (
+          <span role="alert" className="text-xs text-destructive">
+            {logoutError}
+          </span>
+        ) : null}
+      </>
     );
   }
 
-  return <a href={githubLoginPath}>GitHub으로 로그인</a>;
+  return (
+    <Button asChild variant="ghost">
+      <a href={githubLoginPath}>GitHub으로 로그인</a>
+    </Button>
+  );
 }
