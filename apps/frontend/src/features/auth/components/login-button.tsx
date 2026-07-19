@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { fetchMe, githubLoginPath, logout } from '../api';
 import { applyLogoutFailure, applyLogoutSuccess } from '../session-state';
 import type { Me } from '../types';
@@ -28,15 +29,15 @@ export function LoginButton() {
   }, []);
 
   if (isLoading) {
-    return <p>로그인 상태 확인 중…</p>;
+    return null;
   }
 
   if (me) {
     return (
-      <p>
-        <strong>{me.login}</strong> 님으로 로그인됨{' '}
-        <button
+      <span className="flex items-center gap-2">
+        <Button
           type="button"
+          variant="ghost"
           onClick={() => {
             void logout()
               .then((result) => {
@@ -51,12 +52,20 @@ export function LoginButton() {
               });
           }}
         >
-          로그아웃
-        </button>
-        {logoutError ? <span role="alert"> {logoutError}</span> : null}
-      </p>
+          {me.login} · 로그아웃
+        </Button>
+        {logoutError ? (
+          <span role="alert" className="text-xs text-destructive">
+            {logoutError}
+          </span>
+        ) : null}
+      </span>
     );
   }
 
-  return <a href={githubLoginPath}>GitHub으로 로그인</a>;
+  return (
+    <Button asChild variant="ghost">
+      <a href={githubLoginPath}>GitHub으로 로그인</a>
+    </Button>
+  );
 }
