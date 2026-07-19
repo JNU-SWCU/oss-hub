@@ -9,6 +9,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { Request, Response } from 'express';
 import { AuthConfig } from './auth.config';
 import { AuthService } from './auth.service';
@@ -124,8 +125,18 @@ export class AuthController {
     const user = await this.authService.getMe(req.sessionGithubId);
     return MeResponseDto.from(
       user,
-      this.config.resolveTestRole(req.sessionGithubId),
+      this.resolveRole(req.sessionGithubId, user.role),
     );
+  }
+
+  /**
+   * role 정식 소스는 DB `User.role`이다(Issue #109). 로컬 `AUTH_TEST_ROLE_MAP`(Issue #65)에
+   * 이 계정 항목이 있으면 그 값이 override로 우선한다 — 운영에서는 TestRoleMap이 항상
+   * 비어 있으므로(fail-fast, `AuthConfig`) 이 분기는 로컬 전용이다.
+   */
+  private resolveRole(githubId: bigint, dbRole: Role | null): Role | null {
+    const testRole = this.config.resolveTestRole(githubId);
+    return testRole ? Role[testRole] : dbRole;
   }
 
   @Post('logout')

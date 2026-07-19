@@ -7,6 +7,7 @@ import { AuthUser, GithubProfile } from './domain/auth-user';
 export class AuthRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  // role은 update/create 어느 쪽에서도 건드리지 않는다 — 기존 role은 로그인마다 유지된다.
   async upsertUser(profile: GithubProfile): Promise<AuthUser> {
     const user = await this.prisma.user.upsert({
       where: { githubId: profile.githubId },
@@ -37,6 +38,7 @@ export class AuthRepository {
       login: user.login,
       name: user.name,
       avatarUrl: user.avatarUrl,
+      role: user.role,
     };
   }
 }
