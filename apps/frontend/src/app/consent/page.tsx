@@ -1,0 +1,11 @@
+import { AuthGate } from '../_shell/auth-gate';
+import { TicketStub } from '../_shell/ticket-stub';
+
+// #99 "개인정보·활동 동의"(URL: /consent) — 로그인 사용자만, 역할 무관.
+export default function ConsentPage() {
+  return (
+    <AuthGate>
+      <TicketStub ticketNumber={99} title="개인정보·활동 동의" />
+    </AuthGate>
+  );
+}
