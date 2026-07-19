@@ -1,5 +1,5 @@
-import { AUTH_ERROR_MESSAGE, hasAuthError } from "@/features/auth/auth-error";
-import { LoginButton } from "@/features/auth/components/login-button";
+import { AUTH_ERROR_MESSAGE, hasAuthError } from '@/features/auth/auth-error';
+import { LoginButton } from '@/features/auth/components/login-button';
 
 interface HomePageProps {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;

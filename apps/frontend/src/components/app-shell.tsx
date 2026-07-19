@@ -1,6 +1,6 @@
-import * as React from "react"
+import * as React from 'react';
 
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils';
 
 /**
  * 전체 화면 뼈대(viewport-shell 패턴) — 헤더(보통 NavBar)가 고정되고
@@ -12,14 +12,17 @@ function AppShell({
   className,
   children,
   ...props
-}: React.ComponentProps<"div"> & {
-  header?: React.ReactNode
-  footer?: React.ReactNode
+}: React.ComponentProps<'div'> & {
+  header?: React.ReactNode;
+  footer?: React.ReactNode;
 }) {
   return (
     <div
       data-slot="app-shell"
-      className={cn("grid h-dvh grid-rows-[auto_minmax(0,1fr)_auto]", className)}
+      className={cn(
+        'grid h-dvh grid-rows-[auto_minmax(0,1fr)_auto]',
+        className,
+      )}
       {...props}
     >
       {header ? (
@@ -27,7 +30,10 @@ function AppShell({
           {header}
         </header>
       ) : null}
-      <main data-slot="app-shell-body" className="row-start-2 min-h-0 overflow-y-auto">
+      <main
+        data-slot="app-shell-body"
+        className="row-start-2 min-h-0 overflow-y-auto"
+      >
         {children}
       </main>
       {footer ? (
@@ -36,7 +42,7 @@ function AppShell({
         </footer>
       ) : null}
     </div>
-  )
+  );
 }
 
-export { AppShell }
+export { AppShell };

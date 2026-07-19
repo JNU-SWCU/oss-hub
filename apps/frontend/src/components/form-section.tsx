@@ -1,17 +1,19 @@
-import * as React from "react"
+import * as React from 'react';
 
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils';
 import {
   FieldDescription,
   FieldGroup,
   FieldLegend,
   FieldSet,
-} from "@/components/ui/field"
+} from '@/components/ui/field';
 
-interface FormSectionProps
-  extends Omit<React.ComponentProps<"fieldset">, "title"> {
-  title: React.ReactNode
-  description?: React.ReactNode
+interface FormSectionProps extends Omit<
+  React.ComponentProps<'fieldset'>,
+  'title'
+> {
+  title: React.ReactNode;
+  description?: React.ReactNode;
 }
 
 // 생성·편집·신청 다단 폼에서 여러 필드를 구역(제목+설명+필드 슬롯)으로 묶는 레이어.
@@ -29,7 +31,7 @@ function FormSection({
       {description ? <FieldDescription>{description}</FieldDescription> : null}
       <FieldGroup>{children}</FieldGroup>
     </FieldSet>
-  )
+  );
 }
 
-export { FormSection }
+export { FormSection };

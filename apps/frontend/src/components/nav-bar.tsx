@@ -1,11 +1,11 @@
-import Link from "next/link"
-import * as React from "react"
+import Link from 'next/link';
+import * as React from 'react';
 
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils';
 
 export interface NavItem {
-  label: string
-  href: string
+  label: string;
+  href: string;
 }
 
 /**
@@ -19,17 +19,17 @@ function NavBar({
   actions,
   className,
   ...props
-}: Omit<React.ComponentProps<"nav">, "children"> & {
-  items: NavItem[]
-  brand?: React.ReactNode
-  actions?: React.ReactNode
+}: Omit<React.ComponentProps<'nav'>, 'children'> & {
+  items: NavItem[];
+  brand?: React.ReactNode;
+  actions?: React.ReactNode;
 }) {
   return (
     <nav
       data-slot="nav-bar"
       className={cn(
-        "flex h-14 items-center gap-4 border-b border-border bg-background px-4",
-        className
+        'flex h-14 items-center gap-4 border-b border-border bg-background px-4',
+        className,
       )}
       {...props}
     >
@@ -59,7 +59,7 @@ function NavBar({
         </div>
       ) : null}
     </nav>
-  )
+  );
 }
 
-export { NavBar }
+export { NavBar };

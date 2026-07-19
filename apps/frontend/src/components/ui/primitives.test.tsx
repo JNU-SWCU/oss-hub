@@ -1,10 +1,10 @@
-import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
-import { Button } from "./button";
-import { Input } from "./input";
-import { Field, FieldLabel, FieldDescription } from "./field";
-import { Card, CardContent, CardHeader, CardTitle } from "./card";
-import { Alert, AlertDescription, AlertTitle } from "./alert";
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it } from 'vitest';
+import { Button } from './button';
+import { Input } from './input';
+import { Field, FieldLabel, FieldDescription } from './field';
+import { Card, CardContent, CardHeader, CardTitle } from './card';
+import { Alert, AlertDescription, AlertTitle } from './alert';
 import {
   Table,
   TableBody,
@@ -12,12 +12,12 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "./table";
+} from './table';
 
 // shadcn/ui 프리미티브 6종(Button/Input/Field=FormField/Card/Alert/Table)이
 // 실제로 import·렌더 가능함을 증명하는 최소 스모크 테스트.
-describe("shadcn/ui primitives", () => {
-  it("renders all 6 primitives without throwing", () => {
+describe('shadcn/ui primitives', () => {
+  it('renders all 6 primitives without throwing', () => {
     const html = renderToStaticMarkup(
       <>
         <Button>버튼</Button>
@@ -51,9 +51,9 @@ describe("shadcn/ui primitives", () => {
       </>,
     );
 
-    expect(html).toContain("버튼");
-    expect(html).toContain("카드");
-    expect(html).toContain("알림");
-    expect(html).toContain("값");
+    expect(html).toContain('버튼');
+    expect(html).toContain('카드');
+    expect(html).toContain('알림');
+    expect(html).toContain('값');
   });
 });

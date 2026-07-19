@@ -1,6 +1,6 @@
-import * as React from "react"
+import * as React from 'react';
 
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils';
 import {
   Table,
   TableBody,
@@ -9,24 +9,27 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from '@/components/ui/table';
 
 interface DataTableColumn<TRow> {
-  id: string
-  header: React.ReactNode
-  cell: (row: TRow, rowIndex: number) => React.ReactNode
-  headClassName?: string
-  cellClassName?: string
+  id: string;
+  header: React.ReactNode;
+  cell: (row: TRow, rowIndex: number) => React.ReactNode;
+  headClassName?: string;
+  cellClassName?: string;
 }
 
-interface DataTableProps<TRow> extends Omit<React.ComponentProps<"div">, "children"> {
-  columns: DataTableColumn<TRow>[]
-  data: TRow[]
-  rowKey: (row: TRow, rowIndex: number) => React.Key
-  caption?: React.ReactNode
-  isLoading?: boolean
-  loadingSlot?: React.ReactNode
-  emptyState?: React.ReactNode
+interface DataTableProps<TRow> extends Omit<
+  React.ComponentProps<'div'>,
+  'children'
+> {
+  columns: DataTableColumn<TRow>[];
+  data: TRow[];
+  rowKey: (row: TRow, rowIndex: number) => React.Key;
+  caption?: React.ReactNode;
+  isLoading?: boolean;
+  loadingSlot?: React.ReactNode;
+  emptyState?: React.ReactNode;
 }
 
 // 소비 화면이 컬럼·행 데이터를 주입하는 운영 데이터 테이블. 역할별 컬럼·액션 노출
@@ -42,10 +45,10 @@ function DataTable<TRow>({
   className,
   ...props
 }: DataTableProps<TRow>) {
-  const colSpan = columns.length || 1
+  const colSpan = columns.length || 1;
 
   return (
-    <div data-slot="data-table" className={cn("w-full", className)} {...props}>
+    <div data-slot="data-table" className={cn('w-full', className)} {...props}>
       <Table>
         {caption ? <TableCaption>{caption}</TableCaption> : null}
         <TableHeader>
@@ -64,7 +67,7 @@ function DataTable<TRow>({
                 colSpan={colSpan}
                 className="h-24 text-center text-muted-foreground"
               >
-                {loadingSlot ?? "불러오는 중…"}
+                {loadingSlot ?? '불러오는 중…'}
               </TableCell>
             </TableRow>
           ) : data.length === 0 ? (
@@ -73,7 +76,7 @@ function DataTable<TRow>({
                 colSpan={colSpan}
                 className="h-24 text-center text-muted-foreground"
               >
-                {emptyState ?? "표시할 데이터가 없습니다."}
+                {emptyState ?? '표시할 데이터가 없습니다.'}
               </TableCell>
             </TableRow>
           ) : (
@@ -90,8 +93,8 @@ function DataTable<TRow>({
         </TableBody>
       </Table>
     </div>
-  )
+  );
 }
 
-export { DataTable }
-export type { DataTableColumn, DataTableProps }
+export { DataTable };
+export type { DataTableColumn, DataTableProps };

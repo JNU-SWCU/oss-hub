@@ -1,6 +1,6 @@
-import * as React from "react"
+import * as React from 'react';
 
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils';
 
 /**
  * 뷰포트 전체를 덮는 단일 메시지 뼈대(cover 패턴) — 빈 상태·에러·404류 전면
@@ -15,18 +15,21 @@ function StatusMessagePage({
   footer,
   className,
   ...props
-}: React.ComponentProps<"div"> & {
-  icon?: React.ReactNode
-  title: React.ReactNode
-  description?: React.ReactNode
-  action?: React.ReactNode
-  header?: React.ReactNode
-  footer?: React.ReactNode
+}: React.ComponentProps<'div'> & {
+  icon?: React.ReactNode;
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  action?: React.ReactNode;
+  header?: React.ReactNode;
+  footer?: React.ReactNode;
 }) {
   return (
     <div
       data-slot="status-message-page"
-      className={cn("grid min-h-dvh grid-rows-[auto_1fr_auto] gap-4 p-4", className)}
+      className={cn(
+        'grid min-h-dvh grid-rows-[auto_1fr_auto] gap-4 p-4',
+        className,
+      )}
       {...props}
     >
       {header ? (
@@ -39,7 +42,10 @@ function StatusMessagePage({
         className="row-start-2 flex flex-col items-center justify-center gap-3 text-center"
       >
         {icon ? (
-          <div data-slot="status-message-page-icon" className="text-muted-foreground">
+          <div
+            data-slot="status-message-page-icon"
+            className="text-muted-foreground"
+          >
             {icon}
           </div>
         ) : null}
@@ -59,7 +65,7 @@ function StatusMessagePage({
         </footer>
       ) : null}
     </div>
-  )
+  );
 }
 
-export { StatusMessagePage }
+export { StatusMessagePage };

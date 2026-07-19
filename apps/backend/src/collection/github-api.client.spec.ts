@@ -24,12 +24,20 @@ describe('GithubApiClient', () => {
   it('Retry-After 초를 최우선으로 사용해 rate limit 해제 시각을 계산한다', async () => {
     const fetcher = jest.fn<ReturnType<Fetcher>, Parameters<Fetcher>>();
     fetcher.mockResolvedValue(
-      jsonResponse(429, {}, {
-        'retry-after': '120',
-        'x-ratelimit-reset': '1893456000',
-      }),
+      jsonResponse(
+        429,
+        {},
+        {
+          'retry-after': '120',
+          'x-ratelimit-reset': '1893456000',
+        },
+      ),
     );
-    const client = new GithubApiClient(() => credentials, fetcher, () => NOW);
+    const client = new GithubApiClient(
+      () => credentials,
+      fetcher,
+      () => NOW,
+    );
 
     const promise = client.getUser('synthetic-login');
 
@@ -41,12 +49,20 @@ describe('GithubApiClient', () => {
   it('Retry-After가 없으면 x-ratelimit-reset epoch 초를 사용한다', async () => {
     const fetcher = jest.fn<ReturnType<Fetcher>, Parameters<Fetcher>>();
     fetcher.mockResolvedValue(
-      jsonResponse(403, {}, {
-        'x-ratelimit-remaining': '0',
-        'x-ratelimit-reset': '1767225720',
-      }),
+      jsonResponse(
+        403,
+        {},
+        {
+          'x-ratelimit-remaining': '0',
+          'x-ratelimit-reset': '1767225720',
+        },
+      ),
     );
-    const client = new GithubApiClient(() => credentials, fetcher, () => NOW);
+    const client = new GithubApiClient(
+      () => credentials,
+      fetcher,
+      () => NOW,
+    );
 
     const promise = client.getUser('synthetic-login');
 
@@ -60,7 +76,11 @@ describe('GithubApiClient', () => {
     fetcher.mockResolvedValue(
       jsonResponse(403, {}, { 'x-ratelimit-remaining': '0' }),
     );
-    const client = new GithubApiClient(() => credentials, fetcher, () => NOW);
+    const client = new GithubApiClient(
+      () => credentials,
+      fetcher,
+      () => NOW,
+    );
 
     const promise = client.getUser('synthetic-login');
 
@@ -74,7 +94,11 @@ describe('GithubApiClient', () => {
     fetcher.mockResolvedValue(
       jsonResponse(429, { message: 'synthetic-too-many-requests' }),
     );
-    const client = new GithubApiClient(() => credentials, fetcher, () => NOW);
+    const client = new GithubApiClient(
+      () => credentials,
+      fetcher,
+      () => NOW,
+    );
 
     const promise = client.getUser('synthetic-login');
 
@@ -92,7 +116,11 @@ describe('GithubApiClient', () => {
         { 'x-ratelimit-remaining': '42' },
       ),
     );
-    const client = new GithubApiClient(() => credentials, fetcher, () => NOW);
+    const client = new GithubApiClient(
+      () => credentials,
+      fetcher,
+      () => NOW,
+    );
 
     const promise = client.getUser('synthetic-login');
 
@@ -105,22 +133,25 @@ describe('GithubApiClient', () => {
     const fetcher = jest.fn<ReturnType<Fetcher>, Parameters<Fetcher>>();
     fetcher
       .mockResolvedValueOnce(
-        jsonResponse(
-          200,
-          [{ id: 101, name: 'synthetic-repo-1' }],
-          {
-            link: '<https://api.github.com/users/synthetic-login/repos?per_page=100&page=2>; rel="next"',
-          },
-        ),
+        jsonResponse(200, [{ id: 101, name: 'synthetic-repo-1' }], {
+          link: '<https://api.github.com/users/synthetic-login/repos?per_page=100&page=2>; rel="next"',
+        }),
       )
       .mockResolvedValueOnce(
         jsonResponse(200, [{ id: 102, name: 'synthetic-repo-2' }]),
       );
-    const client = new GithubApiClient(() => credentials, fetcher, () => NOW);
+    const client = new GithubApiClient(
+      () => credentials,
+      fetcher,
+      () => NOW,
+    );
 
     const observations = await client.getRepos('synthetic-login');
 
-    expect(observations.map(({ sourceId }) => sourceId)).toEqual(['101', '102']);
+    expect(observations.map(({ sourceId }) => sourceId)).toEqual([
+      '101',
+      '102',
+    ]);
     expect(fetcher).toHaveBeenCalledTimes(2);
     expect(fetcher.mock.calls[1]?.[0]).toBe(
       'https://api.github.com/users/synthetic-login/repos?per_page=100&page=2',
@@ -141,8 +172,14 @@ describe('GithubApiClient', () => {
 
   it('일반 비-2xx 응답은 본문 없이 상태 코드만 UpstreamError에 담는다', async () => {
     const fetcher = jest.fn<ReturnType<Fetcher>, Parameters<Fetcher>>();
-    fetcher.mockResolvedValue(jsonResponse(502, { detail: 'synthetic-detail' }));
-    const client = new GithubApiClient(() => credentials, fetcher, () => NOW);
+    fetcher.mockResolvedValue(
+      jsonResponse(502, { detail: 'synthetic-detail' }),
+    );
+    const client = new GithubApiClient(
+      () => credentials,
+      fetcher,
+      () => NOW,
+    );
 
     const promise = client.getUser('synthetic-login');
 
@@ -154,7 +191,11 @@ describe('GithubApiClient', () => {
     fetcher.mockResolvedValue(
       jsonResponse(200, [{ name: 'synthetic-repo-without-id' }]),
     );
-    const client = new GithubApiClient(() => credentials, fetcher, () => NOW);
+    const client = new GithubApiClient(
+      () => credentials,
+      fetcher,
+      () => NOW,
+    );
 
     const promise = client.getRepos('synthetic-login');
 

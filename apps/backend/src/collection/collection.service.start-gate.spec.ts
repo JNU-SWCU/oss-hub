@@ -67,10 +67,7 @@ describe('CollectionService batch start gate', () => {
         {
           provide: CollectionConfig,
           useValue: {
-            batchLogins: [
-              'synthetic-first-login',
-              'synthetic-second-login',
-            ],
+            batchLogins: ['synthetic-first-login', 'synthetic-second-login'],
           },
         },
         { provide: CollectionRepository, useValue: repository },
@@ -80,10 +77,9 @@ describe('CollectionService batch start gate', () => {
     }).compile();
 
     // When: 두 대상을 순서대로 batch 수집한다.
-    const runs = await module.get(CollectionService).runBatch([
-      'synthetic-first-login',
-      'synthetic-second-login',
-    ]);
+    const runs = await module
+      .get(CollectionService)
+      .runBatch(['synthetic-first-login', 'synthetic-second-login']);
 
     // Then: 첫 대상만 건너뛰고 두 번째 대상은 성공한다.
     expect(runs).toEqual([

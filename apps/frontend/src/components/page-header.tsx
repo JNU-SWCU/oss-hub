@@ -1,6 +1,6 @@
-import * as React from "react"
+import * as React from 'react';
 
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils';
 
 /**
  * 페이지 제목 + 설명 + 우측 액션 슬롯. 화면 상단에서 반복되는 뼈대를 공용화한다.
@@ -11,17 +11,17 @@ function PageHeader({
   actions,
   className,
   ...props
-}: React.ComponentProps<"header"> & {
-  title: React.ReactNode
-  description?: React.ReactNode
-  actions?: React.ReactNode
+}: React.ComponentProps<'header'> & {
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  actions?: React.ReactNode;
 }) {
   return (
     <header
       data-slot="page-header"
       className={cn(
-        "flex flex-col gap-4 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between",
-        className
+        'flex flex-col gap-4 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between',
+        className,
       )}
       {...props}
     >
@@ -42,12 +42,15 @@ function PageHeader({
         ) : null}
       </div>
       {actions ? (
-        <div data-slot="page-header-actions" className="flex items-center gap-2">
+        <div
+          data-slot="page-header-actions"
+          className="flex items-center gap-2"
+        >
           {actions}
         </div>
       ) : null}
     </header>
-  )
+  );
 }
 
-export { PageHeader }
+export { PageHeader };

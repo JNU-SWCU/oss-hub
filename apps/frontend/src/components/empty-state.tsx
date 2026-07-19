@@ -1,12 +1,12 @@
-import * as React from "react"
+import * as React from 'react';
 
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils';
 
-interface EmptyStateProps extends React.ComponentProps<"div"> {
-  icon?: React.ReactNode
-  title: string
-  description?: string
-  action?: React.ReactNode
+interface EmptyStateProps extends React.ComponentProps<'div'> {
+  icon?: React.ReactNode;
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
 }
 
 /**
@@ -25,24 +25,30 @@ function EmptyState({
     <div
       data-slot="empty-state"
       className={cn(
-        "mx-auto grid max-w-sm justify-items-center gap-2 py-12 text-center",
-        className
+        'mx-auto grid max-w-sm justify-items-center gap-2 py-12 text-center',
+        className,
       )}
       {...props}
     >
       {icon ? (
-        <div data-slot="empty-state-icon" aria-hidden="true" className="text-muted-foreground">
+        <div
+          data-slot="empty-state-icon"
+          aria-hidden="true"
+          className="text-muted-foreground"
+        >
           {icon}
         </div>
       ) : null}
-      <p className="font-heading text-base font-medium text-foreground">{title}</p>
+      <p className="font-heading text-base font-medium text-foreground">
+        {title}
+      </p>
       {description ? (
         <p className="text-sm text-muted-foreground">{description}</p>
       ) : null}
       {action ? <div className="mt-2">{action}</div> : null}
     </div>
-  )
+  );
 }
 
-export { EmptyState }
-export type { EmptyStateProps }
+export { EmptyState };
+export type { EmptyStateProps };

@@ -1,4 +1,4 @@
-import * as React from "react"
+import * as React from 'react';
 
 import {
   Card,
@@ -8,21 +8,23 @@ import {
   CardAction,
   CardContent,
   CardFooter,
-} from "@/components/ui/card"
-import { cn } from "@/lib/utils"
+} from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
-interface ProgramCardProps
-  extends Omit<React.ComponentProps<typeof Card>, "title"> {
+interface ProgramCardProps extends Omit<
+  React.ComponentProps<typeof Card>,
+  'title'
+> {
   /** 프로그램 제목 */
-  title: string
+  title: string;
   /** 카테고리(캡스톤/해커톤 등) */
-  category?: string
+  category?: string;
   /** 모집·진행 기간 문구 */
-  period?: string
+  period?: string;
   /** 상태 표시 슬롯 — StatusBadge 등을 그대로 전달한다 */
-  status?: React.ReactNode
+  status?: React.ReactNode;
   /** 카드 하단 액션 슬롯(예: 상세 보기 링크) */
-  footer?: React.ReactNode
+  footer?: React.ReactNode;
 }
 
 /**
@@ -41,7 +43,11 @@ function ProgramCard({
   ...props
 }: ProgramCardProps) {
   return (
-    <Card data-slot="program-card" className={cn("h-full", className)} {...props}>
+    <Card
+      data-slot="program-card"
+      className={cn('h-full', className)}
+      {...props}
+    >
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         {category ? <CardDescription>{category}</CardDescription> : null}
@@ -55,8 +61,8 @@ function ProgramCard({
       ) : null}
       {footer ? <CardFooter>{footer}</CardFooter> : null}
     </Card>
-  )
+  );
 }
 
-export { ProgramCard }
-export type { ProgramCardProps }
+export { ProgramCard };
+export type { ProgramCardProps };
