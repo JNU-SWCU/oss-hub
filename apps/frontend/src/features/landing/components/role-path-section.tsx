@@ -1,7 +1,7 @@
-import type { LucideIcon } from "lucide-react";
-import { Briefcase, CheckCircle2, GraduationCap } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import type { LucideIcon } from 'lucide-react';
+import { Briefcase, CheckCircle2, GraduationCap } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 interface RolePath {
   role: string;
@@ -13,26 +13,26 @@ interface RolePath {
 
 const ROLE_PATHS: RolePath[] = [
   {
-    role: "학생",
-    tagline: "참여자로서 이런 걸 할 수 있어요",
+    role: '학생',
+    tagline: '참여자로서 이런 걸 할 수 있어요',
     icon: GraduationCap,
     items: [
-      "관심 있는 프로그램을 둘러보고 지원해요",
-      "지원 현황과 결과를 한눈에 확인해요",
-      "참여 이력을 나의 활동으로 남겨요",
+      '관심 있는 프로그램을 둘러보고 지원해요',
+      '지원 현황과 결과를 한눈에 확인해요',
+      '참여 이력을 나의 활동으로 남겨요',
     ],
-    enterFrom: "slide-in-from-left-6",
+    enterFrom: 'slide-in-from-left-6',
   },
   {
-    role: "교직원",
-    tagline: "운영자로서 이런 걸 할 수 있어요",
+    role: '교직원',
+    tagline: '운영자로서 이런 걸 할 수 있어요',
     icon: Briefcase,
     items: [
-      "프로그램을 개설하고 모집 정보를 관리해요",
-      "지원자를 확인하고 심사를 진행해요",
-      "운영 현황과 결과를 정리해요",
+      '프로그램을 개설하고 모집 정보를 관리해요',
+      '지원자를 확인하고 심사를 진행해요',
+      '운영 현황과 결과를 정리해요',
     ],
-    enterFrom: "slide-in-from-right-6",
+    enterFrom: 'slide-in-from-right-6',
   },
 ];
 
@@ -60,7 +60,7 @@ export function RolePathSection() {
             <Card
               key={role}
               className={cn(
-                "animate-in fade-in fill-mode-both duration-700 motion-reduce:animate-none",
+                'animate-in fade-in fill-mode-both duration-700 motion-reduce:animate-none',
                 enterFrom,
               )}
             >

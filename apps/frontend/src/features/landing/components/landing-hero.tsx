@@ -1,7 +1,7 @@
-import { ArrowRight } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { githubLoginPath } from "../api";
+import { ArrowRight } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { githubLoginPath } from '../api';
 
 interface LandingHeroProps {
   authErrorMessage?: string;

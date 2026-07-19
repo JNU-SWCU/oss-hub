@@ -1,12 +1,12 @@
-import type { LucideIcon } from "lucide-react";
+import type { LucideIcon } from 'lucide-react';
 import {
   BookOpen,
   GitPullRequest,
   Presentation,
   Rocket,
   Trophy,
-} from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+} from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface ProgramType {
   title: string;
@@ -16,28 +16,29 @@ interface ProgramType {
 
 const PROGRAM_TYPES: ProgramType[] = [
   {
-    title: "경진대회",
-    description: "아이디어와 결과물로 실력을 겨루는 프로그램입니다.",
+    title: '경진대회',
+    description: '아이디어와 결과물로 실력을 겨루는 프로그램입니다.',
     icon: Trophy,
   },
   {
-    title: "해커톤",
-    description: "짧은 기간 몰입해 프로토타입을 만드는 프로그램입니다.",
+    title: '해커톤',
+    description: '짧은 기간 몰입해 프로토타입을 만드는 프로그램입니다.',
     icon: Rocket,
   },
   {
-    title: "오픈소스 기여 챌린지",
-    description: "실제 오픈소스 프로젝트에 기여하며 경험을 쌓는 프로그램입니다.",
+    title: '오픈소스 기여 챌린지',
+    description:
+      '실제 오픈소스 프로젝트에 기여하며 경험을 쌓는 프로그램입니다.',
     icon: GitPullRequest,
   },
   {
-    title: "스터디",
-    description: "정해진 주제를 함께 배우고 나누는 정기 모임입니다.",
+    title: '스터디',
+    description: '정해진 주제를 함께 배우고 나누는 정기 모임입니다.',
     icon: BookOpen,
   },
   {
-    title: "세미나·워크숍",
-    description: "발표와 실습으로 지식과 경험을 나누는 자리입니다.",
+    title: '세미나·워크숍',
+    description: '발표와 실습으로 지식과 경험을 나누는 자리입니다.',
     icon: Presentation,
   },
 ];

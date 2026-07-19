@@ -1,6 +1,6 @@
-import { ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { githubLoginPath } from "../api";
+import { ArrowRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { githubLoginPath } from '../api';
 
 export function ClosingCtaSection() {
   return (
