@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
 import { Geist } from 'next/font/google';
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { NavBar, type NavItem } from '@/components';
 import { LoginButton } from '@/features/auth/components/login-button';
@@ -26,7 +27,11 @@ export default function RootLayout({
   return (
     <html lang="ko" className={cn('font-sans', geist.variable)}>
       <body>
-        <NavBar brand="OSS Hub" items={NAV_ITEMS} actions={<LoginButton />} />
+        <NavBar
+          brand={<Link href="/">OSS Hub</Link>}
+          items={NAV_ITEMS}
+          actions={<LoginButton />}
+        />
         {children}
       </body>
     </html>
