@@ -2,6 +2,16 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
+interface StatusMessagePageProps
+  extends Omit<React.ComponentProps<'div'>, 'title'> {
+  icon?: React.ReactNode;
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  action?: React.ReactNode;
+  header?: React.ReactNode;
+  footer?: React.ReactNode;
+}
+
 /**
  * 뷰포트 전체를 덮는 단일 메시지 뼈대(cover 패턴) — 빈 상태·에러·404류 전면
  * 안내 화면에 재사용한다.
@@ -15,14 +25,7 @@ function StatusMessagePage({
   footer,
   className,
   ...props
-}: Omit<React.ComponentProps<'div'>, 'title'> & {
-  icon?: React.ReactNode;
-  title: React.ReactNode;
-  description?: React.ReactNode;
-  action?: React.ReactNode;
-  header?: React.ReactNode;
-  footer?: React.ReactNode;
-}) {
+}: StatusMessagePageProps) {
   return (
     <div
       data-slot="status-message-page"
@@ -72,3 +75,4 @@ function StatusMessagePage({
 }
 
 export { StatusMessagePage };
+export type { StatusMessagePageProps };

@@ -2,6 +2,13 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
+interface PageHeaderProps
+  extends Omit<React.ComponentProps<'header'>, 'title'> {
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  actions?: React.ReactNode;
+}
+
 /**
  * 페이지 제목 + 설명 + 우측 액션 슬롯. 화면 상단에서 반복되는 뼈대를 공용화한다.
  */
@@ -11,11 +18,7 @@ function PageHeader({
   actions,
   className,
   ...props
-}: Omit<React.ComponentProps<'header'>, 'title'> & {
-  title: React.ReactNode;
-  description?: React.ReactNode;
-  actions?: React.ReactNode;
-}) {
+}: PageHeaderProps) {
   return (
     <header
       data-slot="page-header"
@@ -54,3 +57,4 @@ function PageHeader({
 }
 
 export { PageHeader };
+export type { PageHeaderProps };

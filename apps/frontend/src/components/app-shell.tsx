@@ -2,6 +2,11 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
+interface AppShellProps extends React.ComponentProps<'div'> {
+  header?: React.ReactNode;
+  footer?: React.ReactNode;
+}
+
 /**
  * 전체 화면 뼈대(viewport-shell 패턴) — 헤더(보통 NavBar)가 고정되고
  * 본문 영역만 뷰포트 안에서 스크롤된다. footer는 선택이다.
@@ -12,10 +17,7 @@ function AppShell({
   className,
   children,
   ...props
-}: React.ComponentProps<'div'> & {
-  header?: React.ReactNode;
-  footer?: React.ReactNode;
-}) {
+}: AppShellProps) {
   return (
     <div
       data-slot="app-shell"
@@ -46,3 +48,4 @@ function AppShell({
 }
 
 export { AppShell };
+export type { AppShellProps };

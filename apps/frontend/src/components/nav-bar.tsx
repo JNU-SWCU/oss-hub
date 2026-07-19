@@ -8,6 +8,12 @@ export interface NavItem {
   href: string;
 }
 
+interface NavBarProps extends Omit<React.ComponentProps<'nav'>, 'children'> {
+  items: NavItem[];
+  brand?: React.ReactNode;
+  actions?: React.ReactNode;
+}
+
 /**
  * 상단 내비게이션. 메뉴 구성은 호출부가 `items`로 주입하는 nav-config 방식이다 —
  * 이 컴포넌트는 role prop을 받지 않고 역할 분기 로직도 갖지 않는다.
@@ -19,11 +25,7 @@ function NavBar({
   actions,
   className,
   ...props
-}: Omit<React.ComponentProps<'nav'>, 'children'> & {
-  items: NavItem[];
-  brand?: React.ReactNode;
-  actions?: React.ReactNode;
-}) {
+}: NavBarProps) {
   return (
     <nav
       data-slot="nav-bar"
@@ -63,3 +65,4 @@ function NavBar({
 }
 
 export { NavBar };
+export type { NavBarProps };
