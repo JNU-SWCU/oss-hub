@@ -29,4 +29,4 @@
 ## Dependencies
 
 - [apps/backend/src/AGENTS.md](../AGENTS.md)
-- `@nestjs/common`(`ExceptionFilter`·`HttpException`·`Logger`), `express`(`Request`/`Response` 타입).
+- `@nestjs/common` 패키지 (`ExceptionFilter`·`HttpException`·`Logger`), `express` 패키지 (`Request`/`Response` 타입).
