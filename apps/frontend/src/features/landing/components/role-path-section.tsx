@@ -39,6 +39,7 @@ const ROLE_PATHS: RolePath[] = [
 export function RolePathSection() {
   return (
     <section
+      id="role-paths"
       aria-labelledby="role-paths-heading"
       className="border-b border-border bg-muted/40"
     >
