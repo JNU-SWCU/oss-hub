@@ -64,6 +64,23 @@ advisory job은 5분, 각 Git·GitHub CLI subprocess는 30초로 제한한다. G
 
 hard gate 전환은 오탐·GitHub API 안정성을 확인한 뒤 owner가 별도로 결정한다.
 
+## 로컬 pre-push 가드
+
+`.githooks/pre-push`는 push 직전 `scripts/check-team-state-updated.sh`를 실행해, push되는 커밋
+범위가 `origin/main` 대비 `docs/handoff/TEAM-STATE.md`를 변경했는지 오프라인으로 검사한다. 위 advisory
+job과 달리 GitHub·네트워크를 전혀 호출하지 않고 로컬 git 이력만 본다 — 이 훅은 "문서를 갱신했는가"만
+검사하고, 문서 내용이 GitHub 사실과 맞는지는 검사하지 않는다. 사실 일치는 여전히 advisory job의 역할이다.
+
+활성화는 `bash scripts/setup-hooks.sh`(AGENTS.md §1 부트스트랩 6번) 한 번으로 끝난다. 이 스크립트가
+`core.hooksPath`를 `.githooks`로 설정하면 `pre-push`도 기존 `post-merge`와 함께 자동으로 켜진다 —
+pre-push만을 위한 별도 설정은 없다. 다른 `core.hooksPath`를 이미 쓰고 있으면 AGENTS.md §7과 같은 이유로
+이 훅도 비활성이다.
+
+검사 제외 대상은 `main`으로의 direct push와 브랜치 삭제 push(local sha1이 전부 0)다. 갱신이 감지되지
+않으면 push가 차단되고 안내 메시지가 출력된다. 문서 갱신이 정말 불필요한 사소한 변경이면
+`TEAM_STATE_SKIP=1 git push`로 우회할 수 있다 — 이때는 경고만 출력되고 push가 진행되며, 우회 사유를
+PR 본문에 반드시 남긴다.
+
 ## 수동 후속 원칙
 
 1. 보고서의 GitHub Issue·PR·main 상태를 사람이 재확인한다.

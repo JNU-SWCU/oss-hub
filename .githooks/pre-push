@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# push하기 전 docs/handoff/TEAM-STATE.md 갱신 여부를 검사한다 — PR 제출 전 팀 상태 갱신 강제.
+# 우회: TEAM_STATE_SKIP=1 git push (PR 본문에 사유 명시). 상세: docs/handoff/team-state-drift-check.md
+exec "$(git rev-parse --show-toplevel)/scripts/check-team-state-updated.sh" "$@"
