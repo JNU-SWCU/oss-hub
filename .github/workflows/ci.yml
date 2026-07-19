@@ -211,9 +211,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/team-state-check.mjs
 
-  # 커밋 메시지 규칙(AGENTS.md §5)은 변경 경로와 무관하므로 paths-filter 없이 항상 실행한다.
+  # 커밋 메시지 규칙(AGENTS.md §5)은 변경 경로와 무관하므로 paths-filter 없이 모든 PR에서 실행한다.
+  # issue 이벤트에는 GITHUB_BASE_REF가 없어 실행하지 않는다.
   commitlint:
     name: commitlint
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: 체크아웃
