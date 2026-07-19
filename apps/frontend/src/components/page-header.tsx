@@ -11,7 +11,7 @@ function PageHeader({
   actions,
   className,
   ...props
-}: React.ComponentProps<'header'> & {
+}: Omit<React.ComponentProps<'header'>, 'title'> & {
   title: React.ReactNode;
   description?: React.ReactNode;
   actions?: React.ReactNode;
