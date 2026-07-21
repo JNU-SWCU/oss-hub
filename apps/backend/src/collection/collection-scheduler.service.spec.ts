@@ -76,6 +76,24 @@ describe('CollectionSchedulerService', () => {
     expect(job.waitForCompletion).toBe(true);
   });
 
+  it('empty batch 설정의 수동 실행은 수집 호출 없이 완료한다', async () => {
+    batchLogins = [];
+
+    const execution = service.trigger();
+
+    await expect(execution.completion).resolves.toBeUndefined();
+    expect(runBatch).not.toHaveBeenCalled();
+  });
+
+  it('empty batch 설정의 cron 실행은 수집 호출 없이 완료한다', async () => {
+    batchLogins = [];
+
+    const completion = service.handleCron();
+
+    await expect(completion).resolves.toBeUndefined();
+    expect(runBatch).not.toHaveBeenCalled();
+  });
+
   it('같은 실행 중에는 하나의 실행만 공유한다', async () => {
     let finishBatch: ((runs: CollectionRun[]) => void) | undefined;
     runBatch.mockImplementation(
