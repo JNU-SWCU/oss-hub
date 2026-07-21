@@ -163,6 +163,10 @@ describe('ConsentsService.accept', () => {
     ['빈 목록', []],
     ['일부 누락', [CONSENT_ITEM_KEYS.PRIVACY_COLLECTION]],
     ['다른 일부 누락', [CONSENT_ITEM_KEYS.GITHUB_ACTIVITY]],
+    [
+      'Org 저장소 운영 약관 누락',
+      [CONSENT_ITEM_KEYS.PRIVACY_COLLECTION, CONSENT_ITEM_KEYS.GITHUB_ACTIVITY],
+    ],
     ['무관한 키만', ['UNRELATED_KEY']],
   ])(
     '필수 항목 누락(%s)은 422 CON_003으로 거부하고 레코드를 만들지 않는다',

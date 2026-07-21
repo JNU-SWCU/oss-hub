@@ -23,17 +23,22 @@ describe('ConsentsController.getCurrent', () => {
 
     expect(getCurrent).toHaveBeenCalledWith(syntheticGithubId);
     expect(response).toEqual({
-      policyVersion: '2026-01',
+      policyVersion: '2026-07-21',
       requiredItems: [
         {
           key: 'PRIVACY_COLLECTION',
           label: '개인정보 수집·이용',
-          documentUrl: '/policies/privacy/2026-01',
+          documentUrl: '/policies/privacy/2026-07-21.html',
         },
         {
           key: 'GITHUB_ACTIVITY',
           label: 'GitHub 활동 수집·공개 범위',
-          documentUrl: '/policies/github-activity/2026-01',
+          documentUrl: '/policies/github-activity/2026-07-21.html',
+        },
+        {
+          key: 'ORG_REPOSITORY_TERMS',
+          label: 'Org 저장소 운영 약관',
+          documentUrl: '/policies/org-repository-terms/2026-07-21.html',
         },
       ],
       consented: false,
@@ -55,15 +60,23 @@ describe('ConsentsController.create', () => {
 
     const response = await controller.create(request, {
       policyVersion: CURRENT_CONSENT_POLICY.policyVersion,
-      acceptedItems: ['PRIVACY_COLLECTION', 'GITHUB_ACTIVITY'],
+      acceptedItems: [
+        'PRIVACY_COLLECTION',
+        'GITHUB_ACTIVITY',
+        'ORG_REPOSITORY_TERMS',
+      ],
     });
 
     expect(accept).toHaveBeenCalledWith(syntheticGithubId, {
       policyVersion: CURRENT_CONSENT_POLICY.policyVersion,
-      acceptedItems: ['PRIVACY_COLLECTION', 'GITHUB_ACTIVITY'],
+      acceptedItems: [
+        'PRIVACY_COLLECTION',
+        'GITHUB_ACTIVITY',
+        'ORG_REPOSITORY_TERMS',
+      ],
     });
     expect(response).toEqual({
-      policyVersion: '2026-01',
+      policyVersion: '2026-07-21',
       consentedAt: '2026-07-19T01:00:00.000Z',
       nextUrl: '/onboarding/role',
     });

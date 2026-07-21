@@ -12,12 +12,16 @@ import { ConsentsRepository } from './consents.repository';
 import { ConsentsService } from './consents.service';
 import type { ConsentRecord, ConsentUser } from './domain/consent';
 
-const expectedPolicyVersion = '2026-01';
+const expectedPolicyVersion = '2026-07-21';
 const allowedOrigin = 'http://frontend.test';
 const syntheticGithubId = 424242n;
 const syntheticUserId = 'cuid-synthetic-http-user';
 const consentedAt = new Date('2026-07-19T01:00:00.000Z');
-const requiredItems = ['PRIVACY_COLLECTION', 'GITHUB_ACTIVITY'] as const;
+const requiredItems = [
+  'PRIVACY_COLLECTION',
+  'GITHUB_ACTIVITY',
+  'ORG_REPOSITORY_TERMS',
+] as const;
 const sessionSecret = new Uint8Array(32).fill(7);
 
 const findUserByGithubId = jest
@@ -172,12 +176,17 @@ it('returns exact issue-99 metadata and URLs for an authenticated GET', async ()
       {
         key: 'PRIVACY_COLLECTION',
         label: '개인정보 수집·이용',
-        documentUrl: '/policies/privacy/2026-01',
+        documentUrl: '/policies/privacy/2026-07-21.html',
       },
       {
         key: 'GITHUB_ACTIVITY',
         label: 'GitHub 활동 수집·공개 범위',
-        documentUrl: '/policies/github-activity/2026-01',
+        documentUrl: '/policies/github-activity/2026-07-21.html',
+      },
+      {
+        key: 'ORG_REPOSITORY_TERMS',
+        label: 'Org 저장소 운영 약관',
+        documentUrl: '/policies/org-repository-terms/2026-07-21.html',
       },
     ],
     consented: false,

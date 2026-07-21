@@ -10,7 +10,7 @@ assertIsolatedIntegrationDatabase({
 
 const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 const SEED_RUN_TIMEOUT_MS = 60_000;
-const ISSUE99_POLICY_VERSION = '2026-01';
+const ISSUE99_POLICY_VERSION = '2026-07-21';
 const ISSUE99_OLDER_POLICY_VERSION = '2025-12';
 const consentRequiredUserId = AUTH_SCENARIOS['consent-required'];
 const roleUnselectedUserId = AUTH_SCENARIOS['user-role-unselected'];

@@ -30,6 +30,33 @@ test.each([
   expect(createConsentRequest(currentPolicy, acceptedKeys)).toBeNull();
 });
 
+test('서버가 세 번째 필수 약관을 추가하면 세 항목 모두 선택해야 제출한다', () => {
+  const policyWithOrgTerms: CurrentConsent = {
+    ...currentPolicy,
+    requiredItems: [
+      ...currentPolicy.requiredItems,
+      {
+        key: 'ORG_REPOSITORY_TERMS',
+        label: 'Org 저장소 운영 약관',
+        documentUrl: '/policies/org-repository-terms/2026-07-21.html',
+      },
+    ],
+  };
+
+  expect(
+    createConsentRequest(policyWithOrgTerms, new Set(['ALPHA', 'BETA'])),
+  ).toBeNull();
+  expect(
+    createConsentRequest(
+      policyWithOrgTerms,
+      new Set(['ALPHA', 'BETA', 'ORG_REPOSITORY_TERMS']),
+    ),
+  ).toEqual({
+    policyVersion: 'policy-test-v2',
+    acceptedItems: ['ALPHA', 'BETA', 'ORG_REPOSITORY_TERMS'],
+  });
+});
+
 test('현재 동의 여부에 따라 빈 ready 또는 응답 경로 redirecting을 만든다', () => {
   expect(applyCurrentConsent(currentPolicy)).toEqual({
     kind: 'ready',
