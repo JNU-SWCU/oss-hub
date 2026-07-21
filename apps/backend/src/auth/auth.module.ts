@@ -18,6 +18,6 @@ import { SessionGuard } from './session.guard';
     SessionGuard,
     OriginGuard,
   ],
-  exports: [AuthConfig, SessionGuard, OriginGuard],
+  exports: [AuthConfig, AuthService, SessionGuard, OriginGuard],
 })
 export class AuthModule {}
