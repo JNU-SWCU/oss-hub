@@ -2,6 +2,7 @@ export interface ErrorCode {
   code: string;
   status: number;
   message: string;
+  readonly exposeToClient?: true;
 }
 
 export interface ProblemDetailExtensions {

@@ -53,7 +53,8 @@ export class ProblemDetailFilter implements ExceptionFilter {
   ): ProblemDetail {
     if (
       exception instanceof DomainException &&
-      exception.errorCode.status < INTERNAL_SERVER_ERROR_STATUS
+      (exception.errorCode.status < INTERNAL_SERVER_ERROR_STATUS ||
+        exception.errorCode.exposeToClient === true)
     ) {
       return {
         type: 'about:blank',

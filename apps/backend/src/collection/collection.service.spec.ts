@@ -58,7 +58,10 @@ describe('CollectionService', () => {
   let runStarter: jest.Mocked<Pick<CollectionRunStarter, 'start'>>;
 
   function buildService(batchLogins = ['synthetic-login']): CollectionService {
-    const config = { batchLogins } as unknown as CollectionConfig;
+    const config = {
+      batchLogins,
+      legacyUserCollectionEnabled: true,
+    } as unknown as CollectionConfig;
     return new CollectionService(
       config,
       repository as unknown as CollectionRepository,

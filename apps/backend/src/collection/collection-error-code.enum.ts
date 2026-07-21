@@ -5,6 +5,7 @@ export enum CollectionErrorCode {
   COLLECTION_RUN_NOT_READY = 'COL_002',
   BATCH_LOGIN_NOT_ALLOWED = 'COL_003',
   ADMIN_REQUIRED = 'COL_004',
+  COLLECTION_SCOPE_DISABLED = 'COL_005',
 }
 
 export const COLLECTION_ERROR_CODES: Record<CollectionErrorCode, ErrorCode> = {
@@ -27,5 +28,11 @@ export const COLLECTION_ERROR_CODES: Record<CollectionErrorCode, ErrorCode> = {
     code: CollectionErrorCode.ADMIN_REQUIRED,
     status: 403,
     message: '관리자 권한이 필요합니다.',
+  },
+  [CollectionErrorCode.COLLECTION_SCOPE_DISABLED]: {
+    code: CollectionErrorCode.COLLECTION_SCOPE_DISABLED,
+    status: 503,
+    message: '현재 환경에서는 사용자 중심 수집을 사용할 수 없습니다.',
+    exposeToClient: true,
   },
 };
