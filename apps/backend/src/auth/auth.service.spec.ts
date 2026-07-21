@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { AccountStatus, Role } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { AuthErrorCode } from './auth-error-code.enum';
 import { AuthConfig } from './auth.config';
@@ -14,6 +15,7 @@ const syntheticUser: AuthUser = {
   login: 'synthetic-login',
   name: null,
   avatarUrl: null,
+  accountStatus: AccountStatus.ACTIVE,
   role: null,
 };
 
@@ -140,5 +142,21 @@ describe('AuthService', () => {
   it('getMe: 사용자 없으면 AUT_003', async () => {
     findByGithubId.mockResolvedValueOnce(null);
     await expect(service.getMe(1n)).rejects.toBeInstanceOf(DomainException);
+  });
+
+  it('비활성 계정은 기존 세션 조회와 새 세션 발급을 모두 AUT_003으로 거부한다', async () => {
+    const deactivatedUser: AuthUser = {
+      ...syntheticUser,
+      role: Role.STAFF,
+      accountStatus: AccountStatus.DEACTIVATED,
+    };
+    findByGithubId.mockResolvedValueOnce(deactivatedUser);
+
+    await expect(service.getMe(deactivatedUser.githubId)).rejects.toMatchObject(
+      { errorCode: { code: AuthErrorCode.UNAUTHENTICATED } },
+    );
+    await expect(service.issueSession(deactivatedUser)).rejects.toMatchObject({
+      errorCode: { code: AuthErrorCode.UNAUTHENTICATED },
+    });
   });
 });

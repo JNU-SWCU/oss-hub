@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.enum';
 import { AuthConfig } from './auth.config';
@@ -68,21 +69,26 @@ export class AuthService {
   }
 
   async issueSession(user: AuthUser): Promise<string> {
+    this.requireActive(user);
     return issueSessionToken(this.config.sessionSecret, user.githubId);
   }
 
   async getMe(githubId: bigint): Promise<AuthUser> {
     const user = await this.repository.findByGithubId(githubId);
-    if (!user) {
+    return this.requireActive(user);
+  }
+
+  async findMe(githubId: bigint): Promise<AuthUser | null> {
+    return this.repository.findByGithubId(githubId);
+  }
+
+  private requireActive(user: AuthUser | null): AuthUser {
+    if (!user || user.accountStatus !== AccountStatus.ACTIVE) {
       throw new DomainException(
         AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
       );
     }
     return user;
-  }
-
-  async findMe(githubId: bigint): Promise<AuthUser | null> {
-    return this.repository.findByGithubId(githubId);
   }
 
   private async exchangeCode(code: string, verifier: string): Promise<string> {

@@ -1,4 +1,4 @@
-import { Role } from '@prisma/client';
+import { AccountStatus, Role } from '@prisma/client';
 import type { StaffRoleRequestRecord } from '../domain/staff-role-request';
 import type { StaffRoleRequestPage } from '../staff-role-requests.service';
 
@@ -6,6 +6,7 @@ export class StaffRoleRequestResponseDto {
   readonly id: string;
   readonly githubLogin: string;
   readonly requestedRole = Role.STAFF;
+  readonly accountStatus: AccountStatus;
   readonly status: StaffRoleRequestRecord['status'];
   readonly requestedAt: string;
   readonly decidedAt: string | null;
@@ -15,6 +16,7 @@ export class StaffRoleRequestResponseDto {
   private constructor(request: StaffRoleRequestRecord) {
     this.id = request.id;
     this.githubLogin = request.githubLogin;
+    this.accountStatus = request.userAccountStatus;
     this.status = request.status;
     this.requestedAt = request.createdAt.toISOString();
     this.decidedAt = request.decidedAt?.toISOString() ?? null;

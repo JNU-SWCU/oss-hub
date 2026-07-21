@@ -1,4 +1,4 @@
-import { Role, RoleRequestStatus, User } from '@prisma/client';
+import { AccountStatus, Role, RoleRequestStatus, User } from '@prisma/client';
 import { CONSENT_POLICY_VERSION } from '../../src/consents/domain/consent-policy';
 import {
   offsetDays,
@@ -149,9 +149,13 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
     decidedAt: offsetDays(-8),
   });
 
-  const staffRevoked = await upsertUser(stats, 'staff-revoked', null);
+  const staffRevoked = await upsertSeedUser(stats, {
+    id: AUTH_SCENARIOS['staff-revoked'],
+    role: Role.STAFF,
+    accountStatus: AccountStatus.DEACTIVATED,
+  });
   await upsertConsent(stats, staffRevoked.id);
-  // 과거 APPROVED 이력 뒤에 최신 REVOKED로 회수한 이력을 남긴다 — "교직원 권한 없음, 최신 REVOKED".
+  // 역할은 STAFF로 보존하고 계정만 비활성화한다. 승인·회수 이력도 모두 남긴다(#187, #188).
   await upsertRoleRequest(stats, {
     id: seedId('auth', 'staff-revoked', 'role-request-approved'),
     userId: staffRevoked.id,

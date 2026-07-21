@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { AccountStatus } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { LoginHistoryService } from '../login-history/login-history.service';
 import { AuthConfig } from './auth.config';
@@ -14,6 +15,7 @@ const syntheticUser: AuthUser = {
   login: 'synthetic-login',
   name: null,
   avatarUrl: null,
+  accountStatus: AccountStatus.ACTIVE,
   role: null,
 };
 const sessionSecret = new Uint8Array(randomBytes(32));
