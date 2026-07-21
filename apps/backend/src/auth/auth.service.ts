@@ -81,6 +81,10 @@ export class AuthService {
     return user;
   }
 
+  async findMe(githubId: bigint): Promise<AuthUser | null> {
+    return this.repository.findByGithubId(githubId);
+  }
+
   private async exchangeCode(code: string, verifier: string): Promise<string> {
     const oauth = this.config.requireOauth();
     const response = await fetch(GITHUB_TOKEN_URL, {
