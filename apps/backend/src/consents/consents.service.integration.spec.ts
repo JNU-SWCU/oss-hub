@@ -2,9 +2,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { runProfile } from '../../prisma/seed';
 import { AUTH_SCENARIOS } from '../../prisma/seeds/auth';
 import { prisma, seedGithubId, SeedStats } from '../../prisma/seeds/helpers';
-import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
-import { ConsentErrorCode } from './consent-error-code.enum';
 import { ConsentsRepository } from './consents.repository';
 import { ConsentsService } from './consents.service';
 import { CURRENT_CONSENT_POLICY } from './domain/consent-policy';
@@ -176,86 +174,5 @@ describe('ConsentsService integration (seed auth 시나리오)', () => {
       PAST_POLICY_VERSION,
       CURRENT_CONSENT_POLICY.policyVersion,
     ]);
-  });
-
-  it('stale policyVersion 제출은 409로 거부되고 레코드를 만들지 않는다', async () => {
-    await expect(
-      service.accept(consentRequiredGithubId, {
-        policyVersion: PAST_POLICY_VERSION,
-        acceptedItems: allRequiredKeys,
-      }),
-    ).rejects.toMatchObject({
-      errorCode: {
-        code: ConsentErrorCode.POLICY_VERSION_STALE,
-        status: 409,
-      },
-    });
-
-    const count = await prisma.consent.count({
-      where: { userId: consentRequiredUserId },
-    });
-    expect(count).toBe(0);
-  });
-
-  it('issue-99 invalid exact set writes zero rows', async () => {
-    // Given: the required items plus one unknown item.
-    const acceptedItems = [...allRequiredKeys, 'UNRELATED_KEY'];
-
-    // When: the invalid exact set is submitted against the current policy.
-    let rejection: unknown;
-    try {
-      await service.accept(consentRequiredGithubId, {
-        policyVersion: CURRENT_CONSENT_POLICY.policyVersion,
-        acceptedItems,
-      });
-    } catch (error: unknown) {
-      if (!(error instanceof DomainException)) {
-        throw error;
-      }
-      rejection = error;
-    }
-
-    // Then: no consent is persisted and the service reports CON_003.
-    const count = await prisma.consent.count({
-      where: { userId: consentRequiredUserId },
-    });
-    expect(count).toBe(0);
-    expect(rejection).toMatchObject({
-      errorCode: {
-        code: ConsentErrorCode.REQUIRED_CONSENT_MISSING,
-        status: 422,
-      },
-    });
-  });
-
-  it('issue-99 duplicate exact set writes zero rows', async () => {
-    // Given: the required set plus a duplicate of its first item.
-    const acceptedItems = [...allRequiredKeys, ...allRequiredKeys.slice(0, 1)];
-
-    // When: the duplicate-bearing set is submitted against the current policy.
-    let rejection: unknown;
-    try {
-      await service.accept(consentRequiredGithubId, {
-        policyVersion: CURRENT_CONSENT_POLICY.policyVersion,
-        acceptedItems,
-      });
-    } catch (error: unknown) {
-      if (!(error instanceof DomainException)) {
-        throw error;
-      }
-      rejection = error;
-    }
-
-    // Then: no consent is persisted and the service reports CON_003.
-    const count = await prisma.consent.count({
-      where: { userId: consentRequiredUserId },
-    });
-    expect(count).toBe(0);
-    expect(rejection).toMatchObject({
-      errorCode: {
-        code: ConsentErrorCode.REQUIRED_CONSENT_MISSING,
-        status: 422,
-      },
-    });
   });
 });

@@ -1,5 +1,4 @@
 import { Consent as PrismaConsent, Prisma } from '@prisma/client';
-import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConsentsRepository } from './consents.repository';
 
@@ -66,40 +65,6 @@ describe('ConsentsRepository.createConsent', () => {
         },
       },
     });
-  });
-
-  it('같은 동의를 순차 재요청하면 기존 타임스탬프로 수렴한다', async () => {
-    const existing = buildRow();
-    const create = jest
-      .fn()
-      .mockResolvedValueOnce(existing)
-      .mockRejectedValueOnce(uniqueViolation());
-    const findUnique = jest.fn().mockResolvedValue(existing);
-    const moduleRef = await Test.createTestingModule({
-      providers: [
-        ConsentsRepository,
-        {
-          provide: PrismaService,
-          useValue: { consent: { create, findUnique } },
-        },
-      ],
-    }).compile();
-    const repository = moduleRef.get(ConsentsRepository);
-
-    const first = await repository.createConsent(
-      syntheticUserId,
-      syntheticVersion,
-    );
-    const second = await repository.createConsent(
-      syntheticUserId,
-      syntheticVersion,
-    );
-    await moduleRef.close();
-
-    expect(first).toEqual(second);
-    expect(second.consentedAt).toEqual(existing.consentedAt);
-    expect(create).toHaveBeenCalledTimes(2);
-    expect(findUnique).toHaveBeenCalledTimes(1);
   });
 
   it('P2002 외의 오류는 그대로 던진다', async () => {

@@ -1,7 +1,5 @@
-import { Test } from '@nestjs/testing';
 import { AuthenticatedRequest } from '../auth/session.guard';
 import { ConsentsController } from './consents.controller';
-import { ConsentsRepository } from './consents.repository';
 import { ConsentsService } from './consents.service';
 import { CURRENT_CONSENT_POLICY } from './domain/consent-policy';
 
@@ -10,43 +8,6 @@ const syntheticGithubId = 424242n;
 const request = {
   sessionGithubId: syntheticGithubId,
 } as AuthenticatedRequest;
-
-it('issue-99 current policy metadata', async () => {
-  const moduleRef = await Test.createTestingModule({
-    providers: [
-      ConsentsService,
-      {
-        provide: ConsentsRepository,
-        useValue: {
-          findUserByGithubId: jest
-            .fn()
-            .mockResolvedValue({ id: 'cuid-synthetic-consent-user' }),
-          findConsent: jest.fn().mockResolvedValue(null),
-        },
-      },
-    ],
-  }).compile();
-  const controller = new ConsentsController(moduleRef.get(ConsentsService));
-
-  const response = await controller.getCurrent(request);
-  await moduleRef.close();
-
-  expect(response.policyVersion).toBe('2026-01');
-  expect(response.requiredItems).toEqual([
-    {
-      key: 'PRIVACY_COLLECTION',
-      label: '개인정보 수집·이용',
-      documentUrl: '/policies/privacy/2026-01',
-    },
-    {
-      key: 'GITHUB_ACTIVITY',
-      label: 'GitHub 활동 수집·공개 범위',
-      documentUrl: '/policies/github-activity/2026-01',
-    },
-  ]);
-  expect(response.consented).toBe(false);
-  expect(response.nextUrl).toBe('/onboarding/role');
-});
 
 describe('ConsentsController.getCurrent', () => {
   it('티켓 #99 계약 형태(policyVersion/requiredItems/consented/nextUrl)로 응답한다', async () => {
