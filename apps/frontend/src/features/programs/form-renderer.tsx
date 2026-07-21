@@ -1,14 +1,4 @@
-import type {
-  ApplicationFieldInputType,
-  ApplicationFormTemplate,
-  ProgramParticipation,
-} from './types';
-
-const INPUT_TYPE_LABELS: Readonly<Record<ApplicationFieldInputType, string>> = {
-  text: '텍스트',
-  url: 'URL',
-  textarea: '긴 글',
-};
+import type { ApplicationFormTemplate, ProgramParticipation } from './types';
 
 const PARTICIPATION_LABELS: Readonly<Record<ProgramParticipation, string>> = {
   individual: '개인형 신청',
@@ -32,20 +22,9 @@ export function FormRenderer({
           {PARTICIPATION_LABELS[template.participation]}
         </p>
       </div>
-      <ul className="space-y-2">
-        {template.fields.map((field) => (
-          <li
-            key={field.key}
-            className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm"
-          >
-            <span className="font-medium text-foreground">{field.label}</span>
-            <span className="text-muted-foreground">
-              {INPUT_TYPE_LABELS[field.inputType]} ·{' '}
-              {field.required ? '필수' : '선택'}
-            </span>
-          </li>
-        ))}
-      </ul>
+      <p className="rounded-md border border-border px-3 py-2 text-sm text-muted-foreground">
+        세부 신청 항목은 원본 양식 확정 후 제공됩니다.
+      </p>
     </section>
   );
 }

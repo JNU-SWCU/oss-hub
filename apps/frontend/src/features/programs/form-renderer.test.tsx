@@ -8,32 +8,15 @@ const template: ApplicationFormTemplate = {
   version: 1,
   name: 'OSS 경진대회 신청서',
   participation: 'team',
-  fields: [
-    {
-      key: 'projectName',
-      label: '프로젝트명',
-      inputType: 'text',
-      required: true,
-    },
-    {
-      key: 'repositoryUrl',
-      label: '저장소 URL',
-      inputType: 'url',
-      required: false,
-    },
-  ],
 };
 
 describe('FormRenderer', () => {
-  it('renders the locked template fields as a read-only preview', () => {
+  it('renders only the server-owned template metadata', () => {
     const html = renderToStaticMarkup(<FormRenderer template={template} />);
 
     expect(html).toContain('OSS 경진대회 신청서');
-    expect(html).toContain('프로젝트명');
-    expect(html).toContain('텍스트');
-    expect(html).toContain('필수');
-    expect(html).toContain('저장소 URL');
-    expect(html).toContain('선택');
+    expect(html).toContain('oss-contest v1');
     expect(html).toContain('팀형 신청');
+    expect(html).toContain('세부 신청 항목은 원본 양식 확정 후 제공됩니다.');
   });
 });
