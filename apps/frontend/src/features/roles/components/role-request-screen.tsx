@@ -34,7 +34,8 @@ function statusPresentation(request: RoleRequest): StatusPresentation {
       return {
         icon: <Clock3 className="size-8" />,
         title: '교직원 승인을 기다리고 있습니다',
-        description: '승인이 완료되면 교직원 프로그램 관리 기능을 사용할 수 있습니다.',
+        description:
+          '승인이 완료되면 교직원 프로그램 관리 기능을 사용할 수 있습니다.',
         badge: <StatusBadge variant="pending">승인 대기</StatusBadge>,
       };
     case 'REJECTED':

@@ -1,8 +1,5 @@
 import { Role, RoleRequestStatus } from '@prisma/client';
-import type {
-  RoleRequestRecord,
-  RoleUser,
-} from './domain/role-onboarding';
+import type { RoleRequestRecord, RoleUser } from './domain/role-onboarding';
 import type {
   RolesRepositoryPort,
   RolesTransactionStore,

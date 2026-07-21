@@ -2,10 +2,7 @@ import { IsString } from 'class-validator';
 import { Role } from '@prisma/client';
 import { DomainException } from '../../common/error-code';
 import type { SelectableRole } from '../domain/role-onboarding';
-import {
-  ROLES_ERROR_CODES,
-  RolesErrorCode,
-} from '../roles-error-code.enum';
+import { ROLES_ERROR_CODES, RolesErrorCode } from '../roles-error-code.enum';
 
 export class SelectRoleRequestDto {
   @IsString()

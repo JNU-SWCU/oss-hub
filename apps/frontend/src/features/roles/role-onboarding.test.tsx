@@ -1,19 +1,13 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import {
-  RoleSelectionForm,
-} from './components/role-selection-screen';
-import {
-  RoleRequestStatusView,
-} from './components/role-request-screen';
+import { RoleSelectionForm } from './components/role-selection-screen';
+import { RoleRequestStatusView } from './components/role-request-screen';
 import type { RoleRequest } from './types';
 
 const noOp = () => undefined;
 
-function roleRequest(
-  overrides: Partial<RoleRequest> = {},
-): RoleRequest {
+function roleRequest(overrides: Partial<RoleRequest> = {}): RoleRequest {
   return {
     requestedRole: 'STAFF',
     status: 'PENDING',

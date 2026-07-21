@@ -7,10 +7,7 @@ import type {
   User as PrismaUser,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import type {
-  RoleRequestRecord,
-  RoleUser,
-} from './domain/role-onboarding';
+import type { RoleRequestRecord, RoleUser } from './domain/role-onboarding';
 
 export interface RolesTransactionStore {
   findUserByGithubId(githubId: bigint): Promise<RoleUser | null>;
@@ -46,9 +43,7 @@ class PrismaRolesTransactionStore implements RolesTransactionStore {
     return toRoleUser(user);
   }
 
-  async findPendingRequest(
-    userId: string,
-  ): Promise<RoleRequestRecord | null> {
+  async findPendingRequest(userId: string): Promise<RoleRequestRecord | null> {
     const request = await this.transaction.roleRequest.findFirst({
       where: { userId, status: RoleRequestStatus.PENDING },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -56,9 +51,7 @@ class PrismaRolesTransactionStore implements RolesTransactionStore {
     return request ? toRoleRequest(request) : null;
   }
 
-  async findLatestRequest(
-    userId: string,
-  ): Promise<RoleRequestRecord | null> {
+  async findLatestRequest(userId: string): Promise<RoleRequestRecord | null> {
     const request = await this.transaction.roleRequest.findFirst({
       where: { userId },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -91,9 +84,7 @@ export class RolesRepository implements RolesRepositoryPort {
     return user ? toRoleUser(user) : null;
   }
 
-  async findLatestRequest(
-    userId: string,
-  ): Promise<RoleRequestRecord | null> {
+  async findLatestRequest(userId: string): Promise<RoleRequestRecord | null> {
     const request = await this.prisma.roleRequest.findFirst({
       where: { userId },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],

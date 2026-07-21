@@ -1,14 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Role, RoleRequestStatus } from '@prisma/client';
-import {
-  AUTH_ERROR_CODES,
-  AuthErrorCode,
-} from '../auth/auth-error-code.enum';
+import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.enum';
 import { DomainException } from '../common/error-code';
-import type {
-  RoleRequestRecord,
-  RoleUser,
-} from './domain/role-onboarding';
+import type { RoleRequestRecord, RoleUser } from './domain/role-onboarding';
 import type {
   RoleSelectionResult,
   SelectableRole,
@@ -18,10 +12,7 @@ import type {
   RolesRepositoryPort,
   RolesTransactionStore,
 } from './roles.repository';
-import {
-  ROLES_ERROR_CODES,
-  RolesErrorCode,
-} from './roles-error-code.enum';
+import { ROLES_ERROR_CODES, RolesErrorCode } from './roles-error-code.enum';
 
 @Injectable()
 export class RolesService {
