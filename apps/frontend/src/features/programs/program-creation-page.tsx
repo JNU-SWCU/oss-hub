@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -10,55 +10,22 @@ import { FormSection } from '@/components/form-section';
 import { ApiError } from '@/lib/api-client';
 import { createProgram } from './api';
 import {
+  buildCreateProgramInput,
+  confirmProgramExit,
+  EMPTY_PROGRAM_FORM,
+  hasProgramFormInput,
+  startProgramSubmission,
+  UNSAVED_PROGRAM_MESSAGE,
+  validateProgramForm,
+  type ProgramForm,
+  type ProgramFormErrors,
+  type ProgramSubmissionLock,
+} from './program-creation-flow';
+import {
   PROGRAM_TEMPLATE_DEFINITIONS,
   type ProgramTemplateDefinition,
 } from './program-templates';
 import { ProgramTypeModal } from './program-type-modal';
-
-interface ProgramForm {
-  readonly name: string;
-  readonly organizer: string;
-  readonly applicationStartAt: string;
-  readonly applicationEndAt: string;
-  readonly teamMinSize: string;
-  readonly teamMaxSize: string;
-  readonly description: string;
-}
-const EMPTY_FORM: ProgramForm = {
-  name: '',
-  organizer: '',
-  applicationStartAt: '',
-  applicationEndAt: '',
-  teamMinSize: '',
-  teamMaxSize: '',
-  description: '',
-};
-
-function validate(
-  form: ProgramForm,
-  template: ProgramTemplateDefinition,
-): Readonly<Record<string, string>> {
-  const errors: Record<string, string> = {};
-  if (!form.name.trim()) errors.name = '프로그램명을 입력해 주세요.';
-  if (!form.organizer.trim()) errors.organizer = '주관기관을 입력해 주세요.';
-  if (
-    !form.applicationStartAt ||
-    !form.applicationEndAt ||
-    new Date(form.applicationEndAt) < new Date(form.applicationStartAt)
-  )
-    errors.period = '올바른 신청 기간을 입력해 주세요.';
-  if (
-    template.template.participation === 'team' &&
-    (!Number.isInteger(Number(form.teamMinSize)) ||
-      !Number.isInteger(Number(form.teamMaxSize)) ||
-      Number(form.teamMinSize) < 1 ||
-      Number(form.teamMinSize) > Number(form.teamMaxSize))
-  )
-    errors.team = '팀 인원 범위를 확인해 주세요.';
-  if (!form.description.trim())
-    errors.description = '소개/설명을 입력해 주세요.';
-  return errors;
-}
 
 export function ProgramCreationPage() {
   const router = useRouter();
@@ -66,37 +33,75 @@ export function ProgramCreationPage() {
     null,
   );
   const [modalOpen, setModalOpen] = useState(true);
-  const [form, setForm] = useState<ProgramForm>(EMPTY_FORM);
-  const [errors, setErrors] = useState<Readonly<Record<string, string>>>({});
+  const [form, setForm] = useState<ProgramForm>(EMPTY_PROGRAM_FORM);
+  const [errors, setErrors] = useState<ProgramFormErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const submissionLock = useRef<ProgramSubmissionLock>({ current: false });
+  const allowExit = useRef(false);
+  const historyGuardActive = useRef(false);
+  const hasUnsavedInput = hasProgramFormInput(form);
+
+  useEffect(() => {
+    if (!hasUnsavedInput) return;
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (allowExit.current) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedInput]);
+
+  useEffect(() => {
+    if (!hasUnsavedInput) return;
+    window.history.pushState(null, '', window.location.href);
+    historyGuardActive.current = true;
+    const handlePopState = () => {
+      if (allowExit.current) return;
+      if (window.confirm(UNSAVED_PROGRAM_MESSAGE)) {
+        allowExit.current = true;
+        historyGuardActive.current = false;
+        window.history.back();
+        return;
+      }
+      window.history.pushState(null, '', window.location.href);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [hasUnsavedInput]);
+
   const update = (key: keyof ProgramForm, value: string) =>
     setForm((previous) => ({ ...previous, [key]: value }));
+  const leavePage = () => {
+    if (!confirmProgramExit(form, (message) => window.confirm(message))) return;
+    allowExit.current = true;
+    if (hasUnsavedInput && historyGuardActive.current) {
+      historyGuardActive.current = false;
+      window.history.go(-2);
+      return;
+    }
+    router.back();
+  };
   const save = async () => {
     if (!selected) return;
-    const nextErrors = validate(form, selected);
+    const nextErrors = validateProgramForm(form, selected);
     setErrors(nextErrors);
     setServerError(null);
     if (Object.keys(nextErrors).length) return;
+    const submission = startProgramSubmission(
+      submissionLock.current,
+      buildCreateProgramInput(form, selected),
+      createProgram,
+      (path) => {
+        allowExit.current = true;
+        router.push(path);
+      },
+    );
+    if (submission.status === 'ignored') return;
     setSubmitting(true);
     try {
-      const result = await createProgram({
-        name: form.name.trim(),
-        organizer: form.organizer.trim(),
-        category: selected.category,
-        applicationStartAt: new Date(form.applicationStartAt).toISOString(),
-        applicationEndAt: new Date(form.applicationEndAt).toISOString(),
-        teamMinSize:
-          selected.template.participation === 'team'
-            ? Number(form.teamMinSize)
-            : null,
-        teamMaxSize:
-          selected.template.participation === 'team'
-            ? Number(form.teamMaxSize)
-            : null,
-        description: form.description.trim(),
-      });
-      router.push(result.detailUrl);
+      await submission.completion;
     } catch (error) {
       setServerError(
         error instanceof ApiError
@@ -114,7 +119,7 @@ export function ProgramCreationPage() {
         selected={selected}
         onSelect={setSelected}
         onContinue={() => setModalOpen(false)}
-        onCancel={() => router.back()}
+        onCancel={() => (selected ? setModalOpen(false) : leavePage())}
       />
     );
   const isTeam = selected.template.participation === 'team';
@@ -213,7 +218,7 @@ export function ProgramCreationPage() {
         </Field>
       </FormSection>
       <div className="flex justify-between">
-        <Button type="button" variant="outline" onClick={() => router.back()}>
+        <Button type="button" variant="outline" onClick={leavePage}>
           취소
         </Button>
         <Button type="button" disabled={submitting} onClick={() => void save()}>
