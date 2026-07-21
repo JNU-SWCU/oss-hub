@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { ObservationSourceType as PrismaObservationSourceType } from '@prisma/client';
+import {
+  AccountStatus,
+  ObservationSourceType as PrismaObservationSourceType,
+} from '@prisma/client';
 import type { Prisma, User as PrismaUser } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { COLLECTION_RUN_STATUSES } from './domain/collection-run';
@@ -21,7 +24,9 @@ export class CollectionRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findUserByGithubId(githubId: bigint): Promise<CollectionUser | null> {
-    const user = await this.prisma.user.findUnique({ where: { githubId } });
+    const user = await this.prisma.user.findUnique({
+      where: { githubId, accountStatus: AccountStatus.ACTIVE },
+    });
     return user ? this.toUser(user) : null;
   }
 

@@ -1,11 +1,13 @@
-import { Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
 import type { RoleUser } from './domain/role-onboarding';
 import {
   STAFF_ROLE_REQUEST_ACTIONS,
   type StaffRoleRequestAction,
   type StaffRoleRequestListQuery,
+  type StaffRoleReactivationApproval,
   type StaffRoleRequestRecord,
   type StaffRoleRequestTransition,
+  type StaffUserAccountStatusTransition,
   type StaffUserRoleTransition,
 } from './domain/staff-role-request';
 import { RolesErrorCode } from './roles-error-code.enum';
@@ -25,6 +27,7 @@ function pendingRequest(): StaffRoleRequestRecord {
     userId: 'synthetic-requester',
     githubLogin: 'synthetic-staff',
     userRole: null,
+    userAccountStatus: AccountStatus.ACTIVE,
     status: RoleRequestStatus.PENDING,
     rejectionReason: null,
     decidedAt: null,
@@ -37,11 +40,28 @@ class InMemoryStaffRoleRequestsRepository
   implements StaffRoleRequestsRepositoryPort, StaffRoleRequestsTransactionStore
 {
   private readonly users = new Map<bigint, RoleUser>([
-    [ADMIN_GITHUB_ID, { id: 'synthetic-admin', role: Role.ADMIN }],
-    [STAFF_GITHUB_ID, { id: 'synthetic-staff-actor', role: Role.STAFF }],
+    [
+      ADMIN_GITHUB_ID,
+      {
+        id: 'synthetic-admin',
+        role: Role.ADMIN,
+        accountStatus: AccountStatus.ACTIVE,
+      },
+    ],
+    [
+      STAFF_GITHUB_ID,
+      {
+        id: 'synthetic-staff-actor',
+        role: Role.STAFF,
+        accountStatus: AccountStatus.ACTIVE,
+      },
+    ],
   ]);
+  private readonly requests: StaffRoleRequestRecord[];
 
-  constructor(private request: StaffRoleRequestRecord = pendingRequest()) {}
+  constructor(request: StaffRoleRequestRecord = pendingRequest()) {
+    this.requests = [request];
+  }
 
   withTransaction<T>(
     operation: (store: StaffRoleRequestsTransactionStore) => Promise<T>,
@@ -57,23 +77,31 @@ class InMemoryStaffRoleRequestsRepository
     readonly items: readonly StaffRoleRequestRecord[];
     readonly total: number;
   }> {
-    return Promise.resolve({ items: [this.request], total: 1 });
+    return Promise.resolve({
+      items: this.requests,
+      total: this.requests.length,
+    });
   }
 
   findRequestById(id: string): Promise<StaffRoleRequestRecord | null> {
-    return Promise.resolve(this.request.id === id ? this.request : null);
+    return Promise.resolve(
+      this.requests.find((request) => request.id === id) ?? null,
+    );
   }
 
   transitionRequest(input: StaffRoleRequestTransition): Promise<boolean> {
-    if (
-      this.request.id !== input.requestId ||
-      this.request.status !== input.expectedStatus
-    ) {
+    const index = this.requests.findIndex(
+      (request) =>
+        request.id === input.requestId &&
+        request.status === input.expectedStatus,
+    );
+    const request = this.requests[index];
+    if (index < 0 || !request) {
       return Promise.resolve(false);
     }
 
-    this.request = {
-      ...this.request,
+    this.requests[index] = {
+      ...request,
       status: input.nextStatus,
       rejectionReason: input.rejectionReason,
       decidedAt: input.decidedAt,
@@ -83,14 +111,89 @@ class InMemoryStaffRoleRequestsRepository
   }
 
   transitionUserRole(input: StaffUserRoleTransition): Promise<boolean> {
+    const request = this.requests.find(
+      (candidate) => candidate.userId === input.userId,
+    );
     if (
-      this.request.userId !== input.userId ||
-      this.request.userRole !== input.expectedRole
+      !request ||
+      request.userRole !== input.expectedRole ||
+      request.userAccountStatus !== input.expectedAccountStatus
     ) {
       return Promise.resolve(false);
     }
-    this.request = { ...this.request, userRole: input.nextRole };
+    this.replaceUserState(input.userId, {
+      userRole: input.nextRole,
+      userAccountStatus: input.expectedAccountStatus,
+    });
     return Promise.resolve(true);
+  }
+
+  transitionUserAccountStatus(
+    input: StaffUserAccountStatusTransition,
+  ): Promise<boolean> {
+    const request = this.requests.find(
+      (candidate) => candidate.userId === input.userId,
+    );
+    if (
+      !request ||
+      request.userRole !== input.expectedRole ||
+      request.userAccountStatus !== input.expectedAccountStatus
+    ) {
+      return Promise.resolve(false);
+    }
+    this.replaceUserState(input.userId, {
+      userRole: input.expectedRole,
+      userAccountStatus: input.nextAccountStatus,
+    });
+    return Promise.resolve(true);
+  }
+
+  createApprovedReactivation(
+    input: StaffRoleReactivationApproval,
+  ): Promise<StaffRoleRequestRecord> {
+    const userState = this.requests.find(
+      (request) => request.userId === input.userId,
+    );
+    if (!userState) {
+      throw new Error('합성 요청 사용자가 존재해야 합니다.');
+    }
+    const approved: StaffRoleRequestRecord = {
+      id: `synthetic-reactivation-${this.requests.length}`,
+      userId: input.userId,
+      githubLogin: userState.githubLogin,
+      userRole: userState.userRole,
+      userAccountStatus: userState.userAccountStatus,
+      status: RoleRequestStatus.APPROVED,
+      rejectionReason: null,
+      decidedAt: input.decidedAt,
+      decidedBy: 'synthetic-admin',
+      createdAt: input.decidedAt,
+    };
+    this.requests.push(approved);
+    return Promise.resolve(approved);
+  }
+
+  allRequests(): readonly StaffRoleRequestRecord[] {
+    return this.requests;
+  }
+
+  deactivateAdmin(): void {
+    this.users.set(ADMIN_GITHUB_ID, {
+      id: 'synthetic-admin',
+      role: Role.ADMIN,
+      accountStatus: AccountStatus.DEACTIVATED,
+    });
+  }
+
+  private replaceUserState(
+    userId: string,
+    state: Pick<StaffRoleRequestRecord, 'userRole' | 'userAccountStatus'>,
+  ): void {
+    for (const [index, request] of this.requests.entries()) {
+      if (request.userId === userId) {
+        this.requests[index] = { ...request, ...state };
+      }
+    }
   }
 }
 
@@ -162,7 +265,7 @@ describe('StaffRoleRequestsService', () => {
     expect(result.userRole).toBeNull();
   });
 
-  it('ADMIN이 APPROVED 요청을 회수하면 같은 트랜잭션에서 STAFF 역할을 제거한다', async () => {
+  it('ADMIN이 APPROVED 요청을 회수하면 STAFF 역할을 보존하고 계정만 비활성화한다', async () => {
     // Given
     const service = createService();
     await service.decide(ADMIN_GITHUB_ID, 'synthetic-request', {
@@ -176,7 +279,10 @@ describe('StaffRoleRequestsService', () => {
 
     // Then
     expect(result.status).toBe(RoleRequestStatus.REVOKED);
-    expect(result.userRole).toBeNull();
+    expect(result).toMatchObject({
+      userRole: Role.STAFF,
+      userAccountStatus: AccountStatus.DEACTIVATED,
+    });
     expect(result.decidedBy).toBe('synthetic-admin');
     expect(result.decidedAt).toBeInstanceOf(Date);
   });
@@ -202,6 +308,74 @@ describe('StaffRoleRequestsService', () => {
     await expect(secondRevocation).rejects.toMatchObject({
       errorCode: { code: RolesErrorCode.ROLE_REQUEST_ALREADY_DECIDED },
     });
+  });
+
+  it('ADMIN 재활성화는 REVOKED 이력을 보존하고 별도 APPROVED 이력을 만든다', async () => {
+    const repository = new InMemoryStaffRoleRequestsRepository();
+    const service = new StaffRoleRequestsService(repository);
+    await service.decide(ADMIN_GITHUB_ID, 'synthetic-request', {
+      action: STAFF_ROLE_REQUEST_ACTIONS.APPROVE,
+    });
+    await service.decide(ADMIN_GITHUB_ID, 'synthetic-request', {
+      action: STAFF_ROLE_REQUEST_ACTIONS.REVOKE,
+    });
+
+    const result = await service.decide(ADMIN_GITHUB_ID, 'synthetic-request', {
+      action: STAFF_ROLE_REQUEST_ACTIONS.REACTIVATE,
+    });
+
+    expect(result).toMatchObject({
+      status: RoleRequestStatus.APPROVED,
+      userRole: Role.STAFF,
+      userAccountStatus: AccountStatus.ACTIVE,
+      decidedBy: 'synthetic-admin',
+    });
+    expect(repository.allRequests()).toHaveLength(2);
+    expect(repository.allRequests()[0]?.status).toBe(RoleRequestStatus.REVOKED);
+  });
+
+  it('이미 재활성화된 계정은 같은 REVOKED 이력으로 다시 활성화하지 않는다', async () => {
+    const repository = new InMemoryStaffRoleRequestsRepository();
+    const service = new StaffRoleRequestsService(repository);
+    await service.decide(ADMIN_GITHUB_ID, 'synthetic-request', {
+      action: STAFF_ROLE_REQUEST_ACTIONS.APPROVE,
+    });
+    await service.decide(ADMIN_GITHUB_ID, 'synthetic-request', {
+      action: STAFF_ROLE_REQUEST_ACTIONS.REVOKE,
+    });
+    await service.decide(ADMIN_GITHUB_ID, 'synthetic-request', {
+      action: STAFF_ROLE_REQUEST_ACTIONS.REACTIVATE,
+    });
+
+    await expect(
+      service.decide(ADMIN_GITHUB_ID, 'synthetic-request', {
+        action: STAFF_ROLE_REQUEST_ACTIONS.REACTIVATE,
+      }),
+    ).rejects.toMatchObject({
+      errorCode: { code: RolesErrorCode.ROLE_STATE_CONFLICT },
+    });
+    expect(repository.allRequests()).toHaveLength(2);
+  });
+
+  it('비활성 ADMIN은 목록 조회와 처리를 모두 AUT_003으로 거부한다', async () => {
+    const repository = new InMemoryStaffRoleRequestsRepository();
+    repository.deactivateAdmin();
+    const service = new StaffRoleRequestsService(repository);
+    const query: StaffRoleRequestListQuery = {
+      status: RoleRequestStatus.PENDING,
+      query: '',
+      page: 1,
+      limit: 20,
+    };
+
+    await expect(service.list(ADMIN_GITHUB_ID, query)).rejects.toMatchObject({
+      errorCode: { code: 'AUT_003' },
+    });
+    await expect(
+      service.decide(ADMIN_GITHUB_ID, 'synthetic-request', {
+        action: STAFF_ROLE_REQUEST_ACTIONS.APPROVE,
+      }),
+    ).rejects.toMatchObject({ errorCode: { code: 'AUT_003' } });
   });
 
   it('ADMIN이 아닌 사용자의 조회와 처리를 거부한다', async () => {

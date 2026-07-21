@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { AccountStatus, Role } from '@prisma/client';
 import { Request, Response } from 'express';
 import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
@@ -14,6 +15,7 @@ const syntheticUser: AuthUser = {
   login: 'synthetic-login',
   name: null,
   avatarUrl: null,
+  accountStatus: AccountStatus.ACTIVE,
   role: null,
 };
 const sessionSecret = new Uint8Array(randomBytes(32));
@@ -123,6 +125,7 @@ describe('AuthController getSession', () => {
         login: syntheticUser.login,
         name: null,
         avatarUrl: null,
+        accountStatus: AccountStatus.ACTIVE,
         role: null,
       },
     });
@@ -138,6 +141,28 @@ describe('AuthController getSession', () => {
 
     const result = await createController(
       jest.fn().mockResolvedValue(null),
+    ).getSession(requestWithCookie(`${sessionCookieName(true)}=${token}`), res);
+
+    expect(result).toEqual({ isAuthenticated: false });
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Set-Cookie',
+      clearSessionCookie,
+    );
+  });
+
+  it('유효한 토큰의 사용자가 비활성화되면 익명 처리하고 기존 쿠키를 삭제한다', async () => {
+    const token = await issueSessionToken(
+      sessionSecret,
+      syntheticUser.githubId,
+    );
+    const res = createResponse();
+
+    const result = await createController(
+      jest.fn().mockResolvedValue({
+        ...syntheticUser,
+        role: Role.STAFF,
+        accountStatus: AccountStatus.DEACTIVATED,
+      }),
     ).getSession(requestWithCookie(`${sessionCookieName(true)}=${token}`), res);
 
     expect(result).toEqual({ isAuthenticated: false });

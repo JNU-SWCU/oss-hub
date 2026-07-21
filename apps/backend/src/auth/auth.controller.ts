@@ -9,7 +9,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { AccountStatus, Role } from '@prisma/client';
 import { Request, Response } from 'express';
 import { AuthConfig } from './auth.config';
 import { AuthService } from './auth.service';
@@ -162,7 +162,7 @@ export class AuthController {
       return SessionResponseDto.anonymous();
     }
     const user = await this.authService.findMe(githubId);
-    if (!user) {
+    if (!user || user.accountStatus !== AccountStatus.ACTIVE) {
       this.clearSessionCookie(res);
       return SessionResponseDto.anonymous();
     }

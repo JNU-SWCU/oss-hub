@@ -29,6 +29,8 @@ export class PatchStaffRoleRequestDto {
       }
       case STAFF_ROLE_REQUEST_ACTIONS.REVOKE:
         return { action: STAFF_ROLE_REQUEST_ACTIONS.REVOKE };
+      case STAFF_ROLE_REQUEST_ACTIONS.REACTIVATE:
+        return { action: STAFF_ROLE_REQUEST_ACTIONS.REACTIVATE };
       default:
         throw new DomainException(
           ROLES_ERROR_CODES[RolesErrorCode.INVALID_ROLE_REQUEST_ACTION],

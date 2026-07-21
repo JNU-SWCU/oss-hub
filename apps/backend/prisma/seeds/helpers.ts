@@ -1,4 +1,4 @@
-import { PrismaClient, Role, User } from '@prisma/client';
+import { AccountStatus, PrismaClient, Role, User } from '@prisma/client';
 import { createHash } from 'node:crypto';
 
 /**
@@ -175,9 +175,13 @@ export async function upsertTracked<T>(
 /** 여러 도메인 시드 파일이 공유하는 User upsert. login은 id에서 파생한 고정 값이다. */
 export async function upsertSeedUser(
   stats: SeedStats,
-  params: { id: string; role: Role | null },
+  params: {
+    id: string;
+    role: Role | null;
+    accountStatus?: AccountStatus;
+  },
 ): Promise<User> {
-  const { id, role } = params;
+  const { id, role, accountStatus = AccountStatus.ACTIVE } = params;
   const login = id.replace(/^seed:/, 'seed-').replace(/:/g, '-');
   const githubId = seedGithubId(id);
   return upsertTracked(
@@ -187,8 +191,8 @@ export async function upsertSeedUser(
     () =>
       prisma.user.upsert({
         where: { id },
-        update: { login, role },
-        create: { id, githubId, login, role },
+        update: { login, role, accountStatus },
+        create: { id, githubId, login, role, accountStatus },
       }),
   );
 }
