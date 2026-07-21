@@ -6,6 +6,7 @@ import { HealthModule } from './health/health.module';
 import { LoginHistoryModule } from './login-history/login-history.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProgramsModule } from './programs/programs.module';
+import { RepositoryOwnershipModule } from './repository-ownership/repository-ownership.module';
 import { RolesModule } from './roles/roles.module';
 
 @Module({
@@ -18,6 +19,7 @@ import { RolesModule } from './roles/roles.module';
     ConsentsModule,
     RolesModule,
     ProgramsModule,
+    RepositoryOwnershipModule,
   ],
 })
 export class AppModule {}
