@@ -1,11 +1,14 @@
 import { ProgramCategory, Role } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
-import type { CreateProgramDto } from './dto/create-program.dto';
-import { PROGRAM_ERROR_CODES, ProgramErrorCode } from './program-error-code.enum';
+import type { CreateProgramRequestDto } from './dto/create-program-request.dto';
+import {
+  PROGRAM_ERROR_CODES,
+  ProgramErrorCode,
+} from './program-error-code.enum';
 import { ProgramsService } from './programs.service';
 
-const input: CreateProgramDto = {
+const input: CreateProgramRequestDto = {
   name: '  2026 OSS Contest  ',
   organizer: '  SW Center  ',
   category: ProgramCategory.OSS_CONTEST,
@@ -19,7 +22,10 @@ const input: CreateProgramDto = {
 describe('ProgramsService', () => {
   const findUnique = jest.fn();
   const create = jest.fn();
-  const prisma = { user: { findUnique }, program: { create } } as unknown as PrismaService;
+  const prisma = {
+    user: { findUnique },
+    program: { create },
+  } as unknown as PrismaService;
   const service = new ProgramsService(prisma);
 
   beforeEach(() => {
@@ -34,15 +40,18 @@ describe('ProgramsService', () => {
     await service.create(101n, input);
 
     expect(create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
+      data: {
         name: '2026 OSS Contest',
         organizer: 'SW Center',
+        category: ProgramCategory.OSS_CONTEST,
         description: 'Program overview',
         applicationTemplateKey: 'oss-contest',
         applicationTemplateVersion: 1,
+        applicationStartAt: new Date('2026-08-01T00:00:00+09:00'),
+        applicationEndAt: new Date('2026-08-15T23:59:59+09:00'),
         teamMinSize: 2,
         teamMaxSize: 4,
-      }),
+      },
     });
   });
 
@@ -58,7 +67,18 @@ describe('ProgramsService', () => {
     });
 
     expect(create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ teamMinSize: null, teamMaxSize: null }),
+      data: {
+        name: '2026 OSS Contest',
+        organizer: 'SW Center',
+        category: ProgramCategory.BASIC,
+        description: 'Program overview',
+        applicationTemplateKey: 'basic',
+        applicationTemplateVersion: 1,
+        applicationStartAt: new Date('2026-08-01T00:00:00+09:00'),
+        applicationEndAt: new Date('2026-08-15T23:59:59+09:00'),
+        teamMinSize: null,
+        teamMaxSize: null,
+      },
     });
   });
 

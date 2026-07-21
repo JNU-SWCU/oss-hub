@@ -9,8 +9,18 @@ const template: ApplicationFormTemplate = {
   name: 'OSS 경진대회 신청서',
   participation: 'team',
   fields: [
-    { key: 'projectName', label: '프로젝트명', inputType: 'text', required: true },
-    { key: 'repositoryUrl', label: '저장소 URL', inputType: 'url', required: false },
+    {
+      key: 'projectName',
+      label: '프로젝트명',
+      inputType: 'text',
+      required: true,
+    },
+    {
+      key: 'repositoryUrl',
+      label: '저장소 URL',
+      inputType: 'url',
+      required: false,
+    },
   ],
 };
 

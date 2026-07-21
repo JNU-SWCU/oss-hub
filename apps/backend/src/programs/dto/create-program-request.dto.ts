@@ -1,7 +1,13 @@
 import { ProgramCategory } from '@prisma/client';
-import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
-export class CreateProgramDto {
+export class CreateProgramRequestDto {
   @IsString()
   @IsNotEmpty()
   declare name: string;

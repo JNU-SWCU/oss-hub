@@ -21,7 +21,10 @@ export function FormRenderer({
   readonly template: ApplicationFormTemplate;
 }) {
   return (
-    <section aria-label={`${template.name} 템플릿 미리보기`} className="space-y-3">
+    <section
+      aria-label={`${template.name} 템플릿 미리보기`}
+      className="space-y-3"
+    >
       <div>
         <p className="font-medium text-foreground">{template.name}</p>
         <p className="text-sm text-muted-foreground">
