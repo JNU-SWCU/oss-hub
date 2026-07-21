@@ -24,7 +24,7 @@ function NavBar({ items, brand, actions, className, ...props }: NavBarProps) {
     <nav
       data-slot="nav-bar"
       className={cn(
-        'flex h-14 items-center gap-4 border-b border-border bg-background px-4',
+        'flex min-h-14 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-background px-4 py-2 sm:h-14 sm:flex-nowrap sm:py-0',
         className,
       )}
       {...props}
@@ -32,17 +32,20 @@ function NavBar({ items, brand, actions, className, ...props }: NavBarProps) {
       {brand ? (
         <div
           data-slot="nav-bar-brand"
-          className="font-heading text-base font-semibold"
+          className="font-heading whitespace-nowrap text-base font-semibold"
         >
           {brand}
         </div>
       ) : null}
-      <ul data-slot="nav-bar-items" className="flex flex-1 items-center gap-1">
+      <ul
+        data-slot="nav-bar-items"
+        className="flex min-w-0 flex-1 items-center gap-1"
+      >
         {items.map((item) => (
           <li key={item.href}>
             <Link
               href={item.href}
-              className="rounded-md px-2.5 py-1.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground"
+              className="whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground"
             >
               {item.label}
             </Link>
@@ -50,7 +53,10 @@ function NavBar({ items, brand, actions, className, ...props }: NavBarProps) {
         ))}
       </ul>
       {actions ? (
-        <div data-slot="nav-bar-actions" className="flex items-center gap-2">
+        <div
+          data-slot="nav-bar-actions"
+          className="order-last flex w-full shrink-0 basis-full items-center justify-end gap-2 sm:order-none sm:w-auto sm:basis-auto"
+        >
           {actions}
         </div>
       ) : null}
