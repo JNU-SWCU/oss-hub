@@ -3,12 +3,14 @@ import { AuthModule } from './auth/auth.module';
 import { CollectionModule } from './collection/collection.module';
 import { ConsentsModule } from './consents/consents.module';
 import { HealthModule } from './health/health.module';
+import { LoginHistoryModule } from './login-history/login-history.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
   imports: [
     PrismaModule,
     HealthModule,
+    LoginHistoryModule,
     AuthModule,
     CollectionModule,
     ConsentsModule,

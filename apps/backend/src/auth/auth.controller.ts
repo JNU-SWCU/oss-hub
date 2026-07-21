@@ -27,6 +27,7 @@ import { OriginGuard } from './origin.guard';
 import { resolveSession } from './session-resolution';
 import { AuthenticatedRequest, SessionGuard } from './session.guard';
 import { SESSION_MAX_AGE_SECONDS } from './session-token';
+import { LoginHistoryService } from '../login-history/login-history.service';
 
 const FLOW_COOKIE_MAX_AGE_SECONDS = 600;
 
@@ -37,6 +38,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly config: AuthConfig,
+    private readonly loginHistoryService: LoginHistoryService,
   ) {}
 
   @Get('github')
@@ -95,6 +97,7 @@ export class AuthController {
         flowCookie: cookies[flowCookieName(secure)],
       });
       const sessionToken = await this.authService.issueSession(user);
+      await this.recordLoginHistory(user.id);
       res.setHeader('Set-Cookie', [
         clearFlowCookie,
         serializeCookie(sessionCookieName(secure), sessionToken, {
@@ -171,9 +174,46 @@ export class AuthController {
   @Post('logout')
   @UseGuards(OriginGuard)
   @HttpCode(200)
-  logout(@Res({ passthrough: true }) res: Response): LogoutResponseDto {
+  async logout(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<LogoutResponseDto> {
     this.clearSessionCookie(res);
+    await this.recordLogoutHistory(req.headers.cookie);
     return new LogoutResponseDto(false);
+  }
+
+  private async recordLoginHistory(userId: string): Promise<void> {
+    try {
+      await this.loginHistoryService.recordLogin(userId);
+    } catch (error) {
+      this.logHistoryFailure('login', error);
+    }
+  }
+
+  private async recordLogoutHistory(
+    cookieHeader: string | undefined,
+  ): Promise<void> {
+    try {
+      const { githubId } = await resolveSession(this.config, cookieHeader);
+      if (githubId === null) {
+        return;
+      }
+      const user = await this.authService.findMe(githubId);
+      if (user !== null) {
+        await this.loginHistoryService.recordLogout(user.id);
+      }
+    } catch (error) {
+      this.logHistoryFailure('logout', error);
+    }
+  }
+
+  private logHistoryFailure(action: 'login' | 'logout', error: unknown): void {
+    this.logger.warn(
+      `${action} history 기록 실패: ${
+        error instanceof Error ? error.name : 'UnknownError'
+      }`,
+    );
   }
 
   private clearSessionCookie(res: Response): void {
