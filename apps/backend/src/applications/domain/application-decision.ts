@@ -21,6 +21,7 @@ export interface ApplicationDecisionTarget {
   readonly teamId: string | null;
   readonly status: ApplicationStatus;
   readonly repositoryProvisioningEnabled: boolean;
+  readonly collaboratorGithubLogins: readonly string[];
 }
 
 export interface ApplicationTransition {
@@ -36,6 +37,7 @@ export interface RepositoryProvisionEventInput {
   readonly applicationId: string;
   readonly programId: string;
   readonly teamId: string | null;
+  readonly collaboratorGithubLogins: readonly string[];
   readonly idempotencyKey: string;
   readonly requestedAt: Date;
 }

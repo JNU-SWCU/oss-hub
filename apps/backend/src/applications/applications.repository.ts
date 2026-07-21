@@ -13,7 +13,16 @@ import type {
 } from './domain/application-decision';
 
 type ApplicationWithProgram = PrismaTypes.ApplicationGetPayload<{
-  include: { program: { select: { repositoryProvisioningEnabled: true } } };
+  include: {
+    program: { select: { repositoryProvisioningEnabled: true } };
+    applicant: { select: { login: true } };
+    team: {
+      select: {
+        leader: { select: { login: true } };
+        members: { select: { user: { select: { login: true } } } };
+      };
+    };
+  };
 }>;
 
 export interface ApplicationsTransactionStore {
@@ -40,6 +49,13 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
       where: { id: applicationId },
       include: {
         program: { select: { repositoryProvisioningEnabled: true } },
+        applicant: { select: { login: true } },
+        team: {
+          select: {
+            leader: { select: { login: true } },
+            members: { select: { user: { select: { login: true } } } },
+          },
+        },
       },
     });
     return application ? toApplicationDecisionTarget(application) : null;
@@ -76,6 +92,7 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
             programId: input.programId,
             teamId: input.teamId,
             requestedAt: input.requestedAt.toISOString(),
+            collaboratorGithubLogins: input.collaboratorGithubLogins,
           },
         },
       });
@@ -117,6 +134,12 @@ export class ApplicationsRepository {
 function toApplicationDecisionTarget(
   application: ApplicationWithProgram,
 ): ApplicationDecisionTarget {
+  const githubLogins = application.team
+    ? [
+        application.team.leader.login,
+        ...application.team.members.map((member) => member.user.login),
+      ]
+    : [application.applicant.login];
   return {
     id: application.id,
     programId: application.programId,
@@ -124,6 +147,9 @@ function toApplicationDecisionTarget(
     status: application.status,
     repositoryProvisioningEnabled:
       application.program.repositoryProvisioningEnabled,
+    collaboratorGithubLogins: [
+      ...new Set(githubLogins.map((login) => login.toLowerCase())),
+    ].sort(),
   };
 }
 

@@ -140,6 +140,7 @@ export class ApplicationsService {
               applicationId,
               programId: application.programId,
               teamId: application.teamId,
+              collaboratorGithubLogins: application.collaboratorGithubLogins,
               idempotencyKey,
               requestedAt: processedAt,
             });

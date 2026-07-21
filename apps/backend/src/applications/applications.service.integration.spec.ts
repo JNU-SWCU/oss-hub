@@ -11,6 +11,7 @@ import { ApplicationsErrorCode } from './applications-error-code.enum';
 import { ApplicationsRepository } from './applications.repository';
 import { ApplicationsService } from './applications.service';
 
+// allow: SIZE_OK — 판정 트랜잭션 시나리오가 하나의 격리 PostgreSQL lifecycle을 공유한다.
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -20,6 +21,7 @@ const prisma = new PrismaService();
 const service = new ApplicationsService(new ApplicationsRepository(prisma));
 const ACTOR_ID = 'synthetic-decision-actor';
 const APPLICANT_ID = 'synthetic-decision-applicant';
+const TEAM_ID = 'synthetic-decision-team';
 const APPLICATION_IDS = [
   'synthetic-enabled-application',
   'synthetic-disabled-application',
@@ -68,13 +70,13 @@ describe('ApplicationsService integration', () => {
         {
           id: ACTOR_ID,
           githubId: 8_000_000_000_001n,
-          login: 'synthetic-staff',
+          login: 'Synthetic-Staff',
           role: Role.STAFF,
         },
         {
           id: APPLICANT_ID,
           githubId: 8_000_000_000_002n,
-          login: 'synthetic-applicant',
+          login: 'Synthetic-Applicant',
           role: Role.STUDENT,
         },
       ],
@@ -88,6 +90,8 @@ describe('ApplicationsService integration', () => {
     await prisma.application.deleteMany({
       where: { id: { in: [...APPLICATION_IDS] } },
     });
+    await prisma.teamMember.deleteMany({ where: { teamId: TEAM_ID } });
+    await prisma.team.deleteMany({ where: { id: TEAM_ID } });
     await prisma.program.deleteMany({
       where: { id: { in: APPLICATION_IDS.map((id) => `${id}-program`) } },
     });
@@ -135,6 +139,7 @@ describe('ApplicationsService integration', () => {
       programId: `${applicationId}-program`,
       teamId: null,
       requestedAt: application.processedAt?.toISOString(),
+      collaboratorGithubLogins: ['synthetic-applicant'],
     });
   });
 
@@ -160,6 +165,43 @@ describe('ApplicationsService integration', () => {
     await expect(
       prisma.outboxEvent.count({ where: { aggregateId: applicationId } }),
     ).resolves.toBe(0);
+  });
+
+  it('팀형 승인은 팀장과 팀원을 정규화한 snapshot으로 고정한다', async () => {
+    // Given
+    const applicationId = APPLICATION_IDS[0];
+    const programId = `${applicationId}-program`;
+    await createApplication(applicationId, true);
+    await prisma.team.create({
+      data: {
+        id: TEAM_ID,
+        programId,
+        name: 'synthetic-team',
+        joinCodeDigest: 'synthetic-team-code-digest',
+        leaderId: APPLICANT_ID,
+        members: {
+          create: [{ userId: APPLICANT_ID }, { userId: ACTOR_ID }],
+        },
+      },
+    });
+    await prisma.application.update({
+      where: { id: applicationId },
+      data: { teamId: TEAM_ID },
+    });
+
+    // When
+    await service.decide(ACTOR_ID, applicationId, {
+      action: APPLICATION_DECISION_ACTIONS.APPROVE,
+    });
+
+    // Then
+    const event = await prisma.outboxEvent.findUniqueOrThrow({
+      where: { idempotencyKey: `repository-provision:${applicationId}` },
+    });
+    expect(event.payload).toMatchObject({
+      teamId: TEAM_ID,
+      collaboratorGithubLogins: ['synthetic-applicant', 'synthetic-staff'],
+    });
   });
 
   it('반려는 사유를 저장하고 outbox를 만들지 않는다', async () => {
