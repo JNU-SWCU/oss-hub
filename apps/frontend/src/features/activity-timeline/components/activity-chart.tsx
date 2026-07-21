@@ -27,7 +27,10 @@ export function ActivityChart({ points }: { points: ActivityPoint[] }) {
       className="h-80 min-h-80 w-full overflow-hidden"
     >
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={points} margin={{ top: 12, right: 12, left: -12, bottom: 4 }}>
+        <LineChart
+          data={points}
+          margin={{ top: 12, right: 12, left: -12, bottom: 4 }}
+        >
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis
             dataKey="period"

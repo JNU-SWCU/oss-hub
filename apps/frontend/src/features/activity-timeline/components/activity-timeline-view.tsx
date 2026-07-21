@@ -47,10 +47,12 @@ export function ActivityTimelineView({
             aria-label="활동 집계 기간"
             className="inline-flex rounded-md border border-border bg-background p-1"
           >
-            {([
-              ['MONTH', '월별'],
-              ['YEAR', '연도별'],
-            ] as const).map(([value, label]) => (
+            {(
+              [
+                ['MONTH', '월별'],
+                ['YEAR', '연도별'],
+              ] as const
+            ).map(([value, label]) => (
               <Button
                 key={value}
                 type="button"
@@ -66,10 +68,16 @@ export function ActivityTimelineView({
         }
       />
 
-      <section aria-labelledby="programs-heading" className="flex flex-col gap-4">
+      <section
+        aria-labelledby="programs-heading"
+        className="flex flex-col gap-4"
+      >
         <div className="flex items-center gap-2">
           <CalendarDays aria-hidden="true" className="size-5 text-primary" />
-          <h2 id="programs-heading" className="font-heading text-xl font-semibold">
+          <h2
+            id="programs-heading"
+            className="font-heading text-xl font-semibold"
+          >
             참여 프로그램
           </h2>
         </div>
@@ -109,9 +117,15 @@ export function ActivityTimelineView({
         )}
       </section>
 
-      <section aria-labelledby="chart-heading" className="flex min-w-0 flex-col gap-4">
+      <section
+        aria-labelledby="chart-heading"
+        className="flex min-w-0 flex-col gap-4"
+      >
         <div className="flex items-center gap-2">
-          <ChartNoAxesCombined aria-hidden="true" className="size-5 text-accent" />
+          <ChartNoAxesCombined
+            aria-hidden="true"
+            className="size-5 text-accent"
+          />
           <h2 id="chart-heading" className="font-heading text-xl font-semibold">
             활동 추이
           </h2>
@@ -122,7 +136,12 @@ export function ActivityTimelineView({
             <AlertTitle>활동 정보를 불러오지 못했습니다</AlertTitle>
             <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
               <span>잠시 후 다시 시도해 주세요.</span>
-              <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onRetry}
+              >
                 다시 시도
               </Button>
             </AlertDescription>

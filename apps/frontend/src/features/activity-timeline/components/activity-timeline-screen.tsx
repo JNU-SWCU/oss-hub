@@ -10,8 +10,7 @@ import type {
 import { ActivityTimelineView } from './activity-timeline-view';
 
 export function ActivityTimelineScreen() {
-  const [granularity, setGranularity] =
-    useState<ActivityGranularity>('MONTH');
+  const [granularity, setGranularity] = useState<ActivityGranularity>('MONTH');
   const [data, setData] = useState<ActivityTimeline | null>(null);
   const [status, setStatus] = useState<ActivityTimelineStatus>('loading');
   const [requestKey, setRequestKey] = useState(0);
