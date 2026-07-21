@@ -1,5 +1,7 @@
+import { execFile } from 'node:child_process';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import { runProfile } from './seed';
+import { AUTH_SCENARIOS } from './seeds/auth';
 import { prisma, SeedStats } from './seeds/helpers';
 
 assertIsolatedIntegrationDatabase({
@@ -9,6 +11,48 @@ assertIsolatedIntegrationDatabase({
 
 const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 const SEED_RUN_TIMEOUT_MS = 60_000;
+const ISSUE99_POLICY_VERSION = '2026-01';
+const ISSUE99_OLDER_POLICY_VERSION = '2025-12';
+const consentRequiredUserId = AUTH_SCENARIOS['consent-required'];
+const roleUnselectedUserId = AUTH_SCENARIOS['user-role-unselected'];
+
+type SeedEntrypointResult = {
+  readonly exitCode: number | null;
+  readonly signalCode: NodeJS.Signals | null;
+  readonly stdout: string;
+};
+
+async function runAuthSeedEntrypoint(): Promise<SeedEntrypointResult> {
+  console.log('[seed-integration] command=pnpm exec ts-node prisma/seed.ts');
+  const result = await new Promise<SeedEntrypointResult>((resolve, reject) => {
+    const child = execFile(
+      'pnpm',
+      ['exec', 'ts-node', 'prisma/seed.ts'],
+      {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+        env: { ...process.env, SEED_PROFILE: 'auth' },
+        timeout: SEED_RUN_TIMEOUT_MS,
+      },
+      (error, stdout) => {
+        if (error instanceof Error) {
+          reject(error);
+          return;
+        }
+        resolve({
+          exitCode: child.exitCode,
+          signalCode: child.signalCode,
+          stdout,
+        });
+      },
+    );
+  });
+
+  expect(result.exitCode).toBe(0);
+  expect(result.signalCode).toBeNull();
+  expect(result.stdout).toContain('[seed] profile=auth');
+  return result;
+}
 
 /** #110 시드가 실제로 건드리는 전체 모델. 카운트가 두 실행 사이에 흔들리면 멱등성이 깨진 것이다. */
 const SEEDED_MODEL_COUNTERS: ReadonlyArray<
@@ -126,4 +170,105 @@ describe('seed profile=all 멱등성 (integration)', () => {
     },
     SEED_RUN_TIMEOUT_MS,
   );
+});
+
+describe('issue-99 auth seed entrypoint contract', () => {
+  beforeAll(async () => {
+    await prisma.$connect();
+  }, DATABASE_CONNECTION_TIMEOUT_MS);
+
+  beforeEach(async () => {
+    await prisma.consent.deleteMany({
+      where: {
+        userId: { in: [consentRequiredUserId, roleUnselectedUserId] },
+      },
+    });
+  });
+
+  afterEach(async () => {
+    await prisma.consent.deleteMany({
+      where: {
+        userId: { in: [consentRequiredUserId, roleUnselectedUserId] },
+      },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  it('issue-99 auth seed real entrypoint scenarios', async () => {
+    // Given: isolated auth users with no consent rows.
+
+    // When: the real auth seed CLI entrypoint runs.
+    await runAuthSeedEntrypoint();
+
+    // Then: only user-role-unselected owns one current-policy row.
+    const [consentRequiredCount, roleUnselectedRows] = await Promise.all([
+      prisma.consent.count({
+        where: {
+          userId: consentRequiredUserId,
+          policyVersion: ISSUE99_POLICY_VERSION,
+        },
+      }),
+      prisma.consent.findMany({
+        where: {
+          userId: roleUnselectedUserId,
+          policyVersion: ISSUE99_POLICY_VERSION,
+        },
+      }),
+    ]);
+    expect(consentRequiredCount).toBe(0);
+    expect(roleUnselectedRows).toHaveLength(1);
+    expect(roleUnselectedRows[0]?.policyVersion).toBe(ISSUE99_POLICY_VERSION);
+  });
+
+  it('issue-99 auth seed real entrypoint is idempotent', async () => {
+    // Given: one successful real auth seed run.
+    await runAuthSeedEntrypoint();
+    const firstRows = await prisma.consent.findMany({
+      where: {
+        userId: roleUnselectedUserId,
+        policyVersion: ISSUE99_POLICY_VERSION,
+      },
+    });
+
+    // When: the same real CLI entrypoint runs again.
+    await runAuthSeedEntrypoint();
+
+    // Then: row count and timestamp remain unchanged.
+    const secondRows = await prisma.consent.findMany({
+      where: {
+        userId: roleUnselectedUserId,
+        policyVersion: ISSUE99_POLICY_VERSION,
+      },
+    });
+    expect(firstRows).toHaveLength(1);
+    expect(secondRows).toHaveLength(1);
+    expect(secondRows[0]?.consentedAt).toEqual(firstRows[0]?.consentedAt);
+  });
+
+  it('issue-99 auth seed preserves older consent versions', async () => {
+    // Given: user-role-unselected already owns an older consent row.
+    const olderConsent = await prisma.consent.create({
+      data: {
+        userId: roleUnselectedUserId,
+        policyVersion: ISSUE99_OLDER_POLICY_VERSION,
+      },
+    });
+
+    // When: the real auth seed CLI entrypoint runs.
+    await runAuthSeedEntrypoint();
+
+    // Then: the older row is unchanged beside exactly one current row.
+    const rows = await prisma.consent.findMany({
+      where: { userId: roleUnselectedUserId },
+      orderBy: { policyVersion: 'asc' },
+    });
+    expect(rows.map((row) => row.policyVersion)).toEqual([
+      ISSUE99_OLDER_POLICY_VERSION,
+      ISSUE99_POLICY_VERSION,
+    ]);
+    expect(rows[0]?.consentedAt).toEqual(olderConsent.consentedAt);
+  });
 });
