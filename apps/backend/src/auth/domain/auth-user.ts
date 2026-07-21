@@ -1,4 +1,4 @@
-import { Role } from '@prisma/client';
+import { AccountStatus, Role } from '@prisma/client';
 
 export interface AuthUser {
   id: string;
@@ -6,6 +6,7 @@ export interface AuthUser {
   login: string;
   name: string | null;
   avatarUrl: string | null;
+  readonly accountStatus: AccountStatus;
   /** DB 정식 소스(Issue #109) — 역할 선택 전 null. */
   role: Role | null;
 }

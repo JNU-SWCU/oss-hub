@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.enum';
 import { DomainException } from '../common/error-code';
 import type { RoleUser } from './domain/role-onboarding';
@@ -49,6 +49,30 @@ export class StaffRoleRequestsService {
           ROLES_ERROR_CODES[RolesErrorCode.ROLE_REQUEST_NOT_FOUND],
         );
       }
+      if (action.action === STAFF_ROLE_REQUEST_ACTIONS.REACTIVATE) {
+        if (request.status !== RoleRequestStatus.REVOKED) {
+          throw new DomainException(
+            ROLES_ERROR_CODES[RolesErrorCode.ROLE_REQUEST_ALREADY_DECIDED],
+          );
+        }
+        const decidedAt = new Date();
+        const reactivated = await store.transitionUserAccountStatus({
+          userId: request.userId,
+          expectedRole: Role.STAFF,
+          expectedAccountStatus: AccountStatus.DEACTIVATED,
+          nextAccountStatus: AccountStatus.ACTIVE,
+        });
+        if (!reactivated) {
+          throw new DomainException(
+            ROLES_ERROR_CODES[RolesErrorCode.ROLE_STATE_CONFLICT],
+          );
+        }
+        return store.createApprovedReactivation({
+          userId: request.userId,
+          actorId: actor.id,
+          decidedAt,
+        });
+      }
       const expectedStatus =
         action.action === STAFF_ROLE_REQUEST_ACTIONS.REVOKE
           ? RoleRequestStatus.APPROVED
@@ -86,6 +110,7 @@ export class StaffRoleRequestsService {
         const roleTransitioned = await store.transitionUserRole({
           userId: request.userId,
           expectedRole: null,
+          expectedAccountStatus: AccountStatus.ACTIVE,
           nextRole: Role.STAFF,
         });
         if (!roleTransitioned) {
@@ -95,12 +120,14 @@ export class StaffRoleRequestsService {
         }
       }
       if (action.action === STAFF_ROLE_REQUEST_ACTIONS.REVOKE) {
-        const roleTransitioned = await store.transitionUserRole({
-          userId: request.userId,
-          expectedRole: Role.STAFF,
-          nextRole: null,
-        });
-        if (!roleTransitioned) {
+        const accountStatusTransitioned =
+          await store.transitionUserAccountStatus({
+            userId: request.userId,
+            expectedRole: Role.STAFF,
+            expectedAccountStatus: AccountStatus.ACTIVE,
+            nextAccountStatus: AccountStatus.DEACTIVATED,
+          });
+        if (!accountStatusTransitioned) {
           throw new DomainException(
             ROLES_ERROR_CODES[RolesErrorCode.ROLE_STATE_CONFLICT],
           );
@@ -118,7 +145,7 @@ export class StaffRoleRequestsService {
   }
 
   private requireAdmin(user: RoleUser | null): RoleUser {
-    if (!user) {
+    if (!user || user.accountStatus !== AccountStatus.ACTIVE) {
       throw new DomainException(
         AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
       );

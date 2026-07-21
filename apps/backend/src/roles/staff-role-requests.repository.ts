@@ -1,16 +1,19 @@
 import { Injectable } from '@nestjs/common';
+import { RoleRequestStatus } from '@prisma/client';
 import type { Prisma, User as PrismaUser } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { RoleUser } from './domain/role-onboarding';
 import type {
   StaffRoleRequestListQuery,
+  StaffRoleReactivationApproval,
   StaffRoleRequestRecord,
   StaffRoleRequestTransition,
+  StaffUserAccountStatusTransition,
   StaffUserRoleTransition,
 } from './domain/staff-role-request';
 
 const staffRoleRequestInclude = {
-  user: { select: { login: true, role: true } },
+  user: { select: { login: true, role: true, accountStatus: true } },
   decidedBy: { select: { login: true } },
 } satisfies Prisma.RoleRequestInclude;
 
@@ -23,6 +26,12 @@ export interface StaffRoleRequestsTransactionStore {
   findRequestById(id: string): Promise<StaffRoleRequestRecord | null>;
   transitionRequest(input: StaffRoleRequestTransition): Promise<boolean>;
   transitionUserRole(input: StaffUserRoleTransition): Promise<boolean>;
+  transitionUserAccountStatus(
+    input: StaffUserAccountStatusTransition,
+  ): Promise<boolean>;
+  createApprovedReactivation(
+    input: StaffRoleReactivationApproval,
+  ): Promise<StaffRoleRequestRecord>;
 }
 
 export interface StaffRoleRequestsRepositoryPort {
@@ -69,10 +78,43 @@ class PrismaStaffRoleRequestsTransactionStore implements StaffRoleRequestsTransa
 
   async transitionUserRole(input: StaffUserRoleTransition): Promise<boolean> {
     const result = await this.transaction.user.updateMany({
-      where: { id: input.userId, role: input.expectedRole },
+      where: {
+        id: input.userId,
+        role: input.expectedRole,
+        accountStatus: input.expectedAccountStatus,
+      },
       data: { role: input.nextRole },
     });
     return result.count === 1;
+  }
+
+  async transitionUserAccountStatus(
+    input: StaffUserAccountStatusTransition,
+  ): Promise<boolean> {
+    const result = await this.transaction.user.updateMany({
+      where: {
+        id: input.userId,
+        role: input.expectedRole,
+        accountStatus: input.expectedAccountStatus,
+      },
+      data: { accountStatus: input.nextAccountStatus },
+    });
+    return result.count === 1;
+  }
+
+  async createApprovedReactivation(
+    input: StaffRoleReactivationApproval,
+  ): Promise<StaffRoleRequestRecord> {
+    const request = await this.transaction.roleRequest.create({
+      data: {
+        userId: input.userId,
+        status: RoleRequestStatus.APPROVED,
+        decidedById: input.actorId,
+        decidedAt: input.decidedAt,
+      },
+      include: staffRoleRequestInclude,
+    });
+    return toStaffRoleRequest(request);
   }
 }
 
@@ -119,7 +161,11 @@ export class StaffRoleRequestsRepository implements StaffRoleRequestsRepositoryP
 }
 
 function toRoleUser(user: PrismaUser): RoleUser {
-  return { id: user.id, role: user.role };
+  return {
+    id: user.id,
+    role: user.role,
+    accountStatus: user.accountStatus,
+  };
 }
 
 function toStaffRoleRequest(
@@ -130,6 +176,7 @@ function toStaffRoleRequest(
     userId: request.userId,
     githubLogin: request.user.login,
     userRole: request.user.role,
+    userAccountStatus: request.user.accountStatus,
     status: request.status,
     rejectionReason: request.rejectionReason,
     decidedAt: request.decidedAt,

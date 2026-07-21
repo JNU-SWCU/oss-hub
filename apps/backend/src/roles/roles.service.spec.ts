@@ -1,4 +1,5 @@
-import { Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AuthErrorCode } from '../auth/auth-error-code.enum';
 import { DomainException } from '../common/error-code';
 import {
   CONSENT_ERROR_CODES,
@@ -19,8 +20,12 @@ class InMemoryRolesStore implements RolesTransactionStore {
   private user: RoleUser | null;
   private readonly requests: RoleRequestRecord[];
 
-  constructor(userRole: Role | null, requests: RoleRequestRecord[] = []) {
-    this.user = { id: 'synthetic-user', role: userRole };
+  constructor(
+    userRole: Role | null,
+    requests: RoleRequestRecord[] = [],
+    accountStatus: AccountStatus = AccountStatus.ACTIVE,
+  ) {
+    this.user = { id: 'synthetic-user', role: userRole, accountStatus };
     this.requests = [...requests];
   }
 
@@ -29,7 +34,10 @@ class InMemoryRolesStore implements RolesTransactionStore {
   }
 
   updateUserRole(_userId: string, role: Role): Promise<RoleUser> {
-    this.user = { id: 'synthetic-user', role };
+    if (!this.user) {
+      throw new Error('합성 사용자가 존재해야 합니다.');
+    }
+    this.user = { ...this.user, role };
     return Promise.resolve(this.user);
   }
 
@@ -89,8 +97,9 @@ function createService(
   role: Role | null,
   requests: RoleRequestRecord[] = [],
   consented = true,
+  accountStatus: AccountStatus = AccountStatus.ACTIVE,
 ): { service: RolesService; store: InMemoryRolesStore } {
-  const store = new InMemoryRolesStore(role, requests);
+  const store = new InMemoryRolesStore(role, requests, accountStatus);
   const consentsService: Pick<ConsentsService, 'requireCurrent'> = {
     requireCurrent: consented
       ? jest.fn().mockResolvedValue(undefined)
@@ -254,17 +263,34 @@ describe('RolesService', () => {
     expect(store.requestCount()).toBe(2);
   });
 
-  it('권한 회수 이력이 있으면 새 PENDING 요청을 만들고 이력을 보존한다', async () => {
+  it('권한 회수 이력은 일반 재요청으로 우회할 수 없다', async () => {
     // Given
     const revoked = roleRequest(RoleRequestStatus.REVOKED);
     const { service, store } = createService(null, [revoked]);
 
     // When
-    const result = await service.retryStaffRequest(424242n);
+    const promise = service.retryStaffRequest(424242n);
 
     // Then
-    expect(result.status).toBe(RoleRequestStatus.PENDING);
-    expect(store.requestCount()).toBe(2);
+    await expect(promise).rejects.toMatchObject({
+      errorCode: { code: RolesErrorCode.ROLE_STATE_CONFLICT },
+    });
+    expect(store.requestCount()).toBe(1);
+  });
+
+  it('비활성 교직원은 기존 온보딩·재요청 경로를 사용할 수 없다', async () => {
+    const revoked = roleRequest(RoleRequestStatus.REVOKED);
+    const { service, store } = createService(
+      Role.STAFF,
+      [revoked],
+      true,
+      AccountStatus.DEACTIVATED,
+    );
+
+    await expect(service.retryStaffRequest(424242n)).rejects.toMatchObject({
+      errorCode: { code: AuthErrorCode.UNAUTHENTICATED },
+    });
+    expect(store.requestCount()).toBe(1);
   });
 
   it('현행 정책 미동의 사용자의 교직원 재요청을 거부한다', async () => {

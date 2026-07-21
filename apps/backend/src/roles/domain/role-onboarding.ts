@@ -1,10 +1,11 @@
-import type { Role, RoleRequestStatus } from '@prisma/client';
+import type { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
 
 export type SelectableRole = typeof Role.STUDENT | typeof Role.STAFF;
 
 export type RoleUser = {
   readonly id: string;
   readonly role: Role | null;
+  readonly accountStatus: AccountStatus;
 };
 
 export type RoleRequestRecord = {

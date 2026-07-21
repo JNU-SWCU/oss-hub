@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import {
   CONSENT_ERROR_CODES,
@@ -90,7 +91,7 @@ export class ConsentsService {
   /** 세션은 유효하지만 사용자 행이 없으면 재로그인 대상이다 — 401로 수렴시킨다. */
   private async requireUser(githubId: bigint): Promise<ConsentUser> {
     const user = await this.repository.findUserByGithubId(githubId);
-    if (!user) {
+    if (!user || user.accountStatus !== AccountStatus.ACTIVE) {
       throw new DomainException(
         CONSENT_ERROR_CODES[ConsentErrorCode.UNAUTHENTICATED],
       );

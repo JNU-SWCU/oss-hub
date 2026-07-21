@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.enum';
 import { DomainException } from '../common/error-code';
 import { ConsentsService } from '../consents/consents.service';
@@ -47,7 +47,7 @@ export class RolesService {
 
   async getMyRequest(githubId: bigint): Promise<RoleRequestRecord | null> {
     const user = await this.repository.findUserByGithubId(githubId);
-    if (!user) {
+    if (!user || user.accountStatus !== AccountStatus.ACTIVE) {
       throw new DomainException(
         AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
       );
@@ -79,8 +79,11 @@ export class RolesService {
       }
       switch (latest.status) {
         case RoleRequestStatus.REJECTED:
-        case RoleRequestStatus.REVOKED:
           return store.createPendingRequest(user.id);
+        case RoleRequestStatus.REVOKED:
+          throw new DomainException(
+            ROLES_ERROR_CODES[RolesErrorCode.ROLE_STATE_CONFLICT],
+          );
         case RoleRequestStatus.PENDING:
           throw new DomainException(
             ROLES_ERROR_CODES[RolesErrorCode.ACTIVE_REQUEST_EXISTS],
@@ -128,6 +131,12 @@ export class RolesService {
         ROLES_ERROR_CODES[RolesErrorCode.ROLE_ALREADY_CONFIRMED],
       );
     }
+    const latest = await store.findLatestRequest(user.id);
+    if (latest?.status === RoleRequestStatus.REVOKED) {
+      throw new DomainException(
+        ROLES_ERROR_CODES[RolesErrorCode.ROLE_STATE_CONFLICT],
+      );
+    }
     const request =
       (await store.findPendingRequest(user.id)) ??
       (await store.createPendingRequest(user.id));
@@ -144,7 +153,7 @@ export class RolesService {
     githubId: bigint,
   ): Promise<RoleUser> {
     const user = await store.findUserByGithubId(githubId);
-    if (!user) {
+    if (!user || user.accountStatus !== AccountStatus.ACTIVE) {
       throw new DomainException(
         AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
       );

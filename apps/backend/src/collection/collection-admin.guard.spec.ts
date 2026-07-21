@@ -1,8 +1,9 @@
-import { Role } from '@prisma/client';
+import { AccountStatus, Role } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 
 import { AuthConfig } from '../auth/auth.config';
+import { AuthService } from '../auth/auth.service';
 import { SessionGuard } from '../auth/session.guard';
 import { CollectionAdminGuard } from './collection-admin.guard';
 import { CollectionErrorCode } from './collection-error-code.enum';
@@ -29,21 +30,27 @@ describe('CollectionAdminGuard', () => {
   });
 
   it('ADMIN 사용자만 허용한다', async () => {
-    findUnique.mockResolvedValue({ role: Role.ADMIN });
+    findUnique.mockResolvedValue({
+      role: Role.ADMIN,
+      accountStatus: AccountStatus.ACTIVE,
+    });
     const context = new ExecutionContextHost([{ sessionGithubId: 424242n }]);
     context.setType('http');
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
     expect(findUnique).toHaveBeenCalledWith({
       where: { githubId: 424242n },
-      select: { role: true },
+      select: { role: true, accountStatus: true },
     });
   });
 
   it.each([Role.STUDENT, Role.STAFF, null])(
     'ADMIN이 아닌 역할 %s은 COL_004 403으로 거부한다',
     async (role) => {
-      findUnique.mockResolvedValue({ role });
+      findUnique.mockResolvedValue({
+        role,
+        accountStatus: AccountStatus.ACTIVE,
+      });
       const context = new ExecutionContextHost([{ sessionGithubId: 424242n }]);
       context.setType('http');
 
@@ -55,11 +62,26 @@ describe('CollectionAdminGuard', () => {
       });
     },
   );
+
+  it('비활성 ADMIN도 COL_004 403으로 거부한다', async () => {
+    findUnique.mockResolvedValue({
+      role: Role.ADMIN,
+      accountStatus: AccountStatus.DEACTIVATED,
+    });
+    const context = new ExecutionContextHost([{ sessionGithubId: 424242n }]);
+    context.setType('http');
+
+    await expect(guard.canActivate(context)).rejects.toMatchObject({
+      errorCode: { code: CollectionErrorCode.ADMIN_REQUIRED, status: 403 },
+    });
+  });
 });
 
 describe('Collection admin authentication', () => {
   it('세션이 없으면 AUT_003 401로 거부한다', async () => {
-    const sessionGuard = new SessionGuard(new AuthConfig());
+    const sessionGuard = new SessionGuard(new AuthConfig(), {
+      getMe: jest.fn(),
+    } as unknown as AuthService);
     const context = new ExecutionContextHost([{ headers: {} }]);
     context.setType('http');
 
