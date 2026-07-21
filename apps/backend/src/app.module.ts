@@ -7,6 +7,7 @@ import { HealthModule } from './health/health.module';
 import { LoginHistoryModule } from './login-history/login-history.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProgramsModule } from './programs/programs.module';
+import { RankingModule } from './ranking/ranking.module';
 import { RepositoryOwnershipModule } from './repository-ownership/repository-ownership.module';
 import { RolesModule } from './roles/roles.module';
 
@@ -17,6 +18,7 @@ import { RolesModule } from './roles/roles.module';
     LoginHistoryModule,
     AuthModule,
     CollectionModule,
+    RankingModule,
     ConsentsModule,
     ApplicationsModule,
     RolesModule,

@@ -20,6 +20,7 @@ export const metadata: Metadata = {
 const NAV_ITEMS: NavItem[] = [
   { label: '홈', href: '/' },
   { label: '프로그램', href: '/programs' },
+  { label: '랭킹', href: '/ranking' },
 ];
 
 export default function RootLayout({

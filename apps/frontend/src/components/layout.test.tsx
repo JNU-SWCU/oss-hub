@@ -36,6 +36,9 @@ describe('layout components', () => {
     expect(html).toContain('홈');
     expect(html).toContain('프로그램');
     expect(html).toContain('로그인');
+    expect(html).toMatch(
+      /data-slot="nav-bar-items"[^>]*\border-2\b[^>]*\bw-full\b[^>]*\bflex-wrap\b/,
+    );
   });
 
   it('renders PageHeader with title/description/actions', () => {

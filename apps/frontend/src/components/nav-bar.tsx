@@ -39,7 +39,7 @@ function NavBar({ items, brand, actions, className, ...props }: NavBarProps) {
       ) : null}
       <ul
         data-slot="nav-bar-items"
-        className="flex min-w-0 flex-1 items-center gap-1"
+        className="order-2 flex w-full flex-none flex-wrap items-center gap-1 sm:order-none sm:w-auto sm:flex-1 sm:flex-nowrap"
       >
         {items.map((item) => (
           <li key={item.href}>
