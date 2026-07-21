@@ -12,6 +12,7 @@ import {
   upsertSeedUser,
   upsertTracked,
 } from './helpers';
+import { computeJoinCodeDigest } from '../../src/common/join-code-digest';
 
 /**
  * #118 서버 고정 template registry는 아직 병합되지 않았다(#110 선행 의존성 미충족, OPEN).
@@ -136,6 +137,7 @@ async function upsertTeam(
     leaderId: string;
   },
 ) {
+  const joinCodeDigest = computeJoinCodeDigest(params.joinCode);
   return upsertTracked(
     stats,
     'Team',
@@ -143,12 +145,12 @@ async function upsertTeam(
     () =>
       prisma.team.upsert({
         where: { id: params.id },
-        update: { name: params.name },
+        update: { name: params.name, joinCodeDigest },
         create: {
           id: params.id,
           programId: params.programId,
           name: params.name,
-          joinCode: params.joinCode,
+          joinCodeDigest,
           leaderId: params.leaderId,
         },
       }),
@@ -157,7 +159,7 @@ async function upsertTeam(
 
 async function upsertTeamMember(
   stats: SeedStats,
-  params: { id: string; teamId: string; userId: string },
+  params: { id: string; teamId: string; programId: string; userId: string },
 ) {
   await upsertTracked(
     stats,
@@ -167,7 +169,12 @@ async function upsertTeamMember(
       prisma.teamMember.upsert({
         where: { id: params.id },
         update: {},
-        create: { id: params.id, teamId: params.teamId, userId: params.userId },
+        create: {
+          id: params.id,
+          teamId: params.teamId,
+          programId: params.programId,
+          userId: params.userId,
+        },
       }),
   );
 }
@@ -193,12 +200,14 @@ async function createTeamWithApplication(
   await upsertTeamMember(stats, {
     id: seedId('intake', params.scenarioId, 'team-member', 'leader'),
     teamId,
+    programId: params.programId,
     userId: params.leaderId,
   });
   for (const [index, memberId] of params.memberIds.entries()) {
     await upsertTeamMember(stats, {
       id: seedId('intake', params.scenarioId, 'team-member', String(index)),
       teamId,
+      programId: params.programId,
       userId: memberId,
     });
   }
@@ -384,12 +393,14 @@ export async function seedIntake(stats: SeedStats): Promise<void> {
   await upsertTeamMember(stats, {
     id: seedId('intake', 'team-full', 'team-member', 'leader'),
     teamId: teamFullId,
+    programId: PROGRAM_TEAM_TRACK_ID,
     userId: teamLeaderFull.id,
   });
   for (const [index, member] of teamFullMembers.entries()) {
     await upsertTeamMember(stats, {
       id: seedId('intake', 'team-full', 'team-member', String(index)),
       teamId: teamFullId,
+      programId: PROGRAM_TEAM_TRACK_ID,
       userId: member.id,
     });
   }

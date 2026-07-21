@@ -1,0 +1,13 @@
+import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
+import { ConsentsController } from './consents.controller';
+import { ConsentsRepository } from './consents.repository';
+import { ConsentsService } from './consents.service';
+
+@Module({
+  imports: [AuthModule],
+  controllers: [ConsentsController],
+  providers: [ConsentsService, ConsentsRepository],
+  exports: [ConsentsService],
+})
+export class ConsentsModule {}

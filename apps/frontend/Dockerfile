@@ -30,6 +30,7 @@ RUN apk add --no-cache curl
 
 COPY --from=builder --chown=node:node /workspace/apps/frontend/.next/standalone ./
 COPY --from=builder --chown=node:node /workspace/apps/frontend/.next/static ./apps/frontend/.next/static
+COPY --from=builder --chown=node:node /workspace/apps/frontend/public ./apps/frontend/public
 
 USER node
 

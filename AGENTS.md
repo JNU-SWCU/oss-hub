@@ -14,7 +14,7 @@
 3. 자기 기능의 exec-plan — `docs/exec-plan/active/<기능>.md`
 4. 위 문서들이 링크한 규칙(`docs/rules/`)과 ADR(`docs/decisions/`)만 추가로 읽는다.
 5. 착수 직전 `gh pr list --search "<기능>"` 1회 — 스냅샷 이후 열린 PR·Draft PR을 확인한다.
-6. `bash scripts/setup-hooks.sh` 1회 — 브랜치 정리 훅 활성화(멱등). "보존" 안내가 나오면 §7 참조.
+6. `bash scripts/setup-hooks.sh` 1회 — 저장소 Git 훅 활성화(멱등). "보존" 안내가 나오면 §7 참조.
 7. 로컬 실행이 필요하면 `docs/rules/local-dev.md`의 순서를 따른다.
 
 ## 2. Canonical Store — 정보 종류별 원본 위치

@@ -3,8 +3,7 @@ import { Request } from 'express';
 import { DomainException } from '../common/error-code';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.enum';
 import { AuthConfig } from './auth.config';
-import { parseCookies, sessionCookieName } from './cookies';
-import { verifySessionToken } from './session-token';
+import { resolveSession } from './session-resolution';
 
 export interface AuthenticatedRequest extends Request {
   sessionGithubId: bigint;
@@ -17,11 +16,10 @@ export class SessionGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
-    const cookies = parseCookies(request.headers.cookie);
-    const token = cookies[sessionCookieName(this.config.useSecureCookies)];
-    const githubId = token
-      ? await verifySessionToken(this.config.sessionSecret, token)
-      : null;
+    const { githubId } = await resolveSession(
+      this.config,
+      request.headers.cookie,
+    );
     if (githubId === null) {
       throw new DomainException(
         AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],

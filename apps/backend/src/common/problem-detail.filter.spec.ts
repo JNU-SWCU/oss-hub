@@ -77,10 +77,7 @@ describe('ProblemDetailFilter', () => {
       { retryNotBeforeAt },
     );
 
-    new ProblemDetailFilter().catch(
-      exception,
-      createHost(response, '/api/v1/collection-runs'),
-    );
+    new ProblemDetailFilter().catch(exception, createHost(response));
 
     expect(json).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -89,6 +86,50 @@ describe('ProblemDetailFilter', () => {
         retryNotBeforeAt,
       }),
     );
+  });
+
+  it('client-visible 503 도메인 예외는 명시한 코드로 반환한다', () => {
+    const { response, json, status } = createResponse();
+    const exception = new DomainException({
+      code: 'COL_005',
+      status: HttpStatus.SERVICE_UNAVAILABLE,
+      message: 'Legacy collection scope is disabled.',
+      exposeToClient: true,
+    });
+
+    new ProblemDetailFilter().catch(
+      exception,
+      createHost(response, '/api/v1/collection-runs'),
+    );
+
+    expect(status).toHaveBeenCalledWith(HttpStatus.SERVICE_UNAVAILABLE);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: HttpStatus.SERVICE_UNAVAILABLE,
+        code: 'COL_005',
+      }),
+    );
+  });
+
+  it('opt-in하지 않은 5xx 도메인 예외는 기존처럼 응답을 sanitize한다', () => {
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    const { response, json } = createResponse();
+    const exception = new DomainException({
+      code: 'SYNTHETIC_500',
+      status: HttpStatus.SERVICE_UNAVAILABLE,
+      message: 'synthetic-sensitive-detail',
+    });
+
+    new ProblemDetailFilter().catch(exception, createHost(response));
+
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        code: SystemErrorCode.INTERNAL_SERVER_ERROR,
+        detail: '예기치 못한 서버 오류가 발생했습니다.',
+      }),
+    );
+    error.mockRestore();
   });
 
   it.each([

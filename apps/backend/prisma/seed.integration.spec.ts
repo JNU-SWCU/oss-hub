@@ -1,6 +1,7 @@
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import { runProfile } from './seed';
-import { prisma, SeedStats } from './seeds/helpers';
+import { AUTH_SCENARIOS } from './seeds/auth';
+import { prisma, SeedStats, upsertSeedUser } from './seeds/helpers';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -9,6 +10,10 @@ assertIsolatedIntegrationDatabase({
 
 const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 const SEED_RUN_TIMEOUT_MS = 60_000;
+const ISSUE99_POLICY_VERSION = '2026-07-21';
+const ISSUE99_OLDER_POLICY_VERSION = '2025-12';
+const consentRequiredUserId = AUTH_SCENARIOS['consent-required'];
+const roleUnselectedUserId = AUTH_SCENARIOS['user-role-unselected'];
 
 /** #110 시드가 실제로 건드리는 전체 모델. 카운트가 두 실행 사이에 흔들리면 멱등성이 깨진 것이다. */
 const SEEDED_MODEL_COUNTERS: ReadonlyArray<
@@ -123,6 +128,82 @@ describe('seed profile=all 멱등성 (integration)', () => {
       // 두 실행 모두 created/updated 합계가 0보다 커야 한다 — stats 리포트 자체가 비어있지 않음을 보장.
       expect(firstRunStats.report().length).toBeGreaterThan(0);
       expect(secondRunStats.report().length).toBeGreaterThan(0);
+    },
+    SEED_RUN_TIMEOUT_MS,
+  );
+});
+
+describe('issue-99 auth seed contract', () => {
+  beforeAll(async () => {
+    await prisma.$connect();
+  }, DATABASE_CONNECTION_TIMEOUT_MS);
+
+  afterAll(async () => {
+    await prisma.consent.deleteMany({
+      where: {
+        userId: { in: [consentRequiredUserId, roleUnselectedUserId] },
+      },
+    });
+    await prisma.$disconnect();
+  });
+
+  it(
+    'auth profile은 미동의·현행 동의·과거 버전을 두 실행 뒤에도 보존한다',
+    async () => {
+      // Given: 대상 사용자만 준비하고 동의 행은 과거 버전 하나로 초기화한다.
+      const setupStats = new SeedStats();
+      await upsertSeedUser(setupStats, {
+        id: consentRequiredUserId,
+        role: null,
+      });
+      await upsertSeedUser(setupStats, {
+        id: roleUnselectedUserId,
+        role: null,
+      });
+      await prisma.consent.deleteMany({
+        where: {
+          userId: { in: [consentRequiredUserId, roleUnselectedUserId] },
+        },
+      });
+      const olderConsent = await prisma.consent.create({
+        data: {
+          userId: roleUnselectedUserId,
+          policyVersion: ISSUE99_OLDER_POLICY_VERSION,
+        },
+      });
+
+      // When: auth profile을 두 번 실행한다.
+      await runProfile('auth', new SeedStats());
+      const firstCurrent = await prisma.consent.findUnique({
+        where: {
+          userId_policyVersion: {
+            userId: roleUnselectedUserId,
+            policyVersion: ISSUE99_POLICY_VERSION,
+          },
+        },
+      });
+      await runProfile('auth', new SeedStats());
+
+      // Then: 미동의 사용자는 비어 있고, 현행/과거 행은 중복·갱신 없이 남는다.
+      const [consentRequiredCount, roleUnselectedRows] = await Promise.all([
+        prisma.consent.count({ where: { userId: consentRequiredUserId } }),
+        prisma.consent.findMany({
+          where: { userId: roleUnselectedUserId },
+          orderBy: { policyVersion: 'asc' },
+        }),
+      ]);
+      expect(consentRequiredCount).toBe(0);
+      expect(firstCurrent).not.toBeNull();
+      expect(roleUnselectedRows.map((row) => row.policyVersion)).toEqual([
+        ISSUE99_OLDER_POLICY_VERSION,
+        ISSUE99_POLICY_VERSION,
+      ]);
+      expect(roleUnselectedRows[0]?.consentedAt).toEqual(
+        olderConsent.consentedAt,
+      );
+      expect(roleUnselectedRows[1]?.consentedAt).toEqual(
+        firstCurrent?.consentedAt,
+      );
     },
     SEED_RUN_TIMEOUT_MS,
   );

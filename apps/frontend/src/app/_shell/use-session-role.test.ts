@@ -1,5 +1,69 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createDedupedFetcher } from './use-session-role';
+import { createDedupedFetcher, toSessionRoleState } from './use-session-role';
+import type { AuthSession } from '@/features/auth/types';
+
+describe('toSessionRoleState', () => {
+  it('익명 세션을 anonymous 상태로 변환한다', () => {
+    // Given
+    const session = { isAuthenticated: false } satisfies AuthSession;
+
+    // When
+    const state = toSessionRoleState(session);
+
+    // Then
+    expect(state).toEqual({
+      status: 'anonymous',
+      role: null,
+      roleRequestStatus: null,
+    });
+  });
+
+  it('역할이 없는 인증 세션을 unassigned 상태로 변환한다', () => {
+    // Given
+    const session = {
+      isAuthenticated: true,
+      user: {
+        login: 'synthetic-user',
+        name: null,
+        avatarUrl: null,
+        role: null,
+      },
+    } satisfies AuthSession;
+
+    // When
+    const state = toSessionRoleState(session);
+
+    // Then
+    expect(state).toEqual({
+      status: 'unassigned',
+      role: null,
+      roleRequestStatus: null,
+    });
+  });
+
+  it('역할이 있는 인증 세션을 assigned 상태로 변환한다', () => {
+    // Given
+    const session = {
+      isAuthenticated: true,
+      user: {
+        login: 'synthetic-user',
+        name: null,
+        avatarUrl: null,
+        role: 'ADMIN',
+      },
+    } satisfies AuthSession;
+
+    // When
+    const state = toSessionRoleState(session);
+
+    // Then
+    expect(state).toEqual({
+      status: 'assigned',
+      role: 'ADMIN',
+      roleRequestStatus: null,
+    });
+  });
+});
 
 // createDedupedFetcher는 순수 함수라 React 렌더링·jsdom 없이(이 repo의
 // vitest는 node 환경) in-flight dedup 동작만 독립적으로 검증할 수 있다.

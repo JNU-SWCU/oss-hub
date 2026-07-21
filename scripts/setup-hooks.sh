@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 브랜치 정리 훅(.githooks) 활성화 스위치 — 명시적 opt-in. install 과정에서는 호출되지 않는다.
+# 저장소 Git 훅(.githooks) 활성화 스위치 — 명시적 opt-in. install 과정에서는 호출되지 않는다.
 #
 # 계약:
 #   - Git worktree가 아니면 조용히 종료 0 (CI·배포 빌드 등)
@@ -17,9 +17,9 @@ current="$(git config --get core.hooksPath || true)"
 if [ "$current" = ".githooks" ]; then
   echo "setup-hooks: 이미 활성화됨 (.githooks)"
 elif [ -n "$current" ]; then
-  echo "setup-hooks: 다른 core.hooksPath가 설정되어 있어 보존했습니다 — 정리 훅 비활성."
-  echo "setup-hooks: 필요 시 scripts/tidy-branches.sh를 직접 실행하세요. (기존 설정 확인: git config --show-origin --get core.hooksPath)"
+  echo "setup-hooks: 다른 core.hooksPath가 설정되어 있어 보존했습니다 — 저장소 훅 비활성."
+  echo "setup-hooks: 기존 설정 확인: git config --show-origin --get core.hooksPath"
 else
   git config --local core.hooksPath .githooks
-  echo "setup-hooks: 활성화 완료 — .githooks (post-merge 브랜치 정리)"
+  echo "setup-hooks: 활성화 완료 — .githooks"
 fi
