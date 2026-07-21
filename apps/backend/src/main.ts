@@ -4,7 +4,7 @@ import { AppModule } from './app.module';
 import { ProblemDetailFilter } from './common/problem-detail.filter';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(
