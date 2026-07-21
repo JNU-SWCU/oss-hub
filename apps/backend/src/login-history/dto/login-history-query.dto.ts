@@ -1,7 +1,7 @@
 import { Type } from 'class-transformer';
 import { IsInt, Max, Min } from 'class-validator';
 
-export class LoginHistoryQueryDto {
+export class LoginHistoryQueryRequestDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)

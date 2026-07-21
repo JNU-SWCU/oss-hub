@@ -6,7 +6,7 @@ import type { AuthenticatedRequest } from '../auth/session.guard';
 import { DomainException } from '../common/error-code';
 import type { StaffRoleRequestRecord } from './domain/staff-role-request';
 import { PatchStaffRoleRequestDto } from './dto/patch-staff-role-request.dto';
-import { StaffRoleRequestsQueryDto } from './dto/staff-role-requests-query.dto';
+import { StaffRoleRequestsQueryRequestDto } from './dto/staff-role-requests-query.dto';
 import { RolesErrorCode } from './roles-error-code.enum';
 import { StaffRoleRequestsController } from './staff-role-requests.controller';
 import type { StaffRoleRequestsService } from './staff-role-requests.service';
@@ -55,7 +55,7 @@ describe('StaffRoleRequestsController', () => {
       decide: jest.fn(),
     };
     const controller = new StaffRoleRequestsController(service);
-    const query = Object.assign(new StaffRoleRequestsQueryDto(), {
+    const query = Object.assign(new StaffRoleRequestsQueryRequestDto(), {
       status: RoleRequestStatus.PENDING,
       query: '',
       page: 1,

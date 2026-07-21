@@ -1,6 +1,6 @@
 import { ConsentStatus } from '../consents.service';
 
-export interface ConsentRequiredItemDto {
+export interface ConsentRequiredItemResponseDto {
   key: string;
   label: string;
   documentUrl: string;
@@ -12,7 +12,7 @@ export interface ConsentRequiredItemDto {
  */
 export class ConsentCurrentResponseDto {
   policyVersion: string;
-  requiredItems: ConsentRequiredItemDto[];
+  requiredItems: ConsentRequiredItemResponseDto[];
   consented: boolean;
   nextUrl: string;
 

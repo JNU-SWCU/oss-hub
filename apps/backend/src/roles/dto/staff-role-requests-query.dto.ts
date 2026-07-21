@@ -11,7 +11,7 @@ import {
 import { Role, RoleRequestStatus } from '@prisma/client';
 import type { StaffRoleRequestListQuery } from '../domain/staff-role-request';
 
-export class StaffRoleRequestsQueryDto {
+export class StaffRoleRequestsQueryRequestDto {
   @IsOptional()
   @IsIn([Role.STAFF])
   declare readonly requestedRole?: typeof Role.STAFF;

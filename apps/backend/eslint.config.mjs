@@ -70,6 +70,22 @@ export default tseslint.config(
   },
   ...moduleBoundaryConfigs,
   {
+    files: ['src/**/dto/*.ts'],
+    rules: {
+      '@typescript-eslint/naming-convention': [
+        'error',
+        {
+          selector: ['class', 'interface', 'typeAlias'],
+          format: ['PascalCase'],
+          custom: {
+            regex: '^[A-Z][A-Za-z0-9]*(?:Request|Response)Dto$',
+            match: true,
+          },
+        },
+      ],
+    },
+  },
+  {
     ignores: ['eslint.config.mjs', 'dist', 'node_modules'],
   },
 );
