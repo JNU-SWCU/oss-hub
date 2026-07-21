@@ -22,7 +22,9 @@ import {
 import { decodeFlowCookie, isSameState } from './oauth-flow';
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { MeResponseDto } from './dto/me-response.dto';
+import { SessionResponseDto } from './dto/session-response.dto';
 import { OriginGuard } from './origin.guard';
+import { resolveSession } from './session-resolution';
 import { AuthenticatedRequest, SessionGuard } from './session.guard';
 import { SESSION_MAX_AGE_SECONDS } from './session-token';
 
@@ -139,10 +141,42 @@ export class AuthController {
     return testRole ? Role[testRole] : dbRole;
   }
 
+  /** UI용 조회에서는 정상적인 익명 상태를 모두 200으로 반환한다. */
+  @Get('session')
+  async getSession(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SessionResponseDto> {
+    res.setHeader('Cache-Control', 'private, no-store');
+    const { githubId, hasSessionCookie } = await resolveSession(
+      this.config,
+      req.headers.cookie,
+    );
+    if (githubId === null) {
+      if (hasSessionCookie) {
+        this.clearSessionCookie(res);
+      }
+      return SessionResponseDto.anonymous();
+    }
+    const user = await this.authService.findMe(githubId);
+    if (!user) {
+      this.clearSessionCookie(res);
+      return SessionResponseDto.anonymous();
+    }
+    return SessionResponseDto.authenticated(
+      MeResponseDto.from(user, this.resolveRole(githubId, user.role)),
+    );
+  }
+
   @Post('logout')
   @UseGuards(OriginGuard)
   @HttpCode(200)
   logout(@Res({ passthrough: true }) res: Response): LogoutResponseDto {
+    this.clearSessionCookie(res);
+    return new LogoutResponseDto(false);
+  }
+
+  private clearSessionCookie(res: Response): void {
     const secure = this.config.useSecureCookies;
     res.setHeader(
       'Set-Cookie',
@@ -151,7 +185,6 @@ export class AuthController {
         secure,
       }),
     );
-    return new LogoutResponseDto(false);
   }
 
   private redirectWithError(res: Response, clearFlowCookie?: string): void {
