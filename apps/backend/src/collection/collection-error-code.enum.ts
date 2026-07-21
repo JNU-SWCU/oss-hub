@@ -4,6 +4,7 @@ export enum CollectionErrorCode {
   RATE_LIMITED = 'COL_001',
   COLLECTION_RUN_NOT_READY = 'COL_002',
   BATCH_LOGIN_NOT_ALLOWED = 'COL_003',
+  ADMIN_REQUIRED = 'COL_004',
 }
 
 export const COLLECTION_ERROR_CODES: Record<CollectionErrorCode, ErrorCode> = {
@@ -21,5 +22,10 @@ export const COLLECTION_ERROR_CODES: Record<CollectionErrorCode, ErrorCode> = {
     code: CollectionErrorCode.BATCH_LOGIN_NOT_ALLOWED,
     status: 400,
     message: '허용 목록 밖의 GitHub 계정이 포함되어 있습니다.',
+  },
+  [CollectionErrorCode.ADMIN_REQUIRED]: {
+    code: CollectionErrorCode.ADMIN_REQUIRED,
+    status: 403,
+    message: '관리자 권한이 필요합니다.',
   },
 };
