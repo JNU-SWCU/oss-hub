@@ -88,4 +88,27 @@ describe('role onboarding views', () => {
     expect(html).toContain('data-status="APPROVED"');
     expect(html).toContain('href="/staff/dashboard"');
   });
+
+  it('회수된 요청 응답도 안전하게 역할 재선택 경로를 표시한다', () => {
+    // Given
+    const revoked = roleRequest({
+      status: 'REVOKED',
+      decidedAt: '2026-07-21T01:00:00.000Z',
+    });
+
+    // When
+    const html = renderToStaticMarkup(
+      <RoleRequestStatusView
+        request={revoked}
+        isRetrying={false}
+        errorMessage={null}
+        onRefresh={noOp}
+        onRetry={noOp}
+      />,
+    );
+
+    // Then
+    expect(html).toContain('data-status="REVOKED"');
+    expect(html).toContain('href="/onboarding/role"');
+  });
 });

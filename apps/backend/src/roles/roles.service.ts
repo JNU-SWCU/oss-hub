@@ -79,6 +79,7 @@ export class RolesService {
       }
       switch (latest.status) {
         case RoleRequestStatus.REJECTED:
+        case RoleRequestStatus.REVOKED:
           return store.createPendingRequest(user.id);
         case RoleRequestStatus.PENDING:
           throw new DomainException(
@@ -87,10 +88,6 @@ export class RolesService {
         case RoleRequestStatus.APPROVED:
           throw new DomainException(
             ROLES_ERROR_CODES[RolesErrorCode.ROLE_ALREADY_CONFIRMED],
-          );
-        case RoleRequestStatus.REVOKED:
-          throw new DomainException(
-            ROLES_ERROR_CODES[RolesErrorCode.INVALID_ROLE_SELECTION],
           );
       }
     });
