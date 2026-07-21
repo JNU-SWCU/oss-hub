@@ -1,13 +1,15 @@
-import { ArrowRight } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { githubLoginPath } from '../api';
 
 interface LandingHeroProps {
   authErrorMessage?: string;
+  primaryAction: ReactNode;
 }
 
-export function LandingHero({ authErrorMessage }: LandingHeroProps) {
+export function LandingHero({
+  authErrorMessage,
+  primaryAction,
+}: LandingHeroProps) {
   return (
     <section
       aria-labelledby="landing-hero-heading"
@@ -37,15 +39,7 @@ export function LandingHero({ authErrorMessage }: LandingHeroProps) {
         ) : null}
 
         <div className="animate-in fade-in slide-in-from-bottom-6 fill-mode-both delay-300 duration-700 motion-reduce:animate-none flex flex-wrap items-center gap-4 pt-2">
-          <Button asChild size="lg">
-            <a href={githubLoginPath}>
-              GitHub으로 로그인
-              <ArrowRight
-                className="transition-transform duration-300 group-hover/button:translate-x-0.5"
-                aria-hidden="true"
-              />
-            </a>
-          </Button>
+          {primaryAction}
           <a
             href="#program-types"
             className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
