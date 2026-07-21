@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { RoleRequestStatus } from '@prisma/client';
+import { Prisma, RoleRequestStatus } from '@prisma/client';
 import type {
-  Prisma,
   Role,
   RoleRequest as PrismaRoleRequest,
   User as PrismaUser,
@@ -29,6 +28,9 @@ class PrismaRolesTransactionStore implements RolesTransactionStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
 
   async findUserByGithubId(githubId: bigint): Promise<RoleUser | null> {
+    await this.transaction.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "User" WHERE "githubId" = ${githubId} FOR UPDATE`,
+    );
     const user = await this.transaction.user.findUnique({
       where: { githubId },
     });

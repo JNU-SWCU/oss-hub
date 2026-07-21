@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Role, RoleRequestStatus } from '@prisma/client';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.enum';
 import { DomainException } from '../common/error-code';
+import { ConsentsService } from '../consents/consents.service';
 import type { RoleRequestRecord, RoleUser } from './domain/role-onboarding';
 import type {
   RoleSelectionResult,
@@ -19,12 +20,16 @@ export class RolesService {
   constructor(
     @Inject(RolesRepository)
     private readonly repository: RolesRepositoryPort,
+    @Inject(ConsentsService)
+    private readonly consentsService: Pick<ConsentsService, 'requireCurrent'>,
   ) {}
 
   async selectRole(
     githubId: bigint,
     selectedRole: SelectableRole,
   ): Promise<RoleSelectionResult> {
+    await this.consentsService.requireCurrent(githubId);
+
     return this.repository.withTransaction(async (store) => {
       const user = await this.requireUser(store, githubId);
       switch (selectedRole) {
@@ -51,6 +56,8 @@ export class RolesService {
   }
 
   async retryStaffRequest(githubId: bigint): Promise<RoleRequestRecord> {
+    await this.consentsService.requireCurrent(githubId);
+
     return this.repository.withTransaction(async (store) => {
       const user = await this.requireUser(store, githubId);
       if (user.role !== null) {
@@ -96,6 +103,12 @@ export class RolesService {
     if (user.role !== null && user.role !== Role.STUDENT) {
       throw new DomainException(
         ROLES_ERROR_CODES[RolesErrorCode.ROLE_ALREADY_CONFIRMED],
+      );
+    }
+    const pending = await store.findPendingRequest(user.id);
+    if (pending) {
+      throw new DomainException(
+        ROLES_ERROR_CODES[RolesErrorCode.ACTIVE_REQUEST_EXISTS],
       );
     }
     if (user.role === null) {

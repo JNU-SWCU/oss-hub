@@ -1,4 +1,10 @@
 import { Role, RoleRequestStatus } from '@prisma/client';
+import { DomainException } from '../common/error-code';
+import {
+  CONSENT_ERROR_CODES,
+  ConsentErrorCode,
+} from '../consents/consent-error-code.enum';
+import type { ConsentsService } from '../consents/consents.service';
 import type { RoleRequestRecord, RoleUser } from './domain/role-onboarding';
 import type {
   RolesRepositoryPort,
@@ -55,6 +61,10 @@ class InMemoryRolesStore implements RolesTransactionStore {
   requestCount(): number {
     return this.requests.length;
   }
+
+  currentRole(): Role | null {
+    return this.user?.role ?? null;
+  }
 }
 
 class InMemoryRolesRepository implements RolesRepositoryPort {
@@ -78,10 +88,25 @@ class InMemoryRolesRepository implements RolesRepositoryPort {
 function createService(
   role: Role | null,
   requests: RoleRequestRecord[] = [],
+  consented = true,
 ): { service: RolesService; store: InMemoryRolesStore } {
   const store = new InMemoryRolesStore(role, requests);
+  const consentsService: Pick<ConsentsService, 'requireCurrent'> = {
+    requireCurrent: consented
+      ? jest.fn().mockResolvedValue(undefined)
+      : jest
+          .fn()
+          .mockRejectedValue(
+            new DomainException(
+              CONSENT_ERROR_CODES[ConsentErrorCode.REQUIRED_CONSENT_MISSING],
+            ),
+          ),
+  };
   return {
-    service: new RolesService(new InMemoryRolesRepository(store)),
+    service: new RolesService(
+      new InMemoryRolesRepository(store),
+      consentsService,
+    ),
     store,
   };
 }
@@ -101,6 +126,20 @@ function roleRequest(
 }
 
 describe('RolesService', () => {
+  it('현행 정책 미동의 사용자의 역할 선택을 거부한다', async () => {
+    // Given
+    const { service, store } = createService(null, [], false);
+
+    // When
+    const promise = service.selectRole(424242n, Role.STUDENT);
+
+    // Then
+    await expect(promise).rejects.toMatchObject({
+      errorCode: { code: ConsentErrorCode.REQUIRED_CONSENT_MISSING },
+    });
+    expect(store.currentRole()).toBeNull();
+  });
+
   it('학생을 선택하면 역할을 확정하고 프로그램 목록으로 보낸다', async () => {
     // Given
     const { service } = createService(null);
@@ -144,6 +183,22 @@ describe('RolesService', () => {
 
     // Then
     expect(result.requestStatus).toBe(RoleRequestStatus.PENDING);
+    expect(store.requestCount()).toBe(1);
+  });
+
+  it('활성 교직원 요청이 있으면 학생 전환을 거부한다', async () => {
+    // Given
+    const pending = roleRequest(RoleRequestStatus.PENDING);
+    const { service, store } = createService(null, [pending]);
+
+    // When
+    const promise = service.selectRole(424242n, Role.STUDENT);
+
+    // Then
+    await expect(promise).rejects.toMatchObject({
+      errorCode: { code: RolesErrorCode.ACTIVE_REQUEST_EXISTS },
+    });
+    expect(store.currentRole()).toBeNull();
     expect(store.requestCount()).toBe(1);
   });
 
@@ -197,6 +252,21 @@ describe('RolesService', () => {
     // Then
     expect(result.status).toBe(RoleRequestStatus.PENDING);
     expect(store.requestCount()).toBe(2);
+  });
+
+  it('현행 정책 미동의 사용자의 교직원 재요청을 거부한다', async () => {
+    // Given: 과거 요청 이력은 있지만 현행 정책에는 동의하지 않았다.
+    const rejected = roleRequest(RoleRequestStatus.REJECTED, '합성 사유');
+    const { service, store } = createService(null, [rejected], false);
+
+    // When
+    const promise = service.retryStaffRequest(424242n);
+
+    // Then
+    await expect(promise).rejects.toMatchObject({
+      errorCode: { code: ConsentErrorCode.REQUIRED_CONSENT_MISSING },
+    });
+    expect(store.requestCount()).toBe(1);
   });
 
   it('활성 요청이 있으면 재요청을 거부한다', async () => {

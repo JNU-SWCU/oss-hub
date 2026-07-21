@@ -111,6 +111,31 @@ describe('ConsentsService.getCurrent', () => {
   });
 });
 
+describe('ConsentsService.requireCurrent', () => {
+  it('현행 정책 동의가 있으면 후속 온보딩을 허용한다', async () => {
+    const { service } = buildService({
+      findConsent: jest.fn().mockResolvedValue(syntheticConsent),
+    });
+
+    await expect(service.requireCurrent(syntheticGithubId)).resolves.toBe(
+      undefined,
+    );
+  });
+
+  it('현행 정책 미동의 사용자는 422 CON_003으로 거부한다', async () => {
+    const { service } = buildService();
+
+    const exception = await captureDomainException(() =>
+      service.requireCurrent(syntheticGithubId),
+    );
+
+    expect(exception.errorCode.code).toBe(
+      ConsentErrorCode.REQUIRED_CONSENT_MISSING,
+    );
+    expect(exception.errorCode.status).toBe(422);
+  });
+});
+
 describe('ConsentsService.accept', () => {
   it('현행 버전 + 필수 항목 전체 동의는 레코드를 만들고 nextUrl을 돌려준다', async () => {
     const { service, createConsent } = buildService();
