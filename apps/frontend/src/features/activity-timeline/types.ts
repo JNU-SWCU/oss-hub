@@ -1,25 +1,26 @@
 export type ActivityGranularity = 'MONTH' | 'YEAR';
+export type ActivityApplicationMode = 'PERSONAL' | 'TEAM';
 
 export interface ActivityProgram {
-  programId: string;
-  programName: string;
-  year: number;
-  applicationMode: string;
+  readonly programId: string;
+  readonly programName: string;
+  readonly year: number;
+  readonly applicationMode: ActivityApplicationMode;
 }
 
 export interface ActivityPoint {
-  period: string;
-  commitCount: number;
-  prCount: number;
-  starCount: number;
-  total: number;
+  readonly period: string;
+  readonly commitCount: number;
+  readonly prCount: number;
+  readonly starCount: number;
+  readonly total: number;
 }
 
 export interface ActivityTimeline {
-  programs: ActivityProgram[];
-  series: {
-    granularity: ActivityGranularity;
-    points: ActivityPoint[];
+  readonly programs: readonly ActivityProgram[];
+  readonly series: {
+    readonly granularity: ActivityGranularity;
+    readonly points: readonly ActivityPoint[];
   };
 }
 

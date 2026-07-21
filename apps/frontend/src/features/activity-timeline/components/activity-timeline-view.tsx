@@ -18,7 +18,7 @@ interface ActivityTimelineViewProps {
   onRetry: () => void;
 }
 
-function groupedPrograms(programs: ActivityProgram[]) {
+function groupedPrograms(programs: readonly ActivityProgram[]) {
   return Object.entries(
     programs.reduce<Record<string, ActivityProgram[]>>((groups, program) => {
       (groups[program.year] ??= []).push(program);
@@ -81,7 +81,11 @@ export function ActivityTimelineView({
             참여 프로그램
           </h2>
         </div>
-        {status === 'loading' && !data ? (
+        {status === 'error' ? (
+          <p className="text-sm text-destructive" role="status">
+            참여 프로그램 정보를 불러오지 못했습니다.
+          </p>
+        ) : status === 'loading' && !data ? (
           <p className="text-sm text-muted-foreground" role="status">
             활동 정보를 불러오는 중…
           </p>
