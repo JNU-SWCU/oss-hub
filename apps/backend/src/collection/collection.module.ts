@@ -10,12 +10,23 @@ import { CollectionRunStarter } from './collection-run-starter.service';
 import { CollectionSchedulerService } from './collection-scheduler.service';
 import { CollectionService } from './collection.service';
 import { GithubApiClient } from './github-api.client';
+import { GithubWebhookConfig } from './github-webhook.config';
+import { GithubWebhookController } from './github-webhook.controller';
+import { GithubWebhookRepository } from './github-webhook.repository';
+import { GithubWebhookService } from './github-webhook.service';
 
 @Module({
   imports: [ScheduleModule.forRoot(), AuthModule],
-  controllers: [CollectionController, CollectionAdminController],
+  controllers: [
+    CollectionController,
+    CollectionAdminController,
+    GithubWebhookController,
+  ],
   providers: [
     CollectionConfig,
+    GithubWebhookConfig,
+    GithubWebhookRepository,
+    GithubWebhookService,
     CollectionAdminGuard,
     CollectionRepository,
     CollectionRunStarter,
