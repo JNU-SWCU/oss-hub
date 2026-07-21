@@ -37,6 +37,16 @@ export class ConsentsService {
     return { policy: CURRENT_CONSENT_POLICY, consented: consent !== null };
   }
 
+  /** 역할 온보딩 등 후속 도메인이 현행 동의 선행조건을 중복 조회하지 않게 한다. */
+  async requireCurrent(githubId: bigint): Promise<void> {
+    const consent = await this.getCurrent(githubId);
+    if (!consent.consented) {
+      throw new DomainException(
+        CONSENT_ERROR_CODES[ConsentErrorCode.REQUIRED_CONSENT_MISSING],
+      );
+    }
+  }
+
   /**
    * 현행 정책 버전에 대한 1회 동의를 저장한다. 과거 버전만 동의한 사용자도
    * 새 버전 행을 추가로 만든다 — 과거 동의는 삭제하지 않는다(append-only).

@@ -11,7 +11,11 @@ describe('toSessionRoleState', () => {
     const state = toSessionRoleState(session);
 
     // Then
-    expect(state).toEqual({ status: 'anonymous', role: null });
+    expect(state).toEqual({
+      status: 'anonymous',
+      role: null,
+      roleRequestStatus: null,
+    });
   });
 
   it('역할이 없는 인증 세션을 unassigned 상태로 변환한다', () => {
@@ -30,7 +34,11 @@ describe('toSessionRoleState', () => {
     const state = toSessionRoleState(session);
 
     // Then
-    expect(state).toEqual({ status: 'unassigned', role: null });
+    expect(state).toEqual({
+      status: 'unassigned',
+      role: null,
+      roleRequestStatus: null,
+    });
   });
 
   it('역할이 있는 인증 세션을 assigned 상태로 변환한다', () => {
@@ -49,7 +57,11 @@ describe('toSessionRoleState', () => {
     const state = toSessionRoleState(session);
 
     // Then
-    expect(state).toEqual({ status: 'assigned', role: 'ADMIN' });
+    expect(state).toEqual({
+      status: 'assigned',
+      role: 'ADMIN',
+      roleRequestStatus: null,
+    });
   });
 });
 

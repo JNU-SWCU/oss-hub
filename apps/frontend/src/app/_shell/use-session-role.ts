@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { fetchSession } from '@/features/auth/api';
 import type { AuthSession } from '@/features/auth/types';
+import { fetchMyRoleRequest } from '@/features/roles/api';
+import type { RoleRequestStatus } from '@/features/roles/types';
 import type { AppRole } from './role';
 
 export type SessionStatus = 'loading' | 'anonymous' | 'unassigned' | 'assigned';
@@ -10,6 +12,7 @@ export type SessionStatus = 'loading' | 'anonymous' | 'unassigned' | 'assigned';
 export interface SessionRoleState {
   status: SessionStatus;
   role: AppRole | null;
+  roleRequestStatus: RoleRequestStatus | null;
 }
 
 /**
@@ -35,16 +38,21 @@ export function createDedupedFetcher<T>(
 }
 
 const dedupedFetchSession = createDedupedFetcher(fetchSession);
+const dedupedFetchMyRoleRequest = createDedupedFetcher(fetchMyRoleRequest);
 
 export function toSessionRoleState(session: AuthSession): SessionRoleState {
   switch (session.isAuthenticated) {
     case false:
-      return { status: 'anonymous', role: null };
+      return {
+        status: 'anonymous',
+        role: null,
+        roleRequestStatus: null,
+      };
     case true: {
       const role = session.user.role;
       return role
-        ? { status: 'assigned', role }
-        : { status: 'unassigned', role: null };
+        ? { status: 'assigned', role, roleRequestStatus: null }
+        : { status: 'unassigned', role: null, roleRequestStatus: null };
     }
     default: {
       const exhaustive: never = session;
@@ -54,14 +62,14 @@ export function toSessionRoleState(session: AuthSession): SessionRoleState {
 }
 
 /**
- * 세션·역할 조회 훅. `role=null`은 "역할 미선택"과 "교직원 승인 대기(PENDING)"를
- * 구분하지 않는다 — 현재 `/auth/session`이 두 상태를 구분해
- * 노출하지 않기 때문이며, #107 스텁 화면 하나로 수렴하는 것이 플랜 합의 사항이다.
+ * 세션·역할 조회 훅. 확정 역할이 없으면 #107 본인 역할 요청을 이어서 조회해
+ * 역할 선택과 승인 대기·반려 경로를 구분한다.
  */
 export function useSessionRole(): SessionRoleState {
   const [state, setState] = useState<SessionRoleState>({
     status: 'loading',
     role: null,
+    roleRequestStatus: null,
   });
 
   useEffect(() => {
@@ -70,10 +78,36 @@ export function useSessionRole(): SessionRoleState {
     dedupedFetchSession()
       .then((session) => {
         if (!active) return;
-        setState(toSessionRoleState(session));
+
+        const sessionState = toSessionRoleState(session);
+        if (sessionState.status !== 'unassigned') {
+          setState(sessionState);
+          return;
+        }
+
+        dedupedFetchMyRoleRequest()
+          .then((request) => {
+            if (active) {
+              setState({
+                ...sessionState,
+                roleRequestStatus: request?.status ?? null,
+              });
+            }
+          })
+          .catch(() => {
+            if (active) {
+              setState(sessionState);
+            }
+          });
       })
       .catch(() => {
-        if (active) setState({ status: 'anonymous', role: null });
+        if (active) {
+          setState({
+            status: 'anonymous',
+            role: null,
+            roleRequestStatus: null,
+          });
+        }
       });
 
     return () => {

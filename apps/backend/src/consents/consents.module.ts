@@ -8,5 +8,6 @@ import { ConsentsService } from './consents.service';
   imports: [AuthModule],
   controllers: [ConsentsController],
   providers: [ConsentsService, ConsentsRepository],
+  exports: [ConsentsService],
 })
 export class ConsentsModule {}

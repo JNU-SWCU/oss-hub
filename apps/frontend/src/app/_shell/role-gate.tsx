@@ -2,6 +2,7 @@
 
 import { useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { onboardingPathFor } from './onboarding-route';
 import { useSessionRole } from './use-session-role';
 import { roleHomePath, type AppRole } from './role';
 
@@ -20,7 +21,7 @@ export function RoleGate({
   children: ReactNode;
 }) {
   const router = useRouter();
-  const { status, role } = useSessionRole();
+  const { status, role, roleRequestStatus } = useSessionRole();
 
   useEffect(() => {
     if (status === 'anonymous') {
@@ -28,13 +29,13 @@ export function RoleGate({
       return;
     }
     if (status === 'unassigned') {
-      router.replace('/onboarding/role');
+      router.replace(onboardingPathFor(roleRequestStatus));
       return;
     }
     if (status === 'assigned' && role && !allow.includes(role)) {
       router.replace(roleHomePath(role));
     }
-  }, [status, role, allow, router]);
+  }, [status, role, roleRequestStatus, allow, router]);
 
   const isAllowed = status === 'assigned' && !!role && allow.includes(role);
 
