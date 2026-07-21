@@ -5,6 +5,7 @@ import { ConsentsModule } from './consents/consents.module';
 import { HealthModule } from './health/health.module';
 import { LoginHistoryModule } from './login-history/login-history.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { RolesModule } from './roles/roles.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { PrismaModule } from './prisma/prisma.module';
     AuthModule,
     CollectionModule,
     ConsentsModule,
+    RolesModule,
   ],
 })
 export class AppModule {}
