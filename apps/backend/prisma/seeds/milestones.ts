@@ -14,6 +14,7 @@ import {
   upsertSeedUser,
   upsertTracked,
 } from './helpers';
+import { computeJoinCodeDigest } from '../../src/common/join-code-digest';
 
 /**
  * milestones profile은 intake profile 없이 빈 DB에서 단독으로 성공해야 한다
@@ -225,12 +226,14 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     () =>
       prisma.team.upsert({
         where: { id: TEAM_ID },
-        update: {},
+        update: {
+          joinCodeDigest: computeJoinCodeDigest('SEED-MILESTONES-TEAM'),
+        },
         create: {
           id: TEAM_ID,
           programId: PROGRAM_ID,
           name: 'seed-milestones-team',
-          joinCode: 'SEED-MILESTONES-TEAM',
+          joinCodeDigest: computeJoinCodeDigest('SEED-MILESTONES-TEAM'),
           leaderId: teamLeader.id,
         },
       }),
@@ -249,6 +252,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
         create: {
           id: seedId('milestones', 'team-member', 'leader'),
           teamId: TEAM_ID,
+          programId: PROGRAM_ID,
           userId: teamLeader.id,
         },
       }),
@@ -267,6 +271,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
         create: {
           id: seedId('milestones', 'team-member', 'member'),
           teamId: TEAM_ID,
+          programId: PROGRAM_ID,
           userId: teamMember.id,
         },
       }),

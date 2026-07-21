@@ -48,6 +48,7 @@ enum RoleRequestStatus {
 }
 
 /// 교직원 권한 요청 이력. 회수(REVOKE)도 상태를 지우지 않고 이력으로 남긴다(#108이 소비).
+/// 사용자당 PENDING 1건 제한 partial unique는 Prisma로 표현할 수 없어 마이그레이션 SQL에 둔다(#164).
 model RoleRequest {
   id     String @id @default(cuid())
   userId String
@@ -90,6 +91,8 @@ enum ProgramCategory {
   CORPORATE_INTERNSHIP
 }
 
+/// 기간·팀 인원 CHECK 3건은 Prisma로 표현할 수 없어 마이그레이션 SQL에 둔다(#164).
+/// NULL 피연산자는 CHECK를 통과하므로 개인형 프로그램의 nullable 인원 필드는 유지된다.
 model Program {
   id        String          @id @default(cuid())
   name      String
@@ -153,6 +156,7 @@ enum ApplicationStatus {
 }
 
 /// teamId는 nullable이다 — 개인형은 null, 팀형만 API 검증으로 필수(#109 계약 잠금).
+/// 개인·팀 중복 신청 방지 partial unique는 Prisma로 표현할 수 없어 마이그레이션 SQL에 둔다(#164).
 model Application {
   id        String  @id @default(cuid())
   programId String
@@ -194,9 +198,10 @@ model Team {
   programId String
   program   Program @relation(fields: [programId], references: [id])
 
-  name     String
-  /// 참여코드는 전역 고유다(프로그램 범위 고유보다 강한 조건이라 #105 요구를 포함한다). 로그에 남기지 않는다(#105).
-  joinCode String @unique
+  name           String
+  /// 참여코드는 평문을 저장하지 않고 HMAC-SHA-256 digest만 저장한다(#164).
+  /// 전역 고유다(프로그램 범위 고유보다 강한 조건이라 #105 요구를 포함한다). 로그에 남기지 않는다(#105).
+  joinCodeDigest String @unique
 
   leaderId String
   leader   User   @relation("TeamLeader", fields: [leaderId], references: [id])
@@ -208,16 +213,20 @@ model Team {
   applications Application[]
   repositories Repository[]
 
+  /// TeamMember의 비정규화 programId를 composite FK로 검증하기 위한 참조 대상(#164).
+  @@unique([id, programId])
   @@index([programId])
 }
 
 /// 학과·이름·연락처·이메일은 합류 시 본인 입력(#109) — 팀장 생성 시점엔 비어 있을 수 있어 nullable로 둔다.
 model TeamMember {
-  id     String @id @default(cuid())
-  teamId String
-  team   Team   @relation(fields: [teamId], references: [id])
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
+  id        String @id @default(cuid())
+  teamId    String
+  /// Team.programId의 비정규화 사본. composite FK가 팀과 프로그램의 정합을 강제한다(#164).
+  programId String
+  team      Team   @relation(fields: [teamId, programId], references: [id, programId])
+  userId    String
+  user      User   @relation(fields: [userId], references: [id])
 
   department String?
   name       String?
@@ -227,6 +236,7 @@ model TeamMember {
   createdAt DateTime @default(now())
 
   @@unique([teamId, userId])
+  @@unique([programId, userId])
   @@index([userId])
 }
 
