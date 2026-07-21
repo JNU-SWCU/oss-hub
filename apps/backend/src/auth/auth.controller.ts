@@ -27,6 +27,7 @@ import { OriginGuard } from './origin.guard';
 import { resolveSession } from './session-resolution';
 import { AuthenticatedRequest, SessionGuard } from './session.guard';
 import { SESSION_MAX_AGE_SECONDS } from './session-token';
+import { LoginHistoryService } from '../login-history/login-history.service';
 
 const FLOW_COOKIE_MAX_AGE_SECONDS = 600;
 
@@ -37,6 +38,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly config: AuthConfig,
+    private readonly loginHistoryService: LoginHistoryService,
   ) {}
 
   @Get('github')
@@ -94,6 +96,7 @@ export class AuthController {
         state,
         flowCookie: cookies[flowCookieName(secure)],
       });
+      await this.loginHistoryService.recordLogin(user.id);
       const sessionToken = await this.authService.issueSession(user);
       res.setHeader('Set-Cookie', [
         clearFlowCookie,
@@ -171,8 +174,18 @@ export class AuthController {
   @Post('logout')
   @UseGuards(OriginGuard)
   @HttpCode(200)
-  logout(@Res({ passthrough: true }) res: Response): LogoutResponseDto {
+  async logout(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<LogoutResponseDto> {
     this.clearSessionCookie(res);
+    const { githubId } = await resolveSession(this.config, req.headers.cookie);
+    if (githubId !== null) {
+      const user = await this.authService.findMe(githubId);
+      if (user !== null) {
+        await this.loginHistoryService.recordLogout(user.id);
+      }
+    }
     return new LogoutResponseDto(false);
   }
 

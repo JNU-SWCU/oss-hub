@@ -37,6 +37,26 @@ model User {
   reviews               Review[]
   notifications         Notification[]
   auditLogs             AuditLog[]
+  loginHistories        LoginHistory[]
+}
+
+enum LoginHistoryEvent {
+  LOGIN
+  LOGOUT
+}
+
+/// 로그인 활동 기록. IP·User-Agent는 수집하지 않는다(#157).
+model LoginHistory {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  event    LoginHistoryEvent
+  provider String            @default("github")
+  success  Boolean
+  loginAt  DateTime          @default(now())
+
+  @@index([userId, loginAt])
 }
 
 /// PENDING → APPROVED/REJECTED. REVOKED는 회수(REVOKE) 이력을 표현한다(#109 계약 잠금 이행 — #113에서 additive로 추가).

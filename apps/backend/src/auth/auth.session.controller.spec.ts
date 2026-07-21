@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { serializeCookie, sessionCookieName } from './cookies';
 import { AuthUser } from './domain/auth-user';
 import { SESSION_MAX_AGE_SECONDS, issueSessionToken } from './session-token';
+import { LoginHistoryService } from '../login-history/login-history.service';
 
 const syntheticUser: AuthUser = {
   id: 'synthetic-id',
@@ -39,6 +40,7 @@ function createController(findMe: jest.Mock): AuthController {
       useSecureCookies: true,
       resolveTestRole: jest.fn().mockReturnValue(null),
     } as unknown as AuthConfig,
+    {} as LoginHistoryService,
   );
 }
 

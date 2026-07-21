@@ -7,6 +7,7 @@ import { flowCookieName, serializeCookie } from './cookies';
 import { AuthUser } from './domain/auth-user';
 import { createFlowState, encodeFlowCookie } from './oauth-flow';
 import { AuthenticatedRequest } from './session.guard';
+import { LoginHistoryService } from '../login-history/login-history.service';
 
 const syntheticUser: AuthUser = {
   id: 'synthetic-id',
@@ -16,6 +17,7 @@ const syntheticUser: AuthUser = {
   avatarUrl: null,
   role: null,
 };
+const recordLogin = jest.fn();
 
 function createResponse(): Response & {
   setHeader: jest.Mock;
@@ -39,7 +41,9 @@ function createController(
     frontendUrl: 'https://oss.example',
     useSecureCookies: true,
   } as AuthConfig;
-  return new AuthController(service, config);
+  return new AuthController(service, config, {
+    recordLogin,
+  } as unknown as LoginHistoryService);
 }
 
 function requestWithCookie(cookie?: string): Request {
@@ -50,6 +54,11 @@ function requestWithCookie(cookie?: string): Request {
 }
 
 describe('AuthController github callback', () => {
+  beforeEach(() => {
+    recordLogin.mockReset();
+    recordLogin.mockResolvedValue(undefined);
+  });
+
   it('callback redirect 응답에 no-referrer/no-store를 설정한다', async () => {
     const flow = createFlowState();
     const res = createResponse();
@@ -68,6 +77,7 @@ describe('AuthController github callback', () => {
     );
     expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
     expect(res.redirect).toHaveBeenCalledWith(302, 'https://oss.example');
+    expect(recordLogin).toHaveBeenCalledWith(syntheticUser.id);
   });
 
   it('OAuth denial은 state가 일치할 때만 flow cookie를 삭제한다', async () => {
@@ -182,6 +192,7 @@ describe('AuthController getMe', () => {
     const controller = new AuthController(
       { getMe } as unknown as AuthService,
       { resolveTestRole } as unknown as AuthConfig,
+      {} as LoginHistoryService,
     );
     return { controller, resolveTestRole };
   }
