@@ -1,9 +1,12 @@
 export const PROGRAM_PARTICIPATION_TYPES = ['individual', 'team'] as const;
 
-export type ProgramParticipation =
-  (typeof PROGRAM_PARTICIPATION_TYPES)[number];
+export type ProgramParticipation = (typeof PROGRAM_PARTICIPATION_TYPES)[number];
 
-export const APPLICATION_FIELD_INPUT_TYPES = ['text', 'url', 'textarea'] as const;
+export const APPLICATION_FIELD_INPUT_TYPES = [
+  'text',
+  'url',
+  'textarea',
+] as const;
 
 export type ApplicationFieldInputType =
   (typeof APPLICATION_FIELD_INPUT_TYPES)[number];

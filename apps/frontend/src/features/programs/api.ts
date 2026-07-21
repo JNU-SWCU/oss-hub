@@ -20,7 +20,9 @@ export interface CreatedProgram {
   readonly detailUrl: string;
 }
 
-export function createProgram(input: CreateProgramInput): Promise<CreatedProgram> {
+export function createProgram(
+  input: CreateProgramInput,
+): Promise<CreatedProgram> {
   return apiClient<CreatedProgram>('programs', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
