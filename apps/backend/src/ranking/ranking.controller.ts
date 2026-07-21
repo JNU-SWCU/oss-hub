@@ -1,5 +1,5 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import { RankingQueryDto } from './dto/ranking-query.dto';
+import { RankingQueryRequestDto } from './dto/ranking-query.dto';
 import { RankingPageResponseDto } from './dto/ranking-response.dto';
 import { RankingService } from './ranking.service';
 
@@ -9,7 +9,7 @@ export class RankingController {
 
   @Get()
   async findPage(
-    @Query() query: RankingQueryDto,
+    @Query() query: RankingQueryRequestDto,
   ): Promise<RankingPageResponseDto> {
     return RankingPageResponseDto.from(
       await this.rankingService.findPage(

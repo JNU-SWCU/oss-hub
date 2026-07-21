@@ -7,12 +7,28 @@ import {
   type RankingPage,
   type RankingPeriod,
 } from './domain/ranking';
-import { RankingRepository } from './ranking.repository';
+import {
+  RankingRepository,
+  type RankingObservation,
+} from './ranking.repository';
+
+const RANKING_CACHE_TTL_MS = 60_000;
 
 interface ParsedEvent {
   readonly repositoryId: string;
   readonly occurredAt: Date;
   readonly metrics: RankingMetrics;
+}
+
+interface CanonicalIdentity {
+  readonly login: string;
+  readonly runId: string;
+  readonly runStartedAt: Date;
+}
+
+interface CachedRanking {
+  readonly entries: readonly RankingEntry[];
+  readonly expiresAt: number;
 }
 
 type JsonRecord = Readonly<Record<string, unknown>>;
@@ -115,8 +131,29 @@ function emptyMetrics(): RankingMetrics {
   return { commitCount: 0, prCount: 0, starCount: 0 };
 }
 
+function isNewerIdentity(
+  candidate: RankingObservation,
+  current: CanonicalIdentity | undefined,
+): boolean {
+  if (!current) {
+    return true;
+  }
+  const timeDifference =
+    candidate.runStartedAt.getTime() - current.runStartedAt.getTime();
+  return (
+    timeDifference > 0 ||
+    (timeDifference === 0 && candidate.runId > current.runId)
+  );
+}
+
 @Injectable()
 export class RankingService {
+  private readonly cache = new Map<string, CachedRanking>();
+  private readonly inFlightBuilds = new Map<
+    string,
+    Promise<readonly RankingEntry[]>
+  >();
+
   constructor(private readonly repository: RankingRepository) {}
 
   async findPage(
@@ -125,35 +162,7 @@ export class RankingService {
     pageSize: number,
     now: Date = new Date(),
   ): Promise<RankingPage> {
-    const source = await this.repository.findSourceData();
-    const platformRepositoryIds = new Set(source.platformRepositoryIds);
-    const deduplicatedEventIds = new Set<string>();
-    const metricsByLogin = new Map<string, RankingMetrics>();
-    const currentYear = now.getUTCFullYear();
-
-    for (const observation of source.observations) {
-      if (deduplicatedEventIds.has(observation.sourceId)) {
-        continue;
-      }
-      const event = parseEvent(observation.payload);
-      if (
-        !event ||
-        !platformRepositoryIds.has(event.repositoryId) ||
-        !isWithinPeriod(event.occurredAt, period, currentYear)
-      ) {
-        continue;
-      }
-      deduplicatedEventIds.add(observation.sourceId);
-      metricsByLogin.set(
-        observation.targetLogin,
-        addMetrics(
-          metricsByLogin.get(observation.targetLogin) ?? emptyMetrics(),
-          event.metrics,
-        ),
-      );
-    }
-
-    const entries = this.toEntries(metricsByLogin);
+    const entries = await this.findEntries(period, now);
     const start = (page - 1) * pageSize;
     return {
       notice: RANKING_NOTICE,
@@ -165,14 +174,104 @@ export class RankingService {
     };
   }
 
+  private async findEntries(
+    period: RankingPeriod,
+    now: Date,
+  ): Promise<readonly RankingEntry[]> {
+    const currentYear = now.getUTCFullYear();
+    const cacheKey =
+      period === RANKING_PERIODS.ALL ? period : `${period}:${currentYear}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.entries;
+    }
+
+    const existingBuild = this.inFlightBuilds.get(cacheKey);
+    if (existingBuild) {
+      return existingBuild;
+    }
+
+    const build = this.buildEntries(period, currentYear)
+      .then((entries) => {
+        this.cache.set(cacheKey, {
+          entries,
+          expiresAt: Date.now() + RANKING_CACHE_TTL_MS,
+        });
+        return entries;
+      })
+      .finally(() => this.inFlightBuilds.delete(cacheKey));
+    this.inFlightBuilds.set(cacheKey, build);
+    return build;
+  }
+
+  private async buildEntries(
+    period: RankingPeriod,
+    currentYear: number,
+  ): Promise<readonly RankingEntry[]> {
+    const repositoryIds = new Set<string>();
+    for await (const batch of this.repository.findPlatformRepositoryIdBatches()) {
+      for (const repositoryId of batch) {
+        repositoryIds.add(repositoryId);
+      }
+    }
+    const metricsByGithubId = new Map<string, RankingMetrics>();
+    const identitiesByGithubId = new Map<string, CanonicalIdentity>();
+    const fetchedAtOrAfter =
+      period === RANKING_PERIODS.THIS_YEAR
+        ? new Date(Date.UTC(currentYear, 0, 1))
+        : undefined;
+    let previousSourceId: string | undefined;
+
+    for await (const batch of this.repository.findObservationBatches(
+      fetchedAtOrAfter,
+    )) {
+      for (const observation of batch) {
+        const currentIdentity = identitiesByGithubId.get(
+          observation.targetGithubId,
+        );
+        if (isNewerIdentity(observation, currentIdentity)) {
+          identitiesByGithubId.set(observation.targetGithubId, {
+            login: observation.targetLogin,
+            runId: observation.runId,
+            runStartedAt: observation.runStartedAt,
+          });
+        }
+
+        if (observation.sourceId === previousSourceId) {
+          continue;
+        }
+        previousSourceId = observation.sourceId;
+        const event = parseEvent(observation.payload);
+        if (
+          !event ||
+          !repositoryIds.has(event.repositoryId) ||
+          !isWithinPeriod(event.occurredAt, period, currentYear)
+        ) {
+          continue;
+        }
+        metricsByGithubId.set(
+          observation.targetGithubId,
+          addMetrics(
+            metricsByGithubId.get(observation.targetGithubId) ?? emptyMetrics(),
+            event.metrics,
+          ),
+        );
+      }
+    }
+
+    return this.toEntries(metricsByGithubId, identitiesByGithubId);
+  }
+
   private toEntries(
-    metricsByLogin: ReadonlyMap<string, RankingMetrics>,
+    metricsByGithubId: ReadonlyMap<string, RankingMetrics>,
+    identitiesByGithubId: ReadonlyMap<string, CanonicalIdentity>,
   ): RankingEntry[] {
-    return [...metricsByLogin.entries()]
-      .map(([githubLogin, metrics]) => ({
+    return [...metricsByGithubId.entries()]
+      .map(([githubId, metrics]) => ({
+        githubId,
         rank: 0,
-        displayName: githubLogin,
-        githubLogin,
+        displayName: identitiesByGithubId.get(githubId)?.login ?? githubId,
+        githubLogin: identitiesByGithubId.get(githubId)?.login ?? githubId,
         ...metrics,
         total: metrics.commitCount + metrics.prCount + metrics.starCount,
       }))
@@ -183,8 +282,17 @@ export class RankingService {
           right.commitCount - left.commitCount ||
           right.prCount - left.prCount ||
           right.starCount - left.starCount ||
-          left.githubLogin.localeCompare(right.githubLogin),
+          left.githubLogin.localeCompare(right.githubLogin) ||
+          left.githubId.localeCompare(right.githubId),
       )
-      .map((entry, index) => ({ ...entry, rank: index + 1 }));
+      .map((entry, index) => ({
+        rank: index + 1,
+        displayName: entry.displayName,
+        githubLogin: entry.githubLogin,
+        commitCount: entry.commitCount,
+        prCount: entry.prCount,
+        starCount: entry.starCount,
+        total: entry.total,
+      }));
   }
 }

@@ -2,7 +2,7 @@ import { Type } from 'class-transformer';
 import { IsIn, IsInt, Max, Min } from 'class-validator';
 import { RANKING_PERIODS, type RankingPeriod } from '../domain/ranking';
 
-export class RankingQueryDto {
+export class RankingQueryRequestDto {
   @IsIn([RANKING_PERIODS.THIS_YEAR, RANKING_PERIODS.ALL])
   readonly period: RankingPeriod = RANKING_PERIODS.THIS_YEAR;
 
