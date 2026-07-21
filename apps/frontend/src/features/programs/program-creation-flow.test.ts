@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { CreatedProgram } from './api';
 import {
   buildCreateProgramInput,
-  confirmProgramExit,
   EMPTY_PROGRAM_FORM,
+  hasProgramFormInput,
   startProgramSubmission,
   type ProgramForm,
   type ProgramSubmissionLock,
@@ -31,30 +31,16 @@ const completedForm: ProgramForm = {
   description: '합성 프로그램 설명',
 };
 
-describe('program creation exit confirmation', () => {
-  it('입력값이 없으면 묻지 않고 이탈을 허용한다', () => {
-    // Given
-    const confirmExit = vi.fn(() => false);
-
-    // When
-    const canExit = confirmProgramExit(EMPTY_PROGRAM_FORM, confirmExit);
-
-    // Then
-    expect(canExit).toBe(true);
-    expect(confirmExit).not.toHaveBeenCalled();
+describe('program creation dirty state', () => {
+  it('입력값이 없으면 clean 상태다', () => {
+    expect(hasProgramFormInput(EMPTY_PROGRAM_FORM)).toBe(false);
   });
 
-  it('입력값이 있으면 확인 결과에 따라 이탈을 결정한다', () => {
+  it('입력값이 하나라도 있으면 dirty 상태다', () => {
     // Given
     const form = { ...EMPTY_PROGRAM_FORM, name: '작성 중' };
-    const confirmExit = vi.fn(() => false);
 
-    // When
-    const canExit = confirmProgramExit(form, confirmExit);
-
-    // Then
-    expect(canExit).toBe(false);
-    expect(confirmExit).toHaveBeenCalledTimes(1);
+    expect(hasProgramFormInput(form)).toBe(true);
   });
 });
 

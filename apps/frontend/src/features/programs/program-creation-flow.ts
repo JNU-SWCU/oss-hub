@@ -81,13 +81,6 @@ export function hasProgramFormInput(form: ProgramForm): boolean {
   ].some((value) => value.trim().length > 0);
 }
 
-export function confirmProgramExit(
-  form: ProgramForm,
-  confirmExit: (message: string) => boolean,
-): boolean {
-  return !hasProgramFormInput(form) || confirmExit(UNSAVED_PROGRAM_MESSAGE);
-}
-
 export function buildCreateProgramInput(
   form: ProgramForm,
   template: ProgramTemplateDefinition,

@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRef, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
@@ -11,11 +10,9 @@ import { ApiError } from '@/lib/api-client';
 import { createProgram } from './api';
 import {
   buildCreateProgramInput,
-  confirmProgramExit,
   EMPTY_PROGRAM_FORM,
   hasProgramFormInput,
   startProgramSubmission,
-  UNSAVED_PROGRAM_MESSAGE,
   validateProgramForm,
   type ProgramForm,
   type ProgramFormErrors,
@@ -26,9 +23,9 @@ import {
   type ProgramTemplateDefinition,
 } from './program-templates';
 import { ProgramTypeModal } from './program-type-modal';
+import { useProgramExitGuard } from './use-program-exit-guard';
 
 export function ProgramCreationPage() {
-  const router = useRouter();
   const [selected, setSelected] = useState<ProgramTemplateDefinition | null>(
     null,
   );
@@ -38,51 +35,12 @@ export function ProgramCreationPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const submissionLock = useRef<ProgramSubmissionLock>({ current: false });
-  const allowExit = useRef(false);
-  const historyGuardActive = useRef(false);
   const hasUnsavedInput = hasProgramFormInput(form);
-
-  useEffect(() => {
-    if (!hasUnsavedInput) return;
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (allowExit.current) return;
-      event.preventDefault();
-      event.returnValue = '';
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasUnsavedInput]);
-
-  useEffect(() => {
-    if (!hasUnsavedInput) return;
-    window.history.pushState(null, '', window.location.href);
-    historyGuardActive.current = true;
-    const handlePopState = () => {
-      if (allowExit.current) return;
-      if (window.confirm(UNSAVED_PROGRAM_MESSAGE)) {
-        allowExit.current = true;
-        historyGuardActive.current = false;
-        window.history.back();
-        return;
-      }
-      window.history.pushState(null, '', window.location.href);
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [hasUnsavedInput]);
+  const { leavePage, completeAndNavigate } =
+    useProgramExitGuard(hasUnsavedInput);
 
   const update = (key: keyof ProgramForm, value: string) =>
     setForm((previous) => ({ ...previous, [key]: value }));
-  const leavePage = () => {
-    if (!confirmProgramExit(form, (message) => window.confirm(message))) return;
-    allowExit.current = true;
-    if (hasUnsavedInput && historyGuardActive.current) {
-      historyGuardActive.current = false;
-      window.history.go(-2);
-      return;
-    }
-    router.back();
-  };
   const save = async () => {
     if (!selected) return;
     const nextErrors = validateProgramForm(form, selected);
@@ -93,10 +51,7 @@ export function ProgramCreationPage() {
       submissionLock.current,
       buildCreateProgramInput(form, selected),
       createProgram,
-      (path) => {
-        allowExit.current = true;
-        router.push(path);
-      },
+      completeAndNavigate,
     );
     if (submission.status === 'ignored') return;
     setSubmitting(true);
