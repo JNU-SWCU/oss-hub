@@ -52,6 +52,13 @@ function statusPresentation(request: RoleRequest): StatusPresentation {
         description: '이제 프로그램 생성과 운영 기능을 사용할 수 있습니다.',
         badge: <StatusBadge variant="approved">승인</StatusBadge>,
       };
+    case 'REVOKED':
+      return {
+        icon: <RefreshCw className="size-8" />,
+        title: '교직원 역할이 회수되었습니다',
+        description: '학생 또는 교직원 역할을 다시 선택할 수 있습니다.',
+        badge: <StatusBadge variant="closed">회수</StatusBadge>,
+      };
   }
 }
 
@@ -105,7 +112,13 @@ export function RoleRequestStatusView({
               </Button>
             ) : null}
 
-            {request.status !== 'APPROVED' ? (
+            {request.status === 'REVOKED' ? (
+              <Button asChild size="lg">
+                <a href="/onboarding/role">역할 다시 선택하기</a>
+              </Button>
+            ) : null}
+
+            {request.status === 'PENDING' || request.status === 'REJECTED' ? (
               <Button type="button" variant="outline" onClick={onRefresh}>
                 <RefreshCw />
                 상태 새로고침
@@ -145,6 +158,10 @@ export function RoleRequestScreen() {
       if (request.status === 'APPROVED') {
         router.replace('/staff/dashboard');
         router.refresh();
+        return;
+      }
+      if (request.status === 'REVOKED') {
+        router.replace('/onboarding/role');
         return;
       }
       setState({ kind: 'ready', request });

@@ -254,6 +254,19 @@ describe('RolesService', () => {
     expect(store.requestCount()).toBe(2);
   });
 
+  it('권한 회수 이력이 있으면 새 PENDING 요청을 만들고 이력을 보존한다', async () => {
+    // Given
+    const revoked = roleRequest(RoleRequestStatus.REVOKED);
+    const { service, store } = createService(null, [revoked]);
+
+    // When
+    const result = await service.retryStaffRequest(424242n);
+
+    // Then
+    expect(result.status).toBe(RoleRequestStatus.PENDING);
+    expect(store.requestCount()).toBe(2);
+  });
+
   it('현행 정책 미동의 사용자의 교직원 재요청을 거부한다', async () => {
     // Given: 과거 요청 이력은 있지만 현행 정책에는 동의하지 않았다.
     const rejected = roleRequest(RoleRequestStatus.REJECTED, '합성 사유');

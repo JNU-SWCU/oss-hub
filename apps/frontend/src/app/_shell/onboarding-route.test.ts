@@ -26,4 +26,15 @@ describe('onboardingPathFor', () => {
       expect(path).toBe('/onboarding/pending');
     },
   );
+
+  it('회수된 요청은 역할을 다시 선택하도록 보낸다', () => {
+    // Given
+    const requestStatus = 'REVOKED';
+
+    // When
+    const path = onboardingPathFor(requestStatus);
+
+    // Then
+    expect(path).toBe('/onboarding/role');
+  });
 });
