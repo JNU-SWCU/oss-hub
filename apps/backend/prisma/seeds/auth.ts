@@ -1,4 +1,5 @@
 import { Role, RoleRequestStatus, User } from '@prisma/client';
+import { CONSENT_POLICY_VERSION } from '../../src/consents/domain/consent-policy';
 import {
   offsetDays,
   prisma,
@@ -7,9 +8,6 @@ import {
   upsertSeedUser,
   upsertTracked,
 } from './helpers';
-
-/** #109 계약 잠금 — 정책 버전별 1회 동의만 저장한다. */
-const POLICY_VERSION = 'privacy-activity-consent-v1';
 
 /** #110 auth 시나리오 카탈로그 — scenario id로 대응 User.id를 조회할 수 있다. */
 export const AUTH_SCENARIOS = {
@@ -41,16 +39,22 @@ async function upsertConsent(stats: SeedStats, userId: string): Promise<void> {
     () =>
       prisma.consent.findUnique({
         where: {
-          userId_policyVersion: { userId, policyVersion: POLICY_VERSION },
+          userId_policyVersion: {
+            userId,
+            policyVersion: CONSENT_POLICY_VERSION,
+          },
         },
       }),
     () =>
       prisma.consent.upsert({
         where: {
-          userId_policyVersion: { userId, policyVersion: POLICY_VERSION },
+          userId_policyVersion: {
+            userId,
+            policyVersion: CONSENT_POLICY_VERSION,
+          },
         },
         update: {},
-        create: { userId, policyVersion: POLICY_VERSION },
+        create: { userId, policyVersion: CONSENT_POLICY_VERSION },
       }),
   );
 }
