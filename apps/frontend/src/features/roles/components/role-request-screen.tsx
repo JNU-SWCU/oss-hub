@@ -141,6 +141,11 @@ export function RoleRequestScreen() {
         router.replace('/onboarding/role');
         return;
       }
+      if (request.status === 'APPROVED') {
+        router.replace('/staff/dashboard');
+        router.refresh();
+        return;
+      }
       setState({ kind: 'ready', request });
     } catch (error) {
       if (error instanceof ApiError) {
