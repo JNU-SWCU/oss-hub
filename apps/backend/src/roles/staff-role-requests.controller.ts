@@ -16,7 +16,7 @@ import {
   StaffRoleRequestListResponseDto,
   StaffRoleRequestResponseDto,
 } from './dto/staff-role-request-response.dto';
-import { StaffRoleRequestsQueryDto } from './dto/staff-role-requests-query.dto';
+import { StaffRoleRequestsQueryRequestDto } from './dto/staff-role-requests-query.dto';
 import { StaffRoleRequestsService } from './staff-role-requests.service';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
@@ -32,7 +32,7 @@ export class StaffRoleRequestsController {
   @UseGuards(SessionGuard)
   async list(
     @Req() request: SessionIdentity,
-    @Query() query: StaffRoleRequestsQueryDto,
+    @Query() query: StaffRoleRequestsQueryRequestDto,
   ): Promise<StaffRoleRequestListResponseDto> {
     const page = await this.service.list(
       request.sessionGithubId,
