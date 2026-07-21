@@ -77,4 +77,28 @@ describe('AuthController logout', () => {
     expect(findMe).not.toHaveBeenCalled();
     expect(recordLogout).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ['사용자 조회', findMe],
+    ['로그아웃 이력 저장', recordLogout],
+  ])('%s 실패에도 쿠키 삭제와 200 응답을 유지한다', async (_label, failure) => {
+    const token = await issueSessionToken(
+      sessionSecret,
+      syntheticUser.githubId,
+    );
+    const res = response();
+    findMe.mockResolvedValue(syntheticUser);
+    failure.mockRejectedValue(new Error('synthetic history failure'));
+
+    const result = await controller.logout(
+      request(`${sessionCookieName(true)}=${token}`),
+      res,
+    );
+
+    expect(result).toEqual({ isAuthenticated: false });
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Set-Cookie',
+      expect.stringContaining('Max-Age=0'),
+    );
+  });
 });

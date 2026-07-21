@@ -96,8 +96,8 @@ export class AuthController {
         state,
         flowCookie: cookies[flowCookieName(secure)],
       });
-      await this.loginHistoryService.recordLogin(user.id);
       const sessionToken = await this.authService.issueSession(user);
+      await this.recordLoginHistory(user.id);
       res.setHeader('Set-Cookie', [
         clearFlowCookie,
         serializeCookie(sessionCookieName(secure), sessionToken, {
@@ -179,14 +179,41 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<LogoutResponseDto> {
     this.clearSessionCookie(res);
-    const { githubId } = await resolveSession(this.config, req.headers.cookie);
-    if (githubId !== null) {
+    await this.recordLogoutHistory(req.headers.cookie);
+    return new LogoutResponseDto(false);
+  }
+
+  private async recordLoginHistory(userId: string): Promise<void> {
+    try {
+      await this.loginHistoryService.recordLogin(userId);
+    } catch (error) {
+      this.logHistoryFailure('login', error);
+    }
+  }
+
+  private async recordLogoutHistory(
+    cookieHeader: string | undefined,
+  ): Promise<void> {
+    try {
+      const { githubId } = await resolveSession(this.config, cookieHeader);
+      if (githubId === null) {
+        return;
+      }
       const user = await this.authService.findMe(githubId);
       if (user !== null) {
         await this.loginHistoryService.recordLogout(user.id);
       }
+    } catch (error) {
+      this.logHistoryFailure('logout', error);
     }
-    return new LogoutResponseDto(false);
+  }
+
+  private logHistoryFailure(action: 'login' | 'logout', error: unknown): void {
+    this.logger.warn(
+      `${action} history 기록 실패: ${
+        error instanceof Error ? error.name : 'UnknownError'
+      }`,
+    );
   }
 
   private clearSessionCookie(res: Response): void {

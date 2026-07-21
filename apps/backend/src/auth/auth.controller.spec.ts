@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { flowCookieName, serializeCookie } from './cookies';
+import { flowCookieName, serializeCookie, sessionCookieName } from './cookies';
 import { AuthUser } from './domain/auth-user';
 import { createFlowState, encodeFlowCookie } from './oauth-flow';
 import { AuthenticatedRequest } from './session.guard';
@@ -78,6 +78,28 @@ describe('AuthController github callback', () => {
     expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
     expect(res.redirect).toHaveBeenCalledWith(302, 'https://oss.example');
     expect(recordLogin).toHaveBeenCalledWith(syntheticUser.id);
+  });
+
+  it('로그인 이력 저장 실패가 정상 세션 발급을 막지 않는다', async () => {
+    const flow = createFlowState();
+    const res = createResponse();
+    recordLogin.mockRejectedValue(new Error('synthetic history failure'));
+
+    await createController().githubCallback(
+      'synthetic-code',
+      flow.state,
+      undefined,
+      requestWithCookie(`${flowCookieName(true)}=${encodeFlowCookie(flow)}`),
+      res,
+    );
+
+    expect(res.redirect).toHaveBeenCalledWith(302, 'https://oss.example');
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Set-Cookie',
+      expect.arrayContaining([
+        expect.stringContaining(`${sessionCookieName(true)}=`),
+      ]),
+    );
   });
 
   it('OAuth denial은 state가 일치할 때만 flow cookie를 삭제한다', async () => {
