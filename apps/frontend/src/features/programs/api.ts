@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import type { ProgramCategory } from './program-templates';
+import type { ProgramListItem } from './types';
 
 export interface CreateProgramInput {
   readonly name: string;
@@ -28,4 +29,8 @@ export function createProgram(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
+}
+
+export function listPrograms(): Promise<readonly ProgramListItem[]> {
+  return apiClient<readonly ProgramListItem[]>('programs');
 }

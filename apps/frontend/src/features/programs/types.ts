@@ -1,5 +1,6 @@
-export const PROGRAM_PARTICIPATION_TYPES = ['individual', 'team'] as const;
+import type { ProgramCategory } from './program-templates';
 
+export const PROGRAM_PARTICIPATION_TYPES = ['individual', 'team'] as const;
 export type ProgramParticipation = (typeof PROGRAM_PARTICIPATION_TYPES)[number];
 
 export interface ApplicationFormTemplate {
@@ -8,3 +9,16 @@ export interface ApplicationFormTemplate {
   readonly name: string;
   readonly participation: ProgramParticipation;
 }
+
+export interface ProgramListItem {
+  readonly id: string;
+  readonly name: string;
+  readonly organizer: string;
+  readonly category: ProgramCategory;
+  readonly applicationStartAt: string;
+  readonly applicationEndAt: string;
+  readonly description: string;
+}
+
+export const PROGRAM_LIST_STATUSES = ['all', 'recruiting', 'closed'] as const;
+export type ProgramListStatus = (typeof PROGRAM_LIST_STATUSES)[number];

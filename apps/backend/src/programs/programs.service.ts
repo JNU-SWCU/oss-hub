@@ -16,6 +16,21 @@ import {
 export class ProgramsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async list() {
+    return this.prisma.program.findMany({
+      orderBy: [{ applicationStartAt: 'desc' }, { name: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        organizer: true,
+        category: true,
+        applicationStartAt: true,
+        applicationEndAt: true,
+        description: true,
+      },
+    });
+  }
+
   async create(githubId: bigint, input: CreateProgramRequestDto) {
     const user = await this.prisma.user.findUnique({
       where: { githubId },

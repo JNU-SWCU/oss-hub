@@ -1,0 +1,197 @@
+'use client';
+
+import Link from 'next/link';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactElement,
+} from 'react';
+import {
+  CardGrid,
+  EmptyState,
+  PageHeader,
+  ProgramCard,
+  StatusBadge,
+} from '@/components';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ApiError } from '@/lib/api-client';
+import { listPrograms } from './api';
+import { filterAndGroupPrograms, isProgramRecruiting } from './program-list';
+import type { ProgramCategory } from './program-templates';
+import type { ProgramListItem, ProgramListStatus } from './types';
+
+interface ProgramListPageProps {
+  readonly canCreateProgram: boolean;
+}
+
+type LoadState =
+  | { readonly kind: 'loading' }
+  | { readonly kind: 'ready'; readonly programs: readonly ProgramListItem[] }
+  | { readonly kind: 'error'; readonly message: string };
+
+const CATEGORY_LABELS = {
+  BASIC: '기본',
+  SW_VALUE_SPREAD: 'SW 가치확산',
+  OSS_CONTEST: 'OSS 경진대회',
+  CAPSTONE: '캡스톤',
+  SW_CONVERGENCE: 'SW 융합',
+  GLOBAL_MAKERTHON: '글로벌 메이커톤',
+  CORPORATE_INTERNSHIP: '기업 인턴십',
+} satisfies Readonly<Record<ProgramCategory, string>>;
+
+function formatApplicationPeriod(program: ProgramListItem): string {
+  const formatter = new Intl.DateTimeFormat('ko-KR', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+  return `${formatter.format(new Date(program.applicationStartAt))} ~ ${formatter.format(new Date(program.applicationEndAt))}`;
+}
+
+function parseStatus(value: string): ProgramListStatus {
+  if (value === 'recruiting' || value === 'closed') return value;
+  return 'all';
+}
+
+function ProgramListSkeleton(): ReactElement {
+  return (
+    <CardGrid aria-busy="true" aria-label="프로그램 목록을 불러오는 중">
+      {[0, 1, 2].map((index) => (
+        <div className="h-48 animate-pulse rounded-xl bg-muted" key={index} />
+      ))}
+    </CardGrid>
+  );
+}
+
+function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
+  const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState<ProgramListStatus>('all');
+
+  const load = useCallback(async (): Promise<void> => {
+    setLoadState({ kind: 'loading' });
+    try {
+      setLoadState({ kind: 'ready', programs: await listPrograms() });
+    } catch (error: unknown) {
+      setLoadState({
+        kind: 'error',
+        message:
+          error instanceof ApiError
+            ? error.message
+            : '프로그램 목록을 불러오지 못했습니다.',
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+  const now = useMemo(() => new Date(), []);
+  const groups = useMemo(
+    () =>
+      loadState.kind === 'ready'
+        ? filterAndGroupPrograms(loadState.programs, { search, status, now })
+        : [],
+    [loadState, now, search, status],
+  );
+
+  const content = (() => {
+    if (loadState.kind === 'loading') return <ProgramListSkeleton />;
+    if (loadState.kind === 'error') {
+      return (
+        <EmptyState
+          title="프로그램 목록을 불러오지 못했습니다"
+          description={loadState.message}
+          action={<Button onClick={() => void load()}>다시 시도</Button>}
+        />
+      );
+    }
+    if (loadState.programs.length === 0) {
+      return (
+        <EmptyState
+          title="등록된 프로그램이 없습니다"
+          description="새 프로그램이 등록되면 이곳에서 확인할 수 있습니다."
+          action={
+            canCreateProgram ? (
+              <Button asChild>
+                <Link href="/staff/programs/new">프로그램 만들기</Link>
+              </Button>
+            ) : undefined
+          }
+        />
+      );
+    }
+    if (groups.length === 0) {
+      return (
+        <EmptyState
+          title="조건에 맞는 프로그램이 없습니다"
+          description="검색어나 모집 상태를 바꿔 다시 찾아보세요."
+        />
+      );
+    }
+
+    return groups.map((group) => (
+      <section className="grid gap-3" key={group.key}>
+        <h2 className="font-heading text-lg font-medium">{group.title}</h2>
+        <CardGrid>
+          {group.programs.map((program) => {
+            const recruiting = isProgramRecruiting(program, now);
+            return (
+              <ProgramCard
+                category={CATEGORY_LABELS[program.category]}
+                footer={
+                  <Button asChild size="sm" variant="outline">
+                    <Link href={`/programs/${program.id}`}>더 보기</Link>
+                  </Button>
+                }
+                key={program.id}
+                period={formatApplicationPeriod(program)}
+                status={
+                  <StatusBadge variant={recruiting ? 'recruiting' : 'closed'}>
+                    {recruiting ? '모집중' : '마감'}
+                  </StatusBadge>
+                }
+                title={program.name}
+              >
+                <span>{program.organizer}</span>
+              </ProgramCard>
+            );
+          })}
+        </CardGrid>
+      </section>
+    ));
+  })();
+
+  return (
+    <section className="grid gap-6">
+      <PageHeader
+        title="프로그램"
+        description="참여할 프로그램을 찾아보세요."
+      />
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem]">
+        <Input
+          aria-label="프로그램명 검색"
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="프로그램명 검색"
+          value={search}
+        />
+        <select
+          aria-label="모집 상태 필터"
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          onChange={(event) => setStatus(parseStatus(event.target.value))}
+          value={status}
+        >
+          <option value="all">전체 상태</option>
+          <option value="recruiting">모집중</option>
+          <option value="closed">마감</option>
+        </select>
+      </div>
+      {content}
+    </section>
+  );
+}
+
+export { ProgramListPage };
