@@ -24,6 +24,7 @@ import {
   assertProvisionLease,
   assertSingleProvisionUpdate,
   claimedJobWhere,
+  isPrismaUniqueConstraintError,
   matchesProvisionedMetadata,
   repositorySelection,
   RepositoryProvisionLeaseLostError,
@@ -94,34 +95,41 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
   async recordRepository(
     input: RecordProvisionedRepositoryInput,
   ): Promise<ProvisionedRepository> {
-    return this.prisma.$transaction(async (transaction) => {
-      await assertProvisionLease(transaction, input.jobId, input.workerId);
-      const repository = await transaction.repository.upsert({
-        where: { applicationId: input.applicationId },
-        update: {},
-        create: {
-          applicationId: input.applicationId,
-          programId: input.programId,
-          teamId: input.teamId,
-          githubRepositoryId: input.metadata.githubRepositoryId,
-          name: input.metadata.name,
-          url: input.metadata.url,
-          visibility: input.metadata.visibility,
-        },
-        select: repositorySelection,
+    try {
+      return await this.prisma.$transaction(async (transaction) => {
+        await assertProvisionLease(transaction, input.jobId, input.workerId);
+        const repository = await transaction.repository.upsert({
+          where: { applicationId: input.applicationId },
+          update: {},
+          create: {
+            applicationId: input.applicationId,
+            programId: input.programId,
+            teamId: input.teamId,
+            githubRepositoryId: input.metadata.githubRepositoryId,
+            name: input.metadata.name,
+            url: input.metadata.url,
+            visibility: input.metadata.visibility,
+          },
+          select: repositorySelection,
+        });
+        if (!matchesProvisionedMetadata(repository, input)) {
+          throw finalProvisionFailure(
+            PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
+          );
+        }
+        const attached = await transaction.repositoryProvisionJob.updateMany({
+          where: claimedJobWhere(input.jobId, input.workerId),
+          data: { repositoryId: repository.id },
+        });
+        assertSingleProvisionUpdate(attached.count);
+        return repository;
       });
-      if (!matchesProvisionedMetadata(repository, input)) {
+    } catch (error) {
+      if (isPrismaUniqueConstraintError(error)) {
         throw finalProvisionFailure(PROVISION_ERROR_CODES.REPOSITORY_MISMATCH);
       }
-      const attached = await transaction.repositoryProvisionJob.updateMany({
-        where: claimedJobWhere(input.jobId, input.workerId),
-        data: { repositoryId: repository.id },
-      });
-      if (attached.count !== 1) {
-        throw new RepositoryProvisionLeaseLostError();
-      }
-      return repository;
-    });
+      throw error;
+    }
   }
 
   async prepareInvitations(
