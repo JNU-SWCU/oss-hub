@@ -1,82 +1,124 @@
 import { Injectable } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { Role, SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
-import { PrismaService } from '../prisma/prisma.service';
-import type { CreateProgramRequestDto } from './dto/create-program-request.dto';
-import {
-  PROGRAM_ERROR_CODES,
-  ProgramErrorCode,
-} from './program-error-code.enum';
-import {
-  getProgramTemplate,
-  PROGRAM_PARTICIPATION,
-} from './program-template.registry';
+import type {
+  ApplicationSubmissionSummaryResponseDto,
+  ProgramDetailResponseDto,
+  ViewerSubmissionStatusResponseDto,
+} from './dto/program-detail.dto';
+import { programDeadline } from './program-deadline';
+import { PROGRAM_ERROR_CODES } from './program-error-code';
+import type { ProgramViewer } from './program-viewer.service';
+import { ProgramsRepository } from './programs.repository';
+
+type SubmissionRecord = {
+  readonly milestoneId: string;
+  readonly status: SubmissionStatus;
+};
+
+const EMPTY_SUMMARY = {
+  notSubmitted: 0,
+  submitted: 0,
+  approved: 0,
+  changesRequested: 0,
+  rejected: 0,
+  total: 0,
+} as const satisfies ApplicationSubmissionSummaryResponseDto;
 
 @Injectable()
 export class ProgramsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly repository: ProgramsRepository) {}
 
-  async create(githubId: bigint, input: CreateProgramRequestDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { githubId },
-      select: { role: true },
-    });
-    if (user?.role !== Role.STAFF && user?.role !== Role.ADMIN) {
-      throw new DomainException(
-        PROGRAM_ERROR_CODES[ProgramErrorCode.FORBIDDEN],
-      );
+  async detail(
+    programId: string,
+    viewer: ProgramViewer,
+    now: Date = new Date(),
+  ): Promise<ProgramDetailResponseDto> {
+    try {
+      const program = await this.repository.findProgramDetail(programId);
+      if (!program) throw new DomainException(PROGRAM_ERROR_CODES.NOT_FOUND);
+
+      const studentApplication =
+        viewer.role === Role.STUDENT && viewer.userId
+          ? await this.repository.findStudentApplication(
+              programId,
+              viewer.userId,
+            )
+          : null;
+      const staffApplications =
+        viewer.role === Role.STAFF || viewer.role === Role.ADMIN
+          ? await this.repository.findApprovedApplications(programId)
+          : null;
+
+      return {
+        id: program.id,
+        name: program.name,
+        organizer: program.organizer,
+        category: program.category,
+        description: program.description,
+        applicationPeriod: {
+          startsAt: program.applicationStartAt.toISOString(),
+          endsAt: program.applicationEndAt.toISOString(),
+        },
+        viewer: {
+          role: viewer.role,
+          applicationStatus: studentApplication?.status ?? null,
+        },
+        milestones: program.milestones.map((milestone) => {
+          const deadline = programDeadline(milestone.dueAt, now);
+          const submission = studentApplication?.submissions.find(
+            (item) => item.milestoneId === milestone.id,
+          );
+          return {
+            id: milestone.id,
+            name: milestone.name,
+            dueAt: milestone.dueAt.toISOString(),
+            dDay: deadline.dDay,
+            deadlineLabel: deadline.label,
+            description: milestone.instructions,
+            submissionType: milestone.submissionType,
+            viewerSubmissionStatus: this.viewerSubmissionStatus(
+              studentApplication?.id ?? null,
+              submission ?? null,
+            ),
+            applicationSubmissionSummary: staffApplications
+              ? this.summaryForMilestone(milestone.id, staffApplications)
+              : null,
+          };
+        }),
+      };
+    } catch (error: unknown) {
+      if (error instanceof DomainException) throw error;
+      throw new DomainException(PROGRAM_ERROR_CODES.DETAIL_LOAD_FAILED);
     }
+  }
 
-    const name = input.name.trim();
-    const organizer = input.organizer.trim();
-    const description = input.description.trim();
-    const applicationStartAt = new Date(input.applicationStartAt);
-    const applicationEndAt = new Date(input.applicationEndAt);
-    const template = getProgramTemplate(input.category);
-    const hasValidDates =
-      !Number.isNaN(applicationStartAt.getTime()) &&
-      !Number.isNaN(applicationEndAt.getTime()) &&
-      applicationEndAt >= applicationStartAt;
-    const hasValidTeamSize =
-      template.participation === PROGRAM_PARTICIPATION.INDIVIDUAL ||
-      (input.teamMinSize !== null &&
-        input.teamMinSize !== undefined &&
-        input.teamMaxSize !== null &&
-        input.teamMaxSize !== undefined &&
-        input.teamMinSize >= 1 &&
-        input.teamMinSize <= input.teamMaxSize);
+  private viewerSubmissionStatus(
+    applicationId: string | null,
+    submission: SubmissionRecord | null,
+  ): ViewerSubmissionStatusResponseDto {
+    if (!applicationId) return null;
+    return submission?.status ?? 'NOT_SUBMITTED';
+  }
 
-    if (
-      !name ||
-      !organizer ||
-      !description ||
-      !hasValidDates ||
-      !hasValidTeamSize
-    ) {
-      throw new DomainException(
-        PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
-      );
+  private summaryForMilestone(
+    milestoneId: string,
+    applications: readonly {
+      readonly submissions: readonly SubmissionRecord[];
+    }[],
+  ): ApplicationSubmissionSummaryResponseDto {
+    const summary = { ...EMPTY_SUMMARY, total: applications.length };
+    for (const application of applications) {
+      const status = application.submissions.find(
+        (submission) => submission.milestoneId === milestoneId,
+      )?.status;
+      if (!status) summary.notSubmitted += 1;
+      else if (status === SubmissionStatus.SUBMITTED) summary.submitted += 1;
+      else if (status === SubmissionStatus.APPROVED) summary.approved += 1;
+      else if (status === SubmissionStatus.CHANGES_REQUESTED)
+        summary.changesRequested += 1;
+      else summary.rejected += 1;
     }
-
-    return this.prisma.program.create({
-      data: {
-        name,
-        organizer,
-        category: input.category,
-        applicationTemplateKey: template.key,
-        applicationTemplateVersion: template.version,
-        applicationStartAt,
-        applicationEndAt,
-        teamMinSize:
-          template.participation === PROGRAM_PARTICIPATION.TEAM
-            ? input.teamMinSize
-            : null,
-        teamMaxSize:
-          template.participation === PROGRAM_PARTICIPATION.TEAM
-            ? input.teamMaxSize
-            : null,
-        description,
-      },
-    });
+    return summary;
   }
 }
