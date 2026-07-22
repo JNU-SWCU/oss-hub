@@ -7,6 +7,10 @@ import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { issueSessionToken } from '../auth/session-token';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
+import {
+  USER_DEPARTMENT_MAX_LENGTH,
+  USER_NAME_MAX_LENGTH,
+} from './dto/update-my-profile-request.dto';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 
@@ -129,6 +133,17 @@ it.each([
   { name: '학번 비숫자', body: { ...validBody, studentId: 'ABCDEF' } },
   { name: '빈 이름', body: { ...validBody, name: '   ' } },
   { name: '빈 학과', body: { ...validBody, department: '   ' } },
+  {
+    name: '이름 길이 초과',
+    body: { ...validBody, name: '가'.repeat(USER_NAME_MAX_LENGTH + 1) },
+  },
+  {
+    name: '학과 길이 초과',
+    body: {
+      ...validBody,
+      department: '가'.repeat(USER_DEPARTMENT_MAX_LENGTH + 1),
+    },
+  },
   { name: '추가 필드', body: { ...validBody, role: 'STUDENT' } },
 ])('$name 요청을 400 SYS_003으로 거부한다', async ({ body }) => {
   const response = await patch(body);

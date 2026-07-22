@@ -29,6 +29,8 @@ import {
   createInitialProfileForm,
   getProfileRedirect,
   isProfileFormValid,
+  PROFILE_DEPARTMENT_MAX_LENGTH,
+  PROFILE_NAME_MAX_LENGTH,
   PROFILE_ONBOARDING_NEXT_PATH,
   toCompleteProfileRequest,
   validateProfileForm,
@@ -96,6 +98,7 @@ export function ProfileForm({
               id="profile-name"
               name="name"
               autoComplete="name"
+              maxLength={PROFILE_NAME_MAX_LENGTH}
               value={values.name}
               aria-invalid={showNameError}
               onChange={(event) => onChange({ name: event.target.value })}
@@ -154,6 +157,7 @@ export function ProfileForm({
               <Input
                 aria-label="기타 학과"
                 placeholder="학과 또는 전공을 입력해 주세요"
+                maxLength={PROFILE_DEPARTMENT_MAX_LENGTH}
                 value={values.otherDepartment}
                 aria-invalid={showDepartmentError}
                 onChange={(event) =>

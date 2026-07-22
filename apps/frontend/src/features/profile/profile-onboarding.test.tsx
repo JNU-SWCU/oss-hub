@@ -5,7 +5,11 @@ import {
   ProfileForm,
   ProfileSkeleton,
 } from './components/profile-onboarding-screen';
-import { validateProfileForm } from './profile-state';
+import {
+  PROFILE_DEPARTMENT_MAX_LENGTH,
+  PROFILE_NAME_MAX_LENGTH,
+  validateProfileForm,
+} from './profile-state';
 import type { ProfileFormValues } from './types';
 
 const noOp = () => undefined;
@@ -72,6 +76,24 @@ describe('profile onboarding view', () => {
 
     expect(html).toContain('학번은 숫자 6~10자리로 입력해 주세요.');
     expect(html).toContain('학과를 선택하거나 입력해 주세요.');
+    expect(html).toContain('disabled=""');
+  });
+
+  it('이름과 직접 입력 학과의 길이를 100자로 제한한다', () => {
+    const overLimit = PROFILE_NAME_MAX_LENGTH + 1;
+    const html = renderForm(
+      values({
+        name: '가'.repeat(overLimit),
+        departmentOption: OTHER_DEPARTMENT,
+        otherDepartment: '나'.repeat(PROFILE_DEPARTMENT_MAX_LENGTH + 1),
+      }),
+      { showRequiredErrors: true },
+    );
+
+    expect(html).toContain(`maxLength="${PROFILE_NAME_MAX_LENGTH}"`);
+    expect(html).toContain(`maxLength="${PROFILE_DEPARTMENT_MAX_LENGTH}"`);
+    expect(html).toContain('이름은 100자 이하로 입력해 주세요.');
+    expect(html).toContain('학과는 100자 이하로 입력해 주세요.');
     expect(html).toContain('disabled=""');
   });
 
