@@ -1,8 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateProgramRequestDto } from './dto/create-program-request.dto';
+import type {
+  ProgramListQuery,
+  ProgramListQueryStatus,
+} from './program-list-query';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
@@ -12,23 +16,81 @@ import {
   PROGRAM_PARTICIPATION,
 } from './program-template.registry';
 
+const PROGRAM_LIST_SELECT = {
+  id: true,
+  name: true,
+  organizer: true,
+  category: true,
+  applicationStartAt: true,
+  applicationEndAt: true,
+  description: true,
+} as const;
+
+type ProgramListRecord = Prisma.ProgramGetPayload<{
+  select: typeof PROGRAM_LIST_SELECT;
+}>;
+
+export interface ProgramListPage {
+  readonly items: readonly ProgramListRecord[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly totalItems: number;
+  readonly totalPages: number;
+}
+
+function recruitmentWhere(
+  status: ProgramListQueryStatus,
+  now: Date,
+): Prisma.ProgramWhereInput {
+  const whereByStatus = {
+    all: {},
+    recruiting: {
+      applicationStartAt: { lte: now },
+      applicationEndAt: { gte: now },
+    },
+    closed: { applicationEndAt: { lt: now } },
+  } satisfies Readonly<
+    Record<ProgramListQueryStatus, Prisma.ProgramWhereInput>
+  >;
+  return whereByStatus[status];
+}
+
 @Injectable()
 export class ProgramsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list() {
-    return this.prisma.program.findMany({
-      orderBy: [{ applicationStartAt: 'desc' }, { name: 'asc' }, { id: 'asc' }],
-      select: {
-        id: true,
-        name: true,
-        organizer: true,
-        category: true,
-        applicationStartAt: true,
-        applicationEndAt: true,
-        description: true,
-      },
-    });
+  async list(
+    query: ProgramListQuery,
+    now = new Date(),
+  ): Promise<ProgramListPage> {
+    const where: Prisma.ProgramWhereInput = {
+      ...recruitmentWhere(query.status, now),
+      ...(query.search
+        ? { name: { contains: query.search, mode: 'insensitive' as const } }
+        : {}),
+    };
+    const [items, totalItems] = await this.prisma.$transaction([
+      this.prisma.program.findMany({
+        where,
+        orderBy: [
+          { applicationStartAt: 'desc' },
+          { name: 'asc' },
+          { id: 'asc' },
+        ],
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+        select: PROGRAM_LIST_SELECT,
+      }),
+      this.prisma.program.count({ where }),
+    ]);
+
+    return {
+      items,
+      page: query.page,
+      pageSize: query.pageSize,
+      totalItems,
+      totalPages: Math.ceil(totalItems / query.pageSize),
+    };
   }
 
   async create(githubId: bigint, input: CreateProgramRequestDto) {

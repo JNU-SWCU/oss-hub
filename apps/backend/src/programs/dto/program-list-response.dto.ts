@@ -1,4 +1,5 @@
 import { ProgramCategory, type Program } from '@prisma/client';
+import type { ProgramListPage } from '../programs.service';
 
 export class ProgramListResponseDto {
   readonly id: string;
@@ -43,5 +44,27 @@ export class ProgramListResponseDto {
     >,
   ): ProgramListResponseDto {
     return new ProgramListResponseDto(program);
+  }
+}
+
+export class ProgramListPageResponseDto {
+  readonly items: readonly ProgramListResponseDto[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly totalItems: number;
+  readonly totalPages: number;
+
+  private constructor(programPage: ProgramListPage) {
+    this.items = programPage.items.map((program) =>
+      ProgramListResponseDto.from(program),
+    );
+    this.page = programPage.page;
+    this.pageSize = programPage.pageSize;
+    this.totalItems = programPage.totalItems;
+    this.totalPages = programPage.totalPages;
+  }
+
+  static from(programPage: ProgramListPage): ProgramListPageResponseDto {
+    return new ProgramListPageResponseDto(programPage);
   }
 }

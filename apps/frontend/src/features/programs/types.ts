@@ -22,3 +22,18 @@ export interface ProgramListItem {
 
 export const PROGRAM_LIST_STATUSES = ['all', 'recruiting', 'closed'] as const;
 export type ProgramListStatus = (typeof PROGRAM_LIST_STATUSES)[number];
+
+export interface ProgramListParams {
+  readonly page: number;
+  readonly pageSize: number;
+  readonly search: string;
+  readonly status: ProgramListStatus;
+}
+
+export interface ProgramListPage {
+  readonly items: readonly ProgramListItem[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly totalItems: number;
+  readonly totalPages: number;
+}

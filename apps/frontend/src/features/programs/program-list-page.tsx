@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactElement,
 } from 'react';
@@ -23,9 +24,14 @@ import {
   filterAndGroupPrograms,
   getProgramRecruitmentState,
 } from './program-list';
+import { ProgramListPagination } from './program-list-pagination';
 import type { ProgramRecruitmentState } from './program-list';
 import type { ProgramCategory } from './program-templates';
-import type { ProgramListItem, ProgramListStatus } from './types';
+import type {
+  ProgramListItem,
+  ProgramListPage as ProgramListPageData,
+  ProgramListStatus,
+} from './types';
 
 interface ProgramListPageProps {
   readonly canCreateProgram: boolean;
@@ -33,8 +39,10 @@ interface ProgramListPageProps {
 
 type LoadState =
   | { readonly kind: 'loading' }
-  | { readonly kind: 'ready'; readonly programs: readonly ProgramListItem[] }
+  | { readonly kind: 'ready'; readonly programPage: ProgramListPageData }
   | { readonly kind: 'error'; readonly message: string };
+
+const PAGE_SIZE = 20;
 
 const CATEGORY_LABELS = {
   BASIC: '기본',
@@ -88,12 +96,25 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<ProgramListStatus>('all');
+  const [page, setPage] = useState(1);
+  const latestRequestId = useRef(0);
+  const hasFilters = search.trim() !== '' || status !== 'all';
 
   const load = useCallback(async (): Promise<void> => {
+    const requestId = latestRequestId.current + 1;
+    latestRequestId.current = requestId;
     setLoadState({ kind: 'loading' });
     try {
-      setLoadState({ kind: 'ready', programs: await listPrograms() });
+      const programPage = await listPrograms({
+        page,
+        pageSize: PAGE_SIZE,
+        search,
+        status,
+      });
+      if (requestId !== latestRequestId.current) return;
+      setLoadState({ kind: 'ready', programPage });
     } catch (error: unknown) {
+      if (requestId !== latestRequestId.current) return;
       setLoadState({
         kind: 'error',
         message:
@@ -102,18 +123,25 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
             : '프로그램 목록을 불러오지 못했습니다.',
       });
     }
-  }, []);
+  }, [page, search, status]);
 
   useEffect(() => {
     void load();
+    return () => {
+      latestRequestId.current += 1;
+    };
   }, [load]);
   const now = useMemo(() => new Date(), []);
   const groups = useMemo(
     () =>
       loadState.kind === 'ready'
-        ? filterAndGroupPrograms(loadState.programs, { search, status, now })
+        ? filterAndGroupPrograms(loadState.programPage.items, {
+            search: '',
+            status: 'all',
+            now,
+          })
         : [],
-    [loadState, now, search, status],
+    [loadState, now],
   );
 
   const content = (() => {
@@ -127,13 +155,21 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
         />
       );
     }
-    if (loadState.programs.length === 0) {
+    if (loadState.programPage.items.length === 0) {
       return (
         <EmptyState
-          title="등록된 프로그램이 없습니다"
-          description="새 프로그램이 등록되면 이곳에서 확인할 수 있습니다."
+          title={
+            hasFilters
+              ? '조건에 맞는 프로그램이 없습니다'
+              : '등록된 프로그램이 없습니다'
+          }
+          description={
+            hasFilters
+              ? '검색어나 모집 상태를 바꿔 다시 찾아보세요.'
+              : '새 프로그램이 등록되면 이곳에서 확인할 수 있습니다.'
+          }
           action={
-            canCreateProgram ? (
+            canCreateProgram && !hasFilters ? (
               <Button asChild>
                 <Link href="/staff/programs/new">프로그램 만들기</Link>
               </Button>
@@ -193,14 +229,20 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem]">
         <Input
           aria-label="프로그램명 검색"
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={(event) => {
+            setPage(1);
+            setSearch(event.target.value);
+          }}
           placeholder="프로그램명 검색"
           value={search}
         />
         <select
           aria-label="모집 상태 필터"
           className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-          onChange={(event) => setStatus(parseStatus(event.target.value))}
+          onChange={(event) => {
+            setPage(1);
+            setStatus(parseStatus(event.target.value));
+          }}
           value={status}
         >
           <option value="all">전체 상태</option>
@@ -209,6 +251,13 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
         </select>
       </div>
       {content}
+      <ProgramListPagination
+        onPageChange={setPage}
+        page={page}
+        totalPages={
+          loadState.kind === 'ready' ? loadState.programPage.totalPages : 0
+        }
+      />
     </section>
   );
 }

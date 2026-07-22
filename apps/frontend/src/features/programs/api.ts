@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import type { ProgramCategory } from './program-templates';
-import type { ProgramListItem } from './types';
+import type { ProgramListPage, ProgramListParams } from './types';
 
 export interface CreateProgramInput {
   readonly name: string;
@@ -31,6 +31,14 @@ export function createProgram(
   });
 }
 
-export function listPrograms(): Promise<readonly ProgramListItem[]> {
-  return apiClient<readonly ProgramListItem[]>('programs');
+export function listPrograms(
+  params: ProgramListParams,
+): Promise<ProgramListPage> {
+  const search = new URLSearchParams({
+    page: String(params.page),
+    pageSize: String(params.pageSize),
+    search: params.search,
+    status: params.status,
+  });
+  return apiClient<ProgramListPage>('programs?' + search.toString());
 }
