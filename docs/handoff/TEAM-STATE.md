@@ -87,7 +87,10 @@ planned)을 한 표에 담는다.
 | 학생용 수집 App(private repo 포함, read-only) | @Lumiere001 | planned | #15 | - | - | 정책 전제 4건 미확정: 산정 범위·개인 repo 보존·동의 절차·App 소유·운영(unblock: @GoBeromsu). #120/#123(조직 소유 자동화 App, write 권한)과는 별개 앱임을 #15/#120 코멘트로 명확화함 — 대체 관계 아님 |
 | Access & GitHub Platform 백로그(13건: 로그인 이력·온보딩 프로필·설정·관리 콘솔·감사 로그·시스템 상태·저장소 자동화·webhook 확장 등) | @Lumiere001 | planned | #99 #107 #108 #120 #121 #122 #123 #131 #132 #133 #153 #156 #157 | - | - | GitHub App 인증 ADR(#120)이 저장소 자동 생성(#121)·webhook 확장(#123)의 선행 |
 | 공통 랜딩 세션별 진입 CTA | @jinsol1190-rgb | done | #98 | #201 | pass | 없음 |
-| Program & Intake 진행 백로그(8건: 프로그램 편집·목록·신청·팀 구성·신청자 목록·신청 폼·승인 트리거·운영 대시보드) | @Geuin04 | active | #101 #102 #104 #105 #106 #117 #118 #119 | [#191](https://github.com/JNU-SWCU/oss-hub/pull/191) Ready for review | #191 pass | #100·#103 완료 · #101·#104·#118 착수 가능 |
+| 프로그램 편집·마일스톤 | @Geuin04 | active | #101 | - | - | 프로젝트 보드 In Progress |
+| 공개 프로그램 목록 | @Geuin04 | review | #102 | [#191](https://github.com/JNU-SWCU/oss-hub/pull/191) changes requested · conflict | #191 pass | 모집 시작 전·미래 연도 그룹 판정과 TEAM-STATE 정합성 재검토 대기 |
+| Program & Intake 계획 백로그(5건: 신청·팀 구성·신청자 목록·신청 폼·운영 대시보드) | @Geuin04 | planned | #104 #105 #106 #117 #118 | - | - | 프로젝트 보드 Todo |
+| 신청 승인·반려와 저장소 생성 트리거 | @Lumiere001 | active | #119 | - | #176 pass | [백엔드 #176](https://github.com/JNU-SWCU/oss-hub/pull/176) merged · #106 신청자 목록·액션 UI 병합 대기 |
 | 교직원 프로그램 생성 | @Geuin04 | done | #100 | [#189](https://github.com/JNU-SWCU/oss-hub/pull/189) merged | pass | 없음 |
 | 공통 프로그램 상세 조회 | @Geuin04 | done | #103 | [#195](https://github.com/JNU-SWCU/oss-hub/pull/195) merged | pass | 없음 |
 | 프로그램 생성 이탈 보호·동작 계약 | @Lumiere001 | done | #196 | #200 | pass | 없음 — 실제 브라우저 접수 E2E는 #128 통합 QA에서 수행 |
