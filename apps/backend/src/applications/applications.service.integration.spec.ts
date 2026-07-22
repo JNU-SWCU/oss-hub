@@ -29,6 +29,7 @@ const APPLICATION_IDS = [
   'synthetic-parallel-application',
   'synthetic-conflict-application',
   'synthetic-decided-application',
+  'synthetic-transaction-failure-application',
 ] as const;
 
 async function createApplication(
@@ -328,5 +329,30 @@ describe('ApplicationsService integration', () => {
         status: 404,
       },
     });
+  });
+
+  it('판정 트랜잭션 실패는 전용 500을 반환하고 상태와 outbox를 롤백한다', async () => {
+    // Given
+    const applicationId = APPLICATION_IDS[6];
+    await createApplication(applicationId, true);
+
+    // When
+    const decision = service.decide('synthetic-missing-actor', applicationId, {
+      action: APPLICATION_DECISION_ACTIONS.APPROVE,
+    });
+
+    // Then
+    await expect(decision).rejects.toMatchObject({
+      errorCode: {
+        code: ApplicationsErrorCode.DECISION_TRANSACTION_FAILED,
+        status: 500,
+      },
+    });
+    await expect(
+      prisma.application.findUniqueOrThrow({ where: { id: applicationId } }),
+    ).resolves.toMatchObject({ status: ApplicationStatus.SUBMITTED });
+    await expect(
+      prisma.outboxEvent.count({ where: { aggregateId: applicationId } }),
+    ).resolves.toBe(0);
   });
 });

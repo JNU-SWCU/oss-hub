@@ -2,7 +2,7 @@ import {
   ApplicationStatus,
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { DomainException } from '../common/error-code';
 import type { ProblemDetailExtensions } from '../common/error-code';
 import {
@@ -41,6 +41,8 @@ interface RepositoryEventConflictExtensions extends ProblemDetailExtensions {
 
 @Injectable()
 export class ApplicationsService {
+  private readonly logger = new Logger(ApplicationsService.name);
+
   constructor(private readonly repository: ApplicationsRepository) {}
 
   async decide(
@@ -162,6 +164,9 @@ export class ApplicationsService {
         }
       });
     } catch (error) {
+      if (error instanceof DomainException) {
+        throw error;
+      }
       if (error instanceof RepositoryEventAlreadyExistsError) {
         const existing =
           await this.repository.findRepositoryProvisionEvent(idempotencyKey);
@@ -177,7 +182,15 @@ export class ApplicationsService {
           );
         }
       }
-      throw error;
+      this.logger.error({
+        event: 'applications.decision.failed',
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+      throw new DomainException(
+        APPLICATIONS_ERROR_CODES[
+          ApplicationsErrorCode.DECISION_TRANSACTION_FAILED
+        ],
+      );
     }
   }
 }

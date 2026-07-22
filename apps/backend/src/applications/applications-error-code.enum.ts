@@ -7,6 +7,7 @@ export enum ApplicationsErrorCode {
   STAFF_ONLY = 'APP_004',
   REPOSITORY_EVENT_ALREADY_EXISTS = 'APP_005',
   INVALID_DECISION_ACTION = 'APP_006',
+  DECISION_TRANSACTION_FAILED = 'APP_007',
 }
 
 export const APPLICATIONS_ERROR_CODES: Record<
@@ -42,5 +43,11 @@ export const APPLICATIONS_ERROR_CODES: Record<
     code: ApplicationsErrorCode.INVALID_DECISION_ACTION,
     status: 400,
     message: '지원하지 않는 신청 판정 방식입니다.',
+  },
+  [ApplicationsErrorCode.DECISION_TRANSACTION_FAILED]: {
+    code: ApplicationsErrorCode.DECISION_TRANSACTION_FAILED,
+    status: 500,
+    message: '신청 판정을 처리하지 못했습니다.',
+    exposeToClient: true,
   },
 };
