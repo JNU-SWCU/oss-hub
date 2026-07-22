@@ -142,7 +142,7 @@ describe('Staff account lifecycle integration', () => {
       where: { id: staffId },
       data: {
         name: 'Synthetic Pending Staff',
-        studentId: '202600188',
+        studentId: '9600188',
         department: 'Synthetic Department',
       },
     });
