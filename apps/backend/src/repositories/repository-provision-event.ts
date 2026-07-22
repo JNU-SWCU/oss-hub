@@ -6,6 +6,9 @@ export interface RepositoryProvisionEventPayload {
   readonly collaboratorGithubLogins: readonly string[];
 }
 
+export const REPOSITORY_PROVISION_EVENT_TYPE =
+  'REPOSITORY_PROVISION_REQUESTED' as const;
+
 export class InvalidRepositoryProvisionEventError extends Error {
   override readonly name = 'InvalidRepositoryProvisionEventError';
 }
