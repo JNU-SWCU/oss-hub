@@ -34,47 +34,50 @@ const columns: DataTableColumn<RankingItem>[] = [
     id: 'rank',
     header: '순위',
     cell: (item) => item.rank,
-    headClassName: 'w-14',
+    headClassName: 'w-8',
   },
   {
     id: 'member',
     header: '참여자',
     cell: (item) => (
-      <div className="flex min-w-36 flex-col">
-        <span className="font-medium">{item.displayName}</span>
-        <span className="text-xs text-muted-foreground">
+      <div className="flex min-w-0 flex-col">
+        <span className="break-all whitespace-normal font-medium">
+          {item.displayName}
+        </span>
+        <span className="break-all whitespace-normal text-xs text-muted-foreground">
           @{item.githubLogin}
         </span>
       </div>
     ),
+    headClassName: 'w-24',
   },
   {
     id: 'commit',
     header: 'Commit',
     cell: (item) => item.commitCount,
     cellClassName: 'text-right',
-    headClassName: 'text-right',
+    headClassName: 'w-12 text-right',
   },
   {
     id: 'pr',
     header: 'PR',
     cell: (item) => item.prCount,
     cellClassName: 'text-right',
-    headClassName: 'text-right',
+    headClassName: 'w-12 text-right',
   },
   {
     id: 'star',
     header: 'Star',
     cell: (item) => item.starCount,
     cellClassName: 'text-right',
-    headClassName: 'text-right',
+    headClassName: 'w-12 text-right',
   },
   {
     id: 'total',
     header: '합계',
     cell: (item) => item.total,
     cellClassName: 'text-right font-semibold',
-    headClassName: 'text-right',
+    headClassName: 'w-12 text-right',
   },
 ];
 
@@ -90,6 +93,7 @@ function PeriodButtons({
       <Button
         type="button"
         size="sm"
+        aria-pressed={period === RANKING_PERIODS.THIS_YEAR}
         variant={period === RANKING_PERIODS.THIS_YEAR ? 'secondary' : 'ghost'}
         onClick={() => onPeriodChange(RANKING_PERIODS.THIS_YEAR)}
       >
@@ -98,6 +102,7 @@ function PeriodButtons({
       <Button
         type="button"
         size="sm"
+        aria-pressed={period === RANKING_PERIODS.ALL}
         variant={period === RANKING_PERIODS.ALL ? 'secondary' : 'ghost'}
         onClick={() => onPeriodChange(RANKING_PERIODS.ALL)}
       >
@@ -124,7 +129,11 @@ export function RankingView({
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
       <PageHeader
         title="랭킹"
-        description="OSS Hub에 연결된 공개 GitHub 활동을 기준으로 집계합니다."
+        description={
+          <span className="break-keep">
+            OSS Hub에 연결된 공개 GitHub 활동을 기준으로 집계합니다.
+          </span>
+        }
       />
       <PeriodButtons period={period} onPeriodChange={onPeriodChange} />
       {state.kind === 'error' ? (
@@ -141,7 +150,7 @@ export function RankingView({
       ) : null}
       <Alert>
         <AlertTitle>집계 안내</AlertTitle>
-        <AlertDescription>
+        <AlertDescription className="break-keep">
           {RANKING_NOTICE} Star는 해당 기간에 받은 WatchEvent.started 활동
           수이며, 저장소의 현재 스타 수가 아닙니다.
         </AlertDescription>
@@ -154,6 +163,7 @@ export function RankingView({
         />
       ) : (
         <DataTable
+          className="[&_[data-slot=table]]:table-fixed [&_[data-slot=table-cell]]:px-1 [&_[data-slot=table-cell]]:text-xs [&_[data-slot=table-head]]:px-1 [&_[data-slot=table-head]]:text-xs sm:[&_[data-slot=table-cell]]:px-2 sm:[&_[data-slot=table-cell]]:text-sm sm:[&_[data-slot=table-head]]:px-2 sm:[&_[data-slot=table-head]]:text-sm"
           columns={columns}
           data={ranking?.items ? [...ranking.items] : []}
           rowKey={(item) => item.rank}
