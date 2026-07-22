@@ -81,7 +81,6 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 라우트 골격·역할별 패널 셸 | @GoBeromsu | done | #136 | #138 | pass | 없음 |
 | 디자인 파운데이션(Tailwind v4·shadcn·B-6 컴포넌트) | @GoBeromsu | done | #74 #78 #80 #82 #84 | #77 #90 | pass | 없음 |
 | 랜딩 페이지 + 로그인 role-home nav 배선 | @GoBeromsu | done | #86 (+#136 연계) | #87 #144 #145 #146 #147 | pass | 없음 |
-| 320px 공용 내비게이션 단일 행 정렬 | @GoBeromsu | active | 미발행(브라우저 사용자 제보 기반 로컬 수정) | 로컬 후보 `codex/nav-responsive` | 로컬 pass · GitHub CI 미실행 | PR 제출 전 GitHub Issue preclaim 필요. 공용 NavBar·action 소비자만 수정 |
 | work-ticket 이슈 템플릿 | @GoBeromsu | done | #71 | #72 | pass | 없음 |
 | ADR-004 REST 예시 도메인 교체(members→users) | @GoBeromsu | done | #76 | #91 | pass | 없음 |
 | CI: public-safe Issue·댓글 스캔 + commitlint 이벤트 가드 | @GoBeromsu | done | #68 | #150 #159 | pass | 없음 |
@@ -102,6 +101,10 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | Product Definition & Operations 백로그(배포 스파이크·Notion PRD·IA 동기화) | @GoBeromsu | planned | #112 #130 | - | - | #112: 사업단 스테이징 인스턴스 수령 대기(외부) |
 | Data Collection·활성화 랭킹(저장소 주기 수집 스케줄러·nav 랭킹 화면) | @GoBeromsu (#151) / @Geuin04 (#152) | planned | #151 #152 | - | - | 없음 |
 | 공개 랭킹 저장소 소유권 projection | @jinsol1190-rgb | done | #197 | #202 | pass | 없음 |
+
+### 로컬 후보 handoff 기록
+
+- `TEAM_STATE_SKIP`: `codex/nav-responsive`는 브라우저 사용자 제보를 검증한 로컬 수정이며 아직 canonical Issue와 PR이 없다. 가짜 참조를 기능 표에 추가하지 않고, PR 제출 전에 Issue preclaim과 표 갱신을 수행한다.
 
 ## 외부 게이트
 
