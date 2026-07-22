@@ -112,6 +112,15 @@ Organization `Members`를 포함한 organization permission은 어느 App에도 
 Collection App의 REST read 권한은 조직 저장소의 read-only reconciliation과 집계에 사용하며 #123의 webhook 구독 범위를 확장하지 않는다.
 #151은 기존 인증과 수집 로직을 유지하고 #123은 webhook 수신만 구현했으므로, production installation-token REST client가 필요하면 두 티켓에 소급해 섞지 않고 별도 구현 티켓으로 분리한다.
 
+REST reconciliation은 정책 시행 시각과 repository별 마지막 성공 checkpoint 중 더 늦은 시각을 하한으로 사용한다.
+commit 조회는 이 하한을 `since`로 전달하고, pull request 조회는 `state=all&sort=updated&direction=desc`로 최신 항목부터 읽다가 `updated_at`이 하한보다 오래된 구간에서 중단한다.
+각 실행은 양의 유한 page budget을 반드시 사용하며, 하한에 도달하기 전에 budget을 소진하면 incomplete로 실패하고 checkpoint를 진행시키지 않는다.
+checkpoint 이전 commit·pull request를 집계하거나 page budget 없이 과거 전체를 backfill하지 않는다.
+
+REST 응답은 repository·commit·pull request numeric ID, 발생 시각, dedupe key와 합의된 파생 count로 즉시 projection한 뒤 폐기한다.
+raw response, code·diff, commit message·author email, pull request title·body·사용자 profile은 DB·cache·로그에 저장하지 않는다.
+후속 REST client 테스트는 하한·중단 조건, page budget, 허용 필드 projection, 금지 필드 미저장과 incomplete 실행의 checkpoint 미진행을 검증해야 한다.
+
 ### 승인 시점 collaborator snapshot
 
 #119는 신청 승인과 outbox 생성을 같은 트랜잭션에서 처리할 때 승인 시점의 collaborator login 목록을 계산한다.
@@ -209,12 +218,15 @@ Repository Operations App smoke는 다음 순서로 수행한다.
 이 smoke의 PASS와 공개-safe 증거 첨부를 PR #204의 Draft 해제 조건으로 사용한다.
 
 Collection App의 REST read 권한 smoke는 commit 한 개와 PR 한 개가 준비된 별도 private 합성 repository에서 수행한다.
-실제 installation token으로 metadata·commit·PR 조회가 각각 `200`인지 확인하며, 이는 `Metadata: read`, `Contents: read`, `Pull requests: read` 권한만 증명한다.
+API 호출 전에 test App의 installation 설정과 token 발급 결과에서 repository·organization permission map과 repository selection을 정규화한다.
+repository permission은 `Metadata: read`, `Contents: read`, `Pull requests: read`만, organization permission은 없음, repository selection은 `All repositories`여야 하며 allowlist 밖 권한이 하나라도 있으면 FAIL한다.
+그 뒤 실제 installation token으로 metadata·commit·PR 조회가 각각 `200`인지 확인해 최소 read 권한의 충분성을 증명한다.
+권한 오설정 시 실제 변경이 생길 수 있는 write 요청은 최소 권한 검증에 사용하지 않는다.
 
 #123 webhook 보안 smoke는 실제 `push` 또는 `release` delivery 한 건의 valid signature 처리, 같은 delivery ID 재전송의 멱등 처리, 합성 invalid signature 거절을 확인한다.
 REST read 권한 smoke는 webhook event subscription·HMAC 검증·delivery 멱등 처리를 대체하지 않으며 webhook smoke도 REST read 권한을 증명하지 않는다.
 
-공개 증거에는 endpoint, status code, 합성 fixture 이름, UTC 시각, 결과만 남긴다.
+공개 증거에는 정규화된 permission map, repository selection, endpoint, status code, 합성 fixture 이름, UTC 시각, 결과만 남긴다.
 token, secret, header, private key, 실제 사용자 데이터는 증거에 포함하지 않는다.
 
 현재 live smoke는 승인된 비운영 org, 역할별 test App, org owner의 설치·권한 승인 경로, 공개 HTTPS webhook endpoint, 합성 collaborator, secret store 주입이 준비되지 않아 대기 상태다.
