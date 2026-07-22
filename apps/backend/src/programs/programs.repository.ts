@@ -3,6 +3,7 @@ import {
   ApplicationStatus,
   CollectionRunStatus,
   ObservationSourceType,
+  ProgramCategory,
   RoleRequestStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -120,5 +121,27 @@ export class ProgramsRepository {
         },
       },
     });
+  }
+
+  findCreatorRole(githubId: bigint) {
+    return this.prisma.user.findUnique({
+      where: { githubId },
+      select: { role: true },
+    });
+  }
+
+  createProgram(data: {
+    readonly name: string;
+    readonly organizer: string;
+    readonly category: ProgramCategory;
+    readonly applicationTemplateKey: string;
+    readonly applicationTemplateVersion: number;
+    readonly applicationStartAt: Date;
+    readonly applicationEndAt: Date;
+    readonly teamMinSize: number | null;
+    readonly teamMaxSize: number | null;
+    readonly description: string;
+  }) {
+    return this.prisma.program.create({ data });
   }
 }

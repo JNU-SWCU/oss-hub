@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { DomainException } from '../common/error-code';
-import { PrismaService } from '../prisma/prisma.service';
 import type { CreateProgramRequestDto } from './dto/create-program-request.dto';
+import { ProgramsRepository } from './programs.repository';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
@@ -14,13 +14,10 @@ import {
 
 @Injectable()
 export class ProgramCreationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly repository: ProgramsRepository) {}
 
   async create(githubId: bigint, input: CreateProgramRequestDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { githubId },
-      select: { role: true },
-    });
+    const user = await this.repository.findCreatorRole(githubId);
     if (user?.role !== Role.STAFF && user?.role !== Role.ADMIN) {
       throw new DomainException(
         PROGRAM_ERROR_CODES[ProgramErrorCode.FORBIDDEN],
@@ -58,25 +55,23 @@ export class ProgramCreationService {
       );
     }
 
-    return this.prisma.program.create({
-      data: {
-        name,
-        organizer,
-        category: input.category,
-        applicationTemplateKey: template.key,
-        applicationTemplateVersion: template.version,
-        applicationStartAt,
-        applicationEndAt,
-        teamMinSize:
-          template.participation === PROGRAM_PARTICIPATION.TEAM
-            ? input.teamMinSize
-            : null,
-        teamMaxSize:
-          template.participation === PROGRAM_PARTICIPATION.TEAM
-            ? input.teamMaxSize
-            : null,
-        description,
-      },
+    return this.repository.createProgram({
+      name,
+      organizer,
+      category: input.category,
+      applicationTemplateKey: template.key,
+      applicationTemplateVersion: template.version,
+      applicationStartAt,
+      applicationEndAt,
+      teamMinSize:
+        template.participation === PROGRAM_PARTICIPATION.TEAM
+          ? (input.teamMinSize ?? null)
+          : null,
+      teamMaxSize:
+        template.participation === PROGRAM_PARTICIPATION.TEAM
+          ? (input.teamMaxSize ?? null)
+          : null,
+      description,
     });
   }
 }

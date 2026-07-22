@@ -7,6 +7,7 @@ import {
   ProgramErrorCode,
 } from './program-error-code.enum';
 import { ProgramCreationService } from './program-creation.service';
+import { ProgramsRepository } from './programs.repository';
 
 const input: CreateProgramRequestDto = {
   name: '  2026 OSS Contest  ',
@@ -26,7 +27,7 @@ describe('ProgramsService', () => {
     user: { findUnique },
     program: { create },
   } as unknown as PrismaService;
-  const service = new ProgramCreationService(prisma);
+  const service = new ProgramCreationService(new ProgramsRepository(prisma));
 
   beforeEach(() => {
     findUnique.mockReset();
