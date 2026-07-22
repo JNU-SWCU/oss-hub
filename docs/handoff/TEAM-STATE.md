@@ -104,6 +104,10 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | Data Collection·활성화 랭킹(저장소 주기 수집 스케줄러·nav 랭킹 화면) | @GoBeromsu (#151) / @Geuin04 (#152) | planned | #151 #152 | - | - | 없음 |
 | 공개 랭킹 저장소 소유권 projection | @jinsol1190-rgb | done | #197 | #202 | pass | 없음 |
 
+### 로컬 후보 handoff 기록
+
+- `TEAM_STATE_SKIP`: `codex/oauth-first-login-flow`은 사용자 요청을 검증하기 위한 로컬 종속 후보이며 아직 canonical Issue와 PR이 없다. 가짜 참조를 기능 표에 추가하지 않고, PR 제출 전에 Issue preclaim·표 갱신·auth owner @Lumiere001의 exact-head 추인을 수행한다.
+
 ## 외부 게이트
 
 <!-- 팀 밖 의존만. 사람이 아니라 작업을 주어로 쓴다. -->
