@@ -147,31 +147,34 @@ export function RankingView({
             </Button>
           </AlertDescription>
         </Alert>
-      ) : null}
-      <Alert>
-        <AlertTitle>집계 안내</AlertTitle>
-        <AlertDescription className="break-keep">
-          {RANKING_NOTICE} Star는 해당 기간에 받은 WatchEvent.started 활동
-          수이며, 저장소의 현재 스타 수가 아닙니다.
-        </AlertDescription>
-      </Alert>
-      {state.kind === 'ready' && ranking && ranking.items.length === 0 ? (
-        <EmptyState
-          icon={<ListOrdered className="size-5" />}
-          title="집계된 활동 데이터가 없습니다"
-          description="연결된 저장소에서 수집된 공개 GitHub 활동이 생기면 이곳에 표시됩니다."
-        />
       ) : (
-        <DataTable
-          className="[&_[data-slot=table]]:table-fixed [&_[data-slot=table-cell]]:px-1 [&_[data-slot=table-cell]]:text-xs [&_[data-slot=table-head]]:px-1 [&_[data-slot=table-head]]:text-xs sm:[&_[data-slot=table-cell]]:px-2 sm:[&_[data-slot=table-cell]]:text-sm sm:[&_[data-slot=table-head]]:px-2 sm:[&_[data-slot=table-head]]:text-sm"
-          columns={columns}
-          data={ranking?.items ? [...ranking.items] : []}
-          rowKey={(item) => item.rank}
-          isLoading={state.kind === 'loading'}
-          loadingSlot="랭킹을 불러오는 중입니다…"
-          emptyState="표시할 데이터가 없습니다."
-          caption="공개 GitHub 활동 랭킹"
-        />
+        <>
+          <Alert>
+            <AlertTitle>집계 안내</AlertTitle>
+            <AlertDescription className="break-keep">
+              {RANKING_NOTICE} Star는 해당 기간에 받은 WatchEvent.started 활동
+              수이며, 저장소의 현재 스타 수가 아닙니다.
+            </AlertDescription>
+          </Alert>
+          {state.kind === 'ready' && ranking && ranking.items.length === 0 ? (
+            <EmptyState
+              icon={<ListOrdered className="size-5" />}
+              title="집계된 활동 데이터가 없습니다"
+              description="연결된 저장소에서 수집된 공개 GitHub 활동이 생기면 이곳에 표시됩니다."
+            />
+          ) : (
+            <DataTable
+              className="[&_[data-slot=table]]:table-fixed [&_[data-slot=table-cell]]:px-1 [&_[data-slot=table-cell]]:text-xs [&_[data-slot=table-head]]:px-1 [&_[data-slot=table-head]]:text-xs sm:[&_[data-slot=table-cell]]:px-2 sm:[&_[data-slot=table-cell]]:text-sm sm:[&_[data-slot=table-head]]:px-2 sm:[&_[data-slot=table-head]]:text-sm"
+              columns={columns}
+              data={ranking?.items ? [...ranking.items] : []}
+              rowKey={(item) => item.rank}
+              isLoading={state.kind === 'loading'}
+              loadingSlot="랭킹을 불러오는 중입니다…"
+              emptyState="표시할 데이터가 없습니다."
+              caption="공개 GitHub 활동 랭킹"
+            />
+          )}
+        </>
       )}
       {ranking && ranking.total > ranking.pageSize ? (
         <nav

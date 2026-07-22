@@ -13,6 +13,7 @@ vi.mock('@/components', async (importOriginal) => {
       data,
       rowKey,
       className,
+      emptyState,
     }: {
       readonly columns: readonly {
         readonly id: string;
@@ -22,6 +23,7 @@ vi.mock('@/components', async (importOriginal) => {
       readonly data: readonly RankingItem[];
       readonly rowKey: (item: RankingItem) => React.Key;
       readonly className?: string;
+      readonly emptyState?: React.ReactNode;
     }) => (
       <div
         className={className}
@@ -30,6 +32,7 @@ vi.mock('@/components', async (importOriginal) => {
           .join(',')}
         data-row-keys={data.map(rowKey).join(',')}
       >
+        {data.length === 0 ? emptyState : null}
         {data.map((item) => (
           <div key={rowKey(item)}>
             {columns.map((column) => (
@@ -126,7 +129,9 @@ test('빈 상태와 오류 재시도 상태를 사용자에게 표시한다', ()
 
   expect(empty).toContain('집계된 활동 데이터가 없습니다');
   expect(failure).toContain('다시 시도');
-  expect(failure).toContain(RANKING_NOTICE);
+  expect(failure).not.toContain(RANKING_NOTICE);
+  expect(failure).not.toContain('data-row-keys');
+  expect(failure).not.toContain('표시할 데이터가 없습니다.');
 });
 
 test('Star 집계 기준을 사용자에게 설명한다', () => {

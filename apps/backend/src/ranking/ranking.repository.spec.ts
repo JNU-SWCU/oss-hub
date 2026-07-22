@@ -1,4 +1,8 @@
-import { CollectionRunStatus, ObservationSourceType } from '@prisma/client';
+import {
+  CollectionRunStatus,
+  ObservationSourceType,
+  RepositoryVisibility,
+} from '@prisma/client';
 import {
   RANKING_OBSERVATION_BATCH_SIZE,
   RankingRepository,
@@ -27,6 +31,10 @@ describe('RankingRepository', () => {
     expect(findMany).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
+        where: {
+          visibility: RepositoryVisibility.PUBLIC,
+          publishedAt: { not: null },
+        },
         orderBy: { id: 'asc' },
         take: RANKING_OBSERVATION_BATCH_SIZE,
       }),

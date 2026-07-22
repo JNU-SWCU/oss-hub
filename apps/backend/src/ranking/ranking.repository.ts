@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   CollectionRunStatus,
   ObservationSourceType,
+  RepositoryVisibility,
   type Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -27,6 +28,10 @@ export class RankingRepository {
 
     while (true) {
       const repositories = await this.prisma.repository.findMany({
+        where: {
+          visibility: RepositoryVisibility.PUBLIC,
+          publishedAt: { not: null },
+        },
         select: { id: true, githubRepositoryId: true },
         orderBy: { id: 'asc' },
         take: RANKING_OBSERVATION_BATCH_SIZE,
