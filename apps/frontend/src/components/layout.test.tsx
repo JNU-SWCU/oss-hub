@@ -50,10 +50,17 @@ describe('layout components', () => {
     const actionsClass = html.match(
       /data-slot="nav-bar-actions"[^>]*class="([^"]*)"/,
     )?.[1];
+    const itemsClass = html.match(
+      /data-slot="nav-bar-items"[^>]*class="([^"]*)"/,
+    )?.[1];
 
     expect(navClass?.split(' ')).toContain('flex-nowrap');
+    expect(navClass?.split(' ')).toContain('gap-x-1');
+    expect(navClass?.split(' ')).toContain('px-2');
     expect(navClass?.split(' ')).not.toContain('flex-wrap');
     expect(navClass).not.toContain('min-[480px]:flex-nowrap');
+    expect(itemsClass?.split(' ')).toContain('gap-0');
+    expect(actionsClass?.split(' ')).toContain('gap-0');
     expect(actionsClass).not.toContain('max-[479px]:basis-full');
     expect(actionsClass).not.toContain('max-[479px]:w-full');
     expect(actionsClass).not.toContain('max-[479px]:order-last');
