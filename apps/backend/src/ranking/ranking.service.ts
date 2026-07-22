@@ -14,6 +14,8 @@ import {
   isNewerIdentity,
   isWithinRankingPeriod,
   parseRankingEvent,
+  rankingYearInAsiaSeoul,
+  rankingYearStartInAsiaSeoul,
   type CanonicalIdentity,
 } from './domain/ranking-event';
 import { RankingRepository } from './ranking.repository';
@@ -60,7 +62,7 @@ export class RankingService {
     period: RankingPeriod,
     now: Date,
   ): Promise<readonly RankingEntry[]> {
-    const currentYear = now.getUTCFullYear();
+    const currentYear = rankingYearInAsiaSeoul(now);
     const cacheKey =
       period === RANKING_PERIODS.ALL ? period : `${period}:${currentYear}`;
     const cached = this.cache.get(cacheKey);
@@ -114,7 +116,7 @@ export class RankingService {
     const ownerLoginsByGithubId = new Map<string, string>();
     const fetchedAtOrAfter =
       period === RANKING_PERIODS.THIS_YEAR
-        ? new Date(Date.UTC(currentYear, 0, 1))
+        ? rankingYearStartInAsiaSeoul(currentYear)
         : undefined;
     let previousSourceId: string | undefined;
 

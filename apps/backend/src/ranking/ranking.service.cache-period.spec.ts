@@ -38,7 +38,55 @@ describe('RankingService cache and period', () => {
     expect(harness.findPlatformRepositoryIdBatches).toHaveBeenCalledTimes(1);
     expect(harness.findObservationBatches).toHaveBeenCalledTimes(1);
     expect(harness.findObservationBatches).toHaveBeenCalledWith(
+      new Date('2025-12-31T15:00:00.000Z'),
+    );
+  });
+
+  it('uses the Asia/Seoul year for THIS_YEAR cache and fetchedAt lower bound', async () => {
+    const observations = [
+      event(
+        'kst-2025',
+        '1',
+        'mina',
+        'PushEvent',
+        null,
+        101,
+        '2025-12-31T14:59:59.000Z',
+        2,
+      ),
+      event(
+        'kst-2026',
+        '2',
+        'june',
+        'PushEvent',
+        null,
+        101,
+        '2025-12-31T15:00:00.000Z',
+        3,
+      ),
+    ];
+    harness.findObservationBatches.mockImplementation(() =>
+      batches(observations),
+    );
+
+    await expect(
+      harness.service.findPage(
+        RANKING_PERIODS.THIS_YEAR,
+        1,
+        20,
+        new Date('2025-12-31T15:00:00.000Z'),
+      ),
+    ).resolves.toMatchObject({ total: 1 });
+    await harness.service.findPage(
+      RANKING_PERIODS.THIS_YEAR,
+      1,
+      20,
       new Date('2026-01-01T00:00:00.000Z'),
+    );
+
+    expect(harness.findObservationBatches).toHaveBeenCalledTimes(1);
+    expect(harness.findObservationBatches).toHaveBeenCalledWith(
+      new Date('2025-12-31T15:00:00.000Z'),
     );
   });
 
@@ -61,7 +109,7 @@ describe('RankingService cache and period', () => {
         'WatchEvent',
         'started',
         101,
-        '2025-12-31T23:59:59.000Z',
+        '2025-12-31T14:59:59.000Z',
       ),
     ];
     harness.findObservationBatches.mockImplementation(() =>

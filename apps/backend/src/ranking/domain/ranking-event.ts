@@ -5,6 +5,8 @@ import {
 } from './ranking';
 import type { RankingObservation } from '../ranking.repository';
 
+const ASIA_SEOUL_OFFSET_MS = 9 * 60 * 60 * 1000;
+
 export interface ParsedRankingEvent {
   readonly type: string;
   readonly repositoryId: string;
@@ -94,6 +96,14 @@ export function parseRankingEvent(payload: unknown): ParsedRankingEvent | null {
     : null;
 }
 
+export function rankingYearInAsiaSeoul(date: Date): number {
+  return new Date(date.getTime() + ASIA_SEOUL_OFFSET_MS).getUTCFullYear();
+}
+
+export function rankingYearStartInAsiaSeoul(year: number): Date {
+  return new Date(Date.UTC(year, 0, 1) - ASIA_SEOUL_OFFSET_MS);
+}
+
 export function isWithinRankingPeriod(
   occurredAt: Date,
   period: RankingPeriod,
@@ -101,7 +111,7 @@ export function isWithinRankingPeriod(
 ): boolean {
   return (
     period === RANKING_PERIODS.ALL ||
-    occurredAt.getUTCFullYear() === currentYear
+    rankingYearInAsiaSeoul(occurredAt) === currentYear
   );
 }
 
