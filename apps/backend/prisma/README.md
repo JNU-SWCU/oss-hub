@@ -31,6 +31,7 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `al
 - `auth` (9) — `seeds/auth.ts`의 `AUTH_SCENARIOS`: `consent-required`, `user-role-unselected`,
   `student-confirmed`, `staff-pending`, `staff-pending-second`, `staff-rejected`,
   `staff-approved`, `staff-revoked`, `admin-confirmed`.
+  `staff-revoked`는 역할을 `STAFF`로 보존한 `DEACTIVATED` 계정이다.
 - `intake` (15) — `seeds/intake.ts`: `empty-programs`, `program-seven-templates`,
   `program-overdue`, `program-with-applications`, `program-no-repository`, `empty-applications`,
   `application-personal`, `application-pending`, `application-approved`, `application-rejected`,

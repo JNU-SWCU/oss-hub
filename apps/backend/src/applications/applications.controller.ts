@@ -16,7 +16,7 @@ import {
   type ApplicationDecisionResponseDto,
   toApplicationDecisionResponse,
 } from './dto/application-decision-response.dto';
-import { PatchApplicationDecisionDto } from './dto/patch-application-decision.dto';
+import { PatchApplicationDecisionRequestDto } from './dto/patch-application-decision-request.dto';
 
 type ApplicationActorRequest = Pick<
   ApplicationStaffRequest,
@@ -35,7 +35,7 @@ export class ApplicationsController {
   async decide(
     @Req() request: ApplicationActorRequest,
     @Param('id') applicationId: string,
-    @Body() body: PatchApplicationDecisionDto,
+    @Body() body: PatchApplicationDecisionRequestDto,
   ): Promise<ApplicationDecisionResponseDto> {
     const result = await this.service.decide(
       request.applicationActorId,

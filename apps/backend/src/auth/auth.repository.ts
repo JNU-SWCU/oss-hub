@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { User as PrismaUser } from '@prisma/client';
+import { AccountStatus, User as PrismaUser } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolveBootstrapRole } from './admin-bootstrap';
 import { AuthUser, GithubProfile } from './domain/auth-user';
@@ -30,7 +30,11 @@ export class AuthRepository {
         role: bootstrapRole ?? undefined,
       },
     });
-    if (user.role === null && bootstrapRole) {
+    if (
+      user.accountStatus === AccountStatus.ACTIVE &&
+      user.role === null &&
+      bootstrapRole
+    ) {
       const promoted = await this.prisma.user.update({
         where: { id: user.id },
         data: { role: bootstrapRole },
@@ -52,6 +56,7 @@ export class AuthRepository {
       login: user.login,
       name: user.name,
       avatarUrl: user.avatarUrl,
+      accountStatus: user.accountStatus,
       role: user.role,
     };
   }

@@ -1,12 +1,15 @@
-import { Role } from '@prisma/client';
+import { AccountStatus, Role } from '@prisma/client';
+import { DomainException } from '../common/error-code';
+import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.enum';
 import { Request, Response } from 'express';
 import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { flowCookieName, serializeCookie } from './cookies';
+import { flowCookieName, serializeCookie, sessionCookieName } from './cookies';
 import { AuthUser } from './domain/auth-user';
 import { createFlowState, encodeFlowCookie } from './oauth-flow';
 import { AuthenticatedRequest } from './session.guard';
+import { LoginHistoryService } from '../login-history/login-history.service';
 
 const syntheticUser: AuthUser = {
   id: 'synthetic-id',
@@ -14,8 +17,10 @@ const syntheticUser: AuthUser = {
   login: 'synthetic-login',
   name: null,
   avatarUrl: null,
+  accountStatus: AccountStatus.ACTIVE,
   role: null,
 };
+const recordLogin = jest.fn();
 
 function createResponse(): Response & {
   setHeader: jest.Mock;
@@ -39,7 +44,9 @@ function createController(
     frontendUrl: 'https://oss.example',
     useSecureCookies: true,
   } as AuthConfig;
-  return new AuthController(service, config);
+  return new AuthController(service, config, {
+    recordLogin,
+  } as unknown as LoginHistoryService);
 }
 
 function requestWithCookie(cookie?: string): Request {
@@ -50,6 +57,11 @@ function requestWithCookie(cookie?: string): Request {
 }
 
 describe('AuthController github callback', () => {
+  beforeEach(() => {
+    recordLogin.mockReset();
+    recordLogin.mockResolvedValue(undefined);
+  });
+
   it('callback redirect 응답에 no-referrer/no-store를 설정한다', async () => {
     const flow = createFlowState();
     const res = createResponse();
@@ -68,6 +80,29 @@ describe('AuthController github callback', () => {
     );
     expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
     expect(res.redirect).toHaveBeenCalledWith(302, 'https://oss.example');
+    expect(recordLogin).toHaveBeenCalledWith(syntheticUser.id);
+  });
+
+  it('로그인 이력 저장 실패가 정상 세션 발급을 막지 않는다', async () => {
+    const flow = createFlowState();
+    const res = createResponse();
+    recordLogin.mockRejectedValue(new Error('synthetic history failure'));
+
+    await createController().githubCallback(
+      'synthetic-code',
+      flow.state,
+      undefined,
+      requestWithCookie(`${flowCookieName(true)}=${encodeFlowCookie(flow)}`),
+      res,
+    );
+
+    expect(res.redirect).toHaveBeenCalledWith(302, 'https://oss.example');
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Set-Cookie',
+      expect.arrayContaining([
+        expect.stringContaining(`${sessionCookieName(true)}=`),
+      ]),
+    );
   });
 
   it('OAuth denial은 state가 일치할 때만 flow cookie를 삭제한다', async () => {
@@ -168,6 +203,36 @@ describe('AuthController github callback', () => {
       }),
     );
   });
+
+  it('비활성 계정은 OAuth callback에서도 세션·LOGIN 이력을 만들지 않는다', async () => {
+    const flow = createFlowState();
+    const res = createResponse();
+    const issueSession = jest
+      .fn()
+      .mockRejectedValue(
+        new DomainException(AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED]),
+      );
+
+    await createController({ issueSession }).githubCallback(
+      'synthetic-code',
+      flow.state,
+      undefined,
+      requestWithCookie(`${flowCookieName(true)}=${encodeFlowCookie(flow)}`),
+      res,
+    );
+
+    expect(recordLogin).not.toHaveBeenCalled();
+    expect(res.setHeader).not.toHaveBeenCalledWith(
+      'Set-Cookie',
+      expect.arrayContaining([
+        expect.stringContaining(`${sessionCookieName(true)}=`),
+      ]),
+    );
+    expect(res.redirect).toHaveBeenCalledWith(
+      302,
+      'https://oss.example/?authError=1',
+    );
+  });
 });
 
 describe('AuthController getMe', () => {
@@ -182,6 +247,7 @@ describe('AuthController getMe', () => {
     const controller = new AuthController(
       { getMe } as unknown as AuthService,
       { resolveTestRole } as unknown as AuthConfig,
+      {} as LoginHistoryService,
     );
     return { controller, resolveTestRole };
   }
@@ -197,6 +263,7 @@ describe('AuthController getMe', () => {
 
     expect(result.role).toBe(Role.ADMIN);
     expect(result.login).toBe('synthetic-login');
+    expect(result.accountStatus).toBe(AccountStatus.ACTIVE);
     expect(resolveTestRole).toHaveBeenCalledWith(syntheticUser.githubId);
   });
 

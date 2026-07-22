@@ -9,7 +9,7 @@ import {
   ApplicationsErrorCode,
 } from '../applications-error-code.enum';
 
-export class PatchApplicationDecisionDto {
+export class PatchApplicationDecisionRequestDto {
   @IsString()
   declare readonly action: string;
 

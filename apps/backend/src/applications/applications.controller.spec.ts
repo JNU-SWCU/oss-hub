@@ -10,7 +10,7 @@ import { ApplicationsStaffGuard } from './applications-staff.guard';
 import { ApplicationsController } from './applications.controller';
 import { ApplicationsErrorCode } from './applications-error-code.enum';
 import type { ApplicationsService } from './applications.service';
-import { PatchApplicationDecisionDto } from './dto/patch-application-decision.dto';
+import { PatchApplicationDecisionRequestDto } from './dto/patch-application-decision-request.dto';
 
 function readGuards(target: object, methodName: 'decide'): unknown[] {
   const method: unknown = Object.getOwnPropertyDescriptor(
@@ -37,7 +37,7 @@ describe('ApplicationsController', () => {
     });
     const service: Pick<ApplicationsService, 'decide'> = { decide };
     const controller = new ApplicationsController(service);
-    const body = Object.assign(new PatchApplicationDecisionDto(), {
+    const body = Object.assign(new PatchApplicationDecisionRequestDto(), {
       action: 'APPROVE',
     });
 
@@ -62,7 +62,7 @@ describe('ApplicationsController', () => {
 
   it('공백 반려 사유를 APP 오류로 거부한다', () => {
     // Given
-    const body = Object.assign(new PatchApplicationDecisionDto(), {
+    const body = Object.assign(new PatchApplicationDecisionRequestDto(), {
       action: 'REJECT',
       reason: '   ',
     });

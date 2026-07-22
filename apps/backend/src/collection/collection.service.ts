@@ -38,6 +38,11 @@ export class CollectionService {
   ) {}
 
   async runSelf(githubId: bigint): Promise<CollectionRun> {
+    if (!this.config.legacyUserCollectionEnabled) {
+      throw new DomainException(
+        COLLECTION_ERROR_CODES[CollectionErrorCode.COLLECTION_SCOPE_DISABLED],
+      );
+    }
     const user = await this.repository.findUserByGithubId(githubId);
     if (!user) {
       throw new CollectionTargetNotFoundError();

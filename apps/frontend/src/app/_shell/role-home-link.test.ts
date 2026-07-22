@@ -1,34 +1,39 @@
 import { describe, expect, it } from 'vitest';
-import { resolveRoleHome } from './role-home-link';
+import { resolveSessionEntry } from './role-home-link';
 import { ADMIN_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
 import { roleHomePath } from './role';
 
-// 역할 홈 nav 링크(#136) 노출 조건: role이 확정된 로그인 사용자만 자기
-// 역할 홈으로 이동할 수 있다. 비로그인(401 → anonymous)·역할 미확정·확인
-// 중은 대상이 없다 — 자동 리다이렉트(#144)는 back-trap 문제로 제거됐다.
-describe('resolveRoleHome', () => {
+describe('resolveSessionEntry', () => {
   it.each([
-    ['STUDENT', '/dashboard'],
-    ['STAFF', '/staff/dashboard'],
-    ['ADMIN', '/admin/staff-requests'],
+    ['STUDENT', '/dashboard', '내 대시보드'],
+    ['STAFF', '/staff/dashboard', '운영 대시보드'],
+    ['ADMIN', '/admin/staff-requests', '교직원 승인'],
   ] as const)(
     'role이 확정된(assigned) %s는 role 홈 경로를 반환한다',
-    (role, expected) => {
-      expect(resolveRoleHome('assigned', role)).toBe(expected);
+    (role, href, label) => {
+      const destination = resolveSessionEntry('assigned', role);
+
+      expect(destination).toEqual({ href, label });
     },
   );
 
-  it('비로그인(anonymous, 401 포함)은 이동 대상이 없다', () => {
-    expect(resolveRoleHome('anonymous', null)).toBeNull();
+  it('역할 미확정 사용자는 필수 동의에서 온보딩을 계속한다', () => {
+    const destination = resolveSessionEntry('unassigned', null);
+
+    expect(destination).toEqual({
+      href: '/consent',
+      label: '가입 계속하기',
+    });
   });
 
-  it('역할 미확정(unassigned)은 이동 대상이 없다', () => {
-    expect(resolveRoleHome('unassigned', null)).toBeNull();
-  });
+  it.each(['anonymous', 'loading'] as const)(
+    '%s 상태는 이동 대상을 노출하지 않는다',
+    (status) => {
+      const destination = resolveSessionEntry(status, null);
 
-  it('세션 확인 중(loading)은 이동 대상이 없다', () => {
-    expect(resolveRoleHome('loading', null)).toBeNull();
-  });
+      expect(destination).toBeNull();
+    },
+  );
 });
 
 // "역할별 첫 메뉴 = 역할 홈"은 role.ts(roleHomePath)·role-menus.ts(각 MENU[0])·

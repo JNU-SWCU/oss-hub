@@ -14,16 +14,23 @@ enum Role {
   ADMIN
 }
 
+/// 계정 생명주기. 역할과 독립적으로 권한 접근 가능 여부를 결정한다(#187, #188).
+enum AccountStatus {
+  ACTIVE
+  DEACTIVATED
+}
+
 model User {
-  id        String   @id @default(cuid())
-  githubId  BigInt   @unique
-  login     String
-  name      String?
-  avatarUrl String?
+  id            String        @id @default(cuid())
+  githubId      BigInt        @unique
+  login         String
+  name          String?
+  avatarUrl     String?
+  accountStatus AccountStatus @default(ACTIVE)
   /// 역할 선택 전 null, 학생 선택 시 STUDENT, 교직원 요청 승인 시에만 STAFF가 된다(#109).
-  role      Role?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  role          Role?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   roleRequests          RoleRequest[]        @relation("RoleRequestUser")
   decidedRoleRequests   RoleRequest[]        @relation("RoleRequestDecidedBy")
@@ -37,6 +44,26 @@ model User {
   reviews               Review[]
   notifications         Notification[]
   auditLogs             AuditLog[]
+  loginHistories        LoginHistory[]
+}
+
+enum LoginHistoryEvent {
+  LOGIN
+  LOGOUT
+}
+
+/// 로그인 활동 기록. IP·User-Agent는 수집하지 않는다(#157).
+model LoginHistory {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  event    LoginHistoryEvent
+  provider String            @default("github")
+  success  Boolean
+  loginAt  DateTime          @default(now())
+
+  @@index([userId, loginAt])
 }
 
 /// PENDING → APPROVED/REJECTED. REVOKED는 회수(REVOKE) 이력을 표현한다(#109 계약 잠금 이행 — #113에서 additive로 추가).
@@ -369,9 +396,57 @@ model Repository {
 
   invitations  RepositoryInvitation[]
   provisionJob RepositoryProvisionJob?
+  orgInventory OrgRepositoryInventory?
 
   @@index([programId])
   @@index([teamId])
+}
+
+/// 공개 랭킹이 신청 데이터 join 없이 저장소 수신자를 찾는 최소 projection(#197).
+model RepositoryOwnerProjection {
+  githubRepositoryId BigInt   @id
+  ownerGithubId      BigInt
+  ownerGithubLogin   String
+  updatedAt          DateTime @updatedAt
+
+  @@index([ownerGithubId])
+}
+
+/// Org 전체 저장소의 canonical identity. program/team 매핑이 없는 저장소도 독립적으로 유지한다(#177).
+model OrgRepositoryInventory {
+  id String @id @default(cuid())
+
+  githubRepositoryId BigInt               @unique
+  fullName           String
+  visibility         RepositoryVisibility
+  archived           Boolean
+
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  repositoryId String?     @unique
+  repository   Repository? @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
+
+  activityEvents OrgRepositoryActivityEvent[]
+}
+
+/// webhook 원문 없이 저장소 단위 파생 metric delta만 보존하는 최소 활동 이력(#177).
+model OrgRepositoryActivityEvent {
+  id String @id @default(cuid())
+
+  inventoryId String
+  inventory   OrgRepositoryInventory @relation(fields: [inventoryId], references: [id], onDelete: Restrict)
+
+  deliveryId String   @unique
+  eventType  String
+  occurredAt DateTime
+  dedupeKey  String   @unique
+
+  commitDelta      Int @default(0)
+  pullRequestDelta Int @default(0)
+  starDelta        Int @default(0)
+
+  @@index([inventoryId, occurredAt])
 }
 
 enum RepositoryInvitationStatus {

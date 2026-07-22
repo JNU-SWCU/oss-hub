@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import {
   CONSENT_ERROR_CODES,
@@ -35,6 +36,16 @@ export class ConsentsService {
       CURRENT_CONSENT_POLICY.policyVersion,
     );
     return { policy: CURRENT_CONSENT_POLICY, consented: consent !== null };
+  }
+
+  /** 역할 온보딩 등 후속 도메인이 현행 동의 선행조건을 중복 조회하지 않게 한다. */
+  async requireCurrent(githubId: bigint): Promise<void> {
+    const consent = await this.getCurrent(githubId);
+    if (!consent.consented) {
+      throw new DomainException(
+        CONSENT_ERROR_CODES[ConsentErrorCode.REQUIRED_CONSENT_MISSING],
+      );
+    }
   }
 
   /**
@@ -80,7 +91,7 @@ export class ConsentsService {
   /** 세션은 유효하지만 사용자 행이 없으면 재로그인 대상이다 — 401로 수렴시킨다. */
   private async requireUser(githubId: bigint): Promise<ConsentUser> {
     const user = await this.repository.findUserByGithubId(githubId);
-    if (!user) {
+    if (!user || user.accountStatus !== AccountStatus.ACTIVE) {
       throw new DomainException(
         CONSENT_ERROR_CODES[ConsentErrorCode.UNAUTHENTICATED],
       );
