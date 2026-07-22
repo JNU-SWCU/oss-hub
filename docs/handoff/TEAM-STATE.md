@@ -81,6 +81,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 라우트 골격·역할별 패널 셸 | @GoBeromsu | done | #136 | #138 | pass | 없음 |
 | 디자인 파운데이션(Tailwind v4·shadcn·B-6 컴포넌트) | @GoBeromsu | done | #74 #78 #80 #82 #84 | #77 #90 | pass | 없음 |
 | 랜딩 페이지 + 로그인 role-home nav 배선 | @GoBeromsu | done | #86 (+#136 연계) | #87 #144 #145 #146 #147 | pass | 없음 |
+| 320px 공용 내비게이션 단일 행 정렬 | @GoBeromsu | active | [#219](https://github.com/JNU-SWCU/oss-hub/issues/219) | - | 로컬 pass · GitHub CI 미실행 | `codex/nav-responsive` 로컬 후보. 공용 NavBar·기존 action 소비자만 수정 |
 | work-ticket 이슈 템플릿 | @GoBeromsu | done | #71 | #72 | pass | 없음 |
 | ADR-004 REST 예시 도메인 교체(members→users) | @GoBeromsu | done | #76 | #91 | pass | 없음 |
 | CI: public-safe Issue·댓글 스캔 + commitlint 이벤트 가드 | @GoBeromsu | done | #68 | #150 #159 | pass | 없음 |
