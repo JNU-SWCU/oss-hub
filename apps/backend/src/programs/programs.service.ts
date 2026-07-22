@@ -7,14 +7,26 @@ import type {
   ViewerSubmissionStatusResponseDto,
 } from './dto/program-detail.dto';
 import { programDeadline } from './program-deadline';
+import type { ProgramListQuery } from './program-list-query';
 import { PROGRAM_ERROR_CODES } from './program-error-code';
 import type { ProgramViewer } from './program-viewer.service';
-import { ProgramsRepository } from './programs.repository';
+import {
+  ProgramsRepository,
+  type ProgramListRecord,
+} from './programs.repository';
 
 type SubmissionRecord = {
   readonly milestoneId: string;
   readonly status: SubmissionStatus;
 };
+
+export interface ProgramListPage {
+  readonly items: readonly ProgramListRecord[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly totalItems: number;
+  readonly totalPages: number;
+}
 
 const EMPTY_SUMMARY = {
   notSubmitted: 0,
@@ -28,6 +40,20 @@ const EMPTY_SUMMARY = {
 @Injectable()
 export class ProgramsService {
   constructor(private readonly repository: ProgramsRepository) {}
+
+  async list(
+    query: ProgramListQuery,
+    now = new Date(),
+  ): Promise<ProgramListPage> {
+    const [items, totalItems] = await this.repository.listPrograms(query, now);
+    return {
+      items,
+      page: query.page,
+      pageSize: query.pageSize,
+      totalItems,
+      totalPages: Math.ceil(totalItems / query.pageSize),
+    };
+  }
 
   async detail(
     programId: string,

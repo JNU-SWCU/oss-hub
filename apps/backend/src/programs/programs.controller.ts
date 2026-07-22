@@ -5,6 +5,7 @@ import {
   HttpCode,
   Param,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -12,12 +13,18 @@ import { OriginGuard } from '../auth/origin.guard';
 import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
 import { CreateProgramRequestDto } from './dto/create-program-request.dto';
 import { CreateProgramResponseDto } from './dto/create-program-response.dto';
+import {
+  ActivityTimelineQueryRequestDto,
+  type ActivityTimelineResponseDto,
+} from './dto/activity-timeline.dto';
 import type {
   ProgramActivityResponseDto,
   ProgramDetailResponseDto,
 } from './dto/program-detail.dto';
-import { ProgramCreationService } from './program-creation.service';
+import { ProgramListQueryRequestDto } from './dto/program-list-query.dto';
+import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
 import { ProgramActivityService } from './program-activity.service';
+import { ProgramCreationService } from './program-creation.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsService } from './programs.service';
 
@@ -37,6 +44,15 @@ export class ProgramsController {
     private readonly activity: ProgramActivityService,
     private readonly viewers: ProgramViewerService,
   ) {}
+
+  @Get()
+  async list(
+    @Query() query: ProgramListQueryRequestDto,
+  ): Promise<ProgramListPageResponseDto> {
+    return ProgramListPageResponseDto.from(
+      await this.programs.list(query.toQuery()),
+    );
+  }
 
   @Post()
   @HttpCode(201)
@@ -75,6 +91,26 @@ export class ProgramsController {
     return this.activity.activity(
       programId,
       await this.viewers.fromGithubId(request.sessionGithubId),
+    );
+  }
+}
+
+@Controller('dashboard/student')
+export class StudentDashboardController {
+  constructor(
+    private readonly activity: ProgramActivityService,
+    private readonly viewers: ProgramViewerService,
+  ) {}
+
+  @Get('activity-timeline')
+  @UseGuards(SessionGuard)
+  async activityTimeline(
+    @Req() request: SessionIdentity,
+    @Query() query: ActivityTimelineQueryRequestDto,
+  ): Promise<ActivityTimelineResponseDto> {
+    return this.activity.activityTimeline(
+      await this.viewers.fromGithubId(request.sessionGithubId),
+      query.granularity,
     );
   }
 }
