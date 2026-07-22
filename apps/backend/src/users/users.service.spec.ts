@@ -142,3 +142,33 @@ it('동시 저장에서 선점에 실패하면 덮어쓰지 않고 409로 거부
 
   expect(error.errorCode.code).toBe(UsersErrorCode.PROFILE_ALREADY_COMPLETE);
 });
+
+it('완료된 프로필은 역할 선택 가능 상태로 확인한다', async () => {
+  // Given
+  const { service } = buildService({
+    user: { id: 'synthetic-user', ...input },
+  });
+
+  // When / Then
+  await expect(service.requireCompleteProfile(githubId)).resolves.toBeUndefined();
+});
+
+it('이름이 빈 프로필은 역할 선택 가능 상태가 아닌 것으로 거부한다', async () => {
+  // Given
+  const { service } = buildService({
+    user: {
+      id: 'synthetic-user',
+      name: '   ',
+      studentId: input.studentId,
+      department: input.department,
+    },
+  });
+
+  // When
+  const error = await captureDomainException(() =>
+    service.requireCompleteProfile(githubId),
+  );
+
+  // Then
+  expect(error.errorCode).toMatchObject({ code: 'USR_002', status: 409 });
+});

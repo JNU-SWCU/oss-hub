@@ -3,6 +3,7 @@ import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.enum';
 import { DomainException } from '../common/error-code';
 import { ConsentsService } from '../consents/consents.service';
+import { UsersService } from '../users/users.service';
 import type { RoleRequestRecord, RoleUser } from './domain/role-onboarding';
 import type {
   RoleSelectionResult,
@@ -22,6 +23,8 @@ export class RolesService {
     private readonly repository: RolesRepositoryPort,
     @Inject(ConsentsService)
     private readonly consentsService: Pick<ConsentsService, 'requireCurrent'>,
+    @Inject(UsersService)
+    private readonly usersService: Pick<UsersService, 'requireCompleteProfile'>,
   ) {}
 
   async selectRole(
@@ -29,6 +32,7 @@ export class RolesService {
     selectedRole: SelectableRole,
   ): Promise<RoleSelectionResult> {
     await this.consentsService.requireCurrent(githubId);
+    await this.usersService.requireCompleteProfile(githubId);
 
     return this.repository.withTransaction(async (store) => {
       const user = await this.requireUser(store, githubId);
@@ -57,6 +61,7 @@ export class RolesService {
 
   async retryStaffRequest(githubId: bigint): Promise<RoleRequestRecord> {
     await this.consentsService.requireCurrent(githubId);
+    await this.usersService.requireCompleteProfile(githubId);
 
     return this.repository.withTransaction(async (store) => {
       const user = await this.requireUser(store, githubId);

@@ -10,6 +10,7 @@ import { RolesRepository } from '../src/roles/roles.repository';
 import { RolesService } from '../src/roles/roles.service';
 import { StaffRoleRequestsRepository } from '../src/roles/staff-role-requests.repository';
 import { StaffRoleRequestsService } from '../src/roles/staff-role-requests.service';
+import type { UsersService } from '../src/users/users.service';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 
 assertIsolatedIntegrationDatabase({
@@ -42,9 +43,13 @@ describe('accountStatus migration regression', () => {
     new AuthConfig(),
     new AuthRepository(prisma),
   );
-  const rolesService = new RolesService(new RolesRepository(prisma), {
-    requireCurrent: jest.fn(),
-  });
+  const rolesService = new RolesService(
+    new RolesRepository(prisma),
+    { requireCurrent: jest.fn() },
+    {
+      requireCompleteProfile: jest.fn(),
+    } satisfies Pick<UsersService, 'requireCompleteProfile'>,
+  );
   const staffRoleRequestsService = new StaffRoleRequestsService(
     new StaffRoleRequestsRepository(prisma),
   );

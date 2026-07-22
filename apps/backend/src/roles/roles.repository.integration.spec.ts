@@ -2,6 +2,8 @@ import { Role, RoleRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import type { ConsentsService } from '../consents/consents.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { UsersRepository } from '../users/users.repository';
+import { UsersService } from '../users/users.service';
 import { RolesRepository } from './roles.repository';
 import { RolesService } from './roles.service';
 
@@ -14,6 +16,12 @@ const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 const TEST_PREFIX = 'test:169:';
 const STAFF_GITHUB_ID = 9_169_000_001n;
 const MIXED_GITHUB_ID = 9_169_000_002n;
+const INCOMPLETE_GITHUB_ID = 9_169_000_003n;
+const COMPLETE_PROFILE = {
+  name: '합성 사용자',
+  studentId: '123456',
+  department: '인공지능학부',
+} as const;
 
 describe('RolesRepository integration', () => {
   const prisma = new PrismaService();
@@ -21,7 +29,11 @@ describe('RolesRepository integration', () => {
   const consentsService: Pick<ConsentsService, 'requireCurrent'> = {
     requireCurrent: jest.fn().mockResolvedValue(undefined),
   };
-  const service = new RolesService(repository, consentsService);
+  const usersService = new UsersService(
+    new UsersRepository(prisma),
+    consentsService,
+  );
+  const service = new RolesService(repository, consentsService, usersService);
 
   beforeAll(async () => {
     await prisma.$connect();
@@ -53,6 +65,7 @@ describe('RolesRepository integration', () => {
         id: `${TEST_PREFIX}staff`,
         githubId: STAFF_GITHUB_ID,
         login: 'synthetic-169-staff',
+        ...COMPLETE_PROFILE,
       },
     });
 
@@ -80,6 +93,7 @@ describe('RolesRepository integration', () => {
         id: `${TEST_PREFIX}mixed`,
         githubId: MIXED_GITHUB_ID,
         login: 'synthetic-169-mixed',
+        ...COMPLETE_PROFILE,
       },
     });
 
@@ -101,4 +115,34 @@ describe('RolesRepository integration', () => {
     ).toHaveLength(1);
     expect(Number(storedUser.role === Role.STUDENT) + pendingCount).toBe(1);
   });
+
+  it.each([Role.STUDENT, Role.STAFF])(
+    '미완료 프로필의 %s 선택은 역할과 요청을 남기지 않는다',
+    async (selectedRole) => {
+      // Given
+      const user = await prisma.user.create({
+        data: {
+          id: `${TEST_PREFIX}incomplete-${selectedRole.toLowerCase()}`,
+          githubId:
+            INCOMPLETE_GITHUB_ID +
+            (selectedRole === Role.STUDENT ? 0n : 1n),
+          login: `synthetic-169-incomplete-${selectedRole.toLowerCase()}`,
+        },
+      });
+
+      // When
+      const promise = service.selectRole(user.githubId, selectedRole);
+
+      // Then
+      await expect(promise).rejects.toMatchObject({
+        errorCode: { code: 'USR_002' },
+      });
+      const [storedUser, requestCount] = await Promise.all([
+        prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
+        prisma.roleRequest.count({ where: { userId: user.id } }),
+      ]);
+      expect(storedUser.role).toBeNull();
+      expect(requestCount).toBe(0);
+    },
+  );
 });
