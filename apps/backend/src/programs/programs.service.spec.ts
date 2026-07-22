@@ -96,4 +96,18 @@ describe('ProgramsService', () => {
     });
     expect(create).not.toHaveBeenCalled();
   });
+  it('rejects a student who bypasses the staff-only creation UI', async () => {
+    findUnique.mockResolvedValue({ role: Role.STUDENT });
+
+    await expect(service.create(101n, input)).rejects.toMatchObject<
+      Partial<DomainException>
+    >({
+      errorCode: {
+        code: ProgramErrorCode.FORBIDDEN,
+        message: PROGRAM_ERROR_CODES[ProgramErrorCode.FORBIDDEN].message,
+        status: 403,
+      },
+    });
+    expect(create).not.toHaveBeenCalled();
+  });
 });

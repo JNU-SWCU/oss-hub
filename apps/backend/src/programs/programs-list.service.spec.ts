@@ -16,7 +16,7 @@ describe('ProgramsService list', () => {
     await service.list();
 
     expect(findMany).toHaveBeenCalledWith({
-      orderBy: [{ applicationStartAt: 'desc' }, { name: 'asc' }],
+      orderBy: [{ applicationStartAt: 'desc' }, { name: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
         name: true,

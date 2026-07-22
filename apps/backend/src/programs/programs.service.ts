@@ -18,7 +18,7 @@ export class ProgramsService {
 
   async list() {
     return this.prisma.program.findMany({
-      orderBy: [{ applicationStartAt: 'desc' }, { name: 'asc' }],
+      orderBy: [{ applicationStartAt: 'desc' }, { name: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
         name: true,

@@ -19,7 +19,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
 import { listPrograms } from './api';
-import { filterAndGroupPrograms, isProgramRecruiting } from './program-list';
+import {
+  filterAndGroupPrograms,
+  getProgramRecruitmentState,
+} from './program-list';
+import type { ProgramRecruitmentState } from './program-list';
 import type { ProgramCategory } from './program-templates';
 import type { ProgramListItem, ProgramListStatus } from './types';
 
@@ -47,10 +51,24 @@ function formatApplicationPeriod(program: ProgramListItem): string {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
+    timeZone: 'Asia/Seoul',
   });
   return `${formatter.format(new Date(program.applicationStartAt))} ~ ${formatter.format(new Date(program.applicationEndAt))}`;
 }
 
+const RECRUITMENT_BADGES = {
+  scheduled: { label: '모집 예정', variant: 'pending' },
+  recruiting: { label: '모집중', variant: 'recruiting' },
+  closed: { label: '마감', variant: 'closed' },
+} as const satisfies Readonly<
+  Record<
+    ProgramRecruitmentState,
+    {
+      readonly label: string;
+      readonly variant: 'pending' | 'recruiting' | 'closed';
+    }
+  >
+>;
 function parseStatus(value: string): ProgramListStatus {
   if (value === 'recruiting' || value === 'closed') return value;
   return 'all';
@@ -138,7 +156,8 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
         <h2 className="font-heading text-lg font-medium">{group.title}</h2>
         <CardGrid>
           {group.programs.map((program) => {
-            const recruiting = isProgramRecruiting(program, now);
+            const recruitmentState = getProgramRecruitmentState(program, now);
+            const badge = RECRUITMENT_BADGES[recruitmentState];
             return (
               <ProgramCard
                 category={CATEGORY_LABELS[program.category]}
@@ -150,8 +169,8 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
                 key={program.id}
                 period={formatApplicationPeriod(program)}
                 status={
-                  <StatusBadge variant={recruiting ? 'recruiting' : 'closed'}>
-                    {recruiting ? '모집중' : '마감'}
+                  <StatusBadge variant={badge.variant}>
+                    {badge.label}
                   </StatusBadge>
                 }
                 title={program.name}
