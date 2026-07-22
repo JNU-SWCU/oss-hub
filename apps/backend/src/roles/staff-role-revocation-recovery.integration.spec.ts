@@ -120,6 +120,41 @@ describe('Staff account lifecycle integration', () => {
     );
   });
 
+  it('불완전한 기존 프로필의 STAFF 승인을 거부하고 보완 후에만 승인한다', async () => {
+    const { staffId, requestId } = await createPendingStaffApplicant();
+
+    await expect(
+      service.decide(ADMIN_GITHUB_ID, requestId, { action: 'APPROVE' }),
+    ).rejects.toMatchObject({
+      errorCode: { code: 'USR_002', status: 409 },
+    });
+    await expect(
+      Promise.all([
+        prisma.user.findUniqueOrThrow({ where: { id: staffId } }),
+        prisma.roleRequest.findUniqueOrThrow({ where: { id: requestId } }),
+      ]),
+    ).resolves.toEqual([
+      expect.objectContaining({ role: null }),
+      expect.objectContaining({ status: RoleRequestStatus.PENDING }),
+    ]);
+
+    await prisma.user.update({
+      where: { id: staffId },
+      data: {
+        name: 'Synthetic Pending Staff',
+        studentId: '202600188',
+        department: 'Synthetic Department',
+      },
+    });
+
+    await expect(
+      service.decide(ADMIN_GITHUB_ID, requestId, { action: 'APPROVE' }),
+    ).resolves.toMatchObject({
+      status: RoleRequestStatus.APPROVED,
+      userRole: Role.STAFF,
+    });
+  });
+
   async function createApprovedStaff(): Promise<{
     readonly adminId: string;
     readonly staffId: string;
@@ -155,6 +190,35 @@ describe('Staff account lifecycle integration', () => {
       },
     });
     return { adminId: admin.id, staffId: staff.id, requestId: request.id };
+  }
+
+  async function createPendingStaffApplicant(): Promise<{
+    readonly staffId: string;
+    readonly requestId: string;
+  }> {
+    await prisma.user.create({
+      data: {
+        id: `${TEST_PREFIX}admin`,
+        githubId: ADMIN_GITHUB_ID,
+        login: 'synthetic-188-admin',
+        role: Role.ADMIN,
+      },
+    });
+    const staff = await prisma.user.create({
+      data: {
+        id: `${TEST_PREFIX}staff`,
+        githubId: STAFF_GITHUB_ID,
+        login: 'synthetic-188-pending-staff',
+      },
+    });
+    const request = await prisma.roleRequest.create({
+      data: {
+        id: `${TEST_PREFIX}request`,
+        userId: staff.id,
+        status: RoleRequestStatus.PENDING,
+      },
+    });
+    return { staffId: staff.id, requestId: request.id };
   }
 
   async function createPreservedAssets(staffId: string): Promise<void> {

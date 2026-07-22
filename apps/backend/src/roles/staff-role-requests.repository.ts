@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { RoleRequestStatus } from '@prisma/client';
 import type { Prisma, User as PrismaUser } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import type { UserProfileRecord } from '../users/user-profile-policy';
 import type { RoleUser } from './domain/role-onboarding';
 import type {
   StaffRoleRequestListQuery,
@@ -23,6 +24,7 @@ type PrismaStaffRoleRequest = Prisma.RoleRequestGetPayload<{
 
 export interface StaffRoleRequestsTransactionStore {
   findUserByGithubId(githubId: bigint): Promise<RoleUser | null>;
+  findUserProfileById(userId: string): Promise<UserProfileRecord | null>;
   findRequestById(id: string): Promise<StaffRoleRequestRecord | null>;
   transitionRequest(input: StaffRoleRequestTransition): Promise<boolean>;
   transitionUserRole(input: StaffUserRoleTransition): Promise<boolean>;
@@ -53,6 +55,18 @@ class PrismaStaffRoleRequestsTransactionStore implements StaffRoleRequestsTransa
       where: { githubId },
     });
     return user ? toRoleUser(user) : null;
+  }
+
+  findUserProfileById(userId: string): Promise<UserProfileRecord | null> {
+    return this.transaction.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        studentId: true,
+        department: true,
+      },
+    });
   }
 
   async findRequestById(id: string): Promise<StaffRoleRequestRecord | null> {
