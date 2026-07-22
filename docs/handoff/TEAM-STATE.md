@@ -10,7 +10,7 @@
 
 | 항목 | 값 |
 | --- | --- |
-$12026-07-22T11:51:46+09:00 |
+| generated_at | 2026-07-22T13:36:00+09:00 |
 | source_commit | cdb5ae1 (main) |
 | 조회 성공 소스 | issues, prs, ci, decisions, exec-plan, branch-protection, project-board |
 | 조회 실패 소스 | 없음 |
