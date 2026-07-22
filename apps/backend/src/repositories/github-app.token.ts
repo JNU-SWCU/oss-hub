@@ -63,9 +63,7 @@ type InstallationToken = {
 
 type UnknownRecord = { readonly [key: string]: unknown };
 
-export class GithubAppTokenProvider
-  implements GithubInstallationTokenProvider
-{
+export class GithubAppTokenProvider implements GithubInstallationTokenProvider {
   private credentialsCache: GithubAppCredentials | null = null;
   private installationId: number | null = null;
   private installationToken: InstallationToken | null = null;

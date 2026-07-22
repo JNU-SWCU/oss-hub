@@ -31,7 +31,12 @@ describe('createGithubAppJwt', () => {
 
     // When: App JWT를 생성하고 공개키로 검증한다.
     const token = await createGithubAppJwt(
-      { ...credentials, privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString() },
+      {
+        ...credentials,
+        privateKey: privateKey
+          .export({ type: 'pkcs8', format: 'pem' })
+          .toString(),
+      },
       NOW,
     );
     const verified = await jwtVerify(token, publicKey, {
@@ -42,14 +47,19 @@ describe('createGithubAppJwt', () => {
 
     // Then: iat과 exp가 ADR-006 시간 계약을 지킨다.
     expect(verified.payload.iat).toBe(Math.floor(NOW.getTime() / 1_000) - 60);
-    expect(verified.payload.exp).toBe(Math.floor(NOW.getTime() / 1_000) + 9 * 60);
+    expect(verified.payload.exp).toBe(
+      Math.floor(NOW.getTime() / 1_000) + 9 * 60,
+    );
   });
 });
 
 describe('GithubAppTokenProvider', () => {
   it('동시 요청은 installation 발견과 token 발급 promise를 공유한다', async () => {
     // Given: 유효한 org installation과 한 시간 token 응답이 있다.
-    const fetcher = jest.fn<ReturnType<GithubAppFetcher>, Parameters<GithubAppFetcher>>();
+    const fetcher = jest.fn<
+      ReturnType<GithubAppFetcher>,
+      Parameters<GithubAppFetcher>
+    >();
     fetcher
       .mockResolvedValueOnce(
         jsonResponse(200, { id: 101, account: { login: 'synthetic-org' } }),
@@ -85,7 +95,10 @@ describe('GithubAppTokenProvider', () => {
 
   it('만료 5분 전까지 access token을 메모리에서 재사용한다', async () => {
     // Given: 발급된 token이 6분 넘게 남아 있다.
-    const fetcher = jest.fn<ReturnType<GithubAppFetcher>, Parameters<GithubAppFetcher>>();
+    const fetcher = jest.fn<
+      ReturnType<GithubAppFetcher>,
+      Parameters<GithubAppFetcher>
+    >();
     fetcher
       .mockResolvedValueOnce(
         jsonResponse(200, { id: 101, account: { login: 'synthetic-org' } }),
@@ -114,7 +127,10 @@ describe('GithubAppTokenProvider', () => {
 
   it('installation account가 설정 org와 다르면 fail-closed한다', async () => {
     // Given: 다른 org를 가리키는 installation 응답이 있다.
-    const fetcher = jest.fn<ReturnType<GithubAppFetcher>, Parameters<GithubAppFetcher>>();
+    const fetcher = jest.fn<
+      ReturnType<GithubAppFetcher>,
+      Parameters<GithubAppFetcher>
+    >();
     fetcher.mockResolvedValue(
       jsonResponse(200, { id: 101, account: { login: 'other-org' } }),
     );
