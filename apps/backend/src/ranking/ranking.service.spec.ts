@@ -104,6 +104,46 @@ describe('RankingService', () => {
     service = new RankingService(repository, defaultOwnerRepository);
   });
 
+  it('returns public ranking items with only ranking DTO fields', async () => {
+    findObservationBatches.mockReturnValue(
+      batches([
+        event(
+          'public-dto',
+          '1',
+          'mina',
+          'PushEvent',
+          null,
+          101,
+          '2026-07-01T00:00:00.000Z',
+          2,
+        ),
+      ]),
+    );
+
+    const result = await service.findPage(RANKING_PERIODS.ALL, 1, 20);
+
+    expect(result.items).toEqual([
+      {
+        rank: 1,
+        displayName: 'mina',
+        githubLogin: 'mina',
+        commitCount: 2,
+        prCount: 0,
+        starCount: 0,
+        total: 2,
+      },
+    ]);
+    for (const internalField of [
+      'applicationId',
+      'applicantId',
+      'answers',
+      'teamId',
+      'status',
+    ]) {
+      expect(result.items[0]).not.toHaveProperty(internalField);
+    }
+  });
+
   it('credits a started watch to the mapped repository owner, not the actor', async () => {
     findObservationBatches.mockReturnValue(
       batches([
