@@ -185,7 +185,7 @@ export class ProgramsRepository {
   findCreatorRole(githubId: bigint) {
     return this.prisma.user.findUnique({
       where: { githubId },
-      select: { role: true },
+      select: { role: true, accountStatus: true },
     });
   }
 
