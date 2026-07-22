@@ -9,6 +9,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ProgramsModule } from './programs/programs.module';
 import { RepositoryOwnershipModule } from './repository-ownership/repository-ownership.module';
 import { RolesModule } from './roles/roles.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { RolesModule } from './roles/roles.module';
     RolesModule,
     ProgramsModule,
     RepositoryOwnershipModule,
+    UsersModule,
   ],
 })
 export class AppModule {}

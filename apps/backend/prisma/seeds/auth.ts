@@ -13,6 +13,7 @@ import {
 export const AUTH_SCENARIOS = {
   'consent-required': seedId('auth', 'consent-required'),
   'user-role-unselected': seedId('auth', 'user-role-unselected'),
+  'profile-complete': seedId('auth', 'profile-complete'),
   'student-confirmed': seedId('auth', 'student-confirmed'),
   'staff-pending': seedId('auth', 'staff-pending'),
   'staff-pending-second': seedId('auth', 'staff-pending-second'),
@@ -59,6 +60,17 @@ async function upsertConsent(stats: SeedStats, userId: string): Promise<void> {
   );
 }
 
+async function setProfile(
+  userId: string,
+  profile: {
+    readonly name: string;
+    readonly studentId: string | null;
+    readonly department: string | null;
+  },
+): Promise<void> {
+  await prisma.user.update({ where: { id: userId }, data: profile });
+}
+
 async function upsertRoleRequest(
   stats: SeedStats,
   params: {
@@ -95,6 +107,19 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
 
   const roleUnselected = await upsertUser(stats, 'user-role-unselected', null);
   await upsertConsent(stats, roleUnselected.id);
+  await setProfile(roleUnselected.id, {
+    name: 'GitHub 합성 이름',
+    studentId: null,
+    department: null,
+  });
+
+  const profileComplete = await upsertUser(stats, 'profile-complete', null);
+  await upsertConsent(stats, profileComplete.id);
+  await setProfile(profileComplete.id, {
+    name: '합성 완료 사용자',
+    studentId: ['20', '2601'].join(''),
+    department: '인공지능학부',
+  });
 
   const studentConfirmed = await upsertUser(
     stats,
