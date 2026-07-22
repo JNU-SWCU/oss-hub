@@ -53,7 +53,10 @@ function toAsciiSlug(value: string): string {
 }
 
 function stableIdPrefix(value: string): string {
-  const prefix = value.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8);
+  const prefix = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .slice(0, 8);
   if (!prefix) {
     throw new RepositoryNameInputError();
   }
