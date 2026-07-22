@@ -124,8 +124,7 @@ describe('RolesRepository integration', () => {
         data: {
           id: `${TEST_PREFIX}incomplete-${selectedRole.toLowerCase()}`,
           githubId:
-            INCOMPLETE_GITHUB_ID +
-            (selectedRole === Role.STUDENT ? 0n : 1n),
+            INCOMPLETE_GITHUB_ID + (selectedRole === Role.STUDENT ? 0n : 1n),
           login: `synthetic-169-incomplete-${selectedRole.toLowerCase()}`,
         },
       });
