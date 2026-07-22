@@ -2,8 +2,8 @@ import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
-import { ProgramCreationService } from './program-creation.service';
 import { ProgramActivityService } from './program-activity.service';
+import { ProgramCreationService } from './program-creation.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsController } from './programs.controller';
 import { ProgramsService } from './programs.service';
@@ -27,7 +27,7 @@ const publicDetail = {
 
 describe('ProgramsController read boundaries', () => {
   const creation = { create: jest.fn() };
-  const programs = { detail: jest.fn() };
+  const programs = { detail: jest.fn(), list: jest.fn() };
   const activity = { activity: jest.fn() };
   const viewers = { fromGithubId: jest.fn() };
   let controller: ProgramsController;
@@ -49,6 +49,18 @@ describe('ProgramsController read boundaries', () => {
       .useValue({ canActivate: jest.fn() })
       .compile();
     controller = module.get(ProgramsController);
+  });
+
+  it('공개 목록은 익명·비활성 방문자에게 열려 있다', () => {
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, controllerMethod('list')),
+    ).toBeUndefined();
+  });
+
+  it('프로그램 생성은 공용 세션·origin guard 뒤에 있다', () => {
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, controllerMethod('create')),
+    ).toEqual([SessionGuard, OriginGuard]);
   });
 
   it('공개 상세는 익명 viewer만 전달하고 인증·private 조회를 시작하지 않는다', async () => {

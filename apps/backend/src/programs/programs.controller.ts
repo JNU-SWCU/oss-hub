@@ -5,6 +5,7 @@ import {
   HttpCode,
   Param,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -16,8 +17,10 @@ import type {
   ProgramActivityResponseDto,
   ProgramDetailResponseDto,
 } from './dto/program-detail.dto';
-import { ProgramCreationService } from './program-creation.service';
+import { ProgramListQueryRequestDto } from './dto/program-list-query.dto';
+import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
 import { ProgramActivityService } from './program-activity.service';
+import { ProgramCreationService } from './program-creation.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsService } from './programs.service';
 
@@ -37,6 +40,15 @@ export class ProgramsController {
     private readonly activity: ProgramActivityService,
     private readonly viewers: ProgramViewerService,
   ) {}
+
+  @Get()
+  async list(
+    @Query() query: ProgramListQueryRequestDto,
+  ): Promise<ProgramListPageResponseDto> {
+    return ProgramListPageResponseDto.from(
+      await this.programs.list(query.toQuery()),
+    );
+  }
 
   @Post()
   @HttpCode(201)

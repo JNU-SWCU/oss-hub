@@ -1,6 +1,11 @@
 import { ApiError, apiClient } from '@/lib/api-client';
 import type { ProgramCategory } from './program-templates';
-import type { ProgramActivity, ProgramDetail } from './types';
+import type {
+  ProgramActivity,
+  ProgramDetail,
+  ProgramListPage,
+  ProgramListParams,
+} from './types';
 
 export interface CreateProgramInput {
   readonly name: string;
@@ -29,6 +34,18 @@ export function createProgram(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
+}
+
+export function listPrograms(
+  params: ProgramListParams,
+): Promise<ProgramListPage> {
+  const search = new URLSearchParams({
+    page: String(params.page),
+    pageSize: String(params.pageSize),
+    search: params.search,
+    status: params.status,
+  });
+  return apiClient<ProgramListPage>('programs?' + search.toString());
 }
 
 export async function getProgramDetail(

@@ -3,15 +3,74 @@ import {
   ApplicationStatus,
   CollectionRunStatus,
   ObservationSourceType,
+  Prisma,
   ProgramCategory,
   RoleRequestStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import type {
+  ProgramListQuery,
+  ProgramListQueryStatus,
+} from './program-list-query';
 import { programApplicationParticipantWhere } from './program-participant';
+
+const PROGRAM_LIST_SELECT = {
+  id: true,
+  name: true,
+  organizer: true,
+  category: true,
+  applicationStartAt: true,
+  applicationEndAt: true,
+  description: true,
+} as const;
+
+export type ProgramListRecord = Prisma.ProgramGetPayload<{
+  select: typeof PROGRAM_LIST_SELECT;
+}>;
+
+function recruitmentWhere(
+  status: ProgramListQueryStatus,
+  now: Date,
+): Prisma.ProgramWhereInput {
+  const whereByStatus = {
+    all: {},
+    recruiting: {
+      applicationStartAt: { lte: now },
+      applicationEndAt: { gte: now },
+    },
+    closed: { applicationEndAt: { lt: now } },
+  } satisfies Readonly<
+    Record<ProgramListQueryStatus, Prisma.ProgramWhereInput>
+  >;
+  return whereByStatus[status];
+}
 
 @Injectable()
 export class ProgramsRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  listPrograms(query: ProgramListQuery, now: Date) {
+    const where: Prisma.ProgramWhereInput = {
+      ...recruitmentWhere(query.status, now),
+      ...(query.search
+        ? { name: { contains: query.search, mode: 'insensitive' as const } }
+        : {}),
+    };
+    return this.prisma.$transaction([
+      this.prisma.program.findMany({
+        where,
+        orderBy: [
+          { applicationStartAt: 'desc' },
+          { name: 'asc' },
+          { id: 'asc' },
+        ],
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+        select: PROGRAM_LIST_SELECT,
+      }),
+      this.prisma.program.count({ where }),
+    ]);
+  }
 
   findProgramDetail(programId: string) {
     return this.prisma.program.findUnique({
