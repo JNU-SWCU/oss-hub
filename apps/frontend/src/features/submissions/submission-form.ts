@@ -10,6 +10,12 @@ export interface SubmissionFormErrors {
   readonly releaseUrl?: string;
 }
 
+const STALE_SUBMISSION_FORM_CODES = new Set(['SUB_005', 'SUB_006']);
+
+export function isStaleSubmissionFormErrorCode(code: string): boolean {
+  return STALE_SUBMISSION_FORM_CODES.has(code);
+}
+
 export function validateSubmissionContent(
   submissionType: SubmissionType,
   input: SubmissionFormInput,

@@ -11,6 +11,7 @@ import { SubmissionFormView } from './components/submission-form-view';
 import {
   type SubmissionFormErrors,
   type SubmissionFormInput,
+  isStaleSubmissionFormErrorCode,
   validateSubmissionContent,
 } from './submission-form';
 import type {
@@ -86,7 +87,15 @@ export function SubmissionPage({
         }),
       });
     } catch (error: unknown) {
-      if (error instanceof ApiError && error.problem.code === 'SUB_009') {
+      if (
+        error instanceof ApiError &&
+        isStaleSubmissionFormErrorCode(error.problem.code)
+      ) {
+        await load();
+      } else if (
+        error instanceof ApiError &&
+        error.problem.code === 'SUB_009'
+      ) {
         setErrors({ releaseUrl: error.problem.detail });
       } else if (
         error instanceof ApiError &&

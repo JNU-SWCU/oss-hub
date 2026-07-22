@@ -1,5 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { validateSubmissionContent } from './submission-form';
+import {
+  isStaleSubmissionFormErrorCode,
+  validateSubmissionContent,
+} from './submission-form';
+
+describe('isStaleSubmissionFormErrorCode', () => {
+  it.each(['SUB_005', 'SUB_006'])(
+    '%s는 서버 기준 제출 상태를 다시 조회한다',
+    (code) => {
+      expect(isStaleSubmissionFormErrorCode(code)).toBe(true);
+    },
+  );
+
+  it('field 오류는 현재 입력 폼에서 처리한다', () => {
+    expect(isStaleSubmissionFormErrorCode('SUB_009')).toBe(false);
+  });
+});
 
 describe('validateSubmissionContent', () => {
   it('TEXT는 공백만 있는 제출을 거절하고 입력값은 유지한다', () => {
