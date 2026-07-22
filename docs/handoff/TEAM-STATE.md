@@ -93,7 +93,7 @@ planned)을 한 표에 담는다.
 | 학생 활동 타임라인 | @jinsol1190-rgb | review | #154 | #198 | pass | 리뷰 수정 반영 후 재검토 대기 |
 | Cross-cutting E2E 스모크(접수 흐름·전체 루프) | @GoBeromsu | planned | #128 #129 | - | - | 상위 화면 티켓들 merge 진행에 따라 순차 검증 |
 | Product Definition & Operations 백로그(배포 스파이크·Notion PRD·IA 동기화) | @GoBeromsu | planned | #112 #130 | - | - | #112: 사업단 스테이징 인스턴스 수령 대기(외부) |
-| Data Collection·활성화 랭킹(저장소 주기 수집 스케줄러·nav 랭킹 화면) | @GoBeromsu (#151) / @Geuin04 (#152) | planned | #151 #152 | - | - | 없음 |
+| Data Collection·활성화 랭킹(저장소 주기 수집 스케줄러·nav 랭킹 화면) | @GoBeromsu (#151) / @jinsol1190-rgb (#152) | review | #151 #152 | #194 | local pass | #152는 #202 저장소 소유권 projection과 최신 main 반영, 재검토 대기 |
 | 공개 랭킹 저장소 소유권 projection | @jinsol1190-rgb | done | #197 | #202 | pass | 없음 |
 
 ## 외부 게이트
