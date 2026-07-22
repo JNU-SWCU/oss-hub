@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ApplicationsModule } from './applications/applications.module';
 import { AuthModule } from './auth/auth.module';
 import { CollectionModule } from './collection/collection.module';
 import { ConsentsModule } from './consents/consents.module';
@@ -17,6 +18,7 @@ import { RolesModule } from './roles/roles.module';
     AuthModule,
     CollectionModule,
     ConsentsModule,
+    ApplicationsModule,
     RolesModule,
     ProgramsModule,
     RepositoryOwnershipModule,
