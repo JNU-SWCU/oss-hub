@@ -1,12 +1,27 @@
 import { Injectable } from '@nestjs/common';
-import { AccountStatus, User as PrismaUser } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
+import type { Prisma, User as PrismaUser } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolveBootstrapRole } from './admin-bootstrap';
-import { AuthLoginResult, AuthUser, GithubProfile } from './domain/auth-user';
+import type {
+  AuthLoginResult,
+  AuthUser,
+  GithubProfile,
+} from './domain/auth-user';
 
-@Injectable()
-export class AuthRepository {
-  constructor(private readonly prisma: PrismaService) {}
+export interface AuthTransactionStore {
+  upsertUser(profile: GithubProfile): Promise<AuthLoginResult>;
+}
+
+export interface AuthRepositoryPort {
+  withTransaction<T>(
+    operation: (store: AuthTransactionStore) => Promise<T>,
+  ): Promise<T>;
+  findByGithubId(githubId: bigint): Promise<AuthUser | null>;
+}
+
+class PrismaAuthTransactionStore implements AuthTransactionStore {
+  constructor(private readonly transaction: Prisma.TransactionClient) {}
 
   /**
    * 기존 사용자는 login·avatarUrl만 갱신한다 — 온보딩 name과 권한 상태는 로그인마다 유지된다.
@@ -18,57 +33,68 @@ export class AuthRepository {
    */
   async upsertUser(profile: GithubProfile): Promise<AuthLoginResult> {
     const bootstrapRole = resolveBootstrapRole(profile.login);
-    return this.prisma.$transaction(async (transaction) => {
-      const created = await transaction.user.createMany({
-        data: {
-          githubId: profile.githubId,
-          login: profile.login,
-          name: profile.name,
-          avatarUrl: profile.avatarUrl,
-          role: bootstrapRole ?? undefined,
-        },
-        skipDuplicates: true,
-      });
-      let user =
-        created.count === 1
-          ? await transaction.user.findUniqueOrThrow({
-              where: { githubId: profile.githubId },
-            })
-          : await transaction.user.update({
-              where: { githubId: profile.githubId },
-              data: {
-                login: profile.login,
-                avatarUrl: profile.avatarUrl,
-              },
-            });
-      if (
-        user.accountStatus === AccountStatus.ACTIVE &&
-        user.role === null &&
-        bootstrapRole
-      ) {
-        user = await transaction.user.update({
-          where: { id: user.id },
-          data: { role: bootstrapRole },
-        });
-      }
-      return { user: this.toDomain(user), isNew: created.count === 1 };
+    const created = await this.transaction.user.createMany({
+      data: {
+        githubId: profile.githubId,
+        login: profile.login,
+        name: profile.name,
+        avatarUrl: profile.avatarUrl,
+        role: bootstrapRole ?? undefined,
+      },
+      skipDuplicates: true,
     });
+    let user =
+      created.count === 1
+        ? await this.transaction.user.findUniqueOrThrow({
+            where: { githubId: profile.githubId },
+          })
+        : await this.transaction.user.update({
+            where: { githubId: profile.githubId },
+            data: {
+              login: profile.login,
+              avatarUrl: profile.avatarUrl,
+            },
+          });
+    if (
+      user.accountStatus === AccountStatus.ACTIVE &&
+      user.role === null &&
+      bootstrapRole
+    ) {
+      user = await this.transaction.user.update({
+        where: { id: user.id },
+        data: { role: bootstrapRole },
+      });
+    }
+    return { user: toDomain(user), isNew: created.count === 1 };
+  }
+}
+
+@Injectable()
+export class AuthRepository implements AuthRepositoryPort {
+  constructor(private readonly prisma: PrismaService) {}
+
+  withTransaction<T>(
+    operation: (store: AuthTransactionStore) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction((transaction) =>
+      operation(new PrismaAuthTransactionStore(transaction)),
+    );
   }
 
   async findByGithubId(githubId: bigint): Promise<AuthUser | null> {
     const user = await this.prisma.user.findUnique({ where: { githubId } });
-    return user ? this.toDomain(user) : null;
+    return user ? toDomain(user) : null;
   }
+}
 
-  private toDomain(user: PrismaUser): AuthUser {
-    return {
-      id: user.id,
-      githubId: user.githubId,
-      login: user.login,
-      name: user.name,
-      avatarUrl: user.avatarUrl,
-      accountStatus: user.accountStatus,
-      role: user.role,
-    };
-  }
+function toDomain(user: PrismaUser): AuthUser {
+  return {
+    id: user.id,
+    githubId: user.githubId,
+    login: user.login,
+    name: user.name,
+    avatarUrl: user.avatarUrl,
+    accountStatus: user.accountStatus,
+    role: user.role,
+  };
 }

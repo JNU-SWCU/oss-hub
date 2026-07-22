@@ -3,9 +3,12 @@ import { AccountStatus, Role } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { AuthErrorCode } from './auth-error-code.enum';
 import { AuthConfig } from './auth.config';
-import { AuthRepository } from './auth.repository';
+import type {
+  AuthRepositoryPort,
+  AuthTransactionStore,
+} from './auth.repository';
 import { AuthService } from './auth.service';
-import { AuthUser } from './domain/auth-user';
+import type { AuthUser } from './domain/auth-user';
 import { createFlowState, encodeFlowCookie } from './oauth-flow';
 
 // 합성 데이터만 사용한다 (docs/rules/security.md)
@@ -40,11 +43,17 @@ function jsonResponse(status: number, body: unknown): Response {
 
 describe('AuthService', () => {
   const upsertUser = jest.fn();
+  const withTransaction = jest
+    .fn()
+    .mockImplementation(
+      (operation: (store: AuthTransactionStore) => Promise<unknown>) =>
+        operation({ upsertUser }),
+    );
   const findByGithubId = jest.fn();
   const repository = {
-    upsertUser,
+    withTransaction,
     findByGithubId,
-  } as unknown as AuthRepository;
+  } satisfies AuthRepositoryPort;
   let service: AuthService;
   let fetchMock: jest.SpyInstance;
 
@@ -100,6 +109,7 @@ describe('AuthService', () => {
       name: null,
       avatarUrl: null,
     });
+    expect(withTransaction).toHaveBeenCalledTimes(1);
     // code 교환 요청에 verifier가 포함됐는지
     const [, exchangeInit] = fetchMock.mock.calls[0] as [string, RequestInit];
     const exchangeBody = JSON.parse(exchangeInit.body as string) as Record<
@@ -122,6 +132,7 @@ describe('AuthService', () => {
         errorCode: { code: AuthErrorCode.OAUTH_FLOW_INVALID },
       });
       expect(fetchMock).not.toHaveBeenCalled();
+      expect(withTransaction).not.toHaveBeenCalled();
       expect(upsertUser).not.toHaveBeenCalled();
     },
   );
@@ -136,6 +147,7 @@ describe('AuthService', () => {
         flowCookie: encodeFlowCookie(flow),
       }),
     ).rejects.toThrow('access_token');
+    expect(withTransaction).not.toHaveBeenCalled();
     expect(upsertUser).not.toHaveBeenCalled();
   });
 

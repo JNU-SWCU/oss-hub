@@ -1,10 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.enum';
 import { AuthConfig } from './auth.config';
 import { AuthRepository } from './auth.repository';
-import { AuthLoginResult, AuthUser, GithubProfile } from './domain/auth-user';
+import type { AuthRepositoryPort } from './auth.repository';
+import type {
+  AuthLoginResult,
+  AuthUser,
+  GithubProfile,
+} from './domain/auth-user';
 import {
   createFlowState,
   decodeFlowCookie,
@@ -36,7 +41,8 @@ export interface CompleteLoginInput {
 export class AuthService {
   constructor(
     private readonly config: AuthConfig,
-    private readonly repository: AuthRepository,
+    @Inject(AuthRepository)
+    private readonly repository: AuthRepositoryPort,
   ) {}
 
   buildAuthorizeRedirect(): AuthorizeRedirect {
@@ -65,7 +71,9 @@ export class AuthService {
     }
     const accessToken = await this.exchangeCode(input.code, flow.verifier);
     const profile = await this.fetchProfile(accessToken);
-    return this.repository.upsertUser(profile);
+    return this.repository.withTransaction((store) =>
+      store.upsertUser(profile),
+    );
   }
 
   async issueSession(user: AuthUser): Promise<string> {

@@ -11,6 +11,15 @@ const githubId = 9_600_000_000_009_001n;
 const prisma = new PrismaService();
 const repository = new AuthRepository(prisma);
 
+function upsertUser(profile: {
+  readonly githubId: bigint;
+  readonly login: string;
+  readonly name: string | null;
+  readonly avatarUrl: string | null;
+}) {
+  return repository.withTransaction((store) => store.upsertUser(profile));
+}
+
 beforeAll(async () => {
   await prisma.$connect();
 });
@@ -33,8 +42,8 @@ it('동시 최초 로그인은 신규 1건으로 수렴하고 이후 로그인�
   };
 
   const firstLogins = await Promise.all([
-    repository.upsertUser(profile),
-    repository.upsertUser(profile),
+    upsertUser(profile),
+    upsertUser(profile),
   ]);
   expect(firstLogins.filter((login) => login.isNew)).toHaveLength(1);
 
@@ -42,7 +51,7 @@ it('동시 최초 로그인은 신규 1건으로 수렴하고 이후 로그인�
     where: { githubId },
     data: { name: '사용자 입력 이름' },
   });
-  const returningLogin = await repository.upsertUser({
+  const returningLogin = await upsertUser({
     ...profile,
     login: 'synthetic-oauth-user-renamed',
     name: '변경된 GitHub 이름',

@@ -1,7 +1,7 @@
 import { AccountStatus, Role, User as PrismaUser } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthRepository } from './auth.repository';
-import { GithubProfile } from './domain/auth-user';
+import type { GithubProfile } from './domain/auth-user';
 
 // 합성 데이터만 사용한다 (docs/rules/security.md)
 function buildProfile(overrides: Partial<GithubProfile> = {}): GithubProfile {
@@ -62,6 +62,10 @@ function buildRepository(
   };
 }
 
+function upsertUser(repository: AuthRepository, profile: GithubProfile) {
+  return repository.withTransaction((store) => store.upsertUser(profile));
+}
+
 describe('AuthRepository.upsertUser', () => {
   it('update 절은 role·accountStatus를 건드리지 않는다 — 로그인마다 권한 상태가 유지된다', async () => {
     const { repository, update } = buildRepository(
@@ -71,7 +75,7 @@ describe('AuthRepository.upsertUser', () => {
       }),
     );
 
-    const result = await repository.upsertUser(buildProfile());
+    const result = await upsertUser(repository, buildProfile());
 
     expect(result.user.role).toBe(Role.STAFF);
     expect(result.user.accountStatus).toBe(AccountStatus.DEACTIVATED);
@@ -92,7 +96,8 @@ describe('AuthRepository.upsertUser', () => {
       }),
     );
 
-    const result = await repository.upsertUser(
+    const result = await upsertUser(
+      repository,
       buildProfile({ githubId: 1n, login: 'GoBeromsu' }),
     );
 
@@ -107,7 +112,8 @@ describe('AuthRepository.upsertUser', () => {
       { isNew: true },
     );
 
-    const result = await repository.upsertUser(
+    const result = await upsertUser(
+      repository,
       buildProfile({ githubId: 1n, login: 'GoBeromsu' }),
     );
 
@@ -132,7 +138,8 @@ describe('AuthRepository.upsertUser', () => {
       },
     );
 
-    const result = await repository.upsertUser(
+    const result = await upsertUser(
+      repository,
       buildProfile({ githubId: 1n, login: 'GoBeromsu' }),
     );
 
@@ -149,7 +156,7 @@ describe('AuthRepository.upsertUser', () => {
       { isNew: true },
     );
 
-    const result = await repository.upsertUser(buildProfile());
+    const result = await upsertUser(repository, buildProfile());
 
     expect(result.user.role).toBeNull();
     expect(result.isNew).toBe(true);
@@ -165,7 +172,7 @@ describe('AuthRepository.upsertUser', () => {
       buildRow({ role: null, accountStatus: AccountStatus.ACTIVE }),
     );
 
-    const result = await repository.upsertUser(buildProfile());
+    const result = await upsertUser(repository, buildProfile());
 
     expect(result).toMatchObject({
       isNew: false,
@@ -182,7 +189,8 @@ describe('AuthRepository.upsertUser', () => {
       buildRow({ name: '사용자 입력 이름' }),
     );
 
-    const result = await repository.upsertUser(
+    const result = await upsertUser(
+      repository,
       buildProfile({ name: 'GitHub 표시 이름' }),
     );
 
