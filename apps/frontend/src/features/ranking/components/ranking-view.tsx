@@ -141,7 +141,10 @@ export function RankingView({
       ) : null}
       <Alert>
         <AlertTitle>집계 안내</AlertTitle>
-        <AlertDescription>{RANKING_NOTICE}</AlertDescription>
+        <AlertDescription>
+          {RANKING_NOTICE} Star는 해당 기간에 받은 WatchEvent.started 활동
+          수이며, 저장소의 현재 스타 수가 아닙니다.
+        </AlertDescription>
       </Alert>
       {state.kind === 'ready' && ranking && ranking.items.length === 0 ? (
         <EmptyState
@@ -153,7 +156,7 @@ export function RankingView({
         <DataTable
           columns={columns}
           data={ranking?.items ? [...ranking.items] : []}
-          rowKey={(item) => item.githubLogin}
+          rowKey={(item) => item.rank}
           isLoading={state.kind === 'loading'}
           loadingSlot="랭킹을 불러오는 중입니다…"
           emptyState="표시할 데이터가 없습니다."

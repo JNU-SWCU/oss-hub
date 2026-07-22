@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { RepositoryOwnerRepository } from '../repository-ownership/repository-owner.repository';
 import {
   RANKING_NOTICE,
   RANKING_PERIODS,
@@ -15,6 +16,7 @@ import {
 const RANKING_CACHE_TTL_MS = 60_000;
 
 interface ParsedEvent {
+  readonly type: string;
   readonly repositoryId: string;
   readonly occurredAt: Date;
   readonly metrics: RankingMetrics;
@@ -102,7 +104,9 @@ function parseEvent(payload: unknown): ParsedEvent | null {
   }
   const repositoryId = readRepositoryId(repository.id);
   const metrics = parseMetrics(eventType, eventPayload);
-  return repositoryId && metrics ? { repositoryId, occurredAt, metrics } : null;
+  return repositoryId && metrics
+    ? { type: eventType, repositoryId, occurredAt, metrics }
+    : null;
 }
 
 function isWithinPeriod(
@@ -154,7 +158,10 @@ export class RankingService {
     Promise<readonly RankingEntry[]>
   >();
 
-  constructor(private readonly repository: RankingRepository) {}
+  constructor(
+    private readonly repository: RankingRepository,
+    private readonly ownerRepository: RepositoryOwnerRepository,
+  ) {}
 
   async findPage(
     period: RankingPeriod,
@@ -209,13 +216,27 @@ export class RankingService {
     currentYear: number,
   ): Promise<readonly RankingEntry[]> {
     const repositoryIds = new Set<string>();
+    const ownersByRepositoryId = new Map<
+      string,
+      { readonly githubId: string; readonly login: string }
+    >();
     for await (const batch of this.repository.findPlatformRepositoryIdBatches()) {
       for (const repositoryId of batch) {
         repositoryIds.add(repositoryId);
       }
+      const owners = await this.ownerRepository.findByGithubRepositoryIds(
+        batch.map((repositoryId) => BigInt(repositoryId)),
+      );
+      for (const owner of owners) {
+        ownersByRepositoryId.set(String(owner.githubRepositoryId), {
+          githubId: String(owner.ownerGithubId),
+          login: owner.ownerGithubLogin,
+        });
+      }
     }
     const metricsByGithubId = new Map<string, RankingMetrics>();
     const identitiesByGithubId = new Map<string, CanonicalIdentity>();
+    const ownerLoginsByGithubId = new Map<string, string>();
     const fetchedAtOrAfter =
       period === RANKING_PERIODS.THIS_YEAR
         ? new Date(Date.UTC(currentYear, 0, 1))
@@ -226,10 +247,10 @@ export class RankingService {
       fetchedAtOrAfter,
     )) {
       for (const observation of batch) {
-        const currentIdentity = identitiesByGithubId.get(
+        const currentActorIdentity = identitiesByGithubId.get(
           observation.targetGithubId,
         );
-        if (isNewerIdentity(observation, currentIdentity)) {
+        if (isNewerIdentity(observation, currentActorIdentity)) {
           identitiesByGithubId.set(observation.targetGithubId, {
             login: observation.targetLogin,
             runId: observation.runId,
@@ -249,32 +270,70 @@ export class RankingService {
         ) {
           continue;
         }
+
+        const owner = ownersByRepositoryId.get(event.repositoryId);
+        if (event.type === 'WatchEvent' && !owner) {
+          continue;
+        }
+        const githubId =
+          event.type === 'WatchEvent' && owner
+            ? owner.githubId
+            : observation.targetGithubId;
+        const login =
+          event.type === 'WatchEvent' && owner
+            ? owner.login
+            : observation.targetLogin;
+        const currentIdentity = identitiesByGithubId.get(githubId);
+        if (event.type === 'WatchEvent') {
+          ownerLoginsByGithubId.set(githubId, login);
+        }
+        if (
+          event.type === 'WatchEvent' ||
+          isNewerIdentity(observation, currentIdentity)
+        ) {
+          identitiesByGithubId.set(githubId, {
+            login,
+            runId: observation.runId,
+            runStartedAt: observation.runStartedAt,
+          });
+        }
         metricsByGithubId.set(
-          observation.targetGithubId,
+          githubId,
           addMetrics(
-            metricsByGithubId.get(observation.targetGithubId) ?? emptyMetrics(),
+            metricsByGithubId.get(githubId) ?? emptyMetrics(),
             event.metrics,
           ),
         );
       }
     }
 
-    return this.toEntries(metricsByGithubId, identitiesByGithubId);
+    return this.toEntries(
+      metricsByGithubId,
+      identitiesByGithubId,
+      ownerLoginsByGithubId,
+    );
   }
 
   private toEntries(
     metricsByGithubId: ReadonlyMap<string, RankingMetrics>,
     identitiesByGithubId: ReadonlyMap<string, CanonicalIdentity>,
+    ownerLoginsByGithubId: ReadonlyMap<string, string>,
   ): RankingEntry[] {
     return [...metricsByGithubId.entries()]
-      .map(([githubId, metrics]) => ({
-        githubId,
-        rank: 0,
-        displayName: identitiesByGithubId.get(githubId)?.login ?? githubId,
-        githubLogin: identitiesByGithubId.get(githubId)?.login ?? githubId,
-        ...metrics,
-        total: metrics.commitCount + metrics.prCount + metrics.starCount,
-      }))
+      .map(([githubId, metrics]) => {
+        const login =
+          ownerLoginsByGithubId.get(githubId) ??
+          identitiesByGithubId.get(githubId)?.login ??
+          githubId;
+        return {
+          githubId,
+          rank: 0,
+          displayName: login,
+          githubLogin: login,
+          ...metrics,
+          total: metrics.commitCount + metrics.prCount + metrics.starCount,
+        };
+      })
       .filter((entry) => entry.total > 0)
       .sort(
         (left, right) =>

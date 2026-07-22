@@ -1,5 +1,9 @@
 import { RANKING_NOTICE, RANKING_PERIODS } from './domain/ranking';
 import {
+  RepositoryOwnerRepository,
+  type RepositoryOwnerProjectionClient,
+} from '../repository-ownership/repository-owner.repository';
+import {
   RankingRepository,
   type RankingObservation,
 } from './ranking.repository';
@@ -57,14 +61,175 @@ describe('RankingService', () => {
     findPlatformRepositoryIdBatches,
     findObservationBatches,
   } as unknown as RankingRepository;
+  const defaultOwnerRepository = new RepositoryOwnerRepository({
+    repositoryOwnerProjection: {
+      findMany: jest.fn().mockResolvedValue([
+        {
+          githubRepositoryId: 101n,
+          ownerGithubId: 2n,
+          ownerGithubLogin: 'june',
+        },
+      ]),
+    },
+  });
   let service: RankingService;
+
+  function serviceWithRepositoryOwners(
+    owners: readonly {
+      readonly githubRepositoryId: bigint;
+      readonly ownerGithubId: bigint;
+      readonly ownerGithubLogin: string;
+    }[],
+  ): {
+    readonly service: RankingService;
+    readonly findMany: jest.Mock;
+  } {
+    const findMany = jest.fn().mockResolvedValue(owners);
+    const projectionClient: RepositoryOwnerProjectionClient = {
+      repositoryOwnerProjection: { findMany },
+    };
+    const ownerRepository = new RepositoryOwnerRepository(projectionClient);
+
+    return {
+      service: new RankingService(repository, ownerRepository),
+      findMany,
+    };
+  }
 
   beforeEach(() => {
     findPlatformRepositoryIdBatches
       .mockReset()
       .mockImplementation(() => repositoryBatches(['101']));
     findObservationBatches.mockReset();
-    service = new RankingService(repository);
+    service = new RankingService(repository, defaultOwnerRepository);
+  });
+
+  it('credits a started watch to the mapped repository owner, not the actor', async () => {
+    findObservationBatches.mockReturnValue(
+      batches([
+        event(
+          'star-owned-repository',
+          '22',
+          'watching-actor',
+          'WatchEvent',
+          'started',
+          101,
+          '2026-07-01T00:00:00.000Z',
+        ),
+      ]),
+    );
+    const owner = {
+      githubRepositoryId: 101n,
+      ownerGithubId: 11n,
+      ownerGithubLogin: 'repository-owner',
+    } as const;
+    const ownerBacked = serviceWithRepositoryOwners([owner]);
+
+    const result = await ownerBacked.service.findPage(
+      RANKING_PERIODS.ALL,
+      1,
+      20,
+    );
+
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        githubLogin: 'repository-owner',
+        starCount: 1,
+        total: 1,
+      }),
+    ]);
+    expect(result.items).not.toContainEqual(
+      expect.objectContaining({ githubLogin: 'watching-actor' }),
+    );
+    expect(ownerBacked.findMany).toHaveBeenCalledWith({
+      where: { githubRepositoryId: { in: [101n] } },
+      select: {
+        githubRepositoryId: true,
+        ownerGithubId: true,
+        ownerGithubLogin: true,
+      },
+    });
+  });
+
+  it('excludes a started watch when its repository has no owner projection', async () => {
+    findObservationBatches.mockReturnValue(
+      batches([
+        event(
+          'star-unmapped-repository',
+          '22',
+          'watching-actor',
+          'WatchEvent',
+          'started',
+          101,
+          '2026-07-01T00:00:00.000Z',
+        ),
+      ]),
+    );
+    const ownerBacked = serviceWithRepositoryOwners([]);
+
+    const result = await ownerBacked.service.findPage(
+      RANKING_PERIODS.ALL,
+      1,
+      20,
+    );
+
+    expect(result.items).toEqual([]);
+    expect(ownerBacked.findMany).toHaveBeenCalledWith({
+      where: { githubRepositoryId: { in: [101n] } },
+      select: {
+        githubRepositoryId: true,
+        ownerGithubId: true,
+        ownerGithubLogin: true,
+      },
+    });
+  });
+
+  it('credits one owner star for a repeated source event observed in team contexts', async () => {
+    findObservationBatches.mockReturnValue(
+      batches([
+        event(
+          'shared-star-source',
+          '22',
+          'first-team-member',
+          'WatchEvent',
+          'started',
+          101,
+          '2026-07-01T00:00:00.000Z',
+        ),
+        event(
+          'shared-star-source',
+          '33',
+          'second-team-member',
+          'WatchEvent',
+          'started',
+          101,
+          '2026-07-01T00:00:00.000Z',
+          undefined,
+          '2026-07-02T00:00:00.000Z',
+        ),
+      ]),
+    );
+    const ownerBacked = serviceWithRepositoryOwners([
+      {
+        githubRepositoryId: 101n,
+        ownerGithubId: 11n,
+        ownerGithubLogin: 'repository-owner',
+      },
+    ]);
+
+    const result = await ownerBacked.service.findPage(
+      RANKING_PERIODS.ALL,
+      1,
+      20,
+    );
+
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        githubLogin: 'repository-owner',
+        starCount: 1,
+        total: 1,
+      }),
+    ]);
   });
 
   it('연결 저장소의 Push size, PR opened, Watch started만 한 번씩 집계한다', async () => {
@@ -195,6 +360,44 @@ describe('RankingService', () => {
     });
   });
 
+  it('최신 run의 event가 제외되어도 해당 run의 login을 사용한다', async () => {
+    findObservationBatches.mockReturnValue(
+      batches([
+        event(
+          'included',
+          '77',
+          'old-login',
+          'PushEvent',
+          null,
+          101,
+          '2026-06-01T00:00:00.000Z',
+          2,
+          '2026-06-02T00:00:00.000Z',
+        ),
+        event(
+          'excluded',
+          '77',
+          'new-login',
+          'PushEvent',
+          null,
+          999,
+          '2026-07-01T00:00:00.000Z',
+          3,
+          '2026-07-02T00:00:00.000Z',
+        ),
+      ]),
+    );
+
+    await expect(
+      service.findPage(RANKING_PERIODS.ALL, 1, 20),
+    ).resolves.toMatchObject({
+      items: [
+        { githubLogin: 'new-login', commitCount: 2, prCount: 0, total: 2 },
+      ],
+      total: 1,
+    });
+  });
+
   it('login이 같아도 githubId가 다르면 별도 entry로 유지한다', async () => {
     findObservationBatches.mockReturnValue(
       batches([
@@ -212,8 +415,8 @@ describe('RankingService', () => {
           'two',
           '2',
           'shared',
-          'WatchEvent',
-          'started',
+          'PullRequestEvent',
+          'opened',
           101,
           '2026-07-01T00:00:00.000Z',
         ),
