@@ -85,7 +85,7 @@ planned)을 한 표에 담는다.
 | ADR-004 REST 예시 도메인 교체(members→users) | @GoBeromsu | done | #76 | #91 | pass | 없음 |
 | CI: public-safe Issue·댓글 스캔 + commitlint 이벤트 가드 | @GoBeromsu | done | #68 | #150 #159 | pass | 없음 |
 | 학생용 수집 App(private repo 포함, read-only) | @Lumiere001 | planned | #15 | - | - | 정책 전제 4건 미확정: 산정 범위·개인 repo 보존·동의 절차·App 소유·운영(unblock: @GoBeromsu). #120/#123(조직 소유 자동화 App, write 권한)과는 별개 앱임을 #15/#120 코멘트로 명확화함 — 대체 관계 아님 |
-| Access & GitHub Platform 백로그(13건: 로그인 이력·온보딩 프로필·설정·관리 콘솔·감사 로그·시스템 상태·저장소 자동화·webhook 확장 등) | @Lumiere001 | active (#121) | #99 #107 #108 #120 #121 #122 #123 #131 #132 #133 #153 #156 #157 | #121 Draft PR 준비 | automated pass | #121 코드·자동 검증 완료, 승인된 비운영 org·Operations test App live smoke 대기. 증거 전 Issue 유지 |
+| Access & GitHub Platform 백로그(13건: 로그인 이력·온보딩 프로필·설정·관리 콘솔·감사 로그·시스템 상태·저장소 자동화·webhook 확장 등) | @Lumiere001 | active (#121) | #99 #107 #108 #120 #121 #122 #123 #131 #132 #133 #153 #156 #157 | [#204](https://github.com/JNU-SWCU/oss-hub/pull/204) Draft | automated pass | #121 코드·자동 검증 완료, 승인된 비운영 org·Operations test App live smoke 대기. 증거 전 Issue 유지 |
 | 공통 랜딩 세션별 진입 CTA | @jinsol1190-rgb | done | #98 | #201 | pass | 없음 |
 | Program & Intake 백로그(10건: 프로그램 생성·편집·목록·상세·신청·팀 구성·신청자 목록·신청 폼·승인 트리거) | @Geuin04 | active (#101 #102 #103 #118) | #100 #101 #102 #103 #104 #105 #106 #117 #118 #119 | [#189](https://github.com/JNU-SWCU/oss-hub/pull/189) merged · #191/#195 Draft | #189 CI pass | #100 병합으로 #101·#104·#118 착수 가능 |
 | 프로그램 생성 이탈 보호·동작 계약 | @Lumiere001 | done | #196 | #200 | pass | 없음 — 실제 브라우저 접수 E2E는 #128 통합 QA에서 수행 |
