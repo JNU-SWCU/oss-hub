@@ -93,7 +93,6 @@ export class ProgramsController {
       await this.viewers.fromGithubId(request.sessionGithubId),
     );
   }
-
 }
 
 @Controller('dashboard/student')
