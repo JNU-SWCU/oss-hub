@@ -226,39 +226,44 @@ describe('SubmissionsService integration', () => {
     const [overdueMilestoneId] = MILESTONE_SCENARIOS['milestones-overdue'];
     const [textMilestoneId] = MILESTONE_SCENARIOS['milestones-upcoming'];
 
-    // When
-    const overdue = service.create(
-      seedGithubId(PERSONAL_USER_ID),
-      {
-        applicationId: PERSONAL_APPLICATION_ID,
-        milestoneId: overdueMilestoneId,
-        content: { type: MilestoneSubmissionType.FILE, fileId: 'file-id' },
-        comment: null,
-      },
-      new Date('2099-01-01T00:00:00.000Z'),
-    );
-    const mismatch = service.create(
-      seedGithubId(PERSONAL_USER_ID),
-      {
-        applicationId: PERSONAL_APPLICATION_ID,
-        milestoneId: textMilestoneId,
-        content: {
-          type: MilestoneSubmissionType.REPOSITORY_RELEASE,
-          releaseUrl:
-            'https://github.invalid/oss-hub-seed/repository-ready/releases/tag/v1',
-        },
-        comment: null,
-      },
-      NOW,
-    );
-
-    // Then
-    await expect(overdue).rejects.toMatchObject({
-      errorCode: { code: SubmissionsErrorCode.MILESTONE_CLOSED },
-    });
-    await expect(mismatch).rejects.toMatchObject({
-      errorCode: { code: SubmissionsErrorCode.CONTENT_TYPE_MISMATCH },
-    });
+    // When & Then: 두 handler를 즉시 등록해 빠른 실패가 unhandled로 새지 않게 한다.
+    await Promise.all([
+      expect(
+        service.create(
+          seedGithubId(PERSONAL_USER_ID),
+          {
+            applicationId: PERSONAL_APPLICATION_ID,
+            milestoneId: overdueMilestoneId,
+            content: {
+              type: MilestoneSubmissionType.FILE,
+              fileId: 'file-id',
+            },
+            comment: null,
+          },
+          new Date('2099-01-01T00:00:00.000Z'),
+        ),
+      ).rejects.toMatchObject({
+        errorCode: { code: SubmissionsErrorCode.MILESTONE_CLOSED },
+      }),
+      expect(
+        service.create(
+          seedGithubId(PERSONAL_USER_ID),
+          {
+            applicationId: PERSONAL_APPLICATION_ID,
+            milestoneId: textMilestoneId,
+            content: {
+              type: MilestoneSubmissionType.REPOSITORY_RELEASE,
+              releaseUrl:
+                'https://github.invalid/oss-hub-seed/repository-ready/releases/tag/v1',
+            },
+            comment: null,
+          },
+          NOW,
+        ),
+      ).rejects.toMatchObject({
+        errorCode: { code: SubmissionsErrorCode.CONTENT_TYPE_MISMATCH },
+      }),
+    ]);
   });
 
   it('FILE 유형은 준비되지 않은 상태로 fail-closed 한다', async () => {
