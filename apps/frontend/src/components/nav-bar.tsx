@@ -24,7 +24,7 @@ function NavBar({ items, brand, actions, className, ...props }: NavBarProps) {
     <nav
       data-slot="nav-bar"
       className={cn(
-        'flex min-h-14 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-background px-4 py-2 sm:h-14 min-[480px]:flex-nowrap sm:py-0',
+        'flex min-h-14 flex-nowrap items-center gap-x-2 overflow-x-clip border-b border-border bg-background px-3 py-2 sm:h-14 sm:gap-x-4 sm:px-4 sm:py-0',
         className,
       )}
       {...props}
@@ -45,7 +45,7 @@ function NavBar({ items, brand, actions, className, ...props }: NavBarProps) {
           <li key={item.href}>
             <Link
               href={item.href}
-              className="whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground"
+              className="whitespace-nowrap rounded-md px-2 py-1.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground sm:px-2.5"
             >
               {item.label}
             </Link>
@@ -55,7 +55,7 @@ function NavBar({ items, brand, actions, className, ...props }: NavBarProps) {
       {actions ? (
         <div
           data-slot="nav-bar-actions"
-          className="flex shrink-0 items-center justify-end gap-2 max-[479px]:order-last max-[479px]:w-full max-[479px]:basis-full"
+          className="flex shrink-0 items-center justify-end gap-1 sm:gap-2"
         >
           {actions}
         </div>

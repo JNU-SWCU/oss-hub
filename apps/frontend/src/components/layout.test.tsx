@@ -38,7 +38,7 @@ describe('layout components', () => {
     expect(html).toContain('로그인');
   });
 
-  it('keeps NavBar actions inline above the compact mobile width', () => {
+  it('keeps every NavBar slot on one row at compact mobile widths', () => {
     const html = renderToStaticMarkup(
       <NavBar
         brand={<span>OSS Hub</span>}
@@ -51,11 +51,12 @@ describe('layout components', () => {
       /data-slot="nav-bar-actions"[^>]*class="([^"]*)"/,
     )?.[1];
 
-    expect(actionsClass?.split(' ')).not.toContain('basis-full');
-    expect(actionsClass?.split(' ')).not.toContain('w-full');
-    expect(actionsClass?.split(' ')).not.toContain('order-last');
-    expect(navClass?.split(' ')).toContain('min-[480px]:flex-nowrap');
-    expect(actionsClass?.split(' ')).toContain('max-[479px]:basis-full');
+    expect(navClass?.split(' ')).toContain('flex-nowrap');
+    expect(navClass?.split(' ')).not.toContain('flex-wrap');
+    expect(navClass).not.toContain('min-[480px]:flex-nowrap');
+    expect(actionsClass).not.toContain('max-[479px]:basis-full');
+    expect(actionsClass).not.toContain('max-[479px]:w-full');
+    expect(actionsClass).not.toContain('max-[479px]:order-last');
   });
 
   it('renders PageHeader with title/description/actions', () => {
