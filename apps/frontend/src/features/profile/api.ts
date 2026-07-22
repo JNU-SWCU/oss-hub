@@ -22,7 +22,10 @@ function parseProfile(value: unknown): UserProfile {
     (value.studentId !== null && typeof value.studentId !== 'string') ||
     (value.department !== null && typeof value.department !== 'string') ||
     typeof value.isComplete !== 'boolean' ||
-    value.isComplete !== (value.studentId !== null && value.department !== null)
+    value.isComplete !==
+      (value.name.trim().length > 0 &&
+        value.studentId !== null &&
+        value.department !== null)
   ) {
     throw new ProfileResponseError();
   }

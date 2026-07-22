@@ -99,7 +99,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | Participation & Showcase 백로그(9건: 내 대시보드·마일스톤 제출·재제출·운영 대시보드·매트릭스·검토·공개 아카이브·알림·공개 프로필) | @jinsol1190-rgb | planned | #114 #115 #116 #124 #125 #126 #127 #134 #155 | - | - | 없음 — 코어 스키마(done) 전제 충족 |
 | 학생 활동 타임라인 | @jinsol1190-rgb | review | #154 | [#210](https://github.com/JNU-SWCU/oss-hub/pull/210) | #210 pass | [프런트엔드 #198](https://github.com/JNU-SWCU/oss-hub/pull/198) merged · 백엔드 조회 API #210 리뷰 대기 |
 | Cross-cutting E2E 스모크(접수 흐름·전체 루프) | @GoBeromsu | planned | #128 #129 | - | - | 상위 화면 티켓들 merge 진행에 따라 순차 검증 |
-| Product Definition & Operations 배포 스파이크 | @GoBeromsu | planned | #112 | - | - | 사업단 스테이징 인스턴스 수령 대기(외부) |
+| Product Definition & Operations 백로그(배포 스파이크·Notion PRD·IA 동기화) | @GoBeromsu | planned | #112 #130 | - | - | #112: 사업단 스테이징 인스턴스 수령 대기(외부) |
 | Data Collection·활성화 랭킹(저장소 주기 수집 스케줄러·nav 랭킹 화면) | @GoBeromsu (#151) / @Geuin04 (#152) | planned | #151 #152 | - | - | 없음 |
 | 공개 랭킹 저장소 소유권 projection | @jinsol1190-rgb | done | #197 | #202 | pass | 없음 |
 

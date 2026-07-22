@@ -69,6 +69,23 @@ test('완료 플래그와 필드가 모순된 응답을 거부한다', async () 
   await expect(getMyProfile()).rejects.toBeInstanceOf(ProfileResponseError);
 });
 
+test('공백 이름을 완료로 표시한 프로필 응답을 거부한다', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ ...completeRequest, name: '   ', isComplete: true }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    ),
+  );
+
+  await expect(getMyProfile()).rejects.toBeInstanceOf(ProfileResponseError);
+});
+
 test.each([
   [401, 'AUT_003', 'unauthorized'],
   [422, 'CON_003', 'consent-required'],

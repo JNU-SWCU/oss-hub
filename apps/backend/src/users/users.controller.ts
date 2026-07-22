@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Inject,
   Patch,
   Req,
@@ -26,6 +27,7 @@ export class UsersController {
   ) {}
 
   @Get()
+  @Header('Cache-Control', 'private, no-store')
   @UseGuards(SessionGuard)
   async getMyProfile(
     @Req() request: SessionIdentity,

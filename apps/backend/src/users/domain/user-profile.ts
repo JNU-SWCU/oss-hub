@@ -23,6 +23,10 @@ export function toUserProfile(record: UserProfileRecord): UserProfile {
     name: record.name ?? '',
     studentId: record.studentId,
     department: record.department,
-    isComplete: record.studentId !== null && record.department !== null,
+    isComplete:
+      record.name !== null &&
+      record.name.trim().length > 0 &&
+      record.studentId !== null &&
+      record.department !== null,
   };
 }

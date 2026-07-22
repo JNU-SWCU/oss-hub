@@ -100,6 +100,15 @@ it('비로그인 GET을 401 AUT_003으로 거부한다', async () => {
   await expect(response.json()).resolves.toMatchObject({ code: 'AUT_003' });
 });
 
+it('인증된 GET 프로필 응답은 private no-store 캐시 제어를 설정한다', async () => {
+  const response = await fetch(`${baseUrl}/api/v1/users/me/profile`, {
+    headers: { connection: 'close', cookie: sessionCookie },
+  });
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get('cache-control')).toBe('private, no-store');
+});
+
 it('유효한 PATCH를 정규화해 저장한다', async () => {
   const response = await patch({
     ...validBody,
