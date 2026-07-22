@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { AccountStatus, Role } from '@prisma/client';
 import type { AuthenticatedRequest } from '../auth/session.guard';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
@@ -13,8 +13,16 @@ interface ApplicationsStaffStore {
   readonly user: {
     findUnique(input: {
       readonly where: { readonly githubId: bigint };
-      readonly select: { readonly id: true; readonly role: true };
-    }): Promise<{ readonly id: string; readonly role: Role | null } | null>;
+      readonly select: {
+        readonly id: true;
+        readonly role: true;
+        readonly accountStatus: true;
+      };
+    }): Promise<{
+      readonly id: string;
+      readonly role: Role | null;
+      readonly accountStatus: AccountStatus;
+    } | null>;
   };
 }
 
@@ -33,10 +41,16 @@ export class ApplicationsStaffGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const user = await this.prisma.user.findUnique({
       where: { githubId: request.sessionGithubId },
-      select: { id: true, role: true },
+      select: { id: true, role: true, accountStatus: true },
     });
 
-    switch (user?.role) {
+    if (user?.accountStatus !== AccountStatus.ACTIVE) {
+      throw new DomainException(
+        APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.STAFF_ONLY],
+      );
+    }
+
+    switch (user.role) {
       case Role.STAFF:
       case Role.ADMIN:
         Object.assign(request, { applicationActorId: user.id });
