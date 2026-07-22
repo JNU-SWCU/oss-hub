@@ -1,7 +1,9 @@
 import { ValidationPipe } from '@nestjs/common';
+import { AccountStatus } from '@prisma/client';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
+import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
 import { issueSessionToken } from '../auth/session-token';
 import { sessionCookieName } from '../auth/cookies';
@@ -26,7 +28,10 @@ const sessionSecret = new Uint8Array(32).fill(7);
 
 const findUserByGithubId = jest
   .fn<Promise<ConsentUser | null>, [githubId: bigint]>()
-  .mockResolvedValue({ id: syntheticUserId });
+  .mockResolvedValue({
+    id: syntheticUserId,
+    accountStatus: AccountStatus.ACTIVE,
+  });
 const findConsent = jest
   .fn<Promise<ConsentRecord | null>, [userId: string, policyVersion: string]>()
   .mockResolvedValue(null);
@@ -105,6 +110,12 @@ beforeAll(async () => {
     providers: [
       ConsentsService,
       SessionGuard,
+      {
+        provide: AuthService,
+        useValue: {
+          getMe: jest.fn().mockResolvedValue({ id: syntheticUserId }),
+        },
+      },
       OriginGuard,
       {
         provide: AuthConfig,

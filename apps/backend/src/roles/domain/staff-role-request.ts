@@ -1,9 +1,10 @@
-import type { Role, RoleRequestStatus } from '@prisma/client';
+import type { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
 
 export const STAFF_ROLE_REQUEST_ACTIONS = {
   APPROVE: 'APPROVE',
   REJECT: 'REJECT',
   REVOKE: 'REVOKE',
+  REACTIVATE: 'REACTIVATE',
 } as const;
 
 export type StaffRoleRequestAction =
@@ -12,7 +13,8 @@ export type StaffRoleRequestAction =
       readonly action: typeof STAFF_ROLE_REQUEST_ACTIONS.REJECT;
       readonly reason: string;
     }
-  | { readonly action: typeof STAFF_ROLE_REQUEST_ACTIONS.REVOKE };
+  | { readonly action: typeof STAFF_ROLE_REQUEST_ACTIONS.REVOKE }
+  | { readonly action: typeof STAFF_ROLE_REQUEST_ACTIONS.REACTIVATE };
 
 export interface StaffRoleRequestListQuery {
   readonly status: RoleRequestStatus;
@@ -26,6 +28,7 @@ export interface StaffRoleRequestRecord {
   readonly userId: string;
   readonly githubLogin: string;
   readonly userRole: Role | null;
+  readonly userAccountStatus: AccountStatus;
   readonly status: RoleRequestStatus;
   readonly rejectionReason: string | null;
   readonly decidedAt: Date | null;
@@ -45,5 +48,19 @@ export interface StaffRoleRequestTransition {
 export interface StaffUserRoleTransition {
   readonly userId: string;
   readonly expectedRole: Role | null;
+  readonly expectedAccountStatus: AccountStatus;
   readonly nextRole: Role | null;
+}
+
+export interface StaffUserAccountStatusTransition {
+  readonly userId: string;
+  readonly expectedRole: Role;
+  readonly expectedAccountStatus: AccountStatus;
+  readonly nextAccountStatus: AccountStatus;
+}
+
+export interface StaffRoleReactivationApproval {
+  readonly userId: string;
+  readonly actorId: string;
+  readonly decidedAt: Date;
 }

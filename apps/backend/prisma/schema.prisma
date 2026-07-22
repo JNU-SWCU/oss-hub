@@ -14,16 +14,23 @@ enum Role {
   ADMIN
 }
 
+/// 계정 생명주기. 역할과 독립적으로 권한 접근 가능 여부를 결정한다(#187, #188).
+enum AccountStatus {
+  ACTIVE
+  DEACTIVATED
+}
+
 model User {
-  id        String   @id @default(cuid())
-  githubId  BigInt   @unique
-  login     String
-  name      String?
-  avatarUrl String?
+  id            String        @id @default(cuid())
+  githubId      BigInt        @unique
+  login         String
+  name          String?
+  avatarUrl     String?
+  accountStatus AccountStatus @default(ACTIVE)
   /// 역할 선택 전 null, 학생 선택 시 STUDENT, 교직원 요청 승인 시에만 STAFF가 된다(#109).
-  role      Role?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  role          Role?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   roleRequests          RoleRequest[]        @relation("RoleRequestUser")
   decidedRoleRequests   RoleRequest[]        @relation("RoleRequestDecidedBy")
@@ -393,6 +400,16 @@ model Repository {
 
   @@index([programId])
   @@index([teamId])
+}
+
+/// 공개 랭킹이 신청 데이터 join 없이 저장소 수신자를 찾는 최소 projection(#197).
+model RepositoryOwnerProjection {
+  githubRepositoryId BigInt   @id
+  ownerGithubId      BigInt
+  ownerGithubLogin   String
+  updatedAt          DateTime @updatedAt
+
+  @@index([ownerGithubId])
 }
 
 /// Org 전체 저장소의 canonical identity. program/team 매핑이 없는 저장소도 독립적으로 유지한다(#177).

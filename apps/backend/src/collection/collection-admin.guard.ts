@@ -1,5 +1,5 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { AccountStatus, Role } from '@prisma/client';
 
 import { AuthenticatedRequest } from '../auth/session.guard';
 import { DomainException } from '../common/error-code';
@@ -17,9 +17,12 @@ export class CollectionAdminGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const user = await this.prisma.user.findUnique({
       where: { githubId: request.sessionGithubId },
-      select: { role: true },
+      select: { role: true, accountStatus: true },
     });
-    if (user?.role !== Role.ADMIN) {
+    if (
+      user?.accountStatus !== AccountStatus.ACTIVE ||
+      user.role !== Role.ADMIN
+    ) {
       throw new DomainException(
         COLLECTION_ERROR_CODES[CollectionErrorCode.ADMIN_REQUIRED],
       );

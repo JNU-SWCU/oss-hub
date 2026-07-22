@@ -96,7 +96,11 @@ export class RolesRepository implements RolesRepositoryPort {
 }
 
 function toRoleUser(user: PrismaUser): RoleUser {
-  return { id: user.id, role: user.role };
+  return {
+    id: user.id,
+    role: user.role,
+    accountStatus: user.accountStatus,
+  };
 }
 
 function toRoleRequest(request: PrismaRoleRequest): RoleRequestRecord {

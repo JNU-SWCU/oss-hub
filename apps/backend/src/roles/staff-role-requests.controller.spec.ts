@@ -1,12 +1,12 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
-import { Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import type { AuthenticatedRequest } from '../auth/session.guard';
 import { DomainException } from '../common/error-code';
 import type { StaffRoleRequestRecord } from './domain/staff-role-request';
 import { PatchStaffRoleRequestDto } from './dto/patch-staff-role-request.dto';
-import { StaffRoleRequestsQueryDto } from './dto/staff-role-requests-query.dto';
+import { StaffRoleRequestsQueryRequestDto } from './dto/staff-role-requests-query.dto';
 import { RolesErrorCode } from './roles-error-code.enum';
 import { StaffRoleRequestsController } from './staff-role-requests.controller';
 import type { StaffRoleRequestsService } from './staff-role-requests.service';
@@ -21,6 +21,7 @@ const pendingRequest: StaffRoleRequestRecord = {
   userId: 'synthetic-user',
   githubLogin: 'synthetic-staff',
   userRole: null,
+  userAccountStatus: AccountStatus.ACTIVE,
   status: RoleRequestStatus.PENDING,
   rejectionReason: null,
   decidedAt: null,
@@ -54,7 +55,7 @@ describe('StaffRoleRequestsController', () => {
       decide: jest.fn(),
     };
     const controller = new StaffRoleRequestsController(service);
-    const query = Object.assign(new StaffRoleRequestsQueryDto(), {
+    const query = Object.assign(new StaffRoleRequestsQueryRequestDto(), {
       status: RoleRequestStatus.PENDING,
       query: '',
       page: 1,
@@ -71,6 +72,7 @@ describe('StaffRoleRequestsController', () => {
           id: 'synthetic-request',
           githubLogin: 'synthetic-staff',
           requestedRole: Role.STAFF,
+          accountStatus: AccountStatus.ACTIVE,
           status: RoleRequestStatus.PENDING,
           requestedAt: REQUESTED_AT.toISOString(),
           decidedAt: null,
@@ -121,6 +123,14 @@ describe('StaffRoleRequestsController', () => {
 
     // Then
     expect(action).toEqual({ action: 'REVOKE' });
+  });
+
+  it('REACTIVATE action을 관리자 재활성화 명령으로 변환한다', () => {
+    const body = Object.assign(new PatchStaffRoleRequestDto(), {
+      action: 'REACTIVATE',
+    });
+
+    expect(body.toAction()).toEqual({ action: 'REACTIVATE' });
   });
 
   it('목록은 세션 guard, 처리는 세션과 Origin guard를 적용한다', () => {

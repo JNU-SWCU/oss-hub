@@ -10,9 +10,9 @@ export class ConsentsRepository {
   async findUserByGithubId(githubId: bigint): Promise<ConsentUser | null> {
     const user = await this.prisma.user.findUnique({
       where: { githubId },
-      select: { id: true },
+      select: { id: true, accountStatus: true },
     });
-    return user ? { id: user.id } : null;
+    return user ? { id: user.id, accountStatus: user.accountStatus } : null;
   }
 
   async findConsent(

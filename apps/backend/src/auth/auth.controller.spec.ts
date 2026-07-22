@@ -1,4 +1,6 @@
-import { Role } from '@prisma/client';
+import { AccountStatus, Role } from '@prisma/client';
+import { DomainException } from '../common/error-code';
+import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.enum';
 import { Request, Response } from 'express';
 import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
@@ -15,6 +17,7 @@ const syntheticUser: AuthUser = {
   login: 'synthetic-login',
   name: null,
   avatarUrl: null,
+  accountStatus: AccountStatus.ACTIVE,
   role: null,
 };
 const recordLogin = jest.fn();
@@ -200,6 +203,36 @@ describe('AuthController github callback', () => {
       }),
     );
   });
+
+  it('비활성 계정은 OAuth callback에서도 세션·LOGIN 이력을 만들지 않는다', async () => {
+    const flow = createFlowState();
+    const res = createResponse();
+    const issueSession = jest
+      .fn()
+      .mockRejectedValue(
+        new DomainException(AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED]),
+      );
+
+    await createController({ issueSession }).githubCallback(
+      'synthetic-code',
+      flow.state,
+      undefined,
+      requestWithCookie(`${flowCookieName(true)}=${encodeFlowCookie(flow)}`),
+      res,
+    );
+
+    expect(recordLogin).not.toHaveBeenCalled();
+    expect(res.setHeader).not.toHaveBeenCalledWith(
+      'Set-Cookie',
+      expect.arrayContaining([
+        expect.stringContaining(`${sessionCookieName(true)}=`),
+      ]),
+    );
+    expect(res.redirect).toHaveBeenCalledWith(
+      302,
+      'https://oss.example/?authError=1',
+    );
+  });
 });
 
 describe('AuthController getMe', () => {
@@ -230,6 +263,7 @@ describe('AuthController getMe', () => {
 
     expect(result.role).toBe(Role.ADMIN);
     expect(result.login).toBe('synthetic-login');
+    expect(result.accountStatus).toBe(AccountStatus.ACTIVE);
     expect(resolveTestRole).toHaveBeenCalledWith(syntheticUser.githubId);
   });
 

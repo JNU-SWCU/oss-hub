@@ -1,3 +1,4 @@
+import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { ConsentErrorCode } from './consent-error-code.enum';
 import { ConsentsRepository } from './consents.repository';
@@ -26,9 +27,10 @@ function buildService(overrides: Partial<ConsentsRepository> = {}): {
   findConsent: jest.Mock;
   createConsent: jest.Mock;
 } {
-  const findUserByGithubId = jest
-    .fn()
-    .mockResolvedValue({ id: syntheticUserId });
+  const findUserByGithubId = jest.fn().mockResolvedValue({
+    id: syntheticUserId,
+    accountStatus: AccountStatus.ACTIVE,
+  });
   const findConsent = jest.fn().mockResolvedValue(null);
   const createConsent = jest.fn().mockResolvedValue(syntheticConsent);
   const repository = {
@@ -108,6 +110,22 @@ describe('ConsentsService.getCurrent', () => {
 
     expect(exception.errorCode.code).toBe(ConsentErrorCode.UNAUTHENTICATED);
     expect(exception.errorCode.status).toBe(401);
+  });
+
+  it('비활성 계정은 사용자 행이 있어도 401 CON_001로 차단한다', async () => {
+    const { service, findConsent } = buildService({
+      findUserByGithubId: jest.fn().mockResolvedValue({
+        id: syntheticUserId,
+        accountStatus: AccountStatus.DEACTIVATED,
+      }),
+    });
+
+    const exception = await captureDomainException(() =>
+      service.getCurrent(syntheticGithubId),
+    );
+
+    expect(exception.errorCode.code).toBe(ConsentErrorCode.UNAUTHENTICATED);
+    expect(findConsent).not.toHaveBeenCalled();
   });
 });
 

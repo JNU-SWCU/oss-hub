@@ -4,6 +4,16 @@ export type SubmissionStatus =
   'NOT_SUBMITTED' | 'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
 export type SubmissionType = 'FILE' | 'TEXT' | 'REPOSITORY_RELEASE';
 
+export const PROGRAM_PARTICIPATION_TYPES = ['individual', 'team'] as const;
+
+export type ProgramParticipation = (typeof PROGRAM_PARTICIPATION_TYPES)[number];
+
+export interface ApplicationFormTemplate {
+  readonly key: string;
+  readonly version: number;
+  readonly name: string;
+  readonly participation: ProgramParticipation;
+}
 export interface SubmissionSummary {
   readonly notSubmitted: number;
   readonly submitted: number;

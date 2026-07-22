@@ -1,6 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { githubLoginPath } from './api';
 import { ClosingCtaSection } from './components/closing-cta-section';
 import { LandingHero } from './components/landing-hero';
 import { ProgramTypeSection } from './components/program-type-section';
@@ -10,16 +9,21 @@ import { RolePathSection } from './components/role-path-section';
 // 실제로 render 가능함을 증명하는 최소 스모크 테스트.
 describe('landing page sections', () => {
   it('renders the hero section with the GitHub login CTA', () => {
-    const html = renderToStaticMarkup(<LandingHero />);
+    const html = renderToStaticMarkup(
+      <LandingHero primaryAction={<a href="/login">GitHub으로 로그인</a>} />,
+    );
 
     expect(html).toContain('오픈소스 프로그램을 한 곳에서');
     expect(html).toContain('GitHub으로 로그인');
-    expect(html).toContain(githubLoginPath);
+    expect(html).toContain('href="/login"');
   });
 
   it('renders the hero auth error alert when a message is passed', () => {
     const html = renderToStaticMarkup(
-      <LandingHero authErrorMessage="로그인 요청을 완료하지 못했습니다. 다시 시도해 주세요." />,
+      <LandingHero
+        authErrorMessage="로그인 요청을 완료하지 못했습니다. 다시 시도해 주세요."
+        primaryAction={<span>GitHub 로그인 다시 시도</span>}
+      />,
     );
 
     expect(html).toContain('role="alert"');
@@ -42,9 +46,11 @@ describe('landing page sections', () => {
   });
 
   it('renders the closing CTA section with the GitHub login link', () => {
-    const html = renderToStaticMarkup(<ClosingCtaSection />);
+    const html = renderToStaticMarkup(
+      <ClosingCtaSection action={<a href="/login">GitHub으로 로그인</a>} />,
+    );
 
     expect(html).toContain('지금 GitHub 계정으로 시작하세요');
-    expect(html).toContain(githubLoginPath);
+    expect(html).toContain('href="/login"');
   });
 });
