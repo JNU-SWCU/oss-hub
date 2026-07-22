@@ -3,6 +3,7 @@ import {
   OutboxEventStatus,
   Prisma,
   RepositoryProvisionJobStatus,
+  RepositoryVisibility,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event';
@@ -21,6 +22,19 @@ export interface ClaimedProvisionEvent {
 
 export interface ProvisionJobReference {
   readonly id: string;
+}
+
+export interface RepositoryPublishTarget {
+  readonly id: string;
+  readonly githubRepositoryId: bigint;
+  readonly name: string;
+  readonly url: string;
+  readonly visibility: RepositoryVisibility;
+  readonly publishedAt: Date | null;
+}
+
+export class RepositoryPublishStateError extends Error {
+  override readonly name = 'RepositoryPublishStateError';
 }
 
 export interface RepositoriesTransactionStore {
@@ -149,5 +163,41 @@ export class RepositoriesRepository {
     return this.prisma.$transaction((transaction) =>
       operation(new PrismaRepositoriesTransactionStore(transaction)),
     );
+  }
+
+  async findPublishTarget(
+    repositoryId: string,
+  ): Promise<RepositoryPublishTarget | null> {
+    return this.prisma.repository.findUnique({
+      where: { id: repositoryId },
+      select: {
+        id: true,
+        githubRepositoryId: true,
+        name: true,
+        url: true,
+        visibility: true,
+        publishedAt: true,
+      },
+    });
+  }
+
+  async markPublished(
+    repositoryId: string,
+    githubRepositoryId: bigint,
+    now: Date,
+  ): Promise<void> {
+    const updated = await this.prisma.repository.updateMany({
+      where: {
+        id: repositoryId,
+        githubRepositoryId,
+      },
+      data: {
+        visibility: RepositoryVisibility.PUBLIC,
+        publishedAt: now,
+      },
+    });
+    if (updated.count !== 1) {
+      throw new RepositoryPublishStateError();
+    }
   }
 }
