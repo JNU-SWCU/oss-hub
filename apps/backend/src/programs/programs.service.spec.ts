@@ -1,4 +1,9 @@
-import { ProgramCategory, Role, SubmissionStatus } from '@prisma/client';
+import {
+  ApplicationStatus,
+  ProgramCategory,
+  Role,
+  SubmissionStatus,
+} from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import { programDeadline } from './program-deadline';
 import type { ProgramViewer } from './program-viewer.service';
@@ -85,6 +90,41 @@ describe('ProgramsService detail', () => {
     expect(detail.milestones[1]?.viewerSubmissionStatus).toBe('NOT_SUBMITTED');
   });
 
+  it('TeamMember 행이 없는 팀장도 자신의 신청 상태를 조회한다', async () => {
+    // Given
+    const { service, findFirst } = createService();
+    findFirst.mockResolvedValue({
+      id: 'application-1',
+      status: ApplicationStatus.APPROVED,
+      submissions: [],
+    });
+    const viewer: ProgramViewer = {
+      githubId: 1n,
+      userId: 'leader-1',
+      role: Role.STUDENT,
+    };
+
+    // When
+    const detail = await service.detail('program-1', viewer);
+
+    // Then
+    expect(findFirst).toHaveBeenCalledWith({
+      where: {
+        programId: 'program-1',
+        OR: [
+          { applicantId: 'leader-1' },
+          { team: { leaderId: 'leader-1' } },
+          { team: { members: { some: { userId: 'leader-1' } } } },
+        ],
+      },
+      select: {
+        id: true,
+        status: true,
+        submissions: { select: { milestoneId: true, status: true } },
+      },
+    });
+    expect(detail.viewer.applicationStatus).toBe(ApplicationStatus.APPROVED);
+  });
   it('교직원에게 application 기준 제출 요약을 반환한다', async () => {
     const { service, findMany } = createService();
     findMany.mockResolvedValue([
@@ -115,6 +155,34 @@ describe('ProgramsService detail', () => {
       rejected: 0,
       total: 3,
     });
+  });
+  it('교직원 제출 요약은 승인된 신청만 분모에 포함한다', async () => {
+    // Given
+    const { service, findMany } = createService();
+    findMany.mockResolvedValue([{ submissions: [] }]);
+
+    const viewer: ProgramViewer = {
+      githubId: 2n,
+      userId: 'staff-1',
+      role: Role.STAFF,
+    };
+
+    // When
+    const detail = await service.detail('program-1', viewer);
+
+    // Then
+    expect(findMany).toHaveBeenCalledWith({
+      where: {
+        programId: 'program-1',
+        status: ApplicationStatus.APPROVED,
+      },
+      select: {
+        submissions: { select: { milestoneId: true, status: true } },
+      },
+    });
+    expect(detail.milestones[0]?.applicationSubmissionSummary).toEqual(
+      expect.objectContaining({ total: 1, notSubmitted: 1 }),
+    );
   });
 });
 

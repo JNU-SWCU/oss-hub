@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Role, SubmissionStatus } from '@prisma/client';
+import { ApplicationStatus, Role, SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
@@ -9,6 +9,7 @@ import type {
 } from './dto/program-detail.dto';
 import { programDeadline } from './program-deadline';
 import { PROGRAM_ERROR_CODES } from './program-error-code';
+import { programApplicationParticipantWhere } from './program-participant';
 import type { ProgramViewer } from './program-viewer.service';
 
 type SubmissionRecord = {
@@ -64,10 +65,7 @@ export class ProgramsService {
           ? await this.prisma.application.findFirst({
               where: {
                 programId,
-                OR: [
-                  { applicantId: viewer.userId },
-                  { team: { members: { some: { userId: viewer.userId } } } },
-                ],
+                ...programApplicationParticipantWhere(viewer.userId),
               },
               select: {
                 id: true,
@@ -79,7 +77,7 @@ export class ProgramsService {
       const staffApplications =
         viewer.role === Role.STAFF || viewer.role === Role.ADMIN
           ? await this.prisma.application.findMany({
-              where: { programId },
+              where: { programId, status: ApplicationStatus.APPROVED },
               select: {
                 submissions: { select: { milestoneId: true, status: true } },
               },

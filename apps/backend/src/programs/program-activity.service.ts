@@ -9,6 +9,10 @@ import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import type { ProgramActivityResponseDto } from './dto/program-detail.dto';
 import { PROGRAM_ERROR_CODES } from './program-error-code';
+import {
+  programApplicationParticipantWhere,
+  programParticipantGithubIds,
+} from './program-participant';
 import type { ProgramViewer } from './program-viewer.service';
 
 function property(
@@ -55,10 +59,7 @@ export class ProgramActivityService {
           ...(viewer.role === Role.STUDENT
             ? {
                 application: {
-                  OR: [
-                    { applicantId: viewer.userId },
-                    { team: { members: { some: { userId: viewer.userId } } } },
-                  ],
+                  ...programApplicationParticipantWhere(viewer.userId),
                 },
               }
             : {}),
@@ -74,6 +75,7 @@ export class ProgramActivityService {
               team: {
                 select: {
                   name: true,
+                  leader: { select: { githubId: true } },
                   members: { select: { user: { select: { githubId: true } } } },
                 },
               },
@@ -84,16 +86,15 @@ export class ProgramActivityService {
 
       return Promise.all(
         repositories.map(async (repository) => {
-          const githubIds = repository.application.team
-            ? repository.application.team.members.map(
-                (member) => member.user.githubId,
-              )
-            : [repository.application.applicant.githubId];
+          const githubIds = programParticipantGithubIds(
+            repository.application.applicant.githubId,
+            repository.application.team,
+          );
           const observations = await this.prisma.githubRawObservation.findMany({
             where: {
               sourceType: ObservationSourceType.EVENT,
               run: {
-                targetGithubId: { in: githubIds },
+                targetGithubId: { in: [...githubIds] },
                 status: CollectionRunStatus.SUCCEEDED,
               },
             },

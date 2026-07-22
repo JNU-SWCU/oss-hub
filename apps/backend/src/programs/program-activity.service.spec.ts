@@ -80,4 +80,79 @@ describe('ProgramActivityService', () => {
       select: { sourceId: true, payload: true },
     });
   });
+  it('TeamMember 행이 없는 팀장도 팀 저장소와 자신의 활동에 포함된다', async () => {
+    // Given
+    const repositoryFindMany = jest.fn().mockResolvedValue([
+      {
+        githubRepositoryId: 101n,
+        application: {
+          id: 'application-1',
+          applicant: { githubId: 99n, name: '신청자', login: 'applicant' },
+          team: {
+            name: '팀',
+            leader: { githubId: 11n },
+            members: [{ user: { githubId: 11n } }, { user: { githubId: 12n } }],
+          },
+        },
+      },
+    ]);
+    const observationFindMany = jest.fn().mockResolvedValue([]);
+    const prisma = {
+      repository: { findMany: repositoryFindMany },
+      githubRawObservation: { findMany: observationFindMany },
+    } as unknown as PrismaService;
+    const service = new ProgramActivityService(prisma);
+    const leader: ProgramViewer = {
+      githubId: 11n,
+      userId: 'leader-1',
+      role: Role.STUDENT,
+    };
+
+    // When
+    await service.activity('program-1', leader);
+
+    // Then
+    expect(repositoryFindMany).toHaveBeenCalledWith({
+      where: {
+        programId: 'program-1',
+        application: {
+          OR: [
+            { applicantId: 'leader-1' },
+            { team: { leaderId: 'leader-1' } },
+            { team: { members: { some: { userId: 'leader-1' } } } },
+          ],
+        },
+      },
+      select: {
+        githubRepositoryId: true,
+        application: {
+          select: {
+            id: true,
+            applicant: {
+              select: { githubId: true, name: true, login: true },
+            },
+            team: {
+              select: {
+                name: true,
+                leader: { select: { githubId: true } },
+                members: {
+                  select: { user: { select: { githubId: true } } },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(observationFindMany).toHaveBeenCalledWith({
+      where: {
+        sourceType: ObservationSourceType.EVENT,
+        run: {
+          targetGithubId: { in: [11n, 12n] },
+          status: CollectionRunStatus.SUCCEEDED,
+        },
+      },
+      select: { sourceId: true, payload: true },
+    });
+  });
 });

@@ -3,8 +3,7 @@ import { AccountStatus, RoleRequestStatus } from '@prisma/client';
 import type { Role } from '@prisma/client';
 import type { Request } from 'express';
 import { AuthConfig } from '../auth/auth.config';
-import { parseCookies, sessionCookieName } from '../auth/cookies';
-import { verifySessionToken } from '../auth/session-token';
+import { resolveSession } from '../auth/session-resolution';
 import { PrismaService } from '../prisma/prisma.service';
 import type { ProgramViewerRoleResponseDto } from './dto/program-detail.dto';
 
@@ -22,11 +21,10 @@ export class ProgramViewerService {
   ) {}
 
   async fromRequest(request: Request): Promise<ProgramViewer> {
-    const cookies = parseCookies(request.headers.cookie);
-    const token = cookies[sessionCookieName(this.config.useSecureCookies)];
-    const githubId = token
-      ? await verifySessionToken(this.config.sessionSecret, token)
-      : null;
+    const { githubId } = await resolveSession(
+      this.config,
+      request.headers.cookie,
+    );
     if (githubId === null) return { githubId: null, userId: null, role: null };
 
     const user = await this.prisma.user.findUnique({
