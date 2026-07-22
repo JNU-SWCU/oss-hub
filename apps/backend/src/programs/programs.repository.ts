@@ -166,6 +166,95 @@ export class ProgramsRepository {
     });
   }
 
+  findStudentTimelineObservations(
+    githubId: bigint,
+    ownedRepositoryIds: readonly bigint[],
+  ) {
+    const watchRepositoryFilters = ownedRepositoryIds
+      .filter((repositoryId) => repositoryId <= BigInt(Number.MAX_SAFE_INTEGER))
+      .map((repositoryId) => ({
+        payload: {
+          path: ['repo', 'id'],
+          equals: Number(repositoryId),
+        },
+      }));
+
+    return this.prisma.githubRawObservation.findMany({
+      where: {
+        sourceType: ObservationSourceType.EVENT,
+        run: { status: CollectionRunStatus.SUCCEEDED },
+        OR: [
+          { run: { targetGithubId: githubId } },
+          ...(watchRepositoryFilters.length > 0
+            ? [
+                {
+                  AND: [
+                    {
+                      payload: {
+                        path: ['type'],
+                        equals: 'WatchEvent',
+                      },
+                    },
+                    {
+                      payload: {
+                        path: ['payload', 'action'],
+                        equals: 'started',
+                      },
+                    },
+                    { OR: watchRepositoryFilters },
+                  ],
+                } satisfies Prisma.GithubRawObservationWhereInput,
+              ]
+            : []),
+        ],
+      },
+      select: {
+        sourceId: true,
+        payload: true,
+        run: { select: { targetGithubId: true } },
+      },
+    });
+  }
+
+  findStudentOwnedRepositoryIds(
+    githubId: bigint,
+    repositoryIds: readonly bigint[],
+  ) {
+    if (repositoryIds.length === 0) return Promise.resolve([]);
+    return this.prisma.repositoryOwnerProjection.findMany({
+      where: {
+        ownerGithubId: githubId,
+        githubRepositoryId: { in: [...repositoryIds] },
+      },
+      select: { githubRepositoryId: true },
+    });
+  }
+
+  findStudentActivityApplications(userId: string) {
+    return this.prisma.application.findMany({
+      where: {
+        status: ApplicationStatus.APPROVED,
+        ...programApplicationParticipantWhere(userId),
+      },
+      select: {
+        teamId: true,
+        applicant: { select: { githubId: true } },
+        team: {
+          select: {
+            leader: { select: { githubId: true } },
+            members: {
+              select: { user: { select: { githubId: true } } },
+            },
+          },
+        },
+        program: {
+          select: { id: true, name: true, applicationStartAt: true },
+        },
+        repository: { select: { githubRepositoryId: true } },
+      },
+    });
+  }
+
   findViewer(githubId: bigint) {
     return this.prisma.user.findUnique({
       where: { githubId },
