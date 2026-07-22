@@ -21,8 +21,7 @@ describe('GithubOperationsConfig', () => {
     // Given: 저장소 운영 전용 App 설정이 모두 있다.
     process.env.GITHUB_APP_ORG = 'synthetic-org';
     process.env.GITHUB_OPERATIONS_APP_ID = '12345';
-    process.env.GITHUB_OPERATIONS_APP_PRIVATE_KEY =
-      `${pemHeader}\\nsynthetic\\n${pemFooter}`;
+    process.env.GITHUB_OPERATIONS_APP_PRIVATE_KEY = `${pemHeader}\\nsynthetic\\n${pemFooter}`;
 
     // When: 자격증명을 요구한다.
     const credentials = new GithubOperationsConfig().requireCredentials();

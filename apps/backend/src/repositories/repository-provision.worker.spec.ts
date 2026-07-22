@@ -9,6 +9,7 @@ import {
 } from '../../test/repository-provision-worker.fixture';
 import { COLLABORATOR_OUTCOMES } from './github-app.client';
 import { RepositoryProvisionWorker } from './repository-provision.worker';
+import { buildRepositoryOwnershipMarker } from './repository-name';
 
 describe('RepositoryProvisionWorker success', () => {
   it('실행 가능한 job이 없으면 외부 호출을 하지 않는다', async () => {
@@ -50,6 +51,10 @@ describe('RepositoryProvisionWorker success', () => {
     expect(
       state.recordRepository.mock.invocationCallOrder[0] ?? 0,
     ).toBeLessThan(state.prepareInvitations.mock.invocationCallOrder[0] ?? 0);
+    expect(jobs.renewLease.mock.invocationCallOrder[0] ?? 0).toBeLessThan(
+      github.createRepository.mock.invocationCallOrder[0] ?? 0,
+    );
+    expect(jobs.renewLease.mock.calls).toHaveLength(3);
     expect(state.prepareInvitations.mock.calls[0]).toEqual([
       'synthetic-job-id',
       'worker-a',
@@ -99,6 +104,7 @@ describe('RepositoryProvisionWorker success', () => {
       name: PROVISION_REPOSITORY.name,
       url: PROVISION_REPOSITORY.url,
       visibility: PROVISION_REPOSITORY.visibility,
+      description: buildRepositoryOwnershipMarker('synthetic-application-id'),
     });
     const worker = new RepositoryProvisionWorker(jobs, state, github);
 

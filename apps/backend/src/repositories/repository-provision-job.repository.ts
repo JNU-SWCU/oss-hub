@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, RepositoryProvisionJobStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { assertSingleProvisionUpdate } from './repository-provision-state.helpers';
 
 export interface ClaimRepositoryProvisionJobInput {
   readonly workerId: string;
@@ -61,5 +62,17 @@ export class RepositoryProvisionJobRepository {
       RETURNING job."id", job."applicationId", job."repositoryId", job."attemptCount"
     `);
     return jobs[0] ?? null;
+  }
+
+  async renewLease(jobId: string, workerId: string, now: Date): Promise<void> {
+    const updated = await this.prisma.repositoryProvisionJob.updateMany({
+      where: {
+        id: jobId,
+        status: RepositoryProvisionJobStatus.PROCESSING,
+        lockedBy: workerId,
+      },
+      data: { lockedAt: now },
+    });
+    assertSingleProvisionUpdate(updated.count);
   }
 }

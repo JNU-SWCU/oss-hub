@@ -7,6 +7,7 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
+import { RepositoryProvisionLeaseLostError } from './repository-provision-state.helpers';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -23,6 +24,7 @@ const APPLICATION_IDS = [
   'synthetic-job-future',
   'synthetic-job-stale',
   'synthetic-job-active',
+  'synthetic-job-renewed',
 ] as const;
 
 describe('RepositoryProvisionJobRepository integration', () => {
@@ -136,6 +138,46 @@ describe('RepositoryProvisionJobRepository integration', () => {
         where: { applicationId: APPLICATION_IDS[3] },
       }),
     ).resolves.toMatchObject({ lockedBy: 'previous-worker' });
+  });
+
+  it('갱신한 lease는 보호하고 회수 뒤 이전 worker 갱신은 거절한다', async () => {
+    // Given: worker-a가 job을 claim한 뒤 외부 호출 직전에 lease를 갱신한다.
+    const applicationId = APPLICATION_IDS[4];
+    await createJob(applicationId, RepositoryProvisionJobStatus.PENDING, NOW);
+    const claim = await repository.claimNext({
+      workerId: 'worker-a',
+      now: NOW,
+      leaseMs: LEASE_MS,
+    });
+    expect(claim).not.toBeNull();
+    if (claim === null) {
+      throw new Error('fixture job must be claimable');
+    }
+    const renewedAt = new Date(NOW.getTime() + 4 * 60_000);
+    await repository.renewLease(claim.id, 'worker-a', renewedAt);
+
+    // When: 최초 claim은 지났지만 갱신 lease가 유효한 시각에 다른 worker가 접근한다.
+    const protectedClaim = await repository.claimNext({
+      workerId: 'worker-b',
+      now: new Date(NOW.getTime() + 6 * 60_000),
+      leaseMs: LEASE_MS,
+    });
+
+    // Then: 갱신 lease를 보호하고, 실제 만료·회수 뒤에는 이전 worker를 fence한다.
+    expect(protectedClaim).toBeNull();
+    const reclaimed = await repository.claimNext({
+      workerId: 'worker-b',
+      now: new Date(NOW.getTime() + 10 * 60_000),
+      leaseMs: LEASE_MS,
+    });
+    expect(reclaimed?.id).toBe(claim.id);
+    await expect(
+      repository.renewLease(
+        claim.id,
+        'worker-a',
+        new Date(NOW.getTime() + 10 * 60_000),
+      ),
+    ).rejects.toBeInstanceOf(RepositoryProvisionLeaseLostError);
   });
 });
 

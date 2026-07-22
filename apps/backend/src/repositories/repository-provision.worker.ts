@@ -24,7 +24,11 @@ import {
   type RepositoryProvisionWorkerOptions,
 } from './repository-provision.failure';
 import { findOrCreateGithubRepository } from './repository-provision.github';
-import { buildRepositoryNames } from './repository-name';
+import {
+  buildRepositoryNames,
+  buildRepositoryOwnershipMarker,
+} from './repository-name';
+import { RepositoryProvisionLeaseLostError } from './repository-provision-state.helpers';
 
 export type RepositoryProvisionResult =
   | { readonly kind: 'EMPTY' }
@@ -43,7 +47,10 @@ export class RepositoryProvisionWorker {
   private readonly logger = new Logger(RepositoryProvisionWorker.name);
 
   constructor(
-    private readonly jobs: Pick<RepositoryProvisionJobRepository, 'claimNext'>,
+    private readonly jobs: Pick<
+      RepositoryProvisionJobRepository,
+      'claimNext' | 'renewLease'
+    >,
     private readonly state: RepositoryProvisionStateStore,
     private readonly github: Pick<
       GithubAppClient,
@@ -54,11 +61,12 @@ export class RepositoryProvisionWorker {
 
   async runNext(
     workerId: string,
-    now = new Date(),
+    fixedNow?: Date,
   ): Promise<RepositoryProvisionResult> {
+    const now = (): Date => fixedNow ?? new Date();
     const job = await this.jobs.claimNext({
       workerId,
-      now,
+      now: now(),
       leaseMs: this.options.leaseMs,
     });
     if (job === null) {
@@ -70,7 +78,7 @@ export class RepositoryProvisionWorker {
       const logins = this.validateContext(context);
       const repository =
         context.repository ??
-        (await this.createAndRecordRepository(context, job.id, workerId));
+        (await this.createAndRecordRepository(context, job.id, workerId, now));
       await this.state.prepareInvitations(
         job.id,
         workerId,
@@ -90,27 +98,31 @@ export class RepositoryProvisionWorker {
         job.attemptCount,
         now,
       );
-      await this.state.completeJob(job.id, workerId, repository.id, now);
+      await this.state.completeJob(job.id, workerId, repository.id, now());
       this.logResult(context, job.id, job.attemptCount, 'SUCCEEDED');
       return { kind: 'SUCCEEDED', jobId: job.id, repositoryId: repository.id };
     } catch (error) {
+      if (error instanceof RepositoryProvisionLeaseLostError) {
+        throw error;
+      }
       const failure = normalizeProvisionFailure(error);
       const final =
         !failure.retryable || job.attemptCount >= this.options.maxAttempts;
+      const failedAt = now();
       await this.state.failJob({
         jobId: job.id,
         workerId,
         final,
         errorCode: failure.code,
         nextAttemptAt: final
-          ? now
+          ? failedAt
           : provisionRetryAt(
               failure,
               job.attemptCount,
-              now,
+              failedAt,
               this.options.retryBaseMs,
             ),
-        now,
+        now: failedAt,
       });
       this.logger.warn({
         event: 'repositories.provision.failed',
@@ -160,6 +172,7 @@ export class RepositoryProvisionWorker {
     context: RepositoryProvisionContext,
     jobId: string,
     workerId: string,
+    now: () => Date,
   ): Promise<ProvisionedRepository> {
     const names = buildRepositoryNames({
       programName: context.programName,
@@ -167,7 +180,12 @@ export class RepositoryProvisionWorker {
       subjectName: context.subjectName,
       applicationId: context.applicationId,
     });
-    const metadata = await findOrCreateGithubRepository(this.github, names);
+    await this.jobs.renewLease(jobId, workerId, now());
+    const metadata = await findOrCreateGithubRepository(
+      this.github,
+      names,
+      buildRepositoryOwnershipMarker(context.applicationId),
+    );
     return this.state.recordRepository({
       jobId,
       workerId,
@@ -184,10 +202,11 @@ export class RepositoryProvisionWorker {
     jobId: string,
     workerId: string,
     attemptCount: number,
-    now: Date,
+    now: () => Date,
   ): Promise<void> {
     for (const invitation of invitations) {
       try {
+        await this.jobs.renewLease(jobId, workerId, now());
         const outcome = await this.github.ensureCollaborator(
           repository.name,
           invitation.githubLogin,
@@ -200,9 +219,12 @@ export class RepositoryProvisionWorker {
             outcome === COLLABORATOR_OUTCOMES.SUCCEEDED
               ? RepositoryInvitationStatus.SUCCEEDED
               : RepositoryInvitationStatus.PENDING,
-          now,
+          now: now(),
         });
       } catch (error) {
+        if (error instanceof RepositoryProvisionLeaseLostError) {
+          throw error;
+        }
         const failure = normalizeProvisionFailure(error);
         await this.state.failInvitation({
           jobId,
@@ -210,7 +232,7 @@ export class RepositoryProvisionWorker {
           invitationId: invitation.id,
           final: !failure.retryable || attemptCount >= this.options.maxAttempts,
           errorCode: failure.code,
-          now,
+          now: now(),
         });
         throw error;
       }

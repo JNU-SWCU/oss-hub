@@ -6,6 +6,7 @@ import type {
   RepositoryProvisionContext,
   RepositoryProvisionStateStore,
 } from '../src/repositories/repository-provision.contract';
+import { buildRepositoryOwnershipMarker } from '../src/repositories/repository-name';
 
 export const PROVISION_NOW = new Date('2026-07-22T00:00:00.000Z');
 
@@ -43,7 +44,7 @@ export function provisionContext(
 }
 
 export function jobRepositoryMock(): jest.Mocked<
-  Pick<RepositoryProvisionJobRepository, 'claimNext'>
+  Pick<RepositoryProvisionJobRepository, 'claimNext' | 'renewLease'>
 > {
   return {
     claimNext: jest.fn().mockResolvedValue({
@@ -52,6 +53,7 @@ export function jobRepositoryMock(): jest.Mocked<
       repositoryId: null,
       attemptCount: 1,
     }),
+    renewLease: jest.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -84,6 +86,7 @@ export function githubClientMock(): jest.Mocked<
       name: PROVISION_REPOSITORY.name,
       url: PROVISION_REPOSITORY.url,
       visibility: PROVISION_REPOSITORY.visibility,
+      description: buildRepositoryOwnershipMarker('synthetic-application-id'),
     }),
     ensureCollaborator: jest.fn().mockResolvedValue('SUCCEEDED'),
   };

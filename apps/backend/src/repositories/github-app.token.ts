@@ -4,6 +4,7 @@ import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
 } from './github-app.error';
+import { throwForGithubErrorResponse } from './github-app.response';
 
 const GITHUB_API_BASE_URL = 'https://api.github.com';
 const GITHUB_API_VERSION = '2022-11-28';
@@ -117,7 +118,7 @@ export class GithubAppTokenProvider implements GithubInstallationTokenProvider {
       { method: 'POST' },
     );
     if (!response.ok) {
-      throw errorForStatus(response.status, false);
+      await throwForGithubErrorResponse(response, this.now());
     }
     const body = await readJsonRecord(response);
     const token = body.token;
@@ -153,7 +154,13 @@ export class GithubAppTokenProvider implements GithubInstallationTokenProvider {
       jwt,
     );
     if (!response.ok) {
-      throw errorForStatus(response.status, true);
+      if (response.status === 404) {
+        throw new GithubOperationsError(
+          GITHUB_OPERATIONS_ERROR_CODES.INSTALLATION_NOT_FOUND,
+          false,
+        );
+      }
+      await throwForGithubErrorResponse(response, this.now());
     }
     const body = await readJsonRecord(response);
     const installationId = body.id;
@@ -226,36 +233,6 @@ async function readJsonRecord(response: Response): Promise<UnknownRecord> {
 
 function isUnknownRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function errorForStatus(
-  status: number,
-  installationLookup: boolean,
-): GithubOperationsError {
-  if (status === 404 && installationLookup) {
-    return new GithubOperationsError(
-      GITHUB_OPERATIONS_ERROR_CODES.INSTALLATION_NOT_FOUND,
-      false,
-    );
-  }
-  if (status === 401) {
-    return new GithubOperationsError(
-      GITHUB_OPERATIONS_ERROR_CODES.AUTHENTICATION,
-      false,
-    );
-  }
-  if (status === 403) {
-    return new GithubOperationsError(
-      GITHUB_OPERATIONS_ERROR_CODES.PERMISSION,
-      false,
-    );
-  }
-  return new GithubOperationsError(
-    status === 429
-      ? GITHUB_OPERATIONS_ERROR_CODES.RATE_LIMITED
-      : GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM,
-    status === 429 || status >= 500,
-  );
 }
 
 function invalidResponseError(): GithubOperationsError {

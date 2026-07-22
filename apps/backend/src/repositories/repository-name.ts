@@ -1,4 +1,7 @@
+import { createHash } from 'node:crypto';
+
 export const GITHUB_REPOSITORY_NAME_MAX_LENGTH = 100;
+const REPOSITORY_OWNERSHIP_MARKER_PREFIX = 'oss-hub:';
 
 export interface RepositoryNameInput {
   readonly programName: string;
@@ -37,6 +40,12 @@ export function buildRepositoryNames(
     GITHUB_REPOSITORY_NAME_MAX_LENGTH - suffix.length,
   )}${suffix}`;
   return { preferred, collisionFallback };
+}
+
+export function buildRepositoryOwnershipMarker(applicationId: string): string {
+  return `${REPOSITORY_OWNERSHIP_MARKER_PREFIX}${createHash('sha256')
+    .update(applicationId, 'utf8')
+    .digest('hex')}`;
 }
 
 function stableSlug(kind: string, value: string, stableId: string): string {

@@ -29,6 +29,7 @@ function dependencies() {
       name: target.name,
       url: target.url,
       visibility: RepositoryVisibility.PUBLIC,
+      description: null,
     }),
   } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
   return { repository, github };

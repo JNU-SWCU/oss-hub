@@ -45,12 +45,15 @@ export class GithubAppClient {
     return parseGithubRepository(await readGithubJson(response));
   }
 
-  async createRepository(name: string): Promise<GithubRepositoryMetadata> {
+  async createRepository(
+    name: string,
+    description: string,
+  ): Promise<GithubRepositoryMetadata> {
     const response = await this.request(
       `/orgs/${encodeURIComponent(this.tokenProvider.organization)}/repos`,
       {
         method: 'POST',
-        body: JSON.stringify({ name, private: true }),
+        body: JSON.stringify({ name, private: true, description }),
       },
     );
     await throwForGithubErrorResponse(response, this.now());

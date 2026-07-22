@@ -13,6 +13,7 @@ export type GithubRepositoryMetadata = {
   readonly name: string;
   readonly url: string;
   readonly visibility: 'PRIVATE' | 'PUBLIC';
+  readonly description: string | null;
 };
 
 export async function throwForGithubErrorResponse(
@@ -44,6 +45,12 @@ export async function throwForGithubErrorResponse(
       true,
     );
   }
+  if (response.status === 401) {
+    throw new GithubOperationsError(
+      GITHUB_OPERATIONS_ERROR_CODES.AUTHENTICATION,
+      false,
+    );
+  }
   const code =
     response.status === 403
       ? GITHUB_OPERATIONS_ERROR_CODES.PERMISSION
@@ -61,13 +68,15 @@ export function parseGithubRepository(
   const name = value.name;
   const url = value.html_url;
   const visibility = value.visibility;
+  const description = value.description;
   if (
     typeof id !== 'number' ||
     !Number.isSafeInteger(id) ||
     typeof name !== 'string' ||
     typeof url !== 'string' ||
     !URL.canParse(url) ||
-    (visibility !== 'private' && visibility !== 'public')
+    (visibility !== 'private' && visibility !== 'public') ||
+    (description !== null && typeof description !== 'string')
   ) {
     throw invalidGithubResponseError();
   }
@@ -76,6 +85,7 @@ export function parseGithubRepository(
     name,
     url,
     visibility: visibility === 'private' ? 'PRIVATE' : 'PUBLIC',
+    description,
   };
 }
 
@@ -139,15 +149,25 @@ function isRateLimited(response: Response, message: string | null): boolean {
 }
 
 function retryAt(headers: Headers, now: Date): Date {
+  const minimumRetryAt = new Date(now.getTime() + FALLBACK_RETRY_MS);
   const retryAfter = headers.get('retry-after');
   if (retryAfter !== null && /^\d+$/.test(retryAfter)) {
-    return new Date(now.getTime() + Number(retryAfter) * 1_000);
+    return notBeforeMinimum(
+      new Date(now.getTime() + Number(retryAfter) * 1_000),
+      minimumRetryAt,
+    );
   }
   const resetAt = headers.get('x-ratelimit-reset');
   if (resetAt !== null && /^\d+$/.test(resetAt)) {
-    return new Date(Number(resetAt) * 1_000);
+    return notBeforeMinimum(new Date(Number(resetAt) * 1_000), minimumRetryAt);
   }
-  return new Date(now.getTime() + FALLBACK_RETRY_MS);
+  return minimumRetryAt;
+}
+
+function notBeforeMinimum(candidate: Date, minimum: Date): Date {
+  return Number.isNaN(candidate.getTime()) || candidate < minimum
+    ? minimum
+    : candidate;
 }
 
 function isRecord(value: unknown): value is UnknownRecord {
