@@ -24,7 +24,7 @@ function NavBar({ items, brand, actions, className, ...props }: NavBarProps) {
     <nav
       data-slot="nav-bar"
       className={cn(
-        'flex min-h-14 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-background px-4 py-2 sm:h-14 sm:flex-nowrap sm:py-0',
+        'flex min-h-14 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-background px-4 py-2 sm:h-14 min-[480px]:flex-nowrap sm:py-0',
         className,
       )}
       {...props}
@@ -55,7 +55,7 @@ function NavBar({ items, brand, actions, className, ...props }: NavBarProps) {
       {actions ? (
         <div
           data-slot="nav-bar-actions"
-          className="order-last flex w-full shrink-0 basis-full items-center justify-end gap-2 sm:order-none sm:w-auto sm:basis-auto"
+          className="flex shrink-0 items-center justify-end gap-2 max-[479px]:order-last max-[479px]:w-full max-[479px]:basis-full"
         >
           {actions}
         </div>

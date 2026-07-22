@@ -38,6 +38,26 @@ describe('layout components', () => {
     expect(html).toContain('로그인');
   });
 
+  it('keeps NavBar actions inline above the compact mobile width', () => {
+    const html = renderToStaticMarkup(
+      <NavBar
+        brand={<span>OSS Hub</span>}
+        items={[{ label: '홈', href: '/' }]}
+        actions={<button type="button">로그인</button>}
+      />,
+    );
+    const navClass = html.match(/data-slot="nav-bar"[^>]*class="([^"]*)"/)?.[1];
+    const actionsClass = html.match(
+      /data-slot="nav-bar-actions"[^>]*class="([^"]*)"/,
+    )?.[1];
+
+    expect(actionsClass?.split(' ')).not.toContain('basis-full');
+    expect(actionsClass?.split(' ')).not.toContain('w-full');
+    expect(actionsClass?.split(' ')).not.toContain('order-last');
+    expect(navClass?.split(' ')).toContain('min-[480px]:flex-nowrap');
+    expect(actionsClass?.split(' ')).toContain('max-[479px]:basis-full');
+  });
+
   it('renders PageHeader with title/description/actions', () => {
     const html = renderToStaticMarkup(
       <PageHeader
