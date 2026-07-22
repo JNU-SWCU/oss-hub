@@ -150,25 +150,35 @@ it('완료된 프로필은 역할 선택 가능 상태로 확인한다', async (
   });
 
   // When / Then
-  await expect(service.requireCompleteProfile(githubId)).resolves.toBeUndefined();
-});
-
-it('이름이 빈 프로필은 역할 선택 가능 상태가 아닌 것으로 거부한다', async () => {
-  // Given
-  const { service } = buildService({
-    user: {
-      id: 'synthetic-user',
-      name: '   ',
-      studentId: input.studentId,
-      department: input.department,
-    },
-  });
-
-  // When
-  const error = await captureDomainException(() =>
+  await expect(
     service.requireCompleteProfile(githubId),
-  );
-
-  // Then
-  expect(error.errorCode).toMatchObject({ code: 'USR_002', status: 409 });
+  ).resolves.toBeUndefined();
 });
+
+it.each([
+  ['공백 이름', '   ', input.studentId, input.department],
+  ['빈 학번', input.name, '', input.department],
+  ['형식이 잘못된 학번', input.name, '12A456', input.department],
+  ['공백 학과', input.name, input.studentId, '   '],
+] as const)(
+  '%s 프로필은 역할 선택 가능 상태가 아닌 것으로 거부한다',
+  async (_label, name, studentId, department) => {
+    // Given
+    const { service } = buildService({
+      user: {
+        id: 'synthetic-user',
+        name,
+        studentId,
+        department,
+      },
+    });
+
+    // When
+    const error = await captureDomainException(() =>
+      service.requireCompleteProfile(githubId),
+    );
+
+    // Then
+    expect(error.errorCode).toMatchObject({ code: 'USR_002', status: 409 });
+  },
+);
