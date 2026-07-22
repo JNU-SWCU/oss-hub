@@ -1,8 +1,6 @@
-import { ArrowRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { githubLoginPath } from '../api';
+import type { ReactNode } from 'react';
 
-export function ClosingCtaSection() {
+export function ClosingCtaSection({ action }: { readonly action: ReactNode }) {
   return (
     <section
       aria-labelledby="closing-cta-heading"
@@ -20,19 +18,9 @@ export function ClosingCtaSection() {
           로그인 후 나에게 맞는 오픈소스 프로그램을 찾아보세요.
         </p>
 
-        <Button
-          asChild
-          size="lg"
-          className="animate-in fade-in slide-in-from-bottom-4 fill-mode-both delay-200 duration-700 motion-reduce:animate-none bg-background text-primary hover:bg-background/90"
-        >
-          <a href={githubLoginPath}>
-            GitHub으로 로그인
-            <ArrowRight
-              className="transition-transform duration-300 group-hover/button:translate-x-0.5"
-              aria-hidden="true"
-            />
-          </a>
-        </Button>
+        <div className="animate-in fade-in slide-in-from-bottom-4 fill-mode-both delay-200 duration-700 motion-reduce:animate-none">
+          {action}
+        </div>
       </div>
     </section>
   );
