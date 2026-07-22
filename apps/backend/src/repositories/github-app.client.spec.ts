@@ -2,10 +2,7 @@ import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
 } from './github-app.error';
-import {
-  COLLABORATOR_OUTCOMES,
-  GithubAppClient,
-} from './github-app.client';
+import { COLLABORATOR_OUTCOMES, GithubAppClient } from './github-app.client';
 import type {
   GithubAppFetcher,
   GithubInstallationTokenProvider,
@@ -36,7 +33,10 @@ describe('GithubAppClient', () => {
   it('조직 private repository를 생성하고 metadata를 파싱한다', async () => {
     // Given: repository 생성 성공 응답이 있다.
     const tokens = tokenProvider();
-    const fetcher = jest.fn<ReturnType<GithubAppFetcher>, Parameters<GithubAppFetcher>>();
+    const fetcher = jest.fn<
+      ReturnType<GithubAppFetcher>,
+      Parameters<GithubAppFetcher>
+    >();
     fetcher.mockResolvedValue(
       jsonResponse(201, {
         id: 987654321,
@@ -68,7 +68,10 @@ describe('GithubAppClient', () => {
 
   it('metadata 404는 저장소 미존재 정상 분기로 반환한다', async () => {
     // Given: repository 조회 404가 있다.
-    const fetcher = jest.fn<ReturnType<GithubAppFetcher>, Parameters<GithubAppFetcher>>();
+    const fetcher = jest.fn<
+      ReturnType<GithubAppFetcher>,
+      Parameters<GithubAppFetcher>
+    >();
     fetcher.mockResolvedValue(jsonResponse(404, {}));
     const client = new GithubAppClient(tokenProvider(), fetcher, () => NOW);
 
@@ -81,7 +84,10 @@ describe('GithubAppClient', () => {
 
   it('이미 collaborator이면 invitation을 조회하거나 다시 보내지 않는다', async () => {
     // Given: collaborator 확인이 204를 반환한다.
-    const fetcher = jest.fn<ReturnType<GithubAppFetcher>, Parameters<GithubAppFetcher>>();
+    const fetcher = jest.fn<
+      ReturnType<GithubAppFetcher>,
+      Parameters<GithubAppFetcher>
+    >();
     fetcher.mockResolvedValue(new Response(null, { status: 204 }));
     const client = new GithubAppClient(tokenProvider(), fetcher, () => NOW);
 
@@ -98,13 +104,14 @@ describe('GithubAppClient', () => {
 
   it('같은 login의 열린 invitation이 있으면 재발송하지 않는다', async () => {
     // Given: collaborator는 없고 기존 invitation이 있다.
-    const fetcher = jest.fn<ReturnType<GithubAppFetcher>, Parameters<GithubAppFetcher>>();
+    const fetcher = jest.fn<
+      ReturnType<GithubAppFetcher>,
+      Parameters<GithubAppFetcher>
+    >();
     fetcher
       .mockResolvedValueOnce(jsonResponse(404, {}))
       .mockResolvedValueOnce(
-        jsonResponse(200, [
-          { invitee: { login: 'Synthetic-Student' } },
-        ]),
+        jsonResponse(200, [{ invitee: { login: 'Synthetic-Student' } }]),
       );
     const client = new GithubAppClient(tokenProvider(), fetcher, () => NOW);
 
@@ -121,7 +128,10 @@ describe('GithubAppClient', () => {
 
   it('새 invitation은 push 권한으로 한 번만 보낸다', async () => {
     // Given: collaborator와 기존 invitation이 없다.
-    const fetcher = jest.fn<ReturnType<GithubAppFetcher>, Parameters<GithubAppFetcher>>();
+    const fetcher = jest.fn<
+      ReturnType<GithubAppFetcher>,
+      Parameters<GithubAppFetcher>
+    >();
     fetcher
       .mockResolvedValueOnce(jsonResponse(404, {}))
       .mockResolvedValueOnce(jsonResponse(200, []))
@@ -148,17 +158,18 @@ describe('GithubAppClient', () => {
     tokens.accessToken
       .mockResolvedValueOnce('expired-token')
       .mockResolvedValueOnce('refreshed-token');
-    const fetcher = jest.fn<ReturnType<GithubAppFetcher>, Parameters<GithubAppFetcher>>();
-    fetcher
-      .mockResolvedValueOnce(jsonResponse(401, {}))
-      .mockResolvedValueOnce(
-        jsonResponse(200, {
-          id: 987654321,
-          name: 'synthetic-repository',
-          html_url: 'https://github.com/synthetic-org/synthetic-repository',
-          visibility: 'private',
-        }),
-      );
+    const fetcher = jest.fn<
+      ReturnType<GithubAppFetcher>,
+      Parameters<GithubAppFetcher>
+    >();
+    fetcher.mockResolvedValueOnce(jsonResponse(401, {})).mockResolvedValueOnce(
+      jsonResponse(200, {
+        id: 987654321,
+        name: 'synthetic-repository',
+        html_url: 'https://github.com/synthetic-org/synthetic-repository',
+        visibility: 'private',
+      }),
+    );
     const client = new GithubAppClient(tokens, fetcher, () => NOW);
 
     // When: repository metadata를 조회한다.
@@ -172,10 +183,11 @@ describe('GithubAppClient', () => {
 
   it('429는 Retry-After를 가진 재시도 가능 오류로 변환한다', async () => {
     // Given: GitHub가 2분 Retry-After와 429를 반환한다.
-    const fetcher = jest.fn<ReturnType<GithubAppFetcher>, Parameters<GithubAppFetcher>>();
-    fetcher.mockResolvedValue(
-      jsonResponse(429, {}, { 'retry-after': '120' }),
-    );
+    const fetcher = jest.fn<
+      ReturnType<GithubAppFetcher>,
+      Parameters<GithubAppFetcher>
+    >();
+    fetcher.mockResolvedValue(jsonResponse(429, {}, { 'retry-after': '120' }));
     const client = new GithubAppClient(tokenProvider(), fetcher, () => NOW);
 
     // When: 저장소 생성을 요청한다.
