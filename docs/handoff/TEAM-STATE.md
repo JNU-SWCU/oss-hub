@@ -86,10 +86,10 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | CI: public-safe Issue·댓글 스캔 + commitlint 이벤트 가드 | @GoBeromsu | done | #68 | #150 #159 | pass | 없음 |
 | 학생용 수집 App(private repo 포함, read-only) | @Lumiere001 | planned | #15 | - | - | 정책 전제 4건 미확정: 산정 범위·개인 repo 보존·동의 절차·App 소유·운영(unblock: @GoBeromsu). #120/#123(조직 소유 자동화 App, write 권한)과는 별개 앱임을 #15/#120 코멘트로 명확화함 — 대체 관계 아님 |
 | Access & GitHub Platform 백로그(13건: 로그인 이력·온보딩 프로필·설정·관리 콘솔·감사 로그·시스템 상태·저장소 자동화·webhook 확장 등) | @Lumiere001 | planned | #99 #107 #108 #120 #121 #122 #123 #131 #132 #133 #153 #156 #157 | - | - | GitHub App 인증 ADR(#120)이 저장소 자동 생성(#121)·webhook 확장(#123)의 선행 |
-| GitHub App 최소 권한·live smoke 계약 | @Lumiere001 | review | #205 | [#208](https://github.com/JNU-SWCU/oss-hub/pull/208) | local pass | Collection App REST read 권한과 Operations·webhook smoke 경계 문서 리뷰 중 · 실제 실증은 비운영 App 준비 대기 |
+| GitHub App 최소 권한·live smoke 계약 | @Lumiere001 | review | #205 | [#208](https://github.com/JNU-SWCU/oss-hub/pull/208) | #208 pass | Collection App REST read 데이터 최소화·권한 allowlist 계약 리뷰 반영 중 · 실제 실증은 비운영 App 준비 대기 |
 | 공통 랜딩 세션별 진입 CTA | @jinsol1190-rgb | done | #98 | #201 | pass | 없음 |
 | 프로그램 편집·마일스톤 | @Geuin04 | planned | #101 | - | - | 연결 PR·공개 착수 근거 없음 |
-| 공개 프로그램 목록 | @Geuin04 | review | #102 | [#191](https://github.com/JNU-SWCU/oss-hub/pull/191) changes requested · conflict | #191 pass | 오래된 TEAM-STATE 변경 제거·최신 main 반영 후 merge conflict 해소와 새 head 재검토 대기 |
+| 공개 프로그램 목록 | @Geuin04 | done | #102 | [#191](https://github.com/JNU-SWCU/oss-hub/pull/191) merged | pass | 없음 |
 | Program & Intake 계획 백로그(5건: 신청·팀 구성·신청자 목록·신청 폼·운영 대시보드) | @Geuin04 | planned | #104 #105 #106 #117 #118 | - | - | 연결 PR·공개 착수 근거 없음 — #106은 담당자 미착수 답변 확인 |
 | 신청 승인·반려와 저장소 생성 트리거 | @Lumiere001 | active | #119 | - | #176 pass | [백엔드 #176](https://github.com/JNU-SWCU/oss-hub/pull/176) merged · #106 신청자 목록·액션 UI 병합 대기 |
 | 교직원 프로그램 생성 | @Geuin04 | done | #100 | [#189](https://github.com/JNU-SWCU/oss-hub/pull/189) merged | pass | 없음 |
@@ -126,9 +126,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 
 <!-- 원본 간 충돌은 해결하지 않고 CONFLICT로만 표기한다(임의 해결 금지). -->
 
-- CONFLICT — #102의 [PR #191](https://github.com/JNU-SWCU/oss-hub/pull/191)은 required checks가 성공했지만 변경 요청과 merge conflict가 남아 있다.
-  해소 전 병합 가능 상태로 해석하지 않는다.
-- stale — `source_commit` 이후 #195·#198이 병합돼 전체 스냅샷 갱신이 필요하다.
+- stale — `source_commit` 이후 #191·#195·#198이 병합됐다. 이 PR에서는 #191과 #208 관련 행만 부분 갱신했으며 전체 스냅샷 갱신은 별도로 필요하다.
   #99·#151이 닫혔지만 기존 그룹 행은 아직 `planned`에 포함돼 있으며, 이 부분은 #206 범위 밖의 별도 갱신 대상으로 남긴다.
   #56(Feature Owner 배분)은 이슈 자체는 열려 있으나 마지막 코멘트로 PM 승인이 확인됐다 —
   close 여부는 PM 판단 대기이므로 여기서는 임의로 닫힌 것으로 표기하지 않는다.
