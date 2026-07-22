@@ -36,7 +36,9 @@ function createController(
   serviceOverrides: Partial<AuthService> = {},
 ): AuthController {
   const service = {
-    completeLogin: jest.fn().mockResolvedValue(syntheticUser),
+    completeLogin: jest
+      .fn()
+      .mockResolvedValue({ user: syntheticUser, isNew: false }),
     issueSession: jest.fn().mockResolvedValue('synthetic-session'),
     ...serviceOverrides,
   } as unknown as AuthService;
@@ -81,6 +83,27 @@ describe('AuthController github callback', () => {
     expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
     expect(res.redirect).toHaveBeenCalledWith(302, 'https://oss.example');
     expect(recordLogin).toHaveBeenCalledWith(syntheticUser.id);
+  });
+
+  it('신규 사용자는 세션 발급 후 동의 화면으로 바로 이동한다', async () => {
+    const flow = createFlowState();
+    const res = createResponse();
+    const completeLogin = jest
+      .fn()
+      .mockResolvedValue({ user: syntheticUser, isNew: true });
+
+    await createController({ completeLogin }).githubCallback(
+      'synthetic-code',
+      flow.state,
+      undefined,
+      requestWithCookie(`${flowCookieName(true)}=${encodeFlowCookie(flow)}`),
+      res,
+    );
+
+    expect(res.redirect).toHaveBeenCalledWith(
+      302,
+      'https://oss.example/consent',
+    );
   });
 
   it('로그인 이력 저장 실패가 정상 세션 발급을 막지 않는다', async () => {

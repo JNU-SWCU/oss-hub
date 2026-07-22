@@ -50,7 +50,7 @@ describe('AuthService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    upsertUser.mockResolvedValue(syntheticUser);
+    upsertUser.mockResolvedValue({ user: syntheticUser, isNew: true });
     service = new AuthService(buildConfig(), repository);
     fetchMock = jest.spyOn(globalThis, 'fetch');
   });
@@ -87,13 +87,13 @@ describe('AuthService', () => {
         jsonResponse(200, { id: 424242, login: 'synthetic-login', name: null }),
       );
 
-    const user = await service.completeLogin({
+    const login = await service.completeLogin({
       code: 'synthetic-code',
       state: flow.state,
       flowCookie: encodeFlowCookie(flow),
     });
 
-    expect(user).toEqual(syntheticUser);
+    expect(login).toEqual({ user: syntheticUser, isNew: true });
     expect(upsertUser).toHaveBeenCalledWith({
       githubId: 424242n,
       login: 'synthetic-login',
