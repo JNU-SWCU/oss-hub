@@ -13,6 +13,10 @@ import { OriginGuard } from '../auth/origin.guard';
 import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
 import { CreateProgramRequestDto } from './dto/create-program-request.dto';
 import { CreateProgramResponseDto } from './dto/create-program-response.dto';
+import {
+  ActivityTimelineQueryRequestDto,
+  type ActivityTimelineResponseDto,
+} from './dto/activity-timeline.dto';
 import type {
   ProgramActivityResponseDto,
   ProgramDetailResponseDto,
@@ -87,6 +91,27 @@ export class ProgramsController {
     return this.activity.activity(
       programId,
       await this.viewers.fromGithubId(request.sessionGithubId),
+    );
+  }
+
+}
+
+@Controller('dashboard/student')
+export class StudentDashboardController {
+  constructor(
+    private readonly activity: ProgramActivityService,
+    private readonly viewers: ProgramViewerService,
+  ) {}
+
+  @Get('activity-timeline')
+  @UseGuards(SessionGuard)
+  async activityTimeline(
+    @Req() request: SessionIdentity,
+    @Query() query: ActivityTimelineQueryRequestDto,
+  ): Promise<ActivityTimelineResponseDto> {
+    return this.activity.activityTimeline(
+      await this.viewers.fromGithubId(request.sessionGithubId),
+      query.granularity,
     );
   }
 }
