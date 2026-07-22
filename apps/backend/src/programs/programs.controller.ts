@@ -15,8 +15,8 @@ import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
 import { CreateProgramRequestDto } from './dto/create-program-request.dto';
 import { CreateProgramResponseDto } from './dto/create-program-response.dto';
 import type {
-  ProgramActivityDto,
-  ProgramDetailDto,
+  ProgramActivityResponseDto,
+  ProgramDetailResponseDto,
 } from './dto/program-detail.dto';
 import { ProgramCreationService } from './program-creation.service';
 import { ProgramActivityService } from './program-activity.service';
@@ -25,7 +25,6 @@ import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsService } from './programs.service';
 
 @Controller('programs')
-@UseFilters(ProgramDetailExceptionFilter)
 export class ProgramsController {
   constructor(
     private readonly creation: ProgramCreationService,
@@ -45,22 +44,24 @@ export class ProgramsController {
     return CreateProgramResponseDto.from(program);
   }
 
+  @UseFilters(ProgramDetailExceptionFilter)
   @Get(':id')
   async detail(
     @Param('id') programId: string,
     @Req() request: Request,
-  ): Promise<ProgramDetailDto> {
+  ): Promise<ProgramDetailResponseDto> {
     return this.programs.detail(
       programId,
       await this.viewers.fromRequest(request),
     );
   }
 
+  @UseFilters(ProgramDetailExceptionFilter)
   @Get(':id/activity')
   async programActivity(
     @Param('id') programId: string,
     @Req() request: Request,
-  ): Promise<readonly ProgramActivityDto[]> {
+  ): Promise<readonly ProgramActivityResponseDto[]> {
     return this.activity.activity(
       programId,
       await this.viewers.fromRequest(request),

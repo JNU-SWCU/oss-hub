@@ -6,10 +6,11 @@ import type {
   SubmissionStatus,
 } from '@prisma/client';
 
-export type ProgramViewerRole = Role | 'PENDING' | null;
-export type ViewerSubmissionStatus = SubmissionStatus | 'NOT_SUBMITTED' | null;
+export type ProgramViewerRoleResponseDto = Role | 'PENDING' | null;
+export type ViewerSubmissionStatusResponseDto =
+  SubmissionStatus | 'NOT_SUBMITTED' | null;
 
-export interface ApplicationSubmissionSummaryDto {
+export interface ApplicationSubmissionSummaryResponseDto {
   readonly notSubmitted: number;
   readonly submitted: number;
   readonly approved: number;
@@ -18,7 +19,7 @@ export interface ApplicationSubmissionSummaryDto {
   readonly total: number;
 }
 
-export interface ProgramMilestoneDto {
+export interface ProgramMilestoneResponseDto {
   readonly id: string;
   readonly name: string;
   readonly dueAt: string;
@@ -26,11 +27,11 @@ export interface ProgramMilestoneDto {
   readonly deadlineLabel: string;
   readonly description: string | null;
   readonly submissionType: MilestoneSubmissionType;
-  readonly viewerSubmissionStatus: ViewerSubmissionStatus;
-  readonly applicationSubmissionSummary: ApplicationSubmissionSummaryDto | null;
+  readonly viewerSubmissionStatus: ViewerSubmissionStatusResponseDto;
+  readonly applicationSubmissionSummary: ApplicationSubmissionSummaryResponseDto | null;
 }
 
-export interface ProgramDetailDto {
+export interface ProgramDetailResponseDto {
   readonly id: string;
   readonly name: string;
   readonly organizer: string;
@@ -41,13 +42,13 @@ export interface ProgramDetailDto {
     readonly endsAt: string;
   };
   readonly viewer: {
-    readonly role: ProgramViewerRole;
+    readonly role: ProgramViewerRoleResponseDto;
     readonly applicationStatus: ApplicationStatus | null;
   };
-  readonly milestones: readonly ProgramMilestoneDto[];
+  readonly milestones: readonly ProgramMilestoneResponseDto[];
 }
 
-export interface ProgramActivityDto {
+export interface ProgramActivityResponseDto {
   readonly applicationId: string;
   readonly label: string;
   readonly commitCount: number;

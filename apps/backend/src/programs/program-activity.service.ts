@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { ObservationSourceType, Role } from '@prisma/client';
+import {
+  CollectionRunStatus,
+  ObservationSourceType,
+  Role,
+} from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
-import type { ProgramActivityDto } from './dto/program-detail.dto';
+import type { ProgramActivityResponseDto } from './dto/program-detail.dto';
 import { PROGRAM_ERROR_CODES } from './program-error-code';
 import type { ProgramViewer } from './program-viewer.service';
 
@@ -16,11 +20,15 @@ function property(
   return key in value ? (value[key] ?? null) : null;
 }
 
-function pushEvent(payload: Prisma.JsonValue, repositoryName: string) {
+function pushEvent(payload: Prisma.JsonValue, githubRepositoryId: bigint) {
   if (property(payload, 'type') !== 'PushEvent') return null;
   const repo = property(payload, 'repo');
-  const fullName = repo ? property(repo, 'name') : null;
-  if (typeof fullName !== 'string' || !fullName.endsWith(`/${repositoryName}`))
+  const repositoryId = repo ? property(repo, 'id') : null;
+  if (
+    typeof repositoryId !== 'number' ||
+    !Number.isSafeInteger(repositoryId) ||
+    BigInt(repositoryId) !== githubRepositoryId
+  )
     return null;
   const eventPayload = property(payload, 'payload');
   const size = eventPayload ? property(eventPayload, 'size') : null;
@@ -38,7 +46,7 @@ export class ProgramActivityService {
   async activity(
     programId: string,
     viewer: ProgramViewer,
-  ): Promise<readonly ProgramActivityDto[]> {
+  ): Promise<readonly ProgramActivityResponseDto[]> {
     if (!viewer.userId || !viewer.role || viewer.role === 'PENDING') return [];
     try {
       const repositories = await this.prisma.repository.findMany({
@@ -56,7 +64,7 @@ export class ProgramActivityService {
             : {}),
         },
         select: {
-          name: true,
+          githubRepositoryId: true,
           application: {
             select: {
               id: true,
@@ -84,13 +92,24 @@ export class ProgramActivityService {
           const observations = await this.prisma.githubRawObservation.findMany({
             where: {
               sourceType: ObservationSourceType.EVENT,
-              run: { targetGithubId: { in: githubIds } },
+              run: {
+                targetGithubId: { in: githubIds },
+                status: CollectionRunStatus.SUCCEEDED,
+              },
             },
-            select: { payload: true },
+            select: { sourceId: true, payload: true },
           });
-          const events = observations
+          const uniqueObservations = [
+            ...new Map(
+              observations.map((observation) => [
+                observation.sourceId,
+                observation,
+              ]),
+            ).values(),
+          ];
+          const events = uniqueObservations
             .map((observation) =>
-              pushEvent(observation.payload, repository.name),
+              pushEvent(observation.payload, repository.githubRepositoryId),
             )
             .filter((event) => event !== null);
           const lastActivityAt =

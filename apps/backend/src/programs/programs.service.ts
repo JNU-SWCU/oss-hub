@@ -3,9 +3,9 @@ import { Role, SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
-  ApplicationSubmissionSummaryDto,
-  ProgramDetailDto,
-  ViewerSubmissionStatus,
+  ApplicationSubmissionSummaryResponseDto,
+  ProgramDetailResponseDto,
+  ViewerSubmissionStatusResponseDto,
 } from './dto/program-detail.dto';
 import { programDeadline } from './program-deadline';
 import { PROGRAM_ERROR_CODES } from './program-error-code';
@@ -23,7 +23,7 @@ const EMPTY_SUMMARY = {
   changesRequested: 0,
   rejected: 0,
   total: 0,
-} as const satisfies ApplicationSubmissionSummaryDto;
+} as const satisfies ApplicationSubmissionSummaryResponseDto;
 
 @Injectable()
 export class ProgramsService {
@@ -33,7 +33,7 @@ export class ProgramsService {
     programId: string,
     viewer: ProgramViewer,
     now: Date = new Date(),
-  ): Promise<ProgramDetailDto> {
+  ): Promise<ProgramDetailResponseDto> {
     try {
       const program = await this.prisma.program.findUnique({
         where: { id: programId },
@@ -132,7 +132,7 @@ export class ProgramsService {
   private viewerSubmissionStatus(
     applicationId: string | null,
     submission: SubmissionRecord | null,
-  ): ViewerSubmissionStatus {
+  ): ViewerSubmissionStatusResponseDto {
     if (!applicationId) return null;
     return submission?.status ?? 'NOT_SUBMITTED';
   }
@@ -142,7 +142,7 @@ export class ProgramsService {
     applications: readonly {
       readonly submissions: readonly SubmissionRecord[];
     }[],
-  ): ApplicationSubmissionSummaryDto {
+  ): ApplicationSubmissionSummaryResponseDto {
     const summary = { ...EMPTY_SUMMARY, total: applications.length };
     for (const application of applications) {
       const status = application.submissions.find(
