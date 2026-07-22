@@ -11,6 +11,7 @@ import { Response } from 'express';
 import { DomainException } from './error-code';
 import { ProblemDetailFilter } from './problem-detail.filter';
 import { SystemErrorCode } from './system-error-code.enum';
+import { PROGRAM_ERROR_CODES } from '../programs/program-error-code';
 
 describe('ProblemDetailFilter', () => {
   const createHost = (
@@ -111,6 +112,26 @@ describe('ProblemDetailFilter', () => {
     );
   });
 
+  it('프로그램 상세 조회 실패는 계약된 안전한 500 코드를 반환한다', () => {
+    const { response, json, status } = createResponse();
+    const exception = new DomainException(
+      PROGRAM_ERROR_CODES.DETAIL_LOAD_FAILED,
+    );
+
+    new ProblemDetailFilter().catch(
+      exception,
+      createHost(response, '/api/v1/programs/program-1'),
+    );
+
+    expect(status).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        code: 'PROGRAM_DETAIL_LOAD_FAILED',
+        detail: '프로그램 상세 정보를 불러오지 못했습니다.',
+      }),
+    );
+  });
   it('opt-in하지 않은 5xx 도메인 예외는 기존처럼 응답을 sanitize한다', () => {
     const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
     const { response, json } = createResponse();
