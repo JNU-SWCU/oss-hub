@@ -1,6 +1,11 @@
-import { apiClient } from '@/lib/api-client';
+import { ApiError, apiClient } from '@/lib/api-client';
 import type { ProgramCategory } from './program-templates';
-import type { ProgramListPage, ProgramListParams } from './types';
+import type {
+  ProgramActivity,
+  ProgramDetail,
+  ProgramListPage,
+  ProgramListParams,
+} from './types';
 
 export interface CreateProgramInput {
   readonly name: string;
@@ -41,4 +46,25 @@ export function listPrograms(
     status: params.status,
   });
   return apiClient<ProgramListPage>('programs?' + search.toString());
+}
+
+export async function getProgramDetail(
+  programId: string,
+): Promise<ProgramDetail> {
+  const encodedId = encodeURIComponent(programId);
+  try {
+    return await apiClient<ProgramDetail>(`programs/${encodedId}/viewer`);
+  } catch (error: unknown) {
+    if (!(error instanceof ApiError) || error.problem.status !== 401)
+      throw error;
+    return apiClient<ProgramDetail>(`programs/${encodedId}`);
+  }
+}
+
+export function getProgramActivity(
+  programId: string,
+): Promise<readonly ProgramActivity[]> {
+  return apiClient<readonly ProgramActivity[]>(
+    `programs/${encodeURIComponent(programId)}/activity`,
+  );
 }

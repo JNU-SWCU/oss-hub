@@ -1,7 +1,8 @@
 import { PrismaService } from '../prisma/prisma.service';
+import { ProgramsRepository } from './programs.repository';
 import { ProgramsService } from './programs.service';
 
-describe('ProgramsService list', () => {
+describe('ProgramsRepository list', () => {
   const findMany = jest.fn();
   const count = jest.fn();
   const transaction = jest.fn();
@@ -9,7 +10,7 @@ describe('ProgramsService list', () => {
     $transaction: transaction,
     program: { count, findMany },
   } as unknown as PrismaService;
-  const service = new ProgramsService(prisma);
+  const repository = new ProgramsRepository(prisma);
 
   beforeEach(() => {
     findMany.mockReset();
@@ -18,19 +19,16 @@ describe('ProgramsService list', () => {
   });
 
   it('applies search and recruiting filters before the page boundary', async () => {
-    // Given
     findMany.mockResolvedValue([]);
     count.mockResolvedValue(0);
     transaction.mockResolvedValue([[], 0]);
     const now = new Date('2026-07-22T00:00:00.000Z');
 
-    // When
-    const page = await service.list(
+    await repository.listPrograms(
       { page: 2, pageSize: 10, search: 'contest', status: 'recruiting' },
       now,
     );
 
-    // Then
     const where = {
       applicationStartAt: { lte: now },
       applicationEndAt: { gte: now },
@@ -52,35 +50,45 @@ describe('ProgramsService list', () => {
       },
     });
     expect(count).toHaveBeenCalledWith({ where });
-    expect(page).toEqual({
-      items: [],
-      page: 2,
-      pageSize: 10,
-      totalItems: 0,
-      totalPages: 0,
-    });
   });
 
   it('uses the same closed filter for count and page rows', async () => {
-    // Given
     findMany.mockResolvedValue([]);
     count.mockResolvedValue(21);
     transaction.mockResolvedValue([[], 21]);
     const now = new Date('2026-07-22T00:00:00.000Z');
 
-    // When
-    const page = await service.list(
+    await repository.listPrograms(
       { page: 1, pageSize: 20, search: '', status: 'closed' },
       now,
     );
 
-    // Then
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { applicationEndAt: { lt: now } } }),
     );
     expect(count).toHaveBeenCalledWith({
       where: { applicationEndAt: { lt: now } },
     });
-    expect(page.totalPages).toBe(2);
+  });
+});
+
+describe('ProgramsService list', () => {
+  it('returns page metadata from the repository count', async () => {
+    const repository = {
+      listPrograms: jest.fn().mockResolvedValue([[], 21]),
+    };
+    const service = new ProgramsService(
+      repository as unknown as ProgramsRepository,
+    );
+
+    await expect(
+      service.list({ page: 1, pageSize: 20, search: '', status: 'all' }),
+    ).resolves.toEqual({
+      items: [],
+      page: 1,
+      pageSize: 20,
+      totalItems: 21,
+      totalPages: 2,
+    });
   });
 });

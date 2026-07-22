@@ -1,113 +1,199 @@
-import { ProgramCategory, Role } from '@prisma/client';
-import { DomainException } from '../common/error-code';
-import { PrismaService } from '../prisma/prisma.service';
-import type { CreateProgramRequestDto } from './dto/create-program-request.dto';
 import {
-  PROGRAM_ERROR_CODES,
-  ProgramErrorCode,
-} from './program-error-code.enum';
+  ApplicationStatus,
+  ProgramCategory,
+  Role,
+  SubmissionStatus,
+} from '@prisma/client';
+import type { PrismaService } from '../prisma/prisma.service';
+import { programDeadline } from './program-deadline';
+import type { ProgramViewer } from './program-viewer.service';
+import { ProgramsRepository } from './programs.repository';
 import { ProgramsService } from './programs.service';
 
-const input: CreateProgramRequestDto = {
-  name: '  2026 OSS Contest  ',
-  organizer: '  SW Center  ',
+const publicProgram = {
+  id: 'program-1',
+  name: 'OSS 경진대회',
+  organizer: '운영기관',
   category: ProgramCategory.OSS_CONTEST,
-  applicationStartAt: '2026-08-01T00:00:00+09:00',
-  applicationEndAt: '2026-08-15T23:59:59+09:00',
-  teamMinSize: 2,
-  teamMaxSize: 4,
-  description: '  Program overview  ',
+  description: '프로그램 설명',
+  applicationStartAt: new Date('2026-07-01T00:00:00+09:00'),
+  applicationEndAt: new Date('2026-08-31T23:59:59+09:00'),
+  milestones: [
+    {
+      id: 'today',
+      name: '오늘 제출',
+      dueAt: new Date('2026-07-21T23:59:59+09:00'),
+      instructions: '설명',
+      submissionType: 'FILE',
+    },
+    {
+      id: 'overdue',
+      name: '지난 제출',
+      dueAt: new Date('2026-07-20T23:59:59+09:00'),
+      instructions: null,
+      submissionType: 'TEXT',
+    },
+  ],
 };
 
-describe('ProgramsService', () => {
-  const findUnique = jest.fn();
-  const create = jest.fn();
+function createService() {
+  const findUnique = jest.fn().mockResolvedValue(publicProgram);
+  const findFirst = jest.fn();
+  const findMany = jest.fn();
   const prisma = {
-    user: { findUnique },
-    program: { create },
+    program: { findUnique },
+    application: { findFirst, findMany },
   } as unknown as PrismaService;
-  const service = new ProgramsService(prisma);
+  return {
+    service: new ProgramsService(new ProgramsRepository(prisma)),
+    findUnique,
+    findFirst,
+    findMany,
+  };
+}
 
-  beforeEach(() => {
-    findUnique.mockReset();
-    create.mockReset();
+const anonymous: ProgramViewer = { githubId: null, userId: null, role: null };
+
+describe('ProgramsService detail', () => {
+  it('비로그인은 공개 정보만 조회하고 비공개 상태를 null로 반환한다', async () => {
+    const { service, findFirst, findMany } = createService();
+    const detail = await service.detail(
+      'program-1',
+      anonymous,
+      new Date('2026-07-21T01:00:00+09:00'),
+    );
+
+    expect(findFirst).not.toHaveBeenCalled();
+    expect(findMany).not.toHaveBeenCalled();
+    expect(detail.viewer).toEqual({ role: null, applicationStatus: null });
+    expect(detail.milestones[0]?.viewerSubmissionStatus).toBeNull();
+    expect(detail.milestones[0]?.deadlineLabel).toBe('오늘 마감');
+    expect(detail.milestones[1]?.deadlineLabel).toBe('마감 지남');
   });
 
-  it('stores the server-owned OSS contest template for an approved staff member', async () => {
-    findUnique.mockResolvedValue({ role: Role.STAFF });
-    create.mockResolvedValue({ id: 'program-1' });
-
-    await service.create(101n, input);
-
-    expect(create).toHaveBeenCalledWith({
-      data: {
-        name: '2026 OSS Contest',
-        organizer: 'SW Center',
-        category: ProgramCategory.OSS_CONTEST,
-        description: 'Program overview',
-        applicationTemplateKey: 'oss-contest',
-        applicationTemplateVersion: 1,
-        applicationStartAt: new Date('2026-08-01T00:00:00+09:00'),
-        applicationEndAt: new Date('2026-08-15T23:59:59+09:00'),
-        teamMinSize: 2,
-        teamMaxSize: 4,
-      },
+  it('승인된 학생에게 마일스톤별 현재 제출 상태를 반환한다', async () => {
+    const { service, findFirst } = createService();
+    findFirst.mockResolvedValue({
+      id: 'application-1',
+      status: 'APPROVED',
+      submissions: [
+        { milestoneId: 'today', status: SubmissionStatus.REJECTED },
+      ],
     });
+    const viewer: ProgramViewer = {
+      githubId: 1n,
+      userId: 'student-1',
+      role: Role.STUDENT,
+    };
+    const detail = await service.detail('program-1', viewer);
+
+    expect(detail.milestones[0]?.viewerSubmissionStatus).toBe('REJECTED');
+    expect(detail.milestones[1]?.viewerSubmissionStatus).toBe('NOT_SUBMITTED');
   });
 
-  it('stores null team sizes for an individual template', async () => {
-    findUnique.mockResolvedValue({ role: Role.ADMIN });
-    create.mockResolvedValue({ id: 'program-2' });
-
-    await service.create(101n, {
-      ...input,
-      category: ProgramCategory.BASIC,
-      teamMinSize: 2,
-      teamMaxSize: 4,
+  it('TeamMember 행이 없는 팀장도 자신의 신청 상태를 조회한다', async () => {
+    // Given
+    const { service, findFirst } = createService();
+    findFirst.mockResolvedValue({
+      id: 'application-1',
+      status: ApplicationStatus.APPROVED,
+      submissions: [],
     });
+    const viewer: ProgramViewer = {
+      githubId: 1n,
+      userId: 'leader-1',
+      role: Role.STUDENT,
+    };
 
-    expect(create).toHaveBeenCalledWith({
-      data: {
-        name: '2026 OSS Contest',
-        organizer: 'SW Center',
-        category: ProgramCategory.BASIC,
-        description: 'Program overview',
-        applicationTemplateKey: 'basic',
-        applicationTemplateVersion: 1,
-        applicationStartAt: new Date('2026-08-01T00:00:00+09:00'),
-        applicationEndAt: new Date('2026-08-15T23:59:59+09:00'),
-        teamMinSize: null,
-        teamMaxSize: null,
+    // When
+    const detail = await service.detail('program-1', viewer);
+
+    // Then
+    expect(findFirst).toHaveBeenCalledWith({
+      where: {
+        programId: 'program-1',
+        OR: [
+          { applicantId: 'leader-1' },
+          { team: { leaderId: 'leader-1' } },
+          { team: { members: { some: { userId: 'leader-1' } } } },
+        ],
       },
+      select: {
+        id: true,
+        status: true,
+        submissions: { select: { milestoneId: true, status: true } },
+      },
+    });
+    expect(detail.viewer.applicationStatus).toBe(ApplicationStatus.APPROVED);
+  });
+  it('교직원에게 application 기준 제출 요약을 반환한다', async () => {
+    const { service, findMany } = createService();
+    findMany.mockResolvedValue([
+      {
+        submissions: [
+          { milestoneId: 'today', status: SubmissionStatus.SUBMITTED },
+        ],
+      },
+      {
+        submissions: [
+          { milestoneId: 'today', status: SubmissionStatus.CHANGES_REQUESTED },
+        ],
+      },
+      { submissions: [] },
+    ]);
+    const viewer: ProgramViewer = {
+      githubId: 2n,
+      userId: 'staff-1',
+      role: Role.STAFF,
+    };
+    const detail = await service.detail('program-1', viewer);
+
+    expect(detail.milestones[0]?.applicationSubmissionSummary).toEqual({
+      notSubmitted: 1,
+      submitted: 1,
+      approved: 0,
+      changesRequested: 1,
+      rejected: 0,
+      total: 3,
     });
   });
+  it('교직원 제출 요약은 승인된 신청만 분모에 포함한다', async () => {
+    // Given
+    const { service, findMany } = createService();
+    findMany.mockResolvedValue([{ submissions: [] }]);
 
-  it('rejects a reversed team range before a program is stored', async () => {
-    findUnique.mockResolvedValue({ role: Role.STAFF });
+    const viewer: ProgramViewer = {
+      githubId: 2n,
+      userId: 'staff-1',
+      role: Role.STAFF,
+    };
 
-    await expect(
-      service.create(101n, { ...input, teamMinSize: 4, teamMaxSize: 2 }),
-    ).rejects.toMatchObject<Partial<DomainException>>({
-      errorCode: {
-        code: ProgramErrorCode.VALIDATION_ERROR,
-        message: PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR].message,
-        status: 400,
+    // When
+    const detail = await service.detail('program-1', viewer);
+
+    // Then
+    expect(findMany).toHaveBeenCalledWith({
+      where: {
+        programId: 'program-1',
+        status: ApplicationStatus.APPROVED,
+      },
+      select: {
+        submissions: { select: { milestoneId: true, status: true } },
       },
     });
-    expect(create).not.toHaveBeenCalled();
+    expect(detail.milestones[0]?.applicationSubmissionSummary).toEqual(
+      expect.objectContaining({ total: 1, notSubmitted: 1 }),
+    );
   });
-  it('rejects a student who bypasses the staff-only creation UI', async () => {
-    findUnique.mockResolvedValue({ role: Role.STUDENT });
+});
 
-    await expect(service.create(101n, input)).rejects.toMatchObject<
-      Partial<DomainException>
-    >({
-      errorCode: {
-        code: ProgramErrorCode.FORBIDDEN,
-        message: PROGRAM_ERROR_CODES[ProgramErrorCode.FORBIDDEN].message,
-        status: 403,
-      },
-    });
-    expect(create).not.toHaveBeenCalled();
+describe('programDeadline', () => {
+  it('Asia/Seoul 달력 날짜를 기준으로 D-day를 계산한다', () => {
+    expect(
+      programDeadline(
+        new Date('2026-07-22T00:01:00+09:00'),
+        new Date('2026-07-21T23:59:00+09:00'),
+      ),
+    ).toEqual({ dDay: 1, label: 'D-1' });
   });
 });
