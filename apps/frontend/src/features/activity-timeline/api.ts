@@ -55,7 +55,8 @@ function parsePoint(
     !isNonNegativeInteger(value.commitCount) ||
     !isNonNegativeInteger(value.prCount) ||
     !isNonNegativeInteger(value.starCount) ||
-    !isNonNegativeInteger(value.total)
+    !isNonNegativeInteger(value.total) ||
+    value.total !== value.commitCount + value.prCount + value.starCount
   ) {
     return null;
   }
@@ -69,7 +70,10 @@ function parsePoint(
   };
 }
 
-function parseActivityTimeline(value: unknown): ActivityTimeline {
+function parseActivityTimeline(
+  value: unknown,
+  requestedGranularity: ActivityGranularity,
+): ActivityTimeline {
   if (!isRecord(value)) {
     throw new ActivityTimelineResponseError();
   }
@@ -82,6 +86,7 @@ function parseActivityTimeline(value: unknown): ActivityTimeline {
   const { granularity, points: rawPoints } = rawSeries;
   if (
     (granularity !== 'MONTH' && granularity !== 'YEAR') ||
+    granularity !== requestedGranularity ||
     !Array.isArray(rawPoints)
   ) {
     throw new ActivityTimelineResponseError();
@@ -113,5 +118,5 @@ export async function fetchActivityTimeline(
   const response = await apiClient<unknown>(
     `dashboard/student/activity-timeline?${search.toString()}`,
   );
-  return parseActivityTimeline(response);
+  return parseActivityTimeline(response, granularity);
 }

@@ -48,8 +48,15 @@ function stubTimelineResponse(body: unknown) {
 
 describe('activity timeline', () => {
   it('granularity를 current-user API query로 전달한다', async () => {
+    const yearlyTimeline: ActivityTimeline = {
+      ...timeline,
+      series: {
+        granularity: 'YEAR',
+        points: [{ ...timeline.series.points[0], period: '2026' }],
+      },
+    };
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(timeline), {
+      new Response(JSON.stringify(yearlyTimeline), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }),
@@ -159,6 +166,16 @@ describe('activity timeline', () => {
       },
     ],
     [
+      'inconsistent total',
+      {
+        ...timeline,
+        series: {
+          ...timeline.series,
+          points: [{ ...timeline.series.points[0], total: 0 }],
+        },
+      },
+    ],
+    [
       'unknown applicationMode',
       {
         ...timeline,
@@ -200,4 +217,27 @@ describe('activity timeline', () => {
       '활동 타임라인 응답 형식이 올바르지 않습니다',
     );
   });
+
+  it.each([
+    ['YEAR', timeline],
+    [
+      'MONTH',
+      {
+        ...timeline,
+        series: {
+          granularity: 'YEAR',
+          points: [{ ...timeline.series.points[0], period: '2026' }],
+        },
+      },
+    ],
+  ] as const)(
+    '요청한 %s granularity와 다른 성공 응답을 거부한다',
+    async (requestedGranularity, response) => {
+      stubTimelineResponse(response);
+
+      await expect(fetchActivityTimeline(requestedGranularity)).rejects.toThrow(
+        '활동 타임라인 응답 형식이 올바르지 않습니다',
+      );
+    },
+  );
 });
