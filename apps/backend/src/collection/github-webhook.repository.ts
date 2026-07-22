@@ -1,13 +1,60 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import type { GithubWebhookRepositoryInput } from './github-webhook.types';
+import type {
+  GithubWebhookObservationInput,
+  GithubWebhookObservationSummary,
+  GithubWebhookRepositoryInput,
+} from './github-webhook.types';
+import { GITHUB_WEBHOOK_OBSERVATION_OUTCOMES } from './github-webhook.types';
 
 export type GithubWebhookPersistResult = 'stored' | 'duplicate';
+
+function assertNever(value: never): never {
+  throw new TypeError(
+    `unhandled webhook observation variant: ${String(value)}`,
+  );
+}
+
+function observationErrorCode(
+  input: GithubWebhookObservationInput,
+): string | null {
+  switch (input.outcome) {
+    case GITHUB_WEBHOOK_OBSERVATION_OUTCOMES.ACCEPTED:
+    case GITHUB_WEBHOOK_OBSERVATION_OUTCOMES.DUPLICATE:
+    case GITHUB_WEBHOOK_OBSERVATION_OUTCOMES.IGNORED:
+      return null;
+    case GITHUB_WEBHOOK_OBSERVATION_OUTCOMES.FAILED:
+      return input.errorCode;
+    default:
+      return assertNever(input);
+  }
+}
 
 @Injectable()
 export class GithubWebhookRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  private async observeInTransaction(
+    transaction: Prisma.TransactionClient,
+    input: GithubWebhookObservationInput,
+  ): Promise<void> {
+    await transaction.githubWebhookObservation.create({
+      data: {
+        deliveryId: input.deliveryId,
+        eventType: input.eventType,
+        receivedAt: input.receivedAt,
+        outcome: input.outcome,
+        errorCode: observationErrorCode(input),
+      },
+    });
+  }
+
+  async observe(input: GithubWebhookObservationInput): Promise<void> {
+    await this.prisma.$transaction(async (transaction) => {
+      await this.observeInTransaction(transaction, input);
+    });
+  }
 
   async persist(
     input: GithubWebhookRepositoryInput,
@@ -25,6 +72,12 @@ export class GithubWebhookRepository {
             select: { id: true },
           });
         if (duplicate !== null) {
+          await this.observeInTransaction(transaction, {
+            deliveryId: input.activity.deliveryId,
+            eventType: input.activity.eventType,
+            receivedAt: input.observedAt,
+            outcome: GITHUB_WEBHOOK_OBSERVATION_OUTCOMES.DUPLICATE,
+          });
           return 'duplicate';
         }
 
@@ -62,6 +115,12 @@ export class GithubWebhookRepository {
             ...input.activity,
           },
         });
+        await this.observeInTransaction(transaction, {
+          deliveryId: input.activity.deliveryId,
+          eventType: input.activity.eventType,
+          receivedAt: input.observedAt,
+          outcome: GITHUB_WEBHOOK_OBSERVATION_OUTCOMES.ACCEPTED,
+        });
         return 'stored';
       });
     } catch (error) {
@@ -80,10 +139,54 @@ export class GithubWebhookRepository {
             select: { id: true },
           });
         if (duplicate !== null) {
+          await this.observe({
+            deliveryId: input.activity.deliveryId,
+            eventType: input.activity.eventType,
+            receivedAt: input.observedAt,
+            outcome: GITHUB_WEBHOOK_OBSERVATION_OUTCOMES.DUPLICATE,
+          });
           return 'duplicate';
         }
       }
       throw error;
     }
+  }
+
+  async summarizeSince(since: Date): Promise<GithubWebhookObservationSummary> {
+    const [latest, accepted, duplicate, ignored, failed] =
+      await this.prisma.$transaction([
+        this.prisma.githubWebhookObservation.findFirst({
+          orderBy: { receivedAt: 'desc' },
+          select: { receivedAt: true },
+        }),
+        this.prisma.githubWebhookObservation.count({
+          where: {
+            outcome: GITHUB_WEBHOOK_OBSERVATION_OUTCOMES.ACCEPTED,
+            receivedAt: { gte: since },
+          },
+        }),
+        this.prisma.githubWebhookObservation.count({
+          where: {
+            outcome: GITHUB_WEBHOOK_OBSERVATION_OUTCOMES.DUPLICATE,
+            receivedAt: { gte: since },
+          },
+        }),
+        this.prisma.githubWebhookObservation.count({
+          where: {
+            outcome: GITHUB_WEBHOOK_OBSERVATION_OUTCOMES.IGNORED,
+            receivedAt: { gte: since },
+          },
+        }),
+        this.prisma.githubWebhookObservation.count({
+          where: {
+            outcome: GITHUB_WEBHOOK_OBSERVATION_OUTCOMES.FAILED,
+            receivedAt: { gte: since },
+          },
+        }),
+      ]);
+    return {
+      lastReceivedAt: latest?.receivedAt ?? null,
+      counts: { accepted, duplicate, ignored, failed },
+    };
   }
 }

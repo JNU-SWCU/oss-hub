@@ -10,6 +10,7 @@ import { GithubWebhookService } from './github-webhook.service';
 const syntheticSecret = 'synthetic-http-webhook-secret';
 const syntheticDeliveryId = '00000000-0000-4000-8000-000000000123';
 const persist = jest.fn().mockResolvedValue('stored');
+const observe = jest.fn().mockResolvedValue(undefined);
 let application: INestApplication | undefined;
 let baseUrl = '';
 
@@ -38,7 +39,7 @@ beforeAll(async () => {
           webhookSecret: syntheticSecret,
         },
       },
-      { provide: GithubWebhookRepository, useValue: { persist } },
+      { provide: GithubWebhookRepository, useValue: { persist, observe } },
     ],
   }).compile();
 

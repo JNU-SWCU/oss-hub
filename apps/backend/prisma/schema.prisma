@@ -451,6 +451,30 @@ model OrgRepositoryActivityEvent {
   @@index([inventoryId, occurredAt])
 }
 
+enum GithubWebhookObservationOutcome {
+  ACCEPTED
+  DUPLICATE
+  IGNORED
+  FAILED
+}
+
+/// 검증된 webhook delivery의 처리 결과만 보존한다. payload·signature·header는 저장하지 않는다(#215).
+model GithubWebhookObservation {
+  id String @id @default(cuid())
+
+  deliveryId  String
+  eventType   String
+  receivedAt  DateTime
+  processedAt DateTime @default(now())
+
+  outcome   GithubWebhookObservationOutcome
+  errorCode String?
+
+  @@index([deliveryId])
+  @@index([receivedAt])
+  @@index([outcome, receivedAt])
+}
+
 enum RepositoryInvitationStatus {
   PENDING
   SUCCEEDED
