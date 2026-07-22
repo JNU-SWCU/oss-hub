@@ -88,6 +88,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 공통 온보딩 프로필 입력 | @GoBeromsu | review | #153 | [#211](https://github.com/JNU-SWCU/oss-hub/pull/211) + 로컬 대체 후보 `codex/profile-onboarding-base` | 로컬 후보 pass · GitHub CI 미실행 | #211 변경 요청 반영 및 로컬 후보 PR 생성 전. owner 전속 fixture 변경은 최종 PR head에서 @Lumiere001 사후 추인 필요 |
 | 프로필 완료 전 역할 선택 차단 | @Lumiere001 | active | [#212](https://github.com/JNU-SWCU/oss-hub/issues/212) | - | 로컬 검증 중 · GitHub CI 미실행 | `codex/onboarding-profile-gate` 로컬 종속 후보. #153 프로필 후보가 선행하며 최종 PR 생성·exact-head Code Owner 검토 필요 |
 | GitHub App 최소 권한·live smoke 계약 | @Lumiere001 | review | #205 | [#208](https://github.com/JNU-SWCU/oss-hub/pull/208) | #208 pass | Collection App REST read 데이터 최소화·권한 allowlist 계약 리뷰 반영 중 · 실제 실증은 비운영 App 준비 대기 |
+| webhook 처리 결과 관측 지표 | @Lumiere001 | review | #215 | Draft PR 생성 예정 | 로컬 pass | 직렬 migration을 위해 #211 위에 stacked · #211 병합 전 main 대상 병합 금지 |
 | 공통 랜딩 세션별 진입 CTA | @jinsol1190-rgb | done | #98 | #201 | pass | 없음 |
 | 프로그램 편집·마일스톤 | @Geuin04 | planned | #101 | - | - | 연결 PR·공개 착수 근거 없음 |
 | 공개 프로그램 목록 | @Geuin04 | done | #102 | [#191](https://github.com/JNU-SWCU/oss-hub/pull/191) merged | pass | 없음 |
