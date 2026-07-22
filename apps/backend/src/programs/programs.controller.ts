@@ -11,7 +11,7 @@ import { OriginGuard } from '../auth/origin.guard';
 import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
 import { CreateProgramRequestDto } from './dto/create-program-request.dto';
 import { CreateProgramResponseDto } from './dto/create-program-response.dto';
-import { ProgramListItemDto } from './dto/program-list-item.dto';
+import { ProgramListResponseDto } from './dto/program-list-response.dto';
 import { ProgramsService } from './programs.service';
 
 @Controller('programs')
@@ -19,9 +19,9 @@ export class ProgramsController {
   constructor(private readonly programsService: ProgramsService) {}
 
   @Get()
-  async list(): Promise<readonly ProgramListItemDto[]> {
+  async list(): Promise<readonly ProgramListResponseDto[]> {
     const programs = await this.programsService.list();
-    return programs.map((program) => ProgramListItemDto.from(program));
+    return programs.map((program) => ProgramListResponseDto.from(program));
   }
 
   @Post()
