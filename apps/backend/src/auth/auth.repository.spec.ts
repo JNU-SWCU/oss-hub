@@ -20,6 +20,8 @@ function buildRow(overrides: Partial<PrismaUser> = {}): PrismaUser {
     githubId: 424242n,
     login: 'synthetic-login',
     name: null,
+    studentId: null,
+    department: null,
     avatarUrl: null,
     accountStatus: AccountStatus.ACTIVE,
     role: null,
