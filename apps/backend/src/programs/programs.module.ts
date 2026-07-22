@@ -7,7 +7,10 @@ import { ProgramEditorController } from './program-editor.controller';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramViewerService } from './program-viewer.service';
-import { ProgramsController } from './programs.controller';
+import {
+  ProgramsController,
+  StudentDashboardController,
+} from './programs.controller';
 import { ProgramsRepository } from './programs.repository';
 import { ProgramsService } from './programs.service';
 
@@ -15,6 +18,7 @@ import { ProgramsService } from './programs.service';
   imports: [AuthModule],
   controllers: [
     ProgramsController,
+    StudentDashboardController,
     ProgramEditorController,
     MilestonesController,
   ],
