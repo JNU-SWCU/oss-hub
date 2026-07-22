@@ -6,6 +6,7 @@ import {
 import type { PrismaService } from '../prisma/prisma.service';
 import { ProgramActivityService } from './program-activity.service';
 import type { ProgramViewer } from './program-viewer.service';
+import { ProgramsRepository } from './programs.repository';
 
 const staff: ProgramViewer = {
   githubId: 1n,
@@ -54,7 +55,7 @@ describe('ProgramActivityService', () => {
       repository: { findMany: repositoryFindMany },
       githubRawObservation: { findMany: observationFindMany },
     } as unknown as PrismaService;
-    const service = new ProgramActivityService(prisma);
+    const service = new ProgramActivityService(new ProgramsRepository(prisma));
 
     // When
     const result = await service.activity('program-1', staff);
@@ -101,7 +102,7 @@ describe('ProgramActivityService', () => {
       repository: { findMany: repositoryFindMany },
       githubRawObservation: { findMany: observationFindMany },
     } as unknown as PrismaService;
-    const service = new ProgramActivityService(prisma);
+    const service = new ProgramActivityService(new ProgramsRepository(prisma));
     const leader: ProgramViewer = {
       githubId: 11n,
       userId: 'leader-1',

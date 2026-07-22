@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { ApplicationStatus, Role, SubmissionStatus } from '@prisma/client';
+import { Role, SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
-import { PrismaService } from '../prisma/prisma.service';
 import type {
   ApplicationSubmissionSummaryResponseDto,
   ProgramDetailResponseDto,
@@ -9,8 +8,8 @@ import type {
 } from './dto/program-detail.dto';
 import { programDeadline } from './program-deadline';
 import { PROGRAM_ERROR_CODES } from './program-error-code';
-import { programApplicationParticipantWhere } from './program-participant';
 import type { ProgramViewer } from './program-viewer.service';
+import { ProgramsRepository } from './programs.repository';
 
 type SubmissionRecord = {
   readonly milestoneId: string;
@@ -28,7 +27,7 @@ const EMPTY_SUMMARY = {
 
 @Injectable()
 export class ProgramsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly repository: ProgramsRepository) {}
 
   async detail(
     programId: string,
@@ -36,52 +35,19 @@ export class ProgramsService {
     now: Date = new Date(),
   ): Promise<ProgramDetailResponseDto> {
     try {
-      const program = await this.prisma.program.findUnique({
-        where: { id: programId },
-        select: {
-          id: true,
-          name: true,
-          organizer: true,
-          category: true,
-          description: true,
-          applicationStartAt: true,
-          applicationEndAt: true,
-          milestones: {
-            orderBy: { dueAt: 'asc' },
-            select: {
-              id: true,
-              name: true,
-              dueAt: true,
-              instructions: true,
-              submissionType: true,
-            },
-          },
-        },
-      });
+      const program = await this.repository.findProgramDetail(programId);
       if (!program) throw new DomainException(PROGRAM_ERROR_CODES.NOT_FOUND);
 
       const studentApplication =
         viewer.role === Role.STUDENT && viewer.userId
-          ? await this.prisma.application.findFirst({
-              where: {
-                programId,
-                ...programApplicationParticipantWhere(viewer.userId),
-              },
-              select: {
-                id: true,
-                status: true,
-                submissions: { select: { milestoneId: true, status: true } },
-              },
-            })
+          ? await this.repository.findStudentApplication(
+              programId,
+              viewer.userId,
+            )
           : null;
       const staffApplications =
         viewer.role === Role.STAFF || viewer.role === Role.ADMIN
-          ? await this.prisma.application.findMany({
-              where: { programId, status: ApplicationStatus.APPROVED },
-              select: {
-                submissions: { select: { milestoneId: true, status: true } },
-              },
-            })
+          ? await this.repository.findApprovedApplications(programId)
           : null;
 
       return {

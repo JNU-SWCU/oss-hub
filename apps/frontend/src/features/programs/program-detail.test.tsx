@@ -2,7 +2,14 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { ActivityPanelBody } from './components/activity-graph-panel';
 import { MilestoneRow } from './components/milestone-row';
-import type { ProgramMilestone } from './types';
+import { ApiError } from '@/lib/api-client';
+import {
+  detailFailure,
+  ProgramActions,
+  ProgramDetailFailureState,
+  ProgramMilestones,
+} from './program-detail-page';
+import type { ProgramDetail, ProgramMilestone } from './types';
 
 const milestone: ProgramMilestone = {
   id: 'milestone-1',
@@ -83,5 +90,62 @@ describe('ActivityPanelBody', () => {
     expect(empty).toContain('아직 연결된 저장소가 없습니다');
     expect(failed).toContain('활동을 불러오지 못했습니다');
     expect(failed).toContain('프로그램 정보는 정상적으로 표시');
+  });
+});
+
+const programWithoutMilestones: ProgramDetail = {
+  id: 'program-1',
+  name: 'OSS 경진대회',
+  organizer: '운영기관',
+  category: 'OSS_CONTEST',
+  description: '프로그램 설명',
+  applicationPeriod: {
+    startsAt: '2026-07-01T00:00:00+09:00',
+    endsAt: '2026-08-31T23:59:59+09:00',
+  },
+  viewer: { role: 'STAFF', applicationStatus: null },
+  milestones: [],
+};
+
+describe('ProgramDetailPage states', () => {
+  it('교직원 신청자 목록은 #106의 고정 URL인 applicants를 사용한다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramActions program={programWithoutMilestones} />,
+    );
+    expect(html).toContain('/staff/programs/program-1/applicants');
+    expect(html).not.toContain('/applications');
+  });
+
+  it('마일스톤이 없으면 빈 상태와 교직원 설정 진입을 표시한다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramMilestones program={programWithoutMilestones} />,
+    );
+    expect(html).toContain('아직 등록된 마일스톤이 없습니다');
+    expect(html).toContain('/staff/programs/program-1/edit#milestones');
+  });
+
+  it('404와 일반 실패를 구분하고 일반 실패에는 재시도를 제공한다', () => {
+    const notFound = detailFailure(
+      new ApiError({
+        type: 'about:blank',
+        title: 'Not Found',
+        status: 404,
+        detail: '없음',
+        instance: '/programs/program-1',
+        code: 'PROGRAM_NOT_FOUND',
+      }),
+    );
+    expect(notFound).toEqual({ kind: 'not-found' });
+    expect(detailFailure(new Error('network'))).toEqual({ kind: 'failed' });
+
+    const notFoundHtml = renderToStaticMarkup(
+      <ProgramDetailFailureState kind="not-found" onRetry={vi.fn()} />,
+    );
+    const failedHtml = renderToStaticMarkup(
+      <ProgramDetailFailureState kind="failed" onRetry={vi.fn()} />,
+    );
+    expect(notFoundHtml).toContain('프로그램을 찾을 수 없습니다');
+    expect(failedHtml).toContain('프로그램을 불러오지 못했습니다');
+    expect(failedHtml).toContain('다시 시도');
   });
 });

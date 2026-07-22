@@ -1,33 +1,24 @@
 import { Injectable } from '@nestjs/common';
-import {
-  CollectionRunStatus,
-  ObservationSourceType,
-  Role,
-} from '@prisma/client';
-import type { Prisma } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { DomainException } from '../common/error-code';
-import { PrismaService } from '../prisma/prisma.service';
 import type { ProgramActivityResponseDto } from './dto/program-detail.dto';
 import { PROGRAM_ERROR_CODES } from './program-error-code';
-import {
-  programApplicationParticipantWhere,
-  programParticipantGithubIds,
-} from './program-participant';
+import { programParticipantGithubIds } from './program-participant';
 import type { ProgramViewer } from './program-viewer.service';
+import { ProgramsRepository } from './programs.repository';
 
-function property(
-  value: Prisma.JsonValue,
-  key: string,
-): Prisma.JsonValue | null {
+function property(value: unknown, key: string): unknown {
   if (typeof value !== 'object' || value === null || Array.isArray(value))
     return null;
-  return key in value ? (value[key] ?? null) : null;
+  return key in value
+    ? ((value as Record<string, unknown>)[key] ?? null)
+    : null;
 }
 
-function pushEvent(payload: Prisma.JsonValue, githubRepositoryId: bigint) {
+function pushEvent(payload: unknown, githubRepositoryId: bigint) {
   if (property(payload, 'type') !== 'PushEvent') return null;
   const repo = property(payload, 'repo');
-  const repositoryId = repo ? property(repo, 'id') : null;
+  const repositoryId = property(repo, 'id');
   if (
     typeof repositoryId !== 'number' ||
     !Number.isSafeInteger(repositoryId) ||
@@ -35,7 +26,7 @@ function pushEvent(payload: Prisma.JsonValue, githubRepositoryId: bigint) {
   )
     return null;
   const eventPayload = property(payload, 'payload');
-  const size = eventPayload ? property(eventPayload, 'size') : null;
+  const size = property(eventPayload, 'size');
   const occurredAt = property(payload, 'created_at');
   return {
     commits: typeof size === 'number' && Number.isFinite(size) ? size : 0,
@@ -45,7 +36,7 @@ function pushEvent(payload: Prisma.JsonValue, githubRepositoryId: bigint) {
 
 @Injectable()
 export class ProgramActivityService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly repository: ProgramsRepository) {}
 
   async activity(
     programId: string,
@@ -53,36 +44,10 @@ export class ProgramActivityService {
   ): Promise<readonly ProgramActivityResponseDto[]> {
     if (!viewer.userId || !viewer.role || viewer.role === 'PENDING') return [];
     try {
-      const repositories = await this.prisma.repository.findMany({
-        where: {
-          programId,
-          ...(viewer.role === Role.STUDENT
-            ? {
-                application: {
-                  ...programApplicationParticipantWhere(viewer.userId),
-                },
-              }
-            : {}),
-        },
-        select: {
-          githubRepositoryId: true,
-          application: {
-            select: {
-              id: true,
-              applicant: {
-                select: { githubId: true, name: true, login: true },
-              },
-              team: {
-                select: {
-                  name: true,
-                  leader: { select: { githubId: true } },
-                  members: { select: { user: { select: { githubId: true } } } },
-                },
-              },
-            },
-          },
-        },
-      });
+      const repositories = await this.repository.findProgramRepositories(
+        programId,
+        viewer.role === Role.STUDENT ? viewer.userId : null,
+      );
 
       return Promise.all(
         repositories.map(async (repository) => {
@@ -90,16 +55,8 @@ export class ProgramActivityService {
             repository.application.applicant.githubId,
             repository.application.team,
           );
-          const observations = await this.prisma.githubRawObservation.findMany({
-            where: {
-              sourceType: ObservationSourceType.EVENT,
-              run: {
-                targetGithubId: { in: [...githubIds] },
-                status: CollectionRunStatus.SUCCEEDED,
-              },
-            },
-            select: { sourceId: true, payload: true },
-          });
+          const observations =
+            await this.repository.findSuccessfulEventObservations(githubIds);
           const uniqueObservations = [
             ...new Map(
               observations.map((observation) => [

@@ -7,6 +7,7 @@ import {
 import type { PrismaService } from '../prisma/prisma.service';
 import { programDeadline } from './program-deadline';
 import type { ProgramViewer } from './program-viewer.service';
+import { ProgramsRepository } from './programs.repository';
 import { ProgramsService } from './programs.service';
 
 const publicProgram = {
@@ -44,7 +45,7 @@ function createService() {
     application: { findFirst, findMany },
   } as unknown as PrismaService;
   return {
-    service: new ProgramsService(prisma),
+    service: new ProgramsService(new ProgramsRepository(prisma)),
     findUnique,
     findFirst,
     findMany,

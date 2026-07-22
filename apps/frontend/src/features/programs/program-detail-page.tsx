@@ -13,7 +13,7 @@ import { MilestoneRow } from './components/milestone-row';
 import { categoryLabel, formatSeoulDate } from './program-detail-format';
 import type { ProgramDetail } from './types';
 
-type DetailState =
+export type DetailState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'not-found' }
   | { readonly kind: 'failed' }
@@ -33,7 +33,11 @@ function DetailSkeleton() {
   );
 }
 
-function ProgramActions({ program }: { readonly program: ProgramDetail }) {
+export function ProgramActions({
+  program,
+}: {
+  readonly program: ProgramDetail;
+}) {
   const role = program.viewer.role;
   if (role === null)
     return (
@@ -55,7 +59,7 @@ function ProgramActions({ program }: { readonly program: ProgramDetail }) {
           <Link href={`/staff/programs/${program.id}/edit`}>편집</Link>
         </Button>
         <Button asChild variant="outline">
-          <Link href={`/staff/programs/${program.id}/applications`}>
+          <Link href={`/staff/programs/${program.id}/applicants`}>
             신청자 목록
           </Link>
         </Button>
@@ -105,6 +109,89 @@ function ProgramSummary({ program }: { readonly program: ProgramDetail }) {
   );
 }
 
+export function ProgramDetailFailureState({
+  kind,
+  onRetry,
+}: {
+  readonly kind: 'not-found' | 'failed';
+  readonly onRetry: () => void;
+}) {
+  if (kind === 'not-found') {
+    return (
+      <main className="mx-auto max-w-3xl px-4 py-12">
+        <EmptyState
+          title="프로그램을 찾을 수 없습니다"
+          description="삭제되었거나 공개되지 않은 프로그램입니다."
+          action={
+            <Button asChild variant="outline">
+              <Link href="/programs">프로그램 목록으로</Link>
+            </Button>
+          }
+        />
+      </main>
+    );
+  }
+  return (
+    <main className="mx-auto max-w-3xl px-4 py-12">
+      <EmptyState
+        title="프로그램을 불러오지 못했습니다"
+        description="잠시 후 다시 시도해 주세요."
+        action={
+          <Button type="button" onClick={onRetry}>
+            다시 시도
+          </Button>
+        }
+      />
+    </main>
+  );
+}
+
+export function ProgramMilestones({
+  program,
+}: {
+  readonly program: ProgramDetail;
+}) {
+  return (
+    <section className="grid gap-4" aria-labelledby="milestones-title">
+      <div className="flex items-center justify-between gap-3">
+        <h2
+          id="milestones-title"
+          className="font-heading text-xl font-semibold"
+        >
+          마일스톤
+        </h2>
+        <span className="text-sm text-muted-foreground">
+          {program.milestones.length}개
+        </span>
+      </div>
+      {program.milestones.length === 0 ? (
+        <EmptyState
+          title="아직 등록된 마일스톤이 없습니다"
+          action={
+            program.viewer.role === 'STAFF' ||
+            program.viewer.role === 'ADMIN' ? (
+              <Button asChild variant="outline">
+                <Link href={`/staff/programs/${program.id}/edit#milestones`}>
+                  마일스톤 설정
+                </Link>
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        program.milestones.map((milestone) => (
+          <MilestoneRow
+            key={milestone.id}
+            programId={program.id}
+            milestone={milestone}
+            viewerRole={program.viewer.role}
+            applicationStatus={program.viewer.applicationStatus}
+          />
+        ))
+      )}
+    </section>
+  );
+}
 export function detailFailure(error: unknown): DetailState {
   return error instanceof ApiError && error.problem.code === 'PROGRAM_NOT_FOUND'
     ? { kind: 'not-found' }
@@ -136,36 +223,15 @@ export function ProgramDetailPage({
   }, [router, state]);
 
   if (state.kind === 'loading') return <DetailSkeleton />;
-  if (state.kind === 'not-found') {
+  if (state.kind === 'not-found')
     return (
-      <main className="mx-auto max-w-3xl px-4 py-12">
-        <EmptyState
-          title="프로그램을 찾을 수 없습니다"
-          description="삭제되었거나 공개되지 않은 프로그램입니다."
-          action={
-            <Button asChild variant="outline">
-              <Link href="/programs">프로그램 목록으로</Link>
-            </Button>
-          }
-        />
-      </main>
+      <ProgramDetailFailureState kind="not-found" onRetry={() => void load()} />
     );
-  }
-  if (state.kind === 'failed') {
+
+  if (state.kind === 'failed')
     return (
-      <main className="mx-auto max-w-3xl px-4 py-12">
-        <EmptyState
-          title="프로그램을 불러오지 못했습니다"
-          description="잠시 후 다시 시도해 주세요."
-          action={
-            <Button type="button" onClick={() => void load()}>
-              다시 시도
-            </Button>
-          }
-        />
-      </main>
+      <ProgramDetailFailureState kind="failed" onRetry={() => void load()} />
     );
-  }
 
   const program = state.program;
   return (
@@ -176,44 +242,7 @@ export function ProgramDetailPage({
         actions={<ProgramActions program={program} />}
       />
       <ProgramSummary program={program} />
-      <section className="grid gap-4" aria-labelledby="milestones-title">
-        <div className="flex items-center justify-between gap-3">
-          <h2
-            id="milestones-title"
-            className="font-heading text-xl font-semibold"
-          >
-            마일스톤
-          </h2>
-          <span className="text-sm text-muted-foreground">
-            {program.milestones.length}개
-          </span>
-        </div>
-        {program.milestones.length === 0 ? (
-          <EmptyState
-            title="아직 등록된 마일스톤이 없습니다"
-            action={
-              program.viewer.role === 'STAFF' ||
-              program.viewer.role === 'ADMIN' ? (
-                <Button asChild variant="outline">
-                  <Link href={`/staff/programs/${program.id}/edit#milestones`}>
-                    마일스톤 설정
-                  </Link>
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : (
-          program.milestones.map((milestone) => (
-            <MilestoneRow
-              key={milestone.id}
-              programId={program.id}
-              milestone={milestone}
-              viewerRole={program.viewer.role}
-              applicationStatus={program.viewer.applicationStatus}
-            />
-          ))
-        )}
-      </section>
+      <ProgramMilestones program={program} />
       <ActivityGraphPanel programId={program.id} />
     </main>
   );

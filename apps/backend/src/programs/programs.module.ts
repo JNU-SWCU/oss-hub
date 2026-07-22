@@ -4,6 +4,7 @@ import { ProgramCreationService } from './program-creation.service';
 import { ProgramActivityService } from './program-activity.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsController } from './programs.controller';
+import { ProgramsRepository } from './programs.repository';
 import { ProgramsService } from './programs.service';
 
 @Module({
@@ -11,6 +12,7 @@ import { ProgramsService } from './programs.service';
   controllers: [ProgramsController],
   providers: [
     ProgramsService,
+    ProgramsRepository,
     ProgramCreationService,
     ProgramActivityService,
     ProgramViewerService,
