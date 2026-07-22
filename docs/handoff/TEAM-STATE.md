@@ -86,7 +86,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | CI: public-safe Issue·댓글 스캔 + commitlint 이벤트 가드 | @GoBeromsu | done | #68 | #150 #159 | pass | 없음 |
 | 학생용 수집 App(private repo 포함, read-only) | @Lumiere001 | planned | #15 | - | - | 정책 전제 4건 미확정: 산정 범위·개인 repo 보존·동의 절차·App 소유·운영(unblock: @GoBeromsu). #120/#123(조직 소유 자동화 App, write 권한)과는 별개 앱임을 #15/#120 코멘트로 명확화함 — 대체 관계 아님 |
 | Access & GitHub Platform 백로그(13건: 로그인 이력·온보딩 프로필·설정·관리 콘솔·감사 로그·시스템 상태·저장소 자동화·webhook 확장 등) | @Lumiere001 | planned | #99 #107 #108 #120 #121 #122 #123 #131 #132 #133 #153 #156 #157 | - | - | GitHub App 인증 ADR(#120)이 저장소 자동 생성(#121)·webhook 확장(#123)의 선행 |
-| GitHub App 최소 권한·live smoke 계약 | @Lumiere001 | active | #205 | - | local pass | Collection App의 metadata·commit·PR read 권한과 실제 installation token 검증을 ADR-006에 반영 중 · 실증은 비운영 App 준비 대기 |
+| GitHub App 최소 권한·live smoke 계약 | @Lumiere001 | review | #205 | [#208](https://github.com/JNU-SWCU/oss-hub/pull/208) | local pass | Collection App REST read 권한과 Operations·webhook smoke 경계 문서 리뷰 중 · 실제 실증은 비운영 App 준비 대기 |
 | 공통 랜딩 세션별 진입 CTA | @jinsol1190-rgb | done | #98 | #201 | pass | 없음 |
 | 프로그램 편집·마일스톤 | @Geuin04 | planned | #101 | - | - | 연결 PR·공개 착수 근거 없음 |
 | 공개 프로그램 목록 | @Geuin04 | review | #102 | [#191](https://github.com/JNU-SWCU/oss-hub/pull/191) changes requested · conflict | #191 pass | 오래된 TEAM-STATE 변경 제거·최신 main 반영 후 merge conflict 해소와 새 head 재검토 대기 |
