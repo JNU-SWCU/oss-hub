@@ -1,5 +1,6 @@
 import {
   buildRepositoryNames,
+  buildRepositoryOwnershipMarker,
   GITHUB_REPOSITORY_NAME_MAX_LENGTH,
 } from './repository-name';
 
@@ -62,5 +63,23 @@ describe('buildRepositoryNames', () => {
       GITHUB_REPOSITORY_NAME_MAX_LENGTH,
     );
     expect(result.collisionFallback).toMatch(/-applicat$/);
+  });
+});
+
+describe('buildRepositoryOwnershipMarker', () => {
+  it('application ID를 노출하지 않는 결정적 marker를 만든다', () => {
+    // Given: 내부 application ID가 있다.
+    const applicationId = 'application-sensitive-fixture-id';
+
+    // When: 같은 ID와 다른 ID의 marker를 만든다.
+    const first = buildRepositoryOwnershipMarker(applicationId);
+    const repeated = buildRepositoryOwnershipMarker(applicationId);
+    const different = buildRepositoryOwnershipMarker('other-application-id');
+
+    // Then: raw ID는 숨기고 같은 작업만 동일 marker로 식별한다.
+    expect(first).toBe(repeated);
+    expect(first).not.toBe(different);
+    expect(first).not.toContain(applicationId);
+    expect(first).toMatch(/^oss-hub:[a-f0-9]{64}$/);
   });
 });

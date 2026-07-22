@@ -9,6 +9,7 @@ import type {
 } from './github-app.token';
 
 const NOW = new Date('2026-07-22T00:00:00.000Z');
+const OWNERSHIP_MARKER = `oss-hub:${'a'.repeat(64)}`;
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status });
@@ -36,7 +37,10 @@ describe('GithubAppClient error policy', () => {
     const client = new GithubAppClient(tokenProvider(), fetcher, () => NOW);
 
     // When: 저장소 생성을 요청한다.
-    const repository = client.createRepository('synthetic-repository');
+    const repository = client.createRepository(
+      'synthetic-repository',
+      OWNERSHIP_MARKER,
+    );
 
     // Then: worker가 재시도할 수 있는 정규화 오류를 반환한다.
     await expect(repository).rejects.toEqual(
@@ -54,7 +58,10 @@ describe('GithubAppClient error policy', () => {
     const client = new GithubAppClient(tokenProvider(), fetcher, () => NOW);
 
     // When: 저장소 생성을 요청한다.
-    const repository = client.createRepository('synthetic-repository');
+    const repository = client.createRepository(
+      'synthetic-repository',
+      OWNERSHIP_MARKER,
+    );
 
     // Then: 설정 수정 전 자동 재시도를 막는 최종 오류를 반환한다.
     await expect(repository).rejects.toEqual(
