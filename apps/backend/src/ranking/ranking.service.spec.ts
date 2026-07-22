@@ -400,7 +400,7 @@ describe('RankingService', () => {
     });
   });
 
-  it('최신 run의 event가 제외되어도 해당 run의 login을 사용한다', async () => {
+  it('제외된 저장소 event의 login을 공개 랭킹 identity에 사용하지 않는다', async () => {
     findObservationBatches.mockReturnValue(
       batches([
         event(
@@ -432,7 +432,7 @@ describe('RankingService', () => {
       service.findPage(RANKING_PERIODS.ALL, 1, 20),
     ).resolves.toMatchObject({
       items: [
-        { githubLogin: 'new-login', commitCount: 2, prCount: 0, total: 2 },
+        { githubLogin: 'old-login', commitCount: 2, prCount: 0, total: 2 },
       ],
       total: 1,
     });

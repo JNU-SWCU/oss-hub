@@ -9,145 +9,20 @@ import {
   type RankingPeriod,
 } from './domain/ranking';
 import {
-  RankingRepository,
-  type RankingObservation,
-} from './ranking.repository';
+  addRankingMetrics,
+  emptyRankingMetrics,
+  isNewerIdentity,
+  isWithinRankingPeriod,
+  parseRankingEvent,
+  type CanonicalIdentity,
+} from './domain/ranking-event';
+import { RankingRepository } from './ranking.repository';
 
 const RANKING_CACHE_TTL_MS = 60_000;
-
-interface ParsedEvent {
-  readonly type: string;
-  readonly repositoryId: string;
-  readonly occurredAt: Date;
-  readonly metrics: RankingMetrics;
-}
-
-interface CanonicalIdentity {
-  readonly login: string;
-  readonly runId: string;
-  readonly runStartedAt: Date;
-}
 
 interface CachedRanking {
   readonly entries: readonly RankingEntry[];
   readonly expiresAt: number;
-}
-
-type JsonRecord = Readonly<Record<string, unknown>>;
-
-function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function readString(record: JsonRecord, key: string): string | null {
-  const value = record[key];
-  return typeof value === 'string' && value.length > 0 ? value : null;
-}
-
-function readNonNegativeInteger(record: JsonRecord, key: string): number {
-  const value = record[key];
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
-    ? value
-    : 0;
-}
-
-function readRepositoryId(value: unknown): string | null {
-  if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) {
-    return String(value);
-  }
-  return typeof value === 'string' && /^\d+$/.test(value) ? value : null;
-}
-
-function parseOccurredAt(value: string | null): Date | null {
-  if (!value) {
-    return null;
-  }
-  const occurredAt = new Date(value);
-  return Number.isNaN(occurredAt.getTime()) ? null : occurredAt;
-}
-
-function parseMetrics(
-  eventType: string,
-  payload: JsonRecord,
-): RankingMetrics | null {
-  if (eventType === 'PushEvent') {
-    return {
-      commitCount: readNonNegativeInteger(payload, 'size'),
-      prCount: 0,
-      starCount: 0,
-    };
-  }
-  if (eventType === 'PullRequestEvent' && payload.action === 'opened') {
-    return { commitCount: 0, prCount: 1, starCount: 0 };
-  }
-  if (eventType === 'WatchEvent' && payload.action === 'started') {
-    return { commitCount: 0, prCount: 0, starCount: 1 };
-  }
-  return null;
-}
-
-function parseEvent(payload: unknown): ParsedEvent | null {
-  if (!isRecord(payload)) {
-    return null;
-  }
-  const eventType = readString(payload, 'type');
-  const occurredAt = parseOccurredAt(readString(payload, 'created_at'));
-  const repository = payload.repo;
-  const eventPayload = payload.payload;
-  if (
-    !eventType ||
-    !occurredAt ||
-    !isRecord(repository) ||
-    !isRecord(eventPayload)
-  ) {
-    return null;
-  }
-  const repositoryId = readRepositoryId(repository.id);
-  const metrics = parseMetrics(eventType, eventPayload);
-  return repositoryId && metrics
-    ? { type: eventType, repositoryId, occurredAt, metrics }
-    : null;
-}
-
-function isWithinPeriod(
-  occurredAt: Date,
-  period: RankingPeriod,
-  currentYear: number,
-): boolean {
-  return (
-    period === RANKING_PERIODS.ALL ||
-    occurredAt.getUTCFullYear() === currentYear
-  );
-}
-
-function addMetrics(
-  current: RankingMetrics,
-  addition: RankingMetrics,
-): RankingMetrics {
-  return {
-    commitCount: current.commitCount + addition.commitCount,
-    prCount: current.prCount + addition.prCount,
-    starCount: current.starCount + addition.starCount,
-  };
-}
-
-function emptyMetrics(): RankingMetrics {
-  return { commitCount: 0, prCount: 0, starCount: 0 };
-}
-
-function isNewerIdentity(
-  candidate: RankingObservation,
-  current: CanonicalIdentity | undefined,
-): boolean {
-  if (!current) {
-    return true;
-  }
-  const timeDifference =
-    candidate.runStartedAt.getTime() - current.runStartedAt.getTime();
-  return (
-    timeDifference > 0 ||
-    (timeDifference === 0 && candidate.runId > current.runId)
-  );
 }
 
 @Injectable()
@@ -247,26 +122,15 @@ export class RankingService {
       fetchedAtOrAfter,
     )) {
       for (const observation of batch) {
-        const currentActorIdentity = identitiesByGithubId.get(
-          observation.targetGithubId,
-        );
-        if (isNewerIdentity(observation, currentActorIdentity)) {
-          identitiesByGithubId.set(observation.targetGithubId, {
-            login: observation.targetLogin,
-            runId: observation.runId,
-            runStartedAt: observation.runStartedAt,
-          });
-        }
-
         if (observation.sourceId === previousSourceId) {
           continue;
         }
         previousSourceId = observation.sourceId;
-        const event = parseEvent(observation.payload);
+        const event = parseRankingEvent(observation.payload);
         if (
           !event ||
           !repositoryIds.has(event.repositoryId) ||
-          !isWithinPeriod(event.occurredAt, period, currentYear)
+          !isWithinRankingPeriod(event.occurredAt, period, currentYear)
         ) {
           continue;
         }
@@ -299,8 +163,8 @@ export class RankingService {
         }
         metricsByGithubId.set(
           githubId,
-          addMetrics(
-            metricsByGithubId.get(githubId) ?? emptyMetrics(),
+          addRankingMetrics(
+            metricsByGithubId.get(githubId) ?? emptyRankingMetrics(),
             event.metrics,
           ),
         );
