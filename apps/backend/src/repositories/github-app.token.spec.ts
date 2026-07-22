@@ -18,8 +18,12 @@ const credentials: GithubAppCredentials = {
   privateKey: 'runtime-test-key',
 };
 
-function jsonResponse(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), { status });
+function jsonResponse(
+  status: number,
+  body: unknown,
+  headers?: HeadersInit,
+): Response {
+  return new Response(JSON.stringify(body), { status, headers });
 }
 
 describe('createGithubAppJwt', () => {
@@ -152,5 +156,72 @@ describe('GithubAppTokenProvider', () => {
       ),
     );
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('installation 조회 rate limit는 최소 1분 뒤 재시도한다', async () => {
+    // Given: GitHub가 30초 뒤 reset인 rate-limit 403을 반환한다.
+    const fetcher = jest.fn<
+      ReturnType<GithubAppFetcher>,
+      Parameters<GithubAppFetcher>
+    >();
+    fetcher.mockResolvedValue(
+      jsonResponse(
+        403,
+        { message: 'API rate limit exceeded' },
+        {
+          'x-ratelimit-remaining': '0',
+          'x-ratelimit-reset': String(NOW.getTime() / 1_000 + 30),
+        },
+      ),
+    );
+    const provider = new GithubAppTokenProvider(
+      () => credentials,
+      fetcher,
+      () => NOW,
+      () => Promise.resolve('synthetic-app-jwt'),
+    );
+
+    // When: access token을 요청한다.
+    const token = provider.accessToken();
+
+    // Then: 권한 최종 실패가 아니라 최소 지연을 가진 재시도 오류다.
+    await expect(token).rejects.toEqual(
+      new GithubOperationsError(
+        GITHUB_OPERATIONS_ERROR_CODES.RATE_LIMITED,
+        true,
+        new Date('2026-07-22T00:01:00.000Z'),
+      ),
+    );
+  });
+
+  it('token 발급 429의 Retry-After를 보존한다', async () => {
+    // Given: installation은 찾았지만 token 발급이 2분 제한된다.
+    const fetcher = jest.fn<
+      ReturnType<GithubAppFetcher>,
+      Parameters<GithubAppFetcher>
+    >();
+    fetcher
+      .mockResolvedValueOnce(
+        jsonResponse(200, { id: 101, account: { login: 'synthetic-org' } }),
+      )
+      .mockResolvedValueOnce(jsonResponse(429, {}, { 'retry-after': '120' }));
+    const provider = new GithubAppTokenProvider(
+      () => credentials,
+      fetcher,
+      () => NOW,
+      () => Promise.resolve('synthetic-app-jwt'),
+    );
+
+    // When: access token을 요청한다.
+    const token = provider.accessToken();
+
+    // Then: worker가 서버가 지시한 시각 이후 재시도할 수 있다.
+    await expect(token).rejects.toEqual(
+      new GithubOperationsError(
+        GITHUB_OPERATIONS_ERROR_CODES.RATE_LIMITED,
+        true,
+        new Date('2026-07-22T00:02:00.000Z'),
+      ),
+    );
   });
 });

@@ -175,8 +175,8 @@ function programId(applicationId: string): string {
 function githubClient(): ProvisionGithubClient {
   return {
     findRepository: jest.fn().mockResolvedValue(null),
-    createRepository: jest.fn((name: string) =>
-      Promise.resolve(repositoryMetadata(name)),
+    createRepository: jest.fn((name: string, description: string) =>
+      Promise.resolve(repositoryMetadata(name, description)),
     ),
     ensureCollaborator: jest
       .fn()
@@ -184,12 +184,16 @@ function githubClient(): ProvisionGithubClient {
   };
 }
 
-function repositoryMetadata(name: string): GithubRepositoryMetadata {
+function repositoryMetadata(
+  name: string,
+  description: string,
+): GithubRepositoryMetadata {
   return {
     githubRepositoryId: 987654321n,
     name,
     url: `https://github.com/synthetic-org/${name}`,
     visibility: RepositoryVisibility.PRIVATE,
+    description,
   };
 }
 

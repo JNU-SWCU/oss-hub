@@ -13,10 +13,31 @@ import {
 } from './github-app.error';
 import { PROVISION_ERROR_CODES } from './repository-provision.failure';
 import { RepositoryProvisionWorker } from './repository-provision.worker';
+import { RepositoryProvisionLeaseLostError } from './repository-provision-state.helpers';
 
 const OPTIONS = { leaseMs: 300_000, maxAttempts: 3, retryBaseMs: 60_000 };
 
 describe('RepositoryProvisionWorker failure', () => {
+  it('lease를 잃으면 외부 저장소를 건드리지 않고 즉시 중단한다', async () => {
+    // Given: context 조회 뒤 다른 worker가 job lease를 회수했다.
+    const jobs = jobRepositoryMock();
+    jobs.renewLease.mockRejectedValue(new RepositoryProvisionLeaseLostError());
+    const state = provisionStateMock();
+    const github = githubClientMock();
+    const worker = new RepositoryProvisionWorker(jobs, state, github, OPTIONS);
+
+    // When: 저장소 생성 직전 lease 갱신을 시도한다.
+    const result = worker.runNext('worker-stale', PROVISION_NOW);
+
+    // Then: 새 owner의 job 상태나 GitHub에 side effect를 만들지 않는다.
+    await expect(result).rejects.toBeInstanceOf(
+      RepositoryProvisionLeaseLostError,
+    );
+    expect(github.findRepository.mock.calls).toHaveLength(0);
+    expect(github.createRepository.mock.calls).toHaveLength(0);
+    expect(state.failJob.mock.calls).toHaveLength(0);
+  });
+
   it('승인되지 않은 신청은 GitHub 호출 없이 최종 실패한다', async () => {
     // Given: job의 신청 상태가 SUBMITTED다.
     const jobs = jobRepositoryMock();

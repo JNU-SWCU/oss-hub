@@ -9,6 +9,7 @@ import type {
 } from './github-app.token';
 
 const NOW = new Date('2026-07-22T00:00:00.000Z');
+const OWNERSHIP_MARKER = `oss-hub:${'a'.repeat(64)}`;
 
 function jsonResponse(
   status: number,
@@ -43,12 +44,16 @@ describe('GithubAppClient', () => {
         name: 'synthetic-repository',
         html_url: 'https://github.com/synthetic-org/synthetic-repository',
         visibility: 'private',
+        description: OWNERSHIP_MARKER,
       }),
     );
     const client = new GithubAppClient(tokens, fetcher, () => NOW);
 
     // When: 저장소 생성을 요청한다.
-    const repository = await client.createRepository('synthetic-repository');
+    const repository = await client.createRepository(
+      'synthetic-repository',
+      OWNERSHIP_MARKER,
+    );
 
     // Then: private 고정 요청과 내부 metadata를 반환한다.
     expect(repository).toEqual({
@@ -56,12 +61,17 @@ describe('GithubAppClient', () => {
       name: 'synthetic-repository',
       url: 'https://github.com/synthetic-org/synthetic-repository',
       visibility: 'PRIVATE',
+      description: OWNERSHIP_MARKER,
     });
     expect(fetcher).toHaveBeenCalledWith(
       'https://api.github.com/orgs/synthetic-org/repos',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ name: 'synthetic-repository', private: true }),
+        body: JSON.stringify({
+          name: 'synthetic-repository',
+          private: true,
+          description: OWNERSHIP_MARKER,
+        }),
       }),
     );
   });
@@ -168,6 +178,7 @@ describe('GithubAppClient', () => {
         name: 'synthetic-repository',
         html_url: 'https://github.com/synthetic-org/synthetic-repository',
         visibility: 'private',
+        description: OWNERSHIP_MARKER,
       }),
     );
     const client = new GithubAppClient(tokens, fetcher, () => NOW);
@@ -191,7 +202,10 @@ describe('GithubAppClient', () => {
     const client = new GithubAppClient(tokenProvider(), fetcher, () => NOW);
 
     // When: 저장소 생성을 요청한다.
-    const repository = client.createRepository('synthetic-repository');
+    const repository = client.createRepository(
+      'synthetic-repository',
+      OWNERSHIP_MARKER,
+    );
 
     // Then: 정규화한 오류만 외부로 전달한다.
     await expect(repository).rejects.toEqual(
@@ -199,6 +213,31 @@ describe('GithubAppClient', () => {
         GITHUB_OPERATIONS_ERROR_CODES.RATE_LIMITED,
         true,
         new Date('2026-07-22T00:02:00.000Z'),
+      ),
+    );
+  });
+
+  it('짧은 Retry-After도 최소 1분 뒤로 보정한다', async () => {
+    // Given: GitHub가 1초 Retry-After와 429를 반환한다.
+    const fetcher = jest.fn<
+      ReturnType<GithubAppFetcher>,
+      Parameters<GithubAppFetcher>
+    >();
+    fetcher.mockResolvedValue(jsonResponse(429, {}, { 'retry-after': '1' }));
+    const client = new GithubAppClient(tokenProvider(), fetcher, () => NOW);
+
+    // When: 저장소 생성을 요청한다.
+    const repository = client.createRepository(
+      'synthetic-repository',
+      OWNERSHIP_MARKER,
+    );
+
+    // Then: 즉시 반복하지 않고 최소 1분 뒤 재시도한다.
+    await expect(repository).rejects.toEqual(
+      new GithubOperationsError(
+        GITHUB_OPERATIONS_ERROR_CODES.RATE_LIMITED,
+        true,
+        new Date('2026-07-22T00:01:00.000Z'),
       ),
     );
   });
