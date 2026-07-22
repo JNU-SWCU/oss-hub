@@ -44,9 +44,12 @@ function StudentState({
       </p>
     );
   }
+  const isResubmission = status === 'CHANGES_REQUESTED';
   const canSubmit =
-    (status === 'NOT_SUBMITTED' || status === 'CHANGES_REQUESTED') &&
-    milestone.dDay >= 0;
+    isResubmission || (status === 'NOT_SUBMITTED' && milestone.dDay >= 0);
+  const submitHref = isResubmission
+    ? `/programs/${programId}/submissions?milestoneId=${milestone.id}`
+    : `/programs/${programId}/milestones/${milestone.id}/submit`;
   return (
     <div className="flex flex-wrap items-center gap-2">
       <StatusBadge variant={STATUS_VARIANTS[status]}>
@@ -54,10 +57,8 @@ function StudentState({
       </StatusBadge>
       {canSubmit ? (
         <Button asChild size="sm" variant="outline">
-          <Link
-            href={`/programs/${programId}/milestones/${milestone.id}/submit`}
-          >
-            {status === 'CHANGES_REQUESTED' ? '다시 제출' : '제출하기'}
+          <Link href={submitHref}>
+            {isResubmission ? '다시 제출' : '제출하기'}
           </Link>
         </Button>
       ) : null}

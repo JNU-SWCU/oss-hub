@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getProgramActivity } from '../api';
 import { formatSeoulDate } from '../program-detail-format';
-import type { ProgramActivity } from '../types';
+import type { ProgramActivity, ViewerRole } from '../types';
 
 export type ActivityState =
   | { readonly kind: 'loading' }
@@ -75,7 +75,7 @@ export function ActivityPanelBody({
   );
 }
 
-export function ActivityGraphPanel({
+function AuthenticatedActivityGraphPanel({
   programId,
 }: {
   readonly programId: string;
@@ -106,4 +106,15 @@ export function ActivityGraphPanel({
       </CardContent>
     </Card>
   );
+}
+
+export function ActivityGraphPanel({
+  programId,
+  viewerRole,
+}: {
+  readonly programId: string;
+  readonly viewerRole: ViewerRole;
+}) {
+  if (viewerRole === null || viewerRole === 'PENDING') return null;
+  return <AuthenticatedActivityGraphPanel programId={programId} />;
 }

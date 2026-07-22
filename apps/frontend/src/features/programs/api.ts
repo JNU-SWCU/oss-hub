@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/api-client';
+import { ApiError, apiClient } from '@/lib/api-client';
 import type { ProgramCategory } from './program-templates';
 import type { ProgramActivity, ProgramDetail } from './types';
 
@@ -31,8 +31,17 @@ export function createProgram(
   });
 }
 
-export function getProgramDetail(programId: string): Promise<ProgramDetail> {
-  return apiClient<ProgramDetail>(`programs/${encodeURIComponent(programId)}`);
+export async function getProgramDetail(
+  programId: string,
+): Promise<ProgramDetail> {
+  const encodedId = encodeURIComponent(programId);
+  try {
+    return await apiClient<ProgramDetail>(`programs/${encodedId}/viewer`);
+  } catch (error: unknown) {
+    if (!(error instanceof ApiError) || error.problem.status !== 401)
+      throw error;
+    return apiClient<ProgramDetail>(`programs/${encodedId}`);
+  }
 }
 
 export function getProgramActivity(

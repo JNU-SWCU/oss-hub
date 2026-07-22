@@ -8,10 +8,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import type { Request } from 'express';
-import { AuthConfig } from '../auth/auth.config';
 import { OriginGuard } from '../auth/origin.guard';
-import { resolveSession } from '../auth/session-resolution';
 import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
 import { CreateProgramRequestDto } from './dto/create-program-request.dto';
 import { CreateProgramResponseDto } from './dto/create-program-response.dto';
@@ -24,10 +21,17 @@ import { ProgramActivityService } from './program-activity.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsService } from './programs.service';
 
+type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
+
+const ANONYMOUS_VIEWER = {
+  githubId: null,
+  userId: null,
+  role: null,
+} as const;
+
 @Controller('programs')
 export class ProgramsController {
   constructor(
-    private readonly config: AuthConfig,
     private readonly creation: ProgramCreationService,
     private readonly programs: ProgramsService,
     private readonly activity: ProgramActivityService,
@@ -38,7 +42,7 @@ export class ProgramsController {
   @HttpCode(201)
   @UseGuards(SessionGuard, OriginGuard)
   async create(
-    @Req() request: AuthenticatedRequest,
+    @Req() request: SessionIdentity,
     @Body() input: CreateProgramRequestDto,
   ): Promise<CreateProgramResponseDto> {
     const program = await this.creation.create(request.sessionGithubId, input);
@@ -46,23 +50,31 @@ export class ProgramsController {
   }
 
   @Get(':id')
-  async detail(
+  detail(@Param('id') programId: string): Promise<ProgramDetailResponseDto> {
+    return this.programs.detail(programId, ANONYMOUS_VIEWER);
+  }
+
+  @Get(':id/viewer')
+  @UseGuards(SessionGuard)
+  async viewerDetail(
     @Param('id') programId: string,
-    @Req() request: Request,
+    @Req() request: SessionIdentity,
   ): Promise<ProgramDetailResponseDto> {
-    return this.programs.detail(programId, await this.viewer(request));
+    return this.programs.detail(
+      programId,
+      await this.viewers.fromGithubId(request.sessionGithubId),
+    );
   }
 
   @Get(':id/activity')
+  @UseGuards(SessionGuard)
   async programActivity(
     @Param('id') programId: string,
-    @Req() request: Request,
+    @Req() request: SessionIdentity,
   ): Promise<readonly ProgramActivityResponseDto[]> {
-    return this.activity.activity(programId, await this.viewer(request));
-  }
-
-  private async viewer(request: Request) {
-    const session = await resolveSession(this.config, request.headers.cookie);
-    return this.viewers.fromGithubId(session.githubId);
+    return this.activity.activity(
+      programId,
+      await this.viewers.fromGithubId(request.sessionGithubId),
+    );
   }
 }

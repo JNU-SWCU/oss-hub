@@ -237,13 +237,20 @@ export function ProgramDetailPage({
   return (
     <main className="mx-auto grid max-w-6xl gap-8 px-4 py-8">
       <PageHeader
-        title={program.name}
+        title={
+          <span className="break-keep text-2xl sm:text-3xl">
+            {program.name}
+          </span>
+        }
         description={`${program.organizer} · ${categoryLabel(program.category)}`}
         actions={<ProgramActions program={program} />}
       />
       <ProgramSummary program={program} />
       <ProgramMilestones program={program} />
-      <ActivityGraphPanel programId={program.id} />
+      <ActivityGraphPanel
+        programId={program.id}
+        viewerRole={program.viewer.role}
+      />
     </main>
   );
 }

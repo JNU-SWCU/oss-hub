@@ -51,6 +51,26 @@ describe('MilestoneRow', () => {
     expect(html).toContain('최종 반려');
   });
 
+  it('마감 후 보완 요청도 #116 체크리스트에서 다시 제출할 수 있다', () => {
+    const html = renderToStaticMarkup(
+      <MilestoneRow
+        programId="program-1"
+        milestone={{
+          ...milestone,
+          dDay: -2,
+          deadlineLabel: '마감 지남',
+          viewerSubmissionStatus: 'CHANGES_REQUESTED',
+        }}
+        viewerRole="STUDENT"
+        applicationStatus="APPROVED"
+      />,
+    );
+    expect(html).toContain('다시 제출');
+    expect(html).toContain(
+      '/programs/program-1/submissions?milestoneId=milestone-1',
+    );
+    expect(html).not.toContain('/milestones/milestone-1/submit');
+  });
   it('교직원에게 application 제출 요약과 전체 현황 진입을 표시한다', () => {
     const html = renderToStaticMarkup(
       <MilestoneRow

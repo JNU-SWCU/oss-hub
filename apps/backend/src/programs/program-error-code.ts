@@ -10,5 +10,6 @@ export const PROGRAM_ERROR_CODES = {
     code: 'PROGRAM_DETAIL_LOAD_FAILED',
     status: 500,
     message: '프로그램 상세 정보를 불러오지 못했습니다.',
+    exposeToClient: true,
   },
 } as const satisfies Readonly<Record<string, ErrorCode>>;
