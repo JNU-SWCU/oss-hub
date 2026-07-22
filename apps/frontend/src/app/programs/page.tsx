@@ -1,6 +1,16 @@
-import { TicketStub } from '../_shell/ticket-stub';
+'use client';
 
-// 공개 라우트 — 게이트 없음. #102 "공통: 프로그램 목록"(URL: /programs) 스텁.
+import { ProgramListPage } from '@/features/programs/program-list-page';
+import { useSessionRole } from '../_shell/use-session-role';
+
 export default function ProgramsPage() {
-  return <TicketStub ticketNumber={102} title="프로그램 목록" />;
+  const { role, status } = useSessionRole();
+  const canCreateProgram =
+    status === 'assigned' && (role === 'STAFF' || role === 'ADMIN');
+
+  return (
+    <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <ProgramListPage canCreateProgram={canCreateProgram} />
+    </main>
+  );
 }
