@@ -65,3 +65,21 @@ it('완료된 프로필은 두 번째 요청으로 덮어쓰지 않는다', asyn
     firstProfile,
   );
 });
+
+it('이름만 비어 있는 미완료 프로필도 다시 저장할 수 있다', async () => {
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      name: null,
+      studentId: firstProfile.studentId,
+      department: firstProfile.department,
+    },
+  });
+
+  await expect(
+    repository.completeProfileIfIncomplete(userId, secondProfile),
+  ).resolves.toBe(true);
+  await expect(repository.findByGithubId(githubId)).resolves.toMatchObject(
+    secondProfile,
+  );
+});

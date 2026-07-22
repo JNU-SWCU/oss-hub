@@ -36,7 +36,7 @@ export class UsersRepository implements UsersRepositoryPort {
     const result = await this.prisma.user.updateMany({
       where: {
         id: userId,
-        OR: [{ studentId: null }, { department: null }],
+        OR: [{ name: null }, { studentId: null }, { department: null }],
       },
       data: input,
     });
