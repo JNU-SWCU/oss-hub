@@ -42,12 +42,10 @@
   (머지 커밋 494ac12)가 이벤트 가드(`if: github.event_name == 'pull_request'`)로 수정했다.
   issue 이벤트에서는 `public-safe-issue`만 실행된다 — 494ac12 이후 `ci` 워크플로 2회 연속
   success로 확인.
-- **배포 인프라 방향 전환 착수(#112, 신규 티켓 발행 — PR 없음)** — AWS 계정은 이미
-  수령 완료. 사업단이 생성하는 스테이징 인스턴스 수령은 외부 대기 중이며, 그 사이 ADR
-  초안·CI 워크플로 골격을 먼저 준비하는 것으로 범위를 잡았다. 산출물 예정 경로는
-  `docs/decisions/ADR-006-aws-staging-deploy.md`(신규, 아직 미병합)와
-  `.github/workflows/deploy-staging.yml`. 기존 ADR-002(Jenkins/자체 VM 기반 CD)는 아직
-  Deprecated 처리되지 않았다 — 두 경로가 병존하는 과도기로 본다.
+- **Release 기반 Jenkins 배포 확정(#199)** — JNU 운영 AWS 서버와 Tailscale/SSM 접근을
+  수령했다. 별도 staging 서버는 두지 않고 main은 Jenkins build·test 검증만, production은
+  공개 GitHub Release 발행을 승인 지점으로 사용한다. Jenkins·Docker·Node 실행 기반과
+  localhost 관리 경계는 준비됐으며, exact SHA·no-op·backup·이미지 rollback 계약을 구현 중이다.
 - **frontend 디자인 파운데이션·B-6 공통 컴포넌트 완결(#73·#74·#78·#80·#82·#84·#86·#136 등)** —
   Tailwind v4 + shadcn/ui 프리미티브, 레이아웃/폼/카드/테이블형 공용 컴포넌트, 랜딩 페이지,
   라우트 골격 15종, 로그인 후 역할 홈 nav 링크(자동 리다이렉트는 back-trap 문제로 제거,
@@ -98,7 +96,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | Participation & Showcase 백로그(9건: 내 대시보드·마일스톤 제출·재제출·운영 대시보드·매트릭스·검토·공개 아카이브·알림·공개 프로필) | @jinsol1190-rgb | planned | #114 #115 #116 #124 #125 #126 #127 #134 #155 | - | - | 없음 — 코어 스키마(done) 전제 충족 |
 | 학생 활동 타임라인 | @jinsol1190-rgb | review | #154 | [#210](https://github.com/JNU-SWCU/oss-hub/pull/210) | #210 pass | [프런트엔드 #198](https://github.com/JNU-SWCU/oss-hub/pull/198) merged · 백엔드 조회 API #210 리뷰 대기 |
 | Cross-cutting E2E 스모크(접수 흐름·전체 루프) | @GoBeromsu | planned | #128 #129 | - | - | 상위 화면 티켓들 merge 진행에 따라 순차 검증 |
-| Product Definition & Operations 백로그(배포 스파이크·Notion PRD·IA 동기화) | @GoBeromsu | planned | #112 #130 | - | - | #112: 사업단 스테이징 인스턴스 수령 대기(외부) |
+| Product Definition & Operations 백로그(Release 배포·Notion PRD·IA 동기화) | @GoBeromsu (결정) / @Lumiere001 (#199 구현) | active | #112 #130 #199 | - | local pass | AWS 서버 실행 기반 준비 완료 · Release Jenkinsfile·ADR 동기화 및 초기 Jenkins credential/webhook 구성 진행 중 |
 | Data Collection·활성화 랭킹(저장소 주기 수집 스케줄러·nav 랭킹 화면) | @GoBeromsu (#151) / @Geuin04 (#152) | planned | #151 #152 | - | - | 없음 |
 | 공개 랭킹 저장소 소유권 projection | @jinsol1190-rgb | done | #197 | #202 | pass | 없음 |
 
@@ -109,7 +107,6 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 게이트 | owner | due | fallback |
 | --- | --- | --- | --- |
 | 지난 학기 샘플 데이터 공유 | @nrson-jnu | 2026-07-16 (경과 — 이번 회차도 수령 확인 근거 문서 없음, 상태 동일 유지) | 합성 fixture로 개발 지속 |
-| 스테이징 인스턴스 수령(사업단 프로비저닝, #112) | @nrson-jnu | 미정(외부 대기) | AWS 계정은 수령 완료 — 인스턴스 도착 전까지 ADR-006 초안·`deploy-staging.yml` 골격만 준비 |
 | 운영 TLS 종단 계약 확정(프로덕션) | @GoBeromsu | 프로덕션 배포 전(스테이징 범위 밖) | 확정 전 운영 배포에 인증 기능 미포함 |
 
 ## 상위 리스크 5
