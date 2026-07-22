@@ -43,6 +43,13 @@ export function assertSingleProvisionUpdate(count: number): void {
   }
 }
 
+export function isPrismaUniqueConstraintError(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002'
+  );
+}
+
 export function matchesProvisionedMetadata(
   repository: ProvisionedRepository,
   input: RecordProvisionedRepositoryInput,
