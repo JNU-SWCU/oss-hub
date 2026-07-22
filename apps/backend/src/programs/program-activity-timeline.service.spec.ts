@@ -27,6 +27,7 @@ function event(
   targetGithubId = 11n,
 ) {
   return {
+    id: `${sourceId}-row`,
     sourceId,
     payload: {
       type,
@@ -89,7 +90,7 @@ describe('ProgramActivityService activity timeline', () => {
         program: {
           id: 'program-2',
           name: 'Open Source 2025',
-          applicationStartAt: new Date('2025-09-01T00:00:00.000Z'),
+          applicationStartAt: new Date('2025-12-31T23:59:59.000Z'),
         },
         repository: { githubRepositoryId: 202n },
       },
@@ -146,16 +147,16 @@ describe('ProgramActivityService activity timeline', () => {
     expect(result).toEqual({
       programs: [
         {
-          programId: 'program-2',
-          programName: 'Open Source 2025',
-          year: 2025,
-          applicationMode: 'TEAM',
-        },
-        {
           programId: 'program-1',
           programName: 'Capstone 2026',
           year: 2026,
           applicationMode: 'PERSONAL',
+        },
+        {
+          programId: 'program-2',
+          programName: 'Open Source 2025',
+          year: 2026,
+          applicationMode: 'TEAM',
         },
         {
           programId: 'program-3',
@@ -168,7 +169,7 @@ describe('ProgramActivityService activity timeline', () => {
         granularity: 'MONTH',
         points: [
           {
-            period: '2025-12',
+            period: '2026-01',
             commitCount: 0,
             prCount: 0,
             starCount: 1,
@@ -223,29 +224,42 @@ describe('ProgramActivityService activity timeline', () => {
         where: {
           sourceType: ObservationSourceType.EVENT,
           run: { status: CollectionRunStatus.SUCCEEDED },
-          OR: [
-            { run: { targetGithubId: 11n } },
+          AND: [
             {
-              AND: [
-                { payload: { path: ['type'], equals: 'WatchEvent' } },
+              OR: [
+                { payload: { path: ['repo', 'id'], equals: 101 } },
+                { payload: { path: ['repo', 'id'], equals: 202 } },
+              ],
+            },
+            {
+              OR: [
+                { run: { targetGithubId: 11n } },
                 {
-                  payload: {
-                    path: ['payload', 'action'],
-                    equals: 'started',
-                  },
-                },
-                {
-                  OR: [{ payload: { path: ['repo', 'id'], equals: 202 } }],
+                  AND: [
+                    { payload: { path: ['type'], equals: 'WatchEvent' } },
+                    {
+                      payload: {
+                        path: ['payload', 'action'],
+                        equals: 'started',
+                      },
+                    },
+                    {
+                      OR: [{ payload: { path: ['repo', 'id'], equals: 202 } }],
+                    },
+                  ],
                 },
               ],
             },
           ],
         },
         select: {
+          id: true,
           sourceId: true,
           payload: true,
           run: { select: { targetGithubId: true } },
         },
+        orderBy: { id: 'asc' },
+        take: 500,
       }),
     );
   });
@@ -298,11 +312,64 @@ describe('ProgramActivityService activity timeline', () => {
           period: '2026',
           commitCount: 2,
           prCount: 0,
+          starCount: 0,
+          total: 2,
+        },
+        {
+          period: '2027',
+          commitCount: 0,
+          prCount: 0,
           starCount: 1,
-          total: 3,
+          total: 1,
         },
       ],
     });
+  });
+
+  it('deduplicates the same sourceId across observation batches', async () => {
+    const application = {
+      teamId: null,
+      applicant: { githubId: 11n },
+      team: null,
+      program: {
+        id: 'program-1',
+        name: 'Capstone',
+        applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
+      },
+      repository: { githubRepositoryId: 101n },
+    };
+    const duplicate = event(
+      'push-duplicate',
+      'PushEvent',
+      101,
+      '2026-07-01T00:00:00Z',
+      { size: 2 },
+    );
+    const repository = {
+      findStudentActivityApplications: jest
+        .fn()
+        .mockResolvedValue([application]),
+      findStudentOwnedRepositoryIds: jest.fn().mockResolvedValue([]),
+      async *findStudentTimelineObservationBatches() {
+        await Promise.resolve();
+        yield [duplicate];
+        yield [duplicate];
+      },
+    } as unknown as ProgramsRepository;
+
+    const result = await new ProgramActivityService(
+      repository,
+    ).activityTimeline(student, 'MONTH');
+
+    expect(result.series.points).toEqual([
+      {
+        period: '2026-07',
+        commitCount: 2,
+        prCount: 0,
+        starCount: 0,
+        total: 2,
+      },
+    ]);
   });
 
   it.each([Role.STAFF, Role.ADMIN, null])(

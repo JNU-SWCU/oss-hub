@@ -45,6 +45,20 @@ function pushEvent(payload: unknown, githubRepositoryId: bigint) {
 
 type TimelineMetric = 'commitCount' | 'prCount' | 'starCount';
 
+function seoulPeriod(date: Date, granularity: ActivityGranularity): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    ...(granularity === 'MONTH' ? { month: '2-digit' as const } : {}),
+  }).formatToParts(date);
+  const year = parts.find((part) => part.type === 'year')?.value;
+  const month = parts.find((part) => part.type === 'month')?.value;
+  if (!year || (granularity === 'MONTH' && !month)) {
+    throw new Error('Failed to format activity period.');
+  }
+  return granularity === 'MONTH' ? `${year}-${month}` : year;
+}
+
 function timelineEvent(
   payload: unknown,
   repositoryIds: ReadonlySet<bigint>,
@@ -68,7 +82,7 @@ function timelineEvent(
   if (typeof occurredAt !== 'string') return null;
   const date = new Date(occurredAt);
   if (Number.isNaN(date.getTime())) return null;
-  const period = date.toISOString().slice(0, granularity === 'MONTH' ? 7 : 4);
+  const period = seoulPeriod(date, granularity);
   const type = property(payload, 'type');
   const eventPayload = property(payload, 'payload');
 
@@ -179,41 +193,38 @@ export class ProgramActivityService {
       const ownedRepositoryIds = new Set(
         ownedRepositories.map((repository) => repository.githubRepositoryId),
       );
-      const observations =
-        await this.repository.findStudentTimelineObservations(viewer.githubId, [
-          ...ownedRepositoryIds,
-        ]);
-      const uniqueObservations = [
-        ...new Map(
-          observations.map((observation) => [
-            observation.sourceId,
-            observation,
-          ]),
-        ).values(),
-      ];
       const points = new Map<string, ActivityPointResponseDto>();
+      const seenSourceIds = new Set<string>();
 
-      for (const observation of uniqueObservations) {
-        const event = timelineEvent(
-          observation.payload,
-          repositoryIds,
-          ownedRepositoryIds,
-          observation.run.targetGithubId === viewer.githubId,
-          granularity,
-        );
-        if (!event) continue;
-        const current = points.get(event.period) ?? {
-          period: event.period,
-          commitCount: 0,
-          prCount: 0,
-          starCount: 0,
-          total: 0,
-        };
-        points.set(event.period, {
-          ...current,
-          [event.metric]: current[event.metric] + event.count,
-          total: current.total + event.count,
-        });
+      for await (const observations of this.repository.findStudentTimelineObservationBatches(
+        viewer.githubId,
+        [...repositoryIds],
+        [...ownedRepositoryIds],
+      )) {
+        for (const observation of observations) {
+          if (seenSourceIds.has(observation.sourceId)) continue;
+          seenSourceIds.add(observation.sourceId);
+          const event = timelineEvent(
+            observation.payload,
+            repositoryIds,
+            ownedRepositoryIds,
+            observation.run.targetGithubId === viewer.githubId,
+            granularity,
+          );
+          if (!event) continue;
+          const current = points.get(event.period) ?? {
+            period: event.period,
+            commitCount: 0,
+            prCount: 0,
+            starCount: 0,
+            total: 0,
+          };
+          points.set(event.period, {
+            ...current,
+            [event.metric]: current[event.metric] + event.count,
+            total: current.total + event.count,
+          });
+        }
       }
 
       const programs = [
@@ -223,7 +234,9 @@ export class ProgramActivityService {
             {
               programId: application.program.id,
               programName: application.program.name,
-              year: application.program.applicationStartAt.getUTCFullYear(),
+              year: Number(
+                seoulPeriod(application.program.applicationStartAt, 'YEAR'),
+              ),
               applicationMode:
                 application.teamId === null
                   ? ('PERSONAL' as const)

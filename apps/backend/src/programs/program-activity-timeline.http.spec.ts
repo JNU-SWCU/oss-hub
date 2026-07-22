@@ -57,18 +57,22 @@ beforeAll(async () => {
           findStudentOwnedRepositoryIds: jest
             .fn()
             .mockResolvedValue([{ githubRepositoryId: 101n }]),
-          findStudentTimelineObservations: jest.fn().mockResolvedValue([
-            {
-              sourceId: 'push-1',
-              payload: {
-                type: 'PushEvent',
-                repo: { id: 101 },
-                payload: { size: 2 },
-                created_at: '2026-07-02T00:00:00.000Z',
+          async *findStudentTimelineObservationBatches() {
+            await Promise.resolve();
+            yield [
+              {
+                id: 'row-1',
+                sourceId: 'push-1',
+                payload: {
+                  type: 'PushEvent',
+                  repo: { id: 101 },
+                  payload: { size: 2 },
+                  created_at: '2026-07-02T00:00:00.000Z',
+                },
+                run: { targetGithubId: 11n },
               },
-              run: { targetGithubId: 11n },
-            },
-          ]),
+            ];
+          },
         },
       },
     ],
