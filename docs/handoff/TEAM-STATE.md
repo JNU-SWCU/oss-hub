@@ -62,9 +62,9 @@
 
 <!-- 상태 5종: planned / active / blocked / review / done. done은 PR merged + CI 통과 확인 시에만. -->
 
-drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다. done 16건 + 학생용 수집 App
-1건 + Feature Owner 배분(#56) 확정 이후 발행된 영역별 백로그 6그룹(신규 40건, 전부
-planned)을 한 표에 담는다.
+drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다. 기존 완료 기능과 학생용 수집
+App, Feature Owner 배분(#56) 확정 이후 발행된 영역별 백로그의 최신 상태를 한 표에 담는다.
+같은 영역이라도 실제 진행 단계가 다르면 상태별 행으로 나눈다.
 
 | 기능 | owner | 상태 | parent Issue | PR | CI | blocker (unblock owner) |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -88,7 +88,7 @@ planned)을 한 표에 담는다.
 | Access & GitHub Platform 백로그(13건: 로그인 이력·온보딩 프로필·설정·관리 콘솔·감사 로그·시스템 상태·저장소 자동화·webhook 확장 등) | @Lumiere001 | planned | #99 #107 #108 #120 #121 #122 #123 #131 #132 #133 #153 #156 #157 | - | - | GitHub App 인증 ADR(#120)이 저장소 자동 생성(#121)·webhook 확장(#123)의 선행 |
 | 공통 랜딩 세션별 진입 CTA | @jinsol1190-rgb | done | #98 | #201 | pass | 없음 |
 | 프로그램 편집·마일스톤 | @Geuin04 | active | #101 | - | - | 프로젝트 보드 In Progress |
-| 공개 프로그램 목록 | @Geuin04 | review | #102 | [#191](https://github.com/JNU-SWCU/oss-hub/pull/191) changes requested · conflict | #191 pass | 모집 시작 전·미래 연도 그룹 판정과 TEAM-STATE 정합성 재검토 대기 |
+| 공개 프로그램 목록 | @Geuin04 | review | #102 | [#191](https://github.com/JNU-SWCU/oss-hub/pull/191) changes requested · conflict | #191 pass | 모집 시작·미래 연도 그룹 판정, 목록 페이지네이션, TEAM-STATE 정합성 변경 요청과 merge conflict 해소 대기 |
 | Program & Intake 계획 백로그(5건: 신청·팀 구성·신청자 목록·신청 폼·운영 대시보드) | @Geuin04 | planned | #104 #105 #106 #117 #118 | - | - | 프로젝트 보드 Todo |
 | 신청 승인·반려와 저장소 생성 트리거 | @Lumiere001 | active | #119 | - | #176 pass | [백엔드 #176](https://github.com/JNU-SWCU/oss-hub/pull/176) merged · #106 신청자 목록·액션 UI 병합 대기 |
 | 교직원 프로그램 생성 | @Geuin04 | done | #100 | [#189](https://github.com/JNU-SWCU/oss-hub/pull/189) merged | pass | 없음 |
@@ -125,8 +125,10 @@ planned)을 한 표에 담는다.
 
 <!-- 원본 간 충돌은 해결하지 않고 CONFLICT로만 표기한다(임의 해결 금지). -->
 
-- CONFLICT 없음
-- stale 없음 — 열린 PR 없음. 열린 Issue 46건 중 40건은 `ticket` 라벨 backlog(전부 미착수,
-  PR 없음 확인됨). 나머지 6건(#15·#36·#56·#88·#93·#97)은 미착수 논의·정책 항목이다.
+- CONFLICT — #102의 [PR #191](https://github.com/JNU-SWCU/oss-hub/pull/191)은 required checks가
+  성공했지만 변경 요청과 merge conflict가 남아 있다. 해소 전 병합 가능 상태로 해석하지 않는다.
+- stale — `source_commit` 이후 #195·#198이 병합돼 전체 스냅샷 갱신이 필요하다. #99·#151이
+  닫혔지만 기존 그룹 행은 아직 `planned`에 포함돼 있으며, 이 부분은 #206 범위 밖의 별도 갱신
+  대상으로 남긴다.
   #56(Feature Owner 배분)은 이슈 자체는 열려 있으나 마지막 코멘트로 PM 승인이 확인됐다 —
   close 여부는 PM 판단 대기이므로 여기서는 임의로 닫힌 것으로 표기하지 않는다.
