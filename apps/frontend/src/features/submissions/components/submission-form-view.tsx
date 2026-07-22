@@ -29,8 +29,7 @@ const BLOCKED_MESSAGES = {
   SUBMISSION_ALREADY_EXISTS: '이미 최초 제출을 완료했습니다.',
   MILESTONE_CLOSED: '마감된 마일스톤입니다.',
   REPOSITORY_NOT_READY: '저장소 생성 중입니다. 잠시 후 새로고침해 주세요.',
-  FILE_UPLOAD_UNAVAILABLE:
-    '파일 제출은 비공개 저장소 준비가 끝난 뒤 제공됩니다.',
+  FILE_UPLOAD_UNAVAILABLE: '파일 제출은 현재 지원하지 않습니다.',
 } as const satisfies Readonly<Record<SubmissionBlockedReason, string>>;
 
 export interface SubmissionFormViewProps {
@@ -74,10 +73,12 @@ function SubmissionInput({
           <textarea
             id="submission-text"
             value={input.text}
+            required
+            aria-required="true"
             aria-invalid={Boolean(errors.text)}
             aria-describedby={errors.text ? 'submission-text-error' : undefined}
             onChange={(event) => onTextChange(event.target.value)}
-            className="min-h-48 rounded-lg border border-input bg-transparent p-3 text-sm leading-6"
+            className="min-h-48 w-full resize-y rounded-lg border border-input bg-transparent p-3 text-sm leading-6 transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20"
           />
           <FieldError id="submission-text-error">{errors.text}</FieldError>
         </Field>
@@ -90,11 +91,13 @@ function SubmissionInput({
             id="release-url"
             type="url"
             value={input.releaseUrl}
+            required
+            aria-required="true"
             placeholder={`${data.repository?.url ?? 'https://github.com/owner/repository'}/releases/tag/v1.0.0`}
             aria-invalid={Boolean(errors.releaseUrl)}
             aria-describedby={
               errors.releaseUrl
-                ? 'release-url-error'
+                ? 'release-url-description release-url-error'
                 : 'release-url-description'
             }
             onChange={(event) => onReleaseUrlChange(event.target.value)}
@@ -131,7 +134,7 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
                     제출 내용 확인
                   </Link>
                 </Button>
-              ) : (
+              ) : data.blockedReason === 'REPOSITORY_NOT_READY' ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -139,7 +142,7 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
                 >
                   새로고침
                 </Button>
-              )}
+              ) : null}
               <Button asChild variant="outline">
                 <Link href={`/programs/${props.programId}`}>프로그램으로</Link>
               </Button>
@@ -168,7 +171,9 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
       >
         <Card>
           <CardHeader>
-            <CardTitle>제출 내용</CardTitle>
+            <CardTitle>
+              <h2>제출 내용</h2>
+            </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-5">
             <SubmissionInput {...props} />
@@ -178,10 +183,13 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
                 id="submission-comment"
                 value={props.comment}
                 maxLength={2000}
+                aria-describedby="submission-comment-description"
                 onChange={(event) => props.onCommentChange(event.target.value)}
-                className="min-h-28 rounded-lg border border-input bg-transparent p-3 text-sm leading-6"
+                className="min-h-28 w-full resize-y rounded-lg border border-input bg-transparent p-3 text-sm leading-6 transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
-              <FieldDescription>선택 입력 · 최대 2,000자</FieldDescription>
+              <FieldDescription id="submission-comment-description">
+                선택 입력 · 최대 2,000자
+              </FieldDescription>
             </Field>
           </CardContent>
         </Card>
@@ -203,7 +211,9 @@ function SubmissionSummary({ data }: { readonly data: SubmissionFormData }) {
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle className="text-xl">{data.milestone.name}</CardTitle>
+          <CardTitle className="text-xl">
+            <h1>{data.milestone.name}</h1>
+          </CardTitle>
           <span className="rounded-full bg-muted px-3 py-1 text-sm font-medium">
             {data.milestone.deadlineLabel}
           </span>

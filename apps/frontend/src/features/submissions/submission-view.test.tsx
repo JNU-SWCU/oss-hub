@@ -53,9 +53,13 @@ describe('SubmissionFormView', () => {
 
     // Then
     expect(html).toContain('최종 제출');
+    expect(html).toContain('<h1>최종 제출</h1>');
+    expect(html).toContain('<h2>제출 내용</h2>');
     expect(html).toContain('D-69');
     expect(html).toContain('최종 보고 내용을 입력하세요.');
     expect(html).toContain('id="submission-text"');
+    expect(html).toContain('required=""');
+    expect(html).toContain('aria-required="true"');
     expect(html).toContain('제출하기');
     expect(html).not.toContain('Ticket #115');
   });
@@ -104,7 +108,8 @@ describe('SubmissionFormView', () => {
     const existingHtml = render(existingData);
 
     // Then
-    expect(fileHtml).toContain('비공개 저장소 준비가 끝난 뒤');
+    expect(fileHtml).toContain('파일 제출은 현재 지원하지 않습니다.');
+    expect(fileHtml).not.toContain('새로고침');
     expect(fileHtml).not.toContain('type="file"');
     expect(existingHtml).toContain('제출 내용 확인');
     expect(existingHtml).toContain(

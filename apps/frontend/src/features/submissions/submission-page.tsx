@@ -128,7 +128,7 @@ export function SubmissionPage({
   if (state.kind === 'success') {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8">
-        <Card>
+        <Card role="status" aria-live="polite">
           <CardHeader>
             <CardTitle>제출을 완료했습니다</CardTitle>
           </CardHeader>
