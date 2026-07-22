@@ -130,6 +130,11 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
 
   const staffPending = await upsertUser(stats, 'staff-pending', null);
   await upsertConsent(stats, staffPending.id);
+  await setProfile(staffPending.id, {
+    name: '합성 대기 사용자',
+    studentId: '202602',
+    department: '인공지능학부',
+  });
   await upsertRoleRequest(stats, {
     id: seedId('auth', 'staff-pending', 'role-request'),
     userId: staffPending.id,
@@ -143,6 +148,11 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
     null,
   );
   await upsertConsent(stats, staffPendingSecond.id);
+  await setProfile(staffPendingSecond.id, {
+    name: '합성 두 번째 대기 사용자',
+    studentId: '202603',
+    department: '소프트웨어공학과',
+  });
   await upsertRoleRequest(stats, {
     id: seedId('auth', 'staff-pending-second', 'role-request'),
     userId: staffPendingSecond.id,
@@ -153,6 +163,11 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
 
   const staffRejected = await upsertUser(stats, 'staff-rejected', null);
   await upsertConsent(stats, staffRejected.id);
+  await setProfile(staffRejected.id, {
+    name: '합성 반려 사용자',
+    studentId: '202604',
+    department: '컴퓨터공학과',
+  });
   await upsertRoleRequest(stats, {
     id: seedId('auth', 'staff-rejected', 'role-request'),
     userId: staffRejected.id,

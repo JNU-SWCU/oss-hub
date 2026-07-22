@@ -7,8 +7,8 @@ import type {
 
 export interface UsersRepositoryPort {
   findByGithubId(githubId: bigint): Promise<UserProfileRecord | null>;
-  completeProfileIfIncomplete(
-    userId: string,
+  completeProfileIfUnchanged(
+    expected: UserProfileRecord,
     input: CompleteUserProfileInput,
   ): Promise<boolean>;
 }
@@ -29,14 +29,16 @@ export class UsersRepository implements UsersRepositoryPort {
     });
   }
 
-  async completeProfileIfIncomplete(
-    userId: string,
+  async completeProfileIfUnchanged(
+    expected: UserProfileRecord,
     input: CompleteUserProfileInput,
   ): Promise<boolean> {
     const result = await this.prisma.user.updateMany({
       where: {
-        id: userId,
-        OR: [{ name: null }, { studentId: null }, { department: null }],
+        id: expected.id,
+        name: expected.name,
+        studentId: expected.studentId,
+        department: expected.department,
       },
       data: input,
     });

@@ -87,6 +87,30 @@ test('공백 이름을 완료로 표시한 프로필 응답을 거부한다', as
 });
 
 test.each([
+  ['빈 학번', { studentId: '' }],
+  ['형식이 잘못된 학번', { studentId: '12A456' }],
+  ['공백 학과', { department: '   ' }],
+] as const)(
+  '%s을 완료로 표시한 프로필 응답을 거부한다',
+  async (_label, override) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ ...completeRequest, ...override, isComplete: true }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        ),
+      ),
+    );
+
+    await expect(getMyProfile()).rejects.toBeInstanceOf(ProfileResponseError);
+  },
+);
+
+test.each([
   [401, 'AUT_003', 'unauthorized'],
   [422, 'CON_003', 'consent-required'],
   [409, 'USR_001', 'already-complete'],

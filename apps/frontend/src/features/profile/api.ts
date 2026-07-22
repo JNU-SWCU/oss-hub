@@ -1,4 +1,8 @@
 import { ApiError, apiClient } from '@/lib/api-client';
+import {
+  PROFILE_DEPARTMENT_MAX_LENGTH,
+  PROFILE_NAME_MAX_LENGTH,
+} from './profile-state';
 import type { CompleteProfileRequest, UserProfile } from './types';
 
 export type ProfileApiErrorKind =
@@ -15,6 +19,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function hasCompleteProfileFields(value: {
+  readonly name: string;
+  readonly studentId: string | null;
+  readonly department: string | null;
+}): boolean {
+  return (
+    value.name.trim().length > 0 &&
+    value.name.length <= PROFILE_NAME_MAX_LENGTH &&
+    value.studentId !== null &&
+    /^\d{6,10}$/.test(value.studentId) &&
+    value.department !== null &&
+    value.department.trim().length > 0 &&
+    value.department.length <= PROFILE_DEPARTMENT_MAX_LENGTH
+  );
+}
+
 function parseProfile(value: unknown): UserProfile {
   if (
     !isRecord(value) ||
@@ -23,9 +43,11 @@ function parseProfile(value: unknown): UserProfile {
     (value.department !== null && typeof value.department !== 'string') ||
     typeof value.isComplete !== 'boolean' ||
     value.isComplete !==
-      (value.name.trim().length > 0 &&
-        value.studentId !== null &&
-        value.department !== null)
+      hasCompleteProfileFields({
+        name: value.name,
+        studentId: value.studentId,
+        department: value.department,
+      })
   ) {
     throw new ProfileResponseError();
   }

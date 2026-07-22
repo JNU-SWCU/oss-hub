@@ -1,9 +1,14 @@
-export interface UserProfileRecord {
-  readonly id: string;
-  readonly name: string | null;
-  readonly studentId: string | null;
-  readonly department: string | null;
-}
+import {
+  isCompleteUserProfile,
+  type UserProfileRecord,
+} from '../user-profile-policy';
+
+export {
+  isCompleteUserProfile,
+  USER_DEPARTMENT_MAX_LENGTH,
+  USER_NAME_MAX_LENGTH,
+  type UserProfileRecord,
+} from '../user-profile-policy';
 
 export interface UserProfile {
   readonly name: string;
@@ -23,10 +28,6 @@ export function toUserProfile(record: UserProfileRecord): UserProfile {
     name: record.name ?? '',
     studentId: record.studentId,
     department: record.department,
-    isComplete:
-      record.name !== null &&
-      record.name.trim().length > 0 &&
-      record.studentId !== null &&
-      record.department !== null,
+    isComplete: isCompleteUserProfile(record),
   };
 }
