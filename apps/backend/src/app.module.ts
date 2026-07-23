@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ApplicationsModule } from './applications/applications.module';
+import { AuditLogModule } from './audit-log/audit-log.module';
 import { AuthModule } from './auth/auth.module';
 import { CollectionModule } from './collection/collection.module';
 import { ConsentsModule } from './consents/consents.module';
@@ -16,6 +17,7 @@ import { UsersModule } from './users/users.module';
   imports: [
     PrismaModule,
     HealthModule,
+    AuditLogModule,
     LoginHistoryModule,
     AuthModule,
     CollectionModule,
