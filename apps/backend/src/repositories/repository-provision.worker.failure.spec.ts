@@ -14,6 +14,7 @@ import {
 import { PROVISION_ERROR_CODES } from './repository-provision.failure';
 import { RepositoryProvisionWorker } from './repository-provision.worker';
 import { RepositoryProvisionLeaseLostError } from './repository-provision-state.helpers';
+import { buildRepositoryOwnershipMarker } from './repository-name';
 
 const OPTIONS = { leaseMs: 300_000, maxAttempts: 3, retryBaseMs: 60_000 };
 
@@ -86,6 +87,66 @@ describe('RepositoryProvisionWorker failure', () => {
       final: false,
       nextAttemptAt: new Date('2026-07-22T00:02:00.000Z'),
     });
+  });
+
+  it('생성 응답이 public이면 기록과 초대 없이 최종 실패한다', async () => {
+    // Given: GitHub가 생성 요청에 공개 저장소 metadata를 반환한다.
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    const github = githubClientMock();
+    github.createRepository.mockResolvedValue({
+      githubRepositoryId: PROVISION_REPOSITORY.githubRepositoryId,
+      name: PROVISION_REPOSITORY.name,
+      url: PROVISION_REPOSITORY.url,
+      visibility: 'PUBLIC',
+      description: buildRepositoryOwnershipMarker('synthetic-application-id'),
+    });
+    const worker = new RepositoryProvisionWorker(jobs, state, github, OPTIONS);
+
+    // When: provision job을 실행한다.
+    const result = await worker.runNext('worker-public-create', PROVISION_NOW);
+
+    // Then: private 불변식을 위반한 원격 응답을 저장하거나 초대하지 않는다.
+    expect(result).toEqual({
+      kind: 'FAILED_FINAL',
+      jobId: 'synthetic-job-id',
+      errorCode: GITHUB_OPERATIONS_ERROR_CODES.INVALID_RESPONSE,
+    });
+    expect(state.recordRepository.mock.calls).toHaveLength(0);
+    expect(state.prepareInvitations.mock.calls).toHaveLength(0);
+    expect(github.ensureCollaborator.mock.calls).toHaveLength(0);
+  });
+
+  it('중단 복구에서 같은 marker의 public 저장소를 재사용하지 않는다', async () => {
+    // Given: 이전 시도가 남긴 것처럼 보이는 공개 저장소가 원격에 있다.
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    const github = githubClientMock();
+    github.findRepository.mockResolvedValue({
+      githubRepositoryId: PROVISION_REPOSITORY.githubRepositoryId,
+      name: PROVISION_REPOSITORY.name,
+      url: PROVISION_REPOSITORY.url,
+      visibility: 'PUBLIC',
+      description: buildRepositoryOwnershipMarker('synthetic-application-id'),
+    });
+    const worker = new RepositoryProvisionWorker(jobs, state, github, OPTIONS);
+
+    // When: 중단된 provision job을 재시도한다.
+    const result = await worker.runNext(
+      'worker-public-recovery',
+      PROVISION_NOW,
+    );
+
+    // Then: marker만 믿고 공개 저장소를 기록하거나 초대하지 않는다.
+    expect(result).toEqual({
+      kind: 'FAILED_FINAL',
+      jobId: 'synthetic-job-id',
+      errorCode: GITHUB_OPERATIONS_ERROR_CODES.INVALID_RESPONSE,
+    });
+    expect(github.createRepository.mock.calls).toHaveLength(0);
+    expect(state.recordRepository.mock.calls).toHaveLength(0);
+    expect(state.prepareInvitations.mock.calls).toHaveLength(0);
+    expect(github.ensureCollaborator.mock.calls).toHaveLength(0);
   });
 
   it('GitHub Retry-After 시각을 지수 backoff보다 우선한다', async () => {
