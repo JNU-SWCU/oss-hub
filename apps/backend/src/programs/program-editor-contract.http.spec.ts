@@ -38,7 +38,9 @@ const repository: ProgramEditorRepositoryPort = {
 };
 
 function sessionGuard(context: ExecutionContext): boolean {
-  const request = context.switchToHttp().getRequest<{ sessionGithubId: bigint }>();
+  const request = context
+    .switchToHttp()
+    .getRequest<{ sessionGithubId: bigint }>();
   request.sessionGithubId = 101n;
   return true;
 }

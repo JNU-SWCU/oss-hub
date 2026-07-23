@@ -93,7 +93,11 @@ export function createProgramEditorServiceHarness(): {
     accountStatus: AccountStatus.ACTIVE,
     roleRequests: [],
   });
-  return { service: new ProgramEditorService(repository), store, withTransaction };
+  return {
+    service: new ProgramEditorService(repository),
+    store,
+    withTransaction,
+  };
 }
 
 export function teamInputFor(

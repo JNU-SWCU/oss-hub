@@ -184,7 +184,6 @@ describe('ProgramEditorService update validation', () => {
   });
 });
 
-
 async function expectDomainException(
   promise: Promise<unknown>,
 ): Promise<DomainException> {

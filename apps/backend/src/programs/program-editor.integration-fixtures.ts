@@ -1,8 +1,4 @@
-import {
-  MilestoneSubmissionType,
-  ProgramCategory,
-  Role,
-} from '@prisma/client';
+import { MilestoneSubmissionType, ProgramCategory, Role } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';

@@ -5,7 +5,9 @@ import {
 
 describe('Program editor error contract', () => {
   it('documents ADR-stable frontend-facing error codes and statuses', () => {
-    expect(PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR]).toMatchObject({
+    expect(
+      PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
+    ).toMatchObject({
       code: 'PRG_001',
       status: 400,
     });
@@ -19,7 +21,9 @@ describe('Program editor error contract', () => {
       code: 'PRG_003',
       status: 403,
     });
-    expect(PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_NOT_FOUND]).toMatchObject({
+    expect(
+      PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_NOT_FOUND],
+    ).toMatchObject({
       code: 'PRG_004',
       status: 404,
     });
@@ -53,7 +57,9 @@ describe('Program editor error contract', () => {
       code: 'PRG_009',
       status: 409,
     });
-    expect(PROGRAM_ERROR_CODES[ProgramErrorCode.MILESTONE_REQUIRED]).toMatchObject({
+    expect(
+      PROGRAM_ERROR_CODES[ProgramErrorCode.MILESTONE_REQUIRED],
+    ).toMatchObject({
       code: 'PRG_010',
       status: 422,
     });

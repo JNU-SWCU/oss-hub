@@ -11,7 +11,8 @@ import {
 
 describe('ProgramEditorService authority', () => {
   it('loads edit data by canonical program id inside one repository transaction', async () => {
-    const { service, store, withTransaction } = createProgramEditorServiceHarness();
+    const { service, store, withTransaction } =
+      createProgramEditorServiceHarness();
     store.findEditableProgramById.mockResolvedValue(editableProgram);
 
     await expect(service.getProgram(101n, 'program-1')).resolves.toBe(

@@ -53,7 +53,6 @@ describe('ProgramEditorService integration concurrency', () => {
     await prisma.$disconnect();
   });
 
-
   it('keeps one milestone when the last two provisioning milestones are deleted concurrently', async () => {
     // Given: repository provisioning has exactly two same-name milestones.
     const programId = `${TEST_PREFIX}program:last-two`;
