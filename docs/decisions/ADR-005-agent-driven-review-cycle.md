@@ -62,7 +62,8 @@ Jenkins의 실패 시 중단·증적 보존·기존 이미지 복구 동작은 A
 `MERGE_READY head=<sha> risk=<GENERAL|HIGH_RISK>`는 @GoBeromsu 또는 @Lumiere001 계정으로 실행한 전남 검토 결과만 허용한다.
 high risk는 이어서 `PM_ACCEPT head=<sha>`를 @GoBeromsu가, `TECH_LEAD_ACCEPT head=<sha>`를 @Lumiere001이 각각 남긴다.
 각 댓글은 검증 결과 URL 또는 같은 댓글의 public-safe 요약을 포함하며, head가 바뀌면 이전 증거와 accept는 모두 무효다.
-후속 #226의 `merge-policy` required check가 적용되기 전에는 병합자가 이 actor·형식·SHA를 수동으로 대조한다.
+후속 #226의 `merge-policy` required check는 이 증거와 함께 `GENERAL` 하향에 필요한 두 `RISK_ACCEPT`의 actor·role·full SHA도 검증한다.
+required check가 적용되기 전에는 병합자가 이 actor·형식·SHA를 수동으로 대조한다.
 이 저장소의 기존 branch protection은 사람 리뷰를 required gate로 강제하지 않았으므로 수동 파일럿은 적용 중인 기계 게이트를 제거하지 않는다.
 수동 파일럿 동안 병합 권한은 @GoBeromsu와 @Lumiere001로 제한하고 admin bypass를 사용하지 않으며, #226 병합 뒤 `merge-policy`를 required check로 전환한다.
 
