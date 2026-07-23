@@ -72,13 +72,19 @@
 
 ## 병합 판정 증거
 
-<!-- ADR-005 기준. head가 바뀌면 아래 증거를 모두 현재 full SHA로 다시 받는다. -->
+<!-- ADR-005 기준. head, base ref 또는 base SHA가 바뀌면 아래 증거를 모두 다시 받는다. -->
 
 - risk: `GENERAL | HIGH_RISK`
 - head full SHA:
+- base ref:
+- base full SHA:
 - `MERGE_READY` 댓글 URL:
+- `CODE_CONTRACT:` 증거 URL 또는 public-safe 요약:
+- `PONYTAIL:` 증거 URL 또는 public-safe 요약:
 - 실제 UI/API QA 증거 URL 또는 N/A 사유: `N/A는 관찰 가능한 동작이 없을 때만, 환경·선행 PR·외부 자원 blocker는 BLOCKED/UNVERIFIED`
-- `RISK_ACCEPT role=PM head=<full-sha> risk=GENERAL` 댓글 URL: `CODEOWNERS 후보를 GENERAL로 낮출 때만`
-- `RISK_ACCEPT role=TECH_LEAD head=<full-sha> risk=GENERAL` 댓글 URL: `CODEOWNERS 후보를 GENERAL로 낮출 때만`
-- `PM_ACCEPT head=<full-sha>` 댓글 URL: `HIGH_RISK만, 일반 PR은 N/A`
-- `TECH_LEAD_ACCEPT head=<full-sha>` 댓글 URL: `HIGH_RISK만, 일반 PR은 N/A`
+- `CLI:` 증거 URL 또는 public-safe 요약:
+- `CI:` 증거 URL:
+- `RISK_ACCEPT role=PM head=<full-sha> base=<ref> base_sha=<full-sha> risk=GENERAL` 댓글 URL: `CODEOWNERS 후보를 GENERAL로 낮출 때만`
+- `RISK_ACCEPT role=TECH_LEAD head=<full-sha> base=<ref> base_sha=<full-sha> risk=GENERAL` 댓글 URL: `CODEOWNERS 후보를 GENERAL로 낮출 때만`
+- `PM_ACCEPT head=<full-sha> base=<ref> base_sha=<full-sha>` 댓글 URL: `HIGH_RISK만, 일반 PR은 N/A`
+- `TECH_LEAD_ACCEPT head=<full-sha> base=<ref> base_sha=<full-sha>` 댓글 URL: `HIGH_RISK만, 일반 PR은 N/A`

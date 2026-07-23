@@ -71,7 +71,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 중첩 AGENTS 가이드 | @Lumiere001 | done | #11 | #12 (+#20) | pass | 없음 |
 | public repo 보안·CI 하드닝 | @Lumiere001 | done | #31 #32 #34 #35 #38 | #39–#46 | pass | 후속 범위는 #44로 분리(완료) |
 | Agent-Driven Review Cycle ADR | @GoBeromsu | done | #24 | #25 (+#50) | pass | 없음 |
-| 에이전트 병합 게이트 전환 | @GoBeromsu / @Lumiere001 | review | [#226](https://github.com/JNU-SWCU/oss-hub/issues/226) | [#225](https://github.com/JNU-SWCU/oss-hub/pull/225) | local pass · CI pending | current-head `MERGE_READY`와 PM·Tech Lead accept 대기 |
+| 에이전트 병합 게이트 전환 | @GoBeromsu / @Lumiere001 | review | [#226](https://github.com/JNU-SWCU/oss-hub/issues/226) | [#225](https://github.com/JNU-SWCU/oss-hub/pull/225) | local pass · CI pass | current-head·base `MERGE_READY`와 PM·Tech Lead accept 대기 |
 | Docker build context 보호 | @Lumiere001 | done | #44 | #48 | pass | 없음 |
 | 정체성 User 단일화(Member dead code 제거) | @GoBeromsu | done | #67 | #69 | pass | 없음 |
 | 코어 스키마 1·2차(제출·검토·저장소 자동화 16모델) | @GoBeromsu | done | #109 #113 | #139 #140 | pass | 없음 |
@@ -119,7 +119,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 
 | 리스크 | owner | trigger | due | fallback |
 | --- | --- | --- | --- | --- |
-| `merge-policy` required check 전 수동 `MERGE_READY`·high-risk 이중 accept의 기록 누락·stale SHA 위험 | @GoBeromsu @Lumiere001 | #225 병합 후 | #226 | 병합자가 full SHA·actor를 수동 대조하고 admin bypass 금지 |
+| `merge-policy` required check 전 수동 `MERGE_READY`·high-risk 이중 accept의 기록 누락·stale head/base 위험 | @GoBeromsu @Lumiere001 | #225 병합 후 | #226 | 병합자가 head·base full SHA와 actor를 수동 대조하고 admin bypass 금지 |
 | `enforce_admins=false`로 관리자가 required check를 우회할 수 있음 | @GoBeromsu @Lumiere001 | 상시 | #226 적용 시 재검토 | push 권한을 두 owner로 제한하고 정책상 admin bypass 금지 |
 | 운영 TLS 부재 시 Secure/`__Host-` 쿠키 미작동 | @GoBeromsu | 프로덕션 배포 시점 | 프로덕션 배포 전 | 외부 terminator 계약 명시 or nginx TLS 추가 |
 | 수집 App Basic 한도(5,000/hr) 부족 | @Lumiere001 | 수집 대상 확대 | 8/15 전국 디지털 경진대회 전 | GitHub App 인증 ADR(#120, 발행 완료)로 흡수 — 아직 미착수 |
