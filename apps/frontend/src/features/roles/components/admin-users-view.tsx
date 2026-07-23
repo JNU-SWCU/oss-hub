@@ -45,77 +45,128 @@ interface AdminUsersViewProps {
   readonly onResetFilters: () => void;
 }
 
+function RoleBadge({ role }: { readonly role: AdminUser['role'] }) {
+  if (!role) {
+    return <StatusBadge variant="rejected">미지정</StatusBadge>;
+  }
+
+  return (
+    <StatusBadge
+      variant={
+        role === 'ADMIN'
+          ? 'approved'
+          : role === 'STAFF'
+            ? 'pending'
+            : 'closed'
+      }
+    >
+      {ROLE_LABEL[role]}
+    </StatusBadge>
+  );
+}
+
+function AccountStatusBadge({
+  status,
+}: {
+  readonly status: AdminUser['accountStatus'];
+}) {
+  return (
+    <StatusBadge variant={status === 'ACTIVE' ? 'approved' : 'closed'}>
+      {status === 'ACTIVE' ? '활성' : '비활성'}
+    </StatusBadge>
+  );
+}
+
+function RoleSelect({
+  user,
+  idSuffix,
+  disabled,
+  onChange,
+}: {
+  readonly user: AdminUser;
+  readonly idSuffix: 'compact' | 'table';
+  readonly disabled: boolean;
+  readonly onChange: (role: UserRole) => void;
+}) {
+  const id = `role-${user.id}-${idSuffix}`;
+
+  return (
+    <RowActions>
+      <label className="sr-only" htmlFor={id}>
+        {user.githubLogin} 역할 변경
+      </label>
+      <select
+        id={id}
+        className="h-11 rounded-lg border border-input bg-background px-3 text-sm"
+        value={user.role ?? ''}
+        disabled={disabled}
+        onChange={(event) => {
+          const role = event.target.value as UserRole;
+          if (role) onChange(role);
+        }}
+      >
+        {!user.role ? <option value="">역할 선택</option> : null}
+        {Object.entries(ROLE_LABEL).map(([value, label]) => (
+          <option key={value} value={value}>
+            {label}
+          </option>
+        ))}
+      </select>
+    </RowActions>
+  );
+}
+
 export function AdminUsersView(props: AdminUsersViewProps) {
   const columns: DataTableColumn<AdminUser>[] = [
     {
       id: 'user',
       header: '사용자',
-      cellClassName: 'whitespace-normal break-keep',
+      cellClassName: 'whitespace-normal',
       cell: (user) => (
-        <div className="flex min-w-40 flex-col gap-0.5">
-          <span className="font-medium">{user.name ?? '이름 미등록'}</span>
+        <div className="flex min-w-0 flex-col gap-2 lg:min-w-40 lg:gap-0.5">
+          <span className="line-clamp-2 break-all font-medium">
+            {user.name ?? '이름 미등록'}
+          </span>
           <span className="text-muted-foreground">@{user.githubLogin}</span>
+          <div className="flex flex-wrap items-center gap-2 pt-1 lg:hidden">
+            <RoleBadge role={user.role} />
+            <AccountStatusBadge status={user.accountStatus} />
+            <RoleSelect
+              user={user}
+              idSuffix="compact"
+              disabled={props.processingId === user.id}
+              onChange={(role) => props.onRequestRoleChange(user, role)}
+            />
+          </div>
         </div>
       ),
     },
     {
       id: 'role',
       header: '현재 역할',
-      cell: (user) =>
-        user.role ? (
-          <StatusBadge
-            variant={
-              user.role === 'ADMIN'
-                ? 'approved'
-                : user.role === 'STAFF'
-                  ? 'pending'
-                  : 'closed'
-            }
-          >
-            {ROLE_LABEL[user.role]}
-          </StatusBadge>
-        ) : (
-          <StatusBadge variant="rejected">미지정</StatusBadge>
-        ),
+      headClassName: 'hidden lg:table-cell',
+      cellClassName: 'hidden lg:table-cell',
+      cell: (user) => <RoleBadge role={user.role} />,
     },
     {
       id: 'accountStatus',
       header: '계정 상태',
-      cell: (user) => (
-        <StatusBadge
-          variant={user.accountStatus === 'ACTIVE' ? 'approved' : 'closed'}
-        >
-          {user.accountStatus === 'ACTIVE' ? '활성' : '비활성'}
-        </StatusBadge>
-      ),
+      headClassName: 'hidden lg:table-cell',
+      cellClassName: 'hidden lg:table-cell',
+      cell: (user) => <AccountStatusBadge status={user.accountStatus} />,
     },
     {
       id: 'actions',
       header: <span className="sr-only">역할 변경</span>,
-      headClassName: 'text-right',
+      headClassName: 'hidden text-right lg:table-cell',
+      cellClassName: 'hidden lg:table-cell',
       cell: (user) => (
-        <RowActions>
-          <label className="sr-only" htmlFor={`role-${user.id}`}>
-            {user.githubLogin} 역할 변경
-          </label>
-          <select
-            id={`role-${user.id}`}
-            className="h-11 rounded-lg border border-input bg-background px-3 text-sm"
-            value={user.role ?? ''}
-            disabled={props.processingId === user.id}
-            onChange={(event) => {
-              const role = event.target.value as UserRole;
-              if (role) props.onRequestRoleChange(user, role);
-            }}
-          >
-            {!user.role ? <option value="">역할 선택</option> : null}
-            {Object.entries(ROLE_LABEL).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </RowActions>
+        <RoleSelect
+          user={user}
+          idSuffix="table"
+          disabled={props.processingId === user.id}
+          onChange={(role) => props.onRequestRoleChange(user, role)}
+        />
       ),
     },
   ];

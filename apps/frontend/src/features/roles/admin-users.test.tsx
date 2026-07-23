@@ -47,6 +47,10 @@ describe('관리자 사용자 콘솔', () => {
     expect(html).toContain('data-slot="row-actions"');
     expect(html).toContain('data-slot="status-badge"');
     expect(html).toContain('h-11');
+    expect(html).toContain('id="role-synthetic-staff-compact"');
+    expect(html).toContain('id="role-synthetic-staff-table"');
+    expect(html).toContain('lg:hidden');
+    expect(html).toContain('hidden lg:table-cell');
   });
 
   it('검색 결과가 없으면 지정된 안내와 필터 초기화 동작을 표시한다', () => {
