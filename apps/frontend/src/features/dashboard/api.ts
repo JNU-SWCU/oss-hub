@@ -18,7 +18,10 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isInternalPath(value: unknown): value is string {
   return (
-    isNonEmptyString(value) && value.startsWith('/') && !value.startsWith('//')
+    isNonEmptyString(value) &&
+    value.startsWith('/') &&
+    !value.startsWith('//') &&
+    !value.includes('\\')
   );
 }
 

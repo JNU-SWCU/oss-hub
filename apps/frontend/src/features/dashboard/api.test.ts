@@ -75,6 +75,17 @@ describe('fetchStudentDashboard', () => {
         ],
       },
     ],
+    [
+      '역슬래시로 시작하는 외부 경로',
+      {
+        items: [
+          {
+            ...dashboardFixture.items[0],
+            detailUrl: '/\\example.com/program',
+          },
+        ],
+      },
+    ],
   ])('잘못된 응답을 어댑터 경계에서 거부한다: %s', async (_label, body) => {
     vi.stubGlobal(
       'fetch',
