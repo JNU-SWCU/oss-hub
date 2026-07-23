@@ -1,4 +1,8 @@
-import { MilestoneSubmissionType } from '@prisma/client';
+import {
+  ApplicationStatus,
+  MilestoneSubmissionType,
+  Role,
+} from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
 import {
   prisma as seedPrisma,
@@ -8,6 +12,7 @@ import {
 } from '../../prisma/seeds/helpers';
 import { MILESTONE_SCENARIOS } from '../../prisma/seeds/milestones';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubmissionsErrorCode } from './submissions-error-code.enum';
 import { SubmissionsRepository } from './submissions.repository';
@@ -38,6 +43,9 @@ const REPOSITORY_USER_ID = seedId(
   REPOSITORY_SCENARIO,
   'applicant',
 );
+const NON_STUDENT_USER_ID = 'synthetic-submission-non-student';
+const UNAPPROVED_USER_ID = 'synthetic-submission-unapproved-student';
+const UNAPPROVED_APPLICATION_ID = 'synthetic-submission-unapproved-application';
 const FILE_MILESTONE_ID = 'synthetic-submission-file-milestone';
 const RELEASE_MILESTONE_ID = 'synthetic-submission-release-milestone';
 const NOW = new Date('2026-07-23T00:00:00.000Z');
@@ -47,6 +55,35 @@ describe('SubmissionsService integration', () => {
     await Promise.all([prisma.$connect(), seedPrisma.$connect()]);
     await runProfile('milestones', new SeedStats());
     await runProfile('repositories', new SeedStats());
+    await prisma.user.createMany({
+      data: [
+        {
+          id: NON_STUDENT_USER_ID,
+          githubId: seedGithubId(NON_STUDENT_USER_ID),
+          login: 'synthetic-submission-non-student',
+          role: Role.STAFF,
+        },
+        {
+          id: UNAPPROVED_USER_ID,
+          githubId: seedGithubId(UNAPPROVED_USER_ID),
+          login: 'synthetic-submission-unapproved-student',
+          role: Role.STUDENT,
+        },
+      ],
+      skipDuplicates: true,
+    });
+    await prisma.application.upsert({
+      where: { id: UNAPPROVED_APPLICATION_ID },
+      update: { status: ApplicationStatus.SUBMITTED },
+      create: {
+        id: UNAPPROVED_APPLICATION_ID,
+        programId: MILESTONES_PROGRAM_ID,
+        applicantId: UNAPPROVED_USER_ID,
+        answers: { synthetic: true },
+        applicationTemplateVersion: 1,
+        status: ApplicationStatus.SUBMITTED,
+      },
+    });
     await prisma.milestone.createMany({
       data: [
         {
@@ -85,6 +122,12 @@ describe('SubmissionsService integration', () => {
   afterAll(async () => {
     await prisma.milestone.deleteMany({
       where: { id: { in: [FILE_MILESTONE_ID, RELEASE_MILESTONE_ID] } },
+    });
+    await prisma.application.deleteMany({
+      where: { id: UNAPPROVED_APPLICATION_ID },
+    });
+    await prisma.user.deleteMany({
+      where: { id: { in: [NON_STUDENT_USER_ID, UNAPPROVED_USER_ID] } },
     });
     await Promise.all([prisma.$disconnect(), seedPrisma.$disconnect()]);
   });
@@ -168,6 +211,78 @@ describe('SubmissionsService integration', () => {
     });
   });
 
+  it('비학생 계정은 제출 폼과 최초 제출을 모두 사용할 수 없다', async () => {
+    // Given
+    const [milestoneId] = MILESTONE_SCENARIOS['milestones-upcoming'];
+    const githubId = seedGithubId(NON_STUDENT_USER_ID);
+
+    // When
+    const form = service.form(
+      githubId,
+      MILESTONES_PROGRAM_ID,
+      milestoneId,
+      NOW,
+    );
+    const submission = service.create(
+      githubId,
+      {
+        applicationId: PERSONAL_APPLICATION_ID,
+        milestoneId,
+        content: { type: MilestoneSubmissionType.TEXT, text: '합성 제출' },
+        comment: null,
+      },
+      NOW,
+    );
+
+    // Then
+    await Promise.all([
+      expect(form).rejects.toMatchObject({
+        errorCode: { code: SubmissionsErrorCode.STUDENT_ONLY },
+      }),
+      expect(submission).rejects.toMatchObject({
+        errorCode: { code: SubmissionsErrorCode.STUDENT_ONLY },
+      }),
+    ]);
+  });
+
+  it('승인되지 않은 신청은 제출 폼과 최초 제출을 모두 사용할 수 없다', async () => {
+    // Given
+    const [milestoneId] = MILESTONE_SCENARIOS['milestones-upcoming'];
+    const githubId = seedGithubId(UNAPPROVED_USER_ID);
+
+    // When
+    const form = service.form(
+      githubId,
+      MILESTONES_PROGRAM_ID,
+      milestoneId,
+      NOW,
+    );
+    const submission = service.create(
+      githubId,
+      {
+        applicationId: UNAPPROVED_APPLICATION_ID,
+        milestoneId,
+        content: { type: MilestoneSubmissionType.TEXT, text: '합성 제출' },
+        comment: null,
+      },
+      NOW,
+    );
+
+    // Then
+    await Promise.all([
+      expect(form).rejects.toMatchObject({
+        errorCode: {
+          code: SubmissionsErrorCode.APPLICATION_APPROVAL_REQUIRED,
+        },
+      }),
+      expect(submission).rejects.toMatchObject({
+        errorCode: {
+          code: SubmissionsErrorCode.APPLICATION_APPROVAL_REQUIRED,
+        },
+      }),
+    ]);
+  });
+
   it('TEXT 최초 제출을 revision 1과 함께 저장하고 중복을 막는다', async () => {
     // Given
     const [milestoneId] = MILESTONE_SCENARIOS['milestones-upcoming'];
@@ -182,16 +297,19 @@ describe('SubmissionsService integration', () => {
     } as const;
 
     // When
-    const created = await service.create(
-      seedGithubId(PERSONAL_USER_ID),
-      input,
-      NOW,
-    );
-    const duplicate = service.create(
-      seedGithubId(PERSONAL_USER_ID),
-      input,
-      NOW,
-    );
+    const submit = () =>
+      service.create(seedGithubId(PERSONAL_USER_ID), input, NOW).then(
+        (value) => ({ kind: 'fulfilled' as const, value }),
+        (error: unknown) => {
+          if (!(error instanceof DomainException)) throw error;
+          return {
+            kind: 'rejected' as const,
+            errorCode: error.errorCode.code,
+          };
+        },
+      );
+
+    const results = await Promise.all([submit(), submit()]);
 
     // Then
     const stored = await prisma.submission.findUniqueOrThrow({
@@ -203,10 +321,20 @@ describe('SubmissionsService integration', () => {
       },
       include: { revisions: true },
     });
-    expect(created).toMatchObject({
+    const fulfilled = results.find((result) => result.kind === 'fulfilled');
+    const rejected = results.find((result) => result.kind === 'rejected');
+    expect(fulfilled?.kind).toBe('fulfilled');
+    expect(rejected?.kind).toBe('rejected');
+    if (fulfilled?.kind !== 'fulfilled' || rejected?.kind !== 'rejected') {
+      throw new Error('concurrent submissions did not converge');
+    }
+    expect(fulfilled.value).toMatchObject({
       submissionId: stored.id,
       status: 'SUBMITTED',
     });
+    expect(rejected.errorCode).toBe(
+      SubmissionsErrorCode.SUBMISSION_ALREADY_EXISTS,
+    );
     expect(stored.revisions).toHaveLength(1);
     expect(stored.revisions[0]).toMatchObject({
       revision: 1,
@@ -215,9 +343,6 @@ describe('SubmissionsService integration', () => {
         type: MilestoneSubmissionType.TEXT,
         text: '합성 최종 보고',
       },
-    });
-    await expect(duplicate).rejects.toMatchObject({
-      errorCode: { code: SubmissionsErrorCode.SUBMISSION_ALREADY_EXISTS },
     });
   });
 
