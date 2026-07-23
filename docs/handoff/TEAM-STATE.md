@@ -96,7 +96,8 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 교직원 프로그램 생성 | @Geuin04 | done | #100 | [#189](https://github.com/JNU-SWCU/oss-hub/pull/189) merged | pass | 없음 |
 | 공통 프로그램 상세 조회 | @Geuin04 | done | #103 | [#195](https://github.com/JNU-SWCU/oss-hub/pull/195) merged | pass | 없음 |
 | 프로그램 생성 이탈 보호·동작 계약 | @Lumiere001 | done | #196 | #200 | pass | 없음 — 실제 브라우저 접수 E2E는 #128 통합 QA에서 수행 |
-| Participation & Showcase 백로그(9건: 내 대시보드·마일스톤 제출·재제출·운영 대시보드·매트릭스·검토·공개 아카이브·알림·공개 프로필) | @jinsol1190-rgb | planned | #114 #115 #116 #124 #125 #126 #127 #134 #155 | - | - | 없음 — 코어 스키마(done) 전제 충족 |
+| Participation & Showcase 백로그(8건: 내 대시보드·마일스톤 제출·재제출·운영 대시보드·매트릭스·공개 아카이브·알림·공개 프로필) | @jinsol1190-rgb | planned | #114 #115 #116 #124 #126 #127 #134 #155 | - | - | 없음 — 코어 스키마(done) 전제 충족 |
+| 교직원 제출 검토·명시적 저장소 공개 | @Lumiere001 | review | #125 #121 | [#214](https://github.com/JNU-SWCU/oss-hub/pull/214) Draft, #204 위 stacked | automated pass | 최신 revision 단일 판정·이력·별도 공개 구현 및 브라우저 점검 완료. 선행 PR #204 merge 전에는 병합하지 않음 |
 | 학생 활동 타임라인 | @jinsol1190-rgb | done | #154 | [#210](https://github.com/JNU-SWCU/oss-hub/pull/210) merged | pass | 없음 — [프런트엔드 #198](https://github.com/JNU-SWCU/oss-hub/pull/198)과 백엔드 #210 병합 완료 |
 | Cross-cutting E2E 스모크(접수 흐름·전체 루프) | @GoBeromsu | planned | #128 #129 | - | - | 상위 화면 티켓들 merge 진행에 따라 순차 검증 |
 | Product Definition & Operations 백로그(배포 스파이크·Notion PRD·IA 동기화) | @GoBeromsu | planned | #112 #130 | - | - | #112: 사업단 스테이징 인스턴스 수령 대기(외부) |

@@ -10,6 +10,7 @@ import { ProgramsModule } from './programs/programs.module';
 import { RepositoryOwnershipModule } from './repository-ownership/repository-ownership.module';
 import { RepositoriesModule } from './repositories/repositories.module';
 import { RolesModule } from './roles/roles.module';
+import { SubmissionReviewsModule } from './submission-reviews/submission-reviews.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { RolesModule } from './roles/roles.module';
     ProgramsModule,
     RepositoryOwnershipModule,
     RepositoriesModule,
+    SubmissionReviewsModule,
   ],
 })
 export class AppModule {}
