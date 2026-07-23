@@ -115,6 +115,29 @@ describe('AuditLogView', () => {
     }
   });
 
+  it('액션 필터의 API 값과 한국어 표시 이름을 함께 제공한다', () => {
+    for (const [value, label] of [
+      ['', '전체'],
+      ['STAFF_ROLE_REQUEST_APPROVED', '승인'],
+      ['STAFF_ROLE_REQUEST_REJECTED', '반려'],
+      ['STAFF_ROLE_REQUEST_REVOKED', '회수'],
+    ]) {
+      const html = renderToStaticMarkup(
+        <AuditLogView
+          {...baseProps}
+          filters={{ ...baseProps.filters, action: value }}
+          records={[]}
+          isLoading={false}
+          errorMessage={null}
+        />,
+      );
+
+      expect(html).toContain(
+        `<option value="${value}" selected="">${label}</option>`,
+      );
+    }
+  });
+
   it('표를 가로 스크롤 안내와 연결한다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView

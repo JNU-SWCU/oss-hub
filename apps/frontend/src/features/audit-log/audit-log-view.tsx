@@ -11,9 +11,9 @@ import { Input } from '@/components/ui/input';
 import type { AuditLogFilters, AuditLogRecord } from './types';
 
 const ACTIONS = [
-  'STAFF_ROLE_REQUEST_APPROVED',
-  'STAFF_ROLE_REQUEST_REJECTED',
-  'STAFF_ROLE_REQUEST_REVOKED',
+  { value: 'STAFF_ROLE_REQUEST_APPROVED', label: '승인' },
+  { value: 'STAFF_ROLE_REQUEST_REJECTED', label: '반려' },
+  { value: 'STAFF_ROLE_REQUEST_REVOKED', label: '회수' },
 ] as const;
 
 export interface AuditLogViewProps {
@@ -121,8 +121,8 @@ export function AuditLogView(props: AuditLogViewProps) {
           >
             <option value="">전체</option>
             {ACTIONS.map((action) => (
-              <option key={action} value={action}>
-                {action}
+              <option key={action.value} value={action.value}>
+                {action.label}
               </option>
             ))}
           </select>
