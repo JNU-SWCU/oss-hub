@@ -1,6 +1,6 @@
 'use client';
 
-import { useId } from 'react';
+import { useId, useRef } from 'react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 
 import { FormSection } from '@/components/form-section';
@@ -125,10 +125,12 @@ function ConsentPolicyDialog({
   readonly label: string;
   readonly documentUrl: string;
 }) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
   return (
     <DialogPrimitive.Root>
       <DialogPrimitive.Trigger asChild>
-        <Button className="w-fit" type="button" variant="link">
+        <Button ref={triggerRef} className="w-fit" type="button" variant="link">
           {label} 전문 보기
         </Button>
       </DialogPrimitive.Trigger>
@@ -137,6 +139,10 @@ function ConsentPolicyDialog({
         <DialogPrimitive.Content
           aria-modal="true"
           className="fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-background p-6 shadow-lg focus:outline-none"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            triggerRef.current?.focus();
+          }}
         >
           <DialogPrimitive.Title className="font-heading text-xl font-semibold">
             {label} 전문
