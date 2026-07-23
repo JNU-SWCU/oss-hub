@@ -41,10 +41,18 @@ PRD·IA·Accepted ADR·root와 적용되는 nested `AGENTS` 범위 안의 기술
 
 high risk 여부는 파일 경로가 아니라 실제 권한·데이터·운영·공통 계약에 미치는 효과로 판정한다.
 CODEOWNERS 경로는 검토 후보를 찾는 신호이며 그 자체가 high risk 확정 판정은 아니다.
+나열된 경계를 생성·확장·축소·우회하거나 검사를 약화하는 변경은 경로와 무관하게 high risk이며, 분류가 모호하면 high risk로 처리한다.
+동작 효과가 없는 기계적 문서·테스트·리팩터링은 경로가 일치해도 일반 변경일 수 있지만, 정책 문서의 실제 계약을 바꾸면 high risk다.
 
 high risk PR은 `MERGE_READY` 이후에도 PM인 @GoBeromsu와 Tech Lead인 @Lumiere001이 동일한 head SHA에 대해 각각 manual accept를 남겨야 한다.
 production release 배포도 두 사람의 release tag와 exact SHA manual accept 뒤에만 시작한다.
 Jenkins의 실패 시 중단·증적 보존·기존 이미지 복구 동작은 ADR-002의 배포 계약을 유지하며, 이 ADR은 별도의 rollback 동작 변경을 결정하지 않는다.
+
+수동 파일럿의 canonical evidence는 PR 최상위 댓글에 아래 형식과 40자 full SHA로 남긴다.
+`MERGE_READY head=<sha> risk=<GENERAL|HIGH_RISK>`는 @GoBeromsu 또는 @Lumiere001 계정으로 실행한 전남 검토 결과만 허용한다.
+high risk는 이어서 `MANUAL_ACCEPT role=PM head=<sha>`를 @GoBeromsu가, `MANUAL_ACCEPT role=TECH_LEAD head=<sha>`를 @Lumiere001이 각각 남긴다.
+각 댓글은 검증 결과 URL 또는 같은 댓글의 public-safe 요약을 포함하며, head가 바뀌면 이전 증거와 accept는 모두 무효다.
+후속 #226의 `merge-policy` required check가 적용되기 전에는 병합자가 이 actor·형식·SHA를 수동으로 대조한다.
 
 다음 조건을 모두 충족한 PR만 병합한다.
 

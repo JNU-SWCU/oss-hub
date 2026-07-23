@@ -69,3 +69,14 @@
 - [ ] 공개 금지 정보 없음 — 학번·연락처·미공지 일정·예산·실데이터 값·Notion 본문 인용이 코드·본문·스크린샷에 없다
 - [ ] 시크릿 없음 — 토큰·키·비밀번호·내부 URL이 diff와 로그 출력에 없다
 - [ ] 실명 없음 — 사람은 GitHub @handle로만 표기했다
+
+## 병합 판정 증거
+
+<!-- ADR-005 기준. head가 바뀌면 아래 증거를 모두 현재 full SHA로 다시 받는다. -->
+
+- risk: `GENERAL | HIGH_RISK`
+- head full SHA:
+- `MERGE_READY` 댓글 URL:
+- 실제 UI/API QA 증거 URL 또는 N/A 사유:
+- PM accept 댓글 URL: `HIGH_RISK만, 일반 PR은 N/A`
+- Tech Lead accept 댓글 URL: `HIGH_RISK만, 일반 PR은 N/A`
