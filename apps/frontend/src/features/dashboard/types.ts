@@ -1,14 +1,7 @@
 export type DashboardApplicationMode = 'PERSONAL' | 'TEAM';
-export type DashboardApplicationStatus =
-  | 'SUBMITTED'
-  | 'APPROVED'
-  | 'REJECTED';
+export type DashboardApplicationStatus = 'SUBMITTED' | 'APPROVED' | 'REJECTED';
 export type DashboardSubmissionStatus =
-  | 'NOT_SUBMITTED'
-  | 'SUBMITTED'
-  | 'APPROVED'
-  | 'CHANGES_REQUESTED'
-  | 'REJECTED';
+  'NOT_SUBMITTED' | 'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
 
 export interface DashboardMilestone {
   readonly id: string;

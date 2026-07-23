@@ -49,8 +49,7 @@ function DashboardCard({ item, now }: { item: DashboardItem; now: Date }) {
   const isRejected = item.applicationStatus === 'REJECTED';
   const isCompleted =
     item.applicationStatus === 'APPROVED' && item.nextMilestone === null;
-  const ModeIcon =
-    item.applicationMode === 'PERSONAL' ? UserRound : UsersRound;
+  const ModeIcon = item.applicationMode === 'PERSONAL' ? UserRound : UsersRound;
 
   return (
     <Card className="min-h-72">
@@ -135,8 +134,7 @@ function DashboardCard({ item, now }: { item: DashboardItem; now: Date }) {
             </div>
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <ClipboardList aria-hidden="true" className="size-4" />
-              제출 상태:{' '}
-              {submissionLabels[item.nextMilestone.submissionStatus]}
+              제출 상태: {submissionLabels[item.nextMilestone.submissionStatus]}
             </p>
           </div>
         ) : null}

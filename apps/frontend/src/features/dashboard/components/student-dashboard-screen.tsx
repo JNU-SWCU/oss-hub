@@ -3,10 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { fetchStudentDashboard } from '../api';
-import type {
-  StudentDashboard,
-  StudentDashboardStatus,
-} from '../types';
+import type { StudentDashboard, StudentDashboardStatus } from '../types';
 import { StudentDashboardView } from './student-dashboard-view';
 
 export function StudentDashboardScreen() {
@@ -36,11 +33,5 @@ export function StudentDashboardScreen() {
     };
   }, [requestKey]);
 
-  return (
-    <StudentDashboardView
-      data={data}
-      status={status}
-      onRetry={retry}
-    />
-  );
+  return <StudentDashboardView data={data} status={status} onRetry={retry} />;
 }

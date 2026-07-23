@@ -18,24 +18,18 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isInternalPath(value: unknown): value is string {
   return (
-    isNonEmptyString(value) &&
-    value.startsWith('/') &&
-    !value.startsWith('//')
+    isNonEmptyString(value) && value.startsWith('/') && !value.startsWith('//')
   );
 }
 
-function isApplicationMode(
-  value: unknown,
-): value is DashboardApplicationMode {
+function isApplicationMode(value: unknown): value is DashboardApplicationMode {
   return value === 'PERSONAL' || value === 'TEAM';
 }
 
 function isApplicationStatus(
   value: unknown,
 ): value is DashboardApplicationStatus {
-  return (
-    value === 'SUBMITTED' || value === 'APPROVED' || value === 'REJECTED'
-  );
+  return value === 'SUBMITTED' || value === 'APPROVED' || value === 'REJECTED';
 }
 
 function isSubmissionStatus(
