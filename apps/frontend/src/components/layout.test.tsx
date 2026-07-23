@@ -36,9 +36,7 @@ describe('layout components', () => {
     expect(html).toContain('홈');
     expect(html).toContain('프로그램');
     expect(html).toContain('로그인');
-    expect(html).toMatch(
-      /data-slot="nav-bar-brand"[^>]*\btext-foreground\b/,
-    );
+    expect(html).toMatch(/data-slot="nav-bar-brand"[^>]*\btext-foreground\b/);
   });
 
   it('keeps every NavBar slot on one row at compact mobile widths', () => {
