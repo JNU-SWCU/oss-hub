@@ -8,6 +8,7 @@ import { LoginHistoryModule } from './login-history/login-history.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProgramsModule } from './programs/programs.module';
 import { RepositoryOwnershipModule } from './repository-ownership/repository-ownership.module';
+import { RepositoriesModule } from './repositories/repositories.module';
 import { RolesModule } from './roles/roles.module';
 import { UsersModule } from './users/users.module';
 
@@ -24,6 +25,7 @@ import { UsersModule } from './users/users.module';
     ProgramsModule,
     RepositoryOwnershipModule,
     UsersModule,
+    RepositoriesModule,
   ],
 })
 export class AppModule {}
