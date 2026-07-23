@@ -1,4 +1,6 @@
 import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import type { RoleUser } from './domain/role-onboarding';
 import type { UserProfileRecord } from '../users/user-profile-policy';
 import {
@@ -40,6 +42,7 @@ function pendingRequest(): StaffRoleRequestRecord {
 class InMemoryStaffRoleRequestsRepository
   implements StaffRoleRequestsRepositoryPort, StaffRoleRequestsTransactionStore
 {
+  readonly auditLogWriter = {} as AuditLogTransactionWriter;
   private readonly users = new Map<bigint, RoleUser>([
     [
       ADMIN_GITHUB_ID,
@@ -212,7 +215,14 @@ function createService(
 ): StaffRoleRequestsService {
   return new StaffRoleRequestsService(
     new InMemoryStaffRoleRequestsRepository(request),
+    createAuditLogService(),
   );
+}
+
+function createAuditLogService(): jest.Mocked<AuditLogService> {
+  return {
+    record: jest.fn().mockResolvedValue({}),
+  } as unknown as jest.Mocked<AuditLogService>;
 }
 
 describe('StaffRoleRequestsService', () => {
@@ -263,7 +273,10 @@ describe('StaffRoleRequestsService', () => {
       studentId: null,
       department: null,
     });
-    const service = new StaffRoleRequestsService(repository);
+    const service = new StaffRoleRequestsService(
+      repository,
+      createAuditLogService(),
+    );
 
     // When
     const approval = service.decide(ADMIN_GITHUB_ID, 'synthetic-request', {
@@ -348,7 +361,10 @@ describe('StaffRoleRequestsService', () => {
 
   it('ADMIN 재활성화는 REVOKED 이력을 보존하고 별도 APPROVED 이력을 만든다', async () => {
     const repository = new InMemoryStaffRoleRequestsRepository();
-    const service = new StaffRoleRequestsService(repository);
+    const service = new StaffRoleRequestsService(
+      repository,
+      createAuditLogService(),
+    );
     await service.decide(ADMIN_GITHUB_ID, 'synthetic-request', {
       action: STAFF_ROLE_REQUEST_ACTIONS.APPROVE,
     });
@@ -372,7 +388,10 @@ describe('StaffRoleRequestsService', () => {
 
   it('이미 재활성화된 계정은 같은 REVOKED 이력으로 다시 활성화하지 않는다', async () => {
     const repository = new InMemoryStaffRoleRequestsRepository();
-    const service = new StaffRoleRequestsService(repository);
+    const service = new StaffRoleRequestsService(
+      repository,
+      createAuditLogService(),
+    );
     await service.decide(ADMIN_GITHUB_ID, 'synthetic-request', {
       action: STAFF_ROLE_REQUEST_ACTIONS.APPROVE,
     });
@@ -396,7 +415,10 @@ describe('StaffRoleRequestsService', () => {
   it('비활성 ADMIN은 목록 조회와 처리를 모두 AUT_003으로 거부한다', async () => {
     const repository = new InMemoryStaffRoleRequestsRepository();
     repository.deactivateAdmin();
-    const service = new StaffRoleRequestsService(repository);
+    const service = new StaffRoleRequestsService(
+      repository,
+      createAuditLogService(),
+    );
     const query: StaffRoleRequestListQuery = {
       status: RoleRequestStatus.PENDING,
       query: '',
@@ -459,5 +481,79 @@ describe('StaffRoleRequestsService', () => {
     await expect(secondDecision).rejects.toMatchObject({
       errorCode: { code: RolesErrorCode.ROLE_REQUEST_ALREADY_DECIDED },
     });
+  });
+
+  it.each([
+    ['APPROVE', 'STAFF_ROLE_REQUEST_APPROVED'],
+    ['REJECT', 'STAFF_ROLE_REQUEST_REJECTED'],
+  ] as const)(
+    '%s 성공은 감사 레코드를 정확히 하나 남긴다',
+    async (action, auditAction) => {
+      const auditLog = createAuditLogService();
+      const service = new StaffRoleRequestsService(
+        new InMemoryStaffRoleRequestsRepository(),
+        auditLog,
+      );
+
+      await service.decide(
+        ADMIN_GITHUB_ID,
+        'synthetic-request',
+        action === 'REJECT' ? { action, reason: '합성 반려 사유' } : { action },
+      );
+
+      expect(auditLog.record.mock.calls).toHaveLength(1);
+      expect(auditLog.record.mock.calls[0]).toHaveLength(2);
+      expect(auditLog.record.mock.calls[0]?.[0]).toEqual(
+        expect.objectContaining({
+          action: auditAction,
+          targetType: 'ROLE_REQUEST',
+          targetId: 'synthetic-request',
+        }),
+      );
+      expect(auditLog.record.mock.calls[0]?.[0]).not.toHaveProperty('metadata');
+    },
+  );
+
+  it('REVOKE 성공은 감사 레코드를 정확히 하나 남긴다', async () => {
+    const auditLog = createAuditLogService();
+    const service = new StaffRoleRequestsService(
+      new InMemoryStaffRoleRequestsRepository(),
+      auditLog,
+    );
+    await service.decide(ADMIN_GITHUB_ID, 'synthetic-request', {
+      action: 'APPROVE',
+    });
+    auditLog.record.mockClear();
+
+    await service.decide(ADMIN_GITHUB_ID, 'synthetic-request', {
+      action: 'REVOKE',
+    });
+
+    expect(auditLog.record.mock.calls).toHaveLength(1);
+    expect(auditLog.record.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ action: 'STAFF_ROLE_REQUEST_REVOKED' }),
+    );
+  });
+
+  it('거부된 상태 전이는 감사 레코드를 남기지 않는다', async () => {
+    const auditLog = createAuditLogService();
+    const service = new StaffRoleRequestsService(
+      new InMemoryStaffRoleRequestsRepository(),
+      auditLog,
+    );
+    await service.decide(ADMIN_GITHUB_ID, 'synthetic-request', {
+      action: 'APPROVE',
+    });
+    auditLog.record.mockClear();
+
+    await expect(
+      service.decide(ADMIN_GITHUB_ID, 'synthetic-request', {
+        action: 'REJECT',
+        reason: '합성 반려 사유',
+      }),
+    ).rejects.toMatchObject({
+      errorCode: { code: RolesErrorCode.ROLE_REQUEST_ALREADY_DECIDED },
+    });
+    expect(auditLog.record.mock.calls).toHaveLength(0);
   });
 });
