@@ -91,13 +91,13 @@ export class AuthController {
     }
 
     try {
-      const user = await this.authService.completeLogin({
+      const login = await this.authService.completeLogin({
         code,
         state,
         flowCookie: cookies[flowCookieName(secure)],
       });
-      const sessionToken = await this.authService.issueSession(user);
-      await this.recordLoginHistory(user.id);
+      const sessionToken = await this.authService.issueSession(login.user);
+      await this.recordLoginHistory(login.user.id);
       res.setHeader('Set-Cookie', [
         clearFlowCookie,
         serializeCookie(sessionCookieName(secure), sessionToken, {
@@ -105,7 +105,12 @@ export class AuthController {
           secure,
         }),
       ]);
-      res.redirect(302, this.config.frontendUrl);
+      res.redirect(
+        302,
+        login.isNew
+          ? `${this.config.frontendUrl}/consent`
+          : this.config.frontendUrl,
+      );
     } catch (error) {
       // code·state는 로그에 남기지 않는다 — 오류 종류와 경로만.
       this.logger.warn(
