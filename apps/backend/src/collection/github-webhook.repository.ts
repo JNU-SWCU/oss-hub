@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
@@ -33,6 +33,8 @@ function observationErrorCode(
 
 @Injectable()
 export class GithubWebhookRepository {
+  private readonly logger = new Logger(GithubWebhookRepository.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   private async observeInTransaction(
@@ -139,7 +141,7 @@ export class GithubWebhookRepository {
             select: { id: true },
           });
         if (duplicate !== null) {
-          await this.observe({
+          await this.observeBestEffort({
             deliveryId: input.activity.deliveryId,
             eventType: input.activity.eventType,
             receivedAt: input.observedAt,
@@ -149,6 +151,21 @@ export class GithubWebhookRepository {
         }
       }
       throw error;
+    }
+  }
+
+  private async observeBestEffort(
+    input: GithubWebhookObservationInput,
+  ): Promise<void> {
+    try {
+      await this.observe(input);
+    } catch (error: unknown) {
+      // no-excuse-ok: catch — 중복 관측 실패는 이미 판정된 멱등 결과를 바꾸지 않는다.
+      this.logger.warn({
+        event: 'collection.webhook.observation_failed',
+        outcome: input.outcome,
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
     }
   }
 

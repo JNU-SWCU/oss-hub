@@ -1,5 +1,9 @@
 import { createHmac } from 'node:crypto';
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { GithubWebhookConfig } from './github-webhook.config';
 import { GithubWebhookRepository } from './github-webhook.repository';
 import { GithubWebhookService } from './github-webhook.service';
@@ -45,6 +49,10 @@ function request(rawBody: Buffer, eventType: string) {
 }
 
 describe('GithubWebhookService observation', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('검증된 미구독 event는 IGNORED 관측만 남긴다', async () => {
     // Given
     const body = Buffer.from('not-json', 'utf8');
@@ -138,5 +146,72 @@ describe('GithubWebhookService observation', () => {
       outcome: 'FAILED',
       errorCode: 'COL_WEBHOOK_PROCESSING_FAILED',
     });
+  });
+
+  it('IGNORED 관측 실패는 webhook의 ignored 결과를 바꾸지 않는다', async () => {
+    // Given
+    const body = Buffer.from('not-json', 'utf8');
+    const { service, observe } = buildService();
+    const logger = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    observe.mockRejectedValue(new Error('synthetic observation failure'));
+
+    // When
+    const result = await service.handle(request(body, 'issues'));
+
+    // Then
+    expect(result).toEqual({ outcome: 'ignored' });
+    expect(logger).toHaveBeenCalledWith({
+      event: 'collection.webhook.observation_failed',
+      outcome: 'IGNORED',
+      errorName: 'Error',
+    });
+  });
+
+  it('FAILED 관측 실패는 잘못된 payload의 400 분류를 바꾸지 않는다', async () => {
+    // Given
+    const body = Buffer.from(
+      JSON.stringify({ organization: { login: syntheticOrg } }),
+      'utf8',
+    );
+    const { service, observe } = buildService();
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    observe.mockRejectedValue(new Error('synthetic observation failure'));
+
+    // When
+    const promise = service.handle(request(body, 'push'));
+
+    // Then
+    await expect(promise).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('FAILED 관측 실패는 activity 저장의 원래 오류를 보존한다', async () => {
+    // Given
+    const body = Buffer.from(
+      JSON.stringify({
+        after: '1111111111111111111111111111111111111111',
+        size: 1,
+        organization: { login: syntheticOrg },
+        repository: {
+          id: 123456789,
+          full_name: `${syntheticOrg}/synthetic-repository`,
+          private: true,
+          archived: false,
+          pushed_at: 1_768_992_000,
+        },
+        head_commit: { timestamp: '2026-01-21T08:00:00.000Z' },
+      }),
+      'utf8',
+    );
+    const { service, persist, observe } = buildService();
+    const databaseError = new Error('synthetic database failure');
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    persist.mockRejectedValue(databaseError);
+    observe.mockRejectedValue(new Error('synthetic observation failure'));
+
+    // When
+    const promise = service.handle(request(body, 'push'));
+
+    // Then
+    await expect(promise).rejects.toBe(databaseError);
   });
 });

@@ -3,6 +3,7 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  Logger,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -14,6 +15,7 @@ import {
 import { GithubWebhookRepository } from './github-webhook.repository';
 import type {
   GithubActivityEventType,
+  GithubWebhookObservationInput,
   GithubWebhookOutcome,
   GithubWebhookRequest,
 } from './github-webhook.types';
@@ -42,6 +44,8 @@ function activityEventType(
 
 @Injectable()
 export class GithubWebhookService {
+  private readonly logger = new Logger(GithubWebhookService.name);
+
   constructor(
     @Inject(GithubWebhookConfig)
     private readonly config: Pick<
@@ -81,7 +85,7 @@ export class GithubWebhookService {
     const observedEventType = request.eventType ?? 'unknown';
     const eventType = activityEventType(request.eventType);
     if (eventType === null) {
-      await this.repository.observe({
+      await this.observeBestEffort({
         deliveryId,
         eventType: observedEventType,
         receivedAt: request.receivedAt,
@@ -99,7 +103,7 @@ export class GithubWebhookService {
         request.receivedAt,
       );
       if (input === null) {
-        await this.repository.observe({
+        await this.observeBestEffort({
           deliveryId,
           eventType,
           receivedAt: request.receivedAt,
@@ -111,7 +115,7 @@ export class GithubWebhookService {
       try {
         persisted = await this.repository.persist(input);
       } catch (error) {
-        await this.repository.observe({
+        await this.observeBestEffort({
           deliveryId,
           eventType,
           receivedAt: request.receivedAt,
@@ -125,7 +129,7 @@ export class GithubWebhookService {
         : { outcome: 'duplicate' };
     } catch (error) {
       if (error instanceof InvalidGithubWebhookPayloadError) {
-        await this.repository.observe({
+        await this.observeBestEffort({
           deliveryId,
           eventType,
           receivedAt: request.receivedAt,
@@ -135,6 +139,21 @@ export class GithubWebhookService {
         throw new BadRequestException(error.message);
       }
       throw error;
+    }
+  }
+
+  private async observeBestEffort(
+    input: GithubWebhookObservationInput,
+  ): Promise<void> {
+    try {
+      await this.repository.observe(input);
+    } catch (error: unknown) {
+      // no-excuse-ok: catch — 부가 관측은 webhook의 1차 결과를 바꾸지 않는다.
+      this.logger.warn({
+        event: 'collection.webhook.observation_failed',
+        outcome: input.outcome,
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
     }
   }
 }
