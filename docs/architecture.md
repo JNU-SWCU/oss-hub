@@ -49,7 +49,7 @@ nginx는 `/` 요청을 front로, `/api` 요청을 back으로 전달한다. `/api
 
 ### 배포 경로
 
-1. main 병합이 GitHub webhook을 통해 Jenkins 배포를 시작한다.
-2. Jenkins는 커밋 SHA를 이미지 태그로 사용해 서버에서 이미지를 한 번 빌드한다.
-3. PostgreSQL을 먼저 기동하고 migration을 적용한 뒤 Compose로 서비스를 기동한다.
-4. `/`와 `/api/v1/health` smoke check가 성공하면 배포를 유지하고, 실패하면 이전 태그 또는 수동 복구 절차를 따른다.
+1. main 병합은 Jenkins의 build·test 검증만 시작하고 production을 변경하지 않는다.
+2. 사람이 공개 GitHub Release를 발행하면 Jenkins가 latest full Release와 tag의 main ancestry를 검증하고 exact commit SHA를 checkout한다.
+3. 동일·하위 Release는 no-op으로 종료한다. 새 Release는 test → DB backup → SHA 이미지 1회 build → migration → Compose 순서로 배포한다.
+4. `/`와 `/api/v1/health` smoke가 성공한 뒤에만 정상 배포 상태를 기록한다. 실패하면 이전 이미지를 한 번 복구하고 DB restore는 승인된 수동 절차로 남긴다.
