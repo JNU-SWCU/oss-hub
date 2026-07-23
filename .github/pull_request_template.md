@@ -78,5 +78,7 @@
 - head full SHA:
 - `MERGE_READY` 댓글 URL:
 - 실제 UI/API QA 증거 URL 또는 N/A 사유:
-- PM accept 댓글 URL: `HIGH_RISK만, 일반 PR은 N/A`
-- Tech Lead accept 댓글 URL: `HIGH_RISK만, 일반 PR은 N/A`
+- PM `RISK_ACCEPT ... risk=GENERAL` 댓글 URL: `CODEOWNERS 후보를 GENERAL로 낮출 때만`
+- Tech Lead `RISK_ACCEPT ... risk=GENERAL` 댓글 URL: `CODEOWNERS 후보를 GENERAL로 낮출 때만`
+- `PM_ACCEPT` 댓글 URL: `HIGH_RISK만, 일반 PR은 N/A`
+- `TECH_LEAD_ACCEPT` 댓글 URL: `HIGH_RISK만, 일반 PR은 N/A`
