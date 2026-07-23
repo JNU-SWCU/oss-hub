@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { reviewFormError } from './review-form';
+import {
+  INITIAL_REVIEW_FORM_STATE,
+  reviewFormError,
+  reviewFormReducer,
+} from './review-form';
 
 describe('reviewFormError', () => {
   it('판정을 선택하지 않으면 저장을 막는다', () => {
@@ -37,5 +41,27 @@ describe('reviewFormError', () => {
 
     // Then
     expect(error).toBeNull();
+  });
+});
+
+describe('reviewFormReducer', () => {
+  it('stale 재조회 뒤 이전 revision의 판정과 코멘트를 초기화한다', () => {
+    // Given
+    const withDecision = reviewFormReducer(INITIAL_REVIEW_FORM_STATE, {
+      kind: 'decision-changed',
+      decision: 'CHANGES_REQUESTED',
+    });
+    const withComment = reviewFormReducer(withDecision, {
+      kind: 'comment-changed',
+      comment: '이전 revision을 보고 작성한 검토 의견',
+    });
+
+    // When
+    const reloaded = reviewFormReducer(withComment, {
+      kind: 'stale-reloaded',
+    });
+
+    // Then
+    expect(reloaded).toEqual(INITIAL_REVIEW_FORM_STATE);
   });
 });

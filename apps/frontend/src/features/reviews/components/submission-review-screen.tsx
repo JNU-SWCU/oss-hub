@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useReducer, useState } from 'react';
 
 import { EmptyState } from '@/components';
 import { Button } from '@/components/ui/button';
@@ -9,8 +9,12 @@ import { ApiError } from '@/lib/api-client';
 
 import { createReview, getReviewContext, publishRepository } from '../api';
 import { reviewConflictMessage } from '../review-errors';
-import { reviewFormError, type ReviewDecisionInput } from '../review-form';
-import type { ReviewContext, ReviewDecision } from '../types';
+import {
+  INITIAL_REVIEW_FORM_STATE,
+  reviewFormError,
+  reviewFormReducer,
+} from '../review-form';
+import type { ReviewContext } from '../types';
 import { SubmissionReviewView } from './submission-review-view';
 
 type LoadState =
@@ -39,8 +43,10 @@ export function SubmissionReviewScreen({
 }) {
   const router = useRouter();
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
-  const [decision, setDecision] = useState<ReviewDecisionInput>('');
-  const [comment, setComment] = useState('');
+  const [reviewForm, dispatchReviewForm] = useReducer(
+    reviewFormReducer,
+    INITIAL_REVIEW_FORM_STATE,
+  );
   const [formError, setFormError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
@@ -69,8 +75,11 @@ export function SubmissionReviewScreen({
 
   const save = async (): Promise<void> => {
     if (loadState.kind !== 'ready') return;
-    const validationError = reviewFormError(decision, comment);
-    if (decision === '') {
+    const validationError = reviewFormError(
+      reviewForm.decision,
+      reviewForm.comment,
+    );
+    if (reviewForm.decision === '') {
       setFormError(validationError);
       return;
     }
@@ -84,8 +93,10 @@ export function SubmissionReviewScreen({
     try {
       await createReview(submissionId, {
         revision: loadState.context.currentRevision.number,
-        decision,
-        ...(comment.trim() ? { comment: comment.trim() } : {}),
+        decision: reviewForm.decision,
+        ...(reviewForm.comment.trim()
+          ? { comment: reviewForm.comment.trim() }
+          : {}),
       });
       await load();
       setNotice('판정을 저장했습니다.');
@@ -93,6 +104,7 @@ export function SubmissionReviewScreen({
       if (error instanceof ApiError) {
         const conflictMessage = reviewConflictMessage(error);
         if (conflictMessage) {
+          dispatchReviewForm({ kind: 'stale-reloaded' });
           await load();
           setFormError(conflictMessage);
         } else {
@@ -139,19 +151,22 @@ export function SubmissionReviewScreen({
   return (
     <SubmissionReviewView
       context={loadState.context}
-      decision={decision}
-      comment={comment}
+      decision={reviewForm.decision}
+      comment={reviewForm.comment}
       isSaving={isSaving}
       isPublishing={isPublishing}
       formError={formError}
       notice={notice}
       publishError={publishError}
-      onDecisionChange={(nextDecision: ReviewDecision) => {
-        setDecision(nextDecision);
+      onDecisionChange={(nextDecision) => {
+        dispatchReviewForm({
+          kind: 'decision-changed',
+          decision: nextDecision,
+        });
         setFormError(null);
       }}
       onCommentChange={(nextComment: string) => {
-        setComment(nextComment);
+        dispatchReviewForm({ kind: 'comment-changed', comment: nextComment });
         setFormError(null);
       }}
       onSave={() => void save()}
