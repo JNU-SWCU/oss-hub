@@ -83,6 +83,7 @@ describe('ConsentsService.getCurrent', () => {
 
     expect(status.consented).toBe(false);
     expect(status.policy).toBe(CURRENT_CONSENT_POLICY);
+    expect(status.policy.nextUrl).toBe('/onboarding/profile');
     expect(findConsent).toHaveBeenCalledWith(
       syntheticUserId,
       CURRENT_CONSENT_POLICY.policyVersion,
@@ -170,7 +171,7 @@ describe('ConsentsService.accept', () => {
     expect(grant).toEqual({
       policyVersion: CURRENT_CONSENT_POLICY.policyVersion,
       consentedAt: syntheticConsent.consentedAt,
-      nextUrl: CURRENT_CONSENT_POLICY.nextUrl,
+      nextUrl: '/onboarding/profile',
     });
   });
 
@@ -182,7 +183,7 @@ describe('ConsentsService.accept', () => {
       acceptedItems: [...allRequiredKeys].reverse(),
     });
 
-    expect(grant.nextUrl).toBe(CURRENT_CONSENT_POLICY.nextUrl);
+    expect(grant.nextUrl).toBe('/onboarding/profile');
   });
 
   it('과거 policyVersion은 항목도 잘못됐을 때 409 CON_002를 우선한다', async () => {

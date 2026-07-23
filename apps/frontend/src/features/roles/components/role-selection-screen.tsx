@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent } from 'react';
 import { BriefcaseBusiness, GraduationCap } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -45,6 +44,17 @@ const ROLE_OPTIONS: readonly RoleOption[] = [
     description: '프로그램을 만들고 지원자와 제출물을 관리합니다.',
   },
 ];
+
+interface DocumentNavigation {
+  readonly assign: (path: string) => void;
+}
+
+export function navigateAfterRoleSelection(
+  redirectTo: string,
+  navigation: DocumentNavigation = window.location,
+): void {
+  navigation.assign(redirectTo);
+}
 
 function RoleIcon({ role }: { readonly role: RoleSelection }) {
   return role === 'STUDENT' ? (
@@ -146,7 +156,6 @@ export function RoleSelectionForm({
 }
 
 export function RoleSelectionScreen() {
-  const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<RoleSelection | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -161,8 +170,7 @@ export function RoleSelectionScreen() {
 
     try {
       const result = await selectRole(selectedRole);
-      router.replace(result.redirectTo);
-      router.refresh();
+      navigateAfterRoleSelection(result.redirectTo);
     } catch (error) {
       if (error instanceof ApiError) {
         setErrorMessage(error.message);

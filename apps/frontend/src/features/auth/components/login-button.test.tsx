@@ -36,7 +36,7 @@ describe('LoginButtonView', () => {
     expect(html).toContain(`href="${githubLoginPath}"`);
   });
 
-  it('인증 세션이면 사용자 로그인과 로그아웃 버튼을 렌더한다', () => {
+  it('인증 세션이면 모바일에서 짧은 로그아웃 라벨을 사용하고 계정명은 접근 가능하게 유지한다', () => {
     // Given
     const session = {
       isAuthenticated: true,
@@ -58,7 +58,10 @@ describe('LoginButtonView', () => {
     );
 
     // Then
-    expect(html).toContain('synthetic-user · 로그아웃');
+    expect(html).toContain('synthetic-user · ');
+    expect(html).toContain('hidden md:inline');
+    expect(html).toContain('synthetic-user 계정에서 로그아웃');
+    expect(html).toContain('로그아웃');
     expect(html).not.toContain('GitHub으로 로그인');
   });
 });

@@ -46,6 +46,9 @@ function webhookInput(options: InputOptions): GithubWebhookRepositoryInput {
 }
 
 async function cleanFixtures(): Promise<void> {
+  await prisma.githubWebhookObservation.deleteMany({
+    where: { deliveryId: { startsWith: TEST_PREFIX } },
+  });
   await prisma.orgRepositoryActivityEvent.deleteMany({
     where: { deliveryId: { startsWith: TEST_PREFIX } },
   });

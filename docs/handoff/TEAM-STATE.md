@@ -42,12 +42,10 @@
   (머지 커밋 494ac12)가 이벤트 가드(`if: github.event_name == 'pull_request'`)로 수정했다.
   issue 이벤트에서는 `public-safe-issue`만 실행된다 — 494ac12 이후 `ci` 워크플로 2회 연속
   success로 확인.
-- **배포 인프라 방향 전환 착수(#112, 신규 티켓 발행 — PR 없음)** — AWS 계정은 이미
-  수령 완료. 사업단이 생성하는 스테이징 인스턴스 수령은 외부 대기 중이며, 그 사이 ADR
-  초안·CI 워크플로 골격을 먼저 준비하는 것으로 범위를 잡았다. 산출물 예정 경로는
-  `docs/decisions/ADR-006-aws-staging-deploy.md`(신규, 아직 미병합)와
-  `.github/workflows/deploy-staging.yml`. 기존 ADR-002(Jenkins/자체 VM 기반 CD)는 아직
-  Deprecated 처리되지 않았다 — 두 경로가 병존하는 과도기로 본다.
+- **Release 기반 Jenkins 배포 확정(#199)** — JNU 운영 AWS 서버와 Tailscale/SSM 접근을
+  수령했다. 별도 staging 서버는 두지 않고 main은 Jenkins build·test 검증만, production은
+  공개 GitHub Release 발행을 승인 지점으로 사용한다. Jenkins·Docker·Node 실행 기반과
+  localhost 관리 경계는 준비됐으며, exact SHA·no-op·backup·이미지 rollback 계약을 구현 중이다.
 - **frontend 디자인 파운데이션·B-6 공통 컴포넌트 완결(#73·#74·#78·#80·#82·#84·#86·#136 등)** —
   Tailwind v4 + shadcn/ui 프리미티브, 레이아웃/폼/카드/테이블형 공용 컴포넌트, 랜딩 페이지,
   라우트 골격 15종, 로그인 후 역할 홈 nav 링크(자동 리다이렉트는 back-trap 문제로 제거,
@@ -81,12 +79,17 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 라우트 골격·역할별 패널 셸 | @GoBeromsu | done | #136 | #138 | pass | 없음 |
 | 디자인 파운데이션(Tailwind v4·shadcn·B-6 컴포넌트) | @GoBeromsu | done | #74 #78 #80 #82 #84 | #77 #90 | pass | 없음 |
 | 랜딩 페이지 + 로그인 role-home nav 배선 | @GoBeromsu | done | #86 (+#136 연계) | #87 #144 #145 #146 #147 | pass | 없음 |
+| 320px 공용 내비게이션 단일 행 정렬 | @GoBeromsu | done | [#219](https://github.com/JNU-SWCU/oss-hub/issues/219) | [#223](https://github.com/JNU-SWCU/oss-hub/pull/223) merged | pass | 없음 |
 | work-ticket 이슈 템플릿 | @GoBeromsu | done | #71 | #72 | pass | 없음 |
 | ADR-004 REST 예시 도메인 교체(members→users) | @GoBeromsu | done | #76 | #91 | pass | 없음 |
 | CI: public-safe Issue·댓글 스캔 + commitlint 이벤트 가드 | @GoBeromsu | done | #68 | #150 #159 | pass | 없음 |
 | 학생용 수집 App(private repo 포함, read-only) | @Lumiere001 | planned | #15 | - | - | 정책 전제 4건 미확정: 산정 범위·개인 repo 보존·동의 절차·App 소유·운영(unblock: @GoBeromsu). #120/#123(조직 소유 자동화 App, write 권한)과는 별개 앱임을 #15/#120 코멘트로 명확화함 — 대체 관계 아님 |
-| Access & GitHub Platform 백로그(13건: 로그인 이력·온보딩 프로필·설정·관리 콘솔·감사 로그·시스템 상태·저장소 자동화·webhook 확장 등) | @Lumiere001 | planned | #99 #107 #108 #120 #121 #122 #123 #131 #132 #133 #153 #156 #157 | - | - | GitHub App 인증 ADR(#120)이 저장소 자동 생성(#121)·webhook 확장(#123)의 선행 |
+| Access & GitHub Platform 백로그(12건: 로그인 이력·설정·관리 콘솔·감사 로그·시스템 상태·저장소 자동화·webhook 확장 등) | @Lumiere001 | planned | #99 #107 #108 #120 #121 #122 #123 #131 #132 #133 #156 #157 | - | - | GitHub App 인증 ADR(#120)이 저장소 자동 생성(#121)·webhook 확장(#123)의 선행 |
+| 공통 온보딩 프로필 입력 | @GoBeromsu | done | #153 | [#220](https://github.com/JNU-SWCU/oss-hub/pull/220) merged | pass | 없음 |
+| 프로필 완료 전 역할 선택 차단 | @Lumiere001 | done | [#212](https://github.com/JNU-SWCU/oss-hub/issues/212) | [#221](https://github.com/JNU-SWCU/oss-hub/pull/221) merged | pass | 없음 |
+| 신규 가입 OAuth 직후 동의 진입 | @GoBeromsu / @Lumiere001 | review | [#218](https://github.com/JNU-SWCU/oss-hub/issues/218) | [#222](https://github.com/JNU-SWCU/oss-hub/pull/222) | required CI pass | main 재배치 후 exact-head Code Owner 승인 대기 |
 | GitHub App 최소 권한·live smoke 계약 | @Lumiere001 | review | #205 | [#208](https://github.com/JNU-SWCU/oss-hub/pull/208) | #208 pass | Collection App REST read 데이터 최소화·권한 allowlist 계약 리뷰 반영 중 · 실제 실증은 비운영 App 준비 대기 |
+| webhook 처리 결과 관측 지표 | @Lumiere001 | review | #215 | [#216](https://github.com/JNU-SWCU/oss-hub/pull/216) | unit 347 · integration 64 · build pass | #221 병합 후 최신 main 재배치 완료 · 새 head CI와 재리뷰 대기 |
 | 공통 랜딩 세션별 진입 CTA | @jinsol1190-rgb | done | #98 | #201 | pass | 없음 |
 | 프로그램 편집·마일스톤 | @Geuin04 | planned | #101 | - | - | 연결 PR·공개 착수 근거 없음 |
 | 공개 프로그램 목록 | @Geuin04 | done | #102 | [#191](https://github.com/JNU-SWCU/oss-hub/pull/191) merged | pass | 없음 |
@@ -98,8 +101,9 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | Participation & Showcase 백로그(9건: 내 대시보드·마일스톤 제출·재제출·운영 대시보드·매트릭스·검토·공개 아카이브·알림·공개 프로필) | @jinsol1190-rgb | planned | #114 #115 #116 #124 #125 #126 #127 #134 #155 | - | - | 없음 — 코어 스키마(done) 전제 충족 |
 | 학생 활동 타임라인 | @jinsol1190-rgb | review | #154 | [#210](https://github.com/JNU-SWCU/oss-hub/pull/210) | #210 pass | [프런트엔드 #198](https://github.com/JNU-SWCU/oss-hub/pull/198) merged · 백엔드 조회 API #210 리뷰 대기 |
 | Cross-cutting E2E 스모크(접수 흐름·전체 루프) | @GoBeromsu | planned | #128 #129 | - | - | 상위 화면 티켓들 merge 진행에 따라 순차 검증 |
-| Product Definition & Operations 백로그(배포 스파이크·Notion PRD·IA 동기화) | @GoBeromsu | planned | #112 #130 | - | - | #112: 사업단 스테이징 인스턴스 수령 대기(외부) |
-| Data Collection·활성화 랭킹(저장소 주기 수집 스케줄러·nav 랭킹 화면) | @GoBeromsu (#151) / @Geuin04 (#152) | planned | #151 #152 | - | - | 없음 |
+| Product Definition & Operations 백로그(Release 배포·Notion PRD·IA 동기화) | @GoBeromsu (결정) / @Lumiere001 (#199 구현) | active | #112 #130 #199 | - | local pass | AWS 서버 실행 기반 준비 완료 · Release Jenkinsfile·ADR 동기화 및 초기 Jenkins credential/webhook 구성 진행 중 |
+| GitHub 저장소 주기 수집 스케줄러 | @GoBeromsu | planned | #151 | - | - | 없음 |
+| OSS 활성화 랭킹 | @jinsol1190-rgb | review | #152 | [#194](https://github.com/JNU-SWCU/oss-hub/pull/194) | local pass | 공개 적격성 projection 부재로 endpoint·nav fail-closed 비노출 |
 | 공개 랭킹 저장소 소유권 projection | @jinsol1190-rgb | done | #197 | #202 | pass | 없음 |
 
 ## 외부 게이트
@@ -109,7 +113,6 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 게이트 | owner | due | fallback |
 | --- | --- | --- | --- |
 | 지난 학기 샘플 데이터 공유 | @nrson-jnu | 2026-07-16 (경과 — 이번 회차도 수령 확인 근거 문서 없음, 상태 동일 유지) | 합성 fixture로 개발 지속 |
-| 스테이징 인스턴스 수령(사업단 프로비저닝, #112) | @nrson-jnu | 미정(외부 대기) | AWS 계정은 수령 완료 — 인스턴스 도착 전까지 ADR-006 초안·`deploy-staging.yml` 골격만 준비 |
 | 운영 TLS 종단 계약 확정(프로덕션) | @GoBeromsu | 프로덕션 배포 전(스테이징 범위 밖) | 확정 전 운영 배포에 인증 기능 미포함 |
 
 ## 상위 리스크 5

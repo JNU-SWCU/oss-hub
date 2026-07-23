@@ -2,6 +2,11 @@ import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.enum';
 import { DomainException } from '../common/error-code';
+import { isCompleteUserProfile } from '../users/user-profile-policy';
+import {
+  USERS_ERROR_CODES,
+  UsersErrorCode,
+} from '../users/users-error-code.enum';
 import type { RoleUser } from './domain/role-onboarding';
 import {
   STAFF_ROLE_REQUEST_ACTIONS,
@@ -81,6 +86,15 @@ export class StaffRoleRequestsService {
         throw new DomainException(
           ROLES_ERROR_CODES[RolesErrorCode.ROLE_REQUEST_ALREADY_DECIDED],
         );
+      }
+
+      if (action.action === STAFF_ROLE_REQUEST_ACTIONS.APPROVE) {
+        const profile = await store.findUserProfileById(request.userId);
+        if (!profile || !isCompleteUserProfile(profile)) {
+          throw new DomainException(
+            USERS_ERROR_CODES[UsersErrorCode.PROFILE_INCOMPLETE],
+          );
+        }
       }
 
       const decidedAt = new Date();

@@ -8,6 +8,8 @@ function userRow(): User {
     githubId: 424242n,
     login: 'synthetic-188-collection',
     name: null,
+    studentId: null,
+    department: null,
     avatarUrl: null,
     accountStatus: AccountStatus.ACTIVE,
     role: Role.STUDENT,

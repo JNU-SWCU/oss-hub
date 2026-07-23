@@ -28,9 +28,10 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `al
 
 시나리오 id ↔ 실제 레코드 매핑은 각 파일의 export를 참고한다.
 
-- `auth` (9) — `seeds/auth.ts`의 `AUTH_SCENARIOS`: `consent-required`, `user-role-unselected`,
-  `student-confirmed`, `staff-pending`, `staff-pending-second`, `staff-rejected`,
+- `auth` (10) — `seeds/auth.ts`의 `AUTH_SCENARIOS`: `consent-required`, `user-role-unselected`,
+  `profile-complete`, `student-confirmed`, `staff-pending`, `staff-pending-second`, `staff-rejected`,
   `staff-approved`, `staff-revoked`, `admin-confirmed`.
+  `user-role-unselected`는 동의 완료·프로필 미입력, `profile-complete`는 동의 완료·프로필 입력 완료 상태다.
   `staff-revoked`는 역할을 `STAFF`로 보존한 `DEACTIVATED` 계정이다.
 - `intake` (15) — `seeds/intake.ts`: `empty-programs`, `program-seven-templates`,
   `program-overdue`, `program-with-applications`, `program-no-repository`, `empty-applications`,

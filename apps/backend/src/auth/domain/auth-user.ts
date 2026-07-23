@@ -11,6 +11,11 @@ export interface AuthUser {
   role: Role | null;
 }
 
+export interface AuthLoginResult {
+  user: AuthUser;
+  isNew: boolean;
+}
+
 /** GitHub /user 응답에서 검증을 거쳐 만든 내부 값 — 액세스 토큰은 여기 포함되지 않는다. */
 export interface GithubProfile {
   githubId: bigint;

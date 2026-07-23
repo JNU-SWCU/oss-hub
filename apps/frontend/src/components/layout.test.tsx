@@ -37,8 +37,36 @@ describe('layout components', () => {
     expect(html).toContain('프로그램');
     expect(html).toContain('로그인');
     expect(html).toMatch(
-      /data-slot="nav-bar-items"[^>]*\border-2\b[^>]*\bw-full\b[^>]*\bflex-wrap\b/,
+      /data-slot="nav-bar-brand"[^>]*\btext-foreground\b/,
     );
+  });
+
+  it('keeps every NavBar slot on one row at compact mobile widths', () => {
+    const html = renderToStaticMarkup(
+      <NavBar
+        brand={<span>OSS Hub</span>}
+        items={[{ label: '홈', href: '/' }]}
+        actions={<button type="button">로그인</button>}
+      />,
+    );
+    const navClass = html.match(/data-slot="nav-bar"[^>]*class="([^"]*)"/)?.[1];
+    const actionsClass = html.match(
+      /data-slot="nav-bar-actions"[^>]*class="([^"]*)"/,
+    )?.[1];
+    const itemsClass = html.match(
+      /data-slot="nav-bar-items"[^>]*class="([^"]*)"/,
+    )?.[1];
+
+    expect(navClass?.split(' ')).toContain('flex-nowrap');
+    expect(navClass?.split(' ')).toContain('gap-x-1');
+    expect(navClass?.split(' ')).toContain('px-2');
+    expect(navClass?.split(' ')).not.toContain('flex-wrap');
+    expect(navClass).not.toContain('min-[480px]:flex-nowrap');
+    expect(itemsClass?.split(' ')).toContain('gap-0');
+    expect(actionsClass?.split(' ')).toContain('gap-0');
+    expect(actionsClass).not.toContain('max-[479px]:basis-full');
+    expect(actionsClass).not.toContain('max-[479px]:w-full');
+    expect(actionsClass).not.toContain('max-[479px]:order-last');
   });
 
   it('renders PageHeader with title/description/actions', () => {
