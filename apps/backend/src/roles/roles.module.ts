@@ -12,6 +12,9 @@ import { RolesService } from './roles.service';
 import { StaffRoleRequestsController } from './staff-role-requests.controller';
 import { StaffRoleRequestsRepository } from './staff-role-requests.repository';
 import { StaffRoleRequestsService } from './staff-role-requests.service';
+import { AdminUsersController } from './admin-users.controller';
+import { AdminUsersRepository } from './admin-users.repository';
+import { AdminUsersService } from './admin-users.service';
 
 @Module({
   imports: [AuditLogModule, AuthModule, ConsentsModule, UsersModule],
@@ -19,12 +22,15 @@ import { StaffRoleRequestsService } from './staff-role-requests.service';
     OnboardingController,
     RoleRequestsController,
     StaffRoleRequestsController,
+    AdminUsersController,
   ],
   providers: [
     RolesRepository,
     RolesService,
     StaffRoleRequestsRepository,
     StaffRoleRequestsService,
+    AdminUsersRepository,
+    AdminUsersService,
   ],
 })
 export class RolesModule {}
