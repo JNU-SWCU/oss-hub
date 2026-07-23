@@ -34,6 +34,10 @@ const form = jest.fn().mockResolvedValue({
 });
 const create = jest.fn();
 
+beforeEach(() => {
+  create.mockClear();
+});
+
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [SubmissionFormsController, SubmissionsController],
@@ -88,6 +92,51 @@ it('content가 누락된 최초 제출은 validation 4xx로 끝난다', async ()
     applicationId: 'synthetic-application',
     milestoneId: 'synthetic-milestone',
     comment: '합성 코멘트',
+  };
+
+  // When
+  const response = await fetch(`${baseUrl}/api/v1/submissions`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  // Then
+  expect(response.status).toBe(400);
+  await expect(response.json()).resolves.toMatchObject({ code: 'SYS_003' });
+  expect(create).not.toHaveBeenCalled();
+});
+
+it('10,000자를 넘는 TEXT 제출은 서비스 호출 전에 거절한다', async () => {
+  // Given
+  const body = {
+    applicationId: 'synthetic-application',
+    milestoneId: 'synthetic-milestone',
+    content: { type: 'TEXT', text: '가'.repeat(10_001) },
+  };
+
+  // When
+  const response = await fetch(`${baseUrl}/api/v1/submissions`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  // Then
+  expect(response.status).toBe(400);
+  await expect(response.json()).resolves.toMatchObject({ code: 'SYS_003' });
+  expect(create).not.toHaveBeenCalled();
+});
+
+it('2,048자를 넘는 release URL은 서비스 호출 전에 거절한다', async () => {
+  // Given
+  const body = {
+    applicationId: 'synthetic-application',
+    milestoneId: 'synthetic-milestone',
+    content: {
+      type: 'REPOSITORY_RELEASE',
+      releaseUrl: `https://github.invalid/${'a'.repeat(2_048)}`,
+    },
   };
 
   // When
