@@ -10,3 +10,11 @@ export function requiresRoleChangeConfirmation(
     (user.isSelf && user.role === 'ADMIN' && nextRole !== 'ADMIN')
   );
 }
+
+export function roleChangeDestination(
+  user: AdminUser,
+  nextRole: UserRole,
+): string | null {
+  if (!user.isSelf || nextRole === 'ADMIN') return null;
+  return nextRole === 'STUDENT' ? '/dashboard' : '/staff/dashboard';
+}

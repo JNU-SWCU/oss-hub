@@ -2,7 +2,10 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import { AdminUsersView } from './components/admin-users-view';
-import { requiresRoleChangeConfirmation } from './role-change-policy';
+import {
+  requiresRoleChangeConfirmation,
+  roleChangeDestination,
+} from './role-change-policy';
 import type { AdminUser } from './types';
 
 const noOp = () => undefined;
@@ -81,6 +84,15 @@ describe('관리자 사용자 콘솔', () => {
       ),
     ).toBe(true);
     expect(requiresRoleChangeConfirmation(staff, 'ADMIN')).toBe(false);
+  });
+
+  it('자기 ADMIN 역할을 해제하면 새 역할 홈으로 이동한다', () => {
+    const selfAdmin = { ...staff, role: 'ADMIN', isSelf: true } as const;
+
+    expect(roleChangeDestination(selfAdmin, 'STAFF')).toBe('/staff/dashboard');
+    expect(roleChangeDestination(selfAdmin, 'STUDENT')).toBe('/dashboard');
+    expect(roleChangeDestination(selfAdmin, 'ADMIN')).toBeNull();
+    expect(roleChangeDestination(staff, 'STUDENT')).toBeNull();
   });
 
   it('확인 다이얼로그와 오류 Alert, 성공 toast 상태를 노출한다', () => {

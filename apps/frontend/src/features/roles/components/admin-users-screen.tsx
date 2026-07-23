@@ -1,11 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { ApiError } from '@/lib/api-client';
 
 import { fetchAdminUsers, updateAdminUserRole } from '../api';
-import { requiresRoleChangeConfirmation } from '../role-change-policy';
+import {
+  requiresRoleChangeConfirmation,
+  roleChangeDestination,
+} from '../role-change-policy';
 import type { AdminUser, UserRole } from '../types';
 import {
   AdminUsersView,
@@ -19,6 +23,7 @@ function errorMessage(error: unknown): string {
 }
 
 export function AdminUsersScreen() {
+  const router = useRouter();
   const [items, setItems] = useState<readonly AdminUser[]>([]);
   const [queryInput, setQueryInput] = useState('');
   const [query, setQuery] = useState('');
@@ -60,11 +65,10 @@ export function AdminUsersScreen() {
     setProcessingId(user.id);
     try {
       const updated = await updateAdminUserRole(user.id, nextRole);
+      const destination = roleChangeDestination(updated, nextRole);
       let refreshed = true;
-      if (updated.isSelf && nextRole !== 'ADMIN') {
-        setItems((current) =>
-          current.map((item) => (item.id === updated.id ? updated : item)),
-        );
+      if (destination) {
+        router.replace(destination);
       } else {
         refreshed = await load();
       }
