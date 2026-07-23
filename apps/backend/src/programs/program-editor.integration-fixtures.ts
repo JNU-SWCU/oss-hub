@@ -2,11 +2,9 @@ import {
   MilestoneSubmissionType,
   ProgramCategory,
   Role,
-  SubmissionStatus,
 } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
-import type { UpdateProgramRequestDto } from './dto/update-program-request.dto';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramsRepository } from './programs.repository';
@@ -21,20 +19,6 @@ export const STAFF_VIEWER = {
   userId: `${TEST_PREFIX}staff`,
   role: Role.STAFF,
 } as const;
-
-const APPLICANT_ID = `${TEST_PREFIX}applicant`;
-
-export const categoryChangeInput: UpdateProgramRequestDto = {
-  name: PROGRAM_NAME,
-  organizer: 'OSS Center',
-  category: ProgramCategory.OSS_CONTEST,
-  applicationStartAt: '2026-08-01T00:00:00.000Z',
-  applicationEndAt: '2026-08-15T00:00:00.000Z',
-  repositoryProvisioningEnabled: false,
-  description: 'Issue 101 edited program',
-  teamMinSize: 2,
-  teamMaxSize: 4,
-};
 
 export const prisma = new PrismaService();
 export const editor = new ProgramEditorService(
@@ -83,21 +67,6 @@ export async function createProgram(
   });
 }
 
-export async function createApplication(
-  applicationId: string,
-  programId: string,
-): Promise<void> {
-  await prisma.application.create({
-    data: {
-      id: applicationId,
-      programId,
-      applicantId: APPLICANT_ID,
-      answers: { canonicalProgramId: programId },
-      applicationTemplateVersion: 1,
-    },
-  });
-}
-
 export async function createMilestone(
   milestoneId: string,
   programId: string,
@@ -110,30 +79,6 @@ export async function createMilestone(
       dueAt: new Date('2026-08-20T00:00:00.000Z'),
       submissionType: MilestoneSubmissionType.TEXT,
       instructions: 'Issue 101 milestone',
-    },
-  });
-}
-
-export async function createSubmission(
-  submissionId: string,
-  applicationId: string,
-  milestoneId: string,
-) {
-  return prisma.submission.create({
-    data: {
-      id: submissionId,
-      milestoneId,
-      applicationId,
-      status: SubmissionStatus.SUBMITTED,
-      revisions: {
-        create: {
-          id: `${TEST_PREFIX}submission-revision:race`,
-          revision: 1,
-          submissionType: MilestoneSubmissionType.TEXT,
-          content: { text: 'Issue 101 submission' },
-          submittedById: APPLICANT_ID,
-        },
-      },
     },
   });
 }
