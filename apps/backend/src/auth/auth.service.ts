@@ -1,10 +1,9 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.enum';
 import { AuthConfig } from './auth.config';
 import { AuthRepository } from './auth.repository';
-import type { AuthRepositoryPort } from './auth.repository';
 import type {
   AuthLoginResult,
   AuthUser,
@@ -41,8 +40,7 @@ export interface CompleteLoginInput {
 export class AuthService {
   constructor(
     private readonly config: AuthConfig,
-    @Inject(AuthRepository)
-    private readonly repository: AuthRepositoryPort,
+    private readonly repository: AuthRepository,
   ) {}
 
   buildAuthorizeRedirect(): AuthorizeRedirect {

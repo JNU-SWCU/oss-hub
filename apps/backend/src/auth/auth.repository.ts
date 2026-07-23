@@ -13,13 +13,6 @@ export interface AuthTransactionStore {
   upsertUser(profile: GithubProfile): Promise<AuthLoginResult>;
 }
 
-export interface AuthRepositoryPort {
-  withTransaction<T>(
-    operation: (store: AuthTransactionStore) => Promise<T>,
-  ): Promise<T>;
-  findByGithubId(githubId: bigint): Promise<AuthUser | null>;
-}
-
 class PrismaAuthTransactionStore implements AuthTransactionStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
 
@@ -70,7 +63,7 @@ class PrismaAuthTransactionStore implements AuthTransactionStore {
 }
 
 @Injectable()
-export class AuthRepository implements AuthRepositoryPort {
+export class AuthRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   withTransaction<T>(

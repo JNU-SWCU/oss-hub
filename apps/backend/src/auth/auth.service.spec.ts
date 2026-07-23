@@ -3,10 +3,7 @@ import { AccountStatus, Role } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { AuthErrorCode } from './auth-error-code.enum';
 import { AuthConfig } from './auth.config';
-import type {
-  AuthRepositoryPort,
-  AuthTransactionStore,
-} from './auth.repository';
+import type { AuthRepository, AuthTransactionStore } from './auth.repository';
 import { AuthService } from './auth.service';
 import type { AuthUser } from './domain/auth-user';
 import { createFlowState, encodeFlowCookie } from './oauth-flow';
@@ -53,7 +50,7 @@ describe('AuthService', () => {
   const repository = {
     withTransaction,
     findByGithubId,
-  } satisfies AuthRepositoryPort;
+  } as unknown as AuthRepository;
   let service: AuthService;
   let fetchMock: jest.SpyInstance;
 
