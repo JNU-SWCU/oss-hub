@@ -31,8 +31,15 @@ export function LoginButtonView({
     case true:
       return (
         <>
-          <Button type="button" variant="ghost" onClick={onLogout}>
-            {session.user.login} · 로그아웃
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onLogout}
+            aria-label={`${session.user.login} 계정에서 로그아웃`}
+            title={`${session.user.login} 계정에서 로그아웃`}
+          >
+            <span className="hidden md:inline">{session.user.login} · </span>
+            로그아웃
           </Button>
           {logoutError ? (
             <span role="alert" className="text-xs text-destructive">
