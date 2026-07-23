@@ -1,5 +1,6 @@
 import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
 import type { RoleUser } from './domain/role-onboarding';
+import type { UserProfileRecord } from '../users/user-profile-policy';
 import {
   STAFF_ROLE_REQUEST_ACTIONS,
   type StaffRoleRequestAction,
@@ -61,6 +62,15 @@ class InMemoryStaffRoleRequestsRepository
 
   constructor(request: StaffRoleRequestRecord = pendingRequest()) {
     this.requests = [request];
+  }
+
+  findUserProfileById(userId: string): Promise<UserProfileRecord | null> {
+    return Promise.resolve({
+      id: userId,
+      name: '합성 사용자',
+      studentId: '123456',
+      department: '인공지능학부',
+    });
   }
 
   withTransaction<T>(
@@ -242,6 +252,32 @@ describe('StaffRoleRequestsService', () => {
     expect(result.status).toBe(RoleRequestStatus.APPROVED);
     expect(result.userRole).toBe(Role.STAFF);
     expect(result.decidedBy).toBe('synthetic-admin');
+  });
+
+  it('프로필이 미완료인 기존 PENDING 요청은 승인해도 STAFF 역할을 부여하지 않는다', async () => {
+    // Given
+    const repository = new InMemoryStaffRoleRequestsRepository();
+    jest.spyOn(repository, 'findUserProfileById').mockResolvedValue({
+      id: 'synthetic-requester',
+      name: '합성 사용자',
+      studentId: null,
+      department: null,
+    });
+    const service = new StaffRoleRequestsService(repository);
+
+    // When
+    const approval = service.decide(ADMIN_GITHUB_ID, 'synthetic-request', {
+      action: STAFF_ROLE_REQUEST_ACTIONS.APPROVE,
+    });
+
+    // Then
+    await expect(approval).rejects.toMatchObject({
+      errorCode: { code: 'USR_002', status: 409 },
+    });
+    expect(repository.allRequests()[0]).toMatchObject({
+      status: RoleRequestStatus.PENDING,
+      userRole: null,
+    });
   });
 
   it('ADMIN이 PENDING 요청을 반려하면 사유를 남기고 역할은 부여하지 않는다', async () => {
