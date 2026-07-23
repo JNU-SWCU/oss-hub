@@ -139,7 +139,7 @@ describe('AuthRepository.upsertUser', () => {
     const { repository, upsert } = buildRepository(
       buildRow({
         name: '사용자확정이름',
-        studentId: '202012345',
+        studentId: '1'.repeat(6),
         department: '컴퓨터공학과',
       }),
     );
