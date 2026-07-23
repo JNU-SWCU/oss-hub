@@ -4,7 +4,11 @@ import { DomainException } from '../common/error-code';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.enum';
 import { AuthConfig } from './auth.config';
 import { AuthRepository } from './auth.repository';
-import { AuthUser, GithubProfile } from './domain/auth-user';
+import type {
+  AuthLoginResult,
+  AuthUser,
+  GithubProfile,
+} from './domain/auth-user';
 import {
   createFlowState,
   decodeFlowCookie,
@@ -56,7 +60,7 @@ export class AuthService {
    * callback 유스케이스. 액세스 토큰은 프로필 확인에 한 번 쓰고 이 메서드 밖으로
    * 내보내지 않는다(저장 없음). 외부 HTTP가 끝난 뒤에만 DB 쓰기가 일어난다.
    */
-  async completeLogin(input: CompleteLoginInput): Promise<AuthUser> {
+  async completeLogin(input: CompleteLoginInput): Promise<AuthLoginResult> {
     const flow = decodeFlowCookie(input.flowCookie);
     if (!flow || !isSameState(flow.state, input.state)) {
       throw new DomainException(
@@ -65,7 +69,9 @@ export class AuthService {
     }
     const accessToken = await this.exchangeCode(input.code, flow.verifier);
     const profile = await this.fetchProfile(accessToken);
-    return this.repository.upsertUser(profile);
+    return this.repository.withTransaction((store) =>
+      store.upsertUser(profile),
+    );
   }
 
   async issueSession(user: AuthUser): Promise<string> {

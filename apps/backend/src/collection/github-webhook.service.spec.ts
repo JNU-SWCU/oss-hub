@@ -56,22 +56,25 @@ function buildService(
 ): {
   readonly service: GithubWebhookService;
   readonly persist: jest.Mock;
+  readonly observe: jest.Mock;
 } {
   const persist = jest
     .fn()
     .mockResolvedValue(options.persistResult ?? 'stored');
+  const observe = jest.fn().mockResolvedValue(undefined);
   const config = {
     targetOrg: options.configured === false ? null : syntheticOrg,
     webhookSecret: options.configured === false ? null : syntheticSecret,
   } satisfies Pick<GithubWebhookConfig, 'targetOrg' | 'webhookSecret'>;
-  const repository = { persist } satisfies Pick<
+  const repository = { persist, observe } satisfies Pick<
     GithubWebhookRepository,
-    'persist'
+    'persist' | 'observe'
   >;
 
   return {
     service: new GithubWebhookService(config, repository),
     persist,
+    observe,
   };
 }
 
@@ -177,12 +180,18 @@ describe('GithubWebhookService.handle', () => {
     const body = rawBody(
       pushPayload({ organization: { login: 'outside-synthetic-org' } }),
     );
-    const { service, persist } = buildService();
+    const { service, persist, observe } = buildService();
 
     await expect(service.handle(request(body))).resolves.toEqual({
       outcome: 'ignored',
     });
     expect(persist).not.toHaveBeenCalled();
+    expect(observe).toHaveBeenCalledWith({
+      deliveryId: syntheticDeliveryId,
+      eventType: 'push',
+      receivedAt,
+      outcome: 'IGNORED',
+    });
   });
 
   it('구독하지 않은 event는 본문을 파싱하거나 쓰지 않고 무시한다', async () => {

@@ -26,6 +26,15 @@ export class UsersService {
     return toUserProfile(await this.requireUser(githubId));
   }
 
+  async requireCompleteProfile(githubId: bigint): Promise<void> {
+    const profile = toUserProfile(await this.requireUser(githubId));
+    if (!profile.isComplete) {
+      throw new DomainException(
+        USERS_ERROR_CODES[UsersErrorCode.PROFILE_INCOMPLETE],
+      );
+    }
+  }
+
   async completeMyProfile(
     githubId: bigint,
     input: CompleteUserProfileInput,

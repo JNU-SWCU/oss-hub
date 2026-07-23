@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Dialog as DialogPrimitive } from 'radix-ui';
 
-import { PageHeader } from '@/components/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -225,12 +225,26 @@ export function ConsentFlow() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6">
-      <PageHeader
-        title="개인정보·활동 동의"
-        description="필수 항목을 확인하고 동의하면 다음 단계로 이동합니다."
-      />
-      {content}
-    </main>
+    <DialogPrimitive.Root open>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-foreground/40" />
+        <DialogPrimitive.Content
+          aria-modal="true"
+          className="fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 flex-col gap-6 overflow-y-auto rounded-lg border border-border bg-background p-6 shadow-lg focus:outline-none"
+          onEscapeKeyDown={(event) => event.preventDefault()}
+          onPointerDownOutside={(event) => event.preventDefault()}
+        >
+          <header className="flex flex-col gap-1 border-b border-border pb-4">
+            <DialogPrimitive.Title className="font-heading text-3xl font-bold tracking-tight">
+              개인정보·활동 동의
+            </DialogPrimitive.Title>
+            <DialogPrimitive.Description className="text-sm text-muted-foreground">
+              필수 항목을 확인하고 동의하면 다음 단계로 이동합니다.
+            </DialogPrimitive.Description>
+          </header>
+          {content}
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }

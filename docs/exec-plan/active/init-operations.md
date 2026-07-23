@@ -14,23 +14,29 @@
 
 ## M2. Jenkins webhook 설정
 
-### main 전용 webhook
+### 트리거와 승인 경계
 
-1. Jenkins에 배포 pipeline을 만들고 GitHub webhook 수신 URL을 확인한다.
-2. GitHub webhook은 push 이벤트를 사용하고 main 브랜치 병합만 pipeline을 시작하도록 Jenkins branch filter를 설정한다.
-3. Jenkins pipeline에 `disableConcurrentBuilds()`를 설정한다.
-4. Jenkins 환경에서 `COMPOSE_PROJECT_NAME`을 고정된 값으로 설정한다.
+1. Jenkins 관리 UI는 서버의 `127.0.0.1:8080`에만 bind하고 Tailscale SSH tunnel로 접근한다. 공인 8080 포트는 열지 않는다.
+2. main push는 Jenkins의 lint, typecheck, test, 앱 build 검증만 시작한다. production Compose를 변경하지 않는다.
+3. production은 GitHub Release 발행을 사람 승인 지점으로 사용한다. HMAC이 검증된 release webhook의 `created`·`published` action만 허용하고, job 입력에는 action과 tag만 전달한다.
+4. Jenkins는 `draft=false`, `prerelease=false`, 현재 latest full Release와 일치하는 `vMAJOR.MINOR.PATCH` tag만 처리한다. tag commit이 main ancestry에 포함되지 않으면 배포를 거절한다.
+5. Docker 권한을 가진 executor에는 `oss-hub-production` 전용 label을 부여하고 이 job과 승인된 운영자 외 작업을 배치하지 않는다. pipeline에 `disableConcurrentBuilds()`를 적용하고 `COMPOSE_PROJECT_NAME`을 고정한다.
+6. 이미 성공한 Release와 같거나 낮은 버전은 영속 상태 파일을 기준으로 성공 no-op 처리한다.
+7. webhook secret과 운영 환경 파일은 Jenkins Credentials Store에서만 관리한다. webhook payload, 저장소, Jenkins 로그에 실제 값을 출력하지 않는다.
+8. Jenkins 관리자는 공용 계정을 공유하지 않고 개인 계정으로 식별한다. 운영 인계 시 새 담당자의 개인 관리자 계정으로 접속을 확인한 뒤 이전 담당자 권한을 회수하며, 기존 비밀번호를 전달하지 않는다.
 
 ### 배포 순서
 
-1. `checkout scm`으로 main 브랜치의 대상 커밋을 체크아웃하고(main 전용), 해당 커밋 SHA를 읽어 `IMAGE_TAG`로 설정한다.
-2. 새 이미지를 빌드하기 전에, 현재 실행 중인 front/back 컨테이너의 이미지 태그를 조회하여 `PREV_TAG`로 캡처한다. 실행 중인 컨테이너가 없으면 `PREV_TAG`는 빈 값이며 greenfield 배포로 간주한다. front와 back의 실행 태그가 서로 다르면 상태 불일치이므로 배포를 중단하고 두 태그와 로그를 증거로 보존한다.
-3. 해당 SHA 태그로 front와 back 이미지를 서버 로컬에서 한 번만 빌드한다. 레지스트리에 push하거나 pull하지 않는다.
-4. `docker compose up -d postgres --wait --wait-timeout <n>`로 PostgreSQL을 먼저 기동하고 `pg_isready`로 healthy를 확인한다.
-5. 3에서 빌드한 `IMAGE_TAG`의 backend 이미지를 그대로 사용하여 `prisma migrate deploy`를 실행한다.
-6. `up -d --no-build --wait --wait-timeout <n>`로 nginx, front, back, postgres를 동일 `IMAGE_TAG` digest로 기동한다.
-7. `/`와 `/api/v1/health`에 smoke check를 수행한다.
-8. 서비스 교체 시작 후 `up` 또는 smoke check가 실패하면 먼저 `docker compose ps`와 `docker compose logs`를 보존한 뒤 복구 절차를 따른다. `PREV_TAG`가 있으면 rollback하고, 없으면 greenfield 수동 복구를 안내한다.
+1. latest Release의 tag를 main ancestry에 포함된 exact commit SHA로 해석하고 detached checkout한다. 이 SHA를 `IMAGE_TAG`로 사용한다.
+2. 정상 배포 상태 파일을 읽어 동일·하위 Release이면 성공 no-op으로 종료한다. 손상된 상태 파일은 자동 보정하지 않고 배포를 중단한다.
+3. lint, typecheck, test, 앱 build를 통과시킨다.
+4. 현재 실행 중인 front/back 이미지 태그를 `PREV_TAG`로 캡처한다. 두 태그가 다르면 배포를 중단한다.
+5. PostgreSQL을 healthy 상태로 기동하고 migration 전에 `pg_dump` backup을 접근 제한 경로에 보존한다.
+6. exact SHA로 front와 back 이미지를 서버 로컬에서 각각 한 번만 빌드한다. 레지스트리에 push하거나 pull하지 않는다.
+7. 6에서 빌드한 backend 이미지로 `prisma migrate deploy`를 실행한다.
+8. `up -d --no-build --wait --wait-timeout <n>`로 nginx, front, back, postgres를 동일 `IMAGE_TAG`로 기동하고 `/`와 `/api/v1/health` smoke를 수행한다.
+9. 모두 성공한 뒤에만 정상 Release tag와 SHA 상태 파일을 원자적으로 갱신한다.
+10. 서비스 교체 또는 smoke 실패 시 로그를 보존하고 `PREV_TAG`가 있으면 이미지 rollback을 한 번 수행한다. greenfield이거나 rollback smoke도 실패하면 자동 재귀 시도 없이 수동 복구로 전환한다.
 
 Compose 종료·재기동 절차에서 `down -v`를 실행하지 않는다. PostgreSQL 데이터는 named volume `pgdata`에 보존한다.
 
@@ -38,10 +44,11 @@ Compose 종료·재기동 절차에서 `down -v`를 실행하지 않는다. Post
 
 ### 배포 서버
 
-1. 배포 서버의 접근 제한된 경로에 `.env`를 배치한다.
-2. `.env`에는 운영 `POSTGRES_*` 값과 `DATABASE_URL`을 설정한다. `DATABASE_URL`은 `postgres` 서비스 DNS를 가리켜야 하며 migration과 runtime이 동일한 URL을 사용한다.
-3. 저장소에는 `.env.example`만 두고 실제 `.env`는 커밋하지 않는다.
-4. Jenkins가 Compose 및 migration 실행 전에 해당 `.env`를 읽을 수 있는지 확인한다.
+1. 운영 환경 파일을 Jenkins Credentials Store의 secret file `oss-hub-production-env`로 등록한다.
+2. 파일에는 운영 `POSTGRES_*` 값과 `DATABASE_URL`을 설정한다. `DATABASE_URL`은 `postgres` 서비스 DNS를 가리키고 migration과 runtime이 동일한 URL을 사용한다.
+3. 저장소에는 `.env.example`만 두고 실제 운영 파일은 커밋하거나 Jenkins 로그에 출력하지 않는다.
+4. Jenkins가 Compose 및 migration 단계에서만 임시 file credential을 주입하고 종료 후 workspace에 복사본을 남기지 않는지 확인한다.
+5. `/var/lib/oss-hub/deploy-state`와 `/var/lib/oss-hub/backups`는 Jenkins 소유 `0700` 디렉터리로 만들고 symlink·group write를 허용하지 않는다. 생성되는 상태·backup 파일은 `0600`인지 확인한다.
 
 ### 개발 환경
 
@@ -60,6 +67,8 @@ Compose 종료·재기동 절차에서 `down -v`를 실행하지 않는다. Post
 4. `/`와 `/api/v1/health` smoke check를 다시 수행한다.
 5. 복구 결과, 실패 SHA, `PREV_TAG`, 로그 위치를 운영 기록에 남긴다.
 
+migration은 자동으로 되돌리지 않는다. DB 복구가 필요하면 해당 Release 직전 backup과 로그를 확인한 뒤 운영 책임자의 승인으로 수동 restore한다.
+
 ### greenfield 서비스 교체 또는 smoke 실패
 
 `PREV_TAG`가 없는 첫 배포는 자동 rollback 대상이 없다. Jenkins 콘솔 로그와 Compose 서비스 로그를 보존하고, 배포 서버의 Jenkins build 기록 및 Compose 프로젝트 로그 위치를 운영 기록에 남긴다. 원인을 수정한 뒤 같은 SHA 규칙으로 수동 재배포한다. 데이터 볼륨 삭제를 위한 `down -v`는 사용하지 않는다.
@@ -68,9 +77,10 @@ Compose 종료·재기동 절차에서 `down -v`를 실행하지 않는다. Post
 
 - main branch protection 화면에서 required status check가 `ci`이고 리뷰 필수인 화면 캡처 또는 설정 기록
 - PR에서 `ci`가 통과한 상태 기록
-- GitHub webhook과 Jenkins main-only branch filter 설정 기록
-- Jenkins pipeline의 `disableConcurrentBuilds()` 및 고정 `COMPOSE_PROJECT_NAME` 설정 기록
-- 배포 로그의 `IMAGE_TAG` SHA, PostgreSQL 선기동, migration, `up -d --no-build --wait` 실행 기록
+- main 검증 job과 HMAC 검증 release webhook의 분리, 허용 action·latest full Release filter 설정 기록
+- Jenkins pipeline의 전용 `oss-hub-production` executor, `disableConcurrentBuilds()`, 고정 `COMPOSE_PROJECT_NAME`, exact tag SHA·main ancestry 검증 기록
+- 동일·하위 Release 성공 no-op 기록
+- 배포 로그의 exact `IMAGE_TAG`, migration 전 backup, 이미지 1회 build, migration, `up -d --no-build --wait` 실행 기록
 - `/`와 `/api/v1/health` smoke check 결과
 - `PREV_TAG` rollback 또는 greenfield 수동 복구 절차를 확인한 기록
-- 배포 서버 `.env`는 비공개로 관리되고 저장소에는 `.env.example`만 존재한다는 확인 기록
+- 운영 환경 파일은 Jenkins secret file로 비공개 관리되고 저장소에는 `.env.example`만 존재한다는 확인 기록

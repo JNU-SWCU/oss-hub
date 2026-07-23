@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { ConsentsModule } from '../consents/consents.module';
+import { UsersModule } from '../users/users.module';
 import {
   OnboardingController,
   RoleRequestsController,
@@ -12,7 +13,7 @@ import { StaffRoleRequestsRepository } from './staff-role-requests.repository';
 import { StaffRoleRequestsService } from './staff-role-requests.service';
 
 @Module({
-  imports: [AuthModule, ConsentsModule],
+  imports: [AuthModule, ConsentsModule, UsersModule],
   controllers: [
     OnboardingController,
     RoleRequestsController,

@@ -25,7 +25,6 @@ export interface ConsentRequiredItem {
 export interface ConsentPolicy {
   policyVersion: string;
   requiredItems: readonly ConsentRequiredItem[];
-  /** 동의 완료(또는 이미 동의) 후 이동할 경로 — #107 역할 선택. */
   nextUrl: string;
 }
 
@@ -48,5 +47,5 @@ export const CURRENT_CONSENT_POLICY: ConsentPolicy = {
       documentUrl: `/policies/org-repository-terms/${CONSENT_POLICY_VERSION}.html`,
     },
   ],
-  nextUrl: '/onboarding/role',
+  nextUrl: '/onboarding/profile',
 };

@@ -6,6 +6,7 @@ import {
   ConsentErrorCode,
 } from '../consents/consent-error-code.enum';
 import type { ConsentsService } from '../consents/consents.service';
+import type { UsersService } from '../users/users.service';
 import type { RoleRequestRecord, RoleUser } from './domain/role-onboarding';
 import type {
   RolesRepositoryPort,
@@ -111,10 +112,14 @@ function createService(
             ),
           ),
   };
+  const usersService: Pick<UsersService, 'requireCompleteProfile'> = {
+    requireCompleteProfile: jest.fn().mockResolvedValue(undefined),
+  };
   return {
     service: new RolesService(
       new InMemoryRolesRepository(store),
       consentsService,
+      usersService,
     ),
     store,
   };
