@@ -14,8 +14,8 @@ import type {
 } from './domain/staff-role-request';
 
 const staffRoleRequestInclude = {
-  user: { select: { login: true, role: true, accountStatus: true } },
-  decidedBy: { select: { login: true } },
+  user: { select: { nickname: true, role: true, accountStatus: true } },
+  decidedBy: { select: { nickname: true } },
 } satisfies Prisma.RoleRequestInclude;
 
 type PrismaStaffRoleRequest = Prisma.RoleRequestGetPayload<{
@@ -157,7 +157,7 @@ export class StaffRoleRequestsRepository implements StaffRoleRequestsRepositoryP
       status: query.status,
       user:
         query.query.length > 0
-          ? { login: { contains: query.query, mode: 'insensitive' } }
+          ? { nickname: { contains: query.query, mode: 'insensitive' } }
           : undefined,
     };
     const [requests, total] = await Promise.all([
@@ -188,13 +188,13 @@ function toStaffRoleRequest(
   return {
     id: request.id,
     userId: request.userId,
-    githubLogin: request.user.login,
+    githubLogin: request.user.nickname,
     userRole: request.user.role,
     userAccountStatus: request.user.accountStatus,
     status: request.status,
     rejectionReason: request.rejectionReason,
     decidedAt: request.decidedAt,
-    decidedBy: request.decidedBy?.login ?? null,
+    decidedBy: request.decidedBy?.nickname ?? null,
     createdAt: request.createdAt,
   };
 }

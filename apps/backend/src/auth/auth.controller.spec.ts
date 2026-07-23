@@ -14,7 +14,7 @@ import { LoginHistoryService } from '../login-history/login-history.service';
 const syntheticUser: AuthUser = {
   id: 'synthetic-id',
   githubId: 424242n,
-  login: 'synthetic-login',
+  nickname: 'synthetic-login',
   name: null,
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
@@ -285,7 +285,8 @@ describe('AuthController getMe', () => {
     const result = await controller.getMe(request);
 
     expect(result.role).toBe(Role.ADMIN);
-    expect(result.login).toBe('synthetic-login');
+    expect(result).toMatchObject({ nickname: 'synthetic-login' });
+    expect(result).not.toHaveProperty('login');
     expect(result.accountStatus).toBe(AccountStatus.ACTIVE);
     expect(resolveTestRole).toHaveBeenCalledWith(syntheticUser.githubId);
   });

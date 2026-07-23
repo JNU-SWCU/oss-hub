@@ -43,7 +43,7 @@ beforeEach(async () => {
     data: {
       id: userId,
       githubId,
-      login: 'synthetic-profile-user',
+      nickname: 'synthetic-profile-user',
       name: 'GitHub 합성 이름',
     },
   });

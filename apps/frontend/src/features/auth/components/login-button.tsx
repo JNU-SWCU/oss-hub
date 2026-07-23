@@ -35,10 +35,10 @@ export function LoginButtonView({
             type="button"
             variant="ghost"
             onClick={onLogout}
-            aria-label={`${session.user.login} 계정에서 로그아웃`}
-            title={`${session.user.login} 계정에서 로그아웃`}
+            aria-label={`${session.user.nickname} 계정에서 로그아웃`}
+            title={`${session.user.nickname} 계정에서 로그아웃`}
           >
-            <span className="hidden md:inline">{session.user.login} · </span>
+            <span className="hidden md:inline">{session.user.nickname} · </span>
             로그아웃
           </Button>
           {logoutError ? (

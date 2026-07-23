@@ -131,7 +131,7 @@ describe('Org repository inventory integration', () => {
       data: {
         id: USER_ID,
         githubId: 9_177_000_002n,
-        login: 'synthetic-177-user',
+        nickname: 'synthetic-177-user',
       },
     });
 

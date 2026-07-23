@@ -165,7 +165,7 @@ describe('Staff account lifecycle integration', () => {
         data: {
           id: `${TEST_PREFIX}admin`,
           githubId: ADMIN_GITHUB_ID,
-          login: 'synthetic-188-admin',
+          nickname: 'synthetic-188-admin',
           role: Role.ADMIN,
         },
       }),
@@ -173,7 +173,7 @@ describe('Staff account lifecycle integration', () => {
         data: {
           id: `${TEST_PREFIX}staff`,
           githubId: STAFF_GITHUB_ID,
-          login: 'synthetic-188-staff',
+          nickname: 'synthetic-188-staff',
           role: Role.STAFF,
         },
       }),
@@ -200,7 +200,7 @@ describe('Staff account lifecycle integration', () => {
       data: {
         id: `${TEST_PREFIX}admin`,
         githubId: ADMIN_GITHUB_ID,
-        login: 'synthetic-188-admin',
+        nickname: 'synthetic-188-admin',
         role: Role.ADMIN,
       },
     });
@@ -208,7 +208,7 @@ describe('Staff account lifecycle integration', () => {
       data: {
         id: `${TEST_PREFIX}staff`,
         githubId: STAFF_GITHUB_ID,
-        login: 'synthetic-188-pending-staff',
+        nickname: 'synthetic-188-pending-staff',
       },
     });
     const request = await prisma.roleRequest.create({

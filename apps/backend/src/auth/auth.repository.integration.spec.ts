@@ -60,7 +60,7 @@ it('동시 최초 로그인은 신규 1건으로 수렴하고 이후 로그인�
   expect(returningLogin).toMatchObject({
     isNew: false,
     user: {
-      login: 'synthetic-oauth-user-renamed',
+      nickname: 'synthetic-oauth-user-renamed',
       name: '사용자 입력 이름',
     },
   });
