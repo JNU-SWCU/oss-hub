@@ -53,11 +53,7 @@ function RoleBadge({ role }: { readonly role: AdminUser['role'] }) {
   return (
     <StatusBadge
       variant={
-        role === 'ADMIN'
-          ? 'approved'
-          : role === 'STAFF'
-            ? 'pending'
-            : 'closed'
+        role === 'ADMIN' ? 'approved' : role === 'STAFF' ? 'pending' : 'closed'
       }
     >
       {ROLE_LABEL[role]}
