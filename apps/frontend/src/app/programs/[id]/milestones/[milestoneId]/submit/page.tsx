@@ -15,7 +15,10 @@ export default async function MilestoneSubmitPage({
   const { id, milestoneId } = await params;
   return (
     <RoleGate allow={['STUDENT']}>
-      <SubmissionPage programId={id} milestoneId={milestoneId} />
+      <SubmissionPage
+        programId={decodeURIComponent(id)}
+        milestoneId={decodeURIComponent(milestoneId)}
+      />
     </RoleGate>
   );
 }
