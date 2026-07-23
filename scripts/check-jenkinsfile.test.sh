@@ -42,150 +42,113 @@ make_fixture() {
   local replacement=$3
 
   sed "s|$pattern|$replacement|" "$source_jenkinsfile" >"$fixture_dir/$name"
+  if cmp -s "$source_jenkinsfile" "$fixture_dir/$name"; then
+    printf 'fixture pattern not found: %s\n' "$pattern" >&2
+    exit 1
+  fi
 }
 
 cp "$source_jenkinsfile" "$fixture_dir/valid"
 make_fixture missing-concurrency 'disableConcurrentBuilds()' '/* removed */'
-make_fixture commented-concurrency 'disableConcurrentBuilds()' '// disableConcurrentBuilds()'
-make_fixture missing-when 'when {' '/* removed when */'
-make_fixture missing-main-guard "branch 'main'" "branch 'release'"
+make_fixture missing-production-label "label 'oss-hub-production'" "label 'any'"
+make_fixture missing-release-tag "string(name: 'RELEASE_TAG'" "string(name: 'REMOVED_RELEASE_TAG'"
+make_fixture main-mode-drift "env.RUN_MODE = 'main'" "env.RUN_MODE = 'release'"
+make_fixture missing-created-action "action == 'created'" "action == 'removed'"
+make_fixture missing-published-action "action == 'published'" "action == 'removed'"
+make_fixture missing-latest-release '/releases/latest' '/releases/removed'
+make_fixture missing-draft-check "jq -r '.draft'" "jq -r '.removedDraft'"
+make_fixture missing-prerelease-check "jq -r '.prerelease'" "jq -r '.removedPrerelease'"
+make_fixture missing-tag-format 'tag ==~ /' 'tag !=~ /'
+make_fixture missing-tag-resolution 'git rev-parse "${RELEASE_TAG}^{commit}"' 'git rev-parse HEAD'
+make_fixture missing-main-ancestry 'git merge-base --is-ancestor "$release_sha" origin/main' 'true'
+make_fixture moving-checkout 'git checkout --detach "$IMAGE_TAG"' 'git checkout main'
+make_fixture missing-noop-sort 'sort -V' 'sort'
+make_fixture missing-retag-guard 'env.RELEASE_TAG == currentTag && env.IMAGE_TAG != env.CURRENT_DEPLOY_SHA' 'false'
+make_fixture missing-state-file "DEPLOY_STATE_FILE = '/var/lib/oss-hub/deploy-state/current-release'" "DEPLOY_STATE_FILE = '/tmp/current-release'"
+make_fixture missing-test 'pnpm test' 'true'
+make_fixture missing-backup 'pg_dump' 'pg_isready'
 make_fixture missing-migration 'npx prisma migrate deploy' 'npx prisma migrate status'
-make_fixture commented-migration 'npx prisma migrate deploy' 'true # npx prisma migrate deploy'
-make_fixture missing-no-build 'docker compose up -d --no-build --wait' 'docker compose up -d --wait'
-make_fixture missing-frontend-build 'docker build --file apps/frontend/Dockerfile --tag "oss-hub-frontend:${IMAGE_TAG}" .' 'true /* frontend build removed */'
-make_fixture missing-backend-build 'docker build --file apps/backend/Dockerfile --tag "oss-hub-backend:${IMAGE_TAG}" .' 'true /* backend build removed */'
-make_fixture frontend-tag-drift 'oss-hub-frontend:${IMAGE_TAG}' 'oss-hub-frontend:${PREV_TAG}'
-make_fixture backend-tag-drift 'oss-hub-backend:${IMAGE_TAG}' 'oss-hub-backend:${PREV_TAG}'
+make_fixture missing-no-build 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait' 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --wait'
+make_fixture missing-state-update 'mv "$state_tmp" "$DEPLOY_STATE_FILE"' 'true'
+make_fixture missing-rollback-guard 'if (env.PREV_TAG?.trim())' 'if (false)'
+make_fixture missing-production-credential "credentialsId: 'oss-hub-production-env'" "credentialsId: 'removed'"
+make_fixture missing-stopped-container-scan 'ps --all -q' 'ps -q'
+
 cp "$source_jenkinsfile" "$fixture_dir/destructive-volume-removal"
 printf '\ndocker compose down -v\n' >>"$fixture_dir/destructive-volume-removal"
-cp "$source_jenkinsfile" "$fixture_dir/commented-volume-removal"
-printf '\n// docker compose down -v\n' >>"$fixture_dir/commented-volume-removal"
-cp "$source_jenkinsfile" "$fixture_dir/destructive-long-volume-removal"
-printf "\nsh 'docker compose -p oss-hub down --volumes'\n" >>"$fixture_dir/destructive-long-volume-removal"
+cp "$source_jenkinsfile" "$fixture_dir/main-auto-deploy"
+printf "\nbranch 'main'\n" >>"$fixture_dir/main-auto-deploy"
 cp "$source_jenkinsfile" "$fixture_dir/duplicate-frontend-build"
 printf '\ndocker build --file apps/frontend/Dockerfile --tag "oss-hub-frontend:${IMAGE_TAG}" .\n' >>"$fixture_dir/duplicate-frontend-build"
-cp "$source_jenkinsfile" "$fixture_dir/inline-duplicate-frontend-build"
-printf '\ndocker build --file apps/frontend/Dockerfile --tag "oss-hub-frontend:${IMAGE_TAG}" . # duplicate\n' >>"$fixture_dir/inline-duplicate-frontend-build"
+cp "$source_jenkinsfile" "$fixture_dir/duplicate-state-update"
+printf '\nmv "$state_tmp" "$DEPLOY_STATE_FILE"\n' >>"$fixture_dir/duplicate-state-update"
+cp "$source_jenkinsfile" "$fixture_dir/reassigned-image-tag"
+printf "\nenv.IMAGE_TAG = 'latest'\n" >>"$fixture_dir/reassigned-image-tag"
+cp "$source_jenkinsfile" "$fixture_dir/exported-image-tag"
+printf "\nsh 'export IMAGE_TAG=latest'\n" >>"$fixture_dir/exported-image-tag"
+cp "$source_jenkinsfile" "$fixture_dir/bracket-image-tag"
+printf "\nenv['IMAGE_TAG'] = 'latest'\n" >>"$fixture_dir/bracket-image-tag"
+cp "$source_jenkinsfile" "$fixture_dir/quoted-image-tag"
+printf '\nenv."IMAGE_TAG" = '\''latest'\''\n' >>"$fixture_dir/quoted-image-tag"
 cp "$source_jenkinsfile" "$fixture_dir/extra-image-build"
-printf "\nsh 'docker image build --tag extra-image:latest .'\n" >>"$fixture_dir/extra-image-build"
+printf "\nsh 'docker image build --tag extra:latest .'\n" >>"$fixture_dir/extra-image-build"
 cp "$source_jenkinsfile" "$fixture_dir/compose-image-build"
-printf "\nsh 'docker compose -f compose.yml build'\n" >>"$fixture_dir/compose-image-build"
+printf "\nsh 'docker compose build'\n" >>"$fixture_dir/compose-image-build"
 cp "$source_jenkinsfile" "$fixture_dir/compose-up-build"
 printf "\nsh 'docker compose up -d --build'\n" >>"$fixture_dir/compose-up-build"
 cp "$source_jenkinsfile" "$fixture_dir/continued-image-build"
 {
   printf "\nsh '''\n"
-  printf '%s\n' '  docker \'
-  printf '%s\n' '    image build --tag extra-image:latest .'
+  printf '%s\n' '  docker image \'
+  printf '%s\n' '    build --tag extra:latest .'
   printf "'''\n"
 } >>"$fixture_dir/continued-image-build"
-cp "$source_jenkinsfile" "$fixture_dir/continued-compose-build"
-{
-  printf "\nsh '''\n"
-  printf '%s\n' '  docker compose \'
-  printf '%s\n' '    -f compose.yml build'
-  printf "'''\n"
-} >>"$fixture_dir/continued-compose-build"
 cp "$source_jenkinsfile" "$fixture_dir/continued-volume-removal"
 {
   printf "\nsh '''\n"
-  printf '%s\n' '  docker compose \'
-  printf '%s\n' '    -p oss-hub down --volumes'
+  printf '%s\n' '  docker compose down \'
+  printf '%s\n' '    --volumes'
   printf "'''\n"
 } >>"$fixture_dir/continued-volume-removal"
-cp "$fixture_dir/missing-frontend-build" "$fixture_dir/comment-only-frontend-build"
-printf '\n// docker build --file apps/frontend/Dockerfile --tag "oss-hub-frontend:${IMAGE_TAG}" .\n' >>"$fixture_dir/comment-only-frontend-build"
-awk '
-  !replaced && /branch .main./ {
-    sub(/branch .main./, "branch '\''release'\''")
-    replaced=1
-  }
-  replaced && !duplicated && /branch .main./ {
-    print
-    duplicated=1
-  }
-  { print }
-' "$source_jenkinsfile" >"$fixture_dir/shifted-main-guard"
-awk '
-  !replaced && /docker compose up -d --no-build --wait/ {
-    sub(/docker compose up -d --no-build --wait/, "docker compose up -d --wait")
-    replaced=1
-  }
-  { print }
-' "$source_jenkinsfile" >"$fixture_dir/primary-no-build-drift"
-awk '
-  !replaced && /http:\/\/127.0.0.1\// {
-    sub(/http:\/\/127.0.0.1\//, "http://127.0.0.1/ready")
-    replaced=1
-  }
-  { print }
-' "$source_jenkinsfile" >"$fixture_dir/primary-frontend-smoke-drift"
-awk '
-  /env.IMAGE_TAG = sh\(script:/ {
-    print "          env.IMAGE_TAG = sh(script: \047true\047, returnStdout: true).trim() // git rev-parse HEAD"
-    next
-  }
-  { print }
-' "$source_jenkinsfile" >"$fixture_dir/moving-image-tag"
-awk '
-  /if \(env.PREV_TAG/ {
-    print "            if (false) { // env.PREV_TAG?.trim()"
-    next
-  }
-  { print }
-' "$source_jenkinsfile" >"$fixture_dir/commented-rollback-guard"
-cp "$source_jenkinsfile" "$fixture_dir/negated-main-guard"
-awk '
-  !replaced && /when \{/ {
-    print "      when { not { branch \047main\047 } }"
-    replaced=1
-    next
-  }
-  { print }
-' "$source_jenkinsfile" >"$fixture_dir/negated-main-guard"
-cp "$source_jenkinsfile" "$fixture_dir/reassigned-image-tag"
-printf "\nenv.IMAGE_TAG = 'latest'\n" >>"$fixture_dir/reassigned-image-tag"
-cp "$source_jenkinsfile" "$fixture_dir/exported-image-tag"
-printf "\nsh 'export IMAGE_TAG=latest'\n" >>"$fixture_dir/exported-image-tag"
-cp "$source_jenkinsfile" "$fixture_dir/bracket-reassigned-image-tag"
-printf "\nenv['IMAGE_TAG'] = 'latest'\n" >>"$fixture_dir/bracket-reassigned-image-tag"
-cp "$source_jenkinsfile" "$fixture_dir/quoted-property-reassigned-image-tag"
-printf '\nenv."IMAGE_TAG" = '\''latest'\''\n' >>"$fixture_dir/quoted-property-reassigned-image-tag"
 
-expect_pass '현재 Jenkinsfile의 배포 계약' "$fixture_dir/valid"
+expect_pass '현재 Release 배포 계약' "$fixture_dir/valid"
 expect_fail '동시 배포 방지 누락' "$fixture_dir/missing-concurrency"
-expect_fail '주석뿐인 동시 배포 방지' "$fixture_dir/commented-concurrency"
-expect_fail 'when 구조 누락' "$fixture_dir/missing-when"
-expect_fail 'main 전용 stage guard 누락' "$fixture_dir/missing-main-guard"
-expect_fail '다른 stage로 옮겨진 main guard' "$fixture_dir/shifted-main-guard"
-expect_fail '부정된 main guard' "$fixture_dir/negated-main-guard"
-expect_fail 'commit SHA 이미지 태그 누락' "$fixture_dir/moving-image-tag"
-expect_fail 'commit SHA 이미지 태그 재할당' "$fixture_dir/reassigned-image-tag"
-expect_fail 'shell export 이미지 태그 재할당' "$fixture_dir/exported-image-tag"
-expect_fail 'bracket env 이미지 태그 재할당' "$fixture_dir/bracket-reassigned-image-tag"
-expect_fail 'quoted property 이미지 태그 재할당' "$fixture_dir/quoted-property-reassigned-image-tag"
-expect_fail '주석으로만 남은 rollback guard' "$fixture_dir/commented-rollback-guard"
-expect_fail 'Prisma 배포 migration 누락' "$fixture_dir/missing-migration"
-expect_fail '주석으로만 남은 Prisma migration' "$fixture_dir/commented-migration"
-expect_fail '서비스 교체의 --no-build 누락' "$fixture_dir/missing-no-build"
-expect_fail 'primary 서비스 교체의 --no-build 누락' "$fixture_dir/primary-no-build-drift"
-expect_fail 'primary frontend smoke 경로 drift' "$fixture_dir/primary-frontend-smoke-drift"
-expect_fail 'frontend 이미지 빌드 누락' "$fixture_dir/missing-frontend-build"
-expect_fail 'backend 이미지 빌드 누락' "$fixture_dir/missing-backend-build"
-expect_fail 'frontend 이미지 태그 drift' "$fixture_dir/frontend-tag-drift"
-expect_fail 'backend 이미지 태그 drift' "$fixture_dir/backend-tag-drift"
-expect_fail 'frontend 이미지 중복 빌드' "$fixture_dir/duplicate-frontend-build"
-expect_fail 'inline 주석이 붙은 frontend 중복 빌드' "$fixture_dir/inline-duplicate-frontend-build"
-expect_fail '허용되지 않은 추가 이미지 빌드' "$fixture_dir/extra-image-build"
-expect_fail '허용되지 않은 Compose 이미지 빌드' "$fixture_dir/compose-image-build"
-expect_fail 'Compose up의 --build 사용' "$fixture_dir/compose-up-build"
-expect_fail '줄 연속 Docker 이미지 빌드' "$fixture_dir/continued-image-build"
-expect_fail '줄 연속 Compose 이미지 빌드' "$fixture_dir/continued-compose-build"
-expect_fail '주석뿐인 frontend 이미지 빌드' "$fixture_dir/comment-only-frontend-build"
-expect_pass '주석뿐인 volume 삭제 명령' "$fixture_dir/commented-volume-removal"
+expect_fail '전용 production executor 누락' "$fixture_dir/missing-production-label"
+expect_fail 'Release tag 입력 누락' "$fixture_dir/missing-release-tag"
+expect_fail '빈 입력의 main 검증 경계 drift' "$fixture_dir/main-mode-drift"
+expect_fail 'created 이벤트 허용 누락' "$fixture_dir/missing-created-action"
+expect_fail 'published 이벤트 허용 누락' "$fixture_dir/missing-published-action"
+expect_fail 'latest full Release 검증 누락' "$fixture_dir/missing-latest-release"
+expect_fail 'draft 거절 누락' "$fixture_dir/missing-draft-check"
+expect_fail 'prerelease 거절 누락' "$fixture_dir/missing-prerelease-check"
+expect_fail 'SemVer tag 검증 누락' "$fixture_dir/missing-tag-format"
+expect_fail 'Release tag SHA 해석 누락' "$fixture_dir/missing-tag-resolution"
+expect_fail 'main ancestry 검증 누락' "$fixture_dir/missing-main-ancestry"
+expect_fail '정확한 SHA checkout 누락' "$fixture_dir/moving-checkout"
+expect_fail '동일·하위 버전 no-op 비교 누락' "$fixture_dir/missing-noop-sort"
+expect_fail '동일 Release tag의 SHA 변경 차단 누락' "$fixture_dir/missing-retag-guard"
+expect_fail '영속 배포 상태 경로 누락' "$fixture_dir/missing-state-file"
+expect_fail '배포 전 test 누락' "$fixture_dir/missing-test"
+expect_fail 'migration 전 backup 누락' "$fixture_dir/missing-backup"
+expect_fail 'Prisma migration 누락' "$fixture_dir/missing-migration"
+expect_fail 'Compose 교체의 --no-build 누락' "$fixture_dir/missing-no-build"
+expect_fail '성공 상태 원자 갱신 누락' "$fixture_dir/missing-state-update"
+expect_fail '이전 이미지 rollback guard 누락' "$fixture_dir/missing-rollback-guard"
+expect_fail '운영 환경 credential 주입 누락' "$fixture_dir/missing-production-credential"
+expect_fail '중지 container rollback 기준 누락' "$fixture_dir/missing-stopped-container-scan"
+expect_fail 'main production 자동 배포 재도입' "$fixture_dir/main-auto-deploy"
 expect_fail '영속 volume 파괴 명령 추가' "$fixture_dir/destructive-volume-removal"
-expect_fail '영속 volume 장형 파괴 명령 추가' "$fixture_dir/destructive-long-volume-removal"
-expect_fail '줄 연속 Compose volume 파괴 명령' "$fixture_dir/continued-volume-removal"
+expect_fail 'frontend 이미지 중복 빌드' "$fixture_dir/duplicate-frontend-build"
+expect_fail '성공 상태 중복 갱신' "$fixture_dir/duplicate-state-update"
+expect_fail 'IMAGE_TAG 재할당' "$fixture_dir/reassigned-image-tag"
+expect_fail 'shell IMAGE_TAG export' "$fixture_dir/exported-image-tag"
+expect_fail 'bracket IMAGE_TAG 재할당' "$fixture_dir/bracket-image-tag"
+expect_fail 'quoted IMAGE_TAG 재할당' "$fixture_dir/quoted-image-tag"
+expect_fail '추가 Docker image build' "$fixture_dir/extra-image-build"
+expect_fail 'Compose image build' "$fixture_dir/compose-image-build"
+expect_fail 'Compose up --build' "$fixture_dir/compose-up-build"
+expect_fail '줄 연속 Docker image build' "$fixture_dir/continued-image-build"
+expect_fail '줄 연속 volume 삭제' "$fixture_dir/continued-volume-removal"
 
 printf '%s passed, %s failed\n' "$passed" "$failed"
 ((failed == 0))
