@@ -1,7 +1,7 @@
 import { AccountStatus, Role, User as PrismaUser } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthRepository } from './auth.repository';
-import { GithubProfile } from './domain/auth-user';
+import type { GithubProfile } from './domain/auth-user';
 
 // 합성 데이터만 사용한다 (docs/rules/security.md)
 function buildProfile(overrides: Partial<GithubProfile> = {}): GithubProfile {
@@ -31,30 +31,59 @@ function buildRow(overrides: Partial<PrismaUser> = {}): PrismaUser {
   };
 }
 
-function buildRepository(row: PrismaUser, updatedRow?: PrismaUser) {
-  const upsert = jest.fn().mockResolvedValue(row);
-  const update = jest.fn().mockResolvedValue(updatedRow ?? row);
-  const prisma = { user: { upsert, update } } as unknown as PrismaService;
-  return { repository: new AuthRepository(prisma), upsert, update };
+function buildRepository(
+  row: PrismaUser,
+  options: { isNew?: boolean; promotedRow?: PrismaUser } = {},
+) {
+  const createMany = jest
+    .fn()
+    .mockResolvedValue({ count: options.isNew ? 1 : 0 });
+  const findUniqueOrThrow = jest.fn().mockResolvedValue(row);
+  const update = jest
+    .fn()
+    .mockImplementation(({ data }: { data: object }) =>
+      Promise.resolve(
+        'role' in data && options.promotedRow ? options.promotedRow : row,
+      ),
+    );
+  const transaction = { user: { createMany, findUniqueOrThrow, update } };
+  const $transaction = jest
+    .fn()
+    .mockImplementation(
+      (operation: (client: typeof transaction) => Promise<unknown>) =>
+        operation(transaction),
+    );
+  const prisma = { $transaction } as unknown as PrismaService;
+  return {
+    repository: new AuthRepository(prisma),
+    createMany,
+    findUniqueOrThrow,
+    update,
+  };
+}
+
+function upsertUser(repository: AuthRepository, profile: GithubProfile) {
+  return repository.withTransaction((store) => store.upsertUser(profile));
 }
 
 describe('AuthRepository.upsertUser', () => {
   it('update 절은 role·accountStatus를 건드리지 않는다 — 로그인마다 권한 상태가 유지된다', async () => {
-    const { repository, upsert, update } = buildRepository(
+    const { repository, update } = buildRepository(
       buildRow({
         role: Role.STAFF,
         accountStatus: AccountStatus.DEACTIVATED,
       }),
     );
 
-    const result = await repository.upsertUser(buildProfile());
+    const result = await upsertUser(repository, buildProfile());
 
-    expect(result.role).toBe(Role.STAFF);
-    expect(result.accountStatus).toBe(AccountStatus.DEACTIVATED);
-    const [upsertArgs] = upsert.mock.calls[0] as [{ update: object }];
-    expect(upsertArgs.update).not.toHaveProperty('role');
-    expect(upsertArgs.update).not.toHaveProperty('accountStatus');
-    expect(update).not.toHaveBeenCalled();
+    expect(result.user.role).toBe(Role.STAFF);
+    expect(result.user.accountStatus).toBe(AccountStatus.DEACTIVATED);
+    expect(result.isNew).toBe(false);
+    const [updateArgs] = update.mock.calls[0] as [{ data: object }];
+    expect(updateArgs.data).not.toHaveProperty('role');
+    expect(updateArgs.data).not.toHaveProperty('accountStatus');
+    expect(updateArgs.data).not.toHaveProperty('name');
   });
 
   it('비활성 부트스트랩 대상은 OAuth 재로그인만으로 ADMIN 승격·재활성화하지 않는다', async () => {
@@ -67,37 +96,50 @@ describe('AuthRepository.upsertUser', () => {
       }),
     );
 
-    const result = await repository.upsertUser(
+    const result = await upsertUser(
+      repository,
       buildProfile({ githubId: 1n, login: 'GoBeromsu' }),
     );
 
-    expect(result.accountStatus).toBe(AccountStatus.DEACTIVATED);
-    expect(result.role).toBeNull();
-    expect(update).not.toHaveBeenCalled();
+    expect(result.user.accountStatus).toBe(AccountStatus.DEACTIVATED);
+    expect(result.user.role).toBeNull();
+    expect(update).toHaveBeenCalledTimes(1);
   });
 
   it('부트스트랩 대상 login의 신규 계정은 생성 시점에 ADMIN이 된다', async () => {
-    const { repository, upsert, update } = buildRepository(
+    const { repository, createMany, update } = buildRepository(
       buildRow({ githubId: 1n, login: 'GoBeromsu', role: Role.ADMIN }),
+      { isNew: true },
     );
 
-    const result = await repository.upsertUser(
+    const result = await upsertUser(
+      repository,
       buildProfile({ githubId: 1n, login: 'GoBeromsu' }),
     );
 
-    expect(result.role).toBe(Role.ADMIN);
-    const [upsertArgs] = upsert.mock.calls[0] as [{ create: { role?: Role } }];
-    expect(upsertArgs.create.role).toBe(Role.ADMIN);
+    expect(result.user.role).toBe(Role.ADMIN);
+    expect(result.isNew).toBe(true);
+    const [createManyArgs] = createMany.mock.calls[0] as [
+      { data: { role?: Role } },
+    ];
+    expect(createManyArgs.data.role).toBe(Role.ADMIN);
     expect(update).not.toHaveBeenCalled();
   });
 
   it('role이 아직 null인 기존 부트스트랩 대상 계정은 다음 로그인에 ADMIN으로 승격된다', async () => {
     const { repository, update } = buildRepository(
       buildRow({ githubId: 1n, login: 'GoBeromsu', role: null }),
-      buildRow({ githubId: 1n, login: 'GoBeromsu', role: Role.ADMIN }),
+      {
+        promotedRow: buildRow({
+          githubId: 1n,
+          login: 'GoBeromsu',
+          role: Role.ADMIN,
+        }),
+      },
     );
 
-    const result = await repository.upsertUser(
+    const result = await upsertUser(
+      repository,
       buildProfile({ githubId: 1n, login: 'GoBeromsu' }),
     );
 
@@ -105,19 +147,23 @@ describe('AuthRepository.upsertUser', () => {
       where: { id: 'cuid-synthetic' },
       data: { role: Role.ADMIN },
     });
-    expect(result.role).toBe(Role.ADMIN);
+    expect(result.user.role).toBe(Role.ADMIN);
   });
 
   it('부트스트랩 대상이 아닌 신규 로그인은 role이 null로 생성된다(기본값 없음)', async () => {
-    const { repository, upsert, update } = buildRepository(
+    const { repository, createMany, update } = buildRepository(
       buildRow({ role: null }),
+      { isNew: true },
     );
 
-    const result = await repository.upsertUser(buildProfile());
+    const result = await upsertUser(repository, buildProfile());
 
-    expect(result.role).toBeNull();
-    const [upsertArgs] = upsert.mock.calls[0] as [{ create: { role?: Role } }];
-    expect(upsertArgs.create.role).toBeUndefined();
+    expect(result.user.role).toBeNull();
+    expect(result.isNew).toBe(true);
+    const [createManyArgs] = createMany.mock.calls[0] as [
+      { data: { role?: Role } },
+    ];
+    expect(createManyArgs.data.role).toBeUndefined();
     expect(update).not.toHaveBeenCalled();
   });
 
@@ -126,31 +172,33 @@ describe('AuthRepository.upsertUser', () => {
       buildRow({ role: null, accountStatus: AccountStatus.ACTIVE }),
     );
 
-    const result = await repository.upsertUser(buildProfile());
+    const result = await upsertUser(repository, buildProfile());
 
     expect(result).toMatchObject({
-      role: null,
-      accountStatus: AccountStatus.ACTIVE,
+      isNew: false,
+      user: {
+        role: null,
+        accountStatus: AccountStatus.ACTIVE,
+      },
     });
-    expect(update).not.toHaveBeenCalled();
+    expect(update).toHaveBeenCalledTimes(1);
   });
 
-  it('온보딩 프로필을 완료한 기존 계정은 GitHub 프로필의 다른 name으로 재로그인해도 확정한 name을 유지한다', async () => {
-    const { repository, upsert } = buildRepository(
-      buildRow({
-        name: '사용자확정이름',
-        studentId: '1'.repeat(6),
-        department: '컴퓨터공학과',
-      }),
+  it('기존 사용자의 온보딩 이름은 GitHub 재로그인으로 덮어쓰지 않는다', async () => {
+    const { repository, update } = buildRepository(
+      buildRow({ name: '사용자 입력 이름' }),
     );
 
-    const result = await repository.upsertUser(
-      buildProfile({ name: 'GitHub프로필이름' }),
+    const result = await upsertUser(
+      repository,
+      buildProfile({ name: 'GitHub 표시 이름' }),
     );
 
-    expect(result.name).toBe('사용자확정이름');
-    const [upsertArgs] = upsert.mock.calls[0] as [{ update: object }];
-    expect(upsertArgs.update).not.toHaveProperty('name');
+    expect(result.user.name).toBe('사용자 입력 이름');
+    expect(update).toHaveBeenCalledWith({
+      where: { githubId: 424242n },
+      data: { login: 'synthetic-login', avatarUrl: null },
+    });
   });
 });
 
