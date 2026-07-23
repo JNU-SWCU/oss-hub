@@ -1,27 +1,20 @@
-# 작성권 강제 — AGENTS.md §3(작성권)의 코드화.
-# branch protection에서 "Require review from Code Owners"를 켜야 merge가 실제로 차단된다.
-# 패턴 문법은 .gitignore와 동일하며, 여러 줄이 겹치면 아래쪽 줄이 우선한다.
-# GitHub은 자기 PR 자기 승인을 금지하므로, owner 2인 구성은 상호 검토가 자동으로 강제된다.
+# High risk ownership routing — ADR-005의 PM + Tech Lead manual accept 대상.
+# 일반 PR에는 Code Owner 상호 review를 요구하지 않는다.
+# GitHub branch protection은 `ci`와 `public-safe`만 직접 강제하며,
+# high risk accept는 전남의 exact-head 판정과 ADR-005 절차로 확인한다.
 
-# 규칙·기술 결정 문서 — 두 owner 중 1인 approve 필요
+# 정책·거버넌스·보안 검사 경로
+/AGENTS.md       @GoBeromsu @Lumiere001
 /docs/rules/     @GoBeromsu @Lumiere001
 /docs/decisions/ @GoBeromsu @Lumiere001
-
-# 저장소 규칙 원본·설계 문서 — 이 파일들의 변경은 owner 승인이 필요
-/AGENTS.md       @GoBeromsu @Lumiere001
-/docs/design.md  @GoBeromsu @Lumiere001
-
-# 애플리케이션 코드 — 아키텍처 경계 lint 규칙 우회 등 구조 변경을 조기에 잡기 위해 리뷰 대상
-/apps/frontend/  @GoBeromsu @Lumiere001
-/apps/backend/   @GoBeromsu @Lumiere001
-
-# CI 워크플로·CODEOWNERS 자체 보호 — 이 파일을 고쳐 자물쇠를 빼는 변경도 리뷰 대상
 /.github/        @GoBeromsu @Lumiere001
+/scripts/         @GoBeromsu @Lumiere001
 
-# public-safe 스캔 스크립트 — 검사 로직을 약화시키는 변경 방지
-/scripts/        @GoBeromsu @Lumiere001
+# 인증·권한 및 DB 경계
+/apps/backend/src/auth/ @GoBeromsu @Lumiere001
+/apps/backend/prisma/   @GoBeromsu @Lumiere001
 
-# 배포 정의 — 자동 검사의 한계를 독립 리뷰로 보완
+# 배포 정의
 /Jenkinsfile     @GoBeromsu @Lumiere001
 /compose.yml     @GoBeromsu @Lumiere001
 /.env.example    @GoBeromsu @Lumiere001
