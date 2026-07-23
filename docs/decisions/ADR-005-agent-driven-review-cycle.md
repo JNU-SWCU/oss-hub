@@ -39,6 +39,9 @@ PRD·IA·Accepted ADR·root와 적용되는 nested `AGENTS` 범위 안의 기술
 - 외부 OAuth·GitHub App·webhook 등 권한 있는 외부 연동
 - 여러 도메인의 계약을 함께 바꾸는 횡단 설계 변경
 
+high risk 여부는 파일 경로가 아니라 실제 권한·데이터·운영·공통 계약에 미치는 효과로 판정한다.
+CODEOWNERS 경로는 검토 후보를 찾는 신호이며 그 자체가 high risk 확정 판정은 아니다.
+
 high risk PR은 `MERGE_READY` 이후에도 PM인 @GoBeromsu와 Tech Lead인 @Lumiere001이 동일한 head SHA에 대해 각각 manual accept를 남겨야 한다.
 production release 배포도 두 사람의 release tag와 exact SHA manual accept 뒤에만 시작한다.
 Jenkins의 실패 시 중단·증적 보존·기존 이미지 복구 동작은 ADR-002의 배포 계약을 유지하며, 이 ADR은 별도의 rollback 동작 변경을 결정하지 않는다.

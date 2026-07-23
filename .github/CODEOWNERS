@@ -1,4 +1,4 @@
-# High risk ownership routing — ADR-005의 PM + Tech Lead manual accept 대상.
+# High risk 후보 ownership routing — 실제 판정은 ADR-005의 변경 효과 기준을 따른다.
 # 일반 PR에는 Code Owner 상호 review를 요구하지 않는다.
 # GitHub branch protection은 `ci`와 `public-safe`만 직접 강제하며,
 # high risk accept는 전남의 exact-head 판정과 ADR-005 절차로 확인한다.
