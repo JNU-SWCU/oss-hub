@@ -79,11 +79,13 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 라우트 골격·역할별 패널 셸 | @GoBeromsu | done | #136 | #138 | pass | 없음 |
 | 디자인 파운데이션(Tailwind v4·shadcn·B-6 컴포넌트) | @GoBeromsu | done | #74 #78 #80 #82 #84 | #77 #90 | pass | 없음 |
 | 랜딩 페이지 + 로그인 role-home nav 배선 | @GoBeromsu | done | #86 (+#136 연계) | #87 #144 #145 #146 #147 | pass | 없음 |
+| 320px 공용 내비게이션 단일 행 정렬 | @GoBeromsu | active | [#219](https://github.com/JNU-SWCU/oss-hub/issues/219) | - | 로컬 pass · GitHub CI 미실행 | `codex/nav-responsive` 로컬 후보. 공용 NavBar·기존 action 소비자만 수정 |
 | work-ticket 이슈 템플릿 | @GoBeromsu | done | #71 | #72 | pass | 없음 |
 | ADR-004 REST 예시 도메인 교체(members→users) | @GoBeromsu | done | #76 | #91 | pass | 없음 |
 | CI: public-safe Issue·댓글 스캔 + commitlint 이벤트 가드 | @GoBeromsu | done | #68 | #150 #159 | pass | 없음 |
 | 학생용 수집 App(private repo 포함, read-only) | @Lumiere001 | planned | #15 | - | - | 정책 전제 4건 미확정: 산정 범위·개인 repo 보존·동의 절차·App 소유·운영(unblock: @GoBeromsu). #120/#123(조직 소유 자동화 App, write 권한)과는 별개 앱임을 #15/#120 코멘트로 명확화함 — 대체 관계 아님 |
-| Access & GitHub Platform 백로그(13건: 로그인 이력·온보딩 프로필·설정·관리 콘솔·감사 로그·시스템 상태·저장소 자동화·webhook 확장 등) | @Lumiere001 | planned | #99 #107 #108 #120 #121 #122 #123 #131 #132 #133 #153 #156 #157 | - | - | GitHub App 인증 ADR(#120)이 저장소 자동 생성(#121)·webhook 확장(#123)의 선행 |
+| Access & GitHub Platform 백로그(12건: 로그인 이력·설정·관리 콘솔·감사 로그·시스템 상태·저장소 자동화·webhook 확장 등) | @Lumiere001 | planned | #99 #107 #108 #120 #121 #122 #123 #131 #132 #133 #156 #157 | - | - | GitHub App 인증 ADR(#120)이 저장소 자동 생성(#121)·webhook 확장(#123)의 선행 |
+| 공통 온보딩 프로필 입력 | @GoBeromsu | review | #153 | [#211](https://github.com/JNU-SWCU/oss-hub/pull/211) + 로컬 대체 후보 `codex/profile-onboarding-base` | 로컬 후보 pass · GitHub CI 미실행 | #211 변경 요청 반영 및 로컬 후보 PR 생성 전. owner 전속 fixture 변경은 최종 PR head에서 @Lumiere001 사후 추인 필요 |
 | GitHub App 최소 권한·live smoke 계약 | @Lumiere001 | review | #205 | [#208](https://github.com/JNU-SWCU/oss-hub/pull/208) | #208 pass | Collection App REST read 데이터 최소화·권한 allowlist 계약 리뷰 반영 중 · 실제 실증은 비운영 App 준비 대기 |
 | 공통 랜딩 세션별 진입 CTA | @jinsol1190-rgb | done | #98 | #201 | pass | 없음 |
 | 프로그램 편집·마일스톤 | @Geuin04 | planned | #101 | - | - | 연결 PR·공개 착수 근거 없음 |

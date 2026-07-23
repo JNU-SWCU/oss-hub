@@ -15,6 +15,9 @@ const ISSUE99_POLICY_VERSION = '2026-07-21';
 const ISSUE99_OLDER_POLICY_VERSION = '2025-12';
 const consentRequiredUserId = AUTH_SCENARIOS['consent-required'];
 const roleUnselectedUserId = AUTH_SCENARIOS['user-role-unselected'];
+const profileCompleteUserId = AUTH_SCENARIOS['profile-complete'];
+const staffPendingUserId = AUTH_SCENARIOS['staff-pending'];
+const staffRejectedUserId = AUTH_SCENARIOS['staff-rejected'];
 const staffRevokedUserId = AUTH_SCENARIOS['staff-revoked'];
 
 /** #110 시드가 실제로 건드리는 전체 모델. 카운트가 두 실행 사이에 흔들리면 멱등성이 깨진 것이다. */
@@ -187,15 +190,24 @@ describe('issue-99 auth seed contract', () => {
       await runProfile('auth', new SeedStats());
 
       // Then: 미동의 사용자는 비어 있고, 현행/과거 행은 중복·갱신 없이 남는다.
-      const [consentRequiredCount, roleUnselectedRows, staffRevoked] =
-        await Promise.all([
-          prisma.consent.count({ where: { userId: consentRequiredUserId } }),
-          prisma.consent.findMany({
-            where: { userId: roleUnselectedUserId },
-            orderBy: { policyVersion: 'asc' },
-          }),
-          prisma.user.findUniqueOrThrow({ where: { id: staffRevokedUserId } }),
-        ]);
+      const [
+        consentRequiredCount,
+        roleUnselectedRows,
+        profileComplete,
+        staffPending,
+        staffRejected,
+        staffRevoked,
+      ] = await Promise.all([
+        prisma.consent.count({ where: { userId: consentRequiredUserId } }),
+        prisma.consent.findMany({
+          where: { userId: roleUnselectedUserId },
+          orderBy: { policyVersion: 'asc' },
+        }),
+        prisma.user.findUniqueOrThrow({ where: { id: profileCompleteUserId } }),
+        prisma.user.findUniqueOrThrow({ where: { id: staffPendingUserId } }),
+        prisma.user.findUniqueOrThrow({ where: { id: staffRejectedUserId } }),
+        prisma.user.findUniqueOrThrow({ where: { id: staffRevokedUserId } }),
+      ]);
       expect(consentRequiredCount).toBe(0);
       expect(firstCurrent).not.toBeNull();
       expect(roleUnselectedRows.map((row) => row.policyVersion)).toEqual([
@@ -208,6 +220,19 @@ describe('issue-99 auth seed contract', () => {
       expect(roleUnselectedRows[1]?.consentedAt).toEqual(
         firstCurrent?.consentedAt,
       );
+      expect(profileComplete).toMatchObject({
+        name: '합성 완료 사용자',
+        studentId: ['20', '2601'].join(''),
+        department: '인공지능학부',
+      });
+      expect(staffPending).toMatchObject({
+        studentId: '202602',
+        department: '인공지능학부',
+      });
+      expect(staffRejected).toMatchObject({
+        studentId: '202604',
+        department: '컴퓨터공학과',
+      });
       expect(staffRevoked).toMatchObject({
         role: Role.STAFF,
         accountStatus: AccountStatus.DEACTIVATED,

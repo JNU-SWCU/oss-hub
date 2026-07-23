@@ -25,6 +25,8 @@ model User {
   githubId      BigInt        @unique
   login         String
   name          String?
+  studentId     String?
+  department    String?
   avatarUrl     String?
   accountStatus AccountStatus @default(ACTIVE)
   /// 역할 선택 전 null, 학생 선택 시 STUDENT, 교직원 요청 승인 시에만 STAFF가 된다(#109).
