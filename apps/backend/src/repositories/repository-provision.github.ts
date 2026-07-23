@@ -21,7 +21,7 @@ export async function findOrCreateGithubRepository(
   const existing = await github.findRepository(names.preferred);
   if (existing !== null) {
     return existing.description === ownershipMarker
-      ? existing
+      ? requirePrivateRepository(existing)
       : findOrCreateFallback(github, names.collisionFallback, ownershipMarker);
   }
   try {
@@ -36,7 +36,7 @@ export async function findOrCreateGithubRepository(
     }
     const racedRepository = await github.findRepository(names.preferred);
     if (racedRepository?.description === ownershipMarker) {
-      return racedRepository;
+      return requirePrivateRepository(racedRepository);
     }
     return findOrCreateFallback(
       github,
@@ -78,7 +78,7 @@ async function createOwnedRepository(
       false,
     );
   }
-  return repository;
+  return requirePrivateRepository(repository);
 }
 
 function requireOwnedRepository(
@@ -88,6 +88,18 @@ function requireOwnedRepository(
   if (repository?.description !== ownershipMarker) {
     throw new GithubOperationsError(
       GITHUB_OPERATIONS_ERROR_CODES.INVALID_INPUT,
+      false,
+    );
+  }
+  return requirePrivateRepository(repository);
+}
+
+function requirePrivateRepository(
+  repository: GithubRepositoryMetadata,
+): GithubRepositoryMetadata {
+  if (repository.visibility !== 'PRIVATE') {
+    throw new GithubOperationsError(
+      GITHUB_OPERATIONS_ERROR_CODES.INVALID_RESPONSE,
       false,
     );
   }
