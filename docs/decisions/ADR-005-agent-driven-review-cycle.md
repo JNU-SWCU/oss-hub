@@ -39,7 +39,7 @@ PRD·IA·Accepted ADR·root와 적용되는 nested `AGENTS` 범위 안의 기술
 - 외부 OAuth·GitHub App·webhook 등 권한 있는 외부 연동
 - 여러 도메인의 계약을 함께 바꾸는 횡단 설계 변경
 
-high risk PR은 `MERGE_READY` 이후에도 @GoBeromsu(PM)와 @Lumiere001(Tech Lead)이 동일한 head SHA에 대해 각각 manual accept를 남겨야 한다.
+high risk PR은 `MERGE_READY` 이후에도 PM인 @GoBeromsu와 Tech Lead인 @Lumiere001이 동일한 head SHA에 대해 각각 manual accept를 남겨야 한다.
 production release 배포도 두 사람의 release tag와 exact SHA manual accept 뒤에만 시작한다.
 Jenkins의 실패 시 중단·증적 보존·기존 이미지 복구 동작은 ADR-002의 배포 계약을 유지하며, 이 ADR은 별도의 rollback 동작 변경을 결정하지 않는다.
 
@@ -79,4 +79,4 @@ production release·재배포는 @GoBeromsu와 @Lumiere001의 release SHA manual
 - 2026-07-16: Owner 댓글 #4991669947의 Tech Lead 위임 경계와 독립 리뷰 분류를 수용했다.
 - 2026-07-17: 병합 조건의 review 항목을 required review와 CODEOWNERS 대상 경로의 Code Owner review로 이원화해 실제 CODEOWNERS 커버리지와 맞췄다.
 - 2026-07-17: blocker 분류를 독립 리뷰 문단에서 한 번만 정의하고, 병합 조건은 해결되지 않은 blocker 부재로 명시했다.
-- 2026-07-23: 일반 PR의 상호 Code Owner review를 전남 exact-head `MERGE_READY`로 대체했다. high risk PR과 production release에는 PM(@GoBeromsu)·Tech Lead(@Lumiere001)의 동일 SHA manual accept를 추가했다.
+- 2026-07-23: 일반 PR의 상호 Code Owner review를 전남 exact-head `MERGE_READY`로 대체했다. high risk PR과 production release에는 PM인 @GoBeromsu와 Tech Lead인 @Lumiere001의 동일 SHA manual accept를 추가했다.

@@ -63,7 +63,7 @@ DB 마이그레이션은 직렬로만 진행한다. 동시 마이그레이션 PR
 저장소 검증과 required CI를 모두 통과시켜 `MERGE_READY`를 기록하면 추가 사람 상호 리뷰 없이 병합할 수 있다.
 권한·개인정보·DB migration 또는 비가역 데이터 변경, CI·배포·rollback·CODEOWNERS·보안 정책,
 외부 권한 있는 연동과 횡단 계약 변경은 high risk다.
-high risk PR은 `MERGE_READY` 외에 @GoBeromsu(PM)와 @Lumiere001(Tech Lead)의 같은 head SHA manual accept가 모두 필요하다.
+high risk PR은 `MERGE_READY` 외에 PM인 @GoBeromsu와 Tech Lead인 @Lumiere001의 같은 head SHA manual accept가 모두 필요하다.
 production release 배포도 두 사람의 release SHA manual accept 뒤에만 시작하며, Jenkins 실패·복구 동작은 ADR-002의 현재 계약을 따른다.
 
 ## 4. 에이전트 금지 목록
