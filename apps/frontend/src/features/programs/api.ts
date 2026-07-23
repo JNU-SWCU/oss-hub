@@ -1,4 +1,4 @@
-﻿import { ApiError, apiClient } from '@/lib/api-client';
+import { ApiError, apiClient } from '@/lib/api-client';
 import type { ProgramCategory } from './program-templates';
 import type {
   ProgramActivity,
@@ -38,6 +38,13 @@ export interface EditableMilestone {
 }
 
 export interface EditableProgram {
+  readonly categoryLocked: {
+    readonly locked: boolean;
+    readonly byApplications: boolean;
+    readonly byTeams: boolean;
+    readonly applicationCount: number;
+    readonly teamCount: number;
+  };
   readonly id: string;
   readonly name: string;
   readonly organizer: string;

@@ -31,6 +31,7 @@ export class EditableProgramResponseDto {
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
   readonly applicationCount: number;
+  readonly categoryLocked: EditableProgramView['categoryLocked'];
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
   readonly repositoryProvisioningEnabled: boolean;
@@ -47,6 +48,7 @@ export class EditableProgramResponseDto {
     this.applicationTemplateKey = program.applicationTemplateKey;
     this.applicationTemplateVersion = program.applicationTemplateVersion;
     this.applicationCount = program.applicationCount;
+    this.categoryLocked = program.categoryLocked;
     this.applicationStartAt = program.applicationStartAt.toISOString();
     this.applicationEndAt = program.applicationEndAt.toISOString();
     this.repositoryProvisioningEnabled = program.repositoryProvisioningEnabled;

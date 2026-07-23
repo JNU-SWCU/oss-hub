@@ -1,235 +1,243 @@
-'use client';
+﻿'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import type { EditableMilestone } from './api';
 import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import { type EditableProgram, getEditableProgram, updateProgram } from './api';
+  createMilestone,
+  deleteMilestone,
+  getEditableProgram,
+  updateMilestone,
+  updateProgram,
+} from './api';
 import {
+  buildMilestoneInput,
   buildProgramEditInput,
-  type ProgramEditForm,
+  emptyMilestoneForm,
+  isMilestoneSubmissionConflict,
+  mapMilestoneError,
+  mapProgramEditError,
+  toMilestoneForm,
   toProgramEditForm,
+  type ProgramEditableField,
+  type ProgramEditErrors,
+  type ProgramEditForm,
+  type ProgramMilestoneEditor,
+  type ProgramMilestoneField,
 } from './program-edit-flow';
+import {
+  addDirtyField,
+  removeMilestone,
+  type ProgramEditLoadState,
+  updateMilestoneEditor,
+  updateProgramForm,
+  updateReadyProgram,
+  upsertMilestone,
+} from './program-edit-state';
 import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
+import {
+  ProgramEditLoadFailure,
+  ProgramEditSkeleton,
+  ProgramEditView,
+} from './program-edit-view';
 
-type LoadState =
-  | { readonly kind: 'loading' }
-  | { readonly kind: 'failed'; readonly message: string }
-  | { readonly kind: 'ready'; readonly program: EditableProgram };
+const REDIRECT_DELAY_MS = 0;
 
 export function ProgramEditPage({ programId }: { readonly programId: string }) {
-  const [state, setState] = useState<LoadState>({ kind: 'loading' });
+  const router = useRouter();
+  const [state, setState] = useState<ProgramEditLoadState>({ kind: 'loading' });
   const [form, setForm] = useState<ProgramEditForm | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [dirtyFields, setDirtyFields] = useState<
+    readonly ProgramEditableField[]
+  >([]);
+  const [errors, setErrors] = useState<ProgramEditErrors>({});
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [generalAlert, setGeneralAlert] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [milestoneEditor, setMilestoneEditor] =
+    useState<ProgramMilestoneEditor>({ mode: 'closed' });
+  const [milestoneDirtyFields, setMilestoneDirtyFields] = useState<
+    readonly ProgramMilestoneField[]
+  >([]);
+  const [deleteTarget, setDeleteTarget] = useState<EditableMilestone | null>(
+    null,
+  );
+  const [isMilestoneBusy, setIsMilestoneBusy] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    getEditableProgram(programId)
-      .then((program) => {
-        if (!active) return;
-        setState({ kind: 'ready', program });
-        setForm(toProgramEditForm(program));
-      })
-      .catch(() => {
-        if (active) {
-          setState({
-            kind: 'failed',
-            message: '프로그램을 불러오지 못했습니다.',
-          });
-        }
-      });
-    return () => {
-      active = false;
-    };
+  const load = useCallback(async () => {
+    setState({ kind: 'loading' });
+    setForm(null);
+    try {
+      const program = await getEditableProgram(programId);
+      setState({ kind: 'ready', program });
+      setForm(toProgramEditForm(program));
+      setDirtyFields([]);
+      setErrors({});
+      setGeneralAlert(null);
+    } catch {
+      setState({ kind: 'failed', message: '잠시 후 다시 시도해 주세요.' });
+    }
   }, [programId]);
 
-  const template = useMemo(
-    () =>
-      PROGRAM_TEMPLATE_DEFINITIONS.find(
-        (item) => item.category === form?.category,
-      ),
-    [form?.category],
-  );
-  const requiresTeam = template?.template.participation === 'team';
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  if (state.kind === 'loading' || form === null) {
-    return <p className="text-sm text-muted-foreground">불러오는 중입니다.</p>;
-  }
-  if (state.kind === 'failed') {
-    return <p className="text-sm text-destructive">{state.message}</p>;
-  }
+  const requiresTeam = useMemo(() => {
+    const category = form?.category;
+    const template = PROGRAM_TEMPLATE_DEFINITIONS.find(
+      (item) => item.category === category,
+    );
+    return template?.template.participation === 'team';
+  }, [form?.category]);
 
-  const update = (key: keyof ProgramEditForm, value: string | boolean) => {
-    setForm((current) => (current ? { ...current, [key]: value } : current));
-    setError(null);
+  const updateField = (
+    field: ProgramEditableField,
+    value: string | boolean,
+  ) => {
+    setForm((current) =>
+      current ? updateProgramForm(current, field, value) : current,
+    );
+    setDirtyFields((current) => addDirtyField(current, field));
+    setErrors({});
+    setGeneralAlert(null);
   };
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (requiresTeam && (!form.teamMinSize || !form.teamMaxSize)) {
-      setError('팀 프로그램은 최소/최대 팀 인원이 필요합니다.');
-      return;
-    }
-    setSaving(true);
+    if (form === null) return;
+    setIsSaving(true);
+    setErrors({});
+    setGeneralAlert(null);
     try {
       const updated = await updateProgram(
         programId,
-        buildProgramEditInput(form, requiresTeam),
+        buildProgramEditInput(form, requiresTeam, dirtyFields),
       );
       setState({ kind: 'ready', program: updated });
       setForm(toProgramEditForm(updated));
-    } catch {
-      setError('저장하지 못했습니다. 입력값을 확인해 주세요.');
+      setDirtyFields([]);
+      setToastMessage('저장되었습니다. 상세 화면으로 이동합니다.');
+      setTimeout(
+        () => router.replace(`/programs/${updated.id}`),
+        REDIRECT_DELAY_MS,
+      );
+    } catch (error: unknown) {
+      setErrors(mapProgramEditError(error));
     } finally {
-      setSaving(false);
+      setIsSaving(false);
     }
   };
 
+  const openAddMilestone = () => {
+    setMilestoneEditor({
+      mode: 'create',
+      form: emptyMilestoneForm(),
+      errors: {},
+    });
+    setMilestoneDirtyFields([]);
+    setGeneralAlert(null);
+  };
+  const openEditMilestone = (milestone: EditableMilestone) => {
+    setMilestoneEditor({
+      mode: 'edit',
+      form: toMilestoneForm(milestone),
+      errors: {},
+    });
+    setMilestoneDirtyFields([]);
+    setGeneralAlert(null);
+  };
+  const updateMilestoneField = (
+    field: ProgramMilestoneField,
+    value: string,
+  ) => {
+    setMilestoneEditor((current) =>
+      updateMilestoneEditor(current, field, value),
+    );
+    setMilestoneDirtyFields((current) => addDirtyField(current, field));
+  };
+
+  const saveMilestone = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (milestoneEditor.mode === 'closed') return;
+    setIsMilestoneBusy(true);
+    setGeneralAlert(null);
+    try {
+      const input = buildMilestoneInput(
+        milestoneEditor.form,
+        milestoneDirtyFields,
+      );
+      const saved = milestoneEditor.form.id
+        ? await updateMilestone(milestoneEditor.form.id, input)
+        : await createMilestone(programId, input);
+      setState((current) =>
+        updateReadyProgram(current, (program) =>
+          upsertMilestone(program, saved),
+        ),
+      );
+      setMilestoneEditor({ mode: 'closed' });
+      setMilestoneDirtyFields([]);
+    } catch (error: unknown) {
+      setMilestoneEditor((current) =>
+        current.mode === 'closed'
+          ? current
+          : { ...current, errors: mapMilestoneError(error) },
+      );
+    } finally {
+      setIsMilestoneBusy(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (deleteTarget === null) return;
+    setIsMilestoneBusy(true);
+    setGeneralAlert(null);
+    try {
+      await deleteMilestone(deleteTarget.id);
+      setState((current) => removeMilestone(current, deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (error: unknown) {
+      setGeneralAlert(
+        isMilestoneSubmissionConflict(error)
+          ? '제출물이 있는 마일스톤은 삭제할 수 없습니다.'
+          : '마일스톤을 삭제하지 못했습니다.',
+      );
+    } finally {
+      setIsMilestoneBusy(false);
+    }
+  };
+
+  if (state.kind === 'loading' || form === null) return <ProgramEditSkeleton />;
+  if (state.kind === 'failed') {
+    return (
+      <ProgramEditLoadFailure
+        message={state.message}
+        onRetry={() => void load()}
+      />
+    );
+  }
+
   return (
-    <main className="mx-auto grid w-full max-w-4xl gap-4 px-4 py-6">
-      <header className="grid gap-1">
-        <h1 className="text-3xl font-bold tracking-tight">프로그램 편집</h1>
-        <p className="text-sm text-muted-foreground">{state.program.name}</p>
-      </header>
-      <Card>
-        <CardHeader>
-          <CardTitle>기본 정보</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form className="grid gap-5" onSubmit={submit}>
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="program-name">프로그램명</FieldLabel>
-                <Input
-                  id="program-name"
-                  value={form.name}
-                  onChange={(event) => update('name', event.target.value)}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="program-organizer">주관 기관</FieldLabel>
-                <Input
-                  id="program-organizer"
-                  value={form.organizer}
-                  onChange={(event) => update('organizer', event.target.value)}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="program-category">유형</FieldLabel>
-                <select
-                  id="program-category"
-                  className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
-                  value={form.category}
-                  onChange={(event) => {
-                    const selected = PROGRAM_TEMPLATE_DEFINITIONS.find(
-                      (item) => item.category === event.target.value,
-                    );
-                    if (selected) update('category', selected.category);
-                  }}
-                >
-                  {PROGRAM_TEMPLATE_DEFINITIONS.map((item) => (
-                    <option key={item.category} value={item.category}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field>
-                  <FieldLabel htmlFor="application-start">신청 시작</FieldLabel>
-                  <Input
-                    id="application-start"
-                    type="datetime-local"
-                    value={form.applicationStartAt}
-                    onChange={(event) =>
-                      update('applicationStartAt', event.target.value)
-                    }
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="application-end">신청 종료</FieldLabel>
-                  <Input
-                    id="application-end"
-                    type="datetime-local"
-                    value={form.applicationEndAt}
-                    onChange={(event) =>
-                      update('applicationEndAt', event.target.value)
-                    }
-                  />
-                </Field>
-              </div>
-              {requiresTeam ? (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Field>
-                    <FieldLabel htmlFor="team-min">최소 팀 인원</FieldLabel>
-                    <Input
-                      id="team-min"
-                      type="number"
-                      min={1}
-                      value={form.teamMinSize}
-                      onChange={(event) =>
-                        update('teamMinSize', event.target.value)
-                      }
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="team-max">최대 팀 인원</FieldLabel>
-                    <Input
-                      id="team-max"
-                      type="number"
-                      min={1}
-                      value={form.teamMaxSize}
-                      onChange={(event) =>
-                        update('teamMaxSize', event.target.value)
-                      }
-                    />
-                  </Field>
-                </div>
-              ) : null}
-              <Field>
-                <FieldLabel htmlFor="program-description">설명</FieldLabel>
-                <textarea
-                  id="program-description"
-                  className="min-h-28 rounded-lg border border-input bg-background px-2.5 py-2 text-sm"
-                  value={form.description}
-                  onChange={(event) =>
-                    update('description', event.target.value)
-                  }
-                />
-              </Field>
-              <Field orientation="horizontal">
-                <input
-                  id="repository-provisioning"
-                  type="checkbox"
-                  checked={form.repositoryProvisioningEnabled}
-                  onChange={(event) =>
-                    update(
-                      'repositoryProvisioningEnabled',
-                      event.target.checked,
-                    )
-                  }
-                />
-                <FieldLabel htmlFor="repository-provisioning">
-                  저장소 프로비저닝 사용
-                </FieldLabel>
-              </Field>
-              <FieldError>{error}</FieldError>
-              <div className="flex justify-end">
-                <Button disabled={saving} type="submit">
-                  {saving ? '저장 중' : '저장'}
-                </Button>
-              </div>
-            </FieldGroup>
-          </form>
-        </CardContent>
-      </Card>
-    </main>
+    <ProgramEditView
+      program={state.program}
+      form={form}
+      errors={errors}
+      toastMessage={toastMessage}
+      generalAlert={generalAlert}
+      isSaving={isSaving}
+      milestoneEditor={milestoneEditor}
+      deleteTarget={deleteTarget}
+      isMilestoneBusy={isMilestoneBusy}
+      onFieldChange={updateField}
+      onSubmit={(event) => void submit(event)}
+      onAddMilestone={openAddMilestone}
+      onEditMilestone={openEditMilestone}
+      onCancelMilestone={() => setMilestoneEditor({ mode: 'closed' })}
+      onMilestoneFieldChange={updateMilestoneField}
+      onSaveMilestone={(event) => void saveMilestone(event)}
+      onRequestDeleteMilestone={setDeleteTarget}
+      onCancelDelete={() => setDeleteTarget(null)}
+      onConfirmDelete={() => void confirmDelete()}
+    />
   );
 }

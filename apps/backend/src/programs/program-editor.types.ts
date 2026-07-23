@@ -2,12 +2,14 @@ import type {
   AccountStatus,
   MilestoneSubmissionType,
   ProgramCategory,
+  RoleRequestStatus,
   Role,
 } from '@prisma/client';
 
 export type ProgramAuthority = {
   readonly role: Role | null;
   readonly accountStatus: AccountStatus;
+  readonly roleRequests: readonly { readonly status: RoleRequestStatus }[];
 };
 
 export type ProgramMilestoneView = {
@@ -18,6 +20,14 @@ export type ProgramMilestoneView = {
   readonly instructions: string | null;
 };
 
+export type ProgramCategoryLockState = {
+  readonly locked: boolean;
+  readonly byApplications: boolean;
+  readonly byTeams: boolean;
+  readonly applicationCount: number;
+  readonly teamCount: number;
+};
+
 export type EditableProgramView = {
   readonly id: string;
   readonly name: string;
@@ -26,6 +36,8 @@ export type EditableProgramView = {
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
   readonly applicationCount: number;
+  readonly teamCount: number;
+  readonly categoryLocked: ProgramCategoryLockState;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
   readonly teamMinSize: number | null;

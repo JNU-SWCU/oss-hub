@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, RoleRequestStatus } from '@prisma/client';
 import type { Prisma as PrismaTypes } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
   EditableProgramView,
+  ProgramCategoryLockState,
   ProgramEditorRepositoryPort,
   ProgramEditorTransactionStore,
   ProgramMilestoneCreateInput,
@@ -28,7 +29,15 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
   findUserAuthorityByGithubId(githubId: bigint) {
     return this.transaction.user.findUnique({
       where: { githubId },
-      select: { role: true, accountStatus: true },
+      select: {
+        role: true,
+        accountStatus: true,
+        roleRequests: {
+          where: { status: RoleRequestStatus.PENDING },
+          select: { status: true },
+          take: 1,
+        },
+      },
     });
   }
 
@@ -204,7 +213,7 @@ export class ProgramEditorRepository implements ProgramEditorRepositoryPort {
 }
 
 const editableProgramInclude = {
-  _count: { select: { applications: true } },
+  _count: { select: { applications: true, teams: true } },
   milestones: { orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }] },
 } satisfies PrismaTypes.ProgramInclude;
 
@@ -217,6 +226,8 @@ function toEditableProgramView(program: ProgramRecord): EditableProgramView {
     applicationTemplateKey: program.applicationTemplateKey,
     applicationTemplateVersion: program.applicationTemplateVersion,
     applicationCount: program._count.applications,
+    teamCount: program._count.teams,
+    categoryLocked: toCategoryLockState(program._count),
     applicationStartAt: program.applicationStartAt,
     applicationEndAt: program.applicationEndAt,
     teamMinSize: program.teamMinSize,
@@ -224,6 +235,21 @@ function toEditableProgramView(program: ProgramRecord): EditableProgramView {
     repositoryProvisioningEnabled: program.repositoryProvisioningEnabled,
     description: program.description,
     milestones: program.milestones.map(toMilestoneView),
+  };
+}
+
+function toCategoryLockState(counts: {
+  readonly applications: number;
+  readonly teams: number;
+}): ProgramCategoryLockState {
+  const byApplications = counts.applications > 0;
+  const byTeams = counts.teams > 0;
+  return {
+    locked: byApplications || byTeams,
+    byApplications,
+    byTeams,
+    applicationCount: counts.applications,
+    teamCount: counts.teams,
   };
 }
 

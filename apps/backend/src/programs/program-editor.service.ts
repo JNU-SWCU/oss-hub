@@ -1,5 +1,6 @@
 import { AccountStatus, Role } from '@prisma/client';
 import { Inject, Injectable } from '@nestjs/common';
+import type { ProblemDetailExtensions } from '../common/error-code';
 import { DomainException } from '../common/error-code';
 import type { UpdateProgramRequestDto } from './dto/update-program-request.dto';
 import type { UpsertMilestoneRequestDto } from './dto/upsert-milestone-request.dto';
@@ -24,6 +25,32 @@ export type {
   ProgramEditorRepositoryPort,
   ReexportedProgramEditorTransactionStore as ProgramEditorTransactionStore,
 };
+
+const INVALID_APPLICATION_PERIOD_FIELD_ERRORS = [
+  {
+    field: 'applicationStartAt',
+    code: 'INVALID_APPLICATION_PERIOD',
+    message: 'Application period must start before it ends.',
+  },
+  {
+    field: 'applicationEndAt',
+    code: 'INVALID_APPLICATION_PERIOD',
+    message: 'Application period must end after it starts.',
+  },
+] as const;
+
+const INVALID_TEAM_RANGE_FIELD_ERRORS = [
+  {
+    field: 'teamMinSize',
+    code: 'INVALID_TEAM_RANGE',
+    message: 'Team minimum size is required for this category.',
+  },
+  {
+    field: 'teamMaxSize',
+    code: 'INVALID_TEAM_RANGE',
+    message: 'Team maximum size must be greater than or equal to minimum size.',
+  },
+] as const;
 
 @Injectable()
 export class ProgramEditorService {
@@ -58,17 +85,21 @@ export class ProgramEditorService {
       const template = getProgramTemplate(input.category);
       const teamSize = teamSizeForTemplate(input, template.participation);
 
-      if (
-        !name ||
-        !organizer ||
-        !description ||
-        !validPeriod(applicationStartAt, applicationEndAt) ||
-        teamSize === null
-      ) {
+      if (!name || !organizer || !description) {
         this.fail(ProgramErrorCode.VALIDATION_ERROR);
       }
+      if (teamSize === null) {
+        this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+          fieldErrors: INVALID_TEAM_RANGE_FIELD_ERRORS,
+        });
+      }
+      if (!validPeriod(applicationStartAt, applicationEndAt)) {
+        this.fail(ProgramErrorCode.INVALID_APPLICATION_PERIOD, {
+          fieldErrors: INVALID_APPLICATION_PERIOD_FIELD_ERRORS,
+        });
+      }
       if (
-        existing.applicationCount > 0 &&
+        (existing.applicationCount > 0 || existing.teamCount > 0) &&
         existing.category !== input.category
       ) {
         this.fail(ProgramErrorCode.CATEGORY_LOCKED_BY_APPLICATIONS);
@@ -160,7 +191,8 @@ export class ProgramEditorService {
     githubId: bigint,
   ): Promise<void> {
     const authority = await store.findUserAuthorityByGithubId(githubId);
-    if (!canEdit(authority)) this.fail(ProgramErrorCode.FORBIDDEN);
+    const errorCode = editorPermissionError(authority);
+    if (errorCode !== null) this.fail(errorCode);
   }
 
   private milestoneData(
@@ -184,23 +216,34 @@ export class ProgramEditorService {
     };
   }
 
-  private fail(code: ProgramErrorCode): never {
-    throw new DomainException(PROGRAM_ERROR_CODES[code]);
+  private fail(
+    code: ProgramErrorCode,
+    extensions: ProblemDetailExtensions = {},
+  ): never {
+    throw new DomainException(PROGRAM_ERROR_CODES[code], extensions);
   }
 }
 
-function canEdit(authority: ProgramAuthority | null): boolean {
-  return (
-    authority?.accountStatus === AccountStatus.ACTIVE &&
-    (authority.role === Role.STAFF || authority.role === Role.ADMIN)
-  );
+function editorPermissionError(
+  authority: ProgramAuthority | null,
+): ProgramErrorCode | null {
+  if (authority?.accountStatus !== AccountStatus.ACTIVE) {
+    return ProgramErrorCode.FORBIDDEN;
+  }
+  if (authority.role === Role.STAFF || authority.role === Role.ADMIN) {
+    return null;
+  }
+  if (authority.role === null && authority.roleRequests.length > 0) {
+    return ProgramErrorCode.STAFF_APPROVAL_REQUIRED;
+  }
+  return ProgramErrorCode.FORBIDDEN;
 }
 
 function validPeriod(startAt: Date, endAt: Date): boolean {
   return (
     !Number.isNaN(startAt.getTime()) &&
     !Number.isNaN(endAt.getTime()) &&
-    endAt >= startAt
+    endAt > startAt
   );
 }
 
