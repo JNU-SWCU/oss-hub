@@ -55,7 +55,9 @@ describe('ProgramEditPage save payload', () => {
     const input = buildProgramEditInput(form, true, ['applicationStartAt']);
 
     // Then
-    expect(input.applicationStartAt).toBe('2026-08-01T10:45:00.000Z');
+    expect(input.applicationStartAt).toBe(
+      new Date(2026, 7, 1, 19, 45).toISOString(),
+    );
     expect(input.applicationEndAt).toBe(editableProgram.applicationEndAt);
   });
 });
