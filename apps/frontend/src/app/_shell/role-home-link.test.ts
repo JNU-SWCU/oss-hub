@@ -13,7 +13,7 @@ describe('resolveSessionEntry', () => {
     (role, href, label) => {
       const destination = resolveSessionEntry('assigned', role);
 
-      expect(destination).toEqual({ href, label });
+      expect(destination).toEqual({ href, label, compactLabel: '대시보드' });
     },
   );
 
@@ -23,6 +23,7 @@ describe('resolveSessionEntry', () => {
     expect(destination).toEqual({
       href: '/consent',
       label: '가입 계속하기',
+      compactLabel: '가입 계속',
     });
   });
 

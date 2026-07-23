@@ -19,11 +19,13 @@ export const ROLE_HOME_LABEL: Record<AppRole, string> = {
 interface SessionEntry {
   readonly href: string;
   readonly label: string;
+  readonly compactLabel: string;
 }
 
 const ONBOARDING_ENTRY = {
   href: '/consent',
   label: '가입 계속하기',
+  compactLabel: '가입 계속',
 } as const satisfies SessionEntry;
 
 /**
@@ -43,7 +45,11 @@ export function resolveSessionEntry(
       return ONBOARDING_ENTRY;
     case 'assigned':
       return role
-        ? { href: roleHomePath(role), label: ROLE_HOME_LABEL[role] }
+        ? {
+            href: roleHomePath(role),
+            label: ROLE_HOME_LABEL[role],
+            compactLabel: '대시보드',
+          }
         : null;
     default: {
       const exhaustive: never = status;
@@ -63,7 +69,10 @@ export function SessionEntryNavLink() {
 
   return (
     <Button asChild variant="ghost">
-      <Link href={destination.href}>{destination.label}</Link>
+      <Link href={destination.href} aria-label={destination.label}>
+        <span className="sm:hidden">{destination.compactLabel}</span>
+        <span className="hidden sm:inline">{destination.label}</span>
+      </Link>
     </Button>
   );
 }
