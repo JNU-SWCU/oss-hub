@@ -29,7 +29,11 @@ PRD·IA·Accepted ADR·root와 적용되는 nested `AGENTS` 범위 안의 기술
 Ponytail은 기존 라이브러리 재사용, 중복과 불필요한 복잡도만 확인하는 검토 렌즈이며 기능 존재·동작 여부를 판정하거나 실제 QA를 대체하지 않는다.
 
 일반 PR은 전남의 exact-head `MERGE_READY`가 병합 검토의 단일 수렴 결과다.
-`MERGE_READY`에는 일반 코드·계약 검토, Ponytail 복잡도 검토, 실제 UI/API QA, repository-declared CLI 검증과 required CI 결과를 함께 기록한다. 변경 특성상 UI/API QA가 불가능하거나 무관하면 구체적인 N/A 사유를 기록한다.
+`MERGE_READY`에는 일반 코드·계약 검토, Ponytail 복잡도 검토, 실제 UI/API QA, repository-declared CLI 검증과 required CI 결과를 함께 기록한다.
+실제 UI/API QA는 티켓의 화면·API 시나리오를 테스트 명세로 읽고, 변경에 적용되는 정상 흐름·권한 차단·마감/중복/stale 상태·성공 뒤 상태 변화를 직접 확인한다.
+UI로 확인할 수 없는 backend-only 계약은 격리 환경의 실제 API·DB 경로로 확인하며, CI·단위·통합 테스트는 그 뒤의 보조 증거다.
+관찰 가능한 UI/API 동작이 없는 변경만 구체적인 N/A 사유를 허용한다.
+실행 환경·선행 PR·외부 자원 때문에 직접 확인하지 못한 동작 변경은 `BLOCKED/UNVERIFIED`로 기록하고 `MERGE_READY`를 남기지 않는다.
 
 | 분류 | 의미 | 병합 영향 | 처리 |
 | --- | --- | --- | --- |

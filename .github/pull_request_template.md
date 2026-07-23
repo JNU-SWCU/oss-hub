@@ -77,7 +77,7 @@
 - risk: `GENERAL | HIGH_RISK`
 - head full SHA:
 - `MERGE_READY` 댓글 URL:
-- 실제 UI/API QA 증거 URL 또는 N/A 사유:
+- 실제 UI/API QA 증거 URL 또는 N/A 사유: `N/A는 관찰 가능한 동작이 없을 때만, 환경·선행 PR·외부 자원 blocker는 BLOCKED/UNVERIFIED`
 - `RISK_ACCEPT role=PM head=<full-sha> risk=GENERAL` 댓글 URL: `CODEOWNERS 후보를 GENERAL로 낮출 때만`
 - `RISK_ACCEPT role=TECH_LEAD head=<full-sha> risk=GENERAL` 댓글 URL: `CODEOWNERS 후보를 GENERAL로 낮출 때만`
 - `PM_ACCEPT head=<full-sha>` 댓글 URL: `HIGH_RISK만, 일반 PR은 N/A`

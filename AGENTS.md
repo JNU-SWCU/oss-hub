@@ -56,7 +56,7 @@ DB 마이그레이션은 직렬로만 진행한다. 동시 마이그레이션 PR
 권한 경계와 병합 조건은 [ADR-005](docs/decisions/ADR-005-agent-driven-review-cycle.md)가 원본이다.
 전남의 독립 리뷰는 적용되는 `AGENTS.md`·팀 컨벤션 준수, 중복 구현, 기존 기능의 불필요한 재구현, correctness·security·명시적 계약 위반을 검증한다.
 리뷰 결과는 `blocker`, `fix-now`, `follow-up`, `reject`로 분류하며 정확한 의미는 ADR-005를 따른다.
-일반 PR은 전남이 exact head에서 코드·계약, Ponytail, 실제 UI/API QA, 저장소 검증과 required CI를 통과시켜 `MERGE_READY`를 기록하면 사람 상호 리뷰 없이 병합할 수 있다.
+일반 PR은 전남이 exact head에서 코드·계약, Ponytail, 실제 UI/API QA, 저장소 검증과 required CI를 통과시켜 `MERGE_READY`를 기록하면 사람 상호 리뷰 없이 병합할 수 있으며, 동작 변경의 직접 QA가 막히면 미검증으로 처리해 병합하지 않는다.
 high risk의 전체 분류표와 예외는 ADR-005만을 원본으로 사용한다.
 high risk PR은 `MERGE_READY` 외에 PM인 @GoBeromsu와 Tech Lead인 @Lumiere001의 같은 head SHA manual accept가 모두 필요하다.
 production release 배포도 두 사람의 release SHA manual accept 뒤에만 시작하며, Jenkins 실패·복구 동작은 ADR-002의 현재 계약을 따른다.
