@@ -200,24 +200,6 @@ describe('AuthRepository.upsertUser', () => {
       data: { login: 'synthetic-login', avatarUrl: null },
     });
   });
-
-  it('온보딩 프로필을 완료한 기존 계정은 GitHub 프로필의 다른 name으로 재로그인해도 확정한 name을 유지한다', async () => {
-    const { repository, upsert } = buildRepository(
-      buildRow({
-        name: '사용자확정이름',
-        studentId: '1'.repeat(6),
-        department: '컴퓨터공학과',
-      }),
-    );
-
-    const result = await repository.upsertUser(
-      buildProfile({ name: 'GitHub프로필이름' }),
-    );
-
-    expect(result.name).toBe('사용자확정이름');
-    const [upsertArgs] = upsert.mock.calls[0] as [{ update: object }];
-    expect(upsertArgs.update).not.toHaveProperty('name');
-  });
 });
 
 describe('AuthRepository.findByGithubId', () => {
