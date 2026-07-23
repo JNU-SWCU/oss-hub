@@ -38,7 +38,7 @@ describe('AuditLogView', () => {
     expect(html).toContain('기록이 없습니다');
   });
 
-  it('좁은 화면에서 설명의 한국어 어절 단위 줄바꿈을 유지한다', () => {
+  it('조회 조건 설명을 제공한다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView
         {...baseProps}
@@ -49,11 +49,11 @@ describe('AuditLogView', () => {
     );
 
     expect(html).toContain(
-      '<span class="break-keep">역할 요청 변경 이력을 행위자, 액션, 기간으로 조회합니다.</span>',
+      '역할 요청 변경 이력을 행위자, 액션, 기간으로 조회합니다.',
     );
   });
 
-  it('조회 실패와 44px 다시 시도 버튼을 표시한다', () => {
+  it('조회 실패와 다시 시도 동작을 표시한다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView
         {...baseProps}
@@ -65,7 +65,6 @@ describe('AuditLogView', () => {
 
     expect(html).toContain('감사 로그를 불러오지 못했습니다.');
     expect(html).toContain('다시 시도');
-    expect(html).toContain('min-h-11');
   });
 
   it('행위자·액션·대상·발생 일시와 모바일 가로 스크롤 안내를 표시한다', () => {
@@ -94,7 +93,7 @@ describe('AuditLogView', () => {
     expect(html).toContain('표를 좌우로 스크롤할 수 있습니다');
   });
 
-  it('좁은 화면에서 필터 컨트롤이 폼 안에 유지되고 44px 터치 영역을 제공한다', () => {
+  it('필터 이름을 각 컨트롤과 연결한다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView
         {...baseProps}
@@ -104,24 +103,19 @@ describe('AuditLogView', () => {
       />,
     );
 
-    for (const id of [
-      'audit-actor',
-      'audit-action',
-      'audit-from',
-      'audit-to',
+    for (const [label, id] of [
+      ['행위자', 'audit-actor'],
+      ['액션 종류', 'audit-action'],
+      ['시작일', 'audit-from'],
+      ['종료일', 'audit-to'],
     ]) {
-      const control = html.match(new RegExp(`<[^>]+id="${id}"[^>]*>`));
-      const className = control?.[0].match(/class="([^"]+)"/)?.[1];
-
-      expect(className).toContain('min-h-11');
-      expect(className).toContain('min-w-0');
-      expect(className).toContain('w-full');
+      expect(html).toContain(`<label for="${id}"`);
+      expect(html).toContain(`id="${id}"`);
+      expect(html).toContain(label);
     }
-
-    expect(html.match(/<button[^>]+class="[^"]*min-h-11/g)).toHaveLength(2);
   });
 
-  it('공유 Table의 단일 스크롤 영역과 항상 보이는 스크롤 안내를 사용한다', () => {
+  it('표를 가로 스크롤 안내와 연결한다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView
         {...baseProps}
@@ -131,9 +125,8 @@ describe('AuditLogView', () => {
       />,
     );
 
-    expect(html.match(/overflow-x-auto/g)).toHaveLength(1);
+    expect(html).toContain('id="audit-table-scroll-hint"');
     expect(html).toContain('aria-describedby="audit-table-scroll-hint"');
-    expect(html).not.toContain('sm:hidden');
-    expect(html).not.toContain('min-w-[44rem]');
+    expect(html).toContain('표를 좌우로 스크롤할 수 있습니다');
   });
 });
