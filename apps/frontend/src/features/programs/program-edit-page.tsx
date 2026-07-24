@@ -41,7 +41,7 @@ import {
   ProgramEditView,
 } from './program-edit-view';
 
-const REDIRECT_DELAY_MS = 0;
+const REDIRECT_DELAY_MS = 1000;
 
 export function ProgramEditPage({ programId }: { readonly programId: string }) {
   const router = useRouter();
@@ -106,6 +106,21 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (form === null) return;
+    const clientFieldErrors: ProgramEditErrors = {
+      name: form.name.trim() ? undefined : '프로그램 이름을 입력해 주세요.',
+      organizer: form.organizer.trim() ? undefined : '주최를 입력해 주세요.',
+      description: form.description.trim()
+        ? undefined
+        : '프로그램 설명을 입력해 주세요.',
+    };
+    if (
+      clientFieldErrors.name ||
+      clientFieldErrors.organizer ||
+      clientFieldErrors.description
+    ) {
+      setErrors(clientFieldErrors);
+      return;
+    }
     setIsSaving(true);
     setErrors({});
     setGeneralAlert(null);
@@ -207,7 +222,6 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
     }
   };
 
-  if (state.kind === 'loading' || form === null) return <ProgramEditSkeleton />;
   if (state.kind === 'failed') {
     return (
       <ProgramEditLoadFailure
@@ -215,6 +229,9 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
         onRetry={() => void load()}
       />
     );
+  }
+  if (state.kind === 'loading' || form === null) {
+    return <ProgramEditSkeleton />;
   }
 
   return (

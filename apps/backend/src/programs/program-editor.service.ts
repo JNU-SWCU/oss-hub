@@ -82,11 +82,48 @@ export class ProgramEditorService {
       const description = input.description.trim();
       const applicationStartAt = new Date(input.applicationStartAt);
       const applicationEndAt = new Date(input.applicationEndAt);
+      const categoryChanged = existing.category !== input.category;
       const template = getProgramTemplate(input.category);
       const teamSize = teamSizeForTemplate(input, template.participation);
+      // Preserve template binding when category is unchanged so past Application.answers
+      // keep a stable validation baseline (even if the registry later bumps versions).
+      const applicationTemplateKey = categoryChanged
+        ? template.key
+        : existing.applicationTemplateKey;
+      const applicationTemplateVersion = categoryChanged
+        ? template.version
+        : existing.applicationTemplateVersion;
 
-      if (!name || !organizer || !description) {
-        this.fail(ProgramErrorCode.VALIDATION_ERROR);
+      const emptyFieldErrors: {
+        field: string;
+        code: string;
+        message: string;
+      }[] = [];
+      if (!name) {
+        emptyFieldErrors.push({
+          field: 'name',
+          code: 'REQUIRED',
+          message: '프로그램 이름을 입력해 주세요.',
+        });
+      }
+      if (!organizer) {
+        emptyFieldErrors.push({
+          field: 'organizer',
+          code: 'REQUIRED',
+          message: '주최를 입력해 주세요.',
+        });
+      }
+      if (!description) {
+        emptyFieldErrors.push({
+          field: 'description',
+          code: 'REQUIRED',
+          message: '프로그램 설명을 입력해 주세요.',
+        });
+      }
+      if (emptyFieldErrors.length > 0) {
+        this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+          fieldErrors: emptyFieldErrors,
+        });
       }
       if (teamSize === null) {
         this.fail(ProgramErrorCode.VALIDATION_ERROR, {
@@ -100,7 +137,7 @@ export class ProgramEditorService {
       }
       if (
         (existing.applicationCount > 0 || existing.teamCount > 0) &&
-        existing.category !== input.category
+        categoryChanged
       ) {
         this.fail(ProgramErrorCode.CATEGORY_LOCKED_BY_APPLICATIONS);
       }
@@ -123,8 +160,8 @@ export class ProgramEditorService {
         name,
         organizer,
         category: input.category,
-        applicationTemplateKey: template.key,
-        applicationTemplateVersion: template.version,
+        applicationTemplateKey,
+        applicationTemplateVersion,
         applicationStartAt,
         applicationEndAt,
         teamMinSize: teamSize.teamMinSize,
@@ -201,8 +238,29 @@ export class ProgramEditorService {
   ): ProgramMilestoneInput {
     const name = input.name.trim();
     const dueAt = new Date(input.dueAt);
-    if (!name || Number.isNaN(dueAt.getTime())) {
-      this.fail(ProgramErrorCode.VALIDATION_ERROR);
+    const milestoneFieldErrors: {
+      field: string;
+      code: string;
+      message: string;
+    }[] = [];
+    if (!name) {
+      milestoneFieldErrors.push({
+        field: 'name',
+        code: 'REQUIRED',
+        message: '마일스톤 이름을 입력해 주세요.',
+      });
+    }
+    if (Number.isNaN(dueAt.getTime())) {
+      milestoneFieldErrors.push({
+        field: 'dueAt',
+        code: 'REQUIRED',
+        message: '유효한 마감일을 입력해 주세요.',
+      });
+    }
+    if (milestoneFieldErrors.length > 0) {
+      this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+        fieldErrors: milestoneFieldErrors,
+      });
     }
     if (dueAt <= applicationEndAt) {
       this.fail(ProgramErrorCode.MILESTONE_BEFORE_APPLICATION_END);

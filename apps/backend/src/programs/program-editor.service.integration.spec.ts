@@ -31,14 +31,14 @@ describe('ProgramEditorService integration concurrency', () => {
         {
           id: `${TEST_PREFIX}staff`,
           githubId: STAFF_GITHUB_ID,
-          login: 'issue101-staff',
+          nickname: 'issue101-staff',
           role: 'STAFF',
           accountStatus: 'ACTIVE',
         },
         {
           id: `${TEST_PREFIX}applicant`,
           githubId: 9_101_000_002n,
-          login: 'issue101-applicant',
+          nickname: 'issue101-applicant',
           role: 'STUDENT',
           accountStatus: 'ACTIVE',
         },

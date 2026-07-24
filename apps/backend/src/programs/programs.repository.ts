@@ -86,7 +86,7 @@ export class ProgramsRepository {
         applicationStartAt: true,
         applicationEndAt: true,
         milestones: {
-          orderBy: { dueAt: 'asc' as const },
+          orderBy: [{ dueAt: 'asc' as const }, { createdAt: 'asc' as const }],
           select: {
             id: true,
             name: true,

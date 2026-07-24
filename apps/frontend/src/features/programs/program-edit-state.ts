@@ -71,14 +71,26 @@ export function upsertMilestone(
   const exists = program.milestones.some(
     (milestone) => milestone.id === saved.id,
   );
+  const milestones = exists
+    ? program.milestones.map((milestone) =>
+        milestone.id === saved.id ? saved : milestone,
+      )
+    : [...program.milestones, saved];
   return {
     ...program,
-    milestones: exists
-      ? program.milestones.map((milestone) =>
-          milestone.id === saved.id ? saved : milestone,
-        )
-      : [...program.milestones, saved],
+    milestones: sortMilestones(milestones),
   };
+}
+
+/** dueAt ASC, then id ASC as a stable tie-break when createdAt is not on the DTO. */
+export function sortMilestones(
+  milestones: readonly EditableMilestone[],
+): EditableMilestone[] {
+  return [...milestones].sort((a, b) => {
+    const byDue = a.dueAt.localeCompare(b.dueAt);
+    if (byDue !== 0) return byDue;
+    return a.id.localeCompare(b.id);
+  });
 }
 
 export function removeMilestone(
