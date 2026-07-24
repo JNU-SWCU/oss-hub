@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { AccountStatus, Role } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import type { CreateProgramRequestDto } from './dto/create-program-request.dto';
 import { ProgramsRepository } from './programs.repository';
@@ -18,7 +18,10 @@ export class ProgramCreationService {
 
   async create(githubId: bigint, input: CreateProgramRequestDto) {
     const user = await this.repository.findCreatorRole(githubId);
-    if (user?.role !== Role.STAFF && user?.role !== Role.ADMIN) {
+    if (
+      user?.accountStatus !== AccountStatus.ACTIVE ||
+      (user.role !== Role.STAFF && user.role !== Role.ADMIN)
+    ) {
       throw new DomainException(
         PROGRAM_ERROR_CODES[ProgramErrorCode.FORBIDDEN],
       );
