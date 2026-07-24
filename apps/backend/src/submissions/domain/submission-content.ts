@@ -26,6 +26,12 @@ export interface CreateSubmissionInput {
   readonly comment: string | null;
 }
 
+export interface ResubmitSubmissionInput {
+  readonly baseRevision: number;
+  readonly content: SubmissionContentInput;
+  readonly comment: string | null;
+}
+
 export function parseSubmissionContent(input: {
   readonly type: string;
   readonly fileId?: string;
