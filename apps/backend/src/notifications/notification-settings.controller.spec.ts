@@ -6,9 +6,7 @@ import { NotificationsStaffGuard } from './notifications-staff.guard';
 import type { NotificationSettingsService } from './notification-settings.service';
 import { UpdateNotificationEmailRequestDto } from './dto/update-notification-email-request.dto';
 
-function readGuards(
-  methodName: 'updateMyNotificationEmail',
-): unknown[] {
+function readGuards(methodName: 'updateMyNotificationEmail'): unknown[] {
   const method: unknown = Object.getOwnPropertyDescriptor(
     NotificationSettingsController.prototype,
     methodName,

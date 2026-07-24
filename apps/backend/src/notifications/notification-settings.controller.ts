@@ -1,4 +1,11 @@
-import { Body, Controller, Inject, Patch, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Inject,
+  Patch,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { OriginGuard } from '../auth/origin.guard';
 import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
 import { NotificationSettingsResponseDto } from './dto/notification-settings-response.dto';

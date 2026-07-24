@@ -5,10 +5,7 @@ import type {
 } from './types';
 
 export type NotificationApiErrorKind =
-  | 'unauthorized'
-  | 'forbidden'
-  | 'not-found'
-  | 'generic';
+  'unauthorized' | 'forbidden' | 'not-found' | 'generic';
 
 export class NotificationSettingsResponseError extends Error {
   constructor() {

@@ -6,9 +6,7 @@ export class NotificationSettingsResponseDto {
     readonly notifyEnabled: boolean,
   ) {}
 
-  static from(
-    settings: NotificationSettings,
-  ): NotificationSettingsResponseDto {
+  static from(settings: NotificationSettings): NotificationSettingsResponseDto {
     return new NotificationSettingsResponseDto(
       settings.notificationEmail,
       settings.notifyEnabled,

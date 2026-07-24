@@ -19,9 +19,7 @@ export interface NotificationSettingsRepositoryPort {
 }
 
 @Injectable()
-export class NotificationSettingsRepository
-  implements NotificationSettingsRepositoryPort
-{
+export class NotificationSettingsRepository implements NotificationSettingsRepositoryPort {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async updateByGithubId(
