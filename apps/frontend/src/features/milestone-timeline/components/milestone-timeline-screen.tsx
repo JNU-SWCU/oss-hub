@@ -2,18 +2,13 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { loadMilestoneTimeline } from '../loader';
-import type {
-  MilestoneTimelineFixture,
-  MilestoneTimelineState,
-} from '../types';
+import type { MilestoneTimelineState } from '../types';
 import { MilestoneTimelineView } from './milestone-timeline-view';
 
 export function MilestoneTimelineScreen({
   programId,
-  fixture,
 }: {
   readonly programId: string;
-  readonly fixture: MilestoneTimelineFixture | null;
 }) {
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<MilestoneTimelineState>({
@@ -24,7 +19,7 @@ export function MilestoneTimelineScreen({
   useEffect(() => {
     let active = true;
     setState({ kind: 'loading' });
-    loadMilestoneTimeline({ programId, fixture, attempt })
+    loadMilestoneTimeline({ programId })
       .then((timeline) => {
         if (active) setState({ kind: 'ready', timeline });
       })
@@ -35,7 +30,7 @@ export function MilestoneTimelineScreen({
     return () => {
       active = false;
     };
-  }, [attempt, fixture, programId]);
+  }, [attempt, programId]);
 
   return <MilestoneTimelineView state={state} onRetry={retry} />;
 }

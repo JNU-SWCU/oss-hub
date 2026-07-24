@@ -35,6 +35,14 @@ const SUBMISSION_GUIDES = {
   REPOSITORY_RELEASE: 'GitHub Release URL',
 } as const satisfies Readonly<Record<SubmissionType, string>>;
 
+const STATUS_LABELS = {
+  NOT_SUBMITTED: '미제출',
+  SUBMITTED: '제출 완료',
+  APPROVED: '승인 완료',
+  CHANGES_REQUESTED: '보완 필요',
+  REJECTED: '반려',
+} as const satisfies Readonly<Record<TimelineStatus, string>>;
+
 class MilestoneTimelineResponseError extends Error {
   constructor() {
     super(INVALID_RESPONSE_MESSAGE);
@@ -79,6 +87,11 @@ function parseNullableString(value: unknown): string | null {
   return invalidResponse();
 }
 
+function parseOptionalNullableString(value: unknown): string | null {
+  if (value === undefined) return null;
+  return parseNullableString(value);
+}
+
 function parseSubmission(value: unknown): ChecklistSubmission | null {
   if (value === null) return null;
   if (
@@ -94,8 +107,8 @@ function parseSubmission(value: unknown): ChecklistSubmission | null {
     id: value.id,
     status: parseSubmittedStatus(value.status),
     currentRevision: Number(value.currentRevision),
-    lastReviewedAt: parseNullableString(value.lastReviewedAt),
-    reviewComment: parseNullableString(value.reviewComment),
+    lastReviewedAt: parseOptionalNullableString(value.lastReviewedAt),
+    reviewComment: parseOptionalNullableString(value.reviewComment),
     canResubmit: value.canResubmit,
   };
 }
@@ -146,15 +159,52 @@ function seoulDayUtcTime(value: Date): number {
 }
 
 function dDayLabel(dueAt: string, now: Date): string {
-  const days = Math.round(
-    (seoulDayUtcTime(new Date(dueAt)) - seoulDayUtcTime(now)) / MS_PER_DAY,
-  );
+  const days = dueDayDelta(dueAt, now);
   if (days === 0) return 'D-Day';
   return days > 0 ? `D-${days}` : `D+${Math.abs(days)}`;
 }
 
+function dueDayDelta(dueAt: string, now: Date): number {
+  return Math.round(
+    (seoulDayUtcTime(new Date(dueAt)) - seoulDayUtcTime(now)) / MS_PER_DAY,
+  );
+}
+
 function statusLabel(status: TimelineStatus): string {
-  return status === 'NOT_SUBMITTED' ? '미제출' : status;
+  return STATUS_LABELS[status];
+}
+
+type SubmitActionInput = {
+  readonly programId: string;
+  readonly milestoneId: string;
+  readonly status: TimelineStatus;
+  readonly submission: ChecklistSubmission | null;
+  readonly dueDay: number;
+};
+
+function submitAction({
+  programId,
+  milestoneId,
+  status,
+  submission,
+  dueDay,
+}: SubmitActionInput) {
+  if (status === 'CHANGES_REQUESTED' && submission?.canResubmit) {
+    return {
+      submitHref: `/programs/${encodeURIComponent(programId)}/submissions?milestoneId=${encodeURIComponent(milestoneId)}`,
+      submitLabel: '다시 제출',
+    };
+  }
+  if (status === 'NOT_SUBMITTED' && dueDay >= 0) {
+    return {
+      submitHref: `/programs/${encodeURIComponent(programId)}/milestones/${encodeURIComponent(milestoneId)}/submit`,
+      submitLabel: '제출하기',
+    };
+  }
+  return {
+    submitHref: null,
+    submitLabel: null,
+  };
 }
 
 export function parseMilestoneTimelineResponse(
@@ -167,9 +217,13 @@ export function parseMilestoneTimelineResponse(
     applicationId: response.applicationId,
     applicationMode: response.applicationMode,
     items: [...response.items]
-      .sort((left, right) => left.dueAt.localeCompare(right.dueAt))
+      .sort(
+        (left, right) =>
+          new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime(),
+      )
       .map((item) => {
         const status = item.submission?.status ?? 'NOT_SUBMITTED';
+        const dueDay = dueDayDelta(item.dueAt, now);
         return {
           ...item,
           dueLabel: DATE_FORMAT.format(new Date(item.dueAt)),
@@ -177,7 +231,13 @@ export function parseMilestoneTimelineResponse(
           submissionGuide: SUBMISSION_GUIDES[item.submissionType],
           status,
           statusLabel: statusLabel(status),
-          submitHref: `/programs/${encodeURIComponent(programId)}/milestones/${encodeURIComponent(item.milestoneId)}/submit`,
+          ...submitAction({
+            programId,
+            milestoneId: item.milestoneId,
+            status,
+            submission: item.submission,
+            dueDay,
+          }),
         };
       }),
   };

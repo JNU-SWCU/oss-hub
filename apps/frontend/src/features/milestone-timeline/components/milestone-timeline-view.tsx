@@ -18,11 +18,11 @@ type MilestoneTimelineViewProps = {
 const STATUS_VARIANTS = {
   SUBMITTED: 'pending',
   APPROVED: 'approved',
-  CHANGES_REQUESTED: 'pending',
+  CHANGES_REQUESTED: 'rejected',
   REJECTED: 'rejected',
-  NOT_SUBMITTED: 'closed',
+  NOT_SUBMITTED: 'pending',
 } as const satisfies Readonly<
-  Record<TimelineStatus, 'pending' | 'approved' | 'rejected' | 'closed'>
+  Record<TimelineStatus, 'pending' | 'approved' | 'rejected'>
 >;
 
 function LoadingState() {
@@ -97,10 +97,10 @@ function TimelineCard({
               {item.submissionGuide}
             </span>
           </div>
-          {item.status === 'NOT_SUBMITTED' ? (
+          {item.submitHref && item.submitLabel ? (
             <div>
               <Button asChild variant="outline" size="sm">
-                <Link href={item.submitHref}>제출하기</Link>
+                <Link href={item.submitHref}>{item.submitLabel}</Link>
               </Button>
             </div>
           ) : null}
