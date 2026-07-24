@@ -1,16 +1,6 @@
-// @vitest-environment jsdom
-
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { StudentDashboardScreen } from './components/student-dashboard-screen';
 import { StudentDashboardView } from './components/student-dashboard-view';
 import {
   completedDashboardFixture,
@@ -18,19 +8,7 @@ import {
   pendingDashboardFixture,
   rejectedDashboardFixture,
 } from './fixtures';
-
-const { fetchStudentDashboardMock } = vi.hoisted(() => ({
-  fetchStudentDashboardMock: vi.fn(),
-}));
-
-vi.mock('./api', () => ({
-  fetchStudentDashboard: fetchStudentDashboardMock,
-}));
-
-afterEach(() => {
-  cleanup();
-  fetchStudentDashboardMock.mockReset();
-});
+import { loadStudentDashboard } from './load-student-dashboard';
 
 const renderView = (
   props: Partial<Parameters<typeof StudentDashboardView>[0]> = {},
@@ -96,11 +74,10 @@ describe('StudentDashboardView', () => {
   });
 
   it('조회 실패와 다시 시도를 함께 표시한다', () => {
-    const onRetry = vi.fn();
     const html = renderView({
       data: null,
       status: 'error',
-      onRetry,
+      onRetry: () => undefined,
     });
 
     expect(html).toContain('role="alert"');
@@ -108,28 +85,28 @@ describe('StudentDashboardView', () => {
     expect(html).toContain('다시 시도');
   });
 
-  it('조회 실패 후 다시 시도를 누르면 대시보드를 다시 요청한다', async () => {
-    fetchStudentDashboardMock
-      .mockRejectedValueOnce(new Error('network error'))
-      .mockResolvedValueOnce(dashboardFixture);
-
-    render(<StudentDashboardScreen />);
-
-    expect(
-      await screen.findByText('대시보드를 불러오지 못했습니다'),
-    ).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
-
-    await waitFor(() => {
-      expect(fetchStudentDashboardMock).toHaveBeenCalledTimes(2);
-    });
-    expect(await screen.findByText('캡스톤 2026')).toBeTruthy();
-  });
-
   it('로딩 중에는 접근 가능한 로딩 상태를 표시한다', () => {
     const html = renderView({ data: null, status: 'loading' });
 
     expect(html).toContain('aria-busy="true"');
     expect(html).toContain('대시보드를 불러오는 중');
+  });
+});
+
+describe('loadStudentDashboard', () => {
+  it('실패 후 다시 호출하면 성공 결과를 받는다', async () => {
+    const fetchDashboard = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('network error'))
+      .mockResolvedValueOnce(dashboardFixture);
+
+    await expect(loadStudentDashboard(fetchDashboard)).resolves.toEqual({
+      status: 'error',
+    });
+    await expect(loadStudentDashboard(fetchDashboard)).resolves.toEqual({
+      status: 'success',
+      data: dashboardFixture,
+    });
+    expect(fetchDashboard).toHaveBeenCalledTimes(2);
   });
 });

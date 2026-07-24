@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { fetchStudentDashboard } from '../api';
+import { loadStudentDashboard } from '../load-student-dashboard';
 import type { StudentDashboard, StudentDashboardStatus } from '../types';
 import { StudentDashboardView } from './student-dashboard-view';
 
@@ -18,15 +18,15 @@ export function StudentDashboardScreen() {
     setData(null);
     setStatus('loading');
 
-    fetchStudentDashboard()
-      .then((nextData) => {
-        if (!active) return;
-        setData(nextData);
+    void loadStudentDashboard().then((result) => {
+      if (!active) return;
+      if (result.status === 'success') {
+        setData(result.data);
         setStatus('success');
-      })
-      .catch(() => {
-        if (active) setStatus('error');
-      });
+        return;
+      }
+      setStatus('error');
+    });
 
     return () => {
       active = false;
