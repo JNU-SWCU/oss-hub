@@ -107,7 +107,8 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 학생 활동 타임라인 | @jinsol1190-rgb | review | #154 | [#210](https://github.com/JNU-SWCU/oss-hub/pull/210) | #210 pass | [프런트엔드 #198](https://github.com/JNU-SWCU/oss-hub/pull/198) merged · 백엔드 조회 API #210 리뷰 대기 |
 | Cross-cutting E2E 스모크(접수 흐름·전체 루프) | @GoBeromsu | planned | #128 #129 | - | - | 상위 화면 티켓들 merge 진행에 따라 순차 검증 |
 | Product Definition & Operations 백로그(Release 배포·Notion PRD·IA 동기화) | @GoBeromsu (결정) / @Lumiere001 (#199 구현) | active | #112 #130 #199 | - | local pass | AWS 서버 실행 기반 준비 완료 · Release Jenkinsfile·ADR 동기화 및 초기 Jenkins credential/webhook 구성 진행 중 |
-| Data Collection·활성화 랭킹(저장소 주기 수집 스케줄러·nav 랭킹 화면) | @GoBeromsu (#151) / @Geuin04 (#152) | planned | #151 #152 | - | - | 없음 |
+| GitHub 저장소 주기 수집 스케줄러 | @GoBeromsu | planned | #151 | - | - | 없음 |
+| OSS 활성화 랭킹 | @jinsol1190-rgb | review | #152 | [#194](https://github.com/JNU-SWCU/oss-hub/pull/194) | local pass | 공개 적격성 projection 부재로 endpoint·nav fail-closed 비노출 |
 | 공개 랭킹 저장소 소유권 projection | @jinsol1190-rgb | done | #197 | #202 | pass | 없음 |
 
 ## 외부 게이트
