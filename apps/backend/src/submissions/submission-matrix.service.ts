@@ -82,7 +82,7 @@ export class SubmissionMatrixService {
 }
 
 function cellKey(applicationId: string, milestoneId: string): string {
-  return `${applicationId}${milestoneId}`;
+  return `${applicationId}::${milestoneId}`;
 }
 
 function toMatrixRow(
