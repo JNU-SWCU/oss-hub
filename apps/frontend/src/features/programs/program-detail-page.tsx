@@ -11,6 +11,7 @@ import { getProgramDetail } from './api';
 import { ActivityGraphPanel } from './components/activity-graph-panel';
 import { MilestoneRow } from './components/milestone-row';
 import { categoryLabel, formatSeoulDate } from './program-detail-format';
+import { programHref, staffProgramHref } from './program-paths';
 import type { ProgramDetail } from './types';
 
 export type DetailState =
@@ -48,7 +49,7 @@ export function ProgramActions({
   if (role === 'STUDENT' && program.viewer.applicationStatus === null) {
     return (
       <Button asChild>
-        <Link href={`/programs/${program.id}/apply`}>신청하기</Link>
+        <Link href={programHref(program.id, '/apply')}>신청하기</Link>
       </Button>
     );
   }
@@ -56,15 +57,15 @@ export function ProgramActions({
     return (
       <>
         <Button asChild variant="outline">
-          <Link href={`/staff/programs/${program.id}/edit`}>편집</Link>
+          <Link href={staffProgramHref(program.id, '/edit')}>편집</Link>
         </Button>
         <Button asChild variant="outline">
-          <Link href={`/staff/programs/${program.id}/applicants`}>
+          <Link href={staffProgramHref(program.id, '/applicants')}>
             신청자 목록
           </Link>
         </Button>
         <Button asChild>
-          <Link href={`/staff/programs/${program.id}/submissions`}>
+          <Link href={staffProgramHref(program.id, '/submissions')}>
             전체 제출 현황
           </Link>
         </Button>
@@ -171,7 +172,7 @@ export function ProgramMilestones({
             program.viewer.role === 'STAFF' ||
             program.viewer.role === 'ADMIN' ? (
               <Button asChild variant="outline">
-                <Link href={`/staff/programs/${program.id}/edit#milestones`}>
+                <Link href={staffProgramHref(program.id, '/edit#milestones')}>
                   마일스톤 설정
                 </Link>
               </Button>
