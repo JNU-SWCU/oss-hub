@@ -42,15 +42,15 @@ describe('DeadlineDigestService', () => {
   it('마감 임박 마일스톤이 있으면 각 교직원 수신자에게 발송하고 SENT를 기록한다', async () => {
     findUpcomingDeadlineMilestones.mockResolvedValue([milestone]);
     findStaffRecipients.mockResolvedValue([
-      { id: 's1', notificationEmail: 'a@jnu.ac.kr' },
-      { id: 's2', notificationEmail: 'b@jnu.ac.kr' },
+      { id: 's1', notificationEmail: 'a@example.com' },
+      { id: 's2', notificationEmail: 'b@example.com' },
     ]);
 
     await service.sendDeadlineDigests(now);
 
     expect(send).toHaveBeenCalledTimes(2);
     expect(send).toHaveBeenCalledWith(
-      expect.objectContaining({ to: 'a@jnu.ac.kr' }),
+      expect.objectContaining({ to: 'a@example.com' }),
     );
     expect(recordNotification).toHaveBeenCalledWith(
       's1',
@@ -67,8 +67,8 @@ describe('DeadlineDigestService', () => {
   it('발송이 실패하면 FAILED를 기록하고 다음 수신자로 계속한다', async () => {
     findUpcomingDeadlineMilestones.mockResolvedValue([milestone]);
     findStaffRecipients.mockResolvedValue([
-      { id: 's1', notificationEmail: 'a@jnu.ac.kr' },
-      { id: 's2', notificationEmail: 'b@jnu.ac.kr' },
+      { id: 's1', notificationEmail: 'a@example.com' },
+      { id: 's2', notificationEmail: 'b@example.com' },
     ]);
     send.mockRejectedValueOnce(new Error('smtp down'));
 

@@ -29,7 +29,7 @@ describe('NotificationSettingsController', () => {
 
   it('세션 githubId와 입력으로 service를 호출하고 응답 DTO로 변환한다', async () => {
     const updateMyNotificationEmail = jest.fn().mockResolvedValue({
-      notificationEmail: 'staff@jnu.ac.kr',
+      notificationEmail: 'staff@example.com',
       notifyEnabled: true,
     });
     const service: Pick<
@@ -38,7 +38,7 @@ describe('NotificationSettingsController', () => {
     > = { updateMyNotificationEmail };
     const controller = new NotificationSettingsController(service);
     const body = Object.assign(new UpdateNotificationEmailRequestDto(), {
-      notificationEmail: 'staff@jnu.ac.kr',
+      notificationEmail: 'staff@example.com',
       notifyEnabled: true,
     });
 
@@ -48,11 +48,11 @@ describe('NotificationSettingsController', () => {
     );
 
     expect(updateMyNotificationEmail).toHaveBeenCalledWith(42n, {
-      notificationEmail: 'staff@jnu.ac.kr',
+      notificationEmail: 'staff@example.com',
       notifyEnabled: true,
     });
     expect(result).toEqual({
-      notificationEmail: 'staff@jnu.ac.kr',
+      notificationEmail: 'staff@example.com',
       notifyEnabled: true,
     });
   });

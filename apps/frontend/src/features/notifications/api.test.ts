@@ -6,7 +6,7 @@ import {
   updateMyNotificationEmail,
 } from './api';
 
-const settings = { notificationEmail: 'staff@jnu.ac.kr', notifyEnabled: true };
+const settings = { notificationEmail: 'staff@example.com', notifyEnabled: true };
 
 afterEach(() => vi.unstubAllGlobals());
 

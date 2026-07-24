@@ -13,21 +13,21 @@ describe('NotificationSettingsService', () => {
 
   it('수신 이메일·on/off를 저장하고 갱신된 설정을 반환한다', async () => {
     updateByGithubId.mockResolvedValue({
-      notificationEmail: 'staff@jnu.ac.kr',
+      notificationEmail: 'staff@example.com',
       notifyEnabled: false,
     });
 
     const result = await service.updateMyNotificationEmail(42n, {
-      notificationEmail: 'staff@jnu.ac.kr',
+      notificationEmail: 'staff@example.com',
       notifyEnabled: false,
     });
 
     expect(updateByGithubId).toHaveBeenCalledWith(42n, {
-      notificationEmail: 'staff@jnu.ac.kr',
+      notificationEmail: 'staff@example.com',
       notifyEnabled: false,
     });
     expect(result).toEqual({
-      notificationEmail: 'staff@jnu.ac.kr',
+      notificationEmail: 'staff@example.com',
       notifyEnabled: false,
     });
   });
@@ -37,7 +37,7 @@ describe('NotificationSettingsService', () => {
 
     await expect(
       service.updateMyNotificationEmail(1n, {
-        notificationEmail: 'x@y.zz',
+        notificationEmail: 'x@example.com',
         notifyEnabled: true,
       }),
     ).rejects.toBeInstanceOf(DomainException);

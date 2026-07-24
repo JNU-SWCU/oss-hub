@@ -120,14 +120,14 @@ beforeEach(async () => {
     },
   });
   await prisma.user.create({
-    data: staffData(STAFF_ON, STAFF_ON_GITHUB, true, 'staff-on@jnu.ac.kr'),
+    data: staffData(STAFF_ON, STAFF_ON_GITHUB, true, 'staff-on@example.com'),
   });
   await prisma.user.create({
     data: staffData(
       STAFF_OFF,
       9_600_000_000_127_002n,
       false,
-      'staff-off@jnu.ac.kr',
+      'staff-off@example.com',
     ),
   });
   await prisma.user.create({
@@ -135,7 +135,7 @@ beforeEach(async () => {
       STUDENT,
       9_600_000_000_127_003n,
       true,
-      'student@jnu.ac.kr',
+      'student@example.com',
       Role.STUDENT,
     ),
   });
@@ -162,7 +162,7 @@ it('알림 켠 교직원에게만 발송하고 SENT를 기록한다(끈 교직�
   await service.sendDeadlineDigests(now);
 
   expect(mailSender.sent.map((mail) => mail.to)).toEqual([
-    'staff-on@jnu.ac.kr',
+    'staff-on@example.com',
   ]);
   const notifications = await prisma.notification.findMany({
     where: { userId: { in: [STAFF_ON, STAFF_OFF, STUDENT] } },
@@ -179,7 +179,7 @@ it('알림 켠 교직원에게만 발송하고 SENT를 기록한다(끈 교직�
 
 it('수신 이메일을 변경하면 다음 발송 대상 주소가 새 값이 된다', async () => {
   await settingsRepository.updateByGithubId(STAFF_ON_GITHUB, {
-    notificationEmail: 'changed@jnu.ac.kr',
+    notificationEmail: 'changed@example.com',
     notifyEnabled: true,
   });
   const mailSender = new RecordingMailSender();
@@ -188,6 +188,6 @@ it('수신 이메일을 변경하면 다음 발송 대상 주소가 새 값이 �
   await service.sendDeadlineDigests(now);
 
   expect(mailSender.sent.map((mail) => mail.to)).toEqual([
-    'changed@jnu.ac.kr',
+    'changed@example.com',
   ]);
 });
