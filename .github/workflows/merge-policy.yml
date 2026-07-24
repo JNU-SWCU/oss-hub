@@ -22,9 +22,12 @@ concurrency:
   group: merge-policy-${{ github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: true
 
+# 주의: job 이름은 API로 발행하는 check run 'merge-policy'와 달라야 한다.
+# required check에는 반드시 API 발행 check run('merge-policy')을 등록한다 —
+# job check('merge-policy-evaluate')는 정책 실패에도 green일 수 있다.
 jobs:
   evaluate:
-    name: merge-policy
+    name: merge-policy-evaluate
     # issue_comment는 PR 댓글일 때만 평가한다 (일반 Issue 댓글 제외).
     if: github.event_name == 'pull_request_target' || github.event.issue.pull_request
     runs-on: ubuntu-latest
