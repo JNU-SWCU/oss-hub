@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiPath } from '@/lib/api-client';
-import { createSubmission, getSubmissionForm } from './api';
+import {
+  createSubmission,
+  getSubmissionForm,
+  getSubmissionMatrix,
+} from './api';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -76,5 +80,75 @@ describe('submissions api', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
     });
+  });
+
+  it('매트릭스 조회는 programId를 인코딩하고 #124 query 계약대로 직렬화한다', async () => {
+    // Given
+    const page = {
+      milestones: [],
+      rows: [],
+      page: 2,
+      pageSize: 20,
+      total: 0,
+    };
+    const request = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(page), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    vi.stubGlobal('fetch', request);
+
+    // When
+    const result = await getSubmissionMatrix('program/1', {
+      q: ' 홍길동 ',
+      mode: 'TEAM',
+      page: 2,
+      pageSize: 20,
+    });
+
+    // Then
+    expect(result).toEqual(page);
+    const expectedQuery = new URLSearchParams({
+      q: '홍길동',
+      applicationMode: 'TEAM',
+      page: '2',
+      pageSize: '20',
+    });
+    expect(request).toHaveBeenCalledWith(
+      apiPath(`programs/program%2F1/submissions/matrix?${expectedQuery}`),
+      undefined,
+    );
+  });
+
+  it('매트릭스 조회에서 빈 검색어와 ALL 형태는 query에 넣지 않는다', async () => {
+    // Given
+    const request = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          milestones: [],
+          rows: [],
+          page: 1,
+          pageSize: 20,
+          total: 0,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    vi.stubGlobal('fetch', request);
+
+    // When
+    await getSubmissionMatrix('program-1', {
+      q: '  ',
+      mode: 'ALL',
+      page: 1,
+      pageSize: 20,
+    });
+
+    // Then
+    expect(request).toHaveBeenCalledWith(
+      apiPath('programs/program-1/submissions/matrix?page=1&pageSize=20'),
+      undefined,
+    );
   });
 });

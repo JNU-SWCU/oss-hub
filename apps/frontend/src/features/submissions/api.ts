@@ -1,8 +1,10 @@
 import { apiClient } from '@/lib/api-client';
+import { buildMatrixSearchParams, type MatrixQueryInput } from './matrix';
 import type {
   CreatedSubmission,
   CreateSubmissionContent,
   SubmissionFormData,
+  SubmissionMatrixPage,
 } from './types';
 
 export function getSubmissionForm(
@@ -11,6 +13,17 @@ export function getSubmissionForm(
 ): Promise<SubmissionFormData> {
   return apiClient<SubmissionFormData>(
     `programs/${encodeURIComponent(programId)}/milestones/${encodeURIComponent(milestoneId)}/submission-form`,
+  );
+}
+
+/** #124 제출 현황 매트릭스 조회 — 접근: APPROVED STAFF·ADMIN. */
+export function getSubmissionMatrix(
+  programId: string,
+  query: MatrixQueryInput,
+): Promise<SubmissionMatrixPage> {
+  const params = buildMatrixSearchParams(query);
+  return apiClient<SubmissionMatrixPage>(
+    `programs/${encodeURIComponent(programId)}/submissions/matrix?${params.toString()}`,
   );
 }
 
