@@ -106,6 +106,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | Participation & Showcase 백로그(9건: 내 대시보드·마일스톤 제출·재제출·운영 대시보드·매트릭스·검토·공개 아카이브·알림·공개 프로필) | @jinsol1190-rgb | planned | #114 #115 #116 #124 #125 #126 #127 #134 #155 | - | - | 없음 — 코어 스키마(done) 전제 충족 |
 | 학생 활동 타임라인 | @jinsol1190-rgb | review | #154 | [#210](https://github.com/JNU-SWCU/oss-hub/pull/210) | #210 pass | [프런트엔드 #198](https://github.com/JNU-SWCU/oss-hub/pull/198) merged · 백엔드 조회 API #210 리뷰 대기 |
 | Cross-cutting E2E 스모크(접수 흐름·전체 루프) | @GoBeromsu | planned | #128 #129 | - | - | 상위 화면 티켓들 merge 진행에 따라 순차 검증 |
+| 마감 알림 메일 + 수신 이메일 설정(모달) | @GoBeromsu | review | #127 | [#242](https://github.com/JNU-SWCU/oss-hub/pull/242) (Draft) | local pass (backend unit 448·integration 86 · frontend 228 · nest build) | 실 Gmail OAuth 발송 실증은 팀 Notion 자격 필요(human-blocked) · dry-run 어댑터·통합테스트로 dev/CI 검증 · Tech Lead Review @Lumiere001 |
 | Product Definition & Operations 백로그(Release 배포·Notion PRD·IA 동기화) | @GoBeromsu (결정) / @Lumiere001 (#199 구현) | active | #112 #130 #199 | - | local pass | AWS 서버 실행 기반 준비 완료 · Release Jenkinsfile·ADR 동기화 및 초기 Jenkins credential/webhook 구성 진행 중 |
 | GitHub 저장소 주기 수집 스케줄러 | @GoBeromsu | planned | #151 | - | - | 없음 |
 | OSS 활성화 랭킹 | @jinsol1190-rgb | review | #152 | [#194](https://github.com/JNU-SWCU/oss-hub/pull/194) | local pass | 공개 적격성 projection 부재로 endpoint·nav fail-closed 비노출 |

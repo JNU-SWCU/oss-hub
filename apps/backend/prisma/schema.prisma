@@ -29,6 +29,9 @@ model User {
   department    String?
   avatarUrl     String?
   accountStatus AccountStatus @default(ACTIVE)
+  /// #127 마감 알림 수신 이메일·수신 여부. 교직원이 설정 화면에서 직접 설정한다(기본 수신 on).
+  notificationEmail String?
+  notifyEnabled     Boolean       @default(true)
   /// 역할 선택 전 null, 학생 선택 시 STUDENT, 교직원 요청 승인 시에만 STAFF가 된다(#109).
   role          Role?
   createdAt     DateTime      @default(now())
@@ -143,6 +146,8 @@ model Program {
 
   /// Intake 프로그램은 false, Full-loop 프로그램만 true로 켤 수 있다(#113).
   repositoryProvisioningEnabled Boolean @default(false)
+  /// #127 프로그램별 마감 임박 알림 발송 여부. 값은 #127 발송 배치가 참조하고, 폼 토글 UI는 #100 소관이다.
+  notifyOnDeadline Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
