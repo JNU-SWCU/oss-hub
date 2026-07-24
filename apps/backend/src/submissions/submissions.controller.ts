@@ -6,16 +6,20 @@ import {
   HttpCode,
   Param,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
 import { OriginGuard } from '../auth/origin.guard';
 import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
 import { CreateSubmissionRequestDto } from './dto/create-submission-request.dto';
+import { SubmissionMatrixQueryRequestDto } from './dto/submission-matrix-query.dto';
+import type { SubmissionMatrixResponseDto } from './dto/submission-matrix-response.dto';
 import type {
   CreatedSubmissionResponseDto,
   SubmissionFormResponseDto,
 } from './dto/submission-response.dto';
+import { SubmissionMatrixService } from './submission-matrix.service';
 import { SubmissionsService } from './submissions.service';
 
 type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
@@ -33,6 +37,26 @@ export class SubmissionFormsController {
     @Param('milestoneId') milestoneId: string,
   ): Promise<SubmissionFormResponseDto> {
     return this.service.form(request.sessionGithubId, programId, milestoneId);
+  }
+}
+
+@Controller('programs/:programId/submissions')
+export class SubmissionMatrixController {
+  constructor(private readonly service: SubmissionMatrixService) {}
+
+  @Get('matrix')
+  @Header('Cache-Control', 'private, no-store')
+  @UseGuards(SessionGuard)
+  matrix(
+    @Req() request: SubmissionRequest,
+    @Param('programId') programId: string,
+    @Query() query: SubmissionMatrixQueryRequestDto,
+  ): Promise<SubmissionMatrixResponseDto> {
+    return this.service.matrix(
+      request.sessionGithubId,
+      programId,
+      query.toQuery(),
+    );
   }
 }
 

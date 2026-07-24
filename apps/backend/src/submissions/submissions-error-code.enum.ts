@@ -12,6 +12,9 @@ export const SubmissionsErrorCode = {
   RELEASE_URL_NOT_LINKED_REPOSITORY: 'SUB_009',
   FILE_SUBMISSION_UNAVAILABLE: 'SUB_010',
   CONTENT_REQUIRED: 'SUB_011',
+  // SUB_012~014는 #116 체크리스트(PR #243)가 사용 중 — 병합 순서와 무관하게 충돌하지 않도록 비워 둔다.
+  STAFF_ONLY: 'SUB_015',
+  PROGRAM_NOT_FOUND: 'SUB_016',
 } as const;
 
 export type SubmissionsErrorCode =
@@ -74,5 +77,15 @@ export const SUBMISSIONS_ERROR_CODES: Readonly<
     code: SubmissionsErrorCode.CONTENT_REQUIRED,
     status: 422,
     message: '제출 내용을 입력해 주세요.',
+  },
+  [SubmissionsErrorCode.STAFF_ONLY]: {
+    code: SubmissionsErrorCode.STAFF_ONLY,
+    status: 403,
+    message: '승인된 교직원 또는 관리자만 제출 현황을 조회할 수 있습니다.',
+  },
+  [SubmissionsErrorCode.PROGRAM_NOT_FOUND]: {
+    code: SubmissionsErrorCode.PROGRAM_NOT_FOUND,
+    status: 404,
+    message: '프로그램을 찾을 수 없습니다.',
   },
 };
