@@ -1,12 +1,19 @@
 const baseURL = '/api/v1';
 
 export interface ProblemDetail {
-  type: string;
-  title: string;
-  status: number;
-  detail: string;
-  instance: string;
-  code: string;
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance: string;
+  readonly code: string;
+  readonly fieldErrors?: readonly ProblemDetailFieldError[];
+}
+
+export interface ProblemDetailFieldError {
+  readonly field: string;
+  readonly code: string;
+  readonly message: string;
 }
 
 export class ApiError extends Error {

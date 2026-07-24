@@ -32,7 +32,7 @@ function NavBar({ items, brand, actions, className, ...props }: NavBarProps) {
       {brand ? (
         <div
           data-slot="nav-bar-brand"
-          className="font-heading whitespace-nowrap text-base font-semibold"
+          className="font-heading whitespace-nowrap text-base font-semibold text-foreground"
         >
           {brand}
         </div>
