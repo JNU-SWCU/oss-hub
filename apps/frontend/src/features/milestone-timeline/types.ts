@@ -1,7 +1,3 @@
-export const MILESTONE_TIMELINE_FIXTURES = ['empty', 'error'] as const;
-export type MilestoneTimelineFixture =
-  (typeof MILESTONE_TIMELINE_FIXTURES)[number];
-
 export type ApplicationMode = 'PERSONAL' | 'TEAM';
 export type SubmissionType = 'TEXT' | 'FILE' | 'REPOSITORY_RELEASE';
 export type SubmittedStatus =
@@ -40,7 +36,8 @@ export type MilestoneTimelineItem = {
   readonly submission: ChecklistSubmission | null;
   readonly status: TimelineStatus;
   readonly statusLabel: string;
-  readonly submitHref: string;
+  readonly submitHref: string | null;
+  readonly submitLabel: string | null;
 };
 
 export type MilestoneTimeline = {
