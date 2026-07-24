@@ -8,6 +8,9 @@ import type {
   StaffRoleRequestDecision,
   StaffRoleRequestListParams,
   StaffRoleRequestPage,
+  AdminUser,
+  AdminUserListParams,
+  UserRole,
 } from './types';
 
 export function selectRole(
@@ -53,4 +56,25 @@ export function decideStaffRoleRequest(
       body: JSON.stringify(decision),
     },
   );
+}
+
+export function fetchAdminUsers(
+  params: AdminUserListParams,
+): Promise<readonly AdminUser[]> {
+  const search = new URLSearchParams();
+  if (params.query) search.set('query', params.query);
+  if (params.role) search.set('role', params.role);
+  const suffix = search.size ? `?${search.toString()}` : '';
+  return apiClient<readonly AdminUser[]>(`users${suffix}`);
+}
+
+export function updateAdminUserRole(
+  id: string,
+  role: UserRole,
+): Promise<AdminUser> {
+  return apiClient<AdminUser>(`users/${encodeURIComponent(id)}/role`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role }),
+  });
 }
