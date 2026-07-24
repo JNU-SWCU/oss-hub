@@ -35,12 +35,14 @@ const SUBMISSION_GUIDES = {
   REPOSITORY_RELEASE: 'GitHub Release URL',
 } as const satisfies Readonly<Record<SubmissionType, string>>;
 
+// features/programs·#116 체크리스트와 동일한 한국어 라벨.
+// feature 간 직접 import가 금지라 문자열을 그대로 맞춘다.
 const STATUS_LABELS = {
-  NOT_SUBMITTED: '미제출',
-  SUBMITTED: '제출 완료',
-  APPROVED: '승인 완료',
+  NOT_SUBMITTED: '제출 전',
+  SUBMITTED: '제출됨',
+  APPROVED: '승인',
   CHANGES_REQUESTED: '보완 필요',
-  REJECTED: '반려',
+  REJECTED: '최종 반려',
 } as const satisfies Readonly<Record<TimelineStatus, string>>;
 
 class MilestoneTimelineResponseError extends Error {
