@@ -1,4 +1,4 @@
-import { ProgramCategory, Role } from '@prisma/client';
+import { AccountStatus, ProgramCategory, Role } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateProgramRequestDto } from './dto/create-program-request.dto';
@@ -35,7 +35,10 @@ describe('ProgramsService', () => {
   });
 
   it('stores the server-owned OSS contest template for an approved staff member', async () => {
-    findUnique.mockResolvedValue({ role: Role.STAFF });
+    findUnique.mockResolvedValue({
+      role: Role.STAFF,
+      accountStatus: AccountStatus.ACTIVE,
+    });
     create.mockResolvedValue({ id: 'program-1' });
 
     await service.create(101n, input);
@@ -57,7 +60,10 @@ describe('ProgramsService', () => {
   });
 
   it('stores null team sizes for an individual template', async () => {
-    findUnique.mockResolvedValue({ role: Role.ADMIN });
+    findUnique.mockResolvedValue({
+      role: Role.ADMIN,
+      accountStatus: AccountStatus.ACTIVE,
+    });
     create.mockResolvedValue({ id: 'program-2' });
 
     await service.create(101n, {
@@ -84,7 +90,10 @@ describe('ProgramsService', () => {
   });
 
   it('rejects a reversed team range before a program is stored', async () => {
-    findUnique.mockResolvedValue({ role: Role.STAFF });
+    findUnique.mockResolvedValue({
+      role: Role.STAFF,
+      accountStatus: AccountStatus.ACTIVE,
+    });
 
     await expect(
       service.create(101n, { ...input, teamMinSize: 4, teamMaxSize: 2 }),
@@ -94,6 +103,20 @@ describe('ProgramsService', () => {
         message: PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR].message,
         status: 400,
       },
+    });
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('rejects inactive staff before a program is stored', async () => {
+    findUnique.mockResolvedValue({
+      role: Role.STAFF,
+      accountStatus: AccountStatus.DEACTIVATED,
+    });
+
+    await expect(service.create(101n, input)).rejects.toMatchObject<
+      Partial<DomainException>
+    >({
+      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.FORBIDDEN],
     });
     expect(create).not.toHaveBeenCalled();
   });

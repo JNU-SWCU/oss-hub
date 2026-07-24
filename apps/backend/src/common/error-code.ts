@@ -5,8 +5,15 @@ export interface ErrorCode {
   readonly exposeToClient?: true;
 }
 
+export interface ProblemDetailFieldError {
+  readonly field: string;
+  readonly code: string;
+  readonly message: string;
+}
+
 export interface ProblemDetailExtensions {
-  retryNotBeforeAt?: string;
+  readonly retryNotBeforeAt?: string;
+  readonly fieldErrors?: readonly ProblemDetailFieldError[];
 }
 
 export class DomainException extends Error {
