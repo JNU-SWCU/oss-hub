@@ -72,7 +72,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | public repo 보안·CI 하드닝 | @Lumiere001 | done | #31 #32 #34 #35 #38 | #39–#46 | pass | 후속 범위는 #44로 분리(완료) |
 | Agent-Driven Review Cycle ADR | @GoBeromsu | done | #24 | #25 (+#50) | pass | 없음 |
 | 에이전트 병합 게이트 전환 | @GoBeromsu / @Lumiere001 | review | [#226](https://github.com/JNU-SWCU/oss-hub/issues/226) | [#225](https://github.com/JNU-SWCU/oss-hub/pull/225) | local pass · CI pass | current-head·base `MERGE_READY`와 PM·Tech Lead accept 대기 |
-| 교직원 제출 현황 매트릭스 | @Lumiere001 | review | [#124](https://github.com/JNU-SWCU/oss-hub/issues/124) | - | backend unit 451·통합 96·frontend 247 local pass | 브라우저 QA는 OAuth 로그인 필요(unblock: @GoBeromsu 또는 사람 QA) · 셀 링크 대상 #125 검토 화면은 후속 |
+| 교직원 제출 현황 매트릭스 | @Lumiere001 | review | [#124](https://github.com/JNU-SWCU/oss-hub/issues/124) | [#244](https://github.com/JNU-SWCU/oss-hub/pull/244) | backend unit 451·통합 96·frontend 247 local pass | 브라우저 QA는 OAuth 로그인 필요(unblock: @GoBeromsu 또는 사람 QA) · 셀 링크 대상 #125 검토 화면은 후속 |
 | Docker build context 보호 | @Lumiere001 | done | #44 | #48 | pass | 없음 |
 | 정체성 User 단일화(Member dead code 제거) | @GoBeromsu | done | #67 | #69 | pass | 없음 |
 | 코어 스키마 1·2차(제출·검토·저장소 자동화 16모델) | @GoBeromsu | done | #109 #113 | #139 #140 | pass | 없음 |
