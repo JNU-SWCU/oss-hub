@@ -3,6 +3,7 @@ import { AuthModule } from '../auth/auth.module';
 import { SubmissionMatrixRepository } from './submission-matrix.repository';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import {
+  SubmissionChecklistController,
   SubmissionFormsController,
   SubmissionMatrixController,
   SubmissionsController,
@@ -13,6 +14,7 @@ import { SubmissionsService } from './submissions.service';
 @Module({
   imports: [AuthModule],
   controllers: [
+    SubmissionChecklistController,
     SubmissionFormsController,
     SubmissionMatrixController,
     SubmissionsController,

@@ -12,7 +12,9 @@ export const SubmissionsErrorCode = {
   RELEASE_URL_NOT_LINKED_REPOSITORY: 'SUB_009',
   FILE_SUBMISSION_UNAVAILABLE: 'SUB_010',
   CONTENT_REQUIRED: 'SUB_011',
-  // SUB_012~014는 #116 체크리스트(PR #243)가 사용 중 — 병합 순서와 무관하게 충돌하지 않도록 비워 둔다.
+  SUBMISSION_NOT_FOUND: 'SUB_012',
+  RESUBMISSION_NOT_ALLOWED: 'SUB_013',
+  STALE_SUBMISSION_REVISION: 'SUB_014',
   STAFF_ONLY: 'SUB_015',
   PROGRAM_NOT_FOUND: 'SUB_016',
 } as const;
@@ -77,6 +79,21 @@ export const SUBMISSIONS_ERROR_CODES: Readonly<
     code: SubmissionsErrorCode.CONTENT_REQUIRED,
     status: 422,
     message: '제출 내용을 입력해 주세요.',
+  },
+  [SubmissionsErrorCode.SUBMISSION_NOT_FOUND]: {
+    code: SubmissionsErrorCode.SUBMISSION_NOT_FOUND,
+    status: 404,
+    message: '제출을 찾을 수 없습니다.',
+  },
+  [SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED]: {
+    code: SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED,
+    status: 409,
+    message: '보완 요청(CHANGES_REQUESTED) 상태의 제출만 재제출할 수 있습니다.',
+  },
+  [SubmissionsErrorCode.STALE_SUBMISSION_REVISION]: {
+    code: SubmissionsErrorCode.STALE_SUBMISSION_REVISION,
+    status: 409,
+    message: '제출 상태가 갱신되었습니다. 최신 상태를 다시 불러와 주세요.',
   },
   [SubmissionsErrorCode.STAFF_ONLY]: {
     code: SubmissionsErrorCode.STAFF_ONLY,
