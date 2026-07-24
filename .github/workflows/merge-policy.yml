@@ -1,0 +1,52 @@
+name: merge-policy
+
+# ADR-005 병합 게이트 자동화 (#226).
+# pull_request_target·issue_comment는 default branch의 workflow 정의로 실행되므로
+# PR이 자기 head의 workflow를 수정해도 이 판정 로직을 약화할 수 없다.
+# PR head 코드는 checkout·실행하지 않고 GitHub metadata만 읽는다.
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+  issue_comment:
+    types: [created, edited, deleted]
+
+# metadata 판정과 check 발행에 필요한 최소 권한만 부여한다.
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  checks: write
+
+# 같은 PR의 이전 평가는 취소한다 — 최신 이벤트 기준 판정만 유효하다.
+concurrency:
+  group: merge-policy-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  evaluate:
+    name: merge-policy
+    # issue_comment는 PR 댓글일 때만 평가한다 (일반 Issue 댓글 제외).
+    if: github.event_name == 'pull_request_target' || github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # 신뢰 경계: 판정 스크립트·CODEOWNERS는 항상 default branch에서 읽는다. PR head 금지.
+      - name: 체크아웃 (default branch)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Node 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # 판정기 자체 회귀를 판정 직전에 확인한다 — fixture가 깨지면 판정하지 않는다.
+      - name: 판정기 fixture 테스트
+        run: node --test scripts/merge-policy-check.test.mjs
+
+      - name: 판정 및 check run 발행
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+        run: node scripts/merge-policy-check.mjs
