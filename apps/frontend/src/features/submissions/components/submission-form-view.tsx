@@ -2,13 +2,7 @@ import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-} from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import type {
   SubmissionFormErrors,
   SubmissionFormInput,
@@ -18,8 +12,9 @@ import type {
   SubmissionFormData,
   SubmissionType,
 } from '../types';
+import { SubmissionInput } from './submission-input';
 
-const TYPE_LABELS = {
+export const TYPE_LABELS = {
   FILE: '파일',
   TEXT: '텍스트',
   REPOSITORY_RELEASE: '저장소 태그·릴리스',
@@ -47,74 +42,12 @@ export interface SubmissionFormViewProps {
   readonly onReload: () => void;
 }
 
-function formatDeadline(value: string): string {
+export function formatDeadline(value: string): string {
   return new Intl.DateTimeFormat('ko-KR', {
     dateStyle: 'long',
     timeStyle: 'short',
     timeZone: 'Asia/Seoul',
   }).format(new Date(value));
-}
-
-function SubmissionInput({
-  data,
-  input,
-  errors,
-  onTextChange,
-  onReleaseUrlChange,
-}: Pick<
-  SubmissionFormViewProps,
-  'data' | 'input' | 'errors' | 'onTextChange' | 'onReleaseUrlChange'
->) {
-  switch (data.milestone.submissionType) {
-    case 'TEXT':
-      return (
-        <Field data-invalid={Boolean(errors.text)}>
-          <FieldLabel htmlFor="submission-text">제출 내용 *</FieldLabel>
-          <textarea
-            id="submission-text"
-            value={input.text}
-            required
-            aria-required="true"
-            aria-invalid={Boolean(errors.text)}
-            aria-describedby={errors.text ? 'submission-text-error' : undefined}
-            onChange={(event) => onTextChange(event.target.value)}
-            className="min-h-48 w-full resize-y rounded-lg border border-input bg-transparent p-3 text-sm leading-6 transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20"
-          />
-          <FieldError id="submission-text-error">{errors.text}</FieldError>
-        </Field>
-      );
-    case 'REPOSITORY_RELEASE':
-      return (
-        <Field data-invalid={Boolean(errors.releaseUrl)}>
-          <FieldLabel htmlFor="release-url">태그 또는 릴리스 URL *</FieldLabel>
-          <Input
-            id="release-url"
-            type="url"
-            value={input.releaseUrl}
-            required
-            aria-required="true"
-            placeholder={`${data.repository?.url ?? 'https://github.com/owner/repository'}/releases/tag/v1.0.0`}
-            aria-invalid={Boolean(errors.releaseUrl)}
-            aria-describedby={
-              errors.releaseUrl
-                ? 'release-url-description release-url-error'
-                : 'release-url-description'
-            }
-            onChange={(event) => onReleaseUrlChange(event.target.value)}
-          />
-          <FieldDescription id="release-url-description">
-            연결 저장소 아래의 태그 또는 릴리스 URL만 제출할 수 있습니다.
-          </FieldDescription>
-          <FieldError id="release-url-error">{errors.releaseUrl}</FieldError>
-        </Field>
-      );
-    case 'FILE':
-      return null;
-    default: {
-      const exhaustiveType: never = data.milestone.submissionType;
-      return exhaustiveType;
-    }
-  }
 }
 
 export function SubmissionFormView(props: SubmissionFormViewProps) {
@@ -176,7 +109,14 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-5">
-            <SubmissionInput {...props} />
+            <SubmissionInput
+              submissionType={data.milestone.submissionType}
+              repositoryUrl={data.repository?.url ?? null}
+              input={props.input}
+              errors={props.errors}
+              onTextChange={props.onTextChange}
+              onReleaseUrlChange={props.onReleaseUrlChange}
+            />
             <Field>
               <FieldLabel htmlFor="submission-comment">제출 코멘트</FieldLabel>
               <textarea
