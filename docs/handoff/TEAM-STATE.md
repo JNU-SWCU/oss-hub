@@ -71,7 +71,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 중첩 AGENTS 가이드 | @Lumiere001 | done | #11 | #12 (+#20) | pass | 없음 |
 | public repo 보안·CI 하드닝 | @Lumiere001 | done | #31 #32 #34 #35 #38 | #39–#46 | pass | 후속 범위는 #44로 분리(완료) |
 | Agent-Driven Review Cycle ADR | @GoBeromsu | done | #24 | #25 (+#50) | pass | 없음 |
-| 에이전트 병합 게이트 전환 | @GoBeromsu / @Lumiere001 | review | [#226](https://github.com/JNU-SWCU/oss-hub/issues/226) | [#225](https://github.com/JNU-SWCU/oss-hub/pull/225) | local pass · CI pass | current-head·base `MERGE_READY`와 PM·Tech Lead accept 대기 |
+| 에이전트 병합 게이트 — merge-policy required check 자동화 | @Lumiere001 | review | [#226](https://github.com/JNU-SWCU/oss-hub/issues/226) | [#225](https://github.com/JNU-SWCU/oss-hub/pull/225) merged · [#239](https://github.com/JNU-SWCU/oss-hub/pull/239) | 판정기 fixture 37/37 local pass · simulate 증거는 #239 본문 | 병합 후 실 PR dry-run 관찰 → branch protection required 등록·admin no-bypass·발행 App 전환은 ops/후속(unblock: @GoBeromsu) |
 | Docker build context 보호 | @Lumiere001 | done | #44 | #48 | pass | 없음 |
 | 정체성 User 단일화(Member dead code 제거) | @GoBeromsu | done | #67 | #69 | pass | 없음 |
 | 코어 스키마 1·2차(제출·검토·저장소 자동화 16모델) | @GoBeromsu | done | #109 #113 | #139 #140 | pass | 없음 |

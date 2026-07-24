@@ -83,6 +83,11 @@ jobs:
       - name: TEAM-STATE drift 검사기 단위테스트
         run: node --test scripts/team-state-check.test.mjs
 
+      # merge-policy.yml은 신뢰 경계상 default branch 사본만 실행하므로,
+      # 판정기 수정 PR의 회귀는 여기서 PR head 기준으로 검증한다.
+      - name: merge-policy 판정기 fixture 테스트
+        run: node --test scripts/merge-policy-check.test.mjs
+
       # 앱 변경이 있을 때만 pnpm store를 만들고 캐시한다. docs-only PR에서
       # 존재하지 않는 store를 저장하려는 setup-node 후처리 실패를 막는다.
       - name: pnpm 설정
