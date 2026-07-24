@@ -1,6 +1,7 @@
 import { RolePanelShell } from '../../../../_shell/role-panel-shell';
 import { STAFF_MENU } from '../../../../_shell/role-menus';
 import { ProgramEditPage } from '@/features/programs/program-edit-page';
+import { decodeRouteProgramId } from '@/features/programs/program-paths';
 
 export default async function StaffProgramEditPage({
   params,
@@ -10,7 +11,7 @@ export default async function StaffProgramEditPage({
   const { id } = await params;
   return (
     <RolePanelShell menu={STAFF_MENU} allow={['STAFF', 'ADMIN']}>
-      <ProgramEditPage programId={id} />
+      <ProgramEditPage programId={decodeRouteProgramId(id)} />
     </RolePanelShell>
   );
 }

@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
 import { listPrograms } from './api';
+import { programHref } from './program-paths';
 import {
   filterAndGroupPrograms,
   getProgramRecruitmentState,
@@ -199,7 +200,7 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
                 category={CATEGORY_LABELS[program.category]}
                 footer={
                   <Button asChild size="sm" variant="outline">
-                    <Link href={`/programs/${program.id}`}>더 보기</Link>
+                    <Link href={programHref(program.id)}>더 보기</Link>
                   </Button>
                 }
                 key={program.id}

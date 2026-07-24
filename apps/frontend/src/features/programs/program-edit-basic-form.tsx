@@ -9,6 +9,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { FormSection } from '@/components/form-section';
 import type { EditableProgram } from './api';
+import { programHref } from './program-paths';
 import {
   type ProgramEditableField,
   type ProgramEditErrors,
@@ -173,7 +174,7 @@ export function ProgramEditBasicForm({
           <FieldError>{errors.general}</FieldError>
           <div className="flex justify-between gap-2">
             <Button asChild type="button" variant="outline">
-              <Link href={`/programs/${program.id}`}>취소</Link>
+              <Link href={programHref(program.id)}>취소</Link>
             </Button>
             <Button type="submit" disabled={isSaving}>
               {isSaving ? '저장 중…' : '저장'}

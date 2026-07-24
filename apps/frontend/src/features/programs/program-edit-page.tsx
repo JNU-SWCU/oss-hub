@@ -40,6 +40,7 @@ import {
   ProgramEditSkeleton,
   ProgramEditView,
 } from './program-edit-view';
+import { programHref } from './program-paths';
 
 const REDIRECT_DELAY_MS = 1000;
 
@@ -134,7 +135,7 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
       setDirtyFields([]);
       setToastMessage('저장되었습니다. 상세 화면으로 이동합니다.');
       setTimeout(
-        () => router.replace(`/programs/${updated.id}`),
+        () => router.replace(programHref(updated.id)),
         REDIRECT_DELAY_MS,
       );
     } catch (error: unknown) {
