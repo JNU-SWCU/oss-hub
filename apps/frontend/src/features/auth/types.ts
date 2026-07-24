@@ -1,7 +1,7 @@
 export type AuthRole = 'STUDENT' | 'STAFF' | 'ADMIN';
 
 export interface Me {
-  readonly login: string;
+  readonly nickname: string;
   readonly name: string | null;
   readonly avatarUrl: string | null;
   readonly role: AuthRole | null;

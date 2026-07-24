@@ -39,7 +39,7 @@ describe('ProgramActivityService', () => {
         githubRepositoryId: 101n,
         application: {
           id: 'application-1',
-          applicant: { githubId: 11n, name: '학생', login: 'student' },
+          applicant: { githubId: 11n, name: '학생', nickname: 'student' },
           team: null,
         },
       },
@@ -88,7 +88,11 @@ describe('ProgramActivityService', () => {
         githubRepositoryId: 101n,
         application: {
           id: 'application-1',
-          applicant: { githubId: 99n, name: '신청자', login: 'applicant' },
+          applicant: {
+            githubId: 99n,
+            name: '신청자',
+            nickname: 'applicant',
+          },
           team: {
             name: '팀',
             leader: { githubId: 11n },
@@ -130,7 +134,7 @@ describe('ProgramActivityService', () => {
           select: {
             id: true,
             applicant: {
-              select: { githubId: true, name: true, login: true },
+              select: { githubId: true, name: true, nickname: true },
             },
             team: {
               select: {

@@ -10,8 +10,8 @@
 
 | 항목 | 값 |
 | --- | --- |
-| generated_at | 2026-07-22T11:12:39+09:00 |
-| source_commit | cdb5ae1 (main) |
+| generated_at | 2026-07-24T12:40:00+09:00 |
+| source_commit | 7ec5e36 (main, after #227) |
 | 조회 성공 소스 | issues, prs, ci, decisions, exec-plan, branch-protection, project-board |
 | 조회 실패 소스 | 없음 |
 
@@ -71,6 +71,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 중첩 AGENTS 가이드 | @Lumiere001 | done | #11 | #12 (+#20) | pass | 없음 |
 | public repo 보안·CI 하드닝 | @Lumiere001 | done | #31 #32 #34 #35 #38 | #39–#46 | pass | 후속 범위는 #44로 분리(완료) |
 | Agent-Driven Review Cycle ADR | @GoBeromsu | done | #24 | #25 (+#50) | pass | 없음 |
+| 에이전트 병합 게이트 전환 | @GoBeromsu / @Lumiere001 | review | [#226](https://github.com/JNU-SWCU/oss-hub/issues/226) | [#225](https://github.com/JNU-SWCU/oss-hub/pull/225) | local pass · CI pass | current-head·base `MERGE_READY`와 PM·Tech Lead accept 대기 |
 | Docker build context 보호 | @Lumiere001 | done | #44 | #48 | pass | 없음 |
 | 정체성 User 단일화(Member dead code 제거) | @GoBeromsu | done | #67 | #69 | pass | 없음 |
 | 코어 스키마 1·2차(제출·검토·저장소 자동화 16모델) | @GoBeromsu | done | #109 #113 | #139 #140 | pass | 없음 |
@@ -85,11 +86,12 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | CI: public-safe Issue·댓글 스캔 + commitlint 이벤트 가드 | @GoBeromsu | done | #68 | #150 #159 | pass | 없음 |
 | 학생용 수집 App(private repo 포함, read-only) | @Lumiere001 | planned | #15 | - | - | 정책 전제 4건 미확정: 산정 범위·개인 repo 보존·동의 절차·App 소유·운영(unblock: @GoBeromsu). #120/#123(조직 소유 자동화 App, write 권한)과는 별개 앱임을 #15/#120 코멘트로 명확화함 — 대체 관계 아님 |
 | Access & GitHub Platform 백로그(10건: 로그인 이력·설정·시스템 상태·저장소 자동화·webhook 확장 등) | @Lumiere001 | planned | #99 #107 #108 #120 #121 #122 #123 #133 #156 #157 | - | - | GitHub App 인증 ADR(#120)이 저장소 자동 생성(#121)·webhook 확장(#123)의 선행 |
-| 관리자 사용자·역할 관리 | @GoBeromsu | active | #131 | - | local pass | Tech Lead Review: @Lumiere001 |
+| 관리자 사용자·역할 관리 | @GoBeromsu | done | #131 | [#231](https://github.com/JNU-SWCU/oss-hub/pull/231) merged | pass | 없음 |
 | 관리자 감사 로그 | @GoBeromsu | active | #132 | - | local pass | owner-path 연동은 @Lumiere001 사후 확인 필요 |
 | 공통 온보딩 프로필 입력 | @GoBeromsu | done | #153 | [#220](https://github.com/JNU-SWCU/oss-hub/pull/220) merged | pass | 없음 |
 | 프로필 완료 전 역할 선택 차단 | @Lumiere001 | done | [#212](https://github.com/JNU-SWCU/oss-hub/issues/212) | [#221](https://github.com/JNU-SWCU/oss-hub/pull/221) merged | pass | 없음 |
-| 신규 가입 OAuth 직후 동의 진입 | @GoBeromsu / @Lumiere001 | review | [#218](https://github.com/JNU-SWCU/oss-hub/issues/218) | [#222](https://github.com/JNU-SWCU/oss-hub/pull/222) | required CI pass | main 재배치 후 exact-head Code Owner 승인 대기 |
+| 신규 가입 OAuth 직후 동의 진입 | @GoBeromsu / @Lumiere001 | done | [#218](https://github.com/JNU-SWCU/oss-hub/issues/218) | [#222](https://github.com/JNU-SWCU/oss-hub/pull/222) merged | pass | 없음 |
+| User GitHub 핸들 필드명 정리 | @Lumiere001 | done | [#224](https://github.com/JNU-SWCU/oss-hub/issues/224) | [#227](https://github.com/JNU-SWCU/oss-hub/pull/227) merged | pass | 없음 |
 | GitHub App 최소 권한·live smoke 계약 | @Lumiere001 | review | #205 | [#208](https://github.com/JNU-SWCU/oss-hub/pull/208) | #208 pass | Collection App REST read 데이터 최소화·권한 allowlist 계약 리뷰 반영 중 · 실제 실증은 비운영 App 준비 대기 |
 | webhook 처리 결과 관측 지표 | @Lumiere001 | review | #215 | [#216](https://github.com/JNU-SWCU/oss-hub/pull/216) | unit 347 · integration 64 · build pass | #221 병합 후 최신 main 재배치 완료 · 새 head CI와 재리뷰 대기 |
 | 공통 랜딩 세션별 진입 CTA | @jinsol1190-rgb | done | #98 | #201 | pass | 없음 |
@@ -121,8 +123,8 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 
 | 리스크 | owner | trigger | due | fallback |
 | --- | --- | --- | --- | --- |
-| 사람 코드리뷰 없이 admin 병합으로 대체 운영 중 — 직전 4개 PR(#148·#149·#150·#159) 전부 리뷰 0건, `@GoBeromsu` 명의로 admin 병합됨 | @GoBeromsu | 매 PR 병합 | 상시 | ADR-005 독립 에이전트 리뷰(Hermes 등)를 required gate로 승격하거나 사후 샘플 감사 도입 |
-| `enforce_admins=false`로 관리자가 branch protection(리뷰 1건·code-owner 승인) 우회 가능 — 실측: 위 admin 병합 4건이 이 설정으로 가능했음 | @GoBeromsu @Lumiere001 | 상시 | - | 관리자 적용 여부 팀 논의(hotfix 경로 트레이드오프) |
+| `merge-policy` required check 전 수동 `MERGE_READY`·high-risk 이중 accept의 기록 누락·stale head/base 위험 | @GoBeromsu @Lumiere001 | #225 병합 후 | #226 | 병합자가 head·base full SHA와 actor를 수동 대조하고 admin bypass 금지 |
+| `enforce_admins=false`로 관리자가 required check를 우회할 수 있음 | @GoBeromsu @Lumiere001 | 상시 | #226 적용 시 재검토 | push 권한을 두 owner로 제한하고 정책상 admin bypass 금지 |
 | 운영 TLS 부재 시 Secure/`__Host-` 쿠키 미작동 | @GoBeromsu | 프로덕션 배포 시점 | 프로덕션 배포 전 | 외부 terminator 계약 명시 or nginx TLS 추가 |
 | 수집 App Basic 한도(5,000/hr) 부족 | @Lumiere001 | 수집 대상 확대 | 8/15 전국 디지털 경진대회 전 | GitHub App 인증 ADR(#120, 발행 완료)로 흡수 — 아직 미착수 |
 | 실사용 3개 행사(8/15 전국 디지털 경진대회 · 8/19–21 · 8/27–29 Full-loop) 전 40건 백로그 병렬 착수 시 DB 마이그레이션 직렬 규칙(AGENTS.md §3) 위반 위험 — 4개 영역이 동시에 스키마 접촉 가능 | @GoBeromsu | 백로그 착수 시점 | 2026-08-15 | 마이그레이션 PR은 순번 예약(Issue 코멘트)으로 직렬화, 영역 간 공용 계약·fixture 선합의(#56 배분 원칙) |

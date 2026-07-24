@@ -8,7 +8,7 @@ import type { AuthSessionState } from './session-state';
 
 const authenticated: AuthSessionState = {
   me: {
-    login: 'synthetic-login',
+    nickname: 'synthetic-login',
     name: null,
     avatarUrl: null,
     role: 'STUDENT',
