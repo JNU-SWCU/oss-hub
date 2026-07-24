@@ -24,6 +24,9 @@ jobs:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
+          # secret 미설정 시 URL/토큰이 비어 모호한 curl 오류가 나지 않게 먼저 막는다.
+          : "${JENKINS_DEPLOY_URL:?JENKINS_DEPLOY_URL secret is required}"
+          : "${JENKINS_BUILD_TOKEN:?JENKINS_BUILD_TOKEN secret is required}"
           # token/파라미터는 URL이 아닌 POST 본문으로 전달해 실행 로그에 토큰이 남지 않게 한다.
           curl --fail --silent --show-error \
             --data-urlencode "token=${JENKINS_BUILD_TOKEN}" \
