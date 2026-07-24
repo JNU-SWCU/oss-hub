@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '@/lib/api-client';
 import { getSubmissionMatrix } from '../api';
 import {
@@ -30,28 +30,36 @@ export function SubmissionMatrixScreen({
   const [data, setData] = useState<SubmissionMatrixPage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
   const load = useCallback(
-    async (input: MatrixQueryInput) => {
+    async (input: MatrixQueryInput, requestId: number) => {
       setIsLoading(true);
       setErrorMessage(null);
       try {
-        setData(await getSubmissionMatrix(programId, input));
+        const next = await getSubmissionMatrix(programId, input);
+        // 이전 조회 응답이 늦게 도착해도 최신 query 결과만 반영한다.
+        if (requestId !== requestIdRef.current) return;
+        setData(next);
       } catch (error) {
+        if (requestId !== requestIdRef.current) return;
         setErrorMessage(
           error instanceof ApiError
             ? error.problem.detail
             : '제출 현황을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
         );
       } finally {
-        setIsLoading(false);
+        if (requestId === requestIdRef.current) {
+          setIsLoading(false);
+        }
       }
     },
     [programId],
   );
 
   useEffect(() => {
-    void load(query);
+    requestIdRef.current += 1;
+    void load(query, requestIdRef.current);
   }, [query, load]);
 
   return (
@@ -76,7 +84,10 @@ export function SubmissionMatrixScreen({
         setQuery(INITIAL_QUERY);
       }}
       onPageChange={(page) => setQuery((prev) => ({ ...prev, page }))}
-      onRetry={() => void load(query)}
+      onRetry={() => {
+        requestIdRef.current += 1;
+        void load(query, requestIdRef.current);
+      }}
     />
   );
 }
