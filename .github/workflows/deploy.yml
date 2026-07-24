@@ -1,0 +1,32 @@
+name: deploy
+
+# 공개 GitHub Release 발행(published)을 production 배포 트리거로 사용한다.
+# 이 워크플로는 파라미터를 명시적으로 감싸 Jenkins 내장 원격 빌드 트리거로 POST만 한다(얇은 트리거).
+# 실제 배포·검증·실패 알림은 Jenkins가 수행한다 (docs/decisions/ADR-002-CI-CD-파이프라인.md).
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  trigger:
+    name: trigger-jenkins-deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Jenkins 원격 빌드 트리거
+        env:
+          # 실제 값은 GitHub repo secret에만 둔다(공인 IP·토큰을 저장소/로그에 남기지 않는다).
+          JENKINS_DEPLOY_URL: ${{ secrets.JENKINS_DEPLOY_URL }}
+          JENKINS_BUILD_TOKEN: ${{ secrets.JENKINS_BUILD_TOKEN }}
+          RELEASE_ACTION: ${{ github.event.action }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          # token/파라미터는 URL이 아닌 POST 본문으로 전달해 실행 로그에 토큰이 남지 않게 한다.
+          curl --fail --silent --show-error \
+            --data-urlencode "token=${JENKINS_BUILD_TOKEN}" \
+            --data-urlencode "RELEASE_ACTION=${RELEASE_ACTION}" \
+            --data-urlencode "RELEASE_TAG=${RELEASE_TAG}" \
+            -X POST "${JENKINS_DEPLOY_URL}/job/oss-hub-release-cd/buildWithParameters"

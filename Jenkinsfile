@@ -341,6 +341,16 @@ cat "$DEPLOY_STATE_FILE"
   post {
     failure {
       echo 'Jenkins 배포가 실패했습니다. 기존 서비스 상태와 보존된 build·Compose 로그를 확인하십시오.'
+      script {
+        // 실패 알림은 email-ext 플러그인으로 보낸다. 수신자·SMTP는 Jenkins UI 설정에만 둔다
+        // (Manage Jenkins → System → Extended E-mail Notification: Default Recipients + SMTP).
+        // 저장소엔 이메일 주소를 남기지 않으며 '$DEFAULT_RECIPIENTS'가 그 UI 값으로 치환된다.
+        emailext(
+          to: '$DEFAULT_RECIPIENTS',
+          subject: "[oss-hub] 배포 실패 ${env.RELEASE_TAG ?: ''} #${env.BUILD_NUMBER}",
+          body: "Jenkins 배포가 실패했습니다.\nJob: ${env.JOB_NAME} #${env.BUILD_NUMBER}\nRELEASE_TAG: ${env.RELEASE_TAG ?: '(n/a)'}\n콘솔 로그: ${env.BUILD_URL}console",
+        )
+      }
     }
   }
 }
