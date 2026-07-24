@@ -505,6 +505,22 @@ test('UNVERIFIED 단독 표기도 미검증으로 차단한다', () => {
   assert.equal(result.conclusion, 'failure');
 });
 
+test('BLOCKED 단독 표기도 미검증으로 차단한다', () => {
+  const result = evaluate({
+    comments: [
+      comment(
+        10,
+        'Lumiere001',
+        mergeReadyBody({ markers: { QA: 'BLOCKED — 실행 환경 부재' } }),
+      ),
+    ],
+  });
+  assert.equal(result.conclusion, 'failure');
+  assert.ok(
+    result.reasons.some((reason) => reason.includes('BLOCKED/UNVERIFIED')),
+  );
+});
+
 test('댓글 수정으로 토큰이 다른 head를 가리키면 무효가 된다 (stateless 재평가)', () => {
   const before = evaluate({
     comments: [

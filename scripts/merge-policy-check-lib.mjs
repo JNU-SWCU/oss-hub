@@ -162,7 +162,9 @@ function findMergeReady(pull, comments, notes) {
 
 function checkEvidenceMarkers(mergeReady, reasons) {
   const body = mergeReady.lines.join('\n');
-  if (/\bUNVERIFIED\b/i.test(body)) {
+  // Issue #226·ADR-005: BLOCKED와 UNVERIFIED 모두 미검증으로 병합 불가.
+  // 복합 표기(BLOCKED/UNVERIFIED)와 단독 표기를 같은 규칙으로 차단한다.
+  if (/\b(?:BLOCKED|UNVERIFIED)\b/i.test(body)) {
     reasons.push(
       'MERGE_READY에 BLOCKED/UNVERIFIED 상태가 포함됨 — 미검증 동작은 병합 불가',
     );
