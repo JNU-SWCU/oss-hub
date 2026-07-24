@@ -4,7 +4,31 @@ import { useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { onboardingPathFor } from './onboarding-route';
 import { useSessionRole } from './use-session-role';
+import type { SessionRoleState } from './use-session-role';
 import { roleHomePath, type AppRole } from './role';
+
+export function roleGateRedirectPath(
+  state: SessionRoleState,
+  allow: readonly AppRole[],
+  deniedPath?: string,
+): string | null {
+  switch (state.status) {
+    case 'loading':
+      return null;
+    case 'anonymous':
+      return '/';
+    case 'unassigned':
+      return onboardingPathFor(state.roleRequestStatus);
+    case 'assigned':
+      return state.role && !allow.includes(state.role)
+        ? (deniedPath ?? roleHomePath(state.role))
+        : null;
+    default: {
+      const exhaustive: never = state.status;
+      return exhaustive;
+    }
+  }
+}
 
 /**
  * 클라이언트 사이드 역할 게이트 (#136 최소 요구 4) — redirect까지만 담당한다.
@@ -15,27 +39,23 @@ import { roleHomePath, type AppRole } from './role';
  */
 export function RoleGate({
   allow,
+  deniedPath,
   children,
 }: {
-  allow: AppRole[];
+  allow: readonly AppRole[];
+  deniedPath?: string;
   children: ReactNode;
 }) {
   const router = useRouter();
-  const { status, role, roleRequestStatus } = useSessionRole();
+  const state = useSessionRole();
+  const { status, role } = state;
 
   useEffect(() => {
-    if (status === 'anonymous') {
-      router.replace('/');
-      return;
+    const redirectPath = roleGateRedirectPath(state, allow, deniedPath);
+    if (redirectPath) {
+      router.replace(redirectPath);
     }
-    if (status === 'unassigned') {
-      router.replace(onboardingPathFor(roleRequestStatus));
-      return;
-    }
-    if (status === 'assigned' && role && !allow.includes(role)) {
-      router.replace(roleHomePath(role));
-    }
-  }, [status, role, roleRequestStatus, allow, router]);
+  }, [state, allow, deniedPath, router]);
 
   const isAllowed = status === 'assigned' && !!role && allow.includes(role);
 
