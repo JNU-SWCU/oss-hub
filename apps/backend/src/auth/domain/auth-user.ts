@@ -3,7 +3,7 @@ import { AccountStatus, Role } from '@prisma/client';
 export interface AuthUser {
   id: string;
   githubId: bigint;
-  login: string;
+  nickname: string;
   name: string | null;
   avatarUrl: string | null;
   readonly accountStatus: AccountStatus;

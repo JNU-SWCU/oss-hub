@@ -18,7 +18,7 @@ function buildRow(overrides: Partial<PrismaUser> = {}): PrismaUser {
   return {
     id: 'cuid-synthetic',
     githubId: 424242n,
-    login: 'synthetic-login',
+    nickname: 'synthetic-login',
     name: null,
     studentId: null,
     department: null,
@@ -90,7 +90,7 @@ describe('AuthRepository.upsertUser', () => {
     const { repository, update } = buildRepository(
       buildRow({
         githubId: 1n,
-        login: 'GoBeromsu',
+        nickname: 'GoBeromsu',
         accountStatus: AccountStatus.DEACTIVATED,
         role: null,
       }),
@@ -108,7 +108,7 @@ describe('AuthRepository.upsertUser', () => {
 
   it('부트스트랩 대상 login의 신규 계정은 생성 시점에 ADMIN이 된다', async () => {
     const { repository, createMany, update } = buildRepository(
-      buildRow({ githubId: 1n, login: 'GoBeromsu', role: Role.ADMIN }),
+      buildRow({ githubId: 1n, nickname: 'GoBeromsu', role: Role.ADMIN }),
       { isNew: true },
     );
 
@@ -128,11 +128,11 @@ describe('AuthRepository.upsertUser', () => {
 
   it('role이 아직 null인 기존 부트스트랩 대상 계정은 다음 로그인에 ADMIN으로 승격된다', async () => {
     const { repository, update } = buildRepository(
-      buildRow({ githubId: 1n, login: 'GoBeromsu', role: null }),
+      buildRow({ githubId: 1n, nickname: 'GoBeromsu', role: null }),
       {
         promotedRow: buildRow({
           githubId: 1n,
-          login: 'GoBeromsu',
+          nickname: 'GoBeromsu',
           role: Role.ADMIN,
         }),
       },
@@ -197,7 +197,7 @@ describe('AuthRepository.upsertUser', () => {
     expect(result.user.name).toBe('사용자 입력 이름');
     expect(update).toHaveBeenCalledWith({
       where: { githubId: 424242n },
-      data: { login: 'synthetic-login', avatarUrl: null },
+      data: { nickname: 'synthetic-login', avatarUrl: null },
     });
   });
 });

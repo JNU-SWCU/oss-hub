@@ -78,7 +78,7 @@ async function createMappedRepository(): Promise<void> {
     data: {
       id: `${TEST_PREFIX}user`,
       githubId: 9_123_000_003n,
-      login: 'synthetic-123-user',
+      nickname: 'synthetic-123-user',
     },
   });
   await prisma.program.create({

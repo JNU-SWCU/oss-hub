@@ -6,7 +6,7 @@ function userRow(): User {
   return {
     id: 'synthetic-188-collection-user',
     githubId: 424242n,
-    login: 'synthetic-188-collection',
+    nickname: 'synthetic-188-collection',
     name: null,
     studentId: null,
     department: null,

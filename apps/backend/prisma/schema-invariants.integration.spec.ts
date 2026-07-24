@@ -22,9 +22,21 @@ const prisma = new PrismaClient();
 async function createUsers(): Promise<void> {
   await prisma.user.createMany({
     data: [
-      { id: USER_A_ID, githubId: 9_164_000_001n, login: 'synthetic-164-a' },
-      { id: USER_B_ID, githubId: 9_164_000_002n, login: 'synthetic-164-b' },
-      { id: USER_C_ID, githubId: 9_164_000_003n, login: 'synthetic-164-c' },
+      {
+        id: USER_A_ID,
+        githubId: 9_164_000_001n,
+        nickname: 'synthetic-164-a',
+      },
+      {
+        id: USER_B_ID,
+        githubId: 9_164_000_002n,
+        nickname: 'synthetic-164-b',
+      },
+      {
+        id: USER_C_ID,
+        githubId: 9_164_000_003n,
+        nickname: 'synthetic-164-c',
+      },
     ],
   });
 }
