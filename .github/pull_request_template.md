@@ -69,3 +69,22 @@
 - [ ] 공개 금지 정보 없음 — 학번·연락처·미공지 일정·예산·실데이터 값·Notion 본문 인용이 코드·본문·스크린샷에 없다
 - [ ] 시크릿 없음 — 토큰·키·비밀번호·내부 URL이 diff와 로그 출력에 없다
 - [ ] 실명 없음 — 사람은 GitHub @handle로만 표기했다
+
+## 병합 판정 증거
+
+<!-- ADR-005 기준. head, base ref 또는 base SHA가 바뀌면 아래 증거를 모두 다시 받는다. -->
+
+- risk: `GENERAL | HIGH_RISK`
+- head full SHA:
+- base ref:
+- base full SHA:
+- `MERGE_READY` 댓글 URL:
+- `CODE_CONTRACT:` 증거 URL 또는 public-safe 요약:
+- `PONYTAIL:` 증거 URL 또는 public-safe 요약:
+- 실제 UI/API QA 증거 URL 또는 N/A 사유: `N/A는 관찰 가능한 동작이 없을 때만, 환경·선행 PR·외부 자원 blocker는 BLOCKED/UNVERIFIED`
+- `CLI:` 증거 URL 또는 public-safe 요약:
+- `CI:` 증거 URL:
+- `RISK_ACCEPT role=PM head=<full-sha> base=<ref> base_sha=<full-sha> risk=GENERAL` 댓글 URL: `CODEOWNERS 후보 또는 분류가 모호한 변경을 GENERAL로 낮출 때만`
+- `RISK_ACCEPT role=TECH_LEAD head=<full-sha> base=<ref> base_sha=<full-sha> risk=GENERAL` 댓글 URL: `CODEOWNERS 후보 또는 분류가 모호한 변경을 GENERAL로 낮출 때만`
+- `PM_ACCEPT head=<full-sha> base=<ref> base_sha=<full-sha>` 댓글 URL: `HIGH_RISK만, 일반 PR은 N/A`
+- `TECH_LEAD_ACCEPT head=<full-sha> base=<ref> base_sha=<full-sha>` 댓글 URL: `HIGH_RISK만, 일반 PR은 N/A`
