@@ -6,7 +6,9 @@ import { NotificationsStaffGuard } from './notifications-staff.guard';
 import type { NotificationSettingsService } from './notification-settings.service';
 import { UpdateNotificationEmailRequestDto } from './dto/update-notification-email-request.dto';
 
-function readGuards(methodName: 'updateMyNotificationEmail'): unknown[] {
+function readGuards(
+  methodName: 'getMyNotificationSettings' | 'updateMyNotificationEmail',
+): unknown[] {
   const method: unknown = Object.getOwnPropertyDescriptor(
     NotificationSettingsController.prototype,
     methodName,
@@ -25,6 +27,13 @@ describe('NotificationSettingsController', () => {
     ]);
   });
 
+  it('GET을 SessionGuard·NotificationsStaffGuard로 보호한다(OriginGuard 없음)', () => {
+    expect(readGuards('getMyNotificationSettings')).toEqual([
+      SessionGuard,
+      NotificationsStaffGuard,
+    ]);
+  });
+
   it('세션 githubId와 입력으로 service를 호출하고 응답 DTO로 변환한다', async () => {
     const updateMyNotificationEmail = jest.fn().mockResolvedValue({
       notificationEmail: 'staff@example.com',
@@ -32,8 +41,8 @@ describe('NotificationSettingsController', () => {
     });
     const service: Pick<
       NotificationSettingsService,
-      'updateMyNotificationEmail'
-    > = { updateMyNotificationEmail };
+      'getMyNotificationSettings' | 'updateMyNotificationEmail'
+    > = { getMyNotificationSettings: jest.fn(), updateMyNotificationEmail };
     const controller = new NotificationSettingsController(service);
     const body = Object.assign(new UpdateNotificationEmailRequestDto(), {
       notificationEmail: 'staff@example.com',

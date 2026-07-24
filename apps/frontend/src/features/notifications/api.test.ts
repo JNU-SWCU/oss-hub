@@ -3,6 +3,7 @@ import { ApiError, apiPath } from '@/lib/api-client';
 import {
   NotificationSettingsResponseError,
   classifyNotificationApiError,
+  getMyNotificationSettings,
   updateMyNotificationEmail,
 } from './api';
 
@@ -13,6 +14,21 @@ const settings = {
 
 afterEach(() => vi.unstubAllGlobals());
 
+test('현재 설정을 GET으로 조회한다', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(settings), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  );
+  vi.stubGlobal('fetch', fetchMock);
+
+  await expect(getMyNotificationSettings()).resolves.toEqual(settings);
+  expect(fetchMock).toHaveBeenCalledWith(
+    apiPath('users/me/notification-email'),
+    undefined,
+  );
+});
 test('수신 이메일·on/off를 PATCH JSON 본문으로 저장한다', async () => {
   const fetchMock = vi.fn().mockResolvedValue(
     new Response(JSON.stringify(settings), {

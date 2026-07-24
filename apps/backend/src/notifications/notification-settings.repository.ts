@@ -12,6 +12,7 @@ export interface UpdateNotificationSettings {
 }
 
 export interface NotificationSettingsRepositoryPort {
+  findByGithubId(githubId: bigint): Promise<NotificationSettings | null>;
   updateByGithubId(
     githubId: bigint,
     settings: UpdateNotificationSettings,
@@ -21,6 +22,13 @@ export interface NotificationSettingsRepositoryPort {
 @Injectable()
 export class NotificationSettingsRepository implements NotificationSettingsRepositoryPort {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+
+  async findByGithubId(githubId: bigint): Promise<NotificationSettings | null> {
+    return this.prisma.user.findUnique({
+      where: { githubId },
+      select: { notificationEmail: true, notifyEnabled: true },
+    });
+  }
 
   async updateByGithubId(
     githubId: bigint,

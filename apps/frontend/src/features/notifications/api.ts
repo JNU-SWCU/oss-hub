@@ -33,6 +33,17 @@ function parseSettings(value: unknown): NotificationSettings {
   };
 }
 
+export async function getMyNotificationSettings(
+  signal?: AbortSignal,
+): Promise<NotificationSettings> {
+  return parseSettings(
+    await apiClient<unknown>(
+      'users/me/notification-email',
+      signal ? { signal } : undefined,
+    ),
+  );
+}
+
 export async function updateMyNotificationEmail(
   request: UpdateNotificationEmailRequest,
 ): Promise<NotificationSettings> {

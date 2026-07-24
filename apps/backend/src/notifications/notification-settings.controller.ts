@@ -1,6 +1,8 @@
 import {
   Body,
   Controller,
+  Get,
+  Header,
   Inject,
   Patch,
   Req,
@@ -21,9 +23,20 @@ export class NotificationSettingsController {
     @Inject(NotificationSettingsService)
     private readonly service: Pick<
       NotificationSettingsService,
-      'updateMyNotificationEmail'
+      'getMyNotificationSettings' | 'updateMyNotificationEmail'
     >,
   ) {}
+
+  @Get()
+  @Header('Cache-Control', 'private, no-store')
+  @UseGuards(SessionGuard, NotificationsStaffGuard)
+  async getMyNotificationSettings(
+    @Req() request: SessionIdentity,
+  ): Promise<NotificationSettingsResponseDto> {
+    return NotificationSettingsResponseDto.from(
+      await this.service.getMyNotificationSettings(request.sessionGithubId),
+    );
+  }
 
   @Patch()
   @UseGuards(SessionGuard, NotificationsStaffGuard, OriginGuard)

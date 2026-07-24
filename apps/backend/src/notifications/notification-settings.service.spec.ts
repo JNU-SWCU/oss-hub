@@ -42,4 +42,30 @@ describe('NotificationSettingsService', () => {
       }),
     ).rejects.toBeInstanceOf(DomainException);
   });
+
+  it('현재 설정을 조회한다', async () => {
+    const readService = new NotificationSettingsService({
+      findByGithubId: jest.fn().mockResolvedValue({
+        notificationEmail: 'staff@example.com',
+        notifyEnabled: true,
+      }),
+      updateByGithubId: jest.fn(),
+    } as unknown as NotificationSettingsRepositoryPort);
+
+    await expect(readService.getMyNotificationSettings(42n)).resolves.toEqual({
+      notificationEmail: 'staff@example.com',
+      notifyEnabled: true,
+    });
+  });
+
+  it('조회 대상 사용자가 없으면 USER_NOT_FOUND를 던진다', async () => {
+    const readService = new NotificationSettingsService({
+      findByGithubId: jest.fn().mockResolvedValue(null),
+      updateByGithubId: jest.fn(),
+    } as unknown as NotificationSettingsRepositoryPort);
+
+    await expect(
+      readService.getMyNotificationSettings(1n),
+    ).rejects.toBeInstanceOf(DomainException);
+  });
 });

@@ -22,6 +22,18 @@ export class NotificationSettingsService {
     private readonly repository: NotificationSettingsRepositoryPort,
   ) {}
 
+  async getMyNotificationSettings(
+    githubId: bigint,
+  ): Promise<NotificationSettings> {
+    const settings = await this.repository.findByGithubId(githubId);
+    if (!settings) {
+      throw new DomainException(
+        NOTIFICATIONS_ERROR_CODES[NotificationsErrorCode.USER_NOT_FOUND],
+      );
+    }
+    return settings;
+  }
+
   async updateMyNotificationEmail(
     githubId: bigint,
     input: UpdateNotificationEmailInput,
