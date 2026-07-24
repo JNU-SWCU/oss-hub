@@ -5,7 +5,7 @@ import type { AuditLogListRequestDto } from './dto/audit-log-query.dto';
 
 const auditLogSelect = {
   id: true,
-  actor: { select: { login: true } },
+  actor: { select: { nickname: true } },
   action: true,
   targetType: true,
   targetId: true,
@@ -69,7 +69,7 @@ export class AuditLogRepository implements AuditLogRepositoryPort {
     const logs = await this.prisma.auditLog.findMany({
       where: {
         actor: query.actor
-          ? { login: { contains: query.actor, mode: 'insensitive' } }
+          ? { nickname: { contains: query.actor, mode: 'insensitive' } }
           : undefined,
         action: query.action || undefined,
         occurredAt:
@@ -111,7 +111,7 @@ export class AuditLogRepository implements AuditLogRepositoryPort {
 function toAuditLogRecord(log: PrismaAuditLog): AuditLogRecord {
   return {
     id: log.id,
-    actor: log.actor.login,
+    actor: log.actor.nickname,
     action: log.action,
     targetType: log.targetType,
     targetId: log.targetId,

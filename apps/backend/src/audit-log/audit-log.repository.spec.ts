@@ -21,7 +21,7 @@ describe('AuditLogRepository', () => {
       expect.objectContaining({
         where: {
           actor: {
-            login: { contains: 'synthetic-admin', mode: 'insensitive' },
+            nickname: { contains: 'synthetic-admin', mode: 'insensitive' },
           },
           action: 'STAFF_ROLE_REQUEST_APPROVED',
           occurredAt: {
@@ -38,7 +38,7 @@ describe('AuditLogRepository', () => {
     const create = jest.fn().mockResolvedValue({
       id: 'audit-1',
       actorId: 'admin-id',
-      actor: { login: 'synthetic-admin' },
+      actor: { nickname: 'synthetic-admin' },
       action: 'STAFF_ROLE_REQUEST_REJECTED',
       targetType: 'ROLE_REQUEST',
       targetId: 'request-1',
@@ -74,7 +74,7 @@ describe('AuditLogRepository', () => {
       },
       select: {
         id: true,
-        actor: { select: { login: true } },
+        actor: { select: { nickname: true } },
         action: true,
         targetType: true,
         targetId: true,
