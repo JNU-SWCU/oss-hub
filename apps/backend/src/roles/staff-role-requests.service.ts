@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.enum';
 import { DomainException } from '../common/error-code';
 import { isCompleteUserProfile } from '../users/user-profile-policy';
@@ -25,11 +26,18 @@ export interface StaffRoleRequestPage {
   readonly total: number;
 }
 
+const AUDIT_ACTION = {
+  [STAFF_ROLE_REQUEST_ACTIONS.APPROVE]: 'STAFF_ROLE_REQUEST_APPROVED',
+  [STAFF_ROLE_REQUEST_ACTIONS.REJECT]: 'STAFF_ROLE_REQUEST_REJECTED',
+  [STAFF_ROLE_REQUEST_ACTIONS.REVOKE]: 'STAFF_ROLE_REQUEST_REVOKED',
+} as const;
+
 @Injectable()
 export class StaffRoleRequestsService {
   constructor(
     @Inject(StaffRoleRequestsRepository)
     private readonly repository: StaffRoleRequestsRepositoryPort,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   async list(
@@ -154,6 +162,15 @@ export class StaffRoleRequestsService {
           ROLES_ERROR_CODES[RolesErrorCode.ROLE_REQUEST_NOT_FOUND],
         );
       }
+      await this.auditLog.record(
+        {
+          actorGithubId: githubId,
+          action: AUDIT_ACTION[action.action],
+          targetType: 'ROLE_REQUEST',
+          targetId: requestId,
+        },
+        store.auditLogWriter,
+      );
       return decided;
     });
   }

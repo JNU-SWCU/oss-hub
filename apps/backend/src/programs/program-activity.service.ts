@@ -155,7 +155,7 @@ export class ProgramActivityService {
             label:
               repository.application.team?.name ??
               repository.application.applicant.name ??
-              repository.application.applicant.login,
+              repository.application.applicant.nickname,
             commitCount: events.reduce((sum, event) => sum + event.commits, 0),
             lastActivityAt,
           };

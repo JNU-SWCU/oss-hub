@@ -140,7 +140,7 @@ export class ProgramsRepository {
           select: {
             id: true,
             applicant: {
-              select: { githubId: true, name: true, login: true },
+              select: { githubId: true, name: true, nickname: true },
             },
             team: {
               select: {

@@ -7,6 +7,8 @@ import {
   RoleRequestStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { AuditLogRepository } from '../audit-log/audit-log.repository';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StaffRoleRequestsRepository } from './staff-role-requests.repository';
 import { StaffRoleRequestsService } from './staff-role-requests.service';
@@ -25,6 +27,7 @@ describe('Staff account lifecycle integration', () => {
   const prisma = new PrismaService();
   const service = new StaffRoleRequestsService(
     new StaffRoleRequestsRepository(prisma),
+    new AuditLogService(new AuditLogRepository(prisma)),
   );
 
   beforeAll(async () => {
@@ -48,10 +51,11 @@ describe('Staff account lifecycle integration', () => {
       action: 'REVOKE',
     });
 
-    const [staff, request, preservedCounts] = await Promise.all([
+    const [staff, request, preservedCounts, auditLogs] = await Promise.all([
       prisma.user.findUniqueOrThrow({ where: { id: staffId } }),
       prisma.roleRequest.findUniqueOrThrow({ where: { id: requestId } }),
       countPreservedAssets(staffId),
+      prisma.auditLog.findMany({ where: { actorId: adminId } }),
     ]);
     expect(revoked).toMatchObject({
       status: RoleRequestStatus.REVOKED,
@@ -75,6 +79,13 @@ describe('Staff account lifecycle integration', () => {
       inventories: 1,
       activityEvents: 1,
     });
+    expect(auditLogs).toEqual([
+      expect.objectContaining({
+        action: 'STAFF_ROLE_REQUEST_REVOKED',
+        targetType: 'ROLE_REQUEST',
+        targetId: requestId,
+      }),
+    ]);
   });
 
   it('관리자 재활성화는 REVOKED 이력을 보존하고 별도 APPROVED 이력을 남긴다', async () => {
@@ -132,10 +143,14 @@ describe('Staff account lifecycle integration', () => {
       Promise.all([
         prisma.user.findUniqueOrThrow({ where: { id: staffId } }),
         prisma.roleRequest.findUniqueOrThrow({ where: { id: requestId } }),
+        prisma.auditLog.count({
+          where: { actor: { githubId: ADMIN_GITHUB_ID } },
+        }),
       ]),
     ).resolves.toEqual([
       expect.objectContaining({ role: null }),
       expect.objectContaining({ status: RoleRequestStatus.PENDING }),
+      0,
     ]);
 
     await prisma.user.update({
@@ -153,6 +168,50 @@ describe('Staff account lifecycle integration', () => {
       status: RoleRequestStatus.APPROVED,
       userRole: Role.STAFF,
     });
+    await expect(
+      prisma.auditLog.count({
+        where: { actor: { githubId: ADMIN_GITHUB_ID } },
+      }),
+    ).resolves.toBe(1);
+  });
+
+  it('감사 기록 실패 시 승인 상태와 역할 변경을 함께 롤백한다', async () => {
+    const { staffId, requestId } = await createPendingStaffApplicant();
+    await prisma.user.update({
+      where: { id: staffId },
+      data: {
+        name: 'Synthetic Pending Staff',
+        studentId: '9600188',
+        department: 'Synthetic Department',
+      },
+    });
+    const failingAuditLog = new AuditLogService(new AuditLogRepository(prisma));
+    jest
+      .spyOn(failingAuditLog, 'record')
+      .mockRejectedValueOnce(new Error('synthetic audit write failure'));
+    const failingService = new StaffRoleRequestsService(
+      new StaffRoleRequestsRepository(prisma),
+      failingAuditLog,
+    );
+
+    await expect(
+      failingService.decide(ADMIN_GITHUB_ID, requestId, {
+        action: 'APPROVE',
+      }),
+    ).rejects.toThrow('synthetic audit write failure');
+    await expect(
+      Promise.all([
+        prisma.user.findUniqueOrThrow({ where: { id: staffId } }),
+        prisma.roleRequest.findUniqueOrThrow({ where: { id: requestId } }),
+        prisma.auditLog.count({
+          where: { actor: { githubId: ADMIN_GITHUB_ID } },
+        }),
+      ]),
+    ).resolves.toEqual([
+      expect.objectContaining({ role: null }),
+      expect.objectContaining({ status: RoleRequestStatus.PENDING }),
+      0,
+    ]);
   });
 
   async function createApprovedStaff(): Promise<{
@@ -165,7 +224,7 @@ describe('Staff account lifecycle integration', () => {
         data: {
           id: `${TEST_PREFIX}admin`,
           githubId: ADMIN_GITHUB_ID,
-          login: 'synthetic-188-admin',
+          nickname: 'synthetic-188-admin',
           role: Role.ADMIN,
         },
       }),
@@ -173,7 +232,7 @@ describe('Staff account lifecycle integration', () => {
         data: {
           id: `${TEST_PREFIX}staff`,
           githubId: STAFF_GITHUB_ID,
-          login: 'synthetic-188-staff',
+          nickname: 'synthetic-188-staff',
           role: Role.STAFF,
         },
       }),
@@ -200,7 +259,7 @@ describe('Staff account lifecycle integration', () => {
       data: {
         id: `${TEST_PREFIX}admin`,
         githubId: ADMIN_GITHUB_ID,
-        login: 'synthetic-188-admin',
+        nickname: 'synthetic-188-admin',
         role: Role.ADMIN,
       },
     });
@@ -208,7 +267,7 @@ describe('Staff account lifecycle integration', () => {
       data: {
         id: `${TEST_PREFIX}staff`,
         githubId: STAFF_GITHUB_ID,
-        login: 'synthetic-188-pending-staff',
+        nickname: 'synthetic-188-pending-staff',
       },
     });
     const request = await prisma.roleRequest.create({
@@ -336,6 +395,9 @@ describe('Staff account lifecycle integration', () => {
   }
 
   async function cleanup(): Promise<void> {
+    await prisma.auditLog.deleteMany({
+      where: { actorId: { startsWith: TEST_PREFIX } },
+    });
     await prisma.orgRepositoryActivityEvent.deleteMany({
       where: { id: { startsWith: TEST_PREFIX } },
     });

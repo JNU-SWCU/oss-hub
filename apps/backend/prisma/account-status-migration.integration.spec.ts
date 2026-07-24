@@ -5,6 +5,8 @@ import { AuthErrorCode } from '../src/auth/auth-error-code.enum';
 import { AuthConfig } from '../src/auth/auth.config';
 import { AuthRepository } from '../src/auth/auth.repository';
 import { AuthService } from '../src/auth/auth.service';
+import { AuditLogRepository } from '../src/audit-log/audit-log.repository';
+import { AuditLogService } from '../src/audit-log/audit-log.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { RolesRepository } from '../src/roles/roles.repository';
 import { RolesService } from '../src/roles/roles.service';
@@ -52,6 +54,7 @@ describe('accountStatus migration regression', () => {
   );
   const staffRoleRequestsService = new StaffRoleRequestsService(
     new StaffRoleRequestsRepository(prisma),
+    new AuditLogService(new AuditLogRepository(prisma)),
   );
 
   beforeAll(async () => {

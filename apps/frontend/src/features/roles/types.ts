@@ -3,6 +3,7 @@ export type RoleSelection = 'STUDENT' | 'STAFF';
 export type RoleRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'REVOKED';
 
 export type StaffRoleRequestStatus = RoleRequestStatus;
+export type UserRole = 'STUDENT' | 'STAFF' | 'ADMIN';
 
 export interface RoleSelectionResult {
   readonly selectedRole: RoleSelection;
@@ -48,3 +49,17 @@ export type StaffRoleRequestDecision =
   | { readonly action: 'APPROVE' }
   | { readonly action: 'REJECT'; readonly reason: string }
   | { readonly action: 'REVOKE' };
+
+export interface AdminUser {
+  readonly id: string;
+  readonly githubLogin: string;
+  readonly name: string | null;
+  readonly role: UserRole | null;
+  readonly accountStatus: 'ACTIVE' | 'DEACTIVATED';
+  readonly isSelf: boolean;
+}
+
+export interface AdminUserListParams {
+  readonly query: string;
+  readonly role: UserRole | '';
+}

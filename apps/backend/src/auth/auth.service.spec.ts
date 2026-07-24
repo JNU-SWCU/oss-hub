@@ -12,7 +12,7 @@ import { createFlowState, encodeFlowCookie } from './oauth-flow';
 const syntheticUser: AuthUser = {
   id: 'cuid-synthetic',
   githubId: 424242n,
-  login: 'synthetic-login',
+  nickname: 'synthetic-login',
   name: null,
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
