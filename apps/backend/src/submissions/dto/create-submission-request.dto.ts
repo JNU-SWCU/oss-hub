@@ -13,7 +13,7 @@ import {
   parseSubmissionContent,
 } from '../domain/submission-content';
 
-class SubmissionContentRequestDto {
+export class SubmissionContentRequestDto {
   @IsString()
   declare readonly type: string;
 

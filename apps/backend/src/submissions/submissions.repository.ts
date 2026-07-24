@@ -3,21 +3,29 @@ import {
   AccountStatus,
   Prisma,
   Role,
+  SubmissionStatus,
   type ApplicationStatus,
   type MilestoneSubmissionType,
-  type SubmissionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import type { CreateSubmissionInput } from './domain/submission-content';
+import type {
+  CreateSubmissionInput,
+  SubmissionContentInput,
+} from './domain/submission-content';
 import {
   submissionApplicationSelect,
   submissionParticipantWhere,
   toSubmissionApplication,
 } from './submission-application.record';
+import {
+  checklistMilestoneOrderBy,
+  checklistMilestoneSelect,
+  toChecklistMilestone,
+} from './submission-checklist.record';
 
 type SubmissionsDatabase = Pick<
   Prisma.TransactionClient,
-  'application' | 'milestone' | 'submission' | 'user'
+  'application' | 'milestone' | 'submission' | 'submissionRevision' | 'user'
 >;
 
 export interface SubmissionActor {
@@ -51,6 +59,47 @@ export interface CreatedSubmission {
   readonly submittedAt: Date;
 }
 
+export interface ChecklistApplication {
+  readonly id: string;
+  readonly teamId: string | null;
+  readonly status: ApplicationStatus;
+}
+
+export interface ChecklistLatestReview {
+  readonly reviewedAt: Date;
+  readonly comment: string | null;
+}
+
+export interface ChecklistMilestone {
+  readonly id: string;
+  readonly name: string;
+  readonly dueAt: Date;
+  readonly submissionType: MilestoneSubmissionType;
+  readonly submission: {
+    readonly id: string;
+    readonly status: SubmissionStatus;
+    readonly currentRevision: number;
+    readonly latestReview: ChecklistLatestReview | null;
+  } | null;
+}
+
+export interface ResubmissionTarget {
+  readonly id: string;
+  readonly status: SubmissionStatus;
+  readonly currentRevision: number;
+  readonly submissionType: MilestoneSubmissionType;
+  readonly applicationStatus: ApplicationStatus;
+  readonly repositoryUrl: string | null;
+}
+
+export interface CreateSubmissionRevisionInput {
+  readonly submissionId: string;
+  readonly baseRevision: number;
+  readonly content: SubmissionContentInput;
+  readonly comment: string | null;
+  readonly submittedById: string;
+}
+
 export interface SubmissionsStore {
   findActiveStudentByGithubId(
     githubId: bigint,
@@ -74,10 +123,30 @@ export interface SubmissionsStore {
     input: CreateSubmissionInput,
     submittedById: string,
   ): Promise<CreatedSubmission>;
+  findChecklistApplication(
+    programId: string,
+    userId: string,
+  ): Promise<ChecklistApplication | null>;
+  listChecklistMilestones(
+    programId: string,
+    applicationId: string,
+  ): Promise<readonly ChecklistMilestone[]>;
+  findSubmissionForParticipant(
+    submissionId: string,
+    userId: string,
+  ): Promise<ResubmissionTarget | null>;
+  submissionExists(submissionId: string): Promise<boolean>;
+  createSubmissionRevision(
+    input: CreateSubmissionRevisionInput,
+  ): Promise<{ readonly revision: number }>;
 }
 
 export class SubmissionAlreadyExistsError extends Error {
   override readonly name = 'SubmissionAlreadyExistsError';
+}
+
+export class StaleSubmissionRevisionError extends Error {
+  override readonly name = 'StaleSubmissionRevisionError';
 }
 
 class CreatedSubmissionRevisionMissingError extends Error {
@@ -189,6 +258,108 @@ class PrismaSubmissionsStore implements SubmissionsStore {
       throw error;
     }
   }
+
+  findChecklistApplication(
+    programId: string,
+    userId: string,
+  ): Promise<ChecklistApplication | null> {
+    return this.database.application.findFirst({
+      where: { programId, ...submissionParticipantWhere(userId) },
+      select: { id: true, teamId: true, status: true },
+    });
+  }
+
+  async listChecklistMilestones(
+    programId: string,
+    applicationId: string,
+  ): Promise<readonly ChecklistMilestone[]> {
+    const milestones = await this.database.milestone.findMany({
+      where: { programId },
+      orderBy: checklistMilestoneOrderBy,
+      select: checklistMilestoneSelect(applicationId),
+    });
+    return milestones.map(toChecklistMilestone);
+  }
+
+  async findSubmissionForParticipant(
+    submissionId: string,
+    userId: string,
+  ): Promise<ResubmissionTarget | null> {
+    const submission = await this.database.submission.findFirst({
+      where: {
+        id: submissionId,
+        application: submissionParticipantWhere(userId),
+      },
+      select: {
+        id: true,
+        status: true,
+        currentRevision: true,
+        milestone: { select: { submissionType: true } },
+        application: {
+          select: { status: true, repository: { select: { url: true } } },
+        },
+      },
+    });
+    if (!submission) return null;
+    return {
+      id: submission.id,
+      status: submission.status,
+      currentRevision: submission.currentRevision,
+      submissionType: submission.milestone.submissionType,
+      applicationStatus: submission.application.status,
+      repositoryUrl: submission.application.repository?.url ?? null,
+    };
+  }
+
+  async submissionExists(submissionId: string): Promise<boolean> {
+    const submission = await this.database.submission.findUnique({
+      where: { id: submissionId },
+      select: { id: true },
+    });
+    return submission !== null;
+  }
+
+  async createSubmissionRevision(
+    input: CreateSubmissionRevisionInput,
+  ): Promise<{ readonly revision: number }> {
+    const nextRevision = input.baseRevision + 1;
+    // 재제출 가능 상태·baseRevision을 조건으로 건 optimistic update —
+    // 동시 재제출이 끼어들면 count 0이 되어 stale로 끝난다(이전 revision·Review는 보존).
+    const updated = await this.database.submission.updateMany({
+      where: {
+        id: input.submissionId,
+        status: SubmissionStatus.CHANGES_REQUESTED,
+        currentRevision: input.baseRevision,
+      },
+      data: {
+        status: SubmissionStatus.SUBMITTED,
+        currentRevision: nextRevision,
+      },
+    });
+    if (updated.count === 0) throw new StaleSubmissionRevisionError();
+    try {
+      const revision = await this.database.submissionRevision.create({
+        data: {
+          submissionId: input.submissionId,
+          revision: nextRevision,
+          submissionType: input.content.type,
+          content: input.content,
+          comment: input.comment,
+          submittedById: input.submittedById,
+        },
+        select: { revision: true },
+      });
+      return revision;
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new StaleSubmissionRevisionError();
+      }
+      throw error;
+    }
+  }
 }
 
 @Injectable()
@@ -237,6 +408,26 @@ export class SubmissionsRepository implements SubmissionsStore {
 
   createSubmission(input: CreateSubmissionInput, submittedById: string) {
     return this.store.createSubmission(input, submittedById);
+  }
+
+  findChecklistApplication(programId: string, userId: string) {
+    return this.store.findChecklistApplication(programId, userId);
+  }
+
+  listChecklistMilestones(programId: string, applicationId: string) {
+    return this.store.listChecklistMilestones(programId, applicationId);
+  }
+
+  findSubmissionForParticipant(submissionId: string, userId: string) {
+    return this.store.findSubmissionForParticipant(submissionId, userId);
+  }
+
+  submissionExists(submissionId: string) {
+    return this.store.submissionExists(submissionId);
+  }
+
+  createSubmissionRevision(input: CreateSubmissionRevisionInput) {
+    return this.store.createSubmissionRevision(input);
   }
 
   withTransaction<T>(
