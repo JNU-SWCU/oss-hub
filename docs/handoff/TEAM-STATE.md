@@ -103,7 +103,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 공통 프로그램 상세 조회 | @Geuin04 | done | #103 | [#195](https://github.com/JNU-SWCU/oss-hub/pull/195) merged | pass | 없음 |
 | 프로그램 생성 이탈 보호·동작 계약 | @Lumiere001 | done | #196 | #200 | pass | 없음 — 실제 브라우저 접수 E2E는 #128 통합 QA에서 수행 |
 | 마일스톤 최초 제출(TEXT·REPOSITORY_RELEASE) | @Lumiere001 | done | #115 | [#217](https://github.com/JNU-SWCU/oss-hub/pull/217) merged | pass | FILE은 `Program.endAt` + private storage 후속 |
-| 제출 체크리스트·보완 재제출 | @Lumiere001 | review | [#116](https://github.com/JNU-SWCU/oss-hub/issues/116) | - | backend unit 460·통합 90·frontend 259 local pass | 브라우저 QA는 OAuth 로그인 필요(unblock: @GoBeromsu 또는 사람 QA) · GET checklist는 #232 선행 |
+| 제출 체크리스트·보완 재제출 | @Lumiere001 | review | [#116](https://github.com/JNU-SWCU/oss-hub/issues/116) | [#243](https://github.com/JNU-SWCU/oss-hub/pull/243) | backend unit 460·통합 90·frontend 259 local pass | 브라우저 QA는 OAuth 로그인 필요(unblock: @GoBeromsu 또는 사람 QA) · GET checklist는 #232 선행 |
 | Participation & Showcase 백로그(내 대시보드·운영 대시보드·매트릭스·검토·공개 아카이브·알림·공개 프로필) | @jinsol1190-rgb | planned | #114 #115 #124 #125 #126 #127 #134 #155 | - | - | 없음 — 코어 스키마(done) 전제 충족 |
 | 학생 활동 타임라인 | @jinsol1190-rgb | review | #154 | [#210](https://github.com/JNU-SWCU/oss-hub/pull/210) | #210 pass | [프런트엔드 #198](https://github.com/JNU-SWCU/oss-hub/pull/198) merged · 백엔드 조회 API #210 리뷰 대기 |
 | Cross-cutting E2E 스모크(접수 흐름·전체 루프) | @GoBeromsu | planned | #128 #129 | - | - | 상위 화면 티켓들 merge 진행에 따라 순차 검증 |
