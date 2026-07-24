@@ -6,6 +6,7 @@ import { CollectionModule } from './collection/collection.module';
 import { ConsentsModule } from './consents/consents.module';
 import { HealthModule } from './health/health.module';
 import { LoginHistoryModule } from './login-history/login-history.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProgramsModule } from './programs/programs.module';
 import { RepositoryOwnershipModule } from './repository-ownership/repository-ownership.module';
@@ -19,6 +20,7 @@ import { UsersModule } from './users/users.module';
     HealthModule,
     AuditLogModule,
     LoginHistoryModule,
+    NotificationsModule,
     AuthModule,
     CollectionModule,
     ConsentsModule,
