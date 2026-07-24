@@ -235,7 +235,7 @@ async function seedRepositoryReady(stats: SeedStats): Promise<void> {
   const invitedUser = await prisma.user.findUnique({
     where: { id: applicantId },
   });
-  const githubLogin = invitedUser?.login ?? `seed-${scenarioId}-invitee`;
+  const githubLogin = invitedUser?.nickname ?? `seed-${scenarioId}-invitee`;
   await upsertTracked(
     stats,
     'RepositoryInvitation',

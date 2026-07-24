@@ -42,12 +42,12 @@ async function createFixtures(): Promise<void> {
       {
         id: FIRST_USER_ID,
         githubId: FIRST_GITHUB_ID,
-        login: 'synthetic-owner-first',
+        nickname: 'synthetic-owner-first',
       },
       {
         id: SECOND_USER_ID,
         githubId: SECOND_GITHUB_ID,
-        login: 'synthetic-owner-second',
+        nickname: 'synthetic-owner-second',
       },
     ],
   });
@@ -132,7 +132,7 @@ describe('RepositoryOwnerProjection integration', () => {
 
     await prisma.user.update({
       where: { id: FIRST_USER_ID },
-      data: { login: 'synthetic-owner-renamed' },
+      data: { nickname: 'synthetic-owner-renamed' },
     });
     await expect(
       prisma.repositoryOwnerProjection.findUniqueOrThrow({

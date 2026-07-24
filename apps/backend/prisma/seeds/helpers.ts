@@ -191,8 +191,8 @@ export async function upsertSeedUser(
     () =>
       prisma.user.upsert({
         where: { id },
-        update: { login, role, accountStatus },
-        create: { id, githubId, login, role, accountStatus },
+        update: { nickname: login, role, accountStatus },
+        create: { id, githubId, nickname: login, role, accountStatus },
       }),
   );
 }

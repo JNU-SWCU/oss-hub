@@ -10,6 +10,9 @@ export enum RolesErrorCode {
   ROLE_REQUEST_ALREADY_DECIDED = 'ROL_007',
   ROLE_STATE_CONFLICT = 'ROL_008',
   INVALID_ROLE_REQUEST_ACTION = 'ROL_009',
+  USER_NOT_FOUND = 'ROL_010',
+  INVALID_USER_ID = 'ROL_011',
+  INVALID_USER_ROLE = 'ROL_012',
 }
 
 export const ROLES_ERROR_CODES: Record<RolesErrorCode, ErrorCode> = {
@@ -57,5 +60,20 @@ export const ROLES_ERROR_CODES: Record<RolesErrorCode, ErrorCode> = {
     code: RolesErrorCode.INVALID_ROLE_REQUEST_ACTION,
     status: 400,
     message: '지원하지 않는 요청 처리 방식입니다.',
+  },
+  [RolesErrorCode.USER_NOT_FOUND]: {
+    code: RolesErrorCode.USER_NOT_FOUND,
+    status: 404,
+    message: '사용자를 찾을 수 없습니다.',
+  },
+  [RolesErrorCode.INVALID_USER_ID]: {
+    code: RolesErrorCode.INVALID_USER_ID,
+    status: 400,
+    message: '올바르지 않은 사용자 ID입니다.',
+  },
+  [RolesErrorCode.INVALID_USER_ROLE]: {
+    code: RolesErrorCode.INVALID_USER_ROLE,
+    status: 400,
+    message: '지원하지 않는 사용자 역할입니다.',
   },
 };

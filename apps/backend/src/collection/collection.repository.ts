@@ -141,7 +141,7 @@ export class CollectionRepository {
   private toUser(user: PrismaUser): CollectionUser {
     return {
       githubId: user.githubId,
-      login: user.login,
+      login: user.nickname,
     };
   }
 }

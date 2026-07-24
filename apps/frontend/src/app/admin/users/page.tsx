@@ -1,12 +1,12 @@
 import { RolePanelShell } from '../../_shell/role-panel-shell';
 import { ADMIN_MENU } from '../../_shell/role-menus';
-import { TicketStub } from '../../_shell/ticket-stub';
+import { AdminUsersScreen } from '@/features/roles/components/admin-users-screen';
 
 // #131 "관리 콘솔"(URL: /admin/users) — 접근: ADMIN만.
 export default function AdminUsersPage() {
   return (
     <RolePanelShell menu={ADMIN_MENU} allow={['ADMIN']}>
-      <TicketStub ticketNumber={131} title="관리 콘솔" />
+      <AdminUsersScreen />
     </RolePanelShell>
   );
 }

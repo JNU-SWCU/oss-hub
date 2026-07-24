@@ -64,7 +64,7 @@ describe('RolesRepository integration', () => {
       data: {
         id: `${TEST_PREFIX}staff`,
         githubId: STAFF_GITHUB_ID,
-        login: 'synthetic-169-staff',
+        nickname: 'synthetic-169-staff',
         ...COMPLETE_PROFILE,
       },
     });
@@ -92,7 +92,7 @@ describe('RolesRepository integration', () => {
       data: {
         id: `${TEST_PREFIX}mixed`,
         githubId: MIXED_GITHUB_ID,
-        login: 'synthetic-169-mixed',
+        nickname: 'synthetic-169-mixed',
         ...COMPLETE_PROFILE,
       },
     });
@@ -125,7 +125,7 @@ describe('RolesRepository integration', () => {
           id: `${TEST_PREFIX}incomplete-${selectedRole.toLowerCase()}`,
           githubId:
             INCOMPLETE_GITHUB_ID + (selectedRole === Role.STUDENT ? 0n : 1n),
-          login: `synthetic-169-incomplete-${selectedRole.toLowerCase()}`,
+          nickname: `synthetic-169-incomplete-${selectedRole.toLowerCase()}`,
         },
       });
 

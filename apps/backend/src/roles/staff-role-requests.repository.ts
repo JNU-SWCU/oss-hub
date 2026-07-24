@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { RoleRequestStatus } from '@prisma/client';
 import type { Prisma, User as PrismaUser } from '@prisma/client';
+import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import type { UserProfileRecord } from '../users/user-profile-policy';
 import type { RoleUser } from './domain/role-onboarding';
@@ -14,8 +15,8 @@ import type {
 } from './domain/staff-role-request';
 
 const staffRoleRequestInclude = {
-  user: { select: { login: true, role: true, accountStatus: true } },
-  decidedBy: { select: { login: true } },
+  user: { select: { nickname: true, role: true, accountStatus: true } },
+  decidedBy: { select: { nickname: true } },
 } satisfies Prisma.RoleRequestInclude;
 
 type PrismaStaffRoleRequest = Prisma.RoleRequestGetPayload<{
@@ -23,6 +24,7 @@ type PrismaStaffRoleRequest = Prisma.RoleRequestGetPayload<{
 }>;
 
 export interface StaffRoleRequestsTransactionStore {
+  readonly auditLogWriter: AuditLogTransactionWriter;
   findUserByGithubId(githubId: bigint): Promise<RoleUser | null>;
   findUserProfileById(userId: string): Promise<UserProfileRecord | null>;
   findRequestById(id: string): Promise<StaffRoleRequestRecord | null>;
@@ -49,6 +51,10 @@ export interface StaffRoleRequestsRepositoryPort {
 
 class PrismaStaffRoleRequestsTransactionStore implements StaffRoleRequestsTransactionStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
+
+  get auditLogWriter(): AuditLogTransactionWriter {
+    return this.transaction;
+  }
 
   async findUserByGithubId(githubId: bigint): Promise<RoleUser | null> {
     const user = await this.transaction.user.findUnique({
@@ -157,7 +163,7 @@ export class StaffRoleRequestsRepository implements StaffRoleRequestsRepositoryP
       status: query.status,
       user:
         query.query.length > 0
-          ? { login: { contains: query.query, mode: 'insensitive' } }
+          ? { nickname: { contains: query.query, mode: 'insensitive' } }
           : undefined,
     };
     const [requests, total] = await Promise.all([
@@ -188,13 +194,13 @@ function toStaffRoleRequest(
   return {
     id: request.id,
     userId: request.userId,
-    githubLogin: request.user.login,
+    githubLogin: request.user.nickname,
     userRole: request.user.role,
     userAccountStatus: request.user.accountStatus,
     status: request.status,
     rejectionReason: request.rejectionReason,
     decidedAt: request.decidedAt,
-    decidedBy: request.decidedBy?.login ?? null,
+    decidedBy: request.decidedBy?.nickname ?? null,
     createdAt: request.createdAt,
   };
 }

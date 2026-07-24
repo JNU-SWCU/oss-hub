@@ -71,13 +71,13 @@ describe('ApplicationsService integration', () => {
         {
           id: ACTOR_ID,
           githubId: 8_000_000_000_001n,
-          login: 'Synthetic-Staff',
+          nickname: 'Synthetic-Staff',
           role: Role.STAFF,
         },
         {
           id: APPLICANT_ID,
           githubId: 8_000_000_000_002n,
-          login: 'Synthetic-Applicant',
+          nickname: 'Synthetic-Applicant',
           role: Role.STUDENT,
         },
       ],
