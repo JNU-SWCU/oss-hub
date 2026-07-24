@@ -14,12 +14,21 @@ import { Input } from '@/components/ui/input';
 
 import type { AdminUser, UserRole } from '../types';
 import { AdminRoleChangeDialog } from './admin-role-change-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './role-select';
 
 const ROLE_LABEL: Record<UserRole, string> = {
   STUDENT: '학생',
   STAFF: '교직원',
   ADMIN: '관리자',
 };
+
+const ALL_ROLES = 'ALL_ROLES';
 
 export interface RoleChangeConfirmation {
   readonly user: AdminUser;
@@ -91,23 +100,22 @@ function RoleSelect({
       <label className="sr-only" htmlFor={id}>
         {user.githubLogin} 역할 변경
       </label>
-      <select
-        id={id}
-        className="h-11 rounded-lg border border-input bg-background px-3 text-sm"
+      <Select
         value={user.role ?? ''}
         disabled={disabled}
-        onChange={(event) => {
-          const role = event.target.value as UserRole;
-          if (role) onChange(role);
-        }}
+        onValueChange={(role) => onChange(role as UserRole)}
       >
-        {!user.role ? <option value="">역할 선택</option> : null}
-        {Object.entries(ROLE_LABEL).map(([value, label]) => (
-          <option key={value} value={value}>
-            {label}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger id={id} className="h-11 min-w-28">
+          <SelectValue placeholder="역할 선택" />
+        </SelectTrigger>
+        <SelectContent>
+          {Object.entries(ROLE_LABEL).map(([value, label]) => (
+            <SelectItem key={value} value={value}>
+              {label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </RowActions>
   );
 }
@@ -202,21 +210,24 @@ export function AdminUsersView(props: AdminUsersViewProps) {
         <label className="sr-only" htmlFor="admin-user-role-filter">
           역할 필터
         </label>
-        <select
-          id="admin-user-role-filter"
-          className="h-11 rounded-lg border border-input bg-background px-3 text-sm"
-          value={props.role}
-          onChange={(event) =>
-            props.onRoleChange(event.target.value as UserRole | '')
+        <Select
+          value={props.role || ALL_ROLES}
+          onValueChange={(role) =>
+            props.onRoleChange(role === ALL_ROLES ? '' : (role as UserRole))
           }
         >
-          <option value="">전체 역할</option>
-          {Object.entries(ROLE_LABEL).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger id="admin-user-role-filter" className="h-11">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_ROLES}>전체 역할</SelectItem>
+            {Object.entries(ROLE_LABEL).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button className="h-11" type="submit" variant="outline">
           검색
         </Button>
