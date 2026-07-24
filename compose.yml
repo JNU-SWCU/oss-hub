@@ -57,6 +57,10 @@ services:
 
   nginx:
     image: nginx:1.27-alpine
+    restart: unless-stopped
+    # nginx가 host의 Jenkins(127.0.0.1:8080)에 닿아 배포 트리거 경로만 리버스 프록시한다.
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     depends_on:
       postgres:
         condition: service_healthy
