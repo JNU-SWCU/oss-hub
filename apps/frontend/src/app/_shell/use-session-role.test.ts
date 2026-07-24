@@ -23,7 +23,7 @@ describe('toSessionRoleState', () => {
     const session = {
       isAuthenticated: true,
       user: {
-        login: 'synthetic-user',
+        nickname: 'synthetic-user',
         name: null,
         avatarUrl: null,
         role: null,
@@ -46,7 +46,7 @@ describe('toSessionRoleState', () => {
     const session = {
       isAuthenticated: true,
       user: {
-        login: 'synthetic-user',
+        nickname: 'synthetic-user',
         name: null,
         avatarUrl: null,
         role: 'ADMIN',

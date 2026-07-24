@@ -15,11 +15,11 @@ import type {
 type ApplicationWithProgram = PrismaTypes.ApplicationGetPayload<{
   include: {
     program: { select: { repositoryProvisioningEnabled: true } };
-    applicant: { select: { login: true } };
+    applicant: { select: { nickname: true } };
     team: {
       select: {
-        leader: { select: { login: true } };
-        members: { select: { user: { select: { login: true } } } };
+        leader: { select: { nickname: true } };
+        members: { select: { user: { select: { nickname: true } } } };
       };
     };
   };
@@ -49,11 +49,11 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
       where: { id: applicationId },
       include: {
         program: { select: { repositoryProvisioningEnabled: true } },
-        applicant: { select: { login: true } },
+        applicant: { select: { nickname: true } },
         team: {
           select: {
-            leader: { select: { login: true } },
-            members: { select: { user: { select: { login: true } } } },
+            leader: { select: { nickname: true } },
+            members: { select: { user: { select: { nickname: true } } } },
           },
         },
       },
@@ -136,10 +136,10 @@ function toApplicationDecisionTarget(
 ): ApplicationDecisionTarget {
   const githubLogins = application.team
     ? [
-        application.team.leader.login,
-        ...application.team.members.map((member) => member.user.login),
+        application.team.leader.nickname,
+        ...application.team.members.map((member) => member.user.nickname),
       ]
-    : [application.applicant.login];
+    : [application.applicant.nickname];
   return {
     id: application.id,
     programId: application.programId,

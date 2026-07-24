@@ -46,6 +46,7 @@ describe('관리자 사용자 콘솔', () => {
     expect(html).toContain('data-slot="data-table"');
     expect(html).toContain('data-slot="row-actions"');
     expect(html).toContain('data-slot="status-badge"');
+    expect(html).toContain('data-slot="select-trigger"');
     expect(html).toContain('h-11');
     expect(html).toContain('id="role-synthetic-staff-compact"');
     expect(html).toContain('id="role-synthetic-staff-table"');

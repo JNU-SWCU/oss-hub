@@ -12,7 +12,7 @@ import { LoginHistoryService } from '../login-history/login-history.service';
 const syntheticUser: AuthUser = {
   id: 'synthetic-id',
   githubId: 424242n,
-  login: 'synthetic-login',
+  nickname: 'synthetic-login',
   name: null,
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
@@ -122,7 +122,7 @@ describe('AuthController getSession', () => {
     expect(result).toEqual({
       isAuthenticated: true,
       user: {
-        login: syntheticUser.login,
+        nickname: syntheticUser.nickname,
         name: null,
         avatarUrl: null,
         accountStatus: AccountStatus.ACTIVE,

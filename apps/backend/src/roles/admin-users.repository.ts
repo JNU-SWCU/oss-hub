@@ -74,13 +74,13 @@ export class AdminUsersRepository implements AdminUsersRepositoryPort {
       OR: query.query
         ? [
             { name: { contains: query.query, mode: 'insensitive' } },
-            { login: { contains: query.query, mode: 'insensitive' } },
+            { nickname: { contains: query.query, mode: 'insensitive' } },
           ]
         : undefined,
     };
     const users = await this.prisma.user.findMany({
       where,
-      orderBy: [{ name: 'asc' }, { login: 'asc' }, { id: 'asc' }],
+      orderBy: [{ name: 'asc' }, { nickname: 'asc' }, { id: 'asc' }],
     });
     return users.map(toAdminUser);
   }
@@ -89,13 +89,13 @@ export class AdminUsersRepository implements AdminUsersRepositoryPort {
 function toAdminUser(
   user: Pick<
     PrismaUser,
-    'id' | 'githubId' | 'login' | 'name' | 'role' | 'accountStatus'
+    'id' | 'githubId' | 'nickname' | 'name' | 'role' | 'accountStatus'
   >,
 ): AdminUserRecord {
   return {
     id: user.id,
     githubId: user.githubId,
-    githubLogin: user.login,
+    githubLogin: user.nickname,
     name: user.name,
     role: user.role,
     accountStatus: user.accountStatus,

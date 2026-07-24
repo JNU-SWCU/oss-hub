@@ -60,13 +60,13 @@ describe('SubmissionsService integration', () => {
         {
           id: NON_STUDENT_USER_ID,
           githubId: seedGithubId(NON_STUDENT_USER_ID),
-          login: 'synthetic-submission-non-student',
+          nickname: 'synthetic-submission-non-student',
           role: Role.STAFF,
         },
         {
           id: UNAPPROVED_USER_ID,
           githubId: seedGithubId(UNAPPROVED_USER_ID),
-          login: 'synthetic-submission-unapproved-student',
+          nickname: 'synthetic-submission-unapproved-student',
           role: Role.STUDENT,
         },
       ],

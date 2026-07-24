@@ -22,10 +22,10 @@ describe('LoginHistoryRepository integration', () => {
     await prisma.$connect();
     const [firstUser, secondUser] = await Promise.all([
       prisma.user.create({
-        data: { githubId: firstGithubId, login: 'synthetic-history-one' },
+        data: { githubId: firstGithubId, nickname: 'synthetic-history-one' },
       }),
       prisma.user.create({
-        data: { githubId: secondGithubId, login: 'synthetic-history-two' },
+        data: { githubId: secondGithubId, nickname: 'synthetic-history-two' },
       }),
     ]);
     firstUserId = firstUser.id;
