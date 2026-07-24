@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { MilestoneTimelineView } from './components/milestone-timeline-view';
 import {
@@ -8,12 +8,37 @@ import {
 } from './loader';
 import { NOW, PROGRAM_ID, response } from './milestone-timeline.test-fixtures';
 
+const apiClientMock = vi.hoisted(() => vi.fn());
+
+vi.mock('@/lib/api-client', () => ({
+  apiClient: apiClientMock,
+}));
+
 describe('milestone timeline loader and view', () => {
-  it('production loader는 #116 endpoint 병합 전 synthetic data 대신 fail closed 한다', async () => {
-    // Given / When / Then
-    await expect(
-      loadMilestoneTimeline({ programId: PROGRAM_ID }),
-    ).rejects.toThrow('마일스톤 타임라인을 불러올 수 없습니다');
+  afterEach(() => {
+    apiClientMock.mockReset();
+  });
+
+  it('loadMilestoneTimeline은 #116 checklist endpoint를 호출하고 파싱한다', async () => {
+    // Given
+    apiClientMock.mockResolvedValue(response);
+
+    // When
+    const timeline = await loadMilestoneTimeline({ programId: PROGRAM_ID });
+
+    // Then
+    expect(apiClientMock).toHaveBeenCalledWith(
+      'programs/program-1/submissions/me',
+    );
+    expect(timeline.items.map((item) => item.milestoneId)).toEqual([
+      'overdue',
+      'text',
+      'file',
+      'release',
+      'rejected',
+      'missing',
+      'changes-locked',
+    ]);
   });
 
   it('responsive timeline과 loading, empty, error states를 렌더링한다', () => {

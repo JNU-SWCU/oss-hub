@@ -29,12 +29,12 @@ describe('milestone timeline parser', () => {
       'D-32',
     ]);
     expect(timeline.items.map((item) => item.statusLabel)).toEqual([
-      '미제출',
-      '제출 완료',
+      '제출 전',
+      '제출됨',
       '보완 필요',
-      '승인 완료',
-      '반려',
-      '미제출',
+      '승인',
+      '최종 반려',
+      '제출 전',
       '보완 필요',
     ]);
     expect(
