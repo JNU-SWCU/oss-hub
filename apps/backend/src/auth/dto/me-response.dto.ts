@@ -3,7 +3,7 @@ import { AuthUser } from '../domain/auth-user';
 
 /** githubId(BigInt)는 노출하지 않는다 — JSON 직렬화 불가 + 외부 계약에 불필요. */
 export class MeResponseDto {
-  login: string;
+  nickname: string;
   name: string | null;
   avatarUrl: string | null;
   readonly accountStatus: AccountStatus;
@@ -15,7 +15,7 @@ export class MeResponseDto {
   role: Role | null;
 
   private constructor(user: AuthUser, role: Role | null) {
-    this.login = user.login;
+    this.nickname = user.nickname;
     this.name = user.name;
     this.avatarUrl = user.avatarUrl;
     this.accountStatus = user.accountStatus;

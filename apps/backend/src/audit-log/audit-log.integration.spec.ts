@@ -30,13 +30,13 @@ describe('Audit log integration', () => {
         {
           id: `${TEST_PREFIX}admin`,
           githubId: ADMIN_GITHUB_ID,
-          login: 'synthetic-132-admin',
+          nickname: 'synthetic-132-admin',
           role: Role.ADMIN,
         },
         {
           id: `${TEST_PREFIX}staff`,
           githubId: STAFF_GITHUB_ID,
-          login: 'synthetic-132-staff',
+          nickname: 'synthetic-132-staff',
           role: Role.STAFF,
         },
       ],

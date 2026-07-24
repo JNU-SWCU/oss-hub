@@ -12,7 +12,7 @@ import { issueSessionToken } from './session-token';
 const syntheticUser: AuthUser = {
   id: 'synthetic-id',
   githubId: 424242n,
-  login: 'synthetic-login',
+  nickname: 'synthetic-login',
   name: null,
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,

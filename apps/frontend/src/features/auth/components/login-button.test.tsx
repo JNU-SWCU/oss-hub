@@ -41,7 +41,7 @@ describe('LoginButtonView', () => {
     const session = {
       isAuthenticated: true,
       user: {
-        login: 'synthetic-user',
+        nickname: 'synthetic-user',
         name: null,
         avatarUrl: null,
         role: 'STUDENT',

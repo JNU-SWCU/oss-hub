@@ -9,7 +9,7 @@ import { LoginHistoryService } from './login-history.service';
 const syntheticUser = {
   id: 'synthetic-user-id',
   githubId: 424242n,
-  login: 'synthetic-login',
+  nickname: 'synthetic-login',
   name: null,
   avatarUrl: null,
   role: null,
