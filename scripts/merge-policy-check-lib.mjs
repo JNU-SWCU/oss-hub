@@ -17,21 +17,49 @@ export const MERGE_READY_ACTORS = ['GoBeromsu', 'Lumiere001'];
 export const PM_ACTOR = 'GoBeromsu';
 export const TECH_LEAD_ACTOR = 'Lumiere001';
 
-// 코드 fence(```)와 백틱으로 시작하는 인용 줄을 제거한다 — 토큰 인용이 승인으로 오인되는 것을 막는다.
+// 인용·비가시 영역의 토큰이 승인으로 오인되는 것을 막는다.
+// 제거 대상: HTML 주석, ```·~~~ 코드 fence, 4칸 이상 들여쓰기 코드 블록,
+// 백틱 인용 줄과 여러 줄에 걸친 인라인 코드 스팬. 토큰은 들여쓰기 없는
+// 가시적 최상위 줄에서만 인정된다.
 export function effectiveLines(body) {
-  const lines = String(body ?? '')
+  const withoutHtmlComments = String(body ?? '')
     .replaceAll('\r\n', '\n')
-    .split('\n');
+    .replace(/<!--[\s\S]*?-->/g, '');
   const result = [];
-  let inFence = false;
-  for (const rawLine of lines) {
+  let fenceMarker = null;
+  let inInlineSpan = false;
+  for (const rawLine of withoutHtmlComments.split('\n')) {
     const line = rawLine.trim();
-    if (line.startsWith('```')) {
-      inFence = !inFence;
+    const fence = line.match(/^(`{3,}|~{3,})/);
+    if (fence && !inInlineSpan) {
+      if (fenceMarker === null) {
+        fenceMarker = fence[1][0];
+      } else if (fence[1][0] === fenceMarker) {
+        fenceMarker = null;
+      }
       continue;
     }
-    if (inFence || line.startsWith('`')) {
+    if (fenceMarker !== null) {
       continue;
+    }
+    if (/^( {4,}|\t)/.test(rawLine)) {
+      continue;
+    }
+    const backtickCount = (line.match(/`/g) ?? []).length;
+    if (inInlineSpan) {
+      if (backtickCount % 2 === 1) {
+        inInlineSpan = false;
+      }
+      continue;
+    }
+    if (line.startsWith('`')) {
+      if (backtickCount % 2 === 1) {
+        inInlineSpan = true;
+      }
+      continue;
+    }
+    if (backtickCount % 2 === 1) {
+      inInlineSpan = true;
     }
     result.push(line);
   }
@@ -46,6 +74,16 @@ export function parseCodeownersPatterns(text) {
     .filter((line) => line.length > 0 && !line.startsWith('#'))
     .map((line) => line.split(/\s+/)[0])
     .filter((pattern) => pattern.startsWith('/'));
+}
+
+// 판정기가 해석하지 못하는 CODEOWNERS 패턴은 무시하지 않고 판정 불능(fail-closed)으로 처리한다.
+export function findUnsupportedCodeownersPatterns(text) {
+  return String(text ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith('#'))
+    .map((line) => line.split(/\s+/)[0])
+    .filter((pattern) => !pattern.startsWith('/'));
 }
 
 export function matchesCodeownersPattern(pattern, filePath) {
@@ -81,7 +119,9 @@ function pinnedToCurrent(pull, head, baseRef, baseSha) {
 }
 
 // MERGE_READY 후보 중 [허용 actor + 첫 줄 형식 + 현재 head/base 고정]을 만족하는 최신 댓글을 고른다.
-function findMergeReady(pull, comments, reasons) {
+// 무효 후보는 판정 사유가 아니라 진단 note로만 남긴다 — 제3자·초안 댓글이
+// 유효한 MERGE_READY를 오염시키는 것(공개 repo 게이트 DoS)을 막는다.
+function findMergeReady(pull, comments, notes) {
   let latest = null;
   let sawStale = false;
   for (const comment of comments) {
@@ -91,15 +131,15 @@ function findMergeReady(pull, comments, reasons) {
       continue;
     }
     if (!MERGE_READY_ACTORS.includes(comment.authorLogin)) {
-      reasons.push(
+      notes.push(
         `MERGE_READY 무시 — 허용되지 않은 actor @${comment.authorLogin} (comment ${comment.id})`,
       );
       continue;
     }
     const match = firstLine.match(MERGE_READY_HEAD_LINE);
     if (!match) {
-      reasons.push(
-        `MERGE_READY 형식 불일치 — 첫 줄이 'MERGE_READY head=<full-sha> base=<ref> base_sha=<full-sha> risk=<GENERAL|HIGH_RISK>' 형식이 아님 (comment ${comment.id})`,
+      notes.push(
+        `MERGE_READY 무시 — 첫 줄이 'MERGE_READY head=<full-sha> base=<ref> base_sha=<full-sha> risk=<GENERAL|HIGH_RISK>' 형식이 아님 (comment ${comment.id})`,
       );
       continue;
     }
@@ -117,17 +157,12 @@ function findMergeReady(pull, comments, reasons) {
       };
     }
   }
-  if (latest === null && sawStale) {
-    reasons.push(
-      'stale MERGE_READY만 존재 — head, base ref 또는 base SHA가 바뀌어 이전 증거는 무효 (ADR-005)',
-    );
-  }
-  return latest;
+  return { latest, sawStale };
 }
 
 function checkEvidenceMarkers(mergeReady, reasons) {
   const body = mergeReady.lines.join('\n');
-  if (body.includes('BLOCKED/UNVERIFIED')) {
+  if (/\bUNVERIFIED\b/i.test(body)) {
     reasons.push(
       'MERGE_READY에 BLOCKED/UNVERIFIED 상태가 포함됨 — 미검증 동작은 병합 불가',
     );
@@ -141,8 +176,12 @@ function checkEvidenceMarkers(mergeReady, reasons) {
       reasons.push(`증거 marker 누락 또는 빈 값 — ${marker}:`);
       continue;
     }
-    if (marker === 'QA' && /^N\/A\b/.test(value)) {
-      const reason = value.slice(3).replace(/^[\s—–:-]+/, '');
+    if (marker !== 'QA') {
+      continue;
+    }
+    const notApplicable = value.match(/^(n\/?a|해당\s*없음)[\s—–:.-]*/i);
+    if (notApplicable) {
+      const reason = value.slice(notApplicable[0].length);
       if (reason.length < QA_NA_MIN_REASON_LENGTH) {
         reasons.push(
           'QA: N/A에는 관찰 가능한 동작 변경이 없다는 구체적 사유가 함께 필요함',
@@ -153,7 +192,7 @@ function checkEvidenceMarkers(mergeReady, reasons) {
 }
 
 // 지정 actor의 댓글에서 현재 head/base에 고정된 단일 줄 토큰을 찾는다.
-function findAcceptToken({ pull, comments, pattern, actor, shaIndex }) {
+function findAcceptToken({ pull, comments, pattern, actor }) {
   for (const comment of comments) {
     if (comment.authorLogin !== actor) {
       continue;
@@ -163,9 +202,7 @@ function findAcceptToken({ pull, comments, pattern, actor, shaIndex }) {
       if (!match) {
         continue;
       }
-      const head = match[shaIndex];
-      const baseRef = match[shaIndex + 1];
-      const baseSha = match[shaIndex + 2];
+      const [, head, baseRef, baseSha] = match;
       if (pinnedToCurrent(pull, head, baseRef, baseSha)) {
         return { commentId: comment.id, actor };
       }
@@ -180,14 +217,12 @@ function checkHighRiskAccepts(pull, comments, reasons) {
     comments,
     pattern: PM_ACCEPT_LINE,
     actor: PM_ACTOR,
-    shaIndex: 1,
   });
   const techLeadAccept = findAcceptToken({
     pull,
     comments,
     pattern: TECH_LEAD_ACCEPT_LINE,
     actor: TECH_LEAD_ACTOR,
-    shaIndex: 1,
   });
   if (!pmAccept) {
     reasons.push(
@@ -249,25 +284,39 @@ export function evaluateMergePolicy({
   defaultBranch = 'main',
 }) {
   const reasons = [];
+  const notes = [];
 
   if (!FULL_SHA.test(pull.headSha) || !FULL_SHA.test(pull.baseSha)) {
     reasons.push('PR head/base SHA를 40자 full SHA로 확인하지 못함');
-    return verdict('failure', 'UNKNOWN', reasons, null);
+    return verdict('failure', 'UNKNOWN', reasons, notes, null);
   }
   if (pull.baseRef !== defaultBranch) {
     reasons.push(
       `게이트는 ${defaultBranch} 대상 PR에만 적용 — base가 ${pull.baseRef}인 PR은 fail-closed`,
     );
-    return verdict('failure', 'UNKNOWN', reasons, null);
+    return verdict('failure', 'UNKNOWN', reasons, notes, null);
+  }
+  const unsupportedPatterns = findUnsupportedCodeownersPatterns(codeownersText);
+  if (unsupportedPatterns.length > 0) {
+    reasons.push(
+      `판정 불능 — CODEOWNERS에 판정기가 지원하지 않는 패턴 존재: ${unsupportedPatterns.join(', ')} (fail-closed)`,
+    );
+    return verdict('failure', 'UNKNOWN', reasons, notes, null);
   }
 
   const sortedComments = [...comments].sort((a, b) => a.id - b.id);
-  const mergeReady = findMergeReady(pull, sortedComments, reasons);
+  const { latest: mergeReady, sawStale } = findMergeReady(
+    pull,
+    sortedComments,
+    notes,
+  );
   if (!mergeReady) {
-    if (reasons.length === 0) {
-      reasons.push('현재 head·base에 고정된 MERGE_READY 기록이 없음');
-    }
-    return verdict('failure', 'UNKNOWN', reasons, null);
+    reasons.push(
+      sawStale
+        ? 'stale MERGE_READY만 존재 — head, base ref 또는 base SHA가 바뀌어 이전 증거는 무효 (ADR-005)'
+        : '현재 head·base에 고정된 MERGE_READY 기록이 없음',
+    );
+    return verdict('failure', 'UNKNOWN', reasons, notes, null);
   }
 
   checkEvidenceMarkers(mergeReady, reasons);
@@ -286,12 +335,13 @@ export function evaluateMergePolicy({
     reasons.length === 0 ? 'success' : 'failure',
     mergeReady.risk,
     reasons,
+    notes,
     mergeReady.commentId,
   );
 }
 
-function verdict(conclusion, risk, reasons, mergeReadyCommentId) {
-  return { conclusion, risk, reasons, mergeReadyCommentId };
+function verdict(conclusion, risk, reasons, notes, mergeReadyCommentId) {
+  return { conclusion, risk, reasons, notes, mergeReadyCommentId };
 }
 
 export function formatSummary(result, pull) {
@@ -312,6 +362,9 @@ export function formatSummary(result, pull) {
     for (const reason of result.reasons) {
       lines.push(`  - ${reason}`);
     }
+  }
+  for (const note of result.notes ?? []) {
+    lines.push(`- 참고: ${note}`);
   }
   return `${lines.join('\n')}\n`;
 }

@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   evaluateMergePolicy,
+  findUnsupportedCodeownersPatterns,
   isCodeownersCandidate,
   matchesCodeownersPattern,
   parseCodeownersPatterns,
@@ -315,14 +316,15 @@ test('URL 없이 요약만 있는 증거도 허용한다', () => {
   assert.equal(result.conclusion, 'success');
 });
 
-test('허용되지 않은 actor의 MERGE_READY는 무시한다', () => {
+test('허용되지 않은 actor의 MERGE_READY는 무시한다 — 진단은 note로만 남는다', () => {
   const result = evaluate({
     comments: [comment(10, 'jinsol1190-rgb', mergeReadyBody())],
   });
   assert.equal(result.conclusion, 'failure');
   assert.ok(
-    result.reasons.some((reason) => reason.includes('허용되지 않은 actor')),
+    result.reasons.some((reason) => reason.includes('MERGE_READY 기록이 없음')),
   );
+  assert.ok(result.notes.some((note) => note.includes('허용되지 않은 actor')));
 });
 
 test('백틱·코드 블록으로 인용된 토큰은 승인으로 세지 않는다', () => {
@@ -403,4 +405,147 @@ test('CODEOWNERS 패턴 매칭 — 디렉터리·glob·정확 일치', () => {
   assert.ok(
     !isCodeownersCandidate(patterns, ['apps/backend/src/programs/foo.ts']),
   );
+});
+
+test('제3자의 MERGE_READY 접두 댓글은 유효한 MERGE_READY를 오염시키지 않는다 (게이트 DoS 방지)', () => {
+  const result = evaluate({
+    comments: [
+      comment(9, 'jinsol1190-rgb', 'MERGE_READY 인 것 같은데요?'),
+      comment(10, 'Lumiere001', mergeReadyBody()),
+    ],
+  });
+  assert.equal(result.conclusion, 'success');
+  assert.ok(result.notes.some((note) => note.includes('허용되지 않은 actor')));
+});
+
+test('허용 actor의 형식 불일치 초안 댓글도 유효한 MERGE_READY를 오염시키지 않는다', () => {
+  const result = evaluate({
+    comments: [
+      comment(9, 'Lumiere001', 'MERGE_READY: 검증 끝나면 곧 남길게요'),
+      comment(10, 'Lumiere001', mergeReadyBody()),
+    ],
+  });
+  assert.equal(result.conclusion, 'success');
+});
+
+test('HTML 주석 안에 숨긴 accept 토큰은 세지 않는다', () => {
+  const result = evaluate({
+    comments: [
+      comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
+      comment(11, 'GoBeromsu', `감사합니다.\n<!--\n${pmAccept()}\n-->`),
+      comment(12, 'Lumiere001', `확인했습니다.\n<!-- ${techLeadAccept()} -->`),
+    ],
+  });
+  assert.equal(result.conclusion, 'failure');
+});
+
+test('~~~ fence 안의 accept 토큰은 세지 않는다', () => {
+  const quoted = ['예시:', '~~~', pmAccept(), '~~~'].join('\n');
+  const result = evaluate({
+    comments: [
+      comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
+      comment(11, 'GoBeromsu', quoted),
+      comment(12, 'Lumiere001', techLeadAccept()),
+    ],
+  });
+  assert.equal(result.conclusion, 'failure');
+});
+
+test('4칸 들여쓰기 코드 블록의 토큰은 세지 않는다 — MERGE_READY 예시 포함', () => {
+  const indentedAccept = `예시:\n\n    ${pmAccept()}`;
+  const indentedMergeReady = mergeReadyBody({ risk: 'HIGH_RISK' })
+    .split('\n')
+    .map((line) => `    ${line}`)
+    .join('\n');
+  const result = evaluate({
+    comments: [
+      comment(9, 'Lumiere001', indentedMergeReady),
+      comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
+      comment(11, 'GoBeromsu', indentedAccept),
+      comment(12, 'Lumiere001', techLeadAccept()),
+    ],
+  });
+  assert.equal(result.conclusion, 'failure');
+  assert.equal(result.risk, 'HIGH_RISK');
+});
+
+test('여러 줄에 걸친 인라인 코드 스팬 안의 토큰은 세지 않는다', () => {
+  const spanned = ['다음 형식을 참고: `', pmAccept(), '` 입니다.'].join('\n');
+  const result = evaluate({
+    comments: [
+      comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
+      comment(11, 'GoBeromsu', spanned),
+      comment(12, 'Lumiere001', techLeadAccept()),
+    ],
+  });
+  assert.equal(result.conclusion, 'failure');
+});
+
+test('소문자 n/a·해당 없음 표기도 사유가 없으면 실패한다', () => {
+  for (const value of ['n/a', 'NA', '해당 없음']) {
+    const result = evaluate({
+      comments: [
+        comment(10, 'Lumiere001', mergeReadyBody({ markers: { QA: value } })),
+      ],
+    });
+    assert.equal(result.conclusion, 'failure', `QA: ${value}`);
+  }
+});
+
+test('UNVERIFIED 단독 표기도 미검증으로 차단한다', () => {
+  const result = evaluate({
+    comments: [
+      comment(
+        10,
+        'Lumiere001',
+        mergeReadyBody({ markers: { QA: 'UNVERIFIED — 환경 없음' } }),
+      ),
+    ],
+  });
+  assert.equal(result.conclusion, 'failure');
+});
+
+test('댓글 수정으로 토큰이 다른 head를 가리키면 무효가 된다 (stateless 재평가)', () => {
+  const before = evaluate({
+    comments: [
+      comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
+      comment(11, 'GoBeromsu', pmAccept()),
+      comment(12, 'Lumiere001', techLeadAccept()),
+    ],
+  });
+  const afterEdit = evaluate({
+    comments: [
+      comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
+      comment(11, 'GoBeromsu', pmAccept(OTHER_SHA)),
+      comment(12, 'Lumiere001', techLeadAccept()),
+    ],
+  });
+  assert.equal(before.conclusion, 'success');
+  assert.equal(afterEdit.conclusion, 'failure');
+});
+
+test('다른 base SHA에 고정된 RISK_ACCEPT는 무효다', () => {
+  const result = evaluate({
+    changedFiles: CANDIDATE_FILES,
+    comments: [
+      comment(10, 'Lumiere001', mergeReadyBody()),
+      comment(11, 'GoBeromsu', riskAccept('PM', HEAD, 'main', OTHER_SHA)),
+      comment(12, 'Lumiere001', riskAccept('TECH_LEAD')),
+    ],
+  });
+  assert.equal(result.conclusion, 'failure');
+});
+
+test('지원하지 않는 CODEOWNERS 패턴이 있으면 판정 불능으로 fail-closed한다', () => {
+  const result = evaluateMergePolicy({
+    pull: pull(),
+    comments: [comment(10, 'Lumiere001', mergeReadyBody())],
+    changedFiles: GENERAL_FILES,
+    codeownersText: `${CODEOWNERS_TEXT}\n*.md @GoBeromsu\n`,
+  });
+  assert.equal(result.conclusion, 'failure');
+  assert.ok(result.reasons.some((reason) => reason.includes('판정 불능')));
+  assert.deepEqual(findUnsupportedCodeownersPatterns('*.md @a\n/ok/ @b'), [
+    '*.md',
+  ]);
 });
