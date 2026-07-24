@@ -1,0 +1,277 @@
+import type { FormEvent } from 'react';
+
+import {
+  DataTable,
+  EmptyState,
+  PageHeader,
+  RowActions,
+  StatusBadge,
+  type DataTableColumn,
+} from '@/components';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+
+import type { AdminUser, UserRole } from '../types';
+import { AdminRoleChangeDialog } from './admin-role-change-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './role-select';
+
+const ROLE_LABEL: Record<UserRole, string> = {
+  STUDENT: '학생',
+  STAFF: '교직원',
+  ADMIN: '관리자',
+};
+
+const ALL_ROLES = 'ALL_ROLES';
+
+export interface RoleChangeConfirmation {
+  readonly user: AdminUser;
+  readonly role: UserRole;
+}
+
+interface AdminUsersViewProps {
+  readonly items: readonly AdminUser[];
+  readonly query: string;
+  readonly role: UserRole | '';
+  readonly isLoading: boolean;
+  readonly errorMessage: string | null;
+  readonly successMessage: string | null;
+  readonly processingId: string | null;
+  readonly confirmation: RoleChangeConfirmation | null;
+  readonly onQueryChange: (query: string) => void;
+  readonly onRoleChange: (role: UserRole | '') => void;
+  readonly onSearch: () => void;
+  readonly onRequestRoleChange: (user: AdminUser, role: UserRole) => void;
+  readonly onCancelConfirmation: () => void;
+  readonly onConfirmRoleChange: () => void;
+  readonly onRetry: () => void;
+  readonly onResetFilters: () => void;
+}
+
+function RoleBadge({ role }: { readonly role: AdminUser['role'] }) {
+  if (!role) {
+    return <StatusBadge variant="rejected">미지정</StatusBadge>;
+  }
+
+  return (
+    <StatusBadge
+      variant={
+        role === 'ADMIN' ? 'approved' : role === 'STAFF' ? 'pending' : 'closed'
+      }
+    >
+      {ROLE_LABEL[role]}
+    </StatusBadge>
+  );
+}
+
+function AccountStatusBadge({
+  status,
+}: {
+  readonly status: AdminUser['accountStatus'];
+}) {
+  return (
+    <StatusBadge variant={status === 'ACTIVE' ? 'approved' : 'closed'}>
+      {status === 'ACTIVE' ? '활성' : '비활성'}
+    </StatusBadge>
+  );
+}
+
+function RoleSelect({
+  user,
+  idSuffix,
+  disabled,
+  onChange,
+}: {
+  readonly user: AdminUser;
+  readonly idSuffix: 'compact' | 'table';
+  readonly disabled: boolean;
+  readonly onChange: (role: UserRole) => void;
+}) {
+  const id = `role-${user.id}-${idSuffix}`;
+
+  return (
+    <RowActions>
+      <label className="sr-only" htmlFor={id}>
+        {user.githubLogin} 역할 변경
+      </label>
+      <Select
+        value={user.role ?? ''}
+        disabled={disabled}
+        onValueChange={(role) => onChange(role as UserRole)}
+      >
+        <SelectTrigger id={id} className="h-11 min-w-28">
+          <SelectValue placeholder="역할 선택" />
+        </SelectTrigger>
+        <SelectContent>
+          {Object.entries(ROLE_LABEL).map(([value, label]) => (
+            <SelectItem key={value} value={value}>
+              {label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </RowActions>
+  );
+}
+
+export function AdminUsersView(props: AdminUsersViewProps) {
+  const columns: DataTableColumn<AdminUser>[] = [
+    {
+      id: 'user',
+      header: '사용자',
+      cellClassName: 'whitespace-normal',
+      cell: (user) => (
+        <div className="flex min-w-0 flex-col gap-2 lg:min-w-40 lg:gap-0.5">
+          <span className="line-clamp-2 break-all font-medium">
+            {user.name ?? '이름 미등록'}
+          </span>
+          <span className="text-muted-foreground">@{user.githubLogin}</span>
+          <div className="flex flex-wrap items-center gap-2 pt-1 lg:hidden">
+            <RoleBadge role={user.role} />
+            <AccountStatusBadge status={user.accountStatus} />
+            <RoleSelect
+              user={user}
+              idSuffix="compact"
+              disabled={props.processingId === user.id}
+              onChange={(role) => props.onRequestRoleChange(user, role)}
+            />
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'role',
+      header: '현재 역할',
+      headClassName: 'hidden lg:table-cell',
+      cellClassName: 'hidden lg:table-cell',
+      cell: (user) => <RoleBadge role={user.role} />,
+    },
+    {
+      id: 'accountStatus',
+      header: '계정 상태',
+      headClassName: 'hidden lg:table-cell',
+      cellClassName: 'hidden lg:table-cell',
+      cell: (user) => <AccountStatusBadge status={user.accountStatus} />,
+    },
+    {
+      id: 'actions',
+      header: <span className="sr-only">역할 변경</span>,
+      headClassName: 'hidden text-right lg:table-cell',
+      cellClassName: 'hidden lg:table-cell',
+      cell: (user) => (
+        <RoleSelect
+          user={user}
+          idSuffix="table"
+          disabled={props.processingId === user.id}
+          onChange={(role) => props.onRequestRoleChange(user, role)}
+        />
+      ),
+    },
+  ];
+
+  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    props.onSearch();
+  };
+
+  return (
+    <section className="flex flex-col gap-6 p-4 sm:p-6">
+      <PageHeader
+        title="사용자 관리"
+        description="사용자를 검색하고 학생·교직원·관리자 역할을 변경합니다."
+      />
+      {props.errorMessage ? (
+        <Alert variant="destructive">
+          <AlertDescription className="flex items-center justify-between gap-3">
+            <span>{props.errorMessage}</span>
+            <Button className="h-11" variant="outline" onClick={props.onRetry}>
+              다시 시도
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      <form
+        className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem_auto]"
+        onSubmit={submitSearch}
+      >
+        <Input
+          className="h-11"
+          aria-label="이름 또는 GitHub 닉네임 검색"
+          placeholder="이름 또는 GitHub 닉네임"
+          value={props.query}
+          onChange={(event) => props.onQueryChange(event.target.value)}
+        />
+        <label className="sr-only" htmlFor="admin-user-role-filter">
+          역할 필터
+        </label>
+        <Select
+          value={props.role || ALL_ROLES}
+          onValueChange={(role) =>
+            props.onRoleChange(role === ALL_ROLES ? '' : (role as UserRole))
+          }
+        >
+          <SelectTrigger id="admin-user-role-filter" className="h-11">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_ROLES}>전체 역할</SelectItem>
+            {Object.entries(ROLE_LABEL).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button className="h-11" type="submit" variant="outline">
+          검색
+        </Button>
+      </form>
+      <div className="rounded-lg border border-border">
+        <DataTable
+          columns={columns}
+          data={[...props.items]}
+          rowKey={(user) => user.id}
+          isLoading={props.isLoading}
+          loadingSlot="사용자 목록을 불러오는 중…"
+          emptyState={
+            <EmptyState
+              title="검색 결과가 없습니다"
+              action={
+                <Button
+                  className="h-11"
+                  variant="outline"
+                  onClick={props.onResetFilters}
+                >
+                  필터 초기화
+                </Button>
+              }
+            />
+          }
+        />
+      </div>
+      {props.successMessage ? (
+        <div
+          className="fixed right-4 bottom-4 z-40 rounded-lg border border-border bg-background px-4 py-3 text-sm shadow-lg"
+          role="status"
+        >
+          {props.successMessage}
+        </div>
+      ) : null}
+      {props.confirmation ? (
+        <AdminRoleChangeDialog
+          user={props.confirmation.user}
+          role={props.confirmation.role}
+          isProcessing={props.processingId === props.confirmation.user.id}
+          onCancel={props.onCancelConfirmation}
+          onConfirm={props.onConfirmRoleChange}
+        />
+      ) : null}
+    </section>
+  );
+}

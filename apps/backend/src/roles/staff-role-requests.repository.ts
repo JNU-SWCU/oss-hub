@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { RoleRequestStatus } from '@prisma/client';
 import type { Prisma, User as PrismaUser } from '@prisma/client';
+import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import type { UserProfileRecord } from '../users/user-profile-policy';
 import type { RoleUser } from './domain/role-onboarding';
@@ -23,6 +24,7 @@ type PrismaStaffRoleRequest = Prisma.RoleRequestGetPayload<{
 }>;
 
 export interface StaffRoleRequestsTransactionStore {
+  readonly auditLogWriter: AuditLogTransactionWriter;
   findUserByGithubId(githubId: bigint): Promise<RoleUser | null>;
   findUserProfileById(userId: string): Promise<UserProfileRecord | null>;
   findRequestById(id: string): Promise<StaffRoleRequestRecord | null>;
@@ -49,6 +51,10 @@ export interface StaffRoleRequestsRepositoryPort {
 
 class PrismaStaffRoleRequestsTransactionStore implements StaffRoleRequestsTransactionStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
+
+  get auditLogWriter(): AuditLogTransactionWriter {
+    return this.transaction;
+  }
 
   async findUserByGithubId(githubId: bigint): Promise<RoleUser | null> {
     const user = await this.transaction.user.findUnique({
