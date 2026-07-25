@@ -58,9 +58,14 @@ describe('ApplicationsStaffGuard', () => {
       errorCode: {
         code: ApplicationsErrorCode.STAFF_ONLY,
         status: 403,
-        message: expect.stringContaining('판정'),
       },
     });
+    try {
+      await decision;
+    } catch (error: unknown) {
+      const message = readDomainMessage(error);
+      expect(message).toContain('판정');
+    }
   });
 
   it('비활성 STAFF 계정을 403으로 거부한다', async () => {
@@ -85,6 +90,17 @@ describe('ApplicationsStaffGuard', () => {
     });
   });
 });
+
+function readDomainMessage(error: unknown): string {
+  if (typeof error !== 'object' || error === null || !('errorCode' in error)) {
+    return '';
+  }
+  const code = error.errorCode;
+  if (typeof code !== 'object' || code === null || !('message' in code)) {
+    return '';
+  }
+  return typeof code.message === 'string' ? code.message : '';
+}
 
 describe('ApplicationsStaffListGuard', () => {
   const findUnique = jest.fn();
@@ -115,16 +131,7 @@ describe('ApplicationsStaffListGuard', () => {
           message: '승인된 교직원 또는 관리자만 조회할 수 있습니다.',
         },
       });
-      const message =
-        error &&
-        typeof error === 'object' &&
-        'errorCode' in error &&
-        error.errorCode &&
-        typeof error.errorCode === 'object' &&
-        'message' in error.errorCode
-          ? String((error.errorCode as { message: unknown }).message)
-          : '';
-      expect(message).not.toContain('판정');
+      expect(readDomainMessage(error)).not.toContain('판정');
     }
   });
 

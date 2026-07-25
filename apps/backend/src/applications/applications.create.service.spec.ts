@@ -40,23 +40,23 @@ function buildService(overrides: {
   readonly student?: ApplicationStudentActor | null;
   readonly program?: ApplyProgramRecord | null;
   readonly store?: Partial<ApplicationCreateStore>;
-  readonly createThrows?: unknown;
+  readonly createThrows?: Error;
 }) {
-  const createApplication = jest
-    .fn()
-    .mockImplementation(async (input: unknown) => {
-      if (overrides.createThrows) throw overrides.createThrows;
-      return {
-        ...CREATED,
-        teamId:
-          typeof input === 'object' &&
-          input !== null &&
-          'teamId' in input &&
-          typeof (input as { teamId: unknown }).teamId === 'string'
-            ? (input as { teamId: string }).teamId
-            : null,
-      } satisfies CreatedApplication;
-    });
+  const createApplication = jest.fn().mockImplementation((input: unknown) => {
+    if (overrides.createThrows) {
+      return Promise.reject(overrides.createThrows);
+    }
+    const rawTeamId =
+      typeof input === 'object' && input !== null && 'teamId' in input
+        ? Reflect.get(input, 'teamId')
+        : null;
+    const teamId = typeof rawTeamId === 'string' ? rawTeamId : null;
+    const created: CreatedApplication = {
+      ...CREATED,
+      teamId,
+    };
+    return Promise.resolve(created);
+  });
 
   const store: ApplicationCreateStore = {
     findTeamForApply: jest.fn().mockResolvedValue(null),
@@ -142,11 +142,11 @@ describe('ApplicationsService.create', () => {
       NOW,
     );
 
-    expect(createApplication).toHaveBeenCalledWith(
-      expect.objectContaining({
-        answers: expect.objectContaining({ applicantName: 'synthetic-login' }),
-      }),
-    );
+    expect(createApplication).toHaveBeenCalled();
+    const calls = createApplication.mock.calls as unknown as ReadonlyArray<
+      readonly [{ readonly answers: { readonly applicantName: string } }]
+    >;
+    expect(calls[0]?.[0].answers.applicantName).toBe('synthetic-login');
   });
 
   it('ACTIVE STUDENT 가 아니면 APP_008', async () => {

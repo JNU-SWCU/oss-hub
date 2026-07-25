@@ -32,12 +32,14 @@ beforeAll(async () => {
         provide: ProgramsService,
         useValue: {
           list: jest.fn(),
-          detail: jest.fn(async (programId: string) => {
-            throw new DomainException({
-              ...PROGRAM_ERROR_CODES.NOT_FOUND,
-              message: `프로그램을 찾을 수 없습니다. (${programId})`,
-            });
-          }),
+          detail: jest.fn((programId: string) =>
+            Promise.reject(
+              new DomainException({
+                ...PROGRAM_ERROR_CODES.NOT_FOUND,
+                message: `프로그램을 찾을 수 없습니다. (${programId})`,
+              }),
+            ),
+          ),
         },
       },
       {

@@ -61,25 +61,24 @@ export function normalizeAndValidateApplicationAnswers(
 
   const title = clientAnswers.title;
   const summary = clientAnswers.summary;
-  const missingKeys: string[] = [];
-  if (!isNonEmptyString(title)) missingKeys.push('title');
-  if (!isNonEmptyString(summary)) missingKeys.push('summary');
-  if (!isNonEmptyString(applicantName)) missingKeys.push('applicantName');
-  if (missingKeys.length > 0) {
+  if (
+    !isNonEmptyString(title) ||
+    !isNonEmptyString(summary) ||
+    !isNonEmptyString(applicantName)
+  ) {
+    const missingKeys: string[] = [];
+    if (!isNonEmptyString(title)) missingKeys.push('title');
+    if (!isNonEmptyString(summary)) missingKeys.push('summary');
+    if (!isNonEmptyString(applicantName)) missingKeys.push('applicantName');
     return { ok: false, reason: 'MISSING_REQUIRED', missingKeys };
   }
-
-  // isNonEmptyString 가드 이후 narrowing (missingKeys early-return).
-  const normalizedTitle = title as string;
-  const normalizedSummary = summary as string;
-  const normalizedApplicantName = applicantName as string;
 
   return {
     ok: true,
     answers: {
-      applicantName: normalizedApplicantName.trim(),
-      title: normalizedTitle.trim(),
-      summary: normalizedSummary.trim(),
+      applicantName: applicantName.trim(),
+      title: title.trim(),
+      summary: summary.trim(),
     },
   };
 }
