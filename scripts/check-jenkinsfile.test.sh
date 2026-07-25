@@ -64,6 +64,7 @@ make_fixture missing-main-ancestry 'git merge-base --is-ancestor "$release_sha" 
 make_fixture missing-approval-pagination 'for page in $(seq 1 20); do' 'for page in 1; do'
 make_fixture missing-pm-approval "--arg actor 'GoBeromsu'" "--arg actor 'RemovedPm'"
 make_fixture missing-tech-lead-approval "--arg actor 'Lumiere001'" "--arg actor 'RemovedTechLead'"
+make_fixture missing-pm-override 'RELEASE_OVERRIDE role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}' 'REMOVED_OVERRIDE role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}'
 make_fixture moving-checkout 'git checkout --detach "$IMAGE_TAG"' 'git checkout main'
 make_fixture missing-noop-sort 'sort -V' 'sort'
 make_fixture missing-retag-guard 'env.RELEASE_TAG == currentTag && env.IMAGE_TAG != env.CURRENT_DEPLOY_SHA' 'false'
@@ -130,6 +131,7 @@ expect_fail 'main ancestry 검증 누락' "$fixture_dir/missing-main-ancestry"
 expect_fail 'Release 승인 댓글 pagination 누락' "$fixture_dir/missing-approval-pagination"
 expect_fail 'PM Release 승인 검증 누락' "$fixture_dir/missing-pm-approval"
 expect_fail 'Tech Lead Release 승인 검증 누락' "$fixture_dir/missing-tech-lead-approval"
+expect_fail '감사 가능한 PM override 검증 누락' "$fixture_dir/missing-pm-override"
 expect_fail '정확한 SHA checkout 누락' "$fixture_dir/moving-checkout"
 expect_fail '동일·하위 버전 no-op 비교 누락' "$fixture_dir/missing-noop-sort"
 expect_fail '동일 Release tag의 SHA 변경 차단 누락' "$fixture_dir/missing-retag-guard"

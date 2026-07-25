@@ -102,10 +102,11 @@ require_exact 'exact SHA IMAGE_TAG 할당은 한 번이어야 함' 'env.IMAGE_TA
 require_exact 'Release 승인은 공개 #199 댓글에서 페이지별 조회해야 함' '/issues/199/comments?per_page=100&page=${page}' 1
 require_exact 'Release 승인 댓글 pagination은 최대 20페이지여야 함' 'for page in $(seq 1 20); do' 1
 require_exact 'Release 승인 댓글 pagination 완료를 확인해야 함' "if [ \"\$pagination_complete\" != 'true' ]; then" 1
-require_exact 'PM 승인 actor는 GoBeromsu여야 함' "--arg actor 'GoBeromsu'" 1
+require_exact 'PM 승인·override actor는 GoBeromsu여야 함' "--arg actor 'GoBeromsu'" 2
 require_exact 'Tech Lead 승인 actor는 Lumiere001여야 함' "--arg actor 'Lumiere001'" 1
 require_exact 'PM 승인 형식은 tag와 exact SHA를 포함해야 함' 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}' 1
 require_exact 'Tech Lead 승인 형식은 tag와 exact SHA를 포함해야 함' 'RELEASE_ACCEPT role=TECH_LEAD tag=${RELEASE_TAG} head=${IMAGE_TAG}' 1
+require_exact 'PM override 형식은 tag와 exact SHA를 포함해야 함' 'RELEASE_OVERRIDE role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}' 1
 require_exact 'exact SHA checkout은 한 번이어야 함' 'git checkout --detach "$IMAGE_TAG"' 1
 
 require_exact '영속 배포 상태 파일은 고정 경로여야 함' "DEPLOY_STATE_FILE = '/var/lib/oss-hub/deploy-state/current-release'" 1
@@ -170,6 +171,7 @@ fi
 
 pm_approval_line=$(line_of 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}')
 tech_lead_approval_line=$(line_of 'RELEASE_ACCEPT role=TECH_LEAD tag=${RELEASE_TAG} head=${IMAGE_TAG}')
+pm_override_line=$(line_of 'RELEASE_OVERRIDE role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}')
 checkout_line=$(line_of 'git checkout --detach "$IMAGE_TAG"')
 test_line=$(line_of 'pnpm test')
 backup_line=$(line_of 'pg_dump')
@@ -181,6 +183,7 @@ state_line=$(line_of 'mv "$state_tmp" "$DEPLOY_STATE_FILE"')
 
 if ! ((pm_approval_line < checkout_line &&
        tech_lead_approval_line < checkout_line &&
+       pm_override_line < checkout_line &&
        checkout_line < test_line &&
        test_line < backup_line &&
        backup_line < frontend_build_line &&
@@ -192,4 +195,4 @@ if ! ((pm_approval_line < checkout_line &&
   exit 1
 fi
 
-echo 'Jenkinsfile contract: ok (main validation only, dual-approved Release exact-SHA deploy, durable no-op/backup/rollback)'
+echo 'Jenkinsfile contract: ok (main validation only, dual-approved or audited-PM-override Release exact-SHA deploy, durable no-op/backup/rollback)'

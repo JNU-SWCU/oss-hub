@@ -137,18 +137,27 @@ fi
 
 pm_accept="RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}"
 tech_lead_accept="RELEASE_ACCEPT role=TECH_LEAD tag=${RELEASE_TAG} head=${IMAGE_TAG}"
+pm_override="RELEASE_OVERRIDE role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}"
 
-jq -e \
+if jq -e \
   --arg actor 'GoBeromsu' \
-  --arg expected "$pm_accept" \
+  --arg expected "$pm_override" \
   '[.[] | select((.user.login | ascii_downcase) == ($actor | ascii_downcase)) | .body | split("\\n")[] | select(. == $expected)] | length > 0' \
-  "$comments_file" >/dev/null
+  "$comments_file" >/dev/null; then
+  echo "감사 가능한 PM Release override를 확인했습니다: ${RELEASE_TAG}@${IMAGE_TAG}"
+else
+  jq -e \
+    --arg actor 'GoBeromsu' \
+    --arg expected "$pm_accept" \
+    '[.[] | select((.user.login | ascii_downcase) == ($actor | ascii_downcase)) | .body | split("\\n")[] | select(. == $expected)] | length > 0' \
+    "$comments_file" >/dev/null
 
-jq -e \
-  --arg actor 'Lumiere001' \
-  --arg expected "$tech_lead_accept" \
-  '[.[] | select((.user.login | ascii_downcase) == ($actor | ascii_downcase)) | .body | split("\\n")[] | select(. == $expected)] | length > 0' \
-  "$comments_file" >/dev/null
+  jq -e \
+    --arg actor 'Lumiere001' \
+    --arg expected "$tech_lead_accept" \
+    '[.[] | select((.user.login | ascii_downcase) == ($actor | ascii_downcase)) | .body | split("\\n")[] | select(. == $expected)] | length > 0' \
+    "$comments_file" >/dev/null
+fi
 '''
         sh 'git checkout --detach "$IMAGE_TAG"'
       }
