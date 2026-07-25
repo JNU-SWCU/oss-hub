@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import {
+  AccountStatus,
+  ApplicationStatus,
+  Prisma,
+  Role,
+  type ProgramCategory,
+} from '@prisma/client';
 import type {
   OutboxEvent as PrismaOutboxEvent,
   Prisma as PrismaTypes,
@@ -25,6 +31,11 @@ type ApplicationWithProgram = PrismaTypes.ApplicationGetPayload<{
   };
 }>;
 
+type ApplicationDatabase = Pick<
+  PrismaTypes.TransactionClient,
+  'user' | 'program' | 'team' | 'application'
+>;
+
 export interface ApplicationsTransactionStore {
   findApplicationById(
     applicationId: string,
@@ -37,6 +48,63 @@ export interface ApplicationsTransactionStore {
 
 export class RepositoryEventAlreadyExistsError extends Error {
   override readonly name = 'RepositoryEventAlreadyExistsError';
+}
+
+export class ApplicationDuplicateError extends Error {
+  override readonly name = 'ApplicationDuplicateError';
+}
+
+export interface ApplicationStudentActor {
+  readonly id: string;
+  readonly name: string | null;
+  readonly nickname: string;
+}
+
+export interface ApplyProgramRecord {
+  readonly id: string;
+  readonly category: ProgramCategory;
+  readonly applicationTemplateVersion: number;
+  readonly applicationStartAt: Date;
+  readonly applicationEndAt: Date;
+}
+
+export interface ApplyTeamRecord {
+  readonly id: string;
+  readonly programId: string;
+  readonly leaderId: string;
+  readonly isMember: boolean;
+}
+
+export interface CreateApplicationRecordInput {
+  readonly programId: string;
+  readonly applicantId: string;
+  readonly teamId: string | null;
+  readonly answers: Prisma.InputJsonValue;
+  readonly applicationTemplateVersion: number;
+}
+
+export interface CreatedApplication {
+  readonly id: string;
+  readonly programId: string;
+  readonly status: ApplicationStatus;
+  readonly teamId: string | null;
+  readonly submittedAt: Date;
+}
+
+export interface ApplicationCreateStore {
+  findTeamForApply(
+    teamId: string,
+    programId: string,
+    userId: string,
+  ): Promise<ApplyTeamRecord | null>;
+  findPersonalDuplicate(
+    programId: string,
+    applicantId: string,
+  ): Promise<boolean>;
+  findTeamDuplicate(programId: string, teamId: string): Promise<boolean>;
+  createApplication(
+    input: CreateApplicationRecordInput,
+  ): Promise<CreatedApplication>;
 }
 
 class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore {
@@ -109,6 +177,91 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
   }
 }
 
+class PrismaApplicationCreateStore implements ApplicationCreateStore {
+  constructor(private readonly database: ApplicationDatabase) {}
+
+  async findTeamForApply(
+    teamId: string,
+    programId: string,
+    userId: string,
+  ): Promise<ApplyTeamRecord | null> {
+    const team = await this.database.team.findFirst({
+      where: { id: teamId, programId },
+      select: {
+        id: true,
+        programId: true,
+        leaderId: true,
+        members: {
+          where: { userId },
+          select: { id: true },
+          take: 1,
+        },
+      },
+    });
+    if (!team) return null;
+    return {
+      id: team.id,
+      programId: team.programId,
+      leaderId: team.leaderId,
+      isMember: team.leaderId === userId || team.members.length > 0,
+    };
+  }
+
+  async findPersonalDuplicate(
+    programId: string,
+    applicantId: string,
+  ): Promise<boolean> {
+    const existing = await this.database.application.findFirst({
+      where: { programId, applicantId, teamId: null },
+      select: { id: true },
+    });
+    return existing !== null;
+  }
+
+  async findTeamDuplicate(
+    programId: string,
+    teamId: string,
+  ): Promise<boolean> {
+    const existing = await this.database.application.findFirst({
+      where: { programId, teamId },
+      select: { id: true },
+    });
+    return existing !== null;
+  }
+
+  async createApplication(
+    input: CreateApplicationRecordInput,
+  ): Promise<CreatedApplication> {
+    try {
+      return await this.database.application.create({
+        data: {
+          programId: input.programId,
+          applicantId: input.applicantId,
+          teamId: input.teamId,
+          answers: input.answers,
+          applicationTemplateVersion: input.applicationTemplateVersion,
+          status: ApplicationStatus.SUBMITTED,
+        },
+        select: {
+          id: true,
+          programId: true,
+          status: true,
+          teamId: true,
+          submittedAt: true,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ApplicationDuplicateError();
+      }
+      throw error;
+    }
+  }
+}
+
 @Injectable()
 export class ApplicationsRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -119,6 +272,40 @@ export class ApplicationsRepository {
     return this.prisma.$transaction((transaction) =>
       operation(new PrismaApplicationsTransactionStore(transaction)),
     );
+  }
+
+  async withCreateTransaction<T>(
+    operation: (store: ApplicationCreateStore) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction((transaction) =>
+      operation(new PrismaApplicationCreateStore(transaction)),
+    );
+  }
+
+  findActiveStudentByGithubId(
+    githubId: bigint,
+  ): Promise<ApplicationStudentActor | null> {
+    return this.prisma.user.findFirst({
+      where: {
+        githubId,
+        accountStatus: AccountStatus.ACTIVE,
+        role: Role.STUDENT,
+      },
+      select: { id: true, name: true, nickname: true },
+    });
+  }
+
+  findProgramById(programId: string): Promise<ApplyProgramRecord | null> {
+    return this.prisma.program.findUnique({
+      where: { id: programId },
+      select: {
+        id: true,
+        category: true,
+        applicationTemplateVersion: true,
+        applicationStartAt: true,
+        applicationEndAt: true,
+      },
+    });
   }
 
   async findRepositoryProvisionEvent(

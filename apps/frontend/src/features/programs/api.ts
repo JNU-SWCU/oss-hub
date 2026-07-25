@@ -228,3 +228,34 @@ export function deleteMilestone(
     { method: 'DELETE' },
   );
 }
+
+export interface CreateApplicationInput {
+  readonly answers: {
+    readonly title: string;
+    readonly summary: string;
+  };
+  readonly teamId: string | null;
+  readonly applicationTemplateVersion: number;
+}
+
+export interface CreatedApplication {
+  readonly id: string;
+  readonly programId: string;
+  readonly status: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
+  readonly teamId: string | null;
+  readonly submittedAt: string;
+}
+
+export function createApplication(
+  programId: string,
+  input: CreateApplicationInput,
+): Promise<CreatedApplication> {
+  return apiClient<CreatedApplication>(
+    `programs/${encodeURIComponent(programId)}/applications`,
+    {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(input),
+    },
+  );
+}
