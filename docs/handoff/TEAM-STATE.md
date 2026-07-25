@@ -107,6 +107,8 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | Participation & Showcase 백로그(내 대시보드·운영 대시보드·매트릭스·검토·공개 아카이브·알림·공개 프로필) | @jinsol1190-rgb | planned | #114 #115 #124 #125 #126 #127 #134 #155 | - | - | production v0.1.3 QA에서 미구현 #124 `/submissions` CTA의 404 확인 · 실제 matrix page/API 전까지 CTA 비노출 hotfix 진행 |
 | 학생 활동 타임라인 | @jinsol1190-rgb | review | #154 | [#210](https://github.com/JNU-SWCU/oss-hub/pull/210) | #210 pass | [프런트엔드 #198](https://github.com/JNU-SWCU/oss-hub/pull/198) merged · 백엔드 조회 API #210 리뷰 대기 |
 | Cross-cutting E2E 스모크(접수 흐름·전체 루프) | @GoBeromsu | planned | #128 #129 | - | - | 상위 화면 티켓들 merge 진행에 따라 순차 검증 |
+| 마감 알림 메일 + 수신 이메일 설정 | @GoBeromsu | review | #127 | [#242](https://github.com/JNU-SWCU/oss-hub/pull/242) | local pass | OAuth email 시드·다이제스트 CLI·실 Gmail은 env 자격 필요 · Tech Lead Review @Lumiere001 |
+| 공통 설정 페이지(내 정보 수정) | @GoBeromsu | review | #156 | [#242](https://github.com/JNU-SWCU/oss-hub/pull/242) | local pass (Aside UI) | `/settings`·계정 메뉴·프로필 부분 PATCH·알림 API 본인 개방 |
 | Product Definition & Operations 백로그(Release 배포·Notion PRD·IA 동기화) | @GoBeromsu (결정) / @Lumiere001 (#199 구현) | active | #112 #130 #199 | [#241](https://github.com/JNU-SWCU/oss-hub/pull/241) | local verification pending | Release trigger·공개 PM override·공인 EIP TLS 종단 연결 완료 · v0.1.1 stale Prisma lint 수정 · v0.1.2는 backup/migration 뒤 backend CMD와 `dist/src/main.js` 불일치로 smoke 실패, 정상 상태 미기록 · entrypoint hotfix 및 v0.1.3 재시도 진행 |
 | GitHub 저장소 주기 수집 스케줄러 | @GoBeromsu | planned | #151 | - | - | 없음 |
 | OSS 활성화 랭킹 | @jinsol1190-rgb | review | #152 | [#194](https://github.com/JNU-SWCU/oss-hub/pull/194) | local pass | 공개 적격성 projection 부재로 endpoint·nav fail-closed 비노출 |

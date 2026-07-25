@@ -5,6 +5,7 @@ import {
   classifyProfileApiError,
   completeMyProfile,
   getMyProfile,
+  updateMyProfile,
 } from './api';
 
 const emptyProfile = {
@@ -53,6 +54,32 @@ test('완료 프로필을 PATCH JSON 본문으로 저장한다', async () => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(completeRequest),
   });
+});
+
+test('완료 사용자는 이름·학과만 PATCH하고 학번은 보내지 않는다', async () => {
+  const response = { ...completeRequest, isComplete: true };
+  const updateRequest = {
+    name: completeRequest.name,
+    department: completeRequest.department,
+  };
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(response), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  );
+  vi.stubGlobal('fetch', fetchMock);
+
+  await expect(updateMyProfile(updateRequest)).resolves.toEqual(response);
+  expect(fetchMock).toHaveBeenCalledWith(apiPath('users/me/profile'), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updateRequest),
+  });
+  const body = JSON.parse(
+    (fetchMock.mock.calls[0] as [{}, { body: string }])[1].body,
+  ) as Record<string, unknown>;
+  expect(body).not.toHaveProperty('studentId');
 });
 
 test('완료 플래그와 필드가 모순된 응답을 거부한다', async () => {

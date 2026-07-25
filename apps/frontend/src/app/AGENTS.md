@@ -21,6 +21,7 @@ Next.js App Router 라우트. 역할 기반(STUDENT/STAFF/ADMIN) 화면 접근 �
 | --- | --- | --- |
 | `_shell/` | (라우트 아님 — 아래 참조) | — |
 | `consent/` | `/consent` | `AuthGate`(로그인만 요구, 역할 무관) |
+| `settings/` | `/settings` | `AuthGate`(로그인만 요구, 역할 무관) — #156 프로필·알림 설정 |
 | `onboarding/role/`, `onboarding/pending/` | `/onboarding/role`, `/onboarding/pending` | `AuthGate` |
 | `dashboard/` | `/dashboard` | `STUDENT` |
 | `my-repos/` | `/my-repos` | 로그인한 모든 역할(학생 메뉴 아래 있지만 role 무관 접근 허용) |
