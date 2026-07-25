@@ -129,11 +129,6 @@ export function MilestoneRow({
               {summary.approved} · 보완 {summary.changesRequested} · 반려{' '}
               {summary.rejected}
             </span>
-            <Button asChild size="sm" variant="outline">
-              <Link href={`/staff/programs/${programId}/submissions`}>
-                전체 현황
-              </Link>
-            </Button>
           </div>
         ) : null}
       </CardContent>
