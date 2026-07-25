@@ -79,7 +79,7 @@ export function NotificationSettingsModal({
           setSubmitError('로그인이 필요합니다.');
           break;
         case 'forbidden':
-          setSubmitError('교직원만 알림 설정을 변경할 수 있습니다.');
+          setSubmitError('알림 설정을 변경할 권한이 없습니다.');
           break;
         case 'not-found':
         case 'generic':

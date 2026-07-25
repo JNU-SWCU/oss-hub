@@ -19,7 +19,6 @@ import type {
   SettingsFormValues,
   SettingsNotificationLoadState,
 } from '../types';
-import { isSettingsFormValid } from '../settings-state';
 
 interface SettingsFormProps {
   readonly values: SettingsFormValues;
@@ -67,7 +66,7 @@ export function SettingsForm({
     showValidationErrors && errors.department !== null;
   const showEmailError =
     showValidationErrors && errors.notificationEmail !== null;
-  const isValid = isSettingsFormValid(errors);
+  // 저장 버튼은 제출 중일 때만 막는다. 무효 값에서도 클릭해 인라인 오류를 볼 수 있어야 한다(#156).
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
@@ -218,7 +217,7 @@ export function SettingsForm({
           </Alert>
         ) : null}
 
-        <Button type="submit" size="lg" disabled={!isValid || isSubmitting}>
+        <Button type="submit" size="lg" disabled={isSubmitting}>
           {isSubmitting ? '저장 중…' : '저장'}
         </Button>
       </form>

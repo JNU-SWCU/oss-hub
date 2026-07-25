@@ -80,7 +80,7 @@ describe('settings form view', () => {
     expect(html).toContain('user@example.com');
   });
 
-  it('잘못된 이름·학과·이메일을 인라인 오류로 표시하고 저장을 막는다', () => {
+  it('잘못된 이름·학과·이메일을 인라인 오류로 표시하고 저장 버튼은 제출 가능하게 둔다', () => {
     const html = renderForm(
       values({
         name: ' ',
@@ -94,7 +94,9 @@ describe('settings form view', () => {
     expect(html).toContain('이름을 입력해 주세요.');
     expect(html).toContain('학과를 선택하거나 입력해 주세요.');
     expect(html).toContain('이메일 형식이 올바르지 않습니다.');
-    expect(html).toContain('disabled=""');
+    // 무효 값이어도 클릭해 검증 메시지를 볼 수 있어야 한다. disabled는 저장 중만.
+    expect(html).toContain('>저장</button>');
+    expect(html).not.toMatch(/type="submit"[^>]*disabled/);
   });
 
   it('이름·기타 학과 길이 제한과 오류 메시지를 표시한다', () => {
