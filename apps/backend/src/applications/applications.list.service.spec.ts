@@ -1,8 +1,14 @@
-import { ApplicationStatus, ProgramCategory } from '@prisma/client';
-import type {
-  ApplicationListPage,
+import {
+  ApplicationStatus,
+  OutboxEventStatus,
+  Prisma,
+  ProgramCategory,
+  RepositoryProvisionJobStatus,
+} from '@prisma/client';
+import {
+  type ApplicationListPage,
   ApplicationsRepository,
-  ApplyProgramRecord,
+  type ApplyProgramRecord,
 } from './applications.repository';
 import { ApplicationsErrorCode } from './applications-error-code.enum';
 import { ApplicationsService } from './applications.service';
@@ -58,6 +64,13 @@ describe('ApplicationsService.listForProgram', () => {
           id: 'app-1',
           status: ApplicationStatus.SUBMITTED,
           submittedAt: new Date('2026-07-15T00:00:00.000Z'),
+          rejectionReason: null,
+          repositoryProvisioning: {
+            enabled: true,
+            jobStatus: 'NOT_REQUESTED',
+            updatedAt: new Date('2026-07-15T01:00:00.000Z'),
+            safeErrorClass: null,
+          },
           participation: 'INDIVIDUAL',
           applicant: {
             id: 'student-1',
@@ -75,6 +88,13 @@ describe('ApplicationsService.listForProgram', () => {
           id: 'app-2',
           status: ApplicationStatus.APPROVED,
           submittedAt: new Date('2026-07-16T00:00:00.000Z'),
+          rejectionReason: null,
+          repositoryProvisioning: {
+            enabled: true,
+            jobStatus: 'PENDING',
+            updatedAt: new Date('2026-07-16T01:00:00.000Z'),
+            safeErrorClass: null,
+          },
           participation: 'TEAM',
           applicant: {
             id: 'student-2',
@@ -132,5 +152,85 @@ describe('ApplicationsService.listForProgram', () => {
         mode: 'all',
       }),
     ).resolves.toEqual(EMPTY_PAGE);
+  });
+});
+
+describe('ApplicationsRepository.listApplicationsForProgram', () => {
+  it.each([
+    ['GITHUB_OPERATIONS_AUTHENTICATION', 'AUTH'],
+    ['GITHUB_OPERATIONS_RATE_LIMITED', 'RATE_LIMIT'],
+    ['GITHUB_OPERATIONS_INVALID_INPUT', 'UPSTREAM_REJECTED'],
+    ['REPOSITORY_PROVISION_INTERNAL', 'UNKNOWN'],
+  ])('저장 오류 %s를 %s로 안전하게 투영한다', async (code, expected) => {
+    const updatedAt = new Date('2026-07-25T01:00:00.000Z');
+    const transaction = {
+      application: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'app-1',
+            status: ApplicationStatus.APPROVED,
+            submittedAt: updatedAt,
+            updatedAt,
+            rejectionReason: null,
+            teamId: null,
+            answers: {},
+            program: { repositoryProvisioningEnabled: true },
+            applicant: { id: 'student-1', name: null, nickname: 'student' },
+            team: null,
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(1),
+      },
+      outboxEvent: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            idempotencyKey: 'repository-provision:app-1',
+            status: OutboxEventStatus.PROCESSED,
+            createdAt: new Date('2026-07-25T02:00:00.000Z'),
+          },
+        ]),
+      },
+      repositoryProvisionJob: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            applicationId: 'app-1',
+            status: RepositoryProvisionJobStatus.FAILED_FINAL,
+            updatedAt: new Date('2026-07-25T03:00:00.000Z'),
+            lastErrorCode: code,
+          },
+        ]),
+      },
+    };
+    const prisma = {
+      $transaction: jest
+        .fn()
+        .mockImplementation(
+          (operation: (client: typeof transaction) => Promise<unknown>) =>
+            operation(transaction),
+        ),
+    };
+    const repository = new ApplicationsRepository(prisma as never);
+
+    const page = await repository.listApplicationsForProgram(PROGRAM_ID, {
+      page: 1,
+      pageSize: 20,
+      search: '',
+      status: 'all',
+      mode: 'all',
+    });
+
+    expect(page.items[0]?.repositoryProvisioning).toEqual({
+      enabled: true,
+      jobStatus: 'FAILED',
+      updatedAt: new Date('2026-07-25T03:00:00.000Z'),
+      safeErrorClass: expected,
+    });
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+    });
+    expect(transaction.outboxEvent.findMany).toHaveBeenCalledTimes(1);
+    expect(transaction.repositoryProvisionJob.findMany).toHaveBeenCalledTimes(
+      1,
+    );
   });
 });

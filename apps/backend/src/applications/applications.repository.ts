@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
   ApplicationStatus,
+  OutboxEventStatus,
   Prisma,
+  RepositoryProvisionJobStatus,
   Role,
   type ProgramCategory,
 } from '@prisma/client';
@@ -98,10 +100,32 @@ export interface ApplicationListAnswers {
   readonly summary: string;
 }
 
+export type RepositoryProvisioningJobStatus =
+  | 'NOT_REQUESTED'
+  | 'DISABLED'
+  | 'PENDING'
+  | 'PROCESSING'
+  | 'SUCCEEDED'
+  | 'RETRYABLE_FAILED'
+  | 'FAILED'
+  | 'ANOMALOUS';
+
+export type RepositoryProvisioningSafeErrorClass =
+  'AUTH' | 'RATE_LIMIT' | 'UPSTREAM_REJECTED' | 'UNKNOWN';
+
+export interface ApplicationRepositoryProvisioning {
+  readonly enabled: boolean;
+  readonly jobStatus: RepositoryProvisioningJobStatus;
+  readonly updatedAt: Date;
+  readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
+}
+
 export interface ApplicationListItem {
   readonly id: string;
   readonly status: ApplicationStatus;
   readonly submittedAt: Date;
+  readonly rejectionReason: string | null;
+  readonly repositoryProvisioning: ApplicationRepositoryProvisioning;
   readonly participation: 'INDIVIDUAL' | 'TEAM';
   readonly applicant: {
     readonly id: string;
@@ -376,35 +400,89 @@ export class ApplicationsRepository {
     query: ApplicationListQuery,
   ): Promise<ApplicationListPage> {
     const where = buildApplicationListWhere(programId, query);
-    const [rows, totalItems] = await this.prisma.$transaction([
-      this.prisma.application.findMany({
-        where,
-        orderBy: [{ submittedAt: 'desc' }, { id: 'asc' }],
-        skip: (query.page - 1) * query.pageSize,
-        take: query.pageSize,
-        select: {
-          id: true,
-          status: true,
-          submittedAt: true,
-          teamId: true,
-          answers: true,
-          applicant: {
-            select: { id: true, name: true, nickname: true },
-          },
-          team: {
-            select: {
-              id: true,
-              name: true,
-              _count: { select: { members: true } },
-            },
-          },
+    const [rows, totalItems, outboxEvents, provisionJobs] =
+      await this.prisma.$transaction(
+        async (transaction) => {
+          const [applicationRows, applicationCount] = await Promise.all([
+            transaction.application.findMany({
+              where,
+              orderBy: [{ submittedAt: 'desc' }, { id: 'asc' }],
+              skip: (query.page - 1) * query.pageSize,
+              take: query.pageSize,
+              select: {
+                id: true,
+                status: true,
+                submittedAt: true,
+                updatedAt: true,
+                rejectionReason: true,
+                teamId: true,
+                answers: true,
+                program: {
+                  select: { repositoryProvisioningEnabled: true },
+                },
+                applicant: {
+                  select: { id: true, name: true, nickname: true },
+                },
+                team: {
+                  select: {
+                    id: true,
+                    name: true,
+                    _count: { select: { members: true } },
+                  },
+                },
+              },
+            }),
+            transaction.application.count({ where }),
+          ]);
+          const applicationIds = applicationRows.map((row) => row.id);
+          if (applicationIds.length === 0) {
+            return [applicationRows, applicationCount, [], []] as const;
+          }
+          const [events, jobs] = await Promise.all([
+            transaction.outboxEvent.findMany({
+              where: {
+                idempotencyKey: {
+                  in: applicationIds.map((id) => `repository-provision:${id}`),
+                },
+              },
+              select: {
+                idempotencyKey: true,
+                status: true,
+                createdAt: true,
+              },
+            }),
+            transaction.repositoryProvisionJob.findMany({
+              where: { applicationId: { in: applicationIds } },
+              select: {
+                applicationId: true,
+                status: true,
+                updatedAt: true,
+                lastErrorCode: true,
+              },
+            }),
+          ]);
+          return [applicationRows, applicationCount, events, jobs] as const;
         },
-      }),
-      this.prisma.application.count({ where }),
-    ]);
+        { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+      );
+    const outboxByApplicationId = new Map(
+      outboxEvents.map((event) => [
+        event.idempotencyKey.slice('repository-provision:'.length),
+        event,
+      ]),
+    );
+    const jobByApplicationId = new Map(
+      provisionJobs.map((job) => [job.applicationId, job]),
+    );
 
     return {
-      items: rows.map((row) => toApplicationListItem(row)),
+      items: rows.map((row) =>
+        toApplicationListItem(
+          row,
+          outboxByApplicationId.get(row.id),
+          jobByApplicationId.get(row.id),
+        ),
+      ),
       page: query.page,
       pageSize: query.pageSize,
       totalItems,
@@ -554,8 +632,13 @@ type ApplicationListRow = {
   readonly id: string;
   readonly status: ApplicationStatus;
   readonly submittedAt: Date;
+  readonly updatedAt: Date;
+  readonly rejectionReason: string | null;
   readonly teamId: string | null;
   readonly answers: Prisma.JsonValue;
+  readonly program: {
+    readonly repositoryProvisioningEnabled: boolean;
+  };
   readonly applicant: {
     readonly id: string;
     readonly name: string | null;
@@ -568,7 +651,22 @@ type ApplicationListRow = {
   } | null;
 };
 
-function toApplicationListItem(row: ApplicationListRow): ApplicationListItem {
+type ApplicationListOutbox = {
+  readonly status: OutboxEventStatus;
+  readonly createdAt: Date;
+};
+
+type ApplicationListProvisionJob = {
+  readonly status: RepositoryProvisionJobStatus;
+  readonly updatedAt: Date;
+  readonly lastErrorCode: string | null;
+};
+
+function toApplicationListItem(
+  row: ApplicationListRow,
+  outbox: ApplicationListOutbox | undefined,
+  job: ApplicationListProvisionJob | undefined,
+): ApplicationListItem {
   const team =
     row.teamId !== null && row.team !== null
       ? {
@@ -581,11 +679,142 @@ function toApplicationListItem(row: ApplicationListRow): ApplicationListItem {
     id: row.id,
     status: row.status,
     submittedAt: row.submittedAt,
+    rejectionReason: row.rejectionReason,
+    repositoryProvisioning: resolveRepositoryProvisioning(
+      row.status,
+      row.program.repositoryProvisioningEnabled,
+      row.updatedAt,
+      outbox,
+      job,
+    ),
     participation: team ? 'TEAM' : 'INDIVIDUAL',
     applicant: row.applicant,
     team,
     answers: parseListAnswers(row.answers),
   };
+}
+function resolveRepositoryProvisioning(
+  applicationStatus: ApplicationStatus,
+  enabled: boolean,
+  applicationUpdatedAt: Date,
+  outbox: ApplicationListOutbox | undefined,
+  job: ApplicationListProvisionJob | undefined,
+): ApplicationRepositoryProvisioning {
+  const anomalous = (): ApplicationRepositoryProvisioning => ({
+    enabled,
+    jobStatus: 'ANOMALOUS',
+    updatedAt: applicationUpdatedAt,
+    safeErrorClass: 'UNKNOWN',
+  });
+  if (applicationStatus !== ApplicationStatus.APPROVED) {
+    if (outbox || job) {
+      return anomalous();
+    }
+    return {
+      enabled,
+      jobStatus: enabled ? 'NOT_REQUESTED' : 'DISABLED',
+      updatedAt: applicationUpdatedAt,
+      safeErrorClass: null,
+    };
+  }
+
+  if (
+    (job && !outbox) ||
+    (job && outbox?.status !== OutboxEventStatus.PROCESSED) ||
+    (!job && outbox?.status === OutboxEventStatus.PROCESSED)
+  ) {
+    return anomalous();
+  }
+
+  if (job && outbox?.status === OutboxEventStatus.PROCESSED) {
+    const jobStatus = mapProvisionJobStatus(job.status);
+    return {
+      enabled,
+      jobStatus,
+      updatedAt: job.updatedAt,
+      safeErrorClass:
+        jobStatus === 'RETRYABLE_FAILED' || jobStatus === 'FAILED'
+          ? normalizeSafeErrorClass(job.lastErrorCode)
+          : null,
+    };
+  }
+
+  if (enabled && outbox) {
+    if (
+      outbox.status === OutboxEventStatus.PENDING ||
+      outbox.status === OutboxEventStatus.PROCESSING
+    ) {
+      return {
+        enabled,
+        jobStatus: 'PENDING',
+        updatedAt: outbox.createdAt,
+        safeErrorClass: null,
+      };
+    }
+    if (outbox.status === OutboxEventStatus.FAILED) {
+      return {
+        enabled,
+        jobStatus: 'FAILED',
+        updatedAt: outbox.createdAt,
+        safeErrorClass: 'UNKNOWN',
+      };
+    }
+  }
+
+  if (!outbox && !job) {
+    return {
+      enabled,
+      jobStatus: enabled ? 'ANOMALOUS' : 'DISABLED',
+      updatedAt: applicationUpdatedAt,
+      safeErrorClass: enabled ? 'UNKNOWN' : null,
+    };
+  }
+  return anomalous();
+}
+
+function mapProvisionJobStatus(
+  status: RepositoryProvisionJobStatus,
+): RepositoryProvisioningJobStatus {
+  switch (status) {
+    case RepositoryProvisionJobStatus.PENDING:
+      return 'PENDING';
+    case RepositoryProvisionJobStatus.PROCESSING:
+      return 'PROCESSING';
+    case RepositoryProvisionJobStatus.SUCCEEDED:
+      return 'SUCCEEDED';
+    case RepositoryProvisionJobStatus.FAILED_RETRYABLE:
+      return 'RETRYABLE_FAILED';
+    case RepositoryProvisionJobStatus.FAILED_FINAL:
+      return 'FAILED';
+  }
+}
+
+function normalizeSafeErrorClass(
+  errorCode: string | null,
+): RepositoryProvisioningSafeErrorClass {
+  switch (errorCode) {
+    case 'GITHUB_OPERATIONS_CONFIGURATION':
+    case 'GITHUB_OPERATIONS_INSTALLATION_NOT_FOUND':
+    case 'GITHUB_OPERATIONS_ORGANIZATION_MISMATCH':
+    case 'GITHUB_OPERATIONS_AUTHENTICATION':
+    case 'GITHUB_OPERATIONS_PERMISSION':
+      return 'AUTH';
+    case 'GITHUB_OPERATIONS_RATE_LIMITED':
+    case 'GITHUB_OPERATIONS_INVITATION_LIMIT':
+      return 'RATE_LIMIT';
+    case 'GITHUB_OPERATIONS_INVALID_INPUT':
+    case 'REPOSITORY_PROVISION_APPLICATION_NOT_APPROVED':
+    case 'REPOSITORY_PROVISION_FEATURE_DISABLED':
+    case 'REPOSITORY_PROVISION_INVALID_EVENT':
+    case 'REPOSITORY_PROVISION_REPOSITORY_MISMATCH':
+      return 'UPSTREAM_REJECTED';
+    case 'GITHUB_OPERATIONS_UPSTREAM':
+    case 'GITHUB_OPERATIONS_INVALID_RESPONSE':
+    case 'REPOSITORY_PROVISION_INTERNAL':
+    case null:
+    default:
+      return 'UNKNOWN';
+  }
 }
 
 function parseListAnswers(value: Prisma.JsonValue): ApplicationListAnswers {

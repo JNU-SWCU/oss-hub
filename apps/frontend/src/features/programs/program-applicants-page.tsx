@@ -16,10 +16,16 @@ import {
   StatusBadge,
   type DataTableColumn,
 } from '@/components';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
-import { getProgramDetail, listProgramApplications } from './api';
+import {
+  decideApplication,
+  getProgramDetail,
+  listProgramApplications,
+  type ApplicationDecisionInput,
+} from './api';
 import { ProgramListPagination } from './program-list-pagination';
 import { staffApplicationDetailHref, staffProgramHref } from './program-paths';
 import type {
@@ -29,9 +35,40 @@ import type {
   ApplicationListStatus,
   ApplicationStatus,
   ProgramDetail,
+  RepositoryProvisioningJobStatus,
 } from './types';
 
 const PAGE_SIZE = 20;
+const INITIAL_POLL_INTERVAL_MS = 2_000;
+const MAX_POLL_INTERVAL_MS = 10_000;
+const MAX_POLL_ATTEMPTS = 8;
+const POLLED_STATUSES = new Set<RepositoryProvisioningJobStatus>([
+  'PENDING',
+  'PROCESSING',
+  'RETRYABLE_FAILED',
+]);
+function pollIntervalMs(attempt: number): number {
+  return Math.min(
+    INITIAL_POLL_INTERVAL_MS * 2 ** attempt,
+    MAX_POLL_INTERVAL_MS,
+  );
+}
+export class ApplicationListRequestEpoch {
+  private current = 0;
+
+  begin(): number {
+    this.current += 1;
+    return this.current;
+  }
+
+  invalidate(): void {
+    this.current += 1;
+  }
+
+  isCurrent(requestEpoch: number): boolean {
+    return requestEpoch === this.current;
+  }
+}
 
 type LoadState =
   | { readonly kind: 'loading' }
@@ -42,19 +79,39 @@ type LoadState =
     }
   | { readonly kind: 'not-found' }
   | { readonly kind: 'error'; readonly message: string };
+type DecisionDialog = {
+  readonly applicationId: string;
+  readonly action: 'APPROVE' | 'REJECT';
+} | null;
+type Notice = {
+  readonly kind: 'success' | 'error';
+  readonly title: string;
+  readonly message: string;
+} | null;
 
 const STATUS_LABELS: Readonly<Record<ApplicationStatus, string>> = {
   SUBMITTED: '제출됨',
   APPROVED: '승인',
   REJECTED: '반려',
 };
-
 const STATUS_BADGE: Readonly<
   Record<ApplicationStatus, 'pending' | 'approved' | 'rejected'>
 > = {
   SUBMITTED: 'pending',
   APPROVED: 'approved',
   REJECTED: 'rejected',
+};
+const PROVISIONING_LABELS: Readonly<
+  Record<RepositoryProvisioningJobStatus, string>
+> = {
+  NOT_REQUESTED: '요청 전',
+  DISABLED: '사용 안 함',
+  PENDING: '대기 중',
+  PROCESSING: '생성 중',
+  SUCCEEDED: '생성 완료',
+  RETRYABLE_FAILED: '재시도 대기',
+  FAILED: '생성 실패',
+  ANOMALOUS: '확인 필요',
 };
 
 function formatSubmittedAt(value: string): string {
@@ -67,20 +124,16 @@ function formatSubmittedAt(value: string): string {
     timeZone: 'Asia/Seoul',
   }).format(new Date(value));
 }
-
 function displayApplicantName(item: ApplicationListItem): string {
   return (
     item.answers.applicantName || item.applicant.name || item.applicant.nickname
   );
 }
-
 function participationLabel(item: ApplicationListItem): string {
-  if (item.participation === 'TEAM' && item.team) {
-    return `팀 · ${item.team.name} (${item.team.memberCount}명)`;
-  }
-  return '개인';
+  return item.participation === 'TEAM' && item.team
+    ? `팀 · ${item.team.name} (${item.team.memberCount}명)`
+    : '개인';
 }
-
 function ApplicantsSkeleton(): ReactElement {
   return (
     <main
@@ -104,50 +157,167 @@ export function ProgramApplicantsPage({
   const [status, setStatus] = useState<ApplicationListStatus>('all');
   const [mode, setMode] = useState<ApplicationListMode>('all');
   const [page, setPage] = useState(1);
-  const latestRequestId = useRef(0);
+  const [dialog, setDialog] = useState<DecisionDialog>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [reasonError, setReasonError] = useState(false);
+  const [busyApplicationId, setBusyApplicationId] = useState<string | null>(
+    null,
+  );
+  const [notice, setNotice] = useState<Notice>(null);
+  const requestEpoch = useRef(new ApplicationListRequestEpoch());
+  const pollAttempts = useRef(0);
+
+  const applicationParams = useCallback(
+    () => ({ page, pageSize: PAGE_SIZE, search, status, mode }),
+    [mode, page, search, status],
+  );
+  const reloadApplications = useCallback(async (): Promise<void> => {
+    const epoch = requestEpoch.current.begin();
+    const applicationPage = await listProgramApplications(
+      programId,
+      applicationParams(),
+    );
+    if (!requestEpoch.current.isCurrent(epoch)) return;
+    setLoadState((current) =>
+      current.kind === 'ready' ? { ...current, applicationPage } : current,
+    );
+  }, [applicationParams, programId]);
 
   const load = useCallback(async (): Promise<void> => {
-    const requestId = latestRequestId.current + 1;
-    latestRequestId.current = requestId;
+    const epoch = requestEpoch.current.begin();
     setLoadState({ kind: 'loading' });
     try {
       const [program, applicationPage] = await Promise.all([
         getProgramDetail(programId),
-        listProgramApplications(programId, {
-          page,
-          pageSize: PAGE_SIZE,
-          search,
-          status,
-          mode,
-        }),
+        listProgramApplications(programId, applicationParams()),
       ]);
-      if (requestId !== latestRequestId.current) return;
-      setLoadState({ kind: 'ready', program, applicationPage });
+      if (requestEpoch.current.isCurrent(epoch))
+        setLoadState({ kind: 'ready', program, applicationPage });
     } catch (error: unknown) {
-      if (requestId !== latestRequestId.current) return;
-      if (error instanceof ApiError && error.problem.status === 404) {
+      if (!requestEpoch.current.isCurrent(epoch)) return;
+      if (error instanceof ApiError && error.problem.status === 404)
         setLoadState({ kind: 'not-found' });
-        return;
-      }
-      if (error instanceof ApiError && error.problem.status === 403) {
+      else if (error instanceof ApiError && error.problem.status === 403)
         setLoadState({
           kind: 'error',
           message:
             error.problem.detail ??
             '승인된 교직원 또는 관리자만 조회할 수 있습니다.',
         });
-        return;
-      }
-      setLoadState({
-        kind: 'error',
-        message: '신청자 목록을 불러오지 못했습니다.',
-      });
+      else
+        setLoadState({
+          kind: 'error',
+          message: '신청자 목록을 불러오지 못했습니다.',
+        });
     }
-  }, [mode, page, programId, search, status]);
+  }, [applicationParams, programId]);
 
   useEffect(() => {
     void load();
+    return () => requestEpoch.current.invalidate();
   }, [load]);
+
+  const shouldPoll =
+    loadState.kind === 'ready' &&
+    loadState.applicationPage.items.some((item) =>
+      POLLED_STATUSES.has(item.repositoryProvisioning.jobStatus),
+    );
+  useEffect(() => {
+    if (!shouldPoll) {
+      pollAttempts.current = 0;
+      return;
+    }
+    if (pollAttempts.current >= MAX_POLL_ATTEMPTS) return;
+
+    let cancelled = false;
+    let timer: number | undefined;
+
+    const schedule = () => {
+      if (cancelled || pollAttempts.current >= MAX_POLL_ATTEMPTS) return;
+      timer = window.setTimeout(() => {
+        pollAttempts.current += 1;
+        void reloadApplications().catch(() => {
+          if (cancelled) return;
+          setNotice({
+            kind: 'error',
+            title: '저장소 상태 확인 실패',
+            message: '현재 상태를 유지하고 상태 확인을 계속합니다.',
+          });
+          schedule();
+        });
+      }, pollIntervalMs(pollAttempts.current));
+    };
+
+    schedule();
+    return () => {
+      cancelled = true;
+      requestEpoch.current.invalidate();
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [reloadApplications, shouldPoll, loadState]);
+
+  const submitDecision = useCallback(async (): Promise<void> => {
+    if (!dialog) return;
+    const reason = rejectionReason.trim();
+    if (dialog.action === 'REJECT' && !reason) {
+      setReasonError(true);
+      return;
+    }
+    const input: ApplicationDecisionInput =
+      dialog.action === 'APPROVE'
+        ? { action: 'APPROVE' }
+        : { action: 'REJECT', reason };
+    setBusyApplicationId(dialog.applicationId);
+    setNotice(null);
+    try {
+      const result = await decideApplication(dialog.applicationId, input);
+      pollAttempts.current = 0;
+      setDialog(null);
+      setRejectionReason('');
+      try {
+        await reloadApplications();
+        setNotice({
+          kind: 'success',
+          title: '판정이 저장되었습니다',
+          message:
+            result.status === 'APPROVED'
+              ? '승인 결과와 저장소 작업 상태를 다시 불러왔습니다.'
+              : '반려 결과를 다시 불러왔습니다.',
+        });
+      } catch {
+        setNotice({
+          kind: 'error',
+          title: '판정은 저장되었지만 최신 상태를 불러오지 못했습니다',
+          message: '목록을 다시 조회해 최신 상태를 확인해 주세요.',
+        });
+      }
+    } catch (error: unknown) {
+      if (error instanceof ApiError && error.problem.status === 409) {
+        try {
+          await reloadApplications();
+          setDialog(null);
+          setNotice({
+            kind: 'error',
+            title: '신청 상태가 변경되었습니다',
+            message: '최신 행 상태를 다시 불러왔습니다.',
+          });
+        } catch {
+          setNotice({
+            kind: 'error',
+            title: '최신 상태 확인 실패',
+            message: '현재 상태를 유지했습니다. 다시 시도해 주세요.',
+          });
+        }
+      } else
+        setNotice({
+          kind: 'error',
+          title: '판정을 저장하지 못했습니다',
+          message: '입력과 현재 상태를 유지했습니다. 다시 시도해 주세요.',
+        });
+    } finally {
+      setBusyApplicationId(null);
+    }
+  }, [dialog, rejectionReason, reloadApplications]);
 
   const columns = useMemo<DataTableColumn<ApplicationListItem>[]>(
     () => [
@@ -163,11 +333,7 @@ export function ProgramApplicantsPage({
           </div>
         ),
       },
-      {
-        id: 'participation',
-        header: '구분',
-        cell: (row) => participationLabel(row),
-      },
+      { id: 'participation', header: '구분', cell: participationLabel },
       {
         id: 'title',
         header: '제목',
@@ -179,9 +345,25 @@ export function ProgramApplicantsPage({
         id: 'status',
         header: '상태',
         cell: (row) => (
-          <StatusBadge variant={STATUS_BADGE[row.status]}>
-            {STATUS_LABELS[row.status]}
-          </StatusBadge>
+          <div className="grid gap-1">
+            <StatusBadge variant={STATUS_BADGE[row.status]}>
+              {STATUS_LABELS[row.status]}
+            </StatusBadge>
+            {row.rejectionReason ? (
+              <span className="max-w-48 text-xs text-muted-foreground">
+                {row.rejectionReason}
+              </span>
+            ) : null}
+          </div>
+        ),
+      },
+      {
+        id: 'repository',
+        header: '저장소 작업',
+        cell: (row) => (
+          <span title={row.repositoryProvisioning.safeErrorClass ?? undefined}>
+            {PROVISIONING_LABELS[row.repositoryProvisioning.jobStatus]}
+          </span>
         ),
       },
       {
@@ -190,23 +372,49 @@ export function ProgramApplicantsPage({
         cell: (row) => formatSubmittedAt(row.submittedAt),
       },
       {
-        id: 'detail',
-        header: '상세',
+        id: 'actions',
+        header: '작업',
         cell: (row) => (
-          <Button asChild size="sm" variant="outline">
-            <Link href={staffApplicationDetailHref(programId, row.id)}>
-              보기
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {row.status === 'SUBMITTED' ? (
+              <>
+                <Button
+                  size="sm"
+                  disabled={busyApplicationId === row.id}
+                  onClick={() =>
+                    setDialog({ applicationId: row.id, action: 'APPROVE' })
+                  }
+                >
+                  승인
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busyApplicationId === row.id}
+                  onClick={() => {
+                    setReasonError(false);
+                    setRejectionReason('');
+                    setDialog({ applicationId: row.id, action: 'REJECT' });
+                  }}
+                >
+                  반려
+                </Button>
+              </>
+            ) : null}
+            <Button asChild size="sm" variant="outline">
+              <Link href={staffApplicationDetailHref(programId, row.id)}>
+                보기
+              </Link>
+            </Button>
+          </div>
         ),
       },
     ],
-    [programId],
+    [busyApplicationId, programId],
   );
 
   if (loadState.kind === 'loading') return <ApplicantsSkeleton />;
-
-  if (loadState.kind === 'not-found') {
+  if (loadState.kind === 'not-found')
     return (
       <main className="mx-auto max-w-3xl px-4 py-12">
         <EmptyState
@@ -220,9 +428,7 @@ export function ProgramApplicantsPage({
         />
       </main>
     );
-  }
-
-  if (loadState.kind === 'error') {
+  if (loadState.kind === 'error')
     return (
       <main className="mx-auto max-w-3xl px-4 py-12">
         <EmptyState
@@ -236,14 +442,12 @@ export function ProgramApplicantsPage({
         />
       </main>
     );
-  }
 
   const { program, applicationPage } = loadState;
+  const selected = dialog
+    ? applicationPage.items.find((item) => item.id === dialog.applicationId)
+    : undefined;
   const hasFilters = search.trim() !== '' || status !== 'all' || mode !== 'all';
-  const emptyMessage = hasFilters
-    ? '검색 조건에 맞는 신청자가 없습니다.'
-    : '아직 제출된 신청이 없습니다.';
-
   return (
     <main className="mx-auto grid max-w-6xl gap-6 px-4 py-8">
       <PageHeader
@@ -257,7 +461,12 @@ export function ProgramApplicantsPage({
           </Button>
         }
       />
-
+      {notice ? (
+        <Alert variant={notice.kind === 'error' ? 'destructive' : 'default'}>
+          <AlertTitle>{notice.title}</AlertTitle>
+          <AlertDescription>{notice.message}</AlertDescription>
+        </Alert>
+      ) : null}
       <form
         className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
         onSubmit={(event) => {
@@ -312,20 +521,82 @@ export function ProgramApplicantsPage({
           </select>
         </label>
       </form>
-
       <DataTable
         columns={columns}
         data={[...applicationPage.items]}
         rowKey={(row) => row.id}
-        emptyState={emptyMessage}
+        emptyState={
+          hasFilters
+            ? '검색 조건에 맞는 신청자가 없습니다.'
+            : '아직 제출된 신청이 없습니다.'
+        }
         caption={`총 ${applicationPage.totalItems}건`}
       />
-
       <ProgramListPagination
         page={applicationPage.page}
         totalPages={applicationPage.totalPages}
         onPageChange={setPage}
       />
+      {dialog && selected ? (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-foreground/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="decision-title"
+        >
+          <div className="grid w-full max-w-md gap-4 rounded-xl bg-background p-6 shadow-lg">
+            <h2 id="decision-title" className="text-lg font-semibold">
+              {dialog.action === 'APPROVE' ? '신청 승인' : '신청 반려'}
+            </h2>
+            {dialog.action === 'APPROVE' ? (
+              <p>
+                승인하면 저장소 자동 생성이{' '}
+                {selected.repositoryProvisioning.enabled
+                  ? '활성화되어 저장소 작업을 시작합니다.'
+                  : '비활성화되어 저장소를 생성하지 않습니다.'}
+              </p>
+            ) : (
+              <label className="grid gap-2 text-sm">
+                <span>반려 사유</span>
+                <textarea
+                  className="min-h-28 rounded-md border border-input bg-background p-3"
+                  value={rejectionReason}
+                  onChange={(event) => {
+                    setRejectionReason(event.target.value);
+                    setReasonError(false);
+                  }}
+                  aria-invalid={reasonError}
+                  aria-describedby={reasonError ? 'reason-error' : undefined}
+                />
+                {reasonError ? (
+                  <span id="reason-error" className="text-destructive">
+                    반려 사유를 입력해 주세요.
+                  </span>
+                ) : null}
+              </label>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                disabled={busyApplicationId === selected.id}
+                onClick={() => setDialog(null)}
+              >
+                취소
+              </Button>
+              <Button
+                disabled={busyApplicationId === selected.id}
+                onClick={() => void submitDecision()}
+              >
+                {busyApplicationId === selected.id
+                  ? '처리 중…'
+                  : dialog.action === 'APPROVE'
+                    ? '승인 확정'
+                    : '반려 확정'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

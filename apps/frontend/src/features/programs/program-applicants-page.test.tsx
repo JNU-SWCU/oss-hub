@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import { ApplicationListRequestEpoch } from './program-applicants-page';
 import { staffApplicationDetailHref } from './program-paths';
 import type { ApplicationListItem } from './types';
 
@@ -27,6 +28,13 @@ function participationLabel(item: ApplicationListItem): string {
 const personal: ApplicationListItem = {
   id: 'app-personal',
   status: 'SUBMITTED',
+  rejectionReason: null,
+  repositoryProvisioning: {
+    enabled: true,
+    jobStatus: 'PENDING',
+    updatedAt: '2026-07-15T00:00:00.000Z',
+    safeErrorClass: null,
+  },
   submittedAt: '2026-07-15T00:00:00.000Z',
   participation: 'INDIVIDUAL',
   applicant: {
@@ -45,6 +53,13 @@ const personal: ApplicationListItem = {
 const team: ApplicationListItem = {
   id: 'app-team',
   status: 'APPROVED',
+  rejectionReason: null,
+  repositoryProvisioning: {
+    enabled: true,
+    jobStatus: 'SUCCEEDED',
+    updatedAt: '2026-07-16T00:00:00.000Z',
+    safeErrorClass: null,
+  },
   submittedAt: '2026-07-16T00:00:00.000Z',
   participation: 'TEAM',
   applicant: {
@@ -59,6 +74,16 @@ const team: ApplicationListItem = {
     summary: '팀 요약',
   },
 };
+function deferred<T>(): {
+  readonly promise: Promise<T>;
+  readonly resolve: (value: T) => void;
+} {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolver) => {
+    resolve = resolver;
+  });
+  return { promise, resolve };
+}
 
 describe('program applicants display helpers', () => {
   it('개인 신청은 가짜 팀명을 붙이지 않는다', () => {
@@ -74,6 +99,31 @@ describe('program applicants display helpers', () => {
     expect(staffApplicationDetailHref('program:1', 'app:2')).toBe(
       '/staff/programs/program%3A1/applications/app%3A2',
     );
+  });
+});
+
+describe('application list request epoch', () => {
+  it('오래된 poll 응답이 더 최신 authoritative reload를 덮어쓰지 않는다', async () => {
+    const requestEpoch = new ApplicationListRequestEpoch();
+    const pollResponse = deferred<string>();
+    const authoritativeResponse = deferred<string>();
+    let visibleList = 'initial';
+
+    const commitResponse = async (response: Promise<string>) => {
+      const epoch = requestEpoch.begin();
+      const list = await response;
+      if (requestEpoch.isCurrent(epoch)) visibleList = list;
+    };
+
+    const poll = commitResponse(pollResponse.promise);
+    const authoritativeReload = commitResponse(authoritativeResponse.promise);
+
+    authoritativeResponse.resolve('authoritative');
+    await authoritativeReload;
+    pollResponse.resolve('stale poll');
+    await poll;
+
+    expect(visibleList).toBe('authoritative');
   });
 });
 
