@@ -15,7 +15,7 @@ import type { ActivityPoint } from '../types';
 const series = [
   { key: 'commitCount', label: '커밋', color: '#003399' },
   { key: 'prCount', label: 'Pull Request', color: '#00923f' },
-  { key: 'starCount', label: 'Star', color: '#d97706' },
+  { key: 'releaseCount', label: 'Release', color: '#d97706' },
   { key: 'total', label: '합계', color: '#444444' },
 ] as const;
 
@@ -33,7 +33,7 @@ export function ActivityChart({
             <th scope="col">기간</th>
             <th scope="col">커밋</th>
             <th scope="col">Pull Request</th>
-            <th scope="col">Star</th>
+            <th scope="col">Release</th>
             <th scope="col">합계</th>
           </tr>
         </thead>
@@ -43,7 +43,7 @@ export function ActivityChart({
               <th scope="row">{point.period}</th>
               <td>{point.commitCount}</td>
               <td>{point.prCount}</td>
-              <td>{point.starCount}</td>
+              <td>{point.releaseCount}</td>
               <td>{point.total}</td>
             </tr>
           ))}

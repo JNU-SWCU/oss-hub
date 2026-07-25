@@ -1,103 +1,69 @@
 import { Injectable } from '@nestjs/common';
-import {
-  CollectionRunStatus,
-  ObservationSourceType,
-  RepositoryVisibility,
-  type Prisma,
-} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
-export const RANKING_OBSERVATION_BATCH_SIZE = 500;
-
-export interface RankingObservation {
-  readonly id: string;
-  readonly sourceId: string;
-  readonly payload: Prisma.JsonValue;
-  readonly targetGithubId: string;
-  readonly targetLogin: string;
-  readonly runId: string;
-  readonly runStartedAt: Date;
+export interface CanonicalRankingActivity {
+  readonly githubId: bigint;
+  readonly githubLogin: string;
+  readonly commitCount: number;
+  readonly prCount: number;
+  readonly releaseCount: number;
 }
 
 @Injectable()
 export class RankingRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async *findPlatformRepositoryIdBatches(): AsyncGenerator<readonly string[]> {
-    let cursor: string | undefined;
-
-    while (true) {
-      const repositories = await this.prisma.repository.findMany({
+  async findCanonicalActivity(
+    currentYear?: number,
+  ): Promise<readonly CanonicalRankingActivity[]> {
+    const projections =
+      await this.prisma.canonicalContributorProjection.findMany({
         where: {
-          visibility: RepositoryVisibility.PUBLIC,
-          publishedAt: { not: null },
-        },
-        select: { id: true, githubRepositoryId: true },
-        orderBy: { id: 'asc' },
-        take: RANKING_OBSERVATION_BATCH_SIZE,
-        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      });
-      if (repositories.length === 0) {
-        return;
-      }
-      yield repositories.map((repository) =>
-        repository.githubRepositoryId.toString(),
-      );
-      if (repositories.length < RANKING_OBSERVATION_BATCH_SIZE) {
-        return;
-      }
-      cursor = repositories.at(-1)?.id;
-    }
-  }
-
-  async *findObservationBatches(
-    fetchedAtOrAfter?: Date,
-  ): AsyncGenerator<readonly RankingObservation[]> {
-    let cursor: string | undefined;
-
-    while (true) {
-      const observations = await this.prisma.githubRawObservation.findMany({
-        where: {
-          sourceType: ObservationSourceType.EVENT,
-          run: { status: CollectionRunStatus.SUCCEEDED },
-          ...(fetchedAtOrAfter ? { fetchedAt: { gte: fetchedAtOrAfter } } : {}),
+          generation: { activeFor: { some: {} } },
+          ...(currentYear === undefined ? {} : { currentYear }),
         },
         select: {
-          id: true,
-          sourceId: true,
-          payload: true,
-          run: {
-            select: {
-              id: true,
-              targetGithubId: true,
-              targetLogin: true,
-              startedAt: true,
-            },
-          },
+          githubUserId: true,
+          githubLogin: true,
+          commitCount: true,
+          pullRequestCount: true,
+          releaseCount: true,
+          currentYearCommitCount: true,
+          currentYearPullRequestCount: true,
+          currentYearReleaseCount: true,
         },
-        orderBy: [{ sourceId: 'asc' }, { id: 'asc' }],
-        take: RANKING_OBSERVATION_BATCH_SIZE,
-        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       });
 
-      if (observations.length === 0) {
-        return;
-      }
-
-      yield observations.map((observation) => ({
-        id: observation.id,
-        sourceId: observation.sourceId,
-        payload: observation.payload,
-        targetGithubId: observation.run.targetGithubId.toString(),
-        targetLogin: observation.run.targetLogin,
-        runId: observation.run.id,
-        runStartedAt: observation.run.startedAt,
-      }));
-
-      if (observations.length < RANKING_OBSERVATION_BATCH_SIZE) {
-        return;
-      }
-      cursor = observations.at(-1)?.id;
+    const activity = new Map<string, CanonicalRankingActivity>();
+    for (const row of projections) {
+      const key = row.githubUserId.toString();
+      const current = activity.get(key);
+      const githubLogin =
+        !current ||
+        row.githubLogin.normalize().toLocaleLowerCase('en-US') <
+          current.githubLogin.normalize().toLocaleLowerCase('en-US')
+          ? row.githubLogin
+          : current.githubLogin;
+      const commitCount =
+        currentYear === undefined
+          ? row.commitCount
+          : row.currentYearCommitCount;
+      const prCount =
+        currentYear === undefined
+          ? row.pullRequestCount
+          : row.currentYearPullRequestCount;
+      const releaseCount =
+        currentYear === undefined
+          ? row.releaseCount
+          : row.currentYearReleaseCount;
+      activity.set(key, {
+        githubId: row.githubUserId,
+        githubLogin,
+        commitCount: (current?.commitCount ?? 0) + commitCount,
+        prCount: (current?.prCount ?? 0) + prCount,
+        releaseCount: (current?.releaseCount ?? 0) + releaseCount,
+      });
     }
+    return [...activity.values()];
   }
 }

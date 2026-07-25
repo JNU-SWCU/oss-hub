@@ -6,6 +6,7 @@ export enum CollectionErrorCode {
   BATCH_LOGIN_NOT_ALLOWED = 'COL_003',
   ADMIN_REQUIRED = 'COL_004',
   COLLECTION_SCOPE_DISABLED = 'COL_005',
+  COLLECTION_RUN_IN_PROGRESS = 'COL_006',
 }
 
 export const COLLECTION_ERROR_CODES: Record<CollectionErrorCode, ErrorCode> = {
@@ -33,6 +34,12 @@ export const COLLECTION_ERROR_CODES: Record<CollectionErrorCode, ErrorCode> = {
     code: CollectionErrorCode.COLLECTION_SCOPE_DISABLED,
     status: 503,
     message: '현재 환경에서는 사용자 중심 수집을 사용할 수 없습니다.',
+    exposeToClient: true,
+  },
+  [CollectionErrorCode.COLLECTION_RUN_IN_PROGRESS]: {
+    code: CollectionErrorCode.COLLECTION_RUN_IN_PROGRESS,
+    status: 409,
+    message: '수집이 이미 진행 중입니다.',
     exposeToClient: true,
   },
 };

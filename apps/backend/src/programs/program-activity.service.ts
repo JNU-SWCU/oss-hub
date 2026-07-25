@@ -12,38 +12,8 @@ import {
   ProgramErrorCode,
   PROGRAM_ERROR_CODES as CREATION_ERROR_CODES,
 } from './program-error-code.enum';
-import { programParticipantGithubIds } from './program-participant';
 import type { ProgramViewer } from './program-viewer.service';
 import { ProgramsRepository } from './programs.repository';
-
-function property(value: unknown, key: string): unknown {
-  if (typeof value !== 'object' || value === null || Array.isArray(value))
-    return null;
-  return key in value
-    ? ((value as Record<string, unknown>)[key] ?? null)
-    : null;
-}
-
-function pushEvent(payload: unknown, githubRepositoryId: bigint) {
-  if (property(payload, 'type') !== 'PushEvent') return null;
-  const repo = property(payload, 'repo');
-  const repositoryId = property(repo, 'id');
-  if (
-    typeof repositoryId !== 'number' ||
-    !Number.isSafeInteger(repositoryId) ||
-    BigInt(repositoryId) !== githubRepositoryId
-  )
-    return null;
-  const eventPayload = property(payload, 'payload');
-  const size = property(eventPayload, 'size');
-  const occurredAt = property(payload, 'created_at');
-  return {
-    commits: typeof size === 'number' && Number.isFinite(size) ? size : 0,
-    occurredAt: typeof occurredAt === 'string' ? occurredAt : null,
-  };
-}
-
-type TimelineMetric = 'commitCount' | 'prCount' | 'starCount';
 
 function seoulPeriod(date: Date, granularity: ActivityGranularity): string {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -57,55 +27,6 @@ function seoulPeriod(date: Date, granularity: ActivityGranularity): string {
     throw new Error('Failed to format activity period.');
   }
   return granularity === 'MONTH' ? `${year}-${month}` : year;
-}
-
-function timelineEvent(
-  payload: unknown,
-  repositoryIds: ReadonlySet<bigint>,
-  ownedRepositoryIds: ReadonlySet<bigint>,
-  isCurrentUserEvent: boolean,
-  granularity: ActivityGranularity,
-): {
-  readonly period: string;
-  readonly metric: TimelineMetric;
-  readonly count: number;
-} | null {
-  const repositoryId = property(property(payload, 'repo'), 'id');
-  if (
-    typeof repositoryId !== 'number' ||
-    !Number.isSafeInteger(repositoryId) ||
-    !repositoryIds.has(BigInt(repositoryId))
-  )
-    return null;
-
-  const occurredAt = property(payload, 'created_at');
-  if (typeof occurredAt !== 'string') return null;
-  const date = new Date(occurredAt);
-  if (Number.isNaN(date.getTime())) return null;
-  const period = seoulPeriod(date, granularity);
-  const type = property(payload, 'type');
-  const eventPayload = property(payload, 'payload');
-
-  switch (type) {
-    case 'PushEvent': {
-      if (!isCurrentUserEvent) return null;
-      const size = property(eventPayload, 'size');
-      return typeof size === 'number' && Number.isSafeInteger(size) && size >= 0
-        ? { period, metric: 'commitCount', count: size }
-        : null;
-    }
-    case 'PullRequestEvent':
-      return isCurrentUserEvent && property(eventPayload, 'action') === 'opened'
-        ? { period, metric: 'prCount', count: 1 }
-        : null;
-    case 'WatchEvent':
-      return ownedRepositoryIds.has(BigInt(repositoryId)) &&
-        property(eventPayload, 'action') === 'started'
-        ? { period, metric: 'starCount', count: 1 }
-        : null;
-    default:
-      return null;
-  }
 }
 
 @Injectable()
@@ -122,45 +43,64 @@ export class ProgramActivityService {
         programId,
         viewer.role === Role.STUDENT ? viewer.userId : null,
       );
-
-      return Promise.all(
-        repositories.map(async (repository) => {
-          const githubIds = programParticipantGithubIds(
-            repository.application.applicant.githubId,
-            repository.application.team,
-          );
-          const observations =
-            await this.repository.findSuccessfulEventObservations(githubIds);
-          const uniqueObservations = [
-            ...new Map(
-              observations.map((observation) => [
-                observation.sourceId,
-                observation,
-              ]),
-            ).values(),
-          ];
-          const events = uniqueObservations
-            .map((observation) =>
-              pushEvent(observation.payload, repository.githubRepositoryId),
-            )
-            .filter((event) => event !== null);
-          const lastActivityAt =
-            events
-              .map((event) => event.occurredAt)
-              .filter((value) => value !== null)
-              .sort()
-              .at(-1) ?? null;
-          return {
-            applicationId: repository.application.id,
-            label:
-              repository.application.team?.name ??
-              repository.application.applicant.name ??
-              repository.application.applicant.nickname,
-            commitCount: events.reduce((sum, event) => sum + event.commits, 0),
-            lastActivityAt,
-          };
-        }),
+      const generations = await this.repository.findCanonicalRepositoryActivity(
+        repositories.map((repository) => repository.githubRepositoryId),
       );
+      const canonicalByRepository = new Map<
+        bigint,
+        {
+          readonly dataAsOf: Date;
+          readonly commits: readonly { readonly committedAt: Date }[];
+          readonly pullRequests: readonly { readonly createdAt: Date }[];
+          readonly releases: readonly { readonly publishedAt: Date }[];
+        }
+      >();
+      for (const generation of generations) {
+        for (const repository of generation.activeGeneration?.repositories ??
+          []) {
+          const current = canonicalByRepository.get(
+            repository.githubRepositoryId,
+          );
+          if (!current || current.dataAsOf < generation.updatedAt) {
+            canonicalByRepository.set(repository.githubRepositoryId, {
+              dataAsOf: generation.updatedAt,
+              commits: repository.commits,
+              pullRequests: repository.pullRequests,
+              releases: repository.releases,
+            });
+          }
+        }
+      }
+
+      return repositories.map((repository) => {
+        const canonical = canonicalByRepository.get(
+          repository.githubRepositoryId,
+        );
+        let lastActivityAt: Date | null = null;
+        if (canonical) {
+          for (const date of [
+            ...canonical.commits.map((row) => row.committedAt),
+            ...canonical.pullRequests.map((row) => row.createdAt),
+            ...canonical.releases.map((row) => row.publishedAt),
+          ]) {
+            if (!lastActivityAt || lastActivityAt < date) {
+              lastActivityAt = date;
+            }
+          }
+        }
+        return {
+          applicationId: repository.application.id,
+          label:
+            repository.application.team?.name ??
+            repository.application.applicant.name ??
+            repository.application.applicant.nickname,
+          commitCount: canonical?.commits.length ?? 0,
+          pullRequestCount: canonical?.pullRequests.length ?? 0,
+          releaseCount: canonical?.releases.length ?? 0,
+          lastActivityAt: lastActivityAt?.toISOString() ?? null,
+          dataAsOf: canonical?.dataAsOf.toISOString() ?? null,
+        };
+      });
     } catch {
       throw new DomainException(PROGRAM_ERROR_CODES.DETAIL_LOAD_FAILED);
     }
@@ -179,52 +119,69 @@ export class ProgramActivityService {
     try {
       const applications =
         await this.repository.findStudentActivityApplications(viewer.userId);
-      const repositoryIds = new Set(
-        applications.flatMap((application) =>
-          application.repository
-            ? [application.repository.githubRepositoryId]
-            : [],
+      const repositoryIds = [
+        ...new Set(
+          applications.flatMap((application) =>
+            application.repository
+              ? [application.repository.githubRepositoryId]
+              : [],
+          ),
         ),
-      );
-      const ownedRepositories =
-        await this.repository.findStudentOwnedRepositoryIds(viewer.githubId, [
-          ...repositoryIds,
-        ]);
-      const ownedRepositoryIds = new Set(
-        ownedRepositories.map((repository) => repository.githubRepositoryId),
-      );
-      const points = new Map<string, ActivityPointResponseDto>();
-      const seenSourceIds = new Set<string>();
-
-      for await (const observations of this.repository.findStudentTimelineObservationBatches(
+      ];
+      const generations = await this.repository.findCanonicalRepositoryActivity(
+        repositoryIds,
         viewer.githubId,
-        [...repositoryIds],
-        [...ownedRepositoryIds],
-      )) {
-        for (const observation of observations) {
-          if (seenSourceIds.has(observation.sourceId)) continue;
-          seenSourceIds.add(observation.sourceId);
-          const event = timelineEvent(
-            observation.payload,
-            repositoryIds,
-            ownedRepositoryIds,
-            observation.run.targetGithubId === viewer.githubId,
-            granularity,
+      );
+      const canonicalByRepository = new Map<
+        bigint,
+        (typeof generations)[number]
+      >();
+      for (const generation of generations) {
+        for (const repository of generation.activeGeneration?.repositories ??
+          []) {
+          const current = canonicalByRepository.get(
+            repository.githubRepositoryId,
           );
-          if (!event) continue;
-          const current = points.get(event.period) ?? {
-            period: event.period,
-            commitCount: 0,
-            prCount: 0,
-            starCount: 0,
-            total: 0,
-          };
-          points.set(event.period, {
-            ...current,
-            [event.metric]: current[event.metric] + event.count,
-            total: current.total + event.count,
-          });
+          if (!current || current.updatedAt < generation.updatedAt) {
+            canonicalByRepository.set(
+              repository.githubRepositoryId,
+              generation,
+            );
+          }
         }
+      }
+
+      const points = new Map<string, ActivityPointResponseDto>();
+      const add = (
+        date: Date,
+        metric: 'commitCount' | 'prCount' | 'releaseCount',
+      ) => {
+        const period = seoulPeriod(date, granularity);
+        const current = points.get(period) ?? {
+          period,
+          commitCount: 0,
+          prCount: 0,
+          releaseCount: 0,
+          total: 0,
+        };
+        points.set(period, {
+          ...current,
+          [metric]: current[metric] + 1,
+          total: current.total + 1,
+        });
+      };
+      for (const [repositoryId, generation] of canonicalByRepository) {
+        const repository = generation.activeGeneration?.repositories.find(
+          (candidate) => candidate.githubRepositoryId === repositoryId,
+        );
+        if (!repository) continue;
+        repository.commits.forEach((row) =>
+          add(row.committedAt, 'commitCount'),
+        );
+        repository.pullRequests.forEach((row) => add(row.createdAt, 'prCount'));
+        repository.releases.forEach((row) =>
+          add(row.publishedAt, 'releaseCount'),
+        );
       }
 
       const programs = [

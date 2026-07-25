@@ -12,7 +12,7 @@ export interface ActivityPoint {
   readonly period: string;
   readonly commitCount: number;
   readonly prCount: number;
-  readonly starCount: number;
+  readonly releaseCount: number;
   readonly total: number;
 }
 

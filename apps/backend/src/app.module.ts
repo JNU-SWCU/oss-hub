@@ -10,12 +10,14 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { ProfilesModule } from './profiles/profiles.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProgramsModule } from './programs/programs.module';
+import { RankingModule } from './ranking/ranking.module';
 import { RepositoryOwnershipModule } from './repository-ownership/repository-ownership.module';
 import { RepositoriesModule } from './repositories/repositories.module';
 import { RolesModule } from './roles/roles.module';
 import { ShowcaseModule } from './showcase/showcase.module';
 import { SubmissionReviewsModule } from './submission-reviews/submission-reviews.module';
 import { SubmissionsModule } from './submissions/submissions.module';
+import { SystemStatusModule } from './system-status/system-status.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -28,6 +30,8 @@ import { UsersModule } from './users/users.module';
     /** ScheduleModule.forRoot() 소유 — Notifications 크론보다 먼저 로드한다. */
     CollectionModule,
     NotificationsModule,
+    SystemStatusModule,
+    RankingModule,
     ConsentsModule,
     ApplicationsModule,
     RolesModule,

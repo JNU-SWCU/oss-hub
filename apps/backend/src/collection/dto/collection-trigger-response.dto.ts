@@ -1,5 +1,5 @@
 export class CollectionTriggerResponseDto {
-  readonly status = 'STARTED' as const;
+  readonly status = 'PENDING' as const;
 
   constructor(readonly runId: string) {}
 }

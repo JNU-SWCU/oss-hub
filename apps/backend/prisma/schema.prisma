@@ -180,7 +180,8 @@ model Milestone {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  submissions Submission[]
+  submissions     Submission[]
+  submissionFiles SubmissionFile[]
 
   @@index([programId])
 }
@@ -220,9 +221,10 @@ model Application {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  submissions  Submission[]
-  repository   Repository?
-  provisionJob RepositoryProvisionJob?
+  submissions     Submission[]
+  repository      Repository?
+  provisionJob    RepositoryProvisionJob?
+  submissionFiles SubmissionFile[]        @relation("SubmissionFileApplication")
 
   @@index([programId])
   @@index([applicantId])
@@ -330,12 +332,25 @@ model SubmissionRevision {
   @@index([submittedById])
 }
 
-/// storage key만 저장한다 — filesystem 절대경로·public URL을 저장/노출하지 않는다(#113). 미사용 임시 업로드 정리 정책은 #115가 적용한다.
+enum SubmissionFileLifecycle {
+  PENDING
+  ATTACHED
+  DELETE_PENDING
+  DELETED
+}
+
+/// storage key만 저장한다 — filesystem 절대경로·public URL을 저장/노출하지 않는다(#113).
+/// pendingExpiresAt은 미첨부 업로드 정리 시계, expiresAt은 첨부 후 보존 시계로 서로 대체하지 않는다(#115).
 model SubmissionFile {
   id String @id @default(cuid())
 
-  uploaderId String
-  uploader   User   @relation(fields: [uploaderId], references: [id])
+  uploaderId    String
+  uploader      User         @relation(fields: [uploaderId], references: [id])
+  applicationId String?
+  application   Application? @relation("SubmissionFileApplication", fields: [applicationId], references: [id], onDelete: Restrict)
+
+  milestoneId String?
+  milestone   Milestone? @relation(fields: [milestoneId], references: [id], onDelete: Restrict)
 
   storageKey       String
   originalFileName String
@@ -343,11 +358,25 @@ model SubmissionFile {
   sizeBytes        Int
 
   submissionRevisionId String?
-  submissionRevision   SubmissionRevision? @relation(fields: [submissionRevisionId], references: [id])
+  submissionRevision   SubmissionRevision?     @relation(fields: [submissionRevisionId], references: [id])
+  lifecycle            SubmissionFileLifecycle @default(ATTACHED)
+  pendingExpiresAt     DateTime?
+  expiresAt            DateTime?
+
+  deleteClaimedAt      DateTime?
+  deleteClaimExpiresAt DateTime?
+  deleteClaimOwner     String?
+  deleteAttemptCount   Int       @default(0)
+  nextDeleteAttemptAt  DateTime?
+  lastDeleteError      String?
+  deletedAt            DateTime?
 
   createdAt DateTime @default(now())
 
   @@index([uploaderId])
+  @@index([applicationId, milestoneId, lifecycle])
+  @@index([lifecycle, pendingExpiresAt])
+  @@index([lifecycle, nextDeleteAttemptAt, deleteClaimExpiresAt])
   @@index([submissionRevisionId])
 }
 
@@ -693,4 +722,140 @@ model GithubRawObservation {
   fetchedAt  DateTime              @default(now())
 
   @@unique([runId, sourceType, sourceId])
+}
+
+enum CanonicalCollectionRunStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  INCOMPLETE
+  RATE_LIMITED
+  FAILED
+}
+
+model CanonicalCollectionRun {
+  id                String                       @id @default(cuid())
+  appId             BigInt
+  organizationLogin String
+  status            CanonicalCollectionRunStatus @default(PENDING)
+  errorClass     String?
+  createdAt      DateTime                         @default(now())
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  repositories   CanonicalRepository[]
+  commits        CanonicalDefaultBranchCommit[]
+  pullRequests   CanonicalPullRequest[]
+  releases       CanonicalRelease[]
+  contributors   CanonicalContributorProjection[]
+  leases         CanonicalCollectionLease[]
+  activeFor      CanonicalOrganizationState[]     @relation("ActiveCanonicalGeneration")
+
+  @@index([appId, organizationLogin, createdAt])
+}
+
+model CanonicalOrganizationState {
+  appId                 BigInt
+  organizationLogin     String
+  activeGenerationId    String?
+  activeGeneration      CanonicalCollectionRun? @relation("ActiveCanonicalGeneration", fields: [activeGenerationId], references: [id])
+  installationValid     Boolean                 @default(false)
+  permissionsValid      Boolean                 @default(false)
+  installationCheckedAt DateTime?
+  permissionsCheckedAt  DateTime?
+  updatedAt             DateTime                @updatedAt
+
+  @@id([appId, organizationLogin])
+  @@index([activeGenerationId])
+}
+
+model CanonicalCollectionLease {
+  appId             BigInt
+  organizationLogin String
+  epoch             BigInt                 @default(1)
+  ownerId        String
+  expiresAt      DateTime
+  runId          String
+  run            CanonicalCollectionRun @relation(fields: [runId], references: [id])
+  updatedAt      DateTime               @updatedAt
+
+  @@id([appId, organizationLogin])
+  @@index([runId])
+}
+
+model CanonicalRepository {
+  generationId       String
+  githubRepositoryId BigInt
+  fullName           String
+  visibility         String
+  archived           Boolean
+  defaultBranch      String
+  generation         CanonicalCollectionRun           @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  commits            CanonicalDefaultBranchCommit[]
+  pullRequests       CanonicalPullRequest[]
+  releases           CanonicalRelease[]
+  contributors       CanonicalContributorProjection[]
+
+  @@id([generationId, githubRepositoryId])
+}
+
+model CanonicalDefaultBranchCommit {
+  generationId       String
+  githubRepositoryId BigInt
+  sha                String
+  committedAt        DateTime
+  authorGithubId     BigInt?
+  authorGithubLogin  String?
+  generation         CanonicalCollectionRun @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  repository         CanonicalRepository    @relation(fields: [generationId, githubRepositoryId], references: [generationId, githubRepositoryId], onDelete: Cascade)
+
+  @@id([generationId, githubRepositoryId, sha])
+  @@index([generationId, committedAt])
+}
+
+model CanonicalPullRequest {
+  generationId        String
+  githubRepositoryId  BigInt
+  githubPullRequestId BigInt
+  state               String
+  createdAt           DateTime
+  authorGithubId      BigInt?
+  authorGithubLogin   String?
+  generation          CanonicalCollectionRun @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  repository          CanonicalRepository    @relation(fields: [generationId, githubRepositoryId], references: [generationId, githubRepositoryId], onDelete: Cascade)
+
+  @@id([generationId, githubRepositoryId, githubPullRequestId])
+  @@index([generationId, createdAt])
+}
+
+model CanonicalRelease {
+  generationId       String
+  githubRepositoryId BigInt
+  githubReleaseId    BigInt
+  publishedAt        DateTime
+  authorGithubId     BigInt?
+  authorGithubLogin  String?
+  generation         CanonicalCollectionRun @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  repository         CanonicalRepository    @relation(fields: [generationId, githubRepositoryId], references: [generationId, githubRepositoryId], onDelete: Cascade)
+
+  @@id([generationId, githubRepositoryId, githubReleaseId])
+  @@index([generationId, publishedAt])
+}
+
+model CanonicalContributorProjection {
+  generationId                String
+  githubRepositoryId          BigInt
+  githubUserId                BigInt
+  githubLogin                 String
+  commitCount                 Int                    @default(0)
+  pullRequestCount            Int                    @default(0)
+  releaseCount                Int                    @default(0)
+  currentYear                 Int
+  currentYearCommitCount      Int                    @default(0)
+  currentYearPullRequestCount Int                    @default(0)
+  currentYearReleaseCount     Int                    @default(0)
+  generation                  CanonicalCollectionRun @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  repository                  CanonicalRepository    @relation(fields: [generationId, githubRepositoryId], references: [generationId, githubRepositoryId], onDelete: Cascade)
+
+  @@id([generationId, githubRepositoryId, githubUserId])
+  @@index([generationId, githubUserId])
 }
