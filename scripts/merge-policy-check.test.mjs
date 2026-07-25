@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  collectChangedPaths,
   evaluateMergePolicy,
   findUnsupportedCodeownersPatterns,
   isCodeownersCandidate,
@@ -564,4 +565,34 @@ test('지원하지 않는 CODEOWNERS 패턴이 있으면 판정 불능으로 fai
   assert.deepEqual(findUnsupportedCodeownersPatterns('*.md @a\n/ok/ @b'), [
     '*.md',
   ]);
+});
+
+test('rename previous_filename이 CODEOWNERS 후보면 GENERAL 하향에 RISK_ACCEPT가 필요하다', () => {
+  const changedFiles = collectChangedPaths([
+    {
+      filename: 'apps/frontend/src/lib/moved-auth.ts',
+      previous_filename: 'apps/backend/src/auth/session.ts',
+    },
+  ]);
+  assert.deepEqual(changedFiles, [
+    'apps/frontend/src/lib/moved-auth.ts',
+    'apps/backend/src/auth/session.ts',
+  ]);
+  const withoutAccept = evaluate({
+    changedFiles,
+    comments: [comment(10, 'Lumiere001', mergeReadyBody())],
+  });
+  assert.equal(withoutAccept.conclusion, 'failure');
+  assert.ok(
+    withoutAccept.reasons.some((reason) => reason.includes('RISK_ACCEPT')),
+  );
+  const withAccept = evaluate({
+    changedFiles,
+    comments: [
+      comment(10, 'Lumiere001', mergeReadyBody()),
+      comment(11, 'GoBeromsu', riskAccept('PM')),
+      comment(12, 'Lumiere001', riskAccept('TECH_LEAD')),
+    ],
+  });
+  assert.equal(withAccept.conclusion, 'success');
 });

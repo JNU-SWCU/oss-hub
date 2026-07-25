@@ -8,6 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 import {
+  collectChangedPaths,
   evaluateMergePolicy,
   formatSummary,
 } from './merge-policy-check-lib.mjs';
@@ -84,10 +85,9 @@ function fetchInputs(repository, prNumber) {
     authorLogin: comment.user.login,
     body: comment.body,
   }));
-  const changedFiles = api(
-    `repos/${repository}/pulls/${prNumber}/files`,
-    true,
-  ).map((file) => file.filename);
+  const changedFiles = collectChangedPaths(
+    api(`repos/${repository}/pulls/${prNumber}/files`, true),
+  );
   return { pull, comments, changedFiles };
 }
 

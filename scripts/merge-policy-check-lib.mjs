@@ -110,6 +110,21 @@ export function isCodeownersCandidate(patterns, changedFiles) {
   );
 }
 
+// PR files API의 filename + previous_filename을 모두 모아 rename/move가
+// CODEOWNERS 후보 경로를 빠져나가지 못하게 한다.
+export function collectChangedPaths(files) {
+  const paths = [];
+  for (const file of files ?? []) {
+    if (file?.filename) {
+      paths.push(file.filename);
+    }
+    if (file?.previous_filename) {
+      paths.push(file.previous_filename);
+    }
+  }
+  return paths;
+}
+
 function pinnedToCurrent(pull, head, baseRef, baseSha) {
   return (
     pull.headSha === head &&
