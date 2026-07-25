@@ -115,6 +115,8 @@ describe('loadStudentDashboard', () => {
     const fetchDashboard = vi.fn().mockRejectedValue('unexpected');
 
     // When / Then
-    await expect(loadStudentDashboard(fetchDashboard)).rejects.toBe('unexpected');
+    await expect(loadStudentDashboard(fetchDashboard)).rejects.toBe(
+      'unexpected',
+    );
   });
 });
