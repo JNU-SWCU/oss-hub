@@ -111,6 +111,30 @@ export interface ApplicationListPage {
   readonly totalPages: number;
 }
 
+/** #117 운영 대시보드 — Application 단위 집계. */
+export interface StaffDashboardApplicationCounts {
+  readonly total: number;
+  readonly submitted: number;
+  readonly approved: number;
+  readonly rejected: number;
+}
+
+export interface StaffDashboardProgramSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly category: ProgramCategory;
+  readonly applicationPeriod: {
+    readonly startsAt: string;
+    readonly endsAt: string;
+  };
+  readonly applications: StaffDashboardApplicationCounts;
+  readonly applicantsPath: string;
+}
+
+export interface StaffDashboardSummary {
+  readonly programs: readonly StaffDashboardProgramSummary[];
+}
+
 export interface SubmissionSummary {
   readonly notSubmitted: number;
   readonly submitted: number;

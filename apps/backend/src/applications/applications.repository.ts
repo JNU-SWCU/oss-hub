@@ -124,6 +124,30 @@ export interface ApplicationListPage {
   readonly totalPages: number;
 }
 
+/** #117 운영 대시보드 — Application 단위 집계(제출 매트릭스 아님). */
+export interface StaffDashboardApplicationCounts {
+  readonly total: number;
+  readonly submitted: number;
+  readonly approved: number;
+  readonly rejected: number;
+}
+
+export interface StaffDashboardProgramSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly category: ProgramCategory;
+  readonly applicationPeriod: {
+    readonly startsAt: Date;
+    readonly endsAt: Date;
+  };
+  readonly applications: StaffDashboardApplicationCounts;
+  readonly applicantsPath: string;
+}
+
+export interface StaffDashboardSummary {
+  readonly programs: readonly StaffDashboardProgramSummary[];
+}
+
 export interface ApplicationCreateStore {
   findTeamForApply(
     teamId: string,
@@ -388,6 +412,90 @@ export class ApplicationsRepository {
       pageSize: query.pageSize,
       totalItems,
       totalPages: Math.ceil(totalItems / query.pageSize),
+    };
+  }
+
+  async listStaffDashboardSummary(): Promise<StaffDashboardSummary> {
+    const programs = await this.prisma.program.findMany({
+      orderBy: [
+        { applicationStartAt: 'desc' },
+        { name: 'asc' },
+        { id: 'asc' },
+      ],
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        applicationStartAt: true,
+        applicationEndAt: true,
+      },
+    });
+
+    if (programs.length === 0) {
+      return { programs: [] };
+    }
+
+    const counts = await this.prisma.application.groupBy({
+      by: ['programId', 'status'],
+      where: { programId: { in: programs.map((program) => program.id) } },
+      _count: { _all: true },
+    });
+
+    type MutableCounts = {
+      total: number;
+      submitted: number;
+      approved: number;
+      rejected: number;
+    };
+    const countsByProgram = new Map<string, MutableCounts>();
+    for (const program of programs) {
+      countsByProgram.set(program.id, {
+        total: 0,
+        submitted: 0,
+        approved: 0,
+        rejected: 0,
+      });
+    }
+
+    for (const row of counts) {
+      const bucket = countsByProgram.get(row.programId);
+      if (!bucket) continue;
+      const n = row._count._all;
+      bucket.total += n;
+      switch (row.status) {
+        case ApplicationStatus.SUBMITTED:
+          bucket.submitted += n;
+          break;
+        case ApplicationStatus.APPROVED:
+          bucket.approved += n;
+          break;
+        case ApplicationStatus.REJECTED:
+          bucket.rejected += n;
+          break;
+      }
+    }
+
+    return {
+      programs: programs.map((program) => {
+        const applications: StaffDashboardApplicationCounts =
+          countsByProgram.get(program.id) ?? {
+            total: 0,
+            submitted: 0,
+            approved: 0,
+            rejected: 0,
+          };
+        return {
+          id: program.id,
+          name: program.name,
+          category: program.category,
+          applicationPeriod: {
+            startsAt: program.applicationStartAt,
+            endsAt: program.applicationEndAt,
+          },
+          applications,
+          applicantsPath: `/staff/programs/${encodeURIComponent(program.id)}/applicants`,
+        };
+      }),
     };
   }
 }

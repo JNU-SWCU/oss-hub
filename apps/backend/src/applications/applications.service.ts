@@ -23,6 +23,7 @@ import {
   ApplicationsRepository,
   type ApplicationListPage,
   type CreatedApplication,
+  type StaffDashboardSummary,
   RepositoryEventAlreadyExistsError,
 } from './applications.repository';
 import type {
@@ -164,6 +165,11 @@ export class ApplicationsService {
       throw this.error(ApplicationsErrorCode.PROGRAM_NOT_FOUND);
     }
     return this.repository.listApplicationsForProgram(programId, query);
+  }
+
+  /** #117 교직원 운영 대시보드 요약 — Application 단위 집계. */
+  async staffSummary(): Promise<StaffDashboardSummary> {
+    return this.repository.listStaffDashboardSummary();
   }
 
   async decide(

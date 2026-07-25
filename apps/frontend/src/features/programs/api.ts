@@ -12,6 +12,7 @@ import type {
   ProgramListPage,
   ProgramListParams,
   ProgramParticipation,
+  StaffDashboardSummary,
   SubmissionType,
 } from './types';
 
@@ -335,4 +336,9 @@ export function listProgramApplications(
   return apiClient<ApplicationListPage>(
     `programs/${encodeURIComponent(programId)}/applications?${search.toString()}`,
   );
+}
+
+/** #117 교직원 운영 대시보드 요약. */
+export function getStaffDashboardSummary(): Promise<StaffDashboardSummary> {
+  return apiClient<StaffDashboardSummary>('dashboard/staff/summary');
 }
