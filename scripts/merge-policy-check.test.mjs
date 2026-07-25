@@ -7,6 +7,7 @@ import {
   EMERGENCY_CUTOFF,
   EMERGENCY_POLICY_PR_NUMBER,
   evaluateMergePolicy,
+  formatSummary,
   findUnsupportedCodeownersPatterns,
   hasCompletePullFiles,
   isCodeownersCandidate,
@@ -651,6 +652,10 @@ test('PR #256 emergency approval contract is exact and fail-closed', () => {
     policyMergedAt: policy.mergedAt,
     emergencyCommentId: emergency.id,
     ownerCommentId: owner.id,
+    windowLabel: '2026-07-26-KST',
+    timestampsValid: true,
+    filesComplete: true,
+    denylistClear: true,
   });
   assert.equal(valid({ policy: null }), false);
   assert.equal(valid({ pull: { ...emergencyPull, number: 255 } }), false);
@@ -784,7 +789,29 @@ test('emergency relief passes only through the full PR #256 evaluator contract',
     policyMergedAt: policy.mergedAt,
     emergencyCommentId: 12,
     ownerCommentId: 13,
+    windowLabel: '2026-07-26-KST',
+    timestampsValid: true,
+    filesComplete: true,
+    denylistClear: true,
+    retainedGates: {
+      mergeReady: true,
+      pmAccept: true,
+    },
   });
+
+  const summary = formatSummary(result, pullData);
+  for (const expectedLine of [
+    '- emergency window: 2026-07-26-KST',
+    '- emergency timestamps: PASS',
+    '- emergency files completeness: PASS',
+    '- emergency denylist: PASS',
+    '- retained gates: MERGE_READY=PASS, PM_ACCEPT=PASS',
+  ]) {
+    assert.match(
+      summary,
+      new RegExp(expectedLine.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    );
+  }
 
   const withoutPm = evaluate({
     pullData,

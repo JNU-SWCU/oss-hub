@@ -18,6 +18,7 @@ export const OWNER_CONFIRM_LINE =
   /^OWNER_CONFIRM head=([0-9a-f]{40}) base=(main) base_sha=([0-9a-f]{40})$/;
 export const EMERGENCY_POLICY_PR_NUMBER = 258;
 export const EMERGENCY_CUTOFF = '2026-07-26T15:00:00.000Z';
+export const EMERGENCY_WINDOW_LABEL = '2026-07-26-KST';
 export const EMERGENCY_PR_NUMBER = 256;
 export const OWNER_ACTOR = 'jinsol1190-rgb';
 export const EMERGENCY_DENYLIST = [
@@ -381,6 +382,10 @@ export function checkEmergencyApproval({
     policyMergedAt: policy.mergedAt,
     emergencyCommentId: emergencyAccept.id,
     ownerCommentId: ownerConfirm.id,
+    windowLabel: EMERGENCY_WINDOW_LABEL,
+    timestampsValid: true,
+    filesComplete: true,
+    denylistClear: true,
   };
 }
 
@@ -416,7 +421,15 @@ function checkHighRiskAccepts(pull, comments, reasons, files, policy) {
       `HIGH_RISK — 현재 head·base에 고정된 @${TECH_LEAD_ACTOR}의 TECH_LEAD_ACCEPT가 없음`,
     );
   }
-  return emergencyEvidence;
+  return emergencyEvidence
+    ? {
+        ...emergencyEvidence,
+        retainedGates: {
+          mergeReady: true,
+          pmAccept: Boolean(pmAccept),
+        },
+      }
+    : null;
 }
 
 function findRiskAccept(pull, comments, role, actor) {
@@ -565,6 +578,11 @@ export function formatSummary(result, pull) {
         `- emergency policy merged at: ${result.emergencyEvidence.policyMergedAt}`,
         `- PM_EMERGENCY_ACCEPT comment id: ${result.emergencyEvidence.emergencyCommentId}`,
         `- OWNER_CONFIRM comment id: ${result.emergencyEvidence.ownerCommentId}`,
+        `- emergency window: ${result.emergencyEvidence.windowLabel}`,
+        `- emergency timestamps: ${result.emergencyEvidence.timestampsValid ? 'PASS' : 'FAIL'}`,
+        `- emergency files completeness: ${result.emergencyEvidence.filesComplete ? 'PASS' : 'FAIL'}`,
+        `- emergency denylist: ${result.emergencyEvidence.denylistClear ? 'PASS' : 'FAIL'}`,
+        `- retained gates: MERGE_READY=${result.emergencyEvidence.retainedGates?.mergeReady ? 'PASS' : 'FAIL'}, PM_ACCEPT=${result.emergencyEvidence.retainedGates?.pmAccept ? 'PASS' : 'FAIL'}`,
       );
     }
   }
