@@ -110,13 +110,11 @@ describe('loadStudentDashboard', () => {
     expect(fetchDashboard).toHaveBeenCalledTimes(2);
   });
 
-  it('Error 객체가 아닌 예외는 다시 전달한다', async () => {
-    // Given
+  it('Error가 아닌 예외도 오류 결과로 정규화한다', async () => {
     const fetchDashboard = vi.fn().mockRejectedValue('unexpected');
 
-    // When / Then
-    await expect(loadStudentDashboard(fetchDashboard)).rejects.toBe(
-      'unexpected',
-    );
+    await expect(loadStudentDashboard(fetchDashboard)).resolves.toEqual({
+      status: 'error',
+    });
   });
 });

@@ -11,10 +11,8 @@ export async function loadStudentDashboard(
   try {
     const data = await fetchDashboard();
     return { status: 'success', data };
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      return { status: 'error' };
-    }
-    throw error;
+  } catch {
+    // StudentDashboardScreen은 .then만 연결하므로 loader는 항상 resolve한다.
+    return { status: 'error' };
   }
 }
