@@ -27,6 +27,7 @@ export const EMERGENCY_DENYLIST = [
   'docs/decisions/ADR-002*',
   'docs/decisions/ADR-005*',
   '.github/workflows/**',
+  '.github/actions/**',
   '.github/emergency-*',
   'scripts/merge-policy-check.mjs',
   'scripts/merge-policy-check-lib.mjs',
@@ -145,6 +146,34 @@ export function collectChangedPaths(files) {
   return paths;
 }
 
+const GITHUB_FILE_STATUSES = new Set([
+  'added',
+  'changed',
+  'copied',
+  'modified',
+  'removed',
+  'renamed',
+  'unchanged',
+]);
+
+export function hasCompletePullFiles(files, changedFiles) {
+  return (
+    Array.isArray(files) &&
+    Number.isInteger(changedFiles) &&
+    files.length === changedFiles &&
+    files.every(
+      (file) =>
+        typeof file?.filename === 'string' &&
+        GITHUB_FILE_STATUSES.has(file?.status) &&
+        (file.status !== 'renamed' ||
+          (typeof file.previous_filename === 'string' &&
+            file.previous_filename.length > 0)) &&
+        (file.previous_filename === undefined ||
+          typeof file.previous_filename === 'string'),
+    )
+  );
+}
+
 function pinnedToCurrent(pull, head, baseRef, baseSha) {
   return (
     pull.headSha === head &&
@@ -256,6 +285,7 @@ function matchesEmergencyDenylist(path) {
     path.startsWith('docs/decisions/ADR-002') ||
     path.startsWith('docs/decisions/ADR-005') ||
     path.startsWith('.github/workflows/') ||
+    path.startsWith('.github/actions/') ||
     path.startsWith('.github/emergency-') ||
     path === 'scripts/merge-policy-check.mjs' ||
     path === 'scripts/merge-policy-check-lib.mjs' ||
@@ -274,34 +304,44 @@ export function checkEmergencyApproval({
   comments,
   files,
   policy,
-  configuredPolicyPrNumber = EMERGENCY_POLICY_PR_NUMBER,
+  auditReasons = [],
 }) {
-  if (
-    configuredPolicyPrNumber === 0 ||
-    pull.number !== EMERGENCY_PR_NUMBER ||
-    policy?.prNumber !== configuredPolicyPrNumber ||
-    !FULL_SHA.test(policy?.mergeCommitSha ?? '') ||
-    policy.mergeCommitIsAncestorOfBase !== true ||
-    !Array.isArray(files) ||
-    !Number.isInteger(pull.changedFiles) ||
-    files.length !== pull.changedFiles
-  ) {
+  if (pull.number !== EMERGENCY_PR_NUMBER) {
     return false;
+  }
+  const reject = (reason) => {
+    auditReasons.push(`PR #256 긴급 승인 무효 — ${reason}`);
+    return false;
+  };
+  if (EMERGENCY_POLICY_PR_NUMBER === 0) {
+    return reject('정책 PR 번호가 비활성 상태임');
+  }
+  if (policy?.prNumber !== EMERGENCY_POLICY_PR_NUMBER) {
+    return reject('정책 PR 번호가 고정값과 일치하지 않음');
+  }
+  if (!FULL_SHA.test(policy?.mergeCommitSha ?? '')) {
+    return reject('정책 merge SHA를 확인하지 못함');
+  }
+  if (policy.mergeCommitIsAncestorOfBase !== true) {
+    return reject('정책 merge SHA가 현재 base의 조상이 아님');
+  }
+  if (!hasCompletePullFiles(files, pull.changedFiles)) {
+    return reject('PR files 목록의 완전성을 증명하지 못함');
   }
   if (
     files.some((file) =>
-      [file?.filename, file?.previous_filename]
+      [file.filename, file.previous_filename]
         .filter(Boolean)
         .some(matchesEmergencyDenylist),
     )
   ) {
-    return false;
+    return reject('제어면 denylist 경로가 변경됨');
   }
 
   const mergedAt = Date.parse(policy.mergedAt);
   const cutoff = Date.parse(EMERGENCY_CUTOFF);
   if (!Number.isFinite(mergedAt)) {
-    return false;
+    return reject('정책 PR merged_at을 확인하지 못함');
   }
   const emergencyAccept = comments.find((comment) => {
     if (comment.authorLogin !== PM_ACTOR || !isUnedited(comment)) {
@@ -320,6 +360,9 @@ export function checkEmergencyApproval({
       );
     });
   });
+  if (!emergencyAccept) {
+    return reject('유효한 unedited PM_EMERGENCY_ACCEPT가 없음');
+  }
   const ownerConfirm = comments.find(
     (comment) =>
       comment.authorLogin === OWNER_ACTOR &&
@@ -329,8 +372,8 @@ export function checkEmergencyApproval({
         return match && pinnedToCurrent(pull, match[1], match[2], match[3]);
       }),
   );
-  if (!emergencyAccept || !ownerConfirm) {
-    return false;
+  if (!ownerConfirm) {
+    return reject(`유효한 @${OWNER_ACTOR} OWNER_CONFIRM이 없음`);
   }
   return {
     policyPrNumber: policy.prNumber,
@@ -356,7 +399,13 @@ function checkHighRiskAccepts(pull, comments, reasons, files, policy) {
   });
   const emergencyEvidence = techLeadAccept
     ? null
-    : checkEmergencyApproval({ pull, comments, files, policy });
+    : checkEmergencyApproval({
+        pull,
+        comments,
+        files,
+        policy,
+        auditReasons: reasons,
+      });
   if (!pmAccept) {
     reasons.push(
       `HIGH_RISK — 현재 head·base에 고정된 @${PM_ACTOR}의 PM_ACCEPT가 없음`,
