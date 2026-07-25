@@ -97,6 +97,19 @@ describe('fetchStudentDashboard', () => {
         ],
       },
     ],
+    [
+      '상위 경로 자체를 프로그램 ID로 사용함',
+      {
+        items: [
+          {
+            ...dashboardFixture.items[0],
+            programId: '..',
+            detailUrl: '/programs/..',
+            checklistUrl: '/programs/../submissions',
+          },
+        ],
+      },
+    ],
   ])('잘못된 응답을 어댑터 경계에서 거부한다: %s', async (_label, body) => {
     vi.stubGlobal(
       'fetch',

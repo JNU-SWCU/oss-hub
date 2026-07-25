@@ -16,6 +16,14 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function isSafePathSegment(value: string): boolean {
+  return (
+    value !== '.' &&
+    value !== '..' &&
+    /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value)
+  );
+}
+
 function isProgramPath(
   value: unknown,
   programId: string,
@@ -68,6 +76,7 @@ function isDashboardItem(value: unknown): value is DashboardItem {
   return (
     isNonEmptyString(value.applicationId) &&
     isNonEmptyString(programId) &&
+    isSafePathSegment(programId) &&
     isNonEmptyString(value.programName) &&
     isApplicationMode(value.applicationMode) &&
     isNonEmptyString(value.displayName) &&
