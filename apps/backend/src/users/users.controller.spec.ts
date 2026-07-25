@@ -15,15 +15,15 @@ const profile = {
 
 function controller() {
   const getMyProfile = jest.fn().mockResolvedValue(profile);
-  const completeMyProfile = jest.fn().mockResolvedValue(profile);
-  const service: Pick<UsersService, 'getMyProfile' | 'completeMyProfile'> = {
+  const patchMyProfile = jest.fn().mockResolvedValue(profile);
+  const service: Pick<UsersService, 'getMyProfile' | 'patchMyProfile'> = {
     getMyProfile,
-    completeMyProfile,
+    patchMyProfile,
   };
   return {
     controller: new UsersController(service),
     getMyProfile,
-    completeMyProfile,
+    patchMyProfile,
   };
 }
 
@@ -57,9 +57,9 @@ it('PATCH는 정규화된 DTO를 서비스에 전달한다', async () => {
   });
 
   await expect(
-    fixture.controller.completeMyProfile({ sessionGithubId: githubId }, body),
+    fixture.controller.patchMyProfile({ sessionGithubId: githubId }, body),
   ).resolves.toEqual(profile);
-  expect(fixture.completeMyProfile).toHaveBeenCalledWith(githubId, {
+  expect(fixture.patchMyProfile).toHaveBeenCalledWith(githubId, {
     name: profile.name,
     studentId: profile.studentId,
     department: profile.department,
@@ -68,5 +68,5 @@ it('PATCH는 정규화된 DTO를 서비스에 전달한다', async () => {
 
 it('GET과 PATCH에 읽기/쓰기 가드를 구분해 선언한다', () => {
   expect(readGuards('getMyProfile')).toEqual([SessionGuard]);
-  expect(readGuards('completeMyProfile')).toEqual([SessionGuard, OriginGuard]);
+  expect(readGuards('patchMyProfile')).toEqual([SessionGuard, OriginGuard]);
 });

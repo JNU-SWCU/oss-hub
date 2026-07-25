@@ -10,6 +10,7 @@ const authenticated: AuthSessionState = {
   me: {
     nickname: 'synthetic-login',
     name: null,
+    email: null,
     avatarUrl: null,
     role: 'STUDENT',
   },

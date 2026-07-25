@@ -3,6 +3,7 @@ import type { ErrorCode } from '../common/error-code';
 export enum UsersErrorCode {
   PROFILE_ALREADY_COMPLETE = 'USR_001',
   PROFILE_INCOMPLETE = 'USR_002',
+  STUDENT_ID_IMMUTABLE = 'USR_003',
 }
 
 export const USERS_ERROR_CODES: Record<UsersErrorCode, ErrorCode> = {
@@ -15,5 +16,10 @@ export const USERS_ERROR_CODES: Record<UsersErrorCode, ErrorCode> = {
     code: UsersErrorCode.PROFILE_INCOMPLETE,
     status: 409,
     message: '역할을 선택하기 전에 온보딩 프로필을 완료해 주세요.',
+  },
+  [UsersErrorCode.STUDENT_ID_IMMUTABLE]: {
+    code: UsersErrorCode.STUDENT_ID_IMMUTABLE,
+    status: 400,
+    message: '완료된 프로필의 학번은 변경할 수 없습니다.',
   },
 };

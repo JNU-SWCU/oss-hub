@@ -3,7 +3,11 @@ import {
   PROFILE_DEPARTMENT_MAX_LENGTH,
   PROFILE_NAME_MAX_LENGTH,
 } from './profile-state';
-import type { CompleteProfileRequest, UserProfile } from './types';
+import type {
+  CompleteProfileRequest,
+  UpdateProfileRequest,
+  UserProfile,
+} from './types';
 
 export type ProfileApiErrorKind =
   'unauthorized' | 'consent-required' | 'already-complete' | 'generic';
@@ -70,6 +74,19 @@ export async function getMyProfile(signal?: AbortSignal): Promise<UserProfile> {
 
 export async function completeMyProfile(
   request: CompleteProfileRequest,
+): Promise<UserProfile> {
+  return parseProfile(
+    await apiClient<unknown>('users/me/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    }),
+  );
+}
+
+/** 완료 사용자의 이름·학과만 PATCH — studentId는 보내지 않는다. */
+export async function updateMyProfile(
+  request: UpdateProfileRequest,
 ): Promise<UserProfile> {
   return parseProfile(
     await apiClient<unknown>('users/me/profile', {

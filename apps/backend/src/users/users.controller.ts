@@ -22,7 +22,7 @@ export class UsersController {
     @Inject(UsersService)
     private readonly usersService: Pick<
       UsersService,
-      'getMyProfile' | 'completeMyProfile'
+      'getMyProfile' | 'patchMyProfile'
     >,
   ) {}
 
@@ -39,12 +39,12 @@ export class UsersController {
 
   @Patch()
   @UseGuards(SessionGuard, OriginGuard)
-  async completeMyProfile(
+  async patchMyProfile(
     @Req() request: SessionIdentity,
     @Body() body: UpdateMyProfileRequestDto,
   ): Promise<UserProfileResponseDto> {
     return UserProfileResponseDto.from(
-      await this.usersService.completeMyProfile(
+      await this.usersService.patchMyProfile(
         request.sessionGithubId,
         body.toInput(),
       ),

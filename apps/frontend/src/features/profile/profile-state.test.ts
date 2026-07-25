@@ -7,7 +7,9 @@ import {
   PROFILE_ONBOARDING_NEXT_PATH,
   resolveDepartment,
   toCompleteProfileRequest,
+  toUpdateProfileRequest,
   validateProfileForm,
+  validateSettingsProfileForm,
 } from './profile-state';
 import type { ProfileFormValues } from './types';
 
@@ -88,6 +90,22 @@ describe('profile onboarding state', () => {
         department: null,
         isComplete: false,
       }),
+    ).toBeNull();
+  });
+
+  it('설정용 프로필 갱신은 이름·학과만 검증하고 학번을 제외한다', () => {
+    const values = validValues({ studentId: '' });
+    expect(validateSettingsProfileForm(values)).toEqual({
+      name: null,
+      department: null,
+    });
+    expect(toUpdateProfileRequest(values)).toEqual({
+      name: '합성 사용자',
+      department: '인공지능학부',
+    });
+    expect(toUpdateProfileRequest(values)).not.toHaveProperty('studentId');
+    expect(
+      toUpdateProfileRequest(validValues({ name: ' ', departmentOption: '' })),
     ).toBeNull();
   });
 });

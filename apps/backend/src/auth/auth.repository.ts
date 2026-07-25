@@ -23,6 +23,9 @@ class PrismaAuthTransactionStore implements AuthTransactionStore {
    *
    * name은 update 절에서 제외한다. 온보딩 프로필(#220)에서 사용자가 직접 확정한 값을
    * GitHub 프로필 재로그인이 덮어쓰면 완료된 온보딩 상태가 되돌아가기 때문이다.
+   *
+   * notificationEmail은 생성 시 profile.email이 있으면 시드하고, 기존 사용자는
+   * 현재 값이 null일 때만 채운다(이미 설정된 값은 덮어쓰지 않는다). notifyEnabled는 건드리지 않는다.
    */
   async upsertUser(profile: GithubProfile): Promise<AuthLoginResult> {
     const bootstrapRole = resolveBootstrapRole(profile.login);
@@ -33,21 +36,30 @@ class PrismaAuthTransactionStore implements AuthTransactionStore {
         name: profile.name,
         avatarUrl: profile.avatarUrl,
         role: bootstrapRole ?? undefined,
+        ...(profile.email !== null ? { notificationEmail: profile.email } : {}),
       },
       skipDuplicates: true,
     });
-    let user =
-      created.count === 1
-        ? await this.transaction.user.findUniqueOrThrow({
-            where: { githubId: profile.githubId },
-          })
-        : await this.transaction.user.update({
-            where: { githubId: profile.githubId },
-            data: {
-              nickname: profile.login,
-              avatarUrl: profile.avatarUrl,
-            },
-          });
+    let user: PrismaUser;
+    if (created.count === 1) {
+      user = await this.transaction.user.findUniqueOrThrow({
+        where: { githubId: profile.githubId },
+      });
+    } else {
+      const current = await this.transaction.user.findUniqueOrThrow({
+        where: { githubId: profile.githubId },
+      });
+      user = await this.transaction.user.update({
+        where: { githubId: profile.githubId },
+        data: {
+          nickname: profile.login,
+          avatarUrl: profile.avatarUrl,
+          ...(profile.email !== null && current.notificationEmail === null
+            ? { notificationEmail: profile.email }
+            : {}),
+        },
+      });
+    }
     if (
       user.accountStatus === AccountStatus.ACTIVE &&
       user.role === null &&
