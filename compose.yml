@@ -26,6 +26,12 @@ services:
       GITHUB_OAUTH_CLIENT_SECRET: ${GITHUB_OAUTH_CLIENT_SECRET:?GITHUB_OAUTH_CLIENT_SECRET is required}
       # Optional compatibility placeholder. Runtime derives and validates the callback from FRONTEND_URL.
       GITHUB_OAUTH_CALLBACK_URL: ${GITHUB_OAUTH_CALLBACK_URL:-}
+      # production 이미지(NODE_ENV=production)는 GMAIL_* 4종이 없으면 부팅을 거부한다.
+      # compose --env-file 치환만으로는 컨테이너에 전달되지 않으므로 여기서 명시 매핑한다.
+      GMAIL_SENDER: ${GMAIL_SENDER:?GMAIL_SENDER is required}
+      GMAIL_OAUTH_CLIENT_ID: ${GMAIL_OAUTH_CLIENT_ID:?GMAIL_OAUTH_CLIENT_ID is required}
+      GMAIL_OAUTH_CLIENT_SECRET: ${GMAIL_OAUTH_CLIENT_SECRET:?GMAIL_OAUTH_CLIENT_SECRET is required}
+      GMAIL_OAUTH_REFRESH_TOKEN: ${GMAIL_OAUTH_REFRESH_TOKEN:?GMAIL_OAUTH_REFRESH_TOKEN is required}
     depends_on:
       postgres:
         condition: service_healthy
