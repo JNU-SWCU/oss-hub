@@ -56,7 +56,7 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
   }
 
   async findStaffRecipients(): Promise<DigestRecipient[]> {
-    // 설정 API(NotificationsStaffGuard)와 동일하게 STAFF·ADMIN 모두 교직원 수신자로 본다.
+    // 발송 대상은 STAFF·ADMIN 교직원만. 설정 API 자체는 역할 무관(#156).
     const rows = await this.prisma.user.findMany({
       where: {
         role: { in: [Role.STAFF, Role.ADMIN] },

@@ -29,9 +29,9 @@ model User {
   department    String?
   avatarUrl     String?
   accountStatus AccountStatus @default(ACTIVE)
-  /// #127 마감 알림 수신 이메일·수신 여부. 교직원이 설정 화면에서 직접 설정한다(기본 수신 on).
+  /// #127 마감 알림 수신 이메일·수신 여부. 교직원이 설정 화면에서 직접 설정한다(opt-in 기본 off).
   notificationEmail String?
-  notifyEnabled     Boolean       @default(true)
+  notifyEnabled     Boolean       @default(false)
   /// 역할 선택 전 null, 학생 선택 시 STUDENT, 교직원 요청 승인 시에만 STAFF가 된다(#109).
   role          Role?
   createdAt     DateTime      @default(now())
