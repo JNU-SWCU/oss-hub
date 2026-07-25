@@ -75,6 +75,7 @@ main 병합은 Jenkins의 lint, typecheck, test, 앱 build 검증만 시작하�
 
 ## Changelog
 
+- 2026-07-25: v0.1.2 live rollout에서 Nest 산출물이 `dist/src/main.js`인데 backend image CMD가 `dist/main.js`를 실행해 실패한 것을 확인하고, runtime entrypoint와 static contract를 실제 산출물에 정렬.
 - 2026-07-25: v0.1.1 live build에서 재사용 Jenkins workspace의 `pnpm install`이 postinstall을 재실행하지 않아 stale Prisma client로 lint 실패한 것을 확인하고, 검증 stage에 명시적 `prisma generate` 추가.
 - 2026-07-25: PM이 승인 대기를 중단하고 즉시 production 진행을 명시한 경우를 위해 exact tag·SHA의 공개 `RELEASE_OVERRIDE role=PM` 예외 경로를 추가. 기본 PM·Tech Lead 이중 승인은 유지.
 - 2026-07-25: Jenkins CSRF live probe 결과에 따라 job build token을 전용 `oss-hub-deployer` API token Basic 인증으로 교체하고 exact POST 공개 경계를 유지.
