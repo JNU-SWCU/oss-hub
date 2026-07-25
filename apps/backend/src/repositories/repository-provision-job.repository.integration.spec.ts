@@ -34,7 +34,7 @@ describe('RepositoryProvisionJobRepository integration', () => {
       data: {
         id: APPLICANT_ID,
         githubId: 8_200_000_000_001n,
-        login: 'synthetic-provision-job-applicant',
+        nickname: 'synthetic-provision-job-applicant',
         role: Role.STUDENT,
       },
     });

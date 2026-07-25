@@ -47,7 +47,7 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
             status: true,
             programId: true,
             teamId: true,
-            applicant: { select: { login: true } },
+            applicant: { select: { nickname: true } },
             program: {
               select: {
                 name: true,
@@ -87,7 +87,7 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
       repositoryProvisioningEnabled:
         application.program.repositoryProvisioningEnabled,
       teamId: application.teamId,
-      subjectName: application.team?.name ?? application.applicant.login,
+      subjectName: application.team?.name ?? application.applicant.nickname,
       repository: application.repository,
     };
   }

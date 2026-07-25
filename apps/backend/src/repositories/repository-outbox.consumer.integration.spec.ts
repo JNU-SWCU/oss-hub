@@ -95,7 +95,7 @@ describe('RepositoryOutboxConsumer integration', () => {
       data: {
         id: APPLICANT_ID,
         githubId: 8_100_000_000_001n,
-        login: 'synthetic-applicant',
+        nickname: 'synthetic-applicant',
         role: Role.STUDENT,
       },
     });

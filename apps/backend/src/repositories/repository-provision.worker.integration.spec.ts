@@ -55,7 +55,7 @@ describe('RepositoryProvisionWorker integration', () => {
       data: {
         id: APPLICANT_ID,
         githubId: 8_300_000_000_001n,
-        login: 'synthetic-worker-applicant',
+        nickname: 'synthetic-worker-applicant',
         role: Role.STUDENT,
       },
     });
