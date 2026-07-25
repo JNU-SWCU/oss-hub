@@ -137,6 +137,10 @@ jobs:
           FRONTEND_URL: https://synthetic.invalid
           GITHUB_OAUTH_CLIENT_ID: synthetic_client_id
           GITHUB_OAUTH_CLIENT_SECRET: synthetic_client_secret
+          GMAIL_SENDER: synthetic_sender@example.com
+          GMAIL_OAUTH_CLIENT_ID: synthetic_gmail_client_id
+          GMAIL_OAUTH_CLIENT_SECRET: synthetic_gmail_client_secret
+          GMAIL_OAUTH_REFRESH_TOKEN: synthetic_gmail_refresh_token
         run: docker compose --env-file .env.example -f compose.yml config --quiet
 
       - name: Jenkins 배포 계약 회귀 테스트
