@@ -16,7 +16,8 @@
     "db:migrate:dev": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub prisma migrate dev",
     "db:reset": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub prisma migrate reset --force",
     "db:seed": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub prisma db seed",
-    "collect:batch": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub ts-node src/collection/cli/collect-batch.ts"
+    "collect:batch": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub ts-node src/collection/cli/collect-batch.ts",
+    "notifications:send-digest": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub ts-node src/notifications/cli/send-deadline-digest.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -27,6 +28,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "jose": "^5.10.0",
+    "nodemailer": "^9.0.3",
     "prisma": "^6.6.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
@@ -40,6 +42,7 @@
     "@types/express": "^5.0.1",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.10.7",
+    "@types/nodemailer": "^8.0.1",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.3",
