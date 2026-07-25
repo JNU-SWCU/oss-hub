@@ -822,6 +822,7 @@ test('emergency relief passes only through the full PR #256 evaluator contract',
   });
   assert.equal(withoutPm.conclusion, 'failure');
   assert.ok(withoutPm.reasons.some((reason) => reason.includes('PM_ACCEPT')));
+  assert.doesNotMatch(formatSummary(withoutPm, pullData), /retained gates:/);
 
   const policyPullAttempt = evaluate({
     pullData: { ...pullData, number: 259 },

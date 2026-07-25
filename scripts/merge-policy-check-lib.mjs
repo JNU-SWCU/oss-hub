@@ -21,19 +21,6 @@ export const EMERGENCY_CUTOFF = '2026-07-26T15:00:00.000Z';
 export const EMERGENCY_WINDOW_LABEL = '2026-07-26-KST';
 export const EMERGENCY_PR_NUMBER = 256;
 export const OWNER_ACTOR = 'jinsol1190-rgb';
-export const EMERGENCY_DENYLIST = [
-  'AGENTS.md',
-  '**/AGENTS.md',
-  '.github/CODEOWNERS',
-  'docs/decisions/ADR-002*',
-  'docs/decisions/ADR-005*',
-  '.github/workflows/**',
-  '.github/actions/**',
-  '.github/emergency-*',
-  'scripts/merge-policy-check.mjs',
-  'scripts/merge-policy-check-lib.mjs',
-  'scripts/merge-policy-check.test.mjs',
-];
 
 export const MERGE_READY_ACTORS = ['GoBeromsu', 'Lumiere001'];
 export const PM_ACTOR = 'GoBeromsu';
@@ -572,7 +559,7 @@ export function formatSummary(result, pull) {
   ];
   if (result.mergeReadyCommentId) {
     lines.push(`- MERGE_READY comment id: ${result.mergeReadyCommentId}`);
-    if (result.emergencyEvidence) {
+    if (result.emergencyEvidence && result.conclusion === 'success') {
       lines.push(
         `- emergency policy PR: #${result.emergencyEvidence.policyPrNumber} @ \`${result.emergencyEvidence.policyMergeCommitSha}\``,
         `- emergency policy merged at: ${result.emergencyEvidence.policyMergedAt}`,
