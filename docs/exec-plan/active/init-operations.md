@@ -20,12 +20,12 @@
 1. Jenkins 관리 UI는 서버의 `127.0.0.1:8080`에만 bind하고 Tailscale SSH tunnel로 접근한다. 공인 8080 포트는 열지 않는다.
 2. main push는 Jenkins의 lint, typecheck, test, 앱 build 검증만 시작한다. production Compose를 변경하지 않는다.
 3. production은 공개 GitHub Release를 배포 후보로 사용한다. `draft=false`·`prerelease=false`이고 저장소 변수 `DEPLOY_TRIGGER_ENABLED=true`인 `published` 이벤트만 GitHub Actions가 Jenkins 내장 원격 빌드 트리거로 전달한다.
-4. GitHub Actions는 HTTPS `JENKINS_DEPLOY_URL`만 허용하고 빌드 토큰·action·tag를 POST body로 전달한다. host nginx는 정확한 `buildWithParameters` 경로의 POST만 localhost Jenkins로 프록시하며 Jenkins UI는 공개하지 않는다.
+4. GitHub Actions는 HTTPS `JENKINS_DEPLOY_URL`만 허용하고 전용 `oss-hub-deployer` API token을 Basic Authorization header로, action·tag를 POST body로 전달한다. host nginx는 정확한 `buildWithParameters` 경로의 POST만 localhost Jenkins로 프록시하며 Jenkins UI는 공개하지 않는다.
 5. Jenkins는 현재 latest full Release와 일치하는 `vMAJOR.MINOR.PATCH` tag 및 main ancestry를 검증한다.
 6. 이어서 #199 댓글에서 @GoBeromsu의 `RELEASE_ACCEPT role=PM`과 @Lumiere001의 `RELEASE_ACCEPT role=TECH_LEAD`가 같은 tag·full SHA에 있는지 확인한다. 누락·actor 불일치·stale SHA는 exact SHA checkout 전에 거절한다.
 7. Docker 권한을 가진 executor에는 `oss-hub-production` 전용 label을 부여하고 이 job과 승인된 운영자 외 작업을 배치하지 않는다. pipeline에 `disableConcurrentBuilds()`를 적용하고 `COMPOSE_PROJECT_NAME`을 고정한다.
 8. 이미 성공한 Release와 같거나 낮은 버전은 영속 상태 파일을 기준으로 성공 no-op 처리한다.
-9. Jenkins 빌드 토큰과 운영 환경 파일은 각 시스템의 Credentials Store에서만 관리한다. Release payload, 저장소, Actions·Jenkins 로그에 실제 값을 출력하지 않는다.
+9. Jenkins API token과 운영 환경 파일은 각 시스템의 Credentials Store에서만 관리한다. Release payload, 저장소, Actions·Jenkins 로그에 실제 값을 출력하지 않는다.
 10. Jenkins 관리자는 공용 계정을 공유하지 않고 개인 계정으로 식별한다. 운영 인계 시 새 담당자의 개인 관리자 계정으로 접속을 확인한 뒤 이전 담당자 권한을 회수하며, 기존 비밀번호를 전달하지 않는다.
 
 ### 배포 순서
