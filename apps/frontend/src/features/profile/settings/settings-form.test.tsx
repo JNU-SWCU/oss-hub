@@ -78,6 +78,7 @@ describe('settings form view', () => {
     expect(html).toContain('마감 임박 알림 받기');
     expect(html).toContain('합성 사용자');
     expect(html).toContain('user@example.com');
+    expect(html).toContain('noValidate');
   });
 
   it('잘못된 이름·학과·이메일을 인라인 오류로 표시하고 저장 버튼은 제출 가능하게 둔다', () => {

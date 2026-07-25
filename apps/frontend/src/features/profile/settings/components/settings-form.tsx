@@ -84,7 +84,7 @@ export function SettingsForm({
         </div>
       ) : null}
 
-      <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
+      <form className="flex flex-col gap-6" noValidate onSubmit={handleSubmit}>
         <FormSection
           title="프로필"
           description="이름과 학과를 수정할 수 있습니다. 학번은 변경할 수 없습니다."
