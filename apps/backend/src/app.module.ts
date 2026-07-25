@@ -1,36 +1,31 @@
 import { Module } from '@nestjs/common';
 import { ApplicationsModule } from './applications/applications.module';
-import { AuditLogModule } from './audit-log/audit-log.module';
 import { AuthModule } from './auth/auth.module';
 import { CollectionModule } from './collection/collection.module';
 import { ConsentsModule } from './consents/consents.module';
 import { HealthModule } from './health/health.module';
 import { LoginHistoryModule } from './login-history/login-history.module';
-import { NotificationsModule } from './notifications/notifications.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProgramsModule } from './programs/programs.module';
 import { RepositoryOwnershipModule } from './repository-ownership/repository-ownership.module';
+import { RepositoriesModule } from './repositories/repositories.module';
 import { RolesModule } from './roles/roles.module';
-import { SubmissionsModule } from './submissions/submissions.module';
-import { UsersModule } from './users/users.module';
+import { SubmissionReviewsModule } from './submission-reviews/submission-reviews.module';
 
 @Module({
   imports: [
     PrismaModule,
     HealthModule,
-    AuditLogModule,
     LoginHistoryModule,
     AuthModule,
-    /** ScheduleModule.forRoot() 소유 — Notifications 크론보다 먼저 로드한다. */
     CollectionModule,
-    NotificationsModule,
     ConsentsModule,
     ApplicationsModule,
     RolesModule,
     ProgramsModule,
     RepositoryOwnershipModule,
-    SubmissionsModule,
-    UsersModule,
+    RepositoriesModule,
+    SubmissionReviewsModule,
   ],
 })
 export class AppModule {}
