@@ -25,6 +25,7 @@ describe('toSessionRoleState', () => {
       user: {
         nickname: 'synthetic-user',
         name: null,
+        email: null,
         avatarUrl: null,
         role: null,
       },
@@ -48,6 +49,7 @@ describe('toSessionRoleState', () => {
       user: {
         nickname: 'synthetic-user',
         name: null,
+        email: null,
         avatarUrl: null,
         role: 'ADMIN',
       },
