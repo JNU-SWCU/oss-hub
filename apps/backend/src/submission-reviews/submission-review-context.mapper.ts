@@ -18,7 +18,7 @@ export const REVIEW_CONTEXT_SELECT = {
     select: {
       id: true,
       teamId: true,
-      applicant: { select: { name: true, login: true } },
+      applicant: { select: { name: true, nickname: true } },
       team: { select: { name: true } },
       program: { select: { milestones: { select: { id: true } } } },
       submissions: { select: { milestoneId: true, status: true } },
@@ -97,7 +97,7 @@ export function toReviewContext(
       displayName:
         row.application.team?.name ??
         row.application.applicant.name ??
-        row.application.applicant.login,
+        row.application.applicant.nickname,
     },
     milestone: row.milestone,
     currentRevision: toRevisionRecord(current),
