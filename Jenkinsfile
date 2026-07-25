@@ -4,7 +4,7 @@ pipeline {
   }
 
   parameters {
-    string(name: 'RELEASE_ACTION', defaultValue: '', description: 'GitHub release webhook action')
+    string(name: 'RELEASE_ACTION', defaultValue: '', description: 'GitHub Release action')
     string(name: 'RELEASE_TAG', defaultValue: '', description: 'GitHub Release tag (vMAJOR.MINOR.PATCH)')
   }
 
@@ -93,8 +93,64 @@ printf '%s' "$release_sha"
             error('Release tag를 정확한 commit SHA로 해석하지 못했습니다.')
           }
           env.IMAGE_TAG = releaseSha
-          sh 'git checkout --detach "$IMAGE_TAG"'
         }
+      }
+    }
+
+    stage('PM·Tech Lead Release 승인 검증 및 exact SHA checkout') {
+      when {
+        expression { env.RUN_MODE == 'release' }
+      }
+      steps {
+        sh '''#!/usr/bin/env bash
+set -euo pipefail
+
+comments_file="$(mktemp)"
+page_file="$(mktemp)"
+merged_file="$(mktemp)"
+trap 'rm -f "$comments_file" "$page_file" "$merged_file"' EXIT
+printf '[]' > "$comments_file"
+
+pagination_complete='false'
+for page in $(seq 1 20); do
+  curl --fail --silent --show-error \
+    --header 'Accept: application/vnd.github+json' \
+    --header 'X-GitHub-Api-Version: 2022-11-28' \
+    "https://api.github.com/repos/JNU-SWCU/oss-hub/issues/199/comments?per_page=100&page=${page}" \
+    --output "$page_file"
+
+  jq -e 'type == "array"' "$page_file" >/dev/null
+  page_count="$(jq 'length' "$page_file")"
+  jq -s '.[0] + .[1]' "$comments_file" "$page_file" > "$merged_file"
+  mv "$merged_file" "$comments_file"
+
+  if [ "$page_count" -lt 100 ]; then
+    pagination_complete='true'
+    break
+  fi
+done
+
+if [ "$pagination_complete" != 'true' ]; then
+  echo 'Release 승인 댓글이 2,000개를 넘어 자동 검증 범위를 초과했습니다.' >&2
+  exit 1
+fi
+
+pm_accept="RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}"
+tech_lead_accept="RELEASE_ACCEPT role=TECH_LEAD tag=${RELEASE_TAG} head=${IMAGE_TAG}"
+
+jq -e \
+  --arg actor 'GoBeromsu' \
+  --arg expected "$pm_accept" \
+  '[.[] | select((.user.login | ascii_downcase) == ($actor | ascii_downcase)) | .body | split("\\n")[] | select(. == $expected)] | length > 0' \
+  "$comments_file" >/dev/null
+
+jq -e \
+  --arg actor 'Lumiere001' \
+  --arg expected "$tech_lead_accept" \
+  '[.[] | select((.user.login | ascii_downcase) == ($actor | ascii_downcase)) | .body | split("\\n")[] | select(. == $expected)] | length > 0' \
+  "$comments_file" >/dev/null
+'''
+        sh 'git checkout --detach "$IMAGE_TAG"'
       }
     }
 
@@ -292,8 +348,12 @@ cat "$DEPLOY_STATE_FILE"
             try {
               sh '''
                 docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait --wait-timeout 90
-                curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1/
-                curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1/api/v1/health
+                curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8081/
+                curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8081/api/v1/health
+                curl --fail --silent --show-error --retry 5 --retry-connrefused \
+                  --resolve '54.116.116.174:443:127.0.0.1' https://54.116.116.174/
+                curl --fail --silent --show-error --retry 5 --retry-connrefused \
+                  --resolve '54.116.116.174:443:127.0.0.1' https://54.116.116.174/api/v1/health
               '''
             } catch (deploymentFailure) {
               sh '''
@@ -306,8 +366,12 @@ cat "$DEPLOY_STATE_FILE"
                 withEnv(["IMAGE_TAG=${env.PREV_TAG}"]) {
                   sh '''
                     docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait --wait-timeout 90
-                    curl --fail --silent --show-error http://127.0.0.1/
-                    curl --fail --silent --show-error http://127.0.0.1/api/v1/health
+                    curl --fail --silent --show-error http://127.0.0.1:8081/
+                    curl --fail --silent --show-error http://127.0.0.1:8081/api/v1/health
+                    curl --fail --silent --show-error \
+                      --resolve '54.116.116.174:443:127.0.0.1' https://54.116.116.174/
+                    curl --fail --silent --show-error \
+                      --resolve '54.116.116.174:443:127.0.0.1' https://54.116.116.174/api/v1/health
                   '''
                 }
               } else {

@@ -58,9 +58,6 @@ services:
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
-    # nginx가 host의 Jenkins(127.0.0.1:8080)에 닿아 배포 트리거 경로만 리버스 프록시한다.
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,7 +66,8 @@ services:
       frontend:
         condition: service_healthy
     ports:
-      - '80:80'
+      # 공인 80/443은 host nginx가 담당하고 Compose ingress는 loopback에서만 받는다.
+      - '127.0.0.1:8081:80'
     volumes:
       - ./deploy/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
 
