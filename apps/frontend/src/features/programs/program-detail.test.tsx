@@ -71,7 +71,7 @@ describe('MilestoneRow', () => {
     );
     expect(html).not.toContain('/milestones/milestone-1/submit');
   });
-  it('교직원에게 application 제출 요약과 전체 현황 진입을 표시한다', () => {
+  it('교직원에게 제출 요약은 표시하되 미구현 #124 경로는 노출하지 않는다', () => {
     const html = renderToStaticMarkup(
       <MilestoneRow
         programId="program-1"
@@ -92,7 +92,8 @@ describe('MilestoneRow', () => {
       />,
     );
     expect(html).toContain('3/5');
-    expect(html).toContain('전체 현황');
+    expect(html).not.toContain('전체 현황');
+    expect(html).not.toContain('/staff/programs/program-1/submissions');
   });
 });
 
@@ -128,12 +129,15 @@ const programWithoutMilestones: ProgramDetail = {
 };
 
 describe('ProgramDetailPage states', () => {
-  it('교직원 신청자 목록은 #106의 고정 URL인 applicants를 사용한다', () => {
+  it('교직원에게 구현된 편집만 노출하고 미구현 #106·#124 경로는 숨긴다', () => {
     const html = renderToStaticMarkup(
       <ProgramActions program={programWithoutMilestones} />,
     );
-    expect(html).toContain('/staff/programs/program-1/applicants');
-    expect(html).not.toContain('/applications');
+    expect(html).toContain('/staff/programs/program-1/edit');
+    expect(html).not.toContain('/staff/programs/program-1/applicants');
+    expect(html).not.toContain('/staff/programs/program-1/submissions');
+    expect(html).not.toContain('신청자 목록');
+    expect(html).not.toContain('전체 제출 현황');
   });
 
   it('마일스톤이 없으면 빈 상태와 교직원 설정 진입을 표시한다', () => {

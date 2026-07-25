@@ -6,6 +6,7 @@ set -euo pipefail
 #   1) root .dockerignore가 존재하고 필수 deny 규칙을 전부 유지한다
 #   2) 재포함(!) 규칙은 정확한 소문자 .env.example 한 줄만 허용한다
 #   3) apps/*/Dockerfile은 ADD와 broad COPY(context root 전체 복사)를 쓰지 않는다
+#   4) backend runtime CMD는 실제 Nest build 산출물 dist/src/main.js를 실행한다
 # 위반 시 라벨·줄번호만 출력하고(내용 미출력) exit 1. 도구 오류는 exit 2.
 
 context_root=${1:-.}
@@ -67,6 +68,12 @@ dockerfiles=$(find "$context_root/apps" -mindepth 2 -maxdepth 2 -name Dockerfile
 if [[ -z "$dockerfiles" ]]; then
   echo "docker-context contract: no apps/*/Dockerfile found (fail-closed)" >&2
   exit 1
+fi
+
+backend_dockerfile="$context_root/apps/backend/Dockerfile"
+if [[ -f "$backend_dockerfile" ]] && ! grep -Fxq 'CMD ["node", "dist/src/main.js"]' "$backend_dockerfile"; then
+  echo 'docker-context contract: backend runtime CMD must execute dist/src/main.js' >&2
+  violations=$((violations + 1))
 fi
 
 dockerfile_count=0
@@ -186,4 +193,4 @@ if [[ "$violations" -gt 0 ]]; then
   exit 1
 fi
 
-echo "docker-context contract: ok (dockerignore rules verified, $dockerfile_count Dockerfile(s) scanned, no image build executed)"
+echo "docker-context contract: ok (dockerignore/runtime CMD rules verified, $dockerfile_count Dockerfile(s) scanned, no image build executed)"
