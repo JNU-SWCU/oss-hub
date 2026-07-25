@@ -11,7 +11,10 @@ export async function loadStudentDashboard(
   try {
     const data = await fetchDashboard();
     return { status: 'success', data };
-  } catch {
-    return { status: 'error' };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      return { status: 'error' };
+    }
+    throw error;
   }
 }
