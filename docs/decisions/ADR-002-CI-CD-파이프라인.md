@@ -28,7 +28,7 @@ GitHub Actions는 모든 PR에서 실행되는 경량 CI로 구성하고 require
 
 main 병합은 Jenkins의 lint, typecheck, test, 앱 build 검증만 시작하고 production 배포를 시작하지 않는다. production 배포 후보 단위는 공개 GitHub Release다. Release `published` 시 GitHub Actions 워크플로(`deploy.yml`)는 `draft=false`·`prerelease=false`이고 저장소 변수 `DEPLOY_TRIGGER_ENABLED=true`인 경우에만 Jenkins 내장 원격 빌드 트리거(`buildWithParameters`, 전용 서비스 사용자 API token Basic 인증)로 `RELEASE_ACTION`·`RELEASE_TAG`를 명시 전달한다. 트리거 URL은 HTTPS만 허용한다. 배포 서버의 host nginx가 공인 IP TLS를 종료하고 해당 경로의 POST만 localhost Jenkins로 리버스 프록시하며 Jenkins UI는 공개하지 않는다. 나머지 요청은 loopback `127.0.0.1:8081`의 Compose nginx로 전달한다. GitHub Actions는 얇은 트리거 POST만 담당하고 검증·배포·실패 알림은 Jenkins가 수행한다. Jenkins는 받은 tag로 `draft=false`, `prerelease=false`, 현재 latest full Release 일치를 확인한다. tag가 가리키는 정확한 commit SHA가 main 이력에 포함되고 #199 공개 댓글에서 같은 tag·SHA의 @GoBeromsu PM `RELEASE_ACCEPT`와 @Lumiere001 Tech Lead `RELEASE_ACCEPT`가 모두 있거나, @GoBeromsu가 책임을 명시한 exact `RELEASE_OVERRIDE role=PM`이 있을 때만 해당 SHA를 checkout한다. 이 PM override는 당일 운영 진행처럼 기다림을 명시적으로 중단한 예외를 공개 감사 기록으로 남기며, 기본 경로는 이중 승인이다. 별도 staging 서버는 두지 않는다.
 
-이미 성공한 Release와 같거나 낮은 버전은 영속 배포 상태를 기준으로 성공 no-op 처리한다. 새 Release는 test → PostgreSQL backup → 서버 로컬 frontend/backend 이미지 1회 build → `prisma migrate deploy` → `up -d --no-build --wait` → `/`·`/api/v1/health` smoke 순서로 배포하고, 모두 성공한 뒤에만 정상 Release와 SHA를 기록한다. 서비스 교체 또는 smoke가 실패하면 `PREV_TAG` 이미지로 한 번 rollback한다. DB restore는 자동화하지 않고 보존한 backup을 사용해 사람이 승인한 수동 복구로 남긴다. `down -v`는 사용하지 않으며 PostgreSQL 데이터는 named volume `pgdata`에 보존한다.
+이미 성공한 Release와 같거나 낮은 버전은 영속 배포 상태를 기준으로 성공 no-op 처리한다. 새 Release는 명시적 Prisma client generate → test → PostgreSQL backup → 서버 로컬 frontend/backend 이미지 1회 build → `prisma migrate deploy` → `up -d --no-build --wait` → `/`·`/api/v1/health` smoke 순서로 배포하고, 모두 성공한 뒤에만 정상 Release와 SHA를 기록한다. 서비스 교체 또는 smoke가 실패하면 `PREV_TAG` 이미지로 한 번 rollback한다. DB restore는 자동화하지 않고 보존한 backup을 사용해 사람이 승인한 수동 복구로 남긴다. `down -v`는 사용하지 않으며 PostgreSQL 데이터는 named volume `pgdata`에 보존한다.
 
 ## Alternatives considered
 
@@ -75,6 +75,7 @@ main 병합은 Jenkins의 lint, typecheck, test, 앱 build 검증만 시작하�
 
 ## Changelog
 
+- 2026-07-25: v0.1.1 live build에서 재사용 Jenkins workspace의 `pnpm install`이 postinstall을 재실행하지 않아 stale Prisma client로 lint 실패한 것을 확인하고, 검증 stage에 명시적 `prisma generate` 추가.
 - 2026-07-25: PM이 승인 대기를 중단하고 즉시 production 진행을 명시한 경우를 위해 exact tag·SHA의 공개 `RELEASE_OVERRIDE role=PM` 예외 경로를 추가. 기본 PM·Tech Lead 이중 승인은 유지.
 - 2026-07-25: Jenkins CSRF live probe 결과에 따라 job build token을 전용 `oss-hub-deployer` API token Basic 인증으로 교체하고 exact POST 공개 경계를 유지.
 - 2026-07-25: 공인 EIP `54.116.116.174`의 host nginx TLS 종단, loopback Compose ingress, short-lived IP 인증서 자동 갱신 계약을 추가하고 내부·TLS smoke를 분리.

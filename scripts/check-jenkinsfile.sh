@@ -116,6 +116,7 @@ require_at_least 'Release 배포 stage는 no-op을 건너뛰어야 함' "env.RUN
 require_at_least '운영 환경은 Jenkins file credential로 주입해야 함' "credentialsId: 'oss-hub-production-env'" 1
 
 require_exact '의존성 설치는 한 번이어야 함' 'pnpm install --frozen-lockfile' 1
+require_exact '재사용 workspace에서도 Prisma client를 명시 생성해야 함' 'pnpm --filter backend exec prisma generate' 1
 require_exact 'test는 한 번이어야 함' 'pnpm test' 1
 require_exact 'DB backup은 한 번이어야 함' 'pg_dump' 1
 require_exact 'frontend 이미지는 한 번만 빌드해야 함' 'docker build --file apps/frontend/Dockerfile --tag "oss-hub-frontend:${IMAGE_TAG}" .' 1
@@ -173,6 +174,7 @@ pm_approval_line=$(line_of 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${IMA
 tech_lead_approval_line=$(line_of 'RELEASE_ACCEPT role=TECH_LEAD tag=${RELEASE_TAG} head=${IMAGE_TAG}')
 pm_override_line=$(line_of 'RELEASE_OVERRIDE role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}')
 checkout_line=$(line_of 'git checkout --detach "$IMAGE_TAG"')
+prisma_generate_line=$(line_of 'pnpm --filter backend exec prisma generate')
 test_line=$(line_of 'pnpm test')
 backup_line=$(line_of 'pg_dump')
 frontend_build_line=$(line_of 'docker build --file apps/frontend/Dockerfile')
@@ -184,7 +186,8 @@ state_line=$(line_of 'mv "$state_tmp" "$DEPLOY_STATE_FILE"')
 if ! ((pm_approval_line < checkout_line &&
        tech_lead_approval_line < checkout_line &&
        pm_override_line < checkout_line &&
-       checkout_line < test_line &&
+       checkout_line < prisma_generate_line &&
+       prisma_generate_line < test_line &&
        test_line < backup_line &&
        backup_line < frontend_build_line &&
        frontend_build_line < backend_build_line &&
@@ -195,4 +198,4 @@ if ! ((pm_approval_line < checkout_line &&
   exit 1
 fi
 
-echo 'Jenkinsfile contract: ok (main validation only, dual-approved or audited-PM-override Release exact-SHA deploy, durable no-op/backup/rollback)'
+echo 'Jenkinsfile contract: ok (deterministic Prisma generate, main validation only, dual-approved or audited-PM-override Release exact-SHA deploy, durable no-op/backup/rollback)'
