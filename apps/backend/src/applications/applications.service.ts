@@ -75,10 +75,7 @@ export class ApplicationsService {
       throw this.error(ApplicationsErrorCode.PROGRAM_NOT_FOUND);
     }
 
-    if (
-      now < program.applicationStartAt ||
-      now > program.applicationEndAt
-    ) {
+    if (now < program.applicationStartAt || now > program.applicationEndAt) {
       throw this.error(ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED);
     }
 

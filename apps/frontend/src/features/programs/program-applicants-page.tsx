@@ -19,15 +19,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
-import {
-  getProgramDetail,
-  listProgramApplications,
-} from './api';
+import { getProgramDetail, listProgramApplications } from './api';
 import { ProgramListPagination } from './program-list-pagination';
-import {
-  staffApplicationDetailHref,
-  staffProgramHref,
-} from './program-paths';
+import { staffApplicationDetailHref, staffProgramHref } from './program-paths';
 import type {
   ApplicationListItem,
   ApplicationListMode,
@@ -76,9 +70,7 @@ function formatSubmittedAt(value: string): string {
 
 function displayApplicantName(item: ApplicationListItem): string {
   return (
-    item.answers.applicantName ||
-    item.applicant.name ||
-    item.applicant.nickname
+    item.answers.applicantName || item.applicant.name || item.applicant.nickname
   );
 }
 
@@ -247,8 +239,7 @@ export function ProgramApplicantsPage({
   }
 
   const { program, applicationPage } = loadState;
-  const hasFilters =
-    search.trim() !== '' || status !== 'all' || mode !== 'all';
+  const hasFilters = search.trim() !== '' || status !== 'all' || mode !== 'all';
   const emptyMessage = hasFilters
     ? '검색 조건에 맞는 신청자가 없습니다.'
     : '아직 제출된 신청이 없습니다.';
@@ -260,7 +251,9 @@ export function ProgramApplicantsPage({
         description="프로그램 신청을 검색·필터하고 상세로 이동할 수 있습니다."
         actions={
           <Button asChild variant="outline">
-            <Link href={staffProgramHref(program.id, '/edit')}>프로그램 편집</Link>
+            <Link href={staffProgramHref(program.id, '/edit')}>
+              프로그램 편집
+            </Link>
           </Button>
         }
       />

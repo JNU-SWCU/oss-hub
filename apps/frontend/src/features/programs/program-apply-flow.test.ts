@@ -117,7 +117,7 @@ describe('program-apply-flow', () => {
       title: 'error',
       status: 400,
       detail: 'fallback',
-      instance: '/api/v1/programs/x/applications',
+      instance: '/programs/x/applications',
       code,
     });
     expect(mapCreateApplicationError(problem('APP_011'))).toContain('이미');

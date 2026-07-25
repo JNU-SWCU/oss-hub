@@ -32,7 +32,9 @@ describe('FormRenderer', () => {
     expect(html).toContain('name="summary"');
     expect(html).toContain('name="applicantName"');
     expect(html).toContain('합성 신청자');
-    expect(html).not.toContain('세부 신청 항목은 원본 양식 확정 후 제공됩니다.');
+    expect(html).not.toContain(
+      '세부 신청 항목은 원본 양식 확정 후 제공됩니다.',
+    );
   });
 
   it('edit mode keeps auto fields read-only and enables text fields', () => {

@@ -8,10 +8,7 @@ import { ApplicationListQueryRequestDto } from './dto/application-list-query.dto
 import { CreateApplicationRequestDto } from './dto/create-application-request.dto';
 import { ProgramApplicationsController } from './program-applications.controller';
 
-function readGuards(
-  target: object,
-  methodName: 'create' | 'list',
-): unknown[] {
+function readGuards(target: object, methodName: 'create' | 'list'): unknown[] {
   const method: unknown = Object.getOwnPropertyDescriptor(
     target,
     methodName,

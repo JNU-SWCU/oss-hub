@@ -275,10 +275,7 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
     return existing !== null;
   }
 
-  async findTeamDuplicate(
-    programId: string,
-    teamId: string,
-  ): Promise<boolean> {
+  async findTeamDuplicate(programId: string, teamId: string): Promise<boolean> {
     const existing = await this.database.application.findFirst({
       where: { programId, teamId },
       select: { id: true },
@@ -417,11 +414,7 @@ export class ApplicationsRepository {
 
   async listStaffDashboardSummary(): Promise<StaffDashboardSummary> {
     const programs = await this.prisma.program.findMany({
-      orderBy: [
-        { applicationStartAt: 'desc' },
-        { name: 'asc' },
-        { id: 'asc' },
-      ],
+      orderBy: [{ applicationStartAt: 'desc' }, { name: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
         name: true,

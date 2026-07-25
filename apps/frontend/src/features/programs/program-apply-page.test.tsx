@@ -84,10 +84,7 @@ describe('ProgramApply views', () => {
 
   it('성공 상태를 표시한다', () => {
     const html = renderToStaticMarkup(
-      <ProgramApplySuccessView
-        program={program}
-        applicationId="app-1"
-      />,
+      <ProgramApplySuccessView program={program} applicationId="app-1" />,
     );
     expect(html).toContain('신청이 접수되었습니다');
     expect(html).toContain('app-1');

@@ -210,12 +210,7 @@ describe('ProgramTeamsService', () => {
       hasApplication: false,
     });
 
-    const result = await service.join(
-      GITHUB_ID,
-      PROGRAM_ID,
-      joinCode,
-      NOW,
-    );
+    const result = await service.join(GITHUB_ID, PROGRAM_ID, joinCode, NOW);
 
     expect(findTeamByJoinCodeDigest).toHaveBeenCalledWith(
       PROGRAM_ID,

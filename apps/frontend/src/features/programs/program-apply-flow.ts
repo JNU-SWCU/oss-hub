@@ -2,9 +2,7 @@ import type { ProblemDetail } from '@/lib/api-client';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
 
 export type ProgramApplyBlockedReason =
-  | 'period-closed'
-  | 'already-applied'
-  | 'team-required';
+  'period-closed' | 'already-applied' | 'team-required';
 
 export type ProgramApplyReadyState = {
   readonly kind: 'ready';
@@ -18,7 +16,11 @@ export type ProgramApplyPageState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'not-found' }
   | { readonly kind: 'failed'; readonly message: string }
-  | { readonly kind: 'blocked'; readonly reason: ProgramApplyBlockedReason; readonly program: ProgramDetail }
+  | {
+      readonly kind: 'blocked';
+      readonly reason: ProgramApplyBlockedReason;
+      readonly program: ProgramDetail;
+    }
   | ProgramApplyReadyState
   | {
       readonly kind: 'success';
@@ -58,7 +60,8 @@ export function resolveApplyBlockedReason(
 ): ProgramApplyBlockedReason | null {
   if (!isApplicationPeriodOpen(program, now)) return 'period-closed';
   if (program.viewer.applicationStatus !== null) return 'already-applied';
-  if (template.participation === 'team' && teamId === null) return 'team-required';
+  if (template.participation === 'team' && teamId === null)
+    return 'team-required';
   return null;
 }
 

@@ -25,8 +25,7 @@ export type ApplicationAnswersValidationSuccess = {
 };
 
 export type ApplicationAnswersValidationResult =
-  | ApplicationAnswersValidationSuccess
-  | ApplicationAnswersValidationFailure;
+  ApplicationAnswersValidationSuccess | ApplicationAnswersValidationFailure;
 
 export type TemplateVersionCheckResult =
   | { readonly ok: true }

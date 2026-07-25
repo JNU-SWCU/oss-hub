@@ -46,9 +46,6 @@ export function mapTeamError(problem: ProblemDetail): string {
   }
 }
 
-export function applyHrefWithTeam(
-  programId: string,
-  teamId: string,
-): string {
+export function applyHrefWithTeam(programId: string, teamId: string): string {
   return `${programHref(programId, '/apply')}?teamId=${encodeURIComponent(teamId)}`;
 }

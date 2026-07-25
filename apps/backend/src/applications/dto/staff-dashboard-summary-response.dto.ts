@@ -66,7 +66,9 @@ export class StaffDashboardSummaryResponseDto {
     );
   }
 
-  static from(summary: StaffDashboardSummary): StaffDashboardSummaryResponseDto {
+  static from(
+    summary: StaffDashboardSummary,
+  ): StaffDashboardSummaryResponseDto {
     return new StaffDashboardSummaryResponseDto(summary);
   }
 }

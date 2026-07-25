@@ -1,7 +1,4 @@
-import type {
-  ApplicationFormField,
-  ApplicationFormTemplate,
-} from './types';
+import type { ApplicationFormField, ApplicationFormTemplate } from './types';
 
 export const PROGRAM_CATEGORIES = [
   'BASIC',

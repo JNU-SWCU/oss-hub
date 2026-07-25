@@ -29,7 +29,10 @@ type ApplicationSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 export class ProgramApplicationsController {
   constructor(
     @Inject(ApplicationsService)
-    private readonly service: Pick<ApplicationsService, 'create' | 'listForProgram'>,
+    private readonly service: Pick<
+      ApplicationsService,
+      'create' | 'listForProgram'
+    >,
   ) {}
 
   @Get()

@@ -77,9 +77,9 @@ describe('normalizeAndValidateApplicationAnswers', () => {
   });
 
   it('비객체 answers는 INVALID_SHAPE다', () => {
-    expect(
-      normalizeAndValidateApplicationAnswers(null, applicantName),
-    ).toEqual({ ok: false, reason: 'INVALID_SHAPE' });
+    expect(normalizeAndValidateApplicationAnswers(null, applicantName)).toEqual(
+      { ok: false, reason: 'INVALID_SHAPE' },
+    );
     expect(
       normalizeAndValidateApplicationAnswers(['a'], applicantName),
     ).toEqual({ ok: false, reason: 'INVALID_SHAPE' });

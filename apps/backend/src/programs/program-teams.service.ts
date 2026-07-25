@@ -14,14 +14,8 @@ import {
   type TeamDetailRecord,
   type TeamProgramRecord,
 } from './program-teams.repository';
-import {
-  TEAMS_ERROR_CODES,
-  TeamsErrorCode,
-} from './teams-error-code.enum';
-import type {
-  CreatedTeamView,
-  ProgramTeamView,
-} from './program-teams.types';
+import { TEAMS_ERROR_CODES, TeamsErrorCode } from './teams-error-code.enum';
+import type { CreatedTeamView, ProgramTeamView } from './program-teams.types';
 
 const JOIN_CODE_ATTEMPTS = 5;
 
@@ -162,8 +156,7 @@ export class ProgramTeamsService {
   }
 
   private async requireStudent(githubId: bigint) {
-    const student =
-      await this.repository.findActiveStudentByGithubId(githubId);
+    const student = await this.repository.findActiveStudentByGithubId(githubId);
     if (!student) {
       throw this.error(TeamsErrorCode.STUDENT_ONLY);
     }
@@ -179,10 +172,7 @@ export class ProgramTeamsService {
       throw this.error(TeamsErrorCode.PROGRAM_NOT_FOUND);
     }
     this.assertTeamParticipation(program);
-    if (
-      now < program.applicationStartAt ||
-      now > program.applicationEndAt
-    ) {
+    if (now < program.applicationStartAt || now > program.applicationEndAt) {
       throw this.error(TeamsErrorCode.APPLICATION_PERIOD_CLOSED);
     }
     if (program.teamMaxSize == null) {

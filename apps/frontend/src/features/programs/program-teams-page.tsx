@@ -311,18 +311,16 @@ export function ProgramTeamsPage({
       const created = await createTeam(programId, {
         name: createName.trim(),
       });
-      const team = await getMyTeam(programId).catch(
-        (): ProgramTeam => ({
-          id: created.id,
-          name: created.name,
-          memberCount: created.memberCount,
-          minMembers: null,
-          maxMembers: created.memberCount,
-          locked: false,
-          isLeader: true,
-          members: [],
-        }),
-      );
+      const team = await getMyTeam(programId).catch((): ProgramTeam => ({
+        id: created.id,
+        name: created.name,
+        memberCount: created.memberCount,
+        minMembers: null,
+        maxMembers: created.memberCount,
+        locked: false,
+        isLeader: true,
+        members: [],
+      }));
       setState({
         kind: 'ready',
         program: state.program,
@@ -413,7 +411,11 @@ export function ProgramTeamsPage({
             title="팀 정보를 불러오지 못했습니다"
             description={state.message}
             action={
-              <Button type="button" variant="outline" onClick={() => void load()}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void load()}
+              >
                 다시 시도
               </Button>
             }

@@ -16,16 +16,12 @@ export default async function ProgramApplyRoutePage({
   const { id } = await params;
   const resolvedSearchParams = await searchParams;
   const rawTeamId = resolvedSearchParams?.teamId;
-  const teamId = typeof rawTeamId === 'string' && rawTeamId.length > 0
-    ? rawTeamId
-    : null;
+  const teamId =
+    typeof rawTeamId === 'string' && rawTeamId.length > 0 ? rawTeamId : null;
 
   return (
     <RoleGate allow={['STUDENT']}>
-      <ProgramApplyPage
-        programId={decodeRouteProgramId(id)}
-        teamId={teamId}
-      />
+      <ProgramApplyPage programId={decodeRouteProgramId(id)} teamId={teamId} />
     </RoleGate>
   );
 }

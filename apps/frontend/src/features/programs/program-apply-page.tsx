@@ -7,8 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FieldError } from '@/components/ui/field';
-import { ApiError } from '@/lib/api-client';
-import { fetchSession } from '@/features/auth/api';
+import { apiClient, ApiError } from '@/lib/api-client';
 import {
   createApplication,
   getMyTeam,
@@ -27,10 +26,23 @@ import {
   type ProgramApplyPageState,
 } from './program-apply-flow';
 import { programHref } from './program-paths';
-import {
-  PROGRAM_TEMPLATE_DEFINITIONS,
-} from './program-templates';
+import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
+
+/** auth feature 직접 import 금지 — 세션 스냅샷만 api-client로 읽는다. */
+type SessionSnapshot =
+  | { readonly isAuthenticated: false }
+  | {
+      readonly isAuthenticated: true;
+      readonly user: {
+        readonly name: string | null;
+        readonly nickname: string;
+      };
+    };
+
+function loadSessionSnapshot(): Promise<SessionSnapshot> {
+  return apiClient<SessionSnapshot>('auth/session');
+}
 
 function ApplySkeleton() {
   return (
@@ -115,8 +127,8 @@ export function ProgramApplySuccessView({
       <Alert>
         <AlertTitle>신청이 접수되었습니다</AlertTitle>
         <AlertDescription>
-          신청 번호 {applicationId} 로 제출되었습니다. 결과는 프로그램
-          상세에서 확인할 수 있습니다.
+          신청 번호 {applicationId} 로 제출되었습니다. 결과는 프로그램 상세에서
+          확인할 수 있습니다.
         </AlertDescription>
       </Alert>
       <Button asChild>
@@ -218,7 +230,9 @@ export function ProgramApplyPage({
   readonly programId: string;
   readonly teamId?: string | null;
 }) {
-  const [state, setState] = useState<ProgramApplyPageState>({ kind: 'loading' });
+  const [state, setState] = useState<ProgramApplyPageState>({
+    kind: 'loading',
+  });
   const [values, setValues] =
     useState<ProgramApplyFormValues>(EMPTY_APPLY_FORM);
   const [errors, setErrors] = useState<ProgramApplyFormErrors>({});
@@ -231,7 +245,9 @@ export function ProgramApplyPage({
       const [program, templates, session] = await Promise.all([
         getProgramDetail(programId),
         listApplicationTemplates().catch(() => [] as ApplicationFormTemplate[]),
-        fetchSession().catch(() => ({ isAuthenticated: false as const })),
+        loadSessionSnapshot().catch(() => ({
+          isAuthenticated: false as const,
+        })),
       ]);
       const template = resolveTemplate(program, templates);
       if (!template) {
@@ -379,7 +395,11 @@ export function ProgramApplyPage({
             title="신청 양식을 불러오지 못했습니다"
             description={state.message}
             action={
-              <Button type="button" variant="outline" onClick={() => void load()}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void load()}
+              >
                 다시 시도
               </Button>
             }

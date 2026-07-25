@@ -75,10 +75,7 @@ export class ProgramTeamsController {
     @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
   ): Promise<ProgramTeamResponseDto> {
-    const team = await this.service.getMe(
-      request.sessionGithubId,
-      programId,
-    );
+    const team = await this.service.getMe(request.sessionGithubId, programId);
     return ProgramTeamResponseDto.from(team);
   }
 }

@@ -127,7 +127,7 @@ describe('program-teams-flow', () => {
         status: 409,
         detail: 'x',
         code: 'TEAM_007',
-        instance: '/api/v1/programs/p/teams/join',
+        instance: '/programs/p/teams/join',
       }),
     ).toBe('팀 최대 인원을 초과할 수 없습니다.');
   });

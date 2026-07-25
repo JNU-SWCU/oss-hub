@@ -39,9 +39,7 @@ describe('ApplicationsService.staffSummary', () => {
 
   it('프로그램이 없으면 빈 programs 를 반환한다', async () => {
     const repository = {
-      listStaffDashboardSummary: jest
-        .fn()
-        .mockResolvedValue({ programs: [] }),
+      listStaffDashboardSummary: jest.fn().mockResolvedValue({ programs: [] }),
     } as unknown as ApplicationsRepository;
     const service = new ApplicationsService(repository);
 

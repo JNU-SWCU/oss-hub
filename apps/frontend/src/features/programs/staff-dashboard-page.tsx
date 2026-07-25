@@ -165,7 +165,10 @@ export function StaffDashboardPage(): ReactElement {
     });
   }, [loadState, now, search, status]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredPrograms.length / PAGE_SIZE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredPrograms.length / PAGE_SIZE),
+  );
   const safePage = Math.min(page, totalPages);
   const pageItems = filteredPrograms.slice(
     (safePage - 1) * PAGE_SIZE,

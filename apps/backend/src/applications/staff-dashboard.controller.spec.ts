@@ -17,9 +17,10 @@ function readGuards(target: object, methodName: 'summary'): unknown[] {
 
 describe('StaffDashboardController', () => {
   it('GET summary 에 SessionGuard·ApplicationsStaffListGuard 를 적용한다', () => {
-    expect(
-      readGuards(StaffDashboardController.prototype, 'summary'),
-    ).toEqual([SessionGuard, ApplicationsStaffListGuard]);
+    expect(readGuards(StaffDashboardController.prototype, 'summary')).toEqual([
+      SessionGuard,
+      ApplicationsStaffListGuard,
+    ]);
   });
 
   it('service.staffSummary 결과를 DTO 로 반환한다', async () => {
