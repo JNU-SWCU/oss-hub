@@ -86,6 +86,17 @@ describe('fetchStudentDashboard', () => {
         ],
       },
     ],
+    [
+      '인코딩된 상위 경로로 다른 내부 화면을 가리킴',
+      {
+        items: [
+          {
+            ...dashboardFixture.items[0],
+            detailUrl: '/programs/%2e%2e/admin/staff-requests',
+          },
+        ],
+      },
+    ],
   ])('잘못된 응답을 어댑터 경계에서 거부한다: %s', async (_label, body) => {
     vi.stubGlobal(
       'fetch',

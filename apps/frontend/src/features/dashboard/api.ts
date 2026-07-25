@@ -16,13 +16,12 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-function isInternalPath(value: unknown): value is string {
-  return (
-    isNonEmptyString(value) &&
-    value.startsWith('/') &&
-    !value.startsWith('//') &&
-    !value.includes('\\')
-  );
+function isProgramPath(
+  value: unknown,
+  programId: string,
+  suffix = '',
+): value is string {
+  return value === `/programs/${encodeURIComponent(programId)}${suffix}`;
 }
 
 function isApplicationMode(value: unknown): value is DashboardApplicationMode {
@@ -64,18 +63,19 @@ function isDashboardItem(value: unknown): value is DashboardItem {
 
   const applicationStatus = value.applicationStatus;
   const nextMilestone = value.nextMilestone;
+  const programId = value.programId;
 
   return (
     isNonEmptyString(value.applicationId) &&
-    isNonEmptyString(value.programId) &&
+    isNonEmptyString(programId) &&
     isNonEmptyString(value.programName) &&
     isApplicationMode(value.applicationMode) &&
     isNonEmptyString(value.displayName) &&
     isApplicationStatus(applicationStatus) &&
     (nextMilestone === null || isMilestone(nextMilestone)) &&
     (applicationStatus === 'APPROVED' || nextMilestone === null) &&
-    isInternalPath(value.detailUrl) &&
-    isInternalPath(value.checklistUrl)
+    isProgramPath(value.detailUrl, programId) &&
+    isProgramPath(value.checklistUrl, programId, '/submissions')
   );
 }
 
