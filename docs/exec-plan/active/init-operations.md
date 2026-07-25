@@ -43,12 +43,20 @@
 
 Compose 종료·재기동 절차에서 `down -v`를 실행하지 않는다. PostgreSQL 데이터는 named volume `pgdata`에 보존한다.
 
+### 구현 진행 주석 — 첫 실동작 (2026-07-24, 2026-07-25 갱신)
+
+- 첫 배포 실동작 검증은 파라미터 job **수동 트리거**(`RELEASE_ACTION=published`, `RELEASE_TAG=<tag>`)로 재현한다. 자동 트리거 계약(GitHub Actions `deploy.yml` → Jenkins `buildWithParameters`)과 승인 게이트(`RELEASE_ACCEPT` 이중 승인 또는 공개 PM override)의 원본은 [ADR-002](../../decisions/ADR-002-CI-CD-파이프라인.md)와 위 M2다.
+- GitHub read-only PAT는 release·승인 검증 API용으로 Jenkins Credentials Store에 **준비·문서화만** 한다. `Jenkinsfile`에 인증을 적용하는 코드 변경은 follow-up이다.
+- 서버 접속·설치·job·첫 Release e2e의 명령 수준 절차는 [server-runbook](../../deploy/server-runbook.md), 배포 전 로컬→EC2 단계 검증은 [pre-deploy-verify](../../deploy/pre-deploy-verify.md)를 따른다.
+- 서버 접근 정보·credentials 값은 이 저장소가 아니라 **Notion credentials 페이지**가 원본이며, Notion 기록은 craft-skills aside에 위임한다. 저장소에는 항목명과 `.env.example` 변수명만 둔다.
+- smoke 기준은 Compose loopback `http://127.0.0.1:8081/`·`/api/v1/health`와, host nginx 공인 IP TLS smoke다(위 M2·M4, `Jenkinsfile`).
+
 ## M3. 배포 서버와 개발 환경변수
 
 ### 배포 서버
 
 1. 운영 환경 파일을 Jenkins Credentials Store의 secret file `oss-hub-production-env`로 등록한다.
-2. 파일에는 운영 `POSTGRES_*`, `DATABASE_URL`, `SESSION_SECRET`, `TEAM_JOIN_CODE_SECRET`, `FRONTEND_URL=https://54.116.116.174`, production GitHub OAuth client ID/secret을 설정한다. `DATABASE_URL`은 `postgres` 서비스 DNS를 가리키고 migration과 runtime이 동일한 URL을 사용한다. `AUTH_TEST_ROLE_MAP`과 `GITHUB_BATCH_LOGINS`는 운영에서 설정하지 않는다.
+2. 파일에는 운영 `POSTGRES_*`, `DATABASE_URL`, `SESSION_SECRET`, `TEAM_JOIN_CODE_SECRET`, `FRONTEND_URL=https://54.116.116.174`, production GitHub OAuth client ID/secret, production `GMAIL_SENDER`와 `GMAIL_OAUTH_*` 3종을 설정한다. `DATABASE_URL`은 `postgres` 서비스 DNS를 가리키고 migration과 runtime이 동일한 URL을 사용한다. production backend 이미지(`NODE_ENV=production`)는 `compose.yml`이 명시한 `GMAIL_*` 4종 없이 부팅하지 않는다. `AUTH_TEST_ROLE_MAP`과 `GITHUB_BATCH_LOGINS`는 운영에서 설정하지 않는다.
 3. 저장소에는 `.env.example`만 두고 실제 운영 파일은 커밋하거나 Jenkins 로그에 출력하지 않는다.
 4. Jenkins가 Compose 및 migration 단계에서만 임시 file credential을 주입하고 종료 후 workspace에 복사본을 남기지 않는지 확인한다.
 5. `/var/lib/oss-hub/deploy-state`와 `/var/lib/oss-hub/backups`는 Jenkins 소유 `0700` 디렉터리로 만들고 symlink·group write를 허용하지 않는다. 생성되는 상태·backup 파일은 `0600`인지 확인한다.
