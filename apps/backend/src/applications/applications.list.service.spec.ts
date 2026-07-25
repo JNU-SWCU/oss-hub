@@ -27,9 +27,10 @@ const EMPTY_PAGE: ApplicationListPage = {
 
 describe('ApplicationsService.listForProgram', () => {
   it('프로그램이 없으면 404 를 던진다', async () => {
+    const listApplicationsForProgram = jest.fn();
     const repository = {
       findProgramById: jest.fn().mockResolvedValue(null),
-      listApplicationsForProgram: jest.fn(),
+      listApplicationsForProgram,
     } as unknown as ApplicationsRepository;
     const service = new ApplicationsService(repository);
 
@@ -47,7 +48,7 @@ describe('ApplicationsService.listForProgram', () => {
         status: 404,
       },
     });
-    expect(repository.listApplicationsForProgram).not.toHaveBeenCalled();
+    expect(listApplicationsForProgram).not.toHaveBeenCalled();
   });
 
   it('프로그램이 있으면 repository 목록을 그대로 반환한다', async () => {
