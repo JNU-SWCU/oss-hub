@@ -1,14 +1,72 @@
 import { ApiError, apiClient } from '@/lib/api-client';
 import type { ProgramCategory } from './program-templates';
 import type {
+  ApplicationFormField,
+  ApplicationFormFieldKey,
+  ApplicationFormFieldType,
+  ApplicationFormTemplate,
+  ApplicationListPage,
+  ApplicationListParams,
   ProgramActivity,
   ProgramDetail,
   ProgramListPage,
   ProgramListParams,
+  ProgramParticipation,
+  StaffDashboardSummary,
   SubmissionType,
 } from './types';
 
 const jsonHeaders = { 'Content-Type': 'application/json' } as const;
+
+interface ApplicationTemplateApiItem {
+  readonly key: string;
+  readonly version: number;
+  readonly name: string;
+  readonly participation: 'INDIVIDUAL' | 'TEAM' | ProgramParticipation;
+  readonly fields: readonly {
+    readonly key: ApplicationFormFieldKey;
+    readonly type: ApplicationFormFieldType;
+    readonly label: string;
+    readonly required: boolean;
+  }[];
+}
+
+interface ApplicationTemplateListApiResponse {
+  readonly items: readonly ApplicationTemplateApiItem[];
+}
+
+function mapParticipation(
+  value: ApplicationTemplateApiItem['participation'],
+): ProgramParticipation {
+  if (value === 'INDIVIDUAL' || value === 'individual') return 'individual';
+  return 'team';
+}
+
+function mapApplicationTemplate(
+  item: ApplicationTemplateApiItem,
+): ApplicationFormTemplate {
+  const fields: ApplicationFormField[] = item.fields.map((field) => ({
+    key: field.key,
+    type: field.type,
+    label: field.label,
+    required: field.required,
+  }));
+  return {
+    key: item.key,
+    version: item.version,
+    name: item.name,
+    participation: mapParticipation(item.participation),
+    fields,
+  };
+}
+
+export function listApplicationTemplates(): Promise<
+  readonly ApplicationFormTemplate[]
+> {
+  return apiClient<ApplicationTemplateListApiResponse>(
+    'programs/application-templates',
+  ).then((response) => response.items.map(mapApplicationTemplate));
+}
 
 export interface CreateProgramInput {
   readonly name: string;
@@ -172,4 +230,115 @@ export function deleteMilestone(
     `milestones/${encodeURIComponent(milestoneId)}`,
     { method: 'DELETE' },
   );
+}
+
+export interface CreateApplicationInput {
+  readonly answers: {
+    readonly title: string;
+    readonly summary: string;
+  };
+  readonly teamId: string | null;
+  readonly applicationTemplateVersion: number;
+}
+
+export interface CreatedApplication {
+  readonly id: string;
+  readonly programId: string;
+  readonly status: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
+  readonly teamId: string | null;
+  readonly submittedAt: string;
+}
+
+export function createApplication(
+  programId: string,
+  input: CreateApplicationInput,
+): Promise<CreatedApplication> {
+  return apiClient<CreatedApplication>(
+    `programs/${encodeURIComponent(programId)}/applications`,
+    {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export interface TeamMember {
+  readonly userId: string;
+  readonly nickname: string;
+  readonly name: string | null;
+  readonly isLeader: boolean;
+}
+
+export interface ProgramTeam {
+  readonly id: string;
+  readonly name: string;
+  readonly memberCount: number;
+  readonly minMembers: number | null;
+  readonly maxMembers: number;
+  readonly locked: boolean;
+  readonly isLeader: boolean;
+  readonly members: readonly TeamMember[];
+}
+
+export interface CreatedTeam {
+  readonly id: string;
+  readonly name: string;
+  readonly joinCode: string;
+  readonly memberCount: number;
+}
+
+export function getMyTeam(programId: string): Promise<ProgramTeam> {
+  return apiClient<ProgramTeam>(
+    `programs/${encodeURIComponent(programId)}/teams/me`,
+  );
+}
+
+export function createTeam(
+  programId: string,
+  input: { readonly name: string },
+): Promise<CreatedTeam> {
+  return apiClient<CreatedTeam>(
+    `programs/${encodeURIComponent(programId)}/teams`,
+    {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function joinTeam(
+  programId: string,
+  input: { readonly joinCode: string },
+): Promise<ProgramTeam> {
+  return apiClient<ProgramTeam>(
+    `programs/${encodeURIComponent(programId)}/teams/join`,
+    {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function listProgramApplications(
+  programId: string,
+  params: ApplicationListParams,
+): Promise<ApplicationListPage> {
+  const search = new URLSearchParams({
+    page: String(params.page),
+    pageSize: String(params.pageSize),
+    search: params.search,
+    status: params.status,
+    mode: params.mode,
+  });
+  return apiClient<ApplicationListPage>(
+    `programs/${encodeURIComponent(programId)}/applications?${search.toString()}`,
+  );
+}
+
+/** #117 교직원 운영 대시보드 요약. */
+export function getStaffDashboardSummary(): Promise<StaffDashboardSummary> {
+  return apiClient<StaffDashboardSummary>('dashboard/staff/summary');
 }

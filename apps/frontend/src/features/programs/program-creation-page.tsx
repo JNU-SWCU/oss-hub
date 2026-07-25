@@ -1,13 +1,13 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { FormSection } from '@/components/form-section';
 import { ApiError } from '@/lib/api-client';
-import { createProgram } from './api';
+import { createProgram, listApplicationTemplates } from './api';
 import {
   buildCreateProgramInput,
   EMPTY_PROGRAM_FORM,
@@ -19,6 +19,7 @@ import {
   type ProgramSubmissionLock,
 } from './program-creation-flow';
 import {
+  mergeTemplateFieldsFromApi,
   PROGRAM_TEMPLATE_DEFINITIONS,
   type ProgramTemplateDefinition,
 } from './program-templates';
@@ -26,6 +27,7 @@ import { ProgramTypeModal } from './program-type-modal';
 import { useProgramExitGuard } from './use-program-exit-guard';
 
 export function ProgramCreationPage() {
+  const [definitions, setDefinitions] = useState(PROGRAM_TEMPLATE_DEFINITIONS);
   const [selected, setSelected] = useState<ProgramTemplateDefinition | null>(
     null,
   );
@@ -38,6 +40,23 @@ export function ProgramCreationPage() {
   const hasUnsavedInput = hasProgramFormInput(form);
   const { leavePage, completeAndNavigate } =
     useProgramExitGuard(hasUnsavedInput);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listApplicationTemplates()
+      .then((templates) => {
+        if (cancelled) return;
+        setDefinitions(
+          mergeTemplateFieldsFromApi(PROGRAM_TEMPLATE_DEFINITIONS, templates),
+        );
+      })
+      .catch(() => {
+        // 로컬 V1 fields 폴백 유지 — 생성 유형 선택은 계속 가능
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const update = (key: keyof ProgramForm, value: string) =>
     setForm((previous) => ({ ...previous, [key]: value }));
@@ -70,7 +89,7 @@ export function ProgramCreationPage() {
   if (!selected || modalOpen)
     return (
       <ProgramTypeModal
-        definitions={PROGRAM_TEMPLATE_DEFINITIONS}
+        definitions={definitions}
         selected={selected}
         onSelect={setSelected}
         onContinue={() => setModalOpen(false)}

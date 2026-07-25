@@ -15,12 +15,16 @@ import {
 import { computeJoinCodeDigest } from '../../src/common/join-code-digest';
 
 /**
- * #118 서버 고정 template registry는 아직 병합되지 않았다(#110 선행 의존성 미충족, OPEN).
- * 실제 7종 field schema를 이 시드가 복제해 별도 진실원천으로 만들지 않기 위해,
- * answers는 항상 placeholder로만 채운다 — #118 병합 후 registry의 유효 예시로 교체한다.
+ * v1 신청 answers 예시 payload.
+ * 필드 SSOT는 program-template.registry의 V1_APPLICATION_FIELDS이며,
+ * 시드는 registry를 복제하지 않고 합성 예시만 넣는다.
  */
 function placeholderAnswers(scenarioId: string): Prisma.InputJsonObject {
-  return { seedPlaceholder: true, scenarioId };
+  return {
+    applicantName: `seed-applicant-${scenarioId}`,
+    title: `seed-title-${scenarioId}`,
+    summary: `seed-summary-${scenarioId}`,
+  };
 }
 
 const ALL_CATEGORIES: readonly ProgramCategory[] = [
@@ -233,7 +237,7 @@ const PROGRAM_TEAM_TRACK_ID = seedId('intake', 'program-team-track');
 export const APPLICATION_VALIDATION_ERROR_FIXTURE = {
   scenarioId: 'application-validation-error',
   // 필수 answer 누락 — 정상 template 계약을 위반하는 API 입력 예시.
-  answers: { seedPlaceholder: true, missingRequiredField: true },
+  answers: { title: '' },
 };
 
 export async function seedIntake(stats: SeedStats): Promise<void> {

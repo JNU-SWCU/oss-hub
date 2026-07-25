@@ -9,11 +9,29 @@ export type SubmissionType = 'FILE' | 'TEXT' | 'REPOSITORY_RELEASE';
 export const PROGRAM_PARTICIPATION_TYPES = ['individual', 'team'] as const;
 export type ProgramParticipation = (typeof PROGRAM_PARTICIPATION_TYPES)[number];
 
+export const APPLICATION_FIELD_TYPES = ['auto', 'text', 'textarea'] as const;
+export type ApplicationFormFieldType = (typeof APPLICATION_FIELD_TYPES)[number];
+
+export const APPLICATION_FIELD_KEYS = [
+  'applicantName',
+  'title',
+  'summary',
+] as const;
+export type ApplicationFormFieldKey = (typeof APPLICATION_FIELD_KEYS)[number];
+
+export interface ApplicationFormField {
+  readonly key: ApplicationFormFieldKey;
+  readonly type: ApplicationFormFieldType;
+  readonly label: string;
+  readonly required: boolean;
+}
+
 export interface ApplicationFormTemplate {
   readonly key: string;
   readonly version: number;
   readonly name: string;
   readonly participation: ProgramParticipation;
+  readonly fields: readonly ApplicationFormField[];
 }
 
 export interface ProgramListItem {
@@ -42,6 +60,79 @@ export interface ProgramListPage {
   readonly pageSize: number;
   readonly totalItems: number;
   readonly totalPages: number;
+}
+
+export const APPLICATION_LIST_STATUSES = [
+  'all',
+  'SUBMITTED',
+  'APPROVED',
+  'REJECTED',
+] as const;
+export type ApplicationListStatus = (typeof APPLICATION_LIST_STATUSES)[number];
+
+export const APPLICATION_LIST_MODES = ['all', 'personal', 'team'] as const;
+export type ApplicationListMode = (typeof APPLICATION_LIST_MODES)[number];
+
+export interface ApplicationListParams {
+  readonly page: number;
+  readonly pageSize: number;
+  readonly search: string;
+  readonly status: ApplicationListStatus;
+  readonly mode: ApplicationListMode;
+}
+
+export interface ApplicationListItem {
+  readonly id: string;
+  readonly status: ApplicationStatus;
+  readonly submittedAt: string;
+  readonly participation: 'INDIVIDUAL' | 'TEAM';
+  readonly applicant: {
+    readonly id: string;
+    readonly name: string | null;
+    readonly nickname: string;
+  };
+  readonly team: {
+    readonly id: string;
+    readonly name: string;
+    readonly memberCount: number;
+  } | null;
+  readonly answers: {
+    readonly applicantName: string;
+    readonly title: string;
+    readonly summary: string;
+  };
+}
+
+export interface ApplicationListPage {
+  readonly items: readonly ApplicationListItem[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly totalItems: number;
+  readonly totalPages: number;
+}
+
+/** #117 운영 대시보드 — Application 단위 집계. */
+export interface StaffDashboardApplicationCounts {
+  readonly total: number;
+  readonly submitted: number;
+  readonly approved: number;
+  readonly rejected: number;
+}
+
+export interface StaffDashboardProgramSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly category: ProgramCategory;
+  readonly applicationPeriod: {
+    readonly startsAt: string;
+    readonly endsAt: string;
+  };
+  readonly applications: StaffDashboardApplicationCounts;
+  readonly applicantsPath: string;
+}
+
+export interface StaffDashboardSummary {
+  readonly programs: readonly StaffDashboardProgramSummary[];
 }
 
 export interface SubmissionSummary {

@@ -7,6 +7,14 @@ export function staffProgramHref(programId: string, suffix: string): string {
   return `/staff/programs/${encodeURIComponent(programId)}${suffix}`;
 }
 
+/** Locked #119 detail path — decide UI is out of #106 scope. */
+export function staffApplicationDetailHref(
+  programId: string,
+  applicationId: string,
+): string {
+  return `/staff/programs/${encodeURIComponent(programId)}/applications/${encodeURIComponent(applicationId)}`;
+}
+
 export function decodeRouteProgramId(rawId: string): string {
   try {
     return decodeURIComponent(rawId);

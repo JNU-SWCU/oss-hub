@@ -54,11 +54,17 @@ export function ProgramActions({
     );
   }
   if (role === 'STAFF' || role === 'ADMIN') {
-    // #106·#124의 목록 API와 page가 구현되기 전에는 404 CTA를 노출하지 않는다.
     return (
-      <Button asChild variant="outline">
-        <Link href={staffProgramHref(program.id, '/edit')}>편집</Link>
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button asChild variant="outline">
+          <Link href={staffProgramHref(program.id, '/applicants')}>
+            신청자 목록
+          </Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href={staffProgramHref(program.id, '/edit')}>편집</Link>
+        </Button>
+      </div>
     );
   }
   return null;

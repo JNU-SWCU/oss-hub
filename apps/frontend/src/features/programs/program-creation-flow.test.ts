@@ -18,6 +18,7 @@ const teamTemplate: ProgramTemplateDefinition = {
     version: 1,
     name: 'OSS경진대회 신청서',
     participation: 'team',
+    fields: [],
   },
 };
 
