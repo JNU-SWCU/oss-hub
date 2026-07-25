@@ -9,14 +9,11 @@ import {
   FieldLabel,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import {
-  DEPARTMENT_GROUPS,
-  OTHER_DEPARTMENT,
-} from '@/features/profile/departments';
+import { DEPARTMENT_GROUPS, OTHER_DEPARTMENT } from '../../departments';
 import {
   PROFILE_DEPARTMENT_MAX_LENGTH,
   PROFILE_NAME_MAX_LENGTH,
-} from '@/features/profile/profile-state';
+} from '../../profile-state';
 import type {
   SettingsFormErrors,
   SettingsFormValues,

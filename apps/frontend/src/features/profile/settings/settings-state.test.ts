@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OTHER_DEPARTMENT } from '@/features/profile/departments';
+import { OTHER_DEPARTMENT } from '../departments';
 import {
   createInitialSettingsForm,
   isSettingsFormValid,

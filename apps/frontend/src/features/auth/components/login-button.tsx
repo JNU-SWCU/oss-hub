@@ -18,6 +18,8 @@ interface LoginButtonViewProps {
 function AccountAvatar({ user }: { readonly user: Me }) {
   if (user.avatarUrl) {
     return (
+      // GitHub avatar CDN — next/image remotePatterns 없이 표시한다.
+      // eslint-disable-next-line @next/next/no-img-element -- 외부 avatar URL
       <img
         src={user.avatarUrl}
         alt=""

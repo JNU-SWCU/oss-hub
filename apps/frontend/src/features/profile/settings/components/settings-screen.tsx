@@ -4,15 +4,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
-  classifyNotificationApiError,
-  getMyNotificationSettings,
-  updateMyNotificationEmail,
-} from '@/features/notifications/api';
-import {
   classifyProfileApiError,
   getMyProfile,
   updateMyProfile,
-} from '@/features/profile/api';
+} from '../../api';
+import {
+  classifyNotificationChannelApiError,
+  getMyNotificationChannel,
+  updateMyNotificationChannel,
+} from '../notification-channel-api';
 import {
   createInitialSettingsForm,
   isSettingsFormValid,
@@ -44,7 +44,7 @@ export function SettingsScreen() {
     try {
       const [profileResult, notificationResult] = await Promise.allSettled([
         getMyProfile(signal),
-        getMyNotificationSettings(signal),
+        getMyNotificationChannel(signal),
       ]);
 
       if (signal?.aborted) {
@@ -75,7 +75,9 @@ export function SettingsScreen() {
         return;
       }
 
-      const kind = classifyNotificationApiError(notificationResult.reason);
+      const kind = classifyNotificationChannelApiError(
+        notificationResult.reason,
+      );
       if (kind === 'unauthorized') {
         window.location.assign('/');
         return;
@@ -139,9 +141,9 @@ export function SettingsScreen() {
           return;
         }
         try {
-          await updateMyNotificationEmail(notificationRequest);
+          await updateMyNotificationChannel(notificationRequest);
         } catch (error: unknown) {
-          switch (classifyNotificationApiError(error)) {
+          switch (classifyNotificationChannelApiError(error)) {
             case 'unauthorized':
               window.location.assign('/');
               return;

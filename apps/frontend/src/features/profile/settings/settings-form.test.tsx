@@ -1,10 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { OTHER_DEPARTMENT } from '@/features/profile/departments';
+import { OTHER_DEPARTMENT } from '../departments';
 import {
   PROFILE_DEPARTMENT_MAX_LENGTH,
   PROFILE_NAME_MAX_LENGTH,
-} from '@/features/profile/profile-state';
+} from '../profile-state';
 import { SettingsForm, SettingsSkeleton } from './components/settings-form';
 import { validateSettingsForm } from './settings-state';
 import type { SettingsFormValues } from './types';
