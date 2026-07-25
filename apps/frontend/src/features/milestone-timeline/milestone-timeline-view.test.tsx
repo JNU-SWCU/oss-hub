@@ -41,6 +41,16 @@ describe('milestone timeline loader and view', () => {
     ]);
   });
 
+  it('콜론이 포함된 유효한 programId를 인코딩해 요청한다', async () => {
+    apiClientMock.mockResolvedValue(response);
+
+    await loadMilestoneTimeline({ programId: 'program:seed' });
+
+    expect(apiClientMock).toHaveBeenCalledWith(
+      'programs/program%3Aseed/submissions/me',
+    );
+  });
+
   it('상위 경로로 정규화되는 programId는 API 요청 전에 거부한다', async () => {
     await expect(loadMilestoneTimeline({ programId: '..' })).rejects.toThrow(
       '마일스톤 타임라인 경로가 올바르지 않습니다',
