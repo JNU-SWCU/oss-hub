@@ -72,7 +72,8 @@ sudo ss -ltnp | grep 8080 # Jenkins가 127.0.0.1:8080에만 LISTEN (0.0.0.0:8080
 # 운영 env를 Jenkins Credentials Store의 secret file로 등록 (UI 또는 JCasC)
 #   credential id: oss-hub-production-env
 #   내용: 운영 POSTGRES_*, DATABASE_URL, SESSION_SECRET, TEAM_JOIN_CODE_SECRET,
-#         FRONTEND_URL, GITHUB_OAUTH_* 등 (.env.example + compose.yml 필수 키)
+#         FRONTEND_URL, GITHUB_OAUTH_*, GMAIL_SENDER, GMAIL_OAUTH_* 등
+#         (.env.example + compose.yml 필수 키; production 부팅은 GMAIL_* 4종 필수)
 #   ※ 실제 값은 이 저장소에 두지 않는다. Notion credentials → Jenkins Credentials Store로만.
 
 # 상태/백업 디렉터리 (Jenkins 소유, 0700)

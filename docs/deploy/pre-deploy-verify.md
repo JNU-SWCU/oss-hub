@@ -53,6 +53,14 @@ FRONTEND_URL=https://127.0.0.1
 # 개발용 OAuth App의 값으로 대체한다.
 GITHUB_OAUTH_CLIENT_ID=REPLACE_LOCAL_OAUTH_ID
 GITHUB_OAUTH_CLIENT_SECRET=REPLACE_LOCAL_OAUTH_SECRET
+
+# Gmail OAuth — production 이미지 부팅 계약(mail-sender.provider).
+# smoke 전용 로컬 검증은 형식상 자리표시자면 충분하다. 실제 발송은 하지 않는다.
+# compose.yml이 이 4종을 backend 컨테이너에 명시 전달한다.
+GMAIL_SENDER=localverify@example.com
+GMAIL_OAUTH_CLIENT_ID=REPLACE_LOCAL_GMAIL_CLIENT_ID
+GMAIL_OAUTH_CLIENT_SECRET=REPLACE_LOCAL_GMAIL_CLIENT_SECRET
+GMAIL_OAUTH_REFRESH_TOKEN=REPLACE_LOCAL_GMAIL_REFRESH_TOKEN
 ```
 
 ### 실행
