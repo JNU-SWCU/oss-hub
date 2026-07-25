@@ -16,7 +16,7 @@ export const PM_EMERGENCY_ACCEPT_LINE =
   /^PM_EMERGENCY_ACCEPT head=([0-9a-f]{40}) base=(main) base_sha=([0-9a-f]{40}) policy_sha=([0-9a-f]{40}) window=(2026-07-26-KST)$/;
 export const OWNER_CONFIRM_LINE =
   /^OWNER_CONFIRM head=([0-9a-f]{40}) base=(main) base_sha=([0-9a-f]{40})$/;
-export const EMERGENCY_POLICY_PR_NUMBER = 258;
+export const EMERGENCY_POLICY_PR_NUMBER = 259;
 export const EMERGENCY_CUTOFF = '2026-07-26T15:00:00.000Z';
 export const EMERGENCY_WINDOW_LABEL = '2026-07-26-KST';
 export const EMERGENCY_PR_NUMBER = 256;

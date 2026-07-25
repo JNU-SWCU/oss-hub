@@ -78,9 +78,9 @@ required check가 적용되기 전에는 병합자가 이 actor·형식·head·b
 이 절의 최초 amendment는 PR #258에서 기존 `HIGH_RISK` 증거 없이 병합되었으므로 그 병합만으로 긴급 권한을 부여하지 않으며, checker의 전용 상수가 `0`인 최초 상태는 fail-closed 비활성 상태로 취급한다.
 긴급 경로 활성화 remediation PR은 기존 `HIGH_RISK` 규칙에 따라 `MERGE_READY`, @GoBeromsu의 `PM_ACCEPT`, @Lumiere001의 `TECH_LEAD_ACCEPT`를 모두 충족한 뒤 병합해야 한다.
 긴급 경로는 PR #256에만 적용되며 다른 PR의 정상 high risk 이중 accept 규칙을 변경하지 않는다.
-긴급 경로는 활성화 remediation이 기존 이중 gate로 병합되고 checker의 전용 상수가 PR #258로 pin된 상태가 `main`에 포함된 뒤에만 사용할 수 있다.
-`policy_sha`는 PR #258의 40자 merge commit SHA와 정확히 일치해야 하며, checker는 그 SHA가 현재 base 이력의 ancestor인지 검증한다.
-`PM_EMERGENCY_ACCEPT`는 GitHub의 PR #258 `merged_at` 이후이면서 `2026-07-26T15:00:00.000Z` 미만인 시각에 최초 발행된 뒤 수정되지 않은 댓글이어야 하며, 상한 시각은 exclusive다.
+긴급 경로는 활성화 remediation PR #259가 기존 이중 gate로 병합되고 checker의 전용 상수가 PR #259로 pin된 상태가 `main`에 포함된 뒤에만 사용할 수 있다.
+`policy_sha`는 PR #259의 40자 merge commit SHA와 정확히 일치해야 하며, checker는 그 SHA가 현재 base 이력의 ancestor인지 검증한다.
+`PM_EMERGENCY_ACCEPT`는 GitHub의 PR #259 `merged_at` 이후이면서 `2026-07-26T15:00:00.000Z` 미만인 시각에 최초 발행된 뒤 수정되지 않은 댓글이어야 하며, 상한 시각은 exclusive다.
 @GoBeromsu만 PR 최상위 댓글에 `PM_EMERGENCY_ACCEPT head=<40hex> base=main base_sha=<40hex> policy_sha=<40hex> window=2026-07-26-KST`를 발행할 수 있다.
 PR #256의 owner인 @jinsol1190-rgb만 PR 최상위 댓글에 수정되지 않은 `OWNER_CONFIRM head=<40hex> base=main base_sha=<40hex>`을 발행할 수 있다.
 두 marker의 `head`와 `base_sha`는 PR #256의 현재 head와 현재 `main` base full SHA에 정확히 pin되어야 한다.
@@ -88,7 +88,7 @@ PR #256의 owner인 @jinsol1190-rgb만 PR 최상위 댓글에 수정되지 않�
 발행 시한 전에 유효하게 발행된 `PM_EMERGENCY_ACCEPT`는 pin된 head, base, base SHA와 policy SHA가 바뀌지 않는 한 시한 이후에도 유효하지만, 시한 이후 새 발행·수정·변경된 pin에 대한 재발행은 허용하지 않는다.
 `OWNER_CONFIRM`은 별도 발행 시한이 없지만 현재 head·base에 pin되고 수정되지 않아야 하며, head 또는 base가 바뀌면 새 확인이 필요하다.
 `.github/workflows/`, `.github/actions/`, branch protection, CODEOWNERS와 merge-policy checker·fixture를 포함한 control-plane 경로를 변경하는 PR에는 이 긴급 경로를 적용하지 않는다.
-이 예외는 admin bypass를 허용하지 않고 production release·재배포 승인을 변경하지 않으며, PR #258의 병합이나 marker 발행만으로 스스로 활성화되지 않는다.
+이 예외는 admin bypass를 허용하지 않고 production release·재배포 승인을 변경하지 않으며, PR #258의 비활성 병합이나 PR #259 병합 전 marker 발행만으로 스스로 활성화되지 않는다.
 
 다음 조건을 모두 충족한 PR만 병합한다.
 

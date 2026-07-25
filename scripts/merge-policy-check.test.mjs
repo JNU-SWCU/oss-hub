@@ -606,8 +606,8 @@ test('rename previous_filename이 CODEOWNERS 후보면 GENERAL 하향에 RISK_AC
   assert.equal(withAccept.conclusion, 'success');
 });
 
-test('emergency policy is pinned to its dedicated amendment PR', () => {
-  assert.equal(EMERGENCY_POLICY_PR_NUMBER, 258);
+test('emergency policy is pinned to its dedicated activation remediation PR', () => {
+  assert.equal(EMERGENCY_POLICY_PR_NUMBER, 259);
 });
 
 test('PR #256 emergency approval contract is exact and fail-closed', () => {
@@ -618,7 +618,7 @@ test('PR #256 emergency approval contract is exact and fail-closed', () => {
     { filename: 'apps/frontend/src/app/page.tsx', status: 'modified' },
   ];
   const policy = {
-    prNumber: 258,
+    prNumber: 259,
     mergedAt: '2026-07-26T13:00:00.000Z',
     mergeCommitSha: policySha,
     mergeCommitIsAncestorOfBase: true,
@@ -647,7 +647,7 @@ test('PR #256 emergency approval contract is exact and fail-closed', () => {
     });
 
   assert.deepEqual(valid(), {
-    policyPrNumber: 258,
+    policyPrNumber: 259,
     policyMergeCommitSha: policySha,
     policyMergedAt: policy.mergedAt,
     emergencyCommentId: emergency.id,
@@ -784,7 +784,7 @@ test('emergency relief passes only through the full PR #256 evaluator contract',
   });
   assert.equal(result.conclusion, 'success');
   assert.deepEqual(result.emergencyEvidence, {
-    policyPrNumber: 258,
+    policyPrNumber: 259,
     policyMergeCommitSha: policySha,
     policyMergedAt: policy.mergedAt,
     emergencyCommentId: 12,
@@ -824,7 +824,7 @@ test('emergency relief passes only through the full PR #256 evaluator contract',
   assert.ok(withoutPm.reasons.some((reason) => reason.includes('PM_ACCEPT')));
 
   const policyPullAttempt = evaluate({
-    pullData: { ...pullData, number: 258 },
+    pullData: { ...pullData, number: 259 },
     comments,
     changedFiles: collectChangedPaths(files),
     files,
