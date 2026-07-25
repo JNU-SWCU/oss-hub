@@ -58,7 +58,8 @@ DB 마이그레이션은 직렬로만 진행한다. 동시 마이그레이션 PR
 리뷰 결과는 `blocker`, `fix-now`, `follow-up`, `reject`로 분류하며 정확한 의미는 ADR-005를 따른다.
 일반 PR은 전남이 exact head·base에서 코드·계약, Ponytail, 실제 UI/API QA, 저장소 검증과 required CI를 통과시켜 `MERGE_READY`를 기록하면 사람 상호 리뷰 없이 병합할 수 있으며, 동작 변경의 직접 QA가 막히면 미검증으로 처리해 병합하지 않는다.
 high risk의 전체 분류표와 예외는 ADR-005만을 원본으로 사용한다.
-high risk PR은 `MERGE_READY` 외에 PM인 @GoBeromsu와 Tech Lead인 @Lumiere001의 같은 head·base manual accept가 모두 필요하다.
+high risk PR은 `MERGE_READY` 외에 원칙적으로 PM인 @GoBeromsu와 Tech Lead인 @Lumiere001의 같은 head·base manual accept가 모두 필요하다.
+PR #256에만 적용되는 일회성 예외는 ADR-005의 발행 시한·marker·활성화 조건을 모두 충족할 때 Tech Lead accept만 대체하며, 다른 병합 gate와 production release 계약은 바꾸지 않는다.
 production release 배포도 두 사람의 release SHA manual accept 뒤에만 시작하며, Jenkins 실패·복구 동작은 ADR-002의 현재 계약을 따른다.
 
 ## 4. 에이전트 금지 목록

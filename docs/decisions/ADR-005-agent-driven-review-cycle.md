@@ -73,6 +73,21 @@ required check가 적용되기 전에는 병합자가 이 actor·형식·head·b
 이 저장소의 기존 branch protection은 사람 리뷰를 required gate로 강제하지 않았으므로 수동 파일럿은 적용 중인 기계 게이트를 제거하지 않는다.
 수동 파일럿 동안 병합 권한은 @GoBeromsu와 @Lumiere001로 제한하고 admin bypass를 사용하지 않으며, #226 병합 뒤 `merge-policy`를 required check로 전환한다.
 
+### PR #256 일회성 긴급 PM 코드 승인
+
+이 절을 도입하는 정책 amendment PR 자체는 기존 `HIGH_RISK` 규칙에 따라 `MERGE_READY`, @GoBeromsu의 `PM_ACCEPT`, @Lumiere001의 `TECH_LEAD_ACCEPT`를 모두 충족한 뒤 병합한다.
+긴급 경로는 PR #256에만 적용되며 다른 PR의 정상 high risk 이중 accept 규칙을 변경하지 않는다.
+긴급 경로는 amendment가 기존 이중 gate로 병합된 뒤에도 checker의 전용 상수가 `0`인 동안 비활성이며, 후속 commit에서 그 상수를 이 amendment의 배정된 PR 번호로 pin해야만 활성화된다.
+`policy_sha`는 기존 이중 gate로 병합된 amendment의 40자 merge commit SHA와 정확히 일치해야 한다.
+긴급 증거는 amendment의 GitHub `merged_at` 이후이면서 `2026-07-26T15:00:00.000Z` 미만인 시각에 발행해야 하며, 상한 시각은 exclusive다.
+@GoBeromsu만 PR 최상위 댓글에 `PM_EMERGENCY_ACCEPT head=<40hex> base=main base_sha=<40hex> policy_sha=<40hex> window=2026-07-26-KST`를 발행할 수 있다.
+PR #256의 owner인 @jinsol1190-rgb만 PR 최상위 댓글에 `OWNER_CONFIRM head=<40hex> base=main base_sha=<40hex>`을 발행할 수 있다.
+두 marker의 `head`와 `base_sha`는 PR #256의 현재 head와 현재 `main` base full SHA에 정확히 pin되어야 한다.
+유효한 `PM_EMERGENCY_ACCEPT`와 `OWNER_CONFIRM`은 PR #256에서 @Lumiere001의 `TECH_LEAD_ACCEPT`만 대체하며, @GoBeromsu의 기존 `PM_ACCEPT`, `MERGE_READY`, required CI와 check, mergeability, blocker 해소, actor 검증, exact head·base 검증을 포함한 다른 모든 gate는 유지한다.
+발행 시한 전에 유효하게 발행된 marker는 pin된 head, base, base SHA와 policy SHA가 바뀌지 않는 한 시한 이후에도 유효하며, 시한 이후 새 발행이나 변경된 pin에 대한 재발행은 허용하지 않는다.
+`.github/workflows/`, `.github/actions/`, branch protection, CODEOWNERS와 merge-policy checker·fixture를 포함한 control-plane 경로를 변경하는 PR에는 이 긴급 경로를 적용하지 않는다.
+이 예외는 admin bypass를 허용하지 않고 production release·재배포 승인을 변경하지 않으며, amendment 병합이나 marker 발행만으로 스스로 활성화되지 않는다.
+
 다음 조건을 모두 충족한 PR만 병합한다.
 
 - draft와 merge conflict가 없다.
@@ -111,3 +126,4 @@ Jenkins가 이 actor·tag·SHA를 배포 시작 전에 검증하고 누락·불�
 - 2026-07-17: 병합 조건의 review 항목을 required review와 CODEOWNERS 대상 경로의 Code Owner review로 이원화해 실제 CODEOWNERS 커버리지와 맞췄다.
 - 2026-07-17: blocker 분류를 독립 리뷰 문단에서 한 번만 정의하고, 병합 조건은 해결되지 않은 blocker 부재로 명시했다.
 - 2026-07-23: 일반 PR의 상호 Code Owner review를 전남 exact-head `MERGE_READY`로 대체했다. high risk PR과 production release에는 PM인 @GoBeromsu와 Tech Lead인 @Lumiere001의 동일 SHA manual accept를 추가했다.
+- 2026-07-25: Issue #257에 따라 PR #256에 한정된 일회성 PM 긴급 코드 승인 발행 창을 추가했으며, amendment 자체의 기존 high risk 이중 gate와 후속 상수 pin 전 비활성 조건을 유지했다.
