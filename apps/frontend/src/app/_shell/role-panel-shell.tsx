@@ -13,14 +13,16 @@ import type { AppRole } from './role';
 export function RolePanelShell({
   menu,
   allow,
+  deniedPath,
   children,
 }: {
   menu: NavItem[];
-  allow: AppRole[];
+  allow: readonly AppRole[];
+  deniedPath?: string;
   children: ReactNode;
 }) {
   return (
-    <RoleGate allow={allow}>
+    <RoleGate allow={allow} deniedPath={deniedPath}>
       <DetailPanelLayout
         className="gap-0 md:grid-cols-[220px_minmax(0,1fr)] md:items-stretch"
         primaryClassName="border-b border-border p-4 md:border-b-0 md:border-r md:p-6"

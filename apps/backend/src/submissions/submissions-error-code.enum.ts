@@ -15,6 +15,8 @@ export const SubmissionsErrorCode = {
   SUBMISSION_NOT_FOUND: 'SUB_012',
   RESUBMISSION_NOT_ALLOWED: 'SUB_013',
   STALE_SUBMISSION_REVISION: 'SUB_014',
+  STAFF_ONLY: 'SUB_015',
+  PROGRAM_NOT_FOUND: 'SUB_016',
 } as const;
 
 export type SubmissionsErrorCode =
@@ -92,5 +94,15 @@ export const SUBMISSIONS_ERROR_CODES: Readonly<
     code: SubmissionsErrorCode.STALE_SUBMISSION_REVISION,
     status: 409,
     message: '제출 상태가 갱신되었습니다. 최신 상태를 다시 불러와 주세요.',
+  },
+  [SubmissionsErrorCode.STAFF_ONLY]: {
+    code: SubmissionsErrorCode.STAFF_ONLY,
+    status: 403,
+    message: '승인된 교직원 또는 관리자만 제출 현황을 조회할 수 있습니다.',
+  },
+  [SubmissionsErrorCode.PROGRAM_NOT_FOUND]: {
+    code: SubmissionsErrorCode.PROGRAM_NOT_FOUND,
+    status: 404,
+    message: '프로그램을 찾을 수 없습니다.',
   },
 };
