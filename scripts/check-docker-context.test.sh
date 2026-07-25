@@ -61,6 +61,11 @@ remove_rule() {
 ctx=$(make_context valid)
 expect_pass '실제 repo 구성 그대로' "$ctx"
 
+ctx=$(make_context wrong-backend-runtime-cmd)
+sed -i.bak 's#CMD \["node", "dist/src/main.js"\]#CMD ["node", "dist/main.js"]#' "$ctx/apps/backend/Dockerfile"
+rm "$ctx/apps/backend/Dockerfile.bak"
+expect_fail 'backend runtime CMD와 Nest 산출물 경로 불일치' "$ctx"
+
 ctx=$(make_context missing-dockerignore)
 rm "$ctx/.dockerignore"
 expect_fail 'root .dockerignore 부재' "$ctx"

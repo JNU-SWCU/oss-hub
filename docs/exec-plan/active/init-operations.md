@@ -35,7 +35,7 @@
 3. 재사용 workspace에서도 backend Prisma client를 명시 생성한 뒤 lint, typecheck, test, 앱 build를 통과시킨다.
 4. 현재 실행 중인 front/back 이미지 태그를 `PREV_TAG`로 캡처한다. 두 태그가 다르면 배포를 중단한다.
 5. PostgreSQL을 healthy 상태로 기동하고 migration 전에 `pg_dump` backup을 접근 제한 경로에 보존한다.
-6. exact SHA로 front와 back 이미지를 서버 로컬에서 각각 한 번만 빌드한다. 레지스트리에 push하거나 pull하지 않는다.
+6. exact SHA로 front와 back 이미지를 서버 로컬에서 각각 한 번만 빌드한다. backend runtime CMD는 실제 Nest 산출물 `dist/src/main.js`를 실행하는지 static contract로 고정한다. 레지스트리에 push하거나 pull하지 않는다.
 7. 6에서 빌드한 backend 이미지로 `prisma migrate deploy`를 실행한다.
 8. `up -d --no-build --wait --wait-timeout <n>`로 nginx, front, back, postgres를 동일 `IMAGE_TAG`로 기동하고 loopback Compose ingress와 공인 IP TLS에서 `/`·`/api/v1/health` smoke를 모두 수행한다.
 9. 모두 성공한 뒤에만 정상 Release tag와 SHA 상태 파일을 원자적으로 갱신한다.
