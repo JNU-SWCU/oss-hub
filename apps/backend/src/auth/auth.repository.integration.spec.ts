@@ -16,6 +16,7 @@ function upsertUser(profile: {
   readonly login: string;
   readonly name: string | null;
   readonly avatarUrl: string | null;
+  readonly email: string | null;
 }) {
   return repository.withTransaction((store) => store.upsertUser(profile));
 }
@@ -39,6 +40,7 @@ it('동시 최초 로그인은 신규 1건으로 수렴하고 이후 로그인�
     login: 'synthetic-oauth-user',
     name: 'GitHub 합성 이름',
     avatarUrl: null,
+    email: null,
   };
 
   const firstLogins = await Promise.all([

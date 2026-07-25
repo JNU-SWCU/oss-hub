@@ -9,6 +9,7 @@ import type {
   AuthUser,
   GithubProfile,
 } from './domain/auth-user';
+import { selectGithubPrimaryEmail } from './domain/github-primary-email';
 import {
   createFlowState,
   decodeFlowCookie,
@@ -21,9 +22,11 @@ import { issueSessionToken } from './session-token';
 const GITHUB_AUTHORIZE_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const GITHUB_USER_URL = 'https://api.github.com/user';
+const GITHUB_USER_EMAILS_URL = 'https://api.github.com/user/emails';
 const GITHUB_API_VERSION = '2022-11-28';
 const USER_AGENT = 'oss-hub-backend';
 const UPSTREAM_TIMEOUT_MS = 10_000;
+const GITHUB_OAUTH_SCOPE = 'read:user user:email';
 
 export interface AuthorizeRedirect {
   url: string;
@@ -49,7 +52,7 @@ export class AuthService {
     const url = new URL(GITHUB_AUTHORIZE_URL);
     url.searchParams.set('client_id', oauth.clientId);
     url.searchParams.set('redirect_uri', oauth.callbackUrl);
-    url.searchParams.set('scope', 'read:user');
+    url.searchParams.set('scope', GITHUB_OAUTH_SCOPE);
     url.searchParams.set('state', flow.state);
     url.searchParams.set('code_challenge', toCodeChallenge(flow.verifier));
     url.searchParams.set('code_challenge_method', 'S256');
@@ -129,12 +132,7 @@ export class AuthService {
 
   private async fetchProfile(accessToken: string): Promise<GithubProfile> {
     const response = await fetch(GITHUB_USER_URL, {
-      headers: {
-        Accept: 'application/vnd.github+json',
-        Authorization: `Bearer ${accessToken}`,
-        'User-Agent': USER_AGENT,
-        'X-GitHub-Api-Version': GITHUB_API_VERSION,
-      },
+      headers: this.githubApiHeaders(accessToken),
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
     if (!response.ok) {
@@ -144,11 +142,64 @@ export class AuthService {
     if (typeof body.id !== 'number' || typeof body.login !== 'string') {
       throw new Error('GitHub 프로필 응답 형식이 올바르지 않습니다.');
     }
+    const email = await this.fetchPrimaryEmail(accessToken);
     return {
       githubId: BigInt(body.id),
       login: body.login,
       name: typeof body.name === 'string' ? body.name : null,
       avatarUrl: typeof body.avatar_url === 'string' ? body.avatar_url : null,
+      email,
+    };
+  }
+
+  /**
+   * primary 이메일만 골라 반환한다. 주소 값은 로그에 남기지 않는다.
+   * emails API 실패·빈 목록은 null로 처리해 로그인 자체를 막지 않는다.
+   */
+  private async fetchPrimaryEmail(accessToken: string): Promise<string | null> {
+    const response = await fetch(GITHUB_USER_EMAILS_URL, {
+      headers: this.githubApiHeaders(accessToken),
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const body: unknown = await response.json();
+    if (!Array.isArray(body)) {
+      return null;
+    }
+    const emails = body.flatMap((entry) => {
+      if (
+        entry === null ||
+        typeof entry !== 'object' ||
+        typeof (entry as { email?: unknown }).email !== 'string' ||
+        typeof (entry as { primary?: unknown }).primary !== 'boolean' ||
+        typeof (entry as { verified?: unknown }).verified !== 'boolean'
+      ) {
+        return [];
+      }
+      const row = entry as {
+        email: string;
+        primary: boolean;
+        verified: boolean;
+      };
+      return [
+        {
+          email: row.email,
+          primary: row.primary,
+          verified: row.verified,
+        },
+      ];
+    });
+    return selectGithubPrimaryEmail(emails);
+  }
+
+  private githubApiHeaders(accessToken: string): Record<string, string> {
+    return {
+      Accept: 'application/vnd.github+json',
+      Authorization: `Bearer ${accessToken}`,
+      'User-Agent': USER_AGENT,
+      'X-GitHub-Api-Version': GITHUB_API_VERSION,
     };
   }
 }

@@ -4,7 +4,7 @@ pipeline {
   }
 
   parameters {
-    string(name: 'RELEASE_ACTION', defaultValue: '', description: 'GitHub release webhook action')
+    string(name: 'RELEASE_ACTION', defaultValue: '', description: 'GitHub Release action')
     string(name: 'RELEASE_TAG', defaultValue: '', description: 'GitHub Release tag (vMAJOR.MINOR.PATCH)')
   }
 
@@ -93,8 +93,73 @@ printf '%s' "$release_sha"
             error('Release tag를 정확한 commit SHA로 해석하지 못했습니다.')
           }
           env.IMAGE_TAG = releaseSha
-          sh 'git checkout --detach "$IMAGE_TAG"'
         }
+      }
+    }
+
+    stage('PM·Tech Lead Release 승인 검증 및 exact SHA checkout') {
+      when {
+        expression { env.RUN_MODE == 'release' }
+      }
+      steps {
+        sh '''#!/usr/bin/env bash
+set -euo pipefail
+
+comments_file="$(mktemp)"
+page_file="$(mktemp)"
+merged_file="$(mktemp)"
+trap 'rm -f "$comments_file" "$page_file" "$merged_file"' EXIT
+printf '[]' > "$comments_file"
+
+pagination_complete='false'
+for page in $(seq 1 20); do
+  curl --fail --silent --show-error \
+    --header 'Accept: application/vnd.github+json' \
+    --header 'X-GitHub-Api-Version: 2022-11-28' \
+    "https://api.github.com/repos/JNU-SWCU/oss-hub/issues/199/comments?per_page=100&page=${page}" \
+    --output "$page_file"
+
+  jq -e 'type == "array"' "$page_file" >/dev/null
+  page_count="$(jq 'length' "$page_file")"
+  jq -s '.[0] + .[1]' "$comments_file" "$page_file" > "$merged_file"
+  mv "$merged_file" "$comments_file"
+
+  if [ "$page_count" -lt 100 ]; then
+    pagination_complete='true'
+    break
+  fi
+done
+
+if [ "$pagination_complete" != 'true' ]; then
+  echo 'Release 승인 댓글이 2,000개를 넘어 자동 검증 범위를 초과했습니다.' >&2
+  exit 1
+fi
+
+pm_accept="RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}"
+tech_lead_accept="RELEASE_ACCEPT role=TECH_LEAD tag=${RELEASE_TAG} head=${IMAGE_TAG}"
+pm_override="RELEASE_OVERRIDE role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}"
+
+if jq -e \
+  --arg actor 'GoBeromsu' \
+  --arg expected "$pm_override" \
+  '[.[] | select((.user.login | ascii_downcase) == ($actor | ascii_downcase)) | .body | split("\\n")[] | select(. == $expected)] | length > 0' \
+  "$comments_file" >/dev/null; then
+  echo "감사 가능한 PM Release override를 확인했습니다: ${RELEASE_TAG}@${IMAGE_TAG}"
+else
+  jq -e \
+    --arg actor 'GoBeromsu' \
+    --arg expected "$pm_accept" \
+    '[.[] | select((.user.login | ascii_downcase) == ($actor | ascii_downcase)) | .body | split("\\n")[] | select(. == $expected)] | length > 0' \
+    "$comments_file" >/dev/null
+
+  jq -e \
+    --arg actor 'Lumiere001' \
+    --arg expected "$tech_lead_accept" \
+    '[.[] | select((.user.login | ascii_downcase) == ($actor | ascii_downcase)) | .body | split("\\n")[] | select(. == $expected)] | length > 0' \
+    "$comments_file" >/dev/null
+fi
+'''
+        sh 'git checkout --detach "$IMAGE_TAG"'
       }
     }
 
@@ -167,6 +232,7 @@ cat "$DEPLOY_STATE_FILE"
       steps {
         sh '''
           pnpm install --frozen-lockfile
+          pnpm --filter backend exec prisma generate
           pnpm lint
           pnpm typecheck
           pnpm test
@@ -292,8 +358,12 @@ cat "$DEPLOY_STATE_FILE"
             try {
               sh '''
                 docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait --wait-timeout 90
-                curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1/
-                curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1/api/v1/health
+                curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8081/
+                curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8081/api/v1/health
+                curl --fail --silent --show-error --retry 5 --retry-connrefused \
+                  --resolve '54.116.116.174:443:127.0.0.1' https://54.116.116.174/
+                curl --fail --silent --show-error --retry 5 --retry-connrefused \
+                  --resolve '54.116.116.174:443:127.0.0.1' https://54.116.116.174/api/v1/health
               '''
             } catch (deploymentFailure) {
               sh '''
@@ -306,8 +376,12 @@ cat "$DEPLOY_STATE_FILE"
                 withEnv(["IMAGE_TAG=${env.PREV_TAG}"]) {
                   sh '''
                     docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait --wait-timeout 90
-                    curl --fail --silent --show-error http://127.0.0.1/
-                    curl --fail --silent --show-error http://127.0.0.1/api/v1/health
+                    curl --fail --silent --show-error http://127.0.0.1:8081/
+                    curl --fail --silent --show-error http://127.0.0.1:8081/api/v1/health
+                    curl --fail --silent --show-error \
+                      --resolve '54.116.116.174:443:127.0.0.1' https://54.116.116.174/
+                    curl --fail --silent --show-error \
+                      --resolve '54.116.116.174:443:127.0.0.1' https://54.116.116.174/api/v1/health
                   '''
                 }
               } else {
@@ -341,6 +415,16 @@ cat "$DEPLOY_STATE_FILE"
   post {
     failure {
       echo 'Jenkins 배포가 실패했습니다. 기존 서비스 상태와 보존된 build·Compose 로그를 확인하십시오.'
+      script {
+        // 실패 알림은 email-ext 플러그인으로 보낸다. 수신자·SMTP는 Jenkins UI 설정에만 둔다
+        // (Manage Jenkins → System → Extended E-mail Notification: Default Recipients + SMTP).
+        // 저장소엔 이메일 주소를 남기지 않으며 '$DEFAULT_RECIPIENTS'가 그 UI 값으로 치환된다.
+        emailext(
+          to: '$DEFAULT_RECIPIENTS',
+          subject: "[oss-hub] 배포 실패 ${env.RELEASE_TAG ?: ''} #${env.BUILD_NUMBER}",
+          body: "Jenkins 배포가 실패했습니다.\nJob: ${env.JOB_NAME} #${env.BUILD_NUMBER}\nRELEASE_TAG: ${env.RELEASE_TAG ?: '(n/a)'}\n콘솔 로그: ${env.BUILD_URL}console",
+        )
+      }
     }
   }
 }

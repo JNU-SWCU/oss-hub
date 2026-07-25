@@ -3,6 +3,7 @@ import type {
   CompleteProfileRequest,
   ProfileFormErrors,
   ProfileFormValues,
+  UpdateProfileRequest,
   UserProfile,
 } from './types';
 
@@ -75,5 +76,54 @@ export function toCompleteProfileRequest(
     name: values.name.trim(),
     studentId: values.studentId.trim(),
     department: resolveDepartment(values),
+  };
+}
+
+/** 설정 화면용 — 학번은 읽기 전용이므로 name·department만 검증한다. */
+export function validateSettingsProfileForm(
+  values: Pick<
+    ProfileFormValues,
+    'name' | 'departmentOption' | 'otherDepartment'
+  >,
+): Pick<ProfileFormErrors, 'name' | 'department'> {
+  const name = values.name.trim();
+  const department = resolveDepartment({
+    name: values.name,
+    studentId: '',
+    departmentOption: values.departmentOption,
+    otherDepartment: values.otherDepartment,
+  });
+  return {
+    name: !name
+      ? '이름을 입력해 주세요.'
+      : name.length > PROFILE_NAME_MAX_LENGTH
+        ? `이름은 ${PROFILE_NAME_MAX_LENGTH}자 이하로 입력해 주세요.`
+        : null,
+    department: !department
+      ? '학과를 선택하거나 입력해 주세요.'
+      : department.length > PROFILE_DEPARTMENT_MAX_LENGTH
+        ? `학과는 ${PROFILE_DEPARTMENT_MAX_LENGTH}자 이하로 입력해 주세요.`
+        : null,
+  };
+}
+
+export function toUpdateProfileRequest(
+  values: Pick<
+    ProfileFormValues,
+    'name' | 'departmentOption' | 'otherDepartment'
+  >,
+): UpdateProfileRequest | null {
+  const errors = validateSettingsProfileForm(values);
+  if (errors.name !== null || errors.department !== null) {
+    return null;
+  }
+  return {
+    name: values.name.trim(),
+    department: resolveDepartment({
+      name: values.name,
+      studentId: '',
+      departmentOption: values.departmentOption,
+      otherDepartment: values.otherDepartment,
+    }),
   };
 }

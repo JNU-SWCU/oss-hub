@@ -86,7 +86,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | ADR-004 REST 예시 도메인 교체(members→users) | @GoBeromsu | done | #76 | #91 | pass | 없음 |
 | CI: public-safe Issue·댓글 스캔 + commitlint 이벤트 가드 | @GoBeromsu | done | #68 | #150 #159 | pass | 없음 |
 | 학생용 수집 App(private repo 포함, read-only) | @Lumiere001 | planned | #15 | - | - | 정책 전제 4건 미확정: 산정 범위·개인 repo 보존·동의 절차·App 소유·운영(unblock: @GoBeromsu). #120/#123(조직 소유 자동화 App, write 권한)과는 별개 앱임을 #15/#120 코멘트로 명확화함 — 대체 관계 아님 |
-| Access & GitHub Platform 백로그(10건: 로그인 이력·설정·시스템 상태·저장소 자동화·webhook 확장 등) | @Lumiere001 | planned | #99 #107 #108 #120 #121 #122 #123 #133 #156 #157 | - | - | GitHub App 인증 ADR(#120)이 저장소 자동 생성(#121)·webhook 확장(#123)의 선행 |
+| Access & GitHub Platform 백로그(9건: 로그인 이력·시스템 상태·저장소 자동화·webhook 확장 등) | @Lumiere001 | planned | #99 #107 #108 #120 #121 #122 #123 #133 #157 | - | - | #156 설정 페이지는 #242 merge로 분리·완료 · GitHub App 인증 ADR(#120)이 저장소 자동 생성(#121)·webhook 확장(#123)의 선행 |
 | 관리자 사용자·역할 관리 | @GoBeromsu | done | #131 | [#231](https://github.com/JNU-SWCU/oss-hub/pull/231) merged | pass | 없음 |
 | 관리자 감사 로그 | @GoBeromsu | active | #132 | - | local pass | owner-path 연동은 @Lumiere001 사후 확인 필요 |
 | 공통 온보딩 프로필 입력 | @GoBeromsu | done | #153 | [#220](https://github.com/JNU-SWCU/oss-hub/pull/220) merged | pass | 없음 |
@@ -98,17 +98,20 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 공통 랜딩 세션별 진입 CTA | @jinsol1190-rgb | done | #98 | #201 | pass | 없음 |
 | 프로그램 편집·마일스톤 | @Geuin04 | review | #101 | [#228](https://github.com/JNU-SWCU/oss-hub/pull/228) | unit 387 · frontend 188 · integration 66 · lint/typecheck/build pass | 현재 로컬 환경에서 브라우저 시각 QA 불가 |
 | 공개 프로그램 목록 | @Geuin04 | done | #102 | [#191](https://github.com/JNU-SWCU/oss-hub/pull/191) merged | pass | 없음 |
-| Program & Intake 계획 백로그(5건: 신청·팀 구성·신청자 목록·신청 폼·운영 대시보드) | @Geuin04 | planned | #104 #105 #106 #117 #118 | - | - | 연결 PR·공개 착수 근거 없음 — #106은 담당자 미착수 답변 확인 |
+| Program & Intake 계획 백로그(5건: 신청·팀 구성·신청자 목록·신청 폼·운영 대시보드) | @Geuin04 | planned | #104 #105 #106 #117 #118 | - | - | production v0.1.3 QA에서 미구현 #106 `/applicants` CTA의 404 확인 · 실제 page/API 전까지 CTA 비노출 hotfix 진행 |
 | 신청 승인·반려와 저장소 생성 트리거 | @Lumiere001 | active | #119 | - | #176 pass | [백엔드 #176](https://github.com/JNU-SWCU/oss-hub/pull/176) merged · #106 신청자 목록·액션 UI 병합 대기 |
 | 교직원 프로그램 생성 | @Geuin04 | done | #100 | [#189](https://github.com/JNU-SWCU/oss-hub/pull/189) merged | pass | 없음 |
 | 공통 프로그램 상세 조회 | @Geuin04 | done | #103 | [#195](https://github.com/JNU-SWCU/oss-hub/pull/195) merged | pass | 없음 |
 | 프로그램 생성 이탈 보호·동작 계약 | @Lumiere001 | done | #196 | #200 | pass | 없음 — 실제 브라우저 접수 E2E는 #128 통합 QA에서 수행 |
 | 마일스톤 최초 제출(TEXT·REPOSITORY_RELEASE) | @Lumiere001 | done | #115 | [#217](https://github.com/JNU-SWCU/oss-hub/pull/217) merged | pass | FILE은 `Program.endAt` + private storage 후속 |
 | 제출 체크리스트·보완 재제출 | @Lumiere001 | review | [#116](https://github.com/JNU-SWCU/oss-hub/issues/116) | [#243](https://github.com/JNU-SWCU/oss-hub/pull/243) | backend unit 460·통합 90·frontend 259 local pass | 브라우저 QA는 OAuth 로그인 필요(unblock: @GoBeromsu 또는 사람 QA) · GET checklist는 #232 선행 |
-| Participation & Showcase 백로그(내 대시보드·운영 대시보드·매트릭스·검토·공개 아카이브·알림·공개 프로필) | @jinsol1190-rgb | planned | #114 #115 #124 #125 #126 #127 #134 #155 | - | - | 없음 — 코어 스키마(done) 전제 충족 |
+| Participation & Showcase 백로그(내 대시보드·운영 대시보드·매트릭스·검토·공개 아카이브·공개 프로필) | @jinsol1190-rgb | planned | #114 #115 #124 #125 #126 #134 #155 | - | - | #127 알림은 #242 merge로 분리·완료 · production v0.1.3 QA에서 미구현 #124 `/submissions` CTA의 404 확인 · 실제 matrix page/API 전까지 CTA 비노출 hotfix 진행 |
 | 학생 활동 타임라인 | @jinsol1190-rgb | review | #154 | [#210](https://github.com/JNU-SWCU/oss-hub/pull/210) | #210 pass | [프런트엔드 #198](https://github.com/JNU-SWCU/oss-hub/pull/198) merged · 백엔드 조회 API #210 리뷰 대기 |
 | Cross-cutting E2E 스모크(접수 흐름·전체 루프) | @GoBeromsu | planned | #128 #129 | - | - | 상위 화면 티켓들 merge 진행에 따라 순차 검증 |
-| Product Definition & Operations 백로그(Release 배포·Notion PRD·IA 동기화) | @GoBeromsu (결정) / @Lumiere001 (#199 구현) | active | #112 #130 #199 | - | local pass | AWS 서버 실행 기반 준비 완료 · Release Jenkinsfile·ADR 동기화 및 초기 Jenkins credential/webhook 구성 진행 중 |
+| 마감 알림 메일 + 수신 이메일 설정 | @GoBeromsu | done | #127 | [#242](https://github.com/JNU-SWCU/oss-hub/pull/242) merged | pass (CLI 실발송 · Aside settings) | 후속 발신 주체 이전 #250 (사업단 Gmail env 교체) |
+| 공통 설정 페이지(내 정보 수정) | @GoBeromsu | done | #156 | [#242](https://github.com/JNU-SWCU/oss-hub/pull/242) merged | pass (Aside UI) | `/settings`·계정 메뉴·프로필 부분 PATCH·알림 API 본인 개방 |
+| 마감 알림 발신 사업단 프로바이더 이전 | @GoBeromsu | planned | #250 | - | - | #242 파일럿 Gmail 유지 · 운영 From만 secret/env 교체 |
+| Product Definition & Operations 백로그(Release 배포·Notion PRD·IA 동기화) | @GoBeromsu (결정) / @Lumiere001 (#199 구현) | active | #112 #130 #199 | [#241](https://github.com/JNU-SWCU/oss-hub/pull/241) | local verification pending | Release trigger·공개 PM override·공인 EIP TLS 종단 연결 완료 · v0.1.1 stale Prisma lint 수정 · v0.1.2는 backup/migration 뒤 backend CMD와 `dist/src/main.js` 불일치로 smoke 실패, 정상 상태 미기록 · entrypoint hotfix 및 v0.1.3 재시도 진행 |
 | GitHub 저장소 주기 수집 스케줄러 | @GoBeromsu | planned | #151 | - | - | 없음 |
 | OSS 활성화 랭킹 | @jinsol1190-rgb | review | #152 | [#194](https://github.com/JNU-SWCU/oss-hub/pull/194) | local pass | 공개 적격성 projection 부재로 endpoint·nav fail-closed 비노출 |
 | 공개 랭킹 저장소 소유권 projection | @jinsol1190-rgb | done | #197 | #202 | pass | 없음 |

@@ -72,6 +72,7 @@ describe('AuthService', () => {
       'https://github.com/login/oauth/authorize',
     );
     expect(url.searchParams.get('client_id')).toBe('synthetic-client-id');
+    expect(url.searchParams.get('scope')).toBe('read:user user:email');
     expect(url.searchParams.get('code_challenge_method')).toBe('S256');
     expect(url.searchParams.get('code_challenge')).toMatch(
       /^[A-Za-z0-9_-]{43}$/,
@@ -83,7 +84,7 @@ describe('AuthService', () => {
     );
   });
 
-  it('happy path: code 교환 → 프로필 조회 → upsert, 토큰은 반환값에 없다', async () => {
+  it('happy path: code 교환 → 프로필·이메일 조회 → upsert, 토큰은 반환값에 없다', async () => {
     const flow = createFlowState();
     fetchMock
       .mockResolvedValueOnce(
@@ -91,6 +92,15 @@ describe('AuthService', () => {
       )
       .mockResolvedValueOnce(
         jsonResponse(200, { id: 424242, login: 'synthetic-login', name: null }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(200, [
+          {
+            email: 'primary@example.com',
+            primary: true,
+            verified: true,
+          },
+        ]),
       );
 
     const login = await service.completeLogin({
@@ -105,8 +115,13 @@ describe('AuthService', () => {
       login: 'synthetic-login',
       name: null,
       avatarUrl: null,
+      email: 'primary@example.com',
     });
     expect(withTransaction).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const emailCall = fetchMock.mock.calls[2] as
+      [string, RequestInit] | undefined;
+    expect(emailCall?.[0]).toBe('https://api.github.com/user/emails');
     // code 교환 요청에 verifier가 포함됐는지
     const [, exchangeInit] = fetchMock.mock.calls[0] as [string, RequestInit];
     const exchangeBody = JSON.parse(exchangeInit.body as string) as Record<

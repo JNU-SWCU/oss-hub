@@ -21,3 +21,8 @@ apps/backend/prisma/migrations
 
 # shadcn CLI가 소유한 설정 — 키·값 줄 분리 형태 유지 필요(public-safe가 같은 줄의 인용부호 직후 골뱅이 기호를 이메일 후보로 오탐)
 apps/frontend/components.json
+
+# agent worktrees / local evidence
+.claude/worktrees/
+.omo/
+apps/backend/scripts/seed-staff-settings.js

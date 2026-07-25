@@ -10,6 +10,7 @@ function buildProfile(overrides: Partial<GithubProfile> = {}): GithubProfile {
     login: 'synthetic-login',
     name: null,
     avatarUrl: null,
+    email: null,
     ...overrides,
   };
 }
@@ -25,6 +26,8 @@ function buildRow(overrides: Partial<PrismaUser> = {}): PrismaUser {
     avatarUrl: null,
     accountStatus: AccountStatus.ACTIVE,
     role: null,
+    notificationEmail: null,
+    notifyEnabled: true,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
     ...overrides,
@@ -199,6 +202,63 @@ describe('AuthRepository.upsertUser', () => {
       where: { githubId: 424242n },
       data: { nickname: 'synthetic-login', avatarUrl: null },
     });
+  });
+
+  it('신규 사용자 생성 시 profile.email이 있으면 notificationEmail을 시드한다', async () => {
+    const { repository, createMany } = buildRepository(buildRow(), {
+      isNew: true,
+    });
+
+    await upsertUser(
+      repository,
+      buildProfile({ email: 'primary@example.com' }),
+    );
+
+    const [createManyArgs] = createMany.mock.calls[0] as [
+      { data: { notificationEmail?: string; notifyEnabled?: boolean } },
+    ];
+    expect(createManyArgs.data.notificationEmail).toBe('primary@example.com');
+    expect(createManyArgs.data).not.toHaveProperty('notifyEnabled');
+  });
+
+  it('기존 사용자의 notificationEmail이 null이면 email로만 시드한다', async () => {
+    const { repository, update } = buildRepository(
+      buildRow({ notificationEmail: null }),
+    );
+
+    await upsertUser(
+      repository,
+      buildProfile({ email: 'primary@example.com' }),
+    );
+
+    expect(update).toHaveBeenCalledWith({
+      where: { githubId: 424242n },
+      data: {
+        nickname: 'synthetic-login',
+        avatarUrl: null,
+        notificationEmail: 'primary@example.com',
+      },
+    });
+  });
+
+  it('기존 notificationEmail이 있으면 GitHub email로 덮어쓰지 않는다', async () => {
+    const { repository, update } = buildRepository(
+      buildRow({ notificationEmail: 'kept@example.com' }),
+    );
+
+    await upsertUser(
+      repository,
+      buildProfile({ email: 'primary@example.com' }),
+    );
+
+    expect(update).toHaveBeenCalledWith({
+      where: { githubId: 424242n },
+      data: { nickname: 'synthetic-login', avatarUrl: null },
+    });
+    const [updateArgs] = update.mock.calls[0] as [
+      { data: { notificationEmail?: string } },
+    ];
+    expect(updateArgs.data).not.toHaveProperty('notificationEmail');
   });
 });
 

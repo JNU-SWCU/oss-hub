@@ -16,10 +16,12 @@ export interface AuthLoginResult {
   isNew: boolean;
 }
 
-/** GitHub /user 응답에서 검증을 거쳐 만든 내부 값 — 액세스 토큰은 여기 포함되지 않는다. */
+/** GitHub /user·/user/emails 응답에서 검증을 거쳐 만든 내부 값 — 액세스 토큰은 여기 포함되지 않는다. */
 export interface GithubProfile {
   githubId: bigint;
   login: string;
   name: string | null;
   avatarUrl: string | null;
+  /** GitHub primary 이메일. 없으면 null — 로그에 남기지 않는다. */
+  email: string | null;
 }

@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
   CompleteUserProfileInput,
+  UpdateProfileFieldsInput,
   UserProfileRecord,
 } from './domain/user-profile';
 
@@ -11,6 +12,10 @@ export interface UsersRepositoryPort {
     expected: UserProfileRecord,
     input: CompleteUserProfileInput,
   ): Promise<boolean>;
+  updateProfileFields(
+    userId: string,
+    fields: UpdateProfileFieldsInput,
+  ): Promise<void>;
 }
 
 @Injectable()
@@ -43,5 +48,18 @@ export class UsersRepository implements UsersRepositoryPort {
       data: input,
     });
     return result.count === 1;
+  }
+
+  async updateProfileFields(
+    userId: string,
+    fields: UpdateProfileFieldsInput,
+  ): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: fields.name,
+        department: fields.department,
+      },
+    });
   }
 }

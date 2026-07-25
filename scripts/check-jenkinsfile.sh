@@ -50,7 +50,7 @@ awk '
 
 count_fixed() {
   local pattern=$1
-  { grep -F "$pattern" "$active_jenkinsfile" || true; } | wc -l | tr -d ' '
+  { grep -F -- "$pattern" "$active_jenkinsfile" || true; } | wc -l | tr -d ' '
 }
 
 require_exact() {
@@ -99,6 +99,14 @@ require_exact 'latest tag 일치는 한 번이어야 함' "jq -r '.tag_name'" 1
 require_exact 'Release tag의 commit 해석은 한 번이어야 함' 'git rev-parse "${RELEASE_TAG}^{commit}"' 1
 require_exact 'main ancestry 검증은 한 번이어야 함' 'git merge-base --is-ancestor "$release_sha" origin/main' 1
 require_exact 'exact SHA IMAGE_TAG 할당은 한 번이어야 함' 'env.IMAGE_TAG = releaseSha' 1
+require_exact 'Release 승인은 공개 #199 댓글에서 페이지별 조회해야 함' '/issues/199/comments?per_page=100&page=${page}' 1
+require_exact 'Release 승인 댓글 pagination은 최대 20페이지여야 함' 'for page in $(seq 1 20); do' 1
+require_exact 'Release 승인 댓글 pagination 완료를 확인해야 함' "if [ \"\$pagination_complete\" != 'true' ]; then" 1
+require_exact 'PM 승인·override actor는 GoBeromsu여야 함' "--arg actor 'GoBeromsu'" 2
+require_exact 'Tech Lead 승인 actor는 Lumiere001여야 함' "--arg actor 'Lumiere001'" 1
+require_exact 'PM 승인 형식은 tag와 exact SHA를 포함해야 함' 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}' 1
+require_exact 'Tech Lead 승인 형식은 tag와 exact SHA를 포함해야 함' 'RELEASE_ACCEPT role=TECH_LEAD tag=${RELEASE_TAG} head=${IMAGE_TAG}' 1
+require_exact 'PM override 형식은 tag와 exact SHA를 포함해야 함' 'RELEASE_OVERRIDE role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}' 1
 require_exact 'exact SHA checkout은 한 번이어야 함' 'git checkout --detach "$IMAGE_TAG"' 1
 
 require_exact '영속 배포 상태 파일은 고정 경로여야 함' "DEPLOY_STATE_FILE = '/var/lib/oss-hub/deploy-state/current-release'" 1
@@ -108,6 +116,7 @@ require_at_least 'Release 배포 stage는 no-op을 건너뛰어야 함' "env.RUN
 require_at_least '운영 환경은 Jenkins file credential로 주입해야 함' "credentialsId: 'oss-hub-production-env'" 1
 
 require_exact '의존성 설치는 한 번이어야 함' 'pnpm install --frozen-lockfile' 1
+require_exact '재사용 workspace에서도 Prisma client를 명시 생성해야 함' 'pnpm --filter backend exec prisma generate' 1
 require_exact 'test는 한 번이어야 함' 'pnpm test' 1
 require_exact 'DB backup은 한 번이어야 함' 'pg_dump' 1
 require_exact 'frontend 이미지는 한 번만 빌드해야 함' 'docker build --file apps/frontend/Dockerfile --tag "oss-hub-frontend:${IMAGE_TAG}" .' 1
@@ -115,13 +124,21 @@ require_exact 'backend 이미지는 한 번만 빌드해야 함' 'docker build -
 require_exact '중지된 기존 container도 rollback 기준에 포함해야 함' 'docker compose --env-file "$OSS_HUB_ENV_FILE" ps --all -q' 2
 require_exact 'migration은 한 번이어야 함' 'npx prisma migrate deploy' 1
 require_exact 'primary·rollback은 기존 이미지만 사용해야 함' 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait' 2
-require_exact 'backend smoke는 primary·rollback에 있어야 함' 'http://127.0.0.1/api/v1/health' 2
+require_exact '내부 backend smoke는 primary·rollback에 있어야 함' 'http://127.0.0.1:8081/api/v1/health' 2
+require_exact 'TLS backend smoke는 primary·rollback에 있어야 함' 'https://54.116.116.174/api/v1/health' 2
+require_exact 'TLS smoke는 인증서의 IP SAN을 검증해야 함' "--resolve '54.116.116.174:443:127.0.0.1'" 4
 require_exact 'rollback은 이전 정상 이미지가 있을 때만 실행해야 함' 'if (env.PREV_TAG?.trim())' 1
 require_exact '정상 상태는 한 번만 원자 갱신해야 함' 'mv "$state_tmp" "$DEPLOY_STATE_FILE"' 1
 
-frontend_smoke_count=$(grep -Ec 'http://127\.0\.0\.1/[[:space:]]*$' "$active_jenkinsfile" || true)
-if ((frontend_smoke_count != 2)); then
-  printf 'Jenkinsfile contract: frontend smoke는 primary·rollback에 있어야 함 (expected=2, actual=%s)\n' "$frontend_smoke_count" >&2
+internal_frontend_smoke_count=$(grep -Ec 'http://127\.0\.0\.1:8081/[[:space:]]*$' "$active_jenkinsfile" || true)
+if ((internal_frontend_smoke_count != 2)); then
+  printf 'Jenkinsfile contract: 내부 frontend smoke는 primary·rollback에 있어야 함 (expected=2, actual=%s)\n' "$internal_frontend_smoke_count" >&2
+  exit 1
+fi
+
+tls_frontend_smoke_count=$(grep -Ec 'https://54\.116\.116\.174/[[:space:]]*$' "$active_jenkinsfile" || true)
+if ((tls_frontend_smoke_count != 2)); then
+  printf 'Jenkinsfile contract: TLS frontend smoke는 primary·rollback에 있어야 함 (expected=2, actual=%s)\n' "$tls_frontend_smoke_count" >&2
   exit 1
 fi
 
@@ -153,6 +170,11 @@ if ((docker_build_count != 2)); then
   exit 1
 fi
 
+pm_approval_line=$(line_of 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}')
+tech_lead_approval_line=$(line_of 'RELEASE_ACCEPT role=TECH_LEAD tag=${RELEASE_TAG} head=${IMAGE_TAG}')
+pm_override_line=$(line_of 'RELEASE_OVERRIDE role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}')
+checkout_line=$(line_of 'git checkout --detach "$IMAGE_TAG"')
+prisma_generate_line=$(line_of 'pnpm --filter backend exec prisma generate')
 test_line=$(line_of 'pnpm test')
 backup_line=$(line_of 'pg_dump')
 frontend_build_line=$(line_of 'docker build --file apps/frontend/Dockerfile')
@@ -161,7 +183,12 @@ migration_line=$(line_of 'npx prisma migrate deploy')
 rollout_line=$(line_of 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait')
 state_line=$(line_of 'mv "$state_tmp" "$DEPLOY_STATE_FILE"')
 
-if ! ((test_line < backup_line &&
+if ! ((pm_approval_line < checkout_line &&
+       tech_lead_approval_line < checkout_line &&
+       pm_override_line < checkout_line &&
+       checkout_line < prisma_generate_line &&
+       prisma_generate_line < test_line &&
+       test_line < backup_line &&
        backup_line < frontend_build_line &&
        frontend_build_line < backend_build_line &&
        backend_build_line < migration_line &&
@@ -171,4 +198,4 @@ if ! ((test_line < backup_line &&
   exit 1
 fi
 
-echo 'Jenkinsfile contract: ok (main validation only, Release exact-SHA deploy, durable no-op/backup/rollback)'
+echo 'Jenkinsfile contract: ok (deterministic Prisma generate, main validation only, dual-approved or audited-PM-override Release exact-SHA deploy, durable no-op/backup/rollback)'
