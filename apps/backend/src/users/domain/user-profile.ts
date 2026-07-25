@@ -23,6 +23,18 @@ export interface CompleteUserProfileInput {
   readonly department: string;
 }
 
+/** PATCH 본문 — studentId는 미완료 완료 시에만 필수, 완료 후 전달 시 USR_003. */
+export interface PatchUserProfileInput {
+  readonly name: string;
+  readonly studentId?: string;
+  readonly department: string;
+}
+
+export interface UpdateProfileFieldsInput {
+  readonly name: string;
+  readonly department: string;
+}
+
 export function toUserProfile(record: UserProfileRecord): UserProfile {
   return {
     name: record.name ?? '',

@@ -30,7 +30,7 @@ const usersService = {
     department: null,
     isComplete: false,
   }),
-  completeMyProfile: jest.fn().mockResolvedValue(completeProfile),
+  patchMyProfile: jest.fn().mockResolvedValue(completeProfile),
 };
 
 let application: INestApplication;
@@ -121,10 +121,20 @@ it('유효한 PATCH를 정규화해 저장한다', async () => {
 
   expect(response.status).toBe(200);
   await expect(response.json()).resolves.toEqual(completeProfile);
-  expect(usersService.completeMyProfile).toHaveBeenCalledWith(
-    githubId,
-    validBody,
-  );
+  expect(usersService.patchMyProfile).toHaveBeenCalledWith(githubId, validBody);
+});
+
+it('학번 없는 name·department PATCH도 DTO 검증을 통과한다', async () => {
+  const response = await patch({
+    name: validBody.name,
+    department: validBody.department,
+  });
+
+  expect(response.status).toBe(200);
+  expect(usersService.patchMyProfile).toHaveBeenCalledWith(githubId, {
+    name: validBody.name,
+    department: validBody.department,
+  });
 });
 
 it.each([
@@ -150,7 +160,7 @@ it.each([
 
   expect(response.status).toBe(400);
   await expect(response.json()).resolves.toMatchObject({ code: 'SYS_003' });
-  expect(usersService.completeMyProfile).not.toHaveBeenCalled();
+  expect(usersService.patchMyProfile).not.toHaveBeenCalled();
 });
 
 it('허용되지 않은 Origin의 PATCH를 403 AUT_002로 거부한다', async () => {
