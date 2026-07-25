@@ -21,7 +21,7 @@ function contextRow(): ReviewContextInput {
     application: {
       id: 'application-1',
       teamId: 'team-1',
-      applicant: { name: 'Applicant', login: 'applicant' },
+      applicant: { name: 'Applicant', nickname: 'applicant' },
       team: { name: 'Synthetic Team' },
       program: { milestones: [{ id: 'milestone-1' }] },
       submissions: [
