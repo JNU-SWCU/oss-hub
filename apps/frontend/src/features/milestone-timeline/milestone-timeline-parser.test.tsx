@@ -158,4 +158,15 @@ describe('milestone timeline parser', () => {
       parseMilestoneTimelineResponse(malformed, PROGRAM_ID, NOW),
     ).toThrow('마일스톤 타임라인 응답 형식이 올바르지 않습니다');
   });
+
+  it('상위 경로로 정규화되는 milestoneId를 거부한다', () => {
+    const malformed = {
+      ...response,
+      items: [{ ...response.items[0], milestoneId: '..' }],
+    };
+
+    expect(() =>
+      parseMilestoneTimelineResponse(malformed, PROGRAM_ID, NOW),
+    ).toThrow('마일스톤 타임라인 응답 형식이 올바르지 않습니다');
+  });
 });

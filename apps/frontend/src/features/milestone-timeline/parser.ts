@@ -7,6 +7,7 @@ import type {
   SubmissionType,
   TimelineStatus,
 } from './types';
+import { isSafePathSegment } from './path-segment';
 
 const INVALID_RESPONSE_MESSAGE =
   '마일스톤 타임라인 응답 형식이 올바르지 않습니다';
@@ -125,6 +126,7 @@ function parseResponse(value: unknown): MilestoneChecklistResponse {
       if (
         !isRecord(item) ||
         typeof item.milestoneId !== 'string' ||
+        !isSafePathSegment(item.milestoneId) ||
         typeof item.name !== 'string' ||
         typeof item.dueAt !== 'string' ||
         Number.isNaN(new Date(item.dueAt).getTime())
@@ -209,6 +211,7 @@ export function parseMilestoneTimelineResponse(
   programId: string,
   now: Date = new Date(),
 ): MilestoneTimeline {
+  if (!isSafePathSegment(programId)) return invalidResponse();
   const response = parseResponse(value);
   return {
     applicationId: response.applicationId,

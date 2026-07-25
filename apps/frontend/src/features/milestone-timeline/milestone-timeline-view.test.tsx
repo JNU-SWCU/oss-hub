@@ -41,6 +41,13 @@ describe('milestone timeline loader and view', () => {
     ]);
   });
 
+  it('상위 경로로 정규화되는 programId는 API 요청 전에 거부한다', async () => {
+    await expect(loadMilestoneTimeline({ programId: '..' })).rejects.toThrow(
+      '마일스톤 타임라인 경로가 올바르지 않습니다',
+    );
+    expect(apiClientMock).not.toHaveBeenCalled();
+  });
+
   it('responsive timeline과 loading, empty, error states를 렌더링한다', () => {
     // Given
     const timeline = parseMilestoneTimelineResponse(response, PROGRAM_ID, NOW);
