@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { SubmissionMatrixRepository } from './submission-matrix.repository';
+import { SubmissionMatrixService } from './submission-matrix.service';
 import {
   SubmissionChecklistController,
   SubmissionFormsController,
+  SubmissionMatrixController,
   SubmissionsController,
 } from './submissions.controller';
 import { SubmissionsRepository } from './submissions.repository';
@@ -13,8 +16,14 @@ import { SubmissionsService } from './submissions.service';
   controllers: [
     SubmissionChecklistController,
     SubmissionFormsController,
+    SubmissionMatrixController,
     SubmissionsController,
   ],
-  providers: [SubmissionsRepository, SubmissionsService],
+  providers: [
+    SubmissionsRepository,
+    SubmissionsService,
+    SubmissionMatrixRepository,
+    SubmissionMatrixService,
+  ],
 })
 export class SubmissionsModule {}
