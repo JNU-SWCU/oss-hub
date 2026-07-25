@@ -600,8 +600,8 @@ test('rename previous_filename이 CODEOWNERS 후보면 GENERAL 하향에 RISK_AC
   assert.equal(withAccept.conclusion, 'success');
 });
 
-test('emergency policy is disabled until its PR number is pinned', () => {
-  assert.equal(EMERGENCY_POLICY_PR_NUMBER, 0);
+test('emergency policy is pinned to its dedicated amendment PR', () => {
+  assert.equal(EMERGENCY_POLICY_PR_NUMBER, 258);
 });
 
 test('PR #256 emergency approval contract is exact and fail-closed', () => {
@@ -639,7 +639,13 @@ test('PR #256 emergency approval contract is exact and fail-closed', () => {
       ...overrides,
     });
 
-  assert.equal(valid(), true);
+  assert.deepEqual(valid(), {
+    policyPrNumber: 300,
+    policyMergeCommitSha: policySha,
+    policyMergedAt: policy.mergedAt,
+    emergencyCommentId: emergency.id,
+    ownerCommentId: owner.id,
+  });
   assert.equal(valid({ configuredPolicyPrNumber: 0 }), false);
   assert.equal(valid({ pull: { ...emergencyPull, number: 255 } }), false);
   assert.equal(valid({ policy: { ...policy, prNumber: 301 } }), false);

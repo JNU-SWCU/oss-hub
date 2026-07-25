@@ -16,7 +16,7 @@ export const PM_EMERGENCY_ACCEPT_LINE =
   /^PM_EMERGENCY_ACCEPT head=([0-9a-f]{40}) base=(main) base_sha=([0-9a-f]{40}) policy_sha=([0-9a-f]{40}) window=(2026-07-26-KST)$/;
 export const OWNER_CONFIRM_LINE =
   /^OWNER_CONFIRM head=([0-9a-f]{40}) base=(main) base_sha=([0-9a-f]{40})$/;
-export const EMERGENCY_POLICY_PR_NUMBER = 0;
+export const EMERGENCY_POLICY_PR_NUMBER = 258;
 export const EMERGENCY_CUTOFF = '2026-07-26T15:00:00.000Z';
 export const EMERGENCY_PR_NUMBER = 256;
 export const OWNER_ACTOR = 'jinsol1190-rgb';
@@ -303,7 +303,7 @@ export function checkEmergencyApproval({
   if (!Number.isFinite(mergedAt)) {
     return false;
   }
-  const emergencyAccept = comments.some((comment) => {
+  const emergencyAccept = comments.find((comment) => {
     if (comment.authorLogin !== PM_ACTOR || !isUnedited(comment)) {
       return false;
     }
@@ -320,7 +320,7 @@ export function checkEmergencyApproval({
       );
     });
   });
-  const ownerConfirm = comments.some(
+  const ownerConfirm = comments.find(
     (comment) =>
       comment.authorLogin === OWNER_ACTOR &&
       isUnedited(comment) &&
@@ -329,7 +329,16 @@ export function checkEmergencyApproval({
         return match && pinnedToCurrent(pull, match[1], match[2], match[3]);
       }),
   );
-  return emergencyAccept && ownerConfirm;
+  if (!emergencyAccept || !ownerConfirm) {
+    return false;
+  }
+  return {
+    policyPrNumber: policy.prNumber,
+    policyMergeCommitSha: policy.mergeCommitSha,
+    policyMergedAt: policy.mergedAt,
+    emergencyCommentId: emergencyAccept.id,
+    ownerCommentId: ownerConfirm.id,
+  };
 }
 
 function checkHighRiskAccepts(pull, comments, reasons, files, policy) {
@@ -345,19 +354,20 @@ function checkHighRiskAccepts(pull, comments, reasons, files, policy) {
     pattern: TECH_LEAD_ACCEPT_LINE,
     actor: TECH_LEAD_ACTOR,
   });
+  const emergencyEvidence = techLeadAccept
+    ? null
+    : checkEmergencyApproval({ pull, comments, files, policy });
   if (!pmAccept) {
     reasons.push(
       `HIGH_RISK — 현재 head·base에 고정된 @${PM_ACTOR}의 PM_ACCEPT가 없음`,
     );
   }
-  if (
-    !techLeadAccept &&
-    !checkEmergencyApproval({ pull, comments, files, policy })
-  ) {
+  if (!techLeadAccept && !emergencyEvidence) {
     reasons.push(
       `HIGH_RISK — 현재 head·base에 고정된 @${TECH_LEAD_ACTOR}의 TECH_LEAD_ACCEPT가 없음`,
     );
   }
+  return emergencyEvidence;
 }
 
 function findRiskAccept(pull, comments, role, actor) {
@@ -451,8 +461,15 @@ export function evaluateMergePolicy({
     parseCodeownersPatterns(codeownersText),
     changedFiles,
   );
+  let emergencyEvidence = null;
   if (mergeReady.risk === 'HIGH_RISK') {
-    checkHighRiskAccepts(pull, sortedComments, reasons, files, policy);
+    emergencyEvidence = checkHighRiskAccepts(
+      pull,
+      sortedComments,
+      reasons,
+      files,
+      policy,
+    );
   } else if (candidate) {
     checkGeneralDowngrade(pull, sortedComments, reasons);
   }
@@ -463,11 +480,26 @@ export function evaluateMergePolicy({
     reasons,
     notes,
     mergeReady.commentId,
+    emergencyEvidence,
   );
 }
 
-function verdict(conclusion, risk, reasons, notes, mergeReadyCommentId) {
-  return { conclusion, risk, reasons, notes, mergeReadyCommentId };
+function verdict(
+  conclusion,
+  risk,
+  reasons,
+  notes,
+  mergeReadyCommentId,
+  emergencyEvidence = null,
+) {
+  return {
+    conclusion,
+    risk,
+    reasons,
+    notes,
+    mergeReadyCommentId,
+    emergencyEvidence,
+  };
 }
 
 export function formatSummary(result, pull) {
@@ -478,6 +510,14 @@ export function formatSummary(result, pull) {
   ];
   if (result.mergeReadyCommentId) {
     lines.push(`- MERGE_READY comment id: ${result.mergeReadyCommentId}`);
+    if (result.emergencyEvidence) {
+      lines.push(
+        `- emergency policy PR: #${result.emergencyEvidence.policyPrNumber} @ \`${result.emergencyEvidence.policyMergeCommitSha}\``,
+        `- emergency policy merged at: ${result.emergencyEvidence.policyMergedAt}`,
+        `- PM_EMERGENCY_ACCEPT comment id: ${result.emergencyEvidence.emergencyCommentId}`,
+        `- OWNER_CONFIRM comment id: ${result.emergencyEvidence.ownerCommentId}`,
+      );
+    }
   }
   if (result.conclusion === 'success') {
     lines.push(
