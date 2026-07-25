@@ -133,6 +133,7 @@ jobs:
           IMAGE_TAG: synthetic-commit-sha
           DATABASE_URL: postgresql://synthetic_user:synthetic_password_for_config_only@postgres:5432/synthetic_db
           SESSION_SECRET: synthetic_session_secret_for_config_only
+          TEAM_JOIN_CODE_SECRET: synthetic_team_join_code_secret_for_config_only
           FRONTEND_URL: https://synthetic.invalid
           GITHUB_OAUTH_CLIENT_ID: synthetic_client_id
           GITHUB_OAUTH_CLIENT_SECRET: synthetic_client_secret
