@@ -33,7 +33,7 @@ const editableProgram: EditableProgram = {
   },
   applicationStartAt: '2026-08-01T09:30:59.000Z',
   applicationEndAt: '2026-08-15T09:30:59.000Z',
-  endAt: null,
+  endAt: '2026-08-31T09:30:59.000Z',
   repositoryProvisioningEnabled: false,
   description: 'overview',
   teamMinSize: 2,
@@ -111,7 +111,6 @@ describe('program edit API', () => {
       JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)),
     ).toMatchObject({
       category: 'OSS_CONTEST',
-      endAt: '2026-08-31T00:00:00.000Z',
       teamMinSize: 2,
       teamMaxSize: 4,
     });
@@ -160,9 +159,9 @@ describe('program edit API', () => {
               message: '프로그램명을 입력해 주세요.',
             },
             {
-              field: 'endAt',
+              field: 'applicationEndAt',
               code: PROGRAM_EDIT_ERROR_CODES.INVALID_APPLICATION_PERIOD,
-              message: '종료일은 신청 종료일 이후여야 합니다.',
+              message: '신청 종료일을 확인해 주세요.',
             },
           ],
         }),
@@ -192,7 +191,7 @@ describe('program edit API', () => {
 
     expect(mapProgramEditError(error)).toMatchObject({
       name: '프로그램명을 입력해 주세요.',
-      endAt: '종료일은 신청 종료일 이후여야 합니다.',
+      period: '신청 종료일을 확인해 주세요.',
     });
     expect(form.name).toBe('작성 중');
   });

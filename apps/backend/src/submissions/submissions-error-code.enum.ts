@@ -17,6 +17,11 @@ export const SubmissionsErrorCode = {
   STALE_SUBMISSION_REVISION: 'SUB_014',
   STAFF_ONLY: 'SUB_015',
   PROGRAM_NOT_FOUND: 'SUB_016',
+  INVALID_FILE_UPLOAD: 'SUB_017',
+  UNSUPPORTED_FILE_TYPE: 'SUB_018',
+  FILE_TOO_LARGE: 'SUB_019',
+  FILE_STORAGE_UNAVAILABLE: 'SUB_020',
+  FILE_RETENTION_UNAVAILABLE: 'SUB_021',
 } as const;
 
 export type SubmissionsErrorCode =
@@ -104,5 +109,30 @@ export const SUBMISSIONS_ERROR_CODES: Readonly<
     code: SubmissionsErrorCode.PROGRAM_NOT_FOUND,
     status: 404,
     message: '프로그램을 찾을 수 없습니다.',
+  },
+  [SubmissionsErrorCode.INVALID_FILE_UPLOAD]: {
+    code: SubmissionsErrorCode.INVALID_FILE_UPLOAD,
+    status: 400,
+    message: '파일, 신청 ID, 마일스톤 ID를 올바르게 입력해 주세요.',
+  },
+  [SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE]: {
+    code: SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE,
+    status: 415,
+    message: '지원하지 않는 파일 형식입니다.',
+  },
+  [SubmissionsErrorCode.FILE_TOO_LARGE]: {
+    code: SubmissionsErrorCode.FILE_TOO_LARGE,
+    status: 413,
+    message: '파일 크기는 50 MiB를 초과할 수 없습니다.',
+  },
+  [SubmissionsErrorCode.FILE_STORAGE_UNAVAILABLE]: {
+    code: SubmissionsErrorCode.FILE_STORAGE_UNAVAILABLE,
+    status: 503,
+    message: '파일 저장소를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
+  },
+  [SubmissionsErrorCode.FILE_RETENTION_UNAVAILABLE]: {
+    code: SubmissionsErrorCode.FILE_RETENTION_UNAVAILABLE,
+    status: 422,
+    message: '프로그램 종료일이 설정된 후 파일을 제출할 수 있습니다.',
   },
 };

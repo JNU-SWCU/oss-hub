@@ -6,13 +6,51 @@ import {
   getSubmissionChecklist,
   getSubmissionForm,
   getSubmissionMatrix,
+  uploadSubmissionFile,
 } from './api';
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+function jsonResponse(value: unknown, status = 201): Response {
+  return new Response(JSON.stringify(value), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
 describe('submissions api', () => {
+  it('파일과 식별자를 FormData로 보내고 Content-Type을 직접 설정하지 않는다', async () => {
+    const uploaded = {
+      fileId: 'file-1',
+      fileName: 'report.pdf',
+      contentType: 'application/pdf',
+      size: 3,
+      expiresAt: '2026-12-31T00:00:00.000Z',
+    };
+    const request = vi.fn().mockResolvedValue(jsonResponse(uploaded));
+    vi.stubGlobal('fetch', request);
+    const file = new File(['pdf'], 'report.pdf', { type: 'application/pdf' });
+
+    const result = await uploadSubmissionFile(
+      'application-1',
+      'milestone-1',
+      file,
+    );
+
+    expect(result).toEqual(uploaded);
+    expect(request).toHaveBeenCalledTimes(1);
+    const [url, init] = request.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(apiPath('submission-files'));
+    expect(init.method).toBe('POST');
+    expect(init.headers).toBeUndefined();
+    expect(init.body).toBeInstanceOf(FormData);
+    const body = init.body as FormData;
+    expect(body.get('applicationId')).toBe('application-1');
+    expect(body.get('milestoneId')).toBe('milestone-1');
+    expect(body.get('file')).toBe(file);
+  });
   it('program과 milestone 식별자를 인코딩해 폼을 조회한다', async () => {
     // Given
     const response = {

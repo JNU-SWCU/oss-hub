@@ -4,6 +4,7 @@ import {
   MilestoneSubmissionType,
   SubmissionStatus,
 } from '@prisma/client';
+import { addOneCalendarYear } from '../common/add-one-calendar-year';
 import { DomainException } from '../common/error-code';
 import { programDeadline } from '../programs/program-deadline';
 import type {
@@ -28,6 +29,7 @@ import {
   type ResubmissionTarget,
   StaleSubmissionRevisionError,
   SubmissionAlreadyExistsError,
+  SubmissionFileUnavailableError,
   type SubmissionApplication,
   type SubmissionMilestone,
   SubmissionsRepository,
@@ -109,7 +111,23 @@ export class SubmissionsService {
           throw this.error(SubmissionsErrorCode.NOT_APPLICATION_MEMBER);
         this.assertSubmittable(application, milestone, input, now);
 
-        const created = await store.createSubmission(input, actor.id);
+        let fileExpiresAt: Date | null = null;
+        if (input.content.type === 'FILE') {
+          const programEndAt = await store.lockProgramEndAt(
+            milestone.programId,
+          );
+          if (programEndAt === null) {
+            throw this.error(SubmissionsErrorCode.FILE_RETENTION_UNAVAILABLE);
+          }
+          fileExpiresAt = addOneCalendarYear(programEndAt);
+        }
+
+        const created = await store.createSubmission(
+          input,
+          actor.id,
+          now,
+          fileExpiresAt,
+        );
         return {
           submissionId: created.id,
           status: created.status,
@@ -119,6 +137,9 @@ export class SubmissionsService {
     } catch (error: unknown) {
       if (error instanceof SubmissionAlreadyExistsError) {
         throw this.error(SubmissionsErrorCode.SUBMISSION_ALREADY_EXISTS);
+      }
+      if (error instanceof SubmissionFileUnavailableError) {
+        throw this.error(SubmissionsErrorCode.FILE_SUBMISSION_UNAVAILABLE);
       }
       throw error;
     }
@@ -274,7 +295,10 @@ export class SubmissionsService {
   ): SubmissionBlockedReasonResponseDto | null {
     if (application.existingSubmission) return 'SUBMISSION_ALREADY_EXISTS';
     if (now > milestone.dueAt) return 'MILESTONE_CLOSED';
-    if (milestone.submissionType === MilestoneSubmissionType.FILE)
+    if (
+      milestone.submissionType === MilestoneSubmissionType.FILE &&
+      milestone.programEndAt === null
+    )
       return 'FILE_UPLOAD_UNAVAILABLE';
     if (
       milestone.submissionType === MilestoneSubmissionType.REPOSITORY_RELEASE &&
@@ -297,8 +321,11 @@ export class SubmissionsService {
       throw this.error(SubmissionsErrorCode.MILESTONE_CLOSED);
     if (input.content.type !== milestone.submissionType)
       throw this.error(SubmissionsErrorCode.CONTENT_TYPE_MISMATCH);
-    if (milestone.submissionType === MilestoneSubmissionType.FILE)
-      throw this.error(SubmissionsErrorCode.FILE_SUBMISSION_UNAVAILABLE);
+    if (
+      milestone.submissionType === MilestoneSubmissionType.FILE &&
+      milestone.programEndAt === null
+    )
+      throw this.error(SubmissionsErrorCode.FILE_RETENTION_UNAVAILABLE);
     if (!application.repositoryUrl) {
       if (
         milestone.submissionType === MilestoneSubmissionType.REPOSITORY_RELEASE

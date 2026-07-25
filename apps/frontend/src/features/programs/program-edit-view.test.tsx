@@ -1,7 +1,12 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { EditableProgram } from './api';
-import { toProgramEditForm, type ProgramEditErrors } from './program-edit-flow';
+import {
+  buildProgramEditInput,
+  mapProgramEditError,
+  toProgramEditForm,
+  type ProgramEditErrors,
+} from './program-edit-flow';
 import { ProgramEditView } from './program-edit-view';
 
 const noOp = () => undefined;
@@ -23,7 +28,7 @@ const editableProgram: EditableProgram = {
   },
   applicationStartAt: '2026-08-01T09:30:59.000Z',
   applicationEndAt: '2026-08-15T09:30:59.000Z',
-  endAt: null,
+  endAt: '2026-08-31T09:30:59.000Z',
   repositoryProvisioningEnabled: true,
   description: '프로그램 설명',
   teamMinSize: 2,
@@ -76,6 +81,8 @@ describe('ProgramEditView contract', () => {
       '신청자가 3명, 팀이 2개 있어 유형을 변경할 수 없습니다',
     );
     expect(html).toContain('disabled=""');
+    expect(html).toContain('id="program-end-at"');
+    expect(html).toContain('프로그램 종료');
     expect(html).toContain('oss-contest');
     expect(html).toContain('v1');
     expect(html).toContain('milestone-canonical-id');
@@ -84,7 +91,6 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('수정');
     expect(html).toContain('삭제');
     expect(html).toContain('href="/programs/program-1"');
-    expect(html).toContain('종료일 (선택)');
   });
 
   it('renders field errors without dropping current input values', () => {
@@ -201,5 +207,50 @@ describe('ProgramEditView contract', () => {
     // Then
     expect(html).toContain('팀이 2개 있어 유형을 변경할 수 없습니다');
     expect(html).toContain('disabled=""');
+  });
+  it('allows a legacy null end to be set and emits the valid payload', () => {
+    const legacyProgram = { ...editableProgram, endAt: null };
+    const form = {
+      ...toProgramEditForm(legacyProgram),
+      endAt: '2026-09-01T12:00',
+    };
+
+    const input = buildProgramEditInput(form, true, ['endAt']);
+
+    expect(input.endAt).toBe(new Date(form.endAt).toISOString());
+    expect(input.applicationEndAt).toBe(legacyProgram.applicationEndAt);
+    expect(input.teamMinSize).toBe(2);
+    expect(input.teamMaxSize).toBe(4);
+  });
+
+  it('forbids clearing an existing program end', () => {
+    const form = { ...toProgramEditForm(editableProgram), endAt: '' };
+
+    let error: unknown;
+    try {
+      buildProgramEditInput(form, true, ['endAt']);
+    } catch (caught) {
+      error = caught;
+    }
+
+    expect(mapProgramEditError(error).endAt).toContain('비울 수 없습니다');
+  });
+
+  it.each([
+    ['application end', '2026-08-15T09:30'],
+    ['milestone due', '2026-08-20T12:30'],
+  ])('rejects a program end at the %s boundary', (_label, endAt) => {
+    const form = { ...toProgramEditForm(editableProgram), endAt };
+
+    let error: unknown;
+    try {
+      buildProgramEditInput(form, true, ['endAt']);
+    } catch (caught) {
+      error = caught;
+    }
+
+    expect(mapProgramEditError(error).endAt).toContain(
+      '신청 종료일과 모든 마일스톤 마감 이후',
+    );
   });
 });

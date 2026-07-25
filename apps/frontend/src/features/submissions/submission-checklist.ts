@@ -3,7 +3,7 @@ import type { SubmissionFormInput } from './submission-form';
 import type {
   ChecklistSubmissionStatus,
   CreatedResubmission,
-  CreateSubmissionContent,
+  ResubmissionContent,
   SubmissionChecklist,
   SubmissionChecklistItem,
   SubmissionType,
@@ -124,7 +124,7 @@ export function resubmissionFailure(
 export function resubmissionContent(
   submissionType: SubmissionType,
   input: SubmissionFormInput,
-): CreateSubmissionContent | null {
+): ResubmissionContent | null {
   switch (submissionType) {
     case 'TEXT':
       return { type: 'TEXT', text: input.text.trim() };

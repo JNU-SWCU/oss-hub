@@ -2,6 +2,7 @@ import {
   ApplicationStatus,
   MilestoneSubmissionType,
   Role,
+  SubmissionFileLifecycle,
 } from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
 import {
@@ -15,6 +16,9 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubmissionsErrorCode } from './submissions-error-code.enum';
+import type { SubmissionFileStoragePort } from './submission-file-storage.port';
+import { SubmissionFilesRepository } from './submission-files.repository';
+import { SubmissionFilesService } from './submission-files.service';
 import { SubmissionsRepository } from './submissions.repository';
 import { SubmissionsService } from './submissions.service';
 
@@ -391,7 +395,7 @@ describe('SubmissionsService integration', () => {
     ]);
   });
 
-  it('FILE 유형은 준비되지 않은 상태로 fail-closed 한다', async () => {
+  it('FILE 유형은 프로그램 종료 시각이 없으면 fail-closed 한다', async () => {
     // Given: 실제 storage 없이 미래 FILE 마일스톤만 존재한다.
 
     // When
@@ -418,8 +422,67 @@ describe('SubmissionsService integration', () => {
       blockedReason: 'FILE_UPLOAD_UNAVAILABLE',
     });
     await expect(submission).rejects.toMatchObject({
-      errorCode: { code: SubmissionsErrorCode.FILE_SUBMISSION_UNAVAILABLE },
+      errorCode: { code: SubmissionsErrorCode.FILE_RETENTION_UNAVAILABLE },
     });
+  });
+
+  it('PENDING 파일에 업로드 만료와 보존 만료를 함께 저장한다', async () => {
+    const programEndAt = new Date('2027-01-01T00:00:00.000Z');
+    await prisma.program.update({
+      where: { id: MILESTONES_PROGRAM_ID },
+      data: { endAt: programEndAt },
+    });
+    const storage: SubmissionFileStoragePort = {
+      put: jest.fn().mockResolvedValue({
+        objectKey: 'private/synthetic-upload.pdf',
+        originalName: 'synthetic-upload.pdf',
+        contentLength: 14,
+        contentType: 'application/pdf',
+      }),
+      delete: jest.fn().mockResolvedValue(undefined),
+    };
+    const fileService = new SubmissionFilesService(
+      new SubmissionFilesRepository(prisma),
+      storage,
+    );
+
+    try {
+      const uploaded = await fileService.upload(
+        seedGithubId(PERSONAL_USER_ID),
+        PERSONAL_APPLICATION_ID,
+        FILE_MILESTONE_ID,
+        {
+          buffer: Buffer.from('%PDF-1.4\n%%EOF'),
+          originalname: 'synthetic-upload.pdf',
+          mimetype: 'application/pdf',
+          size: 14,
+        },
+      );
+
+      const row = await prisma.submissionFile.findUniqueOrThrow({
+        where: { id: uploaded.fileId },
+        select: {
+          lifecycle: true,
+          pendingExpiresAt: true,
+          expiresAt: true,
+        },
+      });
+      expect(row.lifecycle).toBe(SubmissionFileLifecycle.PENDING);
+      expect(row.pendingExpiresAt).not.toBeNull();
+      expect(row.expiresAt).toEqual(new Date('2028-01-01T00:00:00.000Z'));
+    } finally {
+      await prisma.submissionFile.deleteMany({
+        where: {
+          applicationId: PERSONAL_APPLICATION_ID,
+          milestoneId: FILE_MILESTONE_ID,
+          lifecycle: SubmissionFileLifecycle.PENDING,
+        },
+      });
+      await prisma.program.update({
+        where: { id: MILESTONES_PROGRAM_ID },
+        data: { endAt: null },
+      });
+    }
   });
 
   it('연결된 저장소의 태그 URL만 REPOSITORY_RELEASE로 저장한다', async () => {

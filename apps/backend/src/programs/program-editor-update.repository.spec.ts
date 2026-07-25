@@ -1,4 +1,4 @@
-import { ProgramCategory } from '@prisma/client';
+import { ProgramCategory, SubmissionFileLifecycle } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 
@@ -26,7 +26,11 @@ describe('ProgramEditorRepository updates', () => {
         _count: { applications: 0, teams: 0 },
         milestones: [],
       });
-    const transaction = { program: { update } };
+    const updateMany = jest.fn().mockResolvedValue({ count: 2 });
+    const transaction = {
+      program: { update },
+      submissionFile: { updateMany },
+    };
     const prisma = {
       $transaction: <T>(operation: (store: typeof transaction) => Promise<T>) =>
         operation(transaction),
@@ -46,6 +50,7 @@ describe('ProgramEditorRepository updates', () => {
         applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
         applicationEndAt: new Date('2026-08-15T00:00:00.000Z'),
         endAt: new Date('2026-08-31T00:00:00.000Z'),
+        liveFileExpiresAt: new Date('2027-08-31T00:00:00.000Z'),
         teamMinSize: 2,
         teamMaxSize: 4,
         repositoryProvisioningEnabled: false,
@@ -57,7 +62,19 @@ describe('ProgramEditorRepository updates', () => {
     expect(update.mock.calls[0]?.[0].data).toMatchObject({
       teamMinSize: 2,
       teamMaxSize: 4,
-      endAt: new Date('2026-08-31T00:00:00.000Z'),
+    });
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        application: { programId: 'program-1' },
+        lifecycle: {
+          in: [
+            SubmissionFileLifecycle.PENDING,
+            SubmissionFileLifecycle.ATTACHED,
+          ],
+        },
+        deletedAt: null,
+      },
+      data: { expiresAt: new Date('2027-08-31T00:00:00.000Z') },
     });
   });
 });

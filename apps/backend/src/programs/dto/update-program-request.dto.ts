@@ -29,6 +29,10 @@ export class UpdateProgramRequestDto {
   @IsString()
   declare endAt?: string | null;
 
+  @IsOptional()
+  @IsString()
+  declare endAt?: string | null;
+
   @IsBoolean()
   declare repositoryProvisioningEnabled: boolean;
 

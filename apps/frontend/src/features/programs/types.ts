@@ -81,9 +81,33 @@ export interface ApplicationListParams {
   readonly mode: ApplicationListMode;
 }
 
+export const REPOSITORY_PROVISIONING_JOB_STATUSES = [
+  'NOT_REQUESTED',
+  'DISABLED',
+  'PENDING',
+  'PROCESSING',
+  'SUCCEEDED',
+  'RETRYABLE_FAILED',
+  'FAILED',
+  'ANOMALOUS',
+] as const;
+export type RepositoryProvisioningJobStatus =
+  (typeof REPOSITORY_PROVISIONING_JOB_STATUSES)[number];
+export type RepositoryProvisioningSafeErrorClass =
+  'AUTH' | 'RATE_LIMIT' | 'UPSTREAM_REJECTED' | 'UNKNOWN';
+
+export interface RepositoryProvisioning {
+  readonly enabled: boolean;
+  readonly jobStatus: RepositoryProvisioningJobStatus;
+  readonly updatedAt: string;
+  readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
+}
+
 export interface ApplicationListItem {
   readonly id: string;
   readonly status: ApplicationStatus;
+  readonly rejectionReason: string | null;
+  readonly repositoryProvisioning: RepositoryProvisioning;
   readonly submittedAt: string;
   readonly participation: 'INDIVIDUAL' | 'TEAM';
   readonly applicant: {
@@ -177,5 +201,8 @@ export interface ProgramActivity {
   readonly applicationId: string;
   readonly label: string;
   readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly releaseCount: number;
+  readonly dataAsOf: string;
   readonly lastActivityAt: string | null;
 }

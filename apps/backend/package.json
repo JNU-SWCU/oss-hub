@@ -6,7 +6,7 @@
     "seed": "ts-node prisma/seed.ts"
   },
   "scripts": {
-    "dev": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub nest start --watch",
+    "dev": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub SUBMISSION_FILE_S3_ENDPOINT=http://127.0.0.1:9000 SUBMISSION_FILE_S3_REGION=us-east-1 SUBMISSION_FILE_S3_BUCKET=oss-hub-submission-files-local SUBMISSION_FILE_S3_ACCESS_KEY_ID=oss-hub-local SUBMISSION_FILE_S3_SECRET_ACCESS_KEY=oss-hub-local-synthetic-secret SUBMISSION_FILE_S3_FORCE_PATH_STYLE=true nest start --watch",
     "build": "nest build",
     "lint": "eslint \"{src,test,prisma}/**/*.ts\"",
     "typecheck": "tsc --noEmit",
@@ -17,9 +17,12 @@
     "db:reset": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub prisma migrate reset --force",
     "db:seed": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub prisma db seed",
     "collect:batch": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub ts-node src/collection/cli/collect-batch.ts",
-    "notifications:send-digest": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub ts-node src/notifications/cli/send-deadline-digest.ts"
+    "collection:verify-app": "ts-node src/collection/cli/verify-collection-app.ts",
+    "notifications:send-digest": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub ts-node src/notifications/cli/send-deadline-digest.ts",
+    "submissions:retry-file-cleanup": "ts-node src/submissions/cli/retry-submission-file-cleanup.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1094.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",

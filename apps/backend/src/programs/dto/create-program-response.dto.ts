@@ -5,6 +5,7 @@ export class CreateProgramResponseDto {
   readonly category: Program['category'];
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
+  readonly endAt: string;
   readonly detailUrl: string;
 
   private constructor(program: Program) {
@@ -12,6 +13,7 @@ export class CreateProgramResponseDto {
     this.category = program.category;
     this.applicationTemplateKey = program.applicationTemplateKey;
     this.applicationTemplateVersion = program.applicationTemplateVersion;
+    this.endAt = program.endAt!.toISOString();
     this.detailUrl = `/programs/${program.id}`;
   }
 

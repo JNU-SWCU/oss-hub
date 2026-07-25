@@ -12,6 +12,13 @@ import {
   PROGRAM_PARTICIPATION,
 } from './program-template.registry';
 
+const INVALID_END_AT_FIELD_ERROR = {
+  field: 'endAt',
+  code: 'INVALID_END_AT',
+  message:
+    'Program end must be a valid date after the application period ends.',
+} as const;
+
 @Injectable()
 export class ProgramCreationService {
   constructor(private readonly repository: ProgramsRepository) {}
@@ -32,18 +39,12 @@ export class ProgramCreationService {
     const description = input.description.trim();
     const applicationStartAt = new Date(input.applicationStartAt);
     const applicationEndAt = new Date(input.applicationEndAt);
-    const endAt =
-      input.endAt === null || input.endAt === undefined
-        ? null
-        : new Date(input.endAt);
+    const endAt = new Date(input.endAt);
     const template = getProgramTemplate(input.category);
     const hasValidDates =
       !Number.isNaN(applicationStartAt.getTime()) &&
       !Number.isNaN(applicationEndAt.getTime()) &&
       applicationEndAt >= applicationStartAt;
-    const hasValidEndAt =
-      endAt === null ||
-      (!Number.isNaN(endAt.getTime()) && endAt >= applicationEndAt);
     const hasValidTeamSize =
       template.participation === PROGRAM_PARTICIPATION.INDIVIDUAL ||
       (input.teamMinSize !== null &&
@@ -64,14 +65,18 @@ export class ProgramCreationService {
         PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
       );
     }
-    if (!hasValidEndAt) {
+
+    if (
+      typeof input.endAt !== 'string' ||
+      !Number.isFinite(endAt.getTime()) ||
+      endAt <= applicationEndAt
+    ) {
       throw new DomainException(
-        PROGRAM_ERROR_CODES[ProgramErrorCode.INVALID_APPLICATION_PERIOD],
-        {
-          fieldErrors: INVALID_PROGRAM_END_FIELD_ERRORS,
-        },
+        PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
+        { fieldErrors: [INVALID_END_AT_FIELD_ERROR] },
       );
     }
+
     return this.repository.createProgram({
       name,
       organizer,
@@ -93,15 +98,3 @@ export class ProgramCreationService {
     });
   }
 }
-const INVALID_PROGRAM_END_FIELD_ERRORS = [
-  {
-    field: 'applicationEndAt',
-    code: 'INVALID_APPLICATION_PERIOD',
-    message: 'Application period must end before the program ends.',
-  },
-  {
-    field: 'endAt',
-    code: 'INVALID_APPLICATION_PERIOD',
-    message: 'Program end must be on or after application period end.',
-  },
-] as const;

@@ -67,6 +67,48 @@ describe('program creation end date', () => {
   });
 });
 
+describe('program end validation', () => {
+  it.each([
+    ['', '필수'],
+    ['2026-08-08T18:00', '신청 종료일과 같음'],
+    ['2026-08-08T17:59', '신청 종료일보다 이전'],
+  ])('프로그램 종료일이 유효하지 않으면 오류를 반환한다: %s (%s)', (endAt) => {
+    const errors = validateProgramForm(
+      { ...completedForm, endAt },
+      teamTemplate,
+    );
+
+    expect(errors.endAt).toBe(
+      '프로그램 종료일은 신청 종료일보다 늦어야 합니다.',
+    );
+  });
+
+  it('프로그램 종료일이 신청 종료일보다 늦으면 통과한다', () => {
+    const errors = validateProgramForm(completedForm, teamTemplate);
+
+    expect(errors.endAt).toBeUndefined();
+  });
+
+  it('별도의 프로그램 종료일을 ISO 형식으로 정확히 생성 API 입력에 포함한다', () => {
+    const input = buildCreateProgramInput(completedForm, teamTemplate);
+
+    expect(input).toEqual({
+      name: '합성 프로그램',
+      organizer: '합성 주관기관',
+      category: 'OSS_CONTEST',
+      applicationStartAt: new Date(
+        completedForm.applicationStartAt,
+      ).toISOString(),
+      applicationEndAt: new Date(completedForm.applicationEndAt).toISOString(),
+      endAt: new Date(completedForm.endAt).toISOString(),
+      teamMinSize: 2,
+      teamMaxSize: 4,
+      description: '합성 프로그램 설명',
+    });
+    expect(input.endAt).not.toBe(input.applicationEndAt);
+  });
+});
+
 describe('program creation vertical flow', () => {
   it('선택 유형으로 한 번만 생성하고 생성된 상세 화면으로 이동한다', async () => {
     // Given

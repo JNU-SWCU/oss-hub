@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, RoleRequestStatus } from '@prisma/client';
+import {
+  Prisma,
+  RoleRequestStatus,
+  SubmissionFileLifecycle,
+} from '@prisma/client';
 import type { Prisma as PrismaTypes } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
@@ -59,6 +63,21 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
   }
 
   async updateProgram(input: ProgramUpdateInput): Promise<EditableProgramView> {
+    if (input.liveFileExpiresAt !== null) {
+      await this.transaction.submissionFile.updateMany({
+        where: {
+          application: { programId: input.programId },
+          lifecycle: {
+            in: [
+              SubmissionFileLifecycle.PENDING,
+              SubmissionFileLifecycle.ATTACHED,
+            ],
+          },
+          deletedAt: null,
+        },
+        data: { expiresAt: input.liveFileExpiresAt },
+      });
+    }
     const program = await this.transaction.program.update({
       where: { id: input.programId },
       data: {
@@ -87,7 +106,7 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     if (!locked) return null;
     return this.transaction.program.findUnique({
       where: { id: programId },
-      select: { id: true, applicationEndAt: true },
+      select: { id: true, applicationEndAt: true, endAt: true },
     });
   }
 
@@ -113,13 +132,16 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     }
     const milestone = await this.transaction.milestone.findUnique({
       where: { id: milestoneId },
-      include: { program: { select: { applicationEndAt: true } } },
+      include: {
+        program: { select: { applicationEndAt: true, endAt: true } },
+      },
     });
     if (milestone === null || milestone.programId !== programId) return null;
     return {
       ...toMilestoneView(milestone),
       programId: milestone.programId,
       applicationEndAt: milestone.program.applicationEndAt,
+      endAt: milestone.program.endAt,
     };
   }
 
@@ -152,7 +174,22 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     const milestone = await this.transaction.milestone.findUnique({
       where: { id: milestoneId },
       include: {
-        _count: { select: { submissions: true } },
+        _count: {
+          select: {
+            submissions: true,
+            submissionFiles: {
+              where: {
+                lifecycle: {
+                  in: [
+                    SubmissionFileLifecycle.PENDING,
+                    SubmissionFileLifecycle.ATTACHED,
+                  ],
+                },
+                deletedAt: null,
+              },
+            },
+          },
+        },
         program: { include: { _count: { select: { milestones: true } } } },
       },
     });
@@ -160,7 +197,8 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     return {
       id: milestone.id,
       programId: milestone.programId,
-      submissionCount: milestone._count.submissions,
+      submissionCount:
+        milestone._count.submissions + milestone._count.submissionFiles,
       programMilestoneCount: milestone.program._count.milestones,
       programRepositoryProvisioningEnabled:
         milestone.program.repositoryProvisioningEnabled,
@@ -231,7 +269,7 @@ function toEditableProgramView(program: ProgramRecord): EditableProgramView {
     categoryLocked: toCategoryLockState(program._count),
     applicationStartAt: program.applicationStartAt,
     applicationEndAt: program.applicationEndAt,
-    endAt: program.endAt,
+    endAt: program.endAt?.toISOString() ?? null,
     teamMinSize: program.teamMinSize,
     teamMaxSize: program.teamMaxSize,
     repositoryProvisioningEnabled: program.repositoryProvisioningEnabled,

@@ -1,15 +1,23 @@
 import {
   Body,
+  type CallHandler,
   Controller,
+  type ExecutionContext,
   Get,
   Header,
   HttpCode,
+  Injectable,
+  type NestInterceptor,
   Param,
   Post,
   Query,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { DomainException } from '../common/error-code';
 import { OriginGuard } from '../auth/origin.guard';
 import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
 import { CreateResubmissionRequestDto } from './dto/create-resubmission-request.dto';
@@ -22,10 +30,65 @@ import type {
   SubmissionChecklistResponseDto,
   SubmissionFormResponseDto,
 } from './dto/submission-response.dto';
+import {
+  SubmissionFilesService,
+  type SubmissionFileUpload,
+  type UploadedSubmissionFileResponse,
+} from './submission-files.service';
+import {
+  SUBMISSIONS_ERROR_CODES,
+  SubmissionsErrorCode,
+} from './submissions-error-code.enum';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import { SubmissionsService } from './submissions.service';
 
 type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
+
+const MultipartFileInterceptor = FileInterceptor('file', {
+  limits: {
+    fileSize: 50 * 1024 * 1024,
+    fieldNameSize: 100,
+    fieldSize: 512,
+    fields: 2,
+    files: 1,
+    parts: 3,
+  },
+});
+
+@Injectable()
+class SubmissionFileUploadInterceptor
+  extends MultipartFileInterceptor
+  implements NestInterceptor
+{
+  override async intercept(context: ExecutionContext, next: CallHandler) {
+    try {
+      return await super.intercept(context, next);
+    } catch (error) {
+      if (typeof error === 'object' && error !== null && 'code' in error) {
+        if (error.code === 'LIMIT_FILE_SIZE') {
+          throw new DomainException(
+            SUBMISSIONS_ERROR_CODES[SubmissionsErrorCode.FILE_TOO_LARGE],
+          );
+        }
+        if (
+          [
+            'LIMIT_FIELD_KEY',
+            'LIMIT_FIELD_VALUE',
+            'LIMIT_FIELD_COUNT',
+            'LIMIT_FILE_COUNT',
+            'LIMIT_PART_COUNT',
+            'LIMIT_UNEXPECTED_FILE',
+          ].includes(String(error.code))
+        ) {
+          throw new DomainException(
+            SUBMISSIONS_ERROR_CODES[SubmissionsErrorCode.INVALID_FILE_UPLOAD],
+          );
+        }
+      }
+      throw error;
+    }
+  }
+}
 
 @Controller('programs/:programId/milestones/:milestoneId')
 export class SubmissionFormsController {
@@ -78,6 +141,28 @@ export class SubmissionMatrixController {
   }
 }
 
+@Controller('submission-files')
+export class SubmissionFilesController {
+  constructor(private readonly service: SubmissionFilesService) {}
+
+  @Post()
+  @HttpCode(201)
+  @UseGuards(SessionGuard, OriginGuard)
+  @UseInterceptors(SubmissionFileUploadInterceptor)
+  upload(
+    @Req() request: SubmissionRequest,
+    @Body('applicationId') applicationId: unknown,
+    @Body('milestoneId') milestoneId: unknown,
+    @UploadedFile() file: SubmissionFileUpload | undefined,
+  ): Promise<UploadedSubmissionFileResponse> {
+    return this.service.upload(
+      request.sessionGithubId,
+      applicationId,
+      milestoneId,
+      file,
+    );
+  }
+}
 @Controller('submissions')
 export class SubmissionsController {
   constructor(private readonly service: SubmissionsService) {}

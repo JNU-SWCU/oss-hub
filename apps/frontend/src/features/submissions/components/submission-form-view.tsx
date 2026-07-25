@@ -34,9 +34,14 @@ export interface SubmissionFormViewProps {
   readonly comment: string;
   readonly errors: SubmissionFormErrors;
   readonly serverError: string | null;
+  readonly serverErrorKind: 'program-ended' | 'storage-unavailable' | 'generic';
   readonly submitting: boolean;
+  readonly file: File | null;
+  readonly fileError: string | null;
+  readonly submissionPhase: 'uploading' | 'creating' | null;
   readonly onTextChange: (value: string) => void;
   readonly onReleaseUrlChange: (value: string) => void;
+  readonly onFileChange: (file: File | null) => void;
   readonly onCommentChange: (value: string) => void;
   readonly onSubmit: () => void;
   readonly onReload: () => void;
@@ -91,7 +96,13 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
       <SubmissionSummary data={data} />
       {props.serverError ? (
         <Alert variant="destructive">
-          <AlertTitle>제출 실패</AlertTitle>
+          <AlertTitle>
+            {props.serverErrorKind === 'program-ended'
+              ? '프로그램 종료 일시가 필요합니다'
+              : props.serverErrorKind === 'storage-unavailable'
+                ? '파일 저장소를 사용할 수 없습니다'
+                : '제출 실패'}
+          </AlertTitle>
           <AlertDescription>{props.serverError}</AlertDescription>
         </Alert>
       ) : null}
@@ -114,8 +125,12 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
               repositoryUrl={data.repository?.url ?? null}
               input={props.input}
               errors={props.errors}
+              file={props.file}
+              fileError={props.fileError}
+              disabled={props.submitting}
               onTextChange={props.onTextChange}
               onReleaseUrlChange={props.onReleaseUrlChange}
+              onFileChange={props.onFileChange}
             />
             <Field>
               <FieldLabel htmlFor="submission-comment">제출 코멘트</FieldLabel>
@@ -131,6 +146,13 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
                 선택 입력 · 최대 2,000자
               </FieldDescription>
             </Field>
+            {props.submissionPhase ? (
+              <p role="status" aria-live="polite" className="text-sm">
+                {props.submissionPhase === 'uploading'
+                  ? '파일 업로드 중…'
+                  : '제출 정보 저장 중…'}
+              </p>
+            ) : null}
           </CardContent>
         </Card>
         <div className="flex flex-wrap justify-between gap-3">
@@ -138,7 +160,11 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
             <Link href={`/programs/${props.programId}`}>취소</Link>
           </Button>
           <Button type="submit" disabled={props.submitting}>
-            {props.submitting ? '제출 중…' : '제출하기'}
+            {props.submitting
+              ? props.submissionPhase === 'uploading'
+                ? '업로드 중…'
+                : '제출 중…'
+              : '제출하기'}
           </Button>
         </div>
       </form>
