@@ -12,6 +12,26 @@ const RISK_ACCEPT_LINE =
   /^RISK_ACCEPT role=(PM|TECH_LEAD) head=([0-9a-f]{40}) base=(\S+) base_sha=([0-9a-f]{40}) risk=GENERAL$/;
 const EVIDENCE_MARKERS = ['CODE_CONTRACT', 'PONYTAIL', 'QA', 'CLI', 'CI'];
 const QA_NA_MIN_REASON_LENGTH = 10;
+export const PM_EMERGENCY_ACCEPT_LINE =
+  /^PM_EMERGENCY_ACCEPT head=([0-9a-f]{40}) base=(main) base_sha=([0-9a-f]{40}) policy_sha=([0-9a-f]{40}) window=(2026-07-26-KST)$/;
+export const OWNER_CONFIRM_LINE =
+  /^OWNER_CONFIRM head=([0-9a-f]{40}) base=(main) base_sha=([0-9a-f]{40})$/;
+export const EMERGENCY_POLICY_PR_NUMBER = 0;
+export const EMERGENCY_CUTOFF = '2026-07-26T15:00:00.000Z';
+export const EMERGENCY_PR_NUMBER = 256;
+export const OWNER_ACTOR = 'jinsol1190-rgb';
+export const EMERGENCY_DENYLIST = [
+  'AGENTS.md',
+  '**/AGENTS.md',
+  '.github/CODEOWNERS',
+  'docs/decisions/ADR-002*',
+  'docs/decisions/ADR-005*',
+  '.github/workflows/**',
+  '.github/emergency-*',
+  'scripts/merge-policy-check.mjs',
+  'scripts/merge-policy-check-lib.mjs',
+  'scripts/merge-policy-check.test.mjs',
+];
 
 export const MERGE_READY_ACTORS = ['GoBeromsu', 'Lumiere001'];
 export const PM_ACTOR = 'GoBeromsu';
@@ -228,7 +248,91 @@ function findAcceptToken({ pull, comments, pattern, actor }) {
   return null;
 }
 
-function checkHighRiskAccepts(pull, comments, reasons) {
+function matchesEmergencyDenylist(path) {
+  return (
+    path === 'AGENTS.md' ||
+    path.endsWith('/AGENTS.md') ||
+    path === '.github/CODEOWNERS' ||
+    path.startsWith('docs/decisions/ADR-002') ||
+    path.startsWith('docs/decisions/ADR-005') ||
+    path.startsWith('.github/workflows/') ||
+    path.startsWith('.github/emergency-') ||
+    path === 'scripts/merge-policy-check.mjs' ||
+    path === 'scripts/merge-policy-check-lib.mjs' ||
+    path === 'scripts/merge-policy-check.test.mjs'
+  );
+}
+
+function isUnedited(comment) {
+  const createdAt = Date.parse(comment.createdAt);
+  const updatedAt = Date.parse(comment.updatedAt);
+  return Number.isFinite(createdAt) && createdAt === updatedAt;
+}
+
+export function checkEmergencyApproval({
+  pull,
+  comments,
+  files,
+  policy,
+  configuredPolicyPrNumber = EMERGENCY_POLICY_PR_NUMBER,
+}) {
+  if (
+    configuredPolicyPrNumber === 0 ||
+    pull.number !== EMERGENCY_PR_NUMBER ||
+    policy?.prNumber !== configuredPolicyPrNumber ||
+    !FULL_SHA.test(policy?.mergeCommitSha ?? '') ||
+    policy.mergeCommitIsAncestorOfBase !== true ||
+    !Array.isArray(files) ||
+    !Number.isInteger(pull.changedFiles) ||
+    files.length !== pull.changedFiles
+  ) {
+    return false;
+  }
+  if (
+    files.some((file) =>
+      [file?.filename, file?.previous_filename]
+        .filter(Boolean)
+        .some(matchesEmergencyDenylist),
+    )
+  ) {
+    return false;
+  }
+
+  const mergedAt = Date.parse(policy.mergedAt);
+  const cutoff = Date.parse(EMERGENCY_CUTOFF);
+  if (!Number.isFinite(mergedAt)) {
+    return false;
+  }
+  const emergencyAccept = comments.some((comment) => {
+    if (comment.authorLogin !== PM_ACTOR || !isUnedited(comment)) {
+      return false;
+    }
+    const createdAt = Date.parse(comment.createdAt);
+    if (createdAt < mergedAt || createdAt >= cutoff) {
+      return false;
+    }
+    return effectiveLines(comment.body).some((line) => {
+      const match = line.match(PM_EMERGENCY_ACCEPT_LINE);
+      return (
+        match &&
+        pinnedToCurrent(pull, match[1], match[2], match[3]) &&
+        match[4] === policy.mergeCommitSha
+      );
+    });
+  });
+  const ownerConfirm = comments.some(
+    (comment) =>
+      comment.authorLogin === OWNER_ACTOR &&
+      isUnedited(comment) &&
+      effectiveLines(comment.body).some((line) => {
+        const match = line.match(OWNER_CONFIRM_LINE);
+        return match && pinnedToCurrent(pull, match[1], match[2], match[3]);
+      }),
+  );
+  return emergencyAccept && ownerConfirm;
+}
+
+function checkHighRiskAccepts(pull, comments, reasons, files, policy) {
   const pmAccept = findAcceptToken({
     pull,
     comments,
@@ -246,7 +350,10 @@ function checkHighRiskAccepts(pull, comments, reasons) {
       `HIGH_RISK — 현재 head·base에 고정된 @${PM_ACTOR}의 PM_ACCEPT가 없음`,
     );
   }
-  if (!techLeadAccept) {
+  if (
+    !techLeadAccept &&
+    !checkEmergencyApproval({ pull, comments, files, policy })
+  ) {
     reasons.push(
       `HIGH_RISK — 현재 head·base에 고정된 @${TECH_LEAD_ACTOR}의 TECH_LEAD_ACCEPT가 없음`,
     );
@@ -297,6 +404,8 @@ export function evaluateMergePolicy({
   pull,
   comments,
   changedFiles,
+  files,
+  policy,
   codeownersText,
   defaultBranch = 'main',
 }) {
@@ -343,7 +452,7 @@ export function evaluateMergePolicy({
     changedFiles,
   );
   if (mergeReady.risk === 'HIGH_RISK') {
-    checkHighRiskAccepts(pull, sortedComments, reasons);
+    checkHighRiskAccepts(pull, sortedComments, reasons, files, policy);
   } else if (candidate) {
     checkGeneralDowngrade(pull, sortedComments, reasons);
   }
