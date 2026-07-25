@@ -6,8 +6,11 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { Test } from '@nestjs/testing';
+import { AuthConfig } from '../auth/auth.config';
+import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
+import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import {
   SubmissionRepositoryPublishingController,
   SubmissionReviewsController,
@@ -17,6 +20,14 @@ import { SubmissionReviewsService } from './submission-reviews.service';
 
 let application: INestApplication | undefined;
 let baseUrl = '';
+
+let unauthenticatedApplication: INestApplication | undefined;
+let unauthenticatedBaseUrl = '';
+const unauthenticatedService = {
+  context: jest.fn(),
+  review: jest.fn(),
+  publishRepository: jest.fn(),
+};
 
 const service = {
   context: jest.fn().mockResolvedValue({
@@ -78,10 +89,52 @@ beforeAll(async () => {
   );
   await application.listen(0, '127.0.0.1');
   baseUrl = await application.getUrl();
+
+  // Isolated harness: real SessionGuard + ProblemDetailFilter so anonymous
+  // review-context requests prove the repository 401 contract without
+  // compromising the authenticated suite above. Staff guard is stubbed only
+  // for DI — SessionGuard rejects before it runs on anonymous requests.
+  const unauthenticatedModuleRef = await Test.createTestingModule({
+    controllers: [SubmissionReviewsController],
+    providers: [
+      SessionGuard,
+      {
+        provide: AuthService,
+        useValue: {
+          getMe: jest.fn().mockResolvedValue({ id: 'synthetic-user' }),
+        },
+      },
+      {
+        provide: AuthConfig,
+        useValue: {
+          sessionSecret: new Uint8Array(32).fill(7),
+          allowedOrigin: 'http://frontend.test',
+          useSecureCookies: false,
+        },
+      },
+      {
+        provide: SubmissionReviewsService,
+        useValue: unauthenticatedService,
+      },
+    ],
+  })
+    .overrideGuard(SubmissionReviewsStaffGuard)
+    .useValue({ canActivate: () => true })
+    .compile();
+
+  unauthenticatedApplication = unauthenticatedModuleRef.createNestApplication();
+  unauthenticatedApplication.setGlobalPrefix('api/v1');
+  unauthenticatedApplication.useGlobalPipes(
+    new ValidationPipe({ transform: true, whitelist: true }),
+  );
+  unauthenticatedApplication.useGlobalFilters(new ProblemDetailFilter());
+  await unauthenticatedApplication.listen(0, '127.0.0.1');
+  unauthenticatedBaseUrl = await unauthenticatedApplication.getUrl();
 });
 
 afterAll(async () => {
   await application?.close();
+  await unauthenticatedApplication?.close();
 });
 
 it('검토 화면 컨텍스트를 ISO 시간 DTO로 반환한다', async () => {
@@ -129,4 +182,25 @@ it('저장소 공개 API가 200과 공개 완료 시각을 반환한다', async 
     visibility: RepositoryVisibility.PUBLIC,
     publishedAt: '2026-07-23T00:00:00.000Z',
   });
+});
+
+it('비로그인 review-context 요청은 401 AUT_003 ProblemDetail을 반환하고 서비스를 호출하지 않는다', async () => {
+  unauthenticatedService.context.mockClear();
+
+  const response = await fetch(
+    `${unauthenticatedBaseUrl}/api/v1/submissions/submission-1/review-context`,
+    { headers: { connection: 'close' } },
+  );
+
+  expect(response.status).toBe(401);
+  expect(response.headers.get('content-type')).toContain(
+    'application/problem+json',
+  );
+  await expect(response.json()).resolves.toMatchObject({
+    type: 'about:blank',
+    status: 401,
+    code: 'AUT_003',
+    instance: '/api/v1/submissions/submission-1/review-context',
+  });
+  expect(unauthenticatedService.context).not.toHaveBeenCalled();
 });
