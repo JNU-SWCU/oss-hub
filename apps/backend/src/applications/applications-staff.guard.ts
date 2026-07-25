@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { AccountStatus, Role } from '@prisma/client';
 import type { AuthenticatedRequest } from '../auth/session.guard';
-import { DomainException } from '../common/error-code';
+import { DomainException, type ErrorCode } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   APPLICATIONS_ERROR_CODES,
@@ -37,6 +37,11 @@ export class ApplicationsStaffGuard implements CanActivate {
     private readonly prisma: ApplicationsStaffStore,
   ) {}
 
+  /** PATCH decide 전용 — 판정 문구 유지. 목록은 ApplicationsStaffListGuard. */
+  protected staffForbiddenError(): ErrorCode {
+    return APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.STAFF_ONLY];
+  }
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const user = await this.prisma.user.findUnique({
@@ -45,9 +50,7 @@ export class ApplicationsStaffGuard implements CanActivate {
     });
 
     if (user?.accountStatus !== AccountStatus.ACTIVE) {
-      throw new DomainException(
-        APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.STAFF_ONLY],
-      );
+      throw new DomainException(this.staffForbiddenError());
     }
 
     switch (user.role) {
@@ -58,9 +61,15 @@ export class ApplicationsStaffGuard implements CanActivate {
       case Role.STUDENT:
       case null:
       case undefined:
-        throw new DomainException(
-          APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.STAFF_ONLY],
-        );
+        throw new DomainException(this.staffForbiddenError());
     }
+  }
+}
+
+/** 신청자 목록 등 조회용 — generic 403 (판정-only 문구 금지). */
+@Injectable()
+export class ApplicationsStaffListGuard extends ApplicationsStaffGuard {
+  protected override staffForbiddenError(): ErrorCode {
+    return APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.STAFF_LIST_ONLY];
   }
 }

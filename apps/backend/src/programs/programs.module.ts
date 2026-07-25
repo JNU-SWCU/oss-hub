@@ -1,11 +1,15 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { ApplicationTemplatesController } from './application-templates.controller';
 import { MilestonesController } from './milestones.controller';
 import { ProgramCreationService } from './program-creation.service';
 import { ProgramActivityService } from './program-activity.service';
 import { ProgramEditorController } from './program-editor.controller';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
+import { ProgramTeamsController } from './program-teams.controller';
+import { ProgramTeamsRepository } from './program-teams.repository';
+import { ProgramTeamsService } from './program-teams.service';
 import { ProgramViewerService } from './program-viewer.service';
 import {
   ProgramsController,
@@ -17,10 +21,13 @@ import { ProgramsService } from './programs.service';
 @Module({
   imports: [AuthModule],
   controllers: [
+    // static sibling first — programs/application-templates before programs/:id
+    ApplicationTemplatesController,
     ProgramsController,
     StudentDashboardController,
     ProgramEditorController,
     MilestonesController,
+    ProgramTeamsController,
   ],
   providers: [
     ProgramsService,
@@ -30,6 +37,8 @@ import { ProgramsService } from './programs.service';
     ProgramViewerService,
     ProgramEditorService,
     ProgramEditorRepository,
+    ProgramTeamsService,
+    ProgramTeamsRepository,
   ],
 })
 export class ProgramsModule {}

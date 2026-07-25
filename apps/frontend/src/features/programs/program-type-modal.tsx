@@ -61,7 +61,7 @@ export function ProgramTypeModal({
         </div>
         <div className="flex min-h-64 flex-col justify-between rounded-md border border-border p-4">
           {selected ? (
-            <FormRenderer template={selected.template} />
+            <FormRenderer template={selected.template} mode="preview" />
           ) : (
             <p className="text-sm text-muted-foreground">
               유형을 선택하면 고정 신청 템플릿을 미리 볼 수 있습니다.

@@ -129,14 +129,14 @@ const programWithoutMilestones: ProgramDetail = {
 };
 
 describe('ProgramDetailPage states', () => {
-  it('교직원에게 구현된 편집만 노출하고 미구현 #106·#124 경로는 숨긴다', () => {
+  it('교직원에게 신청자 목록·편집 CTA를 노출하고 미구현 #124 경로는 숨긴다', () => {
     const html = renderToStaticMarkup(
       <ProgramActions program={programWithoutMilestones} />,
     );
     expect(html).toContain('/staff/programs/program-1/edit');
-    expect(html).not.toContain('/staff/programs/program-1/applicants');
+    expect(html).toContain('/staff/programs/program-1/applicants');
+    expect(html).toContain('신청자 목록');
     expect(html).not.toContain('/staff/programs/program-1/submissions');
-    expect(html).not.toContain('신청자 목록');
     expect(html).not.toContain('전체 제출 현황');
   });
 
