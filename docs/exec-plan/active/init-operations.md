@@ -43,6 +43,14 @@
 
 Compose 종료·재기동 절차에서 `down -v`를 실행하지 않는다. PostgreSQL 데이터는 named volume `pgdata`에 보존한다.
 
+### 구현 진행 주석 — 첫 실동작 (2026-07-24, 2026-07-25 갱신)
+
+- 첫 배포 실동작 검증은 파라미터 job **수동 트리거**(`RELEASE_ACTION=published`, `RELEASE_TAG=<tag>`)로 재현한다. 자동 트리거 계약(GitHub Actions `deploy.yml` → Jenkins `buildWithParameters`)과 승인 게이트(`RELEASE_ACCEPT` 이중 승인 또는 공개 PM override)의 원본은 [ADR-002](../../decisions/ADR-002-CI-CD-파이프라인.md)와 위 M2다.
+- GitHub read-only PAT는 release·승인 검증 API용으로 Jenkins Credentials Store에 **준비·문서화만** 한다. `Jenkinsfile`에 인증을 적용하는 코드 변경은 follow-up이다.
+- 서버 접속·설치·job·첫 Release e2e의 명령 수준 절차는 [server-runbook](../../deploy/server-runbook.md), 배포 전 로컬→EC2 단계 검증은 [pre-deploy-verify](../../deploy/pre-deploy-verify.md)를 따른다.
+- 서버 접근 정보·credentials 값은 이 저장소가 아니라 **Notion credentials 페이지**가 원본이며, Notion 기록은 craft-skills aside에 위임한다. 저장소에는 항목명과 `.env.example` 변수명만 둔다.
+- smoke 기준은 Compose loopback `http://127.0.0.1:8081/`·`/api/v1/health`와, host nginx 공인 IP TLS smoke다(위 M2·M4, `Jenkinsfile`).
+
 ## M3. 배포 서버와 개발 환경변수
 
 ### 배포 서버
