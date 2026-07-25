@@ -81,7 +81,6 @@ function resolveMailer(): MailSender {
 
 void main().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
-  // eslint-disable-next-line no-console
-  console.error(message);
+  process.stderr.write(`${message}\n`);
   process.exitCode = 1;
 });

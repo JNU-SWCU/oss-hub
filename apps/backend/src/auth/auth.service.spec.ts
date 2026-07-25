@@ -119,9 +119,9 @@ describe('AuthService', () => {
     });
     expect(withTransaction).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(fetchMock.mock.calls[2]?.[0]).toBe(
-      'https://api.github.com/user/emails',
-    );
+    const emailCall = fetchMock.mock.calls[2] as
+      [string, RequestInit] | undefined;
+    expect(emailCall?.[0]).toBe('https://api.github.com/user/emails');
     // code 교환 요청에 verifier가 포함됐는지
     const [, exchangeInit] = fetchMock.mock.calls[0] as [string, RequestInit];
     const exchangeBody = JSON.parse(exchangeInit.body as string) as Record<
