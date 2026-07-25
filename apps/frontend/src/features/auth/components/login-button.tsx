@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { fetchSession, githubLoginPath, logout } from '../api';
@@ -116,14 +115,14 @@ export function LoginButtonView({
                   {user.nickname}
                 </p>
               </div>
-              <Link
+              <a
                 role="menuitem"
                 href="/settings"
                 className="block px-3 py-2 text-sm hover:bg-muted"
                 onClick={() => onMenuOpenChange(false)}
               >
                 Settings
-              </Link>
+              </a>
               <button
                 type="button"
                 role="menuitem"

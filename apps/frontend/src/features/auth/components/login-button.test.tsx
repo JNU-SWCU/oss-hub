@@ -9,6 +9,7 @@ const authenticatedSession = {
   user: {
     nickname: 'synthetic-user',
     name: null,
+    email: null,
     avatarUrl: 'https://avatars.example/u/1',
     role: 'STUDENT',
   },
