@@ -22,7 +22,8 @@ require_count() {
 
 require_count 'production EIP server_name' 'server_name 54.116.116.174;' 2
 require_count 'public HTTP listener' 'listen 80;'
-require_count 'public HTTPS listener' 'listen 443 ssl http2;'
+require_count 'public HTTPS listener' 'listen 443 ssl;'
+require_count 'HTTP/2 enablement' 'http2 on;'
 require_count 'short-lived IP fullchain path' 'ssl_certificate /etc/letsencrypt/live/54.116.116.174/fullchain.pem;'
 require_count 'short-lived IP private key path' 'ssl_certificate_key /etc/letsencrypt/live/54.116.116.174/privkey.pem;'
 require_count 'ACME HTTP-01 webroot' 'root /var/www/certbot;'
