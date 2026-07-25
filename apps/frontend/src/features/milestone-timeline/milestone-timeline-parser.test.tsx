@@ -135,6 +135,23 @@ describe('milestone timeline parser', () => {
         ],
       },
     ],
+    [
+      'required review fields',
+      {
+        ...response,
+        items: [
+          {
+            ...response.items[0],
+            submission: {
+              id: 'submission-without-review-fields',
+              status: 'SUBMITTED',
+              currentRevision: 1,
+              canResubmit: false,
+            },
+          },
+        ],
+      },
+    ],
   ])('%s 계약 위반을 거부한다', (_field, malformed) => {
     // Given / When / Then
     expect(() =>

@@ -89,11 +89,6 @@ function parseNullableString(value: unknown): string | null {
   return invalidResponse();
 }
 
-function parseOptionalNullableString(value: unknown): string | null {
-  if (value === undefined) return null;
-  return parseNullableString(value);
-}
-
 function parseSubmission(value: unknown): ChecklistSubmission | null {
   if (value === null) return null;
   if (
@@ -109,8 +104,8 @@ function parseSubmission(value: unknown): ChecklistSubmission | null {
     id: value.id,
     status: parseSubmittedStatus(value.status),
     currentRevision: Number(value.currentRevision),
-    lastReviewedAt: parseOptionalNullableString(value.lastReviewedAt),
-    reviewComment: parseOptionalNullableString(value.reviewComment),
+    lastReviewedAt: parseNullableString(value.lastReviewedAt),
+    reviewComment: parseNullableString(value.reviewComment),
     canResubmit: value.canResubmit,
   };
 }
