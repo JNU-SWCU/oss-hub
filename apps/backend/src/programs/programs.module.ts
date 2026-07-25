@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { ApplicationTemplatesController } from './application-templates.controller';
 import { MilestonesController } from './milestones.controller';
 import { ProgramCreationService } from './program-creation.service';
 import { ProgramActivityService } from './program-activity.service';
@@ -17,6 +18,8 @@ import { ProgramsService } from './programs.service';
 @Module({
   imports: [AuthModule],
   controllers: [
+    // static sibling first — programs/application-templates before programs/:id
+    ApplicationTemplatesController,
     ProgramsController,
     StudentDashboardController,
     ProgramEditorController,

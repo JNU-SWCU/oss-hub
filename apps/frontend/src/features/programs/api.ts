@@ -1,14 +1,69 @@
 import { ApiError, apiClient } from '@/lib/api-client';
 import type { ProgramCategory } from './program-templates';
 import type {
+  ApplicationFormField,
+  ApplicationFormFieldKey,
+  ApplicationFormFieldType,
+  ApplicationFormTemplate,
   ProgramActivity,
   ProgramDetail,
   ProgramListPage,
   ProgramListParams,
+  ProgramParticipation,
   SubmissionType,
 } from './types';
 
 const jsonHeaders = { 'Content-Type': 'application/json' } as const;
+
+interface ApplicationTemplateApiItem {
+  readonly key: string;
+  readonly version: number;
+  readonly name: string;
+  readonly participation: 'INDIVIDUAL' | 'TEAM' | ProgramParticipation;
+  readonly fields: readonly {
+    readonly key: ApplicationFormFieldKey;
+    readonly type: ApplicationFormFieldType;
+    readonly label: string;
+    readonly required: boolean;
+  }[];
+}
+
+interface ApplicationTemplateListApiResponse {
+  readonly items: readonly ApplicationTemplateApiItem[];
+}
+
+function mapParticipation(
+  value: ApplicationTemplateApiItem['participation'],
+): ProgramParticipation {
+  if (value === 'INDIVIDUAL' || value === 'individual') return 'individual';
+  return 'team';
+}
+
+function mapApplicationTemplate(
+  item: ApplicationTemplateApiItem,
+): ApplicationFormTemplate {
+  const fields: ApplicationFormField[] = item.fields.map((field) => ({
+    key: field.key,
+    type: field.type,
+    label: field.label,
+    required: field.required,
+  }));
+  return {
+    key: item.key,
+    version: item.version,
+    name: item.name,
+    participation: mapParticipation(item.participation),
+    fields,
+  };
+}
+
+export function listApplicationTemplates(): Promise<
+  readonly ApplicationFormTemplate[]
+> {
+  return apiClient<ApplicationTemplateListApiResponse>(
+    'programs/application-templates',
+  ).then((response) => response.items.map(mapApplicationTemplate));
+}
 
 export interface CreateProgramInput {
   readonly name: string;

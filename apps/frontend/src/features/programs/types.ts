@@ -9,11 +9,29 @@ export type SubmissionType = 'FILE' | 'TEXT' | 'REPOSITORY_RELEASE';
 export const PROGRAM_PARTICIPATION_TYPES = ['individual', 'team'] as const;
 export type ProgramParticipation = (typeof PROGRAM_PARTICIPATION_TYPES)[number];
 
+export const APPLICATION_FIELD_TYPES = ['auto', 'text', 'textarea'] as const;
+export type ApplicationFormFieldType = (typeof APPLICATION_FIELD_TYPES)[number];
+
+export const APPLICATION_FIELD_KEYS = [
+  'applicantName',
+  'title',
+  'summary',
+] as const;
+export type ApplicationFormFieldKey = (typeof APPLICATION_FIELD_KEYS)[number];
+
+export interface ApplicationFormField {
+  readonly key: ApplicationFormFieldKey;
+  readonly type: ApplicationFormFieldType;
+  readonly label: string;
+  readonly required: boolean;
+}
+
 export interface ApplicationFormTemplate {
   readonly key: string;
   readonly version: number;
   readonly name: string;
   readonly participation: ProgramParticipation;
+  readonly fields: readonly ApplicationFormField[];
 }
 
 export interface ProgramListItem {
