@@ -1,6 +1,9 @@
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 import { AccountStatus, Role } from '@prisma/client';
-import { ApplicationsStaffGuard } from './applications-staff.guard';
+import {
+  ApplicationsStaffGuard,
+  ApplicationsStaffListGuard,
+} from './applications-staff.guard';
 import { ApplicationsErrorCode } from './applications-error-code.enum';
 
 describe('ApplicationsStaffGuard', () => {
@@ -55,6 +58,7 @@ describe('ApplicationsStaffGuard', () => {
       errorCode: {
         code: ApplicationsErrorCode.STAFF_ONLY,
         status: 403,
+        message: expect.stringContaining('판정'),
       },
     });
   });
@@ -79,5 +83,65 @@ describe('ApplicationsStaffGuard', () => {
         status: 403,
       },
     });
+  });
+});
+
+describe('ApplicationsStaffListGuard', () => {
+  const findUnique = jest.fn();
+  const prisma = {
+    user: { findUnique },
+  };
+  const guard = new ApplicationsStaffListGuard(prisma);
+
+  beforeEach(() => findUnique.mockReset());
+
+  it('학생은 generic 조회 403 으로 거부한다 (판정 문구 없음)', async () => {
+    findUnique.mockResolvedValue({
+      id: 'synthetic-student',
+      role: Role.STUDENT,
+      accountStatus: AccountStatus.ACTIVE,
+    });
+    const context = new ExecutionContextHost([{ sessionGithubId: 2001n }]);
+    context.setType('http');
+
+    try {
+      await guard.canActivate(context);
+      throw new Error('expected DomainException');
+    } catch (error: unknown) {
+      expect(error).toMatchObject({
+        errorCode: {
+          code: ApplicationsErrorCode.STAFF_LIST_ONLY,
+          status: 403,
+          message: '승인된 교직원 또는 관리자만 조회할 수 있습니다.',
+        },
+      });
+      const message =
+        error &&
+        typeof error === 'object' &&
+        'errorCode' in error &&
+        error.errorCode &&
+        typeof error.errorCode === 'object' &&
+        'message' in error.errorCode
+          ? String((error.errorCode as { message: unknown }).message)
+          : '';
+      expect(message).not.toContain('판정');
+    }
+  });
+
+  it('ACTIVE STAFF 를 허용한다', async () => {
+    findUnique.mockResolvedValue({
+      id: 'synthetic-staff',
+      role: Role.STAFF,
+      accountStatus: AccountStatus.ACTIVE,
+    });
+    const request: {
+      sessionGithubId: bigint;
+      applicationActorId?: string;
+    } = { sessionGithubId: 2002n };
+    const context = new ExecutionContextHost([request]);
+    context.setType('http');
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(request.applicationActorId).toBe('synthetic-staff');
   });
 });

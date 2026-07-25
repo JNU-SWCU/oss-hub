@@ -5,6 +5,8 @@ import type {
   ApplicationFormFieldKey,
   ApplicationFormFieldType,
   ApplicationFormTemplate,
+  ApplicationListPage,
+  ApplicationListParams,
   ProgramActivity,
   ProgramDetail,
   ProgramListPage,
@@ -316,5 +318,21 @@ export function joinTeam(
       headers: jsonHeaders,
       body: JSON.stringify(input),
     },
+  );
+}
+
+export function listProgramApplications(
+  programId: string,
+  params: ApplicationListParams,
+): Promise<ApplicationListPage> {
+  const search = new URLSearchParams({
+    page: String(params.page),
+    pageSize: String(params.pageSize),
+    search: params.search,
+    status: params.status,
+    mode: params.mode,
+  });
+  return apiClient<ApplicationListPage>(
+    `programs/${encodeURIComponent(programId)}/applications?${search.toString()}`,
   );
 }

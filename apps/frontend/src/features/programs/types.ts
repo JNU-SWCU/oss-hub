@@ -62,6 +62,55 @@ export interface ProgramListPage {
   readonly totalPages: number;
 }
 
+export const APPLICATION_LIST_STATUSES = [
+  'all',
+  'SUBMITTED',
+  'APPROVED',
+  'REJECTED',
+] as const;
+export type ApplicationListStatus = (typeof APPLICATION_LIST_STATUSES)[number];
+
+export const APPLICATION_LIST_MODES = ['all', 'personal', 'team'] as const;
+export type ApplicationListMode = (typeof APPLICATION_LIST_MODES)[number];
+
+export interface ApplicationListParams {
+  readonly page: number;
+  readonly pageSize: number;
+  readonly search: string;
+  readonly status: ApplicationListStatus;
+  readonly mode: ApplicationListMode;
+}
+
+export interface ApplicationListItem {
+  readonly id: string;
+  readonly status: ApplicationStatus;
+  readonly submittedAt: string;
+  readonly participation: 'INDIVIDUAL' | 'TEAM';
+  readonly applicant: {
+    readonly id: string;
+    readonly name: string | null;
+    readonly nickname: string;
+  };
+  readonly team: {
+    readonly id: string;
+    readonly name: string;
+    readonly memberCount: number;
+  } | null;
+  readonly answers: {
+    readonly applicantName: string;
+    readonly title: string;
+    readonly summary: string;
+  };
+}
+
+export interface ApplicationListPage {
+  readonly items: readonly ApplicationListItem[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly totalItems: number;
+  readonly totalPages: number;
+}
+
 export interface SubmissionSummary {
   readonly notSubmitted: number;
   readonly submitted: number;

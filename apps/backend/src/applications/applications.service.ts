@@ -17,9 +17,11 @@ import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
 } from './applications-error-code.enum';
+import type { ApplicationListQuery } from './application-list-query';
 import {
   ApplicationDuplicateError,
   ApplicationsRepository,
+  type ApplicationListPage,
   type CreatedApplication,
   RepositoryEventAlreadyExistsError,
 } from './applications.repository';
@@ -151,6 +153,17 @@ export class ApplicationsService {
       }
       throw error;
     }
+  }
+
+  async listForProgram(
+    programId: string,
+    query: ApplicationListQuery,
+  ): Promise<ApplicationListPage> {
+    const program = await this.repository.findProgramById(programId);
+    if (!program) {
+      throw this.error(ApplicationsErrorCode.PROGRAM_NOT_FOUND);
+    }
+    return this.repository.listApplicationsForProgram(programId, query);
   }
 
   async decide(

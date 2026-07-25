@@ -11,6 +11,7 @@ import type {
   Prisma as PrismaTypes,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import type { ApplicationListQuery } from './application-list-query';
 import type {
   ApplicationDecisionTarget,
   ApplicationTransition,
@@ -89,6 +90,38 @@ export interface CreatedApplication {
   readonly status: ApplicationStatus;
   readonly teamId: string | null;
   readonly submittedAt: Date;
+}
+
+export interface ApplicationListAnswers {
+  readonly applicantName: string;
+  readonly title: string;
+  readonly summary: string;
+}
+
+export interface ApplicationListItem {
+  readonly id: string;
+  readonly status: ApplicationStatus;
+  readonly submittedAt: Date;
+  readonly participation: 'INDIVIDUAL' | 'TEAM';
+  readonly applicant: {
+    readonly id: string;
+    readonly name: string | null;
+    readonly nickname: string;
+  };
+  readonly team: {
+    readonly id: string;
+    readonly name: string;
+    readonly memberCount: number;
+  } | null;
+  readonly answers: ApplicationListAnswers;
+}
+
+export interface ApplicationListPage {
+  readonly items: readonly ApplicationListItem[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly totalItems: number;
+  readonly totalPages: number;
 }
 
 export interface ApplicationCreateStore {
@@ -316,6 +349,155 @@ export class ApplicationsRepository {
     });
     return event ? toRepositoryProvisionEvent(event) : null;
   }
+
+  async listApplicationsForProgram(
+    programId: string,
+    query: ApplicationListQuery,
+  ): Promise<ApplicationListPage> {
+    const where = buildApplicationListWhere(programId, query);
+    const [rows, totalItems] = await this.prisma.$transaction([
+      this.prisma.application.findMany({
+        where,
+        orderBy: [{ submittedAt: 'desc' }, { id: 'asc' }],
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+        select: {
+          id: true,
+          status: true,
+          submittedAt: true,
+          teamId: true,
+          answers: true,
+          applicant: {
+            select: { id: true, name: true, nickname: true },
+          },
+          team: {
+            select: {
+              id: true,
+              name: true,
+              _count: { select: { members: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.application.count({ where }),
+    ]);
+
+    return {
+      items: rows.map((row) => toApplicationListItem(row)),
+      page: query.page,
+      pageSize: query.pageSize,
+      totalItems,
+      totalPages: Math.ceil(totalItems / query.pageSize),
+    };
+  }
+}
+
+function buildApplicationListWhere(
+  programId: string,
+  query: ApplicationListQuery,
+): Prisma.ApplicationWhereInput {
+  const modeWhere: Prisma.ApplicationWhereInput =
+    query.mode === 'personal'
+      ? { teamId: null }
+      : query.mode === 'team'
+        ? { teamId: { not: null } }
+        : {};
+
+  const statusWhere: Prisma.ApplicationWhereInput =
+    query.status === 'all' ? {} : { status: query.status };
+
+  const search = query.search;
+  const searchWhere: Prisma.ApplicationWhereInput = search
+    ? {
+        OR: [
+          {
+            applicant: {
+              name: { contains: search, mode: 'insensitive' },
+            },
+          },
+          {
+            applicant: {
+              nickname: { contains: search, mode: 'insensitive' },
+            },
+          },
+          {
+            team: {
+              name: { contains: search, mode: 'insensitive' },
+            },
+          },
+          {
+            answers: {
+              path: ['title'],
+              string_contains: search,
+            },
+          },
+          {
+            answers: {
+              path: ['applicantName'],
+              string_contains: search,
+            },
+          },
+        ],
+      }
+    : {};
+
+  return {
+    programId,
+    ...modeWhere,
+    ...statusWhere,
+    ...searchWhere,
+  };
+}
+
+type ApplicationListRow = {
+  readonly id: string;
+  readonly status: ApplicationStatus;
+  readonly submittedAt: Date;
+  readonly teamId: string | null;
+  readonly answers: Prisma.JsonValue;
+  readonly applicant: {
+    readonly id: string;
+    readonly name: string | null;
+    readonly nickname: string;
+  };
+  readonly team: {
+    readonly id: string;
+    readonly name: string;
+    readonly _count: { readonly members: number };
+  } | null;
+};
+
+function toApplicationListItem(row: ApplicationListRow): ApplicationListItem {
+  const team =
+    row.teamId !== null && row.team !== null
+      ? {
+          id: row.team.id,
+          name: row.team.name,
+          memberCount: row.team._count.members,
+        }
+      : null;
+  return {
+    id: row.id,
+    status: row.status,
+    submittedAt: row.submittedAt,
+    participation: team ? 'TEAM' : 'INDIVIDUAL',
+    applicant: row.applicant,
+    team,
+    answers: parseListAnswers(row.answers),
+  };
+}
+
+function parseListAnswers(value: Prisma.JsonValue): ApplicationListAnswers {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return { applicantName: '', title: '', summary: '' };
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    applicantName:
+      typeof record.applicantName === 'string' ? record.applicantName : '',
+    title: typeof record.title === 'string' ? record.title : '',
+    summary: typeof record.summary === 'string' ? record.summary : '',
+  };
 }
 
 function toApplicationDecisionTarget(

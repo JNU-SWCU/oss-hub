@@ -18,6 +18,8 @@ export enum ApplicationsErrorCode {
   INVALID_ANSWERS = 'APP_015',
   TEMPLATE_VERSION_MISMATCH = 'APP_016',
   TEAM_NOT_FOUND = 'APP_017',
+  /** 목록·요약 등 조회용 — 판정 전용 문구 금지 (#106/#117). */
+  STAFF_LIST_ONLY = 'APP_018',
 }
 
 export const APPLICATIONS_ERROR_CODES: Record<
@@ -109,5 +111,10 @@ export const APPLICATIONS_ERROR_CODES: Record<
     code: ApplicationsErrorCode.TEAM_NOT_FOUND,
     status: 404,
     message: '팀을 찾을 수 없습니다.',
+  },
+  [ApplicationsErrorCode.STAFF_LIST_ONLY]: {
+    code: ApplicationsErrorCode.STAFF_LIST_ONLY,
+    status: 403,
+    message: '승인된 교직원 또는 관리자만 조회할 수 있습니다.',
   },
 };
