@@ -51,7 +51,8 @@ const MultipartFileInterceptor = FileInterceptor('file', {
     fieldSize: 512,
     fields: 2,
     files: 1,
-    parts: 3,
+    // busboy counts the closing boundary toward `parts` (2 fields + file => 4).
+    parts: 4,
   },
 });
 
