@@ -11,6 +11,7 @@ import { ApiError } from '@/lib/api-client';
 import { fetchSession } from '@/features/auth/api';
 import {
   createApplication,
+  getMyTeam,
   getProgramDetail,
   listApplicationTemplates,
 } from './api';
@@ -244,7 +245,28 @@ export function ProgramApplyPage({
       const applicantName = session.isAuthenticated
         ? (session.user.name ?? session.user.nickname)
         : '';
-      const blocked = resolveApplyBlockedReason(program, template, teamId);
+
+      let resolvedTeamId = teamId;
+      if (
+        template.participation === 'team' &&
+        resolvedTeamId === null &&
+        session.isAuthenticated
+      ) {
+        try {
+          const team = await getMyTeam(programId);
+          resolvedTeamId = team.id;
+        } catch (error: unknown) {
+          if (!(error instanceof ApiError && error.problem.status === 404)) {
+            throw error;
+          }
+        }
+      }
+
+      const blocked = resolveApplyBlockedReason(
+        program,
+        template,
+        resolvedTeamId,
+      );
       if (blocked) {
         setState({ kind: 'blocked', reason: blocked, program });
         return;
@@ -255,7 +277,7 @@ export function ProgramApplyPage({
         program,
         template,
         applicantName,
-        teamId,
+        teamId: resolvedTeamId,
       });
     } catch (error: unknown) {
       if (error instanceof ApiError && error.problem.status === 404) {

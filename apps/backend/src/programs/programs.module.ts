@@ -7,6 +7,9 @@ import { ProgramActivityService } from './program-activity.service';
 import { ProgramEditorController } from './program-editor.controller';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
+import { ProgramTeamsController } from './program-teams.controller';
+import { ProgramTeamsRepository } from './program-teams.repository';
+import { ProgramTeamsService } from './program-teams.service';
 import { ProgramViewerService } from './program-viewer.service';
 import {
   ProgramsController,
@@ -24,6 +27,7 @@ import { ProgramsService } from './programs.service';
     StudentDashboardController,
     ProgramEditorController,
     MilestonesController,
+    ProgramTeamsController,
   ],
   providers: [
     ProgramsService,
@@ -33,6 +37,8 @@ import { ProgramsService } from './programs.service';
     ProgramViewerService,
     ProgramEditorService,
     ProgramEditorRepository,
+    ProgramTeamsService,
+    ProgramTeamsRepository,
   ],
 })
 export class ProgramsModule {}

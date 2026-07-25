@@ -259,3 +259,62 @@ export function createApplication(
     },
   );
 }
+
+export interface TeamMember {
+  readonly userId: string;
+  readonly nickname: string;
+  readonly name: string | null;
+  readonly isLeader: boolean;
+}
+
+export interface ProgramTeam {
+  readonly id: string;
+  readonly name: string;
+  readonly memberCount: number;
+  readonly minMembers: number | null;
+  readonly maxMembers: number;
+  readonly locked: boolean;
+  readonly isLeader: boolean;
+  readonly members: readonly TeamMember[];
+}
+
+export interface CreatedTeam {
+  readonly id: string;
+  readonly name: string;
+  readonly joinCode: string;
+  readonly memberCount: number;
+}
+
+export function getMyTeam(programId: string): Promise<ProgramTeam> {
+  return apiClient<ProgramTeam>(
+    `programs/${encodeURIComponent(programId)}/teams/me`,
+  );
+}
+
+export function createTeam(
+  programId: string,
+  input: { readonly name: string },
+): Promise<CreatedTeam> {
+  return apiClient<CreatedTeam>(
+    `programs/${encodeURIComponent(programId)}/teams`,
+    {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function joinTeam(
+  programId: string,
+  input: { readonly joinCode: string },
+): Promise<ProgramTeam> {
+  return apiClient<ProgramTeam>(
+    `programs/${encodeURIComponent(programId)}/teams/join`,
+    {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(input),
+    },
+  );
+}
