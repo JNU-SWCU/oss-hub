@@ -13,10 +13,8 @@ function submission(
     id: `submission-${status}`,
     status,
     currentRevision: 2,
-    lastReviewedAt:
-      status === 'SUBMITTED' ? null : '2026-07-23T12:00:00+09:00',
-    reviewComment:
-      status === 'CHANGES_REQUESTED' ? '보완해 주세요.' : null,
+    lastReviewedAt: status === 'SUBMITTED' ? null : '2026-07-23T12:00:00+09:00',
+    reviewComment: status === 'CHANGES_REQUESTED' ? '보완해 주세요.' : null,
     canResubmit: options.canResubmit ?? status === 'CHANGES_REQUESTED',
   };
 }
