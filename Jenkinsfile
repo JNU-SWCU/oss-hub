@@ -232,6 +232,7 @@ cat "$DEPLOY_STATE_FILE"
       steps {
         sh '''
           pnpm install --frozen-lockfile
+          pnpm --filter backend exec prisma generate
           pnpm lint
           pnpm typecheck
           pnpm test

@@ -69,6 +69,7 @@ make_fixture moving-checkout 'git checkout --detach "$IMAGE_TAG"' 'git checkout 
 make_fixture missing-noop-sort 'sort -V' 'sort'
 make_fixture missing-retag-guard 'env.RELEASE_TAG == currentTag && env.IMAGE_TAG != env.CURRENT_DEPLOY_SHA' 'false'
 make_fixture missing-state-file "DEPLOY_STATE_FILE = '/var/lib/oss-hub/deploy-state/current-release'" "DEPLOY_STATE_FILE = '/tmp/current-release'"
+make_fixture missing-prisma-generate 'pnpm --filter backend exec prisma generate' 'true'
 make_fixture missing-test 'pnpm test' 'true'
 make_fixture missing-backup 'pg_dump' 'pg_isready'
 make_fixture missing-migration 'npx prisma migrate deploy' 'npx prisma migrate status'
@@ -136,6 +137,7 @@ expect_fail '정확한 SHA checkout 누락' "$fixture_dir/moving-checkout"
 expect_fail '동일·하위 버전 no-op 비교 누락' "$fixture_dir/missing-noop-sort"
 expect_fail '동일 Release tag의 SHA 변경 차단 누락' "$fixture_dir/missing-retag-guard"
 expect_fail '영속 배포 상태 경로 누락' "$fixture_dir/missing-state-file"
+expect_fail '명시적 Prisma client 생성 누락' "$fixture_dir/missing-prisma-generate"
 expect_fail '배포 전 test 누락' "$fixture_dir/missing-test"
 expect_fail 'migration 전 backup 누락' "$fixture_dir/missing-backup"
 expect_fail 'Prisma migration 누락' "$fixture_dir/missing-migration"

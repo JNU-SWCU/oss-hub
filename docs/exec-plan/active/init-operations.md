@@ -18,7 +18,7 @@
 ### 트리거와 승인 경계
 
 1. Jenkins 관리 UI는 서버의 `127.0.0.1:8080`에만 bind하고 Tailscale SSH tunnel로 접근한다. 공인 8080 포트는 열지 않는다.
-2. main push는 Jenkins의 lint, typecheck, test, 앱 build 검증만 시작한다. production Compose를 변경하지 않는다.
+2. main push는 backend Prisma client를 명시 생성한 뒤 Jenkins의 lint, typecheck, test, 앱 build 검증만 시작한다. production Compose를 변경하지 않는다.
 3. production은 공개 GitHub Release를 배포 후보로 사용한다. `draft=false`·`prerelease=false`이고 저장소 변수 `DEPLOY_TRIGGER_ENABLED=true`인 `published` 이벤트만 GitHub Actions가 Jenkins 내장 원격 빌드 트리거로 전달한다.
 4. GitHub Actions는 HTTPS `JENKINS_DEPLOY_URL`만 허용하고 전용 `oss-hub-deployer` API token을 Basic Authorization header로, action·tag를 POST body로 전달한다. host nginx는 정확한 `buildWithParameters` 경로의 POST만 localhost Jenkins로 프록시하며 Jenkins UI는 공개하지 않는다.
 5. Jenkins는 현재 latest full Release와 일치하는 `vMAJOR.MINOR.PATCH` tag 및 main ancestry를 검증한다.
@@ -32,7 +32,7 @@
 
 1. latest Release의 tag를 main ancestry에 포함된 exact commit SHA로 해석하고 `IMAGE_TAG`로 사용한다. 같은 tag·SHA의 PM·Tech Lead 이중 승인 또는 공개 PM override를 #199에서 검증한 뒤 detached checkout한다.
 2. 정상 배포 상태 파일을 읽어 동일·하위 Release이면 성공 no-op으로 종료한다. 손상된 상태 파일은 자동 보정하지 않고 배포를 중단한다.
-3. lint, typecheck, test, 앱 build를 통과시킨다.
+3. 재사용 workspace에서도 backend Prisma client를 명시 생성한 뒤 lint, typecheck, test, 앱 build를 통과시킨다.
 4. 현재 실행 중인 front/back 이미지 태그를 `PREV_TAG`로 캡처한다. 두 태그가 다르면 배포를 중단한다.
 5. PostgreSQL을 healthy 상태로 기동하고 migration 전에 `pg_dump` backup을 접근 제한 경로에 보존한다.
 6. exact SHA로 front와 back 이미지를 서버 로컬에서 각각 한 번만 빌드한다. 레지스트리에 push하거나 pull하지 않는다.
