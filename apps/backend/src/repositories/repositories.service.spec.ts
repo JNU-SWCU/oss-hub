@@ -4,6 +4,7 @@ import {
   RepositoryVisibility,
 } from '@prisma/client';
 import type { GithubAppClient } from './github-app.client';
+import type { ShowcaseProjectionService } from '../showcase/showcase-projection.service';
 import type {
   OwnedProvisionJob,
   RepositoriesRepository,
@@ -257,6 +258,23 @@ describe('RepositoriesService.publish', () => {
       visibility: RepositoryVisibility.PUBLIC,
       publishedAt: NOW,
     });
+  });
+  it('publishing projects only after the database publish succeeds and surfaces projection failures', async () => {
+    const { repository, github } = dependencies();
+    const showcase = {
+      projectRepository: jest
+        .fn()
+        .mockRejectedValue(new Error('projection failed')),
+    } as jest.Mocked<Pick<ShowcaseProjectionService, 'projectRepository'>>;
+    const service = new RepositoriesService(repository, github, showcase);
+
+    await expect(
+      service.publish({ repositoryId: target.id }, NOW),
+    ).rejects.toThrow('projection failed');
+    expect(repository.markPublished.mock.calls).toEqual([
+      [target.id, target.githubRepositoryId, NOW],
+    ]);
+    expect(showcase.projectRepository).toHaveBeenCalledWith(target.id, NOW);
   });
 
   it('없는 repository는 GitHub 호출 전에 중단한다', async () => {

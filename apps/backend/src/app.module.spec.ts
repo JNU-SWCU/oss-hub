@@ -6,6 +6,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { RankingModule } from './ranking/ranking.module';
 import { RepositoriesModule } from './repositories/repositories.module';
 import { RepositoriesService } from './repositories/repositories.service';
+import { ShowcaseModule } from './showcase/showcase.module';
 import { SubmissionReviewsModule } from './submission-reviews/submission-reviews.module';
 import { SubmissionsModule } from './submissions/submissions.module';
 import { UsersModule } from './users/users.module';
@@ -44,6 +45,7 @@ describe('AppModule public ranking exposure', () => {
         UsersModule,
         RepositoriesModule,
         SubmissionReviewsModule,
+        ShowcaseModule,
       ]),
     );
   });
