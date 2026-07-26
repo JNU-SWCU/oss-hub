@@ -9,8 +9,11 @@ import { readFileSync } from 'node:fs';
 
 import {
   collectChangedPaths,
+  EMERGENCY_POLICY_PR_NUMBER,
+  EMERGENCY_PR_NUMBER,
   evaluateMergePolicy,
   formatSummary,
+  hasCompletePullFiles,
 } from './merge-policy-check-lib.mjs';
 
 const CODEOWNERS_PATH = '.github/CODEOWNERS';
@@ -32,7 +35,13 @@ function api(endpoint, paginate = false) {
   }
   const raw = run('gh', args);
   const parsed = JSON.parse(raw);
-  return paginate ? parsed.flat() : parsed;
+  if (paginate) {
+    if (!Array.isArray(parsed) || !parsed.every(Array.isArray)) {
+      throw new Error('GitHub pagination response was malformed');
+    }
+    return parsed.flat();
+  }
+  return parsed;
 }
 
 function repositoryName() {
@@ -65,30 +74,81 @@ function parseArguments(argv) {
   return options;
 }
 
-function fetchInputs(repository, prNumber) {
-  const pullResponse = api(`repos/${repository}/pulls/${prNumber}`);
-  const baseRef = pullResponse.base.ref;
-  // base.sha는 조회 시점 의미가 모호하므로 base ref의 현재 tip을 직접 확인한다.
-  const baseTip = api(`repos/${repository}/git/ref/heads/${baseRef}`).object
-    .sha;
+export function fetchInputs(repository, prNumber) {
+  const response = api(`repos/${repository}/pulls/${prNumber}`);
+  const baseRef = response?.base?.ref;
+  const baseSha = api(`repos/${repository}/git/ref/heads/${baseRef}`)?.object
+    ?.sha;
+  if (
+    !Number.isInteger(response?.number) ||
+    !Number.isInteger(response?.changed_files) ||
+    typeof response?.head?.sha !== 'string' ||
+    typeof baseRef !== 'string' ||
+    typeof baseSha !== 'string'
+  ) {
+    throw new Error('GitHub pull metadata was malformed');
+  }
   const pull = {
-    number: pullResponse.number,
-    headSha: pullResponse.head.sha,
+    number: response.number,
+    headSha: response.head.sha,
     baseRef,
-    baseSha: baseTip,
+    baseSha,
+    changedFiles: response.changed_files,
   };
   const comments = api(
     `repos/${repository}/issues/${prNumber}/comments`,
     true,
-  ).map((comment) => ({
-    id: comment.id,
-    authorLogin: comment.user.login,
-    body: comment.body,
-  }));
-  const changedFiles = collectChangedPaths(
-    api(`repos/${repository}/pulls/${prNumber}/files`, true),
-  );
-  return { pull, comments, changedFiles };
+  ).map((comment) => {
+    if (
+      !Number.isInteger(comment?.id) ||
+      typeof comment?.user?.login !== 'string' ||
+      typeof comment?.body !== 'string' ||
+      typeof comment?.created_at !== 'string' ||
+      typeof comment?.updated_at !== 'string'
+    ) {
+      throw new Error('GitHub comment metadata was malformed');
+    }
+    return {
+      id: comment.id,
+      authorLogin: comment.user.login,
+      body: comment.body,
+      createdAt: comment.created_at,
+      updatedAt: comment.updated_at,
+    };
+  });
+  const files = api(`repos/${repository}/pulls/${prNumber}/files`, true);
+  if (!hasCompletePullFiles(files, pull.changedFiles)) {
+    throw new Error('GitHub pull files metadata was incomplete or malformed');
+  }
+  const changedFiles = collectChangedPaths(files);
+  let policy = null;
+  if (pull.number === EMERGENCY_PR_NUMBER && EMERGENCY_POLICY_PR_NUMBER !== 0) {
+    const policyPull = api(
+      `repos/${repository}/pulls/${EMERGENCY_POLICY_PR_NUMBER}`,
+    );
+    if (
+      policyPull?.number !== EMERGENCY_POLICY_PR_NUMBER ||
+      typeof policyPull?.merged_at !== 'string' ||
+      typeof policyPull?.merge_commit_sha !== 'string'
+    ) {
+      throw new Error('Emergency policy pull metadata was malformed');
+    }
+    const comparison = api(
+      `repos/${repository}/compare/${policyPull.merge_commit_sha}...${baseSha}`,
+    );
+    if (typeof comparison?.status !== 'string') {
+      throw new Error('Emergency policy ancestry response was malformed');
+    }
+    policy = {
+      prNumber: policyPull.number,
+      mergedAt: policyPull.merged_at,
+      mergeCommitSha: policyPull.merge_commit_sha,
+      mergeCommitIsAncestorOfBase: ['ahead', 'identical'].includes(
+        comparison.status,
+      ),
+    };
+  }
+  return { pull, comments, files, changedFiles, policy };
 }
 
 function publishCheckRun(repository, pull, result) {
@@ -118,13 +178,18 @@ function publishCheckRun(repository, pull, result) {
 function main() {
   const options = parseArguments(process.argv.slice(2));
   const repository = repositoryName();
-  const { pull, comments, changedFiles } = fetchInputs(repository, options.pr);
+  const { pull, comments, files, changedFiles, policy } = fetchInputs(
+    repository,
+    options.pr,
+  );
   const codeownersText = readFileSync(CODEOWNERS_PATH, 'utf8');
 
   const result = evaluateMergePolicy({
     pull,
     comments,
     changedFiles,
+    files,
+    policy,
     codeownersText,
   });
   const summary = formatSummary(result, pull);
