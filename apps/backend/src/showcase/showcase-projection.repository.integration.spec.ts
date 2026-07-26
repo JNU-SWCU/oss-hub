@@ -7,6 +7,7 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { ShowcaseProjectionRepository } from './showcase-projection.repository';
+import { ShowcasePublicService } from './showcase-public.service';
 import { ShowcaseProjectionService } from './showcase-projection.service';
 
 assertIsolatedIntegrationDatabase({
@@ -17,6 +18,7 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const repository = new ShowcaseProjectionRepository();
 const service = new ShowcaseProjectionService(prisma, repository);
+const publicService = new ShowcasePublicService(prisma);
 const PREFIX = 'synthetic-public-showcase';
 const PROGRAM_ID = `${PREFIX}-program`;
 const USER_ID = `${PREFIX}-user`;
@@ -164,6 +166,45 @@ describe('ShowcaseProjectionRepository integration', () => {
           avatarUrl: 'https://avatars.example/synthetic.png',
         },
       ],
+    });
+  });
+  it('serves only projection data without private fields', async () => {
+    const list = await publicService.findPage({
+      q: '',
+      page: 1,
+      pageSize: 20,
+    });
+    const detail = await publicService.findDetail(REPOSITORY_IDS[0]);
+    const serialized = JSON.stringify({ list, detail });
+
+    expect(list.items).toContainEqual(
+      expect.objectContaining({ repositoryId: REPOSITORY_IDS[0] }),
+    );
+    expect(list.items).not.toContainEqual(
+      expect.objectContaining({ repositoryId: REPOSITORY_IDS[1] }),
+    );
+    expect(detail).toMatchObject({
+      repositoryId: REPOSITORY_IDS[0],
+      contributors: [
+        {
+          userId: USER_ID,
+          githubNickname: `${PREFIX}-login`,
+        },
+      ],
+    });
+    for (const forbiddenField of [
+      'answers',
+      'email',
+      'phone',
+      'studentId',
+      'lastErrorMessage',
+    ]) {
+      expect(serialized).not.toContain(`"${forbiddenField}"`);
+    }
+    await expect(
+      publicService.findDetail(REPOSITORY_IDS[1]),
+    ).rejects.toMatchObject({
+      errorCode: { code: 'SHW_001', status: 404 },
     });
   });
 
