@@ -32,11 +32,18 @@ export class ProgramCreationService {
     const description = input.description.trim();
     const applicationStartAt = new Date(input.applicationStartAt);
     const applicationEndAt = new Date(input.applicationEndAt);
+    const endAt =
+      input.endAt === null || input.endAt === undefined
+        ? null
+        : new Date(input.endAt);
     const template = getProgramTemplate(input.category);
     const hasValidDates =
       !Number.isNaN(applicationStartAt.getTime()) &&
       !Number.isNaN(applicationEndAt.getTime()) &&
       applicationEndAt >= applicationStartAt;
+    const hasValidEndAt =
+      endAt === null ||
+      (!Number.isNaN(endAt.getTime()) && endAt >= applicationEndAt);
     const hasValidTeamSize =
       template.participation === PROGRAM_PARTICIPATION.INDIVIDUAL ||
       (input.teamMinSize !== null &&
@@ -57,7 +64,14 @@ export class ProgramCreationService {
         PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
       );
     }
-
+    if (!hasValidEndAt) {
+      throw new DomainException(
+        PROGRAM_ERROR_CODES[ProgramErrorCode.INVALID_APPLICATION_PERIOD],
+        {
+          fieldErrors: INVALID_PROGRAM_END_FIELD_ERRORS,
+        },
+      );
+    }
     return this.repository.createProgram({
       name,
       organizer,
@@ -66,6 +80,7 @@ export class ProgramCreationService {
       applicationTemplateVersion: template.version,
       applicationStartAt,
       applicationEndAt,
+      endAt,
       teamMinSize:
         template.participation === PROGRAM_PARTICIPATION.TEAM
           ? (input.teamMinSize ?? null)
@@ -78,3 +93,15 @@ export class ProgramCreationService {
     });
   }
 }
+const INVALID_PROGRAM_END_FIELD_ERRORS = [
+  {
+    field: 'applicationEndAt',
+    code: 'INVALID_APPLICATION_PERIOD',
+    message: 'Application period must end before the program ends.',
+  },
+  {
+    field: 'endAt',
+    code: 'INVALID_APPLICATION_PERIOD',
+    message: 'Program end must be on or after application period end.',
+  },
+] as const;

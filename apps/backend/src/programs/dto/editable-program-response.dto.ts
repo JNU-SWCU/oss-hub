@@ -34,6 +34,7 @@ export class EditableProgramResponseDto {
   readonly categoryLocked: EditableProgramView['categoryLocked'];
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
+  readonly endAt: string | null;
   readonly repositoryProvisioningEnabled: boolean;
   readonly description: string;
   readonly milestones: readonly ProgramMilestoneResponseDto[];
@@ -51,6 +52,7 @@ export class EditableProgramResponseDto {
     this.categoryLocked = program.categoryLocked;
     this.applicationStartAt = program.applicationStartAt.toISOString();
     this.applicationEndAt = program.applicationEndAt.toISOString();
+    this.endAt = program.endAt?.toISOString() ?? null;
     this.repositoryProvisioningEnabled = program.repositoryProvisioningEnabled;
     this.description = program.description;
     this.milestones = program.milestones.map((milestone) =>

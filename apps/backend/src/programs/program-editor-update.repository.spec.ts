@@ -18,6 +18,7 @@ describe('ProgramEditorRepository updates', () => {
         applicationTemplateVersion: 1,
         applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
         applicationEndAt: new Date('2026-08-15T00:00:00.000Z'),
+        endAt: new Date('2026-08-31T00:00:00.000Z'),
         teamMinSize: 2,
         teamMaxSize: 4,
         repositoryProvisioningEnabled: false,
@@ -44,6 +45,7 @@ describe('ProgramEditorRepository updates', () => {
         applicationTemplateVersion: 1,
         applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
         applicationEndAt: new Date('2026-08-15T00:00:00.000Z'),
+        endAt: new Date('2026-08-31T00:00:00.000Z'),
         teamMinSize: 2,
         teamMaxSize: 4,
         repositoryProvisioningEnabled: false,
@@ -55,6 +57,7 @@ describe('ProgramEditorRepository updates', () => {
     expect(update.mock.calls[0]?.[0].data).toMatchObject({
       teamMinSize: 2,
       teamMaxSize: 4,
+      endAt: new Date('2026-08-31T00:00:00.000Z'),
     });
   });
 });
