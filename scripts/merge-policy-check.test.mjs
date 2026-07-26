@@ -7,7 +7,9 @@ import {
   EMERGENCY_CUTOFF,
   EMERGENCY_POLICY_PR_NUMBER,
   evaluateMergePolicy,
+  formatSummary,
   findUnsupportedCodeownersPatterns,
+  hasCompletePullFiles,
   isCodeownersCandidate,
   matchesCodeownersPattern,
   parseCodeownersPatterns,
@@ -82,11 +84,15 @@ function evaluate({
   pullData = pull(),
   comments = [],
   changedFiles = GENERAL_FILES,
+  files,
+  policy,
 } = {}) {
   return evaluateMergePolicy({
     pull: pullData,
     comments,
     changedFiles,
+    files,
+    policy,
     codeownersText: CODEOWNERS_TEXT,
   });
 }
@@ -600,17 +606,19 @@ test('rename previous_filename이 CODEOWNERS 후보면 GENERAL 하향에 RISK_AC
   assert.equal(withAccept.conclusion, 'success');
 });
 
-test('emergency policy is disabled until its PR number is pinned', () => {
-  assert.equal(EMERGENCY_POLICY_PR_NUMBER, 0);
+test('emergency policy is pinned to its dedicated activation remediation PR', () => {
+  assert.equal(EMERGENCY_POLICY_PR_NUMBER, 259);
 });
 
 test('PR #256 emergency approval contract is exact and fail-closed', () => {
   const policySha = 'd'.repeat(40);
   const createdAt = '2026-07-26T14:00:00.000Z';
   const emergencyPull = pull({ number: 256, changedFiles: 1 });
-  const files = [{ filename: 'apps/frontend/src/app/page.tsx' }];
+  const files = [
+    { filename: 'apps/frontend/src/app/page.tsx', status: 'modified' },
+  ];
   const policy = {
-    prNumber: 300,
+    prNumber: 259,
     mergedAt: '2026-07-26T13:00:00.000Z',
     mergeCommitSha: policySha,
     mergeCommitIsAncestorOfBase: true,
@@ -635,12 +643,21 @@ test('PR #256 emergency approval contract is exact and fail-closed', () => {
       comments: [emergency, owner],
       files,
       policy,
-      configuredPolicyPrNumber: 300,
       ...overrides,
     });
 
-  assert.equal(valid(), true);
-  assert.equal(valid({ configuredPolicyPrNumber: 0 }), false);
+  assert.deepEqual(valid(), {
+    policyPrNumber: 259,
+    policyMergeCommitSha: policySha,
+    policyMergedAt: policy.mergedAt,
+    emergencyCommentId: emergency.id,
+    ownerCommentId: owner.id,
+    windowLabel: '2026-07-26-KST',
+    timestampsValid: true,
+    filesComplete: true,
+    denylistClear: true,
+  });
+  assert.equal(valid({ policy: null }), false);
   assert.equal(valid({ pull: { ...emergencyPull, number: 255 } }), false);
   assert.equal(valid({ policy: { ...policy, prNumber: 301 } }), false);
   assert.equal(
@@ -699,9 +716,17 @@ test('PR #256 emergency approval contract is exact and fail-closed', () => {
     }),
     false,
   );
-  assert.equal(valid({ files: [] }), false);
   assert.equal(
-    valid({ files: [{ filename: '.github/workflows/ci.yml' }] }),
+    valid({
+      files: [],
+      auditReasons: [],
+    }),
+    false,
+  );
+  assert.equal(
+    valid({
+      files: [{ filename: '.github/workflows/ci.yml', status: 'modified' }],
+    }),
     false,
   );
   assert.equal(
@@ -710,11 +735,141 @@ test('PR #256 emergency approval contract is exact and fail-closed', () => {
         {
           filename: 'apps/frontend/src/app/page.tsx',
           previous_filename: 'scripts/merge-policy-check-lib.mjs',
+          status: 'renamed',
         },
       ],
     }),
     false,
   );
+});
+
+test('emergency relief passes only through the full PR #256 evaluator contract', () => {
+  const policySha = 'd'.repeat(40);
+  const createdAt = '2026-07-26T14:00:00.000Z';
+  const pullData = pull({ number: 256, changedFiles: 1 });
+  const files = [
+    { filename: 'apps/frontend/src/app/page.tsx', status: 'modified' },
+  ];
+  const policy = {
+    prNumber: EMERGENCY_POLICY_PR_NUMBER,
+    mergedAt: '2026-07-26T13:00:00.000Z',
+    mergeCommitSha: policySha,
+    mergeCommitIsAncestorOfBase: true,
+  };
+  const comments = [
+    comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
+    comment(11, 'GoBeromsu', pmAccept()),
+    {
+      id: 12,
+      authorLogin: 'GoBeromsu',
+      body: `PM_EMERGENCY_ACCEPT head=${HEAD} base=main base_sha=${BASE_SHA} policy_sha=${policySha} window=2026-07-26-KST`,
+      createdAt,
+      updatedAt: createdAt,
+    },
+    {
+      id: 13,
+      authorLogin: 'jinsol1190-rgb',
+      body: `OWNER_CONFIRM head=${HEAD} base=main base_sha=${BASE_SHA}`,
+      createdAt,
+      updatedAt: createdAt,
+    },
+  ];
+
+  const result = evaluate({
+    pullData,
+    comments,
+    changedFiles: collectChangedPaths(files),
+    files,
+    policy,
+  });
+  assert.equal(result.conclusion, 'success');
+  assert.deepEqual(result.emergencyEvidence, {
+    policyPrNumber: 259,
+    policyMergeCommitSha: policySha,
+    policyMergedAt: policy.mergedAt,
+    emergencyCommentId: 12,
+    ownerCommentId: 13,
+    windowLabel: '2026-07-26-KST',
+    timestampsValid: true,
+    filesComplete: true,
+    denylistClear: true,
+    retainedGates: {
+      mergeReady: true,
+      pmAccept: true,
+    },
+  });
+
+  const summary = formatSummary(result, pullData);
+  for (const expectedLine of [
+    '- emergency window: 2026-07-26-KST',
+    '- emergency timestamps: PASS',
+    '- emergency files completeness: PASS',
+    '- emergency denylist: PASS',
+    '- retained gates: MERGE_READY=PASS, PM_ACCEPT=PASS',
+  ]) {
+    assert.match(
+      summary,
+      new RegExp(expectedLine.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    );
+  }
+
+  const withoutPm = evaluate({
+    pullData,
+    comments: comments.filter((candidate) => candidate.id !== 11),
+    changedFiles: collectChangedPaths(files),
+    files,
+    policy,
+  });
+  assert.equal(withoutPm.conclusion, 'failure');
+  assert.ok(withoutPm.reasons.some((reason) => reason.includes('PM_ACCEPT')));
+  assert.doesNotMatch(formatSummary(withoutPm, pullData), /retained gates:/);
+
+  const policyPullAttempt = evaluate({
+    pullData: { ...pullData, number: 259 },
+    comments,
+    changedFiles: collectChangedPaths(files),
+    files,
+    policy,
+  });
+  assert.equal(policyPullAttempt.conclusion, 'failure');
+});
+
+test('emergency files completeness and control-plane actions fail closed', () => {
+  assert.equal(
+    hasCompletePullFiles([{ filename: 'safe.ts', status: 'renamed' }], 1),
+    false,
+  );
+  assert.equal(
+    hasCompletePullFiles(
+      [
+        {
+          filename: 'safe.ts',
+          previous_filename: '.github/actions/policy/action.yml',
+          status: 'renamed',
+        },
+      ],
+      1,
+    ),
+    true,
+  );
+
+  const auditReasons = [];
+  const result = checkEmergencyApproval({
+    pull: pull({ number: 256, changedFiles: 1 }),
+    comments: [],
+    files: [
+      { filename: '.github/actions/policy/action.yml', status: 'modified' },
+    ],
+    policy: {
+      prNumber: EMERGENCY_POLICY_PR_NUMBER,
+      mergedAt: '2026-07-26T13:00:00.000Z',
+      mergeCommitSha: 'd'.repeat(40),
+      mergeCommitIsAncestorOfBase: true,
+    },
+    auditReasons,
+  });
+  assert.equal(result, false);
+  assert.ok(auditReasons.some((reason) => reason.includes('denylist')));
 });
 
 test('normal HIGH_RISK Tech Lead accept remains sufficient', () => {

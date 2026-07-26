@@ -10,8 +10,10 @@ import { readFileSync } from 'node:fs';
 import {
   collectChangedPaths,
   EMERGENCY_POLICY_PR_NUMBER,
+  EMERGENCY_PR_NUMBER,
   evaluateMergePolicy,
   formatSummary,
+  hasCompletePullFiles,
 } from './merge-policy-check-lib.mjs';
 
 const CODEOWNERS_PATH = '.github/CODEOWNERS';
@@ -115,20 +117,12 @@ export function fetchInputs(repository, prNumber) {
     };
   });
   const files = api(`repos/${repository}/pulls/${prNumber}/files`, true);
-  if (
-    files.length !== pull.changedFiles ||
-    files.some(
-      (file) =>
-        typeof file?.filename !== 'string' ||
-        (file.previous_filename !== undefined &&
-          typeof file.previous_filename !== 'string'),
-    )
-  ) {
+  if (!hasCompletePullFiles(files, pull.changedFiles)) {
     throw new Error('GitHub pull files metadata was incomplete or malformed');
   }
   const changedFiles = collectChangedPaths(files);
   let policy = null;
-  if (EMERGENCY_POLICY_PR_NUMBER !== 0) {
+  if (pull.number === EMERGENCY_PR_NUMBER && EMERGENCY_POLICY_PR_NUMBER !== 0) {
     const policyPull = api(
       `repos/${repository}/pulls/${EMERGENCY_POLICY_PR_NUMBER}`,
     );
