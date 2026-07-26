@@ -113,11 +113,16 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
       description: form.description.trim()
         ? undefined
         : '프로그램 설명을 입력해 주세요.',
+      endAt:
+        form.endAt && new Date(form.endAt) < new Date(form.applicationEndAt)
+          ? '종료일은 신청 종료일 이후여야 합니다.'
+          : undefined,
     };
     if (
       clientFieldErrors.name ||
       clientFieldErrors.organizer ||
-      clientFieldErrors.description
+      clientFieldErrors.description ||
+      clientFieldErrors.endAt
     ) {
       setErrors(clientFieldErrors);
       return;

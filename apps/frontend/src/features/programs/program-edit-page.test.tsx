@@ -19,6 +19,7 @@ const editableProgram: EditableProgram = {
   },
   applicationStartAt: '2026-08-01T09:30:59.000Z',
   applicationEndAt: '2026-08-15T09:30:59.000Z',
+  endAt: '2026-08-31T09:30:59.000Z',
   repositoryProvisioningEnabled: false,
   description: 'overview',
   teamMinSize: 2,
@@ -39,6 +40,7 @@ describe('ProgramEditPage save payload', () => {
       category: 'OSS_CONTEST',
       applicationStartAt: editableProgram.applicationStartAt,
       applicationEndAt: editableProgram.applicationEndAt,
+      endAt: editableProgram.endAt,
       teamMinSize: 2,
       teamMaxSize: 4,
     });
@@ -59,5 +61,25 @@ describe('ProgramEditPage save payload', () => {
       new Date(2026, 7, 1, 19, 45).toISOString(),
     );
     expect(input.applicationEndAt).toBe(editableProgram.applicationEndAt);
+  });
+  it('preserves null endAt and converts a changed endAt to ISO', () => {
+    expect(
+      buildProgramEditInput(
+        toProgramEditForm({ ...editableProgram, endAt: null }),
+        true,
+        [],
+      ).endAt,
+    ).toBeNull();
+
+    const input = buildProgramEditInput(
+      {
+        ...toProgramEditForm(editableProgram),
+        endAt: '2026-09-01T19:45',
+      },
+      true,
+      ['endAt'],
+    );
+
+    expect(input.endAt).toBe(new Date(2026, 8, 1, 19, 45).toISOString());
   });
 });

@@ -160,6 +160,17 @@ export function ProgramCreationPage() {
           </div>
           <FieldError>{errors.period}</FieldError>
         </Field>
+        <Field>
+          <FieldLabel htmlFor="end-at">종료일 (선택)</FieldLabel>
+          <Input
+            id="end-at"
+            type="datetime-local"
+            value={form.endAt}
+            aria-invalid={Boolean(errors.endAt)}
+            onChange={(event) => update('endAt', event.target.value)}
+          />
+          <FieldError>{errors.endAt}</FieldError>
+        </Field>
         {isTeam ? (
           <Field>
             <FieldLabel>팀 인원 *</FieldLabel>
