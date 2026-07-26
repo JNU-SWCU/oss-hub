@@ -20,6 +20,7 @@ const service = new ShowcaseProjectionService(prisma, repository);
 const PREFIX = 'synthetic-public-showcase';
 const PROGRAM_ID = `${PREFIX}-program`;
 const USER_ID = `${PREFIX}-user`;
+const OTHER_USER_ID = `${PREFIX}-other-user`;
 const APPLICATION_IDS = [
   `${PREFIX}-eligible-application`,
   `${PREFIX}-ineligible-application`,
@@ -33,14 +34,23 @@ const NOW = new Date('2026-07-26T00:00:00.000Z');
 describe('ShowcaseProjectionRepository integration', () => {
   beforeAll(async () => {
     await prisma.$connect();
-    await prisma.user.create({
-      data: {
-        id: USER_ID,
-        githubId: 8_400_000_000_001n,
-        nickname: `${PREFIX}-login`,
-        avatarUrl: 'https://avatars.example/synthetic.png',
-        role: Role.STUDENT,
-      },
+    await prisma.user.createMany({
+      data: [
+        {
+          id: USER_ID,
+          githubId: 8_400_000_000_001n,
+          nickname: `${PREFIX}-login`,
+          avatarUrl: 'https://avatars.example/synthetic.png',
+          role: Role.STUDENT,
+        },
+        {
+          id: OTHER_USER_ID,
+          githubId: 8_400_000_000_002n,
+          nickname: `${PREFIX}-other-login`,
+          avatarUrl: null,
+          role: Role.STUDENT,
+        },
+      ],
     });
     await prisma.program.create({
       data: {
@@ -57,10 +67,10 @@ describe('ShowcaseProjectionRepository integration', () => {
       },
     });
     await prisma.application.createMany({
-      data: APPLICATION_IDS.map((id) => ({
+      data: APPLICATION_IDS.map((id, index) => ({
         id,
         programId: PROGRAM_ID,
-        applicantId: USER_ID,
+        applicantId: index === 0 ? USER_ID : OTHER_USER_ID,
         answers: {},
         applicationTemplateVersion: 1,
         status: ApplicationStatus.APPROVED,
@@ -107,7 +117,9 @@ describe('ShowcaseProjectionRepository integration', () => {
         where: { id: { in: [...APPLICATION_IDS] } },
       });
       await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
-      await prisma.user.deleteMany({ where: { id: USER_ID } });
+      await prisma.user.deleteMany({
+        where: { id: { in: [USER_ID, OTHER_USER_ID] } },
+      });
     } finally {
       await prisma.$disconnect();
     }
