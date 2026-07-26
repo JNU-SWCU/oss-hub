@@ -2,6 +2,7 @@ import {
   CollectionAppClient,
   CollectionAppClientError,
 } from './collection-app.client';
+import { CollectionAppConfigError } from './collection-app.config';
 import {
   CollectionAppTokenError,
   CollectionAppTokenProvider,
@@ -11,6 +12,8 @@ import {
   CollectionReconciliationRuntime,
   CollectionReconciliationService,
 } from './collection-reconciliation.service';
+import { CollectionErrorCode } from './collection-error-code.enum';
+import { DomainException } from '../common/error-code';
 
 const flush = async () => {
   await new Promise((resolve) => setImmediate(resolve));
@@ -344,6 +347,38 @@ describe('CollectionReconciliationService', () => {
       'run-1',
     );
     expect(repository.writeGeneration).not.toHaveBeenCalled();
+  });
+
+  it('maps missing Collection App config to COL_007 without starting a run', async () => {
+    const repository = {
+      createCandidate: jest.fn(),
+      appendPreflightFailure: jest.fn(),
+      acquireLease: jest.fn(),
+      heartbeatLease: jest.fn(),
+      writeGeneration: jest.fn(),
+      markValidity: jest.fn(),
+      completeAndPublish: jest.fn(),
+      finalizeFailure: jest.fn(),
+      cleanupUnpublishedCandidate: jest.fn(),
+      getStatusSnapshot: jest.fn(),
+    } as RepositoryMock;
+    const service = new CollectionReconciliationService(
+      repository as unknown as CollectionCanonicalRepository,
+      () => {
+        throw new CollectionAppConfigError('GITHUB_COLLECTION_APP_ID');
+      },
+      () => new Date('2026-07-26T00:00:00.000Z'),
+      () => 'run-1',
+    );
+
+    await expect(service.trigger('worker')).rejects.toBeInstanceOf(
+      DomainException,
+    );
+    await expect(service.trigger('worker')).rejects.toMatchObject({
+      errorCode: { code: CollectionErrorCode.COLLECTION_APP_UNAVAILABLE },
+    });
+    expect(repository.createCandidate).not.toHaveBeenCalled();
+    expect(repository.appendPreflightFailure).not.toHaveBeenCalled();
   });
 
   it('uses only canonical repository writes', async () => {

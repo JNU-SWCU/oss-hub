@@ -12,6 +12,7 @@ import {
   CollectionPullRequest,
   CollectionRelease,
 } from './collection-app.client';
+import { CollectionAppConfigError } from './collection-app.config';
 import {
   CollectionAppTokenError,
   CollectionAppTokenProvider,
@@ -53,7 +54,19 @@ export class CollectionReconciliationService {
   async trigger(
     ownerId: string,
   ): Promise<{ runId: string; status: 'PENDING' }> {
-    const runtime = await this.runtimeFactory();
+    let runtime: CollectionReconciliationRuntime;
+    try {
+      runtime = await this.runtimeFactory();
+    } catch (error) {
+      if (error instanceof CollectionAppConfigError) {
+        throw new DomainException(
+          COLLECTION_ERROR_CODES[
+            CollectionErrorCode.COLLECTION_APP_UNAVAILABLE
+          ],
+        );
+      }
+      throw error;
+    }
     const key = {
       appId: BigInt(runtime.appId),
       organizationLogin: runtime.organizationLogin,
