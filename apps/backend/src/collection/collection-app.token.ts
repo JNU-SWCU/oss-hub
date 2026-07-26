@@ -1,3 +1,4 @@
+import { createPrivateKey } from 'node:crypto';
 import { importPKCS8, SignJWT } from 'jose';
 import { CollectionAppConfigValues } from './collection-app.config';
 
@@ -132,7 +133,11 @@ export class CollectionAppTokenProvider {
 
   private async createAppJwt(): Promise<string> {
     try {
-      const key = await importPKCS8(this.config.privateKey, 'RS256');
+      // GitHub App 키는 PKCS#1(`BEGIN RSA PRIVATE KEY`)로 다운로드되므로 PKCS#8로 정규화한다.
+      const normalized = createPrivateKey(this.config.privateKey)
+        .export({ type: 'pkcs8', format: 'pem' })
+        .toString();
+      const key = await importPKCS8(normalized, 'RS256');
       const nowSeconds = Math.floor(this.now() / 1000);
       return await new SignJWT({})
         .setProtectedHeader({ alg: 'RS256' })

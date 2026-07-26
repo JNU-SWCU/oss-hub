@@ -122,6 +122,25 @@ describe('CollectionAppTokenProvider', () => {
     expect(fetcher).toHaveBeenCalledTimes(3);
   });
 
+  it('signs the App JWT with a GitHub-format PKCS#1 private key', async () => {
+    const pkcs1Key = generateKeyPairSync('rsa', { modulusLength: 2048 })
+      .privateKey.export({ type: 'pkcs1', format: 'pem' })
+      .toString();
+    const fetcher = fetchMock()
+      .mockResolvedValueOnce(json(installation))
+      .mockResolvedValueOnce(json(access));
+    const provider = new CollectionAppTokenProvider(
+      { ...config, privateKey: pkcs1Key },
+      fetcher,
+      () => Date.parse('2026-01-01T00:00:00Z'),
+    );
+    await expect(provider.getToken()).resolves.toBe('installation-token');
+    const authorization = (
+      fetcher.mock.calls[0]?.[1]?.headers as Record<string, string>
+    ).Authorization;
+    expect(authorization).toMatch(/^Bearer [A-Za-z0-9_-]+\./);
+  });
+
   it('bounds token requests and refreshes only once for concurrent callers', async () => {
     const fetcher = fetchMock();
     let resolveInstallation: ((response: Response) => void) | undefined;
