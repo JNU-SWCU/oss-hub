@@ -4,6 +4,7 @@ import {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
 } from '@prisma/client';
+import type { ShowcaseProjectionService } from '../showcase/showcase-projection.service';
 import type { GithubAppClient } from './github-app.client';
 import {
   RepositoriesRepository,
@@ -45,6 +46,10 @@ export class RepositoriesService {
       'findPublishTarget' | 'markPublished' | 'listOwnedProvisionJobs'
     >,
     private readonly github: Pick<GithubAppClient, 'publishRepository'>,
+    private readonly showcase?: Pick<
+      ShowcaseProjectionService,
+      'projectRepository'
+    >,
   ) {}
   async getMyRepositories(githubId: bigint): Promise<readonly MyRepository[]> {
     const jobs = await this.repository.listOwnedProvisionJobs(githubId);
@@ -117,6 +122,7 @@ export class RepositoriesService {
       target.githubRepositoryId,
       now,
     );
+    await this.showcase?.projectRepository(target.id, now);
     return {
       ...target,
       visibility: RepositoryVisibility.PUBLIC,

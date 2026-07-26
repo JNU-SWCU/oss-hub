@@ -12,6 +12,7 @@ import { ProgramsModule } from './programs/programs.module';
 import { RepositoryOwnershipModule } from './repository-ownership/repository-ownership.module';
 import { RepositoriesModule } from './repositories/repositories.module';
 import { RolesModule } from './roles/roles.module';
+import { ShowcaseModule } from './showcase/showcase.module';
 import { SubmissionReviewsModule } from './submission-reviews/submission-reviews.module';
 import { SubmissionsModule } from './submissions/submissions.module';
 import { UsersModule } from './users/users.module';
@@ -35,6 +36,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     RepositoriesModule,
     SubmissionReviewsModule,
+    ShowcaseModule,
   ],
 })
 export class AppModule {}

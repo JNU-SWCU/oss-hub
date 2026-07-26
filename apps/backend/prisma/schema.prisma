@@ -411,6 +411,40 @@ model Repository {
   @@index([teamId])
 }
 
+/// 공개 쿼리는 이 두 테이블만 조회한다(#126/#134); private 원본 join 금지.
+model PublicShowcaseRepository {
+  repositoryId            String          @id
+  githubRepositoryId      BigInt          @unique
+  repositoryName          String
+  repositoryUrl           String
+  publishedAt             DateTime
+  programId               String
+  programName             String
+  programCategory         ProgramCategory
+  programEndAt            DateTime
+  teamName                String?
+  displayName             String
+  approvedSubmissionCount Int
+  projectedAt             DateTime        @updatedAt
+
+  contributors PublicShowcaseContributor[]
+
+  @@index([programId])
+}
+
+/// 공개 쿼리는 이 두 테이블만 조회한다(#126/#134); private 원본 join 금지.
+model PublicShowcaseContributor {
+  id             String                   @id @default(cuid())
+  repositoryId   String
+  repository     PublicShowcaseRepository @relation(fields: [repositoryId], references: [repositoryId], onDelete: Cascade)
+  userId         String
+  githubNickname String
+  avatarUrl      String?
+
+  @@unique([repositoryId, userId])
+  @@index([userId])
+}
+
 /// 공개 랭킹이 신청 데이터 join 없이 저장소 수신자를 찾는 최소 projection(#197).
 model RepositoryOwnerProjection {
   githubRepositoryId BigInt   @id

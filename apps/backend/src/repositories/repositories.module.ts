@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { ShowcaseModule } from '../showcase/showcase.module';
 import { RepositoriesController } from './repositories.controller';
 import { GithubAppClient } from './github-app.client';
 import { GithubAppTokenProvider } from './github-app.token';
 import { GithubOperationsConfig } from './github-operations.config';
 import { RepositoriesRepository } from './repositories.repository';
+import { ShowcaseProjectionService } from '../showcase/showcase-projection.service';
 import { RepositoriesService } from './repositories.service';
 import { RepositoryOutboxConsumer } from './repository-outbox.consumer';
 import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
@@ -13,7 +15,7 @@ import { RepositoryProvisionStateRepository } from './repository-provision-state
 import { RepositoryProvisionWorker } from './repository-provision.worker';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, ShowcaseModule],
   controllers: [RepositoriesController],
   providers: [
     GithubOperationsConfig,
@@ -49,11 +51,17 @@ import { RepositoryProvisionWorker } from './repository-provision.worker';
     },
     {
       provide: RepositoriesService,
-      inject: [RepositoriesRepository, GithubAppClient],
+      inject: [
+        RepositoriesRepository,
+        GithubAppClient,
+        ShowcaseProjectionService,
+      ],
       useFactory: (
         repository: RepositoriesRepository,
         github: GithubAppClient,
-      ): RepositoriesService => new RepositoriesService(repository, github),
+        showcase: ShowcaseProjectionService,
+      ): RepositoriesService =>
+        new RepositoriesService(repository, github, showcase),
     },
     {
       provide: RepositoryProvisionScheduler,
