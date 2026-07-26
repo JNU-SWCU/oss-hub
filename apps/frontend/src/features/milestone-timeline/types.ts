@@ -38,6 +38,7 @@ export type MilestoneTimelineItem = {
   readonly statusLabel: string;
   readonly submitHref: string | null;
   readonly submitLabel: string | null;
+  readonly submitDisabledLabel: string | null;
 };
 
 export type MilestoneTimeline = {

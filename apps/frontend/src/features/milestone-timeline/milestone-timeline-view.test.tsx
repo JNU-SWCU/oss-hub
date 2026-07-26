@@ -37,6 +37,7 @@ describe('milestone timeline loader and view', () => {
       'release',
       'rejected',
       'missing',
+      'text-missing',
       'changes-locked',
     ]);
   });
@@ -81,10 +82,21 @@ describe('milestone timeline loader and view', () => {
     expect(readyHtml).toMatch(/data-variant="rejected"[^>]*>보완 필요/);
     expect(readyHtml.match(/제출하기/g)).toHaveLength(1);
     expect(readyHtml).toContain('다시 제출');
-    expect(readyHtml).toContain(
-      'href="/programs/program-1/milestones/missing/submit"',
+    expect(readyHtml).toContain('파일 제출 준비 중');
+    expect(readyHtml.match(/파일 제출 준비 중/g)).toHaveLength(2);
+    expect(readyHtml).toMatch(
+      /<button[^>]*disabled[^>]*>파일 제출 준비 중<\/button>/,
     );
     expect(readyHtml).toContain(
+      'href="/programs/program-1/milestones/text-missing/submit"',
+    );
+    expect(readyHtml).toContain(
+      'href="/programs/program-1/submissions?milestoneId=text"',
+    );
+    expect(readyHtml).not.toContain(
+      'href="/programs/program-1/milestones/missing/submit"',
+    );
+    expect(readyHtml).not.toContain(
       'href="/programs/program-1/submissions?milestoneId=file"',
     );
     expect(readyHtml).not.toContain(

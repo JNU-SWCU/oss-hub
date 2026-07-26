@@ -103,6 +103,12 @@ function TimelineCard({
                 <Link href={item.submitHref}>{item.submitLabel}</Link>
               </Button>
             </div>
+          ) : item.submitDisabledLabel ? (
+            <div>
+              <Button type="button" variant="outline" size="sm" disabled>
+                {item.submitDisabledLabel}
+              </Button>
+            </div>
           ) : null}
         </CardContent>
       </Card>

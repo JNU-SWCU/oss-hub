@@ -35,7 +35,7 @@ export const response = {
       name: '아이디어 요약',
       dueAt: '2026-07-24T23:59:59+09:00',
       submissionType: 'TEXT',
-      submission: submission('SUBMITTED'),
+      submission: submission('CHANGES_REQUESTED'),
     },
     {
       milestoneId: 'file',
@@ -56,6 +56,13 @@ export const response = {
       name: '성과 공유',
       dueAt: '2026-08-20T23:59:59+09:00',
       submissionType: 'FILE',
+      submission: null,
+    },
+    {
+      milestoneId: 'text-missing',
+      name: '텍스트 제출',
+      dueAt: '2026-08-21T23:59:59+09:00',
+      submissionType: 'TEXT',
       submission: null,
     },
     {

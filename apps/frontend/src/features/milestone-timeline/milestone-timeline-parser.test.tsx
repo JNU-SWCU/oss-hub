@@ -17,6 +17,7 @@ describe('milestone timeline parser', () => {
       'release',
       'rejected',
       'missing',
+      'text-missing',
       'changes-locked',
     ]);
     expect(timeline.items.map((item) => item.dDayLabel)).toEqual([
@@ -26,40 +27,60 @@ describe('milestone timeline parser', () => {
       'D-10',
       'D-17',
       'D-27',
+      'D-28',
       'D-32',
     ]);
     expect(timeline.items.map((item) => item.statusLabel)).toEqual([
       '제출 전',
-      '제출됨',
+      '보완 필요',
       '보완 필요',
       '승인',
       '최종 반려',
+      '제출 전',
       '제출 전',
       '보완 필요',
     ]);
     expect(
       timeline.items.find((item) => item.milestoneId === 'file'),
     ).toMatchObject({
-      submitHref: '/programs/program-1/submissions?milestoneId=file',
-      submitLabel: '다시 제출',
+      submitHref: null,
+      submitLabel: null,
+      submitDisabledLabel: '파일 제출 준비 중',
     });
     expect(
       timeline.items.find((item) => item.milestoneId === 'missing'),
     ).toMatchObject({
-      submitHref: '/programs/program-1/milestones/missing/submit',
+      submitHref: null,
+      submitLabel: null,
+      submitDisabledLabel: '파일 제출 준비 중',
+    });
+    expect(
+      timeline.items.find((item) => item.milestoneId === 'text'),
+    ).toMatchObject({
+      submitHref: '/programs/program-1/submissions?milestoneId=text',
+      submitLabel: '다시 제출',
+      submitDisabledLabel: null,
+    });
+    expect(
+      timeline.items.find((item) => item.milestoneId === 'text-missing'),
+    ).toMatchObject({
+      submitHref: '/programs/program-1/milestones/text-missing/submit',
       submitLabel: '제출하기',
+      submitDisabledLabel: null,
     });
     expect(
       timeline.items.find((item) => item.milestoneId === 'overdue'),
     ).toMatchObject({
       submitHref: null,
       submitLabel: null,
+      submitDisabledLabel: null,
     });
     expect(
       timeline.items.find((item) => item.milestoneId === 'changes-locked'),
     ).toMatchObject({
       submitHref: null,
       submitLabel: null,
+      submitDisabledLabel: null,
     });
     expect(
       timeline.items.find((item) => item.milestoneId === 'file')
