@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { RepositoryVisibility } from '@prisma/client';
+import {
+  RepositoryInvitationStatus,
+  RepositoryProvisionJobStatus,
+  RepositoryVisibility,
+} from '@prisma/client';
 import type { GithubAppClient } from './github-app.client';
 import {
   RepositoriesRepository,
@@ -14,16 +18,80 @@ export class RepositoryNotFoundError extends Error {
 export interface PublishRepositoryInput {
   readonly repositoryId: string;
 }
+export interface MyRepository {
+  readonly repositoryId: string | null;
+  readonly applicationId: string;
+  readonly applicationMode: 'PERSONAL' | 'TEAM';
+  readonly programName: string;
+  readonly displayName: string;
+  readonly repositoryName: string | null;
+  readonly githubUrl: string | null;
+  readonly provisionStatus: RepositoryProvisionJobStatus;
+  readonly invitationStatus: RepositoryInvitationStatus | null;
+  readonly visibility: RepositoryVisibility | null;
+  readonly lastErrorCode: string | null;
+  readonly updatedAt: Date;
+}
+
+export class RepositoryProvisionStateError extends Error {
+  override readonly name = 'RepositoryProvisionStateError';
+}
 
 @Injectable()
 export class RepositoriesService {
   constructor(
     private readonly repository: Pick<
       RepositoriesRepository,
-      'findPublishTarget' | 'markPublished'
+      'findPublishTarget' | 'markPublished' | 'listOwnedProvisionJobs'
     >,
     private readonly github: Pick<GithubAppClient, 'publishRepository'>,
   ) {}
+  async getMyRepositories(githubId: bigint): Promise<readonly MyRepository[]> {
+    const jobs = await this.repository.listOwnedProvisionJobs(githubId);
+    return jobs.map((job) => {
+      if (
+        job.repository !== null &&
+        job.repository.applicationId !== job.application.id
+      ) {
+        throw new RepositoryProvisionStateError();
+      }
+      if (
+        job.status === RepositoryProvisionJobStatus.SUCCEEDED &&
+        job.repository === null
+      ) {
+        throw new RepositoryProvisionStateError();
+      }
+      if (
+        job.status === RepositoryProvisionJobStatus.SUCCEEDED &&
+        job.repository !== null &&
+        (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(job.repository.name) ||
+          job.repository.url !==
+            `https://github.com/JNU-SWCU/${job.repository.name}`)
+      ) {
+        throw new RepositoryProvisionStateError();
+      }
+      const repository =
+        job.status === RepositoryProvisionJobStatus.SUCCEEDED
+          ? job.repository
+          : null;
+
+      return {
+        repositoryId: repository?.id ?? null,
+        applicationId: job.application.id,
+        applicationMode: job.application.teamId === null ? 'PERSONAL' : 'TEAM',
+        programName: job.application.program.name,
+        displayName:
+          job.application.team?.name ?? job.application.applicant.nickname,
+        repositoryName: repository?.name ?? null,
+        githubUrl: repository?.url ?? null,
+        provisionStatus: job.status,
+        invitationStatus: repository?.invitations[0]?.status ?? null,
+        visibility: repository?.visibility ?? null,
+        lastErrorCode: job.lastErrorCode,
+        updatedAt: job.updatedAt,
+      };
+    });
+  }
 
   async publish(
     input: PublishRepositoryInput,
