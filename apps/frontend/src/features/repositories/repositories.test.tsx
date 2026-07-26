@@ -183,6 +183,48 @@ describe('my repositories response parser', () => {
       },
     ],
     [
+      'GitHub trailing slash',
+      {
+        ...response.items[0],
+        githubUrl: 'https://github.com/JNU-SWCU/oss-1/',
+      },
+    ],
+    [
+      'GitHub doubled slash',
+      {
+        ...response.items[0],
+        githubUrl: 'https://github.com/JNU-SWCU//oss-1',
+      },
+    ],
+    [
+      'GitHub explicit default port',
+      {
+        ...response.items[0],
+        githubUrl: 'https://github.com:443/JNU-SWCU/oss-1',
+      },
+    ],
+    [
+      'GitHub dot-segment normalization',
+      {
+        ...response.items[0],
+        githubUrl: 'https://github.com/JNU-SWCU/other/../oss-1',
+      },
+    ],
+    [
+      'GitHub empty query delimiter',
+      {
+        ...response.items[0],
+        githubUrl: 'https://github.com/JNU-SWCU/oss-1?',
+      },
+    ],
+    [
+      'GitHub empty fragment delimiter',
+      {
+        ...response.items[0],
+        githubUrl: 'https://github.com/JNU-SWCU/oss-1#',
+      },
+    ],
+    [
       'pre-success invitation',
       {
         ...responseItem({ id: 'pending-invite', provisionStatus: 'PENDING' }),

@@ -76,6 +76,7 @@ function isSafeGithubUrl(value: string, repositoryName: string): boolean {
     const url = new URL(value);
     const pathSegments = url.pathname.split('/').filter(Boolean);
     return (
+      value === `https://github.com/JNU-SWCU/${repositoryName}` &&
       url.origin === 'https://github.com' &&
       url.username === '' &&
       url.password === '' &&
