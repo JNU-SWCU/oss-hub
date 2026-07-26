@@ -40,6 +40,7 @@ export type EditableProgramView = {
   readonly categoryLocked: ProgramCategoryLockState;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
+  readonly endAt: Date | null;
   readonly teamMinSize: number | null;
   readonly teamMaxSize: number | null;
   readonly repositoryProvisioningEnabled: boolean;
@@ -74,6 +75,7 @@ export type ProgramUpdateInput = {
   readonly applicationTemplateVersion: number;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
+  readonly endAt: Date | null;
   readonly teamMinSize: number | null;
   readonly teamMaxSize: number | null;
   readonly repositoryProvisioningEnabled: boolean;

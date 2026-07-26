@@ -39,6 +39,18 @@ const INVALID_APPLICATION_PERIOD_FIELD_ERRORS = [
   },
 ] as const;
 
+const INVALID_PROGRAM_END_FIELD_ERRORS = [
+  {
+    field: 'applicationEndAt',
+    code: 'INVALID_APPLICATION_PERIOD',
+    message: 'Application period must end before the program ends.',
+  },
+  {
+    field: 'endAt',
+    code: 'INVALID_APPLICATION_PERIOD',
+    message: 'Program end must be on or after application period end.',
+  },
+] as const;
 const INVALID_TEAM_RANGE_FIELD_ERRORS = [
   {
     field: 'teamMinSize',
@@ -82,6 +94,12 @@ export class ProgramEditorService {
       const description = input.description.trim();
       const applicationStartAt = new Date(input.applicationStartAt);
       const applicationEndAt = new Date(input.applicationEndAt);
+      const endAt =
+        input.endAt === undefined
+          ? existing.endAt
+          : input.endAt === null
+            ? null
+            : new Date(input.endAt);
       const categoryChanged = existing.category !== input.category;
       const template = getProgramTemplate(input.category);
       const teamSize = teamSizeForTemplate(input, template.participation);
@@ -136,6 +154,14 @@ export class ProgramEditorService {
         });
       }
       if (
+        endAt !== null &&
+        (Number.isNaN(endAt.getTime()) || endAt < applicationEndAt)
+      ) {
+        this.fail(ProgramErrorCode.INVALID_APPLICATION_PERIOD, {
+          fieldErrors: INVALID_PROGRAM_END_FIELD_ERRORS,
+        });
+      }
+      if (
         (existing.applicationCount > 0 || existing.teamCount > 0) &&
         categoryChanged
       ) {
@@ -164,6 +190,7 @@ export class ProgramEditorService {
         applicationTemplateVersion,
         applicationStartAt,
         applicationEndAt,
+        endAt,
         teamMinSize: teamSize.teamMinSize,
         teamMaxSize: teamSize.teamMaxSize,
         repositoryProvisioningEnabled: input.repositoryProvisioningEnabled,

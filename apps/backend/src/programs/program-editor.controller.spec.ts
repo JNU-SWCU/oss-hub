@@ -59,6 +59,7 @@ describe('ProgramEditorController boundaries', () => {
       },
       applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
       applicationEndAt: new Date('2026-08-10T00:00:00.000Z'),
+      endAt: null,
       repositoryProvisioningEnabled: false,
       description: 'overview',
       milestones: [],
@@ -78,6 +79,7 @@ describe('ProgramEditorController boundaries', () => {
       applicationCount: 0,
       teamCount: 0,
     });
+    expect(result.endAt).toBeNull();
     expect(editor.getProgram).toHaveBeenCalledWith(101n, 'program-1');
     expect(
       Reflect.getMetadata(GUARDS_METADATA, controllerMethod('get')),

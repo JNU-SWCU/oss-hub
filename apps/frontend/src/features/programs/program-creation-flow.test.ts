@@ -5,6 +5,7 @@ import {
   EMPTY_PROGRAM_FORM,
   hasProgramFormInput,
   startProgramSubmission,
+  validateProgramForm,
   type ProgramForm,
   type ProgramSubmissionLock,
 } from './program-creation-flow';
@@ -27,6 +28,7 @@ const completedForm: ProgramForm = {
   organizer: '합성 주관기관',
   applicationStartAt: '2026-08-01T09:00',
   applicationEndAt: '2026-08-08T18:00',
+  endAt: '2026-08-31T18:00',
   teamMinSize: '2',
   teamMaxSize: '4',
   description: '합성 프로그램 설명',
@@ -42,6 +44,26 @@ describe('program creation dirty state', () => {
     const form = { ...EMPTY_PROGRAM_FORM, name: '작성 중' };
 
     expect(hasProgramFormInput(form)).toBe(true);
+  });
+});
+describe('program creation end date', () => {
+  it('sends an ISO endAt when set and null when empty', () => {
+    expect(buildCreateProgramInput(completedForm, teamTemplate).endAt).toBe(
+      new Date(2026, 7, 31, 18).toISOString(),
+    );
+    expect(
+      buildCreateProgramInput({ ...completedForm, endAt: '' }, teamTemplate)
+        .endAt,
+    ).toBeNull();
+  });
+
+  it('shows an endAt field error when it precedes applicationEndAt', () => {
+    expect(
+      validateProgramForm(
+        { ...completedForm, endAt: '2026-08-08T17:59' },
+        teamTemplate,
+      ).endAt,
+    ).toBe('종료일은 신청 종료일 이후여야 합니다.');
   });
 });
 

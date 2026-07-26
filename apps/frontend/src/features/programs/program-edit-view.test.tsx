@@ -23,6 +23,7 @@ const editableProgram: EditableProgram = {
   },
   applicationStartAt: '2026-08-01T09:30:59.000Z',
   applicationEndAt: '2026-08-15T09:30:59.000Z',
+  endAt: null,
   repositoryProvisioningEnabled: true,
   description: '프로그램 설명',
   teamMinSize: 2,
@@ -83,6 +84,7 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('수정');
     expect(html).toContain('삭제');
     expect(html).toContain('href="/programs/program-1"');
+    expect(html).toContain('종료일 (선택)');
   });
 
   it('renders field errors without dropping current input values', () => {

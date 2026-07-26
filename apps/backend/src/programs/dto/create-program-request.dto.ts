@@ -24,6 +24,9 @@ export class CreateProgramRequestDto {
 
   @IsString()
   declare applicationEndAt: string;
+  @IsOptional()
+  @IsString()
+  declare endAt?: string | null;
 
   @IsOptional()
   @IsInt()

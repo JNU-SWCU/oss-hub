@@ -58,6 +58,48 @@ describe('ProgramEditorService update validation', () => {
     );
     expect(store.updateProgram.mock.calls).toHaveLength(0);
   });
+  it('rejects an end date before the application end date', async () => {
+    const { service, store } = createProgramEditorServiceHarness();
+    store.findEditableProgramForUpdate.mockResolvedValue(editableProgram);
+
+    const exception = await expectDomainException(
+      service.updateProgram(101n, 'program-1', {
+        ...updateInput,
+        endAt: '2026-08-14T00:00:00.000Z',
+      }),
+    );
+
+    expect(exception.errorCode).toBe(
+      PROGRAM_ERROR_CODES[ProgramErrorCode.INVALID_APPLICATION_PERIOD],
+    );
+    expect(exception.extensions.fieldErrors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: 'applicationEndAt' }),
+        expect.objectContaining({ field: 'endAt' }),
+      ]),
+    );
+    expect(store.updateProgram.mock.calls).toHaveLength(0);
+  });
+
+  it('rejects moving application end past an existing end date', async () => {
+    const { service, store } = createProgramEditorServiceHarness();
+    store.findEditableProgramForUpdate.mockResolvedValue({
+      ...editableProgram,
+      endAt: new Date('2026-08-16T00:00:00.000Z'),
+    });
+
+    await expect(
+      service.updateProgram(101n, 'program-1', {
+        ...updateInput,
+        applicationEndAt: '2026-08-17T00:00:00.000Z',
+        endAt: undefined,
+      }),
+    ).rejects.toMatchObject<Partial<DomainException>>({
+      errorCode:
+        PROGRAM_ERROR_CODES[ProgramErrorCode.INVALID_APPLICATION_PERIOD],
+    });
+    expect(store.updateProgram.mock.calls).toHaveLength(0);
+  });
 
   it('rejects an equal application period with the exact editor period contract', async () => {
     const { service, store } = createProgramEditorServiceHarness();

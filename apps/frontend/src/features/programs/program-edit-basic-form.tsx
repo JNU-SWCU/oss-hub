@@ -116,6 +116,17 @@ export function ProgramEditBasicForm({
             </div>
             <FieldError>{errors.period}</FieldError>
           </Field>
+          <Field>
+            <FieldLabel htmlFor="program-end-at">종료일 (선택)</FieldLabel>
+            <Input
+              id="program-end-at"
+              type="datetime-local"
+              value={form.endAt}
+              aria-invalid={Boolean(errors.endAt)}
+              onChange={(event) => onFieldChange('endAt', event.target.value)}
+            />
+            <FieldError>{errors.endAt}</FieldError>
+          </Field>
           {requiresTeam ? (
             <Field>
               <FieldLabel>팀 인원 *</FieldLabel>

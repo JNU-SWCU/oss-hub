@@ -19,8 +19,10 @@ export interface ProgramEditForm {
   readonly category: ProgramCategory;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
+  readonly endAt: string;
   readonly originalApplicationStartAt: string;
   readonly originalApplicationEndAt: string;
+  readonly originalEndAt: string | null;
   readonly repositoryProvisioningEnabled: boolean;
   readonly description: string;
   readonly teamMinSize: string;
@@ -29,7 +31,7 @@ export interface ProgramEditForm {
 
 export type ProgramEditableField = Exclude<
   keyof ProgramEditForm,
-  'originalApplicationStartAt' | 'originalApplicationEndAt'
+  'originalApplicationStartAt' | 'originalApplicationEndAt' | 'originalEndAt'
 >;
 
 export interface ProgramEditErrors {
@@ -37,6 +39,7 @@ export interface ProgramEditErrors {
   readonly organizer?: string;
   readonly category?: string;
   readonly period?: string;
+  readonly endAt?: string;
   readonly team?: string;
   readonly description?: string;
   readonly general?: string;
@@ -82,8 +85,10 @@ export function toProgramEditForm(program: EditableProgram): ProgramEditForm {
     category: program.category,
     applicationStartAt: toDateTimeLocal(program.applicationStartAt),
     applicationEndAt: toDateTimeLocal(program.applicationEndAt),
+    endAt: toDateTimeLocal(program.endAt),
     originalApplicationStartAt: program.applicationStartAt,
     originalApplicationEndAt: program.applicationEndAt,
+    originalEndAt: program.endAt,
     repositoryProvisioningEnabled: program.repositoryProvisioningEnabled,
     description: program.description,
     teamMinSize: program.teamMinSize?.toString() ?? '',
@@ -121,6 +126,7 @@ export function buildProgramEditInput(
   dirtyFields: readonly ProgramEditableField[] = [
     'applicationStartAt',
     'applicationEndAt',
+    'endAt',
   ],
 ): UpdateProgramInput {
   return {
@@ -133,6 +139,11 @@ export function buildProgramEditInput(
     applicationEndAt: dirtyFields.includes('applicationEndAt')
       ? toIsoString(form.applicationEndAt)
       : form.originalApplicationEndAt,
+    endAt: dirtyFields.includes('endAt')
+      ? form.endAt
+        ? toIsoString(form.endAt)
+        : null
+      : form.originalEndAt,
     repositoryProvisioningEnabled: form.repositoryProvisioningEnabled,
     description: form.description.trim(),
     teamMinSize: requiresTeam ? Number(form.teamMinSize) : null,
@@ -214,6 +225,7 @@ function mapProblemFieldErrors(
     organizer?: string;
     category?: string;
     period?: string;
+    endAt?: string;
     team?: string;
     description?: string;
     dueAt?: string;
@@ -234,6 +246,9 @@ function mapProblemFieldErrors(
       case 'applicationEndAt':
         errors.period = fieldError.message;
         break;
+      case 'endAt':
+        errors.endAt = fieldError.message;
+        break;
       case 'teamMinSize':
       case 'teamMaxSize':
         errors.team = fieldError.message;
@@ -252,7 +267,8 @@ function mapProblemFieldErrors(
   return errors;
 }
 
-function toDateTimeLocal(value: string): string {
+function toDateTimeLocal(value: string | null): string {
+  if (value === null) return '';
   const date = new Date(value);
   const year = String(date.getFullYear());
   const month = twoDigits(date.getMonth() + 1);

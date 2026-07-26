@@ -18,6 +18,7 @@ export const updateInput: UpdateProgramRequestDto = {
   category: ProgramCategory.OSS_CONTEST,
   applicationStartAt: '2026-08-01T00:00:00.000Z',
   applicationEndAt: '2026-08-15T00:00:00.000Z',
+  endAt: null,
   repositoryProvisioningEnabled: true,
   description: '  updated overview  ',
   teamMinSize: 2,
@@ -49,6 +50,7 @@ export const editableProgram = {
   },
   applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
   applicationEndAt: new Date('2026-08-10T00:00:00.000Z'),
+  endAt: null,
   repositoryProvisioningEnabled: false,
   description: 'overview',
   milestones: [

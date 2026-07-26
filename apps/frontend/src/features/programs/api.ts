@@ -74,6 +74,7 @@ export interface CreateProgramInput {
   readonly category: ProgramCategory;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
+  readonly endAt: string | null;
   readonly teamMinSize: number | null;
   readonly teamMaxSize: number | null;
   readonly description: string;
@@ -112,6 +113,7 @@ export interface EditableProgram {
   readonly applicationCount: number;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
+  readonly endAt: string | null;
   readonly repositoryProvisioningEnabled: boolean;
   readonly description: string;
   readonly teamMinSize: number | null;

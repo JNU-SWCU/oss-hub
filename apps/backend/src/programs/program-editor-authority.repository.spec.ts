@@ -51,6 +51,7 @@ describe('ProgramEditorRepository edit counts', () => {
       applicationTemplateVersion: 1,
       applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
       applicationEndAt: new Date('2026-08-15T00:00:00.000Z'),
+      endAt: null,
       teamMinSize: null,
       teamMaxSize: null,
       repositoryProvisioningEnabled: false,

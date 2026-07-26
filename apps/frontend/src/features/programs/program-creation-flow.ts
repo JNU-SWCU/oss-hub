@@ -6,6 +6,7 @@ export interface ProgramForm {
   readonly organizer: string;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
+  readonly endAt: string;
   readonly teamMinSize: string;
   readonly teamMaxSize: string;
   readonly description: string;
@@ -16,6 +17,7 @@ export const EMPTY_PROGRAM_FORM: ProgramForm = {
   organizer: '',
   applicationStartAt: '',
   applicationEndAt: '',
+  endAt: '',
   teamMinSize: '',
   teamMaxSize: '',
   description: '',
@@ -25,6 +27,7 @@ export interface ProgramFormErrors {
   readonly name?: string;
   readonly organizer?: string;
   readonly period?: string;
+  readonly endAt?: string;
   readonly team?: string;
   readonly description?: string;
 }
@@ -45,6 +48,7 @@ export function validateProgramForm(
     name?: string;
     organizer?: string;
     period?: string;
+    endAt?: string;
     team?: string;
     description?: string;
   } = {};
@@ -56,6 +60,8 @@ export function validateProgramForm(
     new Date(form.applicationEndAt) < new Date(form.applicationStartAt)
   )
     errors.period = '올바른 신청 기간을 입력해 주세요.';
+  if (form.endAt && new Date(form.endAt) < new Date(form.applicationEndAt))
+    errors.endAt = '종료일은 신청 종료일 이후여야 합니다.';
   if (
     template.template.participation === 'team' &&
     (!Number.isInteger(Number(form.teamMinSize)) ||
@@ -75,6 +81,7 @@ export function hasProgramFormInput(form: ProgramForm): boolean {
     form.organizer,
     form.applicationStartAt,
     form.applicationEndAt,
+    form.endAt,
     form.teamMinSize,
     form.teamMaxSize,
     form.description,
@@ -92,6 +99,7 @@ export function buildCreateProgramInput(
     category: template.category,
     applicationStartAt: new Date(form.applicationStartAt).toISOString(),
     applicationEndAt: new Date(form.applicationEndAt).toISOString(),
+    endAt: form.endAt ? new Date(form.endAt).toISOString() : null,
     teamMinSize: isTeam ? Number(form.teamMinSize) : null,
     teamMaxSize: isTeam ? Number(form.teamMaxSize) : null,
     description: form.description.trim(),
