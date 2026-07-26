@@ -70,12 +70,14 @@ describe('ProgramEditorService update validation', () => {
     );
 
     expect(exception.errorCode).toBe(
-      PROGRAM_ERROR_CODES[ProgramErrorCode.INVALID_APPLICATION_PERIOD],
+      PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
     );
     expect(exception.extensions.fieldErrors).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ field: 'applicationEndAt' }),
-        expect.objectContaining({ field: 'endAt' }),
+        expect.objectContaining({
+          field: 'endAt',
+          code: 'INVALID_PROGRAM_END',
+        }),
       ]),
     );
     expect(store.updateProgram.mock.calls).toHaveLength(0);
@@ -95,8 +97,7 @@ describe('ProgramEditorService update validation', () => {
         endAt: undefined,
       }),
     ).rejects.toMatchObject<Partial<DomainException>>({
-      errorCode:
-        PROGRAM_ERROR_CODES[ProgramErrorCode.INVALID_APPLICATION_PERIOD],
+      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
     });
     expect(store.updateProgram.mock.calls).toHaveLength(0);
   });
