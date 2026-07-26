@@ -179,30 +179,42 @@ type SubmitActionInput = {
   readonly status: TimelineStatus;
   readonly submission: ChecklistSubmission | null;
   readonly dueDay: number;
+  readonly submissionType: SubmissionType;
 };
 
 function submitAction({
   programId,
   milestoneId,
+  submissionType,
   status,
   submission,
   dueDay,
 }: SubmitActionInput) {
+  if (submissionType === 'FILE') {
+    return {
+      submitHref: null,
+      submitLabel: null,
+      submitDisabledLabel: '파일 제출 준비 중',
+    };
+  }
   if (status === 'CHANGES_REQUESTED' && submission?.canResubmit) {
     return {
       submitHref: `/programs/${encodeURIComponent(programId)}/submissions?milestoneId=${encodeURIComponent(milestoneId)}`,
       submitLabel: '다시 제출',
+      submitDisabledLabel: null,
     };
   }
   if (status === 'NOT_SUBMITTED' && dueDay >= 0) {
     return {
       submitHref: `/programs/${encodeURIComponent(programId)}/milestones/${encodeURIComponent(milestoneId)}/submit`,
       submitLabel: '제출하기',
+      submitDisabledLabel: null,
     };
   }
   return {
     submitHref: null,
     submitLabel: null,
+    submitDisabledLabel: null,
   };
 }
 
@@ -234,6 +246,7 @@ export function parseMilestoneTimelineResponse(
           ...submitAction({
             programId,
             milestoneId: item.milestoneId,
+            submissionType: item.submissionType,
             status,
             submission: item.submission,
             dueDay,
