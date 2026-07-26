@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  Header,
+  Inject,
   HttpCode,
   Param,
   Post,
@@ -23,10 +25,12 @@ import type {
 } from './dto/program-detail.dto';
 import { ProgramListQueryRequestDto } from './dto/program-list-query.dto';
 import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
+import { StudentDashboardResponseDto } from './dto/student-dashboard-response.dto';
 import { ProgramActivityService } from './program-activity.service';
 import { ProgramCreationService } from './program-creation.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsService } from './programs.service';
+import { StudentDashboardService } from './student-dashboard.service';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -98,9 +102,25 @@ export class ProgramsController {
 @Controller('dashboard/student')
 export class StudentDashboardController {
   constructor(
+    @Inject(StudentDashboardService)
+    private readonly dashboard: Pick<
+      StudentDashboardService,
+      'getStudentDashboard'
+    >,
     private readonly activity: ProgramActivityService,
     private readonly viewers: ProgramViewerService,
   ) {}
+
+  @Get()
+  @Header('Cache-Control', 'private, no-store')
+  @UseGuards(SessionGuard)
+  async dashboardSummary(
+    @Req() request: SessionIdentity,
+  ): Promise<StudentDashboardResponseDto> {
+    return StudentDashboardResponseDto.from(
+      await this.dashboard.getStudentDashboard(request.sessionGithubId),
+    );
+  }
 
   @Get('activity-timeline')
   @UseGuards(SessionGuard)

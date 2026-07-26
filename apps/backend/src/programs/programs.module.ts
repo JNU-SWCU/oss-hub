@@ -17,6 +17,7 @@ import {
 } from './programs.controller';
 import { ProgramsRepository } from './programs.repository';
 import { ProgramsService } from './programs.service';
+import { StudentDashboardService } from './student-dashboard.service';
 
 @Module({
   imports: [AuthModule],
@@ -35,6 +36,7 @@ import { ProgramsService } from './programs.service';
     ProgramCreationService,
     ProgramActivityService,
     ProgramViewerService,
+    StudentDashboardService,
     ProgramEditorService,
     ProgramEditorRepository,
     ProgramTeamsService,
