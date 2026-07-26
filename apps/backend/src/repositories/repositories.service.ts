@@ -50,9 +50,23 @@ export class RepositoriesService {
     const jobs = await this.repository.listOwnedProvisionJobs(githubId);
     return jobs.map((job) => {
       if (
+        job.repository !== null &&
+        job.repository.applicationId !== job.application.id
+      ) {
+        throw new RepositoryProvisionStateError();
+      }
+      if (
         job.status === RepositoryProvisionJobStatus.SUCCEEDED &&
-        (job.repository === null ||
-          job.repository.applicationId !== job.application.id)
+        job.repository === null
+      ) {
+        throw new RepositoryProvisionStateError();
+      }
+      if (
+        job.status === RepositoryProvisionJobStatus.SUCCEEDED &&
+        job.repository !== null &&
+        (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(job.repository.name) ||
+          job.repository.url !==
+            `https://github.com/JNU-SWCU/${job.repository.name}`)
       ) {
         throw new RepositoryProvisionStateError();
       }

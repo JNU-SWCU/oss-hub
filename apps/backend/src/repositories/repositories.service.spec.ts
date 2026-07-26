@@ -92,7 +92,7 @@ describe('RepositoriesService.getMyRepositories', () => {
           id: 'synthetic-completed-repository',
           applicationId: 'synthetic-team-application',
           name: 'synthetic-completed',
-          url: 'https://github.com/synthetic-org/synthetic-completed',
+          url: 'https://github.com/JNU-SWCU/synthetic-completed',
           visibility: RepositoryVisibility.PRIVATE,
           invitations: [{ status: RepositoryInvitationStatus.SUCCEEDED }],
         },
@@ -125,7 +125,7 @@ describe('RepositoriesService.getMyRepositories', () => {
         programName: 'Team program',
         displayName: 'Synthetic team',
         repositoryName: 'synthetic-completed',
-        githubUrl: 'https://github.com/synthetic-org/synthetic-completed',
+        githubUrl: 'https://github.com/JNU-SWCU/synthetic-completed',
         provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
         invitationStatus: RepositoryInvitationStatus.SUCCEEDED,
         visibility: RepositoryVisibility.PRIVATE,
@@ -156,6 +156,64 @@ describe('RepositoriesService.getMyRepositories', () => {
           applicationId: 'another-application',
           name: 'synthetic-mismatched',
           url: 'https://github.com/synthetic-org/synthetic-mismatched',
+          visibility: RepositoryVisibility.PRIVATE,
+          invitations: [],
+        },
+      }),
+    ]);
+
+    await expect(
+      new RepositoriesService(repository, github).getMyRepositories(123n),
+    ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
+  });
+
+  it('fails closed when a pre-success job points at another application repository', async () => {
+    const { repository, github } = dependencies();
+    repository.listOwnedProvisionJobs.mockResolvedValue([
+      job({
+        status: RepositoryProvisionJobStatus.PROCESSING,
+        repository: {
+          id: 'synthetic-mismatched-repository',
+          applicationId: 'another-application',
+          name: 'synthetic-mismatched',
+          url: 'https://github.com/JNU-SWCU/synthetic-mismatched',
+          visibility: RepositoryVisibility.PRIVATE,
+          invitations: [],
+        },
+      }),
+    ]);
+
+    await expect(
+      new RepositoriesService(repository, github).getMyRepositories(123n),
+    ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
+  });
+
+  it.each([
+    [
+      'wrong organization',
+      'synthetic-completed',
+      'https://github.com/other-org/synthetic-completed',
+    ],
+    [
+      'trailing path',
+      'synthetic-completed',
+      'https://github.com/JNU-SWCU/synthetic-completed/issues',
+    ],
+    [
+      'unsafe repository name',
+      'synthetic/completed',
+      'https://github.com/JNU-SWCU/synthetic/completed',
+    ],
+  ])('fails closed on %s repository identity', async (_case, name, url) => {
+    const { repository, github } = dependencies();
+    repository.listOwnedProvisionJobs.mockResolvedValue([
+      job({
+        status: RepositoryProvisionJobStatus.SUCCEEDED,
+        repository: {
+          id: 'synthetic-invalid-repository',
+          applicationId: 'synthetic-application',
+          name,
+          url,
           visibility: RepositoryVisibility.PRIVATE,
           invitations: [],
         },
