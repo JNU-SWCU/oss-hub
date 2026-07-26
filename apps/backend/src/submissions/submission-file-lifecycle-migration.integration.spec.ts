@@ -14,7 +14,7 @@ const prisma = new PrismaService();
 const migration = readFileSync(
   join(
     process.cwd(),
-    'prisma/migrations/20260726123000_add_submission_file_lifecycle/migration.sql',
+    'prisma/migrations/20260726125000_add_submission_file_lifecycle/migration.sql',
   ),
   'utf8',
 );

@@ -36,7 +36,7 @@ describe('AppModule module exposure', () => {
     }
   });
 
-  it('Issue #255 보존 대상 모듈 여섯 개를 각각 한 번 유지한다', () => {
+  it('Issue #255 보존 대상 모듈 여덟 개를 각각 한 번 유지한다', () => {
     const imports = getImports();
 
     for (const module of [
@@ -46,6 +46,8 @@ describe('AppModule module exposure', () => {
       UsersModule,
       RepositoriesModule,
       SubmissionReviewsModule,
+      ShowcaseModule,
+      ProfilesModule,
     ]) {
       expect(imports.filter((entry) => entry === module)).toHaveLength(1);
     }
@@ -73,42 +75,4 @@ describe('AppModule module exposure', () => {
     expect(exports).toContain(RepositoriesService);
   });
 
-  it('Issue #255 보존 대상 모듈 여섯 개를 AppModule IMPORTS에 유지한다', () => {
-    const imports: unknown = Reflect.getMetadata(
-      MODULE_METADATA.IMPORTS,
-      AppModule,
-    );
-
-    expect(Array.isArray(imports)).toBe(true);
-    if (!Array.isArray(imports)) {
-      return;
-    }
-
-    expect(imports).toEqual(
-      expect.arrayContaining([
-        AuditLogModule,
-        NotificationsModule,
-        SubmissionsModule,
-        UsersModule,
-        RepositoriesModule,
-        SubmissionReviewsModule,
-        ShowcaseModule,
-        ProfilesModule,
-      ]),
-    );
-  });
-
-  it('RepositoriesModule이 RepositoriesService를 export 계약으로 노출한다', () => {
-    const exports: unknown = Reflect.getMetadata(
-      MODULE_METADATA.EXPORTS,
-      RepositoriesModule,
-    );
-
-    expect(Array.isArray(exports)).toBe(true);
-    if (!Array.isArray(exports)) {
-      return;
-    }
-
-    expect(exports).toContain(RepositoriesService);
-  });
 });
