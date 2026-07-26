@@ -7,40 +7,24 @@ import { CollectionAppTokenProvider } from './collection-app.token';
 import { CollectionCanonicalRepository } from './collection-canonical.repository';
 import { CollectionAdminController } from './collection-admin.controller';
 import { CollectionAdminGuard } from './collection-admin.guard';
-import { CollectionConfig } from './collection.config';
-import { CollectionController } from './collection.controller';
-import { CollectionRepository } from './collection.repository';
-import { CollectionRunStarter } from './collection-run-starter.service';
 import {
   CollectionReconciliationRuntimeFactory,
   CollectionReconciliationRuntime,
   CollectionReconciliationService,
 } from './collection-reconciliation.service';
 import { CollectionSchedulerService } from './collection-scheduler.service';
-import { CollectionService } from './collection.service';
-import { GithubApiClient } from './github-api.client';
-import { GithubWebhookConfig } from './github-webhook.config';
-import { GithubWebhookController } from './github-webhook.controller';
-import { GithubWebhookRepository } from './github-webhook.repository';
-import { GithubWebhookService } from './github-webhook.service';
 
+/**
+ * C2 retirement(#151, ADR-006): Collection authority는 installation token 기반
+ * REST reconciliation 하나뿐이다. webhook ingress·OAuth/PAT 수집·legacy batch
+ * runtime은 제거되었고, legacy 관측 테이블은 호환 릴리스 동안 inert로만 남는다(M3).
+ */
 @Module({
   imports: [ScheduleModule.forRoot(), AuthModule],
-  controllers: [
-    CollectionController,
-    CollectionAdminController,
-    GithubWebhookController,
-  ],
+  controllers: [CollectionAdminController],
   providers: [
-    CollectionConfig,
-    GithubWebhookConfig,
-    GithubWebhookRepository,
-    GithubWebhookService,
     CollectionAdminGuard,
-    CollectionRepository,
-    CollectionRunStarter,
     CollectionSchedulerService,
-    CollectionService,
     CollectionCanonicalRepository,
     {
       provide: CollectionReconciliationService,
@@ -67,17 +51,7 @@ import { GithubWebhookService } from './github-webhook.service';
         );
       },
     },
-    {
-      provide: GithubApiClient,
-      inject: [CollectionConfig],
-      useFactory: (config: CollectionConfig): GithubApiClient =>
-        new GithubApiClient(() => config.requireCredentials()),
-    },
   ],
-  exports: [
-    CollectionConfig,
-    CollectionService,
-    CollectionReconciliationService,
-  ],
+  exports: [CollectionReconciliationService],
 })
 export class CollectionModule {}

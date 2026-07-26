@@ -42,4 +42,20 @@ describe('CollectionModule', () => {
     expect(controllers).toContain(CollectionAdminController);
     expect(exports).toContain(CollectionReconciliationService);
   });
+
+  it('retires webhook ingress and legacy collection runtime from the module', () => {
+    const controllers = getMetadataArray(MODULE_METADATA.CONTROLLERS);
+    const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
+    const names = [...controllers, ...providers].map((entry) =>
+      typeof entry === 'function'
+        ? entry.name
+        : ((entry as { provide?: { name?: string } }).provide?.name ?? ''),
+    );
+    expect(names).not.toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/Webhook|GithubApiClient|CollectionService/),
+      ]),
+    );
+    expect(controllers).toHaveLength(1);
+  });
 });
