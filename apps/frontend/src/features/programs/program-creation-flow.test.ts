@@ -47,14 +47,10 @@ describe('program creation dirty state', () => {
   });
 });
 describe('program creation end date', () => {
-  it('sends an ISO endAt when set and null when empty', () => {
+  it('sends the entered end date as an exact ISO endAt', () => {
     expect(buildCreateProgramInput(completedForm, teamTemplate).endAt).toBe(
       new Date(2026, 7, 31, 18).toISOString(),
     );
-    expect(
-      buildCreateProgramInput({ ...completedForm, endAt: '' }, teamTemplate)
-        .endAt,
-    ).toBeNull();
   });
 
   it('shows an endAt field error when it precedes applicationEndAt', () => {
@@ -63,7 +59,7 @@ describe('program creation end date', () => {
         { ...completedForm, endAt: '2026-08-08T17:59' },
         teamTemplate,
       ).endAt,
-    ).toBe('종료일은 신청 종료일 이후여야 합니다.');
+    ).toBe('프로그램 종료일은 신청 종료일보다 늦어야 합니다.');
   });
 });
 

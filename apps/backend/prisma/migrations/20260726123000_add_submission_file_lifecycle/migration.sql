@@ -1,8 +1,6 @@
 CREATE TYPE "SubmissionFileLifecycle" AS ENUM ('PENDING', 'ATTACHED', 'DELETE_PENDING', 'DELETED');
 
-ALTER TABLE "Program"
-ADD COLUMN "endAt" TIMESTAMP(3);
-
+-- Program."endAt"은 선행 마이그레이션 20260726120000_add_program_end_at(#265)이 추가한다.
 ALTER TABLE "SubmissionFile"
 ADD COLUMN "applicationId" TEXT,
 ADD COLUMN "milestoneId" TEXT,

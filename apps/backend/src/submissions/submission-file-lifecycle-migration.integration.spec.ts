@@ -14,7 +14,7 @@ const prisma = new PrismaService();
 const migration = readFileSync(
   join(
     process.cwd(),
-    'prisma/migrations/20260725121000_add_submission_file_lifecycle/migration.sql',
+    'prisma/migrations/20260726123000_add_submission_file_lifecycle/migration.sql',
   ),
   'utf8',
 );
@@ -92,7 +92,7 @@ describe('SubmissionFile lifecycle migration upgrade', () => {
       await executeSql(
         transaction,
         `
-        CREATE TABLE "Program" ("id" TEXT PRIMARY KEY);
+        CREATE TABLE "Program" ("id" TEXT PRIMARY KEY, "endAt" TIMESTAMP(3));
         CREATE TABLE "Application" ("id" TEXT PRIMARY KEY, "programId" TEXT NOT NULL);
         CREATE TABLE "Milestone" ("id" TEXT PRIMARY KEY, "programId" TEXT NOT NULL);
         CREATE TABLE "Submission" (

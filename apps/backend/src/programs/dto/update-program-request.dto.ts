@@ -25,9 +25,6 @@ export class UpdateProgramRequestDto {
 
   @IsString()
   declare applicationEndAt: string;
-  @IsOptional()
-  @IsString()
-  declare endAt?: string | null;
 
   @IsOptional()
   @IsString()

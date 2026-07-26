@@ -85,7 +85,7 @@ describe('ProgramEditorService update validation', () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findEditableProgramForUpdate.mockResolvedValue({
       ...editableProgram,
-      endAt: new Date('2026-08-16T00:00:00.000Z'),
+      endAt: '2026-08-16T00:00:00.000Z',
     });
 
     await expect(
