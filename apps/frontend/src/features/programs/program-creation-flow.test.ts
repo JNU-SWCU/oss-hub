@@ -47,14 +47,10 @@ describe('program creation dirty state', () => {
   });
 });
 describe('program creation end date', () => {
-  it('sends an ISO endAt when set and null when empty', () => {
+  it('sends the entered end date as an exact ISO endAt', () => {
     expect(buildCreateProgramInput(completedForm, teamTemplate).endAt).toBe(
       new Date(2026, 7, 31, 18).toISOString(),
     );
-    expect(
-      buildCreateProgramInput({ ...completedForm, endAt: '' }, teamTemplate)
-        .endAt,
-    ).toBeNull();
   });
 
   it('shows an endAt field error when it precedes applicationEndAt', () => {
@@ -63,7 +59,49 @@ describe('program creation end date', () => {
         { ...completedForm, endAt: '2026-08-08T17:59' },
         teamTemplate,
       ).endAt,
-    ).toBe('종료일은 신청 종료일 이후여야 합니다.');
+    ).toBe('프로그램 종료일은 신청 종료일보다 늦어야 합니다.');
+  });
+});
+
+describe('program end validation', () => {
+  it.each([
+    ['', '필수'],
+    ['2026-08-08T18:00', '신청 종료일과 같음'],
+    ['2026-08-08T17:59', '신청 종료일보다 이전'],
+  ])('프로그램 종료일이 유효하지 않으면 오류를 반환한다: %s (%s)', (endAt) => {
+    const errors = validateProgramForm(
+      { ...completedForm, endAt },
+      teamTemplate,
+    );
+
+    expect(errors.endAt).toBe(
+      '프로그램 종료일은 신청 종료일보다 늦어야 합니다.',
+    );
+  });
+
+  it('프로그램 종료일이 신청 종료일보다 늦으면 통과한다', () => {
+    const errors = validateProgramForm(completedForm, teamTemplate);
+
+    expect(errors.endAt).toBeUndefined();
+  });
+
+  it('별도의 프로그램 종료일을 ISO 형식으로 정확히 생성 API 입력에 포함한다', () => {
+    const input = buildCreateProgramInput(completedForm, teamTemplate);
+
+    expect(input).toEqual({
+      name: '합성 프로그램',
+      organizer: '합성 주관기관',
+      category: 'OSS_CONTEST',
+      applicationStartAt: new Date(
+        completedForm.applicationStartAt,
+      ).toISOString(),
+      applicationEndAt: new Date(completedForm.applicationEndAt).toISOString(),
+      endAt: new Date(completedForm.endAt).toISOString(),
+      teamMinSize: 2,
+      teamMaxSize: 4,
+      description: '합성 프로그램 설명',
+    });
+    expect(input.endAt).not.toBe(input.applicationEndAt);
   });
 });
 

@@ -23,7 +23,7 @@ const timeline: ActivityTimeline = {
         period: '2026-01',
         commitCount: 12,
         prCount: 3,
-        starCount: 1,
+        releaseCount: 1,
         total: 16,
       },
     ],
@@ -87,7 +87,8 @@ describe('activity timeline', () => {
     expect(html).toContain('연도별');
     expect(html).toContain('커밋');
     expect(html).toContain('Pull Request');
-    expect(html).toContain('Star');
+    expect(html).toContain('Release');
+    expect(html).not.toContain('Star');
     expect(html).not.toContain('FORCE');
   });
 
@@ -166,6 +167,24 @@ describe('activity timeline', () => {
       },
     ],
     [
+      'legacy star metric',
+      {
+        ...timeline,
+        series: {
+          ...timeline.series,
+          points: [
+            {
+              period: '2026-01',
+              commitCount: 12,
+              prCount: 3,
+              starCount: 1,
+              total: 16,
+            },
+          ],
+        },
+      },
+    ],
+    [
       'inconsistent total',
       {
         ...timeline,
@@ -197,7 +216,7 @@ describe('activity timeline', () => {
 
     expect(html).toContain('<table class="sr-only">');
     expect(html).toContain(
-      '<th scope="col">기간</th><th scope="col">커밋</th><th scope="col">Pull Request</th><th scope="col">Star</th><th scope="col">합계</th>',
+      '<th scope="col">기간</th><th scope="col">커밋</th><th scope="col">Pull Request</th><th scope="col">Release</th><th scope="col">합계</th>',
     );
     expect(html).toContain(
       '<th scope="row">2026-01</th><td>12</td><td>3</td><td>1</td><td>16</td>',

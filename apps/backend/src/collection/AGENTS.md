@@ -1,45 +1,47 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-07-20 -->
+<!-- Generated: 2026-07-20 · Updated: 2026-07-26 (C2 retirement) -->
 
 # apps/backend/src/collection — GitHub 활동 수집기
 
 ## Purpose
 
-GitHub API를 호출해 학생 저장소의 활동(커밋·PR 등)을 수집·저장하는 모듈. owner: @Lumiere001(루트 AGENTS.md §3) — 기능 코드 변경 전 Issue·PR 코멘트로 선점을 확인한다.
+Collection GitHub App installation token으로 조직 저장소 metadata·default-branch commit·all-state PR·published release를 REST-only로 수집해 canonical generation으로 발행하는 모듈. webhook·OAuth·PAT 수집 경로는 C2(#151, ADR-006)로 제거되었고 유일한 수집 authority는 REST reconciliation이다. owner: @Lumiere001(루트 AGENTS.md §3) — 기능 코드 변경 전 Issue·PR 코멘트로 선점을 확인한다.
 
 ## Key Files
 
 | 파일 | 역할 |
 | --- | --- |
-| `collection.module.ts` | 모듈 조립 — `AuthModule` import, `GithubApiClient`를 `CollectionConfig` 기반 factory로 생성 |
-| `collection.controller.ts` | HTTP 엔드포인트 |
-| `collection.service.ts` | 수집 트리거·조회 유스케이스 |
-| `collection.config.ts` | GitHub 자격증명·설정(`requireCredentials()`) |
-| `collection.repository.ts` | Prisma 기반 영속화 |
-| `collection-run-starter.service.ts`, `collection-run-start.store.ts` | 수집 실행(run) 시작·중복 방지 상태 관리 |
-| `collection-run.mapper.ts` | 도메인 ↔ DTO 매핑 |
-| `github-api.client.ts`, `github-api.error.ts` | GitHub REST API 클라이언트·에러 변환 |
+| `collection.module.ts` | 모듈 조립 — canonical reconciliation runtime을 lazy singleton factory로 생성 |
+| `collection-app.config.ts` | `GITHUB_APP_ORG`/`GITHUB_COLLECTION_APP_ID`/private key fail-closed 설정 |
+| `collection-app.token.ts` | App JWT(PKCS#1/PKCS#8 모두 허용)·installation discovery·token cache/single-flight |
+| `collection-app.client.ts` | REST inventory/commit/PR/release reader — bounded pagination·typed 오류 |
+| `collection-reconciliation.service.ts` | fenced lease 기반 Org-wide atomic generation 수집·발행 |
+| `collection-canonical.repository.ts` | canonical run/lease/generation/공개 contributor projection 영속화 |
+| `collection-scheduler.service.ts` | 매시 정각(Asia/Seoul) cron 트리거 |
+| `collection-admin.controller.ts` | `POST /admin/collection/trigger` — ADMIN manual trigger(202/COL_006) |
+| `collection-live-smoke.service.ts` | E1 live smoke(2-pass 멱등 digest, 공개-safe 출력) |
 | `collection-error-code.enum.ts` | `COL_*` 에러 코드 레지스트리 |
 
 ## Subdirectories
 
 | 경로 | 내용 |
 | --- | --- |
-| `domain/` | 내부 도메인 모델(`collection-run.ts`·`github-observation.ts`·`json.ts`) — ADR-003에 따라 다른 모듈에서 직접 import 금지 |
-| `dto/` | `collection-run-response.dto.ts` — 공개 응답 계약 |
-| `cli/` | `collect-batch.ts` — 배치 수집 CLI 엔트리(`pnpm --filter backend collect:batch`) |
+| `dto/` | `collection-trigger-response.dto.ts` — 공개 응답 계약 |
+| `cli/` | `verify-collection-app.ts` — live smoke 엔트리(`pnpm --filter backend collection:verify-app`) |
 
 ## For AI Agents
 
-- 에러 코드: `COL_001 RATE_LIMITED`(429), `COL_002 COLLECTION_RUN_NOT_READY`(429, 이미 진행 중이거나 재요청 대기), `COL_003 BATCH_LOGIN_NOT_ALLOWED`(400, 허용 목록 밖 GitHub 계정). `collection-error-code.enum.ts`에 등록되고 `DomainException`으로 던지면 `common/problem-detail.filter.ts`가 `application/problem+json`으로 변환한다.
+- 에러 코드: `COL_006 COLLECTION_RUN_IN_PROGRESS`(409, 안전 확장 `activeRunId`만 노출). `collection-error-code.enum.ts`에 등록하고 `DomainException`으로 던지면 `common/problem-detail.filter.ts`가 `application/problem+json`으로 변환한다.
 - 테스트 위치·트랙:
-  - 단위(`pnpm --filter backend test:unit`): `collection.controller.spec.ts`, `collection.service.spec.ts`, `collection.service.start-gate.spec.ts`, `collection.config.spec.ts`, `github-api.client.spec.ts`
-  - 통합(`pnpm --filter backend test:integration`, 격리 DB 컨테이너): `collection-run-recovery.integration.spec.ts`, `collection.repository.integration.spec.ts`, `integration-database.guard.spec.ts`
-- `GithubApiClient`는 `collection.module.ts`에서 `CollectionConfig.requireCredentials()`를 지연 평가하는 factory로 생성된다 — 자격증명이 없는 환경(예: 일부 테스트)에서 모듈 초기화 자체가 실패하지 않도록 하는 패턴이다.
-- `domain/`·`dto/`는 이 모듈의 내부 표현이다. 다른 모듈은 `collection.module.ts`의 `exports`(`CollectionConfig`·`CollectionService`)만 통해 접근한다.
+  - 단위(`pnpm --filter backend test:unit`): `collection-app.client.spec.ts`, `collection-canonical.repository.spec.ts`, `collection-reconciliation.service.spec.ts`, `collection-scheduler.service.spec.ts`, `collection-admin.controller.spec.ts`, `collection-live-smoke.service.spec.ts`, `collection.module.spec.ts`
+  - 통합(`pnpm --filter backend test:integration`, 격리 DB 컨테이너): `collection-canonical.repository.integration.spec.ts`, `collection-reconciliation.integration.spec.ts`, `collection-scheduler.integration.spec.ts`, `integration-database.guard.spec.ts`
+- reconciliation runtime은 `collection.module.ts`에서 lazy singleton으로 생성된다 — 자격증명이 없는 환경에서 모듈 초기화가 실패하지 않고, 첫 트리거의 discovery/token 실패는 durable run 실패로 기록된다.
+- 발행 규칙: 완전한 generation만 `activeGenerationId`로 승격되고, 실패는 이전 complete generation을 유지한다. contributor projection은 public 저장소만 포함한다.
+- legacy 관측 테이블(`CollectionRun`·`GithubWebhookObservation` 등)은 호환 릴리스 동안 inert로 남는다 — 새 코드가 읽거나 쓰지 않는다(M3에서 제거).
 
 ## Dependencies
 
 - [apps/backend/src/AGENTS.md](../AGENTS.md) — 모듈 경계·auth/collection owner 경계.
-- `auth/`(`AuthModule` — 인증된 요청만 수집 트리거 허용).
+- `auth/`(`AuthModule` — ADMIN 세션만 수집 트리거 허용).
 - `common/`(에러 코드 규약 원본).
+- [docs/decisions/ADR-006-github-app-integration.md](../../../../docs/decisions/ADR-006-github-app-integration.md) — REST-only authority·권한 allowlist·E1/C1/C2 계약 원본.

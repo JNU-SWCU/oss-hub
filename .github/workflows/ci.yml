@@ -142,6 +142,9 @@ jobs:
           FRONTEND_URL: https://synthetic.invalid
           GITHUB_OAUTH_CLIENT_ID: synthetic_client_id
           GITHUB_OAUTH_CLIENT_SECRET: synthetic_client_secret
+          GITHUB_APP_ORG: synthetic_org
+          GITHUB_COLLECTION_APP_ID: '123456'
+          GITHUB_COLLECTION_APP_PRIVATE_KEY: synthetic_private_key_for_config_only
           GMAIL_SENDER: synthetic_sender@example.com
           GMAIL_OAUTH_CLIENT_ID: synthetic_gmail_client_id
           GMAIL_OAUTH_CLIENT_SECRET: synthetic_gmail_client_secret

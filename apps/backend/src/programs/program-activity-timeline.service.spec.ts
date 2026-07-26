@@ -1,9 +1,4 @@
-import {
-  ApplicationStatus,
-  CollectionRunStatus,
-  ObservationSourceType,
-  Role,
-} from '@prisma/client';
+import { Role } from '@prisma/client';
 import { GUARDS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { SessionGuard } from '../auth/session.guard';
 import type { PrismaService } from '../prisma/prisma.service';
@@ -18,30 +13,35 @@ const student: ProgramViewer = {
   role: Role.STUDENT,
 };
 
-function event(
-  sourceId: string,
-  type: string,
-  repositoryId: number,
-  createdAt: string,
-  payload: Readonly<Record<string, unknown>>,
-  targetGithubId = 11n,
+const application = {
+  teamId: null,
+  applicant: { githubId: 11n },
+  team: null,
+  program: {
+    id: 'program-1',
+    name: 'Capstone 2026',
+    applicationStartAt: new Date('2026-03-01T00:00:00.000Z'),
+  },
+  repository: { githubRepositoryId: 101n },
+};
+
+function activeGeneration(
+  updatedAt: string,
+  repositories: readonly {
+    readonly githubRepositoryId: bigint;
+    readonly commits: readonly { readonly committedAt: Date }[];
+    readonly pullRequests: readonly { readonly createdAt: Date }[];
+    readonly releases: readonly { readonly publishedAt: Date }[];
+  }[],
 ) {
   return {
-    id: `${sourceId}-row`,
-    sourceId,
-    payload: {
-      type,
-      repo: { id: repositoryId },
-      payload,
-      created_at: createdAt,
-    },
-    run: { targetGithubId },
+    updatedAt: new Date(updatedAt),
+    activeGeneration: { repositories },
   };
 }
 
-describe('ProgramActivityService activity timeline', () => {
+describe('ProgramActivityService canonical activity', () => {
   it('exposes the current-student timeline at the dashboard route behind SessionGuard', () => {
-    // Given
     const method: unknown = Object.getOwnPropertyDescriptor(
       StudentDashboardController.prototype,
       'activityTimeline',
@@ -50,14 +50,9 @@ describe('ProgramActivityService activity timeline', () => {
       throw new Error('Activity timeline controller method not found.');
     }
 
-    // When
-    const controllerPath: unknown = Reflect.getMetadata(
-      PATH_METADATA,
-      StudentDashboardController,
+    expect(Reflect.getMetadata(PATH_METADATA, StudentDashboardController)).toBe(
+      'dashboard/student',
     );
-
-    // Then
-    expect(controllerPath).toBe('dashboard/student');
     expect(Reflect.getMetadata(PATH_METADATA, method)).toBe(
       'activity-timeline',
     );
@@ -66,295 +61,94 @@ describe('ProgramActivityService activity timeline', () => {
     ]);
   });
 
-  it('aggregates approved personal and team activity by month without FORCE data', async () => {
-    // Given
-    const applicationFindMany = jest.fn().mockResolvedValue([
-      {
-        teamId: null,
-        applicant: { githubId: 11n },
-        team: null,
-        program: {
-          id: 'program-1',
-          name: 'Capstone 2026',
-          applicationStartAt: new Date('2026-03-01T00:00:00.000Z'),
+  it('uses only the active complete generation and buckets all three canonical resources', async () => {
+    const canonicalFindMany = jest.fn().mockResolvedValue([
+      activeGeneration('2026-08-01T00:00:00.000Z', [
+        {
+          githubRepositoryId: 101n,
+          commits: [
+            { committedAt: new Date('2026-07-31T15:00:00.000Z') },
+            { committedAt: new Date('2026-08-02T00:00:00.000Z') },
+          ],
+          pullRequests: [{ createdAt: new Date('2026-08-03T00:00:00.000Z') }],
+          releases: [{ publishedAt: new Date('2026-08-04T00:00:00.000Z') }],
         },
-        repository: { githubRepositoryId: 101n },
-      },
-      {
-        teamId: 'team-1',
-        applicant: { githubId: 99n },
-        team: {
-          leader: { githubId: 11n },
-          members: [{ user: { githubId: 11n } }, { user: { githubId: 12n } }],
-        },
-        program: {
-          id: 'program-2',
-          name: 'Open Source 2025',
-          applicationStartAt: new Date('2025-12-31T23:59:59.000Z'),
-        },
-        repository: { githubRepositoryId: 202n },
-      },
-      {
-        teamId: null,
-        applicant: { githubId: 11n },
-        team: null,
-        program: {
-          id: 'program-3',
-          name: 'Approved without repository',
-          applicationStartAt: new Date('2027-01-01T00:00:00.000Z'),
-        },
-        repository: null,
-      },
+      ]),
     ]);
-    const observationFindMany = jest.fn().mockResolvedValue([
-      event('push-1', 'PushEvent', 101, '2026-07-02T23:00:00Z', { size: 3 }),
-      event('push-1', 'PushEvent', 101, '2026-07-02T23:00:00Z', { size: 3 }),
-      event('pr-1', 'PullRequestEvent', 202, '2026-07-03T00:00:00Z', {
-        action: 'opened',
-      }),
-      event('pr-closed', 'PullRequestEvent', 202, '2026-07-03T01:00:00Z', {
-        action: 'closed',
-      }),
-      event('watch-1', 'WatchEvent', 202, '2025-12-31T23:59:59Z', {
-        action: 'started',
-      }),
-      event('outside-repository', 'PushEvent', 999, '2026-07-04T00:00:00Z', {
-        size: 50,
-      }),
-      event(
-        'teammate-push',
-        'PushEvent',
-        202,
-        '2026-07-04T00:00:00Z',
-        { size: 100 },
-        12n,
-      ),
-    ]);
-    const ownerFindMany = jest
-      .fn()
-      .mockResolvedValue([{ githubRepositoryId: 202n }]);
+    const rawFindMany = jest.fn();
     const prisma = {
-      application: { findMany: applicationFindMany },
-      githubRawObservation: { findMany: observationFindMany },
-      repositoryOwnerProjection: { findMany: ownerFindMany },
+      application: { findMany: jest.fn().mockResolvedValue([application]) },
+      canonicalOrganizationState: { findMany: canonicalFindMany },
+      githubRawObservation: { findMany: rawFindMany },
     } as unknown as PrismaService;
-    const service = new ProgramActivityService(new ProgramsRepository(prisma));
 
-    // When
-    const result = await service.activityTimeline(student, 'MONTH');
+    const result = await new ProgramActivityService(
+      new ProgramsRepository(prisma),
+    ).activityTimeline(student, 'MONTH');
 
-    // Then
-    expect(result).toEqual({
-      programs: [
-        {
-          programId: 'program-1',
-          programName: 'Capstone 2026',
-          year: 2026,
-          applicationMode: 'PERSONAL',
-        },
-        {
-          programId: 'program-2',
-          programName: 'Open Source 2025',
-          year: 2026,
-          applicationMode: 'TEAM',
-        },
-        {
-          programId: 'program-3',
-          programName: 'Approved without repository',
-          year: 2027,
-          applicationMode: 'PERSONAL',
-        },
-      ],
-      series: {
-        granularity: 'MONTH',
-        points: [
-          {
-            period: '2026-01',
-            commitCount: 0,
-            prCount: 0,
-            starCount: 1,
-            total: 1,
-          },
-          {
-            period: '2026-07',
-            commitCount: 3,
-            prCount: 1,
-            starCount: 0,
-            total: 4,
-          },
-        ],
+    expect(result.series.points).toEqual([
+      {
+        period: '2026-08',
+        commitCount: 2,
+        prCount: 1,
+        releaseCount: 1,
+        total: 4,
       },
-    });
-    expect(JSON.stringify(result)).not.toContain('FORCE');
-    expect(applicationFindMany).toHaveBeenCalledWith({
+    ]);
+    expect(canonicalFindMany).toHaveBeenCalledWith({
       where: {
-        status: ApplicationStatus.APPROVED,
-        OR: [
-          { applicantId: 'student-1' },
-          { team: { leaderId: 'student-1' } },
-          { team: { members: { some: { userId: 'student-1' } } } },
-        ],
+        activeGenerationId: { not: null },
+        activeGeneration: {
+          status: 'SUCCEEDED',
+          repositories: {
+            some: { githubRepositoryId: { in: [101n] } },
+          },
+        },
       },
       select: {
-        teamId: true,
-        applicant: { select: { githubId: true } },
-        team: {
+        updatedAt: true,
+        activeGeneration: {
           select: {
-            leader: { select: { githubId: true } },
-            members: {
-              select: { user: { select: { githubId: true } } },
-            },
-          },
-        },
-        program: {
-          select: { id: true, name: true, applicationStartAt: true },
-        },
-        repository: { select: { githubRepositoryId: true } },
-      },
-    });
-    expect(ownerFindMany).toHaveBeenCalledWith({
-      where: {
-        ownerGithubId: 11n,
-        githubRepositoryId: { in: [101n, 202n] },
-      },
-      select: { githubRepositoryId: true },
-    });
-    expect(observationFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          sourceType: ObservationSourceType.EVENT,
-          run: { status: CollectionRunStatus.SUCCEEDED },
-          AND: [
-            {
-              OR: [
-                { payload: { path: ['repo', 'id'], equals: 101 } },
-                { payload: { path: ['repo', 'id'], equals: 202 } },
-              ],
-            },
-            {
-              OR: [
-                { run: { targetGithubId: 11n } },
-                {
-                  AND: [
-                    { payload: { path: ['type'], equals: 'WatchEvent' } },
-                    {
-                      payload: {
-                        path: ['payload', 'action'],
-                        equals: 'started',
-                      },
-                    },
-                    {
-                      OR: [{ payload: { path: ['repo', 'id'], equals: 202 } }],
-                    },
-                  ],
+            repositories: {
+              where: { githubRepositoryId: { in: [101n] } },
+              select: {
+                githubRepositoryId: true,
+                commits: {
+                  where: { authorGithubId: 11n },
+                  select: { committedAt: true },
                 },
-              ],
+                pullRequests: {
+                  where: { authorGithubId: 11n },
+                  select: { createdAt: true },
+                },
+                releases: {
+                  where: { authorGithubId: 11n },
+                  select: { publishedAt: true },
+                },
+              },
             },
-          ],
-        },
-        select: {
-          id: true,
-          sourceId: true,
-          payload: true,
-          run: { select: { targetGithubId: true } },
-        },
-        orderBy: { id: 'asc' },
-        take: 500,
-      }),
-    );
-  });
-
-  it('buckets activity by year', async () => {
-    // Given
-    const prisma = {
-      repository: {
-        findMany: jest.fn(),
-      },
-      application: {
-        findMany: jest.fn().mockResolvedValue([
-          {
-            teamId: null,
-            applicant: { githubId: 11n },
-            team: null,
-            program: {
-              id: 'program-1',
-              name: 'Capstone',
-              applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
-            },
-            repository: { githubRepositoryId: 101n },
           },
-        ]),
-      },
-      githubRawObservation: {
-        findMany: jest.fn().mockResolvedValue([
-          event('push-1', 'PushEvent', 101, '2026-01-01T00:00:00Z', {
-            size: 2,
-          }),
-          event('watch-1', 'WatchEvent', 101, '2026-12-31T23:59:59Z', {
-            action: 'started',
-          }),
-        ]),
-      },
-      repositoryOwnerProjection: {
-        findMany: jest.fn().mockResolvedValue([{ githubRepositoryId: 101n }]),
-      },
-    } as unknown as PrismaService;
-    const service = new ProgramActivityService(new ProgramsRepository(prisma));
-
-    // When
-    const result = await service.activityTimeline(student, 'YEAR');
-
-    // Then
-    expect(result.series).toEqual({
-      granularity: 'YEAR',
-      points: [
-        {
-          period: '2026',
-          commitCount: 2,
-          prCount: 0,
-          starCount: 0,
-          total: 2,
         },
-        {
-          period: '2027',
-          commitCount: 0,
-          prCount: 0,
-          starCount: 1,
-          total: 1,
-        },
-      ],
+      },
     });
+    expect(rawFindMany).not.toHaveBeenCalled();
   });
 
-  it('deduplicates the same sourceId across observation batches', async () => {
-    const application = {
-      teamId: null,
-      applicant: { githubId: 11n },
-      team: null,
-      program: {
-        id: 'program-1',
-        name: 'Capstone',
-        applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
-      },
-      repository: { githubRepositoryId: 101n },
-    };
-    const duplicate = event(
-      'push-duplicate',
-      'PushEvent',
-      101,
-      '2026-07-01T00:00:00Z',
-      { size: 2 },
-    );
+  it('reflects force-push replacement semantics from the active generation', async () => {
     const repository = {
       findStudentActivityApplications: jest
         .fn()
         .mockResolvedValue([application]),
-      findStudentOwnedRepositoryIds: jest.fn().mockResolvedValue([]),
-      async *findStudentTimelineObservationBatches() {
-        await Promise.resolve();
-        yield [duplicate];
-        yield [duplicate];
-      },
+      findCanonicalRepositoryActivity: jest.fn().mockResolvedValue([
+        activeGeneration('2026-08-02T00:00:00.000Z', [
+          {
+            githubRepositoryId: 101n,
+            commits: [{ committedAt: new Date('2026-08-01T00:00:00.000Z') }],
+            pullRequests: [],
+            releases: [],
+          },
+        ]),
+      ]),
     } as unknown as ProgramsRepository;
 
     const result = await new ProgramActivityService(
@@ -363,11 +157,71 @@ describe('ProgramActivityService activity timeline', () => {
 
     expect(result.series.points).toEqual([
       {
-        period: '2026-07',
-        commitCount: 2,
+        period: '2026-08',
+        commitCount: 1,
         prCount: 0,
-        starCount: 0,
-        total: 2,
+        releaseCount: 0,
+        total: 1,
+      },
+    ]);
+  });
+
+  it.each([
+    ['no active generation', []],
+    [
+      'absent canonical repository mapping',
+      [activeGeneration('2026-08-01T00:00:00.000Z', [])],
+    ],
+  ])('returns an empty series for %s', async (_case, generations) => {
+    const repository = {
+      findStudentActivityApplications: jest
+        .fn()
+        .mockResolvedValue([application]),
+      findCanonicalRepositoryActivity: jest.fn().mockResolvedValue(generations),
+    } as unknown as ProgramsRepository;
+
+    const result = await new ProgramActivityService(
+      repository,
+    ).activityTimeline(student, 'MONTH');
+
+    expect(result.series.points).toEqual([]);
+  });
+
+  it('summarizes canonical commits, PRs, releases, activity time, and publication time', async () => {
+    const repository = {
+      findProgramRepositories: jest.fn().mockResolvedValue([
+        {
+          githubRepositoryId: 101n,
+          application: {
+            id: 'application-1',
+            applicant: { githubId: 11n, name: 'Student', nickname: 'student' },
+            team: null,
+          },
+        },
+      ]),
+      findCanonicalRepositoryActivity: jest.fn().mockResolvedValue([
+        activeGeneration('2026-08-05T00:00:00.000Z', [
+          {
+            githubRepositoryId: 101n,
+            commits: [{ committedAt: new Date('2026-08-01T00:00:00.000Z') }],
+            pullRequests: [{ createdAt: new Date('2026-08-03T00:00:00.000Z') }],
+            releases: [{ publishedAt: new Date('2026-08-04T00:00:00.000Z') }],
+          },
+        ]),
+      ]),
+    } as unknown as ProgramsRepository;
+
+    await expect(
+      new ProgramActivityService(repository).activity('program-1', student),
+    ).resolves.toEqual([
+      {
+        applicationId: 'application-1',
+        label: 'Student',
+        commitCount: 1,
+        pullRequestCount: 1,
+        releaseCount: 1,
+        lastActivityAt: '2026-08-04T00:00:00.000Z',
+        dataAsOf: '2026-08-05T00:00:00.000Z',
       },
     ]);
   });
@@ -375,24 +229,19 @@ describe('ProgramActivityService activity timeline', () => {
   it.each([Role.STAFF, Role.ADMIN, null])(
     'rejects non-student role %s before reading activity',
     async (role) => {
-      // Given
-      const applicationFindMany = jest.fn();
-      const prisma = {
-        application: { findMany: applicationFindMany },
-      } as unknown as PrismaService;
-      const service = new ProgramActivityService(
-        new ProgramsRepository(prisma),
-      );
+      const findStudentActivityApplications = jest.fn();
+      const repository = {
+        findStudentActivityApplications,
+      } as unknown as ProgramsRepository;
       const viewer: ProgramViewer = { githubId: 11n, userId: 'user-1', role };
 
-      // When
-      const promise = service.activityTimeline(viewer, 'MONTH');
-
-      // Then
-      await expect(promise).rejects.toMatchObject({
-        errorCode: { status: 403 },
-      });
-      expect(applicationFindMany).not.toHaveBeenCalled();
+      await expect(
+        new ProgramActivityService(repository).activityTimeline(
+          viewer,
+          'MONTH',
+        ),
+      ).rejects.toMatchObject({ errorCode: { status: 403 } });
+      expect(findStudentActivityApplications).not.toHaveBeenCalled();
     },
   );
 });

@@ -16,6 +16,7 @@ describe('ProgramEditorService milestones', () => {
       id: 'milestone-canonical-id',
       programId: 'program-1',
       applicationEndAt: new Date('2026-08-15T00:00:00.000Z'),
+      endAt: new Date('2026-08-31T00:00:00.000Z'),
       name: 'Same',
       dueAt: new Date('2026-08-20T00:00:00.000Z'),
       submissionType: MilestoneSubmissionType.FILE,

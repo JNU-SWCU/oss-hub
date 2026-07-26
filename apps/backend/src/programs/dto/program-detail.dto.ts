@@ -52,5 +52,8 @@ export interface ProgramActivityResponseDto {
   readonly applicationId: string;
   readonly label: string;
   readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly releaseCount: number;
   readonly lastActivityAt: string | null;
+  readonly dataAsOf: string | null;
 }

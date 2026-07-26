@@ -157,6 +157,8 @@ async function createSubmissionScenario(
 }
 
 export async function seedMilestones(stats: SeedStats): Promise<void> {
+  // FILE 제출 보존(프로그램 종료 후 1년) 계약상 endAt이 있어야 form/upload/submit이 열린다.
+  const programEndAt = offsetDays(120);
   await upsertTracked(
     stats,
     'Program',
@@ -164,7 +166,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     () =>
       prisma.program.upsert({
         where: { id: PROGRAM_ID },
-        update: {},
+        update: { endAt: programEndAt },
         create: {
           id: PROGRAM_ID,
           name: 'seed-milestones-program',
@@ -174,6 +176,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
           applicationTemplateVersion: 1,
           applicationStartAt: offsetDays(-40),
           applicationEndAt: offsetDays(40),
+          endAt: programEndAt,
           teamMinSize: 2,
           teamMaxSize: 4,
           description: '#110 시드 fixture — milestones profile 전용',

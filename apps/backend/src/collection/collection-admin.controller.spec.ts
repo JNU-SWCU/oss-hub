@@ -5,18 +5,13 @@ import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { CollectionAdminController } from './collection-admin.controller';
 import { CollectionAdminGuard } from './collection-admin.guard';
-import {
-  CollectionExecution,
-  CollectionSchedulerService,
-} from './collection-scheduler.service';
+import { CollectionReconciliationService } from './collection-reconciliation.service';
 
 describe('CollectionAdminController', () => {
-  const completion = Promise.resolve();
-  const execution: CollectionExecution = {
-    runId: 'synthetic-scheduler-run-id',
-    completion,
-  };
-  const trigger = jest.fn<CollectionExecution, []>();
+  const trigger = jest.fn<
+    Promise<{ runId: string; status: 'PENDING' }>,
+    [string]
+  >();
 
   beforeEach(() => {
     trigger.mockReset();
@@ -26,7 +21,7 @@ describe('CollectionAdminController', () => {
     const testingModule = await Test.createTestingModule({
       controllers: [CollectionAdminController],
       providers: [
-        { provide: CollectionSchedulerService, useValue: { trigger } },
+        { provide: CollectionReconciliationService, useValue: { trigger } },
       ],
     })
       .overrideGuard(SessionGuard)
@@ -37,14 +32,30 @@ describe('CollectionAdminController', () => {
       .useValue({ canActivate: () => true })
       .compile();
     const controller = testingModule.get(CollectionAdminController);
-    trigger.mockReturnValue(execution);
-
-    expect(controller.trigger()).toEqual({
+    trigger.mockResolvedValue({
       runId: 'synthetic-scheduler-run-id',
-      status: 'STARTED',
+      status: 'PENDING',
+    });
+
+    await expect(controller.trigger()).resolves.toEqual({
+      runId: 'synthetic-scheduler-run-id',
+      status: 'PENDING',
     });
     expect(trigger).toHaveBeenCalledTimes(1);
+    expect(trigger.mock.calls[0]?.[0]).toMatch(/^admin:/);
     await testingModule.close();
+  });
+
+  it('COL_006 충돌을 변경 없이 전파한다', async () => {
+    const conflict = Object.assign(new Error('수집이 이미 진행 중입니다.'), {
+      errorCode: { code: 'COL_006', status: 409 },
+    });
+    trigger.mockRejectedValue(conflict);
+    const controller = new CollectionAdminController({
+      trigger,
+    } as unknown as CollectionReconciliationService);
+
+    await expect(controller.trigger()).rejects.toBe(conflict);
   });
 
   it('세션, ADMIN 역할, origin 순서로 보호하고 HTTP 202를 선언한다', () => {

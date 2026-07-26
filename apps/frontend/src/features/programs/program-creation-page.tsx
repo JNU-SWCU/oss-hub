@@ -26,6 +26,42 @@ import {
 import { ProgramTypeModal } from './program-type-modal';
 import { useProgramExitGuard } from './use-program-exit-guard';
 
+function mapServerFieldErrors(error: ApiError): ProgramFormErrors {
+  const errors: {
+    name?: string;
+    organizer?: string;
+    period?: string;
+    endAt?: string;
+    team?: string;
+    description?: string;
+  } = {};
+  for (const fieldError of error.problem.fieldErrors ?? []) {
+    switch (fieldError.field) {
+      case 'name':
+        errors.name = fieldError.message;
+        break;
+      case 'organizer':
+        errors.organizer = fieldError.message;
+        break;
+      case 'applicationStartAt':
+      case 'applicationEndAt':
+        errors.period = fieldError.message;
+        break;
+      case 'endAt':
+        errors.endAt = fieldError.message;
+        break;
+      case 'teamMinSize':
+      case 'teamMaxSize':
+        errors.team = fieldError.message;
+        break;
+      case 'description':
+        errors.description = fieldError.message;
+        break;
+    }
+  }
+  return errors;
+}
+
 export function ProgramCreationPage() {
   const [definitions, setDefinitions] = useState(PROGRAM_TEMPLATE_DEFINITIONS);
   const [selected, setSelected] = useState<ProgramTemplateDefinition | null>(
@@ -77,11 +113,15 @@ export function ProgramCreationPage() {
     try {
       await submission.completion;
     } catch (error) {
-      setServerError(
-        error instanceof ApiError
-          ? error.problem.detail
-          : '저장에 실패했습니다. 다시 시도해 주세요.',
-      );
+      if (error instanceof ApiError) {
+        const fieldErrors = mapServerFieldErrors(error);
+        setErrors(fieldErrors);
+        setServerError(
+          Object.keys(fieldErrors).length > 0 ? null : error.problem.detail,
+        );
+      } else {
+        setServerError('저장에 실패했습니다. 다시 시도해 주세요.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -161,15 +201,17 @@ export function ProgramCreationPage() {
           <FieldError>{errors.period}</FieldError>
         </Field>
         <Field>
-          <FieldLabel htmlFor="end-at">종료일 (선택)</FieldLabel>
+          <FieldLabel htmlFor="endAt">프로그램 종료일 *</FieldLabel>
           <Input
-            id="end-at"
+            id="endAt"
             type="datetime-local"
-            value={form.endAt}
+            required
             aria-invalid={Boolean(errors.endAt)}
+            aria-describedby={errors.endAt ? 'endAt-error' : undefined}
+            value={form.endAt}
             onChange={(event) => update('endAt', event.target.value)}
           />
-          <FieldError>{errors.endAt}</FieldError>
+          <FieldError id="endAt-error">{errors.endAt}</FieldError>
         </Field>
         {isTeam ? (
           <Field>

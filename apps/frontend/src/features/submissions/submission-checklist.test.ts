@@ -217,13 +217,18 @@ describe('resubmissionFailure', () => {
 describe('resubmissionContent', () => {
   it('TEXT는 앞뒤 공백을 정리해 보낸다', () => {
     expect(
-      resubmissionContent('TEXT', { text: '  보완 내용  ', releaseUrl: '' }),
+      resubmissionContent('TEXT', {
+        file: null,
+        text: '  보완 내용  ',
+        releaseUrl: '',
+      }),
     ).toEqual({ type: 'TEXT', text: '보완 내용' });
   });
 
   it('REPOSITORY_RELEASE는 releaseUrl을 보낸다', () => {
     expect(
       resubmissionContent('REPOSITORY_RELEASE', {
+        file: null,
         text: '',
         releaseUrl: 'https://github.com/JNU-SWCU/synthetic/releases/tag/v2 ',
       }),
@@ -234,9 +239,9 @@ describe('resubmissionContent', () => {
   });
 
   it('FILE은 업로드 미지원이라 null이다', () => {
-    expect(resubmissionContent('FILE', { text: '', releaseUrl: '' })).toBe(
-      null,
-    );
+    expect(
+      resubmissionContent('FILE', { file: null, text: '', releaseUrl: '' }),
+    ).toBe(null);
   });
 });
 

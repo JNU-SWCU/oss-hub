@@ -1,9 +1,5 @@
 import { RANKING_PERIODS } from './domain/ranking';
-import {
-  batches,
-  event,
-  setupRankingService,
-} from './ranking.service.spec-helper';
+import { activity, setupRankingService } from './ranking.service.spec-helper';
 
 describe('RankingService identity and privacy', () => {
   let harness: ReturnType<typeof setupRankingService>;
@@ -12,33 +8,10 @@ describe('RankingService identity and privacy', () => {
     harness = setupRankingService();
   });
 
-  it('githubId가 같으면 로그인 변경 전후 활동을 최신 login 한 entry로 합친다', async () => {
-    harness.findObservationBatches.mockReturnValue(
-      batches([
-        event(
-          'old',
-          '77',
-          'old-login',
-          'PushEvent',
-          null,
-          101,
-          '2026-06-01T00:00:00.000Z',
-          2,
-          '2026-06-02T00:00:00.000Z',
-        ),
-        event(
-          'new',
-          '77',
-          'new-login',
-          'PullRequestEvent',
-          'opened',
-          101,
-          '2026-07-01T00:00:00.000Z',
-          undefined,
-          '2026-07-02T00:00:00.000Z',
-        ),
-      ]),
-    );
+  it('canonical activity의 결정된 login과 집계 metric을 그대로 사용한다', async () => {
+    harness.findCanonicalActivity.mockResolvedValue([
+      activity(77n, 'new-login', 2, 1, 0),
+    ]);
 
     await expect(
       harness.service.findPage(RANKING_PERIODS.ALL, 1, 20),
@@ -50,33 +23,10 @@ describe('RankingService identity and privacy', () => {
     });
   });
 
-  it('제외된 저장소 event의 login을 공개 랭킹 identity에 사용하지 않는다', async () => {
-    harness.findObservationBatches.mockReturnValue(
-      batches([
-        event(
-          'included',
-          '77',
-          'old-login',
-          'PushEvent',
-          null,
-          101,
-          '2026-06-01T00:00:00.000Z',
-          2,
-          '2026-06-02T00:00:00.000Z',
-        ),
-        event(
-          'excluded',
-          '77',
-          'new-login',
-          'PushEvent',
-          null,
-          999,
-          '2026-07-01T00:00:00.000Z',
-          3,
-          '2026-07-02T00:00:00.000Z',
-        ),
-      ]),
-    );
+  it('canonical 공개 활동에 포함된 identity만 랭킹에 사용한다', async () => {
+    harness.findCanonicalActivity.mockResolvedValue([
+      activity(77n, 'old-login', 2, 0, 0),
+    ]);
 
     await expect(
       harness.service.findPage(RANKING_PERIODS.ALL, 1, 20),
@@ -89,29 +39,10 @@ describe('RankingService identity and privacy', () => {
   });
 
   it('login이 같아도 githubId가 다르면 별도 entry로 유지한다', async () => {
-    harness.findObservationBatches.mockReturnValue(
-      batches([
-        event(
-          'one',
-          '1',
-          'shared',
-          'PushEvent',
-          null,
-          101,
-          '2026-07-01T00:00:00.000Z',
-          2,
-        ),
-        event(
-          'two',
-          '2',
-          'shared',
-          'PullRequestEvent',
-          'opened',
-          101,
-          '2026-07-01T00:00:00.000Z',
-        ),
-      ]),
-    );
+    harness.findCanonicalActivity.mockResolvedValue([
+      activity(1n, 'shared', 2, 0, 0),
+      activity(2n, 'shared', 0, 1, 0),
+    ]);
 
     const result = await harness.service.findPage(RANKING_PERIODS.ALL, 1, 20);
     expect(result.items).toHaveLength(2);

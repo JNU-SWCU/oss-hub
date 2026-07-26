@@ -2,12 +2,21 @@ import type { ApplicationStatus } from '@prisma/client';
 import type {
   ApplicationListItem,
   ApplicationListPage,
+  RepositoryProvisioningJobStatus,
+  RepositoryProvisioningSafeErrorClass,
 } from '../applications.repository';
 
 export class ApplicationListItemResponseDto {
   readonly id: string;
   readonly status: ApplicationStatus;
   readonly submittedAt: string;
+  readonly rejectionReason: string | null;
+  readonly repositoryProvisioning: {
+    readonly enabled: boolean;
+    readonly jobStatus: RepositoryProvisioningJobStatus;
+    readonly updatedAt: string;
+    readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
+  };
   readonly participation: 'INDIVIDUAL' | 'TEAM';
   readonly applicant: {
     readonly id: string;
@@ -29,6 +38,11 @@ export class ApplicationListItemResponseDto {
     this.id = item.id;
     this.status = item.status;
     this.submittedAt = item.submittedAt.toISOString();
+    this.rejectionReason = item.rejectionReason;
+    this.repositoryProvisioning = {
+      ...item.repositoryProvisioning,
+      updatedAt: item.repositoryProvisioning.updatedAt.toISOString(),
+    };
     this.participation = item.participation;
     this.applicant = item.applicant;
     this.team = item.team;

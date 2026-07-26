@@ -72,7 +72,7 @@ test('선택한 집계 기간과 모바일 레이아웃을 명시한다', () => 
               githubLogin,
               commitCount: 3,
               prCount: 2,
-              starCount: 1,
+              releaseCount: 1,
               total: 6,
             },
           ],
@@ -90,7 +90,7 @@ test('선택한 집계 기간과 모바일 레이아웃을 명시한다', () => 
   expect(html).toContain('break-keep');
   expect(html).toContain('table-fixed');
   expect(html).toContain(
-    'data-column-widths="rank:w-8,member:w-24,commit:w-12 text-right,pr:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
+    'data-column-widths="rank:w-8,member:w-24,commit:w-12 text-right,pr:w-12 text-right,release:w-12 text-right,total:w-12 text-right"',
   );
   expect(html).toContain(displayName);
   expect(html).toContain(`@${githubLogin}`);
@@ -134,7 +134,7 @@ test('빈 상태와 오류 재시도 상태를 사용자에게 표시한다', ()
   expect(failure).not.toContain('표시할 데이터가 없습니다.');
 });
 
-test('Star 집계 기준을 사용자에게 설명한다', () => {
+test('Release 집계 기준을 사용자에게 설명한다', () => {
   const html = renderToStaticMarkup(
     <RankingView
       period={RANKING_PERIODS.THIS_YEAR}
@@ -145,7 +145,7 @@ test('Star 집계 기준을 사용자에게 설명한다', () => {
   );
 
   expect(html).toContain(
-    'Star는 해당 기간에 받은 WatchEvent.started 활동 수이며, 저장소의 현재 스타 수가 아닙니다.',
+    'Release는 해당 기간에 게시된 GitHub 릴리스 수입니다.',
   );
 });
 
@@ -166,7 +166,7 @@ test('GitHub 로그인이 같아도 순위가 다른 행에 고유 키를 사용
               githubLogin: 'same-login',
               commitCount: 3,
               prCount: 2,
-              starCount: 1,
+              releaseCount: 1,
               total: 6,
             },
             {
@@ -175,7 +175,7 @@ test('GitHub 로그인이 같아도 순위가 다른 행에 고유 키를 사용
               githubLogin: 'same-login',
               commitCount: 2,
               prCount: 1,
-              starCount: 1,
+              releaseCount: 1,
               total: 4,
             },
           ],

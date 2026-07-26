@@ -30,22 +30,51 @@ function isRankingPeriod(value: unknown): value is RankingPeriod {
   return value === RANKING_PERIODS.THIS_YEAR || value === RANKING_PERIODS.ALL;
 }
 
+function hasExactKeys(
+  value: Record<string, unknown>,
+  keys: readonly string[],
+): boolean {
+  const actualKeys = Object.keys(value);
+  return (
+    actualKeys.length === keys.length &&
+    keys.every((key) => Object.hasOwn(value, key))
+  );
+}
+
 function isRankingItem(value: unknown): value is RankingItem {
   return (
     isRecord(value) &&
+    hasExactKeys(value, [
+      'rank',
+      'displayName',
+      'githubLogin',
+      'commitCount',
+      'prCount',
+      'releaseCount',
+      'total',
+    ]) &&
     isPositiveInteger(value.rank) &&
     typeof value.displayName === 'string' &&
     typeof value.githubLogin === 'string' &&
     isNonNegativeInteger(value.commitCount) &&
     isNonNegativeInteger(value.prCount) &&
-    isNonNegativeInteger(value.starCount) &&
-    isNonNegativeInteger(value.total)
+    isNonNegativeInteger(value.releaseCount) &&
+    isNonNegativeInteger(value.total) &&
+    value.total === value.commitCount + value.prCount + value.releaseCount
   );
 }
 
 export function parseRankingPage(value: unknown): RankingPage {
   if (
     !isRecord(value) ||
+    !hasExactKeys(value, [
+      'notice',
+      'period',
+      'items',
+      'page',
+      'pageSize',
+      'total',
+    ]) ||
     value.notice !== RANKING_NOTICE ||
     !isRankingPeriod(value.period) ||
     !Array.isArray(value.items) ||

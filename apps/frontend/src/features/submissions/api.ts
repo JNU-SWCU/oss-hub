@@ -4,9 +4,11 @@ import type {
   CreatedResubmission,
   CreatedSubmission,
   CreateSubmissionContent,
+  ResubmissionContent,
   SubmissionChecklist,
   SubmissionFormData,
   SubmissionMatrixPage,
+  UploadedSubmissionFile,
 } from './types';
 
 export function getSubmissionForm(
@@ -27,6 +29,22 @@ export function getSubmissionMatrix(
   return apiClient<SubmissionMatrixPage>(
     `programs/${encodeURIComponent(programId)}/submissions/matrix?${params.toString()}`,
   );
+}
+
+export function uploadSubmissionFile(
+  applicationId: string,
+  milestoneId: string,
+  file: File,
+): Promise<UploadedSubmissionFile> {
+  const body = new FormData();
+  body.append('applicationId', applicationId);
+  body.append('milestoneId', milestoneId);
+  body.append('file', file);
+
+  return apiClient<UploadedSubmissionFile>('submission-files', {
+    method: 'POST',
+    body,
+  });
 }
 
 export function createSubmission(input: {
@@ -55,7 +73,7 @@ export function getSubmissionChecklist(
 export function createResubmission(input: {
   readonly submissionId: string;
   readonly baseRevision: number;
-  readonly content: CreateSubmissionContent;
+  readonly content: ResubmissionContent;
   readonly comment: string;
 }): Promise<CreatedResubmission> {
   const { submissionId, ...body } = input;

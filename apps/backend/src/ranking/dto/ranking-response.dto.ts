@@ -11,7 +11,7 @@ class RankingEntryResponseDto {
   readonly githubLogin: string;
   readonly commitCount: number;
   readonly prCount: number;
-  readonly starCount: number;
+  readonly releaseCount: number;
   readonly total: number;
 
   private constructor(entry: RankingEntry) {
@@ -20,7 +20,7 @@ class RankingEntryResponseDto {
     this.githubLogin = entry.githubLogin;
     this.commitCount = entry.commitCount;
     this.prCount = entry.prCount;
-    this.starCount = entry.starCount;
+    this.releaseCount = entry.releaseCount;
     this.total = entry.total;
   }
 

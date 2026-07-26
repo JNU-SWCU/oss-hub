@@ -24,6 +24,7 @@ const baseData: SubmissionFormData = {
 const handlers = {
   onTextChange: vi.fn(),
   onReleaseUrlChange: vi.fn(),
+  onFileChange: vi.fn(),
   onCommentChange: vi.fn(),
   onSubmit: vi.fn(),
   onReload: vi.fn(),
@@ -34,11 +35,15 @@ function render(data: SubmissionFormData): string {
     <SubmissionFormView
       programId="program-1"
       data={data}
-      input={{ text: '', releaseUrl: '' }}
+      input={{ file: null, text: '', releaseUrl: '' }}
       comment=""
       errors={{}}
       serverError={null}
+      serverErrorKind="generic"
       submitting={false}
+      file={null}
+      fileError={null}
+      submissionPhase={null}
       {...handlers}
     />,
   );
@@ -83,16 +88,25 @@ describe('SubmissionFormView', () => {
     expect(html).toContain(`${repositoryUrl}/releases/tag/v1.0.0`);
   });
 
-  it('FILE 미준비와 기존 제출은 각각 fail-closed 동작을 제공한다', () => {
-    // Given
-    const fileData: SubmissionFormData = {
+  it('FILE 마일스톤은 접근 가능한 파일 선택과 제한 안내를 표시한다', () => {
+    // Given / When
+    const html = render({
       ...baseData,
       milestone: { ...baseData.milestone, submissionType: 'FILE' },
-      canSubmit: false,
-      blockedReason: 'FILE_UPLOAD_UNAVAILABLE',
-    };
+    });
+
+    // Then
+    expect(html).toContain('id="submission-file"');
+    expect(html).toContain('type="file"');
+    expect(html).toContain('aria-required="true"');
+    expect(html).toContain('PDF, HWP, JPG, PNG, ZIP · 최대 50MB');
+  });
+
+  it('기존 제출은 최초 FILE 제출과 무관하게 fail-closed한다', () => {
+    // Given
     const existingData: SubmissionFormData = {
       ...baseData,
+      milestone: { ...baseData.milestone, submissionType: 'FILE' },
       canSubmit: false,
       blockedReason: 'SUBMISSION_ALREADY_EXISTS',
       existingSubmission: {
@@ -104,15 +118,12 @@ describe('SubmissionFormView', () => {
     };
 
     // When
-    const fileHtml = render(fileData);
-    const existingHtml = render(existingData);
+    const html = render(existingData);
 
     // Then
-    expect(fileHtml).toContain('파일 제출은 현재 지원하지 않습니다.');
-    expect(fileHtml).not.toContain('새로고침');
-    expect(fileHtml).not.toContain('type="file"');
-    expect(existingHtml).toContain('제출 내용 확인');
-    expect(existingHtml).toContain(
+    expect(html).not.toContain('type="file"');
+    expect(html).toContain('제출 내용 확인');
+    expect(html).toContain(
       '/programs/program-1/submissions?milestoneId=milestone-text',
     );
   });

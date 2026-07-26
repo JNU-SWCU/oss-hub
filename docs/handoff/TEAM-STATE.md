@@ -10,8 +10,8 @@
 
 | 항목 | 값 |
 | --- | --- |
-| generated_at | 2026-07-24T12:40:00+09:00 |
-| source_commit | 7ec5e36 (main, after #227) |
+| generated_at | 2026-07-26T11:45:00+09:00 |
+| source_commit | 91d64ba (origin/main, 공개 프로필 포함) |
 | 조회 성공 소스 | issues, prs, ci, decisions, exec-plan, branch-protection, project-board |
 | 조회 실패 소스 | 없음 |
 
@@ -96,16 +96,18 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 신규 가입 OAuth 직후 동의 진입 | @GoBeromsu / @Lumiere001 | done | [#218](https://github.com/JNU-SWCU/oss-hub/issues/218) | [#222](https://github.com/JNU-SWCU/oss-hub/pull/222) merged | pass | 없음 |
 | User GitHub 핸들 필드명 정리 | @Lumiere001 | done | [#224](https://github.com/JNU-SWCU/oss-hub/issues/224) | [#227](https://github.com/JNU-SWCU/oss-hub/pull/227) merged | pass | 없음 |
 | GitHub App 최소 권한·live smoke 계약 | @Lumiere001 | review | #205 | [#208](https://github.com/JNU-SWCU/oss-hub/pull/208) | #208 pass | Collection App REST read 데이터 최소화·권한 allowlist 계약 리뷰 반영 중 · 실제 실증은 비운영 App 준비 대기 |
+| 관리자 수집 시스템 상태 | @Lumiere001 | review | #133 | [#260](https://github.com/JNU-SWCU/oss-hub/pull/260) | backend unit 793 · integration 127 · frontend 493 · lint/typecheck/build/format/public-safe · authenticated Aside pass · 실수집 NORMAL 실증 | PM path exception · owner @Lumiere001 사후 확인 필요 |
 | webhook 처리 결과 관측 지표 | @Lumiere001 | review | #215 | [#216](https://github.com/JNU-SWCU/oss-hub/pull/216) | unit 347 · integration 64 · build pass | #221 병합 후 최신 main 재배치 완료 · 새 head CI와 재리뷰 대기 |
 | 공통 랜딩 세션별 진입 CTA | @jinsol1190-rgb | done | #98 | #201 | pass | 없음 |
 | 프로그램 편집·마일스톤 | @Geuin04 | review | #101 | [#228](https://github.com/JNU-SWCU/oss-hub/pull/228) | unit 387 · frontend 188 · integration 66 · lint/typecheck/build pass | 현재 로컬 환경에서 브라우저 시각 QA 불가 |
 | 공개 프로그램 목록 | @Geuin04 | done | #102 | [#191](https://github.com/JNU-SWCU/oss-hub/pull/191) merged | pass | 없음 |
 | Program & Intake 계획 백로그(5건: 신청·팀 구성·신청자 목록·신청 폼·운영 대시보드) | @GoBeromsu | done | #104 #105 #106 #117 #118 | [#252](https://github.com/JNU-SWCU/oss-hub/pull/252) merged | pass | PM path exception · owner @Geuin04 사후 확인 요청 · #119 승인 UI는 별도 |
-| 신청 승인·반려와 저장소 생성 트리거 | @Lumiere001 | active | #119 | - | #176 pass | [백엔드 #176](https://github.com/JNU-SWCU/oss-hub/pull/176) merged · #106 신청자 목록 UI는 #252 merged · 승인/반려 화면·액션 배선 대기 |
+| 신청 승인·반려와 저장소 생성 트리거 | @Lumiere001 | review | #119 | [#260](https://github.com/JNU-SWCU/oss-hub/pull/260) | backend unit 793 · integration 127 · frontend 493 · lint/typecheck/build/format/public-safe · authenticated Aside pass | [백엔드 #176](https://github.com/JNU-SWCU/oss-hub/pull/176) merged · 승인/반려 UI·authoritative reload·저장소 작업 상태 projection 구현 · PM path exception · owner @Lumiere001 사후 확인 필요 |
 | 교직원 프로그램 생성 | @Geuin04 | done | #100 | [#189](https://github.com/JNU-SWCU/oss-hub/pull/189) merged | pass | 없음 |
 | 공통 프로그램 상세 조회 | @Geuin04 | done | #103 | [#195](https://github.com/JNU-SWCU/oss-hub/pull/195) merged | pass | 없음 |
 | 프로그램 생성 이탈 보호·동작 계약 | @Lumiere001 | done | #196 | #200 | pass | 없음 — 실제 브라우저 접수 E2E는 #128 통합 QA에서 수행 |
 | 마일스톤 최초 제출(TEXT·REPOSITORY_RELEASE) | @Lumiere001 | done | #115 | [#217](https://github.com/JNU-SWCU/oss-hub/pull/217) merged | pass | FILE은 `Program.endAt` + private storage 후속 |
+| 마일스톤 FILE 제출·보존 수명주기 | @Lumiere001 | review | #115 | [#260](https://github.com/JNU-SWCU/oss-hub/pull/260) | PostgreSQL+MinIO integration · backend unit 793 · frontend 493 · lint/typecheck/build/format/public-safe · authenticated Aside pass | production S3-compatible smoke 대기(unblock: @GoBeromsu) · PM path exception · owner @Lumiere001 사후 확인 필요 |
 | 제출 체크리스트·보완 재제출 | @Lumiere001 | review | [#116](https://github.com/JNU-SWCU/oss-hub/issues/116) | [#243](https://github.com/JNU-SWCU/oss-hub/pull/243) | backend unit 460·통합 90·frontend 259 local pass | 브라우저 QA는 OAuth 로그인 필요(unblock: @GoBeromsu 또는 사람 QA) · GET checklist는 #232 선행 |
 | Participation & Showcase 백로그(내 대시보드·운영 대시보드·매트릭스·검토·공개 아카이브·공개 프로필) | @jinsol1190-rgb | planned | #114 #115 #124 #125 #126 #134 #155 | - | - | #127 알림은 #242 merge로 분리·완료 · production v0.1.3 QA에서 미구현 #124 `/submissions` CTA의 404 확인 · 실제 matrix page/API 전까지 CTA 비노출 hotfix 진행 |
 | 학생 마일스톤 타임라인 FILE 제출 차단 | @jinsol1190-rgb | done | [#155](https://github.com/JNU-SWCU/oss-hub/issues/155) | [#262](https://github.com/JNU-SWCU/oss-hub/pull/262) merged | frontend 408 · timeline focused 9 · lint/typecheck/build pass | 없음 — #115 FILE 업로드는 후속 |
@@ -114,14 +116,14 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 공개 쇼케이스 allowlist projection | @GoBeromsu | done | [#266](https://github.com/JNU-SWCU/oss-hub/issues/266) | [#267](https://github.com/JNU-SWCU/oss-hub/pull/267) merged (+[#268](https://github.com/JNU-SWCU/oss-hub/pull/268) fixture hotfix) | backend 663 · CI integration 124/124 green | 없음 — Tech Lead 사후 확인 요청 |
 | 공개 아카이브 목록·상세 | @jinsol1190-rgb | done | [#126](https://github.com/JNU-SWCU/oss-hub/issues/126) | [#269](https://github.com/JNU-SWCU/oss-hub/pull/269) merged | backend 669 · frontend 78 files · CI green(integration 포함) | 없음 — 익명 브라우저 QA는 #128 · owner 사후 확인 요청 |
 | 공개 프로필 | @jinsol1190-rgb | review | [#134](https://github.com/JNU-SWCU/oss-hub/issues/134) | PR pending | backend 674(신규 profiles 5) · frontend 79 files(신규 public-profile) · lint/typecheck/build pass | projection-only 익명 API · 미존재/공개0건 구분 불가 404 · owner 사후 확인 필요 |
-| Participation 핵심 모듈 AppModule 합성 보존 | @jinsol1190-rgb | active | [#255](https://github.com/JNU-SWCU/oss-hub/issues/255) | - | format·lint·typecheck·build·backend unit 634·통합 121·Aside API QA local pass | PM @GoBeromsu 비소유 경로 수정 승인 · PR에서 owner 사후 확인 필요 |
+| Participation 핵심 모듈 AppModule 합성 보존 | @jinsol1190-rgb | review | [#255](https://github.com/JNU-SWCU/oss-hub/issues/255) | [#260](https://github.com/JNU-SWCU/oss-hub/pull/260) | format·lint·typecheck·build·backend unit 793·통합 127 pass | 보존 spec 중복 제거·Showcase/Profiles 포함 8개 모듈 단언은 #260에 포함 · owner 사후 확인 필요 |
 | 학생 활동 타임라인 | @jinsol1190-rgb | review | #154 | [#210](https://github.com/JNU-SWCU/oss-hub/pull/210) | #210 pass | [프런트엔드 #198](https://github.com/JNU-SWCU/oss-hub/pull/198) merged · 백엔드 조회 API #210 리뷰 대기 |
 | Cross-cutting E2E 스모크(접수 흐름·전체 루프) | @GoBeromsu | planned | #128 #129 | - | - | 상위 화면 티켓들 merge 진행에 따라 순차 검증 |
 | 마감 알림 메일 + 수신 이메일 설정 | @GoBeromsu | done | #127 | [#242](https://github.com/JNU-SWCU/oss-hub/pull/242) merged | pass (CLI 실발송 · Aside settings) | 후속 발신 주체 이전 #250 (사업단 Gmail env 교체) |
 | 공통 설정 페이지(내 정보 수정) | @GoBeromsu | done | #156 | [#242](https://github.com/JNU-SWCU/oss-hub/pull/242) merged | pass (Aside UI) | `/settings`·계정 메뉴·프로필 부분 PATCH·알림 API 본인 개방 |
 | 마감 알림 발신 사업단 프로바이더 이전 | @GoBeromsu | planned | #250 | - | - | #242 파일럿 Gmail 유지 · 운영 From만 secret/env 교체 |
 | Product Definition & Operations 백로그(Release 배포·Notion PRD·IA 동기화) | @GoBeromsu (결정) / @Lumiere001 (#199 구현) | active | #112 #130 #199 | [#241](https://github.com/JNU-SWCU/oss-hub/pull/241) | local verification pending | Release trigger·공개 PM override·공인 EIP TLS 종단 연결 완료 · v0.1.1 stale Prisma lint 수정 · v0.1.2는 backup/migration 뒤 backend CMD와 `dist/src/main.js` 불일치로 smoke 실패, 정상 상태 미기록 · entrypoint hotfix 및 v0.1.3 재시도 진행 |
-| GitHub 저장소 주기 수집 스케줄러 | @GoBeromsu | planned | #151 | - | - | 없음 |
+| GitHub 저장소 주기 수집 스케줄러 | @GoBeromsu | review | #151 | [#260](https://github.com/JNU-SWCU/oss-hub/pull/260) | E1 실증 pass(App 4394956 설치·공개/비공개 fixture·2-instance lease·live smoke 멱등 digest) · C2 legacy/webhook runtime 제거 · backend unit 793 · integration 127 · frontend 493 · lint/typecheck/build/format/public-safe | production 배포 시 Collection App secret 주입 필요 · legacy 관측 테이블은 M3 제거 전까지 inert |
 | OSS 활성화 랭킹 | @jinsol1190-rgb | review | #152 | [#194](https://github.com/JNU-SWCU/oss-hub/pull/194) | local pass | 공개 적격성 projection 부재로 endpoint·nav fail-closed 비노출 |
 | 공개 랭킹 저장소 소유권 projection | @jinsol1190-rgb | done | #197 | #202 | pass | 없음 |
 

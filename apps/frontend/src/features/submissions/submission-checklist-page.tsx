@@ -25,7 +25,11 @@ type ChecklistPageState =
   | { readonly kind: 'failed'; readonly message: string }
   | { readonly kind: 'ready'; readonly data: SubmissionChecklist };
 
-const EMPTY_INPUT: SubmissionFormInput = { text: '', releaseUrl: '' };
+const EMPTY_INPUT: SubmissionFormInput = {
+  file: null,
+  text: '',
+  releaseUrl: '',
+};
 
 const STALE_NOTICE =
   '다른 곳에서 제출 상태가 바뀌어 최신 상태를 다시 불러왔습니다. 내용을 확인한 후 다시 시도해 주세요.';

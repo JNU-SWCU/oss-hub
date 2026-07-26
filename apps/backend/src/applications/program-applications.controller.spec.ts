@@ -77,6 +77,13 @@ describe('ProgramApplicationsController', () => {
           id: 'synthetic-application',
           status: ApplicationStatus.SUBMITTED,
           submittedAt: new Date('2026-07-15T00:00:00.000Z'),
+          rejectionReason: '합성 사유',
+          repositoryProvisioning: {
+            enabled: false,
+            jobStatus: 'DISABLED' as const,
+            updatedAt: new Date('2026-07-15T01:00:00.000Z'),
+            safeErrorClass: null,
+          },
           participation: 'INDIVIDUAL' as const,
           applicant: {
             id: 'synthetic-student',
@@ -124,6 +131,13 @@ describe('ProgramApplicationsController', () => {
           id: 'synthetic-application',
           status: ApplicationStatus.SUBMITTED,
           submittedAt: '2026-07-15T00:00:00.000Z',
+          rejectionReason: '합성 사유',
+          repositoryProvisioning: {
+            enabled: false,
+            jobStatus: 'DISABLED',
+            updatedAt: '2026-07-15T01:00:00.000Z',
+            safeErrorClass: null,
+          },
           participation: 'INDIVIDUAL',
           applicant: {
             id: 'synthetic-student',

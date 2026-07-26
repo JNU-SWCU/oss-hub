@@ -11,6 +11,7 @@ import type {
   ProgramDetail,
   ProgramListPage,
   ProgramListParams,
+  RepositoryProvisioning,
   ProgramParticipation,
   StaffDashboardSummary,
   SubmissionType,
@@ -74,7 +75,7 @@ export interface CreateProgramInput {
   readonly category: ProgramCategory;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
-  readonly endAt: string | null;
+  readonly endAt: string;
   readonly teamMinSize: number | null;
   readonly teamMaxSize: number | null;
   readonly description: string;
@@ -121,9 +122,10 @@ export interface EditableProgram {
   readonly milestones: readonly EditableMilestone[];
 }
 
-export interface UpdateProgramInput extends CreateProgramInput {
+export type UpdateProgramInput = Omit<CreateProgramInput, 'endAt'> & {
+  readonly endAt: string | null;
   readonly repositoryProvisioningEnabled: boolean;
-}
+};
 
 export interface UpsertMilestoneInput {
   readonly name: string;
@@ -337,6 +339,36 @@ export function listProgramApplications(
   });
   return apiClient<ApplicationListPage>(
     `programs/${encodeURIComponent(programId)}/applications?${search.toString()}`,
+  );
+}
+
+export type ApplicationDecisionInput =
+  | { readonly action: 'APPROVE' }
+  | { readonly action: 'REJECT'; readonly reason: string };
+
+export type ApplicationDecisionResponse =
+  | {
+      readonly applicationId: string;
+      readonly status: 'APPROVED';
+      readonly repositoryProvisioning: RepositoryProvisioning;
+    }
+  | {
+      readonly applicationId: string;
+      readonly status: 'REJECTED';
+      readonly rejectionReason: string;
+    };
+
+export function decideApplication(
+  applicationId: string,
+  input: ApplicationDecisionInput,
+): Promise<ApplicationDecisionResponse> {
+  return apiClient<ApplicationDecisionResponse>(
+    `applications/${encodeURIComponent(applicationId)}`,
+    {
+      method: 'PATCH',
+      headers: jsonHeaders,
+      body: JSON.stringify(input),
+    },
   );
 }
 

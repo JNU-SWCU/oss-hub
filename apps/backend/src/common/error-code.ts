@@ -14,6 +14,7 @@ export interface ProblemDetailFieldError {
 export interface ProblemDetailExtensions {
   readonly retryNotBeforeAt?: string;
   readonly fieldErrors?: readonly ProblemDetailFieldError[];
+  readonly activeRunId?: string;
 }
 
 export class DomainException extends Error {

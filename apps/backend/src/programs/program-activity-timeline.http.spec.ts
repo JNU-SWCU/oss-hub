@@ -56,25 +56,34 @@ beforeAll(async () => {
           findStudentActivityApplications: jest
             .fn()
             .mockResolvedValue(applications),
-          findStudentOwnedRepositoryIds: jest
-            .fn()
-            .mockResolvedValue([{ githubRepositoryId: 101n }]),
-          async *findStudentTimelineObservationBatches() {
-            await Promise.resolve();
-            yield [
-              {
-                id: 'row-1',
-                sourceId: 'push-1',
-                payload: {
-                  type: 'PushEvent',
-                  repo: { id: 101 },
-                  payload: { size: 2 },
-                  created_at: '2026-07-02T00:00:00.000Z',
-                },
-                run: { targetGithubId: 11n },
+          findCanonicalRepositoryActivity: jest.fn().mockResolvedValue([
+            {
+              updatedAt: new Date('2026-07-04T00:00:00.000Z'),
+              activeGeneration: {
+                repositories: [
+                  {
+                    githubRepositoryId: 101n,
+                    commits: [
+                      {
+                        committedAt: new Date('2026-07-02T00:00:00.000Z'),
+                      },
+                      {
+                        committedAt: new Date('2026-07-02T01:00:00.000Z'),
+                      },
+                    ],
+                    pullRequests: [
+                      { createdAt: new Date('2026-07-03T00:00:00.000Z') },
+                    ],
+                    releases: [
+                      {
+                        publishedAt: new Date('2026-07-04T00:00:00.000Z'),
+                      },
+                    ],
+                  },
+                ],
               },
-            ];
-          },
+            },
+          ]),
         },
       },
     ],
@@ -109,15 +118,23 @@ it.each([
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
+    const body: unknown = await response.json();
+    expect(body).toMatchObject({
       programs: [{ programId: 'program-1', applicationMode: 'PERSONAL' }],
       series: {
         granularity,
         points: [
-          { period, commitCount: 2, prCount: 0, starCount: 0, total: 2 },
+          {
+            period,
+            commitCount: 2,
+            prCount: 1,
+            releaseCount: 1,
+            total: 4,
+          },
         ],
       },
     });
+    expect(JSON.stringify(body)).not.toContain('starCount');
   },
 );
 

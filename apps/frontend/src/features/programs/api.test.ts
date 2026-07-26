@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '@/lib/api-client';
-import { createApplication, listPrograms } from './api';
+import { createApplication, decideApplication, listPrograms } from './api';
 import type { ProgramListPage } from './types';
 
 vi.mock('@/lib/api-client', () => ({
@@ -72,5 +72,54 @@ describe('createApplication', () => {
       }),
     );
     expect(result).toEqual(response);
+  });
+});
+
+describe('decideApplication', () => {
+  beforeEach(() => {
+    vi.mocked(apiClient).mockReset();
+  });
+
+  it('PATCH applications/:id 로 승인 판정을 보낸다', async () => {
+    const response = {
+      applicationId: 'app-1',
+      status: 'APPROVED' as const,
+      repositoryProvisioning: {
+        enabled: true,
+        jobStatus: 'PENDING' as const,
+        updatedAt: '2026-07-25T00:00:00.000Z',
+        safeErrorClass: null,
+      },
+    };
+    vi.mocked(apiClient).mockResolvedValue(response);
+
+    await expect(
+      decideApplication('app:1', { action: 'APPROVE' }),
+    ).resolves.toEqual(response);
+    expect(apiClient).toHaveBeenCalledWith(
+      'applications/app%3A1',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ action: 'APPROVE' }),
+      }),
+    );
+  });
+
+  it('반려 사유를 typed PATCH 본문으로 보낸다', async () => {
+    vi.mocked(apiClient).mockResolvedValue({
+      applicationId: 'app-1',
+      status: 'REJECTED',
+      rejectionReason: '사유',
+    });
+
+    await decideApplication('app-1', { action: 'REJECT', reason: '사유' });
+
+    expect(apiClient).toHaveBeenCalledWith(
+      'applications/app-1',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ action: 'REJECT', reason: '사유' }),
+      }),
+    );
   });
 });

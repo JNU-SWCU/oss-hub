@@ -32,12 +32,31 @@ export interface SubmissionFormData {
   readonly blockedReason: SubmissionBlockedReason | null;
 }
 
+export type TextSubmissionContent = {
+  readonly type: 'TEXT';
+  readonly text: string;
+};
+
+export type RepositoryReleaseSubmissionContent = {
+  readonly type: 'REPOSITORY_RELEASE';
+  readonly releaseUrl: string;
+};
+
 export type CreateSubmissionContent =
-  | { readonly type: 'TEXT'; readonly text: string }
-  | {
-      readonly type: 'REPOSITORY_RELEASE';
-      readonly releaseUrl: string;
-    };
+  | { readonly type: 'FILE'; readonly fileId: string }
+  | TextSubmissionContent
+  | RepositoryReleaseSubmissionContent;
+
+export type ResubmissionContent =
+  TextSubmissionContent | RepositoryReleaseSubmissionContent;
+
+export interface UploadedSubmissionFile {
+  readonly fileId: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly size: number;
+  readonly expiresAt: string;
+}
 
 export interface CreatedSubmission {
   readonly submissionId: string;

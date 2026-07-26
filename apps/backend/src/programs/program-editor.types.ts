@@ -40,7 +40,7 @@ export type EditableProgramView = {
   readonly categoryLocked: ProgramCategoryLockState;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
-  readonly endAt: Date | null;
+  readonly endAt?: string | null;
   readonly teamMinSize: number | null;
   readonly teamMaxSize: number | null;
   readonly repositoryProvisioningEnabled: boolean;
@@ -51,11 +51,13 @@ export type EditableProgramView = {
 export type ProgramSchedule = {
   readonly id: string;
   readonly applicationEndAt: Date;
+  readonly endAt?: Date | null;
 };
 
 export type ProgramMilestoneTarget = ProgramMilestoneView & {
   readonly programId: string;
   readonly applicationEndAt: Date;
+  readonly endAt?: Date | null;
 };
 
 export type ProgramMilestoneDeleteTarget = {
@@ -73,6 +75,7 @@ export type ProgramUpdateInput = {
   readonly category: ProgramCategory;
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
+  readonly liveFileExpiresAt: Date | null;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
   readonly endAt: Date | null;

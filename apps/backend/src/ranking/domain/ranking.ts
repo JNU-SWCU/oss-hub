@@ -12,7 +12,7 @@ export const RANKING_NOTICE =
 export interface RankingMetrics {
   readonly commitCount: number;
   readonly prCount: number;
-  readonly starCount: number;
+  readonly releaseCount: number;
 }
 
 export interface RankingEntry extends RankingMetrics {

@@ -54,9 +54,9 @@ function parsePoint(
     !periodPattern.test(value.period) ||
     !isNonNegativeInteger(value.commitCount) ||
     !isNonNegativeInteger(value.prCount) ||
-    !isNonNegativeInteger(value.starCount) ||
+    !isNonNegativeInteger(value.releaseCount) ||
     !isNonNegativeInteger(value.total) ||
-    value.total !== value.commitCount + value.prCount + value.starCount
+    value.total !== value.commitCount + value.prCount + value.releaseCount
   ) {
     return null;
   }
@@ -65,7 +65,7 @@ function parsePoint(
     period: value.period,
     commitCount: value.commitCount,
     prCount: value.prCount,
-    starCount: value.starCount,
+    releaseCount: value.releaseCount,
     total: value.total,
   };
 }

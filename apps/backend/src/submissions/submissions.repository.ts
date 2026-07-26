@@ -3,6 +3,7 @@ import {
   AccountStatus,
   Prisma,
   Role,
+  SubmissionFileLifecycle,
   SubmissionStatus,
   type ApplicationStatus,
   type MilestoneSubmissionType,
@@ -25,7 +26,13 @@ import {
 
 type SubmissionsDatabase = Pick<
   Prisma.TransactionClient,
-  'application' | 'milestone' | 'submission' | 'submissionRevision' | 'user'
+  | 'application'
+  | '$queryRaw'
+  | 'milestone'
+  | 'submission'
+  | 'submissionFile'
+  | 'submissionRevision'
+  | 'user'
 >;
 
 export interface SubmissionActor {
@@ -39,6 +46,7 @@ export interface SubmissionMilestone {
   readonly dueAt: Date;
   readonly submissionType: MilestoneSubmissionType;
   readonly instructions: string | null;
+  readonly programEndAt: Date | null;
 }
 
 export interface SubmissionApplication {
@@ -119,9 +127,12 @@ export interface SubmissionsStore {
     milestoneId: string,
     userId: string,
   ): Promise<SubmissionApplication | null>;
+  lockProgramEndAt(programId: string): Promise<Date | null>;
   createSubmission(
     input: CreateSubmissionInput,
     submittedById: string,
+    now: Date,
+    fileExpiresAt: Date | null,
   ): Promise<CreatedSubmission>;
   findChecklistApplication(
     programId: string,
@@ -145,6 +156,9 @@ export class SubmissionAlreadyExistsError extends Error {
   override readonly name = 'SubmissionAlreadyExistsError';
 }
 
+export class SubmissionFileUnavailableError extends Error {
+  override readonly name = 'SubmissionFileUnavailableError';
+}
 export class StaleSubmissionRevisionError extends Error {
   override readonly name = 'StaleSubmissionRevisionError';
 }
@@ -160,6 +174,7 @@ const MILESTONE_SELECT = {
   dueAt: true,
   submissionType: true,
   instructions: true,
+  program: { select: { endAt: true } },
 } as const;
 
 class PrismaSubmissionsStore implements SubmissionsStore {
@@ -178,18 +193,25 @@ class PrismaSubmissionsStore implements SubmissionsStore {
     });
   }
 
-  findMilestoneByProgram(programId: string, milestoneId: string) {
-    return this.database.milestone.findFirst({
+  async findMilestoneByProgram(
+    programId: string,
+    milestoneId: string,
+  ): Promise<SubmissionMilestone | null> {
+    const milestone = await this.database.milestone.findFirst({
       where: { id: milestoneId, programId },
       select: MILESTONE_SELECT,
     });
+    return milestone ? toSubmissionMilestone(milestone) : null;
   }
 
-  findMilestoneById(milestoneId: string) {
-    return this.database.milestone.findUnique({
+  async findMilestoneById(
+    milestoneId: string,
+  ): Promise<SubmissionMilestone | null> {
+    const milestone = await this.database.milestone.findUnique({
       where: { id: milestoneId },
       select: MILESTONE_SELECT,
     });
+    return milestone ? toSubmissionMilestone(milestone) : null;
   }
 
   async findParticipantApplication(
@@ -216,9 +238,22 @@ class PrismaSubmissionsStore implements SubmissionsStore {
     return application ? toSubmissionApplication(application) : null;
   }
 
+  async lockProgramEndAt(programId: string): Promise<Date | null> {
+    const programs = await this.database.$queryRaw<
+      readonly { endAt: Date | null }[]
+    >(Prisma.sql`
+      SELECT "endAt"
+      FROM "Program"
+      WHERE "id" = ${programId}
+      FOR UPDATE
+    `);
+    return programs[0]?.endAt ?? null;
+  }
   async createSubmission(
     input: CreateSubmissionInput,
     submittedById: string,
+    now: Date,
+    fileExpiresAt: Date | null,
   ): Promise<CreatedSubmission> {
     try {
       const submission = await this.database.submission.create({
@@ -238,11 +273,37 @@ class PrismaSubmissionsStore implements SubmissionsStore {
         select: {
           id: true,
           status: true,
-          revisions: { select: { submittedAt: true }, take: 1 },
+          revisions: {
+            select: { id: true, submittedAt: true },
+            take: 1,
+          },
         },
       });
       const revision = submission.revisions[0];
       if (!revision) throw new CreatedSubmissionRevisionMissingError();
+
+      if (input.content.type === 'FILE') {
+        if (fileExpiresAt === null) throw new SubmissionFileUnavailableError();
+        const attached = await this.database.submissionFile.updateMany({
+          where: {
+            id: input.content.fileId,
+            uploaderId: submittedById,
+            applicationId: input.applicationId,
+            milestoneId: input.milestoneId,
+            lifecycle: SubmissionFileLifecycle.PENDING,
+            submissionRevisionId: null,
+            pendingExpiresAt: { gt: now },
+          },
+          data: {
+            submissionRevisionId: revision.id,
+            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            pendingExpiresAt: null,
+            expiresAt: fileExpiresAt,
+          },
+        });
+        if (attached.count !== 1) throw new SubmissionFileUnavailableError();
+      }
+
       return {
         id: submission.id,
         status: submission.status,
@@ -406,8 +467,22 @@ export class SubmissionsRepository implements SubmissionsStore {
     );
   }
 
-  createSubmission(input: CreateSubmissionInput, submittedById: string) {
-    return this.store.createSubmission(input, submittedById);
+  lockProgramEndAt(programId: string) {
+    return this.store.lockProgramEndAt(programId);
+  }
+
+  createSubmission(
+    input: CreateSubmissionInput,
+    submittedById: string,
+    now: Date,
+    fileExpiresAt: Date | null,
+  ) {
+    return this.store.createSubmission(
+      input,
+      submittedById,
+      now,
+      fileExpiresAt,
+    );
   }
 
   findChecklistApplication(programId: string, userId: string) {
@@ -437,4 +512,22 @@ export class SubmissionsRepository implements SubmissionsStore {
       operation(new PrismaSubmissionsStore(transaction)),
     );
   }
+}
+
+type SelectedSubmissionMilestone = Prisma.MilestoneGetPayload<{
+  select: typeof MILESTONE_SELECT;
+}>;
+
+function toSubmissionMilestone(
+  milestone: SelectedSubmissionMilestone,
+): SubmissionMilestone {
+  return {
+    id: milestone.id,
+    programId: milestone.programId,
+    name: milestone.name,
+    dueAt: milestone.dueAt,
+    submissionType: milestone.submissionType,
+    instructions: milestone.instructions,
+    programEndAt: milestone.program.endAt,
+  };
 }

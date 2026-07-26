@@ -66,9 +66,9 @@ const columns: DataTableColumn<RankingItem>[] = [
     headClassName: 'w-12 text-right',
   },
   {
-    id: 'star',
-    header: 'Star',
-    cell: (item) => item.starCount,
+    id: 'release',
+    header: 'Release',
+    cell: (item) => item.releaseCount,
     cellClassName: 'text-right',
     headClassName: 'w-12 text-right',
   },
@@ -152,8 +152,8 @@ export function RankingView({
           <Alert>
             <AlertTitle>집계 안내</AlertTitle>
             <AlertDescription className="break-keep">
-              {RANKING_NOTICE} Star는 해당 기간에 받은 WatchEvent.started 활동
-              수이며, 저장소의 현재 스타 수가 아닙니다.
+              {RANKING_NOTICE} Release는 해당 기간에 게시된 GitHub 릴리스
+              수입니다.
             </AlertDescription>
           </Alert>
           {state.kind === 'ready' && ranking && ranking.items.length === 0 ? (

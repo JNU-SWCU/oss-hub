@@ -1,8 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
-  CollectionRunStatus,
-  ObservationSourceType,
+  CanonicalCollectionRunStatus,
   Prisma,
   ProgramCategory,
   RoleRequestStatus,
@@ -13,8 +12,6 @@ import type {
   ProgramListQueryStatus,
 } from './program-list-query';
 import { programApplicationParticipantWhere } from './program-participant';
-
-export const STUDENT_ACTIVITY_OBSERVATION_BATCH_SIZE = 500;
 
 const PROGRAM_LIST_SELECT = {
   id: true,
@@ -155,100 +152,47 @@ export class ProgramsRepository {
     });
   }
 
-  findSuccessfulEventObservations(githubIds: readonly bigint[]) {
-    return this.prisma.githubRawObservation.findMany({
-      where: {
-        sourceType: ObservationSourceType.EVENT,
-        run: {
-          targetGithubId: { in: [...githubIds] },
-          status: CollectionRunStatus.SUCCEEDED,
-        },
-      },
-      select: { sourceId: true, payload: true },
-    });
-  }
-
-  async *findStudentTimelineObservationBatches(
-    githubId: bigint,
+  findCanonicalRepositoryActivity(
     repositoryIds: readonly bigint[],
-    ownedRepositoryIds: readonly bigint[],
-  ) {
-    const toRepositoryFilter = (repositoryId: bigint) => ({
-      payload: { path: ['repo', 'id'], equals: Number(repositoryId) },
-    });
-    const safeRepositoryIds = repositoryIds.filter(
-      (repositoryId) => repositoryId <= BigInt(Number.MAX_SAFE_INTEGER),
-    );
-    if (safeRepositoryIds.length === 0) return;
-    const repositoryFilters = safeRepositoryIds.map(toRepositoryFilter);
-    const ownedRepositoryFilters = ownedRepositoryIds
-      .filter((repositoryId) => repositoryId <= BigInt(Number.MAX_SAFE_INTEGER))
-      .map(toRepositoryFilter);
-    let cursor: string | undefined;
-
-    while (true) {
-      const observations = await this.prisma.githubRawObservation.findMany({
-        where: {
-          sourceType: ObservationSourceType.EVENT,
-          run: { status: CollectionRunStatus.SUCCEEDED },
-          AND: [
-            { OR: repositoryFilters },
-            {
-              OR: [
-                { run: { targetGithubId: githubId } },
-                ...(ownedRepositoryFilters.length > 0
-                  ? [
-                      {
-                        AND: [
-                          {
-                            payload: {
-                              path: ['type'],
-                              equals: 'WatchEvent',
-                            },
-                          },
-                          {
-                            payload: {
-                              path: ['payload', 'action'],
-                              equals: 'started',
-                            },
-                          },
-                          { OR: ownedRepositoryFilters },
-                        ],
-                      } satisfies Prisma.GithubRawObservationWhereInput,
-                    ]
-                  : []),
-              ],
-            },
-          ],
-        },
-        select: {
-          id: true,
-          sourceId: true,
-          payload: true,
-          run: { select: { targetGithubId: true } },
-        },
-        orderBy: { id: 'asc' },
-        take: STUDENT_ACTIVITY_OBSERVATION_BATCH_SIZE,
-        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      });
-      if (observations.length === 0) return;
-      yield observations;
-      if (observations.length < STUDENT_ACTIVITY_OBSERVATION_BATCH_SIZE) return;
-      cursor = observations.at(-1)?.id;
-    }
-  }
-
-  findStudentOwnedRepositoryIds(
-    githubId: bigint,
-    repositoryIds: readonly bigint[],
+    authorGithubId?: bigint,
   ) {
     if (repositoryIds.length === 0) return Promise.resolve([]);
-    return this.prisma.repositoryOwnerProjection.findMany({
+    const authorWhere = authorGithubId ? { authorGithubId } : undefined;
+    return this.prisma.canonicalOrganizationState.findMany({
       where: {
-        ownerGithubId: githubId,
-        githubRepositoryId: { in: [...repositoryIds] },
+        activeGenerationId: { not: null },
+        activeGeneration: {
+          status: CanonicalCollectionRunStatus.SUCCEEDED,
+          repositories: {
+            some: { githubRepositoryId: { in: [...repositoryIds] } },
+          },
+        },
       },
-      select: { githubRepositoryId: true },
+      select: {
+        updatedAt: true,
+        activeGeneration: {
+          select: {
+            repositories: {
+              where: { githubRepositoryId: { in: [...repositoryIds] } },
+              select: {
+                githubRepositoryId: true,
+                commits: {
+                  where: authorWhere,
+                  select: { committedAt: true },
+                },
+                pullRequests: {
+                  where: authorWhere,
+                  select: { createdAt: true },
+                },
+                releases: {
+                  where: authorWhere,
+                  select: { publishedAt: true },
+                },
+              },
+            },
+          },
+        },
+      },
     });
   }
 
@@ -308,7 +252,7 @@ export class ProgramsRepository {
     readonly applicationTemplateVersion: number;
     readonly applicationStartAt: Date;
     readonly applicationEndAt: Date;
-    readonly endAt: Date | null;
+    readonly endAt: Date;
     readonly teamMinSize: number | null;
     readonly teamMaxSize: number | null;
     readonly description: string;

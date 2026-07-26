@@ -15,7 +15,7 @@ const input: CreateProgramRequestDto = {
   category: ProgramCategory.OSS_CONTEST,
   applicationStartAt: '2026-08-01T00:00:00+09:00',
   applicationEndAt: '2026-08-15T23:59:59+09:00',
-  endAt: '2026-08-31T23:59:59+09:00',
+  endAt: '2027-02-01T00:00:00+09:00',
   teamMinSize: 2,
   teamMaxSize: 4,
   description: '  Program overview  ',
@@ -54,7 +54,7 @@ describe('ProgramsService', () => {
         applicationTemplateVersion: 1,
         applicationStartAt: new Date('2026-08-01T00:00:00+09:00'),
         applicationEndAt: new Date('2026-08-15T23:59:59+09:00'),
-        endAt: new Date('2026-08-31T23:59:59+09:00'),
+        endAt: new Date('2027-02-01T00:00:00+09:00'),
         teamMinSize: 2,
         teamMaxSize: 4,
       },
@@ -85,7 +85,7 @@ describe('ProgramsService', () => {
         applicationTemplateVersion: 1,
         applicationStartAt: new Date('2026-08-01T00:00:00+09:00'),
         applicationEndAt: new Date('2026-08-15T23:59:59+09:00'),
-        endAt: new Date('2026-08-31T23:59:59+09:00'),
+        endAt: new Date('2027-02-01T00:00:00+09:00'),
         teamMinSize: null,
         teamMaxSize: null,
       },
@@ -110,6 +110,39 @@ describe('ProgramsService', () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['missing', undefined],
+    ['null', null],
+    ['invalid', 'not-a-date'],
+    ['equal to application end', input.applicationEndAt],
+    ['before application end', '2026-08-15T23:59:58+09:00'],
+  ])('rejects an endAt that is %s', async (_case, endAt) => {
+    findUnique.mockResolvedValue({
+      role: Role.STAFF,
+      accountStatus: AccountStatus.ACTIVE,
+    });
+
+    await expect(
+      service.create(101n, {
+        ...input,
+        endAt,
+      } as CreateProgramRequestDto),
+    ).rejects.toMatchObject<Partial<DomainException>>({
+      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
+      extensions: {
+        fieldErrors: [
+          {
+            field: 'endAt',
+            code: 'INVALID_END_AT',
+            message:
+              'Program end must be a valid date after the application period ends.',
+          },
+        ],
+      },
+    });
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it('rejects inactive staff before a program is stored', async () => {
     findUnique.mockResolvedValue({
       role: Role.STAFF,
@@ -120,43 +153,6 @@ describe('ProgramsService', () => {
       Partial<DomainException>
     >({
       errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.FORBIDDEN],
-    });
-    expect(create).not.toHaveBeenCalled();
-  });
-  it('stores null endAt when it is omitted', async () => {
-    findUnique.mockResolvedValue({
-      role: Role.STAFF,
-      accountStatus: AccountStatus.ACTIVE,
-    });
-    create.mockResolvedValue({ id: 'program-3' });
-
-    await service.create(101n, { ...input, endAt: undefined });
-
-    expect(create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ endAt: null }) as Record<string, unknown>,
-    });
-  });
-
-  it('rejects an end date before the application end date', async () => {
-    findUnique.mockResolvedValue({
-      role: Role.STAFF,
-      accountStatus: AccountStatus.ACTIVE,
-    });
-
-    await expect(
-      service.create(101n, {
-        ...input,
-        endAt: '2026-08-15T23:59:58+09:00',
-      }),
-    ).rejects.toMatchObject({
-      errorCode:
-        PROGRAM_ERROR_CODES[ProgramErrorCode.INVALID_APPLICATION_PERIOD],
-      extensions: {
-        fieldErrors: expect.arrayContaining([
-          expect.objectContaining({ field: 'applicationEndAt' }),
-          expect.objectContaining({ field: 'endAt' }),
-        ]) as readonly unknown[],
-      },
     });
     expect(create).not.toHaveBeenCalled();
   });

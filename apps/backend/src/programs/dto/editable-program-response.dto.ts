@@ -52,7 +52,7 @@ export class EditableProgramResponseDto {
     this.categoryLocked = program.categoryLocked;
     this.applicationStartAt = program.applicationStartAt.toISOString();
     this.applicationEndAt = program.applicationEndAt.toISOString();
-    this.endAt = program.endAt?.toISOString() ?? null;
+    this.endAt = program.endAt ?? null;
     this.repositoryProvisioningEnabled = program.repositoryProvisioningEnabled;
     this.description = program.description;
     this.milestones = program.milestones.map((milestone) =>

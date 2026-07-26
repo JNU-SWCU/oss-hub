@@ -23,6 +23,7 @@ export interface ProgramEditForm {
   readonly originalApplicationStartAt: string;
   readonly originalApplicationEndAt: string;
   readonly originalEndAt: string | null;
+  readonly milestoneDueAts: readonly string[];
   readonly repositoryProvisioningEnabled: boolean;
   readonly description: string;
   readonly teamMinSize: string;
@@ -31,7 +32,10 @@ export interface ProgramEditForm {
 
 export type ProgramEditableField = Exclude<
   keyof ProgramEditForm,
-  'originalApplicationStartAt' | 'originalApplicationEndAt' | 'originalEndAt'
+  | 'originalApplicationStartAt'
+  | 'originalApplicationEndAt'
+  | 'originalEndAt'
+  | 'milestoneDueAts'
 >;
 
 export interface ProgramEditErrors {
@@ -77,6 +81,11 @@ export type ProgramMilestoneEditor =
 export { PROGRAM_EDIT_ERROR_CODES } from './program-edit-error-codes';
 
 const DEFAULT_MILESTONE_TYPE = 'TEXT' satisfies SubmissionType;
+class ProgramEditValidationError extends Error {
+  constructor(readonly errors: ProgramEditErrors) {
+    super('Program edit validation failed');
+  }
+}
 
 export function toProgramEditForm(program: EditableProgram): ProgramEditForm {
   return {
@@ -85,10 +94,11 @@ export function toProgramEditForm(program: EditableProgram): ProgramEditForm {
     category: program.category,
     applicationStartAt: toDateTimeLocal(program.applicationStartAt),
     applicationEndAt: toDateTimeLocal(program.applicationEndAt),
-    endAt: toDateTimeLocal(program.endAt),
+    endAt: program.endAt === null ? '' : toDateTimeLocal(program.endAt),
     originalApplicationStartAt: program.applicationStartAt,
     originalApplicationEndAt: program.applicationEndAt,
     originalEndAt: program.endAt,
+    milestoneDueAts: program.milestones.map((milestone) => milestone.dueAt),
     repositoryProvisioningEnabled: program.repositoryProvisioningEnabled,
     description: program.description,
     teamMinSize: program.teamMinSize?.toString() ?? '',
@@ -126,9 +136,34 @@ export function buildProgramEditInput(
   dirtyFields: readonly ProgramEditableField[] = [
     'applicationStartAt',
     'applicationEndAt',
-    'endAt',
   ],
 ): UpdateProgramInput {
+  const applicationEndAt = dirtyFields.includes('applicationEndAt')
+    ? toIsoString(form.applicationEndAt)
+    : form.originalApplicationEndAt;
+  const endAt =
+    form.endAt === ''
+      ? null
+      : dirtyFields.includes('endAt') || form.originalEndAt === null
+        ? toIsoString(form.endAt)
+        : form.originalEndAt;
+
+  if (form.originalEndAt !== null && endAt === null) {
+    throw new ProgramEditValidationError({
+      endAt: '기존 프로그램 종료일은 비울 수 없습니다.',
+    });
+  }
+  if (
+    endAt !== null &&
+    (endAt <= applicationEndAt ||
+      form.milestoneDueAts.some((dueAt) => endAt <= dueAt))
+  ) {
+    throw new ProgramEditValidationError({
+      endAt:
+        '프로그램 종료일은 신청 종료일과 모든 마일스톤 마감 이후여야 합니다.',
+    });
+  }
+
   return {
     name: form.name.trim(),
     organizer: form.organizer.trim(),
@@ -136,14 +171,8 @@ export function buildProgramEditInput(
     applicationStartAt: dirtyFields.includes('applicationStartAt')
       ? toIsoString(form.applicationStartAt)
       : form.originalApplicationStartAt,
-    applicationEndAt: dirtyFields.includes('applicationEndAt')
-      ? toIsoString(form.applicationEndAt)
-      : form.originalApplicationEndAt,
-    endAt: dirtyFields.includes('endAt')
-      ? form.endAt
-        ? toIsoString(form.endAt)
-        : null
-      : form.originalEndAt,
+    applicationEndAt,
+    endAt,
     repositoryProvisioningEnabled: form.repositoryProvisioningEnabled,
     description: form.description.trim(),
     teamMinSize: requiresTeam ? Number(form.teamMinSize) : null,
@@ -167,6 +196,7 @@ export function buildMilestoneInput(
 }
 
 export function mapProgramEditError(error: unknown): ProgramEditErrors {
+  if (error instanceof ProgramEditValidationError) return error.errors;
   if (!(error instanceof ApiError)) {
     return { general: '저장에 실패했습니다. 다시 시도해 주세요.' };
   }
@@ -225,9 +255,9 @@ function mapProblemFieldErrors(
     organizer?: string;
     category?: string;
     period?: string;
-    endAt?: string;
     team?: string;
     description?: string;
+    endAt?: string;
     dueAt?: string;
     instructions?: string;
   } = {};
@@ -267,8 +297,7 @@ function mapProblemFieldErrors(
   return errors;
 }
 
-function toDateTimeLocal(value: string | null): string {
-  if (value === null) return '';
+function toDateTimeLocal(value: string): string {
   const date = new Date(value);
   const year = String(date.getFullYear());
   const month = twoDigits(date.getMonth() + 1);

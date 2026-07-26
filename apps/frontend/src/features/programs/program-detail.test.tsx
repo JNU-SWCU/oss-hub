@@ -112,6 +112,59 @@ describe('ActivityPanelBody', () => {
     expect(failed).toContain('활동을 불러오지 못했습니다');
     expect(failed).toContain('프로그램 정보는 정상적으로 표시');
   });
+
+  it('canonical 커밋·PR·릴리스와 데이터 기준 시각을 모두 표시한다', () => {
+    const html = renderToStaticMarkup(
+      <ActivityPanelBody
+        state={{
+          kind: 'ready',
+          activities: [
+            {
+              applicationId: 'application-1',
+              label: '학생',
+              commitCount: 2,
+              pullRequestCount: 3,
+              releaseCount: 4,
+              lastActivityAt: '2026-07-23T00:00:00.000Z',
+              dataAsOf: '2026-07-24T00:00:00.000Z',
+            },
+          ],
+        }}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('커밋</dt><dd>2');
+    expect(html).toContain('PR</dt><dd>3');
+    expect(html).toContain('릴리스</dt><dd>4');
+    expect(html).toContain('데이터 기준');
+    expect(html).not.toContain('star');
+  });
+
+  it('활성 generation이 없는 저장소에 안전한 빈 활동 문구를 표시한다', () => {
+    const html = renderToStaticMarkup(
+      <ActivityPanelBody
+        state={{
+          kind: 'ready',
+          activities: [
+            {
+              applicationId: 'application-1',
+              label: '학생',
+              commitCount: 0,
+              pullRequestCount: 0,
+              releaseCount: 0,
+              lastActivityAt: null,
+              dataAsOf: null as unknown as string,
+            },
+          ],
+        }}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('아직 수집된 활동이 없습니다');
+    expect(html).toContain('아직 게시된 활동 데이터가 없습니다');
+  });
 });
 
 const programWithoutMilestones: ProgramDetail = {

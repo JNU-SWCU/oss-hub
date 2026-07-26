@@ -117,11 +117,12 @@ export function ProgramEditBasicForm({
             <FieldError>{errors.period}</FieldError>
           </Field>
           <Field>
-            <FieldLabel htmlFor="program-end-at">종료일 (선택)</FieldLabel>
+            <FieldLabel htmlFor="program-end-at">프로그램 종료 *</FieldLabel>
             <Input
               id="program-end-at"
               type="datetime-local"
               value={form.endAt}
+              required={form.originalEndAt !== null}
               aria-invalid={Boolean(errors.endAt)}
               onChange={(event) => onFieldChange('endAt', event.target.value)}
             />

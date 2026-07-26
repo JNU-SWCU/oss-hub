@@ -70,12 +70,14 @@ describe('ProgramEditorService update validation', () => {
     );
 
     expect(exception.errorCode).toBe(
-      PROGRAM_ERROR_CODES[ProgramErrorCode.INVALID_APPLICATION_PERIOD],
+      PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
     );
     expect(exception.extensions.fieldErrors).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ field: 'applicationEndAt' }),
-        expect.objectContaining({ field: 'endAt' }),
+        expect.objectContaining({
+          field: 'endAt',
+          code: 'INVALID_PROGRAM_END',
+        }),
       ]),
     );
     expect(store.updateProgram.mock.calls).toHaveLength(0);
@@ -85,7 +87,7 @@ describe('ProgramEditorService update validation', () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findEditableProgramForUpdate.mockResolvedValue({
       ...editableProgram,
-      endAt: new Date('2026-08-16T00:00:00.000Z'),
+      endAt: '2026-08-16T00:00:00.000Z',
     });
 
     await expect(
@@ -95,8 +97,7 @@ describe('ProgramEditorService update validation', () => {
         endAt: undefined,
       }),
     ).rejects.toMatchObject<Partial<DomainException>>({
-      errorCode:
-        PROGRAM_ERROR_CODES[ProgramErrorCode.INVALID_APPLICATION_PERIOD],
+      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
     });
     expect(store.updateProgram.mock.calls).toHaveLength(0);
   });
@@ -223,6 +224,149 @@ describe('ProgramEditorService update validation', () => {
       errorCode:
         PROGRAM_ERROR_CODES[ProgramErrorCode.MILESTONE_BEFORE_APPLICATION_END],
     });
+  });
+  it('allows a legacy program without an end date to set one', async () => {
+    const { service, store } = createProgramEditorServiceHarness();
+    store.findEditableProgramForUpdate.mockResolvedValue(editableProgram);
+    store.updateProgram.mockResolvedValue({
+      ...editableProgram,
+      endAt: '2026-09-01T00:00:00.000Z',
+    });
+
+    await service.updateProgram(101n, 'program-1', {
+      ...updateInput,
+      endAt: '2026-09-01T00:00:00.000Z',
+    });
+
+    expect(store.updateProgram.mock.calls).toContainEqual([
+      expect.objectContaining({
+        endAt: new Date('2026-09-01T00:00:00.000Z'),
+      }),
+    ]);
+  });
+
+  it('forbids clearing a non-null program end date', async () => {
+    const { service, store } = createProgramEditorServiceHarness();
+    store.findEditableProgramForUpdate.mockResolvedValue({
+      ...editableProgram,
+      endAt: '2026-09-01T00:00:00.000Z',
+    });
+
+    const exception = await expectDomainException(
+      service.updateProgram(101n, 'program-1', {
+        ...updateInput,
+        endAt: null,
+      }),
+    );
+
+    expect(exception.extensions.fieldErrors).toEqual([
+      expect.objectContaining({ field: 'endAt' }),
+    ]);
+    expect(store.updateProgram.mock.calls).toHaveLength(0);
+  });
+
+  it('rejects a non-finite or application-boundary program end date', async () => {
+    const { service, store } = createProgramEditorServiceHarness();
+    store.findEditableProgramForUpdate.mockResolvedValue(editableProgram);
+
+    for (const endAt of ['not-a-date', updateInput.applicationEndAt] as const) {
+      const exception = await expectDomainException(
+        service.updateProgram(101n, 'program-1', {
+          ...updateInput,
+          endAt,
+        }),
+      );
+      expect(exception.extensions.fieldErrors).toEqual([
+        expect.objectContaining({ field: 'endAt' }),
+      ]);
+    }
+    expect(store.updateProgram.mock.calls).toHaveLength(0);
+  });
+
+  it('rejects a program end date at an existing milestone boundary', async () => {
+    const { service, store } = createProgramEditorServiceHarness();
+    store.findEditableProgramForUpdate.mockResolvedValue(editableProgram);
+
+    const exception = await expectDomainException(
+      service.updateProgram(101n, 'program-1', {
+        ...updateInput,
+        endAt: editableProgram.milestones[0].dueAt.toISOString(),
+      }),
+    );
+
+    expect(exception.extensions.fieldErrors).toEqual([
+      expect.objectContaining({ field: 'endAt' }),
+    ]);
+    expect(store.updateProgram.mock.calls).toHaveLength(0);
+  });
+
+  it('allows moving a set program end later while preserving other update data', async () => {
+    const { service, store } = createProgramEditorServiceHarness();
+    store.findEditableProgramForUpdate.mockResolvedValue({
+      ...editableProgram,
+      endAt: '2026-09-01T00:00:00.000Z',
+    });
+    store.updateProgram.mockResolvedValue({
+      ...editableProgram,
+      endAt: '2026-10-01T00:00:00.000Z',
+    });
+
+    await service.updateProgram(101n, 'program-1', {
+      ...updateInput,
+      endAt: '2026-10-01T00:00:00.000Z',
+    });
+
+    expect(store.updateProgram.mock.calls).toContainEqual([
+      expect.objectContaining({
+        name: 'Updated OSS',
+        endAt: new Date('2026-10-01T00:00:00.000Z'),
+        liveFileExpiresAt: new Date('2027-10-01T00:00:00.000Z'),
+      }),
+    ]);
+  });
+
+  it('moves live file expiry earlier with an earlier valid program end', async () => {
+    const { service, store } = createProgramEditorServiceHarness();
+    store.findEditableProgramForUpdate.mockResolvedValue({
+      ...editableProgram,
+      endAt: '2026-10-01T00:00:00.000Z',
+    });
+    store.updateProgram.mockResolvedValue({
+      ...editableProgram,
+      endAt: '2026-09-01T00:00:00.000Z',
+    });
+
+    await service.updateProgram(101n, 'program-1', {
+      ...updateInput,
+      endAt: '2026-09-01T00:00:00.000Z',
+    });
+
+    expect(store.updateProgram.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({
+        liveFileExpiresAt: new Date('2027-09-01T00:00:00.000Z'),
+      }),
+    );
+  });
+
+  it('does not rewrite live file expiry when the program end is unchanged', async () => {
+    const { service, store } = createProgramEditorServiceHarness();
+    store.findEditableProgramForUpdate.mockResolvedValue({
+      ...editableProgram,
+      endAt: '2026-09-01T00:00:00.000Z',
+    });
+    store.updateProgram.mockResolvedValue({
+      ...editableProgram,
+      endAt: '2026-09-01T00:00:00.000Z',
+    });
+
+    await service.updateProgram(101n, 'program-1', {
+      ...updateInput,
+      endAt: '2026-09-01T00:00:00.000Z',
+    });
+
+    expect(store.updateProgram.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ liveFileExpiresAt: null }),
+    );
   });
 });
 

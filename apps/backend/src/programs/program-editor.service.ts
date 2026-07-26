@@ -1,5 +1,6 @@
 import { AccountStatus, Role } from '@prisma/client';
 import { Inject, Injectable } from '@nestjs/common';
+import { addOneCalendarYear } from '../common/add-one-calendar-year';
 import type { ProblemDetailExtensions } from '../common/error-code';
 import { DomainException } from '../common/error-code';
 import type { UpdateProgramRequestDto } from './dto/update-program-request.dto';
@@ -39,18 +40,6 @@ const INVALID_APPLICATION_PERIOD_FIELD_ERRORS = [
   },
 ] as const;
 
-const INVALID_PROGRAM_END_FIELD_ERRORS = [
-  {
-    field: 'applicationEndAt',
-    code: 'INVALID_APPLICATION_PERIOD',
-    message: 'Application period must end before the program ends.',
-  },
-  {
-    field: 'endAt',
-    code: 'INVALID_APPLICATION_PERIOD',
-    message: 'Program end must be on or after application period end.',
-  },
-] as const;
 const INVALID_TEAM_RANGE_FIELD_ERRORS = [
   {
     field: 'teamMinSize',
@@ -63,6 +52,25 @@ const INVALID_TEAM_RANGE_FIELD_ERRORS = [
     message: 'Team maximum size must be greater than or equal to minimum size.',
   },
 ] as const;
+
+const INVALID_PROGRAM_END_FIELD_ERROR = {
+  field: 'endAt',
+  code: 'INVALID_PROGRAM_END',
+  message:
+    'Program end must be after the application period and every milestone.',
+} as const;
+
+const PROGRAM_END_REQUIRED_FIELD_ERROR = {
+  field: 'endAt',
+  code: 'REQUIRED',
+  message: 'Program end is required before milestones can be edited.',
+} as const;
+
+const MILESTONE_AFTER_PROGRAM_END_FIELD_ERROR = {
+  field: 'dueAt',
+  code: 'INVALID_MILESTONE_PERIOD',
+  message: 'Milestone due date must be before program end.',
+} as const;
 
 @Injectable()
 export class ProgramEditorService {
@@ -94,12 +102,16 @@ export class ProgramEditorService {
       const description = input.description.trim();
       const applicationStartAt = new Date(input.applicationStartAt);
       const applicationEndAt = new Date(input.applicationEndAt);
-      const endAt =
-        input.endAt === undefined
-          ? existing.endAt
-          : input.endAt === null
-            ? null
-            : new Date(input.endAt);
+      const requestedEndAt =
+        input.endAt === undefined ? (existing.endAt ?? null) : input.endAt;
+      const endAt = requestedEndAt === null ? null : new Date(requestedEndAt);
+      const liveFileExpiresAt =
+        endAt !== null &&
+        (existing.endAt === null ||
+          existing.endAt === undefined ||
+          endAt.getTime() !== new Date(existing.endAt).getTime())
+          ? addOneCalendarYear(endAt)
+          : null;
       const categoryChanged = existing.category !== input.category;
       const template = getProgramTemplate(input.category);
       const teamSize = teamSizeForTemplate(input, template.participation);
@@ -153,12 +165,19 @@ export class ProgramEditorService {
           fieldErrors: INVALID_APPLICATION_PERIOD_FIELD_ERRORS,
         });
       }
+      if (existing.endAt !== null && endAt === null) {
+        this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+          fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
+        });
+      }
       if (
         endAt !== null &&
-        (Number.isNaN(endAt.getTime()) || endAt < applicationEndAt)
+        (!Number.isFinite(endAt.getTime()) ||
+          endAt <= applicationEndAt ||
+          existing.milestones.some((milestone) => milestone.dueAt >= endAt))
       ) {
-        this.fail(ProgramErrorCode.INVALID_APPLICATION_PERIOD, {
-          fieldErrors: INVALID_PROGRAM_END_FIELD_ERRORS,
+        this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+          fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
         });
       }
       if (
@@ -191,6 +210,7 @@ export class ProgramEditorService {
         applicationStartAt,
         applicationEndAt,
         endAt,
+        liveFileExpiresAt,
         teamMinSize: teamSize.teamMinSize,
         teamMaxSize: teamSize.teamMaxSize,
         repositoryProvisioningEnabled: input.repositoryProvisioningEnabled,
@@ -211,7 +231,11 @@ export class ProgramEditorService {
       if (program === null) this.fail(ProgramErrorCode.PROGRAM_NOT_FOUND);
       return store.createMilestone({
         programId,
-        ...this.milestoneData(input, program.applicationEndAt),
+        ...this.milestoneData(
+          input,
+          program.applicationEndAt,
+          program.endAt ?? null,
+        ),
       });
     });
   }
@@ -227,7 +251,11 @@ export class ProgramEditorService {
       if (milestone === null) this.fail(ProgramErrorCode.MILESTONE_NOT_FOUND);
       return store.updateMilestone({
         milestoneId,
-        ...this.milestoneData(input, milestone.applicationEndAt),
+        ...this.milestoneData(
+          input,
+          milestone.applicationEndAt,
+          milestone.endAt ?? null,
+        ),
       });
     });
   }
@@ -262,6 +290,7 @@ export class ProgramEditorService {
   private milestoneData(
     input: UpsertMilestoneRequestDto,
     applicationEndAt: Date,
+    endAt: Date | null,
   ): ProgramMilestoneInput {
     const name = input.name.trim();
     const dueAt = new Date(input.dueAt);
@@ -291,6 +320,16 @@ export class ProgramEditorService {
     }
     if (dueAt <= applicationEndAt) {
       this.fail(ProgramErrorCode.MILESTONE_BEFORE_APPLICATION_END);
+    }
+    if (endAt === null) {
+      this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+        fieldErrors: [PROGRAM_END_REQUIRED_FIELD_ERROR],
+      });
+    }
+    if (dueAt >= endAt) {
+      this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+        fieldErrors: [MILESTONE_AFTER_PROGRAM_END_FIELD_ERROR],
+      });
     }
     const instructions = input.instructions?.trim() || null;
     return {

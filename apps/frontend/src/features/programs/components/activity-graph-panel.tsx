@@ -52,23 +52,50 @@ export function ActivityPanelBody({
     <ul className="grid gap-4">
       {state.activities.map((activity) => (
         <li className="grid gap-2" key={activity.applicationId}>
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <strong>{activity.label}</strong>
-            <span>{activity.commitCount} commits</span>
-          </div>
+          <strong>{activity.label}</strong>
+          <dl className="grid grid-cols-3 gap-3 text-sm">
+            <div>
+              <dt className="text-muted-foreground">커밋</dt>
+              <dd>{activity.commitCount}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">PR</dt>
+              <dd>{activity.pullRequestCount}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">릴리스</dt>
+              <dd>{activity.releaseCount}</dd>
+            </div>
+          </dl>
           <div className="h-2 overflow-hidden rounded-full bg-muted">
             <div
               className="h-full rounded-full bg-accent"
               style={{
-                width: `${Math.min(100, Math.max(4, activity.commitCount * 5))}%`,
+                width: `${Math.min(
+                  100,
+                  Math.max(
+                    4,
+                    (activity.commitCount +
+                      activity.pullRequestCount +
+                      activity.releaseCount) *
+                      5,
+                  ),
+                )}%`,
               }}
             />
           </div>
-          <p className="text-xs text-muted-foreground">
-            {activity.lastActivityAt
-              ? `최근 활동 ${formatSeoulDate(activity.lastActivityAt)}`
-              : '수집된 커밋 활동이 없습니다'}
-          </p>
+          <div className="grid gap-1 text-xs text-muted-foreground">
+            <p>
+              {activity.lastActivityAt
+                ? `최근 활동 ${formatSeoulDate(activity.lastActivityAt)}`
+                : '아직 수집된 활동이 없습니다'}
+            </p>
+            <p>
+              {activity.dataAsOf
+                ? `데이터 기준 ${formatSeoulDate(activity.dataAsOf)}`
+                : '아직 게시된 활동 데이터가 없습니다'}
+            </p>
+          </div>
         </li>
       ))}
     </ul>
