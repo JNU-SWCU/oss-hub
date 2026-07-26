@@ -396,8 +396,11 @@ describe('SubmissionsService integration', () => {
   });
 
   it('FILE 유형은 프로그램 종료 시각이 없으면 fail-closed 한다', async () => {
-    // Given: 실제 storage 없이 미래 FILE 마일스톤만 존재한다.
-
+    // Given: seed 기본값과 무관하게 종료 시각이 비어 있는 프로그램을 강제한다.
+    await prisma.program.update({
+      where: { id: MILESTONES_PROGRAM_ID },
+      data: { endAt: null },
+    });
     // When
     const form = await service.form(
       seedGithubId(PERSONAL_USER_ID),
