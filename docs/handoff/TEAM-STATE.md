@@ -88,7 +88,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | CI: public-safe Issue·댓글 스캔 + commitlint 이벤트 가드 | @GoBeromsu | done | #68 | #150 #159 | pass | 없음 |
 | 학생용 수집 App(private repo 포함, read-only) | @Lumiere001 | planned | #15 | - | - | 정책 전제 4건 미확정: 산정 범위·개인 repo 보존·동의 절차·App 소유·운영(unblock: @GoBeromsu). #120/#123(조직 소유 자동화 App, write 권한)과는 별개 앱임을 #15/#120 코멘트로 명확화함 — 대체 관계 아님 |
 | Access & GitHub Platform 백로그(9건: 로그인 이력·시스템 상태·저장소 자동화·webhook 확장 등) | @Lumiere001 | planned | #99 #107 #108 #120 #121 #122 #123 #133 #157 | - | - | #156 설정 페이지는 #242 merge로 분리·완료 · GitHub App 인증 ADR(#120)이 저장소 자동 생성(#121)·webhook 확장(#123)의 선행 |
-| 학생 내 저장소 조회 | @jinsol1190-rgb | active | [#122](https://github.com/JNU-SWCU/oss-hub/issues/122) | PR pending | backend unit 7 · frontend 16 · full unit frontend 397/backend 635 · lint/typecheck/build pass | Docker CLI 부재로 신규 ownership integration spec 로컬 실행 불가 · PR CI와 owner 사후 확인 필요 |
+| 학생 내 저장소 조회 | @jinsol1190-rgb | review | [#122](https://github.com/JNU-SWCU/oss-hub/issues/122) | [#261](https://github.com/JNU-SWCU/oss-hub/pull/261) Draft | backend unit 7 · frontend 16 · full unit frontend 397/backend 635 · lint/typecheck/build pass | Docker CLI 부재로 신규 ownership integration spec 로컬 실행 불가 · PR CI와 owner 사후 확인 필요 |
 | 관리자 사용자·역할 관리 | @GoBeromsu | done | #131 | [#231](https://github.com/JNU-SWCU/oss-hub/pull/231) merged | pass | 없음 |
 | 관리자 감사 로그 | @GoBeromsu | active | #132 | - | local pass | owner-path 연동은 @Lumiere001 사후 확인 필요 |
 | 공통 온보딩 프로필 입력 | @GoBeromsu | done | #153 | [#220](https://github.com/JNU-SWCU/oss-hub/pull/220) merged | pass | 없음 |
