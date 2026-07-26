@@ -13,6 +13,7 @@ import {
 import { ProgramsRepository } from './programs.repository';
 import { ProgramsService } from './programs.service';
 import { ProgramViewerService } from './program-viewer.service';
+import { StudentDashboardService } from './student-dashboard.service';
 
 let application: INestApplication | undefined;
 let baseUrl = '';
@@ -36,6 +37,7 @@ beforeAll(async () => {
     controllers: [ProgramsController, StudentDashboardController],
     providers: [
       ProgramActivityService,
+      { provide: StudentDashboardService, useValue: {} },
       { provide: ProgramCreationService, useValue: {} },
       { provide: ProgramsService, useValue: {} },
       {
