@@ -11,7 +11,7 @@
 | 항목 | 값 |
 | --- | --- |
 | generated_at | 2026-07-26T11:45:00+09:00 |
-| source_commit | 8ffd3be (origin/main, after #267) |
+| source_commit | a4dd5a0 (origin/main, after #268) |
 | 조회 성공 소스 | issues, prs, ci, decisions, exec-plan, branch-protection, project-board |
 | 조회 실패 소스 | 없음 |
 
@@ -116,7 +116,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 공개 쇼케이스 allowlist projection | @GoBeromsu | done | [#266](https://github.com/JNU-SWCU/oss-hub/issues/266) | [#267](https://github.com/JNU-SWCU/oss-hub/pull/267) merged (+[#268](https://github.com/JNU-SWCU/oss-hub/pull/268) fixture hotfix) | backend 663 · CI integration 124/124 green | 없음 — Tech Lead 사후 확인 요청 |
 | 공개 아카이브 목록·상세 | @jinsol1190-rgb | done | [#126](https://github.com/JNU-SWCU/oss-hub/issues/126) | [#269](https://github.com/JNU-SWCU/oss-hub/pull/269) merged | backend 669 · frontend 78 files · CI green(integration 포함) | 없음 — 익명 브라우저 QA는 #128 · owner 사후 확인 요청 |
 | 공개 프로필 | @jinsol1190-rgb | review | [#134](https://github.com/JNU-SWCU/oss-hub/issues/134) | PR pending | backend 674(신규 profiles 5) · frontend 79 files(신규 public-profile) · lint/typecheck/build pass | projection-only 익명 API · 미존재/공개0건 구분 불가 404 · owner 사후 확인 필요 |
-| Participation 핵심 모듈 AppModule 합성 보존 | @jinsol1190-rgb | active | [#255](https://github.com/JNU-SWCU/oss-hub/issues/255) | - | format·lint·typecheck·build·backend unit 634·통합 121·Aside API QA local pass | PM @GoBeromsu 비소유 경로 수정 승인 · PR에서 owner 사후 확인 필요 |
+| Participation 핵심 모듈 AppModule 합성 보존 | @jinsol1190-rgb | review | [#255](https://github.com/JNU-SWCU/oss-hub/issues/255) | [#260](https://github.com/JNU-SWCU/oss-hub/pull/260) | format·lint·typecheck·build·backend unit 793·통합 127 pass | 보존 spec 중복 제거·Showcase/Profiles 포함 8개 모듈 단언은 #260에 포함 · owner 사후 확인 필요 |
 | 학생 활동 타임라인 | @jinsol1190-rgb | review | #154 | [#210](https://github.com/JNU-SWCU/oss-hub/pull/210) | #210 pass | [프런트엔드 #198](https://github.com/JNU-SWCU/oss-hub/pull/198) merged · 백엔드 조회 API #210 리뷰 대기 |
 | Cross-cutting E2E 스모크(접수 흐름·전체 루프) | @GoBeromsu | planned | #128 #129 | - | - | 상위 화면 티켓들 merge 진행에 따라 순차 검증 |
 | 마감 알림 메일 + 수신 이메일 설정 | @GoBeromsu | done | #127 | [#242](https://github.com/JNU-SWCU/oss-hub/pull/242) merged | pass (CLI 실발송 · Aside settings) | 후속 발신 주체 이전 #250 (사업단 Gmail env 교체) |

@@ -74,5 +74,4 @@ describe('AppModule module exposure', () => {
 
     expect(exports).toContain(RepositoriesService);
   });
-
 });
