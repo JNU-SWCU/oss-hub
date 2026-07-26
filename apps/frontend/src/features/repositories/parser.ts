@@ -71,21 +71,19 @@ function nullableVisibility(value: unknown): RepositoryVisibility | null {
   return invalidResponse();
 }
 
-function isSafeGithubUrl(value: string): boolean {
+function isSafeGithubUrl(value: string, repositoryName: string): boolean {
   try {
     const url = new URL(value);
     const pathSegments = url.pathname.split('/').filter(Boolean);
     return (
-      url.protocol === 'https:' &&
-      url.hostname === 'github.com' &&
+      url.origin === 'https://github.com' &&
       url.username === '' &&
       url.password === '' &&
       url.search === '' &&
       url.hash === '' &&
       pathSegments.length === 2 &&
       pathSegments[0] === 'JNU-SWCU' &&
-      typeof pathSegments[1] === 'string' &&
-      pathSegments[1].length > 0
+      pathSegments[1] === repositoryName
     );
   } catch {
     return false;
@@ -95,13 +93,21 @@ function isSafeGithubUrl(value: string): boolean {
 function responseItem(value: unknown): MyRepositoryResponseItem {
   if (!isRecord(value)) return invalidResponse();
   const updatedAt = nonEmptyString(value.updatedAt);
-  if (Number.isNaN(Date.parse(updatedAt))) return invalidResponse();
+  const parsedUpdatedAt = new Date(updatedAt);
+  if (
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(updatedAt) ||
+    Number.isNaN(parsedUpdatedAt.getTime()) ||
+    parsedUpdatedAt.toISOString() !== updatedAt
+  ) {
+    return invalidResponse();
+  }
 
   const parsedProvisionStatus = provisionStatus(value.provisionStatus);
   const repositoryId = nullableString(value.repositoryId);
   const repositoryName = nullableString(value.repositoryName);
   const githubUrl = nullableString(value.githubUrl);
   const parsedVisibility = nullableVisibility(value.visibility);
+  const parsedInvitationStatus = invitationStatus(value.invitationStatus);
 
   if (parsedProvisionStatus === 'SUCCEEDED') {
     if (
@@ -111,7 +117,7 @@ function responseItem(value: unknown): MyRepositoryResponseItem {
       repositoryName.trim().length === 0 ||
       githubUrl === null ||
       parsedVisibility === null ||
-      !isSafeGithubUrl(githubUrl)
+      !isSafeGithubUrl(githubUrl, repositoryName)
     ) {
       return invalidResponse();
     }
@@ -119,7 +125,8 @@ function responseItem(value: unknown): MyRepositoryResponseItem {
     repositoryId !== null ||
     repositoryName !== null ||
     githubUrl !== null ||
-    parsedVisibility !== null
+    parsedVisibility !== null ||
+    parsedInvitationStatus !== null
   ) {
     return invalidResponse();
   }
@@ -133,7 +140,7 @@ function responseItem(value: unknown): MyRepositoryResponseItem {
     repositoryName,
     githubUrl,
     provisionStatus: parsedProvisionStatus,
-    invitationStatus: invitationStatus(value.invitationStatus),
+    invitationStatus: parsedInvitationStatus,
     visibility: parsedVisibility,
     lastErrorCode: nullableString(value.lastErrorCode),
     updatedAt,

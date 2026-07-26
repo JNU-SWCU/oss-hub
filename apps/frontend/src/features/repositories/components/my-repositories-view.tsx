@@ -109,16 +109,14 @@ function RepositoryCard({ item }: { readonly item: MyRepositoryItem }) {
           ) : null}
         </div>
       </CardContent>
-      {item.canOpenGithub ? (
+      {item.canOpenGithub && item.githubUrl ? (
         <CardFooter className="flex flex-wrap gap-2">
-          {item.canOpenGithub && item.githubUrl ? (
-            <Button asChild size="sm">
-              <a href={item.githubUrl} target="_blank" rel="noreferrer">
-                <ExternalLink aria-hidden="true" />
-                GitHub에서 열기
-              </a>
-            </Button>
-          ) : null}
+          <Button asChild size="sm">
+            <a href={item.githubUrl} target="_blank" rel="noreferrer">
+              <ExternalLink aria-hidden="true" />
+              GitHub에서 열기
+            </a>
+          </Button>
         </CardFooter>
       ) : null}
     </Card>

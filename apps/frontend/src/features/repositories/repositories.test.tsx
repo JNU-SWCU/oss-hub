@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '@/lib/api-client';
 import { MyRepositoriesView } from './components/my-repositories-view';
 import { loadMyRepositories } from './loader';
@@ -15,6 +15,9 @@ import type {
 vi.mock('@/lib/api-client', () => ({
   apiClient: vi.fn(),
 }));
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 function responseItem({
   id,
@@ -44,7 +47,7 @@ function responseItem({
     invitationStatus,
     visibility: succeeded ? visibility : null,
     lastErrorCode,
-    updatedAt: '2026-07-24T10:00:00+09:00',
+    updatedAt: '2026-07-24T01:00:00.000Z',
   };
 }
 
@@ -68,15 +71,24 @@ function readyResponse(): MyRepositoriesResponse {
       responseItem({
         id: 'retrying',
         provisionStatus: 'FAILED_RETRYABLE',
-        invitationStatus: 'FAILED_RETRYABLE',
         lastErrorCode: 'PROVISION_TIMEOUT',
       }),
       responseItem({
         id: 'final-failure',
         mode: 'TEAM',
         provisionStatus: 'FAILED_FINAL',
-        invitationStatus: 'FAILED_FINAL',
         lastErrorCode: 'PROVISION_FAILED',
+      }),
+      responseItem({
+        id: 'invite-retrying',
+        provisionStatus: 'SUCCEEDED',
+        invitationStatus: 'FAILED_RETRYABLE',
+      }),
+      responseItem({
+        id: 'invite-final',
+        mode: 'TEAM',
+        provisionStatus: 'SUCCEEDED',
+        invitationStatus: 'FAILED_FINAL',
       }),
       responseItem({
         id: 'public',
@@ -157,6 +169,27 @@ describe('my repositories response parser', () => {
       },
     ],
     [
+      'GitHub repository identity mismatch',
+      {
+        ...response.items[0],
+        githubUrl: 'https://github.com/JNU-SWCU/another-repository',
+      },
+    ],
+    [
+      'GitHub non-default port',
+      {
+        ...response.items[0],
+        githubUrl: 'https://github.com:444/JNU-SWCU/oss-1',
+      },
+    ],
+    [
+      'pre-success invitation',
+      {
+        ...responseItem({ id: 'pending-invite', provisionStatus: 'PENDING' }),
+        invitationStatus: 'PENDING',
+      },
+    ],
+    [
       'premature repository data',
       { ...response.items[0], provisionStatus: 'PROCESSING' },
     ],
@@ -165,6 +198,14 @@ describe('my repositories response parser', () => {
       { ...response.items[0], repositoryName: null },
     ],
     ['invalid date', { ...response.items[0], updatedAt: 'today' }],
+    [
+      'non-canonical date',
+      { ...response.items[0], updatedAt: '2026-07-24T10:00:00+09:00' },
+    ],
+    [
+      'rolled-over date',
+      { ...response.items[0], updatedAt: '2026-02-30T00:00:00.000Z' },
+    ],
   ])('%s 응답을 거부한다', (_case, malformedItem) => {
     expect(() =>
       parseMyRepositoriesResponse({ items: [malformedItem] }),
@@ -202,7 +243,15 @@ describe('my repositories loader boundary', () => {
     ['transport failure', new Error('raw backend error: SECRET')],
     [
       'invalid response',
-      { items: [{ ...response.items[0], githubUrl: null }] },
+      {
+        items: [
+          {
+            ...response.items[0],
+            repositoryName: 'SECRET',
+            githubUrl: null,
+          },
+        ],
+      },
     ],
   ])('%s를 일반적인 로드 오류로 감춘다', async (_case, failure) => {
     if (failure instanceof Error) {
@@ -211,10 +260,12 @@ describe('my repositories loader boundary', () => {
       vi.mocked(apiClient).mockResolvedValue(failure);
     }
 
-    await expect(loadMyRepositories()).rejects.toThrow(
-      '내 저장소를 불러오지 못했습니다',
-    );
-    await expect(loadMyRepositories()).rejects.not.toThrow('SECRET');
+    const error = await loadMyRepositories().catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toBe('내 저장소를 불러오지 못했습니다');
+    expect((error as Error).message).not.toContain('SECRET');
+    expect(apiClient).toHaveBeenCalledTimes(1);
   });
 });
 
