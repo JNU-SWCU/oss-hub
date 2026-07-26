@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import {
+  ApplicationStatus,
   OutboxEventStatus,
   Prisma,
+  RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
 } from '@prisma/client';
@@ -22,6 +24,33 @@ export interface ClaimedProvisionEvent {
 
 export interface ProvisionJobReference {
   readonly id: string;
+}
+export interface OwnedProvisionJob {
+  readonly application: {
+    readonly id: string;
+    readonly teamId: string | null;
+    readonly applicant: {
+      readonly nickname: string;
+    };
+    readonly program: {
+      readonly name: string;
+    };
+    readonly team: {
+      readonly name: string;
+    } | null;
+  };
+  readonly status: RepositoryProvisionJobStatus;
+  readonly lastErrorCode: string | null;
+  readonly updatedAt: Date;
+  readonly repository: {
+    readonly id: string;
+    readonly name: string;
+    readonly url: string;
+    readonly visibility: RepositoryVisibility;
+    readonly invitations: readonly {
+      readonly status: RepositoryInvitationStatus;
+    }[];
+  } | null;
 }
 
 export interface RepositoryPublishTarget {
@@ -163,6 +192,78 @@ export class RepositoriesRepository {
     return this.prisma.$transaction((transaction) =>
       operation(new PrismaRepositoriesTransactionStore(transaction)),
     );
+  }
+  async listOwnedProvisionJobs(
+    githubId: bigint,
+  ): Promise<readonly OwnedProvisionJob[]> {
+    const user = await this.prisma.user.findUnique({
+      where: { githubId },
+      select: { nickname: true },
+    });
+    if (user === null) {
+      return [];
+    }
+
+    return this.prisma.repositoryProvisionJob.findMany({
+      where: {
+        application: {
+          status: ApplicationStatus.APPROVED,
+          OR: [
+            {
+              teamId: null,
+              applicant: { githubId },
+            },
+            {
+              team: {
+                OR: [
+                  { leader: { githubId } },
+                  {
+                    members: {
+                      some: {
+                        user: { githubId },
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        status: true,
+        lastErrorCode: true,
+        updatedAt: true,
+        application: {
+          select: {
+            id: true,
+            teamId: true,
+            applicant: {
+              select: { nickname: true },
+            },
+            program: {
+              select: { name: true },
+            },
+            team: {
+              select: { name: true },
+            },
+          },
+        },
+        repository: {
+          select: {
+            id: true,
+            name: true,
+            url: true,
+            visibility: true,
+            invitations: {
+              where: { githubLogin: user.nickname },
+              select: { status: true },
+            },
+          },
+        },
+      },
+    });
   }
 
   async findPublishTarget(

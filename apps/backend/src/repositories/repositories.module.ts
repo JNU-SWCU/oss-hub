@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { RepositoriesController } from './repositories.controller';
 import { GithubAppClient } from './github-app.client';
 import { GithubAppTokenProvider } from './github-app.token';
 import { GithubOperationsConfig } from './github-operations.config';
@@ -11,6 +12,7 @@ import { RepositoryProvisionStateRepository } from './repository-provision-state
 import { RepositoryProvisionWorker } from './repository-provision.worker';
 
 @Module({
+  controllers: [RepositoriesController],
   providers: [
     GithubOperationsConfig,
     RepositoriesRepository,
