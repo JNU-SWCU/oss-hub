@@ -56,7 +56,7 @@ Compose 종료·재기동 절차에서 `down -v`를 실행하지 않는다. Post
 ### 배포 서버
 
 1. 운영 환경 파일을 Jenkins Credentials Store의 secret file `oss-hub-production-env`로 등록한다.
-2. 파일에는 운영 `POSTGRES_*`, `DATABASE_URL`, `SESSION_SECRET`, `TEAM_JOIN_CODE_SECRET`, `FRONTEND_URL=https://54.116.116.174`, production GitHub OAuth client ID/secret, production `GMAIL_SENDER`와 `GMAIL_OAUTH_*` 3종을 설정한다. `DATABASE_URL`은 `postgres` 서비스 DNS를 가리키고 migration과 runtime이 동일한 URL을 사용한다. production backend 이미지(`NODE_ENV=production`)는 `compose.yml`이 명시한 `GMAIL_*` 4종 없이 부팅하지 않는다. `AUTH_TEST_ROLE_MAP`과 `GITHUB_BATCH_LOGINS`는 운영에서 설정하지 않는다.
+2. 파일에는 운영 `POSTGRES_*`, `DATABASE_URL`, `SESSION_SECRET`, `TEAM_JOIN_CODE_SECRET`, `FRONTEND_URL=https://54.116.116.174`, production GitHub OAuth client ID/secret, production `GMAIL_SENDER`와 `GMAIL_OAUTH_*` 3종을 설정한다. `DATABASE_URL`은 `postgres` 서비스 DNS를 가리키고 migration과 runtime이 동일한 URL을 사용한다. production backend 이미지(`NODE_ENV=production`)는 `compose.yml`이 명시한 `GMAIL_*` 4종 없이 부팅하지 않는다. `AUTH_TEST_ROLE_MAP`은 운영에서 설정하지 않는다.
 3. 저장소에는 `.env.example`만 두고 실제 운영 파일은 커밋하거나 Jenkins 로그에 출력하지 않는다.
 4. Jenkins가 Compose 및 migration 단계에서만 임시 file credential을 주입하고 종료 후 workspace에 복사본을 남기지 않는지 확인한다.
 5. `/var/lib/oss-hub/deploy-state`와 `/var/lib/oss-hub/backups`는 Jenkins 소유 `0700` 디렉터리로 만들고 symlink·group write를 허용하지 않는다. 생성되는 상태·backup 파일은 `0600`인지 확인한다.
