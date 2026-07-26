@@ -6,16 +6,16 @@ export type RepositoryInvitationStatus =
 export type RepositoryVisibility = 'PRIVATE' | 'PUBLIC';
 
 export type MyRepositoryResponseItem = {
-  readonly repositoryId: string;
+  readonly repositoryId: string | null;
   readonly applicationId: string;
   readonly applicationMode: RepositoryApplicationMode;
   readonly programName: string;
   readonly displayName: string;
-  readonly repositoryName: string;
+  readonly repositoryName: string | null;
   readonly githubUrl: string | null;
   readonly provisionStatus: RepositoryProvisionStatus;
   readonly invitationStatus: RepositoryInvitationStatus;
-  readonly visibility: RepositoryVisibility;
+  readonly visibility: RepositoryVisibility | null;
   readonly lastErrorCode: string | null;
   readonly updatedAt: string;
 };

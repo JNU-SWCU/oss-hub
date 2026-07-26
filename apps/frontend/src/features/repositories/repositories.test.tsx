@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import { apiClient } from '@/lib/api-client';
 import { MyRepositoriesView } from './components/my-repositories-view';
 import { loadMyRepositories } from './loader';
 import { parseMyRepositoriesResponse } from './parser';
@@ -10,6 +11,10 @@ import type {
   RepositoryProvisionStatus,
   RepositoryVisibility,
 } from './types';
+
+vi.mock('@/lib/api-client', () => ({
+  apiClient: vi.fn(),
+}));
 
 function responseItem({
   id,
@@ -28,16 +33,16 @@ function responseItem({
 }): MyRepositoryResponseItem {
   const succeeded = provisionStatus === 'SUCCEEDED';
   return {
-    repositoryId: `repository-${id}`,
+    repositoryId: succeeded ? `repository-${id}` : null,
     applicationId: `application-${id}`,
     applicationMode: mode,
     programName: mode === 'PERSONAL' ? '캡스톤 프로그램' : 'OSS 경진대회',
     displayName: mode === 'PERSONAL' ? '개인 프로젝트' : '오픈소스팀',
-    repositoryName: `oss-${id}`,
+    repositoryName: succeeded ? `oss-${id}` : null,
     githubUrl: succeeded ? `https://github.com/JNU-SWCU/oss-${id}` : null,
     provisionStatus,
     invitationStatus,
-    visibility,
+    visibility: succeeded ? visibility : null,
     lastErrorCode,
     updatedAt: '2026-07-24T10:00:00+09:00',
   };
@@ -95,15 +100,32 @@ const response = {
 
 describe('my repositories response parser', () => {
   it('확정된 #122 응답을 안전한 화면 모델로 변환한다', () => {
-    // Given / When
     const repositories = parseMyRepositoriesResponse(response);
 
-    // Then
     expect(repositories.items[0]).toMatchObject({
       modeLabel: '개인',
       provisionLabel: '생성 완료',
       invitationLabel: '초대 수락 대기',
       canOpenGithub: true,
+    });
+  });
+
+  it('생성 전 응답의 저장소 필드를 null로 유지한다', () => {
+    const repositories = parseMyRepositoriesResponse({
+      items: [
+        responseItem({
+          id: 'processing',
+          provisionStatus: 'PROCESSING',
+        }),
+      ],
+    });
+
+    expect(repositories.items[0]).toMatchObject({
+      repositoryId: null,
+      repositoryName: null,
+      githubUrl: null,
+      visibility: null,
+      canOpenGithub: false,
     });
   });
 
@@ -114,33 +136,46 @@ describe('my repositories response parser', () => {
       { ...response.items[0], githubUrl: 'https://example.com/private' },
     ],
     [
-      'premature GitHub URL',
+      'GitHub URL with an unsafe authority',
       {
         ...response.items[0],
-        provisionStatus: 'PROCESSING',
+        githubUrl: 'https://github.com/JNU-SWCU@evil.example/private',
       },
     ],
     [
-      'missing successful GitHub URL',
-      { ...response.items[0], githubUrl: null },
+      'GitHub repository subpath',
+      {
+        ...response.items[0],
+        githubUrl: 'https://github.com/JNU-SWCU/oss-1/issues',
+      },
+    ],
+    [
+      'GitHub repository query',
+      {
+        ...response.items[0],
+        githubUrl: 'https://github.com/JNU-SWCU/oss-1?token=SECRET',
+      },
+    ],
+    [
+      'premature repository data',
+      { ...response.items[0], provisionStatus: 'PROCESSING' },
+    ],
+    [
+      'missing successful repository data',
+      { ...response.items[0], repositoryName: null },
     ],
     ['invalid date', { ...response.items[0], updatedAt: 'today' }],
   ])('%s 응답을 거부한다', (_case, malformedItem) => {
-    // Given / When / Then
     expect(() =>
       parseMyRepositoriesResponse({ items: [malformedItem] }),
     ).toThrow('내 저장소 응답 형식이 올바르지 않습니다');
   });
 
   it('lastErrorCode를 문자열 계약으로만 파싱하고 화면 모델과 HTML에서는 제외한다', () => {
-    // Given
     const secret = 'private key: SECRET';
-    const responseWithServerText = {
+    const repositories = parseMyRepositoriesResponse({
       items: [{ ...response.items[0], lastErrorCode: secret }],
-    };
-
-    // When
-    const repositories = parseMyRepositoriesResponse(responseWithServerText);
+    });
     const viewHtml = renderToStaticMarkup(
       <MyRepositoriesView
         state={{ kind: 'ready', repositories }}
@@ -148,35 +183,48 @@ describe('my repositories response parser', () => {
       />,
     );
 
-    // Then
     expect(Object.hasOwn(repositories.items[0], 'lastErrorCode')).toBe(false);
     expect(viewHtml).not.toContain(secret);
   });
 });
 
 describe('my repositories loader boundary', () => {
-  it('실제 API 계약 전에는 fixture나 합성 payload 없이 실패로 닫힌다', async () => {
-    // Given / When / Then
+  it('API 응답을 엄격한 화면 모델로 로드한다', async () => {
+    vi.mocked(apiClient).mockResolvedValue(response);
+
+    await expect(loadMyRepositories()).resolves.toMatchObject({
+      items: [expect.objectContaining({ applicationId: 'application-1' })],
+    });
+    expect(apiClient).toHaveBeenCalledWith('repositories/me');
+  });
+
+  it.each([
+    ['transport failure', new Error('raw backend error: SECRET')],
+    [
+      'invalid response',
+      { items: [{ ...response.items[0], githubUrl: null }] },
+    ],
+  ])('%s를 일반적인 로드 오류로 감춘다', async (_case, failure) => {
+    if (failure instanceof Error) {
+      vi.mocked(apiClient).mockRejectedValue(failure);
+    } else {
+      vi.mocked(apiClient).mockResolvedValue(failure);
+    }
+
     await expect(loadMyRepositories()).rejects.toThrow(
       '내 저장소를 불러오지 못했습니다',
     );
+    await expect(loadMyRepositories()).rejects.not.toThrow('SECRET');
   });
 });
 
 describe('my repositories test fixtures and view', () => {
   it('빈 응답 fixture를 화면 모델로 변환한다', () => {
-    // Given / When
-    const empty = parseMyRepositoriesResponse({ items: [] });
-
-    // Then
-    expect(empty.items).toEqual([]);
+    expect(parseMyRepositoriesResponse({ items: [] }).items).toEqual([]);
   });
 
-  it('성공·로딩·빈 상태·오류 상태를 렌더링한다', () => {
-    // Given
+  it('성공·생성 전·로딩·빈 상태·오류 상태를 렌더링한다', () => {
     const repositories = parseMyRepositoriesResponse(readyResponse());
-
-    // When
     const readyHtml = renderToStaticMarkup(
       <MyRepositoriesView
         state={{ kind: 'ready', repositories }}
@@ -196,8 +244,8 @@ describe('my repositories test fixtures and view', () => {
       <MyRepositoriesView state={{ kind: 'error' }} onRetry={vi.fn()} />,
     );
 
-    // Then
     expect(readyHtml).toContain('내 저장소');
+    expect(readyHtml).toContain('생성 전');
     expect(readyHtml).toContain('저장소 생성 중');
     expect(readyHtml).toContain('생성 완료');
     expect(readyHtml).toContain('자동 재시도 중');
@@ -209,9 +257,7 @@ describe('my repositories test fixtures and view', () => {
     expect(readyHtml).toContain(
       'href="https://github.com/JNU-SWCU/oss-personal-ready"',
     );
-    expect(readyHtml).not.toContain(
-      'href="https://github.com/JNU-SWCU/oss-team-processing"',
-    );
+    expect(readyHtml).not.toContain('oss-team-processing');
     expect(readyHtml).not.toContain('private key');
     expect(loadingHtml).toContain('내 저장소를 불러오는 중');
     expect(emptyHtml).toContain('표시할 저장소가 없습니다');

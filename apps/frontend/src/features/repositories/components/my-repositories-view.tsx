@@ -91,15 +91,17 @@ function RepositoryCard({ item }: { readonly item: MyRepositoryItem }) {
             저장소
           </span>
           <code className="break-all text-sm text-foreground">
-            {item.repositoryName}
+            {item.repositoryName ?? '생성 전'}
           </code>
         </div>
         <div className="flex flex-wrap gap-2 text-sm">
-          <StatusBadge
-            variant={item.visibility === 'PUBLIC' ? 'approved' : 'closed'}
-          >
-            {item.visibility}
-          </StatusBadge>
+          {item.visibility !== null ? (
+            <StatusBadge
+              variant={item.visibility === 'PUBLIC' ? 'approved' : 'closed'}
+            >
+              {item.visibility}
+            </StatusBadge>
+          ) : null}
           {item.invitationLabel ? (
             <span className="text-muted-foreground">
               {item.invitationLabel}
@@ -161,7 +163,7 @@ export function MyRepositoriesView({
           </div>
           <CardGrid>
             {state.repositories.items.map((item) => (
-              <RepositoryCard key={item.repositoryId} item={item} />
+              <RepositoryCard key={item.applicationId} item={item} />
             ))}
           </CardGrid>
         </section>

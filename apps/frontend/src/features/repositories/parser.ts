@@ -66,40 +66,75 @@ function invitationStatus(value: unknown): RepositoryInvitationStatus {
   return invalidResponse();
 }
 
-function visibility(value: unknown): RepositoryVisibility {
-  if (value === 'PRIVATE' || value === 'PUBLIC') return value;
+function nullableVisibility(value: unknown): RepositoryVisibility | null {
+  if (value === null || value === 'PRIVATE' || value === 'PUBLIC') return value;
   return invalidResponse();
+}
+
+function isSafeGithubUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    const pathSegments = url.pathname.split('/').filter(Boolean);
+    return (
+      url.protocol === 'https:' &&
+      url.hostname === 'github.com' &&
+      url.username === '' &&
+      url.password === '' &&
+      url.search === '' &&
+      url.hash === '' &&
+      pathSegments.length === 2 &&
+      pathSegments[0] === 'JNU-SWCU' &&
+      typeof pathSegments[1] === 'string' &&
+      pathSegments[1].length > 0
+    );
+  } catch {
+    return false;
+  }
 }
 
 function responseItem(value: unknown): MyRepositoryResponseItem {
   if (!isRecord(value)) return invalidResponse();
   const updatedAt = nonEmptyString(value.updatedAt);
   if (Number.isNaN(Date.parse(updatedAt))) return invalidResponse();
+
   const parsedProvisionStatus = provisionStatus(value.provisionStatus);
+  const repositoryId = nullableString(value.repositoryId);
+  const repositoryName = nullableString(value.repositoryName);
   const githubUrl = nullableString(value.githubUrl);
-  if (parsedProvisionStatus !== 'SUCCEEDED' && githubUrl !== null) {
-    return invalidResponse();
-  }
-  if (parsedProvisionStatus === 'SUCCEEDED' && githubUrl === null) {
-    return invalidResponse();
-  }
-  if (
-    githubUrl !== null &&
-    !githubUrl.startsWith('https://github.com/JNU-SWCU/')
+  const parsedVisibility = nullableVisibility(value.visibility);
+
+  if (parsedProvisionStatus === 'SUCCEEDED') {
+    if (
+      repositoryId === null ||
+      repositoryId.trim().length === 0 ||
+      repositoryName === null ||
+      repositoryName.trim().length === 0 ||
+      githubUrl === null ||
+      parsedVisibility === null ||
+      !isSafeGithubUrl(githubUrl)
+    ) {
+      return invalidResponse();
+    }
+  } else if (
+    repositoryId !== null ||
+    repositoryName !== null ||
+    githubUrl !== null ||
+    parsedVisibility !== null
   ) {
     return invalidResponse();
   }
+
   return {
-    repositoryId: nonEmptyString(value.repositoryId),
+    repositoryId,
     applicationId: nonEmptyString(value.applicationId),
     applicationMode: applicationMode(value.applicationMode),
     programName: nonEmptyString(value.programName),
     displayName: nonEmptyString(value.displayName),
-    repositoryName: nonEmptyString(value.repositoryName),
+    repositoryName,
     githubUrl,
     provisionStatus: parsedProvisionStatus,
     invitationStatus: invitationStatus(value.invitationStatus),
-    visibility: visibility(value.visibility),
+    visibility: parsedVisibility,
     lastErrorCode: nullableString(value.lastErrorCode),
     updatedAt,
   };

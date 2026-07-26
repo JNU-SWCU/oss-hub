@@ -1,3 +1,5 @@
+import { apiClient } from '@/lib/api-client';
+import { parseMyRepositoriesResponse } from './parser';
 import type { MyRepositories } from './types';
 
 class MyRepositoriesLoadError extends Error {
@@ -8,5 +10,11 @@ class MyRepositoriesLoadError extends Error {
 }
 
 export async function loadMyRepositories(): Promise<MyRepositories> {
-  throw new MyRepositoriesLoadError();
+  try {
+    return parseMyRepositoriesResponse(
+      await apiClient<unknown>('repositories/me'),
+    );
+  } catch {
+    throw new MyRepositoriesLoadError();
+  }
 }
