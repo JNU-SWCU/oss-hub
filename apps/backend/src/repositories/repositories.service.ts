@@ -51,7 +51,8 @@ export class RepositoriesService {
     return jobs.map((job) => {
       if (
         job.status === RepositoryProvisionJobStatus.SUCCEEDED &&
-        job.repository === null
+        (job.repository === null ||
+          job.repository.applicationId !== job.application.id)
       ) {
         throw new RepositoryProvisionStateError();
       }

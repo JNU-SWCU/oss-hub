@@ -65,13 +65,14 @@ function job(overrides: Partial<OwnedProvisionJob> = {}): OwnedProvisionJob {
 }
 
 describe('RepositoriesService.getMyRepositories', () => {
-  it('maps personal and team jobs without leaking raw error detail', async () => {
+  it('maps personal and team jobs into the safe response contract', async () => {
     const { repository, github } = dependencies();
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
         lastErrorCode: 'PROVISION_RETRYABLE',
         repository: {
           id: 'synthetic-in-progress-repository',
+          applicationId: 'synthetic-application',
           name: 'synthetic-in-progress',
           url: 'https://github.com/synthetic-org/synthetic-in-progress',
           visibility: RepositoryVisibility.PRIVATE,
@@ -89,6 +90,7 @@ describe('RepositoriesService.getMyRepositories', () => {
         status: RepositoryProvisionJobStatus.SUCCEEDED,
         repository: {
           id: 'synthetic-completed-repository',
+          applicationId: 'synthetic-team-application',
           name: 'synthetic-completed',
           url: 'https://github.com/synthetic-org/synthetic-completed',
           visibility: RepositoryVisibility.PRIVATE,
@@ -102,40 +104,62 @@ describe('RepositoriesService.getMyRepositories', () => {
 
     expect(repository.listOwnedProvisionJobs).toHaveBeenCalledWith(123n);
     expect(result).toEqual([
-      expect.objectContaining({
-        applicationMode: 'PERSONAL',
-        displayName: 'synthetic-applicant',
+      {
         repositoryId: null,
+        applicationId: 'synthetic-application',
+        applicationMode: 'PERSONAL',
+        programName: 'Synthetic program',
+        displayName: 'synthetic-applicant',
         repositoryName: null,
         githubUrl: null,
+        provisionStatus: RepositoryProvisionJobStatus.PENDING,
         invitationStatus: null,
         visibility: null,
         lastErrorCode: 'PROVISION_RETRYABLE',
-      }),
-      expect.objectContaining({
-        applicationMode: 'TEAM',
-        displayName: 'Synthetic team',
+        updatedAt: NOW,
+      },
+      {
         repositoryId: 'synthetic-completed-repository',
+        applicationId: 'synthetic-team-application',
+        applicationMode: 'TEAM',
+        programName: 'Team program',
+        displayName: 'Synthetic team',
         repositoryName: 'synthetic-completed',
         githubUrl: 'https://github.com/synthetic-org/synthetic-completed',
+        provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
         invitationStatus: RepositoryInvitationStatus.SUCCEEDED,
         visibility: RepositoryVisibility.PRIVATE,
-      }),
+        lastErrorCode: null,
+        updatedAt: NOW,
+      },
     ]);
-    expect(JSON.stringify(result)).not.toContain('lastErrorMessage');
-    expect(JSON.stringify(result)).not.toContain('raw upstream detail');
-    expect(
-      result.every(
-        (item) =>
-          !Object.prototype.hasOwnProperty.call(item, 'lastErrorMessage'),
-      ),
-    ).toBe(true);
   });
 
   it('fails closed when a succeeded job has no repository', async () => {
     const { repository, github } = dependencies();
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({ status: RepositoryProvisionJobStatus.SUCCEEDED }),
+    ]);
+
+    await expect(
+      new RepositoriesService(repository, github).getMyRepositories(123n),
+    ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
+  });
+
+  it('fails closed when a succeeded job points at another application repository', async () => {
+    const { repository, github } = dependencies();
+    repository.listOwnedProvisionJobs.mockResolvedValue([
+      job({
+        status: RepositoryProvisionJobStatus.SUCCEEDED,
+        repository: {
+          id: 'synthetic-mismatched-repository',
+          applicationId: 'another-application',
+          name: 'synthetic-mismatched',
+          url: 'https://github.com/synthetic-org/synthetic-mismatched',
+          visibility: RepositoryVisibility.PRIVATE,
+          invitations: [],
+        },
+      }),
     ]);
 
     await expect(

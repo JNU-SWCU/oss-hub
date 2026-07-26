@@ -44,6 +44,7 @@ export interface OwnedProvisionJob {
   readonly updatedAt: Date;
   readonly repository: {
     readonly id: string;
+    readonly applicationId: string;
     readonly name: string;
     readonly url: string;
     readonly visibility: RepositoryVisibility;
@@ -253,11 +254,12 @@ export class RepositoriesRepository {
         repository: {
           select: {
             id: true,
+            applicationId: true,
             name: true,
             url: true,
             visibility: true,
             invitations: {
-              where: { githubLogin: user.nickname },
+              where: { githubLogin: user.nickname.toLowerCase() },
               select: { status: true },
             },
           },

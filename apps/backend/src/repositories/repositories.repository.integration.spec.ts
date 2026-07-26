@@ -30,6 +30,7 @@ const LEADER_TEAM_ID = `${PREFIX}-leader-team`;
 const MEMBER_TEAM_ID = `${PREFIX}-member-team`;
 const UNRELATED_TEAM_ID = `${PREFIX}-unrelated-team`;
 const UNAPPROVED_TEAM_ID = `${PREFIX}-unapproved-team`;
+const FIXED_UPDATED_AT = new Date('2026-07-22T01:00:00.000Z');
 const APPLICATION_IDS = [
   PERSONAL_APPLICATION_ID,
   LEADER_APPLICATION_ID,
@@ -52,7 +53,7 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
         {
           id: CURRENT_USER_ID,
           githubId: 8_300_000_000_001n,
-          nickname: `${PREFIX}-current`,
+          nickname: `${PREFIX}-Current`,
           role: Role.STUDENT,
         },
         {
@@ -120,47 +121,50 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
   });
 
   afterAll(async () => {
-    await prisma.repositoryInvitation.deleteMany({
-      where: { repositoryId: { in: [...REPOSITORY_IDS] } },
-    });
-    await prisma.repositoryProvisionJob.deleteMany({
-      where: { applicationId: { in: [...APPLICATION_IDS] } },
-    });
-    await prisma.repository.deleteMany({
-      where: { id: { in: [...REPOSITORY_IDS] } },
-    });
-    await prisma.application.deleteMany({
-      where: { id: { in: [...APPLICATION_IDS] } },
-    });
-    await prisma.teamMember.deleteMany({
-      where: {
-        teamId: {
-          in: [
-            LEADER_TEAM_ID,
-            MEMBER_TEAM_ID,
-            UNRELATED_TEAM_ID,
-            UNAPPROVED_TEAM_ID,
-          ],
+    try {
+      await prisma.repositoryInvitation.deleteMany({
+        where: { repositoryId: { in: [...REPOSITORY_IDS] } },
+      });
+      await prisma.repositoryProvisionJob.deleteMany({
+        where: { applicationId: { in: [...APPLICATION_IDS] } },
+      });
+      await prisma.repository.deleteMany({
+        where: { id: { in: [...REPOSITORY_IDS] } },
+      });
+      await prisma.application.deleteMany({
+        where: { id: { in: [...APPLICATION_IDS] } },
+      });
+      await prisma.teamMember.deleteMany({
+        where: {
+          teamId: {
+            in: [
+              LEADER_TEAM_ID,
+              MEMBER_TEAM_ID,
+              UNRELATED_TEAM_ID,
+              UNAPPROVED_TEAM_ID,
+            ],
+          },
         },
-      },
-    });
-    await prisma.team.deleteMany({
-      where: {
-        id: {
-          in: [
-            LEADER_TEAM_ID,
-            MEMBER_TEAM_ID,
-            UNRELATED_TEAM_ID,
-            UNAPPROVED_TEAM_ID,
-          ],
+      });
+      await prisma.team.deleteMany({
+        where: {
+          id: {
+            in: [
+              LEADER_TEAM_ID,
+              MEMBER_TEAM_ID,
+              UNRELATED_TEAM_ID,
+              UNAPPROVED_TEAM_ID,
+            ],
+          },
         },
-      },
-    });
-    await prisma.program.delete({ where: { id: PROGRAM_ID } });
-    await prisma.user.deleteMany({
-      where: { id: { in: [CURRENT_USER_ID, OTHER_USER_ID] } },
-    });
-    await prisma.$disconnect();
+      });
+      await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
+      await prisma.user.deleteMany({
+        where: { id: { in: [CURRENT_USER_ID, OTHER_USER_ID] } },
+      });
+    } finally {
+      await prisma.$disconnect();
+    }
   });
 
   it('returns only current-user approved personal and team jobs with safe selected fields', async () => {
@@ -174,20 +178,59 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
         MEMBER_APPLICATION_ID,
       ].sort(),
     );
-    expect(byApplication.get(PERSONAL_APPLICATION_ID)).toMatchObject({
+    expect(byApplication.get(PERSONAL_APPLICATION_ID)).toEqual({
+      application: {
+        id: PERSONAL_APPLICATION_ID,
+        teamId: null,
+        applicant: { nickname: `${PREFIX}-Current` },
+        program: { name: `${PREFIX}-program` },
+        team: null,
+      },
       status: RepositoryProvisionJobStatus.PENDING,
+      lastErrorCode: 'SYNTHETIC_ERROR',
+      updatedAt: FIXED_UPDATED_AT,
       repository: null,
     });
-    expect(byApplication.get(LEADER_APPLICATION_ID)?.repository).toMatchObject({
-      id: REPOSITORY_IDS[0],
-      invitations: [{ status: RepositoryInvitationStatus.SUCCEEDED }],
+    expect(byApplication.get(LEADER_APPLICATION_ID)).toEqual({
+      application: {
+        id: LEADER_APPLICATION_ID,
+        teamId: LEADER_TEAM_ID,
+        applicant: { nickname: `${PREFIX}-other` },
+        program: { name: `${PREFIX}-program` },
+        team: { name: `${PREFIX}-leader-team` },
+      },
+      status: RepositoryProvisionJobStatus.SUCCEEDED,
+      lastErrorCode: 'SYNTHETIC_ERROR',
+      updatedAt: FIXED_UPDATED_AT,
+      repository: {
+        id: REPOSITORY_IDS[0],
+        applicationId: LEADER_APPLICATION_ID,
+        name: REPOSITORY_IDS[0],
+        url: `https://github.com/synthetic/${REPOSITORY_IDS[0]}`,
+        visibility: RepositoryVisibility.PRIVATE,
+        invitations: [{ status: RepositoryInvitationStatus.SUCCEEDED }],
+      },
     });
-    expect(byApplication.get(MEMBER_APPLICATION_ID)?.repository).toMatchObject({
-      id: REPOSITORY_IDS[1],
-      invitations: [{ status: RepositoryInvitationStatus.PENDING }],
+    expect(byApplication.get(MEMBER_APPLICATION_ID)).toEqual({
+      application: {
+        id: MEMBER_APPLICATION_ID,
+        teamId: MEMBER_TEAM_ID,
+        applicant: { nickname: `${PREFIX}-other` },
+        program: { name: `${PREFIX}-program` },
+        team: { name: `${PREFIX}-member-team` },
+      },
+      status: RepositoryProvisionJobStatus.SUCCEEDED,
+      lastErrorCode: 'SYNTHETIC_ERROR',
+      updatedAt: FIXED_UPDATED_AT,
+      repository: {
+        id: REPOSITORY_IDS[1],
+        applicationId: MEMBER_APPLICATION_ID,
+        name: REPOSITORY_IDS[1],
+        url: `https://github.com/synthetic/${REPOSITORY_IDS[1]}`,
+        visibility: RepositoryVisibility.PRIVATE,
+        invitations: [{ status: RepositoryInvitationStatus.PENDING }],
+      },
     });
-    expect(JSON.stringify(jobs)).not.toContain('lastErrorMessage');
-    expect(JSON.stringify(jobs)).not.toContain('synthetic-raw-upstream-detail');
   });
 });
 
@@ -352,5 +395,6 @@ function provisionJob(
     nextAttemptAt: new Date('2026-07-22T00:00:00.000Z'),
     lastErrorCode: 'SYNTHETIC_ERROR',
     lastErrorMessage: 'synthetic-raw-upstream-detail',
+    updatedAt: FIXED_UPDATED_AT,
   };
 }
