@@ -31,6 +31,7 @@ export default function RootLayout({
         <NavBar
           brand={<Link href="/">OSS Hub</Link>}
           items={NAV_ITEMS}
+          linkComponent={Link}
           actions={
             <>
               <SessionEntryNavLink />
