@@ -107,6 +107,9 @@ export function LoginButtonView({
               id={menuId}
               role="menu"
               aria-label="계정 메뉴"
+              // 반전 표면(랜딩 nav) 안에 중첩될 수 있는 밝은 패널 — data-surface="default"로
+              // globals.css의 리셋 스코프를 걸어 배경·텍스트 색을 :root 기준으로 되돌린다.
+              data-surface="default"
               className="absolute top-full right-0 z-50 mt-1 w-56 overflow-hidden rounded-lg border border-border bg-background py-1 shadow-lg"
             >
               <div className="border-b border-border px-3 py-2">

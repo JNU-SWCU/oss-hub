@@ -247,6 +247,12 @@
    랜딩(`/`) 히어로 위에 얹히는 ShellNav 전용 스코프 —
    apps/frontend/src/app/_shell/shell-nav.tsx가 이 selector를 붙인다. */
 [data-surface='inverted'] {
+  /* 색을 스스로 선언하지 않는 자손(예: Button ghost 변형의 기본 상태)은 `color`를 상속한다.
+     상속은 조상에서 이미 계산이 끝난 값을 물려받는 것이라, 여기서 --foreground를 재정의해도
+     상속원인 body { color: var(--foreground) }의 계산값(어두운 색)은 바뀌지 않는다.
+     body가 하는 일을 표면 경계에서 한 번 더 선언해 상속원 자체를 이 스코프의 --foreground로
+     바꿔야 자손이 실제로 반전된 색을 물려받는다. */
+  color: var(--foreground);
   --background: transparent;
   --foreground: var(--hero-foreground);
   --muted: color-mix(in oklch, var(--palette-white) 8%, transparent);
@@ -254,6 +260,27 @@
   --accent: color-mix(in oklch, var(--palette-white) 8%, transparent);
   --accent-foreground: var(--hero-foreground);
   --border: var(--hero-border);
+}
+
+/* 반전 표면 안에 중첩된 밝은 패널(계정 메뉴 등)을 되돌리는 리셋 — :root(53-68행 근방)와
+   같은 primitive만 참조한다. 리터럴 hex는 새로 쓰지 않는다.
+   셀렉터를 `[data-surface='inverted'] [data-surface='default']`로 좁힌 이유(명시도 0-2-0):
+   `[data-surface='default']` 단독(명시도 0-1-0)은 `.dark`(역시 0-1-0, 이 블록보다 앞)와
+   소스 순서로만 이겨서 다크 모드에서도 항상 적용되어 버린다 — 계정 메뉴는 히어로 위에서만
+   쓰는 게 아니라 항상 이 attribute를 가지므로 그건 다크 모드 회귀다. 조상에 반전 스코프를
+   요구하는 이 형태는 명시도로 확실히 이기고, 반전 스코프 밖(다크 모드 포함)에서는 아예
+   매치되지 않으므로 다크 모드는 애초에 영향받지 않는다.
+   `color: var(--foreground)`도 선언해야 한다 — 그러지 않으면 위와 같은 이유로 패널 안의
+   ghost 버튼·평문이 흰색을 계속 상속한다. */
+[data-surface='inverted'] [data-surface='default'] {
+  color: var(--foreground);
+  --background: var(--palette-white);
+  --foreground: var(--palette-gray-700);
+  --muted: var(--palette-gray-50);
+  --muted-foreground: var(--palette-gray-500);
+  --accent: var(--palette-green-500);
+  --accent-foreground: var(--palette-white);
+  --border: var(--palette-gray-200);
 }
 
 @layer base {
