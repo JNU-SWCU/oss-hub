@@ -121,6 +121,7 @@
   --color-hero-foreground: var(--hero-foreground);
   --color-hero-muted: var(--hero-muted);
   --color-hero-border: var(--hero-border);
+  --color-hero-danger: var(--hero-danger);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -184,6 +185,7 @@
   --hero-foreground: var(--palette-white);
   --hero-muted: var(--palette-navy-200);
   --hero-border: color-mix(in oklch, var(--palette-white) 10%, transparent);
+  --hero-danger: var(--palette-red-100);
 }
 
 .dark {
@@ -237,6 +239,7 @@
   --hero-foreground: var(--palette-white);
   --hero-muted: var(--palette-navy-200);
   --hero-border: color-mix(in oklch, var(--palette-white) 10%, transparent);
+  --hero-danger: var(--palette-red-100);
 }
 
 @layer base {

@@ -1,3 +1,4 @@
+import { CircleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { HERO_NODE_COLORS, HeroGraph } from './hero-graph';
@@ -39,11 +40,9 @@ export function LandingHero({
         </p>
 
         {authErrorMessage ? (
-          <Alert
-            variant="destructive"
-            className="max-w-2xl border-hero-border bg-hero-muted/10 text-hero-foreground"
-          >
-            <AlertDescription className="text-hero-foreground/90">
+          <Alert className="max-w-2xl border-hero-danger/40 bg-hero-danger/10 text-hero-danger">
+            <CircleAlert aria-hidden="true" />
+            <AlertDescription className="text-hero-danger">
               {authErrorMessage}
             </AlertDescription>
           </Alert>

@@ -33,6 +33,19 @@ describe('landing page sections', () => {
     expect(html).toContain('로그인 요청을 완료하지 못했습니다');
   });
 
+  it('renders the hero auth error alert with hero danger color, not the light-surface destructive variant', () => {
+    const html = renderToStaticMarkup(
+      <LandingHero
+        authErrorMessage="로그인 요청을 완료하지 못했습니다. 다시 시도해 주세요."
+        primaryAction={<span>GitHub 로그인 다시 시도</span>}
+      />,
+    );
+
+    expect(html).toContain('role="alert"');
+    expect(html).toContain('text-hero-danger');
+    expect(html).not.toContain('text-destructive');
+  });
+
   it('renders the program type section with all program cards', () => {
     const html = renderToStaticMarkup(<ProgramTypeSection />);
 
