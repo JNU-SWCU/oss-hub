@@ -243,7 +243,8 @@
 }
 
 /* 반전 표면 — 이 스코프 안의 shadcn 컴포넌트는 어두운 배경 기준으로 다시 색칠된다.
-   `.dark`와 같은 메커니즘(@theme inline이 --color-*를 semantic var로 매핑)을 쓴다.
+   `.dark`와 같은 메커니즘이다. theme-inline 블록이 --color-* 를 semantic var로 매핑하므로
+   하위 유틸리티가 스코프 안에서 다시 색칠된다.
    랜딩(`/`) 히어로 위에 얹히는 ShellNav 전용 스코프 —
    apps/frontend/src/app/_shell/shell-nav.tsx가 이 selector를 붙인다. */
 [data-surface='inverted'] {
