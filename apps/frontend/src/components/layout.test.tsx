@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { AppShell } from './app-shell';
@@ -65,6 +66,47 @@ describe('layout components', () => {
     expect(actionsClass).not.toContain('max-[479px]:basis-full');
     expect(actionsClass).not.toContain('max-[479px]:w-full');
     expect(actionsClass).not.toContain('max-[479px]:order-last');
+  });
+
+  // linkComponent 미지정 시 순수 <a>로 폴백한다는 nav-config 계약(라우터는
+  // 호출부 책임) 회귀 방지 — Next 라우터 없이도(디자인 시스템 번들 등) items가
+  // 실제 이동 가능한 앵커로 렌더된다.
+  it('renders NavBar items as plain <a> anchors when no linkComponent is injected', () => {
+    const html = renderToStaticMarkup(
+      <NavBar
+        brand={<span>OSS Hub</span>}
+        items={[{ label: '홈', href: '/programs' }]}
+      />,
+    );
+
+    expect(html).toMatch(/<a[^>]*href="\/programs"[^>]*>홈<\/a>/);
+  });
+
+  it('renders NavBar items through an injected linkComponent', () => {
+    function FakeLink({
+      href,
+      children,
+    }: {
+      href: string;
+      children?: ReactNode;
+    }) {
+      return (
+        <a data-fake-link="true" href={href}>
+          {children}
+        </a>
+      );
+    }
+
+    const html = renderToStaticMarkup(
+      <NavBar
+        brand={<span>OSS Hub</span>}
+        items={[{ label: '홈', href: '/programs' }]}
+        linkComponent={FakeLink}
+      />,
+    );
+
+    expect(html).toMatch(/<a[^>]*data-fake-link="true"[^>]*href="\/programs"/);
+    expect(html).toContain('홈');
   });
 
   it('renders PageHeader with title/description/actions', () => {

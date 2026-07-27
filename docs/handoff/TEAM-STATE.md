@@ -83,6 +83,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 디자인 파운데이션(Tailwind v4·shadcn·B-6 컴포넌트) | @GoBeromsu | done | #74 #78 #80 #82 #84 | #77 #90 | pass | 없음 |
 | 랜딩 페이지 + 로그인 role-home nav 배선 | @GoBeromsu | done | #86 (+#136 연계) | #87 #144 #145 #146 #147 | pass | 없음 |
 | 320px 공용 내비게이션 단일 행 정렬 | @GoBeromsu | done | [#219](https://github.com/JNU-SWCU/oss-hub/issues/219) | [#223](https://github.com/JNU-SWCU/oss-hub/pull/223) merged | pass | 없음 |
+| NavBar 라우터 의존 분리(`src/components` 라우터 독립) | @GoBeromsu | review | [#272](https://github.com/JNU-SWCU/oss-hub/issues/272) | [#273](https://github.com/JNU-SWCU/oss-hub/pull/273) | `grep -rn "from 'next/" apps/frontend/src/components/` 0건 · frontend 495(신규 `linkComponent` 2건 포함) · lint/typecheck/build/format pass · 브라우저 QA pass(주입된 `Link`가 client-side navigation 유지 — 클릭 후 `window` 마커 생존, pathname `/programs` 전환) · `linkComponent`에 `href` 계약을 타입으로 강제해 잘못된 주입이 컴파일에서 걸리는지 probe로 확인 | 공용 경로(#136 셸)이므로 독립 소형 PR로 분리 |
 | work-ticket 이슈 템플릿 | @GoBeromsu | done | #71 | #72 | pass | 없음 |
 | ADR-004 REST 예시 도메인 교체(members→users) | @GoBeromsu | done | #76 | #91 | pass | 없음 |
 | CI: public-safe Issue·댓글 스캔 + commitlint 이벤트 가드 | @GoBeromsu | done | #68 | #150 #159 | pass | 없음 |
