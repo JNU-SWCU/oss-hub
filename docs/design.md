@@ -34,6 +34,8 @@
 | 보조색 | `--accent` | `--palette-green-500` (`#00923f`) | sojoong.kr 보조색 |
 | 본문색 | `--foreground` | `--palette-gray-700` (`#444444`) | sojoong.kr 본문색 |
 | 위험/오류 | `--destructive` | `--palette-red-500` | 상태 표시 보조 램프 |
+| 반전 표면(hero) | `--hero-*` | navy 램프(`--palette-navy-950` 포함) | 랜딩 히어로의 어두운 표면. `.dark`에서도 반전하지 않는다 |
+| 반전 표면(hero) 오류 | `--hero-danger` | `--palette-red-100` (`#f3c6c6`) | navy-900 대비 명도비 약 10.9:1(AA 통과). `destructive` variant는 밝은 표면 전용이라 히어로에는 쓰지 않는다 |
 
 `--status-*` semantic 그룹(모집중/마감/대기/승인/반려)은 이번 단계에서 토큰만 정의하고, 이를 소비하는 StatusBadge 컴포넌트는 만들지 않는다(B-6 범위).
 라이트(`:root`)/다크(`.dark`) 두 변형을 모두 정의한다.

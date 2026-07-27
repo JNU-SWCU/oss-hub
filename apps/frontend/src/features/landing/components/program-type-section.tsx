@@ -6,7 +6,6 @@ import {
   Rocket,
   Trophy,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 
 interface ProgramType {
   title: string;
@@ -48,42 +47,35 @@ export function ProgramTypeSection() {
     <section
       id="program-types"
       aria-labelledby="program-types-heading"
-      className="scroll-mt-16 border-b border-border bg-background"
+      className="border-b border-border bg-background"
     >
-      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 md:py-24 lg:px-8">
-        <div className="max-w-2xl">
-          <h2
-            id="program-types-heading"
-            className="text-2xl font-bold tracking-tight text-foreground md:text-3xl"
-          >
-            함께 열 수 있는 프로그램 유형
-          </h2>
-          <p className="mt-2 text-sm leading-normal text-muted-foreground md:text-base">
-            경진대회와 해커톤을 중심으로, 다양한 방식의 오픈소스 활동을
-            지원합니다.
-          </p>
-        </div>
+      <div className="mx-auto max-w-6xl px-8 py-20 lg:py-24">
+        <h2
+          id="program-types-heading"
+          className="text-3xl font-bold tracking-tight text-foreground"
+        >
+          함께 열 수 있는 프로그램 유형
+        </h2>
+        <p className="mt-2.5 max-w-xl text-sm leading-relaxed text-muted-foreground">
+          경진대회와 해커톤을 중심으로, 다양한 방식의 오픈소스 활동을
+          지원합니다.
+        </p>
 
-        <ul className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {PROGRAM_TYPES.map(({ title, description, icon: Icon }, index) => (
+        <ul className="mt-10 grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
+          {PROGRAM_TYPES.map(({ title, description, icon: Icon }) => (
             <li
               key={title}
-              className="animate-in fade-in slide-in-from-bottom-4 fill-mode-both duration-700 motion-reduce:animate-none"
-              style={{ animationDelay: `${index * 80}ms` }}
+              className="flex flex-col gap-3 rounded-xl border border-border bg-card p-6 transition-shadow hover:shadow-md"
             >
-              <Card className="h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0">
-                <CardContent className="flex h-full flex-col gap-3">
-                  <span className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <Icon className="size-5" aria-hidden="true" />
-                  </span>
-                  <h3 className="text-base font-semibold text-foreground">
-                    {title}
-                  </h3>
-                  <p className="text-sm leading-normal text-muted-foreground">
-                    {description}
-                  </p>
-                </CardContent>
-              </Card>
+              <span className="flex size-10 items-center justify-center rounded-lg bg-primary/8 text-primary">
+                <Icon className="size-5" aria-hidden />
+              </span>
+              <h3 className="text-base font-semibold text-foreground">
+                {title}
+              </h3>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {description}
+              </p>
             </li>
           ))}
         </ul>

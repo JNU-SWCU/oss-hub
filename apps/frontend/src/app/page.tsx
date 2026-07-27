@@ -1,6 +1,8 @@
 import { AUTH_ERROR_MESSAGE, hasAuthError } from '@/features/auth/auth-error';
 import { ClosingCtaSection } from '@/features/landing/components/closing-cta-section';
+import { LandingFooter } from '@/features/landing/components/landing-footer';
 import { LandingHero } from '@/features/landing/components/landing-hero';
+import { ProgramFlowSection } from '@/features/landing/components/program-flow-section';
 import { ProgramTypeSection } from '@/features/landing/components/program-type-section';
 import { RolePathSection } from '@/features/landing/components/role-path-section';
 import { LandingEntryAction } from './_shell/landing-entry-action';
@@ -16,26 +18,34 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     : undefined;
 
   return (
-    <main>
-      {/* #136: `/`는 로그인 상태와 무관하게 항상 랜딩을 렌더한다. 자동
-          역할 홈 리다이렉트(#144)는 back-trap 문제로 제거됐다 — 역할 홈
-          진입은 nav의 RoleHomeNavLink로 대체됐다. */}
-      <LandingHero
-        authErrorMessage={authErrorMessage}
-        primaryAction={
-          <LandingEntryAction hasAuthError={Boolean(authErrorMessage)} />
-        }
-      />
-      <ProgramTypeSection />
-      <RolePathSection />
-      <ClosingCtaSection
-        action={
-          <LandingEntryAction
-            hasAuthError={Boolean(authErrorMessage)}
-            inverted
-          />
-        }
-      />
-    </main>
+    <>
+      <main>
+        {/* #136: `/`는 로그인 상태와 무관하게 항상 랜딩을 렌더한다. 자동
+            역할 홈 리다이렉트(#144)는 back-trap 문제로 제거됐다 — 역할 홈
+            진입은 nav의 RoleHomeNavLink로 대체됐다. */}
+        <LandingHero
+          authErrorMessage={authErrorMessage}
+          primaryAction={
+            // 히어로가 어두운 표면이 되었으므로 흰 버튼이어야 대비가 확보된다
+            <LandingEntryAction
+              hasAuthError={Boolean(authErrorMessage)}
+              inverted
+            />
+          }
+        />
+        <ProgramTypeSection />
+        <ProgramFlowSection />
+        <RolePathSection />
+        <ClosingCtaSection
+          action={
+            <LandingEntryAction
+              hasAuthError={Boolean(authErrorMessage)}
+              inverted
+            />
+          }
+        />
+      </main>
+      <LandingFooter />
+    </>
   );
 }
