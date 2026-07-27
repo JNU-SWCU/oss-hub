@@ -46,10 +46,14 @@ export function ProgramTypeSection() {
   return (
     <section
       id="program-types"
+      aria-labelledby="program-types-heading"
       className="border-b border-border bg-background"
     >
       <div className="mx-auto max-w-6xl px-8 py-20 lg:py-24">
-        <h2 className="text-3xl font-bold tracking-tight text-foreground">
+        <h2
+          id="program-types-heading"
+          className="text-3xl font-bold tracking-tight text-foreground"
+        >
           함께 열 수 있는 프로그램 유형
         </h2>
         <p className="mt-2.5 max-w-xl text-sm leading-relaxed text-muted-foreground">
@@ -57,9 +61,9 @@ export function ProgramTypeSection() {
           지원합니다.
         </p>
 
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mt-10 grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
           {PROGRAM_TYPES.map(({ title, description, icon: Icon }) => (
-            <div
+            <li
               key={title}
               className="flex flex-col gap-3 rounded-xl border border-border bg-card p-6 transition-shadow hover:shadow-md"
             >
@@ -72,9 +76,9 @@ export function ProgramTypeSection() {
               <p className="text-sm leading-relaxed text-muted-foreground">
                 {description}
               </p>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
     </section>
   );

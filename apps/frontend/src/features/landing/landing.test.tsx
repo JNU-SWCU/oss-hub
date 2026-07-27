@@ -83,6 +83,47 @@ describe('landing page sections', () => {
     expect(html).toContain('href="/login"');
   });
 
+  // <section>은 aria-labelledby로 이름이 있어야 ARIA region 랜드마크로 노출된다.
+  // 이름이 없으면 스크린리더 랜드마크 목록에서 사라지므로, 4개 섹션 모두
+  // aria-labelledby와 그 값을 id로 갖는 제목이 함께 렌더되는지 잠근다.
+  it('renders each landing section as a named region landmark', () => {
+    const sections = [
+      {
+        name: 'ProgramTypeSection',
+        html: renderToStaticMarkup(<ProgramTypeSection />),
+      },
+      {
+        name: 'ProgramFlowSection',
+        html: renderToStaticMarkup(<ProgramFlowSection />),
+      },
+      {
+        name: 'RolePathSection',
+        html: renderToStaticMarkup(<RolePathSection />),
+      },
+      {
+        name: 'ClosingCtaSection',
+        html: renderToStaticMarkup(
+          <ClosingCtaSection action={<a href="/login">GitHub으로 로그인</a>} />,
+        ),
+      },
+    ];
+
+    for (const { name, html } of sections) {
+      const match = /<section[^>]*aria-labelledby="([^"]+)"/.exec(html);
+      expect(match, `${name}에 aria-labelledby가 없습니다`).not.toBeNull();
+
+      const headingId = match?.[1];
+      expect(html).toContain(`id="${headingId}"`);
+    }
+  });
+
+  it('renders the program type list with ul/li list semantics', () => {
+    const html = renderToStaticMarkup(<ProgramTypeSection />);
+
+    expect(html).toContain('<ul');
+    expect(html).toContain('<li');
+  });
+
   it('renders the footer with copyright and policy links', () => {
     const html = renderToStaticMarkup(<LandingFooter />);
 

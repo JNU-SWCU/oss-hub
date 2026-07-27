@@ -36,9 +36,15 @@ const ROLE_PATHS: RolePath[] = [
 
 export function RolePathSection() {
   return (
-    <section className="border-b border-border bg-muted">
+    <section
+      aria-labelledby="role-paths-heading"
+      className="border-b border-border bg-muted"
+    >
       <div className="mx-auto max-w-6xl px-8 py-20 lg:py-24">
-        <h2 className="text-3xl font-bold tracking-tight text-foreground">
+        <h2
+          id="role-paths-heading"
+          className="text-3xl font-bold tracking-tight text-foreground"
+        >
           역할에 따라 다르게 쓰는 OSS Hub
         </h2>
         <p className="mt-2.5 max-w-xl text-sm leading-relaxed text-muted-foreground">

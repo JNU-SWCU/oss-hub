@@ -63,9 +63,15 @@ const FLOW_FEATURES: FlowFeature[] = [
 
 export function ProgramFlowSection() {
   return (
-    <section className="border-b border-border bg-background">
+    <section
+      aria-labelledby="program-flow-heading"
+      className="border-b border-border bg-background"
+    >
       <div className="mx-auto max-w-6xl px-8 py-20 lg:py-24">
-        <h2 className="text-3xl font-bold tracking-tight text-foreground">
+        <h2
+          id="program-flow-heading"
+          className="text-3xl font-bold tracking-tight text-foreground"
+        >
           신청부터 공개까지, 하나의 흐름
         </h2>
         <p className="mt-2.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">
