@@ -9,6 +9,25 @@ interface LandingHeroProps {
   primaryAction: ReactNode;
 }
 
+interface LegendItem {
+  label: string;
+  color: string;
+  size: string;
+  /** 장식용 발광 그림자만 예외적으로 항목별 리터럴을 허용한다 */
+  glow?: string;
+}
+
+const LEGEND_ITEMS: LegendItem[] = [
+  { label: '학생', color: HERO_NODE_COLORS.student, size: 'size-2' },
+  { label: '저장소', color: HERO_NODE_COLORS.repository, size: 'size-1.5' },
+  {
+    label: '프로그램',
+    color: HERO_NODE_COLORS.program,
+    size: 'size-2.5',
+    glow: 'shadow-[0_0_8px_rgba(255,255,255,0.9)]',
+  },
+];
+
 export function LandingHero({
   authErrorMessage,
   primaryAction,
@@ -64,27 +83,15 @@ export function LandingHero({
           점 색은 hero-node-colors.ts의 HERO_NODE_COLORS를 그대로 참조한다 — 캔버스 색이 바뀌면
           범례도 같이 바뀌어야 하므로 리터럴을 여기 별도로 두지 않는다. */}
       <div className="absolute right-8 bottom-6 z-10 hidden items-center gap-4 rounded-full border border-hero-border bg-hero-from/55 px-3.5 py-2 text-xs text-hero-muted md:flex">
-        <span className="inline-flex items-center gap-1.5">
-          <span
-            className="size-2 rounded-full"
-            style={{ backgroundColor: HERO_NODE_COLORS.student }}
-          />
-          학생
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span
-            className="size-1.5 rounded-full"
-            style={{ backgroundColor: HERO_NODE_COLORS.repository }}
-          />
-          저장소
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span
-            className="size-2.5 rounded-full shadow-[0_0_8px_rgba(255,255,255,0.9)]"
-            style={{ backgroundColor: HERO_NODE_COLORS.program }}
-          />
-          프로그램
-        </span>
+        {LEGEND_ITEMS.map(({ label, color, size, glow }) => (
+          <span key={label} className="inline-flex items-center gap-1.5">
+            <span
+              className={`${size} rounded-full${glow ? ` ${glow}` : ''}`}
+              style={{ backgroundColor: color }}
+            />
+            {label}
+          </span>
+        ))}
       </div>
     </section>
   );

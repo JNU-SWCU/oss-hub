@@ -27,6 +27,8 @@ interface HeroGraphData {
 }
 
 const SEED = 42;
+const NODE_COUNT = 110;
+const SPEED = 1;
 
 // 시드 고정 PRNG(mulberry32 계열) — 매 빌드마다 같은 시퀀스를 재현해야
 // 그래프 레이아웃이 리렌더 사이에 흔들리지 않는다. Math.random은 쓰지 않는다.
@@ -222,12 +224,7 @@ function drawFrame(
   ctx.globalAlpha = 1;
 }
 
-interface HeroGraphProps {
-  nodeCount?: number;
-  speed?: number;
-}
-
-export function HeroGraph({ nodeCount = 110, speed = 1 }: HeroGraphProps) {
+export function HeroGraph() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -238,7 +235,7 @@ export function HeroGraph({ nodeCount = 110, speed = 1 }: HeroGraphProps) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return undefined;
 
-    const graph = buildGraph(nodeCount);
+    const graph = buildGraph(NODE_COUNT);
     const prefersReducedMotion = window.matchMedia(
       '(prefers-reduced-motion: reduce)',
     ).matches;
@@ -259,7 +256,7 @@ export function HeroGraph({ nodeCount = 110, speed = 1 }: HeroGraphProps) {
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
-      drawFrame(ctx, graph, w, h, t, speed);
+      drawFrame(ctx, graph, w, h, t, SPEED);
     };
 
     if (prefersReducedMotion) {
@@ -282,7 +279,7 @@ export function HeroGraph({ nodeCount = 110, speed = 1 }: HeroGraphProps) {
     });
 
     return () => cancelAnimationFrame(raf);
-  }, [nodeCount, speed]);
+  }, []);
 
   return (
     <canvas
