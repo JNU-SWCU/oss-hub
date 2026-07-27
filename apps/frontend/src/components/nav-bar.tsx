@@ -17,8 +17,12 @@ interface NavBarProps extends Omit<React.ComponentProps<'nav'>, 'children'> {
    * 적용된다 — 미지정 시 순수 `<a>`로 폴백해 이 디자인 시스템이 Next 라우터
    * 없이도(예: 디자인 시스템 번들에서) 이식 가능하게 유지한다. 클라이언트
    * 내비게이션이 필요한 호출부는 `next/link`의 `Link`를 넘긴다.
+   *
+   * 타입 인자를 비워 두면(`ElementType` = `ElementType<any>`) `href`를 아예 받지
+   * 않는 컴포넌트도 통과해 버려서, 잘못된 주입이 컴파일이 아니라 런타임에서야
+   * 드러난다. 아래 형태로 `href` 계약을 명시해 주입 시점에 걸리게 한다.
    */
-  linkComponent?: React.ElementType;
+  linkComponent?: React.ElementType<{ href: string; className?: string }>;
 }
 
 /**
