@@ -19,6 +19,9 @@ describe('landing page sections', () => {
     expect(html).toContain('JNU OSS PLATFORM');
     expect(html).toContain('GitHub으로 로그인');
     expect(html).toContain('href="/login"');
+    // 범례 점 색은 shared 상수 — client 모듈 상수 RSC 누락 회귀를 정적 마크업에서라도 잠근다
+    expect(html).toContain('#9db9f0');
+    expect(html).toContain('#5cc687');
   });
 
   it('renders the hero auth error alert when a message is passed', () => {

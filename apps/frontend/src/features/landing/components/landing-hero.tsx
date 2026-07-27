@@ -1,7 +1,8 @@
 import { CircleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { HERO_NODE_COLORS, HeroGraph } from './hero-graph';
+import { HeroGraph } from './hero-graph';
+import { HERO_NODE_COLORS } from './hero-node-colors';
 
 interface LandingHeroProps {
   authErrorMessage?: string;
@@ -60,7 +61,7 @@ export function LandingHero({
       </div>
 
       {/* 범례 — 캔버스 위 점 색상이 무엇을 뜻하는지 알려주는 보조 표시, 좁은 화면에서는 숨김.
-          점 색은 hero-graph.tsx의 HERO_NODE_COLORS를 그대로 참조한다 — 캔버스 색이 바뀌면
+          점 색은 hero-node-colors.ts의 HERO_NODE_COLORS를 그대로 참조한다 — 캔버스 색이 바뀌면
           범례도 같이 바뀌어야 하므로 리터럴을 여기 별도로 두지 않는다. */}
       <div className="absolute right-8 bottom-6 z-10 hidden items-center gap-4 rounded-full border border-hero-border bg-hero-from/55 px-3.5 py-2 text-xs text-hero-muted md:flex">
         <span className="inline-flex items-center gap-1.5">

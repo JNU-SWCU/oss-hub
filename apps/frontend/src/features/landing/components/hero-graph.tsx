@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { HERO_NODE_COLORS } from './hero-node-colors';
 
 // 그래프 노드 3종: p=프로그램, s=학생, r=저장소
 type NodeKind = 'p' | 's' | 'r';
@@ -24,14 +25,6 @@ interface HeroGraphData {
   edges: Array<[number, number]>;
   stars: BackgroundStar[];
 }
-
-// 노드 색상 — canvas 드로잉과 히어로 하단 범례(legend)가 동시에 참조하는 단일 소스.
-// 색을 바꾸려면 이 맵만 고치면 되고, 두 파일이 각자 리터럴을 들고 있다가 어긋나는 일이 없다.
-export const HERO_NODE_COLORS = Object.freeze({
-  program: '#ffffff', // 흰색 발광점 (프로그램)
-  student: '#9db9f0', // ≈ --palette-navy-200/300 (학생)
-  repository: '#5cc687', // --palette-green-300 (저장소)
-});
 
 const SEED = 42;
 
