@@ -260,10 +260,18 @@
   --accent: color-mix(in oklch, var(--palette-white) 8%, transparent);
   --accent-foreground: var(--hero-foreground);
   --border: var(--hero-border);
+  /* 오류 텍스트도 이 표면 기준으로 바꿔야 한다. `--palette-red-500`은 어두운 히어로 위에서
+     약 3.26:1로 AA(4.5:1) 미달이다 — #275 리뷰가 히어로 Alert에서 계산한 그 수치가
+     nav의 로그아웃 실패 `role="alert"`에서 다시 나온다. `--hero-danger`는 #275가 정확히
+     이 목적으로 도입해 히어로 그라디언트 전 구간 9.65–12.6:1로 검증한 토큰이다. */
+  --destructive: var(--hero-danger);
 }
 
 /* 반전 표면 안에 중첩된 밝은 패널(계정 메뉴 등)을 되돌리는 리셋 — :root(53-68행 근방)와
    같은 primitive만 참조한다. 리터럴 hex는 새로 쓰지 않는다.
+   불변식: 이 블록은 위 반전 스코프가 덮는 var 집합과 **정확히 같은 집합**을 되돌린다.
+   하나라도 빠지면 그 var에 의존하는 패널 내부 요소가 어두운 표면용 값을 밝은 배경에
+   그대로 쓰게 된다(예: --destructive가 빠지면 흰 배경에 연한 로즈색 오류 텍스트).
    셀렉터를 `[data-surface='inverted'] [data-surface='default']`로 좁힌 이유(명시도 0-2-0):
    `[data-surface='default']` 단독(명시도 0-1-0)은 `.dark`(역시 0-1-0, 이 블록보다 앞)와
    소스 순서로만 이겨서 다크 모드에서도 항상 적용되어 버린다 — 계정 메뉴는 히어로 위에서만
@@ -281,6 +289,7 @@
   --accent: var(--palette-green-500);
   --accent-foreground: var(--palette-white);
   --border: var(--palette-gray-200);
+  --destructive: var(--palette-red-500);
 }
 
 @layer base {
