@@ -82,7 +82,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 라우트 골격·역할별 패널 셸 | @GoBeromsu | done | #136 | #138 | pass | 없음 |
 | 디자인 파운데이션(Tailwind v4·shadcn·B-6 컴포넌트) | @GoBeromsu | done | #74 #78 #80 #82 #84 | #77 #90 | pass | 없음 |
 | 랜딩 페이지 + 로그인 role-home nav 배선 | @GoBeromsu | done | #86 (+#136 연계) | #87 #144 #145 #146 #147 | pass | 없음 |
-| 랜딩 페이지 그래프 히어로 개편(승인 시안 포팅) | @GoBeromsu | review | [#271](https://github.com/JNU-SWCU/oss-hub/issues/271) | PR pending | frontend 497(랜딩 스모크 7건, 6섹션 전부) · lint/typecheck/build/format pass · `hero-*` 유틸리티 6종 토큰 해석 교차 확인 | 브라우저 시각 QA 미수행(UNVERIFIED) — 캔버스 렌더·어두운 표면 명도차·반응형 열 전환은 사람 눈 확인 필요 · 시안의 히어로 내부 dark nav는 #136 소관으로 범위 제외 · 푸터 정책 링크 2건은 대응 라우트 부재로 생략(후속) |
+| 랜딩 페이지 그래프 히어로 개편(승인 시안 포팅) | @GoBeromsu | review | [#271](https://github.com/JNU-SWCU/oss-hub/issues/271) | [#275](https://github.com/JNU-SWCU/oss-hub/pull/275) | frontend 498(랜딩 스모크 10건, 6섹션 전부) · lint/typecheck/build/format pass · `hero-*` 유틸리티 6종 토큰 해석 교차 확인 | Chrome DevTools Protocol로 브라우저 시각 QA 완료 — 6섹션 렌더, inverted-CTA 명도차, reduced-motion 정적 프레임, `?authError=1` role=alert 가독, 390px 뷰포트 가로 스크롤 없음 확인 · 시안의 히어로 내부 dark nav는 별도 PR로 분리 · 푸터 정책 링크 2건은 대응 라우트 부재로 생략(후속) |
 | 320px 공용 내비게이션 단일 행 정렬 | @GoBeromsu | done | [#219](https://github.com/JNU-SWCU/oss-hub/issues/219) | [#223](https://github.com/JNU-SWCU/oss-hub/pull/223) merged | pass | 없음 |
 | work-ticket 이슈 템플릿 | @GoBeromsu | done | #71 | #72 | pass | 없음 |
 | ADR-004 REST 예시 도메인 교체(members→users) | @GoBeromsu | done | #76 | #91 | pass | 없음 |
