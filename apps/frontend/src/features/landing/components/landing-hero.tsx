@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { HERO_NODE_COLORS, HeroGraph } from './hero-graph';
 
 interface LandingHeroProps {
   authErrorMessage?: string;
@@ -13,40 +14,77 @@ export function LandingHero({
   return (
     <section
       aria-labelledby="landing-hero-heading"
-      className="relative overflow-hidden border-b border-border bg-gradient-to-b from-primary/[0.06] via-background to-background"
+      className="relative isolate overflow-hidden bg-linear-to-b from-hero-from via-hero-via to-hero-to text-hero-foreground"
     >
-      <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-20 sm:px-6 md:py-28 lg:px-8">
-        <span className="animate-in fade-in slide-in-from-bottom-4 fill-mode-both duration-700 motion-reduce:animate-none rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium tracking-wide text-primary">
-          OSS HUB
+      <HeroGraph />
+
+      <div className="relative z-10 mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-24 sm:px-6 lg:px-8 lg:py-28">
+        <span className="rounded-full border border-hero-border bg-hero-muted/10 px-3.5 py-1.5 text-xs font-semibold tracking-[0.08em] text-hero-muted">
+          JNU OSS PLATFORM
         </span>
 
         <h1
           id="landing-hero-heading"
-          className="animate-in fade-in slide-in-from-bottom-6 fill-mode-both delay-100 duration-700 motion-reduce:animate-none max-w-3xl text-3xl font-bold tracking-tight text-foreground md:text-5xl"
+          className="max-w-3xl text-4xl font-extrabold leading-[1.15] tracking-tight sm:text-5xl"
         >
-          경진대회부터 해커톤까지, 오픈소스 프로그램을 한 곳에서
+          학생과 저장소, 프로그램이
+          <br />
+          별처럼 이어지는 곳
         </h1>
 
-        <p className="animate-in fade-in slide-in-from-bottom-6 fill-mode-both delay-200 duration-700 motion-reduce:animate-none max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
-          OSS Hub는 학생과 교직원이 오픈소스 프로그램을 함께 열고 참여하는
-          공간입니다. 프로그램을 둘러보고, 지원하고, 진행 상황을 확인하세요.
+        <p className="max-w-2xl text-lg leading-relaxed text-hero-muted">
+          OSS Hub는 전남대학교 SW중심대학사업단의 오픈소스 활동을 하나의
+          그래프로 연결합니다. 프로그램에 참여하고, 기여하고, 나의 별자리를
+          만들어 보세요.
         </p>
 
         {authErrorMessage ? (
-          <Alert variant="destructive" className="max-w-2xl">
-            <AlertDescription>{authErrorMessage}</AlertDescription>
+          <Alert
+            variant="destructive"
+            className="max-w-2xl border-hero-border bg-hero-muted/10 text-hero-foreground"
+          >
+            <AlertDescription className="text-hero-foreground/90">
+              {authErrorMessage}
+            </AlertDescription>
           </Alert>
         ) : null}
 
-        <div className="animate-in fade-in slide-in-from-bottom-6 fill-mode-both delay-300 duration-700 motion-reduce:animate-none flex flex-wrap items-center gap-4 pt-2">
+        <div className="flex flex-wrap items-center gap-5 pt-2">
           {primaryAction}
           <a
             href="#program-types"
-            className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
+            className="text-sm font-medium text-hero-foreground/85 underline underline-offset-4 hover:text-hero-foreground"
           >
             프로그램 유형 살펴보기
           </a>
         </div>
+      </div>
+
+      {/* 범례 — 캔버스 위 점 색상이 무엇을 뜻하는지 알려주는 보조 표시, 좁은 화면에서는 숨김.
+          점 색은 hero-graph.tsx의 HERO_NODE_COLORS를 그대로 참조한다 — 캔버스 색이 바뀌면
+          범례도 같이 바뀌어야 하므로 리터럴을 여기 별도로 두지 않는다. */}
+      <div className="absolute right-8 bottom-6 z-10 hidden items-center gap-4 rounded-full border border-hero-border bg-hero-from/55 px-3.5 py-2 text-xs text-hero-muted md:flex">
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            className="size-2 rounded-full"
+            style={{ backgroundColor: HERO_NODE_COLORS.student }}
+          />
+          학생
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            className="size-1.5 rounded-full"
+            style={{ backgroundColor: HERO_NODE_COLORS.repository }}
+          />
+          저장소
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            className="size-2.5 rounded-full shadow-[0_0_8px_rgba(255,255,255,0.9)]"
+            style={{ backgroundColor: HERO_NODE_COLORS.program }}
+          />
+          프로그램
+        </span>
       </div>
     </section>
   );

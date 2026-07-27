@@ -1,14 +1,13 @@
 import type { LucideIcon } from 'lucide-react';
-import { Briefcase, CheckCircle2, GraduationCap } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
+import { Briefcase, CircleCheck, GraduationCap } from 'lucide-react';
 
 interface RolePath {
   role: string;
   tagline: string;
   icon: LucideIcon;
   items: string[];
-  enterFrom: string;
+  /** 교직원처럼 별도 안내가 필요한 역할만 채운다 */
+  footnote?: string;
 }
 
 const ROLE_PATHS: RolePath[] = [
@@ -18,10 +17,9 @@ const ROLE_PATHS: RolePath[] = [
     icon: GraduationCap,
     items: [
       '관심 있는 프로그램을 둘러보고 지원해요',
-      '지원 현황과 결과를 한눈에 확인해요',
+      '팀을 만들고 저장소를 자동으로 연결해요',
       '참여 이력을 나의 활동으로 남겨요',
     ],
-    enterFrom: 'slide-in-from-left-6',
   },
   {
     role: '교직원',
@@ -30,69 +28,64 @@ const ROLE_PATHS: RolePath[] = [
     items: [
       '프로그램을 개설하고 모집 정보를 관리해요',
       '지원자를 확인하고 심사를 진행해요',
-      '운영 현황과 결과를 정리해요',
+      '마일스톤 제출을 검토하고 성과를 공개해요',
     ],
-    enterFrom: 'slide-in-from-right-6',
+    footnote: '교직원 계정은 관리자 승인 후 사용할 수 있어요.',
   },
 ];
 
 export function RolePathSection() {
   return (
-    <section
-      aria-labelledby="role-paths-heading"
-      className="border-b border-border bg-muted/40"
-    >
-      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 md:py-24 lg:px-8">
-        <div className="max-w-2xl">
-          <h2
-            id="role-paths-heading"
-            className="text-2xl font-bold tracking-tight text-foreground md:text-3xl"
-          >
-            역할에 따라 다르게 쓰는 OSS Hub
-          </h2>
-          <p className="mt-2 text-sm leading-normal text-muted-foreground md:text-base">
-            학생과 교직원 모두 자신의 역할에 맞는 화면과 기능을 사용합니다.
-          </p>
-        </div>
+    <section className="border-b border-border bg-muted">
+      <div className="mx-auto max-w-6xl px-8 py-20 lg:py-24">
+        <h2 className="text-3xl font-bold tracking-tight text-foreground">
+          역할에 따라 다르게 쓰는 OSS Hub
+        </h2>
+        <p className="mt-2.5 max-w-xl text-sm leading-relaxed text-muted-foreground">
+          학생과 교직원 모두 자신의 역할에 맞는 화면과 기능을 사용합니다.
+        </p>
 
-        <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
-          {ROLE_PATHS.map(({ role, tagline, icon: Icon, items, enterFrom }) => (
-            <Card
+        <div className="mt-10 grid gap-6 lg:grid-cols-2">
+          {ROLE_PATHS.map(({ role, tagline, icon: Icon, items, footnote }) => (
+            <div
               key={role}
-              className={cn(
-                'animate-in fade-in fill-mode-both duration-700 motion-reduce:animate-none',
-                enterFrom,
-              )}
+              className="flex flex-col gap-5 rounded-xl border border-border bg-card p-7"
             >
-              <CardContent className="flex flex-col gap-4">
-                <div className="flex items-center gap-3">
-                  <span className="flex size-10 items-center justify-center rounded-lg bg-accent/10 text-accent">
-                    <Icon className="size-5" aria-hidden="true" />
-                  </span>
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground">
-                      {role}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">{tagline}</p>
-                  </div>
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-lg bg-accent/10 text-accent">
+                  <Icon className="size-5" aria-hidden />
+                </span>
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">
+                    {role}
+                  </h3>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    {tagline}
+                  </p>
                 </div>
+              </div>
 
-                <ul className="flex flex-col gap-2.5">
-                  {items.map((item) => (
-                    <li
-                      key={item}
-                      className="flex items-start gap-2 text-sm leading-normal text-foreground"
-                    >
-                      <CheckCircle2
-                        className="mt-0.5 size-4 shrink-0 text-accent"
-                        aria-hidden="true"
-                      />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
+              <ul className="flex list-none flex-col gap-2.5 p-0">
+                {items.map((item) => (
+                  <li
+                    key={item}
+                    className="flex items-start gap-2 text-sm leading-relaxed text-foreground"
+                  >
+                    <CircleCheck
+                      className="mt-0.5 size-4 shrink-0 text-accent"
+                      aria-hidden
+                    />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+
+              {footnote ? (
+                <p className="border-t border-border pt-4 text-xs leading-relaxed text-muted-foreground">
+                  {footnote}
+                </p>
+              ) : null}
+            </div>
           ))}
         </div>
       </div>

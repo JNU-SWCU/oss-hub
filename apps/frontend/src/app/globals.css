@@ -28,6 +28,7 @@
   --palette-navy-700: #002b80;
   --palette-navy-800: #002266;
   --palette-navy-900: #001a4d;
+  --palette-navy-950: #000d29;
 
   /* Green — sojoong.kr 보조색 anchor #00923F = --palette-green-500 */
   --palette-green-50: #e8f8ee;
@@ -113,6 +114,13 @@
   --color-status-approved-fg: var(--status-approved-fg);
   --color-status-rejected-bg: var(--status-rejected-bg);
   --color-status-rejected-fg: var(--status-rejected-fg);
+  /* 반전 표면 — 랜딩 히어로/클로징 CTA 전용 component 매핑 */
+  --color-hero-from: var(--hero-from);
+  --color-hero-via: var(--hero-via);
+  --color-hero-to: var(--hero-to);
+  --color-hero-foreground: var(--hero-foreground);
+  --color-hero-muted: var(--hero-muted);
+  --color-hero-border: var(--hero-border);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -168,6 +176,14 @@
   --status-approved-fg: var(--palette-green-700);
   --status-rejected-bg: var(--palette-red-50); /* 반려 */
   --status-rejected-fg: var(--palette-red-700);
+
+  /* 반전 표면 — 랜딩 히어로/클로징 CTA가 소비한다. docs/design.md 색상 표 참고 */
+  --hero-from: var(--palette-navy-950);
+  --hero-via: var(--palette-navy-900);
+  --hero-to: var(--palette-navy-800);
+  --hero-foreground: var(--palette-white);
+  --hero-muted: var(--palette-navy-200);
+  --hero-border: color-mix(in oklch, var(--palette-white) 10%, transparent);
 }
 
 .dark {
@@ -213,6 +229,14 @@
   --status-approved-fg: var(--palette-green-100);
   --status-rejected-bg: var(--palette-red-700);
   --status-rejected-fg: var(--palette-red-50);
+
+  /* 반전 표면 — 히어로는 본질적으로 어두운 표면이라 다크 모드에서도 반전하지 않는다 */
+  --hero-from: var(--palette-navy-950);
+  --hero-via: var(--palette-navy-900);
+  --hero-to: var(--palette-navy-800);
+  --hero-foreground: var(--palette-white);
+  --hero-muted: var(--palette-navy-200);
+  --hero-border: color-mix(in oklch, var(--palette-white) 10%, transparent);
 }
 
 @layer base {
