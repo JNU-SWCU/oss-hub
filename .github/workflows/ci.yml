@@ -56,6 +56,10 @@ jobs:
             production_compose:
               - 'compose.yml'
               - '.env.example'
+              - 'scripts/check-env-example-coverage.sh'
+              - 'scripts/check-env-example-coverage.test.sh'
+              - 'apps/backend/src/**'
+              - 'apps/frontend/src/**'
               - '.github/workflows/**'
             jenkins:
               - 'Jenkinsfile'
@@ -129,27 +133,11 @@ jobs:
           bash scripts/check-host-nginx.test.sh
           bash scripts/check-host-nginx.sh
 
-      - name: 운영 Compose 설정 검사
+      - name: env 계약 양방향 검사
         if: ${{ steps.changes.outputs.production_compose == 'true' }}
-        env:
-          POSTGRES_USER: synthetic_user
-          POSTGRES_PASSWORD: synthetic_password_for_config_only
-          POSTGRES_DB: synthetic_db
-          IMAGE_TAG: synthetic-commit-sha
-          DATABASE_URL: postgresql://synthetic_user:synthetic_password_for_config_only@postgres:5432/synthetic_db
-          SESSION_SECRET: synthetic_session_secret_for_config_only
-          TEAM_JOIN_CODE_SECRET: synthetic_team_join_code_secret_for_config_only
-          FRONTEND_URL: https://synthetic.invalid
-          GITHUB_OAUTH_CLIENT_ID: synthetic_client_id
-          GITHUB_OAUTH_CLIENT_SECRET: synthetic_client_secret
-          GITHUB_APP_ORG: synthetic_org
-          GITHUB_COLLECTION_APP_ID: '123456'
-          GITHUB_COLLECTION_APP_PRIVATE_KEY: synthetic_private_key_for_config_only
-          GMAIL_SENDER: synthetic_sender@example.com
-          GMAIL_OAUTH_CLIENT_ID: synthetic_gmail_client_id
-          GMAIL_OAUTH_CLIENT_SECRET: synthetic_gmail_client_secret
-          GMAIL_OAUTH_REFRESH_TOKEN: synthetic_gmail_refresh_token
-        run: docker compose --env-file .env.example -f compose.yml config --quiet
+        run: |
+          bash scripts/check-env-example-coverage.test.sh
+          bash scripts/check-env-example-coverage.sh
 
       - name: Jenkins 배포 계약 회귀 테스트
         if: ${{ steps.changes.outputs.jenkins == 'true' }}
