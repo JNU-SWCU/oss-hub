@@ -12,19 +12,63 @@ const RISK_ACCEPT_LINE =
   /^RISK_ACCEPT role=(PM|TECH_LEAD) head=([0-9a-f]{40}) base=(\S+) base_sha=([0-9a-f]{40}) risk=GENERAL$/;
 const EVIDENCE_MARKERS = ['CODE_CONTRACT', 'PONYTAIL', 'QA', 'CLI', 'CI'];
 const QA_NA_MIN_REASON_LENGTH = 10;
-export const PM_EMERGENCY_ACCEPT_LINE =
-  /^PM_EMERGENCY_ACCEPT head=([0-9a-f]{40}) base=(main) base_sha=([0-9a-f]{40}) policy_sha=([0-9a-f]{40}) window=(2026-07-26-KST)$/;
-export const OWNER_CONFIRM_LINE =
-  /^OWNER_CONFIRM head=([0-9a-f]{40}) base=(main) base_sha=([0-9a-f]{40})$/;
-export const EMERGENCY_POLICY_PR_NUMBER = 259;
-export const EMERGENCY_CUTOFF = '2026-07-26T15:00:00.000Z';
-export const EMERGENCY_WINDOW_LABEL = '2026-07-26-KST';
-export const EMERGENCY_PR_NUMBER = 256;
-export const OWNER_ACTOR = 'jinsol1190-rgb';
 
 export const MERGE_READY_ACTORS = ['GoBeromsu', 'Lumiere001'];
 export const PM_ACTOR = 'GoBeromsu';
 export const TECH_LEAD_ACTOR = 'Lumiere001';
+
+// 배포 계약 경로 — 결정 원본은 ADR-005. CODEOWNERS에서 파생하지 않는다(두 사람을
+// 함께 나열하는 CODEOWNERS는 PM 전속을 표현할 수 없다). 이 경로를 건드리는 PR은
+// high risk PM_ACCEPT·GENERAL 하향 RISK_ACCEPT 모두 role=PM이 필수이며 Tech Lead
+// accept로 대체할 수 없다.
+export const DEPLOY_CONTRACT_PATTERNS = [
+  'Jenkinsfile',
+  'compose.yml',
+  '.env.example',
+  'deploy/**',
+  'apps/*/Dockerfile',
+  '.dockerignore',
+  '.github/workflows/deploy.yml',
+  'scripts/check-jenkinsfile.sh',
+  'scripts/check-jenkinsfile.test.sh',
+];
+
+function globToRegExp(pattern) {
+  let source = '';
+  for (let index = 0; index < pattern.length; index += 1) {
+    const char = pattern[index];
+    if (char === '*' && pattern[index + 1] === '*') {
+      source += '.*';
+      index += 1;
+    } else if (char === '*') {
+      source += '[^/]*';
+    } else {
+      source += escapeRegExp(char);
+    }
+  }
+  return new RegExp(`^${source}$`);
+}
+
+export function matchesDeployContractPattern(pattern, filePath) {
+  return globToRegExp(pattern).test(filePath);
+}
+
+// 실패 사유에 남길 근거 — 어떤 패턴이 매칭됐는지 조용히 넘기지 않는다.
+export function matchedDeployContractPatterns(changedFiles) {
+  const matched = new Set();
+  for (const filePath of changedFiles) {
+    for (const pattern of DEPLOY_CONTRACT_PATTERNS) {
+      if (matchesDeployContractPattern(pattern, filePath)) {
+        matched.add(pattern);
+      }
+    }
+  }
+  return [...matched];
+}
+
+export function touchesDeployContract(changedFiles) {
+  return matchedDeployContractPatterns(changedFiles).length > 0;
+}
 
 // 인용·비가시 영역의 토큰이 승인으로 오인되는 것을 막는다.
 // 제거 대상: HTML 주석, ```·~~~ 코드 fence, 4칸 이상 들여쓰기 코드 블록,
@@ -265,118 +309,10 @@ function findAcceptToken({ pull, comments, pattern, actor }) {
   return null;
 }
 
-function matchesEmergencyDenylist(path) {
-  return (
-    path === 'AGENTS.md' ||
-    path.endsWith('/AGENTS.md') ||
-    path === '.github/CODEOWNERS' ||
-    path.startsWith('docs/decisions/ADR-002') ||
-    path.startsWith('docs/decisions/ADR-005') ||
-    path.startsWith('.github/workflows/') ||
-    path.startsWith('.github/actions/') ||
-    path.startsWith('.github/emergency-') ||
-    path === 'scripts/merge-policy-check.mjs' ||
-    path === 'scripts/merge-policy-check-lib.mjs' ||
-    path === 'scripts/merge-policy-check.test.mjs'
-  );
-}
-
-function isUnedited(comment) {
-  const createdAt = Date.parse(comment.createdAt);
-  const updatedAt = Date.parse(comment.updatedAt);
-  return Number.isFinite(createdAt) && createdAt === updatedAt;
-}
-
-export function checkEmergencyApproval({
-  pull,
-  comments,
-  files,
-  policy,
-  auditReasons = [],
-}) {
-  if (pull.number !== EMERGENCY_PR_NUMBER) {
-    return false;
-  }
-  const reject = (reason) => {
-    auditReasons.push(`PR #256 긴급 승인 무효 — ${reason}`);
-    return false;
-  };
-  if (EMERGENCY_POLICY_PR_NUMBER === 0) {
-    return reject('정책 PR 번호가 비활성 상태임');
-  }
-  if (policy?.prNumber !== EMERGENCY_POLICY_PR_NUMBER) {
-    return reject('정책 PR 번호가 고정값과 일치하지 않음');
-  }
-  if (!FULL_SHA.test(policy?.mergeCommitSha ?? '')) {
-    return reject('정책 merge SHA를 확인하지 못함');
-  }
-  if (policy.mergeCommitIsAncestorOfBase !== true) {
-    return reject('정책 merge SHA가 현재 base의 조상이 아님');
-  }
-  if (!hasCompletePullFiles(files, pull.changedFiles)) {
-    return reject('PR files 목록의 완전성을 증명하지 못함');
-  }
-  if (
-    files.some((file) =>
-      [file.filename, file.previous_filename]
-        .filter(Boolean)
-        .some(matchesEmergencyDenylist),
-    )
-  ) {
-    return reject('제어면 denylist 경로가 변경됨');
-  }
-
-  const mergedAt = Date.parse(policy.mergedAt);
-  const cutoff = Date.parse(EMERGENCY_CUTOFF);
-  if (!Number.isFinite(mergedAt)) {
-    return reject('정책 PR merged_at을 확인하지 못함');
-  }
-  const emergencyAccept = comments.find((comment) => {
-    if (comment.authorLogin !== PM_ACTOR || !isUnedited(comment)) {
-      return false;
-    }
-    const createdAt = Date.parse(comment.createdAt);
-    if (createdAt < mergedAt || createdAt >= cutoff) {
-      return false;
-    }
-    return effectiveLines(comment.body).some((line) => {
-      const match = line.match(PM_EMERGENCY_ACCEPT_LINE);
-      return (
-        match &&
-        pinnedToCurrent(pull, match[1], match[2], match[3]) &&
-        match[4] === policy.mergeCommitSha
-      );
-    });
-  });
-  if (!emergencyAccept) {
-    return reject('유효한 unedited PM_EMERGENCY_ACCEPT가 없음');
-  }
-  const ownerConfirm = comments.find(
-    (comment) =>
-      comment.authorLogin === OWNER_ACTOR &&
-      isUnedited(comment) &&
-      effectiveLines(comment.body).some((line) => {
-        const match = line.match(OWNER_CONFIRM_LINE);
-        return match && pinnedToCurrent(pull, match[1], match[2], match[3]);
-      }),
-  );
-  if (!ownerConfirm) {
-    return reject(`유효한 @${OWNER_ACTOR} OWNER_CONFIRM이 없음`);
-  }
-  return {
-    policyPrNumber: policy.prNumber,
-    policyMergeCommitSha: policy.mergeCommitSha,
-    policyMergedAt: policy.mergedAt,
-    emergencyCommentId: emergencyAccept.id,
-    ownerCommentId: ownerConfirm.id,
-    windowLabel: EMERGENCY_WINDOW_LABEL,
-    timestampsValid: true,
-    filesComplete: true,
-    denylistClear: true,
-  };
-}
-
-function checkHighRiskAccepts(pull, comments, reasons, files, policy) {
+// 단일 accept 병합 게이트(ADR-005) — 배포 계약 경로가 아니면 PM_ACCEPT 또는
+// TECH_LEAD_ACCEPT 중 하나로 충분하고, 배포 계약 경로면 PM_ACCEPT가 반드시 있어야
+// 하며 TECH_LEAD_ACCEPT로 대체할 수 없다.
+function checkHighRiskAccepts(pull, comments, reasons, changedFiles) {
   const pmAccept = findAcceptToken({
     pull,
     comments,
@@ -389,34 +325,22 @@ function checkHighRiskAccepts(pull, comments, reasons, files, policy) {
     pattern: TECH_LEAD_ACCEPT_LINE,
     actor: TECH_LEAD_ACTOR,
   });
-  const emergencyEvidence = techLeadAccept
-    ? null
-    : checkEmergencyApproval({
-        pull,
-        comments,
-        files,
-        policy,
-        auditReasons: reasons,
-      });
-  if (!pmAccept) {
+  const deployPatterns = matchedDeployContractPatterns(changedFiles);
+  if (deployPatterns.length > 0) {
+    if (!pmAccept) {
+      reasons.push(
+        `HIGH_RISK — 배포 계약 경로 변경(매칭 패턴: ${deployPatterns.join(', ')}) — ` +
+          `현재 head·base에 고정된 @${PM_ACTOR}의 PM_ACCEPT가 반드시 필요하며 TECH_LEAD_ACCEPT로 대체할 수 없음`,
+      );
+    }
+    return;
+  }
+  if (!pmAccept && !techLeadAccept) {
     reasons.push(
-      `HIGH_RISK — 현재 head·base에 고정된 @${PM_ACTOR}의 PM_ACCEPT가 없음`,
+      `HIGH_RISK — 현재 head·base에 고정된 @${PM_ACTOR}의 PM_ACCEPT 또는 ` +
+        `@${TECH_LEAD_ACTOR}의 TECH_LEAD_ACCEPT 중 최소 하나가 필요함`,
     );
   }
-  if (!techLeadAccept && !emergencyEvidence) {
-    reasons.push(
-      `HIGH_RISK — 현재 head·base에 고정된 @${TECH_LEAD_ACTOR}의 TECH_LEAD_ACCEPT가 없음`,
-    );
-  }
-  return emergencyEvidence
-    ? {
-        ...emergencyEvidence,
-        retainedGates: {
-          mergeReady: true,
-          pmAccept: Boolean(pmAccept),
-        },
-      }
-    : null;
 }
 
 function findRiskAccept(pull, comments, role, actor) {
@@ -441,19 +365,29 @@ function findRiskAccept(pull, comments, role, actor) {
   return null;
 }
 
-function checkGeneralDowngrade(pull, comments, reasons) {
+// 단일 RISK_ACCEPT로 GENERAL 하향이 충분하되, 배포 계약 경로면 role=PM이어야 한다.
+function checkGeneralDowngrade(pull, comments, reasons, changedFiles) {
   const pmRiskAccept = findRiskAccept(pull, comments, 'PM', PM_ACTOR);
+  const deployPatterns = matchedDeployContractPatterns(changedFiles);
+  if (deployPatterns.length > 0) {
+    if (!pmRiskAccept) {
+      reasons.push(
+        `CODEOWNERS 후보 경로 변경 + 배포 계약 경로 변경(매칭 패턴: ${deployPatterns.join(', ')}) — ` +
+          `GENERAL 하향에는 현재 head·base에 고정된 @${PM_ACTOR}의 RISK_ACCEPT role=PM이 필요함`,
+      );
+    }
+    return;
+  }
   const techLeadRiskAccept = findRiskAccept(
     pull,
     comments,
     'TECH_LEAD',
     TECH_LEAD_ACTOR,
   );
-  if (!pmRiskAccept || !techLeadRiskAccept) {
+  if (!pmRiskAccept && !techLeadRiskAccept) {
     reasons.push(
       'CODEOWNERS 후보 경로 변경 — GENERAL 하향에는 현재 head·base에 고정된 ' +
-        `@${PM_ACTOR} (role=PM)와 @${TECH_LEAD_ACTOR} (role=TECH_LEAD)의 RISK_ACCEPT가 모두 필요함 ` +
-        '(또는 MERGE_READY를 risk=HIGH_RISK로 재기록하고 이중 accept 진행)',
+        `@${PM_ACTOR} (role=PM) 또는 @${TECH_LEAD_ACTOR} (role=TECH_LEAD)의 RISK_ACCEPT 중 최소 하나가 필요함`,
     );
   }
 }
@@ -463,8 +397,6 @@ export function evaluateMergePolicy({
   pull,
   comments,
   changedFiles,
-  files,
-  policy,
   codeownersText,
   defaultBranch = 'main',
 }) {
@@ -510,17 +442,10 @@ export function evaluateMergePolicy({
     parseCodeownersPatterns(codeownersText),
     changedFiles,
   );
-  let emergencyEvidence = null;
   if (mergeReady.risk === 'HIGH_RISK') {
-    emergencyEvidence = checkHighRiskAccepts(
-      pull,
-      sortedComments,
-      reasons,
-      files,
-      policy,
-    );
+    checkHighRiskAccepts(pull, sortedComments, reasons, changedFiles);
   } else if (candidate) {
-    checkGeneralDowngrade(pull, sortedComments, reasons);
+    checkGeneralDowngrade(pull, sortedComments, reasons, changedFiles);
   }
 
   return verdict(
@@ -529,25 +454,16 @@ export function evaluateMergePolicy({
     reasons,
     notes,
     mergeReady.commentId,
-    emergencyEvidence,
   );
 }
 
-function verdict(
-  conclusion,
-  risk,
-  reasons,
-  notes,
-  mergeReadyCommentId,
-  emergencyEvidence = null,
-) {
+function verdict(conclusion, risk, reasons, notes, mergeReadyCommentId) {
   return {
     conclusion,
     risk,
     reasons,
     notes,
     mergeReadyCommentId,
-    emergencyEvidence,
   };
 }
 
@@ -559,19 +475,6 @@ export function formatSummary(result, pull) {
   ];
   if (result.mergeReadyCommentId) {
     lines.push(`- MERGE_READY comment id: ${result.mergeReadyCommentId}`);
-    if (result.emergencyEvidence && result.conclusion === 'success') {
-      lines.push(
-        `- emergency policy PR: #${result.emergencyEvidence.policyPrNumber} @ \`${result.emergencyEvidence.policyMergeCommitSha}\``,
-        `- emergency policy merged at: ${result.emergencyEvidence.policyMergedAt}`,
-        `- PM_EMERGENCY_ACCEPT comment id: ${result.emergencyEvidence.emergencyCommentId}`,
-        `- OWNER_CONFIRM comment id: ${result.emergencyEvidence.ownerCommentId}`,
-        `- emergency window: ${result.emergencyEvidence.windowLabel}`,
-        `- emergency timestamps: ${result.emergencyEvidence.timestampsValid ? 'PASS' : 'FAIL'}`,
-        `- emergency files completeness: ${result.emergencyEvidence.filesComplete ? 'PASS' : 'FAIL'}`,
-        `- emergency denylist: ${result.emergencyEvidence.denylistClear ? 'PASS' : 'FAIL'}`,
-        `- retained gates: MERGE_READY=${result.emergencyEvidence.retainedGates?.mergeReady ? 'PASS' : 'FAIL'}, PM_ACCEPT=${result.emergencyEvidence.retainedGates?.pmAccept ? 'PASS' : 'FAIL'}`,
-      );
-    }
   }
   if (result.conclusion === 'success') {
     lines.push(
