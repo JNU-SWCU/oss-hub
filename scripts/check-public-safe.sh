@@ -35,12 +35,10 @@
 
 set -euo pipefail
 
-# bracket expression([...]) 안에 들어간 멀티바이트 리터럴(가운뎃점 등)은 로케일에 따라
-# 바이트 단위로 쪼개질 수 있다 — 이 스크립트는 로컬 훅과 CI 양쪽에서 실행되는 보안
-# 게이트이므로 실행 환경이 물려준 로케일에 기대지 않고 스스로 UTF-8 로케일을 고정한다.
-# 사용 가능한 UTF-8 로케일이 하나도 없으면 조용히 넘어가지 않고 즉시 실패한다
-# (fail-closed). bracket expression 밖의 멀티바이트 리터럴(문자열 그대로의 매칭)은
-# 바이트 시퀀스로 처리되어 로케일과 무관하게 안전하며 이 조치의 대상이 아니다.
+# POSIX 문자 클래스([:alnum:] 등)의 Unicode 판정은 로케일에 의존한다. 이 스크립트는
+# 로컬 훅과 CI 양쪽에서 실행되는 보안 게이트이므로 실행 환경이 물려준 로케일에 기대지
+# 않고 스스로 UTF-8 로케일을 고정한다. 사용 가능한 UTF-8 로케일이 하나도 없으면
+# 조용히 넘어가지 않고 즉시 실패한다(fail-closed).
 pick_utf8_locale() { # 이식성을 위해 후보를 복수로 두고 locale -a로 실제 지원 여부를 확인
   local candidates=(C.UTF-8 en_US.UTF-8 en_US.utf8 C.utf8 UTF-8) cand available
   if ! available="$(locale -a 2>/dev/null)"; then
@@ -91,39 +89,17 @@ PATTERNS=(
 # grep -n 출력의 "line:email" 전체를 고정해 유사 도메인의 부분 일치를 막는다.
 ALLOW_EMAIL_RE='^[0-9]+:(noreply@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|[A-Za-z0-9._%+-]+@users\.noreply\.github\.com|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.(example|test|invalid|localhost)|[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+\.)*example\.(com|org|net))$'
 
-# quoted·비ASCII 이메일 후보 정규식이 "도메인 형태를 전혀 요구하지 않아" GitHub @handle
-# 멘션(점 없는 문자열)까지 후보로 잡던 오탐을 막기 위한 문자 클래스와 두 갈래 정규식.
-#
-# local part는 원래의 관대한 클래스(PERMISSIVE_LOCAL_RE)를 그대로 쓴다 — 구분자 제외는
-# "도메인" 쪽에만 건다. RFC 5322/6531상 local part에는 가운뎃점·괄호·백틱이 올 수 있고,
-# local part에도 구분자 제외를 걸면(이 저장소의 이전 버전이 그렇게 했다) "담당자`@example.com"
-# 처럼 구분자가 `@` 바로 앞에 오는 실제 이메일까지 후보에서 통째로 사라지는 회귀가 생긴다 —
-# 제외 문자가 `@` 바로 앞에 오면 부분 매치로 좁혀지는 게 아니라 해당 alternative 자체가
-# 매치 실패해 후보가 완전히 없어지기 때문이다.
-#
-# 갈래 A(점 있는 도메인): local part 관대(quoted 포함), 도메인은 구분자 제외 + 점 +
-#   마지막 점 뒤 2자 이상을 요구한다. GitHub 핸들·셸 변수명은 점을 가질 수 없으므로
-#   이 갈래에서 자연히 빠진다.
-# 갈래 B(점 없는 도메인): 도메인 형태 요건을 면제하는 대신 quoted local part를 제외하고,
-#   `@` 바로 앞 문자가 구분자가 아닐 것을 요구한다. "(@handle", "핸들·@핸들", "`@handle"
-#   형태의 멘션은 `@` 앞이 구분자라 이 갈래에서도 탈락하고, "사용자@내부도메인"처럼
-#   `@` 앞이 실제 문자(한글 등)인 점 없는 이메일만 통과시켜 차단한다.
-#
-# 남는 트레이드오프(의도적): quoted local part이거나 local part 끝이 구분자(가운뎃점·
-# 홑따옴표 등)인 "점 없는 도메인" 조합은 갈래 A(점 요구)·갈래 B(quoted·구분자 제외)
-# 어느 쪽에도 걸리지 않아 차단되지 않는다. 이 모양이 "@GoBeromsu·@Lumiere001" 같은
-# 정상 멘션 나열과 문맥상 구분 불가능하기 때문에 오탐(갈래 B의 구분자 제외를 풀면 정상
-# 멘션이 다시 걸린다)과 맞바꾼 결과이며, 숨기지 않고 여기에 명시한다. 점 있는 도메인이거나
-# local part 끝이 구분자가 아닌 대다수의 실제 이메일은 그대로 잡힌다.
-# 홑따옴표(')는 RFC 5322 atext상 local part에 올 수 있지만, 셸 스크립트의 문자열
-# 구분자로 흔히 쓰여 `var='@handle...` 형태의 소스 코드 자체가 갈래 B의 거짓 후보가
-# 되는 것을 막기 위해 백틱과 동일하게 구조적 구분자로 취급해 제외한다.
-NOT_EMAIL_SEP_RE='[^]@"'"'"'·(),;:<>[`[:space:]]'
+# quoted·비ASCII·IDN 보조 검사는 "점으로 구분된 도메인 + 2자 이상 마지막 label"을 가진
+# 토큰만 이메일 후보로 본다. 점 없는 GitHub handle, 멘션 나열, 셸 변수와 말줄임표를
+# 연락처로 오인하지 않는 것이 이 보조 검사의 우선 경계다. local part는 quoted/EAI를
+# 보수적으로 잡기 위해 관대하게 두되, domain은 Unicode 문자를 포함한 영숫자·하이픈
+# label만 허용한다. 점 없는 사내 도메인 형태는 자동 검사의 대상이 아니라 리뷰 경계다.
 PERMISSIVE_LOCAL_RE='[^[:space:]@"]+'
 QUOTED_LOCAL_RE='"([^"\\]|\\.)*"'
-BRANCH_A_RE='('"$QUOTED_LOCAL_RE"'|'"$PERMISSIVE_LOCAL_RE"')@'"$NOT_EMAIL_SEP_RE"'+\.'"$NOT_EMAIL_SEP_RE"'{2,}'
-BRANCH_B_RE='[^[:space:]@"]*'"$NOT_EMAIL_SEP_RE"'@[^[:space:]@"]+'
-CANDIDATE_EMAIL_RE="($BRANCH_A_RE|$BRANCH_B_RE)"
+DOMAIN_LABEL_RE='[[:alnum:]][[:alnum:]-]*'
+DOMAIN_TLD_RE='[[:alnum:]][[:alnum:]-]*[[:alnum:]]'
+DOTTED_DOMAIN_RE="$DOMAIN_LABEL_RE(\\.$DOMAIN_LABEL_RE)*\\.$DOMAIN_TLD_RE"
+CANDIDATE_EMAIL_RE='('"$QUOTED_LOCAL_RE"'|'"$PERMISSIVE_LOCAL_RE"')@'"$DOTTED_DOMAIN_RE"
 
 # 존재 자체가 유출인 파일 — env 실값, 개인키·인증서 키, 로컬 DB·덤프(실데이터 반입 금지, deny-list 6번)
 FORBIDDEN_FILE_RE='(^|/)\.env(\..+)?$|\.(pem|key|p12|pfx|jks|keystore)$|(^|/)id_(rsa|ed25519|ecdsa|dsa)$|(^|/)\.netrc$|\.(sqlite3?|db|dump)$'
