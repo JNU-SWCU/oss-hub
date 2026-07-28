@@ -78,6 +78,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 정체성 User 단일화(Member dead code 제거) | @GoBeromsu | done | #67 | #69 | pass | 없음 |
 | 코어 스키마 1·2차(제출·검토·저장소 자동화 16모델) | @GoBeromsu | done | #109 #113 | #139 #140 | pass | 없음 |
 | 시드 데이터·역할별 테스트 계정 | @GoBeromsu | done | #110 | #142 | pass | 없음 |
+| 로컬 실행 prod 정합·역할 시드 env 일원화 | @GoBeromsu | review | [#286](https://github.com/JNU-SWCU/oss-hub/issues/286) [#287](https://github.com/JNU-SWCU/oss-hub/issues/287) | 스택 PR 4건 | backend unit 793~808·integration 132·lint·typecheck·frontend lint/typecheck·format pass · 로컬 docker compose 3파일 기동, `/api/v1/health` 200, OAuth redirect_uri 실측 | 구형 역할 매핑 env와 부트스트랩 모듈을 제거하고 `AUTH_INITIAL_ROLES` 단일 시드로 통합 · 로컬 ingress를 이미 등록된 3000으로 맞춰 OAuth App 변경 불필요 · Jenkins credential 갱신 대기(unblock: @GoBeromsu) · owner @Lumiere001 사후 확인 필요 |
 | onboarding.md 한 장 | @GoBeromsu | done | #111 | #137 | pass | 없음 |
 | 라우트 골격·역할별 패널 셸 | @GoBeromsu | done | #136 | #138 | pass | 없음 |
 | 디자인 파운데이션(Tailwind v4·shadcn·B-6 컴포넌트) | @GoBeromsu | done | #74 #78 #80 #82 #84 | #77 #90 | pass | 없음 |

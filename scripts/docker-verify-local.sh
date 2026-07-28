@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/_compose-lib.sh
+source "$repo_root/scripts/_compose-lib.sh"
+
+PERSISTENT_STACK=0
+INITIAL_WAIT_TIMEOUT=120
+MINIO_WAIT_TIMEOUT=60
+
+cleanup() {
+  local status=$?
+  trap - EXIT INT TERM HUP
+  local cleanup_status=0
+  # 지속형 스택(up)이 성공한 경우에는 스택을 남긴다. 정리는 실패했을 때와 일회성 verify에서만 한다.
+  local should_teardown=1
+  if ((PERSISTENT_STACK == 1 && status == 0)); then
+    should_teardown=0
+  fi
+  if [[ -n "${COMPOSE_PROJECT_NAME:-}" ]] && ((should_teardown == 1)); then
+    if "${COMPOSE_ARGV[@]}" down -v --remove-orphans >/dev/null 2>&1; then
+      :
+    else
+      cleanup_status=$?
+      echo 'local Docker verify: 임시 Docker 자원 정리에 실패했습니다.' >&2
+    fi
+  fi
+  verify_lock_release || cleanup_status=1
+  if ((status == 0 && cleanup_status != 0)); then
+    status=$cleanup_status
+  fi
+  exit "$status"
+}
+
+run_step() {
+  local description=$1
+  shift
+  if ! "$@"; then
+    printf 'local Docker verify: failed at %s.\n' "$description" >&2
+    exit 1
+  fi
+}
+
+main() {
+  local command=${1:-}
+  case "$command" in
+    up|verify|down) ;;
+    *) echo 'Usage: docker-verify-local.sh {up|verify|down}' >&2; exit 1 ;;
+  esac
+
+  # up은 지속형이라 고정 project name을 쓰고 성공 시 스택을 남긴다.
+  # verify는 일회성이라 매 실행 고유 project name을 쓰고 끝나면 정리한다.
+  if [[ "$command" == verify ]]; then
+    PERSISTENT_STACK=0
+    COMPOSE_PROJECT_NAME="oss-hub-local-$(date +%s)-$$-$RANDOM"
+  else
+    PERSISTENT_STACK=1
+    COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-oss-hub-local}"
+  fi
+  export COMPOSE_PROJECT_NAME
+
+  verify_lock_acquire
+  trap cleanup EXIT INT TERM HUP
+  # down은 스택을 내리는 명령이라 ingress 포트가 점유돼 있는 것이 정상이다. preflight를 건너뛴다.
+  if [[ "$command" != down ]]; then
+    run_step 'ingress port preflight' preflight_ingress_port
+  fi
+
+  # 호스트 쉘 env는 Compose의 --env-file보다 우선하므로, .env가 소유해야 할 값은 먼저 비운다.
+  # scripts/run-backend-integration.sh와 동일한 방어다.
+  unset DATABASE_URL FRONTEND_URL GITHUB_OAUTH_CALLBACK_URL
+  unset POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB
+  unset SUBMISSION_FILE_S3_ENDPOINT SUBMISSION_FILE_S3_REGION
+  unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
+  unset SUBMISSION_FILE_S3_FORCE_PATH_STYLE AUTH_INITIAL_ROLES
+  unset SESSION_SECRET TEAM_JOIN_CODE_SECRET
+
+  export POSTGRES_BIND_HOST=127.0.0.1
+  export POSTGRES_PORT=0
+  export MINIO_BIND_HOST=127.0.0.1
+  export MINIO_PORT=0
+  export MINIO_ROOT_USER="local-$RANDOM-$$"
+  export MINIO_ROOT_PASSWORD="synthetic-$RANDOM-$RANDOM-$$"
+  export SUBMISSION_FILE_S3_BUCKET="submission-files-$RANDOM-$$"
+  export COMPOSE_ENV_FILE="${COMPOSE_ENV_FILE:-$repo_root/.env}"
+  compose_argv
+
+  if [[ "$command" == down ]]; then
+    run_step 'Compose teardown' "${COMPOSE_ARGV[@]}" down -v --remove-orphans
+    return 0
+  fi
+
+  run_step 'Compose startup' "${COMPOSE_ARGV[@]}" up -d --wait --wait-timeout "$INITIAL_WAIT_TIMEOUT"
+  if [[ "$command" == up ]]; then
+    return 0
+  fi
+  run_step 'Prisma migration' "${COMPOSE_ARGV[@]}" exec -T backend sh -eu -c 'npx prisma migrate deploy'
+  run_step 'PostgreSQL smoke' db_smoke
+  run_step 'HTTP smoke' http_smoke
+  run_step 'MinIO smoke' minio_smoke
+  run_step 'MinIO restart' "${COMPOSE_ARGV[@]}" restart minio-bucket
+  run_step 'MinIO restart wait' "${COMPOSE_ARGV[@]}" up -d --wait --wait-timeout "$MINIO_WAIT_TIMEOUT"
+  run_step 'MinIO restart smoke' minio_smoke
+  run_step 'MinIO recreation' "${COMPOSE_ARGV[@]}" up -d --force-recreate --wait --wait-timeout "$MINIO_WAIT_TIMEOUT" minio-bucket
+  run_step 'MinIO recreation smoke' minio_smoke
+}
+
+main "$@"

@@ -6,7 +6,7 @@
     "seed": "ts-node prisma/seed.ts"
   },
   "scripts": {
-    "dev": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub SUBMISSION_FILE_S3_ENDPOINT=http://127.0.0.1:9000 SUBMISSION_FILE_S3_REGION=us-east-1 SUBMISSION_FILE_S3_BUCKET=oss-hub-submission-files-local SUBMISSION_FILE_S3_ACCESS_KEY_ID=oss-hub-local SUBMISSION_FILE_S3_SECRET_ACCESS_KEY=oss-hub-local-synthetic-secret SUBMISSION_FILE_S3_FORCE_PATH_STYLE=true nest start --watch",
+    "dev": "nest start --watch",
     "build": "nest build",
     "lint": "eslint \"{src,test,prisma}/**/*.ts\"",
     "typecheck": "tsc --noEmit",
