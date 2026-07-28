@@ -46,7 +46,7 @@ export function WithDescription() {
         <FieldLabel htmlFor="fs-settings-student-id">학번</FieldLabel>
         <Input
           id="fs-settings-student-id"
-          defaultValue="202312345"
+          defaultValue="123456"
           readOnly
           disabled
         />

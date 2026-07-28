@@ -254,7 +254,7 @@ CardGrid(§3)처럼 컬럼 수를 아예 쓰지 않는 `auto-fit`/`minmax` 패�
 
 ### 반응형 프리픽스
 `sm:` `md:` `lg:` `xl:` 만 관측됨(`2xl:`는 없다). 다크 모드는 클래스 프리픽스가
-아니라 `.dark` 조상 클래스로 토글되며(`@custom-variant dark (&:is(.dark *))`,
+아니라 `.dark` 조상 클래스로 토글되며 (`@custom-variant dark (&:is(.dark *))`,
 `globals.css` 최상단), 컴포넌트가 개별적으로 `dark:` 유틸리티를 쓰는 대신 semantic
 토큰 자체가 `.dark`에서 재정의된다 — 다크 대응이 필요하면 `dark:bg-...`를 새로
 쓰지 말고 원래 있던 semantic 클래스를 그대로 두면 된다.
@@ -327,8 +327,8 @@ CardGrid(§3)처럼 컬럼 수를 아예 쓰지 않는 `auto-fit`/`minmax` 패�
   스캔 범위는 `.design-sync/css/ds-entry.css`의 두 줄이 고정한다:
   `@import '../../apps/frontend/node_modules/tailwindcss/index.css' source(none);`
   로 Tailwind v4 자동 탐지 자체를 끄고, 그 아래 `@source '../../apps/frontend/src';`
-  로 스캔할 소스를 명시한다. **`@source`만 있고 `source(none)`이 없으면 범위는
-  좁혀지지 않는다** — `@source`는 소스를 *추가*할 뿐 자동 탐지를 대체하지
+  로 스캔할 소스를 명시한다. **`@source` 지시자만 있고 `source(none)`이 없으면 범위는
+  좁혀지지 않는다** — `@source` 지시자는 소스를 *추가*할 뿐 자동 탐지를 대체하지
   않는다. 자동 탐지가 켜져 있으면 (꺼지지 않는 한) git repo 루트에서 시작해
   gitignore되지 않은 파일을 전부 훑는다 — 이 문서, 프리뷰 파일, `NOTES.md`까지
   포함해서. 그렇게 되면 이 문서 안에 나열된 클래스 이름 문자열 자체가

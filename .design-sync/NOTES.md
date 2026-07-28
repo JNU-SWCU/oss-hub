@@ -39,14 +39,14 @@ ln -sfn ../../frontend apps/frontend/node_modules/frontend
 converter의 `styles.css`는 `@import` 목록일 뿐 CSS를 컴파일하지 않는다. 이 repo는
 Tailwind v4 css-first(`@import 'tailwindcss'`, config 파일 없음)라서 `globals.css`를
 그대로 주면 유틸리티가 하나도 없는 원본이 올라간다. 앱과 **동일한 버전**의
-`@tailwindcss/postcss`(apps/frontend/node_modules)로 컴파일한다.
+`@tailwindcss/postcss` (apps/frontend/node_modules)로 컴파일한다.
 
 - 입력: `.design-sync/css/ds-entry.css` (committed) → 출력: `apps/frontend/.ds-css/ds-compiled.css` (gitignored)
 - `@source '../../apps/frontend/src'`만으로는 스캔 범위가 좁혀지지 **않는다** — v4에서
-  bare `@source`는 자동 탐지에 소스를 **추가**할 뿐 대체하지 않는다. 자동 탐지는 켜진
+  bare `@source` 지시자는 자동 탐지에 소스를 **추가**할 뿐 대체하지 않는다. 자동 탐지는 켜진
   채로 남아 git repo root를 기준으로 gitignore 안 된 전체(`.design-sync/`, `docs/`,
   `apps/backend/` 포함)를 훑는다. 그래서 `ds-entry.css`의 tailwindcss import에
-  `source(none)`을 걸어 자동 탐지를 꺼야 `@source`가 유일한 소스가 된다:
+  `source(none)`을 걸어 자동 탐지를 꺼야 `@source` 지시자가 유일한 소스가 된다:
   ```css
   @import '../../apps/frontend/node_modules/tailwindcss/index.css' source(none);
   @import '../../apps/frontend/src/app/globals.css';
@@ -61,7 +61,7 @@ Tailwind v4 css-first(`@import 'tailwindcss'`, config 파일 없음)라서 `glob
 
 nonce probe로 확인했다: `.design-sync/`에 `gap-72 text-7xl rounded-3xl`을 담은
 버림용 md 파일을, `docs/`에 `py-96`을 담은 파일을 하나씩 써넣고 재컴파일하니 **넷 다**
-`apps/frontend/.ds-css/ds-compiled.css`에 나타났다. 둘 다 `@source`에 없는 디렉터리다.
+`apps/frontend/.ds-css/ds-compiled.css`에 나타났다. 둘 다 `@source` 지시자에 없는 디렉터리다.
 probe는 확인 후 삭제했다.
 
 `conventions.md`는 클래스 이름을 예시로 나열하는 산문 문서이고, 그중 일부는 "존재하지
@@ -96,7 +96,7 @@ design 번들에는 Next가 없어 `globals.css`의 `@theme inline { --font-sans
 **순환 참조**로 남아 폰트가 죽는다. `ds-entry.css` 끝에서 Geist를 원격 로드하고
 `--font-sans`를 실제 스택으로 재정의해 끊는다(cascade상 뒤에 와야 이긴다 — 확인함).
 
-`.next/`에 woff2가 없어 self-host할 파일이 없다. 원격 `@import`라 converter는
+`.next/`에 woff2가 없어 self-host할 파일이 없다. 원격 `@import` 라서 converter는
 `[FONT_REMOTE]`(informational)로 처리한다.
 
 ## 빌드 순서 (순서 지킬 것)

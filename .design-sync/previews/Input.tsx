@@ -31,7 +31,7 @@ export function Invalid() {
 
 // settings-form.tsx의 학번 필드 — 읽기 전용 + 비활성.
 export function Disabled() {
-  return <Input defaultValue="202312345" readOnly disabled />;
+  return <Input defaultValue="123456" readOnly disabled />;
 }
 
 // 긴 값이 들어왔을 때 잘림/스크롤을 확인하는 케이스.

@@ -41,7 +41,7 @@ export function ReadOnlyWithDescription() {
       <FieldLabel htmlFor="settings-student-id">학번</FieldLabel>
       <Input
         id="settings-student-id"
-        defaultValue="202312345"
+        defaultValue="123456"
         readOnly
         disabled
       />

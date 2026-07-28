@@ -33,7 +33,7 @@ export function PeerDisabled() {
       <Input
         id="label-student-id"
         className="peer"
-        defaultValue="202312345"
+        defaultValue="123456"
         disabled
       />
     </div>
