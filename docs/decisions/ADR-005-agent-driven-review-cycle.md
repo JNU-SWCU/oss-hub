@@ -68,7 +68,7 @@ CODEOWNERS 경로는 검토 후보를 찾는 신호이며 그 자체가 high ris
 
 high risk PR은 `MERGE_READY` 이후 @GoBeromsu 또는 @Lumiere001 중 한 명이 동일한 head·base에 manual accept를 남기면 병합할 수 있다.
 단 배포 계약 경로를 변경하는 PR은 @GoBeromsu의 `PM_ACCEPT`가 반드시 있어야 하며 Tech Lead accept로 대체할 수 없다.
-production release 배포도 두 사람의 release tag와 exact SHA manual accept 뒤에만 시작한다.
+production release 배포도 @GoBeromsu 한 명의 release tag와 exact SHA manual accept 뒤에만 시작한다.
 Jenkins의 실패 시 중단·증적 보존·기존 이미지 복구 동작은 ADR-002의 배포 계약을 유지하며, 이 ADR은 별도의 rollback 동작 변경을 결정하지 않는다.
 
 수동 파일럿의 canonical evidence는 PR 최상위 댓글에 아래 형식과 40자 full SHA로 남긴다.
@@ -113,7 +113,8 @@ high risk PR은 PM 또는 Tech Lead 중 한 명의 current-head accept 또는 PR
 GitHub 상태나 승인 범위를 확인할 수 없거나 모호하면 병합하지 않으며, admin bypass로 gate를 우회하지 않는다.
 
 ADR-002에 따라 production 배포는 release tag를 통한 별도 단계다.
-production release·재배포는 #199 댓글의 `RELEASE_ACCEPT role=PM tag=<tag> head=<sha>`와 `RELEASE_ACCEPT role=TECH_LEAD tag=<tag> head=<sha>`가 각각 @GoBeromsu와 @Lumiere001에게서 확인되어야 한다.
+production release·재배포는 #199 댓글의 @GoBeromsu `RELEASE_ACCEPT role=PM tag=<tag> head=<sha>` 한 건만으로 시작한다.
+`RELEASE_ACCEPT role=TECH_LEAD`와 `RELEASE_OVERRIDE role=PM`은 폐지한다 — 우회할 이중 게이트가 없으므로 override는 존재 이유가 없다.
 Jenkins가 이 actor·tag·SHA를 배포 시작 전에 검증하고 누락·불일치·stale 증거를 거절하는 단계가 구현되기 전에는 production Release webhook job을 활성화하지 않는다.
 
 검증한 head SHA, check 결과와 review URL을 남긴다. 병합한 경우 merge SHA도 기록한다.
@@ -140,3 +141,4 @@ Jenkins가 이 actor·tag·SHA를 배포 시작 전에 검증하고 누락·불�
 - 2026-07-23: 일반 PR의 상호 Code Owner review를 전남 exact-head `MERGE_READY`로 대체했다. high risk PR과 production release에는 PM인 @GoBeromsu와 Tech Lead인 @Lumiere001의 동일 SHA manual accept를 추가했다.
 - 2026-07-25: Issue #257에 따라 PR #256에 한정된 일회성 PM 긴급 코드 승인 발행 창을 추가했고, 기존 gate 없이 병합된 PR #258은 비활성 이력으로 기록하며 별도 remediation의 기존 high risk 이중 gate 통과 전에는 권한이 발효되지 않도록 했다.
 - 2026-07-28: Issue #274에 따라 high risk 병합 accept를 PM 또는 Tech Lead 중 한 명으로 완화하고 배포 계약 경로는 PM 전속으로 유지했다. `GENERAL` 하향도 같은 규칙을 따른다. @GoBeromsu와 @Lumiere001의 저장소 전체 free-role 작성권과 사후 확인 폐지를 명문화했다.
+- 2026-07-28: Issue #199에 따라 production release·재배포 승인을 @GoBeromsu 단독 `RELEASE_ACCEPT role=PM`으로 전환하고 `RELEASE_ACCEPT role=TECH_LEAD`와 `RELEASE_OVERRIDE role=PM`을 폐지했다.
