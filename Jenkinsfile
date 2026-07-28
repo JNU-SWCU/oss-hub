@@ -346,7 +346,10 @@ cat "$DEPLOY_STATE_FILE"
           script {
             try {
               sh '''
-                docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait --wait-timeout 90
+                # 레지스트리에서 받아오는 이미지는 미리 당겨둔다. 받는 시간이 아래 --wait 예산에
+                # 섞이지 않고, 레지스트리 장애도 교체 전에 드러난다.
+                docker compose --env-file "$OSS_HUB_ENV_FILE" pull --quiet postgres minio minio-bucket nginx
+                docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait --wait-timeout 180
                 curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8081/
                 curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8081/api/v1/health
                 curl --fail --silent --show-error --retry 5 --retry-connrefused \
@@ -364,7 +367,7 @@ cat "$DEPLOY_STATE_FILE"
                 echo "서비스 교체 또는 스모크 실패: ${env.PREV_TAG} 이미지로 한 번 복구합니다."
                 withEnv(["IMAGE_TAG=${env.PREV_TAG}"]) {
                   sh '''
-                    docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait --wait-timeout 90
+                    docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait --wait-timeout 180
                     curl --fail --silent --show-error http://127.0.0.1:8081/
                     curl --fail --silent --show-error http://127.0.0.1:8081/api/v1/health
                     curl --fail --silent --show-error \

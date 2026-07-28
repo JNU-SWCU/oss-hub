@@ -71,15 +71,37 @@ sudo ss -ltnp | grep 8080 # Jenkins가 127.0.0.1:8080에만 LISTEN (0.0.0.0:8080
 ```sh
 # 운영 env를 Jenkins Credentials Store의 secret file로 등록 (UI 또는 JCasC)
 #   credential id: oss-hub-production-env
-#   내용: 운영 POSTGRES_*, DATABASE_URL, SESSION_SECRET, TEAM_JOIN_CODE_SECRET,
-#         FRONTEND_URL, GITHUB_OAUTH_*, GMAIL_SENDER, GMAIL_OAUTH_* 등
-#         (.env.example + compose.yml 필수 키; production 부팅은 GMAIL_* 4종 필수)
 #   ※ 실제 값은 이 저장소에 두지 않는다. Notion credentials → Jenkins Credentials Store로만.
 
 # 상태/백업 디렉터리 (Jenkins 소유, 0700)
 sudo install -d -m 700 -o jenkins -g jenkins /var/lib/oss-hub/deploy-state
 sudo install -d -m 700 -o jenkins -g jenkins /var/lib/oss-hub/backups
 ```
+
+`compose.yml`은 아래 키를 `${VAR:?...}`로 요구한다. 하나라도 없으면 compose가 보간 단계에서 중단되며,
+`up -d postgres`처럼 서비스 하나만 다루는 명령도 함께 실패한다.
+`IMAGE_TAG`를 뺀 전부가 `oss-hub-production-env`에 있어야 한다.
+`compose.yml`이 원본이며, 이 표는 그 사본이다 — 목록이 다르면 `compose.yml`을 신뢰한다.
+
+| 키 | 용도 |
+| --- | --- |
+| `IMAGE_TAG` | backend·frontend 이미지 태그. **env 파일에 두지 않는다** — Jenkins가 릴리스 커밋 SHA로 주입한다(`Jenkinsfile`). 수동으로 compose를 돌릴 때만 셸에서 지정한다 |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | postgres 서비스 자격증명 |
+| `DATABASE_URL` | postgres 서비스 DNS를 가리키는 연결 문자열 |
+| `SESSION_SECRET` | 세션 서명 시크릿 |
+| `TEAM_JOIN_CODE_SECRET` | 팀 참가 코드 서명 시크릿 |
+| `FRONTEND_URL` | OAuth 콜백 파생 등에 쓰는 프런트엔드 base URL |
+| `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth 로그인 앱 |
+| `GITHUB_COLLECTION_APP_ID` / `GITHUB_APP_ORG` / `GITHUB_COLLECTION_APP_PRIVATE_KEY` | GitHub 활동 수집 App |
+| `SUBMISSION_FILE_S3_ENDPOINT` | `http://minio:9000` — compose 내부 DNS. MinIO는 외부 노출하지 않는다 |
+| `SUBMISSION_FILE_S3_REGION` | 임의값. MinIO는 무시하지만 SDK가 요구한다. 예: `us-east-1` |
+| `SUBMISSION_FILE_S3_BUCKET` | 버킷명. `minio-bucket` 서비스가 기동 시 자동 생성한다 |
+| `SUBMISSION_FILE_S3_ACCESS_KEY_ID` / `SUBMISSION_FILE_S3_SECRET_ACCESS_KEY` | 운영자가 생성. `compose.yml`에서 MinIO root 자격증명으로도 같이 쓴다 |
+| `SUBMISSION_FILE_S3_FORCE_PATH_STYLE` | `true` |
+| `GMAIL_SENDER` / `GMAIL_OAUTH_CLIENT_ID` / `GMAIL_OAUTH_CLIENT_SECRET` / `GMAIL_OAUTH_REFRESH_TOKEN` | 마감 알림 메일 발신 (production 부팅 필수 4종) |
+
+`SUBMISSION_FILE_S3_ACCESS_KEY_ID`·`SUBMISSION_FILE_S3_SECRET_ACCESS_KEY`의 실제 값은 이 저장소에 두지 않는다.
+`compose.yml`에 env 키를 추가하거나 지우면 이 표도 같은 PR에서 갱신한다.
 
 - 검증:
 
