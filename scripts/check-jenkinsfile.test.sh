@@ -63,8 +63,6 @@ make_fixture missing-tag-resolution 'git rev-parse "${RELEASE_TAG}^{commit}"' 'g
 make_fixture missing-main-ancestry 'git merge-base --is-ancestor "$release_sha" origin/main' 'true'
 make_fixture missing-approval-pagination 'for page in $(seq 1 20); do' 'for page in 1; do'
 make_fixture missing-pm-approval "--arg actor 'GoBeromsu'" "--arg actor 'RemovedPm'"
-make_fixture missing-tech-lead-approval "--arg actor 'Lumiere001'" "--arg actor 'RemovedTechLead'"
-make_fixture missing-pm-override 'RELEASE_OVERRIDE role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}' 'REMOVED_OVERRIDE role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}'
 make_fixture moving-checkout 'git checkout --detach "$IMAGE_TAG"' 'git checkout main'
 make_fixture missing-noop-sort 'sort -V' 'sort'
 make_fixture missing-retag-guard 'env.RELEASE_TAG == currentTag && env.IMAGE_TAG != env.CURRENT_DEPLOY_SHA' 'false'
@@ -116,6 +114,16 @@ cp "$source_jenkinsfile" "$fixture_dir/continued-volume-removal"
   printf "'''\n"
 } >>"$fixture_dir/continued-volume-removal"
 
+# TECH_LEAD accept만 있고 PM accept 없음 → FAIL: PM 승인 marker를 TECH_LEAD 승인 marker로 치환한다.
+sed \
+  -e "s|--arg actor 'GoBeromsu'|--arg actor 'Lumiere001'|" \
+  -e 's|RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}|RELEASE_ACCEPT role=TECH_LEAD tag=${RELEASE_TAG} head=${IMAGE_TAG}|' \
+  "$source_jenkinsfile" >"$fixture_dir/tech-lead-only-no-pm-accept"
+if cmp -s "$source_jenkinsfile" "$fixture_dir/tech-lead-only-no-pm-accept"; then
+  printf 'fixture pattern not found: tech-lead-only-no-pm-accept\n' >&2
+  exit 1
+fi
+
 expect_pass '현재 Release 배포 계약' "$fixture_dir/valid"
 expect_fail '동시 배포 방지 누락' "$fixture_dir/missing-concurrency"
 expect_fail '전용 production executor 누락' "$fixture_dir/missing-production-label"
@@ -131,8 +139,6 @@ expect_fail 'Release tag SHA 해석 누락' "$fixture_dir/missing-tag-resolution
 expect_fail 'main ancestry 검증 누락' "$fixture_dir/missing-main-ancestry"
 expect_fail 'Release 승인 댓글 pagination 누락' "$fixture_dir/missing-approval-pagination"
 expect_fail 'PM Release 승인 검증 누락' "$fixture_dir/missing-pm-approval"
-expect_fail 'Tech Lead Release 승인 검증 누락' "$fixture_dir/missing-tech-lead-approval"
-expect_fail '감사 가능한 PM override 검증 누락' "$fixture_dir/missing-pm-override"
 expect_fail '정확한 SHA checkout 누락' "$fixture_dir/moving-checkout"
 expect_fail '동일·하위 버전 no-op 비교 누락' "$fixture_dir/missing-noop-sort"
 expect_fail '동일 Release tag의 SHA 변경 차단 누락' "$fixture_dir/missing-retag-guard"
@@ -159,6 +165,7 @@ expect_fail 'Compose image build' "$fixture_dir/compose-image-build"
 expect_fail 'Compose up --build' "$fixture_dir/compose-up-build"
 expect_fail '줄 연속 Docker image build' "$fixture_dir/continued-image-build"
 expect_fail '줄 연속 volume 삭제' "$fixture_dir/continued-volume-removal"
+expect_fail 'TECH_LEAD accept만 있고 PM accept 없음' "$fixture_dir/tech-lead-only-no-pm-accept"
 
 printf '%s passed, %s failed\n' "$passed" "$failed"
 ((failed == 0))
