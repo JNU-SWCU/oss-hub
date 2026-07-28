@@ -2,17 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  checkEmergencyApproval,
   collectChangedPaths,
-  EMERGENCY_CUTOFF,
-  EMERGENCY_POLICY_PR_NUMBER,
   evaluateMergePolicy,
-  formatSummary,
   findUnsupportedCodeownersPatterns,
-  hasCompletePullFiles,
   isCodeownersCandidate,
   matchesCodeownersPattern,
+  matchesDeployContractPattern,
+  matchedDeployContractPatterns,
   parseCodeownersPatterns,
+  touchesDeployContract,
 } from './merge-policy-check-lib.mjs';
 
 const HEAD = 'a'.repeat(40);
@@ -25,11 +23,19 @@ const CODEOWNERS_TEXT = `# 정책 경로
 /.github/        @GoBeromsu @Lumiere001
 /scripts/        @GoBeromsu @Lumiere001
 /apps/backend/src/auth/ @GoBeromsu @Lumiere001
+
+# 배포 정의 — 실제 .github/CODEOWNERS와 동일하게 배포 계약 경로도 후보로 남긴다.
+/Jenkinsfile     @GoBeromsu @Lumiere001
+/compose.yml     @GoBeromsu @Lumiere001
+/.env.example    @GoBeromsu @Lumiere001
+/deploy/         @GoBeromsu @Lumiere001
 /apps/*/Dockerfile @GoBeromsu @Lumiere001
+/.dockerignore   @GoBeromsu @Lumiere001
 `;
 
 const GENERAL_FILES = ['apps/frontend/src/features/foo/bar.tsx'];
 const CANDIDATE_FILES = ['scripts/new-check.sh'];
+const DEPLOY_CONTRACT_FILES = ['Jenkinsfile'];
 
 function pull(overrides = {}) {
   return {
@@ -84,15 +90,11 @@ function evaluate({
   pullData = pull(),
   comments = [],
   changedFiles = GENERAL_FILES,
-  files,
-  policy,
 } = {}) {
   return evaluateMergePolicy({
     pull: pullData,
     comments,
     changedFiles,
-    files,
-    policy,
     codeownersText: CODEOWNERS_TEXT,
   });
 }
@@ -173,25 +175,61 @@ test('full SHA가 아니면 판정 불능으로 실패한다', () => {
   assert.ok(result.reasons.some((reason) => reason.includes('full SHA')));
 });
 
-test('CODEOWNERS 후보의 GENERAL 하향은 이중 RISK_ACCEPT로 통과한다', () => {
+// 시나리오 7: 단일 RISK_ACCEPT로 GENERAL 하향 → PASS
+test('CODEOWNERS 후보(배포 외 경로)의 GENERAL 하향은 단일 RISK_ACCEPT로 통과한다', () => {
   const result = evaluate({
     changedFiles: CANDIDATE_FILES,
     comments: [
       comment(10, 'Lumiere001', mergeReadyBody()),
-      comment(11, 'GoBeromsu', riskAccept('PM')),
-      comment(12, 'Lumiere001', riskAccept('TECH_LEAD')),
+      comment(11, 'Lumiere001', riskAccept('TECH_LEAD')),
     ],
   });
   assert.equal(result.conclusion, 'success');
 });
 
-test('CODEOWNERS 후보에 단일 RISK_ACCEPT만 있으면 실패한다', () => {
+test('CODEOWNERS 후보의 GENERAL 하향은 PM 단독 RISK_ACCEPT로도 통과한다', () => {
   const result = evaluate({
     changedFiles: CANDIDATE_FILES,
     comments: [
       comment(10, 'Lumiere001', mergeReadyBody()),
       comment(11, 'GoBeromsu', riskAccept('PM')),
     ],
+  });
+  assert.equal(result.conclusion, 'success');
+});
+
+// 시나리오 8: 배포 계약 경로에서 RISK_ACCEPT role=TECH_LEAD 하향 → FAIL
+test('배포 계약 경로의 GENERAL 하향은 role=TECH_LEAD RISK_ACCEPT로는 실패한다', () => {
+  const result = evaluate({
+    changedFiles: DEPLOY_CONTRACT_FILES,
+    comments: [
+      comment(10, 'Lumiere001', mergeReadyBody()),
+      comment(11, 'Lumiere001', riskAccept('TECH_LEAD')),
+    ],
+  });
+  assert.equal(result.conclusion, 'failure');
+  assert.ok(
+    result.reasons.some(
+      (reason) => reason.includes('role=PM') && reason.includes('Jenkinsfile'),
+    ),
+  );
+});
+
+test('배포 계약 경로의 GENERAL 하향은 role=PM RISK_ACCEPT로 통과한다', () => {
+  const result = evaluate({
+    changedFiles: DEPLOY_CONTRACT_FILES,
+    comments: [
+      comment(10, 'Lumiere001', mergeReadyBody()),
+      comment(11, 'GoBeromsu', riskAccept('PM')),
+    ],
+  });
+  assert.equal(result.conclusion, 'success');
+});
+
+test('CODEOWNERS 후보에 RISK_ACCEPT가 전혀 없으면 실패한다', () => {
+  const result = evaluate({
+    changedFiles: CANDIDATE_FILES,
+    comments: [comment(10, 'Lumiere001', mergeReadyBody())],
   });
   assert.equal(result.conclusion, 'failure');
   assert.ok(result.reasons.some((reason) => reason.includes('RISK_ACCEPT')));
@@ -203,7 +241,6 @@ test('다른 head에 고정된 RISK_ACCEPT는 무효다', () => {
     comments: [
       comment(10, 'Lumiere001', mergeReadyBody()),
       comment(11, 'GoBeromsu', riskAccept('PM', OTHER_SHA)),
-      comment(12, 'Lumiere001', riskAccept('TECH_LEAD')),
     ],
   });
   assert.equal(result.conclusion, 'failure');
@@ -215,17 +252,28 @@ test('잘못된 actor의 RISK_ACCEPT는 무효다 — role=PM은 PM만 남길 �
     comments: [
       comment(10, 'Lumiere001', mergeReadyBody()),
       comment(11, 'Lumiere001', riskAccept('PM')),
-      comment(12, 'Lumiere001', riskAccept('TECH_LEAD')),
     ],
   });
   assert.equal(result.conclusion, 'failure');
 });
 
-test('HIGH_RISK: PM·Tech Lead accept가 모두 현재 head·base에 있으면 통과한다', () => {
+// 시나리오 1: 배포 외 경로 + PM 단독 accept → PASS
+test('HIGH_RISK(배포 외 경로): PM 단독 accept로 통과한다', () => {
   const result = evaluate({
     comments: [
       comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
       comment(11, 'GoBeromsu', pmAccept()),
+    ],
+  });
+  assert.equal(result.conclusion, 'success');
+  assert.equal(result.risk, 'HIGH_RISK');
+});
+
+// 시나리오 2: 배포 외 경로 + TECH_LEAD 단독 accept → PASS
+test('HIGH_RISK(배포 외 경로): TECH_LEAD 단독 accept로 통과한다', () => {
+  const result = evaluate({
+    comments: [
+      comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
       comment(12, 'Lumiere001', techLeadAccept()),
     ],
   });
@@ -233,23 +281,54 @@ test('HIGH_RISK: PM·Tech Lead accept가 모두 현재 head·base에 있으면 �
   assert.equal(result.risk, 'HIGH_RISK');
 });
 
-test('HIGH_RISK: 단일 accept만 있으면 실패한다', () => {
+// 시나리오 3: 배포 계약 경로 + TECH_LEAD 단독 accept → FAIL (사유에 매칭 패턴 포함)
+test('HIGH_RISK(배포 계약 경로): TECH_LEAD 단독 accept는 실패하고 사유에 매칭 패턴이 남는다', () => {
   const result = evaluate({
+    changedFiles: DEPLOY_CONTRACT_FILES,
     comments: [
       comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
       comment(12, 'Lumiere001', techLeadAccept()),
     ],
   });
   assert.equal(result.conclusion, 'failure');
-  assert.ok(result.reasons.some((reason) => reason.includes('PM_ACCEPT')));
+  assert.ok(
+    result.reasons.some(
+      (reason) => reason.includes('Jenkinsfile') && reason.includes('PM_ACCEPT'),
+    ),
+  );
 });
 
-test('HIGH_RISK: 다른 head에 고정된 accept는 무효다', () => {
+// 시나리오 4: 배포 계약 경로 + PM accept → PASS
+test('HIGH_RISK(배포 계약 경로): PM accept로 통과한다', () => {
+  const result = evaluate({
+    changedFiles: DEPLOY_CONTRACT_FILES,
+    comments: [
+      comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
+      comment(11, 'GoBeromsu', pmAccept()),
+    ],
+  });
+  assert.equal(result.conclusion, 'success');
+});
+
+// 시나리오 5: accept 0건 → FAIL
+test('HIGH_RISK: accept가 전혀 없으면 실패한다', () => {
+  const result = evaluate({
+    comments: [comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' }))],
+  });
+  assert.equal(result.conclusion, 'failure');
+  assert.ok(
+    result.reasons.some(
+      (reason) => reason.includes('PM_ACCEPT') && reason.includes('TECH_LEAD_ACCEPT'),
+    ),
+  );
+});
+
+// 시나리오 6: stale head accept(현재 head·base에 미고정) → FAIL
+test('HIGH_RISK: 다른 head에 고정된 accept는 무효다(stale)', () => {
   const result = evaluate({
     comments: [
       comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
       comment(11, 'GoBeromsu', pmAccept(OTHER_SHA)),
-      comment(12, 'Lumiere001', techLeadAccept()),
     ],
   });
   assert.equal(result.conclusion, 'failure');
@@ -260,7 +339,6 @@ test('HIGH_RISK: 잘못된 actor의 PM_ACCEPT는 무효다', () => {
     comments: [
       comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
       comment(11, 'Lumiere001', pmAccept()),
-      comment(12, 'Lumiere001', techLeadAccept()),
     ],
   });
   assert.equal(result.conclusion, 'failure');
@@ -367,7 +445,6 @@ test('key=value 줄바꿈 변형 등 형식이 다른 accept는 인정하지 않
     comments: [
       comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
       comment(11, 'GoBeromsu', variant),
-      comment(12, 'Lumiere001', techLeadAccept()),
     ],
   });
   assert.equal(result.conclusion, 'failure');
@@ -417,6 +494,29 @@ test('CODEOWNERS 패턴 매칭 — 디렉터리·glob·정확 일치', () => {
   );
 });
 
+test('배포 계약 경로 패턴 매칭 — 정확 일치·apps/*/Dockerfile·deploy/** 재귀', () => {
+  assert.ok(matchesDeployContractPattern('Jenkinsfile', 'Jenkinsfile'));
+  assert.ok(!matchesDeployContractPattern('Jenkinsfile', 'apps/Jenkinsfile'));
+  assert.ok(
+    matchesDeployContractPattern('apps/*/Dockerfile', 'apps/backend/Dockerfile'),
+  );
+  assert.ok(
+    !matchesDeployContractPattern(
+      'apps/*/Dockerfile',
+      'apps/backend/sub/Dockerfile',
+    ),
+  );
+  assert.ok(matchesDeployContractPattern('deploy/**', 'deploy/nginx.conf'));
+  assert.ok(matchesDeployContractPattern('deploy/**', 'deploy/sub/nginx.conf'));
+  assert.ok(!matchesDeployContractPattern('deploy/**', 'docs/deploy/x.md'));
+  assert.deepEqual(
+    matchedDeployContractPatterns(['Jenkinsfile', 'apps/frontend/src/x.ts']),
+    ['Jenkinsfile'],
+  );
+  assert.equal(touchesDeployContract(['deploy/nginx.conf']), true);
+  assert.equal(touchesDeployContract(['apps/frontend/src/x.ts']), false);
+});
+
 test('제3자의 MERGE_READY 접두 댓글은 유효한 MERGE_READY를 오염시키지 않는다 (게이트 DoS 방지)', () => {
   const result = evaluate({
     comments: [
@@ -443,7 +543,6 @@ test('HTML 주석 안에 숨긴 accept 토큰은 세지 않는다', () => {
     comments: [
       comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
       comment(11, 'GoBeromsu', `감사합니다.\n<!--\n${pmAccept()}\n-->`),
-      comment(12, 'Lumiere001', `확인했습니다.\n<!-- ${techLeadAccept()} -->`),
     ],
   });
   assert.equal(result.conclusion, 'failure');
@@ -455,7 +554,6 @@ test('~~~ fence 안의 accept 토큰은 세지 않는다', () => {
     comments: [
       comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
       comment(11, 'GoBeromsu', quoted),
-      comment(12, 'Lumiere001', techLeadAccept()),
     ],
   });
   assert.equal(result.conclusion, 'failure');
@@ -472,7 +570,6 @@ test('4칸 들여쓰기 코드 블록의 토큰은 세지 않는다 — MERGE_RE
       comment(9, 'Lumiere001', indentedMergeReady),
       comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
       comment(11, 'GoBeromsu', indentedAccept),
-      comment(12, 'Lumiere001', techLeadAccept()),
     ],
   });
   assert.equal(result.conclusion, 'failure');
@@ -485,7 +582,6 @@ test('여러 줄에 걸친 인라인 코드 스팬 안의 토큰은 세지 않�
     comments: [
       comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
       comment(11, 'GoBeromsu', spanned),
-      comment(12, 'Lumiere001', techLeadAccept()),
     ],
   });
   assert.equal(result.conclusion, 'failure');
@@ -536,14 +632,12 @@ test('댓글 수정으로 토큰이 다른 head를 가리키면 무효가 된다
     comments: [
       comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
       comment(11, 'GoBeromsu', pmAccept()),
-      comment(12, 'Lumiere001', techLeadAccept()),
     ],
   });
   const afterEdit = evaluate({
     comments: [
       comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
       comment(11, 'GoBeromsu', pmAccept(OTHER_SHA)),
-      comment(12, 'Lumiere001', techLeadAccept()),
     ],
   });
   assert.equal(before.conclusion, 'success');
@@ -556,7 +650,6 @@ test('다른 base SHA에 고정된 RISK_ACCEPT는 무효다', () => {
     comments: [
       comment(10, 'Lumiere001', mergeReadyBody()),
       comment(11, 'GoBeromsu', riskAccept('PM', HEAD, 'main', OTHER_SHA)),
-      comment(12, 'Lumiere001', riskAccept('TECH_LEAD')),
     ],
   });
   assert.equal(result.conclusion, 'failure');
@@ -600,276 +693,9 @@ test('rename previous_filename이 CODEOWNERS 후보면 GENERAL 하향에 RISK_AC
     comments: [
       comment(10, 'Lumiere001', mergeReadyBody()),
       comment(11, 'GoBeromsu', riskAccept('PM')),
-      comment(12, 'Lumiere001', riskAccept('TECH_LEAD')),
     ],
   });
   assert.equal(withAccept.conclusion, 'success');
-});
-
-test('emergency policy is pinned to its dedicated activation remediation PR', () => {
-  assert.equal(EMERGENCY_POLICY_PR_NUMBER, 259);
-});
-
-test('PR #256 emergency approval contract is exact and fail-closed', () => {
-  const policySha = 'd'.repeat(40);
-  const createdAt = '2026-07-26T14:00:00.000Z';
-  const emergencyPull = pull({ number: 256, changedFiles: 1 });
-  const files = [
-    { filename: 'apps/frontend/src/app/page.tsx', status: 'modified' },
-  ];
-  const policy = {
-    prNumber: 259,
-    mergedAt: '2026-07-26T13:00:00.000Z',
-    mergeCommitSha: policySha,
-    mergeCommitIsAncestorOfBase: true,
-  };
-  const emergency = {
-    id: 20,
-    authorLogin: 'GoBeromsu',
-    body: `PM_EMERGENCY_ACCEPT head=${HEAD} base=main base_sha=${BASE_SHA} policy_sha=${policySha} window=2026-07-26-KST`,
-    createdAt,
-    updatedAt: createdAt,
-  };
-  const owner = {
-    id: 21,
-    authorLogin: 'jinsol1190-rgb',
-    body: `OWNER_CONFIRM head=${HEAD} base=main base_sha=${BASE_SHA}`,
-    createdAt,
-    updatedAt: createdAt,
-  };
-  const valid = (overrides = {}) =>
-    checkEmergencyApproval({
-      pull: emergencyPull,
-      comments: [emergency, owner],
-      files,
-      policy,
-      ...overrides,
-    });
-
-  assert.deepEqual(valid(), {
-    policyPrNumber: 259,
-    policyMergeCommitSha: policySha,
-    policyMergedAt: policy.mergedAt,
-    emergencyCommentId: emergency.id,
-    ownerCommentId: owner.id,
-    windowLabel: '2026-07-26-KST',
-    timestampsValid: true,
-    filesComplete: true,
-    denylistClear: true,
-  });
-  assert.equal(valid({ policy: null }), false);
-  assert.equal(valid({ pull: { ...emergencyPull, number: 255 } }), false);
-  assert.equal(valid({ policy: { ...policy, prNumber: 301 } }), false);
-  assert.equal(
-    valid({ policy: { ...policy, mergeCommitIsAncestorOfBase: false } }),
-    false,
-  );
-  assert.equal(
-    valid({
-      comments: [
-        { ...emergency, updatedAt: '2026-07-26T14:01:00.000Z' },
-        owner,
-      ],
-    }),
-    false,
-  );
-  assert.equal(
-    valid({ comments: [{ ...emergency, authorLogin: 'Lumiere001' }, owner] }),
-    false,
-  );
-  assert.equal(
-    valid({
-      comments: [
-        {
-          ...emergency,
-          body: emergency.body.replace(`head=${HEAD}`, `head=${OTHER_SHA}`),
-        },
-        owner,
-      ],
-    }),
-    false,
-  );
-  assert.equal(
-    valid({
-      comments: [
-        {
-          ...emergency,
-          createdAt: EMERGENCY_CUTOFF,
-          updatedAt: EMERGENCY_CUTOFF,
-        },
-        owner,
-      ],
-    }),
-    false,
-  );
-  assert.equal(
-    valid({ policy: { ...policy, mergedAt: '2026-07-26T14:00:00.001Z' } }),
-    false,
-  );
-  assert.equal(valid({ comments: [emergency] }), false);
-  assert.equal(
-    valid({
-      comments: [
-        emergency,
-        { ...owner, updatedAt: '2026-07-26T14:01:00.000Z' },
-      ],
-    }),
-    false,
-  );
-  assert.equal(
-    valid({
-      files: [],
-      auditReasons: [],
-    }),
-    false,
-  );
-  assert.equal(
-    valid({
-      files: [{ filename: '.github/workflows/ci.yml', status: 'modified' }],
-    }),
-    false,
-  );
-  assert.equal(
-    valid({
-      files: [
-        {
-          filename: 'apps/frontend/src/app/page.tsx',
-          previous_filename: 'scripts/merge-policy-check-lib.mjs',
-          status: 'renamed',
-        },
-      ],
-    }),
-    false,
-  );
-});
-
-test('emergency relief passes only through the full PR #256 evaluator contract', () => {
-  const policySha = 'd'.repeat(40);
-  const createdAt = '2026-07-26T14:00:00.000Z';
-  const pullData = pull({ number: 256, changedFiles: 1 });
-  const files = [
-    { filename: 'apps/frontend/src/app/page.tsx', status: 'modified' },
-  ];
-  const policy = {
-    prNumber: EMERGENCY_POLICY_PR_NUMBER,
-    mergedAt: '2026-07-26T13:00:00.000Z',
-    mergeCommitSha: policySha,
-    mergeCommitIsAncestorOfBase: true,
-  };
-  const comments = [
-    comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
-    comment(11, 'GoBeromsu', pmAccept()),
-    {
-      id: 12,
-      authorLogin: 'GoBeromsu',
-      body: `PM_EMERGENCY_ACCEPT head=${HEAD} base=main base_sha=${BASE_SHA} policy_sha=${policySha} window=2026-07-26-KST`,
-      createdAt,
-      updatedAt: createdAt,
-    },
-    {
-      id: 13,
-      authorLogin: 'jinsol1190-rgb',
-      body: `OWNER_CONFIRM head=${HEAD} base=main base_sha=${BASE_SHA}`,
-      createdAt,
-      updatedAt: createdAt,
-    },
-  ];
-
-  const result = evaluate({
-    pullData,
-    comments,
-    changedFiles: collectChangedPaths(files),
-    files,
-    policy,
-  });
-  assert.equal(result.conclusion, 'success');
-  assert.deepEqual(result.emergencyEvidence, {
-    policyPrNumber: 259,
-    policyMergeCommitSha: policySha,
-    policyMergedAt: policy.mergedAt,
-    emergencyCommentId: 12,
-    ownerCommentId: 13,
-    windowLabel: '2026-07-26-KST',
-    timestampsValid: true,
-    filesComplete: true,
-    denylistClear: true,
-    retainedGates: {
-      mergeReady: true,
-      pmAccept: true,
-    },
-  });
-
-  const summary = formatSummary(result, pullData);
-  for (const expectedLine of [
-    '- emergency window: 2026-07-26-KST',
-    '- emergency timestamps: PASS',
-    '- emergency files completeness: PASS',
-    '- emergency denylist: PASS',
-    '- retained gates: MERGE_READY=PASS, PM_ACCEPT=PASS',
-  ]) {
-    assert.match(
-      summary,
-      new RegExp(expectedLine.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')),
-    );
-  }
-
-  const withoutPm = evaluate({
-    pullData,
-    comments: comments.filter((candidate) => candidate.id !== 11),
-    changedFiles: collectChangedPaths(files),
-    files,
-    policy,
-  });
-  assert.equal(withoutPm.conclusion, 'failure');
-  assert.ok(withoutPm.reasons.some((reason) => reason.includes('PM_ACCEPT')));
-  assert.doesNotMatch(formatSummary(withoutPm, pullData), /retained gates:/);
-
-  const policyPullAttempt = evaluate({
-    pullData: { ...pullData, number: 259 },
-    comments,
-    changedFiles: collectChangedPaths(files),
-    files,
-    policy,
-  });
-  assert.equal(policyPullAttempt.conclusion, 'failure');
-});
-
-test('emergency files completeness and control-plane actions fail closed', () => {
-  assert.equal(
-    hasCompletePullFiles([{ filename: 'safe.ts', status: 'renamed' }], 1),
-    false,
-  );
-  assert.equal(
-    hasCompletePullFiles(
-      [
-        {
-          filename: 'safe.ts',
-          previous_filename: '.github/actions/policy/action.yml',
-          status: 'renamed',
-        },
-      ],
-      1,
-    ),
-    true,
-  );
-
-  const auditReasons = [];
-  const result = checkEmergencyApproval({
-    pull: pull({ number: 256, changedFiles: 1 }),
-    comments: [],
-    files: [
-      { filename: '.github/actions/policy/action.yml', status: 'modified' },
-    ],
-    policy: {
-      prNumber: EMERGENCY_POLICY_PR_NUMBER,
-      mergedAt: '2026-07-26T13:00:00.000Z',
-      mergeCommitSha: 'd'.repeat(40),
-      mergeCommitIsAncestorOfBase: true,
-    },
-    auditReasons,
-  });
-  assert.equal(result, false);
-  assert.ok(auditReasons.some((reason) => reason.includes('denylist')));
 });
 
 test('normal HIGH_RISK Tech Lead accept remains sufficient', () => {
@@ -877,7 +703,6 @@ test('normal HIGH_RISK Tech Lead accept remains sufficient', () => {
     pullData: pull({ changedFiles: 1 }),
     comments: [
       comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
-      comment(11, 'GoBeromsu', pmAccept()),
       comment(12, 'Lumiere001', techLeadAccept()),
     ],
   });
