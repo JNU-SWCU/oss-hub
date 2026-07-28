@@ -39,12 +39,7 @@ export function ReadOnlyWithDescription() {
   return (
     <Field>
       <FieldLabel htmlFor="settings-student-id">학번</FieldLabel>
-      <Input
-        id="settings-student-id"
-        defaultValue="123456"
-        readOnly
-        disabled
-      />
+      <Input id="settings-student-id" defaultValue="123456" readOnly disabled />
       <FieldDescription>학번은 변경할 수 없습니다.</FieldDescription>
     </Field>
   );
