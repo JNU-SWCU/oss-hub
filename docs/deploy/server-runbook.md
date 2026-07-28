@@ -142,7 +142,7 @@ stat -c '%a %U %G %n' /var/lib/oss-hub/deploy-state /var/lib/oss-hub/backups
 ## M7. 첫 Release 수동 트리거 e2e
 
 1. main에 있는 exact commit으로 full GitHub Release(예: `v0.1.0`)를 발행한다(`draft=false`, `prerelease=false`, tag SHA가 main ancestry).
-2. #199에 같은 tag·full SHA의 @GoBeromsu `RELEASE_ACCEPT role=PM`과 @Lumiere001 `RELEASE_ACCEPT role=TECH_LEAD`를 남기거나, 예외 경로로 @GoBeromsu exact `RELEASE_OVERRIDE role=PM`을 남긴다([ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)).
+2. #199에 같은 tag·full SHA의 @GoBeromsu `RELEASE_ACCEPT role=PM`을 남긴다([ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)).
 3. M4 job을 **수동 트리거**하며 파라미터를 입력한다: `RELEASE_ACTION=published`, `RELEASE_TAG=<tag>`.
 4. 파이프라인이 순서대로 수행되는지 콘솔 로그로 확인한다: exact SHA detached checkout → build/test → PostgreSQL 기동 + `pg_dump` 백업 → front/back 이미지 서버 로컬 빌드 → `prisma migrate deploy` → `up -d --no-build --wait` → loopback Compose ingress smoke → 공인 IP TLS smoke.
 

@@ -31,7 +31,7 @@ AGENTS.md §5의 커밋 단위 규칙("및·그리고"가 들어가면 쪼갠다
 ## 5. 충돌 표면 최소화
 
 - PR이 건드리는 파일 수 자체를 줄이는 것이 병렬 병합의 가장 직접적인 수단이다.
-- 파일 겹침이 예상되면 그 경로가 owner 전속인지 공용인지 먼저 판정하고 AGENTS.md §3을 따른다 — owner 전속 경로는 수정하지 않고 Issue·PR 코멘트로 제안하며, 공용 경로는 Issue로 선점한 뒤 독립 소형 PR로 수정한다.
+- 파일 겹침이 예상되면 그 경로가 owner 전속인지 공용인지 먼저 판정하고 AGENTS.md §3을 따른다 — owner 전속 경로는 수정하지 않고 Issue·PR 코멘트로 제안하며, 공용 경로는 Issue로 선점한 뒤 독립 소형 PR로 수정한다. @GoBeromsu와 @Lumiere001의 free-role 예외는 AGENTS.md §3·ADR-005를 따른다.
 - 브랜치 수명은 짧게 유지한다.
 - 근거: [trunk-based development — short-lived feature branches](https://trunkbaseddevelopment.com/short-lived-feature-branches/)
 
