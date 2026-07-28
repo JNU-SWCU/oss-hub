@@ -337,8 +337,8 @@ function checkHighRiskAccepts(pull, comments, reasons, changedFiles) {
   }
   if (!pmAccept && !techLeadAccept) {
     reasons.push(
-      `HIGH_RISK — 현재 head·base에 고정된 @${PM_ACTOR}의 PM_ACCEPT 또는 ` +
-        `@${TECH_LEAD_ACTOR}의 TECH_LEAD_ACCEPT 중 최소 하나가 필요함`,
+      `HIGH_RISK — 현재 head·base에 고정된 @${PM_ACTOR}의 PM_ACCEPT 또는 @${TECH_LEAD_ACTOR}의 ` +
+        'TECH_LEAD_ACCEPT 중 최소 하나가 필요함',
     );
   }
 }
