@@ -65,6 +65,14 @@ PATTERNS=(
 # grep -n 출력의 "line:email" 전체를 고정해 유사 도메인의 부분 일치를 막는다.
 ALLOW_EMAIL_RE='^[0-9]+:(noreply@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|[A-Za-z0-9._%+-]+@users\.noreply\.github\.com|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.(example|test|invalid|localhost)|[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+\.)*example\.(com|org|net))$'
 
+# quoted·비ASCII 이메일 후보 정규식이 "도메인 형태를 전혀 요구하지 않아" GitHub @handle
+# 멘션(점 없는 문자열)까지 후보로 잡던 오탐을 막는 문자 클래스. 공백·@·따옴표에 더해
+# 이메일 local/domain 어느 쪽에도 구조적으로 올 수 없는 구분자(가운뎃점·괄호류·구두점·백틱)를
+# 제외한다 — GitHub 핸들은 점을 가질 수 없으므로 도메인 요건(점 + 마지막 점 뒤 2자 이상)을
+# 만족하지 못해 후보에서 자연히 빠진다. 탐지 범위는 넓히지 않고 좁히기만 한다.
+NOT_EMAIL_SEP_RE='[^]@"·(),;:<>[`[:space:]]'
+CANDIDATE_EMAIL_RE='("([^"\\]|\\.)*"|'"$NOT_EMAIL_SEP_RE"'+)@'"$NOT_EMAIL_SEP_RE"'+\.'"$NOT_EMAIL_SEP_RE"'{2,}'
+
 # 존재 자체가 유출인 파일 — env 실값, 개인키·인증서 키, 로컬 DB·덤프(실데이터 반입 금지, deny-list 6번)
 FORBIDDEN_FILE_RE='(^|/)\.env(\..+)?$|\.(pem|key|p12|pfx|jks|keystore)$|(^|/)id_(rsa|ed25519|ecdsa|dsa)$|(^|/)\.netrc$|\.(sqlite3?|db|dump)$'
 ALLOWED_FILE_RE='(^|/)\.env\.example$'
@@ -154,7 +162,7 @@ scan_text() { # $1=출처 라벨, stdin=텍스트
 
   # EAI·Unicode domain은 허용 예외로 지원하지 않는다. 비ASCII email-shaped token과
   # punycode IDN 후보는 ASCII 이메일 허용 목록보다 우선해 보수적으로 차단한다.
-  if candidates="$(printf '%s\n' "$text" | run_grep -EIno '("([^"\\]|\\.)*"|[^[:space:]@"]+)@[^[:space:]@"]+')"; then
+  if candidates="$(printf '%s\n' "$text" | run_grep -EIno "$CANDIDATE_EMAIL_RE")"; then
     unsupported_candidates=""
     if quoted_candidates="$(printf '%s\n' "$candidates" | run_grep -E '^[0-9]+:"')"; then
       unsupported_candidates="$quoted_candidates"
