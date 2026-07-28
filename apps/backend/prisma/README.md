@@ -52,8 +52,7 @@ backbone을 만든다 — 빈 DB에서 어떤 profile을 단독 실행해도 성
 - `Application.answers`/`SubmissionRevision.content`는 #118(서버 고정 template field
   registry)이 아직 병합되지 않아 `{ seedPlaceholder: true, scenarioId }` 형태의 placeholder만
   담는다. #118 병합 후 registry의 유효 예시로 교체가 필요하다.
-- admin 계정 승격(로그인 시 ADMIN role 부여)은 이 시드가 아니라 #109
-  `src/auth/admin-bootstrap.ts`가 소유한다 — 중복 구현하지 않는다.
+- 로그인 시 초기 역할 부여는 이 시드가 아니라 `src/auth/auth.repository.ts`의 `AUTH_INITIAL_ROLES` 설정이 소유한다 — 중복 구현하지 않는다.
 
 ## 안전한 재실행
 
@@ -64,6 +63,4 @@ backbone을 만든다 — 빈 DB에서 어떤 profile을 단독 실행해도 성
 
 ## 실제 계정 ↔ 역할 매핑
 
-이 시드는 합성 계정만 만든다. 실제 GitHub 계정을 특정 역할(STAFF/ADMIN)로 테스트하려면 로컬
-전용 `AUTH_TEST_ROLE_MAP` 환경변수(Issue #65, `src/auth/test-role-map.ts`)를 쓴다 — 값은
-이 문서에 적지 않는다.
+이 시드는 합성 계정만 만든다. 실제 GitHub 계정을 특정 역할(STAFF/ADMIN)로 테스트하려면 [온보딩의 역할별 테스트 계정 로그인 절](../../../docs/onboarding.md#역할별-테스트-계정-로그인)을 따라 `AUTH_INITIAL_ROLES`를 설정한다 — 값은 이 문서에 적지 않는다.
