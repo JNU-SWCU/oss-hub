@@ -41,6 +41,18 @@ blocked_quoted_local_dotted_domain='"quoted local"'"${at_sign}"'example.com'
 blocked_punycode_ascii_domain="admin${at_sign}xn--80ak6aa92e.com"
 blocked_unicode_local_and_domain="테스트${at_sign}도메인.한국"
 
+# 독립 보안 리뷰가 재현한 회귀 3건과 스스로 구성한 반례 — local part의 구분자 제외를
+# 되돌리고 도메인 쪽에만 걸었는지, 점 없는 도메인도 갈래 B로 잡는지 확인한다.
+# 가운뎃점 케이스는 도메인에 점을 둔다: local part 끝의 구분자로 판별하면
+# "@GoBeromsu·@Lumiere001" 같은 정상 멘션(mention_bullet_dot)과 문자 단위로
+# 구분이 불가능해, 점 있는 도메인(갈래 A, local part 내용과 무관하게 잡힘)으로만
+# 안전하게 재현할 수 있다.
+blocked_backtick_local_dotted_domain='담당자`'"${at_sign}"'example.com'
+blocked_bullet_dot_before_at_dotted_domain="관리자·${at_sign}example.com"
+blocked_paren_wrapped_dotted_domain="(사용자${at_sign}example.com)"
+blocked_dotless_unicode_domain="사용자${at_sign}내부도메인"
+blocked_hangul_domain_locale="문의${at_sign}걷기example.com"
+
 passed=0
 failed=0
 
@@ -102,6 +114,16 @@ scan_issue_text() {
   (
     cd "$ROOT"
     ISSUE_TEXT="$1" bash "$SCANNER" --text-only
+  )
+}
+
+# 로케일 불변성 확인 — bracket expression 안의 가운뎃점 리터럴이 비UTF-8 로케일에서
+# 바이트 단위로 쪼개지는 결함을 스크립트가 스스로 UTF-8 로케일을 고정해 막는지 검증한다.
+# 외부에서 LC_ALL=C를 강제해도 스캐너 내부의 로케일 고정이 우선해야 같은 결과가 나온다.
+scan_issue_text_lc_all_c() {
+  (
+    cd "$ROOT"
+    LC_ALL=C ISSUE_TEXT="$1" bash "$SCANNER" --text-only
   )
 }
 
@@ -249,6 +271,20 @@ expect_fail '도메인 형태 요건 도입 후에도 차단되는 punycode 이�
   scan_pr_text "$blocked_punycode_ascii_domain"
 expect_fail '도메인 형태 요건 도입 후에도 차단되는 비ASCII local·domain 이메일' \
   scan_pr_text "$blocked_unicode_local_and_domain"
+
+# local part 구분자 제외를 되돌린 뒤에도 아래 회귀·반례가 계속 차단되는지 확인한다.
+expect_fail '백틱이 @ 바로 앞에 오는 비ASCII local + 점 있는 도메인' \
+  scan_pr_text "$blocked_backtick_local_dotted_domain"
+expect_fail '가운뎃점이 @ 바로 앞에 오고 도메인에 점이 있는 경우' \
+  scan_pr_text "$blocked_bullet_dot_before_at_dotted_domain"
+expect_fail '여는 괄호로 감싼 전체 주소(도메인에 점이 있음)' \
+  scan_pr_text "$blocked_paren_wrapped_dotted_domain"
+expect_fail '점 없는 비ASCII 도메인(구분자 없이 @ 바로 앞이 한글)' \
+  scan_pr_text "$blocked_dotless_unicode_domain"
+expect_fail '한글 음절이 도메인에 포함된 이메일(로케일 회귀 방지)' \
+  scan_pr_text "$blocked_hangul_domain_locale"
+expect_fail '외부 LC_ALL=C 환경에서도 한글 도메인 이메일 차단(스캐너 자체 로케일 고정)' \
+  scan_issue_text_lc_all_c "$blocked_hangul_domain_locale"
 
 expect_error '존재하지 않는 기준 ref' 2 scan_invalid_ref
 expect_error 'grep 실행 오류' 2 scan_broken_grep
