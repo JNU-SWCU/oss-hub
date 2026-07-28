@@ -21,5 +21,9 @@ for key in "${required_keys[@]}"; do
   fi
 done
 
+if ! grep -Eq '^[[:space:]]*AUTH_INITIAL_ROLES:[[:space:]]*\$\{AUTH_INITIAL_ROLES:' "$compose_file"; then
+  echo 'env example contract: backend environment must explicitly map AUTH_INITIAL_ROLES.' >&2
+  exit 1
+fi
 
-echo 'env example contract: ok (all required Compose keys are documented)'
+echo 'env example contract: ok (all required Compose keys are documented and AUTH_INITIAL_ROLES is mapped)'

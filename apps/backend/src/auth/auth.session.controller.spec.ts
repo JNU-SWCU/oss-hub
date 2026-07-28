@@ -40,7 +40,6 @@ function createController(findMe: jest.Mock): AuthController {
     {
       sessionSecret,
       useSecureCookies: true,
-      resolveTestRole: jest.fn().mockReturnValue(null),
     } as unknown as AuthConfig,
     {} as LoginHistoryService,
   );

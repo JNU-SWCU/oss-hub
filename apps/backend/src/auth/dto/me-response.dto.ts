@@ -7,11 +7,7 @@ export class MeResponseDto {
   name: string | null;
   avatarUrl: string | null;
   readonly accountStatus: AccountStatus;
-  /**
-   * 정식 소스는 DB `User.role`이다(Issue #109). 로컬 `AUTH_TEST_ROLE_MAP`(TestRoleMap, Issue #65)에
-   * 해당 계정 항목이 있으면 그 값이 로컬 전용 override로 우선한다 — 운영에서는 TestRoleMap이
-   * 항상 비어 있으므로(fail-fast, `AuthConfig`) DB role만 노출된다.
-   */
+  /** 역할의 정식 소스는 DB `User.role`이다. */
   role: Role | null;
 
   private constructor(user: AuthUser, role: Role | null) {

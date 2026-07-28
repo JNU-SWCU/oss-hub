@@ -259,51 +259,32 @@ describe('AuthController github callback', () => {
 });
 
 describe('AuthController getMe', () => {
-  function createController(
-    dbRole: Role | null,
-    testRole: 'STAFF' | 'STUDENT' | 'ADMIN' | null,
-  ): { controller: AuthController; resolveTestRole: jest.Mock } {
+  function createController(dbRole: Role | null): AuthController {
     const getMe = jest
       .fn()
       .mockResolvedValue({ ...syntheticUser, role: dbRole });
-    const resolveTestRole = jest.fn().mockReturnValue(testRole);
-    const controller = new AuthController(
+    return new AuthController(
       { getMe } as unknown as AuthService,
-      { resolveTestRole } as unknown as AuthConfig,
+      {} as AuthConfig,
       {} as LoginHistoryService,
     );
-    return { controller, resolveTestRole };
   }
 
   const request = {
     sessionGithubId: syntheticUser.githubId,
   } as AuthenticatedRequest;
 
-  it('정식 소스는 DB role이다 — TestRoleMap 미설정이면 DB role을 그대로 노출한다', async () => {
-    const { controller, resolveTestRole } = createController(Role.ADMIN, null);
+  it.each([Role.ADMIN, Role.STAFF, Role.STUDENT, null])(
+    '응답 role은 DB role을 그대로 사용한다: %s',
+    async (dbRole) => {
+      const controller = createController(dbRole);
 
-    const result = await controller.getMe(request);
+      const result = await controller.getMe(request);
 
-    expect(result.role).toBe(Role.ADMIN);
-    expect(result).toMatchObject({ nickname: 'synthetic-login' });
-    expect(result).not.toHaveProperty('login');
-    expect(result.accountStatus).toBe(AccountStatus.ACTIVE);
-    expect(resolveTestRole).toHaveBeenCalledWith(syntheticUser.githubId);
-  });
-
-  it('TestRoleMap(로컬 override)이 설정되면 DB role보다 우선한다', async () => {
-    const { controller } = createController(Role.STUDENT, 'STAFF');
-
-    const result = await controller.getMe(request);
-
-    expect(result.role).toBe(Role.STAFF);
-  });
-
-  it('역할 선택 전(DB role=null)이고 TestRoleMap도 미설정이면 null이다', async () => {
-    const { controller } = createController(null, null);
-
-    const result = await controller.getMe(request);
-
-    expect(result.role).toBeNull();
-  });
+      expect(result.role).toBe(dbRole);
+      expect(result).toMatchObject({ nickname: 'synthetic-login' });
+      expect(result).not.toHaveProperty('login');
+      expect(result.accountStatus).toBe(AccountStatus.ACTIVE);
+    },
+  );
 });

@@ -9,7 +9,7 @@ const AUTH_ENV_KEYS = [
   'GITHUB_OAUTH_CLIENT_ID',
   'GITHUB_OAUTH_CLIENT_SECRET',
   'GITHUB_OAUTH_CALLBACK_URL',
-  'AUTH_TEST_ROLE_MAP',
+  'AUTH_INITIAL_ROLES',
 ] as const;
 
 function withEnv(env: NodeJS.ProcessEnv, run: () => void): void {
@@ -143,15 +143,21 @@ describe('AuthConfig', () => {
   });
 });
 
-describe('AuthConfig 테스트 역할 매핑 (Issue #65)', () => {
+describe('AuthConfig 초기 역할 시드', () => {
   it('설정되면 역할을, 미등록·미설정이면 null을 반환한다', () => {
-    withEnv({ AUTH_TEST_ROLE_MAP: '101:STAFF' }, () => {
+    withEnv({ AUTH_INITIAL_ROLES: '101:STAFF' }, () => {
       const config = new AuthConfig();
-      expect(config.resolveTestRole(101n)).toBe('STAFF');
-      expect(config.resolveTestRole(999n)).toBeNull();
+      expect(config.resolveInitialRole(101n)).toBe('STAFF');
+      expect(config.resolveInitialRole(999n)).toBeNull();
     });
     withEnv({}, () => {
-      expect(new AuthConfig().resolveTestRole(101n)).toBeNull();
+      expect(new AuthConfig().resolveInitialRole(101n)).toBeNull();
+    });
+  });
+
+  it('형식 오류는 생성자에서 즉시 실패한다', () => {
+    withEnv({ AUTH_INITIAL_ROLES: '0:ADMIN' }, () => {
+      expect(() => new AuthConfig()).toThrow('AUTH_INITIAL_ROLES');
     });
   });
 });

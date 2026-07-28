@@ -57,12 +57,13 @@ EOF
 cat >"$fake_bin/pnpm" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-printf 'pnpm|%s|DATABASE_URL=%s|S3_ENDPOINT=%s|S3_BUCKET=%s|RUNNER=%s\n' \
+printf 'pnpm|%s|DATABASE_URL=%s|S3_ENDPOINT=%s|S3_BUCKET=%s|RUNNER=%s|SEED=%s\n' \
   "$*" \
   "${DATABASE_URL-}" \
   "${SUBMISSION_FILE_S3_ENDPOINT-}" \
   "${SUBMISSION_FILE_S3_BUCKET-}" \
-  "${OSS_HUB_INTEGRATION_RUNNER-}" >>"$INTEGRATION_TEST_LOG"
+  "${OSS_HUB_INTEGRATION_RUNNER-}" \
+  "${AUTH_INITIAL_ROLES-}" >>"$INTEGRATION_TEST_LOG"
 if [[ " $* " == *" jest "* ]]; then
   exit "${INTEGRATION_TEST_JEST_EXIT:-0}"
 fi
@@ -74,6 +75,7 @@ run_fixture() {
   PATH="$fake_bin:$PATH" \
     DATABASE_URL='postgresql://inherited.invalid/real_database' \
     OSS_HUB_INTEGRATION_RUNNER='inherited-runner-marker' \
+    AUTH_INITIAL_ROLES='999999:ADMIN' \
     INTEGRATION_TEST_LOG="$command_log" \
     INTEGRATION_TEST_JEST_EXIT="$1" \
     INTEGRATION_TEST_DOWN_EXIT="$2" \
@@ -101,6 +103,12 @@ if grep -F 'inherited-runner-marker' "$command_log" >/dev/null; then
   echo 'integration contract: 호출자의 runner 표식이 하위 프로세스에 전달됐습니다.' >&2
   exit 1
 fi
+
+if grep -F '999999:ADMIN' "$command_log" >/dev/null; then
+  echo 'integration contract: 호출자의 AUTH_INITIAL_ROLES가 하위 프로세스에 전달됐습니다.' >&2
+  exit 1
+fi
+grep -F '|SEED=' "$command_log" >/dev/null
 
 success_project="$(sed -n 's/^docker|compose -p \([^ ]*\).* up -d --wait.*$/\1/p' "$command_log")"
 success_cleanup_project="$(sed -n 's/^docker|compose -p \([^ ]*\).* down -v --remove-orphans.*$/\1/p' "$command_log")"
