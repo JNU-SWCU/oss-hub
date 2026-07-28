@@ -1,0 +1,21 @@
+/*
+ * design-sync CSS entry — apps/frontend의 실제 globals.css를 standalone으로 컴파일한다.
+ *
+ * 앱에서는 next/font/google이 Geist를 self-host하고 --font-sans를 <html>에 주입한다.
+ * design 번들에는 Next가 없어 그 주입이 없으므로(globals.css의
+ * `--font-sans: var(--font-sans)`가 순환 참조로 남는다) 여기서 폰트를 직접 로드하고
+ * --font-sans를 실제 스택으로 정의한다. 원격 @import는 converter가 styles.css로
+ * 그대로 옮긴다([FONT_REMOTE], informational).
+ */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap');
+@import '../../apps/frontend/node_modules/tailwindcss/index.css' source(none);
+@import '../../apps/frontend/src/app/globals.css';
+
+/* 컴포넌트가 쓰는 유틸리티를 스캔할 소스 — Tailwind v4 자동 탐지 대신 명시 */
+@source '../../apps/frontend/src';
+
+/* next/font 주입 대체 — @theme inline의 순환 참조를 실제 값으로 끊는다 */
+:root {
+  --font-sans:
+    'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
