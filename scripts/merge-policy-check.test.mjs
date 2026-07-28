@@ -293,7 +293,8 @@ test('HIGH_RISK(배포 계약 경로): TECH_LEAD 단독 accept는 실패하고 �
   assert.equal(result.conclusion, 'failure');
   assert.ok(
     result.reasons.some(
-      (reason) => reason.includes('Jenkinsfile') && reason.includes('PM_ACCEPT'),
+      (reason) =>
+        reason.includes('Jenkinsfile') && reason.includes('PM_ACCEPT'),
     ),
   );
 });
@@ -313,12 +314,15 @@ test('HIGH_RISK(배포 계약 경로): PM accept로 통과한다', () => {
 // 시나리오 5: accept 0건 → FAIL
 test('HIGH_RISK: accept가 전혀 없으면 실패한다', () => {
   const result = evaluate({
-    comments: [comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' }))],
+    comments: [
+      comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
+    ],
   });
   assert.equal(result.conclusion, 'failure');
   assert.ok(
     result.reasons.some(
-      (reason) => reason.includes('PM_ACCEPT') && reason.includes('TECH_LEAD_ACCEPT'),
+      (reason) =>
+        reason.includes('PM_ACCEPT') && reason.includes('TECH_LEAD_ACCEPT'),
     ),
   );
 });
@@ -498,7 +502,10 @@ test('배포 계약 경로 패턴 매칭 — 정확 일치·apps/*/Dockerfile·d
   assert.ok(matchesDeployContractPattern('Jenkinsfile', 'Jenkinsfile'));
   assert.ok(!matchesDeployContractPattern('Jenkinsfile', 'apps/Jenkinsfile'));
   assert.ok(
-    matchesDeployContractPattern('apps/*/Dockerfile', 'apps/backend/Dockerfile'),
+    matchesDeployContractPattern(
+      'apps/*/Dockerfile',
+      'apps/backend/Dockerfile',
+    ),
   );
   assert.ok(
     !matchesDeployContractPattern(
