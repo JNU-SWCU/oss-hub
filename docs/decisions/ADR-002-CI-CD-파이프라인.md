@@ -24,7 +24,7 @@ PR 품질 검증은 필요하지만 CI에서 Docker 이미지를 빌드하면 �
 
 ## Decision
 
-GitHub Actions는 모든 PR에서 실행되는 경량 CI로 구성하고 required job 이름을 항상 `ci`로 유지한다. `ci` job 내부에서 paths gate를 처리하여 대상 변경이 없더라도 job 결과를 보고한다. CI는 lint, typecheck, test, 앱 build를 수행하고 Docker 이미지 빌드는 수행하지 않는다. 병합 검토는 ADR-005의 exact-head `MERGE_READY`와 high-risk 이중 accept 계약을 따른다.
+GitHub Actions는 모든 PR에서 실행되는 경량 CI로 구성하고 required job 이름을 항상 `ci`로 유지한다. `ci` job 내부에서 paths gate를 처리하여 대상 변경이 없더라도 job 결과를 보고한다. CI는 lint, typecheck, test, 앱 build를 수행하고 Docker 이미지 빌드는 수행하지 않는다. 병합 검토는 ADR-005의 exact-head `MERGE_READY`와 high-risk 단일 accept 계약을 따른다.
 
 main 병합은 Jenkins의 lint, typecheck, test, 앱 build 검증만 시작하고 production 배포를 시작하지 않는다. production 배포 후보 단위는 공개 GitHub Release다. Release `published` 시 GitHub Actions 워크플로(`deploy.yml`)는 `draft=false`·`prerelease=false`이고 저장소 변수 `DEPLOY_TRIGGER_ENABLED=true`인 경우에만 Jenkins 내장 원격 빌드 트리거(`buildWithParameters`, 전용 서비스 사용자 API token Basic 인증)로 `RELEASE_ACTION`·`RELEASE_TAG`를 명시 전달한다. 트리거 URL은 HTTPS만 허용한다. 배포 서버의 host nginx가 공인 IP TLS를 종료하고 해당 경로의 POST만 localhost Jenkins로 리버스 프록시하며 Jenkins UI는 공개하지 않는다. 나머지 요청은 loopback `127.0.0.1:8081`의 Compose nginx로 전달한다. GitHub Actions는 얇은 트리거 POST만 담당하고 검증·배포·실패 알림은 Jenkins가 수행한다. Jenkins는 받은 tag로 `draft=false`, `prerelease=false`, 현재 latest full Release 일치를 확인한다. tag가 가리키는 정확한 commit SHA가 main 이력에 포함되고 #199 공개 댓글에서 같은 tag·SHA의 @GoBeromsu `RELEASE_ACCEPT role=PM`이 확인될 때만 해당 SHA를 checkout한다. `RELEASE_ACCEPT role=TECH_LEAD`와 `RELEASE_OVERRIDE role=PM`은 폐지한다 — 우회할 이중 게이트가 없으므로 override는 존재 이유가 없다. 별도 staging 서버는 두지 않는다.
 

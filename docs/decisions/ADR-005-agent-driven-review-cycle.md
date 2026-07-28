@@ -61,8 +61,8 @@ high risk 여부는 파일 경로가 아니라 실제 권한·데이터·운영�
 CODEOWNERS 경로는 검토 후보를 찾는 신호이며 그 자체가 high risk 확정 판정은 아니다.
 나열된 경계를 생성·확장·축소·우회하거나 검사를 약화하는 변경은 경로와 무관하게 high risk이며, 분류가 모호하면 high risk로 처리한다.
 동작 효과가 없는 기계적 문서·테스트·리팩터링은 경로가 일치해도 일반 변경일 수 있지만, 정책 문서의 실제 계약을 바꾸면 high risk다.
-수동 파일럿에서 CODEOWNERS 후보 또는 분류가 모호한 변경은 기본적으로 `HIGH_RISK`다.
 다음 경로를 변경하는 PR은 배포 계약 경로로 정의한다: `Jenkinsfile`, `compose.yml`, `.env.example`, `deploy/**`, `apps/*/Dockerfile`, `.dockerignore`, `.github/workflows/deploy.yml`, `scripts/check-jenkinsfile.sh`, `scripts/check-jenkinsfile.test.sh`.
+수동 파일럿에서 CODEOWNERS 후보 또는 분류가 모호한 변경은 기본적으로 `HIGH_RISK`다.
 이를 `GENERAL`로 낮추려면 @GoBeromsu 또는 @Lumiere001 중 한 명이 동일한 head·base에 `RISK_ACCEPT role=<PM|TECH_LEAD> head=<sha> base=<ref> base_sha=<sha> risk=GENERAL`을 남기면 충분하다.
 단 배포 계약 경로를 변경하는 PR은 `role=PM`이어야 한다.
 
@@ -87,7 +87,7 @@ required check가 적용되기 전에는 병합자가 이 actor·형식·head·b
 - draft와 merge conflict가 없다.
 - 관련 CI와 required check가 통과했다.
 - root와 적용되는 nested `AGENTS`를 준수했다.
-- 일반 PR은 전남의 현재 head `MERGE_READY`가 있고, high risk PR은 원칙적으로 PM 또는 Tech Lead 중 한 명의 현재 head manual accept가 있다.
+- 일반 PR은 전남의 현재 head `MERGE_READY`가 있고, high risk PR은 PM 또는 Tech Lead 중 한 명의 현재 head manual accept가 있다. 배포 계약 경로를 변경하는 PR은 @GoBeromsu의 `PM_ACCEPT`여야 한다.
 - 해결되지 않은 blocker가 없다.
 - GitHub가 병합 가능한 상태로 표시한다.
 
