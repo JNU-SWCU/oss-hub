@@ -1,0 +1,19 @@
+# 로컬 전용 override이며 운영 배포는 compose.yml만 사용한다.
+services:
+  backend:
+    environment:
+      # 운영 이미지는 NODE_ENV=production을 하드코딩하므로, HTTP 로컬 실행이 auth.config.ts:149에서 실패하지 않도록 개발 모드를 쓴다. Issue #287 참조.
+      NODE_ENV: development
+    depends_on:
+      minio-bucket:
+        condition: service_healthy
+    # image는 재정의하지 않으며 IMAGE_TAG는 호출측 환경 변수로 주입한다.
+
+  nginx:
+    # 로컬 브라우저 대면 주소를 dev GitHub OAuth App에 이미 등록된 콜백 origin과 맞춘다.
+    # 운영은 host nginx가 공인 443을 받아 내부 127.0.0.1:8081로 넘기므로 콜백에 8081이 등장하지 않는다.
+    # 로컬에는 host nginx가 없어 Compose ingress가 곧 브라우저 대면 주소가 되므로 3000으로 노출한다.
+    # 기존 프론트 dev 서버가 3000을 쓰고 있으면 LOCAL_INGRESS_PORT로 임시 변경할 수 있으나,
+    # 그 경우 OAuth 콜백 origin이 어긋나 로그인은 성립하지 않는다.
+    ports: !override
+      - '127.0.0.1:${LOCAL_INGRESS_PORT:-3000}:80'

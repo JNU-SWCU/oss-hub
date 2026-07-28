@@ -47,15 +47,24 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-oss-hub-local}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-oss-hub-local-synthetic-secret}
       SUBMISSION_FILE_S3_BUCKET: ${SUBMISSION_FILE_S3_BUCKET:-oss-hub-submission-files-local}
+    # 마커는 컨테이너 재시작 시 유지되지만 --force-recreate 시 사라지므로 entrypoint에서 다시 만든다.
     entrypoint:
       - /bin/sh
       - -eu
       - -c
       - >-
+        rm -f /tmp/bucket-ready &&
         mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" >/dev/null &&
         mc mb --ignore-existing "local/$${SUBMISSION_FILE_S3_BUCKET}" >/dev/null &&
         mc anonymous set none "local/$${SUBMISSION_FILE_S3_BUCKET}" >/dev/null &&
+        touch /tmp/bucket-ready &&
         exec sleep infinity
+    healthcheck:
+      test: ['CMD-SHELL', 'test -f /tmp/bucket-ready']
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 10s
 
 volumes:
   pgdata_dev:
