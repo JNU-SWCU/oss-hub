@@ -75,41 +75,24 @@ Jenkins의 실패 시 중단·증적 보존·기존 이미지 복구 동작은 A
 `MERGE_READY head=<sha> base=<ref> base_sha=<sha> risk=<GENERAL|HIGH_RISK>`는 @GoBeromsu 또는 @Lumiere001 계정으로 실행한 전남 검토 결과만 허용한다.
 그 댓글에는 `CODE_CONTRACT:`, `PONYTAIL:`, `QA:`, `CLI:`, `CI:` marker와 각각의 비어 있지 않은 public-safe URL 또는 요약을 한 줄씩 포함한다.
 `QA:`의 `N/A`는 관찰 가능한 동작이 없다는 구체적인 사유를 함께 적고, `BLOCKED/UNVERIFIED`에는 `MERGE_READY`를 사용하지 않는다.
-high risk는 `PM_ACCEPT head=<sha> base=<ref> base_sha=<sha>`를 @GoBeromsu가 또는 `TECH_LEAD_ACCEPT head=<sha> base=<ref> base_sha=<sha>`를 @Lumiere001이 남기면 충분하며, 아래 PR #256 일회성 긴급 경로만 Tech Lead marker를 대체할 수 있다.
+high risk는 `PM_ACCEPT head=<sha> base=<ref> base_sha=<sha>`를 @GoBeromsu가 또는 `TECH_LEAD_ACCEPT head=<sha> base=<ref> base_sha=<sha>`를 @Lumiere001이 남기면 충분하다.
 head, base ref 또는 base SHA가 바뀌면 이전 증거와 accept는 모두 무효다.
 후속 #226의 `merge-policy` required check는 이 증거와 함께 `GENERAL` 하향에 필요한 `RISK_ACCEPT`의 actor·role·head·base도 검증한다.
 required check가 적용되기 전에는 병합자가 이 actor·형식·head·base를 수동으로 대조한다.
 이 저장소의 기존 branch protection은 사람 리뷰를 required gate로 강제하지 않았으므로 수동 파일럿은 적용 중인 기계 게이트를 제거하지 않는다.
 수동 파일럿 동안 병합 권한은 @GoBeromsu와 @Lumiere001로 제한하고 admin bypass를 사용하지 않으며, #226 병합 뒤 `merge-policy`를 required check로 전환한다.
 
-### PR #256 일회성 긴급 PM 코드 승인
-
-이 절의 최초 amendment는 PR #258에서 기존 `HIGH_RISK` 증거 없이 병합되었으므로 그 병합만으로 긴급 권한을 부여하지 않으며, checker의 전용 상수가 `0`인 최초 상태는 fail-closed 비활성 상태로 취급한다.
-긴급 경로 활성화 remediation PR은 기존 `HIGH_RISK` 규칙에 따라 `MERGE_READY`, @GoBeromsu의 `PM_ACCEPT`, @Lumiere001의 `TECH_LEAD_ACCEPT`를 모두 충족한 뒤 병합해야 한다.
-긴급 경로는 PR #256에만 적용되며 다른 PR의 정상 high risk 이중 accept 규칙을 변경하지 않는다.
-긴급 경로는 활성화 remediation PR #259가 기존 이중 gate로 병합되고 checker의 전용 상수가 PR #259로 pin된 상태가 `main`에 포함된 뒤에만 사용할 수 있다.
-`policy_sha`는 PR #259의 40자 merge commit SHA와 정확히 일치해야 하며, checker는 그 SHA가 현재 base 이력의 ancestor인지 검증한다.
-`PM_EMERGENCY_ACCEPT`는 GitHub의 PR #259 `merged_at` 이후이면서 `2026-07-26T15:00:00.000Z` 미만인 시각에 최초 발행된 뒤 수정되지 않은 댓글이어야 하며, 상한 시각은 exclusive다.
-@GoBeromsu만 PR 최상위 댓글에 `PM_EMERGENCY_ACCEPT head=<40hex> base=main base_sha=<40hex> policy_sha=<40hex> window=2026-07-26-KST`를 발행할 수 있다.
-PR #256의 owner인 @jinsol1190-rgb만 PR 최상위 댓글에 수정되지 않은 `OWNER_CONFIRM head=<40hex> base=main base_sha=<40hex>`을 발행할 수 있다.
-두 marker의 `head`와 `base_sha`는 PR #256의 현재 head와 현재 `main` base full SHA에 정확히 pin되어야 한다.
-유효한 `PM_EMERGENCY_ACCEPT`와 `OWNER_CONFIRM`은 PR #256에서 @Lumiere001의 `TECH_LEAD_ACCEPT`만 대체하며, @GoBeromsu의 기존 `PM_ACCEPT`, `MERGE_READY`, required CI와 check, mergeability, blocker 해소, actor 검증, exact head·base 검증을 포함한 다른 모든 gate는 유지한다.
-발행 시한 전에 유효하게 발행된 `PM_EMERGENCY_ACCEPT`는 pin된 head, base, base SHA와 policy SHA가 바뀌지 않는 한 시한 이후에도 유효하지만, 시한 이후 새 발행·수정·변경된 pin에 대한 재발행은 허용하지 않는다.
-`OWNER_CONFIRM`은 별도 발행 시한이 없지만 현재 head·base에 pin되고 수정되지 않아야 하며, head 또는 base가 바뀌면 새 확인이 필요하다.
-`.github/workflows/`, `.github/actions/`, branch protection, CODEOWNERS와 merge-policy checker·fixture를 포함한 control-plane 경로를 변경하는 PR에는 이 긴급 경로를 적용하지 않는다.
-이 예외는 admin bypass를 허용하지 않고 production release·재배포 승인을 변경하지 않으며, PR #258의 비활성 병합이나 PR #259 병합 전 marker 발행만으로 스스로 활성화되지 않는다.
-
 다음 조건을 모두 충족한 PR만 병합한다.
 
 - draft와 merge conflict가 없다.
 - 관련 CI와 required check가 통과했다.
 - root와 적용되는 nested `AGENTS`를 준수했다.
-- 일반 PR은 전남의 현재 head `MERGE_READY`가 있고, high risk PR은 원칙적으로 PM 또는 Tech Lead 중 한 명의 현재 head manual accept가 있으며, PR #256은 이 절의 일회성 긴급 대체 조건을 모두 충족했다.
+- 일반 PR은 전남의 현재 head `MERGE_READY`가 있고, high risk PR은 원칙적으로 PM 또는 Tech Lead 중 한 명의 현재 head manual accept가 있다.
 - 해결되지 않은 blocker가 없다.
 - GitHub가 병합 가능한 상태로 표시한다.
 
 전남은 일반 PR에 대해 `MERGE_READY`와 현재 GitHub mergeability를 확인한 뒤 병합할 수 있다.
-high risk PR은 PM 또는 Tech Lead 중 한 명의 current-head accept 또는 PR #256의 유효한 일회성 긴급 대체 증거가 확인되기 전에는 병합하지 않는다.
+high risk PR은 PM 또는 Tech Lead 중 한 명의 current-head accept가 확인되기 전에는 병합하지 않는다.
 GitHub 상태나 승인 범위를 확인할 수 없거나 모호하면 병합하지 않으며, admin bypass로 gate를 우회하지 않는다.
 
 ADR-002에 따라 production 배포는 release tag를 통한 별도 단계다.
@@ -142,3 +125,4 @@ Jenkins가 이 actor·tag·SHA를 배포 시작 전에 검증하고 누락·불�
 - 2026-07-25: Issue #257에 따라 PR #256에 한정된 일회성 PM 긴급 코드 승인 발행 창을 추가했고, 기존 gate 없이 병합된 PR #258은 비활성 이력으로 기록하며 별도 remediation의 기존 high risk 이중 gate 통과 전에는 권한이 발효되지 않도록 했다.
 - 2026-07-28: Issue #274에 따라 high risk 병합 accept를 PM 또는 Tech Lead 중 한 명으로 완화하고 배포 계약 경로는 PM 전속으로 유지했다. `GENERAL` 하향도 같은 규칙을 따른다. @GoBeromsu와 @Lumiere001의 저장소 전체 free-role 작성권과 사후 확인 폐지를 명문화했다.
 - 2026-07-28: Issue #199에 따라 production release·재배포 승인을 @GoBeromsu 단독 `RELEASE_ACCEPT role=PM`으로 전환하고 `RELEASE_ACCEPT role=TECH_LEAD`와 `RELEASE_OVERRIDE role=PM`을 폐지했다.
+- 2026-07-28: PR #256에 한정되었던 일회성 긴급 PM 코드 승인 경로(PM_EMERGENCY_ACCEPT·OWNER_CONFIRM)를 삭제했다 — 단일 accept 도입으로 `TECH_LEAD_ACCEPT` 대체 기능의 존재 이유가 사라졌다.
