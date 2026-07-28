@@ -10,6 +10,7 @@ import {
   type AdminUsersRepositoryPort,
 } from './admin-users.repository';
 import { ROLES_ERROR_CODES, RolesErrorCode } from './roles-error-code.enum';
+import { resolveRoleRequestTransition } from './role-request-transition-rules';
 
 @Injectable()
 export class AdminUsersService {
@@ -34,7 +35,9 @@ export class AdminUsersService {
     role: Role,
   ): Promise<AdminUser> {
     return this.repository.withTransaction(async (store) => {
-      this.requireAdmin(await store.findUserByGithubId(actorGithubId));
+      const actor = this.requireAdmin(
+        await store.findUserByGithubId(actorGithubId),
+      );
       if (!(await store.findUserById(userId))) {
         throw new DomainException(
           ROLES_ERROR_CODES[RolesErrorCode.USER_NOT_FOUND],
@@ -45,6 +48,26 @@ export class AdminUsersService {
         throw new DomainException(
           ROLES_ERROR_CODES[RolesErrorCode.USER_NOT_FOUND],
         );
+      }
+      const request = await store.findLatestRoleRequest(userId);
+      const nextStatus = resolveRoleRequestTransition(
+        request?.status ?? null,
+        role,
+      );
+      if (request && nextStatus) {
+        const transitioned = await store.transitionRoleRequest({
+          requestId: request.id,
+          expectedStatus: request.status,
+          nextStatus,
+          decidedById: actor.id,
+          decidedAt: new Date(),
+          rejectionReason: null,
+        });
+        if (!transitioned) {
+          throw new DomainException(
+            ROLES_ERROR_CODES[RolesErrorCode.ROLE_REQUEST_ALREADY_DECIDED],
+          );
+        }
       }
       await this.auditLog.record(
         {
