@@ -20,6 +20,7 @@
 
 - Closes #
 - exec-plan: `docs/exec-plan/active/<기능>.md`
+- free-role 수정(AGENTS.md §3): 대상 기능 / owner `@handle` — 해당 없으면 `N/A`. owner를 리뷰어로 지정했고, 착수 전 Issue로 선점을 선언했다.
 
 ## 2. push 완결 선언
 
@@ -84,7 +85,6 @@
 - 실제 UI/API QA 증거 URL 또는 N/A 사유: `N/A는 관찰 가능한 동작이 없을 때만, 환경·선행 PR·외부 자원 blocker는 BLOCKED/UNVERIFIED`
 - `CLI:` 증거 URL 또는 public-safe 요약:
 - `CI:` 증거 URL:
-- `RISK_ACCEPT role=PM head=<full-sha> base=<ref> base_sha=<full-sha> risk=GENERAL` 댓글 URL: `CODEOWNERS 후보 또는 분류가 모호한 변경을 GENERAL로 낮출 때만`
-- `RISK_ACCEPT role=TECH_LEAD head=<full-sha> base=<ref> base_sha=<full-sha> risk=GENERAL` 댓글 URL: `CODEOWNERS 후보 또는 분류가 모호한 변경을 GENERAL로 낮출 때만`
-- `PM_ACCEPT head=<full-sha> base=<ref> base_sha=<full-sha>` 댓글 URL: `HIGH_RISK만, 일반 PR은 N/A`
-- `TECH_LEAD_ACCEPT head=<full-sha> base=<ref> base_sha=<full-sha>` 댓글 URL: `HIGH_RISK만, 일반 PR은 N/A`
+- `RISK_ACCEPT role=PM|TECH_LEAD head=<full-sha> base=<ref> base_sha=<full-sha> risk=GENERAL` 댓글 URL: `CODEOWNERS 후보 또는 분류가 모호한 변경을 GENERAL로 낮출 때만 — 한 명이면 충분하되 배포 계약 경로는 role=PM 필수`
+- `PM_ACCEPT head=<full-sha> base=<ref> base_sha=<full-sha>` 댓글 URL: `HIGH_RISK만, 일반 PR은 N/A — 배포 계약 경로 변경 PR은 필수(Tech Lead accept로 대체 불가)`
+- `TECH_LEAD_ACCEPT head=<full-sha> base=<ref> base_sha=<full-sha>` 댓글 URL: `HIGH_RISK만, 일반 PR은 N/A — 배포 계약 경로가 아니면 PM_ACCEPT 대신 이것 하나로 충분`

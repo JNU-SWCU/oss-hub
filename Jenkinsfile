@@ -97,7 +97,7 @@ printf '%s' "$release_sha"
       }
     }
 
-    stage('PM·Tech Lead Release 승인 검증 및 exact SHA checkout') {
+    stage('PM Release 승인 검증 및 exact SHA checkout') {
       when {
         expression { env.RUN_MODE == 'release' }
       }
@@ -136,27 +136,16 @@ if [ "$pagination_complete" != 'true' ]; then
 fi
 
 pm_accept="RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}"
-tech_lead_accept="RELEASE_ACCEPT role=TECH_LEAD tag=${RELEASE_TAG} head=${IMAGE_TAG}"
-pm_override="RELEASE_OVERRIDE role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}"
 
 if jq -e \
   --arg actor 'GoBeromsu' \
-  --arg expected "$pm_override" \
+  --arg expected "$pm_accept" \
   '[.[] | select((.user.login | ascii_downcase) == ($actor | ascii_downcase)) | .body | split("\\n")[] | select(. == $expected)] | length > 0' \
   "$comments_file" >/dev/null; then
-  echo "감사 가능한 PM Release override를 확인했습니다: ${RELEASE_TAG}@${IMAGE_TAG}"
+  echo "PM Release 승인 marker를 확인했습니다: role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}"
 else
-  jq -e \
-    --arg actor 'GoBeromsu' \
-    --arg expected "$pm_accept" \
-    '[.[] | select((.user.login | ascii_downcase) == ($actor | ascii_downcase)) | .body | split("\\n")[] | select(. == $expected)] | length > 0' \
-    "$comments_file" >/dev/null
-
-  jq -e \
-    --arg actor 'Lumiere001' \
-    --arg expected "$tech_lead_accept" \
-    '[.[] | select((.user.login | ascii_downcase) == ($actor | ascii_downcase)) | .body | split("\\n")[] | select(. == $expected)] | length > 0' \
-    "$comments_file" >/dev/null
+  echo "PM Release 승인 marker를 찾지 못했습니다: role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}" >&2
+  exit 1
 fi
 '''
         sh 'git checkout --detach "$IMAGE_TAG"'
