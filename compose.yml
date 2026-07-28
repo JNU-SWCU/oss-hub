@@ -14,6 +14,58 @@ services:
       retries: 12
       start_period: 10s
 
+  minio:
+    image: minio/minio:RELEASE.2025-07-23T15-54-02Z
+    command: server /data
+    environment:
+      # 앱과 같은 자격증명을 쓴다. 외부 노출이 없고 버킷도 하나뿐이라 별도 키를 두지 않는다.
+      MINIO_ROOT_USER: ${SUBMISSION_FILE_S3_ACCESS_KEY_ID:?SUBMISSION_FILE_S3_ACCESS_KEY_ID is required}
+      MINIO_ROOT_PASSWORD: ${SUBMISSION_FILE_S3_SECRET_ACCESS_KEY:?SUBMISSION_FILE_S3_SECRET_ACCESS_KEY is required}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'curl',
+          '--fail',
+          '--silent',
+          'http://localhost:9000/minio/health/ready',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  minio-bucket:
+    image: minio/mc:RELEASE.2025-07-21T05-28-08Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${SUBMISSION_FILE_S3_ACCESS_KEY_ID:?SUBMISSION_FILE_S3_ACCESS_KEY_ID is required}
+      MINIO_ROOT_PASSWORD: ${SUBMISSION_FILE_S3_SECRET_ACCESS_KEY:?SUBMISSION_FILE_S3_SECRET_ACCESS_KEY is required}
+      # backend의 기본값과 반드시 같아야 한다. 갈라지면 앱이 없는 버킷에 업로드한다.
+      SUBMISSION_FILE_S3_BUCKET: ${SUBMISSION_FILE_S3_BUCKET:-oss-hub-submission-files}
+    # 마커는 컨테이너 재시작 시 유지되지만 --force-recreate 시 사라지므로 entrypoint에서 다시 만든다.
+    entrypoint:
+      - /bin/sh
+      - -eu
+      - -c
+      - >-
+        rm -f /tmp/bucket-ready &&
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" >/dev/null &&
+        mc mb --ignore-existing "local/$${SUBMISSION_FILE_S3_BUCKET}" >/dev/null &&
+        mc anonymous set none "local/$${SUBMISSION_FILE_S3_BUCKET}" >/dev/null &&
+        touch /tmp/bucket-ready &&
+        exec sleep infinity
+    healthcheck:
+      test: ['CMD-SHELL', 'test -f /tmp/bucket-ready']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
   backend:
     image: oss-hub-backend:${IMAGE_TAG:?IMAGE_TAG is required}
     environment:
@@ -32,12 +84,15 @@ services:
       GITHUB_COLLECTION_APP_API_BASE_URL: ${GITHUB_COLLECTION_APP_API_BASE_URL:-}
       GITHUB_COLLECTION_APP_MAX_PAGES: ${GITHUB_COLLECTION_APP_MAX_PAGES:-}
       GITHUB_COLLECTION_APP_DEADLINE_MS: ${GITHUB_COLLECTION_APP_DEADLINE_MS:-}
-      SUBMISSION_FILE_S3_ENDPOINT: ${SUBMISSION_FILE_S3_ENDPOINT:?SUBMISSION_FILE_S3_ENDPOINT is required}
-      SUBMISSION_FILE_S3_REGION: ${SUBMISSION_FILE_S3_REGION:?SUBMISSION_FILE_S3_REGION is required}
-      SUBMISSION_FILE_S3_BUCKET: ${SUBMISSION_FILE_S3_BUCKET:?SUBMISSION_FILE_S3_BUCKET is required}
+      # 아래 4개는 이 스택의 MinIO 토폴로지가 이미 결정한 값이라 기본값을 둔다.
+      # 운영자가 배포일에 채워야 하는 저장소 키는 access key와 secret 둘뿐이다.
+      # 관리형 S3로 옮길 때는 env에 이 4개를 지정하면 되고 코드 변경은 없다.
+      SUBMISSION_FILE_S3_ENDPOINT: ${SUBMISSION_FILE_S3_ENDPOINT:-http://minio:9000}
+      SUBMISSION_FILE_S3_REGION: ${SUBMISSION_FILE_S3_REGION:-us-east-1}
+      SUBMISSION_FILE_S3_BUCKET: ${SUBMISSION_FILE_S3_BUCKET:-oss-hub-submission-files}
       SUBMISSION_FILE_S3_ACCESS_KEY_ID: ${SUBMISSION_FILE_S3_ACCESS_KEY_ID:?SUBMISSION_FILE_S3_ACCESS_KEY_ID is required}
       SUBMISSION_FILE_S3_SECRET_ACCESS_KEY: ${SUBMISSION_FILE_S3_SECRET_ACCESS_KEY:?SUBMISSION_FILE_S3_SECRET_ACCESS_KEY is required}
-      SUBMISSION_FILE_S3_FORCE_PATH_STYLE: ${SUBMISSION_FILE_S3_FORCE_PATH_STYLE:?SUBMISSION_FILE_S3_FORCE_PATH_STYLE is required}
+      SUBMISSION_FILE_S3_FORCE_PATH_STYLE: ${SUBMISSION_FILE_S3_FORCE_PATH_STYLE:-true}
       # 미설정이면 역할 시드를 적용하지 않는다.
       AUTH_INITIAL_ROLES: ${AUTH_INITIAL_ROLES:-}
       # production 이미지(NODE_ENV=production)는 GMAIL_* 4종이 없으면 부팅을 거부한다.
@@ -48,6 +103,8 @@ services:
       GMAIL_OAUTH_REFRESH_TOKEN: ${GMAIL_OAUTH_REFRESH_TOKEN:?GMAIL_OAUTH_REFRESH_TOKEN is required}
     depends_on:
       postgres:
+        condition: service_healthy
+      minio-bucket:
         condition: service_healthy
     expose:
       - '4000'
@@ -94,3 +151,4 @@ services:
 
 volumes:
   pgdata:
+  minio_data:

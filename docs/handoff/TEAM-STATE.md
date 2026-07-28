@@ -133,6 +133,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | GitHub 저장소 주기 수집 스케줄러 | @GoBeromsu | review | #151 | [#260](https://github.com/JNU-SWCU/oss-hub/pull/260) | E1 실증 pass(App 4394956 설치·공개/비공개 fixture·2-instance lease·live smoke 멱등 digest) · C2 legacy/webhook runtime 제거 · backend unit 793 · integration 127 · frontend 493 · lint/typecheck/build/format/public-safe | production 배포 시 Collection App secret 주입 필요 · legacy 관측 테이블은 M3 제거 전까지 inert |
 | OSS 활성화 랭킹 | @jinsol1190-rgb | review | #152 | [#194](https://github.com/JNU-SWCU/oss-hub/pull/194) | local pass | 공개 적격성 projection 부재로 endpoint·nav fail-closed 비노출 |
 | 공개 랭킹 저장소 소유권 projection | @jinsol1190-rgb | done | #197 | #202 | pass | 없음 |
+| 프로덕션 제출 파일 object storage(자체 호스팅 MinIO) | @GoBeromsu | review | [#293](https://github.com/JNU-SWCU/oss-hub/issues/293) | [#302](https://github.com/JNU-SWCU/oss-hub/pull/302) merged · env 기본값 PR 진행 중 | compose 기본값만으로 `minio`+`minio-bucket` 13.4s healthy · 버킷 `oss-hub-submission-files` 자동 생성·정책 `private` · PUT/GET/DELETE 왕복 pass · 필수 env 키 23→19(저장소 6→2) · `check-env-example-coverage.sh`·public-safe pass | #292의 v0.3.0 배포 차단 해소 목적 · Jenkins `oss-hub-production-env`에 `SUBMISSION_FILE_S3_ACCESS_KEY_ID`·`_SECRET_ACCESS_KEY` 2종 등록 필요(unblock: @GoBeromsu) · v0.3.1 릴리스로 실 서버 기동 smoke 예정 · `minio_data`가 백업 경로에 없음(후속) |
 
 ## 외부 게이트
 
