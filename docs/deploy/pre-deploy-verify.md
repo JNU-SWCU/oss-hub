@@ -10,6 +10,7 @@ Compose nginx는 `127.0.0.1:8081`에만 bind한다. 공인 `80/443`은 host ngin
 ## 표기 규약
 
 - 아래 로컬 검증용 env는 **비시크릿 예시**다. 실제 운영 값은 이 저장소에 두지 않는다(운영 값은 배포 서버 `.env` / Jenkins Credentials Store).
+- **release 발행 전 확인:** Jenkins `oss-hub-production-env` credential에 `AUTH_INITIAL_ROLES`가 있는지 본다. `compose.yml`이 `${AUTH_INITIAL_ROLES:-}`로 선택 매핑하므로 **키가 없어도 배포는 성공하지만 초기 역할 시드가 조용히 꺼진다.** 시드를 쓰지 않기로 했다면 그 결정을 release 노트에 남긴다.
 - `<...>`, `REPLACE_*` 자리표시자는 로컬에서 각자 채운다.
 
 ## ① 로컬 랩탑 검증
@@ -47,6 +48,11 @@ TEAM_JOIN_CODE_SECRET=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 # backend Dockerfile이 NODE_ENV=production이므로 HTTPS origin이 필수다.
 # smoke URL(http://127.0.0.1:8081/)과 달라도 된다 — 이 값은 세션·OAuth origin 계약이다.
 FRONTEND_URL=https://127.0.0.1
+
+# 초기 역할 시드 — compose.yml이 ${AUTH_INITIAL_ROLES:-}로 선택 매핑한다.
+# 형식: "githubId:ROLE" 쉼표 구분, ROLE은 ADMIN|STAFF|STUDENT.
+# 로컬 검증에서는 비워도 된다(시드 미적용).
+AUTH_INITIAL_ROLES=
 
 # GitHub OAuth — 로컬 부팅용 형식만 맞춘 자리표시자.
 # health 확인만 할 때는 형식상 값이면 되지만, backend가 부팅 시 검증하면
