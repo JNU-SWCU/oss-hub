@@ -166,9 +166,12 @@
   --sidebar-border: var(--palette-gray-200);
   --sidebar-ring: var(--palette-navy-400);
 
-  /* 상태 그룹 — StatusBadge(B-6)가 참조할 이름. 값은 브랜드 팔레트 재사용 */
-  --status-recruiting-bg: var(--palette-green-50); /* 모집중 */
-  --status-recruiting-fg: var(--palette-green-700);
+  /* 상태 그룹 — StatusBadge(B-6)가 참조할 이름. 값은 브랜드 팔레트 재사용.
+     recruiting은 navy(브랜드 주조색) 계열로 분리해 approved(green)와 구분한다 —
+     모집중은 "지금 열려 있으니 행동하라"는 능동 상태라 success(승인)와 다른 의미다.
+     예전에는 둘 다 green-50/green-700이라 동일 색으로 렌더링되는 결함이 있었다. */
+  --status-recruiting-bg: var(--palette-navy-50); /* 모집중 */
+  --status-recruiting-fg: var(--palette-navy-700);
   --status-closed-bg: var(--palette-gray-100); /* 마감 */
   --status-closed-fg: var(--palette-gray-600);
   --status-pending-bg: var(--palette-amber-50); /* 대기 */
@@ -221,8 +224,8 @@
   --sidebar-border: color-mix(in oklch, var(--palette-white) 12%, transparent);
   --sidebar-ring: var(--palette-navy-300);
 
-  --status-recruiting-bg: var(--palette-green-800);
-  --status-recruiting-fg: var(--palette-green-100);
+  --status-recruiting-bg: var(--palette-navy-800);
+  --status-recruiting-fg: var(--palette-navy-100);
   --status-closed-bg: var(--palette-gray-700);
   --status-closed-fg: var(--palette-gray-200);
   --status-pending-bg: var(--palette-amber-700);

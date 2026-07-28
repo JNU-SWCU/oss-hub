@@ -178,3 +178,77 @@ describe("globals.css의 [data-surface='inverted'] 반전/리셋 불변식", () 
     ).toEqual([]);
   });
 });
+
+// 상태 뱃지(StatusBadge)는 5개 variant(recruiting/closed/pending/approved/rejected)를
+// `--status-*-bg`/`--status-*-fg` 토큰으로 구분한다. 두 variant가 같은 색 값을 쓰면
+// 화면에서 같은 알약으로 렌더링돼 사용자가 구별할 수 없다 — 실제로 recruiting과
+// approved가 둘 다 green-50/green-700이라 이 결함이 있었다. `.dark`는 라이트(:root)
+// 블록과 별도 값 집합이라 각각 독립적으로 검사한다. `.dark {`를 경계로 앞은 라이트
+// 블록, 뒤는 다크 블록으로 본다 — 이 두 셀렉터 사이에만 `--status-*` 선언이 있다.
+describe('globals.css의 --status-* 토큰은 variant마다 서로 다른 색을 쓴다', () => {
+  const DARK_SELECTOR = '.dark {';
+  const darkIndex = strippedCss.indexOf(DARK_SELECTOR);
+  if (darkIndex === -1) {
+    throw new Error("globals.css에서 '.dark {' 선택자를 찾지 못했다");
+  }
+
+  const lightScope = strippedCss.slice(0, darkIndex);
+  const darkScope = strippedCss.slice(darkIndex);
+
+  function extractStatusDeclarations(scope: string, suffix: 'bg' | 'fg') {
+    const pattern = new RegExp(
+      `(--status-[\\w-]+-${suffix})\\s*:\\s*([^;]+);`,
+      'g',
+    );
+    const found: Declaration[] = [];
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(scope)) !== null) {
+      found.push({ property: match[1], value: match[2].trim() });
+    }
+    return found;
+  }
+
+  function expectAllDistinct(declarations: Declaration[], scopeLabel: string) {
+    const seen = new Map<string, string[]>();
+    for (const { property, value } of declarations) {
+      const owners = seen.get(value) ?? [];
+      owners.push(property);
+      seen.set(value, owners);
+    }
+    const collisions = [...seen.entries()].filter(
+      ([, owners]) => owners.length > 1,
+    );
+    expect(
+      collisions,
+      `${scopeLabel}에서 같은 값을 공유하는 --status-* 프로퍼티: ${
+        collisions
+          .map(([value, owners]) => `${owners.join(' = ')} (${value})`)
+          .join('; ') || '없음'
+      }`,
+    ).toEqual([]);
+  }
+
+  it('라이트(:root) 블록: --status-*-bg 값이 variant마다 모두 다르다', () => {
+    const bgDeclarations = extractStatusDeclarations(lightScope, 'bg');
+    expect(bgDeclarations.length).toBeGreaterThanOrEqual(5);
+    expectAllDistinct(bgDeclarations, '라이트(:root) --status-*-bg');
+  });
+
+  it('라이트(:root) 블록: --status-*-fg 값이 variant마다 모두 다르다', () => {
+    const fgDeclarations = extractStatusDeclarations(lightScope, 'fg');
+    expect(fgDeclarations.length).toBeGreaterThanOrEqual(5);
+    expectAllDistinct(fgDeclarations, '라이트(:root) --status-*-fg');
+  });
+
+  it('.dark 블록: --status-*-bg 값이 variant마다 모두 다르다', () => {
+    const bgDeclarations = extractStatusDeclarations(darkScope, 'bg');
+    expect(bgDeclarations.length).toBeGreaterThanOrEqual(5);
+    expectAllDistinct(bgDeclarations, '.dark --status-*-bg');
+  });
+
+  it('.dark 블록: --status-*-fg 값이 variant마다 모두 다르다', () => {
+    const fgDeclarations = extractStatusDeclarations(darkScope, 'fg');
+    expect(fgDeclarations.length).toBeGreaterThanOrEqual(5);
+    expectAllDistinct(fgDeclarations, '.dark --status-*-fg');
+  });
+});

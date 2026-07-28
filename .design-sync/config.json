@@ -1,0 +1,22 @@
+{
+  "projectId": "227d994e-82c0-4077-be29-8433717f6692",
+  "shape": "package",
+  "pkg": "frontend",
+  "globalName": "OssHub",
+  "srcDir": "src/components",
+  "tsconfig": "tsconfig.json",
+  "cssEntry": ".ds-css/ds-compiled.css",
+  "readmeHeader": ".design-sync/conventions.md",
+  "guidelinesGlob": [
+    "../../../../docs/design.md",
+    "../../../../docs/rules/frontend.md"
+  ],
+  "dtsPropsFor": {
+    "FieldLabel": "className?: string; children?: React.ReactNode; htmlFor?: string; id?: string; style?: React.CSSProperties; asChild?: boolean;"
+  },
+  "overrides": {
+    "AppShell": {
+      "cardMode": "column"
+    }
+  }
+}

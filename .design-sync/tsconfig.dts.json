@@ -1,0 +1,23 @@
+{
+  "//": "design-sync: 컴포넌트 prop 계약(.d.ts)을 생성한다. 앱 tsconfig는 noEmit이라 여기서 override.",
+  "extends": "../apps/frontend/tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationDir": "../apps/frontend/ds-types",
+    "rootDir": "../apps/frontend/src",
+    "jsx": "react-jsx",
+    "incremental": false,
+    "baseUrl": "../apps/frontend",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "../apps/frontend/src/components/**/*.ts",
+    "../apps/frontend/src/components/**/*.tsx",
+    "../apps/frontend/src/lib/**/*.ts"
+  ],
+  "exclude": ["../apps/frontend/**/*.test.ts", "../apps/frontend/**/*.test.tsx"]
+}
