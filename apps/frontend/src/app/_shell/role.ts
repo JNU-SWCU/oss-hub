@@ -1,6 +1,6 @@
 /**
  * 라우트 골격·역할별 패널 셸 (#136) 전용 역할 상수.
- * `apps/backend/src/auth/test-role-map.ts`의 TestRole과 동일한 값 집합이다.
+ * 백엔드 `AUTH_INITIAL_ROLES`가 허용하는 역할과 동일한 값 집합이다.
  */
 import type { AuthRole } from '@/features/auth/types';
 

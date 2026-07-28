@@ -33,6 +33,7 @@
 
 OAuth 콜백은 `FRONTEND_URL`에서 파생되므로 compose 경로에서는 `http://localhost:3000/api/v1/auth/github/callback`이다. dev GitHub OAuth App에 이미 등록된 값이라 추가 설정이 필요 없다. `FRONTEND_URL`이나 ingress 포트를 바꾸면 OAuth App 등록도 함께 바꿔야 한다.
 
+역할별 테스트 계정은 `AUTH_INITIAL_ROLES`로 준비한다. 자세한 절차는 [onboarding](../onboarding.md)을 따른다.
 
 ## 동작 참고
 

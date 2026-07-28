@@ -42,10 +42,10 @@
   ```
 - `prisma migrate reset`/`migrate dev`는 이 시드 훅을 자동 실행한다(기본값 `auth`만). `prisma migrate deploy`(`scripts/run-backend-integration.sh` 경로)는 자동 시드를 실행하지 않는다. `NODE_ENV=production`에서는 실행이 거부된다.
 - 모든 row는 결정적 id(`seed:...`)로 upsert되므로 같은 profile을 여러 번 실행해도 행 수가 늘지 않는다(멱등) — `seed.integration.spec.ts`가 이 성질을 검증한다.
-- 시나리오 id 목록·`Application.answers`/`SubmissionRevision.content`의 placeholder 제약·admin 승격이 이 시드가 아니라 `src/auth/admin-bootstrap.ts` 소유라는 사실 등 상세는 **`README.md`가 원본**이다 — 이 문서에서 중복 서술하지 않는다.
+- 시나리오 id 목록·`Application.answers`/`SubmissionRevision.content`의 placeholder 제약·초기 역할 부여가 이 시드가 아니라 `src/auth/auth.repository.ts`의 `AUTH_INITIAL_ROLES` 설정이 소유한다는 사실 등 상세는 **`README.md`가 원본**이다 — 이 문서에서 중복 서술하지 않는다.
 - 로컬 DB 초기화는 `pnpm db:reset`(공유 개발 DB `localhost:5432/oss_hub` 대상 — 실행 전 팀과 확인). CI/통합테스트는 매번 새로 띄우는 격리 컨테이너만 쓴다.
 
 ## Dependencies
 
 - [README.md](README.md) — 시드 계약 원본(실행·시나리오 카탈로그·알려진 제약).
-- `../src/auth/test-role-map.ts`, `../src/auth/admin-bootstrap.ts` — 이 시드와 역할 매핑 상호작용.
+- `../src/auth/auth.repository.ts` — 이 시드와 `AUTH_INITIAL_ROLES` 역할 부여의 상호작용.
