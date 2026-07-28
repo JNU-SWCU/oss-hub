@@ -100,5 +100,7 @@ describe('LoginButtonView', () => {
     expect(html).toContain('aria-expanded="true"');
     expect(html).not.toContain('Your profile');
     expect(html).not.toContain('로그아웃');
+    // 반전 표면(랜딩 nav) 안에 중첩돼도 계정 메뉴 패널 자체는 밝은 표면으로 되돌아가야 한다.
+    expect(html).toContain('data-surface="default"');
   });
 });

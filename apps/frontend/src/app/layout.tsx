@@ -4,9 +4,10 @@ import './globals.css';
 import { Geist } from 'next/font/google';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { NavBar, type NavItem } from '@/components';
+import { type NavItem } from '@/components';
 import { LoginButton } from '@/features/auth/components/login-button';
 import { SessionEntryNavLink } from './_shell/role-home-link';
+import { ShellNav } from './_shell/shell-nav';
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -20,6 +21,7 @@ export const metadata: Metadata = {
 const NAV_ITEMS: NavItem[] = [
   { label: '홈', href: '/' },
   { label: '프로그램', href: '/programs' },
+  { label: '아카이브', href: '/archive' },
 ];
 
 export default function RootLayout({
@@ -27,11 +29,10 @@ export default function RootLayout({
 }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="ko" className={cn('font-sans', geist.variable)}>
-      <body>
-        <NavBar
+      <body className="relative">
+        <ShellNav
           brand={<Link href="/">OSS Hub</Link>}
           items={NAV_ITEMS}
-          linkComponent={Link}
           actions={
             <>
               <SessionEntryNavLink />
