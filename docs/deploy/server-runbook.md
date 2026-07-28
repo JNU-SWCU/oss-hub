@@ -93,15 +93,31 @@ sudo install -d -m 700 -o jenkins -g jenkins /var/lib/oss-hub/backups
 | `FRONTEND_URL` | OAuth 콜백 파생 등에 쓰는 프런트엔드 base URL |
 | `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth 로그인 앱 |
 | `GITHUB_COLLECTION_APP_ID` / `GITHUB_APP_ORG` / `GITHUB_COLLECTION_APP_PRIVATE_KEY` | GitHub 활동 수집 App |
-| `SUBMISSION_FILE_S3_ENDPOINT` | `http://minio:9000` — compose 내부 DNS. MinIO는 외부 노출하지 않는다 |
-| `SUBMISSION_FILE_S3_REGION` | 임의값. MinIO는 무시하지만 SDK가 요구한다. 예: `us-east-1` |
-| `SUBMISSION_FILE_S3_BUCKET` | 버킷명. `minio-bucket` 서비스가 기동 시 자동 생성한다 |
 | `SUBMISSION_FILE_S3_ACCESS_KEY_ID` / `SUBMISSION_FILE_S3_SECRET_ACCESS_KEY` | 운영자가 생성. `compose.yml`에서 MinIO root 자격증명으로도 같이 쓴다 |
-| `SUBMISSION_FILE_S3_FORCE_PATH_STYLE` | `true` |
 | `GMAIL_SENDER` / `GMAIL_OAUTH_CLIENT_ID` / `GMAIL_OAUTH_CLIENT_SECRET` / `GMAIL_OAUTH_REFRESH_TOKEN` | 마감 알림 메일 발신 (production 부팅 필수 4종) |
 
 `SUBMISSION_FILE_S3_ACCESS_KEY_ID`·`SUBMISSION_FILE_S3_SECRET_ACCESS_KEY`의 실제 값은 이 저장소에 두지 않는다.
 `compose.yml`에 env 키를 추가하거나 지우면 이 표도 같은 PR에서 갱신한다.
+
+### 기본값이 있는 저장소 키
+
+아래 4개는 이 스택의 MinIO 토폴로지가 결정하는 값이라 `compose.yml`이 기본값을 갖는다.
+**평소에는 `oss-hub-production-env`에 넣지 않는다** — 넣으면 기본값과 어긋날 여지만 생긴다.
+
+| 키 | 기본값 | 비고 |
+| --- | --- | --- |
+| `SUBMISSION_FILE_S3_ENDPOINT` | `http://minio:9000` | compose 내부 DNS. MinIO는 외부 노출하지 않는다 |
+| `SUBMISSION_FILE_S3_REGION` | `us-east-1` | MinIO는 무시하지만 SDK가 빈 값이 아니길 요구한다 |
+| `SUBMISSION_FILE_S3_BUCKET` | `oss-hub-submission-files` | `minio-bucket` 서비스가 기동 시 자동 생성한다. `backend`와 `minio-bucket` 양쪽 기본값이 같아야 한다 |
+| `SUBMISSION_FILE_S3_FORCE_PATH_STYLE` | `true` | MinIO는 path-style만 받는다 |
+
+관리형 S3로 옮길 때는 이 4개를 env에 지정한다. 애플리케이션 코드는 바꾸지 않는다.
+**전환 후에는 백엔드 컨테이너에 실제로 반영된 엔드포인트를 확인한다** — 키 이름을 틀리면 오류 없이
+기본값이 먹어 업로드가 조용히 로컬 MinIO로 계속 간다.
+
+```bash
+docker compose --env-file "$OSS_HUB_ENV_FILE" exec backend printenv SUBMISSION_FILE_S3_ENDPOINT
+```
 
 - 검증:
 
