@@ -22,7 +22,7 @@
 3. production은 공개 GitHub Release를 배포 후보로 사용한다. `draft=false`·`prerelease=false`이고 저장소 변수 `DEPLOY_TRIGGER_ENABLED=true`인 `published` 이벤트만 GitHub Actions가 Jenkins 내장 원격 빌드 트리거로 전달한다.
 4. GitHub Actions는 HTTPS `JENKINS_DEPLOY_URL`만 허용하고 전용 `oss-hub-deployer` API token을 Basic Authorization header로, action·tag를 POST body로 전달한다. host nginx는 정확한 `buildWithParameters` 경로의 POST만 localhost Jenkins로 프록시하며 Jenkins UI는 공개하지 않는다.
 5. Jenkins는 현재 latest full Release와 일치하는 `vMAJOR.MINOR.PATCH` tag 및 main ancestry를 검증한다.
-6. 이어서 #199 댓글에서 같은 tag·full SHA의 @GoBeromsu `RELEASE_ACCEPT role=PM`과 @Lumiere001 `RELEASE_ACCEPT role=TECH_LEAD`가 모두 있는지 확인한다. PM이 승인 대기 중단 책임을 명시한 예외에서는 @GoBeromsu의 exact `RELEASE_OVERRIDE role=PM`을 대신 허용한다. 누락·actor 불일치·stale SHA는 exact SHA checkout 전에 거절한다.
+6. 이어서 #199 댓글에서 같은 tag·full SHA의 @GoBeromsu `RELEASE_ACCEPT role=PM`이 있는지 확인한다. 누락·actor 불일치·stale SHA는 exact SHA checkout 전에 거절한다.
 7. Docker 권한을 가진 executor에는 `oss-hub-production` 전용 label을 부여하고 이 job과 승인된 운영자 외 작업을 배치하지 않는다. pipeline에 `disableConcurrentBuilds()`를 적용하고 `COMPOSE_PROJECT_NAME`을 고정한다.
 8. 이미 성공한 Release와 같거나 낮은 버전은 영속 상태 파일을 기준으로 성공 no-op 처리한다.
 9. Jenkins API token과 운영 환경 파일은 각 시스템의 Credentials Store에서만 관리한다. Release payload, 저장소, Actions·Jenkins 로그에 실제 값을 출력하지 않는다.
@@ -30,7 +30,7 @@
 
 ### 배포 순서
 
-1. latest Release의 tag를 main ancestry에 포함된 exact commit SHA로 해석하고 `IMAGE_TAG`로 사용한다. 같은 tag·SHA의 PM·Tech Lead 이중 승인 또는 공개 PM override를 #199에서 검증한 뒤 detached checkout한다.
+1. latest Release의 tag를 main ancestry에 포함된 exact commit SHA로 해석하고 `IMAGE_TAG`로 사용한다. 같은 tag·SHA의 @GoBeromsu `RELEASE_ACCEPT role=PM`을 #199에서 검증한 뒤 detached checkout한다.
 2. 정상 배포 상태 파일을 읽어 동일·하위 Release이면 성공 no-op으로 종료한다. 손상된 상태 파일은 자동 보정하지 않고 배포를 중단한다.
 3. 재사용 workspace에서도 backend Prisma client를 명시 생성한 뒤 lint, typecheck, test, 앱 build를 통과시킨다.
 4. 현재 실행 중인 front/back 이미지 태그를 `PREV_TAG`로 캡처한다. 두 태그가 다르면 배포를 중단한다.
@@ -45,7 +45,7 @@ Compose 종료·재기동 절차에서 `down -v`를 실행하지 않는다. Post
 
 ### 구현 진행 주석 — 첫 실동작 (2026-07-24, 2026-07-25 갱신)
 
-- 첫 배포 실동작 검증은 파라미터 job **수동 트리거**(`RELEASE_ACTION=published`, `RELEASE_TAG=<tag>`)로 재현한다. 자동 트리거 계약(GitHub Actions `deploy.yml` → Jenkins `buildWithParameters`)과 승인 게이트(`RELEASE_ACCEPT` 이중 승인 또는 공개 PM override)의 원본은 [ADR-002](../../decisions/ADR-002-CI-CD-파이프라인.md)와 위 M2다.
+- 첫 배포 실동작 검증은 파라미터 job **수동 트리거**(`RELEASE_ACTION=published`, `RELEASE_TAG=<tag>`)로 재현한다. 자동 트리거 계약(GitHub Actions `deploy.yml` → Jenkins `buildWithParameters`)과 승인 게이트 (@GoBeromsu `RELEASE_ACCEPT role=PM` 단독)의 원본은 [ADR-002](../../decisions/ADR-002-CI-CD-파이프라인.md)와 위 M2다.
 - GitHub read-only PAT는 release·승인 검증 API용으로 Jenkins Credentials Store에 **준비·문서화만** 한다. `Jenkinsfile`에 인증을 적용하는 코드 변경은 follow-up이다.
 - 서버 접속·설치·job·첫 Release e2e의 명령 수준 절차는 [server-runbook](../../deploy/server-runbook.md), 배포 전 로컬→EC2 단계 검증은 [pre-deploy-verify](../../deploy/pre-deploy-verify.md)를 따른다.
 - 서버 접근 정보·credentials 값은 이 저장소가 아니라 **Notion credentials 페이지**가 원본이며, Notion 기록은 craft-skills aside에 위임한다. 저장소에는 항목명과 `.env.example` 변수명만 둔다.
@@ -100,7 +100,7 @@ migration은 자동으로 되돌리지 않는다. DB 복구가 필요하면 해�
 
 - main branch protection의 `ci`·`public-safe` 및 #226 이후 `merge-policy` required check 설정 기록
 - 일반 `MERGE_READY`, stale head·base 거절, high-risk 이중 accept 누락 거절 fixture
-- main 검증 job과 HTTPS GitHub Actions→Jenkins Release 트리거의 분리, latest full Release 및 동일 tag·SHA 이중 `RELEASE_ACCEPT` 또는 공개 PM override 검증 기록
+- main 검증 job과 HTTPS GitHub Actions→Jenkins Release 트리거의 분리, latest full Release 및 동일 tag·SHA @GoBeromsu `RELEASE_ACCEPT role=PM` 단독 검증 기록
 - Jenkins pipeline의 전용 `oss-hub-production` executor, `disableConcurrentBuilds()`, 고정 `COMPOSE_PROJECT_NAME`, exact tag SHA·main ancestry 검증 기록
 - 동일·하위 Release 성공 no-op 기록
 - 배포 로그의 exact `IMAGE_TAG`, migration 전 backup, 이미지 1회 build, migration, `up -d --no-build --wait` 실행 기록
