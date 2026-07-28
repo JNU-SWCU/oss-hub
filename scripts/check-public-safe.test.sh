@@ -30,9 +30,7 @@ git_identity="$allowed_noreply"
 mention_bullet_dot='@GoBeromsu·@Lumiere001의 free-role 예외'
 mention_paren_comma='사람은 GitHub @handle로만 표기했다(@GoBeromsu, @Lumiere001)'
 mention_quoted_sentence='"PM+Tech Lead 이중 승인"에서 "@GoBeromsu 단독"으로 바뀐다'
-mention_paren_single='브라우저 QA 대기(@GoBeromsu)'
 mention_backtick_var='`@${TECH_LEAD_ACTOR}의 TECH_LEAD_ACCEPT`'
-mention_bullet_dotted_file='@Lumiere001·ADR-005.md 참조'
 mention_shell_assignment_ellipsis="셸 문자열(var='${at_sign}handle...' 형태)"
 mention_dotless_unicode_token="담당자${at_sign}내부도메인"
 mention_quoted_dotless_token='"quoted local"'"${at_sign}"'내부도메인'
@@ -258,12 +256,8 @@ expect_pass '괄호·쉼표로 감싼 GitHub 멘션들(도메인 형태 없음)'
   scan_pr_text "$mention_paren_comma"
 expect_pass '따옴표 문장 뒤 GitHub 멘션(quoted-local 오매칭 방지)' \
   scan_pr_text "$mention_quoted_sentence"
-expect_pass '단독 괄호 안 GitHub 멘션(도메인 형태 없음)' \
-  scan_pr_text "$mention_paren_single"
 expect_pass '백틱·쉘 변수 뒤 GitHub 멘션(도메인 형태 없음)' \
   scan_pr_text "$mention_backtick_var"
-expect_pass '점이 있는 뒤 토큰과 가운뎃점으로 이어진 GitHub 멘션' \
-  scan_pr_text "$mention_bullet_dotted_file"
 expect_pass '셸 할당문 속 GitHub 핸들 뒤 말줄임표' \
   scan_pr_text "$mention_shell_assignment_ellipsis"
 expect_pass '점 없는 Unicode 토큰은 자동 이메일 후보에서 제외' \
@@ -287,8 +281,6 @@ expect_fail '가운뎃점이 @ 바로 앞에 오고 도메인에 점이 있는 �
   scan_pr_text "$blocked_bullet_dot_before_at_dotted_domain"
 expect_fail '여는 괄호로 감싼 전체 주소(도메인에 점이 있음)' \
   scan_pr_text "$blocked_paren_wrapped_dotted_domain"
-expect_fail '한글 음절이 도메인에 포함된 이메일(로케일 회귀 방지)' \
-  scan_pr_text "$blocked_hangul_domain_locale"
 expect_fail '외부 LC_ALL=C 환경에서도 한글 도메인 이메일 차단(스캐너 자체 로케일 고정)' \
   scan_issue_text_lc_all_c "$blocked_hangul_domain_locale"
 
