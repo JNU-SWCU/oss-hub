@@ -1,10 +1,14 @@
-import { Role } from '@prisma/client';
+import { Role, RoleRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminUsersRepository } from './admin-users.repository';
 import { AdminUsersService } from './admin-users.service';
+import { RolesErrorCode } from './roles-error-code.enum';
+import { STAFF_ROLE_REQUEST_ACTIONS } from './domain/staff-role-request';
+import { StaffRoleRequestsService } from './staff-role-requests.service';
+import { StaffRoleRequestsRepository } from './staff-role-requests.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -22,6 +26,10 @@ describe('Admin users integration', () => {
   const repository = new AdminUsersRepository(prisma);
   const auditLog = new AuditLogService(new AuditLogRepository(prisma));
   const service = new AdminUsersService(repository, auditLog);
+  const staffRoleRequestsService = new StaffRoleRequestsService(
+    new StaffRoleRequestsRepository(prisma),
+    auditLog,
+  );
 
   beforeAll(async () => {
     await prisma.$connect();
@@ -136,10 +144,101 @@ describe('Admin users integration', () => {
       0,
     );
   });
+  it('PENDING 신청자에게 STAFF를 부여하면 관리자 결정으로 승인되어 중복 승인과 충돌하지 않는다', async () => {
+    const targetId = `${TEST_PREFIX}student`;
+    const requestId = `${TEST_PREFIX}pending-request`;
+    await prisma.roleRequest.create({
+      data: { id: requestId, userId: targetId },
+    });
+
+    await service.updateRole(ADMIN_GITHUB_ID, targetId, Role.STAFF);
+
+    const decided = await prisma.roleRequest.findUniqueOrThrow({
+      where: { id: requestId },
+    });
+    expect(decided.status).toBe(RoleRequestStatus.APPROVED);
+    expect(decided.decidedById).toBe(`${TEST_PREFIX}admin`);
+    expect(decided.decidedAt).not.toBeNull();
+    await expect(
+      staffRoleRequestsService.decide(ADMIN_GITHUB_ID, requestId, {
+        action: STAFF_ROLE_REQUEST_ACTIONS.APPROVE,
+      }),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: RolesErrorCode.ROLE_REQUEST_ALREADY_DECIDED,
+        status: 409,
+      },
+    });
+  });
+
+  it('APPROVED 교직원을 STUDENT로 변경하면 신청만 회수하고 계정 상태는 유지한다', async () => {
+    const targetId = `${TEST_PREFIX}staff`;
+    const requestId = `${TEST_PREFIX}approved-request`;
+    await prisma.roleRequest.create({
+      data: {
+        id: requestId,
+        userId: targetId,
+        status: RoleRequestStatus.APPROVED,
+        decidedById: `${TEST_PREFIX}admin`,
+        decidedAt: new Date(),
+      },
+    });
+    const before = await prisma.user.findUniqueOrThrow({
+      where: { id: targetId },
+    });
+
+    await service.updateRole(ADMIN_GITHUB_ID, targetId, Role.STUDENT);
+
+    await expect(
+      prisma.roleRequest.findUniqueOrThrow({ where: { id: requestId } }),
+    ).resolves.toMatchObject({ status: RoleRequestStatus.REVOKED });
+    await expect(
+      prisma.user.findUniqueOrThrow({ where: { id: targetId } }),
+    ).resolves.toMatchObject({
+      role: Role.STUDENT,
+      accountStatus: before.accountStatus,
+    });
+  });
+
+  it('신청 기록이 없거나 이미 종결되면 신청 행을 만들거나 변경하지 않는다', async () => {
+    const closedRequestId = `${TEST_PREFIX}closed-request`;
+    await prisma.roleRequest.create({
+      data: {
+        id: closedRequestId,
+        userId: `${TEST_PREFIX}staff`,
+        status: RoleRequestStatus.REJECTED,
+        decidedById: `${TEST_PREFIX}admin`,
+        decidedAt: new Date(),
+      },
+    });
+
+    await service.updateRole(
+      ADMIN_GITHUB_ID,
+      `${TEST_PREFIX}student`,
+      Role.ADMIN,
+    );
+    await service.updateRole(
+      ADMIN_GITHUB_ID,
+      `${TEST_PREFIX}staff`,
+      Role.STUDENT,
+    );
+
+    await expect(
+      prisma.roleRequest.count({
+        where: { userId: `${TEST_PREFIX}student` },
+      }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.roleRequest.findUniqueOrThrow({ where: { id: closedRequestId } }),
+    ).resolves.toMatchObject({ status: RoleRequestStatus.REJECTED });
+  });
 
   async function cleanup(): Promise<void> {
     await prisma.auditLog.deleteMany({
       where: { targetId: { startsWith: TEST_PREFIX } },
+    });
+    await prisma.roleRequest.deleteMany({
+      where: { id: { startsWith: TEST_PREFIX } },
     });
     await prisma.user.deleteMany({
       where: { id: { startsWith: TEST_PREFIX } },

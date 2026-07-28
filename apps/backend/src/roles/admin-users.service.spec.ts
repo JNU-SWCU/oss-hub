@@ -1,8 +1,10 @@
-import { AccountStatus, Role } from '@prisma/client';
+import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { RolesErrorCode } from './roles-error-code.enum';
 import type {
+  AdminRoleRequestRecord,
+  AdminRoleRequestTransition,
   AdminUserRecord,
   AdminUsersRepositoryPort,
   AdminUsersTransactionStore,
@@ -35,6 +37,8 @@ class InMemoryAdminUsersRepository
     user('synthetic-admin', Role.ADMIN, ADMIN_GITHUB_ID),
     user('synthetic-staff', Role.STAFF),
   ];
+  requests: AdminRoleRequestRecord[] = [];
+  transitions: AdminRoleRequestTransition[] = [];
 
   withTransaction<T>(
     operation: (store: AdminUsersTransactionStore) => Promise<T>,
@@ -64,6 +68,25 @@ class InMemoryAdminUsersRepository
     const updated = { ...target, role };
     this.users.splice(this.users.indexOf(target), 1, updated);
     return updated;
+  }
+
+  findLatestRoleRequest(): Promise<AdminRoleRequestRecord | null> {
+    return Promise.resolve(this.requests.at(-1) ?? null);
+  }
+
+  transitionRoleRequest(input: AdminRoleRequestTransition): Promise<boolean> {
+    const requestIndex = this.requests.findIndex(
+      (candidate) =>
+        candidate.id === input.requestId &&
+        candidate.status === input.expectedStatus,
+    );
+    if (requestIndex === -1) return Promise.resolve(false);
+    this.requests.splice(requestIndex, 1, {
+      id: input.requestId,
+      status: input.nextStatus,
+    });
+    this.transitions.push(input);
+    return Promise.resolve(true);
   }
 }
 
@@ -115,6 +138,51 @@ describe('AdminUsersService', () => {
       },
       repository.auditLogWriter,
     );
+  });
+
+  it.each([
+    [RoleRequestStatus.PENDING, Role.STAFF, RoleRequestStatus.APPROVED],
+    [RoleRequestStatus.PENDING, Role.STUDENT, RoleRequestStatus.REJECTED],
+    [RoleRequestStatus.APPROVED, Role.STAFF, null],
+    [RoleRequestStatus.APPROVED, Role.ADMIN, RoleRequestStatus.REVOKED],
+    [RoleRequestStatus.REJECTED, Role.STAFF, null],
+  ])(
+    '관리자 역할 변경이 신청 상태 %s에서 %s를 부여하면 %s로 전이한다',
+    async (currentStatus, role, expectedStatus) => {
+      const repository = new InMemoryAdminUsersRepository();
+      repository.requests = [
+        { id: 'synthetic-request', status: currentStatus },
+      ];
+      const service = new AdminUsersService(repository, auditLog().service);
+
+      await service.updateRole(ADMIN_GITHUB_ID, 'synthetic-staff', role);
+
+      expect(repository.requests[0]?.status).toBe(
+        expectedStatus ?? currentStatus,
+      );
+      if (expectedStatus) {
+        expect(repository.transitions).toEqual([
+          expect.objectContaining({
+            decidedById: 'synthetic-admin',
+            expectedStatus: currentStatus,
+            nextStatus: expectedStatus,
+            rejectionReason: null,
+          }),
+        ]);
+      } else {
+        expect(repository.transitions).toEqual([]);
+      }
+    },
+  );
+
+  it('신청 기록이 없으면 신청 행을 만들지 않는다', async () => {
+    const repository = new InMemoryAdminUsersRepository();
+    const service = new AdminUsersService(repository, auditLog().service);
+
+    await service.updateRole(ADMIN_GITHUB_ID, 'synthetic-staff', Role.STAFF);
+
+    expect(repository.requests).toEqual([]);
+    expect(repository.transitions).toEqual([]);
   });
 
   it('존재하지 않는 사용자 ID는 변경·감사 기록 없이 닫힌다', async () => {
