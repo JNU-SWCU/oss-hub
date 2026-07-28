@@ -41,9 +41,10 @@ const migrationStatements = migrationSql
 
 describe('accountStatus migration regression', () => {
   const prisma = new PrismaService();
+  const authConfig = new AuthConfig();
   const authService = new AuthService(
-    new AuthConfig(),
-    new AuthRepository(prisma),
+    authConfig,
+    new AuthRepository(prisma, authConfig),
   );
   const rolesService = new RolesService(
     new RolesRepository(prisma),

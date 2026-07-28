@@ -29,11 +29,15 @@ expect_fail() {
   fi
 }
 
-printf 'services:\n  backend:\n    environment:\n      DATABASE_URL: ${DATABASE_URL:?required}\n      SUBMISSION_FILE_S3_BUCKET: ${SUBMISSION_FILE_S3_BUCKET:?required}\n' >"$fixture_dir/valid-compose.yml"
+printf 'services:\n  backend:\n    environment:\n      DATABASE_URL: ${DATABASE_URL:?required}\n      SUBMISSION_FILE_S3_BUCKET: ${SUBMISSION_FILE_S3_BUCKET:?required}\n      AUTH_INITIAL_ROLES: ${AUTH_INITIAL_ROLES:-}\n' >"$fixture_dir/valid-compose.yml"
 printf 'DATABASE_URL=value\nSUBMISSION_FILE_S3_BUCKET=value\n' >"$fixture_dir/valid.env"
+cp "$fixture_dir/valid.env" "$fixture_dir/missing.env"
 printf 'DATABASE_URL=value\n' >"$fixture_dir/missing.env"
+cp "$fixture_dir/valid-compose.yml" "$fixture_dir/missing-map.yml"
+printf 'services:\n  backend:\n    environment:\n      DATABASE_URL: ${DATABASE_URL:?required}\n' >"$fixture_dir/missing-map.yml"
 
 expect_pass '필수 키가 모두 있으면 성공' "$fixture_dir/valid-compose.yml" "$fixture_dir/valid.env"
 expect_fail '숫자를 포함한 S3 필수 키 누락' "$fixture_dir/valid-compose.yml" "$fixture_dir/missing.env"
+expect_fail 'AUTH_INITIAL_ROLES 명시 매핑 누락' "$fixture_dir/missing-map.yml" "$fixture_dir/valid.env"
 printf '%s passed, %s failed\n' "$passed" "$failed"
 ((failed == 0))
