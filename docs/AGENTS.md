@@ -20,7 +20,7 @@
 | 경로 | 내용 | 문서 |
 | --- | --- | --- |
 | `decisions/` | ADR(Architecture Decision Record) — 되돌리기 어려운 횡단 결정의 원본 | [decisions/README.md](decisions/README.md)(ADR 인덱스·라이프사이클) |
-| `exec-plan/active/`, `exec-plan/archive/` | 기능별 실행 계획 — owner 전속 산출물(루트 AGENTS.md §3) | — |
+| `exec-plan/active/`, `exec-plan/archive/` | 기능별 실행 계획 — owner 전속 산출물, @GoBeromsu와 @Lumiere001 free-role 예외 있음(루트 AGENTS.md §3, 원본 ADR-005) | — |
 | `handoff/` | 팀 상태 스냅샷·drift 검사 | `TEAM-STATE.md`(스냅샷, `generated_at` 48시간 경과 시 신뢰 금지), `team-state-drift-check.md` |
 | `rules/` | 세부 규칙 원본(보안·frontend·PR 범위·로컬 실행·CI 경로별 검증) | 각 파일이 자기 주제의 원본 |
 
@@ -28,7 +28,7 @@
 
 - **세션 부트스트랩 순서**(루트 AGENTS.md §1)는 `handoff/TEAM-STATE.md` → 자기 기능의 `exec-plan/active/<기능>.md` → 두 문서가 링크한 `rules/`·`decisions/`만 추가로 읽는 순서다. `docs/` 하위 문서를 처음부터 전부 읽지 않는다.
 - **ADR 라이프사이클**(`decisions/README.md`): 결정이 바뀌면 새 ADR 파일을 만들지 않고 같은 문서를 갱신한 뒤 Changelog에 날짜·사유를 남긴다. `Proposed → Accepted → Deprecated` 상태만 쓴다.
-- `exec-plan/active/*.md`는 owner 전속 경로다 — owner가 아니면 직접 수정하지 않고 Issue·PR 코멘트로 제안한다(루트 AGENTS.md §3).
+- `exec-plan/active/*.md`는 owner 전속 경로다 — owner가 아니면 직접 수정하지 않고 Issue·PR 코멘트로 제안한다(루트 AGENTS.md §3). @GoBeromsu와 @Lumiere001은 free-role 예외로 owner 표와 무관하게 수정한다(원본 ADR-005).
 - `rules/`의 각 파일이 해당 주제의 원본이다: `security.md`(public-safe deny-list·시크릿·합성 fixture 절차), `frontend.md`(feature 폴더·단일 API 클라이언트), `pr-scope.md`(PR 분해 기준), `local-dev.md`(로컬 실행 런북 — 원시 명령이 아니라 `package.json` 스크립트 이름 기준), `ci-path-verification.md`(변경 경로별 CI 검증 매핑).
 - 이 저장소는 PUBLIC이다 — 새 문서를 추가하기 전 `docs/rules/security.md`의 deny-list를 확인한다.
 

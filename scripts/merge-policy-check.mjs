@@ -9,8 +9,6 @@ import { readFileSync } from 'node:fs';
 
 import {
   collectChangedPaths,
-  EMERGENCY_POLICY_PR_NUMBER,
-  EMERGENCY_PR_NUMBER,
   evaluateMergePolicy,
   formatSummary,
   hasCompletePullFiles,
@@ -121,34 +119,7 @@ export function fetchInputs(repository, prNumber) {
     throw new Error('GitHub pull files metadata was incomplete or malformed');
   }
   const changedFiles = collectChangedPaths(files);
-  let policy = null;
-  if (pull.number === EMERGENCY_PR_NUMBER && EMERGENCY_POLICY_PR_NUMBER !== 0) {
-    const policyPull = api(
-      `repos/${repository}/pulls/${EMERGENCY_POLICY_PR_NUMBER}`,
-    );
-    if (
-      policyPull?.number !== EMERGENCY_POLICY_PR_NUMBER ||
-      typeof policyPull?.merged_at !== 'string' ||
-      typeof policyPull?.merge_commit_sha !== 'string'
-    ) {
-      throw new Error('Emergency policy pull metadata was malformed');
-    }
-    const comparison = api(
-      `repos/${repository}/compare/${policyPull.merge_commit_sha}...${baseSha}`,
-    );
-    if (typeof comparison?.status !== 'string') {
-      throw new Error('Emergency policy ancestry response was malformed');
-    }
-    policy = {
-      prNumber: policyPull.number,
-      mergedAt: policyPull.merged_at,
-      mergeCommitSha: policyPull.merge_commit_sha,
-      mergeCommitIsAncestorOfBase: ['ahead', 'identical'].includes(
-        comparison.status,
-      ),
-    };
-  }
-  return { pull, comments, files, changedFiles, policy };
+  return { pull, comments, files, changedFiles };
 }
 
 function publishCheckRun(repository, pull, result) {
@@ -178,18 +149,13 @@ function publishCheckRun(repository, pull, result) {
 function main() {
   const options = parseArguments(process.argv.slice(2));
   const repository = repositoryName();
-  const { pull, comments, files, changedFiles, policy } = fetchInputs(
-    repository,
-    options.pr,
-  );
+  const { pull, comments, changedFiles } = fetchInputs(repository, options.pr);
   const codeownersText = readFileSync(CODEOWNERS_PATH, 'utf8');
 
   const result = evaluateMergePolicy({
     pull,
     comments,
     changedFiles,
-    files,
-    policy,
     codeownersText,
   });
   const summary = formatSummary(result, pull);
