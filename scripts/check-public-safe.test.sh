@@ -25,6 +25,22 @@ blocked_name='-SyntheticName'
 mixed_same_line="$allowed_noreply $blocked_contact"
 git_identity="$allowed_noreply"
 
+# GitHub @handle 멘션 오탐 회귀 — 도메인 형태(점 + 마지막 점 뒤 2자 이상)가 없어
+# 이메일 후보가 될 수 없는 문장들. 리터럴 그대로 써도 이메일처럼 보이지 않는다.
+mention_bullet_dot='@GoBeromsu·@Lumiere001의 free-role 예외'
+mention_paren_comma='사람은 GitHub @handle로만 표기했다(@GoBeromsu, @Lumiere001)'
+mention_quoted_sentence='"PM+Tech Lead 이중 승인"에서 "@GoBeromsu 단독"으로 바뀐다'
+mention_paren_single='브라우저 QA 대기(@GoBeromsu)'
+mention_backtick_var='`@${TECH_LEAD_ACTOR}의 TECH_LEAD_ACCEPT`'
+mention_bullet_dotted_file='@Lumiere001·ADR-005.md 참조'
+
+# 도메인 형태 요건 도입 후에도 계속 차단돼야 하는 실제 이메일류 — 소스에 완성된
+# literal이 남지 않도록 at_sign으로 쪼갠다.
+blocked_kr_tld_email="사용자${at_sign}example.co.kr"
+blocked_quoted_local_dotted_domain='"quoted local"'"${at_sign}"'example.com'
+blocked_punycode_ascii_domain="admin${at_sign}xn--80ak6aa92e.com"
+blocked_unicode_local_and_domain="테스트${at_sign}도메인.한국"
+
 passed=0
 failed=0
 
@@ -211,6 +227,29 @@ expect_fail 'punycode IDN 이메일 후보를 연락처로 차단' \
   scan_pr_text "$blocked_punycode_domain"
 expect_fail '허용·금지 주소가 같은 줄인 PR 텍스트' \
   scan_pr_text "$mixed_same_line"
+
+expect_pass '가운뎃점으로 이어진 GitHub 멘션 두 개(도메인 형태 없음)' \
+  scan_pr_text "$mention_bullet_dot"
+expect_pass '괄호·쉼표로 감싼 GitHub 멘션들(도메인 형태 없음)' \
+  scan_pr_text "$mention_paren_comma"
+expect_pass '따옴표 문장 뒤 GitHub 멘션(quoted-local 오매칭 방지)' \
+  scan_pr_text "$mention_quoted_sentence"
+expect_pass '단독 괄호 안 GitHub 멘션(도메인 형태 없음)' \
+  scan_pr_text "$mention_paren_single"
+expect_pass '백틱·쉘 변수 뒤 GitHub 멘션(도메인 형태 없음)' \
+  scan_pr_text "$mention_backtick_var"
+expect_pass '점이 있는 뒤 토큰과 가운뎃점으로 이어진 GitHub 멘션' \
+  scan_pr_text "$mention_bullet_dotted_file"
+
+expect_fail '도메인 형태 요건 도입 후에도 차단되는 .co.kr 이메일' \
+  scan_pr_text "$blocked_kr_tld_email"
+expect_fail '도메인 형태 요건 도입 후에도 차단되는 quoted-local 이메일' \
+  scan_pr_text "$blocked_quoted_local_dotted_domain"
+expect_fail '도메인 형태 요건 도입 후에도 차단되는 punycode 이메일' \
+  scan_pr_text "$blocked_punycode_ascii_domain"
+expect_fail '도메인 형태 요건 도입 후에도 차단되는 비ASCII local·domain 이메일' \
+  scan_pr_text "$blocked_unicode_local_and_domain"
+
 expect_error '존재하지 않는 기준 ref' 2 scan_invalid_ref
 expect_error 'grep 실행 오류' 2 scan_broken_grep
 expect_fail '하이픈으로 시작하는 BLOCKED_NAMES 값' scan_blocked_name
