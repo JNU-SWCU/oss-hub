@@ -439,6 +439,30 @@ test('NODE_ENV 는 키 전역 면제(Dockerfile·compose.local.yml 소유 의도
     true,
   );
 });
+test('RuntimeConfig 공통 획득 경로는 CLI 전용 키의 기존 면제만 상속한다', () => {
+  const runtimeConfigPath = 'apps/backend/src/runtime-config/runtime-config.ts';
+
+  assert.equal(isDeclarationExempt('DIGEST_FORCE_TO', runtimeConfigPath), true);
+  for (const key of [
+    'DIGEST_FORCE_TO',
+    'SUBMISSION_FILE_CLEANUP_MAINTENANCE_ENABLED',
+    'SUBMISSION_FILE_CLEANUP_OPERATOR_ID',
+    'GITHUB_COLLECTION_APP_SMOKE_PUBLIC_ALIASES',
+    'GITHUB_COLLECTION_APP_SMOKE_PRIVATE_ALIAS',
+  ]) {
+    assert.equal(
+      isServiceMappingExempt(key, 'backend', runtimeConfigPath),
+      true,
+      key,
+    );
+  }
+
+  assert.equal(isDeclarationExempt('UNRELATED_KEY', runtimeConfigPath), false);
+  assert.equal(
+    isServiceMappingExempt('UNRELATED_KEY', 'backend', runtimeConfigPath),
+    false,
+  );
+});
 
 // --- 계약 평가 fixture (기존 의도 이식) ---
 

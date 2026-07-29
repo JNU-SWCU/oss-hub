@@ -32,6 +32,15 @@ const APPROVED_ENV_HELPERS = new Map([
     new Set(['apps/backend/src/submissions/submission-file-storage.config.ts']),
   ],
 ]);
+const RUNTIME_CONFIG_PATH = 'apps/backend/src/runtime-config/runtime-config.ts';
+
+/**
+ * RuntimeConfig가 코드 키의 공통 획득 지점이므로 CLI 전용 키는 이 경로에서도
+ * 기존 소비 경로와 같은 선언·service mapping 면제를 적용한다.
+ */
+function isRuntimeConfigPath(relPath) {
+  return relPath.replaceAll('\\', '/') === RUNTIME_CONFIG_PATH;
+}
 
 // CollectionAppConfig.envNames 및 유사 config 리터럴.
 // error code(GITHUB_OPERATIONS_UPSTREAM 등)는 접두 필터로 제외.
@@ -79,7 +88,9 @@ export function isDeclarationExempt(key, relPath) {
     case 'NODE_ENV':
       return true;
     case 'DIGEST_FORCE_TO':
-      return relPath.includes('/notifications/cli/');
+      return (
+        relPath.includes('/notifications/cli/') || isRuntimeConfigPath(relPath)
+      );
     case 'OSS_HUB_INTEGRATION_RUNNER':
       return isIntegrationRunnerPath(relPath);
     default:
@@ -102,15 +113,21 @@ export function isServiceMappingExempt(key, owner, relPath) {
       // compose image: 치환 전용. 서비스 environment 매핑 대상 아님.
       return true;
     case 'DIGEST_FORCE_TO':
-      return relPath.includes('/notifications/cli/');
+      return (
+        relPath.includes('/notifications/cli/') || isRuntimeConfigPath(relPath)
+      );
     case 'OSS_HUB_INTEGRATION_RUNNER':
       return isIntegrationRunnerPath(relPath);
     case 'SUBMISSION_FILE_CLEANUP_MAINTENANCE_ENABLED':
     case 'SUBMISSION_FILE_CLEANUP_OPERATOR_ID':
-      return relPath.includes('/submissions/cli/');
+      return (
+        relPath.includes('/submissions/cli/') || isRuntimeConfigPath(relPath)
+      );
     case 'GITHUB_COLLECTION_APP_SMOKE_PUBLIC_ALIASES':
     case 'GITHUB_COLLECTION_APP_SMOKE_PRIVATE_ALIAS':
-      return relPath.includes('/collection/cli/');
+      return (
+        relPath.includes('/collection/cli/') || isRuntimeConfigPath(relPath)
+      );
     default:
       return false;
   }
