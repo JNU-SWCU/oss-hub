@@ -227,7 +227,7 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
         title="프로그램"
         description="참여할 프로그램을 찾아보세요."
       />
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem]">
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,3fr)_minmax(12rem,1fr)]">
         <Input
           aria-label="프로그램명 검색"
           onChange={(event) => {
