@@ -221,7 +221,8 @@ D6(제출 파일 object backup 간극으로 업로드 경로 fail-closed)는 이
 - `<DEPLOYER_USER>` / `<DEPLOYER_API_TOKEN>` — 신 경로 전용 deployer 자격(값 저장소 금지; Credentials/Notion)
 - `<FAULT_TAG>` — full SemVer fault Release tag(예: `v0.0.0-g007-fault.1`; 점검 창 종료 전 삭제)
 - `<CLEAN_TAG>` — fault 정리 후 최종 정상 full SemVer Release tag
-- `<FAULT_BRANCH>` — 검토된 가역 fault 전용 단기 브랜치 이름(main에 직접 force-push 금지)
+- `<FAULT_BRANCH>` — 검토된 가역 fault 전용 단기 브랜치 이름(main에 직접 force-push·직접 커밋 금지)
+- `<REVERT_BRANCH>` — fault 복구용 검토된 revert 전용 단기 브랜치 이름(main 직접 push 금지; 별도 revert PR만)
 - 승인 토큰은 ADR-005 exact-head 형식만 쓴다: 현재 `headRefOid`·base ref·base SHA에 고정된 `MERGE_READY`와 배포 계약 경로용 @GoBeromsu `PM_ACCEPT`. production Release는 `#199`의 @GoBeromsu `RELEASE_ACCEPT role=PM tag=<tag> head=<sha>` 한 건만 유효하다(`TECH_LEAD`·`OVERRIDE` 폐지).
 - freeze/대조 대상은 항상 PR `headRefOid`다. merge commit SHA로 대체하지 않는다.
 
@@ -281,8 +282,12 @@ docker inspect --format '{{.Name}} image={{.Image}} restartCount={{.RestartCount
   - 확인:
 
 ```sh
-gh variable list --repo "<GITHUB_OWNER>/<GITHUB_REPO>" --jq '.[] | select(.name=="DEPLOY_TRIGGER_ENABLED") | .value'
-# 예상 한 줄: false
+gate_vals="$(gh variable list --repo "<GITHUB_OWNER>/<GITHUB_REPO>" --json name,value \
+  --jq '[.[] | select(.name=="DEPLOY_TRIGGER_ENABLED") | .value]')"
+test "$(printf '%s' "$gate_vals" | jq -er 'length')" = "1"
+gate_val="$(printf '%s' "$gate_vals" | jq -er '.[0]')"
+test "$gate_val" = "false"
+printf 'DEPLOY_TRIGGER_ENABLED=%s\n' "$gate_val"
 ```
 
   - `<JENKINS_UI>` → `oss-hub-release-cd` → **Build History** 상단 상태와 좌측 executor/**Build Queue**:
@@ -329,9 +334,21 @@ sudo cp -a "<HOST_NGINX_CONF_SRC_DUAL>" "<HOST_NGINX_CONF_DST>"
 sudo nginx -t
 sudo systemctl reload nginx
 
-# 4) active conf에 old·new location 존재 확인 (둘 다 exit 0)
-sudo nginx -T 2>/dev/null | grep -F "location = /job/oss-hub-release-cd/buildWithParameters"
-sudo nginx -T 2>/dev/null | grep -F "location = /job/oss-hub-release-cd/build"
+# 4) active conf old·new location 독립 exact 단언
+#    trailing " {" 포함 — "/build" 가 "/buildWithParameters" 에 부분 매칭되면 안 된다.
+NGINX_T="$(sudo nginx -T 2>/dev/null)"
+OLD_LOC_RE='^[[:space:]]*location = /job/oss-hub-release-cd/buildWithParameters \{$'
+NEW_LOC_RE='^[[:space:]]*location = /job/oss-hub-release-cd/build \{$'
+old_n="$(printf '%s\n' "$NGINX_T" | grep -E -c "$OLD_LOC_RE" || true)"
+new_n="$(printf '%s\n' "$NGINX_T" | grep -E -c "$NEW_LOC_RE" || true)"
+test "$old_n" = "1"
+test "$new_n" = "1"
+# 두 패턴이 동일 줄을 잡지 않는지 교차 검증
+old_lines="$(printf '%s\n' "$NGINX_T" | grep -E -n "$OLD_LOC_RE" | cut -d: -f1)"
+new_lines="$(printf '%s\n' "$NGINX_T" | grep -E -n "$NEW_LOC_RE" | cut -d: -f1)"
+test -n "$old_lines"
+test -n "$new_lines"
+test "$old_lines" != "$new_lines"
 ```
 
   - step 2와 동일한 locked probe를 pre-deploy-verify «G007 baseline·probe»로 재실행.
@@ -350,17 +367,48 @@ sudo nginx -t && sudo systemctl reload nginx
 - 명령/UI:
 
 ```sh
-# 현재 headRefOid가 freeze와 같은지 재확인
-test "$(gh api "repos/<GITHUB_OWNER>/<GITHUB_REPO>/pulls/<ACTIVATION_PR>" --jq .head.sha)" \
-  = "<FROZEN_HEAD_REF_OID_ACTIVATION>"
-# 불일치 시: freeze 값을 새 head로 갱신하고 MERGE_READY+PM_ACCEPT를 그 head에 재발급할 때까지 병합 금지
+# 현재 window PR 신원 freeze 재확인 (head/base/base_sha)
+ACT_JSON="$(gh api "repos/<GITHUB_OWNER>/<GITHUB_REPO>/pulls/<ACTIVATION_PR>")"
+ACT_HEAD="$(printf '%s' "$ACT_JSON" | jq -er .head.sha)"
+ACT_BASE_REF="$(printf '%s' "$ACT_JSON" | jq -er .base.ref)"
+ACT_BASE_SHA="$(printf '%s' "$ACT_JSON" | jq -er .base.sha)"
+test "$ACT_HEAD" = "<FROZEN_HEAD_REF_OID_ACTIVATION>"
+# 불일치 시: freeze 값을 새 head로 갱신하고 아래 마커를 그 head에 재발급할 때까지 병합 금지
+
+# current-window exact markers: comment actor + created_at (빈 매칭=실패, 무조건 PASS 금지)
+COMMENTS_JSON="$(gh api --paginate "repos/<GITHUB_OWNER>/<GITHUB_REPO>/issues/<ACTIVATION_PR>/comments")"
+MR_N="$(printf '%s' "$COMMENTS_JSON" | jq -er --arg h "$ACT_HEAD" --arg b "$ACT_BASE_REF" --arg s "$ACT_BASE_SHA" '
+  [.[]
+    | select((.user.login|ascii_downcase)=="goberomsu" or (.user.login|ascii_downcase)=="lumiere001")
+    | select((.created_at|type)=="string" and (.created_at|length)>0)
+    | .body | split("\n")[]
+    | select(test("^MERGE_READY head=\($h) base=\($b) base_sha=\($s) risk=(GENERAL|HIGH_RISK)$"))
+  ] | length')"
+test "$MR_N" -ge 1
+PM_N="$(printf '%s' "$COMMENTS_JSON" | jq -er --arg h "$ACT_HEAD" --arg b "$ACT_BASE_REF" --arg s "$ACT_BASE_SHA" '
+  [.[]
+    | select((.user.login|ascii_downcase)=="goberomsu")
+    | select((.created_at|type)=="string" and (.created_at|length)>0)
+    | .body | split("\n")[]
+    | select(test("^PM_ACCEPT head=\($h) base=\($b) base_sha=\($s)$"))
+  ] | length')"
+test "$PM_N" -ge 1
+# optional GitHub review rows: actor+submitted_at 존재 시 exact head 불일치면 실패
+REV_BAD="$(gh api --paginate "repos/<GITHUB_OWNER>/<GITHUB_REPO>/pulls/<ACTIVATION_PR>/reviews" \
+  | jq -er --arg h "$ACT_HEAD" '
+    [.[]
+      | select(.state=="APPROVED")
+      | select((.user.login|type)=="string" and (.submitted_at|type)=="string")
+      | select(.commit_id != $h)
+    ] | length')"
+test "$REV_BAD" = "0"
+# admin bypass 금지 — 위 단언 실패 시 병합하지 않는다 ([ADR-005](../decisions/ADR-005-agent-driven-review-cycle.md)).
 ```
 
-  - PR `<ACTIVATION_PR>` 최상위 댓글에 현재 head·base·base_sha 고정 `MERGE_READY ... risk=HIGH_RISK`(또는 해당 risk)와 @GoBeromsu `PM_ACCEPT head=<sha> base=<ref> base_sha=<sha>`가 **같은 head**로 존재하는지 확인([ADR-005](../decisions/ADR-005-agent-driven-review-cycle.md)). admin bypass 금지.
   - 병합:
 
 ```sh
-gh pr merge "<ACTIVATION_PR>" --repo "<GITHUB_OWNER>/<GITHUB_REPO>" --merge --match-head-commit "<FROZEN_HEAD_REF_OID_ACTIVATION>"
+gh pr merge "<ACTIVATION_PR>" --repo "<GITHUB_OWNER>/<GITHUB_REPO>" --merge --match-head-commit "$ACT_HEAD"
 ```
 
   - `<JENKINS_UI>` → `oss-hub-release-cd` → **Configure**:
@@ -369,8 +417,12 @@ gh pr merge "<ACTIVATION_PR>" --repo "<GITHUB_OWNER>/<GITHUB_REPO>" --merge --ma
   - 게이트 유지 확인:
 
 ```sh
-gh variable list --repo "<GITHUB_OWNER>/<GITHUB_REPO>" --jq '.[] | select(.name=="DEPLOY_TRIGGER_ENABLED") | .value'
-# 반드시 false
+gate_vals="$(gh variable list --repo "<GITHUB_OWNER>/<GITHUB_REPO>" --json name,value \
+  --jq '[.[] | select(.name=="DEPLOY_TRIGGER_ENABLED") | .value]')"
+test "$(printf '%s' "$gate_vals" | jq -er 'length')" = "1"
+gate_val="$(printf '%s' "$gate_vals" | jq -er '.[0]')"
+test "$gate_val" = "false"
+printf 'DEPLOY_TRIGGER_ENABLED=%s\n' "$gate_val"
 ```
 
 - 예상 결과: main ancestry가 활성화 headRefOid를 포함하고, 운영 job이 파라미터 없는 v2 계약이며, 게이트 `false`, 상태=S2.
@@ -384,12 +436,42 @@ step 6 **진입 시점부터 D7**: 이후 실패는 legacy 복원 금지. 즉시
    - 명령/UI:
 
 ```sh
-# 활성화 병합 후 새 headRefOid 읽기 (이전 freeze 무효)
-NEW_PR7_HEAD="$(gh api "repos/<GITHUB_OWNER>/<GITHUB_REPO>/pulls/<PR7>" --jq .head.sha)"
-printf '%s\n' "$NEW_PR7_HEAD"
+# 활성화 병합 후 base 변경 → 이전 freeze/마커 전부 무효. 새 exact-head 재발급 필수
+PR7_JSON="$(gh api "repos/<GITHUB_OWNER>/<GITHUB_REPO>/pulls/<PR7>")"
+NEW_PR7_HEAD="$(printf '%s' "$PR7_JSON" | jq -er .head.sha)"
+PR7_BASE_REF="$(printf '%s' "$PR7_JSON" | jq -er .base.ref)"
+PR7_BASE_SHA="$(printf '%s' "$PR7_JSON" | jq -er .base.sha)"
+printf 'PR7_HEAD=%s BASE=%s BASE_SHA=%s\n' "$NEW_PR7_HEAD" "$PR7_BASE_REF" "$PR7_BASE_SHA"
+# 이 head·base·base_sha 로 MERGE_READY + @GoBeromsu PM_ACCEPT 를 **재발급**한 뒤에만 아래 단언·병합
+
+PR7_COMMENTS="$(gh api --paginate "repos/<GITHUB_OWNER>/<GITHUB_REPO>/issues/<PR7>/comments")"
+PR7_MR_N="$(printf '%s' "$PR7_COMMENTS" | jq -er --arg h "$NEW_PR7_HEAD" --arg b "$PR7_BASE_REF" --arg s "$PR7_BASE_SHA" '
+  [.[]
+    | select((.user.login|ascii_downcase)=="goberomsu" or (.user.login|ascii_downcase)=="lumiere001")
+    | select((.created_at|type)=="string" and (.created_at|length)>0)
+    | .body | split("\n")[]
+    | select(test("^MERGE_READY head=\($h) base=\($b) base_sha=\($s) risk=(GENERAL|HIGH_RISK)$"))
+  ] | length')"
+test "$PR7_MR_N" -ge 1
+PR7_PM_N="$(printf '%s' "$PR7_COMMENTS" | jq -er --arg h "$NEW_PR7_HEAD" --arg b "$PR7_BASE_REF" --arg s "$PR7_BASE_SHA" '
+  [.[]
+    | select((.user.login|ascii_downcase)=="goberomsu")
+    | select((.created_at|type)=="string" and (.created_at|length)>0)
+    | .body | split("\n")[]
+    | select(test("^PM_ACCEPT head=\($h) base=\($b) base_sha=\($s)$"))
+  ] | length')"
+test "$PR7_PM_N" -ge 1
+PR7_REV_BAD="$(gh api --paginate "repos/<GITHUB_OWNER>/<GITHUB_REPO>/pulls/<PR7>/reviews" \
+  | jq -er --arg h "$NEW_PR7_HEAD" '
+    [.[]
+      | select(.state=="APPROVED")
+      | select((.user.login|type)=="string" and (.submitted_at|type)=="string")
+      | select(.commit_id != $h)
+    ] | length')"
+test "$PR7_REV_BAD" = "0"
 ```
 
-     - 그 head·현재 base·base_sha로 exact-head `MERGE_READY` + @GoBeromsu `PM_ACCEPT`를 **재발급**한 뒤에만 병합:
+     - 단언 통과 후에만 병합 (`match-head-commit` = 재발급 head):
 
 ```sh
 gh pr merge "<PR7>" --repo "<GITHUB_OWNER>/<GITHUB_REPO>" --merge --match-head-commit "$NEW_PR7_HEAD"
@@ -402,8 +484,12 @@ gh pr merge "<PR7>" --repo "<GITHUB_OWNER>/<GITHUB_REPO>" --merge --match-head-c
    - 명령/UI: GitHub → **Settings** → **Secrets and variables** → **Actions** → **Variables** → `DEPLOY_TRIGGER_ENABLED` → Value = 문자열 `true` → **Update variable**.
 
 ```sh
-gh variable list --repo "<GITHUB_OWNER>/<GITHUB_REPO>" --jq '.[] | select(.name=="DEPLOY_TRIGGER_ENABLED") | .value'
-# 예상: true
+gate_vals="$(gh variable list --repo "<GITHUB_OWNER>/<GITHUB_REPO>" --json name,value \
+  --jq '[.[] | select(.name=="DEPLOY_TRIGGER_ENABLED") | .value]')"
+test "$(printf '%s' "$gate_vals" | jq -er 'length')" = "1"
+gate_val="$(printf '%s' "$gate_vals" | jq -er '.[0]')"
+test "$gate_val" = "true"
+printf 'DEPLOY_TRIGGER_ENABLED=%s\n' "$gate_val"
 ```
 
    - 예상 결과: 변수 `true`, 상태=S3.
@@ -445,70 +531,191 @@ curl -sS -o /tmp/g007-new-trigger.body -w '%{http_code}\n' \
    - 명령/UI — **고정 순서**:
 
 ```sh
-# --- A. 검토된 가역 fault commit (migration-free · data-write-free) ---
+# --- A. 검토된 가역 fault PR (migration-free · data-write-free) ---
 # 예: 런타임에 즉시 smoke 실패를 유발하는 가역 변경만. Prisma migrate·DB write·volume 삭제 금지.
+# main 직접 커밋·force-push·직접 push 금지. 하나의 검토된 PR head SHA 만 이후 전 단계에서 일관 사용.
 git fetch origin main
+RUNNING_TAG="$(docker ps --filter label=com.docker.compose.project=oss-hub \
+  --filter name=backend --format '{{.Image}}' | sed -n 's/.*://p' | head -n1)"
+test -n "$RUNNING_TAG"
 git checkout -b "<FAULT_BRANCH>" origin/main
 # ... fault 내용 적용 (리뷰 가능한 최소 diff) ...
 git commit -m "test(g007): controlled reversible fault for rollback drill"
 FAULT_SHA="$(git rev-parse HEAD)"
+test "$(printf '%s' "$FAULT_SHA" | wc -c | tr -d ' ')" = "40"
 git push -u origin "<FAULT_BRANCH>"
-gh pr create --repo "<GITHUB_OWNER>/<GITHUB_REPO>" --base main --head "<FAULT_BRANCH>" \
-  --title "G007 controlled fault (revert immediately)" \
-  --body "migration-free data-write-free fault fixture for PREV_TAG rollback drill. Not for production retention."
-# exact-head MERGE_READY + @GoBeromsu PM_ACCEPT (배포 계약 경로면 PM 전속) 후:
-gh pr merge --repo "<GITHUB_OWNER>/<GITHUB_REPO>" --merge --match-head-commit "$FAULT_SHA"
-# main ancestry 확인
+
+FAULT_PR="$(gh pr create --repo "<GITHUB_OWNER>/<GITHUB_REPO>" --base main --head "<FAULT_BRANCH>" \
+  --title "G007 controlled fault (revert via separate PR)" \
+  --body "migration-free data-write-free fault fixture for PREV_TAG rollback drill. Not for production retention." \
+  --json number --jq .number)"
+
+# current-window exact head/base + comment actor/created_at 마커 (실패 시 병합 금지)
+FAULT_JSON="$(gh api "repos/<GITHUB_OWNER>/<GITHUB_REPO>/pulls/$FAULT_PR")"
+test "$(printf '%s' "$FAULT_JSON" | jq -er .head.sha)" = "$FAULT_SHA"
+FAULT_BASE_REF="$(printf '%s' "$FAULT_JSON" | jq -er .base.ref)"
+FAULT_BASE_SHA="$(printf '%s' "$FAULT_JSON" | jq -er .base.sha)"
+FAULT_COMMENTS="$(gh api --paginate "repos/<GITHUB_OWNER>/<GITHUB_REPO>/issues/$FAULT_PR/comments")"
+FAULT_MR_N="$(printf '%s' "$FAULT_COMMENTS" | jq -er --arg h "$FAULT_SHA" --arg b "$FAULT_BASE_REF" --arg s "$FAULT_BASE_SHA" '
+  [.[]
+    | select((.user.login|ascii_downcase)=="goberomsu" or (.user.login|ascii_downcase)=="lumiere001")
+    | select((.created_at|type)=="string" and (.created_at|length)>0)
+    | .body | split("\n")[]
+    | select(test("^MERGE_READY head=\($h) base=\($b) base_sha=\($s) risk=(GENERAL|HIGH_RISK)$"))
+  ] | length')"
+test "$FAULT_MR_N" -ge 1
+FAULT_PM_N="$(printf '%s' "$FAULT_COMMENTS" | jq -er --arg h "$FAULT_SHA" --arg b "$FAULT_BASE_REF" --arg s "$FAULT_BASE_SHA" '
+  [.[]
+    | select((.user.login|ascii_downcase)=="goberomsu")
+    | select((.created_at|type)=="string" and (.created_at|length)>0)
+    | .body | split("\n")[]
+    | select(test("^PM_ACCEPT head=\($h) base=\($b) base_sha=\($s)$"))
+  ] | length')"
+test "$FAULT_PM_N" -ge 1
+gh pr merge "$FAULT_PR" --repo "<GITHUB_OWNER>/<GITHUB_REPO>" --merge --match-head-commit "$FAULT_SHA"
 git fetch origin main
 git merge-base --is-ancestor "$FAULT_SHA" origin/main
+# 이후 tag/accept/trigger 전 구간에서 FAULT_SHA 만 사용 (다른 SHA 로 재지정 금지)
 
-# --- B. fault full SemVer tag + Release + PM accept ---
-git checkout main && git pull --ff-only origin main
-test "$(git rev-parse HEAD)" = "$FAULT_SHA"
+# --- B. fault full SemVer tag + non-draft/non-prerelease + exact latest Release + PM accept ---
+# <FAULT_TAG> 는 실행 중 RUNNING_TAG 보다 sort -V 엄격 상위 full SemVer 여야 한다.
+printf '%s\n' "$RUNNING_TAG" "<FAULT_TAG>" | sort -V | tail -n1 | grep -Fx "<FAULT_TAG>"
+test "$RUNNING_TAG" != "<FAULT_TAG>"
 git tag -a "<FAULT_TAG>" "$FAULT_SHA" -m "G007 fault drill <FAULT_TAG>"
 git push origin "refs/tags/<FAULT_TAG>"
 gh release create "<FAULT_TAG>" --repo "<GITHUB_OWNER>/<GITHUB_REPO>" \
+  --target "$FAULT_SHA" \
   --title "<FAULT_TAG> G007 fault drill" --notes "controlled fault; delete before window exit" \
-  --latest=false
-# #199 댓글 (값 자리에 실제 tag·40-hex):
+  --latest
+# draft/prerelease/latest/target 단언 (부분 성공·placeholder 성공 금지)
+FAULT_REL="$(gh release view "<FAULT_TAG>" --repo "<GITHUB_OWNER>/<GITHUB_REPO>" \
+  --json tagName,isDraft,isPrerelease,isLatest,targetCommitish)"
+test "$(printf '%s' "$FAULT_REL" | jq -er .isDraft)" = "false"
+test "$(printf '%s' "$FAULT_REL" | jq -er .isPrerelease)" = "false"
+test "$(printf '%s' "$FAULT_REL" | jq -er .isLatest)" = "true"
+test "$(printf '%s' "$FAULT_REL" | jq -er .tagName)" = "<FAULT_TAG>"
+test "$(gh api "repos/<GITHUB_OWNER>/<GITHUB_REPO>/releases/latest" --jq .tag_name)" = "<FAULT_TAG>"
+test "$(git rev-list -n1 "<FAULT_TAG>")" = "$FAULT_SHA"
+# #199 댓글 한 줄 (값 자리에 실제 tag·40-hex FAULT_SHA):
 # RELEASE_ACCEPT role=PM tag=<FAULT_TAG> head=<FAULT_SHA>
-# TECH_LEAD / OVERRIDE 금지
+# TECH_LEAD / OVERRIDE 금지. actor=@GoBeromsu 만 유효.
 
-# --- C. 즉시 준비된 정상 코드 revert (fault tag는 유지, main만 정상화) ---
-git revert --no-edit "$FAULT_SHA"
+# --- C. 별도 검토 revert PR 로 main 정상화 (fault tag 유지, main 직접 push 금지) ---
+git fetch origin main
+git checkout -b "<REVERT_BRANCH>" origin/main
+# FAULT_SHA 를 되돌린다 (merge commit 이면 -m 1).
+git revert --no-edit "$FAULT_SHA" \
+  || git revert --no-edit -m 1 "$(git log origin/main --merges --ancestry-path "${FAULT_SHA}"..origin/main --pretty=%H | tail -n1)"
 REVERT_SHA="$(git rev-parse HEAD)"
-git push origin main
-# revert PR 경로를 쓰는 경우에도 exact-head MERGE_READY+PM_ACCEPT 후 main ancestry에 포함
+test "$REVERT_SHA" != "$FAULT_SHA"
+git push -u origin "<REVERT_BRANCH>"
+REVERT_PR="$(gh pr create --repo "<GITHUB_OWNER>/<GITHUB_REPO>" --base main --head "<REVERT_BRANCH>" \
+  --title "G007 revert controlled fault" \
+  --body "Reverts fault SHA $FAULT_SHA via reviewed PR. No direct main mutation." \
+  --json number --jq .number)"
+REVERT_JSON="$(gh api "repos/<GITHUB_OWNER>/<GITHUB_REPO>/pulls/$REVERT_PR")"
+test "$(printf '%s' "$REVERT_JSON" | jq -er .head.sha)" = "$REVERT_SHA"
+REVERT_BASE_REF="$(printf '%s' "$REVERT_JSON" | jq -er .base.ref)"
+REVERT_BASE_SHA="$(printf '%s' "$REVERT_JSON" | jq -er .base.sha)"
+REVERT_COMMENTS="$(gh api --paginate "repos/<GITHUB_OWNER>/<GITHUB_REPO>/issues/$REVERT_PR/comments")"
+REVERT_MR_N="$(printf '%s' "$REVERT_COMMENTS" | jq -er --arg h "$REVERT_SHA" --arg b "$REVERT_BASE_REF" --arg s "$REVERT_BASE_SHA" '
+  [.[]
+    | select((.user.login|ascii_downcase)=="goberomsu" or (.user.login|ascii_downcase)=="lumiere001")
+    | select((.created_at|type)=="string" and (.created_at|length)>0)
+    | .body | split("\n")[]
+    | select(test("^MERGE_READY head=\($h) base=\($b) base_sha=\($s) risk=(GENERAL|HIGH_RISK)$"))
+  ] | length')"
+test "$REVERT_MR_N" -ge 1
+REVERT_PM_N="$(printf '%s' "$REVERT_COMMENTS" | jq -er --arg h "$REVERT_SHA" --arg b "$REVERT_BASE_REF" --arg s "$REVERT_BASE_SHA" '
+  [.[]
+    | select((.user.login|ascii_downcase)=="goberomsu")
+    | select((.created_at|type)=="string" and (.created_at|length)>0)
+    | .body | split("\n")[]
+    | select(test("^PM_ACCEPT head=\($h) base=\($b) base_sha=\($s)$"))
+  ] | length')"
+test "$REVERT_PM_N" -ge 1
+gh pr merge "$REVERT_PR" --repo "<GITHUB_OWNER>/<GITHUB_REPO>" --merge --match-head-commit "$REVERT_SHA"
+git fetch origin main
+git merge-base --is-ancestor "$REVERT_SHA" origin/main
+# 금지: main 브랜치 직접 push · 직접 main checkout 후 commit · admin bypass
 
 # --- D. fault Release 배포 트리거 (신 경로) — 자동 rollback 관측 전에 수동 정상 재배포 금지 ---
+# latest 가 여전히 FAULT_TAG 인지 재확인 후 트리거
+test "$(gh api "repos/<GITHUB_OWNER>/<GITHUB_REPO>/releases/latest" --jq .tag_name)" = "<FAULT_TAG>"
 curl -sS -o /tmp/g007-fault-trigger.body -w '%{http_code}\n' \
   -X POST "https://<PUBLIC_DEPLOY_BASE><NEW_TRIGGER_PATH>" \
   -u "<DEPLOYER_USER>:<DEPLOYER_API_TOKEN>"
-# Jenkins가 latest full Release로 <FAULT_TAG>를 집어 배포 시도 → 서비스 교체/smoke 실패 시
-# PREV_TAG 이미지로 **정확히 한 번** 자동 rollback 하는 로그만 성공으로 센다.
+# Jenkins가 exact latest full Release=<FAULT_TAG> (head=$FAULT_SHA) 배포 시도
+# → 서비스 교체/smoke 실패 시 PREV_TAG 이미지로 **정확히 한 번** 자동 rollback 로그만 성공.
 # 관측 포인트: oss-hub-release-cd 해당 build Console Output에서
-#   (1) fault tag 배포 시도 로그
+#   (1) fault tag 배포 시도 로그 (tag=<FAULT_TAG>, head=$FAULT_SHA)
 #   (2) 실패 후 PREV_TAG=... 복구 로그 1회
 #   (3) 동일 build 안에서 두 번째 임의 태그 재배포 없음
 # 이 로그를 보기 전에 정상 Release를 수동/추가 트리거하지 않는다.
+# rollback 미관측 시 여기서 중단(D7). 아래 E/F 로 "성공"을 대체하지 않는다.
 
-# --- E. fault 산출물 정리 (rollback 관측 성공 후에만) ---
+# --- E. recovery guard: fault 미실행·미참조 증명 후에만 Release/tag/image 삭제 ---
+# 실행 중 컨테이너가 FAULT_TAG 를 쓰지 않는지
+if docker ps --format '{{.Image}}' | grep -F "<FAULT_TAG>"; then
+  echo "FAULT_TAG_STILL_RUNNING"; exit 1
+fi
+# compose/project 라벨 컨테이너 참조에도 fault tag 없음
+if docker ps -a --filter label=com.docker.compose.project=oss-hub --format '{{.Image}}' | grep -F "<FAULT_TAG>"; then
+  echo "FAULT_TAG_STILL_REFERENCED"; exit 1
+fi
+# 삭제
 gh release delete "<FAULT_TAG>" --repo "<GITHUB_OWNER>/<GITHUB_REPO>" --yes
 git push origin ":refs/tags/<FAULT_TAG>"
 git tag -d "<FAULT_TAG>" 2>/dev/null || true
-# fault image tag 제거(실행 중·직전 성공 이미지 제외 — ADR-002 보존 규칙)
-docker images --format '{{.Repository}}:{{.Tag}} {{.ID}}' | grep -F "<FAULT_TAG>" || true
-# 위 목록이 가리키는 fault tag 이미지만 rmi (running/PREV 성공 이미지 금지)
+# fault image 만 제거 (running/PREV 성공 이미지 금지 — ADR-002 보존 규칙)
+while IFS= read -r img; do
+  test -n "$img" || continue
+  docker rmi "$img"
+done < <(docker images --format '{{.Repository}}:{{.Tag}}' | grep -F ":<FAULT_TAG>" || true)
+# 삭제 증명 (실패=잔존)
+if gh release view "<FAULT_TAG>" --repo "<GITHUB_OWNER>/<GITHUB_REPO>" >/dev/null 2>&1; then
+  echo "FAULT_RELEASE_STILL_PRESENT"; exit 1
+fi
+test -z "$(git ls-remote --tags origin "refs/tags/<FAULT_TAG>")"
+test -z "$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -F "<FAULT_TAG>" || true)"
 
-# --- F. 깨끗한 정상 Release 재배포 ---
-# <CLEAN_TAG> = main의 정상 SHA(full SemVer), draft=false prerelease=false
-# #199: RELEASE_ACCEPT role=PM tag=<CLEAN_TAG> head=<CLEAN_SHA>
+# --- F. 깨끗한 정상 Release 재배포 + final clean 증명 ---
+# <CLEAN_TAG> = revert 이후 main ancestry 의 정상 full SemVer (FAULT_SHA 아님)
+# draft=false prerelease=false exact latest.
+CLEAN_SHA="$(git rev-parse origin/main)"
+test "$CLEAN_SHA" != "$FAULT_SHA"
+git merge-base --is-ancestor "$REVERT_SHA" "$CLEAN_SHA"
+git tag -a "<CLEAN_TAG>" "$CLEAN_SHA" -m "G007 clean <CLEAN_TAG>"
+git push origin "refs/tags/<CLEAN_TAG>"
+gh release create "<CLEAN_TAG>" --repo "<GITHUB_OWNER>/<GITHUB_REPO>" \
+  --target "$CLEAN_SHA" \
+  --title "<CLEAN_TAG>" --notes "G007 post-fault clean release" \
+  --latest
+CLEAN_REL="$(gh release view "<CLEAN_TAG>" --repo "<GITHUB_OWNER>/<GITHUB_REPO>" \
+  --json tagName,isDraft,isPrerelease,isLatest,targetCommitish)"
+test "$(printf '%s' "$CLEAN_REL" | jq -er .isDraft)" = "false"
+test "$(printf '%s' "$CLEAN_REL" | jq -er .isPrerelease)" = "false"
+test "$(printf '%s' "$CLEAN_REL" | jq -er .isLatest)" = "true"
+test "$(printf '%s' "$CLEAN_REL" | jq -er .tagName)" = "<CLEAN_TAG>"
+test "$(gh api "repos/<GITHUB_OWNER>/<GITHUB_REPO>/releases/latest" --jq .tag_name)" = "<CLEAN_TAG>"
+# #199: RELEASE_ACCEPT role=PM tag=<CLEAN_TAG> head=<CLEAN_SHA> (@GoBeromsu only)
 curl -sS -o /tmp/g007-clean-trigger.body -w '%{http_code}\n' \
   -X POST "https://<PUBLIC_DEPLOY_BASE><NEW_TRIGGER_PATH>" \
   -u "<DEPLOYER_USER>:<DEPLOYER_API_TOKEN>"
+# final clean 증명: 실행 중 tag=CLEAN, fault 산출물 0
+FINAL_RUNNING="$(docker ps --filter label=com.docker.compose.project=oss-hub \
+  --filter name=backend --format '{{.Image}}' | sed -n 's/.*://p' | head -n1)"
+test "$FINAL_RUNNING" = "<CLEAN_TAG>"
+if gh release view "<FAULT_TAG>" --repo "<GITHUB_OWNER>/<GITHUB_REPO>" >/dev/null 2>&1; then
+  echo "FAULT_RELEASE_RESIDUAL"; exit 1
+fi
+test -z "$(git ls-remote --tags origin "refs/tags/<FAULT_TAG>")"
+test -z "$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -F "<FAULT_TAG>" || true)"
+test "$(gh api "repos/<GITHUB_OWNER>/<GITHUB_REPO>/releases/latest" --jq .tag_name)" = "<CLEAN_TAG>"
 ```
 
-   - 예상 결과: 자동 `PREV_TAG` rollback **1회**가 콘솔에서 관측되고, fault Release/tag/image가 inventory에 없으며, 최종 실행 중 tag = `<CLEAN_TAG>`. DB restore는 자동 범위 밖.
+
+   - 예상 결과: 자동 `PREV_TAG` rollback **1회**가 콘솔에서 관측되고, recovery guard 통과 후 fault Release/tag/image가 inventory에 없으며, latest=`<CLEAN_TAG>`·실행 중 tag=`<CLEAN_TAG>`·fault 잔존 0. DB restore는 자동 범위 밖. 이 절차는 서술만 하며 수행 완료를 주장하지 않는다.
    - 실패 전이: D7. rollback 미관측 시 수동 정상 트리거로 “성공”을 대체하지 않는다. step 7 dual-only nginx 복구와 혼동하지 않는다.
 
 ### Step 7 — new-only host nginx (owner: @GoBeromsu) → S4 직전
@@ -522,12 +729,14 @@ curl -sS -o /tmp/g007-clean-trigger.body -w '%{http_code}\n' \
 sudo cp -a "<HOST_NGINX_CONF_DST>" "<HOST_NGINX_CONF_BACKUP>"
 sudo cp -a "<HOST_NGINX_CONF_SRC_NEW_ONLY>" "<HOST_NGINX_CONF_DST>"
 sudo nginx -t && sudo systemctl reload nginx
-# old location 부재 (grep 실패=exit 1이 성공 조건)
-if sudo nginx -T 2>/dev/null | grep -F "location = /job/oss-hub-release-cd/buildWithParameters"; then
-  echo "OLD_LOCATION_STILL_PRESENT"; exit 1
-fi
-# new location 존재
-sudo nginx -T 2>/dev/null | grep -F "location = /job/oss-hub-release-cd/build"
+# old/new 독립 exact 단언 (부분 문자열 교차 매칭 금지)
+NGINX_T="$(sudo nginx -T 2>/dev/null)"
+OLD_LOC_RE='^[[:space:]]*location = /job/oss-hub-release-cd/buildWithParameters \{$'
+NEW_LOC_RE='^[[:space:]]*location = /job/oss-hub-release-cd/build \{$'
+old_n="$(printf '%s\n' "$NGINX_T" | grep -E -c "$OLD_LOC_RE" || true)"
+new_n="$(printf '%s\n' "$NGINX_T" | grep -E -c "$NEW_LOC_RE" || true)"
+test "$old_n" = "0"
+test "$new_n" = "1"
 ```
 
   - 인가 신 경로 1회:
