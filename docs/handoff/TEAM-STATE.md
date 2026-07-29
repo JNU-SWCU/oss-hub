@@ -10,8 +10,8 @@
 
 | 항목 | 값 |
 | --- | --- |
-| generated_at | 2026-07-26T11:45:00+09:00 |
-| source_commit | 91d64ba (origin/main, 공개 프로필 포함) |
+| generated_at | 2026-07-29T19:05:58+09:00 |
+| source_commit | abde4af (origin/main, Release v0.4.1 자동 배포·구 Jenkins 경로 회수 포함) |
 | 조회 성공 소스 | issues, prs, ci, decisions, exec-plan, branch-protection, project-board |
 | 조회 실패 소스 | 없음 |
 
@@ -130,11 +130,11 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 공통 설정 페이지(내 정보 수정) | @GoBeromsu | done | #156 | [#242](https://github.com/JNU-SWCU/oss-hub/pull/242) merged | pass (Aside UI) | `/settings`·계정 메뉴·프로필 부분 PATCH·알림 API 본인 개방 |
 | 마감 알림 발신 사업단 프로바이더 이전 | @GoBeromsu | planned | #250 | - | - | #242 파일럿 Gmail 유지 · 운영 From만 secret/env 교체 |
 | Product Definition & Operations 백로그(Release 배포·Notion PRD·IA 동기화) | @GoBeromsu (결정) / @Lumiere001 (#199 구현) | active | #112 #130 #199 | [#241](https://github.com/JNU-SWCU/oss-hub/pull/241) | local verification pending | Release trigger·공개 PM override·공인 EIP TLS 종단 연결 완료 · v0.1.1 stale Prisma lint 수정 · v0.1.2는 backup/migration 뒤 backend CMD와 `dist/src/main.js` 불일치로 smoke 실패, 정상 상태 미기록 · entrypoint hotfix 및 v0.1.3 재시도 진행 · Jenkins Release 승인 게이트를 @GoBeromsu 단독 `RELEASE_ACCEPT role=PM`으로 단일화하고 `RELEASE_ACCEPT role=TECH_LEAD`·`RELEASE_OVERRIDE role=PM`을 폐지(PR C, 근거: #274·#199 2026-07-28 결정, 선행 ADR 개정 PR A 전제) |
-| 환경 변수 응집·배포 파이프라인 단순화 | @GoBeromsu | active | [#305](https://github.com/JNU-SWCU/oss-hub/issues/305) | [#306](https://github.com/JNU-SWCU/oss-hub/pull/306)·[#307](https://github.com/JNU-SWCU/oss-hub/pull/307)·[#309](https://github.com/JNU-SWCU/oss-hub/pull/309)·[#310](https://github.com/JNU-SWCU/oss-hub/pull/310)·[#311](https://github.com/JNU-SWCU/oss-hub/pull/311)·[#314](https://github.com/JNU-SWCU/oss-hub/pull/314) merged · [#312](https://github.com/JNU-SWCU/oss-hub/pull/312)·[#313](https://github.com/JNU-SWCU/oss-hub/pull/313) active | production v0.3.1 images healthy · Jenkins build #20 parameterless no-op SUCCESS · loopback/TLS root·health pass | 운영 job은 main의 parameterless Release pipeline 활성 · root `Jenkinsfile` 단일화와 legacy checker 제거 진행 중 |
+| 환경 변수 응집·배포 파이프라인 단순화 | @GoBeromsu | done | [#305](https://github.com/JNU-SWCU/oss-hub/issues/305) closed | 관련 PR #306·#307·#309·#310·#311·#312·#313·#314·#316·#317·#318·#319·#321·#322·#323·#324·#325·#326·#327·#328·#329 merged · #315 superseded closed | GitHub Actions Release run 30439226526 attempt 2 SUCCESS · Jenkins #27 SUCCESS · production v0.4.1 exact revision healthy·restart 0 · loopback root·health pass · host nginx 27/27 | root `Jenkinsfile` 단일 parameterless latest-Release pipeline · exact `/build`만 공개 · `/buildWithParameters` 회수 · 제출 upload는 off-host backup gate까지 403 유지 |
 | GitHub 저장소 주기 수집 스케줄러 | @GoBeromsu | review | #151 | [#260](https://github.com/JNU-SWCU/oss-hub/pull/260) | E1 실증 pass(App 4394956 설치·공개/비공개 fixture·2-instance lease·live smoke 멱등 digest) · C2 legacy/webhook runtime 제거 · backend unit 793 · integration 127 · frontend 493 · lint/typecheck/build/format/public-safe | production 배포 시 Collection App secret 주입 필요 · legacy 관측 테이블은 M3 제거 전까지 inert |
 | OSS 활성화 랭킹 | @jinsol1190-rgb | review | #152 | [#194](https://github.com/JNU-SWCU/oss-hub/pull/194) | local pass | 공개 적격성 projection 부재로 endpoint·nav fail-closed 비노출 |
 | 공개 랭킹 저장소 소유권 projection | @jinsol1190-rgb | done | #197 | #202 | pass | 없음 |
-| 프로덕션 제출 파일 object storage(자체 호스팅 MinIO) | @GoBeromsu | review | [#293](https://github.com/JNU-SWCU/oss-hub/issues/293) | [#302](https://github.com/JNU-SWCU/oss-hub/pull/302) merged · env 기본값 PR 진행 중 | compose 기본값만으로 `minio`+`minio-bucket` 13.4s healthy · 버킷 `oss-hub-submission-files` 자동 생성·정책 `private` · PUT/GET/DELETE 왕복 pass · 필수 env 키 23→19(저장소 6→2) · `check-env-example-coverage.mjs`·public-safe pass | #292의 v0.3.0 배포 차단 해소 목적 · Jenkins `oss-hub-production-env`에 `SUBMISSION_FILE_S3_ACCESS_KEY_ID`·`_SECRET_ACCESS_KEY` 2종 등록 필요(unblock: @GoBeromsu) · v0.3.1 릴리스로 실 서버 기동 smoke 예정 · `minio_data`가 백업 경로에 없음(후속) |
+| 프로덕션 제출 파일 object storage(자체 호스팅 MinIO) | @GoBeromsu | done | [#292](https://github.com/JNU-SWCU/oss-hub/issues/292)·[#293](https://github.com/JNU-SWCU/oss-hub/issues/293) closed | [#302](https://github.com/JNU-SWCU/oss-hub/pull/302) merged | production `minio`·`minio-bucket` healthy · private bucket 초기화 · v0.3.1·v0.4.1 배포 성공 | `minio_data` off-host backup 완료 전 제출 upload 공개 금지 · 서버 route 403 fail-closed |
 
 ## 외부 게이트
 
