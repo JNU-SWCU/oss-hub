@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { OriginGuard } from '../auth/origin.guard';
 import { PrismaModule } from '../prisma/prisma.module';
 import { SessionGuard } from '../auth/session.guard';
+import { RuntimeConfigModule } from '../runtime-config/runtime-config.module';
 import { ProgramEditorController } from './program-editor.controller';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramsModule } from './programs.module';
@@ -89,7 +90,7 @@ describe('ProgramEditorController boundaries', () => {
 
   it('wires editor service to the repository provider at module compile time', async () => {
     const module = await Test.createTestingModule({
-      imports: [PrismaModule, ProgramsModule],
+      imports: [RuntimeConfigModule, PrismaModule, ProgramsModule],
     }).compile();
 
     expect(module.get(ProgramEditorService)).toBeInstanceOf(

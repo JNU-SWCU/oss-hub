@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { Test } from '@nestjs/testing';
 import { AuthConfig } from './auth.config';
 
 const BASE_ENV = { ...process.env };
@@ -159,5 +160,15 @@ describe('AuthConfig 초기 역할 시드', () => {
     withEnv({ AUTH_INITIAL_ROLES: '0:ADMIN' }, () => {
       expect(() => new AuthConfig()).toThrow('AUTH_INITIAL_ROLES');
     });
+  });
+});
+
+describe('AuthConfig DI', () => {
+  it('Nest-managed construction fails when RUNTIME_CONFIG is absent', async () => {
+    await expect(
+      Test.createTestingModule({
+        providers: [AuthConfig],
+      }).compile(),
+    ).rejects.toThrow(/RUNTIME_CONFIG/);
   });
 });

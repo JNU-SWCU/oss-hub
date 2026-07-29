@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { Role } from '@prisma/client';
 import {
@@ -40,12 +40,10 @@ export class AuthConfig {
   private readonly initialRoleMap: InitialRoleMap;
 
   constructor(
-    @Optional()
     @Inject(RUNTIME_CONFIG)
     runtimeConfig: RuntimeConfig = loadRuntimeConfig(process.env),
   ) {
-    // Nest @Optional() supplies undefined when the token is absent; collapse to default.
-    this.runtimeConfig = runtimeConfig ?? loadRuntimeConfig(process.env);
+    this.runtimeConfig = runtimeConfig;
     this.isProduction = this.runtimeConfig.NODE_ENV === 'production';
     this.sessionSecret = this.loadSessionSecret();
     this.frontendUrl = this.loadFrontendUrl();
