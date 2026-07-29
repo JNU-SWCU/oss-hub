@@ -222,8 +222,8 @@ def is_public_tls_443_server(node: Node) -> bool:
     return False
 
 def refers_to_jenkins_upstream(node: Node) -> bool:
-    # Production Jenkins loopback listener. Any reference outside the two exact
-    # public HTTPS trigger locations is a public routing leak.
+    # Production Jenkins loopback listener. Any reference outside the exact
+    # public HTTPS trigger location is a public routing leak.
     return any('127.0.0.1:8080' in arg for arg in node.args)
 
 try:
@@ -234,9 +234,8 @@ except ValueError as error:
 if consumed != len(tokens):
     fail('unconsumed nginx syntax')
 
-legacy = ('=', '/job/oss-hub-release-cd/buildWithParameters')
 new = ('=', '/job/oss-hub-release-cd/build')
-allowed_location_args = {legacy, new}
+allowed_location_args = {new}
 
 tls_servers = [node for node in walk(tree) if is_public_tls_443_server(node)]
 if len(tls_servers) != 1:
@@ -249,30 +248,32 @@ direct_job_locations = [
     child for child in tls_server.children
     if child.name == 'location' and child.args in allowed_location_args
 ]
-legacy_matches = [node for node in direct_job_locations if node.args == legacy]
 new_matches = [node for node in direct_job_locations if node.args == new]
-if len(legacy_matches) != 1:
-    fail(f'exact legacy Jenkins trigger location as direct TLS child count={len(legacy_matches)}, expected=1')
 if len(new_matches) != 1:
-    fail(f'exact new Jenkins trigger location as direct TLS child count={len(new_matches)}, expected=1')
+    fail(f'exact Jenkins trigger location as direct TLS child count={len(new_matches)}, expected=1')
 
 job_locations = [
     node for node in walk(tree)
     if node.name == 'location' and any('/job/' in arg for arg in node.args)
 ]
-if len(job_locations) != 2:
-    fail('only the two exact transition Jenkins job locations are allowed')
-allowed_nodes = legacy_matches + new_matches
+if len(job_locations) != 1:
+    fail('only the exact parameterless Jenkins job location is allowed')
+allowed_nodes = new_matches
 allowed_ids = {id(node) for node in allowed_nodes}
 if {id(node) for node in job_locations} != allowed_ids:
-    fail('Jenkins trigger locations must be direct children of the unique public TLS 443 server')
+    fail('Jenkins trigger location must be a direct child of the unique public TLS 443 server')
+
+if any(node.name == 'include' for node in walk(tree)):
+    fail('unexpanded include directives are not allowed in the canonical host config')
+if any(node.name == 'error_page' and '403' in node.args for node in walk(tree)):
+    fail('error_page must not remap the Jenkins 403 denial')
 
 for node, ancestors in walk_with_ancestors(tree):
     if not refers_to_jenkins_upstream(node):
         continue
     if any(id(ancestor) in allowed_ids for ancestor in ancestors):
         continue
-    fail('Jenkins upstream reference outside the two exact public HTTPS trigger locations')
+    fail('Jenkins upstream reference outside the exact public HTTPS trigger location')
 
 expected_directives = Counter({
     ('client_max_body_size', ('8k',)): 1,
@@ -324,4 +325,4 @@ if grep -Eq '\$request([^_a-zA-Z0-9]|$)|\$request_uri([^_a-zA-Z0-9]|$)|\$args([^
   exit 1
 fi
 
-echo 'host nginx contract: ok (IP TLS, ACME webroot, loopback Compose, exact dual POST-only Jenkins triggers)'
+echo 'host nginx contract: ok (IP TLS, ACME webroot, loopback Compose, exact parameterless POST-only Jenkins trigger)'
