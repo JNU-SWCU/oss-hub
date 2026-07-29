@@ -12,7 +12,7 @@
 
 로컬 설정의 원본은 저장소 루트 `.env` 하나다. 운영도 같은 구조다 — Jenkins가 `oss-hub-production-env` 파일 credential을 주입하고 `compose.yml`이 명시 매핑으로 컨테이너에 전달한다. 로컬을 같은 경로로 맞춰 두어야 "로컬에서는 되는데 운영에서 안 되는" 설정 차이가 생기지 않는다.
 
-`.env.example`이 필요한 키의 목록이다. `scripts/check-env-example-coverage.sh`가 `compose.yml`의 필수 키가 모두 문서화돼 있는지 검사한다.
+`.env.example`이 필요한 키의 목록이다. `scripts/check-env-example-coverage.mjs`가 compose 필수 키 문서화·코드 소비 키 선언·소유 서비스 environment 매핑을 검사한다(TypeScript AST + `docker compose config`).
 
 주의 두 가지가 있다.
 
