@@ -10,7 +10,6 @@ trap 'rm -rf "$fixture_dir"' EXIT
 passed=0
 failed=0
 
-legacy_location='location = /job/oss-hub-release-cd/buildWithParameters {'
 new_location='location = /job/oss-hub-release-cd/build {'
 
 expect_pass() {
@@ -159,20 +158,16 @@ comment_limit_except_blocks() {
   ' "$source_config" > "$fixture_dir/$name"
 }
 
-# Move both exact Jenkins trigger blocks from the TLS server into the HTTP server.
+# Move the exact Jenkins trigger block from the TLS server into the HTTP server.
 # The resulting config is nginx-valid but violates the public HTTPS trigger boundary.
 move_jenkins_locations_to_http() {
   local name=$1
   python3 - "$source_config" "$fixture_dir/$name" <<'PY'
 from pathlib import Path
-import re
 import sys
 
 text = Path(sys.argv[1]).read_text()
-markers = (
-    'location = /job/oss-hub-release-cd/buildWithParameters {',
-    'location = /job/oss-hub-release-cd/build {',
-)
+markers = ('location = /job/oss-hub-release-cd/build {',)
 
 def extract_block(source: str, marker: str) -> tuple[str, str]:
     start = source.index(marker)
@@ -235,13 +230,13 @@ PY
 
 cp "$source_config" "$fixture_dir/valid"
 make_fixture missing-tls-cert 'ssl_certificate /etc/letsencrypt/live/54.116.116.174/fullchain.pem;' 'ssl_certificate /tmp/removed.pem;'
-make_fixture public-jenkins-wildcard "$legacy_location" 'location /job/ {'
+make_fixture public-jenkins-wildcard "$new_location" 'location /job/ {'
 make_fixture missing-post-guard 'limit_except POST {' 'limit_except GET {'
 make_fixture missing-trigger-rate-limit 'limit_req zone=jenkins_trigger burst=5 nodelay;' 'limit_req off;'
 make_fixture query-leaking-log '"$request_method $uri $server_protocol"' '"$request"'
 make_fixture public-compose-bind 'server 127.0.0.1:8081;' 'server 0.0.0.0:8081;'
 remove_location_block missing-new-build-path "$new_location"
-remove_location_block missing-legacy-build-path "$legacy_location"
+make_fixture legacy-path-restored "$new_location" 'location = /job/oss-hub-release-cd/buildWithParameters {'
 duplicate_location_block duplicate-new-build-path "$new_location"
 make_fixture overbroad-new-build-path "$new_location" 'location /job/oss-hub-release-cd/build {'
 edit_location_block mismatched-new-post-guard "$new_location" 'limit_except POST {' 'limit_except GET {'
@@ -252,13 +247,15 @@ edit_location_block mismatched-new-proxy "$new_location" 'proxy_pass http://127.
 edit_location_block mismatched-new-header "$new_location" 'proxy_set_header X-Forwarded-Proto' 'proxy_set_header X-Forwarded-Host'
 edit_location_block neutralized-new-access "$new_location" 'deny all;' 'deny all; allow all;'
 edit_location_block duplicate-new-status "$new_location" 'limit_req_status 429;' 'limit_req_status 429; limit_req_status 429;'
-comment_limit_except_blocks commented-both-post-guards
+comment_limit_except_blocks commented-post-guard
 cp "$fixture_dir/missing-new-build-path" "$fixture_dir/comment-only-new-path"
 printf '%s\n' '# location = /job/oss-hub-release-cd/build {' '#   limit_except POST { deny all; }' '# }' >> "$fixture_dir/comment-only-new-path"
 
 # Ancestry / public routing fail-open fixtures (Architect HIGH).
 move_jenkins_locations_to_http jenkins-triggers-on-http
 make_fixture https-catchall-to-jenkins 'proxy_pass http://oss_hub_compose;' 'proxy_pass http://127.0.0.1:8080;'
+make_fixture inherited-error-page 'server_name 54.116.116.174;' 'server_name 54.116.116.174; error_page 403 =200 /;'
+make_fixture unresolved-include 'server_name 54.116.116.174;' 'server_name 54.116.116.174; include /tmp/unexpanded.conf;'
 
 # Lexical fixtures (Architect MEDIUM).
 # Multiline double-quoted value containing '#' must remain active config, not a comment.
@@ -291,7 +288,7 @@ expect_fail 'Jenkins trigger rate limit 누락' "$fixture_dir/missing-trigger-ra
 expect_fail 'query 포함 access log' "$fixture_dir/query-leaking-log"
 expect_fail 'Compose upstream public bind' "$fixture_dir/public-compose-bind"
 expect_fail '신 /build 경로 누락' "$fixture_dir/missing-new-build-path"
-expect_fail '구 buildWithParameters 경로 누락' "$fixture_dir/missing-legacy-build-path"
+expect_fail '구 buildWithParameters 경로 부활' "$fixture_dir/legacy-path-restored"
 expect_fail '신 /build 경로 중복' "$fixture_dir/duplicate-new-build-path"
 expect_fail '신 /build 경로 비정확 매칭' "$fixture_dir/overbroad-new-build-path"
 expect_fail '신 경로 POST allowlist 불일치' "$fixture_dir/mismatched-new-post-guard"
@@ -302,10 +299,12 @@ expect_fail '신 경로 proxy 불일치' "$fixture_dir/mismatched-new-proxy"
 expect_fail '신 경로 proxy header 불일치' "$fixture_dir/mismatched-new-header"
 expect_fail '신 경로 allow all 중화' "$fixture_dir/neutralized-new-access"
 expect_fail '신 경로 동일 directive 중복' "$fixture_dir/duplicate-new-status"
-expect_fail '양쪽 POST guard 주석 처리' "$fixture_dir/commented-both-post-guards"
+expect_fail 'POST guard 주석 처리' "$fixture_dir/commented-post-guard"
 expect_fail '주석 marker로 신 경로 위조' "$fixture_dir/comment-only-new-path"
 expect_fail 'Jenkins trigger 가 HTTP server 로 이동' "$fixture_dir/jenkins-triggers-on-http"
 expect_fail 'HTTPS catch-all 이 Jenkins upstream' "$fixture_dir/https-catchall-to-jenkins"
+expect_fail '403 응답 remap 상속' "$fixture_dir/inherited-error-page"
+expect_fail '미확장 include 주입' "$fixture_dir/unresolved-include"
 expect_pass 'multiline quoted # 보존' "$fixture_dir/multiline-quoted-hash"
 expect_fail 'adjacent quoted deny 토큰' "$fixture_dir/adjacent-quoted-deny"
 
