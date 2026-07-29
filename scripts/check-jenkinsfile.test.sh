@@ -88,6 +88,7 @@ make_fixture "$v2_source" v2-missing-all-ps 'ps --all -q frontend' 'ps -q fronte
 make_fixture "$v2_source" v2-missing-oci-version-label '--label "org.opencontainers.image.version=${RELEASE_TAG}"' '--label "org.opencontainers.image.title=${RELEASE_TAG}"'
 make_fixture "$v2_source" v2-missing-oci-revision-label '--label "org.opencontainers.image.revision=${RELEASE_SHA}"' '--label "org.opencontainers.image.source=${RELEASE_SHA}"'
 make_fixture "$v2_source" v2-restored-run-mode "env.DEPLOY_NOOP = 'false'" "env.RUN_MODE = 'release'"
+append_fixture "$v2_source" v2-restored-big-integer 'new BigInteger("1")'
 make_fixture "$v2_source" v2-restored-deploy-state-file "BACKUP_DIR = '/var/lib/oss-hub/backups'" "DEPLOY_STATE_FILE = '/var/lib/oss-hub/deploy-state/current-release'"
 
 # parameters 블록 부활 → FAIL
@@ -1137,6 +1138,7 @@ expect_fail 'v2: 전용 production executor 누락' v2 "$fixture_dir/v2-missing-
 expect_fail 'v2: draft 거절 누락' v2 "$fixture_dir/v2-missing-draft-check"
 expect_fail 'v2: prerelease 거절 누락' v2 "$fixture_dir/v2-missing-prerelease-check"
 expect_fail 'v2: SemVer tag 검증 누락' v2 "$fixture_dir/v2-missing-tag-format"
+expect_fail 'v2: sandbox 비승인 BigInteger 생성자 부활' v2 "$fixture_dir/v2-restored-big-integer"
 expect_fail 'v2: Release tag SHA 해석 누락' v2 "$fixture_dir/v2-missing-tag-resolution"
 expect_fail 'v2: main ancestry 검증 누락' v2 "$fixture_dir/v2-missing-main-ancestry"
 expect_fail 'v2: Release 승인 댓글 pagination 누락' v2 "$fixture_dir/v2-missing-approval-pagination"
