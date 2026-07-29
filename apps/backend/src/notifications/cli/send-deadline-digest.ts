@@ -5,9 +5,9 @@
  *   cd apps/backend
  *   DATABASE_URL=... pnpm exec ts-node src/notifications/cli/send-deadline-digest.ts
  *
- * 실 Gmail:
- *   GMAIL_SENDER / GMAIL_OAUTH_CLIENT_ID / GMAIL_OAUTH_CLIENT_SECRET / GMAIL_OAUTH_REFRESH_TOKEN
- *   NOTIFICATION_MAIL_REAL_SEND=1 (선택 — 값이 없어도 GMAIL_* 가 있으면 Gmail 사용)
+ * 메일 정책:
+ *   MAIL_MODE=send|dry-run (필수 — 앱/강제 CLI 공통 권한)
+ *   send 시 GMAIL_SENDER / GMAIL_OAUTH_CLIENT_ID / GMAIL_OAUTH_CLIENT_SECRET / GMAIL_OAUTH_REFRESH_TOKEN
  *
  * 수신자 오버라이드(본인 점검):
  *   DIGEST_FORCE_TO=you@example.com
@@ -16,25 +16,23 @@
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../../app.module';
-import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
-import type { RuntimeConfig } from '../../runtime-config/runtime-config';
-import { GmailMailSender } from '../adapters/gmail-mail-sender';
+import { PROCESS_RUNTIME_CONFIG } from '../../runtime-config/runtime-config.instance';
 import { LogMailSender } from '../adapters/log-mail-sender';
 import { DeadlineDigestService } from '../deadline-digest.service';
-import type { MailSender } from '../mail-sender.port';
+import { resolveMailSender } from '../mail-sender.provider';
 
 async function main(): Promise<void> {
   const logger = new Logger('send-deadline-digest-cli');
-  const runtime = loadRuntimeConfig(process.env);
+  const runtime = PROCESS_RUNTIME_CONFIG;
   const forceTo = runtime.DIGEST_FORCE_TO?.trim();
 
-  // 강제 수신은 DB/Nest 없이 메일 어댑터만 사용한다(로컬 점검용).
+  // 강제 경로: DB/Nest 없이 메일 어댑터만 사용한다(로컬 점검용). MAIL_MODE 준수.
   if (forceTo) {
-    const mailer = resolveMailer(runtime);
+    const mailer = resolveMailSender(runtime);
     const usingGmail = !(mailer instanceof LogMailSender);
     if (!usingGmail) {
       logger.warn(
-        'GMAIL_* 미설정 — dry-run 로그만 남깁니다. 실수신을 원하면 GMAIL_SENDER·OAuth 4종을 채우세요.',
+        'MAIL_MODE=dry-run — dry-run 로그만 남깁니다. 실수신을 원하면 MAIL_MODE=send 와 GMAIL_* 4종을 채우세요.',
       );
     }
     const subject = '[oss-hub] 로컬 점검 다이제스트 (강제 수신)';
@@ -64,22 +62,6 @@ async function main(): Promise<void> {
   } finally {
     await app.close();
   }
-}
-
-function resolveMailer(runtime: RuntimeConfig): MailSender {
-  const sender = runtime.GMAIL_SENDER;
-  const clientId = runtime.GMAIL_OAUTH_CLIENT_ID;
-  const clientSecret = runtime.GMAIL_OAUTH_CLIENT_SECRET;
-  const refreshToken = runtime.GMAIL_OAUTH_REFRESH_TOKEN;
-  if (sender && clientId && clientSecret && refreshToken) {
-    return new GmailMailSender({
-      sender,
-      clientId,
-      clientSecret,
-      refreshToken,
-    });
-  }
-  return new LogMailSender();
 }
 
 void main().catch((error: unknown) => {
