@@ -3,7 +3,11 @@ import { Test } from '@nestjs/testing';
 import { OriginGuard } from '../auth/origin.guard';
 import { PrismaModule } from '../prisma/prisma.module';
 import { SessionGuard } from '../auth/session.guard';
-import { RuntimeConfigModule } from '../runtime-config/runtime-config.module';
+import { loadRuntimeConfig } from '../runtime-config/runtime-config';
+import {
+  RUNTIME_CONFIG,
+  RuntimeConfigModule,
+} from '../runtime-config/runtime-config.module';
 import { ProgramEditorController } from './program-editor.controller';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramsModule } from './programs.module';
@@ -91,7 +95,21 @@ describe('ProgramEditorController boundaries', () => {
   it('wires editor service to the repository provider at module compile time', async () => {
     const module = await Test.createTestingModule({
       imports: [RuntimeConfigModule, PrismaModule, ProgramsModule],
-    }).compile();
+    })
+      .overrideProvider(RUNTIME_CONFIG)
+      .useValue(
+        loadRuntimeConfig({
+          SESSION_SECRET: Buffer.from(
+            'synthetic-program-editor-session-secret',
+          ).toString('base64url'),
+          FRONTEND_URL: 'http://localhost:3000',
+          GITHUB_OAUTH_CLIENT_ID: 'synthetic-client-id',
+          GITHUB_OAUTH_CLIENT_SECRET: 'synthetic-client-secret',
+          GITHUB_OAUTH_CALLBACK_URL:
+            'http://localhost:3000/api/v1/auth/github/callback',
+        }),
+      )
+      .compile();
 
     expect(module.get(ProgramEditorService)).toBeInstanceOf(
       ProgramEditorService,

@@ -1,5 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import { randomBytes } from 'node:crypto';
+import { Inject, Injectable } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import {
   loadRuntimeConfig,
@@ -16,21 +15,18 @@ export interface OauthSettings {
 }
 
 const MIN_SESSION_SECRET_BYTES = 32;
-const DEV_FRONTEND_URL = 'http://localhost:3000';
 const CALLBACK_PATH = '/api/v1/auth/github/callback';
 
 /**
  * auth 관련 env를 시작 시 한 번 검증해 고정한다.
- * - 운영: 누락 시 즉시 실패 (fail-fast)
- * - 개발·테스트: SESSION_SECRET 없으면 임시 키(재시작 시 세션 전부 무효), OAuth 미설정이면
- *   로그인 엔드포인트 사용 시점에 오류
+ * 보안 정책은 NODE_ENV가 아니라 입력 값에서 파생한다.
+ * - SESSION_SECRET·FRONTEND_URL·GitHub OAuth client ID/secret 누락 시 즉시 실패
+ * - Secure cookie는 FRONTEND_URL scheme(https)에서만 켠다
  */
 @Injectable()
 export class AuthConfig {
-  private readonly logger = new Logger(AuthConfig.name);
   private readonly runtimeConfig: RuntimeConfig;
-  private readonly isProduction: boolean;
-  private readonly oauth: OauthSettings | null;
+  private readonly oauth: OauthSettings;
 
   readonly sessionSecret: Uint8Array;
   readonly frontendUrl: string;
@@ -44,11 +40,11 @@ export class AuthConfig {
     runtimeConfig: RuntimeConfig = loadRuntimeConfig(process.env),
   ) {
     this.runtimeConfig = runtimeConfig;
-    this.isProduction = this.runtimeConfig.NODE_ENV === 'production';
     this.sessionSecret = this.loadSessionSecret();
-    this.frontendUrl = this.loadFrontendUrl();
+    const frontend = this.loadFrontendUrl();
+    this.frontendUrl = frontend.origin;
     this.allowedOrigin = this.frontendUrl;
-    this.useSecureCookies = this.isProduction;
+    this.useSecureCookies = frontend.useSecureCookies;
     this.oauth = this.loadOauthSettings();
     this.initialRoleMap = parseInitialRoles(
       this.runtimeConfig.AUTH_INITIAL_ROLES,
@@ -61,46 +57,36 @@ export class AuthConfig {
   }
 
   requireOauth(): OauthSettings {
-    if (!this.oauth) {
-      // 서버 구성 문제 — 도메인 오류가 아니므로 전역 필터에서 SYS_*로 가려진다.
-      throw new Error(
-        'GitHub OAuth 환경변수가 없습니다 (GITHUB_OAUTH_CLIENT_ID/SECRET).',
-      );
-    }
     return this.oauth;
   }
 
   private loadSessionSecret(): Uint8Array {
     const raw = this.runtimeConfig.SESSION_SECRET;
-    if (raw) {
-      const decoded = Buffer.from(raw, 'base64url');
-      if (decoded.length < MIN_SESSION_SECRET_BYTES) {
-        throw new Error(
-          `SESSION_SECRET은 base64url 인코딩된 ${MIN_SESSION_SECRET_BYTES}바이트 이상이어야 합니다.`,
-        );
-      }
-      return new Uint8Array(decoded);
-    }
-    if (this.isProduction) {
-      throw new Error('운영 환경에는 SESSION_SECRET이 필수입니다.');
-    }
-    this.logger.warn(
-      'SESSION_SECRET 미설정 — 임시 키를 생성합니다 (재시작 시 모든 세션 무효).',
-    );
-    return new Uint8Array(randomBytes(MIN_SESSION_SECRET_BYTES));
-  }
-
-  private loadFrontendUrl(): string {
-    const raw =
-      this.runtimeConfig.FRONTEND_URL ??
-      (this.isProduction ? '' : DEV_FRONTEND_URL);
     if (!raw) {
-      throw new Error('운영 환경에는 FRONTEND_URL이 필수입니다.');
+      throw new Error('SESSION_SECRET이 필수입니다.');
     }
-    return this.parseCanonicalOrigin(raw, 'FRONTEND_URL');
+    const decoded = Buffer.from(raw, 'base64url');
+    if (decoded.length < MIN_SESSION_SECRET_BYTES) {
+      throw new Error(
+        `SESSION_SECRET은 base64url 인코딩된 ${MIN_SESSION_SECRET_BYTES}바이트 이상이어야 합니다.`,
+      );
+    }
+    return new Uint8Array(decoded);
   }
 
-  private loadOauthSettings(): OauthSettings | null {
+  private loadFrontendUrl(): { origin: string; useSecureCookies: boolean } {
+    const raw = this.runtimeConfig.FRONTEND_URL;
+    if (!raw) {
+      throw new Error('FRONTEND_URL이 필수입니다.');
+    }
+    const url = this.parseCanonicalOrigin(raw, 'FRONTEND_URL');
+    return {
+      origin: url.origin,
+      useSecureCookies: url.protocol === 'https:',
+    };
+  }
+
+  private loadOauthSettings(): OauthSettings {
     const clientId = this.runtimeConfig.GITHUB_OAUTH_CLIENT_ID;
     const clientSecret = this.runtimeConfig.GITHUB_OAUTH_CLIENT_SECRET;
     const callbackUrl = this.deriveCallbackUrl();
@@ -119,15 +105,7 @@ export class AuthConfig {
     }
 
     if (!clientId || !clientSecret) {
-      if (this.isProduction) {
-        throw new Error(
-          '운영 환경에는 GITHUB_OAUTH_CLIENT_ID/SECRET이 필수입니다.',
-        );
-      }
-      this.logger.warn(
-        'GitHub OAuth 환경변수 미설정 — 로그인 엔드포인트는 구성 전까지 실패합니다.',
-      );
-      return null;
+      throw new Error('GITHUB_OAUTH_CLIENT_ID/SECRET이 필수입니다.');
     }
     return { clientId, clientSecret, callbackUrl };
   }
@@ -136,15 +114,24 @@ export class AuthConfig {
     return `${this.frontendUrl}${CALLBACK_PATH}`;
   }
 
-  private parseCanonicalOrigin(raw: string, envName: string): string {
+  private parseCanonicalOrigin(raw: string, envName: string): URL {
     const url = this.parseAbsoluteUrl(raw, envName);
-    if (url.pathname !== '/' || url.search !== '' || url.hash !== '') {
+    // WHATWG search/hash are empty for present-empty `?`/`#`; reject those via raw input.
+    if (
+      url.pathname !== '/' ||
+      url.search !== '' ||
+      url.hash !== '' ||
+      hasRawQueryOrFragment(raw)
+    ) {
       throw new Error(`${envName}은 path/query/hash 없는 origin이어야 합니다.`);
     }
-    return url.origin;
+    return url;
   }
 
   private parseAbsoluteUrl(raw: string, envName: string): URL {
+    if (!/^https?:\/\//i.test(raw)) {
+      throw new Error(`${envName}은 canonical http(s) URL이어야 합니다.`);
+    }
     let url: URL;
     try {
       url = new URL(raw);
@@ -155,12 +142,42 @@ export class AuthConfig {
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
       throw new Error(`${envName}은 http(s) URL이어야 합니다.`);
     }
-    if (url.username || url.password) {
+    // WHATWG getters collapse present-empty userinfo (`https://@host`, `https://:@host`).
+    if (url.username || url.password || hasRawUserinfo(raw)) {
       throw new Error(`${envName}에는 credentials를 포함할 수 없습니다.`);
-    }
-    if (this.isProduction && url.protocol !== 'https:') {
-      throw new Error(`운영 환경의 ${envName}은 HTTPS여야 합니다.`);
     }
     return url;
   }
+}
+
+/**
+ * Detect userinfo via the raw authority `@` delimiter.
+ * Percent-encoded octets in the path are not authority userinfo.
+ */
+function hasRawUserinfo(raw: string): boolean {
+  const schemeSep = raw.indexOf('://');
+  if (schemeSep < 0) {
+    return false;
+  }
+  const hierarchical = raw.slice(schemeSep + 3);
+  const authorityEnd = hierarchical.search(/[/?#]/);
+  const authority =
+    authorityEnd === -1 ? hierarchical : hierarchical.slice(0, authorityEnd);
+  return authority.includes('@');
+}
+
+/**
+ * Detect query/fragment delimiters on the raw input.
+ * WHATWG `search`/`hash` are empty for present-empty `?`/`#`.
+ */
+function hasRawQueryOrFragment(raw: string): boolean {
+  const schemeSep = raw.indexOf('://');
+  if (schemeSep < 0) {
+    return false;
+  }
+  const hierarchical = raw.slice(schemeSep + 3);
+  const authorityEnd = hierarchical.search(/[/?#]/);
+  const afterAuthority =
+    authorityEnd === -1 ? '' : hierarchical.slice(authorityEnd);
+  return afterAuthority.includes('?') || afterAuthority.includes('#');
 }

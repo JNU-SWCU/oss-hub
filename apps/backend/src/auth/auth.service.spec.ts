@@ -1,6 +1,6 @@
-import { randomBytes } from 'node:crypto';
 import { AccountStatus, Role } from '@prisma/client';
 import { DomainException } from '../common/error-code';
+import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { AuthErrorCode } from './auth-error-code.enum';
 import { AuthConfig } from './auth.config';
 import type { AuthRepository, AuthTransactionStore } from './auth.repository';
@@ -20,14 +20,16 @@ const syntheticUser: AuthUser = {
 };
 
 function buildConfig(): AuthConfig {
-  process.env.GITHUB_OAUTH_CLIENT_ID = 'synthetic-client-id';
-  process.env.GITHUB_OAUTH_CLIENT_SECRET = 'synthetic-client-secret';
-  process.env.SESSION_SECRET = randomBytes(32).toString('base64url');
-  const config = new AuthConfig();
-  delete process.env.GITHUB_OAUTH_CLIENT_ID;
-  delete process.env.GITHUB_OAUTH_CLIENT_SECRET;
-  delete process.env.SESSION_SECRET;
-  return config;
+  return new AuthConfig(
+    loadRuntimeConfig({
+      SESSION_SECRET: Buffer.from(
+        'synthetic-auth-service-session-secret',
+      ).toString('base64url'),
+      FRONTEND_URL: 'http://localhost:3000',
+      GITHUB_OAUTH_CLIENT_ID: 'synthetic-client-id',
+      GITHUB_OAUTH_CLIENT_SECRET: 'synthetic-client-secret',
+    }),
+  );
 }
 
 function jsonResponse(status: number, body: unknown): Response {
