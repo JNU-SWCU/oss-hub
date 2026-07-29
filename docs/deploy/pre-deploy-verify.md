@@ -45,7 +45,7 @@ SESSION_SECRET=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 # 생성: node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 TEAM_JOIN_CODE_SECRET=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 
-# backend Dockerfile이 NODE_ENV=production이므로 HTTPS origin이 필수다.
+# FRONTEND_URL은 세션·OAuth origin 원본이며 production HTTPS 강제는 배포 preflight가 소유한다.
 # smoke URL(http://127.0.0.1:8081/)과 달라도 된다 — 이 값은 세션·OAuth origin 계약이다.
 FRONTEND_URL=https://127.0.0.1
 
@@ -60,13 +60,8 @@ AUTH_INITIAL_ROLES=
 GITHUB_OAUTH_CLIENT_ID=REPLACE_LOCAL_OAUTH_ID
 GITHUB_OAUTH_CLIENT_SECRET=REPLACE_LOCAL_OAUTH_SECRET
 
-# Gmail OAuth — production 이미지 부팅 계약(mail-sender.provider).
-# smoke 전용 로컬 검증은 형식상 자리표시자면 충분하다. 실제 발송은 하지 않는다.
-# compose.yml이 이 4종을 backend 컨테이너에 명시 전달한다.
-GMAIL_SENDER=REPLACE_LOCAL_GMAIL_SENDER
-GMAIL_OAUTH_CLIENT_ID=REPLACE_LOCAL_GMAIL_CLIENT_ID
-GMAIL_OAUTH_CLIENT_SECRET=REPLACE_LOCAL_GMAIL_CLIENT_SECRET
-GMAIL_OAUTH_REFRESH_TOKEN=REPLACE_LOCAL_GMAIL_REFRESH_TOKEN
+# smoke 전용 로컬 검증은 메일을 발송하지 않는다.
+MAIL_MODE=dry-run
 ```
 
 ### 실행
@@ -113,7 +108,7 @@ running="$(docker ps --filter label=com.docker.compose.project=oss-hub --filter 
 test -z "$running"
 
 # 배포 EC2에서 (운영 .env / Credentials Store env 사용, 임시 태그로 드라이런)
-# 운영 env는 production 계약(SESSION_SECRET, TEAM_JOIN_CODE_SECRET, HTTPS FRONTEND_URL, OAuth 등)을 이미 충족해야 한다.
+# 운영 env는 production 계약(SESSION_SECRET, TEAM_JOIN_CODE_SECRET, FRONTEND_URL, MAIL_MODE=send, Gmail OAuth, OAuth 등)을 이미 충족해야 한다.
 IMAGE_TAG=dryrun docker build --file apps/frontend/Dockerfile --tag oss-hub-frontend:dryrun .
 IMAGE_TAG=dryrun docker build --file apps/backend/Dockerfile  --tag oss-hub-backend:dryrun  .
 COMPOSE_PROJECT_NAME=oss-hub IMAGE_TAG=dryrun \
