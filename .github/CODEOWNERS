@@ -9,6 +9,13 @@
 /docs/decisions/ @GoBeromsu @Lumiere001
 /.github/        @GoBeromsu @Lumiere001
 /scripts/         @GoBeromsu @Lumiere001
+/.github/workflows/deploy.yml @GoBeromsu
+/scripts/_compose-lib.sh                     @GoBeromsu
+/scripts/check-env-example-coverage*.mjs     @GoBeromsu
+/scripts/check-host-nginx*.sh                @GoBeromsu
+/scripts/check-submission-upload-route*.sh   @GoBeromsu
+/scripts/docker-verify-local*.sh             @GoBeromsu
+/scripts/probe-nginx-callback-log.sh          @GoBeromsu
 /scripts/check-jenkinsfile.sh      @GoBeromsu
 /scripts/check-jenkinsfile.test.sh @GoBeromsu
 /scripts/prune-deploy-backups.sh      @GoBeromsu
@@ -20,9 +27,8 @@
 
 # 배포 정의
 /Jenkinsfile     @GoBeromsu
-/compose.yml     @GoBeromsu @Lumiere001
-/.env.example    @GoBeromsu @Lumiere001
-/deploy/         @GoBeromsu @Lumiere001
-/deploy/jenkins/ @GoBeromsu
-/apps/*/Dockerfile @GoBeromsu @Lumiere001
-/.dockerignore   @GoBeromsu @Lumiere001
+/compose*.yml       @GoBeromsu
+/.env.example       @GoBeromsu
+/deploy/            @GoBeromsu
+/apps/*/Dockerfile  @GoBeromsu
+/.dockerignore      @GoBeromsu
