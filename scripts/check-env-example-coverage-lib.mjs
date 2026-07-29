@@ -13,10 +13,22 @@ import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
 const ENV_KEY_RE = /^[A-Z][A-Z0-9_]*$/;
-const REQUIRED_INTERPOLATION_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*):\?/g;
-const APPROVED_ENV_HELPERS = new Set([
-  'environmentValue',
-  'booleanEnvironmentValue',
+
+// 승인 helper 면제는 이름만으로 주지 않는다.
+// 실제 정의 파일(scan_root 상대경로)과 선언이 함께 맞을 때만 process.env[param] 면제.
+/** @type {ReadonlyMap<string, ReadonlySet<string>>} */
+const APPROVED_ENV_HELPERS = new Map([
+  [
+    'environmentValue',
+    new Set([
+      'apps/backend/src/repositories/github-operations.config.ts',
+      'apps/backend/src/submissions/submission-file-storage.config.ts',
+    ]),
+  ],
+  [
+    'booleanEnvironmentValue',
+    new Set(['apps/backend/src/submissions/submission-file-storage.config.ts']),
+  ],
 ]);
 
 // CollectionAppConfig.envNames 및 유사 config 리터럴.
@@ -24,7 +36,16 @@ const APPROVED_ENV_HELPERS = new Set([
 const CONFIG_LITERAL_RE =
   /^(GITHUB_(APP_ORG|COLLECTION_APP_[A-Z0-9_]+|OPERATIONS_APP_[A-Z0-9_]+|OAUTH_[A-Z0-9_]+)|SUBMISSION_FILE_S3_(ENDPOINT|REGION|BUCKET|ACCESS_KEY_ID|SECRET_ACCESS_KEY|FORCE_PATH_STYLE)|SUBMISSION_FILE_CLEANUP_[A-Z0-9_]+)$/;
 
-const SCAN_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
+const SCAN_EXTENSIONS = new Set([
+  '.ts',
+  '.tsx',
+  '.mts',
+  '.cts',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+]);
 
 const TEST_FILE_RE = /\.(spec|test)\.([cm]?[jt]sx?)$|\.test\.([cm]?js)$/;
 
@@ -113,21 +134,21 @@ export function keyInEnvExample(envExampleText, key) {
 }
 
 /**
- * compose.yml 원문에서 ${VAR:?} 필수 키를 순서 유지·중복 제거로 뽑는다.
+ * compose.yml 원문에서 필수 보간 키(`${VAR:?}` · `${VAR?error}`)를
+ * 순서 유지·중복 제거로 뽑는다.
+ * `$${...}` 이스케이프와 주석 속 토큰은 제외한다.
+ *
  * @param {string} composeText
  * @returns {string[]}
  */
 export function extractRequiredComposeKeys(composeText) {
   const keys = [];
   const seen = new Set();
-  REQUIRED_INTERPOLATION_RE.lastIndex = 0;
-  let match;
-  while ((match = REQUIRED_INTERPOLATION_RE.exec(composeText)) !== null) {
-    const key = match[1];
-    if (seen.has(key)) continue;
-    seen.add(key);
-    keys.push(key);
+
+  for (const rawLine of composeText.split(/\r?\n/)) {
+    collectRequiredKeysFromSegment(stripYamlLineComment(rawLine), keys, seen);
   }
+
   return keys;
 }
 
@@ -135,6 +156,7 @@ export function extractRequiredComposeKeys(composeText) {
  * docker compose config --format json 정규화 모델에서
  * services.<service>.environment 에 키가 있는지 판정한다.
  * x- 확장·anchor 는 공식 구현이 해석한 뒤의 services 만 본다.
+ * map 형태와 list 형태(`KEY` / `KEY=value`)를 모두 인정한다.
  *
  * @param {object|null|undefined} composeConfig
  * @param {string} service
@@ -186,18 +208,23 @@ export function loadTypescript(repoRoot) {
  *   - NAME_ENV = 'KEY' 상수
  *   - 'GITHUB_*' / 'SUBMISSION_FILE_*' config 리터럴(접두 필터)
  *
- * 승인 helper(environmentValue|booleanEnvironmentValue) 본문의
- * process.env[<그 함수 파라미터>] 만 동적 접근 면제. 파일 전체 면제 금지.
+ * 승인 helper 면제는 (상대경로, 선언) 쌍으로만 적용한다.
+ * 호출 첫 인자가 정적 리터럴이 아니면 명시 실패한다.
  *
  * @param {string} filePath
  * @param {string} sourceText
  * @param {typeof import('typescript')} ts
+ * @param {{ relPath?: string }} [options]
  */
-export function extractKeysFromSource(filePath, sourceText, ts) {
+export function extractKeysFromSource(filePath, sourceText, ts, options = {}) {
   /** @type {string[]} */
   const keys = [];
   /** @type {{ line: number, expression: string }[]} */
   const unsupported = [];
+  /** @type {string[]} */
+  const parseErrors = [];
+
+  const relPath = normalizePath(options.relPath ?? filePath);
 
   const scriptKind = scriptKindForPath(ts, filePath);
   const sourceFile = ts.createSourceFile(
@@ -207,6 +234,29 @@ export function extractKeysFromSource(filePath, sourceText, ts) {
     true,
     scriptKind,
   );
+
+  if (
+    Array.isArray(sourceFile.parseDiagnostics) &&
+    sourceFile.parseDiagnostics.length > 0
+  ) {
+    for (const diagnostic of sourceFile.parseDiagnostics) {
+      const message = ts.flattenDiagnosticMessageText(
+        diagnostic.messageText,
+        ' ',
+      );
+      let location = relPath;
+      if (typeof diagnostic.start === 'number') {
+        const { line } = sourceFile.getLineAndCharacterOfPosition(
+          diagnostic.start,
+        );
+        location = `${relPath}:${line + 1}`;
+      }
+      parseErrors.push(
+        `env example contract: source parse failed in ${location}: ${message}`,
+      );
+    }
+    return { keys: [], unsupported: [], parseErrors };
+  }
 
   /**
    * 방문 중인 승인 helper 파라미터 이름 스택.
@@ -218,7 +268,7 @@ export function extractKeysFromSource(filePath, sourceText, ts) {
    * @param {import('typescript').Node} node
    */
   function visit(node) {
-    const helperParam = approvedHelperParamName(ts, node);
+    const helperParam = approvedHelperParamName(ts, node, relPath);
     if (helperParam) {
       helperParamStack.push(helperParam);
       ts.forEachChild(node, visit);
@@ -235,7 +285,14 @@ export function extractKeysFromSource(filePath, sourceText, ts) {
       helperParamStack,
     );
     collectEnvParamAccess(ts, node, keys);
-    collectHelperCallKeys(ts, node, keys);
+    collectHelperCallKeys(
+      ts,
+      node,
+      sourceFile,
+      keys,
+      unsupported,
+      helperParamStack,
+    );
     collectEnvNameConstants(ts, node, keys);
     collectConfigLiterals(ts, node, keys);
 
@@ -252,7 +309,7 @@ export function extractKeysFromSource(filePath, sourceText, ts) {
     uniqueKeys.push(key);
   }
 
-  return { keys: uniqueKeys, unsupported };
+  return { keys: uniqueKeys, unsupported, parseErrors };
 }
 
 /**
@@ -269,8 +326,14 @@ export function listScanFiles(dir) {
     let entries;
     try {
       entries = fs.readdirSync(current, { withFileTypes: true });
-    } catch {
-      return;
+    } catch (error) {
+      const detail =
+        error instanceof Error ? error.message : String(error ?? 'unknown');
+      const scanError = new Error(
+        `env example contract: directory scan failed: ${current}: ${detail}`,
+      );
+      scanError.name = 'DirectoryScanError';
+      throw scanError;
     }
     for (const entry of entries) {
       if (entry.name === 'node_modules' || entry.name === '.git') continue;
@@ -384,7 +447,7 @@ export function evaluateEnvContract({
 
 /**
  * scan_root 아래 backend/frontend src 를 스캔해 code hits 를 만든다.
- * unsupported dynamic 이 있으면 throw (message 에 file:line 과 표현 포함).
+ * unsupported dynamic · parse 실패 · 순회 오류가 있으면 throw.
  *
  * @param {string} scanRoot
  * @param {string} repoRoot typescript resolve 기준
@@ -398,7 +461,7 @@ export function collectCodeHits(
   /** @type {Array<{ key: string, owner: string, relPath: string }>} */
   const hits = [];
   /** @type {string[]} */
-  const unsupportedMessages = [];
+  const failureMessages = [];
 
   /** @type {Array<{ owner: string, dir: string }>} */
   const owners = [
@@ -407,16 +470,41 @@ export function collectCodeHits(
   ];
 
   for (const { owner, dir } of owners) {
-    for (const filePath of listScanFiles(dir)) {
+    let files;
+    try {
+      files = listScanFiles(dir);
+    } catch (error) {
+      failureMessages.push(
+        error instanceof Error ? error.message : String(error),
+      );
+      continue;
+    }
+
+    for (const filePath of files) {
       const relPath = normalizeRelPath(scanRoot, filePath);
-      const sourceText = fs.readFileSync(filePath, 'utf8');
-      const { keys, unsupported } = extractKeysFromSource(
+      let sourceText;
+      try {
+        sourceText = fs.readFileSync(filePath, 'utf8');
+      } catch (error) {
+        const detail =
+          error instanceof Error ? error.message : String(error ?? 'unknown');
+        failureMessages.push(
+          `env example contract: failed to read source file ${relPath}: ${detail}`,
+        );
+        continue;
+      }
+
+      const { keys, unsupported, parseErrors } = extractKeysFromSource(
         filePath,
         sourceText,
         ts,
+        { relPath },
       );
+      for (const message of parseErrors) {
+        failureMessages.push(message);
+      }
       for (const item of unsupported) {
-        unsupportedMessages.push(
+        failureMessages.push(
           `env example contract: unsupported dynamic process.env access in ${relPath}:${item.line}: ${item.expression}`,
         );
       }
@@ -426,10 +514,10 @@ export function collectCodeHits(
     }
   }
 
-  if (unsupportedMessages.length > 0) {
-    const error = new Error(unsupportedMessages.join('\n'));
-    error.name = 'UnsupportedEnvAccessError';
-    /** @type {any} */ (error).messages = unsupportedMessages;
+  if (failureMessages.length > 0) {
+    const error = new Error(failureMessages.join('\n'));
+    error.name = 'EnvContractScanError';
+    /** @type {any} */ (error).messages = failureMessages;
     throw error;
   }
 
@@ -452,12 +540,26 @@ export function buildSyntheticEnvFile(requiredKeys) {
 }
 
 /**
+ * 테스트·문서용 승인 helper 경로 목록.
+ * @returns {ReadonlyMap<string, ReadonlySet<string>>}
+ */
+export function approvedEnvHelperPaths() {
+  return APPROVED_ENV_HELPERS;
+}
+
+/**
  * @param {string} scanRoot
  * @param {string} filePath
  */
 function normalizeRelPath(scanRoot, filePath) {
-  const rel = path.relative(scanRoot, filePath);
-  return rel.split(path.sep).join('/');
+  return normalizePath(path.relative(scanRoot, filePath));
+}
+
+/**
+ * @param {string} value
+ */
+function normalizePath(value) {
+  return value.split(path.sep).join('/');
 }
 
 /**
@@ -468,32 +570,160 @@ function escapeRegExp(text) {
 }
 
 /**
+ * 한 문자열 구간에서 필수 보간 키를 수집한다. 중첩 `${...}` 도 재귀 스캔한다.
+ * @param {string} segment
+ * @param {string[]} keys
+ * @param {Set<string>} seen
+ */
+function collectRequiredKeysFromSegment(segment, keys, seen) {
+  let i = 0;
+  while (i < segment.length) {
+    const ch = segment[i];
+    if (ch === '$' && segment[i + 1] === '$') {
+      // compose 이스케이프: $$ → 리터럴 $
+      i += 2;
+      continue;
+    }
+    if (ch === '$' && segment[i + 1] === '{') {
+      const bodyStart = i + 2;
+      const bodyEnd = findInterpolationEnd(segment, bodyStart);
+      if (bodyEnd < 0) {
+        i += 1;
+        continue;
+      }
+      const body = segment.slice(bodyStart, bodyEnd);
+      const requiredKey = requiredKeyFromInterpolationBody(body);
+      if (requiredKey && !seen.has(requiredKey)) {
+        seen.add(requiredKey);
+        keys.push(requiredKey);
+      }
+      // 메시지/기본값 구간의 중첩 보간
+      collectRequiredKeysFromSegment(body, keys, seen);
+      i = bodyEnd + 1;
+      continue;
+    }
+    i += 1;
+  }
+}
+
+/**
+ * 따옴표 밖의 `#` 이후를 주석으로 제거한다.
+ * @param {string} line
+ */
+function stripYamlLineComment(line) {
+  let inSingle = false;
+  let inDouble = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (ch === "'" && !inDouble) {
+      inSingle = !inSingle;
+      continue;
+    }
+    if (ch === '"' && !inSingle) {
+      if (line[i - 1] === '\\') continue;
+      inDouble = !inDouble;
+      continue;
+    }
+    if (ch === '#' && !inSingle && !inDouble) {
+      return line.slice(0, i);
+    }
+  }
+  return line;
+}
+
+/**
+ * `${` 본문의 닫는 `}` 위치. 중첩 중괄호를 허용한다.
+ * @param {string} text
+ * @param {number} bodyStart
+ */
+function findInterpolationEnd(text, bodyStart) {
+  let depth = 1;
+  for (let i = bodyStart; i < text.length; i += 1) {
+    const ch = text[i];
+    if (ch === '{') {
+      depth += 1;
+      continue;
+    }
+    if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+/**
+ * 보간 본문에서 필수 키 이름을 뽑는다.
+ * `VAR:?msg` · `VAR?msg` 만 필수. `VAR:-` · `VAR-` · `VAR:+` · `VAR+` · `VAR` 는 제외.
+ * @param {string} body
+ * @returns {string|null}
+ */
+function requiredKeyFromInterpolationBody(body) {
+  const match = /^([A-Za-z_][A-Za-z0-9_]*)([\s\S]*)$/.exec(body);
+  if (!match) return null;
+  const key = match[1];
+  const rest = match[2];
+  if (rest.startsWith(':?')) return key;
+  if (rest.startsWith(':-') || rest.startsWith(':+')) return null;
+  if (rest.startsWith('?')) return key;
+  return null;
+}
+
+/**
  * @param {typeof import('typescript')} ts
  * @param {string} filePath
  */
 function scriptKindForPath(ts, filePath) {
-  if (filePath.endsWith('.tsx')) return ts.ScriptKind.TSX;
-  if (filePath.endsWith('.jsx')) return ts.ScriptKind.JSX;
-  if (filePath.endsWith('.js') || filePath.endsWith('.cjs')) {
+  const lower = filePath.toLowerCase();
+  if (lower.endsWith('.tsx')) return ts.ScriptKind.TSX;
+  if (lower.endsWith('.jsx')) return ts.ScriptKind.JSX;
+  if (lower.endsWith('.mts')) {
+    return ts.ScriptKind.MTS ?? ts.ScriptKind.TS;
+  }
+  if (lower.endsWith('.cts')) {
+    return ts.ScriptKind.CTS ?? ts.ScriptKind.TS;
+  }
+  if (
+    lower.endsWith('.js') ||
+    lower.endsWith('.cjs') ||
+    lower.endsWith('.mjs')
+  ) {
     return ts.ScriptKind.JS;
   }
-  if (filePath.endsWith('.mjs')) return ts.ScriptKind.JS;
   return ts.ScriptKind.TS;
+}
+
+/**
+ * @param {string} name
+ * @param {string} relPath
+ */
+function isApprovedHelperDeclaration(name, relPath) {
+  const paths = APPROVED_ENV_HELPERS.get(name);
+  if (!paths) return false;
+  return paths.has(normalizePath(relPath));
+}
+
+/**
+ * @param {string} name
+ */
+function isApprovedHelperName(name) {
+  return APPROVED_ENV_HELPERS.has(name);
 }
 
 /**
  * @param {typeof import('typescript')} ts
  * @param {import('typescript').Node} node
+ * @param {string} relPath
  * @returns {string|null} 파라미터 이름
  */
-function approvedHelperParamName(ts, node) {
+function approvedHelperParamName(ts, node, relPath) {
   if (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node)) {
     const name = node.name?.text;
-    if (!name || !APPROVED_ENV_HELPERS.has(name)) return null;
+    if (!name || !isApprovedHelperDeclaration(name, relPath)) return null;
     return firstParamName(ts, node.parameters);
   }
   if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
-    if (!APPROVED_ENV_HELPERS.has(node.name.text)) return null;
+    if (!isApprovedHelperDeclaration(node.name.text, relPath)) return null;
     const init = node.initializer;
     if (!init) return null;
     if (ts.isArrowFunction(init) || ts.isFunctionExpression(init)) {
@@ -504,7 +734,7 @@ function approvedHelperParamName(ts, node) {
     (ts.isMethodDeclaration(node) || ts.isMethodSignature(node)) &&
     node.name &&
     ts.isIdentifier(node.name) &&
-    APPROVED_ENV_HELPERS.has(node.name.text)
+    isApprovedHelperDeclaration(node.name.text, relPath)
   ) {
     return firstParamName(ts, node.parameters ?? []);
   }
@@ -608,11 +838,24 @@ function collectEnvParamAccess(ts, node, keys) {
 }
 
 /**
+ * 승인 helper 이름 호출: 첫 인자가 정적 리터럴이면 키 수집, 아니면 명시 실패.
+ * 승인 helper 본문에서 다른 승인 helper 로 파라미터를 넘기는 위임 호출
+ * (booleanEnvironmentValue → environmentValue(name)) 은 허용한다.
  * @param {typeof import('typescript')} ts
  * @param {import('typescript').Node} node
+ * @param {import('typescript').SourceFile} sourceFile
  * @param {string[]} keys
+ * @param {{ line: number, expression: string }[]} unsupported
+ * @param {string[]} helperParamStack
  */
-function collectHelperCallKeys(ts, node, keys) {
+function collectHelperCallKeys(
+  ts,
+  node,
+  sourceFile,
+  keys,
+  unsupported,
+  helperParamStack,
+) {
   if (!ts.isCallExpression(node)) return;
   const callee = node.expression;
   let name = null;
@@ -623,11 +866,25 @@ function collectHelperCallKeys(ts, node, keys) {
   ) {
     name = callee.name.text;
   }
-  if (!name || !APPROVED_ENV_HELPERS.has(name)) return;
+  if (!name || !isApprovedHelperName(name)) return;
+
   const arg = node.arguments[0];
   if (arg && isStaticStringLiteral(ts, arg)) {
     keys.push(arg.text);
+    return;
   }
+  // 승인 helper 본문 안에서 파라미터를 그대로 넘기는 위임은 동적 호출이 아니다.
+  if (arg && ts.isIdentifier(arg) && helperParamStack.includes(arg.text)) {
+    return;
+  }
+
+  const { line } = sourceFile.getLineAndCharacterOfPosition(
+    node.getStart(sourceFile),
+  );
+  unsupported.push({
+    line: line + 1,
+    expression: node.getText(sourceFile).replace(/\s+/g, ' '),
+  });
 }
 
 /**

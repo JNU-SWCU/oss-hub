@@ -138,7 +138,63 @@ function evaluateFixture(scanRoot, composeText, envText, options = {}) {
  * @param {string} [fileName]
  */
 function extract(source, fileName = 'sample.ts') {
-  return extractKeysFromSource(fileName, source, ts);
+  return extractKeysFromSource(fileName, source, ts, {
+    relPath: fileName.replaceAll('\\', '/'),
+  });
+}
+
+const APPROVED_OPS_PATH =
+  'apps/backend/src/repositories/github-operations.config.ts';
+const APPROVED_STORAGE_PATH =
+  'apps/backend/src/submissions/submission-file-storage.config.ts';
+
+/**
+ * entry CLI 로 fixture 트리를 검사한다(3차 리뷰 재현 계약).
+ * @param {string} root
+ * @param {{ requireDocker?: boolean }} [options]
+ */
+function runEntryCli(root, options = {}) {
+  const requireDocker = options.requireDocker !== false;
+  const args = [
+    path.join(REPO_ROOT, 'scripts/check-env-example-coverage.mjs'),
+    path.join(root, 'compose.yml'),
+    path.join(root, '.env.example'),
+    root,
+  ];
+  if (requireDocker) args.push('--require-docker');
+  try {
+    const stdout = execFileSync(process.execPath, args, {
+      encoding: 'utf8',
+      timeout: 60_000,
+      env: { ...process.env, CI: '' },
+    });
+    return { code: 0, stdout, stderr: '' };
+  } catch (error) {
+    const err = /** @type {any} */ (error);
+    return {
+      code: typeof err.status === 'number' ? err.status : 1,
+      stdout: String(err.stdout ?? ''),
+      stderr: String(err.stderr ?? ''),
+    };
+  }
+}
+
+/**
+ * @param {string} root
+ * @param {Record<string, string>} [extraFiles]
+ */
+function writeMinimalContractTree(root, extraFiles = {}) {
+  writeTree(root, {
+    'compose.yml': `services:
+  backend:
+    image: alpine
+    environment:
+      DATABASE_URL: \${DATABASE_URL:?required}
+      AUTH_INITIAL_ROLES: \${AUTH_INITIAL_ROLES:-}
+`,
+    '.env.example': 'DATABASE_URL=value\nAUTH_INITIAL_ROLES=\n',
+    ...extraFiles,
+  });
 }
 
 // --- 순수 함수: 키 추출 AST ---
@@ -210,7 +266,7 @@ test('주석 처리된 process.env.KEY 와 동적 접근은 무시한다', () =>
 });
 
 test('승인 helper 본문의 process.env[name] 은 면제하고 호출 인자는 수집한다', () => {
-  const { keys, unsupported } = extract(OPS_HELPER);
+  const { keys, unsupported } = extract(OPS_HELPER, APPROVED_OPS_PATH);
   assert.deepEqual(keys.sort(), [
     'GITHUB_OPERATIONS_APP_ID',
     'GITHUB_OPERATIONS_APP_PRIVATE_KEY',
@@ -219,7 +275,8 @@ test('승인 helper 본문의 process.env[name] 은 면제하고 호출 인자�
 });
 
 test('같은 파일의 무관한 process.env[someVar] 는 unsupported 로 실패한다', () => {
-  const { keys, unsupported } = extract(`
+  const { keys, unsupported } = extract(
+    `
     function environmentValue(name: string): string | null {
       const value = process.env[name]?.trim();
       return value && value.length > 0 ? value : null;
@@ -228,7 +285,9 @@ test('같은 파일의 무관한 process.env[someVar] 는 unsupported 로 실패
       return environmentValue('DECLARED_KEY');
     }
     export const bad = process.env[someVariable];
-  `);
+  `,
+    APPROVED_OPS_PATH,
+  );
   assert.deepEqual(keys, ['DECLARED_KEY']);
   assert.equal(unsupported.length, 1);
   assert.match(unsupported[0].expression, /process\.env\[someVariable\]/);
@@ -296,15 +355,27 @@ services:
   );
 });
 
-test('extractRequiredComposeKeys 는 ${VAR:?} 만 순서 유지로 뽑는다', () => {
+test('extractRequiredComposeKeys 는 ?·:? 를 잡고 $$·주석·선택 보간은 제외한다', () => {
   const keys = extractRequiredComposeKeys(`
     image: app:\${IMAGE_TAG:?required}
     environment:
+      # comment with \${COMMENT_KEY:?should_not_count}
       A: \${A:?x}
       B: \${B:-y}
+      C: \${C?error message}
+      D: \${D-default}
+      E: \${E}
+      ESCAPED: \$\${ESCAPED_KEY:?should_not_count}
+      NESTED: \${NESTED_KEY:?outer \${INNER:-x}}
       A_AGAIN: \${A:?x}
   `);
-  assert.deepEqual(keys, ['IMAGE_TAG', 'A']);
+  assert.deepEqual(keys, ['IMAGE_TAG', 'A', 'C', 'NESTED_KEY']);
+  assert.ok(!keys.includes('COMMENT_KEY'));
+  assert.ok(!keys.includes('ESCAPED_KEY'));
+  assert.ok(!keys.includes('B'));
+  assert.ok(!keys.includes('D'));
+  assert.ok(!keys.includes('E'));
+  assert.ok(!keys.includes('INNER'));
 });
 
 // --- 면제 범위 ---
@@ -424,7 +495,7 @@ test('F7: 코드 키가 .env.example 에 없으면 undeclared 로 실패', () =>
   const root = makeTempDir();
   try {
     writeTree(root, {
-      'apps/backend/src/repositories/ops.ts': OPS_HELPER,
+      'apps/backend/src/repositories/github-operations.config.ts': OPS_HELPER,
       'apps/backend/src/collection/scheduler.ts': SCHEDULER,
     });
     const compose = `services:
@@ -451,7 +522,7 @@ test('F7: 코드 키가 .env.example 에 없으면 undeclared 로 실패', () =>
 function f6Missing(missingKey) {
   const root = makeTempDir();
   writeTree(root, {
-    'apps/backend/src/repositories/ops.ts': OPS_HELPER,
+    'apps/backend/src/repositories/github-operations.config.ts': OPS_HELPER,
     'apps/backend/src/collection/scheduler.ts': SCHEDULER,
   });
   const compose = BASE_COMPOSE_ALL.split('\n')
@@ -489,7 +560,7 @@ test('F6·F7 키를 선언하고 backend environment 에 매핑하면 성공', (
   const root = makeTempDir();
   try {
     writeTree(root, {
-      'apps/backend/src/repositories/ops.ts': OPS_HELPER,
+      'apps/backend/src/repositories/github-operations.config.ts': OPS_HELPER,
       'apps/backend/src/collection/scheduler.ts': SCHEDULER,
     });
     const result = evaluateFixture(root, BASE_COMPOSE_ALL, BASE_ENV_ALL);
@@ -503,7 +574,7 @@ test('F6: 다른 서비스 environment 의 키만으로는 backend 매핑 불충
   const root = makeTempDir();
   try {
     writeTree(root, {
-      'apps/backend/src/repositories/ops.ts': OPS_HELPER,
+      'apps/backend/src/repositories/github-operations.config.ts': OPS_HELPER,
       'apps/backend/src/collection/scheduler.ts': SCHEDULER,
     });
     const compose = `services:
@@ -805,7 +876,7 @@ test('environmentValue helper 의 process.env[name] 은 동적 접근 실패가 
   const root = makeTempDir();
   try {
     writeTree(root, {
-      'apps/backend/src/repositories/ops.ts': OPS_HELPER,
+      'apps/backend/src/repositories/github-operations.config.ts': OPS_HELPER,
     });
     const result = evaluateFixture(root, BASE_COMPOSE_ALL, BASE_ENV_ALL);
     assert.equal(result.ok, true, result.ok ? '' : result.errors.join('\n'));
@@ -931,6 +1002,224 @@ export const bad = process.env[someVariable];
     const stderr = stderrChunks.join('');
     assert.match(stderr, /unsupported dynamic process\.env access/);
     assert.match(stderr, /someVariable/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+test('CLI: 동명 무관 helper 는 승인 경로 밖이면 process.env[param] 면제를 훔치지 못한다', () => {
+  const root = makeTempDir();
+  try {
+    writeMinimalContractTree(root, {
+      'apps/backend/src/evil-helper.ts': `
+function environmentValue(name: string): string | null {
+  return process.env[name] ?? null;
+}
+export const v = environmentValue('ANY_KEY');
+`,
+    });
+    const result = runEntryCli(root);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.match(result.stderr, /unsupported dynamic process\.env access/);
+    assert.match(result.stderr, /evil-helper\.ts:\d+/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI: 승인 helper 호출 첫 인자가 비정적 리터럴이면 실패한다', () => {
+  const root = makeTempDir();
+  try {
+    writeMinimalContractTree(root, {
+      'apps/backend/src/dyn-call.ts': `
+declare function environmentValue(name: string): string | null;
+const computedName = 'SECRET_COMPUTED_KEY';
+export const v = environmentValue(computedName);
+`,
+    });
+    const result = runEntryCli(root);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.match(result.stderr, /unsupported dynamic process\.env access/);
+    assert.match(result.stderr, /environmentValue\(computedName\)/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI: .mts 미선언 키를 스캔해 실패한다', () => {
+  const root = makeTempDir();
+  try {
+    writeMinimalContractTree(root, {
+      'apps/backend/src/mod.mts':
+        'export const v = process.env.UNDECLARED_MTS_KEY;\n',
+    });
+    const result = runEntryCli(root);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.match(result.stderr, /UNDECLARED_MTS_KEY/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI: .cts 미선언 키를 스캔해 실패한다', () => {
+  const root = makeTempDir();
+  try {
+    writeMinimalContractTree(root, {
+      'apps/backend/src/mod.cts':
+        'export const v = process.env.UNDECLARED_CTS_KEY;\n',
+    });
+    const result = runEntryCli(root);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.match(result.stderr, /UNDECLARED_CTS_KEY/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI: .tsx 미선언 키를 스캔해 실패한다', () => {
+  const root = makeTempDir();
+  try {
+    writeMinimalContractTree(root, {
+      'apps/frontend/src/widget.tsx':
+        'export const v = process.env.UNDECLARED_TSX_KEY;\n',
+    });
+    const result = runEntryCli(root);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.match(result.stderr, /UNDECLARED_TSX_KEY/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI: .js 미선언 키를 스캔해 실패한다', () => {
+  const root = makeTempDir();
+  try {
+    writeMinimalContractTree(root, {
+      'apps/backend/src/legacy.js':
+        'export const v = process.env.UNDECLARED_JS_KEY;\n',
+    });
+    const result = runEntryCli(root);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.match(result.stderr, /UNDECLARED_JS_KEY/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI: 구문 깨진 소스는 parse 실패로 non-zero', () => {
+  const root = makeTempDir();
+  try {
+    writeMinimalContractTree(root, {
+      'apps/backend/src/broken.ts': 'function (\n',
+    });
+    const result = runEntryCli(root);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.match(result.stderr, /source parse failed/);
+    assert.match(result.stderr, /broken\.ts/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI: 디렉터리 순회 오류는 이름 있는 검사 실패다', () => {
+  const root = makeTempDir();
+  const locked = path.join(root, 'apps/backend/src/locked');
+  try {
+    writeMinimalContractTree(root, {});
+    fs.mkdirSync(locked, { recursive: true });
+    fs.chmodSync(locked, 0o000);
+    const result = runEntryCli(root);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.match(result.stderr, /directory scan failed/);
+  } finally {
+    try {
+      fs.chmodSync(locked, 0o755);
+    } catch {
+      // ignore cleanup chmod errors
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI: compose ${VAR?} 누락은 실패하고 $$·주석 토큰은 필수로 오인하지 않는다', () => {
+  const root = makeTempDir();
+  try {
+    writeTree(root, {
+      'compose.yml': `services:
+  backend:
+    image: alpine
+    environment:
+      # comment \${COMMENT_KEY:?nope}
+      DATABASE_URL: \${DATABASE_URL:?required}
+      NO_COLON: \${NO_COLON?required}
+      ESCAPED: \$\${ESCAPED_KEY:?nope}
+      AUTH_INITIAL_ROLES: \${AUTH_INITIAL_ROLES:-}
+`,
+      '.env.example': `DATABASE_URL=value
+AUTH_INITIAL_ROLES=
+ESCAPED_KEY=
+COMMENT_KEY=
+`,
+    });
+    const missing = runEntryCli(root);
+    assert.equal(missing.code, 1, missing.stderr || missing.stdout);
+    assert.match(
+      missing.stderr,
+      /required key missing: NO_COLON|NO_COLON is missing/,
+    );
+
+    fs.writeFileSync(
+      path.join(root, '.env.example'),
+      `DATABASE_URL=value
+AUTH_INITIAL_ROLES=
+NO_COLON=value
+`,
+      'utf8',
+    );
+    const ok = runEntryCli(root);
+    assert.equal(ok.code, 0, ok.stderr || ok.stdout);
+    assert.match(ok.stdout, /env example contract: ok/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI: list-form environment 매핑을 정규화 모델에서 인정한다', () => {
+  const root = makeTempDir();
+  try {
+    writeTree(root, {
+      'compose.yml': `services:
+  backend:
+    image: alpine
+    environment:
+      - DATABASE_URL=\${DATABASE_URL:?required}
+      - AUTH_INITIAL_ROLES=\${AUTH_INITIAL_ROLES:-}
+      - LIST_FORM_KEY=\${LIST_FORM_KEY:-}
+`,
+      '.env.example': `DATABASE_URL=value
+AUTH_INITIAL_ROLES=
+LIST_FORM_KEY=
+`,
+      'apps/backend/src/list-form.ts':
+        'export const v = process.env.LIST_FORM_KEY;\n',
+    });
+    const result = runEntryCli(root);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /env example contract: ok/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI: production integration 파일명 면제 경계는 entry 경로에서 실패한다', () => {
+  const root = makeTempDir();
+  try {
+    writeMinimalContractTree(root, {
+      'apps/backend/src/production-integration-helper.ts':
+        'export const runner = process.env.OSS_HUB_INTEGRATION_RUNNER;\n',
+    });
+    const result = runEntryCli(root);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.match(result.stderr, /OSS_HUB_INTEGRATION_RUNNER/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
