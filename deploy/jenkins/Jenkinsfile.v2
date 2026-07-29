@@ -153,10 +153,10 @@ set -euo pipefail
 
 compose=(docker compose --env-file "$OSS_HUB_ENV_FILE")
 
-fe_running="$("${compose[@]}" ps -q frontend 2>/dev/null || true)"
-be_running="$("${compose[@]}" ps -q backend 2>/dev/null || true)"
-fe_all="$("${compose[@]}" ps --all -q frontend 2>/dev/null || true)"
-be_all="$("${compose[@]}" ps --all -q backend 2>/dev/null || true)"
+fe_running="$("${compose[@]}" ps -q frontend)"
+be_running="$("${compose[@]}" ps -q backend)"
+fe_all="$("${compose[@]}" ps --all -q frontend)"
+be_all="$("${compose[@]}" ps --all -q backend)"
 
 # partial deployment: 한쪽만 컨테이너가 있으면 치명.
 if { [ -n "$fe_all" ] && [ -z "$be_all" ]; } || { [ -z "$fe_all" ] && [ -n "$be_all" ]; }; then
@@ -344,9 +344,11 @@ printf 'prev_be_image_id=%s\n' "$be_image_id"
         withCredentials([file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE')]) {
           sh '''#!/usr/bin/env bash
 set -euo pipefail
-# credential file을 source/print 하지 않는다. FRONTEND_URL 키 값만 추출해 스킴을 검사한다.
+# credential file을 source/print 하지 않는다. FRONTEND_URL 키만 추출해 유일 할당·스킴을 검사한다.
+# 값은 로그에 남기지 않는다. 주석이 아닌 할당이 정확히 하나여야 한다(중복 순서 무관).
 frontend_url="$(
   awk '
+    BEGIN { count = 0; value = "" }
     /^[[:space:]]*#/ { next }
     /^[[:space:]]*$/ { next }
     {
@@ -359,14 +361,35 @@ frontend_url="$(
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", key)
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", val)
       if (key != "FRONTEND_URL") next
+      count++
       if (val ~ /^".*"$/) {
         val = substr(val, 2, length(val) - 2)
       }
-      print val
-      exit
+      if (count == 1) {
+        value = val
+      }
+    }
+    END {
+      if (count == 0) {
+        exit 2
+      }
+      if (count != 1) {
+        exit 3
+      }
+      print value
     }
   ' "$OSS_HUB_ENV_FILE"
-)"
+)" || {
+  awk_rc=$?
+  if [ "$awk_rc" -eq 2 ]; then
+    echo 'FAIL_CLOSED https_preflight: FRONTEND_URL 키가 운영 env에 없습니다.' >&2
+  elif [ "$awk_rc" -eq 3 ]; then
+    echo 'FAIL_CLOSED https_preflight: FRONTEND_URL 할당이 둘 이상입니다 (value not logged).' >&2
+  else
+    echo 'FAIL_CLOSED https_preflight: FRONTEND_URL 파싱에 실패했습니다.' >&2
+  fi
+  exit 1
+}
 
 if [ -z "$frontend_url" ]; then
   echo 'FAIL_CLOSED https_preflight: FRONTEND_URL 키가 운영 env에 없습니다.' >&2
@@ -629,6 +652,14 @@ is_kept_tag() {
 }
 
 # docker images 포맷: repository:tag. dangling/untagged 는 스킵.
+# producer 실패는 빈 목록 성공으로 취급하지 않는다. 상태 검사된 임시 파일로 목록을 고정한 뒤 소비한다.
+images_raw="$(mktemp)"
+images_inventory="$(mktemp)"
+trap 'rm -f "$images_raw" "$images_inventory"' EXIT
+docker images --format '{{.Repository}}\t{{.Tag}}\t{{.ID}}' > "$images_raw"
+awk -F '\t' '$1=="oss-hub-frontend" || $1=="oss-hub-backend"' "$images_raw" > "$images_inventory"
+rm -f "$images_raw"
+
 while IFS="$(printf '\t')" read -r repo tag image_id; do
   [ -n "$repo" ] || continue
   [ -n "$tag" ] || continue
@@ -642,7 +673,7 @@ while IFS="$(printf '\t')" read -r repo tag image_id; do
   fi
   # 결정적 삭제. 참조 중이면 실패 → fail-closed.
   docker image rm "${repo}:${tag}"
-done < <(docker images --format '{{.Repository}}\t{{.Tag}}\t{{.ID}}' | awk -F '\t' '$1=="oss-hub-frontend" || $1=="oss-hub-backend"')
+done < "$images_inventory"
 
 # backup retention N=120 (C4). Jenkins와 격리 fixture가 같은 fail-closed 구현을 호출한다.
 bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"
