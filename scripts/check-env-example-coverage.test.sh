@@ -79,66 +79,196 @@ expect_pass '필수 키가 모두 있으면 성공' "$fixture_dir/valid-compose.
 expect_fail '숫자를 포함한 S3 필수 키 누락' "$fixture_dir/valid-compose.yml" "$fixture_dir/missing.env" "$empty_scan"
 expect_fail 'AUTH_INITIAL_ROLES 명시 매핑 누락' "$fixture_dir/missing-map.yml" "$fixture_dir/valid.env" "$empty_scan"
 
-# --- F6·F7 재현: 코드가 읽는 키가 계약에 없을 때 non-zero ---
-# F6: GITHUB_OPERATIONS_APP_* 가 코드에 있으나 compose/env 계약에 없음
-# F7: COLLECTION_CRON_EXPRESSION · PORT 가 코드에 있으나 계약에 없음
-f6f7_root="$fixture_dir/f6f7"
-mkdir -p "$f6f7_root/apps/backend/src/repositories" "$f6f7_root/apps/backend/src/collection" "$f6f7_root/apps/frontend/src"
-cat >"$f6f7_root/apps/backend/src/repositories/ops.ts" <<'EOF'
+# --- 공통 baseline: 프로덕션과 같은 environmentValue + process.env[name] helper ---
+write_ops_helper() {
+  local path=$1
+  cat >"$path" <<'EOF'
+function environmentValue(name: string): string | null {
+  const value = process.env[name]?.trim();
+  return value && value.length > 0 ? value : null;
+}
 export function loadOps() {
   return {
-    id: process.env.GITHUB_OPERATIONS_APP_ID,
-    key: process.env.GITHUB_OPERATIONS_APP_PRIVATE_KEY,
+    id: environmentValue('GITHUB_OPERATIONS_APP_ID'),
+    key: environmentValue('GITHUB_OPERATIONS_APP_PRIVATE_KEY'),
   };
 }
 EOF
-cat >"$f6f7_root/apps/backend/src/collection/scheduler.ts" <<'EOF'
+}
+
+write_scheduler() {
+  local path=$1
+  cat >"$path" <<'EOF'
 export const cron = process.env.COLLECTION_CRON_EXPRESSION?.trim() || '0 0 * * * *';
 export const port = Number.parseInt(process.env.PORT ?? '4000', 10);
 EOF
-# compose/env 는 DATABASE_URL 만 — F6·F7 키가 없다.
-printf 'services:\n  backend:\n    environment:\n      DATABASE_URL: ${DATABASE_URL:?required}\n      AUTH_INITIAL_ROLES: ${AUTH_INITIAL_ROLES:-}\n' >"$f6f7_root/compose.yml"
-printf 'DATABASE_URL=value\n' >"$f6f7_root/.env.example"
+}
+
+base_env_all='DATABASE_URL=value
+GITHUB_OPERATIONS_APP_ID=
+GITHUB_OPERATIONS_APP_PRIVATE_KEY=
+COLLECTION_CRON_EXPRESSION=
+PORT=
+'
+base_compose_all='services:
+  backend:
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?required}
+      GITHUB_OPERATIONS_APP_ID: ${GITHUB_OPERATIONS_APP_ID:?required}
+      GITHUB_OPERATIONS_APP_PRIVATE_KEY: ${GITHUB_OPERATIONS_APP_PRIVATE_KEY:?required}
+      COLLECTION_CRON_EXPRESSION: ${COLLECTION_CRON_EXPRESSION:-}
+      PORT: ${PORT:-4000}
+      AUTH_INITIAL_ROLES: ${AUTH_INITIAL_ROLES:-}
+'
+
+# --- F7: 코드가 읽는 키가 .env.example 에 없으면 실패 (선언 불변식) ---
+f7_root="$fixture_dir/f7-undeclared"
+mkdir -p "$f7_root/apps/backend/src/repositories" "$f7_root/apps/backend/src/collection"
+write_ops_helper "$f7_root/apps/backend/src/repositories/ops.ts"
+write_scheduler "$f7_root/apps/backend/src/collection/scheduler.ts"
+# compose 의 ${:?} 필수 단계(a)와 겹치지 않도록 코드 키는 ${:-} 매핑을 쓴다.
+cat >"$f7_root/compose.yml" <<'EOF'
+services:
+  backend:
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?required}
+      GITHUB_OPERATIONS_APP_ID: ${GITHUB_OPERATIONS_APP_ID:-}
+      GITHUB_OPERATIONS_APP_PRIVATE_KEY: ${GITHUB_OPERATIONS_APP_PRIVATE_KEY:-}
+      COLLECTION_CRON_EXPRESSION: ${COLLECTION_CRON_EXPRESSION:-}
+      PORT: ${PORT:-4000}
+      AUTH_INITIAL_ROLES: ${AUTH_INITIAL_ROLES:-}
+EOF
+printf 'DATABASE_URL=value\n' >"$f7_root/.env.example"
 
 expect_fail_message \
-  'F6·F7: 코드가 읽는 운영 App·cron·PORT 키가 계약에 없으면 실패' \
-  "$f6f7_root/compose.yml" \
-  "$f6f7_root/.env.example" \
+  'F7: 코드 키가 .env.example 에 없으면 undeclared 로 실패' \
+  "$f7_root/compose.yml" \
+  "$f7_root/.env.example" \
   'code reads undeclared key:' \
-  "$f6f7_root"
+  "$f7_root"
 
-# 같은 코드 키를 계약에 넣으면 통과
-printf 'DATABASE_URL=value\nGITHUB_OPERATIONS_APP_ID=\nGITHUB_OPERATIONS_APP_PRIVATE_KEY=\nCOLLECTION_CRON_EXPRESSION=\nPORT=\n' >"$f6f7_root/.env.example.fixed"
-printf 'services:\n  backend:\n    environment:\n      DATABASE_URL: ${DATABASE_URL:?required}\n      GITHUB_OPERATIONS_APP_ID: ${GITHUB_OPERATIONS_APP_ID:?required}\n      GITHUB_OPERATIONS_APP_PRIVATE_KEY: ${GITHUB_OPERATIONS_APP_PRIVATE_KEY:?required}\n      COLLECTION_CRON_EXPRESSION: ${COLLECTION_CRON_EXPRESSION:-}\n      PORT: ${PORT:-4000}\n      AUTH_INITIAL_ROLES: ${AUTH_INITIAL_ROLES:-}\n' >"$f6f7_root/compose.fixed.yml"
+# --- F6: .env.example 선언은 유지하고 backend environment 매핑만 제거 ---
+# 키별 독립 fixture — 각각 해당 키 하나만 매핑에서 빠진다.
+f6_make() {
+  local name=$1 missing_key=$2 needle=$3
+  local root="$fixture_dir/f6-$name"
+  mkdir -p "$root/apps/backend/src/repositories" "$root/apps/backend/src/collection"
+  write_ops_helper "$root/apps/backend/src/repositories/ops.ts"
+  write_scheduler "$root/apps/backend/src/collection/scheduler.ts"
+  printf '%s\n' "$base_env_all" >"$root/.env.example"
+
+  # base compose 에서 missing_key 매핑 줄만 제거
+  printf '%s\n' "$base_compose_all" | grep -v "^      ${missing_key}:" >"$root/compose.yml"
+
+  expect_fail_message \
+    "F6: $missing_key 가 .env.example 에 있어도 backend environment 매핑 없으면 실패" \
+    "$root/compose.yml" \
+    "$root/.env.example" \
+    "$needle" \
+    "$root"
+}
+
+f6_make 'ops-id' 'GITHUB_OPERATIONS_APP_ID' \
+  'code key not mapped in backend service environment: GITHUB_OPERATIONS_APP_ID'
+f6_make 'ops-key' 'GITHUB_OPERATIONS_APP_PRIVATE_KEY' \
+  'code key not mapped in backend service environment: GITHUB_OPERATIONS_APP_PRIVATE_KEY'
+f6_make 'cron' 'COLLECTION_CRON_EXPRESSION' \
+  'code key not mapped in backend service environment: COLLECTION_CRON_EXPRESSION'
+f6_make 'port' 'PORT' \
+  'code key not mapped in backend service environment: PORT'
+
+# 선언+매핑 모두 있으면 통과
+f6_ok="$fixture_dir/f6-ok"
+mkdir -p "$f6_ok/apps/backend/src/repositories" "$f6_ok/apps/backend/src/collection"
+write_ops_helper "$f6_ok/apps/backend/src/repositories/ops.ts"
+write_scheduler "$f6_ok/apps/backend/src/collection/scheduler.ts"
+printf '%s\n' "$base_env_all" >"$f6_ok/.env.example"
+printf '%s\n' "$base_compose_all" >"$f6_ok/compose.yml"
 expect_pass \
-  'F6·F7 키를 계약에 매핑하면 성공' \
-  "$f6f7_root/compose.fixed.yml" \
-  "$f6f7_root/.env.example.fixed" \
-  "$f6f7_root"
+  'F6·F7 키를 선언하고 backend environment 에 매핑하면 성공' \
+  "$f6_ok/compose.yml" \
+  "$f6_ok/.env.example" \
+  "$f6_ok"
 
-# --- allowlist 키는 계약에 없어도 통과 ---
+# compose 파일 다른 위치의 ${KEY} 치환만으로는 서비스 매핑을 충족하지 않는다
+f6_elsewhere="$fixture_dir/f6-elsewhere"
+mkdir -p "$f6_elsewhere/apps/backend/src/repositories" "$f6_elsewhere/apps/backend/src/collection"
+write_ops_helper "$f6_elsewhere/apps/backend/src/repositories/ops.ts"
+write_scheduler "$f6_elsewhere/apps/backend/src/collection/scheduler.ts"
+printf '%s\nIMAGE_TAG=local\n' "$base_env_all" >"$f6_elsewhere/.env.example"
+cat >"$f6_elsewhere/compose.yml" <<'EOF'
+services:
+  backend:
+    image: app:${IMAGE_TAG:?IMAGE_TAG is required}
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?required}
+      COLLECTION_CRON_EXPRESSION: ${COLLECTION_CRON_EXPRESSION:-}
+      PORT: ${PORT:-4000}
+      AUTH_INITIAL_ROLES: ${AUTH_INITIAL_ROLES:-}
+  # 고의로 ops 키를 backend.environment 가 아닌 다른 서비스에만 둔다.
+  other:
+    environment:
+      GITHUB_OPERATIONS_APP_ID: ${GITHUB_OPERATIONS_APP_ID:?required}
+      GITHUB_OPERATIONS_APP_PRIVATE_KEY: ${GITHUB_OPERATIONS_APP_PRIVATE_KEY:?required}
+EOF
+expect_fail_message \
+  'F6: 다른 서비스 environment 의 ${KEY} 만으로는 backend 매핑 불충족' \
+  "$f6_elsewhere/compose.yml" \
+  "$f6_elsewhere/.env.example" \
+  'code key not mapped in backend service environment: GITHUB_OPERATIONS_APP_ID' \
+  "$f6_elsewhere"
+
+# --- 경로별 면제 ---
 allow_root="$fixture_dir/allowlist"
-mkdir -p "$allow_root/apps/backend/src"
+mkdir -p \
+  "$allow_root/apps/backend/src/notifications/cli" \
+  "$allow_root/apps/backend/src/testing"
 cat >"$allow_root/apps/backend/src/runtime.ts" <<'EOF'
 export const nodeEnv = process.env.NODE_ENV;
+EOF
+cat >"$allow_root/apps/backend/src/notifications/cli/send-digest.ts" <<'EOF'
+export const forceTo = process.env.DIGEST_FORCE_TO?.trim();
+EOF
+cat >"$allow_root/apps/backend/src/testing/integration-runner.ts" <<'EOF'
 export const runner = process.env.OSS_HUB_INTEGRATION_RUNNER;
-export const forceTo = process.env.DIGEST_FORCE_TO;
 EOF
 printf 'services:\n  backend:\n    environment:\n      DATABASE_URL: ${DATABASE_URL:?required}\n      AUTH_INITIAL_ROLES: ${AUTH_INITIAL_ROLES:-}\n' >"$allow_root/compose.yml"
-printf 'DATABASE_URL=value\n' >"$allow_root/.env.example"
+printf 'DATABASE_URL=value\nIMAGE_TAG=local\n' >"$allow_root/.env.example"
 expect_pass \
-  'allowlist 키(NODE_ENV·OSS_HUB_INTEGRATION_RUNNER·DIGEST_FORCE_TO)는 계약 없이도 통과' \
+  '경로별 면제: NODE_ENV·notifications/cli DIGEST_FORCE_TO·integration runner' \
   "$allow_root/compose.yml" \
   "$allow_root/.env.example" \
   "$allow_root"
 
-# IMAGE_TAG 는 compose ${:?} 필수여도 .env.example 문서화 대상이 아니다.
+# DIGEST_FORCE_TO 가 CLI 밖이면 면제 실패
+allow_bad="$fixture_dir/allow-bad-digest"
+mkdir -p "$allow_bad/apps/backend/src"
+cat >"$allow_bad/apps/backend/src/runtime.ts" <<'EOF'
+export const forceTo = process.env.DIGEST_FORCE_TO;
+EOF
+printf 'services:\n  backend:\n    environment:\n      DATABASE_URL: ${DATABASE_URL:?required}\n      AUTH_INITIAL_ROLES: ${AUTH_INITIAL_ROLES:-}\n' >"$allow_bad/compose.yml"
+printf 'DATABASE_URL=value\n' >"$allow_bad/.env.example"
+expect_fail_message \
+  'DIGEST_FORCE_TO 가 CLI 경로 밖이면 계약 검사 실패' \
+  "$allow_bad/compose.yml" \
+  "$allow_bad/.env.example" \
+  'DIGEST_FORCE_TO' \
+  "$allow_bad"
+
+# IMAGE_TAG 는 .env.example 에 문서화된다 (로컬 placeholder).
 printf 'services:\n  backend:\n    image: app:${IMAGE_TAG:?IMAGE_TAG is required}\n    environment:\n      DATABASE_URL: ${DATABASE_URL:?required}\n      AUTH_INITIAL_ROLES: ${AUTH_INITIAL_ROLES:-}\n' >"$allow_root/compose-image.yml"
+printf 'DATABASE_URL=value\n' >"$allow_root/.env.example.no-tag"
+expect_fail_message \
+  'IMAGE_TAG 가 compose 필수면 .env.example 문서화 필요' \
+  "$allow_root/compose-image.yml" \
+  "$allow_root/.env.example.no-tag" \
+  'required key missing: IMAGE_TAG' \
+  "$empty_scan"
 expect_pass \
-  'IMAGE_TAG 는 빌드 주입값으로 계약 문서화 예외' \
+  'IMAGE_TAG 로컬 placeholder 가 .env.example 에 있으면 성공' \
   "$allow_root/compose-image.yml" \
   "$allow_root/.env.example" \
-  "$allow_root"
+  "$empty_scan"
 
 # 테스트 전용 파일(*.spec.ts)의 process.env 는 스캔하지 않는다.
 spec_root="$fixture_dir/spec-only"
@@ -154,6 +284,63 @@ expect_pass \
   "$spec_root/compose.yml" \
   "$spec_root/.env.example" \
   "$spec_root"
+
+# --- blocker 3: 대괄호 리터럴·구조 분해·동적 접근 ---
+scan_forms="$fixture_dir/scan-forms"
+mkdir -p "$scan_forms/apps/backend/src"
+printf 'services:\n  backend:\n    environment:\n      DATABASE_URL: ${DATABASE_URL:?required}\n      AUTH_INITIAL_ROLES: ${AUTH_INITIAL_ROLES:-}\n' >"$scan_forms/compose.yml"
+printf 'DATABASE_URL=value\n' >"$scan_forms/.env.example"
+
+cat >"$scan_forms/apps/backend/src/bracket.ts" <<'EOF'
+export const value = process.env['UNDECLARED_BRACKET_KEY'];
+EOF
+expect_fail_message \
+  'process.env['\''KEY'\''] 대괄호 리터럴 접근을 검출' \
+  "$scan_forms/compose.yml" \
+  "$scan_forms/.env.example" \
+  'code reads undeclared key: UNDECLARED_BRACKET_KEY' \
+  "$scan_forms"
+
+cat >"$scan_forms/apps/backend/src/bracket.ts" <<'EOF'
+const { UNDECLARED_DESTRUCT_KEY } = process.env;
+export const value = UNDECLARED_DESTRUCT_KEY;
+EOF
+# 이전 파일 잔여 제거 — 단일 파일만
+rm -f "$scan_forms/apps/backend/src/bracket.ts"
+cat >"$scan_forms/apps/backend/src/destruct.ts" <<'EOF'
+const { UNDECLARED_DESTRUCT_KEY } = process.env;
+export const value = UNDECLARED_DESTRUCT_KEY;
+EOF
+expect_fail_message \
+  'const { KEY } = process.env 구조 분해를 검출' \
+  "$scan_forms/compose.yml" \
+  "$scan_forms/.env.example" \
+  'code reads undeclared key: UNDECLARED_DESTRUCT_KEY' \
+  "$scan_forms"
+
+rm -f "$scan_forms/apps/backend/src/destruct.ts"
+cat >"$scan_forms/apps/backend/src/dynamic.ts" <<'EOF'
+export const value = process.env[someVariable];
+EOF
+expect_fail_message \
+  '해석 불가 동적 process.env[var] 는 명시 실패' \
+  "$scan_forms/compose.yml" \
+  "$scan_forms/.env.example" \
+  'unsupported dynamic process.env access' \
+  "$scan_forms"
+
+# 승인 helper 본문의 process.env[name] + environmentValue('KEY') 는 허용
+rm -f "$scan_forms/apps/backend/src/dynamic.ts"
+mkdir -p "$scan_forms/apps/backend/src/repositories"
+write_ops_helper "$scan_forms/apps/backend/src/repositories/ops.ts"
+printf '%s\n' "$base_env_all" >"$scan_forms/.env.example.fixed"
+printf '%s\n' "$base_compose_all" >"$scan_forms/compose.fixed.yml"
+# scheduler 없이 ops 만
+expect_pass \
+  'environmentValue helper 의 process.env[name] 은 동적 접근 실패가 아님' \
+  "$scan_forms/compose.fixed.yml" \
+  "$scan_forms/.env.example.fixed" \
+  "$scan_forms"
 
 printf '%s passed, %s failed\n' "$passed" "$failed"
 ((failed == 0))
