@@ -216,9 +216,9 @@ printf 'D6_HTTP=%s\n' "$D6_CODE"
 # body에 시크릿이 있으면 인쇄·커밋하지 않는다. 판정은 HTTP 코드와 "업로드 성공 아님"만.
 ```
 
-   - **정확히 하나의 합격 거절 결과:** `D6_HTTP=403` 한 값만 PASS다 (Compose ingress fail-closed 거절).  
-     - `2xx` → 업로드 경로가 열린 것 → `BASELINE_PROBE=BLOCKED` (G007 실패; D6은 이 창에서 열지 않음).  
-     - `401`·`404`·`405`·`5xx`·기타 non-403 → **관측 모호**(세션 부재·라우팅 오판·백엔드 오류와 구분 불가) → `BASELINE_PROBE=BLOCKED`, **S4 금지**.  
+   - **정확히 하나의 합격 거절 결과:** `D6_HTTP=403` 한 값만 PASS다 (Compose ingress fail-closed 거절).
+     - `2xx` → 업로드 경로가 열린 것 → `BASELINE_PROBE=BLOCKED` (G007 실패; D6은 이 창에서 열지 않음).
+     - `401`·`404`·`405`·`5xx`·기타 non-403 → **관측 모호**(세션 부재·라우팅 오판·백엔드 오류와 구분 불가) → `BASELINE_PROBE=BLOCKED`, **S4 금지**.
      - curl 실패·타임아웃·빈 코드 → 모호 → `BASELINE_PROBE=BLOCKED`, **S4 금지**.
    - 공개 증거에는 `D6_HTTP=<code>`와 PASS/BLOCKED만 남기고 쿠키·토큰·body를 남기지 않는다.
 
@@ -226,7 +226,7 @@ printf 'D6_HTTP=%s\n' "$D6_CODE"
 
 ```sh
 # <JENKINS_UI> 또는 loopback API (인증은 로컬 세션/크레덴셜; 값을 로그에 남기지 않음)
-# 기록 필드(숫자만): lastBuild.number, lastBuild.building(0/1), queue items count for job, 
+# 기록 필드(숫자만): lastBuild.number, lastBuild.building(0/1), queue items count for job,
 # job 로그 파일 mtime epoch, size bytes.
 # 조회 실패 → fail-closed, probe 중단, BASELINE_PROBE=BLOCKED
 ```
@@ -243,7 +243,7 @@ unauth_post() {
   curl -sS -o /tmp/g007-unauth.body -w '%{http_code}' --max-time 15 \
     -X POST "${G007_TLS_BASE}${path}" \
     -H 'Content-Type: application/octet-stream' \
-    --data-binary '' 
+    --data-binary ''
   # 인증 헤더 없음. 또는 고의로 잘못된 Authorization 한 줄.
 }
 printf 'old=%s\n' "$(unauth_post '<OLD_TRIGGER_PATH>')"
@@ -297,9 +297,9 @@ else
 fi
 ```
 
-- 추가 필수: job 결과 `SUCCESS`, Configure의 pin이 여전히 `<LEGACY_JENKINSFILE_SHA>`.  
-- **불변식:** container ID·image ID·restartCount 전후 동일(digest 동등 = restart delta 0), loopback·TLS health 전후 동일 문자열이며 각 코드 2xx.  
-- 이미지만 같고 컨테이너가 재생성된 경우 digest 불일치 → `C3=BLOCKED`.  
+- 추가 필수: job 결과 `SUCCESS`, Configure의 pin이 여전히 `<LEGACY_JENKINSFILE_SHA>`.
+- **불변식:** container ID·image ID·restartCount 전후 동일(digest 동등 = restart delta 0), loopback·TLS health 전후 동일 문자열이며 각 코드 2xx.
+- 이미지만 같고 컨테이너가 재생성된 경우 digest 불일치 → `C3=BLOCKED`.
 - 공개 증거: `C3=PASS` 또는 `C3=BLOCKED`와 `identity_equal=true|false`, `health_unchanged_2xx=true|false` boolean만.
 
 ### G007 C4 — backup retention N=120 격리 fixture
@@ -397,7 +397,7 @@ echo 'G007_FINAL=PASS'   # 전 항목 충족 시에만
 ```
 
 - **C4 특별 규칙:** `C4=BLOCKED`(공유 surface 부재 포함)는 기록이 아니라 **종료 차단**이다. 게이트를 off로 두고 S4를 선언하지 않는다.
-- 출력은 반드시 다음 중 한 줄: `G007_FINAL=PASS` | `G007_FINAL=BLOCKED`.  
+- 출력은 반드시 다음 중 한 줄: `G007_FINAL=PASS` | `G007_FINAL=BLOCKED`.
   런북은 이 한 줄만으로 S4 전이/거절을 결정한다.
 
 ### G007과 ①②③의 관계
