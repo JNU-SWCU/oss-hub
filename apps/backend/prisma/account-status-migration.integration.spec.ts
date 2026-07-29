@@ -8,6 +8,7 @@ import { AuthService } from '../src/auth/auth.service';
 import { AuditLogRepository } from '../src/audit-log/audit-log.repository';
 import { AuditLogService } from '../src/audit-log/audit-log.service';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { loadRuntimeConfig } from '../src/runtime-config/runtime-config';
 import { RolesRepository } from '../src/roles/roles.repository';
 import { RolesService } from '../src/roles/roles.service';
 import { StaffRoleRequestsRepository } from '../src/roles/staff-role-requests.repository';
@@ -41,7 +42,18 @@ const migrationStatements = migrationSql
 
 describe('accountStatus migration regression', () => {
   const prisma = new PrismaService();
-  const authConfig = new AuthConfig();
+  const authConfig = new AuthConfig(
+    loadRuntimeConfig({
+      SESSION_SECRET: Buffer.from(
+        'synthetic-account-status-migration-session-secret',
+      ).toString('base64url'),
+      FRONTEND_URL: 'http://localhost:3000',
+      GITHUB_OAUTH_CLIENT_ID: 'synthetic-client-id',
+      GITHUB_OAUTH_CLIENT_SECRET: 'synthetic-client-secret',
+      GITHUB_OAUTH_CALLBACK_URL:
+        'http://localhost:3000/api/v1/auth/github/callback',
+    }),
+  );
   const authService = new AuthService(
     authConfig,
     new AuthRepository(prisma, authConfig),
