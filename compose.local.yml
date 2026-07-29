@@ -1,13 +1,20 @@
 # 로컬 전용 override이며 운영 배포는 compose.yml만 사용한다.
+# 앱 이미지는 base의 IMAGE_TAG 치환을 쓰지 않고 저장소 Dockerfile로 직접 빌드한다.
 services:
   backend:
-    environment:
-      # 운영 이미지는 NODE_ENV=production을 하드코딩하므로, HTTP 로컬 실행이 auth.config.ts:149에서 실패하지 않도록 개발 모드를 쓴다. Issue #287 참조.
-      NODE_ENV: development
+    image: !reset null
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
     depends_on:
       minio-bucket:
         condition: service_healthy
-    # image는 재정의하지 않으며 IMAGE_TAG는 호출측 환경 변수로 주입한다.
+
+  frontend:
+    image: !reset null
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
 
   nginx:
     # 로컬 브라우저 대면 주소를 dev GitHub OAuth App에 이미 등록된 콜백 origin과 맞춘다.

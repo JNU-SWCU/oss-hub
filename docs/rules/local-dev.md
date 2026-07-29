@@ -23,9 +23,8 @@
 
 1. `pnpm install` — 의존성 설치. `postinstall`에서 backend의 `prisma generate`가 자동 실행된다.
 2. `.env` 준비 — `.env.example`을 기준으로 값을 채운다. compose 경로로 띄우므로 서비스 DNS를 쓴다: `DATABASE_URL`의 호스트는 `postgres`, `SUBMISSION_FILE_S3_ENDPOINT`는 `http://minio:9000`이다. `FRONTEND_URL`은 ingress와 같은 `http://localhost:3000`이어야 한다. 이 값은 dev GitHub OAuth App에 이미 등록된 콜백 origin과 일치해야 한다.
-3. `pnpm local:build` — backend·frontend 이미지를 빌드한다. `IMAGE_TAG`는 환경변수가 있으면 그것을, 없으면 `.env`의 값을 쓴다. `.env.example`은 로컬용 placeholder(`local`)를 포함하므로 복사 후 그대로 쓸 수 있고, CI·Jenkins는 검증된 SHA를 주입한다.
-4. `pnpm local:up` — `compose.yml` + `compose.dev.yml` + `compose.local.yml` 세 파일을 조합해 postgres·minio·backend·frontend·nginx를 띄운다.
-5. `pnpm local:verify` — 위 기동에 더해 마이그레이션 적용, DB·HTTP·MinIO smoke, `minio-bucket` 재시작·재생성 검증까지 수행한다.
+3. `pnpm local:up` — `compose.yml` + `compose.local.yml` 두 파일을 조합하고 저장소 Dockerfile로 backend·frontend 이미지를 빌드해 postgres·minio·backend·frontend·nginx를 띄운다. `IMAGE_TAG`는 필요하지 않는다.
+4. `pnpm local:verify` — 위 빌드·기동에 더해 마이그레이션 적용, DB·HTTP·MinIO smoke, `minio-bucket` 재시작·재생성 검증까지 수행한다.
 
 접속은 nginx ingress인 `http://localhost:3000`이다. `/`는 프론트, `/api/v1/*`는 backend로 라우팅된다.
 
@@ -40,6 +39,6 @@ OAuth 콜백은 `FRONTEND_URL`에서 파생되므로 compose 경로에서는 `ht
 - 운영은 host nginx가 공인 80/443과 TLS를 담당하고 Compose nginx가 `127.0.0.1:8081`만 bind한다([ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)). **8081은 내부 hop이라 콜백 URL에 등장하지 않는다.** 로컬에는 host nginx가 없어 Compose ingress가 곧 브라우저 대면 주소이므로 `compose.local.yml`이 3000으로 override한다. `compose.yml`의 운영 8081은 그대로다.
 - `pnpm db:up`과 `pnpm --filter backend test:integration`은 여전히 `compose.dev.yml`을 단독으로 쓴다. 이 경로는 그대로 유효하다.
 - 스키마를 바꿨다면 `pnpm db:migrate:dev`로 마이그레이션을 생성한다. 이 스크립트는 호스트에서 prisma CLI를 직접 돌리므로 `localhost` 연결 문자열을 인라인으로 갖는다. compose 경로의 `DATABASE_URL`(호스트 `postgres`)과 목적이 다르다.
-- `pnpm local:verify`는 임시 포트(`POSTGRES_PORT=0`, `MINIO_PORT=0`)와 매 실행 고유한 project name을 써서 선행 `pnpm db:up` 스택과 충돌하지 않는다. 다만 ingress 포트(기본 3000)는 콜백 origin에 묶여 고정이라 점유 중이면 preflight에서 실패한다.
+- `pnpm local:verify`는 매 실행 고유한 project name을 쓰고 PostgreSQL·MinIO host port를 공개하지 않아 선행 `pnpm db:up` 스택과 충돌하지 않는다. 다만 ingress 포트(기본 3000)는 콜백 origin에 묶여 고정이라 점유 중이면 preflight에서 실패한다.
 - 종료 시 `local:verify`는 자신이 만든 컨테이너와 볼륨을 정리한다.
 - production은 승인된 object storage 설정과 migration이 모두 준비되지 않으면 backend를 fail-closed로 유지하며 로컬 기본값을 사용하지 않는다.

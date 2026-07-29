@@ -5,6 +5,10 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=scripts/_compose-lib.sh
 source "$repo_root/scripts/_compose-lib.sh"
 
+# compose.yml requires IMAGE_TAG for production interpolation. Local compose.local.yml
+# !reset nulls the image keys, so this value is interpolation-only and never selected.
+readonly LOCAL_IMAGE_TAG_PLACEHOLDER='__local_compose_interpolation_only__'
+
 PERSISTENT_STACK=0
 INITIAL_WAIT_TIMEOUT=120
 MINIO_WAIT_TIMEOUT=60
@@ -13,12 +17,9 @@ cleanup() {
   local status=$?
   trap - EXIT INT TERM HUP
   local cleanup_status=0
-  # 지속형 스택(up)이 성공한 경우에는 스택을 남긴다. 정리는 실패했을 때와 일회성 verify에서만 한다.
-  local should_teardown=1
-  if ((PERSISTENT_STACK == 1 && status == 0)); then
-    should_teardown=0
-  fi
-  if [[ -n "${COMPOSE_PROJECT_NAME:-}" ]] && ((should_teardown == 1)); then
+  # 지속형 스택(up)은 성공·실패 모두 named volume을 보존한다.
+  # 일회성 verify와 명시적 down만 볼륨을 지운다.
+  if [[ -n "${COMPOSE_PROJECT_NAME:-}" ]] && ((PERSISTENT_STACK == 0)); then
     if "${COMPOSE_ARGV[@]}" down -v --remove-orphans >/dev/null 2>&1; then
       :
     else
@@ -69,19 +70,23 @@ main() {
 
   # 호스트 쉘 env는 Compose의 --env-file보다 우선하므로, .env가 소유해야 할 값은 먼저 비운다.
   # scripts/run-backend-integration.sh와 동일한 방어다.
+  # 호출자 IMAGE_TAG는 무시하고 로컬 전용 interpolation placeholder만 넣는다.
+  # compose.local.yml이 backend·frontend image를 !reset 하므로 이 값은 선택되지 않는다.
+  unset IMAGE_TAG
   unset DATABASE_URL FRONTEND_URL GITHUB_OAUTH_CALLBACK_URL
   unset POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB
   unset SUBMISSION_FILE_S3_ENDPOINT SUBMISSION_FILE_S3_REGION
   unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
   unset SUBMISSION_FILE_S3_FORCE_PATH_STYLE AUTH_INITIAL_ROLES
   unset SESSION_SECRET TEAM_JOIN_CODE_SECRET
+  unset MAIL_MODE GMAIL_SENDER GMAIL_OAUTH_CLIENT_ID GMAIL_OAUTH_CLIENT_SECRET GMAIL_OAUTH_REFRESH_TOKEN
+  unset GITHUB_OAUTH_CLIENT_ID GITHUB_OAUTH_CLIENT_SECRET
+  unset GITHUB_COLLECTION_APP_ID GITHUB_APP_ORG GITHUB_COLLECTION_APP_PRIVATE_KEY
+  unset GITHUB_COLLECTION_APP_API_BASE_URL GITHUB_COLLECTION_APP_MAX_PAGES GITHUB_COLLECTION_APP_DEADLINE_MS
+  unset GITHUB_OPERATIONS_APP_ID GITHUB_OPERATIONS_APP_PRIVATE_KEY
+  unset COLLECTION_CRON_EXPRESSION PORT
 
-  export POSTGRES_BIND_HOST=127.0.0.1
-  export POSTGRES_PORT=0
-  export MINIO_BIND_HOST=127.0.0.1
-  export MINIO_PORT=0
-  export MINIO_ROOT_USER="local-$RANDOM-$$"
-  export MINIO_ROOT_PASSWORD="synthetic-$RANDOM-$RANDOM-$$"
+  export IMAGE_TAG="$LOCAL_IMAGE_TAG_PLACEHOLDER"
   export SUBMISSION_FILE_S3_BUCKET="submission-files-$RANDOM-$$"
   export COMPOSE_ENV_FILE="${COMPOSE_ENV_FILE:-$repo_root/.env}"
   compose_argv
@@ -91,11 +96,11 @@ main() {
     return 0
   fi
 
-  run_step 'Compose startup' "${COMPOSE_ARGV[@]}" up -d --wait --wait-timeout "$INITIAL_WAIT_TIMEOUT"
+  run_step 'Compose startup' "${COMPOSE_ARGV[@]}" up --build -d --wait --wait-timeout "$INITIAL_WAIT_TIMEOUT"
+  run_step 'Prisma migration' "${COMPOSE_ARGV[@]}" exec -T backend sh -eu -c 'npx prisma migrate deploy'
   if [[ "$command" == up ]]; then
     return 0
   fi
-  run_step 'Prisma migration' "${COMPOSE_ARGV[@]}" exec -T backend sh -eu -c 'npx prisma migrate deploy'
   run_step 'PostgreSQL smoke' db_smoke
   run_step 'HTTP smoke' http_smoke
   run_step 'MinIO smoke' minio_smoke
