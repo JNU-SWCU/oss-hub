@@ -12,6 +12,7 @@ import {
   evaluateEnvContract,
   extractKeysFromSource,
   extractRequiredComposeKeys,
+  isComposeRequiredDocExempt,
   isDeclarationExempt,
   isIntegrationRunnerPath,
   isServiceMappingExempt,
@@ -778,7 +779,20 @@ test('integration 면제 경계 밖 production 파일명은 실패한다', () =>
   }
 });
 
-test('IMAGE_TAG 가 compose 필수면 .env.example 문서화 필요', () => {
+test('IMAGE_TAG 는 compose 필수 문서 면제만 받고 .env.example 없이 ${IMAGE_TAG:?} 를 허용한다', () => {
+  assert.equal(isComposeRequiredDocExempt('IMAGE_TAG'), true);
+  assert.equal(isComposeRequiredDocExempt('DATABASE_URL'), false);
+  // 코드 키 선언 면제가 아니다 — compose 필수 문서 면제만.
+  assert.equal(
+    isDeclarationExempt('IMAGE_TAG', 'apps/backend/src/main.ts'),
+    false,
+  );
+  // image 치환 전용이라 service environment 매핑 면제는 유지한다.
+  assert.equal(
+    isServiceMappingExempt('IMAGE_TAG', 'backend', 'apps/backend/src/main.ts'),
+    true,
+  );
+
   const root = makeTempDir();
   try {
     const compose = `services:
@@ -788,17 +802,24 @@ test('IMAGE_TAG 가 compose 필수면 .env.example 문서화 필요', () => {
       DATABASE_URL: \${DATABASE_URL:?required}
       AUTH_INITIAL_ROLES: \${AUTH_INITIAL_ROLES:-}
 `;
-    const missing = evaluateFixture(root, compose, 'DATABASE_URL=value\n');
-    assert.equal(missing.ok, false);
-    assert.ok(
-      missing.errors.some((e) => e.includes('required key missing: IMAGE_TAG')),
-    );
-    const ok = evaluateFixture(
-      root,
-      compose,
-      'DATABASE_URL=value\nIMAGE_TAG=local\n',
-    );
+    // production ${IMAGE_TAG:?} 는 유지되지만 .env.example 선언 없이도 계약 통과.
+    // isComposeRequiredDocExempt 면제를 제거하면 required key missing: IMAGE_TAG 로 실패한다.
+    const ok = evaluateFixture(root, compose, 'DATABASE_URL=value\n');
     assert.equal(ok.ok, true, ok.ok ? '' : ok.errors.join('\n'));
+
+    // 다른 compose 필수 키는 여전히 .env.example 문서화가 필요하다.
+    const missingDb = evaluateFixture(root, compose, '\n');
+    assert.equal(missingDb.ok, false);
+    assert.ok(
+      missingDb.errors.some((e) =>
+        e.includes('required key missing: DATABASE_URL'),
+      ),
+    );
+    assert.ok(
+      !missingDb.errors.some((e) =>
+        e.includes('required key missing: IMAGE_TAG'),
+      ),
+    );
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
