@@ -256,6 +256,167 @@ control_count=$(count_matching "$producer_fail_dir")
 expect_pass 'control prune retains 2' bash -c "[[ '$control_count' -eq 2 ]]"
 expect_pass 'control prune kept newest pair' bash -c "[[ ! -e '$producer_fail_dir/v1.2.3-1.sql' && ! -e '$producer_fail_dir/v1.2.3-2.sql' && ! -e '$producer_fail_dir/v1.2.3-3.sql' && -f '$producer_fail_dir/v1.2.3-4.sql' && -f '$producer_fail_dir/v1.2.3-5.sql' ]]"
 
+# --- sort producer failure must fail-closed with no inventory change ---
+sort_fail_dir="$fixture_root/sort-fail"
+mkdir -p "$sort_fail_dir"
+seed_ordered_backups "$sort_fail_dir" 5
+printf 'keep-notes\n' >"$sort_fail_dir/notes.txt"
+before_sort_fail=$(count_matching "$sort_fail_dir")
+before_sort_fp=$(inventory_fingerprint "$sort_fail_dir" | cksum)
+before_sort_notes=$(cksum <"$sort_fail_dir/notes.txt")
+before_sort_newest=$(cksum <"$sort_fail_dir/v1.2.3-5.sql")
+before_sort_oldest=$(cksum <"$sort_fail_dir/v1.2.3-1.sql")
+
+sort_shim_dir="$fixture_root/sort-shim-fail"
+mkdir -p "$sort_shim_dir"
+cat >"$sort_shim_dir/sort" <<'SHIM'
+#!/usr/bin/env bash
+# Synthetic order-producer failure: never emit ordered inventory; always non-zero.
+printf 'synthetic-sort-failure\n' >&2
+exit 42
+SHIM
+chmod +x "$sort_shim_dir/sort"
+
+sort_fail_rc=0
+sort_fail_err="$fixture_root/sort-fail.err"
+env PATH="$sort_shim_dir:$PATH" "$pruner" "$sort_fail_dir" 2 >"$sort_fail_err" 2>&1 || sort_fail_rc=$?
+
+expect_pass 'sort producer failure exits nonzero' bash -c "[[ '$sort_fail_rc' -ne 0 ]]"
+expect_pass 'sort producer failure is not success-zero' bash -c "[[ '$sort_fail_rc' -gt 0 ]]"
+expect_pass 'sort producer failure emits FAIL_CLOSED' bash -c "grep -q 'FAIL_CLOSED' '$sort_fail_err'"
+
+after_sort_fail=$(count_matching "$sort_fail_dir")
+after_sort_fp=$(inventory_fingerprint "$sort_fail_dir" | cksum)
+after_sort_notes=$(cksum <"$sort_fail_dir/notes.txt")
+after_sort_newest=$(cksum <"$sort_fail_dir/v1.2.3-5.sql")
+after_sort_oldest=$(cksum <"$sort_fail_dir/v1.2.3-1.sql")
+
+expect_pass 'sort producer failure deletes nothing (count)' bash -c "[[ '$before_sort_fail' -eq 5 && '$after_sort_fail' -eq 5 ]]"
+expect_pass 'sort producer failure keeps all matching names' bash -c "[[ -f '$sort_fail_dir/v1.2.3-1.sql' && -f '$sort_fail_dir/v1.2.3-2.sql' && -f '$sort_fail_dir/v1.2.3-3.sql' && -f '$sort_fail_dir/v1.2.3-4.sql' && -f '$sort_fail_dir/v1.2.3-5.sql' ]]"
+expect_pass 'sort producer failure inventory fingerprint unchanged' bash -c "[[ '$before_sort_fp' == '$after_sort_fp' ]]"
+expect_pass 'sort producer failure notes untouched' bash -c "[[ '$before_sort_notes' == '$after_sort_notes' ]]"
+expect_pass 'sort producer failure newest content untouched' bash -c "[[ '$before_sort_newest' == '$after_sort_newest' ]]"
+expect_pass 'sort producer failure oldest content untouched' bash -c "[[ '$before_sort_oldest' == '$after_sort_oldest' ]]"
+
+# --- truncated sort inventory must fail-closed (count/checksum) with no deletion ---
+# PATH shim runs real sort then drops all but the first record so consumer sees short inventory.
+trunc_dir="$fixture_root/sort-trunc"
+mkdir -p "$trunc_dir"
+seed_ordered_backups "$trunc_dir" 5
+printf 'keep-notes\n' >"$trunc_dir/notes.txt"
+before_trunc=$(count_matching "$trunc_dir")
+before_trunc_fp=$(inventory_fingerprint "$trunc_dir" | cksum)
+before_trunc_notes=$(cksum <"$trunc_dir/notes.txt")
+before_trunc_newest=$(cksum <"$trunc_dir/v1.2.3-5.sql")
+before_trunc_oldest=$(cksum <"$trunc_dir/v1.2.3-1.sql")
+
+trunc_shim_dir="$fixture_root/sort-shim-trunc"
+mkdir -p "$trunc_shim_dir"
+# Locate a real sort binary outside this fixture's shim directory.
+real_sort=$(command -v sort)
+cat >"$trunc_shim_dir/sort" <<SHIM
+#!/usr/bin/env bash
+set -euo pipefail
+# Emit only the first ordered record (successful exit) — under-complete vs candidate_count.
+"$real_sort" "\$@" | awk 'NR==1 { print; exit 0 }'
+exit 0
+SHIM
+chmod +x "$trunc_shim_dir/sort"
+
+trunc_rc=0
+trunc_err="$fixture_root/sort-trunc.err"
+env PATH="$trunc_shim_dir:$PATH" "$pruner" "$trunc_dir" 2 >"$trunc_err" 2>&1 || trunc_rc=$?
+
+expect_pass 'truncated sort inventory exits nonzero' bash -c "[[ '$trunc_rc' -ne 0 ]]"
+expect_pass 'truncated sort inventory is not success-zero' bash -c "[[ '$trunc_rc' -gt 0 ]]"
+expect_pass 'truncated sort inventory emits FAIL_CLOSED' bash -c "grep -q 'FAIL_CLOSED' '$trunc_err'"
+
+after_trunc=$(count_matching "$trunc_dir")
+after_trunc_fp=$(inventory_fingerprint "$trunc_dir" | cksum)
+after_trunc_notes=$(cksum <"$trunc_dir/notes.txt")
+after_trunc_newest=$(cksum <"$trunc_dir/v1.2.3-5.sql")
+after_trunc_oldest=$(cksum <"$trunc_dir/v1.2.3-1.sql")
+
+expect_pass 'truncated sort inventory deletes nothing (count)' bash -c "[[ '$before_trunc' -eq 5 && '$after_trunc' -eq 5 ]]"
+expect_pass 'truncated sort inventory keeps all matching names' bash -c "[[ -f '$trunc_dir/v1.2.3-1.sql' && -f '$trunc_dir/v1.2.3-2.sql' && -f '$trunc_dir/v1.2.3-3.sql' && -f '$trunc_dir/v1.2.3-4.sql' && -f '$trunc_dir/v1.2.3-5.sql' ]]"
+expect_pass 'truncated sort inventory fingerprint unchanged' bash -c "[[ '$before_trunc_fp' == '$after_trunc_fp' ]]"
+expect_pass 'truncated sort inventory notes untouched' bash -c "[[ '$before_trunc_notes' == '$after_trunc_notes' ]]"
+expect_pass 'truncated sort inventory newest content untouched' bash -c "[[ '$before_trunc_newest' == '$after_trunc_newest' ]]"
+expect_pass 'truncated sort inventory oldest content untouched' bash -c "[[ '$before_trunc_oldest' == '$after_trunc_oldest' ]]"
+
+# --- incomplete final TSV record (no trailing newline / partial line) fails closed ---
+partial_dir="$fixture_root/sort-partial"
+mkdir -p "$partial_dir"
+seed_ordered_backups "$partial_dir" 5
+printf 'keep-notes\n' >"$partial_dir/notes.txt"
+before_partial=$(count_matching "$partial_dir")
+before_partial_fp=$(inventory_fingerprint "$partial_dir" | cksum)
+
+partial_shim_dir="$fixture_root/sort-shim-partial"
+mkdir -p "$partial_shim_dir"
+cat >"$partial_shim_dir/sort" <<SHIM
+#!/usr/bin/env bash
+set -euo pipefail
+# Full ordered stream with the final newline stripped → last record is incomplete for read.
+"$real_sort" "\$@" | tr -d '\n'
+exit 0
+SHIM
+chmod +x "$partial_shim_dir/sort"
+
+partial_rc=0
+partial_err="$fixture_root/sort-partial.err"
+env PATH="$partial_shim_dir:$PATH" "$pruner" "$partial_dir" 2 >"$partial_err" 2>&1 || partial_rc=$?
+
+expect_pass 'partial sort inventory exits nonzero' bash -c "[[ '$partial_rc' -ne 0 ]]"
+expect_pass 'partial sort inventory emits FAIL_CLOSED' bash -c "grep -q 'FAIL_CLOSED' '$partial_err'"
+after_partial=$(count_matching "$partial_dir")
+after_partial_fp=$(inventory_fingerprint "$partial_dir" | cksum)
+expect_pass 'partial sort inventory deletes nothing (count)' bash -c "[[ '$before_partial' -eq 5 && '$after_partial' -eq 5 ]]"
+expect_pass 'partial sort inventory fingerprint unchanged' bash -c "[[ '$before_partial_fp' == '$after_partial_fp' ]]"
+
+# --- newline/tab-bearing backup directory paths remain portable (basename-only records) ---
+nl_parent="$fixture_root/nl-parent"
+mkdir -p "$nl_parent"
+nl_dir="$nl_parent/dir"$'\n'"with-nl"
+mkdir -p "$nl_dir"
+seed_ordered_backups "$nl_dir" 5
+expect_pass 'newline-bearing backup_dir retain 2 runs' "$pruner" "$nl_dir" 2
+nl_count=$(count_matching "$nl_dir")
+expect_pass 'newline-bearing backup_dir retain 2 count' bash -c "[[ '$nl_count' -eq 2 ]]"
+expect_pass 'newline-bearing backup_dir keeps newest pair' bash -c "[[ ! -e '$nl_dir/v1.2.3-1.sql' && ! -e '$nl_dir/v1.2.3-2.sql' && ! -e '$nl_dir/v1.2.3-3.sql' && -f '$nl_dir/v1.2.3-4.sql' && -f '$nl_dir/v1.2.3-5.sql' ]]"
+
+tab_parent="$fixture_root/tab-parent"
+mkdir -p "$tab_parent"
+tab_dir="$tab_parent/dir"$'\t'"with-tab"
+mkdir -p "$tab_dir"
+seed_ordered_backups "$tab_dir" 5
+expect_pass 'tab-bearing backup_dir retain 2 runs' "$pruner" "$tab_dir" 2
+tab_count=$(count_matching "$tab_dir")
+expect_pass 'tab-bearing backup_dir retain 2 count' bash -c "[[ '$tab_count' -eq 2 ]]"
+expect_pass 'tab-bearing backup_dir keeps newest pair' bash -c "[[ ! -e '$tab_dir/v1.2.3-1.sql' && ! -e '$tab_dir/v1.2.3-2.sql' && ! -e '$tab_dir/v1.2.3-3.sql' && -f '$tab_dir/v1.2.3-4.sql' && -f '$tab_dir/v1.2.3-5.sql' ]]"
+
+# --- unrelated separator-bearing filenames must survive pruning ---
+sep_dir="$fixture_root/sep-names"
+mkdir -p "$sep_dir"
+seed_ordered_backups "$sep_dir" 5
+# Non-contract names that contain the TSV separators; must never be deleted or mis-parsed.
+sep_tab="$sep_dir/notes"$'\t'"tab.txt"
+sep_nl="$sep_dir/notes"$'\n'"nl.txt"
+printf 'tab-marker\n' >"$sep_tab"
+printf 'nl-marker\n' >"$sep_nl"
+before_sep_tab=$(cksum <"$sep_tab")
+before_sep_nl=$(cksum <"$sep_nl")
+expect_pass 'separator-bearing unknown names retain 2 runs' "$pruner" "$sep_dir" 2
+sep_count=$(count_matching "$sep_dir")
+expect_pass 'separator-bearing unknown names retain 2 count' bash -c "[[ '$sep_count' -eq 2 ]]"
+expect_pass 'separator-bearing tab filename still present' bash -c "[[ -f '$sep_tab' ]]"
+expect_pass 'separator-bearing newline filename still present' bash -c "[[ -f '$sep_nl' ]]"
+after_sep_tab=$(cksum <"$sep_tab")
+after_sep_nl=$(cksum <"$sep_nl")
+expect_pass 'separator-bearing tab filename content untouched' bash -c "[[ '$before_sep_tab' == '$after_sep_tab' ]]"
+expect_pass 'separator-bearing newline filename content untouched' bash -c "[[ '$before_sep_nl' == '$after_sep_nl' ]]"
+expect_pass 'separator-bearing fixture kept newest pair' bash -c "[[ ! -e '$sep_dir/v1.2.3-1.sql' && ! -e '$sep_dir/v1.2.3-2.sql' && ! -e '$sep_dir/v1.2.3-3.sql' && -f '$sep_dir/v1.2.3-4.sql' && -f '$sep_dir/v1.2.3-5.sql' ]]"
+
 # --- retain 120 accepted as positive integer (empty dir) ---
 accept_dir="$fixture_root/accept120"
 mkdir -p "$accept_dir"
