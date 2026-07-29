@@ -391,92 +391,105 @@ check_v2() {
     exit 1
   fi
 
-  # Condition→terminal: require executable shell/Groovy statements, not echoed/quoted tokens.
-  # Match only uniquely identified branch bodies; reject echo/println/string-literal spoofs.
+  # Condition→terminal: exactly one fully anchored executable opener per contract,
+  # terminals only inside that opener's own closing delimiter/block.
+  # Reject echo/println/quoted openers, substring spoofs, and duplicate real openers.
 
   # stopped-only branch: condition → terminal exit (marker text alone is insufficient)
   if ! awk '
-    $0 ~ /\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\]/ {
-      grab=1
-      next
+    {
+      if ($0 ~ /^[[:space:]]*if[[:space:]]+\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\][[:space:]]*;[[:space:]]*then[[:space:]]*$/) {
+        openers++
+        if (openers == 1) grab = 1
+        next
+      }
+      if (grab) {
+        if ($0 ~ /^[[:space:]]*exit[[:space:]]+[1-9][0-9]*[[:space:]]*$/) term = 1
+        if ($0 ~ /^[[:space:]]*fi[[:space:]]*$/) grab = 0
+      }
     }
-    grab {
-      # executable: leading-indent exit N (not echo '\''exit 2'\'')
-      if ($0 ~ /^[[:space:]]*exit[[:space:]]+[1-9][0-9]*[[:space:]]*$/) term=1
-      if ($0 ~ /^[[:space:]]*fi[[:space:]]*$/) exit
-    }
-    END { exit (grab && term) ? 0 : 1 }
+    END { exit (openers == 1 && term) ? 0 : 1 }
   ' "$active_jenkinsfile"; then
-    printf '%s: stopped container 분기는 단말 exit 로 실패해야 함 (marker-only 금지)\n' "$label" >&2
+    printf '%s: stopped container 분기는 유일 executable opener 와 단말 exit 로 실패해야 함 (marker-only 금지)\n' "$label" >&2
     exit 1
   fi
 
   # partial existence branch: one-sided container presence → terminal exit
   if ! awk '
-    $0 ~ /\[[[:space:]]*-n[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_all"[[:space:]]*\]/ {
-      grab=1
-      next
+    {
+      if ($0 ~ /^[[:space:]]*if[[:space:]]+\{[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*\|\|[[:space:]]*\{[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*;[[:space:]]*then[[:space:]]*$/) {
+        openers++
+        if (openers == 1) grab = 1
+        next
+      }
+      if (grab) {
+        if ($0 ~ /^[[:space:]]*exit[[:space:]]+[1-9][0-9]*[[:space:]]*$/) term = 1
+        if ($0 ~ /^[[:space:]]*fi[[:space:]]*$/) grab = 0
+      }
     }
-    grab {
-      if ($0 ~ /^[[:space:]]*exit[[:space:]]+[1-9][0-9]*[[:space:]]*$/) term=1
-      if ($0 ~ /^[[:space:]]*fi[[:space:]]*$/) exit
-    }
-    END { exit (grab && term) ? 0 : 1 }
+    END { exit (openers == 1 && term) ? 0 : 1 }
   ' "$active_jenkinsfile"; then
-    printf '%s: partial deployment 분기는 단말 exit 로 실패해야 함 (marker-only 금지)\n' "$label" >&2
+    printf '%s: partial deployment 분기는 유일 executable opener 와 단말 exit 로 실패해야 함 (marker-only 금지)\n' "$label" >&2
     exit 1
   fi
 
   # Groovy non-running probe state must terminal-error (not a renamed condition alone)
   if ! awk '
-    $0 ~ /if[[:space:]]*\([[:space:]]*state[[:space:]]*!=[[:space:]]*'\''running'\''[[:space:]]*\)/ {
-      grab=1
-      next
+    {
+      if ($0 ~ /^[[:space:]]*if[[:space:]]*\([[:space:]]*state[[:space:]]*!=[[:space:]]*'\''running'\''[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/) {
+        openers++
+        if (openers == 1) grab = 1
+        next
+      }
+      if (grab) {
+        if ($0 ~ /^[[:space:]]*error[[:space:]]*\(/) term = 1
+        if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) grab = 0
+      }
     }
-    grab {
-      # executable Groovy error(...); reject echo/println "...error(..."
-      if ($0 ~ /^[[:space:]]*error[[:space:]]*\(/) term=1
-      if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
-    }
-    END { exit (grab && term) ? 0 : 1 }
+    END { exit (openers == 1 && term) ? 0 : 1 }
   ' "$active_jenkinsfile"; then
-    printf '%s: non-running probe state는 error(...) 단말 실패여야 함\n' "$label" >&2
+    printf '%s: non-running probe state는 유일 executable opener 와 error(...) 단말 실패여야 함\n' "$label" >&2
     exit 1
   fi
 
   # same-tag/different-SHA: condition → error(...) terminal (marker rename must not pass)
   if ! awk '
-    $0 ~ /prevTag[[:space:]]*==[[:space:]]*env\.RELEASE_TAG[[:space:]]*&&[[:space:]]*prevSha[[:space:]]*!=[[:space:]]*env\.RELEASE_SHA/ {
-      grab=1
-      next
+    {
+      if ($0 ~ /^[[:space:]]*if[[:space:]]*\([[:space:]]*prevTag[[:space:]]*==[[:space:]]*env\.RELEASE_TAG[[:space:]]*&&[[:space:]]*prevSha[[:space:]]*!=[[:space:]]*env\.RELEASE_SHA[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/) {
+        openers++
+        if (openers == 1) grab = 1
+        next
+      }
+      if (grab) {
+        if ($0 ~ /^[[:space:]]*error[[:space:]]*\(/) term = 1
+        if ($0 ~ /^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''true'\''/) bad = 1
+        if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) grab = 0
+      }
     }
-    grab {
-      if ($0 ~ /^[[:space:]]*error[[:space:]]*\(/) term=1
-      # real no-op assignment inside this fail-closed branch is forbidden
-      if ($0 ~ /^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''true'\''/) bad=1
-      if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
-    }
-    END { exit (grab && term && !bad) ? 0 : 1 }
+    END { exit (openers == 1 && term && !bad) ? 0 : 1 }
   ' "$active_jenkinsfile"; then
-    printf '%s: same-tag/different-SHA는 error(...) 단말 실패여야 함 (marker-only 금지)\n' "$label" >&2
+    printf '%s: same-tag/different-SHA는 유일 executable opener 와 error(...) 단말 실패여야 함 (marker-only 금지)\n' "$label" >&2
     exit 1
   fi
 
   # SemVer downgrade: bounded cmp < 0 → DEPLOY_NOOP=true → return (not a log marker)
   if ! awk '
-    $0 ~ /if[[:space:]]*\([[:space:]]*cmp[[:space:]]*<[[:space:]]*0[[:space:]]*\)/ {
-      grab=1
-      next
+    {
+      if ($0 ~ /^[[:space:]]*if[[:space:]]*\([[:space:]]*cmp[[:space:]]*<[[:space:]]*0[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/) {
+        openers++
+        if (openers == 1) grab = 1
+        next
+      }
+      if (grab) {
+        if ($0 ~ /^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''true'\''/) noop = 1
+        if ($0 ~ /^[[:space:]]*return[[:space:]]*;?[[:space:]]*$/) ret = 1
+        if ($0 ~ /^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''false'\''/) bad = 1
+        if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) grab = 0
+      }
     }
-    grab {
-      if ($0 ~ /^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''true'\''/) noop=1
-      if ($0 ~ /^[[:space:]]*return[[:space:]]*;?[[:space:]]*$/) ret=1
-      if ($0 ~ /^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''false'\''/) bad=1
-      if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
-    }
-    END { exit (grab && noop && ret && !bad) ? 0 : 1 }
+    END { exit (openers == 1 && noop && ret && !bad) ? 0 : 1 }
   ' "$active_jenkinsfile"; then
-    printf '%s: full SemVer downgrade는 cmp < 0 후 DEPLOY_NOOP=true 와 return 이어야 함\n' "$label" >&2
+    printf '%s: full SemVer downgrade는 유일 cmp < 0 opener 후 DEPLOY_NOOP=true 와 return 이어야 함\n' "$label" >&2
     exit 1
   fi
 
@@ -486,32 +499,31 @@ check_v2() {
   require_regex_absent 'HTTP FRONTEND_URL 허용은 금지' 'http://\*'
   if ! awk '
     {
-      if ($0 ~ /FRONTEND_URL/) seen=1
-      # bind terminals to uniquely identified count branches (not file-wide exit 2 noise)
-      if ($0 ~ /count[[:space:]]*==[[:space:]]*0/) {
-        missing=1
-        grab_missing=1
-        grab_uniq=0
+      if ($0 ~ /FRONTEND_URL/) seen = 1
+      if ($0 ~ /^[[:space:]]*if[[:space:]]*\([[:space:]]*count[[:space:]]*==[[:space:]]*0[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/) {
+        missing_openers++
+        if (missing_openers == 1) grab_missing = 1
+        grab_uniq = 0
         next
       }
-      if ($0 ~ /count[[:space:]]*!=[[:space:]]*1/) {
-        uniq=1
-        grab_uniq=1
-        grab_missing=0
+      if ($0 ~ /^[[:space:]]*if[[:space:]]*\([[:space:]]*count[[:space:]]*!=[[:space:]]*1[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/) {
+        uniq_openers++
+        if (uniq_openers == 1) grab_uniq = 1
+        grab_missing = 0
         next
       }
       if (grab_missing) {
-        if ($0 ~ /^[[:space:]]*exit[[:space:]]+2[[:space:]]*$/) e2=1
-        if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) grab_missing=0
+        if ($0 ~ /^[[:space:]]*exit[[:space:]]+2[[:space:]]*$/) e2 = 1
+        if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) grab_missing = 0
       }
       if (grab_uniq) {
-        if ($0 ~ /^[[:space:]]*exit[[:space:]]+3[[:space:]]*$/) e3=1
-        if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) grab_uniq=0
+        if ($0 ~ /^[[:space:]]*exit[[:space:]]+3[[:space:]]*$/) e3 = 1
+        if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) grab_uniq = 0
       }
     }
-    END { exit (seen && missing && uniq && e2 && e3) ? 0 : 1 }
+    END { exit (seen && missing_openers == 1 && uniq_openers == 1 && e2 && e3) ? 0 : 1 }
   ' "$active_jenkinsfile"; then
-    printf '%s: FRONTEND_URL는 누락(count==0)과 중복(count!=1)을 단말 거절해야 함\n' "$label" >&2
+    printf '%s: FRONTEND_URL는 유일 count==0/count!=1 opener 로 누락·중복을 단말 거절해야 함\n' "$label" >&2
     exit 1
   fi
 

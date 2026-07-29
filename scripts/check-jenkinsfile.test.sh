@@ -976,6 +976,290 @@ if ! grep -Fq "echo 'exit 3'" "$fixture_dir/v2-spoof-frontend-url-echo-exit3"; t
   exit 1
 fi
 
+
+# ---------------------------------------------------------------------------
+# Adversarial: quoted/echoed/println openers and duplicate real openers.
+# Real executable condition is removed or duplicated; a spoofed opener must not
+# bind terminals from an unrelated branch.
+# ---------------------------------------------------------------------------
+
+# stopped: replace real opener with echo '...condition...' and keep a false branch exit
+awk '
+  /^[[:space:]]*if[[:space:]]+\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\][[:space:]]*;[[:space:]]*then[[:space:]]*$/ {
+    print "echo '\''if [ -z \"$fe_running\" ] && [ -z \"$be_running\" ]; then'\''"
+    print "if false; then"
+    print "  exit 2"
+    print "fi"
+    # drop original branch body through fi
+    while ((getline line) > 0) {
+      if (line ~ /^[[:space:]]*fi[[:space:]]*$/) break
+    }
+    next
+  }
+  { print }
+' "$v2_source" >"$fixture_dir/v2-spoof-stopped-echo-opener"
+if cmp -s "$v2_source" "$fixture_dir/v2-spoof-stopped-echo-opener"; then
+  printf 'fixture not distinct: v2-spoof-stopped-echo-opener\n' >&2
+  exit 1
+fi
+if grep -E -q '^[[:space:]]*if[[:space:]]+\[[[:space:]]*-z[[:space:]]+"\$fe_running"' "$fixture_dir/v2-spoof-stopped-echo-opener"; then
+  printf 'fixture still has real stopped opener: v2-spoof-stopped-echo-opener\n' >&2
+  exit 1
+fi
+
+# stopped: duplicate real opener; second branch is no-op (exit removed in first would still pass old checker)
+awk '
+  /^[[:space:]]*if[[:space:]]+\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\][[:space:]]*;[[:space:]]*then[[:space:]]*$/ {
+    print
+    while ((getline line) > 0) {
+      print line
+      if (line ~ /^[[:space:]]*fi[[:space:]]*$/) break
+    }
+    # inject a second identical executable opener with a terminal exit
+    print "if [ -z \"$fe_running\" ] && [ -z \"$be_running\" ]; then"
+    print "  exit 2"
+    print "fi"
+    next
+  }
+  { print }
+' "$v2_source" >"$fixture_dir/v2-spoof-stopped-duplicate-opener"
+if cmp -s "$v2_source" "$fixture_dir/v2-spoof-stopped-duplicate-opener"; then
+  printf 'fixture not distinct: v2-spoof-stopped-duplicate-opener\n' >&2
+  exit 1
+fi
+stopped_openers=$(grep -E -c '^[[:space:]]*if[[:space:]]+\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\][[:space:]]*;[[:space:]]*then[[:space:]]*$' "$fixture_dir/v2-spoof-stopped-duplicate-opener" || true)
+if [[ "$stopped_openers" -lt 2 ]]; then
+  printf 'fixture missing duplicate stopped opener\n' >&2
+  exit 1
+fi
+
+# partial: echo-wrapped opener + false branch terminal
+awk '
+  /^[[:space:]]*if[[:space:]]+\{[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*\|\|[[:space:]]*\{[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*;[[:space:]]*then[[:space:]]*$/ {
+    print "echo '\''if { [ -n \"$fe_all\" ] && [ -z \"$be_all\" ]; } || { [ -z \"$fe_all\" ] && [ -n \"$be_all\" ]; }; then'\''"
+    print "if false; then"
+    print "  exit 2"
+    print "fi"
+    while ((getline line) > 0) {
+      if (line ~ /^[[:space:]]*fi[[:space:]]*$/) break
+    }
+    next
+  }
+  { print }
+' "$v2_source" >"$fixture_dir/v2-spoof-partial-echo-opener"
+if cmp -s "$v2_source" "$fixture_dir/v2-spoof-partial-echo-opener"; then
+  printf 'fixture not distinct: v2-spoof-partial-echo-opener\n' >&2
+  exit 1
+fi
+
+# partial: duplicate real opener
+awk '
+  /^[[:space:]]*if[[:space:]]+\{[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*\|\|[[:space:]]*\{[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*;[[:space:]]*then[[:space:]]*$/ {
+    print
+    while ((getline line) > 0) {
+      print line
+      if (line ~ /^[[:space:]]*fi[[:space:]]*$/) break
+    }
+    print "if { [ -n \"$fe_all\" ] && [ -z \"$be_all\" ]; } || { [ -z \"$fe_all\" ] && [ -n \"$be_all\" ]; }; then"
+    print "  exit 2"
+    print "fi"
+    next
+  }
+  { print }
+' "$v2_source" >"$fixture_dir/v2-spoof-partial-duplicate-opener"
+if cmp -s "$v2_source" "$fixture_dir/v2-spoof-partial-duplicate-opener"; then
+  printf 'fixture not distinct: v2-spoof-partial-duplicate-opener\n' >&2
+  exit 1
+fi
+
+# non-running Groovy: println-wrapped opener + unrelated error terminal
+awk '
+  /^[[:space:]]*if[[:space:]]*\([[:space:]]*state[[:space:]]*!=[[:space:]]*'\''running'\''[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
+    print "              println(\"if (state != '\''running'\'') {\")"
+    print "            if (false) {"
+    print "              error(\"FAIL_CLOSED unexpected_probe_state: spoof\")"
+    print "            }"
+    while ((getline line) > 0) {
+      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
+    }
+    next
+  }
+  { print }
+' "$v2_source" >"$fixture_dir/v2-spoof-ambiguous-println-opener"
+if cmp -s "$v2_source" "$fixture_dir/v2-spoof-ambiguous-println-opener"; then
+  printf 'fixture not distinct: v2-spoof-ambiguous-println-opener\n' >&2
+  exit 1
+fi
+
+# non-running Groovy: duplicate real opener
+awk '
+  /^[[:space:]]*if[[:space:]]*\([[:space:]]*state[[:space:]]*!=[[:space:]]*'\''running'\''[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
+    print
+    while ((getline line) > 0) {
+      print line
+      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
+    }
+    print "            if (state != '\''running'\'') {"
+    print "              error(\"FAIL_CLOSED unexpected_probe_state: dup\")"
+    print "            }"
+    next
+  }
+  { print }
+' "$v2_source" >"$fixture_dir/v2-spoof-ambiguous-duplicate-opener"
+if cmp -s "$v2_source" "$fixture_dir/v2-spoof-ambiguous-duplicate-opener"; then
+  printf 'fixture not distinct: v2-spoof-ambiguous-duplicate-opener\n' >&2
+  exit 1
+fi
+
+# same-tag/different-SHA: echo-quoted opener + false branch error
+awk '
+  /^[[:space:]]*if[[:space:]]*\([[:space:]]*prevTag[[:space:]]*==[[:space:]]*env\.RELEASE_TAG[[:space:]]*&&[[:space:]]*prevSha[[:space:]]*!=[[:space:]]*env\.RELEASE_SHA[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
+    print "              echo \"if (prevTag == env.RELEASE_TAG && prevSha != env.RELEASE_SHA) {\""
+    print "            if (false) {"
+    print "              error(\"FAIL_CLOSED same_tag_different_sha: spoof\")"
+    print "            }"
+    while ((getline line) > 0) {
+      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
+    }
+    next
+  }
+  { print }
+' "$v2_source" >"$fixture_dir/v2-spoof-same-tag-echo-opener"
+if cmp -s "$v2_source" "$fixture_dir/v2-spoof-same-tag-echo-opener"; then
+  printf 'fixture not distinct: v2-spoof-same-tag-echo-opener\n' >&2
+  exit 1
+fi
+
+# same-tag/different-SHA: duplicate real opener
+awk '
+  /^[[:space:]]*if[[:space:]]*\([[:space:]]*prevTag[[:space:]]*==[[:space:]]*env\.RELEASE_TAG[[:space:]]*&&[[:space:]]*prevSha[[:space:]]*!=[[:space:]]*env\.RELEASE_SHA[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
+    print
+    while ((getline line) > 0) {
+      print line
+      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
+    }
+    print "            if (prevTag == env.RELEASE_TAG && prevSha != env.RELEASE_SHA) {"
+    print "              error(\"FAIL_CLOSED same_tag_different_sha: dup\")"
+    print "            }"
+    next
+  }
+  { print }
+' "$v2_source" >"$fixture_dir/v2-spoof-same-tag-duplicate-opener"
+if cmp -s "$v2_source" "$fixture_dir/v2-spoof-same-tag-duplicate-opener"; then
+  printf 'fixture not distinct: v2-spoof-same-tag-duplicate-opener\n' >&2
+  exit 1
+fi
+
+# SemVer downgrade: echo-quoted opener + false branch with real terminals
+awk '
+  /^[[:space:]]*if[[:space:]]*\([[:space:]]*cmp[[:space:]]*<[[:space:]]*0[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
+    print "              echo \"if (cmp < 0) {\""
+    print "            if (false) {"
+    print "              env.DEPLOY_NOOP = '\''true'\''"
+    print "              return"
+    print "            }"
+    while ((getline line) > 0) {
+      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
+    }
+    next
+  }
+  { print }
+' "$v2_source" >"$fixture_dir/v2-spoof-downgrade-echo-opener"
+if cmp -s "$v2_source" "$fixture_dir/v2-spoof-downgrade-echo-opener"; then
+  printf 'fixture not distinct: v2-spoof-downgrade-echo-opener\n' >&2
+  exit 1
+fi
+
+# SemVer downgrade: duplicate real opener
+awk '
+  /^[[:space:]]*if[[:space:]]*\([[:space:]]*cmp[[:space:]]*<[[:space:]]*0[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
+    print
+    while ((getline line) > 0) {
+      print line
+      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
+    }
+    print "            if (cmp < 0) {"
+    print "              env.DEPLOY_NOOP = '\''true'\''"
+    print "              return"
+    print "            }"
+    next
+  }
+  { print }
+' "$v2_source" >"$fixture_dir/v2-spoof-downgrade-duplicate-opener"
+if cmp -s "$v2_source" "$fixture_dir/v2-spoof-downgrade-duplicate-opener"; then
+  printf 'fixture not distinct: v2-spoof-downgrade-duplicate-opener\n' >&2
+  exit 1
+fi
+
+# FRONTEND_URL missing path: echo-quoted count==0 opener + false exit 2
+awk '
+  /^[[:space:]]*if[[:space:]]*\([[:space:]]*count[[:space:]]*==[[:space:]]*0[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
+    print "      echo \"if (count == 0) {\""
+    print "      if (false) {"
+    print "        exit 2"
+    print "      }"
+    while ((getline line) > 0) {
+      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
+    }
+    next
+  }
+  { print }
+' "$v2_source" >"$fixture_dir/v2-spoof-frontend-url-echo-opener-missing"
+if cmp -s "$v2_source" "$fixture_dir/v2-spoof-frontend-url-echo-opener-missing"; then
+  printf 'fixture not distinct: v2-spoof-frontend-url-echo-opener-missing\n' >&2
+  exit 1
+fi
+
+# FRONTEND_URL uniqueness path: echo-quoted count!=1 opener + false exit 3
+awk '
+  /^[[:space:]]*if[[:space:]]*\([[:space:]]*count[[:space:]]*!=[[:space:]]*1[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
+    print "      echo \"if (count != 1) {\""
+    print "      if (false) {"
+    print "        exit 3"
+    print "      }"
+    while ((getline line) > 0) {
+      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
+    }
+    next
+  }
+  { print }
+' "$v2_source" >"$fixture_dir/v2-spoof-frontend-url-echo-opener-uniq"
+if cmp -s "$v2_source" "$fixture_dir/v2-spoof-frontend-url-echo-opener-uniq"; then
+  printf 'fixture not distinct: v2-spoof-frontend-url-echo-opener-uniq\n' >&2
+  exit 1
+fi
+
+# FRONTEND_URL: duplicate real openers for both count branches
+awk '
+  /^[[:space:]]*if[[:space:]]*\([[:space:]]*count[[:space:]]*==[[:space:]]*0[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
+    print
+    while ((getline line) > 0) {
+      print line
+      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
+    }
+    print "      if (count == 0) {"
+    print "        exit 2"
+    print "      }"
+    next
+  }
+  /^[[:space:]]*if[[:space:]]*\([[:space:]]*count[[:space:]]*!=[[:space:]]*1[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
+    print
+    while ((getline line) > 0) {
+      print line
+      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
+    }
+    print "      if (count != 1) {"
+    print "        exit 3"
+    print "      }"
+    next
+  }
+  { print }
+' "$v2_source" >"$fixture_dir/v2-spoof-frontend-url-duplicate-openers"
+if cmp -s "$v2_source" "$fixture_dir/v2-spoof-frontend-url-duplicate-openers"; then
+  printf 'fixture not distinct: v2-spoof-frontend-url-duplicate-openers\n' >&2
+  exit 1
+fi
+
 expect_pass 'v2: 현재 candidate Release 배포 계약' v2 "$fixture_dir/v2-valid"
 expect_pass 'v2: 기본 path 호출' v2 "$v2_source"
 expect_fail 'v2: parameters 블록 부활' v2 "$fixture_dir/v2-restored-parameters"
@@ -1054,6 +1338,21 @@ expect_fail 'v2 spoof: SemVer downgrade string-wrapped return' v2 "$fixture_dir/
 expect_fail 'v2 spoof: SemVer downgrade string-wrapped DEPLOY_NOOP' v2 "$fixture_dir/v2-spoof-downgrade-string-noop"
 expect_fail 'v2 spoof: FRONTEND_URL missing path echo exit 2' v2 "$fixture_dir/v2-spoof-frontend-url-echo-exit2"
 expect_fail 'v2 spoof: FRONTEND_URL uniqueness path echo exit 3' v2 "$fixture_dir/v2-spoof-frontend-url-echo-exit3"
+
+
+expect_fail 'v2 spoof: stopped echo/quoted opener' v2 "$fixture_dir/v2-spoof-stopped-echo-opener"
+expect_fail 'v2 spoof: stopped duplicate real opener' v2 "$fixture_dir/v2-spoof-stopped-duplicate-opener"
+expect_fail 'v2 spoof: partial echo/quoted opener' v2 "$fixture_dir/v2-spoof-partial-echo-opener"
+expect_fail 'v2 spoof: partial duplicate real opener' v2 "$fixture_dir/v2-spoof-partial-duplicate-opener"
+expect_fail 'v2 spoof: non-running println/quoted opener' v2 "$fixture_dir/v2-spoof-ambiguous-println-opener"
+expect_fail 'v2 spoof: non-running duplicate real opener' v2 "$fixture_dir/v2-spoof-ambiguous-duplicate-opener"
+expect_fail 'v2 spoof: same-tag echo/quoted opener' v2 "$fixture_dir/v2-spoof-same-tag-echo-opener"
+expect_fail 'v2 spoof: same-tag duplicate real opener' v2 "$fixture_dir/v2-spoof-same-tag-duplicate-opener"
+expect_fail 'v2 spoof: SemVer downgrade echo/quoted opener' v2 "$fixture_dir/v2-spoof-downgrade-echo-opener"
+expect_fail 'v2 spoof: SemVer downgrade duplicate real opener' v2 "$fixture_dir/v2-spoof-downgrade-duplicate-opener"
+expect_fail 'v2 spoof: FRONTEND_URL missing echo/quoted opener' v2 "$fixture_dir/v2-spoof-frontend-url-echo-opener-missing"
+expect_fail 'v2 spoof: FRONTEND_URL uniqueness echo/quoted opener' v2 "$fixture_dir/v2-spoof-frontend-url-echo-opener-uniq"
+expect_fail 'v2 spoof: FRONTEND_URL duplicate real openers' v2 "$fixture_dir/v2-spoof-frontend-url-duplicate-openers"
 
 # legacy source must not pass v2 mode; v2 source must not pass legacy mode
 expect_fail 'cross: root Jenkinsfile는 v2 mode 실패' v2 "$legacy_source"
