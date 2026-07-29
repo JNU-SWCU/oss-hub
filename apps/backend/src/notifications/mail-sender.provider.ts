@@ -1,14 +1,18 @@
 import type { Provider } from '@nestjs/common';
+import type { RuntimeConfig } from '../runtime-config/runtime-config';
+import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
 import { GmailMailSender } from './adapters/gmail-mail-sender';
 import type { GmailSenderConfig } from './adapters/gmail-mail-sender';
 import { LogMailSender } from './adapters/log-mail-sender';
 import { MAIL_SENDER } from './mail-sender.port';
 
-function gmailConfigFromEnv(): GmailSenderConfig | null {
-  const sender = process.env.GMAIL_SENDER;
-  const clientId = process.env.GMAIL_OAUTH_CLIENT_ID;
-  const clientSecret = process.env.GMAIL_OAUTH_CLIENT_SECRET;
-  const refreshToken = process.env.GMAIL_OAUTH_REFRESH_TOKEN;
+function gmailConfigFromRuntime(
+  runtimeConfig: RuntimeConfig,
+): GmailSenderConfig | null {
+  const sender = runtimeConfig.GMAIL_SENDER;
+  const clientId = runtimeConfig.GMAIL_OAUTH_CLIENT_ID;
+  const clientSecret = runtimeConfig.GMAIL_OAUTH_CLIENT_SECRET;
+  const refreshToken = runtimeConfig.GMAIL_OAUTH_REFRESH_TOKEN;
   if (!sender || !clientId || !clientSecret || !refreshToken) {
     return null;
   }
@@ -22,9 +26,10 @@ function gmailConfigFromEnv(): GmailSenderConfig | null {
  */
 export const mailSenderProvider: Provider = {
   provide: MAIL_SENDER,
-  useFactory: () => {
-    const config = gmailConfigFromEnv();
-    if (process.env.NODE_ENV === 'production') {
+  inject: [RUNTIME_CONFIG],
+  useFactory: (runtimeConfig: RuntimeConfig) => {
+    const config = gmailConfigFromRuntime(runtimeConfig);
+    if (runtimeConfig.NODE_ENV === 'production') {
       if (!config) {
         throw new Error(
           'production 환경은 GMAIL_* OAuth 자격 증명이 필요합니다(dry-run 발송 금지).',

@@ -1,3 +1,9 @@
+import {
+  loadRuntimeConfig,
+  type RuntimeConfig,
+  type RuntimeEnvKey,
+} from '../runtime-config/runtime-config';
+
 const DEFAULT_API_BASE = 'https://api.github.com';
 const DEFAULT_MAX_PAGES = 100;
 const DEFAULT_DEADLINE_MS = 30_000;
@@ -30,20 +36,28 @@ export class CollectionAppConfig {
     deadlineMs: 'GITHUB_COLLECTION_APP_DEADLINE_MS',
   } as const;
 
+  /**
+   * Compatibility façade — snapshots env through RuntimeConfig, then projects.
+   * Prefer `fromRuntimeConfig` when a snapshot is already in hand (DI/CLI).
+   */
   static fromEnv(
     env: NodeJS.ProcessEnv = process.env,
   ): CollectionAppConfigValues {
-    const required = (name: string): string => {
-      const value = env[name]?.trim();
+    return this.fromRuntimeConfig(loadRuntimeConfig(env));
+  }
+
+  static fromRuntimeConfig(config: RuntimeConfig): CollectionAppConfigValues {
+    const required = (name: RuntimeEnvKey): string => {
+      const value = config[name]?.trim();
       if (!value) throw new CollectionAppConfigError(name);
       return value;
     };
     const positiveInteger = (
-      name: string,
+      name: RuntimeEnvKey,
       fallback: number,
       maximum: number,
     ): number => {
-      const raw = env[name]?.trim();
+      const raw = config[name]?.trim();
       if (!raw) return fallback;
       if (!/^\d+$/.test(raw)) throw new CollectionAppConfigError(name);
       const value = Number(raw);
@@ -61,7 +75,7 @@ export class CollectionAppConfig {
       throw new CollectionAppConfigError(this.envNames.orgLogin);
     }
     const apiBaseUrl =
-      env[this.envNames.apiBaseUrl]?.trim() || DEFAULT_API_BASE;
+      config[this.envNames.apiBaseUrl]?.trim() || DEFAULT_API_BASE;
     let parsedBase: URL;
     try {
       parsedBase = new URL(apiBaseUrl);

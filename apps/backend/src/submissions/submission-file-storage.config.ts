@@ -1,8 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   SUBMISSION_FILE_STORAGE_ERROR_CODES,
   SubmissionFileStorageError,
 } from './submission-file-storage.port';
+import {
+  loadRuntimeConfig,
+  type RuntimeConfig,
+} from '../runtime-config/runtime-config';
+import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
 
 export interface SubmissionFileStorageSettings {
   endpoint: string;
@@ -15,16 +20,27 @@ export interface SubmissionFileStorageSettings {
 
 @Injectable()
 export class SubmissionFileStorageConfig {
+  constructor(
+    @Inject(RUNTIME_CONFIG)
+    private readonly runtimeConfig: RuntimeConfig = loadRuntimeConfig(
+      process.env,
+    ),
+  ) {}
+
   requireSettings(): SubmissionFileStorageSettings {
-    const endpoint = environmentValue('SUBMISSION_FILE_S3_ENDPOINT');
-    const region = environmentValue('SUBMISSION_FILE_S3_REGION');
-    const bucket = environmentValue('SUBMISSION_FILE_S3_BUCKET');
-    const accessKeyId = environmentValue('SUBMISSION_FILE_S3_ACCESS_KEY_ID');
-    const secretAccessKey = environmentValue(
-      'SUBMISSION_FILE_S3_SECRET_ACCESS_KEY',
+    const endpoint = configValue(
+      this.runtimeConfig.SUBMISSION_FILE_S3_ENDPOINT,
     );
-    const forcePathStyle = booleanEnvironmentValue(
-      'SUBMISSION_FILE_S3_FORCE_PATH_STYLE',
+    const region = configValue(this.runtimeConfig.SUBMISSION_FILE_S3_REGION);
+    const bucket = configValue(this.runtimeConfig.SUBMISSION_FILE_S3_BUCKET);
+    const accessKeyId = configValue(
+      this.runtimeConfig.SUBMISSION_FILE_S3_ACCESS_KEY_ID,
+    );
+    const secretAccessKey = configValue(
+      this.runtimeConfig.SUBMISSION_FILE_S3_SECRET_ACCESS_KEY,
+    );
+    const forcePathStyle = booleanConfigValue(
+      this.runtimeConfig.SUBMISSION_FILE_S3_FORCE_PATH_STYLE,
     );
 
     if (
@@ -52,13 +68,13 @@ export class SubmissionFileStorageConfig {
   }
 }
 
-function environmentValue(name: string): string | null {
-  const value = process.env[name]?.trim();
+function configValue(raw: string | undefined): string | null {
+  const value = raw?.trim();
   return value && value.length > 0 ? value : null;
 }
 
-function booleanEnvironmentValue(name: string): boolean | null {
-  const value = environmentValue(name)?.toLowerCase();
+function booleanConfigValue(raw: string | undefined): boolean | null {
+  const value = configValue(raw)?.toLowerCase();
   if (value === 'true') return true;
   if (value === 'false') return false;
   return null;

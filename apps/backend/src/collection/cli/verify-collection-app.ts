@@ -1,4 +1,8 @@
 import { createHash } from 'node:crypto';
+import {
+  loadRuntimeConfig,
+  type RuntimeConfig,
+} from '../../runtime-config/runtime-config';
 import { CollectionAppClient } from '../collection-app.client';
 import { CollectionAppConfig } from '../collection-app.config';
 import { CollectionAppTokenProvider } from '../collection-app.token';
@@ -8,9 +12,6 @@ import {
   CollectionLiveSmokeAlias,
   CollectionLiveSmokeService,
 } from '../collection-live-smoke.service';
-
-const PUBLIC_ALIASES_ENV = 'GITHUB_COLLECTION_APP_SMOKE_PUBLIC_ALIASES';
-const PRIVATE_ALIAS_ENV = 'GITHUB_COLLECTION_APP_SMOKE_PRIVATE_ALIAS';
 
 function parseAlias(
   value: string,
@@ -25,14 +26,15 @@ function parseAlias(
   return { label, repository, visibility };
 }
 
-export function aliasesFromEnv(
-  env: NodeJS.ProcessEnv,
+/** Typed projection from a RuntimeConfig snapshot. */
+export function aliasesFromRuntimeConfig(
+  config: RuntimeConfig,
 ): CollectionLiveSmokeAlias[] {
   const publicValues =
-    env[PUBLIC_ALIASES_ENV]?.split(',')
+    config.GITHUB_COLLECTION_APP_SMOKE_PUBLIC_ALIASES?.split(',')
       .map((value) => value.trim())
       .filter(Boolean) ?? [];
-  const privateValue = env[PRIVATE_ALIAS_ENV]?.trim();
+  const privateValue = config.GITHUB_COLLECTION_APP_SMOKE_PRIVATE_ALIAS?.trim();
   if (publicValues.length === 0 || !privateValue)
     throw new Error('Live smoke fixtures are required');
   return [
@@ -41,16 +43,24 @@ export function aliasesFromEnv(
   ];
 }
 
+/** Compatibility façade — one snapshot via loadRuntimeConfig, then project. */
+export function aliasesFromEnv(
+  env: NodeJS.ProcessEnv,
+): CollectionLiveSmokeAlias[] {
+  return aliasesFromRuntimeConfig(loadRuntimeConfig(env));
+}
+
 async function main(): Promise<void> {
   try {
-    const config = CollectionAppConfig.fromEnv();
+    const runtimeConfig = loadRuntimeConfig(process.env);
+    const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
     const tokens = new CollectionAppTokenProvider(config);
     const client = new CollectionAppClient(config, tokens);
     const output = await new CollectionLiveSmokeService(
       client,
       tokens,
       config.orgLogin,
-      aliasesFromEnv(process.env),
+      aliasesFromRuntimeConfig(runtimeConfig),
     ).verify();
     process.stdout.write(`${JSON.stringify(output)}\n`);
     if (output.result !== 'PASS') process.exitCode = 1;

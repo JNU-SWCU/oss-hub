@@ -1,6 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { Role } from '@prisma/client';
+import {
+  loadRuntimeConfig,
+  type RuntimeConfig,
+} from '../runtime-config/runtime-config';
+import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
 import { parseInitialRoles } from './initial-roles';
 import type { InitialRoleMap } from './initial-roles';
 
@@ -23,7 +28,8 @@ const CALLBACK_PATH = '/api/v1/auth/github/callback';
 @Injectable()
 export class AuthConfig {
   private readonly logger = new Logger(AuthConfig.name);
-  private readonly isProduction = process.env.NODE_ENV === 'production';
+  private readonly runtimeConfig: RuntimeConfig;
+  private readonly isProduction: boolean;
   private readonly oauth: OauthSettings | null;
 
   readonly sessionSecret: Uint8Array;
@@ -33,13 +39,20 @@ export class AuthConfig {
 
   private readonly initialRoleMap: InitialRoleMap;
 
-  constructor() {
+  constructor(
+    @Inject(RUNTIME_CONFIG)
+    runtimeConfig: RuntimeConfig = loadRuntimeConfig(process.env),
+  ) {
+    this.runtimeConfig = runtimeConfig;
+    this.isProduction = this.runtimeConfig.NODE_ENV === 'production';
     this.sessionSecret = this.loadSessionSecret();
     this.frontendUrl = this.loadFrontendUrl();
     this.allowedOrigin = this.frontendUrl;
     this.useSecureCookies = this.isProduction;
     this.oauth = this.loadOauthSettings();
-    this.initialRoleMap = parseInitialRoles(process.env.AUTH_INITIAL_ROLES);
+    this.initialRoleMap = parseInitialRoles(
+      this.runtimeConfig.AUTH_INITIAL_ROLES,
+    );
   }
 
   /** 초기 역할 시드 대상이 아니면 null을 반환한다. */
@@ -58,7 +71,7 @@ export class AuthConfig {
   }
 
   private loadSessionSecret(): Uint8Array {
-    const raw = process.env.SESSION_SECRET;
+    const raw = this.runtimeConfig.SESSION_SECRET;
     if (raw) {
       const decoded = Buffer.from(raw, 'base64url');
       if (decoded.length < MIN_SESSION_SECRET_BYTES) {
@@ -79,7 +92,8 @@ export class AuthConfig {
 
   private loadFrontendUrl(): string {
     const raw =
-      process.env.FRONTEND_URL ?? (this.isProduction ? '' : DEV_FRONTEND_URL);
+      this.runtimeConfig.FRONTEND_URL ??
+      (this.isProduction ? '' : DEV_FRONTEND_URL);
     if (!raw) {
       throw new Error('운영 환경에는 FRONTEND_URL이 필수입니다.');
     }
@@ -87,10 +101,10 @@ export class AuthConfig {
   }
 
   private loadOauthSettings(): OauthSettings | null {
-    const clientId = process.env.GITHUB_OAUTH_CLIENT_ID;
-    const clientSecret = process.env.GITHUB_OAUTH_CLIENT_SECRET;
+    const clientId = this.runtimeConfig.GITHUB_OAUTH_CLIENT_ID;
+    const clientSecret = this.runtimeConfig.GITHUB_OAUTH_CLIENT_SECRET;
     const callbackUrl = this.deriveCallbackUrl();
-    const configuredCallbackUrl = process.env.GITHUB_OAUTH_CALLBACK_URL;
+    const configuredCallbackUrl = this.runtimeConfig.GITHUB_OAUTH_CALLBACK_URL;
 
     if (configuredCallbackUrl !== undefined && configuredCallbackUrl !== '') {
       const normalizedConfiguredCallbackUrl = this.parseAbsoluteUrl(
