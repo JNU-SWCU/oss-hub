@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { Test } from '@nestjs/testing';
+import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { AuthConfig } from './auth.config';
 
 const BASE_ENV = { ...process.env };
@@ -48,10 +49,14 @@ function requiredAuthEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   };
 }
 
+function authConfig(): AuthConfig {
+  return new AuthConfig(loadRuntimeConfig(process.env));
+}
+
 describe('AuthConfig', () => {
   it('FRONTEND_URL을 canonical public origin으로 고정하고 callback을 같은 origin에서 파생한다', () => {
     withEnv(requiredAuthEnv(), () => {
-      const config = new AuthConfig();
+      const config = authConfig();
 
       expect(config.frontendUrl).toBe('https://oss.example');
       expect(config.allowedOrigin).toBe('https://oss.example');
@@ -80,7 +85,7 @@ describe('AuthConfig', () => {
     'FRONTEND_URL이 canonical origin이 아니면 거부한다: %s',
     (_label, frontendUrl) => {
       withEnv(requiredAuthEnv({ FRONTEND_URL: frontendUrl }), () => {
-        expect(() => new AuthConfig()).toThrow();
+        expect(() => authConfig()).toThrow();
       });
     },
   );
@@ -93,7 +98,7 @@ describe('AuthConfig', () => {
     'FRONTEND_URL path with percent-encoded delimiter octets is still rejected as non-origin: %s',
     (_label, frontendUrl) => {
       withEnv(requiredAuthEnv({ FRONTEND_URL: frontendUrl }), () => {
-        expect(() => new AuthConfig()).toThrow('FRONTEND_URL');
+        expect(() => authConfig()).toThrow('FRONTEND_URL');
       });
     },
   );
@@ -111,7 +116,7 @@ describe('AuthConfig', () => {
           FRONTEND_URL: 'http://oss.example',
         }),
         () => {
-          const config = new AuthConfig();
+          const config = authConfig();
           expect(config.frontendUrl).toBe('http://oss.example');
           expect(config.useSecureCookies).toBe(false);
         },
@@ -132,7 +137,7 @@ describe('AuthConfig', () => {
           FRONTEND_URL: 'https://oss.example',
         }),
         () => {
-          expect(new AuthConfig().useSecureCookies).toBe(true);
+          expect(authConfig().useSecureCookies).toBe(true);
         },
       );
     },
@@ -159,7 +164,7 @@ describe('AuthConfig', () => {
       withEnv(
         requiredAuthEnv({ GITHUB_OAUTH_CALLBACK_URL: callbackUrl }),
         () => {
-          expect(() => new AuthConfig()).toThrow('GITHUB_OAUTH_CALLBACK_URL');
+          expect(() => authConfig()).toThrow('GITHUB_OAUTH_CALLBACK_URL');
         },
       );
     },
@@ -167,7 +172,7 @@ describe('AuthConfig', () => {
 
   it('configured callback placeholder 빈 값은 허용하고 파생 callback을 사용한다', () => {
     withEnv(requiredAuthEnv({ GITHUB_OAUTH_CALLBACK_URL: '' }), () => {
-      expect(new AuthConfig().requireOauth().callbackUrl).toBe(
+      expect(authConfig().requireOauth().callbackUrl).toBe(
         'https://oss.example/api/v1/auth/github/callback',
       );
     });
@@ -185,7 +190,7 @@ describe('AuthConfig', () => {
       }),
       () => {
         delete process.env.SESSION_SECRET;
-        expect(() => new AuthConfig()).toThrow('SESSION_SECRET');
+        expect(() => authConfig()).toThrow('SESSION_SECRET');
       },
     );
   });
@@ -202,7 +207,7 @@ describe('AuthConfig', () => {
       }),
       () => {
         delete process.env.FRONTEND_URL;
-        expect(() => new AuthConfig()).toThrow('FRONTEND_URL');
+        expect(() => authConfig()).toThrow('FRONTEND_URL');
       },
     );
   });
@@ -223,7 +228,7 @@ describe('AuthConfig', () => {
         () => {
           delete process.env.GITHUB_OAUTH_CLIENT_ID;
           delete process.env.GITHUB_OAUTH_CLIENT_SECRET;
-          expect(() => new AuthConfig()).toThrow('GITHUB_OAUTH_CLIENT');
+          expect(() => authConfig()).toThrow('GITHUB_OAUTH_CLIENT');
         },
       );
     },
@@ -235,7 +240,7 @@ describe('AuthConfig', () => {
         SESSION_SECRET: Buffer.from('too-short').toString('base64url'),
       }),
       () => {
-        expect(() => new AuthConfig()).toThrow('SESSION_SECRET');
+        expect(() => authConfig()).toThrow('SESSION_SECRET');
       },
     );
   });
@@ -244,18 +249,18 @@ describe('AuthConfig', () => {
 describe('AuthConfig 초기 역할 시드', () => {
   it('설정되면 역할을, 미등록·미설정이면 null을 반환한다', () => {
     withEnv(requiredAuthEnv({ AUTH_INITIAL_ROLES: '101:STAFF' }), () => {
-      const config = new AuthConfig();
+      const config = authConfig();
       expect(config.resolveInitialRole(101n)).toBe('STAFF');
       expect(config.resolveInitialRole(999n)).toBeNull();
     });
     withEnv(requiredAuthEnv(), () => {
-      expect(new AuthConfig().resolveInitialRole(101n)).toBeNull();
+      expect(authConfig().resolveInitialRole(101n)).toBeNull();
     });
   });
 
   it('형식 오류는 생성자에서 즉시 실패한다', () => {
     withEnv(requiredAuthEnv({ AUTH_INITIAL_ROLES: '0:ADMIN' }), () => {
-      expect(() => new AuthConfig()).toThrow('AUTH_INITIAL_ROLES');
+      expect(() => authConfig()).toThrow('AUTH_INITIAL_ROLES');
     });
   });
 });

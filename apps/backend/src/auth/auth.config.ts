@@ -1,9 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Role } from '@prisma/client';
-import {
-  loadRuntimeConfig,
-  type RuntimeConfig,
-} from '../runtime-config/runtime-config';
+import { type RuntimeConfig } from '../runtime-config/runtime-config';
 import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
 import { parseInitialRoles } from './initial-roles';
 import type { InitialRoleMap } from './initial-roles';
@@ -35,10 +32,7 @@ export class AuthConfig {
 
   private readonly initialRoleMap: InitialRoleMap;
 
-  constructor(
-    @Inject(RUNTIME_CONFIG)
-    runtimeConfig: RuntimeConfig = loadRuntimeConfig(process.env),
-  ) {
+  constructor(@Inject(RUNTIME_CONFIG) runtimeConfig: RuntimeConfig) {
     this.runtimeConfig = runtimeConfig;
     this.sessionSecret = this.loadSessionSecret();
     const frontend = this.loadFrontendUrl();
