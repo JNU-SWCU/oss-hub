@@ -141,8 +141,7 @@ jobs:
         if: ${{ steps.changes.outputs.jenkins == 'true' }}
         run: |
           bash scripts/check-jenkinsfile.test.sh
-          bash scripts/check-jenkinsfile.sh legacy Jenkinsfile
-          bash scripts/check-jenkinsfile.sh v2 deploy/jenkins/Jenkinsfile.v2
+          bash scripts/check-jenkinsfile.sh Jenkinsfile
           bash scripts/prune-deploy-backups.test.sh
 
       - name: Docker build context 계약 회귀 테스트

@@ -4,57 +4,28 @@ set -euo pipefail
 usage() {
   cat >&2 <<'EOF'
 Usage:
-  scripts/check-jenkinsfile.sh
-  scripts/check-jenkinsfile.sh <Jenkinsfile>
-  scripts/check-jenkinsfile.sh legacy [Jenkinsfile]
-  scripts/check-jenkinsfile.sh v2 [Jenkinsfile.v2]
-
-Modes:
-  legacy  root Jenkinsfile Release deploy contract (default)
-  v2      parameterless latest-Release candidate contract
+  scripts/check-jenkinsfile.sh [Jenkinsfile]
+  scripts/check-jenkinsfile.sh v2 [Jenkinsfile]
 EOF
   exit 2
 }
 
-mode=""
-jenkinsfile=""
-
 if [[ $# -eq 0 ]]; then
-  mode=legacy
   jenkinsfile=Jenkinsfile
-elif [[ $# -eq 1 ]]; then
-  case "$1" in
-    -h | --help) usage ;;
-    legacy)
-      mode=legacy
-      jenkinsfile=Jenkinsfile
-      ;;
-    v2)
-      mode=v2
-      jenkinsfile=deploy/jenkins/Jenkinsfile.v2
-      ;;
-    *)
-      mode=legacy
-      jenkinsfile=$1
-      ;;
-  esac
-elif [[ $# -eq 2 ]]; then
-  mode=$1
-  jenkinsfile=$2
-  case "$mode" in
-    legacy | v2) ;;
-    *) usage ;;
-  esac
+elif [[ $# -eq 1 && "$1" != "v2" && "$1" != "-h" && "$1" != "--help" ]]; then
+  jenkinsfile=$1
+elif [[ $# -le 2 && "$1" == "v2" ]]; then
+  jenkinsfile=${2:-Jenkinsfile}
 else
   usage
 fi
 
 if [[ ! -f "$jenkinsfile" ]]; then
-  printf 'Jenkinsfile contract (%s): file not found: %s\n' "$mode" "$jenkinsfile" >&2
+  printf 'Jenkinsfile contract: file not found: %s\n' "$jenkinsfile" >&2
   exit 1
 fi
 
-label="Jenkinsfile contract ($mode)"
+label="Jenkinsfile contract"
 
 active_jenkinsfile=$(mktemp "${TMPDIR:-/tmp}/jenkinsfile-active.XXXXXX")
 docker_scan_file=$(mktemp "${TMPDIR:-/tmp}/jenkinsfile-docker-scan.XXXXXX")
@@ -236,76 +207,6 @@ require_single_image_tag_assignment() {
     printf '%s: IMAGE_TAG는 한 번만 할당해야 함\n' "$label" >&2
     exit 1
   fi
-}
-
-check_legacy() {
-  require_common_executor_guards
-
-  require_exact 'Release action 입력은 한 번이어야 함' "string(name: 'RELEASE_ACTION'" 1
-  require_exact 'Release tag 입력은 한 번이어야 함' "string(name: 'RELEASE_TAG'" 1
-  require_exact '빈 Release 입력은 main 검증으로만 분류해야 함' "env.RUN_MODE = 'main'" 1
-  require_exact '유효 Release만 배포로 분류해야 함' "env.RUN_MODE = 'release'" 1
-  require_exact 'created action 허용은 한 번이어야 함' "action == 'created'" 1
-  require_exact 'published action 허용은 한 번이어야 함' "action == 'published'" 1
-  require_exact 'full SemVer tag 검증은 한 번이어야 함' 'tag ==~ /' 1
-  require_exact 'latest Release API 검증은 한 번이어야 함' '/releases/latest' 1
-  require_exact 'draft 거절은 한 번이어야 함' "jq -r '.draft'" 1
-  require_exact 'prerelease 거절은 한 번이어야 함' "jq -r '.prerelease'" 1
-  require_exact 'latest tag 일치는 한 번이어야 함' "jq -r '.tag_name'" 1
-  require_exact 'Release tag의 commit 해석은 한 번이어야 함' 'git rev-parse "${RELEASE_TAG}^{commit}"' 1
-  require_exact 'main ancestry 검증은 한 번이어야 함' 'git merge-base --is-ancestor "$release_sha" origin/main' 1
-  require_exact 'exact SHA IMAGE_TAG 할당은 한 번이어야 함' 'env.IMAGE_TAG = releaseSha' 1
-  require_exact 'Release 승인은 공개 #199 댓글에서 페이지별 조회해야 함' '/issues/199/comments?per_page=100&page=${page}' 1
-  require_exact 'Release 승인 댓글 pagination은 최대 20페이지여야 함' 'for page in $(seq 1 20); do' 1
-  require_exact 'Release 승인 댓글 pagination 완료를 확인해야 함' "if [ \"\$pagination_complete\" != 'true' ]; then" 1
-  require_exact 'PM 승인 actor는 GoBeromsu여야 함' "--arg actor 'GoBeromsu'" 1
-  require_absent 'Tech Lead 승인 actor(Lumiere001)는 더 이상 존재하지 않아야 함' "--arg actor 'Lumiere001'"
-  require_exact 'PM 승인 형식은 tag와 exact SHA를 포함해야 함' 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}' 1
-  require_absent 'RELEASE_ACCEPT role=TECH_LEAD는 더 이상 존재하지 않아야 함' 'RELEASE_ACCEPT role=TECH_LEAD tag=${RELEASE_TAG} head=${IMAGE_TAG}'
-  require_absent 'RELEASE_OVERRIDE role=PM는 더 이상 존재하지 않아야 함' 'RELEASE_OVERRIDE role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}'
-  require_exact 'exact SHA checkout은 한 번이어야 함' 'git checkout --detach "$IMAGE_TAG"' 1
-
-  require_exact '영속 배포 상태 파일은 고정 경로여야 함' "DEPLOY_STATE_FILE = '/var/lib/oss-hub/deploy-state/current-release'" 1
-  require_exact '동일·하위 버전 비교는 한 번이어야 함' 'sort -V' 1
-  require_exact '동일 Release tag의 SHA 변경은 차단해야 함' 'env.RELEASE_TAG == currentTag && env.IMAGE_TAG != env.CURRENT_DEPLOY_SHA' 1
-  require_at_least 'Release 배포 stage는 no-op을 건너뛰어야 함' "env.RUN_MODE == 'release' && env.DEPLOY_NOOP != 'true'" 7
-
-  require_exact 'frontend 이미지는 한 번만 빌드해야 함' 'docker build --file apps/frontend/Dockerfile --tag "oss-hub-frontend:${IMAGE_TAG}" .' 1
-  require_exact 'backend 이미지는 한 번만 빌드해야 함' 'docker build --file apps/backend/Dockerfile --tag "oss-hub-backend:${IMAGE_TAG}" .' 1
-  require_exact '중지된 기존 container도 rollback 기준에 포함해야 함' 'docker compose --env-file "$OSS_HUB_ENV_FILE" ps --all -q' 2
-  require_exact 'rollback은 이전 정상 이미지가 있을 때만 실행해야 함' 'if (env.PREV_TAG?.trim())' 1
-  require_exact '정상 상태는 한 번만 원자 갱신해야 함' 'mv "$state_tmp" "$DEPLOY_STATE_FILE"' 1
-
-  require_common_smoke_and_build_guards
-  require_single_image_tag_assignment
-
-  local pm_approval_line checkout_line prisma_generate_line test_line backup_line
-  local frontend_build_line backend_build_line migration_line rollout_line state_line
-  pm_approval_line=$(line_of 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}')
-  checkout_line=$(line_of 'git checkout --detach "$IMAGE_TAG"')
-  prisma_generate_line=$(line_of 'pnpm --filter backend exec prisma generate')
-  test_line=$(line_of 'pnpm test')
-  backup_line=$(line_of 'pg_dump')
-  frontend_build_line=$(line_of 'docker build --file apps/frontend/Dockerfile')
-  backend_build_line=$(line_of 'docker build --file apps/backend/Dockerfile')
-  migration_line=$(line_of 'npx prisma migrate deploy')
-  rollout_line=$(line_of 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait')
-  state_line=$(line_of 'mv "$state_tmp" "$DEPLOY_STATE_FILE"')
-
-  if ! ((pm_approval_line < checkout_line &&
-         checkout_line < prisma_generate_line &&
-         prisma_generate_line < test_line &&
-         test_line < backup_line &&
-         backup_line < frontend_build_line &&
-         frontend_build_line < backend_build_line &&
-         backend_build_line < migration_line &&
-         migration_line < rollout_line &&
-         rollout_line < state_line)); then
-    printf '%s: required order is test -> backup -> image build -> migration -> rollout/smoke -> state update\n' "$label" >&2
-    exit 1
-  fi
-
-  echo "$label: ok (deterministic Prisma generate, main validation only, PM-only-approved Release exact-SHA deploy, durable no-op/backup/rollback)"
 }
 
 check_v2() {
@@ -660,8 +561,4 @@ check_v2() {
   echo "$label: ok (parameterless latest Release, RELEASE_TAG images, running-only no-op, fail-closed stopped/ambiguous, PM RELEASE_SHA approve, HTTPS+rollback ID bind, success-only retention)"
 }
 
-case "$mode" in
-  legacy) check_legacy ;;
-  v2) check_v2 ;;
-  *) usage ;;
-esac
+check_v2
