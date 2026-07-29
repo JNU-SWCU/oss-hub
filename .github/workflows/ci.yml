@@ -154,7 +154,7 @@ jobs:
         if: ${{ steps.changes.outputs.production_compose == 'true' }}
         run: |
           node --test scripts/check-env-example-coverage.test.mjs
-          node scripts/check-env-example-coverage.mjs
+          node scripts/check-env-example-coverage.mjs --require-docker
 
       - name: prettier 포맷 검사
         if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
