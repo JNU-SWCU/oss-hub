@@ -52,6 +52,7 @@ jobs:
               - 'deploy/host-nginx/**'
               - 'scripts/probe-nginx-callback-log.sh'
               - 'scripts/check-host-nginx*.sh'
+              - 'scripts/check-submission-upload-route*.sh'
               - '.github/workflows/**'
             production_compose:
               - 'compose.yml'
@@ -136,6 +137,8 @@ jobs:
           bash scripts/probe-nginx-callback-log.sh
           bash scripts/check-host-nginx.test.sh
           bash scripts/check-host-nginx.sh
+          bash scripts/check-submission-upload-route.test.sh
+          bash scripts/check-submission-upload-route.sh
 
       - name: Jenkins 배포 계약 회귀 테스트
         if: ${{ steps.changes.outputs.jenkins == 'true' }}
