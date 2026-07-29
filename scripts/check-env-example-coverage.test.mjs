@@ -1118,6 +1118,25 @@ test('CLI: 승인 경로의 정상 단일 top-level 선언은 통과한다', () 
   }
 });
 
+test('CLI: 승인 helper 안의 중첩 스코프가 파라미터 이름을 재사용해도 면제되지 않는다', () => {
+  const root = makeTempDir();
+  try {
+    writeMinimalContractTree(root, {
+      [APPROVED_OPS_PATH]: `export function environmentValue(name: string): string | null {
+  const value = process.env[name]?.trim();
+  const inner = (name: string) => process.env[name];
+  return (value ?? inner('X')) || null;
+}
+`,
+    });
+    const result = runEntryCli(root);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.match(result.stderr, /unsupported dynamic process\.env access/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('CLI: 승인 경로 안 동명 메서드·function expression 은 면제되지 않는다', () => {
   const root = makeTempDir();
   try {

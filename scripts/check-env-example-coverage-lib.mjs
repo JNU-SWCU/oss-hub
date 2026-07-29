@@ -290,6 +290,16 @@ export function extractKeysFromSource(filePath, sourceText, ts, options = {}) {
       return;
     }
 
+    // 승인 helper 안의 중첩 함수·메서드·화살표 함수는 자기 스코프를 새로 연다.
+    // 파라미터 이름을 문자열로만 비교하면 중첩 스코프가 같은 이름을 재사용할 때
+    // 면제가 전파되므로, 스코프 경계에서 끊어 문서가 공표한 경계와 일치시킨다.
+    if (helperParamStack.length > 0 && isNestedFunctionScope(ts, node)) {
+      const saved = helperParamStack.splice(0, helperParamStack.length);
+      ts.forEachChild(node, visit);
+      helperParamStack.push(...saved);
+      return;
+    }
+
     collectProcessEnvAccess(
       ts,
       node,
@@ -837,6 +847,25 @@ function lineOf(ts, sourceFile, node) {
  */
 function approvedHelperParamName(node, approvedHelperNodes) {
   return approvedHelperNodes.get(node) ?? null;
+}
+
+/**
+ * 자기 파라미터 스코프를 새로 여는 중첩 함수형 노드인지 판정한다.
+ * 승인 helper 자신은 호출부에서 먼저 처리되므로 여기 도달하지 않는다.
+ * @param {typeof import('typescript')} ts
+ * @param {import('typescript').Node} node
+ * @returns {boolean}
+ */
+function isNestedFunctionScope(ts, node) {
+  return (
+    ts.isFunctionDeclaration(node) ||
+    ts.isFunctionExpression(node) ||
+    ts.isArrowFunction(node) ||
+    ts.isMethodDeclaration(node) ||
+    ts.isConstructorDeclaration(node) ||
+    ts.isGetAccessorDeclaration(node) ||
+    ts.isSetAccessorDeclaration(node)
+  );
 }
 
 /**
