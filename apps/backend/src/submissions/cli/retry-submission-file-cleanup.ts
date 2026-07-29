@@ -2,18 +2,18 @@ import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../../app.module';
 import { PrismaService } from '../../prisma/prisma.service';
+import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import { SubmissionFilesRepository } from '../submission-files.repository';
 
 const ENABLED_VALUE = '1';
 
 async function main(): Promise<void> {
   const logger = new Logger('retry-submission-file-cleanup-cli');
+  const runtime = loadRuntimeConfig(process.env);
   const fileId = process.argv[2]?.trim();
-  const operatorId = process.env.SUBMISSION_FILE_CLEANUP_OPERATOR_ID?.trim();
+  const operatorId = runtime.SUBMISSION_FILE_CLEANUP_OPERATOR_ID?.trim();
 
-  if (
-    process.env.SUBMISSION_FILE_CLEANUP_MAINTENANCE_ENABLED !== ENABLED_VALUE
-  ) {
+  if (runtime.SUBMISSION_FILE_CLEANUP_MAINTENANCE_ENABLED !== ENABLED_VALUE) {
     throw new Error('Submission file cleanup maintenance is disabled');
   }
   if (!operatorId || !fileId || process.argv.length !== 3) {

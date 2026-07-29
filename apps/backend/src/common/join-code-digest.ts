@@ -1,4 +1,6 @@
 import { createHmac } from 'node:crypto';
+import { loadRuntimeConfig } from '../runtime-config/runtime-config';
+import { PROCESS_RUNTIME_CONFIG } from '../runtime-config/runtime-config.instance';
 
 const DEV_DEFAULT_JOIN_CODE_SECRET = 'synthetic-oss-hub-join-code-secret';
 
@@ -11,14 +13,13 @@ export class JoinCodeSecretError extends Error {
   }
 }
 
-export function resolveJoinCodeSecret(
-  env: NodeJS.ProcessEnv = process.env,
-): string {
-  const secret = env.TEAM_JOIN_CODE_SECRET;
+export function resolveJoinCodeSecret(env?: NodeJS.ProcessEnv): string {
+  const config = env ? loadRuntimeConfig(env) : PROCESS_RUNTIME_CONFIG;
+  const secret = config.TEAM_JOIN_CODE_SECRET;
   if (secret) {
     return secret;
   }
-  if (env.NODE_ENV === 'production') {
+  if (config.NODE_ENV === 'production') {
     throw new JoinCodeSecretError();
   }
   return DEV_DEFAULT_JOIN_CODE_SECRET;

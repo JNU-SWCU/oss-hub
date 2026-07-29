@@ -16,6 +16,8 @@
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../../app.module';
+import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
+import type { RuntimeConfig } from '../../runtime-config/runtime-config';
 import { GmailMailSender } from '../adapters/gmail-mail-sender';
 import { LogMailSender } from '../adapters/log-mail-sender';
 import { DeadlineDigestService } from '../deadline-digest.service';
@@ -23,11 +25,12 @@ import type { MailSender } from '../mail-sender.port';
 
 async function main(): Promise<void> {
   const logger = new Logger('send-deadline-digest-cli');
-  const forceTo = process.env.DIGEST_FORCE_TO?.trim();
+  const runtime = loadRuntimeConfig(process.env);
+  const forceTo = runtime.DIGEST_FORCE_TO?.trim();
 
   // 강제 수신은 DB/Nest 없이 메일 어댑터만 사용한다(로컬 점검용).
   if (forceTo) {
-    const mailer = resolveMailer();
+    const mailer = resolveMailer(runtime);
     const usingGmail = !(mailer instanceof LogMailSender);
     if (!usingGmail) {
       logger.warn(
@@ -63,11 +66,11 @@ async function main(): Promise<void> {
   }
 }
 
-function resolveMailer(): MailSender {
-  const sender = process.env.GMAIL_SENDER;
-  const clientId = process.env.GMAIL_OAUTH_CLIENT_ID;
-  const clientSecret = process.env.GMAIL_OAUTH_CLIENT_SECRET;
-  const refreshToken = process.env.GMAIL_OAUTH_REFRESH_TOKEN;
+function resolveMailer(runtime: RuntimeConfig): MailSender {
+  const sender = runtime.GMAIL_SENDER;
+  const clientId = runtime.GMAIL_OAUTH_CLIENT_ID;
+  const clientSecret = runtime.GMAIL_OAUTH_CLIENT_SECRET;
+  const refreshToken = runtime.GMAIL_OAUTH_REFRESH_TOKEN;
   if (sender && clientId && clientSecret && refreshToken) {
     return new GmailMailSender({
       sender,
