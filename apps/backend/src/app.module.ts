@@ -14,6 +14,7 @@ import { RankingModule } from './ranking/ranking.module';
 import { RepositoryOwnershipModule } from './repository-ownership/repository-ownership.module';
 import { RepositoriesModule } from './repositories/repositories.module';
 import { RolesModule } from './roles/roles.module';
+import { RuntimeConfigModule } from './runtime-config/runtime-config.module';
 import { ShowcaseModule } from './showcase/showcase.module';
 import { SubmissionReviewsModule } from './submission-reviews/submission-reviews.module';
 import { SubmissionsModule } from './submissions/submissions.module';
@@ -22,6 +23,7 @@ import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
+    RuntimeConfigModule,
     PrismaModule,
     HealthModule,
     AuditLogModule,
