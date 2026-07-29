@@ -39,6 +39,7 @@ describe('loadRuntimeConfig', () => {
     expect(config.FRONTEND_URL).toBe('');
     expect(config.PORT).toBeUndefined();
     expect(config.NODE_ENV).toBe('synthetic-node_env');
+    expect(config.MAIL_MODE).toBe('synthetic-mail_mode');
     expect(config.GITHUB_COLLECTION_APP_SMOKE_PUBLIC_ALIASES).toBe(
       'synthetic-github_collection_app_smoke_public_aliases',
     );
@@ -63,10 +64,12 @@ describe('loadRuntimeConfig', () => {
     const config = loadRuntimeConfig(env);
     env.GITHUB_OAUTH_CLIENT_SECRET = 'synthetic-mutated-secret';
     env.NODE_ENV = 'synthetic-mutated-node-env';
+    env.MAIL_MODE = 'synthetic-mutated-mail-mode';
 
     // Then
     expect(config.GITHUB_OAUTH_CLIENT_SECRET).toBe('synthetic-original-secret');
     expect(config.NODE_ENV).toBe('synthetic-node_env');
+    expect(config.MAIL_MODE).toBe('synthetic-mail_mode');
   });
 
   it('returns a frozen object', () => {
@@ -86,9 +89,10 @@ describe('loadRuntimeConfig', () => {
     const config = loadRuntimeConfig(syntheticEnv());
     const loadedKeys = Object.keys(config) as RuntimeEnvKey[];
 
-    // Then: same members and same order as the durable G003 manifest
+    // Then: same members and same order as the durable G003+G004 manifest
     expect(loadedKeys).toEqual([...RUNTIME_CONFIG_KEYS]);
-    expect(RUNTIME_CONFIG_KEYS).toHaveLength(33);
+    expect(RUNTIME_CONFIG_KEYS).toHaveLength(34);
+    expect(RUNTIME_CONFIG_KEYS).toContain('MAIL_MODE');
 
     const expected: RuntimeConfig = Object.freeze(
       Object.fromEntries(

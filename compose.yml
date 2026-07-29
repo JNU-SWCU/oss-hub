@@ -100,12 +100,14 @@ services:
       SUBMISSION_FILE_S3_FORCE_PATH_STYLE: ${SUBMISSION_FILE_S3_FORCE_PATH_STYLE:-true}
       # 미설정이면 역할 시드를 적용하지 않는다.
       AUTH_INITIAL_ROLES: ${AUTH_INITIAL_ROLES:-}
-      # production 이미지(NODE_ENV=production)는 GMAIL_* 4종이 없으면 부팅을 거부한다.
+      # MAIL_MODE는 exact send|dry-run만 허용한다. 운영은 send, 로컬 예시는 dry-run을 쓴다.
+      # Gmail 자격은 컨테이너에 선택 전달하고 MAIL_MODE=send일 때 앱이 4종 전부를 검증한다.
       # compose --env-file 치환만으로는 컨테이너에 전달되지 않으므로 여기서 명시 매핑한다.
-      GMAIL_SENDER: ${GMAIL_SENDER:?GMAIL_SENDER is required}
-      GMAIL_OAUTH_CLIENT_ID: ${GMAIL_OAUTH_CLIENT_ID:?GMAIL_OAUTH_CLIENT_ID is required}
-      GMAIL_OAUTH_CLIENT_SECRET: ${GMAIL_OAUTH_CLIENT_SECRET:?GMAIL_OAUTH_CLIENT_SECRET is required}
-      GMAIL_OAUTH_REFRESH_TOKEN: ${GMAIL_OAUTH_REFRESH_TOKEN:?GMAIL_OAUTH_REFRESH_TOKEN is required}
+      MAIL_MODE: ${MAIL_MODE:?MAIL_MODE is required}
+      GMAIL_SENDER: ${GMAIL_SENDER:-}
+      GMAIL_OAUTH_CLIENT_ID: ${GMAIL_OAUTH_CLIENT_ID:-}
+      GMAIL_OAUTH_CLIENT_SECRET: ${GMAIL_OAUTH_CLIENT_SECRET:-}
+      GMAIL_OAUTH_REFRESH_TOKEN: ${GMAIL_OAUTH_REFRESH_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy
