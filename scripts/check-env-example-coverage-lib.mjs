@@ -112,9 +112,6 @@ export function isServiceMappingExempt(key, owner, relPath) {
     case 'NODE_ENV':
       // apps/*/Dockerfile · compose.local.yml 소유
       return true;
-    case 'IMAGE_TAG':
-      // compose image: 치환 전용. 서비스 environment 매핑 대상 아님.
-      return true;
     case 'DIGEST_FORCE_TO':
       return (
         relPath.includes('/notifications/cli/') || isRuntimeConfigPath(relPath)
