@@ -123,10 +123,13 @@ up_uses_stable_project_name() {
   grep -Fq -- ' -p oss-hub-local ' "$up_log_file"
 }
 explicit_down_uses_owned_contract() {
-  grep -Fq -- 'compose -p oss-hub-local --env-file ' "$down_log_file" &&
-    grep -Fq -- ' -f ' "$down_log_file" &&
+  local file_count
+  file_count=$(grep -o -- ' -f ' "$down_log_file" | wc -l | tr -d ' ')
+  [[ "$file_count" == '2' ]] &&
+    grep -Fq -- 'compose -p oss-hub-local --env-file ' "$down_log_file" &&
     grep -Fq -- 'compose.yml ' "$down_log_file" &&
     grep -Fq -- 'compose.local.yml ' "$down_log_file" &&
+    ! grep -Fq -- 'compose.dev.yml' "$down_log_file" &&
     grep -Fq -- ' down -v --remove-orphans' "$down_log_file" &&
     ! grep -Fq -- ' up ' "$down_log_file" &&
     ! grep -Fq -- ' exec ' "$down_log_file"
