@@ -84,6 +84,11 @@ services:
       GITHUB_COLLECTION_APP_API_BASE_URL: ${GITHUB_COLLECTION_APP_API_BASE_URL:-}
       GITHUB_COLLECTION_APP_MAX_PAGES: ${GITHUB_COLLECTION_APP_MAX_PAGES:-}
       GITHUB_COLLECTION_APP_DEADLINE_MS: ${GITHUB_COLLECTION_APP_DEADLINE_MS:-}
+      GITHUB_OPERATIONS_APP_ID: ${GITHUB_OPERATIONS_APP_ID:?GITHUB_OPERATIONS_APP_ID is required}
+      GITHUB_OPERATIONS_APP_PRIVATE_KEY: ${GITHUB_OPERATIONS_APP_PRIVATE_KEY:?GITHUB_OPERATIONS_APP_PRIVATE_KEY is required}
+      # 선택값. 코드 기본 cron은 매시 정각(초 포함 6필드), listen 포트 기본은 4000.
+      COLLECTION_CRON_EXPRESSION: ${COLLECTION_CRON_EXPRESSION:-}
+      PORT: ${PORT:-4000}
       # 아래 4개는 이 스택의 MinIO 토폴로지가 이미 결정한 값이라 기본값을 둔다.
       # 운영자가 배포일에 채워야 하는 저장소 키는 access key와 secret 둘뿐이다.
       # 관리형 S3로 옮길 때는 env에 이 4개를 지정하면 되고 코드 변경은 없다.

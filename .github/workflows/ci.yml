@@ -56,6 +56,11 @@ jobs:
             production_compose:
               - 'compose.yml'
               - '.env.example'
+              - 'scripts/check-env-example-coverage.mjs'
+              - 'scripts/check-env-example-coverage-lib.mjs'
+              - 'scripts/check-env-example-coverage.test.mjs'
+              - 'apps/backend/src/**'
+              - 'apps/frontend/src/**'
               - '.github/workflows/**'
             jenkins:
               - 'Jenkinsfile'
@@ -93,11 +98,11 @@ jobs:
       # 앱 변경이 있을 때만 pnpm store를 만들고 캐시한다. docs-only PR에서
       # 존재하지 않는 store를 저장하려는 setup-node 후처리 실패를 막는다.
       - name: pnpm 설정
-        if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
+        if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' || steps.changes.outputs.production_compose == 'true' }}
         uses: pnpm/action-setup@v4
 
       - name: pnpm 캐시 설정
-        if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
+        if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' || steps.changes.outputs.production_compose == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -129,28 +134,6 @@ jobs:
           bash scripts/check-host-nginx.test.sh
           bash scripts/check-host-nginx.sh
 
-      - name: 운영 Compose 설정 검사
-        if: ${{ steps.changes.outputs.production_compose == 'true' }}
-        env:
-          POSTGRES_USER: synthetic_user
-          POSTGRES_PASSWORD: synthetic_password_for_config_only
-          POSTGRES_DB: synthetic_db
-          IMAGE_TAG: synthetic-commit-sha
-          DATABASE_URL: postgresql://synthetic_user:synthetic_password_for_config_only@postgres:5432/synthetic_db
-          SESSION_SECRET: synthetic_session_secret_for_config_only
-          TEAM_JOIN_CODE_SECRET: synthetic_team_join_code_secret_for_config_only
-          FRONTEND_URL: https://synthetic.invalid
-          GITHUB_OAUTH_CLIENT_ID: synthetic_client_id
-          GITHUB_OAUTH_CLIENT_SECRET: synthetic_client_secret
-          GITHUB_APP_ORG: synthetic_org
-          GITHUB_COLLECTION_APP_ID: '123456'
-          GITHUB_COLLECTION_APP_PRIVATE_KEY: synthetic_private_key_for_config_only
-          GMAIL_SENDER: synthetic_sender@example.com
-          GMAIL_OAUTH_CLIENT_ID: synthetic_gmail_client_id
-          GMAIL_OAUTH_CLIENT_SECRET: synthetic_gmail_client_secret
-          GMAIL_OAUTH_REFRESH_TOKEN: synthetic_gmail_refresh_token
-        run: docker compose --env-file .env.example -f compose.yml config --quiet
-
       - name: Jenkins 배포 계약 회귀 테스트
         if: ${{ steps.changes.outputs.jenkins == 'true' }}
         run: |
@@ -164,8 +147,14 @@ jobs:
           bash scripts/check-docker-context.sh
 
       - name: 의존성 설치
-        if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
+        if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' || steps.changes.outputs.production_compose == 'true' }}
         run: pnpm install --frozen-lockfile
+
+      - name: env 계약 양방향 검사
+        if: ${{ steps.changes.outputs.production_compose == 'true' }}
+        run: |
+          node --test scripts/check-env-example-coverage.test.mjs
+          node scripts/check-env-example-coverage.mjs --require-docker
 
       - name: prettier 포맷 검사
         if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
