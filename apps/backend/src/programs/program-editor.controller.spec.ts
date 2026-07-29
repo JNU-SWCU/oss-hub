@@ -24,6 +24,9 @@ const controllerMethod = (name: keyof ProgramEditorController): object => {
 };
 
 describe('ProgramEditorController boundaries', () => {
+  const syntheticSessionSecret = Buffer.from(
+    'synthetic-program-editor-session-secret',
+  ).toString('base64url');
   const editor = {
     getProgram: jest.fn(),
     updateProgram: jest.fn(),
@@ -99,14 +102,14 @@ describe('ProgramEditorController boundaries', () => {
       .overrideProvider(RUNTIME_CONFIG)
       .useValue(
         loadRuntimeConfig({
-          SESSION_SECRET: Buffer.from(
-            'synthetic-program-editor-session-secret',
-          ).toString('base64url'),
+          SESSION_SECRET: syntheticSessionSecret,
           FRONTEND_URL: 'http://localhost:3000',
           GITHUB_OAUTH_CLIENT_ID: 'synthetic-client-id',
           GITHUB_OAUTH_CLIENT_SECRET: 'synthetic-client-secret',
           GITHUB_OAUTH_CALLBACK_URL:
             'http://localhost:3000/api/v1/auth/github/callback',
+          TEAM_JOIN_CODE_SECRET: 'synthetic-program-editor-secret',
+          MAIL_MODE: 'dry-run',
         }),
       )
       .compile();
