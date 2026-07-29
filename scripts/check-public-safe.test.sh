@@ -284,6 +284,34 @@ git -C "$FIXTURE_REPO" add -- "$control_dir/.ENV"
 commit_fixture commit -qm 'test: control character path fixture'
 expect_forbidden_path_redacted
 
+init_fixture_repo forbidden-credentials-note
+printf 'synthetic note\n' >"$FIXTURE_REPO/credentials.md"
+git -C "$FIXTURE_REPO" add credentials.md
+commit_fixture commit -qm 'test: credentials note fixture'
+expect_fail '자격증명 메모 파일 경로(credentials.md)' scan_fixture_repo
+
+init_fixture_repo forbidden-secrets-yaml
+printf 'synthetic: placeholder\n' >"$FIXTURE_REPO/secrets.yaml"
+git -C "$FIXTURE_REPO" add secrets.yaml
+commit_fixture commit -qm 'test: secrets yaml fixture'
+expect_fail '자격증명 메모 파일 경로(secrets.yaml)' scan_fixture_repo
+
+init_fixture_repo forbidden-credentials-suffixed
+mkdir -p "$FIXTURE_REPO/docs"
+printf 'synthetic note\n' >"$FIXTURE_REPO/docs/credentials-prod.md"
+git -C "$FIXTURE_REPO" add docs/credentials-prod.md
+commit_fixture commit -qm 'test: suffixed credentials note fixture'
+expect_fail '접미사 붙은 자격증명 메모 경로(docs/credentials-prod.md)' scan_fixture_repo
+
+# 오탐 경계: 이름에 credential 이 들어가도 소스 파일과 정책 문서는 막지 않는다.
+init_fixture_repo allowed-credential-like-source
+mkdir -p "$FIXTURE_REPO/src" "$FIXTURE_REPO/docs/rules"
+printf 'export const noop = 1;\n' >"$FIXTURE_REPO/src/credentials.service.ts"
+printf '# 시크릿 취급 정책\n\n합성 문서입니다.\n' >"$FIXTURE_REPO/docs/rules/security.md"
+git -C "$FIXTURE_REPO" add src/credentials.service.ts docs/rules/security.md
+commit_fixture commit -qm 'test: credential-like source fixture'
+expect_pass '자격증명 유사 이름의 소스·정책 문서는 허용' scan_fixture_repo
+
 printf 'tests=%s passed=%s failed=%s\n' \
   "$((passed + failed))" "$passed" "$failed"
 
