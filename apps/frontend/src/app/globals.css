@@ -61,7 +61,13 @@
   --palette-amber-700: #a06f1a;
   --palette-red-50: #fbe9e9;
   --palette-red-100: #f3c6c6;
+  /* red-400·red-600은 `--destructive`의 명도비 확보용으로 신설했다(#282).
+     red-500(#d64545)은 흰 배경에서 4.38:1, gray-900 배경에서 3.98:1로 양쪽 모두
+     WCAG AA(4.5:1) 미달이다. 밝은 표면은 더 어둡게(600 = 5.92:1),
+     어두운 표면은 더 밝게(400 = 5.39:1) 분리한다. */
+  --palette-red-400: #e26a6a;
   --palette-red-500: #d64545;
+  --palette-red-600: #c02626;
   --palette-red-700: #a02f2f;
 
   --palette-white: #ffffff;
@@ -144,10 +150,13 @@
   --secondary: var(--palette-gray-100);
   --secondary-foreground: var(--palette-gray-800);
   --muted: var(--palette-gray-50);
-  --muted-foreground: var(--palette-gray-500);
+  /* muted 텍스트는 흰 배경뿐 아니라 `bg-muted`(gray-50) 위에도 놓인다. gray-500은
+     그 조합에서 4.3:1로 AA 미달이라 gray-600으로 내린다(#282 스캔에서 발견).
+     본문(`--foreground` = gray-700)보다는 여전히 밝아 위계는 유지된다. */
+  --muted-foreground: var(--palette-gray-600);
   --accent: var(--palette-green-500);
   --accent-foreground: var(--palette-white);
-  --destructive: var(--palette-red-500);
+  --destructive: var(--palette-red-600);
   --border: var(--palette-gray-200);
   --input: var(--palette-gray-200);
   --ring: var(--palette-navy-400);
@@ -206,7 +215,7 @@
   --muted-foreground: var(--palette-gray-400);
   --accent: var(--palette-green-400);
   --accent-foreground: var(--palette-green-900);
-  --destructive: var(--palette-red-500);
+  --destructive: var(--palette-red-400);
   --border: color-mix(in oklch, var(--palette-white) 12%, transparent);
   --input: color-mix(in oklch, var(--palette-white) 16%, transparent);
   --ring: var(--palette-navy-300);
@@ -289,11 +298,11 @@
   --background: var(--palette-white);
   --foreground: var(--palette-gray-700);
   --muted: var(--palette-gray-50);
-  --muted-foreground: var(--palette-gray-500);
+  --muted-foreground: var(--palette-gray-600);
   --accent: var(--palette-green-500);
   --accent-foreground: var(--palette-white);
   --border: var(--palette-gray-200);
-  --destructive: var(--palette-red-500);
+  --destructive: var(--palette-red-600);
 }
 
 @layer base {
