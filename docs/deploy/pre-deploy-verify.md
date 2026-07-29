@@ -98,35 +98,28 @@ COMPOSE_PROJECT_NAME=oss-hub-localverify \
 
 - **주의**: `down -v`는 **로컬 격리 프로젝트(`oss-hub-localverify`)에서만** 허용한다. 운영 서버에서는 절대 `down -v`를 쓰지 않는다(`pgdata` 보존).
 
-## ② 배포 EC2 서버-로컬 드라이런
+## ② 배포 서버 검증
 
-로컬 검증(①)이 통과한 뒤, 배포 EC2에서 손으로 한 번 배포 흐름을 재현해 실서버 환경에서 동작을 확인한다.
-접속은 [server-runbook](./server-runbook.md) M1(배포 EC2 전용, 다른 tailnet 호스트 금지)을 따른다.
-
-이 단계는 **첫 Release 이전 greenfield 전용**이다. 운영 Compose 프로젝트명 `oss-hub`(Jenkinsfile `COMPOSE_PROJECT_NAME`)와 loopback `127.0.0.1:8081`을 그대로 쓰므로, 이미 서비스가 떠 있거나 상태 파일이 있으면 운영을 덮어쓴다.
+로컬 검증(①)이 통과한 뒤, [server-runbook](./server-runbook.md) M1의 대상 서버에서 현재 운영 상태를 읽기 전용으로 확인한다.
 
 ```sh
-# greenfield gate — 하나라도 걸리면 즉시 중단 (운영 덮어쓰기 방지)
-test ! -e /var/lib/oss-hub/deploy-state/current-release
-# compose 파일 cwd에 의존하지 않는다. docker 조회 실패도 중단(fail-closed).
-running="$(docker ps --filter label=com.docker.compose.project=oss-hub --filter status=running -q)" || exit 1
-test -z "$running"
-
-# 배포 EC2에서 (운영 .env / Credentials Store env 사용, 임시 태그로 드라이런)
-# 운영 env는 production 계약(SESSION_SECRET, TEAM_JOIN_CODE_SECRET, HTTPS FRONTEND_URL, OAuth 등)을 이미 충족해야 한다.
-IMAGE_TAG=dryrun docker build --file apps/frontend/Dockerfile --tag oss-hub-frontend:dryrun .
-IMAGE_TAG=dryrun docker build --file apps/backend/Dockerfile  --tag oss-hub-backend:dryrun  .
-COMPOSE_PROJECT_NAME=oss-hub IMAGE_TAG=dryrun \
-  docker compose --env-file <운영 env 경로> -f compose.yml up -d --no-build --wait --wait-timeout 120
-curl -fsS http://127.0.0.1:8081/            > /dev/null && echo "root OK"
-curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
+for service in frontend backend; do
+  container_id="$(docker ps -q \
+    --filter label=com.docker.compose.project=oss-hub \
+    --filter label=com.docker.compose.service="$service")"
+  test -n "$container_id"
+  docker inspect --format \
+    'image={{.Config.Image}} version={{index .Config.Labels "org.opencontainers.image.version"}} revision={{index .Config.Labels "org.opencontainers.image.revision"}} restart={{.RestartCount}} health={{.State.Health.Status}}' \
+    "$container_id"
+done
+curl -fsS http://127.0.0.1:8081/ > /dev/null
+curl -fsS http://127.0.0.1:8081/api/v1/health
 ```
 
-- 예상 출력: `root OK`, `health OK`.
-- 검증: 두 smoke가 200이면 서버-로컬 빌드·기동 경로가 건강하다. 이 드라이런은 파이프라인의 상태 파일(`current-release`)을 갱신하지 않는다.
-- 정리: `COMPOSE_PROJECT_NAME=oss-hub docker compose --env-file <운영 env 경로> -f compose.yml down`(`-v` 없이). 운영 `pgdata`는 보존한다.
+- 예상 결과: 두 서비스 모두 running·healthy, restart 0, 동일 SemVer version과 동일 40-hex revision을 보고하고 두 smoke가 200이다.
+- 이 검증은 컨테이너·볼륨·이미지를 변경하지 않는다. 운영 서버에서 `down -v`를 사용하지 않는다.
 
 ## ③ 다음 단계
 
-①②가 모두 통과한 뒤에만 [server-runbook](./server-runbook.md) M7의 첫 Release 수동 트리거 e2e로 넘어간다.
+①②가 모두 통과한 뒤에만 [server-runbook](./server-runbook.md) M7의 parameterless Release 배포 또는 no-op 재실행으로 넘어간다.
 자동 트리거 계약은 [ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)와 [init-operations](../exec-plan/active/init-operations.md) M2가 원본이다.

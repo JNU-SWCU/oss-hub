@@ -14,7 +14,7 @@ refines: []
 
 Accepted
 
-> **Rollout 진행 중.** 이 문서는 **목표 상태**를 기술한다. 구현은 후속 PR에서 순차 진행되고 서버측 전환은 단일 점검 창에서 이루어지므로, 전환 완료 전까지 운영 파이프라인은 이전 계약(파라미터 전달·`RUN_MODE`·영속 배포 상태 파일·SHA 이미지 태그)으로 동작할 수 있다. 전환이 끝나면 이 안내를 제거한다. 추적: [#305](https://github.com/JNU-SWCU/oss-hub/issues/305)
+> **Rollout 완료.** 운영 job은 main의 root `Jenkinsfile` 하나를 읽고, 파라미터 없이 latest full Release를 배포한다. `RUN_MODE`·영속 배포 상태 파일·SHA 이미지 태그·병행 pipeline 정의는 제거됐다. v0.3.1 배포와 독립 no-op 재실행이 Jenkins에서 성공했다. 추적: [#305](https://github.com/JNU-SWCU/oss-hub/issues/305)
 
 ## Date
 
@@ -80,6 +80,7 @@ Jenkins는 매 실행에서 최신 Release로 수렴하는 멱등 작업이다. 
 
 ## Changelog
 
+- 2026-07-29: root `Jenkinsfile` 단일 parameterless Release pipeline 전환 완료. v0.3.1 실제 배포, loopback/TLS health, 독립 no-op 재실행을 확인하고 legacy pipeline·병행 `Jenkinsfile.v2`·이중 checker mode를 제거했다.
 - 2026-07-28: 배포 트리거에서 파라미터를 제거하고 Jenkins가 latest Release를 자체 조회하도록 계약을 전환. 이미지 태그를 release tag로 통일하고 영속 배포 상태 파일과 `RUN_MODE` 분기를 폐기했으며, 태그 조작 방어의 원본이 `RELEASE_ACCEPT role=PM` 승인 바인딩임을 명시. 릴리즈 발행(`release.yml`)과 배포 트리거(`deploy.yml`)를 분리해 배포 단독 재시도를 허용. 이 개정은 목표 상태를 기술하며 구현은 [#305](https://github.com/JNU-SWCU/oss-hub/issues/305)의 후속 PR에서 순차 진행된다.
 - 2026-07-28: Issue #199에 따라 production 배포 승인을 @GoBeromsu 단독 `RELEASE_ACCEPT role=PM`으로 전환하고 `RELEASE_ACCEPT role=TECH_LEAD`와 `RELEASE_OVERRIDE role=PM`을 폐지했다.
 - 2026-07-25: v0.1.2 live rollout에서 Nest 산출물이 `dist/src/main.js`인데 backend image CMD가 `dist/main.js`를 실행해 실패한 것을 확인하고, runtime entrypoint와 static contract를 실제 산출물에 정렬.

@@ -66,15 +66,14 @@ sudo ss -ltnp | grep 8080 # Jenkins가 127.0.0.1:8080에만 LISTEN (0.0.0.0:8080
 
 - Jenkins 관리 UI는 Tailscale/SSM 터널로만 접근한다. 공인 8080 포트는 열지 않는다.
 
-## M3. Credentials · 상태 디렉터리
+## M3. Credentials · 백업 디렉터리
 
 ```sh
 # 운영 env를 Jenkins Credentials Store의 secret file로 등록 (UI 또는 JCasC)
 #   credential id: oss-hub-production-env
 #   ※ 실제 값은 이 저장소에 두지 않는다. Notion credentials → Jenkins Credentials Store로만.
 
-# 상태/백업 디렉터리 (Jenkins 소유, 0700)
-sudo install -d -m 700 -o jenkins -g jenkins /var/lib/oss-hub/deploy-state
+# 백업 디렉터리 (Jenkins 소유, 0700)
 sudo install -d -m 700 -o jenkins -g jenkins /var/lib/oss-hub/backups
 ```
 
@@ -85,7 +84,7 @@ sudo install -d -m 700 -o jenkins -g jenkins /var/lib/oss-hub/backups
 
 | 키 | 용도 |
 | --- | --- |
-| `IMAGE_TAG` | backend·frontend 이미지 태그. **env 파일에 두지 않는다** — Jenkins가 릴리스 커밋 SHA로 주입한다(`Jenkinsfile`). 수동으로 compose를 돌릴 때만 셸에서 지정한다 |
+| `IMAGE_TAG` | backend·frontend 이미지 태그. **env 파일에 두지 않는다** — Jenkins가 latest full Release의 SemVer tag로 주입한다(`Jenkinsfile`). 수동으로 compose를 돌릴 때만 셸에서 지정한다 |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | postgres 서비스 자격증명 |
 | `DATABASE_URL` | postgres 서비스 DNS를 가리키는 연결 문자열 |
 | `SESSION_SECRET` | 세션 서명 시크릿 |
@@ -93,6 +92,7 @@ sudo install -d -m 700 -o jenkins -g jenkins /var/lib/oss-hub/backups
 | `FRONTEND_URL` | OAuth 콜백 파생 등에 쓰는 프런트엔드 base URL |
 | `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth 로그인 앱 |
 | `GITHUB_COLLECTION_APP_ID` / `GITHUB_APP_ORG` / `GITHUB_COLLECTION_APP_PRIVATE_KEY` | GitHub 활동 수집 App |
+| `GITHUB_OPERATIONS_APP_ID` / `GITHUB_OPERATIONS_APP_PRIVATE_KEY` | 저장소 생성·설정 변경용 GitHub App |
 | `SUBMISSION_FILE_S3_ACCESS_KEY_ID` / `SUBMISSION_FILE_S3_SECRET_ACCESS_KEY` | 운영자가 생성. `compose.yml`에서 MinIO root 자격증명으로도 같이 쓴다 |
 | `GMAIL_SENDER` / `GMAIL_OAUTH_CLIENT_ID` / `GMAIL_OAUTH_CLIENT_SECRET` / `GMAIL_OAUTH_REFRESH_TOKEN` | 마감 알림 메일 발신 (production 부팅 필수 4종) |
 
@@ -122,24 +122,21 @@ docker compose --env-file "$OSS_HUB_ENV_FILE" exec backend printenv SUBMISSION_F
 - 검증:
 
 ```sh
-stat -c '%a %U %G %n' /var/lib/oss-hub/deploy-state /var/lib/oss-hub/backups
-# 700 jenkins jenkins /var/lib/oss-hub/deploy-state
+stat -c '%a %U %G %n' /var/lib/oss-hub/backups
 # 700 jenkins jenkins /var/lib/oss-hub/backups
 ```
 
 - Credentials Store에 `oss-hub-production-env`가 보이고, secret file 값이 로그·workspace에 출력되지 않는지 확인한다.
 
-## M4. 파라미터화 Jenkins job
+## M4. Parameterless Jenkins job
 
-`Jenkinsfile`은 `RELEASE_ACTION`, `RELEASE_TAG` 두 string 파라미터와 `oss-hub-production` agent label을 사용한다.
+`Jenkinsfile`은 입력 파라미터 없이 latest full Release를 조회하고 `oss-hub-production` agent에서 배포한다.
 
-- Pipeline job을 SCM(`Jenkinsfile`) 기반으로 생성한다.
-- 파라미터 `RELEASE_ACTION`(default 빈 값), `RELEASE_TAG`(default 빈 값)를 정의한다.
+- Pipeline job은 main SCM의 root `Jenkinsfile` 하나만 읽는다.
+- Jenkins parameter definitions는 두지 않는다.
 - Docker 권한을 가진 executor에 `oss-hub-production` label을 부여하고, 이 job과 승인된 운영자 외 작업을 배치하지 않는다. `disableConcurrentBuilds()`는 `Jenkinsfile`이 강제한다.
-- 자동 트리거 계약(GitHub Actions `deploy.yml` → Jenkins `buildWithParameters`)은 [ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)·[init-operations](../exec-plan/active/init-operations.md) M2가 원본이다.
-- **첫 e2e 검증은 파라미터를 손으로 입력해 job을 수동 트리거한다.** 자동 트리거 설정 완료 여부와 별개로, 수동 경로는 동일 `RELEASE_ACTION`·`RELEASE_TAG` 계약을 재현한다.
-
-- 검증: 파라미터 없이 job을 1회 빌드하면 `RUN_MODE=main`으로 lint/typecheck/test/build 검증만 수행하고 production을 건드리지 않는다(콘솔 로그로 확인).
+- 자동·수동 재실행 모두 exact `POST /job/oss-hub-release-cd/build`을 사용한다. 계약 원본은 [ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)다.
+- 검증: job 설정의 script path가 `Jenkinsfile`, branch가 `main`, parameter definition 수가 0인지 확인한다.
 
 ## M5. GitHub API 호출 준비
 
@@ -159,20 +156,20 @@ stat -c '%a %U %G %n' /var/lib/oss-hub/deploy-state /var/lib/oss-hub/backups
 
 1. main에 있는 exact commit으로 full GitHub Release(예: `v0.1.0`)를 발행한다(`draft=false`, `prerelease=false`, tag SHA가 main ancestry).
 2. #199에 같은 tag·full SHA의 @GoBeromsu `RELEASE_ACCEPT role=PM`을 남긴다([ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)).
-3. M4 job을 **수동 트리거**하며 파라미터를 입력한다: `RELEASE_ACTION=published`, `RELEASE_TAG=<tag>`.
+3. M4 job을 파라미터 없이 수동 트리거한다.
 4. 파이프라인이 순서대로 수행되는지 콘솔 로그로 확인한다: exact SHA detached checkout → build/test → PostgreSQL 기동 + `pg_dump` 백업 → front/back 이미지 서버 로컬 빌드 → `prisma migrate deploy` → `up -d --no-build --wait` → loopback Compose ingress smoke → 공인 IP TLS smoke.
 
-- 예상 출력: loopback·TLS smoke가 모두 HTTP 200. `current-release` 상태 파일에 `<tag> <40-hex-sha>` 기록.
+- 예상 출력: loopback·TLS smoke가 모두 HTTP 200이고 frontend·backend 이미지의 OCI version은 Release tag, revision은 exact 40-hex SHA다.
 - 검증:
 
 ```sh
-sudo cat /var/lib/oss-hub/deploy-state/current-release   # <tag> <sha>
+docker compose --env-file "$OSS_HUB_ENV_FILE" ps
 curl -fsS http://127.0.0.1:8081/            > /dev/null && echo "root OK"
 curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
 # 공인 TLS smoke는 host nginx·인증서 계약이 준비된 뒤에 Jenkinsfile과 동일 경로로 확인한다.
 ```
 
-- **no-op 재확인**: 동일 tag를 다시 전달(job 재트리거)하면 상태 파일 비교로 성공 no-op 처리되어 재배포가 일어나지 않는지 확인한다.
+- **no-op 재확인**: 파라미터 없이 job을 다시 실행하면 실행 중 tag·revision과 latest Release가 같음을 증명하고 성공 no-op 처리되는지 확인한다.
 - 실패 시: `PREV_TAG`가 없는 첫 배포는 자동 rollback 대상이 없다. [init-operations](../exec-plan/active/init-operations.md) 복구 절차대로 로그·백업을 보존하고 수동 복구한다. `down -v`는 사용하지 않는다.
 
 ## 8. Notion에 기록할 접근 정보 체크리스트 (aside 위임)
@@ -183,11 +180,11 @@ curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
 - [ ] Jenkins 개인 관리자 계정(공용 계정 공유 금지)
 - [ ] `oss-hub-production-env` secret file의 항목 목록(값 제외)
 - [ ] GitHub read-only PAT의 소재·권한 범위(값 제외)
-- [ ] 상태/백업 디렉터리 경로와 소유·권한 정책
+- [ ] 백업 디렉터리 경로와 소유·권한 정책
 - [ ] host nginx·공인 TLS·Jenkins 원격 트리거 경로 설정 소재(값 제외)
 
 ## 9. 오늘 범위 밖 (follow-up / 별도 PR)
 
-- **자동 트리거 live 연결 검증** (GitHub Actions `deploy.yml` → Jenkins `buildWithParameters` e2e) — 수동 M7과 별도 확인.
+- **자동 트리거 live 연결 검증** (GitHub Actions `deploy.yml` → Jenkins parameterless `/build` e2e) — 수동 M7과 별도 확인.
 - **`Jenkinsfile` GitHub API 인증(PAT)** 적용(코드 변경) — follow-up.
 - **host nginx TLS/IP 인증서 live 운영 점검** — 계약 원본은 [init-operations](../exec-plan/active/init-operations.md) M4.
