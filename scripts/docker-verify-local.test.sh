@@ -65,6 +65,8 @@ done
 exit 0
 EOF
 chmod +x "$fixture_dir/bin/docker"
+down_log_file="$fixture_dir/docker.down.argv"
+PATH="$fixture_dir/bin:$PATH" TMPDIR="$fixture_dir/tmp" DOCKER_STUB_LOG="$down_log_file" COMPOSE_ENV_FILE="$fixture_dir/local env" "$verifier" down
 
 passed=0
 failed=0
@@ -119,6 +121,15 @@ up_keeps_stack_alive() {
 }
 up_uses_stable_project_name() {
   grep -Fq -- ' -p oss-hub-local ' "$up_log_file"
+}
+explicit_down_uses_owned_contract() {
+  grep -Fq -- 'compose -p oss-hub-local --env-file ' "$down_log_file" &&
+    grep -Fq -- ' -f ' "$down_log_file" &&
+    grep -Fq -- 'compose.yml ' "$down_log_file" &&
+    grep -Fq -- 'compose.local.yml ' "$down_log_file" &&
+    grep -Fq -- ' down -v --remove-orphans' "$down_log_file" &&
+    ! grep -Fq -- ' up ' "$down_log_file" &&
+    ! grep -Fq -- ' exec ' "$down_log_file"
 }
 startup_forces_build() {
   grep -Fq -- ' up --build -d --wait --wait-timeout 120' "$log_file" &&
@@ -230,5 +241,6 @@ expect_true '공백 포함 env 경로가 배열에서 보존됨' path_was_not_sp
 expect_true 'EXIT trap이 verify lock을 해제함' lock_released
 expect_true 'up은 성공 시 스택을 내리지 않는다' up_keeps_stack_alive
 expect_true 'up은 고정 project name을 쓴다' up_uses_stable_project_name
+expect_true '명시적 down은 두 파일·고정 project의 volume만 정리' explicit_down_uses_owned_contract
 printf '%s passed, %s failed\n' "$passed" "$failed"
 ((failed == 0))

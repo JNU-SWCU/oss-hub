@@ -87,12 +87,6 @@ main() {
   unset COLLECTION_CRON_EXPRESSION PORT
 
   export IMAGE_TAG="$LOCAL_IMAGE_TAG_PLACEHOLDER"
-  export POSTGRES_BIND_HOST=127.0.0.1
-  export POSTGRES_PORT=0
-  export MINIO_BIND_HOST=127.0.0.1
-  export MINIO_PORT=0
-  export MINIO_ROOT_USER="local-$RANDOM-$$"
-  export MINIO_ROOT_PASSWORD="synthetic-$RANDOM-$RANDOM-$$"
   export SUBMISSION_FILE_S3_BUCKET="submission-files-$RANDOM-$$"
   export COMPOSE_ENV_FILE="${COMPOSE_ENV_FILE:-$repo_root/.env}"
   compose_argv
