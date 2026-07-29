@@ -12,6 +12,13 @@ coverage/
 .env.*
 !.env.example
 
+# 자격증명 메모·개인키 — PUBLIC 저장소이므로 추적하지 않는다 (AGENTS.md §4·§6).
+# check-public-safe.sh 가 파일명 단계에서도 차단하지만, 실수로 스테이징되는 것부터 막는다.
+credentials*.md
+secrets*.md
+creds*.txt
+*.private-key.pem
+
 # Logs
 logs/
 *.log

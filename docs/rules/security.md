@@ -8,7 +8,7 @@ oss-hub는 공개 저장소다. 코드뿐 아니라 Issue 본문, PR 제목·본
 
 ## public-safe deny-list
 
-아래 7종은 repo의 어떤 표면(코드·Issue·PR·커밋 메시지·CI 로그·스크린샷)에도 올리지 않는다.
+아래 8종은 repo의 어떤 표면(코드·Issue·PR·커밋 메시지·CI 로그·스크린샷)에도 올리지 않는다.
 
 | # | 금지 항목 | 대신 쓰는 것 |
 | --- | --- | --- |
@@ -19,6 +19,7 @@ oss-hub는 공개 저장소다. 코드뿐 아니라 Issue 본문, PR 제목·본
 | 5 | 예산·계약·정산 정보 | 쓰지 않는다 |
 | 6 | 실데이터 값·실데이터가 보이는 스크린샷 | 합성 fixture (아래 반입 절차 참조) |
 | 7 | Notion 문서 본문 인용 | Decision ID 색인만 (아래 참조 규칙 참조) |
+| 8 | 자격증명을 모아둔 메모 파일 (`credentials.md`·`secrets.yaml`·`creds.txt` 등)과 개인키 파일 | secret store에만 둔다. 값이 아니라 변수 이름만 `.env.example`에 남긴다 |
 
 ### Git commit identity 이메일 예외
 
@@ -28,7 +29,7 @@ oss-hub는 공개 저장소다. 코드뿐 아니라 Issue 본문, PR 제목·본
 - 본인이 선택하지 않은 identity이거나 제3자 이메일 공개가 의심되면 아래 유출 사고 절차로 처리한다.
 - 자동화 계정 식별용 noreply 주소와 RFC 2606 예약 도메인의 합성 예시는 연락처 이메일로 보지 않는다.
 - tracked file, Issue·PR 본문, 댓글, 커밋 메시지, CI 로그, 스크린샷에 연락처 이메일을 직접 기록하는 행위는 계속 금지한다.
-- `scripts/check-public-safe.sh`는 변경된 tracked file의 커밋된 Git blob 내용(`scripts/check-public-safe.sh` 자체와 `pnpm-lock.yaml` 제외), 커밋 메시지, PR 제목·본문의 이메일을 검사하되 위 noreply·합성 예시는 허용한다. author·committer identity 메타데이터는 검사하지 않는다. `--text-only` 모드(`ISSUE_TEXT` 주입)는 Issue 제목·본문과 Issue/PR 댓글에도 동일한 deny-list를 적용한다. CI 로그, 스크린샷은 이 스크립트의 자동 검사 대상이 아니며 금지 정책과 리뷰로 통제한다.
+- `scripts/check-public-safe.sh`는 존재 자체가 유출인 파일 경로(env 실값·개인키·로컬 DB·덤프·자격증명 메모)를 파일명 단계에서 차단하고, 변경된 tracked file의 커밋된 Git blob 내용(`scripts/check-public-safe.sh` 자체와 `pnpm-lock.yaml` 제외), 커밋 메시지, PR 제목·본문의 이메일을 검사하되 위 noreply·합성 예시는 허용한다. author·committer identity 메타데이터는 검사하지 않는다. `--text-only` 모드(`ISSUE_TEXT` 주입)는 Issue 제목·본문과 Issue/PR 댓글에도 동일한 deny-list를 적용한다. CI 로그, 스크린샷은 이 스크립트의 자동 검사 대상이 아니며 금지 정책과 리뷰로 통제한다.
 - 금지 파일 경로의 `.env` 계열·개인키·로컬 DB 확장자는 대소문자와 무관하게 차단한다. 허용 예외는 정확한 소문자 `.env.example` 한 가지뿐이다.
 - PR이 제어할 수 있는 파일명은 CI 로그에 원문을 출력하지 않고 Git hash 기반 `path-id`로만 표시한다. 줄바꿈·제어문자·Actions annotation 문자열이 포함된 파일명도 같은 규칙을 적용한다.
 - quoted local-part, EAI local-part, Unicode domain은 자동 검사의 허용 예외로 지원하지 않는다. quoted·비ASCII email-shaped token과 punycode IDN 후보는 우회 방지를 위해 보수적으로 차단하며, 실제 제품 입력에서 지원하려면 별도 입력 검증 계약과 합성 fixture를 먼저 추가한다.
@@ -87,4 +88,4 @@ Notion은 회의·기획의 canonical store이고, repo에는 색인만 둔다.
 
 ## 위반 탐지
 
-PR 리뷰에서 deny-list 7종과 `/Users/` 경로, 한글 실명 패턴을 확인한다. 기여자가 자신의 Git 설정으로 선택한 author·committer identity 이메일은 위반으로 보지 않는다. gitleaks + 커스텀 regex lint 도입 후에는 CI 실패로 자동 차단하며, lint를 우회한 merge는 유출 사고 절차를 따른다.
+PR 리뷰에서 deny-list 8종과 `/Users/` 경로, 한글 실명 패턴을 확인한다. 기여자가 자신의 Git 설정으로 선택한 author·committer identity 이메일은 위반으로 보지 않는다. gitleaks + 커스텀 regex lint 도입 후에는 CI 실패로 자동 차단하며, lint를 우회한 merge는 유출 사고 절차를 따른다.
