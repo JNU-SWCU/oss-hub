@@ -354,12 +354,107 @@ check_v2() {
   require_absent 'stopped_proceed 성공 경로는 없어야 함' 'stopped_proceed'
   require_absent 'running_deploy 성공 경로는 없어야 함' 'running_deploy'
   require_absent 'same-tag nonrunning proceed 경로는 없어야 함' 'same_tag_nonrunning_or_ambiguous'
-  require_at_least '중지 전용 상태는 단말 FAIL_CLOSED여야 함' 'FAIL_CLOSED stopped_container' 1
-  require_at_least '부분 배포 상태는 단말 FAIL_CLOSED여야 함' 'FAIL_CLOSED partial' 1
-  require_regex_at_least '비-running probe 상태는 Groovy에서 단말 실패해야 함' 'state[[:space:]]*!=[[:space:]]*'\''running'\''' 1
+  require_at_least '중지 전용 진단 마커가 있어야 함' 'FAIL_CLOSED stopped_container' 1
+  require_at_least '부분 배포 진단 마커가 있어야 함' 'FAIL_CLOSED partial' 1
   require_exact '실행 중 exact tag+SHA no-op 판정이 있어야 함' 'prevTag == env.RELEASE_TAG && prevSha == env.RELEASE_SHA' 1
-  require_exact 'same-tag/different-SHA는 fail-closed여야 함' 'FAIL_CLOSED same_tag_different_sha' 1
+  require_at_least 'same-tag/different-SHA 진단 마커가 있어야 함' 'FAIL_CLOSED same_tag_different_sha' 1
   require_at_least '배포 stage는 no-op을 건너뛰어야 함' "env.DEPLOY_NOOP != 'true'" 5
+
+  # Authoritative compose ps probes must propagate nonzero status (no 2>/dev/null || true swallow).
+  if ! awk '
+    {
+      line = $0
+      if (line ~ /ps[[:space:]]+-q[[:space:]]+frontend/) {
+        fe_q++
+        if (line ~ /2>\/dev\/null/ || line ~ /\|\|[[:space:]]*true/) fe_q_bad=1
+      }
+      if (line ~ /ps[[:space:]]+-q[[:space:]]+backend/) {
+        be_q++
+        if (line ~ /2>\/dev\/null/ || line ~ /\|\|[[:space:]]*true/) be_q_bad=1
+      }
+      if (line ~ /ps[[:space:]]+--all[[:space:]]+-q[[:space:]]+frontend/) {
+        fe_all++
+        if (line ~ /2>\/dev\/null/ || line ~ /\|\|[[:space:]]*true/) fe_all_bad=1
+      }
+      if (line ~ /ps[[:space:]]+--all[[:space:]]+-q[[:space:]]+backend/) {
+        be_all++
+        if (line ~ /2>\/dev\/null/ || line ~ /\|\|[[:space:]]*true/) be_all_bad=1
+      }
+    }
+    END {
+      ok = (fe_q >= 1 && be_q >= 1 && fe_all >= 1 && be_all >= 1 &&
+            !fe_q_bad && !be_q_bad && !fe_all_bad && !be_all_bad)
+      exit ok ? 0 : 1
+    }
+  ' "$active_jenkinsfile"; then
+    printf '%s: authoritative docker compose ps probes must not swallow nonzero status\n' "$label" >&2
+    exit 1
+  fi
+
+  # stopped-only branch: condition → terminal exit (marker text alone is insufficient)
+  if ! awk '
+    $0 ~ /\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\]/ {
+      grab=1
+      next
+    }
+    grab {
+      if ($0 ~ /exit[[:space:]]+[1-9]/) term=1
+      if ($0 ~ /^[[:space:]]*fi[[:space:]]*$/) exit
+    }
+    END { exit (grab && term) ? 0 : 1 }
+  ' "$active_jenkinsfile"; then
+    printf '%s: stopped container 분기는 단말 exit 로 실패해야 함 (marker-only 금지)\n' "$label" >&2
+    exit 1
+  fi
+
+  # partial existence branch: one-sided container presence → terminal exit
+  if ! awk '
+    $0 ~ /\[[[:space:]]*-n[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_all"[[:space:]]*\]/ {
+      grab=1
+      next
+    }
+    grab {
+      if ($0 ~ /exit[[:space:]]+[1-9]/) term=1
+      if ($0 ~ /^[[:space:]]*fi[[:space:]]*$/) exit
+    }
+    END { exit (grab && term) ? 0 : 1 }
+  ' "$active_jenkinsfile"; then
+    printf '%s: partial deployment 분기는 단말 exit 로 실패해야 함 (marker-only 금지)\n' "$label" >&2
+    exit 1
+  fi
+
+  # Groovy non-running probe state must terminal-error (not a renamed condition alone)
+  if ! awk '
+    $0 ~ /if[[:space:]]*\([[:space:]]*state[[:space:]]*!=[[:space:]]*'\''running'\''[[:space:]]*\)/ {
+      grab=1
+      next
+    }
+    grab {
+      if ($0 ~ /error[[:space:]]*\(/) term=1
+      if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
+    }
+    END { exit (grab && term) ? 0 : 1 }
+  ' "$active_jenkinsfile"; then
+    printf '%s: non-running probe state는 error(...) 단말 실패여야 함\n' "$label" >&2
+    exit 1
+  fi
+
+  # same-tag/different-SHA: condition → error(...) terminal (marker rename must not pass)
+  if ! awk '
+    $0 ~ /prevTag[[:space:]]*==[[:space:]]*env\.RELEASE_TAG[[:space:]]*&&[[:space:]]*prevSha[[:space:]]*!=[[:space:]]*env\.RELEASE_SHA/ {
+      grab=1
+      next
+    }
+    grab {
+      if ($0 ~ /error[[:space:]]*\(/) term=1
+      if ($0 ~ /DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''true'\''/) bad=1
+      if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
+    }
+    END { exit (grab && term && !bad) ? 0 : 1 }
+  ' "$active_jenkinsfile"; then
+    printf '%s: same-tag/different-SHA는 error(...) 단말 실패여야 함 (marker-only 금지)\n' "$label" >&2
+    exit 1
+  fi
 
   # SemVer downgrade: bounded cmp < 0 → DEPLOY_NOOP=true → return (not a log marker)
   if ! awk '
@@ -379,10 +474,23 @@ check_v2() {
     exit 1
   fi
 
-  # HTTPS FRONTEND_URL preflight before backup
+  # HTTPS FRONTEND_URL preflight: scheme + exactly-one assignment rejection (order-independent)
   require_at_least 'FRONTEND_URL 사전 검증이 있어야 함' 'FRONTEND_URL' 1
   require_regex_at_least 'FRONTEND_URL은 https:// scheme만 허용해야 함' 'https://\*' 1
   require_regex_absent 'HTTP FRONTEND_URL 허용은 금지' 'http://\*'
+  if ! awk '
+    {
+      if ($0 ~ /FRONTEND_URL/) seen=1
+      if ($0 ~ /count[[:space:]]*==[[:space:]]*0/) missing=1
+      if ($0 ~ /count[[:space:]]*!=[[:space:]]*1/) uniq=1
+      if ($0 ~ /exit[[:space:]]+2/) e2=1
+      if ($0 ~ /exit[[:space:]]+3/) e3=1
+    }
+    END { exit (seen && missing && uniq && e2 && e3) ? 0 : 1 }
+  ' "$active_jenkinsfile"; then
+    printf '%s: FRONTEND_URL는 누락(count==0)과 중복(count!=1)을 단말 거절해야 함\n' "$label" >&2
+    exit 1
+  fi
 
   # rollback image + label/ID validation before backup/build/migration
   require_at_least 'rollback frontend 이미지 사전 검증이 있어야 함' 'oss-hub-frontend:${PREV_TAG}' 1
@@ -442,6 +550,27 @@ check_v2() {
   require_exact 'backup cleanup은 같은 production pruner를 호출해야 함' \
     'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"' 1
   require_regex_at_least 'success-only image 삭제가 있어야 함' 'docker[[:space:]]+image[[:space:]]+rm[[:space:]]+' 1
+
+  # Docker image inventory must be status-checked into a file before iteration.
+  # Reject unchecked process substitution / swallowed producer failure (empty → successful no-op).
+  require_regex_absent 'docker images process substitution inventory는 금지' \
+    'done[[:space:]]*<[[:space:]]*<\([[:space:]]*docker[[:space:]]+images'
+  if ! awk '
+    {
+      if ($0 ~ /docker[[:space:]]+images/) {
+        imgs=1
+        if ($0 ~ /\|\|[[:space:]]*true/ || $0 ~ /2>\/dev\/null/) swallow=1
+        if ($0 ~ />/) redirect=1
+      }
+      if ($0 ~ /done[[:space:]]*<[[:space:]]*"\$/) fromfile=1
+      if ($0 ~ /done[[:space:]]*<[[:space:]]*<\(/) procsub=1
+      if ($0 ~ /images_inventory/ || $0 ~ /images_raw/) named=1
+    }
+    END { exit (imgs && redirect && fromfile && named && !swallow && !procsub) ? 0 : 1 }
+  ' "$active_jenkinsfile"; then
+    printf '%s: docker image inventory는 status-checked temp file 후 소비해야 함 (producer 실패 fail-open 금지)\n' "$label" >&2
+    exit 1
+  fi
 
   require_common_smoke_and_build_guards
   require_single_image_tag_assignment

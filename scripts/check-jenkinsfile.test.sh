@@ -288,20 +288,138 @@ if cmp -s "$v2_source" "$fixture_dir/v2-blocker-downgrade-noop-false"; then
   exit 1
 fi
 
-# 2) stopped container terminal fail removed → proceeds
-make_fixture "$v2_source" v2-blocker-stopped-proceeds \
-  'FAIL_CLOSED stopped_container' \
-  'stopped_container_allowed'
+# 2) stopped container: keep diagnostic marker, remove terminal exit → proceeds
+awk '
+  /FAIL_CLOSED stopped_container/ {
+    print
+    # drop following terminal exit line(s) until fi, keep diagnostics
+    while ((getline line) > 0) {
+      if (line ~ /^[[:space:]]*exit[[:space:]]+[0-9]+[[:space:]]*$/) continue
+      print line
+      if (line ~ /^[[:space:]]*fi[[:space:]]*$/) break
+    }
+    next
+  }
+  { print }
+' "$v2_source" >"$fixture_dir/v2-blocker-stopped-proceeds"
+if cmp -s "$v2_source" "$fixture_dir/v2-blocker-stopped-proceeds"; then
+  printf 'fixture not distinct: v2-blocker-stopped-proceeds\n' >&2
+  exit 1
+fi
+# sanity: diagnostic remains, terminal exit in stopped branch is gone
+if ! grep -Fq 'FAIL_CLOSED stopped_container' "$fixture_dir/v2-blocker-stopped-proceeds"; then
+  printf 'fixture lost diagnostic: v2-blocker-stopped-proceeds\n' >&2
+  exit 1
+fi
+if awk '
+  /FAIL_CLOSED stopped_container/ { grab=1; next }
+  grab {
+    if ($0 ~ /exit[[:space:]]+[0-9]+/) found=1
+    if ($0 ~ /^[[:space:]]*fi[[:space:]]*$/) exit
+  }
+  END { exit found ? 0 : 1 }
+' "$fixture_dir/v2-blocker-stopped-proceeds"; then
+  printf 'fixture still terminals: v2-blocker-stopped-proceeds\n' >&2
+  exit 1
+fi
 
-# 2b) non-running probe state no longer terminal (state != running removed)
-make_fixture "$v2_source" v2-blocker-ambiguous-proceeds \
-  "if (state != 'running')" \
-  "if (state == 'never_match_running')"
+# 2b) non-running probe state: keep condition, remove terminal error(...)
+awk '
+  /if \(state != '\''running'\''\) \{/ {
+    print
+    while ((getline line) > 0) {
+      if (line ~ /error[[:space:]]*\(/) continue
+      print line
+      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
+    }
+    next
+  }
+  { print }
+' "$v2_source" >"$fixture_dir/v2-blocker-ambiguous-proceeds"
+if cmp -s "$v2_source" "$fixture_dir/v2-blocker-ambiguous-proceeds"; then
+  printf 'fixture not distinct: v2-blocker-ambiguous-proceeds\n' >&2
+  exit 1
+fi
+if ! grep -Fq "if (state != 'running')" "$fixture_dir/v2-blocker-ambiguous-proceeds"; then
+  printf 'fixture lost condition: v2-blocker-ambiguous-proceeds\n' >&2
+  exit 1
+fi
+if awk '
+  /if \(state != '\''running'\''\) \{/ { grab=1; next }
+  grab {
+    if ($0 ~ /error[[:space:]]*\(/) found=1
+    if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
+  }
+  END { exit found ? 0 : 1 }
+' "$fixture_dir/v2-blocker-ambiguous-proceeds"; then
+  printf 'fixture still terminals: v2-blocker-ambiguous-proceeds\n' >&2
+  exit 1
+fi
 
-# 3) same-tag/different-SHA fail-closed removed
-make_fixture "$v2_source" v2-blocker-same-tag-different-sha-removed \
-  'FAIL_CLOSED same_tag_different_sha' \
-  'FAIL_CLOSED retag_sha_mismatch_allowed'
+# 2c) partial deployment: keep diagnostic, remove terminal exit
+awk '
+  /FAIL_CLOSED partial_deployment/ {
+    print
+    while ((getline line) > 0) {
+      if (line ~ /^[[:space:]]*exit[[:space:]]+[0-9]+[[:space:]]*$/) continue
+      print line
+      if (line ~ /^[[:space:]]*fi[[:space:]]*$/) break
+    }
+    next
+  }
+  { print }
+' "$v2_source" >"$fixture_dir/v2-blocker-partial-proceeds"
+if cmp -s "$v2_source" "$fixture_dir/v2-blocker-partial-proceeds"; then
+  printf 'fixture not distinct: v2-blocker-partial-proceeds\n' >&2
+  exit 1
+fi
+if ! grep -Fq 'FAIL_CLOSED partial_deployment' "$fixture_dir/v2-blocker-partial-proceeds"; then
+  printf 'fixture lost diagnostic: v2-blocker-partial-proceeds\n' >&2
+  exit 1
+fi
+
+# 3) same-tag/different-SHA: keep condition + diagnostic text, remove terminal error(...)
+awk '
+  /prevTag == env.RELEASE_TAG && prevSha != env.RELEASE_SHA/ {
+    print
+    while ((getline line) > 0) {
+      if (index(line, "error(") > 0) {
+        # keep diagnostic marker text as a non-terminal echo
+        print "              echo \"FAIL_CLOSED same_tag_different_sha: retag SHA mismatch (non-terminal)\""
+        continue
+      }
+      print line
+      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
+    }
+    next
+  }
+  { print }
+' "$v2_source" >"$fixture_dir/v2-blocker-same-tag-different-sha-removed"
+if cmp -s "$v2_source" "$fixture_dir/v2-blocker-same-tag-different-sha-removed"; then
+  printf 'fixture not distinct: v2-blocker-same-tag-different-sha-removed\n' >&2
+  exit 1
+fi
+if ! grep -Fq 'prevTag == env.RELEASE_TAG && prevSha != env.RELEASE_SHA' \
+  "$fixture_dir/v2-blocker-same-tag-different-sha-removed"; then
+  printf 'fixture lost condition: v2-blocker-same-tag-different-sha-removed\n' >&2
+  exit 1
+fi
+if ! grep -Fq 'FAIL_CLOSED same_tag_different_sha' \
+  "$fixture_dir/v2-blocker-same-tag-different-sha-removed"; then
+  printf 'fixture lost diagnostic: v2-blocker-same-tag-different-sha-removed\n' >&2
+  exit 1
+fi
+if awk '
+  /prevTag == env.RELEASE_TAG && prevSha != env.RELEASE_SHA/ { grab=1; next }
+  grab {
+    if (index($0, "error(") > 0) found=1
+    if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
+  }
+  END { exit found ? 0 : 1 }
+' "$fixture_dir/v2-blocker-same-tag-different-sha-removed"; then
+  printf 'fixture still terminals: v2-blocker-same-tag-different-sha-removed\n' >&2
+  exit 1
+fi
 
 # 4) missing rollback image/label validation (image inspect preflight gone)
 make_fixture "$v2_source" v2-blocker-missing-rollback-inspect \
@@ -322,6 +440,131 @@ make_fixture "$v2_source" v2-blocker-http-frontend-url \
 make_fixture "$v2_source" v2-blocker-missing-frontend-url \
   'FRONTEND_URL' \
   'FRONTEND_ORIGIN'
+
+# 5c) duplicate FRONTEND_URL rejection inverted in both assignment orders.
+# Both remove the count!=1 terminal rejection while leaving https:// scheme check intact.
+# Order annotations document HTTPS→HTTP and HTTP→HTTPS; uniqueness failure is order-independent.
+python3 - "$v2_source" "$fixture_dir" <<'PYDUP'
+from pathlib import Path
+import sys
+src = Path(sys.argv[1]).read_text()
+out_dir = Path(sys.argv[2])
+
+# Remove the terminal uniqueness rejection body (exit 3), keep count==0 missing path.
+old = """      if (count != 1) {
+        exit 3
+      }
+"""
+if old not in src:
+    raise SystemExit('FRONTEND_URL uniqueness block not found')
+
+# HTTPS then HTTP: uniqueness inverted; first-value wins semantics implied.
+https_http = src.replace(
+    old,
+    """      if (count != 1) {
+        # uniqueness inverted (order: HTTPS then HTTP) — extras ignored, no terminal reject
+      }
+""",
+    1,
+)
+# HTTP then HTTPS: same uniqueness inversion, distinct order annotation.
+http_https = src.replace(
+    old,
+    """      if (count != 1) {
+        # uniqueness inverted (order: HTTP then HTTPS) — extras ignored, no terminal reject
+      }
+""",
+    1,
+)
+if https_http == src or http_https == src:
+    raise SystemExit('duplicate FRONTEND_URL fixtures not distinct from source')
+if https_http == http_https:
+    raise SystemExit('duplicate FRONTEND_URL order fixtures not distinct from each other')
+(out_dir / 'v2-blocker-duplicate-frontend-url-https-http').write_text(https_http)
+(out_dir / 'v2-blocker-duplicate-frontend-url-http-https').write_text(http_https)
+PYDUP
+
+# 5d) each authoritative compose ps probe swallows nonzero status
+# (avoid make_fixture/sed '|' delimiter — replacement contains '||')
+python3 - "$v2_source" "$fixture_dir" <<'PYPS'
+from pathlib import Path
+import sys
+src_path = Path(sys.argv[1])
+out_dir = Path(sys.argv[2])
+src = src_path.read_text()
+specs = [
+    (
+        "v2-blocker-ps-fe-running-swallowed",
+        'fe_running="$("${compose[@]}" ps -q frontend)"',
+        'fe_running="$("${compose[@]}" ps -q frontend 2>/dev/null || true)"',
+    ),
+    (
+        "v2-blocker-ps-be-running-swallowed",
+        'be_running="$("${compose[@]}" ps -q backend)"',
+        'be_running="$("${compose[@]}" ps -q backend 2>/dev/null || true)"',
+    ),
+    (
+        "v2-blocker-ps-fe-all-swallowed",
+        'fe_all="$("${compose[@]}" ps --all -q frontend)"',
+        'fe_all="$("${compose[@]}" ps --all -q frontend 2>/dev/null || true)"',
+    ),
+    (
+        "v2-blocker-ps-be-all-swallowed",
+        'be_all="$("${compose[@]}" ps --all -q backend)"',
+        'be_all="$("${compose[@]}" ps --all -q backend 2>/dev/null || true)"',
+    ),
+]
+for name, old, new in specs:
+    if old not in src:
+        raise SystemExit(f"ps fixture pattern missing: {name}: {old!r}")
+    out = src.replace(old, new, 1)
+    if out == src:
+        raise SystemExit(f"ps fixture not distinct: {name}")
+    (out_dir / name).write_text(out)
+PYPS
+
+# 5e) docker image inventory fail-open via unchecked process substitution
+python3 - "$v2_source" "$fixture_dir/v2-blocker-image-inventory-fail-open" <<'PYFIXTURE'
+from pathlib import Path
+import re
+import sys
+src = Path(sys.argv[1]).read_text()
+pat = re.compile(
+    r"# docker images 포맷:.*?\ndone < \"\$images_inventory\"\n",
+    re.S,
+)
+repl = (
+    "# docker images 포맷: repository:tag. dangling/untagged 는 스킵.\n"
+    "# FAIL-OPEN mutation: unchecked process substitution swallows docker images failure\n"
+    "while IFS=\"$(printf '\\t')\" read -r repo tag image_id; do\n"
+    "  [ -n \"$repo\" ] || continue\n"
+    "  [ -n \"$tag\" ] || continue\n"
+    "  [ \"$tag\" = \"<none>\" ] && continue\n"
+    "  case \"$repo\" in\n"
+    "    oss-hub-frontend|oss-hub-backend) ;;\n"
+    "    *) continue ;;\n"
+    "  esac\n"
+    "  if is_kept_tag \"$tag\"; then\n"
+    "    continue\n"
+    "  fi\n"
+    "  # 결정적 삭제. 참조 중이면 실패 → fail-closed.\n"
+    "  docker image rm \"${repo}:${tag}\"\n"
+    "done < <(docker images --format '{{.Repository}}\\t{{.Tag}}\\t{{.ID}}')\n"
+)
+out, n = pat.subn(repl, src, count=1)
+if n != 1:
+    raise SystemExit(f'inventory block not replaced: n={n}')
+Path(sys.argv[2]).write_text(out)
+PYFIXTURE
+if cmp -s "$v2_source" "$fixture_dir/v2-blocker-image-inventory-fail-open"; then
+  printf 'fixture not distinct: v2-blocker-image-inventory-fail-open\n' >&2
+  exit 1
+fi
+if ! grep -Eq 'done[[:space:]]*<[[:space:]]*<\([[:space:]]*docker[[:space:]]+images' \
+  "$fixture_dir/v2-blocker-image-inventory-fail-open"; then
+  printf 'fixture missing procsub: v2-blocker-image-inventory-fail-open\n' >&2
+  exit 1
+fi
 
 # 6) destructive retention commands moved before smoke (not keep-tag marker arrays)
 awk '
@@ -482,11 +725,19 @@ expect_fail 'v2 blocker: SemVer downgrade cmp 조건 반전' v2 "$fixture_dir/v2
 expect_fail 'v2 blocker: SemVer downgrade DEPLOY_NOOP 할당 파손' v2 "$fixture_dir/v2-blocker-downgrade-noop-false"
 expect_fail 'v2 blocker: stopped 상태 단말 실패 제거' v2 "$fixture_dir/v2-blocker-stopped-proceeds"
 expect_fail 'v2 blocker: ambiguous/non-running 단말 실패 제거' v2 "$fixture_dir/v2-blocker-ambiguous-proceeds"
+expect_fail 'v2 blocker: partial 상태 단말 실패 제거' v2 "$fixture_dir/v2-blocker-partial-proceeds"
 expect_fail 'v2 blocker: same-tag different-SHA fail-closed 제거' v2 "$fixture_dir/v2-blocker-same-tag-different-sha-removed"
 expect_fail 'v2 blocker: rollback image/label 검증 누락' v2 "$fixture_dir/v2-blocker-missing-rollback-inspect"
 expect_fail 'v2 blocker: rollback Image ID 바인딩 파손' v2 "$fixture_dir/v2-blocker-rollback-id-unbound"
 expect_fail 'v2 blocker: HTTP FRONTEND_URL 허용' v2 "$fixture_dir/v2-blocker-http-frontend-url"
 expect_fail 'v2 blocker: FRONTEND_URL 누락 허용' v2 "$fixture_dir/v2-blocker-missing-frontend-url"
+expect_fail 'v2 blocker: 중복 FRONTEND_URL (HTTPS→HTTP) 허용' v2 "$fixture_dir/v2-blocker-duplicate-frontend-url-https-http"
+expect_fail 'v2 blocker: 중복 FRONTEND_URL (HTTP→HTTPS) 허용' v2 "$fixture_dir/v2-blocker-duplicate-frontend-url-http-https"
+expect_fail 'v2 blocker: ps -q frontend nonzero swallow' v2 "$fixture_dir/v2-blocker-ps-fe-running-swallowed"
+expect_fail 'v2 blocker: ps -q backend nonzero swallow' v2 "$fixture_dir/v2-blocker-ps-be-running-swallowed"
+expect_fail 'v2 blocker: ps --all -q frontend nonzero swallow' v2 "$fixture_dir/v2-blocker-ps-fe-all-swallowed"
+expect_fail 'v2 blocker: ps --all -q backend nonzero swallow' v2 "$fixture_dir/v2-blocker-ps-be-all-swallowed"
+expect_fail 'v2 blocker: docker images inventory producer fail-open' v2 "$fixture_dir/v2-blocker-image-inventory-fail-open"
 expect_fail 'v2 blocker: destructive retention이 smoke 이전으로 이동' v2 "$fixture_dir/v2-blocker-retention-before-smoke"
 expect_fail 'v2 blocker: docker image rm 삭제 명령 누락' v2 "$fixture_dir/v2-blocker-missing-image-rm"
 expect_fail 'v2 blocker: production backup pruner 호출 누락' v2 "$fixture_dir/v2-blocker-missing-backup-rm"
