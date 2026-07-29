@@ -275,28 +275,43 @@ cp "$v2_source" "$fixture_dir/v2-continued-volume-removal"
 
 # --- Architecture blocker synthetic mutations (independent of checker text) ---
 
-# 1) lower-latest / SemVer downgrade protection removed
-make_fixture "$v2_source" v2-blocker-downgrade-removed 'downgrade_noop' 'upgrade_only_removed'
+# 1) SemVer downgrade: mutate the bounded comparison (cmp < 0 → cmp > 0)
+make_fixture "$v2_source" v2-blocker-downgrade-cmp-flipped 'if (cmp < 0)' 'if (cmp > 0)'
 
-# 2) stopped-same-image falsely treated as success no-op
+# 1b) SemVer downgrade: mutate the no-op assignment inside the cmp branch
 awk '
-  /if \(state == '\''stopped_proceed'\''\) \{/ { print; getline; sub(/DEPLOY_NOOP = '\''false'\''/, "DEPLOY_NOOP = '\''true'\''"); print; next }
+  /if \(cmp < 0\) \{/ { print; getline; sub(/DEPLOY_NOOP = '\''true'\''/, "DEPLOY_NOOP = '\''false'\''"); print; next }
   { print }
-' "$v2_source" >"$fixture_dir/v2-blocker-stopped-false-noop"
-if cmp -s "$v2_source" "$fixture_dir/v2-blocker-stopped-false-noop"; then
-  printf 'fixture not distinct: v2-blocker-stopped-false-noop\n' >&2
+' "$v2_source" >"$fixture_dir/v2-blocker-downgrade-noop-false"
+if cmp -s "$v2_source" "$fixture_dir/v2-blocker-downgrade-noop-false"; then
+  printf 'fixture not distinct: v2-blocker-downgrade-noop-false\n' >&2
   exit 1
 fi
 
-# 3) same-tag nonrunning overwrite guard removed
-make_fixture "$v2_source" v2-blocker-same-tag-nonrunning-removed \
-  'same_tag_nonrunning_or_ambiguous' \
-  'same_tag_nonrunning_allowed'
+# 2) stopped container terminal fail removed → proceeds
+make_fixture "$v2_source" v2-blocker-stopped-proceeds \
+  'FAIL_CLOSED stopped_container' \
+  'stopped_container_allowed'
+
+# 2b) non-running probe state no longer terminal (state != running removed)
+make_fixture "$v2_source" v2-blocker-ambiguous-proceeds \
+  "if (state != 'running')" \
+  "if (state == 'never_match_running')"
+
+# 3) same-tag/different-SHA fail-closed removed
+make_fixture "$v2_source" v2-blocker-same-tag-different-sha-removed \
+  'FAIL_CLOSED same_tag_different_sha' \
+  'FAIL_CLOSED retag_sha_mismatch_allowed'
 
 # 4) missing rollback image/label validation (image inspect preflight gone)
 make_fixture "$v2_source" v2-blocker-missing-rollback-inspect \
   'docker image inspect' \
   'docker image history'
+
+# 4b) rollback Image ID binding removed/inverted
+make_fixture "$v2_source" v2-blocker-rollback-id-unbound \
+  '"$fe_id" != "$PREV_FE_IMAGE_ID"' \
+  '"$fe_id" == "$PREV_FE_IMAGE_ID"'
 
 # 5a) HTTP FRONTEND_URL acceptance
 make_fixture "$v2_source" v2-blocker-http-frontend-url \
@@ -308,16 +323,21 @@ make_fixture "$v2_source" v2-blocker-missing-frontend-url \
   'FRONTEND_URL' \
   'FRONTEND_ORIGIN'
 
-# 6) retention stage body moved before smoke
+# 6) destructive retention commands moved before smoke (not keep-tag marker arrays)
 awk '
   {
-    if ($0 ~ /retention_keep_tags\+=\("\$\{IMAGE_TAG\}"\)/) {
+    if ($0 ~ /docker[[:space:]]+image[[:space:]]+rm[[:space:]]+"/ ||
+        index($0, "bash scripts/prune-deploy-backups.sh") > 0) {
+      pending = pending $0 ORS
       next
     }
-    print
-    if (!injected && index($0, "pg_dump") > 0) {
-      print "retention_keep_tags+=(\"${IMAGE_TAG}\")"
-      injected=1
+    buf[++n] = $0
+    if (!inject_at && index($0, "pg_dump") > 0) inject_at = n
+  }
+  END {
+    for (i = 1; i <= n; i++) {
+      print buf[i]
+      if (i == inject_at) printf "%s", pending
     }
   }
 ' "$v2_source" >"$fixture_dir/v2-blocker-retention-before-smoke"
@@ -325,6 +345,23 @@ if cmp -s "$v2_source" "$fixture_dir/v2-blocker-retention-before-smoke"; then
   printf 'fixture not distinct: v2-blocker-retention-before-smoke\n' >&2
   exit 1
 fi
+# sanity: destructive commands must precede smoke rollout in the fixture
+rollout_ln=$(grep -nF 'up -d --no-build --wait' "$fixture_dir/v2-blocker-retention-before-smoke" | head -n1 | cut -d: -f1)
+image_rm_ln=$(grep -nE 'docker[[:space:]]+image[[:space:]]+rm[[:space:]]+' "$fixture_dir/v2-blocker-retention-before-smoke" | head -n1 | cut -d: -f1)
+if [[ -z "$rollout_ln" || -z "$image_rm_ln" || ! ((image_rm_ln < rollout_ln)) ]]; then
+  printf 'fixture order broken: v2-blocker-retention-before-smoke (rm=%s rollout=%s)\n' "$image_rm_ln" "$rollout_ln" >&2
+  exit 1
+fi
+
+# 6b) image deletion command removed entirely
+make_fixture "$v2_source" v2-blocker-missing-image-rm \
+  'docker image rm "${repo}:${tag}"' \
+  'echo "skip image rm ${repo}:${tag}"'
+
+# 6c) production backup pruner 호출 제거
+make_fixture "$v2_source" v2-blocker-missing-backup-rm \
+  'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"' \
+  'echo "skip backup pruning"'
 
 # 7) current/previous image preservation removed
 make_fixture "$v2_source" v2-blocker-no-image-preserve-current \
@@ -334,6 +371,48 @@ make_fixture "$v2_source" v2-blocker-no-image-preserve-previous \
   'retention_keep_tags+=("${PREV_TAG}")' \
   'retention_keep_tags+=("never-match-previous")'
 
+# 8) independent per-build OCI label mutations (frontend-only / backend-only)
+awk '
+  BEGIN { fe=0 }
+  {
+    if ($0 ~ /--file apps\/frontend\/Dockerfile/) {
+      fe=1
+      print
+      next
+    }
+    if (fe && $0 ~ /--label "org.opencontainers.image.version=\$\{RELEASE_TAG\}"/) {
+      sub(/org.opencontainers.image.version/, "org.opencontainers.image.title")
+      fe=0
+    }
+    if ($0 ~ /--file apps\/backend\/Dockerfile/) fe=0
+    print
+  }
+' "$v2_source" >"$fixture_dir/v2-blocker-frontend-missing-version-label"
+if cmp -s "$v2_source" "$fixture_dir/v2-blocker-frontend-missing-version-label"; then
+  printf 'fixture not distinct: v2-blocker-frontend-missing-version-label\n' >&2
+  exit 1
+fi
+
+awk '
+  BEGIN { be=0 }
+  {
+    if ($0 ~ /--file apps\/backend\/Dockerfile/) {
+      be=1
+      print
+      next
+    }
+    if (be && $0 ~ /--label "org.opencontainers.image.revision=\$\{RELEASE_SHA\}"/) {
+      sub(/org.opencontainers.image.revision/, "org.opencontainers.image.source")
+      be=0
+    }
+    print
+  }
+' "$v2_source" >"$fixture_dir/v2-blocker-backend-missing-revision-label"
+if cmp -s "$v2_source" "$fixture_dir/v2-blocker-backend-missing-revision-label"; then
+  printf 'fixture not distinct: v2-blocker-backend-missing-revision-label\n' >&2
+  exit 1
+fi
+
 # comment-only marker spoof must not pass v2 mode
 sed "s|disableConcurrentBuilds()|// disableConcurrentBuilds()|" \
   "$v2_source" >"$fixture_dir/v2-comment-spoof-concurrency"
@@ -342,10 +421,11 @@ if cmp -s "$v2_source" "$fixture_dir/v2-comment-spoof-concurrency"; then
   exit 1
 fi
 
-# spoof: put required no-op marker only inside a comment
+# spoof: comment-only cmp/downgrade text must not satisfy the bounded branch
 awk '
-  /echo "downgrade_noop:/ {
-    print "              // downgrade_noop"
+  /if \(cmp < 0\) \{/ {
+    print "              // if (cmp < 0) { env.DEPLOY_NOOP = '\''true'\''; return }"
+    print "            if (cmp > 0) {"
     next
   }
   { print }
@@ -398,17 +478,24 @@ expect_fail 'v2: 줄 연속 Docker image build' v2 "$fixture_dir/v2-continued-im
 expect_fail 'v2: 줄 연속 volume 삭제' v2 "$fixture_dir/v2-continued-volume-removal"
 
 # architecture blockers
-expect_fail 'v2 blocker: lower-latest/downgrade 보호 제거' v2 "$fixture_dir/v2-blocker-downgrade-removed"
-expect_fail 'v2 blocker: stopped-same-image 거짓 no-op' v2 "$fixture_dir/v2-blocker-stopped-false-noop"
-expect_fail 'v2 blocker: same-tag nonrunning overwrite guard 제거' v2 "$fixture_dir/v2-blocker-same-tag-nonrunning-removed"
+expect_fail 'v2 blocker: SemVer downgrade cmp 조건 반전' v2 "$fixture_dir/v2-blocker-downgrade-cmp-flipped"
+expect_fail 'v2 blocker: SemVer downgrade DEPLOY_NOOP 할당 파손' v2 "$fixture_dir/v2-blocker-downgrade-noop-false"
+expect_fail 'v2 blocker: stopped 상태 단말 실패 제거' v2 "$fixture_dir/v2-blocker-stopped-proceeds"
+expect_fail 'v2 blocker: ambiguous/non-running 단말 실패 제거' v2 "$fixture_dir/v2-blocker-ambiguous-proceeds"
+expect_fail 'v2 blocker: same-tag different-SHA fail-closed 제거' v2 "$fixture_dir/v2-blocker-same-tag-different-sha-removed"
 expect_fail 'v2 blocker: rollback image/label 검증 누락' v2 "$fixture_dir/v2-blocker-missing-rollback-inspect"
+expect_fail 'v2 blocker: rollback Image ID 바인딩 파손' v2 "$fixture_dir/v2-blocker-rollback-id-unbound"
 expect_fail 'v2 blocker: HTTP FRONTEND_URL 허용' v2 "$fixture_dir/v2-blocker-http-frontend-url"
 expect_fail 'v2 blocker: FRONTEND_URL 누락 허용' v2 "$fixture_dir/v2-blocker-missing-frontend-url"
-expect_fail 'v2 blocker: retention이 smoke 이전으로 이동' v2 "$fixture_dir/v2-blocker-retention-before-smoke"
+expect_fail 'v2 blocker: destructive retention이 smoke 이전으로 이동' v2 "$fixture_dir/v2-blocker-retention-before-smoke"
+expect_fail 'v2 blocker: docker image rm 삭제 명령 누락' v2 "$fixture_dir/v2-blocker-missing-image-rm"
+expect_fail 'v2 blocker: production backup pruner 호출 누락' v2 "$fixture_dir/v2-blocker-missing-backup-rm"
 expect_fail 'v2 blocker: 현재 IMAGE_TAG 보존 제거' v2 "$fixture_dir/v2-blocker-no-image-preserve-current"
 expect_fail 'v2 blocker: 직전 PREV_TAG 보존 제거' v2 "$fixture_dir/v2-blocker-no-image-preserve-previous"
+expect_fail 'v2 blocker: frontend build version label 단독 누락' v2 "$fixture_dir/v2-blocker-frontend-missing-version-label"
+expect_fail 'v2 blocker: backend build revision label 단독 누락' v2 "$fixture_dir/v2-blocker-backend-missing-revision-label"
 expect_fail 'v2: 주석만으로 concurrency marker spoof' v2 "$fixture_dir/v2-comment-spoof-concurrency"
-expect_fail 'v2: 주석만으로 downgrade marker spoof' v2 "$fixture_dir/v2-comment-spoof-downgrade"
+expect_fail 'v2: 주석만으로 downgrade branch spoof' v2 "$fixture_dir/v2-comment-spoof-downgrade"
 
 # legacy source must not pass v2 mode; v2 source must not pass legacy mode
 expect_fail 'cross: root Jenkinsfile는 v2 mode 실패' v2 "$legacy_source"

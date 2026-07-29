@@ -67,6 +67,8 @@ jobs:
               - 'deploy/jenkins/**'
               - 'scripts/check-jenkinsfile.sh'
               - 'scripts/check-jenkinsfile.test.sh'
+              - 'scripts/prune-deploy-backups.sh'
+              - 'scripts/prune-deploy-backups.test.sh'
               - '.github/workflows/**'
             docker_context:
               - 'apps/*/Dockerfile'
@@ -141,6 +143,7 @@ jobs:
           bash scripts/check-jenkinsfile.test.sh
           bash scripts/check-jenkinsfile.sh legacy Jenkinsfile
           bash scripts/check-jenkinsfile.sh v2 deploy/jenkins/Jenkinsfile.v2
+          bash scripts/prune-deploy-backups.test.sh
 
       - name: Docker build context 계약 회귀 테스트
         if: ${{ steps.changes.outputs.docker_context == 'true' }}

@@ -350,27 +350,32 @@ check_v2() {
   require_regex_at_least '존재/부분/중지 분류는 ps --all -q frontend여야 함' 'ps[[:space:]]+--all[[:space:]]+-q[[:space:]]+frontend' 1
   require_regex_at_least '존재/부분/중지 분류는 ps --all -q backend여야 함' 'ps[[:space:]]+--all[[:space:]]+-q[[:space:]]+backend' 1
   require_exact 'greenfield는 양쪽 서비스 부재일 때만이어야 함' 'state=greenfield' 1
-  require_exact '중지 전용 상태는 성공 no-op이 아니어야 함' 'state=stopped_proceed' 1
+  require_exact '완전 증명된 running 상태만 진행해야 함' 'state=running' 1
+  require_absent 'stopped_proceed 성공 경로는 없어야 함' 'stopped_proceed'
+  require_absent 'running_deploy 성공 경로는 없어야 함' 'running_deploy'
+  require_absent 'same-tag nonrunning proceed 경로는 없어야 함' 'same_tag_nonrunning_or_ambiguous'
+  require_at_least '중지 전용 상태는 단말 FAIL_CLOSED여야 함' 'FAIL_CLOSED stopped_container' 1
+  require_at_least '부분 배포 상태는 단말 FAIL_CLOSED여야 함' 'FAIL_CLOSED partial' 1
+  require_regex_at_least '비-running probe 상태는 Groovy에서 단말 실패해야 함' 'state[[:space:]]*!=[[:space:]]*'\''running'\''' 1
   require_exact '실행 중 exact tag+SHA no-op 판정이 있어야 함' 'prevTag == env.RELEASE_TAG && prevSha == env.RELEASE_SHA' 1
-  require_exact 'same-tag/different-SHA는 fail-closed여야 함' 'same_tag_different_sha' 1
-  require_exact 'same-tag nonrunning/ambiguous overwrite는 fail-closed여야 함' 'same_tag_nonrunning_or_ambiguous' 1
-  require_exact 'full SemVer downgrade no-op 보호가 있어야 함' 'downgrade_noop' 1
+  require_exact 'same-tag/different-SHA는 fail-closed여야 함' 'FAIL_CLOSED same_tag_different_sha' 1
   require_at_least '배포 stage는 no-op을 건너뛰어야 함' "env.DEPLOY_NOOP != 'true'" 5
 
-  # stopped path must not authorize success no-op (exact branch only)
+  # SemVer downgrade: bounded cmp < 0 → DEPLOY_NOOP=true → return (not a log marker)
   if ! awk '
-    $0 ~ /if \(state == '\''stopped_proceed'\''\) \{/ {
+    $0 ~ /if[[:space:]]*\([[:space:]]*cmp[[:space:]]*<[[:space:]]*0[[:space:]]*\)/ {
       grab=1
       next
     }
     grab {
-      if ($0 ~ /DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''true'\''/) bad=1
-      if ($0 ~ /DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''false'\''/) good=1
-      if ($0 ~ /return/ || $0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
+      if ($0 ~ /DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''true'\''/) noop=1
+      if ($0 ~ /return/) ret=1
+      if ($0 ~ /DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''false'\''/) bad=1
+      if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
     }
-    END { exit (good && !bad) ? 0 : 1 }
+    END { exit (grab && noop && ret && !bad) ? 0 : 1 }
   ' "$active_jenkinsfile"; then
-    printf '%s: stopped/partial 경로는 성공 no-op(DEPLOY_NOOP=true)이 될 수 없음\n' "$label" >&2
+    printf '%s: full SemVer downgrade는 cmp < 0 후 DEPLOY_NOOP=true 와 return 이어야 함\n' "$label" >&2
     exit 1
   fi
 
@@ -387,11 +392,46 @@ check_v2() {
   require_regex_at_least 'rollback 이미지 ID 검증이 있어야 함' 'docker[[:space:]]+image[[:space:]]+inspect' 2
   require_exact 'rollback은 이전 정상 이미지가 있을 때만 실행해야 함' 'if (env.PREV_TAG?.trim())' 1
 
-  # release-tag builds with OCI labels; no SHA image-tag assignment
+  # running container immutable Image ID capture + PREV_TAG binding (sibling contract)
+  require_regex_at_least '실행 중 컨테이너 .Image ID 캡처가 있어야 함' '\{\{\.Image\}\}' 1
+  require_at_least 'probe는 prev_fe_image_id를 내보내야 함' 'prev_fe_image_id=' 1
+  require_at_least 'probe는 prev_be_image_id를 내보내야 함' 'prev_be_image_id=' 1
+  require_at_least 'PREV_FE_IMAGE_ID 바인딩이 있어야 함' 'PREV_FE_IMAGE_ID' 1
+  require_at_least 'PREV_BE_IMAGE_ID 바인딩이 있어야 함' 'PREV_BE_IMAGE_ID' 1
+  require_regex_at_least 'frontend rollback 태그는 캡처된 Image ID와 일치해야 함' \
+    '"?\$fe_id"?[[:space:]]*!=[[:space:]]*"?\$PREV_FE_IMAGE_ID"?' 1
+  require_regex_at_least 'backend rollback 태그는 캡처된 Image ID와 일치해야 함' \
+    '"?\$be_id"?[[:space:]]*!=[[:space:]]*"?\$PREV_BE_IMAGE_ID"?' 1
+
+  # release-tag builds with OCI labels; each build command carries both labels independently
   require_at_least 'frontend release-tag 빌드가 있어야 함' '--tag "oss-hub-frontend:${IMAGE_TAG}"' 1
   require_at_least 'backend release-tag 빌드가 있어야 함' '--tag "oss-hub-backend:${IMAGE_TAG}"' 1
-  require_at_least '이미지 빌드 OCI version label(RELEASE_TAG)이 있어야 함' '--label "org.opencontainers.image.version=${RELEASE_TAG}"' 2
-  require_at_least '이미지 빌드 OCI revision label(RELEASE_SHA)이 있어야 함' '--label "org.opencontainers.image.revision=${RELEASE_SHA}"' 2
+  if ! awk '
+    {
+      line = $0
+      if (line ~ /docker[[:space:]]+((image|buildx)[[:space:]]+)?build/ && line ~ /apps\/frontend\/Dockerfile/) {
+        fe++
+        if (line !~ /--label[[:space:]]+"org\.opencontainers\.image\.version=\$\{RELEASE_TAG\}"/) fe_bad=1
+        if (line !~ /--label[[:space:]]+"org\.opencontainers\.image\.revision=\$\{RELEASE_SHA\}"/) fe_bad=1
+        # exactly one of each label token on this build line
+        nver = gsub(/org\.opencontainers\.image\.version=\$\{RELEASE_TAG\}/, "&", line)
+        nrev = gsub(/org\.opencontainers\.image\.revision=\$\{RELEASE_SHA\}/, "&", line)
+        if (nver != 1 || nrev != 1) fe_bad=1
+      }
+      if (line ~ /docker[[:space:]]+((image|buildx)[[:space:]]+)?build/ && line ~ /apps\/backend\/Dockerfile/) {
+        be++
+        if (line !~ /--label[[:space:]]+"org\.opencontainers\.image\.version=\$\{RELEASE_TAG\}"/) be_bad=1
+        if (line !~ /--label[[:space:]]+"org\.opencontainers\.image\.revision=\$\{RELEASE_SHA\}"/) be_bad=1
+        nver = gsub(/org\.opencontainers\.image\.version=\$\{RELEASE_TAG\}/, "&", line)
+        nrev = gsub(/org\.opencontainers\.image\.revision=\$\{RELEASE_SHA\}/, "&", line)
+        if (nver != 1 || nrev != 1) be_bad=1
+      }
+    }
+    END { exit (fe == 1 && be == 1 && !fe_bad && !be_bad) ? 0 : 1 }
+  ' "$docker_scan_file"; then
+    printf '%s: frontend/backend 각 build 명령은 version·revision label을 정확히 하나씩 가져야 함\n' "$label" >&2
+    exit 1
+  fi
 
   # success-only retention: N=120, app repos only, keep IMAGE_TAG+PREV_TAG, under BACKUP_DIR
   require_exact 'backup retention N=120이어야 함' "BACKUP_RETENTION_N = '120'" 1
@@ -399,18 +439,21 @@ check_v2() {
   require_at_least 'retention은 oss-hub-backend app repo만 대상이어야 함' 'oss-hub-backend' 1
   require_regex_at_least 'retention은 현재 IMAGE_TAG를 보존해야 함' 'retention_keep_tags\+=\("\$\{IMAGE_TAG\}"\)' 1
   require_regex_at_least 'retention은 직전 PREV_TAG를 보존해야 함' 'retention_keep_tags\+=\("\$\{PREV_TAG\}"\)' 1
-  require_regex_at_least 'backup cleanup은 BACKUP_DIR 아래에서만 해야 함' 'find[[:space:]]+"\$BACKUP_DIR"' 1
-  require_regex_at_least 'backup cleanup은 성공 경로 retention stage에 있어야 함' 'backup_files' 1
+  require_exact 'backup cleanup은 같은 production pruner를 호출해야 함' \
+    'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"' 1
+  require_regex_at_least 'success-only image 삭제가 있어야 함' 'docker[[:space:]]+image[[:space:]]+rm[[:space:]]+' 1
 
   require_common_smoke_and_build_guards
   require_single_image_tag_assignment
 
   local pm_approval_line checkout_line https_line rollback_line prisma_generate_line test_line
   local backup_line frontend_build_line backend_build_line migration_line rollout_line retention_line
+  local image_rm_line backup_prune_line rollback_id_line retention_stage_line
   pm_approval_line=$(line_of 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${RELEASE_SHA}')
   checkout_line=$(line_of 'git checkout --detach "$RELEASE_SHA"')
   https_line=$(line_of 'FRONTEND_URL')
   rollback_line=$(line_of_regex 'docker[[:space:]]+image[[:space:]]+inspect')
+  rollback_id_line=$(line_of_regex '"?\$fe_id"?[[:space:]]*!=[[:space:]]*"?\$PREV_FE_IMAGE_ID"?')
   prisma_generate_line=$(line_of 'pnpm --filter backend exec prisma generate')
   test_line=$(line_of 'pnpm test')
   backup_line=$(line_of 'pg_dump')
@@ -419,14 +462,15 @@ check_v2() {
   migration_line=$(line_of 'npx prisma migrate deploy')
   rollout_line=$(line_of 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait')
   retention_line=$(line_of "BACKUP_RETENTION_N = '120'")
-  # retention body (image rm / backup cleanup) must also follow smoke
-  local retention_body_line
-  retention_body_line=$(line_of_regex 'retention_keep_tags\+=\("\$\{IMAGE_TAG\}"\)')
+  retention_stage_line=$(line_of "stage('성공 후 이미지·백업 보존 정리')")
+  image_rm_line=$(line_of_regex 'docker[[:space:]]+image[[:space:]]+rm[[:space:]]+')
+  backup_prune_line=$(line_of 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"')
 
   if [[ -z "$pm_approval_line" || -z "$checkout_line" || -z "$https_line" || -z "$rollback_line" ||
-        -z "$prisma_generate_line" || -z "$test_line" || -z "$backup_line" ||
+        -z "$rollback_id_line" || -z "$prisma_generate_line" || -z "$test_line" || -z "$backup_line" ||
         -z "$frontend_build_line" || -z "$backend_build_line" || -z "$migration_line" ||
-        -z "$rollout_line" || -z "$retention_line" || -z "$retention_body_line" ]]; then
+        -z "$rollout_line" || -z "$retention_line" || -z "$retention_stage_line" ||
+        -z "$image_rm_line" || -z "$backup_prune_line" ]]; then
     printf '%s: required stage markers missing for order check\n' "$label" >&2
     exit 1
   fi
@@ -434,20 +478,22 @@ check_v2() {
   if ! ((pm_approval_line < checkout_line &&
          checkout_line < https_line &&
          https_line < rollback_line &&
-         rollback_line < prisma_generate_line &&
+         rollback_line <= rollback_id_line &&
+         rollback_id_line < prisma_generate_line &&
          prisma_generate_line < test_line &&
          test_line < backup_line &&
          backup_line < frontend_build_line &&
          frontend_build_line < backend_build_line &&
          backend_build_line < migration_line &&
          migration_line < rollout_line &&
-         rollout_line < retention_body_line &&
-         retention_line < retention_body_line)); then
-    printf '%s: required order is approval/checkout -> HTTPS+rollback preflight -> generate/test -> backup -> two image builds -> migration -> rollout/smoke -> success-only retention\n' "$label" >&2
+         rollout_line < retention_stage_line &&
+         retention_stage_line < image_rm_line &&
+         retention_stage_line < backup_prune_line)); then
+    printf '%s: required order is approval/checkout -> HTTPS+rollback preflight(ID bind) -> generate/test -> backup -> two image builds -> migration -> rollout/smoke -> success-only image/backup deletion\n' "$label" >&2
     exit 1
   fi
 
-  echo "$label: ok (parameterless latest Release, RELEASE_TAG images, running-only no-op, PM RELEASE_SHA approve, HTTPS+rollback preflight, success-only retention)"
+  echo "$label: ok (parameterless latest Release, RELEASE_TAG images, running-only no-op, fail-closed stopped/ambiguous, PM RELEASE_SHA approve, HTTPS+rollback ID bind, success-only retention)"
 }
 
 case "$mode" in
