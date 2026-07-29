@@ -9,7 +9,7 @@
 | `apps/frontend/**` | frontend lint · typecheck · test · build | Docker 이미지 빌드 없음 |
 | `apps/backend/**` | backend lint · typecheck · test · build | Docker 이미지 빌드 없음 |
 | `deploy/nginx/**`, `deploy/host-nginx/**` | `probe-nginx-callback-log.sh`의 합성 callback 로그 계약 + `check-host-nginx.test.sh`의 IP TLS·ACME·loopback Compose·POST-only Jenkins 계약 | 실제 OAuth·인증서 값·요청 없음 |
-| `compose.yml`, `.env.example`, `scripts/check-env-example-coverage*.sh`, `apps/backend/src/**`, `apps/frontend/src/**` | `check-env-example-coverage.test.sh` fixture 회귀 + `check-env-example-coverage.sh` 양방향 계약(compose `${VAR:?}`→`.env.example`, 코드 `process.env`→계약, 합성 env `docker compose config`) | 컨테이너 기동·이미지 빌드 없음. `IMAGE_TAG`·`NODE_ENV`·테스트 sentinel·관리 CLI 키는 allowlist |
+| `compose.yml`, `.env.example`, `scripts/check-env-example-coverage*.sh`, `apps/backend/src/**`, `apps/frontend/src/**` | `check-env-example-coverage.test.sh` fixture 회귀 + `check-env-example-coverage.sh` 삼중 계약(compose `${VAR:?}`→`.env.example`, 코드→`.env.example` 선언, 코드→소유 서비스 `environment` 매핑, 합성 env `docker compose config`) | 컨테이너 기동·이미지 빌드 없음. `NODE_ENV`·CLI·integration sentinel 은 경로별 면제. `IMAGE_TAG` 는 로컬 placeholder 로 `.env.example` 문서화 |
 | `Jenkinsfile` | `check-jenkinsfile.test.sh`와 실제 파일의 배포 불변식 검사 | Jenkins 실행·이미지 빌드 없음 |
 | `apps/*/Dockerfile`, `.dockerignore` | `check-docker-context.test.sh`와 실제 context의 deny 규칙·COPY 경계 검사 | Docker daemon·이미지 빌드 없음 |
 | `scripts/check-public-safe*.sh` | shell 문법 검사 + `public-safe` job의 regex 회귀 테스트 | PR-controlled 코드에 secret 미주입 |

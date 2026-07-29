@@ -23,7 +23,7 @@
 
 1. `pnpm install` — 의존성 설치. `postinstall`에서 backend의 `prisma generate`가 자동 실행된다.
 2. `.env` 준비 — `.env.example`을 기준으로 값을 채운다. compose 경로로 띄우므로 서비스 DNS를 쓴다: `DATABASE_URL`의 호스트는 `postgres`, `SUBMISSION_FILE_S3_ENDPOINT`는 `http://minio:9000`이다. `FRONTEND_URL`은 ingress와 같은 `http://localhost:3000`이어야 한다. 이 값은 dev GitHub OAuth App에 이미 등록된 콜백 origin과 일치해야 한다.
-3. `pnpm local:build` — backend·frontend 이미지를 빌드한다. `IMAGE_TAG`는 환경변수가 있으면 그것을, 없으면 `.env`의 값을 쓴다.
+3. `pnpm local:build` — backend·frontend 이미지를 빌드한다. `IMAGE_TAG`는 환경변수가 있으면 그것을, 없으면 `.env`의 값을 쓴다. `.env.example`은 로컬용 placeholder(`local`)를 포함하므로 복사 후 그대로 쓸 수 있고, CI·Jenkins는 검증된 SHA를 주입한다.
 4. `pnpm local:up` — `compose.yml` + `compose.dev.yml` + `compose.local.yml` 세 파일을 조합해 postgres·minio·backend·frontend·nginx를 띄운다.
 5. `pnpm local:verify` — 위 기동에 더해 마이그레이션 적용, DB·HTTP·MinIO smoke, `minio-bucket` 재시작·재생성 검증까지 수행한다.
 
