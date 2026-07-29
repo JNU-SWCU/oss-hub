@@ -130,3 +130,82 @@ curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
 
 ①②가 모두 통과한 뒤에만 [server-runbook](./server-runbook.md) M7의 첫 Release 수동 트리거 e2e로 넘어간다.
 자동 트리거 계약은 [ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)와 [init-operations](../exec-plan/active/init-operations.md) M2가 원본이다.
+
+## G007. 점검 창 검증 상세 (sequence 비소유)
+
+순서·상태 전이·abort/rollback 원본은 [server-runbook G007](./server-runbook.md#g007-점검-창--legacy--v2-전환-canonical-sequence)이다.
+이 절은 그 순서가 호출하는 **측정·판정 절차**만 적는다.
+값을 채워 넣을 자리표시자 의미도 server-runbook G007 표기를 따른다.
+이 문서를 실행했다는 사실만으로 production 변이 완료를 주장하지 않는다.
+
+### G007 baseline·probe
+
+step 2·4·7·8이 공유하는 lock 절차다.
+
+1. **서비스 baseline 잠금**
+   - `curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/`
+   - `curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/api/v1/health`
+   - 공인 TLS 동일 경로를 조직 표준 curl 옵션으로 1회씩 측정(실제 호스트·인증서 값은 저장소에 적지 않음)
+   - 실행 중 frontend·backend 이미지 tag/label(또는 greenfield 부재)을 기록
+   - 판정: 기록된 코드·tag 세트가 step 0 freeze와 모순 없으면 baseline 확정.
+2. **D6 닫힘 확인**
+   - 제출 파일 업로드 경로가 여전히 fail-closed인지 계약·응답으로 확인한다([ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)).
+   - 판정: 업로드가 열렸으면 G007 실패(D6은 이 창에서 열지 않음).
+3. **Jenkins 카운터 snapshot**
+   - 운영 job `oss-hub-release-cd`의 last build number, running count, queue count, job log mtime/size를 기록한다.
+   - 조회 실패는 fail-closed로 취급하고 probe를 진행하지 않는다.
+4. **unauthorized trigger probe (old·new 각 1회)**
+   - 인증 헤더 없음 또는 고의로 잘못된 자격으로
+     - `POST https://<PUBLIC_DEPLOY_BASE><OLD_TRIGGER_PATH>`
+     - `POST https://<PUBLIC_DEPLOY_BASE><NEW_TRIGGER_PATH>`
+   - `<PUBLIC_DEPLOY_BASE>` 실값은 저장소에 쓰지 않는다.
+   - body는 비우거나 8 KiB 이하 더미만 사용한다.
+   - 판정(모두 필요): HTTP non-2xx, build number 불변, running 불변, queue 불변, job log mtime/size 불변.
+5. **인가된 신 경로 성공 probe**(step 7–8 전용, 게이트 `true`일 때만)
+   - 전용 deployer 자격으로 `POST ...<NEW_TRIGGER_PATH>`(파라미터 없음).
+   - 판정: job이 수락·완료되고, no-op 또는 정상 배포 계약([ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md))을 만족.
+
+### G007 C3 검증 job 판정
+
+- pin 대상은 `<LEGACY_JENKINSFILE_SHA>` 40-hex full SHA다. 브랜치 이름만 고정하는 것은 실패다.
+- 1회 parameterless 실행 결과가 SUCCESS여야 한다.
+- 실행 전후 서비스 snapshot(이미지 tag/SHA, compose running set)이 동일해야 한다.
+- 운영 job 이름·트리거 URL·Credentials id를 C3 job과 공유하지 않는다.
+
+### G007 C4 — backup retention N=120 격리 fixture
+
+- **blocked 조건:** Jenkinsfile.v2 retention과 **바이트 동일 구현**을 호출할 공유 pruning surface(스크립트 entrypoint 또는 추출된 함수)가 저장소에 없으면 C4를 실행하지 않고 blocked로 기록한다.
+- surface가 생긴 뒤에만 아래를 수행한다.
+  1. 운영 `<BACKUP_DIR>`의 name+byte inventory를 스냅샷한다(내용 열람·삭제 금지).
+  2. 운영 경로 밖의 빈 디렉터리에 synthetic backup 항목 121개를 만든다.
+  3. `BACKUP_RETENTION_N=120`과 동일한 구현으로 그 디렉터리에만 pruning을 실행한다.
+  4. 판정: 남은 항목 수=120, fixture 디렉터리는 절차가 정한 대로 제거 가능, 운영 `<BACKUP_DIR>` inventory가 바이트·이름 모두 전후 동일.
+- 실측 N 승인 기록(이슈 #305)과 fixture 성공은 별개다. 승인 숫자만으로 운영 디렉터리 pruning을 건너뛰지 않는다.
+
+### G007 fault drill 관측
+
+- fault Release는 식별 가능한 tag 명명 규칙을 쓰고 점검 창 종료 전 반드시 삭제한다.
+- rollback 관찰: 서비스 교체/smoke 실패 후 `PREV_TAG` 이미지로 **한 번** 돌아가는 로그만을 성공으로 센다. DB restore는 자동 범위 밖이다.
+- 정리 판정: fault tag, 해당 Release, fault image tag가 운영 inventory에 없고, 최종 실행 중 tag가 정상 Release다.
+
+### G007 S4 checklist
+
+아래를 위부터 내려가며 평가하고, 한 줄이라도 실패면 S4를 선언하지 않는다.
+
+1. `DEPLOY_TRIGGER_ENABLED` == `true`
+2. 운영 job 파라미터 정의 없음
+3. 운영 job running=0, queue=0
+4. 실행 중 frontend·backend tag가 정상 Release이고 fault tag가 아님
+5. loopback·TLS `/`·`/api/v1/health` == 2xx
+6. D6 닫힘(업로드 fail-closed) 유지
+7. old trigger unauthorized probe = non-2xx + delta 0
+8. 최근 인가 new trigger 성공 증거 존재
+9. C4 통과 증거 또는 «공유 pruning surface 부재로 blocked» 명시
+10. fault Release/tag/image 잔존 없음
+11. tag ruleset 변경 없음(D8)
+
+### G007과 ①②③의 관계
+
+- ① 로컬·② EC2 dry-run은 첫 greenfield 배포 전 회귀 차단용이다.
+- 이미 운영 job·host nginx가 있는 점검 창에서는 ①②를 재실행해 운영을 덮어쓰지 않는다.
+- 점검 창 검증은 이 절과 server-runbook G007만 따른다.

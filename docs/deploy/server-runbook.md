@@ -191,3 +191,169 @@ curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
 - **자동 트리거 live 연결 검증** (GitHub Actions `deploy.yml` → Jenkins `buildWithParameters` e2e) — 수동 M7과 별도 확인.
 - **`Jenkinsfile` GitHub API 인증(PAT)** 적용(코드 변경) — follow-up.
 - **host nginx TLS/IP 인증서 live 운영 점검** — 계약 원본은 [init-operations](../exec-plan/active/init-operations.md) M4.
+
+## G007. 점검 창 — legacy → v2 전환 (canonical sequence)
+
+이 절은 [#305](https://github.com/JNU-SWCU/oss-hub/issues/305) G007 점검 창의 **순서·상태 전이 원본**이다.
+검증 probe 상세는 [pre-deploy-verify](./pre-deploy-verify.md) G007 절이 원본이며, 여기서는 통과/실패 판정만 적는다.
+모든 production 변이(게이트·nginx·Jenkins job·Release)는 **사람 승인 뒤에만** 수행한다.
+이 문서는 절차를 서술할 뿐, 어떤 production 스텝이 이미 실행됐다는 주장을 하지 않는다.
+tag ruleset 생성·변경·검증·rollback은 범위 밖이다(D8) — 태그 조작 방어는 `RELEASE_ACCEPT role=PM` 승인 바인딩이 담당한다([ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)).
+D6(제출 파일 object backup 간극으로 업로드 경로 fail-closed)는 이 점검 창에서 **열지 않고 닫힌 채 유지**한다.
+
+### G007 표기
+
+- `<ACTIVATION_PR>` — root `Jenkinsfile`을 검토된 v2 계약으로 올리는 활성화 PR 번호
+- `<PR7>` — 파라미터 없는 신 트리거 경로(`POST /job/oss-hub-release-cd/build`)와 게이트 연동 코드를 올리는 PR 번호
+- `<LEGACY_JENKINSFILE_SHA>` — C3가 고정하는 전환 직전 root `Jenkinsfile`의 immutable 40-hex commit SHA
+- `<FROZEN_HEAD_REF_OID_ACTIVATION>` / `<FROZEN_HEAD_REF_OID_PR7>` — 각 PR의 freeze 시점 `headRefOid`(merge commit SHA가 아님)
+- `<FROZEN_RUNNING_TAG>` / `<FROZEN_RUNNING_SHA>` — freeze 시점 실행 중 frontend·backend 공통 release tag와 commit SHA(없으면 greenfield로 기록)
+- `<OLD_TRIGGER_PATH>` — `POST /job/oss-hub-release-cd/buildWithParameters`
+- `<NEW_TRIGGER_PATH>` — `POST /job/oss-hub-release-cd/build`
+- `<HOST_NGINX_CONF_SRC>` — 저장소 `deploy/host-nginx/oss-hub.conf`(dual-route 또는 new-only 리뷰본)
+- `<HOST_NGINX_CONF_DST>` — 배포 서버 host nginx conf 설치 경로(실제 값은 Notion credentials)
+- `<BACKUP_DIR>` — 운영 backup 디렉터리(실제 값은 Notion credentials; 권한·소유 정책은 M3)
+- `<C3_JOB_NAME>` — legacy 검증 전용 Jenkins job 이름(운영 `oss-hub-release-cd`와 분리)
+- `<JENKINS_UI>` — Tailscale/SSM 터널로만 여는 Jenkins 관리 UI(`127.0.0.1:8080`)
+- 승인 토큰은 ADR-005 exact-head 형식만 쓴다: 현재 `headRefOid`·base ref·base SHA에 고정된 `MERGE_READY`와 배포 계약 경로용 `@GoBeromsu` `PM_ACCEPT`.
+- freeze/대조 대상은 항상 PR `headRefOid`다. merge commit SHA로 대체하지 않는다.
+
+### G007 상태표 (S0–S4)
+
+| 상태 | Jenkins 계약 | host nginx 공개 트리거 | `DEPLOY_TRIGGER_ENABLED` | 비고 |
+| --- | --- | --- | --- | --- |
+| S0 | legacy(root `Jenkinsfile` + job 파라미터) | old path만 또는 전환 전 구성 | `false` | 진입 기본. C3 준비·baseline lock |
+| S1 | legacy | dual(old+new location) | `false` | dual-route nginx 설치 후. new path는 수신만·게이트 off |
+| S2 | v2(root `Jenkinsfile` + job 파라미터 제거) | dual | `false` | 활성화 병합 후. 자동 배포 없음 |
+| S3 | v2 | dual | `true`(실패 시 즉시 `false`로 강제) | PR-7 병합·게이트 on 후 실증 구간(D7 적용) |
+| S4 | v2 | new-only | `true` | old path 회수 완료. 점검 창 종료 조건 |
+
+### G007 불변식
+
+- 점검 창 안에서는 ruleset 작업을 하지 않는다(D8).
+- 활성화 PR과 `<PR7>` 병합 직전에는 **그 순간의** exact-head `MERGE_READY`+`PM_ACCEPT`가 필요하다.
+- 활성화가 main을 바꾼 뒤에는 `<PR7>` 마커를 **반드시 재발급**한 다음 병합한다.
+- step 6 진입 이후 실패는 legacy 복원이 아니라 게이트 off + v2 fix-forward다(D7).
+- step 7 실패 시 nginx만 dual-route로 되돌리며 legacy Jenkins로 내리지 않는다.
+- C4(`N=120`) 격리 fixture는 **공유 pruning surface가 생기기 전까지 blocked**로 남기고, 그 전에는 실 backup 디렉터리에서 retention을 실행하지 않는다.
+- D6은 닫힌 채 유지한다 — 제출 업로드 차단 해제·`minio_data` backup 편입은 이 창 범위 밖이다.
+
+### Step 0 — 대상·PR 신원 freeze (owner: @GoBeromsu)
+
+- 명령/UI:
+  - `gh api repos/<GITHUB_OWNER>/<GITHUB_REPO>/pulls/<ACTIVATION_PR> --jq .head.sha` → `<FROZEN_HEAD_REF_OID_ACTIVATION>`
+  - `gh api repos/<GITHUB_OWNER>/<GITHUB_REPO>/pulls/<PR7> --jq .head.sha` → `<FROZEN_HEAD_REF_OID_PR7>`
+  - 배포 EC2에서 실행 중 frontend·backend 이미지 tag/label을 읽어 `<FROZEN_RUNNING_TAG>`·`<FROZEN_RUNNING_SHA>` 기록(없으면 `greenfield`)
+  - 운영 job SCM이 root `Jenkinsfile`인지, 파라미터가 legacy 계약인지 `<JENKINS_UI>`에서 확인
+- 예상 결과: 세 신원(활성화 headRefOid, PR-7 headRefOid, running tag/SHA 또는 greenfield)이 문서화된 freeze 세트와 비트 단위로 일치하고 상태=S0.
+- 실패 전이: 불일치·모호하면 **즉시 abort**, S0 유지, step 1로 진행하지 않는다.
+
+### Step 1 — 자동 트리거 차단·대기열 비움 (owner: @GoBeromsu)
+
+- 명령/UI:
+  - GitHub repo variable: `DEPLOY_TRIGGER_ENABLED=false` (Settings → Secrets and variables → Actions → Variables)
+  - `<JENKINS_UI>` → `oss-hub-release-cd` 및 관련 executor: running builds = 0, buildable queue = 0
+- 예상 결과: 변수 값이 문자열 `false`이고, 해당 job running=0·queue=0.
+- 실패 전이: 변수 변경 실패 또는 잔여 build/queue가 있으면 abort, S0 유지. 강제 abort로 타 job을 죽이지 않는다.
+
+### Step 2 — baseline lock + 비인가 트리거 영-부작용 (owner: @GoBeromsu)
+
+- 명령/UI: [pre-deploy-verify](./pre-deploy-verify.md) «G007 baseline·probe» 절차를 그대로 실행한다.
+  - loopback `http://127.0.0.1:8081/`·`/api/v1/health` 및 공인 TLS 동일 경로 상태를 baseline으로 잠근다.
+  - D6 닫힘(제출 업로드 fail-closed)을 baseline에 포함한다.
+  - 인증 없는(또는 잘못된) old/new trigger POST probe를 각 1회 보낸다.
+- 예상 결과: probe HTTP 상태가 non-2xx이고, Jenkins build number·running·queue·job log byte/mtime 증가가 **모두 0**.
+- 실패 전이: 2xx 수신 또는 delta≠0이면 abort, S0 유지, dual nginx를 설치하지 않는다.
+
+### Step 3 — C3 immutable legacy 검증 job (owner: Jenkins admin + @GoBeromsu)
+
+- 명령/UI (`<JENKINS_UI>`):
+  - 운영 job과 **별도** Pipeline job `<C3_JOB_NAME>` 생성
+  - SCM을 저장소 root로 두되 **branch/commit을 `<LEGACY_JENKINSFILE_SHA>`(40-hex)에 고정** — floating branch 금지
+  - 파라미터 없이 Build Now 1회
+  - 실행 전후 서비스 snapshot(실행 중 이미지 tag/SHA, compose ps) 비교
+- 예상 결과: `<C3_JOB_NAME>`이 SUCCESS이고, 서비스 snapshot이 변경되지 않으며, job 정의가 여전히 같은 40-hex에 pin.
+- 실패 전이: 실패·snapshot 변경·pin 유실 시 abort, S0 유지. 운영 job을 C3로 대체하지 않는다.
+
+### Step 4 — dual-route host nginx (owner: @GoBeromsu) → S1
+
+- 명령/UI:
+  - 리뷰된 dual-route `<HOST_NGINX_CONF_SRC>`를 `<HOST_NGINX_CONF_DST>`에 설치
+  - `sudo nginx -t` → `sudo systemctl reload nginx`(또는 조직 표준 reload)
+  - active conf에 old·new location이 모두 있는지 확인
+  - step 2와 동일한 locked probe 재실행([pre-deploy-verify](./pre-deploy-verify.md))
+- 예상 결과: `nginx -t` ok, reload 성공, dual location active, unauthorized probe는 여전히 non-2xx + delta 0, 상태=S1.
+- 실패 전이: 직전 conf 백업본으로 복구 후 reload, **S0 복귀**. C3·legacy job은 그대로 둔다.
+
+### Step 5 — 활성화 병합·job 파라미터 제거 (owner: @GoBeromsu) → S2
+
+- 명령/UI:
+  - `<ACTIVATION_PR>`의 **현재** `headRefOid`가 `<FROZEN_HEAD_REF_OID_ACTIVATION>`과 같은지 재확인(바뀌었으면 freeze 갱신 + 마커 재발급)
+  - exact-head `MERGE_READY` + `@GoBeromsu` `PM_ACCEPT` 확인 후 병합(admin bypass 금지)
+  - `<JENKINS_UI>`에서 운영 job `oss-hub-release-cd`의 `RELEASE_ACTION`·`RELEASE_TAG` 파라미터 정의 제거
+  - job SCM은 main/root `Jenkinsfile` 유지(별도 브랜치 pin 금지)
+  - 게이트는 `false` 유지
+- 예상 결과: main이 활성화 headRefOid를 조상으로 포함하고, 운영 job이 파라미터 없는 v2 계약이며, 상태=S2.
+- 실패 전이: step 6 진입 전이면 C3 pin(`<LEGACY_JENKINSFILE_SHA>`)으로 운영 job SCM을 되돌리고 파라미터를 복구해 **S1 또는 S0**으로 복귀. 게이트를 켜지 않는다.
+
+### Step 6 — PR-7·게이트 on·배포 실증·C4·fault drill (owner: @GoBeromsu) → S3 (D7 시작)
+
+step 6 **진입 시점부터 D7**: 이후 실패는 legacy 복원 금지. 즉시 `DEPLOY_TRIGGER_ENABLED=false` 후 v2 fix-forward만 허용한다.
+
+1. **PR-7 마커 재발급·병합**
+   - 명령/UI: 활성화 병합 후 `<PR7>`의 새 `headRefOid`를 읽고, exact-head `MERGE_READY`+`PM_ACCEPT`를 **재발급**한 뒤 병합.
+   - 예상 결과: PR-7이 현재 headRefOid 기준으로 병합됨.
+   - 실패 전이: 게이트 off 유지, S2 고정, fix-forward PR만 허용.
+2. **게이트 enable**
+   - 명령/UI: `DEPLOY_TRIGGER_ENABLED=true`.
+   - 예상 결과: 변수 `true`, 상태=S3.
+   - 실패 전이: 변수를 `false`로 되돌리고 S2 fix-forward.
+3. **정상 Release 배포**
+   - 명령/UI: 승인된 full Release + #199 `@GoBeromsu` `RELEASE_ACCEPT role=PM tag=<tag> head=<sha>` 후 `release.yml`/`deploy.yml` 경로로 트리거(또는 동등한 신 경로 수동 POST).
+   - 예상 결과: 신 경로로 job이 성공하고 loopback·TLS `/`·`/api/v1/health`가 2xx, 실행 중 tag가 대상 Release.
+   - 실패 전이: 게이트 off → v2 fix-forward(D7). legacy job/C3로 운영을 되돌리지 않는다.
+4. **독립 no-op 배포**
+   - 명령/UI: 동일 latest Release로 신 경로 트리거 1회 재전달.
+   - 예상 결과: 성공 no-op(재빌드·재deploy 없음)이 로그로 확인됨.
+   - 실패 전이: D7(게이트 off + fix-forward).
+5. **C4 N=120 격리 retention fixture**
+   - 명령/UI: [pre-deploy-verify](./pre-deploy-verify.md) «G007 C4» 실행.
+   - 예상 결과: 공유 pruning surface가 있을 때만, 운영 `<BACKUP_DIR>`과 **분리된** 121-item synthetic 디렉터리에서 동일 구현으로 120개 보존·fixture 삭제·실 backup name/byte inventory 전후 일치.
+   - 차단: 공유 pruning surface가 없으면 C4는 **blocked**로 기록하고 실 backup에서 retention을 실행하지 않는다. C4 blocked만으로 step 6 전체를 자동 abort하지는 않으나 S4 종료 조건에서는 미해소로 남는다.
+   - 실패 전이(surface 존재 시 inventory 불일치): D7.
+6. **controlled reversible fault drill**
+   - 명령/UI: 고의 fault Release를 신 경로로 배포 → 즉시 정상 tag로 revert 트리거 → 한 단계 `PREV_TAG` rollback 관찰 → fault Release·tag·image 정리 → 깨끗한 정상 Release 재배포.
+   - 예상 결과: rollback 1회가 관찰되고 fault 산출물이 제거되었으며 최종 실행 중 tag가 정상 Release.
+   - 실패 전이: D7. step 7의 dual-only nginx 복구와 혼동하지 않는다.
+
+### Step 7 — new-only host nginx (owner: @GoBeromsu) → S4 직전
+
+- 명령/UI:
+  - old path unauthorized probe를 다시 잠가 non-2xx + delta 0을 확인([pre-deploy-verify](./pre-deploy-verify.md))
+  - new-only conf 설치 → `sudo nginx -t` → reload
+  - old location 부재·new location 존재를 active conf에서 확인
+  - 인가된 신 경로 트리거 1회 성공(no-op 또는 정상) 확인
+- 예상 결과: old path 영-부작용, new-only active, 게이트 `true`, Jenkins는 v2 유지.
+- 실패 전이: 게이트를 `false`로 두고 **dual-route nginx만** 복구(S3 쪽). legacy Jenkinsfile·파라미터 job으로 내리지 않는다(D7).
+
+### Step 8 — S4 종료 검증 (owner: @GoBeromsu)
+
+- 명령/UI: [pre-deploy-verify](./pre-deploy-verify.md) «G007 S4 checklist»를 순서대로 평가한다.
+- 예상 결과(모두 충족 시 상태=S4, 점검 창 종료):
+  - `DEPLOY_TRIGGER_ENABLED=true`
+  - 운영 job 파라미터 없음, running=0, queue=0
+  - 깨끗한 정상 Release tag가 실행 중
+  - loopback·TLS health 2xx
+  - D6 닫힘 유지
+  - old trigger 영-부작용(non-2xx + delta 0)
+  - 최근 인가된 new trigger 성공
+  - C4 증거가 유효하거나, 공유 pruning surface 부재로 blocked인 사실이 명시됨
+  - fault Release/tag/image 잔존 없음
+  - ruleset 변경 없음(D8)
+- 실패 전이: 미충족 항목을 고치기 위해 게이트 off 후 v2 fix-forward. S4를 선언하지 않는다.
+
+### G007 종료 후
+
+- C3 job은 보관하되 운영 트리거 경로에 연결하지 않는다. 제거는 별도 승인 작업이다.
+- follow-up(공유 pruning surface·C4 실운전·D6 해제)은 이 절 밖 high-risk 작업으로 연다.
+- 팀 상태 링크·미해소 전제만 [TEAM-STATE](../handoff/TEAM-STATE.md)에 남긴다.
