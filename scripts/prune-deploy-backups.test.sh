@@ -176,6 +176,86 @@ expect_pass 'retain 2 keeps newest pair' bash -c "[[ ! -e '$order_dir/v1.2.3-1.s
 order_count=$(count_matching "$order_dir")
 expect_pass 'retain 2 count' bash -c "[[ '$order_count' -eq 2 ]]"
 
+# --- injected find producer failure must fail-closed with no inventory change ---
+# PATH shim shadows `find` only for this fixture; production command is unchanged.
+producer_fail_dir="$fixture_root/producer-fail"
+mkdir -p "$producer_fail_dir"
+seed_ordered_backups "$producer_fail_dir" 5
+# Non-matching inventory that must also survive a failed run.
+printf 'keep-notes\n' >"$producer_fail_dir/notes.txt"
+before_producer_fail=$(count_matching "$producer_fail_dir")
+# Stable inventory fingerprint: sorted basenames + type + content checksum (not dir mtime).
+inventory_fingerprint() {
+  local dir=$1
+  local f base kind sum
+  local names=()
+  shopt -s nullglob
+  for f in "$dir"/*; do
+    names+=("${f##*/}")
+  done
+  shopt -u nullglob
+  if ((${#names[@]} > 0)); then
+    local sorted
+    sorted=$(printf '%s\n' "${names[@]}" | LC_ALL=C sort)
+    while IFS= read -r base; do
+      [[ -n "$base" ]] || continue
+      f="$dir/$base"
+      if [[ -L "$f" ]]; then
+        kind="L:$(readlink "$f")"
+      elif [[ -f "$f" ]]; then
+        sum=$(cksum <"$f")
+        kind="F:${sum}"
+      elif [[ -d "$f" ]]; then
+        kind="D"
+      else
+        kind="?"
+      fi
+      printf '%s\t%s\n' "$base" "$kind"
+    done <<<"$sorted"
+  fi
+}
+before_producer_fp=$(inventory_fingerprint "$producer_fail_dir" | cksum)
+before_notes_cksum=$(cksum <"$producer_fail_dir/notes.txt")
+before_newest_cksum=$(cksum <"$producer_fail_dir/v1.2.3-5.sql")
+before_oldest_cksum=$(cksum <"$producer_fail_dir/v1.2.3-1.sql")
+
+find_shim_dir="$fixture_root/find-shim"
+mkdir -p "$find_shim_dir"
+cat >"$find_shim_dir/find" <<'SHIM'
+#!/usr/bin/env bash
+# Synthetic producer failure: never enumerate; always non-zero.
+printf 'synthetic-find-failure\n' >&2
+exit 42
+SHIM
+chmod +x "$find_shim_dir/find"
+
+producer_fail_rc=0
+producer_fail_err="$fixture_root/producer-fail.err"
+env PATH="$find_shim_dir:$PATH" "$pruner" "$producer_fail_dir" 2 >"$producer_fail_err" 2>&1 || producer_fail_rc=$?
+
+expect_pass 'find producer failure exits nonzero' bash -c "[[ '$producer_fail_rc' -ne 0 ]]"
+expect_pass 'find producer failure is not success-zero' bash -c "[[ '$producer_fail_rc' -gt 0 ]]"
+expect_pass 'find producer failure emits FAIL_CLOSED' bash -c "grep -q 'FAIL_CLOSED' '$producer_fail_err'"
+
+after_producer_fail=$(count_matching "$producer_fail_dir")
+after_producer_fp=$(inventory_fingerprint "$producer_fail_dir" | cksum)
+after_notes_cksum=$(cksum <"$producer_fail_dir/notes.txt")
+after_newest_cksum=$(cksum <"$producer_fail_dir/v1.2.3-5.sql")
+after_oldest_cksum=$(cksum <"$producer_fail_dir/v1.2.3-1.sql")
+
+expect_pass 'find producer failure deletes nothing (count)' bash -c "[[ '$before_producer_fail' -eq 5 && '$after_producer_fail' -eq 5 ]]"
+expect_pass 'find producer failure keeps all matching names' bash -c "[[ -f '$producer_fail_dir/v1.2.3-1.sql' && -f '$producer_fail_dir/v1.2.3-2.sql' && -f '$producer_fail_dir/v1.2.3-3.sql' && -f '$producer_fail_dir/v1.2.3-4.sql' && -f '$producer_fail_dir/v1.2.3-5.sql' ]]"
+expect_pass 'find producer failure inventory fingerprint unchanged' bash -c "[[ '$before_producer_fp' == '$after_producer_fp' ]]"
+expect_pass 'find producer failure notes untouched' bash -c "[[ '$before_notes_cksum' == '$after_notes_cksum' ]]"
+expect_pass 'find producer failure newest content untouched' bash -c "[[ '$before_newest_cksum' == '$after_newest_cksum' ]]"
+expect_pass 'find producer failure oldest content untouched' bash -c "[[ '$before_oldest_cksum' == '$after_oldest_cksum' ]]"
+
+# Control: without shim, same dir prunes normally (retain 2 → 2 newest).
+expect_pass 'control prune after producer-fail fixture runs' "$pruner" "$producer_fail_dir" 2
+control_count=$(count_matching "$producer_fail_dir")
+expect_pass 'control prune retains 2' bash -c "[[ '$control_count' -eq 2 ]]"
+expect_pass 'control prune kept newest pair' bash -c "[[ ! -e '$producer_fail_dir/v1.2.3-1.sql' && ! -e '$producer_fail_dir/v1.2.3-2.sql' && ! -e '$producer_fail_dir/v1.2.3-3.sql' && -f '$producer_fail_dir/v1.2.3-4.sql' && -f '$producer_fail_dir/v1.2.3-5.sql' ]]"
+
 # --- retain 120 accepted as positive integer (empty dir) ---
 accept_dir="$fixture_root/accept120"
 mkdir -p "$accept_dir"

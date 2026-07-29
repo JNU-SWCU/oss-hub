@@ -54,15 +54,35 @@ fi
 # Canonical absolute path; -P resolves intermediates but dir itself is not a symlink.
 backup_dir=$(cd -- "$backup_dir" && pwd -P)
 
+# Materialize NUL inventories with checked producers. Process substitutions do not
+# propagate find's exit status, so a failed inventory must not become empty success.
+inventory_dir=$(mktemp -d "${TMPDIR:-/tmp}/prune-deploy-backups.inv.XXXXXX")
+cleanup_inventory() {
+  rm -rf -- "$inventory_dir"
+}
+trap cleanup_inventory EXIT
+
+symlink_inventory="$inventory_dir/symlinks.print0"
+file_inventory="$inventory_dir/files.print0"
+
+if ! find "$backup_dir" -maxdepth 1 -type l -print0 >"$symlink_inventory"; then
+  fail_closed "symlink inventory producer failed"
+fi
+
 # 계약 이름을 가진 symlink는 외부 파일 오인 가능성이 있으므로 전체 작업을 중단한다.
 while IFS= read -r -d '' entry; do
   base=${entry##*/}
   if [[ "$base" =~ $BACKUP_NAME_RE ]]; then
     fail_closed "contract-named symlink entry is forbidden"
   fi
-done < <(find "$backup_dir" -maxdepth 1 -type l -print0)
+done <"$symlink_inventory"
+
 # Collect matching regular files only. maxdepth 1: never traverse subdirs or outside.
 # -type f excludes symlinks (even when the target is a regular file).
+if ! find "$backup_dir" -maxdepth 1 -type f -print0 >"$file_inventory"; then
+  fail_closed "file inventory producer failed"
+fi
+
 candidates=()
 while IFS= read -r -d '' entry; do
   base=${entry##*/}
@@ -94,18 +114,24 @@ while IFS= read -r -d '' entry; do
 
   mtime=$(file_mtime_epoch "$entry")
   candidates+=("${mtime}"$'\t'"${entry}")
-done < <(find "$backup_dir" -maxdepth 1 -type f -print0)
+done <"$file_inventory"
 
 if ((${#candidates[@]} == 0)); then
   exit 0
 fi
 
 # Newest-first by mtime (numeric desc), then path for deterministic ties.
+# Materialize sort output so a failed order producer cannot become empty success.
+sort_inventory="$inventory_dir/sorted.tsv"
+if ! printf '%s\n' "${candidates[@]}" | LC_ALL=C sort -t $'\t' -k1,1nr -k2,2 >"$sort_inventory"; then
+  fail_closed "mtime order producer failed"
+fi
+
 sorted_paths=()
 while IFS=$'\t' read -r _mtime path; do
   [[ -n "$path" ]] || continue
   sorted_paths+=("$path")
-done < <(printf '%s\n' "${candidates[@]}" | LC_ALL=C sort -t $'\t' -k1,1nr -k2,2)
+done <"$sort_inventory"
 
 total=${#sorted_paths[@]}
 if ((total <= retain_n)); then
