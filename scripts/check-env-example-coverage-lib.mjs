@@ -469,6 +469,18 @@ export function collectCodeHits(
     { owner: 'frontend', dir: path.join(scanRoot, 'apps/frontend/src') },
   ];
 
+  // 스캔 대상이 하나도 없으면 코드→계약 방향을 전혀 검증하지 못한 것이다.
+  // 그 상태로 성공을 보고하면 "code keys declared and service-mapped"가 거짓 주장이 되므로
+  // 조용히 통과시키지 않고 명시적으로 실패시킨다(모노레포 구조 변경 시 검사기 무력화 방지).
+  if (!owners.some(({ dir }) => fs.existsSync(dir))) {
+    const error = new Error(
+      `env example contract: no scan target found under ${scanRoot}; expected apps/backend/src or apps/frontend/src`,
+    );
+    error.name = 'EnvContractScanError';
+    /** @type {any} */ (error).messages = [error.message];
+    throw error;
+  }
+
   for (const { owner, dir } of owners) {
     let files;
     try {

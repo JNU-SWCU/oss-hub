@@ -120,6 +120,11 @@ function composeConfigFromText(
  * @param {{ skipDocker?: boolean }} [options]
  */
 function evaluateFixture(scanRoot, composeText, envText, options = {}) {
+  // 스캔 대상 부재는 검사기가 fail-closed 로 다루는 실제 결함 신호다.
+  // 순수 계약 fixture 는 코드 소비가 없는 정상 저장소를 흉내내야 하므로 빈 src 를 보장한다.
+  for (const dir of ['apps/backend/src', 'apps/frontend/src']) {
+    fs.mkdirSync(path.join(scanRoot, dir), { recursive: true });
+  }
   const codeHits = collectCodeHits(scanRoot, REPO_ROOT, ts);
   const composeConfig = options.skipDocker
     ? null
@@ -195,6 +200,12 @@ function writeMinimalContractTree(root, extraFiles = {}) {
     '.env.example': 'DATABASE_URL=value\nAUTH_INITIAL_ROLES=\n',
     ...extraFiles,
   });
+  // 검사기는 스캔 대상 디렉터리 부재를 fail-closed 로 처리한다.
+  // fixture 는 구조가 온전한 저장소를 흉내내야 하므로 빈 src 디렉터리를 보장한다.
+  // 디렉터리가 있고 파일이 0개인 것은 정당한 상태이고, 디렉터리 자체가 없는 것이 결함이다.
+  for (const dir of ['apps/backend/src', 'apps/frontend/src']) {
+    fs.mkdirSync(path.join(root, dir), { recursive: true });
+  }
 }
 
 // --- 순수 함수: 키 추출 AST ---
@@ -1160,6 +1171,9 @@ ESCAPED_KEY=
 COMMENT_KEY=
 `,
     });
+    for (const dir of ['apps/backend/src', 'apps/frontend/src']) {
+      fs.mkdirSync(path.join(root, dir), { recursive: true });
+    }
     const missing = runEntryCli(root);
     assert.equal(missing.code, 1, missing.stderr || missing.stdout);
     assert.match(
@@ -1220,6 +1234,20 @@ test('CLI: production integration 파일명 면제 경계는 entry 경로에서 
     const result = runEntryCli(root);
     assert.equal(result.code, 1, result.stderr || result.stdout);
     assert.match(result.stderr, /OSS_HUB_INTEGRATION_RUNNER/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI: 스캔 대상 디렉터리가 하나도 없으면 성공을 보고하지 않는다', () => {
+  const root = makeTempDir();
+  try {
+    writeMinimalContractTree(root, {});
+    // 코드→계약 방향을 검증할 대상 자체를 제거한다.
+    fs.rmSync(path.join(root, 'apps'), { recursive: true, force: true });
+    const result = runEntryCli(root);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.match(result.stderr, /no scan target found/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
