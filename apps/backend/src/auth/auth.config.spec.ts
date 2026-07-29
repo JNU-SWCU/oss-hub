@@ -73,6 +73,9 @@ describe('AuthConfig', () => {
     ['empty-query-hash', 'https://oss.example?#'],
     ['empty-userinfo', 'https://@oss.example'],
     ['empty-userinfo-with-colon', 'https://:@oss.example'],
+    ['slashless-empty-query', 'https:oss.example?'],
+    ['slashless-empty-userinfo', 'https:@oss.example'],
+    ['backslash-empty-query', 'https:\\\\oss.example?'],
   ])(
     'FRONTEND_URL이 canonical origin이 아니면 거부한다: %s',
     (_label, frontendUrl) => {

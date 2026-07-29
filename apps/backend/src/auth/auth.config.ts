@@ -129,6 +129,9 @@ export class AuthConfig {
   }
 
   private parseAbsoluteUrl(raw: string, envName: string): URL {
+    if (!/^https?:\/\//i.test(raw)) {
+      throw new Error(`${envName}은 canonical http(s) URL이어야 합니다.`);
+    }
     let url: URL;
     try {
       url = new URL(raw);

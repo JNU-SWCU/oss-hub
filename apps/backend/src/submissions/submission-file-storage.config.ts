@@ -86,6 +86,9 @@ function booleanConfigValue(raw: string | undefined): boolean | null {
 // - https는 외부 호스트 허용
 // - http는 loopback·사설/링크로컬 주소와 Compose 내부 서비스명 `minio`만 허용
 function isAllowedEndpoint(endpoint: string): boolean {
+  if (!/^https?:\/\//i.test(endpoint)) {
+    return false;
+  }
   try {
     const url = new URL(endpoint);
     if (

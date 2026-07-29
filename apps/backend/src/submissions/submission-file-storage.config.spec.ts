@@ -174,6 +174,11 @@ describe('SubmissionFileStorageConfig', () => {
     'https://:@s3.example.com',
     'http://@minio:9000',
     'http://:@minio:9000',
+    // WHATWG가 허용하는 slashless/backslash special URL도 canonical 입력이 아니다.
+    'http:minio:9000?',
+    'https:s3.example.com?',
+    'https:@s3.example.com',
+    'http:\\\\minio:9000?',
     // userinfo에 사설 호스트를 숨겨도 credentials가 있으면 거부.
     'http://minio:9000@s3.example.com/',
     // 사설 IP를 앞에 붙인 공개 호스트명.
