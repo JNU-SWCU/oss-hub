@@ -16,14 +16,14 @@
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../../app.module';
-import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
+import { PROCESS_RUNTIME_CONFIG } from '../../runtime-config/runtime-config.instance';
 import { LogMailSender } from '../adapters/log-mail-sender';
 import { DeadlineDigestService } from '../deadline-digest.service';
 import { resolveMailSender } from '../mail-sender.provider';
 
 async function main(): Promise<void> {
   const logger = new Logger('send-deadline-digest-cli');
-  const runtime = loadRuntimeConfig(process.env);
+  const runtime = PROCESS_RUNTIME_CONFIG;
   const forceTo = runtime.DIGEST_FORCE_TO?.trim();
 
   // 강제 경로: DB/Nest 없이 메일 어댑터만 사용한다(로컬 점검용). MAIL_MODE 준수.
