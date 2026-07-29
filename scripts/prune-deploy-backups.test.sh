@@ -417,6 +417,227 @@ expect_pass 'separator-bearing tab filename content untouched' bash -c "[[ '$bef
 expect_pass 'separator-bearing newline filename content untouched' bash -c "[[ '$before_sep_nl' == '$after_sep_nl' ]]"
 expect_pass 'separator-bearing fixture kept newest pair' bash -c "[[ ! -e '$sep_dir/v1.2.3-1.sql' && ! -e '$sep_dir/v1.2.3-2.sql' && ! -e '$sep_dir/v1.2.3-3.sql' && -f '$sep_dir/v1.2.3-4.sql' && -f '$sep_dir/v1.2.3-5.sql' ]]"
 
+
+# --- clean-boundary source find inventory truncation must fail before deletion ---
+# PATH shim runs real find then drops the final complete NUL record (size still NUL-terminated).
+src_trunc_dir="$fixture_root/src-trunc"
+mkdir -p "$src_trunc_dir"
+seed_ordered_backups "$src_trunc_dir" 5
+printf 'keep-notes\n' >"$src_trunc_dir/notes.txt"
+before_src_trunc=$(count_matching "$src_trunc_dir")
+before_src_trunc_fp=$(inventory_fingerprint "$src_trunc_dir" | cksum)
+before_src_trunc_notes=$(cksum <"$src_trunc_dir/notes.txt")
+before_src_trunc_newest=$(cksum <"$src_trunc_dir/v1.2.3-5.sql")
+before_src_trunc_oldest=$(cksum <"$src_trunc_dir/v1.2.3-1.sql")
+
+src_trunc_shim_dir="$fixture_root/find-shim-src-trunc"
+mkdir -p "$src_trunc_shim_dir"
+real_find=$(command -v find)
+cat >"$src_trunc_shim_dir/find" <<'SHIM'
+#!/usr/bin/env bash
+set -euo pipefail
+real_find_bin="${REAL_FIND_BIN:?}"
+tmp=$(mktemp "${TMPDIR:-/tmp}/find-trunc.XXXXXX")
+trap 'rm -f -- "$tmp"' EXIT
+"$real_find_bin" "$@" >"$tmp"
+python3 - "$tmp" <<'PY'
+import sys
+from pathlib import Path
+p = Path(sys.argv[1])
+data = p.read_bytes()
+if not data:
+    raise SystemExit(0)
+parts = data.split(b"\0")
+if parts and parts[-1] == b"":
+    parts = parts[:-1]
+if len(parts) >= 1:
+    parts = parts[:-1]
+out = b"\0".join(parts)
+if parts:
+    out += b"\0"
+p.write_bytes(out)
+PY
+cat "$tmp"
+SHIM
+chmod +x "$src_trunc_shim_dir/find"
+
+src_trunc_rc=0
+src_trunc_err="$fixture_root/src-trunc.err"
+env REAL_FIND_BIN="$real_find" PATH="$src_trunc_shim_dir:$PATH" "$pruner" "$src_trunc_dir" 2 >"$src_trunc_err" 2>&1 || src_trunc_rc=$?
+
+expect_pass 'source find truncation exits nonzero' bash -c "[[ '$src_trunc_rc' -ne 0 ]]"
+expect_pass 'source find truncation is not success-zero' bash -c "[[ '$src_trunc_rc' -gt 0 ]]"
+expect_pass 'source find truncation emits FAIL_CLOSED' bash -c "grep -q 'FAIL_CLOSED' '$src_trunc_err'"
+
+after_src_trunc=$(count_matching "$src_trunc_dir")
+after_src_trunc_fp=$(inventory_fingerprint "$src_trunc_dir" | cksum)
+after_src_trunc_notes=$(cksum <"$src_trunc_dir/notes.txt")
+after_src_trunc_newest=$(cksum <"$src_trunc_dir/v1.2.3-5.sql")
+after_src_trunc_oldest=$(cksum <"$src_trunc_dir/v1.2.3-1.sql")
+
+expect_pass 'source find truncation deletes nothing (count)' bash -c "[[ '$before_src_trunc' -eq 5 && '$after_src_trunc' -eq 5 ]]"
+expect_pass 'source find truncation keeps all matching names' bash -c "[[ -f '$src_trunc_dir/v1.2.3-1.sql' && -f '$src_trunc_dir/v1.2.3-2.sql' && -f '$src_trunc_dir/v1.2.3-3.sql' && -f '$src_trunc_dir/v1.2.3-4.sql' && -f '$src_trunc_dir/v1.2.3-5.sql' ]]"
+expect_pass 'source find truncation fingerprint unchanged' bash -c "[[ '$before_src_trunc_fp' == '$after_src_trunc_fp' ]]"
+expect_pass 'source find truncation notes untouched' bash -c "[[ '$before_src_trunc_notes' == '$after_src_trunc_notes' ]]"
+expect_pass 'source find truncation newest content untouched' bash -c "[[ '$before_src_trunc_newest' == '$after_src_trunc_newest' ]]"
+expect_pass 'source find truncation oldest content untouched' bash -c "[[ '$before_src_trunc_oldest' == '$after_src_trunc_oldest' ]]"
+
+# --- clean-boundary source inventory early complete prefix must fail before deletion ---
+src_read_dir="$fixture_root/src-read-term"
+mkdir -p "$src_read_dir"
+seed_ordered_backups "$src_read_dir" 5
+printf 'keep-notes\n' >"$src_read_dir/notes.txt"
+before_src_read=$(count_matching "$src_read_dir")
+before_src_read_fp=$(inventory_fingerprint "$src_read_dir" | cksum)
+before_src_read_notes=$(cksum <"$src_read_dir/notes.txt")
+before_src_read_newest=$(cksum <"$src_read_dir/v1.2.3-5.sql")
+before_src_read_oldest=$(cksum <"$src_read_dir/v1.2.3-1.sql")
+
+src_read_shim_dir="$fixture_root/find-shim-src-read"
+mkdir -p "$src_read_shim_dir"
+cat >"$src_read_shim_dir/find" <<'SHIM'
+#!/usr/bin/env bash
+set -euo pipefail
+real_find_bin="${REAL_FIND_BIN:?}"
+tmp=$(mktemp "${TMPDIR:-/tmp}/find-early.XXXXXX")
+trap 'rm -f -- "$tmp"' EXIT
+"$real_find_bin" "$@" >"$tmp"
+python3 - "$tmp" <<'PY'
+import sys
+from pathlib import Path
+p = Path(sys.argv[1])
+data = p.read_bytes()
+raw_parts = data.split(b"\0")
+if raw_parts and raw_parts[-1] == b"":
+    body = raw_parts[:-1]
+else:
+    body = raw_parts
+body = body[:2]
+out = b"\0".join(body)
+if body:
+    out += b"\0"
+p.write_bytes(out)
+PY
+cat "$tmp"
+SHIM
+chmod +x "$src_read_shim_dir/find"
+
+src_read_rc=0
+src_read_err="$fixture_root/src-read.err"
+env REAL_FIND_BIN="$real_find" PATH="$src_read_shim_dir:$PATH" "$pruner" "$src_read_dir" 2 >"$src_read_err" 2>&1 || src_read_rc=$?
+
+expect_pass 'source find early-EOF exits nonzero' bash -c "[[ '$src_read_rc' -ne 0 ]]"
+expect_pass 'source find early-EOF emits FAIL_CLOSED' bash -c "grep -q 'FAIL_CLOSED' '$src_read_err'"
+after_src_read=$(count_matching "$src_read_dir")
+after_src_read_fp=$(inventory_fingerprint "$src_read_dir" | cksum)
+after_src_read_notes=$(cksum <"$src_read_dir/notes.txt")
+after_src_read_newest=$(cksum <"$src_read_dir/v1.2.3-5.sql")
+after_src_read_oldest=$(cksum <"$src_read_dir/v1.2.3-1.sql")
+expect_pass 'source find early-EOF deletes nothing (count)' bash -c "[[ '$before_src_read' -eq 5 && '$after_src_read' -eq 5 ]]"
+expect_pass 'source find early-EOF fingerprint unchanged' bash -c "[[ '$before_src_read_fp' == '$after_src_read_fp' ]]"
+expect_pass 'source find early-EOF notes untouched' bash -c "[[ '$before_src_read_notes' == '$after_src_read_notes' ]]"
+expect_pass 'source find early-EOF newest content untouched' bash -c "[[ '$before_src_read_newest' == '$after_src_read_newest' ]]"
+expect_pass 'source find early-EOF oldest content untouched' bash -c "[[ '$before_src_read_oldest' == '$after_src_read_oldest' ]]"
+
+# --- successful ascending-order sort must fail-closed with no deletion ---
+asc_dir="$fixture_root/sort-asc"
+mkdir -p "$asc_dir"
+seed_ordered_backups "$asc_dir" 5
+printf 'keep-notes\n' >"$asc_dir/notes.txt"
+before_asc=$(count_matching "$asc_dir")
+before_asc_fp=$(inventory_fingerprint "$asc_dir" | cksum)
+before_asc_notes=$(cksum <"$asc_dir/notes.txt")
+before_asc_newest=$(cksum <"$asc_dir/v1.2.3-5.sql")
+before_asc_oldest=$(cksum <"$asc_dir/v1.2.3-1.sql")
+
+asc_shim_dir="$fixture_root/sort-shim-asc"
+mkdir -p "$asc_shim_dir"
+real_sort=$(command -v sort)
+cat >"$asc_shim_dir/sort" <<'SHIM'
+#!/usr/bin/env bash
+set -euo pipefail
+real_sort_bin="${REAL_SORT_BIN:?}"
+# Deterministic successful fault: emit all records ascending (opposite of required order).
+"$real_sort_bin" -t $'\t' -k1,1n -k2,2
+SHIM
+chmod +x "$asc_shim_dir/sort"
+
+asc_rc=0
+asc_err="$fixture_root/sort-asc.err"
+env REAL_SORT_BIN="$real_sort" PATH="$asc_shim_dir:$PATH" "$pruner" "$asc_dir" 2 >"$asc_err" 2>&1 || asc_rc=$?
+
+expect_pass 'ascending sort exits nonzero' bash -c "[[ '$asc_rc' -ne 0 ]]"
+expect_pass 'ascending sort is not success-zero' bash -c "[[ '$asc_rc' -gt 0 ]]"
+expect_pass 'ascending sort emits FAIL_CLOSED' bash -c "grep -q 'FAIL_CLOSED' '$asc_err'"
+
+after_asc=$(count_matching "$asc_dir")
+after_asc_fp=$(inventory_fingerprint "$asc_dir" | cksum)
+after_asc_notes=$(cksum <"$asc_dir/notes.txt")
+after_asc_newest=$(cksum <"$asc_dir/v1.2.3-5.sql")
+after_asc_oldest=$(cksum <"$asc_dir/v1.2.3-1.sql")
+
+expect_pass 'ascending sort deletes nothing (count)' bash -c "[[ '$before_asc' -eq 5 && '$after_asc' -eq 5 ]]"
+expect_pass 'ascending sort keeps all matching names' bash -c "[[ -f '$asc_dir/v1.2.3-1.sql' && -f '$asc_dir/v1.2.3-2.sql' && -f '$asc_dir/v1.2.3-3.sql' && -f '$asc_dir/v1.2.3-4.sql' && -f '$asc_dir/v1.2.3-5.sql' ]]"
+expect_pass 'ascending sort fingerprint unchanged' bash -c "[[ '$before_asc_fp' == '$after_asc_fp' ]]"
+expect_pass 'ascending sort notes untouched' bash -c "[[ '$before_asc_notes' == '$after_asc_notes' ]]"
+expect_pass 'ascending sort newest content untouched' bash -c "[[ '$before_asc_newest' == '$after_asc_newest' ]]"
+expect_pass 'ascending sort oldest content untouched' bash -c "[[ '$before_asc_oldest' == '$after_asc_oldest' ]]"
+
+# --- same-count duplicate/omit sort must fail-closed with no deletion ---
+dup_dir="$fixture_root/sort-dup-omit"
+mkdir -p "$dup_dir"
+seed_ordered_backups "$dup_dir" 5
+printf 'keep-notes\n' >"$dup_dir/notes.txt"
+before_dup=$(count_matching "$dup_dir")
+before_dup_fp=$(inventory_fingerprint "$dup_dir" | cksum)
+before_dup_notes=$(cksum <"$dup_dir/notes.txt")
+before_dup_newest=$(cksum <"$dup_dir/v1.2.3-5.sql")
+before_dup_oldest=$(cksum <"$dup_dir/v1.2.3-1.sql")
+
+dup_shim_dir="$fixture_root/sort-shim-dup-omit"
+mkdir -p "$dup_shim_dir"
+cat >"$dup_shim_dir/sort" <<'SHIM'
+#!/usr/bin/env bash
+set -euo pipefail
+real_sort_bin="${REAL_SORT_BIN:?}"
+tmp=$(mktemp "${TMPDIR:-/tmp}/sort-dup.XXXXXX")
+trap 'rm -f -- "$tmp"' EXIT
+"$real_sort_bin" -t $'\t' -k1,1nr -k2,2 >"$tmp"
+# Same count: drop the last record and duplicate the first.
+python3 - "$tmp" <<'PY'
+import sys
+from pathlib import Path
+p = Path(sys.argv[1])
+lines = [ln for ln in p.read_text().splitlines() if ln != ""]
+if len(lines) >= 2:
+    lines = [lines[0]] + lines[:-1]
+p.write_text("\n".join(lines) + ("\n" if lines else ""))
+PY
+cat "$tmp"
+SHIM
+chmod +x "$dup_shim_dir/sort"
+
+dup_rc=0
+dup_err="$fixture_root/sort-dup.err"
+env REAL_SORT_BIN="$real_sort" PATH="$dup_shim_dir:$PATH" "$pruner" "$dup_dir" 2 >"$dup_err" 2>&1 || dup_rc=$?
+
+expect_pass 'duplicate/omit sort exits nonzero' bash -c "[[ '$dup_rc' -ne 0 ]]"
+expect_pass 'duplicate/omit sort is not success-zero' bash -c "[[ '$dup_rc' -gt 0 ]]"
+expect_pass 'duplicate/omit sort emits FAIL_CLOSED' bash -c "grep -q 'FAIL_CLOSED' '$dup_err'"
+
+after_dup=$(count_matching "$dup_dir")
+after_dup_fp=$(inventory_fingerprint "$dup_dir" | cksum)
+after_dup_notes=$(cksum <"$dup_dir/notes.txt")
+after_dup_newest=$(cksum <"$dup_dir/v1.2.3-5.sql")
+after_dup_oldest=$(cksum <"$dup_dir/v1.2.3-1.sql")
+
+expect_pass 'duplicate/omit sort deletes nothing (count)' bash -c "[[ '$before_dup' -eq 5 && '$after_dup' -eq 5 ]]"
+expect_pass 'duplicate/omit sort keeps all matching names' bash -c "[[ -f '$dup_dir/v1.2.3-1.sql' && -f '$dup_dir/v1.2.3-2.sql' && -f '$dup_dir/v1.2.3-3.sql' && -f '$dup_dir/v1.2.3-4.sql' && -f '$dup_dir/v1.2.3-5.sql' ]]"
+expect_pass 'duplicate/omit sort fingerprint unchanged' bash -c "[[ '$before_dup_fp' == '$after_dup_fp' ]]"
+expect_pass 'duplicate/omit sort notes untouched' bash -c "[[ '$before_dup_notes' == '$after_dup_notes' ]]"
+expect_pass 'duplicate/omit sort newest content untouched' bash -c "[[ '$before_dup_newest' == '$after_dup_newest' ]]"
+expect_pass 'duplicate/omit sort oldest content untouched' bash -c "[[ '$before_dup_oldest' == '$after_dup_oldest' ]]"
+
 # --- retain 120 accepted as positive integer (empty dir) ---
 accept_dir="$fixture_root/accept120"
 mkdir -p "$accept_dir"
