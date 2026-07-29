@@ -57,13 +57,14 @@ EOF
 cat >"$fake_bin/pnpm" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-printf 'pnpm|%s|DATABASE_URL=%s|S3_ENDPOINT=%s|S3_BUCKET=%s|RUNNER=%s|SEED=%s\n' \
+printf 'pnpm|%s|DATABASE_URL=%s|S3_ENDPOINT=%s|S3_BUCKET=%s|RUNNER=%s|SEED=%s|JOIN_SECRET=%s\n' \
   "$*" \
   "${DATABASE_URL-}" \
   "${SUBMISSION_FILE_S3_ENDPOINT-}" \
   "${SUBMISSION_FILE_S3_BUCKET-}" \
   "${OSS_HUB_INTEGRATION_RUNNER-}" \
-  "${AUTH_INITIAL_ROLES-}" >>"$INTEGRATION_TEST_LOG"
+  "${AUTH_INITIAL_ROLES-}" \
+  "${TEAM_JOIN_CODE_SECRET-}" >>"$INTEGRATION_TEST_LOG"
 if [[ " $* " == *" jest "* ]]; then
   exit "${INTEGRATION_TEST_JEST_EXIT:-0}"
 fi
@@ -76,6 +77,7 @@ run_fixture() {
     DATABASE_URL='postgresql://inherited.invalid/real_database' \
     OSS_HUB_INTEGRATION_RUNNER='inherited-runner-marker' \
     AUTH_INITIAL_ROLES='999999:ADMIN' \
+    TEAM_JOIN_CODE_SECRET='inherited-real-join-secret' \
     INTEGRATION_TEST_LOG="$command_log" \
     INTEGRATION_TEST_JEST_EXIT="$1" \
     INTEGRATION_TEST_DOWN_EXIT="$2" \
@@ -109,6 +111,11 @@ if grep -F '999999:ADMIN' "$command_log" >/dev/null; then
   exit 1
 fi
 grep -F '|SEED=' "$command_log" >/dev/null
+test "$(grep -Fc '|JOIN_SECRET=synthetic-integration-join-code-secret' "$command_log")" -eq 1
+if grep -F 'inherited-real-join-secret' "$command_log" >/dev/null; then
+  echo 'integration contract: 호출자의 TEAM_JOIN_CODE_SECRET이 하위 프로세스에 전달됐습니다.' >&2
+  exit 1
+fi
 
 success_project="$(sed -n 's/^docker|compose -p \([^ ]*\).* up -d --wait.*$/\1/p' "$command_log")"
 success_cleanup_project="$(sed -n 's/^docker|compose -p \([^ ]*\).* down -v --remove-orphans.*$/\1/p' "$command_log")"

@@ -1,6 +1,7 @@
 import { ProgramCategory } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { computeJoinCodeDigest } from '../common/join-code-digest';
+import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import {
   type ProgramTeamsCreateStore,
   type ProgramTeamsJoinStore,
@@ -15,6 +16,7 @@ import { TeamsErrorCode } from './teams-error-code.enum';
 const NOW = new Date('2026-07-15T00:00:00.000Z');
 const GITHUB_ID = 4_242n;
 const PROGRAM_ID = 'synthetic-program';
+const JOIN_CODE_SECRET = 'synthetic-program-teams-secret';
 const STUDENT: TeamStudentActor = {
   id: 'synthetic-student',
   name: '합성 학생',
@@ -109,7 +111,12 @@ function buildService(overrides: {
   } as unknown as ProgramTeamsRepository;
 
   return {
-    service: new ProgramTeamsService(repository),
+    service: new ProgramTeamsService(
+      repository,
+      loadRuntimeConfig({
+        TEAM_JOIN_CODE_SECRET: JOIN_CODE_SECRET,
+      }),
+    ),
     repository,
     createTeamWithLeader,
     addMember,
@@ -143,7 +150,10 @@ describe('ProgramTeamsService', () => {
         programId: PROGRAM_ID,
         name: '오픈소스팀',
         leaderId: STUDENT.id,
-        joinCodeDigest: computeJoinCodeDigest(result.joinCode),
+        joinCodeDigest: computeJoinCodeDigest(
+          result.joinCode,
+          JOIN_CODE_SECRET,
+        ),
       }),
     );
   });
@@ -214,7 +224,7 @@ describe('ProgramTeamsService', () => {
 
     expect(findTeamByJoinCodeDigest).toHaveBeenCalledWith(
       PROGRAM_ID,
-      computeJoinCodeDigest(joinCode),
+      computeJoinCodeDigest(joinCode, JOIN_CODE_SECRET),
     );
     expect(addMember).toHaveBeenCalledWith(
       'synthetic-team',
