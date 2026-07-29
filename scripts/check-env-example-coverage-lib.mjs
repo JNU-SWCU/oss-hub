@@ -65,13 +65,16 @@ const TEST_FILE_RE = /\.(spec|test)\.([cm]?[jt]sx?)$|\.test\.([cm]?js)$/;
 const INTEGRATION_SPEC_RE = /\.integration\.spec\.[cm]?[jt]sx?$/;
 
 /**
+ * IMAGE_TAG 는 compose image 치환 전용이다.
+ * production compose 의 `${IMAGE_TAG:?}` 는 유지하되, 로컬 두 파일 스택
+ * (compose.yml + compose.local.yml) 은 호출자 IMAGE_TAG 를 요구하지 않으므로
+ * .env.example 문서화 대상이 아니다(compose 필수 문서 면제만, 코드 키 면제 아님).
+ *
  * @param {string} key
  * @returns {boolean}
  */
 export function isComposeRequiredDocExempt(key) {
-  void key;
-  // IMAGE_TAG 는 로컬 placeholder 로 .env.example 에 둔다. 면제 없음.
-  return false;
+  return key === 'IMAGE_TAG';
 }
 
 /**
@@ -108,9 +111,6 @@ export function isServiceMappingExempt(key, owner, relPath) {
   switch (key) {
     case 'NODE_ENV':
       // apps/*/Dockerfile · compose.local.yml 소유
-      return true;
-    case 'IMAGE_TAG':
-      // compose image: 치환 전용. 서비스 environment 매핑 대상 아님.
       return true;
     case 'DIGEST_FORCE_TO':
       return (

@@ -56,10 +56,14 @@ jobs:
               - '.github/workflows/**'
             production_compose:
               - 'compose.yml'
+              - 'compose.local.yml'
               - '.env.example'
               - 'scripts/check-env-example-coverage.mjs'
               - 'scripts/check-env-example-coverage-lib.mjs'
               - 'scripts/check-env-example-coverage.test.mjs'
+              - 'scripts/docker-verify-local.sh'
+              - 'scripts/docker-verify-local.test.sh'
+              - 'scripts/_compose-lib.sh'
               - 'apps/backend/src/**'
               - 'apps/frontend/src/**'
               - '.github/workflows/**'
@@ -162,6 +166,10 @@ jobs:
         run: |
           node --test scripts/check-env-example-coverage.test.mjs
           node scripts/check-env-example-coverage.mjs --require-docker
+
+      - name: 로컬 두 파일 compose 계약 회귀 테스트
+        if: ${{ steps.changes.outputs.production_compose == 'true' }}
+        run: bash scripts/docker-verify-local.test.sh
 
       - name: prettier 포맷 검사
         if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
