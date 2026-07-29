@@ -12,7 +12,7 @@ compose_argv() {
 
   COMPOSE_ARGV=(
     docker compose -p "$project" --env-file "$env_file"
-    -f "$repo_root/compose.yml" -f "$repo_root/compose.dev.yml" -f "$repo_root/compose.local.yml"
+    -f "$repo_root/compose.yml" -f "$repo_root/compose.local.yml"
   )
 }
 
