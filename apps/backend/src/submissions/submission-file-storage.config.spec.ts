@@ -122,6 +122,7 @@ describe('SubmissionFileStorageConfig', () => {
   });
 
   it.each([
+    // Compose 내부 서비스 호스트명(정확 일치)과 loopback/사설 http.
     'http://minio:9000',
     'http://127.0.0.1:9000',
     'http://localhost:9000',
@@ -131,26 +132,49 @@ describe('SubmissionFileStorageConfig', () => {
     // RFC1918 172.16/12 경계 양끝.
     'http://172.16.0.1:9000',
     'http://172.31.255.254:9000',
-    // IPv6 ULA.
+    // IPv6 ULA·link-local.
     'http://[fd00::1]:9000',
+    'http://[fe80::1]:9000',
     // URL 파서가 127.0.0.1로 정규화하는 십진 표기.
     'http://2130706433:9000',
     // 관리형 S3로 옮겨도 https 공개 엔드포인트는 그대로 통과해야 한다.
     'https://s3.ap-northeast-2.amazonaws.com',
-  ])('%s는 사설 대상 http라서 허용한다', (endpoint) => {
+    'https://s3.example.com',
+  ])('%s는 허용된 endpoint라서 설정을 반환한다', (endpoint) => {
     setValidEnvironment({ SUBMISSION_FILE_S3_ENDPOINT: endpoint });
 
-    expect(() =>
-      new SubmissionFileStorageConfig().requireSettings(),
-    ).not.toThrow();
+    const settings = new SubmissionFileStorageConfig().requireSettings();
+
+    expect(settings.endpoint).toBe(endpoint);
   });
 
   it.each([
+    // 공개 http·비허용 scheme·비URL.
     'http://s3.example.com',
     'http://8.8.8.8:9000',
     'ftp://minio:9000',
     'not-a-url',
-    // userinfo에 사설 호스트를 숨겨도 실제 접속 대상은 공개 호스트다.
+    // 다른 단일 라벨 호스트는 Compose 서비스명 minio가 아니므로 거부.
+    'http://redis:9000',
+    'http://postgres:9000',
+    // credentials/query/fragment는 http·https 모두 protocol 수락 전 거부.
+    'http://user:pass@minio:9000',
+    'http://minio:9000?x=1',
+    'http://minio:9000#frag',
+    'https://user:pass@s3.example.com',
+    'https://s3.example.com?x=1',
+    'https://s3.example.com#frag',
+    // present-empty delimiter: WHATWG getters are empty but component is present.
+    'https://s3.example.com?',
+    'https://s3.example.com#',
+    'https://s3.example.com?#',
+    'http://minio:9000?',
+    'http://minio:9000#',
+    'https://@s3.example.com',
+    'https://:@s3.example.com',
+    'http://@minio:9000',
+    'http://:@minio:9000',
+    // userinfo에 사설 호스트를 숨겨도 credentials가 있으면 거부.
     'http://minio:9000@s3.example.com/',
     // 사설 IP를 앞에 붙인 공개 호스트명.
     'http://127.0.0.1.s3.example.com:9000',
@@ -166,6 +190,34 @@ describe('SubmissionFileStorageConfig', () => {
     setValidEnvironment({ SUBMISSION_FILE_S3_ENDPOINT: endpoint });
 
     expectConfigurationError();
+  });
+
+  it.each([
+    // percent-encoded path octets are not query/fragment delimiters.
+    'https://s3.example.com/%3Fnot-query',
+    'https://s3.example.com/%23not-hash',
+    'https://s3.example.com/path%3Fstill-path',
+    'https://s3.example.com/path%23still-path',
+    'http://minio:9000/%3Fnot-query',
+  ])(
+    '%s는 percent-encoded 경로라서 허용된 endpoint로 설정을 반환한다',
+    (endpoint) => {
+      setValidEnvironment({ SUBMISSION_FILE_S3_ENDPOINT: endpoint });
+
+      const settings = new SubmissionFileStorageConfig().requireSettings();
+
+      expect(settings.endpoint).toBe(endpoint);
+    },
+  );
+
+  it('endpoint 앞뒤 공백은 trim한 값으로 반환한다', () => {
+    setValidEnvironment({
+      SUBMISSION_FILE_S3_ENDPOINT: '  https://s3.example.com  ',
+    });
+
+    const settings = new SubmissionFileStorageConfig().requireSettings();
+
+    expect(settings.endpoint).toBe('https://s3.example.com');
   });
 
   it('NODE_ENV=production에서도 http://minio:9000을 허용한다', () => {
