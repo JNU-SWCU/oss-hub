@@ -302,24 +302,23 @@ printf 'prev_be_image_id=%s\n' "$be_image_id"
             }
 
             // 하위 SemVer 타깃: 양쪽 실행 중이고 metadata 일치할 때만 성공 no-op (downgrade guard).
-            // SemVer는 정수 튜플 직접 비교(버전 정렬 유틸 미사용).
+            // SemVer 구성요소는 선행 0이 없는 십진 문자열이므로 길이 후 사전순으로 비교한다.
+            // Jenkins sandbox 승인이 필요한 숫자 생성자를 사용하지 않는다.
             def parseFullSemVer = { String raw ->
               if (!(raw ==~ /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/)) {
                 error("FAIL_CLOSED semver: full SemVer가 아닙니다: ${raw}")
               }
-              def body = raw.substring(1)
-              def parts = body.split(/\./)
-              return [
-                new BigInteger(parts[0]),
-                new BigInteger(parts[1]),
-                new BigInteger(parts[2]),
-              ]
+              return raw.substring(1).split(/\./)
+            }
+            def compareDecimal = { String left, String right ->
+              def lengthCmp = left.length() <=> right.length()
+              return lengthCmp != 0 ? lengthCmp : (left <=> right)
             }
             def targetParts = parseFullSemVer(env.RELEASE_TAG)
             def runningParts = parseFullSemVer(prevTag)
-            def cmp = targetParts[0] <=> runningParts[0]
-            if (cmp == 0) { cmp = targetParts[1] <=> runningParts[1] }
-            if (cmp == 0) { cmp = targetParts[2] <=> runningParts[2] }
+            def cmp = compareDecimal(targetParts[0], runningParts[0])
+            if (cmp == 0) { cmp = compareDecimal(targetParts[1], runningParts[1]) }
+            if (cmp == 0) { cmp = compareDecimal(targetParts[2], runningParts[2]) }
 
             if (cmp < 0) {
               env.DEPLOY_NOOP = 'true'

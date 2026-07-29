@@ -222,6 +222,7 @@ check_v2() {
   require_absent 'RELEASE_OVERRIDE role=PM는 없어야 함' 'RELEASE_OVERRIDE role=PM'
   require_absent 'Tech Lead 승인 actor(Lumiere001)는 없어야 함' "--arg actor 'Lumiere001'"
   require_absent 'sort -V 버전 비교는 없어야 함' 'sort -V'
+  require_absent 'sandbox 승인이 필요한 BigInteger 생성자는 없어야 함' 'new BigInteger'
   require_absent 'created action 분기 경로는 없어야 함' "action == 'created'"
   require_absent 'published action 분기 경로는 없어야 함' "action == 'published'"
   require_absent 'SHA를 IMAGE_TAG로 할당하면 안 됨' 'env.IMAGE_TAG = releaseSha'
