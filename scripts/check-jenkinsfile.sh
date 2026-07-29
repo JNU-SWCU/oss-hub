@@ -1,12 +1,60 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-jenkinsfile=${1:-Jenkinsfile}
+usage() {
+  cat >&2 <<'EOF'
+Usage:
+  scripts/check-jenkinsfile.sh
+  scripts/check-jenkinsfile.sh <Jenkinsfile>
+  scripts/check-jenkinsfile.sh legacy [Jenkinsfile]
+  scripts/check-jenkinsfile.sh v2 [Jenkinsfile.v2]
+
+Modes:
+  legacy  root Jenkinsfile Release deploy contract (default)
+  v2      parameterless latest-Release candidate contract
+EOF
+  exit 2
+}
+
+mode=""
+jenkinsfile=""
+
+if [[ $# -eq 0 ]]; then
+  mode=legacy
+  jenkinsfile=Jenkinsfile
+elif [[ $# -eq 1 ]]; then
+  case "$1" in
+    -h | --help) usage ;;
+    legacy)
+      mode=legacy
+      jenkinsfile=Jenkinsfile
+      ;;
+    v2)
+      mode=v2
+      jenkinsfile=deploy/jenkins/Jenkinsfile.v2
+      ;;
+    *)
+      mode=legacy
+      jenkinsfile=$1
+      ;;
+  esac
+elif [[ $# -eq 2 ]]; then
+  mode=$1
+  jenkinsfile=$2
+  case "$mode" in
+    legacy | v2) ;;
+    *) usage ;;
+  esac
+else
+  usage
+fi
 
 if [[ ! -f "$jenkinsfile" ]]; then
-  printf 'Jenkinsfile contract: file not found: %s\n' "$jenkinsfile" >&2
+  printf 'Jenkinsfile contract (%s): file not found: %s\n' "$mode" "$jenkinsfile" >&2
   exit 1
 fi
+
+label="Jenkinsfile contract ($mode)"
 
 active_jenkinsfile=$(mktemp "${TMPDIR:-/tmp}/jenkinsfile-active.XXXXXX")
 docker_scan_file=$(mktemp "${TMPDIR:-/tmp}/jenkinsfile-docker-scan.XXXXXX")
@@ -53,6 +101,11 @@ count_fixed() {
   { grep -F -- "$pattern" "$active_jenkinsfile" || true; } | wc -l | tr -d ' '
 }
 
+count_regex() {
+  local pattern=$1
+  { grep -Ec -- "$pattern" "$active_jenkinsfile" || true; } | tr -d ' '
+}
+
 require_exact() {
   local description=$1
   local pattern=$2
@@ -60,7 +113,7 @@ require_exact() {
   local actual
   actual=$(count_fixed "$pattern")
   if ((actual != expected)); then
-    printf 'Jenkinsfile contract: %s (expected=%s, actual=%s)\n' "$description" "$expected" "$actual" >&2
+    printf '%s: %s (expected=%s, actual=%s)\n' "$label" "$description" "$expected" "$actual" >&2
     exit 1
   fi
 }
@@ -72,7 +125,7 @@ require_at_least() {
   local actual
   actual=$(count_fixed "$pattern")
   if ((actual < minimum)); then
-    printf 'Jenkinsfile contract: %s (minimum=%s, actual=%s)\n' "$description" "$minimum" "$actual" >&2
+    printf '%s: %s (minimum=%s, actual=%s)\n' "$label" "$description" "$minimum" "$actual" >&2
     exit 1
   fi
 }
@@ -83,7 +136,30 @@ require_absent() {
   local actual
   actual=$(count_fixed "$pattern")
   if ((actual != 0)); then
-    printf 'Jenkinsfile contract: %s (expected=absent, actual=%s)\n' "$description" "$actual" >&2
+    printf '%s: %s (expected=absent, actual=%s)\n' "$label" "$description" "$actual" >&2
+    exit 1
+  fi
+}
+
+require_regex_at_least() {
+  local description=$1
+  local pattern=$2
+  local minimum=$3
+  local actual
+  actual=$(count_regex "$pattern")
+  if ((actual < minimum)); then
+    printf '%s: %s (minimum=%s, actual=%s)\n' "$label" "$description" "$minimum" "$actual" >&2
+    exit 1
+  fi
+}
+
+require_regex_absent() {
+  local description=$1
+  local pattern=$2
+  local actual
+  actual=$(count_regex "$pattern")
+  if ((actual != 0)); then
+    printf '%s: %s (expected=absent, actual=%s)\n' "$label" "$description" "$actual" >&2
     exit 1
   fi
 }
@@ -93,116 +169,289 @@ line_of() {
   grep -nF "$pattern" "$active_jenkinsfile" | head -n 1 | cut -d: -f1
 }
 
-require_exact '동시 실행 차단은 한 번이어야 함' 'disableConcurrentBuilds()' 1
-require_exact '기본 checkout 차단은 한 번이어야 함' 'skipDefaultCheckout(true)' 1
-require_exact 'Docker 권한은 전용 production executor에서만 사용해야 함' "label 'oss-hub-production'" 1
-require_exact 'Release action 입력은 한 번이어야 함' "string(name: 'RELEASE_ACTION'" 1
-require_exact 'Release tag 입력은 한 번이어야 함' "string(name: 'RELEASE_TAG'" 1
-require_exact '빈 Release 입력은 main 검증으로만 분류해야 함' "env.RUN_MODE = 'main'" 1
-require_exact '유효 Release만 배포로 분류해야 함' "env.RUN_MODE = 'release'" 1
-require_exact 'created action 허용은 한 번이어야 함' "action == 'created'" 1
-require_exact 'published action 허용은 한 번이어야 함' "action == 'published'" 1
-require_exact 'full SemVer tag 검증은 한 번이어야 함' 'tag ==~ /' 1
-require_exact 'latest Release API 검증은 한 번이어야 함' '/releases/latest' 1
-require_exact 'draft 거절은 한 번이어야 함' "jq -r '.draft'" 1
-require_exact 'prerelease 거절은 한 번이어야 함' "jq -r '.prerelease'" 1
-require_exact 'latest tag 일치는 한 번이어야 함' "jq -r '.tag_name'" 1
-require_exact 'Release tag의 commit 해석은 한 번이어야 함' 'git rev-parse "${RELEASE_TAG}^{commit}"' 1
-require_exact 'main ancestry 검증은 한 번이어야 함' 'git merge-base --is-ancestor "$release_sha" origin/main' 1
-require_exact 'exact SHA IMAGE_TAG 할당은 한 번이어야 함' 'env.IMAGE_TAG = releaseSha' 1
-require_exact 'Release 승인은 공개 #199 댓글에서 페이지별 조회해야 함' '/issues/199/comments?per_page=100&page=${page}' 1
-require_exact 'Release 승인 댓글 pagination은 최대 20페이지여야 함' 'for page in $(seq 1 20); do' 1
-require_exact 'Release 승인 댓글 pagination 완료를 확인해야 함' "if [ \"\$pagination_complete\" != 'true' ]; then" 1
-require_exact 'PM 승인 actor는 GoBeromsu여야 함' "--arg actor 'GoBeromsu'" 1
-require_absent 'Tech Lead 승인 actor(Lumiere001)는 더 이상 존재하지 않아야 함' "--arg actor 'Lumiere001'"
-require_exact 'PM 승인 형식은 tag와 exact SHA를 포함해야 함' 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}' 1
-require_absent 'RELEASE_ACCEPT role=TECH_LEAD는 더 이상 존재하지 않아야 함' 'RELEASE_ACCEPT role=TECH_LEAD tag=${RELEASE_TAG} head=${IMAGE_TAG}'
-require_absent 'RELEASE_OVERRIDE role=PM는 더 이상 존재하지 않아야 함' 'RELEASE_OVERRIDE role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}'
-require_exact 'exact SHA checkout은 한 번이어야 함' 'git checkout --detach "$IMAGE_TAG"' 1
+line_of_regex() {
+  local pattern=$1
+  grep -nE "$pattern" "$active_jenkinsfile" | head -n 1 | cut -d: -f1
+}
 
-require_exact '영속 배포 상태 파일은 고정 경로여야 함' "DEPLOY_STATE_FILE = '/var/lib/oss-hub/deploy-state/current-release'" 1
-require_exact '동일·하위 버전 비교는 한 번이어야 함' 'sort -V' 1
-require_exact '동일 Release tag의 SHA 변경은 차단해야 함' 'env.RELEASE_TAG == currentTag && env.IMAGE_TAG != env.CURRENT_DEPLOY_SHA' 1
-require_at_least 'Release 배포 stage는 no-op을 건너뛰어야 함' "env.RUN_MODE == 'release' && env.DEPLOY_NOOP != 'true'" 7
-require_at_least '운영 환경은 Jenkins file credential로 주입해야 함' "credentialsId: 'oss-hub-production-env'" 1
+require_common_executor_guards() {
+  require_exact '동시 실행 차단은 한 번이어야 함' 'disableConcurrentBuilds()' 1
+  require_exact '기본 checkout 차단은 한 번이어야 함' 'skipDefaultCheckout(true)' 1
+  require_exact 'Docker 권한은 전용 production executor에서만 사용해야 함' "label 'oss-hub-production'" 1
+}
 
-require_exact '의존성 설치는 한 번이어야 함' 'pnpm install --frozen-lockfile' 1
-require_exact '재사용 workspace에서도 Prisma client를 명시 생성해야 함' 'pnpm --filter backend exec prisma generate' 1
-require_exact 'test는 한 번이어야 함' 'pnpm test' 1
-require_exact 'DB backup은 한 번이어야 함' 'pg_dump' 1
-require_exact 'frontend 이미지는 한 번만 빌드해야 함' 'docker build --file apps/frontend/Dockerfile --tag "oss-hub-frontend:${IMAGE_TAG}" .' 1
-require_exact 'backend 이미지는 한 번만 빌드해야 함' 'docker build --file apps/backend/Dockerfile --tag "oss-hub-backend:${IMAGE_TAG}" .' 1
-require_exact '중지된 기존 container도 rollback 기준에 포함해야 함' 'docker compose --env-file "$OSS_HUB_ENV_FILE" ps --all -q' 2
-require_exact 'migration은 한 번이어야 함' 'npx prisma migrate deploy' 1
-require_exact 'primary·rollback은 기존 이미지만 사용해야 함' 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait' 2
-require_exact '내부 backend smoke는 primary·rollback에 있어야 함' 'http://127.0.0.1:8081/api/v1/health' 2
-require_exact 'TLS backend smoke는 primary·rollback에 있어야 함' 'https://54.116.116.174/api/v1/health' 2
-require_exact 'TLS smoke는 인증서의 IP SAN을 검증해야 함' "--resolve '54.116.116.174:443:127.0.0.1'" 4
-require_exact 'rollback은 이전 정상 이미지가 있을 때만 실행해야 함' 'if (env.PREV_TAG?.trim())' 1
-require_exact '정상 상태는 한 번만 원자 갱신해야 함' 'mv "$state_tmp" "$DEPLOY_STATE_FILE"' 1
+require_common_smoke_and_build_guards() {
+  require_exact '의존성 설치는 한 번이어야 함' 'pnpm install --frozen-lockfile' 1
+  require_exact '재사용 workspace에서도 Prisma client를 명시 생성해야 함' 'pnpm --filter backend exec prisma generate' 1
+  require_exact 'test는 한 번이어야 함' 'pnpm test' 1
+  require_exact 'DB backup은 한 번이어야 함' 'pg_dump' 1
+  require_exact 'migration은 한 번이어야 함' 'npx prisma migrate deploy' 1
+  require_exact 'primary·rollback은 기존 이미지만 사용해야 함' 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait' 2
+  require_exact '내부 backend smoke는 primary·rollback에 있어야 함' 'http://127.0.0.1:8081/api/v1/health' 2
+  require_exact 'TLS backend smoke는 primary·rollback에 있어야 함' 'https://54.116.116.174/api/v1/health' 2
+  require_exact 'TLS smoke는 인증서의 IP SAN을 검증해야 함' "--resolve '54.116.116.174:443:127.0.0.1'" 4
+  require_at_least '운영 환경은 Jenkins file credential로 주입해야 함' "credentialsId: 'oss-hub-production-env'" 1
 
-internal_frontend_smoke_count=$(grep -Ec 'http://127\.0\.0\.1:8081/[[:space:]]*$' "$active_jenkinsfile" || true)
-if ((internal_frontend_smoke_count != 2)); then
-  printf 'Jenkinsfile contract: 내부 frontend smoke는 primary·rollback에 있어야 함 (expected=2, actual=%s)\n' "$internal_frontend_smoke_count" >&2
-  exit 1
-fi
+  local internal_frontend_smoke_count tls_frontend_smoke_count docker_build_count
+  internal_frontend_smoke_count=$(grep -Ec 'http://127\.0\.0\.1:8081/[[:space:]]*$' "$active_jenkinsfile" || true)
+  if ((internal_frontend_smoke_count != 2)); then
+    printf '%s: 내부 frontend smoke는 primary·rollback에 있어야 함 (expected=2, actual=%s)\n' "$label" "$internal_frontend_smoke_count" >&2
+    exit 1
+  fi
 
-tls_frontend_smoke_count=$(grep -Ec 'https://54\.116\.116\.174/[[:space:]]*$' "$active_jenkinsfile" || true)
-if ((tls_frontend_smoke_count != 2)); then
-  printf 'Jenkinsfile contract: TLS frontend smoke는 primary·rollback에 있어야 함 (expected=2, actual=%s)\n' "$tls_frontend_smoke_count" >&2
-  exit 1
-fi
+  tls_frontend_smoke_count=$(grep -Ec 'https://54\.116\.116\.174/[[:space:]]*$' "$active_jenkinsfile" || true)
+  if ((tls_frontend_smoke_count != 2)); then
+    printf '%s: TLS frontend smoke는 primary·rollback에 있어야 함 (expected=2, actual=%s)\n' "$label" "$tls_frontend_smoke_count" >&2
+    exit 1
+  fi
 
-image_tag_assignment_count=$(grep -Ec 'env\.IMAGE_TAG[[:space:]]*=' "$active_jenkinsfile" || true)
-if ((image_tag_assignment_count != 1)) ||
-   grep -Eq 'env\[['\''"]IMAGE_TAG['\''"][[:space:]]*\][[:space:]]*=' "$active_jenkinsfile" ||
-   grep -Eq 'env\."IMAGE_TAG"[[:space:]]*=' "$active_jenkinsfile" ||
-   grep -Eq 'export[[:space:]]+IMAGE_TAG=' "$active_jenkinsfile" ||
-   grep -Eq '^[[:space:]]*(export[[:space:]]+)?IMAGE_TAG=' "$active_jenkinsfile"; then
-  echo 'Jenkinsfile contract: IMAGE_TAG는 검증된 Release SHA로 한 번만 할당해야 함' >&2
-  exit 1
-fi
-if grep -Fq "branch 'main'" "$active_jenkinsfile"; then
-  echo 'Jenkinsfile contract: main은 검증 전용이며 production branch 배포 guard를 둘 수 없음' >&2
-  exit 1
-fi
-if grep -Eq 'docker[[:space:]]+compose.*[[:space:]]down.*[[:space:]](-v|--volumes)([^[:alnum:]_-]|$)' "$docker_scan_file"; then
-  echo 'Jenkinsfile contract: docker compose down -v/--volumes is prohibited' >&2
-  exit 1
-fi
-if grep -Eq 'docker[[:space:]]+compose.*([[:space:]]build|[[:space:]]--build)([^[:alnum:]_-]|$)' "$docker_scan_file"; then
-  echo 'Jenkinsfile contract: Compose may not rebuild production images' >&2
-  exit 1
-fi
+  if grep -Fq "branch 'main'" "$active_jenkinsfile"; then
+    printf '%s: main production branch 배포 guard를 둘 수 없음\n' "$label" >&2
+    exit 1
+  fi
+  if grep -Eq 'docker[[:space:]]+compose.*[[:space:]]down.*[[:space:]](-v|--volumes)([^[:alnum:]_-]|$)' "$docker_scan_file"; then
+    printf '%s: docker compose down -v/--volumes is prohibited\n' "$label" >&2
+    exit 1
+  fi
+  if grep -Eq 'docker[[:space:]]+compose.*([[:space:]]build|[[:space:]]--build)([^[:alnum:]_-]|$)' "$docker_scan_file"; then
+    printf '%s: Compose may not rebuild production images\n' "$label" >&2
+    exit 1
+  fi
 
-docker_build_count=$(grep -Ec 'docker[[:space:]]+((image|buildx)[[:space:]]+)?build([[:space:]]|$)' "$docker_scan_file" || true)
-if ((docker_build_count != 2)); then
-  printf 'Jenkinsfile contract: canonical frontend/backend 외 image build는 금지됨 (actual=%s)\n' "$docker_build_count" >&2
-  exit 1
-fi
+  docker_build_count=$(grep -Ec 'docker[[:space:]]+((image|buildx)[[:space:]]+)?build([[:space:]]|$)' "$docker_scan_file" || true)
+  if ((docker_build_count != 2)); then
+    printf '%s: canonical frontend/backend 외 image build는 금지됨 (actual=%s)\n' "$label" "$docker_build_count" >&2
+    exit 1
+  fi
+}
 
-pm_approval_line=$(line_of 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}')
-checkout_line=$(line_of 'git checkout --detach "$IMAGE_TAG"')
-prisma_generate_line=$(line_of 'pnpm --filter backend exec prisma generate')
-test_line=$(line_of 'pnpm test')
-backup_line=$(line_of 'pg_dump')
-frontend_build_line=$(line_of 'docker build --file apps/frontend/Dockerfile')
-backend_build_line=$(line_of 'docker build --file apps/backend/Dockerfile')
-migration_line=$(line_of 'npx prisma migrate deploy')
-rollout_line=$(line_of 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait')
-state_line=$(line_of 'mv "$state_tmp" "$DEPLOY_STATE_FILE"')
+require_single_image_tag_assignment() {
+  local image_tag_assignment_count
+  image_tag_assignment_count=$(grep -Ec 'env\.IMAGE_TAG[[:space:]]*=' "$active_jenkinsfile" || true)
+  if ((image_tag_assignment_count != 1)) ||
+     grep -Eq 'env\[['\''"]IMAGE_TAG['\''"][[:space:]]*\][[:space:]]*=' "$active_jenkinsfile" ||
+     grep -Eq 'env\."IMAGE_TAG"[[:space:]]*=' "$active_jenkinsfile" ||
+     grep -Eq 'export[[:space:]]+IMAGE_TAG=' "$active_jenkinsfile" ||
+     grep -Eq '^[[:space:]]*(export[[:space:]]+)?IMAGE_TAG=' "$active_jenkinsfile"; then
+    printf '%s: IMAGE_TAG는 한 번만 할당해야 함\n' "$label" >&2
+    exit 1
+  fi
+}
 
-if ! ((pm_approval_line < checkout_line &&
-       checkout_line < prisma_generate_line &&
-       prisma_generate_line < test_line &&
-       test_line < backup_line &&
-       backup_line < frontend_build_line &&
-       frontend_build_line < backend_build_line &&
-       backend_build_line < migration_line &&
-       migration_line < rollout_line &&
-       rollout_line < state_line)); then
-  echo 'Jenkinsfile contract: required order is test -> backup -> image build -> migration -> rollout/smoke -> state update' >&2
-  exit 1
-fi
+check_legacy() {
+  require_common_executor_guards
 
-echo 'Jenkinsfile contract: ok (deterministic Prisma generate, main validation only, PM-only-approved Release exact-SHA deploy, durable no-op/backup/rollback)'
+  require_exact 'Release action 입력은 한 번이어야 함' "string(name: 'RELEASE_ACTION'" 1
+  require_exact 'Release tag 입력은 한 번이어야 함' "string(name: 'RELEASE_TAG'" 1
+  require_exact '빈 Release 입력은 main 검증으로만 분류해야 함' "env.RUN_MODE = 'main'" 1
+  require_exact '유효 Release만 배포로 분류해야 함' "env.RUN_MODE = 'release'" 1
+  require_exact 'created action 허용은 한 번이어야 함' "action == 'created'" 1
+  require_exact 'published action 허용은 한 번이어야 함' "action == 'published'" 1
+  require_exact 'full SemVer tag 검증은 한 번이어야 함' 'tag ==~ /' 1
+  require_exact 'latest Release API 검증은 한 번이어야 함' '/releases/latest' 1
+  require_exact 'draft 거절은 한 번이어야 함' "jq -r '.draft'" 1
+  require_exact 'prerelease 거절은 한 번이어야 함' "jq -r '.prerelease'" 1
+  require_exact 'latest tag 일치는 한 번이어야 함' "jq -r '.tag_name'" 1
+  require_exact 'Release tag의 commit 해석은 한 번이어야 함' 'git rev-parse "${RELEASE_TAG}^{commit}"' 1
+  require_exact 'main ancestry 검증은 한 번이어야 함' 'git merge-base --is-ancestor "$release_sha" origin/main' 1
+  require_exact 'exact SHA IMAGE_TAG 할당은 한 번이어야 함' 'env.IMAGE_TAG = releaseSha' 1
+  require_exact 'Release 승인은 공개 #199 댓글에서 페이지별 조회해야 함' '/issues/199/comments?per_page=100&page=${page}' 1
+  require_exact 'Release 승인 댓글 pagination은 최대 20페이지여야 함' 'for page in $(seq 1 20); do' 1
+  require_exact 'Release 승인 댓글 pagination 완료를 확인해야 함' "if [ \"\$pagination_complete\" != 'true' ]; then" 1
+  require_exact 'PM 승인 actor는 GoBeromsu여야 함' "--arg actor 'GoBeromsu'" 1
+  require_absent 'Tech Lead 승인 actor(Lumiere001)는 더 이상 존재하지 않아야 함' "--arg actor 'Lumiere001'"
+  require_exact 'PM 승인 형식은 tag와 exact SHA를 포함해야 함' 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}' 1
+  require_absent 'RELEASE_ACCEPT role=TECH_LEAD는 더 이상 존재하지 않아야 함' 'RELEASE_ACCEPT role=TECH_LEAD tag=${RELEASE_TAG} head=${IMAGE_TAG}'
+  require_absent 'RELEASE_OVERRIDE role=PM는 더 이상 존재하지 않아야 함' 'RELEASE_OVERRIDE role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}'
+  require_exact 'exact SHA checkout은 한 번이어야 함' 'git checkout --detach "$IMAGE_TAG"' 1
+
+  require_exact '영속 배포 상태 파일은 고정 경로여야 함' "DEPLOY_STATE_FILE = '/var/lib/oss-hub/deploy-state/current-release'" 1
+  require_exact '동일·하위 버전 비교는 한 번이어야 함' 'sort -V' 1
+  require_exact '동일 Release tag의 SHA 변경은 차단해야 함' 'env.RELEASE_TAG == currentTag && env.IMAGE_TAG != env.CURRENT_DEPLOY_SHA' 1
+  require_at_least 'Release 배포 stage는 no-op을 건너뛰어야 함' "env.RUN_MODE == 'release' && env.DEPLOY_NOOP != 'true'" 7
+
+  require_exact 'frontend 이미지는 한 번만 빌드해야 함' 'docker build --file apps/frontend/Dockerfile --tag "oss-hub-frontend:${IMAGE_TAG}" .' 1
+  require_exact 'backend 이미지는 한 번만 빌드해야 함' 'docker build --file apps/backend/Dockerfile --tag "oss-hub-backend:${IMAGE_TAG}" .' 1
+  require_exact '중지된 기존 container도 rollback 기준에 포함해야 함' 'docker compose --env-file "$OSS_HUB_ENV_FILE" ps --all -q' 2
+  require_exact 'rollback은 이전 정상 이미지가 있을 때만 실행해야 함' 'if (env.PREV_TAG?.trim())' 1
+  require_exact '정상 상태는 한 번만 원자 갱신해야 함' 'mv "$state_tmp" "$DEPLOY_STATE_FILE"' 1
+
+  require_common_smoke_and_build_guards
+  require_single_image_tag_assignment
+
+  local pm_approval_line checkout_line prisma_generate_line test_line backup_line
+  local frontend_build_line backend_build_line migration_line rollout_line state_line
+  pm_approval_line=$(line_of 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}')
+  checkout_line=$(line_of 'git checkout --detach "$IMAGE_TAG"')
+  prisma_generate_line=$(line_of 'pnpm --filter backend exec prisma generate')
+  test_line=$(line_of 'pnpm test')
+  backup_line=$(line_of 'pg_dump')
+  frontend_build_line=$(line_of 'docker build --file apps/frontend/Dockerfile')
+  backend_build_line=$(line_of 'docker build --file apps/backend/Dockerfile')
+  migration_line=$(line_of 'npx prisma migrate deploy')
+  rollout_line=$(line_of 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait')
+  state_line=$(line_of 'mv "$state_tmp" "$DEPLOY_STATE_FILE"')
+
+  if ! ((pm_approval_line < checkout_line &&
+         checkout_line < prisma_generate_line &&
+         prisma_generate_line < test_line &&
+         test_line < backup_line &&
+         backup_line < frontend_build_line &&
+         frontend_build_line < backend_build_line &&
+         backend_build_line < migration_line &&
+         migration_line < rollout_line &&
+         rollout_line < state_line)); then
+    printf '%s: required order is test -> backup -> image build -> migration -> rollout/smoke -> state update\n' "$label" >&2
+    exit 1
+  fi
+
+  echo "$label: ok (deterministic Prisma generate, main validation only, PM-only-approved Release exact-SHA deploy, durable no-op/backup/rollback)"
+}
+
+check_v2() {
+  require_common_executor_guards
+
+  # parameterless latest-Release surface — legacy inputs must stay gone
+  require_absent 'parameters 블록은 없어야 함' 'parameters {'
+  require_absent 'RELEASE_ACTION 파라미터는 없어야 함' 'RELEASE_ACTION'
+  require_absent 'RELEASE_TAG 파라미터 입력은 없어야 함' "string(name: 'RELEASE_TAG'"
+  require_absent 'RUN_MODE는 없어야 함' 'RUN_MODE'
+  require_absent 'DEPLOY_STATE_FILE은 없어야 함' 'DEPLOY_STATE_FILE'
+  require_absent 'RELEASE_ACCEPT role=TECH_LEAD는 없어야 함' 'RELEASE_ACCEPT role=TECH_LEAD'
+  require_absent 'RELEASE_OVERRIDE role=PM는 없어야 함' 'RELEASE_OVERRIDE role=PM'
+  require_absent 'Tech Lead 승인 actor(Lumiere001)는 없어야 함' "--arg actor 'Lumiere001'"
+  require_absent 'sort -V 버전 비교는 없어야 함' 'sort -V'
+  require_absent 'created action 분기 경로는 없어야 함' "action == 'created'"
+  require_absent 'published action 분기 경로는 없어야 함' "action == 'published'"
+  require_absent 'SHA를 IMAGE_TAG로 할당하면 안 됨' 'env.IMAGE_TAG = releaseSha'
+  require_absent 'RELEASE_SHA를 IMAGE_TAG로 할당하면 안 됨' 'env.IMAGE_TAG = env.RELEASE_SHA'
+  require_absent 'IMAGE_TAG head 승인 바인딩은 없어야 함' 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}'
+  require_absent 'IMAGE_TAG detached checkout은 없어야 함' 'git checkout --detach "$IMAGE_TAG"'
+
+  require_exact 'latest Release API 조회는 한 번이어야 함' '/releases/latest' 1
+  require_exact 'draft 거절은 한 번이어야 함' "jq -r '.draft'" 1
+  require_exact 'prerelease 거절은 한 번이어야 함' "jq -r '.prerelease'" 1
+  require_exact 'latest tag_name 추출은 한 번이어야 함' "jq -r '.tag_name'" 1
+  require_exact 'full SemVer tag 검증은 한 번이어야 함' 'tag ==~ /' 1
+  require_exact 'Release tag의 commit 해석은 한 번이어야 함' 'git rev-parse "${RELEASE_TAG}^{commit}"' 1
+  require_exact 'main ancestry 검증은 한 번이어야 함' 'git merge-base --is-ancestor "$release_sha" origin/main' 1
+  require_exact 'IMAGE_TAG는 RELEASE_TAG(tag)로 한 번만 할당해야 함' 'env.IMAGE_TAG = tag' 1
+  require_exact 'RELEASE_SHA 바인딩은 한 번이어야 함' 'env.RELEASE_SHA = releaseSha' 1
+  require_exact 'Release 승인은 공개 #199 댓글에서 페이지별 조회해야 함' '/issues/199/comments?per_page=100&page=${page}' 1
+  require_exact 'Release 승인 댓글 pagination은 최대 20페이지여야 함' 'for page in $(seq 1 20); do' 1
+  require_exact 'Release 승인 댓글 pagination 완료를 확인해야 함' "if [ \"\$pagination_complete\" != 'true' ]; then" 1
+  require_exact 'PM 승인 actor는 GoBeromsu여야 함' "--arg actor 'GoBeromsu'" 1
+  require_exact 'PM 승인 형식은 tag와 RELEASE_SHA를 포함해야 함' 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${RELEASE_SHA}' 1
+  require_exact 'exact RELEASE_SHA checkout은 한 번이어야 함' 'git checkout --detach "$RELEASE_SHA"' 1
+
+  # no-op authority: running ps -q only; --all is classification
+  require_regex_at_least 'no-op 권위는 실행 중 ps -q frontend여야 함' 'ps[[:space:]]+-q[[:space:]]+frontend' 1
+  require_regex_at_least 'no-op 권위는 실행 중 ps -q backend여야 함' 'ps[[:space:]]+-q[[:space:]]+backend' 1
+  require_regex_at_least '존재/부분/중지 분류는 ps --all -q frontend여야 함' 'ps[[:space:]]+--all[[:space:]]+-q[[:space:]]+frontend' 1
+  require_regex_at_least '존재/부분/중지 분류는 ps --all -q backend여야 함' 'ps[[:space:]]+--all[[:space:]]+-q[[:space:]]+backend' 1
+  require_exact 'greenfield는 양쪽 서비스 부재일 때만이어야 함' 'state=greenfield' 1
+  require_exact '중지 전용 상태는 성공 no-op이 아니어야 함' 'state=stopped_proceed' 1
+  require_exact '실행 중 exact tag+SHA no-op 판정이 있어야 함' 'prevTag == env.RELEASE_TAG && prevSha == env.RELEASE_SHA' 1
+  require_exact 'same-tag/different-SHA는 fail-closed여야 함' 'same_tag_different_sha' 1
+  require_exact 'same-tag nonrunning/ambiguous overwrite는 fail-closed여야 함' 'same_tag_nonrunning_or_ambiguous' 1
+  require_exact 'full SemVer downgrade no-op 보호가 있어야 함' 'downgrade_noop' 1
+  require_at_least '배포 stage는 no-op을 건너뛰어야 함' "env.DEPLOY_NOOP != 'true'" 5
+
+  # stopped path must not authorize success no-op (exact branch only)
+  if ! awk '
+    $0 ~ /if \(state == '\''stopped_proceed'\''\) \{/ {
+      grab=1
+      next
+    }
+    grab {
+      if ($0 ~ /DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''true'\''/) bad=1
+      if ($0 ~ /DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''false'\''/) good=1
+      if ($0 ~ /return/ || $0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
+    }
+    END { exit (good && !bad) ? 0 : 1 }
+  ' "$active_jenkinsfile"; then
+    printf '%s: stopped/partial 경로는 성공 no-op(DEPLOY_NOOP=true)이 될 수 없음\n' "$label" >&2
+    exit 1
+  fi
+
+  # HTTPS FRONTEND_URL preflight before backup
+  require_at_least 'FRONTEND_URL 사전 검증이 있어야 함' 'FRONTEND_URL' 1
+  require_regex_at_least 'FRONTEND_URL은 https:// scheme만 허용해야 함' 'https://\*' 1
+  require_regex_absent 'HTTP FRONTEND_URL 허용은 금지' 'http://\*'
+
+  # rollback image + label/ID validation before backup/build/migration
+  require_at_least 'rollback frontend 이미지 사전 검증이 있어야 함' 'oss-hub-frontend:${PREV_TAG}' 1
+  require_at_least 'rollback backend 이미지 사전 검증이 있어야 함' 'oss-hub-backend:${PREV_TAG}' 1
+  require_at_least 'rollback OCI version label 검증이 있어야 함' 'org.opencontainers.image.version' 2
+  require_at_least 'rollback OCI revision label 검증이 있어야 함' 'org.opencontainers.image.revision' 2
+  require_regex_at_least 'rollback 이미지 ID 검증이 있어야 함' 'docker[[:space:]]+image[[:space:]]+inspect' 2
+  require_exact 'rollback은 이전 정상 이미지가 있을 때만 실행해야 함' 'if (env.PREV_TAG?.trim())' 1
+
+  # release-tag builds with OCI labels; no SHA image-tag assignment
+  require_at_least 'frontend release-tag 빌드가 있어야 함' '--tag "oss-hub-frontend:${IMAGE_TAG}"' 1
+  require_at_least 'backend release-tag 빌드가 있어야 함' '--tag "oss-hub-backend:${IMAGE_TAG}"' 1
+  require_at_least '이미지 빌드 OCI version label(RELEASE_TAG)이 있어야 함' '--label "org.opencontainers.image.version=${RELEASE_TAG}"' 2
+  require_at_least '이미지 빌드 OCI revision label(RELEASE_SHA)이 있어야 함' '--label "org.opencontainers.image.revision=${RELEASE_SHA}"' 2
+
+  # success-only retention: N=120, app repos only, keep IMAGE_TAG+PREV_TAG, under BACKUP_DIR
+  require_exact 'backup retention N=120이어야 함' "BACKUP_RETENTION_N = '120'" 1
+  require_at_least 'retention은 oss-hub-frontend app repo만 대상이어야 함' 'oss-hub-frontend' 1
+  require_at_least 'retention은 oss-hub-backend app repo만 대상이어야 함' 'oss-hub-backend' 1
+  require_regex_at_least 'retention은 현재 IMAGE_TAG를 보존해야 함' 'retention_keep_tags\+=\("\$\{IMAGE_TAG\}"\)' 1
+  require_regex_at_least 'retention은 직전 PREV_TAG를 보존해야 함' 'retention_keep_tags\+=\("\$\{PREV_TAG\}"\)' 1
+  require_regex_at_least 'backup cleanup은 BACKUP_DIR 아래에서만 해야 함' 'find[[:space:]]+"\$BACKUP_DIR"' 1
+  require_regex_at_least 'backup cleanup은 성공 경로 retention stage에 있어야 함' 'backup_files' 1
+
+  require_common_smoke_and_build_guards
+  require_single_image_tag_assignment
+
+  local pm_approval_line checkout_line https_line rollback_line prisma_generate_line test_line
+  local backup_line frontend_build_line backend_build_line migration_line rollout_line retention_line
+  pm_approval_line=$(line_of 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${RELEASE_SHA}')
+  checkout_line=$(line_of 'git checkout --detach "$RELEASE_SHA"')
+  https_line=$(line_of 'FRONTEND_URL')
+  rollback_line=$(line_of_regex 'docker[[:space:]]+image[[:space:]]+inspect')
+  prisma_generate_line=$(line_of 'pnpm --filter backend exec prisma generate')
+  test_line=$(line_of 'pnpm test')
+  backup_line=$(line_of 'pg_dump')
+  frontend_build_line=$(line_of_regex 'apps/frontend/Dockerfile')
+  backend_build_line=$(line_of_regex 'apps/backend/Dockerfile')
+  migration_line=$(line_of 'npx prisma migrate deploy')
+  rollout_line=$(line_of 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait')
+  retention_line=$(line_of "BACKUP_RETENTION_N = '120'")
+  # retention body (image rm / backup cleanup) must also follow smoke
+  local retention_body_line
+  retention_body_line=$(line_of_regex 'retention_keep_tags\+=\("\$\{IMAGE_TAG\}"\)')
+
+  if [[ -z "$pm_approval_line" || -z "$checkout_line" || -z "$https_line" || -z "$rollback_line" ||
+        -z "$prisma_generate_line" || -z "$test_line" || -z "$backup_line" ||
+        -z "$frontend_build_line" || -z "$backend_build_line" || -z "$migration_line" ||
+        -z "$rollout_line" || -z "$retention_line" || -z "$retention_body_line" ]]; then
+    printf '%s: required stage markers missing for order check\n' "$label" >&2
+    exit 1
+  fi
+
+  if ! ((pm_approval_line < checkout_line &&
+         checkout_line < https_line &&
+         https_line < rollback_line &&
+         rollback_line < prisma_generate_line &&
+         prisma_generate_line < test_line &&
+         test_line < backup_line &&
+         backup_line < frontend_build_line &&
+         frontend_build_line < backend_build_line &&
+         backend_build_line < migration_line &&
+         migration_line < rollout_line &&
+         rollout_line < retention_body_line &&
+         retention_line < retention_body_line)); then
+    printf '%s: required order is approval/checkout -> HTTPS+rollback preflight -> generate/test -> backup -> two image builds -> migration -> rollout/smoke -> success-only retention\n' "$label" >&2
+    exit 1
+  fi
+
+  echo "$label: ok (parameterless latest Release, RELEASE_TAG images, running-only no-op, PM RELEASE_SHA approve, HTTPS+rollback preflight, success-only retention)"
+}
+
+case "$mode" in
+  legacy) check_legacy ;;
+  v2) check_v2 ;;
+  *) usage ;;
+esac

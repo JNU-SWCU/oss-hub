@@ -64,6 +64,7 @@ jobs:
               - '.github/workflows/**'
             jenkins:
               - 'Jenkinsfile'
+              - 'deploy/jenkins/**'
               - 'scripts/check-jenkinsfile.sh'
               - 'scripts/check-jenkinsfile.test.sh'
               - '.github/workflows/**'
@@ -138,7 +139,8 @@ jobs:
         if: ${{ steps.changes.outputs.jenkins == 'true' }}
         run: |
           bash scripts/check-jenkinsfile.test.sh
-          bash scripts/check-jenkinsfile.sh Jenkinsfile
+          bash scripts/check-jenkinsfile.sh legacy Jenkinsfile
+          bash scripts/check-jenkinsfile.sh v2 deploy/jenkins/Jenkinsfile.v2
 
       - name: Docker build context 계약 회귀 테스트
         if: ${{ steps.changes.outputs.docker_context == 'true' }}
