@@ -1036,6 +1036,170 @@ export const v = environmentValue('ANY_KEY');
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+test('CLI: 승인 경로 안 무관한 동명 중첩 선언은 process.env[param] 면제를 훔치지 못한다', () => {
+  const root = makeTempDir();
+  try {
+    writeMinimalContractTree(root, {
+      [APPROVED_OPS_PATH]: `
+function environmentValue(name: string): string | null {
+  const value = process.env[name]?.trim();
+  return value && value.length > 0 ? value : null;
+}
+export function loadOps() {
+  return environmentValue('GITHUB_OPERATIONS_APP_ID');
+}
+export function unrelated() {
+  function environmentValue(x: string): string | null {
+    return process.env[x] ?? null;
+  }
+  return 1;
+}
+`,
+      '.env.example':
+        'DATABASE_URL=value\nAUTH_INITIAL_ROLES=\nGITHUB_OPERATIONS_APP_ID=\n',
+      'compose.yml': `services:
+  backend:
+    image: alpine
+    environment:
+      DATABASE_URL: \${DATABASE_URL:?required}
+      AUTH_INITIAL_ROLES: \${AUTH_INITIAL_ROLES:-}
+      GITHUB_OPERATIONS_APP_ID: \${GITHUB_OPERATIONS_APP_ID:-}
+`,
+    });
+    const result = runEntryCli(root);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.match(result.stderr, /unsupported dynamic process\.env access/);
+    assert.match(
+      result.stderr,
+      /github-operations\.config\.ts:\d+.*process\.env\[x\]/,
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI: 승인 경로 파일을 다른 경로로 복사하면 process.env[param] 면제가 적용되지 않는다', () => {
+  const root = makeTempDir();
+  try {
+    writeMinimalContractTree(root, {
+      'apps/backend/src/evil/copied-helper.ts': OPS_HELPER,
+    });
+    const result = runEntryCli(root);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.match(result.stderr, /unsupported dynamic process\.env access/);
+    assert.match(result.stderr, /copied-helper\.ts:\d+/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI: 승인 경로의 정상 단일 top-level 선언은 통과한다', () => {
+  const root = makeTempDir();
+  try {
+    writeMinimalContractTree(root, {
+      [APPROVED_OPS_PATH]: OPS_HELPER,
+      '.env.example':
+        'DATABASE_URL=value\nAUTH_INITIAL_ROLES=\nGITHUB_OPERATIONS_APP_ID=\nGITHUB_OPERATIONS_APP_PRIVATE_KEY=\n',
+      'compose.yml': `services:
+  backend:
+    image: alpine
+    environment:
+      DATABASE_URL: \${DATABASE_URL:?required}
+      AUTH_INITIAL_ROLES: \${AUTH_INITIAL_ROLES:-}
+      GITHUB_OPERATIONS_APP_ID: \${GITHUB_OPERATIONS_APP_ID:-}
+      GITHUB_OPERATIONS_APP_PRIVATE_KEY: \${GITHUB_OPERATIONS_APP_PRIVATE_KEY:-}
+`,
+    });
+    const result = runEntryCli(root);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /env example contract: ok/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI: 승인 경로 안 동명 메서드·function expression 은 면제되지 않는다', () => {
+  const root = makeTempDir();
+  try {
+    writeMinimalContractTree(root, {
+      [APPROVED_OPS_PATH]: `
+function environmentValue(name: string): string | null {
+  const value = process.env[name]?.trim();
+  return value && value.length > 0 ? value : null;
+}
+export function loadOps() {
+  return environmentValue('GITHUB_OPERATIONS_APP_ID');
+}
+class Bag {
+  environmentValue(x: string): string | null {
+    return process.env[x] ?? null;
+  }
+}
+const environmentValueExpr = function environmentValue(y: string): string | null {
+  return process.env[y] ?? null;
+};
+export const bag = Bag;
+export const expr = environmentValueExpr;
+`,
+      '.env.example':
+        'DATABASE_URL=value\nAUTH_INITIAL_ROLES=\nGITHUB_OPERATIONS_APP_ID=\n',
+      'compose.yml': `services:
+  backend:
+    image: alpine
+    environment:
+      DATABASE_URL: \${DATABASE_URL:?required}
+      AUTH_INITIAL_ROLES: \${AUTH_INITIAL_ROLES:-}
+      GITHUB_OPERATIONS_APP_ID: \${GITHUB_OPERATIONS_APP_ID:-}
+`,
+    });
+    const result = runEntryCli(root);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.match(result.stderr, /unsupported dynamic process\.env access/);
+    assert.match(result.stderr, /github-operations\.config\.ts:\d+/);
+    assert.match(result.stderr, /process\.env\[x\]|process\.env\[y\]/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI: 승인 경로 top-level 동명 중복 선언은 명시 실패한다', () => {
+  const root = makeTempDir();
+  try {
+    writeMinimalContractTree(root, {
+      [APPROVED_OPS_PATH]: `
+function environmentValue(name: string): string | null {
+  const value = process.env[name]?.trim();
+  return value && value.length > 0 ? value : null;
+}
+function environmentValue(x: string): string | null {
+  return process.env[x] ?? null;
+}
+export function loadOps() {
+  return environmentValue('GITHUB_OPERATIONS_APP_ID');
+}
+`,
+      '.env.example':
+        'DATABASE_URL=value\nAUTH_INITIAL_ROLES=\nGITHUB_OPERATIONS_APP_ID=\n',
+      'compose.yml': `services:
+  backend:
+    image: alpine
+    environment:
+      DATABASE_URL: \${DATABASE_URL:?required}
+      AUTH_INITIAL_ROLES: \${AUTH_INITIAL_ROLES:-}
+      GITHUB_OPERATIONS_APP_ID: \${GITHUB_OPERATIONS_APP_ID:-}
+`,
+    });
+    const result = runEntryCli(root);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.match(
+      result.stderr,
+      /approved helper environmentValue must be exactly one top-level function declaration/,
+    );
+    assert.match(result.stderr, /github-operations\.config\.ts:\d+/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test('CLI: 승인 helper 호출 첫 인자가 비정적 리터럴이면 실패한다', () => {
   const root = makeTempDir();

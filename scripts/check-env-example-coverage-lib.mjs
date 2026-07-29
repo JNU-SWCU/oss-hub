@@ -15,7 +15,9 @@ import { pathToFileURL } from 'node:url';
 const ENV_KEY_RE = /^[A-Z][A-Z0-9_]*$/;
 
 // 승인 helper 면제는 이름만으로 주지 않는다.
-// 실제 정의 파일(scan_root 상대경로)과 선언이 함께 맞을 때만 process.env[param] 면제.
+// 승인 경로에서 해당 이름의 top-level 함수 선언이 정확히 하나일 때만
+// 그 선언 본문의 process.env[param] 을 면제한다.
+// 중첩 함수·메서드·function expression·중복 선언은 면제 대상이 아니다(fail-closed).
 /** @type {ReadonlyMap<string, ReadonlySet<string>>} */
 const APPROVED_ENV_HELPERS = new Map([
   [
@@ -208,8 +210,8 @@ export function loadTypescript(repoRoot) {
  *   - NAME_ENV = 'KEY' 상수
  *   - 'GITHUB_*' / 'SUBMISSION_FILE_*' config 리터럴(접두 필터)
  *
- * 승인 helper 면제는 (상대경로, 선언) 쌍으로만 적용한다.
- * 호출 첫 인자가 정적 리터럴이 아니면 명시 실패한다.
+ * 승인 helper 면제는 (승인 경로, 유일한 top-level 함수 선언) 쌍으로만 적용한다.
+ * 중복·중첩·메서드·function expression 은 면제하지 않고 명시 실패한다.
  *
  * @param {string} filePath
  * @param {string} sourceText
@@ -259,6 +261,18 @@ export function extractKeysFromSource(filePath, sourceText, ts, options = {}) {
   }
 
   /**
+   * 승인 경로의 유일한 top-level 함수 선언 노드 → 첫 파라미터 이름.
+   * 중복이면 parseErrors 에 남기고 면제하지 않는다(fail-closed).
+   * @type {Map<import('typescript').Node, string>}
+   */
+  const approvedHelperNodes = resolveApprovedHelperNodes(
+    ts,
+    sourceFile,
+    relPath,
+    parseErrors,
+  );
+
+  /**
    * 방문 중인 승인 helper 파라미터 이름 스택.
    * @type {string[]}
    */
@@ -268,7 +282,7 @@ export function extractKeysFromSource(filePath, sourceText, ts, options = {}) {
    * @param {import('typescript').Node} node
    */
   function visit(node) {
-    const helperParam = approvedHelperParamName(ts, node, relPath);
+    const helperParam = approvedHelperParamName(node, approvedHelperNodes);
     if (helperParam) {
       helperParamStack.push(helperParam);
       ts.forEachChild(node, visit);
@@ -706,13 +720,123 @@ function scriptKindForPath(ts, filePath) {
 }
 
 /**
- * @param {string} name
+ * 승인 경로에서 helper 이름별 유일한 top-level 함수 선언만 면제 대상으로 고른다.
+ * @param {typeof import('typescript')} ts
+ * @param {import('typescript').SourceFile} sourceFile
  * @param {string} relPath
+ * @param {string[]} parseErrors
+ * @returns {Map<import('typescript').Node, string>}
  */
-function isApprovedHelperDeclaration(name, relPath) {
-  const paths = APPROVED_ENV_HELPERS.get(name);
-  if (!paths) return false;
-  return paths.has(normalizePath(relPath));
+function resolveApprovedHelperNodes(ts, sourceFile, relPath, parseErrors) {
+  /** @type {Map<import('typescript').Node, string>} */
+  const approved = new Map();
+  const normalizedRel = normalizePath(relPath);
+
+  for (const [helperName, paths] of APPROVED_ENV_HELPERS) {
+    if (!paths.has(normalizedRel)) continue;
+
+    const topLevel = collectTopLevelBindingsNamed(ts, sourceFile, helperName);
+    const functionDecls = topLevel.filter(
+      (binding) => binding.kind === 'function-declaration',
+    );
+
+    if (topLevel.length === 0) {
+      continue;
+    }
+
+    if (topLevel.length !== 1 || functionDecls.length !== 1) {
+      const locations = topLevel
+        .map((binding) => `${relPath}:${binding.line} (${binding.reason})`)
+        .join(', ');
+      parseErrors.push(
+        `env example contract: approved helper ${helperName} must be exactly one top-level function declaration in ${relPath}; found ${topLevel.length} top-level binding(s): ${locations}`,
+      );
+      continue;
+    }
+
+    const only = functionDecls[0];
+    const param = firstParamName(ts, only.node.parameters);
+    if (!param) {
+      parseErrors.push(
+        `env example contract: approved helper ${helperName} at ${relPath}:${only.line} has no identifiable first parameter name`,
+      );
+      continue;
+    }
+    approved.set(only.node, param);
+  }
+
+  return approved;
+}
+
+/**
+ * 소스 파일 top-level 에서 helper 이름과 같은 바인딩을 수집한다.
+ * @param {typeof import('typescript')} ts
+ * @param {import('typescript').SourceFile} sourceFile
+ * @param {string} name
+ * @returns {Array<{ node: import('typescript').Node, kind: string, line: number, reason: string }>}
+ */
+function collectTopLevelBindingsNamed(ts, sourceFile, name) {
+  /** @type {Array<{ node: import('typescript').Node, kind: string, line: number, reason: string }>} */
+  const bindings = [];
+
+  for (const statement of sourceFile.statements) {
+    if (ts.isFunctionDeclaration(statement) && statement.name?.text === name) {
+      bindings.push({
+        node: statement,
+        kind: 'function-declaration',
+        line: lineOf(ts, sourceFile, statement),
+        reason: 'top-level function declaration',
+      });
+      continue;
+    }
+
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        if (!ts.isIdentifier(declaration.name)) continue;
+        if (declaration.name.text !== name) continue;
+        const init = declaration.initializer;
+        let kind = 'variable';
+        let reason = 'top-level variable binding';
+        if (init && ts.isArrowFunction(init)) {
+          kind = 'arrow-function';
+          reason = 'top-level arrow function binding';
+        } else if (init && ts.isFunctionExpression(init)) {
+          kind = 'function-expression';
+          reason = 'top-level function expression binding';
+        }
+        bindings.push({
+          node: declaration,
+          kind,
+          line: lineOf(ts, sourceFile, declaration),
+          reason,
+        });
+      }
+    }
+  }
+
+  return bindings;
+}
+
+/**
+ * @param {typeof import('typescript')} ts
+ * @param {import('typescript').SourceFile} sourceFile
+ * @param {import('typescript').Node} node
+ */
+function lineOf(ts, sourceFile, node) {
+  const { line } = sourceFile.getLineAndCharacterOfPosition(
+    node.getStart(sourceFile),
+  );
+  return line + 1;
+}
+
+/**
+ * 유일한 승인 top-level 함수 선언 노드일 때만 파라미터 이름을 반환한다.
+ * @param {import('typescript').Node} node
+ * @param {Map<import('typescript').Node, string>} approvedHelperNodes
+ * @returns {string|null}
+ */
+function approvedHelperParamName(node, approvedHelperNodes) {
+  return approvedHelperNodes.get(node) ?? null;
 }
 
 /**
@@ -720,37 +844,6 @@ function isApprovedHelperDeclaration(name, relPath) {
  */
 function isApprovedHelperName(name) {
   return APPROVED_ENV_HELPERS.has(name);
-}
-
-/**
- * @param {typeof import('typescript')} ts
- * @param {import('typescript').Node} node
- * @param {string} relPath
- * @returns {string|null} 파라미터 이름
- */
-function approvedHelperParamName(ts, node, relPath) {
-  if (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node)) {
-    const name = node.name?.text;
-    if (!name || !isApprovedHelperDeclaration(name, relPath)) return null;
-    return firstParamName(ts, node.parameters);
-  }
-  if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
-    if (!isApprovedHelperDeclaration(node.name.text, relPath)) return null;
-    const init = node.initializer;
-    if (!init) return null;
-    if (ts.isArrowFunction(init) || ts.isFunctionExpression(init)) {
-      return firstParamName(ts, init.parameters);
-    }
-  }
-  if (
-    (ts.isMethodDeclaration(node) || ts.isMethodSignature(node)) &&
-    node.name &&
-    ts.isIdentifier(node.name) &&
-    isApprovedHelperDeclaration(node.name.text, relPath)
-  ) {
-    return firstParamName(ts, node.parameters ?? []);
-  }
-  return null;
 }
 
 /**
