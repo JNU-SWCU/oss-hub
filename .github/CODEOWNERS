@@ -9,15 +9,20 @@
 /docs/decisions/ @GoBeromsu @Lumiere001
 /.github/        @GoBeromsu @Lumiere001
 /scripts/         @GoBeromsu @Lumiere001
+/scripts/check-jenkinsfile.sh      @GoBeromsu
+/scripts/check-jenkinsfile.test.sh @GoBeromsu
+/scripts/prune-deploy-backups.sh      @GoBeromsu
+/scripts/prune-deploy-backups.test.sh @GoBeromsu
 
 # 인증·권한 및 DB 경계
 /apps/backend/src/auth/ @GoBeromsu @Lumiere001
 /apps/backend/prisma/   @GoBeromsu @Lumiere001
 
 # 배포 정의
-/Jenkinsfile     @GoBeromsu @Lumiere001
+/Jenkinsfile     @GoBeromsu
 /compose.yml     @GoBeromsu @Lumiere001
 /.env.example    @GoBeromsu @Lumiere001
 /deploy/         @GoBeromsu @Lumiere001
+/deploy/jenkins/ @GoBeromsu
 /apps/*/Dockerfile @GoBeromsu @Lumiere001
 /.dockerignore   @GoBeromsu @Lumiere001
