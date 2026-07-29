@@ -5,10 +5,11 @@ set -euo pipefail
 # 실제 nginx 기동 없이 결정론적으로 검증한다:
 #   1) exact path location = /api/v1/submission-files 가 유효 구성으로 존재한다
 #   2) trailing-slash/subpath location ^~ /api/v1/submission-files/ 가 유효 구성으로 존재한다
-#   3) 두 블록 모두 명시적 return 403 이고 proxy_pass 가 없다
-#   4) 무관한 /api/ 경로는 계속 backend 로 proxy 한다 (과차단 금지)
-# 주석·redirect·malformed·duplicate·sibling over-match 는 계약 위반.
-# 위반·파일 부재는 exit 1.
+#   3) 두 블록 모두 최상위 무조건 return 403 이고 트리 전체 proxy_pass 가 없다
+#   4) 무관한 /api/ 경로는 최상위 backend proxy 를 유지하고 차단 return 이 없다
+# 인용·이스케이프·주석·세미콜론 묶음·중첩 블록을 인식하는 제한 nginx 파서로만 판정한다
+# (정규식/라인 폴백 없음). 조건부·중첩-only return, 문자열 속 지시어 위장, sibling bare prefix
+# 는 계약 위반. 위반·파일 부재는 exit 1.
 
 config=${1:-deploy/nginx/nginx.conf}
 
@@ -17,234 +18,273 @@ if [[ ! -f "$config" ]]; then
   exit 1
 fi
 
-effective_config=$(mktemp "${TMPDIR:-/tmp}/submission-upload-route-effective.XXXXXX")
-trap 'rm -f "$effective_config"' EXIT
+python3 - "$config" <<'PY'
+from __future__ import annotations
 
-# 주석에 계약 문자열을 남겨 검사를 우회하지 못하도록 실행 가능한 줄만 남긴다.
-# nginx 는 # 줄 주석만 지원한다. 이 계약 경로의 지시어 인용 문자열에는 # 가 없다.
-awk '
-  /^[[:space:]]*#/ { next }
-  {
-    sub(/[[:space:]]+#.*$/, "")
-    if ($0 ~ /[^[:space:]]/) print
-  }
-' "$config" >"$effective_config"
+from dataclasses import dataclass
+from pathlib import Path
+import sys
 
-if [[ ! -s "$effective_config" ]]; then
-  echo 'submission-upload-route contract: no effective nginx directives after comment strip' >&2
-  exit 1
-fi
+PREFIX = 'submission-upload-route contract'
 
-# 유효 구성에서 대상 location 블록 본문(헤더·최외곽 닫는 중괄호 제외)을 추출한다.
-# exit: 0=ok, 1=missing, 2=duplicate, 3=unclosed
-extract_location_body() {
-  local kind=$1
-  awk -v kind="$kind" '
-    function norm_header(s,    t) {
-      t = s
-      gsub(/^[[:space:]]+/, "", t)
-      gsub(/[[:space:]]+/, " ", t)
-      sub(/[[:space:]]*\{[[:space:]]*$/, " {", t)
-      return t
-    }
-    function target_header() {
-      if (kind == "exact") return "location = /api/v1/submission-files {"
-      if (kind == "prefix") return "location ^~ /api/v1/submission-files/ {"
-      if (kind == "api") return "location /api/ {"
-      return ""
-    }
-    function brace_delta(s,    i, ch, d) {
-      d = 0
-      for (i = 1; i <= length(s); i++) {
-        ch = substr(s, i, 1)
-        if (ch == "{") d++
-        if (ch == "}") d--
-      }
-      return d
-    }
-    BEGIN { want = target_header() }
-    {
-      line = $0
-      if (!capture) {
-        # 한 줄 location 헤더(+optional 본문/닫기) 매칭
-        # "location ... { ... }" 형태도 헤더 정규화로 잡기 위해
-        # 첫 { 앞까지만 헤더로 본다.
-        header_src = line
-        brace_at = index(header_src, "{")
-        if (brace_at == 0) next
-        header = norm_header(substr(header_src, 1, brace_at))
-        if (header != want) next
 
-        blocks++
-        if (blocks > 1) {
-          print "duplicate" > "/dev/stderr"
-          exit 2
-        }
+@dataclass
+class Node:
+    name: str
+    args: tuple[str, ...]
+    children: list[Node] | None
 
-        depth = brace_delta(line)
-        # 헤더 줄에서 { 이후 토큰이 있으면 본문으로 취급
-        after = substr(line, brace_at + 1)
-        # 닫는 } 와 그 이후는 본문에서 제거
-        if (depth == 0) {
-          sub(/\}[^{]*$/, "", after)
-          gsub(/^[[:space:]]+|[[:space:]]+$/, "", after)
-          if (after != "") print after
-          next
-        }
-        # 아직 열린 블록 — 헤더 줄의 trailing 본문
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "", after)
-        if (after != "") print after
-        capture = 1
-        next
-      }
 
-      # 본문 수집
-      depth += brace_delta(line)
-      if (depth < 0) {
-        print "unclosed" > "/dev/stderr"
-        exit 3
-      }
-      if (depth == 0) {
-        # 닫는 줄: } 이전만 본문
-        before = line
-        sub(/\}[^{]*$/, "", before)
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "", before)
-        if (before != "") print before
-        capture = 0
-        next
-      }
-      print line
-    }
-    END {
-      if (capture) {
-        print "unclosed" > "/dev/stderr"
-        exit 3
-      }
-      if (blocks == 0) exit 1
-    }
-  ' "$effective_config"
-}
+def fail(message: str) -> None:
+    raise SystemExit(f'{PREFIX}: {message}')
 
-require_fail_closed_location() {
-  local description=$1
-  local kind=$2
-  local block
-  local extract_status=0
-  local err
 
-  err=$(mktemp "${TMPDIR:-/tmp}/submission-upload-route-extract-err.XXXXXX")
-  set +e
-  block=$(extract_location_body "$kind" 2>"$err")
-  extract_status=$?
-  set -e
+def tokenize(text: str) -> list[str]:
+    """Quote/escape/comment-aware nginx lexer. Quote state spans lines."""
+    tokens: list[str] = []
+    current: list[str] = []
+    quote: str | None = None
+    escaped = False
+    expect_delimiter = False
+    i = 0
+    length = len(text)
 
-  if ((extract_status == 2)) || grep -Eq 'duplicate' "$err" 2>/dev/null; then
-    rm -f "$err"
-    printf 'submission-upload-route contract: duplicate %s\n' "$description" >&2
-    exit 1
-  fi
-  if ((extract_status == 3)) || grep -Eq 'unclosed' "$err" 2>/dev/null; then
-    rm -f "$err"
-    printf 'submission-upload-route contract: unclosed %s\n' "$description" >&2
-    exit 1
-  fi
-  rm -f "$err"
+    def flush_bare() -> None:
+        nonlocal current
+        if current:
+            tokens.append(''.join(current))
+            current = []
 
-  if ((extract_status != 0)); then
-    printf 'submission-upload-route contract: missing effective %s\n' "$description" >&2
-    exit 1
-  fi
+    while i < length:
+        ch = text[i]
 
-  if grep -Eq 'proxy_pass[[:space:]]' <<<"$block"; then
-    printf 'submission-upload-route contract: %s still proxies upstream\n' "$description" >&2
-    exit 1
-  fi
+        if escaped:
+            current.append(ch)
+            escaped = False
+            i += 1
+            continue
 
-  local return_count status
-  return_count=$(grep -cE '^[[:space:]]*return[[:space:]]+[0-9]{3}([[:space:];]|$)' <<<"$block" || true)
-  if ((return_count < 1)); then
-    printf 'submission-upload-route contract: %s missing explicit return 403\n' "$description" >&2
-    exit 1
-  fi
-  if ((return_count != 1)); then
-    printf 'submission-upload-route contract: %s has multiple return directives\n' "$description" >&2
-    exit 1
-  fi
+        if expect_delimiter:
+            if ch.isspace() or ch in '{};#':
+                expect_delimiter = False
+            else:
+                raise ValueError('adjacent quoted tokens without delimiter')
 
-  status=$(sed -nE 's/^[[:space:]]*return[[:space:]]+([0-9]{3}).*/\1/p' <<<"$block" | head -n 1)
-  if [[ -z "$status" ]]; then
-    printf 'submission-upload-route contract: %s malformed return status\n' "$description" >&2
-    exit 1
-  fi
-  if [[ "$status" != "403" ]]; then
-    printf 'submission-upload-route contract: %s returns %s; expected exact 403 fail-closed\n' \
-      "$description" "$status" >&2
-    exit 1
-  fi
-}
+        if quote is not None:
+            if ch == '\\':
+                current.append(ch)
+                escaped = True
+            elif ch == quote:
+                tokens.append(''.join(current))
+                current = []
+                quote = None
+                expect_delimiter = True
+            else:
+                current.append(ch)
+            i += 1
+            continue
 
-require_fail_closed_location \
-  'exact submission-files location' \
-  'exact'
-require_fail_closed_location \
-  'trailing-slash/subpath submission-files location' \
-  'prefix'
+        if ch == '#':
+            flush_bare()
+            while i < length and text[i] != '\n':
+                i += 1
+            continue
 
-api_err=$(mktemp "${TMPDIR:-/tmp}/submission-upload-route-api-err.XXXXXX")
-set +e
-api_block=$(extract_location_body 'api' 2>"$api_err")
-api_status=$?
-set -e
+        if ch in {"'", '"'}:
+            if current:
+                raise ValueError('quote adjacent to bare token')
+            quote = ch
+            i += 1
+            continue
 
-if ((api_status == 2)) || grep -Eq 'duplicate' "$api_err" 2>/dev/null; then
-  rm -f "$api_err"
-  echo 'submission-upload-route contract: duplicate location /api/ block' >&2
-  exit 1
-fi
-if ((api_status == 3)) || grep -Eq 'unclosed' "$api_err" 2>/dev/null; then
-  rm -f "$api_err"
-  echo 'submission-upload-route contract: unclosed location /api/ block' >&2
-  exit 1
-fi
-rm -f "$api_err"
+        if ch in '{};':
+            flush_bare()
+            tokens.append(ch)
+            i += 1
+            continue
 
-if ((api_status != 0)); then
-  echo 'submission-upload-route contract: missing effective location /api/ block' >&2
-  exit 1
-fi
+        if ch.isspace():
+            flush_bare()
+            i += 1
+            continue
 
-if ! grep -Eq 'proxy_pass[[:space:]]+http://backend:4000' <<<"$api_block"; then
-  echo 'submission-upload-route contract: location /api/ must keep backend proxy_pass' >&2
-  exit 1
-fi
+        current.append(ch)
+        i += 1
 
-if grep -Eq '^[[:space:]]*return[[:space:]]+[45][0-9]{2}' <<<"$api_block"; then
-  echo 'submission-upload-route contract: location /api/ over-blocks unrelated routes' >&2
-  exit 1
-fi
+    if quote is not None or escaped:
+        raise ValueError('unterminated quote or escape')
+    flush_bare()
+    return tokens
 
-# exact/prefix deny 가 bare prefix 로 대체되어 sibling 경로까지 삼키는 구성을 거절한다.
-if awk '
-  function norm_header(s,    t) {
-    t = s
-    gsub(/^[[:space:]]+/, "", t)
-    gsub(/[[:space:]]+/, " ", t)
-    sub(/[[:space:]]*\{[[:space:]]*$/, " {", t)
-    return t
-  }
-  {
-    brace_at = index($0, "{")
-    if (brace_at == 0) next
-    h = norm_header(substr($0, 1, brace_at))
-    if (h == "location ^~ /api/v1/submission-files {") {
-      found = 1
-      exit
-    }
-  }
-  END { exit found ? 0 : 1 }
-' "$effective_config"; then
-  echo 'submission-upload-route contract: bare prefix ^~ /api/v1/submission-files over-matches sibling paths' >&2
-  exit 1
-fi
 
-echo 'submission-upload-route contract: ok (exact+prefix deny 403, no proxy, /api/ intact, comments ignored)'
+def parse(tokens: list[str], index: int = 0, nested: bool = False) -> tuple[list[Node], int]:
+    nodes: list[Node] = []
+    words: list[str] = []
+    while index < len(tokens):
+        token = tokens[index]
+        index += 1
+        if token == ';':
+            if not words:
+                raise ValueError('empty directive')
+            nodes.append(Node(words[0], tuple(words[1:]), None))
+            words = []
+        elif token == '{':
+            if not words:
+                raise ValueError('anonymous block')
+            children, index = parse(tokens, index, True)
+            nodes.append(Node(words[0], tuple(words[1:]), children))
+            words = []
+        elif token == '}':
+            if words:
+                raise ValueError('unterminated directive before closing brace')
+            if not nested:
+                raise ValueError('unexpected closing brace')
+            return nodes, index
+        else:
+            words.append(token)
+    if nested:
+        raise ValueError('unclosed block')
+    if words:
+        raise ValueError('directive missing semicolon')
+    return nodes, index
+
+
+def walk(nodes: list[Node]):
+    for node in nodes:
+        yield node
+        if node.children is not None:
+            yield from walk(node.children)
+
+
+def location_nodes(tree: list[Node]) -> list[Node]:
+    return [node for node in walk(tree) if node.name == 'location']
+
+
+def match_location(node: Node, args: tuple[str, ...]) -> bool:
+    return node.children is not None and node.args == args
+
+
+def return_status(node: Node) -> str | None:
+    if node.name != 'return' or node.children is not None or not node.args:
+        return None
+    status = node.args[0]
+    if len(status) == 3 and status.isdigit():
+        return status
+    return None
+
+
+def has_proxy_pass(node: Node) -> bool:
+    for child in walk([node] if node.children is None else node.children):
+        if child.name == 'proxy_pass' and child.children is None:
+            return True
+    return False
+
+
+def top_level_proxy_backend(node: Node) -> bool:
+    if node.children is None:
+        return False
+    for child in node.children:
+        if (
+            child.name == 'proxy_pass'
+            and child.children is None
+            and child.args == ('http://backend:4000',)
+        ):
+            return True
+    return False
+
+
+def blocking_returns(node: Node, *, top_level_only: bool) -> list[str]:
+    statuses: list[str] = []
+    if node.children is None:
+        return statuses
+    scope = node.children if top_level_only else walk(node.children)
+    for child in scope:
+        status = return_status(child)
+        if status is not None and status[0] in '45':
+            statuses.append(status)
+    return statuses
+
+
+def require_fail_closed(description: str, matches: list[Node]) -> None:
+    if len(matches) == 0:
+        fail(f'missing effective {description}')
+    if len(matches) > 1:
+        fail(f'duplicate {description}')
+
+    node = matches[0]
+    assert node.children is not None
+
+    if has_proxy_pass(node):
+        fail(f'{description} still proxies upstream')
+
+    top_returns = [child for child in node.children if child.name == 'return' and child.children is None]
+    if not top_returns:
+        # Nested-only / conditional returns do not satisfy fail-closed.
+        nested_returns = [
+            child for child in walk(node.children)
+            if child.name == 'return' and child.children is None
+        ]
+        if nested_returns:
+            fail(f'{description} return is conditional or nested-only; need unconditional top-level return 403')
+        fail(f'{description} missing explicit return 403')
+
+    if len(top_returns) != 1:
+        fail(f'{description} has multiple top-level return directives')
+
+    status = return_status(top_returns[0])
+    if status is None:
+        fail(f'{description} malformed return status')
+    if status != '403':
+        fail(f'{description} returns {status}; expected exact 403 fail-closed')
+
+
+def main() -> None:
+    source = Path(sys.argv[1]).read_text()
+    try:
+        tokens = tokenize(source)
+        tree, consumed = parse(tokens)
+    except ValueError as error:
+        fail(f'malformed nginx syntax: {error}')
+    if consumed != len(tokens):
+        fail('unconsumed nginx syntax')
+
+    locations = location_nodes(tree)
+
+    exact_args = ('=', '/api/v1/submission-files')
+    prefix_args = ('^~', '/api/v1/submission-files/')
+    bare_prefix_args = ('^~', '/api/v1/submission-files')
+    api_args = ('/api/',)
+
+    exact = [node for node in locations if match_location(node, exact_args)]
+    prefix = [node for node in locations if match_location(node, prefix_args)]
+    bare = [node for node in locations if match_location(node, bare_prefix_args)]
+    api = [node for node in locations if match_location(node, api_args)]
+
+    if bare:
+        fail('bare prefix ^~ /api/v1/submission-files over-matches sibling paths')
+
+    require_fail_closed('exact submission-files location', exact)
+    require_fail_closed('trailing-slash/subpath submission-files location', prefix)
+
+    if len(api) == 0:
+        fail('missing effective location /api/ block')
+    if len(api) > 1:
+        fail('duplicate location /api/ block')
+
+    api_node = api[0]
+    if not top_level_proxy_backend(api_node):
+        fail('location /api/ must keep backend proxy_pass')
+
+    blocked = blocking_returns(api_node, top_level_only=False)
+    if blocked:
+        fail('location /api/ over-blocks unrelated routes')
+
+    print(
+        'submission-upload-route contract: ok '
+        '(exact+prefix top-level deny 403, no proxy, /api/ intact, quote-aware parse)'
+    )
+
+
+if __name__ == '__main__':
+    main()
+PY
