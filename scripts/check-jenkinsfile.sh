@@ -391,6 +391,9 @@ check_v2() {
     exit 1
   fi
 
+  # Condition→terminal: require executable shell/Groovy statements, not echoed/quoted tokens.
+  # Match only uniquely identified branch bodies; reject echo/println/string-literal spoofs.
+
   # stopped-only branch: condition → terminal exit (marker text alone is insufficient)
   if ! awk '
     $0 ~ /\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\]/ {
@@ -398,7 +401,8 @@ check_v2() {
       next
     }
     grab {
-      if ($0 ~ /exit[[:space:]]+[1-9]/) term=1
+      # executable: leading-indent exit N (not echo '\''exit 2'\'')
+      if ($0 ~ /^[[:space:]]*exit[[:space:]]+[1-9][0-9]*[[:space:]]*$/) term=1
       if ($0 ~ /^[[:space:]]*fi[[:space:]]*$/) exit
     }
     END { exit (grab && term) ? 0 : 1 }
@@ -414,7 +418,7 @@ check_v2() {
       next
     }
     grab {
-      if ($0 ~ /exit[[:space:]]+[1-9]/) term=1
+      if ($0 ~ /^[[:space:]]*exit[[:space:]]+[1-9][0-9]*[[:space:]]*$/) term=1
       if ($0 ~ /^[[:space:]]*fi[[:space:]]*$/) exit
     }
     END { exit (grab && term) ? 0 : 1 }
@@ -430,7 +434,8 @@ check_v2() {
       next
     }
     grab {
-      if ($0 ~ /error[[:space:]]*\(/) term=1
+      # executable Groovy error(...); reject echo/println "...error(..."
+      if ($0 ~ /^[[:space:]]*error[[:space:]]*\(/) term=1
       if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
     }
     END { exit (grab && term) ? 0 : 1 }
@@ -446,8 +451,9 @@ check_v2() {
       next
     }
     grab {
-      if ($0 ~ /error[[:space:]]*\(/) term=1
-      if ($0 ~ /DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''true'\''/) bad=1
+      if ($0 ~ /^[[:space:]]*error[[:space:]]*\(/) term=1
+      # real no-op assignment inside this fail-closed branch is forbidden
+      if ($0 ~ /^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''true'\''/) bad=1
       if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
     }
     END { exit (grab && term && !bad) ? 0 : 1 }
@@ -463,9 +469,9 @@ check_v2() {
       next
     }
     grab {
-      if ($0 ~ /DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''true'\''/) noop=1
-      if ($0 ~ /return/) ret=1
-      if ($0 ~ /DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''false'\''/) bad=1
+      if ($0 ~ /^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''true'\''/) noop=1
+      if ($0 ~ /^[[:space:]]*return[[:space:]]*;?[[:space:]]*$/) ret=1
+      if ($0 ~ /^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''false'\''/) bad=1
       if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
     }
     END { exit (grab && noop && ret && !bad) ? 0 : 1 }
@@ -481,10 +487,27 @@ check_v2() {
   if ! awk '
     {
       if ($0 ~ /FRONTEND_URL/) seen=1
-      if ($0 ~ /count[[:space:]]*==[[:space:]]*0/) missing=1
-      if ($0 ~ /count[[:space:]]*!=[[:space:]]*1/) uniq=1
-      if ($0 ~ /exit[[:space:]]+2/) e2=1
-      if ($0 ~ /exit[[:space:]]+3/) e3=1
+      # bind terminals to uniquely identified count branches (not file-wide exit 2 noise)
+      if ($0 ~ /count[[:space:]]*==[[:space:]]*0/) {
+        missing=1
+        grab_missing=1
+        grab_uniq=0
+        next
+      }
+      if ($0 ~ /count[[:space:]]*!=[[:space:]]*1/) {
+        uniq=1
+        grab_uniq=1
+        grab_missing=0
+        next
+      }
+      if (grab_missing) {
+        if ($0 ~ /^[[:space:]]*exit[[:space:]]+2[[:space:]]*$/) e2=1
+        if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) grab_missing=0
+      }
+      if (grab_uniq) {
+        if ($0 ~ /^[[:space:]]*exit[[:space:]]+3[[:space:]]*$/) e3=1
+        if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) grab_uniq=0
+      }
     }
     END { exit (seen && missing && uniq && e2 && e3) ? 0 : 1 }
   ' "$active_jenkinsfile"; then
