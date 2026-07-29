@@ -240,7 +240,7 @@ if [[ ! "$fe_revision" =~ ^[0-9a-f]{40}$ ]]; then
   echo 'FAIL_CLOSED running_metadata: org.opencontainers.image.revision이 40-hex SHA가 아닙니다.' >&2
   exit 2
 fi
-if [[ ! "$fe_tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+if [[ ! "$fe_tag" =~ ^v(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$ ]]; then
   echo 'FAIL_CLOSED running_metadata: 실행 중 태그가 full SemVer가 아닙니다.' >&2
   exit 2
 fi
