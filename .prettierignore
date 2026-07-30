@@ -25,6 +25,7 @@ apps/frontend/components.json
 # agent worktrees / local evidence
 .claude/worktrees/
 .omo/
+.playwright-mcp/
 apps/backend/scripts/seed-staff-settings.js
 
 # design-sync 컨버터 산출물 — 도구가 생성하는 번들/타입, 손으로 포맷하지 않는다

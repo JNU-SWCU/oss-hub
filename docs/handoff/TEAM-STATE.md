@@ -137,6 +137,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | OSS 활성화 랭킹 | @jinsol1190-rgb | review | #152 | [#194](https://github.com/JNU-SWCU/oss-hub/pull/194) | local pass | 공개 적격성 projection 부재로 endpoint·nav fail-closed 비노출 |
 | 공개 랭킹 저장소 소유권 projection | @jinsol1190-rgb | done | #197 | #202 | pass | 없음 |
 | 프로덕션 제출 파일 object storage(자체 호스팅 MinIO) | @GoBeromsu | done | [#292](https://github.com/JNU-SWCU/oss-hub/issues/292)·[#293](https://github.com/JNU-SWCU/oss-hub/issues/293) closed | [#302](https://github.com/JNU-SWCU/oss-hub/pull/302) merged | production `minio`·`minio-bucket` healthy · private bucket 초기화 · v0.3.1·v0.4.1 배포 성공 | `minio_data` off-host backup 완료 전 제출 upload 공개 금지 · 서버 route 403 fail-closed |
+| GitHub App 개인키 파일 입력 전환 · 호스트 hot reload dev 계약 | @GoBeromsu | active | [#366](https://github.com/JNU-SWCU/oss-hub/issues/366) | Wave 1 PR pending | public-safe 회귀 37/37 local pass · check-docker-context pass · format:check pass | 7 wave 중 Wave 1 착수 · Wave 3(backend `collection`·`repositories` 파일 로더)은 @Lumiere001 소유 경로 변경이라 free-role 예외로 진행(AGENTS.md §3, 원본 ADR-005) · Wave 3·5는 배포 계약 경로라 exact head/base `PM_ACCEPT` 필요 · Wave 5 착수 전 Jenkins file credential 2건 등록 필요(unblock: @GoBeromsu) · 종점은 R1(호환)·R2(활성화) 릴리즈 2회 실배포 |
 
 ## 외부 게이트
 

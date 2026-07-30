@@ -296,6 +296,13 @@ git -C "$FIXTURE_REPO" add secrets.yaml
 commit_fixture commit -qm 'test: secrets yaml fixture'
 expect_fail '자격증명 메모 파일 경로(secrets.yaml)' scan_fixture_repo
 
+init_fixture_repo forbidden-private-key-under-secrets
+mkdir -p "$FIXTURE_REPO/secrets"
+printf 'synthetic placeholder\n' >"$FIXTURE_REPO/secrets/leak.pem"
+git -C "$FIXTURE_REPO" add secrets/leak.pem
+commit_fixture commit -qm 'test: committed private key path fixture'
+expect_fail '커밋된 개인키 파일 경로(secrets/leak.pem)' scan_fixture_repo
+
 init_fixture_repo forbidden-credentials-suffixed
 mkdir -p "$FIXTURE_REPO/docs"
 printf 'synthetic note\n' >"$FIXTURE_REPO/docs/credentials-prod.md"
