@@ -106,7 +106,7 @@ export class AuthController {
           secure,
         }),
       ]);
-      res.redirect(302, loginLandingUrl(this.config.frontendUrl, login.user));
+      res.redirect(302, loginLandingUrl(this.config.frontendUrl, login));
     } catch (error) {
       // code·state는 로그에 남기지 않는다 — 오류 종류와 경로만.
       this.logger.warn(
