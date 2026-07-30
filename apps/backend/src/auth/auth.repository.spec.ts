@@ -240,10 +240,12 @@ describe('AuthRepository.upsertUser', () => {
     );
 
     expect(result.user.name).toBe('사용자 입력 이름');
-    expect(update).toHaveBeenCalledWith({
-      where: { githubId: 424_242n },
-      data: { nickname: 'synthetic-login', avatarUrl: null },
-    });
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { githubId: 424_242n },
+        data: { nickname: 'synthetic-login', avatarUrl: null },
+      }),
+    );
   });
 });
 

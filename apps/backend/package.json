@@ -14,6 +14,7 @@
     "test:unit": "jest --testPathIgnorePatterns='\\.integration\\.spec\\.ts$'",
     "test:integration": "bash ../../scripts/run-backend-integration.sh",
     "db:migrate:dev": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub prisma migrate dev",
+    "db:backfill:user-profiles": "ts-node prisma/user-profile-backfill.ts",
     "db:reset": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub prisma migrate reset --force",
     "db:seed": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub prisma db seed",
     "collection:verify-app": "ts-node src/collection/cli/verify-collection-app.ts",

@@ -3,6 +3,10 @@ import { RoleRequestStatus } from '@prisma/client';
 import type { Prisma, User as PrismaUser } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  COMPATIBLE_PROFILE_SELECT,
+  resolveCompatibleProfile,
+} from '../profiles/profile-compatibility';
 import type { UserProfileRecord } from '../users/user-profile-policy';
 import type { RoleUser } from './domain/role-onboarding';
 import type {
@@ -63,16 +67,15 @@ class PrismaStaffRoleRequestsTransactionStore implements StaffRoleRequestsTransa
     return user ? toRoleUser(user) : null;
   }
 
-  findUserProfileById(userId: string): Promise<UserProfileRecord | null> {
-    return this.transaction.user.findUnique({
+  async findUserProfileById(userId: string): Promise<UserProfileRecord | null> {
+    const user = await this.transaction.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
-        name: true,
-        studentId: true,
-        department: true,
+        ...COMPATIBLE_PROFILE_SELECT,
       },
     });
+    return user ? { id: user.id, ...resolveCompatibleProfile(user) } : null;
   }
 
   async findRequestById(id: string): Promise<StaffRoleRequestRecord | null> {

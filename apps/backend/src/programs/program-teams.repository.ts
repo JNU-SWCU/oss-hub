@@ -6,6 +6,10 @@ import {
   type ProgramCategory,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  COMPATIBLE_PROFILE_NAME_SELECT,
+  resolveCompatibleProfileName,
+} from '../profiles/profile-compatibility';
 
 export interface TeamStudentActor {
   readonly id: string;
@@ -97,17 +101,28 @@ export interface ProgramTeamsJoinStore {
 export class ProgramTeamsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  findActiveStudentByGithubId(
+  async findActiveStudentByGithubId(
     githubId: bigint,
   ): Promise<TeamStudentActor | null> {
-    return this.prisma.user.findFirst({
+    const user = await this.prisma.user.findFirst({
       where: {
         githubId,
         accountStatus: AccountStatus.ACTIVE,
         role: Role.STUDENT,
       },
-      select: { id: true, name: true, nickname: true },
+      select: {
+        id: true,
+        nickname: true,
+        ...COMPATIBLE_PROFILE_NAME_SELECT,
+      },
     });
+    return user
+      ? {
+          id: user.id,
+          nickname: user.nickname,
+          name: resolveCompatibleProfileName(user),
+        }
+      : null;
   }
 
   findProgramById(programId: string): Promise<TeamProgramRecord | null> {
@@ -146,7 +161,12 @@ export class ProgramTeamsRepository {
             members: {
               select: {
                 userId: true,
-                user: { select: { nickname: true, name: true } },
+                user: {
+                  select: {
+                    nickname: true,
+                    ...COMPATIBLE_PROFILE_NAME_SELECT,
+                  },
+                },
               },
               orderBy: { createdAt: 'asc' },
             },
@@ -167,7 +187,7 @@ export class ProgramTeamsRepository {
       members: team.members.map((member) => ({
         userId: member.userId,
         nickname: member.user.nickname,
-        name: member.user.name,
+        name: resolveCompatibleProfileName(member.user),
       })),
     };
   }
