@@ -23,6 +23,7 @@ Compose nginx는 `127.0.0.1:8081`에만 bind한다. 공인 `80/443`은 host ngin
 
 아래를 `oss-hub-localverify.env`처럼 **저장소 밖**(예: 홈 디렉터리)에 저장한다. `.env.*` 파일은 저장소에 커밋하지 않는다(public-safe 정책).
 변수명은 저장소 루트 `.env.example`과 동일한 계약을 따른다. `compose.yml`이 강제하는 필수 키를 빠뜨리지 않는다.
+`GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE`와 `GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE`는 저장소 루트의 추적하지 않는 `secrets/` 아래 PEM 파일을 가리킨다. 로컬 검증 전에 그 파일들을 직접 배치해야 `docker compose config`와 `scripts/docker-verify-local.sh`가 통과한다.
 
 ```dotenv
 # 로컬 검증 전용 — 비시크릿 예시. 저장소에 커밋하지 않는다.
@@ -32,6 +33,10 @@ IMAGE_TAG=localverify
 POSTGRES_USER=oss
 POSTGRES_PASSWORD=REPLACE_LOCAL_PW
 POSTGRES_DB=osshub
+
+# MinIO (compose.yml 필수. 로컬 컨테이너 전용 자격증명)
+SUBMISSION_FILE_S3_ACCESS_KEY_ID=REPLACE_LOCAL_MINIO_ACCESS_KEY
+SUBMISSION_FILE_S3_SECRET_ACCESS_KEY=REPLACE_LOCAL_MINIO_SECRET_KEY
 
 # migration·runtime 공용. compose 네트워크의 postgres 서비스 DNS를 가리킨다.
 # POSTGRES_PASSWORD와 같은 비밀번호를 쓴다.
@@ -55,6 +60,20 @@ FRONTEND_URL=https://127.0.0.1
 # 로컬 검증에서는 비워도 된다(시드 미적용).
 AUTH_INITIAL_ROLES=
 
+# GitHub App 기본 식별자 — compose.yml 필수.
+# 실제 운영 값 대신 로컬 검증용 자리표시자를 넣는다.
+GITHUB_COLLECTION_APP_ID=REPLACE_LOCAL_COLLECTION_APP_ID
+GITHUB_APP_ORG=REPLACE_LOCAL_GITHUB_ORG
+GITHUB_OPERATIONS_APP_ID=REPLACE_LOCAL_OPERATIONS_APP_ID
+
+# GitHub App 개인키는 값이 아니라 파일 경로다.
+# 저장소 루트의 추적하지 않는 secrets/ 아래 PEM 파일을 직접 두고, _SOURCE는 그 호스트 경로를 가리킨다.
+GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE=./secrets/localverify/collection.pem
+GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE=./secrets/localverify/operations.pem
+# legacy fallback은 선택값이라 비워 둔다.
+GITHUB_COLLECTION_APP_PRIVATE_KEY=
+GITHUB_OPERATIONS_APP_PRIVATE_KEY=
+
 # GitHub OAuth — 로컬 부팅용 형식만 맞춘 자리표시자.
 # health 확인만 할 때는 형식상 값이면 되지만, backend가 부팅 시 검증하면
 # 개발용 OAuth App의 값으로 대체한다.
@@ -68,6 +87,9 @@ GMAIL_SENDER=localverify@example.com
 GMAIL_OAUTH_CLIENT_ID=REPLACE_LOCAL_GMAIL_CLIENT_ID
 GMAIL_OAUTH_CLIENT_SECRET=REPLACE_LOCAL_GMAIL_CLIENT_SECRET
 GMAIL_OAUTH_REFRESH_TOKEN=REPLACE_LOCAL_GMAIL_REFRESH_TOKEN
+
+# 메일 전송 모드 — 로컬 검증은 발송하지 않으므로 dry-run을 쓴다.
+MAIL_MODE=dry-run
 ```
 
 ### 실행
