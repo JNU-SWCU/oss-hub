@@ -1,26 +1,25 @@
 # CI 경로별 검증 계약
 
-이 문서는 변경 경로가 어떤 검증을 실행해야 하는지 정한다. 경로 감지는 required `ci` job 안에서
-수행하므로 대상 변경이 없어도 `ci` 결과는 항상 보고된다. `.github/workflows/**` 변경은 아래의 모든
-경로별 검증을 실행해 검증 규칙 자체의 누락을 막는다.
+이 문서는 변경 경로가 어떤 검증을 실행해야 하는지 정한다.
+경로 감지는 required `ci` job 안에서 수행하므로 대상 변경이 없어도 `ci` 결과는 항상 보고된다.
+`.github/workflows/**` 변경은 아래의 모든 경로별 검증을 실행해 검증 규칙 자체의 누락을 막는다.
 
 이 표는 이미 존재하는 검증을 경로에 매핑할 뿐, 새 계약마다 전용 검사기를 만들 근거는 아니다.
-어떤 수단으로 불변식을 지킬지는 [ADR-005](../decisions/ADR-005-agent-driven-review-cycle.md)의
-우선순위(구조 → 앱 테스트 → 전용 검사기 → 문서 규칙)가 원본이다. 상위 수단으로 성립하는 불변식은
-이 표에 행을 추가하지 않고, 검사기를 상위 수단으로 옮기면 해당 행을 지운다.
+어떤 수단으로 불변식을 지킬지는 [ADR-005](../decisions/ADR-005-agent-driven-review-cycle.md)의 우선순위(구조 → 앱 테스트 → 전용 검사기 → 문서 규칙)가 원본이다.
+상위 수단으로 성립하는 불변식은 이 표에 행을 추가하지 않고, 검사기를 상위 수단으로 옮기면 해당 행을 지운다.
 
 | 변경 경로 | 실행하는 검증 | 경계 |
 | --- | --- | --- |
 | `apps/frontend/**` | frontend lint · typecheck · test · build | Docker 이미지 빌드 없음 |
 | `apps/backend/**` | backend lint · typecheck · test · build | Docker 이미지 빌드 없음 |
 | `deploy/nginx/**`, `deploy/host-nginx/**`, `scripts/check-submission-upload-route*.sh` | `probe-nginx-callback-log.sh` 합성 callback 로그 계약 + `check-host-nginx.test.sh` IP TLS·ACME·loopback Compose·POST-only Jenkins 계약 + `check-submission-upload-route.test.sh`/실제 설정의 exact·slash-descendant upload 403 차단 계약 | 실제 OAuth·인증서 값·요청·업로드 없음 |
-| `compose.yml`, `compose.local.yml`, `.env.example`, `scripts/check-env-example-coverage*.mjs`, `scripts/docker-verify-local*.sh`, `scripts/_compose-lib.sh`, `apps/backend/src/**`, `apps/frontend/src/**` | (A) `node --test scripts/check-env-example-coverage.test.mjs` fixture 회귀 + `node scripts/check-env-example-coverage.mjs --require-docker` 삼중 계약. (1) 선언: compose `${VAR:?}`·코드 소비 키 → `.env.example`. (2) 주입: 코드 소비 키 → 소유 서비스 `environment` — `docker compose config --format json` 정규화 모델로 판정. (3) 소비: `apps/*/src` 비테스트 소스를 TypeScript AST로 스캔. 지원 접근: `process.env.KEY`, `process.env['KEY']`/`"KEY"`/`KEY`, `const { KEY } = process.env`(rename·default는 property key만), `env.KEY`, `environmentValue`/`booleanEnvironmentValue('KEY')`, `NAME_ENV = 'KEY'`, 접두 필터된 `GITHUB_*`/`SUBMISSION_FILE_*` config 리터럴. 승인 helper 면제는 정의 파일 경로+선언 쌍으로만 적용하며 본문의 `process.env[<param>]`만 동적 접근 면제. 승인 helper 호출 첫 인자가 정적 리터럴이 아니면 실패. 스캔 확장자: `.ts/.tsx/.mts/.cts/.js/.jsx/.mjs/.cjs`. parse diagnostics·디렉터리 순회 오류는 이름 있는 검사 실패. compose 필수 보간은 `${VAR:?}`·`${VAR?}`(주석·`$$` 이스케이프 제외). (B) `bash scripts/docker-verify-local.test.sh` — 로컬 실행 계약은 정확히 `compose.yml` + `compose.local.yml` 두 파일이며 호출자 `IMAGE_TAG` 없이 성립한다. production `compose.yml` 단독의 `${IMAGE_TAG:?}` fail-closed는 유지한다. | (A) 컨테이너 기동·이미지 빌드 없음. 의존: Docker Compose CLI·`typescript`(apps/backend). CI workflow는 `--require-docker`를 명시 전달하며 docker 부재 시 실패. 로컬 docker 부재 시 service-mapping·compose-config만 stderr에 명시 skip하고 선언 검사는 유지. typescript 부재는 즉시 실패(`pnpm install` 안내). 면제: `NODE_ENV`(Dockerfile·compose.local.yml 소유 전역 예외), `DIGEST_FORCE_TO`(`notifications/cli`와 canonical `runtime-config.ts` 획득 지점), `OSS_HUB_INTEGRATION_RUNNER`(`*.integration.spec.ts`만; 스캔 제외 대상과 일치), `SUBMISSION_FILE_CLEANUP_*`(`submissions/cli`와 canonical `runtime-config.ts` 획득 지점), `GITHUB_COLLECTION_APP_SMOKE_*`(`collection/cli`와 canonical `runtime-config.ts` 획득 지점), `IMAGE_TAG`(compose 필수 문서 면제만 — `.env.example` 미기재; 코드에서 소비하면 일반 키와 동일하게 선언·service mapping을 모두 요구하며 production은 Jenkins/build가 `IMAGE_TAG`를 주입). canonical 획득 지점의 면제는 해당 CLI 전용 키에만 적용하며 다른 소비 경로의 hit를 면제하지 않는다. 동적 `process.env[var]` 면제는 승인 경로(`repositories/github-operations.config.ts`·`submissions/submission-file-storage.config.ts`)의 **유일한 top-level 함수 선언**에만 적용하며, 같은 이름의 중복·중첩·메서드 선언이 있으면 판별 불가로 실패한다. (B) Docker Compose CLI 필요·이미지 빌드·스택 기동 없음(stub + `compose config` 계약). |
+| `compose.yml`, `compose.local.yml`, `.env.example`, `scripts/check-env-example-coverage*.mjs`, `scripts/docker-verify-local*.sh`, `scripts/_compose-lib.sh`, `apps/backend/src/**`, `apps/frontend/src/**` | (A) `node --test scripts/check-env-example-coverage.test.mjs` fixture 회귀 + `node scripts/check-env-example-coverage.mjs --require-docker` 집합 계약. E=`.env.example` 키, Q=Compose 필수 `${VAR:?}`·`${VAR?}` 키, R=`RUNTIME_CONFIG_KEYS`, P=loader property, L=loader `env.KEY` 읽기, B=Docker 정규화 `services.backend.environment`으로 `R=P=L`, `Q-{IMAGE_TAG}⊆E`, `R-면제⊆E`, `R-면제⊆B`, `AUTH_INITIAL_ROLES∈B`를 검사한다. canonical loader는 직접 `return Object.freeze({ KEY: env.KEY })`여야 하며 반쪽 편집·중복·default·spread를 fail-closed한다. 일반 소스의 `process.env` 금지는 ESLint가 소유한다. (B) `bash scripts/docker-verify-local.test.sh` — 로컬 실행 계약은 정확히 `compose.yml` + `compose.local.yml` 두 파일이며 호출자 `IMAGE_TAG` 없이 성립한다. production `compose.yml` 단독의 `${IMAGE_TAG:?}` fail-closed는 유지한다. | (A) 컨테이너 기동·이미지 빌드 없음. 의존: Docker Compose CLI. CI workflow는 `--require-docker`를 명시 전달하며 docker 부재 시 실패한다. 로컬 docker 부재 시 service-mapping·compose-config만 stderr에 명시 skip하고 선언·manifest·loader 검사는 유지한다. 세 번째 positional `scanRoot`는 호환성 이름을 유지하되 소스 스캔 루트가 아니라 canonical `apps/backend/src/runtime-config/runtime-config.ts`를 찾는 contract root다. 면제 원장: `IMAGE_TAG`는 Compose 문서화만, `NODE_ENV`·`DIGEST_FORCE_TO`는 runtime 문서화·backend 주입, `SUBMISSION_FILE_CLEANUP_*`·`GITHUB_COLLECTION_APP_SMOKE_*`는 backend 주입만 면제한다. |
 | `Jenkinsfile`, `scripts/check-jenkinsfile.sh`, `scripts/check-jenkinsfile.test.sh`, `scripts/prune-deploy-backups*.sh`, `scripts/jenkins/**` | `bash scripts/check-jenkinsfile.test.sh` 합성 fixture 회귀 + `bash scripts/check-jenkinsfile.sh Jenkinsfile` 단일 parameterless latest-Release 계약 + `bash scripts/prune-deploy-backups.test.sh` 격리 N+1 보존 계약. 실행 중 no-op·fail-closed stopped/ambiguous·SemVer downgrade·OCI label·rollback Image ID 바인딩·success-only retention을 검증한다. | Jenkins 실행·이미지 빌드·실제 backup 접근 없음 |
 | `apps/*/Dockerfile`, `.dockerignore` | `check-docker-context.test.sh`와 실제 context의 deny 규칙·COPY 경계 검사 | Docker daemon·이미지 빌드 없음 |
 | `scripts/check-public-safe*.sh` | shell 문법 검사 + `public-safe` job의 regex 회귀 테스트 | PR-controlled 코드에 secret 미주입 |
 | `scripts/team-state-check*.mjs` | Node 문법 검사 + TEAM-STATE 합성 fixture 단위테스트 | GitHub 조회 실패를 성공으로 추정하지 않음 |
 | 그 밖의 `scripts/*.sh`, `scripts/*.mjs` | 각 런타임의 문법 검사 | 외부 서비스·실데이터 사용 없음 |
 
-`public-safe`는 경로와 무관하게 모든 PR에서 실행한다. TEAM-STATE 단위테스트도 required `ci`에서 항상
-실행하며, 실제 GitHub drift 조회는 별도의 advisory job이 담당한다. 이 계약은 검증 대상을 선택할 뿐
-배포·정책 상태·문서를 자동 변경하지 않는다.
+`public-safe`는 경로와 무관하게 모든 PR에서 실행한다.
+TEAM-STATE 단위테스트도 required `ci`에서 항상 실행하며, 실제 GitHub drift 조회는 별도의 advisory job이 담당한다.
+이 계약은 검증 대상을 선택할 뿐 배포·정책 상태·문서를 자동 변경하지 않는다.
