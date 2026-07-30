@@ -7,6 +7,7 @@
 - Node >=24
 - pnpm 11 (corepack으로 활성화)
 - Docker (로컬 `postgres`, `minio`, `minio-bucket` 서비스 기동용)
+- direnv (호스트 hot reload 경로에서 `.envrc`를 쉘에 주입한다 — 아래 "두 실행 경로" 참고)
 
 ## 설정 원본
 
@@ -19,7 +20,26 @@
 - `.env`에 같은 키를 두 번 쓰지 않는다. Docker Compose는 `--env-file`에서 **먼저 나온 항목**을 쓰므로 뒤에 덧붙인 값은 무시된다.
 - 호스트 쉘에 export된 환경변수는 `--env-file`보다 **우선한다**. `scripts/docker-verify-local.sh`는 이 때문에 `.env`가 소유해야 할 키를 먼저 `unset`한다.
 
+## 두 실행 경로
+
+로컬 실행 경로는 두 가지이고 목적이 다르다. **호스트 ingress 3000을 공유하므로 동시에 띄울 수 없다.**
+
+| 경로 | 무엇이 어디서 도는가 | env 원본 | 쓰는 때 |
+| --- | --- | --- | --- |
+| `pnpm dev` | backend·frontend는 **호스트 프로세스**(hot reload), 인프라만 Docker | `.envrc` (direnv) | 일상 개발 |
+| `pnpm local:up` · `pnpm local:verify` | 앱까지 컨테이너 — production 구조와 같은 경로 | `.env` | 배포 전 통합 검증 |
+
+두 경로의 env 파일은 값이 다르다. `pnpm dev`는 앱이 호스트에 있으니 호스트명이 전부 `localhost`이고, compose 경로는 서비스 DNS(`postgres`, `minio`)를 쓴다. 값을 서로 복사하면 연결이 깨진다.
+
+`pnpm dev`를 처음 쓸 때는 `.envrc.example`을 `.envrc`로 복사하고 그 안의 "직접 채운다" 항목(세션 서명 키 2개, dev OAuth 값)을 채운 뒤 direnv를 허용한다. `.envrc`는 추적하지 않는다.
+
+- `pnpm dev`는 필수 env와 포트 3000·4000 점유를 먼저 검사하고, 인프라 기동과 마이그레이션 적용까지 마친 뒤 두 watcher를 함께 띄운다. 한쪽 watcher가 죽으면 다른 쪽도 함께 내려간다.
+- 스키마를 바꿨다면 마이그레이션 파일 생성은 `pnpm db:migrate:dev`가 담당한다. `pnpm dev`는 이미 있는 마이그레이션을 적용하기만 한다.
+- GitHub App 개인키는 값이 아니라 **파일 경로**로 전달한다. 파일은 추적하지 않는 `secrets/`에 사람이 직접 배치하고, `.envrc`의 `*_PRIVATE_KEY_FILE` 키가 그 경로를 가리킨다.
+
 ## 실행 순서
+
+아래는 compose 경로(`pnpm local:up`) 기준이다. 호스트 hot reload는 위 "두 실행 경로"를 따른다.
 
 1. `pnpm install` — 의존성 설치. `postinstall`에서 backend의 `prisma generate`가 자동 실행된다.
 2. `.env` 준비 — `.env.example`을 기준으로 값을 채운다. compose 경로로 띄우므로 서비스 DNS를 쓴다: `DATABASE_URL`의 호스트는 `postgres`, `SUBMISSION_FILE_S3_ENDPOINT`는 `http://minio:9000`이다. `FRONTEND_URL`은 ingress와 같은 `http://localhost:3000`이어야 한다. 이 값은 dev GitHub OAuth App에 이미 등록된 콜백 origin과 일치해야 한다.
