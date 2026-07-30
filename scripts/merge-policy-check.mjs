@@ -81,6 +81,7 @@ export function fetchInputs(repository, prNumber) {
     !Number.isInteger(response?.number) ||
     !Number.isInteger(response?.changed_files) ||
     typeof response?.head?.sha !== 'string' ||
+    typeof response?.user?.login !== 'string' ||
     typeof baseRef !== 'string' ||
     typeof baseSha !== 'string'
   ) {
@@ -88,6 +89,7 @@ export function fetchInputs(repository, prNumber) {
   }
   const pull = {
     number: response.number,
+    authorLogin: response.user.login,
     headSha: response.head.sha,
     baseRef,
     baseSha,

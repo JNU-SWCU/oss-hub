@@ -421,6 +421,15 @@ export function evaluateMergePolicy({
     return verdict('failure', 'UNKNOWN', reasons, notes, null);
   }
 
+  // PM이 작성한 PR은 어떤 사람의 review·accept도 요구하지 않는다 (PM 결정, 2026-07-30).
+  // required check는 `ci`·`public-safe`가 그대로 강제하므로 기계적 검증은 유지된다.
+  if (pull.authorLogin === PM_ACTOR) {
+    notes.push(
+      `@${PM_ACTOR} 작성 PR — review·accept 면제 (required CI는 그대로 적용)`,
+    );
+    return verdict('success', 'PM_AUTHORED', reasons, notes, null);
+  }
+
   const sortedComments = [...comments].sort((a, b) => a.id - b.id);
   const { latest: mergeReady, sawStale } = findMergeReady(
     pull,
