@@ -172,7 +172,7 @@ export function ProgramCreationPage() {
           <FieldError>{errors.name}</FieldError>
         </Field>
         <Field>
-          <FieldLabel htmlFor="organizer">주관기관 *</FieldLabel>
+          <FieldLabel htmlFor="organizer">주관기관/학과 *</FieldLabel>
           <Input
             id="organizer"
             value={form.organizer}
@@ -183,20 +183,32 @@ export function ProgramCreationPage() {
         <Field>
           <FieldLabel>신청 기간 *</FieldLabel>
           <div className="grid gap-2 sm:grid-cols-2">
-            <Input
-              type="datetime-local"
-              value={form.applicationStartAt}
-              onChange={(event) =>
-                update('applicationStartAt', event.target.value)
-              }
-            />
-            <Input
-              type="datetime-local"
-              value={form.applicationEndAt}
-              onChange={(event) =>
-                update('applicationEndAt', event.target.value)
-              }
-            />
+            <div className="space-y-2">
+              <FieldLabel className="text-xs" htmlFor="applicationStartAt">
+                시작일시
+              </FieldLabel>
+              <Input
+                id="applicationStartAt"
+                type="datetime-local"
+                value={form.applicationStartAt}
+                onChange={(event) =>
+                  update('applicationStartAt', event.target.value)
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <FieldLabel className="text-xs" htmlFor="applicationEndAt">
+                마감일시
+              </FieldLabel>
+              <Input
+                id="applicationEndAt"
+                type="datetime-local"
+                value={form.applicationEndAt}
+                onChange={(event) =>
+                  update('applicationEndAt', event.target.value)
+                }
+              />
+            </div>
           </div>
           <FieldError>{errors.period}</FieldError>
         </Field>
@@ -217,18 +229,34 @@ export function ProgramCreationPage() {
           <Field>
             <FieldLabel>팀 인원 *</FieldLabel>
             <div className="grid gap-2 sm:grid-cols-2">
-              <Input
-                type="number"
-                min="1"
-                value={form.teamMinSize}
-                onChange={(event) => update('teamMinSize', event.target.value)}
-              />
-              <Input
-                type="number"
-                min="1"
-                value={form.teamMaxSize}
-                onChange={(event) => update('teamMaxSize', event.target.value)}
-              />
+              <div className="space-y-2">
+                <FieldLabel className="text-xs" htmlFor="teamMinSize">
+                  최소
+                </FieldLabel>
+                <Input
+                  id="teamMinSize"
+                  type="number"
+                  min="1"
+                  value={form.teamMinSize}
+                  onChange={(event) =>
+                    update('teamMinSize', event.target.value)
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <FieldLabel className="text-xs" htmlFor="teamMaxSize">
+                  최대
+                </FieldLabel>
+                <Input
+                  id="teamMaxSize"
+                  type="number"
+                  min="1"
+                  value={form.teamMaxSize}
+                  onChange={(event) =>
+                    update('teamMaxSize', event.target.value)
+                  }
+                />
+              </div>
             </div>
             <FieldError>{errors.team}</FieldError>
           </Field>

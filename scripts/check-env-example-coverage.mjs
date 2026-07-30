@@ -1,14 +1,8 @@
-// env 계약 삼중 불변식 검사 entry.
-// (1) 선언 — compose ${VAR:?} · 코드 소비 키 → .env.example
-// (2) 주입 — 코드 소비 키 → 소유 서비스 environment (docker compose config 정규화 모델)
-// (3) 소비 — apps/*/src 가 키를 읽음 (TypeScript AST)
-//
-// 사용법:
-//   node scripts/check-env-example-coverage.mjs [compose.yml] [.env.example] [scan_root]
-//
-// CI 또는 --require-docker 에서는 docker 부재를 실패로 취급한다.
-// 로컬에서 docker 가 없으면 (2)·compose config 검사를 건너뛰고
-// 건너뛴 검사 이름과 이유를 stderr 에 명시한다(조용한 degrade 금지).
+// env 계약 검사 entry.
+// compose/.env.example/runtime-config 세 선언 목록과 Docker 정규화 모델을 검사한다.
+// 일반 apps/*/src의 process.env 접근 금지는 ESLint가 소유한다.
+// 기존 세 번째 positional `scanRoot`는 호환성을 위해 유지하며,
+// 이제 canonical runtime-config 파일을 찾는 contract root를 뜻한다.
 
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -18,29 +12,27 @@ import { fileURLToPath } from 'node:url';
 
 import {
   buildSyntheticEnvFile,
-  collectCodeHits,
   evaluateEnvContract,
   extractRequiredComposeKeys,
-  loadTypescript,
 } from './check-env-example-coverage-lib.mjs';
 
 const DEFAULT_COMPOSE = 'compose.yml';
 const DEFAULT_ENV_EXAMPLE = '.env.example';
 const COMMAND_TIMEOUT_MS = 60_000;
+const RUNTIME_CONFIG_RELATIVE_PATH =
+  'apps/backend/src/runtime-config/runtime-config.ts';
 
 /**
  * @param {string[]} argv
  */
 export function parseArguments(argv) {
-  const args = [...argv];
   let requireDocker = false;
   const positional = [];
-  for (const arg of args) {
+
+  for (const arg of argv) {
     if (arg === '--require-docker') {
       requireDocker = true;
-      continue;
-    }
-    if (arg === '--help' || arg === '-h') {
+    } else if (arg === '--help' || arg === '-h') {
       return {
         help: true,
         requireDocker: false,
@@ -48,9 +40,11 @@ export function parseArguments(argv) {
         envExample: '',
         scanRoot: '',
       };
+    } else {
+      positional.push(arg);
     }
-    positional.push(arg);
   }
+
   return {
     help: false,
     requireDocker,
@@ -74,26 +68,24 @@ export function loadComposeConfig(composeFile, requiredKeys, options) {
 
   if (!commandExists('docker')) {
     const reason = 'docker not found on PATH';
+
     if (dockerRequired) {
       throw new Error(
         `env example contract: ${reason}; service-mapping and compose-config checks require docker in CI (or pass --require-docker)`,
       );
     }
-    return {
-      config: null,
-      skipped: true,
-      skipReason: reason,
-    };
+
+    return { config: null, skipped: true, skipReason: reason };
   }
 
   const composeDir = path.resolve(path.dirname(composeFile));
   const composeBase = path.basename(composeFile);
-  const syntheticEnv = buildSyntheticEnvFile(requiredKeys);
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'env-contract-'));
   const envPath = path.join(tmpDir, 'synthetic.env');
 
   try {
-    fs.writeFileSync(envPath, syntheticEnv, 'utf8');
+    fs.writeFileSync(envPath, buildSyntheticEnvFile(requiredKeys), 'utf8');
+
     const stdout = execFileSync(
       'docker',
       [
@@ -113,6 +105,7 @@ export function loadComposeConfig(composeFile, requiredKeys, options) {
         stdio: ['ignore', 'pipe', 'pipe'],
       },
     );
+
     return {
       config: JSON.parse(stdout),
       skipped: false,
@@ -125,6 +118,7 @@ export function loadComposeConfig(composeFile, requiredKeys, options) {
         : '';
     const detail =
       stderr.trim() || (error instanceof Error ? error.message : String(error));
+
     throw new Error(
       `env example contract: docker compose config failed with synthetic env\n${detail}`,
     );
@@ -134,8 +128,88 @@ export function loadComposeConfig(composeFile, requiredKeys, options) {
 }
 
 /**
- * @param {string} name
+ * @param {ReturnType<typeof parseArguments>} args
+ * @param {{
+ *   repoRoot?: string,
+ *   stdout?: NodeJS.WritableStream,
+ *   stderr?: NodeJS.WritableStream
+ * }} [io]
  */
+export function runCheck(args, io = {}) {
+  const stdout = io.stdout ?? process.stdout;
+  const stderr = io.stderr ?? process.stderr;
+  const repoRoot =
+    io.repoRoot ??
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+  if (args.help) {
+    stdout.write(
+      'usage: node scripts/check-env-example-coverage.mjs [compose.yml] [.env.example] [contract_root] [--require-docker]\n',
+    );
+    return 0;
+  }
+
+  const composeFile = path.resolve(args.composeFile);
+  const envExample = path.resolve(args.envExample);
+  const contractRoot = path.resolve(args.scanRoot || repoRoot);
+  const runtimeConfig = path.join(contractRoot, RUNTIME_CONFIG_RELATIVE_PATH);
+
+  for (const filePath of [composeFile, envExample, runtimeConfig]) {
+    if (!fs.existsSync(filePath)) {
+      stderr.write(`env example contract: file not found: ${filePath}\n`);
+      return 1;
+    }
+  }
+
+  const composeText = fs.readFileSync(composeFile, 'utf8');
+  const envExampleText = fs.readFileSync(envExample, 'utf8');
+  const runtimeConfigText = fs.readFileSync(runtimeConfig, 'utf8');
+  const requiredKeys = extractRequiredComposeKeys(composeText);
+
+  let composeConfig = null;
+  let composeConfigSkipped = false;
+
+  try {
+    const loaded = loadComposeConfig(composeFile, requiredKeys, {
+      requireDocker: args.requireDocker,
+    });
+    composeConfig = loaded.config;
+    composeConfigSkipped = loaded.skipped;
+
+    if (loaded.skipped) {
+      stderr.write(
+        `env example contract: skipping checks [service-mapping, compose-config]: ${loaded.skipReason}\n`,
+      );
+      stderr.write(
+        'env example contract: declaration and runtime-loader checks still run; install docker to enable full contract verification\n',
+      );
+    }
+  } catch (error) {
+    stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    return 1;
+  }
+
+  const result = evaluateEnvContract({
+    composeText,
+    envExampleText,
+    runtimeConfigText,
+    composeConfig,
+    options: { composeConfigSkipped },
+  });
+
+  if (!result.ok) {
+    for (const message of result.errors) {
+      stderr.write(`${message}\n`);
+    }
+    return 1;
+  }
+
+  stdout.write(
+    'env example contract: ok (compose/runtime keys documented, manifest matches loader, backend keys service-mapped; ESLint owns source env reads)\n',
+  );
+  return 0;
+}
+
 function commandExists(name) {
   try {
     execFileSync('sh', ['-c', `command -v ${name}`], {
@@ -148,117 +222,12 @@ function commandExists(name) {
   }
 }
 
-/**
- * @param {ReturnType<typeof parseArguments>} args
- * @param {{ repoRoot?: string, stdout?: NodeJS.WritableStream, stderr?: NodeJS.WritableStream }} [io]
- * @returns {number} exit code
- */
-export function runCheck(args, io = {}) {
-  const stdout = io.stdout ?? process.stdout;
-  const stderr = io.stderr ?? process.stderr;
-  const repoRoot =
-    io.repoRoot ??
-    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-
-  if (args.help) {
-    stdout.write(
-      'usage: node scripts/check-env-example-coverage.mjs [compose.yml] [.env.example] [scan_root] [--require-docker]\n',
-    );
-    return 0;
-  }
-
-  const composeFile = path.resolve(args.composeFile);
-  const envExample = path.resolve(args.envExample);
-  const scanRoot = path.resolve(args.scanRoot || repoRoot);
-
-  if (!fs.existsSync(composeFile)) {
-    stderr.write(`env example contract: file not found: ${composeFile}\n`);
-    return 1;
-  }
-  if (!fs.existsSync(envExample)) {
-    stderr.write(`env example contract: file not found: ${envExample}\n`);
-    return 1;
-  }
-
-  const composeText = fs.readFileSync(composeFile, 'utf8');
-  const envExampleText = fs.readFileSync(envExample, 'utf8');
-  const requiredKeys = extractRequiredComposeKeys(composeText);
-
-  let composeConfig = null;
-  let composeConfigSkipped = false;
-  try {
-    const loaded = loadComposeConfig(composeFile, requiredKeys, {
-      requireDocker: args.requireDocker,
-    });
-    composeConfig = loaded.config;
-    composeConfigSkipped = loaded.skipped;
-    if (loaded.skipped) {
-      stderr.write(
-        `env example contract: skipping checks [service-mapping, compose-config]: ${loaded.skipReason}\n`,
-      );
-      stderr.write(
-        'env example contract: declaration checks still run; install docker to enable full contract verification\n',
-      );
-    }
-  } catch (error) {
-    stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-    return 1;
-  }
-
-  let ts;
-  try {
-    ts = loadTypescript(repoRoot);
-  } catch (error) {
-    stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-    return 1;
-  }
-
-  let codeHits;
-  try {
-    codeHits = collectCodeHits(scanRoot, repoRoot, ts);
-  } catch (error) {
-    if (error && typeof error === 'object' && 'messages' in error) {
-      for (const message of /** @type {string[]} */ (
-        /** @type {{ messages: string[] }} */ (error).messages
-      )) {
-        stderr.write(`${message}\n`);
-      }
-    } else {
-      stderr.write(
-        `${error instanceof Error ? error.message : String(error)}\n`,
-      );
-    }
-    return 1;
-  }
-
-  const result = evaluateEnvContract({
-    composeText,
-    envExampleText,
-    composeConfig,
-    codeHits,
-    options: { composeConfigSkipped },
-  });
-
-  if (!result.ok) {
-    for (const message of result.errors) {
-      stderr.write(`${message}\n`);
-    }
-    return 1;
-  }
-
-  stdout.write(
-    'env example contract: ok (compose keys documented, code keys declared and service-mapped, AUTH_INITIAL_ROLES mapped)\n',
-  );
-  return 0;
-}
-
 function main() {
-  const args = parseArguments(process.argv.slice(2));
-  const code = runCheck(args);
-  process.exitCode = code;
+  process.exitCode = runCheck(parseArguments(process.argv.slice(2)));
 }
 
 const entryPath = fileURLToPath(import.meta.url);
+
 if (process.argv[1] && path.resolve(process.argv[1]) === entryPath) {
   try {
     main();

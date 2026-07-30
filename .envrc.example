@@ -1,0 +1,66 @@
+# 호스트 hot reload(`pnpm dev`) 전용 env 계약. direnv가 이 값을 쉘에 주입한다.
+#
+#   cp .envrc.example .envrc   # .envrc는 gitignore된다(.gitignore:47)
+#   # 아래 "직접 채운다" 항목을 채운 뒤
+#   direnv allow
+#
+# 이 파일과 `.env`는 목적이 다르다.
+# - `.envrc` → `pnpm dev`. backend·frontend가 **호스트 프로세스**로 돌고 인프라만 Docker다.
+#   따라서 모든 호스트명이 `localhost`이고 포트는 compose.dev.yml이 publish한 것을 쓴다.
+# - `.env`    → `pnpm local:up` / `pnpm local:verify`. 앱까지 컨테이너로 돌므로 호스트명이
+#   서비스 DNS(`postgres`, `minio`)다. 두 파일의 값을 서로 복사하면 연결이 깨진다.
+#
+# 자세한 실행 순서는 docs/rules/local-dev.md를 따른다.
+
+# --- 인프라 연결 (compose.dev.yml이 publish하는 주소) ---
+# compose.dev.yml:5-7의 인라인 자격증명과 apps/backend/package.json의 db:migrate:dev 연결 문자열과 일치해야 한다.
+export DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub
+
+# compose.dev.yml:22-23,49의 MinIO 기본값과 일치해야 한다.
+export SUBMISSION_FILE_S3_ENDPOINT=http://localhost:9000
+export SUBMISSION_FILE_S3_REGION=us-east-1
+export SUBMISSION_FILE_S3_BUCKET=oss-hub-submission-files-local
+export SUBMISSION_FILE_S3_ACCESS_KEY_ID=oss-hub-local
+export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY=oss-hub-local-synthetic-secret
+export SUBMISSION_FILE_S3_FORCE_PATH_STYLE=true
+
+# --- 앱 주소 ---
+# FRONTEND_URL은 path/query/hash 없는 origin이어야 한다(apps/backend/src/auth/auth.config.ts).
+export FRONTEND_URL=http://localhost:3000
+# next.config.ts가 개발 rewrite 대상으로만 읽는다. 운영 런타임은 이 키를 쓰지 않는다.
+export BACKEND_ORIGIN=http://localhost:4000
+export PORT=4000
+# 로컬은 실제 발송을 하지 않는다. send로 바꾸면 GMAIL_* 4종이 함께 필수가 된다.
+export MAIL_MODE=dry-run
+
+# --- 직접 채운다: 세션·토큰 서명 키 ---
+# 아래 명령으로 각각 생성해 붙인다. 두 값은 서로 달라야 한다.
+#   node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+# SESSION_SECRET은 base64url 32바이트 이상이어야 기동한다(auth.config.ts).
+export SESSION_SECRET=
+export TEAM_JOIN_CODE_SECRET=
+
+# --- 직접 채운다: GitHub OAuth (dev App) ---
+# 비어 있으면 backend가 기동하지 않는다(auth.config.ts loadOauthSettings).
+# 아래는 기동만 되게 하는 placeholder이며, 실제 GitHub 로그인을 하려면 dev OAuth App의
+# 값으로 교체해야 한다. 콜백은 FRONTEND_URL에서 파생되므로 별도 설정이 필요 없다.
+export GITHUB_OAUTH_CLIENT_ID=dev-oauth-client-id-placeholder
+export GITHUB_OAUTH_CLIENT_SECRET=dev-oauth-client-secret-placeholder
+
+# --- 선택: GitHub App (수집·저장소 자동화) ---
+# 기동에는 필요하지 않다. 해당 기능을 실제로 호출할 때만 검증된다.
+export GITHUB_APP_ORG=
+export GITHUB_COLLECTION_APP_ID=
+export GITHUB_OPERATIONS_APP_ID=
+# 개인키는 값이 아니라 **파일 경로**로 준다. 파일은 gitignore된 secrets/에 사람이 배치한다.
+# 아래 두 키는 Issue #366 Wave 3(파일 로더) 병합 후 유효하다. 그 전에는 아래 legacy 문자열
+# 키를 쓴다. 실제 파일명은 각자의 App에서 내려받은 것을 쓴다(저장소에 파일명을 적지 않는다).
+export GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE=./secrets/collection-app.private-key.pem
+export GITHUB_OPERATIONS_APP_PRIVATE_KEY_FILE=./secrets/operations-app.private-key.pem
+# legacy 경로 — 개행을 \n으로 escape한 PEM 한 줄. 위 *_FILE이 있으면 그쪽이 우선한다.
+export GITHUB_COLLECTION_APP_PRIVATE_KEY=
+export GITHUB_OPERATIONS_APP_PRIVATE_KEY=
+
+# --- 선택: 역할 시드 ---
+# "githubId:ROLE" 쉼표 구분. ROLE은 ADMIN|STAFF|STUDENT만 허용한다.
+export AUTH_INITIAL_ROLES=

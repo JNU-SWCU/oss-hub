@@ -2,10 +2,11 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { refreshSession } from '../session-store';
-import { useSession } from '../use-session';
 import { githubLoginPath, logout } from '../api';
+import { LOGOUT_NOTICE_PARAM } from '../logout-notice';
+import { refreshSession } from '../session-store';
 import { toAccountMenuSession } from '../session-view';
+import { useSession } from '../use-session';
 import { applyLogoutFailure, applyLogoutSuccess } from '../session-state';
 import type { AuthSession, Me } from '../types';
 
@@ -116,7 +117,7 @@ export function LoginButtonView({
               className="absolute top-full right-0 z-50 mt-1 w-56 overflow-hidden rounded-lg border border-border bg-background py-1 shadow-lg"
             >
               <div className="border-b border-border px-3 py-2">
-                <p className="text-xs text-muted-foreground">Signed in as</p>
+                <p className="text-xs text-muted-foreground">로그인 계정</p>
                 <p className="truncate text-sm font-semibold">
                   {user.nickname}
                 </p>
@@ -127,7 +128,7 @@ export function LoginButtonView({
                 className="block px-3 py-2 text-sm hover:bg-muted"
                 onClick={() => onMenuOpenChange(false)}
               >
-                Settings
+                설정
               </a>
               <button
                 type="button"
@@ -138,7 +139,7 @@ export function LoginButtonView({
                   onLogout();
                 }}
               >
-                Sign out
+                로그아웃
               </button>
             </div>
           ) : null}
@@ -182,7 +183,10 @@ export function LoginButton() {
             if (next.me === null) {
               // 로그아웃 확정: 전체 내비게이션으로 모든 세션 소비자(예:
               // RoleHomeNavLink)를 초기화하고 랜딩(`/`)에 착지한다.
-              window.location.assign('/');
+              // 표식을 붙여 랜딩이 로그아웃 완료와 계정 전환 방법을 안내하게 한다 —
+              // 안내가 없으면 사용자는 다시 로그인했을 때 같은 계정으로 들어오는 것을
+              // 보고 로그아웃이 실패한 줄로 읽는다.
+              window.location.assign(`/?${LOGOUT_NOTICE_PARAM}=1`);
               return;
             }
             // 로그아웃이 확정되지 않았다면 세션은 아직 살아 있다. 지역 상태를

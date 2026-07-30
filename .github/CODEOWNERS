@@ -1,14 +1,16 @@
 # High risk 후보 ownership routing — 실제 판정은 ADR-005의 변경 효과 기준을 따른다.
-# 일반 PR에는 Code Owner 상호 review를 요구하지 않는다.
+# 모든 경로의 Code Owner는 @GoBeromsu 단독이다 — Tech Lead를 co-owner로 두면
+# @GoBeromsu 작성 PR마다 자동 review 요청이 걸려 병합이 느려지기 때문이다.
+# 일반 PR에는 Code Owner review를 요구하지 않는다.
 # GitHub branch protection은 `ci`와 `public-safe`만 직접 강제하며,
 # high risk accept는 전남의 exact-head 판정과 ADR-005 절차로 확인한다.
 
 # 정책·거버넌스·보안 검사 경로
-/AGENTS.md       @GoBeromsu @Lumiere001
-/docs/rules/     @GoBeromsu @Lumiere001
-/docs/decisions/ @GoBeromsu @Lumiere001
-/.github/        @GoBeromsu @Lumiere001
-/scripts/         @GoBeromsu @Lumiere001
+/AGENTS.md       @GoBeromsu
+/docs/rules/     @GoBeromsu
+/docs/decisions/ @GoBeromsu
+/.github/        @GoBeromsu
+/scripts/         @GoBeromsu
 /.github/workflows/deploy.yml @GoBeromsu
 /scripts/_compose-lib.sh                     @GoBeromsu
 /scripts/check-env-example-coverage*.mjs     @GoBeromsu
@@ -18,12 +20,13 @@
 /scripts/probe-nginx-callback-log.sh          @GoBeromsu
 /scripts/check-jenkinsfile.sh      @GoBeromsu
 /scripts/check-jenkinsfile.test.sh @GoBeromsu
+/scripts/jenkins/                  @GoBeromsu
 /scripts/prune-deploy-backups.sh      @GoBeromsu
 /scripts/prune-deploy-backups.test.sh @GoBeromsu
 
 # 인증·권한 및 DB 경계
-/apps/backend/src/auth/ @GoBeromsu @Lumiere001
-/apps/backend/prisma/   @GoBeromsu @Lumiere001
+/apps/backend/src/auth/ @GoBeromsu
+/apps/backend/prisma/   @GoBeromsu
 
 # 배포 정의
 /Jenkinsfile     @GoBeromsu

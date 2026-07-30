@@ -4,6 +4,7 @@
 본문은 라우팅·프로토콜·표만 담는다. 상세 규칙은 링크된 문서가 원본이다. 이 문서는 100줄을 넘기지 않는다.
 문서는 한 문장을 한 줄에 쓴다 — 열 폭 하드랩은 렌더링 공백과 diff 노이즈를 만들므로 쓰지 않는다.
 티켓 수행 워크플로의 원본은 `.claude/skills/tickets/SKILL.md`다 — Codex 등 다른 에이전트도 티켓 요청을 받으면 이 파일을 따른다.
+저장소 검사·운영 보조 스크립트는 [scripts/AGENTS.md](scripts/AGENTS.md), claude.ai/design 번들 도구는 [.design-sync/AGENTS.md](.design-sync/AGENTS.md)가 원본이며 `deploy/**`와 `scripts/check-jenkinsfile*.sh`는 ADR-005의 배포 계약 경로다.
 
 ## 1. 세션 부트스트랩 — 읽기 순서 고정
 
@@ -15,7 +16,7 @@
 4. 위 문서들이 링크한 규칙(`docs/rules/`)과 ADR(`docs/decisions/`)만 추가로 읽는다.
 5. 착수 직전 `gh pr list --search "<기능>"` 1회 — 스냅샷 이후 열린 PR·Draft PR을 확인한다.
 6. `bash scripts/setup-hooks.sh` 1회 — 저장소 Git 훅 활성화(멱등). "보존" 안내가 나오면 §7 참조.
-7. 로컬 실행이 필요하면 `docs/rules/local-dev.md`의 순서를 따른다.
+7. 로컬 실행이 필요하면 `docs/rules/local-dev.md`를 따른다 — 호스트 hot reload(`pnpm dev`)와 컨테이너 통합 검증(`pnpm local:up`)의 선택 기준이 거기 있다.
 
 ## 2. Canonical Store — 정보 종류별 원본 위치
 
