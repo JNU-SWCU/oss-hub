@@ -35,6 +35,30 @@
 
 set -euo pipefail
 
+# POSIX 문자 클래스([:alnum:] 등)의 Unicode 판정은 로케일에 의존한다. 이 스크립트는
+# 로컬 훅과 CI 양쪽에서 실행되는 보안 게이트이므로 실행 환경이 물려준 로케일에 기대지
+# 않고 스스로 UTF-8 로케일을 고정한다. 사용 가능한 UTF-8 로케일이 하나도 없으면
+# 조용히 넘어가지 않고 즉시 실패한다(fail-closed).
+pick_utf8_locale() { # 이식성을 위해 후보를 복수로 두고 locale -a로 실제 지원 여부를 확인
+  local candidates=(C.UTF-8 en_US.UTF-8 en_US.utf8 C.utf8 UTF-8) cand available
+  if ! available="$(locale -a 2>/dev/null)"; then
+    return 1
+  fi
+  for cand in "${candidates[@]}"; do
+    if printf '%s\n' "$available" | grep -qiFx "$cand"; then
+      printf '%s' "$cand"
+      return 0
+    fi
+  done
+  return 1
+}
+
+if ! UTF8_LOCALE="$(pick_utf8_locale)"; then
+  echo "::error::public-safe 사용 가능한 UTF-8 로케일을 찾을 수 없습니다(locale -a로 확인 요망). 이메일 후보 검사가 로케일에 따라 바이트 단위로 오동작할 수 있어 fail-closed로 중단합니다." >&2
+  exit 2
+fi
+export LC_ALL="$UTF8_LOCALE"
+
 TEXT_ONLY=0
 if [ "${1:-}" = "--text-only" ]; then
   TEXT_ONLY=1
@@ -64,6 +88,18 @@ PATTERNS=(
 # 이메일 매치 중 허용할 예외 — 봇 이메일, 문서용 예시 도메인 (RFC 2606 reserved)
 # grep -n 출력의 "line:email" 전체를 고정해 유사 도메인의 부분 일치를 막는다.
 ALLOW_EMAIL_RE='^[0-9]+:(noreply@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|[A-Za-z0-9._%+-]+@users\.noreply\.github\.com|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.(example|test|invalid|localhost)|[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+\.)*example\.(com|org|net))$'
+
+# quoted·비ASCII·IDN 보조 검사는 "점으로 구분된 도메인 + 2자 이상 마지막 label"을 가진
+# 토큰만 이메일 후보로 본다. 점 없는 GitHub handle, 멘션 나열, 셸 변수와 말줄임표를
+# 연락처로 오인하지 않는 것이 이 보조 검사의 우선 경계다. local part는 quoted/EAI를
+# 보수적으로 잡기 위해 관대하게 두되, domain은 Unicode 문자를 포함한 영숫자·하이픈
+# label만 허용한다. 점 없는 사내 도메인 형태는 자동 검사의 대상이 아니라 리뷰 경계다.
+PERMISSIVE_LOCAL_RE='[^[:space:]@"]+'
+QUOTED_LOCAL_RE='"([^"\\]|\\.)*"'
+DOMAIN_LABEL_RE='[[:alnum:]][[:alnum:]-]*'
+DOMAIN_TLD_RE='[[:alnum:]][[:alnum:]-]*[[:alnum:]]'
+DOTTED_DOMAIN_RE="$DOMAIN_LABEL_RE(\\.$DOMAIN_LABEL_RE)*\\.$DOMAIN_TLD_RE"
+CANDIDATE_EMAIL_RE='('"$QUOTED_LOCAL_RE"'|'"$PERMISSIVE_LOCAL_RE"')@'"$DOTTED_DOMAIN_RE"
 
 # 존재 자체가 유출인 파일 — env 실값, 개인키·인증서 키, 로컬 DB·덤프(실데이터 반입 금지, deny-list 6번),
 # 그리고 자격증명을 모아두는 관례적 메모 파일. 후자는 확장자가 문서라 내용 스캔만으로는
@@ -156,7 +192,7 @@ scan_text() { # $1=출처 라벨, stdin=텍스트
 
   # EAI·Unicode domain은 허용 예외로 지원하지 않는다. 비ASCII email-shaped token과
   # punycode IDN 후보는 ASCII 이메일 허용 목록보다 우선해 보수적으로 차단한다.
-  if candidates="$(printf '%s\n' "$text" | run_grep -EIno '("([^"\\]|\\.)*"|[^[:space:]@"]+)@[^[:space:]@"]+')"; then
+  if candidates="$(printf '%s\n' "$text" | run_grep -EIno "$CANDIDATE_EMAIL_RE")"; then
     unsupported_candidates=""
     if quoted_candidates="$(printf '%s\n' "$candidates" | run_grep -E '^[0-9]+:"')"; then
       unsupported_candidates="$quoted_candidates"
