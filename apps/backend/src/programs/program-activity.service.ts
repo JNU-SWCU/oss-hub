@@ -206,8 +206,16 @@ export class ProgramActivityService {
           ? left.programName.localeCompare(right.programName)
           : left.year - right.year,
       );
+      const dataAsOf = [...canonicalByRepository.values()].reduce<Date | null>(
+        (latest, generation) =>
+          latest && latest > generation.updatedAt
+            ? latest
+            : generation.updatedAt,
+        null,
+      );
 
       return {
+        dataAsOf: dataAsOf?.toISOString() ?? null,
         programs,
         series: {
           granularity,
