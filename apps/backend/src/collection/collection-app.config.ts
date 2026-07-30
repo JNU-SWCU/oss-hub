@@ -3,6 +3,10 @@ import {
   type RuntimeConfig,
   type RuntimeEnvKey,
 } from '../runtime-config/runtime-config';
+import { Logger } from '@nestjs/common';
+import { resolvePrivateKeyInput } from '../runtime-config/private-key-file';
+
+const logger = new Logger('CollectionAppConfig');
 
 const DEFAULT_API_BASE = 'https://api.github.com';
 const DEFAULT_MAX_PAGES = 100;
@@ -11,8 +15,11 @@ const DEFAULT_DEADLINE_MS = 30_000;
 export class CollectionAppConfigError extends Error {
   readonly code = 'COLLECTION_APP_CONFIG_INVALID';
 
-  constructor(readonly field: string) {
-    super(`Invalid Collection App configuration: ${field}`);
+  constructor(
+    readonly field: string,
+    options?: ErrorOptions,
+  ) {
+    super(`Invalid Collection App configuration: ${field}`, options);
     this.name = 'CollectionAppConfigError';
   }
 }
@@ -31,6 +38,7 @@ export class CollectionAppConfig {
     appId: 'GITHUB_COLLECTION_APP_ID',
     orgLogin: 'GITHUB_APP_ORG',
     privateKey: 'GITHUB_COLLECTION_APP_PRIVATE_KEY',
+    privateKeyFile: 'GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE',
     apiBaseUrl: 'GITHUB_COLLECTION_APP_API_BASE_URL',
     maxPages: 'GITHUB_COLLECTION_APP_MAX_PAGES',
     deadlineMs: 'GITHUB_COLLECTION_APP_DEADLINE_MS',
@@ -95,7 +103,7 @@ export class CollectionAppConfig {
     return {
       appId,
       orgLogin,
-      privateKey: required(this.envNames.privateKey).replace(/\\n/g, '\n'),
+      privateKey: resolvePrivateKey(config, this.envNames),
       apiBaseUrl: parsedBase.toString().replace(/\/$/, ''),
       maxPages: positiveInteger(
         this.envNames.maxPages,
@@ -109,4 +117,30 @@ export class CollectionAppConfig {
       ),
     };
   }
+}
+
+function resolvePrivateKey(
+  config: RuntimeConfig,
+  envNames: typeof CollectionAppConfig.envNames,
+): string {
+  let resolved: string | null;
+  try {
+    resolved = resolvePrivateKeyInput(
+      envNames.privateKeyFile,
+      config[envNames.privateKeyFile],
+      config[envNames.privateKey],
+      () =>
+        logger.warn(
+          `${envNames.privateKeyFile} takes precedence; deprecated ${envNames.privateKey} is ignored`,
+        ),
+    );
+  } catch (error) {
+    throw new CollectionAppConfigError(envNames.privateKeyFile, {
+      cause: error,
+    });
+  }
+  if (resolved === null) {
+    throw new CollectionAppConfigError(envNames.privateKey);
+  }
+  return resolved;
 }
