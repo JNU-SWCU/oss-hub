@@ -12,6 +12,15 @@ coverage/
 .env.*
 !.env.example
 
+# 자격증명 메모·개인키 — PUBLIC 저장소이므로 추적하지 않는다 (AGENTS.md §4·§6).
+# check-public-safe.sh 가 파일명 단계에서도 차단하지만, 실수로 스테이징되는 것부터 막는다.
+credentials*.md
+secrets*.md
+creds*.txt
+*.private-key.pem
+# 로컬 개발용 개인키 배치 경로. 파일 입력(*_FILE) 계약이 이 디렉터리를 가리킨다.
+secrets/
+
 # Logs
 logs/
 *.log
@@ -30,6 +39,9 @@ Thumbs.db
 
 # Local agent state
 .gjc/
+.omo/
+# 브라우저 QA 산출물 — 페이지 스냅샷에 세션·사용자 데이터가 담길 수 있어 추적하지 않는다.
+.playwright-mcp/
 
 # Next.js / TypeScript artifacts
 out/

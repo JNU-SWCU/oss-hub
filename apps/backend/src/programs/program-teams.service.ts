@@ -1,7 +1,12 @@
 import { randomBytes } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { DomainException } from '../common/error-code';
-import { computeJoinCodeDigest } from '../common/join-code-digest';
+import {
+  computeJoinCodeDigest,
+  resolveJoinCodeSecretFromConfig,
+} from '../common/join-code-digest';
+import type { RuntimeConfig } from '../runtime-config/runtime-config';
+import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
 import {
   getProgramTemplate,
   PROGRAM_PARTICIPATION,
@@ -25,7 +30,14 @@ function generateJoinCode(): string {
 
 @Injectable()
 export class ProgramTeamsService {
-  constructor(private readonly repository: ProgramTeamsRepository) {}
+  private readonly joinCodeSecret: string;
+
+  constructor(
+    private readonly repository: ProgramTeamsRepository,
+    @Inject(RUNTIME_CONFIG) runtimeConfig: RuntimeConfig,
+  ) {
+    this.joinCodeSecret = resolveJoinCodeSecretFromConfig(runtimeConfig);
+  }
 
   async create(
     githubId: bigint,
@@ -42,7 +54,10 @@ export class ProgramTeamsService {
 
     for (let attempt = 0; attempt < JOIN_CODE_ATTEMPTS; attempt += 1) {
       joinCode = generateJoinCode();
-      const joinCodeDigest = computeJoinCodeDigest(joinCode);
+      const joinCodeDigest = computeJoinCodeDigest(
+        joinCode,
+        this.joinCodeSecret,
+      );
       try {
         created = await this.repository.withCreateTransaction(async (store) => {
           const existing = await store.findMembershipByProgramUser(
@@ -98,7 +113,10 @@ export class ProgramTeamsService {
     if (!normalizedCode) {
       throw this.error(TeamsErrorCode.JOIN_CODE_NOT_FOUND);
     }
-    const joinCodeDigest = computeJoinCodeDigest(normalizedCode);
+    const joinCodeDigest = computeJoinCodeDigest(
+      normalizedCode,
+      this.joinCodeSecret,
+    );
 
     try {
       await this.repository.withJoinTransaction(async (store) => {

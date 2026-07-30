@@ -1,7 +1,7 @@
 name: deploy
 
 # 공개 GitHub Release 발행(published)을 production 배포 트리거로 사용한다.
-# 이 워크플로는 전용 Jenkins API token으로 인증하고 파라미터를 명시적으로 감싸 원격 빌드 POST만 한다(얇은 트리거).
+# 이 워크플로는 전용 Jenkins API token으로 인증하고 파라미터 없는 원격 빌드 POST만 한다(얇은 트리거).
 # 실제 배포·검증·실패 알림은 Jenkins가 수행한다 (docs/decisions/ADR-002-CI-CD-파이프라인.md).
 on:
   release:
@@ -22,8 +22,6 @@ jobs:
           JENKINS_DEPLOY_URL: ${{ secrets.JENKINS_DEPLOY_URL }}
           JENKINS_USER: oss-hub-deployer
           JENKINS_API_TOKEN: ${{ secrets.JENKINS_API_TOKEN }}
-          RELEASE_ACTION: ${{ github.event.action }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
           # secret 미설정 시 URL/토큰이 비어 모호한 curl 오류가 나지 않게 먼저 막는다.
@@ -37,10 +35,8 @@ jobs:
               exit 1
               ;;
           esac
-          # API token은 Basic Authorization header로, Release 파라미터는 POST 본문으로 전달한다.
           # Jenkins API token 인증 요청은 CSRF crumb 없이 허용되며 nginx는 이 exact POST 경로만 공개한다.
           curl --fail --silent --show-error \
             --basic --user "${JENKINS_USER}:${JENKINS_API_TOKEN}" \
-            --data-urlencode "RELEASE_ACTION=${RELEASE_ACTION}" \
-            --data-urlencode "RELEASE_TAG=${RELEASE_TAG}" \
-            -X POST "${JENKINS_DEPLOY_URL}/job/oss-hub-release-cd/buildWithParameters"
+            --request POST \
+            "${JENKINS_DEPLOY_URL}/job/oss-hub-release-cd/build"

@@ -1,25 +1,26 @@
 import { AccountStatus, Role, User as PrismaUser } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { AuthConfig } from './auth.config';
 import {
   AuthRepository,
   RoleRequestSeedConflictError,
 } from './auth.repository';
 import type { GithubProfile } from './domain/auth-user';
-let originalInitialRoles: string | undefined;
+const REQUIRED_AUTH_ENV = {
+  SESSION_SECRET: Buffer.from(
+    'synthetic-auth-repository-session-secret',
+  ).toString('base64url'),
+  FRONTEND_URL: 'http://localhost:3000',
+  GITHUB_OAUTH_CLIENT_ID: 'synthetic-client-id',
+  GITHUB_OAUTH_CLIENT_SECRET: 'synthetic-client-secret',
+} as const;
 
-beforeEach(() => {
-  originalInitialRoles = process.env.AUTH_INITIAL_ROLES;
-  delete process.env.AUTH_INITIAL_ROLES;
-});
-
-afterEach(() => {
-  if (originalInitialRoles === undefined) {
-    delete process.env.AUTH_INITIAL_ROLES;
-  } else {
-    process.env.AUTH_INITIAL_ROLES = originalInitialRoles;
-  }
-});
+function buildAuthConfig(overrides: NodeJS.ProcessEnv = {}): AuthConfig {
+  return new AuthConfig(
+    loadRuntimeConfig({ ...REQUIRED_AUTH_ENV, ...overrides }),
+  );
+}
 
 function buildProfile(overrides: Partial<GithubProfile> = {}): GithubProfile {
   return {
@@ -120,7 +121,7 @@ function upsertUser(repository: AuthRepository, profile: GithubProfile) {
 
 describe('AuthRepository.upsertUser', () => {
   it('미설정 시 부팅 가능한 빈 설정은 역할 시드를 적용하지 않는다', async () => {
-    const config = new AuthConfig();
+    const config = buildAuthConfig();
     const { repository, updateMany } = buildRepository(buildRow(), null);
 
     expect(config.resolveInitialRole(424_242n)).toBeNull();
@@ -130,9 +131,11 @@ describe('AuthRepository.upsertUser', () => {
     expect(updateMany).not.toHaveBeenCalled();
   });
   it('환경에 설정된 초기 역할을 githubId로 조회한다', () => {
-    process.env.AUTH_INITIAL_ROLES = '424242:STAFF';
+    const config = buildAuthConfig({
+      AUTH_INITIAL_ROLES: '424242:STAFF',
+    });
 
-    expect(new AuthConfig().resolveInitialRole(424_242n)).toBe(Role.STAFF);
+    expect(config.resolveInitialRole(424_242n)).toBe(Role.STAFF);
   });
 
   it('기존 role 보유자는 초기 역할 설정과 무관하게 유지한다', async () => {

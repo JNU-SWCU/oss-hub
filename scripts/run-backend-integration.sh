@@ -7,7 +7,7 @@ backend_directory="$repo_root/apps/backend"
 compose_file="$repo_root/compose.dev.yml"
 project_name="oss-hub-test-$(date +%s)-$$-$RANDOM"
 
-unset DATABASE_URL OSS_HUB_INTEGRATION_RUNNER
+unset DATABASE_URL OSS_HUB_INTEGRATION_RUNNER TEAM_JOIN_CODE_SECRET
 unset SUBMISSION_FILE_S3_ENDPOINT SUBMISSION_FILE_S3_REGION
 unset SUBMISSION_FILE_S3_BUCKET SUBMISSION_FILE_S3_ACCESS_KEY_ID
 unset SUBMISSION_FILE_S3_SECRET_ACCESS_KEY SUBMISSION_FILE_S3_FORCE_PATH_STYLE
@@ -101,6 +101,7 @@ integration_storage_endpoint="http://127.0.0.1:${minio_port}"
     SUBMISSION_FILE_S3_ACCESS_KEY_ID="$MINIO_ROOT_USER" \
     SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$MINIO_ROOT_PASSWORD" \
     SUBMISSION_FILE_S3_FORCE_PATH_STYLE=true \
+    TEAM_JOIN_CODE_SECRET=synthetic-integration-join-code-secret \
     pnpm exec jest \
     --runInBand \
     --testPathPattern='\.integration\.spec\.ts$'

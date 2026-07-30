@@ -5,6 +5,7 @@ import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-hos
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { SessionGuard } from '../auth/session.guard';
+import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { CollectionAdminGuard } from './collection-admin.guard';
 import { CollectionErrorCode } from './collection-error-code.enum';
 import { PrismaService } from '../prisma/prisma.service';
@@ -79,9 +80,21 @@ describe('CollectionAdminGuard', () => {
 
 describe('Collection admin authentication', () => {
   it('세션이 없으면 AUT_003 401로 거부한다', async () => {
-    const sessionGuard = new SessionGuard(new AuthConfig(), {
-      getMe: jest.fn(),
-    } as unknown as AuthService);
+    const sessionGuard = new SessionGuard(
+      new AuthConfig(
+        loadRuntimeConfig({
+          SESSION_SECRET: Buffer.from(
+            'synthetic-collection-admin-session-secret',
+          ).toString('base64url'),
+          FRONTEND_URL: 'http://localhost:3000',
+          GITHUB_OAUTH_CLIENT_ID: 'synthetic-client-id',
+          GITHUB_OAUTH_CLIENT_SECRET: 'synthetic-client-secret',
+        }),
+      ),
+      {
+        getMe: jest.fn(),
+      } as unknown as AuthService,
+    );
     const context = new ExecutionContextHost([{ headers: {} }]);
     context.setType('http');
 

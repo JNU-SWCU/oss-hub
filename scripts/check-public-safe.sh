@@ -101,8 +101,10 @@ DOMAIN_TLD_RE='[[:alnum:]][[:alnum:]-]*[[:alnum:]]'
 DOTTED_DOMAIN_RE="$DOMAIN_LABEL_RE(\\.$DOMAIN_LABEL_RE)*\\.$DOMAIN_TLD_RE"
 CANDIDATE_EMAIL_RE='('"$QUOTED_LOCAL_RE"'|'"$PERMISSIVE_LOCAL_RE"')@'"$DOTTED_DOMAIN_RE"
 
-# 존재 자체가 유출인 파일 — env 실값, 개인키·인증서 키, 로컬 DB·덤프(실데이터 반입 금지, deny-list 6번)
-FORBIDDEN_FILE_RE='(^|/)\.env(\..+)?$|\.(pem|key|p12|pfx|jks|keystore)$|(^|/)id_(rsa|ed25519|ecdsa|dsa)$|(^|/)\.netrc$|\.(sqlite3?|db|dump)$'
+# 존재 자체가 유출인 파일 — env 실값, 개인키·인증서 키, 로컬 DB·덤프(실데이터 반입 금지, deny-list 6번),
+# 그리고 자격증명을 모아두는 관례적 메모 파일. 후자는 확장자가 문서라 내용 스캔만으로는
+# 늦게 잡히므로 파일명 단계에서 차단한다(AGENTS.md §4 시크릿 반입 금지).
+FORBIDDEN_FILE_RE='(^|/)\.env(\..+)?$|\.(pem|key|p12|pfx|jks|keystore)$|(^|/)id_(rsa|ed25519|ecdsa|dsa)$|(^|/)\.netrc$|\.(sqlite3?|db|dump)$|(^|/)(credentials?|secrets?|creds)([._-][^/]*)?\.(md|txt|json|ya?ml|csv)$'
 ALLOWED_FILE_RE='(^|/)\.env\.example$'
 
 report() { # $1=라벨 $2=매치 내용
