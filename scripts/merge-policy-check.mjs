@@ -8,10 +8,12 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 import {
+  CHECK_RUN_NAME,
   collectChangedPaths,
   evaluateMergePolicy,
   formatSummary,
   hasCompletePullFiles,
+  planCheckRunPublish,
 } from './merge-policy-check-lib.mjs';
 
 const CODEOWNERS_PATH = '.github/CODEOWNERS';
@@ -124,17 +126,29 @@ export function fetchInputs(repository, prNumber) {
   return { pull, comments, files, changedFiles };
 }
 
+function fetchExistingCheckRuns(repository, headSha) {
+  const response = api(
+    `repos/${repository}/commits/${headSha}/check-runs?filter=all&per_page=100`,
+  );
+  const runs = response?.check_runs;
+  if (!Array.isArray(runs) || !Number.isInteger(response?.total_count)) {
+    throw new Error('GitHub check run 목록이 malformed입니다');
+  }
+  // 페이지가 잘렸으면 갱신 대상을 놓칠 수 있으므로 판정을 발행하지 않는다.
+  if (response.total_count > runs.length) {
+    throw new Error(
+      `check run이 ${response.total_count}개로 한 페이지를 넘어 갱신 대상을 확정할 수 없습니다`,
+    );
+  }
+  return runs;
+}
+
+// 같은 head SHA를 재평가할 때 새 run을 만들지 않고 기존 run을 갱신한다.
+// 한 SHA에 서로 다른 결론이 공존하면 required check 판정이 비결정적이 된다.
 function publishCheckRun(repository, pull, result) {
   const summary = formatSummary(result, pull);
-  run('gh', [
-    'api',
-    `repos/${repository}/check-runs`,
-    '--method',
-    'POST',
-    '-f',
-    'name=merge-policy',
-    '-f',
-    `head_sha=${pull.headSha}`,
+  const title = `${CHECK_RUN_NAME}: ${result.conclusion === 'success' ? 'PASS' : 'FAIL'} (${result.risk})`;
+  const fields = [
     '-f',
     'status=completed',
     '-f',
@@ -142,10 +156,40 @@ function publishCheckRun(repository, pull, result) {
     '-f',
     `external_id=${process.env.GITHUB_RUN_ID ?? 'local'}`,
     '-f',
-    `output[title]=merge-policy: ${result.conclusion === 'success' ? 'PASS' : 'FAIL'} (${result.risk})`,
+    `output[title]=${title}`,
     '-f',
     `output[summary]=${summary}`,
-  ]);
+  ];
+
+  const plan = planCheckRunPublish(
+    fetchExistingCheckRuns(repository, pull.headSha),
+    pull.headSha,
+  );
+
+  if (plan.create) {
+    run('gh', [
+      'api',
+      `repos/${repository}/check-runs`,
+      '--method',
+      'POST',
+      '-f',
+      `name=${CHECK_RUN_NAME}`,
+      '-f',
+      `head_sha=${pull.headSha}`,
+      ...fields,
+    ]);
+    return;
+  }
+
+  for (const id of plan.updateIds) {
+    run('gh', [
+      'api',
+      `repos/${repository}/check-runs/${id}`,
+      '--method',
+      'PATCH',
+      ...fields,
+    ]);
+  }
 }
 
 function main() {

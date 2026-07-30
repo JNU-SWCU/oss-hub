@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  CHECK_RUN_NAME,
   collectChangedPaths,
   evaluateMergePolicy,
   findUnsupportedCodeownersPatterns,
@@ -10,6 +11,7 @@ import {
   matchesDeployContractPattern,
   matchedDeployContractPatterns,
   parseCodeownersPatterns,
+  planCheckRunPublish,
   touchesDeployContract,
 } from './merge-policy-check-lib.mjs';
 
@@ -881,4 +883,94 @@ test('normal HIGH_RISK Tech Lead accept remains sufficient', () => {
     ],
   });
   assert.equal(result.conclusion, 'success');
+});
+
+// 발행 계획 — 같은 head SHA 재평가가 check run을 누적하면 required check 판정이
+// 비결정적이 된다. 아래 fixture가 그 회귀를 고정한다.
+
+function checkRun(overrides = {}) {
+  return {
+    id: 1,
+    name: CHECK_RUN_NAME,
+    head_sha: HEAD,
+    status: 'completed',
+    conclusion: 'failure',
+    ...overrides,
+  };
+}
+
+test('발행 계획: 기존 run이 없으면 생성한다', () => {
+  assert.deepEqual(planCheckRunPublish([], HEAD), {
+    create: true,
+    updateIds: [],
+  });
+});
+
+test('발행 계획: 같은 head의 기존 run은 생성하지 않고 갱신한다', () => {
+  assert.deepEqual(planCheckRunPublish([checkRun({ id: 77 })], HEAD), {
+    create: false,
+    updateIds: [77],
+  });
+});
+
+test('발행 계획: 누적된 동명 run을 전부 갱신 대상으로 삼는다', () => {
+  const runs = [
+    checkRun({ id: 30 }),
+    checkRun({ id: 10 }),
+    checkRun({ id: 20, conclusion: 'success' }),
+  ];
+  assert.deepEqual(planCheckRunPublish(runs, HEAD), {
+    create: false,
+    updateIds: [10, 20, 30],
+  });
+});
+
+test('발행 계획: 다른 이름의 check run은 갱신하지 않는다', () => {
+  const runs = [
+    checkRun({ id: 5, name: 'merge-policy-evaluate' }),
+    checkRun({ id: 6, name: 'ci' }),
+  ];
+  assert.deepEqual(planCheckRunPublish(runs, HEAD), {
+    create: true,
+    updateIds: [],
+  });
+});
+
+test('발행 계획: 다른 head SHA의 run은 갱신하지 않는다', () => {
+  const runs = [checkRun({ id: 9, head_sha: OTHER_SHA })];
+  assert.deepEqual(planCheckRunPublish(runs, HEAD), {
+    create: true,
+    updateIds: [],
+  });
+});
+
+test('발행 계획: 같은 head와 다른 head가 섞이면 같은 head만 갱신한다', () => {
+  const runs = [
+    checkRun({ id: 41, head_sha: OTHER_SHA }),
+    checkRun({ id: 42 }),
+  ];
+  assert.deepEqual(planCheckRunPublish(runs, HEAD), {
+    create: false,
+    updateIds: [42],
+  });
+});
+
+test('발행 계획: 목록이 배열이 아니면 실패한다', () => {
+  assert.throws(() => planCheckRunPublish(null, HEAD), /배열이 아닙니다/);
+  assert.throws(
+    () => planCheckRunPublish({ check_runs: [] }, HEAD),
+    /배열이 아닙니다/,
+  );
+});
+
+test('발행 계획: head SHA가 40자 hex가 아니면 실패한다', () => {
+  assert.throws(() => planCheckRunPublish([], 'abc'), /head SHA/);
+  assert.throws(() => planCheckRunPublish([], undefined), /head SHA/);
+});
+
+test('발행 계획: run id가 정수가 아니면 실패한다', () => {
+  assert.throws(
+    () => planCheckRunPublish([checkRun({ id: 'x' })], HEAD),
+    /정수가 아닙니다/,
+  );
 });
