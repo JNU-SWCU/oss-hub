@@ -20,6 +20,14 @@ const syntheticUser: AuthUser = {
   accountStatus: AccountStatus.ACTIVE,
   role: null,
 };
+/**
+ * 온보딩을 끝낸 사용자 — 역할이 확정돼 있다. 로그인 후 착지 지점이 role 유무로
+ * 갈리므로, 랜딩으로 가는 경로를 검증하는 테스트는 이 픽스처를 써야 한다.
+ */
+const syntheticOnboardedUser: AuthUser = {
+  ...syntheticUser,
+  role: Role.STUDENT,
+};
 const recordLogin = jest.fn();
 
 function createResponse(): Response & {
@@ -38,7 +46,7 @@ function createController(
   const service = {
     completeLogin: jest
       .fn()
-      .mockResolvedValue({ user: syntheticUser, isNew: false }),
+      .mockResolvedValue({ user: syntheticOnboardedUser, isNew: false }),
     issueSession: jest.fn().mockResolvedValue('synthetic-session'),
     ...serviceOverrides,
   } as unknown as AuthService;
@@ -91,6 +99,30 @@ describe('AuthController github callback', () => {
     const completeLogin = jest
       .fn()
       .mockResolvedValue({ user: syntheticUser, isNew: true });
+
+    await createController({ completeLogin }).githubCallback(
+      'synthetic-code',
+      flow.state,
+      undefined,
+      requestWithCookie(`${flowCookieName(true)}=${encodeFlowCookie(flow)}`),
+      res,
+    );
+
+    expect(res.redirect).toHaveBeenCalledWith(
+      302,
+      'https://oss.example/consent',
+    );
+  });
+
+  // 회귀 방지: 이전 구현은 `isNew`로 갈라, 첫 로그인에서 온보딩을 끝내지 못한
+  // 사용자를 두 번째 로그인부터 랜딩으로 떨어뜨렸다. 가입을 이어갈 경로가
+  // 화면에 드러나지 않아 역할이 비어 있는 계정이 실제로 남았다.
+  it('가입을 끝내지 못한 재로그인 사용자도 온보딩 입구로 되돌린다', async () => {
+    const flow = createFlowState();
+    const res = createResponse();
+    const completeLogin = jest
+      .fn()
+      .mockResolvedValue({ user: syntheticUser, isNew: false });
 
     await createController({ completeLogin }).githubCallback(
       'synthetic-code',
