@@ -18,6 +18,8 @@ credentials*.md
 secrets*.md
 creds*.txt
 *.private-key.pem
+# 로컬 개발용 개인키 배치 경로. 파일 입력(*_FILE) 계약이 이 디렉터리를 가리킨다.
+secrets/
 
 # Logs
 logs/
@@ -37,6 +39,7 @@ Thumbs.db
 
 # Local agent state
 .gjc/
+.omo/
 
 # Next.js / TypeScript artifacts
 out/
