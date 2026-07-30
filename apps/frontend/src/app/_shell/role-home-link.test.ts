@@ -4,6 +4,12 @@ import { ADMIN_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
 import { roleHomePath } from './role';
 
 describe('resolveSessionEntry', () => {
+  // 조회 실패 시에는 역할을 모르므로 nav 진입 링크를 만들 수 없다. 실패 표시와
+  // 재시도는 본문 게이트가 담당한다 — nav에도 띄우면 경고가 중복된다.
+  it('조회 실패 상태에서는 진입 링크를 만들지 않는다', () => {
+    expect(resolveSessionEntry('error', null)).toBeNull();
+  });
+
   it.each([
     ['STUDENT', '/dashboard', '내 대시보드'],
     ['STAFF', '/staff/dashboard', '운영 대시보드'],

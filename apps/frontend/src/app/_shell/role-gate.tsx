@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { onboardingPathFor } from './onboarding-route';
+import { SessionError } from './session-error';
 import { useSessionRole } from './use-session-role';
 import type { SessionRoleState } from './use-session-role';
 import { roleHomePath, type AppRole } from './role';
@@ -14,6 +15,11 @@ export function roleGateRedirectPath(
 ): string | null {
   switch (state.status) {
     case 'loading':
+      return null;
+    // 조회 실패는 어디로도 보내지 않는다. 세션이 살아 있는데 랜딩으로 밀어내면
+    // 로그인한 사용자에게 로그아웃된 것처럼 보이고, 역할 홈으로 보내면 권한이
+    // 확인되지 않은 상태에서 화면을 열게 된다. 실패는 실패로 드러내고 재시도한다.
+    case 'error':
       return null;
     case 'anonymous':
       return '/';
@@ -48,7 +54,7 @@ export function RoleGate({
 }) {
   const router = useRouter();
   const state = useSessionRole();
-  const { status, role } = state;
+  const { status, role, retry } = state;
 
   useEffect(() => {
     const redirectPath = roleGateRedirectPath(state, allow, deniedPath);
@@ -58,6 +64,10 @@ export function RoleGate({
   }, [state, allow, deniedPath, router]);
 
   const isAllowed = status === 'assigned' && !!role && allow.includes(role);
+
+  if (status === 'error') {
+    return <SessionError onRetry={retry} />;
+  }
 
   if (!isAllowed) {
     return (
