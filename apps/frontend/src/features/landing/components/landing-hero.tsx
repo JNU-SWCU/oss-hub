@@ -6,6 +6,11 @@ import { HERO_NODE_COLORS } from './hero-node-colors';
 
 interface LandingHeroProps {
   authErrorMessage?: string;
+  /**
+   * 실패가 아닌 안내(예: 로그아웃 완료). `role="status"`로 렌더해 오류와 구분한다 —
+   * 스크린 리더에서 둘이 같은 긴급도로 읽히면 실제 오류의 신호가 희석된다.
+   */
+  notice?: ReactNode;
   primaryAction: ReactNode;
 }
 
@@ -30,6 +35,7 @@ const LEGEND_ITEMS: LegendItem[] = [
 
 export function LandingHero({
   authErrorMessage,
+  notice,
   primaryAction,
 }: LandingHeroProps) {
   return (
@@ -66,6 +72,15 @@ export function LandingHero({
               {authErrorMessage}
             </AlertDescription>
           </Alert>
+        ) : null}
+
+        {notice ? (
+          <div
+            role="status"
+            className="max-w-2xl rounded-lg border border-hero-border bg-hero-muted/10 px-4 py-3 text-sm leading-relaxed text-hero-muted"
+          >
+            {notice}
+          </div>
         ) : null}
 
         <div className="flex flex-wrap items-center gap-5 pt-2">

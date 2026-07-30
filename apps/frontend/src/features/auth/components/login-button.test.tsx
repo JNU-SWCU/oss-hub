@@ -72,14 +72,14 @@ describe('LoginButtonView', () => {
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain('https://avatars.example/u/1');
     expect(html).toContain('synthetic-user');
-    expect(html).not.toContain('Signed in as');
-    expect(html).not.toContain('Settings');
-    expect(html).not.toContain('Sign out');
+    expect(html).not.toContain('로그인 계정');
+    expect(html).not.toContain('설정');
+    expect(html).not.toContain('로그아웃');
     expect(html).not.toContain('GitHub으로 로그인');
     expect(html).not.toContain('Your profile');
   });
 
-  it('열린 계정 메뉴에 Signed in as·Settings·Sign out만 노출한다', () => {
+  it('열린 계정 메뉴에 로그인 계정·설정·로그아웃만 노출한다', () => {
     // When
     const html = renderToStaticMarkup(
       <LoginButtonView
@@ -92,14 +92,17 @@ describe('LoginButtonView', () => {
     );
 
     // Then
-    expect(html).toContain('Signed in as');
+    expect(html).toContain('로그인 계정');
     expect(html).toContain('synthetic-user');
-    expect(html).toContain('Settings');
+    expect(html).toContain('설정');
     expect(html).toContain('href="/settings"');
-    expect(html).toContain('Sign out');
+    expect(html).toContain('로그아웃');
     expect(html).toContain('aria-expanded="true"');
     expect(html).not.toContain('Your profile');
-    expect(html).not.toContain('로그아웃');
+    // 한국어 서비스이므로 계정 메뉴에 영어 라벨이 남아 있으면 안 된다.
+    expect(html).not.toContain('Signed in as');
+    expect(html).not.toContain('Settings');
+    expect(html).not.toContain('Sign out');
     // 반전 표면(랜딩 nav) 안에 중첩돼도 계정 메뉴 패널 자체는 밝은 표면으로 되돌아가야 한다.
     expect(html).toContain('data-surface="default"');
   });
