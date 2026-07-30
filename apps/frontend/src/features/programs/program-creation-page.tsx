@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { FormSection } from '@/components/form-section';
 import { ApiError } from '@/lib/api-client';
 import { createProgram, listApplicationTemplates } from './api';
+import { ProgramApplicationPeriodField } from './program-application-period-field';
 import {
   buildCreateProgramInput,
   EMPTY_PROGRAM_FORM,
@@ -180,26 +181,13 @@ export function ProgramCreationPage() {
           />
           <FieldError>{errors.organizer}</FieldError>
         </Field>
-        <Field>
-          <FieldLabel>신청 기간 *</FieldLabel>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Input
-              type="datetime-local"
-              value={form.applicationStartAt}
-              onChange={(event) =>
-                update('applicationStartAt', event.target.value)
-              }
-            />
-            <Input
-              type="datetime-local"
-              value={form.applicationEndAt}
-              onChange={(event) =>
-                update('applicationEndAt', event.target.value)
-              }
-            />
-          </div>
-          <FieldError>{errors.period}</FieldError>
-        </Field>
+        <ProgramApplicationPeriodField
+          startAt={form.applicationStartAt}
+          endAt={form.applicationEndAt}
+          error={errors.period}
+          onStartAtChange={(value) => update('applicationStartAt', value)}
+          onEndAtChange={(value) => update('applicationEndAt', value)}
+        />
         <Field>
           <FieldLabel htmlFor="endAt">프로그램 종료일 *</FieldLabel>
           <Input
