@@ -13,11 +13,12 @@
     "test": "pnpm run test:unit",
     "test:unit": "jest --testPathIgnorePatterns='\\.integration\\.spec\\.ts$'",
     "test:integration": "bash ../../scripts/run-backend-integration.sh",
-    "db:migrate:dev": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub prisma migrate dev",
-    "db:reset": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub prisma migrate reset --force",
-    "db:seed": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub prisma db seed",
+    "db:guard": "bash ../../scripts/check-host-db-url.sh",
+    "db:migrate:dev": "pnpm run db:guard && prisma migrate dev",
+    "db:reset": "pnpm run db:guard && prisma migrate reset --force",
+    "db:seed": "pnpm run db:guard && prisma db seed",
     "collection:verify-app": "ts-node src/collection/cli/verify-collection-app.ts",
-    "notifications:send-digest": "DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub ts-node src/notifications/cli/send-deadline-digest.ts",
+    "notifications:send-digest": "pnpm run db:guard && ts-node src/notifications/cli/send-deadline-digest.ts",
     "submissions:retry-file-cleanup": "ts-node src/submissions/cli/retry-submission-file-cleanup.ts"
   },
   "dependencies": {
