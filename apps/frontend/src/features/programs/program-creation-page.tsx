@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { FormSection } from '@/components/form-section';
 import { ApiError } from '@/lib/api-client';
 import { createProgram, listApplicationTemplates } from './api';
-import { ProgramApplicationPeriodField } from './program-application-period-field';
 import {
   buildCreateProgramInput,
   EMPTY_PROGRAM_FORM,
@@ -181,13 +180,38 @@ export function ProgramCreationPage() {
           />
           <FieldError>{errors.organizer}</FieldError>
         </Field>
-        <ProgramApplicationPeriodField
-          startAt={form.applicationStartAt}
-          endAt={form.applicationEndAt}
-          error={errors.period}
-          onStartAtChange={(value) => update('applicationStartAt', value)}
-          onEndAtChange={(value) => update('applicationEndAt', value)}
-        />
+        <Field>
+          <FieldLabel>신청 기간 *</FieldLabel>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="space-y-2">
+              <FieldLabel className="text-xs" htmlFor="applicationStartAt">
+                시작일시
+              </FieldLabel>
+              <Input
+                id="applicationStartAt"
+                type="datetime-local"
+                value={form.applicationStartAt}
+                onChange={(event) =>
+                  update('applicationStartAt', event.target.value)
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <FieldLabel className="text-xs" htmlFor="applicationEndAt">
+                마감일시
+              </FieldLabel>
+              <Input
+                id="applicationEndAt"
+                type="datetime-local"
+                value={form.applicationEndAt}
+                onChange={(event) =>
+                  update('applicationEndAt', event.target.value)
+                }
+              />
+            </div>
+          </div>
+          <FieldError>{errors.period}</FieldError>
+        </Field>
         <Field>
           <FieldLabel htmlFor="endAt">프로그램 종료일 *</FieldLabel>
           <Input
