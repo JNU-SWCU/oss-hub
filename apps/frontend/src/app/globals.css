@@ -61,11 +61,16 @@
   --palette-amber-700: #a06f1a;
   --palette-red-50: #fbe9e9;
   --palette-red-100: #f3c6c6;
-  /* red-400·red-600은 `--destructive`의 명도비 확보용으로 신설했다(#282).
+  /* red-300·red-600은 `--destructive`의 명도비 확보용으로 신설했다(#282).
      red-500(#d64545)은 흰 배경에서 4.38:1, gray-900 배경에서 3.98:1로 양쪽 모두
-     WCAG AA(4.5:1) 미달이다. 밝은 표면은 더 어둡게(600 = 5.92:1),
-     어두운 표면은 더 밝게(400 = 5.39:1) 분리한다. */
-  --palette-red-400: #e26a6a;
+     WCAG AA(4.5:1) 미달이다. 밝은 표면은 더 어둡게(600), 어두운 표면은 더
+     밝게(300) 분리한다.
+
+     다크는 페이지 배경(gray-900)만 보고 정하면 안 된다 — 같은 텍스트가 카드
+     표면(gray-800) 위에도 놓이고, 그쪽이 더 밝아 명도비가 낮다. 중간값인
+     #e26a6a는 gray-900에서 5.39:1이지만 gray-800에서 4.38:1로 미달이라
+     한 단계 더 밝은 red-300을 쓴다(gray-900 6.81:1 · gray-800 5.54:1). */
+  --palette-red-300: #e98686;
   --palette-red-500: #d64545;
   --palette-red-600: #c02626;
   --palette-red-700: #a02f2f;
@@ -215,7 +220,7 @@
   --muted-foreground: var(--palette-gray-400);
   --accent: var(--palette-green-400);
   --accent-foreground: var(--palette-green-900);
-  --destructive: var(--palette-red-400);
+  --destructive: var(--palette-red-300);
   --border: color-mix(in oklch, var(--palette-white) 12%, transparent);
   --input: color-mix(in oklch, var(--palette-white) 16%, transparent);
   --ring: var(--palette-navy-300);
