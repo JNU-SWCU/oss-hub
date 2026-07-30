@@ -429,24 +429,25 @@ check_v2() {
     exit 1
   fi
 
-  # rollback image + label/ID validation before backup/build/migration
-  require_at_least 'rollback frontend 이미지 사전 검증이 있어야 함' 'oss-hub-frontend:${PREV_TAG}' 1
-  require_at_least 'rollback backend 이미지 사전 검증이 있어야 함' 'oss-hub-backend:${PREV_TAG}' 1
-  require_at_least 'rollback OCI version label 검증이 있어야 함' 'org.opencontainers.image.version' 2
-  require_at_least 'rollback OCI revision label 검증이 있어야 함' 'org.opencontainers.image.revision' 2
-  require_regex_at_least 'rollback 이미지 ID 검증이 있어야 함' 'docker[[:space:]]+image[[:space:]]+inspect' 2
-  require_exact 'rollback은 이전 정상 이미지가 있을 때만 실행해야 함' 'if (env.PREV_TAG?.trim())' 1
+  require_exact 'rollback 사전 검증은 외부 스크립트를 한 번 호출해야 함' \
+    "sh 'bash scripts/jenkins/validate-rollback-images.sh'" 1
+  require_exact 'rollback 스크립트 nonzero는 Jenkins sh 단계에서 전파되어야 함' \
+    "sh 'bash scripts/jenkins/validate-rollback-images.sh'" 1
+  require_exact 'rollback greenfield는 이전 태그가 없을 때 건너뛰어야 함' 'if (!env.PREV_TAG?.trim())' 1
+  require_exact 'rollback greenfield skip 진단이 있어야 함' \
+    "echo 'rollback_preflight: greenfield — 이전 이미지 없음. 계속합니다.'" 1
+  require_exact 'rollback PREV_TAG를 withEnv로 전달해야 함' '"PREV_TAG=${env.PREV_TAG}",' 1
+  require_exact 'rollback PREV_SHA를 withEnv로 전달해야 함' "PREV_SHA=\${env.PREV_SHA ?: ''}" 1
+  require_exact 'rollback frontend Image ID를 withEnv로 전달해야 함' \
+    "PREV_FE_IMAGE_ID=\${env.PREV_FE_IMAGE_ID ?: ''}" 1
+  require_exact 'rollback backend Image ID를 withEnv로 전달해야 함' \
+    "PREV_BE_IMAGE_ID=\${env.PREV_BE_IMAGE_ID ?: ''}" 1
+  require_absent 'rollback image inspect 구현은 Jenkinsfile에 남아 있으면 안 됨' \
+    'docker image inspect "oss-hub-frontend:${PREV_TAG}"'
 
-  # running container immutable Image ID capture + PREV_TAG binding (sibling contract)
   require_regex_at_least '실행 중 컨테이너 .Image ID 캡처가 있어야 함' '\{\{\.Image\}\}' 1
   require_at_least 'probe는 prev_fe_image_id를 내보내야 함' 'prev_fe_image_id=' 1
   require_at_least 'probe는 prev_be_image_id를 내보내야 함' 'prev_be_image_id=' 1
-  require_at_least 'PREV_FE_IMAGE_ID 바인딩이 있어야 함' 'PREV_FE_IMAGE_ID' 1
-  require_at_least 'PREV_BE_IMAGE_ID 바인딩이 있어야 함' 'PREV_BE_IMAGE_ID' 1
-  require_regex_at_least 'frontend rollback 태그는 캡처된 Image ID와 일치해야 함' \
-    '"?\$fe_id"?[[:space:]]*!=[[:space:]]*"?\$PREV_FE_IMAGE_ID"?' 1
-  require_regex_at_least 'backend rollback 태그는 캡처된 Image ID와 일치해야 함' \
-    '"?\$be_id"?[[:space:]]*!=[[:space:]]*"?\$PREV_BE_IMAGE_ID"?' 1
 
   # release-tag builds with OCI labels; each build command carries both labels independently
   require_at_least 'frontend release-tag 빌드가 있어야 함' '--tag "oss-hub-frontend:${IMAGE_TAG}"' 1
@@ -512,14 +513,16 @@ check_v2() {
   require_common_smoke_and_build_guards
   require_single_image_tag_assignment
 
-  local pm_approval_line checkout_line https_line rollback_line prisma_generate_line test_line
+  local pm_approval_line checkout_line https_line rollback_stage_line rollback_input_line rollback_call_line
+  local prisma_generate_line test_line
   local backup_line frontend_build_line backend_build_line migration_line rollout_line retention_line
-  local image_rm_line backup_prune_line rollback_id_line retention_stage_line
+  local image_rm_line backup_prune_line retention_stage_line
   pm_approval_line=$(line_of 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${RELEASE_SHA}')
   checkout_line=$(line_of 'git checkout --detach "$RELEASE_SHA"')
   https_line=$(line_of 'FRONTEND_URL')
-  rollback_line=$(line_of_regex 'docker[[:space:]]+image[[:space:]]+inspect')
-  rollback_id_line=$(line_of_regex '"?\$fe_id"?[[:space:]]*!=[[:space:]]*"?\$PREV_FE_IMAGE_ID"?')
+  rollback_stage_line=$(line_of "stage('롤백 이미지 사전 검증')")
+  rollback_input_line=$(line_of "PREV_BE_IMAGE_ID=\${env.PREV_BE_IMAGE_ID ?: ''}")
+  rollback_call_line=$(line_of "sh 'bash scripts/jenkins/validate-rollback-images.sh'")
   prisma_generate_line=$(line_of 'pnpm --filter backend exec prisma generate')
   test_line=$(line_of 'pnpm test')
   backup_line=$(line_of 'pg_dump')
@@ -532,8 +535,8 @@ check_v2() {
   image_rm_line=$(line_of_regex 'docker[[:space:]]+image[[:space:]]+rm[[:space:]]+')
   backup_prune_line=$(line_of 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"')
 
-  if [[ -z "$pm_approval_line" || -z "$checkout_line" || -z "$https_line" || -z "$rollback_line" ||
-        -z "$rollback_id_line" || -z "$prisma_generate_line" || -z "$test_line" || -z "$backup_line" ||
+  if [[ -z "$pm_approval_line" || -z "$checkout_line" || -z "$https_line" || -z "$rollback_stage_line" ||
+         -z "$rollback_input_line" || -z "$rollback_call_line" || -z "$prisma_generate_line" || -z "$test_line" || -z "$backup_line" ||
         -z "$frontend_build_line" || -z "$backend_build_line" || -z "$migration_line" ||
         -z "$rollout_line" || -z "$retention_line" || -z "$retention_stage_line" ||
         -z "$image_rm_line" || -z "$backup_prune_line" ]]; then
@@ -543,9 +546,10 @@ check_v2() {
 
   if ! ((pm_approval_line < checkout_line &&
          checkout_line < https_line &&
-         https_line < rollback_line &&
-         rollback_line <= rollback_id_line &&
-         rollback_id_line < prisma_generate_line &&
+          https_line < rollback_stage_line &&
+          rollback_stage_line <= rollback_input_line &&
+          rollback_input_line < rollback_call_line &&
+          rollback_call_line < prisma_generate_line &&
          prisma_generate_line < test_line &&
          test_line < backup_line &&
          backup_line < frontend_build_line &&
@@ -555,11 +559,11 @@ check_v2() {
          rollout_line < retention_stage_line &&
          retention_stage_line < image_rm_line &&
          retention_stage_line < backup_prune_line)); then
-    printf '%s: required order is approval/checkout -> HTTPS+rollback preflight(ID bind) -> generate/test -> backup -> two image builds -> migration -> rollout/smoke -> success-only image/backup deletion\n' "$label" >&2
+    printf '%s: required order is approval/checkout -> HTTPS+rollback preflight(input/call) -> generate/test -> backup -> two image builds -> migration -> rollout/smoke -> success-only image/backup deletion\n' "$label" >&2
     exit 1
   fi
 
-  echo "$label: ok (parameterless latest Release, RELEASE_TAG images, running-only no-op, fail-closed stopped/ambiguous, PM RELEASE_SHA approve, HTTPS+rollback ID bind, success-only retention)"
+  echo "$label: ok (parameterless latest Release, RELEASE_TAG images, running-only no-op, fail-closed stopped/ambiguous, PM RELEASE_SHA approve, HTTPS+external rollback preflight, success-only retention)"
 }
 
 check_v2

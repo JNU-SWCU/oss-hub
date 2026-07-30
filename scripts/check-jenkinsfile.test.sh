@@ -81,7 +81,7 @@ make_fixture "$v2_source" v2-missing-test 'pnpm test' 'true'
 make_fixture "$v2_source" v2-missing-backup 'pg_dump' 'pg_isready'
 make_fixture "$v2_source" v2-missing-migration 'npx prisma migrate deploy' 'npx prisma migrate status'
 make_fixture "$v2_source" v2-missing-no-build 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait' 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --wait'
-make_fixture "$v2_source" v2-missing-rollback-guard 'if (env.PREV_TAG?.trim())' 'if (false)'
+make_fixture "$v2_source" v2-missing-rollback-guard 'if (!env.PREV_TAG?.trim())' 'if (false)'
 make_fixture "$v2_source" v2-missing-production-credential "credentialsId: 'oss-hub-production-env'" "credentialsId: 'removed'"
 make_fixture "$v2_source" v2-missing-running-ps-q 'ps -q frontend' 'ps --status frontend'
 make_fixture "$v2_source" v2-missing-all-ps 'ps --all -q frontend' 'ps -q frontend-all'
@@ -287,15 +287,24 @@ if awk '
   exit 1
 fi
 
-# 4) missing rollback image/label validation (image inspect preflight gone)
-make_fixture "$v2_source" v2-blocker-missing-rollback-inspect \
-  'docker image inspect' \
-  'docker image history'
-
-# 4b) rollback Image ID binding removed/inverted
-make_fixture "$v2_source" v2-blocker-rollback-id-unbound \
-  '"$fe_id" != "$PREV_FE_IMAGE_ID"' \
-  '"$fe_id" == "$PREV_FE_IMAGE_ID"'
+make_fixture "$v2_source" v2-blocker-missing-rollback-script \
+  'bash scripts/jenkins/validate-rollback-images.sh' \
+  'true'
+make_fixture "$v2_source" v2-blocker-rollback-nonzero-swallowed \
+  "sh 'bash scripts/jenkins/validate-rollback-images.sh'" \
+  "sh(script: 'bash scripts/jenkins/validate-rollback-images.sh', returnStatus: true)"
+make_fixture "$v2_source" v2-blocker-missing-rollback-prev-tag \
+  '"PREV_TAG=${env.PREV_TAG}",' \
+  '"PREV_TAG=${MISSING_PREV_TAG}",'
+make_fixture "$v2_source" v2-blocker-missing-rollback-prev-sha \
+  "PREV_SHA=\${env.PREV_SHA ?: ''}" \
+  "PREV_SHA=\${MISSING_PREV_SHA ?: ''}"
+make_fixture "$v2_source" v2-blocker-missing-rollback-prev-fe-id \
+  "PREV_FE_IMAGE_ID=\${env.PREV_FE_IMAGE_ID ?: ''}" \
+  "PREV_FE_IMAGE_ID=\${MISSING_PREV_FE_IMAGE_ID ?: ''}"
+make_fixture "$v2_source" v2-blocker-missing-rollback-prev-be-id \
+  "PREV_BE_IMAGE_ID=\${env.PREV_BE_IMAGE_ID ?: ''}" \
+  "PREV_BE_IMAGE_ID=\${MISSING_PREV_BE_IMAGE_ID ?: ''}"
 
 # 5a) HTTP FRONTEND_URL acceptance
 make_fixture "$v2_source" v2-blocker-http-frontend-url \
@@ -1152,7 +1161,7 @@ expect_fail 'v2: 배포 전 test 누락' v2 "$fixture_dir/v2-missing-test"
 expect_fail 'v2: migration 전 backup 누락' v2 "$fixture_dir/v2-missing-backup"
 expect_fail 'v2: Prisma migration 누락' v2 "$fixture_dir/v2-missing-migration"
 expect_fail 'v2: Compose 교체의 --no-build 누락' v2 "$fixture_dir/v2-missing-no-build"
-expect_fail 'v2: 이전 이미지 rollback guard 누락' v2 "$fixture_dir/v2-missing-rollback-guard"
+expect_fail 'v2: greenfield rollback skip guard 누락' v2 "$fixture_dir/v2-missing-rollback-guard"
 expect_fail 'v2: 운영 환경 credential 주입 누락' v2 "$fixture_dir/v2-missing-production-credential"
 expect_fail 'v2: 실행 중 ps -q 권위 누락' v2 "$fixture_dir/v2-missing-running-ps-q"
 expect_fail 'v2: 존재 분류 ps --all 누락' v2 "$fixture_dir/v2-missing-all-ps"
@@ -1176,8 +1185,12 @@ expect_fail 'v2 blocker: stopped 상태 단말 실패 제거' v2 "$fixture_dir/v
 expect_fail 'v2 blocker: ambiguous/non-running 단말 실패 제거' v2 "$fixture_dir/v2-blocker-ambiguous-proceeds"
 expect_fail 'v2 blocker: partial 상태 단말 실패 제거' v2 "$fixture_dir/v2-blocker-partial-proceeds"
 expect_fail 'v2 blocker: same-tag different-SHA fail-closed 제거' v2 "$fixture_dir/v2-blocker-same-tag-different-sha-removed"
-expect_fail 'v2 blocker: rollback image/label 검증 누락' v2 "$fixture_dir/v2-blocker-missing-rollback-inspect"
-expect_fail 'v2 blocker: rollback Image ID 바인딩 파손' v2 "$fixture_dir/v2-blocker-rollback-id-unbound"
+expect_fail 'v2 blocker: rollback 외부 스크립트 호출 누락' v2 "$fixture_dir/v2-blocker-missing-rollback-script"
+expect_fail 'v2 blocker: rollback 스크립트 nonzero swallow' v2 "$fixture_dir/v2-blocker-rollback-nonzero-swallowed"
+expect_fail 'v2 blocker: rollback PREV_TAG withEnv 누락' v2 "$fixture_dir/v2-blocker-missing-rollback-prev-tag"
+expect_fail 'v2 blocker: rollback PREV_SHA withEnv 누락' v2 "$fixture_dir/v2-blocker-missing-rollback-prev-sha"
+expect_fail 'v2 blocker: rollback frontend Image ID withEnv 누락' v2 "$fixture_dir/v2-blocker-missing-rollback-prev-fe-id"
+expect_fail 'v2 blocker: rollback backend Image ID withEnv 누락' v2 "$fixture_dir/v2-blocker-missing-rollback-prev-be-id"
 expect_fail 'v2 blocker: HTTP FRONTEND_URL 허용' v2 "$fixture_dir/v2-blocker-http-frontend-url"
 expect_fail 'v2 blocker: FRONTEND_URL 누락 허용' v2 "$fixture_dir/v2-blocker-missing-frontend-url"
 expect_fail 'v2 blocker: 중복 FRONTEND_URL (HTTPS→HTTP) 허용' v2 "$fixture_dir/v2-blocker-duplicate-frontend-url-https-http"

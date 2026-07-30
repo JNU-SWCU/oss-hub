@@ -424,66 +424,7 @@ esac
             "PREV_FE_IMAGE_ID=${env.PREV_FE_IMAGE_ID ?: ''}",
             "PREV_BE_IMAGE_ID=${env.PREV_BE_IMAGE_ID ?: ''}",
           ]) {
-            sh '''#!/usr/bin/env bash
-set -euo pipefail
-# 이전 실행 배포가 있으면 rollback 이미지 참조·label·불변 ID를 배포 전에 검증한다.
-if ! docker image inspect "oss-hub-frontend:${PREV_TAG}" >/dev/null 2>&1; then
-  echo "FAIL_CLOSED missing_rollback: oss-hub-frontend:${PREV_TAG} 이미지가 없습니다." >&2
-  exit 1
-fi
-if ! docker image inspect "oss-hub-backend:${PREV_TAG}" >/dev/null 2>&1; then
-  echo "FAIL_CLOSED missing_rollback: oss-hub-backend:${PREV_TAG} 이미지가 없습니다." >&2
-  exit 1
-fi
-
-fe_ver="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "oss-hub-frontend:${PREV_TAG}")"
-be_ver="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "oss-hub-backend:${PREV_TAG}")"
-fe_rev="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "oss-hub-frontend:${PREV_TAG}")"
-be_rev="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "oss-hub-backend:${PREV_TAG}")"
-fe_id="$(docker image inspect --format '{{.Id}}' "oss-hub-frontend:${PREV_TAG}")"
-be_id="$(docker image inspect --format '{{.Id}}' "oss-hub-backend:${PREV_TAG}")"
-
-if [ -z "$fe_id" ] || [ -z "$be_id" ]; then
-  echo 'FAIL_CLOSED missing_rollback: rollback 이미지 ID를 읽지 못했습니다.' >&2
-  exit 1
-fi
-
-# PREV_TAG가 있으면 실행 중 컨테이너에서 캡처한 immutable Image ID와 태그 이미지를 바이트 단위로 결합한다.
-if [ -z "${PREV_FE_IMAGE_ID:-}" ] || [ -z "${PREV_BE_IMAGE_ID:-}" ]; then
-  echo 'FAIL_CLOSED missing_rollback: 실행 중 컨테이너 Image ID가 캡처되지 않았습니다.' >&2
-  exit 1
-fi
-if [ "$fe_id" != "$PREV_FE_IMAGE_ID" ]; then
-  echo 'FAIL_CLOSED missing_rollback: oss-hub-frontend rollback 태그가 직전 실행 Image ID와 다릅니다.' >&2
-  exit 1
-fi
-if [ "$be_id" != "$PREV_BE_IMAGE_ID" ]; then
-  echo 'FAIL_CLOSED missing_rollback: oss-hub-backend rollback 태그가 직전 실행 Image ID와 다릅니다.' >&2
-  exit 1
-fi
-
-# PREV_SHA가 있으면 두 이미지의 complete OCI label을 요구하고 정확히 결합한다.
-if [ -n "$PREV_SHA" ]; then
-  if [ -z "$fe_ver" ] || [ -z "$be_ver" ] || [ -z "$fe_rev" ] || [ -z "$be_rev" ]; then
-    echo 'FAIL_CLOSED missing_rollback: rollback OCI label이 불완전합니다.' >&2
-    exit 1
-  fi
-  if [ "$fe_ver" != "$be_ver" ] || [ "$fe_rev" != "$be_rev" ]; then
-    echo 'FAIL_CLOSED missing_rollback: rollback frontend/backend OCI label 불일치.' >&2
-    exit 1
-  fi
-  if [ "$fe_ver" != "$PREV_TAG" ] || [ "$fe_rev" != "$PREV_SHA" ]; then
-    echo 'FAIL_CLOSED missing_rollback: rollback OCI label이 PREV_TAG/PREV_SHA와 다릅니다.' >&2
-    exit 1
-  fi
-else
-  # running probe는 complete label을 강제하므로 PREV_SHA 없는 rollback 경로는 허용하지 않는다.
-  echo 'FAIL_CLOSED missing_rollback: PREV_SHA 없이 rollback 바이트 신원을 확정할 수 없습니다.' >&2
-  exit 1
-fi
-
-echo "rollback_preflight: oss-hub-frontend/backend:${PREV_TAG} 이미지 존재·label/ID 검증 통과."
-'''
+            sh 'bash scripts/jenkins/validate-rollback-images.sh'
           }
         }
       }
