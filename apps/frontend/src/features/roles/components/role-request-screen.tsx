@@ -34,8 +34,11 @@ function statusPresentation(request: RoleRequest): StatusPresentation {
       return {
         icon: <Clock3 className="size-8" />,
         title: '교직원 승인을 기다리고 있습니다',
+        // 누가·언제·어떻게 알 수 있는지를 모두 적는다. 이 서비스는 승인 시
+        // 알림을 보내지 않으므로, 그 사실을 숨기면 사용자는 알림을 기다리며
+        // 무한정 대기하게 된다. 확인 방법을 명시하는 것이 정직하고 실행 가능하다.
         description:
-          '승인이 완료되면 교직원 프로그램 관리 기능을 사용할 수 있습니다.',
+          '사업단 관리자가 요청을 확인한 뒤 승인합니다. 승인 결과는 별도 알림 없이 이 화면에 반영되므로, 잠시 후 다시 방문해 확인해 주세요. 승인이 완료되면 프로그램 개설과 운영 기능을 사용할 수 있습니다.',
         badge: <StatusBadge variant="pending">승인 대기</StatusBadge>,
       };
     case 'REJECTED':
