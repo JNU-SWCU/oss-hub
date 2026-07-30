@@ -229,18 +229,34 @@ export function ProgramCreationPage() {
           <Field>
             <FieldLabel>팀 인원 *</FieldLabel>
             <div className="grid gap-2 sm:grid-cols-2">
-              <Input
-                type="number"
-                min="1"
-                value={form.teamMinSize}
-                onChange={(event) => update('teamMinSize', event.target.value)}
-              />
-              <Input
-                type="number"
-                min="1"
-                value={form.teamMaxSize}
-                onChange={(event) => update('teamMaxSize', event.target.value)}
-              />
+              <div className="space-y-2">
+                <FieldLabel className="text-xs" htmlFor="teamMinSize">
+                  최소
+                </FieldLabel>
+                <Input
+                  id="teamMinSize"
+                  type="number"
+                  min="1"
+                  value={form.teamMinSize}
+                  onChange={(event) =>
+                    update('teamMinSize', event.target.value)
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <FieldLabel className="text-xs" htmlFor="teamMaxSize">
+                  최대
+                </FieldLabel>
+                <Input
+                  id="teamMaxSize"
+                  type="number"
+                  min="1"
+                  value={form.teamMaxSize}
+                  onChange={(event) =>
+                    update('teamMaxSize', event.target.value)
+                  }
+                />
+              </div>
             </div>
             <FieldError>{errors.team}</FieldError>
           </Field>
