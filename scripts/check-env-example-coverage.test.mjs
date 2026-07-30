@@ -1371,6 +1371,60 @@ test('CLI: .js 미선언 키를 스캔해 실패한다', () => {
   }
 });
 
+// --- 스캔 경계: apps/*/src 밖의 env 읽기 (BACKEND_ORIGIN 회귀) ---
+//
+// `apps/frontend/next.config.ts` 는 `process.env.BACKEND_ORIGIN` 을 읽지만
+// 스캔 루트(`apps/backend/src`·`apps/frontend/src`)  밖이라 코드 히트가 아니다.
+// 그래서 `BACKEND_ORIGIN` 은 `.env.example` 에 없어도 계약이 통과한다 — 이 키는
+// dev 전용(`next.config.ts` 가 `NODE_ENV !== 'development'` 에서 조기 반환)이고
+// 선언 원본은 `.envrc.example` 이다.
+//
+// 이 경계는 면제 목록이 아니라 스캔 범위가 만든 것이므로, 같은 읽기가 `src/` 안으로
+// 들어오는 순간 계약 위반으로 드러나야 한다. 아래 두 케이스가 그 양방향을 고정한다.
+
+const BACKEND_ORIGIN_READ = `export const backendOrigin = (
+  process.env.BACKEND_ORIGIN ?? 'http://localhost:4000'
+).replace(/\\/$/, '');
+`;
+
+test('CLI: apps/frontend 루트의 next.config.ts 는 스캔 범위 밖이라 BACKEND_ORIGIN 을 코드 히트로 잡지 않는다', () => {
+  const root = makeTempDir();
+  try {
+    writeMinimalContractTree(root, {
+      'apps/frontend/next.config.ts': BACKEND_ORIGIN_READ,
+    });
+    // 스캔 루트 밖이므로 수집되지 않는다 — 선언이 없어도 계약은 통과한다.
+    assert.equal(
+      listScanFiles(path.join(root, 'apps/frontend/src')).length,
+      0,
+      'next.config.ts 가 apps/frontend/src 스캔 목록에 들어오면 이 경계가 깨진 것이다',
+    );
+    const result = runEntryCli(root);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /env example contract: ok/);
+    assert.ok(
+      !result.stderr.includes('BACKEND_ORIGIN'),
+      'BACKEND_ORIGIN 은 스캔 범위 밖이라 위반으로 보고되지 않아야 한다',
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI: 같은 BACKEND_ORIGIN 읽기가 apps/frontend/src 안으로 옮겨지면 undeclared 로 실패한다', () => {
+  const root = makeTempDir();
+  try {
+    writeMinimalContractTree(root, {
+      'apps/frontend/src/dev-proxy.ts': BACKEND_ORIGIN_READ,
+    });
+    const result = runEntryCli(root);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.match(result.stderr, /code reads undeclared key: BACKEND_ORIGIN/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('CLI: 구문 깨진 소스는 parse 실패로 non-zero', () => {
   const root = makeTempDir();
   try {
