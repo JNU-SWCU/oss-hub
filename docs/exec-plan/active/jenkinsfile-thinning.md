@@ -221,10 +221,13 @@ if (env.PREV_TAG?.trim()) {
 
 ### G0 — `scripts/jenkins/**` 보호 적용 확인
 
-- `ADR-005` 64줄은 현재 `Jenkinsfile`, Compose·env·deploy·Dockerfile·workflow·checker 경로를 배포 계약 경로로 열거하지만 `scripts/jenkins/**`를 명시하지 않는다.
-- 따라서 P1~P5를 시작하기 전에 `scripts/jenkins/**`가 ADR-005의 deploy-contract 보호를 받는지 GitHub 경로 정책과 문서 원본에서 확인한다.
-- 보호가 확인되지 않으면 이 계획의 코드 추출 PR을 시작하지 않고, 보호 경로를 보완하는 별도 high-risk 문서·정책 변경을 먼저 결정한다.
-- G0의 미해결 상태는 P1~P5의 blocker이며 이 계획에서는 ADR-005나 CODEOWNERS를 수정하지 않는다.
+G0는 확인을 완료했고 결과는 **보호 미적용**이었다.
+
+- `ADR-005`의 배포 계약 경로 정의는 `Jenkinsfile`, Compose·env·deploy·Dockerfile·workflow·checker 경로를 열거하지만 `scripts/jenkins/**`를 포함하지 않았다.
+- `scripts/merge-policy-check-lib.mjs`의 `DEPLOY_CONTRACT_PATTERNS`도 같은 목록을 쓰므로, 판정기를 직접 호출해 확인한 결과 `scripts/jenkins/validate-rollback-images.sh`가 `일반` 변경으로 분류됐다.
+- 즉 `Jenkinsfile`(PM 전속)의 절차 로직을 이 계획대로 추출하면 같은 배포 결정 로직이 파일 위치만 바뀌어 승인 요건이 낮아진다. 추출 자체가 우회 경로가 된다.
+- 이 계획은 ADR-005·CODEOWNERS를 수정하지 않는다는 경계를 지키고, 보호 확장은 별도 PR로 분리했다 — Issue #387, PR #388이 판정기·ADR-005·검증 표·CODEOWNERS 네 곳에 `scripts/jenkins/**`를 추가한다.
+- 따라서 P1~P5의 blocker는 "G0 확인"이 아니라 **PR #388 병합**이다. #388이 병합된 뒤 첫 추출 PR이 `merge-policy`에서 `PM_ACCEPT` 요구로 판정되는지 확인하고 P1을 시작한다.
 
 ### PR 분해 원칙
 
