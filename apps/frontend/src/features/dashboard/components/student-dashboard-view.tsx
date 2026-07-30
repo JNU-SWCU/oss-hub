@@ -187,7 +187,15 @@ export function StudentDashboardView({
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-5 sm:p-8">
       <PageHeader
         title="내 대시보드"
-        description="신청한 프로그램과 다음 제출 일정을 한눈에 확인합니다."
+        description="신청한 프로그램과 다음 제출 일정을 확인합니다."
+        actions={
+          <Button asChild variant="outline" className="min-h-10 px-3">
+            <Link href="/dashboard/activity">
+              내 활동
+              <ArrowRight aria-hidden="true" />
+            </Link>
+          </Button>
+        }
       />
 
       {status === 'loading' ? (
