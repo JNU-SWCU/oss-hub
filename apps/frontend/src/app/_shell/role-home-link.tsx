@@ -40,6 +40,10 @@ export function resolveSessionEntry(
   switch (status) {
     case 'loading':
     case 'anonymous':
+    // 조회 실패 시 역할을 모르므로 진입 링크를 만들 수 없다. nav는 링크를 숨기고,
+    // 실패 표시와 재시도는 본문 게이트(SessionError)가 담당한다 — nav에 오류를
+    // 띄우면 모든 화면 상단에 같은 경고가 중복으로 뜬다.
+    case 'error':
       return null;
     case 'unassigned':
       return ONBOARDING_ENTRY;
