@@ -1,4 +1,9 @@
 import { AUTH_ERROR_MESSAGE, hasAuthError } from '@/features/auth/auth-error';
+import {
+  GITHUB_LOGOUT_URL,
+  LOGOUT_NOTICE_MESSAGE,
+  hasLogoutNotice,
+} from '@/features/auth/logout-notice';
 import { ClosingCtaSection } from '@/features/landing/components/closing-cta-section';
 import { LandingFooter } from '@/features/landing/components/landing-footer';
 import { LandingHero } from '@/features/landing/components/landing-hero';
@@ -16,6 +21,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const authErrorMessage = hasAuthError(resolvedSearchParams)
     ? AUTH_ERROR_MESSAGE
     : undefined;
+  const showLogoutNotice = hasLogoutNotice(resolvedSearchParams);
 
   return (
     <>
@@ -25,6 +31,20 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             진입은 nav의 RoleHomeNavLink로 대체됐다. */}
         <LandingHero
           authErrorMessage={authErrorMessage}
+          notice={
+            showLogoutNotice ? (
+              <>
+                {LOGOUT_NOTICE_MESSAGE}{' '}
+                <a
+                  href={GITHUB_LOGOUT_URL}
+                  className="font-semibold text-hero-foreground underline underline-offset-2"
+                  rel="noreferrer noopener"
+                >
+                  GitHub에서 로그아웃
+                </a>
+              </>
+            ) : undefined
+          }
           primaryAction={
             // 히어로가 어두운 표면이 되었으므로 흰 버튼이어야 대비가 확보된다
             <LandingEntryAction
