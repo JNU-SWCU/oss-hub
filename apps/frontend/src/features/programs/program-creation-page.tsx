@@ -172,7 +172,7 @@ export function ProgramCreationPage() {
           <FieldError>{errors.name}</FieldError>
         </Field>
         <Field>
-          <FieldLabel htmlFor="organizer">주관기관/학과</FieldLabel>
+          <FieldLabel htmlFor="organizer">주관기관/학과 *</FieldLabel>
           <Input
             id="organizer"
             value={form.organizer}
