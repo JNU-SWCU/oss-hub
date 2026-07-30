@@ -35,11 +35,19 @@ owner의 사후 확인 코멘트는 병합 조건이 아니다.
 Ponytail은 기존 라이브러리 재사용, 중복과 불필요한 복잡도만 확인하는 검토 렌즈이며 기능 존재·동작 여부를 판정하거나 실제 QA를 대체하지 않는다.
 
 일반 PR은 전남의 exact-head `MERGE_READY`가 병합 검토의 단일 수렴 결과다.
-`MERGE_READY`에는 일반 코드·계약 검토, Ponytail 복잡도 검토, 실제 UI/API QA, repository-declared CLI 검증과 required CI 결과를 함께 기록한다.
+`MERGE_READY`에는 일반 코드·계약 검토, Ponytail 복잡도 검토, 실제 UI/API QA, 재현 가능한 계약 검증(`CLI:`)과 required CI 결과를 함께 기록한다.
 실제 UI/API QA는 티켓의 화면·API 시나리오를 테스트 명세로 읽고, 변경에 적용되는 정상 흐름·권한 차단·마감/중복/stale 상태·성공 뒤 상태 변화를 직접 확인한다.
 UI로 확인할 수 없는 backend-only 계약은 격리 환경의 실제 API·DB 경로로 확인하며, CI·단위·통합 테스트는 그 뒤의 보조 증거다.
 관찰 가능한 UI/API 동작이 없는 변경만 구체적인 N/A 사유를 허용한다.
 실행 환경·선행 PR·외부 자원 때문에 직접 확인하지 못한 동작 변경은 `BLOCKED/UNVERIFIED`로 기록하고 `MERGE_READY`를 남기지 않는다.
+
+`CLI:` 증거는 저장소에서 재현 가능한 검증 결과이며, 전용 검사기 스크립트는 그 형태 중 하나일 뿐이다.
+같은 불변식을 지키는 수단은 다음 순서로 우선한다: (1) 구조 — 타입·스키마·생성으로 위반을 표현 불가로 만든다, (2) 앱 테스트 스위트, (3) 전용 검사기 스크립트, (4) 문서 규칙.
+상위 수단으로 불변식이 성립하면 하위 수단을 새로 만들지 않는다.
+새 전용 검사기를 도입하는 PR은 어떤 불변식을 지키는지와 상위 두 수단으로 성립하지 않는 이유를 본문에 남긴다.
+전용 검사기를 상위 수단으로 옮기는 변경은 검사 약화가 아니라 등가 이전이며, 같은 불변식이 상위 수단에서 성립함을 `CLI:` 증거로 보이면 일반 변경으로 처리한다.
+단 fail-closed 보안·배포 승인 게이트는 이 우선순위의 예외로 유지한다: public-safe·gitleaks 스캔, ADR-002의 Jenkins release 승인 바인딩, `merge-policy` 판정기.
+이 예외 경로를 축소·우회·약화하는 변경은 계속 high risk다.
 
 | 분류 | 의미 | 병합 영향 | 처리 |
 | --- | --- | --- | --- |
@@ -60,6 +68,7 @@ UI로 확인할 수 없는 backend-only 계약은 격리 환경의 실제 API·D
 high risk 여부는 파일 경로가 아니라 실제 권한·데이터·운영·공통 계약에 미치는 효과로 판정한다.
 CODEOWNERS 경로는 검토 후보를 찾는 신호이며 그 자체가 high risk 확정 판정은 아니다.
 나열된 경계를 생성·확장·축소·우회하거나 검사를 약화하는 변경은 경로와 무관하게 high risk이며, 분류가 모호하면 high risk로 처리한다.
+검사 수단을 위 우선순위의 상위로 옮기면서 같은 불변식을 유지하는 등가 이전은 약화로 보지 않는다 — 단 fail-closed 예외 경로는 그대로 high risk다.
 동작 효과가 없는 기계적 문서·테스트·리팩터링은 경로가 일치해도 일반 변경일 수 있지만, 정책 문서의 실제 계약을 바꾸면 high risk다.
 다음 경로를 변경하는 PR은 배포 계약 경로로 정의한다: `Jenkinsfile`, `compose.yml`, `.env.example`, `deploy/**`, `apps/*/Dockerfile`, `.dockerignore`, `.github/workflows/deploy.yml`, `scripts/check-jenkinsfile.sh`, `scripts/check-jenkinsfile.test.sh`.
 수동 파일럿에서 CODEOWNERS 후보 또는 분류가 모호한 변경은 기본적으로 `HIGH_RISK`다.
@@ -107,6 +116,9 @@ Jenkins가 이 actor·tag·SHA를 배포 시작 전에 검증하고 누락·불�
 - 최신 변경에 대한 검증 근거를 GitHub에서 다시 확인할 수 있다.
 - head, base ref 또는 base SHA가 바뀌면 검증을 반복해야 한다.
 - high risk PR 작성자가 자기 accept를 남겨 사실상 1인 병합이 가능해진다 — 완화 수단은 전남의 exact-head `MERGE_READY` 증거, required CI, 배포 계약 경로의 PM 전속이다.
+- 새 계약을 지키는 기본 수단이 전용 검사기에서 구조·앱 테스트로 이동한다. 검사기 수는 단조 증가하지 않고 상위 수단으로 흡수되며 줄어들 수 있다.
+- 검사기 신설에 근거 기재 비용이 추가된다. 반대로 상위 수단으로 옮기는 정리 PR은 별도 완화 accept 없이 진행할 수 있다.
+- fail-closed 보안·배포 게이트는 예외로 남아 우선순위와 무관하게 유지된다 — 이 부분의 강제 수준은 변하지 않는다.
 
 ## References
 
@@ -126,3 +138,4 @@ Jenkins가 이 actor·tag·SHA를 배포 시작 전에 검증하고 누락·불�
 - 2026-07-28: Issue #274에 따라 high risk 병합 accept를 PM 또는 Tech Lead 중 한 명으로 완화하고 배포 계약 경로는 PM 전속으로 유지했다. `GENERAL` 하향도 같은 규칙을 따른다. @GoBeromsu와 @Lumiere001의 저장소 전체 free-role 작성권과 사후 확인 폐지를 명문화했다.
 - 2026-07-28: Issue #199에 따라 production release·재배포 승인을 @GoBeromsu 단독 `RELEASE_ACCEPT role=PM`으로 전환하고 `RELEASE_ACCEPT role=TECH_LEAD`와 `RELEASE_OVERRIDE role=PM`을 폐지했다.
 - 2026-07-28: PR #256에 한정되었던 일회성 긴급 PM 코드 승인 경로(PM_EMERGENCY_ACCEPT·OWNER_CONFIRM)를 삭제했다 — 단일 accept 도입으로 `TECH_LEAD_ACCEPT` 대체 기능의 존재 이유가 사라졌다.
+- 2026-07-30: `CLI:` 증거의 정의를 "repository-declared CLI 검증"에서 "재현 가능한 계약 검증"으로 바꾸고 검증 수단 우선순위(구조 → 앱 테스트 → 전용 검사기 → 문서 규칙)를 명문화했다. 전용 검사기만이 병합 증거를 충족하던 제약이 검사기 단조 증가를 유발했으므로 상위 수단으로의 등가 이전을 검사 약화에서 제외했다. fail-closed 보안·배포 승인 게이트(public-safe·gitleaks, Jenkins release 승인 바인딩, `merge-policy`)는 예외로 유지했고 marker 이름·형식·actor·accept 규칙은 변경하지 않았다.
