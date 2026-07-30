@@ -100,6 +100,7 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-on-tint: var(--destructive-on-tint);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -162,6 +163,12 @@
   --accent: var(--palette-green-500);
   --accent-foreground: var(--palette-white);
   --destructive: var(--palette-red-600);
+  /* destructive tint 위에 놓이는 텍스트. 같은 토큰을 텍스트와 반투명 배경에
+     함께 쓰면(예: Button destructive variant의 `bg-destructive/10` +
+     `hover:bg-destructive/20`) 배경이 텍스트 색조로 물들어 대비가 상한에
+     갇힌다 — 토큰을 진하게 해도 hover에서 4.27:1을 넘지 못했다. 텍스트는
+     tint와 **반대 방향으로 한 단계 더** 밀어야 한다(라이트는 더 어둡게). */
+  --destructive-on-tint: var(--palette-red-700);
   --border: var(--palette-gray-200);
   --input: var(--palette-gray-200);
   --ring: var(--palette-navy-400);
@@ -221,6 +228,8 @@
   --accent: var(--palette-green-400);
   --accent-foreground: var(--palette-green-900);
   --destructive: var(--palette-red-300);
+  /* 어두운 표면에서는 반대로 더 밝게 밀어야 tint 위에서 대비가 확보된다. */
+  --destructive-on-tint: var(--palette-red-50);
   --border: color-mix(in oklch, var(--palette-white) 12%, transparent);
   --input: color-mix(in oklch, var(--palette-white) 16%, transparent);
   --ring: var(--palette-navy-300);
@@ -283,6 +292,7 @@
      nav의 로그아웃 실패 `role="alert"`에서 다시 나온다. `--hero-danger`는 #275가 정확히
      이 목적으로 도입해 히어로 그라디언트 전 구간 9.65–12.6:1로 검증한 토큰이다. */
   --destructive: var(--hero-danger);
+  --destructive-on-tint: var(--hero-danger);
 }
 
 /* 반전 표면 안에 중첩된 밝은 패널(계정 메뉴 등)을 되돌리는 리셋 — :root(53-68행 근방)와
@@ -308,6 +318,7 @@
   --accent-foreground: var(--palette-white);
   --border: var(--palette-gray-200);
   --destructive: var(--palette-red-600);
+  --destructive-on-tint: var(--palette-red-700);
 }
 
 @layer base {
