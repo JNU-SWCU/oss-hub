@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from '../auth/auth.module';
+import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
+import type { RuntimeConfig } from '../runtime-config/runtime-config';
 import { CollectionAppClient } from './collection-app.client';
 import { CollectionAppConfig } from './collection-app.config';
 import { CollectionAppTokenProvider } from './collection-app.token';
@@ -28,14 +30,16 @@ import { CollectionSchedulerService } from './collection-scheduler.service';
     CollectionCanonicalRepository,
     {
       provide: CollectionReconciliationService,
-      inject: [CollectionCanonicalRepository],
+      inject: [CollectionCanonicalRepository, RUNTIME_CONFIG],
       useFactory: (
         canonicalRepository: CollectionCanonicalRepository,
+        runtimeConfig: RuntimeConfig,
       ): CollectionReconciliationService => {
         let runtime: CollectionReconciliationRuntime | undefined;
         const runtimeFactory: CollectionReconciliationRuntimeFactory = () => {
           if (runtime) return runtime;
-          const config = CollectionAppConfig.fromEnv();
+          // Lazy: credentials validated on first trigger, not module bootstrap.
+          const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
           const tokens = new CollectionAppTokenProvider(config);
           runtime = {
             appId: config.appId,

@@ -1,8 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   SUBMISSION_FILE_STORAGE_ERROR_CODES,
   SubmissionFileStorageError,
 } from './submission-file-storage.port';
+import {
+  loadRuntimeConfig,
+  type RuntimeConfig,
+} from '../runtime-config/runtime-config';
+import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
 
 export interface SubmissionFileStorageSettings {
   endpoint: string;
@@ -15,16 +20,27 @@ export interface SubmissionFileStorageSettings {
 
 @Injectable()
 export class SubmissionFileStorageConfig {
+  constructor(
+    @Inject(RUNTIME_CONFIG)
+    private readonly runtimeConfig: RuntimeConfig = loadRuntimeConfig(
+      process.env,
+    ),
+  ) {}
+
   requireSettings(): SubmissionFileStorageSettings {
-    const endpoint = environmentValue('SUBMISSION_FILE_S3_ENDPOINT');
-    const region = environmentValue('SUBMISSION_FILE_S3_REGION');
-    const bucket = environmentValue('SUBMISSION_FILE_S3_BUCKET');
-    const accessKeyId = environmentValue('SUBMISSION_FILE_S3_ACCESS_KEY_ID');
-    const secretAccessKey = environmentValue(
-      'SUBMISSION_FILE_S3_SECRET_ACCESS_KEY',
+    const endpoint = configValue(
+      this.runtimeConfig.SUBMISSION_FILE_S3_ENDPOINT,
     );
-    const forcePathStyle = booleanEnvironmentValue(
-      'SUBMISSION_FILE_S3_FORCE_PATH_STYLE',
+    const region = configValue(this.runtimeConfig.SUBMISSION_FILE_S3_REGION);
+    const bucket = configValue(this.runtimeConfig.SUBMISSION_FILE_S3_BUCKET);
+    const accessKeyId = configValue(
+      this.runtimeConfig.SUBMISSION_FILE_S3_ACCESS_KEY_ID,
+    );
+    const secretAccessKey = configValue(
+      this.runtimeConfig.SUBMISSION_FILE_S3_SECRET_ACCESS_KEY,
+    );
+    const forcePathStyle = booleanConfigValue(
+      this.runtimeConfig.SUBMISSION_FILE_S3_FORCE_PATH_STYLE,
     );
 
     if (
@@ -52,37 +68,74 @@ export class SubmissionFileStorageConfig {
   }
 }
 
-function environmentValue(name: string): string | null {
-  const value = process.env[name]?.trim();
+function configValue(raw: string | undefined): string | null {
+  const value = raw?.trim();
   return value && value.length > 0 ? value : null;
 }
 
-function booleanEnvironmentValue(name: string): boolean | null {
-  const value = environmentValue(name)?.toLowerCase();
+function booleanConfigValue(raw: string | undefined): boolean | null {
+  const value = configValue(raw)?.toLowerCase();
   if (value === 'true') return true;
   if (value === 'false') return false;
   return null;
 }
 
-// http는 트래픽이 호스트/사설망을 벗어나지 않는 대상에만 허용한다.
+// Endpoint 허용은 노출 면으로 판정한다.
+// - credentials/query/fragment는 protocol 수락 전에 항상 거부
+//   (WHATWG getters는 present-empty `?`/`#`/`@` 형태를 빈 문자열로 정규화하므로 raw 입력도 본다)
+// - https는 외부 호스트 허용
+// - http는 loopback·사설/링크로컬 주소와 Compose 내부 서비스명 `minio`만 허용
 function isAllowedEndpoint(endpoint: string): boolean {
+  if (!/^https?:\/\//i.test(endpoint)) {
+    return false;
+  }
   try {
     const url = new URL(endpoint);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+    if (
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      hasRawCredentialsQueryOrFragment(endpoint)
+    ) {
+      return false;
+    }
     if (url.protocol === 'https:') return true;
-    return isPrivateHost(url.hostname);
+    if (url.protocol === 'http:') return isAllowedHttpHost(url.hostname);
+    return false;
   } catch {
     return false;
   }
 }
 
-function isPrivateHost(hostname: string): boolean {
-  if (hostname === 'localhost') return true;
+/**
+ * Detect credentials/query/fragment delimiters on the raw input.
+ * Percent-encoded path octets (`%3F`, `%23`) are not delimiters.
+ */
+function hasRawCredentialsQueryOrFragment(raw: string): boolean {
+  const schemeSep = raw.indexOf('://');
+  if (schemeSep < 0) {
+    return false;
+  }
+  const hierarchical = raw.slice(schemeSep + 3);
+  const authorityEnd = hierarchical.search(/[/?#]/);
+  const authority =
+    authorityEnd === -1 ? hierarchical : hierarchical.slice(0, authorityEnd);
+  if (authority.includes('@')) {
+    return true;
+  }
+  const afterAuthority =
+    authorityEnd === -1 ? '' : hierarchical.slice(authorityEnd);
+  return afterAuthority.includes('?') || afterAuthority.includes('#');
+}
+
+function isAllowedHttpHost(hostname: string): boolean {
+  if (hostname === 'localhost' || hostname === 'minio') return true;
   if (hostname.startsWith('[') && hostname.endsWith(']')) {
     return isPrivateIPv6(hostname.slice(1, -1));
   }
   if (isIPv4(hostname)) return isPrivateIPv4(hostname);
-  return !hostname.includes('.');
+  return false;
 }
 
 function isIPv4(hostname: string): boolean {

@@ -12,6 +12,7 @@ import {
   evaluateEnvContract,
   extractKeysFromSource,
   extractRequiredComposeKeys,
+  isComposeRequiredDocExempt,
   isDeclarationExempt,
   isIntegrationRunnerPath,
   isServiceMappingExempt,
@@ -626,7 +627,7 @@ test('F6: 다른 서비스 environment 의 키만으로는 backend 매핑 불충
       GITHUB_OPERATIONS_APP_ID: \${GITHUB_OPERATIONS_APP_ID:?required}
       GITHUB_OPERATIONS_APP_PRIVATE_KEY: \${GITHUB_OPERATIONS_APP_PRIVATE_KEY:?required}
 `;
-    const env = `${BASE_ENV_ALL}IMAGE_TAG=local\n`;
+    const env = BASE_ENV_ALL;
     const result = evaluateFixture(root, compose, env);
     assert.equal(result.ok, false);
     assert.ok(
@@ -721,11 +722,7 @@ test('경로별 면제: NODE_ENV·notifications/cli DIGEST_FORCE_TO', () => {
       DATABASE_URL: \${DATABASE_URL:?required}
       AUTH_INITIAL_ROLES: \${AUTH_INITIAL_ROLES:-}
 `;
-    const result = evaluateFixture(
-      root,
-      compose,
-      'DATABASE_URL=value\nIMAGE_TAG=local\n',
-    );
+    const result = evaluateFixture(root, compose, 'DATABASE_URL=value\n');
     assert.equal(result.ok, true, result.ok ? '' : result.errors.join('\n'));
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
@@ -778,7 +775,19 @@ test('integration 면제 경계 밖 production 파일명은 실패한다', () =>
   }
 });
 
-test('IMAGE_TAG 가 compose 필수면 .env.example 문서화 필요', () => {
+test('IMAGE_TAG 는 compose 필수 문서 면제만 받고 .env.example 없이 ${IMAGE_TAG:?} 를 허용한다', () => {
+  assert.equal(isComposeRequiredDocExempt('IMAGE_TAG'), true);
+  assert.equal(isComposeRequiredDocExempt('DATABASE_URL'), false);
+  // 코드 키 선언 면제가 아니다 — compose 필수 문서 면제만.
+  assert.equal(
+    isDeclarationExempt('IMAGE_TAG', 'apps/backend/src/main.ts'),
+    false,
+  );
+  assert.equal(
+    isServiceMappingExempt('IMAGE_TAG', 'backend', 'apps/backend/src/main.ts'),
+    false,
+  );
+
   const root = makeTempDir();
   try {
     const compose = `services:
@@ -788,17 +797,56 @@ test('IMAGE_TAG 가 compose 필수면 .env.example 문서화 필요', () => {
       DATABASE_URL: \${DATABASE_URL:?required}
       AUTH_INITIAL_ROLES: \${AUTH_INITIAL_ROLES:-}
 `;
-    const missing = evaluateFixture(root, compose, 'DATABASE_URL=value\n');
-    assert.equal(missing.ok, false);
-    assert.ok(
-      missing.errors.some((e) => e.includes('required key missing: IMAGE_TAG')),
-    );
-    const ok = evaluateFixture(
+    // production ${IMAGE_TAG:?} 는 유지되지만 .env.example 선언 없이도 계약 통과.
+    // isComposeRequiredDocExempt 면제를 제거하면 required key missing: IMAGE_TAG 로 실패한다.
+    const ok = evaluateFixture(root, compose, 'DATABASE_URL=value\n');
+    assert.equal(ok.ok, true, ok.ok ? '' : ok.errors.join('\n'));
+
+    writeTree(root, {
+      'apps/backend/src/runtime.ts':
+        'export const imageTag = process.env.IMAGE_TAG;\n',
+    });
+    const undeclaredCodeRead = evaluateFixture(
       root,
       compose,
-      'DATABASE_URL=value\nIMAGE_TAG=local\n',
+      'DATABASE_URL=value\n',
     );
-    assert.equal(ok.ok, true, ok.ok ? '' : ok.errors.join('\n'));
+    assert.equal(undeclaredCodeRead.ok, false);
+    assert.ok(
+      undeclaredCodeRead.errors.some((e) =>
+        e.includes('code reads undeclared key: IMAGE_TAG (backend)'),
+      ),
+      undeclaredCodeRead.errors.join('\n'),
+    );
+
+    const declaredButUnmapped = evaluateFixture(
+      root,
+      compose,
+      'DATABASE_URL=value\nIMAGE_TAG=release-tag\n',
+    );
+    assert.equal(declaredButUnmapped.ok, false);
+    assert.ok(
+      declaredButUnmapped.errors.some((e) =>
+        e.includes(
+          'code key not mapped in backend service environment: IMAGE_TAG',
+        ),
+      ),
+      declaredButUnmapped.errors.join('\n'),
+    );
+
+    // 다른 compose 필수 키는 여전히 .env.example 문서화가 필요하다.
+    const missingDb = evaluateFixture(root, compose, '\n');
+    assert.equal(missingDb.ok, false);
+    assert.ok(
+      missingDb.errors.some((e) =>
+        e.includes('required key missing: DATABASE_URL'),
+      ),
+    );
+    assert.ok(
+      !missingDb.errors.some((e) =>
+        e.includes('required key missing: IMAGE_TAG'),
+      ),
+    );
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

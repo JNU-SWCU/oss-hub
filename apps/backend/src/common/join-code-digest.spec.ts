@@ -16,22 +16,33 @@ describe('resolveJoinCodeSecret', () => {
     expect(secret).toBe('synthetic-secret');
   });
 
-  it('개발·테스트에서는 결정적인 기본키를 반환한다', () => {
-    // Given
-    const env = {};
+  it('비공백 secret의 원문(앞뒤 공백 포함)을 그대로 반환한다', () => {
+    // Given — trim 하지 않아 기존 HMAC digest 계약이 유지된다
+    const env = { TEAM_JOIN_CODE_SECRET: '  padded-secret  ' };
 
     // When
-    const first = resolveJoinCodeSecret(env);
-    const second = resolveJoinCodeSecret(env);
+    const secret = resolveJoinCodeSecret(env);
 
     // Then
-    expect(first).toBe(second);
+    expect(secret).toBe('  padded-secret  ');
   });
 
-  it('운영 환경에서는 secret 누락을 거부한다', () => {
-    // Given
-    const env = { NODE_ENV: 'production' };
-
+  it.each([
+    ['absent', {}],
+    ['empty', { TEAM_JOIN_CODE_SECRET: '' }],
+    ['whitespace', { TEAM_JOIN_CODE_SECRET: '   ' }],
+    ['tabs-newlines', { TEAM_JOIN_CODE_SECRET: '\t\n  \t' }],
+    ['development-absent', { NODE_ENV: 'development' }],
+    ['production-absent', { NODE_ENV: 'production' }],
+    [
+      'development-whitespace',
+      { NODE_ENV: 'development', TEAM_JOIN_CODE_SECRET: '  ' },
+    ],
+    [
+      'production-whitespace',
+      { NODE_ENV: 'production', TEAM_JOIN_CODE_SECRET: '\t' },
+    ],
+  ])('TEAM_JOIN_CODE_SECRET 공백/누락을 거부한다 (%s)', (_label, env) => {
     // When
     const resolve = () => resolveJoinCodeSecret(env);
 
