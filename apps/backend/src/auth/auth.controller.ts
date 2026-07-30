@@ -13,6 +13,7 @@ import { AccountStatus } from '@prisma/client';
 import { Request, Response } from 'express';
 import { AuthConfig } from './auth.config';
 import { AuthService } from './auth.service';
+import { loginLandingUrl } from './domain/login-landing';
 import {
   flowCookieName,
   parseCookies,
@@ -105,12 +106,7 @@ export class AuthController {
           secure,
         }),
       ]);
-      res.redirect(
-        302,
-        login.isNew
-          ? `${this.config.frontendUrl}/consent`
-          : this.config.frontendUrl,
-      );
+      res.redirect(302, loginLandingUrl(this.config.frontendUrl, login));
     } catch (error) {
       // code·state는 로그에 남기지 않는다 — 오류 종류와 경로만.
       this.logger.warn(

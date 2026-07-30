@@ -70,10 +70,16 @@ CODEOWNERS 경로는 검토 후보를 찾는 신호이며 그 자체가 high ris
 나열된 경계를 생성·확장·축소·우회하거나 검사를 약화하는 변경은 경로와 무관하게 high risk이며, 분류가 모호하면 high risk로 처리한다.
 검사 수단을 위 우선순위의 상위로 옮기면서 같은 불변식을 유지하는 등가 이전은 약화로 보지 않는다 — 단 fail-closed 예외 경로는 그대로 high risk다.
 동작 효과가 없는 기계적 문서·테스트·리팩터링은 경로가 일치해도 일반 변경일 수 있지만, 정책 문서의 실제 계약을 바꾸면 high risk다.
-다음 경로를 변경하는 PR은 배포 계약 경로로 정의한다: `Jenkinsfile`, `compose.yml`, `.env.example`, `deploy/**`, `apps/*/Dockerfile`, `.dockerignore`, `.github/workflows/deploy.yml`, `scripts/check-jenkinsfile.sh`, `scripts/check-jenkinsfile.test.sh`.
+다음 경로를 변경하는 PR은 배포 계약 경로로 정의한다: `Jenkinsfile`, `compose.yml`, `.env.example`, `deploy/**`, `apps/*/Dockerfile`, `.dockerignore`, `.github/workflows/deploy.yml`, `scripts/check-jenkinsfile.sh`, `scripts/check-jenkinsfile.test.sh`, `scripts/jenkins/**`.
+`scripts/jenkins/**`는 Jenkinsfile의 절차 로직을 외부 script로 추출할 때 그 보호 수준이 함께 옮겨가도록 미리 포함한다 — 추출이 승인 요건을 낮추는 우회 경로가 되지 않게 한다.
 수동 파일럿에서 CODEOWNERS 후보 또는 분류가 모호한 변경은 기본적으로 `HIGH_RISK`다.
 이를 `GENERAL`로 낮추려면 @GoBeromsu 또는 @Lumiere001 중 한 명이 동일한 head·base에 `RISK_ACCEPT role=<PM|TECH_LEAD> head=<sha> base=<ref> base_sha=<sha> risk=GENERAL`을 남기면 충분하다.
 단 배포 계약 경로를 변경하는 PR은 `role=PM`이어야 한다.
+
+@GoBeromsu가 작성한 PR은 위 증거·accept 요건 전체에서 면제된다 — 어떤 사람의 review·`MERGE_READY`·accept도 요구하지 않으며 @Lumiere001의 검토도 조건이 아니다.
+이 PR의 병합 조건은 required check(`ci`·`public-safe`)뿐이다.
+면제는 작성자 identity에만 근거하므로 `authorLogin`이 정확히 `GoBeromsu`가 아니거나 확인되지 않으면 적용하지 않는다(fail-closed).
+head·base SHA 형식 검증과 base가 default branch인지의 검사는 면제 대상이 아니며 그대로 적용한다.
 
 high risk PR은 `MERGE_READY` 이후 @GoBeromsu 또는 @Lumiere001 중 한 명이 동일한 head·base에 manual accept를 남기면 병합할 수 있다.
 단 배포 계약 경로를 변경하는 PR은 @GoBeromsu의 `PM_ACCEPT`가 반드시 있어야 하며 Tech Lead accept로 대체할 수 없다.
@@ -96,7 +102,7 @@ required check가 적용되기 전에는 병합자가 이 actor·형식·head·b
 - draft와 merge conflict가 없다.
 - 관련 CI와 required check가 통과했다.
 - root와 적용되는 nested `AGENTS`를 준수했다.
-- 일반 PR은 전남의 현재 head `MERGE_READY`가 있고, high risk PR은 PM 또는 Tech Lead 중 한 명의 현재 head manual accept가 있다. 배포 계약 경로를 변경하는 PR은 @GoBeromsu의 `PM_ACCEPT`여야 한다.
+- @GoBeromsu 작성 PR은 required check만 통과하면 병합 가능하다(review·accept 면제). 그 외 PR은 일반이면 전남의 현재 head `MERGE_READY`가 있고, high risk면 PM 또는 Tech Lead 중 한 명의 현재 head manual accept가 있다. 배포 계약 경로를 변경하는 PR은 @GoBeromsu의 `PM_ACCEPT`여야 한다.
 - 해결되지 않은 blocker가 없다.
 - GitHub가 병합 가능한 상태로 표시한다.
 
@@ -116,6 +122,7 @@ Jenkins가 이 actor·tag·SHA를 배포 시작 전에 검증하고 누락·불�
 - 최신 변경에 대한 검증 근거를 GitHub에서 다시 확인할 수 있다.
 - head, base ref 또는 base SHA가 바뀌면 검증을 반복해야 한다.
 - high risk PR 작성자가 자기 accept를 남겨 사실상 1인 병합이 가능해진다 — 완화 수단은 전남의 exact-head `MERGE_READY` 증거, required CI, 배포 계약 경로의 PM 전속이다.
+- @GoBeromsu 작성 PR의 review 면제로 그 PR에는 사람 검토가 전혀 없다 — 배포 계약 경로의 PM 전속도 자기 작성 PR에는 실효가 없다. 남는 통제는 required check(`ci`·`public-safe`)와 Jenkins release 배포의 별도 `RELEASE_ACCEPT` 바인딩뿐이다. 이는 PM이 자기 산출물 검토 부담을 없애는 대가로 감수한 위험이다(2026-07-30 결정).
 - 새 계약을 지키는 기본 수단이 전용 검사기에서 구조·앱 테스트로 이동한다. 검사기 수는 단조 증가하지 않고 상위 수단으로 흡수되며 줄어들 수 있다.
 - 검사기 신설에 근거 기재 비용이 추가된다. 반대로 상위 수단으로 옮기는 정리 PR은 별도 완화 accept 없이 진행할 수 있다.
 - fail-closed 보안·배포 게이트는 예외로 남아 우선순위와 무관하게 유지된다 — 이 부분의 강제 수준은 변하지 않는다.
@@ -138,4 +145,5 @@ Jenkins가 이 actor·tag·SHA를 배포 시작 전에 검증하고 누락·불�
 - 2026-07-28: Issue #274에 따라 high risk 병합 accept를 PM 또는 Tech Lead 중 한 명으로 완화하고 배포 계약 경로는 PM 전속으로 유지했다. `GENERAL` 하향도 같은 규칙을 따른다. @GoBeromsu와 @Lumiere001의 저장소 전체 free-role 작성권과 사후 확인 폐지를 명문화했다.
 - 2026-07-28: Issue #199에 따라 production release·재배포 승인을 @GoBeromsu 단독 `RELEASE_ACCEPT role=PM`으로 전환하고 `RELEASE_ACCEPT role=TECH_LEAD`와 `RELEASE_OVERRIDE role=PM`을 폐지했다.
 - 2026-07-28: PR #256에 한정되었던 일회성 긴급 PM 코드 승인 경로(PM_EMERGENCY_ACCEPT·OWNER_CONFIRM)를 삭제했다 — 단일 accept 도입으로 `TECH_LEAD_ACCEPT` 대체 기능의 존재 이유가 사라졌다.
+- 2026-07-30: @GoBeromsu가 작성한 PR을 review·`MERGE_READY`·accept 요건 전체에서 면제했다 — @Lumiere001의 검토도 조건이 아니다. 병합 조건은 required check(`ci`·`public-safe`)뿐이며, 면제는 작성자 identity에만 근거하고 확인되지 않으면 적용하지 않는다(fail-closed). head·base SHA 형식과 default branch 검사는 면제하지 않는다.
 - 2026-07-30: `CLI:` 증거의 정의를 "repository-declared CLI 검증"에서 "재현 가능한 계약 검증"으로 바꾸고 검증 수단 우선순위(구조 → 앱 테스트 → 전용 검사기 → 문서 규칙)를 명문화했다. 전용 검사기만이 병합 증거를 충족하던 제약이 검사기 단조 증가를 유발했으므로 상위 수단으로의 등가 이전을 검사 약화에서 제외했다. fail-closed 보안·배포 승인 게이트(public-safe·gitleaks, Jenkins release 승인 바인딩, `merge-policy`)는 예외로 유지했고 marker 이름·형식·actor·accept 규칙은 변경하지 않았다.
