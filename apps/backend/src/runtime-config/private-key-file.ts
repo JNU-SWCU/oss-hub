@@ -37,6 +37,33 @@ export class PrivateKeyFileError extends Error {
   }
 }
 
+/**
+ * 파일 경로가 설정돼 있으면 읽기·파싱 실패 시에도 legacy 문자열로 되돌아가지 않는다 —
+ * 조용한 fallback은 잘못된 키로 운영이 도는 것을 숨긴다. 둘 다 없으면 null을 돌려
+ * 호출자의 기존 설정 오류에 맡긴다.
+ */
+export function resolvePrivateKeyInput(
+  fileEnvKey: string,
+  rawFilePath: string | undefined,
+  rawLegacyValue: string | undefined,
+  onLegacyIgnored?: () => void,
+): string | null {
+  const filePath = rawFilePath?.trim();
+  if (filePath) {
+    if (rawLegacyValue?.trim()) {
+      onLegacyIgnored?.();
+    }
+    return readPrivateKeyFile(fileEnvKey, filePath);
+  }
+
+  const legacy = rawLegacyValue?.trim();
+  if (legacy) {
+    return legacy.replace(/\\n/g, '\n');
+  }
+
+  return null;
+}
+
 export function readPrivateKeyFile(envKey: string, filePath: string): string {
   const stats = statFile(envKey, filePath);
 

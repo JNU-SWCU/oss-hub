@@ -21,7 +21,8 @@ export class GithubOperationsError extends Error {
     readonly code: GithubOperationsErrorCode,
     readonly retryable: boolean,
     readonly retryAt: Date | null = null,
+    options?: ErrorOptions,
   ) {
-    super(code);
+    super(code, options);
   }
 }
