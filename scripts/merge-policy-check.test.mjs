@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  CHECK_RUN_NAME,
   collectChangedPaths,
   evaluateMergePolicy,
   findUnsupportedCodeownersPatterns,
@@ -10,6 +11,7 @@ import {
   matchesDeployContractPattern,
   matchedDeployContractPatterns,
   parseCodeownersPatterns,
+  planCheckRunPublish,
   touchesDeployContract,
 } from './merge-policy-check-lib.mjs';
 
@@ -36,6 +38,7 @@ const CODEOWNERS_TEXT = `# 정책 경로
 const GENERAL_FILES = ['apps/frontend/src/features/foo/bar.tsx'];
 const CANDIDATE_FILES = ['scripts/new-check.sh'];
 const DEPLOY_CONTRACT_FILES = ['Jenkinsfile'];
+const JENKINS_SCRIPT_FILES = ['scripts/jenkins/validate-rollback-images.sh'];
 
 function pull(overrides = {}) {
   return {
@@ -253,6 +256,104 @@ test('잘못된 actor의 RISK_ACCEPT는 무효다 — role=PM은 PM만 남길 �
       comment(10, 'Lumiere001', mergeReadyBody()),
       comment(11, 'Lumiere001', riskAccept('PM')),
     ],
+  });
+  assert.equal(result.conclusion, 'failure');
+});
+
+// PM 작성 PR은 어떤 사람의 review·accept도 요구하지 않는다 (PM 결정, 2026-07-30).
+// required check(`ci`·`public-safe`)는 그대로 강제되므로 기계적 검증은 유지된다.
+
+const pmPull = (overrides = {}) =>
+  pull({ authorLogin: 'GoBeromsu', ...overrides });
+
+test('PM 작성 PR: 댓글이 전혀 없어도 통과한다', () => {
+  const result = evaluateMergePolicy({
+    pull: pmPull(),
+    comments: [],
+    changedFiles: GENERAL_FILES,
+    codeownersText: CODEOWNERS_TEXT,
+  });
+  assert.equal(result.conclusion, 'success');
+  assert.equal(result.risk, 'PM_AUTHORED');
+  assert.deepEqual(result.reasons, []);
+});
+
+test('PM 작성 PR: 배포 계약 경로도 accept 없이 통과한다', () => {
+  for (const files of [DEPLOY_CONTRACT_FILES, CANDIDATE_FILES]) {
+    const result = evaluateMergePolicy({
+      pull: pmPull(),
+      comments: [],
+      changedFiles: files,
+      codeownersText: CODEOWNERS_TEXT,
+    });
+    assert.equal(result.conclusion, 'success', JSON.stringify(files));
+  }
+});
+
+test('PM 작성 PR: 면제 사유가 note로 남는다', () => {
+  const result = evaluateMergePolicy({
+    pull: pmPull(),
+    comments: [],
+    changedFiles: DEPLOY_CONTRACT_FILES,
+    codeownersText: CODEOWNERS_TEXT,
+  });
+  assert.ok(
+    result.notes.some((n) => n.includes('GoBeromsu') && n.includes('면제')),
+    JSON.stringify(result.notes),
+  );
+});
+
+test('Tech Lead 작성 PR은 면제되지 않는다', () => {
+  const result = evaluateMergePolicy({
+    pull: pull({ authorLogin: 'Lumiere001' }),
+    comments: [],
+    changedFiles: GENERAL_FILES,
+    codeownersText: CODEOWNERS_TEXT,
+  });
+  assert.equal(result.conclusion, 'failure');
+});
+
+test('제3자 작성 PR은 면제되지 않는다', () => {
+  for (const who of ['jinsol1190-rgb', 'GOBEROMSU', 'GoBeromsu2', '']) {
+    const result = evaluateMergePolicy({
+      pull: pull({ authorLogin: who }),
+      comments: [],
+      changedFiles: GENERAL_FILES,
+      codeownersText: CODEOWNERS_TEXT,
+    });
+    assert.equal(result.conclusion, 'failure', `면제됨: ${who}`);
+  }
+});
+
+test('authorLogin 부재는 면제되지 않는다 (fail-closed)', () => {
+  for (const who of [undefined, null]) {
+    const result = evaluateMergePolicy({
+      pull: pull({ authorLogin: who }),
+      comments: [],
+      changedFiles: GENERAL_FILES,
+      codeownersText: CODEOWNERS_TEXT,
+    });
+    assert.equal(result.conclusion, 'failure', `면제됨: ${who}`);
+  }
+});
+
+test('PM 작성 PR도 head·base SHA 형식 검증은 통과해야 한다', () => {
+  const result = evaluateMergePolicy({
+    pull: pmPull({ headSha: 'short' }),
+    comments: [],
+    changedFiles: GENERAL_FILES,
+    codeownersText: CODEOWNERS_TEXT,
+  });
+  assert.equal(result.conclusion, 'failure');
+  assert.equal(result.risk, 'UNKNOWN');
+});
+
+test('PM 작성 PR도 base가 main이 아니면 fail-closed다', () => {
+  const result = evaluateMergePolicy({
+    pull: pmPull({ baseRef: 'develop' }),
+    comments: [],
+    changedFiles: GENERAL_FILES,
+    codeownersText: CODEOWNERS_TEXT,
   });
   assert.equal(result.conclusion, 'failure');
 });
@@ -524,6 +625,74 @@ test('배포 계약 경로 패턴 매칭 — 정확 일치·apps/*/Dockerfile·d
   assert.equal(touchesDeployContract(['apps/frontend/src/x.ts']), false);
 });
 
+// Jenkinsfile 절차 로직을 scripts/jenkins/ 로 추출해도 PM 전속 보호가 유지되어야 한다.
+// 이 경로가 배포 계약에서 빠지면 추출 자체가 승인 요건을 낮추는 우회로가 된다.
+
+test('배포 계약 경로: scripts/jenkins/** 는 재귀로 매칭된다', () => {
+  assert.equal(touchesDeployContract(JENKINS_SCRIPT_FILES), true);
+  assert.equal(
+    touchesDeployContract(['scripts/jenkins/nested/helper.sh']),
+    true,
+  );
+  assert.deepEqual(matchedDeployContractPatterns(JENKINS_SCRIPT_FILES), [
+    'scripts/jenkins/**',
+  ]);
+});
+
+test('배포 계약 경로: scripts/jenkins 인접 경로는 매칭되지 않는다', () => {
+  assert.equal(touchesDeployContract(['scripts/jenkins-helper.sh']), false);
+  assert.equal(touchesDeployContract(['scripts/check-public-safe.sh']), false);
+});
+
+test('HIGH_RISK(scripts/jenkins/**): TECH_LEAD 단독 accept는 실패한다', () => {
+  const result = evaluate({
+    changedFiles: JENKINS_SCRIPT_FILES,
+    comments: [
+      comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
+      comment(12, 'Lumiere001', techLeadAccept()),
+    ],
+  });
+  assert.equal(result.conclusion, 'failure');
+  assert.ok(
+    result.reasons.some(
+      (reason) =>
+        reason.includes('scripts/jenkins/**') && reason.includes('PM_ACCEPT'),
+    ),
+    `사유에 매칭 패턴이 없다: ${JSON.stringify(result.reasons)}`,
+  );
+});
+
+test('HIGH_RISK(scripts/jenkins/**): PM accept로 통과한다', () => {
+  const result = evaluate({
+    changedFiles: JENKINS_SCRIPT_FILES,
+    comments: [
+      comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
+      comment(11, 'GoBeromsu', pmAccept()),
+    ],
+  });
+  assert.equal(result.conclusion, 'success');
+});
+
+test('배포 계약 경로: scripts/jenkins/** 의 GENERAL 하향은 role=PM만 허용한다', () => {
+  const techLead = evaluate({
+    changedFiles: JENKINS_SCRIPT_FILES,
+    comments: [
+      comment(10, 'Lumiere001', mergeReadyBody({ risk: 'GENERAL' })),
+      comment(11, 'Lumiere001', riskAccept('TECH_LEAD')),
+    ],
+  });
+  assert.equal(techLead.conclusion, 'failure');
+
+  const pm = evaluate({
+    changedFiles: JENKINS_SCRIPT_FILES,
+    comments: [
+      comment(10, 'Lumiere001', mergeReadyBody({ risk: 'GENERAL' })),
+      comment(11, 'GoBeromsu', riskAccept('PM')),
+    ],
+  });
+  assert.equal(pm.conclusion, 'success');
+});
+
 test('제3자의 MERGE_READY 접두 댓글은 유효한 MERGE_READY를 오염시키지 않는다 (게이트 DoS 방지)', () => {
   const result = evaluate({
     comments: [
@@ -714,4 +883,94 @@ test('normal HIGH_RISK Tech Lead accept remains sufficient', () => {
     ],
   });
   assert.equal(result.conclusion, 'success');
+});
+
+// 발행 계획 — 같은 head SHA 재평가가 check run을 누적하면 required check 판정이
+// 비결정적이 된다. 아래 fixture가 그 회귀를 고정한다.
+
+function checkRun(overrides = {}) {
+  return {
+    id: 1,
+    name: CHECK_RUN_NAME,
+    head_sha: HEAD,
+    status: 'completed',
+    conclusion: 'failure',
+    ...overrides,
+  };
+}
+
+test('발행 계획: 기존 run이 없으면 생성한다', () => {
+  assert.deepEqual(planCheckRunPublish([], HEAD), {
+    create: true,
+    updateIds: [],
+  });
+});
+
+test('발행 계획: 같은 head의 기존 run은 생성하지 않고 갱신한다', () => {
+  assert.deepEqual(planCheckRunPublish([checkRun({ id: 77 })], HEAD), {
+    create: false,
+    updateIds: [77],
+  });
+});
+
+test('발행 계획: 누적된 동명 run을 전부 갱신 대상으로 삼는다', () => {
+  const runs = [
+    checkRun({ id: 30 }),
+    checkRun({ id: 10 }),
+    checkRun({ id: 20, conclusion: 'success' }),
+  ];
+  assert.deepEqual(planCheckRunPublish(runs, HEAD), {
+    create: false,
+    updateIds: [10, 20, 30],
+  });
+});
+
+test('발행 계획: 다른 이름의 check run은 갱신하지 않는다', () => {
+  const runs = [
+    checkRun({ id: 5, name: 'merge-policy-evaluate' }),
+    checkRun({ id: 6, name: 'ci' }),
+  ];
+  assert.deepEqual(planCheckRunPublish(runs, HEAD), {
+    create: true,
+    updateIds: [],
+  });
+});
+
+test('발행 계획: 다른 head SHA의 run은 갱신하지 않는다', () => {
+  const runs = [checkRun({ id: 9, head_sha: OTHER_SHA })];
+  assert.deepEqual(planCheckRunPublish(runs, HEAD), {
+    create: true,
+    updateIds: [],
+  });
+});
+
+test('발행 계획: 같은 head와 다른 head가 섞이면 같은 head만 갱신한다', () => {
+  const runs = [
+    checkRun({ id: 41, head_sha: OTHER_SHA }),
+    checkRun({ id: 42 }),
+  ];
+  assert.deepEqual(planCheckRunPublish(runs, HEAD), {
+    create: false,
+    updateIds: [42],
+  });
+});
+
+test('발행 계획: 목록이 배열이 아니면 실패한다', () => {
+  assert.throws(() => planCheckRunPublish(null, HEAD), /배열이 아닙니다/);
+  assert.throws(
+    () => planCheckRunPublish({ check_runs: [] }, HEAD),
+    /배열이 아닙니다/,
+  );
+});
+
+test('발행 계획: head SHA가 40자 hex가 아니면 실패한다', () => {
+  assert.throws(() => planCheckRunPublish([], 'abc'), /head SHA/);
+  assert.throws(() => planCheckRunPublish([], undefined), /head SHA/);
+});
+
+test('발행 계획: run id가 정수가 아니면 실패한다', () => {
+  assert.throws(
+    () => planCheckRunPublish([checkRun({ id: 'x' })], HEAD),
+    /정수가 아닙니다/,
+  );
 });
