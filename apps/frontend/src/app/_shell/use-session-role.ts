@@ -17,11 +17,7 @@ import type { AppRole } from './role';
  * 사용자가 원인을 알 수도, 재시도할 수도 없었다.
  */
 export type SessionStatus =
-  | 'loading'
-  | 'error'
-  | 'anonymous'
-  | 'unassigned'
-  | 'assigned';
+  'loading' | 'error' | 'anonymous' | 'unassigned' | 'assigned';
 
 export interface SessionRoleState {
   status: SessionStatus;
