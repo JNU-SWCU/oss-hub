@@ -128,6 +128,10 @@ jobs:
         if: ${{ steps.changes.outputs.shell_scripts == 'true' }}
         run: bash scripts/check-dto-pre-commit.test.sh
 
+      - name: 호스트 lane DATABASE_URL 가드 회귀 테스트
+        if: ${{ steps.changes.outputs.shell_scripts == 'true' }}
+        run: bash scripts/check-host-db-url.test.sh
+
       - name: Node script 문법 검사
         if: ${{ steps.changes.outputs.node_scripts == 'true' }}
         run: |
