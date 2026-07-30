@@ -31,6 +31,7 @@ export const DEPLOY_CONTRACT_PATTERNS = [
   '.github/workflows/deploy.yml',
   'scripts/check-jenkinsfile.sh',
   'scripts/check-jenkinsfile.test.sh',
+  'scripts/jenkins/**',
 ];
 
 function globToRegExp(pattern) {

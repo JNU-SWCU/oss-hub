@@ -61,7 +61,8 @@ high risk 여부는 파일 경로가 아니라 실제 권한·데이터·운영�
 CODEOWNERS 경로는 검토 후보를 찾는 신호이며 그 자체가 high risk 확정 판정은 아니다.
 나열된 경계를 생성·확장·축소·우회하거나 검사를 약화하는 변경은 경로와 무관하게 high risk이며, 분류가 모호하면 high risk로 처리한다.
 동작 효과가 없는 기계적 문서·테스트·리팩터링은 경로가 일치해도 일반 변경일 수 있지만, 정책 문서의 실제 계약을 바꾸면 high risk다.
-다음 경로를 변경하는 PR은 배포 계약 경로로 정의한다: `Jenkinsfile`, `compose.yml`, `.env.example`, `deploy/**`, `apps/*/Dockerfile`, `.dockerignore`, `.github/workflows/deploy.yml`, `scripts/check-jenkinsfile.sh`, `scripts/check-jenkinsfile.test.sh`.
+다음 경로를 변경하는 PR은 배포 계약 경로로 정의한다: `Jenkinsfile`, `compose.yml`, `.env.example`, `deploy/**`, `apps/*/Dockerfile`, `.dockerignore`, `.github/workflows/deploy.yml`, `scripts/check-jenkinsfile.sh`, `scripts/check-jenkinsfile.test.sh`, `scripts/jenkins/**`.
+`scripts/jenkins/**`는 Jenkinsfile의 절차 로직을 외부 script로 추출할 때 그 보호 수준이 함께 옮겨가도록 미리 포함한다 — 추출이 승인 요건을 낮추는 우회 경로가 되지 않게 한다.
 수동 파일럿에서 CODEOWNERS 후보 또는 분류가 모호한 변경은 기본적으로 `HIGH_RISK`다.
 이를 `GENERAL`로 낮추려면 @GoBeromsu 또는 @Lumiere001 중 한 명이 동일한 head·base에 `RISK_ACCEPT role=<PM|TECH_LEAD> head=<sha> base=<ref> base_sha=<sha> risk=GENERAL`을 남기면 충분하다.
 단 배포 계약 경로를 변경하는 PR은 `role=PM`이어야 한다.

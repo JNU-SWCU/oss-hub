@@ -36,6 +36,7 @@ const CODEOWNERS_TEXT = `# 정책 경로
 const GENERAL_FILES = ['apps/frontend/src/features/foo/bar.tsx'];
 const CANDIDATE_FILES = ['scripts/new-check.sh'];
 const DEPLOY_CONTRACT_FILES = ['Jenkinsfile'];
+const JENKINS_SCRIPT_FILES = ['scripts/jenkins/validate-rollback-images.sh'];
 
 function pull(overrides = {}) {
   return {
@@ -620,6 +621,74 @@ test('배포 계약 경로 패턴 매칭 — 정확 일치·apps/*/Dockerfile·d
   );
   assert.equal(touchesDeployContract(['deploy/nginx.conf']), true);
   assert.equal(touchesDeployContract(['apps/frontend/src/x.ts']), false);
+});
+
+// Jenkinsfile 절차 로직을 scripts/jenkins/ 로 추출해도 PM 전속 보호가 유지되어야 한다.
+// 이 경로가 배포 계약에서 빠지면 추출 자체가 승인 요건을 낮추는 우회로가 된다.
+
+test('배포 계약 경로: scripts/jenkins/** 는 재귀로 매칭된다', () => {
+  assert.equal(touchesDeployContract(JENKINS_SCRIPT_FILES), true);
+  assert.equal(
+    touchesDeployContract(['scripts/jenkins/nested/helper.sh']),
+    true,
+  );
+  assert.deepEqual(matchedDeployContractPatterns(JENKINS_SCRIPT_FILES), [
+    'scripts/jenkins/**',
+  ]);
+});
+
+test('배포 계약 경로: scripts/jenkins 인접 경로는 매칭되지 않는다', () => {
+  assert.equal(touchesDeployContract(['scripts/jenkins-helper.sh']), false);
+  assert.equal(touchesDeployContract(['scripts/check-public-safe.sh']), false);
+});
+
+test('HIGH_RISK(scripts/jenkins/**): TECH_LEAD 단독 accept는 실패한다', () => {
+  const result = evaluate({
+    changedFiles: JENKINS_SCRIPT_FILES,
+    comments: [
+      comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
+      comment(12, 'Lumiere001', techLeadAccept()),
+    ],
+  });
+  assert.equal(result.conclusion, 'failure');
+  assert.ok(
+    result.reasons.some(
+      (reason) =>
+        reason.includes('scripts/jenkins/**') && reason.includes('PM_ACCEPT'),
+    ),
+    `사유에 매칭 패턴이 없다: ${JSON.stringify(result.reasons)}`,
+  );
+});
+
+test('HIGH_RISK(scripts/jenkins/**): PM accept로 통과한다', () => {
+  const result = evaluate({
+    changedFiles: JENKINS_SCRIPT_FILES,
+    comments: [
+      comment(10, 'Lumiere001', mergeReadyBody({ risk: 'HIGH_RISK' })),
+      comment(11, 'GoBeromsu', pmAccept()),
+    ],
+  });
+  assert.equal(result.conclusion, 'success');
+});
+
+test('배포 계약 경로: scripts/jenkins/** 의 GENERAL 하향은 role=PM만 허용한다', () => {
+  const techLead = evaluate({
+    changedFiles: JENKINS_SCRIPT_FILES,
+    comments: [
+      comment(10, 'Lumiere001', mergeReadyBody({ risk: 'GENERAL' })),
+      comment(11, 'Lumiere001', riskAccept('TECH_LEAD')),
+    ],
+  });
+  assert.equal(techLead.conclusion, 'failure');
+
+  const pm = evaluate({
+    changedFiles: JENKINS_SCRIPT_FILES,
+    comments: [
+      comment(10, 'Lumiere001', mergeReadyBody({ risk: 'GENERAL' })),
+      comment(11, 'GoBeromsu', riskAccept('PM')),
+    ],
+  });
+  assert.equal(pm.conclusion, 'success');
 });
 
 test('제3자의 MERGE_READY 접두 댓글은 유효한 MERGE_READY를 오염시키지 않는다 (게이트 DoS 방지)', () => {
