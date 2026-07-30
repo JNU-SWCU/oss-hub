@@ -50,6 +50,20 @@ model User {
   notifications         Notification[]
   auditLogs             AuditLog[]
   loginHistories        LoginHistory[]
+  profile               UserProfile?
+}
+
+/// 플랫폼에서 직접 수집·확정한 비공개 사용자 프로필.
+/// expand 단계에서는 User의 legacy 프로필 컬럼과 함께 유지한다.
+model UserProfile {
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name       String
+  studentId  String   @unique
+  department String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 enum LoginHistoryEvent {
@@ -734,21 +748,21 @@ enum CanonicalCollectionRunStatus {
 }
 
 model CanonicalCollectionRun {
-  id                String                       @id @default(cuid())
+  id                String                           @id @default(cuid())
   appId             BigInt
   organizationLogin String
-  status            CanonicalCollectionRunStatus @default(PENDING)
-  errorClass     String?
-  createdAt      DateTime                         @default(now())
-  startedAt      DateTime?
-  finishedAt     DateTime?
-  repositories   CanonicalRepository[]
-  commits        CanonicalDefaultBranchCommit[]
-  pullRequests   CanonicalPullRequest[]
-  releases       CanonicalRelease[]
-  contributors   CanonicalContributorProjection[]
-  leases         CanonicalCollectionLease[]
-  activeFor      CanonicalOrganizationState[]     @relation("ActiveCanonicalGeneration")
+  status            CanonicalCollectionRunStatus     @default(PENDING)
+  errorClass        String?
+  createdAt         DateTime                         @default(now())
+  startedAt         DateTime?
+  finishedAt        DateTime?
+  repositories      CanonicalRepository[]
+  commits           CanonicalDefaultBranchCommit[]
+  pullRequests      CanonicalPullRequest[]
+  releases          CanonicalRelease[]
+  contributors      CanonicalContributorProjection[]
+  leases            CanonicalCollectionLease[]
+  activeFor         CanonicalOrganizationState[]     @relation("ActiveCanonicalGeneration")
 
   @@index([appId, organizationLogin, createdAt])
 }
@@ -772,11 +786,11 @@ model CanonicalCollectionLease {
   appId             BigInt
   organizationLogin String
   epoch             BigInt                 @default(1)
-  ownerId        String
-  expiresAt      DateTime
-  runId          String
-  run            CanonicalCollectionRun @relation(fields: [runId], references: [id])
-  updatedAt      DateTime               @updatedAt
+  ownerId           String
+  expiresAt         DateTime
+  runId             String
+  run               CanonicalCollectionRun @relation(fields: [runId], references: [id])
+  updatedAt         DateTime               @updatedAt
 
   @@id([appId, organizationLogin])
   @@index([runId])

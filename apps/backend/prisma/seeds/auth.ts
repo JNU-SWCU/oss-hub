@@ -1,5 +1,6 @@
 import { AccountStatus, Role, RoleRequestStatus, User } from '@prisma/client';
 import { CONSENT_POLICY_VERSION } from '../../src/consents/domain/consent-policy';
+import { upsertCompatibleProfile } from '../../src/profiles/profile-compatibility.repository';
 import {
   offsetDays,
   prisma,
@@ -62,13 +63,25 @@ async function upsertConsent(stats: SeedStats, userId: string): Promise<void> {
 
 async function setProfile(
   userId: string,
-  profile: {
-    readonly name: string;
-    readonly studentId: string | null;
-    readonly department: string | null;
-  },
+  profile:
+    | {
+        readonly name: string;
+        readonly studentId: null;
+        readonly department: null;
+      }
+    | {
+        readonly name: string;
+        readonly studentId: string;
+        readonly department: string;
+      },
 ): Promise<void> {
-  await prisma.user.update({ where: { id: userId }, data: profile });
+  if (profile.studentId === null) {
+    await prisma.user.update({ where: { id: userId }, data: profile });
+    return;
+  }
+  await prisma.$transaction((transaction) =>
+    upsertCompatibleProfile(transaction, userId, profile),
+  );
 }
 
 async function upsertRoleRequest(
