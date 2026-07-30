@@ -42,7 +42,7 @@
   - `pnpm --filter backend build` / `lint` / `typecheck`
   - `pnpm --filter backend test:unit` — `*.integration.spec.ts` 제외한 단위테스트
   - `pnpm --filter backend test:integration` — `scripts/run-backend-integration.sh`가 격리 컨테이너를 새로 띄워 실행(공유 DB 미사용)
-  - `pnpm --filter backend db:migrate:dev` / `db:reset` / `db:seed` — 로컬 DB(`localhost:5432/oss_hub`) 대상
+  - `pnpm --filter backend db:migrate:dev` / `db:reset` / `db:seed` — 호스트 lane 로컬 DB 대상. 연결 주소는 `.envrc`의 `DATABASE_URL`이 유일한 원본이며, 실행 전 `scripts/check-host-db-url.sh`가 로컬 여부와 `POSTGRES_PORT`·`POSTGRES_DB` 일치를 검증한다
 - **모듈 경계(ADR-003)**: `eslint.config.mjs`가 `src/` 하위 폴더를 자동으로 모듈로 인식해, 한 모듈이 다른 모듈의 `domain/*`·`dto/*`를 직접 import하면 lint 에러(`no-restricted-imports`)를 낸다. `common/`·`prisma/`는 전 모듈 공유 기반 계층이라 이 규칙에서 제외된다. 새 모듈 폴더를 추가해도 이 설정 파일은 수정할 필요 없다(폴더 목록을 런타임에 읽음).
 - **에러 응답 계약**: 각 모듈은 `<module>-error-code.enum.ts`에서 자체 prefix(`AUT_*`=auth, `COL_*`=collection, `SYS_*`=system)로 코드를 정의하고 `DomainException`을 던진다. `common/problem-detail.filter.ts`(전역 `ExceptionFilter`)가 이를 `application/problem+json` 응답으로 변환한다 — 상세는 [apps/backend/src/common/AGENTS.md](src/common/AGENTS.md) 참조.
 - `src/auth/`는 @Lumiere001 전속 경로다 — 그 안의 파일을 만들거나 수정하지 않는다. 경계는 [apps/backend/src/AGENTS.md](src/AGENTS.md)에 상세.

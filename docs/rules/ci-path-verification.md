@@ -14,6 +14,7 @@
 | `apps/*/Dockerfile`, `.dockerignore` | `check-docker-context.test.sh`와 실제 context의 deny 규칙·COPY 경계 검사 | Docker daemon·이미지 빌드 없음 |
 | `scripts/check-public-safe*.sh` | shell 문법 검사 + `public-safe` job의 regex 회귀 테스트 | PR-controlled 코드에 secret 미주입 |
 | `scripts/team-state-check*.mjs` | Node 문법 검사 + TEAM-STATE 합성 fixture 단위테스트 | GitHub 조회 실패를 성공으로 추정하지 않음 |
+| `scripts/check-host-db-url*.sh` | shell 문법 검사 + `bash scripts/check-host-db-url.test.sh` 회귀. 호스트 lane `DATABASE_URL`이 로컬을 가리키는지, `POSTGRES_PORT`·`POSTGRES_DB` override와 일치하는지, 실패 경로에서 자격증명을 출력하지 않는지 검증한다 | 실제 DB 연결·마이그레이션 실행 없음. 가드는 파괴적 명령(`prisma migrate reset --force`)의 대상만 검증하고 prisma를 호출하지 않는다 |
 | 그 밖의 `scripts/*.sh`, `scripts/*.mjs` | 각 런타임의 문법 검사 | 외부 서비스·실데이터 사용 없음 |
 
 `public-safe`는 경로와 무관하게 모든 PR에서 실행한다. TEAM-STATE 단위테스트도 required `ci`에서 항상
