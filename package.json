@@ -15,6 +15,7 @@
     "commitlint": "commitlint --config commitlint.config.cjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "dev": "bash scripts/dev.sh",
     "db:up": "docker compose -f compose.dev.yml up -d --wait",
     "local:up": "bash scripts/docker-verify-local.sh up",
     "local:verify": "bash scripts/docker-verify-local.sh verify",
