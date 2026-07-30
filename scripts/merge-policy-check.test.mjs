@@ -257,6 +257,104 @@ test('잘못된 actor의 RISK_ACCEPT는 무효다 — role=PM은 PM만 남길 �
   assert.equal(result.conclusion, 'failure');
 });
 
+// PM 작성 PR은 어떤 사람의 review·accept도 요구하지 않는다 (PM 결정, 2026-07-30).
+// required check(`ci`·`public-safe`)는 그대로 강제되므로 기계적 검증은 유지된다.
+
+const pmPull = (overrides = {}) =>
+  pull({ authorLogin: 'GoBeromsu', ...overrides });
+
+test('PM 작성 PR: 댓글이 전혀 없어도 통과한다', () => {
+  const result = evaluateMergePolicy({
+    pull: pmPull(),
+    comments: [],
+    changedFiles: GENERAL_FILES,
+    codeownersText: CODEOWNERS_TEXT,
+  });
+  assert.equal(result.conclusion, 'success');
+  assert.equal(result.risk, 'PM_AUTHORED');
+  assert.deepEqual(result.reasons, []);
+});
+
+test('PM 작성 PR: 배포 계약 경로도 accept 없이 통과한다', () => {
+  for (const files of [DEPLOY_CONTRACT_FILES, CANDIDATE_FILES]) {
+    const result = evaluateMergePolicy({
+      pull: pmPull(),
+      comments: [],
+      changedFiles: files,
+      codeownersText: CODEOWNERS_TEXT,
+    });
+    assert.equal(result.conclusion, 'success', JSON.stringify(files));
+  }
+});
+
+test('PM 작성 PR: 면제 사유가 note로 남는다', () => {
+  const result = evaluateMergePolicy({
+    pull: pmPull(),
+    comments: [],
+    changedFiles: DEPLOY_CONTRACT_FILES,
+    codeownersText: CODEOWNERS_TEXT,
+  });
+  assert.ok(
+    result.notes.some((n) => n.includes('GoBeromsu') && n.includes('면제')),
+    JSON.stringify(result.notes),
+  );
+});
+
+test('Tech Lead 작성 PR은 면제되지 않는다', () => {
+  const result = evaluateMergePolicy({
+    pull: pull({ authorLogin: 'Lumiere001' }),
+    comments: [],
+    changedFiles: GENERAL_FILES,
+    codeownersText: CODEOWNERS_TEXT,
+  });
+  assert.equal(result.conclusion, 'failure');
+});
+
+test('제3자 작성 PR은 면제되지 않는다', () => {
+  for (const who of ['jinsol1190-rgb', 'GOBEROMSU', 'GoBeromsu2', '']) {
+    const result = evaluateMergePolicy({
+      pull: pull({ authorLogin: who }),
+      comments: [],
+      changedFiles: GENERAL_FILES,
+      codeownersText: CODEOWNERS_TEXT,
+    });
+    assert.equal(result.conclusion, 'failure', `면제됨: ${who}`);
+  }
+});
+
+test('authorLogin 부재는 면제되지 않는다 (fail-closed)', () => {
+  for (const who of [undefined, null]) {
+    const result = evaluateMergePolicy({
+      pull: pull({ authorLogin: who }),
+      comments: [],
+      changedFiles: GENERAL_FILES,
+      codeownersText: CODEOWNERS_TEXT,
+    });
+    assert.equal(result.conclusion, 'failure', `면제됨: ${who}`);
+  }
+});
+
+test('PM 작성 PR도 head·base SHA 형식 검증은 통과해야 한다', () => {
+  const result = evaluateMergePolicy({
+    pull: pmPull({ headSha: 'short' }),
+    comments: [],
+    changedFiles: GENERAL_FILES,
+    codeownersText: CODEOWNERS_TEXT,
+  });
+  assert.equal(result.conclusion, 'failure');
+  assert.equal(result.risk, 'UNKNOWN');
+});
+
+test('PM 작성 PR도 base가 main이 아니면 fail-closed다', () => {
+  const result = evaluateMergePolicy({
+    pull: pmPull({ baseRef: 'develop' }),
+    comments: [],
+    changedFiles: GENERAL_FILES,
+    codeownersText: CODEOWNERS_TEXT,
+  });
+  assert.equal(result.conclusion, 'failure');
+});
+
 // 시나리오 1: 배포 외 경로 + PM 단독 accept → PASS
 test('HIGH_RISK(배포 외 경로): PM 단독 accept로 통과한다', () => {
   const result = evaluate({
