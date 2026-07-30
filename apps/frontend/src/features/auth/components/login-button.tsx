@@ -2,7 +2,10 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { fetchSession, githubLoginPath, logout } from '../api';
+import { refreshSession } from '../session-store';
+import { useSession } from '../use-session';
+import { githubLoginPath, logout } from '../api';
+import { toAccountMenuSession } from '../session-view';
 import { applyLogoutFailure, applyLogoutSuccess } from '../session-state';
 import type { AuthSession, Me } from '../types';
 
@@ -155,23 +158,13 @@ export function LoginButtonView({
 }
 
 export function LoginButton() {
-  const [session, setSession] = useState<AuthSession | null>(null);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    fetchSession()
-      .then((nextSession) => {
-        if (active) setSession(nextSession);
-      })
-      .catch(() => {
-        if (active) setSession({ isAuthenticated: false });
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+  // 자체 조회를 두지 않고 공유 세션 저장소를 읽는다. 헤더와 본문이 각자 상태를
+  // 들고 있으면 본문에서 재시도해 복구해도 헤더는 갱신되지 않아 한 화면에서
+  // 인증 표시가 서로 모순된다.
+  const sessionState = useSession();
+  const session = toAccountMenuSession(sessionState);
 
   return (
     <LoginButtonView
@@ -192,12 +185,13 @@ export function LoginButton() {
               window.location.assign('/');
               return;
             }
-            setSession({ isAuthenticated: true, user: next.me });
+            // 로그아웃이 확정되지 않았다면 세션은 아직 살아 있다. 지역 상태를
+            // 되돌리는 대신 공유 저장소를 다시 읽어 모든 소비자를 함께 맞춘다.
+            refreshSession();
             setLogoutError(next.logoutError);
           })
           .catch(() => {
             const next = applyLogoutFailure({ me, logoutError });
-            setSession({ isAuthenticated: true, user: me });
             setLogoutError(next.logoutError);
           });
       }}
