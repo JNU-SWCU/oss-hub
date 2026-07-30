@@ -1,4 +1,10 @@
 const STALE_AFTER_MS = 48 * 60 * 60 * 1_000;
+const SINGLE_VALUE_METADATA_KEYS = [
+  'generated_at',
+  'source_commit',
+  '조회 성공 소스',
+  '조회 실패 소스',
+];
 const FEATURE_STATES = new Set([
   'planned',
   'active',
@@ -24,6 +30,22 @@ function metadataValue(text, key) {
     .split('\n')
     .find((candidate) => tableCells(candidate)[0] === key);
   return line ? (tableCells(line)[1] ?? null) : null;
+}
+
+// `## 메타` 표는 키마다 값이 하나여야 한다. TEAM-STATE는 union merge를 쓰므로
+// 두 브랜치가 같은 메타 행을 각자 수정하면 충돌 없이 두 행이 함께 남는다.
+// metadataValue는 첫 행만 읽어 뒤 값을 조용히 버리기 때문에, 중복 자체를 검출한다.
+export function duplicateMetadataKeys(text, keys = SINGLE_VALUE_METADATA_KEYS) {
+  const counts = new Map();
+  for (const line of String(text ?? '').split('\n')) {
+    const key = tableCells(line)[0];
+    if (key && keys.includes(key)) {
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([key, count]) => ({ key, count }));
 }
 
 function parseFeatureRows(text) {
@@ -139,6 +161,19 @@ export async function checkTeamStateDrift({
     cached(pullCache, number, () => github.getPull(number));
   const findPullsByHead = (branch) =>
     cached(branchCache, branch, () => github.findPullsByHead(branch));
+
+  for (const { key, count } of duplicateMetadataKeys(teamStateText)) {
+    findings.push(
+      finding(
+        'unknown',
+        'METADATA_DUPLICATE',
+        teamStatePath,
+        key,
+        `\`## 메타\` 표에 \`${key}\` 행이 ${count}개 있습니다 — union merge로 양쪽 값이 함께 남은 상태입니다.`,
+        `\`${key}\` 행을 하나로 합쳐 주세요. 판정은 첫 행만 읽으므로 뒤 값은 무시됩니다.`,
+      ),
+    );
+  }
 
   const generatedAt = metadataValue(teamStateText, 'generated_at');
   const generatedDate = generatedAt ? new Date(generatedAt) : null;

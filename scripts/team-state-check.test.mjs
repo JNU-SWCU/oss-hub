@@ -226,6 +226,81 @@ test('generated_at 48시간 초과를 stale로 보고한다', async () => {
   assert.ok(result.findings.some(({ code }) => code === 'GENERATED_AT_STALE'));
 });
 
+// TEAM-STATE는 union merge를 쓴다(.gitattributes). 양쪽이 같은 메타 행을 각자 수정하면
+// 충돌 없이 두 행이 함께 남고, metadataValue는 첫 행만 읽어 뒤 값을 조용히 버린다.
+// 그 상태를 검출하지 못하면 낡은 스냅샷이 유효한 것으로 통과한다.
+
+test('union merge로 generated_at이 중복되면 유효한 값 2개여도 보고한다', async () => {
+  const duplicated = teamStateFixture().replace(
+    `| generated_at | ${RECENT_GENERATED_AT} |`,
+    `| generated_at | ${RECENT_GENERATED_AT} |\n| generated_at | 2026-07-20T09:30:00+09:00 |`,
+  );
+  const result = await checkTeamStateDrift({
+    teamStatePath: 'docs/handoff/TEAM-STATE.md',
+    teamStateText: duplicated,
+    activePlans: [],
+    github: githubFixture(),
+    now: NOW,
+    inspectSourceCommit: async () => ({ status: 'clean', commitsBehind: 0 }),
+  });
+
+  const hit = result.findings.find(({ code }) => code === 'METADATA_DUPLICATE');
+  assert.ok(hit, JSON.stringify(result.findings.map((f) => f.code)));
+  assert.equal(hit.subject, 'generated_at');
+  assert.equal(exitCodeFor(result), 2);
+});
+
+test('source_commit 중복도 보고한다', async () => {
+  const duplicated = teamStateFixture().replace(
+    '| source_commit | abc1234 (main) |',
+    '| source_commit | abc1234 (main) |\n| source_commit | def5678 (main) |',
+  );
+  const result = await checkTeamStateDrift({
+    teamStatePath: 'docs/handoff/TEAM-STATE.md',
+    teamStateText: duplicated,
+    activePlans: [],
+    github: githubFixture(),
+    now: NOW,
+    inspectSourceCommit: async () => ({ status: 'clean', commitsBehind: 0 }),
+  });
+
+  assert.ok(
+    result.findings.some(
+      ({ code, subject }) =>
+        code === 'METADATA_DUPLICATE' && subject === 'source_commit',
+    ),
+  );
+});
+
+test('메타 행이 하나면 중복으로 보고하지 않는다', async () => {
+  const result = await checkTeamStateDrift({
+    teamStatePath: 'docs/handoff/TEAM-STATE.md',
+    teamStateText: teamStateFixture(),
+    activePlans: [],
+    github: githubFixture(),
+    now: NOW,
+    inspectSourceCommit: async () => ({ status: 'clean', commitsBehind: 0 }),
+  });
+
+  assert.ok(!result.findings.some(({ code }) => code === 'METADATA_DUPLICATE'));
+});
+
+test('기능 표의 동일 기능명 중복은 메타 중복으로 보지 않는다', async () => {
+  const result = await checkTeamStateDrift({
+    teamStatePath: 'docs/handoff/TEAM-STATE.md',
+    teamStateText: teamStateRowsFixture([
+      '| 합성 가이드 | @synthetic-owner | review | #111 | #112 | pass | 없음 |',
+      '| 합성 가이드 | @synthetic-owner | review | #109 | #113 | pass | 없음 |',
+    ]),
+    activePlans: [],
+    github: githubFixture(),
+    now: NOW,
+    inspectSourceCommit: async () => ({ status: 'clean', commitsBehind: 0 }),
+  });
+
+  assert.ok(!result.findings.some(({ code }) => code === 'METADATA_DUPLICATE'));
+});
+
 test('active exec-plan의 선언됐지만 파싱할 수 없는 참조를 unknown으로 보고한다', async () => {
   const result = await singleFeatureCheck({
     row: '| 합성 대기 | @synthetic-owner | planned | - | - | - | 없음 |',
