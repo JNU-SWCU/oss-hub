@@ -9,7 +9,7 @@ RUN corepack enable pnpm
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/backend/package.json apps/backend/package.json
-COPY apps/backend/prisma apps/backend/prisma
+COPY apps/backend/prisma/schema.prisma apps/backend/prisma/schema.prisma
 
 RUN pnpm install --frozen-lockfile --filter backend...
 
