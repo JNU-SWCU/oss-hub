@@ -19,6 +19,7 @@
     "db:reset": "pnpm run db:guard && prisma migrate reset --force",
     "db:seed": "pnpm run db:guard && prisma db seed",
     "collection:verify-app": "ts-node src/collection/cli/verify-collection-app.ts",
+    "collection:import-generation": "ts-node src/collection/cli/collection-generation-import.ts",
     "notifications:send-digest": "pnpm run db:guard && ts-node src/notifications/cli/send-deadline-digest.ts",
     "submissions:retry-file-cleanup": "ts-node src/submissions/cli/retry-submission-file-cleanup.ts"
   },

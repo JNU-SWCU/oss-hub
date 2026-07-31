@@ -26,21 +26,28 @@ interface MockDb {
   collectionContributorYearAggregate: { upsert: jest.Mock };
   collectionRepositoryStream: { upsert: jest.Mock; findUnique: jest.Mock };
   collectionSyncCursor: { upsert: jest.Mock };
+  $transaction: jest.Mock;
 }
 
-const createDb = (): MockDb => ({
-  collectionRepository: { upsert: jest.fn(), findUnique: jest.fn() },
-  collectionCommitFact: { create: jest.fn() },
-  collectionPullRequestFact: { create: jest.fn() },
-  collectionReleaseFact: { create: jest.fn() },
-  collectionRepositoryYearAggregate: {
-    upsert: jest.fn(),
-    findUnique: jest.fn(),
-  },
-  collectionContributorYearAggregate: { upsert: jest.fn() },
-  collectionRepositoryStream: { upsert: jest.fn(), findUnique: jest.fn() },
-  collectionSyncCursor: { upsert: jest.fn() },
-});
+const createDb = (): MockDb => {
+  const db: MockDb = {
+    collectionRepository: { upsert: jest.fn(), findUnique: jest.fn() },
+    collectionCommitFact: { create: jest.fn() },
+    collectionPullRequestFact: { create: jest.fn() },
+    collectionReleaseFact: { create: jest.fn() },
+    collectionRepositoryYearAggregate: {
+      upsert: jest.fn(),
+      findUnique: jest.fn(),
+    },
+    collectionContributorYearAggregate: { upsert: jest.fn() },
+    collectionRepositoryStream: { upsert: jest.fn(), findUnique: jest.fn() },
+    collectionSyncCursor: { upsert: jest.fn() },
+    $transaction: jest.fn(async (fn: (tx: MockDb) => Promise<unknown>) =>
+      fn(db),
+    ),
+  };
+  return db;
+};
 
 const repositoryFor = (db: MockDb): CollectionIncrementalRepository =>
   new CollectionIncrementalRepository(db as unknown as PrismaService);
@@ -141,6 +148,51 @@ describe('CollectionIncrementalRepository — commit facts', () => {
       repositoryFor(db).recordCommitFacts('repo-1', [
         { sha: 'x', committedAt: new Date('2026-03-01T00:00:00.000Z') },
       ]),
+    ).rejects.toThrow('boom');
+  });
+});
+
+describe('CollectionIncrementalRepository — transactional scope (todo 8 import)', () => {
+  it('runs the callback against a repository scoped to one Prisma transaction and returns its result', async () => {
+    const db = createDb();
+    db.collectionRepository.upsert.mockResolvedValue({ id: 'repo-1' });
+
+    const result = await repositoryFor(db).runInTransaction(async (repo) => {
+      const row = await repo.recordRepositoryObservation({
+        githubOrganizationId: 10n,
+        githubRepositoryId: 20n,
+        fullName: 'org/repo',
+        defaultBranch: 'main',
+        archived: false,
+        visibility: 'PUBLIC',
+        presence: 'PRESENT',
+        observedAt: new Date('2026-07-31T00:00:00.000Z'),
+      });
+      return row.id;
+    });
+
+    expect(result).toBe('repo-1');
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+    expect(db.collectionRepository.upsert).toHaveBeenCalledTimes(1);
+  });
+
+  it('propagates a mid-callback failure so the caller sees no partial success', async () => {
+    const db = createDb();
+    db.collectionRepository.upsert.mockRejectedValue(new Error('boom'));
+
+    await expect(
+      repositoryFor(db).runInTransaction(async (repo) => {
+        await repo.recordRepositoryObservation({
+          githubOrganizationId: 10n,
+          githubRepositoryId: 20n,
+          fullName: 'org/repo',
+          defaultBranch: 'main',
+          archived: false,
+          visibility: 'PUBLIC',
+          presence: 'PRESENT',
+          observedAt: new Date('2026-07-31T00:00:00.000Z'),
+        });
+      }),
     ).rejects.toThrow('boom');
   });
 });

@@ -32,6 +32,22 @@ export class CollectionIncrementalRepository {
   constructor(private readonly db: PrismaService) {}
 
   /**
+   * Runs `fn` against a repository instance scoped to one Prisma interactive
+   * transaction — a mid-callback throw rolls back every write `fn` made
+   * through it. Used by the todo 8 generation import command so a failure
+   * partway through one repository's facts/streams never leaves that
+   * repository in a half-imported state (the run simply does not progress
+   * for that repository, and can be retried from scratch next time).
+   */
+  async runInTransaction<T>(
+    fn: (repo: CollectionIncrementalRepository) => Promise<T>,
+  ): Promise<T> {
+    return this.db.$transaction((tx) =>
+      fn(new CollectionIncrementalRepository(tx as unknown as PrismaService)),
+    );
+  }
+
+  /**
    * complete inventory 관찰 1건을 반영한다. visibility/presence 갱신은 이 경로로만
    * 일어난다(DEC-46) — partial 관찰은 이 메서드를 호출하지 않는다.
    */
