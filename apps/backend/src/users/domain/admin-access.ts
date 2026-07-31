@@ -22,6 +22,20 @@ export const ADMIN_ACCESS_PENDING_FILTERS = {
   PENDING: RoleRequestStatus.PENDING,
 } as const;
 
+export const ADMIN_ACCESS_SORT_FIELDS = {
+  NAME: 'name',
+  CREATED_AT: 'createdAt',
+  LAST_LOGIN_AT: 'lastLoginAt',
+} as const;
+
+export const ADMIN_ACCESS_SORT_DIRECTIONS = {
+  ASC: 'asc',
+  DESC: 'desc',
+} as const;
+
+export const ADMIN_ACCESS_DEFAULT_SORT = ADMIN_ACCESS_SORT_FIELDS.NAME;
+export const ADMIN_ACCESS_DEFAULT_DIRECTION = ADMIN_ACCESS_SORT_DIRECTIONS.ASC;
+
 export type AdminAccessRequestDecision =
   | {
       readonly decision: typeof ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE;
@@ -74,11 +88,19 @@ export type AdminAccessRoleFilter =
 export type AdminAccessPendingFilter =
   (typeof ADMIN_ACCESS_PENDING_FILTERS)[keyof typeof ADMIN_ACCESS_PENDING_FILTERS];
 
+export type AdminAccessSortField =
+  (typeof ADMIN_ACCESS_SORT_FIELDS)[keyof typeof ADMIN_ACCESS_SORT_FIELDS];
+
+export type AdminAccessSortDirection =
+  (typeof ADMIN_ACCESS_SORT_DIRECTIONS)[keyof typeof ADMIN_ACCESS_SORT_DIRECTIONS];
+
 export type AdminAccessListQuery = {
   readonly query: string;
   readonly role?: AdminAccessRoleFilter;
   readonly accountStatus?: AccountStatus;
   readonly pendingRequest?: AdminAccessPendingFilter;
+  readonly sort?: AdminAccessSortField;
+  readonly direction?: AdminAccessSortDirection;
   readonly page: number;
   readonly limit: number;
 };
