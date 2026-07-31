@@ -289,6 +289,20 @@ printf 'prev_be_image_id=%s\n' "$be_image_id"
       }
     }
 
+    stage('Buildx 캐시 상한 사전 검증') {
+      when {
+        expression { env.DEPLOY_NOOP != 'true' }
+      }
+      steps {
+        sh '''
+          if ! docker buildx prune --help 2>&1 | grep -F -- '--max-used-space' >/dev/null; then
+            echo 'FAIL_CLOSED buildx_preflight: docker buildx prune가 --max-used-space를 지원하지 않습니다. Buildx를 업그레이드하십시오.' >&2
+            exit 1
+          fi
+        '''
+      }
+    }
+
     stage('FRONTEND_URL HTTPS 사전 검증') {
       when {
         expression { env.DEPLOY_NOOP != 'true' }
