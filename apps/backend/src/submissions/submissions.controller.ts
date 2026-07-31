@@ -215,8 +215,7 @@ function asciiFallbackFileName(fileName: string): string {
 function rfc5987(value: string): string {
   return encodeURIComponent(value).replace(
     /[!'()*]/g,
-    (character) =>
-      `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
   );
 }
 @Controller('submissions')

@@ -39,7 +39,9 @@ function item(
   };
 }
 
-function checklist(items: readonly SubmissionChecklistItem[]): SubmissionChecklist {
+function checklist(
+  items: readonly SubmissionChecklistItem[],
+): SubmissionChecklist {
   return {
     applicationId: 'application-personal',
     applicationMode: 'PERSONAL',

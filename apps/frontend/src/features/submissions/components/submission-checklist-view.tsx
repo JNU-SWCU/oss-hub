@@ -386,13 +386,19 @@ function SubmissionFileLink({
       download={file.fileName}
       className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
     >
-      <FileText aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+      <FileText
+        aria-hidden="true"
+        className="size-4 shrink-0 text-muted-foreground"
+      />
       <span className="min-w-0 truncate">{file.fileName}</span>
       <span className="shrink-0 text-muted-foreground">
         {formatFileSize(file.size)}
       </span>
       {compact ? null : (
-        <Download aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+        <Download
+          aria-hidden="true"
+          className="size-4 shrink-0 text-muted-foreground"
+        />
       )}
     </a>
   );

@@ -138,7 +138,9 @@ describe('SubmissionsService checklist/resubmission integration', () => {
 
   afterAll(async () => {
     await prisma.milestone.deleteMany({
-      where: { id: { in: [OVERDUE_TEXT_MILESTONE_ID, FILE_METADATA_MILESTONE_ID] } },
+      where: {
+        id: { in: [OVERDUE_TEXT_MILESTONE_ID, FILE_METADATA_MILESTONE_ID] },
+      },
     });
     await prisma.user.deleteMany({ where: { id: OUTSIDER_USER_ID } });
     await Promise.all([prisma.$disconnect(), seedPrisma.$disconnect()]);

@@ -25,8 +25,10 @@ export interface SubmissionRevisionResponseDto {
   readonly review: SubmissionReviewResponseDto | null;
 }
 
-export interface SubmissionReviewFileResponseDto
-  extends Omit<SubmissionReviewFileRecord, 'expiresAt'> {
+export interface SubmissionReviewFileResponseDto extends Omit<
+  SubmissionReviewFileRecord,
+  'expiresAt'
+> {
   readonly expiresAt: string;
 }
 

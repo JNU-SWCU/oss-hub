@@ -171,7 +171,7 @@ describe('S3SubmissionFileStorage', () => {
             })
           : operation === 'get'
             ? storage.get('submission-files/synthetic-key')
-          : storage.delete('submission-files/synthetic-key');
+            : storage.delete('submission-files/synthetic-key');
 
       await expect(action).rejects.toEqual(
         new SubmissionFileStorageError(code),

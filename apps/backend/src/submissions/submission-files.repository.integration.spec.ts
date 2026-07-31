@@ -28,11 +28,7 @@ const FUTURE_EXPIRES_AT = new Date('2027-01-01T00:00:00.000Z');
 const PAST_EXPIRES_AT = new Date('2026-01-01T00:00:00.000Z');
 const PROGRAM_ID = seedId('milestones', 'program');
 const APPLICATION_ID = seedId('milestones', 'application', 'personal');
-const PARTICIPANT_USER_ID = seedId(
-  'milestones',
-  'user',
-  'applicant-personal',
-);
+const PARTICIPANT_USER_ID = seedId('milestones', 'user', 'applicant-personal');
 const MILESTONE_ID = 'issue-342-download-milestone';
 const SUBMISSION_ID = 'issue-342-download-submission';
 const REVISION_ID = 'issue-342-download-revision';

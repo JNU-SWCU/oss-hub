@@ -85,9 +85,7 @@ function latestReview(
 }
 
 function currentRevisionFile(
-  submission: NonNullable<
-    ChecklistMilestoneRecord['submissions'][number]
-  >,
+  submission: NonNullable<ChecklistMilestoneRecord['submissions'][number]>,
 ): SubmissionFileMetadata | null {
   const currentRevision = submission.revisions.find(
     (revision) => revision.revision === submission.currentRevision,
