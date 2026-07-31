@@ -8,6 +8,7 @@ import { type NavItem } from '@/components';
 import { LoginButton } from '@/features/auth/components/login-button';
 import { SessionEntryNavLink } from './_shell/role-home-link';
 import { ShellNav } from './_shell/shell-nav';
+import { SkipLink } from './_shell/skip-link';
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -31,6 +32,7 @@ export default function RootLayout({
   return (
     <html lang="ko" className={cn('font-sans', geist.variable)}>
       <body className="relative">
+        <SkipLink />
         <ShellNav
           brand={<Link href="/">OSS Hub</Link>}
           items={NAV_ITEMS}
@@ -41,7 +43,9 @@ export default function RootLayout({
             </>
           }
         />
-        {children}
+        <div id="main-content" tabIndex={-1}>
+          {children}
+        </div>
       </body>
     </html>
   );

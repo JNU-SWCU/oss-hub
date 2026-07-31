@@ -20,6 +20,7 @@ describe('LandingEntryActionView', () => {
 
     expect(html).toContain('GitHub으로 로그인');
     expect(html).toContain(githubLoginPath);
+    expect(html).toContain('min-h-11');
   });
 
   it('offers consent continuation to an unassigned user', () => {
@@ -40,6 +41,24 @@ describe('LandingEntryActionView', () => {
     expect(html).toContain('내 대시보드');
     expect(html).toContain('href="/dashboard"');
     expect(html).not.toContain(githubLoginPath);
+  });
+
+  it('offers the staff dashboard to assigned staff', () => {
+    const html = renderToStaticMarkup(
+      <LandingEntryActionView status="assigned" role="STAFF" />,
+    );
+
+    expect(html).toContain('운영 대시보드');
+    expect(html).toContain('href="/staff/dashboard"');
+  });
+
+  it('offers staff approval to an assigned administrator', () => {
+    const html = renderToStaticMarkup(
+      <LandingEntryActionView status="assigned" role="ADMIN" />,
+    );
+
+    expect(html).toContain('교직원 승인');
+    expect(html).toContain('href="/admin/staff-requests"');
   });
 
   it('makes authentication recovery explicit for an anonymous visitor', () => {

@@ -23,6 +23,7 @@ export function LandingEntryActionView({
   inverted = false,
 }: LandingEntryActionViewProps) {
   const className = cn(
+    'min-h-11',
     inverted && 'bg-background text-primary hover:bg-background/90',
   );
 
