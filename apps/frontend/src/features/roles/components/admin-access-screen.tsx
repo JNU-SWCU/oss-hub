@@ -1,23 +1,22 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { ApiError } from '@/lib/api-client';
 
 import { fetchAdminAccessList } from '../admin-access-api';
-import type {
-  AdminAccessAccountStatus,
-  AdminAccessListItem,
-  AdminAccessPendingFilter,
-  AdminAccessRoleFilter,
-  AdminAccessSortDirection,
-  AdminAccessSortField,
-} from '../admin-access-api';
+import type { AdminAccessListItem } from '../admin-access-api';
 import {
   ADMIN_ACCESS_DEFAULT_FILTER_STATE,
   ADMIN_ACCESS_LIST_LIMIT,
   buildAdminAccessListParams,
+  type AdminAccessListFilterState,
 } from '../admin-access-list-query';
+import {
+  buildAdminAccessSearchParams,
+  parseAdminAccessSearchParams,
+} from '../admin-access-url-state';
 import { AdminAccessView } from './admin-access-view';
 
 function errorMessage(error: unknown): string {
@@ -27,114 +26,121 @@ function errorMessage(error: unknown): string {
 }
 
 /**
- * Read-only `/admin/access` list screen (PR04C). No PATCH/mutation
- * affordances — the unified writer lands in PR04G. Filter/sort/page state
- * is local component state; PR04D promotes it into URL query params.
+ * `/admin/access` list screen (PR04C, URL state PR04D). Filter/sort/page
+ * state lives in the URL's `searchParams` (query/role/accountStatus/
+ * pendingRequest/sort/direction/page) so a refresh or a Back/Forward
+ * navigation reproduces the same screen — see `admin-access-url-state.ts`
+ * for the parse/serialize contract and its invalid-value policy. Sort is
+ * always resolved by the 04A server contract; this screen never re-sorts
+ * already-fetched rows. No PATCH/mutation affordances — the unified writer
+ * lands in PR04G.
  */
 export function AdminAccessScreen() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const state = useMemo(
+    () => parseAdminAccessSearchParams(searchParams),
+    [searchParams],
+  );
+
   const [items, setItems] = useState<readonly AdminAccessListItem[]>([]);
   const [total, setTotal] = useState(0);
-  const [queryInput, setQueryInput] = useState(
-    ADMIN_ACCESS_DEFAULT_FILTER_STATE.query,
-  );
-  const [query, setQuery] = useState(ADMIN_ACCESS_DEFAULT_FILTER_STATE.query);
-  const [role, setRole] = useState<AdminAccessRoleFilter | ''>(
-    ADMIN_ACCESS_DEFAULT_FILTER_STATE.role,
-  );
-  const [accountStatus, setAccountStatus] = useState<
-    AdminAccessAccountStatus | ''
-  >(ADMIN_ACCESS_DEFAULT_FILTER_STATE.accountStatus);
-  const [pendingRequest, setPendingRequest] = useState<
-    AdminAccessPendingFilter | ''
-  >(ADMIN_ACCESS_DEFAULT_FILTER_STATE.pendingRequest);
-  const [sort, setSort] = useState<AdminAccessSortField>(
-    ADMIN_ACCESS_DEFAULT_FILTER_STATE.sort,
-  );
-  const [direction, setDirection] = useState<AdminAccessSortDirection>(
-    ADMIN_ACCESS_DEFAULT_FILTER_STATE.direction,
-  );
-  const [page, setPage] = useState(ADMIN_ACCESS_DEFAULT_FILTER_STATE.page);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [queryInput, setQueryInput] = useState(state.query);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Tracks the last committed (trimmed) query so a Back/Forward navigation
+  // that changes the URL's query resyncs the visible search box, while a
+  // same-value round trip (e.g. this screen's own `navigate` call) does not
+  // clobber whatever the user is currently typing.
+  const committedQueryRef = useRef(state.query);
+  useEffect(() => {
+    if (state.query !== committedQueryRef.current) {
+      committedQueryRef.current = state.query;
+      setQueryInput(state.query);
+    }
+  }, [state.query]);
+
+  const navigate = useCallback(
+    (next: AdminAccessListFilterState) => {
+      const search = buildAdminAccessSearchParams(next).toString();
+      router.push(search ? `${pathname}?${search}` : pathname, {
+        scroll: false,
+      });
+    },
+    [pathname, router],
+  );
 
   const load = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const params = buildAdminAccessListParams({
-        query,
-        role,
-        accountStatus,
-        pendingRequest,
-        sort,
-        direction,
-        page,
-      });
+      const params = buildAdminAccessListParams(state);
       const result = await fetchAdminAccessList(params);
       setItems(result.items);
       setTotal(result.total);
+      setPendingCount(result.facets.pendingRequests.pending);
     } catch (loadError) {
       setError(errorMessage(loadError));
     } finally {
       setIsLoading(false);
     }
-  }, [query, role, accountStatus, pendingRequest, sort, direction, page]);
+  }, [state]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   const resetFilters = () => {
+    committedQueryRef.current = ADMIN_ACCESS_DEFAULT_FILTER_STATE.query;
     setQueryInput(ADMIN_ACCESS_DEFAULT_FILTER_STATE.query);
-    setQuery(ADMIN_ACCESS_DEFAULT_FILTER_STATE.query);
-    setRole(ADMIN_ACCESS_DEFAULT_FILTER_STATE.role);
-    setAccountStatus(ADMIN_ACCESS_DEFAULT_FILTER_STATE.accountStatus);
-    setPendingRequest(ADMIN_ACCESS_DEFAULT_FILTER_STATE.pendingRequest);
-    setSort(ADMIN_ACCESS_DEFAULT_FILTER_STATE.sort);
-    setDirection(ADMIN_ACCESS_DEFAULT_FILTER_STATE.direction);
-    setPage(ADMIN_ACCESS_DEFAULT_FILTER_STATE.page);
+    navigate(ADMIN_ACCESS_DEFAULT_FILTER_STATE);
   };
 
   return (
     <AdminAccessView
       items={items}
       query={queryInput}
-      role={role}
-      accountStatus={accountStatus}
-      pendingRequest={pendingRequest}
-      sort={sort}
-      direction={direction}
-      page={page}
+      role={state.role}
+      accountStatus={state.accountStatus}
+      pendingRequest={state.pendingRequest}
+      sort={state.sort}
+      direction={state.direction}
+      page={state.page}
       limit={ADMIN_ACCESS_LIST_LIMIT}
       total={total}
+      pendingCount={pendingCount}
       isLoading={isLoading}
       errorMessage={error}
       onQueryChange={setQueryInput}
       onSearch={() => {
-        setQuery(queryInput.trim());
-        setPage(1);
+        const trimmed = queryInput.trim();
+        committedQueryRef.current = trimmed;
+        navigate({ ...state, query: trimmed, page: 1 });
       }}
       onRoleChange={(nextRole) => {
-        setRole(nextRole);
-        setPage(1);
+        navigate({ ...state, role: nextRole, page: 1 });
       }}
       onAccountStatusChange={(nextStatus) => {
-        setAccountStatus(nextStatus);
-        setPage(1);
+        navigate({ ...state, accountStatus: nextStatus, page: 1 });
       }}
       onPendingRequestChange={(nextPendingRequest) => {
-        setPendingRequest(nextPendingRequest);
-        setPage(1);
+        navigate({ ...state, pendingRequest: nextPendingRequest, page: 1 });
       }}
       onSortChange={(nextSort) => {
-        setSort(nextSort);
-        setPage(1);
+        navigate({ ...state, sort: nextSort, page: 1 });
       }}
       onDirectionToggle={() => {
-        setDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
-        setPage(1);
+        navigate({
+          ...state,
+          direction: state.direction === 'asc' ? 'desc' : 'asc',
+          page: 1,
+        });
       }}
-      onPageChange={setPage}
+      onPageChange={(nextPage) => navigate({ ...state, page: nextPage })}
       onRetry={() => void load()}
       onResetFilters={resetFilters}
     />

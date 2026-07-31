@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import type { SubmitEvent } from 'react';
 
 import {
   DataTable,
@@ -66,6 +66,7 @@ export interface AdminAccessViewProps {
   readonly page: number;
   readonly limit: number;
   readonly total: number;
+  readonly pendingCount: number;
   readonly isLoading: boolean;
   readonly errorMessage: string | null;
   readonly onQueryChange: (query: string) => void;
@@ -171,7 +172,7 @@ export function AdminAccessView(props: AdminAccessViewProps) {
     },
   ];
 
-  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+  const submitSearch = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     props.onSearch();
   };
@@ -192,6 +193,30 @@ export function AdminAccessView(props: AdminAccessViewProps) {
           </AlertDescription>
         </Alert>
       ) : null}
+      <div
+        className="flex flex-wrap gap-2"
+        role="group"
+        aria-label="접근 화면 전환"
+      >
+        <Button
+          className="h-11"
+          type="button"
+          variant={props.pendingRequest === '' ? 'default' : 'outline'}
+          aria-pressed={props.pendingRequest === ''}
+          onClick={() => props.onPendingRequestChange('')}
+        >
+          전체 목록
+        </Button>
+        <Button
+          className="h-11"
+          type="button"
+          variant={props.pendingRequest === 'PENDING' ? 'default' : 'outline'}
+          aria-pressed={props.pendingRequest === 'PENDING'}
+          onClick={() => props.onPendingRequestChange('PENDING')}
+        >
+          요청함{props.pendingCount > 0 ? ` (${props.pendingCount})` : ''}
+        </Button>
+      </div>
       <form
         className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_9rem_9rem_9rem_9rem_auto_auto]"
         onSubmit={submitSearch}
