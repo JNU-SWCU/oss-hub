@@ -23,6 +23,8 @@ interface ProgramCardProps extends Omit<
   period?: string;
   /** 상태 표시 슬롯 — StatusBadge 등을 그대로 전달한다 */
   status?: React.ReactNode;
+  /** 상태 슬롯 배치 방식 */
+  statusPlacement?: 'header' | 'body-center';
   /** 카드 하단 액션 슬롯(예: 상세 보기 링크) */
   footer?: React.ReactNode;
 }
@@ -37,28 +39,50 @@ function ProgramCard({
   category,
   period,
   status,
+  statusPlacement = 'header',
   footer,
   className,
   children,
   ...props
 }: ProgramCardProps) {
+  const header = (
+    <CardHeader>
+      <CardTitle>{title}</CardTitle>
+      {category ? <CardDescription>{category}</CardDescription> : null}
+      {statusPlacement === 'header' && status ? (
+        <CardAction>{status}</CardAction>
+      ) : null}
+    </CardHeader>
+  );
+  const content =
+    period || children ? (
+      <CardContent className="flex flex-col gap-1 text-sm text-muted-foreground">
+        {period ? <span>{period}</span> : null}
+        {children}
+      </CardContent>
+    ) : null;
+
   return (
     <Card
       data-slot="program-card"
+      data-status-placement={statusPlacement}
       className={cn('h-full', className)}
       {...props}
     >
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        {category ? <CardDescription>{category}</CardDescription> : null}
-        {status ? <CardAction>{status}</CardAction> : null}
-      </CardHeader>
-      {period || children ? (
-        <CardContent className="flex flex-col gap-1 text-sm text-muted-foreground">
-          {period ? <span>{period}</span> : null}
-          {children}
-        </CardContent>
-      ) : null}
+      {statusPlacement === 'body-center' && status ? (
+        <div className="grid flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+          <div className="grid gap-(--card-spacing)">
+            {header}
+            {content}
+          </div>
+          <div className="pr-(--card-spacing)">{status}</div>
+        </div>
+      ) : (
+        <>
+          {header}
+          {content}
+        </>
+      )}
       {footer ? <CardFooter>{footer}</CardFooter> : null}
     </Card>
   );

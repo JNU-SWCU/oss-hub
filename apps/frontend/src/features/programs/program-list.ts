@@ -71,10 +71,10 @@ function comparePrograms(
   left: ProgramListItem,
   right: ProgramListItem,
 ): number {
-  const byStartDate =
-    new Date(right.applicationStartAt).getTime() -
-    new Date(left.applicationStartAt).getTime();
-  if (byStartDate !== 0) return byStartDate;
+  const byApplicationDeadline =
+    new Date(left.applicationEndAt).getTime() -
+    new Date(right.applicationEndAt).getTime();
+  if (byApplicationDeadline !== 0) return byApplicationDeadline;
 
   const byName = left.name.localeCompare(right.name, 'ko');
   return byName !== 0 ? byName : left.id.localeCompare(right.id);

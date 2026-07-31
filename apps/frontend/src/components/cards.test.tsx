@@ -48,6 +48,33 @@ describe('card components', () => {
     expect(html).toContain('반려');
   });
 
+  it('renders a large StatusBadge for prominent card status', () => {
+    const html = renderToStaticMarkup(
+      <StatusBadge size="lg" variant="recruiting">
+        모집중
+      </StatusBadge>,
+    );
+
+    expect(html).toContain('px-4');
+    expect(html).toContain('py-2');
+    expect(html).toContain('text-base');
+  });
+
+  it('centers a prominent status within the card body', () => {
+    const html = renderToStaticMarkup(
+      <ProgramCard
+        footer={<button type="button">Details</button>}
+        period="2026.07 - 2026.08"
+        status={<StatusBadge size="lg">Recruiting</StatusBadge>}
+        statusPlacement="body-center"
+        title="Internship"
+      />,
+    );
+
+    expect(html).toContain('data-status-placement="body-center"');
+    expect(html).toContain('items-center');
+  });
+
   it('renders EmptyState with icon, description, and action slot', () => {
     const html = renderToStaticMarkup(
       <EmptyState

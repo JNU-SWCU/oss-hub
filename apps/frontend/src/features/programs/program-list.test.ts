@@ -140,7 +140,38 @@ describe('filterAndGroupPrograms', () => {
     ).toEqual(['current-recruiting']);
   });
 
-  it('orders exact same-name and same-start programs by canonical id', () => {
+  it('orders programs by the earliest application deadline', () => {
+    const seedProgram = programs[0];
+    expect(seedProgram).toBeDefined();
+    if (seedProgram === undefined) return;
+    const programsWithDifferentDeadlines: readonly ProgramListItem[] = [
+      {
+        ...seedProgram,
+        id: 'later-deadline',
+        applicationStartAt: '2026-07-20T00:00:00.000Z',
+        applicationEndAt: '2026-08-30T00:00:00.000Z',
+      },
+      {
+        ...seedProgram,
+        id: 'earlier-deadline',
+        applicationStartAt: '2026-07-01T00:00:00.000Z',
+        applicationEndAt: '2026-08-01T00:00:00.000Z',
+      },
+    ];
+
+    const result = filterAndGroupPrograms(programsWithDifferentDeadlines, {
+      search: '',
+      status: 'all',
+      now: new Date('2026-07-31T00:00:00.000Z'),
+    });
+
+    expect(result[0]?.programs.map(({ id }) => id)).toEqual([
+      'earlier-deadline',
+      'later-deadline',
+    ]);
+  });
+
+  it('orders exact same-name and same-deadline programs by canonical id', () => {
     const seedProgram = programs[0];
     expect(seedProgram).toBeDefined();
     if (seedProgram === undefined) return;
