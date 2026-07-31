@@ -275,73 +275,54 @@ awk '
   }
 ' "$active_jenkinsfile" >"$docker_scan_file"
 
-count_fixed() {
-  local pattern=$1
-  { grep -F -- "$pattern" "$active_jenkinsfile" || true; } | wc -l | tr -d ' '
-}
-
-count_regex() {
-  local pattern=$1
-  { grep -Ec -- "$pattern" "$active_jenkinsfile" || true; } | tr -d ' '
-}
-
-require_exact() {
-  local description=$1
+# count_matches/require_count는 count_fixed/count_regex/require_* 7종의 공통 코어다.
+# mode: fixed(grep -F) | regex(grep -Ec). comparator: eq(=expected) | ge(>=minimum) | absent(==0).
+count_matches() {
+  local mode=$1
   local pattern=$2
-  local expected=$3
-  local actual
-  actual=$(count_fixed "$pattern")
-  if ((actual != expected)); then
-    printf '%s: %s (expected=%s, actual=%s)\n' "$label" "$description" "$expected" "$actual" >&2
-    exit 1
-  fi
+  case "$mode" in
+    fixed) { grep -F -- "$pattern" "$active_jenkinsfile" || true; } | wc -l | tr -d ' ' ;;
+    regex) { grep -Ec -- "$pattern" "$active_jenkinsfile" || true; } | tr -d ' ' ;;
+  esac
 }
 
-require_at_least() {
+require_count() {
   local description=$1
-  local pattern=$2
-  local minimum=$3
+  local mode=$2
+  local pattern=$3
+  local comparator=$4
+  local threshold=${5-}
   local actual
-  actual=$(count_fixed "$pattern")
-  if ((actual < minimum)); then
-    printf '%s: %s (minimum=%s, actual=%s)\n' "$label" "$description" "$minimum" "$actual" >&2
-    exit 1
-  fi
+  actual=$(count_matches "$mode" "$pattern")
+  case "$comparator" in
+    eq)
+      if ((actual != threshold)); then
+        printf '%s: %s (expected=%s, actual=%s)\n' "$label" "$description" "$threshold" "$actual" >&2
+        exit 1
+      fi
+      ;;
+    ge)
+      if ((actual < threshold)); then
+        printf '%s: %s (minimum=%s, actual=%s)\n' "$label" "$description" "$threshold" "$actual" >&2
+        exit 1
+      fi
+      ;;
+    absent)
+      if ((actual != 0)); then
+        printf '%s: %s (expected=absent, actual=%s)\n' "$label" "$description" "$actual" >&2
+        exit 1
+      fi
+      ;;
+  esac
 }
 
-require_absent() {
-  local description=$1
-  local pattern=$2
-  local actual
-  actual=$(count_fixed "$pattern")
-  if ((actual != 0)); then
-    printf '%s: %s (expected=absent, actual=%s)\n' "$label" "$description" "$actual" >&2
-    exit 1
-  fi
-}
-
-require_regex_at_least() {
-  local description=$1
-  local pattern=$2
-  local minimum=$3
-  local actual
-  actual=$(count_regex "$pattern")
-  if ((actual < minimum)); then
-    printf '%s: %s (minimum=%s, actual=%s)\n' "$label" "$description" "$minimum" "$actual" >&2
-    exit 1
-  fi
-}
-
-require_regex_absent() {
-  local description=$1
-  local pattern=$2
-  local actual
-  actual=$(count_regex "$pattern")
-  if ((actual != 0)); then
-    printf '%s: %s (expected=absent, actual=%s)\n' "$label" "$description" "$actual" >&2
-    exit 1
-  fi
-}
+count_fixed() { count_matches fixed "$1"; }
+count_regex() { count_matches regex "$1"; }
+require_exact() { require_count "$1" fixed "$2" eq "$3"; }
+require_at_least() { require_count "$1" fixed "$2" ge "$3"; }
+require_absent() { require_count "$1" fixed "$2" absent; }
+require_regex_at_least() { require_count "$1" regex "$2" ge "$3"; }
+require_regex_absent() { require_count "$1" regex "$2" absent; }
 
 line_of() {
   local pattern=$1
@@ -353,112 +334,58 @@ line_of_regex() {
   grep -nE "$pattern" "$active_numbered_file" | head -n 1 | cut -d: -f1
 }
 
-count_shell_stage_depth_exact() {
-  local stage=$1
-  local depth=$2
-  local pattern=$3
-  awk -F '\t' -v stage="$stage" -v depth="$depth" -v pattern="$pattern" '
-    $2 == stage && $4 == depth && $5 == pattern { count++ }
-    END { print count + 0 }
-  ' "$shell_contract_file"
-}
-
-count_shell_block_depth_exact() {
-  local block=$1
-  local depth=$2
-  local pattern=$3
-  awk -F '\t' -v block="$block" -v depth="$depth" -v pattern="$pattern" '
-    $1 == block && $4 == depth && $5 == pattern { count++ }
-    END { print count + 0 }
-  ' "$shell_contract_file"
-}
-
-count_shell_block_depth_contains() {
-  local block=$1
-  local depth=$2
-  local pattern=$3
-  awk -F '\t' -v block="$block" -v depth="$depth" -v pattern="$pattern" '
-    $1 == block && $4 == depth && index($5, pattern) { count++ }
-    END { print count + 0 }
-  ' "$shell_contract_file"
-}
-
-require_shell_stage_depth_exact() {
-  local description=$1
-  local stage=$2
+# shell_contract_file 컬럼: $1=block $2=stage $3=line $4=depth $5=pattern.
+# _shell_scan(col, key, depth, pattern, mode, action)이 count/block/line_first
+# 10종 조회를 컬럼(1=block/2=stage)·depth 필터 유무·매칭 모드(exact/contains)·
+# 출력 액션(count/block/line_first)의 조합으로 통합한 코어다.
+_shell_scan() {
+  local col=$1
+  local key=$2
   local depth=$3
   local pattern=$4
-  local expected=${5:-1}
+  local mode=$5
+  local action=$6
+  awk -F '\t' -v col="$col" -v key="$key" -v depth="$depth" -v pattern="$pattern" -v mode="$mode" -v action="$action" '
+    function depth_ok() { return (depth == "" || $4 == depth) }
+    function pattern_ok() { return (mode == "contains" ? index($5, pattern) : ($5 == pattern)) }
+    $col == key && depth_ok() && pattern_ok() {
+      if (action == "count") { count++; next }
+      if (action == "block") { print $1; next }
+      print $3
+      exit
+    }
+    END { if (action == "count") print count + 0 }
+  ' "$shell_contract_file"
+}
+
+_require_shell_count() {
+  local description=$1
+  local col=$2
+  local key=$3
+  local depth=$4
+  local pattern=$5
+  local mode=$6
+  local expected=${7:-1}
   local actual
-  actual=$(count_shell_stage_depth_exact "$stage" "$depth" "$pattern")
+  actual=$(_shell_scan "$col" "$key" "$depth" "$pattern" "$mode" count)
   if ((actual != expected)); then
     printf '%s: %s (expected=%s, actual=%s)\n' "$label" "$description" "$expected" "$actual" >&2
     exit 1
   fi
 }
 
-require_shell_block_depth_exact() {
-  local description=$1
-  local block=$2
-  local depth=$3
-  local pattern=$4
-  local expected=${5:-1}
-  local actual
-  actual=$(count_shell_block_depth_exact "$block" "$depth" "$pattern")
-  if ((actual != expected)); then
-    printf '%s: %s (expected=%s, actual=%s)\n' "$label" "$description" "$expected" "$actual" >&2
-    exit 1
-  fi
-}
+count_shell_stage_depth_exact() { _shell_scan 2 "$1" "$2" "$3" exact count; }
+count_shell_block_depth_exact() { _shell_scan 1 "$1" "$2" "$3" exact count; }
+count_shell_block_depth_contains() { _shell_scan 1 "$1" "$2" "$3" contains count; }
 
-require_shell_block_depth_contains() {
-  local description=$1
-  local block=$2
-  local depth=$3
-  local pattern=$4
-  local expected=${5:-1}
-  local actual
-  actual=$(count_shell_block_depth_contains "$block" "$depth" "$pattern")
-  if ((actual != expected)); then
-    printf '%s: %s (expected=%s, actual=%s)\n' "$label" "$description" "$expected" "$actual" >&2
-    exit 1
-  fi
-}
+require_shell_stage_depth_exact() { _require_shell_count "$1" 2 "$2" "$3" "$4" exact "${5:-1}"; }
+require_shell_block_depth_exact() { _require_shell_count "$1" 1 "$2" "$3" "$4" exact "${5:-1}"; }
+require_shell_block_depth_contains() { _require_shell_count "$1" 1 "$2" "$3" "$4" contains "${5:-1}"; }
 
-shell_block_of_stage_depth_exact() {
-  local stage=$1
-  local depth=$2
-  local pattern=$3
-  awk -F '\t' -v stage="$stage" -v depth="$depth" -v pattern="$pattern" '
-    $2 == stage && $4 == depth && $5 == pattern { print $1 }
-  ' "$shell_contract_file"
-}
-
-line_of_shell_stage_depth_exact() {
-  local stage=$1
-  local depth=$2
-  local pattern=$3
-  awk -F '\t' -v stage="$stage" -v depth="$depth" -v pattern="$pattern" '
-    $2 == stage && $4 == depth && $5 == pattern { print $3; exit }
-  ' "$shell_contract_file"
-}
-
-line_of_shell_stage_exact() {
-  local stage=$1
-  local pattern=$2
-  awk -F '\t' -v stage="$stage" -v pattern="$pattern" '
-    $2 == stage && $5 == pattern { print $3; exit }
-  ' "$shell_contract_file"
-}
-
-line_of_shell_block_depth_exact() {
-  local block=$1
-  local depth=$2
-  local pattern=$3
-  awk -F '\t' -v block="$block" -v depth="$depth" -v pattern="$pattern" '
-    $1 == block && $4 == depth && $5 == pattern { print $3; exit }
-  ' "$shell_contract_file"
-}
+shell_block_of_stage_depth_exact() { _shell_scan 2 "$1" "$2" "$3" exact block; }
+line_of_shell_stage_depth_exact() { _shell_scan 2 "$1" "$2" "$3" exact line_first; }
+line_of_shell_stage_exact() { _shell_scan 2 "$1" "" "$2" exact line_first; }
+line_of_shell_block_depth_exact() { _shell_scan 1 "$1" "$2" "$3" exact line_first; }
 
 require_status_smoke_contract() {
   local stage='서비스 교체 및 스모크 확인'
