@@ -24,6 +24,7 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const repository = new SubmissionFilesRepository(prisma);
 const NOW = new Date('2026-07-31T00:00:00.000Z');
+const PENDING_EXPIRES_AT = new Date('2026-08-01T00:00:00.000Z');
 const FUTURE_EXPIRES_AT = new Date('2027-01-01T00:00:00.000Z');
 const PAST_EXPIRES_AT = new Date('2026-01-01T00:00:00.000Z');
 const PROGRAM_ID = seedId('milestones', 'program');
@@ -186,7 +187,7 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
           originalFileName: 'pending.pdf',
           sizeBytes: 2048,
           lifecycle: SubmissionFileLifecycle.PENDING,
-          expiresAt: FUTURE_EXPIRES_AT,
+          pendingExpiresAt: PENDING_EXPIRES_AT,
         },
         {
           ...BASE_FILE,
