@@ -1075,3 +1075,18 @@ model CollectionSyncCursor {
 
   @@id([appId, organizationLogin])
 }
+
+/// todo 10 sync orchestration의 epoch-fenced 상호배제 lease. `CanonicalCollectionLease`와 같은
+/// 패턴(epoch 증가 + expiresAt fencing)을 쓰되, 별도 run 후보 테이블 없이 lease 자체가 "진행 중인
+/// run"을 나타낸다 — 진행 bookkeeping인 `CollectionSyncCursor`와는 별개 관심사로 분리한다(ADR-006).
+model CollectionSyncLease {
+  appId             BigInt
+  organizationLogin String
+  epoch             BigInt   @default(1)
+  ownerId           String
+  runId             String
+  expiresAt         DateTime
+  updatedAt         DateTime @updatedAt
+
+  @@id([appId, organizationLogin])
+}
