@@ -56,14 +56,16 @@ export class ProgramActivityService {
         }
       >();
       for (const generation of generations) {
+        const finishedAt = generation.activeGeneration?.finishedAt;
+        if (!finishedAt) continue;
         for (const repository of generation.activeGeneration?.repositories ??
           []) {
           const current = canonicalByRepository.get(
             repository.githubRepositoryId,
           );
-          if (!current || current.dataAsOf < generation.updatedAt) {
+          if (!current || current.dataAsOf < finishedAt) {
             canonicalByRepository.set(repository.githubRepositoryId, {
-              dataAsOf: generation.updatedAt,
+              dataAsOf: finishedAt,
               commits: repository.commits,
               pullRequests: repository.pullRequests,
               releases: repository.releases,
@@ -137,12 +139,19 @@ export class ProgramActivityService {
         (typeof generations)[number]
       >();
       for (const generation of generations) {
+        const finishedAt = generation.activeGeneration?.finishedAt;
+        if (!finishedAt) continue;
         for (const repository of generation.activeGeneration?.repositories ??
           []) {
           const current = canonicalByRepository.get(
             repository.githubRepositoryId,
           );
-          if (!current || current.updatedAt < generation.updatedAt) {
+          const currentFinishedAt = current?.activeGeneration?.finishedAt;
+          if (
+            !current ||
+            !currentFinishedAt ||
+            currentFinishedAt < finishedAt
+          ) {
             canonicalByRepository.set(
               repository.githubRepositoryId,
               generation,
@@ -207,10 +216,11 @@ export class ProgramActivityService {
           : left.year - right.year,
       );
       const dataAsOf = [...canonicalByRepository.values()].reduce<Date | null>(
-        (latest, generation) =>
-          latest && latest > generation.updatedAt
-            ? latest
-            : generation.updatedAt,
+        (latest, generation) => {
+          const finishedAt = generation.activeGeneration?.finishedAt;
+          if (!finishedAt) return latest;
+          return latest && latest > finishedAt ? latest : finishedAt;
+        },
         null,
       );
 

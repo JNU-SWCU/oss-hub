@@ -33,10 +33,14 @@ function activeGeneration(
     readonly pullRequests: readonly { readonly createdAt: Date }[];
     readonly releases: readonly { readonly publishedAt: Date }[];
   }[],
+  finishedAt: string | null = updatedAt,
 ) {
   return {
     updatedAt: new Date(updatedAt),
-    activeGeneration: { repositories },
+    activeGeneration: {
+      finishedAt: finishedAt === null ? null : new Date(finishedAt),
+      repositories,
+    },
   };
 }
 
@@ -107,9 +111,9 @@ describe('ProgramActivityService canonical activity', () => {
         },
       },
       select: {
-        updatedAt: true,
         activeGeneration: {
           select: {
+            finishedAt: true,
             repositories: {
               where: { githubRepositoryId: { in: [101n] } },
               select: {
@@ -166,6 +170,76 @@ describe('ProgramActivityService canonical activity', () => {
         total: 1,
       },
     ]);
+  });
+
+  it('uses the active generation completion time when organization state metadata changes later', async () => {
+    const repository = {
+      findStudentActivityApplications: jest
+        .fn()
+        .mockResolvedValue([application]),
+      findCanonicalRepositoryActivity: jest.fn().mockResolvedValue([
+        activeGeneration(
+          '2026-08-03T00:00:00.000Z',
+          [
+            {
+              githubRepositoryId: 101n,
+              commits: [],
+              pullRequests: [],
+              releases: [],
+            },
+          ],
+          '2026-08-01T00:00:00.000Z',
+        ),
+      ]),
+    } as unknown as ProgramsRepository;
+
+    const result = await new ProgramActivityService(
+      repository,
+    ).activityTimeline(student, 'MONTH');
+
+    expect(result.dataAsOf).toBe('2026-08-01T00:00:00.000Z');
+  });
+
+  it('fails closed when the active generation has no completion time', async () => {
+    const repository = {
+      findStudentActivityApplications: jest
+        .fn()
+        .mockResolvedValue([application]),
+      findCanonicalRepositoryActivity: jest.fn().mockResolvedValue([
+        activeGeneration(
+          '2026-08-03T00:00:00.000Z',
+          [
+            {
+              githubRepositoryId: 101n,
+              commits: [{ committedAt: new Date('2026-08-01T00:00:00.000Z') }],
+              pullRequests: [],
+              releases: [],
+            },
+          ],
+          null,
+        ),
+      ]),
+    } as unknown as ProgramsRepository;
+
+    const result = await new ProgramActivityService(
+      repository,
+    ).activityTimeline(student, 'MONTH');
+
+    expect(result).toEqual({
+      dataAsOf: null,
+      programs: [
+        {
+          applicationMode: 'PERSONAL',
+          programId: 'program-1',
+          programName: 'Capstone 2026',
+          year: 2026,
+        },
+      ],
+      series: {
+        granularity: 'MONTH',
+        points: [],
+      },
+    });
   });
 
   it.each([

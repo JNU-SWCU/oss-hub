@@ -13,6 +13,7 @@ function repositoryActivity(updatedAt: string) {
   return {
     updatedAt: new Date(updatedAt),
     activeGeneration: {
+      finishedAt: new Date(updatedAt),
       repositories: [
         {
           githubRepositoryId: 101n,

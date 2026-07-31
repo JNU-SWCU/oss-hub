@@ -10,6 +10,15 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import type { ActivityPoint } from '../types';
 
 const series = [
@@ -25,30 +34,7 @@ export function ActivityChart({
   points: readonly ActivityPoint[];
 }) {
   return (
-    <>
-      <table className="sr-only">
-        <caption>기간별 활동량</caption>
-        <thead>
-          <tr>
-            <th scope="col">기간</th>
-            <th scope="col">커밋</th>
-            <th scope="col">Pull Request</th>
-            <th scope="col">Release</th>
-            <th scope="col">합계</th>
-          </tr>
-        </thead>
-        <tbody>
-          {points.map((point) => (
-            <tr key={point.period}>
-              <th scope="row">{point.period}</th>
-              <td>{point.commitCount}</td>
-              <td>{point.prCount}</td>
-              <td>{point.releaseCount}</td>
-              <td>{point.total}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="flex min-w-0 flex-col gap-6">
       <div aria-hidden="true" className="h-80 min-h-80 w-full overflow-hidden">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
@@ -92,6 +78,45 @@ export function ActivityChart({
           </LineChart>
         </ResponsiveContainer>
       </div>
-    </>
+      <div className="rounded-md border border-border">
+        <Table>
+          <TableCaption className="sr-only">기간별 활동량</TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">기간</TableHead>
+              <TableHead scope="col" className="text-right">
+                커밋
+              </TableHead>
+              <TableHead scope="col" className="text-right">
+                Pull Request
+              </TableHead>
+              <TableHead scope="col" className="text-right">
+                Release
+              </TableHead>
+              <TableHead scope="col" className="text-right">
+                합계
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {points.map((point) => (
+              <TableRow key={point.period}>
+                <TableHead scope="row">{point.period}</TableHead>
+                <TableCell className="text-right">
+                  {point.commitCount}
+                </TableCell>
+                <TableCell className="text-right">{point.prCount}</TableCell>
+                <TableCell className="text-right">
+                  {point.releaseCount}
+                </TableCell>
+                <TableCell className="text-right font-medium">
+                  {point.total}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
   );
 }

@@ -110,6 +110,36 @@ describe('activity timeline', () => {
     expect(html).toContain('캡스톤 2026');
   });
 
+  it('수집 전 상태와 수집 후 활동 없음 상태를 구분한다', () => {
+    const beforeCollection = renderToStaticMarkup(
+      <ActivityTimelineView
+        data={{
+          ...timeline,
+          dataAsOf: null,
+          series: { ...timeline.series, points: [] },
+        }}
+        granularity="MONTH"
+        status="success"
+        onGranularityChange={() => undefined}
+        onRetry={() => undefined}
+      />,
+    );
+    const noActivity = renderToStaticMarkup(
+      <ActivityTimelineView
+        data={{ ...timeline, series: { ...timeline.series, points: [] } }}
+        granularity="MONTH"
+        status="success"
+        onGranularityChange={() => undefined}
+        onRetry={() => undefined}
+      />,
+    );
+
+    expect(beforeCollection).toContain(
+      '활동 데이터를 아직 수집하지 않았습니다',
+    );
+    expect(noActivity).toContain('아직 활동 기록이 없습니다');
+  });
+
   it('오류 상태에 alert와 재시도 명령을 표시한다', () => {
     const html = renderToStaticMarkup(
       <ActivityTimelineView
@@ -213,18 +243,17 @@ describe('activity timeline', () => {
     );
   });
 
-  it('차트 데이터를 스크린 리더용 표로도 제공하고 시각 차트는 숨긴다', () => {
+  it('차트 데이터를 화면에 보이는 표로도 제공하고 시각 차트는 스크린 리더에서 숨긴다', () => {
     const html = renderToStaticMarkup(
       <ActivityChart points={timeline.series.points} />,
     );
 
-    expect(html).toContain('<table class="sr-only">');
-    expect(html).toContain(
-      '<th scope="col">기간</th><th scope="col">커밋</th><th scope="col">Pull Request</th><th scope="col">Release</th><th scope="col">합계</th>',
-    );
-    expect(html).toContain(
-      '<th scope="row">2026-01</th><td>12</td><td>3</td><td>1</td><td>16</td>',
-    );
+    expect(html).toContain('<table');
+    expect(html).not.toContain('<table class="sr-only">');
+    expect(html).toContain('scope="col">기간</th>');
+    expect(html).toContain('scope="col">커밋</th>');
+    expect(html).toContain('scope="row">2026-01</th>');
+    expect(html).toContain('text-right">12</td>');
     expect(html).toContain(
       '<div aria-hidden="true" class="h-80 min-h-80 w-full overflow-hidden">',
     );

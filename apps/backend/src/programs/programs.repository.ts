@@ -192,9 +192,9 @@ export class ProgramsRepository {
         },
       },
       select: {
-        updatedAt: true,
         activeGeneration: {
           select: {
+            finishedAt: true,
             repositories: {
               where: { githubRepositoryId: { in: [...repositoryIds] } },
               select: {

@@ -60,6 +60,7 @@ beforeAll(async () => {
             {
               updatedAt: new Date('2026-07-04T00:00:00.000Z'),
               activeGeneration: {
+                finishedAt: new Date('2026-07-04T00:00:00.000Z'),
                 repositories: [
                   {
                     githubRepositoryId: 101n,
