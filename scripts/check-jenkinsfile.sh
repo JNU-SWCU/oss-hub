@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016
 set -euo pipefail
 
 usage() {
@@ -28,8 +29,10 @@ fi
 label="Jenkinsfile contract"
 
 active_jenkinsfile=$(mktemp "${TMPDIR:-/tmp}/jenkinsfile-active.XXXXXX")
+active_numbered_file=$(mktemp "${TMPDIR:-/tmp}/jenkinsfile-active-numbered.XXXXXX")
 docker_scan_file=$(mktemp "${TMPDIR:-/tmp}/jenkinsfile-docker-scan.XXXXXX")
-trap 'rm -f "$active_jenkinsfile" "$docker_scan_file"' EXIT
+shell_contract_file=$(mktemp "${TMPDIR:-/tmp}/jenkinsfile-shell-contract.XXXXXX")
+trap 'rm -f "$active_jenkinsfile" "$active_numbered_file" "$docker_scan_file" "$shell_contract_file"' EXIT
 
 # 주석에 계약 문자열을 남겨 검사를 우회하지 못하도록 실행 가능한 줄만 검사한다.
 awk '
@@ -48,6 +51,211 @@ awk '
     print
   }
 ' "$jenkinsfile" >"$active_jenkinsfile"
+
+awk '
+  in_block {
+    if (/\*\//) in_block=0
+    print ""
+    next
+  }
+  /^[[:space:]]*\/\*/ {
+    if (!/\*\//) in_block=1
+    print ""
+    next
+  }
+  /^[[:space:]]*(\/\/|#)/ {
+    print ""
+    next
+  }
+  {
+    sub(/[[:space:]]+\/\/.*/, "")
+    sub(/[[:space:]]+#.*/, "")
+    print
+  }
+' "$jenkinsfile" >"$active_numbered_file"
+
+# sh 블록을 논리 명령으로 추출하고 제어 구조 깊이를 함께 기록한다.
+if ! python3 - "$jenkinsfile" >"$shell_contract_file" <<'PY'; then
+from pathlib import Path
+import re
+import sys
+
+
+def strip_shell_comment(line: str) -> str:
+    result: list[str] = []
+    single_quoted = False
+    double_quoted = False
+    escaped = False
+    for index, char in enumerate(line):
+        if escaped:
+            result.append(char)
+            escaped = False
+            continue
+        if char == "\\" and not single_quoted:
+            result.append(char)
+            escaped = True
+            continue
+        if char == "'" and not double_quoted:
+            single_quoted = not single_quoted
+            result.append(char)
+            continue
+        if char == '"' and not single_quoted:
+            double_quoted = not double_quoted
+            result.append(char)
+            continue
+        if char == "#" and not single_quoted and not double_quoted:
+            previous = line[index - 1] if index > 0 else ""
+            if index == 0 or previous.isspace() or previous in ";|&()":
+                break
+        result.append(char)
+    return "".join(result).strip()
+
+
+def is_dead_guard(command: str) -> bool:
+    patterns = (
+        r"^if\s+false\s*;?\s*then(?:\s|$)",
+        r"^if\s+\[\s*1\s+-eq\s+0\s*\]\s*;?\s*then(?:\s|$)",
+        r"^if\s+test\s+1\s+-eq\s+0\s*;?\s*then(?:\s|$)",
+    )
+    return any(re.search(pattern, command) for pattern in patterns)
+
+
+def logical_commands(body: list[tuple[int, str]]) -> list[tuple[int, str]]:
+    commands: list[tuple[int, str]] = []
+    pending = ""
+    pending_line = 0
+    heredoc_delimiter = ""
+    for line_number, raw_line in body:
+        if heredoc_delimiter:
+            if raw_line.strip() == heredoc_delimiter:
+                heredoc_delimiter = ""
+            continue
+
+        command = strip_shell_comment(raw_line)
+        if not command:
+            continue
+
+        heredoc = re.match(r"^:\s*<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1\s*$", command)
+        if heredoc:
+            print(
+                f"dead heredoc guard at Jenkinsfile line {line_number}",
+                file=sys.stderr,
+            )
+            raise SystemExit(1)
+
+        if pending:
+            command = f"{pending} {command}"
+            line_number = pending_line
+        if command.endswith("\\"):
+            pending = command[:-1].rstrip()
+            pending_line = line_number
+            continue
+        commands.append((line_number, command))
+        pending = ""
+        pending_line = 0
+
+    if pending:
+        print(
+            f"unterminated shell continuation at Jenkinsfile line {pending_line}",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+    return commands
+
+
+def emit_block(
+    block_id: int,
+    stage: str,
+    body: list[tuple[int, str]],
+) -> None:
+    stack: list[str] = []
+    for line_number, command in logical_commands(body):
+        if is_dead_guard(command):
+            print(
+                f"obviously dead shell guard at Jenkinsfile line {line_number}",
+                file=sys.stderr,
+            )
+            raise SystemExit(1)
+
+        if re.match(r"^fi(?:\s|;|$)", command):
+            if stack and stack[-1] == "if":
+                stack.pop()
+        elif re.match(r"^esac(?:\s|;|$)", command):
+            if stack and stack[-1] == "case":
+                stack.pop()
+        elif re.match(r"^done(?:\s|;|$)", command):
+            if stack and stack[-1] == "loop":
+                stack.pop()
+        elif re.match(r"^}(?:\s|;|$)", command):
+            if stack and stack[-1] == "function":
+                stack.pop()
+
+        print(f"{block_id}\t{stage}\t{line_number}\t{len(stack)}\t{command}")
+
+        if re.match(r"^if\b.*(?:;\s*)?then\s*$", command):
+            stack.append("if")
+        elif re.match(r"^case\b.*\bin\s*$", command):
+            stack.append("case")
+        elif re.match(r"^(?:while|until|for)\b.*(?:;\s*)?do\s*$", command):
+            stack.append("loop")
+        elif re.match(
+            r"^(?:function\s+)?[A-Za-z_][A-Za-z0-9_]*(?:\s*\(\s*\))?\s*\{\s*$",
+            command,
+        ):
+            stack.append("function")
+
+    if stack:
+        print(
+            f"unterminated shell control structure in block {block_id}",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+
+lines = Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
+stage = ""
+block_id = 0
+index = 0
+while index < len(lines):
+    line = lines[index]
+    stage_match = re.search(r"\bstage\('([^']+)'\)", line)
+    if stage_match:
+        stage = stage_match.group(1)
+
+    quote_index = line.find("'''")
+    if quote_index < 0:
+        index += 1
+        continue
+    prefix = line[:quote_index].rstrip()
+    if not (re.search(r"\bsh$", prefix) or re.search(r"\bscript\s*:$", prefix)):
+        index += 1
+        continue
+
+    block_id += 1
+    body: list[tuple[int, str]] = []
+    suffix = line[quote_index + 3 :]
+    if suffix:
+        body.append((index + 1, suffix))
+    index += 1
+    while index < len(lines):
+        closing_index = lines[index].find("'''")
+        if closing_index >= 0:
+            before_closing = lines[index][:closing_index]
+            if before_closing.strip():
+                body.append((index + 1, before_closing))
+            break
+        body.append((index + 1, lines[index]))
+        index += 1
+    else:
+        print(f"unterminated Jenkins sh block {block_id}", file=sys.stderr)
+        raise SystemExit(1)
+
+    emit_block(block_id, stage, body)
+    index += 1
+PY
+  printf '%s: sh 블록의 제어 구조를 안전하게 해석하지 못했습니다.\n' "$label" >&2
+  exit 1
+fi
 
 # shell에서 하나의 명령인 backslash-newline을 합쳐 우회된 build·volume 삭제도 검사한다.
 awk '
@@ -137,12 +345,336 @@ require_regex_absent() {
 
 line_of() {
   local pattern=$1
-  grep -nF "$pattern" "$active_jenkinsfile" | head -n 1 | cut -d: -f1
+  grep -nF "$pattern" "$active_numbered_file" | head -n 1 | cut -d: -f1
 }
 
 line_of_regex() {
   local pattern=$1
-  grep -nE "$pattern" "$active_jenkinsfile" | head -n 1 | cut -d: -f1
+  grep -nE "$pattern" "$active_numbered_file" | head -n 1 | cut -d: -f1
+}
+
+count_shell_stage_depth_exact() {
+  local stage=$1
+  local depth=$2
+  local pattern=$3
+  awk -F '\t' -v stage="$stage" -v depth="$depth" -v pattern="$pattern" '
+    $2 == stage && $4 == depth && $5 == pattern { count++ }
+    END { print count + 0 }
+  ' "$shell_contract_file"
+}
+
+count_shell_block_depth_exact() {
+  local block=$1
+  local depth=$2
+  local pattern=$3
+  awk -F '\t' -v block="$block" -v depth="$depth" -v pattern="$pattern" '
+    $1 == block && $4 == depth && $5 == pattern { count++ }
+    END { print count + 0 }
+  ' "$shell_contract_file"
+}
+
+count_shell_block_depth_contains() {
+  local block=$1
+  local depth=$2
+  local pattern=$3
+  awk -F '\t' -v block="$block" -v depth="$depth" -v pattern="$pattern" '
+    $1 == block && $4 == depth && index($5, pattern) { count++ }
+    END { print count + 0 }
+  ' "$shell_contract_file"
+}
+
+require_shell_stage_depth_exact() {
+  local description=$1
+  local stage=$2
+  local depth=$3
+  local pattern=$4
+  local expected=${5:-1}
+  local actual
+  actual=$(count_shell_stage_depth_exact "$stage" "$depth" "$pattern")
+  if ((actual != expected)); then
+    printf '%s: %s (expected=%s, actual=%s)\n' "$label" "$description" "$expected" "$actual" >&2
+    exit 1
+  fi
+}
+
+require_shell_block_depth_exact() {
+  local description=$1
+  local block=$2
+  local depth=$3
+  local pattern=$4
+  local expected=${5:-1}
+  local actual
+  actual=$(count_shell_block_depth_exact "$block" "$depth" "$pattern")
+  if ((actual != expected)); then
+    printf '%s: %s (expected=%s, actual=%s)\n' "$label" "$description" "$expected" "$actual" >&2
+    exit 1
+  fi
+}
+
+require_shell_block_depth_contains() {
+  local description=$1
+  local block=$2
+  local depth=$3
+  local pattern=$4
+  local expected=${5:-1}
+  local actual
+  actual=$(count_shell_block_depth_contains "$block" "$depth" "$pattern")
+  if ((actual != expected)); then
+    printf '%s: %s (expected=%s, actual=%s)\n' "$label" "$description" "$expected" "$actual" >&2
+    exit 1
+  fi
+}
+
+shell_block_of_stage_depth_exact() {
+  local stage=$1
+  local depth=$2
+  local pattern=$3
+  awk -F '\t' -v stage="$stage" -v depth="$depth" -v pattern="$pattern" '
+    $2 == stage && $4 == depth && $5 == pattern { print $1 }
+  ' "$shell_contract_file"
+}
+
+line_of_shell_stage_depth_exact() {
+  local stage=$1
+  local depth=$2
+  local pattern=$3
+  awk -F '\t' -v stage="$stage" -v depth="$depth" -v pattern="$pattern" '
+    $2 == stage && $4 == depth && $5 == pattern { print $3; exit }
+  ' "$shell_contract_file"
+}
+
+line_of_shell_stage_exact() {
+  local stage=$1
+  local pattern=$2
+  awk -F '\t' -v stage="$stage" -v pattern="$pattern" '
+    $2 == stage && $5 == pattern { print $3; exit }
+  ' "$shell_contract_file"
+}
+
+line_of_shell_block_depth_exact() {
+  local block=$1
+  local depth=$2
+  local pattern=$3
+  awk -F '\t' -v block="$block" -v depth="$depth" -v pattern="$pattern" '
+    $1 == block && $4 == depth && $5 == pattern { print $3; exit }
+  ' "$shell_contract_file"
+}
+
+require_status_smoke_contract() {
+  local stage='서비스 교체 및 스모크 확인'
+  local rollout_retry='--retry 5 --retry-connrefused'
+  local tls_resolve="--resolve '54.116.116.174:443:127.0.0.1'"
+  local helper_curl="actual=\"\$(curl -o /dev/null -w '%{http_code}' --silent --show-error --request \"\$method\" \"\$@\" \"\$url\")\""
+  local helper_mismatch='if [ "$actual" != "$expected" ]; then'
+  local helper_message='스모크 실패: method=%s url=%s expected=%s actual=%s'
+  local rollout_anchor="require_status 200 GET http://127.0.0.1:8081/ $rollout_retry"
+  local rollback_anchor='require_status 200 GET http://127.0.0.1:8081/'
+  local compose_up='docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait --wait-timeout 180'
+  local nginx_test='docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -t'
+  local nginx_reload='docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -s reload'
+  local rollout_block rollback_block command command_block block
+  local up_line test_line reload_line smoke_line
+  local -a rollout_commands=(
+    "$rollout_anchor"
+    "require_status 200 GET http://127.0.0.1:8081/api/v1/health $rollout_retry"
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files $rollout_retry"
+    "require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files $rollout_retry"
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files $rollout_retry"
+    "require_status 403 POST http://127.0.0.1:8081/api/v1/Submission-Files $rollout_retry"
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files/1 $rollout_retry"
+    "require_status 200 GET https://54.116.116.174/ $rollout_retry $tls_resolve"
+    "require_status 200 GET https://54.116.116.174/api/v1/health $rollout_retry $tls_resolve"
+    "require_status 403 GET https://54.116.116.174/api/v1/submission-files $rollout_retry $tls_resolve"
+    "require_status 403 POST https://54.116.116.174/api/v1/submission-files $rollout_retry $tls_resolve"
+    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files $rollout_retry $tls_resolve"
+    "require_status 403 POST https://54.116.116.174/api/v1/Submission-Files $rollout_retry $tls_resolve"
+    "require_status 403 GET https://54.116.116.174/api/v1/submission-files/1 $rollout_retry $tls_resolve"
+  )
+  local -a rollback_commands=(
+    "$rollback_anchor"
+    'require_status 200 GET http://127.0.0.1:8081/api/v1/health'
+    'require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files'
+    'require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files'
+    'require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files'
+    'require_status 403 POST http://127.0.0.1:8081/api/v1/Submission-Files'
+    'require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files/1'
+    "require_status 200 GET https://54.116.116.174/ $tls_resolve"
+    "require_status 200 GET https://54.116.116.174/api/v1/health $tls_resolve"
+    "require_status 403 GET https://54.116.116.174/api/v1/submission-files $tls_resolve"
+    "require_status 403 POST https://54.116.116.174/api/v1/submission-files $tls_resolve"
+    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files $tls_resolve"
+    "require_status 403 POST https://54.116.116.174/api/v1/Submission-Files $tls_resolve"
+    "require_status 403 GET https://54.116.116.174/api/v1/submission-files/1 $tls_resolve"
+  )
+
+  require_shell_stage_depth_exact 'rollout root smoke는 depth 0 exact HTTP 200 단언이어야 함' \
+    "$stage" 0 "$rollout_anchor"
+  require_shell_stage_depth_exact 'rollback root smoke는 depth 0 exact HTTP 200 단언이어야 함' \
+    "$stage" 0 "$rollback_anchor"
+  rollout_block=$(shell_block_of_stage_depth_exact "$stage" 0 "$rollout_anchor")
+  rollback_block=$(shell_block_of_stage_depth_exact "$stage" 0 "$rollback_anchor")
+  if [[ -z "$rollout_block" || -z "$rollback_block" || "$rollout_block" == "$rollback_block" ]]; then
+    printf '%s: rollout·rollback smoke sh 블록을 각각 식별해야 합니다.\n' "$label" >&2
+    exit 1
+  fi
+
+  for command in "${rollout_commands[@]}"; do
+    require_shell_stage_depth_exact 'rollout smoke 명령은 유일한 depth 0 단언이어야 함' \
+      "$stage" 0 "$command"
+    command_block=$(shell_block_of_stage_depth_exact "$stage" 0 "$command")
+    if [[ "$command_block" != "$rollout_block" ]]; then
+      printf '%s: rollout smoke 명령은 같은 sh 블록에 있어야 합니다.\n' "$label" >&2
+      exit 1
+    fi
+  done
+
+  for command in "${rollback_commands[@]}"; do
+    require_shell_stage_depth_exact 'rollback smoke 명령은 유일한 depth 0 단언이어야 함' \
+      "$stage" 0 "$command"
+    command_block=$(shell_block_of_stage_depth_exact "$stage" 0 "$command")
+    if [[ "$command_block" != "$rollback_block" ]]; then
+      printf '%s: rollback smoke 명령은 같은 sh 블록에 있어야 합니다.\n' "$label" >&2
+      exit 1
+    fi
+  done
+
+  for block in "$rollout_block" "$rollback_block"; do
+    require_shell_block_depth_exact 'require_status 함수는 smoke sh 블록 depth 0에 있어야 함' \
+      "$block" 0 'require_status() {'
+    require_shell_block_depth_exact 'require_status는 curl 상태 코드를 직접 읽어야 함' \
+      "$block" 1 "$helper_curl"
+    require_shell_block_depth_exact 'require_status는 expected와 actual 불일치를 검사해야 함' \
+      "$block" 1 "$helper_mismatch"
+    require_shell_block_depth_contains 'require_status 실패 진단은 method·url·expected·actual을 포함해야 함' \
+      "$block" 2 "$helper_message"
+    require_shell_block_depth_exact 'require_status 불일치는 nonzero로 전파해야 함' \
+      "$block" 2 'return 1'
+  done
+
+  require_shell_stage_depth_exact 'nginx 설정 검증은 rollout·rollback depth 0에 각각 한 번 있어야 함' \
+    "$stage" 0 "$nginx_test" 2
+  require_shell_stage_depth_exact 'nginx reload는 rollout·rollback depth 0에 각각 한 번 있어야 함' \
+    "$stage" 0 "$nginx_reload" 2
+  for block in "$rollout_block" "$rollback_block"; do
+    require_shell_block_depth_exact 'nginx 설정 검증은 해당 smoke sh 블록 depth 0에 있어야 함' \
+      "$block" 0 "$nginx_test"
+    require_shell_block_depth_exact 'nginx reload는 해당 smoke sh 블록 depth 0에 있어야 함' \
+      "$block" 0 "$nginx_reload"
+  done
+
+  up_line=$(line_of_shell_block_depth_exact "$rollout_block" 0 "$compose_up")
+  test_line=$(line_of_shell_block_depth_exact "$rollout_block" 0 "$nginx_test")
+  reload_line=$(line_of_shell_block_depth_exact "$rollout_block" 0 "$nginx_reload")
+  smoke_line=$(line_of_shell_block_depth_exact "$rollout_block" 0 "$rollout_anchor")
+  if [[ -z "$up_line" || -z "$test_line" || -z "$reload_line" || -z "$smoke_line" ]] ||
+     ! ((up_line < test_line && test_line < reload_line && reload_line < smoke_line)); then
+    printf '%s: rollout 순서는 up -> nginx -t -> nginx reload -> smoke여야 합니다.\n' "$label" >&2
+    exit 1
+  fi
+
+  up_line=$(line_of_shell_block_depth_exact "$rollback_block" 0 "$compose_up")
+  test_line=$(line_of_shell_block_depth_exact "$rollback_block" 0 "$nginx_test")
+  reload_line=$(line_of_shell_block_depth_exact "$rollback_block" 0 "$nginx_reload")
+  smoke_line=$(line_of_shell_block_depth_exact "$rollback_block" 0 "$rollback_anchor")
+  if [[ -z "$up_line" || -z "$test_line" || -z "$reload_line" || -z "$smoke_line" ]] ||
+     ! ((up_line < test_line && test_line < reload_line && reload_line < smoke_line)); then
+    printf '%s: rollback 순서는 up -> nginx -t -> nginx reload -> smoke여야 합니다.\n' "$label" >&2
+    exit 1
+  fi
+
+  if awk -F '\t' -v stage="$stage" '$2 == stage && index($5, "curl --fail") { found=1 } END { exit found ? 0 : 1 }' \
+    "$shell_contract_file"; then
+    printf '%s: rollout·rollback HTTP smoke에 curl --fail을 사용할 수 없습니다.\n' "$label" >&2
+    exit 1
+  fi
+}
+
+require_noop_nginx_drift_contract() {
+  local stage='no-op 실행 중 nginx 드리프트 검증'
+  local rollout_retry='--retry 5 --retry-connrefused'
+  local tls_resolve="--resolve '54.116.116.174:443:127.0.0.1'"
+  local helper_curl="actual=\"\$(curl -o /dev/null -w '%{http_code}' --silent --show-error --request \"\$method\" \"\$@\" \"\$url\")\""
+  local helper_mismatch='if [ "$actual" != "$expected" ]; then'
+  local helper_message='FAIL_CLOSED nginx_drift: 실행 중 nginx 설정이 저장소 계약과 다릅니다.'
+  local anchor="require_status 200 GET http://127.0.0.1:8081/ $rollout_retry"
+  local block command command_block stage_line when_line anchor_line
+  local -a commands=(
+    "$anchor"
+    "require_status 200 GET http://127.0.0.1:8081/api/v1/health $rollout_retry"
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files $rollout_retry"
+    "require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files $rollout_retry"
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files $rollout_retry"
+    "require_status 403 POST http://127.0.0.1:8081/api/v1/Submission-Files $rollout_retry"
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files/1 $rollout_retry"
+    "require_status 200 GET https://54.116.116.174/ $rollout_retry $tls_resolve"
+    "require_status 200 GET https://54.116.116.174/api/v1/health $rollout_retry $tls_resolve"
+    "require_status 403 GET https://54.116.116.174/api/v1/submission-files $rollout_retry $tls_resolve"
+    "require_status 403 POST https://54.116.116.174/api/v1/submission-files $rollout_retry $tls_resolve"
+    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files $rollout_retry $tls_resolve"
+    "require_status 403 POST https://54.116.116.174/api/v1/Submission-Files $rollout_retry $tls_resolve"
+    "require_status 403 GET https://54.116.116.174/api/v1/submission-files/1 $rollout_retry $tls_resolve"
+  )
+
+  require_exact 'no-op nginx 드리프트 검증 stage는 한 번이어야 함' \
+    "stage('no-op 실행 중 nginx 드리프트 검증')" 1
+  require_exact 'no-op nginx 드리프트 검증은 DEPLOY_NOOP=true에서만 실행해야 함' \
+    "expression { env.DEPLOY_NOOP == 'true' }" 1
+  require_shell_stage_depth_exact 'no-op root smoke는 depth 0 exact HTTP 200 단언이어야 함' \
+    "$stage" 0 "$anchor"
+  block=$(shell_block_of_stage_depth_exact "$stage" 0 "$anchor")
+
+  for command in "${commands[@]}"; do
+    require_shell_stage_depth_exact 'no-op smoke 명령은 유일한 depth 0 단언이어야 함' \
+      "$stage" 0 "$command"
+    command_block=$(shell_block_of_stage_depth_exact "$stage" 0 "$command")
+    if [[ "$command_block" != "$block" ]]; then
+      printf '%s: no-op smoke 명령은 같은 sh 블록에 있어야 합니다.\n' "$label" >&2
+      exit 1
+    fi
+  done
+
+  require_shell_block_depth_exact 'no-op require_status 함수는 sh 블록 depth 0에 있어야 함' \
+    "$block" 0 'require_status() {'
+  require_shell_block_depth_exact 'no-op require_status는 curl 상태 코드를 직접 읽어야 함' \
+    "$block" 1 "$helper_curl"
+  require_shell_block_depth_exact 'no-op require_status는 expected와 actual 불일치를 검사해야 함' \
+    "$block" 1 "$helper_mismatch"
+  require_shell_block_depth_contains 'no-op 실패 진단은 nginx drift 원인을 포함해야 함' \
+    "$block" 2 "$helper_message"
+  require_shell_block_depth_exact 'no-op require_status 불일치는 nonzero로 전파해야 함' \
+    "$block" 2 'return 1'
+
+  if awk -F '\t' -v stage="$stage" '
+    $2 == stage {
+      line=$5
+      if (line ~ /(^|[[:space:]])docker[[:space:]]+/ ||
+          line ~ /(^|[[:space:]])up[[:space:]]/ ||
+          line ~ /(^|[[:space:]])reload([[:space:]]|$)/ ||
+          line ~ /force-recreate/ ||
+          line ~ /(^|[[:space:]])pull([[:space:]]|$)/ ||
+          line ~ /image[[:space:]]+rm/ ||
+          line ~ /(^|[[:space:]])prune([[:space:]]|$)/) mutation=1
+    }
+    END { exit mutation ? 0 : 1 }
+  ' "$shell_contract_file"; then
+    printf '%s: no-op nginx 드리프트 검증은 HTTP 읽기 외 mutation을 실행할 수 없습니다.\n' "$label" >&2
+    exit 1
+  fi
+
+  if awk -F '\t' -v stage="$stage" '$2 == stage && index($5, "curl --fail") { found=1 } END { exit found ? 0 : 1 }' \
+    "$shell_contract_file"; then
+    printf '%s: no-op HTTP smoke에 curl --fail을 사용할 수 없습니다.\n' "$label" >&2
+    exit 1
+  fi
+
+  stage_line=$(line_of "stage('no-op 실행 중 nginx 드리프트 검증')")
+  when_line=$(line_of "expression { env.DEPLOY_NOOP == 'true' }")
+  anchor_line=$(line_of_shell_stage_depth_exact "$stage" 0 "$anchor")
+  if [[ -z "$stage_line" || -z "$when_line" || -z "$anchor_line" ]] ||
+     ! ((stage_line < when_line && when_line < anchor_line)); then
+    printf '%s: no-op nginx 드리프트 stage는 DEPLOY_NOOP=true 조건 뒤에 smoke를 실행해야 합니다.\n' "$label" >&2
+    exit 1
+  fi
 }
 
 require_common_executor_guards() {
@@ -152,29 +684,17 @@ require_common_executor_guards() {
 }
 
 require_common_smoke_and_build_guards() {
+  require_status_smoke_contract
+  require_noop_nginx_drift_contract
   require_exact '의존성 설치는 한 번이어야 함' 'pnpm install --frozen-lockfile' 1
   require_exact '재사용 workspace에서도 Prisma client를 명시 생성해야 함' 'pnpm --filter backend exec prisma generate' 1
   require_exact 'test는 한 번이어야 함' 'pnpm test' 1
   require_exact 'DB backup은 한 번이어야 함' 'pg_dump' 1
   require_exact 'migration은 한 번이어야 함' 'npx prisma migrate deploy' 1
   require_exact 'primary·rollback은 기존 이미지만 사용해야 함' 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait' 2
-  require_exact '내부 backend smoke는 primary·rollback에 있어야 함' 'http://127.0.0.1:8081/api/v1/health' 2
-  require_exact 'TLS backend smoke는 primary·rollback에 있어야 함' 'https://54.116.116.174/api/v1/health' 2
-  require_exact 'TLS smoke는 인증서의 IP SAN을 검증해야 함' "--resolve '54.116.116.174:443:127.0.0.1'" 4
   require_at_least '운영 환경은 Jenkins file credential로 주입해야 함' "credentialsId: 'oss-hub-production-env'" 1
 
-  local internal_frontend_smoke_count tls_frontend_smoke_count docker_build_count
-  internal_frontend_smoke_count=$(grep -Ec 'http://127\.0\.0\.1:8081/[[:space:]]*$' "$active_jenkinsfile" || true)
-  if ((internal_frontend_smoke_count != 2)); then
-    printf '%s: 내부 frontend smoke는 primary·rollback에 있어야 함 (expected=2, actual=%s)\n' "$label" "$internal_frontend_smoke_count" >&2
-    exit 1
-  fi
-
-  tls_frontend_smoke_count=$(grep -Ec 'https://54\.116\.116\.174/[[:space:]]*$' "$active_jenkinsfile" || true)
-  if ((tls_frontend_smoke_count != 2)); then
-    printf '%s: TLS frontend smoke는 primary·rollback에 있어야 함 (expected=2, actual=%s)\n' "$label" "$tls_frontend_smoke_count" >&2
-    exit 1
-  fi
+  local docker_build_count
 
   if grep -Fq "branch 'main'" "$active_jenkinsfile"; then
     printf '%s: main production branch 배포 guard를 둘 수 없음\n' "$label" >&2
@@ -220,6 +740,9 @@ check_v2() {
   require_absent 'DEPLOY_STATE_FILE은 없어야 함' 'DEPLOY_STATE_FILE'
   require_absent 'RELEASE_ACCEPT role=TECH_LEAD는 없어야 함' 'RELEASE_ACCEPT role=TECH_LEAD'
   require_absent 'RELEASE_OVERRIDE role=PM는 없어야 함' 'RELEASE_OVERRIDE role=PM'
+  require_absent 'Release 승인 marker는 없어야 함' 'RELEASE_ACCEPT'
+  require_absent 'Release 승인 댓글 scraping은 없어야 함' 'issues/199/comments'
+  require_absent 'PM 승인 actor 파싱은 없어야 함' "--arg actor 'GoBeromsu'"
   require_absent 'Tech Lead 승인 actor(Lumiere001)는 없어야 함' "--arg actor 'Lumiere001'"
   require_absent 'sort -V 버전 비교는 없어야 함' 'sort -V'
   require_absent 'sandbox 승인이 필요한 BigInteger 생성자는 없어야 함' 'new BigInteger'
@@ -239,11 +762,6 @@ check_v2() {
   require_exact 'main ancestry 검증은 한 번이어야 함' 'git merge-base --is-ancestor "$release_sha" origin/main' 1
   require_exact 'IMAGE_TAG는 RELEASE_TAG(tag)로 한 번만 할당해야 함' 'env.IMAGE_TAG = tag' 1
   require_exact 'RELEASE_SHA 바인딩은 한 번이어야 함' 'env.RELEASE_SHA = releaseSha' 1
-  require_exact 'Release 승인은 공개 #199 댓글에서 페이지별 조회해야 함' '/issues/199/comments?per_page=100&page=${page}' 1
-  require_exact 'Release 승인 댓글 pagination은 최대 20페이지여야 함' 'for page in $(seq 1 20); do' 1
-  require_exact 'Release 승인 댓글 pagination 완료를 확인해야 함' "if [ \"\$pagination_complete\" != 'true' ]; then" 1
-  require_exact 'PM 승인 actor는 GoBeromsu여야 함' "--arg actor 'GoBeromsu'" 1
-  require_exact 'PM 승인 형식은 tag와 RELEASE_SHA를 포함해야 함' 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${RELEASE_SHA}' 1
   require_exact 'exact RELEASE_SHA checkout은 한 번이어야 함' 'git checkout --detach "$RELEASE_SHA"' 1
 
   # no-op authority: running ps -q only; --all is classification
@@ -395,6 +913,25 @@ check_v2() {
     exit 1
   fi
 
+  local buildx_preflight_stage='Buildx 캐시 상한 사전 검증'
+  local buildx_preflight_command="if ! docker buildx prune --help 2>&1 | grep -F -- '--max-used-space' >/dev/null; then"
+  local buildx_preflight_block
+  require_exact 'Buildx 캐시 상한 사전 검증 stage는 한 번이어야 함' \
+    "stage('Buildx 캐시 상한 사전 검증')" 1
+  require_exact 'Buildx preflight 실패는 업그레이드 방법을 안내해야 함' \
+    'FAIL_CLOSED buildx_preflight: docker buildx prune가 --max-used-space를 지원하지 않습니다. Buildx를 업그레이드하십시오.' 1
+  require_shell_stage_depth_exact 'Buildx preflight는 depth 0에서 --max-used-space 지원을 확인해야 함' \
+    "$buildx_preflight_stage" 0 "$buildx_preflight_command"
+  buildx_preflight_block=$(shell_block_of_stage_depth_exact "$buildx_preflight_stage" 0 "$buildx_preflight_command")
+  require_shell_block_depth_exact 'Buildx preflight 실패는 nonzero로 중단해야 함' \
+    "$buildx_preflight_block" 1 'exit 1'
+  if awk -F '\t' -v stage="$buildx_preflight_stage" \
+    '$2 == stage && index($5, "docker buildx prune --force") { found=1 } END { exit found ? 0 : 1 }' \
+    "$shell_contract_file"; then
+    printf '%s: Buildx preflight에서는 destructive prune를 실행할 수 없습니다.\n' "$label" >&2
+    exit 1
+  fi
+
   # HTTPS FRONTEND_URL preflight: scheme + exactly-one assignment rejection (order-independent)
   require_at_least 'FRONTEND_URL 사전 검증이 있어야 함' 'FRONTEND_URL' 1
   require_regex_at_least 'FRONTEND_URL은 https:// scheme만 허용해야 함' 'https://\*' 1
@@ -481,6 +1018,25 @@ check_v2() {
 
   # success-only retention: N=120, app repos only, keep IMAGE_TAG+PREV_TAG, under BACKUP_DIR
   require_exact 'backup retention N=120이어야 함' "BACKUP_RETENTION_N = '120'" 1
+  require_exact 'BuildKit cache 상한은 10GB여야 함' "BUILD_CACHE_MAX_SPACE = '10GB'" 1
+  if ! awk '
+    /^[[:space:]]*environment[[:space:]]*\{[[:space:]]*$/ {
+      environment_blocks++
+      if (environment_blocks == 1) in_environment=1
+      next
+    }
+    in_environment && /^[[:space:]]*\}[[:space:]]*$/ {
+      in_environment=0
+      next
+    }
+    in_environment && /^[[:space:]]*BUILD_CACHE_MAX_SPACE[[:space:]]*=[[:space:]]*'\''10GB'\''[[:space:]]*$/ {
+      cache_constants++
+    }
+    END { exit (environment_blocks == 1 && cache_constants == 1) ? 0 : 1 }
+  ' "$active_numbered_file"; then
+    printf '%s: BUILD_CACHE_MAX_SPACE=10GB는 environment 블록 안에 있어야 합니다.\n' "$label" >&2
+    exit 1
+  fi
   require_at_least 'retention은 oss-hub-frontend app repo만 대상이어야 함' 'oss-hub-frontend' 1
   require_at_least 'retention은 oss-hub-backend app repo만 대상이어야 함' 'oss-hub-backend' 1
   require_regex_at_least 'retention은 현재 IMAGE_TAG를 보존해야 함' 'retention_keep_tags\+=\("\$\{IMAGE_TAG\}"\)' 1
@@ -488,6 +1044,10 @@ check_v2() {
   require_exact 'backup cleanup은 같은 production pruner를 호출해야 함' \
     'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"' 1
   require_regex_at_least 'success-only image 삭제가 있어야 함' 'docker[[:space:]]+image[[:space:]]+rm[[:space:]]+' 1
+  require_shell_stage_depth_exact 'BuildKit cache prune는 retention stage depth 0에 정확히 한 번 있어야 함' \
+    '성공 후 이미지·백업 보존 정리' 0 'docker buildx prune --force --max-used-space "$BUILD_CACHE_MAX_SPACE"'
+  require_shell_stage_depth_exact 'backup prune는 retention stage depth 0에 있어야 함' \
+    '성공 후 이미지·백업 보존 정리' 0 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"'
 
   # Docker image inventory must be status-checked into a file before iteration.
   # Reject unchecked process substitution / swallowed producer failure (empty → successful no-op).
@@ -513,57 +1073,80 @@ check_v2() {
   require_common_smoke_and_build_guards
   require_single_image_tag_assignment
 
-  local pm_approval_line checkout_line https_line rollback_stage_line rollback_input_line rollback_call_line
+  local environment_line stages_line build_cache_line checkout_line buildx_preflight_line https_line
+  local rollback_stage_line rollback_input_line rollback_call_line first_production_mutation_line
   local prisma_generate_line test_line
-  local backup_line frontend_build_line backend_build_line migration_line rollout_line retention_line
-  local image_rm_line backup_prune_line retention_stage_line
-  pm_approval_line=$(line_of 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${RELEASE_SHA}')
+  local backup_line frontend_build_line backend_build_line migration_line rollout_line noop_stage_line retention_line
+  local image_rm_line buildx_prune_line backup_prune_line retention_stage_line
+  environment_line=$(line_of 'environment {')
+  stages_line=$(line_of 'stages {')
+  build_cache_line=$(line_of "BUILD_CACHE_MAX_SPACE = '10GB'")
   checkout_line=$(line_of 'git checkout --detach "$RELEASE_SHA"')
+  buildx_preflight_line=$(line_of_shell_stage_depth_exact \
+    'Buildx 캐시 상한 사전 검증' 0 "if ! docker buildx prune --help 2>&1 | grep -F -- '--max-used-space' >/dev/null; then")
   https_line=$(line_of 'FRONTEND_URL')
   rollback_stage_line=$(line_of "stage('롤백 이미지 사전 검증')")
   rollback_input_line=$(line_of "PREV_BE_IMAGE_ID=\${env.PREV_BE_IMAGE_ID ?: ''}")
   rollback_call_line=$(line_of "sh 'bash scripts/jenkins/validate-rollback-images.sh'")
   prisma_generate_line=$(line_of 'pnpm --filter backend exec prisma generate')
   test_line=$(line_of 'pnpm test')
+  first_production_mutation_line=$(line_of_shell_stage_depth_exact \
+    'PostgreSQL 기동 및 배포 전 백업' 0 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d postgres --wait --wait-timeout 90')
   backup_line=$(line_of 'pg_dump')
   frontend_build_line=$(line_of_regex 'apps/frontend/Dockerfile')
   backend_build_line=$(line_of_regex 'apps/backend/Dockerfile')
   migration_line=$(line_of 'npx prisma migrate deploy')
   rollout_line=$(line_of 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait')
+  noop_stage_line=$(line_of "stage('no-op 실행 중 nginx 드리프트 검증')")
   retention_line=$(line_of "BACKUP_RETENTION_N = '120'")
   retention_stage_line=$(line_of "stage('성공 후 이미지·백업 보존 정리')")
-  image_rm_line=$(line_of_regex 'docker[[:space:]]+image[[:space:]]+rm[[:space:]]+')
-  backup_prune_line=$(line_of 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"')
+  image_rm_line=$(line_of_shell_stage_exact \
+    '성공 후 이미지·백업 보존 정리' 'docker image rm "${repo}:${tag}"')
+  buildx_prune_line=$(line_of_shell_stage_depth_exact \
+    '성공 후 이미지·백업 보존 정리' 0 'docker buildx prune --force --max-used-space "$BUILD_CACHE_MAX_SPACE"')
+  backup_prune_line=$(line_of_shell_stage_depth_exact \
+    '성공 후 이미지·백업 보존 정리' 0 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"')
 
-  if [[ -z "$pm_approval_line" || -z "$checkout_line" || -z "$https_line" || -z "$rollback_stage_line" ||
+  if [[ -z "$environment_line" || -z "$stages_line" || -z "$build_cache_line" ||
+         -z "$checkout_line" || -z "$buildx_preflight_line" || -z "$https_line" || -z "$rollback_stage_line" ||
          -z "$rollback_input_line" || -z "$rollback_call_line" || -z "$prisma_generate_line" || -z "$test_line" || -z "$backup_line" ||
-        -z "$frontend_build_line" || -z "$backend_build_line" || -z "$migration_line" ||
-        -z "$rollout_line" || -z "$retention_line" || -z "$retention_stage_line" ||
-        -z "$image_rm_line" || -z "$backup_prune_line" ]]; then
+         -z "$first_production_mutation_line" ||
+         -z "$frontend_build_line" || -z "$backend_build_line" || -z "$migration_line" ||
+         -z "$rollout_line" || -z "$noop_stage_line" || -z "$retention_line" || -z "$retention_stage_line" ||
+         -z "$image_rm_line" || -z "$buildx_prune_line" || -z "$backup_prune_line" ]]; then
     printf '%s: required stage markers missing for order check\n' "$label" >&2
     exit 1
   fi
 
-  if ! ((pm_approval_line < checkout_line &&
-         checkout_line < https_line &&
-          https_line < rollback_stage_line &&
-          rollback_stage_line <= rollback_input_line &&
-          rollback_input_line < rollback_call_line &&
-          rollback_call_line < prisma_generate_line &&
+  if ! ((environment_line < retention_line &&
+         environment_line < build_cache_line &&
+         retention_line < stages_line &&
+         build_cache_line < stages_line &&
+         checkout_line < buildx_preflight_line &&
+         buildx_preflight_line < https_line &&
+         buildx_preflight_line < first_production_mutation_line &&
+         https_line < rollback_stage_line &&
+         rollback_stage_line <= rollback_input_line &&
+         rollback_input_line < rollback_call_line &&
+         rollback_call_line < prisma_generate_line &&
          prisma_generate_line < test_line &&
+         test_line < first_production_mutation_line &&
+         first_production_mutation_line < backup_line &&
          test_line < backup_line &&
          backup_line < frontend_build_line &&
          frontend_build_line < backend_build_line &&
          backend_build_line < migration_line &&
          migration_line < rollout_line &&
-         rollout_line < retention_stage_line &&
+         rollout_line < noop_stage_line &&
+         noop_stage_line < retention_stage_line &&
          retention_stage_line < image_rm_line &&
-         retention_stage_line < backup_prune_line)); then
-    printf '%s: required order is approval/checkout -> HTTPS+rollback preflight(input/call) -> generate/test -> backup -> two image builds -> migration -> rollout/smoke -> success-only image/backup deletion\n' "$label" >&2
+         image_rm_line < buildx_prune_line &&
+         buildx_prune_line < backup_prune_line)); then
+    printf '%s: required order is environment cache constants -> checkout -> Buildx/HTTPS/rollback preflight -> generate/test -> production backup -> two image builds -> migration -> rollout/reload/smoke -> no-op drift smoke -> image/BuildKit/backup retention\n' "$label" >&2
     exit 1
   fi
 
-  echo "$label: ok (parameterless latest Release, RELEASE_TAG images, running-only no-op, fail-closed stopped/ambiguous, PM RELEASE_SHA approve, HTTPS+external rollback preflight, success-only retention)"
+  echo "$label: ok (parameterless latest Release, exact RELEASE_SHA checkout, RELEASE_TAG images, running-only no-op, nginx reload+drift smoke, fail-closed stopped/ambiguous, HTTPS+external rollback preflight, success-only retention)"
 }
 
 check_v2
