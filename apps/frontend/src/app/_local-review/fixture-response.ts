@@ -87,32 +87,29 @@ const STAFF_REQUEST_FIXTURES = [
   },
 ] as const satisfies readonly StaffRoleRequest[];
 
-const AUDIT_LOG_FIXTURES = [
-  {
-    id: 'fixture:audit:approved',
-    actor: 'synthetic-admin',
-    action: 'STAFF_ROLE_REQUEST_APPROVED',
+const AUDIT_LOG_ACTIONS = [
+  'STAFF_ROLE_REQUEST_APPROVED',
+  'STAFF_ROLE_REQUEST_REJECTED',
+  'STAFF_ROLE_REQUEST_REVOKED',
+] as const;
+
+// 감사 로그 기본 limit은 20이다. 로컬 리뷰에서 페이지 이동을 실제로 눌러 볼 수
+// 있도록 한 페이지를 넘기는 건수를 둔다 — 20건 이하면 이전·다음이 항상 비활성이라
+// 페이지네이션을 검토할 수 없다.
+const AUDIT_LOG_FIXTURE_COUNT = 23;
+
+const AUDIT_LOG_FIXTURES: readonly AuditLogRecord[] = Array.from(
+  { length: AUDIT_LOG_FIXTURE_COUNT },
+  (_, index) => ({
+    id: `fixture:audit:${index + 1}`,
+    actor: index % 4 === 0 ? 'synthetic-admin' : 'synthetic-reviewer',
+    action: AUDIT_LOG_ACTIONS[index % AUDIT_LOG_ACTIONS.length],
     targetType: 'ROLE_REQUEST',
-    targetId: 'fixture:staff-request:approved',
-    occurredAt: '2026-07-21T01:00:00.000Z',
-  },
-  {
-    id: 'fixture:audit:rejected',
-    actor: 'synthetic-admin',
-    action: 'STAFF_ROLE_REQUEST_REJECTED',
-    targetType: 'ROLE_REQUEST',
-    targetId: 'fixture:staff-request:rejected',
-    occurredAt: '2026-07-20T02:00:00.000Z',
-  },
-  {
-    id: 'fixture:audit:revoked',
-    actor: 'synthetic-admin',
-    action: 'STAFF_ROLE_REQUEST_REVOKED',
-    targetType: 'ROLE_REQUEST',
-    targetId: 'fixture:staff-request:revoked',
-    occurredAt: '2026-07-19T03:00:00.000Z',
-  },
-] as const satisfies readonly AuditLogRecord[];
+    targetId: `fixture:staff-request:${index + 1}`,
+    // 최신순 — 백엔드의 occurredAt desc 정렬과 같은 순서로 둔다.
+    occurredAt: `2026-07-${String(AUDIT_LOG_FIXTURE_COUNT - index).padStart(2, '0')}T01:00:00.000Z`,
+  }),
+);
 
 function json(status: number, body: unknown): LocalReviewResponsePlan {
   return { kind: 'json', status, body };
