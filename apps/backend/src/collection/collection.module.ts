@@ -9,6 +9,8 @@ import { CollectionAppTokenProvider } from './collection-app.token';
 import { CollectionCanonicalRepository } from './collection-canonical.repository';
 import { CollectionAdminController } from './collection-admin.controller';
 import { CollectionAdminGuard } from './collection-admin.guard';
+import { COLLECTION_READ_PORT } from './collection-read.port';
+import { CollectionReadService } from './collection-read.service';
 import {
   CollectionReconciliationRuntimeFactory,
   CollectionReconciliationRuntime,
@@ -28,6 +30,8 @@ import { CollectionSchedulerService } from './collection-scheduler.service';
     CollectionAdminGuard,
     CollectionSchedulerService,
     CollectionCanonicalRepository,
+    CollectionReadService,
+    { provide: COLLECTION_READ_PORT, useExisting: CollectionReadService },
     {
       provide: CollectionReconciliationService,
       inject: [CollectionCanonicalRepository, RUNTIME_CONFIG],
@@ -56,6 +60,6 @@ import { CollectionSchedulerService } from './collection-scheduler.service';
       },
     },
   ],
-  exports: [CollectionReconciliationService],
+  exports: [COLLECTION_READ_PORT],
 })
 export class CollectionModule {}
