@@ -60,6 +60,6 @@ import { CollectionSchedulerService } from './collection-scheduler.service';
       },
     },
   ],
-  exports: [CollectionReconciliationService, COLLECTION_READ_PORT],
+  exports: [COLLECTION_READ_PORT],
 })
 export class CollectionModule {}

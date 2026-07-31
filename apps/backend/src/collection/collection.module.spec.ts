@@ -42,7 +42,7 @@ describe('CollectionModule', () => {
       ]),
     );
     expect(controllers).toContain(CollectionAdminController);
-    expect(exports).toContain(CollectionReconciliationService);
+    expect(exports).not.toContain(CollectionReconciliationService);
   });
 
   it('exports the read-port token without exposing its concrete implementation', () => {
