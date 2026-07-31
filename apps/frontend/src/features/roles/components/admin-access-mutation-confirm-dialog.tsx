@@ -20,10 +20,10 @@ interface AdminAccessMutationConfirmDialogProps {
  * that need no extra input (approve/direct grant/revoke/deactivate/
  * reactivate) — `REJECT` alone needs a reason field and gets its own
  * `AdminAccessMutationRejectDialog`. Matches the plain fixed-overlay
- * `role="dialog"` pattern already established by
- * `staff-request-revoke-dialog.tsx` rather than introducing a new
- * primitive; five near-identical copies of that markup would just be
- * duplication, not the same "existing per-action dialog" pattern.
+ * `role="dialog"` pattern this feature has used since PR04G rather than
+ * introducing a new primitive; five near-identical copies of that markup
+ * would just be duplication, not the same "existing per-action dialog"
+ * pattern.
  */
 export function AdminAccessMutationConfirmDialog({
   action,
