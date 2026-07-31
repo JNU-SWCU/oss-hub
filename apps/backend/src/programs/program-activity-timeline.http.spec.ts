@@ -4,6 +4,10 @@ import { Role } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { SessionGuard } from '../auth/session.guard';
 import { OriginGuard } from '../auth/origin.guard';
+import {
+  COLLECTION_READ_PORT,
+  type CollectionReadPort,
+} from '../collection/collection-read.port';
 import { ProgramActivityService } from './program-activity.service';
 import { ProgramCreationService } from './program-creation.service';
 import {
@@ -56,35 +60,24 @@ beforeAll(async () => {
           findStudentActivityApplications: jest
             .fn()
             .mockResolvedValue(applications),
-          findCanonicalRepositoryActivity: jest.fn().mockResolvedValue([
+        },
+      },
+      {
+        provide: COLLECTION_READ_PORT,
+        useValue: {
+          findRepositoryActivity: jest.fn().mockResolvedValue([
             {
-              updatedAt: new Date('2026-07-04T00:00:00.000Z'),
-              activeGeneration: {
-                repositories: [
-                  {
-                    githubRepositoryId: 101n,
-                    commits: [
-                      {
-                        committedAt: new Date('2026-07-02T00:00:00.000Z'),
-                      },
-                      {
-                        committedAt: new Date('2026-07-02T01:00:00.000Z'),
-                      },
-                    ],
-                    pullRequests: [
-                      { createdAt: new Date('2026-07-03T00:00:00.000Z') },
-                    ],
-                    releases: [
-                      {
-                        publishedAt: new Date('2026-07-04T00:00:00.000Z'),
-                      },
-                    ],
-                  },
-                ],
-              },
+              repositoryId: 101n,
+              dataAsOf: new Date('2026-07-04T00:00:00.000Z'),
+              commitDates: [
+                new Date('2026-07-02T00:00:00.000Z'),
+                new Date('2026-07-02T01:00:00.000Z'),
+              ],
+              pullRequestDates: [new Date('2026-07-03T00:00:00.000Z')],
+              releaseDates: [new Date('2026-07-04T00:00:00.000Z')],
             },
           ]),
-        },
+        } satisfies Pick<CollectionReadPort, 'findRepositoryActivity'>,
       },
     ],
   })
