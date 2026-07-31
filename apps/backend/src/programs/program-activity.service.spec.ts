@@ -33,8 +33,8 @@ function collectionReadPort(
 ): CollectionReadPort {
   return {
     findRepositoryActivity,
-    findRankingActivity: async () => [],
-    getStatusSnapshot: async () => null,
+    findRankingActivity: () => Promise.resolve([]),
+    getStatusSnapshot: () => Promise.resolve(null),
   };
 }
 
@@ -63,7 +63,7 @@ describe('ProgramActivityService', () => {
     ]);
     const repository = {
       findProgramRepositories,
-      findStudentActivityApplications: async () => [],
+      findStudentActivityApplications: () => Promise.resolve([]),
     } satisfies ProgramActivityRepository;
 
     const result = await new ProgramActivityService(
@@ -101,7 +101,7 @@ describe('ProgramActivityService', () => {
     findRepositoryActivity.mockResolvedValue([]);
     const repository = {
       findProgramRepositories,
-      findStudentActivityApplications: async () => [],
+      findStudentActivityApplications: () => Promise.resolve([]),
     } satisfies ProgramActivityRepository;
 
     await expect(
@@ -135,7 +135,7 @@ describe('ProgramActivityService', () => {
     findRepositoryActivity.mockResolvedValue([]);
     const repository = {
       findProgramRepositories,
-      findStudentActivityApplications: async () => [],
+      findStudentActivityApplications: () => Promise.resolve([]),
     } satisfies ProgramActivityRepository;
     const leader: ProgramViewer = {
       githubId: 11n,

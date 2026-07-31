@@ -28,9 +28,9 @@ export function setupRankingService(): {
   >();
   findRankingActivity.mockResolvedValue([]);
   const collection = {
-    findRepositoryActivity: async () => [],
+    findRepositoryActivity: () => Promise.resolve([]),
     findRankingActivity,
-    getStatusSnapshot: async () => null,
+    getStatusSnapshot: () => Promise.resolve(null),
   } satisfies CollectionReadPort;
 
   return {
