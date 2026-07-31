@@ -70,6 +70,7 @@ jobs:
             jenkins:
               - 'Jenkinsfile'
               - 'deploy/jenkins/**'
+              - 'scripts/jenkins/**'
               - 'scripts/check-jenkinsfile.sh'
               - 'scripts/check-jenkinsfile.test.sh'
               - 'scripts/prune-deploy-backups.sh'
@@ -83,6 +84,7 @@ jobs:
               - '.github/workflows/**'
             shell_scripts:
               - 'scripts/*.sh'
+              - 'scripts/**/*.sh'
               - '.githooks/**'
               - '.github/workflows/**'
             node_scripts:
