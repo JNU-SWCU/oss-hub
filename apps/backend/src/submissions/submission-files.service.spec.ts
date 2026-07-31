@@ -1,4 +1,5 @@
 import { MilestoneSubmissionType } from '@prisma/client';
+import { Readable } from 'node:stream';
 import { DomainException } from '../common/error-code';
 import {
   SUBMISSION_FILE_STORAGE_ERROR_CODES,
@@ -8,6 +9,7 @@ import {
 } from './submission-file-storage.port';
 import {
   type CreatePendingSubmissionFileInput,
+  type DownloadableSubmissionFile,
   SubmissionFileRetentionUnavailableError,
   type SubmissionFilesRepository,
 } from './submission-files.repository';
@@ -49,6 +51,16 @@ function setup() {
           expiresAt: new Date('2028-02-28T09:30:00.000Z'),
         }),
       ),
+    findDownloadableFile: jest
+      .fn<Promise<DownloadableSubmissionFile | null>, [bigint, string, Date]>()
+      .mockResolvedValue({
+        id: 'file-opaque',
+        storageKey: 'submission-files/private-key',
+        originalFileName: 'report.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 14,
+        expiresAt: new Date('2028-02-28T09:30:00.000Z'),
+      }),
   };
   const storage = {
     put: jest
@@ -65,6 +77,9 @@ function setup() {
         }),
       ),
     delete: jest.fn().mockResolvedValue(undefined),
+    get: jest
+      .fn<ReturnType<SubmissionFileStoragePort['get']>, [string]>()
+      .mockResolvedValue(Readable.from(Buffer.from('private-file-body'))),
   };
   const service = new SubmissionFilesService(
     repository as unknown as SubmissionFilesRepository,
@@ -379,4 +394,69 @@ describe('SubmissionFilesService', () => {
       expect(storage.put).not.toHaveBeenCalled();
     },
   );
+
+  it('streams an authorized attached file with safe metadata', async () => {
+    const { service, repository, storage } = setup();
+
+    const download = await service.download(123n, 'file-opaque');
+
+    expect(repository.findDownloadableFile).toHaveBeenCalledWith(
+      123n,
+      'file-opaque',
+      NOW,
+    );
+    expect(storage.get).toHaveBeenCalledWith('submission-files/private-key');
+    expect(download).toMatchObject({
+      fileName: 'report.pdf',
+      contentType: 'application/pdf',
+      contentLength: 14,
+    });
+  });
+
+  it('returns indistinguishable not-found without reading storage when access is denied', async () => {
+    const { service, repository, storage } = setup();
+    repository.findDownloadableFile.mockResolvedValue(null);
+
+    await expectCode(
+      service.download(123n, 'file-opaque'),
+      SubmissionsErrorCode.SUBMISSION_FILE_NOT_FOUND,
+    );
+
+    expect(storage.get).not.toHaveBeenCalled();
+  });
+
+  it('maps download storage failures to the public unavailable error', async () => {
+    const { service, storage } = setup();
+    storage.get.mockRejectedValue(
+      new SubmissionFileStorageError(
+        SUBMISSION_FILE_STORAGE_ERROR_CODES.GET_FAILED,
+      ),
+    );
+
+    const error = await service
+      .download(123n, 'file-opaque')
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(DomainException);
+    expect((error as DomainException).errorCode.code).toBe(
+      SubmissionsErrorCode.FILE_STORAGE_UNAVAILABLE,
+    );
+    expect((error as Error).message).not.toContain('SUBMISSION_FILE_STORAGE');
+  });
+
+  it('falls back to octet-stream for unsafe stored content types', async () => {
+    const { service, repository } = setup();
+    repository.findDownloadableFile.mockResolvedValue({
+      id: 'file-opaque',
+      storageKey: 'submission-files/private-key',
+      originalFileName: 'report.html',
+      mimeType: 'text/html',
+      sizeBytes: 14,
+      expiresAt: new Date('2028-02-28T09:30:00.000Z'),
+    });
+
+    await expect(service.download(123n, 'file-opaque')).resolves.toMatchObject({
+      contentType: 'application/octet-stream',
+    });
+  });
 });

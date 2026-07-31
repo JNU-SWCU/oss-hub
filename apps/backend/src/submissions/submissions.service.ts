@@ -148,6 +148,7 @@ export class SubmissionsService {
   async checklist(
     githubId: bigint,
     programId: string,
+    now: Date = new Date(),
   ): Promise<SubmissionChecklistResponseDto> {
     const actor = await this.requireStudent(this.repository, githubId);
     const application = await this.repository.findChecklistApplication(
@@ -159,6 +160,7 @@ export class SubmissionsService {
     const milestones = await this.repository.listChecklistMilestones(
       programId,
       application.id,
+      now,
     );
     return {
       applicationId: application.id,
@@ -232,6 +234,12 @@ export class SubmissionsService {
             canResubmit:
               milestone.submission.status ===
               SubmissionStatus.CHANGES_REQUESTED,
+            file: milestone.submission.file
+              ? {
+                  ...milestone.submission.file,
+                  expiresAt: milestone.submission.file.expiresAt.toISOString(),
+                }
+              : null,
           }
         : null,
     };

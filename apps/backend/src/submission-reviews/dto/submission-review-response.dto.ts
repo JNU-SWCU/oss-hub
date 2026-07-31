@@ -3,6 +3,7 @@ import type {
   PublishBlockedReason,
   RepositoryPublishResult,
   SubmissionReviewContext,
+  SubmissionReviewFileRecord,
   SubmissionReviewRecord,
   SubmissionReviewResult,
   SubmissionRevisionRecord,
@@ -20,7 +21,13 @@ export interface SubmissionRevisionResponseDto {
   readonly content: unknown;
   readonly comment: string | null;
   readonly submittedAt: string;
+  readonly files: readonly SubmissionReviewFileResponseDto[];
   readonly review: SubmissionReviewResponseDto | null;
+}
+
+export interface SubmissionReviewFileResponseDto
+  extends Omit<SubmissionReviewFileRecord, 'expiresAt'> {
+  readonly expiresAt: string;
 }
 
 export interface SubmissionReviewContextResponseDto {
@@ -77,8 +84,15 @@ function toRevisionResponse(
   return {
     ...revision,
     submittedAt: revision.submittedAt.toISOString(),
+    files: revision.files.map(toFileResponse),
     review: revision.review ? toReviewResponse(revision.review) : null,
   };
+}
+
+function toFileResponse(
+  file: SubmissionReviewFileRecord,
+): SubmissionReviewFileResponseDto {
+  return { ...file, expiresAt: file.expiresAt.toISOString() };
 }
 
 function toReviewResponse(

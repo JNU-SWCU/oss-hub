@@ -1,6 +1,7 @@
 import {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
+  SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
@@ -12,6 +13,7 @@ import {
   APPLICATION_MODES,
   PUBLISH_BLOCKED_REASONS,
   type SubmissionReviewContext,
+  type SubmissionReviewFileRecord,
   type SubmissionRevisionRecord,
 } from './domain/submission-review';
 
@@ -49,6 +51,17 @@ export const REVIEW_CONTEXT_SELECT = {
       content: true,
       comment: true,
       submittedAt: true,
+      files: {
+        orderBy: { id: 'asc' as const },
+        select: {
+          id: true,
+          originalFileName: true,
+          mimeType: true,
+          sizeBytes: true,
+          expiresAt: true,
+          lifecycle: true,
+        },
+      },
       review: {
         select: {
           id: true,
@@ -71,6 +84,7 @@ export class SubmissionRevisionInvariantError extends Error {
 
 export function toReviewContext(
   row: ReviewContextRow,
+  now: Date = new Date(),
 ): SubmissionReviewContext {
   const current = row.revisions.find(
     (revision) => revision.revision === row.currentRevision,
@@ -109,10 +123,10 @@ export function toReviewContext(
         row.application.applicant.nickname,
     },
     milestone: row.milestone,
-    currentRevision: toRevisionRecord(current),
+    currentRevision: toRevisionRecord(current, now),
     history: row.revisions
       .filter((revision) => revision.revision !== row.currentRevision)
-      .map(toRevisionRecord),
+      .map((revision) => toRevisionRecord(revision, now)),
     repository: repository
       ? {
           id: repository.id,
@@ -151,12 +165,52 @@ export function requiredMilestonesApproved(
 
 function toRevisionRecord(
   revision: ReviewContextRow['revisions'][number],
+  now: Date,
 ): SubmissionRevisionRecord {
   return {
     number: revision.revision,
     content: revision.content,
     comment: revision.comment,
     submittedAt: revision.submittedAt,
+    files: revision.files.flatMap((file) => toFileRecord(file, now)),
     review: revision.review,
   };
+}
+
+function toFileRecord(
+  file: ReviewContextRow['revisions'][number]['files'][number],
+  now: Date,
+): readonly SubmissionReviewFileRecord[] {
+  if (
+    file.lifecycle !== SubmissionFileLifecycle.ATTACHED ||
+    file.expiresAt === null ||
+    file.expiresAt.getTime() <= now.getTime()
+  ) {
+    return [];
+  }
+  return [
+    {
+      fileId: file.id,
+      fileName: file.originalFileName,
+      contentType: safeContentType(file.originalFileName, file.mimeType),
+      size: file.sizeBytes,
+      expiresAt: file.expiresAt,
+      downloadUrl: `/api/v1/submission-files/${file.id}`,
+    },
+  ];
+}
+
+function safeContentType(fileName: string, mimeType: string): string {
+  const extension = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
+  const allowed: Readonly<Record<string, readonly string[]>> = {
+    '.pdf': ['application/pdf'],
+    '.hwp': ['application/x-hwp'],
+    '.jpg': ['image/jpeg'],
+    '.jpeg': ['image/jpeg'],
+    '.png': ['image/png'],
+    '.zip': ['application/zip'],
+  };
+  return allowed[extension]?.includes(mimeType.toLowerCase()) === true
+    ? mimeType.toLowerCase()
+    : 'application/octet-stream';
 }

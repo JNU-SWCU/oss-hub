@@ -1,4 +1,5 @@
 import {
+  SubmissionFileLifecycle,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
   ReviewDecision,
@@ -44,6 +45,7 @@ function contextRow(): ReviewContextInput {
         content: { url: 'https://example.com/revision-2' },
         comment: 'updated',
         submittedAt,
+        files: [],
         review: null,
       },
       {
@@ -51,6 +53,7 @@ function contextRow(): ReviewContextInput {
         content: { url: 'https://example.com/revision-1' },
         comment: null,
         submittedAt,
+        files: [],
         review: {
           id: 'review-1',
           decision: ReviewDecision.CHANGES_REQUESTED,
@@ -119,6 +122,61 @@ describe('toReviewContext', () => {
 
     // Then
     expect(context.application.displayName).toBe('Profile Applicant');
+  });
+
+  it('revision 첨부 파일은 ATTACHED·미만료 항목만 storageKey 없이 반환한다', () => {
+    // Given
+    const row = contextRow();
+    const [currentRevision] = row.revisions;
+    if (currentRevision === undefined) {
+      throw new Error('contextRow must include a current revision');
+    }
+    currentRevision.content = { type: 'FILE', fileId: 'file-current' };
+    currentRevision.files = [
+      {
+        id: 'file-current',
+        originalFileName: 'report.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 2048,
+        expiresAt: new Date('2028-01-01T00:00:00.000Z'),
+        lifecycle: SubmissionFileLifecycle.ATTACHED,
+      },
+      {
+        id: 'file-pending',
+        originalFileName: 'pending.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 4096,
+        expiresAt: new Date('2028-01-01T00:00:00.000Z'),
+        lifecycle: SubmissionFileLifecycle.PENDING,
+      },
+      {
+        id: 'file-expired',
+        originalFileName: 'expired.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 8192,
+        expiresAt: new Date('2020-01-01T00:00:00.000Z'),
+        lifecycle: SubmissionFileLifecycle.ATTACHED,
+      },
+    ];
+
+    // When
+    const context = toReviewContext(row, new Date('2026-07-31T00:00:00.000Z'));
+
+    // Then
+    const serialized = JSON.stringify(context);
+    expect(context.currentRevision.files).toEqual([
+      {
+        fileId: 'file-current',
+        fileName: 'report.pdf',
+        contentType: 'application/pdf',
+        size: 2048,
+        expiresAt: new Date('2028-01-01T00:00:00.000Z'),
+        downloadUrl: '/api/v1/submission-files/file-current',
+      },
+    ]);
+    expect(serialized).not.toContain('storageKey');
+    expect(serialized).not.toContain('file-pending');
+    expect(serialized).not.toContain('file-expired');
   });
 });
 

@@ -2,6 +2,7 @@ import {
   MilestoneSubmissionType,
   ReviewDecision,
   Role,
+  SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
@@ -34,9 +35,11 @@ const TEAM_MEMBER_ID = seedId('milestones', 'user', 'team-member');
 const REVIEWER_ID = seedId('milestones', 'user', 'reviewer');
 const OUTSIDER_USER_ID = 'synthetic-checklist-outsider-student';
 const OVERDUE_TEXT_MILESTONE_ID = 'synthetic-checklist-overdue-text-milestone';
+const FILE_METADATA_MILESTONE_ID = 'synthetic-checklist-file-metadata';
 const CLEANUP_MILESTONE_IDS = [
   ...MILESTONE_SCENARIOS['milestones-upcoming'],
   OVERDUE_TEXT_MILESTONE_ID,
+  FILE_METADATA_MILESTONE_ID,
 ];
 
 /** CHANGES_REQUESTED 상태를 테스트에서 직접 seed한다 — 최신 revision에 Review를 단다. */
@@ -102,12 +105,22 @@ describe('SubmissionsService checklist/resubmission integration', () => {
           dueAt: new Date('2020-01-01T00:00:00.000Z'),
           submissionType: MilestoneSubmissionType.TEXT,
         },
+        {
+          id: FILE_METADATA_MILESTONE_ID,
+          programId: MILESTONES_PROGRAM_ID,
+          name: '합성 파일 메타데이터 제출',
+          dueAt: new Date('2027-01-01T00:00:00.000Z'),
+          submissionType: MilestoneSubmissionType.FILE,
+        },
       ],
       skipDuplicates: true,
     });
   });
 
   afterEach(async () => {
+    await prisma.submissionFile.deleteMany({
+      where: { milestoneId: { in: CLEANUP_MILESTONE_IDS } },
+    });
     await prisma.review.deleteMany({
       where: {
         submissionRevision: {
@@ -125,7 +138,7 @@ describe('SubmissionsService checklist/resubmission integration', () => {
 
   afterAll(async () => {
     await prisma.milestone.deleteMany({
-      where: { id: OVERDUE_TEXT_MILESTONE_ID },
+      where: { id: { in: [OVERDUE_TEXT_MILESTONE_ID, FILE_METADATA_MILESTONE_ID] } },
     });
     await prisma.user.deleteMany({ where: { id: OUTSIDER_USER_ID } });
     await Promise.all([prisma.$disconnect(), seedPrisma.$disconnect()]);
@@ -230,6 +243,93 @@ describe('SubmissionsService checklist/resubmission integration', () => {
     await expect(checklist).rejects.toMatchObject({
       errorCode: { code: SubmissionsErrorCode.NOT_APPLICATION_MEMBER },
     });
+  });
+
+  it('체크리스트는 현재 revision의 ATTACHED·미만료 파일만 안전한 메타데이터로 노출한다', async () => {
+    // Given
+    await prisma.submission.create({
+      data: {
+        id: 'synthetic-checklist-file-submission',
+        milestoneId: FILE_METADATA_MILESTONE_ID,
+        applicationId: PERSONAL_APPLICATION_ID,
+        currentRevision: 1,
+        revisions: {
+          create: {
+            id: 'synthetic-checklist-file-revision',
+            revision: 1,
+            submissionType: MilestoneSubmissionType.FILE,
+            content: { type: 'FILE', fileId: 'synthetic-checklist-file-ok' },
+            submittedById: PERSONAL_USER_ID,
+          },
+        },
+      },
+    });
+    await prisma.submissionFile.createMany({
+      data: [
+        {
+          id: 'synthetic-checklist-file-ok',
+          uploaderId: PERSONAL_USER_ID,
+          applicationId: PERSONAL_APPLICATION_ID,
+          milestoneId: FILE_METADATA_MILESTONE_ID,
+          storageKey: 'submission-files/private-ok',
+          originalFileName: 'report.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 1024,
+          submissionRevisionId: 'synthetic-checklist-file-revision',
+          lifecycle: SubmissionFileLifecycle.ATTACHED,
+          expiresAt: new Date('2028-01-01T00:00:00.000Z'),
+        },
+        {
+          id: 'synthetic-checklist-file-pending',
+          uploaderId: PERSONAL_USER_ID,
+          applicationId: PERSONAL_APPLICATION_ID,
+          milestoneId: FILE_METADATA_MILESTONE_ID,
+          storageKey: 'submission-files/private-pending',
+          originalFileName: 'pending.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 2048,
+          submissionRevisionId: 'synthetic-checklist-file-revision',
+          lifecycle: SubmissionFileLifecycle.PENDING,
+          expiresAt: new Date('2028-01-01T00:00:00.000Z'),
+        },
+        {
+          id: 'synthetic-checklist-file-expired',
+          uploaderId: PERSONAL_USER_ID,
+          applicationId: PERSONAL_APPLICATION_ID,
+          milestoneId: FILE_METADATA_MILESTONE_ID,
+          storageKey: 'submission-files/private-expired',
+          originalFileName: 'expired.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 4096,
+          submissionRevisionId: 'synthetic-checklist-file-revision',
+          lifecycle: SubmissionFileLifecycle.ATTACHED,
+          expiresAt: new Date('2020-01-01T00:00:00.000Z'),
+        },
+      ],
+    });
+
+    // When
+    const checklist = await service.checklist(
+      seedGithubId(PERSONAL_USER_ID),
+      MILESTONES_PROGRAM_ID,
+      new Date('2026-07-31T00:00:00.000Z'),
+    );
+
+    // Then
+    const fileMilestone = checklist.items.find(
+      (item) => item.milestoneId === FILE_METADATA_MILESTONE_ID,
+    );
+    expect(fileMilestone?.submission?.file).toEqual({
+      fileId: 'synthetic-checklist-file-ok',
+      fileName: 'report.pdf',
+      contentType: 'application/pdf',
+      size: 1024,
+      expiresAt: '2028-01-01T00:00:00.000Z',
+      downloadUrl: '/api/v1/submission-files/synthetic-checklist-file-ok',
+    });
+    expect(JSON.stringify(fileMilestone)).not.toContain('storageKey');
+    expect(JSON.stringify(fileMilestone)).not.toContain('private-pending');
+    expect(JSON.stringify(fileMilestone)).not.toContain('private-expired');
   });
 
   it('마감 후에도 보완 재제출은 revision을 추가하고 이전 기록을 보존한다', async () => {

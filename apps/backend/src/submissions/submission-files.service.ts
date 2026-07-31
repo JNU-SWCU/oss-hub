@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { MilestoneSubmissionType } from '@prisma/client';
+import type { Readable } from 'node:stream';
 import { DomainException } from '../common/error-code';
 import {
   createSubmissionFileObjectKey,
@@ -11,6 +12,7 @@ import {
 } from './submission-file-storage.port';
 import {
   type CreatePendingSubmissionFileInput,
+  type DownloadableSubmissionFile,
   SubmissionFileRetentionUnavailableError,
   SubmissionFilesRepository,
 } from './submission-files.repository';
@@ -44,6 +46,13 @@ export interface UploadedSubmissionFileResponse {
   readonly contentType: string;
   readonly size: number;
   readonly expiresAt: string;
+}
+
+export interface DownloadedSubmissionFile {
+  readonly body: Readable;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly contentLength: number;
 }
 
 @Injectable()
@@ -146,6 +155,38 @@ export class SubmissionFilesService {
     };
   }
 
+  async download(
+    sessionGithubId: bigint,
+    fileId: string,
+    now: Date = new Date(),
+  ): Promise<DownloadedSubmissionFile> {
+    if (fileId.length === 0 || fileId !== fileId.trim()) {
+      throw this.error(SubmissionsErrorCode.SUBMISSION_FILE_NOT_FOUND);
+    }
+    const file = await this.repository.findDownloadableFile(
+      sessionGithubId,
+      fileId,
+      now,
+    );
+    if (file === null) {
+      throw this.error(SubmissionsErrorCode.SUBMISSION_FILE_NOT_FOUND);
+    }
+
+    let body: Readable;
+    try {
+      body = await this.storage.get(file.storageKey);
+    } catch {
+      throw this.error(SubmissionsErrorCode.FILE_STORAGE_UNAVAILABLE);
+    }
+
+    return {
+      body,
+      fileName: file.originalFileName,
+      contentType: safeContentType(file),
+      contentLength: file.sizeBytes,
+    };
+  }
+
   private requiredOpaqueId(value: unknown): string {
     if (
       typeof value !== 'string' ||
@@ -192,4 +233,10 @@ function isAllowedFile(fileName: string, mimeType: string): boolean {
   return (
     ALLOWED_FILE_TYPES[extension]?.includes(mimeType.toLowerCase()) ?? false
   );
+}
+
+function safeContentType(file: DownloadableSubmissionFile): string {
+  return isAllowedFile(file.originalFileName, file.mimeType)
+    ? file.mimeType.toLowerCase()
+    : 'application/octet-stream';
 }

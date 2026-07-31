@@ -10,11 +10,21 @@ export interface ReviewRecord {
   readonly reviewedAt: string;
 }
 
+export interface SubmissionRevisionFile {
+  readonly fileId: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly size: number;
+  readonly expiresAt: string;
+  readonly downloadUrl: string;
+}
+
 export interface SubmissionRevision {
   readonly number: number;
   readonly content: unknown;
   readonly comment: string | null;
   readonly submittedAt: string;
+  readonly files: readonly SubmissionRevisionFile[];
   readonly review: ReviewRecord | null;
 }
 

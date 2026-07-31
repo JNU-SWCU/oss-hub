@@ -43,6 +43,7 @@ const service = {
       content: { url: 'https://example.com/submission' },
       comment: null,
       submittedAt: new Date('2026-07-22T00:00:00.000Z'),
+      files: [],
       review: null,
     },
     history: [],
