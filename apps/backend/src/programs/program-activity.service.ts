@@ -1,6 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { DomainException } from '../common/error-code';
+import {
+  COLLECTION_READ_PORT,
+  type CollectionReadPort,
+  type CollectionRepositoryActivityDto,
+} from '../collection/collection-read.port';
 import type { ProgramActivityResponseDto } from './dto/program-detail.dto';
 import type {
   ActivityPointResponseDto,
@@ -14,6 +19,11 @@ import {
 } from './program-error-code.enum';
 import type { ProgramViewer } from './program-viewer.service';
 import { ProgramsRepository } from './programs.repository';
+
+export type ProgramActivityRepository = Pick<
+  ProgramsRepository,
+  'findProgramRepositories' | 'findStudentActivityApplications'
+>;
 
 function seoulPeriod(date: Date, granularity: ActivityGranularity): string {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -31,7 +41,12 @@ function seoulPeriod(date: Date, granularity: ActivityGranularity): string {
 
 @Injectable()
 export class ProgramActivityService {
-  constructor(private readonly repository: ProgramsRepository) {}
+  constructor(
+    @Inject(ProgramsRepository)
+    private readonly repository: ProgramActivityRepository,
+    @Inject(COLLECTION_READ_PORT)
+    private readonly collection: CollectionReadPort,
+  ) {}
 
   async activity(
     programId: string,
@@ -43,32 +58,19 @@ export class ProgramActivityService {
         programId,
         viewer.role === Role.STUDENT ? viewer.userId : null,
       );
-      const generations = await this.repository.findCanonicalRepositoryActivity(
-        repositories.map((repository) => repository.githubRepositoryId),
-      );
+      const activity = await this.collection.findRepositoryActivity({
+        repositoryIds: repositories.map(
+          (repository) => repository.githubRepositoryId,
+        ),
+      });
       const canonicalByRepository = new Map<
         bigint,
-        {
-          readonly dataAsOf: Date;
-          readonly commits: readonly { readonly committedAt: Date }[];
-          readonly pullRequests: readonly { readonly createdAt: Date }[];
-          readonly releases: readonly { readonly publishedAt: Date }[];
-        }
+        CollectionRepositoryActivityDto
       >();
-      for (const generation of generations) {
-        for (const repository of generation.activeGeneration?.repositories ??
-          []) {
-          const current = canonicalByRepository.get(
-            repository.githubRepositoryId,
-          );
-          if (!current || current.dataAsOf < generation.updatedAt) {
-            canonicalByRepository.set(repository.githubRepositoryId, {
-              dataAsOf: generation.updatedAt,
-              commits: repository.commits,
-              pullRequests: repository.pullRequests,
-              releases: repository.releases,
-            });
-          }
+      for (const record of activity) {
+        const current = canonicalByRepository.get(record.repositoryId);
+        if (!current || current.dataAsOf < record.dataAsOf) {
+          canonicalByRepository.set(record.repositoryId, record);
         }
       }
 
@@ -79,9 +81,9 @@ export class ProgramActivityService {
         let lastActivityAt: Date | null = null;
         if (canonical) {
           for (const date of [
-            ...canonical.commits.map((row) => row.committedAt),
-            ...canonical.pullRequests.map((row) => row.createdAt),
-            ...canonical.releases.map((row) => row.publishedAt),
+            ...canonical.commitDates,
+            ...canonical.pullRequestDates,
+            ...canonical.releaseDates,
           ]) {
             if (!lastActivityAt || lastActivityAt < date) {
               lastActivityAt = date;
@@ -94,9 +96,9 @@ export class ProgramActivityService {
             repository.application.team?.name ??
             repository.application.applicant.name ??
             repository.application.applicant.nickname,
-          commitCount: canonical?.commits.length ?? 0,
-          pullRequestCount: canonical?.pullRequests.length ?? 0,
-          releaseCount: canonical?.releases.length ?? 0,
+          commitCount: canonical?.commitDates.length ?? 0,
+          pullRequestCount: canonical?.pullRequestDates.length ?? 0,
+          releaseCount: canonical?.releaseDates.length ?? 0,
           lastActivityAt: lastActivityAt?.toISOString() ?? null,
           dataAsOf: canonical?.dataAsOf.toISOString() ?? null,
         };
@@ -128,26 +130,18 @@ export class ProgramActivityService {
           ),
         ),
       ];
-      const generations = await this.repository.findCanonicalRepositoryActivity(
+      const activity = await this.collection.findRepositoryActivity({
         repositoryIds,
-        viewer.githubId,
-      );
+        authorGithubId: viewer.githubId,
+      });
       const canonicalByRepository = new Map<
         bigint,
-        (typeof generations)[number]
+        CollectionRepositoryActivityDto
       >();
-      for (const generation of generations) {
-        for (const repository of generation.activeGeneration?.repositories ??
-          []) {
-          const current = canonicalByRepository.get(
-            repository.githubRepositoryId,
-          );
-          if (!current || current.updatedAt < generation.updatedAt) {
-            canonicalByRepository.set(
-              repository.githubRepositoryId,
-              generation,
-            );
-          }
+      for (const record of activity) {
+        const current = canonicalByRepository.get(record.repositoryId);
+        if (!current || current.dataAsOf < record.dataAsOf) {
+          canonicalByRepository.set(record.repositoryId, record);
         }
       }
 
@@ -170,18 +164,10 @@ export class ProgramActivityService {
           total: current.total + 1,
         });
       };
-      for (const [repositoryId, generation] of canonicalByRepository) {
-        const repository = generation.activeGeneration?.repositories.find(
-          (candidate) => candidate.githubRepositoryId === repositoryId,
-        );
-        if (!repository) continue;
-        repository.commits.forEach((row) =>
-          add(row.committedAt, 'commitCount'),
-        );
-        repository.pullRequests.forEach((row) => add(row.createdAt, 'prCount'));
-        repository.releases.forEach((row) =>
-          add(row.publishedAt, 'releaseCount'),
-        );
+      for (const repository of canonicalByRepository.values()) {
+        repository.commitDates.forEach((date) => add(date, 'commitCount'));
+        repository.pullRequestDates.forEach((date) => add(date, 'prCount'));
+        repository.releaseDates.forEach((date) => add(date, 'releaseCount'));
       }
 
       const programs = [
@@ -208,9 +194,9 @@ export class ProgramActivityService {
       );
       const dataAsOf = [...canonicalByRepository.values()].reduce<Date | null>(
         (latest, generation) =>
-          latest && latest > generation.updatedAt
+          latest && latest > generation.dataAsOf
             ? latest
-            : generation.updatedAt,
+            : generation.dataAsOf,
         null,
       );
 

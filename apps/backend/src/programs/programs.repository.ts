@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
-  CanonicalCollectionRunStatus,
   Prisma,
   ProgramCategory,
   RoleRequestStatus,
@@ -173,50 +172,6 @@ export class ProgramsRepository {
         team: repository.application.team,
       },
     }));
-  }
-
-  findCanonicalRepositoryActivity(
-    repositoryIds: readonly bigint[],
-    authorGithubId?: bigint,
-  ) {
-    if (repositoryIds.length === 0) return Promise.resolve([]);
-    const authorWhere = authorGithubId ? { authorGithubId } : undefined;
-    return this.prisma.canonicalOrganizationState.findMany({
-      where: {
-        activeGenerationId: { not: null },
-        activeGeneration: {
-          status: CanonicalCollectionRunStatus.SUCCEEDED,
-          repositories: {
-            some: { githubRepositoryId: { in: [...repositoryIds] } },
-          },
-        },
-      },
-      select: {
-        updatedAt: true,
-        activeGeneration: {
-          select: {
-            repositories: {
-              where: { githubRepositoryId: { in: [...repositoryIds] } },
-              select: {
-                githubRepositoryId: true,
-                commits: {
-                  where: authorWhere,
-                  select: { committedAt: true },
-                },
-                pullRequests: {
-                  where: authorWhere,
-                  select: { createdAt: true },
-                },
-                releases: {
-                  where: authorWhere,
-                  select: { publishedAt: true },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
   }
 
   findStudentActivityApplications(userId: string) {

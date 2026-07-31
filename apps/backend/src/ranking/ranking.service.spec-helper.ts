@@ -1,7 +1,8 @@
-import {
-  RankingRepository,
-  type CanonicalRankingActivity,
-} from './ranking.repository';
+import type {
+  CollectionRankingActivityDto,
+  CollectionRankingActivityQueryDto,
+  CollectionReadPort,
+} from '../collection/collection-read.port';
 import { RankingService } from './ranking.service';
 
 export function activity(
@@ -10,19 +11,30 @@ export function activity(
   commitCount: number,
   prCount: number,
   releaseCount: number,
-): CanonicalRankingActivity {
+): CollectionRankingActivityDto {
   return { githubId, githubLogin, commitCount, prCount, releaseCount };
 }
 
 export function setupRankingService(): {
   readonly service: RankingService;
-  readonly findCanonicalActivity: jest.Mock;
+  readonly findRankingActivity: jest.Mock<
+    Promise<readonly CollectionRankingActivityDto[]>,
+    [CollectionRankingActivityQueryDto]
+  >;
 } {
-  const findCanonicalActivity = jest.fn().mockResolvedValue([]);
-  const repository = { findCanonicalActivity } as unknown as RankingRepository;
+  const findRankingActivity = jest.fn<
+    Promise<readonly CollectionRankingActivityDto[]>,
+    [CollectionRankingActivityQueryDto]
+  >();
+  findRankingActivity.mockResolvedValue([]);
+  const collection = {
+    findRepositoryActivity: async () => [],
+    findRankingActivity,
+    getStatusSnapshot: async () => null,
+  } satisfies CollectionReadPort;
 
   return {
-    service: new RankingService(repository),
-    findCanonicalActivity,
+    service: new RankingService(collection),
+    findRankingActivity,
   };
 }
