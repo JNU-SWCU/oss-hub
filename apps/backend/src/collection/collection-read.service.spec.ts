@@ -201,3 +201,117 @@ describe('CollectionReadService — getContributorMetrics', () => {
     expect(result).toEqual([]);
   });
 });
+
+describe('CollectionReadService — getPublicRankingMetrics', () => {
+  it('filters to PUBLIC + PRESENT repositories at the query boundary', async () => {
+    const db = createDb();
+    db.collectionContributorYearAggregate.findMany.mockResolvedValue([]);
+
+    await serviceFor(db).getPublicRankingMetrics({});
+
+    expect(db.collectionContributorYearAggregate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { repository: { visibility: 'PUBLIC', presence: 'PRESENT' } },
+      }),
+    );
+  });
+
+  it('adds a year filter only when currentYear is provided (THIS_YEAR vs ALL)', async () => {
+    const db = createDb();
+    db.collectionContributorYearAggregate.findMany.mockResolvedValue([]);
+
+    await serviceFor(db).getPublicRankingMetrics({ currentYear: 2026 });
+
+    expect(db.collectionContributorYearAggregate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          repository: { visibility: 'PUBLIC', presence: 'PRESENT' },
+          year: 2026,
+        },
+      }),
+    );
+  });
+
+  it('merges repository/year rows into one entry per githubUserId', async () => {
+    const db = createDb();
+    db.collectionContributorYearAggregate.findMany.mockResolvedValue([
+      {
+        githubUserId: 1n,
+        githubLogin: 'alice',
+        commitCount: 2,
+        pullRequestCount: 1,
+        releaseCount: 0,
+      },
+      {
+        githubUserId: 1n,
+        githubLogin: 'alice',
+        commitCount: 3,
+        pullRequestCount: 0,
+        releaseCount: 1,
+      },
+    ]);
+
+    const result = await serviceFor(db).getPublicRankingMetrics({});
+
+    expect(result).toEqual([
+      {
+        githubId: 1n,
+        githubLogin: 'alice',
+        commitCount: 5,
+        prCount: 1,
+        releaseCount: 1,
+      },
+    ]);
+  });
+
+  it('picks the lexicographically smallest normalized login as canonical when a login diverges across rows', async () => {
+    const db = createDb();
+    db.collectionContributorYearAggregate.findMany.mockResolvedValue([
+      {
+        githubUserId: 1n,
+        githubLogin: 'Zed',
+        commitCount: 1,
+        pullRequestCount: 0,
+        releaseCount: 0,
+      },
+      {
+        githubUserId: 1n,
+        githubLogin: 'alice',
+        commitCount: 1,
+        pullRequestCount: 0,
+        releaseCount: 0,
+      },
+    ]);
+
+    const result = await serviceFor(db).getPublicRankingMetrics({});
+
+    expect(result).toEqual([
+      {
+        githubId: 1n,
+        githubLogin: 'alice',
+        commitCount: 2,
+        prCount: 0,
+        releaseCount: 0,
+      },
+    ]);
+  });
+
+  it('does not select repositoryId, year, dataAsOf, or any private/platform field', async () => {
+    const db = createDb();
+    db.collectionContributorYearAggregate.findMany.mockResolvedValue([]);
+
+    await serviceFor(db).getPublicRankingMetrics({});
+
+    expect(db.collectionContributorYearAggregate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: {
+          githubUserId: true,
+          githubLogin: true,
+          commitCount: true,
+          pullRequestCount: true,
+          releaseCount: true,
+        },
+      }),
+    );
+  });
+});

@@ -1,6 +1,6 @@
 import type {
-  CollectionRankingActivityDto,
-  CollectionRankingActivityQueryDto,
+  CollectionPublicRankingMetricsDto,
+  CollectionPublicRankingMetricsQueryDto,
   CollectionReadPort,
 } from '../collection/collection-read.port';
 import { RankingService } from './ranking.service';
@@ -11,32 +11,33 @@ export function activity(
   commitCount: number,
   prCount: number,
   releaseCount: number,
-): CollectionRankingActivityDto {
+): CollectionPublicRankingMetricsDto {
   return { githubId, githubLogin, commitCount, prCount, releaseCount };
 }
 
 export function setupRankingService(): {
   readonly service: RankingService;
-  readonly findRankingActivity: jest.Mock<
-    Promise<readonly CollectionRankingActivityDto[]>,
-    [CollectionRankingActivityQueryDto]
+  readonly getPublicRankingMetrics: jest.Mock<
+    Promise<readonly CollectionPublicRankingMetricsDto[]>,
+    [CollectionPublicRankingMetricsQueryDto]
   >;
 } {
-  const findRankingActivity = jest.fn<
-    Promise<readonly CollectionRankingActivityDto[]>,
-    [CollectionRankingActivityQueryDto]
+  const getPublicRankingMetrics = jest.fn<
+    Promise<readonly CollectionPublicRankingMetricsDto[]>,
+    [CollectionPublicRankingMetricsQueryDto]
   >();
-  findRankingActivity.mockResolvedValue([]);
+  getPublicRankingMetrics.mockResolvedValue([]);
   const collection = {
     findRepositoryActivity: () => Promise.resolve([]),
-    findRankingActivity,
+    findRankingActivity: () => Promise.resolve([]),
     getStatusSnapshot: () => Promise.resolve(null),
     getRepositoryMetrics: () => Promise.resolve([]),
     getContributorMetrics: () => Promise.resolve([]),
+    getPublicRankingMetrics,
   } satisfies CollectionReadPort;
 
   return {
     service: new RankingService(collection),
-    findRankingActivity,
+    getPublicRankingMetrics,
   };
 }

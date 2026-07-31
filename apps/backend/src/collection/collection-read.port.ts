@@ -96,6 +96,18 @@ export type CollectionContributorMetricsDto = {
   readonly releaseCount: number;
 };
 
+export type CollectionPublicRankingMetricsQueryDto = {
+  readonly currentYear?: number;
+};
+
+export type CollectionPublicRankingMetricsDto = {
+  readonly githubId: bigint;
+  readonly githubLogin: string;
+  readonly commitCount: number;
+  readonly prCount: number;
+  readonly releaseCount: number;
+};
+
 export interface CollectionReadPort {
   findRepositoryActivity(
     query: CollectionRepositoryActivityQueryDto,
@@ -112,4 +124,14 @@ export interface CollectionReadPort {
   getContributorMetrics(
     query: CollectionContributorMetricsQueryDto,
   ): Promise<readonly CollectionContributorMetricsDto[]>;
+  /**
+   * todo 19 — ranking 공개 페이지 전용 질의. `getContributorMetrics`와 같은 증분 소스
+   * (`CollectionContributorYearAggregate`)를 읽되, PUBLIC + PRESENT 저장소만 port 경계에서
+   * 필터링하고 githubId(githubUserId) 단위로 저장소·연도를 넘어 합산해 이미 병합된 행을
+   * 반환한다 — private facts·platform User join·실명 없이 githubLogin만 노출한다.
+   * `currentYear`를 생략하면 전체 기간 누적(ALL), 지정하면 해당 연도만(THIS_YEAR) 반환한다.
+   */
+  getPublicRankingMetrics(
+    query: CollectionPublicRankingMetricsQueryDto,
+  ): Promise<readonly CollectionPublicRankingMetricsDto[]>;
 }
