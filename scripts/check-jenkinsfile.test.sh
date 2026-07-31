@@ -78,6 +78,18 @@ make_fixture "$v2_source" v2-missing-test 'pnpm test' 'true'
 make_fixture "$v2_source" v2-missing-backup 'pg_dump' 'pg_isready'
 make_fixture "$v2_source" v2-missing-migration 'npx prisma migrate deploy' 'npx prisma migrate status'
 make_fixture "$v2_source" v2-missing-no-build 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait' 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --wait'
+make_fixture "$v2_source" v2-missing-primary-upload-403-smoke \
+  '--retry 5 --retry-connrefused http://127.0.0.1:8081/api/v1/submission-files' \
+  '--retry 5 --retry-connrefused http://127.0.0.1:8081/api/v1/submission-files-removed'
+make_fixture "$v2_source" v2-missing-rollback-upload-403-smoke \
+  '--show-error http://127.0.0.1:8081/api/v1/submission-files)' \
+  '--show-error http://127.0.0.1:8081/api/v1/submission-files-removed)'
+make_fixture "$v2_source" v2-weakened-upload-403-status \
+  'test "$submission_upload_status" = '\''403'\''' \
+  'test "$submission_upload_status" != '\''000'\'''
+make_fixture "$v2_source" v2-upload-403-curl-fail \
+  'curl -o /dev/null -w' \
+  'curl --fail -o /dev/null -w'
 make_fixture "$v2_source" v2-missing-rollback-guard 'if (!env.PREV_TAG?.trim())' 'if (false)'
 make_fixture "$v2_source" v2-missing-production-credential "credentialsId: 'oss-hub-production-env'" "credentialsId: 'removed'"
 make_fixture "$v2_source" v2-missing-running-ps-q 'ps -q frontend' 'ps --status frontend'
@@ -1161,6 +1173,10 @@ expect_fail 'v2: 배포 전 test 누락' v2 "$fixture_dir/v2-missing-test"
 expect_fail 'v2: migration 전 backup 누락' v2 "$fixture_dir/v2-missing-backup"
 expect_fail 'v2: Prisma migration 누락' v2 "$fixture_dir/v2-missing-migration"
 expect_fail 'v2: Compose 교체의 --no-build 누락' v2 "$fixture_dir/v2-missing-no-build"
+expect_fail 'v2: primary 제출 파일 403 smoke 누락' v2 "$fixture_dir/v2-missing-primary-upload-403-smoke"
+expect_fail 'v2: rollback 제출 파일 403 smoke 누락' v2 "$fixture_dir/v2-missing-rollback-upload-403-smoke"
+expect_fail 'v2: 제출 파일 smoke의 exact 403 단언 약화' v2 "$fixture_dir/v2-weakened-upload-403-status"
+expect_fail 'v2: 제출 파일 403 smoke에 curl --fail 사용' v2 "$fixture_dir/v2-upload-403-curl-fail"
 expect_fail 'v2: greenfield rollback skip guard 누락' v2 "$fixture_dir/v2-missing-rollback-guard"
 expect_fail 'v2: 운영 환경 credential 주입 누락' v2 "$fixture_dir/v2-missing-production-credential"
 expect_fail 'v2: 실행 중 ps -q 권위 누락' v2 "$fixture_dir/v2-missing-running-ps-q"

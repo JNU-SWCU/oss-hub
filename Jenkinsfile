@@ -479,6 +479,8 @@ docker build \
                 docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait --wait-timeout 180
                 curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8081/
                 curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8081/api/v1/health
+                submission_upload_status="$(curl -o /dev/null -w '%{http_code}' --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8081/api/v1/submission-files)"
+                test "$submission_upload_status" = '403'
                 curl --fail --silent --show-error --retry 5 --retry-connrefused \
                   --resolve '54.116.116.174:443:127.0.0.1' https://54.116.116.174/
                 curl --fail --silent --show-error --retry 5 --retry-connrefused \
@@ -497,6 +499,8 @@ docker build \
                     docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait --wait-timeout 180
                     curl --fail --silent --show-error http://127.0.0.1:8081/
                     curl --fail --silent --show-error http://127.0.0.1:8081/api/v1/health
+                    submission_upload_status="$(curl -o /dev/null -w '%{http_code}' --silent --show-error http://127.0.0.1:8081/api/v1/submission-files)"
+                    test "$submission_upload_status" = '403'
                     curl --fail --silent --show-error \
                       --resolve '54.116.116.174:443:127.0.0.1' https://54.116.116.174/
                     curl --fail --silent --show-error \

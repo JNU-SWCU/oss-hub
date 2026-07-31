@@ -159,6 +159,12 @@ require_common_smoke_and_build_guards() {
   require_exact 'migration은 한 번이어야 함' 'npx prisma migrate deploy' 1
   require_exact 'primary·rollback은 기존 이미지만 사용해야 함' 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait' 2
   require_exact '내부 backend smoke는 primary·rollback에 있어야 함' 'http://127.0.0.1:8081/api/v1/health' 2
+  require_exact '제출 파일 차단 smoke는 primary·rollback에 있어야 함' 'http://127.0.0.1:8081/api/v1/submission-files' 2
+  require_exact 'primary 제출 파일 차단 smoke는 HTTP 403을 직접 읽어야 함' \
+    "submission_upload_status=\"\$(curl -o /dev/null -w '%{http_code}' --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8081/api/v1/submission-files)\"" 1
+  require_exact 'rollback 제출 파일 차단 smoke는 HTTP 403을 직접 읽어야 함' \
+    "submission_upload_status=\"\$(curl -o /dev/null -w '%{http_code}' --silent --show-error http://127.0.0.1:8081/api/v1/submission-files)\"" 1
+  require_exact '제출 파일 차단 smoke는 HTTP 403만 허용해야 함' "test \"\$submission_upload_status\" = '403'" 2
   require_exact 'TLS backend smoke는 primary·rollback에 있어야 함' 'https://54.116.116.174/api/v1/health' 2
   require_exact 'TLS smoke는 인증서의 IP SAN을 검증해야 함' "--resolve '54.116.116.174:443:127.0.0.1'" 4
   require_at_least '운영 환경은 Jenkins file credential로 주입해야 함' "credentialsId: 'oss-hub-production-env'" 1
