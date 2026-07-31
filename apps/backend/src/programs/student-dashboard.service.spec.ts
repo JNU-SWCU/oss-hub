@@ -1,4 +1,9 @@
-import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
+import {
+  ApplicationStatus,
+  RepositoryInvitationStatus,
+  RepositoryProvisionJobStatus,
+  SubmissionStatus,
+} from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import { StudentDashboardService } from './student-dashboard.service';
 
@@ -19,22 +24,30 @@ function application(overrides: Record<string, unknown> = {}) {
       ],
     },
     submissions: [],
+    provisionJob: null,
     ...overrides,
   };
 }
 
 describe('StudentDashboardService', () => {
   const findMany = jest.fn();
+  const findUnique = jest.fn().mockResolvedValue({ nickname: 'synthetic' });
   const prisma = {
+    user: { findUnique },
     application: { findMany },
   } as unknown as PrismaService;
   const service = new StudentDashboardService(prisma);
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    findUnique.mockResolvedValue({ nickname: 'synthetic' });
+  });
+
   it('returns no items when the session github id has no matching user', async () => {
-    findMany.mockResolvedValue([]);
+    findUnique.mockResolvedValueOnce(null);
 
     await expect(service.getStudentDashboard(404n)).resolves.toEqual([]);
+    expect(findMany).not.toHaveBeenCalled();
   });
 
   it('maps owned personal and team applications and queries no other ownership paths', async () => {
@@ -64,6 +77,7 @@ describe('StudentDashboardService', () => {
         displayName: 'Synthetic Team',
       }),
     ]);
+    expect(items[0]?.repository?.provisionStatus).toBe('NOT_STARTED');
     expect(findMany).toHaveBeenCalledTimes(1);
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -144,6 +158,56 @@ describe('StudentDashboardService', () => {
       name: 'First milestone',
       dueAt: DUE_AT,
       submissionStatus: 'NOT_SUBMITTED',
+    });
+  });
+
+  it('maps a validated successful repository and current-user invitation', async () => {
+    findMany.mockResolvedValue([
+      application({
+        provisionJob: {
+          status: RepositoryProvisionJobStatus.SUCCEEDED,
+          repository: {
+            applicationId: 'application-1',
+            name: 'synthetic-repository',
+            url: 'https://github.com/JNU-SWCU/synthetic-repository',
+            invitations: [{ status: RepositoryInvitationStatus.PENDING }],
+          },
+        },
+      }),
+    ]);
+
+    const [item] = await service.getStudentDashboard(101n);
+
+    expect(item?.repository).toEqual({
+      repositoryName: 'synthetic-repository',
+      provisionStatus: 'SUCCEEDED',
+      invitationStatus: 'PENDING',
+      githubUrl: 'https://github.com/JNU-SWCU/synthetic-repository',
+    });
+  });
+
+  it('fails closed when a successful job points at an invalid repository', async () => {
+    findMany.mockResolvedValue([
+      application({
+        provisionJob: {
+          status: RepositoryProvisionJobStatus.SUCCEEDED,
+          repository: {
+            applicationId: 'another-application',
+            name: 'synthetic-repository',
+            url: 'https://github.com/JNU-SWCU/synthetic-repository',
+            invitations: [],
+          },
+        },
+      }),
+    ]);
+
+    const [item] = await service.getStudentDashboard(101n);
+
+    expect(item?.repository).toEqual({
+      repositoryName: null,
+      provisionStatus: 'FAILED_FINAL',
+      invitationStatus: null,
+      githubUrl: null,
     });
   });
 });

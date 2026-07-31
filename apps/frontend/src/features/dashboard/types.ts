@@ -2,6 +2,15 @@ export type DashboardApplicationMode = 'PERSONAL' | 'TEAM';
 export type DashboardApplicationStatus = 'SUBMITTED' | 'APPROVED' | 'REJECTED';
 export type DashboardSubmissionStatus =
   'NOT_SUBMITTED' | 'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
+export type DashboardRepositoryProvisionStatus =
+  | 'NOT_STARTED'
+  | 'PENDING'
+  | 'PROCESSING'
+  | 'SUCCEEDED'
+  | 'FAILED_RETRYABLE'
+  | 'FAILED_FINAL';
+export type DashboardRepositoryInvitationStatus =
+  'PENDING' | 'SUCCEEDED' | 'FAILED_RETRYABLE' | 'FAILED_FINAL' | null;
 
 export interface DashboardMilestone {
   readonly id: string;
@@ -20,6 +29,12 @@ export interface DashboardItem {
   readonly nextMilestone: DashboardMilestone | null;
   readonly detailUrl: string;
   readonly checklistUrl: string;
+  readonly repository: {
+    readonly repositoryName: string | null;
+    readonly provisionStatus: DashboardRepositoryProvisionStatus;
+    readonly invitationStatus: DashboardRepositoryInvitationStatus;
+    readonly githubUrl: string | null;
+  } | null;
 }
 
 export interface StudentDashboard {

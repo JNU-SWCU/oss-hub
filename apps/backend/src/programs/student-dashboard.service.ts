@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
+import {
+  ApplicationStatus,
+  RepositoryInvitationStatus,
+  RepositoryProvisionJobStatus,
+  SubmissionStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   COMPATIBLE_PROFILE_NAME_SELECT,
@@ -28,6 +33,14 @@ export interface StudentDashboardItem {
   readonly nextMilestone: StudentDashboardMilestone | null;
   readonly detailUrl: string;
   readonly checklistUrl: string;
+  readonly repository: StudentDashboardRepository | null;
+}
+
+export interface StudentDashboardRepository {
+  readonly repositoryName: string | null;
+  readonly provisionStatus: 'NOT_STARTED' | RepositoryProvisionJobStatus;
+  readonly invitationStatus: RepositoryInvitationStatus | null;
+  readonly githubUrl: string | null;
 }
 
 function isNonEmptyString(value: string | null | undefined): value is string {
@@ -49,6 +62,12 @@ export class StudentDashboardService {
   async getStudentDashboard(
     sessionGithubId: bigint,
   ): Promise<readonly StudentDashboardItem[]> {
+    const user = await this.prisma.user.findUnique({
+      where: { githubId: sessionGithubId },
+      select: { nickname: true },
+    });
+    if (user === null) return [];
+
     const applications = await this.prisma.application.findMany({
       where: {
         OR: [
@@ -90,6 +109,22 @@ export class StudentDashboardService {
           },
         },
         submissions: { select: { milestoneId: true, status: true } },
+        provisionJob: {
+          select: {
+            status: true,
+            repository: {
+              select: {
+                applicationId: true,
+                name: true,
+                url: true,
+                invitations: {
+                  where: { githubLogin: user.nickname.toLowerCase() },
+                  select: { status: true },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -143,6 +178,51 @@ export class StudentDashboardService {
               submissionStatuses.get(milestone.id) ?? 'NOT_SUBMITTED',
           }
         : null;
+      const provisionJob = application.provisionJob;
+      let repository: StudentDashboardRepository | null = null;
+      if (application.status === ApplicationStatus.APPROVED) {
+        if (provisionJob === null) {
+          repository = {
+            repositoryName: null,
+            provisionStatus: 'NOT_STARTED',
+            invitationStatus: null,
+            githubUrl: null,
+          };
+        } else if (
+          provisionJob.status !== RepositoryProvisionJobStatus.SUCCEEDED
+        ) {
+          repository = {
+            repositoryName: null,
+            provisionStatus: provisionJob.status,
+            invitationStatus: null,
+            githubUrl: null,
+          };
+        } else {
+          const provisionedRepository = provisionJob.repository;
+          const isValidRepository =
+            provisionedRepository !== null &&
+            provisionedRepository.applicationId === application.id &&
+            /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(
+              provisionedRepository.name,
+            ) &&
+            provisionedRepository.url ===
+              `https://github.com/JNU-SWCU/${provisionedRepository.name}`;
+          repository = isValidRepository
+            ? {
+                repositoryName: provisionedRepository.name,
+                provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
+                invitationStatus:
+                  provisionedRepository.invitations[0]?.status ?? null,
+                githubUrl: provisionedRepository.url,
+              }
+            : {
+                repositoryName: null,
+                provisionStatus: RepositoryProvisionJobStatus.FAILED_FINAL,
+                invitationStatus: null,
+                githubUrl: null,
+              };
+        }
+      }
 
       items.push({
         applicationId: application.id,
@@ -154,6 +234,7 @@ export class StudentDashboardService {
         nextMilestone,
         detailUrl: `/programs/${encodeURIComponent(application.program.id)}`,
         checklistUrl: `/programs/${encodeURIComponent(application.program.id)}/submissions`,
+        repository,
       });
     }
 

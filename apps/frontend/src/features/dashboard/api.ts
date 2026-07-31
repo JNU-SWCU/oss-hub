@@ -4,6 +4,8 @@ import type {
   DashboardApplicationStatus,
   DashboardItem,
   DashboardMilestone,
+  DashboardRepositoryInvitationStatus,
+  DashboardRepositoryProvisionStatus,
   DashboardSubmissionStatus,
   StudentDashboard,
 } from './types';
@@ -54,6 +56,58 @@ function isSubmissionStatus(
   );
 }
 
+function isRepositoryProvisionStatus(
+  value: unknown,
+): value is DashboardRepositoryProvisionStatus {
+  return (
+    value === 'NOT_STARTED' ||
+    value === 'PENDING' ||
+    value === 'PROCESSING' ||
+    value === 'SUCCEEDED' ||
+    value === 'FAILED_RETRYABLE' ||
+    value === 'FAILED_FINAL'
+  );
+}
+
+function isRepositoryInvitationStatus(
+  value: unknown,
+): value is DashboardRepositoryInvitationStatus {
+  return (
+    value === null ||
+    value === 'PENDING' ||
+    value === 'SUCCEEDED' ||
+    value === 'FAILED_RETRYABLE' ||
+    value === 'FAILED_FINAL'
+  );
+}
+
+function isSafeGithubUrl(value: string, repositoryName: string): boolean {
+  return value === `https://github.com/JNU-SWCU/${repositoryName}`;
+}
+
+function isRepository(
+  value: unknown,
+): value is NonNullable<DashboardItem['repository']> {
+  if (!isRecord(value) || !isRepositoryProvisionStatus(value.provisionStatus)) {
+    return false;
+  }
+  if (!isRepositoryInvitationStatus(value.invitationStatus)) return false;
+
+  if (value.provisionStatus !== 'SUCCEEDED') {
+    return (
+      value.repositoryName === null &&
+      value.invitationStatus === null &&
+      value.githubUrl === null
+    );
+  }
+
+  return (
+    isNonEmptyString(value.repositoryName) &&
+    isNonEmptyString(value.githubUrl) &&
+    isSafeGithubUrl(value.githubUrl, value.repositoryName)
+  );
+}
+
 function isMilestone(value: unknown): value is DashboardMilestone {
   if (!isRecord(value)) return false;
 
@@ -84,7 +138,9 @@ function isDashboardItem(value: unknown): value is DashboardItem {
     (nextMilestone === null || isMilestone(nextMilestone)) &&
     (applicationStatus === 'APPROVED' || nextMilestone === null) &&
     isProgramPath(value.detailUrl, programId) &&
-    isProgramPath(value.checklistUrl, programId, '/submissions')
+    isProgramPath(value.checklistUrl, programId, '/submissions') &&
+    (value.repository === null || isRepository(value.repository)) &&
+    (applicationStatus === 'APPROVED' || value.repository === null)
   );
 }
 

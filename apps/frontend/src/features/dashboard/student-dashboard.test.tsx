@@ -52,6 +52,34 @@ describe('StudentDashboardView', () => {
     expect(html).toContain('제출 체크리스트');
   });
 
+  it('저장소 생성·초대 상태와 안전한 이동 링크를 제공한다', () => {
+    // Given: 참여 프로그램이 있는 학생 대시보드
+
+    // When
+    const html = renderView();
+
+    // Then
+    expect(html).toContain('href="/my-repos"');
+    expect(html).toContain('준비 완료');
+    expect(html).toContain('저장소 생성 중');
+    expect(html).toContain('href="https://github.com/JNU-SWCU/capstone-hong"');
+
+    const invitationPendingHtml = renderView({
+      data: {
+        items: [
+          {
+            ...dashboardFixture.items[0]!,
+            repository: {
+              ...dashboardFixture.items[0]!.repository!,
+              invitationStatus: 'PENDING',
+            },
+          },
+        ],
+      },
+    });
+    expect(invitationPendingHtml).toContain('초대 수락 대기');
+  });
+
   it('승인 대기 신청에는 제출 링크나 마일스톤을 노출하지 않는다', () => {
     const html = renderView({ data: pendingDashboardFixture });
 
