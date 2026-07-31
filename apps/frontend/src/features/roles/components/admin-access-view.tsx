@@ -134,6 +134,11 @@ export function AdminAccessView(props: AdminAccessViewProps) {
           <Link
             href={`/admin/access/users/${encodeURIComponent(item.id)}`}
             className="line-clamp-2 break-all font-medium underline-offset-2 hover:underline"
+            // 오버레이(PR04F)로 열리는 소프트 내비게이션이라 목록 스크롤 위치를
+            // 유지해야 한다 — next/link 기본값(scroll=true)은 네비게이션마다
+            // 스크롤을 맨 위로 리셋해, 오버레이가 닫힐 때 원래 위치로 복원할
+            // 기준점 자체를 잃어버리게 만든다(실측: scrollY 캡처가 항상 0이 됨).
+            scroll={false}
           >
             {item.name ?? '이름 미등록'}
           </Link>
