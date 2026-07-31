@@ -1,4 +1,9 @@
 import type { NextConfig } from 'next';
+import {
+  LOCAL_REVIEW_FIXTURE_COOKIE,
+  LOCAL_REVIEW_FIXTURE_PATTERN,
+  isLocalReviewRuntime,
+} from './src/app/_local-review/fixture-contract';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
@@ -11,13 +16,44 @@ const nextConfig: NextConfig = {
       process.env.BACKEND_ORIGIN ?? 'http://localhost:4000'
     ).replace(/\/$/, '');
 
-    // baseURL의 단일 소유자는 api-client이며, rewrite는 개발 환경의 라우팅만 담당한다.
-    return [
-      {
-        source: '/api/v1/:path*',
-        destination: `${backendOrigin}/api/v1/:path*`,
-      },
-    ];
+    const backendRewrite = {
+      source: '/api/v1/:path*',
+      destination: `${backendOrigin}/api/v1/:path*`,
+    };
+
+    if (
+      !isLocalReviewRuntime({
+        nodeEnv: process.env.NODE_ENV,
+        enabled: process.env.OSS_HUB_LOCAL_REVIEW_FIXTURES,
+        backendOrigin,
+      })
+    ) {
+      return [backendRewrite];
+    }
+
+    // fixture cookie가 있고 요청 host도 loopback인 경우에만 내부 adapter가 우선한다.
+    // cookie가 없으면 같은 개발 서버에서도 실제 backend rewrite를 그대로 사용한다.
+    return {
+      beforeFiles: [
+        {
+          source: '/api/v1/:path*',
+          has: [
+            {
+              type: 'host' as const,
+              value: '(?:localhost|127\\.0\\.0\\.1)',
+            },
+            {
+              type: 'cookie' as const,
+              key: LOCAL_REVIEW_FIXTURE_COOKIE,
+              value: LOCAL_REVIEW_FIXTURE_PATTERN,
+            },
+          ],
+          destination: '/local-review-api/:path*',
+        },
+      ],
+      afterFiles: [],
+      fallback: [backendRewrite],
+    };
   },
 };
 
