@@ -38,7 +38,7 @@ ssh ubuntu@<EC2_TAILSCALE_HOST>
 파이프라인 executor는 서버 로컬에서 Docker 이미지 빌드와 앱 build(lint/typecheck/test)를 수행하므로 Docker와 Node/pnpm/jq가 모두 필요하다.
 Buildx plugin도 필수다 — 배포 성공 뒤 캐시 정리가 `docker buildx prune --force --max-used-space`를 호출하므로 이 옵션을 지원하는 Buildx가 없으면 정리 단계에서 배포가 실패한다.
 운영 서버의 확인된 기준선은 Buildx `v0.35.0`이며, 이보다 낮은 버전을 쓸 때는 `--max-used-space` 지원 여부를 먼저 확인한다.
-`BUILD_CACHE_MAX_SPACE`는 `10GB`로 고정돼 있지만, 빌드 직후에는 실행 중 이미지의 in-use 레이어가 정리 대상에서 보호되므로 이 상한을 일시적으로 넘길 수 있다(v0.6.1 배포 직후 `docker buildx du` 실측 11.07GB) — 이는 결함이 아니라 의도된 동작이다.
+`BUILD_CACHE_MAX_SPACE`는 `10GB`에서 `5GB`로 인하했다(2026-08-01) — 실측상 빌드 세대당 캐시 증가분이 ~2.6GB였고 직전 빌드(#31)가 이전 세대 레코드를 전혀 재사용하지 않아(last-accessed 미갱신) 오래된 세대는 히트에 기여하지 않는 죽은 용량이었다. 최신 2세대만 보존해도 충분하다는 근거로 상한을 낮췄다(`docker buildx prune --force --max-used-space 5GB` 실행 후 5.64GB로 수렴, 최신 2세대만 잔존, 이상 없음 확인). 다만 빌드 직후에는 실행 중 이미지의 in-use 레이어가 정리 대상에서 보호되므로 이 상한을 일시적으로 넘길 수 있다(v0.6.1 배포 직후 `docker buildx du` 실측 11.07GB로, 인하 전 10GB 상한도 일시 초과한 사례가 있었다) — 이는 결함이 아니라 의도된 동작이다.
 
 ```sh
 # Docker Engine + compose·buildx plugin (Ubuntu)
