@@ -45,7 +45,7 @@ NestJS 11 기반 REST API 서버로, Prisma 6 + PostgreSQL을 쓴다.
   - `pnpm --filter backend build` / `lint` / `typecheck`
   - `pnpm --filter backend test:unit` — `*.integration.spec.ts` 제외한 단위테스트
   - `pnpm --filter backend test:integration` — `scripts/run-backend-integration.sh`가 격리 컨테이너를 새로 띄워 실행(공유 DB 미사용)
-  - `pnpm --filter backend db:migrate:dev` / `db:reset` / `db:seed` — 로컬 DB(`localhost:5432/oss_hub`) 대상
+  - `pnpm --filter backend db:migrate:dev` / `db:reset` / `db:seed` — 호스트 lane 로컬 DB 대상. 연결 주소는 `.envrc`의 `DATABASE_URL`이 유일한 원본이며, 실행 전 `scripts/check-host-db-url.sh`가 로컬 여부와 `POSTGRES_PORT`·`POSTGRES_DB` 일치를 검증한다
 - **모듈 경계(ADR-003)**: `eslint.config.mjs`가 `src/` 하위 폴더를 자동으로 모듈로 인식한다.
 - 다른 모듈의 `domain/*`·`dto/*` 직접 import는 lint가 차단하고 `common/`·`prisma/`는 공유 기반 계층으로 제외한다.
 - 새 모듈 폴더는 런타임에 발견되므로 lint 설정에 목록을 추가하지 않는다.

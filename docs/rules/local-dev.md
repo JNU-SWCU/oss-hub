@@ -58,7 +58,8 @@ OAuth 콜백은 `FRONTEND_URL`에서 파생되므로 compose 경로에서는 `ht
 
 - 운영은 host nginx가 공인 80/443과 TLS를 담당하고 Compose nginx가 `127.0.0.1:8081`만 bind한다([ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)). **8081은 내부 hop이라 콜백 URL에 등장하지 않는다.** 로컬에는 host nginx가 없어 Compose ingress가 곧 브라우저 대면 주소이므로 `compose.local.yml`이 3000으로 override한다. `compose.yml`의 운영 8081은 그대로다.
 - `pnpm db:up`과 `pnpm --filter backend test:integration`은 여전히 `compose.dev.yml`을 단독으로 쓴다. 이 경로는 그대로 유효하다.
-- 스키마를 바꿨다면 `pnpm db:migrate:dev`로 마이그레이션을 생성한다. 이 스크립트는 호스트에서 prisma CLI를 직접 돌리므로 `localhost` 연결 문자열을 인라인으로 갖는다. compose 경로의 `DATABASE_URL`(호스트 `postgres`)과 목적이 다르다.
+- 스키마를 바꿨다면 `pnpm db:migrate:dev`로 마이그레이션을 생성한다. 이 스크립트는 호스트에서 prisma CLI를 직접 돌리므로 `.envrc`의 `DATABASE_URL`(호스트 `localhost`)을 쓴다. compose 경로의 `DATABASE_URL`(호스트 `postgres`)과 목적이 다르다.
+- `db:migrate:dev`·`db:reset`·`db:seed`·`notifications:send-digest`는 실행 전 `scripts/check-host-db-url.sh`가 `DATABASE_URL`을 검증한다. 로컬이 아닌 호스트를 가리키거나 `POSTGRES_PORT`·`POSTGRES_DB` override와 어긋나면 거부한다 — `db:reset`이 `prisma migrate reset --force`라 override 시 다른 데이터베이스를 지울 수 있었다. 자격증명은 어떤 경로에서도 출력하지 않는다.
 - `pnpm local:verify`는 매 실행 고유한 project name을 쓰고 PostgreSQL·MinIO host port를 공개하지 않아 선행 `pnpm db:up` 스택과 충돌하지 않는다. 다만 ingress 포트(기본 3000)는 콜백 origin에 묶여 고정이라 점유 중이면 preflight에서 실패한다.
 - 종료 시 `local:verify`는 자신이 만든 컨테이너와 볼륨을 정리한다.
 - production은 승인된 object storage 설정과 migration이 모두 준비되지 않으면 backend를 fail-closed로 유지하며 로컬 기본값을 사용하지 않는다.
