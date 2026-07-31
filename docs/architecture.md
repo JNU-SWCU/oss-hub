@@ -52,4 +52,4 @@ nginx는 `/` 요청을 front로, `/api` 요청을 back으로 전달한다. `/api
 1. main 병합은 Jenkins의 build·test 검증만 시작하고 production을 변경하지 않는다.
 2. 사람이 공개 GitHub Release를 발행하면 Jenkins가 latest full Release와 tag의 main ancestry를 검증하고 exact commit SHA를 checkout한다.
 3. 동일·하위 Release는 no-op으로 종료한다. 새 Release는 test → DB backup → SHA 이미지 1회 build → migration → Compose 순서로 배포한다.
-4. `/`와 `/api/v1/health` smoke가 성공한 뒤에만 정상 배포 상태를 기록한다. 실패하면 이전 이미지를 한 번 복구하고 DB restore는 승인된 수동 절차로 남긴다.
+4. Compose ingress에서 `/`·`/api/v1/health` 200과 제출 파일 업로드 경로 403 smoke가 성공한 뒤에만 정상 배포 상태를 기록한다. 실패하면 이전 이미지를 한 번 복구하고 DB restore는 승인된 수동 절차로 남긴다.
