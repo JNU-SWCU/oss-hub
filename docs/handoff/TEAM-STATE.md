@@ -116,7 +116,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 프로필 완료 전 역할 선택 차단 | @Lumiere001 | done | [#212](https://github.com/JNU-SWCU/oss-hub/issues/212) | [#221](https://github.com/JNU-SWCU/oss-hub/pull/221) merged | pass | 없음 |
 | 신규 가입 OAuth 직후 동의 진입 | @GoBeromsu / @Lumiere001 | done | [#218](https://github.com/JNU-SWCU/oss-hub/issues/218) | [#222](https://github.com/JNU-SWCU/oss-hub/pull/222) merged | pass | 없음 |
 | User GitHub 핸들 필드명 정리 | @Lumiere001 | done | [#224](https://github.com/JNU-SWCU/oss-hub/issues/224) | [#227](https://github.com/JNU-SWCU/oss-hub/pull/227) merged | pass | 없음 |
-| 에이전트 병합 게이트 — pm 작성 pr의 review·accept 면제 | @GoBeromsu | review | [#390](https://github.com/JNU-SWCU/oss-hub/issues/390) | [#391](https://github.com/JNU-SWCU/oss-hub/pull/391) | 판정기 fixture 55/55 local pass(면제 8건 신규) · pm 작성은 배포 계약 경로도 통과 · tech lead·제3자·identity 부재는 비면제 · sha 형식·default branch 검사 유지 | 없음 — 남는 통제는 required ci·public-safe와 release accept 바인딩이다 |
+| 에이전트 병합 게이트 — pm 작성 pr의 review·accept 면제 | @GoBeromsu | review | [#390](https://github.com/JNU-SWCU/oss-hub/issues/390) | [#391](https://github.com/JNU-SWCU/oss-hub/pull/391) | 판정기 fixture 55/55 local pass(면제 8건 신규) · pm 작성은 배포 계약 경로도 통과 · tech lead·제3자·identity 부재는 비면제 · sha 형식·default branch 검사 유지 | 없음 — 남는 통제는 required ci·public-safe와 ADR-002의 Jenkins 기술 검증이다. 배포 인가는 draft·prerelease가 아닌 Release 발행 자체이며 별도 release accept 절차는 없다 |
 | GitHub App 최소 권한·live smoke 계약 | @Lumiere001 | review | #205 | [#208](https://github.com/JNU-SWCU/oss-hub/pull/208) | #208 pass | Collection App REST read 데이터 최소화·권한 allowlist 계약 리뷰 반영 중 · 실제 실증은 비운영 App 준비 대기 |
 | 관리자 수집 시스템 상태 | @Lumiere001 | review | #133 | [#260](https://github.com/JNU-SWCU/oss-hub/pull/260) | backend unit 793 · integration 127 · frontend 493 · lint/typecheck/build/format/public-safe · authenticated Aside pass · 실수집 NORMAL 실증 | PM path exception · owner @Lumiere001 사후 확인 필요 |
 | webhook 처리 결과 관측 지표 | @Lumiere001 | review | #215 | [#216](https://github.com/JNU-SWCU/oss-hub/pull/216) | unit 347 · integration 64 · build pass | #221 병합 후 최신 main 재배치 완료 · 새 head CI와 재리뷰 대기 |
@@ -182,10 +182,12 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 
 <!-- 원본 간 충돌은 해결하지 않고 CONFLICT로만 표기한다(임의 해결 금지). -->
 
-- CONFLICT 해소(2026-07-31) — ADR-005 §배포 승인 서술이 어긋나던 문제는 같은 브랜치의 커밋 2d3370b(docs: 리뷰 정책을 현재 Release 배포 계약에 맞춘다)에서 ADR-005 §Decision·§Costs를 ADR-002 위임 방식으로 갱신해 해소됐다.
-- CONFLICT — `docs/exec-plan/active/jenkinsfile-thinning.md`가 승인 marker 검증을 "현재 동작"으로 서술하고 `scripts/jenkins/verify-release-approval.sh` 추출을 계획 단계로 남겨 뒀다.
-  게이트가 폐지되면서 그 추출 단계와 `FAIL_CLOSED approval_*` marker 계약은 대상이 사라졌다.
-  exec-plan owner가 @GoBeromsu이므로 이 브랜치에서 고치지 않고 표기만 남긴다.
+- CONFLICT 해소(2026-07-31) — ADR-005 §배포 승인 서술이 ADR-002 위임과 어긋나던 문제를 이 브랜치의 문서 수정으로 해소했다.
+  커밋 2d3370b(docs: 리뷰 정책을 현재 Release 배포 계약에 맞춘다)는 §Decision의 `RELEASE_ACCEPT` 서술과 §Costs의 남는 통제만 ADR-002 위임으로 갱신했고, high risk accept 문단의 production release manual accept 문장은 그대로 남아 있어 충돌은 그 시점에 해소되지 않았다.
+  이 브랜치에서 그 문장을 제거해 ADR-005는 production 배포 인가를 ADR-002에만 위임하며 별도 release accept 절차를 두지 않는다.
+- CONFLICT 해소(2026-07-31) — `docs/exec-plan/active/jenkinsfile-thinning.md`가 승인 marker 검증을 "현재 동작"으로 서술하고 `scripts/jenkins/verify-release-approval.sh` 추출을 계획 단계로 남겨 뒀던 문제를 이 브랜치의 문서 수정으로 해소했다.
+  게이트가 폐지되면서 대상이 사라진 추출 후보와 `FAIL_CLOSED approval_*` marker 계약, 승인 관련 실행 증거 항목을 계획에서 제거했다.
+  나머지 추출 후보와 직렬 PR 순서는 그대로 유지한다.
 - stale — `source_commit` 이후 #191·#195·#198이 병합됐다. 이 PR에서는 #191과 #208 관련 행만 부분 갱신했으며 전체 스냅샷 갱신은 별도로 필요하다.
   #99·#151이 닫혔지만 기존 그룹 행은 아직 `planned`에 포함돼 있으며, 이 부분은 #206 범위 밖의 별도 갱신 대상으로 남긴다.
   #56(Feature Owner 배분)은 이슈 자체는 열려 있으나 마지막 코멘트로 PM 승인이 확인됐다 —

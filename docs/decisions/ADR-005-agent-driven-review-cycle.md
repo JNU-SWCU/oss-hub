@@ -83,7 +83,6 @@ head·base SHA 형식 검증과 base가 default branch인지의 검사는 면제
 
 high risk PR은 `MERGE_READY` 이후 @GoBeromsu 또는 @Lumiere001 중 한 명이 동일한 head·base에 manual accept를 남기면 병합할 수 있다.
 단 배포 계약 경로를 변경하는 PR은 @GoBeromsu의 `PM_ACCEPT`가 반드시 있어야 하며 Tech Lead accept로 대체할 수 없다.
-production release 배포도 @GoBeromsu 한 명의 release tag와 exact SHA manual accept 뒤에만 시작한다.
 Jenkins의 실패 시 중단·증적 보존·기존 이미지 복구 동작은 ADR-002의 배포 계약을 유지하며, 이 ADR은 별도의 rollback 동작 변경을 결정하지 않는다.
 
 수동 파일럿의 canonical evidence는 PR 최상위 댓글에 아래 형식과 40자 full SHA로 남긴다.
