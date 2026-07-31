@@ -34,9 +34,9 @@ POSTGRES_USER=oss
 POSTGRES_PASSWORD=REPLACE_LOCAL_PW
 POSTGRES_DB=osshub
 
-# MinIO (compose.yml 필수. 로컬 컨테이너 전용 자격증명)
-SUBMISSION_FILE_S3_ACCESS_KEY_ID=REPLACE_LOCAL_MINIO_ACCESS_KEY
-SUBMISSION_FILE_S3_SECRET_ACCESS_KEY=REPLACE_LOCAL_MINIO_SECRET_KEY
+# MinIO (compose.yml 필수. 로컬 컨테이너 전용 — `.env.example`의 합성 로컬 값 관례를 그대로 쓴다)
+SUBMISSION_FILE_S3_ACCESS_KEY_ID=oss-hub-local
+SUBMISSION_FILE_S3_SECRET_ACCESS_KEY=oss-hub-local-synthetic-secret
 
 # migration·runtime 공용. compose 네트워크의 postgres 서비스 DNS를 가리킨다.
 # POSTGRES_PASSWORD와 같은 비밀번호를 쓴다.
