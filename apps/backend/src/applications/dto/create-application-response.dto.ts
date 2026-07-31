@@ -7,6 +7,7 @@ export class CreateApplicationResponseDto {
   readonly status: ApplicationStatus;
   readonly teamId: string | null;
   readonly submittedAt: string;
+  readonly isRepositoryPublicationPlanned: boolean;
 
   private constructor(application: CreatedApplication) {
     this.id = application.id;
@@ -14,6 +15,8 @@ export class CreateApplicationResponseDto {
     this.status = application.status;
     this.teamId = application.teamId;
     this.submittedAt = application.submittedAt.toISOString();
+    this.isRepositoryPublicationPlanned =
+      application.isRepositoryPublicationPlanned;
   }
 
   static from(application: CreatedApplication): CreateApplicationResponseDto {
