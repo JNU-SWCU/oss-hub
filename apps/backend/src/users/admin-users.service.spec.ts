@@ -6,7 +6,7 @@ import {
 } from '../audit-log/audit-log-metadata';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
-import { RolesErrorCode } from './roles-error-code.enum';
+import { RolesErrorCode } from '../roles/roles-error-code.enum';
 import type {
   AdminRoleRequestRecord,
   AdminRoleRequestTransition,
@@ -61,6 +61,20 @@ class InMemoryAdminUsersRepository
     return Promise.resolve(
       this.users.find((candidate) => candidate.id === id) ?? null,
     );
+  }
+
+  lockActiveAdmins(): Promise<number> {
+    return Promise.resolve(
+      this.users.filter(
+        (candidate) =>
+          candidate.role === Role.ADMIN &&
+          candidate.accountStatus === AccountStatus.ACTIVE,
+      ).length,
+    );
+  }
+
+  findUserForUpdate(id: string): Promise<AdminUserRecord | null> {
+    return this.findUserById(id);
   }
 
   list(): Promise<readonly AdminUserRecord[]> {
@@ -161,6 +175,30 @@ describe('AdminUsersService', () => {
       },
       repository.auditLogWriter,
     );
+  });
+
+  it('마지막 활성 ADMIN을 직접 역할 변경으로 강등하지 않는다', async () => {
+    // Given
+    const repository = new InMemoryAdminUsersRepository();
+    const audit = auditLog();
+    const service = new AdminUsersService(repository, audit.service);
+
+    // When
+    const demotion = service.updateRole(
+      ADMIN_GITHUB_ID,
+      'synthetic-admin',
+      Role.STAFF,
+    );
+
+    // Then
+    await expect(demotion).rejects.toMatchObject({
+      errorCode: {
+        code: RolesErrorCode.LAST_ACTIVE_ADMIN_REQUIRED,
+        status: 409,
+      },
+    });
+    expect(repository.users[0]?.role).toBe(Role.ADMIN);
+    expect(audit.record).not.toHaveBeenCalled();
   });
 
   it.each([

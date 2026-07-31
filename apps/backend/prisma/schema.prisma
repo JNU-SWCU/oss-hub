@@ -83,6 +83,8 @@ model LoginHistory {
   loginAt  DateTime          @default(now())
 
   @@index([userId, loginAt])
+  @@index([userId, provider, event, success, loginAt, id])
+  @@index([userId, provider, loginAt, id])
 }
 
 /// PENDING → APPROVED/REJECTED. REVOKED는 회수(REVOKE) 이력을 표현한다(#109 계약 잠금 이행 — #113에서 additive로 추가).
@@ -112,6 +114,8 @@ model RoleRequest {
 
   @@index([userId])
   @@index([status])
+  @@index([userId, status, createdAt, id])
+  @@index([userId, createdAt, id])
 }
 
 /// 전역 개인정보·활동 동의. MVP는 정책 버전별 1회 동의만 저장한다(#109 계약 잠금) — programId를 두지 않는다.

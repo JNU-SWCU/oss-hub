@@ -4,6 +4,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "e2e": "bash e2e/run-e2e.sh",
+    "e2e:install": "playwright install chrome",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
@@ -23,6 +25,7 @@
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "^15.0.0",
+    "@playwright/test": "1.55.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",

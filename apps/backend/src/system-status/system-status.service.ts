@@ -1,10 +1,12 @@
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { AccountStatus, Role } from '@prisma/client';
-import type { CanonicalRunStatus } from '../collection/collection-canonical.types';
 import {
-  SystemStatusRepository,
-  type SystemStatusSnapshot,
-} from './system-status.repository';
+  COLLECTION_READ_PORT,
+  type CollectionReadPort,
+  type CollectionRunStatusDto,
+  type CollectionStatusSnapshotDto,
+} from '../collection/collection-read.port';
+import { SystemStatusRepository } from './system-status.repository';
 import {
   CollectionSystemStatusResponseDto,
   SystemStatusResponseDto,
@@ -26,6 +28,8 @@ interface StatusDecision {
 export class SystemStatusService {
   constructor(
     private readonly repository: SystemStatusRepository,
+    @Inject(COLLECTION_READ_PORT)
+    private readonly collection: CollectionReadPort,
     @Inject(SYSTEM_STATUS_CLOCK) private readonly clock: SystemStatusClock,
   ) {}
 
@@ -38,7 +42,7 @@ export class SystemStatusService {
       throw new ForbiddenException('Active administrator access is required');
     }
 
-    const snapshot = await this.repository.getStatusSnapshot();
+    const snapshot = await this.collection.getStatusSnapshot();
     const decision = this.decide(snapshot);
     return new SystemStatusResponseDto(
       new CollectionSystemStatusResponseDto(
@@ -51,7 +55,7 @@ export class SystemStatusService {
     );
   }
 
-  private decide(snapshot: SystemStatusSnapshot | null): StatusDecision {
+  private decide(snapshot: CollectionStatusSnapshotDto | null): StatusDecision {
     if (snapshot && !snapshot.permissionsValid) {
       return { health: 'FAILED', reason: 'PERMISSION_INVALID' };
     }
@@ -75,7 +79,7 @@ export class SystemStatusService {
   }
 
   private failureReason(
-    status: CanonicalRunStatus | null,
+    status: CollectionRunStatusDto | null,
   ): SystemStatusSafeReasonResponseDto | null {
     switch (status) {
       case 'INCOMPLETE':
@@ -90,7 +94,7 @@ export class SystemStatusService {
   }
 
   private currentRunStatus(
-    status: CanonicalRunStatus | null,
+    status: CollectionRunStatusDto | null,
   ): CurrentRunStatusResponseDto {
     return status === 'PENDING' || status === 'PROCESSING' ? status : 'IDLE';
   }

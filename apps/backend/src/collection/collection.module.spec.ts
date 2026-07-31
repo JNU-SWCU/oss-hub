@@ -2,6 +2,8 @@ import { MODULE_METADATA } from '@nestjs/common/constants';
 import { ScheduleModule } from '@nestjs/schedule';
 import { CollectionAdminController } from './collection-admin.controller';
 import { CollectionCanonicalRepository } from './collection-canonical.repository';
+import { COLLECTION_READ_PORT } from './collection-read.port';
+import { CollectionReadService } from './collection-read.service';
 import { CollectionReconciliationService } from './collection-reconciliation.service';
 import { CollectionSchedulerService } from './collection-scheduler.service';
 
@@ -40,7 +42,24 @@ describe('CollectionModule', () => {
       ]),
     );
     expect(controllers).toContain(CollectionAdminController);
-    expect(exports).toContain(CollectionReconciliationService);
+    expect(exports).not.toContain(CollectionReconciliationService);
+  });
+
+  it('exports the read-port token without exposing its concrete implementation', () => {
+    const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
+    const exports = getMetadataArray(MODULE_METADATA.EXPORTS);
+
+    expect(providers).toEqual(
+      expect.arrayContaining([
+        CollectionReadService,
+        expect.objectContaining({
+          provide: COLLECTION_READ_PORT,
+          useExisting: CollectionReadService,
+        }),
+      ]),
+    );
+    expect(exports).toContain(COLLECTION_READ_PORT);
+    expect(exports).not.toContain(CollectionReadService);
   });
 
   it('retires webhook ingress and legacy collection runtime from the module', () => {

@@ -1,0 +1,157 @@
+import { RoleRequestStatus } from '@prisma/client';
+import {
+  ACCESS_AUDIT_ACTIONS,
+  ACCESS_AUDIT_EVENT_KINDS,
+  createAccessAuditMetadata,
+  type AccessAuditAction,
+  type AccessAuditMetadata,
+} from '../audit-log/audit-log-metadata';
+import {
+  ADMIN_ACCESS_REQUEST_DECISIONS,
+  type AdminAccessMutationCommand,
+  type AdminAccessMutationResult,
+} from './domain/admin-access';
+import {
+  ADMIN_ACCESS_REQUEST_EFFECTS,
+  type AdminAccessRequestEffect,
+} from './admin-access-transition-table';
+import type {
+  AdminAccessActor,
+  AdminAccessUserRecord,
+} from './admin-access.repository';
+
+export type AdminAccessAudit = {
+  readonly action: AccessAuditAction;
+  readonly targetType: 'USER' | 'ROLE_REQUEST';
+  readonly targetId: string;
+  readonly metadata: AccessAuditMetadata;
+};
+
+export class InvalidAdminAccessAuditError extends Error {
+  override readonly name = 'InvalidAdminAccessAuditError';
+
+  constructor() {
+    super('Allowed admin access transition cannot be represented as audit.');
+  }
+}
+
+export function createAdminAccessAudit(input: {
+  readonly actor: AdminAccessActor;
+  readonly before: AdminAccessUserRecord;
+  readonly command: AdminAccessMutationCommand;
+  readonly result: AdminAccessMutationResult;
+  readonly requestEffect: AdminAccessRequestEffect;
+}): AdminAccessAudit {
+  const common = {
+    actor: {
+      displayName: input.actor.name,
+      githubLogin: input.actor.githubLogin,
+    },
+    before: {
+      role: input.before.role,
+      accountStatus: input.before.accountStatus,
+      requestStatus: input.before.pendingRequest?.status ?? null,
+    },
+    after: {
+      role: input.result.role,
+      accountStatus: input.result.accountStatus,
+      requestStatus: input.result.decidedRequest?.status ?? null,
+    },
+  };
+  switch (input.requestEffect) {
+    case ADMIN_ACCESS_REQUEST_EFFECTS.APPROVED: {
+      const requestId = input.before.pendingRequest?.id;
+      if (!requestId) {
+        throw new InvalidAdminAccessAuditError();
+      }
+      return {
+        action: ACCESS_AUDIT_ACTIONS.ROLE_REQUEST_APPROVED,
+        targetType: 'ROLE_REQUEST',
+        targetId: requestId,
+        metadata: createAccessAuditMetadata({
+          ...common,
+          eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_APPROVED,
+        }),
+      };
+    }
+    case ADMIN_ACCESS_REQUEST_EFFECTS.REJECTED: {
+      const requestId = input.before.pendingRequest?.id;
+      const decision = input.command.requestDecision;
+      if (
+        !requestId ||
+        decision?.decision !== ADMIN_ACCESS_REQUEST_DECISIONS.REJECT
+      ) {
+        throw new InvalidAdminAccessAuditError();
+      }
+      return {
+        action: ACCESS_AUDIT_ACTIONS.ROLE_REQUEST_REJECTED,
+        targetType: 'ROLE_REQUEST',
+        targetId: requestId,
+        metadata: createAccessAuditMetadata({
+          ...common,
+          eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REJECTED,
+          rejectionReason: decision.reason,
+        }),
+      };
+    }
+    case ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED:
+      return createDirectAccessAudit(input, common);
+    default:
+      return assertNever(input.requestEffect);
+  }
+}
+
+function createDirectAccessAudit(
+  input: {
+    readonly before: AdminAccessUserRecord;
+    readonly result: AdminAccessMutationResult;
+  },
+  common: {
+    readonly actor: {
+      readonly displayName: string | null;
+      readonly githubLogin: string;
+    };
+    readonly before: {
+      readonly role: AdminAccessUserRecord['role'];
+      readonly accountStatus: AdminAccessUserRecord['accountStatus'];
+      readonly requestStatus: typeof RoleRequestStatus.PENDING | null;
+    };
+    readonly after: {
+      readonly role: AdminAccessMutationResult['role'];
+      readonly accountStatus: AdminAccessMutationResult['accountStatus'];
+      readonly requestStatus:
+        | typeof RoleRequestStatus.APPROVED
+        | typeof RoleRequestStatus.REJECTED
+        | null;
+    };
+  },
+): AdminAccessAudit {
+  if (input.before.role !== input.result.role) {
+    return {
+      action: ACCESS_AUDIT_ACTIONS.DIRECT_ROLE_CHANGED,
+      targetType: 'USER',
+      targetId: input.before.id,
+      metadata: createAccessAuditMetadata({
+        ...common,
+        eventKind: ACCESS_AUDIT_EVENT_KINDS.DIRECT_ROLE_CHANGED,
+      }),
+    };
+  }
+  if (input.before.accountStatus !== input.result.accountStatus) {
+    return {
+      action: ACCESS_AUDIT_ACTIONS.ACCOUNT_STATUS_CHANGED,
+      targetType: 'USER',
+      targetId: input.before.id,
+      metadata: createAccessAuditMetadata({
+        ...common,
+        eventKind: ACCESS_AUDIT_EVENT_KINDS.ACCOUNT_STATUS_CHANGED,
+      }),
+    };
+  }
+  throw new InvalidAdminAccessAuditError();
+}
+
+function assertNever(value: never): never {
+  void value;
+  throw new InvalidAdminAccessAuditError();
+}

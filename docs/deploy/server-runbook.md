@@ -36,11 +36,13 @@ ssh ubuntu@<EC2_TAILSCALE_HOST>
 ## M2. Docker · Jenkins · 빌드 툴체인 설치
 
 파이프라인 executor는 서버 로컬에서 Docker 이미지 빌드와 앱 build(lint/typecheck/test)를 수행하므로 Docker와 Node/pnpm/jq가 모두 필요하다.
+Buildx plugin도 필수다 — 배포 성공 뒤 캐시 정리가 `docker buildx prune --force --max-used-space`를 호출하므로 이 옵션을 지원하는 Buildx가 없으면 정리 단계에서 배포가 실패한다.
+운영 서버의 확인된 기준선은 Buildx `v0.35.0`이며, 이보다 낮은 버전을 쓸 때는 `--max-used-space` 지원 여부를 먼저 확인한다.
 
 ```sh
-# Docker Engine + compose plugin (Ubuntu)
+# Docker Engine + compose·buildx plugin (Ubuntu)
 sudo apt-get update
-sudo apt-get install -y docker.io docker-compose-plugin jq
+sudo apt-get install -y docker.io docker-compose-plugin docker-buildx-plugin jq
 sudo systemctl enable --now docker
 
 # Node 24 + pnpm 11 (corepack)
@@ -58,6 +60,7 @@ corepack prepare pnpm@11 --activate
 ```sh
 docker --version          # Docker version 2x.x.x
 docker compose version    # Docker Compose version v2.x.x
+docker buildx version     # github.com/docker/buildx v0.35.0 이상 (--max-used-space 지원 필요)
 node -v                   # v24.x.x
 pnpm -v                   # 11.x.x
 jq --version              # jq-1.x
@@ -141,7 +144,7 @@ stat -c '%a %U %G %n' /var/lib/oss-hub/backups
 
 ## M5. GitHub API 호출 준비
 
-`Jenkinsfile`의 release·승인 검증은 GitHub API(`releases/latest`, `#199` 댓글)를 호출한다. 공개 저장소라 미인증(60/hr)으로도 동작한다.
+`Jenkinsfile`의 release 검증은 GitHub API `releases/latest`를 호출한다. 공개 저장소라 미인증(60/hr)으로도 동작한다.
 
 - read-only PAT를 Jenkins Credentials Store에 **준비·문서화**한다(레이트리밋/향후 private 대비).
 - **`Jenkinsfile`에 인증 헤더를 넣는 코드 변경은 이 런북 범위가 아니다.** 현재 파이프라인은 미인증 curl을 사용한다.
@@ -151,24 +154,27 @@ stat -c '%a %U %G %n' /var/lib/oss-hub/backups
 
 첫 Release e2e 전에 [pre-deploy-verify](./pre-deploy-verify.md)의 ① 로컬 랩탑 검증과 ② 배포 EC2 서버-로컬 드라이런을 순서대로 통과시킨다. 앞 단계가 통과해야 다음으로 넘어간다.
 
-- 검증: ②에서 배포 EC2 서버-로컬로 이미지 빌드 + `docker compose up` + `http://127.0.0.1:8081/`·`/api/v1/health` smoke가 1회 성공.
+- 검증: ②에서 배포 EC2 서버-로컬로 이미지 빌드 + `docker compose up` + `http://127.0.0.1:8081/`·`/api/v1/health` 200과 제출 파일 업로드 경로 403 smoke가 1회 성공.
 
 ## M7. 첫 Release 수동 트리거 e2e
 
-1. main에 있는 exact commit으로 full GitHub Release(예: `v0.1.0`)를 발행한다(`draft=false`, `prerelease=false`, tag SHA가 main ancestry).
-2. #199에 같은 tag·full SHA의 @GoBeromsu `RELEASE_ACCEPT role=PM`을 남긴다([ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)).
-3. M4 job을 파라미터 없이 수동 트리거한다.
-4. 파이프라인이 순서대로 수행되는지 콘솔 로그로 확인한다: exact SHA detached checkout → build/test → PostgreSQL 기동 + `pg_dump` 백업 → front/back 이미지 서버 로컬 빌드 → `prisma migrate deploy` → `up -d --no-build --wait` → loopback Compose ingress smoke → 공인 IP TLS smoke.
+1. main에 있는 exact commit으로 full GitHub Release(예: `v0.1.0`)를 발행한다(`draft=false`, `prerelease=false`, tag SHA가 main ancestry). 이 발행이 배포 인가이며 별도 승인 댓글은 남기지 않는다([ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)).
+2. M4 job을 파라미터 없이 수동 트리거한다.
+3. 파이프라인이 순서대로 수행되는지 콘솔 로그로 확인한다: exact SHA detached checkout → build/test → PostgreSQL 기동 + `pg_dump` 백업 → front/back 이미지 서버 로컬 빌드 → `prisma migrate deploy` → `up -d --no-build --wait` → loopback Compose ingress smoke → 공인 IP TLS smoke.
 
-- 예상 출력: loopback·TLS smoke가 모두 HTTP 200이고 frontend·backend 이미지의 OCI version은 Release tag, revision은 exact 40-hex SHA다.
+- 예상 출력: loopback·TLS `/`·`/api/v1/health`가 HTTP 200, 제출 파일 업로드 경로가 HTTP 403이고 frontend·backend 이미지의 OCI version은 Release tag, revision은 exact 40-hex SHA다.
 - 검증:
 
 ```sh
 docker compose --env-file "$OSS_HUB_ENV_FILE" ps
 curl -fsS http://127.0.0.1:8081/            > /dev/null && echo "root OK"
 curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
+# 업로드 차단은 성공 코드가 아니므로 -f 없이 상태 코드를 직접 읽는다.
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8081/api/v1/submission-files  # 403
 # 공인 TLS smoke는 host nginx·인증서 계약이 준비된 뒤에 Jenkinsfile과 동일 경로로 확인한다.
 ```
+
+- `/api/v1/health` 200은 PostgreSQL 연결까지 확인한 결과다. DB에 닿지 못하면 503이므로 이 스텝이 DB 가용성 확인을 겸한다.
 
 - **no-op 재확인**: 파라미터 없이 job을 다시 실행하면 실행 중 tag·revision과 latest Release가 같음을 증명하고 성공 no-op 처리되는지 확인한다.
 - 실패 시: `PREV_TAG`가 없는 첫 배포는 자동 rollback 대상이 없다. [init-operations](../exec-plan/active/init-operations.md) 복구 절차대로 로그·백업을 보존하고 수동 복구한다. `down -v`는 사용하지 않는다.
