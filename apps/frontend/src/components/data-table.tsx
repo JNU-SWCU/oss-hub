@@ -30,6 +30,10 @@ interface DataTableProps<TRow> extends Omit<
   isLoading?: boolean;
   loadingSlot?: React.ReactNode;
   emptyState?: React.ReactNode;
+  onRowActivate?: (row: TRow, rowIndex: number) => void;
+  rowAriaLabel?: (row: TRow, rowIndex: number) => string;
+  rowClassName?: string;
+  tableClassName?: string;
 }
 
 // 소비 화면이 컬럼·행 데이터를 주입하는 운영 데이터 테이블. 역할별 컬럼·액션 노출
@@ -42,6 +46,10 @@ function DataTable<TRow>({
   isLoading = false,
   loadingSlot,
   emptyState,
+  onRowActivate,
+  rowAriaLabel,
+  rowClassName,
+  tableClassName,
   className,
   ...props
 }: DataTableProps<TRow>) {
@@ -49,7 +57,7 @@ function DataTable<TRow>({
 
   return (
     <div data-slot="data-table" className={cn('w-full', className)} {...props}>
-      <Table>
+      <Table className={tableClassName}>
         {caption ? <TableCaption>{caption}</TableCaption> : null}
         <TableHeader>
           <TableRow>
@@ -81,7 +89,28 @@ function DataTable<TRow>({
             </TableRow>
           ) : (
             data.map((row, rowIndex) => (
-              <TableRow key={rowKey(row, rowIndex)}>
+              <TableRow
+                key={rowKey(row, rowIndex)}
+                className={rowClassName}
+                aria-label={rowAriaLabel?.(row, rowIndex)}
+                tabIndex={onRowActivate ? 0 : undefined}
+                onClick={
+                  onRowActivate ? () => onRowActivate(row, rowIndex) : undefined
+                }
+                onKeyDown={
+                  onRowActivate
+                    ? (event) => {
+                        if (
+                          event.target === event.currentTarget &&
+                          (event.key === 'Enter' || event.key === ' ')
+                        ) {
+                          event.preventDefault();
+                          onRowActivate(row, rowIndex);
+                        }
+                      }
+                    : undefined
+                }
+              >
                 {columns.map((column) => (
                   <TableCell key={column.id} className={column.cellClassName}>
                     {column.cell(row, rowIndex)}

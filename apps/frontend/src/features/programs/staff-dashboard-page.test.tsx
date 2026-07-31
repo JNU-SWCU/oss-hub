@@ -80,6 +80,12 @@ describe('staff dashboard helpers', () => {
     expect(applicantsHref(multiPrograms[1]!)).toContain('/applicants');
   });
 
+  it('프로그램 행은 기존 편집 경로를 재사용한다', () => {
+    expect(staffProgramHref(multiPrograms[0]!.id, '/edit')).toBe(
+      '/staff/programs/program%3Abasic/edit',
+    );
+  });
+
   it('Application 단위 집계 필드를 표시용으로 유지한다', () => {
     const counts = multiPrograms[0]!.applications;
     expect(counts.total).toBe(
