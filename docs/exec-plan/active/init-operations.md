@@ -19,7 +19,7 @@
 
 1. Jenkins 관리 UI는 서버의 `127.0.0.1:8080`에만 bind하고 Tailscale SSH tunnel로 접근한다. 공인 8080 포트는 열지 않는다.
 2. main push 품질 검증은 GitHub Actions `ci`가 담당한다. Jenkins는 production Release 배포만 담당한다.
-3. production은 공개 GitHub Release를 배포 후보로 사용한다. `draft=false`·`prerelease=false`이고 저장소 변수 `DEPLOY_TRIGGER_ENABLED=true`인 `published` 이벤트만 GitHub Actions가 Jenkins 내장 원격 빌드 트리거로 전달한다.
+3. production은 공개 GitHub Release를 배포 후보로 사용한다. `draft=false`·`prerelease=false`인 `published` 이벤트를 GitHub Actions가 별도 feature flag 없이 Jenkins 내장 원격 빌드 트리거로 전달한다.
 4. GitHub Actions는 HTTPS `JENKINS_DEPLOY_URL`만 허용하고 전용 `oss-hub-deployer` API token을 Basic Authorization header로 사용해 parameterless POST를 보낸다. host nginx는 정확한 `/job/oss-hub-release-cd/build` POST만 localhost Jenkins로 프록시하며 Jenkins UI는 공개하지 않는다.
 5. Jenkins는 현재 latest full Release와 일치하는 `vMAJOR.MINOR.PATCH` tag 및 main ancestry를 검증한다. 이 세 검사를 통과한 exact SHA만 checkout하며 별도 승인 marker는 요구하지 않는다 — 배포 인가는 Release 발행 자체이고 인가 주체 통제는 GitHub의 Release 발행 권한이 담당한다([ADR-002](../../decisions/ADR-002-CI-CD-파이프라인.md)).
 6. Docker 권한을 가진 executor에는 `oss-hub-production` 전용 label을 부여하고 이 job과 승인된 운영자 외 작업을 배치하지 않는다. pipeline에 `disableConcurrentBuilds()`를 적용하고 `COMPOSE_PROJECT_NAME`을 고정한다.
