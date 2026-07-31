@@ -49,19 +49,23 @@ describe('settings form state', () => {
   });
 
   it('완료 프로필 갱신 요청에는 학번을 넣지 않는다', () => {
-    expect(toSettingsProfileRequest(validValues())).toEqual({
+    expect(toSettingsProfileRequest(validValues(), 'STUDENT')).toEqual({
       name: '합성 사용자',
       department: '인공지능학부',
     });
-    expect(toSettingsProfileRequest(validValues())).not.toHaveProperty(
-      'studentId',
-    );
+    expect(
+      toSettingsProfileRequest(validValues(), 'STUDENT'),
+    ).not.toHaveProperty('studentId');
   });
 
   it('알림 사용 가능할 때만 이메일을 검증한다', () => {
     const emptyEmail = validValues({ notificationEmail: '' });
-    const withNotification = validateSettingsForm(emptyEmail, true);
-    const withoutNotification = validateSettingsForm(emptyEmail, false);
+    const withNotification = validateSettingsForm(emptyEmail, true, 'STUDENT');
+    const withoutNotification = validateSettingsForm(
+      emptyEmail,
+      false,
+      'STUDENT',
+    );
 
     expect(withNotification.notificationEmail).toBe(
       '이메일 형식이 올바르지 않습니다.',

@@ -26,6 +26,10 @@ import {
 } from '../api';
 import { DEPARTMENT_GROUPS, OTHER_DEPARTMENT } from '../departments';
 import {
+  profileFieldRequirement,
+  type ProfileRole,
+} from '../profile-requirements';
+import {
   createInitialProfileForm,
   getProfileRedirect,
   isProfileFormValid,
@@ -38,6 +42,8 @@ import {
 import type { ProfileFormErrors, ProfileFormValues } from '../types';
 
 interface ProfileFormProps {
+  /** 세션 역할. 아직 배정 전이면 `null`이고, 그때는 학생 기준을 따른다. */
+  readonly role: ProfileRole | null;
   readonly values: ProfileFormValues;
   readonly errors: ProfileFormErrors;
   readonly showRequiredErrors: boolean;
@@ -61,6 +67,7 @@ export function ProfileSkeleton() {
 }
 
 export function ProfileForm({
+  role,
   values,
   errors,
   showRequiredErrors,
@@ -74,6 +81,16 @@ export function ProfileForm({
     onSubmit();
   }
 
+  // 역할이 요구하지 않는 항목은 입력란 자체를 감춘다 — 비워 두라고 안내하는 것보다
+  // 보이지 않는 편이 낫다. 폼 상태의 값은 그대로 두므로 이미 저장된 학번·학과는
+  // 지워지지 않고 저장 요청에 다시 실린다.
+  const requirement = profileFieldRequirement(role);
+  const requiredFields = [
+    '이름',
+    ...(requirement.studentId ? ['학번'] : []),
+    ...(requirement.department ? ['학과'] : []),
+  ];
+
   const showNameError = showRequiredErrors && errors.name !== null;
   const showStudentIdError =
     errors.studentId !== null &&
@@ -85,7 +102,7 @@ export function ProfileForm({
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
       <PageHeader
         title="기본 프로필을 입력해 주세요"
-        description="프로그램 참여에 필요한 이름, 학번, 학과를 확인합니다."
+        description={`프로그램 참여에 필요한 항목(${requiredFields.join(', ')})을 확인합니다.`}
       />
       <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
         <FormSection
@@ -106,69 +123,73 @@ export function ProfileForm({
             {showNameError ? <FieldError>{errors.name}</FieldError> : null}
           </Field>
 
-          <Field data-invalid={showStudentIdError || undefined}>
-            <FieldLabel htmlFor="profile-student-id">학번</FieldLabel>
-            <Input
-              id="profile-student-id"
-              name="studentId"
-              inputMode="numeric"
-              autoComplete="off"
-              value={values.studentId}
-              aria-invalid={showStudentIdError}
-              onChange={(event) => onChange({ studentId: event.target.value })}
-            />
-            <FieldDescription>숫자 6~10자리</FieldDescription>
-            {showStudentIdError ? (
-              <FieldError>{errors.studentId}</FieldError>
-            ) : null}
-          </Field>
-
-          <Field data-invalid={showDepartmentError || undefined}>
-            <FieldLabel htmlFor="profile-department">학과</FieldLabel>
-            <select
-              id="profile-department"
-              name="department"
-              className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-              value={values.departmentOption}
-              aria-invalid={showDepartmentError}
-              onChange={(event) =>
-                onChange({
-                  departmentOption: event.target.value,
-                  otherDepartment:
-                    event.target.value === OTHER_DEPARTMENT
-                      ? values.otherDepartment
-                      : '',
-                })
-              }
-            >
-              <option value="">학과를 선택해 주세요</option>
-              {DEPARTMENT_GROUPS.map((group) => (
-                <optgroup key={group.label} label={group.label}>
-                  {group.departments.map((department) => (
-                    <option key={department} value={department}>
-                      {department}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-              <option value={OTHER_DEPARTMENT}>기타(직접 입력)</option>
-            </select>
-            {values.departmentOption === OTHER_DEPARTMENT ? (
+          {requirement.studentId ? (
+            <Field data-invalid={showStudentIdError || undefined}>
+              <FieldLabel htmlFor="profile-student-id">학번</FieldLabel>
               <Input
-                aria-label="기타 학과"
-                placeholder="학과 또는 전공을 입력해 주세요"
-                maxLength={PROFILE_DEPARTMENT_MAX_LENGTH}
-                value={values.otherDepartment}
+                id="profile-student-id"
+                name="studentId"
+                inputMode="numeric"
+                autoComplete="off"
+                value={values.studentId}
+                aria-invalid={showStudentIdError}
+                onChange={(event) => onChange({ studentId: event.target.value })}
+              />
+              <FieldDescription>숫자 6~10자리</FieldDescription>
+              {showStudentIdError ? (
+                <FieldError>{errors.studentId}</FieldError>
+              ) : null}
+            </Field>
+          ) : null}
+
+          {requirement.department ? (
+            <Field data-invalid={showDepartmentError || undefined}>
+              <FieldLabel htmlFor="profile-department">학과</FieldLabel>
+              <select
+                id="profile-department"
+                name="department"
+                className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+                value={values.departmentOption}
                 aria-invalid={showDepartmentError}
                 onChange={(event) =>
-                  onChange({ otherDepartment: event.target.value })
+                  onChange({
+                    departmentOption: event.target.value,
+                    otherDepartment:
+                      event.target.value === OTHER_DEPARTMENT
+                        ? values.otherDepartment
+                        : '',
+                  })
                 }
-              />
-            ) : null}
-            {showDepartmentError ? (
-              <FieldError>{errors.department}</FieldError>
-            ) : null}
-          </Field>
+              >
+                <option value="">학과를 선택해 주세요</option>
+                {DEPARTMENT_GROUPS.map((group) => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.departments.map((department) => (
+                      <option key={department} value={department}>
+                        {department}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+                <option value={OTHER_DEPARTMENT}>기타(직접 입력)</option>
+              </select>
+              {values.departmentOption === OTHER_DEPARTMENT ? (
+                <Input
+                  aria-label="기타 학과"
+                  placeholder="학과 또는 전공을 입력해 주세요"
+                  maxLength={PROFILE_DEPARTMENT_MAX_LENGTH}
+                  value={values.otherDepartment}
+                  aria-invalid={showDepartmentError}
+                  onChange={(event) =>
+                    onChange({ otherDepartment: event.target.value })
+                  }
+                />
+              ) : null}
+              {showDepartmentError ? (
+                <FieldError>{errors.department}</FieldError>
+              ) : null}
+            </Field>
+          ) : null}
         </FormSection>
 
         {submitError ? (
@@ -186,7 +207,12 @@ export function ProfileForm({
   );
 }
 
-export function ProfileOnboardingScreen() {
+export function ProfileOnboardingScreen({
+  role,
+}: {
+  /** app 계층이 세션에서 읽어 넘긴다 — feature는 auth·roles에 직접 의존할 수 없다. */
+  readonly role: ProfileRole | null;
+}) {
   const router = useRouter();
   const [values, setValues] = useState<ProfileFormValues | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -219,7 +245,7 @@ export function ProfileOnboardingScreen() {
       setLoadError(null);
       try {
         const profile = await getMyProfile(signal);
-        const redirect = getProfileRedirect(profile);
+        const redirect = getProfileRedirect(profile, role);
         if (redirect) {
           router.replace(redirect);
           return;
@@ -232,7 +258,7 @@ export function ProfileOnboardingScreen() {
         setLoadError('프로필 정보를 불러오지 못했습니다. 다시 시도해 주세요.');
       }
     },
-    [navigateForError, router],
+    [navigateForError, role, router],
   );
 
   useEffect(() => {
@@ -244,9 +270,9 @@ export function ProfileOnboardingScreen() {
   const errors = useMemo(
     () =>
       values
-        ? validateProfileForm(values)
+        ? validateProfileForm(values, role)
         : { name: null, studentId: null, department: null },
-    [values],
+    [role, values],
   );
 
   async function submit(): Promise<void> {
@@ -254,7 +280,7 @@ export function ProfileOnboardingScreen() {
       return;
     }
     setHasSubmitted(true);
-    const request = toCompleteProfileRequest(values);
+    const request = toCompleteProfileRequest(values, role);
     if (!request) {
       return;
     }
@@ -302,6 +328,7 @@ export function ProfileOnboardingScreen() {
 
   return (
     <ProfileForm
+      role={role}
       values={values}
       errors={errors}
       showRequiredErrors={hasSubmitted}

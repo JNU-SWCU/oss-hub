@@ -8,6 +8,7 @@ import {
   getMyProfile,
   updateMyProfile,
 } from '../../api';
+import type { ProfileRole } from '../../profile-requirements';
 import {
   classifyNotificationChannelApiError,
   getMyNotificationChannel,
@@ -27,7 +28,12 @@ import type {
 } from '../types';
 import { SettingsForm, SettingsSkeleton } from './settings-form';
 
-export function SettingsScreen() {
+export function SettingsScreen({
+  role,
+}: {
+  /** app 계층이 세션에서 읽어 넘긴다 — feature는 auth·roles에 직접 의존할 수 없다. */
+  readonly role: ProfileRole | null;
+}) {
   const [values, setValues] = useState<SettingsFormValues | null>(null);
   const [notificationLoad, setNotificationLoad] =
     useState<SettingsNotificationLoadState>({ kind: 'ready' });
@@ -106,9 +112,9 @@ export function SettingsScreen() {
   const errors = useMemo(
     () =>
       values
-        ? validateSettingsForm(values, notificationLoad.kind === 'ready')
+        ? validateSettingsForm(values, notificationLoad.kind === 'ready', role)
         : { name: null, department: null, notificationEmail: null },
-    [values, notificationLoad.kind],
+    [values, notificationLoad.kind, role],
   );
 
   async function submit(): Promise<void> {
@@ -121,8 +127,9 @@ export function SettingsScreen() {
     const nextErrors = validateSettingsForm(
       values,
       notificationLoad.kind === 'ready',
+      role,
     );
-    const profileRequest = toSettingsProfileRequest(values);
+    const profileRequest = toSettingsProfileRequest(values, role);
     if (!profileRequest || !isSettingsFormValid(nextErrors)) {
       return;
     }
@@ -208,6 +215,7 @@ export function SettingsScreen() {
 
   return (
     <SettingsForm
+      role={role}
       values={values}
       errors={errors}
       showValidationErrors={hasSubmitted}

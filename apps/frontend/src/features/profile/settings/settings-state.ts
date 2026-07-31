@@ -1,3 +1,4 @@
+import type { ProfileRole } from '../profile-requirements';
 import {
   createInitialProfileForm,
   toUpdateProfileRequest,
@@ -38,8 +39,9 @@ export function createInitialSettingsForm(
 export function validateSettingsForm(
   values: SettingsFormValues,
   notificationAvailable: boolean,
+  role: ProfileRole | null,
 ): SettingsFormErrors {
-  const profileErrors = validateSettingsProfileForm(values);
+  const profileErrors = validateSettingsProfileForm(values, role);
   return {
     name: profileErrors.name,
     department: profileErrors.department,
@@ -55,8 +57,11 @@ export function isSettingsFormValid(errors: SettingsFormErrors): boolean {
   return Object.values(errors).every((error) => error === null);
 }
 
-export function toSettingsProfileRequest(values: SettingsFormValues) {
-  return toUpdateProfileRequest(values);
+export function toSettingsProfileRequest(
+  values: SettingsFormValues,
+  role: ProfileRole | null,
+) {
+  return toUpdateProfileRequest(values, role);
 }
 
 export function toSettingsNotificationRequest(values: SettingsFormValues) {

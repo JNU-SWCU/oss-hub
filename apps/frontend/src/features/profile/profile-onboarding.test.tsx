@@ -10,6 +10,7 @@ import {
   PROFILE_NAME_MAX_LENGTH,
   validateProfileForm,
 } from './profile-state';
+import type { ProfileRole } from './profile-requirements';
 import type { ProfileFormValues } from './types';
 
 const noOp = () => undefined;
@@ -27,15 +28,18 @@ function values(overrides: Partial<ProfileFormValues> = {}): ProfileFormValues {
 function renderForm(
   formValues: ProfileFormValues,
   options: {
+    readonly role?: ProfileRole | null;
     readonly showRequiredErrors?: boolean;
     readonly isSubmitting?: boolean;
     readonly submitError?: string | null;
   } = {},
 ) {
+  const role = options.role ?? null;
   return renderToStaticMarkup(
     <ProfileForm
+      role={role}
       values={formValues}
-      errors={validateProfileForm(formValues)}
+      errors={validateProfileForm(formValues, role)}
       showRequiredErrors={options.showRequiredErrors ?? false}
       isSubmitting={options.isSubmitting ?? false}
       submitError={options.submitError ?? null}
@@ -95,6 +99,42 @@ describe('profile onboarding view', () => {
     expect(html).toContain('이름은 100자 이하로 입력해 주세요.');
     expect(html).toContain('학과는 100자 이하로 입력해 주세요.');
     expect(html).toContain('disabled=""');
+  });
+
+  it('학생에게는 이름·학번·학과를 모두 보여 준다', () => {
+    const html = renderForm(values(), { role: 'STUDENT' });
+
+    expect(html).toContain('profile-name');
+    expect(html).toContain('profile-student-id');
+    expect(html).toContain('profile-department');
+    expect(html).toContain('항목(이름, 학번, 학과)');
+  });
+
+  it('교직원에게는 학번 입력란을 보여 주지 않는다', () => {
+    const html = renderForm(values({ studentId: '' }), {
+      role: 'STAFF',
+      showRequiredErrors: true,
+    });
+
+    expect(html).not.toContain('profile-student-id');
+    expect(html).not.toContain('학번은 숫자 6~10자리로 입력해 주세요.');
+    expect(html).toContain('profile-department');
+    expect(html).toContain('항목(이름, 학과)');
+    // 학번 없이도 저장 버튼이 열린다.
+    expect(html).not.toMatch(/type="submit"[^>]*disabled/);
+  });
+
+  it('관리자에게는 학번·학과 입력란을 모두 보여 주지 않는다', () => {
+    const html = renderForm(values({ studentId: '', departmentOption: '' }), {
+      role: 'ADMIN',
+      showRequiredErrors: true,
+    });
+
+    expect(html).not.toContain('profile-student-id');
+    expect(html).not.toContain('profile-department');
+    expect(html).toContain('profile-name');
+    expect(html).toContain('항목(이름)');
+    expect(html).not.toMatch(/type="submit"[^>]*disabled/);
   });
 
   it('저장 중 중복 클릭을 막고 서버 실패 Alert를 표시한다', () => {
