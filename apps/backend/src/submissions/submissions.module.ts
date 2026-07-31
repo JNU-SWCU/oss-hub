@@ -7,6 +7,8 @@ import { SubmissionFileStorageConfig } from './submission-file-storage.config';
 import { SUBMISSION_FILE_STORAGE } from './submission-file-storage.port';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
+import { SubmissionDashboardSummaryRepository } from './submission-dashboard-summary.repository';
+import { SubmissionDashboardSummaryService } from './submission-dashboard-summary.service';
 import { SubmissionMatrixRepository } from './submission-matrix.repository';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import {
@@ -41,8 +43,11 @@ import { SubmissionsService } from './submissions.service';
       useExisting: S3SubmissionFileStorage,
     },
     SubmissionsService,
+    SubmissionDashboardSummaryRepository,
+    SubmissionDashboardSummaryService,
     SubmissionMatrixRepository,
     SubmissionMatrixService,
   ],
+  exports: [SubmissionDashboardSummaryService],
 })
 export class SubmissionsModule {}

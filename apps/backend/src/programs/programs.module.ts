@@ -3,6 +3,8 @@ import { AuthModule } from '../auth/auth.module';
 import { ApplicationTemplatesController } from './application-templates.controller';
 import { MilestonesController } from './milestones.controller';
 import { ProgramCreationService } from './program-creation.service';
+import { ProgramActivitySummaryRepository } from './program-activity-summary.repository';
+import { ProgramActivitySummaryService } from './program-activity-summary.service';
 import { ProgramActivityService } from './program-activity.service';
 import { ProgramEditorController } from './program-editor.controller';
 import { ProgramEditorRepository } from './program-editor.repository';
@@ -34,6 +36,8 @@ import { StudentDashboardService } from './student-dashboard.service';
     ProgramsService,
     ProgramsRepository,
     ProgramCreationService,
+    ProgramActivitySummaryRepository,
+    ProgramActivitySummaryService,
     ProgramActivityService,
     ProgramViewerService,
     StudentDashboardService,
@@ -42,5 +46,6 @@ import { StudentDashboardService } from './student-dashboard.service';
     ProgramTeamsService,
     ProgramTeamsRepository,
   ],
+  exports: [ProgramActivitySummaryService],
 })
 export class ProgramsModule {}
