@@ -586,298 +586,148 @@ fi
 # Real condition remains; executable terminal is replaced by echo/println/string.
 # ---------------------------------------------------------------------------
 
+# Two Python helpers generalize the terminal-spoof adversarial fixtures below:
+# spoof_terminal() finds an anchor branch, walks forward replacing the first
+# executable terminal token(s) it meets with a non-executable echo/println
+# string, and stops at the branch's closing token (skip_closes lets a branch
+# skip over intermediate closes when a sibling branch must stay untouched).
+python3 - "$v2_source" "$fixture_dir" <<'PYTERM'
+from pathlib import Path
+import re
+import sys
+
+source = Path(sys.argv[1]).read_text()
+fixture_dir = Path(sys.argv[2])
+lines = source.splitlines(keepends=True)
+
+
+def write_fixture(name: str, content: str) -> None:
+    if content == source:
+        raise SystemExit(f"fixture not distinct: {name}")
+    (fixture_dir / name).write_text(content)
+
+
+def find_anchor(pattern: str) -> int:
+    rx = re.compile(pattern)
+    for i, line in enumerate(lines):
+        if rx.search(line):
+            return i
+    raise SystemExit(f"fixture pattern not found: {pattern!r}")
+
+
+def spoof_terminal(
+    name: str,
+    anchor: str,
+    terminal: str,
+    replacement: str,
+    end: str,
+    skip_closes: int = 0,
+) -> None:
+    rx_terminal = re.compile(terminal)
+    rx_end = re.compile(end)
+    idx = find_anchor(anchor)
+    out = lines[: idx + 1]
+    i = idx + 1
+    closes = 0
+    while i < len(lines):
+        line = lines[i]
+        if rx_terminal.search(line):
+            out.append(replacement)
+            i += 1
+            continue
+        out.append(line)
+        i += 1
+        if rx_end.search(line):
+            if closes < skip_closes:
+                closes += 1
+                continue
+            break
+    else:
+        raise SystemExit(f"fixture end pattern not found: {name}")
+    out.extend(lines[i:])
+    write_fixture(name, "".join(out))
+
+
+FI = r"^\s*fi\s*$"
+BRACE = r"^\s*\}\s*$"
+EXIT_N = r"^\s*exit\s+[0-9]+\s*$"
+EXIT2 = r"^\s*exit\s+2\s*$"
+EXIT3 = r"^\s*exit\s+3\s*$"
+ERROR_OPEN = r"^\s*error\s*\("
+RETURN = r"^\s*return\s*;?\s*$"
+DEPLOY_NOOP = r"^\s*(env\.)?DEPLOY_NOOP\s*=\s*'true'"
+
+ANCHOR_STOPPED = r'\[\s*-z\s+"\$fe_running"\s*\]\s*&&\s*\[\s*-z\s+"\$be_running"\s*\]'
+ANCHOR_PARTIAL = r'\[\s*-n\s+"\$fe_all"\s*\]\s*&&\s*\[\s*-z\s+"\$be_all"\s*\]'
+ANCHOR_AMBIGUOUS = r"if \(state != 'running'\) \{"
+ANCHOR_SAME_TAG = r"prevTag == env\.RELEASE_TAG && prevSha != env\.RELEASE_SHA"
+ANCHOR_DOWNGRADE = r"if \(cmp < 0\) \{"
+ANCHOR_FRONTEND_MISSING = r"count\s*==\s*0"
+ANCHOR_FRONTEND_UNIQ = r"count\s*!=\s*1"
+
 # stopped: shell echo 'exit 2' instead of executable exit
-awk '
-  /\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\]/ {
-    print
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*exit[[:space:]]+[0-9]+[[:space:]]*$/) {
-        print "  echo '\''exit 2'\''"
-        continue
-      }
-      print line
-      if (line ~ /^[[:space:]]*fi[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-stopped-echo-exit"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-stopped-echo-exit"; then
-  printf 'fixture not distinct: v2-spoof-stopped-echo-exit\n' >&2
-  exit 1
-fi
-if ! grep -Fq "echo 'exit 2'" "$fixture_dir/v2-spoof-stopped-echo-exit"; then
-  printf 'fixture missing echo exit spoof: v2-spoof-stopped-echo-exit\n' >&2
-  exit 1
-fi
-if awk '
-  /\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\]/ { grab=1; next }
-  grab {
-    if ($0 ~ /^[[:space:]]*exit[[:space:]]+[0-9]+[[:space:]]*$/) found=1
-    if ($0 ~ /^[[:space:]]*fi[[:space:]]*$/) exit
-  }
-  END { exit found ? 0 : 1 }
-' "$fixture_dir/v2-spoof-stopped-echo-exit"; then
-  printf 'fixture still has executable exit: v2-spoof-stopped-echo-exit\n' >&2
-  exit 1
-fi
-
+spoof_terminal(
+    "v2-spoof-stopped-echo-exit", ANCHOR_STOPPED, EXIT_N, "  echo 'exit 2'\n", FI
+)
 # partial: shell echo 'exit 2' instead of executable exit
-awk '
-  /\[[[:space:]]*-n[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_all"[[:space:]]*\]/ {
-    print
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*exit[[:space:]]+[0-9]+[[:space:]]*$/) {
-        print "  echo '\''exit 2'\''"
-        continue
-      }
-      print line
-      if (line ~ /^[[:space:]]*fi[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-partial-echo-exit"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-partial-echo-exit"; then
-  printf 'fixture not distinct: v2-spoof-partial-echo-exit\n' >&2
-  exit 1
-fi
-if ! grep -Fq "echo 'exit 2'" "$fixture_dir/v2-spoof-partial-echo-exit"; then
-  printf 'fixture missing echo exit spoof: v2-spoof-partial-echo-exit\n' >&2
-  exit 1
-fi
-
+spoof_terminal(
+    "v2-spoof-partial-echo-exit", ANCHOR_PARTIAL, EXIT_N, "  echo 'exit 2'\n", FI
+)
 # non-running: Groovy echo "error(...)" instead of executable error(...)
-awk '
-  /if \(state != '\''running'\''\) \{/ {
-    print
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*error[[:space:]]*\(/) {
-        print "              echo \"error(FAIL_CLOSED unexpected_probe_state: spoof)\""
-        continue
-      }
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-ambiguous-echo-error"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-ambiguous-echo-error"; then
-  printf 'fixture not distinct: v2-spoof-ambiguous-echo-error\n' >&2
-  exit 1
-fi
-if ! grep -Fq 'echo "error(' "$fixture_dir/v2-spoof-ambiguous-echo-error"; then
-  printf 'fixture missing echo error spoof: v2-spoof-ambiguous-echo-error\n' >&2
-  exit 1
-fi
-if awk '
-  /if \(state != '\''running'\''\) \{/ { grab=1; next }
-  grab {
-    if ($0 ~ /^[[:space:]]*error[[:space:]]*\(/) found=1
-    if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
-  }
-  END { exit found ? 0 : 1 }
-' "$fixture_dir/v2-spoof-ambiguous-echo-error"; then
-  printf 'fixture still has executable error: v2-spoof-ambiguous-echo-error\n' >&2
-  exit 1
-fi
-
+spoof_terminal(
+    "v2-spoof-ambiguous-echo-error",
+    ANCHOR_AMBIGUOUS,
+    ERROR_OPEN,
+    '              echo "error(FAIL_CLOSED unexpected_probe_state: spoof)"\n',
+    BRACE,
+)
 # non-running: Groovy println "error(...)" variant
-awk '
-  /if \(state != '\''running'\''\) \{/ {
-    print
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*error[[:space:]]*\(/) {
-        print "              println(\"error(FAIL_CLOSED unexpected_probe_state: spoof)\")"
-        continue
-      }
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-ambiguous-println-error"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-ambiguous-println-error"; then
-  printf 'fixture not distinct: v2-spoof-ambiguous-println-error\n' >&2
-  exit 1
-fi
-if ! grep -Fq 'println("error(' "$fixture_dir/v2-spoof-ambiguous-println-error"; then
-  printf 'fixture missing println error spoof: v2-spoof-ambiguous-println-error\n' >&2
-  exit 1
-fi
-
+spoof_terminal(
+    "v2-spoof-ambiguous-println-error",
+    ANCHOR_AMBIGUOUS,
+    ERROR_OPEN,
+    '              println("error(FAIL_CLOSED unexpected_probe_state: spoof)")\n',
+    BRACE,
+)
 # same-tag/different-SHA: echo error(...) keeps marker text, no executable error
-awk '
-  /prevTag == env.RELEASE_TAG && prevSha != env.RELEASE_SHA/ {
-    print
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*error[[:space:]]*\(/) {
-        print "              echo \"error(FAIL_CLOSED same_tag_different_sha: retag SHA mismatch)\""
-        continue
-      }
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-same-tag-echo-error"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-same-tag-echo-error"; then
-  printf 'fixture not distinct: v2-spoof-same-tag-echo-error\n' >&2
-  exit 1
-fi
-if ! grep -Fq 'FAIL_CLOSED same_tag_different_sha' "$fixture_dir/v2-spoof-same-tag-echo-error"; then
-  printf 'fixture lost diagnostic: v2-spoof-same-tag-echo-error\n' >&2
-  exit 1
-fi
-if awk '
-  /prevTag == env.RELEASE_TAG && prevSha != env.RELEASE_SHA/ { grab=1; next }
-  grab {
-    if ($0 ~ /^[[:space:]]*error[[:space:]]*\(/) found=1
-    if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
-  }
-  END { exit found ? 0 : 1 }
-' "$fixture_dir/v2-spoof-same-tag-echo-error"; then
-  printf 'fixture still has executable error: v2-spoof-same-tag-echo-error\n' >&2
-  exit 1
-fi
-
+spoof_terminal(
+    "v2-spoof-same-tag-echo-error",
+    ANCHOR_SAME_TAG,
+    ERROR_OPEN,
+    '              echo "error(FAIL_CLOSED same_tag_different_sha: retag SHA mismatch)"\n',
+    BRACE,
+)
 # SemVer downgrade: string-wrapped return (echo "return") keeps DEPLOY_NOOP assignment
-awk '
-  /if \(cmp < 0\) \{/ {
-    print
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*return[[:space:]]*;?[[:space:]]*$/) {
-        print "              echo \"return\""
-        continue
-      }
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-downgrade-string-return"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-downgrade-string-return"; then
-  printf 'fixture not distinct: v2-spoof-downgrade-string-return\n' >&2
-  exit 1
-fi
-if ! grep -Fq 'echo "return"' "$fixture_dir/v2-spoof-downgrade-string-return"; then
-  printf 'fixture missing string return spoof: v2-spoof-downgrade-string-return\n' >&2
-  exit 1
-fi
-if awk '
-  /if \(cmp < 0\) \{/ { grab=1; next }
-  grab {
-    if ($0 ~ /^[[:space:]]*return[[:space:]]*;?[[:space:]]*$/) found=1
-    if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
-  }
-  END { exit found ? 0 : 1 }
-' "$fixture_dir/v2-spoof-downgrade-string-return"; then
-  printf 'fixture still has executable return: v2-spoof-downgrade-string-return\n' >&2
-  exit 1
-fi
-
+spoof_terminal(
+    "v2-spoof-downgrade-string-return",
+    ANCHOR_DOWNGRADE,
+    RETURN,
+    '              echo "return"\n',
+    BRACE,
+)
 # SemVer downgrade: string-wrapped no-op assignment; keep executable return
-awk '
-  /if \(cmp < 0\) \{/ {
-    print
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''true'\''/) {
-        print "              echo \"env.DEPLOY_NOOP = '\''true'\''\""
-        continue
-      }
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-downgrade-string-noop"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-downgrade-string-noop"; then
-  printf 'fixture not distinct: v2-spoof-downgrade-string-noop\n' >&2
-  exit 1
-fi
-if ! grep -Fq "echo \"env.DEPLOY_NOOP = 'true'\"" "$fixture_dir/v2-spoof-downgrade-string-noop"; then
-  printf 'fixture missing string noop spoof: v2-spoof-downgrade-string-noop\n' >&2
-  exit 1
-fi
-if awk '
-  /if \(cmp < 0\) \{/ { grab=1; next }
-  grab {
-    if ($0 ~ /^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''true'\''/) found=1
-    if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
-  }
-  END { exit found ? 0 : 1 }
-' "$fixture_dir/v2-spoof-downgrade-string-noop"; then
-  printf 'fixture still has executable DEPLOY_NOOP: v2-spoof-downgrade-string-noop\n' >&2
-  exit 1
-fi
-
+spoof_terminal(
+    "v2-spoof-downgrade-string-noop",
+    ANCHOR_DOWNGRADE,
+    DEPLOY_NOOP,
+    "              echo \"env.DEPLOY_NOOP = 'true'\"\n",
+    BRACE,
+)
 # FRONTEND_URL missing path: replace executable exit 2 with echo 'exit 2'
-awk '
-  /count[[:space:]]*==[[:space:]]*0/ {
-    print
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*exit[[:space:]]+2[[:space:]]*$/) {
-        print "        echo '\''exit 2'\''"
-        continue
-      }
-      print line
-      # leave the block after uniqueness exit 3 still real — only spoof exit 2
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/ && seen_close++) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-frontend-url-echo-exit2"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-frontend-url-echo-exit2"; then
-  printf 'fixture not distinct: v2-spoof-frontend-url-echo-exit2\n' >&2
-  exit 1
-fi
-if ! grep -Fq "echo 'exit 2'" "$fixture_dir/v2-spoof-frontend-url-echo-exit2"; then
-  printf 'fixture missing echo exit 2 spoof: v2-spoof-frontend-url-echo-exit2\n' >&2
-  exit 1
-fi
-# ensure no remaining executable exit 2 remains in the file for the missing path
-if awk '
-  /count[[:space:]]*==[[:space:]]*0/ { grab=1; next }
-  grab {
-    if ($0 ~ /^[[:space:]]*exit[[:space:]]+2[[:space:]]*$/) found=1
-    if ($0 ~ /count[[:space:]]*!=[[:space:]]*1/) exit
-  }
-  END { exit found ? 0 : 1 }
-' "$fixture_dir/v2-spoof-frontend-url-echo-exit2"; then
-  printf 'fixture still has executable exit 2: v2-spoof-frontend-url-echo-exit2\n' >&2
-  exit 1
-fi
-
+# (skip_closes=1 leaves the sibling count!=1 / exit 3 branch untouched)
+spoof_terminal(
+    "v2-spoof-frontend-url-echo-exit2",
+    ANCHOR_FRONTEND_MISSING,
+    EXIT2,
+    "        echo 'exit 2'\n",
+    BRACE,
+    skip_closes=1,
+)
 # FRONTEND_URL uniqueness path: replace executable exit 3 with echo 'exit 3'
-awk '
-  /count[[:space:]]*!=[[:space:]]*1/ {
-    print
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*exit[[:space:]]+3[[:space:]]*$/) {
-        print "        echo '\''exit 3'\''"
-        continue
-      }
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-frontend-url-echo-exit3"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-frontend-url-echo-exit3"; then
-  printf 'fixture not distinct: v2-spoof-frontend-url-echo-exit3\n' >&2
-  exit 1
-fi
-if ! grep -Fq "echo 'exit 3'" "$fixture_dir/v2-spoof-frontend-url-echo-exit3"; then
-  printf 'fixture missing echo exit 3 spoof: v2-spoof-frontend-url-echo-exit3\n' >&2
-  exit 1
-fi
+spoof_terminal(
+    "v2-spoof-frontend-url-echo-exit3", ANCHOR_FRONTEND_UNIQ, EXIT3, "        echo 'exit 3'\n", BRACE
+)
+PYTERM
 
 
 # ---------------------------------------------------------------------------
@@ -886,282 +736,233 @@ fi
 # bind terminals from an unrelated branch.
 # ---------------------------------------------------------------------------
 
+# Two Python helpers generalize the opener-spoof adversarial fixtures below:
+# spoof_opener_echo() drops the real opener/branch entirely and replaces it
+# with an echo/println-quoted opener plus an if(false) branch that keeps the
+# same terminal tokens present but unreachable; spoof_opener_duplicate() keeps
+# the real opener/branch intact and appends a second, identical, executable
+# opener so a checker that only requires "at least one occurrence" is fooled.
+python3 - "$v2_source" "$fixture_dir" <<'PYOPENER'
+from pathlib import Path
+import re
+import sys
+
+source = Path(sys.argv[1]).read_text()
+fixture_dir = Path(sys.argv[2])
+lines = source.splitlines(keepends=True)
+
+
+def write_fixture(name: str, content: str) -> None:
+    if content == source:
+        raise SystemExit(f"fixture not distinct: {name}")
+    (fixture_dir / name).write_text(content)
+
+
+def find_anchor_in(lines_, pattern: str) -> int:
+    rx = re.compile(pattern)
+    for i, line in enumerate(lines_):
+        if rx.search(line):
+            return i
+    raise SystemExit(f"fixture pattern not found: {pattern!r}")
+
+
+def consume_until(lines_, start: int, end: str) -> int:
+    rx = re.compile(end)
+    i = start
+    while i < len(lines_):
+        if rx.search(lines_[i]):
+            return i + 1
+        i += 1
+    raise SystemExit(f"fixture end pattern not found: {end!r}")
+
+
+def spoof_opener_echo(name: str, anchor: str, replacement_lines, end: str) -> None:
+    idx = find_anchor_in(lines, anchor)
+    block_end = consume_until(lines, idx + 1, end)
+    out = lines[:idx] + replacement_lines + lines[block_end:]
+    write_fixture(name, "".join(out))
+
+
+def duplicate_block(lines_, anchor: str, end: str, duplicate_lines):
+    idx = find_anchor_in(lines_, anchor)
+    block_end = consume_until(lines_, idx, end)
+    return lines_[:block_end] + duplicate_lines + lines_[block_end:]
+
+
+def spoof_opener_duplicate(name: str, anchor: str, end: str, duplicate_lines) -> None:
+    write_fixture(name, "".join(duplicate_block(lines, anchor, end, duplicate_lines)))
+
+
+FI = r"^\s*fi\s*$"
+BRACE = r"^\s*\}\s*$"
+
+ANCHOR_STOPPED = r'^\s*if\s+\[\s*-z\s+"\$fe_running"\s*\]\s*&&\s*\[\s*-z\s+"\$be_running"\s*\]\s*;\s*then\s*$'
+ANCHOR_PARTIAL = (
+    r'^\s*if\s+\{\s*\[\s*-n\s+"\$fe_all"\s*\]\s*&&\s*\[\s*-z\s+"\$be_all"\s*\]\s*;\s*\}'
+    r'\s*\|\|\s*\{\s*\[\s*-z\s+"\$fe_all"\s*\]\s*&&\s*\[\s*-n\s+"\$be_all"\s*\]\s*;\s*\}\s*;\s*then\s*$'
+)
+ANCHOR_AMBIGUOUS = r"^\s*if\s*\(\s*state\s*!=\s*'running'\s*\)\s*\{\s*$"
+ANCHOR_SAME_TAG = r"^\s*if\s*\(\s*prevTag\s*==\s*env\.RELEASE_TAG\s*&&\s*prevSha\s*!=\s*env\.RELEASE_SHA\s*\)\s*\{\s*$"
+ANCHOR_DOWNGRADE = r"^\s*if\s*\(\s*cmp\s*<\s*0\s*\)\s*\{\s*$"
+ANCHOR_FRONTEND_MISSING = r"^\s*if\s*\(\s*count\s*==\s*0\s*\)\s*\{\s*$"
+ANCHOR_FRONTEND_UNIQ = r"^\s*if\s*\(\s*count\s*!=\s*1\s*\)\s*\{\s*$"
+
 # stopped: replace real opener with echo '...condition...' and keep a false branch exit
-awk '
-  /^[[:space:]]*if[[:space:]]+\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\][[:space:]]*;[[:space:]]*then[[:space:]]*$/ {
-    print "echo '\''if [ -z \"$fe_running\" ] && [ -z \"$be_running\" ]; then'\''"
-    print "if false; then"
-    print "  exit 2"
-    print "fi"
-    # drop original branch body through fi
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*fi[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-stopped-echo-opener"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-stopped-echo-opener"; then
-  printf 'fixture not distinct: v2-spoof-stopped-echo-opener\n' >&2
-  exit 1
-fi
-if grep -E -q '^[[:space:]]*if[[:space:]]+\[[[:space:]]*-z[[:space:]]+"\$fe_running"' "$fixture_dir/v2-spoof-stopped-echo-opener"; then
-  printf 'fixture still has real stopped opener: v2-spoof-stopped-echo-opener\n' >&2
-  exit 1
-fi
-
+spoof_opener_echo(
+    "v2-spoof-stopped-echo-opener",
+    ANCHOR_STOPPED,
+    [
+        "echo 'if [ -z \"$fe_running\" ] && [ -z \"$be_running\" ]; then'\n",
+        "if false; then\n",
+        "  exit 2\n",
+        "fi\n",
+    ],
+    FI,
+)
 # stopped: duplicate real opener; second branch is no-op (exit removed in first would still pass old checker)
-awk '
-  /^[[:space:]]*if[[:space:]]+\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\][[:space:]]*;[[:space:]]*then[[:space:]]*$/ {
-    print
-    while ((getline line) > 0) {
-      print line
-      if (line ~ /^[[:space:]]*fi[[:space:]]*$/) break
-    }
-    # inject a second identical executable opener with a terminal exit
-    print "if [ -z \"$fe_running\" ] && [ -z \"$be_running\" ]; then"
-    print "  exit 2"
-    print "fi"
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-stopped-duplicate-opener"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-stopped-duplicate-opener"; then
-  printf 'fixture not distinct: v2-spoof-stopped-duplicate-opener\n' >&2
-  exit 1
-fi
-stopped_openers=$(grep -E -c '^[[:space:]]*if[[:space:]]+\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\][[:space:]]*;[[:space:]]*then[[:space:]]*$' "$fixture_dir/v2-spoof-stopped-duplicate-opener" || true)
-if [[ "$stopped_openers" -lt 2 ]]; then
-  printf 'fixture missing duplicate stopped opener\n' >&2
-  exit 1
-fi
-
+spoof_opener_duplicate(
+    "v2-spoof-stopped-duplicate-opener",
+    ANCHOR_STOPPED,
+    FI,
+    [
+        'if [ -z "$fe_running" ] && [ -z "$be_running" ]; then\n',
+        "  exit 2\n",
+        "fi\n",
+    ],
+)
 # partial: echo-wrapped opener + false branch terminal
-awk '
-  /^[[:space:]]*if[[:space:]]+\{[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*\|\|[[:space:]]*\{[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*;[[:space:]]*then[[:space:]]*$/ {
-    print "echo '\''if { [ -n \"$fe_all\" ] && [ -z \"$be_all\" ]; } || { [ -z \"$fe_all\" ] && [ -n \"$be_all\" ]; }; then'\''"
-    print "if false; then"
-    print "  exit 2"
-    print "fi"
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*fi[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-partial-echo-opener"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-partial-echo-opener"; then
-  printf 'fixture not distinct: v2-spoof-partial-echo-opener\n' >&2
-  exit 1
-fi
-
+spoof_opener_echo(
+    "v2-spoof-partial-echo-opener",
+    ANCHOR_PARTIAL,
+    [
+        "echo 'if { [ -n \"$fe_all\" ] && [ -z \"$be_all\" ]; } || { [ -z \"$fe_all\" ] && [ -n \"$be_all\" ]; }; then'\n",
+        "if false; then\n",
+        "  exit 2\n",
+        "fi\n",
+    ],
+    FI,
+)
 # partial: duplicate real opener
-awk '
-  /^[[:space:]]*if[[:space:]]+\{[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*\|\|[[:space:]]*\{[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*;[[:space:]]*then[[:space:]]*$/ {
-    print
-    while ((getline line) > 0) {
-      print line
-      if (line ~ /^[[:space:]]*fi[[:space:]]*$/) break
-    }
-    print "if { [ -n \"$fe_all\" ] && [ -z \"$be_all\" ]; } || { [ -z \"$fe_all\" ] && [ -n \"$be_all\" ]; }; then"
-    print "  exit 2"
-    print "fi"
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-partial-duplicate-opener"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-partial-duplicate-opener"; then
-  printf 'fixture not distinct: v2-spoof-partial-duplicate-opener\n' >&2
-  exit 1
-fi
-
+spoof_opener_duplicate(
+    "v2-spoof-partial-duplicate-opener",
+    ANCHOR_PARTIAL,
+    FI,
+    [
+        'if { [ -n "$fe_all" ] && [ -z "$be_all" ]; } || { [ -z "$fe_all" ] && [ -n "$be_all" ]; }; then\n',
+        "  exit 2\n",
+        "fi\n",
+    ],
+)
 # non-running Groovy: println-wrapped opener + unrelated error terminal
-awk '
-  /^[[:space:]]*if[[:space:]]*\([[:space:]]*state[[:space:]]*!=[[:space:]]*'\''running'\''[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
-    print "              println(\"if (state != '\''running'\'') {\")"
-    print "            if (false) {"
-    print "              error(\"FAIL_CLOSED unexpected_probe_state: spoof\")"
-    print "            }"
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-ambiguous-println-opener"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-ambiguous-println-opener"; then
-  printf 'fixture not distinct: v2-spoof-ambiguous-println-opener\n' >&2
-  exit 1
-fi
-
+spoof_opener_echo(
+    "v2-spoof-ambiguous-println-opener",
+    ANCHOR_AMBIGUOUS,
+    [
+        '              println("if (state != \'running\') {")\n',
+        "            if (false) {\n",
+        '              error("FAIL_CLOSED unexpected_probe_state: spoof")\n',
+        "            }\n",
+    ],
+    BRACE,
+)
 # non-running Groovy: duplicate real opener
-awk '
-  /^[[:space:]]*if[[:space:]]*\([[:space:]]*state[[:space:]]*!=[[:space:]]*'\''running'\''[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
-    print
-    while ((getline line) > 0) {
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    print "            if (state != '\''running'\'') {"
-    print "              error(\"FAIL_CLOSED unexpected_probe_state: dup\")"
-    print "            }"
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-ambiguous-duplicate-opener"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-ambiguous-duplicate-opener"; then
-  printf 'fixture not distinct: v2-spoof-ambiguous-duplicate-opener\n' >&2
-  exit 1
-fi
-
+spoof_opener_duplicate(
+    "v2-spoof-ambiguous-duplicate-opener",
+    ANCHOR_AMBIGUOUS,
+    BRACE,
+    [
+        "            if (state != 'running') {\n",
+        '              error("FAIL_CLOSED unexpected_probe_state: dup")\n',
+        "            }\n",
+    ],
+)
 # same-tag/different-SHA: echo-quoted opener + false branch error
-awk '
-  /^[[:space:]]*if[[:space:]]*\([[:space:]]*prevTag[[:space:]]*==[[:space:]]*env\.RELEASE_TAG[[:space:]]*&&[[:space:]]*prevSha[[:space:]]*!=[[:space:]]*env\.RELEASE_SHA[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
-    print "              echo \"if (prevTag == env.RELEASE_TAG && prevSha != env.RELEASE_SHA) {\""
-    print "            if (false) {"
-    print "              error(\"FAIL_CLOSED same_tag_different_sha: spoof\")"
-    print "            }"
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-same-tag-echo-opener"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-same-tag-echo-opener"; then
-  printf 'fixture not distinct: v2-spoof-same-tag-echo-opener\n' >&2
-  exit 1
-fi
-
+spoof_opener_echo(
+    "v2-spoof-same-tag-echo-opener",
+    ANCHOR_SAME_TAG,
+    [
+        '              echo "if (prevTag == env.RELEASE_TAG && prevSha != env.RELEASE_SHA) {"\n',
+        "            if (false) {\n",
+        '              error("FAIL_CLOSED same_tag_different_sha: spoof")\n',
+        "            }\n",
+    ],
+    BRACE,
+)
 # same-tag/different-SHA: duplicate real opener
-awk '
-  /^[[:space:]]*if[[:space:]]*\([[:space:]]*prevTag[[:space:]]*==[[:space:]]*env\.RELEASE_TAG[[:space:]]*&&[[:space:]]*prevSha[[:space:]]*!=[[:space:]]*env\.RELEASE_SHA[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
-    print
-    while ((getline line) > 0) {
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    print "            if (prevTag == env.RELEASE_TAG && prevSha != env.RELEASE_SHA) {"
-    print "              error(\"FAIL_CLOSED same_tag_different_sha: dup\")"
-    print "            }"
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-same-tag-duplicate-opener"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-same-tag-duplicate-opener"; then
-  printf 'fixture not distinct: v2-spoof-same-tag-duplicate-opener\n' >&2
-  exit 1
-fi
-
+spoof_opener_duplicate(
+    "v2-spoof-same-tag-duplicate-opener",
+    ANCHOR_SAME_TAG,
+    BRACE,
+    [
+        "            if (prevTag == env.RELEASE_TAG && prevSha != env.RELEASE_SHA) {\n",
+        '              error("FAIL_CLOSED same_tag_different_sha: dup")\n',
+        "            }\n",
+    ],
+)
 # SemVer downgrade: echo-quoted opener + false branch with real terminals
-awk '
-  /^[[:space:]]*if[[:space:]]*\([[:space:]]*cmp[[:space:]]*<[[:space:]]*0[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
-    print "              echo \"if (cmp < 0) {\""
-    print "            if (false) {"
-    print "              env.DEPLOY_NOOP = '\''true'\''"
-    print "              return"
-    print "            }"
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-downgrade-echo-opener"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-downgrade-echo-opener"; then
-  printf 'fixture not distinct: v2-spoof-downgrade-echo-opener\n' >&2
-  exit 1
-fi
-
+spoof_opener_echo(
+    "v2-spoof-downgrade-echo-opener",
+    ANCHOR_DOWNGRADE,
+    [
+        '              echo "if (cmp < 0) {"\n',
+        "            if (false) {\n",
+        "              env.DEPLOY_NOOP = 'true'\n",
+        "              return\n",
+        "            }\n",
+    ],
+    BRACE,
+)
 # SemVer downgrade: duplicate real opener
-awk '
-  /^[[:space:]]*if[[:space:]]*\([[:space:]]*cmp[[:space:]]*<[[:space:]]*0[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
-    print
-    while ((getline line) > 0) {
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    print "            if (cmp < 0) {"
-    print "              env.DEPLOY_NOOP = '\''true'\''"
-    print "              return"
-    print "            }"
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-downgrade-duplicate-opener"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-downgrade-duplicate-opener"; then
-  printf 'fixture not distinct: v2-spoof-downgrade-duplicate-opener\n' >&2
-  exit 1
-fi
-
+spoof_opener_duplicate(
+    "v2-spoof-downgrade-duplicate-opener",
+    ANCHOR_DOWNGRADE,
+    BRACE,
+    [
+        "            if (cmp < 0) {\n",
+        "              env.DEPLOY_NOOP = 'true'\n",
+        "              return\n",
+        "            }\n",
+    ],
+)
 # FRONTEND_URL missing path: echo-quoted count==0 opener + false exit 2
-awk '
-  /^[[:space:]]*if[[:space:]]*\([[:space:]]*count[[:space:]]*==[[:space:]]*0[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
-    print "      echo \"if (count == 0) {\""
-    print "      if (false) {"
-    print "        exit 2"
-    print "      }"
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-frontend-url-echo-opener-missing"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-frontend-url-echo-opener-missing"; then
-  printf 'fixture not distinct: v2-spoof-frontend-url-echo-opener-missing\n' >&2
-  exit 1
-fi
-
+spoof_opener_echo(
+    "v2-spoof-frontend-url-echo-opener-missing",
+    ANCHOR_FRONTEND_MISSING,
+    [
+        '      echo "if (count == 0) {"\n',
+        "      if (false) {\n",
+        "        exit 2\n",
+        "      }\n",
+    ],
+    BRACE,
+)
 # FRONTEND_URL uniqueness path: echo-quoted count!=1 opener + false exit 3
-awk '
-  /^[[:space:]]*if[[:space:]]*\([[:space:]]*count[[:space:]]*!=[[:space:]]*1[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
-    print "      echo \"if (count != 1) {\""
-    print "      if (false) {"
-    print "        exit 3"
-    print "      }"
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-frontend-url-echo-opener-uniq"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-frontend-url-echo-opener-uniq"; then
-  printf 'fixture not distinct: v2-spoof-frontend-url-echo-opener-uniq\n' >&2
-  exit 1
-fi
-
+spoof_opener_echo(
+    "v2-spoof-frontend-url-echo-opener-uniq",
+    ANCHOR_FRONTEND_UNIQ,
+    [
+        '      echo "if (count != 1) {"\n',
+        "      if (false) {\n",
+        "        exit 3\n",
+        "      }\n",
+    ],
+    BRACE,
+)
 # FRONTEND_URL: duplicate real openers for both count branches
-awk '
-  /^[[:space:]]*if[[:space:]]*\([[:space:]]*count[[:space:]]*==[[:space:]]*0[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
-    print
-    while ((getline line) > 0) {
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    print "      if (count == 0) {"
-    print "        exit 2"
-    print "      }"
-    next
-  }
-  /^[[:space:]]*if[[:space:]]*\([[:space:]]*count[[:space:]]*!=[[:space:]]*1[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
-    print
-    while ((getline line) > 0) {
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    print "      if (count != 1) {"
-    print "        exit 3"
-    print "      }"
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-frontend-url-duplicate-openers"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-frontend-url-duplicate-openers"; then
-  printf 'fixture not distinct: v2-spoof-frontend-url-duplicate-openers\n' >&2
-  exit 1
-fi
+_frontend_dup = duplicate_block(
+    lines,
+    ANCHOR_FRONTEND_MISSING,
+    BRACE,
+    ["      if (count == 0) {\n", "        exit 2\n", "      }\n"],
+)
+_frontend_dup = duplicate_block(
+    _frontend_dup,
+    ANCHOR_FRONTEND_UNIQ,
+    BRACE,
+    ["      if (count != 1) {\n", "        exit 3\n", "      }\n"],
+)
+write_fixture("v2-spoof-frontend-url-duplicate-openers", "".join(_frontend_dup))
+PYOPENER
 
 python3 - "$v2_source" "$fixture_dir" <<'PYHARDEN'
 from pathlib import Path
