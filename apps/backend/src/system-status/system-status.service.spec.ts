@@ -1,7 +1,10 @@
 import { ForbiddenException } from '@nestjs/common';
 import { AccountStatus, Role } from '@prisma/client';
-import type { CanonicalRunStatus } from '../collection/collection-canonical.types';
-import type { SystemStatusSnapshot } from './system-status.repository';
+import type {
+  CollectionReadPort,
+  CollectionRunStatusDto,
+  CollectionStatusSnapshotDto,
+} from '../collection/collection-read.port';
 import { SystemStatusRepository } from './system-status.repository';
 import { SystemStatusService } from './system-status.service';
 
@@ -9,15 +12,9 @@ const NOW = new Date('2026-07-25T12:00:00.000Z');
 const ACTOR_ID = 133n;
 
 function snapshot(
-  overrides: Partial<SystemStatusSnapshot> = {},
-): SystemStatusSnapshot {
+  overrides: Partial<CollectionStatusSnapshotDto> = {},
+): CollectionStatusSnapshotDto {
   return {
-    appId: 1n,
-    organizationLogin: 'org',
-    activeGenerationId: 'run-1',
-    runId: 'run-1',
-    errorClass: null,
-    updatedAt: NOW,
     permissionsValid: true,
     installationValid: true,
     runStatus: 'SUCCEEDED',
@@ -31,7 +28,8 @@ describe('SystemStatusService', () => {
   const findActor = jest.fn();
   const getStatusSnapshot = jest.fn();
   const service = new SystemStatusService(
-    { findActor, getStatusSnapshot } as unknown as SystemStatusRepository,
+    { findActor } as unknown as SystemStatusRepository,
+    { getStatusSnapshot } as unknown as CollectionReadPort,
     () => NOW,
   );
 
@@ -72,7 +70,7 @@ describe('SystemStatusService', () => {
     expect(getStatusSnapshot).not.toHaveBeenCalled();
   });
 
-  it.each<[string, Partial<SystemStatusSnapshot>, string, string]>([
+  it.each<[string, Partial<CollectionStatusSnapshotDto>, string, string]>([
     [
       'permission이 installation보다 우선한다',
       {
@@ -146,7 +144,7 @@ describe('SystemStatusService', () => {
     });
   });
 
-  it.each<[CanonicalRunStatus | null, string]>([
+  it.each<[CollectionRunStatusDto | null, string]>([
     ['PENDING', 'PENDING'],
     ['PROCESSING', 'PROCESSING'],
     ['SUCCEEDED', 'IDLE'],
