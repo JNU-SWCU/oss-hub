@@ -118,9 +118,14 @@ jobs:
           node-version: 24
           cache: pnpm
 
+      # bash -n 은 첫 인자만 파싱하고 나머지는 위치 인자로 버린다. 한 파일씩 돌려야 전수 검사가 된다.
       - name: shell script 문법 검사
         if: ${{ steps.changes.outputs.shell_scripts == 'true' }}
-        run: bash -n scripts/*.sh .githooks/*
+        run: |
+          find scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
+          for hook in .githooks/*; do
+            bash -n "$hook"
+          done
 
       - name: TEAM-STATE pre-push 가드 회귀 테스트
         if: ${{ steps.changes.outputs.shell_scripts == 'true' }}
