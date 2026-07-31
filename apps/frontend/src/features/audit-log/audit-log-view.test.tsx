@@ -4,11 +4,24 @@ import { AuditLogView } from './audit-log-view';
 
 const baseProps = {
   filters: { actor: '', action: '', from: '', to: '' },
+  page: 1,
+  limit: 20,
+  total: 0,
   onFilterChange: vi.fn(),
   onSearch: vi.fn(),
   onReset: vi.fn(),
+  onPageChange: vi.fn(),
   onRetry: vi.fn(),
 };
+
+function isButtonDisabled(html: string, label: string): boolean {
+  const button = html.match(new RegExp(`<button[^>]*>${label}</button>`))?.[0];
+  if (button === undefined) {
+    throw new Error(`"${label}" 버튼을 찾지 못했습니다.`);
+  }
+  // shadcn Button의 className에 `disabled:` 변형이 들어 있으므로 속성만 본다.
+  return / disabled=""/.test(button);
+}
 
 describe('AuditLogView', () => {
   it('로딩 스켈레톤을 표시한다', () => {
@@ -136,6 +149,93 @@ describe('AuditLogView', () => {
         `<option value="${value}" selected="">${label}</option>`,
       );
     }
+  });
+
+  it('전체 건수와 현재 페이지를 표시한다', () => {
+    const html = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[]}
+        page={2}
+        total={45}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+
+    expect(html).toContain('총 45건');
+    expect(html).toContain('2 / 3 페이지');
+  });
+
+  it('첫 페이지에서는 이전으로, 마지막 페이지에서는 다음으로 넘어갈 수 없다', () => {
+    const firstPage = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[]}
+        page={1}
+        total={25}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+    const lastPage = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[]}
+        page={2}
+        total={25}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+
+    expect(isButtonDisabled(firstPage, '이전')).toBe(true);
+    expect(isButtonDisabled(firstPage, '다음')).toBe(false);
+    expect(isButtonDisabled(lastPage, '이전')).toBe(false);
+    expect(isButtonDisabled(lastPage, '다음')).toBe(true);
+  });
+
+  it('결과가 한 페이지에 다 들어가면 양쪽 이동을 모두 막는다', () => {
+    const html = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[]}
+        page={1}
+        total={3}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+
+    expect(html).toContain('1 / 1 페이지');
+    expect(isButtonDisabled(html, '이전')).toBe(true);
+    expect(isButtonDisabled(html, '다음')).toBe(true);
+  });
+
+  it('기록이 20건을 넘어도 한 페이지에 담긴 만큼만 표시한다', () => {
+    const html = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[
+          {
+            id: 'audit-1',
+            actor: 'synthetic-admin',
+            action: 'STAFF_ROLE_REQUEST_APPROVED',
+            targetType: 'ROLE_REQUEST',
+            targetId: 'request-1',
+            occurredAt: '2026-07-24T03:00:00.000Z',
+          },
+        ]}
+        page={1}
+        total={100}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+
+    expect(html).toContain('총 100건');
+    expect(html).toContain('1 / 5 페이지');
+    expect(html).toContain('request-1');
   });
 
   it('표를 가로 스크롤 안내와 연결한다', () => {

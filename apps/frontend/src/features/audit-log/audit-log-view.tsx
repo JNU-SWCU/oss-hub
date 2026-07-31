@@ -19,11 +19,15 @@ const ACTIONS = [
 export interface AuditLogViewProps {
   readonly records: readonly AuditLogRecord[];
   readonly filters: AuditLogFilters;
+  readonly page: number;
+  readonly limit: number;
+  readonly total: number;
   readonly isLoading: boolean;
   readonly errorMessage: string | null;
   readonly onFilterChange: (filters: AuditLogFilters) => void;
   readonly onSearch: () => void;
   readonly onReset: () => void;
+  readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
 }
 
@@ -35,6 +39,7 @@ function formatDate(value: string): string {
 }
 
 export function AuditLogView(props: AuditLogViewProps) {
+  const lastPage = Math.max(1, Math.ceil(props.total / props.limit));
   const columns: DataTableColumn<AuditLogRecord>[] = [
     {
       id: 'actor',
@@ -211,6 +216,28 @@ export function AuditLogView(props: AuditLogViewProps) {
           />
         }
       />
+      <div className="flex items-center justify-end gap-3 text-sm">
+        <span>총 {props.total}건</span>
+        <span>
+          {props.page} / {lastPage} 페이지
+        </span>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={props.page <= 1 || props.isLoading}
+          onClick={() => props.onPageChange(props.page - 1)}
+        >
+          이전
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={props.page >= lastPage || props.isLoading}
+          onClick={() => props.onPageChange(props.page + 1)}
+        >
+          다음
+        </Button>
+      </div>
     </section>
   );
 }
