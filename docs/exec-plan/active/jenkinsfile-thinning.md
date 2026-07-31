@@ -2,7 +2,7 @@
 
 이 문서는 root `Jenkinsfile`의 배포 계약을 보존하면서 검증 로직을 `scripts/jenkins/`로 추출하는 실행 계획이다.
 이 문서는 실제 추출 코드가 아니라 범위·인터페이스·증거·복구 순서를 고정하는 계획이다.
-현재 기준 줄 번호는 이 계획을 작성할 때 확인한 `Jenkinsfile` 700줄과 `scripts/check-jenkinsfile.sh` 565줄을 기준으로 한다(`scripts/check-jenkinsfile.sh`는 이후 P1 병합·계약 확장을 거쳐 origin/main 기준 1152줄로 늘었다).
+현재 기준 줄 번호는 이 계획을 작성할 때 확인한 `Jenkinsfile` 700줄과 `scripts/check-jenkinsfile.sh` 565줄을 기준으로 한다(`scripts/check-jenkinsfile.sh`는 이후 P1 병합·계약 확장을 거쳐 commit `3c56b1e` 기준 1081줄로 늘었다. 이 값은 main이 이동해도 해당 커밋 시점의 사실로 고정된다).
 
 ## 기준 문서와 확인한 현재 구조
 
