@@ -21,6 +21,16 @@ function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
 
+function parseIsoTimestamp(value: unknown): string | null {
+  if (value === null) return null;
+  if (typeof value !== 'string') return null;
+
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString() === value
+    ? value
+    : null;
+}
+
 function parseProgram(value: unknown): ActivityProgram | null {
   if (
     !isRecord(value) ||
@@ -79,7 +89,12 @@ function parseActivityTimeline(
   }
 
   const { programs: rawPrograms, series: rawSeries } = value;
-  if (!Array.isArray(rawPrograms) || !isRecord(rawSeries)) {
+  const dataAsOf = parseIsoTimestamp(value.dataAsOf);
+  if (
+    (value.dataAsOf !== null && dataAsOf === null) ||
+    !Array.isArray(rawPrograms) ||
+    !isRecord(rawSeries)
+  ) {
     throw new ActivityTimelineResponseError();
   }
 
@@ -103,6 +118,7 @@ function parseActivityTimeline(
   }
 
   return {
+    dataAsOf,
     programs: programs.filter((program) => program !== null),
     series: {
       granularity,

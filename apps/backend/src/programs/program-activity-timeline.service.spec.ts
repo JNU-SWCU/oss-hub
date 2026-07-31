@@ -86,6 +86,7 @@ describe('ProgramActivityService canonical activity', () => {
       new ProgramsRepository(prisma),
     ).activityTimeline(student, 'MONTH');
 
+    expect(result.dataAsOf).toBe('2026-08-01T00:00:00.000Z');
     expect(result.series.points).toEqual([
       {
         period: '2026-08',
@@ -155,6 +156,7 @@ describe('ProgramActivityService canonical activity', () => {
       repository,
     ).activityTimeline(student, 'MONTH');
 
+    expect(result.dataAsOf).toBe('2026-08-02T00:00:00.000Z');
     expect(result.series.points).toEqual([
       {
         period: '2026-08',
@@ -184,6 +186,7 @@ describe('ProgramActivityService canonical activity', () => {
       repository,
     ).activityTimeline(student, 'MONTH');
 
+    expect(result.dataAsOf).toBeNull();
     expect(result.series.points).toEqual([]);
   });
 

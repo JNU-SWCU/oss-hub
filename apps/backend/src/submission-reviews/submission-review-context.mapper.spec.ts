@@ -21,7 +21,7 @@ function contextRow(): ReviewContextInput {
     application: {
       id: 'application-1',
       teamId: 'team-1',
-      applicant: { name: 'Applicant', nickname: 'applicant' },
+      applicant: { name: 'Applicant', nickname: 'applicant', profile: null },
       team: { name: 'Synthetic Team' },
       program: { milestones: [{ id: 'milestone-1' }] },
       submissions: [
@@ -105,6 +105,20 @@ describe('toReviewContext', () => {
         PUBLISH_BLOCKED_REASONS.REQUIRED_MILESTONES_NOT_APPROVED,
       ],
     });
+  });
+
+  it('개인 신청 표시 이름은 legacy User 이름보다 UserProfile 이름을 우선한다', () => {
+    // Given
+    const row = contextRow();
+    row.application.teamId = null;
+    row.application.team = null;
+    row.application.applicant.profile = { name: 'Profile Applicant' };
+
+    // When
+    const context = toReviewContext(row);
+
+    // Then
+    expect(context.application.displayName).toBe('Profile Applicant');
   });
 });
 

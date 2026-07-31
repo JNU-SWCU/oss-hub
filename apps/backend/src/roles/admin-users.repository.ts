@@ -1,13 +1,22 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  Prisma,
-  Role,
-  RoleRequestStatus,
-  User as PrismaUser,
-} from '@prisma/client';
+import type { Prisma, Role, RoleRequestStatus } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  compatibleProfileNameWhere,
+  COMPATIBLE_PROFILE_NAME_SELECT,
+  resolveCompatibleProfileName,
+} from '../profiles/profile-compatibility';
 import type { AdminUser, AdminUserListQuery } from './domain/admin-user';
+
+const ADMIN_USER_SELECT = {
+  id: true,
+  githubId: true,
+  nickname: true,
+  role: true,
+  accountStatus: true,
+  ...COMPATIBLE_PROFILE_NAME_SELECT,
+} as const satisfies Prisma.UserSelect;
 
 export interface AdminUserRecord extends Omit<AdminUser, 'isSelf'> {
   readonly githubId: bigint;
@@ -53,12 +62,16 @@ class PrismaAdminUsersTransactionStore implements AdminUsersTransactionStore {
   async findUserByGithubId(githubId: bigint): Promise<AdminUserRecord | null> {
     const user = await this.transaction.user.findUnique({
       where: { githubId },
+      select: ADMIN_USER_SELECT,
     });
     return user ? toAdminUser(user) : null;
   }
 
   async findUserById(id: string): Promise<AdminUserRecord | null> {
-    const user = await this.transaction.user.findUnique({ where: { id } });
+    const user = await this.transaction.user.findUnique({
+      where: { id },
+      select: ADMIN_USER_SELECT,
+    });
     return user ? toAdminUser(user) : null;
   }
 
@@ -108,7 +121,10 @@ export class AdminUsersRepository implements AdminUsersRepositoryPort {
   }
 
   async findUserByGithubId(githubId: bigint): Promise<AdminUserRecord | null> {
-    const user = await this.prisma.user.findUnique({ where: { githubId } });
+    const user = await this.prisma.user.findUnique({
+      where: { githubId },
+      select: ADMIN_USER_SELECT,
+    });
     return user ? toAdminUser(user) : null;
   }
 
@@ -117,30 +133,44 @@ export class AdminUsersRepository implements AdminUsersRepositoryPort {
       role: query.role,
       OR: query.query
         ? [
-            { name: { contains: query.query, mode: 'insensitive' } },
+            compatibleProfileNameWhere(query.query),
             { nickname: { contains: query.query, mode: 'insensitive' } },
           ]
         : undefined,
     };
     const users = await this.prisma.user.findMany({
       where,
-      orderBy: [{ name: 'asc' }, { nickname: 'asc' }, { id: 'asc' }],
+      select: ADMIN_USER_SELECT,
     });
-    return users.map(toAdminUser);
+    return users.map(toAdminUser).sort((left, right) => {
+      const nameOrder =
+        left.name === null
+          ? right.name === null
+            ? 0
+            : 1
+          : right.name === null
+            ? -1
+            : left.name.localeCompare(right.name, 'ko');
+      if (nameOrder !== 0) {
+        return nameOrder;
+      }
+      const loginOrder = left.githubLogin.localeCompare(
+        right.githubLogin,
+        'en',
+      );
+      return loginOrder !== 0 ? loginOrder : left.id.localeCompare(right.id);
+    });
   }
 }
 
 function toAdminUser(
-  user: Pick<
-    PrismaUser,
-    'id' | 'githubId' | 'nickname' | 'name' | 'role' | 'accountStatus'
-  >,
+  user: Prisma.UserGetPayload<{ select: typeof ADMIN_USER_SELECT }>,
 ): AdminUserRecord {
   return {
     id: user.id,
     githubId: user.githubId,
     githubLogin: user.nickname,
-    name: user.name,
+    name: resolveCompatibleProfileName(user),
     role: user.role,
     accountStatus: user.accountStatus,
   };

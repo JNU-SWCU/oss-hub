@@ -31,6 +31,7 @@ export const DEPLOY_CONTRACT_PATTERNS = [
   '.github/workflows/deploy.yml',
   'scripts/check-jenkinsfile.sh',
   'scripts/check-jenkinsfile.test.sh',
+  'scripts/jenkins/**',
 ];
 
 function globToRegExp(pattern) {
@@ -421,6 +422,15 @@ export function evaluateMergePolicy({
     return verdict('failure', 'UNKNOWN', reasons, notes, null);
   }
 
+  // PM이 작성한 PR은 어떤 사람의 review·accept도 요구하지 않는다 (PM 결정, 2026-07-30).
+  // required check는 `ci`·`public-safe`가 그대로 강제하므로 기계적 검증은 유지된다.
+  if (pull.authorLogin === PM_ACTOR) {
+    notes.push(
+      `@${PM_ACTOR} 작성 PR — review·accept 면제 (required CI는 그대로 적용)`,
+    );
+    return verdict('success', 'PM_AUTHORED', reasons, notes, null);
+  }
+
   const sortedComments = [...comments].sort((a, b) => a.id - b.id);
   const { latest: mergeReady, sawStale } = findMergeReady(
     pull,
@@ -465,6 +475,43 @@ function verdict(conclusion, risk, reasons, notes, mergeReadyCommentId) {
     notes,
     mergeReadyCommentId,
   };
+}
+
+export const CHECK_RUN_NAME = 'merge-policy';
+
+/**
+ * 같은 head SHA의 재평가가 check run을 누적하지 않도록 발행 계획을 정한다.
+ * 동일 (name, head_sha) run이 이미 있으면 전부 갱신 대상으로 삼는다 — 한 SHA에
+ * 서로 다른 결론이 공존하면 required check 판정이 비결정적이 되기 때문이다.
+ *
+ * @param {unknown} existingRuns GitHub check-runs 응답의 check_runs 배열
+ * @param {string} headSha 판정 대상 head SHA
+ * @returns {{ create: boolean, updateIds: number[] }}
+ */
+export function planCheckRunPublish(existingRuns, headSha) {
+  if (typeof headSha !== 'string' || !/^[0-9a-f]{40}$/.test(headSha)) {
+    throw new Error('check run 발행 계획에 유효한 head SHA가 필요합니다');
+  }
+  if (!Array.isArray(existingRuns)) {
+    throw new Error('GitHub check run 목록이 배열이 아닙니다');
+  }
+
+  const updateIds = [];
+  for (const run of existingRuns) {
+    if (run?.name !== CHECK_RUN_NAME) {
+      continue;
+    }
+    if (run?.head_sha !== headSha) {
+      continue;
+    }
+    if (!Number.isInteger(run?.id)) {
+      throw new Error('GitHub check run id가 정수가 아닙니다');
+    }
+    updateIds.push(run.id);
+  }
+
+  updateIds.sort((left, right) => left - right);
+  return { create: updateIds.length === 0, updateIds };
 }
 
 export function formatSummary(result, pull) {

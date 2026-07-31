@@ -5,6 +5,10 @@ import {
 } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import {
+  COMPATIBLE_PROFILE_NAME_SELECT,
+  resolveCompatibleProfileName,
+} from '../profiles/profile-compatibility';
+import {
   APPLICATION_MODES,
   PUBLISH_BLOCKED_REASONS,
   type SubmissionReviewContext,
@@ -18,7 +22,12 @@ export const REVIEW_CONTEXT_SELECT = {
     select: {
       id: true,
       teamId: true,
-      applicant: { select: { name: true, nickname: true } },
+      applicant: {
+        select: {
+          nickname: true,
+          ...COMPATIBLE_PROFILE_NAME_SELECT,
+        },
+      },
       team: { select: { name: true } },
       program: { select: { milestones: { select: { id: true } } } },
       submissions: { select: { milestoneId: true, status: true } },
@@ -96,7 +105,7 @@ export function toReviewContext(
           : APPLICATION_MODES.TEAM,
       displayName:
         row.application.team?.name ??
-        row.application.applicant.name ??
+        resolveCompatibleProfileName(row.application.applicant) ??
         row.application.applicant.nickname,
     },
     milestone: row.milestone,

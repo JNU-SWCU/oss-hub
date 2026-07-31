@@ -1,5 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  completeCompatibleProfileIfUnchanged,
+  updateCompatibleProfileFields,
+} from '../profiles/profile-compatibility.repository';
+import {
+  COMPATIBLE_PROFILE_SELECT,
+  resolveCompatibleProfile,
+} from '../profiles/profile-compatibility';
 import type {
   CompleteUserProfileInput,
   UpdateProfileFieldsInput,
@@ -23,43 +32,41 @@ export class UsersRepository implements UsersRepositoryPort {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async findByGithubId(githubId: bigint): Promise<UserProfileRecord | null> {
-    return this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { githubId },
       select: {
         id: true,
-        name: true,
-        studentId: true,
-        department: true,
+        ...COMPATIBLE_PROFILE_SELECT,
       },
     });
+    return user ? { id: user.id, ...resolveCompatibleProfile(user) } : null;
   }
 
   async completeProfileIfUnchanged(
     expected: UserProfileRecord,
     input: CompleteUserProfileInput,
   ): Promise<boolean> {
-    const result = await this.prisma.user.updateMany({
-      where: {
-        id: expected.id,
-        name: expected.name,
-        studentId: expected.studentId,
-        department: expected.department,
-      },
-      data: input,
-    });
-    return result.count === 1;
+    try {
+      return await this.prisma.$transaction((transaction) =>
+        completeCompatibleProfileIfUnchanged(transaction, expected, input),
+      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   async updateProfileFields(
     userId: string,
     fields: UpdateProfileFieldsInput,
   ): Promise<void> {
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        name: fields.name,
-        department: fields.department,
-      },
-    });
+    await this.prisma.$transaction((transaction) =>
+      updateCompatibleProfileFields(transaction, userId, fields),
+    );
   }
 }

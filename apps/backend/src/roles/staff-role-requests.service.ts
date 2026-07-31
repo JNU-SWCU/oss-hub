@@ -1,5 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import {
+  ACCESS_AUDIT_ACTIONS,
+  ACCESS_AUDIT_EVENT_KINDS,
+  createAccessAuditMetadata,
+  type AccessAuditAction,
+  type AccessAuditMetadata,
+  type AccessAuditState,
+} from '../audit-log/audit-log-metadata';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.enum';
 import { DomainException } from '../common/error-code';
@@ -8,7 +16,6 @@ import {
   USERS_ERROR_CODES,
   UsersErrorCode,
 } from '../users/users-error-code.enum';
-import type { RoleUser } from './domain/role-onboarding';
 import {
   STAFF_ROLE_REQUEST_ACTIONS,
   type StaffRoleRequestAction,
@@ -17,7 +24,10 @@ import {
 } from './domain/staff-role-request';
 import { ROLES_ERROR_CODES, RolesErrorCode } from './roles-error-code.enum';
 import { StaffRoleRequestsRepository } from './staff-role-requests.repository';
-import type { StaffRoleRequestsRepositoryPort } from './staff-role-requests.repository';
+import type {
+  StaffRoleRequestActor,
+  StaffRoleRequestsRepositoryPort,
+} from './staff-role-requests.repository';
 
 export interface StaffRoleRequestPage {
   readonly items: readonly StaffRoleRequestRecord[];
@@ -25,12 +35,6 @@ export interface StaffRoleRequestPage {
   readonly limit: number;
   readonly total: number;
 }
-
-const AUDIT_ACTION = {
-  [STAFF_ROLE_REQUEST_ACTIONS.APPROVE]: 'STAFF_ROLE_REQUEST_APPROVED',
-  [STAFF_ROLE_REQUEST_ACTIONS.REJECT]: 'STAFF_ROLE_REQUEST_REJECTED',
-  [STAFF_ROLE_REQUEST_ACTIONS.REVOKE]: 'STAFF_ROLE_REQUEST_REVOKED',
-} as const;
 
 @Injectable()
 export class StaffRoleRequestsService {
@@ -69,22 +73,40 @@ export class StaffRoleRequestsService {
           );
         }
         const decidedAt = new Date();
-        const reactivated = await store.transitionUserAccountStatus({
-          userId: request.userId,
-          expectedRole: Role.STAFF,
-          expectedAccountStatus: AccountStatus.DEACTIVATED,
-          nextAccountStatus: AccountStatus.ACTIVE,
-        });
-        if (!reactivated) {
+        const accountStatusTransitioned =
+          await store.transitionUserAccountStatus({
+            userId: request.userId,
+            expectedRole: Role.STAFF,
+            expectedAccountStatus: AccountStatus.DEACTIVATED,
+            nextAccountStatus: AccountStatus.ACTIVE,
+          });
+        if (!accountStatusTransitioned) {
           throw new DomainException(
             ROLES_ERROR_CODES[RolesErrorCode.ROLE_STATE_CONFLICT],
           );
         }
-        return store.createApprovedReactivation({
+        const reactivated = await store.createApprovedReactivation({
           userId: request.userId,
           actorId: actor.id,
           decidedAt,
         });
+        const audit = createRoleRequestAudit({
+          action,
+          actor,
+          before: request,
+          after: reactivated,
+        });
+        await this.auditLog.record(
+          {
+            actorGithubId: githubId,
+            action: audit.action,
+            targetType: 'ROLE_REQUEST',
+            targetId: requestId,
+            metadata: audit.metadata,
+          },
+          store.auditLogWriter,
+        );
+        return reactivated;
       }
       const expectedStatus =
         action.action === STAFF_ROLE_REQUEST_ACTIONS.REVOKE
@@ -162,12 +184,19 @@ export class StaffRoleRequestsService {
           ROLES_ERROR_CODES[RolesErrorCode.ROLE_REQUEST_NOT_FOUND],
         );
       }
+      const audit = createRoleRequestAudit({
+        action,
+        actor,
+        before: request,
+        after: decided,
+      });
       await this.auditLog.record(
         {
           actorGithubId: githubId,
-          action: AUDIT_ACTION[action.action],
+          action: audit.action,
           targetType: 'ROLE_REQUEST',
           targetId: requestId,
+          metadata: audit.metadata,
         },
         store.auditLogWriter,
       );
@@ -175,7 +204,9 @@ export class StaffRoleRequestsService {
     });
   }
 
-  private requireAdmin(user: RoleUser | null): RoleUser {
+  private requireAdmin(
+    user: StaffRoleRequestActor | null,
+  ): StaffRoleRequestActor {
     if (!user || user.accountStatus !== AccountStatus.ACTIVE) {
       throw new DomainException(
         AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
@@ -186,4 +217,78 @@ export class StaffRoleRequestsService {
     }
     return user;
   }
+}
+
+type RoleRequestAuditInput = {
+  readonly action: StaffRoleRequestAction;
+  readonly actor: StaffRoleRequestActor;
+  readonly before: StaffRoleRequestRecord;
+  readonly after: StaffRoleRequestRecord;
+};
+
+type RoleRequestAudit = {
+  readonly action: AccessAuditAction;
+  readonly metadata: AccessAuditMetadata;
+};
+
+function createRoleRequestAudit(
+  input: RoleRequestAuditInput,
+): RoleRequestAudit {
+  const common = {
+    actor: {
+      displayName: input.actor.name,
+      githubLogin: input.actor.githubLogin,
+    },
+    before: toAccessAuditState(input.before),
+    after: toAccessAuditState(input.after),
+  };
+  switch (input.action.action) {
+    case STAFF_ROLE_REQUEST_ACTIONS.APPROVE:
+      return {
+        action: ACCESS_AUDIT_ACTIONS.ROLE_REQUEST_APPROVED,
+        metadata: createAccessAuditMetadata({
+          ...common,
+          eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_APPROVED,
+        }),
+      };
+    case STAFF_ROLE_REQUEST_ACTIONS.REJECT:
+      return {
+        action: ACCESS_AUDIT_ACTIONS.ROLE_REQUEST_REJECTED,
+        metadata: createAccessAuditMetadata({
+          ...common,
+          eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REJECTED,
+          rejectionReason: input.action.reason,
+        }),
+      };
+    case STAFF_ROLE_REQUEST_ACTIONS.REVOKE:
+      return {
+        action: ACCESS_AUDIT_ACTIONS.ROLE_REQUEST_REVOKED,
+        metadata: createAccessAuditMetadata({
+          ...common,
+          eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REVOKED,
+        }),
+      };
+    case STAFF_ROLE_REQUEST_ACTIONS.REACTIVATE:
+      return {
+        action: ACCESS_AUDIT_ACTIONS.ROLE_REQUEST_RESTORED,
+        metadata: createAccessAuditMetadata({
+          ...common,
+          eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_RESTORED,
+        }),
+      };
+    default: {
+      const unsupportedAction: never = input.action;
+      throw new TypeError(
+        `Unsupported staff role request action: ${JSON.stringify(unsupportedAction)}`,
+      );
+    }
+  }
+}
+
+function toAccessAuditState(request: StaffRoleRequestRecord): AccessAuditState {
+  return {
+    role: request.userRole,
+    accountStatus: request.userAccountStatus,
+    requestStatus: request.status,
+  };
 }

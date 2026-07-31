@@ -4,6 +4,7 @@
 본문은 라우팅·프로토콜·표만 담는다. 상세 규칙은 링크된 문서가 원본이다. 이 문서는 100줄을 넘기지 않는다.
 문서는 한 문장을 한 줄에 쓴다 — 열 폭 하드랩은 렌더링 공백과 diff 노이즈를 만들므로 쓰지 않는다.
 티켓 수행 워크플로의 원본은 `.claude/skills/tickets/SKILL.md`다 — Codex 등 다른 에이전트도 티켓 요청을 받으면 이 파일을 따른다.
+저장소 검사·운영 보조 스크립트는 [scripts/AGENTS.md](scripts/AGENTS.md), claude.ai/design 번들 도구는 [.design-sync/AGENTS.md](.design-sync/AGENTS.md)가 원본이며 `deploy/**`와 `scripts/check-jenkinsfile*.sh`는 ADR-005의 배포 계약 경로다.
 
 ## 1. 세션 부트스트랩 — 읽기 순서 고정
 
@@ -13,7 +14,7 @@
 2. `docs/handoff/TEAM-STATE.md` — 팀 상태 스냅샷. as-of 시각 기준의 과거이며 실시간이 아니다.
 3. 자기 기능의 exec-plan — `docs/exec-plan/active/<기능>.md`
 4. 위 문서들이 링크한 규칙(`docs/rules/`)과 ADR(`docs/decisions/`)만 추가로 읽는다.
-5. 착수 직전 `gh pr list --search "<기능>"` 1회 — 스냅샷 이후 열린 PR·Draft PR을 확인한다.
+5. 착수 직전 `gh pr list --search "<기능>"` 1회 — 스냅샷 이후 열린 PR을 확인한다.
 6. `bash scripts/setup-hooks.sh` 1회 — 저장소 Git 훅 활성화(멱등). "보존" 안내가 나오면 §7 참조.
 7. 로컬 실행이 필요하면 `docs/rules/local-dev.md`를 따른다 — 호스트 hot reload(`pnpm dev`)와 컨테이너 통합 검증(`pnpm local:up`)의 선택 기준이 거기 있다.
 
@@ -25,7 +26,7 @@
 | --- | --- | --- |
 | 제품·기획 결정 | Notion Decision Log | Decision ID + 링크 |
 | 기술·운영 결정 | `docs/decisions/` ADR | ADR 번호 |
-| 구현 진행 상태 | GitHub Issue·Draft PR | Issue/PR 번호 |
+| 구현 진행 상태 | GitHub Issue·PR | Issue/PR 번호 |
 | 시크릿(키·토큰) | secret store(배포 환경 변수) | 변수 이름만(`.env.example`) |
 | 개인정보·실데이터 | 제한 저장소(repo 밖) | 없음 — 합성 fixture만 반입 |
 
@@ -35,9 +36,10 @@
 Issue·PR 코멘트로 제안한다.
 @GoBeromsu와 @Lumiere001은 owner 표와 무관하게 저장소 전체 경로를 사전 허락 없이 수정하는 free-role 예외를 가진다(원본: ADR-005).
 PR 본문에 대상 기능과 owner를 명시해 owner를 리뷰어로 지정하고, 착수 전 Issue로 선점을 선언하며, owner의 사후 확인 코멘트는 병합 조건이 아니다.
-2시간을 넘길 것으로 예상되거나 요구사항·설계·위험이 불확실한 작업은
-초기에 Draft PR로 공개한다. 2시간 안에 구현·검증이 끝나는 작고 명확한 변경은 바로 Ready로 열 수 있다.
-Draft는 사전 승인 게이트가 아니라 진행 상황과 위험을 일찍 공유하는 수단이다.
+PR은 항상 Ready로 연다 — Draft 단계를 쓰지 않는다.
+Draft는 GitHub에서 병합이 원천 차단되고(`--admin`으로도 우회되지 않는다) required check가 전부 green이어도 아무 신호가 없어,
+완성된 변경이 조용히 방치되는 주차장으로 쓰였다.
+진행 중 공유가 필요하면 Draft가 아니라 Issue 코멘트나 PR 본문 갱신으로 알린다.
 PR을 제출하기 전 `docs/handoff/TEAM-STATE.md`의 해당 기능 행을 이 브랜치에서 갱신한다 — pre-push 훅이 검사하며, 우회는 `TEAM_STATE_SKIP=1` + PR 본문에 사유 명시다(`docs/handoff/team-state-drift-check.md`).
 
 | 기능 | owner | exec-plan 경로 | 코드 경로 |

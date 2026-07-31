@@ -8,6 +8,7 @@ import { ActivityTimelineView } from './components/activity-timeline-view';
 import type { ActivityTimeline } from './types';
 
 const timeline: ActivityTimeline = {
+  dataAsOf: '2026-08-01T00:00:00.000Z',
   programs: [
     {
       programId: 'program-1',
@@ -88,6 +89,8 @@ describe('activity timeline', () => {
     expect(html).toContain('커밋');
     expect(html).toContain('Pull Request');
     expect(html).toContain('Release');
+    expect(html).toContain('데이터 기준 시각');
+    expect(html).toContain('2026. 8. 1. 오전 9:00');
     expect(html).not.toContain('Star');
     expect(html).not.toContain('FORCE');
   });
@@ -201,6 +204,7 @@ describe('activity timeline', () => {
         programs: [{ ...timeline.programs[0], applicationMode: 'GROUP' }],
       },
     ],
+    ['invalid dataAsOf', { ...timeline, dataAsOf: 'not-a-date' }],
   ])('성공 응답 본문이 malformed이면 거부한다: %s', async (_label, body) => {
     stubTimelineResponse(body);
 

@@ -1,5 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus, Role } from '@prisma/client';
+import {
+  ACCESS_AUDIT_ACTIONS,
+  ACCESS_AUDIT_EVENT_KINDS,
+  createAccessAuditMetadata,
+} from '../audit-log/audit-log-metadata';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.enum';
 import { DomainException } from '../common/error-code';
@@ -38,7 +43,8 @@ export class AdminUsersService {
       const actor = this.requireAdmin(
         await store.findUserByGithubId(actorGithubId),
       );
-      if (!(await store.findUserById(userId))) {
+      const before = await store.findUserById(userId);
+      if (!before) {
         throw new DomainException(
           ROLES_ERROR_CODES[RolesErrorCode.USER_NOT_FOUND],
         );
@@ -72,9 +78,26 @@ export class AdminUsersService {
       await this.auditLog.record(
         {
           actorGithubId,
-          action: 'USER_ROLE_CHANGED',
+          action: ACCESS_AUDIT_ACTIONS.DIRECT_ROLE_CHANGED,
           targetType: 'USER',
           targetId: userId,
+          metadata: createAccessAuditMetadata({
+            eventKind: ACCESS_AUDIT_EVENT_KINDS.DIRECT_ROLE_CHANGED,
+            actor: {
+              displayName: actor.name,
+              githubLogin: actor.githubLogin,
+            },
+            before: {
+              role: before.role,
+              accountStatus: before.accountStatus,
+              requestStatus: request?.status ?? null,
+            },
+            after: {
+              role: updated.role,
+              accountStatus: updated.accountStatus,
+              requestStatus: nextStatus ?? request?.status ?? null,
+            },
+          }),
         },
         store.auditLogWriter,
       );

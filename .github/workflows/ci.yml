@@ -124,10 +124,6 @@ jobs:
         if: ${{ steps.changes.outputs.shell_scripts == 'true' }}
         run: bash scripts/check-team-state-updated.test.sh
 
-      - name: DTO pre-commit 가드 회귀 테스트
-        if: ${{ steps.changes.outputs.shell_scripts == 'true' }}
-        run: bash scripts/check-dto-pre-commit.test.sh
-
       - name: 호스트 lane DATABASE_URL 가드 회귀 테스트
         if: ${{ steps.changes.outputs.shell_scripts == 'true' }}
         run: bash scripts/check-host-db-url.test.sh

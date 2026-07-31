@@ -10,6 +10,7 @@ import {
 import { seedIntake } from './seeds/intake';
 import { seedMilestones } from './seeds/milestones';
 import { seedRepositories } from './seeds/repositories';
+import { backfillUserProfiles } from './user-profile-backfill';
 
 /**
  * #110 시드 진입점. 실행 계약:
@@ -34,6 +35,7 @@ export async function runProfile(
   if (profile === 'repositories' || profile === 'all') {
     await seedRepositories(stats);
   }
+  await backfillUserProfiles(prisma);
 }
 
 async function main(): Promise<void> {

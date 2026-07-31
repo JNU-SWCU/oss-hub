@@ -15,6 +15,7 @@
     "test:integration": "bash ../../scripts/run-backend-integration.sh",
     "db:guard": "bash ../../scripts/check-host-db-url.sh",
     "db:migrate:dev": "pnpm run db:guard && prisma migrate dev",
+    "db:backfill:user-profiles": "ts-node prisma/user-profile-backfill.ts",
     "db:reset": "pnpm run db:guard && prisma migrate reset --force",
     "db:seed": "pnpm run db:guard && prisma db seed",
     "collection:verify-app": "ts-node src/collection/cli/verify-collection-app.ts",

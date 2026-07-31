@@ -1,5 +1,6 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
+import { completeCompatibleProfileIfUnchanged } from '../profiles/profile-compatibility.repository';
 import { UsersRepository } from './users.repository';
 
 assertIsolatedIntegrationDatabase({
@@ -18,6 +19,12 @@ const secondProfile = {
   name: '합성 덮어쓰기 사용자',
   studentId: '2'.repeat(6),
   department: '소프트웨어공학과',
+};
+
+type StoredProfileFields = {
+  readonly name: string | null;
+  readonly studentId: string | null;
+  readonly department: string | null;
 };
 
 const prisma = new PrismaService();
@@ -61,6 +68,55 @@ it('학번·학과를 DB에 저장하고 다시 조회한다', async () => {
     id: userId,
     ...firstProfile,
   });
+});
+
+it('프로필 저장은 UserProfile과 구버전 User 컬럼을 같은 값으로 유지한다', async () => {
+  // Given
+  const expected = firstProfile;
+
+  // When
+  await expect(completeCurrentProfile(expected)).resolves.toBe(true);
+
+  // Then
+  const legacyRows = await prisma.$queryRaw<StoredProfileFields[]>`
+    SELECT "name", "studentId", "department"
+    FROM "User"
+    WHERE "id" = ${userId}
+  `;
+  const profileRows = await prisma.$queryRaw<StoredProfileFields[]>`
+    SELECT "name", "studentId", "department"
+    FROM "UserProfile"
+    WHERE "userId" = ${userId}
+  `;
+  expect(legacyRows).toEqual([expected]);
+  expect(profileRows).toEqual([expected]);
+});
+
+it('완료 후 이름·학과 수정도 UserProfile과 구버전 User 컬럼을 함께 갱신한다', async () => {
+  // Given
+  await expect(completeCurrentProfile(firstProfile)).resolves.toBe(true);
+  const mutableFields = {
+    name: '합성 수정 사용자',
+    department: '컴퓨터공학과',
+  };
+
+  // When
+  await repository.updateProfileFields(userId, mutableFields);
+
+  // Then
+  const expected = { ...firstProfile, ...mutableFields };
+  const legacyRows = await prisma.$queryRaw<StoredProfileFields[]>`
+    SELECT "name", "studentId", "department"
+    FROM "User"
+    WHERE "id" = ${userId}
+  `;
+  const profileRows = await prisma.$queryRaw<StoredProfileFields[]>`
+    SELECT "name", "studentId", "department"
+    FROM "UserProfile"
+    WHERE "userId" = ${userId}
+  `;
+  expect(legacyRows).toEqual([expected]);
+  expect(profileRows).toEqual([expected]);
 });
 
 it('완료된 프로필은 두 번째 요청으로 덮어쓰지 않는다', async () => {
@@ -108,4 +164,57 @@ it('비어 있거나 형식이 잘못된 기존 프로필도 유효한 값으로
   await expect(repository.findByGithubId(githubId)).resolves.toMatchObject(
     firstProfile,
   );
+});
+
+it('이미 생성된 UserProfile과 충돌하면 legacy User 변경도 롤백한다', async () => {
+  // Given
+  const expected = await repository.findByGithubId(githubId);
+  if (!expected) {
+    throw new Error('합성 프로필 사용자가 존재해야 합니다.');
+  }
+  await prisma.userProfile.create({
+    data: {
+      userId,
+      name: '합성 선점 프로필',
+      studentId: '153404',
+      department: '인공지능학부',
+    },
+  });
+  const legacyBefore = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { name: true, studentId: true, department: true },
+  });
+
+  // When
+  const completed = repository.completeProfileIfUnchanged(
+    expected,
+    firstProfile,
+  );
+
+  // Then
+  await expect(completed).resolves.toBe(false);
+  await expect(
+    prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { name: true, studentId: true, department: true },
+    }),
+  ).resolves.toEqual(legacyBefore);
+});
+
+it('동일한 완료 요청이 경쟁하면 한 요청만 성공하고 다른 요청은 CAS miss로 수렴한다', async () => {
+  // Given
+  await prisma.user.update({ where: { id: userId }, data: firstProfile });
+  const expected = { id: userId, ...firstProfile };
+  const complete = () =>
+    prisma.$transaction((transaction) =>
+      completeCompatibleProfileIfUnchanged(transaction, expected, firstProfile),
+    );
+
+  // When
+  const results = await Promise.all([complete(), complete()]);
+
+  // Then
+  expect(results.filter((result) => result)).toHaveLength(1);
+  expect(results.filter((result) => !result)).toHaveLength(1);
+  await expect(repository.findByGithubId(githubId)).resolves.toEqual(expected);
 });

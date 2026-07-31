@@ -29,16 +29,24 @@ const contributorRow = (overrides: Record<string, unknown> = {}) => ({
 
 function harness() {
   const publicShowcaseContributor = { findMany: jest.fn() };
-  const prisma = { publicShowcaseContributor } as unknown as PrismaService;
+  const user = { findUnique: jest.fn() };
+  const userProfile = { findUnique: jest.fn() };
+  const prisma = {
+    publicShowcaseContributor,
+    user,
+    userProfile,
+  } as unknown as PrismaService;
   return {
     publicShowcaseContributor,
+    user,
+    userProfile,
     service: new PublicProfileService(prisma),
   };
 }
 
 describe('PublicProfileService', () => {
   it('maps ordered projection contributors and repositories without private fields', async () => {
-    const { publicShowcaseContributor, service } = harness();
+    const { publicShowcaseContributor, service, user, userProfile } = harness();
     publicShowcaseContributor.findMany.mockResolvedValue([
       contributorRow({
         repository: {
@@ -102,10 +110,12 @@ describe('PublicProfileService', () => {
     expect(serialized).not.toContain('email');
     expect(serialized).not.toContain('activeProgram');
     expect(serialized).not.toContain('"name"');
+    expect(user.findUnique).not.toHaveBeenCalled();
+    expect(userProfile.findUnique).not.toHaveBeenCalled();
   });
 
   it('returns the same public 404 for unknown users and users with no public contributions', async () => {
-    const { publicShowcaseContributor, service } = harness();
+    const { publicShowcaseContributor, service, user, userProfile } = harness();
     publicShowcaseContributor.findMany.mockResolvedValueOnce([]);
     publicShowcaseContributor.findMany.mockResolvedValueOnce([]);
 
@@ -152,5 +162,7 @@ describe('PublicProfileService', () => {
         },
       ],
     ]);
+    expect(user.findUnique).not.toHaveBeenCalled();
+    expect(userProfile.findUnique).not.toHaveBeenCalled();
   });
 });

@@ -69,6 +69,44 @@ export default tseslint.config(
     },
   },
   ...moduleBoundaryConfigs,
+  // 환경변수 소비 지점은 runtime-config manifest 하나로 고정한다. 키를 직접
+  // 읽는 것만 금지하며, process.env 객체 전체를 loadRuntimeConfig에 넘기는
+  // 것은 manifest가 키 목록을 소유하므로 허용한다. 이 규칙이 소비 계약을
+  // 구조로 보장하므로 env 계약 검사기는 소스를 AST로 훑지 않는다.
+  {
+    files: ['src/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "MemberExpression[object.object.name='process'][object.property.name='env']",
+          message:
+            '환경변수는 runtime-config manifest를 거쳐 읽는다 — process.env 키 직접 접근 금지.',
+        },
+        {
+          selector:
+            "VariableDeclarator[init.object.name='process'][init.property.name='env'] > ObjectPattern",
+          message:
+            '환경변수는 runtime-config manifest를 거쳐 읽는다 — process.env 구조분해 금지.',
+        },
+      ],
+    },
+  },
+  {
+    // canonical 소비 지점. 여기서만 env.KEY를 직접 읽는다.
+    files: ['src/runtime-config/runtime-config.ts'],
+    rules: {
+      'no-restricted-syntax': 'off',
+    },
+  },
+  {
+    // 테스트는 환경을 직접 조립·복원해야 하므로 규칙 대상이 아니다.
+    files: ['src/**/*.spec.ts', 'test/**/*.ts', 'prisma/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': 'off',
+    },
+  },
   {
     files: ['src/**/dto/*.ts'],
     rules: {

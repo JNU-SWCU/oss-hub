@@ -53,7 +53,8 @@ export function validateProgramForm(
     description?: string;
   } = {};
   if (!form.name.trim()) errors.name = '프로그램명을 입력해 주세요.';
-  if (!form.organizer.trim()) errors.organizer = '주관기관을 입력해 주세요.';
+  if (!form.organizer.trim())
+    errors.organizer = '주관기관/학과를 입력해 주세요.';
   if (
     !form.applicationStartAt ||
     !form.applicationEndAt ||

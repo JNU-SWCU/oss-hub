@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  COMPATIBLE_PROFILE_NAME_SELECT,
+  resolveCompatibleProfileName,
+} from '../profiles/profile-compatibility';
 
 export interface StudentDashboardMilestone {
   readonly id: string;
@@ -68,7 +72,12 @@ export class StudentDashboardService {
         id: true,
         status: true,
         teamId: true,
-        applicant: { select: { name: true, nickname: true } },
+        applicant: {
+          select: {
+            nickname: true,
+            ...COMPATIBLE_PROFILE_NAME_SELECT,
+          },
+        },
         team: { select: { name: true } },
         program: {
           select: {
@@ -90,7 +99,8 @@ export class StudentDashboardService {
       const displayName =
         applicationMode === 'TEAM'
           ? application.team?.name
-          : (application.applicant.name ?? application.applicant.nickname);
+          : (resolveCompatibleProfileName(application.applicant) ??
+            application.applicant.nickname);
 
       if (
         !isSafeProgramId(application.program.id) ||

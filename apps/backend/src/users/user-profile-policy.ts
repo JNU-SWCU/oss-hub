@@ -5,22 +5,33 @@ export interface UserProfileRecord {
   readonly department: string | null;
 }
 
+export type CompleteUserProfileFields = {
+  readonly name: string;
+  readonly studentId: string;
+  readonly department: string;
+};
+
 export const USER_NAME_MAX_LENGTH = 100;
 export const USER_DEPARTMENT_MAX_LENGTH = 100;
 const STUDENT_ID_PATTERN = /^\d{6,10}$/;
+
+export function isValidCompleteUserProfileFields(
+  fields: CompleteUserProfileFields,
+): boolean {
+  return (
+    fields.name.trim().length > 0 &&
+    Array.from(fields.name).length <= USER_NAME_MAX_LENGTH &&
+    STUDENT_ID_PATTERN.test(fields.studentId) &&
+    fields.department.trim().length > 0 &&
+    Array.from(fields.department).length <= USER_DEPARTMENT_MAX_LENGTH
+  );
+}
 
 export function isCompleteUserProfile(record: UserProfileRecord): boolean {
   const name = record.name;
   const studentId = record.studentId;
   const department = record.department;
-  return (
-    name !== null &&
-    name.trim().length > 0 &&
-    name.length <= USER_NAME_MAX_LENGTH &&
-    studentId !== null &&
-    STUDENT_ID_PATTERN.test(studentId) &&
-    department !== null &&
-    department.trim().length > 0 &&
-    department.length <= USER_DEPARTMENT_MAX_LENGTH
-  );
+  return name !== null && studentId !== null && department !== null
+    ? isValidCompleteUserProfileFields({ name, studentId, department })
+    : false;
 }

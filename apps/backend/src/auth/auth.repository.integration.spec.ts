@@ -52,7 +52,7 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-it('동시 최초 로그인은 신규 1건으로 수렴하고 이후 로그인은 온보딩 이름을 보존한다', async () => {
+it('동시 최초 로그인은 GitHub 이름을 저장하지 않고 이후 로그인은 UserProfile 이름을 보존한다', async () => {
   const repository = repositoryWithInitialRole(null);
   const profile = {
     githubId,
@@ -68,10 +68,31 @@ it('동시 최초 로그인은 신규 1건으로 수렴하고 이후 로그인�
   ]);
   expect(firstLogins.filter((login) => login.isNew)).toHaveLength(1);
 
-  await prisma.user.update({
+  const newUser = await prisma.user.findUniqueOrThrow({
     where: { githubId },
-    data: { name: '사용자 입력 이름' },
+    include: { profile: true },
   });
+  expect(newUser.name).toBeNull();
+  expect(newUser.profile).toBeNull();
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { githubId },
+      data: {
+        name: 'Legacy Stale Name',
+        studentId: '1'.repeat(6),
+        department: 'Legacy Stale Department',
+      },
+    }),
+    prisma.userProfile.create({
+      data: {
+        userId: newUser.id,
+        name: '사용자 입력 이름',
+        studentId: '1'.repeat(6),
+        department: '인공지능학부',
+      },
+    }),
+  ]);
   const returningLogin = await upsertUser(repository, {
     ...profile,
     login: 'synthetic-oauth-user-renamed',

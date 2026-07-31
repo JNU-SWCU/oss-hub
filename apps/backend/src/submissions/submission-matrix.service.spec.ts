@@ -311,7 +311,14 @@ describe('submissionMatrixApplicationWhere', () => {
       programId: PROGRAM_ID,
       status: ApplicationStatus.APPROVED,
       OR: [
-        { applicant: { name: contains } },
+        {
+          applicant: {
+            OR: [
+              { profile: { is: { name: contains } } },
+              { profile: { is: null }, name: contains },
+            ],
+          },
+        },
         { applicant: { nickname: contains } },
         { team: { name: contains } },
         { team: { members: { some: { user: { nickname: contains } } } } },
