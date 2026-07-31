@@ -3,6 +3,29 @@ import { dashboardFixture } from '@/features/dashboard/fixtures';
 import { resolveLocalReviewResponse } from './fixture-response';
 import type { LocalReviewFixtureId } from './fixture-contract';
 
+function auditLogsFor(query: string) {
+  return resolveLocalReviewResponse({
+    fixture: 'admin',
+    method: 'GET',
+    path: 'audit-logs',
+    searchParams: new URLSearchParams(query),
+  });
+}
+
+function auditLogBody(response: ReturnType<typeof resolveLocalReviewResponse>) {
+  if (response.kind !== 'json') {
+    throw new Error('감사 로그 fixture가 json 응답이 아닙니다.');
+  }
+  return response.body as {
+    readonly items: readonly {
+      readonly id: string;
+      readonly actor: string;
+      readonly action: string;
+    }[];
+    readonly total: number;
+  };
+}
+
 function sessionFor(fixture: LocalReviewFixtureId) {
   return resolveLocalReviewResponse({
     fixture,
@@ -145,44 +168,50 @@ describe('local review fixture responses', () => {
 
   it('admin fixture serves audit logs in the paginated backend shape', () => {
     // Given / When
-    const response = resolveLocalReviewResponse({
-      fixture: 'admin',
-      method: 'GET',
-      path: 'audit-logs',
-      searchParams: new URLSearchParams('page=1&limit=2'),
-    });
+    const response = auditLogsFor('page=1&limit=2');
 
     // Then
     expect(response).toMatchObject({
       kind: 'json',
       status: 200,
-      body: { total: 3, page: 1, limit: 2 },
+      body: { page: 1, limit: 2 },
     });
-    expect(
-      response.kind === 'json' &&
-        (response.body as { items: readonly unknown[] }).items,
-    ).toHaveLength(2);
+    expect(auditLogBody(response).items).toHaveLength(2);
+  });
+
+  it('audit log fixture spans more than one page at the default limit', () => {
+    // Given — 기본 limit 20에서 이전·다음을 실제로 눌러 볼 수 있어야 한다.
+    const firstPage = auditLogBody(auditLogsFor('page=1&limit=20'));
+    const secondPage = auditLogBody(auditLogsFor('page=2&limit=20'));
+
+    // Then
+    expect(firstPage.total).toBeGreaterThan(20);
+    expect(firstPage.items).toHaveLength(20);
+    expect(secondPage.items.length).toBe(firstPage.total - 20);
+    expect(secondPage.items.length).toBeGreaterThan(0);
+
+    const ids = [...firstPage.items, ...secondPage.items].map(
+      (record) => record.id,
+    );
+    expect(new Set(ids).size).toBe(firstPage.total);
   });
 
   it('audit log fixture applies the actor and action filters it is sent', () => {
     // Given / When
-    const response = resolveLocalReviewResponse({
-      fixture: 'admin',
-      method: 'GET',
-      path: 'audit-logs',
-      searchParams: new URLSearchParams(
-        'action=STAFF_ROLE_REQUEST_APPROVED&actor=SYNTHETIC-admin&page=1&limit=20',
+    const all = auditLogBody(auditLogsFor('page=1&limit=100'));
+    const filtered = auditLogBody(
+      auditLogsFor(
+        'action=STAFF_ROLE_REQUEST_APPROVED&actor=SYNTHETIC-admin&page=1&limit=100',
       ),
-    });
+    );
 
     // Then
-    expect(response).toMatchObject({
-      kind: 'json',
-      body: {
-        total: 1,
-        items: [{ action: 'STAFF_ROLE_REQUEST_APPROVED' }],
-      },
-    });
+    expect(filtered.total).toBeGreaterThan(0);
+    expect(filtered.total).toBeLessThan(all.total);
+    for (const record of filtered.items) {
+      expect(record.action).toBe('STAFF_ROLE_REQUEST_APPROVED');
+      expect(record.actor.toLowerCase()).toContain('synthetic-admin');
+    }
   });
 
   it('unsupported paths fail closed instead of reaching the backend', () => {
