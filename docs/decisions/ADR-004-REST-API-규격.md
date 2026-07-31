@@ -50,6 +50,14 @@ JSON 필드는 camelCase로 작성한다. boolean 필드는 `is`, `has`, `can` �
 }
 ```
 
+### 리소스 명명과 호환성 원칙
+
+URI는 backend 구현 세부사항이 아니라 product가 다루는 리소스 명사를 표현한다. 익명 방문자에게 공개하는 canonical collection이 같은 계층에 대응하는 private collection을 따로 갖지 않는 projection 전용 자원이면 `public` 접두사·접미사를 붙이지 않는다 — 예: `GET /projects`. 이 규칙은 별도 visibility projection·디렉터리·trust boundary가 있어 `public` 표기가 실제로 필요한 다른 사례(예: 여러 API가 채택한 별도 공개 디렉터리 방식)까지 부정하지 않으며, 이 저장소가 touched하는 자원에 한정한다. 리소스의 부분집합(카테고리, 상태, 검색어 등)은 별도 endpoint나 path segment가 아니라 query parameter로 표현한다. `/me`는 REST 표준이 아니라 이 저장소의 로컬 관례이며, 호출자 자신이 소유한 자원(`GET /users/me/profile`)에 한정해 사용한다 — 같은 개념에 API마다 다른 철자(GitHub `/user`, Zalando `self`)를 쓴다는 사실을 이 결정의 근거로 남기고 보편 표준으로 주장하지 않는다. CRUD로 자연스럽게 표현되지 않는 domain command는 예외적으로 동사형 action 자원을 허용한다(`POST /repositories/{repositoryId}/publish`). 이 예외는 명시적 상태 전이처럼 표준 자원 표현이 어색한 경우로 한정하고, 일반 생성·조회·수정·삭제는 표준 CRUD 자원으로 표현한다.
+
+기존 route의 rename·제거는 기본적으로 breaking change다. 이 저장소가 frontend·backend를 한 repo에서 함께 소유하고 pre-release 단계(운영 트래픽·확인된 외부 소비자 계약이 없음)인 동안에는, 실제 조사로 외부 소비자가 없음을 확인한 touched 경로에 한해 alias 없는 clean break 변경을 허용한다. 이 예외는 "동일 repo가 양쪽을 통제하고 조사로 외부 계약이 없음을 확인했다"는 조건에 결속하며, 그 조건이 성립하지 않는 일반적인 API rename에는 적용하지 않는다. 실행 중 실제 외부 caller(다른 저장소·서드파티 client)의 사용이 확인되거나 선언되면 clean break를 하지 않고 기존 route를 alias로 유지하며 deprecation 고지를 남기거나 버전이 다른 계약(`/api/v2`)으로 분리한다.
+
+이 원칙은 실제로 변경하는 route에만 적용하는 boy-scout 규칙이다. 이번 결정이 손대지 않은 기존 route는 그대로 유효한 계약으로 남으며 소급 rename을 요구하지 않는다.
+
 ## Alternatives considered
 
 ### 응답 봉투(envelope)
@@ -63,6 +71,18 @@ JSON 필드는 camelCase로 작성한다. boolean 필드는 `is`, `has`, `can` �
 - Pros: 초기 구현에서 빠르게 오류 메시지를 추가할 수 있다.
 - Cons: 도메인 소유권, 검색 가능성, 클라이언트 분기 규칙이 불명확해진다.
 - **Rejected:** 도메인별 ErrorCode enum과 고정 형식 코드가 안정적인 클라이언트 계약을 제공한다.
+
+### `/me`를 보편 REST 표준으로 채택
+
+- Pros: 자기 자신의 자원을 가리키는 짧고 널리 알려진 철자다.
+- Cons: GitHub `/user`, Zalando `self` 등 API마다 다른 철자를 쓰므로 보편 표준이라고 주장하면 근거가 부정확해진다.
+- **Rejected:** 이 저장소의 로컬 관례로 명시하고 caller-owned 자원에 한정해 사용한다.
+
+### 모든 route rename에 버전 접두사 증가
+
+- Pros: API 버전이 항상 명시적이고 호환성 판단에 사람 조사가 필요 없다.
+- Cons: pre-release 단계에서 확인된 외부 소비자가 없는 상태로 매 rename마다 `/api/v2`를 만들면 유지 비용이 실제 이득보다 크다.
+- **Rejected:** 조사로 외부 소비자가 없음을 확인한 touched 경로는 clean break를 허용하고, 외부 소비자가 확인되는 시점에 버전 분리 또는 alias를 도입한다.
 
 ## Consequences
 
@@ -84,11 +104,20 @@ JSON 필드는 camelCase로 작성한다. boolean 필드는 `is`, `has`, `can` �
 - 실패 응답은 RFC 7807 ProblemDetail과 `AAA_000` 형식 `code`를 포함한다.
 - JSON 명명은 camelCase, boolean은 `is`·`has`·`can`, enum 값은 UPPER_SNAKE_CASE를 사용한다.
 - 목록 endpoint는 페이지네이션을 제공하고 DTO 경계에서 입력을 검증한다.
+- URI는 product 리소스 명사를 표현하며 구현 세부사항을 노출하지 않는다.
+- private counterpart가 없는 canonical anonymous collection에는 `public` 접두사·접미사를 붙이지 않는다(예: `/projects`) — 이는 이 저장소가 touched하는 자원에 한정한 규칙이다.
+- 리소스 부분집합은 query parameter로 표현하고 별도 path segment를 만들지 않는다.
+- `/me`는 이 저장소의 로컬 관례이며 caller-owned 자원에만 사용한다 — 보편 REST 표준으로 주장하지 않는다.
+- 표준 CRUD로 표현되지 않는 domain command에 한해 동사형 action 자원을 예외적으로 허용한다.
+- route rename·제거는 기본적으로 breaking change다. touched 경로의 clean break는 동일 repo가 frontend·backend를 함께 소유하고 조사로 외부 소비자가 없음을 확인한 pre-release 조건에서만 허용한다.
+- 확인되거나 선언된 외부 caller가 있으면 clean break 대신 alias 유지 + deprecation 고지 또는 버전이 다른 계약으로 분리한다.
+- 이 원칙은 touched 경로에만 적용하며 이번 결정이 손대지 않은 기존 route는 grandfather되어 그대로 유효하다.
 
 ## Changelog
 
 - 2026-07-11: initial decision
 - 2026-07-11: 전송 계층 오류 제외 조항 추가
+- 2026-07-31: 제품 리소스 명명, query filter, repo-local `/me`, 예외적 command 자원, route rename의 breaking 기본값과 touched pre-release clean break 조건, 외부 소비자 확인 시 alias/deprecation 규칙을 추가했다.
 
 ## References
 

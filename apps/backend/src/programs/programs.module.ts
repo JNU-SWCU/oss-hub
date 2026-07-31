@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { CollectionModule } from '../collection/collection.module';
 import { ApplicationTemplatesController } from './application-templates.controller';
 import { MilestonesController } from './milestones.controller';
 import { ProgramCreationService } from './program-creation.service';
@@ -22,7 +23,7 @@ import { ProgramsService } from './programs.service';
 import { StudentDashboardService } from './student-dashboard.service';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, CollectionModule],
   controllers: [
     // static sibling first — programs/application-templates before programs/:id
     ApplicationTemplatesController,
