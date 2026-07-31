@@ -24,7 +24,13 @@
 #   0) 커밋된 파일 경로 자체 — .env·개인키·DB 파일 등 존재만으로 유출인 파일
 #      (.gitignore가 막지만 `git add -f`로 우회 가능하므로 CI에서 재차단) — full 모드만
 #   1) BASE_REF...HEAD 에서 추가·수정된 파일 내용 — full 모드만
-#   2) BASE_REF..HEAD  커밋 메시지 — full 모드만
+#   2) BASE_REF..HEAD  커밋 메시지, 병합 커밋 제외(--no-merges) — full 모드만
+#      pull_request CI의 기본 checkout은 refs/pull/N/merge(합성 merge ref)를 쓰므로
+#      HEAD가 "Merge <head 40자 SHA> into <base 40자 SHA>" 형태의 자동 생성 병합
+#      커밋이다. 이 메시지의 SHA 자체는 검사 대상 콘텐츠가 아니므로 병합 커밋은
+#      스캔에서 제외한다(학번 추정 패턴 등 숫자열 오탐 방지). 병합 안 된 실제
+#      커밋 메시지는 그대로 검사한다. %h(축약 해시)도 스캔 대상에서 제외한다 —
+#      해시가 우연히 전부 숫자로 축약되면 같은 클래스의 오탐이 나기 때문이다.
 #   3) $PR_TEXT        (CI가 PR 제목+본문을 주입) — full 모드만
 #   4) $ISSUE_TEXT     (CI가 Issue/댓글 제목+본문을 주입) — 두 모드 모두
 #
@@ -292,8 +298,8 @@ if [ "$TEXT_ONLY" -eq 0 ]; then
     echo "  → env 실값은 secret store에, 실데이터는 repo 밖 격리 경로에 둔다 (docs/rules/security.md)"
   fi
 
-  # 2) 커밋 메시지
-  if ! commit_text="$(git log --format='%h %s%n%b' "$BASE_REF"..HEAD)"; then
+  # 2) 커밋 메시지 — 병합 커밋(합성 merge ref 포함) 제외, %h(축약 해시)도 제외
+  if ! commit_text="$(git log --no-merges --format='%s%n%b' "$BASE_REF"..HEAD)"; then
     echo "::error::public-safe 커밋 메시지를 읽을 수 없습니다."
     exit 2
   fi
