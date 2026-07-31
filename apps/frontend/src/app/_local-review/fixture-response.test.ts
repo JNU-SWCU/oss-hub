@@ -143,6 +143,48 @@ describe('local review fixture responses', () => {
     });
   });
 
+  it('admin fixture serves audit logs in the paginated backend shape', () => {
+    // Given / When
+    const response = resolveLocalReviewResponse({
+      fixture: 'admin',
+      method: 'GET',
+      path: 'audit-logs',
+      searchParams: new URLSearchParams('page=1&limit=2'),
+    });
+
+    // Then
+    expect(response).toMatchObject({
+      kind: 'json',
+      status: 200,
+      body: { total: 3, page: 1, limit: 2 },
+    });
+    expect(
+      response.kind === 'json' &&
+        (response.body as { items: readonly unknown[] }).items,
+    ).toHaveLength(2);
+  });
+
+  it('audit log fixture applies the actor and action filters it is sent', () => {
+    // Given / When
+    const response = resolveLocalReviewResponse({
+      fixture: 'admin',
+      method: 'GET',
+      path: 'audit-logs',
+      searchParams: new URLSearchParams(
+        'action=STAFF_ROLE_REQUEST_APPROVED&actor=SYNTHETIC-admin&page=1&limit=20',
+      ),
+    });
+
+    // Then
+    expect(response).toMatchObject({
+      kind: 'json',
+      body: {
+        total: 1,
+        items: [{ action: 'STAFF_ROLE_REQUEST_APPROVED' }],
+      },
+    });
+  });
+
   it('unsupported paths fail closed instead of reaching the backend', () => {
     // Given / When
     const response = resolveLocalReviewResponse({

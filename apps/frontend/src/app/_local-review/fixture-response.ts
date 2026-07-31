@@ -1,5 +1,6 @@
 import { dashboardFixture } from '@/features/dashboard/fixtures';
 import type { AuthRole } from '@/features/auth/types';
+import type { AuditLogPage, AuditLogRecord } from '@/features/audit-log/types';
 import type { StaffDashboardSummary } from '@/features/programs/types';
 import type {
   StaffRoleRequest,
@@ -86,6 +87,33 @@ const STAFF_REQUEST_FIXTURES = [
   },
 ] as const satisfies readonly StaffRoleRequest[];
 
+const AUDIT_LOG_FIXTURES = [
+  {
+    id: 'fixture:audit:approved',
+    actor: 'synthetic-admin',
+    action: 'STAFF_ROLE_REQUEST_APPROVED',
+    targetType: 'ROLE_REQUEST',
+    targetId: 'fixture:staff-request:approved',
+    occurredAt: '2026-07-21T01:00:00.000Z',
+  },
+  {
+    id: 'fixture:audit:rejected',
+    actor: 'synthetic-admin',
+    action: 'STAFF_ROLE_REQUEST_REJECTED',
+    targetType: 'ROLE_REQUEST',
+    targetId: 'fixture:staff-request:rejected',
+    occurredAt: '2026-07-20T02:00:00.000Z',
+  },
+  {
+    id: 'fixture:audit:revoked',
+    actor: 'synthetic-admin',
+    action: 'STAFF_ROLE_REQUEST_REVOKED',
+    targetType: 'ROLE_REQUEST',
+    targetId: 'fixture:staff-request:revoked',
+    occurredAt: '2026-07-19T03:00:00.000Z',
+  },
+] as const satisfies readonly AuditLogRecord[];
+
 function json(status: number, body: unknown): LocalReviewResponsePlan {
   return { kind: 'json', status, body };
 }
@@ -162,6 +190,30 @@ function staffRequestPage(searchParams: URLSearchParams): StaffRoleRequestPage {
   };
 }
 
+function auditLogPage(searchParams: URLSearchParams): AuditLogPage {
+  const actor = (searchParams.get('actor') ?? '').trim().toLowerCase();
+  const action = searchParams.get('action') ?? '';
+  const from = searchParams.get('from') ?? '';
+  const to = searchParams.get('to') ?? '';
+  const matched = AUDIT_LOG_FIXTURES.filter((record) => {
+    const day = record.occurredAt.slice(0, 10);
+    return (
+      (actor === '' || record.actor.toLowerCase().includes(actor)) &&
+      (action === '' || record.action === action) &&
+      (from === '' || day >= from) &&
+      (to === '' || day <= to)
+    );
+  });
+  const page = Number(searchParams.get('page') ?? '1');
+  const limit = Number(searchParams.get('limit') ?? '20');
+  return {
+    items: matched.slice((page - 1) * limit, page * limit),
+    total: matched.length,
+    page,
+    limit,
+  };
+}
+
 export function resolveLocalReviewResponse({
   fixture,
   method,
@@ -204,6 +256,10 @@ export function resolveLocalReviewResponse({
     fixture === 'admin'
   ) {
     return json(200, staffRequestPage(searchParams));
+  }
+
+  if (method === 'GET' && path === 'audit-logs' && fixture === 'admin') {
+    return json(200, auditLogPage(searchParams));
   }
 
   if (method === 'GET' && path === 'users/me/profile') {
