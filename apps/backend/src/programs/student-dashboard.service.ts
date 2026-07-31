@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
   RepositoryInvitationStatus,
@@ -10,7 +10,7 @@ import {
   COMPATIBLE_PROFILE_NAME_SELECT,
   resolveCompatibleProfileName,
 } from '../profiles/profile-compatibility';
-import type { RepositoriesService } from '../repositories/repositories.service';
+import { RepositoriesService } from '../repositories/repositories.service';
 
 export interface StudentDashboardMilestone {
   readonly id: string;
@@ -60,6 +60,7 @@ function isSafeProgramId(value: string): boolean {
 export class StudentDashboardService {
   constructor(
     private readonly prisma: PrismaService,
+    @Inject(RepositoriesService)
     private readonly repositories: Pick<
       RepositoriesService,
       'getMyRepositories'

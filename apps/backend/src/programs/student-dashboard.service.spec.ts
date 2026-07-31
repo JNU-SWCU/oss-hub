@@ -4,8 +4,9 @@ import {
   RepositoryProvisionJobStatus,
   SubmissionStatus,
 } from '@prisma/client';
-import type { PrismaService } from '../prisma/prisma.service';
-import type { RepositoriesService } from '../repositories/repositories.service';
+import { Test } from '@nestjs/testing';
+import { PrismaService } from '../prisma/prisma.service';
+import { RepositoriesService } from '../repositories/repositories.service';
 import { StudentDashboardService } from './student-dashboard.service';
 
 const DUE_AT = new Date('2026-08-01T00:00:00.000Z');
@@ -50,6 +51,26 @@ describe('StudentDashboardService', () => {
     await expect(service.getStudentDashboard(404n)).resolves.toEqual([]);
     expect(findMany).toHaveBeenCalledTimes(1);
     expect(getMyRepositories).toHaveBeenCalledWith(404n);
+  });
+
+  it('compiles with the canonical RepositoriesService provider token', async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        StudentDashboardService,
+        {
+          provide: PrismaService,
+          useValue: { application: { findMany: jest.fn() } },
+        },
+        {
+          provide: RepositoriesService,
+          useValue: { getMyRepositories: jest.fn() },
+        },
+      ],
+    }).compile();
+
+    expect(moduleRef.get(StudentDashboardService)).toBeInstanceOf(
+      StudentDashboardService,
+    );
   });
 
   it('maps owned personal and team applications and queries no other ownership paths', async () => {
