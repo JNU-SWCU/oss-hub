@@ -35,7 +35,8 @@
 
 - `pnpm dev`는 필수 env와 포트 3000·4000 점유를 먼저 검사하고, 인프라 기동과 마이그레이션 적용까지 마친 뒤 두 watcher를 함께 띄운다. 한쪽 watcher가 죽으면 다른 쪽도 함께 내려간다.
 - 스키마를 바꿨다면 마이그레이션 파일 생성은 `pnpm db:migrate:dev`가 담당한다. `pnpm dev`는 이미 있는 마이그레이션을 적용하기만 한다.
-- GitHub App 개인키는 값이 아니라 **파일 경로**로 전달한다. 파일은 추적하지 않는 `secrets/`에 사람이 직접 배치하고, `.envrc`의 `*_PRIVATE_KEY_FILE` 키가 그 경로를 가리킨다.
+- GitHub App 개인키는 실행 경로마다 **파일 경로**로 전달한다. 호스트 파일은 추적하지 않는 `secrets/`에 두고, `pnpm dev`에서는 `.envrc`가 가리키는 호스트 파일 경로를 사용한다. `pnpm local:up`·`pnpm local:verify`에서는 `*_PRIVATE_KEY_SOURCE`가 호스트 경로, `*_PRIVATE_KEY_FILE`이 컨테이너 안 경로(`/run/secrets/...`)를 뜻한다.
+- 주의: 호스트 쉘에 export된 `*_PRIVATE_KEY_FILE`은 compose의 `--env-file`보다 우선한다. 그래서 `.envrc`가 같은 키를 export한 상태로 compose 검증을 돌리면, 컨테이너 안에 없는 호스트 경로가 덮어써진다.
 
 ## 실행 순서
 

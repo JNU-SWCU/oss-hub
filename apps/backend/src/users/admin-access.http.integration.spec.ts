@@ -219,10 +219,13 @@ it('returns 401/AUT_003 for an anonymous access-list request', async () => {
   await expect(response.json()).resolves.toMatchObject({ code: 'AUT_003' });
 });
 
-it('returns 403/ROL_004 for a non-admin actor', async () => {
+it.each([
+  ['STAFF', Role.STAFF],
+  ['STUDENT', Role.STUDENT],
+] as const)('returns 403/ROL_004 for a non-admin %s actor', async (_, role) => {
   const actor = await harness.createUser(
-    'forbidden-actor',
-    Role.STAFF,
+    `forbidden-actor-${role}`,
+    role,
     AccountStatus.ACTIVE,
   );
 
