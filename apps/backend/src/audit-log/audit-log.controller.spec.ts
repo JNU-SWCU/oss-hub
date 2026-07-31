@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import {
   GUARDS_METADATA,
   METHOD_METADATA,
@@ -7,6 +8,7 @@ import { RequestMethod } from '@nestjs/common';
 import { SessionGuard } from '../auth/session.guard';
 import { AuditLogController } from './audit-log.controller';
 import type { AuditLogService } from './audit-log.service';
+import { AuditLogListRequestDto } from './dto/audit-log-query.dto';
 
 describe('AuditLogController', () => {
   it('GET /audit-logs를 SessionGuard로 보호한다', () => {
@@ -28,17 +30,28 @@ describe('AuditLogController', () => {
   });
 
   it('세션 행위자와 필터를 서비스에 전달한다', async () => {
-    const list = jest.fn().mockResolvedValue([]);
+    const list = jest.fn().mockResolvedValue({
+      items: [],
+      page: 1,
+      limit: 20,
+      total: 0,
+    });
     const controller = new AuditLogController({
       list,
     } as unknown as AuditLogService);
-    const query = { actor: 'synthetic-admin' };
+    const query = Object.assign(new AuditLogListRequestDto(), {
+      actor: 'synthetic-admin',
+    });
 
     await controller.list(
       { sessionGithubId: 1001n } as Parameters<AuditLogController['list']>[0],
       query,
     );
 
-    expect(list).toHaveBeenCalledWith(1001n, query);
+    expect(list).toHaveBeenCalledWith(1001n, {
+      actor: 'synthetic-admin',
+      page: 1,
+      limit: 20,
+    });
   });
 });

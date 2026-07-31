@@ -1,4 +1,9 @@
 import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import {
+  ACCESS_AUDIT_ACTIONS,
+  ACCESS_AUDIT_EVENT_KINDS,
+  ACCESS_AUDIT_SCHEMA_VERSION,
+} from '../audit-log/audit-log-metadata';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { RolesErrorCode } from './roles-error-code.enum';
@@ -132,9 +137,27 @@ describe('AdminUsersService', () => {
     expect(audit.record).toHaveBeenCalledWith(
       {
         actorGithubId: ADMIN_GITHUB_ID,
-        action: 'USER_ROLE_CHANGED',
+        action: ACCESS_AUDIT_ACTIONS.DIRECT_ROLE_CHANGED,
         targetType: 'USER',
         targetId: 'synthetic-staff',
+        metadata: {
+          schemaVersion: ACCESS_AUDIT_SCHEMA_VERSION,
+          eventKind: ACCESS_AUDIT_EVENT_KINDS.DIRECT_ROLE_CHANGED,
+          actor: {
+            displayName: '합성 사용자',
+            githubLogin: 'synthetic-admin',
+          },
+          before: {
+            role: Role.STAFF,
+            accountStatus: AccountStatus.ACTIVE,
+            requestStatus: null,
+          },
+          after: {
+            role: Role.ADMIN,
+            accountStatus: AccountStatus.ACTIVE,
+            requestStatus: null,
+          },
+        },
       },
       repository.auditLogWriter,
     );

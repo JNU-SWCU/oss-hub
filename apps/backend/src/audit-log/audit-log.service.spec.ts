@@ -1,4 +1,8 @@
 import { AccountStatus, Role } from '@prisma/client';
+import {
+  ACCESS_AUDIT_EVENT_KINDS,
+  createAccessAuditMetadata,
+} from './audit-log-metadata';
 import { AuditLogErrorCode } from './audit-log-error-code.enum';
 import type {
   AuditLogRecordInput,
@@ -18,32 +22,41 @@ function createRepository(): jest.Mocked<AuditLogRepositoryPort> {
         accountStatus: AccountStatus.ACTIVE,
       }),
     ),
-    list: jest.fn().mockResolvedValue([
-      {
-        id: 'newer',
-        actor: 'synthetic-admin',
-        action: 'STAFF_ROLE_REQUEST_APPROVED',
-        targetType: 'ROLE_REQUEST',
-        targetId: 'request-2',
-        occurredAt: new Date('2026-07-24T02:00:00.000Z'),
-      },
-      {
-        id: 'older',
-        actor: 'other-admin',
-        action: 'STAFF_ROLE_REQUEST_REJECTED',
-        targetType: 'ROLE_REQUEST',
-        targetId: 'request-1',
-        occurredAt: new Date('2026-07-24T01:00:00.000Z'),
-      },
-    ]),
+    list: jest.fn().mockResolvedValue({
+      items: [
+        {
+          id: 'newer',
+          actor: 'synthetic-admin',
+          action: 'STAFF_ROLE_REQUEST_APPROVED',
+          targetType: 'ROLE_REQUEST',
+          targetId: 'request-2',
+          occurredAt: new Date('2026-07-24T02:00:00.000Z'),
+          legacy: true,
+          metadata: null,
+        },
+        {
+          id: 'older',
+          actor: 'other-admin',
+          action: 'STAFF_ROLE_REQUEST_REJECTED',
+          targetType: 'ROLE_REQUEST',
+          targetId: 'request-1',
+          occurredAt: new Date('2026-07-24T01:00:00.000Z'),
+          legacy: true,
+          metadata: null,
+        },
+      ],
+      total: 2,
+    }),
     record: jest.fn((input: AuditLogRecordInput) =>
       Promise.resolve({
         id: 'audit-1',
-        actor: 'synthetic-admin',
         action: input.action,
         targetType: input.targetType,
         targetId: input.targetId,
         occurredAt: new Date('2026-07-24T03:00:00.000Z'),
+        actor: input.metadata.actor.githubLogin,
+        legacy: false,
+        metadata: input.metadata,
       }),
     ),
   };
@@ -56,20 +69,25 @@ describe('AuditLogService', () => {
     const query = {
       actor: 'synthetic-admin',
       action: 'STAFF_ROLE_REQUEST_APPROVED',
-      from: '2026-07-24T00:00:00.000Z',
-      to: '2026-07-24T23:59:59.999Z',
+      from: '2026-07-24',
+      to: '2026-07-24',
+      page: 1,
+      limit: 20,
     };
 
     const result = await service.list(ADMIN_GITHUB_ID, query);
 
     expect(repository.list.mock.calls).toEqual([[query]]);
-    expect(result.map((record) => record.id)).toEqual(['newer', 'older']);
+    expect(result.items.map((record) => record.id)).toEqual(['newer', 'older']);
+    expect(result).toMatchObject({ page: 1, limit: 20, total: 2 });
   });
 
   it('STAFF 조회는 차단한다', async () => {
     const service = new AuditLogService(createRepository());
 
-    await expect(service.list(STAFF_GITHUB_ID, {})).rejects.toMatchObject({
+    await expect(
+      service.list(STAFF_GITHUB_ID, { page: 1, limit: 20 }),
+    ).rejects.toMatchObject({
       errorCode: { code: AuditLogErrorCode.ADMIN_ONLY, status: 403 },
     });
   });
@@ -81,18 +99,12 @@ describe('AuditLogService', () => {
       service.list(ADMIN_GITHUB_ID, {
         from: '2026-07-25',
         to: '2026-07-24',
+        page: 1,
+        limit: 20,
       }),
     ).rejects.toMatchObject({
       errorCode: { code: AuditLogErrorCode.INVALID_DATE_RANGE, status: 400 },
     });
-  });
-
-  it('조회 응답에 사용하지 않는 metadata를 노출하지 않는다', async () => {
-    const service = new AuditLogService(createRepository());
-
-    const result = await service.list(ADMIN_GITHUB_ID, {});
-
-    expect(result[0]).not.toHaveProperty('metadata');
   });
 
   it('record 공개 헬퍼는 레코드를 정확히 한 번 생성한다', async () => {
@@ -103,6 +115,23 @@ describe('AuditLogService', () => {
       action: 'STAFF_ROLE_REQUEST_APPROVED',
       targetType: 'ROLE_REQUEST',
       targetId: 'request-1',
+      metadata: createAccessAuditMetadata({
+        eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_APPROVED,
+        actor: {
+          displayName: '합성 관리자',
+          githubLogin: 'synthetic-admin',
+        },
+        before: {
+          role: null,
+          accountStatus: AccountStatus.ACTIVE,
+          requestStatus: null,
+        },
+        after: {
+          role: Role.STAFF,
+          accountStatus: AccountStatus.ACTIVE,
+          requestStatus: null,
+        },
+      }),
     };
 
     await service.record(input);

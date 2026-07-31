@@ -20,8 +20,18 @@ assertIsolatedIntegrationDatabase({
 
 const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 const TEST_PREFIX = 'test:188:account-lifecycle:';
-const ADMIN_GITHUB_ID = 9_188_000_001n;
-const STAFF_GITHUB_ID = 9_188_000_002n;
+const ADMIN_GITHUB_ID_BASE = 9_188_000_000n;
+const STAFF_GITHUB_ID_BASE = 9_188_200_000n;
+
+type StaffLifecycleTestContext = {
+  readonly prefix: string;
+  readonly adminId: string;
+  readonly adminGithubId: bigint;
+  readonly adminLogin: string;
+  readonly staffId: string;
+  readonly staffGithubId: bigint;
+  readonly staffStudentId: string;
+};
 
 describe('Staff account lifecycle integration', () => {
   const prisma = new PrismaService();
@@ -29,17 +39,28 @@ describe('Staff account lifecycle integration', () => {
     new StaffRoleRequestsRepository(prisma),
     new AuditLogService(new AuditLogRepository(prisma)),
   );
+  let testSequence = 0;
+  let context: StaffLifecycleTestContext;
 
   beforeAll(async () => {
     await prisma.$connect();
   }, DATABASE_CONNECTION_TIMEOUT_MS);
 
-  beforeEach(async () => {
-    await cleanup();
+  beforeEach(() => {
+    testSequence += 1;
+    const prefix = `${TEST_PREFIX}${testSequence}:`;
+    context = {
+      prefix,
+      adminId: `${prefix}admin`,
+      adminGithubId: ADMIN_GITHUB_ID_BASE + BigInt(testSequence),
+      adminLogin: `synthetic-188-${testSequence}-admin`,
+      staffId: `${prefix}staff`,
+      staffGithubId: STAFF_GITHUB_ID_BASE + BigInt(testSequence),
+      staffStudentId: String(9_600_000 + testSequence),
+    };
   });
 
   afterAll(async () => {
-    await cleanup();
     await prisma.$disconnect();
   });
 
@@ -47,7 +68,7 @@ describe('Staff account lifecycle integration', () => {
     const { adminId, staffId, requestId } = await createApprovedStaff();
     await createPreservedAssets(staffId);
 
-    const revoked = await service.decide(ADMIN_GITHUB_ID, requestId, {
+    const revoked = await service.decide(context.adminGithubId, requestId, {
       action: 'REVOKE',
     });
 
@@ -90,9 +111,11 @@ describe('Staff account lifecycle integration', () => {
 
   it('관리자 재활성화는 REVOKED 이력을 보존하고 별도 APPROVED 이력을 남긴다', async () => {
     const { adminId, staffId, requestId } = await createApprovedStaff();
-    await service.decide(ADMIN_GITHUB_ID, requestId, { action: 'REVOKE' });
+    await service.decide(context.adminGithubId, requestId, {
+      action: 'REVOKE',
+    });
 
-    const reactivated = await service.decide(ADMIN_GITHUB_ID, requestId, {
+    const reactivated = await service.decide(context.adminGithubId, requestId, {
       action: 'REACTIVATE',
     });
 
@@ -111,7 +134,7 @@ describe('Staff account lifecycle integration', () => {
       status: RoleRequestStatus.APPROVED,
       userRole: Role.STAFF,
       userAccountStatus: AccountStatus.ACTIVE,
-      decidedBy: 'synthetic-188-admin',
+      decidedBy: context.adminLogin,
     });
     expect(reactivated.id).not.toBe(requestId);
     expect(requests).toHaveLength(2);
@@ -135,7 +158,7 @@ describe('Staff account lifecycle integration', () => {
     const { staffId, requestId } = await createPendingStaffApplicant();
 
     await expect(
-      service.decide(ADMIN_GITHUB_ID, requestId, { action: 'APPROVE' }),
+      service.decide(context.adminGithubId, requestId, { action: 'APPROVE' }),
     ).rejects.toMatchObject({
       errorCode: { code: 'USR_002', status: 409 },
     });
@@ -144,7 +167,7 @@ describe('Staff account lifecycle integration', () => {
         prisma.user.findUniqueOrThrow({ where: { id: staffId } }),
         prisma.roleRequest.findUniqueOrThrow({ where: { id: requestId } }),
         prisma.auditLog.count({
-          where: { actor: { githubId: ADMIN_GITHUB_ID } },
+          where: { actor: { githubId: context.adminGithubId } },
         }),
       ]),
     ).resolves.toEqual([
@@ -157,20 +180,20 @@ describe('Staff account lifecycle integration', () => {
       where: { id: staffId },
       data: {
         name: 'Synthetic Pending Staff',
-        studentId: '9600188',
+        studentId: context.staffStudentId,
         department: 'Synthetic Department',
       },
     });
 
     await expect(
-      service.decide(ADMIN_GITHUB_ID, requestId, { action: 'APPROVE' }),
+      service.decide(context.adminGithubId, requestId, { action: 'APPROVE' }),
     ).resolves.toMatchObject({
       status: RoleRequestStatus.APPROVED,
       userRole: Role.STAFF,
     });
     await expect(
       prisma.auditLog.count({
-        where: { actor: { githubId: ADMIN_GITHUB_ID } },
+        where: { actor: { githubId: context.adminGithubId } },
       }),
     ).resolves.toBe(1);
   });
@@ -181,7 +204,7 @@ describe('Staff account lifecycle integration', () => {
       where: { id: staffId },
       data: {
         name: 'Synthetic Pending Staff',
-        studentId: '9600188',
+        studentId: context.staffStudentId,
         department: 'Synthetic Department',
       },
     });
@@ -195,7 +218,7 @@ describe('Staff account lifecycle integration', () => {
     );
 
     await expect(
-      failingService.decide(ADMIN_GITHUB_ID, requestId, {
+      failingService.decide(context.adminGithubId, requestId, {
         action: 'APPROVE',
       }),
     ).rejects.toThrow('synthetic audit write failure');
@@ -204,7 +227,7 @@ describe('Staff account lifecycle integration', () => {
         prisma.user.findUniqueOrThrow({ where: { id: staffId } }),
         prisma.roleRequest.findUniqueOrThrow({ where: { id: requestId } }),
         prisma.auditLog.count({
-          where: { actor: { githubId: ADMIN_GITHUB_ID } },
+          where: { actor: { githubId: context.adminGithubId } },
         }),
       ]),
     ).resolves.toEqual([
@@ -222,17 +245,17 @@ describe('Staff account lifecycle integration', () => {
     const [admin, staff] = await Promise.all([
       prisma.user.create({
         data: {
-          id: `${TEST_PREFIX}admin`,
-          githubId: ADMIN_GITHUB_ID,
-          nickname: 'synthetic-188-admin',
+          id: context.adminId,
+          githubId: context.adminGithubId,
+          nickname: context.adminLogin,
           role: Role.ADMIN,
         },
       }),
       prisma.user.create({
         data: {
-          id: `${TEST_PREFIX}staff`,
-          githubId: STAFF_GITHUB_ID,
-          nickname: 'synthetic-188-staff',
+          id: context.staffId,
+          githubId: context.staffGithubId,
+          nickname: `synthetic-188-${testSequence}-staff`,
           role: Role.STAFF,
         },
       }),
@@ -241,7 +264,7 @@ describe('Staff account lifecycle integration', () => {
     expect(staff.accountStatus).toBe(AccountStatus.ACTIVE);
     const request = await prisma.roleRequest.create({
       data: {
-        id: `${TEST_PREFIX}request`,
+        id: `${context.prefix}request`,
         userId: staff.id,
         status: RoleRequestStatus.APPROVED,
         decidedAt: new Date('2026-07-21T09:00:00.000Z'),
@@ -257,22 +280,22 @@ describe('Staff account lifecycle integration', () => {
   }> {
     await prisma.user.create({
       data: {
-        id: `${TEST_PREFIX}admin`,
-        githubId: ADMIN_GITHUB_ID,
-        nickname: 'synthetic-188-admin',
+        id: context.adminId,
+        githubId: context.adminGithubId,
+        nickname: context.adminLogin,
         role: Role.ADMIN,
       },
     });
     const staff = await prisma.user.create({
       data: {
-        id: `${TEST_PREFIX}staff`,
-        githubId: STAFF_GITHUB_ID,
-        nickname: 'synthetic-188-pending-staff',
+        id: context.staffId,
+        githubId: context.staffGithubId,
+        nickname: `synthetic-188-${testSequence}-pending-staff`,
       },
     });
     const request = await prisma.roleRequest.create({
       data: {
-        id: `${TEST_PREFIX}request`,
+        id: `${context.prefix}request`,
         userId: staff.id,
         status: RoleRequestStatus.PENDING,
       },
@@ -284,14 +307,14 @@ describe('Staff account lifecycle integration', () => {
     await Promise.all([
       prisma.consent.create({
         data: {
-          id: `${TEST_PREFIX}consent`,
+          id: `${context.prefix}consent`,
           userId: staffId,
           policyVersion: 'synthetic-188-policy',
         },
       }),
       prisma.loginHistory.create({
         data: {
-          id: `${TEST_PREFIX}login-history`,
+          id: `${context.prefix}login-history`,
           userId: staffId,
           event: LoginHistoryEvent.LOGIN,
           success: true,
@@ -300,7 +323,7 @@ describe('Staff account lifecycle integration', () => {
     ]);
     const program = await prisma.program.create({
       data: {
-        id: `${TEST_PREFIX}program`,
+        id: `${context.prefix}program`,
         name: 'Synthetic 188 Program',
         organizer: 'Synthetic Organizer',
         category: ProgramCategory.BASIC,
@@ -313,7 +336,7 @@ describe('Staff account lifecycle integration', () => {
     });
     const application = await prisma.application.create({
       data: {
-        id: `${TEST_PREFIX}application`,
+        id: `${context.prefix}application`,
         programId: program.id,
         applicantId: staffId,
         answers: { synthetic: true },
@@ -322,7 +345,7 @@ describe('Staff account lifecycle integration', () => {
     });
     const repository = await prisma.repository.create({
       data: {
-        id: `${TEST_PREFIX}repository`,
+        id: `${context.prefix}repository`,
         applicationId: application.id,
         programId: program.id,
         githubRepositoryId: 9_188_100_001n,
@@ -332,7 +355,7 @@ describe('Staff account lifecycle integration', () => {
     });
     const inventory = await prisma.orgRepositoryInventory.create({
       data: {
-        id: `${TEST_PREFIX}inventory`,
+        id: `${context.prefix}inventory`,
         githubRepositoryId: repository.githubRepositoryId,
         fullName: 'synthetic-org/synthetic-188-repository',
         visibility: RepositoryVisibility.PRIVATE,
@@ -342,12 +365,12 @@ describe('Staff account lifecycle integration', () => {
     });
     await prisma.orgRepositoryActivityEvent.create({
       data: {
-        id: `${TEST_PREFIX}activity-event`,
+        id: `${context.prefix}activity-event`,
         inventoryId: inventory.id,
         deliveryId: 'synthetic-188-delivery',
         eventType: 'push',
         occurredAt: new Date('2026-07-21T10:00:00.000Z'),
-        dedupeKey: `${TEST_PREFIX}asset`,
+        dedupeKey: `${context.prefix}asset`,
         commitDelta: 1,
       },
     });
@@ -373,14 +396,16 @@ describe('Staff account lifecycle integration', () => {
     ] = await Promise.all([
       prisma.consent.count({ where: { userId: staffId } }),
       prisma.loginHistory.count({ where: { userId: staffId } }),
-      prisma.program.count({ where: { id: `${TEST_PREFIX}program` } }),
+      prisma.program.count({ where: { id: `${context.prefix}program` } }),
       prisma.application.count({ where: { applicantId: staffId } }),
-      prisma.repository.count({ where: { id: `${TEST_PREFIX}repository` } }),
+      prisma.repository.count({
+        where: { id: `${context.prefix}repository` },
+      }),
       prisma.orgRepositoryInventory.count({
-        where: { id: `${TEST_PREFIX}inventory` },
+        where: { id: `${context.prefix}inventory` },
       }),
       prisma.orgRepositoryActivityEvent.count({
-        where: { id: `${TEST_PREFIX}activity-event` },
+        where: { id: `${context.prefix}activity-event` },
       }),
     ]);
     return {
@@ -392,38 +417,5 @@ describe('Staff account lifecycle integration', () => {
       inventories,
       activityEvents,
     };
-  }
-
-  async function cleanup(): Promise<void> {
-    await prisma.auditLog.deleteMany({
-      where: { actorId: { startsWith: TEST_PREFIX } },
-    });
-    await prisma.orgRepositoryActivityEvent.deleteMany({
-      where: { id: { startsWith: TEST_PREFIX } },
-    });
-    await prisma.orgRepositoryInventory.deleteMany({
-      where: { id: { startsWith: TEST_PREFIX } },
-    });
-    await prisma.repository.deleteMany({
-      where: { id: { startsWith: TEST_PREFIX } },
-    });
-    await prisma.application.deleteMany({
-      where: { id: { startsWith: TEST_PREFIX } },
-    });
-    await prisma.program.deleteMany({
-      where: { id: { startsWith: TEST_PREFIX } },
-    });
-    await prisma.loginHistory.deleteMany({
-      where: { userId: { startsWith: TEST_PREFIX } },
-    });
-    await prisma.consent.deleteMany({
-      where: { userId: { startsWith: TEST_PREFIX } },
-    });
-    await prisma.roleRequest.deleteMany({
-      where: { userId: { startsWith: TEST_PREFIX } },
-    });
-    await prisma.user.deleteMany({
-      where: { id: { startsWith: TEST_PREFIX } },
-    });
   }
 });
