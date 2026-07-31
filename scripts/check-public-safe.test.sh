@@ -25,6 +25,20 @@ blocked_name='-SyntheticName'
 mixed_same_line="$allowed_noreply $blocked_contact"
 git_identity="$allowed_noreply"
 
+# 학번 추정 패턴(20으로 시작하는 연속 9자리) 회귀 — 실제 학번 리터럴을 그대로 두지
+# 않고 다른 합성 fixture와 같은 방식으로 문자열을 조립한다.
+blocked_student_id_like='20'"$(printf '%07d' 1)"
+# pull_request CI의 합성 merge ref(refs/pull/N/merge) HEAD가 갖는 자동 생성 커밋
+# 메시지 형태 — 40자 SHA 안에 학번 추정 패턴과 같은 자리수의 숫자열이 우연히
+# 들어갈 수 있다(실제 사례: PR #451 run 30660762098). SHA 자체는 검사 대상
+# 콘텐츠가 아니므로 이 형태의 병합 커밋 메시지는 커밋 메시지 스캔에서 제외돼야 한다.
+# 이 회귀 테스트 소스 파일 자체도 public-safe 파일 내용 검사 대상이므로, SHA
+# 리터럴을 9자리 연속 숫자로 이어붙이지 않고 조각내 조립한다(다른 합성 fixture와
+# 동일한 관행).
+merge_head_sha='eca42ea847a58497965dd26c7a95a0e1348eed8a'
+merge_base_sha='ec3b0d1d5648c205e397003dfe0b2'"055235"'37c61'
+synthetic_merge_ref_message="Merge ${merge_head_sha} into ${merge_base_sha}"
+
 # GitHub @handle 멘션 오탐 회귀 — 도메인 형태(점 + 마지막 점 뒤 2자 이상)가 없어
 # 이메일 후보가 될 수 없는 문장들. 리터럴 그대로 써도 이메일처럼 보이지 않는다.
 mention_bullet_dot='@GoBeromsu·@Lumiere001의 free-role 예외'
@@ -311,6 +325,21 @@ expect_fail '허용·금지 주소가 같은 줄인 변경 파일' scan_fixture_
 init_fixture_repo commit-message
 commit_fixture commit --allow-empty -qm "$mixed_same_line"
 expect_fail '허용·금지 주소가 같은 줄인 커밋 메시지' scan_fixture_repo
+
+init_fixture_repo commit-message-student-id
+commit_fixture commit --allow-empty -qm "$blocked_student_id_like"
+expect_fail '학번 추정 패턴이 있는 일반(비병합) 커밋 메시지는 계속 차단' \
+  scan_fixture_repo
+
+init_fixture_repo synthetic-merge-ref
+commit_fixture checkout -qb feature-branch
+printf 'synthetic feature change\n' >"$FIXTURE_REPO/feature.txt"
+git -C "$FIXTURE_REPO" add feature.txt
+commit_fixture commit -qm 'test: synthetic feature commit'
+commit_fixture checkout -q -
+commit_fixture merge --no-ff -q -m "$synthetic_merge_ref_message" feature-branch
+expect_pass '합성 merge ref 자동 생성 커밋 메시지의 SHA 숫자열 오탐 방지(--no-merges)' \
+  scan_fixture_repo
 
 init_fixture_repo changed-symlink
 ln -s "$blocked_contact" "$FIXTURE_REPO/synthetic-link"
