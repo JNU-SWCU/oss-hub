@@ -157,7 +157,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 검사기 단순화 — DTO 이름 규칙을 eslint 단일 강제로 정리 | @GoBeromsu | review | [#377](https://github.com/JNU-SWCU/oss-hub/issues/377) | [#378](https://github.com/JNU-SWCU/oss-hub/pull/378) | eslint RED(BadNameDto·BadName 거부)→GREEN(GoodRequestDto·GoodResponseDto 통과) 실행 확인 · `bash -n` pass · ci.yml YAML 파싱 pass | 없음 — ADR-005 증거 형식 개정([#375](https://github.com/JNU-SWCU/oss-hub/pull/375)) 병합 후 등가 이전으로 처리된다 |
 
 | 환경 계약 검사기 집합 대수 리팩터링 | @GoBeromsu | review | [#382](https://github.com/JNU-SWCU/oss-hub/issues/382) | [#389](https://github.com/JNU-SWCU/oss-hub/pull/389) | fixture 31/31 pass · 실제 검사·CI 모드 exit 0 · 구·신 compose 추출 18키 동일 · 반쪽 편집 3종 차단 · AST 참조 0건 · 3022→1718줄 | [#383](https://github.com/JNU-SWCU/oss-hub/pull/383) 병합 선행 (unblock: @GoBeromsu) |
-| 공개 조회 및 계층 경계 정책 권한 게이트(AGENTS.md·security.md·ADR-003) | @GoBeromsu | active | [#414](https://github.com/JNU-SWCU/oss-hub/issues/414) | 제출 전 — Ready PR 준비 중 | 후보 문서 준비 완료(`.omo/evidence/public-admin-exposure/todo-01-authority.txt`) · PR CI는 제출 전이라 미실행 | high-risk public/private 경계 변경 — PR head가 존재해야 기록 가능하므로 exact-head @GoBeromsu `PM_ACCEPT`는 PR 제출 후 대기 |
+| 공개 조회 및 계층 경계 정책 권한 게이트(AGENTS.md·security.md·ADR-003) | @GoBeromsu | active | [#414](https://github.com/JNU-SWCU/oss-hub/issues/414) | [#415](https://github.com/JNU-SWCU/oss-hub/pull/415) | 이 행을 갱신하는 커밋 자체가 새 exact head를 만들어 필수 CI(`ci`·`commitlint`·`public-safe`·`merge-policy`)가 그 head에서 다시 실행돼야 한다 — 직전 head는 전부 SUCCESS였으나(2026-07-31 확인) 이 커밋으로 대체되므로 새 head의 CI 결과는 아직 미확인 | high-risk public/private 경계 변경 — 리뷰어 지정 없음(reviewRequests 없음, 새 head에서 재확인 필요) · exact-head @GoBeromsu `PM_ACCEPT`는 새 head CI 통과 확인 후에도 계속 대기 |
 
 ## 외부 게이트
 
