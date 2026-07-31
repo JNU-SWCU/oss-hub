@@ -275,73 +275,54 @@ awk '
   }
 ' "$active_jenkinsfile" >"$docker_scan_file"
 
-count_fixed() {
-  local pattern=$1
-  { grep -F -- "$pattern" "$active_jenkinsfile" || true; } | wc -l | tr -d ' '
-}
-
-count_regex() {
-  local pattern=$1
-  { grep -Ec -- "$pattern" "$active_jenkinsfile" || true; } | tr -d ' '
-}
-
-require_exact() {
-  local description=$1
+# count_matches/require_count는 count_fixed/count_regex/require_* 7종의 공통 코어다.
+# mode: fixed(grep -F) | regex(grep -Ec). comparator: eq(=expected) | ge(>=minimum) | absent(==0).
+count_matches() {
+  local mode=$1
   local pattern=$2
-  local expected=$3
-  local actual
-  actual=$(count_fixed "$pattern")
-  if ((actual != expected)); then
-    printf '%s: %s (expected=%s, actual=%s)\n' "$label" "$description" "$expected" "$actual" >&2
-    exit 1
-  fi
+  case "$mode" in
+    fixed) { grep -F -- "$pattern" "$active_jenkinsfile" || true; } | wc -l | tr -d ' ' ;;
+    regex) { grep -Ec -- "$pattern" "$active_jenkinsfile" || true; } | tr -d ' ' ;;
+  esac
 }
 
-require_at_least() {
+require_count() {
   local description=$1
-  local pattern=$2
-  local minimum=$3
+  local mode=$2
+  local pattern=$3
+  local comparator=$4
+  local threshold=${5-}
   local actual
-  actual=$(count_fixed "$pattern")
-  if ((actual < minimum)); then
-    printf '%s: %s (minimum=%s, actual=%s)\n' "$label" "$description" "$minimum" "$actual" >&2
-    exit 1
-  fi
+  actual=$(count_matches "$mode" "$pattern")
+  case "$comparator" in
+    eq)
+      if ((actual != threshold)); then
+        printf '%s: %s (expected=%s, actual=%s)\n' "$label" "$description" "$threshold" "$actual" >&2
+        exit 1
+      fi
+      ;;
+    ge)
+      if ((actual < threshold)); then
+        printf '%s: %s (minimum=%s, actual=%s)\n' "$label" "$description" "$threshold" "$actual" >&2
+        exit 1
+      fi
+      ;;
+    absent)
+      if ((actual != 0)); then
+        printf '%s: %s (expected=absent, actual=%s)\n' "$label" "$description" "$actual" >&2
+        exit 1
+      fi
+      ;;
+  esac
 }
 
-require_absent() {
-  local description=$1
-  local pattern=$2
-  local actual
-  actual=$(count_fixed "$pattern")
-  if ((actual != 0)); then
-    printf '%s: %s (expected=absent, actual=%s)\n' "$label" "$description" "$actual" >&2
-    exit 1
-  fi
-}
-
-require_regex_at_least() {
-  local description=$1
-  local pattern=$2
-  local minimum=$3
-  local actual
-  actual=$(count_regex "$pattern")
-  if ((actual < minimum)); then
-    printf '%s: %s (minimum=%s, actual=%s)\n' "$label" "$description" "$minimum" "$actual" >&2
-    exit 1
-  fi
-}
-
-require_regex_absent() {
-  local description=$1
-  local pattern=$2
-  local actual
-  actual=$(count_regex "$pattern")
-  if ((actual != 0)); then
-    printf '%s: %s (expected=absent, actual=%s)\n' "$label" "$description" "$actual" >&2
-    exit 1
-  fi
-}
+count_fixed() { count_matches fixed "$1"; }
+count_regex() { count_matches regex "$1"; }
+require_exact() { require_count "$1" fixed "$2" eq "$3"; }
+require_at_least() { require_count "$1" fixed "$2" ge "$3"; }
+require_absent() { require_count "$1" fixed "$2" absent; }
+require_regex_at_least() { require_count "$1" regex "$2" ge "$3"; }
+require_regex_absent() { require_count "$1" regex "$2" absent; }
 
 line_of() {
   local pattern=$1
