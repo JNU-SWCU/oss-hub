@@ -1,33 +1,64 @@
 import { dashboardFixture } from '@/features/dashboard/fixtures';
+import type {
+  ArchiveApplicationMode,
+  ArchiveCategory,
+} from '@/features/archive/types';
 import type { AuthRole } from '@/features/auth/types';
 import type { AuditLogPage, AuditLogRecord } from '@/features/audit-log/types';
-import type { StaffDashboardSummary } from '@/features/programs/types';
+import type {
+  ProgramListItem,
+  ProgramListPage,
+  StaffDashboardSummary,
+} from '@/features/programs/types';
 import { apiPath } from '@/lib/api-client';
 import type { LocalReviewFixtureId } from './fixture-contract';
+import {
+  isAuthenticatedFixture,
+  json,
+  problem,
+  roleForFixture,
+  type LocalReviewContext,
+  type LocalReviewHandler,
+  type LocalReviewResponsePlan,
+} from './handler-kit';
+import { ACCOUNT_HANDLERS } from './handlers/account-handlers';
+import { ADMIN_HANDLERS } from './handlers/admin-handlers';
+import { STAFF_HANDLERS } from './handlers/staff-handlers';
+import { STUDENT_HANDLERS } from './handlers/student-handlers';
+import { STUDENT_JOURNEY_RESPONSES } from './student-journey-fixtures';
 
-export type LocalReviewResponsePlan =
-  | {
-      readonly kind: 'json';
-      readonly status: number;
-      readonly body: unknown;
-    }
-  | {
-      readonly kind: 'delay';
-      readonly milliseconds: number;
-    };
+export type { LocalReviewResponsePlan } from './handler-kit';
 
 type LocalReviewRequest = {
   readonly fixture: LocalReviewFixtureId;
   readonly method: string;
   readonly path: string;
   readonly searchParams: URLSearchParams;
+  /** 파싱된 요청 본문. 라우트가 읽지 못했으면 `undefined`(GET·DELETE는 원래 없다). */
+  readonly body?: unknown;
 };
 
+/**
+ * 도메인별 응답 규칙. 앞에서부터 물어보고 먼저 응답하는 핸들러가 이긴다.
+ * 새 화면이 막히면 해당 도메인 모듈에만 규칙을 더한다.
+ */
+const DOMAIN_HANDLERS: readonly LocalReviewHandler[] = [
+  ...ACCOUNT_HANDLERS,
+  ...STUDENT_HANDLERS,
+  ...STAFF_HANDLERS,
+  ...ADMIN_HANDLERS,
+];
+
+/**
+ * 교직원 대시보드 요약. 프로그램 id는 공개 목록(PUBLIC_PROGRAM_FIXTURES)·학생
+ * 동선 픽스처와 **같은 값**이어야 한다. 예전에는 `program:basic` 처럼 다른 체계를
+ * 써서, 대시보드 링크를 타고 들어간 화면이 어떤 픽스처와도 매칭되지 않았다.
+ */
 const STAFF_DASHBOARD_FIXTURE = {
   programs: [
     {
-      id: 'program:basic',
-      name: '합성 기본 프로그램',
+      id: 'program-basic-study',
+      name: '합성 기초 오픈소스 스터디',
       category: 'BASIC',
       applicationPeriod: {
         startsAt: '2026-07-01T00:00:00.000Z',
@@ -39,11 +70,11 @@ const STAFF_DASHBOARD_FIXTURE = {
         approved: 1,
         rejected: 1,
       },
-      applicantsPath: '/staff/programs/program%3Abasic/applicants',
+      applicantsPath: '/staff/programs/program-basic-study/applicants',
     },
     {
-      id: 'program:capstone',
-      name: '합성 캡스톤 프로그램',
+      id: 'program-capstone',
+      name: '합성 캡스톤 2026',
       category: 'CAPSTONE',
       applicationPeriod: {
         startsAt: '2026-08-16T00:00:00.000Z',
@@ -55,7 +86,7 @@ const STAFF_DASHBOARD_FIXTURE = {
         approved: 0,
         rejected: 0,
       },
-      applicantsPath: '/staff/programs/program%3Acapstone/applicants',
+      applicantsPath: '/staff/programs/program-capstone/applicants',
     },
   ],
 } as const satisfies StaffDashboardSummary;
@@ -86,24 +117,141 @@ const AUDIT_LOG_FIXTURES: readonly AuditLogRecord[] = Array.from(
   }),
 );
 
-function json(status: number, body: unknown): LocalReviewResponsePlan {
-  return { kind: 'json', status, body };
-}
+/**
+ * 공개 셸(랜딩·프로그램 목록·공개 아카이브)이 읽는 목록 응답이다.
+ * 로그인 없이 보이는 화면이라 모든 persona가 같은 합성 데이터를 본다.
+ * 날짜는 두 파서 모두 `Date#toISOString()` 형식만 통과시키므로 UTC(`Z`)로 적는다.
+ */
+const PUBLIC_PROGRAM_FIXTURES = [
+  {
+    id: 'program-capstone',
+    name: '합성 캡스톤 2026',
+    organizer: '합성 SW중심대학사업단',
+    category: 'CAPSTONE',
+    applicationStartAt: '2026-06-30T15:00:00.000Z',
+    applicationEndAt: '2026-12-31T14:59:59.000Z',
+    description:
+      '로컬 검토용 합성 프로그램입니다. 실제 모집이나 실제 참여자와 무관합니다.',
+  },
+  {
+    id: 'program-oss-contest',
+    name: '합성 OSS 경진대회',
+    organizer: '합성 SW중심대학사업단',
+    category: 'OSS_CONTEST',
+    applicationStartAt: '2026-07-14T15:00:00.000Z',
+    applicationEndAt: '2026-11-30T14:59:59.000Z',
+    description:
+      '로컬 검토용 합성 경진대회입니다. 화면 구성 확인 외의 의미는 없습니다.',
+  },
+  {
+    id: 'program-basic-study',
+    name: '합성 기초 오픈소스 스터디',
+    organizer: '합성 SW중심대학사업단',
+    category: 'BASIC',
+    // 학생 동선에서 이 프로그램이 "신청 전" 상태라, 목록에서 모집이 끝난 것으로
+    // 보이면 상세와 어긋난다. 신청 화면을 검토하려면 모집이 열려 있어야 한다.
+    applicationStartAt: '2026-06-30T15:00:00.000Z',
+    applicationEndAt: '2026-10-31T14:59:59.000Z',
+    description: '신청 전 상태를 확인하기 위한 합성 프로그램입니다.',
+  },
+] as const satisfies readonly ProgramListItem[];
 
-function problem(
-  status: number,
-  code: string,
-  instance: string,
-): LocalReviewResponsePlan {
-  return json(status, {
-    type: 'about:blank',
-    title: 'Local review fixture response',
-    status,
-    detail: 'The selected local review fixture returned an error.',
-    instance,
-    code,
-  });
-}
+type PublicArchiveApiItem = {
+  readonly repositoryId: string;
+  readonly programId: string;
+  readonly programName: string;
+  readonly category: ArchiveCategory;
+  readonly applicationMode: ArchiveApplicationMode;
+  readonly displayName: string;
+  readonly githubUrl: string;
+  readonly publishedAt: string;
+  readonly detailUrl: string;
+};
+
+type PublicArchiveFixture = {
+  readonly item: PublicArchiveApiItem;
+  readonly repositoryName: string;
+  readonly approvedSubmissionCount: number;
+  readonly contributors: readonly {
+    readonly userId: string;
+    readonly githubNickname: string;
+    readonly avatarUrl: string | null;
+  }[];
+};
+
+const PUBLIC_ARCHIVE_FIXTURES = [
+  {
+    item: {
+      repositoryId: 'synthetic-repo-capstone',
+      programId: 'program-capstone',
+      programName: '합성 캡스톤 2026',
+      category: 'CAPSTONE',
+      applicationMode: 'TEAM',
+      displayName: '합성 캡스톤 팀 저장소',
+      githubUrl: 'https://github.com/JNU-SWCU/synthetic-capstone-archive',
+      publishedAt: '2026-06-20T00:00:00.000Z',
+      detailUrl: '/archive/synthetic-repo-capstone',
+    },
+    repositoryName: 'synthetic-capstone-archive',
+    approvedSubmissionCount: 3,
+    contributors: [
+      {
+        userId: 'synthetic-user-01',
+        githubNickname: 'synthetic-contributor-01',
+        avatarUrl: null,
+      },
+      {
+        userId: 'synthetic-user-02',
+        githubNickname: 'synthetic-contributor-02',
+        avatarUrl: null,
+      },
+    ],
+  },
+  {
+    item: {
+      repositoryId: 'synthetic-repo-contest',
+      programId: 'program-oss-contest',
+      programName: '합성 OSS 경진대회',
+      category: 'OSS_CONTEST',
+      applicationMode: 'TEAM',
+      displayName: '합성 경진대회 팀 저장소',
+      githubUrl: 'https://github.com/JNU-SWCU/synthetic-contest-archive',
+      publishedAt: '2026-05-12T00:00:00.000Z',
+      detailUrl: '/archive/synthetic-repo-contest',
+    },
+    repositoryName: 'synthetic-contest-archive',
+    approvedSubmissionCount: 2,
+    contributors: [
+      {
+        userId: 'synthetic-user-03',
+        githubNickname: 'synthetic-contributor-03',
+        avatarUrl: null,
+      },
+    ],
+  },
+  {
+    item: {
+      repositoryId: 'synthetic-repo-basic',
+      programId: 'program-basic-study',
+      programName: '합성 기초 오픈소스 스터디',
+      category: 'BASIC',
+      applicationMode: 'PERSONAL',
+      displayName: '합성 개인 실습 저장소',
+      githubUrl: 'https://github.com/JNU-SWCU/synthetic-basic-archive',
+      publishedAt: '2026-04-02T00:00:00.000Z',
+      detailUrl: '/archive/synthetic-repo-basic',
+    },
+    repositoryName: 'synthetic-basic-archive',
+    approvedSubmissionCount: 1,
+    contributors: [
+      {
+        userId: 'synthetic-user-04',
+        githubNickname: 'synthetic-contributor-04',
+        avatarUrl: null,
+      },
+    ],
+  },
+] as const satisfies readonly PublicArchiveFixture[];
 
 function authenticatedSession(role: AuthRole | null): LocalReviewResponsePlan {
   const roleLabel = role?.toLowerCase() ?? 'unassigned';
@@ -134,6 +282,8 @@ function sessionResponse(
     case 'admin':
       return authenticatedSession('ADMIN');
     case 'unassigned':
+    // 역할 승인 대기도 아직 역할이 없는 상태다. 차이는 role-requests/me 응답뿐이다.
+    case 'role-pending':
       return authenticatedSession(null);
     case 'loading':
       return { kind: 'delay', milliseconds: 60_000 };
@@ -170,22 +320,122 @@ function auditLogPage(searchParams: URLSearchParams): AuditLogPage {
   };
 }
 
+function positiveIntParam(value: string | null, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function recruitmentState(
+  program: ProgramListItem,
+  now: Date,
+): 'scheduled' | 'recruiting' | 'closed' {
+  const nowTime = now.getTime();
+  if (nowTime < new Date(program.applicationStartAt).getTime()) {
+    return 'scheduled';
+  }
+  return nowTime <= new Date(program.applicationEndAt).getTime()
+    ? 'recruiting'
+    : 'closed';
+}
+
+/** `/programs`(status=all)와 랜딩(status=recruiting)이 같은 경로를 쓰므로 질의를 그대로 반영한다 */
+function programListPage(searchParams: URLSearchParams): ProgramListPage {
+  const now = new Date();
+  const page = positiveIntParam(searchParams.get('page'), 1);
+  const pageSize = positiveIntParam(searchParams.get('pageSize'), 20);
+  const search = (searchParams.get('search') ?? '')
+    .trim()
+    .toLocaleLowerCase('ko');
+  const status = searchParams.get('status') ?? 'all';
+  const matched = PUBLIC_PROGRAM_FIXTURES.filter(
+    (program) =>
+      program.name.toLocaleLowerCase('ko').includes(search) &&
+      (status === 'all' || recruitmentState(program, now) === status),
+  );
+  const offset = (page - 1) * pageSize;
+
+  return {
+    items: matched.slice(offset, offset + pageSize),
+    page,
+    pageSize,
+    totalItems: matched.length,
+    totalPages: Math.max(1, Math.ceil(matched.length / pageSize)),
+  };
+}
+
+function publicArchivePage(searchParams: URLSearchParams): unknown {
+  const page = positiveIntParam(searchParams.get('page'), 1);
+  const pageSize = positiveIntParam(searchParams.get('pageSize'), 12);
+  const query = (searchParams.get('q') ?? '').trim().toLocaleLowerCase('ko');
+  const mode = searchParams.get('applicationMode');
+  const matched = PUBLIC_ARCHIVE_FIXTURES.map((fixture) => fixture.item).filter(
+    (item) =>
+      (query === '' ||
+        item.displayName.toLocaleLowerCase('ko').includes(query) ||
+        item.programName.toLocaleLowerCase('ko').includes(query)) &&
+      (mode === null || item.applicationMode === mode),
+  );
+  const offset = (page - 1) * pageSize;
+
+  return {
+    items: matched.slice(offset, offset + pageSize),
+    page,
+    pageSize,
+    total: matched.length,
+  };
+}
+
+function publicArchiveDetail(repositoryId: string): unknown | null {
+  const fixture = PUBLIC_ARCHIVE_FIXTURES.find(
+    (candidate) => candidate.item.repositoryId === repositoryId,
+  );
+  if (fixture === undefined) return null;
+  return {
+    ...fixture.item,
+    repositoryName: fixture.repositoryName,
+    approvedSubmissionCount: fixture.approvedSubmissionCount,
+    contributors: fixture.contributors,
+  };
+}
+
+/** `repositories/{id}/public`에서 id만 뽑는다. 형식이 다르면 이 경로가 아니다. */
+function publicRepositoryId(path: string): string | null {
+  const matched = /^repositories\/([A-Za-z0-9_-]+)\/public$/.exec(path);
+  return matched?.[1] ?? null;
+}
+
 export function resolveLocalReviewResponse({
   fixture,
   method,
   path,
   searchParams,
+  body,
 }: LocalReviewRequest): LocalReviewResponsePlan {
+  // loading·error 페르소나는 "느린 백엔드"와 "죽은 백엔드"를 흉내 내는 것이므로
+  // 특정 경로만이 아니라 모든 호출에 같은 결과를 준다. 일부 경로만 성공하면
+  // 화면이 절반만 로딩된 이상한 상태가 되어 검토 대상이 흐려진다.
+  if (fixture === 'loading') return { kind: 'delay', milliseconds: 60_000 };
+  if (fixture === 'error') return problem(503, 'LFX_503', apiPath(path));
+
   if (method === 'GET' && path === 'auth/session') {
     return sessionResponse(fixture);
   }
 
-  if (
-    method === 'GET' &&
-    path === 'role-requests/me' &&
-    fixture === 'unassigned'
-  ) {
-    return json(200, null);
+  if (method === 'GET' && path === 'programs') {
+    return json(200, programListPage(searchParams));
+  }
+
+  if (method === 'GET' && path === 'repositories/public') {
+    return json(200, publicArchivePage(searchParams));
+  }
+
+  const repositoryId = method === 'GET' ? publicRepositoryId(path) : null;
+  if (repositoryId !== null) {
+    const detail = publicArchiveDetail(repositoryId);
+    // 없는 저장소는 상세 화면이 "찾을 수 없음"으로 갈리도록 백엔드 코드를 맞춘다.
+    return detail === null
+      ? problem(404, 'SHW_001', apiPath(path))
+      : json(200, detail);
   }
 
   if (
@@ -198,6 +448,15 @@ export function resolveLocalReviewResponse({
     return json(200, dashboardFixture);
   }
 
+  const studentJourneyBody = STUDENT_JOURNEY_RESPONSES[path];
+  if (
+    method === 'GET' &&
+    fixture === 'student' &&
+    studentJourneyBody !== undefined
+  ) {
+    return json(200, studentJourneyBody);
+  }
+
   if (
     method === 'GET' &&
     path === 'dashboard/staff/summary' &&
@@ -206,6 +465,8 @@ export function resolveLocalReviewResponse({
     return json(200, STAFF_DASHBOARD_FIXTURE);
   }
 
+  // `role-requests` 목록 응답은 여기 있었지만 그 화면이 관리자 접근으로
+  // 합쳐지며 사라졌다. 남은 것은 감사 로그다.
   if (method === 'GET' && path === 'audit-logs' && fixture === 'admin') {
     return json(200, auditLogPage(searchParams));
   }
@@ -224,6 +485,20 @@ export function resolveLocalReviewResponse({
       notificationEmail: 'fixture@example.com',
       notifyEnabled: true,
     });
+  }
+
+  const context: LocalReviewContext = {
+    fixture,
+    method,
+    path,
+    searchParams,
+    role: roleForFixture(fixture),
+    isAuthenticated: isAuthenticatedFixture(fixture),
+    body,
+  };
+  for (const handler of DOMAIN_HANDLERS) {
+    const plan = handler(context);
+    if (plan !== null) return plan;
   }
 
   return problem(404, 'LFX_404', apiPath(path));
