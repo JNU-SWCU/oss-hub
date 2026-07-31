@@ -1,9 +1,8 @@
 import { ForbiddenException } from '@nestjs/common';
 import { AccountStatus, Role } from '@prisma/client';
 import type {
+  CollectionIncrementalStatusSnapshotDto,
   CollectionReadPort,
-  CollectionRunStatusDto,
-  CollectionStatusSnapshotDto,
 } from '../collection/collection-read.port';
 import { SystemStatusRepository } from './system-status.repository';
 import { SystemStatusService } from './system-status.service';
@@ -12,24 +11,29 @@ const NOW = new Date('2026-07-25T12:00:00.000Z');
 const ACTOR_ID = 133n;
 
 function snapshot(
-  overrides: Partial<CollectionStatusSnapshotDto> = {},
-): CollectionStatusSnapshotDto {
+  overrides: Partial<CollectionIncrementalStatusSnapshotDto> = {},
+): CollectionIncrementalStatusSnapshotDto {
   return {
-    permissionsValid: true,
-    installationValid: true,
-    runStatus: 'SUCCEEDED',
-    lastCompleteSuccessAt: new Date('2026-07-25T11:00:00.000Z'),
-    dataAsOf: new Date('2026-07-25T11:00:00.000Z'),
+    trackedRepositoryCount: 2,
+    readyStreamCount: 6,
+    backfillingStreamCount: 0,
+    partialStreamCount: 0,
+    retryPendingStreamCount: 0,
+    oldestReadyCheckpointAt: new Date('2026-07-25T10:00:00.000Z'),
+    latestCheckpointAt: new Date('2026-07-25T11:00:00.000Z'),
+    oldestRetryPendingAt: null,
+    lastCycleStartedAt: new Date('2026-07-25T10:55:00.000Z'),
+    lastCycleCompletedAt: new Date('2026-07-25T11:00:00.000Z'),
     ...overrides,
   };
 }
 
 describe('SystemStatusService', () => {
   const findActor = jest.fn();
-  const getStatusSnapshot = jest.fn();
+  const getIncrementalStatusSnapshot = jest.fn();
   const service = new SystemStatusService(
     { findActor } as unknown as SystemStatusRepository,
-    { getStatusSnapshot } as unknown as CollectionReadPort,
+    { getIncrementalStatusSnapshot } as unknown as CollectionReadPort,
     () => NOW,
   );
 
@@ -38,21 +42,29 @@ describe('SystemStatusService', () => {
       role: Role.ADMIN,
       accountStatus: AccountStatus.ACTIVE,
     });
-    getStatusSnapshot.mockReset().mockResolvedValue(snapshot());
+    getIncrementalStatusSnapshot.mockReset().mockResolvedValue(snapshot());
   });
 
   it('ACTIVE ADMIN에게만 정확한 공개 DTO를 반환한다', async () => {
     await expect(service.getStatus(ACTOR_ID)).resolves.toEqual({
       collection: {
         health: 'NORMAL',
-        lastCompleteSuccessAt: '2026-07-25T11:00:00.000Z',
         dataAsOf: '2026-07-25T11:00:00.000Z',
+        trackedRepositoryCount: 2,
+        readyStreamCount: 6,
+        backfillingStreamCount: 0,
+        partialStreamCount: 0,
+        retryPendingStreamCount: 0,
+        oldestReadyCheckpointAt: '2026-07-25T10:00:00.000Z',
+        oldestRetryPendingAt: null,
+        lastCycleStartedAt: '2026-07-25T10:55:00.000Z',
+        lastCycleCompletedAt: '2026-07-25T11:00:00.000Z',
         currentRunStatus: 'IDLE',
         safeReason: null,
       },
     });
     expect(findActor).toHaveBeenCalledWith(ACTOR_ID);
-    expect(getStatusSnapshot).toHaveBeenCalledTimes(1);
+    expect(getIncrementalStatusSnapshot).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -67,98 +79,88 @@ describe('SystemStatusService', () => {
     await expect(service.getStatus(ACTOR_ID)).rejects.toBeInstanceOf(
       ForbiddenException,
     );
-    expect(getStatusSnapshot).not.toHaveBeenCalled();
+    expect(getIncrementalStatusSnapshot).not.toHaveBeenCalled();
   });
 
-  it.each<[string, Partial<CollectionStatusSnapshotDto>, string, string]>([
-    [
-      'permission이 installation보다 우선한다',
-      {
-        permissionsValid: false,
-        installationValid: false,
-        lastCompleteSuccessAt: null,
-        runStatus: 'FAILED',
-      },
-      'FAILED',
-      'PERMISSION_INVALID',
-    ],
-    [
-      'installation이 no data보다 우선한다',
-      {
-        installationValid: false,
-        lastCompleteSuccessAt: null,
-        runStatus: 'FAILED',
-      },
-      'FAILED',
-      'INSTALLATION_INVALID',
-    ],
-    [
-      'no data가 run 상태보다 우선한다',
-      { lastCompleteSuccessAt: null, runStatus: 'FAILED' },
-      'FAILED',
-      'NO_COMPLETE_DATA',
-    ],
-    [
-      'incomplete를 먼저 판정한다',
-      {
-        runStatus: 'INCOMPLETE',
-        dataAsOf: new Date('2026-07-25T00:00:00.000Z'),
-      },
-      'DELAYED',
-      'RUN_INCOMPLETE',
-    ],
-    [
-      'rate limit을 stale보다 먼저 판정한다',
-      {
-        runStatus: 'RATE_LIMITED',
-        dataAsOf: new Date('2026-07-25T00:00:00.000Z'),
-      },
-      'DELAYED',
-      'UPSTREAM_RATE_LIMITED',
-    ],
-    [
-      'failed를 stale보다 먼저 판정한다',
-      { runStatus: 'FAILED', dataAsOf: new Date('2026-07-25T00:00:00.000Z') },
-      'DELAYED',
-      'RUN_FAILED',
-    ],
-    [
-      '90분보다 오래된 데이터만 stale이다',
-      { dataAsOf: new Date('2026-07-25T10:29:59.999Z') },
-      'DELAYED',
-      'STALE_DATA',
-    ],
-  ])('%s', async (_label, overrides, health, safeReason) => {
-    getStatusSnapshot.mockResolvedValue(snapshot(overrides));
+  it('추적 중인 저장소가 없으면 EMPTY다', async () => {
+    getIncrementalStatusSnapshot.mockResolvedValue(
+      snapshot({
+        trackedRepositoryCount: 0,
+        readyStreamCount: 0,
+        oldestReadyCheckpointAt: null,
+        latestCheckpointAt: null,
+        lastCycleStartedAt: null,
+        lastCycleCompletedAt: null,
+      }),
+    );
     await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
-      collection: { health, safeReason },
+      collection: { health: 'EMPTY', safeReason: 'NO_TRACKED_REPOSITORIES' },
+    });
+  });
+
+  it('재시도 대기 중인 stream이 있으면 partial 진행 상황보다 FAILED를 우선한다', async () => {
+    getIncrementalStatusSnapshot.mockResolvedValue(
+      snapshot({ retryPendingStreamCount: 1, partialStreamCount: 2 }),
+    );
+    await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
+      collection: { health: 'FAILED', safeReason: 'UPSTREAM_RATE_LIMITED' },
+    });
+  });
+
+  it('partialStreamCount가 있으면 PARTIAL이다', async () => {
+    getIncrementalStatusSnapshot.mockResolvedValue(
+      snapshot({ partialStreamCount: 3 }),
+    );
+    await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
+      collection: { health: 'PARTIAL', safeReason: 'RUN_INCOMPLETE' },
+    });
+  });
+
+  it('backfillingStreamCount가 있으면 PARTIAL이다', async () => {
+    getIncrementalStatusSnapshot.mockResolvedValue(
+      snapshot({ backfillingStreamCount: 1 }),
+    );
+    await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
+      collection: { health: 'PARTIAL', safeReason: 'RUN_INCOMPLETE' },
+    });
+  });
+
+  it('90분보다 오래된 checkpoint만 DELAYED(STALE_DATA)다', async () => {
+    getIncrementalStatusSnapshot.mockResolvedValue(
+      snapshot({ latestCheckpointAt: new Date('2026-07-25T10:29:59.999Z') }),
+    );
+    await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
+      collection: { health: 'DELAYED', safeReason: 'STALE_DATA' },
     });
   });
 
   it('정확히 90분 경계는 NORMAL이다', async () => {
-    getStatusSnapshot.mockResolvedValue(
-      snapshot({ dataAsOf: new Date('2026-07-25T10:30:00.000Z') }),
+    getIncrementalStatusSnapshot.mockResolvedValue(
+      snapshot({ latestCheckpointAt: new Date('2026-07-25T10:30:00.000Z') }),
     );
     await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
       collection: { health: 'NORMAL', safeReason: null },
     });
   });
 
-  it.each<[CollectionRunStatusDto | null, string]>([
-    ['PENDING', 'PENDING'],
-    ['PROCESSING', 'PROCESSING'],
-    ['SUCCEEDED', 'IDLE'],
-    ['INCOMPLETE', 'IDLE'],
-    ['RATE_LIMITED', 'IDLE'],
-    ['FAILED', 'IDLE'],
-    [null, 'IDLE'],
-  ])(
-    'canonical run %s를 currentRunStatus %s로 매핑한다',
-    async (runStatus, expected) => {
-      getStatusSnapshot.mockResolvedValue(snapshot({ runStatus }));
-      await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
-        collection: { currentRunStatus: expected },
-      });
-    },
-  );
+  it('사이클이 시작만 되고 아직 완료되지 않았으면 currentRunStatus는 PROCESSING이다', async () => {
+    getIncrementalStatusSnapshot.mockResolvedValue(
+      snapshot({
+        lastCycleStartedAt: new Date('2026-07-25T11:55:00.000Z'),
+        lastCycleCompletedAt: new Date('2026-07-25T11:00:00.000Z'),
+      }),
+    );
+    await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
+      collection: { currentRunStatus: 'PROCESSING' },
+    });
+  });
+
+  it('사이클이 아예 시작된 적 없으면 currentRunStatus는 IDLE이다', async () => {
+    getIncrementalStatusSnapshot.mockResolvedValue(
+      snapshot({ lastCycleStartedAt: null, lastCycleCompletedAt: null }),
+    );
+    await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
+      collection: { currentRunStatus: 'IDLE' },
+    });
+  });
 });

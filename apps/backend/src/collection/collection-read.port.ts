@@ -108,6 +108,30 @@ export type CollectionPublicRankingMetricsDto = {
   readonly releaseCount: number;
 };
 
+/**
+ * todo 12 — system-status가 관리자에게 보여줄 조직 전체 증분 collection 진행 상황 스냅샷
+ * (ADR-006 `CollectionRepositoryStream`/`CollectionSyncCursor` 집계). repository 이름·
+ * visibility 같은 물리 실체는 절대 포함하지 않고 stream 상태 count·checkpoint 시각만
+ * 넘긴다 — health(empty/normal/delayed/partial/failed) 해석은 이 포트가 아니라
+ * system-status 모듈의 책임으로 남긴다.
+ *
+ * `readyStreamCount`/`backfillingStreamCount`/`partialStreamCount`는 서로 배타적이며 합은
+ * 항상 `trackedRepositoryCount * 3`(commit/PR/release)이다 — 아직 stream row 자체가
+ * 생성되지 않은 저장소(신규 등록 직후)도 `partialStreamCount`에 포함한다.
+ */
+export type CollectionIncrementalStatusSnapshotDto = {
+  readonly trackedRepositoryCount: number;
+  readonly readyStreamCount: number;
+  readonly backfillingStreamCount: number;
+  readonly partialStreamCount: number;
+  readonly retryPendingStreamCount: number;
+  readonly oldestReadyCheckpointAt: Date | null;
+  readonly latestCheckpointAt: Date | null;
+  readonly oldestRetryPendingAt: Date | null;
+  readonly lastCycleStartedAt: Date | null;
+  readonly lastCycleCompletedAt: Date | null;
+};
+
 export interface CollectionReadPort {
   findRepositoryActivity(
     query: CollectionRepositoryActivityQueryDto,
@@ -134,4 +158,6 @@ export interface CollectionReadPort {
   getPublicRankingMetrics(
     query: CollectionPublicRankingMetricsQueryDto,
   ): Promise<readonly CollectionPublicRankingMetricsDto[]>;
+  /** todo 12 — 조직 전체 증분 collection의 per-repo/stream 진행 상황 집계(system-status source). */
+  getIncrementalStatusSnapshot(): Promise<CollectionIncrementalStatusSnapshotDto>;
 }
