@@ -84,16 +84,16 @@ services:
       GITHUB_OAUTH_CALLBACK_URL: ${GITHUB_OAUTH_CALLBACK_URL:-}
       GITHUB_COLLECTION_APP_ID: ${GITHUB_COLLECTION_APP_ID:?GITHUB_COLLECTION_APP_ID is required}
       GITHUB_APP_ORG: ${GITHUB_APP_ORG:?GITHUB_APP_ORG is required}
-      GITHUB_COLLECTION_APP_PRIVATE_KEY: ${GITHUB_COLLECTION_APP_PRIVATE_KEY:?GITHUB_COLLECTION_APP_PRIVATE_KEY is required}
-      # 파일 경로 입력. 값이 있으면 위 문자열 키보다 우선한다. 이 wave에서는 비어 있어
-      # 운영이 문자열 경로로 계속 동작하고, 실제 secret 마운트는 Wave 5가 담당한다.
-      GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE: ${GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE:-}
+      # deprecated. 파일 입력이 표준이 된 뒤로는 비어 있어도 기동한다 — 롤백 창에서만 쓴다.
+      GITHUB_COLLECTION_APP_PRIVATE_KEY: ${GITHUB_COLLECTION_APP_PRIVATE_KEY:-}
+      # 기본값은 아래 secrets 이름과 짝을 이룬다 — 한쪽만 바꾸면 마운트 지점과 어긋난다.
+      GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE: ${GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE:-/run/secrets/github_collection_app_private_key}
       GITHUB_COLLECTION_APP_API_BASE_URL: ${GITHUB_COLLECTION_APP_API_BASE_URL:-}
       GITHUB_COLLECTION_APP_MAX_PAGES: ${GITHUB_COLLECTION_APP_MAX_PAGES:-}
       GITHUB_COLLECTION_APP_DEADLINE_MS: ${GITHUB_COLLECTION_APP_DEADLINE_MS:-}
       GITHUB_OPERATIONS_APP_ID: ${GITHUB_OPERATIONS_APP_ID:?GITHUB_OPERATIONS_APP_ID is required}
-      GITHUB_OPERATIONS_APP_PRIVATE_KEY: ${GITHUB_OPERATIONS_APP_PRIVATE_KEY:?GITHUB_OPERATIONS_APP_PRIVATE_KEY is required}
-      GITHUB_OPERATIONS_APP_PRIVATE_KEY_FILE: ${GITHUB_OPERATIONS_APP_PRIVATE_KEY_FILE:-}
+      GITHUB_OPERATIONS_APP_PRIVATE_KEY: ${GITHUB_OPERATIONS_APP_PRIVATE_KEY:-}
+      GITHUB_OPERATIONS_APP_PRIVATE_KEY_FILE: ${GITHUB_OPERATIONS_APP_PRIVATE_KEY_FILE:-/run/secrets/github_operations_app_private_key}
       # 선택값. 코드 기본 cron은 매시 정각(초 포함 6필드), listen 포트 기본은 4000.
       COLLECTION_CRON_EXPRESSION: ${COLLECTION_CRON_EXPRESSION:-}
       PORT: ${PORT:-4000}
@@ -116,6 +116,9 @@ services:
       GMAIL_OAUTH_CLIENT_ID: ${GMAIL_OAUTH_CLIENT_ID:-}
       GMAIL_OAUTH_CLIENT_SECRET: ${GMAIL_OAUTH_CLIENT_SECRET:-}
       GMAIL_OAUTH_REFRESH_TOKEN: ${GMAIL_OAUTH_REFRESH_TOKEN:-}
+    secrets:
+      - github_collection_app_private_key
+      - github_operations_app_private_key
     depends_on:
       postgres:
         condition: service_healthy
@@ -169,3 +172,12 @@ services:
 volumes:
   pgdata:
   minio_data:
+
+# uid/gid/mode를 일부러 지정하지 않는다 — 호스트 파일의 소유·모드가 그대로 컨테이너에
+# 전달되므로(Compose v5.3.1 실측) 지정하면 설치 측이 보장하는 0640 + gid 1000과 어긋난다.
+# 필수 표기(:?)가 legacy 값 키에서 이 SOURCE 경로 키로 옮겨왔다.
+secrets:
+  github_collection_app_private_key:
+    file: ${GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE:?GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE is required}
+  github_operations_app_private_key:
+    file: ${GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE:?GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE is required}
