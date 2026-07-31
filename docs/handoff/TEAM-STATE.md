@@ -158,6 +158,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 검사기 단순화 — DTO 이름 규칙을 eslint 단일 강제로 정리 | @GoBeromsu | review | [#377](https://github.com/JNU-SWCU/oss-hub/issues/377) | [#378](https://github.com/JNU-SWCU/oss-hub/pull/378) | eslint RED(BadNameDto·BadName 거부)→GREEN(GoodRequestDto·GoodResponseDto 통과) 실행 확인 · `bash -n` pass · ci.yml YAML 파싱 pass | 없음 — ADR-005 증거 형식 개정([#375](https://github.com/JNU-SWCU/oss-hub/pull/375)) 병합 후 등가 이전으로 처리된다 |
 
 | 환경 계약 검사기 집합 대수 리팩터링 | @GoBeromsu | review | [#382](https://github.com/JNU-SWCU/oss-hub/issues/382) | [#389](https://github.com/JNU-SWCU/oss-hub/pull/389) | fixture 31/31 pass · 실제 검사·CI 모드 exit 0 · 구·신 compose 추출 18키 동일 · 반쪽 편집 3종 차단 · AST 참조 0건 · 3022→1718줄 | [#383](https://github.com/JNU-SWCU/oss-hub/pull/383) 병합 선행 (unblock: @GoBeromsu) |
+| 공개 조회 및 계층 경계 정책 권한 게이트(AGENTS.md·security.md·ADR-003) | @GoBeromsu | active | [#414](https://github.com/JNU-SWCU/oss-hub/issues/414) | [#416](https://github.com/JNU-SWCU/oss-hub/pull/416) | required check는 `ci`·`public-safe`뿐이다(branch protection `required_status_checks.contexts` 확인) — 마지막 관찰 head `0a91c5a`에서 둘 다 SUCCESS. 보충(required 아님) `commitlint`·`merge-policy`(evaluate 포함)·`team-state-drift`(advisory)도 같은 head에서 SUCCESS. 이 기록은 관찰 시점 스냅샷이며 이후 커밋이 push되면 새 head에서 다시 확인해야 한다 | high-risk public/private 경계 변경 — reviewer 요청 결과 reviewRequests 없음 · selector/integration 증거·독립 exact-head 검증·exact-head @GoBeromsu PM_ACCEPT 모두 대기 |
 
 ## 외부 게이트
 
