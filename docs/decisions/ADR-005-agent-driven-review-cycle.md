@@ -46,7 +46,7 @@ UI로 확인할 수 없는 backend-only 계약은 격리 환경의 실제 API·D
 상위 수단으로 불변식이 성립하면 하위 수단을 새로 만들지 않는다.
 새 전용 검사기를 도입하는 PR은 어떤 불변식을 지키는지와 상위 두 수단으로 성립하지 않는 이유를 본문에 남긴다.
 전용 검사기를 상위 수단으로 옮기는 변경은 검사 약화가 아니라 등가 이전이며, 같은 불변식이 상위 수단에서 성립함을 `CLI:` 증거로 보이면 일반 변경으로 처리한다.
-단 fail-closed 보안·배포 승인 게이트는 이 우선순위의 예외로 유지한다: public-safe·gitleaks 스캔, ADR-002의 Jenkins release 승인 바인딩, `merge-policy` 판정기.
+단 fail-closed 보안·배포 게이트는 이 우선순위의 예외로 유지한다: public-safe·gitleaks 스캔, ADR-002의 Release 배포 검증, `merge-policy` 판정기.
 이 예외 경로를 축소·우회·약화하는 변경은 계속 high risk다.
 
 | 분류 | 의미 | 병합 영향 | 처리 |
@@ -111,9 +111,7 @@ high risk PR은 PM 또는 Tech Lead 중 한 명의 current-head accept가 확인
 GitHub 상태나 승인 범위를 확인할 수 없거나 모호하면 병합하지 않으며, admin bypass로 gate를 우회하지 않는다.
 
 ADR-002에 따라 production 배포는 release tag를 통한 별도 단계다.
-production release·재배포는 #199 댓글의 @GoBeromsu `RELEASE_ACCEPT role=PM tag=<tag> head=<sha>` 한 건만으로 시작한다.
-`RELEASE_ACCEPT role=TECH_LEAD`와 `RELEASE_OVERRIDE role=PM`은 폐지한다 — 우회할 이중 게이트가 없으므로 override는 존재 이유가 없다.
-Jenkins가 이 actor·tag·SHA를 배포 시작 전에 검증하고 누락·불일치·stale 증거를 거절하는 단계가 구현되기 전에는 production Release webhook job을 활성화하지 않는다.
+production 배포의 인가·트리거·실행 검증 계약은 ADR-002를 따른다.
 
 검증한 head SHA, check 결과와 review URL을 남긴다. 병합한 경우 merge SHA도 기록한다.
 
@@ -122,7 +120,7 @@ Jenkins가 이 actor·tag·SHA를 배포 시작 전에 검증하고 누락·불�
 - 최신 변경에 대한 검증 근거를 GitHub에서 다시 확인할 수 있다.
 - head, base ref 또는 base SHA가 바뀌면 검증을 반복해야 한다.
 - high risk PR 작성자가 자기 accept를 남겨 사실상 1인 병합이 가능해진다 — 완화 수단은 전남의 exact-head `MERGE_READY` 증거, required CI, 배포 계약 경로의 PM 전속이다.
-- @GoBeromsu 작성 PR의 review 면제로 그 PR에는 사람 검토가 전혀 없다 — 배포 계약 경로의 PM 전속도 자기 작성 PR에는 실효가 없다. 남는 통제는 required check(`ci`·`public-safe`)와 Jenkins release 배포의 별도 `RELEASE_ACCEPT` 바인딩뿐이다. 이는 PM이 자기 산출물 검토 부담을 없애는 대가로 감수한 위험이다(2026-07-30 결정).
+- @GoBeromsu 작성 PR의 review 면제로 그 PR에는 사람 검토가 전혀 없다 — 배포 계약 경로의 PM 전속도 자기 작성 PR에는 실효가 없다. 남는 통제는 required check(`ci`·`public-safe`)와 ADR-002의 Jenkins 기술 검증(full SemVer·main ancestry·실행 중 metadata·rollback·smoke)이다. 이는 PM이 자기 산출물 검토 부담을 없애는 대가로 감수한 위험이다(2026-07-30·2026-07-31 결정).
 - 새 계약을 지키는 기본 수단이 전용 검사기에서 구조·앱 테스트로 이동한다. 검사기 수는 단조 증가하지 않고 상위 수단으로 흡수되며 줄어들 수 있다.
 - 검사기 신설에 근거 기재 비용이 추가된다. 반대로 상위 수단으로 옮기는 정리 PR은 별도 완화 accept 없이 진행할 수 있다.
 - fail-closed 보안·배포 게이트는 예외로 남아 우선순위와 무관하게 유지된다 — 이 부분의 강제 수준은 변하지 않는다.
@@ -148,3 +146,4 @@ Jenkins가 이 actor·tag·SHA를 배포 시작 전에 검증하고 누락·불�
 - 2026-07-30: @GoBeromsu가 작성한 PR을 review·`MERGE_READY`·accept 요건 전체에서 면제했다 — @Lumiere001의 검토도 조건이 아니다. 병합 조건은 required check(`ci`·`public-safe`)뿐이며, 면제는 작성자 identity에만 근거하고 확인되지 않으면 적용하지 않는다(fail-closed). head·base SHA 형식과 default branch 검사는 면제하지 않는다.
 - 2026-07-30: `.github/CODEOWNERS`의 모든 경로 소유자를 @GoBeromsu 단독으로 정리했다 — @Lumiere001을 co-owner로 두면 @GoBeromsu 작성 PR마다 GitHub가 자동 review 요청을 걸어 병합이 느려진다. `merge-policy` 판정기는 CODEOWNERS에서 경로 패턴만 읽고 소유자 핸들은 쓰지 않으므로 후보 경로 판정은 바뀌지 않는다(패턴 25개 동일). @Lumiere001의 `MERGE_READY`·`TECH_LEAD_ACCEPT` 권한과 저장소 전체 free-role 작성권은 그대로 유지한다 — 이 변경은 자동 요청만 없애며 검토 권한을 축소하지 않는다.
 - 2026-07-30: `CLI:` 증거의 정의를 "repository-declared CLI 검증"에서 "재현 가능한 계약 검증"으로 바꾸고 검증 수단 우선순위(구조 → 앱 테스트 → 전용 검사기 → 문서 규칙)를 명문화했다. 전용 검사기만이 병합 증거를 충족하던 제약이 검사기 단조 증가를 유발했으므로 상위 수단으로의 등가 이전을 검사 약화에서 제외했다. fail-closed 보안·배포 승인 게이트(public-safe·gitleaks, Jenkins release 승인 바인딩, `merge-policy`)는 예외로 유지했고 marker 이름·형식·actor·accept 규칙은 변경하지 않았다.
+- 2026-07-31: production Release 발행 자체를 배포 인가로 삼는 ADR-002 개정에 맞춰 Jenkins 댓글 marker 승인 바인딩의 현재 계약 서술을 제거하고, 남는 통제를 required check와 Jenkins의 기술 검증으로 명시했다. 과거 marker 계약과 폐지 과정은 Changelog 이력으로 보존한다.
