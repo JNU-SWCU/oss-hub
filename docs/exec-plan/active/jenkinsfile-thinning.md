@@ -2,7 +2,7 @@
 
 이 문서는 root `Jenkinsfile`의 배포 계약을 보존하면서 검증 로직을 `scripts/jenkins/`로 추출하는 실행 계획이다.
 이 문서는 실제 추출 코드가 아니라 범위·인터페이스·증거·복구 순서를 고정하는 계획이다.
-현재 기준 줄 번호는 이 계획을 작성할 때 확인한 `Jenkinsfile` 700줄과 `scripts/check-jenkinsfile.sh` 565줄을 기준으로 한다.
+현재 기준 줄 번호는 이 계획을 작성할 때 확인한 `Jenkinsfile` 700줄과 `scripts/check-jenkinsfile.sh` 565줄을 기준으로 한다(`scripts/check-jenkinsfile.sh`는 이후 P1 병합·계약 확장을 거쳐 origin/main 기준 1152줄로 늘었다).
 
 ## 기준 문서와 확인한 현재 구조
 
@@ -204,8 +204,8 @@ G0는 확인을 완료했고 결과는 **보호 미적용**이었다.
 - `ADR-005`의 배포 계약 경로 정의는 `Jenkinsfile`, Compose·env·deploy·Dockerfile·workflow·checker 경로를 열거하지만 `scripts/jenkins/**`를 포함하지 않았다.
 - `scripts/merge-policy-check-lib.mjs`의 `DEPLOY_CONTRACT_PATTERNS`도 같은 목록을 쓰므로, 판정기를 직접 호출해 확인한 결과 `scripts/jenkins/validate-rollback-images.sh`가 `일반` 변경으로 분류됐다.
 - 즉 `Jenkinsfile`(PM 전속)의 절차 로직을 이 계획대로 추출하면 같은 배포 결정 로직이 파일 위치만 바뀌어 승인 요건이 낮아진다. 추출 자체가 우회 경로가 된다.
-- 이 계획은 ADR-005·CODEOWNERS를 수정하지 않는다는 경계를 지키고, 보호 확장은 별도 PR로 분리했다 — Issue #387, PR #388이 판정기·ADR-005·검증 표·CODEOWNERS 네 곳에 `scripts/jenkins/**`를 추가한다.
-- 따라서 P1~P5의 blocker는 "G0 확인"이 아니라 **PR #388 병합**이다. #388이 병합된 뒤 첫 추출 PR이 `merge-policy`에서 `PM_ACCEPT` 요구로 판정되는지 확인하고 P1을 시작한다.
+- 이 계획은 ADR-005·CODEOWNERS를 수정하지 않는다는 경계를 지키고, 보호 확장은 별도 PR로 분리했다 — Issue #387, PR #388이 판정기·ADR-005·검증 표·CODEOWNERS 네 곳에 `scripts/jenkins/**`를 추가했다.
+- P1~P5의 blocker였던 **PR #388 병합**은 해소됐다(2026-07-30T15:55:20Z 병합, commit `318ba25`). 병합 후 첫 추출 PR인 P1이 `merge-policy`에서 `PM_ACCEPT` 요구로 판정되는 것을 확인하고 착수해 완료했다([PR #393](https://github.com/JNU-SWCU/oss-hub/pull/393) merged).
 
 ### PR 분해 원칙
 
@@ -305,7 +305,7 @@ G0는 확인을 완료했고 결과는 **보호 미적용**이었다.
 
 ## 완료 증거
 
-- [ ] G0에서 `scripts/jenkins/**`의 ADR-005 deploy-contract path 보호 적용 여부와 blocker 해소 근거를 확인했다.
+- [x] G0에서 `scripts/jenkins/**`의 ADR-005 deploy-contract path 보호 적용 여부와 blocker 해소 근거를 확인했다.
 - [ ] `Jenkinsfile`의 현재 stage 이름·줄 범위와 `scripts/check-jenkinsfile.sh`의 대응 검사 줄을 baseline으로 보존했다.
 - [ ] M1의 latest Release·exact SHA·no-op·fail-closed·HTTPS·rollback·순서·보안 계약을 모두 대조했다.
 - [ ] M2의 stdout key·stderr marker·exit code·nonzero 전파·stub fixture 공통 계약을 확정했다.
@@ -316,6 +316,6 @@ G0는 확인을 완료했고 결과는 **보호 미적용**이었다.
 - [ ] 현재 실행 중 tag보다 높은 SemVer의 실제 Release SHA 배포 1회와 관찰 항목 아홉 가지를 완료했다.
 - [ ] mutation 이전·build/backup 이후·migration 이후·replacement/smoke 실패·greenfield 복구 증거를 보존했다.
 - [ ] hot edit·Jenkins UI 임시 교체 없이 PR 역순 revert와 사후 검증 절차를 확인했다.
-- [ ] `bash scripts/check-jenkinsfile.test.sh`와 `bash scripts/check-jenkinsfile.sh Jenkinsfile`가 통과했다.
+- [x] `bash scripts/check-jenkinsfile.test.sh`와 `bash scripts/check-jenkinsfile.sh Jenkinsfile`가 통과했다.
 - [ ] `bash scripts/check-public-safe.sh origin/main`이 통과했고 문서에 공개 금지 정보·시크릿·실명·개인 절대경로가 없다.
 - [ ] TEAM-STATE 기능 상태 행과 실제 PR 번호를 갱신하고 `node --test scripts/team-state-check.test.mjs`가 통과했다.
