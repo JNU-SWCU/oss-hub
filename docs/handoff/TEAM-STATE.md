@@ -121,6 +121,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | webhook 처리 결과 관측 지표 | @Lumiere001 | review | #215 | [#216](https://github.com/JNU-SWCU/oss-hub/pull/216) | unit 347 · integration 64 · build pass | #221 병합 후 최신 main 재배치 완료 · 새 head CI와 재리뷰 대기 |
 | 공통 랜딩 세션별 진입 CTA | @jinsol1190-rgb | done | #98 | #201 | pass | 없음 |
 | 프로그램 편집·마일스톤 | @Geuin04 | review | #101 | [#228](https://github.com/JNU-SWCU/oss-hub/pull/228) | unit 387 · frontend 188 · integration 66 · lint/typecheck/build pass | 현재 로컬 환경에서 브라우저 시각 QA 불가 |
+| 교직원 운영 대시보드 프로그램 직접 편집 진입 | @Geuin04 | review | 선행 Issue 없음 — 운영 UX 개선 | PR 제출 | frontend focused 10 · lint/typecheck · Linux standalone build · authenticated browser 375/768/1280 pass | 없음 — 프로그램 행 클릭·Enter/Space로 기존 편집 경로 재사용, 신청자 목록 링크 분리 유지 |
 | 공개 프로그램 목록 | @Geuin04 | done | #102 | [#191](https://github.com/JNU-SWCU/oss-hub/pull/191) merged | pass | 없음 |
 | Program & Intake 계획 백로그(5건: 신청·팀 구성·신청자 목록·신청 폼·운영 대시보드) | @GoBeromsu | done | #104 #105 #106 #117 #118 | [#252](https://github.com/JNU-SWCU/oss-hub/pull/252) merged | pass | PM path exception · owner @Geuin04 사후 확인 요청 · #119 승인 UI는 별도 |
 | 신청 승인·반려와 저장소 생성 트리거 | @Lumiere001 | review | #119 | [#260](https://github.com/JNU-SWCU/oss-hub/pull/260) | backend unit 793 · integration 127 · frontend 493 · lint/typecheck/build/format/public-safe · authenticated Aside pass | [백엔드 #176](https://github.com/JNU-SWCU/oss-hub/pull/176) merged · 승인/반려 UI·authoritative reload·저장소 작업 상태 projection 구현 · PM path exception · owner @Lumiere001 사후 확인 필요 |
