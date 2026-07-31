@@ -139,6 +139,15 @@
   --color-hero-muted: var(--hero-muted);
   --color-hero-border: var(--hero-border);
   --color-hero-danger: var(--hero-danger);
+  /* 시네마틱 랜딩 전용 semantic → component 매핑 */
+  --color-cosmos-void: var(--cosmos-void);
+  --color-cosmos-near: var(--cosmos-near);
+  --color-cosmos-copy: var(--cosmos-copy);
+  --color-cosmos-muted: var(--cosmos-muted);
+  --color-cosmos-student: var(--cosmos-student);
+  --color-cosmos-repository: var(--cosmos-repository);
+  --color-cosmos-edge: var(--cosmos-edge);
+  --color-cosmos-border: var(--cosmos-border);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -221,6 +230,30 @@
   --hero-muted: var(--palette-navy-200);
   --hero-border: color-mix(in oklch, var(--palette-white) 10%, transparent);
   --hero-danger: var(--palette-red-100);
+
+  /* 시네마틱 랜딩 — 기존 primitive만 조합하는 의미 토큰 */
+  --cosmos-void: var(--palette-black);
+  --cosmos-near: var(--palette-navy-950);
+  --cosmos-copy: var(--palette-white);
+  --cosmos-muted: var(--palette-navy-200);
+  --cosmos-student: var(--palette-navy-200);
+  --cosmos-repository: var(--palette-green-300);
+  --cosmos-edge: var(--palette-navy-300);
+  --cosmos-border: color-mix(
+    in oklch,
+    var(--palette-white) 12%,
+    transparent
+  );
+  --cosmos-scrim-strong: color-mix(
+    in oklch,
+    var(--palette-black) 95%,
+    transparent
+  );
+  --cosmos-scrim-soft: color-mix(
+    in oklch,
+    var(--palette-black) 48%,
+    transparent
+  );
 }
 
 .dark {
