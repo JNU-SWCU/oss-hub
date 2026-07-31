@@ -13,8 +13,7 @@ export const LOCAL_REVIEW_FIXTURE_IDS = [
   'wrong-role',
 ] as const;
 
-export type LocalReviewFixtureId =
-  (typeof LOCAL_REVIEW_FIXTURE_IDS)[number];
+export type LocalReviewFixtureId = (typeof LOCAL_REVIEW_FIXTURE_IDS)[number];
 
 export const LOCAL_REVIEW_FIXTURE_PATTERN =
   '(?:anonymous|student|staff|admin|settings|loading|error|unassigned|wrong-role)' as const;

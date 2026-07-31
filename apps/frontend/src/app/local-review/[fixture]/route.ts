@@ -38,17 +38,13 @@ export async function GET(
   if (activation.fixture === null) {
     response.cookies.delete(LOCAL_REVIEW_FIXTURE_COOKIE);
   } else {
-    response.cookies.set(
-      LOCAL_REVIEW_FIXTURE_COOKIE,
-      activation.fixture,
-      {
-        httpOnly: true,
-        sameSite: 'strict',
-        secure: false,
-        path: '/',
-        maxAge: 8 * 60 * 60,
-      },
-    );
+    response.cookies.set(LOCAL_REVIEW_FIXTURE_COOKIE, activation.fixture, {
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: false,
+      path: '/',
+      maxAge: 8 * 60 * 60,
+    });
   }
   return response;
 }
