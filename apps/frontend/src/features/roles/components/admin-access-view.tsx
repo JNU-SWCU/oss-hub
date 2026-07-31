@@ -1,4 +1,5 @@
 import type { SubmitEvent } from 'react';
+import Link from 'next/link';
 
 import {
   DataTable,
@@ -130,9 +131,12 @@ export function AdminAccessView(props: AdminAccessViewProps) {
       cellClassName: 'whitespace-normal',
       cell: (item) => (
         <div className="flex min-w-0 flex-col gap-2 lg:min-w-48 lg:gap-1">
-          <span className="line-clamp-2 break-all font-medium">
+          <Link
+            href={`/admin/access/users/${encodeURIComponent(item.id)}`}
+            className="line-clamp-2 break-all font-medium underline-offset-2 hover:underline"
+          >
             {item.name ?? '이름 미등록'}
-          </span>
+          </Link>
           <span className="text-muted-foreground">@{item.githubLogin}</span>
           <div className="flex flex-wrap items-center gap-2 pt-1">
             {item.isProfileComplete ? null : (
