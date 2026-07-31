@@ -88,7 +88,7 @@ expect_reject '포트 생략인데 override가 5432이 아닌 경우' \
   'postgresql://oss:oss-dev@localhost/oss_hub' '55432'
 
 # --- 차단 경로: 로컬이 아닌 대상 ---
-expect_reject '원격 호스트' 'postgresql://oss:pw@db.example.internal:5432/oss_hub'
+expect_reject '원격 호스트' 'postgresql://oss:pw@db.example.com:5432/oss_hub'
 expect_reject '사설 IP 호스트' 'postgresql://oss:pw@10.0.0.5:5432/oss_hub'
 
 # --- 차단 경로: 형식 오류 ---
@@ -98,7 +98,7 @@ expect_reject 'postgres 계열이 아닌 스킴' 'mysql://oss:pw@localhost:3306/
 # --- 비밀값 미출력 계약 ---
 # 실패 경로에서도 자격증명이 로그에 남으면 안 된다(저장소 PUBLIC · CI 로그 공개).
 expect_output_excludes '거부 메시지에 비밀번호 미노출' 'super-secret-pw' \
-  'postgresql://oss:super-secret-pw@db.example.internal:5432/oss_hub'
+  'postgresql://oss:super-secret-pw@db.example.com:5432/oss_hub'
 expect_output_excludes '포트 불일치 메시지에 비밀번호 미노출' 'super-secret-pw' \
   'postgresql://oss:super-secret-pw@localhost:5432/oss_hub' '55432'
 expect_output_excludes '통과 메시지에 비밀번호 미노출' 'oss-dev' "$local_url"
