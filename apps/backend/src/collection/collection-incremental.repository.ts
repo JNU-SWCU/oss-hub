@@ -16,6 +16,10 @@ import type {
   SyncCursorRow,
 } from './collection-incremental.types';
 import { zeroRepositoryYearAggregate } from './collection-incremental.types';
+import type {
+  AcquireSyncLeaseInput,
+  SyncLeaseToken,
+} from './collection-sync.types';
 
 const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
@@ -349,5 +353,120 @@ export class CollectionIncrementalRepository {
           : {}),
       },
     });
+  }
+
+  async getSyncCursor(
+    appId: bigint,
+    organizationLogin: string,
+  ): Promise<SyncCursorRow | null> {
+    return this.db.collectionSyncCursor.findUnique({
+      where: { appId_organizationLogin: { appId, organizationLogin } },
+    });
+  }
+
+  /**
+   * complete inventory 관찰 이후 더 이상 목록에 없는 저장소를 ABSENT로 표시한다 — 이 경로 역시
+   * DEC-46(visibility/presence는 complete inventory 관찰에서만 갱신)을 지키며, 호출자가 lease-fenced
+   * 트랜잭션(`runInTransaction` + `assertSyncLeaseValid`) 안에서 호출한다.
+   */
+  async markAbsentRepositories(
+    githubOrganizationId: bigint,
+    presentGithubRepositoryIds: readonly bigint[],
+    observedAt: Date,
+  ): Promise<void> {
+    await this.db.collectionRepository.updateMany({
+      where: {
+        githubOrganizationId,
+        presence: 'PRESENT',
+        githubRepositoryId: { notIn: [...presentGithubRepositoryIds] },
+      },
+      data: { presence: 'ABSENT', lastCompleteInventoryObservedAt: observedAt },
+    });
+  }
+
+  /** partial inventory(이번 run의 provider listing 실패) 시 stream sync가 이어갈 이전 관찰. */
+  async listPresentRepositories(
+    githubOrganizationId: bigint,
+  ): Promise<CollectionRepositoryRow[]> {
+    return this.db.collectionRepository.findMany({
+      where: { githubOrganizationId, presence: 'PRESENT' },
+    });
+  }
+
+  /**
+   * `CollectionSyncLease`를 획득한다 — 만료된 lease만 epoch을 증가시키며 훔칠 수 있다
+   * (`CanonicalCollectionRepository.acquireLease`와 동일한 fencing 패턴, 별도 run 후보 테이블 없음).
+   */
+  async acquireSyncLease(
+    input: AcquireSyncLeaseInput,
+  ): Promise<SyncLeaseToken | null> {
+    const rows = await this.db.$queryRawUnsafe<SyncLeaseToken[]>(
+      `INSERT INTO "CollectionSyncLease" ("appId", "organizationLogin", "epoch", "ownerId", "expiresAt", "runId", "updatedAt")
+       VALUES ($1, $2, 1, $3, $4, $5, $6)
+       ON CONFLICT ("appId", "organizationLogin") DO UPDATE SET
+         "epoch" = "CollectionSyncLease"."epoch" + 1, "ownerId" = EXCLUDED."ownerId",
+         "expiresAt" = EXCLUDED."expiresAt", "runId" = EXCLUDED."runId", "updatedAt" = EXCLUDED."updatedAt"
+       WHERE "CollectionSyncLease"."expiresAt" <= $6
+       RETURNING "appId", "organizationLogin", "ownerId", "epoch", "runId", "expiresAt"`,
+      input.appId,
+      input.organizationLogin,
+      input.ownerId,
+      input.expiresAt,
+      input.runId,
+      input.now,
+    );
+    return rows[0] ?? null;
+  }
+
+  async heartbeatSyncLease(
+    token: SyncLeaseToken,
+    now: Date,
+    expiresAt: Date,
+  ): Promise<void> {
+    const count = await this.db.$executeRawUnsafe(
+      `UPDATE "CollectionSyncLease" SET "expiresAt" = $6, "updatedAt" = $5
+       WHERE "appId" = $1 AND "organizationLogin" = $2 AND "ownerId" = $3 AND "epoch" = $4 AND "expiresAt" > $5 AND "runId" = $7`,
+      token.appId,
+      token.organizationLogin,
+      token.ownerId,
+      token.epoch,
+      now,
+      expiresAt,
+      token.runId,
+    );
+    if (count !== 1) throw new Error('Collection sync lease is stale');
+  }
+
+  /** best-effort 정리 — 이미 다른 owner가 훔친 lease라면 아무 것도 하지 않는다. */
+  async releaseSyncLease(token: SyncLeaseToken, now: Date): Promise<void> {
+    await this.db.$executeRawUnsafe(
+      `UPDATE "CollectionSyncLease" SET "expiresAt" = $6, "updatedAt" = $6
+       WHERE "appId" = $1 AND "organizationLogin" = $2 AND "ownerId" = $3 AND "epoch" = $4 AND "runId" = $5`,
+      token.appId,
+      token.organizationLogin,
+      token.ownerId,
+      token.epoch,
+      token.runId,
+      now,
+    );
+  }
+
+  /**
+   * 매 fenced 트랜잭션의 첫 문장으로 호출한다 — `SELECT ... FOR UPDATE`로 현재 트랜잭션 안에서
+   * lease 소유권을 잠그고 확인한다(`CanonicalCollectionRepository.assertLease`와 동일 패턴).
+   * stale이면 그 트랜잭션의 모든 쓰기가 커밋되지 않는다.
+   */
+  async assertSyncLeaseValid(token: SyncLeaseToken, now: Date): Promise<void> {
+    const rows = await this.db.$queryRawUnsafe<Array<{ owned: boolean }>>(
+      `SELECT true AS "owned" FROM "CollectionSyncLease" WHERE "appId" = $1 AND "organizationLogin" = $2
+       AND "ownerId" = $3 AND "epoch" = $4 AND "runId" = $5 AND "expiresAt" > $6 FOR UPDATE`,
+      token.appId,
+      token.organizationLogin,
+      token.ownerId,
+      token.epoch,
+      token.runId,
+      now,
+    );
+    if (!rows[0]) throw new Error('Collection sync lease is stale');
   }
 }
