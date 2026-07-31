@@ -488,19 +488,47 @@ docker build \
           script {
             try {
               sh '''
+                require_status() {
+                  expected=$1
+                  method=$2
+                  url=$3
+                  shift 3
+                  actual="$(curl -o /dev/null -w '%{http_code}' --silent --show-error --request "$method" "$@" "$url")"
+                  if [ "$actual" != "$expected" ]; then
+                    printf '스모크 실패: method=%s url=%s expected=%s actual=%s\n' "$method" "$url" "$expected" "$actual" >&2
+                    return 1
+                  fi
+                }
+
                 # 레지스트리에서 받아오는 이미지는 미리 당겨둔다. 받는 시간이 아래 --wait 예산에
                 # 섞이지 않고, 레지스트리 장애도 교체 전에 드러난다.
                 # rollout 동안 PREV_TAG rollback 이미지는 삭제하지 않는다(성공 후 retention만 정리).
                 docker compose --env-file "$OSS_HUB_ENV_FILE" pull --quiet postgres minio minio-bucket nginx
                 docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait --wait-timeout 180
-                curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8081/
-                curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8081/api/v1/health
-                submission_upload_status="$(curl -o /dev/null -w '%{http_code}' --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8081/api/v1/submission-files)"
-                test "$submission_upload_status" = '403'
-                curl --fail --silent --show-error --retry 5 --retry-connrefused \
-                  --resolve '54.116.116.174:443:127.0.0.1' https://54.116.116.174/
-                curl --fail --silent --show-error --retry 5 --retry-connrefused \
-                  --resolve '54.116.116.174:443:127.0.0.1' https://54.116.116.174/api/v1/health
+                # bind mount 내용은 Compose 서비스 해시에 없어 up -d가 nginx를 재생성하지 않으므로 명시적 reload 없이는 낡은 설정이 계속 서빙된다.
+                docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -t
+                docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -s reload
+                require_status 200 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused
+                require_status 200 GET http://127.0.0.1:8081/api/v1/health --retry 5 --retry-connrefused
+                require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
+                require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
+                require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
+                require_status 403 POST http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
+                require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused
+                require_status 200 GET https://54.116.116.174/ --retry 5 --retry-connrefused \
+                  --resolve '54.116.116.174:443:127.0.0.1'
+                require_status 200 GET https://54.116.116.174/api/v1/health --retry 5 --retry-connrefused \
+                  --resolve '54.116.116.174:443:127.0.0.1'
+                require_status 403 GET https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
+                  --resolve '54.116.116.174:443:127.0.0.1'
+                require_status 403 POST https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
+                  --resolve '54.116.116.174:443:127.0.0.1'
+                require_status 403 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
+                  --resolve '54.116.116.174:443:127.0.0.1'
+                require_status 403 POST https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
+                  --resolve '54.116.116.174:443:127.0.0.1'
+                require_status 403 GET https://54.116.116.174/api/v1/submission-files/1 --retry 5 --retry-connrefused \
+                  --resolve '54.116.116.174:443:127.0.0.1'
               '''
             } catch (deploymentFailure) {
               sh '''
@@ -512,15 +540,43 @@ docker build \
                 echo "서비스 교체 또는 스모크 실패: ${env.PREV_TAG} 이미지로 한 번 복구합니다."
                 withEnv(["IMAGE_TAG=${env.PREV_TAG}"]) {
                   sh '''
+                    require_status() {
+                      expected=$1
+                      method=$2
+                      url=$3
+                      shift 3
+                      actual="$(curl -o /dev/null -w '%{http_code}' --silent --show-error --request "$method" "$@" "$url")"
+                      if [ "$actual" != "$expected" ]; then
+                        printf '스모크 실패: method=%s url=%s expected=%s actual=%s\n' "$method" "$url" "$expected" "$actual" >&2
+                        return 1
+                      fi
+                    }
+
                     docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait --wait-timeout 180
-                    curl --fail --silent --show-error http://127.0.0.1:8081/
-                    curl --fail --silent --show-error http://127.0.0.1:8081/api/v1/health
-                    submission_upload_status="$(curl -o /dev/null -w '%{http_code}' --silent --show-error http://127.0.0.1:8081/api/v1/submission-files)"
-                    test "$submission_upload_status" = '403'
-                    curl --fail --silent --show-error \
-                      --resolve '54.116.116.174:443:127.0.0.1' https://54.116.116.174/
-                    curl --fail --silent --show-error \
-                      --resolve '54.116.116.174:443:127.0.0.1' https://54.116.116.174/api/v1/health
+                    # rollback은 이전 앱 이미지만 복구하고 nginx 설정은 현재 워크스페이스를 유지하므로 아래 스모크로 fail-closed를 다시 검증한다.
+                    docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -t
+                    docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -s reload
+                    require_status 200 GET http://127.0.0.1:8081/
+                    require_status 200 GET http://127.0.0.1:8081/api/v1/health
+                    require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files
+                    require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files
+                    require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files
+                    require_status 403 POST http://127.0.0.1:8081/api/v1/Submission-Files
+                    require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files/1
+                    require_status 200 GET https://54.116.116.174/ \
+                      --resolve '54.116.116.174:443:127.0.0.1'
+                    require_status 200 GET https://54.116.116.174/api/v1/health \
+                      --resolve '54.116.116.174:443:127.0.0.1'
+                    require_status 403 GET https://54.116.116.174/api/v1/submission-files \
+                      --resolve '54.116.116.174:443:127.0.0.1'
+                    require_status 403 POST https://54.116.116.174/api/v1/submission-files \
+                      --resolve '54.116.116.174:443:127.0.0.1'
+                    require_status 403 GET https://54.116.116.174/api/v1/Submission-Files \
+                      --resolve '54.116.116.174:443:127.0.0.1'
+                    require_status 403 POST https://54.116.116.174/api/v1/Submission-Files \
+                      --resolve '54.116.116.174:443:127.0.0.1'
+                    require_status 403 GET https://54.116.116.174/api/v1/submission-files/1 \
+                      --resolve '54.116.116.174:443:127.0.0.1'
                   '''
                 }
               } else {
@@ -531,6 +587,50 @@ docker build \
             }
           }
         }
+      }
+    }
+
+    stage('no-op 실행 중 nginx 드리프트 검증') {
+      when {
+        expression { env.DEPLOY_NOOP == 'true' }
+      }
+      steps {
+        sh '''
+          require_status() {
+            expected=$1
+            method=$2
+            url=$3
+            shift 3
+            actual="$(curl -o /dev/null -w '%{http_code}' --silent --show-error --request "$method" "$@" "$url")"
+            if [ "$actual" != "$expected" ]; then
+              printf 'FAIL_CLOSED nginx_drift: 실행 중 nginx 설정이 저장소 계약과 다릅니다. method=%s url=%s expected=%s actual=%s\n' "$method" "$url" "$expected" "$actual" >&2
+              return 1
+            fi
+          }
+
+          # no-op은 checkout한 릴리스가 실행 중 버전보다 낮을 수 있으므로 reload 없이 읽기 전용 스모크로 드리프트만 검출한다.
+          require_status 200 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused
+          require_status 200 GET http://127.0.0.1:8081/api/v1/health --retry 5 --retry-connrefused
+          require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
+          require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
+          require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
+          require_status 403 POST http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
+          require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused
+          require_status 200 GET https://54.116.116.174/ --retry 5 --retry-connrefused \
+            --resolve '54.116.116.174:443:127.0.0.1'
+          require_status 200 GET https://54.116.116.174/api/v1/health --retry 5 --retry-connrefused \
+            --resolve '54.116.116.174:443:127.0.0.1'
+          require_status 403 GET https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
+            --resolve '54.116.116.174:443:127.0.0.1'
+          require_status 403 POST https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
+            --resolve '54.116.116.174:443:127.0.0.1'
+          require_status 403 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
+            --resolve '54.116.116.174:443:127.0.0.1'
+          require_status 403 POST https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
+            --resolve '54.116.116.174:443:127.0.0.1'
+          require_status 403 GET https://54.116.116.174/api/v1/submission-files/1 --retry 5 --retry-connrefused \
+            --resolve '54.116.116.174:443:127.0.0.1'
+        '''
       }
     }
 

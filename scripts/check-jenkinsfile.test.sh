@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC1003,SC2016,SC2050
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -34,6 +35,22 @@ expect_fail() {
     failed=$((failed + 1))
   else
     printf 'ok - %s\n' "$name"
+    passed=$((passed + 1))
+  fi
+}
+
+expect_fail_with_code() {
+  local name=$1
+  local mode=$2
+  local path=$3
+  local status
+
+  if "$checker" "$mode" "$path" >/dev/null 2>&1; then
+    printf 'not ok - %s (실패해야 하지만 성공)\n' "$name" >&2
+    failed=$((failed + 1))
+  else
+    status=$?
+    printf 'ok - %s (checker exit=%s)\n' "$name" "$status"
     passed=$((passed + 1))
   fi
 }
@@ -79,14 +96,14 @@ make_fixture "$v2_source" v2-missing-backup 'pg_dump' 'pg_isready'
 make_fixture "$v2_source" v2-missing-migration 'npx prisma migrate deploy' 'npx prisma migrate status'
 make_fixture "$v2_source" v2-missing-no-build 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait' 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --wait'
 make_fixture "$v2_source" v2-missing-primary-upload-403-smoke \
-  '--retry 5 --retry-connrefused http://127.0.0.1:8081/api/v1/submission-files' \
-  '--retry 5 --retry-connrefused http://127.0.0.1:8081/api/v1/submission-files-removed'
+  'require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused' \
+  'require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files-removed --retry 5 --retry-connrefused'
 make_fixture "$v2_source" v2-missing-rollback-upload-403-smoke \
-  '--show-error http://127.0.0.1:8081/api/v1/submission-files)' \
-  '--show-error http://127.0.0.1:8081/api/v1/submission-files-removed)'
+  'require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files$' \
+  'require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files-removed'
 make_fixture "$v2_source" v2-weakened-upload-403-status \
-  'test "$submission_upload_status" = '\''403'\''' \
-  'test "$submission_upload_status" != '\''000'\'''
+  'require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused' \
+  'require_status 000 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused'
 make_fixture "$v2_source" v2-upload-403-curl-fail \
   'curl -o /dev/null -w' \
   'curl --fail -o /dev/null -w'
@@ -1146,6 +1163,291 @@ if cmp -s "$v2_source" "$fixture_dir/v2-spoof-frontend-url-duplicate-openers"; t
   exit 1
 fi
 
+python3 - "$v2_source" "$fixture_dir" <<'PYHARDEN'
+from pathlib import Path
+import sys
+
+
+source = Path(sys.argv[1]).read_text()
+fixture_dir = Path(sys.argv[2])
+
+
+def write_fixture(name: str, content: str) -> None:
+    if content == source:
+        raise SystemExit(f"fixture not distinct: {name}")
+    (fixture_dir / name).write_text(content)
+
+
+def replace_once(name: str, old: str, new: str) -> None:
+    if source.count(old) < 1:
+        raise SystemExit(f"fixture pattern missing: {name}: {old!r}")
+    write_fixture(name, source.replace(old, new, 1))
+
+
+def status_region(rollout: bool) -> tuple[int, int, str]:
+    if rollout:
+        anchor = "                require_status 200 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused\n"
+        closing = "              '''"
+        indent = "                "
+    else:
+        anchor = "                    require_status 200 GET http://127.0.0.1:8081/\n"
+        closing = "                  '''"
+        indent = "                    "
+    start = source.index(anchor)
+    end = source.index(closing, start)
+    return start, end, indent
+
+
+def wrap_status_region(name: str, opener: str, closer: str, rollout: bool = True) -> None:
+    start, end, indent = status_region(rollout)
+    wrapped = f"{indent}{opener}\n{source[start:end]}{indent}{closer}\n"
+    write_fixture(name, source[:start] + wrapped + source[end:])
+
+
+wrap_status_region("v2-hardening-smoke-if-false", "if false; then", "fi")
+wrap_status_region("v2-hardening-smoke-if-bracket-false", "if [ 1 -eq 0 ]; then", "fi")
+wrap_status_region("v2-hardening-smoke-if-test-false", "if test 1 -eq 0; then", "fi")
+wrap_status_region("v2-hardening-smoke-function-body", "dead_smoke() {", "}")
+wrap_status_region("v2-hardening-smoke-heredoc", ": <<'SMOKE_DISABLED'", "SMOKE_DISABLED")
+wrap_status_region("v2-hardening-rollback-smoke-if-false", "if false; then", "fi", rollout=False)
+
+case_start, case_end, case_indent = status_region(True)
+case_wrapped = (
+    f"{case_indent}case never in\n"
+    f"{case_indent}  matching)\n"
+    f"{source[case_start:case_end]}"
+    f"{case_indent}    ;;\n"
+    f"{case_indent}esac\n"
+)
+write_fixture(
+    "v2-hardening-smoke-case-no-match",
+    source[:case_start] + case_wrapped + source[case_end:],
+)
+
+prune_command = 'docker buildx prune --force --max-used-space "$BUILD_CACHE_MAX_SPACE"'
+prune_line = prune_command + "\n"
+backup_prune_line = 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"\n'
+image_loop_line = 'while IFS="$(printf \'\\t\')" read -r repo tag image_id; do\n'
+
+replace_once("v2-hardening-prune-deleted", prune_command, "echo 'BuildKit cache prune removed'")
+replace_once(
+    "v2-hardening-prune-if-false",
+    prune_line,
+    f"if false; then\n  {prune_command}\nfi\n",
+)
+replace_once(
+    "v2-hardening-prune-function-body",
+    prune_line,
+    f"dead_prune() {{\n  {prune_command}\n}}\n",
+)
+replace_once(
+    "v2-hardening-prune-duplicated",
+    prune_line,
+    prune_line + prune_line,
+)
+
+without_prune = source.replace(prune_line, "", 1)
+if without_prune == source:
+    raise SystemExit("prune move source line missing")
+write_fixture(
+    "v2-hardening-prune-before-image-loop",
+    without_prune.replace(image_loop_line, prune_line + image_loop_line, 1),
+)
+write_fixture(
+    "v2-hardening-prune-after-backup",
+    without_prune.replace(backup_prune_line, backup_prune_line + prune_line, 1),
+)
+
+replace_once(
+    "v2-hardening-cache-cap-changed",
+    "BUILD_CACHE_MAX_SPACE = '10GB'",
+    "BUILD_CACHE_MAX_SPACE = '11GB'",
+)
+cache_line = "    BUILD_CACHE_MAX_SPACE = '10GB'\n"
+without_cache = source.replace(cache_line, "", 1)
+if without_cache == source:
+    raise SystemExit("cache environment line missing")
+write_fixture(
+    "v2-hardening-cache-cap-outside-environment",
+    without_cache.replace("  stages {\n", cache_line + "  stages {\n", 1),
+)
+
+replace_once(
+    "v2-hardening-exact-200-restored-curl-fail",
+    "require_status 200 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused",
+    "curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8081/",
+)
+replace_once(
+    "v2-hardening-status-helper-weakened",
+    'if [ "$actual" != "$expected" ]; then',
+    'if [ "$actual" = "$expected" ]; then',
+)
+replace_once(
+    "v2-hardening-loopback-mixed-case-deleted",
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused",
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files-removed --retry 5 --retry-connrefused",
+)
+replace_once(
+    "v2-hardening-tls-mixed-case-deleted",
+    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused",
+    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files-removed --retry 5 --retry-connrefused",
+)
+replace_once(
+    "v2-hardening-loopback-post-deleted",
+    "require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused",
+    "require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files-removed --retry 5 --retry-connrefused",
+)
+replace_once(
+    "v2-hardening-tls-post-deleted",
+    "require_status 403 POST https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused",
+    "require_status 403 POST https://54.116.116.174/api/v1/submission-files-removed --retry 5 --retry-connrefused",
+)
+replace_once(
+    "v2-hardening-descendant-deleted",
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused",
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files-removed/1 --retry 5 --retry-connrefused",
+)
+replace_once(
+    "v2-hardening-rollback-loopback-mixed-case-deleted",
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files\n",
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files-removed\n",
+)
+replace_once(
+    "v2-hardening-rollback-loopback-post-deleted",
+    "require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files\n",
+    "require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files-removed\n",
+)
+replace_once(
+    "v2-hardening-rollback-tls-mixed-case-deleted",
+    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files \\\n",
+    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files-removed \\\n",
+)
+replace_once(
+    "v2-hardening-rollback-tls-post-deleted",
+    "require_status 403 POST https://54.116.116.174/api/v1/submission-files \\\n",
+    "require_status 403 POST https://54.116.116.174/api/v1/submission-files-removed \\\n",
+)
+
+preflight_start = source.index("    stage('Buildx 캐시 상한 사전 검증') {")
+frontend_preflight_start = source.index("    stage('FRONTEND_URL HTTPS 사전 검증') {", preflight_start)
+preflight_block = source[preflight_start:frontend_preflight_start]
+without_preflight = source[:preflight_start] + source[frontend_preflight_start:]
+write_fixture("v2-hardening-buildx-preflight-deleted", without_preflight)
+build_stage_start = without_preflight.index("    stage('버전 이미지 빌드') {")
+write_fixture(
+    "v2-hardening-buildx-preflight-after-mutation",
+    without_preflight[:build_stage_start] + preflight_block + without_preflight[build_stage_start:],
+)
+replace_once(
+    "v2-hardening-buildx-preflight-capability-deleted",
+    "grep -F -- '--max-used-space'",
+    "grep -F -- '--max-used-space-removed'",
+)
+replace_once(
+    "v2-hardening-buildx-preflight-destructive",
+    "docker buildx prune --help 2>&1",
+    "docker buildx prune --force 2>&1",
+)
+
+rollout_nginx_test = '                docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -t\n'
+rollout_nginx_reload = '                docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -s reload\n'
+rollout_smoke = "                require_status 200 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused\n"
+rollback_nginx_test = '                    docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -t\n'
+rollback_nginx_reload = '                    docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -s reload\n'
+rollback_smoke = "                    require_status 200 GET http://127.0.0.1:8081/\n"
+
+replace_once("v2-nginx-rollout-test-deleted", rollout_nginx_test, "")
+replace_once("v2-nginx-rollout-reload-deleted", rollout_nginx_reload, "")
+replace_once(
+    "v2-nginx-rollout-reload-if-false",
+    rollout_nginx_reload,
+    f"                if false; then\n{rollout_nginx_reload}                fi\n",
+)
+rollout_without_reload = source.replace(rollout_nginx_reload, "", 1)
+write_fixture(
+    "v2-nginx-rollout-reload-after-smoke",
+    rollout_without_reload.replace(rollout_smoke, rollout_smoke + rollout_nginx_reload, 1),
+)
+
+replace_once("v2-nginx-rollback-test-deleted", rollback_nginx_test, "")
+replace_once("v2-nginx-rollback-reload-deleted", rollback_nginx_reload, "")
+rollback_without_reload = source.replace(rollback_nginx_reload, "", 1)
+write_fixture(
+    "v2-nginx-rollback-reload-after-smoke",
+    rollback_without_reload.replace(rollback_smoke, rollback_smoke + rollback_nginx_reload, 1),
+)
+
+noop_stage_marker = "    stage('no-op 실행 중 nginx 드리프트 검증') {"
+retention_stage_marker = "    stage('성공 후 이미지·백업 보존 정리') {"
+noop_stage_start = source.index(noop_stage_marker)
+retention_stage_start = source.index(retention_stage_marker, noop_stage_start)
+noop_stage = source[noop_stage_start:retention_stage_start]
+
+
+def mutate_noop(name: str, old: str, new: str) -> None:
+    if old not in noop_stage:
+        raise SystemExit(f"no-op fixture pattern missing: {name}: {old!r}")
+    mutated_stage = noop_stage.replace(old, new, 1)
+    write_fixture(name, source[:noop_stage_start] + mutated_stage + source[retention_stage_start:])
+
+
+write_fixture(
+    "v2-nginx-noop-stage-deleted",
+    source[:noop_stage_start] + source[retention_stage_start:],
+)
+replace_once(
+    "v2-nginx-noop-when-inverted",
+    "expression { env.DEPLOY_NOOP == 'true' }",
+    "expression { env.DEPLOY_NOOP != 'true' }",
+)
+
+noop_anchor = "          require_status 200 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused\n"
+noop_mutations = {
+    "v2-nginx-noop-up-injected": '          docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait\n',
+    "v2-nginx-noop-reload-injected": "          nginx -s reload\n",
+    "v2-nginx-noop-force-recreate-injected": '          docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --force-recreate nginx\n',
+    "v2-nginx-noop-pull-injected": '          docker compose --env-file "$OSS_HUB_ENV_FILE" pull nginx\n',
+    "v2-nginx-noop-image-rm-injected": "          docker image rm forbidden:latest\n",
+    "v2-nginx-noop-prune-injected": "          docker buildx prune --force\n",
+}
+for name, mutation in noop_mutations.items():
+    mutate_noop(name, noop_anchor, mutation + noop_anchor)
+
+mutate_noop(
+    "v2-nginx-noop-loopback-mixed-case-deleted",
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused",
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files-removed --retry 5 --retry-connrefused",
+)
+mutate_noop(
+    "v2-nginx-noop-tls-mixed-case-deleted",
+    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused",
+    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files-removed --retry 5 --retry-connrefused",
+)
+mutate_noop(
+    "v2-nginx-noop-loopback-post-deleted",
+    "require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused",
+    "require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files-removed --retry 5 --retry-connrefused",
+)
+mutate_noop(
+    "v2-nginx-noop-tls-post-deleted",
+    "require_status 403 POST https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused",
+    "require_status 403 POST https://54.116.116.174/api/v1/submission-files-removed --retry 5 --retry-connrefused",
+)
+
+noop_smoke_start = noop_stage.index(noop_anchor)
+noop_smoke_end = noop_stage.index("        '''", noop_smoke_start)
+noop_smoke = noop_stage[noop_smoke_start:noop_smoke_end]
+noop_wrapped = f"          if false; then\n{noop_smoke}          fi\n"
+write_fixture(
+    "v2-nginx-noop-smoke-if-false",
+    source[:noop_stage_start]
+    + noop_stage[:noop_smoke_start]
+    + noop_wrapped
+    + noop_stage[noop_smoke_end:]
+    + source[retention_stage_start:],
+)
+PYHARDEN
+
 expect_pass 'v2: 현재 candidate Release 배포 계약' v2 "$fixture_dir/v2-valid"
 expect_pass 'v2: 기본 path 호출' v2 "$v2_source"
 expect_fail 'v2: parameters 블록 부활' v2 "$fixture_dir/v2-restored-parameters"
@@ -1249,6 +1551,57 @@ expect_fail 'v2 spoof: SemVer downgrade duplicate real opener' v2 "$fixture_dir/
 expect_fail 'v2 spoof: FRONTEND_URL missing echo/quoted opener' v2 "$fixture_dir/v2-spoof-frontend-url-echo-opener-missing"
 expect_fail 'v2 spoof: FRONTEND_URL uniqueness echo/quoted opener' v2 "$fixture_dir/v2-spoof-frontend-url-echo-opener-uniq"
 expect_fail 'v2 spoof: FRONTEND_URL duplicate real openers' v2 "$fixture_dir/v2-spoof-frontend-url-duplicate-openers"
+
+expect_fail_with_code 'v2 hardening: rollout smoke를 if false로 비활성화' v2 "$fixture_dir/v2-hardening-smoke-if-false"
+expect_fail_with_code 'v2 hardening: rollout smoke를 불일치 case에 배치' v2 "$fixture_dir/v2-hardening-smoke-case-no-match"
+expect_fail_with_code 'v2 hardening: rollout smoke를 bracket 거짓 guard로 비활성화' v2 "$fixture_dir/v2-hardening-smoke-if-bracket-false"
+expect_fail_with_code 'v2 hardening: rollout smoke를 test 거짓 guard로 비활성화' v2 "$fixture_dir/v2-hardening-smoke-if-test-false"
+expect_fail_with_code 'v2 hardening: rollout smoke를 미호출 함수 본문에 배치' v2 "$fixture_dir/v2-hardening-smoke-function-body"
+expect_fail_with_code 'v2 hardening: rollout smoke를 heredoc으로 주석화' v2 "$fixture_dir/v2-hardening-smoke-heredoc"
+expect_fail_with_code 'v2 hardening: rollback smoke를 if false로 비활성화' v2 "$fixture_dir/v2-hardening-rollback-smoke-if-false"
+expect_fail_with_code 'v2 hardening: BuildKit prune 삭제' v2 "$fixture_dir/v2-hardening-prune-deleted"
+expect_fail_with_code 'v2 hardening: BuildKit prune를 if false로 비활성화' v2 "$fixture_dir/v2-hardening-prune-if-false"
+expect_fail_with_code 'v2 hardening: BuildKit prune를 미호출 함수 본문에 배치' v2 "$fixture_dir/v2-hardening-prune-function-body"
+expect_fail_with_code 'v2 hardening: BuildKit prune 중복' v2 "$fixture_dir/v2-hardening-prune-duplicated"
+expect_fail_with_code 'v2 hardening: BuildKit prune를 이미지 loop 앞으로 이동' v2 "$fixture_dir/v2-hardening-prune-before-image-loop"
+expect_fail_with_code 'v2 hardening: BuildKit prune를 backup prune 뒤로 이동' v2 "$fixture_dir/v2-hardening-prune-after-backup"
+expect_fail_with_code 'v2 hardening: BuildKit cache 상한을 10GB에서 변경' v2 "$fixture_dir/v2-hardening-cache-cap-changed"
+expect_fail_with_code 'v2 hardening: BuildKit cache 상한을 environment 밖으로 이동' v2 "$fixture_dir/v2-hardening-cache-cap-outside-environment"
+expect_fail_with_code 'v2 hardening: exact 200 대신 curl --fail 복원' v2 "$fixture_dir/v2-hardening-exact-200-restored-curl-fail"
+expect_fail_with_code 'v2 hardening: require_status equality 검사를 반전' v2 "$fixture_dir/v2-hardening-status-helper-weakened"
+expect_fail_with_code 'v2 hardening: loopback mixed-case 403 삭제' v2 "$fixture_dir/v2-hardening-loopback-mixed-case-deleted"
+expect_fail_with_code 'v2 hardening: TLS mixed-case 403 삭제' v2 "$fixture_dir/v2-hardening-tls-mixed-case-deleted"
+expect_fail_with_code 'v2 hardening: loopback POST 403 삭제' v2 "$fixture_dir/v2-hardening-loopback-post-deleted"
+expect_fail_with_code 'v2 hardening: TLS POST 403 삭제' v2 "$fixture_dir/v2-hardening-tls-post-deleted"
+expect_fail_with_code 'v2 hardening: descendant 403 삭제' v2 "$fixture_dir/v2-hardening-descendant-deleted"
+expect_fail_with_code 'v2 hardening: rollback loopback mixed-case 403 삭제' v2 "$fixture_dir/v2-hardening-rollback-loopback-mixed-case-deleted"
+expect_fail_with_code 'v2 hardening: rollback loopback POST 403 삭제' v2 "$fixture_dir/v2-hardening-rollback-loopback-post-deleted"
+expect_fail_with_code 'v2 hardening: rollback TLS mixed-case 403 삭제' v2 "$fixture_dir/v2-hardening-rollback-tls-mixed-case-deleted"
+expect_fail_with_code 'v2 hardening: rollback TLS POST 403 삭제' v2 "$fixture_dir/v2-hardening-rollback-tls-post-deleted"
+expect_fail_with_code 'v2 hardening: Buildx capability preflight 삭제' v2 "$fixture_dir/v2-hardening-buildx-preflight-deleted"
+expect_fail_with_code 'v2 hardening: Buildx capability preflight를 production mutation 뒤로 이동' v2 "$fixture_dir/v2-hardening-buildx-preflight-after-mutation"
+expect_fail_with_code 'v2 hardening: Buildx capability token 삭제' v2 "$fixture_dir/v2-hardening-buildx-preflight-capability-deleted"
+expect_fail_with_code 'v2 hardening: Buildx preflight에서 destructive prune 실행' v2 "$fixture_dir/v2-hardening-buildx-preflight-destructive"
+expect_fail_with_code 'v2 nginx: rollout nginx -t 삭제' v2 "$fixture_dir/v2-nginx-rollout-test-deleted"
+expect_fail_with_code 'v2 nginx: rollout reload 삭제' v2 "$fixture_dir/v2-nginx-rollout-reload-deleted"
+expect_fail_with_code 'v2 nginx: rollout reload를 if false로 비활성화' v2 "$fixture_dir/v2-nginx-rollout-reload-if-false"
+expect_fail_with_code 'v2 nginx: rollout reload를 smoke 뒤로 이동' v2 "$fixture_dir/v2-nginx-rollout-reload-after-smoke"
+expect_fail_with_code 'v2 nginx: rollback nginx -t 삭제' v2 "$fixture_dir/v2-nginx-rollback-test-deleted"
+expect_fail_with_code 'v2 nginx: rollback reload 삭제' v2 "$fixture_dir/v2-nginx-rollback-reload-deleted"
+expect_fail_with_code 'v2 nginx: rollback reload를 smoke 뒤로 이동' v2 "$fixture_dir/v2-nginx-rollback-reload-after-smoke"
+expect_fail_with_code 'v2 nginx: no-op drift stage 삭제' v2 "$fixture_dir/v2-nginx-noop-stage-deleted"
+expect_fail_with_code 'v2 nginx: no-op when 조건 반전' v2 "$fixture_dir/v2-nginx-noop-when-inverted"
+expect_fail_with_code 'v2 nginx: no-op stage에 up 주입' v2 "$fixture_dir/v2-nginx-noop-up-injected"
+expect_fail_with_code 'v2 nginx: no-op stage에 reload 주입' v2 "$fixture_dir/v2-nginx-noop-reload-injected"
+expect_fail_with_code 'v2 nginx: no-op stage에 force-recreate 주입' v2 "$fixture_dir/v2-nginx-noop-force-recreate-injected"
+expect_fail_with_code 'v2 nginx: no-op stage에 pull 주입' v2 "$fixture_dir/v2-nginx-noop-pull-injected"
+expect_fail_with_code 'v2 nginx: no-op stage에 image rm 주입' v2 "$fixture_dir/v2-nginx-noop-image-rm-injected"
+expect_fail_with_code 'v2 nginx: no-op stage에 prune 주입' v2 "$fixture_dir/v2-nginx-noop-prune-injected"
+expect_fail_with_code 'v2 nginx: no-op loopback mixed-case 403 삭제' v2 "$fixture_dir/v2-nginx-noop-loopback-mixed-case-deleted"
+expect_fail_with_code 'v2 nginx: no-op TLS mixed-case 403 삭제' v2 "$fixture_dir/v2-nginx-noop-tls-mixed-case-deleted"
+expect_fail_with_code 'v2 nginx: no-op loopback POST 403 삭제' v2 "$fixture_dir/v2-nginx-noop-loopback-post-deleted"
+expect_fail_with_code 'v2 nginx: no-op TLS POST 403 삭제' v2 "$fixture_dir/v2-nginx-noop-tls-post-deleted"
+expect_fail_with_code 'v2 nginx: no-op smoke를 if false로 비활성화' v2 "$fixture_dir/v2-nginx-noop-smoke-if-false"
 
 printf '%s passed, %s failed\n' "$passed" "$failed"
 ((failed == 0))
