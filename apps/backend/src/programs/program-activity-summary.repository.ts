@@ -77,7 +77,6 @@ export class ProgramActivitySummaryRepository {
         WHERE state."activeGenerationId" IS NOT NULL
           AND generation."status" = 'SUCCEEDED'::"CanonicalCollectionRunStatus"
           AND generation."finishedAt" IS NOT NULL
-          AND repository."archived" = false
           AND repository."githubRepositoryId" IN (${Prisma.join([...repositoryIds])})
       ),
       latest_active_repositories AS (

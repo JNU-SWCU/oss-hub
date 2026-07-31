@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
   Prisma,
@@ -36,7 +36,7 @@ export type DashboardSubmissionRow = Prisma.SubmissionGetPayload<{
   select: typeof dashboardSubmissionSelect;
 }>;
 
-export interface SubmissionDashboardSummaryDatabase {
+export interface SubmissionDashboardSummaryDataSource {
   readonly application: {
     findMany(args: {
       readonly where: Prisma.ApplicationWhereInput;
@@ -87,8 +87,12 @@ export interface SubmissionDashboardSummaryRepositoryPort {
   ): Promise<SubmissionDashboardSummaryRecords>;
 }
 
-export class PrismaSubmissionDashboardSummaryStore implements SubmissionDashboardSummaryRepositoryPort {
-  constructor(private readonly database: SubmissionDashboardSummaryDatabase) {}
+@Injectable()
+export class SubmissionDashboardSummaryRepository implements SubmissionDashboardSummaryRepositoryPort {
+  constructor(
+    @Inject(PrismaService)
+    private readonly prisma: SubmissionDashboardSummaryDataSource,
+  ) {}
 
   async listRecords(
     programIds: readonly string[],
@@ -99,15 +103,15 @@ export class PrismaSubmissionDashboardSummaryStore implements SubmissionDashboar
 
     const programFilter = { in: [...programIds] };
     const [applications, milestones, submissions] = await Promise.all([
-      this.database.application.findMany({
+      this.prisma.application.findMany({
         where: { programId: programFilter, status: ApplicationStatus.APPROVED },
         select: dashboardApplicationSelect,
       }),
-      this.database.milestone.findMany({
+      this.prisma.milestone.findMany({
         where: { programId: programFilter },
         select: dashboardMilestoneSelect,
       }),
-      this.database.submission.findMany({
+      this.prisma.submission.findMany({
         where: {
           application: {
             is: {
@@ -136,40 +140,5 @@ export class PrismaSubmissionDashboardSummaryStore implements SubmissionDashboar
         status: submission.status,
       })),
     };
-  }
-}
-
-@Injectable()
-export class SubmissionDashboardSummaryRepository implements SubmissionDashboardSummaryRepositoryPort {
-  private readonly store: PrismaSubmissionDashboardSummaryStore;
-
-  constructor(private readonly prisma: PrismaService) {
-    this.store = new PrismaSubmissionDashboardSummaryStore({
-      application: {
-        findMany: (args) =>
-          prisma.application.findMany({
-            where: args.where,
-            select: dashboardApplicationSelect,
-          }),
-      },
-      milestone: {
-        findMany: (args) =>
-          prisma.milestone.findMany({
-            where: args.where,
-            select: dashboardMilestoneSelect,
-          }),
-      },
-      submission: {
-        findMany: (args) =>
-          prisma.submission.findMany({
-            where: args.where,
-            select: dashboardSubmissionSelect,
-          }),
-      },
-    });
-  }
-
-  listRecords(programIds: readonly string[]) {
-    return this.store.listRecords(programIds);
   }
 }

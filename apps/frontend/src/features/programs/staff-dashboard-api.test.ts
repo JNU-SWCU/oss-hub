@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getStaffDashboardSummary } from './staff-dashboard-api';
+import { getStaffDashboardSummary } from './api';
 import { StaffDashboardResponseError } from './staff-dashboard-parser';
 
 const apiClient = vi.fn();

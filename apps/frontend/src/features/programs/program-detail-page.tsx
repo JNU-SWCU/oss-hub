@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { EmptyState, PageHeader, StatusBadge } from '@/components';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -237,6 +237,16 @@ export function ProgramDetailReadyState({
 }: {
   readonly program: ProgramDetail;
 }) {
+  const didScrollActivityHash = useRef(false);
+  useEffect(() => {
+    if (didScrollActivityHash.current) return;
+    if (window.location.hash !== '#activity') return;
+    const target = document.getElementById('activity');
+    if (target === null) return;
+    target.scrollIntoView({ block: 'start', inline: 'nearest' });
+    didScrollActivityHash.current = true;
+  }, []);
+
   return (
     <main className="mx-auto grid max-w-6xl gap-8 px-4 py-8">
       <PageHeader

@@ -78,6 +78,50 @@ describe('ProgramActivitySummaryService', () => {
     expect(findCanonicalActivity).toHaveBeenCalledWith([101n, 102n, 201n]);
   });
 
+  it('keeps repository count and canonical activity aligned for a linked repository', async () => {
+    // Given
+    const findRepositoryLinks = jest
+      .fn()
+      .mockResolvedValue([
+        { programId: 'program-archived', githubRepositoryId: 301n },
+      ]);
+    const findCanonicalActivity = jest.fn().mockResolvedValue([
+      {
+        githubRepositoryId: 301n,
+        commitCount: 4,
+        pullRequestCount: 2,
+        releaseCount: 1,
+        lastActivityAt: new Date('2026-07-24T00:00:00.000Z'),
+        dataAsOf: new Date('2026-07-27T00:00:00.000Z'),
+      },
+    ]);
+    const repository = {
+      findRepositoryLinks,
+      findCanonicalActivity,
+    } satisfies Pick<
+      ProgramActivitySummaryRepository,
+      'findRepositoryLinks' | 'findCanonicalActivity'
+    >;
+
+    // When
+    const result = await new ProgramActivitySummaryService(
+      repository,
+    ).summarize(['program-archived']);
+
+    // Then
+    expect(result).toEqual([
+      {
+        programId: 'program-archived',
+        repositoryCount: 1,
+        commitCount: 4,
+        pullRequestCount: 2,
+        releaseCount: 1,
+        lastActivityAt: '2026-07-24T00:00:00.000Z',
+        dataAsOf: '2026-07-27T00:00:00.000Z',
+      },
+    ]);
+  });
+
   it('skips repository reads when there are no programs', async () => {
     // Given
     const findRepositoryLinks = jest.fn();

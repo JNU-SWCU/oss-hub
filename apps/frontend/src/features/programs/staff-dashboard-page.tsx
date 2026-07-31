@@ -9,7 +9,7 @@ import {
   type ReactElement,
 } from 'react';
 import { ApiError } from '@/lib/api-client';
-import { getStaffDashboardSummary } from './staff-dashboard-api';
+import { getStaffDashboardSummary } from './api';
 import {
   buildStaffDashboardPageModel,
   type StaffDashboardPageModel,
@@ -20,11 +20,7 @@ import {
 } from './staff-dashboard-page-view';
 import type { ProgramListStatus, StaffDashboardSummary } from './types';
 
-export {
-  StaffDashboardFilterResetButton,
-  StaffDashboardPageView,
-  StaffDashboardRetryButton,
-} from './staff-dashboard-page-view';
+export { StaffDashboardPageView } from './staff-dashboard-page-view';
 export {
   buildStaffDashboardPageModel,
   type StaffDashboardPageModel,

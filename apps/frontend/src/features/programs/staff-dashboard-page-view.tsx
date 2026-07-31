@@ -52,30 +52,6 @@ export function StaffDashboardPageView({
   }
 }
 
-export function StaffDashboardRetryButton({
-  onRetry,
-}: {
-  readonly onRetry: () => void;
-}): ReactElement {
-  return (
-    <Button type="button" onClick={onRetry}>
-      다시 시도
-    </Button>
-  );
-}
-
-export function StaffDashboardFilterResetButton({
-  onReset,
-}: {
-  readonly onReset: () => void;
-}): ReactElement {
-  return (
-    <Button type="button" variant="outline" onClick={onReset}>
-      필터 초기화
-    </Button>
-  );
-}
-
 function StaffDashboardLoadingState(): ReactElement {
   return (
     <main
@@ -101,7 +77,11 @@ function StaffDashboardErrorState({
       <EmptyState
         title="운영 대시보드를 불러오지 못했습니다"
         description={message}
-        action={<StaffDashboardRetryButton onRetry={onRetry} />}
+        action={
+          <Button type="button" onClick={onRetry}>
+            다시 시도
+          </Button>
+        }
       />
     </main>
   );
@@ -141,7 +121,13 @@ function StaffDashboardReadyState({
           title="검색 결과가 없습니다"
           description="검색어와 모집 상태 필터를 바꿔 보세요."
           action={
-            <StaffDashboardFilterResetButton onReset={actions.onResetFilters} />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={actions.onResetFilters}
+            >
+              필터 초기화
+            </Button>
           }
         />
       ) : (

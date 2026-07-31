@@ -4,7 +4,7 @@ import {
 } from './program-activity-summary.repository';
 
 describe('ProgramActivitySummaryRepository', () => {
-  it('uses only a completed canonical generation timestamp as dataAsOf', async () => {
+  it('uses completed canonical history even when a linked repository is archived', async () => {
     let queryText = '';
     const prisma = {
       repository: { findMany: jest.fn() },
@@ -29,6 +29,7 @@ describe('ProgramActivitySummaryRepository', () => {
 
     expect(queryText).toContain('generation."finishedAt" AS "dataAsOf"');
     expect(queryText).toContain('generation."finishedAt" IS NOT NULL');
+    expect(queryText).not.toContain('repository."archived" = false');
     expect(queryText).not.toContain('state."updatedAt" AS "dataAsOf"');
     expect(result).toEqual([
       {
