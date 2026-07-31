@@ -7,7 +7,7 @@
 
 NestJS 모듈별 소스이며 모듈마다 폴더 하나를 쓴다.
 `common/`·`prisma/`는 전 모듈이 공유하는 기반 계층이다.
-`health/`·`audit-log/`·`consents/`·`login-history/`·`profiles/`·`ranking/`·`showcase/`·`users/`·`system-status/`·`repository-ownership/`·`runtime-config/`·`submission-reviews/`는 별도 문서 없이 이 문서가 다룬다.
+`health/`·`audit-log/`·`consents/`·`login-history/`·`profiles/`·`ranking/`·`showcase/`·`users/`·`system-status/`·`repository-ownership/`·`runtime-config/`·`submission-reviews/`·`public-eligibility/`는 별도 문서 없이 이 문서가 다룬다.
 `login-history/README.md`만 보존 정책을 추가로 설명한다.
 
 ## Key Files
@@ -32,6 +32,7 @@ NestJS 모듈별 소스이며 모듈마다 폴더 하나를 쓴다.
 | `submissions/` | 제출물·파일 라이프사이클 | [submissions/AGENTS.md](submissions/AGENTS.md) |
 | `submission-reviews/` | 제출 검토·저장소 공개 전환(`repositories/`의 `publish`를 소비) | — 이 문서가 다룸 |
 | `repositories/` | GitHub 저장소 프로비저닝·공개 전환 | [repositories/AGENTS.md](repositories/AGENTS.md) |
+| `public-eligibility/` | todo 15 — platform 발행 + Collection freshness fence를 합치는 단일 public eligibility 정책(`PublicEligibilityService`). 아직 어떤 controller도 소비하지 않는다 | — 이 문서가 다룸 |
 | `notifications/` | 알림 설정·마감 다이제스트 메일 | [notifications/AGENTS.md](notifications/AGENTS.md) |
 | `runtime-config/` | 전역 런타임 환경변수 snapshot | — 이 문서가 다룸 |
 | `prisma/` | NestJS용 Prisma 서비스/모듈 래퍼(`prisma.service.ts`·`prisma.module.ts`) — 스키마·마이그레이션·시드는 `apps/backend/prisma/`(리포 루트 기준 다른 디렉터리)가 원본 |
