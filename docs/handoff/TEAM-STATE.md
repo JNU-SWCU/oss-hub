@@ -182,9 +182,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 
 <!-- 원본 간 충돌은 해결하지 않고 CONFLICT로만 표기한다(임의 해결 금지). -->
 
-- CONFLICT — 릴리즈 승인 게이트 폐지(ADR-002 2026-07-31)와 ADR-005의 배포 승인 서술이 어긋난다.
-  ADR-005는 production release가 #199 댓글의 `RELEASE_ACCEPT role=PM tag=<tag> head=<sha>` 한 건으로 시작한다고 적고 있고(§high risk 병합·§Costs), fail-closed 예외 목록에도 "Jenkins release 승인 바인딩"이 남아 있다.
-  ADR-005는 권한 모델의 원본이고 현재 개정 PR이 여러 건 열려 있어(#300·#375·#391) 이 브랜치에서 임의 수정하지 않는다 — 어느 문서를 어떻게 맞출지는 @GoBeromsu 판정 대상이다.
+- CONFLICT 해소(2026-07-31) — ADR-005 §배포 승인 서술이 어긋나던 문제는 같은 브랜치의 커밋 2d3370b(docs: 리뷰 정책을 현재 Release 배포 계약에 맞춘다)에서 ADR-005 §Decision·§Costs를 ADR-002 위임 방식으로 갱신해 해소됐다.
 - CONFLICT — `docs/exec-plan/active/jenkinsfile-thinning.md`가 승인 marker 검증을 "현재 동작"으로 서술하고 `scripts/jenkins/verify-release-approval.sh` 추출을 계획 단계로 남겨 뒀다.
   게이트가 폐지되면서 그 추출 단계와 `FAIL_CLOSED approval_*` marker 계약은 대상이 사라졌다.
   exec-plan owner가 @GoBeromsu이므로 이 브랜치에서 고치지 않고 표기만 남긴다.
