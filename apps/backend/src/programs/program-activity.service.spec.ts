@@ -15,7 +15,9 @@ const staff: ProgramViewer = {
   role: Role.STAFF,
 };
 
-function repositoryActivity(updatedAt: string): CollectionRepositoryActivityDto {
+function repositoryActivity(
+  updatedAt: string,
+): CollectionRepositoryActivityDto {
   return {
     repositoryId: 101n,
     dataAsOf: new Date(updatedAt),

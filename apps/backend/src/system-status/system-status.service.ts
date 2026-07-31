@@ -6,9 +6,7 @@ import {
   type CollectionRunStatusDto,
   type CollectionStatusSnapshotDto,
 } from '../collection/collection-read.port';
-import {
-  SystemStatusRepository,
-} from './system-status.repository';
+import { SystemStatusRepository } from './system-status.repository';
 import {
   CollectionSystemStatusResponseDto,
   SystemStatusResponseDto,

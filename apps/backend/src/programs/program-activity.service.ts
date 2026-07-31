@@ -194,9 +194,7 @@ export class ProgramActivityService {
       );
       const dataAsOf = [...canonicalByRepository.values()].reduce<Date | null>(
         (latest, generation) =>
-          latest && latest > generation.dataAsOf
-            ? latest
-            : generation.dataAsOf,
+          latest && latest > generation.dataAsOf ? latest : generation.dataAsOf,
         null,
       );
 
