@@ -36,11 +36,13 @@ ssh ubuntu@<EC2_TAILSCALE_HOST>
 ## M2. Docker · Jenkins · 빌드 툴체인 설치
 
 파이프라인 executor는 서버 로컬에서 Docker 이미지 빌드와 앱 build(lint/typecheck/test)를 수행하므로 Docker와 Node/pnpm/jq가 모두 필요하다.
+Buildx plugin도 필수다 — 배포 성공 뒤 캐시 정리가 `docker buildx prune --force --max-used-space`를 호출하므로 이 옵션을 지원하는 Buildx가 없으면 정리 단계에서 배포가 실패한다.
+운영 서버의 확인된 기준선은 Buildx `v0.35.0`이며, 이보다 낮은 버전을 쓸 때는 `--max-used-space` 지원 여부를 먼저 확인한다.
 
 ```sh
-# Docker Engine + compose plugin (Ubuntu)
+# Docker Engine + compose·buildx plugin (Ubuntu)
 sudo apt-get update
-sudo apt-get install -y docker.io docker-compose-plugin jq
+sudo apt-get install -y docker.io docker-compose-plugin docker-buildx-plugin jq
 sudo systemctl enable --now docker
 
 # Node 24 + pnpm 11 (corepack)
@@ -58,6 +60,7 @@ corepack prepare pnpm@11 --activate
 ```sh
 docker --version          # Docker version 2x.x.x
 docker compose version    # Docker Compose version v2.x.x
+docker buildx version     # github.com/docker/buildx v0.35.0 이상 (--max-used-space 지원 필요)
 node -v                   # v24.x.x
 pnpm -v                   # 11.x.x
 jq --version              # jq-1.x
@@ -151,7 +154,7 @@ stat -c '%a %U %G %n' /var/lib/oss-hub/backups
 
 첫 Release e2e 전에 [pre-deploy-verify](./pre-deploy-verify.md)의 ① 로컬 랩탑 검증과 ② 배포 EC2 서버-로컬 드라이런을 순서대로 통과시킨다. 앞 단계가 통과해야 다음으로 넘어간다.
 
-- 검증: ②에서 배포 EC2 서버-로컬로 이미지 빌드 + `docker compose up` + `http://127.0.0.1:8081/`·`/api/v1/health` smoke가 1회 성공.
+- 검증: ②에서 배포 EC2 서버-로컬로 이미지 빌드 + `docker compose up` + `http://127.0.0.1:8081/`·`/api/v1/health` 200과 제출 파일 업로드 경로 403 smoke가 1회 성공.
 
 ## M7. 첫 Release 수동 트리거 e2e
 
