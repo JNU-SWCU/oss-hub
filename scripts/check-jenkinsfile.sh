@@ -656,6 +656,47 @@ require_single_image_tag_assignment() {
   fi
 }
 
+# opener 정확히 1개 + 그 opener의 닫는 블록 안에서만 유효한 단말(들)을 검증하는 공용 헬퍼.
+# awk에 정규식을 -v로 넘기면 POSIX escape 처리로 의미가 재해석될 위험이 있어(예: \$, \. 등),
+# -v 대신 awk 프로그램 텍스트에 따옴표 스플라이싱으로 직접 삽입해 원본 리터럴을 그대로 보존한다.
+require_single_opener_with_terminal() {
+  local desc="$1" opener_re="$2" closer_re="$3" terminal_re="$4" bad_re="${5:-}" second_re="${6:-}"
+  local prog='
+    {
+      if ($0 ~ /'"$opener_re"'/) {
+        openers++
+        if (openers == 1) grab = 1
+        next
+      }
+      if (grab) {
+        if ($0 ~ /'"$terminal_re"'/) term = 1
+'
+  if [[ -n "$second_re" ]]; then
+    prog+='        if ($0 ~ /'"$second_re"'/) term2 = 1
+'
+  fi
+  if [[ -n "$bad_re" ]]; then
+    prog+='        if ($0 ~ /'"$bad_re"'/) bad = 1
+'
+  fi
+  prog+='        if ($0 ~ /'"$closer_re"'/) grab = 0
+      }
+    }
+    END { exit (openers == 1 && term'
+  if [[ -n "$second_re" ]]; then
+    prog+=' && term2'
+  fi
+  if [[ -n "$bad_re" ]]; then
+    prog+=' && !bad'
+  fi
+  prog+=') ? 0 : 1 }
+  '
+  if ! awk "$prog" "$active_jenkinsfile"; then
+    printf '%s: %s\n' "$label" "$desc" >&2
+    exit 1
+  fi
+}
+
 check_v2() {
   require_common_executor_guards
 
@@ -743,102 +784,42 @@ check_v2() {
   # Reject echo/println/quoted openers, substring spoofs, and duplicate real openers.
 
   # stopped-only branch: condition → terminal exit (marker text alone is insufficient)
-  if ! awk '
-    {
-      if ($0 ~ /^[[:space:]]*if[[:space:]]+\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\][[:space:]]*;[[:space:]]*then[[:space:]]*$/) {
-        openers++
-        if (openers == 1) grab = 1
-        next
-      }
-      if (grab) {
-        if ($0 ~ /^[[:space:]]*exit[[:space:]]+[1-9][0-9]*[[:space:]]*$/) term = 1
-        if ($0 ~ /^[[:space:]]*fi[[:space:]]*$/) grab = 0
-      }
-    }
-    END { exit (openers == 1 && term) ? 0 : 1 }
-  ' "$active_jenkinsfile"; then
-    printf '%s: stopped container 분기는 유일 executable opener 와 단말 exit 로 실패해야 함 (marker-only 금지)\n' "$label" >&2
-    exit 1
-  fi
+  require_single_opener_with_terminal \
+    'stopped container 분기는 유일 executable opener 와 단말 exit 로 실패해야 함 (marker-only 금지)' \
+    '^[[:space:]]*if[[:space:]]+\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\][[:space:]]*;[[:space:]]*then[[:space:]]*$' \
+    '^[[:space:]]*fi[[:space:]]*$' \
+    '^[[:space:]]*exit[[:space:]]+[1-9][0-9]*[[:space:]]*$'
 
   # partial existence branch: one-sided container presence → terminal exit
-  if ! awk '
-    {
-      if ($0 ~ /^[[:space:]]*if[[:space:]]+\{[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*\|\|[[:space:]]*\{[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*;[[:space:]]*then[[:space:]]*$/) {
-        openers++
-        if (openers == 1) grab = 1
-        next
-      }
-      if (grab) {
-        if ($0 ~ /^[[:space:]]*exit[[:space:]]+[1-9][0-9]*[[:space:]]*$/) term = 1
-        if ($0 ~ /^[[:space:]]*fi[[:space:]]*$/) grab = 0
-      }
-    }
-    END { exit (openers == 1 && term) ? 0 : 1 }
-  ' "$active_jenkinsfile"; then
-    printf '%s: partial deployment 분기는 유일 executable opener 와 단말 exit 로 실패해야 함 (marker-only 금지)\n' "$label" >&2
-    exit 1
-  fi
+  require_single_opener_with_terminal \
+    'partial deployment 분기는 유일 executable opener 와 단말 exit 로 실패해야 함 (marker-only 금지)' \
+    '^[[:space:]]*if[[:space:]]+\{[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*\|\|[[:space:]]*\{[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*;[[:space:]]*then[[:space:]]*$' \
+    '^[[:space:]]*fi[[:space:]]*$' \
+    '^[[:space:]]*exit[[:space:]]+[1-9][0-9]*[[:space:]]*$'
 
   # Groovy non-running probe state must terminal-error (not a renamed condition alone)
-  if ! awk '
-    {
-      if ($0 ~ /^[[:space:]]*if[[:space:]]*\([[:space:]]*state[[:space:]]*!=[[:space:]]*'\''running'\''[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/) {
-        openers++
-        if (openers == 1) grab = 1
-        next
-      }
-      if (grab) {
-        if ($0 ~ /^[[:space:]]*error[[:space:]]*\(/) term = 1
-        if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) grab = 0
-      }
-    }
-    END { exit (openers == 1 && term) ? 0 : 1 }
-  ' "$active_jenkinsfile"; then
-    printf '%s: non-running probe state는 유일 executable opener 와 error(...) 단말 실패여야 함\n' "$label" >&2
-    exit 1
-  fi
+  require_single_opener_with_terminal \
+    'non-running probe state는 유일 executable opener 와 error(...) 단말 실패여야 함' \
+    "^[[:space:]]*if[[:space:]]*\([[:space:]]*state[[:space:]]*!=[[:space:]]*'running'[[:space:]]*\)[[:space:]]*\{[[:space:]]*\$" \
+    "^[[:space:]]*\}[[:space:]]*\$" \
+    '^[[:space:]]*error[[:space:]]*\('
 
   # same-tag/different-SHA: condition → error(...) terminal (marker rename must not pass)
-  if ! awk '
-    {
-      if ($0 ~ /^[[:space:]]*if[[:space:]]*\([[:space:]]*prevTag[[:space:]]*==[[:space:]]*env\.RELEASE_TAG[[:space:]]*&&[[:space:]]*prevSha[[:space:]]*!=[[:space:]]*env\.RELEASE_SHA[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/) {
-        openers++
-        if (openers == 1) grab = 1
-        next
-      }
-      if (grab) {
-        if ($0 ~ /^[[:space:]]*error[[:space:]]*\(/) term = 1
-        if ($0 ~ /^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''true'\''/) bad = 1
-        if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) grab = 0
-      }
-    }
-    END { exit (openers == 1 && term && !bad) ? 0 : 1 }
-  ' "$active_jenkinsfile"; then
-    printf '%s: same-tag/different-SHA는 유일 executable opener 와 error(...) 단말 실패여야 함 (marker-only 금지)\n' "$label" >&2
-    exit 1
-  fi
+  require_single_opener_with_terminal \
+    'same-tag/different-SHA는 유일 executable opener 와 error(...) 단말 실패여야 함 (marker-only 금지)' \
+    "^[[:space:]]*if[[:space:]]*\([[:space:]]*prevTag[[:space:]]*==[[:space:]]*env\.RELEASE_TAG[[:space:]]*&&[[:space:]]*prevSha[[:space:]]*!=[[:space:]]*env\.RELEASE_SHA[[:space:]]*\)[[:space:]]*\{[[:space:]]*\$" \
+    "^[[:space:]]*\}[[:space:]]*\$" \
+    '^[[:space:]]*error[[:space:]]*\(' \
+    "^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'true'"
 
   # SemVer downgrade: bounded cmp < 0 → DEPLOY_NOOP=true → return (not a log marker)
-  if ! awk '
-    {
-      if ($0 ~ /^[[:space:]]*if[[:space:]]*\([[:space:]]*cmp[[:space:]]*<[[:space:]]*0[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/) {
-        openers++
-        if (openers == 1) grab = 1
-        next
-      }
-      if (grab) {
-        if ($0 ~ /^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''true'\''/) noop = 1
-        if ($0 ~ /^[[:space:]]*return[[:space:]]*;?[[:space:]]*$/) ret = 1
-        if ($0 ~ /^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''false'\''/) bad = 1
-        if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) grab = 0
-      }
-    }
-    END { exit (openers == 1 && noop && ret && !bad) ? 0 : 1 }
-  ' "$active_jenkinsfile"; then
-    printf '%s: full SemVer downgrade는 유일 cmp < 0 opener 후 DEPLOY_NOOP=true 와 return 이어야 함\n' "$label" >&2
-    exit 1
-  fi
+  require_single_opener_with_terminal \
+    'full SemVer downgrade는 유일 cmp < 0 opener 후 DEPLOY_NOOP=true 와 return 이어야 함' \
+    "^[[:space:]]*if[[:space:]]*\([[:space:]]*cmp[[:space:]]*<[[:space:]]*0[[:space:]]*\)[[:space:]]*\{[[:space:]]*\$" \
+    "^[[:space:]]*\}[[:space:]]*\$" \
+    "^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'true'" \
+    "^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'false'" \
+    '^[[:space:]]*return[[:space:]]*;?[[:space:]]*$'
 
   local buildx_preflight_stage='Buildx 캐시 상한 사전 검증'
   local buildx_preflight_command="if ! docker buildx prune --help 2>&1 | grep -F -- '--max-used-space' >/dev/null; then"
