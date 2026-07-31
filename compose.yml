@@ -158,7 +158,8 @@ services:
       # 공인 80/443은 host nginx가 담당하고 Compose ingress는 loopback에서만 받는다.
       - '127.0.0.1:8081:80'
     volumes:
-      - ./deploy/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # 단일 파일 마운트는 inode를 고정해 배포 뒤 낡은 설정이 남으므로 디렉터리를 마운트한다.
+      - ./deploy/nginx:/etc/nginx/conf.d:ro
 
 volumes:
   pgdata:
