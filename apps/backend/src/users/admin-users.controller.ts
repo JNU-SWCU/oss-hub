@@ -16,7 +16,10 @@ import { AdminUserQueryRequestDto } from './dto/admin-user-query.dto';
 import { AdminUserResponseDto } from './dto/admin-user-response.dto';
 import { PatchUserRoleRequestDto } from './dto/patch-user-role.dto';
 import { AdminUsersService } from './admin-users.service';
-import { ROLES_ERROR_CODES, RolesErrorCode } from './roles-error-code.enum';
+import {
+  ROLES_ERROR_CODES,
+  RolesErrorCode,
+} from '../roles/roles-error-code.enum';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 const USER_ID_PATTERN = /^[A-Za-z0-9:_-]{1,128}$/;

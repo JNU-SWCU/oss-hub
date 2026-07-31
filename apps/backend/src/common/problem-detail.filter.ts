@@ -7,7 +7,10 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import type { ProblemDetailFieldError } from './error-code';
+import type {
+  ProblemDetailCurrentAccess,
+  ProblemDetailFieldError,
+} from './error-code';
 import { DomainException } from './error-code';
 import { SystemErrorCode } from './system-error-code.enum';
 const BAD_REQUEST_STATUS = 400;
@@ -22,6 +25,7 @@ interface ProblemDetail {
   code: string;
   retryNotBeforeAt?: string;
   fieldErrors?: readonly ProblemDetailFieldError[];
+  currentAccess?: ProblemDetailCurrentAccess;
 }
 interface ExceptionLogEvent {
   readonly event: 'http.exception';

@@ -1,7 +1,10 @@
 import { Role } from '@prisma/client';
 import { IsString } from 'class-validator';
 import { DomainException } from '../../common/error-code';
-import { ROLES_ERROR_CODES, RolesErrorCode } from '../roles-error-code.enum';
+import {
+  ROLES_ERROR_CODES,
+  RolesErrorCode,
+} from '../../roles/roles-error-code.enum';
 
 export class PatchUserRoleRequestDto {
   @IsString()

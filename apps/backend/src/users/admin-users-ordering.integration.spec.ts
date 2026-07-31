@@ -8,7 +8,7 @@ assertIsolatedIntegrationDatabase({
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 
-const TEST_PREFIX = 'test:admin-users:ordering:';
+const TEST_PREFIX = 'test:pr03:admin-users:ordering:';
 const prisma = new PrismaService();
 const repository = new AdminUsersRepository(prisma);
 
@@ -20,32 +20,35 @@ beforeEach(async () => {
   await prisma.user.deleteMany({
     where: { id: { startsWith: TEST_PREFIX } },
   });
-  await prisma.user.createMany({
-    data: [
-      {
+  await prisma.$transaction([
+    prisma.user.create({
+      data: {
         id: `${TEST_PREFIX}profile-first`,
-        githubId: 9_600_000_000_153_301n,
+        githubId: 9_003_400_001n,
         nickname: 'synthetic-ordering-profile',
-        name: 'Zulu Legacy',
+        name: 'Alpha Profile',
+        studentId: '153301',
+        department: 'Synthetic Department',
         role: Role.STUDENT,
+        profile: {
+          create: {
+            name: 'Alpha Profile',
+            studentId: '153301',
+            department: 'Synthetic Department',
+          },
+        },
       },
-      {
+    }),
+    prisma.user.create({
+      data: {
         id: `${TEST_PREFIX}legacy-fallback`,
-        githubId: 9_600_000_000_153_302n,
+        githubId: 9_003_400_002n,
         nickname: 'synthetic-ordering-legacy',
         name: 'Beta Legacy',
         role: Role.STUDENT,
       },
-    ],
-  });
-  await prisma.userProfile.create({
-    data: {
-      userId: `${TEST_PREFIX}profile-first`,
-      name: 'Alpha Profile',
-      studentId: '153301',
-      department: 'Synthetic Department',
-    },
-  });
+    }),
+  ]);
 });
 
 afterAll(async () => {
