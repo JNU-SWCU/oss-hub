@@ -93,9 +93,9 @@ ADR, Issue, PR, commit, 로그, Notion에는 실제 값이나 private key 예시
 | --- | --- | --- | --- | --- |
 | Collection App | installation repository 목록 조회 | `GET /installation/repositories` | Repository `Metadata: read` | `All repositories` 범위의 Org-wide 목록을 pagination한다. |
 | Collection App | 조직 repository metadata 조회 | `GET /repos/{owner}/{repo}` | Repository `Metadata: read` | Org 소속과 mapped/unmapped 상태를 판별한다. |
-| Collection App | commit 조회 | `GET /repos/{owner}/{repo}/commits` | Repository `Contents: read` | 집계에 필요한 commit을 installation token으로 읽는다. |
-| Collection App | pull request 조회 | `GET /repos/{owner}/{repo}/pulls` | Repository `Pull requests: read` | 집계에 필요한 PR을 installation token으로 읽는다. |
-| Collection App | published release 조회 | `GET /repos/{owner}/{repo}/releases` | Repository `Contents: read` | published release만 current state에 포함한다. |
+| Collection App | commit 조회 | `GET /repos/{owner}/{repo}/commits` | Repository `Contents: read` | 신규 repo는 default branch 전체를 backfill하고, 기존 repo는 default-branch head probe 이후 알려진 SHA를 만날 때까지만 순회한다. |
+| Collection App | pull request 조회 | `GET /repos/{owner}/{repo}/pulls` | Repository `Pull requests: read` | `state=all&sort=created&direction=desc` 고정과 `(createdAt, githubPullRequestId)` tie frontier로 새 PR만 읽는다. |
+| Collection App | published release 조회 | `GET /repos/{owner}/{repo}/releases` | Repository `Contents: read` | published release만 포함하며 draft는 제외한다. probe가 바뀐 repo만 published release 목록 전체를 다시 읽어 ID로 dedupe한다. |
 | Repository Operations App | 조직 private repository 생성 | `POST /orgs/{org}/repos` | Repository `Administration: write` | 생성 요청은 `private: true`로 고정한다. |
 | Repository Operations App | repository metadata 조회 | `GET /repos/{owner}/{repo}` | Repository `Metadata: read` | external repository ID·이름·visibility를 대조한다. |
 | Repository Operations App | collaborator 여부 확인 | `GET /repos/{owner}/{repo}/collaborators/{username}` | Repository `Metadata: read` | `204`는 이미 collaborator인 성공 상태다. |
@@ -109,20 +109,69 @@ Organization `Members`를 포함한 organization permission은 어느 App에도 
 `Administration: write`가 invitation 조회의 `Administration: read` 요구도 포함한다.
 
 Collection App의 유일한 수집 authority는 installation token을 사용하는 GitHub REST API이며 webhook, OAuth, PAT 경로를 병행하거나 fallback으로 사용하지 않는다.
-수집은 매시간 정기 실행하고 기존 `ADMIN` manual trigger도 동일한 generation 경로를 호출한다.
-한 실행은 시작 시점의 Org-wide current state를 하나의 generation으로 만들며 아래 단위 전체가 성공하기 전에는 current generation pointer를 교체하지 않는다.
+API 요청은 `X-GitHub-Api-Version: 2022-11-28`을 고정한다.
+
+### 조직 전체 누적·증분 수집 (canonical contract)
+
+Collection App 설치 범위에 있는 `JNU-SWCU` 조직의 모든 repository를 **visibility와 무관하게** 내부 추적 대상으로 삼는다.
+mapped/unmapped, private/public 모두 이 collection 범위에 포함하며 private/public은 **수집 허용 여부가 아니라 외부 응답 field/row 노출 허용 여부**만 결정한다.
+조직 밖 repository와 개인 계정 소유 repository는 이 범위 밖이다.
+
+지표는 GitHub의 현재 reachability/state를 재현하는 값이 아니라 **한 번 관측된 고유 활동의 누적값**이다.
 
 ```text
-Org-wide generation = All repositories metadata + default-branch commits + all-state pull requests + published releases
+commit  unique key  = (repositoryId, sha)
+PR      unique key  = (repositoryId, githubPullRequestId)
+release unique key  = (repositoryId, githubReleaseId)
 ```
 
-repository 목록과 각 repository의 metadata, default branch commit, `state=all` pull request, published release를 REST pagination으로 읽고 draft release는 current state에서 제외한다.
-각 endpoint는 최대 100 page, generation 전체는 최대 45분으로 제한한다.
-page 또는 시간 한도, rate limit, 권한 오류, 일부 repository 실패가 발생하면 generation 전체를 `INCOMPLETE`로 기록하고 직전 complete generation을 current로 유지한다.
-재시도는 새 generation으로 시작하며 incomplete generation의 일부 결과를 current state에 합치지 않는다.
+force-push, PR state 변경, release 삭제는 이미 관측된 unique count를 감소시키지 않는다.
+같은 사실의 재관측·재시도·중복 응답도 unique key 때문에 count를 증가시키지 않는다.
+이 누적 계약 때문에 tombstone·reachability 재계산과 periodic org-wide full-history reconciliation을 두지 않는다.
+
+신규 repository는 commit·PR·release 세 stream을 1회 full backfill한다.
+기존 repository는 hourly run마다 installation 전체를 inventory하되, 각 stream은 endpoint별 safe frontier 이후의 변경분만 처리한다.
+
+- commit: default-branch head probe가 이전과 다르면 최신→과거 순회로 이미 알려진 SHA를 만날 때까지 읽는다. 교집합 SHA가 없는 **연결이 끊긴 repository만** 그 repository의 현재 default branch 전체를 다시 읽어 SHA로 dedupe한 뒤에 frontier를 승격한다.
+- pull request: `state=all&sort=created&direction=desc`로 고정 조회하고 `(createdAt, githubPullRequestId)` tie frontier를 넘을 때까지만 읽는다.
+- release: 고정된 probe representation(최신 published release ID/시각)이 바뀐 **repository만** published release 목록 전체를 다시 읽어 `(repositoryId, githubReleaseId)`로 dedupe한다. draft release는 계속 제외한다.
+
+위 완전 재스캔은 변경이 감지된 해당 repository에만 적용하는 예외적 복구 scan이며, 변경 없는 repository 전체를 반복 재수집하는 periodic org-wide reconciliation이 아니다.
+
+각 요청은 endpoint·ref/branch·정렬·query·page size·`Accept`·`X-GitHub-Api-Version`을 포함한 **exact request fingerprint**로 식별한다.
+이 fingerprint에 대해 nullable `ETag`를 조건부 GET(`If-None-Match`)에 사용해 `304`를 받으면 해당 repository의 해당 stream을 스킵한다.
+ETag는 다른 fingerprint 사이에서 재사용하지 않으며, ETag 부재나 실패는 correctness의 전제조건이 아니다 — 항상 안전한 fallback은 위 SHA/tie/ID dedupe 순회다.
+
+provider 요청은 하나의 fair serial queue를 통과하며 최소 250ms 간격으로 페이싱한다.
+남은 rate limit이 `max(100, limit의 20%)` 이하로 떨어지면 그 run은 안전하게 정지하고 다음 run의 durable continuation cursor(오래된 순 repository ID)에서 이어간다.
+같은 run이 매번 repository 1번부터 다시 시작하지 않는다.
+
+각 endpoint는 최대 100 page로 제한한다.
+page 한도, rate limit, 권한 오류, 부분 실패가 발생한 stream은 그 stream의 checkpoint와 aggregate를 승격하지 않고 직전 성공 상태를 유지한다.
+재시도는 실패한 stream의 checkpoint부터 이어가며 부분 결과를 확정 상태에 합치지 않는다.
 REST 응답은 repository·commit·pull request·release numeric ID, 발생 시각, dedupe key와 합의된 파생 count로 즉시 projection한 뒤 폐기한다.
-raw response, code·diff, commit message·author email, pull request title·body, release body, 사용자 profile, private repository 식별 정보는 DB·cache·로그·공개 smoke artifact에 남기지 않는다.
-후속 REST client 테스트는 전체 generation의 atomic 교체, default branch, all-state PR, published release, 100-page·45-minute 한도, 허용 필드 projection, 금지 필드 미저장과 incomplete 시 직전 current 유지까지 검증해야 한다.
+
+### 저장·폐기 field inventory
+
+내부 저장(DB)은 collection 범위 판별과 누적 집계에 필요한 아래 field에 한정한다.
+
+- repository: `githubRepositoryId`, 조직 내 repository 이름, **visibility(private/public)**, default branch, mapped/unmapped 상태.
+- commit fact: `(repositoryId, sha)`, 발생 시각. commit message·author email·diff·code 내용은 저장하지 않는다.
+- PR fact: `(repositoryId, githubPullRequestId)`, 관측 시각. title·body는 저장하지 않는다.
+- release fact: `(repositoryId, githubReleaseId)`, 발생 시각. body는 저장하지 않는다.
+- 집계: repository/contributor 단위 commit·PR·release 누적 count, 마지막 관측 시각(watermark/frontier), stream 상태.
+
+raw response, code·diff, commit message·author email, pull request title·body, release body, 사용자 profile, credential(JWT/private key/installation token)은 DB·cache·로그·공개 smoke artifact 어디에도 남기지 않는다.
+repository의 `githubRepositoryId`·이름·visibility는 내부 collection DB에는 저장하지만, **공개 API 응답과 공개 smoke artifact에는** private repository의 식별 정보(이름, 존재 여부, visibility)를 노출하지 않는다 — "private repository 식별 정보를 남기지 않는다"는 이전 서술은 내부 저장과 공개 노출을 구분하지 않아 실제 구현과 충돌했으므로 위와 같이 층을 분리해 교정한다.
+
+### 공개 노출과 complete/partial inventory
+
+공개 API는 platform publication 조건과 **최신 complete Collection inventory 관측**을 함께 통과해야 노출한다.
+`publishedAt` 이후 시점에 관측된 private/missing 상태는 즉시 공개를 차단(fail-closed)한다.
+publication 이전의 오래된 private 관측은 방금 완료된 managed publication을 막지 않는다.
+partial inventory(page/시간/rate limit/권한 오류로 일부만 관측)는 missing 판정의 증거로 쓰지 않는다 — activity stream 실패와 visibility/presence 안전 관측은 별도 fenced transaction으로 분리한다.
+
+후속 REST client 테스트는 endpoint별 safe frontier와 예외적 complete scan, exact-request ETag의 nullable 특성과 fingerprint 비공유, 100-page 한도, 허용 필드 저장·금지 필드 미저장, 부분 실패 시 checkpoint 미승격, complete/partial inventory에 따른 공개 노출 revocation까지 검증해야 한다.
 
 ### 승인 시점 collaborator snapshot
 
@@ -185,14 +234,24 @@ rate limit 대응에 필요한 `retry-after`, `x-ratelimit-remaining`, `x-rateli
 
 ### Collection current-state 데이터 최소화
 
-Collection App은 mapped와 unmapped repository를 모두 같은 Org-wide generation에 포함하되 존재하지 않는 program이나 team 매핑을 만들지 않는다.
+Collection App은 mapped와 unmapped repository를 모두 같은 조직 전체 incremental collection 범위에 포함하되 존재하지 않는 program이나 team 매핑을 만들지 않는다.
 private repository의 metric은 승인된 staff와 해당 팀에만 노출하고 같은 팀이 아닌 학생에게 노출하지 않는다.
-visibility가 바뀌어도 complete generation 이력을 삭제하거나 초기화하지 않는다.
+visibility가 바뀌어도 이미 누적된 관측 facts와 aggregate 이력을 삭제하거나 초기화하지 않는다.
 공개 surface와 공개 증거에는 합성 식별자와 집계 결과만 허용하며 실제 organization login, repository full name, 사용자 데이터, private 여부를 추론할 수 있는 값은 포함하지 않는다.
+
+### 누적 저장소로의 1회 전환과 이전 세대 보존
+
+기존 hourly org-wide full-history generation 저장소에서 위 누적·증분 facts/aggregate 저장소로 전환할 때 장기 dual-run을 두지 않는다.
+
+1. 새 저장소에 additive schema로 facts/aggregate/checkpoint 모델을 추가한다.
+2. 마지막으로 성공한 기존 generation을 새 facts/aggregate에 1회 backfill한다. 이 backfill은 새 ETag/frontier를 만들어내지 않으며, 가져온 stream은 provider 재순회로 안전한 frontier를 확인하기 전까지 `VERIFYING` 상태로 둔다.
+3. synthetic parity 검증(기존 집계 = backfill 결과)과 재시도 idempotency를 통과한 뒤, 하나의 release/config 경계에서 old writer를 끄고 새 reader/writer로 원자 전환한다.
+4. old generation 테이블은 전환 이후 한 release 동안 read-only rollback 용도로 보존한다. rollback은 이 테이블이 제공하는 마지막 성공 generation을 current로 복원하는 것으로 한정한다.
+5. 보존 기간이 끝나면 old generation 테이블 제거는 별도로 추적하는 후속 migration에서 수행하며 이 ADR의 전환 자체에 포함하지 않는다.
 
 ### live smoke 계약
 
-자동 테스트는 GitHub API mock과 합성 fixture만 사용해 성공·rate limit·permission 오류·중복 요청과 incomplete generation을 검증할 수 있다.
+자동 테스트는 GitHub API mock과 합성 fixture만 사용해 성공·rate limit·permission 오류·중복 요청과 부분 실패로 인한 stream 미승격을 검증할 수 있다.
 live smoke는 승인된 test org와 역할별 test App이 준비된 뒤에만 수행한다.
 
 Repository Operations App smoke는 다음 순서로 수행한다.
@@ -208,13 +267,13 @@ Repository Operations App smoke는 다음 순서로 수행한다.
 Collection App의 E1 smoke는 commit, all-state PR, published release가 준비된 public 합성 repository와 private 합성 repository에서 수행한다.
 API 호출 전에 test App의 installation 설정과 token 발급 결과에서 repository·organization permission map과 repository selection을 정규화한다.
 repository permission은 `Metadata: read`, `Contents: read`, `Pull requests: read`만, organization permission은 없음, repository selection은 `All repositories`여야 하며 webhook URL·event subscription이 없고 allowlist 밖 권한이 하나라도 있으면 FAIL한다.
-그 뒤 실제 installation token으로 두 합성 repository의 metadata·default-branch commit·all-state PR·published release 조회가 각각 성공하고 하나의 complete generation으로 승격되는지 확인한다.
+그 뒤 실제 installation token으로 두 합성 repository의 metadata·default-branch commit·all-state PR·published release 조회가 각각 성공하고 각 repository의 stream이 `READY`로 승격되는지 확인한다.
 권한 오설정 시 실제 변경이 생길 수 있는 write 요청은 최소 권한 검증에 사용하지 않는다.
 
-공개 증거에는 정규화된 permission map, repository selection, webhook 미설정 여부, endpoint 종류, status code, 합성 fixture 구분, UTC 시각, generation 결과만 남긴다.
+공개 증거에는 정규화된 permission map, repository selection, webhook 미설정 여부, endpoint 종류, status code, 합성 fixture 구분, UTC 시각, backfill/incremental 결과만 남긴다.
 token, secret, header, private key, 실제 organization·repository·사용자 데이터, private 식별 정보는 증거에 포함하지 않는다.
 현재 live smoke는 승인된 비운영 org, 역할별 test App, org owner의 설치·권한 승인 경로, public/private 합성 repository, secret store 주입이 준비되지 않아 대기 상태다.
-PM 결정으로 ADR은 `Accepted`이지만 이 상태 변경이 실제 App 설치나 Collection REST generation과 #121 구현 검증을 완료했다는 뜻은 아니다.
+PM 결정으로 ADR은 `Accepted`이지만 이 상태 변경이 실제 App 설치나 Collection REST 누적·증분 수집과 #121 구현 검증을 완료했다는 뜻은 아니다.
 비운영 경로가 지정되기 전까지 두 App 연동은 fail-closed이며 live smoke는 구현 검증 blocker로 남는다.
 
 ## Alternatives considered
@@ -273,7 +332,7 @@ rollback은 M3 schedule 중지, C2 current pointer를 마지막 검증된 comple
 ### Enables
 
 - #121은 Repository Operations App의 installation token client와 durable worker를 구현할 수 있다.
-- Collection App은 매시간과 `ADMIN` manual trigger에서 REST-only Org-wide atomic current-state generation을 만든다.
+- Collection App은 매시간과 `ADMIN` manual trigger에서 신규 repository를 1회 backfill하고 기존 repository는 endpoint별 safe frontier로 변경분만 증분 수집해 누적 facts/aggregate를 갱신한다.
 - Collection App installation token은 조직 repository의 metadata·default-branch commit·all-state pull request·published release를 읽을 수 있고 쓰기 권한은 갖지 않는다.
 - platform-managed repository를 기존 `Repository` 관계에 매핑하고 unmapped Org repository는 가짜 program·team 관계 없이 처리한다.
 - #125는 모든 필수 마일스톤 승인 뒤 별도 staff/admin action으로만 Repository Operations App의 공개 전환을 호출한다.
@@ -286,7 +345,7 @@ rollback은 M3 schedule 중지, C2 current pointer를 마지막 검증된 comple
 - Repository Operations App은 `Only select repositories`이므로 기존 platform-managed 저장소를 최초 설치 때 명시적으로 선택해야 한다.
 - Collection App은 `All repositories` 설치이므로 새 Org repository가 수집 범위에 자동 포함된다.
 - installation 회수·permission 변경과 token 만료를 운영 상태로 관찰해야 한다.
-- live smoke가 완료될 때까지 #121과 Collection REST generation의 실제 GitHub 연동 완료를 주장할 수 없다.
+- live smoke가 완료될 때까지 #121과 Collection REST 누적·증분 수집의 실제 GitHub 연동 완료를 주장할 수 없다.
 
 ### New constraints
 
@@ -325,3 +384,4 @@ rollback은 M3 schedule 중지, C2 current pointer를 마지막 검증된 comple
 - 2026-07-21: Issue #36과 #120의 PM 결정에 따라 Org-wide read Collection App과 selected-repository write Operations App을 분리하고 파일럿 수집·소유권·공개 경계를 Accepted로 확정했다.
 - 2026-07-22: Issue #205의 조건부 승인에 따라 Collection App의 `Pull requests: read`와 당시 REST read 및 webhook smoke 분리를 기록했다.
 - 2026-07-25: Collection App authority를 webhook 없이 REST-only Org-wide atomic current-state generation으로 변경하고 권한, 주기, incomplete 한도, E1 smoke, C1/C2/M3 cutover와 rollback을 확정했으며 Repository Operations App write 계약은 변경하지 않았다.
+- 2026-07-31: hourly org-wide full-history generation을 조직 전체 누적·증분 수집 계약으로 교체했다. commit `(repositoryId, sha)`·PR `(repositoryId, githubPullRequestId)`·release `(repositoryId, githubReleaseId)` 누적 unique 지표, endpoint별 safe frontier와 연결 끊김/release probe 변경 시 해당 repository만의 예외적 complete scan, nullable exact-request ETag(`2022-11-28` fingerprint), 저장·폐기 field inventory, complete/partial inventory에 따른 공개 노출 revocation, serial rate budget과 durable continuation cursor, 이전 세대의 1회 backfill·parity 검증·원자 전환·한 release 보존 후 별도 제거를 명시했다. "private repository 식별 정보를 남기지 않는다"는 이전 서술이 내부 저장(DB)과 공개 노출 층을 구분하지 않아 실제 구현과 충돌하던 것을 두 층을 분리해 교정했다.
