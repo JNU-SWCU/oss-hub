@@ -15,6 +15,18 @@ export interface ProblemDetailExtensions {
   readonly retryNotBeforeAt?: string;
   readonly fieldErrors?: readonly ProblemDetailFieldError[];
   readonly activeRunId?: string;
+  readonly currentAccess?: ProblemDetailCurrentAccess;
+}
+
+export interface ProblemDetailCurrentAccess {
+  readonly id: string;
+  readonly role: Role | null;
+  readonly accountStatus: AccountStatus;
+  readonly pendingRequest: {
+    readonly id: string;
+    readonly status: 'PENDING';
+    readonly createdAt: string;
+  } | null;
 }
 
 export class DomainException extends Error {
@@ -26,3 +38,4 @@ export class DomainException extends Error {
     this.name = 'DomainException';
   }
 }
+import type { AccountStatus, Role } from '@prisma/client';

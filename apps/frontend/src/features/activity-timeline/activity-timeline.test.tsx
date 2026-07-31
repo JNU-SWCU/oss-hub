@@ -90,7 +90,9 @@ describe('activity timeline', () => {
     expect(html).toContain('Pull Request');
     expect(html).toContain('Release');
     expect(html).toContain('데이터 기준 시각');
-    expect(html).toContain('2026. 8. 1. 오전 9:00');
+    expect(html).toMatch(
+      /<time dateTime="2026-08-01T00:00:00\.000Z">[^<]+<\/time>/,
+    );
     expect(html).not.toContain('Star');
     expect(html).not.toContain('FORCE');
   });

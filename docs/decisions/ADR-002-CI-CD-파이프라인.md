@@ -28,9 +28,20 @@ PR 품질 검증은 필요하지만 CI에서 Docker 이미지를 빌드하면 �
 
 GitHub Actions는 모든 PR에서 실행되는 경량 CI로 구성하고 required job 이름을 항상 `ci`로 유지한다. `ci` job 내부에서 paths gate를 처리하여 대상 변경이 없더라도 job 결과를 보고한다. CI는 lint, typecheck, test, 앱 build를 수행하고 Docker 이미지 빌드는 수행하지 않는다. 병합 검토는 ADR-005의 exact-head `MERGE_READY`와 high-risk 단일 accept 계약을 따른다.
 
-main 병합은 GitHub Actions `ci`가 검증하며 Jenkins는 production 배포만 담당한다. production 배포 후보 단위는 공개 GitHub Release다. 사람이 승인된 exact tag·SHA로 draft·prerelease가 아닌 Release를 발행하면 `release.published` 이벤트가 `deploy.yml`을 직접 실행한다. 저장소 변수 `DEPLOY_TRIGGER_ENABLED=true`인 경우에만 Jenkins 내장 원격 빌드 트리거(전용 서비스 사용자 API token Basic 인증)로 **파라미터 없는 POST**를 보내며, 트리거 실패는 같은 GitHub Actions run을 재실행해 복구한다. 별도 `release.yml`·`workflow_call`·수동 deploy dispatch 표면은 두지 않는다. 트리거 URL은 HTTPS만 허용한다. 배포 서버의 host nginx가 공인 IP TLS를 종료하고 해당 경로의 POST만 localhost Jenkins로 리버스 프록시하며 Jenkins UI는 공개하지 않는다. 나머지 요청은 loopback `127.0.0.1:8081`의 Compose nginx로 전달한다. GitHub Actions는 얇은 트리거 POST만 담당하고 검증·배포·실패 알림은 Jenkins가 수행한다. Jenkins는 트리거로부터 버전을 전달받지 않고 **자체적으로 현재 latest full Release를 조회**해 `draft=false`·`prerelease=false`와 full SemVer tag를 확인한다. tag가 가리키는 정확한 commit SHA가 main 이력에 포함되고 #199 공개 댓글에서 같은 tag·SHA의 @GoBeromsu `RELEASE_ACCEPT role=PM`이 확인될 때만 해당 SHA를 checkout한다. `RELEASE_ACCEPT role=TECH_LEAD`와 `RELEASE_OVERRIDE role=PM`은 폐지한다 — 우회할 이중 게이트가 없으므로 override는 존재 이유가 없다. 별도 staging 서버는 두지 않는다.
+main 병합은 GitHub Actions `ci`가 검증하며 Jenkins는 production 배포만 담당한다.
+production 배포 후보 단위는 공개 GitHub Release다.
+main 이력의 exact commit을 가리키는 tag로 draft·prerelease가 아닌 Release를 발행하면 `release.published` 이벤트가 `deploy.yml`을 직접 실행한다.
+`deploy.yml`은 그 published 이벤트에서 별도 feature flag 없이 Jenkins 내장 원격 빌드 트리거(전용 서비스 사용자 API token Basic 인증)로 **파라미터 없는 POST**를 보내며, 트리거 실패는 같은 GitHub Actions run을 재실행해 복구한다.
+별도 `release.yml`·`workflow_call`·수동 deploy dispatch 표면은 두지 않는다. 트리거 URL은 HTTPS만 허용한다. 배포 서버의 host nginx가 공인 IP TLS를 종료하고 해당 경로의 POST만 localhost Jenkins로 리버스 프록시하며 Jenkins UI는 공개하지 않는다. 나머지 요청은 loopback `127.0.0.1:8081`의 Compose nginx로 전달한다. GitHub Actions는 얇은 트리거 POST만 담당하고 검증·배포·실패 알림은 Jenkins가 수행한다. Jenkins는 트리거로부터 버전을 전달받지 않고 **자체적으로 현재 latest full Release를 조회**해 `draft=false`·`prerelease=false`와 full SemVer tag를 확인한다.
+tag가 가리키는 정확한 commit SHA가 main 이력에 포함될 때만 해당 SHA를 checkout한다.
+**배포 인가는 draft·prerelease가 아닌 GitHub Release의 발행 자체다** — 누가 배포를 시작할 수 있는지는 GitHub의 Release 발행 권한이 통제하고, Jenkins는 인가 주체를 따로 판별하지 않는다.
+공개 댓글 marker 승인 게이트(`RELEASE_ACCEPT`·`RELEASE_OVERRIDE`)는 폐지한다 — 권한 통제를 이미 가진 플랫폼 위에 별도 문자열 파싱 게이트를 얹으면 실패 지점만 늘고 인가 주체는 그대로다.
+별도 staging 서버는 두지 않는다.
 
-Jenkins는 매 실행에서 최신 Release로 수렴하는 멱등 작업이다. 현재 실행 중인 컨테이너의 이미지 태그를 조회해 대상 Release와 같거나 대상이 더 낮으면 성공 no-op 처리한다. 새 Release는 명시적 Prisma client generate → test → PostgreSQL backup → 서버 로컬 frontend/backend 이미지 1회 build → `prisma migrate deploy` → `up -d --no-build --wait` → `/`·`/api/v1/health` smoke 순서로 배포한다. 이미지는 release tag로 태깅하므로 별도 영속 배포 상태 파일을 두지 않으며, 배포 상태의 원본은 실행 중인 컨테이너 자신이다. 서비스 교체 또는 smoke가 실패하면 `PREV_TAG` 이미지로 한 번 rollback한다. 배포 전에는 운영 환경 파일의 `FRONTEND_URL`이 `https://`인지 확인한다. DB restore는 자동화하지 않고 보존한 backup을 사용해 사람이 승인한 수동 복구로 남긴다. `down -v`는 사용하지 않으며 PostgreSQL 데이터는 named volume `pgdata`에, 제출 파일 object data는 named volume `minio_data`에 보존한다.
+Jenkins는 매 실행에서 최신 Release로 수렴하는 멱등 작업이다. 현재 실행 중인 컨테이너의 이미지 태그를 조회해 대상 Release와 같거나 대상이 더 낮으면 성공 no-op 처리한다. 새 Release는 명시적 Prisma client generate → test → PostgreSQL backup → 서버 로컬 frontend/backend 이미지 1회 build → `prisma migrate deploy` → `up -d --no-build --wait` → smoke 순서로 배포한다.
+smoke는 Compose ingress에서 `/` 200, `/api/v1/health` 200, 제출 파일 업로드 경로 403을 함께 단언하며 rollback 경로에서도 같은 3종을 단언한다.
+`/api/v1/health`는 PostgreSQL 연결을 실제로 확인하고 DB에 닿지 못하면 503을 반환한다 — 상수 응답은 nginx와 Node 프로세스가 살아 있다는 것만 증명하므로 배포 판정 근거가 되지 못한다.
+이미지는 release tag로 태깅하므로 별도 영속 배포 상태 파일을 두지 않으며, 배포 상태의 원본은 실행 중인 컨테이너 자신이다. 서비스 교체 또는 smoke가 실패하면 `PREV_TAG` 이미지로 한 번 rollback한다. 배포 전에는 운영 환경 파일의 `FRONTEND_URL`이 `https://`인지 확인한다. DB restore는 자동화하지 않고 보존한 backup을 사용해 사람이 승인한 수동 복구로 남긴다. `down -v`는 사용하지 않으며 PostgreSQL 데이터는 named volume `pgdata`에, 제출 파일 object data는 named volume `minio_data`에 보존한다.
 
 배포가 성공한 **뒤에만** 이미지와 backup을 정리한다. 실행 중인 이미지와 직전 성공 배포 이미지는 rollback 대상이므로 절대 삭제하지 않고, 그보다 이전 이미지만 제거한다. 개수가 아니라 이 보존 규칙이 판단 기준이다. DB backup은 최근 N개만 유지하며, N은 실측한 dump 크기·증가율·가용 예산·최대 배포 빈도·복구 보존 기간으로 산정해 승인 기록에 남긴다. N이 확정되기 전에는 정리를 수행하지 않는다(fail-closed).
 
@@ -55,12 +66,16 @@ Jenkins는 매 실행에서 최신 Release로 수렴하는 멱등 작업이다. 
 - 모든 PR에서 `ci` required check가 보고되어 브랜치 보호 교착을 피한다.
 - Docker 이미지 빌드 과금을 CI에서 제거하고 배포당 한 번으로 제한한다.
 - release tag 이미지와 `PREV_TAG`로 배포 및 rollback 대상을 명확히 식별하며, tag와 이미지가 같은 이름 공간을 쓰므로 별도 매핑 상태를 유지하지 않는다.
-- GitHub Release는 production 배포 후보이며, 같은 tag·SHA의 @GoBeromsu `RELEASE_ACCEPT role=PM` 한 건을 유일한 사람 승인 지점으로 사용한다.
+- draft·prerelease가 아닌 GitHub Release 발행 한 번이 배포 인가이며, 인가 주체 통제는 GitHub의 Release 발행 권한이 담당한다. 배포를 시작하려는 사람이 저장소 밖 문자열 규약을 외울 필요가 없다.
 - 동일·하위 Release 재전달은 no-op이므로 webhook 재전송이 중복 배포로 이어지지 않는다.
+- smoke가 제출 파일 업로드 403을 Compose ingress에서 직접 단언하므로 fail-closed 차단이 실제로 동작하는지가 배포마다 증명된다.
+- `/api/v1/health`가 PostgreSQL 연결을 확인하므로 DB에 닿지 못하는 배포가 smoke를 통과하지 못한다.
 
 ### Costs / trade-offs
 
 - Jenkins와 배포 서버의 webhook, Docker, Compose 운영 책임이 생긴다.
+- 배포 인가 기록이 저장소 안 댓글이 아니라 GitHub Release 발행 이력과 audit log에 남는다. 누가 어떤 tag를 배포했는지 알려면 저장소가 아니라 GitHub Release·감사 로그를 본다.
+- Release 발행 권한을 가진 사람은 별도 절차 없이 production을 바꿀 수 있다. 이 권한 목록 관리가 배포 통제의 실체이므로 협업자 권한 부여가 배포 권한 부여와 같은 무게를 갖는다.
 - 로컬 빌드 이미지는 서버 밖에서 재사용되지 않으며, greenfield 실패는 자동 rollback할 수 없다.
 - migration 이후의 DB restore는 자동 rollback 범위 밖이므로 backup 확인과 수동 복구 책임자가 필요하다.
 
@@ -69,17 +84,22 @@ Jenkins는 매 실행에서 최신 Release로 수렴하는 멱등 작업이다. 
 - GitHub Actions required job 이름은 반드시 `ci`이고 모든 PR에서 보고되어야 한다.
 - 경로별 검증 대상과 synthetic-only 경계는 [CI 경로별 검증 계약](../rules/ci-path-verification.md)을 따른다.
 - Jenkins는 production 배포만 담당하고 main 검증은 GitHub Actions `ci`가 단독으로 수행한다. Jenkins는 현재 latest full GitHub Release만 처리한다.
-- production 배포 트리거는 GitHub Actions `deploy.yml`이 `DEPLOY_TRIGGER_ENABLED=true`를 확인한 뒤 HTTPS Jenkins 내장 원격 트리거(전용 서비스 사용자 API token)로 파라미터 없이 보낸다. 공개 표면은 `POST /job/oss-hub-release-cd/build` 정확일치 경로 하나뿐이며 host nginx가 그 경로의 POST만 프록시한다. 파라미터 계약을 쓰는 구 경로는 새 경로가 동작을 실증한 뒤 같은 점검 창 안에서 회수한다. 배포 대상 판별은 트리거 입력이 아니라 Jenkins의 latest Release 조회가 담당하며, draft·prerelease·full SemVer가 아닌 tag는 그 조회 결과를 근거로 Jenkins가 거절한다. 트리거 엔드포인트·API token 값은 GitHub repo secret에만 두고 저장소·로그에 남기지 않는다.
+- production 배포 트리거는 GitHub Actions `deploy.yml`이 draft·prerelease가 아닌 published 이벤트에서 HTTPS Jenkins 내장 원격 트리거(전용 서비스 사용자 API token)로 파라미터 없이 보낸다. 트리거 경로에는 사람·환경변수 게이트를 두지 않는다. 공개 표면은 `POST /job/oss-hub-release-cd/build` 정확일치 경로 하나뿐이며 host nginx가 그 경로의 POST만 프록시한다. 배포 대상 판별은 트리거 입력이 아니라 Jenkins의 latest Release 조회가 담당하며, draft·prerelease·full SemVer가 아닌 tag는 그 조회 결과를 근거로 Jenkins가 거절한다. 트리거 엔드포인트·API token 값은 GitHub repo secret에만 두고 저장소·로그에 남기지 않는다.
 - 배포 실패 알림은 Jenkins email-ext 플러그인으로 보내며 수신자·SMTP는 Jenkins UI 설정(Manage Jenkins → System → Extended E-mail Notification의 Default Recipients + SMTP)에만 두고 저장소에 이메일 주소를 남기지 않는다.
-- tag commit은 main ancestry를 통과한 exact SHA여야 한다. 태그가 다른 커밋으로 이동하거나 승인 없는 tag가 만들어져도, 승인 검증이 Jenkins가 그 실행에서 해석한 SHA로 `RELEASE_ACCEPT role=PM tag=<tag> head=<sha>` 정확 일치를 요구하므로 fail-closed로 차단된다. 태그 조작 방어의 원본은 이 승인 바인딩이며 영속 상태 파일이 아니다.
+- 배포 인가는 draft·prerelease가 아닌 GitHub Release 발행이며 Jenkins는 별도 승인 marker를 요구하지 않는다. 인가 주체 통제는 GitHub의 Release 발행 권한이 담당하므로 그 권한 목록이 배포 권한 목록이다.
+- tag commit은 main ancestry를 통과한 exact SHA여야 한다. 태그 조작 방어는 세 가지 fail-closed 검사의 합이다: Jenkins가 자체 조회한 latest full Release만 대상으로 삼고, tag는 full `vMAJOR.MINOR.PATCH`여야 하며, 그 tag가 가리키는 exact SHA가 main 이력에 포함되어야 한다. 실행 중 SemVer가 같거나 더 높으면 no-op이라 임의 tag 재작성으로 하위 버전을 밀어 넣을 수 없다. 영속 배포 상태 파일은 두지 않으며 판정 근거는 실행 중인 컨테이너 label이다.
 - Jenkins는 Docker 권한을 가진 `oss-hub-production` 전용 executor에서만 실행하고 동시 실행을 금지한다. 운영 환경 파일은 Credentials Store의 file credential로 실행 시점에만 주입한다.
 - Compose는 `COMPOSE_PROJECT_NAME`을 고정하며 `pgdata`와 기존 데이터를 삭제하는 `down -v`를 사용하지 않는다.
 - host nginx만 공인 80/443을 열고 약 6일 유효한 Let's Encrypt IP 인증서를 종료한다. Compose nginx는 `127.0.0.1:8081`에만 bind하여 `/`를 front로, `/api`를 back으로 라우팅하고 `/api/v1` 접두사는 제거하지 않는다. 런타임은 nginx, front, back, postgres와 제출 파일 object storage(`minio` 지속 서비스, `minio-bucket` 초기화 서비스)로 구성된다.
+- Compose nginx의 설정은 **디렉터리 마운트**(`./deploy/nginx:/etc/nginx/conf.d:ro`)로 주입한다. 단일 파일 bind mount는 컨테이너 생성 시점의 inode를 고정하는데 Jenkins는 배포마다 git checkout으로 그 파일을 교체하므로, 수명이 긴 nginx 컨테이너가 저장소와 무관한 옛 설정을 계속 서빙한다. 디렉터리를 마운트하면 컨테이너가 매번 현재 파일을 읽는다.
+- 저장소 파일만 읽는 검사는 실행 중 설정이 저장소와 같다는 증거가 되지 못한다. 실행 중 설정에 대한 계약은 Compose ingress를 실제로 호출하는 배포 smoke가 증명한다.
+- 배포 smoke는 Compose ingress에서 `/` 200, `/api/v1/health` 200, 제출 파일 업로드 경로 403을 단언하며 rollback 경로에서도 같은 3종을 단언한다. `/api/v1/health`는 PostgreSQL 연결을 실제로 확인하고 닿지 못하면 503을 반환한다 — 상수 200은 배포 판정 근거가 아니다.
 - 제출 파일 object data는 `minio_data` volume에 있으며 **현재 배포 파이프라인의 backup 대상이 아니다**. `pg_dump`는 PostgreSQL만 보호한다. 이 간극이 닫히기 전까지 제출 파일 업로드 경로는 Compose nginx에서 fail-closed로 차단하고, 차단 해제는 off-host object backup과 restore drill을 완료한 뒤 별도 high-risk 변경으로만 수행한다.
 - Certbot 5.4 이상의 `shortlived` IP 인증서를 webroot로 자동 갱신하고 성공한 갱신 뒤 host nginx를 reload한다. 인증서 갱신 실패는 만료 전 운영 경보 대상이다.
 
 ## Changelog
 
+- 2026-07-31: 공개 댓글 `RELEASE_ACCEPT role=PM` 승인 게이트를 폐지하고 draft·prerelease가 아닌 GitHub Release 발행 자체를 배포 인가로 확정했다. 인가 주체 통제를 GitHub의 Release 발행 권한에 맡기고 marker 문자열 파싱을 제거한 것이며, latest Release 자체 조회·full SemVer·main ancestry·no-op·fail-closed·1회 rollback은 그대로 유지한다. 파이프라인 실증 뒤에는 값 누락·오타가 Release를 조용히 무배포로 만드는 실패 경로로만 남은 `DEPLOY_TRIGGER_ENABLED` feature flag도 제거했다. 함께 Compose nginx 설정 주입을 단일 파일에서 디렉터리 마운트(`./deploy/nginx:/etc/nginx/conf.d:ro`)로 전환했다 — 단일 파일 bind mount가 inode를 고정하는데 Jenkins가 배포마다 그 파일을 git checkout으로 교체하므로, 수명이 긴 nginx 컨테이너가 제출 파일 업로드 403 fail-closed 블록이 빠진 옛 설정을 이틀간 운영에서 계속 서빙했고 저장소 파일만 읽는 검사는 그동안 전부 통과했다. 이 사고가 배포 smoke 강화의 근거이기도 하다 — 실행 중 설정에 대한 계약은 ingress를 실제로 호출해야만 증명되므로 rollout·rollback 양쪽 smoke에 업로드 경로 403 단언을 추가하고, `/api/v1/health`가 상수 `{status:'ok'}` 대신 PostgreSQL 연결을 확인해 실패 시 503을 반환하도록 했다.
 - 2026-07-29: v0.4.1 Release의 `published` 이벤트 → `deploy.yml` → parameterless Jenkins #27 → production health까지 자동 왕복을 실증하고, 존재하지 않는 `release.yml`·`workflow_call`·수동 deploy dispatch 목표를 제거해 최종 운영 경로에 수렴했다.
 - 2026-07-29: root `Jenkinsfile` 단일 parameterless Release pipeline 전환 완료. v0.3.1 실제 배포, loopback/TLS health, 독립 no-op 재실행을 확인하고 legacy pipeline·병행 `Jenkinsfile.v2`·이중 checker mode를 제거했다.
 - 2026-07-28: 배포 트리거에서 파라미터를 제거하고 Jenkins가 latest Release를 자체 조회하도록 계약을 전환. 이미지 태그를 release tag로 통일하고 영속 배포 상태 파일과 `RUN_MODE` 분기를 폐기했으며, 태그 조작 방어의 원본이 `RELEASE_ACCEPT role=PM` 승인 바인딩임을 명시. 릴리즈 발행(`release.yml`)과 배포 트리거(`deploy.yml`)를 분리해 배포 단독 재시도를 허용. 이 개정은 목표 상태를 기술하며 구현은 [#305](https://github.com/JNU-SWCU/oss-hub/issues/305)의 후속 PR에서 순차 진행된다.

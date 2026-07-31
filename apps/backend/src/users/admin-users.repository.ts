@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma, Role, RoleRequestStatus } from '@prisma/client';
+import { AccountStatus, Prisma, Role } from '@prisma/client';
+import type { RoleRequestStatus } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -39,6 +40,8 @@ export interface AdminUsersTransactionStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
   findUserByGithubId(githubId: bigint): Promise<AdminUserRecord | null>;
   findUserById(id: string): Promise<AdminUserRecord | null>;
+  lockActiveAdmins(): Promise<number>;
+  findUserForUpdate(id: string): Promise<AdminUserRecord | null>;
   updateRole(id: string, role: Role): Promise<AdminUserRecord | null>;
   findLatestRoleRequest(userId: string): Promise<AdminRoleRequestRecord | null>;
   transitionRoleRequest(input: AdminRoleRequestTransition): Promise<boolean>;
@@ -75,6 +78,31 @@ class PrismaAdminUsersTransactionStore implements AdminUsersTransactionStore {
     return user ? toAdminUser(user) : null;
   }
 
+  /**
+   * Shared mutation lock order: lock active ADMIN User rows by ID, then the
+   * target User row, and only then acquire a RoleRequest row lock.
+   */
+  async lockActiveAdmins(): Promise<number> {
+    const rows = await this.transaction.$queryRaw<readonly LockedUserRow[]>(
+      Prisma.sql`
+        SELECT id
+        FROM "User"
+        WHERE role = ${Role.ADMIN}::"Role"
+          AND "accountStatus" = ${AccountStatus.ACTIVE}::"AccountStatus"
+        ORDER BY id
+        FOR UPDATE
+      `,
+    );
+    return rows.length;
+  }
+
+  async findUserForUpdate(id: string): Promise<AdminUserRecord | null> {
+    const rows = await this.transaction.$queryRaw<readonly LockedUserRow[]>(
+      Prisma.sql`SELECT id FROM "User" WHERE id = ${id} FOR UPDATE`,
+    );
+    return rows.length === 1 ? this.findUserById(id) : null;
+  }
+
   async updateRole(id: string, role: Role): Promise<AdminUserRecord | null> {
     const result = await this.transaction.user.updateMany({
       where: { id },
@@ -107,6 +135,8 @@ class PrismaAdminUsersTransactionStore implements AdminUsersTransactionStore {
     return result.count === 1;
   }
 }
+
+type LockedUserRow = Readonly<{ id: string }>;
 
 @Injectable()
 export class AdminUsersRepository implements AdminUsersRepositoryPort {

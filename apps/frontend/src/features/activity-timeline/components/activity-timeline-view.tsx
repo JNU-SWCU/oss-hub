@@ -156,7 +156,10 @@ export function ActivityTimelineView({
           {status === 'success' && data ? (
             <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <Clock3 aria-hidden="true" className="size-4" />
-              데이터 기준 시각 {formatDataAsOf(data.dataAsOf)}
+              데이터 기준 시각{' '}
+              <time dateTime={data.dataAsOf ?? undefined}>
+                {formatDataAsOf(data.dataAsOf)}
+              </time>
             </p>
           ) : null}
         </div>

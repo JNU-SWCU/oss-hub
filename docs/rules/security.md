@@ -21,6 +21,16 @@ oss-hub는 공개 저장소다. 코드뿐 아니라 Issue 본문, PR 제목·본
 | 7 | Notion 문서 본문 인용 | Decision ID 색인만 (아래 참조 규칙 참조) |
 | 8 | 자격증명을 모아둔 메모 파일 (`credentials.md`·`secrets.yaml`·`creds.txt` 등)과 개인키 파일 | secret store에만 둔다. 값이 아니라 변수 이름만 `.env.example`에 남긴다 |
 
+## 공개 strict-read 예외
+
+공개 endpoint가 private 테이블을 읽는 것은 owner-approved dedicated public query repository 경계에서만 허용한다.
+이 예외는 public 응답을 만드는 읽기 전용 경로에만 적용하며 controller나 일반 service에 Prisma 권한을 부여하지 않는다.
+repository는 요청 입력으로 구성되는 query를 받지 않고, 명시적 `select`와 허용된 public DTO 필드만 사용한다.
+service는 공개 field allowlist와 eligibility를 적용하고 private 또는 nonexistent 대상에 동일한 404를 반환한다.
+private 테이블 간 임의 join, wildcard `include`, 전체 row 조회 후 redact-later, forbidden field fetch는 계속 금지한다.
+selector 및 integration review evidence가 없거나 exact-head owner receipt가 없으면 예외를 사용하지 않는다.
+허용되는 데이터도 실명·학번·학과·연락처·role/account status·answers/rejection·submission content/review/file·provision error·raw GitHub payload/code/diff/message/email/body·credential와 generation/control metadata를 포함하지 않는다.
+
 ### Git commit identity 이메일 예외
 
 - 기여자가 자신의 Git 설정으로 선택한 commit author·committer identity 이메일은 허용한다.
