@@ -64,13 +64,17 @@ describe('StudentDashboardView', () => {
     expect(html).toContain('저장소 생성 중');
     expect(html).toContain('href="https://github.com/JNU-SWCU/capstone-hong"');
 
+    const firstItem = dashboardFixture.items[0];
+    if (!firstItem?.repository) {
+      throw new Error('저장소가 포함된 대시보드 fixture가 필요합니다.');
+    }
     const invitationPendingHtml = renderView({
       data: {
         items: [
           {
-            ...dashboardFixture.items[0]!,
+            ...firstItem,
             repository: {
-              ...dashboardFixture.items[0]!.repository!,
+              ...firstItem.repository,
               invitationStatus: 'PENDING',
             },
           },
