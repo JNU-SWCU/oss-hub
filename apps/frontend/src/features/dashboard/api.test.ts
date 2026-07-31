@@ -26,6 +26,31 @@ describe('fetchStudentDashboard', () => {
     );
   });
 
+  it('accepts a pending application detail URL pointing to its apply form', async () => {
+    const item = dashboardFixture.items[0];
+    if (item === undefined) throw new Error('dashboard fixture is empty');
+    const body = {
+      items: [
+        {
+          ...item,
+          applicationStatus: 'SUBMITTED',
+          nextMilestone: null,
+          detailUrl: `/programs/${item.programId}/apply`,
+        },
+      ],
+    } as const;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+
+    await expect(fetchStudentDashboard()).resolves.toEqual(body);
+  });
   it.each([
     ['items가 배열이 아님', { items: null }],
     [

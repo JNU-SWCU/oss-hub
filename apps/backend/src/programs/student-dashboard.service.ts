@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+﻿import { Injectable } from '@nestjs/common';
 import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -152,7 +152,10 @@ export class StudentDashboardService {
         displayName,
         applicationStatus: application.status,
         nextMilestone,
-        detailUrl: `/programs/${encodeURIComponent(application.program.id)}`,
+        detailUrl:
+          application.status === ApplicationStatus.SUBMITTED
+            ? `/programs/${encodeURIComponent(application.program.id)}/apply`
+            : `/programs/${encodeURIComponent(application.program.id)}`,
         checklistUrl: `/programs/${encodeURIComponent(application.program.id)}/submissions`,
       });
     }

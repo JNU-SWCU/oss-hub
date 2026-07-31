@@ -83,7 +83,11 @@ function isDashboardItem(value: unknown): value is DashboardItem {
     isApplicationStatus(applicationStatus) &&
     (nextMilestone === null || isMilestone(nextMilestone)) &&
     (applicationStatus === 'APPROVED' || nextMilestone === null) &&
-    isProgramPath(value.detailUrl, programId) &&
+    isProgramPath(
+      value.detailUrl,
+      programId,
+      applicationStatus === 'SUBMITTED' ? '/apply' : '',
+    ) &&
     isProgramPath(value.checklistUrl, programId, '/submissions')
   );
 }
