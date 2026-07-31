@@ -142,6 +142,7 @@ export class ApplicationsService {
           teamId,
           answers: answersResult.answers,
           applicationTemplateVersion: program.applicationTemplateVersion,
+          isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
         });
       });
     } catch (error) {
