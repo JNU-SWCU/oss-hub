@@ -48,7 +48,9 @@ export type CreateSubmissionContent =
   | RepositoryReleaseSubmissionContent;
 
 export type ResubmissionContent =
-  TextSubmissionContent | RepositoryReleaseSubmissionContent;
+  | { readonly type: 'FILE'; readonly fileId: string }
+  | TextSubmissionContent
+  | RepositoryReleaseSubmissionContent;
 
 export interface UploadedSubmissionFile {
   readonly fileId: string;

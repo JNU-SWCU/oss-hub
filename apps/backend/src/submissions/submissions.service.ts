@@ -171,6 +171,7 @@ export class SubmissionsService {
     githubId: bigint,
     submissionId: string,
     input: ResubmitSubmissionInput,
+    now: Date = new Date(),
   ): Promise<ResubmittedSubmissionResponseDto> {
     try {
       return await this.repository.withTransaction(async (store) => {
@@ -191,12 +192,25 @@ export class SubmissionsService {
         }
         this.assertResubmittable(target, input);
 
+        let fileExpiresAt: Date | null = null;
+        if (input.content.type === 'FILE') {
+          const programEndAt = await store.lockProgramEndAt(target.programId);
+          if (programEndAt === null) {
+            throw this.error(SubmissionsErrorCode.FILE_RETENTION_UNAVAILABLE);
+          }
+          fileExpiresAt = addOneCalendarYear(programEndAt);
+        }
+
         const created = await store.createSubmissionRevision({
           submissionId: target.id,
+          applicationId: target.applicationId,
+          milestoneId: target.milestoneId,
           baseRevision: input.baseRevision,
           content: input.content,
           comment: input.comment,
           submittedById: actor.id,
+          fileExpiresAt,
+          now,
         });
         return {
           submissionId: target.id,
@@ -207,6 +221,9 @@ export class SubmissionsService {
     } catch (error: unknown) {
       if (error instanceof StaleSubmissionRevisionError) {
         throw this.error(SubmissionsErrorCode.STALE_SUBMISSION_REVISION);
+      }
+      if (error instanceof SubmissionFileUnavailableError) {
+        throw this.error(SubmissionsErrorCode.FILE_SUBMISSION_UNAVAILABLE);
       }
       throw error;
     }
@@ -251,8 +268,6 @@ export class SubmissionsService {
       throw this.error(SubmissionsErrorCode.STALE_SUBMISSION_REVISION);
     if (input.content.type !== target.submissionType)
       throw this.error(SubmissionsErrorCode.CONTENT_TYPE_MISMATCH);
-    if (target.submissionType === MilestoneSubmissionType.FILE)
-      throw this.error(SubmissionsErrorCode.FILE_SUBMISSION_UNAVAILABLE);
     if (input.content.type === MilestoneSubmissionType.REPOSITORY_RELEASE) {
       if (!target.repositoryUrl)
         throw this.error(SubmissionsErrorCode.REPOSITORY_NOT_READY);

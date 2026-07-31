@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { MilestoneSubmissionType } from '@prisma/client';
+import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import {
   createSubmissionFileObjectKey,
@@ -11,6 +11,7 @@ import {
 } from './submission-file-storage.port';
 import {
   type CreatePendingSubmissionFileInput,
+  type SubmissionFileResubmissionContext,
   SubmissionFileRetentionUnavailableError,
   SubmissionFilesRepository,
 } from './submission-files.repository';
@@ -59,9 +60,15 @@ export class SubmissionFilesService {
     applicationId: unknown,
     milestoneId: unknown,
     file: SubmissionFileUpload | undefined,
+    submissionId?: unknown,
+    baseRevision?: unknown,
   ): Promise<UploadedSubmissionFileResponse> {
     const normalizedApplicationId = this.requiredOpaqueId(applicationId);
     const normalizedMilestoneId = this.requiredOpaqueId(milestoneId);
+    const resubmissionContext = this.optionalResubmissionContext(
+      submissionId,
+      baseRevision,
+    );
     if (file === undefined || !Buffer.isBuffer(file.buffer)) {
       throw this.error(SubmissionsErrorCode.INVALID_FILE_UPLOAD);
     }
@@ -84,6 +91,7 @@ export class SubmissionFilesService {
       uploaderId,
       normalizedApplicationId,
       normalizedMilestoneId,
+      resubmissionContext,
     );
     if (authorization === null) {
       throw this.error(SubmissionsErrorCode.NOT_APPLICATION_MEMBER);
@@ -94,9 +102,22 @@ export class SubmissionFilesService {
     if (authorization.submissionType !== MilestoneSubmissionType.FILE) {
       throw this.error(SubmissionsErrorCode.CONTENT_TYPE_MISMATCH);
     }
+    if (resubmissionContext !== null) {
+      if (
+        authorization.resubmissionStatus !== SubmissionStatus.CHANGES_REQUESTED
+      ) {
+        throw this.error(SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED);
+      }
+      if (authorization.currentRevision !== resubmissionContext.baseRevision) {
+        throw this.error(SubmissionsErrorCode.STALE_SUBMISSION_REVISION);
+      }
+    }
 
     const now = new Date();
-    if (authorization.dueAt.getTime() <= now.getTime()) {
+    if (
+      resubmissionContext === null &&
+      authorization.dueAt.getTime() <= now.getTime()
+    ) {
       throw this.error(SubmissionsErrorCode.MILESTONE_CLOSED);
     }
     if (authorization.programEndAt === null) {
@@ -155,6 +176,39 @@ export class SubmissionFilesService {
       throw this.error(SubmissionsErrorCode.INVALID_FILE_UPLOAD);
     }
     return value;
+  }
+
+  private optionalResubmissionContext(
+    submissionId: unknown,
+    baseRevision: unknown,
+  ): SubmissionFileResubmissionContext | null {
+    if (submissionId === undefined && baseRevision === undefined) {
+      return null;
+    }
+    return {
+      submissionId: this.requiredOpaqueId(submissionId),
+      baseRevision: this.requiredPositiveInteger(baseRevision),
+    };
+  }
+
+  private requiredPositiveInteger(value: unknown): number {
+    if (typeof value === 'number') {
+      if (Number.isSafeInteger(value) && value >= 1) return value;
+      throw this.error(SubmissionsErrorCode.INVALID_FILE_UPLOAD);
+    }
+    if (
+      typeof value !== 'string' ||
+      value.length === 0 ||
+      value !== value.trim() ||
+      !/^[1-9]\d*$/.test(value)
+    ) {
+      throw this.error(SubmissionsErrorCode.INVALID_FILE_UPLOAD);
+    }
+    const numericValue = Number(value);
+    if (!Number.isSafeInteger(numericValue)) {
+      throw this.error(SubmissionsErrorCode.INVALID_FILE_UPLOAD);
+    }
+    return numericValue;
   }
 
   private error(code: SubmissionsErrorCode): DomainException {

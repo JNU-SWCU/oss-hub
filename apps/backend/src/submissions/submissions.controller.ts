@@ -49,10 +49,10 @@ const MultipartFileInterceptor = FileInterceptor('file', {
     fileSize: 50 * 1024 * 1024,
     fieldNameSize: 100,
     fieldSize: 512,
-    fields: 2,
+    fields: 4,
     files: 1,
-    // busboy counts the closing boundary toward `parts` (2 fields + file => 4).
-    parts: 4,
+    // busboy counts the closing boundary toward `parts` (4 fields + file => 6).
+    parts: 6,
   },
 });
 
@@ -154,6 +154,8 @@ export class SubmissionFilesController {
     @Req() request: SubmissionRequest,
     @Body('applicationId') applicationId: unknown,
     @Body('milestoneId') milestoneId: unknown,
+    @Body('submissionId') submissionId: unknown,
+    @Body('baseRevision') baseRevision: unknown,
     @UploadedFile() file: SubmissionFileUpload | undefined,
   ): Promise<UploadedSubmissionFileResponse> {
     return this.service.upload(
@@ -161,6 +163,8 @@ export class SubmissionFilesController {
       applicationId,
       milestoneId,
       file,
+      submissionId,
+      baseRevision,
     );
   }
 }

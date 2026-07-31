@@ -93,6 +93,9 @@ export interface ChecklistMilestone {
 
 export interface ResubmissionTarget {
   readonly id: string;
+  readonly applicationId: string;
+  readonly milestoneId: string;
+  readonly programId: string;
   readonly status: SubmissionStatus;
   readonly currentRevision: number;
   readonly submissionType: MilestoneSubmissionType;
@@ -106,6 +109,10 @@ export interface CreateSubmissionRevisionInput {
   readonly content: SubmissionContentInput;
   readonly comment: string | null;
   readonly submittedById: string;
+  readonly applicationId: string;
+  readonly milestoneId: string;
+  readonly fileExpiresAt: Date | null;
+  readonly now: Date;
 }
 
 export interface SubmissionsStore {
@@ -353,9 +360,11 @@ class PrismaSubmissionsStore implements SubmissionsStore {
       },
       select: {
         id: true,
+        applicationId: true,
+        milestoneId: true,
         status: true,
         currentRevision: true,
-        milestone: { select: { submissionType: true } },
+        milestone: { select: { programId: true, submissionType: true } },
         application: {
           select: { status: true, repository: { select: { url: true } } },
         },
@@ -364,6 +373,9 @@ class PrismaSubmissionsStore implements SubmissionsStore {
     if (!submission) return null;
     return {
       id: submission.id,
+      applicationId: submission.applicationId,
+      milestoneId: submission.milestoneId,
+      programId: submission.milestone.programId,
       status: submission.status,
       currentRevision: submission.currentRevision,
       submissionType: submission.milestone.submissionType,
@@ -408,8 +420,31 @@ class PrismaSubmissionsStore implements SubmissionsStore {
           comment: input.comment,
           submittedById: input.submittedById,
         },
-        select: { revision: true },
+        select: { id: true, revision: true },
       });
+      if (input.content.type === 'FILE') {
+        if (input.fileExpiresAt === null) {
+          throw new SubmissionFileUnavailableError();
+        }
+        const attached = await this.database.submissionFile.updateMany({
+          where: {
+            id: input.content.fileId,
+            uploaderId: input.submittedById,
+            applicationId: input.applicationId,
+            milestoneId: input.milestoneId,
+            lifecycle: SubmissionFileLifecycle.PENDING,
+            submissionRevisionId: null,
+            pendingExpiresAt: { gt: input.now },
+          },
+          data: {
+            submissionRevisionId: revision.id,
+            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            pendingExpiresAt: null,
+            expiresAt: input.fileExpiresAt,
+          },
+        });
+        if (attached.count !== 1) throw new SubmissionFileUnavailableError();
+      }
       return revision;
     } catch (error: unknown) {
       if (

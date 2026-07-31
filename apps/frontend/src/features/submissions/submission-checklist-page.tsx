@@ -1,14 +1,21 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '@/lib/api-client';
-import { createResubmission, getSubmissionChecklist } from './api';
+import {
+  createResubmission,
+  getSubmissionChecklist,
+  uploadSubmissionFile,
+} from './api';
 import {
   applyResubmission,
-  resubmissionContent,
+  type ResubmissionPhase,
   resubmissionFailure,
+  submitResubmissionRevision,
 } from './submission-checklist';
 import {
+  getSubmissionFileErrorMessage,
+  SubmissionFileUploadCache,
   type SubmissionFormErrors,
   type SubmissionFormInput,
   validateSubmissionContent,
@@ -34,6 +41,8 @@ const EMPTY_INPUT: SubmissionFormInput = {
 const STALE_NOTICE =
   '다른 곳에서 제출 상태가 바뀌어 최신 상태를 다시 불러왔습니다. 내용을 확인한 후 다시 시도해 주세요.';
 
+const FILE_SUBMISSION_UNAVAILABLE_CODE = 'SUB_010';
+
 export function SubmissionChecklistPage({
   programId,
   milestoneId,
@@ -46,9 +55,13 @@ export function SubmissionChecklistPage({
   const [comment, setComment] = useState('');
   const [errors, setErrors] = useState<SubmissionFormErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [staleNotice, setStaleNotice] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submissionPhase, setSubmissionPhase] =
+    useState<ResubmissionPhase | null>(null);
+  const uploadedFile = useRef(new SubmissionFileUploadCache());
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
@@ -77,7 +90,10 @@ export function SubmissionChecklistPage({
     setInput(EMPTY_INPUT);
     setComment('');
     setErrors({});
+    setFileError(null);
     setServerError(null);
+    setSubmissionPhase(null);
+    uploadedFile.current.discard();
   }, [milestoneId]);
 
   const resubmit = async (checklist: SubmissionChecklist) => {
@@ -91,25 +107,33 @@ export function SubmissionChecklistPage({
 
     const nextErrors = validateSubmissionContent(item.submissionType, input);
     setErrors(nextErrors);
+    setFileError(nextErrors.file ?? null);
     setServerError(null);
     setToastMessage(null);
     if (Object.keys(nextErrors).length > 0) return;
 
-    const content = resubmissionContent(item.submissionType, input);
-    if (!content) return;
     setSubmitting(true);
     try {
-      const result = await createResubmission({
-        submissionId: submission.id,
-        baseRevision: submission.currentRevision,
-        content,
+      const result = await submitResubmissionRevision({
+        applicationId: checklist.applicationId,
+        milestoneId: item.milestoneId,
+        submission,
+        submissionType: item.submissionType,
+        input,
         comment,
+        cache: uploadedFile.current,
+        uploadSubmissionFile,
+        createResubmission,
+        onPhaseChange: setSubmissionPhase,
       });
+      if (!result) return;
       setState({
         kind: 'ready',
         data: applyResubmission(checklist, item.milestoneId, result),
       });
       setStaleNotice(null);
+      setFileError(null);
+      uploadedFile.current.discard();
       setToastMessage(
         `revision ${result.revision}을 제출했습니다. 검토 대기 상태로 전환되었습니다.`,
       );
@@ -117,12 +141,34 @@ export function SubmissionChecklistPage({
       setComment('');
     } catch (error: unknown) {
       if (error instanceof ApiError) {
+        const uploadMessage = getSubmissionFileErrorMessage(error.problem.code);
+        if (uploadMessage) {
+          if (error.problem.code === 'SUB_020') {
+            setServerError(uploadMessage);
+          } else {
+            setFileError(uploadMessage);
+          }
+          return;
+        }
+        if (
+          item.submissionType === 'FILE' &&
+          error.problem.code === FILE_SUBMISSION_UNAVAILABLE_CODE
+        ) {
+          uploadedFile.current.discard();
+        }
         const failure = resubmissionFailure(error.problem, item.submissionType);
         if (failure.kind === 'stale') {
+          uploadedFile.current.discard();
+          setInput(EMPTY_INPUT);
+          setFileError(null);
           setStaleNotice(STALE_NOTICE);
           await load();
         } else if (failure.kind === 'field') {
-          setErrors({ [failure.field]: failure.message });
+          if (failure.field === 'file') {
+            setFileError(failure.message);
+          } else {
+            setErrors({ [failure.field]: failure.message });
+          }
         } else {
           setServerError(failure.message);
         }
@@ -130,6 +176,7 @@ export function SubmissionChecklistPage({
         setServerError('재제출하지 못했습니다. 잠시 후 다시 시도해 주세요.');
       }
     } finally {
+      setSubmissionPhase(null);
       setSubmitting(false);
     }
   };
@@ -153,14 +200,21 @@ export function SubmissionChecklistPage({
       input={input}
       comment={comment}
       errors={errors}
+      fileError={fileError}
       serverError={serverError}
       staleNotice={staleNotice}
       toastMessage={toastMessage}
       submitting={submitting}
+      submissionPhase={submissionPhase}
       onTextChange={(text) => setInput((previous) => ({ ...previous, text }))}
       onReleaseUrlChange={(releaseUrl) =>
         setInput((previous) => ({ ...previous, releaseUrl }))
       }
+      onFileChange={(file) => {
+        setInput((previous) => ({ ...previous, file }));
+        setFileError(null);
+        uploadedFile.current.discardUnless(file);
+      }}
       onCommentChange={setComment}
       onResubmit={() => void resubmit(state.data)}
     />

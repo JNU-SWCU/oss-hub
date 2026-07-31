@@ -44,12 +44,15 @@ export interface SubmissionChecklistViewProps {
   readonly input: SubmissionFormInput;
   readonly comment: string;
   readonly errors: SubmissionFormErrors;
+  readonly fileError: string | null;
   readonly serverError: string | null;
   readonly staleNotice: string | null;
   readonly toastMessage: string | null;
   readonly submitting: boolean;
+  readonly submissionPhase: 'uploading' | 'creating' | null;
   readonly onTextChange: (value: string) => void;
   readonly onReleaseUrlChange: (value: string) => void;
+  readonly onFileChange: (file: File | null) => void;
   readonly onCommentChange: (value: string) => void;
   readonly onResubmit: () => void;
 }
@@ -250,55 +253,60 @@ function ResubmissionForm(
           </dd>
         </div>
       </dl>
-      {item.submissionType === 'FILE' ? (
-        <Alert>
-          <AlertTitle>지금은 재제출할 수 없습니다</AlertTitle>
-          <AlertDescription>
-            파일 제출은 현재 지원하지 않습니다.
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <form
-          className="grid gap-5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            props.onResubmit();
-          }}
-        >
-          <SubmissionInput
-            submissionType={item.submissionType}
-            repositoryUrl={null}
-            input={props.input}
-            errors={props.errors}
-            onTextChange={props.onTextChange}
-            onReleaseUrlChange={props.onReleaseUrlChange}
+      <form
+        className="grid gap-5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          props.onResubmit();
+        }}
+      >
+        <SubmissionInput
+          submissionType={item.submissionType}
+          repositoryUrl={null}
+          input={props.input}
+          errors={props.errors}
+          disabled={props.submitting}
+          file={props.input.file}
+          fileError={props.fileError}
+          onTextChange={props.onTextChange}
+          onReleaseUrlChange={props.onReleaseUrlChange}
+          onFileChange={props.onFileChange}
+        />
+        <Field>
+          <FieldLabel htmlFor="resubmission-comment">제출 코멘트</FieldLabel>
+          <textarea
+            id="resubmission-comment"
+            value={props.comment}
+            maxLength={2000}
+            disabled={props.submitting}
+            aria-describedby="resubmission-comment-description"
+            onChange={(event) => props.onCommentChange(event.target.value)}
+            className="min-h-28 w-full resize-y rounded-lg border border-input bg-transparent p-3 text-sm leading-6 transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
           />
-          <Field>
-            <FieldLabel htmlFor="resubmission-comment">제출 코멘트</FieldLabel>
-            <textarea
-              id="resubmission-comment"
-              value={props.comment}
-              maxLength={2000}
-              aria-describedby="resubmission-comment-description"
-              onChange={(event) => props.onCommentChange(event.target.value)}
-              className="min-h-28 w-full resize-y rounded-lg border border-input bg-transparent p-3 text-sm leading-6 transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            />
-            <FieldDescription id="resubmission-comment-description">
-              선택 입력 · 최대 2,000자
-            </FieldDescription>
-          </Field>
-          <div className="flex flex-wrap justify-between gap-3">
-            <Button asChild variant="outline">
-              <Link href={checklistHref(props.programId)}>취소</Link>
-            </Button>
-            <Button type="submit" disabled={props.submitting}>
-              {props.submitting
-                ? '제출 중…'
-                : `revision ${submission.currentRevision + 1} 제출`}
-            </Button>
-          </div>
-        </form>
-      )}
+          <FieldDescription id="resubmission-comment-description">
+            선택 입력 · 최대 2,000자
+          </FieldDescription>
+        </Field>
+        {props.submissionPhase ? (
+          <p role="status" aria-live="polite" className="text-sm">
+            {props.submissionPhase === 'uploading'
+              ? '파일 업로드 중…'
+              : '제출 정보 저장 중…'}
+          </p>
+        ) : null}
+        <div className="flex flex-wrap justify-between gap-3">
+          <Button asChild variant="outline">
+            <Link href={checklistHref(props.programId)}>취소</Link>
+          </Button>
+          <Button type="submit" disabled={props.submitting}>
+            {props.submitting
+              ? props.submissionPhase === 'uploading'
+                ? '업로드 중…'
+                : '제출 중…'
+              : `revision ${submission.currentRevision + 1} 제출`}
+          </Button>
+        </div>
+      </form>
     </PanelCard>
   );
 }
