@@ -7,12 +7,18 @@ import {
 } from './audit-log-error-code.enum';
 import {
   AuditLogRepository,
+  type AuditLogListResult,
   type AuditLogRecord,
   type AuditLogRecordInput,
   type AuditLogRepositoryPort,
   type AuditLogTransactionWriter,
 } from './audit-log.repository';
-import type { AuditLogListRequestDto } from './dto/audit-log-query.dto';
+import type { AuditLogListQueryRequestDto } from './dto/audit-log-query.dto';
+
+export type AuditLogPage = AuditLogListResult & {
+  readonly page: number;
+  readonly limit: number;
+};
 
 @Injectable()
 export class AuditLogService {
@@ -23,8 +29,8 @@ export class AuditLogService {
 
   async list(
     actorGithubId: bigint,
-    query: AuditLogListRequestDto,
-  ): Promise<readonly AuditLogRecord[]> {
+    query: AuditLogListQueryRequestDto,
+  ): Promise<AuditLogPage> {
     const actor = await this.repository.findActorByGithubId(actorGithubId);
     if (
       actor?.role !== Role.ADMIN ||
@@ -39,7 +45,8 @@ export class AuditLogService {
         AUDIT_LOG_ERROR_CODES[AuditLogErrorCode.INVALID_DATE_RANGE],
       );
     }
-    return this.repository.list(query);
+    const result = await this.repository.list(query);
+    return { ...result, page: query.page, limit: query.limit };
   }
 
   record(

@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { RoleRequestStatus } from '@prisma/client';
-import type { Prisma, User as PrismaUser } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   COMPATIBLE_PROFILE_SELECT,
+  COMPATIBLE_PROFILE_NAME_SELECT,
   resolveCompatibleProfile,
+  resolveCompatibleProfileName,
 } from '../profiles/profile-compatibility';
 import type { UserProfileRecord } from '../users/user-profile-policy';
 import type { RoleUser } from './domain/role-onboarding';
@@ -27,9 +29,22 @@ type PrismaStaffRoleRequest = Prisma.RoleRequestGetPayload<{
   include: typeof staffRoleRequestInclude;
 }>;
 
+const STAFF_ROLE_ACTOR_SELECT = {
+  id: true,
+  nickname: true,
+  role: true,
+  accountStatus: true,
+  ...COMPATIBLE_PROFILE_NAME_SELECT,
+} as const satisfies Prisma.UserSelect;
+
+export type StaffRoleRequestActor = RoleUser & {
+  readonly name: string | null;
+  readonly githubLogin: string;
+};
+
 export interface StaffRoleRequestsTransactionStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
-  findUserByGithubId(githubId: bigint): Promise<RoleUser | null>;
+  findUserByGithubId(githubId: bigint): Promise<StaffRoleRequestActor | null>;
   findUserProfileById(userId: string): Promise<UserProfileRecord | null>;
   findRequestById(id: string): Promise<StaffRoleRequestRecord | null>;
   transitionRequest(input: StaffRoleRequestTransition): Promise<boolean>;
@@ -46,7 +61,7 @@ export interface StaffRoleRequestsRepositoryPort {
   withTransaction<T>(
     operation: (store: StaffRoleRequestsTransactionStore) => Promise<T>,
   ): Promise<T>;
-  findUserByGithubId(githubId: bigint): Promise<RoleUser | null>;
+  findUserByGithubId(githubId: bigint): Promise<StaffRoleRequestActor | null>;
   list(query: StaffRoleRequestListQuery): Promise<{
     readonly items: readonly StaffRoleRequestRecord[];
     readonly total: number;
@@ -60,11 +75,14 @@ class PrismaStaffRoleRequestsTransactionStore implements StaffRoleRequestsTransa
     return this.transaction;
   }
 
-  async findUserByGithubId(githubId: bigint): Promise<RoleUser | null> {
+  async findUserByGithubId(
+    githubId: bigint,
+  ): Promise<StaffRoleRequestActor | null> {
     const user = await this.transaction.user.findUnique({
       where: { githubId },
+      select: STAFF_ROLE_ACTOR_SELECT,
     });
-    return user ? toRoleUser(user) : null;
+    return user ? toStaffRoleRequestActor(user) : null;
   }
 
   async findUserProfileById(userId: string): Promise<UserProfileRecord | null> {
@@ -153,9 +171,14 @@ export class StaffRoleRequestsRepository implements StaffRoleRequestsRepositoryP
     );
   }
 
-  async findUserByGithubId(githubId: bigint): Promise<RoleUser | null> {
-    const user = await this.prisma.user.findUnique({ where: { githubId } });
-    return user ? toRoleUser(user) : null;
+  async findUserByGithubId(
+    githubId: bigint,
+  ): Promise<StaffRoleRequestActor | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { githubId },
+      select: STAFF_ROLE_ACTOR_SELECT,
+    });
+    return user ? toStaffRoleRequestActor(user) : null;
   }
 
   async list(query: StaffRoleRequestListQuery): Promise<{
@@ -183,9 +206,13 @@ export class StaffRoleRequestsRepository implements StaffRoleRequestsRepositoryP
   }
 }
 
-function toRoleUser(user: PrismaUser): RoleUser {
+function toStaffRoleRequestActor(
+  user: Prisma.UserGetPayload<{ select: typeof STAFF_ROLE_ACTOR_SELECT }>,
+): StaffRoleRequestActor {
   return {
     id: user.id,
+    name: resolveCompatibleProfileName(user),
+    githubLogin: user.nickname,
     role: user.role,
     accountStatus: user.accountStatus,
   };
