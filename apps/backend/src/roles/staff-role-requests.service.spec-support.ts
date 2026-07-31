@@ -108,6 +108,18 @@ export class InMemoryStaffRoleRequestsRepository
     );
   }
 
+  lockActiveAdmins(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  lockUserForUpdate(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  lockRequestById(id: string): Promise<StaffRoleRequestRecord | null> {
+    return this.findRequestById(id);
+  }
+
   transitionRequest(input: StaffRoleRequestTransition): Promise<boolean> {
     const index = this.requests.findIndex(
       (request) =>

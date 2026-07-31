@@ -26,7 +26,8 @@ NestJS 모듈별 소스이며 모듈마다 폴더 하나를 쓴다.
 | `collection/` | GitHub 활동 수집기 | [collection/AGENTS.md](collection/AGENTS.md) |
 | `common/` | 전 모듈 공유 에러·필터 | [common/AGENTS.md](common/AGENTS.md) |
 | `applications/` | 프로그램 신청·판정 | [applications/AGENTS.md](applications/AGENTS.md) |
-| `roles/` | 역할 온보딩·교직원 승인·관리자 사용자 관리 | [roles/AGENTS.md](roles/AGENTS.md) |
+| `roles/` | 역할 온보딩·RoleRequest 교직원 요청 흐름 | [roles/AGENTS.md](roles/AGENTS.md) |
+| `users/` | 사용자 프로필·관리자 사용자 목록/상세·역할/접근 관리 | — 이 문서가 다룸 |
 | `programs/` | 프로그램·마일스톤·팀 | [programs/AGENTS.md](programs/AGENTS.md) |
 | `submissions/` | 제출물·파일 라이프사이클 | [submissions/AGENTS.md](submissions/AGENTS.md) |
 | `submission-reviews/` | 제출 검토·저장소 공개 전환(`repositories/`의 `publish`를 소비) | — 이 문서가 다룸 |

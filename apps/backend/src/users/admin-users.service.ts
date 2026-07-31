@@ -14,8 +14,11 @@ import {
   type AdminUserRecord,
   type AdminUsersRepositoryPort,
 } from './admin-users.repository';
-import { ROLES_ERROR_CODES, RolesErrorCode } from './roles-error-code.enum';
-import { resolveRoleRequestTransition } from './role-request-transition-rules';
+import {
+  ROLES_ERROR_CODES,
+  RolesErrorCode,
+} from '../roles/roles-error-code.enum';
+import { resolveRoleRequestTransition } from '../roles/role-request-transition-rules';
 
 @Injectable()
 export class AdminUsersService {
@@ -43,10 +46,21 @@ export class AdminUsersService {
       const actor = this.requireAdmin(
         await store.findUserByGithubId(actorGithubId),
       );
-      const before = await store.findUserById(userId);
+      const activeAdminCount = await store.lockActiveAdmins();
+      const before = await store.findUserForUpdate(userId);
       if (!before) {
         throw new DomainException(
           ROLES_ERROR_CODES[RolesErrorCode.USER_NOT_FOUND],
+        );
+      }
+      if (
+        before.role === Role.ADMIN &&
+        before.accountStatus === AccountStatus.ACTIVE &&
+        role !== Role.ADMIN &&
+        activeAdminCount <= 1
+      ) {
+        throw new DomainException(
+          ROLES_ERROR_CODES[RolesErrorCode.LAST_ACTIVE_ADMIN_REQUIRED],
         );
       }
       const updated = await store.updateRole(userId, role);
