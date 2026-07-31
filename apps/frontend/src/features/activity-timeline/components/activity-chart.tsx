@@ -62,7 +62,12 @@ export function ActivityChart({
                 background: 'var(--background)',
               }}
             />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Legend
+              formatter={(value) => (
+                <span className="text-foreground">{value}</span>
+              )}
+              wrapperStyle={{ fontSize: 12 }}
+            />
             {series.map((item) => (
               <Line
                 key={item.key}
@@ -73,6 +78,7 @@ export function ActivityChart({
                 strokeWidth={item.key === 'total' ? 3 : 2}
                 dot={{ r: 3 }}
                 activeDot={{ r: 5 }}
+                isAnimationActive={false}
               />
             ))}
           </LineChart>
