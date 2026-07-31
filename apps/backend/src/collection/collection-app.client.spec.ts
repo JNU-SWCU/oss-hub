@@ -12,6 +12,7 @@ import {
   CollectionAppTokenError,
   CollectionAppTokenProvider,
 } from './collection-app.token';
+import { requestFingerprintKey } from './collection-app.frontier';
 
 const config: CollectionAppConfigValues = {
   appId: '1',
@@ -43,6 +44,37 @@ const repository = {
   updated_at: '2026-01-01T00:00:00Z',
   secret: 'excluded',
 };
+const commitFixture = (sha: string, date: string) => ({
+  sha,
+  author: { id: 7, login: 'octocat', email: 'excluded' },
+  commit: { committer: { date }, message: 'excluded' },
+  html_url: `https://github.test/${sha}`,
+});
+const prFixture = (id: number, createdAt: string) => ({
+  id,
+  number: id,
+  state: 'open',
+  draft: false,
+  merged_at: null,
+  created_at: createdAt,
+  updated_at: createdAt,
+  user: null,
+  html_url: `https://github.test/pr/${id}`,
+});
+const releaseFixture = (
+  id: number,
+  draft: boolean,
+  publishedAt: string | null,
+) => ({
+  id,
+  tag_name: `v${id}`,
+  name: null,
+  draft,
+  prerelease: false,
+  published_at: publishedAt,
+  author: null,
+  html_url: `https://github.test/r/${id}`,
+});
 
 describe('CollectionAppConfig', () => {
   it('validates required values and lower caps', () => {
@@ -519,6 +551,305 @@ describe('CollectionAppClient', () => {
     );
     await expect(deadline.getRepository('o', 'r')).rejects.toMatchObject({
       kind: 'DEADLINE',
+    });
+  });
+});
+
+describe('CollectionAppClient incremental contract', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  describe('probeDefaultBranchHead', () => {
+    it('skips a full request on 304 for a matching ETag (no-fetch fast path)', async () => {
+      const fetcher = fetchMock().mockResolvedValue(
+        new Response(null, { status: 304, headers: { etag: '"abc"' } }),
+      );
+      const client = new CollectionAppClient(config, tokenProvider, fetcher);
+      await expect(
+        client.probeDefaultBranchHead('o', 'r', 'main', '"abc"'),
+      ).resolves.toMatchObject({ changed: false, etag: '"abc"' });
+      const [, requestInit] = fetcher.mock.calls[0] ?? [];
+      expect(
+        (requestInit?.headers as Record<string, string>)['If-None-Match'],
+      ).toBe('"abc"');
+    });
+
+    it('accepts a 200 with no ETag header (ETag is a nullable optimization only)', async () => {
+      const fetcher = fetchMock().mockResolvedValue(
+        json([commitFixture('head1', '2026-01-01T00:00:00Z')]),
+      );
+      const client = new CollectionAppClient(config, tokenProvider, fetcher);
+      await expect(
+        client.probeDefaultBranchHead('o', 'r', 'main', null),
+      ).resolves.toMatchObject({ changed: true, headSha: 'head1', etag: null });
+    });
+
+    it('reports headSha null for an empty repository', async () => {
+      const fetcher = fetchMock().mockResolvedValue(json([]));
+      const client = new CollectionAppClient(config, tokenProvider, fetcher);
+      await expect(
+        client.probeDefaultBranchHead('o', 'r', 'main', null),
+      ).resolves.toMatchObject({ changed: true, headSha: null });
+    });
+
+    it('retries exactly once after invalidating the token on 401', async () => {
+      const tokens = new CollectionAppTokenProvider(config);
+      jest
+        .spyOn(tokens, 'getToken')
+        .mockResolvedValueOnce('stale')
+        .mockResolvedValueOnce('fresh');
+      const clear = jest.spyOn(tokens, 'clear');
+      const fetcher = fetchMock()
+        .mockResolvedValueOnce(new Response('', { status: 401 }))
+        .mockResolvedValueOnce(
+          json([commitFixture('head1', '2026-01-01T00:00:00Z')]),
+        );
+      await expect(
+        new CollectionAppClient(config, tokens, fetcher).probeDefaultBranchHead(
+          'o',
+          'r',
+          'main',
+          null,
+        ),
+      ).resolves.toMatchObject({ headSha: 'head1' });
+      expect(clear).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects a malformed probe response', async () => {
+      const client = new CollectionAppClient(
+        config,
+        tokenProvider,
+        fetchMock().mockResolvedValue(json({ not: 'an array' })),
+      );
+      await expect(
+        client.probeDefaultBranchHead('o', 'r', 'main', null),
+      ).rejects.toBeInstanceOf(CollectionAppClientError);
+    });
+  });
+
+  describe('listCommitsUntilKnownSha', () => {
+    it('includes an old-dated commit that only recently became reachable and reports a disconnected full scan when no known SHA intersects', async () => {
+      const fetcher = fetchMock().mockResolvedValue(
+        json([
+          commitFixture('new1', '2026-01-05T00:00:00Z'),
+          commitFixture('old-reachable', '2020-01-01T00:00:00Z'),
+        ]),
+      );
+      const client = new CollectionAppClient(config, tokenProvider, fetcher);
+      const result = await client.listCommitsUntilKnownSha(
+        'o',
+        'r',
+        'main',
+        new Set(['not-present']),
+      );
+      expect(result.commits.map((c) => c.sha)).toEqual([
+        'new1',
+        'old-reachable',
+      ]);
+      expect(result.disconnectedFullScan).toBe(true);
+    });
+
+    it('stops at the first known SHA without a disconnected scan and without over-fetching', async () => {
+      const fetcher = fetchMock().mockResolvedValue(
+        json([
+          commitFixture('new1', '2026-01-05T00:00:00Z'),
+          commitFixture('known', '2026-01-01T00:00:00Z'),
+          commitFixture('older', '2025-01-01T00:00:00Z'),
+        ]),
+      );
+      const client = new CollectionAppClient(config, tokenProvider, fetcher);
+      const result = await client.listCommitsUntilKnownSha(
+        'o',
+        'r',
+        'main',
+        new Set(['known']),
+      );
+      expect(result.commits.map((c) => c.sha)).toEqual(['new1']);
+      expect(result.disconnectedFullScan).toBe(false);
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    });
+
+    it('dedupes repeated commit SHAs caused by pagination drift', async () => {
+      const fetcher = fetchMock().mockResolvedValue(
+        json([
+          commitFixture('c1', '2026-01-02T00:00:00Z'),
+          commitFixture('c1', '2026-01-02T00:00:00Z'),
+          commitFixture('c2', '2026-01-01T00:00:00Z'),
+        ]),
+      );
+      const client = new CollectionAppClient(config, tokenProvider, fetcher);
+      const result = await client.listCommitsUntilKnownSha(
+        'o',
+        'r',
+        'main',
+        new Set(),
+      );
+      expect(result.commits.map((c) => c.sha)).toEqual(['c1', 'c2']);
+    });
+
+    it('throws PAGINATION instead of a false disconnected-scan when the page limit is hit before the list truly ends', async () => {
+      const limited = { ...config, maxPages: 1 };
+      const fetcher = fetchMock().mockResolvedValue(
+        json([commitFixture('c1', '2026-01-01T00:00:00Z')], {
+          headers: { link: '<https://api.github.test/next>; rel="next"' },
+        }),
+      );
+      const client = new CollectionAppClient(limited, tokenProvider, fetcher);
+      await expect(
+        client.listCommitsUntilKnownSha('o', 'r', 'main', new Set()),
+      ).rejects.toMatchObject({ kind: 'PAGINATION' });
+    });
+
+    it('uses a different fingerprint than the head probe so an ETag is never shared', async () => {
+      const probe = await new CollectionAppClient(
+        config,
+        tokenProvider,
+        fetchMock().mockResolvedValue(
+          json([commitFixture('head1', '2026-01-01T00:00:00Z')]),
+        ),
+      ).probeDefaultBranchHead('o', 'r', 'main', null);
+      const traversal = await new CollectionAppClient(
+        config,
+        tokenProvider,
+        fetchMock().mockResolvedValue(
+          json([commitFixture('head1', '2026-01-01T00:00:00Z')]),
+        ),
+      ).listCommitsUntilKnownSha('o', 'r', 'main', new Set());
+      expect(requestFingerprintKey(probe.fingerprint)).not.toEqual(
+        requestFingerprintKey(traversal.fingerprint),
+      );
+    });
+  });
+
+  describe('listNewPullRequests', () => {
+    it('resolves createdAt ties by id and stops once the (createdAt,id) tie frontier is met, across a page boundary', async () => {
+      const fetcher = fetchMock()
+        .mockResolvedValueOnce(
+          json(
+            [
+              prFixture(9, '2026-01-02T00:00:00Z'),
+              prFixture(8, '2026-01-01T00:00:00Z'),
+            ],
+            { headers: { link: '<https://api.github.test/next>; rel="next"' } },
+          ),
+        )
+        .mockResolvedValueOnce(
+          json([
+            prFixture(7, '2026-01-01T00:00:00Z'),
+            prFixture(6, '2025-01-01T00:00:00Z'),
+          ]),
+        );
+      const client = new CollectionAppClient(config, tokenProvider, fetcher);
+      const result = await client.listNewPullRequests('o', 'r', {
+        createdAt: '2026-01-01T00:00:00Z',
+        id: '7',
+      });
+      expect(result.pullRequests.map((p) => p.id)).toEqual(['9', '8']);
+      expect(result.newFrontier).toEqual({
+        createdAt: '2026-01-02T00:00:00Z',
+        id: '9',
+      });
+    });
+
+    it('reads every page when the frontier is null (first-ever backfill)', async () => {
+      const fetcher = fetchMock().mockResolvedValue(
+        json([prFixture(1, '2026-01-01T00:00:00Z')]),
+      );
+      const client = new CollectionAppClient(config, tokenProvider, fetcher);
+      const result = await client.listNewPullRequests('o', 'r', null);
+      expect(result.pullRequests.map((p) => p.id)).toEqual(['1']);
+      expect(fetcher.mock.calls[0]?.[0]).toEqual(
+        expect.stringContaining('state=all&sort=created&direction=desc'),
+      );
+    });
+
+    it('dedupes repeated PR ids caused by pagination drift', async () => {
+      const fetcher = fetchMock().mockResolvedValue(
+        json([
+          prFixture(5, '2026-01-01T00:00:00Z'),
+          prFixture(5, '2026-01-01T00:00:00Z'),
+        ]),
+      );
+      const client = new CollectionAppClient(config, tokenProvider, fetcher);
+      const result = await client.listNewPullRequests('o', 'r', null);
+      expect(result.pullRequests.map((p) => p.id)).toEqual(['5']);
+    });
+
+    it('classifies rate-limit responses', async () => {
+      const client = new CollectionAppClient(
+        config,
+        tokenProvider,
+        fetchMock().mockResolvedValue(new Response('', { status: 429 })),
+      );
+      await expect(
+        client.listNewPullRequests('o', 'r', null),
+      ).rejects.toMatchObject({ kind: 'RATE_LIMITED' });
+    });
+  });
+
+  describe('release probe and changed listing', () => {
+    it('skips the full listing on 304 for a matching ETag', async () => {
+      const fetcher = fetchMock().mockResolvedValue(
+        new Response(null, { status: 304, headers: { etag: '"r1"' } }),
+      );
+      const client = new CollectionAppClient(config, tokenProvider, fetcher);
+      await expect(
+        client.probeLatestRelease('o', 'r', '"r1"'),
+      ).resolves.toMatchObject({ changed: false, etag: '"r1"' });
+    });
+
+    it('reports a stable probe frontier and accepts a 200 with no ETag', async () => {
+      const fetcher = fetchMock().mockResolvedValue(
+        json([releaseFixture(9, false, '2026-01-02T00:00:00Z')]),
+      );
+      const client = new CollectionAppClient(config, tokenProvider, fetcher);
+      await expect(
+        client.probeLatestRelease('o', 'r', null),
+      ).resolves.toMatchObject({
+        changed: true,
+        etag: null,
+        frontier: { probe: '9:false:2026-01-02T00:00:00Z' },
+      });
+    });
+
+    it('reports a null frontier probe for a repository with no releases', async () => {
+      const fetcher = fetchMock().mockResolvedValue(json([]));
+      const client = new CollectionAppClient(config, tokenProvider, fetcher);
+      await expect(
+        client.probeLatestRelease('o', 'r', null),
+      ).resolves.toMatchObject({ changed: true, frontier: null });
+    });
+
+    it('includes a previously-draft release that has since published and dedupes repeated IDs from pagination drift', async () => {
+      const fetcher = fetchMock().mockResolvedValue(
+        json([
+          releaseFixture(5, false, '2026-01-01T00:00:00Z'),
+          releaseFixture(5, false, '2026-01-01T00:00:00Z'),
+          releaseFixture(9, false, '2026-01-02T00:00:00Z'),
+        ]),
+      );
+      const client = new CollectionAppClient(config, tokenProvider, fetcher);
+      const result = await client.listChangedPublishedReleases('o', 'r');
+      expect(result.releases.map((r) => r.id)).toEqual(['5', '9']);
+    });
+
+    it('uses a different fingerprint for the probe and the full listing so an ETag is never shared', async () => {
+      const probe = await new CollectionAppClient(
+        config,
+        tokenProvider,
+        fetchMock().mockResolvedValue(
+          json([releaseFixture(9, false, '2026-01-02T00:00:00Z')]),
+        ),
+      ).probeLatestRelease('o', 'r', null);
+      const listing = await new CollectionAppClient(
+        config,
+        tokenProvider,
+        fetchMock().mockResolvedValue(
+          json([releaseFixture(9, false, '2026-01-02T00:00:00Z')]),
+        ),
+      ).listChangedPublishedReleases('o', 'r');
+      expect(requestFingerprintKey(probe.fingerprint)).not.toEqual(
+        requestFingerprintKey(listing.fingerprint),
+      );
     });
   });
 });

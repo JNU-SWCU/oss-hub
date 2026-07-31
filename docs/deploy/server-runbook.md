@@ -80,6 +80,21 @@ sudo ss -ltnp | grep 8080 # Jenkins가 127.0.0.1:8080에만 LISTEN (0.0.0.0:8080
 sudo install -d -m 700 -o jenkins -g jenkins /var/lib/oss-hub/backups
 ```
 
+GitHub App 개인키는 env 문자열이 아니라 파일 시크릿으로 주입한다.
+운영자가 1회만 준비하는 루트 디렉터리는 아래와 같고, 현재 서버에는 이미 반영돼 있다.
+
+```sh
+sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
+```
+
+- 이 디렉터리는 `jenkins:1000` 소유, `2750` setgid로 유지한다.
+- Jenkins Credentials Store에는 file credential 2건을 등록한다: `oss-hub-collection-app-private-key`, `oss-hub-operations-app-private-key`.
+- 각 credential의 원본 파일은 운영자가 관리하는 새 generation의 `collection.pem`, `operations.pem`이다.
+- 컨테이너 안에서는 `github_collection_app_private_key`와 `github_operations_app_private_key`가 각각 `/run/secrets/github_collection_app_private_key`, `/run/secrets/github_operations_app_private_key`로 마운트되고, 앱은 대응하는 `*_PRIVATE_KEY_FILE`만 읽는다.
+- Jenkinsfile의 pipeline `environment`가 `GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE`, `GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE`를 이미 주입하므로, `oss-hub-production-env`에는 이 두 키를 중복 기재하지 않는다.
+- 수동 compose 실행 시에만 같은 값을 셸 환경이나 임시 env file에서 제공한다.
+- Jenkinsfile의 `개인키 안정 경로 설치` stage가 새 generation을 이 경로에 설치하고, `실행 중 이미지 기준 no-op...` stage 바로 직전에 실행된다.
+
 `compose.yml`은 아래 키를 `${VAR:?...}`로 요구한다. 하나라도 없으면 compose가 보간 단계에서 중단되며,
 `up -d postgres`처럼 서비스 하나만 다루는 명령도 함께 실패한다.
 `IMAGE_TAG`를 뺀 전부가 `oss-hub-production-env`에 있어야 한다.
@@ -94,14 +109,26 @@ sudo install -d -m 700 -o jenkins -g jenkins /var/lib/oss-hub/backups
 | `TEAM_JOIN_CODE_SECRET` | 팀 참가 코드 서명 시크릿 |
 | `FRONTEND_URL` | OAuth 콜백 파생 등에 쓰는 프런트엔드 base URL |
 | `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth 로그인 앱 |
-| `GITHUB_COLLECTION_APP_ID` / `GITHUB_APP_ORG` / `GITHUB_COLLECTION_APP_PRIVATE_KEY` | GitHub 활동 수집 App |
-| `GITHUB_OPERATIONS_APP_ID` / `GITHUB_OPERATIONS_APP_PRIVATE_KEY` | 저장소 생성·설정 변경용 GitHub App |
+| `GITHUB_COLLECTION_APP_ID` / `GITHUB_APP_ORG` / `GITHUB_COLLECTION_APP_PRIVATE_KEY` | GitHub 활동 수집 App. `GITHUB_COLLECTION_APP_PRIVATE_KEY`는 비어 있어도 기동하는 롤백용 legacy 값 키이며, 평시에는 파일 시크릿으로 읽는다 |
+| `GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE` | `compose.yml` secret `github_collection_app_private_key`의 호스트 경로. 값은 `/var/lib/oss-hub/secrets/current/collection.pem`이다 |
+| `GITHUB_OPERATIONS_APP_ID` / `GITHUB_OPERATIONS_APP_PRIVATE_KEY` | 저장소 생성·설정 변경용 GitHub App. `GITHUB_OPERATIONS_APP_PRIVATE_KEY`는 비어 있어도 기동하는 롤백용 legacy 값 키이며, 평시에는 파일 시크릿으로 읽는다 |
+| `GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE` | `compose.yml` secret `github_operations_app_private_key`의 호스트 경로. 값은 `/var/lib/oss-hub/secrets/current/operations.pem`이다 |
 | `SUBMISSION_FILE_S3_ACCESS_KEY_ID` / `SUBMISSION_FILE_S3_SECRET_ACCESS_KEY` | 운영자가 생성. `compose.yml`에서 MinIO root 자격증명으로도 같이 쓴다 |
 | `MAIL_MODE` | exact `send` 또는 `dry-run`. production 발송은 `send`를 쓰며 아래 Gmail 자격증명 4종을 함께 검증한다 |
 | `GMAIL_SENDER` / `GMAIL_OAUTH_CLIENT_ID` / `GMAIL_OAUTH_CLIENT_SECRET` / `GMAIL_OAUTH_REFRESH_TOKEN` | `MAIL_MODE=send`일 때 필수인 마감 알림 발신 자격증명. `dry-run`에서는 빈 값 허용 |
 
 `SUBMISSION_FILE_S3_ACCESS_KEY_ID`·`SUBMISSION_FILE_S3_SECRET_ACCESS_KEY`의 실제 값은 이 저장소에 두지 않는다.
 `compose.yml`에 env 키를 추가하거나 지우면 이 표도 같은 PR에서 갱신한다.
+
+#### GitHub App 개인키 파일 시크릿 회전
+
+- generation 레이아웃은 `${SECRETS_DIR}/gen-<BUILD_NUMBER>/{collection,operations}.pem`이고, 활성 포인터는 `${SECRETS_DIR}/current` symlink다.
+- 교체는 `ln -sfn`으로 새 generation을 가리킨 뒤 `mv -T`로 포인터를 원자적으로 바꾼다.
+- 파일 모드는 `0640`만 쓴다. `0644`는 쓰지 않는다.
+- 호스트에서 `sudo -u '#1000' cat /var/lib/oss-hub/secrets/current/*.pem`으로 가독을 확인하면 부모 `/var/lib/oss-hub`의 `700 jenkins:jenkins` 때문에 항상 실패한다. 이 실패는 권한 버그가 아니라 경로 traversal 차단이다.
+- 가독 검증은 반드시 컨테이너 경유로 한다.
+- symlink 교체는 실행 중 컨테이너에 반영되지 않으므로, 키 회전 후에는 `docker compose up -d --force-recreate backend`가 필요하다.
+- 롤백 창에서는 legacy `GITHUB_*_APP_PRIVATE_KEY` 값 키를 잠시 되살려 사용할 수 있다.
 
 ### 기본값이 있는 저장소 키
 

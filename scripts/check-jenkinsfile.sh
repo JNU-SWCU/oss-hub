@@ -275,73 +275,54 @@ awk '
   }
 ' "$active_jenkinsfile" >"$docker_scan_file"
 
-count_fixed() {
-  local pattern=$1
-  { grep -F -- "$pattern" "$active_jenkinsfile" || true; } | wc -l | tr -d ' '
-}
-
-count_regex() {
-  local pattern=$1
-  { grep -Ec -- "$pattern" "$active_jenkinsfile" || true; } | tr -d ' '
-}
-
-require_exact() {
-  local description=$1
+# count_matches/require_count는 count_fixed/count_regex/require_* 7종의 공통 코어다.
+# mode: fixed(grep -F) | regex(grep -Ec). comparator: eq(=expected) | ge(>=minimum) | absent(==0).
+count_matches() {
+  local mode=$1
   local pattern=$2
-  local expected=$3
-  local actual
-  actual=$(count_fixed "$pattern")
-  if ((actual != expected)); then
-    printf '%s: %s (expected=%s, actual=%s)\n' "$label" "$description" "$expected" "$actual" >&2
-    exit 1
-  fi
+  case "$mode" in
+    fixed) { grep -F -- "$pattern" "$active_jenkinsfile" || true; } | wc -l | tr -d ' ' ;;
+    regex) { grep -Ec -- "$pattern" "$active_jenkinsfile" || true; } | tr -d ' ' ;;
+  esac
 }
 
-require_at_least() {
+require_count() {
   local description=$1
-  local pattern=$2
-  local minimum=$3
+  local mode=$2
+  local pattern=$3
+  local comparator=$4
+  local threshold=${5-}
   local actual
-  actual=$(count_fixed "$pattern")
-  if ((actual < minimum)); then
-    printf '%s: %s (minimum=%s, actual=%s)\n' "$label" "$description" "$minimum" "$actual" >&2
-    exit 1
-  fi
+  actual=$(count_matches "$mode" "$pattern")
+  case "$comparator" in
+    eq)
+      if ((actual != threshold)); then
+        printf '%s: %s (expected=%s, actual=%s)\n' "$label" "$description" "$threshold" "$actual" >&2
+        exit 1
+      fi
+      ;;
+    ge)
+      if ((actual < threshold)); then
+        printf '%s: %s (minimum=%s, actual=%s)\n' "$label" "$description" "$threshold" "$actual" >&2
+        exit 1
+      fi
+      ;;
+    absent)
+      if ((actual != 0)); then
+        printf '%s: %s (expected=absent, actual=%s)\n' "$label" "$description" "$actual" >&2
+        exit 1
+      fi
+      ;;
+  esac
 }
 
-require_absent() {
-  local description=$1
-  local pattern=$2
-  local actual
-  actual=$(count_fixed "$pattern")
-  if ((actual != 0)); then
-    printf '%s: %s (expected=absent, actual=%s)\n' "$label" "$description" "$actual" >&2
-    exit 1
-  fi
-}
-
-require_regex_at_least() {
-  local description=$1
-  local pattern=$2
-  local minimum=$3
-  local actual
-  actual=$(count_regex "$pattern")
-  if ((actual < minimum)); then
-    printf '%s: %s (minimum=%s, actual=%s)\n' "$label" "$description" "$minimum" "$actual" >&2
-    exit 1
-  fi
-}
-
-require_regex_absent() {
-  local description=$1
-  local pattern=$2
-  local actual
-  actual=$(count_regex "$pattern")
-  if ((actual != 0)); then
-    printf '%s: %s (expected=absent, actual=%s)\n' "$label" "$description" "$actual" >&2
-    exit 1
-  fi
-}
+count_fixed() { count_matches fixed "$1"; }
+count_regex() { count_matches regex "$1"; }
+require_exact() { require_count "$1" fixed "$2" eq "$3"; }
+require_at_least() { require_count "$1" fixed "$2" ge "$3"; }
+require_absent() { require_count "$1" fixed "$2" absent; }
+require_regex_at_least() { require_count "$1" regex "$2" ge "$3"; }
+require_regex_absent() { require_count "$1" regex "$2" absent; }
 
 line_of() {
   local pattern=$1
@@ -353,112 +334,58 @@ line_of_regex() {
   grep -nE "$pattern" "$active_numbered_file" | head -n 1 | cut -d: -f1
 }
 
-count_shell_stage_depth_exact() {
-  local stage=$1
-  local depth=$2
-  local pattern=$3
-  awk -F '\t' -v stage="$stage" -v depth="$depth" -v pattern="$pattern" '
-    $2 == stage && $4 == depth && $5 == pattern { count++ }
-    END { print count + 0 }
-  ' "$shell_contract_file"
-}
-
-count_shell_block_depth_exact() {
-  local block=$1
-  local depth=$2
-  local pattern=$3
-  awk -F '\t' -v block="$block" -v depth="$depth" -v pattern="$pattern" '
-    $1 == block && $4 == depth && $5 == pattern { count++ }
-    END { print count + 0 }
-  ' "$shell_contract_file"
-}
-
-count_shell_block_depth_contains() {
-  local block=$1
-  local depth=$2
-  local pattern=$3
-  awk -F '\t' -v block="$block" -v depth="$depth" -v pattern="$pattern" '
-    $1 == block && $4 == depth && index($5, pattern) { count++ }
-    END { print count + 0 }
-  ' "$shell_contract_file"
-}
-
-require_shell_stage_depth_exact() {
-  local description=$1
-  local stage=$2
+# shell_contract_file 컬럼: $1=block $2=stage $3=line $4=depth $5=pattern.
+# _shell_scan(col, key, depth, pattern, mode, action)이 count/block/line_first
+# 10종 조회를 컬럼(1=block/2=stage)·depth 필터 유무·매칭 모드(exact/contains)·
+# 출력 액션(count/block/line_first)의 조합으로 통합한 코어다.
+_shell_scan() {
+  local col=$1
+  local key=$2
   local depth=$3
   local pattern=$4
-  local expected=${5:-1}
+  local mode=$5
+  local action=$6
+  awk -F '\t' -v col="$col" -v key="$key" -v depth="$depth" -v pattern="$pattern" -v mode="$mode" -v action="$action" '
+    function depth_ok() { return (depth == "" || $4 == depth) }
+    function pattern_ok() { return (mode == "contains" ? index($5, pattern) : ($5 == pattern)) }
+    $col == key && depth_ok() && pattern_ok() {
+      if (action == "count") { count++; next }
+      if (action == "block") { print $1; next }
+      print $3
+      exit
+    }
+    END { if (action == "count") print count + 0 }
+  ' "$shell_contract_file"
+}
+
+_require_shell_count() {
+  local description=$1
+  local col=$2
+  local key=$3
+  local depth=$4
+  local pattern=$5
+  local mode=$6
+  local expected=${7:-1}
   local actual
-  actual=$(count_shell_stage_depth_exact "$stage" "$depth" "$pattern")
+  actual=$(_shell_scan "$col" "$key" "$depth" "$pattern" "$mode" count)
   if ((actual != expected)); then
     printf '%s: %s (expected=%s, actual=%s)\n' "$label" "$description" "$expected" "$actual" >&2
     exit 1
   fi
 }
 
-require_shell_block_depth_exact() {
-  local description=$1
-  local block=$2
-  local depth=$3
-  local pattern=$4
-  local expected=${5:-1}
-  local actual
-  actual=$(count_shell_block_depth_exact "$block" "$depth" "$pattern")
-  if ((actual != expected)); then
-    printf '%s: %s (expected=%s, actual=%s)\n' "$label" "$description" "$expected" "$actual" >&2
-    exit 1
-  fi
-}
+count_shell_stage_depth_exact() { _shell_scan 2 "$1" "$2" "$3" exact count; }
+count_shell_block_depth_exact() { _shell_scan 1 "$1" "$2" "$3" exact count; }
+count_shell_block_depth_contains() { _shell_scan 1 "$1" "$2" "$3" contains count; }
 
-require_shell_block_depth_contains() {
-  local description=$1
-  local block=$2
-  local depth=$3
-  local pattern=$4
-  local expected=${5:-1}
-  local actual
-  actual=$(count_shell_block_depth_contains "$block" "$depth" "$pattern")
-  if ((actual != expected)); then
-    printf '%s: %s (expected=%s, actual=%s)\n' "$label" "$description" "$expected" "$actual" >&2
-    exit 1
-  fi
-}
+require_shell_stage_depth_exact() { _require_shell_count "$1" 2 "$2" "$3" "$4" exact "${5:-1}"; }
+require_shell_block_depth_exact() { _require_shell_count "$1" 1 "$2" "$3" "$4" exact "${5:-1}"; }
+require_shell_block_depth_contains() { _require_shell_count "$1" 1 "$2" "$3" "$4" contains "${5:-1}"; }
 
-shell_block_of_stage_depth_exact() {
-  local stage=$1
-  local depth=$2
-  local pattern=$3
-  awk -F '\t' -v stage="$stage" -v depth="$depth" -v pattern="$pattern" '
-    $2 == stage && $4 == depth && $5 == pattern { print $1 }
-  ' "$shell_contract_file"
-}
-
-line_of_shell_stage_depth_exact() {
-  local stage=$1
-  local depth=$2
-  local pattern=$3
-  awk -F '\t' -v stage="$stage" -v depth="$depth" -v pattern="$pattern" '
-    $2 == stage && $4 == depth && $5 == pattern { print $3; exit }
-  ' "$shell_contract_file"
-}
-
-line_of_shell_stage_exact() {
-  local stage=$1
-  local pattern=$2
-  awk -F '\t' -v stage="$stage" -v pattern="$pattern" '
-    $2 == stage && $5 == pattern { print $3; exit }
-  ' "$shell_contract_file"
-}
-
-line_of_shell_block_depth_exact() {
-  local block=$1
-  local depth=$2
-  local pattern=$3
-  awk -F '\t' -v block="$block" -v depth="$depth" -v pattern="$pattern" '
-    $1 == block && $4 == depth && $5 == pattern { print $3; exit }
-  ' "$shell_contract_file"
-}
+shell_block_of_stage_depth_exact() { _shell_scan 2 "$1" "$2" "$3" exact block; }
+line_of_shell_stage_depth_exact() { _shell_scan 2 "$1" "$2" "$3" exact line_first; }
+line_of_shell_stage_exact() { _shell_scan 2 "$1" "" "$2" exact line_first; }
+line_of_shell_block_depth_exact() { _shell_scan 1 "$1" "$2" "$3" exact line_first; }
 
 require_status_smoke_contract() {
   local stage='서비스 교체 및 스모크 확인'
@@ -729,6 +656,47 @@ require_single_image_tag_assignment() {
   fi
 }
 
+# opener 정확히 1개 + 그 opener의 닫는 블록 안에서만 유효한 단말(들)을 검증하는 공용 헬퍼.
+# awk에 정규식을 -v로 넘기면 POSIX escape 처리로 의미가 재해석될 위험이 있어(예: \$, \. 등),
+# -v 대신 awk 프로그램 텍스트에 따옴표 스플라이싱으로 직접 삽입해 원본 리터럴을 그대로 보존한다.
+require_single_opener_with_terminal() {
+  local desc="$1" opener_re="$2" closer_re="$3" terminal_re="$4" bad_re="${5:-}" second_re="${6:-}"
+  local prog='
+    {
+      if ($0 ~ /'"$opener_re"'/) {
+        openers++
+        if (openers == 1) grab = 1
+        next
+      }
+      if (grab) {
+        if ($0 ~ /'"$terminal_re"'/) term = 1
+'
+  if [[ -n "$second_re" ]]; then
+    prog+='        if ($0 ~ /'"$second_re"'/) term2 = 1
+'
+  fi
+  if [[ -n "$bad_re" ]]; then
+    prog+='        if ($0 ~ /'"$bad_re"'/) bad = 1
+'
+  fi
+  prog+='        if ($0 ~ /'"$closer_re"'/) grab = 0
+      }
+    }
+    END { exit (openers == 1 && term'
+  if [[ -n "$second_re" ]]; then
+    prog+=' && term2'
+  fi
+  if [[ -n "$bad_re" ]]; then
+    prog+=' && !bad'
+  fi
+  prog+=') ? 0 : 1 }
+  '
+  if ! awk "$prog" "$active_jenkinsfile"; then
+    printf '%s: %s\n' "$label" "$desc" >&2
+    exit 1
+  fi
+}
+
 check_v2() {
   require_common_executor_guards
 
@@ -816,102 +784,42 @@ check_v2() {
   # Reject echo/println/quoted openers, substring spoofs, and duplicate real openers.
 
   # stopped-only branch: condition → terminal exit (marker text alone is insufficient)
-  if ! awk '
-    {
-      if ($0 ~ /^[[:space:]]*if[[:space:]]+\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\][[:space:]]*;[[:space:]]*then[[:space:]]*$/) {
-        openers++
-        if (openers == 1) grab = 1
-        next
-      }
-      if (grab) {
-        if ($0 ~ /^[[:space:]]*exit[[:space:]]+[1-9][0-9]*[[:space:]]*$/) term = 1
-        if ($0 ~ /^[[:space:]]*fi[[:space:]]*$/) grab = 0
-      }
-    }
-    END { exit (openers == 1 && term) ? 0 : 1 }
-  ' "$active_jenkinsfile"; then
-    printf '%s: stopped container 분기는 유일 executable opener 와 단말 exit 로 실패해야 함 (marker-only 금지)\n' "$label" >&2
-    exit 1
-  fi
+  require_single_opener_with_terminal \
+    'stopped container 분기는 유일 executable opener 와 단말 exit 로 실패해야 함 (marker-only 금지)' \
+    '^[[:space:]]*if[[:space:]]+\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\][[:space:]]*;[[:space:]]*then[[:space:]]*$' \
+    '^[[:space:]]*fi[[:space:]]*$' \
+    '^[[:space:]]*exit[[:space:]]+[1-9][0-9]*[[:space:]]*$'
 
   # partial existence branch: one-sided container presence → terminal exit
-  if ! awk '
-    {
-      if ($0 ~ /^[[:space:]]*if[[:space:]]+\{[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*\|\|[[:space:]]*\{[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*;[[:space:]]*then[[:space:]]*$/) {
-        openers++
-        if (openers == 1) grab = 1
-        next
-      }
-      if (grab) {
-        if ($0 ~ /^[[:space:]]*exit[[:space:]]+[1-9][0-9]*[[:space:]]*$/) term = 1
-        if ($0 ~ /^[[:space:]]*fi[[:space:]]*$/) grab = 0
-      }
-    }
-    END { exit (openers == 1 && term) ? 0 : 1 }
-  ' "$active_jenkinsfile"; then
-    printf '%s: partial deployment 분기는 유일 executable opener 와 단말 exit 로 실패해야 함 (marker-only 금지)\n' "$label" >&2
-    exit 1
-  fi
+  require_single_opener_with_terminal \
+    'partial deployment 분기는 유일 executable opener 와 단말 exit 로 실패해야 함 (marker-only 금지)' \
+    '^[[:space:]]*if[[:space:]]+\{[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*\|\|[[:space:]]*\{[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*;[[:space:]]*then[[:space:]]*$' \
+    '^[[:space:]]*fi[[:space:]]*$' \
+    '^[[:space:]]*exit[[:space:]]+[1-9][0-9]*[[:space:]]*$'
 
   # Groovy non-running probe state must terminal-error (not a renamed condition alone)
-  if ! awk '
-    {
-      if ($0 ~ /^[[:space:]]*if[[:space:]]*\([[:space:]]*state[[:space:]]*!=[[:space:]]*'\''running'\''[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/) {
-        openers++
-        if (openers == 1) grab = 1
-        next
-      }
-      if (grab) {
-        if ($0 ~ /^[[:space:]]*error[[:space:]]*\(/) term = 1
-        if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) grab = 0
-      }
-    }
-    END { exit (openers == 1 && term) ? 0 : 1 }
-  ' "$active_jenkinsfile"; then
-    printf '%s: non-running probe state는 유일 executable opener 와 error(...) 단말 실패여야 함\n' "$label" >&2
-    exit 1
-  fi
+  require_single_opener_with_terminal \
+    'non-running probe state는 유일 executable opener 와 error(...) 단말 실패여야 함' \
+    "^[[:space:]]*if[[:space:]]*\([[:space:]]*state[[:space:]]*!=[[:space:]]*'running'[[:space:]]*\)[[:space:]]*\{[[:space:]]*\$" \
+    "^[[:space:]]*\}[[:space:]]*\$" \
+    '^[[:space:]]*error[[:space:]]*\('
 
   # same-tag/different-SHA: condition → error(...) terminal (marker rename must not pass)
-  if ! awk '
-    {
-      if ($0 ~ /^[[:space:]]*if[[:space:]]*\([[:space:]]*prevTag[[:space:]]*==[[:space:]]*env\.RELEASE_TAG[[:space:]]*&&[[:space:]]*prevSha[[:space:]]*!=[[:space:]]*env\.RELEASE_SHA[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/) {
-        openers++
-        if (openers == 1) grab = 1
-        next
-      }
-      if (grab) {
-        if ($0 ~ /^[[:space:]]*error[[:space:]]*\(/) term = 1
-        if ($0 ~ /^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''true'\''/) bad = 1
-        if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) grab = 0
-      }
-    }
-    END { exit (openers == 1 && term && !bad) ? 0 : 1 }
-  ' "$active_jenkinsfile"; then
-    printf '%s: same-tag/different-SHA는 유일 executable opener 와 error(...) 단말 실패여야 함 (marker-only 금지)\n' "$label" >&2
-    exit 1
-  fi
+  require_single_opener_with_terminal \
+    'same-tag/different-SHA는 유일 executable opener 와 error(...) 단말 실패여야 함 (marker-only 금지)' \
+    "^[[:space:]]*if[[:space:]]*\([[:space:]]*prevTag[[:space:]]*==[[:space:]]*env\.RELEASE_TAG[[:space:]]*&&[[:space:]]*prevSha[[:space:]]*!=[[:space:]]*env\.RELEASE_SHA[[:space:]]*\)[[:space:]]*\{[[:space:]]*\$" \
+    "^[[:space:]]*\}[[:space:]]*\$" \
+    '^[[:space:]]*error[[:space:]]*\(' \
+    "^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'true'"
 
   # SemVer downgrade: bounded cmp < 0 → DEPLOY_NOOP=true → return (not a log marker)
-  if ! awk '
-    {
-      if ($0 ~ /^[[:space:]]*if[[:space:]]*\([[:space:]]*cmp[[:space:]]*<[[:space:]]*0[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/) {
-        openers++
-        if (openers == 1) grab = 1
-        next
-      }
-      if (grab) {
-        if ($0 ~ /^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''true'\''/) noop = 1
-        if ($0 ~ /^[[:space:]]*return[[:space:]]*;?[[:space:]]*$/) ret = 1
-        if ($0 ~ /^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''false'\''/) bad = 1
-        if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) grab = 0
-      }
-    }
-    END { exit (openers == 1 && noop && ret && !bad) ? 0 : 1 }
-  ' "$active_jenkinsfile"; then
-    printf '%s: full SemVer downgrade는 유일 cmp < 0 opener 후 DEPLOY_NOOP=true 와 return 이어야 함\n' "$label" >&2
-    exit 1
-  fi
+  require_single_opener_with_terminal \
+    'full SemVer downgrade는 유일 cmp < 0 opener 후 DEPLOY_NOOP=true 와 return 이어야 함' \
+    "^[[:space:]]*if[[:space:]]*\([[:space:]]*cmp[[:space:]]*<[[:space:]]*0[[:space:]]*\)[[:space:]]*\{[[:space:]]*\$" \
+    "^[[:space:]]*\}[[:space:]]*\$" \
+    "^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'true'" \
+    "^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'false'" \
+    '^[[:space:]]*return[[:space:]]*;?[[:space:]]*$'
 
   local buildx_preflight_stage='Buildx 캐시 상한 사전 검증'
   local buildx_preflight_command="if ! docker buildx prune --help 2>&1 | grep -F -- '--max-used-space' >/dev/null; then"
@@ -1107,44 +1015,65 @@ check_v2() {
   backup_prune_line=$(line_of_shell_stage_depth_exact \
     '성공 후 이미지·백업 보존 정리' 0 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"')
 
-  if [[ -z "$environment_line" || -z "$stages_line" || -z "$build_cache_line" ||
-         -z "$checkout_line" || -z "$buildx_preflight_line" || -z "$https_line" || -z "$rollback_stage_line" ||
-         -z "$rollback_input_line" || -z "$rollback_call_line" || -z "$prisma_generate_line" || -z "$test_line" || -z "$backup_line" ||
-         -z "$first_production_mutation_line" ||
-         -z "$frontend_build_line" || -z "$backend_build_line" || -z "$migration_line" ||
-         -z "$rollout_line" || -z "$noop_stage_line" || -z "$retention_line" || -z "$retention_stage_line" ||
-         -z "$image_rm_line" || -z "$buildx_prune_line" || -z "$backup_prune_line" ]]; then
-    printf '%s: required stage markers missing for order check\n' "$label" >&2
-    exit 1
-  fi
+  # bash 3.2 호환: declare -A 대신 변수명 배열 + ${!name} 간접 참조로 순회한다.
+  local -a order_check_names=(
+    environment_line stages_line build_cache_line
+    checkout_line buildx_preflight_line https_line rollback_stage_line
+    rollback_input_line rollback_call_line prisma_generate_line test_line backup_line
+    first_production_mutation_line
+    frontend_build_line backend_build_line migration_line
+    rollout_line noop_stage_line retention_line retention_stage_line
+    image_rm_line buildx_prune_line backup_prune_line
+  )
+  local order_check_name
+  for order_check_name in "${order_check_names[@]}"; do
+    if [[ -z "${!order_check_name}" ]]; then
+      printf '%s: required stage markers missing for order check\n' "$label" >&2
+      exit 1
+    fi
+  done
 
-  if ! ((environment_line < retention_line &&
-         environment_line < build_cache_line &&
-         retention_line < stages_line &&
-         build_cache_line < stages_line &&
-         checkout_line < buildx_preflight_line &&
-         buildx_preflight_line < https_line &&
-         buildx_preflight_line < first_production_mutation_line &&
-         https_line < rollback_stage_line &&
-         rollback_stage_line <= rollback_input_line &&
-         rollback_input_line < rollback_call_line &&
-         rollback_call_line < prisma_generate_line &&
-         prisma_generate_line < test_line &&
-         test_line < first_production_mutation_line &&
-         first_production_mutation_line < backup_line &&
-         test_line < backup_line &&
-         backup_line < frontend_build_line &&
-         frontend_build_line < backend_build_line &&
-         backend_build_line < migration_line &&
-         migration_line < rollout_line &&
-         rollout_line < noop_stage_line &&
-         noop_stage_line < retention_stage_line &&
-         retention_stage_line < image_rm_line &&
-         image_rm_line < buildx_prune_line &&
-         buildx_prune_line < backup_prune_line)); then
-    printf '%s: required order is environment cache constants -> checkout -> Buildx/HTTPS/rollback preflight -> generate/test -> production backup -> two image builds -> migration -> rollout/reload/smoke -> no-op drift smoke -> image/BuildKit/backup retention\n' "$label" >&2
-    exit 1
-  fi
+  # 순서쌍은 선형 체인이 아닌 DAG다 (예: buildx_preflight_line이 두 갈래로 분기,
+  # rollback_stage_line<=rollback_input_line은 등호 포함) — 원본 24개 && 절과 1:1 대응.
+  local -a order_check_pairs=(
+    'environment_line:<:retention_line'
+    'environment_line:<:build_cache_line'
+    'retention_line:<:stages_line'
+    'build_cache_line:<:stages_line'
+    'checkout_line:<:buildx_preflight_line'
+    'buildx_preflight_line:<:https_line'
+    'buildx_preflight_line:<:first_production_mutation_line'
+    'https_line:<:rollback_stage_line'
+    'rollback_stage_line:<=:rollback_input_line'
+    'rollback_input_line:<:rollback_call_line'
+    'rollback_call_line:<:prisma_generate_line'
+    'prisma_generate_line:<:test_line'
+    'test_line:<:first_production_mutation_line'
+    'first_production_mutation_line:<:backup_line'
+    'test_line:<:backup_line'
+    'backup_line:<:frontend_build_line'
+    'frontend_build_line:<:backend_build_line'
+    'backend_build_line:<:migration_line'
+    'migration_line:<:rollout_line'
+    'rollout_line:<:noop_stage_line'
+    'noop_stage_line:<:retention_stage_line'
+    'retention_stage_line:<:image_rm_line'
+    'image_rm_line:<:buildx_prune_line'
+    'buildx_prune_line:<:backup_prune_line'
+  )
+  local order_check_pair order_check_lhs order_check_op order_check_rhs order_check_ok
+  for order_check_pair in "${order_check_pairs[@]}"; do
+    IFS=':' read -r order_check_lhs order_check_op order_check_rhs <<<"$order_check_pair"
+    if [[ "$order_check_op" == '<=' ]]; then
+      order_check_ok=$(( ${!order_check_lhs} <= ${!order_check_rhs} ))
+    else
+      order_check_ok=$(( ${!order_check_lhs} < ${!order_check_rhs} ))
+    fi
+    if (( ! order_check_ok )); then
+      printf '%s: required order is environment cache constants -> checkout -> Buildx/HTTPS/rollback preflight -> generate/test -> production backup -> two image builds -> migration -> rollout/reload/smoke -> no-op drift smoke -> image/BuildKit/backup retention\n' "$label" >&2
+      exit 1
+    fi
+  done
 
   echo "$label: ok (parameterless latest Release, exact RELEASE_SHA checkout, RELEASE_TAG images, running-only no-op, nginx reload+drift smoke, fail-closed stopped/ambiguous, HTTPS+external rollback preflight, success-only retention)"
 }
