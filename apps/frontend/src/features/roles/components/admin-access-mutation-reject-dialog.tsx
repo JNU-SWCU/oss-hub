@@ -11,7 +11,7 @@ interface AdminAccessMutationRejectDialogProps {
   readonly onConfirm: () => void;
 }
 
-/** Mirrors `staff-request-reject-dialog.tsx` — reject is the only action needing a reason. */
+/** Reject is the only `/admin/access` action needing an extra reason field. */
 export function AdminAccessMutationRejectDialog({
   githubLogin,
   reason,
