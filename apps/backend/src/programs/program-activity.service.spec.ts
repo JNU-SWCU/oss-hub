@@ -40,6 +40,19 @@ function collectionReadPort(
     getRepositoryMetrics: () => Promise.resolve([]),
     getContributorMetrics: () => Promise.resolve([]),
     getPublicRankingMetrics: () => Promise.resolve([]),
+    getIncrementalStatusSnapshot: () =>
+      Promise.resolve({
+        trackedRepositoryCount: 0,
+        readyStreamCount: 0,
+        backfillingStreamCount: 0,
+        partialStreamCount: 0,
+        retryPendingStreamCount: 0,
+        oldestReadyCheckpointAt: null,
+        latestCheckpointAt: null,
+        oldestRetryPendingAt: null,
+        lastCycleStartedAt: null,
+        lastCycleCompletedAt: null,
+      }),
   };
 }
 

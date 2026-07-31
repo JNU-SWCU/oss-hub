@@ -6,16 +6,37 @@ import type { PrismaService } from '../prisma/prisma.service';
  * todo 11 — `getRepositoryMetrics`/`getContributorMetrics`만 다룬다. 기존 3개 메서드
  * (`findRepositoryActivity`/`findRankingActivity`/`getStatusSnapshot`)는 이 todo에서
  * 변경하지 않았고 별도 spec 커버리지도 요구하지 않는다.
+ * todo 12 — `getIncrementalStatusSnapshot`은 아래 별도 describe 블록에서 다룬다.
  */
 interface MockPrisma {
-  collectionRepository: { findMany: jest.Mock };
+  collectionRepository: { findMany: jest.Mock; count: jest.Mock };
   collectionContributorYearAggregate: { findMany: jest.Mock };
+  collectionRepositoryStream: {
+    groupBy: jest.Mock;
+    count: jest.Mock;
+    aggregate: jest.Mock;
+  };
+  collectionSyncCursor: { findFirst: jest.Mock };
 }
 
 const createDb = (): MockPrisma => ({
-  collectionRepository: { findMany: jest.fn().mockResolvedValue([]) },
+  collectionRepository: {
+    findMany: jest.fn().mockResolvedValue([]),
+    count: jest.fn().mockResolvedValue(0),
+  },
   collectionContributorYearAggregate: {
     findMany: jest.fn().mockResolvedValue([]),
+  },
+  collectionRepositoryStream: {
+    groupBy: jest.fn().mockResolvedValue([]),
+    count: jest.fn().mockResolvedValue(0),
+    aggregate: jest.fn().mockResolvedValue({
+      _min: { lastRunAt: null, lastErrorAt: null },
+      _max: { lastRunAt: null },
+    }),
+  },
+  collectionSyncCursor: {
+    findFirst: jest.fn().mockResolvedValue(null),
   },
 });
 
@@ -313,5 +334,131 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
         },
       }),
     );
+  });
+});
+
+/**
+ * todo 12 — `getIncrementalStatusSnapshot`. repository 이름/visibility는 절대 select하지
+ * 않고 count/checkpoint 시각만 집계한다는 계약을 검증한다. health(empty/normal/delayed/
+ * partial/failed) 해석은 system-status 쪽 책임이라 여기서는 다루지 않는다.
+ */
+describe('CollectionReadService — getIncrementalStatusSnapshot', () => {
+  it('returns an all-zero/null snapshot when no repository is tracked (EMPTY source state)', async () => {
+    const db = createDb();
+
+    const result = await serviceFor(db).getIncrementalStatusSnapshot();
+
+    expect(result).toEqual({
+      trackedRepositoryCount: 0,
+      readyStreamCount: 0,
+      backfillingStreamCount: 0,
+      partialStreamCount: 0,
+      retryPendingStreamCount: 0,
+      oldestReadyCheckpointAt: null,
+      latestCheckpointAt: null,
+      oldestRetryPendingAt: null,
+      lastCycleStartedAt: null,
+      lastCycleCompletedAt: null,
+    });
+    expect(db.collectionRepository.count).toHaveBeenCalledWith({
+      where: { presence: 'PRESENT' },
+    });
+  });
+
+  it('reports every stream as READY with no partial/retry remainder (NORMAL source state)', async () => {
+    const db = createDb();
+    db.collectionRepository.count.mockResolvedValue(2);
+    db.collectionRepositoryStream.groupBy.mockResolvedValue([
+      { status: 'READY', _count: { _all: 6 } },
+    ]);
+    const oldestReady = new Date('2026-07-30T00:00:00.000Z');
+    const latest = new Date('2026-07-31T00:00:00.000Z');
+    db.collectionRepositoryStream.aggregate.mockImplementation(
+      ({ where }: { where: { status?: string; lastErrorCode?: unknown } }) => {
+        if (where.lastErrorCode) {
+          return Promise.resolve({ _min: { lastErrorAt: null } });
+        }
+        if (where.status === 'READY') {
+          return Promise.resolve({ _min: { lastRunAt: oldestReady } });
+        }
+        return Promise.resolve({ _max: { lastRunAt: latest } });
+      },
+    );
+    const cycleStartedAt = new Date('2026-07-31T00:00:00.000Z');
+    const cycleCompletedAt = new Date('2026-07-31T00:05:00.000Z');
+    db.collectionSyncCursor.findFirst.mockResolvedValue({
+      cycleStartedAt,
+      cycleCompletedAt,
+    });
+
+    const result = await serviceFor(db).getIncrementalStatusSnapshot();
+
+    expect(result).toEqual({
+      trackedRepositoryCount: 2,
+      readyStreamCount: 6,
+      backfillingStreamCount: 0,
+      partialStreamCount: 0,
+      retryPendingStreamCount: 0,
+      oldestReadyCheckpointAt: oldestReady,
+      latestCheckpointAt: latest,
+      oldestRetryPendingAt: null,
+      lastCycleStartedAt: cycleStartedAt,
+      lastCycleCompletedAt: cycleCompletedAt,
+    });
+  });
+
+  it('folds not-yet-created stream rows into partialStreamCount (PARTIAL source state)', async () => {
+    const db = createDb();
+    // 3 tracked repositories => 9 expected streams, but only 4 rows exist so far
+    // (a repository just registered by inventory has no stream rows yet).
+    db.collectionRepository.count.mockResolvedValue(3);
+    db.collectionRepositoryStream.groupBy.mockResolvedValue([
+      { status: 'READY', _count: { _all: 2 } },
+      { status: 'BACKFILLING', _count: { _all: 1 } },
+      { status: 'PENDING', _count: { _all: 1 } },
+    ]);
+
+    const result = await serviceFor(db).getIncrementalStatusSnapshot();
+
+    expect(result.readyStreamCount).toBe(2);
+    expect(result.backfillingStreamCount).toBe(1);
+    // 1 known PENDING + 5 not-yet-created (9 expected - 4 observed) = 6
+    expect(result.partialStreamCount).toBe(6);
+  });
+
+  it('counts VERIFYING streams as partial and surfaces retry-pending state (FAILED/DELAYED source signal)', async () => {
+    const db = createDb();
+    db.collectionRepository.count.mockResolvedValue(1);
+    db.collectionRepositoryStream.groupBy.mockResolvedValue([
+      { status: 'READY', _count: { _all: 2 } },
+      { status: 'VERIFYING', _count: { _all: 1 } },
+    ]);
+    db.collectionRepositoryStream.count.mockResolvedValue(1);
+    const oldestRetryPendingAt = new Date('2026-07-29T00:00:00.000Z');
+    db.collectionRepositoryStream.aggregate.mockImplementation(
+      ({ where }: { where: { status?: string; lastErrorCode?: unknown } }) => {
+        if (where.status === 'READY') {
+          return Promise.resolve({ _min: { lastRunAt: null } });
+        }
+        if (where.lastErrorCode) {
+          return Promise.resolve({
+            _min: { lastErrorAt: oldestRetryPendingAt },
+          });
+        }
+        return Promise.resolve({ _max: { lastRunAt: null } });
+      },
+    );
+
+    const result = await serviceFor(db).getIncrementalStatusSnapshot();
+
+    expect(result.partialStreamCount).toBe(1);
+    expect(result.retryPendingStreamCount).toBe(1);
+    expect(result.oldestRetryPendingAt).toEqual(oldestRetryPendingAt);
+    expect(db.collectionRepositoryStream.count).toHaveBeenCalledWith({
+      where: {
+        lastErrorCode: { not: null },
+        repository: { presence: 'PRESENT' },
+      },
+    });
   });
 });

@@ -8,6 +8,7 @@ import type {
   CollectionContributorMetricsQueryDto,
   CollectionPublicRankingMetricsDto,
   CollectionPublicRankingMetricsQueryDto,
+  CollectionIncrementalStatusSnapshotDto,
   CollectionRankingActivityDto,
   CollectionRankingActivityQueryDto,
   CollectionReadPort,
@@ -17,6 +18,8 @@ import type {
   CollectionRepositoryMetricsQueryDto,
   CollectionStatusSnapshotDto,
 } from './collection-read.port';
+
+const PRESENT_REPOSITORY = { presence: 'PRESENT' } as const;
 
 @Injectable()
 export class CollectionReadService implements CollectionReadPort {
@@ -315,5 +318,80 @@ export class CollectionReadService implements CollectionReadPort {
       });
     }
     return [...activity.values()];
+  }
+
+  /**
+   * todo 12 — `CollectionRepositoryStream`/`CollectionSyncCursor`(ADR-006 증분 collection)를
+   * 직접 읽어 per-repo/stream 진행 상황을 집계한다. repository 이름·visibility는 절대
+   * select하지 않는다 — count/시각만 반환한다. `presence: 'PRESENT'`가 아닌(관측에서 사라진)
+   * 저장소는 집계에서 제외한다.
+   */
+  async getIncrementalStatusSnapshot(): Promise<CollectionIncrementalStatusSnapshotDto> {
+    const trackedRepositoryCount = await this.prisma.collectionRepository.count(
+      { where: PRESENT_REPOSITORY },
+    );
+
+    const streamGroups = await this.prisma.collectionRepositoryStream.groupBy({
+      by: ['status'],
+      where: { repository: PRESENT_REPOSITORY },
+      _count: { _all: true },
+    });
+    const countFor = (status: string): number =>
+      streamGroups.find((group) => group.status === status)?._count._all ?? 0;
+
+    const readyStreamCount = countFor('READY');
+    const backfillingStreamCount = countFor('BACKFILLING');
+    const knownPartialStreamCount = countFor('PENDING') + countFor('VERIFYING');
+    const expectedStreamCount = trackedRepositoryCount * 3;
+    const observedStreamCount =
+      readyStreamCount + backfillingStreamCount + knownPartialStreamCount;
+    // Streams whose row hasn't been created yet (a repository just registered
+    // by inventory) are effectively pending — fold them into partial too.
+    const partialStreamCount =
+      knownPartialStreamCount +
+      Math.max(0, expectedStreamCount - observedStreamCount);
+
+    const retryPendingWhere = {
+      lastErrorCode: { not: null },
+      repository: PRESENT_REPOSITORY,
+    } as const;
+    const retryPendingStreamCount =
+      await this.prisma.collectionRepositoryStream.count({
+        where: retryPendingWhere,
+      });
+
+    const [oldestReady, latest, oldestRetryPending, cursor] = await Promise.all(
+      [
+        this.prisma.collectionRepositoryStream.aggregate({
+          where: { status: 'READY', repository: PRESENT_REPOSITORY },
+          _min: { lastRunAt: true },
+        }),
+        this.prisma.collectionRepositoryStream.aggregate({
+          where: { repository: PRESENT_REPOSITORY },
+          _max: { lastRunAt: true },
+        }),
+        this.prisma.collectionRepositoryStream.aggregate({
+          where: retryPendingWhere,
+          _min: { lastErrorAt: true },
+        }),
+        this.prisma.collectionSyncCursor.findFirst({
+          orderBy: { updatedAt: 'desc' },
+          select: { cycleStartedAt: true, cycleCompletedAt: true },
+        }),
+      ],
+    );
+
+    return {
+      trackedRepositoryCount,
+      readyStreamCount,
+      backfillingStreamCount,
+      partialStreamCount,
+      retryPendingStreamCount,
+      oldestReadyCheckpointAt: oldestReady._min.lastRunAt ?? null,
+      latestCheckpointAt: latest._max.lastRunAt ?? null,
+      oldestRetryPendingAt: oldestRetryPending._min.lastErrorAt ?? null,
+      lastCycleStartedAt: cursor?.cycleStartedAt ?? null,
+      lastCycleCompletedAt: cursor?.cycleCompletedAt ?? null,
+    };
   }
 }
