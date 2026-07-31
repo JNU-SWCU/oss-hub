@@ -174,7 +174,7 @@ export class ProgramsRepository {
     }));
   }
 
-  findStudentActivityApplications(userId: string) {
+  async findStudentActivityApplications(userId: string) {
     return this.prisma.application.findMany({
       where: {
         status: ApplicationStatus.APPROVED,
