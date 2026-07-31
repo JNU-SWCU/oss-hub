@@ -1034,44 +1034,65 @@ check_v2() {
   backup_prune_line=$(line_of_shell_stage_depth_exact \
     '성공 후 이미지·백업 보존 정리' 0 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"')
 
-  if [[ -z "$environment_line" || -z "$stages_line" || -z "$build_cache_line" ||
-         -z "$checkout_line" || -z "$buildx_preflight_line" || -z "$https_line" || -z "$rollback_stage_line" ||
-         -z "$rollback_input_line" || -z "$rollback_call_line" || -z "$prisma_generate_line" || -z "$test_line" || -z "$backup_line" ||
-         -z "$first_production_mutation_line" ||
-         -z "$frontend_build_line" || -z "$backend_build_line" || -z "$migration_line" ||
-         -z "$rollout_line" || -z "$noop_stage_line" || -z "$retention_line" || -z "$retention_stage_line" ||
-         -z "$image_rm_line" || -z "$buildx_prune_line" || -z "$backup_prune_line" ]]; then
-    printf '%s: required stage markers missing for order check\n' "$label" >&2
-    exit 1
-  fi
+  # bash 3.2 호환: declare -A 대신 변수명 배열 + ${!name} 간접 참조로 순회한다.
+  local -a order_check_names=(
+    environment_line stages_line build_cache_line
+    checkout_line buildx_preflight_line https_line rollback_stage_line
+    rollback_input_line rollback_call_line prisma_generate_line test_line backup_line
+    first_production_mutation_line
+    frontend_build_line backend_build_line migration_line
+    rollout_line noop_stage_line retention_line retention_stage_line
+    image_rm_line buildx_prune_line backup_prune_line
+  )
+  local order_check_name
+  for order_check_name in "${order_check_names[@]}"; do
+    if [[ -z "${!order_check_name}" ]]; then
+      printf '%s: required stage markers missing for order check\n' "$label" >&2
+      exit 1
+    fi
+  done
 
-  if ! ((environment_line < retention_line &&
-         environment_line < build_cache_line &&
-         retention_line < stages_line &&
-         build_cache_line < stages_line &&
-         checkout_line < buildx_preflight_line &&
-         buildx_preflight_line < https_line &&
-         buildx_preflight_line < first_production_mutation_line &&
-         https_line < rollback_stage_line &&
-         rollback_stage_line <= rollback_input_line &&
-         rollback_input_line < rollback_call_line &&
-         rollback_call_line < prisma_generate_line &&
-         prisma_generate_line < test_line &&
-         test_line < first_production_mutation_line &&
-         first_production_mutation_line < backup_line &&
-         test_line < backup_line &&
-         backup_line < frontend_build_line &&
-         frontend_build_line < backend_build_line &&
-         backend_build_line < migration_line &&
-         migration_line < rollout_line &&
-         rollout_line < noop_stage_line &&
-         noop_stage_line < retention_stage_line &&
-         retention_stage_line < image_rm_line &&
-         image_rm_line < buildx_prune_line &&
-         buildx_prune_line < backup_prune_line)); then
-    printf '%s: required order is environment cache constants -> checkout -> Buildx/HTTPS/rollback preflight -> generate/test -> production backup -> two image builds -> migration -> rollout/reload/smoke -> no-op drift smoke -> image/BuildKit/backup retention\n' "$label" >&2
-    exit 1
-  fi
+  # 순서쌍은 선형 체인이 아닌 DAG다 (예: buildx_preflight_line이 두 갈래로 분기,
+  # rollback_stage_line<=rollback_input_line은 등호 포함) — 원본 24개 && 절과 1:1 대응.
+  local -a order_check_pairs=(
+    'environment_line:<:retention_line'
+    'environment_line:<:build_cache_line'
+    'retention_line:<:stages_line'
+    'build_cache_line:<:stages_line'
+    'checkout_line:<:buildx_preflight_line'
+    'buildx_preflight_line:<:https_line'
+    'buildx_preflight_line:<:first_production_mutation_line'
+    'https_line:<:rollback_stage_line'
+    'rollback_stage_line:<=:rollback_input_line'
+    'rollback_input_line:<:rollback_call_line'
+    'rollback_call_line:<:prisma_generate_line'
+    'prisma_generate_line:<:test_line'
+    'test_line:<:first_production_mutation_line'
+    'first_production_mutation_line:<:backup_line'
+    'test_line:<:backup_line'
+    'backup_line:<:frontend_build_line'
+    'frontend_build_line:<:backend_build_line'
+    'backend_build_line:<:migration_line'
+    'migration_line:<:rollout_line'
+    'rollout_line:<:noop_stage_line'
+    'noop_stage_line:<:retention_stage_line'
+    'retention_stage_line:<:image_rm_line'
+    'image_rm_line:<:buildx_prune_line'
+    'buildx_prune_line:<:backup_prune_line'
+  )
+  local order_check_pair order_check_lhs order_check_op order_check_rhs order_check_ok
+  for order_check_pair in "${order_check_pairs[@]}"; do
+    IFS=':' read -r order_check_lhs order_check_op order_check_rhs <<<"$order_check_pair"
+    if [[ "$order_check_op" == '<=' ]]; then
+      order_check_ok=$(( ${!order_check_lhs} <= ${!order_check_rhs} ))
+    else
+      order_check_ok=$(( ${!order_check_lhs} < ${!order_check_rhs} ))
+    fi
+    if (( ! order_check_ok )); then
+      printf '%s: required order is environment cache constants -> checkout -> Buildx/HTTPS/rollback preflight -> generate/test -> production backup -> two image builds -> migration -> rollout/reload/smoke -> no-op drift smoke -> image/BuildKit/backup retention\n' "$label" >&2
+      exit 1
+    fi
+  done
 
   echo "$label: ok (parameterless latest Release, exact RELEASE_SHA checkout, RELEASE_TAG images, running-only no-op, nginx reload+drift smoke, fail-closed stopped/ambiguous, HTTPS+external rollback preflight, success-only retention)"
 }
