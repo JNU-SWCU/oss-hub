@@ -38,6 +38,7 @@ ssh ubuntu@<EC2_TAILSCALE_HOST>
 파이프라인 executor는 서버 로컬에서 Docker 이미지 빌드와 앱 build(lint/typecheck/test)를 수행하므로 Docker와 Node/pnpm/jq가 모두 필요하다.
 Buildx plugin도 필수다 — 배포 성공 뒤 캐시 정리가 `docker buildx prune --force --max-used-space`를 호출하므로 이 옵션을 지원하는 Buildx가 없으면 정리 단계에서 배포가 실패한다.
 운영 서버의 확인된 기준선은 Buildx `v0.35.0`이며, 이보다 낮은 버전을 쓸 때는 `--max-used-space` 지원 여부를 먼저 확인한다.
+`BUILD_CACHE_MAX_SPACE`는 `10GB`로 고정돼 있지만, 빌드 직후에는 실행 중 이미지의 in-use 레이어가 정리 대상에서 보호되므로 이 상한을 일시적으로 넘길 수 있다(v0.6.1 배포 직후 `docker buildx du` 실측 11.07GB) — 이는 결함이 아니라 의도된 동작이다.
 
 ```sh
 # Docker Engine + compose·buildx plugin (Ubuntu)
@@ -123,6 +124,7 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 #### GitHub App 개인키 파일 시크릿 회전
 
 - generation 레이아웃은 `${SECRETS_DIR}/gen-<BUILD_NUMBER>/{collection,operations}.pem`이고, 활성 포인터는 `${SECRETS_DIR}/current` symlink다.
+- `gen-${BUILD_NUMBER}`는 매 빌드(파라미터 없는 no-op 재실행 포함)마다 새로 생성되며 자동 정리되지 않는다 — 빌드 횟수만큼 세대가 계속 누적된다. 이전 세대는 필요 시 수동으로 정리하되, `current` symlink가 가리키는 세대는 삭제하지 않는다. 각 세대 파일은 2KB 미만이라 디스크 압박은 미미하다.
 - 교체는 `ln -sfn`으로 새 generation을 가리킨 뒤 `mv -T`로 포인터를 원자적으로 바꾼다.
 - 파일 모드는 `0640`만 쓴다. `0644`는 쓰지 않는다.
 - 호스트에서 `sudo -u '#1000' cat /var/lib/oss-hub/secrets/current/*.pem`으로 가독을 확인하면 부모 `/var/lib/oss-hub`의 `700 jenkins:jenkins` 때문에 항상 실패한다. 이 실패는 권한 버그가 아니라 경로 traversal 차단이다.
