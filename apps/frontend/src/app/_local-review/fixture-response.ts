@@ -250,11 +250,7 @@ export function resolveLocalReviewResponse({
     return json(200, STAFF_DASHBOARD_FIXTURE);
   }
 
-  if (
-    method === 'GET' &&
-    path === 'role-requests' &&
-    fixture === 'admin'
-  ) {
+  if (method === 'GET' && path === 'role-requests' && fixture === 'admin') {
     return json(200, staffRequestPage(searchParams));
   }
 
