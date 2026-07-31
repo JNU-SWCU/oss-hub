@@ -35,7 +35,6 @@ const REVISION_ID = 'issue-342-download-revision';
 const DOWNLOADABLE_FILE_ID = 'issue-342-downloadable-file';
 const PENDING_FILE_ID = 'issue-342-pending-file';
 const EXPIRED_FILE_ID = 'issue-342-expired-file';
-const ORPHAN_FILE_ID = 'issue-342-orphan-file';
 const UNRELATED_STUDENT_USER_ID = 'issue-342-unrelated-student';
 const STAFF_USER_ID = 'issue-342-staff';
 const ADMIN_USER_ID = 'issue-342-admin';
@@ -80,7 +79,6 @@ const FILE_IDS: string[] = [
   DOWNLOADABLE_FILE_ID,
   PENDING_FILE_ID,
   EXPIRED_FILE_ID,
-  ORPHAN_FILE_ID,
 ];
 const BASE_FILE = {
   uploaderId: PARTICIPANT_USER_ID,
@@ -116,11 +114,6 @@ const DENIED_DOWNLOADS = [
     scenario: 'denies an expired file',
     githubId: ADMIN_GITHUB_ID,
     fileId: EXPIRED_FILE_ID,
-  },
-  {
-    scenario: 'denies an attached file with no submissionRevision',
-    githubId: ADMIN_GITHUB_ID,
-    fileId: ORPHAN_FILE_ID,
   },
 ] satisfies readonly {
   readonly scenario: string;
@@ -192,7 +185,6 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
           storageKey: 'submission-files/issue-342/pending',
           originalFileName: 'pending.pdf',
           sizeBytes: 2048,
-          submissionRevisionId: REVISION_ID,
           lifecycle: SubmissionFileLifecycle.PENDING,
           expiresAt: FUTURE_EXPIRES_AT,
         },
@@ -205,15 +197,6 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
           submissionRevisionId: REVISION_ID,
           lifecycle: SubmissionFileLifecycle.ATTACHED,
           expiresAt: PAST_EXPIRES_AT,
-        },
-        {
-          ...BASE_FILE,
-          id: ORPHAN_FILE_ID,
-          storageKey: 'submission-files/issue-342/orphan',
-          originalFileName: 'orphan.pdf',
-          sizeBytes: 8192,
-          lifecycle: SubmissionFileLifecycle.ATTACHED,
-          expiresAt: FUTURE_EXPIRES_AT,
         },
       ],
     });

@@ -290,7 +290,6 @@ describe('SubmissionsService checklist/resubmission integration', () => {
           originalFileName: 'pending.pdf',
           mimeType: 'application/pdf',
           sizeBytes: 2048,
-          submissionRevisionId: 'synthetic-checklist-file-revision',
           lifecycle: SubmissionFileLifecycle.PENDING,
           expiresAt: new Date('2028-01-01T00:00:00.000Z'),
         },
