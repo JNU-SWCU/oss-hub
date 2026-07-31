@@ -267,6 +267,43 @@ function authenticatedSession(role: AuthRole | null): LocalReviewResponsePlan {
   });
 }
 
+/**
+ * `error-once`에 남은 실패 횟수. "첫 조회는 실패하고 재시도는 성공한다"는 요청
+ * **사이에** 기억이 남아야 만들어지므로 모듈 스코프에 둔다.
+ *
+ * 전역 가변 상태를 두어도 되는 이유: 이 어댑터는 development + 로컬호스트 + 명시
+ * 플래그가 모두 맞을 때만 살아 있고(`isLocalReviewRuntime`), 검토자 한 명의
+ * 브라우저 하나만 바라본다. 값이 이상하게 굳어도 개발 서버를 다시 띄우면 초기값
+ * (실패 1회 남음)으로 돌아간다. 배포 경로에는 이 코드가 도달하지 않는다.
+ */
+let errorOnceFailuresLeft = 1;
+
+/**
+ * 직전 요청의 페르소나. 다른 페르소나를 거쳐 `error-once`로 돌아오면 실패 예산을
+ * 다시 채우기 위해 기억한다 — 한 번 쓰고 끝내면 서버를 재시작하기 전에는 오류
+ * 화면을 다시 볼 수 없어, 다음 검토자가 같은 흐름을 확인할 방법이 없다.
+ */
+let lastRequestedFixture: LocalReviewFixtureId | null = null;
+
+function rearmErrorOnceOnFixtureChange(fixture: LocalReviewFixtureId): void {
+  if (fixture === lastRequestedFixture) return;
+  lastRequestedFixture = fixture;
+  errorOnceFailuresLeft = 1;
+}
+
+/** 실패 예산이 남았으면 한 번 쓰고 `true`. 그 다음 조회부터는 성공해야 한다. */
+function consumeErrorOnceFailure(): boolean {
+  if (errorOnceFailuresLeft <= 0) return false;
+  errorOnceFailuresLeft -= 1;
+  return true;
+}
+
+/** 테스트 전용 — 모듈 수준 상태를 초기화한다. */
+export function resetLocalReviewFixtureState(): void {
+  errorOnceFailuresLeft = 1;
+  lastRequestedFixture = null;
+}
+
 function sessionResponse(
   fixture: LocalReviewFixtureId,
 ): LocalReviewResponsePlan {
@@ -289,6 +326,14 @@ function sessionResponse(
       return { kind: 'delay', milliseconds: 60_000 };
     case 'error':
       return problem(503, 'LFX_503', apiPath('auth/session'));
+    // `error`가 "계속 죽어 있는 백엔드"라면 이쪽은 "한 번 흔들리고 돌아오는
+    // 백엔드"다. 실패는 세션 조회에만 준다 — 공개 목록까지 함께 실패시키면 무엇을
+    // 복구한 것인지 흐려지고, 화면이 세션 실패와 데이터 실패를 구분해 다루는지도
+    // 볼 수 없다.
+    case 'error-once':
+      return consumeErrorOnceFailure()
+        ? problem(503, 'LFX_503', apiPath('auth/session'))
+        : authenticatedSession('STUDENT');
     default: {
       const exhaustive: never = fixture;
       return exhaustive;
@@ -411,6 +456,8 @@ export function resolveLocalReviewResponse({
   searchParams,
   body,
 }: LocalReviewRequest): LocalReviewResponsePlan {
+  rearmErrorOnceOnFixtureChange(fixture);
+
   // loading·error 페르소나는 "느린 백엔드"와 "죽은 백엔드"를 흉내 내는 것이므로
   // 특정 경로만이 아니라 모든 호출에 같은 결과를 준다. 일부 경로만 성공하면
   // 화면이 절반만 로딩된 이상한 상태가 되어 검토 대상이 흐려진다.
@@ -443,7 +490,10 @@ export function resolveLocalReviewResponse({
     path === 'dashboard/student' &&
     (fixture === 'student' ||
       fixture === 'settings' ||
-      fixture === 'wrong-role')
+      fixture === 'wrong-role' ||
+      // 복구 후 착지하는 화면이 학생 대시보드다. 여기서 빠지면 재시도가 성공해도
+      // 빈 대시보드가 떠서 복구된 것으로 보이지 않는다.
+      fixture === 'error-once')
   ) {
     return json(200, dashboardFixture);
   }

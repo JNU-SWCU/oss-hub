@@ -93,6 +93,9 @@ export function roleForFixture(fixture: LocalReviewFixtureId): AuthRole | null {
     case 'student':
     case 'settings':
     case 'wrong-role':
+    // 세션 조회가 복구되고 나면 평범한 학생이다. 역할을 주지 않으면 복구 직후
+    // 화면이 온보딩으로 튕겨, 복구된 결과가 아니라 가입 흐름을 보게 된다.
+    case 'error-once':
       return 'STUDENT';
     case 'staff':
       return 'STAFF';

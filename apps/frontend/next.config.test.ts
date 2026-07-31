@@ -62,7 +62,7 @@ describe('nextConfig rewrites', () => {
               type: 'cookie',
               key: 'oss_hub_local_review_fixture',
               value:
-                '(?:anonymous|student|staff|admin|settings|loading|error|unassigned|wrong-role|role-pending)',
+                '(?:anonymous|student|staff|admin|settings|loading|error|error-once|unassigned|wrong-role|role-pending)',
             },
           ],
           destination: '/local-review-api/:path*',

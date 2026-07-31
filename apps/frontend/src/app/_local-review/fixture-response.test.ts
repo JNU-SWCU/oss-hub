@@ -9,7 +9,10 @@ import {
   parseLandingArchivePage,
   parseLandingProgramPage,
 } from '@/features/landing/landing-overview';
-import { resolveLocalReviewResponse } from './fixture-response';
+import {
+  resetLocalReviewFixtureState,
+  resolveLocalReviewResponse,
+} from './fixture-response';
 import {
   createLocalReviewActivation,
   type LocalReviewFixtureId,
@@ -130,6 +133,75 @@ describe('local review fixture responses', () => {
     // Then
     expect(loading).toEqual({ kind: 'delay', milliseconds: 60_000 });
     expect(error).toMatchObject({ kind: 'json', status: 503 });
+  });
+
+  it('error-once fixture fails the first session read and recovers on retry', () => {
+    // Given
+    resetLocalReviewFixtureState();
+
+    // When: 화면이 처음 세션을 읽고, 오류 화면의 "다시 시도"가 같은 경로를 다시 읽는다.
+    const first = sessionFor('error-once');
+    const second = sessionFor('error-once');
+    // 새로고침도 재시도와 같은 조회다 — 복구된 로그인이 유지돼야 한다.
+    const afterReload = sessionFor('error-once');
+
+    // Then
+    expect(first).toMatchObject({ kind: 'json', status: 503 });
+    expect(second).toMatchObject({
+      kind: 'json',
+      status: 200,
+      body: { isAuthenticated: true, user: { role: 'STUDENT' } },
+    });
+    expect(afterReload).toEqual(second);
+  });
+
+  it('error-once fixture fails again after another persona is reviewed in between', () => {
+    // Given: 실패를 한 번 쓰고 복구까지 확인한 상태.
+    resetLocalReviewFixtureState();
+    sessionFor('error-once');
+    sessionFor('error-once');
+
+    // When: 다른 페르소나를 보고 돌아온다 — 검토판에서 페르소나를 바꾸는 동작이다.
+    sessionFor('student');
+    const returned = sessionFor('error-once');
+
+    // Then: 예산이 다시 차지 않으면 서버를 재시작하기 전에는 오류 화면을 볼 수 없다.
+    expect(returned).toMatchObject({ kind: 'json', status: 503 });
+  });
+
+  it('error-once fixture keeps public data working while the session read fails', () => {
+    // Given: 세션만 흔들리는 상태여야 복구 대상이 무엇인지 흐려지지 않는다.
+    resetLocalReviewFixtureState();
+
+    // When
+    const programs = publicGet('error-once', 'programs');
+    const session = sessionFor('error-once');
+
+    // Then: 공개 목록은 그대로 오고, 실패는 세션 조회에서만 난다.
+    expect(programs).toMatchObject({ kind: 'json', status: 200 });
+    expect(session).toMatchObject({ kind: 'json', status: 503 });
+  });
+
+  it('error-once fixture lands on the student dashboard once recovered', () => {
+    // Given
+    resetLocalReviewFixtureState();
+    sessionFor('error-once');
+    sessionFor('error-once');
+
+    // When
+    const dashboard = resolveLocalReviewResponse({
+      fixture: 'error-once',
+      method: 'GET',
+      path: 'dashboard/student',
+      searchParams: new URLSearchParams(),
+    });
+
+    // Then
+    expect(dashboard).toEqual({
+      kind: 'json',
+      status: 200,
+      body: dashboardFixture,
+    });
   });
 
   it('student fixture reuses the dashboard synthetic data', () => {

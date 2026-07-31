@@ -9,6 +9,9 @@ export const LOCAL_REVIEW_FIXTURE_IDS = [
   'settings',
   'loading',
   'error',
+  // 첫 세션 조회만 실패하고 재시도하면 성공하는 상태 — `error`는 언제 눌러도 다시
+  // 실패해서, 오류 화면의 "다시 시도"가 실제로 복구로 이어지는지 아무도 볼 수 없다.
+  'error-once',
   'unassigned',
   'wrong-role',
   // 역할 승인 대기 상태 — 이 페르소나가 없으면 `/onboarding/pending`을 아무도 볼 수 없다.
@@ -17,8 +20,14 @@ export const LOCAL_REVIEW_FIXTURE_IDS = [
 
 export type LocalReviewFixtureId = (typeof LOCAL_REVIEW_FIXTURE_IDS)[number];
 
+/**
+ * next.config의 쿠키 조건이 쓰는 값 패턴. Next는 이 문자열을 `^…$`로 감싸 완전
+ * 일치로 검사하므로(prepare-destination의 matchHas), 여기 없는 페르소나는 쿠키가
+ * 있어도 어댑터로 가지 못하고 실제 backend로 새어 나간다 — 새 id를 추가할 때
+ * `LOCAL_REVIEW_FIXTURE_IDS`와 함께 반드시 고친다.
+ */
 export const LOCAL_REVIEW_FIXTURE_PATTERN =
-  '(?:anonymous|student|staff|admin|settings|loading|error|unassigned|wrong-role|role-pending)' as const;
+  '(?:anonymous|student|staff|admin|settings|loading|error|error-once|unassigned|wrong-role|role-pending)' as const;
 
 /**
  * 정확히 일치할 때만 허용하는 진입 경로. 하위 경로가 없는 화면들이다.
