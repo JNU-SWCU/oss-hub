@@ -24,6 +24,14 @@ pipeline {
     BACKUP_RETENTION_N = '120'
     // 성공 배포 뒤 BuildKit 캐시는 LRU 기준 최대 10GB까지만 보존한다.
     BUILD_CACHE_MAX_SPACE = '10GB'
+    // 개인키 SOURCE는 compose.yml이 :? 로 요구한다. compose 호출이 5곳이라 stage마다 넣으면
+    // 하나만 빠뜨려도 배포가 멈추므로 pipeline 수준에 한 번만 둔다. rollback의 withEnv도
+    // 이 값을 그대로 물려받는다.
+    // 같은 블록 안의 변수를 참조하지 않고 경로를 반복한다 — 블록 내 상호참조는 실제 실행
+    // 없이는 검증할 수 없고, 여기는 그 불확실성을 감당할 자리가 아니다.
+    SECRETS_DIR = '/var/lib/oss-hub/secrets'
+    GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE = '/var/lib/oss-hub/secrets/current/collection.pem'
+    GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE = '/var/lib/oss-hub/secrets/current/operations.pem'
   }
 
   stages {
@@ -93,6 +101,45 @@ printf '%s' "$release_sha"
     stage('exact SHA checkout') {
       steps {
         sh 'git checkout --detach "$RELEASE_SHA"'
+      }
+    }
+
+    stage('개인키 안정 경로 설치') {
+      steps {
+        withCredentials([
+          file(credentialsId: 'oss-hub-collection-app-private-key', variable: 'COLLECTION_PEM_SRC'),
+          file(credentialsId: 'oss-hub-operations-app-private-key', variable: 'OPERATIONS_PEM_SRC'),
+        ]) {
+          sh '''#!/usr/bin/env bash
+set -euo pipefail
+
+# 이후 모든 compose 호출이 SECRETS_DIR/current 아래 파일을 요구하므로 probe보다 앞에 둔다.
+# jenkins(uid 105)에는 CAP_CHOWN이 없다. SECRETS_DIR의 setgid 비트가 gid 1000을 상속시켜
+# chown 없이 0640 + gid 1000을 만든다 — 컨테이너(uid 1000)가 읽을 수 있는 최소 권한이다.
+umask 027
+
+generation="${SECRETS_DIR}/gen-${BUILD_NUMBER}"
+mkdir -p "$generation"
+
+install -m 640 "$COLLECTION_PEM_SRC" "${generation}/collection.pem"
+install -m 640 "$OPERATIONS_PEM_SRC" "${generation}/operations.pem"
+
+# 자격증명 내용이 실제 키인지 지금 확인한다. 여기서 걸러야 배포 후 런타임 실패로 번지지 않는다.
+for pem in collection operations; do
+  if ! openssl pkey -in "${generation}/${pem}.pem" -noout 2>/dev/null; then
+    echo "설치한 ${pem} 개인키를 파싱할 수 없습니다. 자격증명 내용을 확인하세요." >&2
+    exit 1
+  fi
+done
+
+# current 교체는 원자적이어야 한다 — 교체 도중 compose가 읽으면 경로가 사라진 상태를 볼 수 있다.
+ln -sfn "$generation" "${SECRETS_DIR}/.current-next"
+mv -T "${SECRETS_DIR}/.current-next" "${SECRETS_DIR}/current"
+
+echo "개인키 설치 완료: generation=$(basename "$generation")"
+ls -l "${SECRETS_DIR}/current/" | sed 's/^/  /'
+'''
+        }
       }
     }
 
