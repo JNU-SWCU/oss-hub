@@ -1,7 +1,7 @@
 // Jenkinsfile — 파라미터 없는 latest Release 수렴 배포.
 //
 // 계약 요약:
-// - RELEASE_TAG = 이미지 태그(IMAGE_TAG). RELEASE_SHA = checkout/승인 불변 신원. 둘 다 OCI label.
+// - RELEASE_TAG = 이미지 태그(IMAGE_TAG). RELEASE_SHA = checkout 불변 신원. 둘 다 OCI label.
 // - 영속 배포 상태 파일 없음. no-op 권위는 실행 중(frontend+backend) 컨테이너 두 개뿐.
 // - 동일 실행 중 tag+SHA만 성공 no-op. 하위 SemVer는 양쪽 실행 중이고 metadata가 일치할 때만 no-op.
 // - same-tag/different-SHA, partial, stopped-only, missing/invalid label·SemVer는 fail-closed.
@@ -88,55 +88,8 @@ printf '%s' "$release_sha"
       }
     }
 
-    stage('PM Release 승인 검증 및 exact SHA checkout') {
+    stage('exact SHA checkout') {
       steps {
-        sh '''#!/usr/bin/env bash
-set -euo pipefail
-
-comments_file="$(mktemp)"
-page_file="$(mktemp)"
-merged_file="$(mktemp)"
-trap 'rm -f "$comments_file" "$page_file" "$merged_file"' EXIT
-printf '[]' > "$comments_file"
-
-pagination_complete='false'
-for page in $(seq 1 20); do
-  curl --fail --silent --show-error \
-    --header 'Accept: application/vnd.github+json' \
-    --header 'X-GitHub-Api-Version: 2022-11-28' \
-    "https://api.github.com/repos/JNU-SWCU/oss-hub/issues/199/comments?per_page=100&page=${page}" \
-    --output "$page_file"
-
-  jq -e 'type == "array"' "$page_file" >/dev/null
-  page_count="$(jq 'length' "$page_file")"
-  jq -s '.[0] + .[1]' "$comments_file" "$page_file" > "$merged_file"
-  mv "$merged_file" "$comments_file"
-
-  if [ "$page_count" -lt 100 ]; then
-    pagination_complete='true'
-    break
-  fi
-done
-
-if [ "$pagination_complete" != 'true' ]; then
-  echo 'Release 승인 댓글이 2,000개를 넘어 자동 검증 범위를 초과했습니다.' >&2
-  exit 1
-fi
-
-# 승인 바인딩 원본은 RELEASE_SHA. 이미지 태그와 분리한다.
-pm_accept="RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${RELEASE_SHA}"
-
-if jq -e \
-  --arg actor 'GoBeromsu' \
-  --arg expected "$pm_accept" \
-  '[.[] | select((.user.login | ascii_downcase) == ($actor | ascii_downcase)) | .body | split("\\n")[] | select(. == $expected)] | length > 0' \
-  "$comments_file" >/dev/null; then
-  echo "PM Release 승인 marker를 확인했습니다: role=PM tag=${RELEASE_TAG} head=${RELEASE_SHA}"
-else
-  echo "PM Release 승인 marker를 찾지 못했습니다: role=PM tag=${RELEASE_TAG} head=${RELEASE_SHA}" >&2
-  exit 1
-fi
-'''
         sh 'git checkout --detach "$RELEASE_SHA"'
       }
     }

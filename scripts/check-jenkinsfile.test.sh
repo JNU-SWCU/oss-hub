@@ -70,12 +70,9 @@ make_fixture "$v2_source" v2-missing-prerelease-check "jq -r '.prerelease'" "jq 
 make_fixture "$v2_source" v2-missing-tag-format 'tag ==~ /' 'tag !=~ /'
 make_fixture "$v2_source" v2-missing-tag-resolution 'git rev-parse "${RELEASE_TAG}^{commit}"' 'git rev-parse HEAD'
 make_fixture "$v2_source" v2-missing-main-ancestry 'git merge-base --is-ancestor "$release_sha" origin/main' 'true'
-make_fixture "$v2_source" v2-missing-approval-pagination 'for page in $(seq 1 20); do' 'for page in 1; do'
-make_fixture "$v2_source" v2-missing-pm-approval "--arg actor 'GoBeromsu'" "--arg actor 'RemovedPm'"
 make_fixture "$v2_source" v2-moving-checkout 'git checkout --detach "$RELEASE_SHA"' 'git checkout main'
 make_fixture "$v2_source" v2-missing-image-tag-release 'env.IMAGE_TAG = tag' 'env.IMAGE_TAG = releaseSha'
 make_fixture "$v2_source" v2-missing-release-sha-binding 'env.RELEASE_SHA = releaseSha' 'env.RELEASE_SHA = env.IMAGE_TAG'
-make_fixture "$v2_source" v2-missing-pm-sha-approval 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${RELEASE_SHA}' 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}'
 make_fixture "$v2_source" v2-missing-prisma-generate 'pnpm --filter backend exec prisma generate' 'true'
 make_fixture "$v2_source" v2-missing-test 'pnpm test' 'true'
 make_fixture "$v2_source" v2-missing-backup 'pg_dump' 'pg_isready'
@@ -105,14 +102,16 @@ if cmp -s "$v2_source" "$fixture_dir/v2-restored-parameters"; then
   exit 1
 fi
 
-sed \
-  -e "s|--arg actor 'GoBeromsu'|--arg actor 'Lumiere001'|" \
-  -e 's|RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${RELEASE_SHA}|RELEASE_ACCEPT role=TECH_LEAD tag=${RELEASE_TAG} head=${RELEASE_SHA}|' \
-  "$v2_source" >"$fixture_dir/v2-restored-tech-lead-accept"
-if cmp -s "$v2_source" "$fixture_dir/v2-restored-tech-lead-accept"; then
-  printf 'fixture pattern not found: v2-restored-tech-lead-accept\n' >&2
-  exit 1
-fi
+append_fixture "$v2_source" v2-restored-release-accept \
+  "sh \"echo 'RELEASE_ACCEPT role=PM tag=v0.0.0 head=0000000000000000000000000000000000000000'\""
+append_fixture "$v2_source" v2-restored-release-comment-scraping \
+  "sh 'curl https://api.github.com/repos/JNU-SWCU/oss-hub/issues/199/comments'"
+append_fixture "$v2_source" v2-restored-pm-actor-parsing \
+  "sh \"jq --arg actor 'GoBeromsu'\""
+append_fixture "$v2_source" v2-restored-tech-lead-accept \
+  "sh \"echo 'RELEASE_ACCEPT role=TECH_LEAD tag=v0.0.0 head=0000000000000000000000000000000000000000'\""
+append_fixture "$v2_source" v2-restored-pm-override \
+  "sh \"echo 'RELEASE_OVERRIDE role=PM tag=v0.0.0 head=0000000000000000000000000000000000000000'\""
 
 append_fixture "$v2_source" v2-destructive-volume-removal 'docker compose down -v'
 append_fixture "$v2_source" v2-main-auto-deploy "branch 'main'"
@@ -1139,7 +1138,11 @@ expect_pass 'v2: 현재 candidate Release 배포 계약' v2 "$fixture_dir/v2-val
 expect_pass 'v2: 기본 path 호출' v2 "$v2_source"
 expect_fail 'v2: parameters 블록 부활' v2 "$fixture_dir/v2-restored-parameters"
 expect_fail 'v2: DEPLOY_STATE_FILE 부활' v2 "$fixture_dir/v2-restored-deploy-state-file"
+expect_fail 'v2: RELEASE_ACCEPT role=PM 부활' v2 "$fixture_dir/v2-restored-release-accept"
+expect_fail 'v2: #199 Release 승인 댓글 scraping 부활' v2 "$fixture_dir/v2-restored-release-comment-scraping"
+expect_fail 'v2: PM 승인 actor 파싱 부활' v2 "$fixture_dir/v2-restored-pm-actor-parsing"
 expect_fail 'v2: RELEASE_ACCEPT role=TECH_LEAD 부활' v2 "$fixture_dir/v2-restored-tech-lead-accept"
+expect_fail 'v2: RELEASE_OVERRIDE role=PM 부활' v2 "$fixture_dir/v2-restored-pm-override"
 expect_fail 'v2: releases/latest 조회 제거' v2 "$fixture_dir/v2-missing-latest-release"
 expect_fail 'v2: RUN_MODE 부활' v2 "$fixture_dir/v2-restored-run-mode"
 expect_fail 'v2: 동시 배포 방지 누락' v2 "$fixture_dir/v2-missing-concurrency"
@@ -1150,12 +1153,9 @@ expect_fail 'v2: SemVer tag 검증 누락' v2 "$fixture_dir/v2-missing-tag-forma
 expect_fail 'v2: sandbox 비승인 BigInteger 생성자 부활' v2 "$fixture_dir/v2-restored-big-integer"
 expect_fail 'v2: Release tag SHA 해석 누락' v2 "$fixture_dir/v2-missing-tag-resolution"
 expect_fail 'v2: main ancestry 검증 누락' v2 "$fixture_dir/v2-missing-main-ancestry"
-expect_fail 'v2: Release 승인 댓글 pagination 누락' v2 "$fixture_dir/v2-missing-approval-pagination"
-expect_fail 'v2: PM Release 승인 검증 누락' v2 "$fixture_dir/v2-missing-pm-approval"
 expect_fail 'v2: 정확한 RELEASE_SHA checkout 누락' v2 "$fixture_dir/v2-moving-checkout"
 expect_fail 'v2: IMAGE_TAG=RELEASE_TAG 계약 파손' v2 "$fixture_dir/v2-missing-image-tag-release"
 expect_fail 'v2: RELEASE_SHA 바인딩 파손' v2 "$fixture_dir/v2-missing-release-sha-binding"
-expect_fail 'v2: PM 승인 head=RELEASE_SHA 파손' v2 "$fixture_dir/v2-missing-pm-sha-approval"
 expect_fail 'v2: 명시적 Prisma client 생성 누락' v2 "$fixture_dir/v2-missing-prisma-generate"
 expect_fail 'v2: 배포 전 test 누락' v2 "$fixture_dir/v2-missing-test"
 expect_fail 'v2: migration 전 backup 누락' v2 "$fixture_dir/v2-missing-backup"

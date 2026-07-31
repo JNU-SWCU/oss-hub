@@ -220,6 +220,9 @@ check_v2() {
   require_absent 'DEPLOY_STATE_FILE은 없어야 함' 'DEPLOY_STATE_FILE'
   require_absent 'RELEASE_ACCEPT role=TECH_LEAD는 없어야 함' 'RELEASE_ACCEPT role=TECH_LEAD'
   require_absent 'RELEASE_OVERRIDE role=PM는 없어야 함' 'RELEASE_OVERRIDE role=PM'
+  require_absent 'Release 승인 marker는 없어야 함' 'RELEASE_ACCEPT'
+  require_absent 'Release 승인 댓글 scraping은 없어야 함' 'issues/199/comments'
+  require_absent 'PM 승인 actor 파싱은 없어야 함' "--arg actor 'GoBeromsu'"
   require_absent 'Tech Lead 승인 actor(Lumiere001)는 없어야 함' "--arg actor 'Lumiere001'"
   require_absent 'sort -V 버전 비교는 없어야 함' 'sort -V'
   require_absent 'sandbox 승인이 필요한 BigInteger 생성자는 없어야 함' 'new BigInteger'
@@ -239,11 +242,6 @@ check_v2() {
   require_exact 'main ancestry 검증은 한 번이어야 함' 'git merge-base --is-ancestor "$release_sha" origin/main' 1
   require_exact 'IMAGE_TAG는 RELEASE_TAG(tag)로 한 번만 할당해야 함' 'env.IMAGE_TAG = tag' 1
   require_exact 'RELEASE_SHA 바인딩은 한 번이어야 함' 'env.RELEASE_SHA = releaseSha' 1
-  require_exact 'Release 승인은 공개 #199 댓글에서 페이지별 조회해야 함' '/issues/199/comments?per_page=100&page=${page}' 1
-  require_exact 'Release 승인 댓글 pagination은 최대 20페이지여야 함' 'for page in $(seq 1 20); do' 1
-  require_exact 'Release 승인 댓글 pagination 완료를 확인해야 함' "if [ \"\$pagination_complete\" != 'true' ]; then" 1
-  require_exact 'PM 승인 actor는 GoBeromsu여야 함' "--arg actor 'GoBeromsu'" 1
-  require_exact 'PM 승인 형식은 tag와 RELEASE_SHA를 포함해야 함' 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${RELEASE_SHA}' 1
   require_exact 'exact RELEASE_SHA checkout은 한 번이어야 함' 'git checkout --detach "$RELEASE_SHA"' 1
 
   # no-op authority: running ps -q only; --all is classification
@@ -513,11 +511,10 @@ check_v2() {
   require_common_smoke_and_build_guards
   require_single_image_tag_assignment
 
-  local pm_approval_line checkout_line https_line rollback_stage_line rollback_input_line rollback_call_line
+  local checkout_line https_line rollback_stage_line rollback_input_line rollback_call_line
   local prisma_generate_line test_line
   local backup_line frontend_build_line backend_build_line migration_line rollout_line retention_line
   local image_rm_line backup_prune_line retention_stage_line
-  pm_approval_line=$(line_of 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${RELEASE_SHA}')
   checkout_line=$(line_of 'git checkout --detach "$RELEASE_SHA"')
   https_line=$(line_of 'FRONTEND_URL')
   rollback_stage_line=$(line_of "stage('롤백 이미지 사전 검증')")
@@ -535,7 +532,7 @@ check_v2() {
   image_rm_line=$(line_of_regex 'docker[[:space:]]+image[[:space:]]+rm[[:space:]]+')
   backup_prune_line=$(line_of 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"')
 
-  if [[ -z "$pm_approval_line" || -z "$checkout_line" || -z "$https_line" || -z "$rollback_stage_line" ||
+  if [[ -z "$checkout_line" || -z "$https_line" || -z "$rollback_stage_line" ||
          -z "$rollback_input_line" || -z "$rollback_call_line" || -z "$prisma_generate_line" || -z "$test_line" || -z "$backup_line" ||
         -z "$frontend_build_line" || -z "$backend_build_line" || -z "$migration_line" ||
         -z "$rollout_line" || -z "$retention_line" || -z "$retention_stage_line" ||
@@ -544,9 +541,8 @@ check_v2() {
     exit 1
   fi
 
-  if ! ((pm_approval_line < checkout_line &&
-         checkout_line < https_line &&
-          https_line < rollback_stage_line &&
+  if ! ((checkout_line < https_line &&
+         https_line < rollback_stage_line &&
           rollback_stage_line <= rollback_input_line &&
           rollback_input_line < rollback_call_line &&
           rollback_call_line < prisma_generate_line &&
@@ -559,11 +555,11 @@ check_v2() {
          rollout_line < retention_stage_line &&
          retention_stage_line < image_rm_line &&
          retention_stage_line < backup_prune_line)); then
-    printf '%s: required order is approval/checkout -> HTTPS+rollback preflight(input/call) -> generate/test -> backup -> two image builds -> migration -> rollout/smoke -> success-only image/backup deletion\n' "$label" >&2
+    printf '%s: required order is checkout -> HTTPS+rollback preflight(input/call) -> generate/test -> backup -> two image builds -> migration -> rollout/smoke -> success-only image/backup deletion\n' "$label" >&2
     exit 1
   fi
 
-  echo "$label: ok (parameterless latest Release, RELEASE_TAG images, running-only no-op, fail-closed stopped/ambiguous, PM RELEASE_SHA approve, HTTPS+external rollback preflight, success-only retention)"
+  echo "$label: ok (parameterless latest Release, exact RELEASE_SHA checkout, RELEASE_TAG images, running-only no-op, fail-closed stopped/ambiguous, HTTPS+external rollback preflight, success-only retention)"
 }
 
 check_v2
