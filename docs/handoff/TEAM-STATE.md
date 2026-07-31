@@ -125,6 +125,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 프로그램 편집·마일스톤 | @Geuin04 | review | #101 | [#228](https://github.com/JNU-SWCU/oss-hub/pull/228) | unit 387 · frontend 188 · integration 66 · lint/typecheck/build pass | 현재 로컬 환경에서 브라우저 시각 QA 불가 |
 | 공개 프로그램 목록 | @Geuin04 | done | #102 | [#191](https://github.com/JNU-SWCU/oss-hub/pull/191) merged | pass | 없음 |
 | Program & Intake 계획 백로그(5건: 신청·팀 구성·신청자 목록·신청 폼·운영 대시보드) | @GoBeromsu | done | #104 #105 #106 #117 #118 | [#252](https://github.com/JNU-SWCU/oss-hub/pull/252) merged | pass | PM path exception · owner @Geuin04 사후 확인 요청 · #119 승인 UI는 별도 |
+| 승인 대기 신청 수정·취소 | @Geuin04 | review | — | PR pending | backend focused 10 · frontend focused 18 · backend/frontend lint·typecheck pass · authenticated browser pass | 신청 기간 내 `SUBMITTED` 상태에서만 수정·취소 허용 · 승인 이후 변경 차단 |
 | 신청 승인·반려와 저장소 생성 트리거 | @Lumiere001 | review | #119 | [#260](https://github.com/JNU-SWCU/oss-hub/pull/260) | backend unit 793 · integration 127 · frontend 493 · lint/typecheck/build/format/public-safe · authenticated Aside pass | [백엔드 #176](https://github.com/JNU-SWCU/oss-hub/pull/176) merged · 승인/반려 UI·authoritative reload·저장소 작업 상태 projection 구현 · PM path exception · owner @Lumiere001 사후 확인 필요 |
 | 교직원 프로그램 생성 | @Geuin04 | done | #100 | [#189](https://github.com/JNU-SWCU/oss-hub/pull/189) merged | pass | 없음 |
 | 공통 프로그램 상세 조회 | @Geuin04 | done | #103 | [#195](https://github.com/JNU-SWCU/oss-hub/pull/195) merged | pass | 없음 |
