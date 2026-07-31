@@ -13,8 +13,18 @@
 # 자세한 실행 순서는 docs/rules/local-dev.md를 따른다.
 
 # --- 인프라 연결 (compose.dev.yml이 publish하는 주소) ---
-# compose.dev.yml:5-7의 인라인 자격증명과 apps/backend/package.json의 db:migrate:dev 연결 문자열과 일치해야 한다.
-export DATABASE_URL=postgresql://oss:oss-dev@localhost:5432/oss_hub
+# 자격증명은 compose.dev.yml:5-6의 인라인 값과 일치해야 한다.
+#
+# 주소는 박지 않고 compose.dev.yml:7,9와 **같은 override 규칙으로 파생**시킨다. 포트·DB를
+# 두 곳에서 따로 관리하면 `pnpm db:up`만 새 주소로 옮겨가고 이 값은 5432에 남는데,
+# `pnpm db:reset`이 `prisma migrate reset --force`라 그 자리의 다른 DB를 지운다(#374).
+#
+# 포트나 DB 이름을 바꾸려면 이 줄 **위에** 아래처럼 선언한다. DATABASE_URL은 자동으로 따라온다.
+#   export POSTGRES_PORT=55432      # `pnpm db:up`이 보려면 export여야 한다
+#   export POSTGRES_DB=oss_hub_scratch
+# 단 export한 값은 compose 경로(`pnpm local:up`)에서 `.env`의 같은 키를 가린다.
+# 그 경로를 쓸 때는 이 override를 남겨두지 않는다.
+export DATABASE_URL=postgresql://oss:oss-dev@localhost:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-oss_hub}
 
 # compose.dev.yml:22-23,49의 MinIO 기본값과 일치해야 한다.
 export SUBMISSION_FILE_S3_ENDPOINT=http://localhost:9000
