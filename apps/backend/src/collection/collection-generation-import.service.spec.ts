@@ -1,4 +1,3 @@
-import { Prisma } from '@prisma/client';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { CollectionGenerationImportService } from './collection-generation-import.service';
 import type { CanonicalGenerationSnapshot } from './collection-canonical.types';
@@ -11,13 +10,25 @@ import type { PrismaService } from '../prisma/prisma.service';
  * criterion — gives `$transaction` real clone/commit/discard semantics: a
  * throw inside the callback discards every write made through that callback.
  */
-class UniqueViolation extends Prisma.PrismaClientKnownRequestError {
-  constructor() {
-    super('duplicate', { code: 'P2002', clientVersion: 'test' });
-  }
-}
-
 type Row = Record<string, unknown>;
+
+/** rebuild count/findFirst 호출이 쓰는 `{ field: value }` / `{ field: { gte, lt } }` where만 지원한다. */
+function matchesWhere(row: Row, where: Row): boolean {
+  return Object.entries(where).every(([field, condition]) => {
+    if (
+      condition !== null &&
+      typeof condition === 'object' &&
+      !(condition instanceof Date)
+    ) {
+      const range = condition as { gte?: Date; lt?: Date };
+      const value = row[field] as Date;
+      if (range.gte !== undefined && value < range.gte) return false;
+      if (range.lt !== undefined && value >= range.lt) return false;
+      return true;
+    }
+    return row[field] === condition;
+  });
+}
 interface Store {
   repositories: Map<string, Row>;
   commitFacts: Map<string, Row>;
@@ -144,42 +155,107 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
       },
     },
     collectionCommitFact: {
-      create: ({ data }: { data: Row & CommitFactData }): Row => {
-        const key = `${data.repositoryId}:${data.sha}`;
-        if (box.store.commitFacts.has(key)) throw new UniqueViolation();
-        const row = { id: `commit-${box.store.commitFacts.size + 1}`, ...data };
-        box.store.commitFacts.set(key, row);
-        return row;
+      createMany: ({
+        data,
+      }: {
+        data: ReadonlyArray<Row & CommitFactData>;
+      }): { count: number } => {
+        let count = 0;
+        for (const item of data) {
+          const key = `${item.repositoryId}:${item.sha}`;
+          if (box.store.commitFacts.has(key)) continue; // skipDuplicates
+          box.store.commitFacts.set(key, {
+            id: `commit-${box.store.commitFacts.size + 1}`,
+            ...item,
+          });
+          count += 1;
+        }
+        return { count };
+      },
+      count: ({ where }: { where: Row }): number =>
+        [...box.store.commitFacts.values()].filter((row) =>
+          matchesWhere(row, where),
+        ).length,
+      findFirst: ({ where }: { where: Row }): Row | null => {
+        const rows = [...box.store.commitFacts.values()]
+          .filter((row) => matchesWhere(row, where))
+          .sort(
+            (a, b) =>
+              (b.committedAt as Date).getTime() -
+              (a.committedAt as Date).getTime(),
+          );
+        return rows[0] ?? null;
       },
     },
     collectionPullRequestFact: {
-      create: ({ data }: { data: Row & PullRequestFactData }): Row => {
-        const key = `${data.repositoryId}:${String(data.githubPullRequestId)}`;
-        if (box.store.pullRequestFacts.has(key)) throw new UniqueViolation();
-        const row = {
-          id: `pr-${box.store.pullRequestFacts.size + 1}`,
-          ...data,
-        };
-        box.store.pullRequestFacts.set(key, row);
-        return row;
+      createMany: ({
+        data,
+      }: {
+        data: ReadonlyArray<Row & PullRequestFactData>;
+      }): { count: number } => {
+        let count = 0;
+        for (const item of data) {
+          const key = `${item.repositoryId}:${String(item.githubPullRequestId)}`;
+          if (box.store.pullRequestFacts.has(key)) continue; // skipDuplicates
+          box.store.pullRequestFacts.set(key, {
+            id: `pr-${box.store.pullRequestFacts.size + 1}`,
+            ...item,
+          });
+          count += 1;
+        }
+        return { count };
+      },
+      count: ({ where }: { where: Row }): number =>
+        [...box.store.pullRequestFacts.values()].filter((row) =>
+          matchesWhere(row, where),
+        ).length,
+      findFirst: ({ where }: { where: Row }): Row | null => {
+        const rows = [...box.store.pullRequestFacts.values()]
+          .filter((row) => matchesWhere(row, where))
+          .sort(
+            (a, b) =>
+              (b.createdAt as Date).getTime() - (a.createdAt as Date).getTime(),
+          );
+        return rows[0] ?? null;
       },
     },
     collectionReleaseFact: {
-      create: ({ data }: { data: Row & ReleaseFactData }): Row => {
+      createMany: ({
+        data,
+      }: {
+        data: ReadonlyArray<Row & ReleaseFactData>;
+      }): { count: number } => {
         if (
           control.failReleaseId !== null &&
-          data.githubReleaseId === control.failReleaseId
+          data.some((item) => item.githubReleaseId === control.failReleaseId)
         ) {
           throw new Error('boom');
         }
-        const key = `${data.repositoryId}:${String(data.githubReleaseId)}`;
-        if (box.store.releaseFacts.has(key)) throw new UniqueViolation();
-        const row = {
-          id: `release-${box.store.releaseFacts.size + 1}`,
-          ...data,
-        };
-        box.store.releaseFacts.set(key, row);
-        return row;
+        let count = 0;
+        for (const item of data) {
+          const key = `${item.repositoryId}:${String(item.githubReleaseId)}`;
+          if (box.store.releaseFacts.has(key)) continue; // skipDuplicates
+          box.store.releaseFacts.set(key, {
+            id: `release-${box.store.releaseFacts.size + 1}`,
+            ...item,
+          });
+          count += 1;
+        }
+        return { count };
+      },
+      count: ({ where }: { where: Row }): number =>
+        [...box.store.releaseFacts.values()].filter((row) =>
+          matchesWhere(row, where),
+        ).length,
+      findFirst: ({ where }: { where: Row }): Row | null => {
+        const rows = [...box.store.releaseFacts.values()]
+          .filter((row) => matchesWhere(row, where))
+          .sort(
+            (a, b) =>
+              (b.publishedAt as Date).getTime() -
+              (a.publishedAt as Date).getTime(),
+          );
+        return rows[0] ?? null;
       },
     },
     collectionRepositoryYearAggregate: {

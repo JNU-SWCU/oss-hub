@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-07-20 · Updated: 2026-08-01 (todo 10 repository별 증분 동기화 반영) -->
+<!-- Generated: 2026-07-20 · Updated: 2026-08-01 (todo 11 aggregate rebuild + CollectionReadPort 확장 반영) -->
 
 # apps/backend/src/collection — GitHub 활동 수집기
 
@@ -25,6 +25,8 @@ Collection GitHub App installation token으로 `JNU-SWCU` 조직 설치 범위�
 | `collection-sync.service.ts` | todo 10 — repository별 증분 동기화 orchestration. inventory(complete/partial 구분) → 신규/미검증 저장소 full backfill → READY 저장소 조건부 poll을 fair serial queue·lease-fenced 트랜잭션 위에서 durable cursor로 이어간다 |
 | `collection-sync.types.ts` | `CollectionSyncLease` epoch-fenced lease 계약 타입(`SyncLeaseKey`/`SyncLeaseToken`/`AcquireSyncLeaseInput`) |
 | `collection-provider-queue.ts` | `ProviderRequestQueue` — 모든 provider 요청이 통과하는 fair serial fetcher wrapper(최소 250ms 페이싱, `x-ratelimit-*` 관찰, ADR-006 동적 정지 `remaining <= max(100, limit의 20%)`) |
+| `collection-read.port.ts` | `COLLECTION_READ_PORT` DIP 경계 — ranking·programs·system-status가 이 5개 메서드/DTO로만 collection을 소비한다. todo 5 원본 3개(`findRepositoryActivity`/`findRankingActivity`/`getStatusSnapshot`, 여전히 old canonical 테이블 배선)는 불변이고, todo 11이 `getRepositoryMetrics`/`getContributorMetrics`를 추가만 했다(배치 `repositoryIds[]` 조회, `dataAsOf`, `visibility`/`presence`/`visibilityObservedAt` eligibility-safe 방문성 DTO 포함 — 실명·studentId·raw payload·collection lease/frontier 등 control 필드 없음) |
+| `collection-read.service.ts` | `CollectionReadPort` 구현체. 신규 2개 메서드는 todo 8/10이 채운 증분 facts/aggregate 테이블을 직접 읽는다 — private facts도 내부적으로는 그대로 읽히며, 공개 안전 필터링은 이 서비스가 아니라 이를 소비하는 todo 15(eligibility fence)/todo 19(ranking source)의 책임이다 |
 
 ## Subdirectories
 
@@ -37,7 +39,7 @@ Collection GitHub App installation token으로 `JNU-SWCU` 조직 설치 범위�
 
 - 에러 코드: `COL_006 COLLECTION_RUN_IN_PROGRESS`(409, 안전 확장 `activeRunId`만 노출). `collection-error-code.enum.ts`에 등록하고 `DomainException`으로 던지면 `common/problem-detail.filter.ts`가 `application/problem+json`으로 변환한다.
 - 테스트 위치·트랙:
-  - 단위(`pnpm --filter backend test:unit`): `collection-app.client.spec.ts`, `collection-canonical.repository.spec.ts`, `collection-reconciliation.service.spec.ts`, `collection-scheduler.service.spec.ts`, `collection-admin.controller.spec.ts`, `collection-live-smoke.service.spec.ts`, `collection.module.spec.ts`, `collection-generation-import.service.spec.ts`, `collection-incremental.repository.spec.ts`, `collection-provider-queue.spec.ts`, `collection-sync.service.spec.ts`
+  - 단위(`pnpm --filter backend test:unit`): `collection-app.client.spec.ts`, `collection-canonical.repository.spec.ts`, `collection-reconciliation.service.spec.ts`, `collection-scheduler.service.spec.ts`, `collection-admin.controller.spec.ts`, `collection-live-smoke.service.spec.ts`, `collection.module.spec.ts`, `collection-generation-import.service.spec.ts`, `collection-incremental.repository.spec.ts`, `collection-provider-queue.spec.ts`, `collection-sync.service.spec.ts`, `collection-read.service.spec.ts`
   - 통합(`pnpm --filter backend test:integration`, 격리 DB 컨테이너): `collection-canonical.repository.integration.spec.ts`, `collection-reconciliation.integration.spec.ts`, `collection-scheduler.integration.spec.ts`, `integration-database.guard.spec.ts`
 - reconciliation runtime은 `collection.module.ts`에서 lazy singleton으로 생성된다 — 자격증명이 없는 환경에서 모듈 초기화가 실패하지 않고, 첫 트리거의 discovery/token 실패는 durable run 실패로 기록된다.
 - 발행 규칙(현재 runtime): 완전한 generation만 `activeGenerationId`로 승격되고, 실패는 이전 complete generation을 유지한다. contributor projection은 public 저장소만 포함한다. 이 hourly full-history reconciliation은 여전히 유일하게 배선된(scheduler cron·admin trigger) 수집 경로다 — `collection-sync.service.ts`(todo 10)는 신규/미검증 저장소 full backfill과 READY 저장소 endpoint별 safe frontier 증분 전환을 구현한 별도 standalone 엔진이며, `collection:sync` CLI로만 실행된다. reconciliation → sync 전환(cutover)은 아직 별도 todo다.

@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
   CollectionRepositoryRow,
@@ -21,15 +20,24 @@ import type {
   SyncLeaseToken,
 } from './collection-sync.types';
 
-const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
-
 /** Asia/Seoul(UTC+9, DST 없음) 기준 연도. */
 export const asiaSeoulYear = (at: Date): number =>
   new Date(at.getTime() + 9 * 60 * 60 * 1000).getUTCFullYear();
 
-const isUniqueConstraintViolation = (error: unknown): boolean =>
-  error instanceof Prisma.PrismaClientKnownRequestError &&
-  error.code === UNIQUE_CONSTRAINT_VIOLATION;
+/**
+ * 주어진 Asia/Seoul 달력 연도의 `[start, end)` UTC 경계. `asiaSeoulYear`의 역함수 —
+ * 이 구간에 속하는 시각은 전부 그 해로 계산된다(1/1 00:00:00 KST = 전년도 12/31 15:00:00 UTC).
+ */
+const seoulYearBoundsUtc = (year: number): readonly [Date, Date] => [
+  new Date(Date.UTC(year, 0, 1) - 9 * 60 * 60 * 1000),
+  new Date(Date.UTC(year + 1, 0, 1) - 9 * 60 * 60 * 1000),
+];
+
+/** rebuild 대상 (year, githubUserId) 쌍 — githubUserId는 repository 전체 집계에는 쓰이지 않는다. */
+interface AffectedYear {
+  year: number;
+  githubUserId: bigint | null;
+}
 
 @Injectable()
 export class CollectionIncrementalRepository {
@@ -100,32 +108,37 @@ export class CollectionIncrementalRepository {
     });
   }
 
+  /**
+   * `createMany`+`skipDuplicates`는 Postgres `INSERT ... ON CONFLICT DO NOTHING`으로
+   * 컴파일된다 — 중복 fact(재시도/overlap)는 조용히 건너뛰고 정확한 신규 삽입 수만
+   * 반환한다. 그 뒤 이번 배치가 건드린 (year[, contributor]) 집합만 facts 테이블에서
+   * 다시 COUNT해 **덮어쓴다** — 순서·중복 여부와 무관하게 항상 같은 결과가 되는
+   * deterministic rebuild이며, 이미 존재하던 중복 fact를 다시 보낸 재시도도 동일하게
+   * 안전하다(rebuild는 source-of-truth를 다시 세는 것이지 증가시키는 것이 아니다).
+   */
   async recordCommitFacts(
     repositoryId: string,
     facts: readonly CommitFactInput[],
   ): Promise<RecordFactsResult> {
-    let insertedCount = 0;
-    for (const fact of facts) {
-      const inserted = await this.tryInsertFact(() =>
-        this.db.collectionCommitFact.create({
-          data: {
-            repositoryId,
-            sha: fact.sha,
-            committedAt: fact.committedAt,
-            authorGithubId: fact.authorGithubId ?? null,
-            authorGithubLogin: fact.authorGithubLogin ?? null,
-          },
-        }),
-      );
-      if (!inserted) continue;
-      insertedCount += 1;
-      await this.incrementYearAggregates(repositoryId, {
+    if (facts.length === 0) return { insertedCount: 0 };
+    const { count: insertedCount } =
+      await this.db.collectionCommitFact.createMany({
+        data: facts.map((fact) => ({
+          repositoryId,
+          sha: fact.sha,
+          committedAt: fact.committedAt,
+          authorGithubId: fact.authorGithubId ?? null,
+          authorGithubLogin: fact.authorGithubLogin ?? null,
+        })),
+        skipDuplicates: true,
+      });
+    await this.rebuildAffectedAggregates(
+      repositoryId,
+      facts.map((fact) => ({
         year: asiaSeoulYear(fact.committedAt),
         githubUserId: fact.authorGithubId ?? null,
-        githubLogin: fact.authorGithubLogin ?? null,
-        field: 'commitCount',
-      });
-    }
+      })),
+    );
     return { insertedCount };
   }
 
@@ -133,29 +146,26 @@ export class CollectionIncrementalRepository {
     repositoryId: string,
     facts: readonly PullRequestFactInput[],
   ): Promise<RecordFactsResult> {
-    let insertedCount = 0;
-    for (const fact of facts) {
-      const inserted = await this.tryInsertFact(() =>
-        this.db.collectionPullRequestFact.create({
-          data: {
-            repositoryId,
-            githubPullRequestId: fact.githubPullRequestId,
-            state: fact.state,
-            createdAt: fact.createdAt,
-            authorGithubId: fact.authorGithubId ?? null,
-            authorGithubLogin: fact.authorGithubLogin ?? null,
-          },
-        }),
-      );
-      if (!inserted) continue;
-      insertedCount += 1;
-      await this.incrementYearAggregates(repositoryId, {
+    if (facts.length === 0) return { insertedCount: 0 };
+    const { count: insertedCount } =
+      await this.db.collectionPullRequestFact.createMany({
+        data: facts.map((fact) => ({
+          repositoryId,
+          githubPullRequestId: fact.githubPullRequestId,
+          state: fact.state,
+          createdAt: fact.createdAt,
+          authorGithubId: fact.authorGithubId ?? null,
+          authorGithubLogin: fact.authorGithubLogin ?? null,
+        })),
+        skipDuplicates: true,
+      });
+    await this.rebuildAffectedAggregates(
+      repositoryId,
+      facts.map((fact) => ({
         year: asiaSeoulYear(fact.createdAt),
         githubUserId: fact.authorGithubId ?? null,
-        githubLogin: fact.authorGithubLogin ?? null,
-        field: 'pullRequestCount',
-      });
-    }
+      })),
+    );
     return { insertedCount };
   }
 
@@ -163,84 +173,204 @@ export class CollectionIncrementalRepository {
     repositoryId: string,
     facts: readonly ReleaseFactInput[],
   ): Promise<RecordFactsResult> {
-    let insertedCount = 0;
-    for (const fact of facts) {
-      const inserted = await this.tryInsertFact(() =>
-        this.db.collectionReleaseFact.create({
-          data: {
-            repositoryId,
-            githubReleaseId: fact.githubReleaseId,
-            publishedAt: fact.publishedAt,
-            authorGithubId: fact.authorGithubId ?? null,
-            authorGithubLogin: fact.authorGithubLogin ?? null,
-          },
-        }),
-      );
-      if (!inserted) continue;
-      insertedCount += 1;
-      await this.incrementYearAggregates(repositoryId, {
+    if (facts.length === 0) return { insertedCount: 0 };
+    const { count: insertedCount } =
+      await this.db.collectionReleaseFact.createMany({
+        data: facts.map((fact) => ({
+          repositoryId,
+          githubReleaseId: fact.githubReleaseId,
+          publishedAt: fact.publishedAt,
+          authorGithubId: fact.authorGithubId ?? null,
+          authorGithubLogin: fact.authorGithubLogin ?? null,
+        })),
+        skipDuplicates: true,
+      });
+    await this.rebuildAffectedAggregates(
+      repositoryId,
+      facts.map((fact) => ({
         year: asiaSeoulYear(fact.publishedAt),
         githubUserId: fact.authorGithubId ?? null,
-        githubLogin: fact.authorGithubLogin ?? null,
-        field: 'releaseCount',
-      });
-    }
+      })),
+    );
     return { insertedCount };
   }
 
-  /** unique key 충돌(중복 fact)은 무시하고 false를 반환한다 — 그 외 오류는 그대로 던진다. */
-  private async tryInsertFact<T>(insert: () => Promise<T>): Promise<boolean> {
-    try {
-      await insert();
-      return true;
-    } catch (error: unknown) {
-      if (isUniqueConstraintViolation(error)) return false;
-      throw error;
+  /**
+   * 이번 배치가 건드린 (repositoryId, year) 전체와 (repositoryId, githubUserId, year)
+   * 전체를 facts 테이블 COUNT로부터 다시 계산해 덮어쓴다. null author는 repository
+   * 총계에는 포함되지만(위 3-way COUNT가 author 조건 없이 전체를 센다) contributor
+   * 집계 행에서는 제외된다.
+   */
+  private async rebuildAffectedAggregates(
+    repositoryId: string,
+    affected: readonly AffectedYear[],
+  ): Promise<void> {
+    const years = new Set(affected.map((entry) => entry.year));
+    for (const year of years) {
+      await this.rebuildRepositoryYearAggregate(repositoryId, year);
+    }
+
+    const contributors = new Map<
+      string,
+      { githubUserId: bigint; year: number }
+    >();
+    for (const entry of affected) {
+      if (entry.githubUserId === null) continue;
+      contributors.set(`${entry.githubUserId}:${entry.year}`, {
+        githubUserId: entry.githubUserId,
+        year: entry.year,
+      });
+    }
+    for (const { githubUserId, year } of contributors.values()) {
+      await this.rebuildContributorYearAggregate(
+        repositoryId,
+        githubUserId,
+        year,
+      );
     }
   }
 
-  private async incrementYearAggregates(
+  /** repository 단위 연도 집계를 facts 테이블 COUNT로 재계산해 그대로 덮어쓴다(증가 아님). */
+  private async rebuildRepositoryYearAggregate(
     repositoryId: string,
-    input: {
-      year: number;
-      githubUserId: bigint | null;
-      githubLogin: string | null;
-      field: 'commitCount' | 'pullRequestCount' | 'releaseCount';
-    },
+    year: number,
   ): Promise<void> {
+    const [start, end] = seoulYearBoundsUtc(year);
+    const [commitCount, pullRequestCount, releaseCount] = await Promise.all([
+      this.db.collectionCommitFact.count({
+        where: { repositoryId, committedAt: { gte: start, lt: end } },
+      }),
+      this.db.collectionPullRequestFact.count({
+        where: { repositoryId, createdAt: { gte: start, lt: end } },
+      }),
+      this.db.collectionReleaseFact.count({
+        where: { repositoryId, publishedAt: { gte: start, lt: end } },
+      }),
+    ]);
     await this.db.collectionRepositoryYearAggregate.upsert({
-      where: { repositoryId_year: { repositoryId, year: input.year } },
+      where: { repositoryId_year: { repositoryId, year } },
       create: {
         repositoryId,
-        year: input.year,
-        [input.field]: 1,
+        year,
+        commitCount,
+        pullRequestCount,
+        releaseCount,
       },
-      update: {
-        [input.field]: { increment: 1 },
-      },
+      update: { commitCount, pullRequestCount, releaseCount },
     });
+  }
 
-    if (input.githubUserId === null) return;
+  /** contributor 단위 연도 집계를 facts 테이블 COUNT로 재계산해 그대로 덮어쓴다(증가 아님). */
+  private async rebuildContributorYearAggregate(
+    repositoryId: string,
+    githubUserId: bigint,
+    year: number,
+  ): Promise<void> {
+    const [start, end] = seoulYearBoundsUtc(year);
+    const [commitCount, pullRequestCount, releaseCount, latestLogin] =
+      await Promise.all([
+        this.db.collectionCommitFact.count({
+          where: {
+            repositoryId,
+            authorGithubId: githubUserId,
+            committedAt: { gte: start, lt: end },
+          },
+        }),
+        this.db.collectionPullRequestFact.count({
+          where: {
+            repositoryId,
+            authorGithubId: githubUserId,
+            createdAt: { gte: start, lt: end },
+          },
+        }),
+        this.db.collectionReleaseFact.count({
+          where: {
+            repositoryId,
+            authorGithubId: githubUserId,
+            publishedAt: { gte: start, lt: end },
+          },
+        }),
+        this.findLatestGithubLogin(repositoryId, githubUserId, start, end),
+      ]);
+    const githubLogin = latestLogin ?? '';
     await this.db.collectionContributorYearAggregate.upsert({
       where: {
-        repositoryId_githubUserId_year: {
-          repositoryId,
-          githubUserId: input.githubUserId,
-          year: input.year,
-        },
+        repositoryId_githubUserId_year: { repositoryId, githubUserId, year },
       },
       create: {
         repositoryId,
-        githubUserId: input.githubUserId,
-        githubLogin: input.githubLogin ?? '',
-        year: input.year,
-        [input.field]: 1,
+        githubUserId,
+        githubLogin,
+        year,
+        commitCount,
+        pullRequestCount,
+        releaseCount,
       },
-      update: {
-        githubLogin: input.githubLogin ?? undefined,
-        [input.field]: { increment: 1 },
-      },
+      update: { githubLogin, commitCount, pullRequestCount, releaseCount },
     });
+  }
+
+  /**
+   * 세 fact 스트림을 통틀어 가장 최근에 관측된 login을 고른다 — GitHub login 변경(rename)이
+   * 있어도 매번 결정적으로 같은 값을 고르기 위해 "가장 최근 관측"을 tie-break 기준으로 쓴다.
+   */
+  private async findLatestGithubLogin(
+    repositoryId: string,
+    githubUserId: bigint,
+    start: Date,
+    end: Date,
+  ): Promise<string | null> {
+    const [commit, pullRequest, release] = await Promise.all([
+      this.db.collectionCommitFact.findFirst({
+        where: {
+          repositoryId,
+          authorGithubId: githubUserId,
+          committedAt: { gte: start, lt: end },
+        },
+        orderBy: { committedAt: 'desc' },
+        select: { authorGithubLogin: true, committedAt: true },
+      }),
+      this.db.collectionPullRequestFact.findFirst({
+        where: {
+          repositoryId,
+          authorGithubId: githubUserId,
+          createdAt: { gte: start, lt: end },
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { authorGithubLogin: true, createdAt: true },
+      }),
+      this.db.collectionReleaseFact.findFirst({
+        where: {
+          repositoryId,
+          authorGithubId: githubUserId,
+          publishedAt: { gte: start, lt: end },
+        },
+        orderBy: { publishedAt: 'desc' },
+        select: { authorGithubLogin: true, publishedAt: true },
+      }),
+    ]);
+    const candidates: Array<{ at: Date; login: string | null }> = [];
+    if (commit)
+      candidates.push({
+        at: commit.committedAt,
+        login: commit.authorGithubLogin,
+      });
+    if (pullRequest) {
+      candidates.push({
+        at: pullRequest.createdAt,
+        login: pullRequest.authorGithubLogin,
+      });
+    }
+    if (release) {
+      candidates.push({
+        at: release.publishedAt,
+        login: release.authorGithubLogin,
+      });
+    }
+    if (candidates.length === 0) return null;
+    candidates.sort((left, right) => right.at.getTime() - left.at.getTime());
+    const [latest] = candidates;
+    return latest ? latest.login : null;
   }
 
   /** 존재하지 않는 연도는 0으로 채워 반환한다 — 매년 1/1 read가 안전하다. */

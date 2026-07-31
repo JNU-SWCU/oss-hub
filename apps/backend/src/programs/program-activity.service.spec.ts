@@ -37,6 +37,8 @@ function collectionReadPort(
     findRepositoryActivity,
     findRankingActivity: () => Promise.resolve([]),
     getStatusSnapshot: () => Promise.resolve(null),
+    getRepositoryMetrics: () => Promise.resolve([]),
+    getContributorMetrics: () => Promise.resolve([]),
   };
 }
 
