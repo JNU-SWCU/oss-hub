@@ -139,7 +139,7 @@ export function AdminAccessOverlay({ userId }: { readonly userId: string }) {
               <X aria-hidden="true" />
             </Button>
           </DialogPrimitive.Close>
-          <AdminAccessDetailView userId={userId} />
+          <AdminAccessDetailView userId={userId} layoutContext="overlay" />
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
