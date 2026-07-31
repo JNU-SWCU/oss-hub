@@ -1061,10 +1061,10 @@ write_fixture(
 
 replace_once(
     "v2-hardening-cache-cap-changed",
-    "BUILD_CACHE_MAX_SPACE = '10GB'",
-    "BUILD_CACHE_MAX_SPACE = '11GB'",
+    "BUILD_CACHE_MAX_SPACE = '5GB'",
+    "BUILD_CACHE_MAX_SPACE = '6GB'",
 )
-cache_line = "    BUILD_CACHE_MAX_SPACE = '10GB'\n"
+cache_line = "    BUILD_CACHE_MAX_SPACE = '5GB'\n"
 without_cache = source.replace(cache_line, "", 1)
 if without_cache == source:
     raise SystemExit("cache environment line missing")
@@ -1366,7 +1366,7 @@ expect_fail_with_code 'v2 hardening: BuildKit prune를 미호출 함수 본문�
 expect_fail_with_code 'v2 hardening: BuildKit prune 중복' v2 "$fixture_dir/v2-hardening-prune-duplicated"
 expect_fail_with_code 'v2 hardening: BuildKit prune를 이미지 loop 앞으로 이동' v2 "$fixture_dir/v2-hardening-prune-before-image-loop"
 expect_fail_with_code 'v2 hardening: BuildKit prune를 backup prune 뒤로 이동' v2 "$fixture_dir/v2-hardening-prune-after-backup"
-expect_fail_with_code 'v2 hardening: BuildKit cache 상한을 10GB에서 변경' v2 "$fixture_dir/v2-hardening-cache-cap-changed"
+expect_fail_with_code 'v2 hardening: BuildKit cache 상한을 5GB에서 변경' v2 "$fixture_dir/v2-hardening-cache-cap-changed"
 expect_fail_with_code 'v2 hardening: BuildKit cache 상한을 environment 밖으로 이동' v2 "$fixture_dir/v2-hardening-cache-cap-outside-environment"
 expect_fail_with_code 'v2 hardening: exact 200 대신 curl --fail 복원' v2 "$fixture_dir/v2-hardening-exact-200-restored-curl-fail"
 expect_fail_with_code 'v2 hardening: require_status equality 검사를 반전' v2 "$fixture_dir/v2-hardening-status-helper-weakened"
