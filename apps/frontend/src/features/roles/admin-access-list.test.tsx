@@ -39,6 +39,7 @@ const baseViewProps = {
   page: 1,
   limit: ADMIN_ACCESS_LIST_LIMIT,
   total: 1,
+  pendingCount: 0,
   isLoading: false,
   errorMessage: null,
   onQueryChange: noOp,
@@ -243,6 +244,37 @@ describe('AdminAccessView — 읽기 전용 접근 목록 화면', () => {
 
     expect(html).toContain('목록을 불러오지 못했습니다.');
     expect(html).toContain('다시 시도');
+  });
+
+  it('요청함 탭은 대기 중인 요청 수를 표시하고, 전체 목록이 기본 활성 상태다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessView {...baseViewProps} pendingRequest="" pendingCount={3} />,
+    );
+
+    expect(html).toContain('요청함 (3)');
+    const allTabIndex = html.indexOf('전체 목록');
+    const allTabStart = html.lastIndexOf('<button', allTabIndex);
+    expect(html.slice(allTabStart, allTabIndex)).toContain(
+      'aria-pressed="true"',
+    );
+  });
+
+  it('요청함 탭 활성 상태에서는 요청함 버튼이 aria-pressed를 표시한다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessView
+        {...baseViewProps}
+        pendingRequest="PENDING"
+        pendingCount={0}
+      />,
+    );
+
+    expect(html).toContain('요청함');
+    expect(html).not.toContain('요청함 (0)');
+    const inboxTabIndex = html.indexOf('요청함');
+    const inboxTabStart = html.lastIndexOf('<button', inboxTabIndex);
+    expect(html.slice(inboxTabStart, inboxTabIndex)).toContain(
+      'aria-pressed="true"',
+    );
   });
 
   it('검색 결과가 없으면 안내와 필터 초기화 동작을 표시한다', () => {
