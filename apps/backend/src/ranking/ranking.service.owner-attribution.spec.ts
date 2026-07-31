@@ -9,7 +9,7 @@ describe('RankingService canonical actor attribution', () => {
   });
 
   it('uses the canonical author numeric ID and login without repository-owner attribution', async () => {
-    harness.findRankingActivity.mockResolvedValue([
+    harness.getPublicRankingMetrics.mockResolvedValue([
       activity(22n, 'release-author', 0, 0, 1),
     ]);
 
@@ -29,7 +29,7 @@ describe('RankingService canonical actor attribution', () => {
   });
 
   it('does not invent entries for private or ghost activity excluded by the repository', async () => {
-    harness.findRankingActivity.mockResolvedValue([]);
+    harness.getPublicRankingMetrics.mockResolvedValue([]);
 
     await expect(
       harness.service.findPage(RANKING_PERIODS.ALL, 1, 20),
@@ -37,7 +37,7 @@ describe('RankingService canonical actor attribution', () => {
   });
 
   it('orders exact ties by metrics, normalized login, then numeric actor ID', async () => {
-    harness.findRankingActivity.mockResolvedValue([
+    harness.getPublicRankingMetrics.mockResolvedValue([
       activity(40n, 'zeta', 1, 2, 0),
       activity(30n, 'beta', 2, 0, 1),
       activity(20n, 'Alpha', 2, 0, 1),

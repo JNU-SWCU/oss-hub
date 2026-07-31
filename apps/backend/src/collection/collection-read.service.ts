@@ -6,6 +6,8 @@ import { asiaSeoulYear } from './collection-incremental.repository';
 import type {
   CollectionContributorMetricsDto,
   CollectionContributorMetricsQueryDto,
+  CollectionPublicRankingMetricsDto,
+  CollectionPublicRankingMetricsQueryDto,
   CollectionRankingActivityDto,
   CollectionRankingActivityQueryDto,
   CollectionReadPort,
@@ -268,5 +270,50 @@ export class CollectionReadService implements CollectionReadPort {
       pullRequestCount: row.pullRequestCount,
       releaseCount: row.releaseCount,
     }));
+  }
+
+  /**
+   * todo 19 — ranking 공개 페이지 소스. `getContributorMetrics`와 같은 증분 aggregate
+   * 테이블(`CollectionContributorYearAggregate`)을 읽되, PUBLIC + PRESENT 저장소로 port
+   * 경계에서 필터링한 뒤 githubUserId 단위로 저장소·연도를 넘어 합산한다. login이 갈리면
+   * 정규화된 소문자 기준으로 가장 앞선 login을 canonical로 고른다(기존 `findRankingActivity`와
+   * 동일한 tie-break) — private facts나 platform User join 없이 githubLogin만 노출한다.
+   */
+  async getPublicRankingMetrics(
+    query: CollectionPublicRankingMetricsQueryDto,
+  ): Promise<readonly CollectionPublicRankingMetricsDto[]> {
+    const rows = await this.prisma.collectionContributorYearAggregate.findMany({
+      where: {
+        repository: { visibility: 'PUBLIC', presence: 'PRESENT' },
+        ...(query.currentYear === undefined ? {} : { year: query.currentYear }),
+      },
+      select: {
+        githubUserId: true,
+        githubLogin: true,
+        commitCount: true,
+        pullRequestCount: true,
+        releaseCount: true,
+      },
+    });
+
+    const activity = new Map<string, CollectionPublicRankingMetricsDto>();
+    for (const row of rows) {
+      const key = row.githubUserId.toString();
+      const current = activity.get(key);
+      const githubLogin =
+        !current ||
+        row.githubLogin.normalize().toLocaleLowerCase('en-US') <
+          current.githubLogin.normalize().toLocaleLowerCase('en-US')
+          ? row.githubLogin
+          : current.githubLogin;
+      activity.set(key, {
+        githubId: row.githubUserId,
+        githubLogin,
+        commitCount: (current?.commitCount ?? 0) + row.commitCount,
+        prCount: (current?.prCount ?? 0) + row.pullRequestCount,
+        releaseCount: (current?.releaseCount ?? 0) + row.releaseCount,
+      });
+    }
+    return [...activity.values()];
   }
 }
