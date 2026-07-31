@@ -1,15 +1,8 @@
-import { Prisma } from '@prisma/client';
 import {
   asiaSeoulYear,
   CollectionIncrementalRepository,
 } from './collection-incremental.repository';
 import type { PrismaService } from '../prisma/prisma.service';
-
-const uniqueViolation = (): Prisma.PrismaClientKnownRequestError =>
-  new Prisma.PrismaClientKnownRequestError('duplicate', {
-    code: 'P2002',
-    clientVersion: 'test',
-  });
 
 interface MockDb {
   collectionRepository: {
@@ -18,9 +11,21 @@ interface MockDb {
     updateMany: jest.Mock;
     findMany: jest.Mock;
   };
-  collectionCommitFact: { create: jest.Mock };
-  collectionPullRequestFact: { create: jest.Mock };
-  collectionReleaseFact: { create: jest.Mock };
+  collectionCommitFact: {
+    createMany: jest.Mock;
+    count: jest.Mock;
+    findFirst: jest.Mock;
+  };
+  collectionPullRequestFact: {
+    createMany: jest.Mock;
+    count: jest.Mock;
+    findFirst: jest.Mock;
+  };
+  collectionReleaseFact: {
+    createMany: jest.Mock;
+    count: jest.Mock;
+    findFirst: jest.Mock;
+  };
   collectionRepositoryYearAggregate: {
     upsert: jest.Mock;
     findUnique: jest.Mock;
@@ -33,6 +38,7 @@ interface MockDb {
   $executeRawUnsafe: jest.Mock;
 }
 
+/** 기본값은 "빈 DB"(COUNT 0, 최신 fact 없음) — 각 테스트가 필요한 만큼만 override한다. */
 const createDb = (): MockDb => {
   const db: MockDb = {
     collectionRepository: {
@@ -41,14 +47,28 @@ const createDb = (): MockDb => {
       updateMany: jest.fn(),
       findMany: jest.fn(),
     },
-    collectionCommitFact: { create: jest.fn() },
-    collectionPullRequestFact: { create: jest.fn() },
-    collectionReleaseFact: { create: jest.fn() },
+    collectionCommitFact: {
+      createMany: jest.fn().mockResolvedValue({ count: 0 }),
+      count: jest.fn().mockResolvedValue(0),
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
+    collectionPullRequestFact: {
+      createMany: jest.fn().mockResolvedValue({ count: 0 }),
+      count: jest.fn().mockResolvedValue(0),
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
+    collectionReleaseFact: {
+      createMany: jest.fn().mockResolvedValue({ count: 0 }),
+      count: jest.fn().mockResolvedValue(0),
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
     collectionRepositoryYearAggregate: {
-      upsert: jest.fn(),
+      upsert: jest.fn().mockResolvedValue({}),
       findUnique: jest.fn(),
     },
-    collectionContributorYearAggregate: { upsert: jest.fn() },
+    collectionContributorYearAggregate: {
+      upsert: jest.fn().mockResolvedValue({}),
+    },
     collectionRepositoryStream: { upsert: jest.fn(), findUnique: jest.fn() },
     collectionSyncCursor: { upsert: jest.fn(), findUnique: jest.fn() },
     $transaction: jest.fn(async (fn: (tx: MockDb) => Promise<unknown>) =>
@@ -114,12 +134,10 @@ describe('CollectionIncrementalRepository — repository identity', () => {
   });
 });
 
-describe('CollectionIncrementalRepository — commit facts', () => {
-  it('신규 fact는 삽입하고 repository/contributor 연도 집계를 1씩 증가시킨다', async () => {
+describe('CollectionIncrementalRepository — commit facts (deterministic rebuild)', () => {
+  it('createMany(skipDuplicates)로 삽입하고 실제 삽입 개수를 반환한다', async () => {
     const db = createDb();
-    db.collectionCommitFact.create.mockResolvedValue({});
-    db.collectionRepositoryYearAggregate.upsert.mockResolvedValue({});
-    db.collectionContributorYearAggregate.upsert.mockResolvedValue({});
+    db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
 
     const result = await repositoryFor(db).recordCommitFacts('repo-1', [
       {
@@ -131,35 +149,240 @@ describe('CollectionIncrementalRepository — commit facts', () => {
     ]);
 
     expect(result.insertedCount).toBe(1);
+    expect(db.collectionCommitFact.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          repositoryId: 'repo-1',
+          sha: 'abc',
+          committedAt: new Date('2026-03-01T00:00:00.000Z'),
+          authorGithubId: 99n,
+          authorGithubLogin: 'octocat',
+        },
+      ],
+      skipDuplicates: true,
+    });
+  });
+
+  it('빈 배열은 DB를 건드리지 않고 0을 반환한다', async () => {
+    const db = createDb();
+
+    const result = await repositoryFor(db).recordCommitFacts('repo-1', []);
+
+    expect(result).toEqual({ insertedCount: 0 });
+    expect(db.collectionCommitFact.createMany).not.toHaveBeenCalled();
+  });
+
+  it('rebuild는 createMany 삽입 개수가 아니라 facts 테이블 실제 COUNT로 집계를 덮어쓴다 — 중복 재시도에도 불변', async () => {
+    const db = createDb();
+    // 이번 배치는 신규 1건뿐이라고 보고하지만(재시도로 나머지는 이미 존재),
+    // DB에는 이미 해당 연도에 총 5건이 쌓여 있다고 가정한다.
+    db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
+    db.collectionCommitFact.count.mockResolvedValue(5);
+
+    await repositoryFor(db).recordCommitFacts('repo-1', [
+      { sha: 'retry', committedAt: new Date('2026-03-01T00:00:00.000Z') },
+    ]);
+
+    expect(db.collectionRepositoryYearAggregate.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { repositoryId_year: { repositoryId: 'repo-1', year: 2026 } },
+        update: { commitCount: 5, pullRequestCount: 0, releaseCount: 0 },
+      }),
+    );
+  });
+
+  it('두 명의 기여자가 같은 배치에 섞여도 각자의 contributor 집계로 분리된다', async () => {
+    const db = createDb();
+    db.collectionCommitFact.createMany.mockResolvedValue({ count: 2 });
+    db.collectionCommitFact.count.mockImplementation(
+      ({ where }: { where: { authorGithubId?: bigint } }) => {
+        if (where.authorGithubId === 1n) return Promise.resolve(1);
+        if (where.authorGithubId === 2n) return Promise.resolve(1);
+        return Promise.resolve(2);
+      },
+    );
+    db.collectionCommitFact.findFirst.mockImplementation(
+      ({ where }: { where: { authorGithubId?: bigint } }) =>
+        Promise.resolve(
+          where.authorGithubId === 1n
+            ? { authorGithubLogin: 'alice', committedAt: new Date() }
+            : { authorGithubLogin: 'bob', committedAt: new Date() },
+        ),
+    );
+
+    await repositoryFor(db).recordCommitFacts('repo-1', [
+      {
+        sha: 'a',
+        committedAt: new Date('2026-03-01T00:00:00.000Z'),
+        authorGithubId: 1n,
+        authorGithubLogin: 'alice',
+      },
+      {
+        sha: 'b',
+        committedAt: new Date('2026-03-02T00:00:00.000Z'),
+        authorGithubId: 2n,
+        authorGithubLogin: 'bob',
+      },
+    ]);
+
+    expect(db.collectionContributorYearAggregate.upsert).toHaveBeenCalledTimes(
+      2,
+    );
+    expect(db.collectionContributorYearAggregate.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          repositoryId_githubUserId_year: {
+            repositoryId: 'repo-1',
+            githubUserId: 1n,
+            year: 2026,
+          },
+        },
+      }),
+    );
+    expect(db.collectionContributorYearAggregate.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          repositoryId_githubUserId_year: {
+            repositoryId: 'repo-1',
+            githubUserId: 2n,
+            year: 2026,
+          },
+        },
+      }),
+    );
+  });
+
+  it('author가 null인 fact는 repository 총계에는 포함되지만 contributor 집계는 만들지 않는다', async () => {
+    const db = createDb();
+    db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
+    db.collectionCommitFact.count.mockResolvedValue(1);
+
+    await repositoryFor(db).recordCommitFacts('repo-1', [
+      { sha: 'anon', committedAt: new Date('2026-03-01T00:00:00.000Z') },
+    ]);
+
     expect(db.collectionRepositoryYearAggregate.upsert).toHaveBeenCalledTimes(
       1,
     );
-    expect(db.collectionContributorYearAggregate.upsert).toHaveBeenCalledTimes(
-      1,
+    expect(db.collectionContributorYearAggregate.upsert).not.toHaveBeenCalled();
+  });
+
+  it('연도 경계를 넘나드는 배치는 두 연도 각각의 집계를 재계산한다(Asia/Seoul 기준)', async () => {
+    const db = createDb();
+    db.collectionCommitFact.createMany.mockResolvedValue({ count: 2 });
+
+    await repositoryFor(db).recordCommitFacts('repo-1', [
+      // KST 2025-12-31 23:30 -> 2025년
+      { sha: 'y2025', committedAt: new Date('2025-12-31T14:30:00.000Z') },
+      // KST 2026-01-01 00:30 -> 2026년
+      { sha: 'y2026', committedAt: new Date('2025-12-31T15:30:00.000Z') },
+    ]);
+
+    expect(db.collectionRepositoryYearAggregate.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { repositoryId_year: { repositoryId: 'repo-1', year: 2025 } },
+      }),
+    );
+    expect(db.collectionRepositoryYearAggregate.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { repositoryId_year: { repositoryId: 'repo-1', year: 2026 } },
+      }),
+    );
+    expect(db.collectionRepositoryYearAggregate.upsert).toHaveBeenCalledTimes(
+      2,
+    );
+  });
+});
+
+describe('CollectionIncrementalRepository — pull request facts (parity)', () => {
+  it('createMany(skipDuplicates)로 삽입하고 rebuild로 집계를 덮어쓴다', async () => {
+    const db = createDb();
+    db.collectionPullRequestFact.createMany.mockResolvedValue({ count: 1 });
+    db.collectionPullRequestFact.count.mockResolvedValue(3);
+
+    const result = await repositoryFor(db).recordPullRequestFacts('repo-1', [
+      {
+        githubPullRequestId: 7n,
+        state: 'MERGED',
+        createdAt: new Date('2026-05-01T00:00:00.000Z'),
+        authorGithubId: 42n,
+        authorGithubLogin: 'octocat',
+      },
+    ]);
+
+    expect(result.insertedCount).toBe(1);
+    expect(db.collectionPullRequestFact.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          repositoryId: 'repo-1',
+          githubPullRequestId: 7n,
+          state: 'MERGED',
+          createdAt: new Date('2026-05-01T00:00:00.000Z'),
+          authorGithubId: 42n,
+          authorGithubLogin: 'octocat',
+        },
+      ],
+      skipDuplicates: true,
+    });
+    expect(db.collectionRepositoryYearAggregate.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: { commitCount: 0, pullRequestCount: 3, releaseCount: 0 },
+      }),
     );
   });
 
-  it('중복 fact(unique 제약 위반)는 무시하고 집계를 증가시키지 않는다 — idempotent', async () => {
+  it('빈 배열은 DB를 건드리지 않는다', async () => {
     const db = createDb();
-    db.collectionCommitFact.create.mockRejectedValue(uniqueViolation());
 
-    const result = await repositoryFor(db).recordCommitFacts('repo-1', [
-      { sha: 'dup', committedAt: new Date('2026-03-01T00:00:00.000Z') },
+    const result = await repositoryFor(db).recordPullRequestFacts('repo-1', []);
+
+    expect(result).toEqual({ insertedCount: 0 });
+    expect(db.collectionPullRequestFact.createMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('CollectionIncrementalRepository — release facts (parity)', () => {
+  it('createMany(skipDuplicates)로 삽입하고 rebuild로 집계를 덮어쓴다', async () => {
+    const db = createDb();
+    db.collectionReleaseFact.createMany.mockResolvedValue({ count: 1 });
+    db.collectionReleaseFact.count.mockResolvedValue(2);
+
+    const result = await repositoryFor(db).recordReleaseFacts('repo-1', [
+      {
+        githubReleaseId: 9n,
+        publishedAt: new Date('2026-06-01T00:00:00.000Z'),
+        authorGithubId: 42n,
+        authorGithubLogin: 'octocat',
+      },
     ]);
 
-    expect(result.insertedCount).toBe(0);
-    expect(db.collectionRepositoryYearAggregate.upsert).not.toHaveBeenCalled();
+    expect(result.insertedCount).toBe(1);
+    expect(db.collectionReleaseFact.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          repositoryId: 'repo-1',
+          githubReleaseId: 9n,
+          publishedAt: new Date('2026-06-01T00:00:00.000Z'),
+          authorGithubId: 42n,
+          authorGithubLogin: 'octocat',
+        },
+      ],
+      skipDuplicates: true,
+    });
+    expect(db.collectionRepositoryYearAggregate.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: { commitCount: 0, pullRequestCount: 0, releaseCount: 2 },
+      }),
+    );
   });
 
-  it('unique 제약 위반이 아닌 오류는 그대로 전파한다', async () => {
+  it('빈 배열은 DB를 건드리지 않는다', async () => {
     const db = createDb();
-    db.collectionCommitFact.create.mockRejectedValue(new Error('boom'));
 
-    await expect(
-      repositoryFor(db).recordCommitFacts('repo-1', [
-        { sha: 'x', committedAt: new Date('2026-03-01T00:00:00.000Z') },
-      ]),
-    ).rejects.toThrow('boom');
+    const result = await repositoryFor(db).recordReleaseFacts('repo-1', []);
+
+    expect(result).toEqual({ insertedCount: 0 });
+    expect(db.collectionReleaseFact.createMany).not.toHaveBeenCalled();
   });
 });
 

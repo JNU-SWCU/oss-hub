@@ -31,6 +31,8 @@ export function setupRankingService(): {
     findRepositoryActivity: () => Promise.resolve([]),
     findRankingActivity,
     getStatusSnapshot: () => Promise.resolve(null),
+    getRepositoryMetrics: () => Promise.resolve([]),
+    getContributorMetrics: () => Promise.resolve([]),
   } satisfies CollectionReadPort;
 
   return {

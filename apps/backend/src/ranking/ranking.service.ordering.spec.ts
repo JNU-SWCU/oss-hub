@@ -67,6 +67,8 @@ describe('RankingService deterministic ordering', () => {
       findRepositoryActivity: () => Promise.resolve([]),
       findRankingActivity,
       getStatusSnapshot: () => Promise.resolve(null),
+      getRepositoryMetrics: () => Promise.resolve([]),
+      getContributorMetrics: () => Promise.resolve([]),
     } satisfies CollectionReadPort;
     const service = new RankingService(collection);
 

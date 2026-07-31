@@ -2,12 +2,17 @@ import { Injectable } from '@nestjs/common';
 import { CanonicalCollectionRunStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CollectionCanonicalRepository } from './collection-canonical.repository';
+import { asiaSeoulYear } from './collection-incremental.repository';
 import type {
+  CollectionContributorMetricsDto,
+  CollectionContributorMetricsQueryDto,
   CollectionRankingActivityDto,
   CollectionRankingActivityQueryDto,
   CollectionReadPort,
   CollectionRepositoryActivityDto,
   CollectionRepositoryActivityQueryDto,
+  CollectionRepositoryMetricsDto,
+  CollectionRepositoryMetricsQueryDto,
   CollectionStatusSnapshotDto,
 } from './collection-read.port';
 
@@ -170,5 +175,98 @@ export class CollectionReadService implements CollectionReadPort {
       lastCompleteSuccessAt: timestamps[0]?.lastCompleteSuccessAt ?? null,
       dataAsOf: timestamps[0]?.dataAsOf ?? null,
     };
+  }
+
+  /**
+   * todo 11 — 신규 증분 aggregate 소스(`CollectionRepositoryYearAggregate`)를 직접 읽는다.
+   * `year`를 생략하면 Asia/Seoul 기준 현재 연도를 쓴다. 해당 연도 집계 행이 아직 없어도(1/1
+   * rollover) 저장소 자체가 관측되어 있으면 0값 행을 반환한다 — 신규 fact write를 요구하지 않는다.
+   * private/public 저장소를 가리지 않고 그대로 반환한다(private facts internally readable) —
+   * eligibility 필터링은 이 포트를 호출하는 쪽(todo 15/19)의 책임이다.
+   */
+  async getRepositoryMetrics(
+    query: CollectionRepositoryMetricsQueryDto,
+  ): Promise<readonly CollectionRepositoryMetricsDto[]> {
+    if (query.repositoryIds.length === 0) return [];
+    const year = query.year ?? asiaSeoulYear(new Date());
+
+    const repositories = await this.prisma.collectionRepository.findMany({
+      where: { githubRepositoryId: { in: [...query.repositoryIds] } },
+      select: {
+        githubRepositoryId: true,
+        visibility: true,
+        presence: true,
+        lastCompleteInventoryObservedAt: true,
+        yearAggregates: {
+          where: { year },
+          select: {
+            commitCount: true,
+            pullRequestCount: true,
+            releaseCount: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
+
+    return repositories.map((repository) => {
+      const aggregate = repository.yearAggregates[0];
+      return {
+        repositoryId: repository.githubRepositoryId,
+        year,
+        dataAsOf:
+          aggregate?.updatedAt ??
+          repository.lastCompleteInventoryObservedAt ??
+          new Date(),
+        commitCount: aggregate?.commitCount ?? 0,
+        pullRequestCount: aggregate?.pullRequestCount ?? 0,
+        releaseCount: aggregate?.releaseCount ?? 0,
+        visibility: repository.visibility,
+        presence: repository.presence,
+        visibilityObservedAt: repository.lastCompleteInventoryObservedAt,
+      };
+    });
+  }
+
+  /**
+   * todo 11 — 신규 증분 aggregate 소스(`CollectionContributorYearAggregate`)를 직접 읽는다
+   * (ranking source). repository 집계와 달리 0값 기본 행을 만들지 않는다 — 해당 연도에 실제
+   * fact가 있는 (repository, contributor) 조합만 존재한다(기존 `getContributorYearAggregate`와
+   * 동일한 규약).
+   */
+  async getContributorMetrics(
+    query: CollectionContributorMetricsQueryDto,
+  ): Promise<readonly CollectionContributorMetricsDto[]> {
+    if (query.repositoryIds.length === 0) return [];
+    const year = query.year ?? asiaSeoulYear(new Date());
+
+    const rows = await this.prisma.collectionContributorYearAggregate.findMany({
+      where: {
+        year,
+        repository: {
+          githubRepositoryId: { in: [...query.repositoryIds] },
+        },
+      },
+      select: {
+        githubUserId: true,
+        githubLogin: true,
+        commitCount: true,
+        pullRequestCount: true,
+        releaseCount: true,
+        updatedAt: true,
+        repository: { select: { githubRepositoryId: true } },
+      },
+    });
+
+    return rows.map((row) => ({
+      repositoryId: row.repository.githubRepositoryId,
+      githubUserId: row.githubUserId,
+      githubLogin: row.githubLogin,
+      year,
+      dataAsOf: row.updatedAt,
+      commitCount: row.commitCount,
+      pullRequestCount: row.pullRequestCount,
+      releaseCount: row.releaseCount,
+    }));
   }
 }
