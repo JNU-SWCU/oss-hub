@@ -60,7 +60,15 @@ export class StaffRoleRequestsService {
   ): Promise<StaffRoleRequestRecord> {
     return this.repository.withTransaction(async (store) => {
       const actor = this.requireAdmin(await store.findUserByGithubId(githubId));
-      const request = await store.findRequestById(requestId);
+      await store.lockActiveAdmins();
+      const locatedRequest = await store.findRequestById(requestId);
+      if (!locatedRequest) {
+        throw new DomainException(
+          ROLES_ERROR_CODES[RolesErrorCode.ROLE_REQUEST_NOT_FOUND],
+        );
+      }
+      await store.lockUserForUpdate(locatedRequest.userId);
+      const request = await store.lockRequestById(requestId);
       if (!request) {
         throw new DomainException(
           ROLES_ERROR_CODES[RolesErrorCode.ROLE_REQUEST_NOT_FOUND],

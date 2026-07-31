@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { RoleRequestStatus } from '@prisma/client';
-import type { Prisma } from '@prisma/client';
+import { AccountStatus, Prisma, Role, RoleRequestStatus } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -47,6 +46,9 @@ export interface StaffRoleRequestsTransactionStore {
   findUserByGithubId(githubId: bigint): Promise<StaffRoleRequestActor | null>;
   findUserProfileById(userId: string): Promise<UserProfileRecord | null>;
   findRequestById(id: string): Promise<StaffRoleRequestRecord | null>;
+  lockActiveAdmins(): Promise<void>;
+  lockUserForUpdate(userId: string): Promise<void>;
+  lockRequestById(id: string): Promise<StaffRoleRequestRecord | null>;
   transitionRequest(input: StaffRoleRequestTransition): Promise<boolean>;
   transitionUserRole(input: StaffUserRoleTransition): Promise<boolean>;
   transitionUserAccountStatus(
@@ -104,6 +106,36 @@ class PrismaStaffRoleRequestsTransactionStore implements StaffRoleRequestsTransa
     return request ? toStaffRoleRequest(request) : null;
   }
 
+  /**
+   * Shared mutation lock order: lock active ADMIN User rows by ID, then the
+   * target User row, and only then acquire a RoleRequest row lock.
+   */
+  async lockActiveAdmins(): Promise<void> {
+    await this.transaction.$queryRaw<readonly LockedRow[]>(
+      Prisma.sql`
+        SELECT id
+        FROM "User"
+        WHERE role = ${Role.ADMIN}::"Role"
+          AND "accountStatus" = ${AccountStatus.ACTIVE}::"AccountStatus"
+        ORDER BY id
+        FOR UPDATE
+      `,
+    );
+  }
+
+  async lockUserForUpdate(userId: string): Promise<void> {
+    await this.transaction.$queryRaw<readonly LockedRow[]>(
+      Prisma.sql`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`,
+    );
+  }
+
+  async lockRequestById(id: string): Promise<StaffRoleRequestRecord | null> {
+    const rows = await this.transaction.$queryRaw<readonly LockedRow[]>(
+      Prisma.sql`SELECT id FROM "RoleRequest" WHERE id = ${id} FOR UPDATE`,
+    );
+    return rows.length === 1 ? this.findRequestById(id) : null;
+  }
+
   async transitionRequest(input: StaffRoleRequestTransition): Promise<boolean> {
     const result = await this.transaction.roleRequest.updateMany({
       where: { id: input.requestId, status: input.expectedStatus },
@@ -158,6 +190,8 @@ class PrismaStaffRoleRequestsTransactionStore implements StaffRoleRequestsTransa
     return toStaffRoleRequest(request);
   }
 }
+
+type LockedRow = Readonly<{ id: string }>;
 
 @Injectable()
 export class StaffRoleRequestsRepository implements StaffRoleRequestsRepositoryPort {
