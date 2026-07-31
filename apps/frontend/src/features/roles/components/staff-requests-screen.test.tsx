@@ -139,7 +139,7 @@ describe('StaffRequestsScreen', () => {
       title: 'CONFLICT',
       status: 409,
       detail: '다른 관리자가 이미 처리한 요청입니다.',
-      instance: '/api/v1/role-requests/request-1',
+      instance: '/role-requests/request-1',
       code: 'ROL_007',
     });
     mocks.decideStaffRoleRequest.mockRejectedValue(conflict);
