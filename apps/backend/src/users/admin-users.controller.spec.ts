@@ -7,7 +7,7 @@ import { DomainException } from '../common/error-code';
 import { AdminUsersController } from './admin-users.controller';
 import { PatchUserRoleRequestDto } from './dto/patch-user-role.dto';
 import type { AdminUsersService } from './admin-users.service';
-import { RolesErrorCode } from './roles-error-code.enum';
+import { RolesErrorCode } from '../roles/roles-error-code.enum';
 
 const REQUEST: Pick<AuthenticatedRequest, 'sessionGithubId'> = {
   sessionGithubId: 9_131_000_001n,

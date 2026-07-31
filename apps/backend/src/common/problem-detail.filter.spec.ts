@@ -89,6 +89,34 @@ describe('ProblemDetailFilter', () => {
     );
   });
 
+  it('stale access 도메인 예외의 authoritative projection을 보존한다', () => {
+    const { response, json } = createResponse();
+    const currentAccess = {
+      id: 'synthetic-user',
+      role: 'STAFF' as const,
+      accountStatus: 'ACTIVE' as const,
+      pendingRequest: {
+        id: 'synthetic-request',
+        status: 'PENDING' as const,
+        createdAt: '2026-07-31T00:00:00.000Z',
+      },
+    };
+    const exception = new DomainException(
+      {
+        code: 'ROL_013',
+        status: 409,
+        message: '사용자 접근 상태가 조회 당시와 달라졌습니다.',
+      },
+      { currentAccess },
+    );
+
+    new ProblemDetailFilter().catch(exception, createHost(response));
+
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'ROL_013', currentAccess }),
+    );
+  });
+
   it('client-visible 503 도메인 예외는 명시한 코드로 반환한다', () => {
     const { response, json, status } = createResponse();
     const exception = new DomainException({

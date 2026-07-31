@@ -20,7 +20,12 @@ async function bootstrap(): Promise<void> {
 
   const runtimeConfig = app.get<RuntimeConfig>(RUNTIME_CONFIG);
   const port = Number.parseInt(runtimeConfig.PORT ?? '4000', 10);
-  await app.listen(Number.isNaN(port) ? 4000 : port);
+  const listenPort = Number.isNaN(port) ? 4000 : port;
+  if (runtimeConfig.NODE_ENV === 'test') {
+    await app.listen(listenPort, '127.0.0.1');
+    return;
+  }
+  await app.listen(listenPort);
 }
 
 void bootstrap();

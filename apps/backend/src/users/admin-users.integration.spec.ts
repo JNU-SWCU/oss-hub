@@ -5,10 +5,9 @@ import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminUsersRepository } from './admin-users.repository';
 import { AdminUsersService } from './admin-users.service';
-import { RolesErrorCode } from './roles-error-code.enum';
-import { STAFF_ROLE_REQUEST_ACTIONS } from './domain/staff-role-request';
-import { StaffRoleRequestsService } from './staff-role-requests.service';
-import { StaffRoleRequestsRepository } from './staff-role-requests.repository';
+import { RolesErrorCode } from '../roles/roles-error-code.enum';
+import { StaffRoleRequestsService } from '../roles/staff-role-requests.service';
+import { StaffRoleRequestsRepository } from '../roles/staff-role-requests.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -16,10 +15,11 @@ assertIsolatedIntegrationDatabase({
 });
 
 const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
-const TEST_PREFIX = 'test:131:admin-users:';
-const ADMIN_GITHUB_ID_BASE = 9_131_100_000n;
-const STAFF_GITHUB_ID_BASE = 9_131_200_000n;
-const STUDENT_GITHUB_ID_BASE = 9_131_300_000n;
+const TEST_PREFIX = 'test:pr03:admin-users:';
+const ADMIN_GITHUB_ID_BASE = 9_003_100_000n;
+const STAFF_GITHUB_ID_BASE = 9_003_200_000n;
+const STUDENT_GITHUB_ID_BASE = 9_003_300_000n;
+const STAFF_ROLE_REQUEST_APPROVE = 'APPROVE';
 
 type AdminUsersTestContext = {
   readonly prefix: string;
@@ -194,7 +194,7 @@ describe('Admin users integration', () => {
     expect(decided.decidedAt).not.toBeNull();
     await expect(
       staffRoleRequestsService.decide(context.adminGithubId, requestId, {
-        action: STAFF_ROLE_REQUEST_ACTIONS.APPROVE,
+        action: STAFF_ROLE_REQUEST_APPROVE,
       }),
     ).rejects.toMatchObject({
       errorCode: {
