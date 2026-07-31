@@ -59,7 +59,7 @@ describe('StudentDashboardView', () => {
     const html = renderView();
 
     // Then
-    expect(html).toContain('href="/my-repos"');
+    expect(html).not.toContain('href="/my-repos"');
     expect(html).toContain('준비 완료');
     expect(html).toContain('저장소 생성 중');
     expect(html).toContain('href="https://github.com/JNU-SWCU/capstone-hong"');

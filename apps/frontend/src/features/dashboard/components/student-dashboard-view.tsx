@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowRight, FolderGit2, FolderOpen } from 'lucide-react';
+import { AlertCircle, ArrowRight, FolderOpen } from 'lucide-react';
 import Link from 'next/link';
 
 import { CardGrid, EmptyState, PageHeader } from '@/components';
@@ -40,12 +40,6 @@ export function StudentDashboardView({
         description="신청한 프로그램과 다음 제출 일정을 확인합니다."
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline" className="min-h-10 px-3">
-              <Link href="/my-repos">
-                내 저장소
-                <FolderGit2 aria-hidden="true" />
-              </Link>
-            </Button>
             <Button asChild variant="outline" className="min-h-10 px-3">
               <Link href="/dashboard/activity">
                 내 활동

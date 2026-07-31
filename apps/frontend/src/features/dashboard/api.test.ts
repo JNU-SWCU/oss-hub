@@ -139,6 +139,21 @@ describe('fetchStudentDashboard', () => {
         ],
       },
     ],
+    [
+      '저장소 이름이 상위 경로를 탐색함',
+      {
+        items: [
+          {
+            ...dashboardFixture.items[0],
+            repository: {
+              ...dashboardFixture.items[0].repository,
+              repositoryName: '../evil',
+              githubUrl: 'https://github.com/JNU-SWCU/../evil',
+            },
+          },
+        ],
+      },
+    ],
   ])('잘못된 응답을 어댑터 경계에서 거부한다: %s', async (_label, body) => {
     vi.stubGlobal(
       'fetch',

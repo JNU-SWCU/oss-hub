@@ -82,7 +82,24 @@ function isRepositoryInvitationStatus(
 }
 
 function isSafeGithubUrl(value: string, repositoryName: string): boolean {
-  return value === `https://github.com/JNU-SWCU/${repositoryName}`;
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(repositoryName)) return false;
+  try {
+    const url = new URL(value);
+    const pathSegments = url.pathname.split('/').filter(Boolean);
+    return (
+      value === `https://github.com/JNU-SWCU/${repositoryName}` &&
+      url.origin === 'https://github.com' &&
+      url.username === '' &&
+      url.password === '' &&
+      url.search === '' &&
+      url.hash === '' &&
+      pathSegments.length === 2 &&
+      pathSegments[0] === 'JNU-SWCU' &&
+      pathSegments[1] === repositoryName
+    );
+  } catch {
+    return false;
+  }
 }
 
 function isRepository(

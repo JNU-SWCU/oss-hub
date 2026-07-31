@@ -5,6 +5,7 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
+import type { RepositoriesService } from '../repositories/repositories.service';
 import { StudentDashboardService } from './student-dashboard.service';
 
 const DUE_AT = new Date('2026-08-01T00:00:00.000Z');
@@ -24,30 +25,31 @@ function application(overrides: Record<string, unknown> = {}) {
       ],
     },
     submissions: [],
-    provisionJob: null,
     ...overrides,
   };
 }
 
 describe('StudentDashboardService', () => {
   const findMany = jest.fn();
-  const findUnique = jest.fn().mockResolvedValue({ nickname: 'synthetic' });
   const prisma = {
-    user: { findUnique },
     application: { findMany },
   } as unknown as PrismaService;
-  const service = new StudentDashboardService(prisma);
+  const getMyRepositories = jest.fn();
+  const repositories = {
+    getMyRepositories,
+  } as Pick<RepositoriesService, 'getMyRepositories'>;
+  const service = new StudentDashboardService(prisma, repositories);
 
   beforeEach(() => {
     jest.clearAllMocks();
-    findUnique.mockResolvedValue({ nickname: 'synthetic' });
+    findMany.mockResolvedValue([]);
+    getMyRepositories.mockResolvedValue([]);
   });
 
-  it('returns no items when the session github id has no matching user', async () => {
-    findUnique.mockResolvedValueOnce(null);
-
+  it('returns no items when the student owns no applications', async () => {
     await expect(service.getStudentDashboard(404n)).resolves.toEqual([]);
-    expect(findMany).not.toHaveBeenCalled();
+    expect(findMany).toHaveBeenCalledTimes(1);
+    expect(getMyRepositories).toHaveBeenCalledWith(404n);
   });
 
   it('maps owned personal and team applications and queries no other ownership paths', async () => {
@@ -78,6 +80,7 @@ describe('StudentDashboardService', () => {
       }),
     ]);
     expect(items[0]?.repository?.provisionStatus).toBe('NOT_STARTED');
+    expect(getMyRepositories).toHaveBeenCalledWith(101n);
     expect(findMany).toHaveBeenCalledTimes(1);
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -162,18 +165,15 @@ describe('StudentDashboardService', () => {
   });
 
   it('maps a validated successful repository and current-user invitation', async () => {
-    findMany.mockResolvedValue([
-      application({
-        provisionJob: {
-          status: RepositoryProvisionJobStatus.SUCCEEDED,
-          repository: {
-            applicationId: 'application-1',
-            name: 'synthetic-repository',
-            url: 'https://github.com/JNU-SWCU/synthetic-repository',
-            invitations: [{ status: RepositoryInvitationStatus.PENDING }],
-          },
-        },
-      }),
+    findMany.mockResolvedValue([application()]);
+    getMyRepositories.mockResolvedValue([
+      {
+        applicationId: 'application-1',
+        repositoryName: 'synthetic-repository',
+        provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
+        invitationStatus: RepositoryInvitationStatus.PENDING,
+        githubUrl: 'https://github.com/JNU-SWCU/synthetic-repository',
+      },
     ]);
 
     const [item] = await service.getStudentDashboard(101n);
@@ -186,26 +186,23 @@ describe('StudentDashboardService', () => {
     });
   });
 
-  it('fails closed when a successful job points at an invalid repository', async () => {
-    findMany.mockResolvedValue([
-      application({
-        provisionJob: {
-          status: RepositoryProvisionJobStatus.SUCCEEDED,
-          repository: {
-            applicationId: 'another-application',
-            name: 'synthetic-repository',
-            url: 'https://github.com/JNU-SWCU/synthetic-repository',
-            invitations: [],
-          },
-        },
-      }),
+  it('reuses the canonical pre-success repository projection', async () => {
+    findMany.mockResolvedValue([application()]);
+    getMyRepositories.mockResolvedValue([
+      {
+        applicationId: 'application-1',
+        repositoryName: null,
+        provisionStatus: RepositoryProvisionJobStatus.PROCESSING,
+        invitationStatus: null,
+        githubUrl: null,
+      },
     ]);
 
     const [item] = await service.getStudentDashboard(101n);
 
     expect(item?.repository).toEqual({
       repositoryName: null,
-      provisionStatus: 'FAILED_FINAL',
+      provisionStatus: 'PROCESSING',
       invitationStatus: null,
       githubUrl: null,
     });

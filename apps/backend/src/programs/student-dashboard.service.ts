@@ -10,6 +10,7 @@ import {
   COMPATIBLE_PROFILE_NAME_SELECT,
   resolveCompatibleProfileName,
 } from '../profiles/profile-compatibility';
+import type { RepositoriesService } from '../repositories/repositories.service';
 
 export interface StudentDashboardMilestone {
   readonly id: string;
@@ -57,76 +58,69 @@ function isSafeProgramId(value: string): boolean {
 
 @Injectable()
 export class StudentDashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly repositories: Pick<
+      RepositoriesService,
+      'getMyRepositories'
+    >,
+  ) {}
 
   async getStudentDashboard(
     sessionGithubId: bigint,
   ): Promise<readonly StudentDashboardItem[]> {
-    const user = await this.prisma.user.findUnique({
-      where: { githubId: sessionGithubId },
-      select: { nickname: true },
-    });
-    if (user === null) return [];
-
-    const applications = await this.prisma.application.findMany({
-      where: {
-        OR: [
-          { teamId: null, applicant: { githubId: sessionGithubId } },
-          {
-            team: {
-              OR: [
-                { leader: { githubId: sessionGithubId } },
-                {
-                  members: {
-                    some: { user: { githubId: sessionGithubId } },
+    const [applications, projectedRepositories] = await Promise.all([
+      this.prisma.application.findMany({
+        where: {
+          OR: [
+            { teamId: null, applicant: { githubId: sessionGithubId } },
+            {
+              team: {
+                OR: [
+                  { leader: { githubId: sessionGithubId } },
+                  {
+                    members: {
+                      some: { user: { githubId: sessionGithubId } },
+                    },
                   },
-                },
-              ],
+                ],
+              },
+            },
+          ],
+        },
+        orderBy: [{ submittedAt: 'desc' }, { id: 'asc' }],
+        select: {
+          id: true,
+          status: true,
+          teamId: true,
+          applicant: {
+            select: {
+              nickname: true,
+              ...COMPATIBLE_PROFILE_NAME_SELECT,
             },
           },
-        ],
-      },
-      orderBy: [{ submittedAt: 'desc' }, { id: 'asc' }],
-      select: {
-        id: true,
-        status: true,
-        teamId: true,
-        applicant: {
-          select: {
-            nickname: true,
-            ...COMPATIBLE_PROFILE_NAME_SELECT,
-          },
-        },
-        team: { select: { name: true } },
-        program: {
-          select: {
-            id: true,
-            name: true,
-            milestones: {
-              orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
-              select: { id: true, name: true, dueAt: true },
-            },
-          },
-        },
-        submissions: { select: { milestoneId: true, status: true } },
-        provisionJob: {
-          select: {
-            status: true,
-            repository: {
-              select: {
-                applicationId: true,
-                name: true,
-                url: true,
-                invitations: {
-                  where: { githubLogin: user.nickname.toLowerCase() },
-                  select: { status: true },
-                },
+          team: { select: { name: true } },
+          program: {
+            select: {
+              id: true,
+              name: true,
+              milestones: {
+                orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
+                select: { id: true, name: true, dueAt: true },
               },
             },
           },
+          submissions: { select: { milestoneId: true, status: true } },
         },
-      },
-    });
+      }),
+      this.repositories.getMyRepositories(sessionGithubId),
+    ]);
+    const repositoryByApplication = new Map(
+      projectedRepositories.map((repository) => [
+        repository.applicationId,
+        repository,
+      ]),
+    );
 
     const items: StudentDashboardItem[] = [];
     for (const application of applications) {
@@ -178,49 +172,23 @@ export class StudentDashboardService {
               submissionStatuses.get(milestone.id) ?? 'NOT_SUBMITTED',
           }
         : null;
-      const provisionJob = application.provisionJob;
       let repository: StudentDashboardRepository | null = null;
       if (application.status === ApplicationStatus.APPROVED) {
-        if (provisionJob === null) {
+        const projectedRepository = repositoryByApplication.get(application.id);
+        if (projectedRepository === undefined) {
           repository = {
             repositoryName: null,
             provisionStatus: 'NOT_STARTED',
             invitationStatus: null,
             githubUrl: null,
           };
-        } else if (
-          provisionJob.status !== RepositoryProvisionJobStatus.SUCCEEDED
-        ) {
-          repository = {
-            repositoryName: null,
-            provisionStatus: provisionJob.status,
-            invitationStatus: null,
-            githubUrl: null,
-          };
         } else {
-          const provisionedRepository = provisionJob.repository;
-          const isValidRepository =
-            provisionedRepository !== null &&
-            provisionedRepository.applicationId === application.id &&
-            /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(
-              provisionedRepository.name,
-            ) &&
-            provisionedRepository.url ===
-              `https://github.com/JNU-SWCU/${provisionedRepository.name}`;
-          repository = isValidRepository
-            ? {
-                repositoryName: provisionedRepository.name,
-                provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
-                invitationStatus:
-                  provisionedRepository.invitations[0]?.status ?? null,
-                githubUrl: provisionedRepository.url,
-              }
-            : {
-                repositoryName: null,
-                provisionStatus: RepositoryProvisionJobStatus.FAILED_FINAL,
-                invitationStatus: null,
-                githubUrl: null,
-              };
+          repository = {
+            repositoryName: projectedRepository.repositoryName,
+            provisionStatus: projectedRepository.provisionStatus,
+            invitationStatus: projectedRepository.invitationStatus,
+            githubUrl: projectedRepository.githubUrl,
+          };
         }
       }
 
