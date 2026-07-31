@@ -352,3 +352,53 @@ describe('AdminAccessDetailContentForState — 접근 변경 UI (PR04G)', () => 
     );
   });
 });
+
+describe('AdminAccessDetailContentForState — layoutContext (PR04F follow-up: Inspector 1280px 크래시 수정)', () => {
+  function layoutClass(html: string): string | undefined {
+    return html.match(
+      /data-slot="detail-panel-layout"[^>]*class="([^"]*)"/,
+    )?.[1];
+  }
+
+  it('layoutContext를 생략하면 standalone과 동일하게 md: 2열 분할을 유지한다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{ kind: 'ready', detail: detail(), history: history() }}
+        onRetry={noOp}
+        mutation={mutation()}
+      />,
+    );
+
+    expect(layoutClass(html)).toMatch(
+      /\bmd:grid-cols-\[minmax\(0,2fr\)_minmax\(0,1fr\)\]/,
+    );
+  });
+
+  it("layoutContext='standalone'이면 md: 2열 분할을 유지한다(표준 페이지는 시각적으로 불변)", () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{ kind: 'ready', detail: detail(), history: history() }}
+        onRetry={noOp}
+        mutation={mutation()}
+        layoutContext="standalone"
+      />,
+    );
+
+    expect(layoutClass(html)).toMatch(
+      /\bmd:grid-cols-\[minmax\(0,2fr\)_minmax\(0,1fr\)\]/,
+    );
+  });
+
+  it("layoutContext='overlay'면 md: 2열 분할을 꺼서 뷰포트와 무관하게 보조 카드를 본문 아래로 쌓는다", () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{ kind: 'ready', detail: detail(), history: history() }}
+        onRetry={noOp}
+        mutation={mutation()}
+        layoutContext="overlay"
+      />,
+    );
+
+    expect(layoutClass(html)).not.toMatch(/md:grid-cols-/);
+  });
+});

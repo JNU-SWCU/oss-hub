@@ -56,6 +56,15 @@ type AdminAccessDetailState =
   | { readonly kind: 'not-found' }
   | ({ readonly kind: 'ready' } & AdminAccessDetailData);
 
+/**
+ * 표준 페이지(`standalone`)와 Inspector/Sheet 오버레이(`overlay`) 중 어디에서
+ * 렌더되는지 — 오버레이는 뷰포트가 넓어도 실제 렌더 폭이 좁은 고정 컨테이너
+ * 안에 있으므로(PR04F `admin-access-overlay-variant.ts`의 `max-w-md`),
+ * `DetailPanelLayout`의 2열 분할을 꺼서 보조 카드 제목이 크래시되는 문제를
+ * 막는다. 기본값 `standalone`은 기존 동작과 완전히 동일하다.
+ */
+export type AdminAccessDetailLayoutContext = 'standalone' | 'overlay';
+
 /** 상세/오버레이가 공유하는 접근 변경 다이얼로그·패널 제어권(PR04G). */
 export interface AdminAccessDetailMutationController {
   readonly confirmAction: AdminAccessMutationAction | null;
@@ -326,8 +335,10 @@ function AdminAccessDetailContent({
   detail,
   history,
   mutation,
+  layoutContext,
 }: AdminAccessDetailData & {
   readonly mutation: AdminAccessDetailMutationController;
+  readonly layoutContext: AdminAccessDetailLayoutContext;
 }) {
   const eligibility = deriveAdminAccessEligibility(detail);
   const roleRequestsTruncated = isAdminAccessHistoryTruncated(
@@ -388,6 +399,7 @@ function AdminAccessDetailContent({
         }
       />
       <DetailPanelLayout
+        stacked={layoutContext === 'overlay'}
         primary={
           <div className="grid gap-8">
             <section
@@ -511,10 +523,12 @@ export function AdminAccessDetailContentForState({
   state,
   onRetry,
   mutation,
+  layoutContext = 'standalone',
 }: {
   readonly state: AdminAccessDetailState;
   readonly onRetry: () => void;
   readonly mutation: AdminAccessDetailMutationController;
+  readonly layoutContext?: AdminAccessDetailLayoutContext;
 }) {
   if (state.kind === 'loading') return <LoadingState />;
   if (state.kind === 'error') return <ErrorState onRetry={onRetry} />;
@@ -524,6 +538,7 @@ export function AdminAccessDetailContentForState({
       detail={state.detail}
       history={state.history}
       mutation={mutation}
+      layoutContext={layoutContext}
     />
   );
 }
@@ -543,7 +558,13 @@ export function AdminAccessDetailContentForState({
  * 사실이 반영되고, 방금 실패한 쓰기가 새 상태에 대해 자동으로 재시도되는
  * 일이 없다(사용자가 다이얼로그를 다시 열어야만 재시도된다).
  */
-export function AdminAccessDetailView({ userId }: { readonly userId: string }) {
+export function AdminAccessDetailView({
+  userId,
+  layoutContext = 'standalone',
+}: {
+  readonly userId: string;
+  readonly layoutContext?: AdminAccessDetailLayoutContext;
+}) {
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<AdminAccessDetailState>({
     kind: 'loading',
@@ -660,6 +681,7 @@ export function AdminAccessDetailView({ userId }: { readonly userId: string }) {
       state={state}
       onRetry={retry}
       mutation={mutation}
+      layoutContext={layoutContext}
     />
   );
 }
