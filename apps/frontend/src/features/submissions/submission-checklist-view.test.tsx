@@ -120,6 +120,11 @@ function render(overrides: Partial<SubmissionChecklistViewProps> = {}): string {
 }
 
 describe('SubmissionChecklistView 체크리스트', () => {
+  it('프로그램 상세의 레거시 체크리스트 앵커를 유지한다', () => {
+    const html = render({ embedded: true });
+    expect(html).toContain('id="milestones"');
+  });
+
   it('상태 5종을 programs 화면과 같은 라벨·행동 버튼으로 렌더한다', () => {
     // When
     const html = render();
@@ -131,15 +136,12 @@ describe('SubmissionChecklistView 체크리스트', () => {
     expect(html).toContain('보완 필요');
     expect(html).toContain('최종 반려');
     // 행동 버튼: 미제출 → #115 제출 화면, 보완 → 사유·재제출, 나머지 → 보기.
-    expect(html).toContain(
-      '/programs/program-1/milestones/milestone-final/submit',
-    );
+    expect(html).toContain('/programs/program-1?submission=milestone-final');
+    expect(html).toContain('id="submission-trigger-milestone-final"');
     expect(html).toContain('제출하기');
     expect(html).toContain('사유·재제출');
     expect(html).toContain('보기');
-    expect(html).toContain(
-      '/programs/program-1/submissions?milestoneId=milestone-interim',
-    );
+    expect(html).toContain('/programs/program-1?submission=milestone-interim');
   });
 
   it('D-day는 Asia/Seoul 기준 표시 상태로 계산한다', () => {
@@ -265,9 +267,7 @@ describe('SubmissionChecklistView 선택 패널', () => {
   it('미제출 선택 시 #115 제출 화면으로 안내한다', () => {
     const html = render({ selectedMilestoneId: 'milestone-final' });
     expect(html).toContain('아직 제출 전입니다');
-    expect(html).toContain(
-      '/programs/program-1/milestones/milestone-final/submit',
-    );
+    expect(html).toContain('/programs/program-1?submission=milestone-final');
   });
 });
 

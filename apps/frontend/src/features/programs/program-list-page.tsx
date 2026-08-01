@@ -198,11 +198,7 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
             return (
               <ProgramCard
                 category={CATEGORY_LABELS[program.category]}
-                footer={
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={programHref(program.id)}>더 보기</Link>
-                  </Button>
-                }
+                href={programHref(program.id)}
                 key={program.id}
                 period={formatApplicationPeriod(program)}
                 status={

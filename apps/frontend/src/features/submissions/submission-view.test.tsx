@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { SubmissionFormView } from './components/submission-form-view';
+import { consumeSelectedFile } from './components/submission-input';
+import { SubmissionLoading } from './submission-page';
 import type { SubmissionFormData } from './types';
 
 const baseData: SubmissionFormData = {
@@ -30,18 +32,18 @@ const handlers = {
   onReload: vi.fn(),
 };
 
-function render(data: SubmissionFormData): string {
+function render(data: SubmissionFormData, file: File | null = null): string {
   return renderToStaticMarkup(
     <SubmissionFormView
       programId="program-1"
       data={data}
-      input={{ file: null, text: '', releaseUrl: '' }}
+      input={{ file, text: '', releaseUrl: '' }}
       comment=""
       errors={{}}
       serverError={null}
       serverErrorKind="generic"
       submitting={false}
-      file={null}
+      file={file}
       fileError={null}
       submissionPhase={null}
       {...handlers}
@@ -99,7 +101,48 @@ describe('SubmissionFormView', () => {
     expect(html).toContain('id="submission-file"');
     expect(html).toContain('type="file"');
     expect(html).toContain('aria-required="true"');
+    expect(html).not.toContain('type="file" required=""');
     expect(html).toContain('PDF, HWP, JPG, PNG, ZIP · 최대 50MB');
+    expect(html).toContain('1. 파일 선택');
+    expect(html).toContain('2. 선택 확인');
+    expect(html).toContain('3. 제출');
+    expect(html).toContain('data-testid="file-submission-steps"');
+  });
+
+  it('선택한 FILE의 이름·크기를 확인하고 바꾸거나 취소할 수 있다', () => {
+    const file = new File(['report'], 'final-report.pdf', {
+      type: 'application/pdf',
+    });
+    const html = render(
+      {
+        ...baseData,
+        milestone: { ...baseData.milestone, submissionType: 'FILE' },
+      },
+      file,
+    );
+
+    expect(html).toContain('final-report.pdf');
+    expect(html).toContain('파일 바꾸기');
+    expect(html).toContain('선택 취소');
+  });
+
+  it('선택을 취소한 뒤 같은 FILE을 다시 선택할 수 있도록 네이티브 값을 비운다', () => {
+    const file = new File(['report'], 'final-report.pdf', {
+      type: 'application/pdf',
+    });
+    const control = {
+      files: { item: () => file },
+      value: 'C:\\fakepath\\final-report.pdf',
+    };
+
+    const firstSelection = consumeSelectedFile(control);
+    expect(firstSelection).toBe(file);
+    expect(control.value).toBe('');
+
+    control.value = 'C:\\fakepath\\final-report.pdf';
+    const repeatedSelection = consumeSelectedFile(control);
+    expect(repeatedSelection).toBe(file);
+    expect(control.value).toBe('');
   });
 
   it('기존 제출은 최초 FILE 제출과 무관하게 fail-closed한다', () => {
@@ -126,5 +169,14 @@ describe('SubmissionFormView', () => {
     expect(html).toContain(
       '/programs/program-1/submissions?milestoneId=milestone-text',
     );
+  });
+});
+
+describe('SubmissionLoading', () => {
+  it('embedded 모달 로딩은 중첩 main 없이 렌더한다', () => {
+    const html = renderToStaticMarkup(<SubmissionLoading embedded />);
+
+    expect(html).toContain('aria-label="제출 정보 불러오는 중"');
+    expect(html).not.toContain('<main');
   });
 });

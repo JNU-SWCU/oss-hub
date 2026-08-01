@@ -1,10 +1,6 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ApiError } from '@/lib/api-client';
 import {
   createSubmission,
@@ -12,6 +8,12 @@ import {
   uploadSubmissionFile,
 } from './api';
 import { SubmissionFormView } from './components/submission-form-view';
+import {
+  SubmissionLoadFailure,
+  SubmissionLoading,
+  SubmissionSuccess,
+} from './components/submission-page-states';
+import { submissionContent } from './submission-content';
 import {
   getSubmissionFileErrorMessage,
   type SubmissionFormErrors,
@@ -21,11 +23,7 @@ import {
   validateSubmissionFile,
   SubmissionFileUploadCache,
 } from './submission-form';
-import type {
-  CreatedSubmission,
-  CreateSubmissionContent,
-  SubmissionFormData,
-} from './types';
+import type { CreatedSubmission, SubmissionFormData } from './types';
 
 type SubmissionPageState =
   | { readonly kind: 'loading' }
@@ -42,9 +40,15 @@ const EMPTY_INPUT: SubmissionFormInput = {
 export function SubmissionPage({
   programId,
   milestoneId,
+  embedded = false,
+  onCancel,
+  onSubmitted,
 }: {
   readonly programId: string;
   readonly milestoneId: string;
+  readonly embedded?: boolean;
+  readonly onCancel?: () => void;
+  readonly onSubmitted?: () => void;
 }) {
   const [state, setState] = useState<SubmissionPageState>({ kind: 'loading' });
   const [input, setInput] = useState<SubmissionFormInput>(EMPTY_INPUT);
@@ -121,15 +125,14 @@ export function SubmissionPage({
       if (!content) return;
 
       setSubmissionPhase('creating');
-      setState({
-        kind: 'success',
-        submission: await createSubmission({
-          applicationId: data.applicationId,
-          milestoneId: data.milestone.id,
-          content,
-          comment,
-        }),
+      const submission = await createSubmission({
+        applicationId: data.applicationId,
+        milestoneId: data.milestone.id,
+        content,
+        comment,
       });
+      setState({ kind: 'success', submission });
+      onSubmitted?.();
     } catch (error: unknown) {
       if (
         error instanceof ApiError &&
@@ -186,42 +189,25 @@ export function SubmissionPage({
     }
   };
 
-  if (state.kind === 'loading') return <SubmissionLoading />;
-  if (state.kind === 'failed') {
+  if (state.kind === 'loading')
+    return <SubmissionLoading embedded={embedded} />;
+  if (state.kind === 'failed')
     return (
-      <main className="mx-auto max-w-3xl px-4 py-8">
-        <Alert variant="destructive">
-          <AlertTitle>제출 정보 불러오기 실패</AlertTitle>
-          <AlertDescription className="space-y-3">
-            <p>{state.message}</p>
-            <Button type="button" onClick={() => void load()}>
-              다시 시도
-            </Button>
-          </AlertDescription>
-        </Alert>
-      </main>
+      <SubmissionLoadFailure
+        embedded={embedded}
+        message={state.message}
+        onRetry={() => void load()}
+      />
     );
-  }
-  if (state.kind === 'success') {
+  if (state.kind === 'success')
     return (
-      <main className="mx-auto max-w-3xl px-4 py-8">
-        <Card role="status" aria-live="polite">
-          <CardHeader>
-            <CardTitle>제출을 완료했습니다</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              제출 시각{' '}
-              {new Date(state.submission.submittedAt).toLocaleString('ko-KR')}
-            </p>
-            <Button asChild>
-              <Link href={`/programs/${programId}`}>프로그램으로 돌아가기</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </main>
+      <SubmissionSuccess
+        embedded={embedded}
+        onClose={onCancel}
+        programId={programId}
+        submission={state.submission}
+      />
     );
-  }
 
   return (
     <SubmissionFormView
@@ -249,39 +235,10 @@ export function SubmissionPage({
       onCommentChange={setComment}
       onSubmit={() => void submit(state.data)}
       onReload={() => void load()}
+      embedded={embedded}
+      onCancel={onCancel}
     />
   );
 }
 
-function submissionContent(
-  data: SubmissionFormData,
-  input: SubmissionFormInput,
-): CreateSubmissionContent | null {
-  switch (data.milestone.submissionType) {
-    case 'TEXT':
-      return { type: 'TEXT', text: input.text.trim() };
-    case 'REPOSITORY_RELEASE':
-      return {
-        type: 'REPOSITORY_RELEASE',
-        releaseUrl: input.releaseUrl.trim(),
-      };
-    case 'FILE':
-      return null;
-    default: {
-      const exhaustiveType: never = data.milestone.submissionType;
-      return exhaustiveType;
-    }
-  }
-}
-
-function SubmissionLoading() {
-  return (
-    <main
-      className="mx-auto grid max-w-3xl gap-6 px-4 py-8"
-      aria-label="제출 정보 불러오는 중"
-    >
-      <div className="h-44 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-80 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-    </main>
-  );
-}
+export { SubmissionLoading } from './components/submission-page-states';

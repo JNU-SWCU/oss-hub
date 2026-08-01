@@ -26,6 +26,7 @@ import {
   SubmissionChecklistView,
 } from './components/submission-checklist-view';
 import type { SubmissionChecklist } from './types';
+import { SubmissionPage } from './submission-page';
 
 type ChecklistPageState =
   | { readonly kind: 'loading' }
@@ -46,9 +47,13 @@ const FILE_SUBMISSION_UNAVAILABLE_CODE = 'SUB_010';
 export function SubmissionChecklistPage({
   programId,
   milestoneId,
+  embedded = false,
+  onCloseSelected,
 }: {
   readonly programId: string;
   readonly milestoneId: string | null;
+  readonly embedded?: boolean;
+  readonly onCloseSelected?: () => void;
 }) {
   const [state, setState] = useState<ChecklistPageState>({ kind: 'loading' });
   const [input, setInput] = useState<SubmissionFormInput>(EMPTY_INPUT);
@@ -185,19 +190,37 @@ export function SubmissionChecklistPage({
     }
   };
 
-  if (state.kind === 'loading') return <ChecklistSkeleton />;
+  if (state.kind === 'loading')
+    return <ChecklistSkeleton embedded={embedded} />;
   if (state.kind === 'failed') {
     return (
       <ChecklistLoadFailure
+        embedded={embedded}
         message={state.message}
         onRetry={() => void load()}
       />
     );
   }
 
+  const selected = state.data.items.find(
+    (item) => item.milestoneId === milestoneId,
+  );
   return (
     <SubmissionChecklistView
       programId={programId}
+      embedded={embedded}
+      onCloseSelected={onCloseSelected}
+      initialSubmission={
+        selected?.submission === null && milestoneId ? (
+          <SubmissionPage
+            embedded
+            milestoneId={milestoneId}
+            onCancel={onCloseSelected}
+            onSubmitted={() => void load()}
+            programId={programId}
+          />
+        ) : undefined
+      }
       checklist={state.data}
       selectedMilestoneId={milestoneId}
       now={new Date()}

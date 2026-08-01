@@ -67,9 +67,7 @@ describe('MilestoneRow', () => {
       />,
     );
     expect(html).toContain('다시 제출');
-    expect(html).toContain(
-      '/programs/program-1/submissions?milestoneId=milestone-1',
-    );
+    expect(html).toContain('/programs/program-1?submission=milestone-1');
     expect(html).not.toContain('/milestones/milestone-1/submit');
   });
   it('교직원에게 제출 요약은 표시하되 미구현 #124 경로는 노출하지 않는다', () => {
@@ -183,6 +181,25 @@ const programWithoutMilestones: ProgramDetail = {
 };
 
 describe('ProgramDetailPage states', () => {
+  it('승인된 학생에게 별도 페이지 대신 상세 안의 제출 체크리스트를 불러온다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramDetailReadyState
+        program={{
+          ...programWithoutMilestones,
+          viewer: { role: 'STUDENT', applicationStatus: 'APPROVED' },
+          milestones: [milestone],
+        }}
+        approvedStudentMilestones={
+          <section id="milestones" aria-label="체크리스트 불러오는 중" />
+        }
+      />,
+    );
+
+    expect(html).toContain('id="milestones"');
+    expect(html).toContain('체크리스트 불러오는 중');
+    expect(html).not.toContain('/programs/program-1/submissions');
+  });
+
   it('renders the activity anchor used by the staff dashboard direct link', () => {
     const html = renderToStaticMarkup(
       <ProgramDetailReadyState program={programWithoutMilestones} />,

@@ -1,4 +1,5 @@
 import * as React from 'react';
+import Link from 'next/link';
 
 import {
   Card,
@@ -11,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-interface ProgramCardProps extends Omit<
+interface ProgramCardBaseProps extends Omit<
   React.ComponentProps<typeof Card>,
   'title'
 > {
@@ -23,9 +24,13 @@ interface ProgramCardProps extends Omit<
   period?: string;
   /** 상태 표시 슬롯 — StatusBadge 등을 그대로 전달한다 */
   status?: React.ReactNode;
-  /** 카드 하단 액션 슬롯(예: 상세 보기 링크) */
-  footer?: React.ReactNode;
 }
+
+type ProgramCardProps = ProgramCardBaseProps &
+  (
+    | { readonly href: string; readonly footer?: never }
+    | { readonly href?: never; readonly footer?: React.ReactNode }
+  );
 
 /**
  * 프로그램 요약 카드. B-5 Card 프리미티브를 조합만 하고 자체 스타일은
@@ -37,15 +42,21 @@ function ProgramCard({
   category,
   period,
   status,
+  href,
   footer,
   className,
   children,
   ...props
 }: ProgramCardProps) {
-  return (
+  const card = (
     <Card
       data-slot="program-card"
-      className={cn('h-full', className)}
+      className={cn(
+        'h-full',
+        href &&
+          'transition-colors group-hover/program-card:border-ring group-hover/program-card:bg-muted/40',
+        className,
+      )}
       {...props}
     >
       <CardHeader>
@@ -61,6 +72,17 @@ function ProgramCard({
       ) : null}
       {footer ? <CardFooter>{footer}</CardFooter> : null}
     </Card>
+  );
+
+  if (!href) return card;
+
+  return (
+    <Link
+      href={href}
+      className="group/program-card block h-full rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      {card}
+    </Link>
   );
 }
 

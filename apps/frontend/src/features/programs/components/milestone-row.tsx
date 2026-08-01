@@ -13,6 +13,7 @@ import type {
   SubmissionStatus,
   ViewerRole,
 } from '../types';
+import { programSubmissionHref } from '../program-paths';
 
 const STATUS_VARIANTS = {
   NOT_SUBMITTED: 'pending',
@@ -47,9 +48,7 @@ function StudentState({
   const isResubmission = status === 'CHANGES_REQUESTED';
   const canSubmit =
     isResubmission || (status === 'NOT_SUBMITTED' && milestone.dDay >= 0);
-  const submitHref = isResubmission
-    ? `/programs/${programId}/submissions?milestoneId=${milestone.id}`
-    : `/programs/${programId}/milestones/${milestone.id}/submit`;
+  const submitHref = programSubmissionHref(programId, milestone.id);
   return (
     <div className="flex flex-wrap items-center gap-2">
       <StatusBadge variant={STATUS_VARIANTS[status]}>

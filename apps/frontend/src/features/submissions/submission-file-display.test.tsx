@@ -62,12 +62,15 @@ function render(
       input={{ file: null, text: '', releaseUrl: '' }}
       comment=""
       errors={{}}
+      fileError={null}
       serverError={null}
       staleNotice={null}
       toastMessage={null}
       submitting={false}
+      submissionPhase={null}
       onTextChange={vi.fn()}
       onReleaseUrlChange={vi.fn()}
+      onFileChange={vi.fn()}
       onCommentChange={vi.fn()}
       onResubmit={vi.fn()}
     />,

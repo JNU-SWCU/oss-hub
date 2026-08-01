@@ -3,6 +3,13 @@ export function programHref(programId: string, suffix = ''): string {
   return `/programs/${encodeURIComponent(programId)}${suffix}`;
 }
 
+export function programSubmissionHref(
+  programId: string,
+  milestoneId: string,
+): string {
+  return studentProgramSubmissionHref(programId, milestoneId);
+}
+
 export function staffProgramHref(programId: string, suffix: string): string {
   return `/staff/programs/${encodeURIComponent(programId)}${suffix}`;
 }
@@ -22,3 +29,4 @@ export function decodeRouteProgramId(rawId: string): string {
     return rawId;
   }
 }
+import { studentProgramSubmissionHref } from '@/lib/program-route';

@@ -45,6 +45,8 @@ export interface SubmissionFormViewProps {
   readonly onCommentChange: (value: string) => void;
   readonly onSubmit: () => void;
   readonly onReload: () => void;
+  readonly embedded?: boolean;
+  readonly onCancel?: () => void;
 }
 
 export function formatDeadline(value: string): string {
@@ -58,8 +60,8 @@ export function formatDeadline(value: string): string {
 export function SubmissionFormView(props: SubmissionFormViewProps) {
   const { data } = props;
   if (!data.canSubmit && data.blockedReason) {
-    return (
-      <main className="mx-auto grid max-w-3xl gap-6 px-4 py-8">
+    const content = (
+      <>
         <SubmissionSummary data={data} />
         <Alert>
           <AlertTitle>지금은 제출할 수 없습니다</AlertTitle>
@@ -81,18 +83,35 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
                   새로고침
                 </Button>
               ) : null}
-              <Button asChild variant="outline">
-                <Link href={`/programs/${props.programId}`}>프로그램으로</Link>
-              </Button>
+              {props.onCancel ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={props.onCancel}
+                >
+                  닫기
+                </Button>
+              ) : (
+                <Button asChild variant="outline">
+                  <Link href={`/programs/${props.programId}`}>
+                    프로그램으로
+                  </Link>
+                </Button>
+              )}
             </div>
           </AlertDescription>
         </Alert>
-      </main>
+      </>
+    );
+    return props.embedded ? (
+      <div className="grid gap-5">{content}</div>
+    ) : (
+      <main className="mx-auto grid max-w-3xl gap-6 px-4 py-8">{content}</main>
     );
   }
 
-  return (
-    <main className="mx-auto grid max-w-3xl gap-6 px-4 py-8">
+  const content = (
+    <>
       <SubmissionSummary data={data} />
       {props.serverError ? (
         <Alert variant="destructive">
@@ -107,19 +126,19 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
         </Alert>
       ) : null}
       <form
-        className="grid gap-6"
+        className="grid min-w-0 gap-6"
         onSubmit={(event) => {
           event.preventDefault();
           props.onSubmit();
         }}
       >
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle>
               <h2>제출 내용</h2>
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-5">
+          <CardContent className="grid min-w-0 gap-5">
             <SubmissionInput
               submissionType={data.milestone.submissionType}
               repositoryUrl={data.repository?.url ?? null}
@@ -156,9 +175,15 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
           </CardContent>
         </Card>
         <div className="flex flex-wrap justify-between gap-3">
-          <Button asChild variant="outline">
-            <Link href={`/programs/${props.programId}`}>취소</Link>
-          </Button>
+          {props.onCancel ? (
+            <Button type="button" variant="outline" onClick={props.onCancel}>
+              취소
+            </Button>
+          ) : (
+            <Button asChild variant="outline">
+              <Link href={`/programs/${props.programId}`}>취소</Link>
+            </Button>
+          )}
           <Button type="submit" disabled={props.submitting}>
             {props.submitting
               ? props.submissionPhase === 'uploading'
@@ -168,13 +193,18 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
           </Button>
         </div>
       </form>
-    </main>
+    </>
+  );
+  return props.embedded ? (
+    <div className="grid min-w-0 gap-5">{content}</div>
+  ) : (
+    <main className="mx-auto grid max-w-3xl gap-6 px-4 py-8">{content}</main>
   );
 }
 
 function SubmissionSummary({ data }: { readonly data: SubmissionFormData }) {
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-xl">
@@ -185,7 +215,7 @@ function SubmissionSummary({ data }: { readonly data: SubmissionFormData }) {
           </span>
         </div>
       </CardHeader>
-      <CardContent className="grid gap-3 break-keep">
+      <CardContent className="grid min-w-0 gap-3 break-words">
         <dl className="grid gap-2 text-sm sm:grid-cols-2">
           <div>
             <dt className="font-medium">마감</dt>

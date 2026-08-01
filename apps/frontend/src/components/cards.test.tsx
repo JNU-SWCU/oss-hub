@@ -48,6 +48,24 @@ describe('card components', () => {
     expect(html).toContain('반려');
   });
 
+  it('renders a linked ProgramCard as one accessible card link', () => {
+    const html = renderToStaticMarkup(
+      <ProgramCard
+        href="/programs/program%3Aoss"
+        title="OSS 기여 챌린지"
+        category="오픈소스"
+        period="2026.08 - 2026.09"
+      >
+        <span>JNU SWCU</span>
+      </ProgramCard>,
+    );
+
+    expect(html).toContain('<a');
+    expect(html).toContain('href="/programs/program%3Aoss"');
+    expect(html.match(/<a\b/g)).toHaveLength(1);
+    expect(html).not.toContain('더 보기');
+  });
+
   it('renders EmptyState with icon, description, and action slot', () => {
     const html = renderToStaticMarkup(
       <EmptyState

@@ -1,3 +1,5 @@
+import { Check, FileText, Upload } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   Field,
   FieldDescription,
@@ -25,6 +27,19 @@ export interface SubmissionInputProps {
   readonly onTextChange: (value: string) => void;
   readonly onReleaseUrlChange: (value: string) => void;
   readonly onFileChange?: (file: File | null) => void;
+}
+
+interface FileSelectionControl {
+  readonly files: { item(index: number): File | null } | null;
+  value: string;
+}
+
+export function consumeSelectedFile(
+  control: FileSelectionControl,
+): File | null {
+  const selectedFile = control.files?.item(0) ?? null;
+  control.value = '';
+  return selectedFile;
 }
 
 /**
@@ -91,31 +106,97 @@ export function SubmissionInput({
     case 'FILE':
       if (!onFileChange) return null;
       return (
-        <Field data-invalid={Boolean(fileError)}>
-          <FieldLabel htmlFor="submission-file">제출 파일 *</FieldLabel>
-          <Input
-            id="submission-file"
-            type="file"
-            required
-            disabled={disabled}
-            aria-required="true"
-            aria-invalid={Boolean(fileError)}
-            aria-describedby="submission-file-description submission-file-error"
-            accept={SUBMISSION_FILE_ACCEPT}
-            onChange={(event) =>
-              onFileChange(event.target.files?.item(0) ?? null)
-            }
-          />
-          <FieldDescription id="submission-file-description">
-            PDF, HWP, JPG, PNG, ZIP · 최대 50MB
-          </FieldDescription>
-          {file ? (
-            <p className="text-sm" aria-live="polite">
-              선택한 파일: {file.name} ({formatFileSize(file.size)})
-            </p>
-          ) : null}
-          <FieldError id="submission-file-error">{fileError}</FieldError>
-        </Field>
+        <div
+          className="grid min-w-0 gap-0"
+          data-testid="file-submission-steps"
+          aria-label="파일 제출 단계"
+        >
+          <div className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3">
+            <div className="flex flex-col items-center" aria-hidden="true">
+              <span className="grid size-8 place-items-center rounded-full border border-primary/30 bg-background text-sm font-semibold text-primary">
+                1
+              </span>
+              <span className="h-full w-px bg-border" />
+            </div>
+            <Field data-invalid={Boolean(fileError)} className="min-w-0 pb-6">
+              <FieldLabel htmlFor="submission-file">1. 파일 선택 *</FieldLabel>
+              <Input
+                id="submission-file"
+                type="file"
+                disabled={disabled}
+                aria-required="true"
+                aria-invalid={Boolean(fileError)}
+                aria-describedby="submission-file-description submission-file-error"
+                accept={SUBMISSION_FILE_ACCEPT}
+                onChange={(event) =>
+                  onFileChange(consumeSelectedFile(event.currentTarget))
+                }
+              />
+              <span className="inline-flex items-center gap-2 text-sm font-medium">
+                <Upload aria-hidden="true" className="size-4" />
+                {file ? '파일 바꾸기' : '파일 선택하기'}
+              </span>
+              <FieldDescription id="submission-file-description">
+                PDF, HWP, JPG, PNG, ZIP · 최대 50MB
+              </FieldDescription>
+              <FieldError id="submission-file-error">{fileError}</FieldError>
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3">
+            <div className="flex flex-col items-center" aria-hidden="true">
+              <span className="grid size-8 place-items-center rounded-full border border-primary/30 bg-background text-sm font-semibold text-primary">
+                2
+              </span>
+              <span className="h-full w-px bg-border" />
+            </div>
+            <div className="grid min-w-0 gap-2 pb-6">
+              <p className="text-sm font-medium">2. 선택 확인</p>
+              {file ? (
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 p-3">
+                  <p
+                    className="flex min-w-0 items-center gap-2 text-sm"
+                    aria-live="polite"
+                  >
+                    <FileText aria-hidden="true" className="size-4 shrink-0" />
+                    <span className="min-w-0 truncate">{file.name}</span>
+                    <span className="shrink-0 text-muted-foreground">
+                      {formatFileSize(file.size)}
+                    </span>
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={disabled}
+                    onClick={() => onFileChange(null)}
+                  >
+                    선택 취소
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  선택한 파일이 여기에 표시됩니다.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3">
+            <span
+              className="grid size-8 place-items-center rounded-full border border-primary/30 bg-background text-sm font-semibold text-primary"
+              aria-hidden="true"
+            >
+              <Check className="size-4" />
+            </span>
+            <div className="grid min-w-0 gap-1">
+              <p className="text-sm font-medium">3. 제출</p>
+              <p className="text-sm text-muted-foreground">
+                파일과 코멘트를 확인한 뒤 아래 제출하기 버튼을 누르세요.
+              </p>
+            </div>
+          </div>
+        </div>
       );
     default: {
       const exhaustiveType: never = submissionType;
