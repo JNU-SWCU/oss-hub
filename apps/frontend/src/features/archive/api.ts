@@ -1,10 +1,13 @@
 import { ApiError, apiClient } from '@/lib/api-client';
-import type {
-  ArchiveApplicationMode,
-  ArchiveCategory,
-  ArchiveDetail,
-  ArchiveList,
-  ArchiveListItem,
+import {
+  ARCHIVE_CATEGORY_LABELS,
+  type ArchiveApplicationMode,
+  type ArchiveCategory,
+  type ArchiveContributor,
+  type ArchiveDetail,
+  type ArchiveListItem,
+  type ArchiveMetrics,
+  type ArchivePage,
 } from './types';
 
 const INVALID_RESPONSE_MESSAGE = '공개 아카이브 응답 형식이 올바르지 않습니다';
@@ -38,6 +41,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function hasExactKeys(
+  value: Record<string, unknown>,
+  keys: readonly string[],
+): boolean {
+  const actualKeys = Object.keys(value);
+  return (
+    actualKeys.length === keys.length &&
+    keys.every((key) => Object.hasOwn(value, key))
+  );
+}
+
 function nonEmptyString(value: unknown): string {
   if (typeof value === 'string' && value.trim().length > 0) return value;
   return invalidResponse();
@@ -56,7 +70,7 @@ function positiveInteger(value: unknown): number {
   return invalidResponse();
 }
 
-function repositoryId(value: unknown): string {
+function projectId(value: unknown): string {
   const parsed = nonEmptyString(value);
   if (/^[A-Za-z0-9_-]+$/.test(parsed)) return parsed;
   return invalidResponse();
@@ -69,15 +83,10 @@ function applicationMode(value: unknown): ArchiveApplicationMode {
 
 function category(value: unknown): ArchiveCategory {
   if (
-    value === 'BASIC' ||
-    value === 'SW_VALUE_SPREAD' ||
-    value === 'OSS_CONTEST' ||
-    value === 'CAPSTONE' ||
-    value === 'SW_CONVERGENCE' ||
-    value === 'GLOBAL_MAKERTHON' ||
-    value === 'CORPORATE_INTERNSHIP'
+    typeof value === 'string' &&
+    Object.hasOwn(ARCHIVE_CATEGORY_LABELS, value)
   ) {
-    return value;
+    return value as ArchiveCategory;
   }
   return invalidResponse();
 }
@@ -95,14 +104,13 @@ function isoDate(value: unknown): string {
   return invalidResponse();
 }
 
-function githubUrl(value: unknown, repositoryName?: string): string {
+function githubUrl(value: unknown, repositoryName: string): string {
   const parsed = nonEmptyString(value);
   try {
     const url = new URL(parsed);
     const segments = url.pathname.split('/').filter(Boolean);
-    const expectedName = repositoryName ?? segments[1];
     if (
-      parsed === `https://github.com/JNU-SWCU/${expectedName}` &&
+      parsed === `https://github.com/JNU-SWCU/${repositoryName}` &&
       url.origin === 'https://github.com' &&
       url.username === '' &&
       url.password === '' &&
@@ -110,8 +118,8 @@ function githubUrl(value: unknown, repositoryName?: string): string {
       url.hash === '' &&
       segments.length === 2 &&
       segments[0] === 'JNU-SWCU' &&
-      /^[A-Za-z0-9_.-]+$/.test(expectedName) &&
-      segments[1] === expectedName
+      /^[A-Za-z0-9_.-]+$/.test(repositoryName) &&
+      segments[1] === repositoryName
     ) {
       return parsed;
     }
@@ -121,116 +129,179 @@ function githubUrl(value: unknown, repositoryName?: string): string {
   return invalidResponse();
 }
 
-function detailUrl(value: unknown, id: string): string {
+// GitHub username rule: alphanumeric or single hyphens, no leading/trailing
+// hyphen, max 39 chars — validated before building an external profile link.
+function githubLogin(value: unknown): string {
   const parsed = nonEmptyString(value);
-  if (parsed === `/archive/${id}`) return parsed;
+  if (/^[A-Za-z0-9](?:-?[A-Za-z0-9]){0,38}$/.test(parsed)) return parsed;
   return invalidResponse();
 }
 
-function listItem(value: unknown): ArchiveListItem {
-  if (!isRecord(value)) return invalidResponse();
-  const id = repositoryId(value.repositoryId);
-  const publishedAt = isoDate(value.publishedAt);
+const PROJECT_FIELD_KEYS = [
+  'projectId',
+  'programId',
+  'programName',
+  'category',
+  'applicationMode',
+  'displayName',
+  'repositoryName',
+  'githubUrl',
+  'publishedAt',
+] as const;
+
+type ArchiveProjectFields = Omit<
+  ArchiveListItem,
+  'detailUrl' | 'modeLabel' | 'categoryLabel' | 'publishedLabel'
+>;
+
+function projectFields(value: Record<string, unknown>): ArchiveProjectFields {
+  const id = projectId(value.projectId);
   const mode = applicationMode(value.applicationMode);
+  const repositoryName = nonEmptyString(value.repositoryName);
 
   return {
-    repositoryId: id,
+    projectId: id,
     programId: nonEmptyString(value.programId),
     programName: nonEmptyString(value.programName),
     category: category(value.category),
     applicationMode: mode,
     displayName: nonEmptyString(value.displayName),
-    githubUrl: githubUrl(value.githubUrl),
-    publishedAt,
-    detailUrl: detailUrl(value.detailUrl, id),
-    modeLabel: mode === 'PERSONAL' ? '개인' : '팀',
+    repositoryName,
+    githubUrl: githubUrl(value.githubUrl, repositoryName),
+    publishedAt: isoDate(value.publishedAt),
+  };
+}
+
+function withLabels(
+  fields: ArchiveProjectFields,
+): Omit<ArchiveListItem, 'detailUrl'> {
+  return {
+    ...fields,
+    modeLabel: fields.applicationMode === 'PERSONAL' ? '개인' : '팀',
+    categoryLabel: ARCHIVE_CATEGORY_LABELS[fields.category],
     publishedLabel: new Intl.DateTimeFormat('ko-KR', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
-    }).format(new Date(publishedAt)),
+    }).format(new Date(fields.publishedAt)),
   };
 }
 
-export function parsePublicArchiveList(value: unknown): ArchiveList {
-  if (!isRecord(value) || !Array.isArray(value.items)) return invalidResponse();
-  const page = positiveInteger(value.page);
-  const pageSize = positiveInteger(value.pageSize);
-  const total = nonNegativeInteger(value.total);
-  if (value.items.length > pageSize || total < value.items.length) {
+function listItem(value: unknown): ArchiveListItem {
+  if (!isRecord(value) || !hasExactKeys(value, PROJECT_FIELD_KEYS)) {
     return invalidResponse();
   }
-
-  return { items: value.items.map(listItem), page, pageSize, total };
+  const fields = projectFields(value);
+  return { ...withLabels(fields), detailUrl: `/archive/${fields.projectId}` };
 }
 
-export function parsePublicArchiveDetail(value: unknown): ArchiveDetail {
-  if (!isRecord(value)) return invalidResponse();
-  const item = listItem({
-    ...value,
-    detailUrl: `/archive/${repositoryId(value.repositoryId)}`,
-  });
-  if (!isRecord(value) || !Array.isArray(value.contributors))
-    return invalidResponse();
-  const repositoryName = nonEmptyString(value.repositoryName);
-  const contributors = value.contributors.map((contributor) => {
-    if (!isRecord(contributor)) return invalidResponse();
-    return {
-      userId: nonEmptyString(contributor.userId),
-      githubNickname: nonEmptyString(contributor.githubNickname),
-      avatarUrl:
-        contributor.avatarUrl === null
-          ? null
-          : nonEmptyString(contributor.avatarUrl),
-    };
-  });
+const METRICS_KEYS = [
+  'commitCount',
+  'pullRequestCount',
+  'releaseCount',
+] as const;
 
+function metrics(value: unknown): ArchiveMetrics {
+  if (!isRecord(value) || !hasExactKeys(value, METRICS_KEYS)) {
+    return invalidResponse();
+  }
   return {
-    ...(({ detailUrl: _, ...detail }) => detail)(item),
-    githubUrl: githubUrl(value.githubUrl, repositoryName),
-    repositoryName,
-    approvedSubmissionCount: nonNegativeInteger(value.approvedSubmissionCount),
-    contributors,
+    commitCount: nonNegativeInteger(value.commitCount),
+    pullRequestCount: nonNegativeInteger(value.pullRequestCount),
+    releaseCount: nonNegativeInteger(value.releaseCount),
   };
 }
 
-export async function loadPublicArchive(input: {
-  readonly page: number;
+const CONTRIBUTOR_KEYS = [
+  'githubLogin',
+  'commitCount',
+  'pullRequestCount',
+  'releaseCount',
+] as const;
+
+function contributor(value: unknown): ArchiveContributor {
+  if (!isRecord(value) || !hasExactKeys(value, CONTRIBUTOR_KEYS)) {
+    return invalidResponse();
+  }
+  const login = githubLogin(value.githubLogin);
+  return {
+    githubLogin: login,
+    commitCount: nonNegativeInteger(value.commitCount),
+    pullRequestCount: nonNegativeInteger(value.pullRequestCount),
+    releaseCount: nonNegativeInteger(value.releaseCount),
+    githubProfileUrl: `https://github.com/${login}`,
+  };
+}
+
+const PAGE_KEYS = ['items', 'pageSize', 'nextPageId'] as const;
+
+export function parseArchivePage(value: unknown): ArchivePage {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, PAGE_KEYS) ||
+    !Array.isArray(value.items)
+  ) {
+    return invalidResponse();
+  }
+  const pageSize = positiveInteger(value.pageSize);
+  if (value.items.length > pageSize) return invalidResponse();
+  const nextPageId =
+    value.nextPageId === null ? null : nonEmptyString(value.nextPageId);
+
+  return { items: value.items.map(listItem), pageSize, nextPageId };
+}
+
+const DETAIL_KEYS = [...PROJECT_FIELD_KEYS, 'metrics', 'contributors'];
+
+export function parseArchiveDetail(value: unknown): ArchiveDetail {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, DETAIL_KEYS) ||
+    !Array.isArray(value.contributors)
+  ) {
+    return invalidResponse();
+  }
+  const fields = projectFields(value);
+
+  return {
+    ...withLabels(fields),
+    metrics: metrics(value.metrics),
+    contributors: value.contributors.map(contributor),
+  };
+}
+
+export async function loadArchivePage(input: {
+  readonly pageId: string | null;
   readonly pageSize: number;
-  readonly q: string;
-  readonly applicationMode?: ArchiveApplicationMode;
-}): Promise<ArchiveList> {
-  const query = new URLSearchParams({
-    page: String(input.page),
-    pageSize: String(input.pageSize),
-  });
-  if (input.q.trim()) query.set('q', input.q.trim());
-  if (input.applicationMode)
-    query.set('applicationMode', input.applicationMode);
+}): Promise<ArchivePage> {
+  const query = new URLSearchParams({ pageSize: String(input.pageSize) });
+  if (input.pageId !== null) query.set('pageId', input.pageId);
 
   try {
-    return parsePublicArchiveList(
-      await apiClient<unknown>(`repositories/public?${query.toString()}`),
+    return parseArchivePage(
+      await apiClient<unknown>(`projects?${query.toString()}`),
     );
   } catch {
     throw new ArchiveLoadError();
   }
 }
 
-export async function loadPublicArchiveDetail(
-  id: string,
+export async function loadArchiveDetail(
+  targetProjectId: string,
 ): Promise<ArchiveDetail> {
-  if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new ArchiveNotFoundError();
+  if (!/^[A-Za-z0-9_-]+$/.test(targetProjectId)) {
+    throw new ArchiveNotFoundError();
+  }
 
   try {
-    return parsePublicArchiveDetail(
-      await apiClient<unknown>(`repositories/${id}/public`),
+    return parseArchiveDetail(
+      await apiClient<unknown>(`projects/${targetProjectId}`),
     );
   } catch (error) {
     if (
       error instanceof ApiError &&
       error.problem.status === 404 &&
-      error.problem.code === 'SHW_001'
+      error.problem.code === 'PPJ_001'
     ) {
       throw new ArchiveNotFoundError();
     }
