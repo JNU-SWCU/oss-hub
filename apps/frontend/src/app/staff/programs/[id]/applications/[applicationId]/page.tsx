@@ -31,7 +31,7 @@ export default async function StaffApplicationDetailRoute({
 
   return (
     <RolePanelShell menu={STAFF_MENU} allow={['STAFF', 'ADMIN']}>
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
+      <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
         <PageHeader
           title="신청 상세"
           description={`신청 ID: ${decodedApplicationId}`}

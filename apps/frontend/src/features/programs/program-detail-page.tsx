@@ -23,7 +23,7 @@ export type DetailState =
 function DetailSkeleton() {
   return (
     <main
-      className="mx-auto grid max-w-6xl gap-6 px-4 py-8"
+      className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8"
       aria-label="프로그램 상세 불러오는 중"
     >
       <div className="h-24 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
@@ -114,7 +114,7 @@ export function ProgramDetailFailureState({
 }) {
   if (kind === 'not-found') {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-12">
+      <main className="mx-auto w-full max-w-3xl px-4 py-12">
         <EmptyState
           title="프로그램을 찾을 수 없습니다"
           description="삭제되었거나 공개되지 않은 프로그램입니다."
@@ -128,7 +128,7 @@ export function ProgramDetailFailureState({
     );
   }
   return (
-    <main className="mx-auto max-w-3xl px-4 py-12">
+    <main className="mx-auto w-full max-w-3xl px-4 py-12">
       <EmptyState
         title="프로그램을 불러오지 못했습니다"
         description="잠시 후 다시 시도해 주세요."
@@ -248,7 +248,7 @@ export function ProgramDetailReadyState({
   }, []);
 
   return (
-    <main className="mx-auto grid max-w-6xl gap-8 px-4 py-8">
+    <main className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-8">
       <PageHeader
         title={
           <span className="break-keep text-2xl sm:text-3xl">

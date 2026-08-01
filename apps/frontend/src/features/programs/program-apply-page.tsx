@@ -47,7 +47,7 @@ function loadSessionSnapshot(): Promise<SessionSnapshot> {
 function ApplySkeleton() {
   return (
     <main
-      className="mx-auto grid max-w-3xl gap-6 px-4 py-8"
+      className="mx-auto grid w-full max-w-3xl gap-6 px-4 py-8"
       aria-label="신청 양식 불러오는 중"
     >
       <div className="h-20 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
@@ -65,7 +65,7 @@ function BlockedView({
 }) {
   if (reason === 'period-closed') {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-12">
+      <main className="mx-auto w-full max-w-3xl px-4 py-12">
         <EmptyState
           title="신청 기간이 아닙니다"
           description="모집 기간에만 신청할 수 있습니다."
@@ -81,7 +81,7 @@ function BlockedView({
 
   if (reason === 'already-applied') {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-12">
+      <main className="mx-auto w-full max-w-3xl px-4 py-12">
         <EmptyState
           title="이미 신청했습니다"
           description="이 프로그램에는 이미 제출한 신청이 있습니다."
@@ -96,7 +96,7 @@ function BlockedView({
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-12">
+    <main className="mx-auto w-full max-w-3xl px-4 py-12">
       <EmptyState
         title="팀 구성이 필요합니다"
         description="팀형 프로그램은 팀을 만든 뒤 신청할 수 있습니다. 팀 구성 화면에서 팀을 만들거나 참여 코드로 합류한 다음 다시 시도해 주세요."
@@ -123,7 +123,7 @@ export function ProgramApplySuccessView({
   readonly applicationId: string;
 }) {
   return (
-    <main className="mx-auto max-w-3xl space-y-6 px-4 py-12">
+    <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-12">
       <Alert>
         <AlertTitle>신청이 접수되었습니다</AlertTitle>
         <AlertDescription>
@@ -171,7 +171,7 @@ export function ProgramApplyFormView({
   );
 
   return (
-    <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
+    <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
       <PageHeader
         title={`${program.name} 신청`}
         description="필수 항목을 작성한 뒤 제출해 주세요."
@@ -392,7 +392,7 @@ export function ProgramApplyPage({
       return <ApplySkeleton />;
     case 'not-found':
       return (
-        <main className="mx-auto max-w-3xl px-4 py-12">
+        <main className="mx-auto w-full max-w-3xl px-4 py-12">
           <EmptyState
             title="프로그램을 찾을 수 없습니다"
             description="삭제되었거나 공개되지 않은 프로그램입니다."
@@ -406,7 +406,7 @@ export function ProgramApplyPage({
       );
     case 'failed':
       return (
-        <main className="mx-auto max-w-3xl px-4 py-12">
+        <main className="mx-auto w-full max-w-3xl px-4 py-12">
           <EmptyState
             title="신청 양식을 불러오지 못했습니다"
             description={state.message}

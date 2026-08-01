@@ -12,7 +12,7 @@ export function TicketStub({
   title: string;
 }) {
   return (
-    <main className="mx-auto flex min-h-[60vh] max-w-2xl items-center px-4">
+    <main className="mx-auto flex w-full min-h-[60vh] max-w-2xl items-center px-4">
       <EmptyState
         title={title}
         description={`이 화면은 #${ticketNumber}에서 구현됩니다.`}
