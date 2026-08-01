@@ -426,8 +426,11 @@ function AdminAccessDetailContent({
                   <dd>{detail.profile.department ?? '미등록'}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">프로필 완료</dt>
+                  <dt className="text-muted-foreground">기본 정보 입력</dt>
                   <dd>{detail.profile.isComplete ? '완료' : '미완료'}</dd>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    이름·학번·학과 입력 여부이며, 요청 승인의 전제 조건입니다.
+                  </p>
                 </div>
               </dl>
             </section>
