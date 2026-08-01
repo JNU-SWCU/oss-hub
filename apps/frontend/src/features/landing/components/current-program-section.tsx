@@ -90,9 +90,12 @@ export function CurrentProgramSectionView({
               </span>
             ) : null}
           </div>
+          {/* 문장 속 링크가 아니라 섹션 머리에 홀로 선 이동 버튼이다. 글자 높이
+              그대로 두면 20px이라 손가락으로 겨냥하기 어렵다 — 생김새는 그대로 두고
+              세로 여백만 얹어 조작 높이(44px) 기준을 맞춘다. */}
           <Link
             href="/programs"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary underline underline-offset-4 hover:text-primary/75"
+            className="inline-flex min-h-control items-center gap-1.5 text-sm font-semibold text-primary underline underline-offset-4 hover:text-primary/75"
           >
             전체 프로그램
             <ArrowRight className="size-4" aria-hidden="true" />
