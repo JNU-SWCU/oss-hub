@@ -6,6 +6,7 @@ import { ApiError } from '@/lib/api-client';
 import {
   detailFailure,
   ProgramActions,
+  ProgramDetailReadyState,
   ProgramDetailFailureState,
   ProgramMilestones,
 } from './program-detail-page';
@@ -154,7 +155,7 @@ describe('ActivityPanelBody', () => {
               pullRequestCount: 0,
               releaseCount: 0,
               lastActivityAt: null,
-              dataAsOf: null as unknown as string,
+              dataAsOf: null,
             },
           ],
         }}
@@ -182,6 +183,14 @@ const programWithoutMilestones: ProgramDetail = {
 };
 
 describe('ProgramDetailPage states', () => {
+  it('renders the activity anchor used by the staff dashboard direct link', () => {
+    const html = renderToStaticMarkup(
+      <ProgramDetailReadyState program={programWithoutMilestones} />,
+    );
+    expect(html).toContain('id="activity"');
+    expect(html).toContain('aria-label="활동 상세"');
+  });
+
   it('교직원에게 신청자 목록·편집 CTA를 노출하고 미구현 #124 경로는 숨긴다', () => {
     const html = renderToStaticMarkup(
       <ProgramActions program={programWithoutMilestones} />,

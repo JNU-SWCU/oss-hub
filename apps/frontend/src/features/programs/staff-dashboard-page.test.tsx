@@ -1,8 +1,15 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import type { StaffDashboardProgramSummary } from './types';
-import { StaffDashboardEditLink } from './staff-dashboard-edit-link';
-import { staffProgramHref } from './program-paths';
+import {
+  buildStaffDashboardPageModel,
+  StaffDashboardOverview,
+  StaffDashboardPageView,
+} from './staff-dashboard-page';
+import { parseStaffDashboardSummary } from './staff-dashboard-parser';
+import {
+  staffDashboardNow as now,
+  staffDashboardSummary as summary,
+} from './staff-dashboard-test-fixtures';
 
 vi.mock('next/link', () => ({
   default: ({
@@ -16,138 +23,150 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-function applicantsHref(program: StaffDashboardProgramSummary): string {
-  return program.applicantsPath || staffProgramHref(program.id, '/applicants');
+const [fixtureProgram] = summary.programs;
+if (fixtureProgram === undefined) {
+  throw new Error('Expected the staff dashboard fixture to include a program.');
 }
 
-function filterPrograms(
-  programs: readonly StaffDashboardProgramSummary[],
-  search: string,
-): readonly StaffDashboardProgramSummary[] {
-  const needle = search.trim().toLowerCase();
-  if (!needle) return programs;
-  return programs.filter((program) =>
-    program.name.toLowerCase().includes(needle),
-  );
-}
+describe('staff dashboard parser and model', () => {
+  it('신청, 활동, 제출 요약이 있는 응답만 허용한다', () => {
+    expect(parseStaffDashboardSummary(summary)).toEqual(summary);
+    expect(() =>
+      parseStaffDashboardSummary({
+        programs: [
+          {
+            ...fixtureProgram,
+            applications: {
+              total: 3,
+              submitted: 1,
+              pendingApproval: 0,
+              approved: 1,
+              rejected: 1,
+            },
+          },
+        ],
+      }),
+    ).toThrow('운영 대시보드 응답 형식이 올바르지 않습니다.');
+    expect(() =>
+      parseStaffDashboardSummary({
+        programs: [
+          {
+            ...fixtureProgram,
+            submissions: {
+              ...fixtureProgram.submissions,
+              total: 99,
+            },
+          },
+        ],
+      }),
+    ).toThrow('운영 대시보드 응답 형식이 올바르지 않습니다.');
+  });
 
-const emptySummary: readonly StaffDashboardProgramSummary[] = [];
+  it('빈 목록과 검색 결과 없음을 구분한다', () => {
+    const empty = buildStaffDashboardPageModel({
+      programs: [],
+      search: '',
+      status: 'all',
+      page: 1,
+      now,
+    });
+    const noResults = buildStaffDashboardPageModel({
+      programs: summary.programs,
+      search: '없는이름',
+      status: 'all',
+      page: 1,
+      now,
+    });
+    expect(empty.isEmptyCatalog).toBe(true);
+    expect(empty.isNoResults).toBe(false);
+    expect(noResults.isEmptyCatalog).toBe(false);
+    expect(noResults.isNoResults).toBe(true);
+  });
+});
 
-const multiPrograms: readonly StaffDashboardProgramSummary[] = [
-  {
-    id: 'program:basic',
-    name: '기본 프로그램',
-    category: 'BASIC',
-    applicationPeriod: {
-      startsAt: '2026-07-01T00:00:00.000Z',
-      endsAt: '2026-07-31T23:59:59.000Z',
-    },
-    applications: {
-      total: 3,
-      submitted: 1,
-      approved: 1,
-      rejected: 1,
-    },
-    applicantsPath: '/staff/programs/program%3Abasic/applicants',
-  },
-  {
-    id: 'program:capstone',
-    name: '캡스톤 프로그램',
-    category: 'CAPSTONE',
-    applicationPeriod: {
-      startsAt: '2026-08-01T00:00:00.000Z',
-      endsAt: '2026-08-31T23:59:59.000Z',
-    },
-    applications: {
-      total: 0,
-      submitted: 0,
-      approved: 0,
-      rejected: 0,
-    },
-    applicantsPath: '/staff/programs/program%3Acapstone/applicants',
-  },
-];
-
-describe('staff dashboard edit action', () => {
-  it('renders a named edit link whose hit area covers the row', () => {
+describe('StaffDashboardOverview', () => {
+  it('한 화면에 프로그램별 신청, 활동, 제출 요약과 직접 링크를 렌더한다', () => {
     const html = renderToStaticMarkup(
-      <StaffDashboardEditLink
-        programId="program:basic"
-        programName="기본 프로그램"
+      <StaffDashboardOverview
+        programs={summary.programs.slice(0, 1)}
+        totalPrograms={summary.programs.length}
+        now={now}
       />,
     );
-
+    expect(html).toContain('기본 프로그램');
+    expect(html).toContain('승인 대기');
+    expect(html).toContain('저장소');
+    expect(html).toContain('검토 대기');
+    expect(html).toContain('/programs/program%3Abasic');
     expect(html).toContain('href="/staff/programs/program%3Abasic/edit"');
     expect(html).toContain('aria-label="기본 프로그램 편집"');
     expect(html).toContain('after:absolute');
     expect(html).toContain('after:inset-0');
+    expect(html).toContain('after:z-[1]');
+    expect(html).toContain('/programs/program%3Abasic#activity');
+    expect(html).toContain('/staff/programs/program%3Abasic/applicants');
+    expect(html).toContain('/staff/programs/program%3Abasic/submissions');
+  });
+
+  it('저장소 없음, 수집 기준 없음, 미제출, 마일스톤 없음 상태를 분리해 표시한다', () => {
+    const html = renderToStaticMarkup(
+      <StaffDashboardOverview programs={summary.programs} now={now} />,
+    );
+    expect(html).toContain('연결된 저장소가 없습니다.');
+    expect(html).toContain('수집된 활동 기준 시점이 없습니다.');
+    expect(html).toContain('제출된 항목이 없습니다.');
+    expect(html).toContain('등록된 마일스톤이 없습니다.');
   });
 });
 
-describe('staff dashboard helpers', () => {
-  it('빈 목록과 검색 결과 없음을 구분한다', () => {
-    expect(emptySummary).toHaveLength(0);
-    expect(filterPrograms(multiPrograms, '없는이름')).toHaveLength(0);
-    expect(filterPrograms(multiPrograms, '')).toHaveLength(2);
-    expect(filterPrograms(multiPrograms, '캡스톤')).toHaveLength(1);
-  });
-
-  it('신청자 목록 링크는 #106 applicants 경로를 쓴다', () => {
-    expect(applicantsHref(multiPrograms[0]!)).toBe(
-      '/staff/programs/program%3Abasic/applicants',
+describe('StaffDashboardPageView', () => {
+  it('검색 결과 없음과 빈 프로그램 목록 상태를 별도로 렌더한다', () => {
+    const actions = {
+      onSearchChange: vi.fn(),
+      onStatusChange: vi.fn(),
+      onSubmit: vi.fn(),
+      onResetFilters: vi.fn(),
+      onPageChange: vi.fn(),
+    };
+    const emptyHtml = renderToStaticMarkup(
+      <StaffDashboardPageView
+        state={{
+          kind: 'ready',
+          model: buildStaffDashboardPageModel({
+            programs: [],
+            search: '',
+            status: 'all',
+            page: 1,
+            now,
+          }),
+          search: '',
+          status: 'all',
+          now,
+          actions,
+        }}
+      />,
     );
-    expect(applicantsHref(multiPrograms[1]!)).toContain('/applicants');
-  });
-
-  it('프로그램 행은 기존 편집 경로를 재사용한다', () => {
-    expect(staffProgramHref(multiPrograms[0]!.id, '/edit')).toBe(
-      '/staff/programs/program%3Abasic/edit',
+    const noResultsHtml = renderToStaticMarkup(
+      <StaffDashboardPageView
+        state={{
+          kind: 'ready',
+          model: buildStaffDashboardPageModel({
+            programs: summary.programs,
+            search: '없는이름',
+            status: 'all',
+            page: 1,
+            now,
+          }),
+          search: '없는이름',
+          status: 'all',
+          now,
+          actions,
+        }}
+      />,
     );
-  });
-
-  it('Application 단위 집계 필드를 표시용으로 유지한다', () => {
-    const counts = multiPrograms[0]!.applications;
-    expect(counts.total).toBe(
-      counts.submitted + counts.approved + counts.rejected,
-    );
-  });
-});
-
-describe('staff dashboard multi-program markup', () => {
-  it('여러 프로그램 행과 applicants 링크를 렌더한다', () => {
-    const html = renderToStaticMarkup(
-      <ul>
-        {multiPrograms.map((program) => (
-          <li key={program.id}>
-            <span>{program.name}</span>
-            <span>
-              전체 {program.applications.total} · 제출{' '}
-              {program.applications.submitted}
-            </span>
-            <a href={applicantsHref(program)}>목록</a>
-          </li>
-        ))}
-      </ul>,
-    );
-    expect(html).toContain('기본 프로그램');
-    expect(html).toContain('캡스톤 프로그램');
-    expect(html).toContain('전체 3');
-    expect(html).toContain('href="/staff/programs/program%3Abasic/applicants"');
-    expect(html).not.toContain('TicketStub');
-    expect(html).not.toContain('#117');
-  });
-
-  it('빈 상태 문구를 렌더한다', () => {
-    const html = renderToStaticMarkup(
-      <div>
-        {emptySummary.length === 0 ? (
-          <p>등록된 프로그램이 없습니다</p>
-        ) : (
-          <p>검색 결과가 없습니다</p>
-        )}
-      </div>,
-    );
-    expect(html).toContain('등록된 프로그램이 없습니다');
-    expect(html).not.toContain('검색 결과가 없습니다');
+    expect(emptyHtml).toContain('등록된 프로그램이 없습니다');
+    expect(emptyHtml).not.toContain('검색 결과가 없습니다');
+    expect(noResultsHtml).toContain('검색 결과가 없습니다');
+    expect(noResultsHtml).not.toContain('등록된 프로그램이 없습니다');
   });
 });

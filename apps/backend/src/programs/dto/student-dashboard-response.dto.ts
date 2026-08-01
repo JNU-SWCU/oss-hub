@@ -1,4 +1,8 @@
 import type { StudentDashboardItem } from '../student-dashboard.service';
+import type {
+  RepositoryInvitationStatus,
+  RepositoryProvisionJobStatus,
+} from '@prisma/client';
 
 export interface StudentDashboardMilestoneResponseDto {
   readonly id: string;
@@ -22,6 +26,12 @@ export interface StudentDashboardItemResponseDto {
   readonly nextMilestone: StudentDashboardMilestoneResponseDto | null;
   readonly detailUrl: string;
   readonly checklistUrl: string;
+  readonly repository: {
+    readonly repositoryName: string | null;
+    readonly provisionStatus: 'NOT_STARTED' | RepositoryProvisionJobStatus;
+    readonly invitationStatus: RepositoryInvitationStatus | null;
+    readonly githubUrl: string | null;
+  } | null;
 }
 
 export class StudentDashboardResponseDto {
@@ -45,6 +55,7 @@ export class StudentDashboardResponseDto {
         : null,
       detailUrl: item.detailUrl,
       checklistUrl: item.checklistUrl,
+      repository: item.repository,
     }));
   }
 

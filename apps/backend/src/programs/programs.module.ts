@@ -1,9 +1,13 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { CollectionModule } from '../collection/collection.module';
+import { RepositoriesModule } from '../repositories/repositories.module';
 import { ApplicationTemplatesController } from './application-templates.controller';
 import { MilestonesController } from './milestones.controller';
 import { ProgramCreationService } from './program-creation.service';
+import { PROGRAM_ACTIVITY_SUMMARY_PORT } from './program-activity-summary.port';
+import { ProgramActivitySummaryRepository } from './program-activity-summary.repository';
+import { ProgramActivitySummaryService } from './program-activity-summary.service';
 import { ProgramActivityService } from './program-activity.service';
 import { ProgramEditorController } from './program-editor.controller';
 import { ProgramEditorRepository } from './program-editor.repository';
@@ -21,7 +25,7 @@ import { ProgramsService } from './programs.service';
 import { StudentDashboardService } from './student-dashboard.service';
 
 @Module({
-  imports: [AuthModule, CollectionModule],
+  imports: [AuthModule, CollectionModule, RepositoriesModule],
   controllers: [
     // static sibling first — programs/application-templates before programs/:id
     ApplicationTemplatesController,
@@ -35,6 +39,12 @@ import { StudentDashboardService } from './student-dashboard.service';
     ProgramsService,
     ProgramsRepository,
     ProgramCreationService,
+    ProgramActivitySummaryRepository,
+    ProgramActivitySummaryService,
+    {
+      provide: PROGRAM_ACTIVITY_SUMMARY_PORT,
+      useExisting: ProgramActivitySummaryService,
+    },
     ProgramActivityService,
     ProgramViewerService,
     StudentDashboardService,
@@ -43,5 +53,6 @@ import { StudentDashboardService } from './student-dashboard.service';
     ProgramTeamsService,
     ProgramTeamsRepository,
   ],
+  exports: [PROGRAM_ACTIVITY_SUMMARY_PORT],
 })
 export class ProgramsModule {}

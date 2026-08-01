@@ -23,7 +23,7 @@ function StaffDashboardEditLink({
     <Link
       href={staffProgramHref(programId, '/edit')}
       aria-label={`${programName} 편집`}
-      className="font-medium break-keep underline-offset-4 after:absolute after:inset-0 hover:underline focus-visible:underline focus-visible:outline-none"
+      className="font-medium break-keep underline-offset-4 after:absolute after:inset-0 after:z-[1] hover:underline focus-visible:underline focus-visible:outline-none"
       onKeyDown={handleKeyDown}
     >
       {programName}

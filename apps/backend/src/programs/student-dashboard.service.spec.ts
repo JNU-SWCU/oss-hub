@@ -1,5 +1,15 @@
-import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
-import type { PrismaService } from '../prisma/prisma.service';
+import {
+  ApplicationStatus,
+  RepositoryInvitationStatus,
+  RepositoryProvisionJobStatus,
+  SubmissionStatus,
+} from '@prisma/client';
+import { Test } from '@nestjs/testing';
+import { PrismaService } from '../prisma/prisma.service';
+import {
+  REPOSITORIES_READ_PORT,
+  type RepositoriesReadPort,
+} from '../repositories/repositories-read.port';
 import { StudentDashboardService } from './student-dashboard.service';
 
 const DUE_AT = new Date('2026-08-01T00:00:00.000Z');
@@ -28,13 +38,42 @@ describe('StudentDashboardService', () => {
   const prisma = {
     application: { findMany },
   } as unknown as PrismaService;
-  const service = new StudentDashboardService(prisma);
+  const getMyRepositories = jest.fn();
+  const repositories = {
+    getMyRepositories,
+  } as RepositoriesReadPort;
+  const service = new StudentDashboardService(prisma, repositories);
 
-  beforeEach(() => jest.clearAllMocks());
-  it('returns no items when the session github id has no matching user', async () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
     findMany.mockResolvedValue([]);
+    getMyRepositories.mockResolvedValue([]);
+  });
 
+  it('returns no items when the student owns no applications', async () => {
     await expect(service.getStudentDashboard(404n)).resolves.toEqual([]);
+    expect(findMany).toHaveBeenCalledTimes(1);
+    expect(getMyRepositories).toHaveBeenCalledWith(404n);
+  });
+
+  it('compiles with the DTO-only repositories read-port token', async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        StudentDashboardService,
+        {
+          provide: PrismaService,
+          useValue: { application: { findMany: jest.fn() } },
+        },
+        {
+          provide: REPOSITORIES_READ_PORT,
+          useValue: { getMyRepositories: jest.fn() },
+        },
+      ],
+    }).compile();
+
+    expect(moduleRef.get(StudentDashboardService)).toBeInstanceOf(
+      StudentDashboardService,
+    );
   });
 
   it('maps owned personal and team applications and queries no other ownership paths', async () => {
@@ -64,6 +103,8 @@ describe('StudentDashboardService', () => {
         displayName: 'Synthetic Team',
       }),
     ]);
+    expect(items[0]?.repository?.provisionStatus).toBe('NOT_STARTED');
+    expect(getMyRepositories).toHaveBeenCalledWith(101n);
     expect(findMany).toHaveBeenCalledTimes(1);
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -144,6 +185,72 @@ describe('StudentDashboardService', () => {
       name: 'First milestone',
       dueAt: DUE_AT,
       submissionStatus: 'NOT_SUBMITTED',
+    });
+  });
+
+  it('maps a validated successful repository and current-user invitation', async () => {
+    findMany.mockResolvedValue([application()]);
+    getMyRepositories.mockResolvedValue([
+      {
+        applicationId: 'application-1',
+        repositoryName: 'synthetic-repository',
+        provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
+        invitationStatus: RepositoryInvitationStatus.PENDING,
+        githubUrl: 'https://github.com/JNU-SWCU/synthetic-repository',
+      },
+    ]);
+
+    const [item] = await service.getStudentDashboard(101n);
+
+    expect(item?.repository).toEqual({
+      repositoryName: 'synthetic-repository',
+      provisionStatus: 'SUCCEEDED',
+      invitationStatus: 'PENDING',
+      githubUrl: 'https://github.com/JNU-SWCU/synthetic-repository',
+    });
+  });
+
+  it('reuses the canonical pre-success repository projection', async () => {
+    findMany.mockResolvedValue([application()]);
+    getMyRepositories.mockResolvedValue([
+      {
+        applicationId: 'application-1',
+        repositoryName: null,
+        provisionStatus: RepositoryProvisionJobStatus.PROCESSING,
+        invitationStatus: null,
+        githubUrl: null,
+      },
+    ]);
+
+    const [item] = await service.getStudentDashboard(101n);
+
+    expect(item?.repository).toEqual({
+      repositoryName: null,
+      provisionStatus: 'PROCESSING',
+      invitationStatus: null,
+      githubUrl: null,
+    });
+  });
+
+  it('fails closed when repository creation succeeded without current-user invitation evidence', async () => {
+    findMany.mockResolvedValue([application()]);
+    getMyRepositories.mockResolvedValue([
+      {
+        applicationId: 'application-1',
+        repositoryName: 'synthetic-repository',
+        provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
+        invitationStatus: null,
+        githubUrl: 'https://github.com/JNU-SWCU/synthetic-repository',
+      },
+    ]);
+
+    const [item] = await service.getStudentDashboard(101n);
+
+    expect(item?.repository).toEqual({
+      repositoryName: 'synthetic-repository',
+      provisionStatus: 'SUCCEEDED',
+      invitationStatus: 'FAILED_FINAL',
+      githubUrl: 'https://github.com/JNU-SWCU/synthetic-repository',
     });
   });
 });
