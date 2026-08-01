@@ -36,10 +36,34 @@ const STAFF_DASHBOARD_FIXTURE = {
       applications: {
         total: 3,
         submitted: 1,
+        // 승인 대기는 제출됐지만 아직 판정이 안 난 건수다. 합계·제출·승인·반려와
+        // 앞뒤가 맞아야 교직원 대시보드의 요약 숫자가 서로 어긋나지 않는다.
+        pendingApproval: 1,
         approved: 1,
         rejected: 1,
       },
       applicantsPath: '/staff/programs/program%3Abasic/applicants',
+      // 교직원 대시보드가 신청 현황만이 아니라 활동·제출 요약까지 한 화면에서
+      // 보여주게 바뀌었다. 셋이 서로 앞뒤가 맞아야 검토자가 화면의 숫자를
+      // 의심하지 않는다 — 승인 1건이 곧 제출 대상 1명이다.
+      activity: {
+        repositories: 1,
+        commits: 24,
+        pullRequests: 5,
+        releases: 1,
+        lastActivityAt: '2026-07-30T09:00:00.000Z',
+        dataAsOf: '2026-07-31T00:00:00.000Z',
+      },
+      submissions: {
+        approvedApplications: 1,
+        milestones: 2,
+        total: 2,
+        notSubmitted: 1,
+        submitted: 1,
+        approved: 0,
+        changesRequested: 0,
+        rejected: 0,
+      },
     },
     {
       id: 'program:capstone',
@@ -52,10 +76,31 @@ const STAFF_DASHBOARD_FIXTURE = {
       applications: {
         total: 0,
         submitted: 0,
+        pendingApproval: 0,
         approved: 0,
         rejected: 0,
       },
       applicantsPath: '/staff/programs/program%3Acapstone/applicants',
+      // 아직 아무도 신청하지 않은 프로그램. 빈 상태가 어떻게 보이는지도
+      // 검토 대상이라 0으로 채운 요약을 함께 둔다.
+      activity: {
+        repositories: 0,
+        commits: 0,
+        pullRequests: 0,
+        releases: 0,
+        lastActivityAt: null,
+        dataAsOf: '2026-07-31T00:00:00.000Z',
+      },
+      submissions: {
+        approvedApplications: 0,
+        milestones: 0,
+        total: 0,
+        notSubmitted: 0,
+        submitted: 0,
+        approved: 0,
+        changesRequested: 0,
+        rejected: 0,
+      },
     },
   ],
 } as const satisfies StaffDashboardSummary;
