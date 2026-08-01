@@ -25,6 +25,13 @@ import {
 } from './program-templates';
 import { ProgramTypeModal } from './program-type-modal';
 import { useProgramExitGuard } from './use-program-exit-guard';
+import { PageBody } from '@/components';
+
+/** 폼 화면은 읽기 폭을 좁게 잡는다 — 본문 여백·최대폭의 나머지는 PageBody가 갖는다. */
+const FORM_WIDTH = 'max-w-4xl';
+
+/** 폼 섹션 사이 64 — 시안의 섹션 간격 */
+const SECTIONS = 'flex min-w-0 flex-col gap-16';
 
 function mapServerFieldErrors(error: ApiError): ProgramFormErrors {
   const errors: {
@@ -138,148 +145,161 @@ export function ProgramCreationPage() {
     );
   const isTeam = selected.template.participation === 'team';
   return (
-    <main className="space-y-6 p-6">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">프로그램 생성</h1>
-        <p className="text-sm text-muted-foreground">
-          선택 유형 <strong>{selected.label}</strong> · 템플릿{' '}
-          <strong>
-            {selected.template.key} v{selected.template.version}
-          </strong>
-        </p>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setModalOpen(true)}
-        >
-          유형 다시 선택
-        </Button>
+    <PageBody className={FORM_WIDTH}>
+      <header className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
+          <h1 className="font-heading text-page font-bold tracking-[-0.03em] leading-[1.15]">
+            프로그램 생성
+          </h1>
+          <p className="text-muted-foreground">
+            선택 유형 <strong>{selected.label}</strong> · 템플릿{' '}
+            <strong>
+              {selected.template.key} v{selected.template.version}
+            </strong>
+          </p>
+        </div>
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setModalOpen(true)}
+          >
+            유형 다시 선택
+          </Button>
+        </div>
       </header>
-      {serverError ? (
-        <Alert variant="destructive">
-          <AlertTitle>저장 실패</AlertTitle>
-          <AlertDescription>{serverError}</AlertDescription>
-        </Alert>
-      ) : null}
-      <FormSection title="기본 정보">
-        <Field>
-          <FieldLabel htmlFor="name">프로그램명 *</FieldLabel>
-          <Input
-            id="name"
-            value={form.name}
-            onChange={(event) => update('name', event.target.value)}
-          />
-          <FieldError>{errors.name}</FieldError>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="organizer">주관기관/학과 *</FieldLabel>
-          <Input
-            id="organizer"
-            value={form.organizer}
-            onChange={(event) => update('organizer', event.target.value)}
-          />
-          <FieldError>{errors.organizer}</FieldError>
-        </Field>
-        <Field>
-          <FieldLabel>신청 기간 *</FieldLabel>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="space-y-2">
-              <FieldLabel className="text-xs" htmlFor="applicationStartAt">
-                시작일시
-              </FieldLabel>
-              <Input
-                id="applicationStartAt"
-                type="datetime-local"
-                value={form.applicationStartAt}
-                onChange={(event) =>
-                  update('applicationStartAt', event.target.value)
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <FieldLabel className="text-xs" htmlFor="applicationEndAt">
-                마감일시
-              </FieldLabel>
-              <Input
-                id="applicationEndAt"
-                type="datetime-local"
-                value={form.applicationEndAt}
-                onChange={(event) =>
-                  update('applicationEndAt', event.target.value)
-                }
-              />
-            </div>
-          </div>
-          <FieldError>{errors.period}</FieldError>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="endAt">프로그램 종료일 *</FieldLabel>
-          <Input
-            id="endAt"
-            type="datetime-local"
-            required
-            aria-invalid={Boolean(errors.endAt)}
-            aria-describedby={errors.endAt ? 'endAt-error' : undefined}
-            value={form.endAt}
-            onChange={(event) => update('endAt', event.target.value)}
-          />
-          <FieldError id="endAt-error">{errors.endAt}</FieldError>
-        </Field>
-        {isTeam ? (
+      <div className={SECTIONS}>
+        {serverError ? (
+          <Alert variant="destructive">
+            <AlertTitle>저장 실패</AlertTitle>
+            <AlertDescription>{serverError}</AlertDescription>
+          </Alert>
+        ) : null}
+        <FormSection title="기본 정보">
           <Field>
-            <FieldLabel>팀 인원 *</FieldLabel>
+            <FieldLabel htmlFor="name">프로그램명 *</FieldLabel>
+            <Input
+              id="name"
+              value={form.name}
+              onChange={(event) => update('name', event.target.value)}
+            />
+            <FieldError>{errors.name}</FieldError>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="organizer">주관기관/학과 *</FieldLabel>
+            <Input
+              id="organizer"
+              value={form.organizer}
+              onChange={(event) => update('organizer', event.target.value)}
+            />
+            <FieldError>{errors.organizer}</FieldError>
+          </Field>
+          <Field>
+            <FieldLabel>신청 기간 *</FieldLabel>
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="space-y-2">
-                <FieldLabel className="text-xs" htmlFor="teamMinSize">
-                  최소
+                <FieldLabel className="text-small" htmlFor="applicationStartAt">
+                  시작일시
                 </FieldLabel>
                 <Input
-                  id="teamMinSize"
-                  type="number"
-                  min="1"
-                  value={form.teamMinSize}
+                  id="applicationStartAt"
+                  type="datetime-local"
+                  value={form.applicationStartAt}
                   onChange={(event) =>
-                    update('teamMinSize', event.target.value)
+                    update('applicationStartAt', event.target.value)
                   }
                 />
               </div>
               <div className="space-y-2">
-                <FieldLabel className="text-xs" htmlFor="teamMaxSize">
-                  최대
+                <FieldLabel className="text-small" htmlFor="applicationEndAt">
+                  마감일시
                 </FieldLabel>
                 <Input
-                  id="teamMaxSize"
-                  type="number"
-                  min="1"
-                  value={form.teamMaxSize}
+                  id="applicationEndAt"
+                  type="datetime-local"
+                  value={form.applicationEndAt}
                   onChange={(event) =>
-                    update('teamMaxSize', event.target.value)
+                    update('applicationEndAt', event.target.value)
                   }
                 />
               </div>
             </div>
-            <FieldError>{errors.team}</FieldError>
+            <FieldError>{errors.period}</FieldError>
           </Field>
-        ) : null}
-        <Field>
-          <FieldLabel htmlFor="description">소개/설명 *</FieldLabel>
-          <textarea
-            id="description"
-            value={form.description}
-            onChange={(event) => update('description', event.target.value)}
-            className="min-h-32 rounded-lg border border-input bg-transparent p-3 text-sm"
-          />
-          <FieldError>{errors.description}</FieldError>
-        </Field>
-      </FormSection>
-      <div className="flex justify-between">
-        <Button type="button" variant="outline" onClick={leavePage}>
-          취소
-        </Button>
-        <Button type="button" disabled={submitting} onClick={() => void save()}>
-          {submitting ? '저장 중…' : '저장'}
-        </Button>
+          <Field>
+            <FieldLabel htmlFor="endAt">프로그램 종료일 *</FieldLabel>
+            <Input
+              id="endAt"
+              type="datetime-local"
+              required
+              aria-invalid={Boolean(errors.endAt)}
+              aria-describedby={errors.endAt ? 'endAt-error' : undefined}
+              value={form.endAt}
+              onChange={(event) => update('endAt', event.target.value)}
+            />
+            <FieldError id="endAt-error">{errors.endAt}</FieldError>
+          </Field>
+          {isTeam ? (
+            <Field>
+              <FieldLabel>팀 인원 *</FieldLabel>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <FieldLabel className="text-small" htmlFor="teamMinSize">
+                    최소
+                  </FieldLabel>
+                  <Input
+                    id="teamMinSize"
+                    type="number"
+                    min="1"
+                    value={form.teamMinSize}
+                    onChange={(event) =>
+                      update('teamMinSize', event.target.value)
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <FieldLabel className="text-small" htmlFor="teamMaxSize">
+                    최대
+                  </FieldLabel>
+                  <Input
+                    id="teamMaxSize"
+                    type="number"
+                    min="1"
+                    value={form.teamMaxSize}
+                    onChange={(event) =>
+                      update('teamMaxSize', event.target.value)
+                    }
+                  />
+                </div>
+              </div>
+              <FieldError>{errors.team}</FieldError>
+            </Field>
+          ) : null}
+          <Field>
+            <FieldLabel htmlFor="description">소개/설명 *</FieldLabel>
+            <textarea
+              id="description"
+              value={form.description}
+              onChange={(event) => update('description', event.target.value)}
+              className="min-h-32 rounded-control border border-input bg-transparent p-4 text-body"
+            />
+            <FieldError>{errors.description}</FieldError>
+          </Field>
+        </FormSection>
+        {/* 이 화면의 주 행동은 저장 하나뿐이다 — 채운 버튼도 저장뿐이다 */}
+        <div className="flex justify-between gap-3">
+          <Button type="button" variant="outline" onClick={leavePage}>
+            취소
+          </Button>
+          <Button
+            type="button"
+            disabled={submitting}
+            onClick={() => void save()}
+          >
+            {submitting ? '저장 중…' : '저장'}
+          </Button>
+        </div>
       </div>
-    </main>
+    </PageBody>
   );
 }

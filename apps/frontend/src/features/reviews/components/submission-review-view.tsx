@@ -1,6 +1,6 @@
 import type { FormEvent } from 'react';
 
-import { PageHeader } from '@/components';
+import { PageBody, PageHeader } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +24,9 @@ import type { ReviewDecisionInput } from '../review-form';
 import type { ReviewContext, ReviewDecision } from '../types';
 import { RepositoryPublishCard } from './repository-publish-card';
 import { RevisionCard } from './revision-history';
+
+/** submission-review-screen과 같은 폭을 쓴다. */
+const REVIEW_WIDTH = 'max-w-5xl';
 
 const DECISION_OPTIONS = [
   {
@@ -103,7 +106,7 @@ function ReviewForm(props: SubmissionReviewViewProps) {
                     />
                     <span className="grid gap-0.5">
                       <span>{option.label}</span>
-                      <span className="text-sm font-normal text-muted-foreground [word-break:keep-all]">
+                      <span className="text-small font-normal text-muted-foreground [word-break:keep-all]">
                         {option.description}
                       </span>
                     </span>
@@ -131,7 +134,7 @@ function ReviewForm(props: SubmissionReviewViewProps) {
                   : 'review-comment-description'
               }
               onChange={(event) => props.onCommentChange(event.target.value)}
-              className="min-h-28 w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20"
+              className="min-h-28 w-full resize-y rounded-control border border-input bg-transparent p-4 text-body outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20"
               placeholder="판정 근거와 필요한 보완 내용을 입력하세요."
             />
             <FieldDescription id="review-comment-description">
@@ -163,38 +166,49 @@ function ReviewForm(props: SubmissionReviewViewProps) {
 export function SubmissionReviewView(props: SubmissionReviewViewProps) {
   const reviewContext = props.context;
   return (
-    <main className="mx-auto grid w-full max-w-5xl gap-6 p-4 sm:p-6 lg:p-8">
+    <PageBody className={REVIEW_WIDTH}>
       <PageHeader
         title="최종 제출 검토"
         description={`${reviewContext.application.displayName}, ${applicationModeLabel(reviewContext.application.applicationMode)}, ${reviewContext.milestone.name}`}
       />
-      {props.notice ? (
-        <Alert>
-          <AlertDescription>{props.notice}</AlertDescription>
-        </Alert>
-      ) : null}
-      <RevisionCard revision={reviewContext.currentRevision} current />
-      {reviewContext.currentRevision.review ? null : <ReviewForm {...props} />}
-      <section className="grid gap-3" aria-labelledby="revision-history-title">
-        <h2 id="revision-history-title" className="text-xl font-semibold">
-          이전 revision과 판정 이력
-        </h2>
-        {reviewContext.history.length === 0 ? (
-          <p className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
-            이전 revision이 없습니다.
-          </p>
-        ) : (
-          reviewContext.history.map((revision) => (
-            <RevisionCard key={revision.number} revision={revision} />
-          ))
+      {/* 섹션 사이 64 — 검토 대상 / 판정 / 이력 / 공개 전환 */}
+      <div className="flex min-w-0 flex-col gap-16">
+        {props.notice ? (
+          <Alert>
+            <AlertDescription>{props.notice}</AlertDescription>
+          </Alert>
+        ) : null}
+        <RevisionCard revision={reviewContext.currentRevision} current />
+        {reviewContext.currentRevision.review ? null : (
+          <ReviewForm {...props} />
         )}
-      </section>
-      <RepositoryPublishCard
-        repository={reviewContext.repository}
-        isPublishing={props.isPublishing}
-        errorMessage={props.publishError}
-        onPublish={props.onPublish}
-      />
-    </main>
+        <section
+          className="grid gap-4"
+          aria-labelledby="revision-history-title"
+        >
+          <h2
+            id="revision-history-title"
+            className="font-heading text-section font-semibold tracking-[-0.02em]"
+          >
+            이전 revision과 판정 이력
+          </h2>
+          {reviewContext.history.length === 0 ? (
+            <p className="rounded-card border border-border p-card text-small text-muted-foreground">
+              이전 revision이 없습니다.
+            </p>
+          ) : (
+            reviewContext.history.map((revision) => (
+              <RevisionCard key={revision.number} revision={revision} />
+            ))
+          )}
+        </section>
+        <RepositoryPublishCard
+          repository={reviewContext.repository}
+          isPublishing={props.isPublishing}
+          errorMessage={props.publishError}
+          onPublish={props.onPublish}
+        />
+      </div>
+    </PageBody>
   );
 }

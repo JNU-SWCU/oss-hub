@@ -46,11 +46,11 @@ export function ProgramEditMilestones({
         <div>
           <h2
             id="milestones-title"
-            className="font-heading text-xl font-semibold"
+            className="font-heading text-section font-semibold tracking-[-0.02em]"
           >
             마일스톤
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-small text-muted-foreground">
             canonical ID 기준으로 등록, 수정, 삭제합니다.
           </p>
         </div>
@@ -70,7 +70,7 @@ export function ProgramEditMilestones({
       <div className="grid gap-3">
         {milestones.length === 0 ? (
           <Card>
-            <CardContent className="py-8 text-sm text-muted-foreground">
+            <CardContent className="py-8 text-small text-muted-foreground">
               아직 등록된 마일스톤이 없습니다.
             </CardContent>
           </Card>
@@ -80,7 +80,7 @@ export function ProgramEditMilestones({
               <CardHeader className="gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                 <div className="grid gap-1">
                   <CardTitle>{milestone.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-small text-muted-foreground">
                     ID {milestone.id} · {formatSeoulDate(milestone.dueAt)} ·{' '}
                     <code>{milestone.submissionType}</code>
                   </p>
@@ -88,7 +88,6 @@ export function ProgramEditMilestones({
                 <div className="flex gap-2">
                   <Button
                     type="button"
-                    size="sm"
                     variant="outline"
                     onClick={() => onEdit(milestone)}
                   >
@@ -96,7 +95,6 @@ export function ProgramEditMilestones({
                   </Button>
                   <Button
                     type="button"
-                    size="sm"
                     variant="destructive"
                     onClick={() => onRequestDelete(milestone)}
                   >
@@ -105,7 +103,7 @@ export function ProgramEditMilestones({
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-sm whitespace-pre-wrap text-muted-foreground">
+                <p className="text-small whitespace-pre-wrap text-muted-foreground">
                   {milestone.instructions ?? '제출 안내가 없습니다.'}
                 </p>
               </CardContent>
@@ -143,18 +141,18 @@ function DeleteMilestoneDialog({
       aria-modal="true"
       aria-labelledby="milestone-delete-title"
     >
-      <div className="w-full max-w-md rounded-lg border border-border bg-background p-6 shadow-lg">
+      <div className="w-full max-w-md rounded-card border border-border bg-background p-card shadow-lg">
         <h2
           id="milestone-delete-title"
-          className="font-heading text-xl font-bold"
+          className="font-heading text-section font-semibold tracking-[-0.02em]"
         >
           마일스톤 삭제
         </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-2 text-small text-muted-foreground">
           {milestone.name} 마일스톤을 삭제합니다. 제출물이 있으면 삭제할 수
           없습니다.
         </p>
-        <div className="mt-5 flex justify-end gap-2">
+        <div className="mt-6 flex justify-end gap-2">
           <Button
             type="button"
             variant="outline"

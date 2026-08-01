@@ -11,6 +11,12 @@ import {
   type ProgramMilestoneEditor,
   type ProgramMilestoneField,
 } from './program-edit-flow';
+import { PageBody } from '@/components';
+
+/** 폼 화면은 읽기 폭을 좁게 잡는다 — 본문 여백·최대폭의 나머지는 PageBody가 갖는다. */
+const FORM_WIDTH = 'max-w-4xl';
+
+const SECTIONS = 'flex min-w-0 flex-col gap-16';
 
 interface ProgramEditViewProps {
   readonly program: EditableProgram;
@@ -42,14 +48,13 @@ interface ProgramEditViewProps {
 
 export function ProgramEditSkeleton() {
   return (
-    <main
-      className="mx-auto grid max-w-4xl gap-6 px-4 py-8"
-      aria-label="프로그램 편집 불러오는 중"
-    >
-      <div className="h-20 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-72 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-48 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-    </main>
+    <PageBody className={FORM_WIDTH} aria-label="프로그램 편집 불러오는 중">
+      <div className="h-20 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
+      <div className={SECTIONS}>
+        <div className="h-72 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
+        <div className="h-48 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
+      </div>
+    </PageBody>
   );
 }
 
@@ -61,15 +66,15 @@ export function ProgramEditLoadFailure({
   readonly onRetry: () => void;
 }) {
   return (
-    <main className="mx-auto max-w-3xl px-4 py-12">
+    <PageBody className={FORM_WIDTH}>
       <Alert variant="destructive">
         <AlertTitle>프로그램을 불러오지 못했습니다</AlertTitle>
         <AlertDescription>{message}</AlertDescription>
       </Alert>
-      <Button type="button" className="mt-4" onClick={onRetry}>
+      <Button type="button" className="mt-6 self-start" onClick={onRetry}>
         다시 시도
       </Button>
-    </main>
+    </PageBody>
   );
 }
 
@@ -95,63 +100,71 @@ export function ProgramEditView({
   onConfirmDelete,
 }: ProgramEditViewProps) {
   return (
-    <main className="mx-auto grid w-full max-w-4xl gap-6 px-4 py-6">
-      <header className="grid gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">프로그램 편집</h1>
-        <p className="text-sm text-muted-foreground">{program.name}</p>
-        <dl className="grid gap-2 text-sm sm:grid-cols-2">
-          <div className="rounded-lg border border-border bg-card p-3">
+    <PageBody className={FORM_WIDTH}>
+      <header className="grid gap-4">
+        <div className="grid gap-3">
+          <h1 className="font-heading text-page font-bold tracking-[-0.03em] leading-[1.15]">
+            프로그램 편집
+          </h1>
+          <p className="text-muted-foreground">{program.name}</p>
+        </div>
+        <dl className="grid gap-4 text-small sm:grid-cols-2">
+          <div className="rounded-card border border-border bg-card p-card">
             <dt className="text-muted-foreground">템플릿 키</dt>
-            <dd className="font-medium">{program.applicationTemplateKey}</dd>
+            <dd className="mt-1 font-semibold">
+              {program.applicationTemplateKey}
+            </dd>
           </div>
-          <div className="rounded-lg border border-border bg-card p-3">
+          <div className="rounded-card border border-border bg-card p-card">
             <dt className="text-muted-foreground">템플릿 버전</dt>
-            <dd className="font-medium">
+            <dd className="mt-1 font-semibold">
               v{program.applicationTemplateVersion}
             </dd>
           </div>
         </dl>
       </header>
-      {toastMessage ? (
-        <div
-          role="status"
-          className="rounded-lg border border-status-approved-bg bg-status-approved-bg px-3 py-2 text-sm text-status-approved-fg"
-        >
-          {toastMessage}
-        </div>
-      ) : null}
-      {generalAlert ? (
-        <Alert variant="destructive">
-          <AlertTitle>처리 실패</AlertTitle>
-          <AlertDescription>{generalAlert}</AlertDescription>
-        </Alert>
-      ) : null}
-      <ProgramEditBasicForm
-        program={program}
-        form={form}
-        errors={errors}
-        isSaving={isSaving}
-        onFieldChange={onFieldChange}
-        onSubmit={onSubmit}
-      />
-      <Card>
-        <CardContent className="pt-6">
-          <ProgramEditMilestones
-            milestones={program.milestones}
-            editor={milestoneEditor}
-            deleteTarget={deleteTarget}
-            isBusy={isMilestoneBusy}
-            onAdd={onAddMilestone}
-            onEdit={onEditMilestone}
-            onCancelEdit={onCancelMilestone}
-            onFieldChange={onMilestoneFieldChange}
-            onSave={onSaveMilestone}
-            onRequestDelete={onRequestDeleteMilestone}
-            onCancelDelete={onCancelDelete}
-            onConfirmDelete={onConfirmDelete}
-          />
-        </CardContent>
-      </Card>
-    </main>
+      <div className={SECTIONS}>
+        {toastMessage ? (
+          <div
+            role="status"
+            className="rounded-card border border-status-approved-bg bg-status-approved-bg px-4 py-3 text-small text-status-approved-fg"
+          >
+            {toastMessage}
+          </div>
+        ) : null}
+        {generalAlert ? (
+          <Alert variant="destructive">
+            <AlertTitle>처리 실패</AlertTitle>
+            <AlertDescription>{generalAlert}</AlertDescription>
+          </Alert>
+        ) : null}
+        <ProgramEditBasicForm
+          program={program}
+          form={form}
+          errors={errors}
+          isSaving={isSaving}
+          onFieldChange={onFieldChange}
+          onSubmit={onSubmit}
+        />
+        <Card>
+          <CardContent className="pt-card">
+            <ProgramEditMilestones
+              milestones={program.milestones}
+              editor={milestoneEditor}
+              deleteTarget={deleteTarget}
+              isBusy={isMilestoneBusy}
+              onAdd={onAddMilestone}
+              onEdit={onEditMilestone}
+              onCancelEdit={onCancelMilestone}
+              onFieldChange={onMilestoneFieldChange}
+              onSave={onSaveMilestone}
+              onRequestDelete={onRequestDeleteMilestone}
+              onCancelDelete={onCancelDelete}
+              onConfirmDelete={onConfirmDelete}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    </PageBody>
   );
 }

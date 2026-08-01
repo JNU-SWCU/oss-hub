@@ -23,7 +23,7 @@ export function ActivityPanelBody({
   if (state.kind === 'loading')
     return (
       <div
-        className="h-24 animate-pulse rounded-lg bg-muted motion-reduce:animate-none"
+        className="h-24 animate-pulse rounded-card bg-muted motion-reduce:animate-none"
         aria-label="활동 불러오는 중"
       />
     );
@@ -53,7 +53,7 @@ export function ActivityPanelBody({
       {state.activities.map((activity) => (
         <li className="grid gap-2" key={activity.applicationId}>
           <strong>{activity.label}</strong>
-          <dl className="grid grid-cols-3 gap-3 text-sm">
+          <dl className="grid grid-cols-3 gap-3 text-small">
             <div>
               <dt className="text-muted-foreground">커밋</dt>
               <dd>{activity.commitCount}</dd>
@@ -84,7 +84,7 @@ export function ActivityPanelBody({
               }}
             />
           </div>
-          <div className="grid gap-1 text-xs text-muted-foreground">
+          <div className="grid gap-1 text-small text-muted-foreground">
             <p>
               {activity.lastActivityAt
                 ? `최근 활동 ${formatSeoulDate(activity.lastActivityAt)}`
