@@ -1,5 +1,4 @@
 import {
-  RANKING_NOTICE,
   type RankingEntry,
   type RankingPage,
   type RankingPeriod,
@@ -30,7 +29,6 @@ class RankingEntryResponseDto {
 }
 
 export class RankingPageResponseDto {
-  readonly notice: typeof RANKING_NOTICE;
   readonly period: RankingPeriod;
   readonly items: readonly RankingEntryResponseDto[];
   readonly page: number;
@@ -38,7 +36,6 @@ export class RankingPageResponseDto {
   readonly total: number;
 
   private constructor(page: RankingPage) {
-    this.notice = page.notice;
     this.period = page.period;
     this.items = page.items.map((entry) => RankingEntryResponseDto.from(entry));
     this.page = page.page;
