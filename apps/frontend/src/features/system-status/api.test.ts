@@ -8,8 +8,16 @@ describe('system status api', () => {
   it('GET system-status의 정확한 DTO를 반환한다', async () => {
     const dto = {
       health: 'DELAYED',
-      lastCompleteSuccessAt: '2026-07-25T10:00:00.000Z',
       dataAsOf: '2026-07-25T10:01:00.000Z',
+      trackedRepositoryCount: 2,
+      readyStreamCount: 6,
+      backfillingStreamCount: 0,
+      partialStreamCount: 0,
+      retryPendingStreamCount: 0,
+      oldestReadyCheckpointAt: '2026-07-25T09:00:00.000Z',
+      oldestRetryPendingAt: null,
+      lastCycleStartedAt: '2026-07-25T09:55:00.000Z',
+      lastCycleCompletedAt: '2026-07-25T10:01:00.000Z',
       currentRunStatus: 'PROCESSING',
       safeReason: 'STALE_DATA',
     };

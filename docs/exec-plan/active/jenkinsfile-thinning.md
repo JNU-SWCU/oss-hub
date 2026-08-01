@@ -2,7 +2,7 @@
 
 이 문서는 root `Jenkinsfile`의 배포 계약을 보존하면서 검증 로직을 `scripts/jenkins/`로 추출하는 실행 계획이다.
 이 문서는 실제 추출 코드가 아니라 범위·인터페이스·증거·복구 순서를 고정하는 계획이다.
-현재 기준 줄 번호는 이 계획을 작성할 때 확인한 `Jenkinsfile` 700줄과 `scripts/check-jenkinsfile.sh` 565줄을 기준으로 한다.
+현재 기준 줄 번호는 이 계획을 작성할 때 확인한 `Jenkinsfile` 700줄과 `scripts/check-jenkinsfile.sh` 565줄을 기준으로 한다(`scripts/check-jenkinsfile.sh`는 이후 P1 병합·계약 확장을 거쳐 commit `3c56b1e` 기준 1081줄로 늘었다. 이 값은 main이 이동해도 해당 커밋 시점의 사실로 고정된다).
 
 ## 기준 문서와 확인한 현재 구조
 
@@ -15,7 +15,7 @@
 - high-risk·배포 계약 경로·PM 승인 규칙의 원본은 [`ADR-005`](../../decisions/ADR-005-agent-driven-review-cycle.md)다.
 - `Jenkinsfile`의 pipeline·agent·options·environment 선언은 10~25줄, 소스 checkout은 27~33줄에 있다.
 - 최신 Release 검증과 exact SHA 해석은 34~90줄의 `latest Release 검증 및 exact SHA 해석` stage에 있다.
-- PM 승인 pagination·marker 검증과 detached checkout은 91~143줄의 `PM Release 승인 검증 및 exact SHA checkout` stage에 있다.
+- exact SHA detached checkout은 `exact SHA checkout` stage에 있고 그 앞에 승인 marker 검증 단계는 없다 — 배포 인가는 Release 발행 자체다.
 - 실행 중 probe·no-op·이전 tag 캡처는 144~336줄의 `실행 중 이미지 기준 no-op 및 이전 태그 캡처` stage에 있다.
 - `FRONTEND_URL` HTTPS 사전 검증은 337~410줄의 `FRONTEND_URL HTTPS 사전 검증` stage에 있다.
 - rollback 이미지·OCI label·immutable ID 검증은 411~491줄의 `롤백 이미지 사전 검증` stage에 있다.
@@ -44,8 +44,8 @@
 - Jenkins는 매개변수 없는 latest full Release를 선택하며 Jenkins 입력으로 tag·SHA·배포 모드를 받지 않는다.
 - `draft=true`, `prerelease=true`, full SemVer가 아닌 tag는 Release 후보에서 거부한다.
 - Release tag가 가리키는 exact commit SHA는 `origin/main` ancestry를 통과해야 한다.
-- 승인 marker는 정확히 `RELEASE_ACCEPT role=PM tag=<tag> head=<sha>` 형식이고 tag와 exact SHA에 바인딩한다.
-- 승인 검증을 통과한 뒤에만 exact SHA를 detached checkout한다.
+- 배포 인가는 draft·prerelease가 아닌 GitHub Release 발행 자체이며 Jenkins는 별도 승인 marker를 요구하지 않는다.
+- ancestry 검증을 통과한 exact SHA만 detached checkout한다.
 - 실행 중 frontend와 backend는 tag, OCI revision, immutable image ID를 함께 읽고 둘의 metadata 일치를 검증한다.
 - 실행 중 tag와 SHA가 target과 같으면 성공 no-op으로 처리한다.
 - target SemVer가 실행 중 SemVer보다 낮으면 실행 중 양쪽 metadata가 완전하고 일치할 때만 성공 no-op으로 처리한다.
@@ -115,29 +115,7 @@ bindReleaseEnvironment(releaseFields)
 
 - shell test fixture: 정상 latest full Release, draft, prerelease, 비SemVer, tag 누락, tag→SHA 해석 실패, main ancestry 실패, API 비배열·빈 응답, stdout key 중복·누락·알 수 없는 key, newline 값, 인자 오호출을 포함한다.
 - checker 흡수·삭제 후보: `check-jenkinsfile.sh` 215~241줄의 legacy input·latest Release·SemVer·SHA 검사와 233~241줄의 exact marker 검사를 wiring 검사로 축소하거나 외부 script fixture로 이동한다.
-- 위험과 순서: Release 선택이 틀리면 이후 승인·checkout·image label 전체가 다른 대상을 가리키므로 P4는 승인 P3 뒤, probe P5 앞에 둔다.
-
-### 후보 P3 — PM 승인 댓글 pagination·marker 검증
-
-- 현재 구간: `Jenkinsfile` 91~143줄, stage 이름은 `PM Release 승인 검증 및 exact SHA checkout`이다.
-- 현재 동작: 공개 승인 댓글을 최대 20페이지까지 합치고 actor와 exact `RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${RELEASE_SHA}` marker를 확인한 뒤 exact SHA checkout을 실행한다.
-- 제안 경로: `scripts/jenkins/verify-release-approval.sh`다.
-- 제안 인터페이스: 인자는 `<release-tag> <release-sha>`이고 stdout은 정확히 `RELEASE_APPROVAL=ok` 한 줄이며 exit 0은 승인 확인, exit 1은 pagination·actor·marker·응답 계약 위반, exit 2는 인자 형식 오류다.
-- stderr marker: `FAIL_CLOSED approval_pagination`, `FAIL_CLOSED approval_actor`, `FAIL_CLOSED approval_marker`, `FAIL_CLOSED approval_response`를 사용한다.
-- Jenkinsfile 잔여 형태:
-
-```groovy
-def approval = sh(
-  script: 'scripts/jenkins/verify-release-approval.sh "$RELEASE_TAG" "$RELEASE_SHA"',
-  returnStdout: true,
-).trim()
-validateExactApprovalOutput(approval)
-sh 'git checkout --detach "$RELEASE_SHA"'
-```
-
-- shell test fixture: 단일·다중 페이지, 정확히 100개 뒤 종료, 2,000개 초과, 빈 배열, 비배열 응답, 다른 actor, tag 불일치, SHA 불일치, marker 줄바꿈 변형, 중복 marker, 인자 누락·추가, stdout marker 누출을 포함한다.
-- checker 흡수·삭제 후보: `check-jenkinsfile.sh` 242~247줄의 댓글 URL·pagination·actor·marker·checkout 정적 검사를 외부 script fixture와 Jenkins wiring 검사로 대체한다.
-- 위험과 순서: 승인 marker가 Release SHA에 고정되지 않으면 tag 이동과 stale 승인 우회가 가능하므로 P4 resolver의 결과를 받은 뒤 exact checkout 전에 실행한다.
+- 위험과 순서: Release 선택이 틀리면 이후 checkout·image label 전체가 다른 대상을 가리키므로 P4는 `FRONTEND_URL` P2 뒤, probe P5 앞에 둔다.
 
 ### 후보 P5A — 실행 중 deployment probe와 no-op 판정
 
@@ -226,16 +204,15 @@ G0는 확인을 완료했고 결과는 **보호 미적용**이었다.
 - `ADR-005`의 배포 계약 경로 정의는 `Jenkinsfile`, Compose·env·deploy·Dockerfile·workflow·checker 경로를 열거하지만 `scripts/jenkins/**`를 포함하지 않았다.
 - `scripts/merge-policy-check-lib.mjs`의 `DEPLOY_CONTRACT_PATTERNS`도 같은 목록을 쓰므로, 판정기를 직접 호출해 확인한 결과 `scripts/jenkins/validate-rollback-images.sh`가 `일반` 변경으로 분류됐다.
 - 즉 `Jenkinsfile`(PM 전속)의 절차 로직을 이 계획대로 추출하면 같은 배포 결정 로직이 파일 위치만 바뀌어 승인 요건이 낮아진다. 추출 자체가 우회 경로가 된다.
-- 이 계획은 ADR-005·CODEOWNERS를 수정하지 않는다는 경계를 지키고, 보호 확장은 별도 PR로 분리했다 — Issue #387, PR #388이 판정기·ADR-005·검증 표·CODEOWNERS 네 곳에 `scripts/jenkins/**`를 추가한다.
-- 따라서 P1~P5의 blocker는 "G0 확인"이 아니라 **PR #388 병합**이다. #388이 병합된 뒤 첫 추출 PR이 `merge-policy`에서 `PM_ACCEPT` 요구로 판정되는지 확인하고 P1을 시작한다.
+- 이 계획은 ADR-005·CODEOWNERS를 수정하지 않는다는 경계를 지키고, 보호 확장은 별도 PR로 분리했다 — Issue #387, PR #388이 판정기·ADR-005·검증 표·CODEOWNERS 네 곳에 `scripts/jenkins/**`를 추가했다.
+- P1~P5의 blocker였던 **PR #388 병합**은 해소됐다(2026-07-30T15:55:20Z 병합, commit `318ba25`). 병합 후 첫 추출 PR인 P1이 `merge-policy`에서 `PM_ACCEPT` 요구로 판정되는 것을 확인하고 착수해 완료했다([PR #393](https://github.com/JNU-SWCU/oss-hub/pull/393) merged).
 
 ### PR 분해 원칙
 
-- 추출 순서는 `rollback(P1) → FRONTEND_URL(P2) → 승인(P3) → Release resolver(P4) → probe(P5A 스크립트+테스트, P5B wiring)`이다.
+- 추출 순서는 `rollback(P1) → FRONTEND_URL(P2) → Release resolver(P4) → probe(P5A 스크립트+테스트, P5B wiring)`이다.
 - P1을 먼저 두는 이유는 모든 후속 mutation이 사용할 rollback byte identity를 mutation 전에 확정해야 하기 때문이다.
 - P2를 두 번째로 두는 이유는 운영 endpoint 계약을 backup·build·migration 전에 fail-closed로 확정해야 하기 때문이다.
-- P3를 P4 뒤가 아니라 별도 순서로 두는 이유는 승인 script가 resolver의 tag·SHA를 입력으로 받아 exact checkout 전 검증해야 하기 때문이다.
-- P4를 P3보다 앞에 두는 이유는 승인과 checkout이 같은 latest Release의 exact SHA를 공유해야 하기 때문이다.
+- P4를 P2 뒤에 두는 이유는 resolver가 해석한 exact SHA를 checkout과 image label이 그대로 공유해야 하기 때문이다.
 - P5를 마지막에 두는 이유는 running probe가 앞 단계의 target identity와 credential scope를 모두 받아 no-op과 mutation 진입을 결정하기 때문이다.
 - `pr-scope.md`의 직렬화 원칙에 따라 stacked PR을 금지하고 각 PR은 이전 PR 병합 후 main에서 새로 시작한다.
 - 어떤 PR이든 head·base ref·base SHA가 바뀌면 `MERGE_READY`와 `PM_ACCEPT`를 새 exact head·base에 대해 다시 취득한다.
@@ -246,7 +223,6 @@ G0는 확인을 완료했고 결과는 **보호 미적용**이었다.
 | --- | --- | ---: | --- | --- | --- |
 | P1 | rollback script·test·Jenkins wiring | 160~240줄 | 아니오 | HIGH_RISK | 필요, @GoBeromsu, Tech Lead 대체 불가 |
 | P2 | `FRONTEND_URL` script·test·Jenkins wiring | 100~180줄 | 아니오 | HIGH_RISK | 필요, @GoBeromsu, Tech Lead 대체 불가 |
-| P3 | 승인 script·test·Jenkins wiring | 180~280줄 | 아니오 | HIGH_RISK | 필요, @GoBeromsu, Tech Lead 대체 불가 |
 | P4 | Release resolver·test·Jenkins wiring | 180~280줄 | 아니오 | HIGH_RISK | 필요, @GoBeromsu, Tech Lead 대체 불가 |
 | P5A | probe script·test fixture | 240~380줄 | 아니오 | HIGH_RISK | 필요, @GoBeromsu, Tech Lead 대체 불가 |
 | P5B | probe Jenkins wiring·정적 checker 정렬 | 120~220줄 | 아니오 | HIGH_RISK | 필요, @GoBeromsu, Tech Lead 대체 불가 |
@@ -275,8 +251,7 @@ G0는 확인을 완료했고 결과는 **보호 미적용**이었다.
 
 - P1: 실행 중 deployment의 실제 `PREV_*`를 읽기 전용으로 사용해 rollback preflight가 성공·불일치 fail-closed를 구분하는지 확인한다.
 - P2: `withCredentials` 안에서 script를 실행하고 `FRONTEND_URL` 값이 console stdout·stderr와 `currentBuild.description`에 노출되지 않는지 확인한다.
-- P3: detached HEAD가 승인 검증에서 전달한 `RELEASE_SHA`와 일치하는지 확인한다.
-- P4: resolver 반환값의 `RELEASE_TAG`와 `RELEASE_SHA`가 승인 stage 입력과 image label 입력에 그대로 전달되는지 확인한다.
+- P4: resolver 반환값의 `RELEASE_TAG`와 `RELEASE_SHA`가 checkout 대상과 image label 입력에 그대로 전달되는지 확인한다.
 - P5A: curl·git·docker stub fixture에서 greenfield·same-release·downgrade·fail-closed 상태를 재현한다.
 - P5B: same-release 실행이 성공 no-op으로 끝나고 mutation stage가 skip되는지 확인한다.
 
@@ -284,23 +259,22 @@ G0는 확인을 완료했고 결과는 **보호 미적용**이었다.
 
 - P5B까지 병합한 뒤 완료 선언 전에 실제 Release SHA를 한 번 배포한다.
 - 실제 배포 대상은 현재 실행 중 tag보다 높은 새 SemVer여야 하며 same-release no-op이 아닌 실제 배포 경로를 통과해야 한다.
-- 배포 시 다음 열 가지를 관찰하고 exact head·base와 함께 기록한다.
+- 배포 시 다음 아홉 가지를 관찰하고 exact head·base와 함께 기록한다.
   1. latest full Release 선택 결과와 draft·prerelease·full SemVer 거부 결과를 확인한다.
   2. Release tag의 exact SHA와 `origin/main` ancestry 결과를 확인한다.
-  3. `RELEASE_ACCEPT role=PM tag=<tag> head=<sha>` 승인 binding과 pagination 완료를 확인한다.
-  4. detached HEAD가 승인된 `RELEASE_SHA`와 같은지 확인한다.
-  5. 실행 중 front/back의 tag·revision·immutable image ID와 `PREV_*` binding을 확인한다.
-  6. `FRONTEND_URL`이 정확히 하나의 HTTPS 할당이고 값이 로그에 없는지 확인한다.
-  7. rollback image의 immutable ID와 OCI version·revision label이 `PREV_*`와 일치하는지 확인한다.
-  8. backup→build→migration 순서와 migration 자동 역적용 금지·`down -v` 부재를 확인한다.
-  9. replacement와 loopback·TLS smoke가 성공하고 front/back image label이 target tag·SHA와 일치하는지 확인한다.
-  10. success-only retention이 실행 중·직전 image와 backup 정책을 보존하고 실패 알림에 비밀값이 없는지 확인한다.
+  3. detached HEAD가 해석된 `RELEASE_SHA`와 같은지 확인한다.
+  4. 실행 중 front/back의 tag·revision·immutable image ID와 `PREV_*` binding을 확인한다.
+  5. `FRONTEND_URL`이 정확히 하나의 HTTPS 할당이고 값이 로그에 없는지 확인한다.
+  6. rollback image의 immutable ID와 OCI version·revision label이 `PREV_*`와 일치하는지 확인한다.
+  7. backup→build→migration 순서와 migration 자동 역적용 금지·`down -v` 부재를 확인한다.
+  8. replacement와 loopback·TLS smoke가 성공하고 front/back image label이 target tag·SHA와 일치하는지 확인한다.
+  9. success-only retention이 실행 중·직전 image와 backup 정책을 보존하고 실패 알림에 비밀값이 없는지 확인한다.
 
 ## M6. 롤백과 복구
 
 ### mutation 이전 실패
 
-1. resolver·approval·checkout·probe·HTTPS·rollback preflight 실패는 fail-closed로 stage를 중단한다.
+1. resolver·checkout·probe·HTTPS·rollback preflight 실패는 fail-closed로 stage를 중단한다.
 2. mutation 이전에는 서비스 교체·migration·image deletion을 수행하지 않고 관련 stdout·stderr 진단만 보존한다.
 
 ### image build·backup 이후 실패
@@ -331,17 +305,17 @@ G0는 확인을 완료했고 결과는 **보호 미적용**이었다.
 
 ## 완료 증거
 
-- [ ] G0에서 `scripts/jenkins/**`의 ADR-005 deploy-contract path 보호 적용 여부와 blocker 해소 근거를 확인했다.
+- [x] G0에서 `scripts/jenkins/**`의 ADR-005 deploy-contract path 보호 적용 여부와 blocker 해소 근거를 확인했다.
 - [ ] `Jenkinsfile`의 현재 stage 이름·줄 범위와 `scripts/check-jenkinsfile.sh`의 대응 검사 줄을 baseline으로 보존했다.
-- [ ] M1의 latest Release·exact SHA·PM approval·no-op·fail-closed·HTTPS·rollback·순서·보안 계약을 모두 대조했다.
+- [ ] M1의 latest Release·exact SHA·no-op·fail-closed·HTTPS·rollback·순서·보안 계약을 모두 대조했다.
 - [ ] M2의 stdout key·stderr marker·exit code·nonzero 전파·stub fixture 공통 계약을 확정했다.
 - [ ] P1~P5 후보별 script 경로·인자·stdout·exit code·stderr marker·잔여 Jenkins wiring·fixture·checker 정리 위치를 기록했다.
-- [ ] P1→P2→P3→P4→P5A→P5B 직렬 PR 순서와 각 PR의 HIGH_RISK·@GoBeromsu PM_ACCEPT 조건을 기록했다.
+- [ ] P1→P2→P4→P5A→P5B 직렬 PR 순서와 각 PR의 HIGH_RISK·@GoBeromsu PM_ACCEPT 조건을 기록했다.
 - [ ] baseline 명령, `bash -n`, fixture, legacy oracle 동등성 대조, normalizer 범위의 결과를 PR별로 보존했다.
 - [ ] P1~P5B의 Jenkins 증거를 해당 PR의 exact head·base full SHA와 함께 기록했다.
-- [ ] 현재 실행 중 tag보다 높은 SemVer의 실제 Release SHA 배포 1회와 관찰 항목 열 가지를 완료했다.
+- [ ] 현재 실행 중 tag보다 높은 SemVer의 실제 Release SHA 배포 1회와 관찰 항목 아홉 가지를 완료했다.
 - [ ] mutation 이전·build/backup 이후·migration 이후·replacement/smoke 실패·greenfield 복구 증거를 보존했다.
 - [ ] hot edit·Jenkins UI 임시 교체 없이 PR 역순 revert와 사후 검증 절차를 확인했다.
-- [ ] `bash scripts/check-jenkinsfile.test.sh`와 `bash scripts/check-jenkinsfile.sh Jenkinsfile`가 통과했다.
+- [x] `bash scripts/check-jenkinsfile.test.sh`와 `bash scripts/check-jenkinsfile.sh Jenkinsfile`가 통과했다.
 - [ ] `bash scripts/check-public-safe.sh origin/main`이 통과했고 문서에 공개 금지 정보·시크릿·실명·개인 절대경로가 없다.
 - [ ] TEAM-STATE 기능 상태 행과 실제 PR 번호를 갱신하고 `node --test scripts/team-state-check.test.mjs`가 통과했다.

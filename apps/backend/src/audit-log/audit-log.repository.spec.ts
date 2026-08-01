@@ -122,16 +122,68 @@ describe('AuditLogRepository', () => {
         id: 'legacy-audit',
         legacy: true,
         metadata: null,
+        target: 'ROLE_REQUEST / request-legacy',
       }),
     ]);
   });
 
-  it('새 감사 행은 현재 User가 아니라 metadata의 이벤트 시점 행위자 정체성을 반환한다', async () => {
+  it('schemaVersion 1(대상 스냅샷 없음) 행은 target 라벨을 targetType/targetId 폴백으로 계산한다', async () => {
+    const metadata = {
+      schemaVersion: 1,
+      eventKind: 'DIRECT_ROLE_CHANGED',
+      actor: {
+        displayName: '이벤트 시점 관리자',
+        githubLogin: 'event-time-admin',
+      },
+      before: {
+        role: Role.STAFF,
+        accountStatus: AccountStatus.ACTIVE,
+        requestStatus: null,
+      },
+      after: {
+        role: Role.ADMIN,
+        accountStatus: AccountStatus.ACTIVE,
+        requestStatus: null,
+      },
+    } as const;
+    const prisma = {
+      auditLog: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'audit-v1',
+            actor: { nickname: 'event-time-admin' },
+            action: 'USER_ROLE_CHANGED',
+            targetType: 'USER',
+            targetId: 'v1-target',
+            metadata,
+            occurredAt: new Date('2026-07-24T03:00:00.000Z'),
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(1),
+      },
+    } as unknown as PrismaService;
+    const repository = new AuditLogRepository(prisma);
+
+    const result = await repository.list({ page: 1, limit: 20 });
+
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        legacy: false,
+        target: 'USER / v1-target',
+      }),
+    ]);
+  });
+
+  it('새 감사 행은 현재 User가 아니라 metadata의 이벤트 시점 행위자·대상 정체성을 반환한다', async () => {
     const metadata = createAccessAuditMetadata({
       eventKind: ACCESS_AUDIT_EVENT_KINDS.DIRECT_ROLE_CHANGED,
       actor: {
         displayName: '이벤트 시점 관리자',
         githubLogin: 'event-time-admin',
+      },
+      target: {
+        displayName: '이벤트 시점 대상',
+        githubLogin: 'event-time-target',
       },
       before: {
         role: Role.STAFF,
@@ -169,6 +221,7 @@ describe('AuditLogRepository', () => {
         actor: 'event-time-admin',
         legacy: false,
         metadata,
+        target: 'event-time-target',
       }),
     ]);
   });

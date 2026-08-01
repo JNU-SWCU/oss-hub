@@ -9,7 +9,7 @@ describe('RankingService identity and privacy', () => {
   });
 
   it('canonical activity의 결정된 login과 집계 metric을 그대로 사용한다', async () => {
-    harness.findCanonicalActivity.mockResolvedValue([
+    harness.getPublicRankingMetrics.mockResolvedValue([
       activity(77n, 'new-login', 2, 1, 0),
     ]);
 
@@ -24,7 +24,7 @@ describe('RankingService identity and privacy', () => {
   });
 
   it('canonical 공개 활동에 포함된 identity만 랭킹에 사용한다', async () => {
-    harness.findCanonicalActivity.mockResolvedValue([
+    harness.getPublicRankingMetrics.mockResolvedValue([
       activity(77n, 'old-login', 2, 0, 0),
     ]);
 
@@ -39,7 +39,7 @@ describe('RankingService identity and privacy', () => {
   });
 
   it('login이 같아도 githubId가 다르면 별도 entry로 유지한다', async () => {
-    harness.findCanonicalActivity.mockResolvedValue([
+    harness.getPublicRankingMetrics.mockResolvedValue([
       activity(1n, 'shared', 2, 0, 0),
       activity(2n, 'shared', 0, 1, 0),
     ]);

@@ -13,7 +13,7 @@ permissions:
 jobs:
   trigger:
     name: trigger-jenkins-deploy
-    if: ${{ !github.event.release.draft && !github.event.release.prerelease && vars.DEPLOY_TRIGGER_ENABLED == 'true' }}
+    if: ${{ !github.event.release.draft && !github.event.release.prerelease }}
     runs-on: ubuntu-latest
     steps:
       - name: Jenkins 원격 빌드 트리거

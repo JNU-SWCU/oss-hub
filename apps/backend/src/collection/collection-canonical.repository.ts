@@ -2,10 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
   AcquireCanonicalLeaseInput,
+  CanonicalCommitSnapshotRow,
   CanonicalFailureStatus,
   CanonicalGenerationInventory,
+  CanonicalGenerationSnapshot,
   CanonicalLeaseKey,
   CanonicalLeaseToken,
+  CanonicalPullRequestRow,
+  CanonicalReleaseRow,
+  CanonicalRepositoryRow,
   CanonicalStatusSnapshot,
 } from './collection-canonical.types';
 
@@ -337,6 +342,68 @@ export class CollectionCanonicalRepository {
       key.organizationLogin,
     );
     return rows[0] ?? null;
+  }
+
+  /**
+   * Read-only projection of the latest published generation for (appId,
+   * organizationLogin) — the source for todo 8's generation import command.
+   * Returns null when no generation has ever been published (never invents
+   * a synthetic generation). Contributor projections are not read here; see
+   * `CanonicalGenerationSnapshot`.
+   */
+  async getActiveGenerationSnapshot(
+    key: CanonicalLeaseKey,
+  ): Promise<CanonicalGenerationSnapshot | null> {
+    const state = await this.db.$queryRawUnsafe<
+      Array<{ activeGenerationId: string | null }>
+    >(
+      `SELECT "activeGenerationId" FROM "CanonicalOrganizationState" WHERE "appId" = $1 AND "organizationLogin" = $2`,
+      key.appId,
+      key.organizationLogin,
+    );
+    const generationId = state[0]?.activeGenerationId;
+    if (!generationId) return null;
+
+    const run = await this.db.$queryRawUnsafe<
+      Array<{ id: string; finishedAt: Date | null; status: string }>
+    >(
+      `SELECT "id", "finishedAt", "status" FROM "CanonicalCollectionRun" WHERE "id" = $1`,
+      generationId,
+    );
+    const finishedAt = run[0]?.finishedAt;
+    if (!run[0] || run[0].status !== 'SUCCEEDED' || !finishedAt) return null;
+
+    const [repositories, commits, pullRequests, releases] = await Promise.all([
+      this.db.$queryRawUnsafe<CanonicalRepositoryRow[]>(
+        `SELECT "githubRepositoryId", "fullName", "visibility", "archived", "defaultBranch"
+           FROM "CanonicalRepository" WHERE "generationId" = $1 ORDER BY "githubRepositoryId"`,
+        generationId,
+      ),
+      this.db.$queryRawUnsafe<CanonicalCommitSnapshotRow[]>(
+        `SELECT "githubRepositoryId", "sha", "committedAt", "authorGithubId", "authorGithubLogin"
+           FROM "CanonicalDefaultBranchCommit" WHERE "generationId" = $1 ORDER BY "githubRepositoryId", "sha"`,
+        generationId,
+      ),
+      this.db.$queryRawUnsafe<CanonicalPullRequestRow[]>(
+        `SELECT "githubRepositoryId", "githubPullRequestId", "state", "createdAt", "authorGithubId", "authorGithubLogin"
+           FROM "CanonicalPullRequest" WHERE "generationId" = $1 ORDER BY "githubRepositoryId", "githubPullRequestId"`,
+        generationId,
+      ),
+      this.db.$queryRawUnsafe<CanonicalReleaseRow[]>(
+        `SELECT "githubRepositoryId", "githubReleaseId", "publishedAt", "authorGithubId", "authorGithubLogin"
+           FROM "CanonicalRelease" WHERE "generationId" = $1 ORDER BY "githubRepositoryId", "githubReleaseId"`,
+        generationId,
+      ),
+    ]);
+
+    return {
+      runId: generationId,
+      finishedAt,
+      repositories,
+      commits,
+      pullRequests,
+      releases,
+    };
   }
 
   async cleanupUnpublishedCandidate(runId: string): Promise<boolean> {

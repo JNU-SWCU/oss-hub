@@ -30,6 +30,10 @@ export function publishRepository(
 ): Promise<PublishRepositoryResponse> {
   return apiClient<PublishRepositoryResponse>(
     `repositories/${repositoryId}/publish`,
-    { method: 'POST' },
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isConfirmed: true }),
+    },
   );
 }

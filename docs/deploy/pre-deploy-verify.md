@@ -15,13 +15,15 @@ Compose nginx는 `127.0.0.1:8081`에만 bind한다. 공인 `80/443`은 host ngin
 
 ## ① 로컬 랩탑 검증
 
-내 개발 머신에서 프로덕션 `compose.yml`을 임시 태그·격리 프로젝트로 띄워 loopback Compose ingress의 `/`·`/api/v1/health` smoke를 확인한다.
+내 개발 머신에서 프로덕션 `compose.yml`을 임시 태그·격리 프로젝트로 띄워 loopback Compose ingress의 `/`·`/api/v1/health` 200과 제출 파일 업로드 경로 403 smoke를 확인한다.
+업로드 403은 `Jenkinsfile`의 rollout·rollback smoke가 단언하는 3종 중 하나이므로 이 단계에서도 함께 확인해야 검증 범위가 실제 배포 계약과 같아진다.
 개발/운영 데이터와 섞이지 않도록 **격리 프로젝트명 `oss-hub-localverify`**를 쓴다.
 
 ### 로컬 검증용 env 템플릿 (비시크릿)
 
 아래를 `oss-hub-localverify.env`처럼 **저장소 밖**(예: 홈 디렉터리)에 저장한다. `.env.*` 파일은 저장소에 커밋하지 않는다(public-safe 정책).
 변수명은 저장소 루트 `.env.example`과 동일한 계약을 따른다. `compose.yml`이 강제하는 필수 키를 빠뜨리지 않는다.
+`GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE`와 `GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE`는 저장소 루트의 추적하지 않는 `secrets/` 아래 PEM 파일을 가리킨다. 로컬 검증 전에 그 파일들을 직접 배치해야 `docker compose config`와 `scripts/docker-verify-local.sh`가 통과한다.
 
 ```dotenv
 # 로컬 검증 전용 — 비시크릿 예시. 저장소에 커밋하지 않는다.
@@ -31,6 +33,10 @@ IMAGE_TAG=localverify
 POSTGRES_USER=oss
 POSTGRES_PASSWORD=REPLACE_LOCAL_PW
 POSTGRES_DB=osshub
+
+# MinIO (compose.yml 필수. 로컬 컨테이너 전용 — `.env.example`의 합성 로컬 값 관례를 그대로 쓴다)
+SUBMISSION_FILE_S3_ACCESS_KEY_ID=oss-hub-local
+SUBMISSION_FILE_S3_SECRET_ACCESS_KEY=oss-hub-local-synthetic-secret
 
 # migration·runtime 공용. compose 네트워크의 postgres 서비스 DNS를 가리킨다.
 # POSTGRES_PASSWORD와 같은 비밀번호를 쓴다.
@@ -54,6 +60,20 @@ FRONTEND_URL=https://127.0.0.1
 # 로컬 검증에서는 비워도 된다(시드 미적용).
 AUTH_INITIAL_ROLES=
 
+# GitHub App 기본 식별자 — compose.yml 필수.
+# 실제 운영 값 대신 로컬 검증용 자리표시자를 넣는다.
+GITHUB_COLLECTION_APP_ID=REPLACE_LOCAL_COLLECTION_APP_ID
+GITHUB_APP_ORG=REPLACE_LOCAL_GITHUB_ORG
+GITHUB_OPERATIONS_APP_ID=REPLACE_LOCAL_OPERATIONS_APP_ID
+
+# GitHub App 개인키는 값이 아니라 파일 경로다.
+# 저장소 루트의 추적하지 않는 secrets/ 아래 PEM 파일을 직접 두고, _SOURCE는 그 호스트 경로를 가리킨다.
+GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE=./secrets/localverify/collection.pem
+GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE=./secrets/localverify/operations.pem
+# legacy fallback은 선택값이라 비워 둔다.
+GITHUB_COLLECTION_APP_PRIVATE_KEY=
+GITHUB_OPERATIONS_APP_PRIVATE_KEY=
+
 # GitHub OAuth — 로컬 부팅용 형식만 맞춘 자리표시자.
 # health 확인만 할 때는 형식상 값이면 되지만, backend가 부팅 시 검증하면
 # 개발용 OAuth App의 값으로 대체한다.
@@ -67,6 +87,9 @@ GMAIL_SENDER=localverify@example.com
 GMAIL_OAUTH_CLIENT_ID=REPLACE_LOCAL_GMAIL_CLIENT_ID
 GMAIL_OAUTH_CLIENT_SECRET=REPLACE_LOCAL_GMAIL_CLIENT_SECRET
 GMAIL_OAUTH_REFRESH_TOKEN=REPLACE_LOCAL_GMAIL_REFRESH_TOKEN
+
+# 메일 전송 모드 — 로컬 검증은 발송하지 않으므로 dry-run을 쓴다.
+MAIL_MODE=dry-run
 ```
 
 ### 실행
@@ -83,9 +106,13 @@ COMPOSE_PROJECT_NAME=oss-hub-localverify \
 # 3) smoke (loopback Compose ingress)
 curl -fsS http://127.0.0.1:8081/            > /dev/null && echo "root OK"
 curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
+# 업로드 차단은 성공 코드가 아니므로 -f 없이 상태 코드를 직접 읽는다.
+test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/api/v1/submission-files)" = '403' \
+  && echo "upload 403 OK"
 ```
 
-- 예상 출력: `root OK`, `health OK` (두 요청 모두 HTTP 200).
+- 예상 출력: `root OK`, `health OK`, `upload 403 OK` (앞 두 요청은 HTTP 200, 업로드 경로는 HTTP 403).
+- 업로드 경로가 403이 아니면 실행 중 nginx 설정에 fail-closed 차단이 없다는 뜻이므로 이 단계를 통과시키지 않는다.
 - 검증: 실패 시 `COMPOSE_PROJECT_NAME=oss-hub-localverify docker compose --env-file ~/oss-hub-localverify.env -f compose.yml logs`로 원인을 본다. `IMAGE_TAG`·필수 env 미설정이면 compose가 즉시 실패한다(`compose.yml`이 `${VAR:?}`로 강제).
 
 ### 정리 (로컬 한정)
@@ -114,9 +141,13 @@ for service in frontend backend; do
 done
 curl -fsS http://127.0.0.1:8081/ > /dev/null
 curl -fsS http://127.0.0.1:8081/api/v1/health
+# 업로드 차단은 성공 코드가 아니므로 -f 없이 상태 코드를 직접 읽는다.
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8081/api/v1/submission-files  # 403
 ```
 
-- 예상 결과: 두 서비스 모두 running·healthy, restart 0, 동일 SemVer version과 동일 40-hex revision을 보고하고 두 smoke가 200이다.
+- 예상 결과: 두 서비스 모두 running·healthy, restart 0, 동일 SemVer version과 동일 40-hex revision을 보고하고 `/`·`/api/v1/health` smoke가 200, 제출 파일 업로드 경로가 403이다.
+- `/api/v1/health` 200은 PostgreSQL 연결까지 확인한 결과다. DB에 닿지 못하면 503이므로 이 스텝이 DB 가용성 확인을 겸한다.
+- 업로드 경로 403은 실행 중 nginx 설정의 fail-closed 차단이 살아 있다는 증거다 — 저장소 파일만 읽어서는 증명되지 않으므로 ingress를 직접 호출해 확인한다.
 - 이 검증은 컨테이너·볼륨·이미지를 변경하지 않는다. 운영 서버에서 `down -v`를 사용하지 않는다.
 
 ## ③ 다음 단계

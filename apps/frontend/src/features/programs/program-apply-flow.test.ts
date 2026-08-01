@@ -104,11 +104,23 @@ describe('program-apply-flow', () => {
   });
 
   it('필수 입력 검증 오류를 반환한다', () => {
-    expect(validateApplyForm({ title: '', summary: '' })).toEqual({
+    expect(
+      validateApplyForm({
+        title: '',
+        summary: '',
+        isRepositoryPublicationPlanned: true,
+      }),
+    ).toEqual({
       title: '제목을 입력해 주세요.',
       summary: '요약을 입력해 주세요.',
     });
-    expect(validateApplyForm({ title: '제목', summary: '요약' })).toEqual({});
+    expect(
+      validateApplyForm({
+        title: '제목',
+        summary: '요약',
+        isRepositoryPublicationPlanned: true,
+      }),
+    ).toEqual({});
   });
 
   it('서버 오류 코드를 사용자 메시지로 매핑한다', () => {

@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM node:24-alpine AS dependencies
 
 ENV PNPM_HOME=/pnpm
@@ -9,9 +10,10 @@ RUN corepack enable pnpm
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/backend/package.json apps/backend/package.json
-COPY apps/backend/prisma apps/backend/prisma
+COPY apps/backend/prisma/schema.prisma apps/backend/prisma/schema.prisma
 
-RUN pnpm install --frozen-lockfile --filter backend...
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    pnpm install --frozen-lockfile --filter backend... --store-dir /pnpm/store
 
 FROM dependencies AS builder
 

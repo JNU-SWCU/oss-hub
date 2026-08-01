@@ -1,13 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
-  RANKING_NOTICE,
+  COLLECTION_READ_PORT,
+  type CollectionReadPort,
+} from '../collection/collection-read.port';
+import {
   RANKING_PERIODS,
   type RankingEntry,
   type RankingPage,
   type RankingPeriod,
 } from './domain/ranking';
 import { rankingYearInAsiaSeoul } from './domain/ranking-event';
-import { RankingRepository } from './ranking.repository';
 
 const RANKING_CACHE_TTL_MS = 60_000;
 
@@ -24,7 +26,10 @@ export class RankingService {
     Promise<readonly RankingEntry[]>
   >();
 
-  constructor(private readonly repository: RankingRepository) {}
+  constructor(
+    @Inject(COLLECTION_READ_PORT)
+    private readonly collection: CollectionReadPort,
+  ) {}
 
   async findPage(
     period: RankingPeriod,
@@ -35,7 +40,6 @@ export class RankingService {
     const entries = await this.findEntries(period, now);
     const start = (page - 1) * pageSize;
     return {
-      notice: RANKING_NOTICE,
       period,
       items: entries.slice(start, start + pageSize),
       page,
@@ -74,8 +78,8 @@ export class RankingService {
     period: RankingPeriod,
     currentYear: number,
   ): Promise<readonly RankingEntry[]> {
-    const activity = await this.repository.findCanonicalActivity(
-      period === RANKING_PERIODS.THIS_YEAR ? currentYear : undefined,
+    const activity = await this.collection.getPublicRankingMetrics(
+      period === RANKING_PERIODS.THIS_YEAR ? { currentYear } : {},
     );
 
     return activity

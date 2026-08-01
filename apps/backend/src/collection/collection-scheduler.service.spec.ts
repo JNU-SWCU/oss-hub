@@ -2,28 +2,33 @@ import { Logger } from '@nestjs/common';
 import { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { CollectionReconciliationService } from './collection-reconciliation.service';
+import { CollectionCutoverRepository } from './collection-cutover.repository';
 import {
   COLLECTION_CRON_JOB_NAME,
   CollectionSchedulerService,
   DEFAULT_COLLECTION_CRON_EXPRESSION,
 } from './collection-scheduler.service';
+import { CollectionSyncService } from './collection-sync.service';
 
 describe('CollectionSchedulerService', () => {
   let testingModule: TestingModule;
   let service: CollectionSchedulerService;
-  const trigger = jest.fn<
-    Promise<{ runId: string; status: 'PENDING' }>,
+  const run = jest.fn<
+    Promise<{ runId: string; status: 'COMPLETED' }>,
     [string]
   >();
+  const isQuiesced = jest.fn<Promise<boolean>, [Date]>();
 
   beforeEach(async () => {
-    trigger.mockReset();
+    run.mockReset();
+    isQuiesced.mockReset();
+    isQuiesced.mockResolvedValue(false);
     testingModule = await Test.createTestingModule({
       imports: [ScheduleModule.forRoot()],
       providers: [
         CollectionSchedulerService,
-        { provide: CollectionReconciliationService, useValue: { trigger } },
+        { provide: CollectionSyncService, useValue: { run } },
+        { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
       ],
     }).compile();
     await testingModule.init();
@@ -45,52 +50,33 @@ describe('CollectionSchedulerService', () => {
     expect(job.waitForCompletion).toBe(true);
   });
 
-  it('수동 진입점과 cron이 동일한 reconciliation use case를 사용한다', async () => {
-    trigger.mockResolvedValue({ runId: 'synthetic-run-id', status: 'PENDING' });
+  it('수동 진입점과 cron이 동일한 sync use case를 즉시 PENDING으로 응답하며 시작한다', async () => {
+    run.mockResolvedValue({ runId: 'synthetic-run-id', status: 'COMPLETED' });
 
-    await expect(service.trigger()).resolves.toEqual({
-      runId: 'synthetic-run-id',
-      status: 'PENDING',
-    });
+    const result = await service.trigger();
+    expect(result.status).toBe('PENDING');
+    expect(typeof result.runId).toBe('string');
     await expect(service.handleCron()).resolves.toBeUndefined();
 
-    expect(trigger).toHaveBeenCalledTimes(2);
-    expect(trigger.mock.calls[0]?.[0]).toMatch(/^scheduler:/);
-    expect(trigger.mock.calls[1]?.[0]).toBe(trigger.mock.calls[0]?.[0]);
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(run.mock.calls[0]?.[0]).toMatch(/^scheduler:/);
+    expect(run.mock.calls[1]?.[0]).toBe(run.mock.calls[0]?.[0]);
   });
 
-  it('durable lease가 판단하도록 동시에 들어온 요청을 각각 전달한다', async () => {
-    let resolveFirst:
-      ((value: { runId: string; status: 'PENDING' }) => void) | undefined;
-    trigger
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            resolveFirst = resolve;
-          }),
-      )
-      .mockResolvedValueOnce({ runId: 'second-run-id', status: 'PENDING' });
+  it('quiesce lease가 걸려 있으면 COL_008로 트리거를 거부하고 새 writer를 호출하지 않는다', async () => {
+    isQuiesced.mockResolvedValue(true);
 
-    const first = service.trigger();
-    const second = service.trigger();
-
-    expect(trigger).toHaveBeenCalledTimes(2);
-    await expect(second).resolves.toEqual({
-      runId: 'second-run-id',
-      status: 'PENDING',
+    await expect(service.trigger()).rejects.toMatchObject({
+      errorCode: { code: 'COL_008', status: 409 },
     });
-    resolveFirst?.({ runId: 'first-run-id', status: 'PENDING' });
-    await expect(first).resolves.toEqual({
-      runId: 'first-run-id',
-      status: 'PENDING',
-    });
+    expect(run).not.toHaveBeenCalled();
   });
 
   it('cron 실패를 안전한 분류만 기록하고 프로세스로 전파하지 않는다', async () => {
     const logger = jest
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => undefined);
-    trigger.mockRejectedValue(
+    isQuiesced.mockRejectedValue(
       Object.assign(new Error('private installation detail'), {
         token: 'must-not-be-logged',
       }),
@@ -104,6 +90,22 @@ describe('CollectionSchedulerService', () => {
     expect(JSON.stringify(logger.mock.calls)).not.toContain('private');
     expect(JSON.stringify(logger.mock.calls)).not.toContain(
       'must-not-be-logged',
+    );
+  });
+
+  it('백그라운드 sync 실패는 트리거 응답에 영향을 주지 않고 안전하게 기록된다', async () => {
+    const logger = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    run.mockRejectedValue(new Error('provider unavailable'));
+
+    await expect(service.trigger()).resolves.toEqual(
+      expect.objectContaining({ status: 'PENDING' }),
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(logger).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'collection.scheduler.sync_failed' }),
     );
   });
 });

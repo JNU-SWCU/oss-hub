@@ -2,6 +2,7 @@ import { assertIsolatedIntegrationDatabase } from '../test/integration-database.
 import { PrismaService } from '../src/prisma/prisma.service';
 import {
   backfillUserProfiles,
+  classifyLegacyProfile,
   USER_PROFILE_BACKFILL_ERROR_KIND,
 } from './user-profile-backfill';
 
@@ -22,6 +23,7 @@ const userIds = [
 const completeStudentId = ['96', '00153101'].join('');
 const duplicateStudentId = ['96', '00153102'].join('');
 const prisma = new PrismaService();
+let existingProfileUserIds: readonly string[] = [];
 
 type LegacyProfileInput = {
   readonly id: (typeof userIds)[number];
@@ -41,11 +43,17 @@ async function createLegacyUser(input: LegacyProfileInput): Promise<void> {
 }
 
 async function cleanup(): Promise<void> {
+  await prisma.userProfile.deleteMany({
+    where: { userId: { notIn: [...existingProfileUserIds] } },
+  });
   await prisma.user.deleteMany({ where: { id: { in: [...userIds] } } });
 }
 
 beforeAll(async () => {
   await prisma.$connect();
+  existingProfileUserIds = (
+    await prisma.userProfile.findMany({ select: { userId: true } })
+  ).map(({ userId }) => userId);
 });
 
 beforeEach(cleanup);
@@ -57,6 +65,15 @@ afterAll(async () => {
 
 it('완료 행만 한 번 backfill하고 전체-null·이름-only 행은 건너뛴다', async () => {
   // Given
+  const existingCandidateCount = (
+    await prisma.user.findMany({
+      where: {
+        id: { notIn: [...userIds] },
+        profile: { is: null },
+      },
+      select: { name: true, studentId: true, department: true },
+    })
+  ).filter((user) => classifyLegacyProfile(user).kind === 'COMPLETE').length;
   await Promise.all([
     createLegacyUser({
       id: userIds[0],
@@ -86,7 +103,7 @@ it('완료 행만 한 번 backfill하고 전체-null·이름-only 행은 건너�
   const secondCreated = await backfillUserProfiles(prisma);
 
   // Then
-  expect(firstCreated).toBe(1);
+  expect(firstCreated).toBe(existingCandidateCount + 1);
   expect(secondCreated).toBe(0);
   await expect(
     prisma.userProfile.findMany({

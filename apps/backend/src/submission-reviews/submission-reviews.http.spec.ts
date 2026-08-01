@@ -74,6 +74,7 @@ beforeAll(async () => {
       canActivate: (context: ExecutionContext) => {
         Object.assign(context.switchToHttp().getRequest<object>(), {
           submissionReviewerId: 'reviewer-1',
+          sessionGithubId: 9_600_000_000_100_001n,
         });
         return true;
       },
@@ -173,7 +174,11 @@ it('판정 저장 API가 201과 현재 Submission 상태를 반환한다', async
 it('저장소 공개 API가 200과 공개 완료 시각을 반환한다', async () => {
   const response = await fetch(
     `${baseUrl}/api/v1/repositories/repository-1/publish`,
-    { method: 'POST' },
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ isConfirmed: true }),
+    },
   );
 
   expect(response.status).toBe(200);
@@ -182,6 +187,10 @@ it('저장소 공개 API가 200과 공개 완료 시각을 반환한다', async 
     visibility: RepositoryVisibility.PUBLIC,
     publishedAt: '2026-07-23T00:00:00.000Z',
   });
+  expect(service.publishRepository).toHaveBeenCalledWith(
+    'repository-1',
+    9_600_000_000_100_001n,
+  );
 });
 
 it('비로그인 review-context 요청은 401 AUT_003 ProblemDetail을 반환하고 서비스를 호출하지 않는다', async () => {

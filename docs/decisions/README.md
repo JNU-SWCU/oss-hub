@@ -12,6 +12,8 @@
 | ADR-004 | Accepted | REST API 규격 | [ADR-004-REST-API-규격](ADR-004-REST-API-규격.md) |
 | ADR-005 | Accepted | Agent-Driven Review Cycle | [ADR-005-agent-driven-review-cycle](ADR-005-agent-driven-review-cycle.md) |
 | ADR-006 | Accepted | GitHub App 조직 자동화 연동 | [ADR-006-github-app-integration](ADR-006-github-app-integration.md) |
+| ADR-007 | Accepted | 명시적 fallback 계약 | [ADR-007-explicit-fallback-contract](ADR-007-explicit-fallback-contract.md) |
+| ADR-008 | Accepted | API 응답 필드 소유 경계 | [ADR-008-api-response-field-ownership](ADR-008-api-response-field-ownership.md) |
 
 ## ADR 라이프사이클
 
