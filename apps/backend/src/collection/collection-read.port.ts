@@ -96,6 +96,42 @@ export type CollectionContributorMetricsDto = {
   readonly releaseCount: number;
 };
 
+/**
+ * todo 16 — `getRepositoryMetrics`(연도 한정)와 달리 `CollectionRepositoryYearAggregate`의
+ * 모든 연도를 합산한 lifetime 누적이다. 공개 프로젝트 상세/프로필 라우트가 페이지당 상수
+ * 개수의 질의로 지표를 배치 조회할 때 쓴다 — repositoryIds 배열 크기와 무관하게 쿼리 1개다.
+ */
+export type CollectionRepositoryCumulativeMetricsQueryDto = {
+  readonly repositoryIds: readonly bigint[];
+};
+
+export type CollectionRepositoryCumulativeMetricsDto = {
+  readonly repositoryId: bigint;
+  readonly dataAsOf: Date;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly releaseCount: number;
+};
+
+/**
+ * todo 16 — `getContributorMetrics`(연도 한정)와 달리 `CollectionContributorYearAggregate`의
+ * 모든 연도를 저장소·기여자별로 합산한 lifetime 누적이다. 공개 프로젝트 상세 라우트의 기여자
+ * 목록에 쓰며, githubLogin만 노출한다(platform User join 없음, raw GitHub payload 없음).
+ */
+export type CollectionContributorCumulativeMetricsQueryDto = {
+  readonly repositoryIds: readonly bigint[];
+};
+
+export type CollectionContributorCumulativeMetricsDto = {
+  readonly repositoryId: bigint;
+  readonly githubUserId: bigint;
+  readonly githubLogin: string;
+  readonly dataAsOf: Date;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly releaseCount: number;
+};
+
 export type CollectionPublicRankingMetricsQueryDto = {
   readonly currentYear?: number;
 };
@@ -160,4 +196,12 @@ export interface CollectionReadPort {
   ): Promise<readonly CollectionPublicRankingMetricsDto[]>;
   /** todo 12 — 조직 전체 증분 collection의 per-repo/stream 진행 상황 집계(system-status source). */
   getIncrementalStatusSnapshot(): Promise<CollectionIncrementalStatusSnapshotDto>;
+  /** todo 16 — 공개 프로젝트 상세/프로필 배치 지표(연도 무관 lifetime 누적). */
+  getRepositoryCumulativeMetrics(
+    query: CollectionRepositoryCumulativeMetricsQueryDto,
+  ): Promise<readonly CollectionRepositoryCumulativeMetricsDto[]>;
+  /** todo 16 — 공개 프로젝트 상세 기여자 배치 지표(연도 무관 lifetime 누적, githubLogin만 노출). */
+  getContributorCumulativeMetrics(
+    query: CollectionContributorCumulativeMetricsQueryDto,
+  ): Promise<readonly CollectionContributorCumulativeMetricsDto[]>;
 }

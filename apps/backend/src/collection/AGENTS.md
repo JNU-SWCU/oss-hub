@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-07-20 · Updated: 2026-08-01 (todo 12 getIncrementalStatusSnapshot + CollectionReadPort 확장 반영) -->
+<!-- Generated: 2026-07-20 · Updated: 2026-08-01 (todo 16 getRepositoryCumulativeMetrics/getContributorCumulativeMetrics 추가 반영) -->
 
 # apps/backend/src/collection — GitHub 활동 수집기
 
@@ -25,8 +25,8 @@ Collection GitHub App installation token으로 `JNU-SWCU` 조직 설치 범위�
 | `collection-sync.service.ts` | todo 10 — repository별 증분 동기화 orchestration. inventory(complete/partial 구분) → 신규/미검증 저장소 full backfill → READY 저장소 조건부 poll을 fair serial queue·lease-fenced 트랜잭션 위에서 durable cursor로 이어간다 |
 | `collection-sync.types.ts` | `CollectionSyncLease` epoch-fenced lease 계약 타입(`SyncLeaseKey`/`SyncLeaseToken`/`AcquireSyncLeaseInput`) |
 | `collection-provider-queue.ts` | `ProviderRequestQueue` — 모든 provider 요청이 통과하는 fair serial fetcher wrapper(최소 250ms 페이싱, `x-ratelimit-*` 관찰, ADR-006 동적 정지 `remaining <= max(100, limit의 20%)`) |
-| `collection-read.port.ts` | `COLLECTION_READ_PORT` DIP 경계 — ranking·programs·system-status가 이 6개 메서드/DTO로만 collection을 소비한다. todo 5 원본 3개(`findRepositoryActivity`/`findRankingActivity`/`getStatusSnapshot`, 여전히 old canonical 테이블 배선)는 불변이고, todo 11이 `getRepositoryMetrics`/`getContributorMetrics`를 추가만 했다(배치 `repositoryIds[]` 조회, `dataAsOf`, `visibility`/`presence`/`visibilityObservedAt` eligibility-safe 방문성 DTO 포함 — 실명·studentId·raw payload·collection lease/frontier 등 control 필드 없음). todo 12가 `getIncrementalStatusSnapshot`을 추가만 했다(system-status source — 조직 전체 stream count·checkpoint 시각만 노출, repository 이름/visibility 없음. health(empty/normal/delayed/partial/failed) 해석은 이 포트가 아니라 system-status 모듈 책임) |
-| `collection-read.service.ts` | `CollectionReadPort` 구현체. todo 11의 2개 메서드는 todo 8/10이 채운 증분 facts/aggregate 테이블을 직접 읽는다 — private facts도 내부적으로는 그대로 읽히며, 공개 안전 필터링은 이 서비스가 아니라 이를 소비하는 todo 15(eligibility fence)/todo 19(ranking source)의 책임이다. todo 12의 `getIncrementalStatusSnapshot`은 `CollectionRepositoryStream`/`CollectionSyncCursor`를 집계만 하고 repository 식별자를 select하지 않는다 |
+| `collection-read.port.ts` | `COLLECTION_READ_PORT` DIP 경계 — ranking·programs·system-status·public-projects가 이 8개 메서드/DTO로만 collection을 소비한다. todo 5 원본 3개(`findRepositoryActivity`/`findRankingActivity`/`getStatusSnapshot`, 여전히 old canonical 테이블 배선)는 불변이고, todo 11이 `getRepositoryMetrics`/`getContributorMetrics`를 추가만 했다(배치 `repositoryIds[]` 조회, `dataAsOf`, `visibility`/`presence`/`visibilityObservedAt` eligibility-safe 방문성 DTO 포함 — 실명·studentId·raw payload·collection lease/frontier 등 control 필드 없음). todo 12가 `getIncrementalStatusSnapshot`을 추가만 했다(system-status source — 조직 전체 stream count·checkpoint 시각만 노출, repository 이름/visibility 없음. health(empty/normal/delayed/partial/failed) 해석은 이 포트가 아니라 system-status 모듈 책임). todo 16이 `getRepositoryCumulativeMetrics`/`getContributorCumulativeMetrics`를 추가만 했다(`year` 필터 없이 전체 연도를 합산하는 lifetime 누적 — 공개 프로젝트 상세/프로필이 페이지당 상수 개수의 질의로 배치 조회한다. 기여자 지표는 githubLogin만 노출하고 platform User join이 없다) |
+| `collection-read.service.ts` | `CollectionReadPort` 구현체. todo 11의 2개 메서드는 todo 8/10이 채운 증분 facts/aggregate 테이블을 직접 읽는다 — private facts도 내부적으로는 그대로 읽히며, 공개 안전 필터링은 이 서비스가 아니라 이를 소비하는 todo 15(eligibility fence)/todo 19(ranking source)의 책임이다. todo 12의 `getIncrementalStatusSnapshot`은 `CollectionRepositoryStream`/`CollectionSyncCursor`를 집계만 하고 repository 식별자를 select하지 않는다. todo 16의 2개 메서드는 `getRepositoryMetrics`/`getContributorMetrics`와 같은 aggregate 테이블을 `year` 없이 읽어 findMany 질의 1개로 합산한다(repositoryIds 배열 크기와 무관) |
 
 ## Subdirectories
 

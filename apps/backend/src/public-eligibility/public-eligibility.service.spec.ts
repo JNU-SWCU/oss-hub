@@ -40,6 +40,8 @@ function serviceWith(
     getRepositoryMetrics,
     getContributorMetrics: () => Promise.resolve([]),
     getPublicRankingMetrics: () => Promise.resolve([]),
+    getRepositoryCumulativeMetrics: () => Promise.resolve([]),
+    getContributorCumulativeMetrics: () => Promise.resolve([]),
     getIncrementalStatusSnapshot: () =>
       Promise.resolve({
         trackedRepositoryCount: 0,

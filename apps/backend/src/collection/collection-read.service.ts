@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CollectionCanonicalRepository } from './collection-canonical.repository';
 import { asiaSeoulYear } from './collection-incremental.repository';
 import type {
+  CollectionContributorCumulativeMetricsDto,
+  CollectionContributorCumulativeMetricsQueryDto,
   CollectionContributorMetricsDto,
   CollectionContributorMetricsQueryDto,
   CollectionPublicRankingMetricsDto,
@@ -14,6 +16,8 @@ import type {
   CollectionReadPort,
   CollectionRepositoryActivityDto,
   CollectionRepositoryActivityQueryDto,
+  CollectionRepositoryCumulativeMetricsDto,
+  CollectionRepositoryCumulativeMetricsQueryDto,
   CollectionRepositoryMetricsDto,
   CollectionRepositoryMetricsQueryDto,
   CollectionStatusSnapshotDto,
@@ -318,6 +322,120 @@ export class CollectionReadService implements CollectionReadPort {
       });
     }
     return [...activity.values()];
+  }
+
+  /**
+   * todo 16 — `getRepositoryMetrics`와 같은 `CollectionRepositoryYearAggregate`를 읽되 `year`로
+   * 필터링하지 않고 저장소별 전체 연도를 합산한다(lifetime 누적). repositoryIds 배열 크기와
+   * 무관하게 findMany 질의 1개다 — 공개 프로젝트 상세/프로필 페이지의 배치 지표 조회용.
+   */
+  async getRepositoryCumulativeMetrics(
+    query: CollectionRepositoryCumulativeMetricsQueryDto,
+  ): Promise<readonly CollectionRepositoryCumulativeMetricsDto[]> {
+    if (query.repositoryIds.length === 0) return [];
+
+    const repositories = await this.prisma.collectionRepository.findMany({
+      where: { githubRepositoryId: { in: [...query.repositoryIds] } },
+      select: {
+        githubRepositoryId: true,
+        lastCompleteInventoryObservedAt: true,
+        yearAggregates: {
+          select: {
+            commitCount: true,
+            pullRequestCount: true,
+            releaseCount: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
+
+    return repositories.map((repository) => {
+      const dataAsOf = repository.yearAggregates.reduce<Date | null>(
+        (latest, aggregate) =>
+          latest === null || aggregate.updatedAt > latest
+            ? aggregate.updatedAt
+            : latest,
+        null,
+      );
+      return {
+        repositoryId: repository.githubRepositoryId,
+        dataAsOf:
+          dataAsOf ?? repository.lastCompleteInventoryObservedAt ?? new Date(),
+        commitCount: repository.yearAggregates.reduce(
+          (sum, aggregate) => sum + aggregate.commitCount,
+          0,
+        ),
+        pullRequestCount: repository.yearAggregates.reduce(
+          (sum, aggregate) => sum + aggregate.pullRequestCount,
+          0,
+        ),
+        releaseCount: repository.yearAggregates.reduce(
+          (sum, aggregate) => sum + aggregate.releaseCount,
+          0,
+        ),
+      };
+    });
+  }
+
+  /**
+   * todo 16 — `getContributorMetrics`와 같은 `CollectionContributorYearAggregate`를 읽되
+   * `year`로 필터링하지 않고 (저장소, 기여자) 조합별 전체 연도를 합산한다(lifetime 누적).
+   * repositoryIds 배열 크기와 무관하게 findMany 질의 1개다 — 공개 프로젝트 상세 페이지의
+   * 기여자 목록용이며 githubLogin만 노출한다(platform User join 없음).
+   */
+  async getContributorCumulativeMetrics(
+    query: CollectionContributorCumulativeMetricsQueryDto,
+  ): Promise<readonly CollectionContributorCumulativeMetricsDto[]> {
+    if (query.repositoryIds.length === 0) return [];
+
+    const rows = await this.prisma.collectionContributorYearAggregate.findMany({
+      where: {
+        repository: {
+          githubRepositoryId: { in: [...query.repositoryIds] },
+        },
+      },
+      select: {
+        githubUserId: true,
+        githubLogin: true,
+        commitCount: true,
+        pullRequestCount: true,
+        releaseCount: true,
+        updatedAt: true,
+        repository: { select: { githubRepositoryId: true } },
+      },
+    });
+
+    const byContributor = new Map<
+      string,
+      {
+        repositoryId: bigint;
+        githubUserId: bigint;
+        githubLogin: string;
+        dataAsOf: Date;
+        commitCount: number;
+        pullRequestCount: number;
+        releaseCount: number;
+      }
+    >();
+    for (const row of rows) {
+      const key = `${row.repository.githubRepositoryId.toString()}:${row.githubUserId.toString()}`;
+      const current = byContributor.get(key);
+      byContributor.set(key, {
+        repositoryId: row.repository.githubRepositoryId,
+        githubUserId: row.githubUserId,
+        githubLogin: row.githubLogin,
+        dataAsOf:
+          current === undefined || row.updatedAt > current.dataAsOf
+            ? row.updatedAt
+            : current.dataAsOf,
+        commitCount: (current?.commitCount ?? 0) + row.commitCount,
+        pullRequestCount:
+          (current?.pullRequestCount ?? 0) + row.pullRequestCount,
+        releaseCount: (current?.releaseCount ?? 0) + row.releaseCount,
+      });
+    }
+    return [...byContributor.values()];
   }
 
   /**

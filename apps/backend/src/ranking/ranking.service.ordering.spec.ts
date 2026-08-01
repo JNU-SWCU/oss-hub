@@ -70,6 +70,8 @@ describe('RankingService deterministic ordering', () => {
       getRepositoryMetrics: () => Promise.resolve([]),
       getContributorMetrics: () => Promise.resolve([]),
       getPublicRankingMetrics,
+      getRepositoryCumulativeMetrics: () => Promise.resolve([]),
+      getContributorCumulativeMetrics: () => Promise.resolve([]),
       getIncrementalStatusSnapshot: () =>
         Promise.resolve({
           trackedRepositoryCount: 0,

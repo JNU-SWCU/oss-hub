@@ -338,6 +338,188 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
 });
 
 /**
+ * todo 16 — `getRepositoryCumulativeMetrics`/`getContributorCumulativeMetrics`만 다룬다.
+ * `year` 필터 없이 전체 연도를 합산하는 lifetime 누적 계약을 검증한다.
+ */
+describe('CollectionReadService — getRepositoryCumulativeMetrics', () => {
+  it('returns an empty array without querying when repositoryIds is empty', async () => {
+    const db = createDb();
+
+    const result = await serviceFor(db).getRepositoryCumulativeMetrics({
+      repositoryIds: [],
+    });
+
+    expect(result).toEqual([]);
+    expect(db.collectionRepository.findMany).not.toHaveBeenCalled();
+  });
+
+  it('sums every year aggregate for a repository into one lifetime row without a year filter', async () => {
+    const db = createDb();
+    db.collectionRepository.findMany.mockResolvedValue([
+      {
+        githubRepositoryId: 101n,
+        lastCompleteInventoryObservedAt: new Date('2025-01-01T00:00:00.000Z'),
+        yearAggregates: [
+          {
+            commitCount: 3,
+            pullRequestCount: 2,
+            releaseCount: 1,
+            updatedAt: new Date('2025-12-31T00:00:00.000Z'),
+          },
+          {
+            commitCount: 5,
+            pullRequestCount: 1,
+            releaseCount: 0,
+            updatedAt: new Date('2026-07-31T00:00:00.000Z'),
+          },
+        ],
+      },
+    ]);
+
+    const result = await serviceFor(db).getRepositoryCumulativeMetrics({
+      repositoryIds: [101n],
+    });
+
+    expect(result).toEqual([
+      {
+        repositoryId: 101n,
+        dataAsOf: new Date('2026-07-31T00:00:00.000Z'),
+        commitCount: 8,
+        pullRequestCount: 3,
+        releaseCount: 1,
+      },
+    ]);
+    expect(db.collectionRepository.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { githubRepositoryId: { in: [101n] } },
+      }),
+    );
+    const calls = db.collectionRepository.findMany.mock.calls as unknown[][];
+    const call = calls[0]?.[0] as {
+      select: { yearAggregates: { where?: unknown } };
+    };
+    expect(call.select.yearAggregates.where).toBeUndefined();
+  });
+
+  it('returns a zero-value row and falls back to the last inventory observation for dataAsOf when there is no aggregate yet', async () => {
+    const db = createDb();
+    const observedAt = new Date('2025-12-15T00:00:00.000Z');
+    db.collectionRepository.findMany.mockResolvedValue([
+      {
+        githubRepositoryId: 202n,
+        lastCompleteInventoryObservedAt: observedAt,
+        yearAggregates: [],
+      },
+    ]);
+
+    const result = await serviceFor(db).getRepositoryCumulativeMetrics({
+      repositoryIds: [202n],
+    });
+
+    expect(result).toEqual([
+      {
+        repositoryId: 202n,
+        dataAsOf: observedAt,
+        commitCount: 0,
+        pullRequestCount: 0,
+        releaseCount: 0,
+      },
+    ]);
+  });
+});
+
+describe('CollectionReadService — getContributorCumulativeMetrics', () => {
+  it('returns an empty array without querying when repositoryIds is empty', async () => {
+    const db = createDb();
+
+    const result = await serviceFor(db).getContributorCumulativeMetrics({
+      repositoryIds: [],
+    });
+
+    expect(result).toEqual([]);
+    expect(
+      db.collectionContributorYearAggregate.findMany,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('sums a contributor across years without a year filter and keeps distinct contributors separate', async () => {
+    const db = createDb();
+    db.collectionContributorYearAggregate.findMany.mockResolvedValue([
+      {
+        githubUserId: 1n,
+        githubLogin: 'alice',
+        commitCount: 4,
+        pullRequestCount: 1,
+        releaseCount: 0,
+        updatedAt: new Date('2025-12-31T00:00:00.000Z'),
+        repository: { githubRepositoryId: 101n },
+      },
+      {
+        githubUserId: 1n,
+        githubLogin: 'alice',
+        commitCount: 2,
+        pullRequestCount: 0,
+        releaseCount: 1,
+        updatedAt: new Date('2026-07-31T00:00:00.000Z'),
+        repository: { githubRepositoryId: 101n },
+      },
+      {
+        githubUserId: 2n,
+        githubLogin: 'bob',
+        commitCount: 1,
+        pullRequestCount: 0,
+        releaseCount: 0,
+        updatedAt: new Date('2026-07-31T00:00:00.000Z'),
+        repository: { githubRepositoryId: 101n },
+      },
+    ]);
+
+    const result = await serviceFor(db).getContributorCumulativeMetrics({
+      repositoryIds: [101n],
+    });
+
+    expect(result).toEqual([
+      {
+        repositoryId: 101n,
+        githubUserId: 1n,
+        githubLogin: 'alice',
+        dataAsOf: new Date('2026-07-31T00:00:00.000Z'),
+        commitCount: 6,
+        pullRequestCount: 1,
+        releaseCount: 1,
+      },
+      {
+        repositoryId: 101n,
+        githubUserId: 2n,
+        githubLogin: 'bob',
+        dataAsOf: new Date('2026-07-31T00:00:00.000Z'),
+        commitCount: 1,
+        pullRequestCount: 0,
+        releaseCount: 0,
+      },
+    ]);
+    expect(db.collectionContributorYearAggregate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          repository: { githubRepositoryId: { in: [101n] } },
+        },
+      }),
+    );
+  });
+
+  it('returns an empty array when no contributor fact exists for the repositories', async () => {
+    const db = createDb();
+    db.collectionContributorYearAggregate.findMany.mockResolvedValue([]);
+
+    const result = await serviceFor(db).getContributorCumulativeMetrics({
+      repositoryIds: [101n],
+    });
+
+    expect(result).toEqual([]);
+  });
+});
+
+/**
  * todo 12 — `getIncrementalStatusSnapshot`. repository 이름/visibility는 절대 select하지
  * 않고 count/checkpoint 시각만 집계한다는 계약을 검증한다. health(empty/normal/delayed/
  * partial/failed) 해석은 system-status 쪽 책임이라 여기서는 다루지 않는다.
