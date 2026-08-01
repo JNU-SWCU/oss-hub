@@ -2,8 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { type AccountStatus, type Prisma, type Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  ACCESS_AUDIT_SCHEMA_VERSION,
   parseAuditLogMetadata,
   type AccessAuditMetadata,
+  type AuditLogMetadataEvidence,
 } from './audit-log-metadata';
 import type { AuditLogListQueryRequestDto } from './dto/audit-log-query.dto';
 
@@ -38,6 +40,9 @@ type AuditLogRecordBase = {
   readonly action: string;
   readonly targetType: string;
   readonly targetId: string;
+  // schemaVersion 2 행은 대상의 이벤트 시점 GitHub 로그인, 그 밖(v1·legacy)은
+  // `targetType / targetId` 폴백 라벨이다.
+  readonly target: string;
   readonly occurredAt: Date;
 };
 
@@ -134,6 +139,7 @@ export class AuditLogRepository implements AuditLogRepositoryPort {
 
 function toAuditLogRecord(log: PrismaAuditLog): AuditLogRecord {
   const evidence = parseAuditLogMetadata(log.metadata);
+  const target = resolveAuditTargetLabel(log.targetType, log.targetId, evidence);
   if (evidence.legacy) {
     return {
       id: log.id,
@@ -141,6 +147,7 @@ function toAuditLogRecord(log: PrismaAuditLog): AuditLogRecord {
       action: log.action,
       targetType: log.targetType,
       targetId: log.targetId,
+      target,
       occurredAt: log.occurredAt,
       legacy: true,
       metadata: null,
@@ -152,8 +159,23 @@ function toAuditLogRecord(log: PrismaAuditLog): AuditLogRecord {
     action: log.action,
     targetType: log.targetType,
     targetId: log.targetId,
+    target,
     occurredAt: log.occurredAt,
     legacy: false,
     metadata: evidence.metadata,
   };
+}
+
+function resolveAuditTargetLabel(
+  targetType: string,
+  targetId: string,
+  evidence: AuditLogMetadataEvidence,
+): string {
+  if (
+    !evidence.legacy &&
+    evidence.metadata.schemaVersion === ACCESS_AUDIT_SCHEMA_VERSION
+  ) {
+    return evidence.metadata.target.githubLogin;
+  }
+  return `${targetType} / ${targetId}`;
 }

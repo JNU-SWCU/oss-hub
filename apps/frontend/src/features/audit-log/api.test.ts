@@ -51,6 +51,7 @@ describe('fetchAuditLogs', () => {
           action: 'STAFF_ROLE_REQUEST_APPROVED',
           targetType: 'ROLE_REQUEST',
           targetId: 'request-1',
+          target: 'synthetic-target',
           occurredAt: '2026-07-24T03:00:00.000Z',
         },
       ],
