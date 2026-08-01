@@ -34,6 +34,7 @@ const CREATED: CreatedApplication = {
   status: ApplicationStatus.SUBMITTED,
   teamId: null,
   submittedAt: NOW,
+  isRepositoryPublicationPlanned: true,
 };
 
 function buildService(overrides: {
@@ -104,6 +105,7 @@ describe('ApplicationsService.create', () => {
         answers: { title: '제목', summary: '요약' },
         teamId: null,
         applicationTemplateVersion: 1,
+        isRepositoryPublicationPlanned: true,
       },
       NOW,
     );
@@ -123,6 +125,7 @@ describe('ApplicationsService.create', () => {
         summary: '요약',
       },
       applicationTemplateVersion: 1,
+      isRepositoryPublicationPlanned: true,
     });
   });
 
@@ -138,6 +141,7 @@ describe('ApplicationsService.create', () => {
         answers: { title: '제목', summary: '요약' },
         teamId: null,
         applicationTemplateVersion: 1,
+        isRepositoryPublicationPlanned: true,
       },
       NOW,
     );
@@ -160,6 +164,7 @@ describe('ApplicationsService.create', () => {
           answers: { title: '제목', summary: '요약' },
           teamId: null,
           applicationTemplateVersion: 1,
+          isRepositoryPublicationPlanned: true,
         },
         NOW,
       ),
@@ -179,6 +184,7 @@ describe('ApplicationsService.create', () => {
           answers: { title: '제목', summary: '요약' },
           teamId: null,
           applicationTemplateVersion: 1,
+          isRepositoryPublicationPlanned: true,
         },
         NOW,
       ),
@@ -198,6 +204,7 @@ describe('ApplicationsService.create', () => {
           answers: { title: '제목', summary: '요약' },
           teamId: null,
           applicationTemplateVersion: 1,
+          isRepositoryPublicationPlanned: true,
         },
         new Date('2026-08-01T00:00:00.000Z'),
       ),
@@ -217,6 +224,7 @@ describe('ApplicationsService.create', () => {
           answers: { title: '제목', summary: '요약' },
           teamId: null,
           applicationTemplateVersion: 2,
+          isRepositoryPublicationPlanned: true,
         },
         NOW,
       ),
@@ -236,6 +244,7 @@ describe('ApplicationsService.create', () => {
           answers: { title: '제목' },
           teamId: null,
           applicationTemplateVersion: 1,
+          isRepositoryPublicationPlanned: true,
         },
         NOW,
       ),
@@ -251,6 +260,7 @@ describe('ApplicationsService.create', () => {
           answers: { title: '제목', summary: '요약', extra: 'no' },
           teamId: null,
           applicationTemplateVersion: 1,
+          isRepositoryPublicationPlanned: true,
         },
         NOW,
       ),
@@ -270,6 +280,7 @@ describe('ApplicationsService.create', () => {
           answers: { title: '제목', summary: '요약' },
           teamId: 'team-1',
           applicationTemplateVersion: 1,
+          isRepositoryPublicationPlanned: true,
         },
         NOW,
       ),
@@ -291,6 +302,7 @@ describe('ApplicationsService.create', () => {
           answers: { title: '제목', summary: '요약' },
           teamId: null,
           applicationTemplateVersion: 1,
+          isRepositoryPublicationPlanned: true,
         },
         NOW,
       ),
@@ -320,6 +332,7 @@ describe('ApplicationsService.create', () => {
           answers: { title: '제목', summary: '요약' },
           teamId: 'team-1',
           applicationTemplateVersion: 1,
+          isRepositoryPublicationPlanned: true,
         },
         NOW,
       ),
@@ -343,6 +356,7 @@ describe('ApplicationsService.create', () => {
           answers: { title: '제목', summary: '요약' },
           teamId: null,
           applicationTemplateVersion: 1,
+          isRepositoryPublicationPlanned: true,
         },
         NOW,
       ),
@@ -364,6 +378,7 @@ describe('ApplicationsService.create', () => {
           answers: { title: '제목', summary: '요약' },
           teamId: null,
           applicationTemplateVersion: 1,
+          isRepositoryPublicationPlanned: true,
         },
         NOW,
       ),
@@ -377,6 +392,7 @@ describe('ApplicationsService.create', () => {
           answers: { title: '제목', summary: '요약' },
           teamId: null,
           applicationTemplateVersion: 1,
+          isRepositoryPublicationPlanned: true,
         },
         NOW,
       ),
@@ -406,6 +422,7 @@ describe('ApplicationsService.create', () => {
         answers: { title: '팀 제목', summary: '팀 요약' },
         teamId: 'team-1',
         applicationTemplateVersion: 1,
+        isRepositoryPublicationPlanned: true,
       },
       NOW,
     );
@@ -415,6 +432,26 @@ describe('ApplicationsService.create', () => {
         teamId: 'team-1',
         applicantId: STUDENT.id,
       }),
+    );
+  });
+
+  it('명시적 isRepositoryPublicationPlanned=false 를 store.createApplication 까지 그대로 전달한다', async () => {
+    const { service, createApplication } = buildService({});
+
+    await service.create(
+      GITHUB_ID,
+      PROGRAM_ID,
+      {
+        answers: { title: '제목', summary: '요약' },
+        teamId: null,
+        applicationTemplateVersion: 1,
+        isRepositoryPublicationPlanned: false,
+      },
+      NOW,
+    );
+
+    expect(createApplication).toHaveBeenCalledWith(
+      expect.objectContaining({ isRepositoryPublicationPlanned: false }),
     );
   });
 });

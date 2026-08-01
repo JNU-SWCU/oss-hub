@@ -107,7 +107,11 @@ describe('reviews api', () => {
     expect(result).toEqual(response);
     expect(fetchMock).toHaveBeenCalledWith(
       apiPath('repositories/repository-ready/publish'),
-      { method: 'POST' },
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isConfirmed: true }),
+      },
     );
   });
 });

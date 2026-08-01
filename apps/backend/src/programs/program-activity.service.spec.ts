@@ -37,6 +37,24 @@ function collectionReadPort(
     findRepositoryActivity,
     findRankingActivity: () => Promise.resolve([]),
     getStatusSnapshot: () => Promise.resolve(null),
+    getRepositoryMetrics: () => Promise.resolve([]),
+    getContributorMetrics: () => Promise.resolve([]),
+    getPublicRankingMetrics: () => Promise.resolve([]),
+    getRepositoryCumulativeMetrics: () => Promise.resolve([]),
+    getContributorCumulativeMetrics: () => Promise.resolve([]),
+    getIncrementalStatusSnapshot: () =>
+      Promise.resolve({
+        trackedRepositoryCount: 0,
+        readyStreamCount: 0,
+        backfillingStreamCount: 0,
+        partialStreamCount: 0,
+        retryPendingStreamCount: 0,
+        oldestReadyCheckpointAt: null,
+        latestCheckpointAt: null,
+        oldestRetryPendingAt: null,
+        lastCycleStartedAt: null,
+        lastCycleCompletedAt: null,
+      }),
   };
 }
 

@@ -240,3 +240,99 @@ describe('CollectionCanonicalRepository fencing and publication', () => {
     expect(db.$executeRawUnsafe).not.toHaveBeenCalled();
   });
 });
+
+describe('CollectionCanonicalRepository — active generation snapshot (todo 8 import source)', () => {
+  const KEY = { appId: 1n, organizationLogin: 'org' };
+
+  it('never invents a generation — returns null when nothing has ever published', async () => {
+    const db = createDb();
+    db.$queryRawUnsafe.mockResolvedValueOnce([{ activeGenerationId: null }]);
+
+    const snapshot = await repositoryFor(db).getActiveGenerationSnapshot(KEY);
+
+    expect(snapshot).toBeNull();
+    expect(db.$queryRawUnsafe).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns null when the org has no state row at all', async () => {
+    const db = createDb();
+    db.$queryRawUnsafe.mockResolvedValueOnce([]);
+
+    const snapshot = await repositoryFor(db).getActiveGenerationSnapshot(KEY);
+
+    expect(snapshot).toBeNull();
+  });
+
+  it('is defensive against a pointer to a non-SUCCEEDED/unfinished run', async () => {
+    const db = createDb();
+    db.$queryRawUnsafe
+      .mockResolvedValueOnce([{ activeGenerationId: 'run-1' }])
+      .mockResolvedValueOnce([
+        { id: 'run-1', finishedAt: null, status: 'PROCESSING' },
+      ]);
+
+    const snapshot = await repositoryFor(db).getActiveGenerationSnapshot(KEY);
+
+    expect(snapshot).toBeNull();
+  });
+
+  it('reads the full published generation for conversion into stable-ID facts', async () => {
+    const db = createDb();
+    const finishedAt = new Date('2026-07-20T00:00:00.000Z');
+    const repositories = [
+      {
+        githubRepositoryId: 10n,
+        fullName: 'org/repo',
+        visibility: 'public',
+        archived: false,
+        defaultBranch: 'main',
+      },
+    ];
+    const commits = [
+      {
+        githubRepositoryId: 10n,
+        sha: 'abc',
+        committedAt: new Date('2026-01-01T00:00:00.000Z'),
+        authorGithubId: 20n,
+        authorGithubLogin: 'octocat',
+      },
+    ];
+    const pullRequests = [
+      {
+        githubRepositoryId: 10n,
+        githubPullRequestId: 30n,
+        state: 'closed',
+        createdAt: new Date('2026-01-02T00:00:00.000Z'),
+        authorGithubId: null,
+        authorGithubLogin: null,
+      },
+    ];
+    const releases = [
+      {
+        githubRepositoryId: 10n,
+        githubReleaseId: 40n,
+        publishedAt: new Date('2026-01-03T00:00:00.000Z'),
+        authorGithubId: null,
+        authorGithubLogin: null,
+      },
+    ];
+    db.$queryRawUnsafe
+      .mockResolvedValueOnce([{ activeGenerationId: 'run-1' }])
+      .mockResolvedValueOnce([{ id: 'run-1', finishedAt, status: 'SUCCEEDED' }])
+      .mockResolvedValueOnce(repositories)
+      .mockResolvedValueOnce(commits)
+      .mockResolvedValueOnce(pullRequests)
+      .mockResolvedValueOnce(releases);
+
+    const snapshot = await repositoryFor(db).getActiveGenerationSnapshot(KEY);
+
+    expect(snapshot).toEqual({
+      runId: 'run-1',
+      finishedAt,
+      repositories,
+      commits,
+      pullRequests,
+      releases,
+    });
+  });
+});

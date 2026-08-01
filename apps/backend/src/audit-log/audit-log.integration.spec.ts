@@ -59,6 +59,10 @@ describe('Audit log integration', () => {
           displayName: null,
           githubLogin: 'synthetic-132-admin',
         },
+        target: {
+          displayName: null,
+          githubLogin: 'synthetic-132-staff',
+        },
         before: {
           role: null,
           accountStatus: AccountStatus.ACTIVE,

@@ -12,10 +12,16 @@ import { AccountStatus } from '@prisma/client';
 import {
   ADMIN_ACCESS_PENDING_FILTERS,
   ADMIN_ACCESS_ROLE_FILTERS,
+  ADMIN_ACCESS_DEFAULT_DIRECTION,
+  ADMIN_ACCESS_DEFAULT_SORT,
+  ADMIN_ACCESS_SORT_DIRECTIONS,
+  ADMIN_ACCESS_SORT_FIELDS,
   type AdminAccessListQuery,
   type AdminAccessHistoryQuery,
   type AdminAccessPendingFilter,
   type AdminAccessRoleFilter,
+  type AdminAccessSortDirection,
+  type AdminAccessSortField,
 } from '../domain/admin-access';
 
 const trim = ({ value }: { readonly value: unknown }): unknown =>
@@ -40,6 +46,14 @@ export class AdminAccessListRequestDto {
   declare readonly pendingRequest?: AdminAccessPendingFilter;
 
   @IsOptional()
+  @IsIn(Object.values(ADMIN_ACCESS_SORT_FIELDS))
+  declare readonly sort?: AdminAccessSortField;
+
+  @IsOptional()
+  @IsIn(Object.values(ADMIN_ACCESS_SORT_DIRECTIONS))
+  declare readonly direction?: AdminAccessSortDirection;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
@@ -62,6 +76,8 @@ export class AdminAccessListRequestDto {
       ...(this.pendingRequest === undefined
         ? {}
         : { pendingRequest: this.pendingRequest }),
+      sort: this.sort ?? ADMIN_ACCESS_DEFAULT_SORT,
+      direction: this.direction ?? ADMIN_ACCESS_DEFAULT_DIRECTION,
       page: this.page ?? 1,
       limit: this.limit ?? 20,
     };

@@ -3,11 +3,12 @@ import {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
 } from '@prisma/client';
+import type { AuditLogService } from '../audit-log/audit-log.service';
 import type { GithubAppClient } from './github-app.client';
-import type { ShowcaseProjectionService } from '../showcase/showcase-projection.service';
 import type {
   OwnedProvisionJob,
   RepositoriesRepository,
+  RepositoriesTransactionStore,
 } from './repositories.repository';
 import {
   RepositoriesService,
@@ -16,6 +17,7 @@ import {
 } from './repositories.service';
 
 const NOW = new Date('2026-07-22T00:00:00.000Z');
+const ACTOR_GITHUB_ID = 9_600_000_000_100_001n;
 const target = {
   id: 'synthetic-repository-id',
   githubRepositoryId: 987654321n,
@@ -26,14 +28,28 @@ const target = {
 };
 
 function dependencies() {
+  const store = {
+    auditLogWriter: {} as RepositoriesTransactionStore['auditLogWriter'],
+    findPublishTarget: jest.fn().mockResolvedValue(target),
+    publishRepositoryIfPrivate: jest.fn().mockResolvedValue(true),
+  } as jest.Mocked<
+    Pick<
+      RepositoriesTransactionStore,
+      'auditLogWriter' | 'findPublishTarget' | 'publishRepositoryIfPrivate'
+    >
+  >;
   const repository = {
     findPublishTarget: jest.fn().mockResolvedValue(target),
-    markPublished: jest.fn().mockResolvedValue(undefined),
     listOwnedProvisionJobs: jest.fn().mockResolvedValue([]),
+    withTransaction: jest.fn(
+      async (
+        operation: (store: RepositoriesTransactionStore) => Promise<unknown>,
+      ) => operation(store as unknown as RepositoriesTransactionStore),
+    ),
   } as jest.Mocked<
     Pick<
       RepositoriesRepository,
-      'findPublishTarget' | 'markPublished' | 'listOwnedProvisionJobs'
+      'findPublishTarget' | 'listOwnedProvisionJobs' | 'withTransaction'
     >
   >;
   const github = {
@@ -45,7 +61,10 @@ function dependencies() {
       description: null,
     }),
   } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
-  return { repository, github };
+  const auditLog = {
+    record: jest.fn().mockResolvedValue(undefined),
+  } as jest.Mocked<Pick<AuditLogService, 'record'>>;
+  return { repository, github, auditLog, store };
 }
 
 function job(overrides: Partial<OwnedProvisionJob> = {}): OwnedProvisionJob {
@@ -67,7 +86,7 @@ function job(overrides: Partial<OwnedProvisionJob> = {}): OwnedProvisionJob {
 
 describe('RepositoriesService.getMyRepositories', () => {
   it('maps personal and team jobs into the safe response contract', async () => {
-    const { repository, github } = dependencies();
+    const { repository, github, auditLog } = dependencies();
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
         lastErrorCode: 'PROVISION_RETRYABLE',
@@ -99,7 +118,7 @@ describe('RepositoriesService.getMyRepositories', () => {
         },
       }),
     ]);
-    const service = new RepositoriesService(repository, github);
+    const service = new RepositoriesService(repository, github, auditLog);
 
     const result = await service.getMyRepositories(123n);
 
@@ -137,18 +156,20 @@ describe('RepositoriesService.getMyRepositories', () => {
   });
 
   it('fails closed when a succeeded job has no repository', async () => {
-    const { repository, github } = dependencies();
+    const { repository, github, auditLog } = dependencies();
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({ status: RepositoryProvisionJobStatus.SUCCEEDED }),
     ]);
 
     await expect(
-      new RepositoriesService(repository, github).getMyRepositories(123n),
+      new RepositoriesService(repository, github, auditLog).getMyRepositories(
+        123n,
+      ),
     ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
   });
 
   it('fails closed when a succeeded job points at another application repository', async () => {
-    const { repository, github } = dependencies();
+    const { repository, github, auditLog } = dependencies();
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
         status: RepositoryProvisionJobStatus.SUCCEEDED,
@@ -164,12 +185,14 @@ describe('RepositoriesService.getMyRepositories', () => {
     ]);
 
     await expect(
-      new RepositoriesService(repository, github).getMyRepositories(123n),
+      new RepositoriesService(repository, github, auditLog).getMyRepositories(
+        123n,
+      ),
     ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
   });
 
   it('fails closed when a pre-success job points at another application repository', async () => {
-    const { repository, github } = dependencies();
+    const { repository, github, auditLog } = dependencies();
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
         status: RepositoryProvisionJobStatus.PROCESSING,
@@ -185,7 +208,9 @@ describe('RepositoriesService.getMyRepositories', () => {
     ]);
 
     await expect(
-      new RepositoriesService(repository, github).getMyRepositories(123n),
+      new RepositoriesService(repository, github, auditLog).getMyRepositories(
+        123n,
+      ),
     ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
   });
 
@@ -206,7 +231,7 @@ describe('RepositoriesService.getMyRepositories', () => {
       'https://github.com/JNU-SWCU/synthetic/completed',
     ],
   ])('fails closed on %s repository identity', async (_case, name, url) => {
-    const { repository, github } = dependencies();
+    const { repository, github, auditLog } = dependencies();
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
         status: RepositoryProvisionJobStatus.SUCCEEDED,
@@ -222,67 +247,106 @@ describe('RepositoriesService.getMyRepositories', () => {
     ]);
 
     await expect(
-      new RepositoriesService(repository, github).getMyRepositories(123n),
+      new RepositoriesService(repository, github, auditLog).getMyRepositories(
+        123n,
+      ),
     ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
   });
 });
 
 describe('RepositoriesService.publish', () => {
   it('이미 public인 repository는 GitHub를 다시 호출하지 않는다', async () => {
-    const { repository, github } = dependencies();
+    const { repository, github, auditLog } = dependencies();
     repository.findPublishTarget.mockResolvedValue({
       ...target,
       visibility: RepositoryVisibility.PUBLIC,
       publishedAt: NOW,
     });
-    const service = new RepositoriesService(repository, github);
+    const service = new RepositoriesService(repository, github, auditLog);
 
-    const result = await service.publish({ repositoryId: target.id }, NOW);
+    const result = await service.publish(
+      { repositoryId: target.id },
+      ACTOR_GITHUB_ID,
+      NOW,
+    );
 
     expect(result.visibility).toBe(RepositoryVisibility.PUBLIC);
     expect(github.publishRepository.mock.calls).toHaveLength(0);
-    expect(repository.markPublished.mock.calls).toHaveLength(0);
+    expect(repository.withTransaction.mock.calls).toHaveLength(0);
+    expect(auditLog.record.mock.calls).toHaveLength(0);
   });
 
-  it('GitHub 공개 결과의 identity를 확인한 뒤 DB를 갱신한다', async () => {
-    const { repository, github } = dependencies();
-    const service = new RepositoriesService(repository, github);
+  it('GitHub 공개 결과의 identity를 확인한 뒤 승자가 정확히 1건의 typed audit을 남긴다', async () => {
+    const { repository, github, auditLog, store } = dependencies();
+    store.publishRepositoryIfPrivate.mockResolvedValue(true);
+    const service = new RepositoriesService(repository, github, auditLog);
 
-    const result = await service.publish({ repositoryId: target.id }, NOW);
+    const result = await service.publish(
+      { repositoryId: target.id },
+      ACTOR_GITHUB_ID,
+      NOW,
+    );
 
     expect(github.publishRepository.mock.calls).toEqual([[target.name]]);
-    expect(repository.markPublished.mock.calls).toEqual([
+    expect(store.publishRepositoryIfPrivate.mock.calls).toEqual([
       [target.id, target.githubRepositoryId, NOW],
     ]);
+    expect(auditLog.record.mock.calls).toHaveLength(1);
+    expect(auditLog.record.mock.calls[0]![0]).toMatchObject({
+      actorGithubId: ACTOR_GITHUB_ID,
+      action: 'REPOSITORY_PUBLISHED',
+      targetType: 'REPOSITORY',
+      targetId: target.id,
+      metadata: {
+        repositoryId: target.id,
+        before: { visibility: RepositoryVisibility.PRIVATE },
+        after: {
+          visibility: RepositoryVisibility.PUBLIC,
+          publishedAt: NOW.toISOString(),
+        },
+      },
+    });
+    expect(auditLog.record.mock.calls[0]![1]).toBe(store.auditLogWriter);
     expect(result).toMatchObject({
       visibility: RepositoryVisibility.PUBLIC,
       publishedAt: NOW,
     });
   });
-  it('publishing projects only after the database publish succeeds and surfaces projection failures', async () => {
-    const { repository, github } = dependencies();
-    const showcase = {
-      projectRepository: jest
-        .fn()
-        .mockRejectedValue(new Error('projection failed')),
-    } as jest.Mocked<Pick<ShowcaseProjectionService, 'projectRepository'>>;
-    const service = new RepositoriesService(repository, github, showcase);
 
-    await expect(
-      service.publish({ repositoryId: target.id }, NOW),
-    ).rejects.toThrow('projection failed');
-    expect(repository.markPublished.mock.calls).toEqual([
+  it('CAS에서 진 patron은 감사 기록 없이 승자가 커밋한 상태를 재조회한다', async () => {
+    const { repository, github, auditLog, store } = dependencies();
+    const winnerCommittedState = {
+      ...target,
+      visibility: RepositoryVisibility.PUBLIC,
+      publishedAt: NOW,
+    };
+    store.publishRepositoryIfPrivate.mockResolvedValue(false);
+    store.findPublishTarget.mockResolvedValue(winnerCommittedState);
+    const service = new RepositoriesService(repository, github, auditLog);
+
+    const result = await service.publish(
+      { repositoryId: target.id },
+      ACTOR_GITHUB_ID,
+      NOW,
+    );
+
+    expect(store.publishRepositoryIfPrivate.mock.calls).toEqual([
       [target.id, target.githubRepositoryId, NOW],
     ]);
-    expect(showcase.projectRepository).toHaveBeenCalledWith(target.id, NOW);
+    expect(auditLog.record.mock.calls).toHaveLength(0);
+    expect(result).toEqual(winnerCommittedState);
   });
 
   it('없는 repository는 GitHub 호출 전에 중단한다', async () => {
-    const { repository, github } = dependencies();
+    const { repository, github, auditLog } = dependencies();
     repository.findPublishTarget.mockResolvedValue(null);
-    const service = new RepositoriesService(repository, github);
+    const service = new RepositoriesService(repository, github, auditLog);
 
-    const publish = service.publish({ repositoryId: 'missing' }, NOW);
+    const publish = service.publish(
+      { repositoryId: 'missing' },
+      ACTOR_GITHUB_ID,
+      NOW,
+    );
 
     await expect(publish).rejects.toBeInstanceOf(RepositoryNotFoundError);
     expect(github.publishRepository.mock.calls).toHaveLength(0);

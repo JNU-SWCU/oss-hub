@@ -42,6 +42,7 @@ Thumbs.db
 .omo/
 .omc/
 .claude/settings.local.json
+.opencode/
 # 브라우저 QA 산출물 — 페이지 스냅샷에 세션·사용자 데이터가 담길 수 있어 추적하지 않는다.
 .playwright-mcp/
 
