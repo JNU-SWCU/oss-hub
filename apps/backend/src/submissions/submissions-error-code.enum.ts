@@ -22,6 +22,7 @@ export const SubmissionsErrorCode = {
   FILE_TOO_LARGE: 'SUB_019',
   FILE_STORAGE_UNAVAILABLE: 'SUB_020',
   FILE_RETENTION_UNAVAILABLE: 'SUB_021',
+  SUBMISSION_FILE_NOT_FOUND: 'SUB_022',
 } as const;
 
 export type SubmissionsErrorCode =
@@ -134,5 +135,10 @@ export const SUBMISSIONS_ERROR_CODES: Readonly<
     code: SubmissionsErrorCode.FILE_RETENTION_UNAVAILABLE,
     status: 422,
     message: '프로그램 종료일이 설정된 후 파일을 제출할 수 있습니다.',
+  },
+  [SubmissionsErrorCode.SUBMISSION_FILE_NOT_FOUND]: {
+    code: SubmissionsErrorCode.SUBMISSION_FILE_NOT_FOUND,
+    status: 404,
+    message: '파일을 찾을 수 없습니다.',
   },
 };

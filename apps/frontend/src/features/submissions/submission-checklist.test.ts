@@ -369,6 +369,7 @@ describe('applyResubmission', () => {
         lastReviewedAt: '2026-08-28T01:00:00.000Z',
         reviewComment: '실행 화면을 추가해 주세요',
         canResubmit: true,
+        file: null,
       },
     });
     const other = checklistItem({
@@ -396,6 +397,7 @@ describe('applyResubmission', () => {
       lastReviewedAt: '2026-08-28T01:00:00.000Z',
       reviewComment: '실행 화면을 추가해 주세요',
       canResubmit: false,
+      file: null,
     });
     expect(next.items[1]).toBe(other);
     // 원본은 그대로 — 이전 상태를 덮어쓰지 않는다.

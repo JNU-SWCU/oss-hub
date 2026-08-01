@@ -52,6 +52,15 @@ export type ResubmissionContent =
   | TextSubmissionContent
   | RepositoryReleaseSubmissionContent;
 
+export interface SubmissionFileMetadata {
+  readonly fileId: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly size: number;
+  readonly expiresAt: string;
+  readonly downloadUrl: string;
+}
+
 export interface UploadedSubmissionFile {
   readonly fileId: string;
   readonly fileName: string;
@@ -79,6 +88,7 @@ export interface ChecklistSubmission {
   readonly lastReviewedAt: string | null;
   readonly reviewComment: string | null;
   readonly canResubmit: boolean;
+  readonly file: SubmissionFileMetadata | null;
 }
 
 export interface SubmissionChecklistItem {

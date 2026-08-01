@@ -1,4 +1,9 @@
-import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+} from '@aws-sdk/client-s3';
+import { Readable } from 'node:stream';
 import { SubmissionFileStorageConfig } from './submission-file-storage.config';
 import {
   SUBMISSION_FILE_STORAGE_ERROR_CODES,
@@ -92,6 +97,31 @@ describe('S3SubmissionFileStorage', () => {
     });
   });
 
+  it('private 객체를 GetObjectCommand로 스트리밍한다', async () => {
+    const body = Readable.from(Buffer.from('private-file-body'));
+    const { storage, send } = createStorage(
+      jest
+        .fn<
+          ReturnType<SubmissionFileS3Client['send']>,
+          Parameters<SubmissionFileS3Client['send']>
+        >()
+        .mockResolvedValue({ Body: body }),
+    );
+
+    await expect(storage.get('submission-files/synthetic-key')).resolves.toBe(
+      body,
+    );
+
+    const command = send.mock.calls[0]?.[0];
+    if (!(command instanceof GetObjectCommand)) {
+      throw new Error('Expected a GetObjectCommand');
+    }
+    expect(command.input).toEqual({
+      Bucket: settings.bucket,
+      Key: 'submission-files/synthetic-key',
+    });
+  });
+
   it.each([
     { name: 'NoSuchKey' },
     { name: 'NotFound' },
@@ -114,6 +144,7 @@ describe('S3SubmissionFileStorage', () => {
 
   it.each([
     ['put', SUBMISSION_FILE_STORAGE_ERROR_CODES.PUT_FAILED],
+    ['get', SUBMISSION_FILE_STORAGE_ERROR_CODES.GET_FAILED],
     ['delete', SUBMISSION_FILE_STORAGE_ERROR_CODES.DELETE_FAILED],
   ] as const)(
     '%s 실패를 안전한 typed error로 치환한다',
@@ -138,7 +169,9 @@ describe('S3SubmissionFileStorage', () => {
               contentType: 'application/octet-stream',
               originalName: 'x.bin',
             })
-          : storage.delete('submission-files/synthetic-key');
+          : operation === 'get'
+            ? storage.get('submission-files/synthetic-key')
+            : storage.delete('submission-files/synthetic-key');
 
       await expect(action).rejects.toEqual(
         new SubmissionFileStorageError(code),

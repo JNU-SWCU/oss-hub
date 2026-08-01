@@ -67,14 +67,16 @@ it('미제출 마일스톤은 submission=null로, 필드는 계약 형태로 직
   const { service, listChecklistMilestones } = buildService({
     milestones: [milestone()],
   });
+  const now = new Date('2026-07-31T00:00:00.000Z');
 
   // When
-  const checklist = await service.checklist(githubId, 'program-1');
+  const checklist = await service.checklist(githubId, 'program-1', now);
 
   // Then
   expect(listChecklistMilestones).toHaveBeenCalledWith(
     'program-1',
     'application-1',
+    now,
   );
   expect(checklist).toEqual({
     applicationId: 'application-1',
@@ -123,6 +125,7 @@ it.each([
           status,
           currentRevision: 1,
           latestReview: null,
+          file: null,
         },
       }),
     ],
@@ -149,6 +152,7 @@ it('최신 Review의 시각과 코멘트를 반환하고, 미검토면 둘 다 n
             reviewedAt: new Date('2026-08-28T01:00:00.000Z'),
             comment: '실행 화면을 추가해 주세요',
           },
+          file: null,
         },
       }),
       milestone({
@@ -158,6 +162,7 @@ it('최신 Review의 시각과 코멘트를 반환하고, 미검토면 둘 다 n
           status: SubmissionStatus.SUBMITTED,
           currentRevision: 1,
           latestReview: null,
+          file: null,
         },
       }),
     ],
@@ -175,6 +180,47 @@ it('최신 Review의 시각과 코멘트를 반환하고, 미검토면 둘 다 n
     lastReviewedAt: null,
     reviewComment: null,
   });
+});
+
+it('현재 revision의 첨부 파일은 storageKey 없이 다운로드 URL과 안전한 메타데이터만 반환한다', async () => {
+  // Given
+  const { service } = buildService({
+    milestones: [
+      milestone({
+        submission: {
+          id: 'submission-file',
+          status: SubmissionStatus.SUBMITTED,
+          currentRevision: 1,
+          latestReview: null,
+          file: {
+            fileId: 'file-opaque',
+            fileName: 'report.pdf',
+            contentType: 'application/pdf',
+            size: 1024,
+            expiresAt: new Date('2028-01-01T00:00:00.000Z'),
+            downloadUrl: '/api/v1/submission-files/file-opaque',
+          },
+        },
+      }),
+    ],
+  });
+
+  // When
+  const checklist = await service.checklist(githubId, 'program-1');
+
+  // Then
+  const serialized = JSON.stringify(checklist);
+  expect(checklist.items[0]?.submission).toMatchObject({
+    file: {
+      fileId: 'file-opaque',
+      fileName: 'report.pdf',
+      contentType: 'application/pdf',
+      size: 1024,
+      expiresAt: '2028-01-01T00:00:00.000Z',
+      downloadUrl: '/api/v1/submission-files/file-opaque',
+    },
+  });
+  expect(serialized).not.toContain('storageKey');
 });
 
 it('비학생·비멤버·미승인 신청은 각각의 403으로 끝난다', async () => {

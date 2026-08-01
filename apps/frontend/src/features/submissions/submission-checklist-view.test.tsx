@@ -25,6 +25,7 @@ function submission(
     lastReviewedAt: null,
     reviewComment: null,
     canResubmit: false,
+    file: null,
     ...overrides,
   };
 }

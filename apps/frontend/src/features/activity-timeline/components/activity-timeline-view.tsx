@@ -188,8 +188,16 @@ export function ActivityTimelineView({
         ) : (
           <EmptyState
             icon={<ChartNoAxesCombined className="size-8" />}
-            title="아직 활동 기록이 없습니다"
-            description="프로그램 활동이 수집되면 이곳에 추이가 표시됩니다."
+            title={
+              data?.dataAsOf === null
+                ? '활동 데이터를 아직 수집하지 않았습니다'
+                : '아직 활동 기록이 없습니다'
+            }
+            description={
+              data?.dataAsOf === null
+                ? '첫 수집이 완료되면 이곳에 활동 추이가 표시됩니다.'
+                : '선택한 기간에 수집된 활동이 없습니다.'
+            }
           />
         )}
       </section>

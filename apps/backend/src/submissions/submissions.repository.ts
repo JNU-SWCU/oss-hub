@@ -78,6 +78,15 @@ export interface ChecklistLatestReview {
   readonly comment: string | null;
 }
 
+export interface SubmissionFileMetadata {
+  readonly fileId: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly size: number;
+  readonly expiresAt: Date;
+  readonly downloadUrl: string;
+}
+
 export interface ChecklistMilestone {
   readonly id: string;
   readonly name: string;
@@ -88,6 +97,7 @@ export interface ChecklistMilestone {
     readonly status: SubmissionStatus;
     readonly currentRevision: number;
     readonly latestReview: ChecklistLatestReview | null;
+    readonly file: SubmissionFileMetadata | null;
   } | null;
 }
 
@@ -148,6 +158,7 @@ export interface SubmissionsStore {
   listChecklistMilestones(
     programId: string,
     applicationId: string,
+    now: Date,
   ): Promise<readonly ChecklistMilestone[]>;
   findSubmissionForParticipant(
     submissionId: string,
@@ -340,11 +351,12 @@ class PrismaSubmissionsStore implements SubmissionsStore {
   async listChecklistMilestones(
     programId: string,
     applicationId: string,
+    now: Date,
   ): Promise<readonly ChecklistMilestone[]> {
     const milestones = await this.database.milestone.findMany({
       where: { programId },
       orderBy: checklistMilestoneOrderBy,
-      select: checklistMilestoneSelect(applicationId),
+      select: checklistMilestoneSelect(applicationId, now),
     });
     return milestones.map(toChecklistMilestone);
   }
@@ -524,8 +536,8 @@ export class SubmissionsRepository implements SubmissionsStore {
     return this.store.findChecklistApplication(programId, userId);
   }
 
-  listChecklistMilestones(programId: string, applicationId: string) {
-    return this.store.listChecklistMilestones(programId, applicationId);
+  listChecklistMilestones(programId: string, applicationId: string, now: Date) {
+    return this.store.listChecklistMilestones(programId, applicationId, now);
   }
 
   findSubmissionForParticipant(submissionId: string, userId: string) {

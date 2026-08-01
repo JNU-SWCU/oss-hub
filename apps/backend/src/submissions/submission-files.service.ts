@@ -1,10 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
+import type { Readable } from 'node:stream';
 import { DomainException } from '../common/error-code';
 import {
   createSubmissionFileObjectKey,
   sanitizeSubmissionFileOriginalName,
 } from './submission-file-name';
+import {
+  isAllowedSubmissionFileType,
+  safeSubmissionFileContentType,
+} from './submission-file-content-type';
 import {
   SUBMISSION_FILE_STORAGE,
   type SubmissionFileStoragePort,
@@ -23,15 +28,6 @@ import {
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 const PENDING_TTL_MS = 24 * 60 * 60 * 1000;
 
-const ALLOWED_FILE_TYPES: Readonly<Record<string, readonly string[]>> = {
-  '.pdf': ['application/pdf'],
-  '.hwp': ['application/x-hwp'],
-  '.jpg': ['image/jpeg'],
-  '.jpeg': ['image/jpeg'],
-  '.png': ['image/png'],
-  '.zip': ['application/zip'],
-};
-
 export interface SubmissionFileUpload {
   readonly buffer: Buffer;
   readonly originalname: string;
@@ -45,6 +41,13 @@ export interface UploadedSubmissionFileResponse {
   readonly contentType: string;
   readonly size: number;
   readonly expiresAt: string;
+}
+
+export interface DownloadedSubmissionFile {
+  readonly body: Readable;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly contentLength: number;
 }
 
 @Injectable()
@@ -76,7 +79,7 @@ export class SubmissionFilesService {
       throw this.error(SubmissionsErrorCode.FILE_TOO_LARGE);
     }
     if (
-      !isAllowedFile(file.originalname, file.mimetype) ||
+      !isAllowedSubmissionFileType(file.originalname, file.mimetype) ||
       !hasValidFileSignature(file.buffer, file.originalname)
     ) {
       throw this.error(SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE);
@@ -167,6 +170,41 @@ export class SubmissionFilesService {
     };
   }
 
+  async download(
+    sessionGithubId: bigint,
+    fileId: string,
+    now: Date = new Date(),
+  ): Promise<DownloadedSubmissionFile> {
+    if (fileId.length === 0 || fileId !== fileId.trim()) {
+      throw this.error(SubmissionsErrorCode.SUBMISSION_FILE_NOT_FOUND);
+    }
+    const file = await this.repository.findDownloadableFile(
+      sessionGithubId,
+      fileId,
+      now,
+    );
+    if (file === null) {
+      throw this.error(SubmissionsErrorCode.SUBMISSION_FILE_NOT_FOUND);
+    }
+
+    let body: Readable;
+    try {
+      body = await this.storage.get(file.storageKey);
+    } catch {
+      throw this.error(SubmissionsErrorCode.FILE_STORAGE_UNAVAILABLE);
+    }
+
+    return {
+      body,
+      fileName: file.originalFileName,
+      contentType: safeSubmissionFileContentType(
+        file.originalFileName,
+        file.mimeType,
+      ),
+      contentLength: file.sizeBytes,
+    };
+  }
+
   private requiredOpaqueId(value: unknown): string {
     if (
       typeof value !== 'string' ||
@@ -236,14 +274,5 @@ function hasValidFileSignature(buffer: Buffer, fileName: string): boolean {
         buffer.length >= signature.length &&
         buffer.subarray(0, signature.length).equals(signature),
     ) ?? false
-  );
-}
-
-function isAllowedFile(fileName: string, mimeType: string): boolean {
-  const dot = fileName.lastIndexOf('.');
-  if (dot <= 0) return false;
-  const extension = fileName.slice(dot).toLowerCase();
-  return (
-    ALLOWED_FILE_TYPES[extension]?.includes(mimeType.toLowerCase()) ?? false
   );
 }

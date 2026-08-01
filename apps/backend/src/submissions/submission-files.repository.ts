@@ -50,6 +50,15 @@ export interface ClaimedSubmissionFile {
   readonly claimOwner: string;
 }
 
+export interface DownloadableSubmissionFile {
+  readonly id: string;
+  readonly storageKey: string;
+  readonly originalFileName: string;
+  readonly mimeType: string;
+  readonly sizeBytes: number;
+  readonly expiresAt: Date;
+}
+
 export interface RecordSubmissionFileDeleteFailureInput {
   readonly id: string;
   readonly claimOwner: string;
@@ -76,6 +85,38 @@ export class SubmissionFilesRepository {
       select: { id: true },
     });
     return user?.id ?? null;
+  }
+
+  async findDownloadableFile(
+    githubId: bigint,
+    fileId: string,
+    now: Date,
+  ): Promise<DownloadableSubmissionFile | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { githubId },
+      select: { id: true, role: true, accountStatus: true },
+    });
+    if (user?.accountStatus !== AccountStatus.ACTIVE) return null;
+
+    switch (user.role) {
+      case Role.STAFF:
+      case Role.ADMIN:
+        return this.findAuthorizedDownloadableFile({
+          ...downloadableFileWhere(fileId, now),
+        });
+      case Role.STUDENT:
+        return this.findAuthorizedDownloadableFile({
+          ...downloadableFileWhere(fileId, now),
+          OR: [
+            { uploaderId: user.id },
+            { submissionRevision: { submittedById: user.id } },
+            { application: { is: submissionParticipantWhere(user.id) } },
+          ],
+        });
+      case null:
+      case undefined:
+        return null;
+    }
   }
 
   async findUploadAuthorization(
@@ -283,4 +324,34 @@ export class SubmissionFilesRepository {
     });
     return result.count === 1;
   }
+
+  private async findAuthorizedDownloadableFile(
+    where: Prisma.SubmissionFileWhereInput,
+  ): Promise<DownloadableSubmissionFile | null> {
+    const file = await this.prisma.submissionFile.findFirst({
+      where,
+      select: {
+        id: true,
+        storageKey: true,
+        originalFileName: true,
+        mimeType: true,
+        sizeBytes: true,
+        expiresAt: true,
+      },
+    });
+    if (file?.expiresAt === null || file === null) return null;
+    return { ...file, expiresAt: file.expiresAt };
+  }
+}
+
+function downloadableFileWhere(
+  fileId: string,
+  now: Date,
+): Prisma.SubmissionFileWhereInput {
+  return {
+    id: fileId,
+    lifecycle: SubmissionFileLifecycle.ATTACHED,
+    submissionRevisionId: { not: null },
+    expiresAt: { gt: now },
+  };
 }

@@ -1,8 +1,10 @@
 import { ValidationPipe } from '@nestjs/common';
-import type { INestApplication } from '@nestjs/common';
+import type { ExecutionContext, INestApplication } from '@nestjs/common';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
+import { Readable } from 'node:stream';
 import { OriginGuard } from '../auth/origin.guard';
+import type { AuthenticatedRequest } from '../auth/session.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import {
@@ -16,6 +18,7 @@ import { SubmissionsService } from './submissions.service';
 
 let application: INestApplication | undefined;
 let baseUrl = '';
+const SESSION_GITHUB_ID = 342_900_001n;
 const form = jest.fn().mockResolvedValue({
   applicationId: 'synthetic-application',
   applicationMode: 'PERSONAL',
@@ -62,6 +65,12 @@ const resubmit = jest.fn().mockResolvedValue({
   revision: 2,
   status: 'SUBMITTED',
 });
+const download = jest.fn().mockResolvedValue({
+  body: Readable.from(Buffer.from('private-file-body')),
+  fileName: '보고서 1차.pdf',
+  contentType: 'application/pdf',
+  contentLength: 17,
+});
 const upload = jest.fn().mockResolvedValue({
   fileId: 'synthetic-file',
   fileName: 'synthetic.pdf',
@@ -73,6 +82,7 @@ const upload = jest.fn().mockResolvedValue({
 beforeEach(() => {
   create.mockClear();
   resubmit.mockClear();
+  download.mockClear();
   upload.mockClear();
 });
 
@@ -91,12 +101,20 @@ beforeAll(async () => {
       },
       {
         provide: SubmissionFilesService,
-        useValue: { upload },
+        useValue: { download, upload },
       },
     ],
   })
     .overrideGuard(SessionGuard)
-    .useValue({ canActivate: () => true })
+    .useValue({
+      canActivate: (context: ExecutionContext): boolean => {
+        const request = context
+          .switchToHttp()
+          .getRequest<AuthenticatedRequest>();
+        request.sessionGithubId = SESSION_GITHUB_ID;
+        return true;
+      },
+    })
     .overrideGuard(OriginGuard)
     .useValue({ canActivate: () => true })
     .compile();
@@ -207,6 +225,27 @@ it('내 체크리스트는 계약 형태로 직렬화하고 브라우저·공유
   });
 });
 
+it('파일 다운로드는 attachment 스트림과 private no-store 헤더를 반환한다', async () => {
+  // Given: 서비스가 private 파일 스트림과 안전한 메타데이터를 반환한다.
+
+  // When
+  const response = await fetch(
+    `${baseUrl}/api/v1/submission-files/synthetic-file`,
+  );
+
+  // Then
+  expect(response.status).toBe(200);
+  expect(response.headers.get('cache-control')).toBe('private, no-store');
+  expect(response.headers.get('content-type')).toBe('application/pdf');
+  expect(response.headers.get('content-length')).toBe('17');
+  expect(response.headers.get('content-disposition')).toContain('attachment');
+  expect(response.headers.get('content-disposition')).toContain(
+    "filename*=UTF-8''%EB%B3%B4%EA%B3%A0%EC%84%9C%201%EC%B0%A8.pdf",
+  );
+  await expect(response.text()).resolves.toBe('private-file-body');
+  expect(download).toHaveBeenCalledWith(SESSION_GITHUB_ID, 'synthetic-file');
+});
+
 it('재제출은 baseRevision과 정규화된 content를 서비스에 전달하고 201로 끝난다', async () => {
   // Given
   const body = {
@@ -232,11 +271,15 @@ it('재제출은 baseRevision과 정규화된 content를 서비스에 전달하�
     revision: 2,
     status: 'SUBMITTED',
   });
-  expect(resubmit).toHaveBeenCalledWith(undefined, 'synthetic-submission', {
-    baseRevision: 1,
-    content: { type: 'TEXT', text: '보완한 본문' },
-    comment: '실행 화면을 추가했습니다',
-  });
+  expect(resubmit).toHaveBeenCalledWith(
+    SESSION_GITHUB_ID,
+    'synthetic-submission',
+    {
+      baseRevision: 1,
+      content: { type: 'TEXT', text: '보완한 본문' },
+      comment: '실행 화면을 추가했습니다',
+    },
+  );
 });
 
 it('content가 누락된 재제출은 validation 4xx로 끝난다', async () => {
@@ -362,6 +405,9 @@ it('체크리스트는 세션 가드를, 재제출은 세션+Origin 가드를 �
   expect(
     readGuards(SubmissionChecklistController.prototype, 'checklist'),
   ).toEqual([SessionGuard]);
+  expect(readGuards(SubmissionFilesController.prototype, 'download')).toEqual([
+    SessionGuard,
+  ]);
   expect(readGuards(SubmissionsController.prototype, 'resubmit')).toEqual([
     SessionGuard,
     OriginGuard,

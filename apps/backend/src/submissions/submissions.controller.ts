@@ -12,11 +12,14 @@ import {
   Post,
   Query,
   Req,
+  Res,
+  StreamableFile,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 import { DomainException } from '../common/error-code';
 import { OriginGuard } from '../auth/origin.guard';
 import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
@@ -146,6 +149,24 @@ export class SubmissionMatrixController {
 export class SubmissionFilesController {
   constructor(private readonly service: SubmissionFilesService) {}
 
+  @Get(':fileId')
+  @UseGuards(SessionGuard)
+  async download(
+    @Req() request: SubmissionRequest,
+    @Param('fileId') fileId: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    const file = await this.service.download(request.sessionGithubId, fileId);
+    response.setHeader('Cache-Control', 'private, no-store');
+    response.setHeader('Content-Type', file.contentType);
+    response.setHeader('Content-Length', String(file.contentLength));
+    response.setHeader(
+      'Content-Disposition',
+      attachmentDisposition(file.fileName),
+    );
+    return new StreamableFile(file.body);
+  }
+
   @Post()
   @HttpCode(201)
   @UseGuards(SessionGuard, OriginGuard)
@@ -167,6 +188,39 @@ export class SubmissionFilesController {
       baseRevision,
     );
   }
+}
+
+function attachmentDisposition(fileName: string): string {
+  const fallback = asciiFallbackFileName(fileName);
+  return `attachment; filename="${fallback}"; filename*=UTF-8''${rfc5987(fileName)}`;
+}
+
+function asciiFallbackFileName(fileName: string): string {
+  const fallback = [...fileName]
+    .map((character) => {
+      const code = character.charCodeAt(0);
+      if (
+        code < 0x20 ||
+        code > 0x7e ||
+        character === '"' ||
+        character === '\\' ||
+        character === '/' ||
+        character === ';'
+      ) {
+        return '_';
+      }
+      return character;
+    })
+    .join('')
+    .trim();
+  return fallback.length > 0 ? fallback : 'file';
+}
+
+function rfc5987(value: string): string {
+  return encodeURIComponent(value).replace(
+    /[!'()*]/g,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
 }
 @Controller('submissions')
 export class SubmissionsController {

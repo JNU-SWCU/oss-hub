@@ -454,6 +454,7 @@ describe('SubmissionsService integration', () => {
         contentType: 'application/pdf',
       }),
       delete: jest.fn().mockResolvedValue(undefined),
+      get: jest.fn<ReturnType<SubmissionFileStoragePort['get']>, [string]>(),
     };
     const fileService = new SubmissionFilesService(
       new SubmissionFilesRepository(prisma),
