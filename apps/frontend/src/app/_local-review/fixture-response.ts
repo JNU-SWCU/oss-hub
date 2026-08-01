@@ -30,6 +30,7 @@ import {
   ACCOUNT_HANDLERS,
   myProfileFixtureFor,
   resetLocalReviewRoleSelection,
+  reviewAssignedRole,
 } from './handlers/account-handlers';
 import { ADMIN_HANDLERS } from './handlers/admin-handlers';
 import { STAFF_HANDLERS } from './handlers/staff-handlers';
@@ -351,7 +352,18 @@ const PUBLIC_ARCHIVE_FIXTURES = [
  * 역할이 없는 페르소나(`unassigned`)에게는 의미가 없다 — 그쪽은 `OnboardingGate`가
  * `users/me/profile`을 직접 조회해 판단한다.
  */
-function authenticatedSession(role: AuthRole | null): LocalReviewResponsePlan {
+/**
+ * 로그인된 세션 응답.
+ *
+ * `isProfileComplete`는 기본값을 "역할이 있으면 완료"로 둔다 — 고정 페르소나들은
+ * 이미 프로필이 채워진 상태로 시작하기 때문이다. 온보딩 중인 페르소나만 이 값을
+ * 직접 넘긴다: 역할은 정해졌는데 프로필은 비어 있는 구간이 실제로 존재하고, 그
+ * 구간을 완료로 답하면 `RoleGate`가 프로필 단계를 건너뛴다.
+ */
+function authenticatedSession(
+  role: AuthRole | null,
+  isProfileComplete: boolean = role !== null,
+): LocalReviewResponsePlan {
   const roleLabel = role?.toLowerCase() ?? 'unassigned';
   return json(200, {
     isAuthenticated: true,
@@ -361,7 +373,7 @@ function authenticatedSession(role: AuthRole | null): LocalReviewResponsePlan {
       email: null,
       avatarUrl: null,
       role,
-      isProfileComplete: role !== null,
+      isProfileComplete,
     },
   });
 }
@@ -418,10 +430,22 @@ function sessionResponse(
       return authenticatedSession('STAFF');
     case 'admin':
       return authenticatedSession('ADMIN');
+    // 온보딩 중인 페르소나. 학생을 고르면 그 자리에서 역할이 확정되므로(백엔드
+    // `roles.service.ts`의 `selectStudent`도 승인 없이 바로 배정한다) 세션도 함께
+    // 바뀌어야 한다 — 계속 미배정으로 답하면 게이트가 역할 선택 화면으로 되돌려
+    // 검토자는 "제출은 되는데 화면이 그대로"인 상태에 갇힌다.
+    //
+    // 프로필 완료 여부는 프로필 응답과 같은 값을 써야 한다. 역할만 확정되고 프로필은
+    // 비어 있는 구간을 완료로 답하면 `RoleGate`가 프로필 단계를 통째로 건너뛴다.
     case 'unassigned':
-    // 역할 승인 대기도 아직 역할이 없는 상태다. 차이는 role-requests/me 응답뿐이다.
+      return authenticatedSession(
+        reviewAssignedRole(),
+        myProfileFixtureFor('unassigned').isComplete,
+      );
+    // 역할 승인 대기는 승인 전까지 역할이 없는 것이 정상이다. 프로필은 이미 채운
+    // 상태라 차이는 role-requests/me 응답뿐이다.
     case 'role-pending':
-      return authenticatedSession(null);
+      return authenticatedSession(null, true);
     case 'loading':
       return { kind: 'delay', milliseconds: 60_000 };
     case 'error':
@@ -591,6 +615,9 @@ export function resolveLocalReviewResponse({
     (fixture === 'student' ||
       fixture === 'settings' ||
       fixture === 'wrong-role' ||
+      // 학생으로 가입을 마친 미배정 페르소나가 마지막에 도착하는 화면이기도 하다.
+      // 빠지면 프로필 저장 직후 404가 떠서, 가입 동선의 끝이 실패로 보인다.
+      fixture === 'unassigned' ||
       // 복구 후 착지하는 화면이 학생 대시보드다. 여기서 빠지면 재시도가 성공해도
       // 빈 대시보드가 떠서 복구된 것으로 보이지 않는다.
       fixture === 'error-once')

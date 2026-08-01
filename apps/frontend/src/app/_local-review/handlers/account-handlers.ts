@@ -271,7 +271,11 @@ const NOTIFICATION_CHANNEL_FIXTURE = {
   notifyEnabled: true,
 } as const;
 
-const CONSENT_POLICY_VERSION = '2026-07-01';
+/**
+ * 백엔드 `consents/domain/consent-policy.ts`의 `CONSENT_POLICY_VERSION`과 같은 값이다.
+ * 문서 파일 이름이 곧 이 버전이라(`public/policies/{항목}/{버전}.html`) 어긋나면 전문이 404가 된다.
+ */
+const CONSENT_POLICY_VERSION = '2026-07-21';
 
 /**
  * 동의 후 이동 경로. 온보딩은 동의 → **역할** → 프로필 순서다.
@@ -282,23 +286,36 @@ const CONSENT_POLICY_VERSION = '2026-07-01';
  */
 const CONSENT_NEXT_URL = '/onboarding/role';
 
+/**
+ * 필수 동의 항목. 백엔드 `CURRENT_CONSENT_POLICY.requiredItems`를 그대로 미러링한다.
+ *
+ * 여기만 `[합성]` 접두사를 떼는 이유: 이 세 문서는 제품이 실제로 배포하는 진짜 약관이고
+ * (`public/policies/`), 그 내용이 곧 검토 대상이다. 합성이라고 이름 붙이면 검토자가
+ * 실제 약관을 읽고도 "지어낸 문장"으로 넘겨 짚는다. 예전에는 `/legal/synthetic-*` 라는
+ * 없는 주소를 가리켜 "전문 보기"가 404 빈 화면이었다 — 라벨만 진짜처럼 보이고 내용이
+ * 없는 쪽이 훨씬 나쁜 오해를 만든다.
+ *
+ * 합성인 것은 **사용자 데이터**지 약관 문서가 아니다. 그 사실은 이 화면 위에 그대로
+ * 남아 있다 — 헤더의 계정 이름이 `synthetic-unassigned`이고, 프로필·저장소 픽스처도
+ * 모두 `합성 …` 이름을 쓴다.
+ */
 const CURRENT_CONSENT_FIXTURE = {
   policyVersion: CONSENT_POLICY_VERSION,
   requiredItems: [
     {
-      key: 'synthetic-privacy',
-      label: '[합성] 개인정보 수집·이용 동의',
-      documentUrl: '/legal/synthetic-privacy',
+      key: 'PRIVACY_COLLECTION',
+      label: '개인정보 수집·이용',
+      documentUrl: `/policies/privacy/${CONSENT_POLICY_VERSION}.html`,
     },
     {
-      key: 'synthetic-activity',
-      label: '[합성] 저장소 활동 수집 동의',
-      documentUrl: '/legal/synthetic-activity',
+      key: 'GITHUB_ACTIVITY',
+      label: 'GitHub 활동 수집·공개 범위',
+      documentUrl: `/policies/github-activity/${CONSENT_POLICY_VERSION}.html`,
     },
     {
-      key: 'synthetic-archive',
-      label: '[합성] 결과물 공개 아카이브 게시 동의',
-      documentUrl: '/legal/synthetic-archive',
+      key: 'ORG_REPOSITORY_TERMS',
+      label: 'Org 저장소 운영 약관',
+      documentUrl: `/policies/org-repository-terms/${CONSENT_POLICY_VERSION}.html`,
     },
   ],
   // `true`면 화면이 즉시 nextUrl로 빠져나가 동의 화면 자체를 볼 수 없다.
@@ -321,22 +338,38 @@ const PENDING_STAFF_ROLE_REQUEST = {
 } as const satisfies RoleRequest;
 
 /**
- * 검토 세션 동안 기억하는 교직원 선택.
+ * 검토 세션 동안 기억하는 역할 선택.
  *
- * 순서가 역할 → 프로필로 바뀌면서, 교직원 가입을 끝까지 걸어 보려면 "역할은 골랐고
- * 프로필은 아직 비어 있는" 상태가 필요해졌다. 선택을 기억하지 않으면 대기 화면이
- * 읽는 `role-requests/me`가 계속 `null`이라 역할 선택 화면으로 되돌아오고, 정작
- * 확인해야 할 프로필 화면(교직원에게 학번을 묻지 않는지)에 도달할 수 없다.
+ * 순서가 역할 → 프로필로 바뀌면서, 가입을 끝까지 걸어 보려면 "역할은 골랐고 프로필은
+ * 아직 비어 있는" 상태가 필요해졌다. 선택을 기억하지 않으면 다음 화면의 게이트가
+ * 아직 아무것도 고르지 않은 것으로 읽어 역할 선택 화면으로 되돌리고, 정작 확인해야 할
+ * 프로필 화면에 아무도 도달하지 못한다.
+ *
+ * 교직원만 기억하던 때는 학생 쪽이 그 함정에 그대로 빠져 있었다 — 픽스처는
+ * `redirectTo: '/dashboard'`를 주는데 세션 역할이 계속 미배정이라, 게이트가 다시
+ * `/onboarding/role`로 되돌려 제자리에 머물렀다. 그래서 고른 역할 자체를 기억한다:
+ * 교직원은 `role-requests/me`의 `PENDING`으로, 학생은 세션의 배정 역할로 이어진다
+ * (백엔드도 학생은 승인 없이 즉시 배정한다 — `roles.service.ts`의 `selectStudent`).
  *
  * 전역 가변 상태를 두는 근거는 `error-once`와 같다 — 이 어댑터는 development +
  * loopback + 명시 플래그가 모두 맞을 때만 살아 있고, 검토자 한 명의 브라우저 하나만
  * 바라본다. 서버를 다시 띄우면 초기값으로 돌아간다.
  */
-let staffRequestedInReview = false;
+let selectedRoleInReview: RoleSelection | null = null;
+
+/**
+ * 학생을 고른 뒤의 세션 역할. 고르기 전이거나 교직원을 골랐으면 `null`이다.
+ *
+ * 세션 응답(`fixture-response.ts`)이 이 값을 읽어야 학생 선택이 실제로 확정된다.
+ * 교직원은 관리자 승인 전까지 세션 역할이 비는 것이 정상이라 여기서 빠진다.
+ */
+export function reviewAssignedRole(): 'STUDENT' | null {
+  return selectedRoleInReview === 'STUDENT' ? 'STUDENT' : null;
+}
 
 /** 테스트·검토 초기화 전용. */
 export function resetLocalReviewRoleSelection(): void {
-  staffRequestedInReview = false;
+  selectedRoleInReview = null;
   savedOnboardingProfile = null;
 }
 
@@ -345,8 +378,9 @@ export function resetLocalReviewRoleSelection(): void {
  * 따라 갈린다 — 학생은 역할이 즉시 확정돼 대시보드로, 교직원은 승인 대기 상태가
  * 되어 `/onboarding/pending`으로 간다. 화면은 `redirectTo`로 이동한다.
  *
- * 한계: 학생 선택은 저장되지 않는다(세션 역할이 페르소나 고정값이라 그렇다).
- * 교직원 선택만 위 `staffRequestedInReview`에 남아 다음 단계로 이어진다.
+ * 두 선택 모두 위 `selectedRoleInReview`에 남아 다음 단계로 이어진다. 학생은
+ * 역할 홈(`/dashboard`)에 도착하지만 프로필이 비어 있어 `RoleGate`가 곧바로
+ * `/onboarding/profile`로 넘긴다 — 학번을 묻는 자리가 거기다.
  */
 function roleSelectionResult(selected: RoleSelection): RoleSelectionResult {
   return selected === 'STAFF'
@@ -438,7 +472,9 @@ function isCompleteProfile(
     value.length <= PROFILE_FIELD_MAX_LENGTH;
   // 교직원을 고른 미배정 페르소나는 학번 없이도 완료다. 여기서 학번을 요구하면
   // 검토자가 화면에서는 학번을 묻지 않는데 저장이 안 되는 모순을 보게 된다.
-  const needsStudentId = !(fixture === 'unassigned' && staffRequestedInReview);
+  const needsStudentId = !(
+    fixture === 'unassigned' && selectedRoleInReview === 'STAFF'
+  );
   return (
     filled(profile.name) &&
     (!needsStudentId ||
@@ -548,9 +584,7 @@ function onboardingRoleHandler(
     const selected =
       bodyEnum<RoleSelection>(context, 'selectedRole', ['STUDENT', 'STAFF']) ??
       'STUDENT';
-    if (selected === 'STAFF') {
-      staffRequestedInReview = true;
-    }
+    selectedRoleInReview = selected;
     return json(200, roleSelectionResult(selected));
   }
 
@@ -574,7 +608,7 @@ function myRoleRequestHandler(
   if (!context.isAuthenticated) return unauthorized(context.path);
   const isPending =
     context.fixture === 'role-pending' ||
-    (context.fixture === 'unassigned' && staffRequestedInReview);
+    (context.fixture === 'unassigned' && selectedRoleInReview === 'STAFF');
   return isPending ? json(200, PENDING_STAFF_ROLE_REQUEST) : json(200, null);
 }
 

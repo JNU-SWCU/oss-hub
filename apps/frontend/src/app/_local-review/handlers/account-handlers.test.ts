@@ -5,7 +5,11 @@ import {
   createLocalReviewActivation,
   type LocalReviewFixtureId,
 } from '../fixture-contract';
-import { resolveLocalReviewResponse } from '../fixture-response';
+import {
+  resetLocalReviewFixtureState,
+  resolveLocalReviewResponse,
+} from '../fixture-response';
+import { resetLocalReviewRoleSelection } from './account-handlers';
 
 function call(
   fixture: LocalReviewFixtureId,
@@ -45,6 +49,12 @@ function jsonBody(
   expect(plan.status).toBe(status);
   return plan.body;
 }
+
+/**
+ * 백엔드 `consents/domain/consent-policy.ts`의 정책 버전. 문서 파일 이름이 곧 이
+ * 버전이라 어긋나면 "전문 보기"가 404가 된다.
+ */
+const CONSENT_POLICY_VERSION = '2026-07-21';
 
 const AUTHENTICATED_FIXTURES = [
   'student',
@@ -131,13 +141,34 @@ describe('account fixture responses', () => {
 
     // Then: consented가 true면 화면이 즉시 빠져나가 동의 화면을 볼 수 없다.
     expect(body).toMatchObject({
-      policyVersion: '2026-07-01',
+      policyVersion: CONSENT_POLICY_VERSION,
       consented: false,
       nextUrl: '/onboarding/role',
     });
     expect((body as { requiredItems: unknown[] }).requiredItems).toHaveLength(
       3,
     );
+  });
+
+  // "전문 보기"가 열어야 할 문서는 `public/policies/`에 실제로 있는 파일이다.
+  // 없는 주소를 주면 대화상자에 404가 뜨고, 검토자는 약관 내용을 못 본 채 동의한다.
+  it('약관 전문 주소가 제품이 배포하는 실제 문서를 가리킨다', () => {
+    // Given / When
+    const body = jsonBody(call('unassigned', 'GET', 'consents/current')) as {
+      requiredItems: readonly { key: string; documentUrl: string }[];
+    };
+
+    // Then: 키·주소 모두 백엔드 `CURRENT_CONSENT_POLICY`와 같은 값이다.
+    expect(body.requiredItems.map((item) => item.key)).toEqual([
+      'PRIVACY_COLLECTION',
+      'GITHUB_ACTIVITY',
+      'ORG_REPOSITORY_TERMS',
+    ]);
+    expect(body.requiredItems.map((item) => item.documentUrl)).toEqual([
+      `/policies/privacy/${CONSENT_POLICY_VERSION}.html`,
+      `/policies/github-activity/${CONSENT_POLICY_VERSION}.html`,
+      `/policies/org-repository-terms/${CONSENT_POLICY_VERSION}.html`,
+    ]);
   });
 
   it('lets the approval-waiting reviewer past the consent step', () => {
@@ -147,7 +178,7 @@ describe('account fixture responses', () => {
     // Then: 이미 동의를 마친 상태여야 랜딩 진입 버튼(`/consent`)이 1단계에서
     // 멈추지 않고 `/onboarding/pending`까지 이어진다.
     expect(body).toMatchObject({
-      policyVersion: '2026-07-01',
+      policyVersion: CONSENT_POLICY_VERSION,
       consented: true,
       nextUrl: '/onboarding/role',
     });
@@ -159,7 +190,7 @@ describe('account fixture responses', () => {
 
     // Then
     expect(body).toMatchObject({
-      policyVersion: '2026-07-01',
+      policyVersion: CONSENT_POLICY_VERSION,
       nextUrl: '/onboarding/role',
     });
     expect(
@@ -332,6 +363,63 @@ describe('account fixture responses', () => {
     expect(staffRequest).toMatchObject({
       requestedRole: 'STAFF',
       status: 'PENDING',
+    });
+  });
+
+  // 학생 선택을 기억하지 않으면 세션이 계속 미배정이라, 제출은 되는데 게이트가
+  // 역할 선택 화면으로 되돌려 검토자가 제자리에 갇힌다. 백엔드도 학생은 승인 없이
+  // 즉시 배정하므로(roles.service.ts `selectStudent`) 세션이 함께 바뀌어야 맞다.
+  it('학생 선택은 세션 역할까지 확정해 프로필 단계로 이어 준다', () => {
+    // Given
+    resetLocalReviewFixtureState();
+
+    // When
+    callWithBody('unassigned', 'POST', 'onboarding/role', {
+      selectedRole: 'STUDENT',
+    });
+    const session = jsonBody(call('unassigned', 'GET', 'auth/session'));
+
+    // Then: 프로필은 아직 비어 있어야 RoleGate가 프로필 입력으로 넘긴다.
+    expect(session).toMatchObject({
+      isAuthenticated: true,
+      user: { role: 'STUDENT', isProfileComplete: false },
+    });
+  });
+
+  it('교직원 선택은 승인 전이라 세션 역할 대신 대기 요청으로 남는다', () => {
+    // Given
+    resetLocalReviewFixtureState();
+
+    // When
+    callWithBody('unassigned', 'POST', 'onboarding/role', {
+      selectedRole: 'STAFF',
+    });
+    const session = jsonBody(call('unassigned', 'GET', 'auth/session'));
+    const roleRequest = jsonBody(call('unassigned', 'GET', 'role-requests/me'));
+
+    // Then
+    expect(session).toMatchObject({ user: { role: null } });
+    expect(roleRequest).toMatchObject({
+      requestedRole: 'STAFF',
+      status: 'PENDING',
+    });
+  });
+
+  // 검토판 링크를 다시 누르는 것이 곧 "처음부터 다시"여야 한다. 지우지 않으면 한 번
+  // 걸어 본 가입 동선을 서버를 다시 띄우기 전에는 볼 수 없다.
+  it('페르소나를 다시 켜면 앞선 검토의 역할 선택이 지워진다', () => {
+    // Given: 교직원까지 골라 둔 상태.
+    callWithBody('unassigned', 'POST', 'onboarding/role', {
+      selectedRole: 'STAFF',
+    });
+
+    // When: 활성화 경로가 하는 일과 같은 초기화.
+    resetLocalReviewRoleSelection();
+
+    // Then: 역할 선택 화면이 다시 첫 화면이 된다.
+    expect(jsonBody(call('unassigned', 'GET', 'role-requests/me'))).toBeNull();
+    expect(jsonBody(call('unassigned', 'GET', 'auth/session'))).toMatchObject({
+      user: { role: null },
     });
   });
 
