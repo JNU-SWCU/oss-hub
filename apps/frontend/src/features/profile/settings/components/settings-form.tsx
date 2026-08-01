@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react';
-import { FormSection, PageHeader } from '@/components';
+import { FormSection, PageBody, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,12 +9,14 @@ import {
   FieldLabel,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { DEPARTMENT_GROUPS, OTHER_DEPARTMENT } from '../../departments';
 import {
   profileFieldRequirement,
   type ProfileRole,
 } from '../../profile-requirements';
 import {
+  hasSavedStudentId,
   PROFILE_DEPARTMENT_MAX_LENGTH,
   PROFILE_NAME_MAX_LENGTH,
 } from '../../profile-state';
@@ -40,14 +42,14 @@ interface SettingsFormProps {
 
 export function SettingsSkeleton() {
   return (
-    <main
-      className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6"
+    <PageBody
+      className="max-w-2xl"
       role="status"
       aria-label="설정을 불러오는 중"
     >
-      <div className="h-16 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-80 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-    </main>
+      <div className="h-16 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
+      <div className="h-80 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
+    </PageBody>
   );
 }
 
@@ -69,24 +71,27 @@ export function SettingsForm({
   }
 
   const showNameError = showValidationErrors && errors.name !== null;
+  const showStudentIdError = showValidationErrors && errors.studentId !== null;
   const showDepartmentError =
     showValidationErrors && errors.department !== null;
   const showEmailError =
     showValidationErrors && errors.notificationEmail !== null;
   // 저장 버튼은 제출 중일 때만 막는다. 무효 값에서도 클릭해 인라인 오류를 볼 수 있어야 한다(#156).
 
-  // 역할이 요구하지 않는 항목은 감춘다. 값은 폼 상태에 그대로 남아 저장 요청에
-  // 다시 실리므로, 역할이 바뀌어도 이미 저장된 학번·학과가 지워지지 않는다.
+  // 역할이 요구하지 않는 항목이라고 감추지는 않는다. 조교처럼 대학원생 신분을
+  // 겸하는 교직원은 학번이 실제로 있고 그 값을 남기고 싶어 한다. 필수가 아닌
+  // 역할에게는 선택 항목으로 열어 두고, 한 번 저장하면 학적 식별자로 고정한다.
   const requirement = profileFieldRequirement(role);
+  const isStudentIdLocked = hasSavedStudentId(values);
   const editableFields = requirement.department
     ? '이름과 학과를 수정할 수 있습니다.'
     : '이름을 수정할 수 있습니다.';
-  const profileSectionDescription = requirement.studentId
+  const profileSectionDescription = isStudentIdLocked
     ? `${editableFields} 학번은 변경할 수 없습니다.`
     : editableFields;
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
+    <PageBody className="max-w-2xl">
       <PageHeader
         title="설정"
         description="프로필과 알림 수신 설정을 관리합니다."
@@ -95,13 +100,14 @@ export function SettingsForm({
       {toastMessage ? (
         <div
           role="status"
-          className="rounded-lg border border-status-approved-bg bg-status-approved-bg px-3 py-2 text-sm text-status-approved-fg"
+          className="rounded-card border border-status-approved-bg bg-status-approved-bg px-6 py-4 text-small font-semibold text-status-approved-fg"
         >
           {toastMessage}
         </div>
       ) : null}
 
-      <form className="flex flex-col gap-6" noValidate onSubmit={handleSubmit}>
+      {/* 구역 사이 64 — 프로필과 알림은 서로 다른 결정이다 */}
+      <form className="flex flex-col gap-16" noValidate onSubmit={handleSubmit}>
         <FormSection title="프로필" description={profileSectionDescription}>
           <Field data-invalid={showNameError || undefined}>
             <FieldLabel htmlFor="settings-name">이름</FieldLabel>
@@ -117,28 +123,50 @@ export function SettingsForm({
             {showNameError ? <FieldError>{errors.name}</FieldError> : null}
           </Field>
 
-          {requirement.studentId ? (
-            <Field>
-              <FieldLabel htmlFor="settings-student-id">학번</FieldLabel>
-              <Input
-                id="settings-student-id"
-                name="studentId"
-                value={values.studentId}
-                readOnly
-                disabled
-                aria-readonly="true"
-              />
-              <FieldDescription>학번은 변경할 수 없습니다.</FieldDescription>
-            </Field>
-          ) : null}
+          <Field data-invalid={showStudentIdError || undefined}>
+            <FieldLabel htmlFor="settings-student-id">
+              학번
+              {/* 이미 고정된 학번에까지 "선택"을 붙이면 아직 고를 수 있다는 뜻이 된다. */}
+              {requirement.studentId || isStudentIdLocked ? null : (
+                <span className="ml-1 text-small font-normal text-muted-foreground">
+                  선택
+                </span>
+              )}
+            </FieldLabel>
+            <Input
+              id="settings-student-id"
+              name="studentId"
+              inputMode="numeric"
+              value={values.studentId}
+              readOnly={isStudentIdLocked}
+              disabled={isStudentIdLocked}
+              aria-readonly={isStudentIdLocked || undefined}
+              aria-invalid={showStudentIdError}
+              onChange={
+                isStudentIdLocked
+                  ? undefined
+                  : (event) => onChange({ studentId: event.target.value })
+              }
+            />
+            {showStudentIdError ? (
+              <FieldError>{errors.studentId}</FieldError>
+            ) : (
+              <FieldDescription>
+                {isStudentIdLocked
+                  ? '학번은 변경할 수 없습니다.'
+                  : requirement.studentId
+                    ? '숫자 6~10자리로 입력합니다.'
+                    : '학번이 있으면 입력합니다. 한 번 저장하면 변경할 수 없습니다.'}
+              </FieldDescription>
+            )}
+          </Field>
 
           {requirement.department ? (
             <Field data-invalid={showDepartmentError || undefined}>
               <FieldLabel htmlFor="settings-department">학과</FieldLabel>
-              <select
+              <Select
                 id="settings-department"
                 name="department"
-                className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
                 value={values.departmentOption}
                 aria-invalid={showDepartmentError}
                 onChange={(event) =>
@@ -162,7 +190,7 @@ export function SettingsForm({
                   </optgroup>
                 ))}
                 <option value={OTHER_DEPARTMENT}>기타(직접 입력)</option>
-              </select>
+              </Select>
               {values.departmentOption === OTHER_DEPARTMENT ? (
                 <Input
                   aria-label="기타 학과"
@@ -213,9 +241,11 @@ export function SettingsForm({
                 ) : null}
               </Field>
 
-              <label className="flex items-center gap-2 text-sm">
+              {/* 체크박스 줄도 손이 닿는 크기(44)를 유지한다 */}
+              <label className="flex min-h-control items-center gap-3 text-body">
                 <input
                   type="checkbox"
+                  className="size-5"
                   name="notifyEnabled"
                   checked={values.notifyEnabled}
                   onChange={(event) =>
@@ -235,10 +265,13 @@ export function SettingsForm({
           </Alert>
         ) : null}
 
-        <Button type="submit" size="lg" disabled={isSubmitting}>
-          {isSubmitting ? '저장 중…' : '저장'}
-        </Button>
+        {/* 이 화면의 주 행동은 저장 하나다 — 채운 버튼도 여기 하나뿐이다 */}
+        <div className="flex flex-wrap items-center gap-4">
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? '저장 중…' : '저장'}
+          </Button>
+        </div>
       </form>
-    </main>
+    </PageBody>
   );
 }

@@ -121,37 +121,65 @@ export function toCompleteProfileRequest(
   };
 }
 
-/** 설정 화면용 — 학번은 읽기 전용(백엔드 `USR_003`)이므로 name·department만 검증한다. */
+/**
+ * 설정 화면이 다루는 프로필 항목.
+ *
+ * 서버에 이미 저장된 학번을 함께 받는다 — 학번이 수정 가능한지, 저장 요청에
+ * 실어야 하는지가 "지금 저장된 값이 있는가"로 갈리기 때문이다. 폼에 입력된
+ * `studentId`만으로는 사용자가 방금 친 값인지 불러온 값인지 구분할 수 없다.
+ */
+export type SettingsProfileFields = Pick<
+  ProfileFormValues,
+  'name' | 'studentId' | 'departmentOption' | 'otherDepartment'
+> & {
+  /** 서버에 저장돼 있던 학번. 비어 있으면 아직 학번이 없다는 뜻이다. */
+  readonly savedStudentId: string;
+};
+
+/** 저장된 학번이 있으면 수정할 수 없다 — 화면은 읽기 전용, 요청에서는 제외. */
+export function hasSavedStudentId(values: SettingsProfileFields): boolean {
+  return values.savedStudentId.trim().length > 0;
+}
+
+/**
+ * 설정 화면용 검증.
+ *
+ * 학번은 아직 저장된 값이 없을 때만 검증한다. 이미 저장돼 있으면 읽기 전용이라
+ * 사용자가 만들 수 있는 오류가 없고, 예전에 들어간 값이 지금 형식과 맞지 않더라도
+ * 그 때문에 이름·학과 저장까지 막을 이유는 없다.
+ */
 export function validateSettingsProfileForm(
-  values: Pick<
-    ProfileFormValues,
-    'name' | 'departmentOption' | 'otherDepartment'
-  >,
+  values: SettingsProfileFields,
   role: ProfileRole | null,
-): Pick<ProfileFormErrors, 'name' | 'department'> {
+): ProfileFormErrors {
+  const requirement = profileFieldRequirement(role);
   return {
     name: nameError(values.name),
+    studentId: hasSavedStudentId(values)
+      ? null
+      : studentIdError(values.studentId.trim(), requirement.studentId),
     department: departmentError(
       resolveDepartment(values),
-      profileFieldRequirement(role).department,
+      requirement.department,
     ),
   };
 }
 
 export function toUpdateProfileRequest(
-  values: Pick<
-    ProfileFormValues,
-    'name' | 'departmentOption' | 'otherDepartment'
-  >,
+  values: SettingsProfileFields,
   role: ProfileRole | null,
 ): UpdateProfileRequest | null {
   const errors = validateSettingsProfileForm(values, role);
-  if (errors.name !== null || errors.department !== null) {
+  if (!isProfileFormValid(errors)) {
     return null;
   }
   const department = resolveDepartment(values);
+  // 저장된 학번이 없을 때 새로 입력한 값만 싣는다. 이미 있는 값을 다시 보내도
+  // 백엔드는 통과시키지만, 굳이 불변 항목을 요청에 태우지 않는다.
+  const studentId = hasSavedStudentId(values) ? '' : values.studentId.trim();
   return {
     name: values.name.trim(),
+    ...(studentId ? { studentId } : {}),
     ...(department ? { department } : {}),
   };
 }

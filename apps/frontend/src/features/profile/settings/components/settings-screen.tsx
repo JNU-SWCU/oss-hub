@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PageBody } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -113,7 +114,12 @@ export function SettingsScreen({
     () =>
       values
         ? validateSettingsForm(values, notificationLoad.kind === 'ready', role)
-        : { name: null, department: null, notificationEmail: null },
+        : {
+            name: null,
+            studentId: null,
+            department: null,
+            notificationEmail: null,
+          },
     [values, notificationLoad.kind, role],
   );
 
@@ -140,6 +146,16 @@ export function SettingsScreen({
 
     try {
       await updateMyProfile(profileRequest);
+
+      // 방금 처음 채운 학번은 그 자리에서 고정한다 — 다시 불러오기 전에 또 고치면
+      // 백엔드가 USR_003으로 막고, 사용자는 이유를 알 수 없는 실패를 보게 된다.
+      const savedStudentId = profileRequest.studentId;
+      if (savedStudentId) {
+        setValues(
+          (current) =>
+            current && { ...current, savedStudentId, studentId: savedStudentId },
+        );
+      }
 
       if (notificationLoad.kind === 'ready') {
         const notificationRequest = toSettingsNotificationRequest(values);
@@ -191,10 +207,10 @@ export function SettingsScreen({
 
   if (loadError) {
     return (
-      <main className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-6">
+      <PageBody className="max-w-2xl">
         <Alert variant="destructive">
           <AlertTitle>설정을 불러오지 못했습니다</AlertTitle>
-          <AlertDescription className="flex flex-col items-start gap-3">
+          <AlertDescription className="flex flex-col items-start gap-4">
             <span>{loadError}</span>
             <Button
               type="button"
@@ -205,7 +221,7 @@ export function SettingsScreen({
             </Button>
           </AlertDescription>
         </Alert>
-      </main>
+      </PageBody>
     );
   }
 

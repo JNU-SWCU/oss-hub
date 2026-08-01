@@ -18,6 +18,7 @@ function values(
   return {
     name: '합성 사용자',
     studentId: '1'.repeat(6),
+    savedStudentId: '1'.repeat(6),
     departmentOption: '인공지능학부',
     otherDepartment: '',
     notificationEmail: 'user@example.com',
@@ -85,29 +86,69 @@ describe('settings form view', () => {
     expect(html).toContain('noValidate');
   });
 
-  it('교직원에게는 학번을 감추고 이름·학과만 편집하게 한다', () => {
-    const html = renderForm(values(), { role: 'STAFF' });
+  it('학번이 없는 교직원에게는 학번을 선택 항목으로 열어 둔다', () => {
+    const html = renderForm(values({ studentId: '', savedStudentId: '' }), {
+      role: 'STAFF',
+    });
 
-    expect(html).not.toContain('settings-student-id');
+    expect(html).toContain('settings-student-id');
+    expect(html).toContain('>선택</span>');
+    expect(html).toContain(
+      '학번이 있으면 입력합니다. 한 번 저장하면 변경할 수 없습니다.',
+    );
+    // 편집 가능해야 한다 — 읽기 전용 잠금은 저장된 값이 있을 때만.
+    expect(html).not.toContain('aria-readonly="true"');
     expect(html).not.toContain('학번은 변경할 수 없습니다.');
     expect(html).toContain('settings-name');
     expect(html).toContain('settings-department');
     expect(html).toContain('이름과 학과를 수정할 수 있습니다.');
   });
 
-  it('관리자에게는 학번·학과를 모두 감추고 이름만 편집하게 한다', () => {
-    const html = renderForm(values(), { role: 'ADMIN' });
+  it('교직원도 이미 저장된 학번은 읽기 전용으로 보여 준다', () => {
+    const html = renderForm(values(), { role: 'STAFF' });
 
-    expect(html).not.toContain('settings-student-id');
+    expect(html).toContain('settings-student-id');
+    expect(html).toContain('aria-readonly="true"');
+    expect(html).toContain('학번은 변경할 수 없습니다.');
+    expect(html).toContain('1'.repeat(6));
+    // 고정된 값에 "선택"을 붙이면 아직 고를 수 있다는 뜻이 된다.
+    expect(html).not.toContain('>선택</span>');
+  });
+
+  it('관리자에게는 학과만 감추고 학번은 선택 항목으로 둔다', () => {
+    const html = renderForm(values({ studentId: '', savedStudentId: '' }), {
+      role: 'ADMIN',
+    });
+
+    expect(html).toContain('settings-student-id');
     expect(html).not.toContain('settings-department');
     expect(html).toContain('settings-name');
     expect(html).toContain('이름을 수정할 수 있습니다.');
     expect(html).toContain('settings-notification-email');
   });
 
+  it('교직원이 입력한 학번의 형식이 틀리면 인라인 오류를 보여 준다', () => {
+    const html = renderForm(
+      values({ studentId: '12A456', savedStudentId: '' }),
+      { role: 'STAFF', showValidationErrors: true },
+    );
+
+    expect(html).toContain('학번은 숫자 6~10자리로 입력해 주세요.');
+  });
+
+  it('선택 학번을 비워 둔 교직원에게는 오류를 보이지 않는다', () => {
+    const html = renderForm(values({ studentId: '', savedStudentId: '' }), {
+      role: 'STAFF',
+      showValidationErrors: true,
+    });
+
+    expect(html).not.toContain('학번은 숫자 6~10자리로 입력해 주세요.');
+  });
+
   it('감춘 항목은 필수 오류를 만들지 않는다', () => {
     const emptyProfileFields = values({
       studentId: '',
+      savedStudentId: '',
       departmentOption: '',
       otherDepartment: '',
     });

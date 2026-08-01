@@ -9,7 +9,7 @@ import {
   type FormEvent,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { FormSection, PageHeader } from '@/components';
+import { FormSection, PageBody, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,6 +19,7 @@ import {
   FieldLabel,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import {
   classifyProfileApiError,
   completeMyProfile,
@@ -55,14 +56,14 @@ interface ProfileFormProps {
 
 export function ProfileSkeleton() {
   return (
-    <main
-      className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6"
+    <PageBody
+      className="max-w-2xl"
       role="status"
       aria-label="프로필을 불러오는 중"
     >
-      <div className="h-16 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-80 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-    </main>
+      <div className="h-16 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
+      <div className="h-80 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
+    </PageBody>
   );
 }
 
@@ -81,14 +82,16 @@ export function ProfileForm({
     onSubmit();
   }
 
-  // 역할이 요구하지 않는 항목은 입력란 자체를 감춘다 — 비워 두라고 안내하는 것보다
-  // 보이지 않는 편이 낫다. 폼 상태의 값은 그대로 두므로 이미 저장된 학번·학과는
-  // 지워지지 않고 저장 요청에 다시 실린다.
+  // 학과는 역할이 요구하지 않으면 감추지만, 학번은 감추지 않고 "선택"으로 열어 둔다 —
+  // 조교처럼 대학원생 신분을 겸하는 교직원은 학번이 실제로 있고 그 값을 남기고 싶어
+  // 한다. 비워 두면 요청에서 키가 빠지고, 넣으면 학적 식별자로 고정된다.
+  // 머리말은 필수 항목을 먼저 늘어놓고, 선택으로 열린 학번을 맨 뒤에 덧붙인다.
   const requirement = profileFieldRequirement(role);
-  const requiredFields = [
+  const profileFields = [
     '이름',
     ...(requirement.studentId ? ['학번'] : []),
     ...(requirement.department ? ['학과'] : []),
+    ...(requirement.studentId ? [] : ['학번 선택']),
   ];
 
   const showNameError = showRequiredErrors && errors.name !== null;
@@ -99,12 +102,12 @@ export function ProfileForm({
   const isValid = isProfileFormValid(errors);
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
+    <PageBody className="max-w-2xl">
       <PageHeader
         title="기본 프로필을 입력해 주세요"
-        description={`프로그램 참여에 필요한 항목(${requiredFields.join(', ')})을 확인합니다.`}
+        description={`프로그램 참여에 필요한 항목(${profileFields.join(', ')})을 확인합니다.`}
       />
-      <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
+      <form className="flex flex-col gap-16" onSubmit={handleSubmit}>
         <FormSection
           title="신원 정보"
           description="입력한 정보는 이후 프로그램 신청과 프로필에 사용됩니다."
@@ -123,32 +126,40 @@ export function ProfileForm({
             {showNameError ? <FieldError>{errors.name}</FieldError> : null}
           </Field>
 
-          {requirement.studentId ? (
-            <Field data-invalid={showStudentIdError || undefined}>
-              <FieldLabel htmlFor="profile-student-id">학번</FieldLabel>
-              <Input
-                id="profile-student-id"
-                name="studentId"
-                inputMode="numeric"
-                autoComplete="off"
-                value={values.studentId}
-                aria-invalid={showStudentIdError}
-                onChange={(event) => onChange({ studentId: event.target.value })}
-              />
-              <FieldDescription>숫자 6~10자리</FieldDescription>
-              {showStudentIdError ? (
-                <FieldError>{errors.studentId}</FieldError>
-              ) : null}
-            </Field>
-          ) : null}
+          <Field data-invalid={showStudentIdError || undefined}>
+            <FieldLabel htmlFor="profile-student-id">
+              학번
+              {requirement.studentId ? null : (
+                <span className="ml-1 text-small font-normal text-muted-foreground">
+                  선택
+                </span>
+              )}
+            </FieldLabel>
+            <Input
+              id="profile-student-id"
+              name="studentId"
+              inputMode="numeric"
+              autoComplete="off"
+              value={values.studentId}
+              aria-invalid={showStudentIdError}
+              onChange={(event) => onChange({ studentId: event.target.value })}
+            />
+            <FieldDescription>
+              {requirement.studentId
+                ? '숫자 6~10자리'
+                : '학번이 있으면 입력합니다. 숫자 6~10자리, 한 번 저장하면 변경할 수 없습니다.'}
+            </FieldDescription>
+            {showStudentIdError ? (
+              <FieldError>{errors.studentId}</FieldError>
+            ) : null}
+          </Field>
 
           {requirement.department ? (
             <Field data-invalid={showDepartmentError || undefined}>
               <FieldLabel htmlFor="profile-department">학과</FieldLabel>
-              <select
+              <Select
                 id="profile-department"
                 name="department"
-                className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
                 value={values.departmentOption}
                 aria-invalid={showDepartmentError}
                 onChange={(event) =>
@@ -172,7 +183,7 @@ export function ProfileForm({
                   </optgroup>
                 ))}
                 <option value={OTHER_DEPARTMENT}>기타(직접 입력)</option>
-              </select>
+              </Select>
               {values.departmentOption === OTHER_DEPARTMENT ? (
                 <Input
                   aria-label="기타 학과"
@@ -199,11 +210,11 @@ export function ProfileForm({
           </Alert>
         ) : null}
 
-        <Button type="submit" size="lg" disabled={!isValid || isSubmitting}>
+        <Button type="submit" disabled={!isValid || isSubmitting}>
           {isSubmitting ? '저장 중…' : '저장하고 역할 선택으로 이동'}
         </Button>
       </form>
-    </main>
+    </PageBody>
   );
 }
 
@@ -304,10 +315,10 @@ export function ProfileOnboardingScreen({
 
   if (loadError) {
     return (
-      <main className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-6">
+      <PageBody className="max-w-2xl">
         <Alert variant="destructive">
           <AlertTitle>프로필을 불러오지 못했습니다</AlertTitle>
-          <AlertDescription className="flex flex-col items-start gap-3">
+          <AlertDescription className="flex flex-col items-start gap-4">
             <span>{loadError}</span>
             <Button
               type="button"
@@ -318,7 +329,7 @@ export function ProfileOnboardingScreen({
             </Button>
           </AlertDescription>
         </Alert>
-      </main>
+      </PageBody>
     );
   }
 

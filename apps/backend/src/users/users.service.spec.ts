@@ -167,7 +167,7 @@ it('미완료 프로필에 학번이 없으면 400 검증 오류로 거부한다
   expect(updateProfileFields).not.toHaveBeenCalled();
 });
 
-it('이미 완료된 프로필에 학번을 보내면 USR_003으로 거부한다', async () => {
+it('이미 완료된 프로필의 학번을 다른 값으로 바꾸려 하면 USR_003으로 거부한다', async () => {
   const { service, completeProfileIfUnchanged, updateProfileFields } =
     buildService({
       user: {
@@ -180,7 +180,7 @@ it('이미 완료된 프로필에 학번을 보내면 USR_003으로 거부한다
     });
 
   const error = await captureDomainException(() =>
-    service.patchMyProfile(githubId, input),
+    service.patchMyProfile(githubId, { ...input, studentId: '9'.repeat(8) }),
   );
 
   expect(error.errorCode.code).toBe(UsersErrorCode.STUDENT_ID_IMMUTABLE);
@@ -503,8 +503,34 @@ describe('기존 데이터 호환', () => {
     });
   });
 
-  it('완료된 교직원이 학번을 밀어 넣어도 USR_003으로 거부한다', async () => {
-    // Given — 갱신 경로는 학번을 쓰지 않으므로 조용히 버리는 대신 막는다
+  it('학번이 비어 있던 완료 교직원은 학번을 처음 한 번 채울 수 있다', async () => {
+    // Given — 조교처럼 대학원생 신분을 겸하는 교직원은 학번이 실제로 있다
+    const { service, updateProfileFields, completeProfileIfUnchanged } =
+      buildService({
+        user: {
+          id: 'synthetic-user',
+          name: input.name,
+          studentId: null,
+          department: input.department ?? null,
+          role: 'STAFF',
+        },
+      });
+
+    // When
+    const profile = await service.patchMyProfile(githubId, input);
+
+    // Then
+    expect(profile).toEqual({ ...input, isComplete: true });
+    expect(updateProfileFields).toHaveBeenCalledWith('synthetic-user', {
+      name: input.name,
+      department: input.department,
+      studentId,
+    });
+    expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
+  });
+
+  it('처음 채우는 학번의 형식이 틀리면 400 검증 오류로 거부한다', async () => {
+    // Given
     const { service, updateProfileFields } = buildService({
       user: {
         id: 'synthetic-user',
@@ -517,12 +543,68 @@ describe('기존 데이터 호환', () => {
 
     // When
     const error = await captureDomainException(() =>
-      service.patchMyProfile(githubId, input),
+      service.patchMyProfile(githubId, { ...input, studentId: '12A456' }),
+    );
+
+    // Then
+    expect(error.errorCode).toMatchObject({
+      code: SystemErrorCode.VALIDATION_FAILED,
+      status: 400,
+    });
+    expect(updateProfileFields).not.toHaveBeenCalled();
+  });
+
+  it('이미 학번이 있는 교직원이 다른 값을 보내면 USR_003으로 거부한다', async () => {
+    // Given — 한 번 정해진 학적 식별자는 사용자가 바꿀 수 없다
+    const { service, updateProfileFields } = buildService({
+      user: {
+        id: 'synthetic-user',
+        name: input.name,
+        studentId,
+        department: input.department ?? null,
+        role: 'STAFF',
+      },
+    });
+
+    // When
+    const error = await captureDomainException(() =>
+      service.patchMyProfile(githubId, { ...input, studentId: '9'.repeat(8) }),
     );
 
     // Then
     expect(error.errorCode.code).toBe(UsersErrorCode.STUDENT_ID_IMMUTABLE);
     expect(updateProfileFields).not.toHaveBeenCalled();
+  });
+
+  it('이미 있는 학번과 같은 값을 다시 보내면 통과하고 학번은 건드리지 않는다', async () => {
+    // Given — 폼이 현재 값을 그대로 싣는 정상 동작을 막지 않는다
+    const { service, updateProfileFields } = buildService({
+      user: {
+        id: 'synthetic-user',
+        name: input.name,
+        studentId,
+        department: input.department ?? null,
+        role: 'STAFF',
+      },
+    });
+
+    // When
+    const profile = await service.patchMyProfile(githubId, {
+      ...input,
+      name: '수정된 이름',
+    });
+
+    // Then
+    expect(profile).toEqual({
+      name: '수정된 이름',
+      studentId,
+      department: input.department,
+      isComplete: true,
+    });
+    expect(updateProfileFields).toHaveBeenCalledWith('synthetic-user', {
+      name: '수정된 이름',
+      department: input.department,
+    });
   });
 });
 

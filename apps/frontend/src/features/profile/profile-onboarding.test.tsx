@@ -110,30 +110,41 @@ describe('profile onboarding view', () => {
     expect(html).toContain('항목(이름, 학번, 학과)');
   });
 
-  it('교직원에게는 학번 입력란을 보여 주지 않는다', () => {
+  it('교직원에게는 학번을 선택 항목으로 보여 준다', () => {
     const html = renderForm(values({ studentId: '' }), {
       role: 'STAFF',
       showRequiredErrors: true,
     });
 
-    expect(html).not.toContain('profile-student-id');
+    expect(html).toContain('profile-student-id');
+    expect(html).toContain('선택');
     expect(html).not.toContain('학번은 숫자 6~10자리로 입력해 주세요.');
     expect(html).toContain('profile-department');
-    expect(html).toContain('항목(이름, 학과)');
+    expect(html).toContain('항목(이름, 학과, 학번 선택)');
     // 학번 없이도 저장 버튼이 열린다.
     expect(html).not.toMatch(/type="submit"[^>]*disabled/);
   });
 
-  it('관리자에게는 학번·학과 입력란을 모두 보여 주지 않는다', () => {
+  it('교직원이 넣은 학번의 형식이 틀리면 저장을 막고 오류를 보여 준다', () => {
+    const html = renderForm(values({ studentId: '12A456' }), {
+      role: 'STAFF',
+      showRequiredErrors: true,
+    });
+
+    expect(html).toContain('학번은 숫자 6~10자리로 입력해 주세요.');
+    expect(html).toMatch(/type="submit"[^>]*disabled/);
+  });
+
+  it('관리자에게는 학과를 감추고 학번만 선택 항목으로 보여 준다', () => {
     const html = renderForm(values({ studentId: '', departmentOption: '' }), {
       role: 'ADMIN',
       showRequiredErrors: true,
     });
 
-    expect(html).not.toContain('profile-student-id');
+    expect(html).toContain('profile-student-id');
     expect(html).not.toContain('profile-department');
     expect(html).toContain('profile-name');
-    expect(html).toContain('항목(이름)');
+    expect(html).toContain('항목(이름, 학번 선택)');
     expect(html).not.toMatch(/type="submit"[^>]*disabled/);
   });
 
