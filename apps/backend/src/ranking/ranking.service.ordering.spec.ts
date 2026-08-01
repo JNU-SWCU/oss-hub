@@ -1,6 +1,6 @@
 import type {
-  CollectionRankingActivityDto,
-  CollectionRankingActivityQueryDto,
+  CollectionPublicRankingMetricsDto,
+  CollectionPublicRankingMetricsQueryDto,
   CollectionReadPort,
 } from '../collection/collection-read.port';
 import { RANKING_PERIODS } from './domain/ranking';
@@ -8,11 +8,11 @@ import { RankingService } from './ranking.service';
 
 describe('RankingService deterministic ordering', () => {
   it('orders every tie level and uses normalized login then numeric GitHub id', async () => {
-    const findRankingActivity = jest.fn<
-      Promise<readonly CollectionRankingActivityDto[]>,
-      [CollectionRankingActivityQueryDto]
+    const getPublicRankingMetrics = jest.fn<
+      Promise<readonly CollectionPublicRankingMetricsDto[]>,
+      [CollectionPublicRankingMetricsQueryDto]
     >();
-    findRankingActivity.mockResolvedValue([
+    getPublicRankingMetrics.mockResolvedValue([
       {
         githubId: 20n,
         githubLogin: 'z',
@@ -65,8 +65,26 @@ describe('RankingService deterministic ordering', () => {
     ]);
     const collection = {
       findRepositoryActivity: () => Promise.resolve([]),
-      findRankingActivity,
+      findRankingActivity: () => Promise.resolve([]),
       getStatusSnapshot: () => Promise.resolve(null),
+      getRepositoryMetrics: () => Promise.resolve([]),
+      getContributorMetrics: () => Promise.resolve([]),
+      getPublicRankingMetrics,
+      getRepositoryCumulativeMetrics: () => Promise.resolve([]),
+      getContributorCumulativeMetrics: () => Promise.resolve([]),
+      getIncrementalStatusSnapshot: () =>
+        Promise.resolve({
+          trackedRepositoryCount: 0,
+          readyStreamCount: 0,
+          backfillingStreamCount: 0,
+          partialStreamCount: 0,
+          retryPendingStreamCount: 0,
+          oldestReadyCheckpointAt: null,
+          latestCheckpointAt: null,
+          oldestRetryPendingAt: null,
+          lastCycleStartedAt: null,
+          lastCycleCompletedAt: null,
+        }),
     } satisfies CollectionReadPort;
     const service = new RankingService(collection);
 

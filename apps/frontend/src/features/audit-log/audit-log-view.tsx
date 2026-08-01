@@ -8,22 +8,25 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { AuditLogFilters, AuditLogRecord } from './types';
-
-const ACTIONS = [
-  { value: 'STAFF_ROLE_REQUEST_APPROVED', label: '승인' },
-  { value: 'STAFF_ROLE_REQUEST_REJECTED', label: '반려' },
-  { value: 'STAFF_ROLE_REQUEST_REVOKED', label: '회수' },
-] as const;
+import {
+  AUDIT_LOG_ACTION_LABELS,
+  AUDIT_LOG_ACTIONS,
+  type AuditLogFilters,
+  type AuditLogRecord,
+} from './types';
 
 export interface AuditLogViewProps {
   readonly records: readonly AuditLogRecord[];
   readonly filters: AuditLogFilters;
+  readonly page: number;
+  readonly limit: number;
+  readonly total: number;
   readonly isLoading: boolean;
   readonly errorMessage: string | null;
   readonly onFilterChange: (filters: AuditLogFilters) => void;
   readonly onSearch: () => void;
   readonly onReset: () => void;
+  readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
 }
 
@@ -35,6 +38,7 @@ function formatDate(value: string): string {
 }
 
 export function AuditLogView(props: AuditLogViewProps) {
+  const lastPage = Math.max(1, Math.ceil(props.total / props.limit));
   const columns: DataTableColumn<AuditLogRecord>[] = [
     {
       id: 'actor',
@@ -58,8 +62,11 @@ export function AuditLogView(props: AuditLogViewProps) {
       headClassName: 'min-w-48 whitespace-nowrap',
       cellClassName: 'min-w-48 whitespace-nowrap',
       cell: (record) => (
-        <span className="break-keep">
-          {record.targetType} / {record.targetId}
+        <span className="flex flex-col">
+          <span className="break-keep">{record.target}</span>
+          <span className="text-muted-foreground break-keep text-xs">
+            {record.targetType} / {record.targetId}
+          </span>
         </span>
       ),
     },
@@ -120,9 +127,9 @@ export function AuditLogView(props: AuditLogViewProps) {
             onChange={(event) => update('action', event.target.value)}
           >
             <option value="">전체</option>
-            {ACTIONS.map((action) => (
-              <option key={action.value} value={action.value}>
-                {action.label}
+            {AUDIT_LOG_ACTIONS.map((action) => (
+              <option key={action} value={action}>
+                {AUDIT_LOG_ACTION_LABELS[action]}
               </option>
             ))}
           </select>
@@ -211,6 +218,28 @@ export function AuditLogView(props: AuditLogViewProps) {
           />
         }
       />
+      <div className="flex items-center justify-end gap-3 text-sm">
+        <span>총 {props.total}건</span>
+        <span>
+          {props.page} / {lastPage} 페이지
+        </span>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={props.page <= 1 || props.isLoading}
+          onClick={() => props.onPageChange(props.page - 1)}
+        >
+          이전
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={props.page >= lastPage || props.isLoading}
+          onClick={() => props.onPageChange(props.page + 1)}
+        >
+          다음
+        </Button>
+      </div>
     </section>
   );
 }

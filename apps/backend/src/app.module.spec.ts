@@ -5,7 +5,6 @@ import { AuditLogModule } from './audit-log/audit-log.module';
 import { CollectionModule } from './collection/collection.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { RankingModule } from './ranking/ranking.module';
-import { ProfilesModule } from './profiles/profiles.module';
 import { RepositoriesModule } from './repositories/repositories.module';
 import { RepositoriesService } from './repositories/repositories.service';
 import { ShowcaseModule } from './showcase/showcase.module';
@@ -13,6 +12,7 @@ import { SubmissionReviewsModule } from './submission-reviews/submission-reviews
 import { SubmissionsModule } from './submissions/submissions.module';
 import { SystemStatusModule } from './system-status/system-status.module';
 import { UsersModule } from './users/users.module';
+import { PublicProjectsModule } from './public-projects/public-projects.module';
 
 describe('AppModule module exposure', () => {
   const getImports = (): unknown[] => {
@@ -36,7 +36,7 @@ describe('AppModule module exposure', () => {
     }
   });
 
-  it('Issue #255 보존 대상 모듈 여덟 개를 각각 한 번 유지한다', () => {
+  it('Issue #255 보존 대상 모듈 일곱 개를 각각 한 번 유지한다', () => {
     const imports = getImports();
 
     for (const module of [
@@ -47,10 +47,23 @@ describe('AppModule module exposure', () => {
       RepositoriesModule,
       SubmissionReviewsModule,
       ShowcaseModule,
-      ProfilesModule,
     ]) {
       expect(imports.filter((entry) => entry === module)).toHaveLength(1);
     }
+  });
+
+  it('todo 16 — PublicProjectsModule을 UsersModule 바로 다음, RepositoriesModule 이전에 정확히 한 번 노출한다(라우트 순서: /users/me/profile이 /users/:userId/profile보다 먼저 매칭돼야 한다)', () => {
+    const imports = getImports();
+
+    expect(
+      imports.filter((entry) => entry === PublicProjectsModule),
+    ).toHaveLength(1);
+    expect(imports.indexOf(PublicProjectsModule)).toBeGreaterThan(
+      imports.indexOf(UsersModule),
+    );
+    expect(imports.indexOf(PublicProjectsModule)).toBeLessThan(
+      imports.indexOf(RepositoriesModule),
+    );
   });
 
   it('Notifications 스케줄러보다 Collection 스케줄러를 먼저 로드한다', () => {

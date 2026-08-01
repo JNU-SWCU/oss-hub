@@ -36,4 +36,30 @@ describe('requestFingerprintKey', () => {
       );
     },
   );
+
+  it('never embeds a NUL byte (Postgres text columns reject 0x00 unconditionally)', () => {
+    expect(requestFingerprintKey(base)).not.toContain('\u0000');
+  });
+
+  it('does not collide when a field boundary shifts (separator injection safety)', () => {
+    // Naive concatenation (no separator, or a separator that can appear inside
+    // a field value) would let `endpoint + ref` collide across a boundary
+    // shift, e.g. ("ab", "c") vs ("a", "bc"). The unit-separator (U+001F) join
+    // must keep these distinct because it cannot appear in any field value we
+    // populate fingerprints with (endpoint paths, refs, queries, etc. are all
+    // ASCII-safe GitHub API inputs).
+    const shiftedLeft: RequestFingerprint = {
+      ...base,
+      endpoint: '/repos/o/rab',
+      ref: 'c',
+    };
+    const shiftedRight: RequestFingerprint = {
+      ...base,
+      endpoint: '/repos/o/ra',
+      ref: 'bc',
+    };
+    expect(requestFingerprintKey(shiftedLeft)).not.toEqual(
+      requestFingerprintKey(shiftedRight),
+    );
+  });
 });

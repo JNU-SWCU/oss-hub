@@ -47,6 +47,12 @@ export function createAdminAccessAudit(input: {
       displayName: input.actor.name,
       githubLogin: input.actor.githubLogin,
     },
+    // 대상은 이 트랜잭션에서 잠근 이벤트 시점 레코드(input.before)에서 스냅샷한다 —
+    // 조회 시점에 User를 다시 읽지 않는다(actor 스냅샷과 동일한 규약).
+    target: {
+      displayName: input.before.name,
+      githubLogin: input.before.githubLogin,
+    },
     before: {
       role: input.before.role,
       accountStatus: input.before.accountStatus,
@@ -108,6 +114,10 @@ function createDirectAccessAudit(
   },
   common: {
     readonly actor: {
+      readonly displayName: string | null;
+      readonly githubLogin: string;
+    };
+    readonly target: {
       readonly displayName: string | null;
       readonly githubLogin: string;
     };

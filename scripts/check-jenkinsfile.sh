@@ -926,7 +926,7 @@ check_v2() {
 
   # success-only retention: N=120, app repos only, keep IMAGE_TAG+PREV_TAG, under BACKUP_DIR
   require_exact 'backup retention N=120이어야 함' "BACKUP_RETENTION_N = '120'" 1
-  require_exact 'BuildKit cache 상한은 10GB여야 함' "BUILD_CACHE_MAX_SPACE = '10GB'" 1
+  require_exact 'BuildKit cache 상한은 5GB여야 함' "BUILD_CACHE_MAX_SPACE = '5GB'" 1
   if ! awk '
     /^[[:space:]]*environment[[:space:]]*\{[[:space:]]*$/ {
       environment_blocks++
@@ -937,12 +937,12 @@ check_v2() {
       in_environment=0
       next
     }
-    in_environment && /^[[:space:]]*BUILD_CACHE_MAX_SPACE[[:space:]]*=[[:space:]]*'\''10GB'\''[[:space:]]*$/ {
+    in_environment && /^[[:space:]]*BUILD_CACHE_MAX_SPACE[[:space:]]*=[[:space:]]*'\''5GB'\''[[:space:]]*$/ {
       cache_constants++
     }
     END { exit (environment_blocks == 1 && cache_constants == 1) ? 0 : 1 }
   ' "$active_numbered_file"; then
-    printf '%s: BUILD_CACHE_MAX_SPACE=10GB는 environment 블록 안에 있어야 합니다.\n' "$label" >&2
+    printf '%s: BUILD_CACHE_MAX_SPACE=5GB는 environment 블록 안에 있어야 합니다.\n' "$label" >&2
     exit 1
   fi
   require_at_least 'retention은 oss-hub-frontend app repo만 대상이어야 함' 'oss-hub-frontend' 1
@@ -988,7 +988,7 @@ check_v2() {
   local image_rm_line buildx_prune_line backup_prune_line retention_stage_line
   environment_line=$(line_of 'environment {')
   stages_line=$(line_of 'stages {')
-  build_cache_line=$(line_of "BUILD_CACHE_MAX_SPACE = '10GB'")
+  build_cache_line=$(line_of "BUILD_CACHE_MAX_SPACE = '5GB'")
   checkout_line=$(line_of 'git checkout --detach "$RELEASE_SHA"')
   buildx_preflight_line=$(line_of_shell_stage_depth_exact \
     'Buildx 캐시 상한 사전 검증' 0 "if ! docker buildx prune --help 2>&1 | grep -F -- '--max-used-space' >/dev/null; then")

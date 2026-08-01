@@ -16,8 +16,7 @@ export const STAFF_MENU: NavItem[] = [
 ];
 
 export const ADMIN_MENU: NavItem[] = [
-  { label: '교직원 승인', href: '/admin/staff-requests' },
-  { label: '관리 콘솔', href: '/admin/users' },
+  { label: '관리 콘솔', href: '/admin/access' },
   { label: '감사 로그', href: '/admin/audit-log' },
   { label: '시스템 상태', href: '/admin/system-status' },
 ];

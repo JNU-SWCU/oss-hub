@@ -9,8 +9,16 @@ describe('SystemStatusController', () => {
     const dto = {
       collection: {
         health: 'NORMAL' as const,
-        lastCompleteSuccessAt: '2026-07-25T11:00:00.000Z',
         dataAsOf: '2026-07-25T11:00:00.000Z',
+        trackedRepositoryCount: 2,
+        readyStreamCount: 6,
+        backfillingStreamCount: 0,
+        partialStreamCount: 0,
+        retryPendingStreamCount: 0,
+        oldestReadyCheckpointAt: '2026-07-25T10:00:00.000Z',
+        oldestRetryPendingAt: null,
+        lastCycleStartedAt: '2026-07-25T10:55:00.000Z',
+        lastCycleCompletedAt: '2026-07-25T11:00:00.000Z',
         currentRunStatus: 'IDLE' as const,
         safeReason: null,
       },

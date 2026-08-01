@@ -71,6 +71,7 @@ describe('ApplicationsService.listForProgram', () => {
             updatedAt: new Date('2026-07-15T01:00:00.000Z'),
             safeErrorClass: null,
           },
+          isRepositoryPublicationPlanned: true,
           participation: 'INDIVIDUAL',
           applicant: {
             id: 'student-1',
@@ -95,6 +96,7 @@ describe('ApplicationsService.listForProgram', () => {
             updatedAt: new Date('2026-07-16T01:00:00.000Z'),
             safeErrorClass: null,
           },
+          isRepositoryPublicationPlanned: false,
           participation: 'TEAM',
           applicant: {
             id: 'student-2',

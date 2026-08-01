@@ -80,7 +80,7 @@ export class RankingService {
     period: RankingPeriod,
     currentYear: number,
   ): Promise<readonly RankingEntry[]> {
-    const activity = await this.collection.findRankingActivity(
+    const activity = await this.collection.getPublicRankingMetrics(
       period === RANKING_PERIODS.THIS_YEAR ? { currentYear } : {},
     );
 

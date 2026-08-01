@@ -2,11 +2,10 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, Archive, RotateCcw, Search } from 'lucide-react';
+import { AlertCircle, Archive, RotateCcw } from 'lucide-react';
 import { CardGrid, EmptyState, PageHeader, StatusBadge } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Card,
   CardContent,
@@ -14,21 +13,24 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { loadPublicArchive } from '../api';
-import type {
-  ArchiveApplicationMode,
-  ArchiveListItem,
-  ArchiveListState,
+import { loadArchivePage } from '../api';
+import {
+  ARCHIVE_CATEGORIES,
+  ARCHIVE_CATEGORY_LABELS,
+  type ArchiveCategory,
+  type ArchiveListItem,
+  type ArchiveListState,
 } from '../types';
 
 const PAGE_SIZE = 12;
 
 type ArchiveListContentProps = {
   readonly state: ArchiveListState;
-  readonly q: string;
-  readonly applicationMode?: ArchiveApplicationMode;
-  readonly onSearch: (q: string, mode?: ArchiveApplicationMode) => void;
-  readonly onPage: (page: number) => void;
+  readonly category?: ArchiveCategory;
+  readonly hasPrevious: boolean;
+  readonly onCategoryChange: (category?: ArchiveCategory) => void;
+  readonly onNext: () => void;
+  readonly onPrevious: () => void;
   readonly onRetry: () => void;
 };
 
@@ -76,7 +78,7 @@ function ArchiveCard({ item }: { readonly item: ArchiveListItem }) {
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-sm text-muted-foreground">
-              {item.programName} · {item.modeLabel}
+              {item.programName} · {item.modeLabel} · {item.categoryLabel}
             </p>
             <CardTitle className="mt-1 break-words">
               {item.displayName}
@@ -98,104 +100,83 @@ function ArchiveCard({ item }: { readonly item: ArchiveListItem }) {
   );
 }
 
-function ArchiveSearch({
-  q,
-  applicationMode,
-  onSearch,
-}: Pick<ArchiveListContentProps, 'q' | 'applicationMode' | 'onSearch'>) {
-  const [query, setQuery] = useState(q);
-  const [mode, setMode] = useState<ArchiveApplicationMode | undefined>(
-    applicationMode,
-  );
-
-  useEffect(() => setQuery(q), [q]);
-  useEffect(() => setMode(applicationMode), [applicationMode]);
-
+function ArchiveCategoryFilter({
+  category,
+  onCategoryChange,
+}: Pick<ArchiveListContentProps, 'category' | 'onCategoryChange'>) {
   return (
-    <form
-      className="flex flex-col gap-3 sm:flex-row"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSearch(query, mode);
-      }}
-    >
-      <label className="sr-only" htmlFor="archive-search">
-        프로젝트 검색
-      </label>
-      <Input
-        id="archive-search"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="프로그램 또는 프로젝트 이름 검색"
-      />
-      <label className="sr-only" htmlFor="archive-application-mode">
-        참여 방식
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <label className="sr-only" htmlFor="archive-category">
+        프로그램 분류
       </label>
       <select
-        id="archive-application-mode"
-        className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
-        value={mode ?? ''}
+        id="archive-category"
+        className="h-9 w-fit rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+        value={category ?? ''}
         onChange={(event) =>
-          setMode(
+          onCategoryChange(
             event.target.value === ''
               ? undefined
-              : (event.target.value as ArchiveApplicationMode),
+              : (event.target.value as ArchiveCategory),
           )
         }
       >
-        <option value="">전체</option>
-        <option value="PERSONAL">개인</option>
-        <option value="TEAM">팀</option>
+        <option value="">전체 분류</option>
+        {ARCHIVE_CATEGORIES.map((value) => (
+          <option key={value} value={value}>
+            {ARCHIVE_CATEGORY_LABELS[value]}
+          </option>
+        ))}
       </select>
-      <Button type="submit">
-        <Search aria-hidden="true" />
-        검색
-      </Button>
-    </form>
+    </div>
   );
 }
 
 export function ArchiveListContent({
   state,
-  q,
-  applicationMode,
-  onSearch,
-  onPage,
+  category,
+  hasPrevious,
+  onCategoryChange,
+  onNext,
+  onPrevious,
   onRetry,
 }: ArchiveListContentProps) {
   if (state.kind === 'loading') return <LoadingState />;
   if (state.kind === 'error') return <ErrorState onRetry={onRetry} />;
 
-  const { archive } = state;
-  const searchActive = q.trim().length > 0 || applicationMode !== undefined;
-  const lastPage = Math.max(1, Math.ceil(archive.total / archive.pageSize));
+  const { page } = state;
+  const items =
+    category === undefined
+      ? page.items
+      : page.items.filter((item) => item.category === category);
+  const filterActive = category !== undefined;
+  const hasNext = page.nextPageId !== null;
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-5 sm:p-8">
       <PageHeader
         title="공개 아카이브"
-        description="공개된 프로젝트와 활동 기록을 확인합니다."
+        description="공개된 프로젝트와 누적 활동 기록을 확인합니다."
       />
-      <ArchiveSearch
-        q={q}
-        applicationMode={applicationMode}
-        onSearch={onSearch}
+      <ArchiveCategoryFilter
+        category={category}
+        onCategoryChange={onCategoryChange}
       />
-      {archive.items.length === 0 ? (
+      {items.length === 0 ? (
         <EmptyState
           icon={<Archive className="size-8" />}
-          title={searchActive ? '검색 결과 없음' : '공개된 프로젝트 없음'}
+          title={filterActive ? '검색 결과 없음' : '공개된 프로젝트 없음'}
           description={
-            searchActive
-              ? '검색어나 참여 방식을 바꾸어 다시 찾아보세요.'
+            filterActive
+              ? '분류를 바꾸어 다시 찾아보세요.'
               : '아직 공개된 프로젝트가 없습니다.'
           }
           action={
-            searchActive ? (
+            filterActive ? (
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => onSearch('', undefined)}
+                onClick={() => onCategoryChange(undefined)}
               >
                 필터 초기화
               </Button>
@@ -212,15 +193,15 @@ export function ArchiveListContent({
               공개 프로젝트
             </h2>
             <span className="text-sm text-muted-foreground">
-              {archive.total}개
+              {items.length}개 표시
             </span>
           </div>
           <CardGrid>
-            {archive.items.map((item) => (
-              <ArchiveCard key={item.repositoryId} item={item} />
+            {items.map((item) => (
+              <ArchiveCard key={item.projectId} item={item} />
             ))}
           </CardGrid>
-          {lastPage > 1 ? (
+          {hasPrevious || hasNext ? (
             <nav
               aria-label="공개 아카이브 페이지"
               className="flex items-center justify-center gap-3"
@@ -228,19 +209,16 @@ export function ArchiveListContent({
               <Button
                 type="button"
                 variant="outline"
-                disabled={archive.page === 1}
-                onClick={() => onPage(archive.page - 1)}
+                disabled={!hasPrevious}
+                onClick={onPrevious}
               >
                 이전
               </Button>
-              <span className="text-sm text-muted-foreground">
-                {archive.page} / {lastPage}
-              </span>
               <Button
                 type="button"
                 variant="outline"
-                disabled={archive.page === lastPage}
-                onClick={() => onPage(archive.page + 1)}
+                disabled={!hasNext}
+                onClick={onNext}
               >
                 다음
               </Button>
@@ -254,28 +232,36 @@ export function ArchiveListContent({
 
 export function ArchiveListView() {
   const [attempt, setAttempt] = useState(0);
-  const [q, setQ] = useState('');
-  const [applicationMode, setApplicationMode] = useState<
-    ArchiveApplicationMode | undefined
-  >();
-  const [page, setPage] = useState(1);
+  const [category, setCategory] = useState<ArchiveCategory | undefined>();
+  const [cursorStack, setCursorStack] = useState<readonly (string | null)[]>([
+    null,
+  ]);
   const [state, setState] = useState<ArchiveListState>({ kind: 'loading' });
+  const cursor = cursorStack[cursorStack.length - 1] ?? null;
+
   const retry = useCallback(() => setAttempt((current) => current + 1), []);
-  const search = useCallback(
-    (nextQ: string, nextMode?: ArchiveApplicationMode) => {
-      setQ(nextQ);
-      setApplicationMode(nextMode);
-      setPage(1);
-    },
-    [],
-  );
+  const changeCategory = useCallback((nextCategory?: ArchiveCategory) => {
+    setCategory(nextCategory);
+    setCursorStack([null]);
+  }, []);
+  const next = useCallback(() => {
+    if (state.kind === 'ready' && state.page.nextPageId !== null) {
+      const nextPageId = state.page.nextPageId;
+      setCursorStack((current) => [...current, nextPageId]);
+    }
+  }, [state]);
+  const previous = useCallback(() => {
+    setCursorStack((current) =>
+      current.length > 1 ? current.slice(0, -1) : current,
+    );
+  }, []);
 
   useEffect(() => {
     let active = true;
     setState({ kind: 'loading' });
-    loadPublicArchive({ page, pageSize: PAGE_SIZE, q, applicationMode })
-      .then((archive) => {
-        if (active) setState({ kind: 'ready', archive });
+    loadArchivePage({ pageId: cursor, pageSize: PAGE_SIZE })
+      .then((page) => {
+        if (active) setState({ kind: 'ready', page });
       })
       .catch(() => {
         if (active) setState({ kind: 'error' });
@@ -283,15 +269,16 @@ export function ArchiveListView() {
     return () => {
       active = false;
     };
-  }, [applicationMode, attempt, page, q]);
+  }, [attempt, cursor]);
 
   return (
     <ArchiveListContent
       state={state}
-      q={q}
-      applicationMode={applicationMode}
-      onSearch={search}
-      onPage={setPage}
+      category={category}
+      hasPrevious={cursorStack.length > 1}
+      onCategoryChange={changeCategory}
+      onNext={next}
+      onPrevious={previous}
       onRetry={retry}
     />
   );
