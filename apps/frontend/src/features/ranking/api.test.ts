@@ -1,11 +1,10 @@
 import { expect, test } from 'vitest';
 import { parseRankingPage, RankingResponseError } from './api';
-import { RANKING_NOTICE, RANKING_PERIODS } from './types';
+import { RANKING_PERIODS } from './types';
 
 const rankingPage = (
   period: (typeof RANKING_PERIODS)[keyof typeof RANKING_PERIODS],
 ) => ({
-  notice: RANKING_NOTICE,
   period,
   items: [
     {
@@ -62,5 +61,14 @@ test('legacy star 응답과 정확한 DTO 형태가 아닌 응답을 거부한�
 test('FORCE 등 필수 필드가 없는 응답은 표시하지 않고 거부한다', () => {
   expect(() =>
     parseRankingPage({ period: RANKING_PERIODS.ALL, items: [] }),
+  ).toThrow(RankingResponseError);
+});
+
+test('notice 필드를 포함한 구식 응답은 계약 밖 필드로 간주해 거부한다', () => {
+  expect(() =>
+    parseRankingPage({
+      ...rankingPage(RANKING_PERIODS.ALL),
+      notice: '본 랭킹은 공개 GitHub 활동량 집계이며 평가·시상과 무관합니다.',
+    }),
   ).toThrow(RankingResponseError);
 });
