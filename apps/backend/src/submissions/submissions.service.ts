@@ -173,11 +173,12 @@ export class SubmissionsService {
     githubId: bigint,
     submissionId: string,
     input: ResubmitSubmissionInput,
+    now: Date = new Date(),
   ): Promise<ResubmittedSubmissionResponseDto> {
     try {
       return await this.repository.withTransaction(async (store) => {
         const actor = await this.requireStudent(store, githubId);
-        const target = await store.findSubmissionForParticipant(
+        let target = await store.findSubmissionForParticipant(
           submissionId,
           actor.id,
         );
@@ -191,14 +192,42 @@ export class SubmissionsService {
         if (target.applicationStatus !== ApplicationStatus.APPROVED) {
           throw this.error(SubmissionsErrorCode.APPLICATION_APPROVAL_REQUIRED);
         }
+        let fileExpiresAt: Date | null = null;
+        if (input.content.type === 'FILE') {
+          const programEndAt = await store.lockProgramEndAt(target.programId);
+          if (programEndAt === null) {
+            throw this.error(SubmissionsErrorCode.FILE_RETENTION_UNAVAILABLE);
+          }
+          const lockedTarget = await store.findSubmissionForParticipant(
+            submissionId,
+            actor.id,
+          );
+          if (!lockedTarget) {
+            throw this.error(
+              (await store.submissionExists(submissionId))
+                ? SubmissionsErrorCode.NOT_APPLICATION_MEMBER
+                : SubmissionsErrorCode.SUBMISSION_NOT_FOUND,
+            );
+          }
+          target = lockedTarget;
+          fileExpiresAt = addOneCalendarYear(programEndAt);
+        }
+
+        if (target.applicationStatus !== ApplicationStatus.APPROVED) {
+          throw this.error(SubmissionsErrorCode.APPLICATION_APPROVAL_REQUIRED);
+        }
         this.assertResubmittable(target, input);
 
         const created = await store.createSubmissionRevision({
           submissionId: target.id,
+          applicationId: target.applicationId,
+          milestoneId: target.milestoneId,
           baseRevision: input.baseRevision,
           content: input.content,
           comment: input.comment,
           submittedById: actor.id,
+          fileExpiresAt,
+          now,
         });
         return {
           submissionId: target.id,
@@ -209,6 +238,9 @@ export class SubmissionsService {
     } catch (error: unknown) {
       if (error instanceof StaleSubmissionRevisionError) {
         throw this.error(SubmissionsErrorCode.STALE_SUBMISSION_REVISION);
+      }
+      if (error instanceof SubmissionFileUnavailableError) {
+        throw this.error(SubmissionsErrorCode.FILE_SUBMISSION_UNAVAILABLE);
       }
       throw error;
     }
@@ -259,8 +291,6 @@ export class SubmissionsService {
       throw this.error(SubmissionsErrorCode.STALE_SUBMISSION_REVISION);
     if (input.content.type !== target.submissionType)
       throw this.error(SubmissionsErrorCode.CONTENT_TYPE_MISMATCH);
-    if (target.submissionType === MilestoneSubmissionType.FILE)
-      throw this.error(SubmissionsErrorCode.FILE_SUBMISSION_UNAVAILABLE);
     if (input.content.type === MilestoneSubmissionType.REPOSITORY_RELEASE) {
       if (!target.repositoryUrl)
         throw this.error(SubmissionsErrorCode.REPOSITORY_NOT_READY);

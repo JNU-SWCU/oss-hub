@@ -170,7 +170,7 @@ describeIntegration(
       client.destroy();
     });
 
-    it('moves PENDING through ATTACHED and DELETE_PENDING to DELETED with the real object removed', async () => {
+    it('moves expired ATTACHED through DELETE_PENDING to DELETED with the real object removed', async () => {
       const row = await createPending({
         suffix: 'full-lifecycle',
         expiresAt: new Date(BASE.getTime() - HOUR),
@@ -218,6 +218,29 @@ describeIntegration(
         ),
       ).rejects.toMatchObject({ $metadata: { httpStatusCode: 404 } });
       client.destroy();
+    });
+
+    it('preserves an ATTACHED revision file until retention expiry', async () => {
+      const row = await createPending({
+        suffix: 'referenced-attached-retained',
+        expiresAt: new Date(BASE.getTime() + HOUR),
+      });
+      const revision = await createRevision('referenced-attached-retained');
+      await prisma.submissionFile.update({
+        where: { id: row.id },
+        data: {
+          lifecycle: SubmissionFileLifecycle.ATTACHED,
+          pendingExpiresAt: null,
+          submissionRevisionId: revision.id,
+        },
+      });
+
+      await expect(
+        files.claimNextForDeletion({
+          now: BASE,
+          leaseExpiresAt: new Date(BASE.getTime() + 10 * 60_000),
+        }),
+      ).resolves.toBeNull();
     });
 
     it('uses PostgreSQL SKIP LOCKED so two workers cannot claim the same file', async () => {

@@ -51,6 +51,44 @@ describe('submissions api', () => {
     expect(body.get('milestoneId')).toBe('milestone-1');
     expect(body.get('file')).toBe(file);
   });
+
+  it('file resubmission upload context is sent as FormData fields', async () => {
+    // Given
+    const uploaded = {
+      fileId: 'file-2',
+      fileName: 'replacement.pdf',
+      contentType: 'application/pdf',
+      size: 3,
+      expiresAt: '2026-12-31T00:00:00.000Z',
+    };
+    const request = vi.fn().mockResolvedValue(jsonResponse(uploaded));
+    vi.stubGlobal('fetch', request);
+    const file = new File(['pdf'], 'replacement.pdf', {
+      type: 'application/pdf',
+    });
+
+    // When
+    const result = await uploadSubmissionFile(
+      'application-1',
+      'milestone-1',
+      file,
+      { submissionId: 'submission-1', baseRevision: 3 },
+    );
+
+    // Then
+    expect(result).toEqual(uploaded);
+    const init = request.mock.calls[0]?.[1];
+    expect(init?.headers).toBeUndefined();
+    expect(init?.body).toBeInstanceOf(FormData);
+    if (!(init?.body instanceof FormData)) {
+      throw new Error('expected FormData body');
+    }
+    expect(init.body.get('applicationId')).toBe('application-1');
+    expect(init.body.get('milestoneId')).toBe('milestone-1');
+    expect(init.body.get('submissionId')).toBe('submission-1');
+    expect(init.body.get('baseRevision')).toBe('3');
+    expect(init.body.get('file')).toBe(file);
+  });
   it('program과 milestone 식별자를 인코딩해 폼을 조회한다', async () => {
     // Given
     const response = {

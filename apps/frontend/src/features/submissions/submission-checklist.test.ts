@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ProblemDetail } from '@/lib/api-client';
 import {
   applyResubmission,
@@ -9,7 +9,9 @@ import {
   resubmissionContent,
   resubmissionFailure,
   sortChecklistItems,
+  submitResubmissionRevision,
 } from './submission-checklist';
+import { SubmissionFileUploadCache } from './submission-form';
 import type { SubmissionChecklist, SubmissionChecklistItem } from './types';
 
 function checklistItem(
@@ -205,6 +207,18 @@ describe('resubmissionFailure', () => {
     });
   });
 
+  it('SUB_011 maps FILE resubmission failures to the file field', () => {
+    const failure = resubmissionFailure(
+      problem({ status: 422, code: 'SUB_011', detail: 'file is required' }),
+      'FILE',
+    );
+    expect(failure).toEqual({
+      kind: 'field',
+      field: 'file',
+      message: 'file is required',
+    });
+  });
+
   it('그 밖의 오류는 Alert로 보여준다', () => {
     const failure = resubmissionFailure(
       problem({ status: 500, code: 'API_000', detail: '서버 오류' }),
@@ -238,10 +252,107 @@ describe('resubmissionContent', () => {
     });
   });
 
-  it('FILE은 업로드 미지원이라 null이다', () => {
+  it('FILE uses the uploaded file id for resubmission content', () => {
     expect(
-      resubmissionContent('FILE', { file: null, text: '', releaseUrl: '' }),
-    ).toBe(null);
+      resubmissionContent(
+        'FILE',
+        { file: null, text: '', releaseUrl: '' },
+        'file-1',
+      ),
+    ).toEqual({ type: 'FILE', fileId: 'file-1' });
+  });
+});
+
+describe('submitResubmissionRevision', () => {
+  const file = new File(['%PDF'], 'replacement.pdf', {
+    type: 'application/pdf',
+  });
+
+  it('uploads FILE content first with resubmission context, then creates the next revision', async () => {
+    // Given
+    const cache = new SubmissionFileUploadCache();
+    const uploadSubmissionFile = vi
+      .fn()
+      .mockResolvedValue({ fileId: 'file-replacement' });
+    const createResubmission = vi.fn().mockResolvedValue({
+      submissionId: 'submission-1',
+      revision: 4,
+      status: 'SUBMITTED',
+    });
+    const phases: string[] = [];
+
+    // When
+    const result = await submitResubmissionRevision({
+      applicationId: 'application-1',
+      milestoneId: 'milestone-file',
+      submission: { id: 'submission-1', currentRevision: 3 },
+      submissionType: 'FILE',
+      input: { file, text: '', releaseUrl: '' },
+      comment: 'updated file',
+      cache,
+      uploadSubmissionFile,
+      createResubmission,
+      onPhaseChange: (phase) => phases.push(phase),
+    });
+
+    // Then
+    expect(result).toEqual({
+      submissionId: 'submission-1',
+      revision: 4,
+      status: 'SUBMITTED',
+    });
+    expect(uploadSubmissionFile).toHaveBeenCalledWith(
+      'application-1',
+      'milestone-file',
+      file,
+      { submissionId: 'submission-1', baseRevision: 3 },
+    );
+    expect(createResubmission).toHaveBeenCalledWith({
+      submissionId: 'submission-1',
+      baseRevision: 3,
+      content: { type: 'FILE', fileId: 'file-replacement' },
+      comment: 'updated file',
+    });
+    expect(phases).toEqual(['uploading', 'creating']);
+  });
+
+  it('reuses the cached upload when revision creation fails and the same file is retried', async () => {
+    // Given
+    const cache = new SubmissionFileUploadCache();
+    const uploadSubmissionFile = vi
+      .fn()
+      .mockResolvedValue({ fileId: 'file-replacement' });
+    const createResubmission = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('revision failed'))
+      .mockResolvedValueOnce({
+        submissionId: 'submission-1',
+        revision: 4,
+        status: 'SUBMITTED',
+      });
+    const input = {
+      applicationId: 'application-1',
+      milestoneId: 'milestone-file',
+      submission: { id: 'submission-1', currentRevision: 3 },
+      submissionType: 'FILE' as const,
+      input: { file, text: '', releaseUrl: '' },
+      comment: 'updated file',
+      cache,
+      uploadSubmissionFile,
+      createResubmission,
+    };
+
+    // When / Then
+    await expect(submitResubmissionRevision(input)).rejects.toThrow(
+      'revision failed',
+    );
+    await expect(submitResubmissionRevision(input)).resolves.toEqual({
+      submissionId: 'submission-1',
+      revision: 4,
+      status: 'SUBMITTED',
+    });
+    expect(uploadSubmissionFile).toHaveBeenCalledTimes(1);
+    expect(createResubmission).toHaveBeenCalledTimes(2);
   });
 });
 

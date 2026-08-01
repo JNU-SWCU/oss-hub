@@ -71,11 +71,19 @@ const download = jest.fn().mockResolvedValue({
   contentType: 'application/pdf',
   contentLength: 17,
 });
+const upload = jest.fn().mockResolvedValue({
+  fileId: 'synthetic-file',
+  fileName: 'synthetic.pdf',
+  contentType: 'application/pdf',
+  size: 14,
+  expiresAt: '2028-01-01T00:00:00.000Z',
+});
 
 beforeEach(() => {
   create.mockClear();
   resubmit.mockClear();
   download.mockClear();
+  upload.mockClear();
 });
 
 beforeAll(async () => {
@@ -93,7 +101,7 @@ beforeAll(async () => {
       },
       {
         provide: SubmissionFilesService,
-        useValue: { download },
+        useValue: { download, upload },
       },
     ],
   })
@@ -292,6 +300,43 @@ it('content가 누락된 재제출은 validation 4xx로 끝난다', async () => 
   expect(response.status).toBe(400);
   await expect(response.json()).resolves.toMatchObject({ code: 'SYS_003' });
   expect(resubmit).not.toHaveBeenCalled();
+});
+
+it('FILE replacement multipart context를 업로드 서비스에 전달한다', async () => {
+  // Given
+  const body = new FormData();
+  body.append('applicationId', 'synthetic-application');
+  body.append('milestoneId', 'synthetic-milestone');
+  body.append('submissionId', 'synthetic-submission');
+  body.append('baseRevision', '1');
+  body.append(
+    'file',
+    new Blob([Buffer.from('%PDF-1.4\n%%EOF')], { type: 'application/pdf' }),
+    'synthetic.pdf',
+  );
+
+  // When
+  const response = await fetch(`${baseUrl}/api/v1/submission-files`, {
+    method: 'POST',
+    body,
+  });
+
+  // Then
+  expect(response.status).toBe(201);
+  await expect(response.json()).resolves.toMatchObject({
+    fileId: 'synthetic-file',
+  });
+  expect(upload).toHaveBeenCalledWith(
+    undefined,
+    'synthetic-application',
+    'synthetic-milestone',
+    expect.objectContaining({
+      originalname: 'synthetic.pdf',
+      mimetype: 'application/pdf',
+    }),
+    'synthetic-submission',
+    '1',
+  );
 });
 
 it('정수가 아닌 baseRevision은 서비스 호출 전에 거절한다', async () => {

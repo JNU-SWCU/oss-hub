@@ -7,6 +7,7 @@ import {
   Prisma,
   Role,
   SubmissionFileLifecycle,
+  SubmissionStatus,
 } from '@prisma/client';
 import { addOneCalendarYear } from '../common/add-one-calendar-year';
 import { PrismaService } from '../prisma/prisma.service';
@@ -22,6 +23,13 @@ export interface SubmissionFileUploadAuthorization {
   readonly submissionType: MilestoneSubmissionType;
   readonly dueAt: Date;
   readonly programEndAt: Date | null;
+  readonly resubmissionStatus: SubmissionStatus | null;
+  readonly currentRevision: number | null;
+}
+
+export interface SubmissionFileResubmissionContext {
+  readonly submissionId: string;
+  readonly baseRevision: number;
 }
 
 export interface CreatePendingSubmissionFileInput {
@@ -115,6 +123,7 @@ export class SubmissionFilesRepository {
     uploaderId: string,
     applicationId: string,
     milestoneId: string,
+    resubmissionContext: SubmissionFileResubmissionContext | null = null,
   ): Promise<SubmissionFileUploadAuthorization | null> {
     const application = await this.prisma.application.findFirst({
       where: {
@@ -137,6 +146,22 @@ export class SubmissionFilesRepository {
     });
     if (milestone === null) return null;
 
+    let resubmissionStatus: SubmissionStatus | null = null;
+    let currentRevision: number | null = null;
+    if (resubmissionContext !== null) {
+      const submission = await this.prisma.submission.findFirst({
+        where: {
+          id: resubmissionContext.submissionId,
+          applicationId: application.id,
+          milestoneId: milestone.id,
+        },
+        select: { status: true, currentRevision: true },
+      });
+      if (submission === null) return null;
+      resubmissionStatus = submission.status;
+      currentRevision = submission.currentRevision;
+    }
+
     return {
       uploaderId,
       applicationId: application.id,
@@ -145,6 +170,8 @@ export class SubmissionFilesRepository {
       submissionType: milestone.submissionType,
       dueAt: milestone.dueAt,
       programEndAt: application.program.endAt,
+      resubmissionStatus,
+      currentRevision,
     };
   }
 
