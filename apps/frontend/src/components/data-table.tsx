@@ -52,7 +52,11 @@ function DataTable<TRow>({
   const colSpan = columns.length || 1;
 
   return (
-    <div data-slot="data-table" className={cn('w-full', className)} {...props}>
+    <div
+      data-slot="data-table"
+      className={cn('min-w-0 w-full', className)}
+      {...props}
+    >
       <Table className={tableClassName}>
         {caption ? <TableCaption>{caption}</TableCaption> : null}
         <TableHeader>
