@@ -31,6 +31,7 @@ export type ProgramApplyPageState =
 export type ProgramApplyFormValues = {
   readonly title: string;
   readonly summary: string;
+  readonly isRepositoryPublicationPlanned: boolean;
 };
 
 export type ProgramApplyFormErrors = {
@@ -41,6 +42,7 @@ export type ProgramApplyFormErrors = {
 export const EMPTY_APPLY_FORM: ProgramApplyFormValues = {
   title: '',
   summary: '',
+  isRepositoryPublicationPlanned: true,
 };
 
 export function isApplicationPeriodOpen(

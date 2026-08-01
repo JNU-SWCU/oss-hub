@@ -35,6 +35,7 @@ const personal: ApplicationListItem = {
     updatedAt: '2026-07-15T00:00:00.000Z',
     safeErrorClass: null,
   },
+  isRepositoryPublicationPlanned: true,
   submittedAt: '2026-07-15T00:00:00.000Z',
   participation: 'INDIVIDUAL',
   applicant: {
@@ -60,6 +61,7 @@ const team: ApplicationListItem = {
     updatedAt: '2026-07-16T00:00:00.000Z',
     safeErrorClass: null,
   },
+  isRepositoryPublicationPlanned: false,
   submittedAt: '2026-07-16T00:00:00.000Z',
   participation: 'TEAM',
   applicant: {

@@ -108,6 +108,7 @@ export interface ApplicationListItem {
   readonly status: ApplicationStatus;
   readonly rejectionReason: string | null;
   readonly repositoryProvisioning: RepositoryProvisioning;
+  readonly isRepositoryPublicationPlanned: boolean;
   readonly submittedAt: string;
   readonly participation: 'INDIVIDUAL' | 'TEAM';
   readonly applicant: {

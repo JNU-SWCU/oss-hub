@@ -7,6 +7,7 @@ import {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
 } from '@prisma/client';
+import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event';
 
@@ -68,6 +69,7 @@ export class RepositoryPublishStateError extends Error {
 }
 
 export interface RepositoriesTransactionStore {
+  readonly auditLogWriter: AuditLogTransactionWriter;
   claimProvisionEvent(
     input: ClaimProvisionEventInput,
   ): Promise<ClaimedProvisionEvent | null>;
@@ -81,6 +83,14 @@ export interface RepositoriesTransactionStore {
     now: Date,
   ): Promise<void>;
   failProvisionEvent(eventId: string, workerId: string): Promise<void>;
+  findPublishTarget(
+    repositoryId: string,
+  ): Promise<RepositoryPublishTarget | null>;
+  publishRepositoryIfPrivate(
+    repositoryId: string,
+    githubRepositoryId: bigint,
+    now: Date,
+  ): Promise<boolean>;
 }
 
 type ClaimedProvisionEventRow = {
@@ -91,6 +101,45 @@ type ClaimedProvisionEventRow = {
 
 class PrismaRepositoriesTransactionStore implements RepositoriesTransactionStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
+
+  get auditLogWriter(): AuditLogTransactionWriter {
+    return this.transaction;
+  }
+
+  async findPublishTarget(
+    repositoryId: string,
+  ): Promise<RepositoryPublishTarget | null> {
+    return this.transaction.repository.findUnique({
+      where: { id: repositoryId },
+      select: {
+        id: true,
+        githubRepositoryId: true,
+        name: true,
+        url: true,
+        visibility: true,
+        publishedAt: true,
+      },
+    });
+  }
+
+  async publishRepositoryIfPrivate(
+    repositoryId: string,
+    githubRepositoryId: bigint,
+    now: Date,
+  ): Promise<boolean> {
+    const updated = await this.transaction.repository.updateMany({
+      where: {
+        id: repositoryId,
+        githubRepositoryId,
+        visibility: RepositoryVisibility.PRIVATE,
+      },
+      data: {
+        visibility: RepositoryVisibility.PUBLIC,
+        publishedAt: now,
+      },
+    });
+    return updated.count === 1;
+  }
 
   async claimProvisionEvent(
     input: ClaimProvisionEventInput,
@@ -282,25 +331,5 @@ export class RepositoriesRepository {
         publishedAt: true,
       },
     });
-  }
-
-  async markPublished(
-    repositoryId: string,
-    githubRepositoryId: bigint,
-    now: Date,
-  ): Promise<void> {
-    const updated = await this.prisma.repository.updateMany({
-      where: {
-        id: repositoryId,
-        githubRepositoryId,
-      },
-      data: {
-        visibility: RepositoryVisibility.PUBLIC,
-        publishedAt: now,
-      },
-    });
-    if (updated.count !== 1) {
-      throw new RepositoryPublishStateError();
-    }
   }
 }

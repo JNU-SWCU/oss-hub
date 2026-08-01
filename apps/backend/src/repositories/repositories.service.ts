@@ -4,7 +4,11 @@ import {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
 } from '@prisma/client';
-import type { ShowcaseProjectionService } from '../showcase/showcase-projection.service';
+import type { AuditLogService } from '../audit-log/audit-log.service';
+import {
+  REPOSITORY_PUBLISH_AUDIT_ACTIONS,
+  createRepositoryPublishAuditMetadata,
+} from '../audit-log/audit-log-metadata';
 import type { GithubAppClient } from './github-app.client';
 import {
   RepositoriesRepository,
@@ -43,13 +47,10 @@ export class RepositoriesService {
   constructor(
     private readonly repository: Pick<
       RepositoriesRepository,
-      'findPublishTarget' | 'markPublished' | 'listOwnedProvisionJobs'
+      'findPublishTarget' | 'listOwnedProvisionJobs' | 'withTransaction'
     >,
     private readonly github: Pick<GithubAppClient, 'publishRepository'>,
-    private readonly showcase?: Pick<
-      ShowcaseProjectionService,
-      'projectRepository'
-    >,
+    private readonly auditLog: Pick<AuditLogService, 'record'>,
   ) {}
   async getMyRepositories(githubId: bigint): Promise<readonly MyRepository[]> {
     const jobs = await this.repository.listOwnedProvisionJobs(githubId);
@@ -100,6 +101,7 @@ export class RepositoriesService {
 
   async publish(
     input: PublishRepositoryInput,
+    actorGithubId: bigint,
     now = new Date(),
   ): Promise<RepositoryPublishTarget> {
     const target = await this.repository.findPublishTarget(input.repositoryId);
@@ -117,16 +119,42 @@ export class RepositoriesService {
     ) {
       throw new RepositoryPublishStateError();
     }
-    await this.repository.markPublished(
-      target.id,
-      target.githubRepositoryId,
-      now,
-    );
-    await this.showcase?.projectRepository(target.id, now);
-    return {
-      ...target,
-      visibility: RepositoryVisibility.PUBLIC,
-      publishedAt: now,
-    };
+
+    return this.repository.withTransaction(async (store) => {
+      const won = await store.publishRepositoryIfPrivate(
+        target.id,
+        target.githubRepositoryId,
+        now,
+      );
+      if (!won) {
+        const reloaded = await store.findPublishTarget(target.id);
+        if (reloaded === null) {
+          throw new RepositoryNotFoundError();
+        }
+        return reloaded;
+      }
+      await this.auditLog.record(
+        {
+          actorGithubId,
+          action: REPOSITORY_PUBLISH_AUDIT_ACTIONS.REPOSITORY_PUBLISHED,
+          targetType: 'REPOSITORY',
+          targetId: target.id,
+          metadata: createRepositoryPublishAuditMetadata({
+            repositoryId: target.id,
+            before: { visibility: RepositoryVisibility.PRIVATE },
+            after: {
+              visibility: RepositoryVisibility.PUBLIC,
+              publishedAt: now.toISOString(),
+            },
+          }),
+        },
+        store.auditLogWriter,
+      );
+      return {
+        ...target,
+        visibility: RepositoryVisibility.PUBLIC,
+        publishedAt: now,
+      };
+    });
   }
 }

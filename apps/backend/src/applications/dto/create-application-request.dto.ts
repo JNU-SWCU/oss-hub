@@ -1,8 +1,10 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDefined,
   IsInt,
   IsObject,
+  IsOptional,
   IsString,
   ValidateIf,
 } from 'class-validator';
@@ -22,11 +24,18 @@ export class CreateApplicationRequestDto {
   @IsInt()
   declare readonly applicationTemplateVersion: number;
 
+  /** 저장소 공개 예정 선택(#414 DEC-33/34). 미지정(구 클라이언트)은 true로 취급한다. */
+  @IsOptional()
+  @IsBoolean()
+  declare readonly isRepositoryPublicationPlanned?: boolean;
+
   toInput(): CreateApplicationInput {
     return {
       answers: this.answers,
       teamId: this.teamId ?? null,
       applicationTemplateVersion: this.applicationTemplateVersion,
+      isRepositoryPublicationPlanned:
+        this.isRepositoryPublicationPlanned ?? true,
     };
   }
 }

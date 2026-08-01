@@ -244,6 +244,7 @@ export interface CreateApplicationInput {
   };
   readonly teamId: string | null;
   readonly applicationTemplateVersion: number;
+  readonly isRepositoryPublicationPlanned: boolean;
 }
 
 export interface CreatedApplication {
@@ -252,6 +253,7 @@ export interface CreatedApplication {
   readonly status: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
   readonly teamId: string | null;
   readonly submittedAt: string;
+  readonly isRepositoryPublicationPlanned: boolean;
 }
 
 export function createApplication(

@@ -38,6 +38,8 @@ ssh ubuntu@<EC2_TAILSCALE_HOST>
 파이프라인 executor는 서버 로컬에서 Docker 이미지 빌드와 앱 build(lint/typecheck/test)를 수행하므로 Docker와 Node/pnpm/jq가 모두 필요하다.
 Buildx plugin도 필수다 — 배포 성공 뒤 캐시 정리가 `docker buildx prune --force --max-used-space`를 호출하므로 이 옵션을 지원하는 Buildx가 없으면 정리 단계에서 배포가 실패한다.
 운영 서버의 확인된 기준선은 Buildx `v0.35.0`이며, 이보다 낮은 버전을 쓸 때는 `--max-used-space` 지원 여부를 먼저 확인한다.
+`BUILD_CACHE_MAX_SPACE`는 `10GB`에서 `5GB`로 인하했다(2026-08-01) — 실측상 빌드 세대당 캐시 증가분이 ~2.6GB였고 직전 빌드(#31)가 이전 세대 레코드를 전혀 재사용하지 않아(last-accessed 미갱신) 오래된 세대는 히트에 기여하지 않는 죽은 용량이었다. 최신 2세대만 보존해도 충분하다는 근거로 상한을 낮췄다(`docker buildx prune --force --max-used-space 5GB` 실행 후 5.64GB로 수렴, 최신 2세대만 잔존, 이상 없음 확인). 다만 빌드 직후에는 실행 중 이미지의 in-use 레이어가 정리 대상에서 보호되므로 이 상한을 일시적으로 넘길 수 있다(v0.6.1 배포 직후 `docker buildx du` 실측 11.07GB로, 인하 전 10GB 상한도 일시 초과한 사례가 있었다) — 이는 결함이 아니라 의도된 동작이다.
+이전 세대가 캐시에 기여하지 못한 원인 중 하나는 세대별 용량이 아니라 근본적인 레이어 무효화였다 — 백엔드 Dockerfile의 `dependencies` 스테이지가 `apps/backend/prisma` 디렉터리 전체(스펙 파일 8개·seed 스크립트·README 등 43개 파일)를 `RUN pnpm install` 앞에 COPY해, 매 릴리즈 스펙 파일만 바뀌어도 install 레이어(~732MB)부터 전부 캐시미스가 났다(v0.6.0→v0.6.1: lockfile·package.json·Dockerfile은 byte-identical인데 prisma 스펙 파일만 변경, 빌드 #31 로그에 CACHED 4건뿐). `@prisma/client`의 postinstall(`prisma generate`)이 실제로 필요로 하는 파일은 `schema.prisma` 하나뿐이므로, COPY 대상을 그 파일로 좁혀 install 레이어가 스펙 파일 변경에 더는 반응하지 않도록 근본 원인을 고쳤다(P1). 백엔드·프런트엔드 두 Dockerfile의 `pnpm install` 스텝에는 BuildKit cache mount(`--mount=type=cache,id=pnpm-store,target=<pnpm store 경로>`)로 pnpm store를 고정해, 락파일이 실제로 바뀌어 레이어가 미스 나는 경우에도 이미 받아둔 패키지는 네트워크 재다운로드 없이 재사용하도록 보완했다(P2). 로컬 검증: 두 이미지 모두 연속 2회 빌드에서 install 레이어 CACHED 확인, `prisma` 디렉터리의 스펙 파일에 무해한 변경 후 재빌드해도 install 레이어가 CACHED로 유지됨을 확인, `schema.prisma` 자체를 바꾸면 의도대로 install 레이어가 미스 남을 확인해 invalidation이 필요할 때는 여전히 동작함을 함께 확인했다.
 
 ```sh
 # Docker Engine + compose·buildx plugin (Ubuntu)
@@ -123,6 +125,7 @@ sudo install -d -o jenkins -g 1000 -m 2750 /var/lib/oss-hub/secrets
 #### GitHub App 개인키 파일 시크릿 회전
 
 - generation 레이아웃은 `${SECRETS_DIR}/gen-<BUILD_NUMBER>/{collection,operations}.pem`이고, 활성 포인터는 `${SECRETS_DIR}/current` symlink다.
+- `gen-${BUILD_NUMBER}`는 매 빌드(파라미터 없는 no-op 재실행 포함)마다 새로 생성되며 자동 정리되지 않는다 — 빌드 횟수만큼 세대가 계속 누적된다. 이전 세대는 필요 시 수동으로 정리하되, `current` symlink가 가리키는 세대는 삭제하지 않는다. 각 세대 파일은 2KB 미만이라 디스크 압박은 미미하다.
 - 교체는 `ln -sfn`으로 새 generation을 가리킨 뒤 `mv -T`로 포인터를 원자적으로 바꾼다.
 - 파일 모드는 `0640`만 쓴다. `0644`는 쓰지 않는다.
 - 호스트에서 `sudo -u '#1000' cat /var/lib/oss-hub/secrets/current/*.pem`으로 가독을 확인하면 부모 `/var/lib/oss-hub`의 `700 jenkins:jenkins` 때문에 항상 실패한다. 이 실패는 권한 버그가 아니라 경로 traversal 차단이다.

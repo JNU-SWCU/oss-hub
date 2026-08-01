@@ -6,7 +6,7 @@ import { EmptyState, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FieldError } from '@/components/ui/field';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { apiClient, ApiError } from '@/lib/api-client';
 import {
   createApplication,
@@ -147,6 +147,7 @@ export function ProgramApplyFormView({
   serverError,
   submitting,
   onChange,
+  onTogglePublicationPlanned,
   onSubmit,
 }: {
   readonly program: ProgramDetail;
@@ -157,6 +158,7 @@ export function ProgramApplyFormView({
   readonly serverError: string | null;
   readonly submitting: boolean;
   readonly onChange: (key: keyof ProgramApplyFormValues, value: string) => void;
+  readonly onTogglePublicationPlanned: (checked: boolean) => void;
   readonly onSubmit: () => void;
 }) {
   const fieldValues = useMemo(
@@ -189,6 +191,19 @@ export function ProgramApplyFormView({
           />
           {errors.title ? <FieldError>{errors.title}</FieldError> : null}
           {errors.summary ? <FieldError>{errors.summary}</FieldError> : null}
+          <Field orientation="horizontal">
+            <input
+              id="repository-publication-planned"
+              type="checkbox"
+              checked={values.isRepositoryPublicationPlanned}
+              onChange={(event) =>
+                onTogglePublicationPlanned(event.target.checked)
+              }
+            />
+            <FieldLabel htmlFor="repository-publication-planned">
+              선정 시 저장소를 공개할 예정입니다
+            </FieldLabel>
+          </Field>
           {serverError ? (
             <Alert variant="destructive">
               <AlertTitle>제출 실패</AlertTitle>
@@ -330,6 +345,7 @@ export function ProgramApplyPage({
         },
         teamId: state.teamId,
         applicationTemplateVersion: state.template.version,
+        isRepositoryPublicationPlanned: values.isRepositoryPublicationPlanned,
       });
       setState({
         kind: 'success',
@@ -427,6 +443,12 @@ export function ProgramApplyPage({
           submitting={submitting}
           onChange={(key, value) =>
             setValues((previous) => ({ ...previous, [key]: value }))
+          }
+          onTogglePublicationPlanned={(checked) =>
+            setValues((previous) => ({
+              ...previous,
+              isRepositoryPublicationPlanned: checked,
+            }))
           }
           onSubmit={() => void submit()}
         />

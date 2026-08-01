@@ -145,8 +145,14 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
         visibility: true,
         application: {
           select: {
+            isRepositoryPublicationPlanned: true,
             provisionJob: { select: { status: true, repositoryId: true } },
-            program: { select: { milestones: { select: { id: true } } } },
+            program: {
+              select: {
+                endAt: true,
+                milestones: { select: { id: true } },
+              },
+            },
             submissions: { select: { milestoneId: true, status: true } },
           },
         },
@@ -162,6 +168,9 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
         repository.application.program.milestones,
         repository.application.submissions,
       ),
+      isRepositoryPublicationPlanned:
+        repository.application.isRepositoryPublicationPlanned,
+      programEndAt: repository.application.program.endAt,
     };
   }
 }
