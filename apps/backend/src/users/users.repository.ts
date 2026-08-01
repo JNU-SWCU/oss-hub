@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, RoleRequestStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   completeCompatibleProfileIfUnchanged,
@@ -46,11 +46,23 @@ export class UsersRepository implements UsersRepositoryPort {
         id: true,
         // 완료 판정이 역할에 따라 달라져 함께 읽는다(#439).
         role: true,
+        // 승인 대기 중인 교직원은 아직 role이 null이다. 그 사람이 지금 프로필을
+        // 채우는 당사자라, 이 표시가 없으면 학생 기준으로 학번을 요구받는다.
+        roleRequests: {
+          where: { status: RoleRequestStatus.PENDING },
+          select: { id: true },
+          take: 1,
+        },
         ...COMPATIBLE_PROFILE_SELECT,
       },
     });
     return user
-      ? { id: user.id, role: user.role, ...resolveCompatibleProfile(user) }
+      ? {
+          id: user.id,
+          role: user.role,
+          hasPendingStaffRequest: user.roleRequests.length > 0,
+          ...resolveCompatibleProfile(user),
+        }
       : null;
   }
 

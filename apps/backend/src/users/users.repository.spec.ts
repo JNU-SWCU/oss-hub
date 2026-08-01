@@ -41,6 +41,7 @@ describe('UsersRepository profile compatibility reads', () => {
     findUnique.mockResolvedValue({
       id: 'user-profile-first',
       role: 'STUDENT',
+      roleRequests: [],
       name: 'Legacy Name',
       studentId: '111111',
       department: 'Legacy Department',
@@ -58,6 +59,7 @@ describe('UsersRepository profile compatibility reads', () => {
     expect(result).toEqual({
       id: 'user-profile-first',
       role: 'STUDENT',
+      hasPendingStaffRequest: false,
       name: 'Profile Name',
       studentId: '222222',
       department: 'Profile Department',
@@ -70,6 +72,7 @@ describe('UsersRepository profile compatibility reads', () => {
     findUnique.mockResolvedValue({
       id: 'user-legacy-fallback',
       role: null,
+      roleRequests: [],
       name: 'Legacy Name',
       studentId: null,
       department: null,
@@ -83,18 +86,20 @@ describe('UsersRepository profile compatibility reads', () => {
     expect(result).toEqual({
       id: 'user-legacy-fallback',
       role: null,
+      hasPendingStaffRequest: false,
       name: 'Legacy Name',
       studentId: null,
       department: null,
     });
   });
 
-  it('완료 판정에 쓰이도록 role을 함께 조회한다', async () => {
+  it('완료 판정에 쓰이도록 role과 승인 대기 요청을 함께 조회한다', async () => {
     // Given
     const { findUnique, repository } = harness();
     findUnique.mockResolvedValue({
       id: 'user-role-selected',
       role: 'STAFF',
+      roleRequests: [{ id: 'synthetic-pending-request' }],
       name: 'Legacy Name',
       studentId: null,
       department: '인공지능학부',
@@ -102,14 +107,16 @@ describe('UsersRepository profile compatibility reads', () => {
     });
 
     // When
-    await repository.findByGithubId(9_600_000_000_153_103n);
+    const result = await repository.findByGithubId(9_600_000_000_153_103n);
 
-    // Then
+    // Then — 승인을 기다리는 교직원은 role이 아직 null이라, 이 표시가 없으면 학생
+    // 기준으로 판정돼 학번을 요구받는다.
     expect(findUnique).toHaveBeenCalledWith(
       expect.objectContaining({
         select: expect.objectContaining({ role: true }) as unknown,
       }),
     );
+    expect(result).toMatchObject({ hasPendingStaffRequest: true });
   });
 });
 

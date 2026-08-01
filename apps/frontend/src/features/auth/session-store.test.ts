@@ -23,6 +23,7 @@ const syntheticUser: Me = {
   email: null,
   avatarUrl: null,
   role: 'STUDENT',
+  isProfileComplete: true,
 };
 
 /** 저장소가 in-flight 요청을 끝낼 때까지 microtask를 흘려보낸다. */

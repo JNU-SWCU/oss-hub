@@ -14,7 +14,7 @@ const policy: CurrentConsent = {
     },
   ],
   consented: false,
-  nextUrl: '/onboarding/profile',
+  nextUrl: '/onboarding/role',
 };
 
 describe('ConsentForm', () => {

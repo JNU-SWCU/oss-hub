@@ -22,6 +22,15 @@ export interface UserProfileRecord {
    * 두 경우 모두 `DEFAULT_PROFILE_ROLE`(학생) 기준으로 판정한다 — fail-closed.
    */
   readonly role?: Role | null;
+  /**
+   * 승인을 기다리는 교직원 요청이 있는가.
+   *
+   * 교직원은 관리자가 승인해야 `role`에 STAFF가 붙는다. 그 전까지 `role`은 null이라
+   * 역할만 보면 학생 기준으로 판정되고, 순서를 역할 → 프로필로 바꾼 의미가 사라진다
+   * — 승인을 기다리는 동안 프로필을 입력하는 사람이 바로 그 교직원이기 때문이다.
+   * 조회하지 않은 호출자는 넘기지 않으며, 그때는 `role`만으로 판정한다.
+   */
+  readonly hasPendingStaffRequest?: boolean;
 }
 
 export type UserProfileFields = Pick<
@@ -34,16 +43,29 @@ export const USER_DEPARTMENT_MAX_LENGTH = 100;
 const STUDENT_ID_PATTERN = /^\d{6,10}$/;
 
 /**
- * 역할이 없는 사용자에게 적용할 기준 역할.
+ * 역할을 아직 알 수 없는 사용자에게 적용할 기준 역할 — fail-closed.
  *
- * 온보딩 순서가 동의 → 프로필 → 역할 선택이라(RolesService.selectRole이
- * requireCompleteProfile을 먼저 부른다) 자력 온보딩 사용자는 프로필을 저장하는
- * 시점에 항상 role=null이다. 그리고 자력으로 고를 수 있는 역할은 STUDENT뿐이다
- * — STAFF·ADMIN은 관리자 승인·직접 변경·초기 역할 설정으로만 붙는다.
- * 여기서 완화하면 학번 없이 완료 처리된 뒤 STUDENT가 확정되고, 그 이후에 프로필을
+ * 온보딩 순서를 동의 → **역할** → 프로필로 바꾼 뒤, 프로필을 저장하는 시점에는
+ * 사용자가 고른 역할을 안다(학생은 즉시 배정, 교직원은 `hasPendingStaffRequest`).
+ * 그래도 이 기본값을 없애지 않는 이유는, 역할을 조회하지 않은 호출자와 아직 아무것도
+ * 고르지 않은 사용자가 여전히 있기 때문이다. 그 경우 가장 엄격한 학생 기준으로 본다
+ * — 여기서 완화하면 학번 없이 완료 처리된 뒤 STUDENT가 확정되고, 그 이후에 프로필을
  * 다시 검사하는 곳이 없어 학번 없는 학생이 영구히 남는다.
  */
 export const DEFAULT_PROFILE_ROLE = 'STUDENT' satisfies Role;
+
+/**
+ * 프로필 필수 항목을 판정할 때 쓰는 역할.
+ *
+ * 배정된 역할이 있으면 그것이 답이다. 없더라도 승인을 기다리는 교직원 요청이 있으면
+ * 교직원 기준으로 본다 — 그 사람이 지금 프로필을 채우는 당사자이고, 학생 기준으로
+ * 되돌리면 학번을 요구받는다.
+ */
+export function effectiveProfileRole(
+  record: Pick<UserProfileRecord, 'role' | 'hasPendingStaffRequest'>,
+): Role | null {
+  return record.role ?? (record.hasPendingStaffRequest ? 'STAFF' : null);
+}
 
 export interface ProfileFieldRequirement {
   readonly studentId: boolean;
@@ -101,7 +123,7 @@ export function isCompleteProfileFields(
 }
 
 export function isCompleteUserProfile(record: UserProfileRecord): boolean {
-  return isCompleteProfileFields(record, record.role);
+  return isCompleteProfileFields(record, effectiveProfileRole(record));
 }
 
 /**

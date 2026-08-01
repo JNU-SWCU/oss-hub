@@ -21,7 +21,11 @@ import {
   type LocalReviewHandler,
   type LocalReviewResponsePlan,
 } from './handler-kit';
-import { ACCOUNT_HANDLERS } from './handlers/account-handlers';
+import {
+  ACCOUNT_HANDLERS,
+  myProfileFixtureFor,
+  resetLocalReviewRoleSelection,
+} from './handlers/account-handlers';
 import { ADMIN_HANDLERS } from './handlers/admin-handlers';
 import { STAFF_HANDLERS } from './handlers/staff-handlers';
 import { STUDENT_HANDLERS } from './handlers/student-handlers';
@@ -262,6 +266,15 @@ const PUBLIC_ARCHIVE_FIXTURES = [
   },
 ] as const satisfies readonly PublicArchiveFixture[];
 
+/**
+ * 역할이 배정된 페르소나는 프로필까지 마친 상태로 본다.
+ *
+ * 온보딩 순서가 역할 → 프로필이라 `RoleGate`가 "역할은 있는데 프로필이 비어 있는"
+ * 사용자를 프로필 단계로 되돌린다. 여기서 이 값을 빼면 학생·교직원·관리자 페르소나가
+ * 모두 업무 화면 대신 프로필 입력으로 튕겨 나가 아무 화면도 검토할 수 없다.
+ * 역할이 없는 페르소나(`unassigned`)에게는 의미가 없다 — 그쪽은 `OnboardingGate`가
+ * `users/me/profile`을 직접 조회해 판단한다.
+ */
 function authenticatedSession(role: AuthRole | null): LocalReviewResponsePlan {
   const roleLabel = role?.toLowerCase() ?? 'unassigned';
   return json(200, {
@@ -272,6 +285,7 @@ function authenticatedSession(role: AuthRole | null): LocalReviewResponsePlan {
       email: null,
       avatarUrl: null,
       role,
+      isProfileComplete: role !== null,
     },
   });
 }
@@ -311,6 +325,7 @@ function consumeErrorOnceFailure(): boolean {
 export function resetLocalReviewFixtureState(): void {
   errorOnceFailuresLeft = 1;
   lastRequestedFixture = null;
+  resetLocalReviewRoleSelection();
 }
 
 function sessionResponse(
@@ -531,12 +546,9 @@ export function resolveLocalReviewResponse({
   }
 
   if (method === 'GET' && path === 'users/me/profile') {
-    return json(200, {
-      name: '합성 설정 사용자',
-      studentId: '260001',
-      department: '인공지능학부',
-      isComplete: true,
-    });
+    // 미배정 페르소나는 빈 프로필을 본다 — 가입 동선을 처음부터 걸어 보려면
+    // 프로필 입력 화면이 실제로 떠야 한다.
+    return json(200, myProfileFixtureFor(fixture));
   }
 
   if (method === 'GET' && path === 'users/me/notification-email') {

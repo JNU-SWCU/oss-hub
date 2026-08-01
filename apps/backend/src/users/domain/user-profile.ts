@@ -4,6 +4,7 @@ import {
 } from '../user-profile-policy';
 
 export {
+  effectiveProfileRole,
   isCompleteProfileFields,
   isCompleteUserProfile,
   isValidDepartment,

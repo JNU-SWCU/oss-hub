@@ -18,7 +18,14 @@ import type {
   UserProfile,
 } from './types';
 
-export const PROFILE_ONBOARDING_NEXT_PATH = '/onboarding/role';
+/**
+ * 프로필 저장 뒤 갈 곳은 고정 경로가 아니다.
+ *
+ * 온보딩 순서가 약관 → 역할 → 프로필로 바뀌면서 프로필이 마지막 단계가 됐다. 그래서
+ * 다음 목적지는 사용자가 고른 역할에 따라 달라진다 — 학생은 역할 홈, 승인을 기다리는
+ * 교직원은 승인 대기 화면이다. 그 판단은 세션을 아는 app 계층이 하고(`ProfileOnboardingRoute`)
+ * 이 feature는 받은 경로를 그대로 쓴다. 여기서 다시 계산하면 게이트의 판단과 갈라진다.
+ */
 
 // 길이 상한은 profile-requirements가 원본이다. 화면·테스트가 오래 이 경로로
 // 가져다 써 왔으므로 여기서도 계속 내보낸다.
@@ -27,8 +34,9 @@ export { PROFILE_DEPARTMENT_MAX_LENGTH, PROFILE_NAME_MAX_LENGTH };
 export function getProfileRedirect(
   profile: UserProfile,
   role: ProfileRole | null,
+  nextPath: string,
 ): string | null {
-  return isProfileComplete(profile, role) ? PROFILE_ONBOARDING_NEXT_PATH : null;
+  return isProfileComplete(profile, role) ? nextPath : null;
 }
 
 export function createInitialProfileForm(

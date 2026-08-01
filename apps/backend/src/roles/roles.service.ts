@@ -3,7 +3,6 @@ import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.enum';
 import { DomainException } from '../common/error-code';
 import { ConsentsService } from '../consents/consents.service';
-import { UsersService } from '../users/users.service';
 import type { RoleRequestRecord, RoleUser } from './domain/role-onboarding';
 import type {
   RoleSelectionResult,
@@ -16,6 +15,24 @@ import type {
 } from './roles.repository';
 import { ROLES_ERROR_CODES, RolesErrorCode } from './roles-error-code.enum';
 
+/**
+ * 온보딩 순서: 약관 동의 → **역할 선택** → 프로필 입력.
+ *
+ * 예전에는 역할 선택이 마지막이었고, 이 서비스가 "완료된 프로필"을 선행 조건으로
+ * 요구했다(`USR_002`). 그 순서에서는 프로필을 입력하는 시점에 역할이 없어서 프런트도
+ * 백엔드도 가장 엄격한 학생 기준으로 되돌아갔고, 결국 학번이 필요 없는 교직원·관리자가
+ * 가짜 학번을 지어내야 프로필을 통과할 수 있었다 — 역할별 필수 항목을 만든 이유가
+ * 그 화면에서 무너진 것이다.
+ *
+ * 그래서 순서를 뒤집고 이 선행 조건도 함께 뒤집었다. 역할 배정은 더 이상 완료된 프로필을
+ * 요구하지 않고, 대신 **프로필 완료 판정이 역할을 안다**. 동의(`CON_003`)는 개인정보
+ * 경계라 그대로 선행 조건으로 남는다.
+ *
+ * 프로필이 비어 있는 채로 역할이 정해질 수 있으므로 다음 단계로 미는 책임은 화면의
+ * 게이트가 진다 — 미배정 사용자는 `OnboardingGate`, 배정된 사용자는 `RoleGate`가
+ * 프로필 미완료를 보고 `/onboarding/profile`로 보낸다. 여기서 `redirectTo`를 다시
+ * 계산하지 않는 이유는, 목적지 판단이 두 곳으로 갈라지면 반드시 어긋나기 때문이다.
+ */
 @Injectable()
 export class RolesService {
   constructor(
@@ -23,8 +40,6 @@ export class RolesService {
     private readonly repository: RolesRepositoryPort,
     @Inject(ConsentsService)
     private readonly consentsService: Pick<ConsentsService, 'requireCurrent'>,
-    @Inject(UsersService)
-    private readonly usersService: Pick<UsersService, 'requireCompleteProfile'>,
   ) {}
 
   async selectRole(
@@ -32,7 +47,6 @@ export class RolesService {
     selectedRole: SelectableRole,
   ): Promise<RoleSelectionResult> {
     await this.consentsService.requireCurrent(githubId);
-    await this.usersService.requireCompleteProfile(githubId);
 
     return this.repository.withTransaction(async (store) => {
       const user = await this.requireUser(store, githubId);
@@ -61,7 +75,6 @@ export class RolesService {
 
   async retryStaffRequest(githubId: bigint): Promise<RoleRequestRecord> {
     await this.consentsService.requireCurrent(githubId);
-    await this.usersService.requireCompleteProfile(githubId);
 
     return this.repository.withTransaction(async (store) => {
       const user = await this.requireUser(store, githubId);

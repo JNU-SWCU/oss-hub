@@ -9,6 +9,7 @@ import type {
   UserProfileRecord,
 } from './domain/user-profile';
 import {
+  effectiveProfileRole,
   isCompleteUserProfile,
   isValidDepartment,
   isValidStudentId,
@@ -64,6 +65,7 @@ export class UsersService {
     const next: UserProfileRecord = {
       id: user.id,
       role: user.role,
+      hasPendingStaffRequest: user.hasPendingStaffRequest,
       name: input.name,
       studentId: input.studentId ?? user.studentId,
       department: input.department ?? user.department,
@@ -170,7 +172,7 @@ export class UsersService {
    * 컬럼에만 남아 서로 다른 두 사람이 같은 학번을 갖게 된다.
    */
   private requireFieldsForRole(next: UserProfileRecord): void {
-    const requirement = profileFieldRequirement(next.role);
+    const requirement = profileFieldRequirement(effectiveProfileRole(next));
     if (next.studentId !== null && next.department === null) {
       throw new DomainException(
         USERS_ERROR_CODES[UsersErrorCode.STUDENT_ID_NEEDS_DEPARTMENT],

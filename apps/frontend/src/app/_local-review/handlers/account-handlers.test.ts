@@ -133,7 +133,7 @@ describe('account fixture responses', () => {
     expect(body).toMatchObject({
       policyVersion: '2026-07-01',
       consented: false,
-      nextUrl: '/onboarding/profile',
+      nextUrl: '/onboarding/role',
     });
     expect((body as { requiredItems: unknown[] }).requiredItems).toHaveLength(
       3,
@@ -149,7 +149,7 @@ describe('account fixture responses', () => {
     expect(body).toMatchObject({
       policyVersion: '2026-07-01',
       consented: true,
-      nextUrl: '/onboarding/profile',
+      nextUrl: '/onboarding/role',
     });
   });
 
@@ -160,7 +160,7 @@ describe('account fixture responses', () => {
     // Then
     expect(body).toMatchObject({
       policyVersion: '2026-07-01',
-      nextUrl: '/onboarding/profile',
+      nextUrl: '/onboarding/role',
     });
     expect(
       Number.isFinite(

@@ -39,6 +39,7 @@ export type SignupEntryDecision =
 export function signupEntryDecision(
   status: SessionStatus,
   role: AppRole | null,
+  isProfileComplete = true,
 ): SignupEntryDecision {
   switch (status) {
     case 'loading':
@@ -56,13 +57,23 @@ export function signupEntryDecision(
       // role이 비어 있는 `assigned`는 세션 훅이 만들지 않는다. 그래도 도달하면
       // 목적지를 지어내는 대신 안내로 떨어뜨린다 — 버튼이 OAuth로 이어지므로
       // 사용자는 어디로든 갈 수 있고, 잘못된 화면으로 밀어내지는 않는다.
-      return role
+      if (!role) {
+        return { kind: 'invite' };
+      }
+      // 역할이 있어도 프로필이 비어 있으면 가입이 아직 안 끝났다. 순서를 역할 →
+      // 프로필로 바꾼 뒤 생긴 상태이고, 역할 홈으로 보내면 남은 단계가 화면에서
+      // 사라진다 — 이 화면을 만든 이유가 바로 그 구멍을 막기 위해서였다.
+      return isProfileComplete
         ? {
             kind: 'resume',
             href: roleHomePath(role),
             label: ROLE_HOME_LABEL[role],
           }
-        : { kind: 'invite' };
+        : {
+            kind: 'resume',
+            href: ONBOARDING_ENTRY_PATH,
+            label: '이어서 진행하기',
+          };
     default: {
       const exhaustive: never = status;
       return exhaustive;

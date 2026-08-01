@@ -9,7 +9,10 @@ describe('loginLandingUrl', () => {
     '온보딩을 마친 %s 재로그인 사용자는 랜딩으로 보낸다',
     (role) => {
       expect(
-        loginLandingUrl(frontendUrl, { user: { role }, isNew: false }),
+        loginLandingUrl(frontendUrl, {
+          user: { role, isProfileComplete: true },
+          isNew: false,
+        }),
       ).toBe(frontendUrl);
     },
   );
@@ -18,13 +21,19 @@ describe('loginLandingUrl', () => {
   // 중단된 상태다. 첫 로그인인지 재로그인인지와 무관하게 재개 지점으로 보낸다.
   it('역할이 비어 있으면 온보딩 입구로 보낸다', () => {
     expect(
-      loginLandingUrl(frontendUrl, { user: { role: null }, isNew: false }),
+      loginLandingUrl(frontendUrl, {
+        user: { role: null, isProfileComplete: false },
+        isNew: false,
+      }),
     ).toBe(onboardingEntry);
   });
 
   it('신규 가입자는 온보딩 입구로 보낸다', () => {
     expect(
-      loginLandingUrl(frontendUrl, { user: { role: null }, isNew: true }),
+      loginLandingUrl(frontendUrl, {
+        user: { role: null, isProfileComplete: false },
+        isNew: true,
+      }),
     ).toBe(onboardingEntry);
   });
 
@@ -35,7 +44,24 @@ describe('loginLandingUrl', () => {
     '초기 역할 %s이 설정된 신규 가입자도 온보딩 입구를 거친다',
     (role) => {
       expect(
-        loginLandingUrl(frontendUrl, { user: { role }, isNew: true }),
+        loginLandingUrl(frontendUrl, {
+          user: { role, isProfileComplete: true },
+          isNew: true,
+        }),
+      ).toBe(onboardingEntry);
+    },
+  );
+
+  // 순서를 역할 → 프로필로 바꾼 뒤로는 역할이 있으면서 프로필이 비어 있는 상태가
+  // 정상적으로 존재한다. 그 사용자를 랜딩으로 떨어뜨리면 남은 단계로 돌아갈 길이 없다.
+  it.each([Role.STUDENT, Role.STAFF, Role.ADMIN])(
+    '역할이 있어도 프로필이 미완료인 %s는 온보딩 입구로 보낸다',
+    (role) => {
+      expect(
+        loginLandingUrl(frontendUrl, {
+          user: { role, isProfileComplete: false },
+          isNew: false,
+        }),
       ).toBe(onboardingEntry);
     },
   );
@@ -43,7 +69,7 @@ describe('loginLandingUrl', () => {
   it('frontendUrl 뒤에 경로만 붙이고 출처는 바꾸지 않는다', () => {
     expect(
       loginLandingUrl('https://other.example', {
-        user: { role: null },
+        user: { role: null, isProfileComplete: false },
         isNew: false,
       }),
     ).toBe('https://other.example/consent');

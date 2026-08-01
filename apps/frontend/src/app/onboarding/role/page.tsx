@@ -6,7 +6,7 @@ import { OnboardingProgress } from '../../_shell/onboarding-progress';
 export default function OnboardingRolePage() {
   return (
     <OnboardingGate target="role">
-      <OnboardingProgress current={3} />
+      <OnboardingProgress current={2} />
       <RoleSelectionScreen />
     </OnboardingGate>
   );

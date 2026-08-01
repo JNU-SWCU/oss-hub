@@ -47,5 +47,8 @@ export const CURRENT_CONSENT_POLICY: ConsentPolicy = {
       documentUrl: `/policies/org-repository-terms/${CONSENT_POLICY_VERSION}.html`,
     },
   ],
-  nextUrl: '/onboarding/profile',
+  // 동의 다음은 역할 선택이다. 프로필을 먼저 받으면 그 시점에 역할이 없어서 학생
+  // 기준(가장 엄격)으로 판정되고, 학번이 필요 없는 교직원·관리자가 가짜 학번을
+  // 지어내야 한다. 역할을 먼저 물어야 프로필이 역할에 맞는 항목만 요구할 수 있다.
+  nextUrl: '/onboarding/role',
 };
