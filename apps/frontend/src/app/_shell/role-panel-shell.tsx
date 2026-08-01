@@ -1,47 +1,35 @@
-import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { DetailPanelLayout, type NavItem } from '@/components';
+import type { NavItem } from '@/components';
 import { RoleGate } from './role-gate';
 import type { AppRole } from './role';
 
 /**
- * 역할별 좌측 패널(#136 최소 요구 3) — DetailPanelLayout을 좁은 메뉴(primary) +
- * 넓은 본문(secondary)으로 재구성해 재사용한다. 접근 허용 role 집합(`allow`)과
- * 표시할 메뉴(`menu`)를 분리한 이유는 화면마다 둘이 항상 같지 않기 때문이다
- * (예: 내 저장소 #122는 학생 메뉴 아래 있지만 로그인한 모든 역할이 접근 가능).
+ * 역할 화면 셸 — 이제는 접근 게이트(`RoleGate`)만 담당한다.
+ *
+ * 예전에는 여기서 좌측 역할 메뉴 패널까지 그렸다. 미감 시안 v2에서 메뉴는 화면
+ * 안이 아니라 셸의 왼쪽 사이드바(`ProductShell` → `AppSidebar`)로 올라갔으므로,
+ * 그대로 두면 같은 메뉴가 한 화면에 두 벌 나온다.
+ *
+ * `menu` prop은 계속 받는다 — 호출부 30여 곳이 넘기고 있고, 사이드바가 역할별
+ * 메뉴를 같은 `role-menus.ts`에서 읽으므로 값 자체는 여전히 유효하다. 다만 이
+ * 컴포넌트는 더 이상 그것을 그리지 않는다.
  */
 export function RolePanelShell({
-  menu,
   allow,
   deniedPath,
   children,
 }: {
-  menu: NavItem[];
+  /** @deprecated 왼쪽 사이드바(`AppSidebar`)가 대신 그린다. 호출부 호환용으로만 남는다. */
+  menu?: NavItem[];
   allow: readonly AppRole[];
   deniedPath?: string;
   children: ReactNode;
 }) {
   return (
     <RoleGate allow={allow} deniedPath={deniedPath}>
-      <DetailPanelLayout
-        className="gap-0 md:grid-cols-[220px_minmax(0,1fr)] md:items-stretch"
-        primaryClassName="border-b border-border p-4 md:border-b-0 md:border-r md:p-6"
-        secondaryClassName="min-w-0"
-        primary={
-          <nav aria-label="역할 메뉴" className="flex flex-col gap-1">
-            {menu.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-md px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        }
-        secondary={children}
-      />
+      <div data-slot="role-panel-shell" className="min-w-0">
+        {children}
+      </div>
     </RoleGate>
   );
 }

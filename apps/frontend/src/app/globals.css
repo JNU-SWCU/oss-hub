@@ -84,6 +84,41 @@
   --palette-black: #000000;
 }
 
+/* ---------- 1) Primitive — 치수·타이포 램프 (업무 화면 미감 시안 v2) ----------
+ * 색과 같은 원리다. 화면마다 제각각 px를 쓰지 못하게 원시 값은 여기에만 둔다.
+ * 시안 원본: 사용자 확정 v2 (여백 8의 배수 / 크기 네 계단 / 조작 사각형 44px).
+ */
+:root {
+  /* 여백 척도 — 하나뿐이다. 8의 배수(12는 8·16 사이의 반 단계로 시안이 허용).
+     Tailwind 기본 spacing(0.25rem 배수)의 1·2·3·4·6·8·12·16·24와 값이 정확히
+     같아, `p-4`(16px)처럼 유틸리티로 써도 이 척도를 벗어나지 않는다. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  /* 크기 계단 — 네 단계뿐이다. 페이지 제목 / 섹션 / 본문 / 보조 */
+  --step-page: 40px;
+  --step-section: 24px;
+  --step-body: 16px;
+  --step-small: 13px;
+
+  /* 네모의 크기 — 여백 척도의 배수가 아닌 고정 치수. 여백과 섞이면 둘 다 흐려지므로
+     별도 램프로 둔다. 44는 터치 타깃 최소치, 26은 읽는 라벨(배지) 높이다. */
+  --measure-26: 26px;
+  --measure-44: 44px;
+  --measure-64: 64px;
+  --measure-72: 72px;
+  --measure-76: 76px;
+  --measure-148: 148px;
+  --measure-248: 248px;
+}
+
 /* ---------- 3) Component (Tailwind 유틸리티 매핑) ---------- */
 @theme inline {
   --font-heading: var(--font-sans);
@@ -148,6 +183,31 @@
   --color-cosmos-repository: var(--cosmos-repository);
   --color-cosmos-edge: var(--cosmos-edge);
   --color-cosmos-border: var(--cosmos-border);
+  /* 시안 v2 치수 semantic → Tailwind 유틸리티.
+     `--spacing-*` 네임스페이스는 크기·여백 유틸리티를 함께 만든다
+     (`h-control`·`min-h-control`·`w-sidebar-open`·`p-card`·`gap-card` …).
+     화면이 리터럴 px(`h-[44px]`)를 쓰지 않고 이 이름만 쓰게 하는 것이 목적이다. */
+  --spacing-control: var(--control-height);
+  --spacing-tag: var(--tag-height);
+  --spacing-row: var(--row-height);
+  --spacing-tile: var(--tile-height);
+  --spacing-card: var(--card-padding);
+  --spacing-topbar: var(--topbar-height);
+  --spacing-sidebar-open: var(--sidebar-open-width);
+  --spacing-sidebar-collapsed: var(--sidebar-collapsed-width);
+  /* 크기 계단 네 단계 — `text-page`·`text-section`·`text-body`·`text-small` */
+  --text-page: var(--step-page);
+  --text-section: var(--step-section);
+  --text-body: var(--step-body);
+  --text-small: var(--step-small);
+  /* 카드 12 / 조작 사각형 8. 기존 `--radius`(shadcn 전역)는 건드리지 않는다 —
+     본문 컴포넌트 전체가 거기 매달려 있고 이번 단계는 셸까지다. */
+  --radius-card: var(--card-radius);
+  --radius-control: var(--control-radius);
+  /* 사이드바 현재 위치 표시 — 색·굵기·왼쪽 막대 세 신호를 함께 쓴다 */
+  --color-sidebar-current: var(--sidebar-current);
+  --color-sidebar-current-foreground: var(--sidebar-current-foreground);
+  --color-sidebar-current-marker: var(--sidebar-current-marker);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -206,6 +266,27 @@
   --sidebar-accent-foreground: var(--palette-gray-800);
   --sidebar-border: var(--palette-gray-200);
   --sidebar-ring: var(--palette-navy-400);
+
+  /* 사이드바 현재 위치 — 강조색(남색)을 유지하되 색 하나에만 기대지 않는다.
+     소비하는 쪽(app-sidebar.tsx)이 배경 + 굵기 + 왼쪽 막대 셋을 함께 건다. */
+  --sidebar-current: var(--palette-navy-50);
+  --sidebar-current-foreground: var(--palette-navy-900);
+  --sidebar-current-marker: var(--palette-navy-900);
+
+  /* ── 시안 v2 치수 semantic ─────────────────────────────────────────────
+     "네모의 규격"에 이름을 준다. 여기 값만 바꾸면 셸·버튼·입력·목록이 함께 움직인다.
+     조작 가능한 사각형은 전부 같은 높이(--control-height)이고, 상태 배지만
+     예외(--tag-height)다 — 누르는 것이 아니라 읽는 라벨이기 때문이다. */
+  --control-height: var(--measure-44);
+  --tag-height: var(--measure-26);
+  --row-height: var(--measure-76);
+  --tile-height: var(--measure-148);
+  --card-padding: var(--space-5);
+  --card-radius: var(--space-3);
+  --control-radius: var(--space-2);
+  --topbar-height: var(--measure-64);
+  --sidebar-open-width: var(--measure-248);
+  --sidebar-collapsed-width: var(--measure-72);
 
   /* 상태 그룹 — StatusBadge(B-6)가 참조할 이름. 값은 브랜드 팔레트 재사용.
      recruiting은 navy(브랜드 주조색) 계열로 분리해 approved(green)와 구분한다 —
@@ -290,6 +371,12 @@
   --sidebar-accent-foreground: var(--palette-gray-100);
   --sidebar-border: color-mix(in oklch, var(--palette-white) 12%, transparent);
   --sidebar-ring: var(--palette-navy-300);
+
+  /* 어두운 표면에서는 밝은 남색을 전경으로 올린다(라이트의 반전). 치수 토큰은
+     테마와 무관하므로 :root에만 둔다 — 여기서 다시 선언할 것이 없다. */
+  --sidebar-current: var(--palette-navy-800);
+  --sidebar-current-foreground: var(--palette-navy-100);
+  --sidebar-current-marker: var(--palette-navy-300);
 
   --status-recruiting-bg: var(--palette-navy-800);
   --status-recruiting-fg: var(--palette-navy-100);

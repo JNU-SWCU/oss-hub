@@ -10,9 +10,10 @@ import { Button } from '@/components/ui/button';
  */
 export function AccessDenied({ homePath }: { readonly homePath: string }) {
   return (
+    // 화면 전체를 대신하는 상태라 가운데에 세운다 — 세션 실패 화면과 같은 규칙이다.
     <section
       aria-labelledby="access-denied-heading"
-      className="flex flex-col items-start gap-4 p-6"
+      className="flex min-h-[50svh] flex-col items-center justify-center gap-4 px-6 py-16 text-center"
     >
       <div className="space-y-1">
         <h1
@@ -22,7 +23,7 @@ export function AccessDenied({ homePath }: { readonly homePath: string }) {
         >
           접근 권한이 없는 페이지 입니다
         </h1>
-        <p className="break-keep text-sm text-muted-foreground">
+        <p className="mx-auto max-w-md break-keep text-sm text-muted-foreground">
           현재 계정으로는 이 화면을 열 수 없습니다. 주소를 다시 확인하거나 아래
           버튼으로 돌아가 주세요.
         </p>

@@ -45,7 +45,10 @@ describe('ShellNav', () => {
       <ShellNav items={ITEMS} brand="OSS Hub" />,
     );
 
-    expect(html).not.toContain('data-surface');
+    // 반전 스코프만 없으면 된다. NavBar 안의 접힌 메뉴 패널은 랜딩의 반전 표면
+    // 안에 중첩될 수 있어 항상 `data-surface="default"` 리셋을 달고 다닌다
+    // (globals.css의 `[data-surface='inverted'] [data-surface='default']`).
+    expect(html).not.toContain('data-surface="inverted"');
     expect(html).not.toContain('fixed inset-x-0 top-0');
     expect(html).not.toContain('border-transparent');
   });
