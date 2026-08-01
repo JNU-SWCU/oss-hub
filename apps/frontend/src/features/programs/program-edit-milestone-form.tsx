@@ -69,7 +69,7 @@ export function ProgramEditMilestoneForm({
               </FieldLabel>
               <select
                 id="milestone-submission-type"
-                className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
+                className="h-control rounded-control border border-input bg-background px-4 text-body"
                 value={editor.form.submissionType}
                 onChange={(event) =>
                   onFieldChange(
@@ -95,7 +95,7 @@ export function ProgramEditMilestoneForm({
                 onChange={(event) =>
                   onFieldChange('instructions', event.target.value)
                 }
-                className="min-h-28 rounded-lg border border-input bg-transparent p-3 text-sm"
+                className="min-h-28 rounded-control border border-input bg-transparent p-4 text-body"
               />
               <FieldError>{editor.errors.instructions}</FieldError>
             </Field>

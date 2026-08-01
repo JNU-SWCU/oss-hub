@@ -23,11 +23,14 @@ export type LocalReviewFixtureId = (typeof LOCAL_REVIEW_FIXTURE_IDS)[number];
 /**
  * next.config의 쿠키 조건이 쓰는 값 패턴. Next는 이 문자열을 `^…$`로 감싸 완전
  * 일치로 검사하므로(prepare-destination의 matchHas), 여기 없는 페르소나는 쿠키가
- * 있어도 어댑터로 가지 못하고 실제 backend로 새어 나간다 — 새 id를 추가할 때
- * `LOCAL_REVIEW_FIXTURE_IDS`와 함께 반드시 고친다.
+ * 있어도 어댑터로 가지 못하고 실제 backend로 새어 나간다.
+ *
+ * 손으로 적어 두면 id 목록과 두 곳에서 따로 관리하게 돼, 새 페르소나를 넣고 한쪽만
+ * 고치는 사고가 난다. 목록에서 직접 파생시켜 그 가능성을 없앤다.
  */
-export const LOCAL_REVIEW_FIXTURE_PATTERN =
-  '(?:anonymous|student|staff|admin|settings|loading|error|error-once|unassigned|wrong-role|role-pending)' as const;
+export const LOCAL_REVIEW_FIXTURE_PATTERN = `(?:${LOCAL_REVIEW_FIXTURE_IDS.join(
+  '|',
+)})` as const;
 
 /**
  * 정확히 일치할 때만 허용하는 진입 경로. 하위 경로가 없는 화면들이다.

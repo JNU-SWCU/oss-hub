@@ -1,7 +1,8 @@
 import { apiClient } from '@/lib/api-client';
+import { parseAuditLogPage } from './parser';
 import type { AuditLogListParams, AuditLogPage } from './types';
 
-export function fetchAuditLogs(
+export async function fetchAuditLogs(
   params: AuditLogListParams,
 ): Promise<AuditLogPage> {
   const search = new URLSearchParams();
@@ -11,5 +12,6 @@ export function fetchAuditLogs(
   if (params.to) search.set('to', params.to);
   search.set('page', String(params.page));
   search.set('limit', String(params.limit));
-  return apiClient<AuditLogPage>(`audit-logs?${search.toString()}`);
+  const response = await apiClient<unknown>(`audit-logs?${search.toString()}`);
+  return parseAuditLogPage(response);
 }

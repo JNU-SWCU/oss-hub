@@ -8,7 +8,6 @@ import {
   type DataTableColumn,
 } from '@/components';
 import {
-  RANKING_NOTICE,
   RANKING_PERIODS,
   type RankingItem,
   type RankingPage,
@@ -149,13 +148,6 @@ export function RankingView({
         </Alert>
       ) : (
         <>
-          <Alert>
-            <AlertTitle>집계 안내</AlertTitle>
-            <AlertDescription className="break-keep">
-              {RANKING_NOTICE} Release는 해당 기간에 게시된 GitHub 릴리스
-              수입니다.
-            </AlertDescription>
-          </Alert>
           {state.kind === 'ready' && ranking && ranking.items.length === 0 ? (
             <EmptyState
               icon={<ListOrdered className="size-5" />}
@@ -171,7 +163,6 @@ export function RankingView({
               isLoading={state.kind === 'loading'}
               loadingSlot="랭킹을 불러오는 중입니다…"
               emptyState="표시할 데이터가 없습니다."
-              caption="공개 GitHub 활동 랭킹"
             />
           )}
         </>

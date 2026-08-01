@@ -58,8 +58,10 @@ describe('SubmissionFormView', () => {
 
     // Then
     expect(html).toContain('최종 제출');
-    expect(html).toContain('<h1>최종 제출</h1>');
-    expect(html).toContain('<h2>제출 내용</h2>');
+    // 제목 위계: 마일스톤 이름이 페이지 제목(h1), "제출 내용"이 섹션 머리(h2).
+    // 공용 PageHeader·SectionHeading이 속성을 붙이므로 태그와 글자만 고정한다.
+    expect(html).toMatch(/<h1[^>]*>최종 제출<\/h1>/);
+    expect(html).toMatch(/<h2[^>]*>제출 내용<\/h2>/);
     expect(html).toContain('D-69');
     expect(html).toContain('최종 보고 내용을 입력하세요.');
     expect(html).toContain('id="submission-text"');

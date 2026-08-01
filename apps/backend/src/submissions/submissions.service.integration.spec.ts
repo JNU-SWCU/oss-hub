@@ -3,6 +3,7 @@ import {
   MilestoneSubmissionType,
   Role,
   SubmissionFileLifecycle,
+  SubmissionStatus,
 } from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
 import {
@@ -13,6 +14,7 @@ import {
 } from '../../prisma/seeds/helpers';
 import { MILESTONE_SCENARIOS } from '../../prisma/seeds/milestones';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { addOneCalendarYear } from '../common/add-one-calendar-year';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubmissionsErrorCode } from './submissions-error-code.enum';
@@ -52,7 +54,9 @@ const UNAPPROVED_USER_ID = 'synthetic-submission-unapproved-student';
 const UNAPPROVED_APPLICATION_ID = 'synthetic-submission-unapproved-application';
 const FILE_MILESTONE_ID = 'synthetic-submission-file-milestone';
 const RELEASE_MILESTONE_ID = 'synthetic-submission-release-milestone';
+const FILE_RESUBMISSION_PREFIX = 'synthetic-file-resubmission';
 const NOW = new Date('2026-07-23T00:00:00.000Z');
+const FILE_RETENTION_START = new Date('2027-01-01T00:00:00.000Z');
 
 describe('SubmissionsService integration', () => {
   beforeAll(async () => {
@@ -115,11 +119,18 @@ describe('SubmissionsService integration', () => {
       FILE_MILESTONE_ID,
       RELEASE_MILESTONE_ID,
     ];
+    await prisma.submissionFile.deleteMany({
+      where: { id: { startsWith: FILE_RESUBMISSION_PREFIX } },
+    });
     await prisma.submissionRevision.deleteMany({
       where: { submission: { milestoneId: { in: milestoneIds } } },
     });
     await prisma.submission.deleteMany({
       where: { milestoneId: { in: milestoneIds } },
+    });
+    await prisma.milestone.updateMany({
+      where: { id: FILE_MILESTONE_ID },
+      data: { submissionType: MilestoneSubmissionType.FILE },
     });
   });
 
@@ -443,6 +454,7 @@ describe('SubmissionsService integration', () => {
         contentType: 'application/pdf',
       }),
       delete: jest.fn().mockResolvedValue(undefined),
+      get: jest.fn<ReturnType<SubmissionFileStoragePort['get']>, [string]>(),
     };
     const fileService = new SubmissionFilesService(
       new SubmissionFilesRepository(prisma),
@@ -519,4 +531,249 @@ describe('SubmissionsService integration', () => {
       releaseUrl: validReleaseUrl,
     });
   });
+
+  it('FILE 보완 재제출은 replacement 파일을 새 revision에 붙이고 기존 파일을 보존한다', async () => {
+    // Given
+    const fixture = await seedFileResubmissionFixture('success');
+
+    // When
+    const result = await service.resubmit(
+      seedGithubId(PERSONAL_USER_ID),
+      fixture.submissionId,
+      {
+        baseRevision: 1,
+        content: {
+          type: MilestoneSubmissionType.FILE,
+          fileId: fixture.replacementFileId,
+        },
+        comment: 'replacement upload',
+      },
+    );
+
+    // Then
+    expect(result).toEqual({
+      submissionId: fixture.submissionId,
+      revision: 2,
+      status: SubmissionStatus.SUBMITTED,
+    });
+    const stored = await prisma.submission.findUniqueOrThrow({
+      where: { id: fixture.submissionId },
+      include: {
+        revisions: { orderBy: { revision: 'asc' }, include: { files: true } },
+      },
+    });
+    expect(stored).toMatchObject({
+      status: SubmissionStatus.SUBMITTED,
+      currentRevision: 2,
+    });
+    expect(stored.revisions).toHaveLength(2);
+    expect(stored.revisions[0]?.files).toHaveLength(1);
+    expect(stored.revisions[0]?.files[0]).toMatchObject({
+      id: fixture.initialFileId,
+      lifecycle: SubmissionFileLifecycle.ATTACHED,
+    });
+    expect(stored.revisions[1]?.files).toHaveLength(1);
+    expect(stored.revisions[1]?.files[0]).toMatchObject({
+      id: fixture.replacementFileId,
+      lifecycle: SubmissionFileLifecycle.ATTACHED,
+      pendingExpiresAt: null,
+      expiresAt: addOneCalendarYear(FILE_RETENTION_START),
+    });
+  });
+
+  it('FILE replacement attachment 실패는 revision 갱신을 롤백하고 기존 파일을 보존한다', async () => {
+    // Given
+    const fixture = await seedFileResubmissionFixture('rollback');
+
+    // When
+    const resubmission = service.resubmit(
+      seedGithubId(PERSONAL_USER_ID),
+      fixture.submissionId,
+      {
+        baseRevision: 1,
+        content: {
+          type: MilestoneSubmissionType.FILE,
+          fileId: `${FILE_RESUBMISSION_PREFIX}-missing-file`,
+        },
+        comment: null,
+      },
+    );
+
+    // Then
+    await expect(resubmission).rejects.toMatchObject({
+      errorCode: { code: SubmissionsErrorCode.FILE_SUBMISSION_UNAVAILABLE },
+    });
+    const stored = await prisma.submission.findUniqueOrThrow({
+      where: { id: fixture.submissionId },
+      include: { revisions: { include: { files: true } } },
+    });
+    expect(stored).toMatchObject({
+      status: SubmissionStatus.CHANGES_REQUESTED,
+      currentRevision: 1,
+    });
+    expect(stored.revisions).toHaveLength(1);
+    expect(stored.revisions[0]?.files).toHaveLength(1);
+    expect(stored.revisions[0]?.files[0]).toMatchObject({
+      id: fixture.initialFileId,
+      lifecycle: SubmissionFileLifecycle.ATTACHED,
+    });
+    await expect(
+      prisma.submissionFile.findUniqueOrThrow({
+        where: { id: fixture.replacementFileId },
+      }),
+    ).resolves.toMatchObject({
+      lifecycle: SubmissionFileLifecycle.PENDING,
+      submissionRevisionId: null,
+    });
+  });
+
+  it('교직원이 FILE 유형을 바꾸는 동안 대기한 재제출은 잠금 뒤 최신 유형으로 거절한다', async () => {
+    // Given
+    const fixture = await seedFileResubmissionFixture('type-race');
+    let releaseProgramLock: (() => void) | undefined;
+    const programLockRelease = new Promise<void>((resolve) => {
+      releaseProgramLock = resolve;
+    });
+    let markStaffUpdateReady: (() => void) | undefined;
+    const staffUpdateReady = new Promise<void>((resolve) => {
+      markStaffUpdateReady = resolve;
+    });
+    const staffUpdate = prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`
+        SELECT id
+        FROM "Program"
+        WHERE id = ${MILESTONES_PROGRAM_ID}
+        FOR UPDATE
+      `;
+      await transaction.milestone.update({
+        where: { id: FILE_MILESTONE_ID },
+        data: { submissionType: MilestoneSubmissionType.TEXT },
+      });
+      markStaffUpdateReady?.();
+      await programLockRelease;
+    });
+    await staffUpdateReady;
+
+    // When
+    const resubmission = service.resubmit(
+      seedGithubId(PERSONAL_USER_ID),
+      fixture.submissionId,
+      {
+        baseRevision: 1,
+        content: {
+          type: MilestoneSubmissionType.FILE,
+          fileId: fixture.replacementFileId,
+        },
+        comment: null,
+      },
+    );
+
+    try {
+      await waitForProgramLockWaiter();
+    } finally {
+      releaseProgramLock?.();
+    }
+    await staffUpdate;
+
+    // Then
+    await expect(resubmission).rejects.toMatchObject({
+      errorCode: { code: SubmissionsErrorCode.CONTENT_TYPE_MISMATCH },
+    });
+    await expect(
+      prisma.submission.findUniqueOrThrow({
+        where: { id: fixture.submissionId },
+        select: { status: true, currentRevision: true },
+      }),
+    ).resolves.toEqual({
+      status: SubmissionStatus.CHANGES_REQUESTED,
+      currentRevision: 1,
+    });
+  });
 });
+
+async function waitForProgramLockWaiter(): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const rows = await prisma.$queryRaw<readonly { waiting: bigint }[]>`
+      SELECT COUNT(*) AS waiting
+      FROM pg_stat_activity
+      WHERE datname = current_database()
+        AND wait_event_type = 'Lock'
+        AND query LIKE '%SELECT "endAt"%'
+    `;
+    if ((rows[0]?.waiting ?? 0n) > 0n) return;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error('Expected the student resubmission to wait on Program lock.');
+}
+
+async function seedFileResubmissionFixture(suffix: string): Promise<{
+  readonly submissionId: string;
+  readonly initialFileId: string;
+  readonly replacementFileId: string;
+}> {
+  await prisma.program.update({
+    where: { id: MILESTONES_PROGRAM_ID },
+    data: { endAt: FILE_RETENTION_START },
+  });
+  const submissionId = `${FILE_RESUBMISSION_PREFIX}-${suffix}`;
+  const initialFileId = `${FILE_RESUBMISSION_PREFIX}-${suffix}-initial`;
+  const replacementFileId = `${FILE_RESUBMISSION_PREFIX}-${suffix}-replacement`;
+  const revision = await prisma.submission.create({
+    data: {
+      id: submissionId,
+      applicationId: PERSONAL_APPLICATION_ID,
+      milestoneId: FILE_MILESTONE_ID,
+      status: SubmissionStatus.CHANGES_REQUESTED,
+      currentRevision: 1,
+      revisions: {
+        create: {
+          revision: 1,
+          submissionType: MilestoneSubmissionType.FILE,
+          content: {
+            type: MilestoneSubmissionType.FILE,
+            fileId: initialFileId,
+          },
+          submittedById: PERSONAL_USER_ID,
+        },
+      },
+    },
+    select: { revisions: { select: { id: true }, take: 1 } },
+  });
+  const initialRevision = revision.revisions[0];
+  if (initialRevision === undefined) {
+    throw new Error('Expected initial file revision.');
+  }
+  await prisma.submissionFile.createMany({
+    data: [
+      {
+        id: initialFileId,
+        uploaderId: PERSONAL_USER_ID,
+        applicationId: PERSONAL_APPLICATION_ID,
+        milestoneId: FILE_MILESTONE_ID,
+        storageKey: `${FILE_RESUBMISSION_PREFIX}/${suffix}/initial.pdf`,
+        originalFileName: 'initial.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 14,
+        lifecycle: SubmissionFileLifecycle.ATTACHED,
+        pendingExpiresAt: null,
+        expiresAt: addOneCalendarYear(FILE_RETENTION_START),
+        submissionRevisionId: initialRevision.id,
+      },
+      {
+        id: replacementFileId,
+        uploaderId: PERSONAL_USER_ID,
+        applicationId: PERSONAL_APPLICATION_ID,
+        milestoneId: FILE_MILESTONE_ID,
+        storageKey: `${FILE_RESUBMISSION_PREFIX}/${suffix}/replacement.pdf`,
+        originalFileName: 'replacement.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 14,
+        lifecycle: SubmissionFileLifecycle.PENDING,
+        pendingExpiresAt: new Date('2099-01-01T00:00:00.000Z'),
+        expiresAt: addOneCalendarYear(FILE_RETENTION_START),
+        submissionRevisionId: null,
+      },
+    ],
+  });
+  return { submissionId, initialFileId, replacementFileId };
+}

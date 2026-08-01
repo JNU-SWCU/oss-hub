@@ -528,6 +528,8 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
       },
       comment: '보완 요청 사항을 반영해 다시 제출했습니다.',
       submittedAt: '2026-05-14T05:00:00.000Z',
+      // 본문만 낸 제출이라 첨부는 없다.
+      files: [],
       review: {
         id: 'synthetic-review-basic-orientation-2',
         decision: 'APPROVED',
@@ -541,6 +543,8 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
         content: { type: 'TEXT', text: '합성 회고 초안입니다.' },
         comment: null,
         submittedAt: '2026-05-10T05:00:00.000Z',
+        // 본문만 낸 제출이라 첨부는 없다.
+        files: [],
         review: {
           id: 'synthetic-review-basic-orientation-1',
           decision: 'CHANGES_REQUESTED',
@@ -579,6 +583,8 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
       },
       comment: '합성 릴리스 노트를 첨부했습니다.',
       submittedAt: '2026-06-29T09:30:00.000Z',
+      // 본문만 낸 제출이라 첨부는 없다.
+      files: [],
       review: null,
     },
     history: [],
@@ -607,6 +613,8 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
       },
       comment: '재현 순서를 릴리스 노트에 추가했습니다.',
       submittedAt: '2026-07-19T12:00:00.000Z',
+      // 본문만 낸 제출이라 첨부는 없다.
+      files: [],
       review: {
         id: 'synthetic-review-contest-revision-2',
         decision: 'CHANGES_REQUESTED',
@@ -624,6 +632,8 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
         },
         comment: null,
         submittedAt: '2026-07-18T11:00:00.000Z',
+        // 본문만 낸 제출이라 첨부는 없다.
+        files: [],
         review: {
           id: 'synthetic-review-contest-revision-1',
           decision: 'CHANGES_REQUESTED',
@@ -657,6 +667,8 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
       },
       comment: null,
       submittedAt: '2026-07-18T02:30:00.000Z',
+      // 본문만 낸 제출이라 첨부는 없다.
+      files: [],
       review: {
         id: 'synthetic-review-champion-preliminary',
         decision: 'APPROVED',
@@ -687,6 +699,8 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
       content: { type: 'FILE', fileId: 'synthetic-file-champion-final' },
       comment: '합성 발표 자료를 제출했습니다.',
       submittedAt: '2026-08-07T06:10:00.000Z',
+      // 본문만 낸 제출이라 첨부는 없다.
+      files: [],
       review: {
         id: 'synthetic-review-champion-final',
         decision: 'APPROVED',

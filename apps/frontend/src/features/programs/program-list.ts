@@ -67,19 +67,6 @@ function matchesStatus(
   return getProgramRecruitmentState(program, now) === status;
 }
 
-function comparePrograms(
-  left: ProgramListItem,
-  right: ProgramListItem,
-): number {
-  const byStartDate =
-    new Date(right.applicationStartAt).getTime() -
-    new Date(left.applicationStartAt).getTime();
-  if (byStartDate !== 0) return byStartDate;
-
-  const byName = left.name.localeCompare(right.name, 'ko');
-  return byName !== 0 ? byName : left.id.localeCompare(right.id);
-}
-
 export function filterAndGroupPrograms(
   programs: readonly ProgramListItem[],
   options: FilterProgramsOptions,
@@ -87,19 +74,10 @@ export function filterAndGroupPrograms(
   const search = options.search.trim().toLocaleLowerCase('ko');
   const filtered = programs
     .filter((program) => program.name.toLocaleLowerCase('ko').includes(search))
-    .filter((program) => matchesStatus(program, options.status, options.now))
-    .sort(comparePrograms);
+    .filter((program) => matchesStatus(program, options.status, options.now));
   const currentYear = yearInSeoul(options.now);
 
   const groups: readonly ProgramListGroup[] = [
-    {
-      key: PROGRAM_GROUPS.SCHEDULED,
-      title: '모집 예정',
-      programs: filtered.filter(
-        (program) =>
-          getProgramRecruitmentState(program, options.now) === 'scheduled',
-      ),
-    },
     {
       key: PROGRAM_GROUPS.CURRENT_RECRUITING,
       title: '올해 진행 중',
@@ -107,6 +85,14 @@ export function filterAndGroupPrograms(
         (program) =>
           programYear(program) === currentYear &&
           getProgramRecruitmentState(program, options.now) === 'recruiting',
+      ),
+    },
+    {
+      key: PROGRAM_GROUPS.SCHEDULED,
+      title: '모집 예정',
+      programs: filtered.filter(
+        (program) =>
+          getProgramRecruitmentState(program, options.now) === 'scheduled',
       ),
     },
     {

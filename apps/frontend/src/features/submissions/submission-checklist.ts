@@ -1,5 +1,8 @@
 import type { ProblemDetail } from '@/lib/api-client';
-import type { SubmissionFormInput } from './submission-form';
+import type {
+  SubmissionFileUploadCache,
+  SubmissionFormInput,
+} from './submission-form';
 import type {
   ChecklistSubmissionStatus,
   CreatedResubmission,
@@ -92,10 +95,38 @@ export type ResubmissionFailure =
   | { readonly kind: 'stale' }
   | {
       readonly kind: 'field';
-      readonly field: 'text' | 'releaseUrl';
+      readonly field: 'file' | 'text' | 'releaseUrl';
       readonly message: string;
     }
   | { readonly kind: 'alert'; readonly message: string };
+
+export type ResubmissionPhase = 'uploading' | 'creating';
+
+export interface SubmitResubmissionRevisionInput {
+  readonly applicationId: string;
+  readonly milestoneId: string;
+  readonly submission: {
+    readonly id: string;
+    readonly currentRevision: number;
+  };
+  readonly submissionType: SubmissionType;
+  readonly input: SubmissionFormInput;
+  readonly comment: string;
+  readonly cache: SubmissionFileUploadCache;
+  readonly uploadSubmissionFile: (
+    applicationId: string,
+    milestoneId: string,
+    file: File,
+    context: { readonly submissionId: string; readonly baseRevision: number },
+  ) => Promise<{ readonly fileId: string }>;
+  readonly createResubmission: (input: {
+    readonly submissionId: string;
+    readonly baseRevision: number;
+    readonly content: ResubmissionContent;
+    readonly comment: string;
+  }) => Promise<CreatedResubmission>;
+  readonly onPhaseChange?: (phase: ResubmissionPhase) => void;
+}
 
 /**
  * 재제출 실패 분기. 409는 코드와 무관하게 stale로 본다 — RESUBMISSION_NOT_ALLOWED
@@ -113,17 +144,23 @@ export function resubmissionFailure(
   if (problem.code === 'SUB_011') {
     return {
       kind: 'field',
-      field: submissionType === 'TEXT' ? 'text' : 'releaseUrl',
+      field:
+        submissionType === 'TEXT'
+          ? 'text'
+          : submissionType === 'FILE'
+            ? 'file'
+            : 'releaseUrl',
       message: problem.detail,
     };
   }
   return { kind: 'alert', message: problem.detail };
 }
 
-/** 유형별 재제출 content — FILE은 업로드 미지원(fail-closed)이라 null. */
+/** 유형별 재제출 content — FILE은 업로드된 fileId가 있을 때 생성한다. */
 export function resubmissionContent(
   submissionType: SubmissionType,
   input: SubmissionFormInput,
+  fileId?: string,
 ): ResubmissionContent | null {
   switch (submissionType) {
     case 'TEXT':
@@ -134,12 +171,49 @@ export function resubmissionContent(
         releaseUrl: input.releaseUrl.trim(),
       };
     case 'FILE':
-      return null;
+      return fileId ? { type: 'FILE', fileId } : null;
     default: {
       const exhaustiveType: never = submissionType;
       return exhaustiveType;
     }
   }
+}
+
+export async function submitResubmissionRevision({
+  applicationId,
+  milestoneId,
+  submission,
+  submissionType,
+  input,
+  comment,
+  cache,
+  uploadSubmissionFile,
+  createResubmission,
+  onPhaseChange,
+}: SubmitResubmissionRevisionInput): Promise<CreatedResubmission | null> {
+  const baseRevision = submission.currentRevision;
+  let content = resubmissionContent(submissionType, input);
+  if (submissionType === 'FILE') {
+    const file = input.file;
+    if (!file) return null;
+    onPhaseChange?.('uploading');
+    const fileId = await cache.resolve(file, () =>
+      uploadSubmissionFile(applicationId, milestoneId, file, {
+        submissionId: submission.id,
+        baseRevision,
+      }),
+    );
+    content = resubmissionContent('FILE', input, fileId);
+  }
+  if (!content) return null;
+
+  onPhaseChange?.('creating');
+  return createResubmission({
+    submissionId: submission.id,
+    baseRevision,
+    content,
+    comment,
+  });
 }
 
 /** 재제출 성공(201)을 체크리스트에 반영 — 해당 행만 SUBMITTED로 갱신한다. */

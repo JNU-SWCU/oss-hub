@@ -1,5 +1,13 @@
 import { AlertCircle, ExternalLink, FolderGit2, RotateCcw } from 'lucide-react';
-import { CardGrid, EmptyState, PageHeader, StatusBadge } from '@/components';
+import Link from 'next/link';
+import {
+  CardGrid,
+  EmptyState,
+  PageBody,
+  PageHeader,
+  SectionHeading,
+  StatusBadge,
+} from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,30 +40,27 @@ const STATUS_VARIANTS = {
 
 function LoadingState() {
   return (
-    <main
-      aria-label="내 저장소를 불러오는 중"
-      className="mx-auto grid w-full max-w-6xl gap-6 p-5 sm:p-8"
-    >
-      <div className="h-20 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
+    <PageBody aria-label="내 저장소를 불러오는 중">
+      <div className="h-20 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
       <CardGrid>
         {[0, 1, 2].map((index) => (
           <div
             key={index}
-            className="h-52 animate-pulse rounded-lg bg-muted motion-reduce:animate-none"
+            className="animate-pulse rounded-card bg-muted motion-reduce:animate-none"
           />
         ))}
       </CardGrid>
-    </main>
+    </PageBody>
   );
 }
 
 function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
   return (
-    <main className="mx-auto grid w-full max-w-3xl gap-6 p-5 sm:p-8">
+    <PageBody className="max-w-3xl">
       <Alert variant="destructive">
         <AlertCircle aria-hidden="true" />
         <AlertTitle>내 저장소를 불러오지 못했습니다</AlertTitle>
-        <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+        <AlertDescription className="flex flex-wrap items-center justify-between gap-4">
           <span>잠시 후 다시 시도해 주세요.</span>
           <Button type="button" variant="outline" size="sm" onClick={onRetry}>
             <RotateCcw aria-hidden="true" />
@@ -63,7 +68,7 @@ function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
           </Button>
         </AlertDescription>
       </Alert>
-    </main>
+    </PageBody>
   );
 }
 
@@ -71,9 +76,9 @@ function RepositoryCard({ item }: { readonly item: MyRepositoryItem }) {
   return (
     <Card className="min-w-0">
       <CardHeader className="gap-3">
-        <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-small text-muted-foreground">
               {item.programName} · {item.modeLabel}
             </p>
             <CardTitle className="mt-1 break-words">
@@ -87,14 +92,14 @@ function RepositoryCard({ item }: { readonly item: MyRepositoryItem }) {
       </CardHeader>
       <CardContent className="grid gap-4">
         <div className="grid min-w-0 gap-1">
-          <span className="text-xs font-medium text-muted-foreground">
+          <span className="text-small font-semibold text-muted-foreground">
             저장소
           </span>
-          <code className="break-all text-sm text-foreground">
+          <code className="break-all text-small text-foreground">
             {item.repositoryName ?? '생성 전'}
           </code>
         </div>
-        <div className="flex flex-wrap gap-2 text-sm">
+        <div className="flex flex-wrap items-center gap-3">
           {item.visibility !== null ? (
             <StatusBadge
               variant={item.visibility === 'PUBLIC' ? 'approved' : 'closed'}
@@ -103,15 +108,15 @@ function RepositoryCard({ item }: { readonly item: MyRepositoryItem }) {
             </StatusBadge>
           ) : null}
           {item.invitationLabel ? (
-            <span className="text-muted-foreground">
+            <span className="text-small text-muted-foreground">
               {item.invitationLabel}
             </span>
           ) : null}
         </div>
       </CardContent>
       {item.canOpenGithub && item.githubUrl ? (
-        <CardFooter className="flex flex-wrap gap-2">
-          <Button asChild size="sm">
+        <CardFooter className="flex flex-wrap gap-3">
+          <Button asChild size="sm" variant="outline">
             <a href={item.githubUrl} target="_blank" rel="noreferrer">
               <ExternalLink aria-hidden="true" />
               GitHub에서 열기
@@ -131,7 +136,7 @@ export function MyRepositoriesView({
   if (state.kind === 'error') return <ErrorState onRetry={onRetry} />;
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-5 sm:p-8">
+    <PageBody>
       <PageHeader
         title="내 저장소"
         description={
@@ -145,20 +150,19 @@ export function MyRepositoriesView({
           icon={<FolderGit2 className="size-8" />}
           title="표시할 저장소가 없습니다"
           description="신청이 승인되고 저장소 생성이 시작되면 이곳에 표시됩니다."
+          action={
+            <Button asChild>
+              <Link href="/programs">프로그램 둘러보기</Link>
+            </Button>
+          }
         />
       ) : (
-        <section aria-labelledby="repository-list-title" className="grid gap-4">
-          <div className="flex items-center justify-between gap-3">
-            <h2
-              id="repository-list-title"
-              className="font-heading text-xl font-semibold"
-            >
-              저장소 현황
-            </h2>
-            <span className="text-sm text-muted-foreground">
-              {state.repositories.items.length}개
-            </span>
-          </div>
+        <section aria-labelledby="repository-list-title" className="grid gap-6">
+          <SectionHeading
+            id="repository-list-title"
+            title="저장소 현황"
+            meta={`${state.repositories.items.length}개`}
+          />
           <CardGrid>
             {state.repositories.items.map((item) => (
               <RepositoryCard key={item.applicationId} item={item} />
@@ -166,6 +170,6 @@ export function MyRepositoriesView({
           </CardGrid>
         </section>
       )}
-    </main>
+    </PageBody>
   );
 }

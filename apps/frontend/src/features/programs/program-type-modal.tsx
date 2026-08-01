@@ -25,12 +25,15 @@ export function ProgramTypeModal({
       <section
         aria-modal="true"
         aria-labelledby="program-type-title"
-        className="grid w-full max-w-4xl gap-6 rounded-lg bg-background p-6 shadow-lg md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]"
+        className="grid w-full max-w-4xl gap-6 rounded-card bg-background p-card shadow-lg md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]"
         role="dialog"
       >
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-4">
-            <h2 id="program-type-title" className="text-xl font-semibold">
+            <h2
+              id="program-type-title"
+              className="font-heading text-section font-semibold tracking-[-0.02em]"
+            >
               프로그램 유형 선택
             </h2>
             <Button type="button" variant="ghost" onClick={onCancel}>
@@ -45,7 +48,7 @@ export function ProgramTypeModal({
             {definitions.map((definition) => (
               <label
                 key={definition.category}
-                className="flex cursor-pointer items-center gap-2 rounded-md border border-border p-3 has-[:checked]:border-primary has-[:checked]:bg-primary/5"
+                className="flex min-h-control cursor-pointer items-center gap-2 rounded-control border border-border px-4 py-3 has-[:checked]:border-primary has-[:checked]:bg-primary/5"
               >
                 <input
                   checked={selected?.category === definition.category}
@@ -54,16 +57,16 @@ export function ProgramTypeModal({
                   value={definition.category}
                   onChange={() => onSelect(definition)}
                 />
-                <span className="text-sm font-medium">{definition.label}</span>
+                <span className="font-medium">{definition.label}</span>
               </label>
             ))}
           </div>
         </div>
-        <div className="flex min-h-64 flex-col justify-between rounded-md border border-border p-4">
+        <div className="flex min-h-64 flex-col justify-between rounded-card border border-border p-card">
           {selected ? (
             <FormRenderer template={selected.template} mode="preview" />
           ) : (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-small text-muted-foreground">
               유형을 선택하면 고정 신청 템플릿을 미리 볼 수 있습니다.
             </p>
           )}

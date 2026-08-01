@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { Program } from '@prisma/client';
 import {
   ApplicationStatus,
   Prisma,
@@ -16,19 +17,16 @@ import type {
 } from './program-list-query';
 import { programApplicationParticipantWhere } from './program-participant';
 
-const PROGRAM_LIST_SELECT = {
-  id: true,
-  name: true,
-  organizer: true,
-  category: true,
-  applicationStartAt: true,
-  applicationEndAt: true,
-  description: true,
-} as const;
-
-export type ProgramListRecord = Prisma.ProgramGetPayload<{
-  select: typeof PROGRAM_LIST_SELECT;
-}>;
+export type ProgramListRecord = Pick<
+  Program,
+  | 'id'
+  | 'name'
+  | 'organizer'
+  | 'category'
+  | 'applicationStartAt'
+  | 'applicationEndAt'
+  | 'description'
+>;
 
 function recruitmentWhere(
   status: ProgramListQueryStatus,
@@ -47,6 +45,27 @@ function recruitmentWhere(
   return whereByStatus[status];
 }
 
+function programListSqlWhere(
+  status: ProgramListQueryStatus,
+  search: string,
+  now: Date,
+): Prisma.Sql {
+  const conditions: Prisma.Sql[] = [];
+  if (status === 'recruiting') {
+    conditions.push(
+      Prisma.sql`p."applicationStartAt" <= ${now} AND p."applicationEndAt" >= ${now}`,
+    );
+  } else if (status === 'closed') {
+    conditions.push(Prisma.sql`p."applicationEndAt" < ${now}`);
+  }
+  if (search) {
+    conditions.push(Prisma.sql`p."name" ILIKE ${`%${search}%`}`);
+  }
+  return conditions.length === 0
+    ? Prisma.empty
+    : Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`;
+}
+
 @Injectable()
 export class ProgramsRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -58,18 +77,33 @@ export class ProgramsRepository {
         ? { name: { contains: query.search, mode: 'insensitive' as const } }
         : {}),
     };
+    const sqlWhere = programListSqlWhere(query.status, query.search, now);
+    const offset = (query.page - 1) * query.pageSize;
     return this.prisma.$transaction([
-      this.prisma.program.findMany({
-        where,
-        orderBy: [
-          { applicationStartAt: 'desc' },
-          { name: 'asc' },
-          { id: 'asc' },
-        ],
-        skip: (query.page - 1) * query.pageSize,
-        take: query.pageSize,
-        select: PROGRAM_LIST_SELECT,
-      }),
+      this.prisma.$queryRaw<readonly ProgramListRecord[]>(Prisma.sql`
+        SELECT
+          p."id",
+          p."name",
+          p."organizer",
+          p."category",
+          p."applicationStartAt",
+          p."applicationEndAt",
+          p."description"
+        FROM "Program" AS p
+        ${sqlWhere}
+        ORDER BY
+          CASE
+            WHEN p."applicationStartAt" <= ${now}
+              AND p."applicationEndAt" >= ${now} THEN 0
+            WHEN p."applicationStartAt" > ${now} THEN 1
+            ELSE 2
+          END ASC,
+          p."applicationEndAt" ASC,
+          p."name" ASC,
+          p."id" ASC
+        LIMIT ${query.pageSize}
+        OFFSET ${offset}
+      `),
       this.prisma.program.count({ where }),
     ]);
   }

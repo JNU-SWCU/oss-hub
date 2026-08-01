@@ -43,8 +43,8 @@ PR을 제출하기 전 `docs/handoff/TEAM-STATE.md`의 해당 기능 행을 이 
 | 기능 | owner | exec-plan 경로 | 코드 경로 |
 | --- | --- | --- | --- |
 | (기능 1 — 지정 예정) | @GoBeromsu | `docs/exec-plan/active/<기능1>.md` | (지정 예정) |
-| GitHub OAuth 로그인 | @Lumiere001 | `docs/exec-plan/active/github-oauth-login.md` | `apps/backend/src/auth`, `apps/frontend/src/features/auth` |
-| GitHub 활동 수집기 | @Lumiere001 | `docs/exec-plan/active/github-collector.md` | `apps/backend/src/collection` |
+| GitHub OAuth 로그인 | @Lumiere001 | `docs/exec-plan/archive/github-oauth-login.md`(완료, archive) | `apps/backend/src/auth`, `apps/frontend/src/features/auth` |
+| GitHub 활동 수집기 | @Lumiere001 | `docs/exec-plan/archive/github-collector.md`(완료, archive) — 현재 아키텍처는 [ADR-006](docs/decisions/ADR-006-github-app-integration.md)이 원본 | `apps/backend/src/collection` |
 | (기능 3 — 지정 예정) | @<designer-1> | `docs/exec-plan/active/<기능3>.md` | (지정 예정) |
 | (기능 4 — 지정 예정) | @<designer-2> | `docs/exec-plan/active/<기능4>.md` | (지정 예정) |
 

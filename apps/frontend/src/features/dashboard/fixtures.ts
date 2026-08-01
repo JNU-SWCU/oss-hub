@@ -17,6 +17,12 @@ export const dashboardFixture: StudentDashboard = {
       },
       detailUrl: '/programs/program-capstone',
       checklistUrl: '/programs/program-capstone/submissions',
+      repository: {
+        repositoryName: 'capstone-hong',
+        provisionStatus: 'SUCCEEDED',
+        invitationStatus: 'SUCCEEDED',
+        githubUrl: 'https://github.com/JNU-SWCU/capstone-hong',
+      },
     },
     {
       applicationId: 'application-team',
@@ -33,6 +39,12 @@ export const dashboardFixture: StudentDashboard = {
       },
       detailUrl: '/programs/program-oss-contest',
       checklistUrl: '/programs/program-oss-contest/submissions',
+      repository: {
+        repositoryName: null,
+        provisionStatus: 'PROCESSING',
+        invitationStatus: null,
+        githubUrl: null,
+      },
     },
   ],
 };
@@ -49,6 +61,7 @@ export const pendingDashboardFixture: StudentDashboard = {
       nextMilestone: null,
       detailUrl: '/programs/program-oss-contest',
       checklistUrl: '/programs/program-oss-contest/submissions',
+      repository: null,
     },
   ],
 };
@@ -65,6 +78,12 @@ export const completedDashboardFixture: StudentDashboard = {
       nextMilestone: null,
       detailUrl: '/programs/program-study',
       checklistUrl: '/programs/program-study/submissions',
+      repository: {
+        repositoryName: null,
+        provisionStatus: 'NOT_STARTED',
+        invitationStatus: null,
+        githubUrl: null,
+      },
     },
   ],
 };
@@ -81,6 +100,7 @@ export const rejectedDashboardFixture: StudentDashboard = {
       nextMilestone: null,
       detailUrl: '/programs/program-rejected',
       checklistUrl: '/programs/program-rejected/submissions',
+      repository: null,
     },
   ],
 };

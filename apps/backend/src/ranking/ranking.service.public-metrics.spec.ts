@@ -1,4 +1,4 @@
-import { RANKING_NOTICE, RANKING_PERIODS } from './domain/ranking';
+import { RANKING_PERIODS } from './domain/ranking';
 import { activity, setupRankingService } from './ranking.service.spec-helper';
 
 describe('RankingService public metrics', () => {
@@ -16,7 +16,6 @@ describe('RankingService public metrics', () => {
     await expect(
       harness.service.findPage(RANKING_PERIODS.ALL, 1, 20),
     ).resolves.toEqual({
-      notice: RANKING_NOTICE,
       period: RANKING_PERIODS.ALL,
       items: [
         {

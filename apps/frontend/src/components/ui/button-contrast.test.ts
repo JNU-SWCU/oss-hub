@@ -24,6 +24,7 @@ const buttonSource = readFileSync(
 );
 
 const AA_NORMAL_TEXT = 4.5;
+const WCAG_NON_TEXT = 3;
 
 function stripComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -207,4 +208,29 @@ describe('destructive Button 소비자 표면 대비', () => {
       expect(hover).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
     },
   );
+});
+
+describe('destructive Button focus indicator', () => {
+  it.each(SURFACES)(
+    '$label shared ring border meets WCAG non-text contrast',
+    ({ selector, parent }) => {
+      const ring = hexOf(selector, '--ring');
+      const parentHex = palette.get(parent);
+      if (!parentHex) {
+        throw new Error(`palette에 ${parent}가 없습니다`);
+      }
+
+      expect(contrast(ring, parentHex)).toBeGreaterThanOrEqual(WCAG_NON_TEXT);
+    },
+  );
+
+  it('inherits shared focus classes without destructive overrides', () => {
+    const variant = /destructive:\s*'([^']+)'/.exec(buttonSource)?.[1] ?? '';
+
+    expect(buttonSource).toContain('focus-visible:border-ring');
+    expect(buttonSource).toContain('focus-visible:ring-ring/50');
+    expect(variant).not.toMatch(
+      /\b(?:dark:)?focus-visible:(?:border|ring)-[^\s']+/,
+    );
+  });
 });

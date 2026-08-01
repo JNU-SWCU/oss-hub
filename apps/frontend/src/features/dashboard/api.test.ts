@@ -110,6 +110,64 @@ describe('fetchStudentDashboard', () => {
         ],
       },
     ],
+    [
+      '저장소 URL에 쿼리 문자열이 붙음',
+      {
+        items: [
+          {
+            ...dashboardFixture.items[0],
+            repository: {
+              ...dashboardFixture.items[0].repository,
+              githubUrl:
+                'https://github.com/JNU-SWCU/capstone-hong?redirect=evil',
+            },
+          },
+        ],
+      },
+    ],
+    [
+      '저장소 URL이 유사 GitHub 호스트를 가리킴',
+      {
+        items: [
+          {
+            ...dashboardFixture.items[0],
+            repository: {
+              ...dashboardFixture.items[0].repository,
+              githubUrl: 'https://github.com.example/JNU-SWCU/capstone-hong',
+            },
+          },
+        ],
+      },
+    ],
+    [
+      '저장소 이름이 상위 경로를 탐색함',
+      {
+        items: [
+          {
+            ...dashboardFixture.items[0],
+            repository: {
+              ...dashboardFixture.items[0].repository,
+              repositoryName: '../evil',
+              githubUrl: 'https://github.com/JNU-SWCU/../evil',
+            },
+          },
+        ],
+      },
+    ],
+    [
+      '생성 완료 저장소에 현재 사용자 초대 상태가 없음',
+      {
+        items: [
+          {
+            ...dashboardFixture.items[0],
+            repository: {
+              ...dashboardFixture.items[0].repository,
+              invitationStatus: null,
+            },
+          },
+        ],
+      },
+    ],
   ])('잘못된 응답을 어댑터 경계에서 거부한다: %s', async (_label, body) => {
     vi.stubGlobal(
       'fetch',
