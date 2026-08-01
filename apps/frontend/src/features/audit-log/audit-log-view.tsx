@@ -63,8 +63,11 @@ export function AuditLogView(props: AuditLogViewProps) {
       headClassName: 'min-w-48 whitespace-nowrap',
       cellClassName: 'min-w-48 whitespace-nowrap',
       cell: (record) => (
-        <span className="break-keep">
-          {record.targetType} / {record.targetId}
+        <span className="flex flex-col">
+          <span className="break-keep">{record.target}</span>
+          <span className="text-muted-foreground break-keep text-xs">
+            {record.targetType} / {record.targetId}
+          </span>
         </span>
       ),
     },
