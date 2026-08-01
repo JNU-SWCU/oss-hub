@@ -160,7 +160,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
       <Alert>
         <AlertTriangle aria-hidden="true" />
         <AlertTitle>신청서 수정·취소 안내</AlertTitle>
-        <AlertDescription>
+        <AlertDescription className="[word-break:keep-all]">
           신청 기간 내 ‘승인 대기’ 상태에서는 신청서를 수정하거나 신청을 취소할
           수 있습니다. 승인된 이후에는 신청서 수정 및 신청 취소가 불가능합니다.
         </AlertDescription>
