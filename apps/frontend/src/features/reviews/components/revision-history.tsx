@@ -1,5 +1,6 @@
 import { Download, FileText } from 'lucide-react';
 import { StatusBadge } from '@/components';
+import { formatFileSize } from '@/lib/format-file-size';
 import {
   Card,
   CardContent,
@@ -136,10 +137,4 @@ function RevisionFileLink({ file }: { readonly file: SubmissionRevisionFile }) {
       />
     </a>
   );
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

@@ -5,6 +5,7 @@ import {
   FieldLabel,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { formatFileSize } from '@/lib/format-file-size';
 import {
   SUBMISSION_FILE_ACCEPT,
   type SubmissionFormErrors,
@@ -121,10 +122,4 @@ export function SubmissionInput({
       return exhaustiveType;
     }
   }
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
