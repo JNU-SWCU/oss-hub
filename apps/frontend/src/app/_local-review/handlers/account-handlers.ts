@@ -233,6 +233,39 @@ const MY_PROFILE_FIXTURE = {
   isComplete: true,
 } as const satisfies UserProfile;
 
+/**
+ * 아직 아무것도 채우지 않은 프로필 — 방금 가입한 사용자가 보는 상태다.
+ *
+ * 순서를 역할 → 프로필로 바꾼 뒤 검토해야 할 화면이 바로 여기다: 교직원을 고른
+ * 사람이 프로필 단계에서 학번을 요구받지 않는지 눈으로 확인하려면, 미배정 페르소나의
+ * 프로필이 비어 있어야 한다. 완성된 프로필을 주면 화면이 즉시 다음 단계로 빠져나간다.
+ */
+const EMPTY_PROFILE_FIXTURE = {
+  name: 'GitHub 합성 이름',
+  studentId: null,
+  department: null,
+  isComplete: false,
+} as const satisfies UserProfile;
+
+/**
+ * 온보딩 중 저장한 프로필. 검토 세션 동안만 기억한다.
+ *
+ * 순서가 역할 → 프로필로 바뀌면서 프로필이 마지막 단계가 됐고, 저장 뒤에는 승인 대기
+ * 화면으로 넘어가야 한다. 저장을 잊어버리면 그 화면의 게이트가 다시 "프로필 미완료"로
+ * 읽어 프로필 입력으로 되돌리고, 검토자는 끝나지 않는 왕복을 제품 결함으로 오해한다.
+ */
+let savedOnboardingProfile: UserProfile | null = null;
+
+/** 온보딩 중인 페르소나(`unassigned`)만 빈 프로필을 본다. */
+export function myProfileFixtureFor(
+  fixture: LocalReviewFixtureId,
+): UserProfile {
+  if (fixture !== 'unassigned') {
+    return MY_PROFILE_FIXTURE;
+  }
+  return savedOnboardingProfile ?? EMPTY_PROFILE_FIXTURE;
+}
+
 const NOTIFICATION_CHANNEL_FIXTURE = {
   notificationEmail: 'fixture@example.com',
   notifyEnabled: true,
@@ -240,8 +273,14 @@ const NOTIFICATION_CHANNEL_FIXTURE = {
 
 const CONSENT_POLICY_VERSION = '2026-07-01';
 
-/** 동의 후 이동 경로. 온보딩은 동의 → 프로필 → 역할 순서다. */
-const CONSENT_NEXT_URL = '/onboarding/profile';
+/**
+ * 동의 후 이동 경로. 온보딩은 동의 → **역할** → 프로필 순서다.
+ *
+ * 프로필을 먼저 받으면 그 화면이 역할을 몰라 학생 기준으로 판정하고, 학번이 필요 없는
+ * 교직원·관리자가 가짜 학번을 지어내야 한다. 백엔드 `consents/domain/consent-policy.ts`의
+ * `nextUrl`과 같은 값을 유지한다.
+ */
+const CONSENT_NEXT_URL = '/onboarding/role';
 
 const CURRENT_CONSENT_FIXTURE = {
   policyVersion: CONSENT_POLICY_VERSION,
@@ -282,13 +321,32 @@ const PENDING_STAFF_ROLE_REQUEST = {
 } as const satisfies RoleRequest;
 
 /**
+ * 검토 세션 동안 기억하는 교직원 선택.
+ *
+ * 순서가 역할 → 프로필로 바뀌면서, 교직원 가입을 끝까지 걸어 보려면 "역할은 골랐고
+ * 프로필은 아직 비어 있는" 상태가 필요해졌다. 선택을 기억하지 않으면 대기 화면이
+ * 읽는 `role-requests/me`가 계속 `null`이라 역할 선택 화면으로 되돌아오고, 정작
+ * 확인해야 할 프로필 화면(교직원에게 학번을 묻지 않는지)에 도달할 수 없다.
+ *
+ * 전역 가변 상태를 두는 근거는 `error-once`와 같다 — 이 어댑터는 development +
+ * loopback + 명시 플래그가 모두 맞을 때만 살아 있고, 검토자 한 명의 브라우저 하나만
+ * 바라본다. 서버를 다시 띄우면 초기값으로 돌아간다.
+ */
+let staffRequestedInReview = false;
+
+/** 테스트·검토 초기화 전용. */
+export function resetLocalReviewRoleSelection(): void {
+  staffRequestedInReview = false;
+  savedOnboardingProfile = null;
+}
+
+/**
  * 역할 선택 결과. 요청 본문의 `selectedRole`(features/roles/api.ts `selectRole`)에
  * 따라 갈린다 — 학생은 역할이 즉시 확정돼 대시보드로, 교직원은 승인 대기 상태가
  * 되어 `/onboarding/pending`으로 간다. 화면은 `redirectTo`로 이동한다.
  *
- * 한계: 선택은 저장되지 않는다. 교직원을 골라 대기 화면으로 가더라도 그 화면이
- * 읽는 `role-requests/me`는 페르소나가 정하므로(`unassigned`는 `null`) 역할 선택
- * 화면으로 되돌아온다. 대기 화면 자체는 `role-pending` 페르소나로 검토한다.
+ * 한계: 학생 선택은 저장되지 않는다(세션 역할이 페르소나 고정값이라 그렇다).
+ * 교직원 선택만 위 `staffRequestedInReview`에 남아 다음 단계로 이어진다.
  */
 function roleSelectionResult(selected: RoleSelection): RoleSelectionResult {
   return selected === 'STAFF'
@@ -370,15 +428,21 @@ const PROFILE_FIELD_MAX_LENGTH = 100;
  * 모든 항목이 채워졌을 때만 완료로 보는 가장 엄격한 기준을 쓴다(어느 역할
  * 기준으로 보더라도 모순이 없다).
  */
-function isCompleteProfile(profile: UserProfile): boolean {
+function isCompleteProfile(
+  profile: UserProfile,
+  fixture: LocalReviewFixtureId,
+): boolean {
   const filled = (value: string | null): boolean =>
     value !== null &&
     value.trim().length > 0 &&
     value.length <= PROFILE_FIELD_MAX_LENGTH;
+  // 교직원을 고른 미배정 페르소나는 학번 없이도 완료다. 여기서 학번을 요구하면
+  // 검토자가 화면에서는 학번을 묻지 않는데 저장이 안 되는 모순을 보게 된다.
+  const needsStudentId = !(fixture === 'unassigned' && staffRequestedInReview);
   return (
     filled(profile.name) &&
-    profile.studentId !== null &&
-    /^\d{6,10}$/.test(profile.studentId) &&
+    (!needsStudentId ||
+      (profile.studentId !== null && /^\d{6,10}$/.test(profile.studentId))) &&
     filled(profile.department)
   );
 }
@@ -389,14 +453,17 @@ function isCompleteProfile(profile: UserProfile): boolean {
  * 픽스처 값을 유지한다.
  */
 function patchedProfile(context: LocalReviewContext): UserProfile {
+  const base = myProfileFixtureFor(context.fixture);
   const patched = {
-    name: bodyString(context, 'name') ?? MY_PROFILE_FIXTURE.name,
-    studentId: bodyString(context, 'studentId') ?? MY_PROFILE_FIXTURE.studentId,
-    department:
-      bodyString(context, 'department') ?? MY_PROFILE_FIXTURE.department,
+    name: bodyString(context, 'name') ?? base.name,
+    studentId: bodyString(context, 'studentId') ?? base.studentId,
+    department: bodyString(context, 'department') ?? base.department,
     isComplete: false,
   } satisfies UserProfile;
-  return { ...patched, isComplete: isCompleteProfile(patched) };
+  return {
+    ...patched,
+    isComplete: isCompleteProfile(patched, context.fixture),
+  };
 }
 
 /** 요청 본문은 `{ notificationEmail, notifyEnabled }`(알림 채널 API 계약). */
@@ -453,9 +520,13 @@ function accountMutationHandler(
   }
 
   if (context.method === 'PATCH' && context.path === 'users/me/profile') {
-    // 입력한 값을 그대로 돌려준다 — 저장된 것처럼 보여야 검토가 이어진다.
-    // 한계: 저장되지는 않아 새로고침하면 GET 픽스처의 기본 프로필로 돌아온다.
-    return json(200, patchedProfile(context));
+    // 온보딩 중인 페르소나만 저장을 기억한다 — 저장 뒤 다음 화면의 게이트가 다시
+    // 프로필을 조회하기 때문에, 잊어버리면 그 자리에서 왕복이 시작된다.
+    const profile = patchedProfile(context);
+    if (context.fixture === 'unassigned') {
+      savedOnboardingProfile = profile;
+    }
+    return json(200, profile);
   }
 
   if (
@@ -477,6 +548,9 @@ function onboardingRoleHandler(
     const selected =
       bodyEnum<RoleSelection>(context, 'selectedRole', ['STUDENT', 'STAFF']) ??
       'STUDENT';
+    if (selected === 'STAFF') {
+      staffRequestedInReview = true;
+    }
     return json(200, roleSelectionResult(selected));
   }
 
@@ -498,9 +572,10 @@ function myRoleRequestHandler(
 ): LocalReviewResponsePlan | null {
   if (matchGet(context, 'role-requests/me') === null) return null;
   if (!context.isAuthenticated) return unauthorized(context.path);
-  return context.fixture === 'role-pending'
-    ? json(200, PENDING_STAFF_ROLE_REQUEST)
-    : json(200, null);
+  const isPending =
+    context.fixture === 'role-pending' ||
+    (context.fixture === 'unassigned' && staffRequestedInReview);
+  return isPending ? json(200, PENDING_STAFF_ROLE_REQUEST) : json(200, null);
 }
 
 export const ACCOUNT_HANDLERS: readonly LocalReviewHandler[] = [

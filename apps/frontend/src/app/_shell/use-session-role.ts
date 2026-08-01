@@ -17,6 +17,14 @@ export interface SessionRoleState {
   readonly status: SessionStatus;
   readonly role: AppRole | null;
   readonly roleRequestStatus: RoleRequestStatus | null;
+  /**
+   * 배정된 역할 기준 프로필 완료 여부. `status === 'assigned'`에서만 의미가 있다.
+   *
+   * 온보딩이 역할 → 프로필 순서라 "역할은 정해졌는데 프로필은 비어 있는" 사용자가
+   * 정상적으로 존재한다. `RoleGate`가 그를 프로필 단계로 되돌리는 근거다. 미배정
+   * 사용자는 `OnboardingGate`가 프로필을 직접 조회해 판단하므로 여기서는 false로 둔다.
+   */
+  readonly isProfileComplete: boolean;
 }
 
 export interface SessionRoleResult extends SessionRoleState {
@@ -28,16 +36,19 @@ const LOADING: SessionRoleState = {
   status: 'loading',
   role: null,
   roleRequestStatus: null,
+  isProfileComplete: false,
 };
 const ERROR: SessionRoleState = {
   status: 'error',
   role: null,
   roleRequestStatus: null,
+  isProfileComplete: false,
 };
 const ANONYMOUS: SessionRoleState = {
   status: 'anonymous',
   role: null,
   roleRequestStatus: null,
+  isProfileComplete: false,
 };
 
 type RoleRequestFetch =
@@ -103,7 +114,12 @@ export function useSessionRole(): SessionRoleResult {
       case 'authenticated': {
         const role = session.user?.role ?? null;
         if (role !== null) {
-          return { status: 'assigned', role, roleRequestStatus: null };
+          return {
+            status: 'assigned',
+            role,
+            roleRequestStatus: null,
+            isProfileComplete: session.user?.isProfileComplete ?? false,
+          };
         }
         switch (roleRequest.kind) {
           case 'idle':
@@ -115,6 +131,7 @@ export function useSessionRole(): SessionRoleResult {
               status: 'unassigned',
               role: null,
               roleRequestStatus: roleRequest.status,
+              isProfileComplete: false,
             };
           default: {
             const exhaustive: never = roleRequest;

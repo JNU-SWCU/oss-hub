@@ -29,8 +29,13 @@ export function roleGateRedirectPath(
     // 권한 불일치는 더 이상 리다이렉트하지 않는다. 조용히 되돌리면 사용자는
     // 왜 다른 화면이 떠 있는지 알 수 없어 같은 시도를 반복한다. 안내 화면을
     // 띄우고 돌아갈 곳을 직접 고르게 한다(roleGateDeniedHomePath).
+    //
+    // 다만 프로필이 비어 있으면 온보딩이 아직 끝나지 않은 것이다. 순서를 역할 →
+    // 프로필로 바꾼 뒤로 역할 배정이 프로필 완료를 더 이상 요구하지 않아, 프로필
+    // 단계에서 창을 닫은 사용자가 역할만 가진 채 업무 화면에 들어올 수 있다.
+    // 여기서 되돌리지 않으면 그 계정은 이름·학번 없이 프로그램에 지원하게 된다.
     case 'assigned':
-      return null;
+      return state.isProfileComplete ? null : '/onboarding/profile';
     default: {
       const exhaustive: never = state.status;
       return exhaustive;
@@ -109,13 +114,24 @@ export function RoleGate({
     return () => clearTimeout(timer);
   }, [state, allow, deniedPath, hasNotice, router]);
 
-  const isAllowed = status === 'assigned' && !!role && allow.includes(role);
+  const isAllowed =
+    status === 'assigned' &&
+    !!role &&
+    allow.includes(role) &&
+    state.isProfileComplete;
 
   if (status === 'error') {
     return <SessionError onRetry={retry} />;
   }
 
-  if (status === 'assigned' && !!role && !isAllowed) {
+  // 프로필 미완료는 권한 문제가 아니라 남은 단계다 — 접근 거부 안내를 띄우면
+  // 사용자는 자기 화면에서 쫓겨난 것으로 읽는다. 위 리다이렉트에 맡긴다.
+  if (
+    status === 'assigned' &&
+    !!role &&
+    state.isProfileComplete &&
+    !allow.includes(role)
+  ) {
     return <AccessDenied homePath={roleGateDeniedHomePath(role, deniedPath)} />;
   }
 

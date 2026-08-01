@@ -75,6 +75,7 @@ it('학번·학과를 DB에 저장하고 다시 조회한다', async () => {
   await expect(repository.findByGithubId(githubId)).resolves.toEqual({
     id: userId,
     role: null,
+    hasPendingStaffRequest: false,
     ...firstProfile,
   });
 });
@@ -283,7 +284,12 @@ it('이미 생성된 UserProfile과 충돌하면 legacy User 변경도 롤백한
 it('동일한 완료 요청이 경쟁하면 한 요청만 성공하고 다른 요청은 CAS miss로 수렴한다', async () => {
   // Given
   await prisma.user.update({ where: { id: userId }, data: firstProfile });
-  const expected = { id: userId, role: null, ...firstProfile };
+  const expected = {
+    id: userId,
+    role: null,
+    hasPendingStaffRequest: false,
+    ...firstProfile,
+  };
   const complete = () =>
     prisma.$transaction((transaction) =>
       completeCompatibleProfileIfUnchanged(transaction, expected, firstProfile),

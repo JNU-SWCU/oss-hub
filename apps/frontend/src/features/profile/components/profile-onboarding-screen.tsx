@@ -37,7 +37,6 @@ import {
   isProfileFormValid,
   PROFILE_DEPARTMENT_MAX_LENGTH,
   PROFILE_NAME_MAX_LENGTH,
-  PROFILE_ONBOARDING_NEXT_PATH,
   toCompleteProfileRequest,
   validateProfileForm,
 } from '../profile-state';
@@ -216,7 +215,7 @@ export function ProfileForm({
         ) : null}
 
         <Button type="submit" disabled={!isValid || isSubmitting}>
-          {isSubmitting ? '저장 중…' : '저장하고 역할 선택으로 이동'}
+          {isSubmitting ? '저장 중…' : '저장하고 가입 마치기'}
         </Button>
       </form>
     </PageBody>
@@ -225,9 +224,15 @@ export function ProfileForm({
 
 export function ProfileOnboardingScreen({
   role,
+  nextPath,
 }: {
   /** app 계층이 세션에서 읽어 넘긴다 — feature는 auth·roles에 직접 의존할 수 없다. */
   readonly role: ProfileRole | null;
+  /**
+   * 저장을 마친 뒤 갈 곳. 프로필이 온보딩의 마지막 단계라 목적지가 역할마다 다르고,
+   * 그 판단은 세션·역할 요청을 아는 app 계층이 한다.
+   */
+  readonly nextPath: string;
 }) {
   const router = useRouter();
   const [values, setValues] = useState<ProfileFormValues | null>(null);
@@ -247,14 +252,14 @@ export function ProfileOnboardingScreen({
           router.replace('/consent');
           return true;
         case 'already-complete':
-          router.replace(PROFILE_ONBOARDING_NEXT_PATH);
+          router.replace(nextPath);
           return true;
         case 'student-id-taken':
         case 'generic':
           return false;
       }
     },
-    [router],
+    [nextPath, router],
   );
 
   const loadProfile = useCallback(
@@ -262,7 +267,7 @@ export function ProfileOnboardingScreen({
       setLoadError(null);
       try {
         const profile = await getMyProfile(signal);
-        const redirect = getProfileRedirect(profile, role);
+        const redirect = getProfileRedirect(profile, role, nextPath);
         if (redirect) {
           router.replace(redirect);
           return;
@@ -275,7 +280,7 @@ export function ProfileOnboardingScreen({
         setLoadError('프로필 정보를 불러오지 못했습니다. 다시 시도해 주세요.');
       }
     },
-    [navigateForError, role, router],
+    [navigateForError, nextPath, role, router],
   );
 
   useEffect(() => {
@@ -307,7 +312,7 @@ export function ProfileOnboardingScreen({
     setSubmitError(null);
     try {
       await completeMyProfile(request);
-      router.replace(PROFILE_ONBOARDING_NEXT_PATH);
+      router.replace(nextPath);
       router.refresh();
     } catch (error: unknown) {
       if (!navigateForError(error)) {

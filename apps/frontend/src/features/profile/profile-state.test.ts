@@ -4,7 +4,6 @@ import {
   createInitialProfileForm,
   getProfileRedirect,
   isProfileFormValid,
-  PROFILE_ONBOARDING_NEXT_PATH,
   resolveDepartment,
   toCompleteProfileRequest,
   toUpdateProfileRequest,
@@ -86,7 +85,10 @@ describe('profile onboarding state', () => {
     });
   });
 
-  it('이미 완료된 프로필만 역할 선택 경로로 건너뛴다', () => {
+  it('이미 완료된 프로필만 다음 단계로 건너뛴다', () => {
+    // 프로필이 온보딩의 마지막 단계라 목적지가 역할마다 다르다 — app 계층이 넘긴
+    // 경로를 그대로 쓴다.
+    const nextPath = '/programs';
     expect(
       getProfileRedirect(
         {
@@ -96,8 +98,9 @@ describe('profile onboarding state', () => {
           isComplete: true,
         },
         'STUDENT',
+        nextPath,
       ),
-    ).toBe(PROFILE_ONBOARDING_NEXT_PATH);
+    ).toBe(nextPath);
     expect(
       getProfileRedirect(
         {
@@ -107,6 +110,7 @@ describe('profile onboarding state', () => {
           isComplete: false,
         },
         'STUDENT',
+        nextPath,
       ),
     ).toBeNull();
   });

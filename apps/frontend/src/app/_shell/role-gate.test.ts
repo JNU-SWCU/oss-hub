@@ -12,7 +12,12 @@ describe('roleGateRedirectPath', () => {
   it('세션 조회 실패는 어디로도 리다이렉트하지 않는다', () => {
     expect(
       roleGateRedirectPath(
-        { status: 'error', role: null, roleRequestStatus: null },
+        {
+          status: 'error',
+          role: null,
+          roleRequestStatus: null,
+          isProfileComplete: true,
+        },
         ['STUDENT'],
       ),
     ).toBeNull();
@@ -21,7 +26,12 @@ describe('roleGateRedirectPath', () => {
   it('조회 실패는 deniedPath가 주어져도 리다이렉트하지 않는다', () => {
     expect(
       roleGateRedirectPath(
-        { status: 'error', role: null, roleRequestStatus: null },
+        {
+          status: 'error',
+          role: null,
+          roleRequestStatus: null,
+          isProfileComplete: true,
+        },
         ['STUDENT'],
         '/staff/dashboard',
       ),
@@ -39,6 +49,7 @@ describe('roleGateRedirectPath', () => {
             status: 'assigned',
             role,
             roleRequestStatus: null,
+            isProfileComplete: true,
           },
           ['STUDENT'],
           '/staff/dashboard',
@@ -50,7 +61,12 @@ describe('roleGateRedirectPath', () => {
   it('허용된 역할도 이동시키지 않는다', () => {
     expect(
       roleGateRedirectPath(
-        { status: 'assigned', role: 'STUDENT', roleRequestStatus: null },
+        {
+          status: 'assigned',
+          role: 'STUDENT',
+          roleRequestStatus: null,
+          isProfileComplete: true,
+        },
         ['STUDENT'],
       ),
     ).toBeNull();
@@ -72,6 +88,7 @@ describe('roleGateRedirectPath', () => {
           status: 'unassigned',
           role: null,
           roleRequestStatus: null,
+          isProfileComplete: true,
         },
         ['STUDENT'],
         '/staff/dashboard',
