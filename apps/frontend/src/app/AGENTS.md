@@ -20,6 +20,7 @@ Next.js App Router 라우트. 역할 기반(STUDENT/STAFF/ADMIN) 화면 접근 �
 | 경로 | 라우트 | 접근(허용 role) |
 | --- | --- | --- |
 | `_shell/` | (라우트 아님 — 아래 참조) | — |
+| `signup/` | `/signup` | 게이트 없음 — 가입·로그인 진입. 로그인한 사용자는 화면 안에서 멈춘 자리(`/consent` 또는 역할 홈)로 되돌린다 |
 | `consent/` | `/consent` | `AuthGate`(로그인만 요구, 역할 무관) |
 | `settings/` | `/settings` | `AuthGate`(로그인만 요구, 역할 무관) — #156 프로필·알림 설정 |
 | `onboarding/role/`, `onboarding/pending/` | `/onboarding/role`, `/onboarding/pending` | `AuthGate` |
