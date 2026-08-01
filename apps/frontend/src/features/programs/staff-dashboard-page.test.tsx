@@ -1,16 +1,19 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { StaffDashboardProgramSummary } from './types';
+import { StaffDashboardEditLink } from './staff-dashboard-edit-link';
 import { staffProgramHref } from './program-paths';
 
 vi.mock('next/link', () => ({
   default: ({
     href,
     children,
-  }: {
-    href: string;
-    children: React.ReactNode;
-  }) => <a href={href}>{children}</a>,
+    ...props
+  }: React.ComponentProps<'a'> & { readonly href: string }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
 }));
 
 function applicantsHref(program: StaffDashboardProgramSummary): string {
@@ -64,6 +67,22 @@ const multiPrograms: readonly StaffDashboardProgramSummary[] = [
     applicantsPath: '/staff/programs/program%3Acapstone/applicants',
   },
 ];
+
+describe('staff dashboard edit action', () => {
+  it('renders a named edit link whose hit area covers the row', () => {
+    const html = renderToStaticMarkup(
+      <StaffDashboardEditLink
+        programId="program:basic"
+        programName="기본 프로그램"
+      />,
+    );
+
+    expect(html).toContain('href="/staff/programs/program%3Abasic/edit"');
+    expect(html).toContain('aria-label="기본 프로그램 편집"');
+    expect(html).toContain('after:absolute');
+    expect(html).toContain('after:inset-0');
+  });
+});
 
 describe('staff dashboard helpers', () => {
   it('빈 목록과 검색 결과 없음을 구분한다', () => {

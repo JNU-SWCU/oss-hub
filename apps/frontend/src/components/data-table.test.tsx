@@ -54,23 +54,21 @@ describe('DataTable', () => {
     expect(html).not.toContain('홍길동');
   });
 
-  it('marks interactive rows with the supplied affordance class', () => {
+  it('applies layout classes without turning rows into controls', () => {
     const html = renderToStaticMarkup(
       <DataTable
         columns={columns}
         data={rows}
         rowKey={(row) => row.id}
-        onRowActivate={() => undefined}
-        rowAriaLabel={(row) => row.name + ' 열기'}
-        rowClassName="cursor-pointer hover:bg-muted/50"
-        tableClassName="lg:table-fixed"
+        rowClassName="relative"
+        tableClassName="min-w-2xl"
       />,
     );
 
-    expect(html).toMatch(/<tr[^>]*class="[^"]*cursor-pointer[^"]*"/);
-    expect(html).toMatch(/<table[^>]*class="[^"]*lg:table-fixed[^"]*"/);
-    expect(html).toContain('tabindex="0"');
-    expect(html).toContain('aria-label="홍길동 열기"');
+    expect(html).toMatch(/<tr[^>]*class="[^"]*relative[^"]*"/);
+    expect(html).toMatch(/<table[^>]*class="[^"]*min-w-2xl[^"]*"/);
+    expect(html).not.toContain('tabindex=');
+    expect(html).not.toContain('aria-label="홍길동 열기"');
     expect(html).not.toContain('rowClassName');
   });
 });

@@ -30,8 +30,6 @@ interface DataTableProps<TRow> extends Omit<
   isLoading?: boolean;
   loadingSlot?: React.ReactNode;
   emptyState?: React.ReactNode;
-  onRowActivate?: (row: TRow, rowIndex: number) => void;
-  rowAriaLabel?: (row: TRow, rowIndex: number) => string;
   rowClassName?: string;
   tableClassName?: string;
 }
@@ -46,8 +44,6 @@ function DataTable<TRow>({
   isLoading = false,
   loadingSlot,
   emptyState,
-  onRowActivate,
-  rowAriaLabel,
   rowClassName,
   tableClassName,
   className,
@@ -89,28 +85,7 @@ function DataTable<TRow>({
             </TableRow>
           ) : (
             data.map((row, rowIndex) => (
-              <TableRow
-                key={rowKey(row, rowIndex)}
-                className={rowClassName}
-                aria-label={rowAriaLabel?.(row, rowIndex)}
-                tabIndex={onRowActivate ? 0 : undefined}
-                onClick={
-                  onRowActivate ? () => onRowActivate(row, rowIndex) : undefined
-                }
-                onKeyDown={
-                  onRowActivate
-                    ? (event) => {
-                        if (
-                          event.target === event.currentTarget &&
-                          (event.key === 'Enter' || event.key === ' ')
-                        ) {
-                          event.preventDefault();
-                          onRowActivate(row, rowIndex);
-                        }
-                      }
-                    : undefined
-                }
-              >
+              <TableRow key={rowKey(row, rowIndex)} className={rowClassName}>
                 {columns.map((column) => (
                   <TableCell key={column.id} className={column.cellClassName}>
                     {column.cell(row, rowIndex)}

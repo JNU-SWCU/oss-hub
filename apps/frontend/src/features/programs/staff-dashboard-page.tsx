@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   useCallback,
   useEffect,
@@ -23,6 +22,7 @@ import { ApiError } from '@/lib/api-client';
 import { getStaffDashboardSummary } from './api';
 import { getProgramRecruitmentState } from './program-list';
 import type { ProgramRecruitmentState } from './program-list';
+import { StaffDashboardEditLink } from './staff-dashboard-edit-link';
 import { ProgramListPagination } from './program-list-pagination';
 import { staffProgramHref } from './program-paths';
 import type { ProgramCategory } from './program-templates';
@@ -116,7 +116,6 @@ function DashboardSkeleton(): ReactElement {
 }
 
 export function StaffDashboardPage(): ReactElement {
-  const router = useRouter();
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<ProgramListStatus>('all');
@@ -182,15 +181,9 @@ export function StaffDashboardPage(): ReactElement {
       {
         id: 'name',
         header: '프로그램',
-        cellClassName: 'whitespace-normal',
         cell: (row) => (
           <div className="grid gap-0.5">
-            <Link
-              href={staffProgramHref(row.id, '/edit')}
-              className="font-medium break-keep underline-offset-4 hover:underline focus-visible:underline"
-            >
-              {row.name}
-            </Link>
+            <StaffDashboardEditLink programId={row.id} programName={row.name} />
             <span className="text-xs text-muted-foreground">
               {CATEGORY_LABELS[row.category]}
             </span>
@@ -200,7 +193,6 @@ export function StaffDashboardPage(): ReactElement {
       {
         id: 'period',
         header: '신청 기간',
-        cellClassName: 'whitespace-normal',
         cell: (row) => {
           const periodLike = {
             id: row.id,
@@ -224,7 +216,6 @@ export function StaffDashboardPage(): ReactElement {
       {
         id: 'applications',
         header: '신청(건)',
-        cellClassName: 'whitespace-normal',
         cell: (row) => (
           <div className="grid gap-0.5 text-sm tabular-nums">
             <span>전체 {row.applications.total}</span>
@@ -240,10 +231,7 @@ export function StaffDashboardPage(): ReactElement {
         header: '신청자',
         cell: (row) => (
           <Button asChild size="sm" variant="outline">
-            <Link
-              href={applicantsHref(row)}
-              onClick={(event) => event.stopPropagation()}
-            >
+            <Link href={applicantsHref(row)} className="relative z-10">
               목록
             </Link>
           </Button>
@@ -356,12 +344,8 @@ export function StaffDashboardPage(): ReactElement {
             data={[...pageItems]}
             rowKey={(row) => row.id}
             caption={`총 ${filteredPrograms.length}개 프로그램`}
-            rowClassName="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            tableClassName="lg:table-fixed"
-            rowAriaLabel={(program) => program.name + ' 편집'}
-            onRowActivate={(program) => {
-              router.push(staffProgramHref(program.id, '/edit'));
-            }}
+            rowClassName="relative cursor-pointer has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring has-[a:focus-visible]:ring-inset"
+            tableClassName="min-w-2xl"
           />
           <ProgramListPagination
             page={safePage}
