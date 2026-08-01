@@ -2,6 +2,9 @@ import type {
   CollectionRepositoryPresence,
   CollectionRepositoryVisibility,
 } from './collection-incremental.types';
+import type { PrismaService } from '../prisma/prisma.service';
+import { CollectionCanonicalRepository } from './collection-canonical.repository';
+import { CollectionReadService } from './collection-read.service';
 
 export const COLLECTION_READ_PORT = Symbol('COLLECTION_READ_PORT');
 
@@ -204,4 +207,20 @@ export interface CollectionReadPort {
   getContributorCumulativeMetrics(
     query: CollectionContributorCumulativeMetricsQueryDto,
   ): Promise<readonly CollectionContributorCumulativeMetricsDto[]>;
+}
+
+/**
+ * 통합 테스트 전용 팩토리 — collection 모듈 밖 소비자 통합 테스트는 Nest DI 없이
+ * `new`로 직접 조립하는 관행을 쓰는데(ADR-003 DEC-42로 concrete 구현은 모듈 밖 import가
+ * 금지돼 있다), 이 팩토리가 그 경계를 지키면서 실제 Postgres에 대해 동작하는 진짜
+ * `CollectionReadPort` 구현을 이 파일(공개 surface) 하나로 노출한다. 인터페이스 자체는
+ * 바뀌지 않았으므로 기존 mock spec은 전혀 영향받지 않는다.
+ */
+export function createCollectionReadPortForIntegrationTest(
+  prisma: PrismaService,
+): CollectionReadPort {
+  return new CollectionReadService(
+    prisma,
+    new CollectionCanonicalRepository(prisma),
+  );
 }

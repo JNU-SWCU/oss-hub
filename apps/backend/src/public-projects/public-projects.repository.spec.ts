@@ -183,11 +183,12 @@ describe('PublicProjectsRepository', () => {
   });
 
   describe('findUserIdentity', () => {
-    it('id/nickname/avatarUrl만 명시적으로 select한다', async () => {
+    it('id/nickname/avatarUrl/githubId만 명시적으로 select한다(실명·studentId·department·email·role 없음)', async () => {
       const findUnique = jest.fn().mockResolvedValue({
         id: 'synthetic-user-1',
         nickname: 'synthetic-login',
         avatarUrl: null,
+        githubId: 501n,
       });
       const { repository } = repositoryWith({ userFindUnique: findUnique });
 
@@ -195,12 +196,18 @@ describe('PublicProjectsRepository', () => {
 
       expect(findUnique).toHaveBeenCalledWith({
         where: { id: 'synthetic-user-1' },
-        select: { id: true, nickname: true, avatarUrl: true },
+        select: {
+          id: true,
+          nickname: true,
+          avatarUrl: true,
+          githubId: true,
+        },
       });
       expect(identity).toEqual({
         userId: 'synthetic-user-1',
         githubNickname: 'synthetic-login',
         avatarUrl: null,
+        githubId: 501n,
       });
     });
 

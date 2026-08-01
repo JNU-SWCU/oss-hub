@@ -21,8 +21,17 @@ describe('PublicUserProfileController', () => {
         userId: 'synthetic-user-1',
         githubNickname: 'synthetic-login',
         avatarUrl: null,
+        githubId: 501n,
       },
-      projects: [project],
+      projects: [
+        {
+          row: project,
+          observed: true,
+          dataAsOf: new Date('2026-07-30T00:00:00.000Z'),
+          metrics: { commitCount: 5, pullRequestCount: 1, releaseCount: 0 },
+        },
+      ],
+      observedTotals: { commitCount: 5, pullRequestCount: 1, releaseCount: 0 },
     });
     const controller = new PublicUserProfileController({
       findProfile,
@@ -35,7 +44,20 @@ describe('PublicUserProfileController', () => {
     expect(result.githubNickname).toBe('synthetic-login');
     expect(result.projects).toHaveLength(1);
     expect(result.projects[0]?.projectId).toBe('synthetic-repository-1');
+    expect(result.projects[0]?.observed).toBe(true);
+    expect(result.projects[0]?.metrics).toEqual({
+      commitCount: 5,
+      pullRequestCount: 1,
+      releaseCount: 0,
+    });
+    expect(result.observedTotals).toEqual({
+      commitCount: 5,
+      pullRequestCount: 1,
+      releaseCount: 0,
+    });
     const serialized = JSON.stringify(result);
+    // githubId는 내부 매칭 키일 뿐 응답에 노출되지 않는다.
+    expect(serialized).not.toContain('501');
     for (const forbidden of ['studentId', 'department', 'email', 'role']) {
       expect(serialized).not.toContain(`"${forbidden}"`);
     }
