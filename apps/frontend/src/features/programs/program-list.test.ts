@@ -140,7 +140,7 @@ describe('filterAndGroupPrograms', () => {
     ).toEqual(['current-recruiting']);
   });
 
-  it('orders programs by the earliest application deadline', () => {
+  it('preserves the authoritative backend order within a group', () => {
     const seedProgram = programs[0];
     expect(seedProgram).toBeDefined();
     if (seedProgram === undefined) return;
@@ -166,12 +166,12 @@ describe('filterAndGroupPrograms', () => {
     });
 
     expect(result[0]?.programs.map(({ id }) => id)).toEqual([
-      'earlier-deadline',
       'later-deadline',
+      'earlier-deadline',
     ]);
   });
 
-  it('orders recruiting programs before scheduled programs while preserving per-group deterministic ordering', () => {
+  it('groups recruiting programs before scheduled programs while preserving backend order', () => {
     const seedProgram = programs[0];
     expect(seedProgram).toBeDefined();
     if (seedProgram === undefined) return;
@@ -236,9 +236,9 @@ describe('filterAndGroupPrograms', () => {
       [
         'current-recruiting',
         [
-          'recruiting-same-name-a',
           'recruiting-same-name-b',
           'recruiting-later',
+          'recruiting-same-name-a',
         ],
       ],
       ['scheduled', ['scheduled-earliest']],
@@ -247,7 +247,7 @@ describe('filterAndGroupPrograms', () => {
     ]);
   });
 
-  it('orders exact same-name and same-deadline programs by canonical id', () => {
+  it('preserves backend tie-break order for identical names and deadlines', () => {
     const seedProgram = programs[0];
     expect(seedProgram).toBeDefined();
     if (seedProgram === undefined) return;
@@ -263,8 +263,8 @@ describe('filterAndGroupPrograms', () => {
     });
 
     expect(result[0]?.programs.map(({ id }) => id)).toEqual([
-      'program-a',
       'program-b',
+      'program-a',
     ]);
   });
 });

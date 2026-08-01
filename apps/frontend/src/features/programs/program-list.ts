@@ -67,19 +67,6 @@ function matchesStatus(
   return getProgramRecruitmentState(program, now) === status;
 }
 
-function comparePrograms(
-  left: ProgramListItem,
-  right: ProgramListItem,
-): number {
-  const byApplicationDeadline =
-    new Date(left.applicationEndAt).getTime() -
-    new Date(right.applicationEndAt).getTime();
-  if (byApplicationDeadline !== 0) return byApplicationDeadline;
-
-  const byName = left.name.localeCompare(right.name, 'ko');
-  return byName !== 0 ? byName : left.id.localeCompare(right.id);
-}
-
 export function filterAndGroupPrograms(
   programs: readonly ProgramListItem[],
   options: FilterProgramsOptions,
@@ -87,8 +74,7 @@ export function filterAndGroupPrograms(
   const search = options.search.trim().toLocaleLowerCase('ko');
   const filtered = programs
     .filter((program) => program.name.toLocaleLowerCase('ko').includes(search))
-    .filter((program) => matchesStatus(program, options.status, options.now))
-    .sort(comparePrograms);
+    .filter((program) => matchesStatus(program, options.status, options.now));
   const currentYear = yearInSeoul(options.now);
 
   const groups: readonly ProgramListGroup[] = [
