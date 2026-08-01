@@ -69,8 +69,28 @@ export function ShellNav({ items, brand, actions }: ShellNavProps) {
 
   const inverted = overlay && !onSolid;
 
+  /**
+   * 접힌 메뉴에서 항목을 고르면 메뉴를 닫는다.
+   *
+   * `<details>`의 열림 상태는 브라우저가 들고 있어서, 같은 경로를 다시 누르면
+   * (랜딩에서 `홈`) 화면이 그대로라 메뉴만 열린 채 본문을 덮는다. 경로가 바뀌는
+   * 경우는 `menuResetKey`가 처리하지만 그때는 pathname이 그대로다.
+   *
+   * 클릭을 위임해 처리하는 이유는 `NavBar`를 클라이언트 전용으로 만들지 않기
+   * 위해서다 — 라우팅을 아는 이쪽이 이미 클라이언트 컴포넌트다.
+   */
+  const closeCollapsedMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (!target.closest('[data-slot="nav-bar-menu-items"] a')) return;
+    target
+      .closest('details[data-slot="nav-bar-menu"]')
+      ?.removeAttribute('open');
+  };
+
   return (
     <div
+      onClick={closeCollapsedMenu}
       className={overlay ? 'fixed inset-x-0 top-0 z-40' : undefined}
       data-surface={inverted ? 'inverted' : undefined}
       data-landing-surface={
@@ -81,6 +101,8 @@ export function ShellNav({ items, brand, actions }: ShellNavProps) {
         brand={brand}
         items={items}
         actions={actions}
+        // 경로가 바뀌면 접힌 메뉴를 닫는다 — 셸은 유지되므로 스스로 닫히지 않는다.
+        menuResetKey={pathname}
         className={`max-[479px]:px-1 [&_a]:inline-flex [&_a]:min-h-11 [&_a]:min-w-11 [&_a]:items-center [&_a]:justify-center [&_button]:min-h-11 [&_button]:min-w-11${
           inverted ? ' border-transparent' : ''
         }${overlay && onSolid ? ' shadow-sm' : ''}`}

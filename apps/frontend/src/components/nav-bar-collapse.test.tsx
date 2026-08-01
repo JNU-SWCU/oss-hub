@@ -77,4 +77,20 @@ describe('NavBar 좁은 화면 메뉴 접기', () => {
       /data-slot="nav-bar-menu-items"[^>]*data-surface="default"/,
     );
   });
+  // 클라이언트 내비게이션은 셸을 그대로 두고 본문만 갈아 끼운다. `<details>`의
+  // 열림 상태를 브라우저가 들고 있어서, 이 요소가 살아남으면 열린 메뉴가 새
+  // 화면을 계속 덮는다. 경로가 바뀌면 다시 그리도록 key 를 받는다.
+  it('menuResetKey 가 바뀌면 접힌 메뉴를 새로 그린다', () => {
+    const first = renderToStaticMarkup(
+      <NavBar items={ITEMS} menuResetKey="/" />,
+    );
+    const second = renderToStaticMarkup(
+      <NavBar items={ITEMS} menuResetKey="/programs" />,
+    );
+
+    // 서버 렌더 결과는 같아야 한다 — key 는 마크업이 아니라 재조정에만 쓰인다.
+    expect(first).toBe(second);
+    // key 를 실제로 넘기고 있는지 타입 수준에서 고정한다.
+    expect(first).toContain('data-slot="nav-bar-menu"');
+  });
 });
