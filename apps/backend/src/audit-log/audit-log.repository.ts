@@ -1,7 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { type AccountStatus, type Prisma, type Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import type { AuditLogListRequestDto } from './dto/audit-log-query.dto';
+import {
+  ACCESS_AUDIT_SCHEMA_VERSION,
+  parseAuditLogMetadata,
+  type AuditLogMetadata,
+  type AuditLogMetadataEvidence,
+} from './audit-log-metadata';
+import type { AuditLogListQueryRequestDto } from './dto/audit-log-query.dto';
 
 const auditLogSelect = {
   id: true,
@@ -9,6 +15,7 @@ const auditLogSelect = {
   action: true,
   targetType: true,
   targetId: true,
+  metadata: true,
   occurredAt: true,
 } satisfies Prisma.AuditLogSelect;
 
@@ -27,25 +34,43 @@ export interface AuditLogActor {
   readonly accountStatus: AccountStatus;
 }
 
-export interface AuditLogRecord {
+type AuditLogRecordBase = {
   readonly id: string;
   readonly actor: string;
   readonly action: string;
   readonly targetType: string;
   readonly targetId: string;
+  // schemaVersion 2 행은 대상의 이벤트 시점 GitHub 로그인, 그 밖(v1·legacy)은
+  // `targetType / targetId` 폴백 라벨이다.
+  readonly target: string;
   readonly occurredAt: Date;
-}
+};
+
+export type AuditLogRecord = AuditLogRecordBase &
+  (
+    | { readonly legacy: true; readonly metadata: null }
+    | {
+        readonly legacy: false;
+        readonly metadata: AuditLogMetadata;
+      }
+  );
+
+export type AuditLogListResult = {
+  readonly items: readonly AuditLogRecord[];
+  readonly total: number;
+};
 
 export interface AuditLogRecordInput {
   readonly actorGithubId: bigint;
   readonly action: string;
   readonly targetType: string;
   readonly targetId: string;
+  readonly metadata: AuditLogMetadata;
 }
 
 export interface AuditLogRepositoryPort {
   findActorByGithubId(githubId: bigint): Promise<AuditLogActor | null>;
-  list(query: AuditLogListRequestDto): Promise<readonly AuditLogRecord[]>;
+  list(query: AuditLogListQueryRequestDto): Promise<AuditLogListResult>;
   record(
     input: AuditLogRecordInput,
     writer?: AuditLogTransactionWriter,
@@ -63,31 +88,35 @@ export class AuditLogRepository implements AuditLogRepositoryPort {
     });
   }
 
-  async list(
-    query: AuditLogListRequestDto,
-  ): Promise<readonly AuditLogRecord[]> {
-    const logs = await this.prisma.auditLog.findMany({
-      where: {
-        actor: query.actor
-          ? { nickname: { contains: query.actor, mode: 'insensitive' } }
+  async list(query: AuditLogListQueryRequestDto): Promise<AuditLogListResult> {
+    const where: Prisma.AuditLogWhereInput = {
+      actor: query.actor
+        ? { nickname: { contains: query.actor, mode: 'insensitive' } }
+        : undefined,
+      action: query.action || undefined,
+      occurredAt:
+        query.from || query.to
+          ? {
+              gte: query.from
+                ? new Date(`${query.from}T00:00:00.000+09:00`)
+                : undefined,
+              lte: query.to
+                ? new Date(`${query.to}T23:59:59.999+09:00`)
+                : undefined,
+            }
           : undefined,
-        action: query.action || undefined,
-        occurredAt:
-          query.from || query.to
-            ? {
-                gte: query.from
-                  ? new Date(`${query.from}T00:00:00.000+09:00`)
-                  : undefined,
-                lte: query.to
-                  ? new Date(`${query.to}T23:59:59.999+09:00`)
-                  : undefined,
-              }
-            : undefined,
-      },
-      select: auditLogSelect,
-      orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
-    });
-    return logs.map(toAuditLogRecord);
+    };
+    const [logs, total] = await Promise.all([
+      this.prisma.auditLog.findMany({
+        where,
+        select: auditLogSelect,
+        orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+      }),
+      this.prisma.auditLog.count({ where }),
+    ]);
+    return { items: logs.map(toAuditLogRecord), total };
   }
 
   async record(
@@ -100,7 +129,7 @@ export class AuditLogRepository implements AuditLogRepositoryPort {
         action: input.action,
         targetType: input.targetType,
         targetId: input.targetId,
-        metadata: {},
+        metadata: input.metadata,
       },
       select: auditLogSelect,
     });
@@ -109,12 +138,51 @@ export class AuditLogRepository implements AuditLogRepositoryPort {
 }
 
 function toAuditLogRecord(log: PrismaAuditLog): AuditLogRecord {
+  const evidence = parseAuditLogMetadata(log.metadata);
+  const target = resolveAuditTargetLabel(
+    log.targetType,
+    log.targetId,
+    evidence,
+  );
+  if (evidence.legacy) {
+    return {
+      id: log.id,
+      actor: log.actor.nickname,
+      action: log.action,
+      targetType: log.targetType,
+      targetId: log.targetId,
+      target,
+      occurredAt: log.occurredAt,
+      legacy: true,
+      metadata: null,
+    };
+  }
   return {
     id: log.id,
-    actor: log.actor.nickname,
+    actor:
+      'actor' in evidence.metadata
+        ? evidence.metadata.actor.githubLogin
+        : log.actor.nickname,
     action: log.action,
     targetType: log.targetType,
     targetId: log.targetId,
+    target,
     occurredAt: log.occurredAt,
+    legacy: false,
+    metadata: evidence.metadata,
   };
+}
+
+function resolveAuditTargetLabel(
+  targetType: string,
+  targetId: string,
+  evidence: AuditLogMetadataEvidence,
+): string {
+  if (
+    !evidence.legacy &&
+    evidence.metadata.schemaVersion === ACCESS_AUDIT_SCHEMA_VERSION
+  ) {
+    return evidence.metadata.target.githubLogin;
+  }
+  return `${targetType} / ${targetId}`;
 }

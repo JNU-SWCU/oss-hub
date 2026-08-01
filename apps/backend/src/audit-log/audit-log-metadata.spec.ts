@@ -1,0 +1,128 @@
+import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import {
+  ACCESS_AUDIT_EVENT_KINDS,
+  ACCESS_AUDIT_SCHEMA_VERSION,
+  createAccessAuditMetadata,
+  InvalidAuditLogMetadataError,
+  parseAuditLogMetadata,
+} from './audit-log-metadata';
+
+const STATE = {
+  role: Role.STUDENT,
+  accountStatus: AccountStatus.ACTIVE,
+  requestStatus: null,
+} as const;
+
+describe('parseAuditLogMetadata', () => {
+  it('레거시 빈 객체 metadata를 legacy 증거로 매핑한다', () => {
+    expect(parseAuditLogMetadata({})).toEqual({ legacy: true, metadata: null });
+  });
+
+  it('schemaVersion 2(대상 스냅샷 포함) metadata를 그대로 통과시킨다', () => {
+    const metadata = createAccessAuditMetadata({
+      eventKind: ACCESS_AUDIT_EVENT_KINDS.DIRECT_ROLE_CHANGED,
+      actor: { displayName: '합성 관리자', githubLogin: 'synthetic-admin' },
+      target: { displayName: '합성 대상', githubLogin: 'synthetic-target' },
+      before: STATE,
+      after: STATE,
+    });
+
+    expect(metadata.schemaVersion).toBe(ACCESS_AUDIT_SCHEMA_VERSION);
+    expect(parseAuditLogMetadata(metadata)).toEqual({
+      legacy: false,
+      metadata,
+    });
+  });
+
+  it('schemaVersion 1(대상 스냅샷 없음) 과거 metadata를 여전히 허용한다', () => {
+    const legacyV1Metadata = {
+      schemaVersion: 1,
+      eventKind: ACCESS_AUDIT_EVENT_KINDS.DIRECT_ROLE_CHANGED,
+      actor: { displayName: '합성 관리자', githubLogin: 'synthetic-admin' },
+      before: STATE,
+      after: STATE,
+    } as const;
+
+    expect(parseAuditLogMetadata(legacyV1Metadata)).toEqual({
+      legacy: false,
+      metadata: legacyV1Metadata,
+    });
+  });
+
+  it('schemaVersion 2인데 target 스냅샷이 없으면 거부한다', () => {
+    const malformed = {
+      schemaVersion: 2,
+      eventKind: ACCESS_AUDIT_EVENT_KINDS.DIRECT_ROLE_CHANGED,
+      actor: { displayName: '합성 관리자', githubLogin: 'synthetic-admin' },
+      before: STATE,
+      after: STATE,
+    };
+
+    expect(() => parseAuditLogMetadata(malformed)).toThrow(
+      InvalidAuditLogMetadataError,
+    );
+  });
+
+  it('알 수 없는 schemaVersion은 거부한다', () => {
+    const malformed = {
+      schemaVersion: 3,
+      eventKind: ACCESS_AUDIT_EVENT_KINDS.DIRECT_ROLE_CHANGED,
+      actor: { displayName: '합성 관리자', githubLogin: 'synthetic-admin' },
+      target: { displayName: '합성 대상', githubLogin: 'synthetic-target' },
+      before: STATE,
+      after: STATE,
+    };
+
+    expect(() => parseAuditLogMetadata(malformed)).toThrow(
+      InvalidAuditLogMetadataError,
+    );
+  });
+
+  it('ROLE_REQUEST_REJECTED가 아닌데 rejectionReason이 섞여 있으면 거부한다', () => {
+    const malformed = {
+      ...createAccessAuditMetadata({
+        eventKind: ACCESS_AUDIT_EVENT_KINDS.DIRECT_ROLE_CHANGED,
+        actor: { displayName: null, githubLogin: 'synthetic-admin' },
+        target: { displayName: null, githubLogin: 'synthetic-target' },
+        before: STATE,
+        after: STATE,
+      }),
+      rejectionReason: '섞이면 안 되는 필드',
+    };
+
+    expect(() => parseAuditLogMetadata(malformed)).toThrow(
+      InvalidAuditLogMetadataError,
+    );
+  });
+
+  it('RoleRequest 관련 없는 필드 이름·타입이 어긋나면 거부한다', () => {
+    expect(() => parseAuditLogMetadata({ schemaVersion: 2 })).toThrow(
+      InvalidAuditLogMetadataError,
+    );
+    expect(() => parseAuditLogMetadata(null)).toThrow(
+      InvalidAuditLogMetadataError,
+    );
+    expect(() => parseAuditLogMetadata('not-an-object')).toThrow(
+      InvalidAuditLogMetadataError,
+    );
+  });
+});
+
+describe('createAccessAuditMetadata', () => {
+  it('현재 스키마 버전(schemaVersion 2)으로 도장을 찍는다', () => {
+    const metadata = createAccessAuditMetadata({
+      eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REJECTED,
+      actor: { displayName: null, githubLogin: 'synthetic-admin' },
+      target: { displayName: null, githubLogin: 'synthetic-target' },
+      before: { ...STATE, requestStatus: RoleRequestStatus.PENDING },
+      after: { ...STATE, requestStatus: RoleRequestStatus.REJECTED },
+      rejectionReason: '합성 반려 사유',
+    });
+
+    expect(metadata.schemaVersion).toBe(2);
+    expect(metadata.target).toEqual({
+      displayName: null,
+      githubLogin: 'synthetic-target',
+    });
+  });
+});

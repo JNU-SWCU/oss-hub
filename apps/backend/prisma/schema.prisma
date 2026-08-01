@@ -50,6 +50,20 @@ model User {
   notifications         Notification[]
   auditLogs             AuditLog[]
   loginHistories        LoginHistory[]
+  profile               UserProfile?
+}
+
+/// 플랫폼에서 직접 수집·확정한 비공개 사용자 프로필.
+/// expand 단계에서는 User의 legacy 프로필 컬럼과 함께 유지한다.
+model UserProfile {
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name       String
+  studentId  String   @unique
+  department String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 enum LoginHistoryEvent {
@@ -69,6 +83,8 @@ model LoginHistory {
   loginAt  DateTime          @default(now())
 
   @@index([userId, loginAt])
+  @@index([userId, provider, event, success, loginAt, id])
+  @@index([userId, provider, loginAt, id])
 }
 
 /// PENDING → APPROVED/REJECTED. REVOKED는 회수(REVOKE) 이력을 표현한다(#109 계약 잠금 이행 — #113에서 additive로 추가).
@@ -98,6 +114,8 @@ model RoleRequest {
 
   @@index([userId])
   @@index([status])
+  @@index([userId, status, createdAt, id])
+  @@index([userId, createdAt, id])
 }
 
 /// 전역 개인정보·활동 동의. MVP는 정책 버전별 1회 동의만 저장한다(#109 계약 잠금) — programId를 두지 않는다.
@@ -208,6 +226,9 @@ model Application {
   /// 7종 고정 템플릿 field별 응답(#118 계약을 따른다).
   answers                    Json
   applicationTemplateVersion Int
+
+  /// 저장소 공개 예정 선택(#414 DEC-33/34) — 제출 시 1회 결정, 이후 수정 endpoint는 두지 않는다.
+  isRepositoryPublicationPlanned Boolean @default(true)
 
   status          ApplicationStatus @default(SUBMITTED)
   rejectionReason String?
@@ -438,9 +459,14 @@ model Repository {
 
   @@index([programId])
   @@index([teamId])
+  /// todo 16 — `GET /projects` 목록 커서 페이지네이션(publishedAt desc, id desc)이 이 인덱스를 쓴다.
+  @@index([visibility, publishedAt, id])
 }
 
 /// 공개 쿼리는 이 두 테이블만 조회한다(#126/#134); private 원본 join 금지.
+/// todo 16 — ADR-003 공개 strict-read 예외 이후 신규 공개 read(`public-projects` 모듈)는
+/// 이 규칙 대상이 아니다 — 전용 repository가 명시적 select로 `Repository` 원본을 직접 읽는다.
+/// 이 두 테이블은 todo 20까지 유지되는 레거시 writer(`ShowcaseProjectionService`) 전용으로 남는다.
 model PublicShowcaseRepository {
   repositoryId            String          @id
   githubRepositoryId      BigInt          @unique
@@ -734,21 +760,21 @@ enum CanonicalCollectionRunStatus {
 }
 
 model CanonicalCollectionRun {
-  id                String                       @id @default(cuid())
+  id                String                           @id @default(cuid())
   appId             BigInt
   organizationLogin String
-  status            CanonicalCollectionRunStatus @default(PENDING)
-  errorClass     String?
-  createdAt      DateTime                         @default(now())
-  startedAt      DateTime?
-  finishedAt     DateTime?
-  repositories   CanonicalRepository[]
-  commits        CanonicalDefaultBranchCommit[]
-  pullRequests   CanonicalPullRequest[]
-  releases       CanonicalRelease[]
-  contributors   CanonicalContributorProjection[]
-  leases         CanonicalCollectionLease[]
-  activeFor      CanonicalOrganizationState[]     @relation("ActiveCanonicalGeneration")
+  status            CanonicalCollectionRunStatus     @default(PENDING)
+  errorClass        String?
+  createdAt         DateTime                         @default(now())
+  startedAt         DateTime?
+  finishedAt        DateTime?
+  repositories      CanonicalRepository[]
+  commits           CanonicalDefaultBranchCommit[]
+  pullRequests      CanonicalPullRequest[]
+  releases          CanonicalRelease[]
+  contributors      CanonicalContributorProjection[]
+  leases            CanonicalCollectionLease[]
+  activeFor         CanonicalOrganizationState[]     @relation("ActiveCanonicalGeneration")
 
   @@index([appId, organizationLogin, createdAt])
 }
@@ -772,11 +798,11 @@ model CanonicalCollectionLease {
   appId             BigInt
   organizationLogin String
   epoch             BigInt                 @default(1)
-  ownerId        String
-  expiresAt      DateTime
-  runId          String
-  run            CanonicalCollectionRun @relation(fields: [runId], references: [id])
-  updatedAt      DateTime               @updatedAt
+  ownerId           String
+  expiresAt         DateTime
+  runId             String
+  run               CanonicalCollectionRun @relation(fields: [runId], references: [id])
+  updatedAt         DateTime               @updatedAt
 
   @@id([appId, organizationLogin])
   @@index([runId])
@@ -858,4 +884,230 @@ model CanonicalContributorProjection {
 
   @@id([generationId, githubRepositoryId, githubUserId])
   @@index([generationId, githubUserId])
+}
+
+enum CollectionRepositoryPresence {
+  PRESENT
+  ABSENT
+}
+
+/// ADR-006 조직 전체 누적·증분 수집의 논리 저장소 identity. App installation 교체와 무관하게
+/// (githubOrganizationId, githubRepositoryId)로 유일하다 — installation id는 identity에 포함하지 않는다.
+/// visibility/presence는 complete inventory 관찰에서만 갱신된다(DEC-46, fail-closed 공개 회수).
+model CollectionRepository {
+  id String @id @default(cuid())
+
+  githubOrganizationId BigInt
+  githubRepositoryId   BigInt
+
+  fullName      String
+  defaultBranch String
+  archived      Boolean @default(false)
+
+  visibility RepositoryVisibility         @default(PRIVATE)
+  presence   CollectionRepositoryPresence @default(PRESENT)
+
+  lastCompleteInventoryObservedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  streams          CollectionRepositoryStream[]
+  commits          CollectionCommitFact[]
+  pullRequests     CollectionPullRequestFact[]
+  releases         CollectionReleaseFact[]
+  yearAggregates   CollectionRepositoryYearAggregate[]
+  contributorYears CollectionContributorYearAggregate[]
+
+  @@unique([githubOrganizationId, githubRepositoryId])
+  @@index([visibility, presence])
+}
+
+enum CollectionStreamType {
+  COMMIT
+  PULL_REQUEST
+  RELEASE
+}
+
+enum CollectionStreamStatus {
+  PENDING
+  BACKFILLING
+  READY
+  VERIFYING
+}
+
+/// stream(commit/PR/release)별 safe frontier + exact-request fingerprint/ETag를 보존해
+/// 재순회 없이 다음 증분 수집 시작점을 복원한다(ADR-006).
+model CollectionRepositoryStream {
+  id String @id @default(cuid())
+
+  repositoryId String
+  repository   CollectionRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  streamType CollectionStreamType
+  status     CollectionStreamStatus @default(PENDING)
+
+  frontierSha       String?
+  frontierCreatedAt DateTime?
+  frontierEntityId  BigInt?
+
+  requestFingerprint String?
+  etag               String?
+
+  lastRunAt     DateTime?
+  lastErrorAt   DateTime?
+  lastErrorCode String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([repositoryId, streamType])
+  @@index([status])
+}
+
+/// commit fact = (repositoryId, sha) + committedAt만 보존한다 — message/author-email/diff는 저장하지 않는다(ADR-006).
+model CollectionCommitFact {
+  id String @id @default(cuid())
+
+  repositoryId String
+  repository   CollectionRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  sha         String
+  committedAt DateTime
+
+  authorGithubId    BigInt?
+  authorGithubLogin String?
+
+  observedAt DateTime @default(now())
+
+  @@unique([repositoryId, sha])
+  @@index([repositoryId, committedAt])
+  @@index([authorGithubId])
+}
+
+/// PR fact = (repositoryId, githubPullRequestId) + observedAt만 보존한다 — title/body는 저장하지 않는다(ADR-006).
+model CollectionPullRequestFact {
+  id String @id @default(cuid())
+
+  repositoryId String
+  repository   CollectionRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  githubPullRequestId BigInt
+  state               String
+  createdAt           DateTime
+
+  authorGithubId    BigInt?
+  authorGithubLogin String?
+
+  observedAt DateTime @default(now())
+
+  @@unique([repositoryId, githubPullRequestId])
+  @@index([repositoryId, createdAt])
+  @@index([authorGithubId])
+}
+
+/// release fact = (repositoryId, githubReleaseId) + publishedAt만 보존한다 — body는 저장하지 않는다(ADR-006).
+model CollectionReleaseFact {
+  id String @id @default(cuid())
+
+  repositoryId String
+  repository   CollectionRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  githubReleaseId BigInt
+  publishedAt     DateTime
+
+  authorGithubId    BigInt?
+  authorGithubLogin String?
+
+  observedAt DateTime @default(now())
+
+  @@unique([repositoryId, githubReleaseId])
+  @@index([repositoryId, publishedAt])
+  @@index([authorGithubId])
+}
+
+/// year를 별도 row로 키잉해 매년 1/1에 당해 연도 값을 0으로 안전하게 읽는다
+/// (CanonicalContributorProjection의 단일 컬럼 currentYear 덮어쓰기 anti-pattern을 반복하지 않는다).
+model CollectionRepositoryYearAggregate {
+  repositoryId String
+  repository   CollectionRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  year Int
+
+  commitCount      Int @default(0)
+  pullRequestCount Int @default(0)
+  releaseCount     Int @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  @@id([repositoryId, year])
+  @@index([year])
+}
+
+/// 기여자별 연도 누적 — repositoryId+githubUserId+year로 키잉해 Asia/Seoul 연 경계에서
+/// 당해 연도 read가 항상 0부터 시작하도록 보장한다.
+model CollectionContributorYearAggregate {
+  repositoryId String
+  repository   CollectionRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  githubUserId BigInt
+  githubLogin  String
+
+  year Int
+
+  commitCount      Int @default(0)
+  pullRequestCount Int @default(0)
+  releaseCount     Int @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  @@id([repositoryId, githubUserId, year])
+  @@index([repositoryId, year])
+  @@index([githubUserId, year])
+}
+
+/// installation 재순회의 fair 연속 커서 — org 전체를 한 번에 처리하지 않고 rate-limit 인지 상태로
+/// 다음 저장소부터 이어간다(ADR-006). appId+organizationLogin은 프로세스 키일 뿐 논리 저장소 identity에는 포함하지 않는다.
+model CollectionSyncCursor {
+  appId             BigInt
+  organizationLogin String
+
+  lastGithubRepositoryId BigInt?
+  cycleStartedAt         DateTime?
+  cycleCompletedAt       DateTime?
+
+  updatedAt DateTime @updatedAt
+
+  @@id([appId, organizationLogin])
+}
+
+/// todo 10 sync orchestration의 epoch-fenced 상호배제 lease. `CanonicalCollectionLease`와 같은
+/// 패턴(epoch 증가 + expiresAt fencing)을 쓰되, 별도 run 후보 테이블 없이 lease 자체가 "진행 중인
+/// run"을 나타낸다 — 진행 bookkeeping인 `CollectionSyncCursor`와는 별개 관심사로 분리한다(ADR-006).
+model CollectionSyncLease {
+  appId             BigInt
+  organizationLogin String
+  epoch             BigInt   @default(1)
+  ownerId           String
+  runId             String
+  expiresAt         DateTime
+  updatedAt         DateTime @updatedAt
+
+  @@id([appId, organizationLogin])
+}
+
+/// todo 14 원자 전환(atomic reader/writer cutover) 절차 전용 quiesce lease. `CollectionSyncLease`와
+/// 같은 epoch-fenced 패턴이다 — lease 보유 자체가 "cutover 진행 중"을 나타내며, 이 창(window) 동안
+/// 스케줄러/관리자 트리거는 명시적으로 거부된다(silent skip이 아니라 별도 에러 코드로 reject한다).
+/// 절차 완료(성공/abort 무관) 시 항상 해제해 트리거가 재개되도록 한다(ADR-006).
+model CollectionCutoverLease {
+  appId             BigInt
+  organizationLogin String
+  epoch             BigInt   @default(1)
+  ownerId           String
+  runId             String
+  expiresAt         DateTime
+  updatedAt         DateTime @updatedAt
+
+  @@id([appId, organizationLogin])
 }

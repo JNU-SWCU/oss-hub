@@ -6,6 +6,7 @@ import { classifyProfileApiError, getMyProfile } from '@/features/profile/api';
 
 import { onboardingPathFor, type ProfileCheckStatus } from './onboarding-route';
 import { roleHomePath } from './role';
+import { SessionError } from './session-error';
 import { useSessionRole } from './use-session-role';
 
 type OnboardingTarget = 'role' | 'pending';
@@ -26,7 +27,7 @@ export function OnboardingGate({
   readonly children: ReactNode;
 }) {
   const router = useRouter();
-  const { status, role, roleRequestStatus } = useSessionRole();
+  const { status, role, roleRequestStatus, retry } = useSessionRole();
   const [profileStatus, setProfileStatus] =
     useState<ProfileCheckStatus>('checking');
   const expectedPath = onboardingPathFor(roleRequestStatus, profileStatus);
@@ -85,6 +86,13 @@ export function OnboardingGate({
 
   const isAllowed =
     status === 'unassigned' && TARGET_PATH[target] === expectedPath;
+
+  // 세션 조회 실패는 리다이렉트도 진행도 하지 않는다. 처리하지 않으면 아래
+  // `확인 중…`으로 접혀 사용자가 영구히 기다리게 된다 — 공유 상태에 새 값을
+  // 추가하면 모든 게이트가 그것을 소진해야 한다.
+  if (status === 'error') {
+    return <SessionError onRetry={retry} />;
+  }
 
   if (status === 'unassigned' && profileStatus === 'error') {
     return (

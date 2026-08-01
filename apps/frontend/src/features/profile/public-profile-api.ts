@@ -3,7 +3,8 @@ import type {
   PublicProfile,
   PublicProfileApplicationMode,
   PublicProfileCategory,
-  PublicProfileRepository,
+  PublicProfileMetrics,
+  PublicProfileProject,
 } from './public-profile-types';
 
 const INVALID_RESPONSE_MESSAGE = '공개 프로필 응답 형식이 올바르지 않습니다';
@@ -42,11 +43,18 @@ function nonEmptyString(value: unknown): string {
   return invalidResponse();
 }
 
+function nonNegativeInteger(value: unknown): number {
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) {
+    return value;
+  }
+  return invalidResponse();
+}
+
 export function isSafePublicProfileUserId(value: string): boolean {
   return /^[A-Za-z0-9_-]+$/.test(value);
 }
 
-function repositoryId(value: unknown): string {
+function projectId(value: unknown): string {
   const parsed = nonEmptyString(value);
   if (/^[A-Za-z0-9_-]+$/.test(parsed)) return parsed;
   return invalidResponse();
@@ -85,6 +93,11 @@ function isoDate(value: unknown): string {
   return invalidResponse();
 }
 
+function nullableIsoDate(value: unknown): string | null {
+  if (value === null) return null;
+  return isoDate(value);
+}
+
 function githubUrl(value: unknown, repositoryName: string): string {
   const parsed = nonEmptyString(value);
   try {
@@ -110,21 +123,47 @@ function githubUrl(value: unknown, repositoryName: string): string {
   return invalidResponse();
 }
 
-function detailUrl(value: unknown, id: string): string {
-  const parsed = nonEmptyString(value);
-  if (parsed === `/archive/${id}`) return parsed;
+function metrics(value: unknown): PublicProfileMetrics {
+  if (!isRecord(value)) return invalidResponse();
+  return {
+    commitCount: nonNegativeInteger(value.commitCount),
+    pullRequestCount: nonNegativeInteger(value.pullRequestCount),
+    releaseCount: nonNegativeInteger(value.releaseCount),
+  };
+}
+
+function nullableMetrics(value: unknown): PublicProfileMetrics | null {
+  if (value === null) return null;
+  return metrics(value);
+}
+
+function observed(value: unknown): boolean {
+  if (typeof value === 'boolean') return value;
   return invalidResponse();
 }
 
-function repository(value: unknown): PublicProfileRepository {
+function project(value: unknown): PublicProfileProject {
   if (!isRecord(value)) return invalidResponse();
-  const id = repositoryId(value.repositoryId);
+  const id = projectId(value.projectId);
   const mode = applicationMode(value.applicationMode);
   const publishedAt = isoDate(value.publishedAt);
   const repositoryName = nonEmptyString(value.repositoryName);
+  const isObserved = observed(value.observed);
+  const dataAsOf = nullableIsoDate(value.dataAsOf);
+  const projectMetrics = nullableMetrics(value.metrics);
+
+  // observed/dataAsOf/metrics는 서로의 존재를 함께 증명한다 — 미관측이면 나머지 둘도
+  // 반드시 null이어야 하고, 관측이면 반드시 값이 있어야 한다("관측했지만 0"과 "미관측"의
+  // 구분이 서버-클라이언트 경계에서 깨지지 않도록 exact-key 파서가 이 관계까지 검증한다).
+  if (
+    isObserved === (dataAsOf === null) ||
+    isObserved === (projectMetrics === null)
+  ) {
+    return invalidResponse();
+  }
 
   return {
-    repositoryId: id,
+    projectId: id,
     programId: nonEmptyString(value.programId),
     programName: nonEmptyString(value.programName),
     category: category(value.category),
@@ -133,18 +172,21 @@ function repository(value: unknown): PublicProfileRepository {
     repositoryName,
     githubUrl: githubUrl(value.githubUrl, repositoryName),
     publishedAt,
-    detailUrl: detailUrl(value.detailUrl, id),
+    detailUrl: `/archive/${id}`,
     modeLabel: mode === 'PERSONAL' ? '개인' : '팀',
     publishedLabel: new Intl.DateTimeFormat('ko-KR', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     }).format(new Date(publishedAt)),
+    observed: isObserved,
+    dataAsOf,
+    metrics: projectMetrics,
   };
 }
 
 export function parsePublicProfile(value: unknown): PublicProfile {
-  if (!isRecord(value) || !Array.isArray(value.repositories)) {
+  if (!isRecord(value) || !Array.isArray(value.projects)) {
     return invalidResponse();
   }
 
@@ -153,7 +195,8 @@ export function parsePublicProfile(value: unknown): PublicProfile {
     githubNickname: nonEmptyString(value.githubNickname),
     avatarUrl:
       value.avatarUrl === null ? null : nonEmptyString(value.avatarUrl),
-    repositories: value.repositories.map(repository),
+    projects: value.projects.map(project),
+    observedTotals: metrics(value.observedTotals),
   };
 }
 
@@ -166,13 +209,13 @@ export async function loadPublicProfile(
 
   try {
     return parsePublicProfile(
-      await apiClient<unknown>(`users/${userId}/public-profile`),
+      await apiClient<unknown>(`users/${userId}/profile`),
     );
   } catch (error) {
     if (
       error instanceof ApiError &&
       error.problem.status === 404 &&
-      error.problem.code === 'PRF_001'
+      error.problem.code === 'PPJ_002'
     ) {
       throw new PublicProfileNotFoundError();
     }

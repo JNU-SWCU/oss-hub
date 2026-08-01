@@ -24,9 +24,11 @@ NestJS backend는 기능이 늘어나도 관련 코드의 탐색 경로와 의�
 
 ## Decision
 
-backend는 기능 모듈 폴더를 최상위 구성 단위로 사용한다. 각 모듈 내부는 controller → service → repository의 단방향 Layered 구조를 따른다. controller는 HTTP와 DTO 경계를 담당하고, service는 usecase 중심으로 업무 규칙과 트랜잭션 경계를 담당하며, repository는 영속성 접근만 담당한다. DTO와 도메인 모델은 분리한다. 계층 경계 제약으로, service는 HTTP 계층 타입(Request/Response 등 프레임워크 전송 타입)에 의존하지 않으며, repository는 ORM row(Prisma record)를 노출하지 않고 도메인 타입만 반환한다.
+backend는 기능 모듈 폴더를 최상위 구성 단위로 사용한다. 각 모듈 내부는 Controller → Service → Repository의 단방향 Layered 구조를 따른다. Controller는 HTTP 입력 검증, request DTO→application DTO 변환, guard/header/status와 response DTO 변환을 담당하고 Prisma와 업무 규칙을 소유하지 않는다. Service는 usecase 중심의 업무 규칙, 공개 allowlist, 404 정책, 트랜잭션과 orchestration을 담당하고 HTTP/Nest 전송 타입과 Prisma model을 노출하지 않는다. Repository는 영속성 접근과 persistence DTO를 담당하고 Prisma row를 계층 밖으로 흘리지 않는다. DTO와 도메인 모델은 분리한다.
 
-NestJS 전역 예외 필터가 예외를 API 오류 응답으로 변환한다. 모든 데이터 변경 usecase의 트랜잭션 시작·완료·실패 처리는 service 계층에서 소유한다. 기능 요구가 없는 포트·어댑터·추가 추상화는 도입하지 않는다.
+NestJS 전역 예외 필터가 예외를 API 오류 응답으로 변환한다. 모든 데이터 변경 usecase의 트랜잭션 시작·완료·실패 처리는 service 계층에서 소유한다. Controller↔Service와 Service↔Repository 계약은 명시적 DTO를 사용하며 Controller와 Service 사이에 별도 Port를 만들지 않는다. 모든 cross-module 또는 external behavioral dependency는 반드시 Port를 통해서만 소비한다. Port의 입력·출력도 DTO로 제한한다. 기능 요구가 없는 포트·어댑터·추가 추상화는 도입하지 않는다.
+
+공개 endpoint의 private 데이터 strict-read는 owner-approved dedicated public query repository에서만 허용한다. 이 repository는 explicit select와 public DTO allowlist를 사용하고 service allowlist, private/nonexistent 동일 404, selector/integration review evidence를 요구한다. Controller와 일반 Service의 Prisma 직접 접근, 임의 private join, wildcard include, redact-later와 forbidden field fetch는 금지한다.
 
 ## Alternatives considered
 
@@ -59,12 +61,15 @@ NestJS 전역 예외 필터가 예외를 API 오류 응답으로 변환한다. �
 
 - controller는 service를 거치지 않고 repository에 접근하지 않는다.
 - repository는 업무 규칙과 HTTP 표현을 소유하지 않는다.
+- public query repository만 owner 승인된 strict-read allowlist 경계에서 explicit select로 공개 조회를 수행한다.
+- controller와 일반 service는 Prisma에 직접 접근하지 않으며 private join은 dedicated public query repository 밖에서 금지한다.
 - service가 트랜잭션 경계를 소유하며 전역 예외 필터를 우회하는 개별 응답 형식을 만들지 않는다.
 - NestJS는 `setGlobalPrefix('api/v1')`로 API 접두사를 설정한다.
 
 ## Changelog
 
 - 2026-07-11: initial decision
+- 2026-07-31: 공개 strict-read를 dedicated allowlist repository로 한정하고 Controller→Service→Repository DTO 및 cross-module/external behavioral dependency의 Port-only 규칙을 명문화했다.
 
 ## References
 

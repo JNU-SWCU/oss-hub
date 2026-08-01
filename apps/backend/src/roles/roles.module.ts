@@ -9,28 +9,10 @@ import {
 } from './roles.controller';
 import { RolesRepository } from './roles.repository';
 import { RolesService } from './roles.service';
-import { StaffRoleRequestsController } from './staff-role-requests.controller';
-import { StaffRoleRequestsRepository } from './staff-role-requests.repository';
-import { StaffRoleRequestsService } from './staff-role-requests.service';
-import { AdminUsersController } from './admin-users.controller';
-import { AdminUsersRepository } from './admin-users.repository';
-import { AdminUsersService } from './admin-users.service';
 
 @Module({
   imports: [AuditLogModule, AuthModule, ConsentsModule, UsersModule],
-  controllers: [
-    OnboardingController,
-    RoleRequestsController,
-    StaffRoleRequestsController,
-    AdminUsersController,
-  ],
-  providers: [
-    RolesRepository,
-    RolesService,
-    StaffRoleRequestsRepository,
-    StaffRoleRequestsService,
-    AdminUsersRepository,
-    AdminUsersService,
-  ],
+  controllers: [OnboardingController, RoleRequestsController],
+  providers: [RolesRepository, RolesService],
 })
 export class RolesModule {}

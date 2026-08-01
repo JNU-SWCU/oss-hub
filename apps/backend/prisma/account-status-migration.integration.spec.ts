@@ -11,8 +11,8 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { loadRuntimeConfig } from '../src/runtime-config/runtime-config';
 import { RolesRepository } from '../src/roles/roles.repository';
 import { RolesService } from '../src/roles/roles.service';
-import { StaffRoleRequestsRepository } from '../src/roles/staff-role-requests.repository';
-import { StaffRoleRequestsService } from '../src/roles/staff-role-requests.service';
+import { AdminAccessRepository } from '../src/users/admin-access.repository';
+import { AdminAccessService } from '../src/users/admin-access.service';
 import type { UsersService } from '../src/users/users.service';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 
@@ -65,8 +65,8 @@ describe('accountStatus migration regression', () => {
       requireCompleteProfile: jest.fn(),
     } satisfies Pick<UsersService, 'requireCompleteProfile'>,
   );
-  const staffRoleRequestsService = new StaffRoleRequestsService(
-    new StaffRoleRequestsRepository(prisma),
+  const adminAccessService = new AdminAccessService(
+    new AdminAccessRepository(prisma),
     new AuditLogService(new AuditLogRepository(prisma)),
   );
 
@@ -120,10 +120,16 @@ describe('accountStatus migration regression', () => {
     ).rejects.toMatchObject({
       errorCode: { code: AuthErrorCode.UNAUTHENTICATED },
     });
-    const reactivated = await staffRoleRequestsService.decide(
+    const reactivated = await adminAccessService.patchAccess(
       ADMIN_GITHUB_ID,
-      REVOKED_REQUEST_ID,
-      { action: 'REACTIVATE' },
+      STAFF_ID,
+      {
+        expectedRole: Role.STAFF,
+        desiredRole: Role.STAFF,
+        expectedAccountStatus: AccountStatus.DEACTIVATED,
+        desiredAccountStatus: AccountStatus.ACTIVE,
+        expectedPendingRequest: null,
+      },
     );
 
     const [reactivatedStaff, requests] = await Promise.all([
@@ -137,18 +143,24 @@ describe('accountStatus migration regression', () => {
       role: Role.STAFF,
       accountStatus: AccountStatus.ACTIVE,
     });
-    expect(reactivated.status).toBe(RoleRequestStatus.APPROVED);
-    expect(reactivated.id).not.toBe(APPROVED_REQUEST_ID);
-    expect(requests).toHaveLength(3);
+    expect(reactivated).toMatchObject({
+      role: Role.STAFF,
+      accountStatus: AccountStatus.ACTIVE,
+      decidedRequest: null,
+    });
+    // 통합 접근(AdminAccess) 경로는 대기 중 요청이 없는 계정 상태 전환에
+    // 새 RoleRequest 이력 행을 만들지 않는다 — 마이그레이션이 이관한 두 행만
+    // (APPROVED, REVOKED) 그대로 남아야 한다.
+    expect(requests).toHaveLength(2);
     expect(requests).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          id: REVOKED_REQUEST_ID,
-          status: RoleRequestStatus.REVOKED,
+          id: APPROVED_REQUEST_ID,
+          status: RoleRequestStatus.APPROVED,
         }),
         expect.objectContaining({
-          id: reactivated.id,
-          status: RoleRequestStatus.APPROVED,
+          id: REVOKED_REQUEST_ID,
+          status: RoleRequestStatus.REVOKED,
         }),
       ]),
     );

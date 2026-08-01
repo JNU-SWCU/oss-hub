@@ -1,13 +1,32 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
-import type { Prisma, User as PrismaUser } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  COMPATIBLE_PROFILE_NAME_SELECT,
+  resolveCompatibleProfileName,
+} from '../profiles/profile-compatibility';
 import { AuthConfig } from './auth.config';
 import type {
   AuthLoginResult,
   AuthUser,
   GithubProfile,
 } from './domain/auth-user';
+
+const AUTH_USER_SELECT = {
+  id: true,
+  githubId: true,
+  nickname: true,
+  avatarUrl: true,
+  notificationEmail: true,
+  accountStatus: true,
+  role: true,
+  ...COMPATIBLE_PROFILE_NAME_SELECT,
+} as const satisfies Prisma.UserSelect;
+
+type AuthUserRow = Prisma.UserGetPayload<{
+  select: typeof AUTH_USER_SELECT;
+}>;
 
 /**
  * 초기 역할 시드가 PENDING 신청을 APPROVED로 전이하려는 순간
@@ -33,6 +52,7 @@ class PrismaAuthTransactionStore implements AuthTransactionStore {
   ) {}
 
   /**
+   * 신규·기존 사용자 모두 GitHub에서 profile 소유 필드를 저장하지 않는다.
    * 기존 사용자는 nickname·avatarUrl만 갱신한다 — 온보딩 name과 권한 상태는 로그인마다 유지된다.
    *
    * name은 update 절에서 제외한다. 온보딩 프로필(#220)에서 사용자가 직접 확정한 값을
@@ -47,20 +67,21 @@ class PrismaAuthTransactionStore implements AuthTransactionStore {
       data: {
         githubId: profile.githubId,
         nickname: profile.login,
-        name: profile.name,
         avatarUrl: profile.avatarUrl,
         ...(profile.email !== null ? { notificationEmail: profile.email } : {}),
       },
       skipDuplicates: true,
     });
-    let user: PrismaUser;
+    let user: AuthUserRow;
     if (created.count === 1) {
       user = await this.transaction.user.findUniqueOrThrow({
         where: { githubId: profile.githubId },
+        select: AUTH_USER_SELECT,
       });
     } else {
       const current = await this.transaction.user.findUniqueOrThrow({
         where: { githubId: profile.githubId },
+        select: AUTH_USER_SELECT,
       });
       user = await this.transaction.user.update({
         where: { githubId: profile.githubId },
@@ -71,6 +92,7 @@ class PrismaAuthTransactionStore implements AuthTransactionStore {
             ? { notificationEmail: profile.email }
             : {}),
         },
+        select: AUTH_USER_SELECT,
       });
     }
 
@@ -129,6 +151,7 @@ class PrismaAuthTransactionStore implements AuthTransactionStore {
         }
         user = await this.transaction.user.findUniqueOrThrow({
           where: { id: user.id },
+          select: AUTH_USER_SELECT,
         });
       }
     }
@@ -156,17 +179,20 @@ export class AuthRepository {
   }
 
   async findByGithubId(githubId: bigint): Promise<AuthUser | null> {
-    const user = await this.prisma.user.findUnique({ where: { githubId } });
+    const user = await this.prisma.user.findUnique({
+      where: { githubId },
+      select: AUTH_USER_SELECT,
+    });
     return user ? toDomain(user) : null;
   }
 }
 
-function toDomain(user: PrismaUser): AuthUser {
+function toDomain(user: AuthUserRow): AuthUser {
   return {
     id: user.id,
     githubId: user.githubId,
     nickname: user.nickname,
-    name: user.name,
+    name: resolveCompatibleProfileName(user),
     avatarUrl: user.avatarUrl,
     accountStatus: user.accountStatus,
     role: user.role,

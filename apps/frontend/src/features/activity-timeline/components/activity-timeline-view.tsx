@@ -1,4 +1,9 @@
-import { AlertCircle, CalendarDays, ChartNoAxesCombined } from 'lucide-react';
+import {
+  AlertCircle,
+  CalendarDays,
+  ChartNoAxesCombined,
+  Clock3,
+} from 'lucide-react';
 import { EmptyState, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -25,6 +30,16 @@ function groupedPrograms(programs: readonly ActivityProgram[]) {
       return groups;
     }, {}),
   ).sort(([left], [right]) => Number(right) - Number(left));
+}
+
+const DATE_TIME_FORMAT = new Intl.DateTimeFormat('ko-KR', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+  timeZone: 'Asia/Seoul',
+});
+
+function formatDataAsOf(value: string | null): string {
+  return value ? DATE_TIME_FORMAT.format(new Date(value)) : '수집 전';
 }
 
 export function ActivityTimelineView({
@@ -125,14 +140,28 @@ export function ActivityTimelineView({
         aria-labelledby="chart-heading"
         className="flex min-w-0 flex-col gap-4"
       >
-        <div className="flex items-center gap-2">
-          <ChartNoAxesCombined
-            aria-hidden="true"
-            className="size-5 text-accent"
-          />
-          <h2 id="chart-heading" className="font-heading text-xl font-semibold">
-            활동 추이
-          </h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <ChartNoAxesCombined
+              aria-hidden="true"
+              className="size-5 text-accent"
+            />
+            <h2
+              id="chart-heading"
+              className="font-heading text-xl font-semibold"
+            >
+              활동 추이
+            </h2>
+          </div>
+          {status === 'success' && data ? (
+            <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Clock3 aria-hidden="true" className="size-4" />
+              데이터 기준 시각{' '}
+              <time dateTime={data.dataAsOf ?? undefined}>
+                {formatDataAsOf(data.dataAsOf)}
+              </time>
+            </p>
+          ) : null}
         </div>
         {status === 'error' ? (
           <Alert variant="destructive">

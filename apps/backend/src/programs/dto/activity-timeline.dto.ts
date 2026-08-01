@@ -25,6 +25,7 @@ export interface ActivityPointResponseDto {
 }
 
 export interface ActivityTimelineResponseDto {
+  readonly dataAsOf: string | null;
   readonly programs: readonly ActivityProgramResponseDto[];
   readonly series: {
     readonly granularity: ActivityGranularity;

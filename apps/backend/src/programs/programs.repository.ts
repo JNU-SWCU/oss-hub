@@ -1,12 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
-  CanonicalCollectionRunStatus,
   Prisma,
   ProgramCategory,
   RoleRequestStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  COMPATIBLE_PROFILE_NAME_SELECT,
+  resolveCompatibleProfileName,
+} from '../profiles/profile-compatibility';
 import type {
   ProgramListQuery,
   ProgramListQueryStatus,
@@ -119,8 +122,11 @@ export class ProgramsRepository {
     });
   }
 
-  findProgramRepositories(programId: string, studentUserId: string | null) {
-    return this.prisma.repository.findMany({
+  async findProgramRepositories(
+    programId: string,
+    studentUserId: string | null,
+  ) {
+    const repositories = await this.prisma.repository.findMany({
       where: {
         programId,
         ...(studentUserId
@@ -137,7 +143,11 @@ export class ProgramsRepository {
           select: {
             id: true,
             applicant: {
-              select: { githubId: true, name: true, nickname: true },
+              select: {
+                githubId: true,
+                nickname: true,
+                ...COMPATIBLE_PROFILE_NAME_SELECT,
+              },
             },
             team: {
               select: {
@@ -150,53 +160,21 @@ export class ProgramsRepository {
         },
       },
     });
+    return repositories.map((repository) => ({
+      githubRepositoryId: repository.githubRepositoryId,
+      application: {
+        id: repository.application.id,
+        applicant: {
+          githubId: repository.application.applicant.githubId,
+          nickname: repository.application.applicant.nickname,
+          name: resolveCompatibleProfileName(repository.application.applicant),
+        },
+        team: repository.application.team,
+      },
+    }));
   }
 
-  findCanonicalRepositoryActivity(
-    repositoryIds: readonly bigint[],
-    authorGithubId?: bigint,
-  ) {
-    if (repositoryIds.length === 0) return Promise.resolve([]);
-    const authorWhere = authorGithubId ? { authorGithubId } : undefined;
-    return this.prisma.canonicalOrganizationState.findMany({
-      where: {
-        activeGenerationId: { not: null },
-        activeGeneration: {
-          status: CanonicalCollectionRunStatus.SUCCEEDED,
-          repositories: {
-            some: { githubRepositoryId: { in: [...repositoryIds] } },
-          },
-        },
-      },
-      select: {
-        updatedAt: true,
-        activeGeneration: {
-          select: {
-            repositories: {
-              where: { githubRepositoryId: { in: [...repositoryIds] } },
-              select: {
-                githubRepositoryId: true,
-                commits: {
-                  where: authorWhere,
-                  select: { committedAt: true },
-                },
-                pullRequests: {
-                  where: authorWhere,
-                  select: { createdAt: true },
-                },
-                releases: {
-                  where: authorWhere,
-                  select: { publishedAt: true },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-  }
-
-  findStudentActivityApplications(userId: string) {
+  async findStudentActivityApplications(userId: string) {
     return this.prisma.application.findMany({
       where: {
         status: ApplicationStatus.APPROVED,

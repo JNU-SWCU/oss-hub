@@ -17,6 +17,7 @@ export interface ActivityPoint {
 }
 
 export interface ActivityTimeline {
+  readonly dataAsOf: string | null;
   readonly programs: readonly ActivityProgram[];
   readonly series: {
     readonly granularity: ActivityGranularity;

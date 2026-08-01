@@ -35,7 +35,8 @@
 
 - `pnpm dev`는 필수 env와 포트 3000·4000 점유를 먼저 검사하고, 인프라 기동과 마이그레이션 적용까지 마친 뒤 두 watcher를 함께 띄운다. 한쪽 watcher가 죽으면 다른 쪽도 함께 내려간다.
 - 스키마를 바꿨다면 마이그레이션 파일 생성은 `pnpm db:migrate:dev`가 담당한다. `pnpm dev`는 이미 있는 마이그레이션을 적용하기만 한다.
-- GitHub App 개인키는 값이 아니라 **파일 경로**로 전달한다. 파일은 추적하지 않는 `secrets/`에 사람이 직접 배치하고, `.envrc`의 `*_PRIVATE_KEY_FILE` 키가 그 경로를 가리킨다.
+- GitHub App 개인키는 실행 경로마다 **파일 경로**로 전달한다. 호스트 파일은 추적하지 않는 `secrets/`에 두고, `pnpm dev`에서는 `.envrc`가 가리키는 호스트 파일 경로를 사용한다. `pnpm local:up`·`pnpm local:verify`에서는 `*_PRIVATE_KEY_SOURCE`가 호스트 경로, `*_PRIVATE_KEY_FILE`이 컨테이너 안 경로(`/run/secrets/...`)를 뜻한다.
+- 주의: 호스트 쉘에 export된 `*_PRIVATE_KEY_FILE`은 compose의 `--env-file`보다 우선한다. 그래서 `.envrc`가 같은 키를 export한 상태로 compose 검증을 돌리면, 컨테이너 안에 없는 호스트 경로가 덮어써진다.
 
 ## 실행 순서
 
@@ -58,7 +59,8 @@ OAuth 콜백은 `FRONTEND_URL`에서 파생되므로 compose 경로에서는 `ht
 
 - 운영은 host nginx가 공인 80/443과 TLS를 담당하고 Compose nginx가 `127.0.0.1:8081`만 bind한다([ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)). **8081은 내부 hop이라 콜백 URL에 등장하지 않는다.** 로컬에는 host nginx가 없어 Compose ingress가 곧 브라우저 대면 주소이므로 `compose.local.yml`이 3000으로 override한다. `compose.yml`의 운영 8081은 그대로다.
 - `pnpm db:up`과 `pnpm --filter backend test:integration`은 여전히 `compose.dev.yml`을 단독으로 쓴다. 이 경로는 그대로 유효하다.
-- 스키마를 바꿨다면 `pnpm db:migrate:dev`로 마이그레이션을 생성한다. 이 스크립트는 호스트에서 prisma CLI를 직접 돌리므로 `localhost` 연결 문자열을 인라인으로 갖는다. compose 경로의 `DATABASE_URL`(호스트 `postgres`)과 목적이 다르다.
+- 스키마를 바꿨다면 `pnpm db:migrate:dev`로 마이그레이션을 생성한다. 이 스크립트는 호스트에서 prisma CLI를 직접 돌리므로 `.envrc`의 `DATABASE_URL`(호스트 `localhost`)을 쓴다. compose 경로의 `DATABASE_URL`(호스트 `postgres`)과 목적이 다르다.
+- `db:migrate:dev`·`db:reset`·`db:seed`·`notifications:send-digest`는 실행 전 `scripts/check-host-db-url.sh`가 `DATABASE_URL`을 검증한다. 로컬이 아닌 호스트를 가리키거나 `POSTGRES_PORT`·`POSTGRES_DB` override와 어긋나면 거부한다 — `db:reset`이 `prisma migrate reset --force`라 override 시 다른 데이터베이스를 지울 수 있었다. 자격증명은 어떤 경로에서도 출력하지 않는다.
 - `pnpm local:verify`는 매 실행 고유한 project name을 쓰고 PostgreSQL·MinIO host port를 공개하지 않아 선행 `pnpm db:up` 스택과 충돌하지 않는다. 다만 ingress 포트(기본 3000)는 콜백 origin에 묶여 고정이라 점유 중이면 preflight에서 실패한다.
 - 종료 시 `local:verify`는 자신이 만든 컨테이너와 볼륨을 정리한다.
 - production은 승인된 object storage 설정과 migration이 모두 준비되지 않으면 backend를 fail-closed로 유지하며 로컬 기본값을 사용하지 않는다.

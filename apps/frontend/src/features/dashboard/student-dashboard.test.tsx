@@ -24,6 +24,20 @@ const renderView = (
   );
 
 describe('StudentDashboardView', () => {
+  it('학생 대시보드에서 내 활동 이동 링크를 제공한다', () => {
+    // Given
+    const expectedActivityLink =
+      /<a\b[^>]*href="\/dashboard\/activity"[\s\S]*내 활동[\s\S]*<\/a>/;
+
+    // When
+    const html = renderView();
+    const emptyHtml = renderView({ data: { items: [] } });
+
+    // Then
+    expect(html).toMatch(expectedActivityLink);
+    expect(emptyHtml).toMatch(expectedActivityLink);
+  });
+
   it('개인형과 팀형 참여 카드를 구분하고 다음 제출 상태를 표시한다', () => {
     const html = renderView();
 

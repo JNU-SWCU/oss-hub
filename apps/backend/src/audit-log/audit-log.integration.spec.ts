@@ -1,7 +1,11 @@
-import { Role } from '@prisma/client';
+import { AccountStatus, Role } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogErrorCode } from './audit-log-error-code.enum';
+import {
+  ACCESS_AUDIT_EVENT_KINDS,
+  createAccessAuditMetadata,
+} from './audit-log-metadata';
 import { AuditLogRepository } from './audit-log.repository';
 import { AuditLogService } from './audit-log.service';
 
@@ -21,10 +25,6 @@ describe('Audit log integration', () => {
 
   beforeAll(async () => {
     await prisma.$connect();
-  }, DATABASE_CONNECTION_TIMEOUT_MS);
-
-  beforeEach(async () => {
-    await cleanup();
     await prisma.user.createMany({
       data: [
         {
@@ -41,10 +41,9 @@ describe('Audit log integration', () => {
         },
       ],
     });
-  });
+  }, DATABASE_CONNECTION_TIMEOUT_MS);
 
   afterAll(async () => {
-    await cleanup();
     await prisma.$disconnect();
   });
 
@@ -54,11 +53,32 @@ describe('Audit log integration', () => {
       action: 'STAFF_ROLE_REQUEST_APPROVED',
       targetType: 'ROLE_REQUEST',
       targetId: `${TEST_PREFIX}request`,
+      metadata: createAccessAuditMetadata({
+        eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_APPROVED,
+        actor: {
+          displayName: null,
+          githubLogin: 'synthetic-132-admin',
+        },
+        target: {
+          displayName: null,
+          githubLogin: 'synthetic-132-staff',
+        },
+        before: {
+          role: null,
+          accountStatus: AccountStatus.ACTIVE,
+          requestStatus: null,
+        },
+        after: {
+          role: Role.STAFF,
+          accountStatus: AccountStatus.ACTIVE,
+          requestStatus: null,
+        },
+      }),
     });
 
     await expect(
       prisma.auditLog.count({
-        where: { actorId: `${TEST_PREFIX}admin` },
+        where: { targetId: `${TEST_PREFIX}request` },
       }),
     ).resolves.toBe(1);
   });
@@ -101,16 +121,71 @@ describe('Audit log integration', () => {
       action: 'STAFF_ROLE_REQUEST_APPROVED',
       from: '2026-07-24',
       to: '2026-07-24',
+      page: 1,
+      limit: 20,
     });
 
-    expect(result.map((record) => record.id)).toEqual([
+    expect(result.items.map((record) => record.id)).toEqual([
       `${TEST_PREFIX}newer`,
       `${TEST_PREFIX}older`,
     ]);
+    expect(result.items).toEqual([
+      expect.objectContaining({ legacy: true, metadata: null }),
+      expect.objectContaining({ legacy: true, metadata: null }),
+    ]);
+    expect(result.total).toBe(2);
+  });
+
+  it('동일한 발생 시각의 감사 행을 두 페이지에서 누락·중복 없이 id 역순으로 조회한다', async () => {
+    const occurredAt = new Date('2026-07-25T03:00:00.000Z');
+    const insertedIds = [
+      `${TEST_PREFIX}tie-1`,
+      `${TEST_PREFIX}tie-2`,
+      `${TEST_PREFIX}tie-3`,
+      `${TEST_PREFIX}tie-4`,
+    ];
+    const expectedIds = [
+      `${TEST_PREFIX}tie-4`,
+      `${TEST_PREFIX}tie-3`,
+      `${TEST_PREFIX}tie-2`,
+      `${TEST_PREFIX}tie-1`,
+    ];
+    await prisma.auditLog.createMany({
+      data: insertedIds.map((id) => ({
+        id,
+        actorId: `${TEST_PREFIX}admin`,
+        action: 'TIED_TIMESTAMP_PAGINATION',
+        targetType: 'ROLE_REQUEST',
+        targetId: id,
+        metadata: {},
+        occurredAt,
+      })),
+    });
+
+    const firstPage = await service.list(ADMIN_GITHUB_ID, {
+      action: 'TIED_TIMESTAMP_PAGINATION',
+      page: 1,
+      limit: 2,
+    });
+    const secondPage = await service.list(ADMIN_GITHUB_ID, {
+      action: 'TIED_TIMESTAMP_PAGINATION',
+      page: 2,
+      limit: 2,
+    });
+    const firstPageIds = firstPage.items.map((record) => record.id);
+    const secondPageIds = secondPage.items.map((record) => record.id);
+    const pagedIds = [...firstPageIds, ...secondPageIds];
+
+    expect(firstPageIds.filter((id) => secondPageIds.includes(id))).toEqual([]);
+    expect([...new Set(pagedIds)].sort()).toEqual([...insertedIds].sort());
+    expect(pagedIds).toEqual(expectedIds);
+    expect([firstPage.total, secondPage.total]).toEqual([4, 4]);
   });
 
   it('STAFF 조회를 차단한다', async () => {
-    await expect(service.list(STAFF_GITHUB_ID, {})).rejects.toMatchObject({
+    await expect(
+      service.list(STAFF_GITHUB_ID, { page: 1, limit: 20 }),
+    ).rejects.toMatchObject({
       errorCode: { code: AuditLogErrorCode.ADMIN_ONLY, status: 403 },
     });
   });
@@ -161,17 +236,13 @@ describe('Audit log integration', () => {
       action: 'BOUNDARY',
       from: '2026-07-24',
       to: '2026-07-24',
+      page: 1,
+      limit: 20,
     });
 
-    expect(result.map((record) => record.targetId)).toEqual(['end', 'start']);
+    expect(result.items.map((record) => record.targetId)).toEqual([
+      'end',
+      'start',
+    ]);
   });
-
-  async function cleanup(): Promise<void> {
-    await prisma.auditLog.deleteMany({
-      where: { actorId: { startsWith: TEST_PREFIX } },
-    });
-    await prisma.user.deleteMany({
-      where: { id: { startsWith: TEST_PREFIX } },
-    });
-  }
 });

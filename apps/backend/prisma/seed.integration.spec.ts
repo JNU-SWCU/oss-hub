@@ -26,6 +26,13 @@ const SEEDED_MODEL_COUNTERS: ReadonlyArray<
 > = [
   ['User', () => prisma.user.count({ where: { id: { startsWith: 'seed:' } } })],
   [
+    'UserProfile',
+    () =>
+      prisma.userProfile.count({
+        where: { userId: { startsWith: 'seed:' } },
+      }),
+  ],
+  [
     'RoleRequest',
     () => prisma.roleRequest.count({ where: { id: { startsWith: 'seed:' } } }),
   ],
@@ -98,12 +105,121 @@ async function countAllSeeded(): Promise<Record<string, number>> {
   return Object.fromEntries(entries);
 }
 
+/**
+ * F4 QA 감사 — 이 describe가 `runProfile('all')`을 두 번 실행해 심는 `seed:` 행 전부를
+ * 여기서 정리한다. 정리하지 않으면 이 파일이 남긴 PUBLIC Repository 등 fixture가 다른
+ * integration spec(예: public-exposure-persona)의 assertion과 섞여 실행 순서에 따라
+ * 간헐 실패한다. FK 자식→부모 순서로 지운다:
+ *   Review → SubmissionRevision → Submission
+ *   → RepositoryProvisionJob → RepositoryInvitation → OutboxEvent → Repository
+ *   → TeamMember → Milestone → Application → Team → Program
+ *   → RoleRequest → Consent → UserProfile → User
+ *
+ * 이 파일이 만들지 않는 AuditLog(append-only)·Notification·LoginHistory·
+ * SubmissionFile은 다른 spec이 이 파일과 같은 `seed:` User/Application/Milestone을
+ * actor·uploader·부모로 참조할 수 있고, 그 FK는 RESTRICT다. 그런 행을 참조당하는
+ * 부모는 삭제 대상에서 제외해 다른 spec의 데이터를 건드리지 않으면서 FK violation
+ * 없이 정리한다.
+ */
+async function deleteAllSeeded(): Promise<void> {
+  const seedPrefix = 'seed:';
+  const seedIdFilter = { id: { startsWith: seedPrefix } } as const;
+
+  const [
+    submissionFilesByApplication,
+    submissionFilesByMilestone,
+    auditLogActors,
+    notificationUsers,
+    loginHistoryUsers,
+    submissionFileUploaders,
+  ] = await Promise.all([
+    prisma.submissionFile.findMany({
+      where: { applicationId: { startsWith: seedPrefix } },
+      select: { applicationId: true },
+      distinct: ['applicationId'],
+    }),
+    prisma.submissionFile.findMany({
+      where: { milestoneId: { startsWith: seedPrefix } },
+      select: { milestoneId: true },
+      distinct: ['milestoneId'],
+    }),
+    prisma.auditLog.findMany({
+      where: { actorId: { startsWith: seedPrefix } },
+      select: { actorId: true },
+      distinct: ['actorId'],
+    }),
+    prisma.notification.findMany({
+      where: { userId: { startsWith: seedPrefix } },
+      select: { userId: true },
+      distinct: ['userId'],
+    }),
+    prisma.loginHistory.findMany({
+      where: { userId: { startsWith: seedPrefix } },
+      select: { userId: true },
+      distinct: ['userId'],
+    }),
+    prisma.submissionFile.findMany({
+      where: { uploaderId: { startsWith: seedPrefix } },
+      select: { uploaderId: true },
+      distinct: ['uploaderId'],
+    }),
+  ]);
+
+  const protectedApplicationIds = new Set(
+    submissionFilesByApplication
+      .map((row) => row.applicationId)
+      .filter((id): id is string => id !== null),
+  );
+  const protectedMilestoneIds = new Set(
+    submissionFilesByMilestone
+      .map((row) => row.milestoneId)
+      .filter((id): id is string => id !== null),
+  );
+  const protectedUserIds = new Set([
+    ...auditLogActors.map((row) => row.actorId),
+    ...notificationUsers.map((row) => row.userId),
+    ...loginHistoryUsers.map((row) => row.userId),
+    ...submissionFileUploaders.map((row) => row.uploaderId),
+  ]);
+
+  const excluding = (protectedIds: Set<string>) =>
+    protectedIds.size > 0 ? { NOT: { id: { in: [...protectedIds] } } } : {};
+
+  await prisma.review.deleteMany({ where: seedIdFilter });
+  await prisma.submissionRevision.deleteMany({ where: seedIdFilter });
+  await prisma.submission.deleteMany({ where: seedIdFilter });
+  await prisma.repositoryProvisionJob.deleteMany({ where: seedIdFilter });
+  await prisma.repositoryInvitation.deleteMany({ where: seedIdFilter });
+  await prisma.outboxEvent.deleteMany({ where: seedIdFilter });
+  await prisma.repository.deleteMany({ where: seedIdFilter });
+  await prisma.teamMember.deleteMany({ where: seedIdFilter });
+  await prisma.milestone.deleteMany({
+    where: { ...seedIdFilter, ...excluding(protectedMilestoneIds) },
+  });
+  await prisma.application.deleteMany({
+    where: { ...seedIdFilter, ...excluding(protectedApplicationIds) },
+  });
+  await prisma.team.deleteMany({ where: seedIdFilter });
+  await prisma.program.deleteMany({ where: seedIdFilter });
+  await prisma.roleRequest.deleteMany({ where: seedIdFilter });
+  await prisma.consent.deleteMany({
+    where: { userId: { startsWith: seedPrefix } },
+  });
+  await prisma.userProfile.deleteMany({
+    where: { userId: { startsWith: seedPrefix } },
+  });
+  await prisma.user.deleteMany({
+    where: { ...seedIdFilter, ...excluding(protectedUserIds) },
+  });
+}
+
 describe('seed profile=all 멱등성 (integration)', () => {
   beforeAll(async () => {
     await prisma.$connect();
   }, DATABASE_CONNECTION_TIMEOUT_MS);
 
   afterAll(async () => {
+    await deleteAllSeeded();
     await prisma.$disconnect();
   });
 
@@ -194,6 +310,7 @@ describe('issue-99 auth seed contract', () => {
         consentRequiredCount,
         roleUnselectedRows,
         profileComplete,
+        profileCompleteNormalized,
         staffPending,
         staffRejected,
         staffRevoked,
@@ -204,6 +321,9 @@ describe('issue-99 auth seed contract', () => {
           orderBy: { policyVersion: 'asc' },
         }),
         prisma.user.findUniqueOrThrow({ where: { id: profileCompleteUserId } }),
+        prisma.userProfile.findUniqueOrThrow({
+          where: { userId: profileCompleteUserId },
+        }),
         prisma.user.findUniqueOrThrow({ where: { id: staffPendingUserId } }),
         prisma.user.findUniqueOrThrow({ where: { id: staffRejectedUserId } }),
         prisma.user.findUniqueOrThrow({ where: { id: staffRevokedUserId } }),
@@ -221,6 +341,11 @@ describe('issue-99 auth seed contract', () => {
         firstCurrent?.consentedAt,
       );
       expect(profileComplete).toMatchObject({
+        name: '합성 완료 사용자',
+        studentId: ['20', '2601'].join(''),
+        department: '인공지능학부',
+      });
+      expect(profileCompleteNormalized).toMatchObject({
         name: '합성 완료 사용자',
         studentId: ['20', '2601'].join(''),
         department: '인공지능학부',

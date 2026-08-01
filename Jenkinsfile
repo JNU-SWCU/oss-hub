@@ -1,12 +1,12 @@
 // Jenkinsfile — 파라미터 없는 latest Release 수렴 배포.
 //
 // 계약 요약:
-// - RELEASE_TAG = 이미지 태그(IMAGE_TAG). RELEASE_SHA = checkout/승인 불변 신원. 둘 다 OCI label.
+// - RELEASE_TAG = 이미지 태그(IMAGE_TAG). RELEASE_SHA = checkout 불변 신원. 둘 다 OCI label.
 // - 영속 배포 상태 파일 없음. no-op 권위는 실행 중(frontend+backend) 컨테이너 두 개뿐.
 // - 동일 실행 중 tag+SHA만 성공 no-op. 하위 SemVer는 양쪽 실행 중이고 metadata가 일치할 때만 no-op.
 // - same-tag/different-SHA, partial, stopped-only, missing/invalid label·SemVer는 fail-closed.
 // - 중지·모호 상태는 deploy 권한 없음. no-op은 완전 증명된 running metadata만.
-// - 성공 후에만 이미지/백업 정리. 실행 중+직전 이미지 보존. 백업 최근 N=120.
+// - 성공 후에만 이미지/BuildKit 캐시/백업 정리. 실행 중+직전 이미지 보존. BuildKit 캐시 최대 5GB, 백업 최근 N=120.
 pipeline {
   agent {
     label 'oss-hub-production'
@@ -22,6 +22,16 @@ pipeline {
     BACKUP_DIR = '/var/lib/oss-hub/backups'
     // C4 승인 상수. 성공 배포 뒤에만 적용하고 최신 N개를 보존한다.
     BACKUP_RETENTION_N = '120'
+    // 성공 배포 뒤 BuildKit 캐시는 LRU 기준 최대 5GB까지만 보존한다.
+    BUILD_CACHE_MAX_SPACE = '5GB'
+    // 개인키 SOURCE는 compose.yml이 :? 로 요구한다. compose 호출이 5곳이라 stage마다 넣으면
+    // 하나만 빠뜨려도 배포가 멈추므로 pipeline 수준에 한 번만 둔다. rollback의 withEnv도
+    // 이 값을 그대로 물려받는다.
+    // 같은 블록 안의 변수를 참조하지 않고 경로를 반복한다 — 블록 내 상호참조는 실제 실행
+    // 없이는 검증할 수 없고, 여기는 그 불확실성을 감당할 자리가 아니다.
+    SECRETS_DIR = '/var/lib/oss-hub/secrets'
+    GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE = '/var/lib/oss-hub/secrets/current/collection.pem'
+    GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE = '/var/lib/oss-hub/secrets/current/operations.pem'
   }
 
   stages {
@@ -88,56 +98,48 @@ printf '%s' "$release_sha"
       }
     }
 
-    stage('PM Release 승인 검증 및 exact SHA checkout') {
+    stage('exact SHA checkout') {
       steps {
-        sh '''#!/usr/bin/env bash
+        sh 'git checkout --detach "$RELEASE_SHA"'
+      }
+    }
+
+    stage('개인키 안정 경로 설치') {
+      steps {
+        withCredentials([
+          file(credentialsId: 'oss-hub-collection-app-private-key', variable: 'COLLECTION_PEM_SRC'),
+          file(credentialsId: 'oss-hub-operations-app-private-key', variable: 'OPERATIONS_PEM_SRC'),
+        ]) {
+          sh '''#!/usr/bin/env bash
 set -euo pipefail
 
-comments_file="$(mktemp)"
-page_file="$(mktemp)"
-merged_file="$(mktemp)"
-trap 'rm -f "$comments_file" "$page_file" "$merged_file"' EXIT
-printf '[]' > "$comments_file"
+# 이후 모든 compose 호출이 SECRETS_DIR/current 아래 파일을 요구하므로 probe보다 앞에 둔다.
+# jenkins(uid 105)에는 CAP_CHOWN이 없다. SECRETS_DIR의 setgid 비트가 gid 1000을 상속시켜
+# chown 없이 0640 + gid 1000을 만든다 — 컨테이너(uid 1000)가 읽을 수 있는 최소 권한이다.
+umask 027
 
-pagination_complete='false'
-for page in $(seq 1 20); do
-  curl --fail --silent --show-error \
-    --header 'Accept: application/vnd.github+json' \
-    --header 'X-GitHub-Api-Version: 2022-11-28' \
-    "https://api.github.com/repos/JNU-SWCU/oss-hub/issues/199/comments?per_page=100&page=${page}" \
-    --output "$page_file"
+generation="${SECRETS_DIR}/gen-${BUILD_NUMBER}"
+mkdir -p "$generation"
 
-  jq -e 'type == "array"' "$page_file" >/dev/null
-  page_count="$(jq 'length' "$page_file")"
-  jq -s '.[0] + .[1]' "$comments_file" "$page_file" > "$merged_file"
-  mv "$merged_file" "$comments_file"
+install -m 640 "$COLLECTION_PEM_SRC" "${generation}/collection.pem"
+install -m 640 "$OPERATIONS_PEM_SRC" "${generation}/operations.pem"
 
-  if [ "$page_count" -lt 100 ]; then
-    pagination_complete='true'
-    break
+# 자격증명 내용이 실제 키인지 지금 확인한다. 여기서 걸러야 배포 후 런타임 실패로 번지지 않는다.
+for pem in collection operations; do
+  if ! openssl pkey -in "${generation}/${pem}.pem" -noout 2>/dev/null; then
+    echo "설치한 ${pem} 개인키를 파싱할 수 없습니다. 자격증명 내용을 확인하세요." >&2
+    exit 1
   fi
 done
 
-if [ "$pagination_complete" != 'true' ]; then
-  echo 'Release 승인 댓글이 2,000개를 넘어 자동 검증 범위를 초과했습니다.' >&2
-  exit 1
-fi
+# current 교체는 원자적이어야 한다 — 교체 도중 compose가 읽으면 경로가 사라진 상태를 볼 수 있다.
+ln -sfn "$generation" "${SECRETS_DIR}/.current-next"
+mv -T "${SECRETS_DIR}/.current-next" "${SECRETS_DIR}/current"
 
-# 승인 바인딩 원본은 RELEASE_SHA. 이미지 태그와 분리한다.
-pm_accept="RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${RELEASE_SHA}"
-
-if jq -e \
-  --arg actor 'GoBeromsu' \
-  --arg expected "$pm_accept" \
-  '[.[] | select((.user.login | ascii_downcase) == ($actor | ascii_downcase)) | .body | split("\\n")[] | select(. == $expected)] | length > 0' \
-  "$comments_file" >/dev/null; then
-  echo "PM Release 승인 marker를 확인했습니다: role=PM tag=${RELEASE_TAG} head=${RELEASE_SHA}"
-else
-  echo "PM Release 승인 marker를 찾지 못했습니다: role=PM tag=${RELEASE_TAG} head=${RELEASE_SHA}" >&2
-  exit 1
-fi
+echo "개인키 설치 완료: generation=$(basename "$generation")"
+ls -l "${SECRETS_DIR}/current/" | sed 's/^/  /'
 '''
-        sh 'git checkout --detach "$RELEASE_SHA"'
+        }
       }
     }
 
@@ -334,6 +336,20 @@ printf 'prev_be_image_id=%s\n' "$be_image_id"
       }
     }
 
+    stage('Buildx 캐시 상한 사전 검증') {
+      when {
+        expression { env.DEPLOY_NOOP != 'true' }
+      }
+      steps {
+        sh '''
+          if ! docker buildx prune --help 2>&1 | grep -F -- '--max-used-space' >/dev/null; then
+            echo 'FAIL_CLOSED buildx_preflight: docker buildx prune가 --max-used-space를 지원하지 않습니다. Buildx를 업그레이드하십시오.' >&2
+            exit 1
+          fi
+        '''
+      }
+    }
+
     stage('FRONTEND_URL HTTPS 사전 검증') {
       when {
         expression { env.DEPLOY_NOOP != 'true' }
@@ -519,17 +535,47 @@ docker build \
           script {
             try {
               sh '''
+                require_status() {
+                  expected=$1
+                  method=$2
+                  url=$3
+                  shift 3
+                  actual="$(curl -o /dev/null -w '%{http_code}' --silent --show-error --request "$method" "$@" "$url")"
+                  if [ "$actual" != "$expected" ]; then
+                    printf '스모크 실패: method=%s url=%s expected=%s actual=%s\n' "$method" "$url" "$expected" "$actual" >&2
+                    return 1
+                  fi
+                }
+
                 # 레지스트리에서 받아오는 이미지는 미리 당겨둔다. 받는 시간이 아래 --wait 예산에
                 # 섞이지 않고, 레지스트리 장애도 교체 전에 드러난다.
                 # rollout 동안 PREV_TAG rollback 이미지는 삭제하지 않는다(성공 후 retention만 정리).
                 docker compose --env-file "$OSS_HUB_ENV_FILE" pull --quiet postgres minio minio-bucket nginx
                 docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait --wait-timeout 180
-                curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8081/
-                curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8081/api/v1/health
-                curl --fail --silent --show-error --retry 5 --retry-connrefused \
-                  --resolve '54.116.116.174:443:127.0.0.1' https://54.116.116.174/
-                curl --fail --silent --show-error --retry 5 --retry-connrefused \
-                  --resolve '54.116.116.174:443:127.0.0.1' https://54.116.116.174/api/v1/health
+                # bind mount 내용은 Compose 서비스 해시에 없어 up -d가 nginx를 재생성하지 않으므로 명시적 reload 없이는 낡은 설정이 계속 서빙된다.
+                docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -t
+                docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -s reload
+                require_status 200 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused
+                require_status 200 GET http://127.0.0.1:8081/api/v1/health --retry 5 --retry-connrefused
+                require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
+                require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
+                require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
+                require_status 403 POST http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
+                require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused
+                require_status 200 GET https://54.116.116.174/ --retry 5 --retry-connrefused \
+                  --resolve '54.116.116.174:443:127.0.0.1'
+                require_status 200 GET https://54.116.116.174/api/v1/health --retry 5 --retry-connrefused \
+                  --resolve '54.116.116.174:443:127.0.0.1'
+                require_status 403 GET https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
+                  --resolve '54.116.116.174:443:127.0.0.1'
+                require_status 403 POST https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
+                  --resolve '54.116.116.174:443:127.0.0.1'
+                require_status 403 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
+                  --resolve '54.116.116.174:443:127.0.0.1'
+                require_status 403 POST https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
+                  --resolve '54.116.116.174:443:127.0.0.1'
+                require_status 403 GET https://54.116.116.174/api/v1/submission-files/1 --retry 5 --retry-connrefused \
+                  --resolve '54.116.116.174:443:127.0.0.1'
               '''
             } catch (deploymentFailure) {
               sh '''
@@ -541,13 +587,43 @@ docker build \
                 echo "서비스 교체 또는 스모크 실패: ${env.PREV_TAG} 이미지로 한 번 복구합니다."
                 withEnv(["IMAGE_TAG=${env.PREV_TAG}"]) {
                   sh '''
+                    require_status() {
+                      expected=$1
+                      method=$2
+                      url=$3
+                      shift 3
+                      actual="$(curl -o /dev/null -w '%{http_code}' --silent --show-error --request "$method" "$@" "$url")"
+                      if [ "$actual" != "$expected" ]; then
+                        printf '스모크 실패: method=%s url=%s expected=%s actual=%s\n' "$method" "$url" "$expected" "$actual" >&2
+                        return 1
+                      fi
+                    }
+
                     docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait --wait-timeout 180
-                    curl --fail --silent --show-error http://127.0.0.1:8081/
-                    curl --fail --silent --show-error http://127.0.0.1:8081/api/v1/health
-                    curl --fail --silent --show-error \
-                      --resolve '54.116.116.174:443:127.0.0.1' https://54.116.116.174/
-                    curl --fail --silent --show-error \
-                      --resolve '54.116.116.174:443:127.0.0.1' https://54.116.116.174/api/v1/health
+                    # rollback은 이전 앱 이미지만 복구하고 nginx 설정은 현재 워크스페이스를 유지하므로 아래 스모크로 fail-closed를 다시 검증한다.
+                    docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -t
+                    docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -s reload
+                    require_status 200 GET http://127.0.0.1:8081/
+                    require_status 200 GET http://127.0.0.1:8081/api/v1/health
+                    require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files
+                    require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files
+                    require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files
+                    require_status 403 POST http://127.0.0.1:8081/api/v1/Submission-Files
+                    require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files/1
+                    require_status 200 GET https://54.116.116.174/ \
+                      --resolve '54.116.116.174:443:127.0.0.1'
+                    require_status 200 GET https://54.116.116.174/api/v1/health \
+                      --resolve '54.116.116.174:443:127.0.0.1'
+                    require_status 403 GET https://54.116.116.174/api/v1/submission-files \
+                      --resolve '54.116.116.174:443:127.0.0.1'
+                    require_status 403 POST https://54.116.116.174/api/v1/submission-files \
+                      --resolve '54.116.116.174:443:127.0.0.1'
+                    require_status 403 GET https://54.116.116.174/api/v1/Submission-Files \
+                      --resolve '54.116.116.174:443:127.0.0.1'
+                    require_status 403 POST https://54.116.116.174/api/v1/Submission-Files \
+                      --resolve '54.116.116.174:443:127.0.0.1'
+                    require_status 403 GET https://54.116.116.174/api/v1/submission-files/1 \
+                      --resolve '54.116.116.174:443:127.0.0.1'
                   '''
                 }
               } else {
@@ -558,6 +634,50 @@ docker build \
             }
           }
         }
+      }
+    }
+
+    stage('no-op 실행 중 nginx 드리프트 검증') {
+      when {
+        expression { env.DEPLOY_NOOP == 'true' }
+      }
+      steps {
+        sh '''
+          require_status() {
+            expected=$1
+            method=$2
+            url=$3
+            shift 3
+            actual="$(curl -o /dev/null -w '%{http_code}' --silent --show-error --request "$method" "$@" "$url")"
+            if [ "$actual" != "$expected" ]; then
+              printf 'FAIL_CLOSED nginx_drift: 실행 중 nginx 설정이 저장소 계약과 다릅니다. method=%s url=%s expected=%s actual=%s\n' "$method" "$url" "$expected" "$actual" >&2
+              return 1
+            fi
+          }
+
+          # no-op은 checkout한 릴리스가 실행 중 버전보다 낮을 수 있으므로 reload 없이 읽기 전용 스모크로 드리프트만 검출한다.
+          require_status 200 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused
+          require_status 200 GET http://127.0.0.1:8081/api/v1/health --retry 5 --retry-connrefused
+          require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
+          require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
+          require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
+          require_status 403 POST http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
+          require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused
+          require_status 200 GET https://54.116.116.174/ --retry 5 --retry-connrefused \
+            --resolve '54.116.116.174:443:127.0.0.1'
+          require_status 200 GET https://54.116.116.174/api/v1/health --retry 5 --retry-connrefused \
+            --resolve '54.116.116.174:443:127.0.0.1'
+          require_status 403 GET https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
+            --resolve '54.116.116.174:443:127.0.0.1'
+          require_status 403 POST https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
+            --resolve '54.116.116.174:443:127.0.0.1'
+          require_status 403 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
+            --resolve '54.116.116.174:443:127.0.0.1'
+          require_status 403 POST https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
+            --resolve '54.116.116.174:443:127.0.0.1'
+          require_status 403 GET https://54.116.116.174/api/v1/submission-files/1 --retry 5 --retry-connrefused \
+            --resolve '54.116.116.174:443:127.0.0.1'
+        '''
       }
     }
 
@@ -614,10 +734,13 @@ while IFS="$(printf '\t')" read -r repo tag image_id; do
   docker image rm "${repo}:${tag}"
 done < "$images_inventory"
 
+# 성공 배포 뒤에만 BuildKit 캐시를 LRU 기준 상한까지 정리한다.
+docker buildx prune --force --max-used-space "$BUILD_CACHE_MAX_SPACE"
+
 # backup retention N=120 (C4). Jenkins와 격리 fixture가 같은 fail-closed 구현을 호출한다.
 bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"
 
-echo "retention: kept image tags=${retention_keep_tags[*]}; backup keep newest n=${BACKUP_RETENTION_N}"
+echo "retention: kept image tags=${retention_keep_tags[*]}; backup keep newest n=${BACKUP_RETENTION_N}; build cache cap=${BUILD_CACHE_MAX_SPACE}"
 '''
       }
     }

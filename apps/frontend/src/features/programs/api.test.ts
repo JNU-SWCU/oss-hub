@@ -51,6 +51,7 @@ describe('createApplication', () => {
       status: 'SUBMITTED' as const,
       teamId: null,
       submittedAt: '2026-07-15T00:00:00.000Z',
+      isRepositoryPublicationPlanned: true,
     };
     vi.mocked(apiClient).mockResolvedValue(response);
 
@@ -58,6 +59,7 @@ describe('createApplication', () => {
       answers: { title: '제목', summary: '요약' },
       teamId: null,
       applicationTemplateVersion: 1,
+      isRepositoryPublicationPlanned: true,
     });
 
     expect(apiClient).toHaveBeenCalledWith(
@@ -68,6 +70,40 @@ describe('createApplication', () => {
           answers: { title: '제목', summary: '요약' },
           teamId: null,
           applicationTemplateVersion: 1,
+          isRepositoryPublicationPlanned: true,
+        }),
+      }),
+    );
+    expect(result).toEqual(response);
+  });
+
+  it('명시적 false 는 그대로 전송한다', async () => {
+    const response = {
+      id: 'app-2',
+      programId: 'program-1',
+      status: 'SUBMITTED' as const,
+      teamId: null,
+      submittedAt: '2026-07-15T00:00:00.000Z',
+      isRepositoryPublicationPlanned: false,
+    };
+    vi.mocked(apiClient).mockResolvedValue(response);
+
+    const result = await createApplication('program-1', {
+      answers: { title: '제목', summary: '요약' },
+      teamId: null,
+      applicationTemplateVersion: 1,
+      isRepositoryPublicationPlanned: false,
+    });
+
+    expect(apiClient).toHaveBeenCalledWith(
+      'programs/program-1/applications',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          answers: { title: '제목', summary: '요약' },
+          teamId: null,
+          applicationTemplateVersion: 1,
+          isRepositoryPublicationPlanned: false,
         }),
       }),
     );

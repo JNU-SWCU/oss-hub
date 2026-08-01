@@ -74,11 +74,11 @@
 ## 병합 판정 증거
 
 <!-- ADR-005 기준. head, base ref 또는 base SHA가 바뀌면 아래 증거를 모두 다시 받는다. -->
+<!-- head·base SHA는 본문에 적지 않는다 — 판정기는 GitHub API의 head를 권위로 쓰고 본문은 읽지 않는다.
+     본문에 적힌 사본은 이후 push로 낡아 검토자가 그대로 복사하면 exact-head 불일치로 거절된다.
+     accept·MERGE_READY 댓글에 쓸 값은 `gh pr view <번호> --json headRefOid,baseRefName` 으로 그때그때 확인한다. -->
 
 - risk: `GENERAL | HIGH_RISK`
-- head full SHA:
-- base ref:
-- base full SHA:
 - `MERGE_READY` 댓글 URL:
 - `CODE_CONTRACT:` 증거 URL 또는 public-safe 요약:
 - `PONYTAIL:` 증거 URL 또는 public-safe 요약:

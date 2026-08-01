@@ -1,7 +1,13 @@
 import { CollectionAppConfigValues } from './collection-app.config';
 import { CollectionAppTokenProvider } from './collection-app.token';
+import {
+  PullRequestFrontier,
+  ReleaseFrontier,
+  RequestFingerprint,
+} from './collection-app.frontier';
 
 const API_VERSION = '2022-11-28';
+const ACCEPT = 'application/vnd.github+json';
 type Fetcher = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 export type CollectionAppErrorKind =
@@ -63,6 +69,74 @@ export interface CollectionRelease {
   htmlUrl: string;
 }
 
+/**
+ * Result of a lightweight (`per_page=1`) default-branch head probe. When
+ * `changed` is `false` the conditional GET returned `304` against the
+ * supplied ETag and no further request is needed. `headSha` is `null` for
+ * an empty repository.
+ */
+export type CommitHeadProbeResult =
+  | { changed: false; fingerprint: RequestFingerprint; etag: string }
+  | {
+      changed: true;
+      headSha: string | null;
+      fingerprint: RequestFingerprint;
+      etag: string | null;
+    };
+
+/**
+ * Result of traversing the default branch newest-to-oldest until a known
+ * SHA is met. `disconnectedFullScan` is `true` only when pagination reached
+ * the true end of the branch history without ever meeting a known SHA
+ * (including the first-ever backfill, where `knownShas` is empty) — the
+ * caller may promote the frontier only when this is `true` or a known SHA
+ * was met.
+ */
+export interface CommitTraversalResult {
+  commits: CollectionCommit[];
+  disconnectedFullScan: boolean;
+  fingerprint: RequestFingerprint;
+}
+
+/**
+ * Result of reading pull requests strictly newer than `(createdAt, id)`.
+ * `newFrontier` is the frontier to persist for the next call; it equals the
+ * input frontier when nothing new was found.
+ */
+export interface PullRequestIncrementalResult {
+  pullRequests: CollectionPullRequest[];
+  newFrontier: PullRequestFrontier | null;
+  fingerprint: RequestFingerprint;
+}
+
+/** Result of a lightweight (`per_page=1`) latest-release probe. */
+export type ReleaseProbeResult =
+  | { changed: false; fingerprint: RequestFingerprint; etag: string }
+  | {
+      changed: true;
+      frontier: ReleaseFrontier | null;
+      fingerprint: RequestFingerprint;
+      etag: string | null;
+    };
+
+/** Complete published-release listing, deduped by stable release ID. */
+export interface ReleaseListingResult {
+  releases: CollectionRelease[];
+  fingerprint: RequestFingerprint;
+}
+
+function dedupeByKey<T>(items: readonly T[], key: (item: T) => string): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+  for (const item of items) {
+    const k = key(item);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    result.push(item);
+  }
+  return result;
+}
+
 export class CollectionAppClient {
   constructor(
     private readonly config: CollectionAppConfigValues,
@@ -115,7 +189,7 @@ export class CollectionAppClient {
     owner: string,
     repo: string,
   ): Promise<CollectionRelease[]> {
-    return (
+    const releases = (
       await this.pages(
         `/repos/${this.segment(owner)}/${this.segment(repo)}/releases?per_page=100`,
         (v) => {
@@ -126,6 +200,210 @@ export class CollectionAppClient {
         },
       )
     ).filter((release): release is CollectionRelease => release !== null);
+    return dedupeByKey(releases, (release) => release.id);
+  }
+
+  /**
+   * Static default-branch head probe (`per_page=1`, conditional GET). The
+   * caller compares the previous frontier's ETag/SHA against this result and
+   * only invokes {@link listCommitsUntilKnownSha} when it actually changed.
+   */
+  async probeDefaultBranchHead(
+    owner: string,
+    repo: string,
+    defaultBranch: string,
+    previousEtag: string | null,
+  ): Promise<CommitHeadProbeResult> {
+    const fingerprint = this.commitFingerprint(owner, repo, defaultBranch, 1);
+    const response = await this.conditionalOne(
+      `/repos/${this.segment(owner)}/${this.segment(repo)}/commits?sha=${encodeURIComponent(defaultBranch)}&per_page=1`,
+      previousEtag,
+      true,
+    );
+    if (response.notModified) {
+      if (!response.etag) this.invalid();
+      return { changed: false, fingerprint, etag: response.etag };
+    }
+    if (!Array.isArray(response.body)) this.invalid();
+    const headSha =
+      response.body.length === 0
+        ? null
+        : this.string(this.record(response.body[0]).sha);
+    return { changed: true, headSha, fingerprint, etag: response.etag };
+  }
+
+  /**
+   * Reads the default branch newest-to-oldest until any SHA in `knownShas`
+   * is met, deduping by SHA. When no known SHA intersects, pagination
+   * continues to the true end of the branch history (exceptional recovery
+   * scan for a disconnected history) rather than stopping early.
+   */
+  async listCommitsUntilKnownSha(
+    owner: string,
+    repo: string,
+    defaultBranch: string,
+    knownShas: ReadonlySet<string>,
+  ): Promise<CommitTraversalResult> {
+    const fingerprint = this.commitFingerprint(owner, repo, defaultBranch, 100);
+    const { items, exhausted } = await this.traverseUntil(
+      `/repos/${this.segment(owner)}/${this.segment(repo)}/commits?sha=${encodeURIComponent(defaultBranch)}&per_page=100`,
+      (raw) => knownShas.has(this.string(this.record(raw).sha)),
+      (v) => this.commit(v),
+      undefined,
+      true,
+    );
+    return {
+      commits: dedupeByKey(items, (commit) => commit.sha),
+      disconnectedFullScan: exhausted,
+      fingerprint,
+    };
+  }
+
+  /**
+   * Reads pull requests `state=all&sort=created&direction=desc` until the
+   * `(createdAt, githubPullRequestId)` tie frontier is met, deduping by ID.
+   * A `null` frontier reads every pull request (first-ever backfill).
+   */
+  async listNewPullRequests(
+    owner: string,
+    repo: string,
+    tieFrontier: PullRequestFrontier | null,
+  ): Promise<PullRequestIncrementalResult> {
+    const fingerprint = this.pullRequestFingerprint(owner, repo);
+    const { items } = await this.traverseUntil(
+      `/repos/${this.segment(owner)}/${this.segment(repo)}/pulls?state=all&sort=created&direction=desc&per_page=100`,
+      (raw) =>
+        tieFrontier !== null &&
+        this.isAtOrBeforePullRequestFrontier(raw, tieFrontier),
+      (v) => this.pullRequest(v),
+    );
+    const pullRequests = dedupeByKey(items, (pr) => pr.id);
+    const newFrontier = pullRequests[0]
+      ? { createdAt: pullRequests[0].createdAt, id: pullRequests[0].id }
+      : tieFrontier;
+    return { pullRequests, newFrontier, fingerprint };
+  }
+
+  /**
+   * Static latest-release probe (`per_page=1`, conditional GET). The caller
+   * only invokes {@link listChangedPublishedReleases} when this changed.
+   */
+  async probeLatestRelease(
+    owner: string,
+    repo: string,
+    previousEtag: string | null,
+  ): Promise<ReleaseProbeResult> {
+    const fingerprint = this.releaseProbeFingerprint(owner, repo);
+    const response = await this.conditionalOne(
+      `/repos/${this.segment(owner)}/${this.segment(repo)}/releases?per_page=1`,
+      previousEtag,
+    );
+    if (response.notModified) {
+      if (!response.etag) this.invalid();
+      return { changed: false, fingerprint, etag: response.etag };
+    }
+    if (!Array.isArray(response.body)) this.invalid();
+    const frontier =
+      response.body.length === 0
+        ? null
+        : this.releaseFrontier(this.record(response.body[0]));
+    return { changed: true, frontier, fingerprint, etag: response.etag };
+  }
+
+  /**
+   * Complete published-release pagination for a repository whose probe
+   * changed, deduped by stable release ID. Reuses {@link listPublishedReleases}
+   * so a previously-draft release that has since published is included.
+   */
+  async listChangedPublishedReleases(
+    owner: string,
+    repo: string,
+  ): Promise<ReleaseListingResult> {
+    return {
+      releases: await this.listPublishedReleases(owner, repo),
+      fingerprint: this.releaseListFingerprint(owner, repo),
+    };
+  }
+
+  private commitFingerprint(
+    owner: string,
+    repo: string,
+    ref: string,
+    pageSize: number,
+  ): RequestFingerprint {
+    return {
+      endpoint: `/repos/${owner}/${repo}/commits`,
+      ref,
+      query: `per_page=${pageSize}`,
+      order: null,
+      pageSize,
+      accept: ACCEPT,
+      apiVersion: API_VERSION,
+    };
+  }
+
+  private pullRequestFingerprint(
+    owner: string,
+    repo: string,
+  ): RequestFingerprint {
+    return {
+      endpoint: `/repos/${owner}/${repo}/pulls`,
+      ref: null,
+      query: 'state=all',
+      order: 'sort=created&direction=desc',
+      pageSize: 100,
+      accept: ACCEPT,
+      apiVersion: API_VERSION,
+    };
+  }
+
+  private releaseProbeFingerprint(
+    owner: string,
+    repo: string,
+  ): RequestFingerprint {
+    return {
+      endpoint: `/repos/${owner}/${repo}/releases`,
+      ref: null,
+      query: 'per_page=1',
+      order: null,
+      pageSize: 1,
+      accept: ACCEPT,
+      apiVersion: API_VERSION,
+    };
+  }
+
+  private releaseListFingerprint(
+    owner: string,
+    repo: string,
+  ): RequestFingerprint {
+    return {
+      endpoint: `/repos/${owner}/${repo}/releases`,
+      ref: null,
+      query: 'per_page=100',
+      order: null,
+      pageSize: 100,
+      accept: ACCEPT,
+      apiVersion: API_VERSION,
+    };
+  }
+
+  private isAtOrBeforePullRequestFrontier(
+    raw: unknown,
+    frontier: PullRequestFrontier,
+  ): boolean {
+    const r = this.record(raw);
+    const createdAt = this.date(r.created_at);
+    if (createdAt !== frontier.createdAt) {
+      return Date.parse(createdAt) < Date.parse(frontier.createdAt);
+    }
+    return BigInt(this.id(r.id)) <= BigInt(frontier.id);
+  }
+
+  private releaseFrontier(r: Record<string, unknown>): ReleaseFrontier {
+    if (typeof r.draft !== 'boolean') this.invalid();
+    return {
+      probe: `${this.id(r.id)}:${r.draft}:${r.published_at === null ? 'null' : this.string(r.published_at)}`,
+    };
   }
 
   private async one(path: string): Promise<unknown> {
@@ -138,12 +416,51 @@ export class CollectionAppClient {
     ).body;
   }
 
+  private async conditionalOne(
+    path: string,
+    ifNoneMatch: string | null,
+    emptyRepositoryIsEmpty = false,
+  ): Promise<{ body: unknown; etag: string | null; notModified: boolean }> {
+    const deadline = this.now() + this.config.deadlineMs;
+    return this.request(
+      new URL(path, `${this.config.apiBaseUrl}/`).toString(),
+      deadline,
+      { emptyRepositoryIsEmpty, ifNoneMatch },
+    );
+  }
+
   private async pages<T>(
     path: string,
     normalize: (value: unknown) => T,
     envelope?: string,
     emptyRepositoryIsEmpty = false,
   ): Promise<T[]> {
+    return (
+      await this.traverseUntil(
+        path,
+        () => false,
+        normalize,
+        envelope,
+        emptyRepositoryIsEmpty,
+      )
+    ).items;
+  }
+
+  /**
+   * Pages through `path` until either `shouldStop` reports the current raw
+   * item as already-known (returns collected items so far, `exhausted:
+   * false`) or pagination reaches the true end of the list (`exhausted:
+   * true`) — the only two states from which a caller may promote a
+   * frontier. Hitting the page limit without either is a `PAGINATION`
+   * error, never a silent "exhausted".
+   */
+  private async traverseUntil<T>(
+    path: string,
+    shouldStop: (raw: unknown) => boolean,
+    normalize: (value: unknown) => T,
+    envelope?: string,
+    emptyRepositoryIsEmpty = false,
+  ): Promise<{ items: T[]; exhausted: boolean }> {
     const deadline = this.now() + this.config.deadlineMs;
     const result: T[] = [];
     const seen = new Set<string>();
@@ -156,26 +473,34 @@ export class CollectionAppClient {
         throw new CollectionAppClientError('PAGINATION');
       if (seen.has(next)) throw new CollectionAppClientError('PAGINATION');
       seen.add(next);
-      const response = await this.request(
-        next,
-        deadline,
+      const response = await this.request(next, deadline, {
         emptyRepositoryIsEmpty,
-      );
+      });
       const container = envelope
         ? this.record(response.body)[envelope]
         : response.body;
       if (!Array.isArray(container)) this.invalid();
-      result.push(...container.map(normalize));
+      for (const raw of container) {
+        if (shouldStop(raw)) return { items: result, exhausted: false };
+        result.push(normalize(raw));
+      }
       next = this.nextLink(response.link);
     }
-    return result;
+    return { items: result, exhausted: true };
   }
 
   private async request(
     url: string,
     deadline: number,
-    emptyRepositoryIsEmpty = false,
-  ): Promise<{ body: unknown; link: string | null }> {
+    options?: { emptyRepositoryIsEmpty?: boolean; ifNoneMatch?: string | null },
+  ): Promise<{
+    body: unknown;
+    link: string | null;
+    etag: string | null;
+    notModified: boolean;
+  }> {
+    const emptyRepositoryIsEmpty = options?.emptyRepositoryIsEmpty ?? false;
+    const ifNoneMatch = options?.ifNoneMatch ?? null;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const remaining = deadline - this.now();
       if (remaining <= 0) throw new CollectionAppClientError('DEADLINE');
@@ -187,10 +512,11 @@ export class CollectionAppClient {
       try {
         response = await this.fetcher(url, {
           headers: {
-            Accept: 'application/vnd.github+json',
+            Accept: ACCEPT,
             Authorization: `Bearer ${token}`,
             'User-Agent': 'oss-hub-collection-app',
             'X-GitHub-Api-Version': API_VERSION,
+            ...(ifNoneMatch ? { 'If-None-Match': ifNoneMatch } : {}),
           },
           signal,
         });
@@ -206,6 +532,14 @@ export class CollectionAppClient {
         }
         throw new CollectionAppClientError('AUTH');
       }
+      if (response.status === 304) {
+        return {
+          body: undefined,
+          link: null,
+          etag: response.headers.get('etag') ?? ifNoneMatch,
+          notModified: true,
+        };
+      }
       if (emptyRepositoryIsEmpty && response.status === 409) {
         let body: unknown;
         try {
@@ -220,7 +554,12 @@ export class CollectionAppClient {
           (body as Record<string, unknown>).message ===
             'Git Repository is empty.'
         ) {
-          return { body: [], link: null };
+          return {
+            body: [],
+            link: null,
+            etag: response.headers.get('etag'),
+            notModified: false,
+          };
         }
       }
       if (!response.ok) {
@@ -245,6 +584,8 @@ export class CollectionAppClient {
         return {
           body: await response.json(),
           link: response.headers.get('link'),
+          etag: response.headers.get('etag'),
+          notModified: false,
         };
       } catch {
         throw new CollectionAppClientError('RESPONSE');

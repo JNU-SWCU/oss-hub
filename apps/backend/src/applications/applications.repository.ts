@@ -13,6 +13,11 @@ import type {
   Prisma as PrismaTypes,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  compatibleProfileNameWhere,
+  COMPATIBLE_PROFILE_NAME_SELECT,
+  resolveCompatibleProfileName,
+} from '../profiles/profile-compatibility';
 import type { ApplicationListQuery } from './application-list-query';
 import type {
   ApplicationDecisionTarget,
@@ -84,6 +89,7 @@ export interface CreateApplicationRecordInput {
   readonly teamId: string | null;
   readonly answers: Prisma.InputJsonValue;
   readonly applicationTemplateVersion: number;
+  readonly isRepositoryPublicationPlanned: boolean;
 }
 
 export interface CreatedApplication {
@@ -92,6 +98,7 @@ export interface CreatedApplication {
   readonly status: ApplicationStatus;
   readonly teamId: string | null;
   readonly submittedAt: Date;
+  readonly isRepositoryPublicationPlanned: boolean;
 }
 
 export interface ApplicationListAnswers {
@@ -126,6 +133,7 @@ export interface ApplicationListItem {
   readonly submittedAt: Date;
   readonly rejectionReason: string | null;
   readonly repositoryProvisioning: ApplicationRepositoryProvisioning;
+  readonly isRepositoryPublicationPlanned: boolean;
   readonly participation: 'INDIVIDUAL' | 'TEAM';
   readonly applicant: {
     readonly id: string;
@@ -318,6 +326,7 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
           teamId: input.teamId,
           answers: input.answers,
           applicationTemplateVersion: input.applicationTemplateVersion,
+          isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
           status: ApplicationStatus.SUBMITTED,
         },
         select: {
@@ -326,6 +335,7 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
           status: true,
           teamId: true,
           submittedAt: true,
+          isRepositoryPublicationPlanned: true,
         },
       });
     } catch (error) {
@@ -360,17 +370,28 @@ export class ApplicationsRepository {
     );
   }
 
-  findActiveStudentByGithubId(
+  async findActiveStudentByGithubId(
     githubId: bigint,
   ): Promise<ApplicationStudentActor | null> {
-    return this.prisma.user.findFirst({
+    const user = await this.prisma.user.findFirst({
       where: {
         githubId,
         accountStatus: AccountStatus.ACTIVE,
         role: Role.STUDENT,
       },
-      select: { id: true, name: true, nickname: true },
+      select: {
+        id: true,
+        nickname: true,
+        ...COMPATIBLE_PROFILE_NAME_SELECT,
+      },
     });
+    return user
+      ? {
+          id: user.id,
+          nickname: user.nickname,
+          name: resolveCompatibleProfileName(user),
+        }
+      : null;
   }
 
   findProgramById(programId: string): Promise<ApplyProgramRecord | null> {
@@ -417,11 +438,16 @@ export class ApplicationsRepository {
                 rejectionReason: true,
                 teamId: true,
                 answers: true,
+                isRepositoryPublicationPlanned: true,
                 program: {
                   select: { repositoryProvisioningEnabled: true },
                 },
                 applicant: {
-                  select: { id: true, name: true, nickname: true },
+                  select: {
+                    id: true,
+                    nickname: true,
+                    ...COMPATIBLE_PROFILE_NAME_SELECT,
+                  },
                 },
                 team: {
                   select: {
@@ -590,9 +616,7 @@ function buildApplicationListWhere(
     ? {
         OR: [
           {
-            applicant: {
-              name: { contains: search, mode: 'insensitive' },
-            },
+            applicant: compatibleProfileNameWhere(search),
           },
           {
             applicant: {
@@ -636,6 +660,7 @@ type ApplicationListRow = {
   readonly rejectionReason: string | null;
   readonly teamId: string | null;
   readonly answers: Prisma.JsonValue;
+  readonly isRepositoryPublicationPlanned: boolean;
   readonly program: {
     readonly repositoryProvisioningEnabled: boolean;
   };
@@ -643,6 +668,7 @@ type ApplicationListRow = {
     readonly id: string;
     readonly name: string | null;
     readonly nickname: string;
+    readonly profile: { readonly name: string } | null;
   };
   readonly team: {
     readonly id: string;
@@ -687,8 +713,13 @@ function toApplicationListItem(
       outbox,
       job,
     ),
+    isRepositoryPublicationPlanned: row.isRepositoryPublicationPlanned,
     participation: team ? 'TEAM' : 'INDIVIDUAL',
-    applicant: row.applicant,
+    applicant: {
+      id: row.applicant.id,
+      nickname: row.applicant.nickname,
+      name: resolveCompatibleProfileName(row.applicant),
+    },
     team,
     answers: parseListAnswers(row.answers),
   };
