@@ -1,8 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { SIGNUP_ENTRY } from '@/features/auth/signup-entry-link';
+import {
+  SIGNUP_ENTRY,
+  shouldShowEntryLink,
+} from '@/features/auth/signup-entry-link';
 import { useSessionRole, type SessionStatus } from './use-session-role';
 import { roleHomePath, type AppRole } from './role';
 import { ADMIN_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
@@ -75,8 +79,12 @@ export function resolveSessionEntry(
  */
 export function SessionEntryNavLink() {
   const { status, role } = useSessionRole();
+  const pathname = usePathname();
   const destination = resolveSessionEntry(status, role);
-  if (!destination) return null;
+  // 지금 있는 화면을 다시 가리키는 링크는 내지 않는다 — 눌러도 제자리라 고장으로 읽힌다.
+  if (!destination || !shouldShowEntryLink(destination.href, pathname)) {
+    return null;
+  }
 
   return (
     <Button asChild variant="ghost">

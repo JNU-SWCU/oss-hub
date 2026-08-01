@@ -18,3 +18,20 @@ export const SIGNUP_ENTRY = {
   label: '회원가입 / 로그인',
   compactLabel: '회원가입',
 } as const;
+
+/**
+ * nav의 진입 버튼을 내야 하는가.
+ *
+ * 지금 보고 있는 화면이 곧 목적지면 버튼을 내지 않는다. 누르면 아무 일도 일어나지
+ * 않는 것처럼 보이고, 사용자는 화면이 멈췄는지 자기가 잘못 눌렀는지 알 수 없다.
+ * `/signup`에서 "회원가입 / 로그인" 버튼이 실제로 그랬다.
+ *
+ * 목적지 문자열끼리 비교한다 — 어떤 진입 버튼이든(가입·로그인이든 역할 홈이든)
+ * 같은 규칙을 받아야 하기 때문에 `/signup`을 여기에 박지 않는다.
+ */
+export function shouldShowEntryLink(
+  destinationHref: string,
+  pathname: string,
+): boolean {
+  return destinationHref !== pathname;
+}

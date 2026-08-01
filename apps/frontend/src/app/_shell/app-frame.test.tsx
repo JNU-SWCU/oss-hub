@@ -60,6 +60,22 @@ describe('AppFrame', () => {
     expect(html).not.toContain('data-slot="product-shell"');
   });
 
+  // 아직 회원이 아닌 사람에게 앱 내부 메뉴를 먼저 내밀지 않는다. 사이드바는 이미
+  // 들어온 사람이 돌아다니는 도구다.
+  it('가입·로그인(/signup)도 상단 헤더만 쓰고 사이드바를 넣지 않는다', () => {
+    const html = render('/signup');
+
+    expect(html).not.toContain('data-slot="app-sidebar"');
+    expect(html).not.toContain('data-slot="product-shell"');
+    // 랜딩만의 투명 오버레이 무대는 가져오지 않는다 — 평범한 흰 바다.
+    expect(html).not.toContain('fixed inset-x-0 top-0 z-40');
+  });
+
+  it('로그인 뒤 화면(동의·온보딩)은 회원 동선이라 셸을 그대로 쓴다', () => {
+    expect(render('/consent')).toContain('data-slot="product-shell"');
+    expect(render('/onboarding/role')).toContain('data-slot="product-shell"');
+  });
+
   it('그 외 라우트는 사이드바 + 상단바 셸을 쓴다', () => {
     const html = render('/dashboard');
 
@@ -71,6 +87,7 @@ describe('AppFrame', () => {
 
   it('두 갈래 모두 본문을 SkipLink 목적지(#main-content)로 감싼다', () => {
     expect(render('/')).toContain('id="main-content"');
+    expect(render('/signup')).toContain('id="main-content"');
     expect(render('/dashboard')).toContain('id="main-content"');
   });
 

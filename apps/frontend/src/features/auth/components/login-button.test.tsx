@@ -31,6 +31,7 @@ describe('LoginButtonView', () => {
     const html = renderToStaticMarkup(
       <LoginButtonView
         session={null}
+        pathname="/programs"
         logoutError={null}
         menuOpen={false}
         onMenuOpenChange={vi.fn()}
@@ -53,6 +54,7 @@ describe('LoginButtonView', () => {
     const html = renderToStaticMarkup(
       <LoginButtonView
         session={session}
+        pathname="/programs"
         logoutError={null}
         menuOpen={false}
         onMenuOpenChange={vi.fn()}
@@ -76,6 +78,7 @@ describe('LoginButtonView', () => {
     const html = renderToStaticMarkup(
       <LoginButtonView
         session={session}
+        pathname="/programs"
         logoutError={null}
         menuOpen={false}
         onMenuOpenChange={vi.fn()}
@@ -94,6 +97,7 @@ describe('LoginButtonView', () => {
     const html = renderToStaticMarkup(
       <LoginButtonView
         session={authenticatedSession}
+        pathname="/programs"
         logoutError={null}
         menuOpen={false}
         onMenuOpenChange={vi.fn()}
@@ -118,6 +122,7 @@ describe('LoginButtonView', () => {
     const html = renderToStaticMarkup(
       <LoginButtonView
         session={authenticatedSession}
+        pathname="/programs"
         logoutError={null}
         menuOpen={true}
         onMenuOpenChange={vi.fn()}
@@ -139,5 +144,27 @@ describe('LoginButtonView', () => {
     expect(html).not.toContain('Sign out');
     // 반전 표면(랜딩 nav) 안에 중첩돼도 계정 메뉴 패널 자체는 밝은 표면으로 되돌아가야 한다.
     expect(html).toContain('data-surface="default"');
+  });
+});
+
+describe('현재 화면을 다시 가리키는 진입 버튼', () => {
+  it('/signup에 서 있으면 가입·로그인 버튼을 내지 않는다', () => {
+    // Given — 눌러도 제자리라 사용자는 화면이 멈춘 것으로 읽는다
+    const session = { isAuthenticated: false } satisfies AuthSession;
+
+    // When
+    const html = renderToStaticMarkup(
+      <LoginButtonView
+        session={session}
+        pathname="/signup"
+        logoutError={null}
+        menuOpen={false}
+        onMenuOpenChange={vi.fn()}
+        onLogout={vi.fn()}
+      />,
+    );
+
+    // Then
+    expect(html).toBe('');
   });
 });

@@ -8,6 +8,12 @@ import {
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  // Next 개발 서버가 띄우는 동그란 표시(`<nextjs-portal>`)를 오른쪽 아래로 옮긴다.
+  // 기본 자리인 왼쪽 아래가 사이드바 맨 아래의 "전남대학교 / SW중심대학사업단"을
+  // 정확히 덮어, 사이드바를 쓰는 모든 화면에서 그 글자가 가려졌다. 배포본에는
+  // 존재하지 않는 개발 도구지만 검토는 개발 서버로 하므로 자리만 비켜 준다 —
+  // 끄지는 않는다. 빌드 오류를 알려 주는 표시라 없으면 그것대로 손해다.
+  devIndicators: { position: 'bottom-right' },
   async rewrites() {
     if (process.env.NODE_ENV !== 'development') {
       return [];

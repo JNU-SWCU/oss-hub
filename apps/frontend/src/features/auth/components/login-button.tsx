@@ -2,10 +2,11 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { logout } from '../api';
 import { LOGOUT_NOTICE_PARAM } from '../logout-notice';
-import { SIGNUP_ENTRY } from '../signup-entry-link';
+import { SIGNUP_ENTRY, shouldShowEntryLink } from '../signup-entry-link';
 import { refreshSession } from '../session-store';
 import { toAccountMenuSession } from '../session-view';
 import { useSession } from '../use-session';
@@ -14,6 +15,8 @@ import type { AuthSession, Me } from '../types';
 
 interface LoginButtonViewProps {
   readonly session: AuthSession | null;
+  /** 지금 보고 있는 경로. 목적지와 같으면 진입 버튼을 내지 않는다. */
+  readonly pathname: string;
   readonly logoutError: string | null;
   readonly menuOpen: boolean;
   readonly onMenuOpenChange: (open: boolean) => void;
@@ -46,6 +49,7 @@ function AccountAvatar({ user }: { readonly user: Me }) {
 
 export function LoginButtonView({
   session,
+  pathname,
   logoutError,
   menuOpen,
   onMenuOpenChange,
@@ -93,6 +97,10 @@ export function LoginButtonView({
       //
       // 앱 내부 이동이므로 `Link`다. `<a href>`는 backend 경로(OAuth 시작)를 가리킬
       // 때만 맞고, 그 자리는 이제 `/signup` 화면 하나뿐이다.
+      // 이미 그 화면에 서 있으면 버튼을 내지 않는다 — 눌러도 제자리라 고장으로 읽힌다.
+      if (!shouldShowEntryLink(SIGNUP_ENTRY.href, pathname)) {
+        return null;
+      }
       return (
         <Button asChild variant="ghost">
           <Link href={SIGNUP_ENTRY.href} aria-label={SIGNUP_ENTRY.label}>
@@ -181,10 +189,12 @@ export function LoginButton() {
   // 인증 표시가 서로 모순된다.
   const sessionState = useSession();
   const session = toAccountMenuSession(sessionState);
+  const pathname = usePathname();
 
   return (
     <LoginButtonView
       session={session}
+      pathname={pathname}
       logoutError={logoutError}
       menuOpen={menuOpen}
       onMenuOpenChange={setMenuOpen}
