@@ -1,56 +1,83 @@
-import type { ReactNode } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+// @vitest-environment happy-dom
 
-const radixState = vi.hoisted(() => ({
-  onOpenChange: null as ((open: boolean) => void) | null,
-}));
-
-vi.mock('radix-ui', () => ({
-  AlertDialog: {
-    Root: ({
-      children,
-      onOpenChange,
-    }: {
-      readonly children: ReactNode;
-      readonly onOpenChange: (open: boolean) => void;
-    }) => {
-      radixState.onOpenChange = onOpenChange;
-      return children;
-    },
-    Overlay: () => <div data-radix-overlay="" />,
-    Content: ({ children }: { readonly children: ReactNode }) => (
-      <section data-radix-content="">{children}</section>
-    ),
-    Title: ({ children }: { readonly children: ReactNode }) => (
-      <h2>{children}</h2>
-    ),
-    Description: ({ children }: { readonly children: ReactNode }) => (
-      <p>{children}</p>
-    ),
-    Cancel: ({ children }: { readonly children: ReactNode }) => <>{children}</>,
-    Action: ({ children }: { readonly children: ReactNode }) => <>{children}</>,
-  },
-}));
-
+import { act, useRef, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApplicationConfirmationDialog } from './application-confirmation-dialog';
 
+Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
+  configurable: true,
+  value: true,
+});
+
+function ApplicationConfirmationDialogHarness() {
+  const [open, setOpen] = useState(true);
+  const returnFocusRef = useRef<HTMLButtonElement>(null);
+
+  return (
+    <>
+      <button ref={returnFocusRef} type="button">
+        수정 내용 저장
+      </button>
+      {open ? (
+        <ApplicationConfirmationDialog
+          kind="save"
+          submitting={false}
+          onClose={() => setOpen(false)}
+          onConfirm={vi.fn()}
+          returnFocusRef={returnFocusRef}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function getButton(name: string): HTMLButtonElement {
+  const button = Array.from(document.querySelectorAll('button')).find(
+    (candidate) => candidate.textContent?.trim() === name,
+  );
+  if (!(button instanceof HTMLButtonElement)) {
+    throw new TypeError(`Button not found: ${name}`);
+  }
+  return button;
+}
+
 describe('ApplicationConfirmationDialog', () => {
-  it('Radix AlertDialog? ???? ?? ??? ????', () => {
-    const onClose = vi.fn();
+  let container: HTMLDivElement;
+  let root: Root;
 
-    const html = renderToStaticMarkup(
-      <ApplicationConfirmationDialog
-        kind="save"
-        submitting={false}
-        onClose={onClose}
-        onConfirm={() => undefined}
-      />,
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  it('Escape로 닫으면 실제 Radix AlertDialog가 원래 저장 버튼에 포커스를 돌려준다', async () => {
+    await act(async () =>
+      root.render(<ApplicationConfirmationDialogHarness />),
     );
-    radixState.onOpenChange?.(false);
 
-    expect(html).toContain('data-radix-content');
-    expect(radixState.onOpenChange).not.toBeNull();
-    expect(onClose).toHaveBeenCalledTimes(1);
+    const cancelButton = getButton('돌아가서 확인');
+    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+    expect(document.activeElement).toBe(cancelButton);
+
+    await act(async () => {
+      cancelButton.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Escape',
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(document.activeElement).toBe(getButton('수정 내용 저장'));
   });
 });
