@@ -198,6 +198,11 @@ export function SettingsScreen({
         case 'consent-required':
           setSubmitError('동의가 필요합니다. 동의 화면으로 이동해 주세요.');
           return;
+        case 'student-id-taken':
+          setSubmitError(
+            '이미 다른 계정이 사용 중인 학번입니다. 학번을 다시 확인해 주세요.',
+          );
+          return;
         case 'already-complete':
         case 'generic':
           setSubmitError('잠시 후 다시 시도해 주세요.');

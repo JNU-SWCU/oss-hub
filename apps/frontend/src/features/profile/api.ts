@@ -7,7 +7,12 @@ import type {
 } from './types';
 
 export type ProfileApiErrorKind =
-  'unauthorized' | 'consent-required' | 'already-complete' | 'generic';
+  | 'unauthorized'
+  | 'consent-required'
+  | 'already-complete'
+  /** 다른 계정이 이미 그 학번을 쓰고 있다 — 다시 시도해도 결과가 같다. */
+  | 'student-id-taken'
+  | 'generic';
 
 export class ProfileResponseError extends Error {
   constructor() {
@@ -92,6 +97,10 @@ export function classifyProfileApiError(error: unknown): ProfileApiErrorKind {
   }
   if (error.problem.status === 409 && error.problem.code === 'USR_001') {
     return 'already-complete';
+  }
+  // 재시도로 풀리지 않는 실패라 "잠시 후 다시"로 접으면 사용자가 계속 같은 벽에 부딪힌다.
+  if (error.problem.status === 409 && error.problem.code === 'USR_004') {
+    return 'student-id-taken';
   }
   return 'generic';
 }

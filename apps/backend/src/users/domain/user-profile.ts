@@ -50,14 +50,16 @@ export interface PatchUserProfileInput {
   readonly department?: string;
 }
 
+/**
+ * 완료된 프로필에서 바꿀 수 있는 항목 — 이름·학과뿐이다.
+ *
+ * 학번은 여기 없다. 비어 있던 학번을 처음 채우는 것은 UserProfile 행을 만드는 일이고
+ * (그 행의 unique 제약이 학번 유일성을 보증하는 유일한 장치다) 이름·학과 갱신과는 다른
+ * 경로를 탄다 — `UsersRepositoryPort.fillStudentId`.
+ */
 export interface UpdateProfileFieldsInput {
   readonly name: string;
   readonly department?: string;
-  /**
-   * 비어 있던 학번을 처음 채울 때만 실린다. 이미 값이 있으면 서비스가 먼저
-   * 막으므로 여기까지 오지 않는다 — 학번은 한 번 정하면 바뀌지 않는다.
-   */
-  readonly studentId?: string;
 }
 
 export function toUserProfile(record: UserProfileRecord): UserProfile {

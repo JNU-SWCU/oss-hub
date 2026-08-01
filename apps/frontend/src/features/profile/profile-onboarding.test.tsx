@@ -148,6 +148,20 @@ describe('profile onboarding view', () => {
     expect(html).not.toMatch(/type="submit"[^>]*disabled/);
   });
 
+  it('관리자가 학번을 적어 넣으면 학과 칸이 함께 열린다', () => {
+    // Given / When — 학번이 유일성 제약 아래 저장되는 자리가 학과를 요구한다.
+    // 학과를 감춘 채 학번만 받으면 백엔드가 USR_005로 거절해 빠져나갈 곳이 없어진다.
+    const html = renderForm(
+      values({ studentId: '1'.repeat(6), departmentOption: '' }),
+      { role: 'ADMIN', showRequiredErrors: true },
+    );
+
+    // Then
+    expect(html).toContain('profile-department');
+    expect(html).toContain('학과를 선택하거나 입력해 주세요.');
+    expect(html).toMatch(/type="submit"[^>]*disabled/);
+  });
+
   it('저장 중 중복 클릭을 막고 서버 실패 Alert를 표시한다', () => {
     const savingHtml = renderForm(values(), { isSubmitting: true });
     const failedHtml = renderForm(values(), {

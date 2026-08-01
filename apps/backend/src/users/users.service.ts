@@ -91,12 +91,19 @@ export class UsersService {
           message: '학번 형식이 올바르지 않습니다.',
         });
       }
+      if (fillsStudentId) {
+        await this.fillStudentId(
+          user,
+          { name: input.name, department: next.department },
+          input.studentId,
+        );
+        return toUserProfile(next);
+      }
       await this.repository.updateProfileFields(user.id, {
         name: input.name,
         ...(input.department === undefined
           ? {}
           : { department: input.department }),
-        ...(fillsStudentId ? { studentId: input.studentId } : {}),
       });
       return toUserProfile(next);
     }
@@ -115,9 +122,60 @@ export class UsersService {
     return toUserProfile(next);
   }
 
-  /** 역할이 요구하는 항목이 비었거나 형식이 깨졌으면 400으로 멈춘다. */
+  /**
+   * 비어 있던 학번을 처음 채운다 — 유일성 제약이 걸린 UserProfile 행을 만드는 경로다.
+   *
+   * 예전에는 이름·학과와 같은 갱신 경로로 흘려보냈고, UserProfile 행이 없는 사용자
+   * (학번 없이 완료된 교직원)에게는 `updateMany`가 0행을 갱신한 뒤 제약이 없는 구버전
+   * `User.studentId` 컬럼에만 값이 남았다. 그래서 서로 다른 두 사람이 같은 학번을 가질 수
+   * 있었고, 한 사람의 동시 최초 저장 두 건이 모두 성공했다.
+   */
+  private async fillStudentId(
+    user: UserProfileRecord,
+    next: { readonly name: string; readonly department: string | null },
+    studentId: string,
+  ): Promise<void> {
+    if (next.department === null) {
+      throw new DomainException(
+        USERS_ERROR_CODES[UsersErrorCode.STUDENT_ID_NEEDS_DEPARTMENT],
+      );
+    }
+    const outcome = await this.repository.fillStudentId(user, {
+      name: next.name,
+      studentId,
+      department: next.department,
+    });
+    switch (outcome) {
+      case 'filled':
+        return;
+      case 'taken':
+        throw new DomainException(
+          USERS_ERROR_CODES[UsersErrorCode.STUDENT_ID_TAKEN],
+        );
+      case 'conflict':
+        // 같은 계정을 다른 요청이 먼저 바꿨다. 학번은 이미 정해졌을 가능성이 높으므로
+        // 불변 규칙과 같은 답을 준다 — 다시 읽으면 현재 값이 보인다.
+        throw new DomainException(
+          USERS_ERROR_CODES[UsersErrorCode.STUDENT_ID_IMMUTABLE],
+        );
+    }
+  }
+
+  /**
+   * 역할이 요구하는 항목이 비었거나 형식이 깨졌으면 400으로 멈춘다.
+   *
+   * 역할이 학과를 요구하지 않아도 **학번을 함께 저장하려면 학과가 필요하다**. 학번의
+   * 유일성을 보증하는 곳은 UserProfile 행의 unique 제약뿐이고 그 행은 학과를 NOT NULL로
+   * 요구하기 때문이다. 학과 없이 학번만 받으면 제약이 없는 구버전 `User.studentId`
+   * 컬럼에만 남아 서로 다른 두 사람이 같은 학번을 갖게 된다.
+   */
   private requireFieldsForRole(next: UserProfileRecord): void {
     const requirement = profileFieldRequirement(next.role);
+    if (next.studentId !== null && next.department === null) {
+      throw new DomainException(
+        USERS_ERROR_CODES[UsersErrorCode.STUDENT_ID_NEEDS_DEPARTMENT],
+      );
+    }
     if (
       requirement.studentId &&
       (next.studentId === null || !isValidStudentId(next.studentId))

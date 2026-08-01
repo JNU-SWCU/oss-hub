@@ -45,6 +45,23 @@ export function profileFieldRequirement(
   return REQUIREMENT_BY_ROLE[role ?? 'STUDENT'];
 }
 
+/**
+ * 학번을 함께 저장하려면 학과도 필요하다 — 역할이 학과를 요구하지 않아도 그렇다.
+ *
+ * 학번의 유일성을 지키는 장치는 백엔드 `UserProfile` 행의 unique 제약 하나뿐이고,
+ * 그 행은 학과를 반드시 요구한다. 학과 없이 학번만 보내면 백엔드가 400으로 거절하므로
+ * (`USR_005`), 화면에서 학번을 받는 순간 학과 칸도 함께 열어 둔다. 관리자처럼 학과가
+ * 필수가 아닌 역할에서만 실제로 달라지는 규칙이다.
+ */
+export function isDepartmentRequiredForProfile(
+  role: ProfileRole | null,
+  studentId: string,
+): boolean {
+  return (
+    profileFieldRequirement(role).department || studentId.trim().length > 0
+  );
+}
+
 export function isValidProfileName(name: string): boolean {
   return name.trim().length > 0 && name.length <= PROFILE_NAME_MAX_LENGTH;
 }
