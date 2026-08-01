@@ -13,3 +13,15 @@ export interface AuditLogFilters {
   readonly from: string;
   readonly to: string;
 }
+
+export interface AuditLogListParams extends AuditLogFilters {
+  readonly page: number;
+  readonly limit: number;
+}
+
+export interface AuditLogPage {
+  readonly items: readonly AuditLogRecord[];
+  readonly total: number;
+  readonly page: number;
+  readonly limit: number;
+}
