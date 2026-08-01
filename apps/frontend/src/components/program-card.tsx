@@ -66,11 +66,15 @@ function ProgramCard({
     <Card
       data-slot="program-card"
       data-status-placement={statusPlacement}
-      className={cn('h-full', className)}
+      className={cn(
+        'h-full',
+        statusPlacement === 'body-center' && '@container/program-card-status',
+        className,
+      )}
       {...props}
     >
       {statusPlacement === 'body-center' && status ? (
-        <div className="@container/program-card-status grid flex-1 grid-cols-1 gap-4 @min-[32rem]/program-card-status:grid-cols-[minmax(0,1fr)_auto] @min-[32rem]/program-card-status:items-center">
+        <div className="grid flex-1 grid-cols-1 gap-4 @min-[32rem]/program-card-status:grid-cols-[minmax(0,1fr)_auto] @min-[32rem]/program-card-status:items-center">
           <div className="grid gap-(--card-spacing)">
             {header}
             {content}

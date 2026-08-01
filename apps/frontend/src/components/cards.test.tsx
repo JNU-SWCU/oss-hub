@@ -86,6 +86,9 @@ describe('card components', () => {
     );
 
     expect(html).toContain('@container/program-card-status');
+    expect(html.indexOf('@container/program-card-status')).toBeLessThan(
+      html.indexOf('@min-[32rem]/program-card-status:grid-cols'),
+    );
     expect(html).toContain('grid-cols-1');
     expect(html).toContain(
       '@min-[32rem]/program-card-status:grid-cols-[minmax(0,1fr)_auto]',
