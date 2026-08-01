@@ -40,7 +40,7 @@ describe('layout components', () => {
     expect(html).toMatch(/data-slot="nav-bar-brand"[^>]*\btext-foreground\b/);
   });
 
-  it('keeps every NavBar slot on one row at compact mobile widths', () => {
+  it('collapses primary links into a mobile menu without shrinking actions', () => {
     const html = renderToStaticMarkup(
       <NavBar
         brand={<span>OSS Hub</span>}
@@ -61,7 +61,9 @@ describe('layout components', () => {
     expect(navClass?.split(' ')).toContain('px-2');
     expect(navClass?.split(' ')).not.toContain('flex-wrap');
     expect(navClass).not.toContain('min-[480px]:flex-nowrap');
-    expect(itemsClass?.split(' ')).toContain('gap-0');
+    expect(html).toContain('aria-label="전체 메뉴 열기"');
+    expect(itemsClass?.split(' ')).toContain('hidden');
+    expect(itemsClass?.split(' ')).toContain('sm:flex');
     expect(actionsClass?.split(' ')).toContain('gap-0');
     expect(actionsClass).not.toContain('max-[479px]:basis-full');
     expect(actionsClass).not.toContain('max-[479px]:w-full');
