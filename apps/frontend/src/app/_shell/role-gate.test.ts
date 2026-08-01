@@ -62,7 +62,7 @@ describe('roleGateRedirectPath', () => {
     );
     expect(roleGateDeniedHomePath('STAFF')).toBe('/staff/dashboard');
     expect(roleGateDeniedHomePath('STUDENT')).toBe('/dashboard');
-    expect(roleGateDeniedHomePath('ADMIN')).toBe('/admin/staff-requests');
+    expect(roleGateDeniedHomePath('ADMIN')).toBe('/admin/access');
   });
 
   it('역할 미선택 사용자는 기존 온보딩 흐름을 유지한다', () => {

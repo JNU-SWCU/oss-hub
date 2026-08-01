@@ -55,7 +55,9 @@ describe('NavBar 좁은 화면 메뉴 접기', () => {
     expect(html).toMatch(
       /data-slot="nav-bar-menu-trigger"[^>]*class="[^"]*\bsize-11\b/,
     );
-    const panel = html.match(/data-slot="nav-bar-menu-items"[\s\S]*?<\/ul>/)?.[0];
+    const panel = html.match(
+      /data-slot="nav-bar-menu-items"[\s\S]*?<\/ul>/,
+    )?.[0];
     expect(panel?.match(/min-h-11/g)).toHaveLength(ITEMS.length);
     // 줄 전체가 눌려야 한다 — 호출부의 `[&_a]:inline-flex`가 글자 폭으로 줄여 버린다
     expect(panel?.match(/\bw-full\b/g)).toHaveLength(ITEMS.length);

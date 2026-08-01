@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type {
-  ProgramActivity,
-  ProgramDetail,
-} from '@/features/programs/types';
+import type { ProgramActivity, ProgramDetail } from '@/features/programs/types';
 import { resolveApplyBlockedReason } from '@/features/programs/program-apply-flow';
 import { PROGRAM_TEMPLATE_DEFINITIONS } from '@/features/programs/program-templates';
 import type { SubmissionFormData } from '@/features/submissions/types';
@@ -146,9 +143,7 @@ describe('student fixture responses', () => {
 
     // Then
     expect(body.items.map((item) => item.key)).toEqual(
-      PROGRAM_TEMPLATE_DEFINITIONS.map(
-        (definition) => definition.template.key,
-      ),
+      PROGRAM_TEMPLATE_DEFINITIONS.map((definition) => definition.template.key),
     );
   });
 

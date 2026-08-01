@@ -320,11 +320,7 @@
   --cosmos-student: var(--palette-navy-200);
   --cosmos-repository: var(--palette-green-300);
   --cosmos-edge: var(--palette-navy-300);
-  --cosmos-border: color-mix(
-    in oklch,
-    var(--palette-white) 12%,
-    transparent
-  );
+  --cosmos-border: color-mix(in oklch, var(--palette-white) 12%, transparent);
   --cosmos-scrim-strong: color-mix(
     in oklch,
     var(--palette-black) 95%,

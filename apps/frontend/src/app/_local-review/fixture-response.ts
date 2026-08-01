@@ -157,97 +157,106 @@ const PUBLIC_PROGRAM_FIXTURES = [
 ] as const satisfies readonly ProgramListItem[];
 
 type PublicArchiveApiItem = {
-  readonly repositoryId: string;
+  readonly projectId: string;
   readonly programId: string;
   readonly programName: string;
   readonly category: ArchiveCategory;
   readonly applicationMode: ArchiveApplicationMode;
   readonly displayName: string;
+  readonly repositoryName: string;
   readonly githubUrl: string;
   readonly publishedAt: string;
-  readonly detailUrl: string;
 };
 
+/**
+ * 공개 아카이브 응답. 파서가 키를 정확히 일치로 검사하므로(hasExactKeys)
+ * detailUrl·page·total 처럼 화면이 파생시키는 값은 응답에 넣지 않는다.
+ */
 type PublicArchiveFixture = {
   readonly item: PublicArchiveApiItem;
-  readonly repositoryName: string;
-  readonly approvedSubmissionCount: number;
+  readonly metrics: {
+    readonly commitCount: number;
+    readonly pullRequestCount: number;
+    readonly releaseCount: number;
+  };
   readonly contributors: readonly {
-    readonly userId: string;
-    readonly githubNickname: string;
-    readonly avatarUrl: string | null;
+    readonly githubLogin: string;
+    readonly commitCount: number;
+    readonly pullRequestCount: number;
+    readonly releaseCount: number;
   }[];
 };
 
 const PUBLIC_ARCHIVE_FIXTURES = [
   {
     item: {
-      repositoryId: 'synthetic-repo-capstone',
+      projectId: 'synthetic-repo-capstone',
       programId: 'program-capstone',
       programName: '합성 캡스톤 2026',
       category: 'CAPSTONE',
       applicationMode: 'TEAM',
       displayName: '합성 캡스톤 팀 저장소',
       githubUrl: 'https://github.com/JNU-SWCU/synthetic-capstone-archive',
+      repositoryName: 'synthetic-capstone-archive',
       publishedAt: '2026-06-20T00:00:00.000Z',
-      detailUrl: '/archive/synthetic-repo-capstone',
     },
-    repositoryName: 'synthetic-capstone-archive',
-    approvedSubmissionCount: 3,
+    metrics: { commitCount: 21, pullRequestCount: 3, releaseCount: 1 },
     contributors: [
       {
-        userId: 'synthetic-user-01',
-        githubNickname: 'synthetic-contributor-01',
-        avatarUrl: null,
+        githubLogin: 'synthetic-contributor-01',
+        commitCount: 9,
+        pullRequestCount: 2,
+        releaseCount: 1,
       },
       {
-        userId: 'synthetic-user-02',
-        githubNickname: 'synthetic-contributor-02',
-        avatarUrl: null,
+        githubLogin: 'synthetic-contributor-02',
+        commitCount: 9,
+        pullRequestCount: 2,
+        releaseCount: 1,
       },
     ],
   },
   {
     item: {
-      repositoryId: 'synthetic-repo-contest',
+      projectId: 'synthetic-repo-contest',
       programId: 'program-oss-contest',
       programName: '합성 OSS 경진대회',
       category: 'OSS_CONTEST',
       applicationMode: 'TEAM',
       displayName: '합성 경진대회 팀 저장소',
       githubUrl: 'https://github.com/JNU-SWCU/synthetic-contest-archive',
+      repositoryName: 'synthetic-contest-archive',
       publishedAt: '2026-05-12T00:00:00.000Z',
-      detailUrl: '/archive/synthetic-repo-contest',
     },
-    repositoryName: 'synthetic-contest-archive',
-    approvedSubmissionCount: 2,
+    metrics: { commitCount: 14, pullRequestCount: 2, releaseCount: 1 },
     contributors: [
       {
-        userId: 'synthetic-user-03',
-        githubNickname: 'synthetic-contributor-03',
-        avatarUrl: null,
+        githubLogin: 'synthetic-contributor-03',
+        commitCount: 9,
+        pullRequestCount: 2,
+        releaseCount: 1,
       },
     ],
   },
   {
     item: {
-      repositoryId: 'synthetic-repo-basic',
+      projectId: 'synthetic-repo-basic',
       programId: 'program-basic-study',
       programName: '합성 기초 오픈소스 스터디',
       category: 'BASIC',
       applicationMode: 'PERSONAL',
       displayName: '합성 개인 실습 저장소',
       githubUrl: 'https://github.com/JNU-SWCU/synthetic-basic-archive',
+      repositoryName: 'synthetic-basic-archive',
       publishedAt: '2026-04-02T00:00:00.000Z',
-      detailUrl: '/archive/synthetic-repo-basic',
     },
-    repositoryName: 'synthetic-basic-archive',
-    approvedSubmissionCount: 1,
+    metrics: { commitCount: 7, pullRequestCount: 1, releaseCount: 1 },
     contributors: [
       {
-        userId: 'synthetic-user-04',
-        githubNickname: 'synthetic-contributor-04',
-        avatarUrl: null,
+        githubLogin: 'synthetic-contributor-04',
+        commitCount: 9,
+        pullRequestCount: 2,
+        releaseCount: 1,
       },
     ],
   },
@@ -422,30 +431,30 @@ function publicArchivePage(searchParams: URLSearchParams): unknown {
   );
   const offset = (page - 1) * pageSize;
 
+  const items = matched.slice(offset, offset + pageSize);
   return {
-    items: matched.slice(offset, offset + pageSize),
-    page,
+    items,
     pageSize,
-    total: matched.length,
+    nextPageId:
+      offset + items.length < matched.length ? String(page + 1) : null,
   };
 }
 
-function publicArchiveDetail(repositoryId: string): unknown | null {
+function publicArchiveDetail(projectId: string): unknown | null {
   const fixture = PUBLIC_ARCHIVE_FIXTURES.find(
-    (candidate) => candidate.item.repositoryId === repositoryId,
+    (candidate) => candidate.item.projectId === projectId,
   );
   if (fixture === undefined) return null;
   return {
     ...fixture.item,
-    repositoryName: fixture.repositoryName,
-    approvedSubmissionCount: fixture.approvedSubmissionCount,
+    metrics: fixture.metrics,
     contributors: fixture.contributors,
   };
 }
 
-/** `repositories/{id}/public`에서 id만 뽑는다. 형식이 다르면 이 경로가 아니다. */
-function publicRepositoryId(path: string): string | null {
-  const matched = /^repositories\/([A-Za-z0-9_-]+)\/public$/.exec(path);
+/** `projects/{id}`에서 id만 뽑는다. 형식이 다르면 이 경로가 아니다. */
+function publicProjectId(path: string): string | null {
+  const matched = /^projects\/([A-Za-z0-9_-]+)$/.exec(path);
   return matched?.[1] ?? null;
 }
 
@@ -472,13 +481,13 @@ export function resolveLocalReviewResponse({
     return json(200, programListPage(searchParams));
   }
 
-  if (method === 'GET' && path === 'repositories/public') {
+  if (method === 'GET' && path === 'projects') {
     return json(200, publicArchivePage(searchParams));
   }
 
-  const repositoryId = method === 'GET' ? publicRepositoryId(path) : null;
-  if (repositoryId !== null) {
-    const detail = publicArchiveDetail(repositoryId);
+  const projectId = method === 'GET' ? publicProjectId(path) : null;
+  if (projectId !== null) {
+    const detail = publicArchiveDetail(projectId);
     // 없는 저장소는 상세 화면이 "찾을 수 없음"으로 갈리도록 백엔드 코드를 맞춘다.
     return detail === null
       ? problem(404, 'SHW_001', apiPath(path))

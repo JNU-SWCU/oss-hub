@@ -1,7 +1,7 @@
 import type {
   PublicProfile,
   PublicProfileCategory,
-  PublicProfileRepository,
+  PublicProfileProject,
 } from '@/features/profile/public-profile-types';
 import type { UserProfile } from '@/features/profile/types';
 import type { MyRepositoryResponseItem } from '@/features/repositories/types';
@@ -34,17 +34,17 @@ import {
  */
 
 /** 응답 계약은 파서가 파생시키는 라벨(`modeLabel`·`publishedLabel`)을 포함하지 않는다. */
-type PublicProfileApiRepository = Omit<
-  PublicProfileRepository,
+type PublicProfileApiProject = Omit<
+  PublicProfileProject,
   'modeLabel' | 'publishedLabel'
 >;
 
-type PublicProfileApiResponse = Omit<PublicProfile, 'repositories'> & {
-  readonly repositories: readonly PublicProfileApiRepository[];
+type PublicProfileApiResponse = Omit<PublicProfile, 'projects'> & {
+  readonly projects: readonly PublicProfileApiProject[];
 };
 
-type PublicProfileRepositoryInput = {
-  readonly repositoryId: string;
+type PublicProfileProjectInput = {
+  readonly projectId: string;
   readonly programId: string;
   readonly programName: string;
   readonly category: PublicProfileCategory;
@@ -57,15 +57,15 @@ type PublicProfileRepositoryInput = {
 /**
  * 공개 프로필의 저장소 항목. 파서(`features/profile/public-profile-api.ts`)가
  * `githubUrl === https://github.com/JNU-SWCU/{repositoryName}`,
- * `detailUrl === /archive/{repositoryId}`, `publishedAt`은 `toISOString()` 형식만
+ * `detailUrl === /archive/{projectId}`, `publishedAt`은 `toISOString()` 형식만
  * 통과시키므로 그대로 맞춘다. 저장소 id는 공개 아카이브 픽스처와 같은 값을 써야
  * 프로필 → 아카이브 상세 이동이 끊기지 않는다.
  */
-function publicProfileRepository(
-  input: PublicProfileRepositoryInput,
-): PublicProfileApiRepository {
+function publicProfileProject(
+  input: PublicProfileProjectInput,
+): PublicProfileApiProject {
   return {
-    repositoryId: input.repositoryId,
+    projectId: input.projectId,
     programId: input.programId,
     programName: input.programName,
     category: input.category,
@@ -74,12 +74,17 @@ function publicProfileRepository(
     repositoryName: input.repositoryName,
     githubUrl: `https://github.com/JNU-SWCU/${input.repositoryName}`,
     publishedAt: input.publishedAt,
-    detailUrl: `/archive/${input.repositoryId}`,
+    detailUrl: `/archive/${input.projectId}`,
+    // 수집이 이 저장소를 관측했는지. 셋은 서로의 존재를 함께 증명해야 해서
+    // 파서가 어긋난 조합(관측했다면서 metrics 가 없는 등)을 거부한다.
+    observed: true,
+    dataAsOf: '2026-07-31T00:00:00.000Z',
+    metrics: { commitCount: 12, pullRequestCount: 3, releaseCount: 1 },
   };
 }
 
-const CAPSTONE_PROFILE_REPOSITORY = publicProfileRepository({
-  repositoryId: 'synthetic-repo-capstone',
+const CAPSTONE_PROFILE_PROJECT = publicProfileProject({
+  projectId: 'synthetic-repo-capstone',
   programId: 'program-capstone',
   programName: '합성 캡스톤 2026',
   category: 'CAPSTONE',
@@ -89,8 +94,8 @@ const CAPSTONE_PROFILE_REPOSITORY = publicProfileRepository({
   publishedAt: '2026-06-20T00:00:00.000Z',
 });
 
-const CONTEST_PROFILE_REPOSITORY = publicProfileRepository({
-  repositoryId: 'synthetic-repo-contest',
+const CONTEST_PROFILE_PROJECT = publicProfileProject({
+  projectId: 'synthetic-repo-contest',
   programId: 'program-oss-contest',
   programName: '합성 OSS 경진대회',
   category: 'OSS_CONTEST',
@@ -100,8 +105,8 @@ const CONTEST_PROFILE_REPOSITORY = publicProfileRepository({
   publishedAt: '2026-05-12T00:00:00.000Z',
 });
 
-const BASIC_PROFILE_REPOSITORY = publicProfileRepository({
-  repositoryId: 'synthetic-repo-basic',
+const BASIC_PROFILE_PROJECT = publicProfileProject({
+  projectId: 'synthetic-repo-basic',
   programId: 'program-basic-study',
   programName: '합성 기초 오픈소스 스터디',
   category: 'BASIC',
@@ -123,31 +128,36 @@ export const PUBLIC_PROFILE_FIXTURES: Readonly<
     userId: 'synthetic-user-01',
     githubNickname: 'synthetic-contributor-01',
     avatarUrl: null,
-    repositories: [CAPSTONE_PROFILE_REPOSITORY, CONTEST_PROFILE_REPOSITORY],
+    projects: [CAPSTONE_PROFILE_PROJECT, CONTEST_PROFILE_PROJECT],
+    observedTotals: { commitCount: 12, pullRequestCount: 3, releaseCount: 1 },
   },
   'synthetic-user-02': {
     userId: 'synthetic-user-02',
     githubNickname: 'synthetic-contributor-02',
     avatarUrl: null,
-    repositories: [CAPSTONE_PROFILE_REPOSITORY],
+    projects: [CAPSTONE_PROFILE_PROJECT],
+    observedTotals: { commitCount: 12, pullRequestCount: 3, releaseCount: 1 },
   },
   'synthetic-user-03': {
     userId: 'synthetic-user-03',
     githubNickname: 'synthetic-contributor-03',
     avatarUrl: null,
-    repositories: [CONTEST_PROFILE_REPOSITORY],
+    projects: [CONTEST_PROFILE_PROJECT],
+    observedTotals: { commitCount: 12, pullRequestCount: 3, releaseCount: 1 },
   },
   'synthetic-user-04': {
     userId: 'synthetic-user-04',
     githubNickname: 'synthetic-contributor-04',
     avatarUrl: null,
-    repositories: [BASIC_PROFILE_REPOSITORY],
+    projects: [BASIC_PROFILE_PROJECT],
+    observedTotals: { commitCount: 12, pullRequestCount: 3, releaseCount: 1 },
   },
   'synthetic-user-05': {
     userId: 'synthetic-user-05',
     githubNickname: 'synthetic-contributor-05',
     avatarUrl: null,
-    repositories: [],
+    projects: [],
+    observedTotals: { commitCount: 0, pullRequestCount: 0, releaseCount: 0 },
   },
 };
 
@@ -409,8 +419,7 @@ function patchedNotificationChannel(context: LocalReviewContext): {
  * 질의로 출처를 남긴다 — 화면이 이 값을 읽어 한 줄 안내를 띄우면 된다.
  * (지금 `features/roles`는 질의를 읽지 않아 안내는 아직 보이지 않는다.)
  */
-const LOCAL_REVIEW_LOGIN_SCREEN =
-  '/onboarding/role?notice=local-review-login';
+const LOCAL_REVIEW_LOGIN_SCREEN = '/onboarding/role?notice=local-review-login';
 
 /**
  * `/onboarding/role`로 바로 보내면 안 된다 — 비로그인 상태 그대로라 온보딩

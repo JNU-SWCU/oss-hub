@@ -77,7 +77,8 @@ describe('AppSidebar', () => {
 
   it('메뉴는 조작 사각형 규격(h-control)을 쓴다', () => {
     const html = render('/dashboard', false);
-    const links = html.match(/class="group relative flex h-control[^"]*"/g) ?? [];
+    const links =
+      html.match(/class="group relative flex h-control[^"]*"/g) ?? [];
 
     expect(links.length).toBe(5);
   });

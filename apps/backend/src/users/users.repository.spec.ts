@@ -18,7 +18,8 @@ function harness() {
   };
   const prisma = {
     user: { findUnique },
-    $transaction: <T>(callback: TransactionCallback<T>) => callback(transaction),
+    $transaction: <T>(callback: TransactionCallback<T>) =>
+      callback(transaction),
   } as unknown as PrismaService;
   return {
     findUnique,

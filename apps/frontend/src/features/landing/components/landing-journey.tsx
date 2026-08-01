@@ -55,10 +55,7 @@ function countByKind(graph: LandingGraph): GraphCounts {
 }
 
 /** 프로그램 항성의 이름만 공개 프로그램명으로 바꾼다 — 배치는 다시 잡지 않는다 */
-function applyProgramNames(
-  graph: CosmosGraph,
-  names: readonly string[],
-): void {
+function applyProgramNames(graph: CosmosGraph, names: readonly string[]): void {
   if (names.length === 0) return;
   let cursor = 0;
   for (const node of graph.nodes) {
@@ -93,8 +90,7 @@ export function LandingJourney({
     [publicGraph],
   );
   const counts = useMemo(() => countByKind(publicGraph), [publicGraph]);
-  const hasCounts =
-    counts.programs + counts.repositories + counts.students > 0;
+  const hasCounts = counts.programs + counts.repositories + counts.students > 0;
   const statNote = !hasCounts
     ? '공개 집계 준비 중'
     : publicGraph.source === 'public'
@@ -204,9 +200,7 @@ export function LandingJourney({
     const readScroll = (): void => {
       const total = journey.offsetHeight - window.innerHeight;
       targetP =
-        total > 0
-          ? clamp01(-journey.getBoundingClientRect().top / total)
-          : 0;
+        total > 0 ? clamp01(-journey.getBoundingClientRect().top / total) : 0;
     };
 
     const loop = (t: number): void => {
@@ -398,8 +392,7 @@ export function LandingJourney({
           <span className={styles.eyebrow}>나의 활동</span>
           <h2 id="landing-activity-heading">
             참여 기록이
-            <br />
-            한 곳에 남습니다
+            <br />한 곳에 남습니다
           </h2>
           <p>
             참여한 프로그램, 팀, 저장소, 제출 기록을 대시보드에서 확인합니다.

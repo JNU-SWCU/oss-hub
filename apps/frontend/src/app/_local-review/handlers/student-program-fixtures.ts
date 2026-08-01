@@ -170,9 +170,7 @@ const BASIC_MILESTONES = [
 ] as const satisfies readonly ProgramMilestone[];
 
 /** 교직원·관리자 시야의 마일스톤 집계. 학생 제출 상태 대신 신청 단위 합계를 보여준다. */
-const STAFF_MILESTONE_SUMMARIES: Readonly<
-  Record<string, SubmissionSummary>
-> = {
+const STAFF_MILESTONE_SUMMARIES: Readonly<Record<string, SubmissionSummary>> = {
   'milestones-approved': {
     notSubmitted: 1,
     submitted: 0,
@@ -347,78 +345,79 @@ export function studentApplicationStatusFor(
  * 학생 제출 체크리스트. 학생 동선 픽스처가 캡스톤·경진대회를 이미 덮으므로
  * 여기서는 `student` 외의 학생 역할 페르소나가 같은 화면을 볼 때만 쓰인다.
  */
-export const PROGRAM_CHECKLISTS: Readonly<
-  Record<string, SubmissionChecklist>
-> = {
-  'program-capstone': {
-    applicationId: 'application-personal',
-    applicationMode: 'PERSONAL',
-    items: [
-      {
-        milestoneId: 'milestones-approved',
-        name: '기획서 제출',
-        dueAt: '2026-07-15T23:59:59.000+09:00',
-        submissionType: 'FILE',
-        submission: {
-          id: 'submission-approved',
-          status: 'APPROVED',
-          currentRevision: 1,
-          lastReviewedAt: '2026-07-16T10:30:00.000+09:00',
-          reviewComment: '기획 범위가 명확합니다.',
-          canResubmit: false,
+export const PROGRAM_CHECKLISTS: Readonly<Record<string, SubmissionChecklist>> =
+  {
+    'program-capstone': {
+      applicationId: 'application-personal',
+      applicationMode: 'PERSONAL',
+      items: [
+        {
+          milestoneId: 'milestones-approved',
+          name: '기획서 제출',
+          dueAt: '2026-07-15T23:59:59.000+09:00',
+          submissionType: 'FILE',
+          submission: {
+            id: 'submission-approved',
+            status: 'APPROVED',
+            currentRevision: 1,
+            lastReviewedAt: '2026-07-16T10:30:00.000+09:00',
+            reviewComment: '기획 범위가 명확합니다.',
+            canResubmit: false,
+          },
         },
-      },
-      {
-        milestoneId: 'milestones-upcoming',
-        name: '중간 보고',
-        dueAt: '2026-07-26T23:59:59.000+09:00',
-        submissionType: 'TEXT',
-        submission: null,
-      },
-      {
-        milestoneId: 'milestones-revision',
-        name: '최종 릴리스',
-        dueAt: '2026-08-10T23:59:59.000+09:00',
-        submissionType: 'REPOSITORY_RELEASE',
-        submission: {
-          id: 'submission-revision',
-          status: 'CHANGES_REQUESTED',
-          currentRevision: 1,
-          lastReviewedAt: '2026-07-30T16:20:00.000+09:00',
-          reviewComment: '릴리스 노트에 실행 환경과 변경 내역을 추가해 주세요.',
-          canResubmit: true,
+        {
+          milestoneId: 'milestones-upcoming',
+          name: '중간 보고',
+          dueAt: '2026-07-26T23:59:59.000+09:00',
+          submissionType: 'TEXT',
+          submission: null,
         },
-      },
-    ],
-  },
-  'program-oss-contest': {
-    applicationId: 'application-team',
-    applicationMode: 'TEAM',
-    items: [
-      {
-        milestoneId: 'milestones-overdue',
-        name: '예선 결과물',
-        dueAt: '2026-07-20T23:59:59.000+09:00',
-        submissionType: 'REPOSITORY_RELEASE',
-        submission: {
-          id: 'submission-contest-revision',
-          status: 'CHANGES_REQUESTED',
-          currentRevision: 2,
-          lastReviewedAt: '2026-07-29T14:10:00.000+09:00',
-          reviewComment: '재현 순서와 테스트 결과를 릴리스 노트에 보완해 주세요.',
-          canResubmit: true,
+        {
+          milestoneId: 'milestones-revision',
+          name: '최종 릴리스',
+          dueAt: '2026-08-10T23:59:59.000+09:00',
+          submissionType: 'REPOSITORY_RELEASE',
+          submission: {
+            id: 'submission-revision',
+            status: 'CHANGES_REQUESTED',
+            currentRevision: 1,
+            lastReviewedAt: '2026-07-30T16:20:00.000+09:00',
+            reviewComment:
+              '릴리스 노트에 실행 환경과 변경 내역을 추가해 주세요.',
+            canResubmit: true,
+          },
         },
-      },
-      {
-        milestoneId: 'milestones-contest-final',
-        name: '본선 발표 자료',
-        dueAt: '2026-08-08T23:59:59.000+09:00',
-        submissionType: 'FILE',
-        submission: null,
-      },
-    ],
-  },
-};
+      ],
+    },
+    'program-oss-contest': {
+      applicationId: 'application-team',
+      applicationMode: 'TEAM',
+      items: [
+        {
+          milestoneId: 'milestones-overdue',
+          name: '예선 결과물',
+          dueAt: '2026-07-20T23:59:59.000+09:00',
+          submissionType: 'REPOSITORY_RELEASE',
+          submission: {
+            id: 'submission-contest-revision',
+            status: 'CHANGES_REQUESTED',
+            currentRevision: 2,
+            lastReviewedAt: '2026-07-29T14:10:00.000+09:00',
+            reviewComment:
+              '재현 순서와 테스트 결과를 릴리스 노트에 보완해 주세요.',
+            canResubmit: true,
+          },
+        },
+        {
+          milestoneId: 'milestones-contest-final',
+          name: '본선 발표 자료',
+          dueAt: '2026-08-08T23:59:59.000+09:00',
+          submissionType: 'FILE',
+          submission: null,
+        },
+      ],
+    },
+  };
 
 const LOCAL_REVIEW_TEXT_INSTRUCTIONS =
   '[로컬 검토용] 제출 화면 구성만 확인합니다. 입력한 내용은 저장되지 않습니다.';

@@ -57,8 +57,8 @@ describe('LandingEntryActionView', () => {
       <LandingEntryActionView status="assigned" role="ADMIN" />,
     );
 
-    expect(html).toContain('교직원 승인');
-    expect(html).toContain('href="/admin/staff-requests"');
+    expect(html).toContain('관리 콘솔');
+    expect(html).toContain('href="/admin/access"');
   });
 
   it('makes authentication recovery explicit for an anonymous visitor', () => {

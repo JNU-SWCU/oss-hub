@@ -38,8 +38,7 @@ const buttonVariants = cva(
         icon: 'w-control px-0',
         'icon-xs':
           "w-control px-0 in-data-[slot=button-group]:rounded-control [&_svg:not([class*='size-'])]:size-4",
-        'icon-sm':
-          'w-control px-0 in-data-[slot=button-group]:rounded-control',
+        'icon-sm': 'w-control px-0 in-data-[slot=button-group]:rounded-control',
         'icon-lg': 'w-control px-0',
       },
     },

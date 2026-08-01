@@ -153,7 +153,11 @@ export function SettingsScreen({
       if (savedStudentId) {
         setValues(
           (current) =>
-            current && { ...current, savedStudentId, studentId: savedStudentId },
+            current && {
+              ...current,
+              savedStudentId,
+              studentId: savedStudentId,
+            },
         );
       }
 

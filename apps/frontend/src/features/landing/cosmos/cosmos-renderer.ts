@@ -1,4 +1,9 @@
-import { cameraAt, PERSP, worldXform, type CosmosCamera } from './cosmos-camera';
+import {
+  cameraAt,
+  PERSP,
+  worldXform,
+  type CosmosCamera,
+} from './cosmos-camera';
 import {
   FOCUS_PROGRAM,
   HERO_HANDLE,
@@ -96,7 +101,12 @@ export function createCosmosRenderer({
    * 아니라 "무언가 있는 하늘"로 만드는 층. 넓은 사각형으로 채우면 좌우 끝이
    * 각져서 "띠"로 보이므로, 굵고 흐린 빗살 여러 개를 겹쳐 시트를 만든다.
    */
-  function drawAurora(w: number, h: number, cam: CosmosCamera, t: number): void {
+  function drawAurora(
+    w: number,
+    h: number,
+    cam: CosmosCamera,
+    t: number,
+  ): void {
     if (!ctx) return;
     const A = theme.auroraAlpha * (1 - cam.toNebula * 0.55);
     if (A < 0.004) return;
@@ -160,7 +170,14 @@ export function createCosmosRenderer({
         : 0.12 * (1 - cam.dimOthers * 0.85);
       if (strength <= 0.01) continue;
       const tint = focused ? theme.focusNebulaTint : theme.nebulaTint;
-      const gradient = ctx.createRadialGradient(P.sx, P.sy, 0, P.sx, P.sy, radius);
+      const gradient = ctx.createRadialGradient(
+        P.sx,
+        P.sy,
+        0,
+        P.sx,
+        P.sy,
+        radius,
+      );
       gradient.addColorStop(0, rgba(tint, strength * 0.5));
       gradient.addColorStop(0.35, rgba(tint, strength * 0.2));
       gradient.addColorStop(1, rgba(tint, 0));
@@ -228,7 +245,14 @@ export function createCosmosRenderer({
     const pulse = 1 + 0.06 * Math.sin(ph);
 
     ctx.globalCompositeOperation = 'lighter';
-    const g1 = ctx.createRadialGradient(P.sx, P.sy, 0, P.sx, P.sy, r * 6 * pulse);
+    const g1 = ctx.createRadialGradient(
+      P.sx,
+      P.sy,
+      0,
+      P.sx,
+      P.sy,
+      r * 6 * pulse,
+    );
     g1.addColorStop(0, rgba(glow, 0.11 * alpha));
     g1.addColorStop(0.25, rgba(glow, 0.04 * alpha));
     g1.addColorStop(1, rgba(glow, 0));
@@ -255,7 +279,12 @@ export function createCosmosRenderer({
 
     // 회절 스파이크 — 렌즈를 통해 본 밝은 별의 십자 빛
     const L = r * 7 * pulse;
-    const spike = (dxu: number, dyu: number, len: number, wdt: number): void => {
+    const spike = (
+      dxu: number,
+      dyu: number,
+      len: number,
+      wdt: number,
+    ): void => {
       const gg = ctx.createLinearGradient(
         P.sx - dxu * len,
         P.sy - dyu * len,
@@ -327,7 +356,14 @@ export function createCosmosRenderer({
     // 본체 — 밝은 쪽으로 중심을 옮긴 그라디언트 = 구
     const gx = P.sx + ld.x * r * 0.55;
     const gy = P.sy + ld.y * r * 0.55;
-    const gradient = ctx.createRadialGradient(gx, gy, r * 0.06, P.sx, P.sy, r * 1.04);
+    const gradient = ctx.createRadialGradient(
+      gx,
+      gy,
+      r * 0.06,
+      P.sx,
+      P.sy,
+      r * 1.04,
+    );
     gradient.addColorStop(0, rgba(shade(col, 0.5), alpha));
     gradient.addColorStop(0.42, rgba(col, alpha));
     gradient.addColorStop(0.86, rgba(shade(col, -0.55), alpha));
@@ -367,7 +403,8 @@ export function createCosmosRenderer({
       const focused = node.prog === FOCUS_PROGRAM;
       const onHero = graph.heroNeighbors.has(i);
 
-      let alpha = Math.max(0.28, Math.min(1.1, P.sc - 0.03)) * (1 - P.fog * 0.75);
+      let alpha =
+        Math.max(0.28, Math.min(1.1, P.sc - 0.03)) * (1 - P.fog * 0.75);
       if (!focused) alpha *= 1 - cam.dimOthers * 0.9;
       if (cam.soloHero > 0) alpha *= onHero ? 1 : 1 - cam.soloHero * 0.92;
       if (alpha < 0.02) continue;
@@ -396,7 +433,11 @@ export function createCosmosRenderer({
         // 반짝임 없음 — 별마다 고정 크기. 주인공만 상시 조금 크다.
         const tw = isHero ? 1.18 : 0.85 + 0.15 * Math.sin(node.ph);
         const r = (2.2 + 1.5 * node.degN) * d * (isHero ? 1.35 : 1) * tw;
-        const col = mix(tintAt(theme.studentTints, node.tint), theme.fog, P.fog);
+        const col = mix(
+          tintAt(theme.studentTints, node.tint),
+          theme.fog,
+          P.fog,
+        );
 
         // 후광은 아주 얇게만. 별 하나하나가 번지면 그래프 구조가 안 보인다.
         ctx.globalCompositeOperation = 'lighter';
@@ -427,7 +468,12 @@ export function createCosmosRenderer({
   }
 
   // 가까이 간 노드부터 이름이 떠오른다. 겹치면 뒤엣것을 버린다.
-  function placeLabel(x: number, y: number, text: string, size: number): boolean {
+  function placeLabel(
+    x: number,
+    y: number,
+    text: string,
+    size: number,
+  ): boolean {
     const wpx = text.length * size * 0.58;
     const box = [x - 4, y - size, x + wpx, y + 4];
     for (const b of labelBoxes) {
@@ -464,7 +510,14 @@ export function createCosmosRenderer({
       const dir = flip ? -1 : 1;
       const ax = P.sx + 16 * dir;
       if (!flip && ax < leftGuard) return;
-      if (!placeLabel(flip ? ax - text.length * size * 0.58 : ax, P.sy, text, size))
+      if (
+        !placeLabel(
+          flip ? ax - text.length * size * 0.58 : ax,
+          P.sy,
+          text,
+          size,
+        )
+      )
         return;
 
       ctx.globalAlpha = alpha;

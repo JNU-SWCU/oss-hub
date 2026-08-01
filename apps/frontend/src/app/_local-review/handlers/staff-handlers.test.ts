@@ -362,11 +362,7 @@ describe('staff local review handlers', () => {
       readonly dueAt: string;
       readonly submissionType: string;
     }>(
-      resolveWithBody(
-        'POST',
-        'programs/program-basic-study/milestones',
-        input,
-      ),
+      resolveWithBody('POST', 'programs/program-basic-study/milestones', input),
     );
     const updated = bodyOf<{ readonly id: string; readonly name: string }>(
       resolveWithBody('PATCH', 'milestones/milestone-basic-final', input),

@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  parsePublicArchiveDetail,
-  parsePublicArchiveList,
-} from '@/features/archive/api';
+import { parseArchiveDetail, parseArchivePage } from '@/features/archive/api';
 import { dashboardFixture } from '@/features/dashboard/fixtures';
 import {
   parseLandingArchiveDetail,
@@ -457,16 +454,14 @@ describe('local review fixture responses', () => {
         'page=1&pageSize=3&search=&status=recruiting',
       ),
     );
-    const archive = jsonBody(
-      publicGet('anonymous', 'repositories/public', 'page=1&pageSize=3'),
-    );
+    const archive = jsonBody(publicGet('anonymous', 'projects', 'pageSize=3'));
 
     // When: the landing parsers consume them.
     const parsedPrograms = parseLandingProgramPage(programs);
     const parsedArchive = parseLandingArchivePage(archive);
-    const parsedDetails = parsedArchive.map(({ repositoryId }) =>
+    const parsedDetails = parsedArchive.map(({ projectId }) =>
       parseLandingArchiveDetail(
-        jsonBody(publicGet('anonymous', `repositories/${repositoryId}/public`)),
+        jsonBody(publicGet('anonymous', `projects/${projectId}`)),
       ),
     );
 
@@ -483,7 +478,7 @@ describe('local review fixture responses', () => {
       parsedDetails
         .flatMap((detail) => detail.contributors)
         .every((contributor) =>
-          contributor.githubNickname.startsWith('synthetic-'),
+          contributor.githubLogin.startsWith('synthetic-'),
         ),
     ).toBe(true);
   });
@@ -520,29 +515,24 @@ describe('local review fixture responses', () => {
 
   it('public archive reads parse with the archive screen parsers', () => {
     // Given / When: the /archive list and one of its detail links.
-    const list = parsePublicArchiveList(
-      jsonBody(
-        publicGet('anonymous', 'repositories/public', 'page=1&pageSize=12'),
-      ),
+    const list = parseArchivePage(
+      jsonBody(publicGet('anonymous', 'projects', 'pageSize=12')),
     );
     const first = list.items[0];
-    const detail = parsePublicArchiveDetail(
-      jsonBody(
-        publicGet('anonymous', `repositories/${first?.repositoryId}/public`),
-      ),
+    const detail = parseArchiveDetail(
+      jsonBody(publicGet('anonymous', `projects/${first?.projectId}`)),
     );
 
     // Then: both screens render synthetic rows instead of the error card.
-    expect(list.total).toBe(list.items.length);
     expect(list.items.length).toBeGreaterThan(0);
-    expect(first?.detailUrl).toBe(`/archive/${first?.repositoryId}`);
+    expect(first?.detailUrl).toBe(`/archive/${first?.projectId}`);
     expect(detail.contributors.length).toBeGreaterThan(0);
     expect(detail.repositoryName.startsWith('synthetic-')).toBe(true);
   });
 
   it('unknown archive ids stay a not-found instead of a synthetic row', () => {
     // Given / When
-    const response = publicGet('anonymous', 'repositories/unknown-repo/public');
+    const response = publicGet('anonymous', 'projects/unknown-repo');
 
     // Then
     expect(response).toMatchObject({
@@ -552,43 +542,37 @@ describe('local review fixture responses', () => {
     });
   });
 
-  it.each([
-    'programs',
-    'repositories/public',
-    'repositories/synthetic-repo-capstone/public',
-  ])('error fixture still fails for %s', (path) => {
-    // Given / When
-    const response = publicGet('error', path);
+  it.each(['programs', 'projects', 'projects/synthetic-repo-capstone'])(
+    'error fixture still fails for %s',
+    (path) => {
+      // Given / When
+      const response = publicGet('error', path);
 
-    // Then
-    expect(response).toMatchObject({ kind: 'json', status: 503 });
-  });
+      // Then
+      expect(response).toMatchObject({ kind: 'json', status: 503 });
+    },
+  );
 
-  it.each([
-    'programs',
-    'repositories/public',
-    'repositories/synthetic-repo-capstone/public',
-  ])('loading fixture still delays for %s', (path) => {
-    // Given / When
-    const response = publicGet('loading', path);
+  it.each(['programs', 'projects', 'projects/synthetic-repo-capstone'])(
+    'loading fixture still delays for %s',
+    (path) => {
+      // Given / When
+      const response = publicGet('loading', path);
 
-    // Then
-    expect(response).toEqual({ kind: 'delay', milliseconds: 60_000 });
-  });
+      // Then
+      expect(response).toEqual({ kind: 'delay', milliseconds: 60_000 });
+    },
+  );
 
   it.each(['student', 'staff', 'admin', 'unassigned'] as const)(
     '%s fixture sees the same public shell data as anonymous',
     (fixture) => {
       // Given / When
-      const response = publicGet(
-        fixture,
-        'repositories/public',
-        'page=1&pageSize=3',
-      );
+      const response = publicGet(fixture, 'projects', 'page=1&pageSize=3');
 
       // Then
       expect(response).toEqual(
-        publicGet('anonymous', 'repositories/public', 'page=1&pageSize=3'),
+        publicGet('anonymous', 'projects', 'pageSize=3'),
       );
     },
   );

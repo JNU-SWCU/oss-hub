@@ -73,7 +73,9 @@ export function ShellNav({ items, brand, actions }: ShellNavProps) {
     <div
       className={overlay ? 'fixed inset-x-0 top-0 z-40' : undefined}
       data-surface={inverted ? 'inverted' : undefined}
-      data-landing-surface={overlay ? (onSolid ? 'solid' : 'over-cosmos') : undefined}
+      data-landing-surface={
+        overlay ? (onSolid ? 'solid' : 'over-cosmos') : undefined
+      }
     >
       <NavBar
         brand={brand}

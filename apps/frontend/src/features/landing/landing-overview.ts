@@ -30,7 +30,7 @@ export interface LandingProgram {
 }
 
 export interface LandingArchiveItem {
-  readonly repositoryId: string;
+  readonly projectId: string;
   readonly programId: string;
   readonly programName: string;
   readonly displayName: string;
@@ -38,15 +38,15 @@ export interface LandingArchiveItem {
 }
 
 export interface LandingArchiveDetail {
-  readonly repositoryId: string;
-  readonly contributors: readonly {
-    readonly userId: string;
-    readonly githubNickname: string;
-  }[];
+  readonly projectId: string;
+  /**
+   * 공개 아카이브 계약에는 이제 내부 사용자 id가 없다. 기여자를 가리키는 값은
+   * GitHub 로그인뿐이라 랜딩도 그 사람의 GitHub 프로필로 보낸다.
+   */
+  readonly contributors: readonly { readonly githubLogin: string }[];
 }
 
-const INVALID_RESPONSE_MESSAGE =
-  '랜딩 공개 응답 형식이 올바르지 않습니다';
+const INVALID_RESPONSE_MESSAGE = '랜딩 공개 응답 형식이 올바르지 않습니다';
 
 export class LandingOverviewResponseError extends Error {
   constructor() {
@@ -88,7 +88,9 @@ function isoDate(value: unknown): string {
   return invalidResponse();
 }
 
-export function parseLandingProgramPage(value: unknown): readonly LandingProgram[] {
+export function parseLandingProgramPage(
+  value: unknown,
+): readonly LandingProgram[] {
   const page = record(value);
   if (!Array.isArray(page.items)) return invalidResponse();
   return page.items.slice(0, 3).map((item) => {
@@ -110,15 +112,14 @@ export function parseLandingArchivePage(
   if (!Array.isArray(page.items)) return invalidResponse();
   return page.items.slice(0, 3).map((item) => {
     const input = record(item);
-    const repositoryId = publicId(input.repositoryId);
-    const detailUrl = nonEmptyString(input.detailUrl);
-    if (detailUrl !== `/archive/${repositoryId}`) return invalidResponse();
+    // 목록 응답에는 detailUrl 이 없다 — 상세 경로는 화면 쪽 규칙이라 여기서 만든다.
+    const projectId = publicId(input.projectId);
     return {
-      repositoryId,
+      projectId,
       programId: publicId(input.programId),
       programName: nonEmptyString(input.programName),
       displayName: nonEmptyString(input.displayName),
-      detailUrl,
+      detailUrl: `/archive/${projectId}`,
     };
   });
 }
@@ -129,13 +130,10 @@ export function parseLandingArchiveDetail(
   const input = record(value);
   if (!Array.isArray(input.contributors)) return invalidResponse();
   return {
-    repositoryId: publicId(input.repositoryId),
+    projectId: publicId(input.projectId),
     contributors: input.contributors.slice(0, 2).map((contributor) => {
       const parsed = record(contributor);
-      return {
-        userId: publicId(parsed.userId),
-        githubNickname: nonEmptyString(parsed.githubNickname),
-      };
+      return { githubLogin: nonEmptyString(parsed.githubLogin) };
     }),
   };
 }

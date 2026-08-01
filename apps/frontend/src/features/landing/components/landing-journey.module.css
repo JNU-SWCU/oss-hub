@@ -33,7 +33,11 @@
   pointer-events: none;
   z-index: 2;
   background:
-    radial-gradient(120% 80% at 50% 45%, transparent 40%, rgb(0 0 0 / 60%) 100%),
+    radial-gradient(
+      120% 80% at 50% 45%,
+      transparent 40%,
+      rgb(0 0 0 / 60%) 100%
+    ),
     linear-gradient(
       to bottom,
       rgb(0 0 0 / 75%) 0%,

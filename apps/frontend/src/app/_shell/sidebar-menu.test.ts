@@ -69,15 +69,19 @@ describe('isCurrentSidebarItem', () => {
   });
 
   it('하위 경로도 그 메뉴의 현재 위치로 본다', () => {
-    expect(isCurrentSidebarItem('/dashboard/activity', '/dashboard')).toBe(true);
-    expect(isCurrentSidebarItem('/programs/program-capstone', '/programs')).toBe(
+    expect(isCurrentSidebarItem('/dashboard/activity', '/dashboard')).toBe(
       true,
     );
+    expect(
+      isCurrentSidebarItem('/programs/program-capstone', '/programs'),
+    ).toBe(true);
   });
 
   it('접두사가 같아 보여도 경로 경계가 다르면 현재 위치가 아니다', () => {
     expect(isCurrentSidebarItem('/programs-archive', '/programs')).toBe(false);
-    expect(isCurrentSidebarItem('/staff/programs/new', '/programs')).toBe(false);
+    expect(isCurrentSidebarItem('/staff/programs/new', '/programs')).toBe(
+      false,
+    );
   });
 });
 

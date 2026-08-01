@@ -38,31 +38,22 @@ describe('landing public API adapter', () => {
       .mockResolvedValueOnce({
         items: [
           {
-            repositoryId: 'repo_public_01',
+            projectId: 'repo_public_01',
             programId: 'program_public_01',
             programName: '공개 OSS 기여 프로그램',
             displayName: 'campus-map',
-            detailUrl: '/archive/repo_public_01',
           },
         ],
       })
       .mockResolvedValueOnce({
-        repositoryId: 'repo_public_01',
-        contributors: [
-          { userId: 'user_public_01', githubNickname: 'sample-dev-01' },
-        ],
+        projectId: 'repo_public_01',
+        contributors: [{ githubLogin: 'sample-dev-01' }],
       });
 
     const graph = await loadLandingGraph();
 
-    expect(apiClient).toHaveBeenNthCalledWith(
-      1,
-      'repositories/public?page=1&pageSize=3',
-    );
-    expect(apiClient).toHaveBeenNthCalledWith(
-      2,
-      'repositories/repo_public_01/public',
-    );
+    expect(apiClient).toHaveBeenNthCalledWith(1, 'projects?pageSize=3');
+    expect(apiClient).toHaveBeenNthCalledWith(2, 'projects/repo_public_01');
     expect(graph.source).toBe('public');
   });
 });

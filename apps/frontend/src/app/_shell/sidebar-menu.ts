@@ -43,8 +43,8 @@ const ROLE_MENU_ICONS: Readonly<Record<string, ShellIconName>> = {
   '/my-repos': 'repo',
   '/staff/dashboard': 'chart',
   '/staff/programs/new': 'detail',
-  '/admin/staff-requests': 'inbox',
-  '/admin/users': 'people',
+  // 교직원 승인·사용자 관리가 관리자 접근 한 화면으로 합쳐졌다.
+  '/admin/access': 'people',
   '/admin/audit-log': 'shield',
   '/admin/system-status': 'pulse',
 };
@@ -98,7 +98,7 @@ const ALL_LABELS: ReadonlyArray<readonly [string, string]> = [
 
 /**
  * 현재 경로가 어느 메뉴에 속하는지. 상세 화면(`/programs/xxx`)은 목록 메뉴에
- * 속하므로 **가장 긴 접두사**가 이긴다 — 짧은 쪽이 먼저 걸리면 `/admin/users`가
+ * 속하므로 **가장 긴 접두사**가 이긴다 — 짧은 쪽이 먼저 걸리면 `/admin/access`가
  * 늘 `/admin`류 첫 항목으로 표시된다.
  */
 export function shellPageLabel(pathname: string): string | null {
@@ -112,9 +112,6 @@ export function shellPageLabel(pathname: string): string | null {
 }
 
 /** 사이드바에서 현재 위치로 볼 항목인지. breadcrumb과 같은 규칙을 쓴다. */
-export function isCurrentSidebarItem(
-  pathname: string,
-  href: string,
-): boolean {
+export function isCurrentSidebarItem(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }

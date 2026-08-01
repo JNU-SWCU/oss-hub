@@ -26,14 +26,12 @@ export async function loadLandingPrograms(): Promise<
 
 export async function loadLandingGraph(): Promise<LandingGraph> {
   const archive = parseLandingArchivePage(
-    await apiClient<unknown>('repositories/public?page=1&pageSize=3'),
+    await apiClient<unknown>('projects?pageSize=3'),
   );
   const details = await Promise.all(
-    archive.map(async ({ repositoryId }) =>
+    archive.map(async ({ projectId }) =>
       parseLandingArchiveDetail(
-        await apiClient<unknown>(
-          `repositories/${encodeURIComponent(repositoryId)}/public`,
-        ),
+        await apiClient<unknown>(`projects/${encodeURIComponent(projectId)}`),
       ),
     ),
   );

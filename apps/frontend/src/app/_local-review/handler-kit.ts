@@ -106,10 +106,10 @@ export function roleForFixture(fixture: LocalReviewFixtureId): AuthRole | null {
   }
 }
 
-export function isAuthenticatedFixture(
-  fixture: LocalReviewFixtureId,
-): boolean {
-  return fixture !== 'anonymous' && fixture !== 'loading' && fixture !== 'error';
+export function isAuthenticatedFixture(fixture: LocalReviewFixtureId): boolean {
+  return (
+    fixture !== 'anonymous' && fixture !== 'loading' && fixture !== 'error'
+  );
 }
 
 /**

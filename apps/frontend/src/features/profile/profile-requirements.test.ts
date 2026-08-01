@@ -51,19 +51,13 @@ describe('role-aware profile completion', () => {
   it('교직원은 학번이 없어도 완성이다', () => {
     expect(isProfileComplete(fields({ studentId: null }), 'STAFF')).toBe(true);
     expect(
-      isProfileComplete(
-        fields({ studentId: null, department: null }),
-        'STAFF',
-      ),
+      isProfileComplete(fields({ studentId: null, department: null }), 'STAFF'),
     ).toBe(false);
   });
 
   it('관리자는 학번·학과가 없어도 이름만 있으면 완성이다', () => {
     expect(
-      isProfileComplete(
-        fields({ studentId: null, department: null }),
-        'ADMIN',
-      ),
+      isProfileComplete(fields({ studentId: null, department: null }), 'ADMIN'),
     ).toBe(true);
   });
 

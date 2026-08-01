@@ -100,9 +100,15 @@ export function CurrentProgramSectionView({
         </div>
 
         {state.kind === 'loading' ? (
-          <div className="mt-10 divide-y divide-border border-y border-border" aria-busy="true">
+          <div
+            className="mt-10 divide-y divide-border border-y border-border"
+            aria-busy="true"
+          >
             {[0, 1, 2].map((index) => (
-              <div key={index} className="grid gap-3 py-5 sm:grid-cols-[1fr_auto]">
+              <div
+                key={index}
+                className="grid gap-3 py-5 sm:grid-cols-[1fr_auto]"
+              >
                 <span className="h-5 w-3/5 animate-pulse rounded bg-muted motion-reduce:animate-none" />
                 <span className="h-5 w-28 animate-pulse rounded bg-muted motion-reduce:animate-none" />
               </div>
@@ -113,7 +119,10 @@ export function CurrentProgramSectionView({
         {state.kind === 'error' ? (
           <div className="mt-10 break-keep border-y border-border py-8 text-sm text-muted-foreground">
             모집 정보를 불러오지 못했습니다.{' '}
-            <Link href="/programs" className="font-semibold text-primary underline">
+            <Link
+              href="/programs"
+              className="font-semibold text-primary underline"
+            >
               프로그램 목록에서 확인하기
             </Link>
           </div>
@@ -121,8 +130,8 @@ export function CurrentProgramSectionView({
 
         {state.kind === 'ready' && state.programs.length === 0 ? (
           <div className="mt-10 break-keep border-y border-border py-8 text-sm text-muted-foreground">
-            현재 공개 모집 중인 프로그램이 없습니다. 새 모집은 프로그램
-            목록에 반영됩니다.
+            현재 공개 모집 중인 프로그램이 없습니다. 새 모집은 프로그램 목록에
+            반영됩니다.
           </div>
         ) : null}
 
@@ -143,7 +152,10 @@ export function CurrentProgramSectionView({
                     </p>
                   </div>
                   <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
-                    <CalendarDays className="size-4 text-primary" aria-hidden="true" />
+                    <CalendarDays
+                      className="size-4 text-primary"
+                      aria-hidden="true"
+                    />
                     {deadlineLabel(program.applicationEndAt)} 마감
                   </p>
                 </Link>

@@ -42,8 +42,8 @@ export function ProgramFlowSection() {
           참여는 이렇게 진행됩니다
         </h2>
         <p className="mt-3 max-w-2xl break-keep text-sm leading-relaxed text-muted-foreground">
-          프로그램 참여부터 기록까지 한 흐름으로 연결됩니다. 현재 상태와
-          다음 할 일은 대시보드에서 확인합니다.
+          프로그램 참여부터 기록까지 한 흐름으로 연결됩니다. 현재 상태와 다음 할
+          일은 대시보드에서 확인합니다.
         </p>
 
         <ol className="mt-10 grid list-none gap-0 border-y border-border p-0 sm:grid-cols-2 lg:grid-cols-4">

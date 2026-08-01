@@ -43,7 +43,7 @@ export function buildPublicLandingGraph(
       });
     }
 
-    const repositoryNodeId = `repository:${item.repositoryId}`;
+    const repositoryNodeId = `repository:${item.projectId}`;
     nodes.push({
       id: repositoryNodeId,
       kind: 'repository',
@@ -58,10 +58,10 @@ export function buildPublicLandingGraph(
     });
 
     const detail = details.find(
-      (candidate) => candidate.repositoryId === item.repositoryId,
+      (candidate) => candidate.projectId === item.projectId,
     );
     detail?.contributors.forEach((contributor) => {
-      const studentNodeId = `student:${contributor.userId}`;
+      const studentNodeId = `student:${contributor.githubLogin}`;
       if (!nodes.some((node) => node.id === studentNodeId)) {
         const position =
           STUDENT_POSITIONS[studentPositionIndex] ?? STUDENT_POSITIONS[0];
@@ -69,8 +69,8 @@ export function buildPublicLandingGraph(
         nodes.push({
           id: studentNodeId,
           kind: 'student',
-          label: `@${contributor.githubNickname}`,
-          href: `/profile/${contributor.userId}`,
+          label: `@${contributor.githubLogin}`,
+          href: `https://github.com/${contributor.githubLogin}`,
           ...position,
         });
       }

@@ -250,7 +250,9 @@ describe('landing page sections', () => {
       allowLocalExamples: true,
       hostname: 'localhost',
     });
-    const html = renderToStaticMarkup(<CurrentProgramSectionView state={state} />);
+    const html = renderToStaticMarkup(
+      <CurrentProgramSectionView state={state} />,
+    );
 
     expect(html).toContain('로컬 예시 데이터');
     expect(html).toContain('캡스톤 2026');

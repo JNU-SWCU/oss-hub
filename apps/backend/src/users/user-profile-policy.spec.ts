@@ -60,33 +60,39 @@ it.each([
   ['STUDENT', false],
   ['STAFF', true],
   ['ADMIN', true],
-] as const)('%s 역할에서 학번 없는 프로필의 완료 여부는 %s', (role, expected) => {
-  expect(
-    isCompleteUserProfile({
-      id: 'synthetic-no-student-id',
-      name: '합성 사용자',
-      studentId: null,
-      department: '인공지능학부',
-      role,
-    }),
-  ).toBe(expected);
-});
+] as const)(
+  '%s 역할에서 학번 없는 프로필의 완료 여부는 %s',
+  (role, expected) => {
+    expect(
+      isCompleteUserProfile({
+        id: 'synthetic-no-student-id',
+        name: '합성 사용자',
+        studentId: null,
+        department: '인공지능학부',
+        role,
+      }),
+    ).toBe(expected);
+  },
+);
 
 it.each([
   ['STUDENT', false],
   ['STAFF', false],
   ['ADMIN', true],
-] as const)('%s 역할에서 학과 없는 프로필의 완료 여부는 %s', (role, expected) => {
-  expect(
-    isCompleteUserProfile({
-      id: 'synthetic-no-department',
-      name: '합성 사용자',
-      studentId: '153403',
-      department: null,
-      role,
-    }),
-  ).toBe(expected);
-});
+] as const)(
+  '%s 역할에서 학과 없는 프로필의 완료 여부는 %s',
+  (role, expected) => {
+    expect(
+      isCompleteUserProfile({
+        id: 'synthetic-no-department',
+        name: '합성 사용자',
+        studentId: '153403',
+        department: null,
+        role,
+      }),
+    ).toBe(expected);
+  },
+);
 
 it('필수가 아니어도 실려 있는 값의 형식은 검사한다', () => {
   // Given — 프런트 응답 파서가 isComplete=true 응답의 값 형식을 불변식으로 본다

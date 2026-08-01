@@ -65,12 +65,12 @@ describe('account fixture responses', () => {
     // Then: 파서가 githubUrl·detailUrl·publishedAt 형식을 모두 검사한다.
     const profile = parsePublicProfile(body);
     expect(profile.githubNickname).toBe('synthetic-contributor-01');
-    expect(profile.repositories.map((item) => item.repositoryId)).toEqual([
+    expect(profile.projects.map((item) => item.projectId)).toEqual([
       'synthetic-repo-capstone',
       'synthetic-repo-contest',
     ]);
     // 공개 아카이브 상세로 이어지는 경로가 끊기지 않아야 한다.
-    expect(profile.repositories[0]?.detailUrl).toBe(
+    expect(profile.projects[0]?.detailUrl).toBe(
       '/archive/synthetic-repo-capstone',
     );
   });
@@ -87,7 +87,7 @@ describe('account fixture responses', () => {
     );
 
     // Then
-    expect(parsePublicProfile(empty).repositories).toEqual([]);
+    expect(parsePublicProfile(empty).projects).toEqual([]);
     expect(missing).toMatchObject({
       kind: 'json',
       status: 404,
@@ -104,9 +104,12 @@ describe('account fixture responses', () => {
       // Then: 파서는 SUCCEEDED가 아닌 항목의 저장소 필드가 비어 있는지까지 본다.
       const repositories = parseMyRepositoriesResponse(body);
       expect(repositories.items).toHaveLength(4);
-      expect(
-        repositories.items.map((item) => item.provisionStatus),
-      ).toEqual(['SUCCEEDED', 'SUCCEEDED', 'PROCESSING', 'FAILED_FINAL']);
+      expect(repositories.items.map((item) => item.provisionStatus)).toEqual([
+        'SUCCEEDED',
+        'SUCCEEDED',
+        'PROCESSING',
+        'FAILED_FINAL',
+      ]);
       expect(repositories.items[0]?.canOpenGithub).toBe(true);
       expect(repositories.items[2]?.canOpenGithub).toBe(false);
     },
@@ -132,7 +135,9 @@ describe('account fixture responses', () => {
       consented: false,
       nextUrl: '/onboarding/profile',
     });
-    expect((body as { requiredItems: unknown[] }).requiredItems).toHaveLength(3);
+    expect((body as { requiredItems: unknown[] }).requiredItems).toHaveLength(
+      3,
+    );
   });
 
   it('lets the approval-waiting reviewer past the consent step', () => {

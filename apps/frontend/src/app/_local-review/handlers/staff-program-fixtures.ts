@@ -106,6 +106,8 @@ const BASIC_APPLICATIONS = [
     id: 'application-basic-approved',
     status: 'APPROVED',
     rejectionReason: null,
+    // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
+    isRepositoryPublicationPlanned: false,
     repositoryProvisioning: PROVISIONING_SUCCEEDED,
     submittedAt: '2026-04-20T02:15:00.000Z',
     participation: 'INDIVIDUAL',
@@ -126,6 +128,8 @@ const BASIC_APPLICATIONS = [
     id: 'application-basic-submitted',
     status: 'SUBMITTED',
     rejectionReason: null,
+    // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
+    isRepositoryPublicationPlanned: false,
     repositoryProvisioning: PROVISIONING_NOT_REQUESTED,
     submittedAt: '2026-04-27T05:40:00.000Z',
     participation: 'INDIVIDUAL',
@@ -145,6 +149,8 @@ const BASIC_APPLICATIONS = [
     id: 'application-basic-rejected',
     status: 'REJECTED',
     rejectionReason: '합성 반려 사유입니다. 실제 판정이 아닙니다.',
+    // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
+    isRepositoryPublicationPlanned: false,
     repositoryProvisioning: PROVISIONING_DISABLED,
     submittedAt: '2026-04-18T23:05:00.000Z',
     participation: 'INDIVIDUAL',
@@ -296,6 +302,8 @@ const CONTEST_APPLICATIONS = [
     id: 'application-team',
     status: 'APPROVED',
     rejectionReason: null,
+    // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
+    isRepositoryPublicationPlanned: false,
     repositoryProvisioning: PROVISIONING_SUCCEEDED,
     submittedAt: '2026-07-16T04:00:00.000Z',
     participation: 'TEAM',
@@ -319,6 +327,8 @@ const CONTEST_APPLICATIONS = [
     id: 'application-contest-champion',
     status: 'APPROVED',
     rejectionReason: null,
+    // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
+    isRepositoryPublicationPlanned: false,
     repositoryProvisioning: PROVISIONING_SUCCEEDED,
     submittedAt: '2026-07-17T07:20:00.000Z',
     participation: 'TEAM',

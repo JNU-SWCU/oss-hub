@@ -77,7 +77,9 @@ describe('AppFrame', () => {
   it('셸 그리드 폭은 리터럴 px가 아니라 사이드바 토큰을 쓴다', () => {
     const html = render('/dashboard');
 
-    expect(html).toContain('grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)]');
+    expect(html).toContain(
+      'grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)]',
+    );
   });
 
   it('서버 렌더는 항상 펼침이다 — localStorage는 브라우저에만 있어 hydration이 갈린다', () => {

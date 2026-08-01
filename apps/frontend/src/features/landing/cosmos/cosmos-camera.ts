@@ -1,4 +1,8 @@
-import { FOCUS_PROGRAM, type CosmosGraph, type CosmosNode } from './cosmos-graph';
+import {
+  FOCUS_PROGRAM,
+  type CosmosGraph,
+  type CosmosNode,
+} from './cosmos-graph';
 import { ease, lerp, segment } from './cosmos-theme';
 
 export const TILT = 0.42;
@@ -52,9 +56,7 @@ export function cameraAt(
 
   const focusNode = graph.nodes[FOCUS_PROGRAM];
   const heroNode = graph.nodes[graph.hero];
-  const nebula = focusNode
-    ? worldXform(focusNode, ang)
-    : { x: 0, y: 0, z: 0 };
+  const nebula = focusNode ? worldXform(focusNode, ang) : { x: 0, y: 0, z: 0 };
   const heroPos = heroNode ? worldXform(heroNode, ang) : { x: 0, y: 0, z: 0 };
 
   let fx = lerp(0, nebula.x, toNebula);
