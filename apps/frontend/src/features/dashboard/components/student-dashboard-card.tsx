@@ -92,6 +92,12 @@ export function StudentDashboardCard({
   const isRejected = item.applicationStatus === 'REJECTED';
   const isCompleted =
     item.applicationStatus === 'APPROVED' && item.nextMilestone === null;
+  const repositoryUrl =
+    item.repository?.provisionStatus === 'SUCCEEDED' &&
+    item.repository.invitationStatus === 'SUCCEEDED' &&
+    item.repository.githubUrl !== null
+      ? item.repository.githubUrl
+      : null;
   const ModeIcon = item.applicationMode === 'PERSONAL' ? UserRound : UsersRound;
 
   return (
@@ -206,18 +212,14 @@ export function StudentDashboardCard({
                 <ArrowRight aria-hidden="true" />
               </Link>
             </Button>
-            {item.repository?.githubUrl ? (
+            {repositoryUrl ? (
               <Button
                 asChild
                 size="sm"
                 variant="outline"
                 className="min-h-10 px-3 sm:min-h-8"
               >
-                <a
-                  href={item.repository.githubUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <a href={repositoryUrl} target="_blank" rel="noreferrer">
                   GitHub에서 열기
                   <ExternalLink aria-hidden="true" />
                 </a>

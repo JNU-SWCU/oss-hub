@@ -39,14 +39,12 @@ export function StudentDashboardView({
         title="내 대시보드"
         description="신청한 프로그램과 다음 제출 일정을 확인합니다."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline" className="min-h-10 px-3">
-              <Link href="/dashboard/activity">
-                내 활동
-                <ArrowRight aria-hidden="true" />
-              </Link>
-            </Button>
-          </div>
+          <Button asChild variant="outline" className="min-h-10 px-3">
+            <Link href="/dashboard/activity">
+              내 활동
+              <ArrowRight aria-hidden="true" />
+            </Link>
+          </Button>
         }
       />
 

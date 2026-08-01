@@ -121,6 +121,7 @@ function isRepository(
   return (
     isNonEmptyString(value.repositoryName) &&
     isNonEmptyString(value.githubUrl) &&
+    value.invitationStatus !== null &&
     isSafeGithubUrl(value.githubUrl, value.repositoryName)
   );
 }

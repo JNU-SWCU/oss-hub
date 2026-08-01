@@ -6,7 +6,10 @@ import {
 } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
-import { RepositoriesService } from '../repositories/repositories.service';
+import {
+  REPOSITORIES_READ_PORT,
+  type RepositoriesReadPort,
+} from '../repositories/repositories-read.port';
 import { StudentDashboardService } from './student-dashboard.service';
 
 const DUE_AT = new Date('2026-08-01T00:00:00.000Z');
@@ -38,7 +41,7 @@ describe('StudentDashboardService', () => {
   const getMyRepositories = jest.fn();
   const repositories = {
     getMyRepositories,
-  } as Pick<RepositoriesService, 'getMyRepositories'>;
+  } as RepositoriesReadPort;
   const service = new StudentDashboardService(prisma, repositories);
 
   beforeEach(() => {
@@ -53,7 +56,7 @@ describe('StudentDashboardService', () => {
     expect(getMyRepositories).toHaveBeenCalledWith(404n);
   });
 
-  it('compiles with the canonical RepositoriesService provider token', async () => {
+  it('compiles with the DTO-only repositories read-port token', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         StudentDashboardService,
@@ -62,7 +65,7 @@ describe('StudentDashboardService', () => {
           useValue: { application: { findMany: jest.fn() } },
         },
         {
-          provide: RepositoriesService,
+          provide: REPOSITORIES_READ_PORT,
           useValue: { getMyRepositories: jest.fn() },
         },
       ],
@@ -226,6 +229,28 @@ describe('StudentDashboardService', () => {
       provisionStatus: 'PROCESSING',
       invitationStatus: null,
       githubUrl: null,
+    });
+  });
+
+  it('fails closed when repository creation succeeded without current-user invitation evidence', async () => {
+    findMany.mockResolvedValue([application()]);
+    getMyRepositories.mockResolvedValue([
+      {
+        applicationId: 'application-1',
+        repositoryName: 'synthetic-repository',
+        provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
+        invitationStatus: null,
+        githubUrl: 'https://github.com/JNU-SWCU/synthetic-repository',
+      },
+    ]);
+
+    const [item] = await service.getStudentDashboard(101n);
+
+    expect(item?.repository).toEqual({
+      repositoryName: 'synthetic-repository',
+      provisionStatus: 'SUCCEEDED',
+      invitationStatus: 'FAILED_FINAL',
+      githubUrl: 'https://github.com/JNU-SWCU/synthetic-repository',
     });
   });
 });

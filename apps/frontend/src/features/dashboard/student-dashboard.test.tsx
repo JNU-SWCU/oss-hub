@@ -82,6 +82,27 @@ describe('StudentDashboardView', () => {
       },
     });
     expect(invitationPendingHtml).toContain('초대 수락 대기');
+    expect(invitationPendingHtml).not.toContain(
+      'href="https://github.com/JNU-SWCU/capstone-hong"',
+    );
+
+    const invitationFailedHtml = renderView({
+      data: {
+        items: [
+          {
+            ...firstItem,
+            repository: {
+              ...firstItem.repository,
+              invitationStatus: 'FAILED_FINAL',
+            },
+          },
+        ],
+      },
+    });
+    expect(invitationFailedHtml).toContain('초대 확인 필요');
+    expect(invitationFailedHtml).not.toContain(
+      'href="https://github.com/JNU-SWCU/capstone-hong"',
+    );
   });
 
   it('승인 대기 신청에는 제출 링크나 마일스톤을 노출하지 않는다', () => {

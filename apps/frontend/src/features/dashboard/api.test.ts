@@ -154,6 +154,20 @@ describe('fetchStudentDashboard', () => {
         ],
       },
     ],
+    [
+      '생성 완료 저장소에 현재 사용자 초대 상태가 없음',
+      {
+        items: [
+          {
+            ...dashboardFixture.items[0],
+            repository: {
+              ...dashboardFixture.items[0].repository,
+              invitationStatus: null,
+            },
+          },
+        ],
+      },
+    ],
   ])('잘못된 응답을 어댑터 경계에서 거부한다: %s', async (_label, body) => {
     vi.stubGlobal(
       'fetch',

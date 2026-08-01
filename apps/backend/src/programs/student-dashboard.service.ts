@@ -10,7 +10,10 @@ import {
   COMPATIBLE_PROFILE_NAME_SELECT,
   resolveCompatibleProfileName,
 } from '../profiles/profile-compatibility';
-import { RepositoriesService } from '../repositories/repositories.service';
+import {
+  REPOSITORIES_READ_PORT,
+  type RepositoriesReadPort,
+} from '../repositories/repositories-read.port';
 
 export interface StudentDashboardMilestone {
   readonly id: string;
@@ -60,11 +63,8 @@ function isSafeProgramId(value: string): boolean {
 export class StudentDashboardService {
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(RepositoriesService)
-    private readonly repositories: Pick<
-      RepositoriesService,
-      'getMyRepositories'
-    >,
+    @Inject(REPOSITORIES_READ_PORT)
+    private readonly repositories: RepositoriesReadPort,
   ) {}
 
   async getStudentDashboard(
@@ -184,10 +184,16 @@ export class StudentDashboardService {
             githubUrl: null,
           };
         } else {
+          const invitationStatus =
+            projectedRepository.provisionStatus ===
+              RepositoryProvisionJobStatus.SUCCEEDED &&
+            projectedRepository.invitationStatus === null
+              ? RepositoryInvitationStatus.FAILED_FINAL
+              : projectedRepository.invitationStatus;
           repository = {
             repositoryName: projectedRepository.repositoryName,
             provisionStatus: projectedRepository.provisionStatus,
-            invitationStatus: projectedRepository.invitationStatus,
+            invitationStatus,
             githubUrl: projectedRepository.githubUrl,
           };
         }
