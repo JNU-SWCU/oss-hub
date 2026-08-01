@@ -61,7 +61,10 @@ function createRepository(): jest.Mocked<AuditLogRepositoryPort> {
             ? input.metadata.target.githubLogin
             : `${input.targetType} / ${input.targetId}`,
         occurredAt: new Date('2026-07-24T03:00:00.000Z'),
-        actor: input.metadata.actor.githubLogin,
+        actor:
+          'actor' in input.metadata
+            ? input.metadata.actor.githubLogin
+            : 'synthetic-actor',
         legacy: false,
         metadata: input.metadata,
       }),

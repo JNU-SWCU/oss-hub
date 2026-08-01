@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   ACCESS_AUDIT_SCHEMA_VERSION,
   parseAuditLogMetadata,
-  type AccessAuditMetadata,
+  type AuditLogMetadata,
   type AuditLogMetadataEvidence,
 } from './audit-log-metadata';
 import type { AuditLogListQueryRequestDto } from './dto/audit-log-query.dto';
@@ -51,7 +51,7 @@ export type AuditLogRecord = AuditLogRecordBase &
     | { readonly legacy: true; readonly metadata: null }
     | {
         readonly legacy: false;
-        readonly metadata: AccessAuditMetadata;
+        readonly metadata: AuditLogMetadata;
       }
   );
 
@@ -65,7 +65,7 @@ export interface AuditLogRecordInput {
   readonly action: string;
   readonly targetType: string;
   readonly targetId: string;
-  readonly metadata: AccessAuditMetadata;
+  readonly metadata: AuditLogMetadata;
 }
 
 export interface AuditLogRepositoryPort {
@@ -159,7 +159,10 @@ function toAuditLogRecord(log: PrismaAuditLog): AuditLogRecord {
   }
   return {
     id: log.id,
-    actor: evidence.metadata.actor.githubLogin,
+    actor:
+      'actor' in evidence.metadata
+        ? evidence.metadata.actor.githubLogin
+        : log.actor.nickname,
     action: log.action,
     targetType: log.targetType,
     targetId: log.targetId,
