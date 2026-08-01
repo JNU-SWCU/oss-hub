@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-07-20 -->
+<!-- Generated: 2026-07-20 · Updated: 2026-08-01 (공개 무인증 라우트 archive/ranking/profile 추가) -->
 
 # apps/frontend/src/app — 라우트 골격
 
@@ -28,6 +28,9 @@ Next.js App Router 라우트. 역할 기반(STUDENT/STAFF/ADMIN) 화면 접근 �
 | `programs/`, `programs/[id]/apply/`, `programs/[id]/milestones/[milestoneId]/submit/` | `/programs`, 신청, 마일스톤 제출 | 화면별 상이 — 각 `page.tsx` 주석 확인 |
 | `staff/dashboard/`, `staff/programs/new/`, `staff/programs/[id]/submissions/[submissionId]/review/` | 운영 화면 | `STAFF` |
 | `admin/staff-requests/`, `admin/users/`, `admin/audit-log/`, `admin/system-status/` | 관리 콘솔 | `ADMIN` |
+| `archive/`, `archive/[repositoryId]/` | `/archive`, `/archive/:repositoryId` | 공개 — 게이트 없음(비로그인 접근 가능), `public-projects/` 목록·상세 API 소비 |
+| `ranking/` | `/ranking` | 공개 — 게이트 없음(비로그인 접근 가능) |
+| `profile/[userId]/` | `/profile/:userId` | 공개 — 게이트 없음(비로그인 접근 가능), `public-projects/`의 공개 프로필 API 소비 |
 
 ## For AI Agents
 
