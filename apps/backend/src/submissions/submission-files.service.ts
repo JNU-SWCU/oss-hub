@@ -7,12 +7,15 @@ import {
   sanitizeSubmissionFileOriginalName,
 } from './submission-file-name';
 import {
+  isAllowedSubmissionFileType,
+  safeSubmissionFileContentType,
+} from './submission-file-content-type';
+import {
   SUBMISSION_FILE_STORAGE,
   type SubmissionFileStoragePort,
 } from './submission-file-storage.port';
 import {
   type CreatePendingSubmissionFileInput,
-  type DownloadableSubmissionFile,
   SubmissionFileRetentionUnavailableError,
   SubmissionFilesRepository,
 } from './submission-files.repository';
@@ -23,15 +26,6 @@ import {
 
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 const PENDING_TTL_MS = 24 * 60 * 60 * 1000;
-
-const ALLOWED_FILE_TYPES: Readonly<Record<string, readonly string[]>> = {
-  '.pdf': ['application/pdf'],
-  '.hwp': ['application/x-hwp'],
-  '.jpg': ['image/jpeg'],
-  '.jpeg': ['image/jpeg'],
-  '.png': ['image/png'],
-  '.zip': ['application/zip'],
-};
 
 export interface SubmissionFileUpload {
   readonly buffer: Buffer;
@@ -78,7 +72,7 @@ export class SubmissionFilesService {
       throw this.error(SubmissionsErrorCode.FILE_TOO_LARGE);
     }
     if (
-      !isAllowedFile(file.originalname, file.mimetype) ||
+      !isAllowedSubmissionFileType(file.originalname, file.mimetype) ||
       !hasValidFileSignature(file.buffer, file.originalname)
     ) {
       throw this.error(SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE);
@@ -182,7 +176,10 @@ export class SubmissionFilesService {
     return {
       body,
       fileName: file.originalFileName,
-      contentType: safeContentType(file),
+      contentType: safeSubmissionFileContentType(
+        file.originalFileName,
+        file.mimeType,
+      ),
       contentLength: file.sizeBytes,
     };
   }
@@ -224,19 +221,4 @@ function hasValidFileSignature(buffer: Buffer, fileName: string): boolean {
         buffer.subarray(0, signature.length).equals(signature),
     ) ?? false
   );
-}
-
-function isAllowedFile(fileName: string, mimeType: string): boolean {
-  const dot = fileName.lastIndexOf('.');
-  if (dot <= 0) return false;
-  const extension = fileName.slice(dot).toLowerCase();
-  return (
-    ALLOWED_FILE_TYPES[extension]?.includes(mimeType.toLowerCase()) ?? false
-  );
-}
-
-function safeContentType(file: DownloadableSubmissionFile): string {
-  return isAllowedFile(file.originalFileName, file.mimeType)
-    ? file.mimeType.toLowerCase()
-    : 'application/octet-stream';
 }

@@ -1,4 +1,5 @@
 import { Prisma, SubmissionFileLifecycle } from '@prisma/client';
+import { safeSubmissionFileContentType } from './submission-file-content-type';
 import type {
   ChecklistLatestReview,
   ChecklistMilestone,
@@ -95,24 +96,12 @@ function currentRevisionFile(
   return {
     fileId: file.id,
     fileName: file.originalFileName,
-    contentType: safeContentType(file.originalFileName, file.mimeType),
+    contentType: safeSubmissionFileContentType(
+      file.originalFileName,
+      file.mimeType,
+    ),
     size: file.sizeBytes,
     expiresAt: file.expiresAt,
     downloadUrl: `/api/v1/submission-files/${file.id}`,
   };
-}
-
-function safeContentType(fileName: string, mimeType: string): string {
-  const extension = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
-  const allowed: Readonly<Record<string, readonly string[]>> = {
-    '.pdf': ['application/pdf'],
-    '.hwp': ['application/x-hwp'],
-    '.jpg': ['image/jpeg'],
-    '.jpeg': ['image/jpeg'],
-    '.png': ['image/png'],
-    '.zip': ['application/zip'],
-  };
-  return allowed[extension]?.includes(mimeType.toLowerCase()) === true
-    ? mimeType.toLowerCase()
-    : 'application/octet-stream';
 }

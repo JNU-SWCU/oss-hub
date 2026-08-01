@@ -28,8 +28,9 @@ const PENDING_EXPIRES_AT = new Date('2026-08-01T00:00:00.000Z');
 const FUTURE_EXPIRES_AT = new Date('2027-01-01T00:00:00.000Z');
 const PAST_EXPIRES_AT = new Date('2026-01-01T00:00:00.000Z');
 const PROGRAM_ID = seedId('milestones', 'program');
-const APPLICATION_ID = seedId('milestones', 'application', 'personal');
-const PARTICIPANT_USER_ID = seedId('milestones', 'user', 'applicant-personal');
+const APPLICATION_ID = seedId('milestones', 'application', 'team');
+const UPLOADER_USER_ID = seedId('milestones', 'user', 'team-leader');
+const TEAM_MEMBER_USER_ID = seedId('milestones', 'user', 'team-member');
 const MILESTONE_ID = 'issue-342-download-milestone';
 const SUBMISSION_ID = 'issue-342-download-submission';
 const REVISION_ID = 'issue-342-download-revision';
@@ -40,7 +41,8 @@ const UNRELATED_STUDENT_USER_ID = 'issue-342-unrelated-student';
 const STAFF_USER_ID = 'issue-342-staff';
 const ADMIN_USER_ID = 'issue-342-admin';
 const INACTIVE_USER_ID = 'issue-342-inactive-admin';
-const PARTICIPANT_GITHUB_ID = seedGithubId(PARTICIPANT_USER_ID);
+const UPLOADER_GITHUB_ID = seedGithubId(UPLOADER_USER_ID);
+const TEAM_MEMBER_GITHUB_ID = seedGithubId(TEAM_MEMBER_USER_ID);
 const UNRELATED_STUDENT_GITHUB_ID = 342_000_002n;
 const STAFF_GITHUB_ID = 342_000_003n;
 const ADMIN_GITHUB_ID = 342_000_004n;
@@ -82,7 +84,7 @@ const FILE_IDS: string[] = [
   EXPIRED_FILE_ID,
 ];
 const BASE_FILE = {
-  uploaderId: PARTICIPANT_USER_ID,
+  uploaderId: UPLOADER_USER_ID,
   applicationId: APPLICATION_ID,
   milestoneId: MILESTONE_ID,
   mimeType: 'application/pdf',
@@ -90,7 +92,11 @@ const BASE_FILE = {
 const AUTHORIZED_DOWNLOADS = [
   {
     scenario: 'allows the application participant uploader',
-    githubId: PARTICIPANT_GITHUB_ID,
+    githubId: UPLOADER_GITHUB_ID,
+  },
+  {
+    scenario: 'allows a team member who did not upload the file',
+    githubId: TEAM_MEMBER_GITHUB_ID,
   },
   { scenario: 'allows active STAFF', githubId: STAFF_GITHUB_ID },
   { scenario: 'allows active ADMIN', githubId: ADMIN_GITHUB_ID },
@@ -165,7 +171,7 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
         revision: 1,
         submissionType: MilestoneSubmissionType.FILE,
         content: { type: 'FILE', fileId: DOWNLOADABLE_FILE_ID },
-        submittedById: PARTICIPANT_USER_ID,
+        submittedById: UPLOADER_USER_ID,
       },
     });
     await prisma.submissionFile.createMany({
@@ -188,6 +194,7 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
           sizeBytes: 2048,
           lifecycle: SubmissionFileLifecycle.PENDING,
           pendingExpiresAt: PENDING_EXPIRES_AT,
+          expiresAt: FUTURE_EXPIRES_AT,
         },
         {
           ...BASE_FILE,

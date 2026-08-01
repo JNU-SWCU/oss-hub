@@ -9,6 +9,7 @@ import {
   COMPATIBLE_PROFILE_NAME_SELECT,
   resolveCompatibleProfileName,
 } from '../profiles/profile-compatibility';
+import { safeSubmissionFileContentType } from '../submissions/submission-file-content-type';
 import {
   APPLICATION_MODES,
   PUBLISH_BLOCKED_REASONS,
@@ -192,25 +193,13 @@ function toFileRecord(
     {
       fileId: file.id,
       fileName: file.originalFileName,
-      contentType: safeContentType(file.originalFileName, file.mimeType),
+      contentType: safeSubmissionFileContentType(
+        file.originalFileName,
+        file.mimeType,
+      ),
       size: file.sizeBytes,
       expiresAt: file.expiresAt,
       downloadUrl: `/api/v1/submission-files/${file.id}`,
     },
   ];
-}
-
-function safeContentType(fileName: string, mimeType: string): string {
-  const extension = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
-  const allowed: Readonly<Record<string, readonly string[]>> = {
-    '.pdf': ['application/pdf'],
-    '.hwp': ['application/x-hwp'],
-    '.jpg': ['image/jpeg'],
-    '.jpeg': ['image/jpeg'],
-    '.png': ['image/png'],
-    '.zip': ['application/zip'],
-  };
-  return allowed[extension]?.includes(mimeType.toLowerCase()) === true
-    ? mimeType.toLowerCase()
-    : 'application/octet-stream';
 }
