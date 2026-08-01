@@ -144,6 +144,7 @@ const CHECKLIST: SubmissionChecklist = {
         lastReviewedAt: '2026-08-28T01:00:00.000Z',
         reviewComment: 'Replace the file',
         canResubmit: true,
+        file: null,
       },
     },
   ],
