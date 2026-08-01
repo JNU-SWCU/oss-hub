@@ -61,12 +61,10 @@ describe('DataTable', () => {
         data={rows}
         rowKey={(row) => row.id}
         rowClassName="relative"
-        tableClassName="min-w-2xl"
       />,
     );
 
     expect(html).toMatch(/<tr[^>]*class="[^"]*relative[^"]*"/);
-    expect(html).toMatch(/<table[^>]*class="[^"]*min-w-2xl[^"]*"/);
     expect(html).toMatch(
       /<div[^>]*data-slot="data-table"[^>]*class="[^"]*min-w-0[^"]*"/,
     );

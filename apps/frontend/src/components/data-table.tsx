@@ -31,7 +31,6 @@ interface DataTableProps<TRow> extends Omit<
   loadingSlot?: React.ReactNode;
   emptyState?: React.ReactNode;
   rowClassName?: string;
-  tableClassName?: string;
 }
 
 // 소비 화면이 컬럼·행 데이터를 주입하는 운영 데이터 테이블. 역할별 컬럼·액션 노출
@@ -45,7 +44,6 @@ function DataTable<TRow>({
   loadingSlot,
   emptyState,
   rowClassName,
-  tableClassName,
   className,
   ...props
 }: DataTableProps<TRow>) {
@@ -57,7 +55,7 @@ function DataTable<TRow>({
       className={cn('min-w-0 w-full', className)}
       {...props}
     >
-      <Table className={tableClassName}>
+      <Table>
         {caption ? <TableCaption>{caption}</TableCaption> : null}
         <TableHeader>
           <TableRow>
