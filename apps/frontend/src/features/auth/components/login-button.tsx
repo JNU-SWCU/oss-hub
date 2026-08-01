@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { githubLoginPath, logout } from '../api';
+import { logout } from '../api';
 import { LOGOUT_NOTICE_PARAM } from '../logout-notice';
+import { SIGNUP_ENTRY } from '../signup-entry-link';
 import { refreshSession } from '../session-store';
 import { toAccountMenuSession } from '../session-view';
 import { useSession } from '../use-session';
@@ -83,9 +85,22 @@ export function LoginButtonView({
 
   switch (session.isAuthenticated) {
     case false:
+      // 헤더도 랜딩 본문과 같은 `/signup`으로 보낸다. 여기서만 OAuth로 직행하면
+      // 헤더를 눌러 들어온 방문자는 랜딩에서 막 없앤 막다른 길 — 무슨 일이
+      // 일어나는지도, GitHub 계정이 없을 때 어디로 가야 하는지도 듣지 못한 채
+      // GitHub으로 던져지는 — 을 그대로 다시 만난다. 진입점이 둘이면 목적지는
+      // 하나여야 한다.
+      //
+      // 앱 내부 이동이므로 `Link`다. `<a href>`는 backend 경로(OAuth 시작)를 가리킬
+      // 때만 맞고, 그 자리는 이제 `/signup` 화면 하나뿐이다.
       return (
         <Button asChild variant="ghost">
-          <a href={githubLoginPath}>GitHub으로 로그인</a>
+          <Link href={SIGNUP_ENTRY.href} aria-label={SIGNUP_ENTRY.label}>
+            {/* nav actions는 `shrink-0`이라 좁은 화면에서 메뉴를 파고든다 —
+                640px 미만에서는 짧은 라벨을 쓴다(role-home-link의 nav 링크와 동일). */}
+            <span className="sm:hidden">{SIGNUP_ENTRY.compactLabel}</span>
+            <span className="hidden sm:inline">{SIGNUP_ENTRY.label}</span>
+          </Link>
         </Button>
       );
     case true: {

@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { ArrowRight, LoaderCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { SIGNUP_ENTRY, resolveSessionEntry } from './role-home-link';
+import { SIGNUP_ENTRY } from '@/features/auth/signup-entry-link';
+import { resolveSessionEntry } from './role-home-link';
 import type { AppRole } from './role';
 import { useSessionRole, type SessionStatus } from './use-session-role';
 

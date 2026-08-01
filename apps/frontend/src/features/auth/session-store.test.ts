@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiPath } from '@/lib/api-client';
 import { toAccountMenuSession } from './session-view';
 import type { AuthSession, Me } from './types';
 
@@ -7,7 +6,6 @@ const fetchSession = vi.fn<() => Promise<AuthSession>>();
 
 vi.mock('./api', () => ({
   fetchSession: () => fetchSession(),
-  githubLoginPath: apiPath('auth/github'),
   logout: vi.fn(),
 }));
 

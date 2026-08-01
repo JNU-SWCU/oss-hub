@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { SIGNUP_ENTRY } from '@/features/auth/signup-entry-link';
 import { useSessionRole, type SessionStatus } from './use-session-role';
 import { roleHomePath, type AppRole } from './role';
 import { ADMIN_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
@@ -23,27 +24,12 @@ interface SessionEntry {
 }
 
 /**
- * 가입·로그인 진입. 로그인 수단이 GitHub 하나뿐이라 가입과 로그인이 같은
- * 동작이고, 그래서 진입도 버튼 하나다.
- *
- * 온보딩을 끝내지 못한 사용자(`unassigned`)에게도 **같은** 버튼을 준다. 예전에는
- * 이 자리에 온보딩 입구(`/consent`)로 곧장 가는 별도 행동이 하나 더 있었지만,
- * 사용자 눈에는 둘 다 "들어가기"일 뿐이다 — 재개 지점 판단은 `/signup`이
- * 대신하므로 사용자에게 두 갈래를 고르게 할 이유가 없다.
- */
-export const SIGNUP_ENTRY = {
-  href: '/signup',
-  label: '회원가입 / 로그인',
-  compactLabel: '회원가입',
-} as const satisfies SessionEntry;
-
-/**
  * 랜딩은 항상 볼 수 있게 두고, 세션 상태에 맞는 다음 행동만 nav에 제공한다.
  *
  * 비로그인(`anonymous`)은 여기서 다루지 않는다 — 같은 actions 슬롯의
  * LoginButton이 이미 그 자리를 갖고 있어, 링크를 하나 더 내면 로그인 버튼이 둘이
- * 된다. 랜딩 본문의 주 행동은 `landing-entry-action.tsx`가 `SIGNUP_ENTRY`로 직접
- * 그린다.
+ * 된다. 그 LoginButton도 `SIGNUP_ENTRY`로 보내므로 목적지는 여기와 같다. 랜딩
+ * 본문의 주 행동은 `landing-entry-action.tsx`가 같은 상수로 직접 그린다.
  */
 export function resolveSessionEntry(
   status: SessionStatus,
@@ -57,6 +43,10 @@ export function resolveSessionEntry(
     // 띄우면 모든 화면 상단에 같은 경고가 중복으로 뜬다.
     case 'error':
       return null;
+    // 온보딩을 끝내지 못한 사용자에게도 비로그인 방문자와 **같은** 버튼을 준다.
+    // 예전에는 이 자리에 온보딩 입구(`/consent`)로 곧장 가는 별도 행동이 하나 더
+    // 있었지만, 사용자 눈에는 둘 다 "들어가기"일 뿐이다 — 재개 지점 판단은
+    // `/signup`이 대신하므로 사용자에게 두 갈래를 고르게 할 이유가 없다.
     case 'unassigned':
       return SIGNUP_ENTRY;
     case 'assigned':

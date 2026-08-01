@@ -1,8 +1,14 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import { apiPath } from '@/lib/api-client';
 import { LoginButtonView } from './login-button';
-import { githubLoginPath } from '../api';
 import type { AuthSession } from '../types';
+
+/**
+ * 헤더가 OAuth로 직행하지 않는지 확인할 때 쓰는 경로. auth feature에는 이제 이
+ * 상수가 없으므로(있으면 다시 쓰이게 된다) 경로 빌더로 그 자리에서 만든다.
+ */
+const githubLoginPath = apiPath('auth/github');
 
 const authenticatedSession = {
   isAuthenticated: true,
@@ -35,7 +41,10 @@ describe('LoginButtonView', () => {
     expect(html).toBe('');
   });
 
-  it('익명 세션이면 GitHub 로그인 링크를 렌더한다', () => {
+  // 헤더의 진입 버튼은 랜딩 본문의 주 행동과 같은 곳으로 가야 한다. 헤더만
+  // OAuth로 직행하면 헤더를 눌러 들어온 방문자는 안내 없는 막다른 길을 그대로
+  // 다시 만난다 — 두 진입점이 서로 다른 말을 하는 셈이다.
+  it('익명 세션이면 GitHub이 아니라 가입·로그인 진입(/signup)으로 보낸다', () => {
     // Given
     const session = { isAuthenticated: false } satisfies AuthSession;
 
@@ -51,8 +60,32 @@ describe('LoginButtonView', () => {
     );
 
     // Then
-    expect(html).toContain('GitHub으로 로그인');
-    expect(html).toContain(`href="${githubLoginPath}"`);
+    expect(html).toContain('회원가입 / 로그인');
+    expect(html).toContain('href="/signup"');
+    expect(html).not.toContain(githubLoginPath);
+  });
+
+  // 좁은 nav에서는 짧은 라벨을 쓰되, 스크린리더에는 두 폭 모두에서 같은 전체
+  // 라벨이 읽혀야 한다 — 두 span이 동시에 읽히면 이름이 겹쳐 들린다.
+  it('좁은 화면용 짧은 라벨을 함께 렌더하고 접근성 이름은 전체 라벨로 고정한다', () => {
+    // Given
+    const session = { isAuthenticated: false } satisfies AuthSession;
+
+    // When
+    const html = renderToStaticMarkup(
+      <LoginButtonView
+        session={session}
+        logoutError={null}
+        menuOpen={false}
+        onMenuOpenChange={vi.fn()}
+        onLogout={vi.fn()}
+      />,
+    );
+
+    // Then
+    expect(html).toContain('aria-label="회원가입 / 로그인"');
+    expect(html).toContain('<span class="sm:hidden">회원가입</span>');
+    expect(html).toContain('<span class="hidden sm:inline">회원가입 / 로그인');
   });
 
   it('인증 세션이면 아바타·닉네임 트리거를 렌더하고 닫힌 메뉴는 숨긴다', () => {
@@ -75,7 +108,7 @@ describe('LoginButtonView', () => {
     expect(html).not.toContain('로그인 계정');
     expect(html).not.toContain('설정');
     expect(html).not.toContain('로그아웃');
-    expect(html).not.toContain('GitHub으로 로그인');
+    expect(html).not.toContain('회원가입');
     expect(html).not.toContain('Your profile');
   });
 
