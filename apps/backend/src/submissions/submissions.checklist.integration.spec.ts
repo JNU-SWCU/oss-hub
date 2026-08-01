@@ -292,6 +292,7 @@ describe('SubmissionsService checklist/resubmission integration', () => {
           sizeBytes: 2048,
           lifecycle: SubmissionFileLifecycle.PENDING,
           pendingExpiresAt: new Date('2028-01-01T00:00:00.000Z'),
+          expiresAt: new Date('2028-01-01T00:00:00.000Z'),
         },
         {
           id: 'synthetic-checklist-file-expired',
