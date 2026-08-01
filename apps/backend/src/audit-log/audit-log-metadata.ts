@@ -81,10 +81,12 @@ type AccessAuditEventUnion<Base> =
 
 // schemaVersion 1: 액터 스냅샷만 있고 대상은 targetType/targetId로만 식별된 과거 행이다.
 // 절대 다시 쓰지 않는다 — append-only 원장이므로 이 버전은 읽기 호환 목적으로만 남는다.
-export type AccessAuditMetadataV1 = AccessAuditEventUnion<AccessAuditMetadataBaseV1>;
+export type AccessAuditMetadataV1 =
+  AccessAuditEventUnion<AccessAuditMetadataBaseV1>;
 
 // schemaVersion 2: 액터·대상 모두 이벤트 시점 스냅샷을 기록한다(PR02 target 보강분).
-export type AccessAuditMetadataV2 = AccessAuditEventUnion<AccessAuditMetadataBaseV2>;
+export type AccessAuditMetadataV2 =
+  AccessAuditEventUnion<AccessAuditMetadataBaseV2>;
 
 export type AccessAuditMetadata = AccessAuditMetadataV1 | AccessAuditMetadataV2;
 

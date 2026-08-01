@@ -139,7 +139,11 @@ export class AuditLogRepository implements AuditLogRepositoryPort {
 
 function toAuditLogRecord(log: PrismaAuditLog): AuditLogRecord {
   const evidence = parseAuditLogMetadata(log.metadata);
-  const target = resolveAuditTargetLabel(log.targetType, log.targetId, evidence);
+  const target = resolveAuditTargetLabel(
+    log.targetType,
+    log.targetId,
+    evidence,
+  );
   if (evidence.legacy) {
     return {
       id: log.id,
