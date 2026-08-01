@@ -207,8 +207,8 @@ describe('AdminAccessDetailContentForState — 표준 접근 상세 화면 상�
   });
 });
 
-describe('AdminAccessDetailContentForState — 접근 변경 UI (PR04G)', () => {
-  it('대기 중인 요청이 있으면 승인/반려 버튼을 노출한다', () => {
+describe('AdminAccessDetailContentForState — 접근 변경 드롭다운 (PR04G, 드롭다운으로 정리)', () => {
+  it('대기 중인 요청이 있으면 드롭다운 기본 선택이 요청 승인이고, 부여 항목은 아예 노출하지 않는다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{
@@ -227,12 +227,13 @@ describe('AdminAccessDetailContentForState — 접근 변경 UI (PR04G)', () => 
       />,
     );
 
+    expect(html).toContain('data-slot="select-trigger"');
     expect(html).toContain('요청 승인');
-    expect(html).toContain('요청 반려');
     expect(html).not.toContain('권한 직접 부여');
+    expect(html).not.toContain('계정 비활성화');
   });
 
-  it('대기 중인 요청이 없으면 부여/회수/비활성화 버튼을 노출하고 승인/반려는 숨긴다', () => {
+  it('대기 중인 요청이 없으면 드롭다운 기본 선택이 권한 직접 부여이고, 승인/반려 항목은 아예 노출하지 않는다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{ kind: 'ready', detail: detail(), history: history() }}
@@ -241,14 +242,16 @@ describe('AdminAccessDetailContentForState — 접근 변경 UI (PR04G)', () => 
       />,
     );
 
+    expect(html).toContain('data-slot="select-trigger"');
     expect(html).toContain('권한 직접 부여');
-    expect(html).toContain('권한 회수');
-    expect(html).toContain('계정 비활성화');
-    expect(html).not.toContain('요청 승인');
-    expect(html).not.toContain('요청 반려');
+    // 프로필 카드의 도움말 문구("요청 승인의 전제 조건입니다")에 "요청 승인"이
+    // 부분 문자열로 등장하므로, 드롭다운 선택값 텍스트 노드 경계로 좁혀서
+    // 실제로 승인/반려 항목이 선택돼 있지 않은지 확인한다.
+    expect(html).not.toContain('>요청 승인<');
+    expect(html).not.toContain('>요청 반려<');
   });
 
-  it('비활성 계정이면 재활성화 버튼만 노출하고 비활성화 버튼은 숨긴다', () => {
+  it('비활성 계정이면 드롭다운 기본 선택이 계정 재활성화다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{
@@ -263,6 +266,18 @@ describe('AdminAccessDetailContentForState — 접근 변경 UI (PR04G)', () => 
 
     expect(html).toContain('계정 재활성화');
     expect(html).not.toContain('계정 비활성화');
+  });
+
+  it('실행 버튼은 항상 노출되며 접근 변경 액션을 직접 실행하지 않고 onRequestAction으로 위임한다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{ kind: 'ready', detail: detail(), history: history() }}
+        onRetry={noOp}
+        mutation={mutation()}
+      />,
+    );
+
+    expect(html).toContain('>실행<');
   });
 
   it('REJECT 확인 액션이면 반려 사유 다이얼로그를 렌더링한다', () => {

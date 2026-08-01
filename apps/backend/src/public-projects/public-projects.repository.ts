@@ -32,6 +32,11 @@ export interface PublicUserIdentity {
   readonly userId: string;
   readonly githubNickname: string;
   readonly avatarUrl: string | null;
+  /**
+   * todo 18 — profile 서비스가 `CollectionContributorCumulativeMetricsDto.githubUserId`와
+   * 매칭할 내부 키. 실명·studentId·department·email·role과 달리 응답 DTO에는 노출하지 않는다.
+   */
+  readonly githubId: bigint;
 }
 
 const PROJECT_ROW_SELECT = {
@@ -144,7 +149,7 @@ export class PublicProjectsRepository {
   async findUserIdentity(userId: string): Promise<PublicUserIdentity | null> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, nickname: true, avatarUrl: true },
+      select: { id: true, nickname: true, avatarUrl: true, githubId: true },
     });
     return user === null
       ? null
@@ -152,6 +157,7 @@ export class PublicProjectsRepository {
           userId: user.id,
           githubNickname: user.nickname,
           avatarUrl: user.avatarUrl,
+          githubId: user.githubId,
         };
   }
 }

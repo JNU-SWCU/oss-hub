@@ -25,7 +25,8 @@ import {
 } from '../public-profile-api';
 import type {
   PublicProfile,
-  PublicProfileRepository,
+  PublicProfileMetrics,
+  PublicProfileProject,
   PublicProfileState,
 } from '../public-profile-types';
 
@@ -81,41 +82,77 @@ function NotFoundState() {
   );
 }
 
-function RepositoryCard({
-  repository,
+function activityLabel(project: PublicProfileProject): string {
+  if (!project.observed) return '아직 관측되지 않음';
+  const metrics = project.metrics;
+  if (
+    metrics !== null &&
+    metrics.commitCount === 0 &&
+    metrics.pullRequestCount === 0 &&
+    metrics.releaseCount === 0
+  ) {
+    return '관측됨 · 기여 없음';
+  }
+  return '관측됨';
+}
+
+function ProjectMetricsSummary({
+  metrics,
 }: {
-  readonly repository: PublicProfileRepository;
+  readonly metrics: PublicProfileMetrics;
 }) {
+  return (
+    <dl className="grid grid-cols-3 gap-2 text-center text-sm">
+      <div className="grid gap-0.5">
+        <dt className="text-xs text-muted-foreground">커밋</dt>
+        <dd className="font-medium tabular-nums">{metrics.commitCount}</dd>
+      </div>
+      <div className="grid gap-0.5">
+        <dt className="text-xs text-muted-foreground">PR</dt>
+        <dd className="font-medium tabular-nums">{metrics.pullRequestCount}</dd>
+      </div>
+      <div className="grid gap-0.5">
+        <dt className="text-xs text-muted-foreground">릴리스</dt>
+        <dd className="font-medium tabular-nums">{metrics.releaseCount}</dd>
+      </div>
+    </dl>
+  );
+}
+
+function ProjectCard({ project }: { readonly project: PublicProfileProject }) {
   return (
     <Card className="min-w-0">
       <CardHeader className="gap-3">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-sm text-muted-foreground">
-              {repository.programName} · {repository.modeLabel}
+              {project.programName} · {project.modeLabel}
             </p>
             <CardTitle className="mt-1 break-words">
-              {repository.displayName}
+              {project.displayName}
             </CardTitle>
           </div>
-          <StatusBadge variant="approved">GitHub PUBLIC</StatusBadge>
+          <StatusBadge variant={project.observed ? 'approved' : 'pending'}>
+            {activityLabel(project)}
+          </StatusBadge>
         </div>
       </CardHeader>
       <CardContent className="grid gap-4 text-sm">
         <div className="grid gap-1">
           <span className="text-muted-foreground">저장소</span>
-          <code className="break-all">{repository.repositoryName}</code>
+          <code className="break-all">{project.repositoryName}</code>
         </div>
         <div className="grid gap-1">
           <span className="text-muted-foreground">공개일</span>
-          <time dateTime={repository.publishedAt}>
-            {repository.publishedLabel}
-          </time>
+          <time dateTime={project.publishedAt}>{project.publishedLabel}</time>
         </div>
+        {project.metrics !== null ? (
+          <ProjectMetricsSummary metrics={project.metrics} />
+        ) : null}
       </CardContent>
       <CardFooter>
         <Button asChild size="sm" variant="outline">
-          <Link href={repository.detailUrl}>상세 보기</Link>
+          <Link href={project.detailUrl}>상세 보기</Link>
         </Button>
       </CardFooter>
     </Card>
@@ -152,36 +189,43 @@ function ProfileContent({ profile }: { readonly profile: PublicProfile }) {
       <DetailPanelLayout
         primary={
           <section
-            aria-labelledby="public-profile-repositories"
+            aria-labelledby="public-profile-projects"
             className="grid gap-4"
           >
             <div className="flex items-center gap-2">
               <FolderGit2 aria-hidden="true" className="size-5" />
               <h2
-                id="public-profile-repositories"
+                id="public-profile-projects"
                 className="font-heading text-xl font-semibold"
               >
                 공개 기여 활동
               </h2>
             </div>
-            <CardGrid>
-              {profile.repositories.map((repository) => (
-                <RepositoryCard
-                  key={repository.repositoryId}
-                  repository={repository}
-                />
-              ))}
-            </CardGrid>
+            {profile.projects.length > 0 ? (
+              <CardGrid>
+                {profile.projects.map((project) => (
+                  <ProjectCard key={project.projectId} project={project} />
+                ))}
+              </CardGrid>
+            ) : (
+              <EmptyState
+                icon={<FolderGit2 className="size-8" />}
+                title="공개 프로젝트가 없습니다"
+                description="이 사용자가 참여한 공개 프로젝트가 아직 없습니다."
+              />
+            )}
           </section>
         }
         secondary={
           <Card>
             <CardHeader>
-              <CardTitle>활동 안내</CardTitle>
+              <CardTitle>전체 누적 활동</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="grid gap-4">
+              <ProjectMetricsSummary metrics={profile.observedTotals} />
               <p className="text-sm text-muted-foreground">
-                활동량 안내: 평가·점수·랭킹이 아닙니다
+                활동량 안내: 평가·점수·랭킹이 아닙니다. 관측된 프로젝트의 기여만
+                합산합니다.
               </p>
             </CardContent>
           </Card>
