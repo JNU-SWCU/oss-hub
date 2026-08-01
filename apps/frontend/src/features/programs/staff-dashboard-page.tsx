@@ -267,7 +267,7 @@ export function StaffDashboardPage(): ReactElement {
     <main className="mx-auto grid max-w-6xl gap-6 px-4 py-8">
       <PageHeader
         title="운영 대시보드"
-        description="프로그램 행을 선택해 바로 편집하거나 신청자 목록을 확인합니다."
+        description="프로그램 행에서 바로 편집하거나 신청자를 확인합니다."
       />
 
       <form
