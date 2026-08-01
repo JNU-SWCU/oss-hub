@@ -75,6 +75,25 @@ describe('card components', () => {
     expect(html).toContain('items-center');
   });
 
+  it('stacks a prominent status as its own row until the card is wide enough', () => {
+    const html = renderToStaticMarkup(
+      <ProgramCard
+        period="2026.07 - 2026.08"
+        status={<StatusBadge size="lg">Recruiting</StatusBadge>}
+        statusPlacement="body-center"
+        title="Internship"
+      />,
+    );
+
+    expect(html).toContain('@container/program-card-status');
+    expect(html).toContain('grid-cols-1');
+    expect(html).toContain(
+      '@min-[32rem]/program-card-status:grid-cols-[minmax(0,1fr)_auto]',
+    );
+    expect(html).toContain('@min-[32rem]/program-card-status:items-center');
+    expect(html).toContain('@min-[32rem]/program-card-status:justify-self-end');
+  });
+
   it('renders EmptyState with icon, description, and action slot', () => {
     const html = renderToStaticMarkup(
       <EmptyState

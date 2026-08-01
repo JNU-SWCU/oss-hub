@@ -93,20 +93,20 @@ export function filterAndGroupPrograms(
 
   const groups: readonly ProgramListGroup[] = [
     {
-      key: PROGRAM_GROUPS.SCHEDULED,
-      title: '모집 예정',
-      programs: filtered.filter(
-        (program) =>
-          getProgramRecruitmentState(program, options.now) === 'scheduled',
-      ),
-    },
-    {
       key: PROGRAM_GROUPS.CURRENT_RECRUITING,
       title: '올해 진행 중',
       programs: filtered.filter(
         (program) =>
           programYear(program) === currentYear &&
           getProgramRecruitmentState(program, options.now) === 'recruiting',
+      ),
+    },
+    {
+      key: PROGRAM_GROUPS.SCHEDULED,
+      title: '모집 예정',
+      programs: filtered.filter(
+        (program) =>
+          getProgramRecruitmentState(program, options.now) === 'scheduled',
       ),
     },
     {

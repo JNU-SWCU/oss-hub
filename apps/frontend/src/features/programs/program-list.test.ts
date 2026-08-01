@@ -171,6 +171,82 @@ describe('filterAndGroupPrograms', () => {
     ]);
   });
 
+  it('orders recruiting programs before scheduled programs while preserving per-group deterministic ordering', () => {
+    const seedProgram = programs[0];
+    expect(seedProgram).toBeDefined();
+    if (seedProgram === undefined) return;
+
+    // Given: open and closed programs arrive in an arbitrary API order.
+    const sortedPrograms: readonly ProgramListItem[] = [
+      {
+        ...seedProgram,
+        id: 'scheduled-earliest',
+        name: 'Scheduled earliest',
+        applicationStartAt: '2026-09-01T00:00:00.000Z',
+        applicationEndAt: '2026-09-10T00:00:00.000Z',
+      },
+      {
+        ...seedProgram,
+        id: 'recruiting-same-name-b',
+        name: 'Alpha',
+        applicationEndAt: '2026-08-01T00:00:00.000Z',
+      },
+      {
+        ...seedProgram,
+        id: 'past-program',
+        name: 'Past program',
+        applicationStartAt: '2025-07-01T00:00:00.000Z',
+        applicationEndAt: '2025-08-01T00:00:00.000Z',
+      },
+      {
+        ...seedProgram,
+        id: 'closed-current-program',
+        name: 'Closed current program',
+        applicationStartAt: '2026-01-01T00:00:00.000Z',
+        applicationEndAt: '2026-02-01T00:00:00.000Z',
+      },
+      {
+        ...seedProgram,
+        id: 'recruiting-later',
+        name: 'Bravo',
+        applicationEndAt: '2026-08-30T00:00:00.000Z',
+      },
+      {
+        ...seedProgram,
+        id: 'recruiting-same-name-a',
+        name: 'Alpha',
+        applicationEndAt: '2026-08-01T00:00:00.000Z',
+      },
+    ];
+
+    // When: the list is filtered and grouped for the public program list.
+    const result = filterAndGroupPrograms(sortedPrograms, {
+      search: '',
+      status: 'all',
+      now: new Date('2026-07-21T00:00:00.000Z'),
+    });
+
+    // Then: recruiting appears before scheduled, and each group is stable.
+    expect(
+      result.map(({ key, programs: items }) => [
+        key,
+        items.map(({ id }) => id),
+      ]),
+    ).toEqual([
+      [
+        'current-recruiting',
+        [
+          'recruiting-same-name-a',
+          'recruiting-same-name-b',
+          'recruiting-later',
+        ],
+      ],
+      ['scheduled', ['scheduled-earliest']],
+      ['current-closed', ['closed-current-program']],
+      ['past', ['past-program']],
+    ]);
+  });
+
   it('orders exact same-name and same-deadline programs by canonical id', () => {
     const seedProgram = programs[0];
     expect(seedProgram).toBeDefined();

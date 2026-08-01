@@ -70,12 +70,14 @@ function ProgramCard({
       {...props}
     >
       {statusPlacement === 'body-center' && status ? (
-        <div className="grid flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+        <div className="@container/program-card-status grid flex-1 grid-cols-1 gap-4 @min-[32rem]/program-card-status:grid-cols-[minmax(0,1fr)_auto] @min-[32rem]/program-card-status:items-center">
           <div className="grid gap-(--card-spacing)">
             {header}
             {content}
           </div>
-          <div className="pr-(--card-spacing)">{status}</div>
+          <div className="px-(--card-spacing) @min-[32rem]/program-card-status:justify-self-end @min-[32rem]/program-card-status:pl-0 @min-[32rem]/program-card-status:pr-(--card-spacing)">
+            {status}
+          </div>
         </div>
       ) : (
         <>
