@@ -7,7 +7,7 @@ import { DetailPanelLayout, EmptyState, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArchiveNotFoundError, loadPublicArchiveDetail } from '../api';
+import { ArchiveNotFoundError, loadArchiveDetail } from '../api';
 import type { ArchiveDetail, ArchiveDetailState } from '../types';
 
 type ArchiveDetailContentProps = {
@@ -67,7 +67,7 @@ function DetailContent({ archive }: { readonly archive: ArchiveDetail }) {
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-5 sm:p-8">
       <PageHeader
         title={archive.displayName}
-        description={`${archive.programName} · ${archive.modeLabel}`}
+        description={`${archive.programName} · ${archive.modeLabel} · ${archive.categoryLabel}`}
         actions={
           <Button asChild>
             <a href={archive.githubUrl} target="_blank" rel="noreferrer">
@@ -110,30 +110,28 @@ function DetailContent({ archive }: { readonly archive: ArchiveDetail }) {
                   <ul className="grid gap-3">
                     {archive.contributors.map((contributor) => (
                       <li
-                        key={contributor.userId}
-                        className="flex items-center gap-3"
+                        key={contributor.githubLogin}
+                        className="flex flex-wrap items-center justify-between gap-3"
                       >
-                        {contributor.avatarUrl ? (
-                          // GitHub avatar CDN — next/image remotePatterns 없이 표시한다.
-                          // eslint-disable-next-line @next/next/no-img-element -- 외부 avatar URL
-                          <img
-                            src={contributor.avatarUrl}
-                            alt=""
-                            width={36}
-                            height={36}
-                            className="size-9 rounded-full"
-                          />
-                        ) : (
+                        <a
+                          href={contributor.githubProfileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-2 font-medium hover:underline"
+                        >
                           <span
                             aria-hidden
                             className="flex size-9 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground"
                           >
-                            {contributor.githubNickname
-                              .slice(0, 1)
-                              .toUpperCase()}
+                            {contributor.githubLogin.slice(0, 1).toUpperCase()}
                           </span>
-                        )}
-                        <span>{contributor.githubNickname}</span>
+                          @{contributor.githubLogin}
+                        </a>
+                        <span className="text-xs text-muted-foreground">
+                          커밋 {contributor.commitCount} · PR{' '}
+                          {contributor.pullRequestCount} · 릴리스{' '}
+                          {contributor.releaseCount}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -145,19 +143,31 @@ function DetailContent({ archive }: { readonly archive: ArchiveDetail }) {
         secondary={
           <Card>
             <CardHeader>
-              <CardTitle>활동 요약</CardTitle>
+              <CardTitle>누적 활동</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4">
-              <div className="grid gap-1">
-                <span className="text-sm text-muted-foreground">
-                  승인된 마일스톤 제출
-                </span>
-                <strong className="text-2xl">
-                  {archive.approvedSubmissionCount}
-                </strong>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="grid gap-1">
+                  <span className="text-sm text-muted-foreground">Commit</span>
+                  <strong className="text-2xl">
+                    {archive.metrics.commitCount}
+                  </strong>
+                </div>
+                <div className="grid gap-1">
+                  <span className="text-sm text-muted-foreground">PR</span>
+                  <strong className="text-2xl">
+                    {archive.metrics.pullRequestCount}
+                  </strong>
+                </div>
+                <div className="grid gap-1">
+                  <span className="text-sm text-muted-foreground">Release</span>
+                  <strong className="text-2xl">
+                    {archive.metrics.releaseCount}
+                  </strong>
+                </div>
               </div>
               <p className="text-sm text-muted-foreground">
-                활동량 안내: 평가·점수·랭킹이 아닙니다
+                누적 활동 안내: 평가·점수·랭킹이 아닙니다
               </p>
             </CardContent>
           </Card>
@@ -189,7 +199,7 @@ export function ArchiveDetailView({
   useEffect(() => {
     let active = true;
     setState({ kind: 'loading' });
-    loadPublicArchiveDetail(repositoryId)
+    loadArchiveDetail(repositoryId)
       .then((archive) => {
         if (active) setState({ kind: 'ready', archive });
       })
