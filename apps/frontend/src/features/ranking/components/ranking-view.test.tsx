@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, test, vi } from 'vitest';
-import { RANKING_NOTICE, RANKING_PERIODS, type RankingItem } from '../types';
+import { RANKING_PERIODS, type RankingItem } from '../types';
 import { RankingView } from './ranking-view';
 
 vi.mock('@/components', async (importOriginal) => {
@@ -14,6 +14,7 @@ vi.mock('@/components', async (importOriginal) => {
       rowKey,
       className,
       emptyState,
+      caption,
     }: {
       readonly columns: readonly {
         readonly id: string;
@@ -24,6 +25,7 @@ vi.mock('@/components', async (importOriginal) => {
       readonly rowKey: (item: RankingItem) => React.Key;
       readonly className?: string;
       readonly emptyState?: React.ReactNode;
+      readonly caption?: React.ReactNode;
     }) => (
       <div
         className={className}
@@ -32,6 +34,7 @@ vi.mock('@/components', async (importOriginal) => {
           .join(',')}
         data-row-keys={data.map(rowKey).join(',')}
       >
+        {caption}
         {data.length === 0 ? emptyState : null}
         {data.map((item) => (
           <div key={rowKey(item)}>
@@ -63,7 +66,6 @@ test('선택한 집계 기간과 모바일 레이아웃을 명시한다', () => 
       state={{
         kind: 'ready',
         ranking: {
-          notice: RANKING_NOTICE,
           period: RANKING_PERIODS.THIS_YEAR,
           items: [
             {
@@ -99,6 +101,39 @@ test('선택한 집계 기간과 모바일 레이아웃을 명시한다', () => 
   expect(html).toContain('break-all');
 });
 
+test('표 캡션을 렌더하지 않는다', () => {
+  const html = renderToStaticMarkup(
+    <RankingView
+      period={RANKING_PERIODS.THIS_YEAR}
+      page={1}
+      state={{
+        kind: 'ready',
+        ranking: {
+          period: RANKING_PERIODS.THIS_YEAR,
+          items: [
+            {
+              rank: 1,
+              displayName: 'mina',
+              githubLogin: 'mina',
+              commitCount: 1,
+              prCount: 0,
+              releaseCount: 0,
+              total: 1,
+            },
+          ],
+          page: 1,
+          pageSize: 20,
+          total: 1,
+        },
+      }}
+      {...handlers}
+    />,
+  );
+
+  expect(html).not.toContain('sr-only');
+  expect(html).not.toContain('공개 GitHub 활동 랭킹');
+});
+
 test('빈 상태와 오류 재시도 상태를 사용자에게 표시한다', () => {
   const empty = renderToStaticMarkup(
     <RankingView
@@ -107,7 +142,6 @@ test('빈 상태와 오류 재시도 상태를 사용자에게 표시한다', ()
       state={{
         kind: 'ready',
         ranking: {
-          notice: RANKING_NOTICE,
           period: RANKING_PERIODS.THIS_YEAR,
           items: [],
           page: 1,
@@ -129,12 +163,14 @@ test('빈 상태와 오류 재시도 상태를 사용자에게 표시한다', ()
 
   expect(empty).toContain('집계된 활동 데이터가 없습니다');
   expect(failure).toContain('다시 시도');
-  expect(failure).not.toContain(RANKING_NOTICE);
+  expect(failure).not.toContain(
+    '본 랭킹은 공개 GitHub 활동량 집계이며 평가·시상과 무관합니다.',
+  );
   expect(failure).not.toContain('data-row-keys');
   expect(failure).not.toContain('표시할 데이터가 없습니다.');
 });
 
-test('Release 집계 기준을 사용자에게 설명한다', () => {
+test('집계 안내 문구를 더 이상 화면에 표시하지 않는다', () => {
   const html = renderToStaticMarkup(
     <RankingView
       period={RANKING_PERIODS.THIS_YEAR}
@@ -144,7 +180,11 @@ test('Release 집계 기준을 사용자에게 설명한다', () => {
     />,
   );
 
-  expect(html).toContain(
+  expect(html).not.toContain('집계 안내');
+  expect(html).not.toContain(
+    '본 랭킹은 공개 GitHub 활동량 집계이며 평가·시상과 무관합니다.',
+  );
+  expect(html).not.toContain(
     'Release는 해당 기간에 게시된 GitHub 릴리스 수입니다.',
   );
 });
@@ -157,7 +197,6 @@ test('GitHub 로그인이 같아도 순위가 다른 행에 고유 키를 사용
       state={{
         kind: 'ready',
         ranking: {
-          notice: RANKING_NOTICE,
           period: RANKING_PERIODS.THIS_YEAR,
           items: [
             {
@@ -212,7 +251,6 @@ test('outcome-1: 발행 전 프로젝트의 기여자는 다른 참여자가 랭
       state={{
         kind: 'ready',
         ranking: {
-          notice: RANKING_NOTICE,
           period: RANKING_PERIODS.ALL,
           items: [
             {
@@ -246,7 +284,6 @@ test('outcome-2: 발행 후 관측된 저장소의 기여자 2명이 각자의 �
       state={{
         kind: 'ready',
         ranking: {
-          notice: RANKING_NOTICE,
           period: RANKING_PERIODS.ALL,
           items: [
             {
@@ -293,7 +330,6 @@ test('outcome-4: 발행 이전 stale 관측 때문에 아카이브에는 여전�
       state={{
         kind: 'ready',
         ranking: {
-          notice: RANKING_NOTICE,
           period: RANKING_PERIODS.ALL,
           items: [
             {
@@ -327,7 +363,6 @@ test('outcome-5: 발행 후 비공개로 전환(회수)된 기여자는 이전�
       state={{
         kind: 'ready',
         ranking: {
-          notice: RANKING_NOTICE,
           period: RANKING_PERIODS.ALL,
           items: [
             {
@@ -357,7 +392,6 @@ test('outcome-5: 발행 후 비공개로 전환(회수)된 기여자는 이전�
       state={{
         kind: 'ready',
         ranking: {
-          notice: RANKING_NOTICE,
           period: RANKING_PERIODS.ALL,
           items: [],
           page: 1,
