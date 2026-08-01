@@ -44,6 +44,18 @@ describe('SignupEntryView', () => {
     expect(renderInvite()).toContain('계정이 하나 더');
   });
 
+  // 다음 화면(`/consent`)이 항목별로 전문까지 붙여 묻는 내용을 여기서 미리
+  // 늘어놓으면, 같은 얘기를 두 번 하면서 이 화면의 본래 용건인 계정 안내를
+  // 아래로 밀어낸다. 예고 한 줄만 남기고 본문은 동의 화면에 맡긴다.
+  it('동의 항목 설명은 다음 화면에 맡기고 예고만 한다', () => {
+    const html = renderInvite();
+
+    expect(html).toContain('다음 화면에서 약관에 동의');
+    expect(html).not.toContain('보유 기간');
+    expect(html).not.toContain('소속·학과·학번');
+    expect(html).not.toContain('커밋 메시지');
+  });
+
   it('안내는 조작 높이 44px(h-control)를 그대로 쓴다', () => {
     // Button은 size와 무관하게 h-control(44px)이다 — 자체 높이를 덮어쓰지 않았는지만 본다.
     expect(renderInvite()).not.toContain('h-[');

@@ -23,6 +23,15 @@ import {
 
 /**
  * 가입·로그인 안내 본문. 세션을 읽지 않는 순수 표현이라 그대로 렌더해 검증한다.
+ *
+ * 이 화면은 **여기가 아니면 아무도 말해 주지 않는 것만** 말한다. 수집 항목·목적·
+ * 보유 기간·거부권은 바로 다음 화면(`/consent`)이 항목별로, 전문 링크까지 붙여
+ * 다시 묻는다. 그걸 여기서 미리 늘어놓으면 같은 얘기를 두 번 하는 셈이고, 정작
+ * 이 화면이 존재하는 이유인 "GitHub 계정이 없는 사람 안내"가 그 아래로 밀린다.
+ *
+ * 다만 "계정이 하나 더 생기지 않는다"는 한 줄은 남긴다. 로그인 수단이 GitHub
+ * 하나뿐이라 이 화면이 가입과 로그인을 겸하는데, 그 사실을 말해 주는 자리가
+ * 제품에 여기밖에 없다 — 동의 화면은 이미 들어온 사람에게 말하는 자리라 늦다.
  */
 export function SignupInviteView() {
   return (
@@ -37,38 +46,16 @@ export function SignupInviteView() {
           <CardHeader>
             <CardTitle>GitHub 계정으로 계속합니다</CardTitle>
             <CardDescription>
-              GitHub 인증 화면으로 이동했다가 다시 이곳으로 돌아옵니다.
+              GitHub 인증 화면으로 이동했다가 다시 이곳으로 돌아옵니다. 돌아오면
+              다음 화면에서 약관에 동의하고 가입을 마칩니다.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
-            <ul className="flex flex-col gap-3 text-body">
-              <li>
-                이 서비스를 쓰신 적이 있다면{' '}
-                <strong>쓰시던 계정으로 그대로</strong> 들어옵니다. 같은 GitHub
-                계정으로 계정이 하나 더 만들어지지 않습니다.
-              </li>
-              <li>
-                가입하면 <strong>소속·학과·학번·이름·연락처</strong>를 받습니다.
-                전남대학교 소프트웨어중심대학사업단의{' '}
-                <strong>프로그램 운영과 이수 관리</strong>에 쓰는 항목입니다.
-              </li>
-              <li>
-                로그인한 뒤에는 JNU-SWCU Org 저장소에서의 활동 — 저장소의
-                식별자와 공개 여부, 활동 시각과 종류, 저장소 단위 집계값 — 을
-                함께 봅니다. 소스 코드·커밋 메시지·이메일 같은 내용은 저장하지
-                않고, 개인 계정이 소유한 저장소는 수집 대상이 아닙니다.
-              </li>
-              <li>
-                보유 기간은{' '}
-                <strong>동의한 시점부터 위 목적이 끝나는 시점까지</strong>
-                이고, 동의는 거부하실 수 있습니다. 다만 거부하시면 프로그램
-                참여가 제한될 수 있습니다.
-              </li>
-              <li>
-                수집·제공 범위의 전문은 다음 화면에서 항목별로 확인한 뒤
-                동의합니다.
-              </li>
-            </ul>
+            <p className="text-body">
+              이 서비스를 쓰신 적이 있다면{' '}
+              <strong>쓰시던 계정으로 그대로</strong> 들어옵니다. 같은 GitHub
+              계정으로 계정이 하나 더 만들어지지 않습니다.
+            </p>
             <Button asChild className="self-start" size="lg">
               <a href={githubLoginPath}>
                 GitHub으로 계속하기
