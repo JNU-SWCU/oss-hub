@@ -205,8 +205,9 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
                 }
                 key={program.id}
                 period={formatApplicationPeriod(program)}
+                statusPlacement="body-center"
                 status={
-                  <StatusBadge variant={badge.variant}>
+                  <StatusBadge size="lg" variant={badge.variant}>
                     {badge.label}
                   </StatusBadge>
                 }
