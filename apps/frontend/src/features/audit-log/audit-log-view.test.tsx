@@ -91,6 +91,7 @@ describe('AuditLogView', () => {
             action: 'STAFF_ROLE_REQUEST_APPROVED',
             targetType: 'ROLE_REQUEST',
             targetId: 'request-1',
+            target: 'synthetic-target',
             occurredAt: '2026-07-24T03:00:00.000Z',
           },
         ]}
@@ -101,9 +102,46 @@ describe('AuditLogView', () => {
 
     expect(html).toContain('synthetic-admin');
     expect(html).toContain('STAFF_ROLE_REQUEST_APPROVED');
+    expect(html).toContain('synthetic-target');
     expect(html).toContain('ROLE_REQUEST');
     expect(html).toContain('request-1');
     expect(html).toContain('표를 좌우로 스크롤할 수 있습니다');
+  });
+
+  it('대상 열에 사람이 읽을 수 있는 라벨과 targetType/targetId를 함께 표시한다', () => {
+    const html = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[
+          {
+            id: 'audit-v2',
+            actor: 'synthetic-admin',
+            action: 'USER_ROLE_CHANGED',
+            targetType: 'USER',
+            targetId: 'cms8fwpv0000synthetic',
+            target: 'synthetic-target-login',
+            occurredAt: '2026-07-24T03:00:00.000Z',
+          },
+          {
+            id: 'audit-legacy',
+            actor: 'synthetic-admin',
+            action: 'STAFF_ROLE_REQUEST_APPROVED',
+            targetType: 'ROLE_REQUEST',
+            targetId: 'request-legacy',
+            target: 'ROLE_REQUEST / request-legacy',
+            occurredAt: '2026-07-24T03:00:00.000Z',
+          },
+        ]}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+
+    // schemaVersion 2 행: 대상의 GitHub 로그인을 주 라벨로, type/id를 보조로 표시한다.
+    expect(html).toContain('synthetic-target-login');
+    expect(html).toContain('USER / cms8fwpv0000synthetic');
+    // v1/legacy 행: 폴백 라벨(targetType / targetId)이 그대로 주 라벨이 된다.
+    expect(html).toContain('ROLE_REQUEST / request-legacy');
   });
 
   it('필터 이름을 각 컨트롤과 연결한다', () => {
@@ -223,6 +261,7 @@ describe('AuditLogView', () => {
             action: 'STAFF_ROLE_REQUEST_APPROVED',
             targetType: 'ROLE_REQUEST',
             targetId: 'request-1',
+            target: 'synthetic-target',
             occurredAt: '2026-07-24T03:00:00.000Z',
           },
         ]}
