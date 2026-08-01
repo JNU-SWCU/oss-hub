@@ -28,43 +28,6 @@ import { ProviderRequestQueue } from './collection-provider-queue';
  * fixed here.
  */
 
-/**
- * KNOWN PRODUCTION DEFECT (reported, not fixed here — see final summary):
- * `requestFingerprintKey()` in `./collection-app.frontier` joins its fields
- * with a literal NUL byte (`.join('\x00')`) instead of a printable
- * separator. Every commit/PR/release stream checkpoint persists this value
- * into `CollectionRepositoryStream.requestFingerprint`, a Postgres text
- * column — and Postgres unconditionally rejects NUL bytes in text
- * (`invalid byte sequence for encoding "UTF8": 0x00`), so *every* stream
- * checkpoint write fails against a real database, for every repository. This
- * is invisible to the existing unit spec (`collection-app.frontier.spec.ts`)
- * because it only compares two fingerprint-key strings for equality in
- * memory and never persists them. Left as-is (not fixed) per scope, and
- * mocked here to a safe separator purely so the rest of this suite's
- * acceptance criteria — which are orthogonal to this defect — can still run
- * against a real database.
- */
-jest.mock('./collection-app.frontier', () => {
-  const actual: typeof import('./collection-app.frontier') = jest.requireActual(
-    './collection-app.frontier',
-  );
-  return {
-    ...actual,
-    requestFingerprintKey: (
-      fingerprint: import('./collection-app.frontier').RequestFingerprint,
-    ): string =>
-      [
-        fingerprint.endpoint,
-        fingerprint.ref ?? '',
-        fingerprint.query,
-        fingerprint.order ?? '',
-        String(fingerprint.pageSize),
-        fingerprint.accept,
-        fingerprint.apiVersion,
-      ].join(' '),
-  };
-});
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
