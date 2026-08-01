@@ -110,18 +110,10 @@ const STAFF_DASHBOARD_FIXTURE = {
   ],
 } as const satisfies StaffDashboardSummary;
 
-// 감사 로그 화면 DTO(AuditLogRecord)는 7키지만, 백엔드
-// (apps/backend/src/audit-log/audit-log.repository.ts)가 실제로 내려주는 wire record는
-// 판별 필드 legacy·metadata까지 포함한 9키다. 감사 로그 응답 파서
-// (features/audit-log/parser.ts의 parseAuditLogPage)는 이 9키를 exact key로 검증하고
-// 하나라도 어긋나면 던지므로, fixture가 화면 DTO만 흉내 내면 HTTP는 200인데 화면은
-// "감사 로그를 불러오지 못했습니다"·총 0건으로 죽는다. 그래서 fixture는 화면이 쓰는
-// 모양이 아니라 backend wire 계약 쪽을 미러링한다.
-//
-// wire fixture 원본은 features/audit-log/fixtures.ts지만 이 브랜치에는 그 모듈이 아직
-// 없어 import하지 못하고 같은 shape을 여기서 재현한다. metadata는 화면에 흘러가지 않고
-// 파서가 파싱 즉시 버리는 값이라 synthetic 값만 담는다(docs/rules/security.md의
-// public-safe 규칙: 실명·학번 금지).
+// 화면 DTO(AuditLogRecord)는 7키지만 backend 가 내려주는 wire record 는 판별 필드
+// legacy·metadata 까지 9키다. 파서가 9키를 exact key 로 검증해 하나만 어긋나도
+// 던지므로, fixture 가 화면 DTO 만 흉내 내면 HTTP 는 200인데 화면은 "감사 로그를
+// 불러오지 못했습니다"·총 0건으로 죽는다. 그래서 wire 계약 쪽을 미러링한다.
 type AuditLogWireRecord = AuditLogRecord & {
   readonly legacy: boolean;
   readonly metadata: Record<string, unknown> | null;
