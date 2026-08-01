@@ -459,9 +459,14 @@ model Repository {
 
   @@index([programId])
   @@index([teamId])
+  /// todo 16 — `GET /projects` 목록 커서 페이지네이션(publishedAt desc, id desc)이 이 인덱스를 쓴다.
+  @@index([visibility, publishedAt, id])
 }
 
 /// 공개 쿼리는 이 두 테이블만 조회한다(#126/#134); private 원본 join 금지.
+/// todo 16 — ADR-003 공개 strict-read 예외 이후 신규 공개 read(`public-projects` 모듈)는
+/// 이 규칙 대상이 아니다 — 전용 repository가 명시적 select로 `Repository` 원본을 직접 읽는다.
+/// 이 두 테이블은 todo 20까지 유지되는 레거시 writer(`ShowcaseProjectionService`) 전용으로 남는다.
 model PublicShowcaseRepository {
   repositoryId            String          @id
   githubRepositoryId      BigInt          @unique
