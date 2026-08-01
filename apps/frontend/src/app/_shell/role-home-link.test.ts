@@ -13,7 +13,7 @@ describe('resolveSessionEntry', () => {
   it.each([
     ['STUDENT', '/dashboard', '내 대시보드'],
     ['STAFF', '/staff/dashboard', '운영 대시보드'],
-    ['ADMIN', '/admin/staff-requests', '교직원 승인'],
+    ['ADMIN', '/admin/access', '관리 콘솔'],
   ] as const)(
     'role이 확정된(assigned) %s는 role 홈 경로를 반환한다',
     (role, href, label) => {

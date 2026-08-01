@@ -32,6 +32,7 @@ export interface OwnedStudentApplication {
   readonly answers: Prisma.JsonValue;
   readonly submittedAt: Date;
   readonly updatedAt: Date;
+  readonly isRepositoryPublicationPlanned: boolean;
 }
 
 export interface UpdatePendingApplicationRecord {
@@ -65,6 +66,7 @@ export interface StudentApplicationView {
   readonly answers: ApplicationAnswers;
   readonly submittedAt: Date;
   readonly updatedAt: Date;
+  readonly isRepositoryPublicationPlanned: boolean;
   readonly canEdit: boolean;
   readonly canCancel: boolean;
 }
@@ -206,6 +208,8 @@ export class StudentApplicationManagementService {
       answers: answers.answers,
       submittedAt: application.submittedAt,
       updatedAt: application.updatedAt,
+      isRepositoryPublicationPlanned:
+        application.isRepositoryPublicationPlanned,
       canEdit: editable,
       canCancel: editable,
     };

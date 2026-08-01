@@ -1,4 +1,4 @@
-﻿import { apiClient, ApiError } from '@/lib/api-client';
+import { apiClient, ApiError } from '@/lib/api-client';
 import { getMyTeam, getProgramDetail, listApplicationTemplates } from './api';
 import {
   resolveApplyBlockedReason,
@@ -110,6 +110,8 @@ export async function loadProgramApplyContext(
         initialValues: {
           title: application.answers.title,
           summary: application.answers.summary,
+          isRepositoryPublicationPlanned:
+            application.isRepositoryPublicationPlanned,
         },
       };
     }
@@ -131,7 +133,11 @@ export async function loadProgramApplyContext(
       teamId,
       applicationId: null,
       canCancel: false,
-      initialValues: { title: '', summary: '' },
+      initialValues: {
+        title: '',
+        summary: '',
+        isRepositoryPublicationPlanned: true,
+      },
     };
   } catch (error: unknown) {
     if (error instanceof ApiError && error.problem.status === 404) {

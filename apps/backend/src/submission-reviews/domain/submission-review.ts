@@ -29,11 +29,21 @@ export interface SubmissionReviewRecord {
   readonly reviewedAt: Date;
 }
 
+export interface SubmissionReviewFileRecord {
+  readonly fileId: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly size: number;
+  readonly expiresAt: Date;
+  readonly downloadUrl: string;
+}
+
 export interface SubmissionRevisionRecord {
   readonly number: number;
   readonly content: Prisma.JsonValue;
   readonly comment: string | null;
   readonly submittedAt: Date;
+  readonly files: readonly SubmissionReviewFileRecord[];
   readonly review: SubmissionReviewRecord | null;
 }
 
@@ -82,6 +92,8 @@ export interface RepositoryPublishEligibility {
   readonly visibility: RepositoryVisibility;
   readonly provisionStatus: RepositoryProvisionJobStatus | null;
   readonly requiredMilestonesApproved: boolean;
+  readonly isRepositoryPublicationPlanned: boolean;
+  readonly programEndAt: Date | null;
 }
 
 export interface RepositoryPublishResult {

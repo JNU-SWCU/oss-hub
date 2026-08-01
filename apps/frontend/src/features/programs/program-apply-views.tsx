@@ -1,10 +1,10 @@
-﻿import Link from 'next/link';
+import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
 import { EmptyState, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FieldError } from '@/components/ui/field';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { ApplicationConfirmationDialog } from './application-confirmation-dialog';
 import { FormRenderer } from './form-renderer';
 import type {
@@ -110,6 +110,7 @@ interface ProgramApplyFormViewProps {
   readonly confirmation: ApplicationConfirmation;
   readonly submitting: boolean;
   readonly onChange: (key: keyof ProgramApplyFormValues, value: string) => void;
+  readonly onTogglePublicationPlanned: (checked: boolean) => void;
   readonly onRequestSubmit: () => void;
   readonly onRequestCancel: () => void;
   readonly onCloseConfirmation: () => void;
@@ -129,6 +130,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     confirmation,
     submitting,
     onChange,
+    onTogglePublicationPlanned,
     onRequestSubmit,
     onRequestCancel,
     onCloseConfirmation,
@@ -173,6 +175,22 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
           />
           {errors.title ? <FieldError>{errors.title}</FieldError> : null}
           {errors.summary ? <FieldError>{errors.summary}</FieldError> : null}
+          <Field orientation="horizontal">
+            <input
+              id="repository-publication-planned"
+              type="checkbox"
+              checked={values.isRepositoryPublicationPlanned}
+              disabled={mode === 'edit'}
+              onChange={(event) =>
+                onTogglePublicationPlanned(event.target.checked)
+              }
+            />
+            <FieldLabel htmlFor="repository-publication-planned">
+              {mode === 'edit'
+                ? '제출 시 선택한 저장소 공개 예정 여부'
+                : '선정 시 저장소를 공개할 예정입니다'}
+            </FieldLabel>
+          </Field>
           {serverError ? (
             <Alert variant="destructive">
               <AlertTitle>저장 실패</AlertTitle>

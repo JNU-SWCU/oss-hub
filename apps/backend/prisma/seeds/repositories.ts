@@ -44,6 +44,9 @@ async function ensureProgram(stats: SeedStats): Promise<void> {
           applicationTemplateVersion: 1,
           applicationStartAt: offsetDays(-40),
           applicationEndAt: offsetDays(40),
+          // todo 20 — 수동 공개 게이트가 endAt 경과를 요구한다: 시드는 이미 종료된 프로그램이어야
+          // repo-job-succeeded 시나리오가 공개 가능 상태로 남는다.
+          endAt: offsetDays(-1),
           repositoryProvisioningEnabled: true,
           description: '#110 시드 fixture — repositories profile 전용',
         },

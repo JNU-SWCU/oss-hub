@@ -4,7 +4,6 @@ import {
   type CollectionReadPort,
 } from '../collection/collection-read.port';
 import {
-  RANKING_NOTICE,
   RANKING_PERIODS,
   type RankingEntry,
   type RankingPage,
@@ -41,7 +40,6 @@ export class RankingService {
     const entries = await this.findEntries(period, now);
     const start = (page - 1) * pageSize;
     return {
-      notice: RANKING_NOTICE,
       period,
       items: entries.slice(start, start + pageSize),
       page,
@@ -80,7 +78,7 @@ export class RankingService {
     period: RankingPeriod,
     currentYear: number,
   ): Promise<readonly RankingEntry[]> {
-    const activity = await this.collection.findRankingActivity(
+    const activity = await this.collection.getPublicRankingMetrics(
       period === RANKING_PERIODS.THIS_YEAR ? { currentYear } : {},
     );
 

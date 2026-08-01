@@ -20,6 +20,7 @@ function context(overrides?: Partial<ReviewContext>): ReviewContext {
       content: { repositoryUrl: 'https://example.com/repository' },
       comment: '수정했습니다.',
       submittedAt: '2026-09-27T01:00:00.000Z',
+      files: [],
       review: null,
     },
     history: [],
@@ -105,6 +106,7 @@ describe('SubmissionReviewView', () => {
         content: {},
         comment: null,
         submittedAt: '2026-09-27T01:00:00.000Z',
+        files: [],
         review: {
           id: 'review-approved',
           decision: 'APPROVED',
@@ -133,6 +135,7 @@ describe('SubmissionReviewView', () => {
         content: {},
         comment: null,
         submittedAt: '2026-09-27T01:00:00.000Z',
+        files: [],
         review: {
           id: 'review-changes-requested',
           decision: 'CHANGES_REQUESTED',

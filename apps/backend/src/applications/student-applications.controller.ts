@@ -1,4 +1,4 @@
-﻿import {
+import {
   Body,
   Controller,
   Delete,
@@ -28,6 +28,7 @@ interface StudentApplicationResponse {
   readonly answers: StudentApplicationView['answers'];
   readonly submittedAt: string;
   readonly updatedAt: string;
+  readonly isRepositoryPublicationPlanned: boolean;
   readonly canEdit: boolean;
   readonly canCancel: boolean;
 }

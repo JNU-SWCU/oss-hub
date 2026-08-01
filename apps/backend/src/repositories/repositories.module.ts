@@ -1,13 +1,14 @@
 import { Module } from '@nestjs/common';
+import { AuditLogModule } from '../audit-log/audit-log.module';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthModule } from '../auth/auth.module';
-import { ShowcaseModule } from '../showcase/showcase.module';
 import { RepositoriesController } from './repositories.controller';
 import { GithubAppClient } from './github-app.client';
 import { GithubAppTokenProvider } from './github-app.token';
 import { GithubOperationsConfig } from './github-operations.config';
 import { RepositoriesRepository } from './repositories.repository';
-import { ShowcaseProjectionService } from '../showcase/showcase-projection.service';
 import { RepositoriesService } from './repositories.service';
+import { REPOSITORIES_READ_PORT } from './repositories-read.port';
 import { RepositoryOutboxConsumer } from './repository-outbox.consumer';
 import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
 import { RepositoryProvisionScheduler } from './repository-provision.scheduler';
@@ -15,7 +16,7 @@ import { RepositoryProvisionStateRepository } from './repository-provision-state
 import { RepositoryProvisionWorker } from './repository-provision.worker';
 
 @Module({
-  imports: [AuthModule, ShowcaseModule],
+  imports: [AuthModule, AuditLogModule],
   controllers: [RepositoriesController],
   providers: [
     GithubOperationsConfig,
@@ -51,17 +52,17 @@ import { RepositoryProvisionWorker } from './repository-provision.worker';
     },
     {
       provide: RepositoriesService,
-      inject: [
-        RepositoriesRepository,
-        GithubAppClient,
-        ShowcaseProjectionService,
-      ],
+      inject: [RepositoriesRepository, GithubAppClient, AuditLogService],
       useFactory: (
         repository: RepositoriesRepository,
         github: GithubAppClient,
-        showcase: ShowcaseProjectionService,
+        auditLog: AuditLogService,
       ): RepositoriesService =>
-        new RepositoriesService(repository, github, showcase),
+        new RepositoriesService(repository, github, auditLog),
+    },
+    {
+      provide: REPOSITORIES_READ_PORT,
+      useExisting: RepositoriesService,
     },
     {
       provide: RepositoryProvisionScheduler,
@@ -73,6 +74,6 @@ import { RepositoryProvisionWorker } from './repository-provision.worker';
         new RepositoryProvisionScheduler(outbox, worker),
     },
   ],
-  exports: [RepositoriesService],
+  exports: [RepositoriesService, REPOSITORIES_READ_PORT],
 })
 export class RepositoriesModule {}

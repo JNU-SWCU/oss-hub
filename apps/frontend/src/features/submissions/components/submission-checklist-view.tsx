@@ -1,9 +1,11 @@
 import Link from 'next/link';
+import { Download, FileText } from 'lucide-react';
 import { EmptyState, StatusBadge } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { formatFileSize } from '@/lib/format-file-size';
 import {
   CHECKLIST_STATUS_LABELS,
   CHECKLIST_STATUS_VARIANTS,
@@ -18,6 +20,7 @@ import type {
 } from '../submission-form';
 import type {
   ChecklistSubmission,
+  SubmissionFileMetadata,
   SubmissionChecklist,
   SubmissionChecklistItem,
 } from '../types';
@@ -44,12 +47,15 @@ export interface SubmissionChecklistViewProps {
   readonly input: SubmissionFormInput;
   readonly comment: string;
   readonly errors: SubmissionFormErrors;
+  readonly fileError: string | null;
   readonly serverError: string | null;
   readonly staleNotice: string | null;
   readonly toastMessage: string | null;
   readonly submitting: boolean;
+  readonly submissionPhase: 'uploading' | 'creating' | null;
   readonly onTextChange: (value: string) => void;
   readonly onReleaseUrlChange: (value: string) => void;
+  readonly onFileChange: (file: File | null) => void;
   readonly onCommentChange: (value: string) => void;
   readonly onResubmit: () => void;
 }
@@ -63,7 +69,7 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
     <main className="mx-auto grid max-w-3xl gap-6 px-4 py-8">
       <header className="grid gap-1">
         <h1 className="text-2xl font-bold tracking-tight">제출 체크리스트</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground [word-break:keep-all]">
           마일스톤별 제출 상태를 확인하고, 보완 요청을 받은 제출을 재제출할 수
           있습니다.
         </p>
@@ -136,9 +142,14 @@ function ChecklistRow({
           </StatusBadge>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center justify-between gap-2">
-          <StatusBadge variant={CHECKLIST_STATUS_VARIANTS[status]}>
-            {CHECKLIST_STATUS_LABELS[status]}
-          </StatusBadge>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <StatusBadge variant={CHECKLIST_STATUS_VARIANTS[status]}>
+              {CHECKLIST_STATUS_LABELS[status]}
+            </StatusBadge>
+            {item.submission?.file ? (
+              <SubmissionFileLink file={item.submission.file} compact />
+            ) : null}
+          </div>
           <Button asChild size="sm" variant="outline">
             {status === 'NOT_SUBMITTED' ? (
               <Link href={submitHref(programId, item.milestoneId)}>
@@ -250,55 +261,60 @@ function ResubmissionForm(
           </dd>
         </div>
       </dl>
-      {item.submissionType === 'FILE' ? (
-        <Alert>
-          <AlertTitle>지금은 재제출할 수 없습니다</AlertTitle>
-          <AlertDescription>
-            파일 제출은 현재 지원하지 않습니다.
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <form
-          className="grid gap-5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            props.onResubmit();
-          }}
-        >
-          <SubmissionInput
-            submissionType={item.submissionType}
-            repositoryUrl={null}
-            input={props.input}
-            errors={props.errors}
-            onTextChange={props.onTextChange}
-            onReleaseUrlChange={props.onReleaseUrlChange}
+      <form
+        className="grid gap-5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          props.onResubmit();
+        }}
+      >
+        <SubmissionInput
+          submissionType={item.submissionType}
+          repositoryUrl={null}
+          input={props.input}
+          errors={props.errors}
+          disabled={props.submitting}
+          file={props.input.file}
+          fileError={props.fileError}
+          onTextChange={props.onTextChange}
+          onReleaseUrlChange={props.onReleaseUrlChange}
+          onFileChange={props.onFileChange}
+        />
+        <Field>
+          <FieldLabel htmlFor="resubmission-comment">제출 코멘트</FieldLabel>
+          <textarea
+            id="resubmission-comment"
+            value={props.comment}
+            maxLength={2000}
+            disabled={props.submitting}
+            aria-describedby="resubmission-comment-description"
+            onChange={(event) => props.onCommentChange(event.target.value)}
+            className="min-h-28 w-full resize-y rounded-lg border border-input bg-transparent p-3 text-sm leading-6 transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
           />
-          <Field>
-            <FieldLabel htmlFor="resubmission-comment">제출 코멘트</FieldLabel>
-            <textarea
-              id="resubmission-comment"
-              value={props.comment}
-              maxLength={2000}
-              aria-describedby="resubmission-comment-description"
-              onChange={(event) => props.onCommentChange(event.target.value)}
-              className="min-h-28 w-full resize-y rounded-lg border border-input bg-transparent p-3 text-sm leading-6 transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            />
-            <FieldDescription id="resubmission-comment-description">
-              선택 입력 · 최대 2,000자
-            </FieldDescription>
-          </Field>
-          <div className="flex flex-wrap justify-between gap-3">
-            <Button asChild variant="outline">
-              <Link href={checklistHref(props.programId)}>취소</Link>
-            </Button>
-            <Button type="submit" disabled={props.submitting}>
-              {props.submitting
-                ? '제출 중…'
-                : `revision ${submission.currentRevision + 1} 제출`}
-            </Button>
-          </div>
-        </form>
-      )}
+          <FieldDescription id="resubmission-comment-description">
+            선택 입력 · 최대 2,000자
+          </FieldDescription>
+        </Field>
+        {props.submissionPhase ? (
+          <p role="status" aria-live="polite" className="text-sm">
+            {props.submissionPhase === 'uploading'
+              ? '파일 업로드 중…'
+              : '제출 정보 저장 중…'}
+          </p>
+        ) : null}
+        <div className="flex flex-wrap justify-between gap-3">
+          <Button asChild variant="outline">
+            <Link href={checklistHref(props.programId)}>취소</Link>
+          </Button>
+          <Button type="submit" disabled={props.submitting}>
+            {props.submitting
+              ? props.submissionPhase === 'uploading'
+                ? '업로드 중…'
+                : '제출 중…'
+              : `revision ${submission.currentRevision + 1} 제출`}
+          </Button>
+        </div>
+      </form>
     </PanelCard>
   );
 }
@@ -338,6 +354,14 @@ function ReviewMeta({
 }) {
   return (
     <dl className="grid gap-2 text-sm sm:grid-cols-2">
+      {submission.file !== null ? (
+        <div className="sm:col-span-2">
+          <dt className="font-medium">제출 파일</dt>
+          <dd className="mt-1">
+            <SubmissionFileLink file={submission.file} />
+          </dd>
+        </div>
+      ) : null}
       {submission.reviewComment !== null ? (
         <div>
           <dt className="font-medium">교직원 코멘트</dt>
@@ -355,6 +379,37 @@ function ReviewMeta({
         </div>
       ) : null}
     </dl>
+  );
+}
+
+function SubmissionFileLink({
+  file,
+  compact = false,
+}: {
+  readonly file: SubmissionFileMetadata;
+  readonly compact?: boolean;
+}) {
+  return (
+    <a
+      href={file.downloadUrl}
+      download={file.fileName}
+      className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      <FileText
+        aria-hidden="true"
+        className="size-4 shrink-0 text-muted-foreground"
+      />
+      <span className="min-w-0 truncate">{file.fileName}</span>
+      <span className="shrink-0 text-muted-foreground">
+        {formatFileSize(file.size)}
+      </span>
+      {compact ? null : (
+        <Download
+          aria-hidden="true"
+          className="size-4 shrink-0 text-muted-foreground"
+        />
+      )}
+    </a>
   );
 }
 

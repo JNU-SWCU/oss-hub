@@ -1,4 +1,4 @@
-﻿import { ApplicationStatus } from '@prisma/client';
+import { ApplicationStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { ApplicationsErrorCode } from './applications-error-code.enum';
 import {
@@ -29,6 +29,7 @@ const APPLICATION = {
   },
   submittedAt: new Date('2026-07-10T00:00:00.000Z'),
   updatedAt: new Date('2026-07-10T00:00:00.000Z'),
+  isRepositoryPublicationPlanned: true,
 } as const;
 
 function createStore(): jest.Mocked<StudentApplicationStore> {

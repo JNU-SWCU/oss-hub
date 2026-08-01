@@ -1,4 +1,4 @@
-import { RANKING_NOTICE, RANKING_PERIODS } from './domain/ranking';
+import { RANKING_PERIODS } from './domain/ranking';
 import { activity, setupRankingService } from './ranking.service.spec-helper';
 
 describe('RankingService cache and period', () => {
@@ -9,7 +9,7 @@ describe('RankingService cache and period', () => {
   });
 
   it('동시·반복 요청은 같은 집계를 공유하고 올해 시작 시각을 저장소에 전달한다', async () => {
-    harness.findRankingActivity.mockResolvedValue([
+    harness.getPublicRankingMetrics.mockResolvedValue([
       activity(1n, 'mina', 2, 0, 0),
     ]);
     const now = new Date('2026-07-21T00:00:00.000Z');
@@ -20,14 +20,14 @@ describe('RankingService cache and period', () => {
     ]);
     await harness.service.findPage(RANKING_PERIODS.THIS_YEAR, 1, 20, now);
 
-    expect(harness.findRankingActivity).toHaveBeenCalledTimes(1);
-    expect(harness.findRankingActivity).toHaveBeenCalledWith({
+    expect(harness.getPublicRankingMetrics).toHaveBeenCalledTimes(1);
+    expect(harness.getPublicRankingMetrics).toHaveBeenCalledWith({
       currentYear: 2026,
     });
   });
 
   it('uses the Asia/Seoul year for THIS_YEAR cache and projection metrics', async () => {
-    harness.findRankingActivity.mockResolvedValue([
+    harness.getPublicRankingMetrics.mockResolvedValue([
       activity(2n, 'june', 3, 0, 0),
     ]);
 
@@ -46,14 +46,14 @@ describe('RankingService cache and period', () => {
       new Date('2026-01-01T00:00:00.000Z'),
     );
 
-    expect(harness.findRankingActivity).toHaveBeenCalledTimes(1);
-    expect(harness.findRankingActivity).toHaveBeenCalledWith({
+    expect(harness.getPublicRankingMetrics).toHaveBeenCalledTimes(1);
+    expect(harness.getPublicRankingMetrics).toHaveBeenCalledWith({
       currentYear: 2026,
     });
   });
 
   it('올해와 전체는 별도 cache key와 metric 기간을 사용한다', async () => {
-    harness.findRankingActivity
+    harness.getPublicRankingMetrics
       .mockResolvedValueOnce([activity(1n, 'mina', 2, 0, 0)])
       .mockResolvedValueOnce([
         activity(1n, 'mina', 2, 0, 0),
@@ -66,14 +66,13 @@ describe('RankingService cache and period', () => {
     ).resolves.toMatchObject({ total: 1 });
     const all = await harness.service.findPage(RANKING_PERIODS.ALL, 1, 20, now);
     expect(all).toMatchObject({
-      notice: RANKING_NOTICE,
       period: RANKING_PERIODS.ALL,
       page: 1,
       pageSize: 20,
       total: 2,
     });
     expect(all.items).toHaveLength(2);
-    expect(harness.findRankingActivity).toHaveBeenCalledTimes(2);
-    expect(harness.findRankingActivity).toHaveBeenLastCalledWith({});
+    expect(harness.getPublicRankingMetrics).toHaveBeenCalledTimes(2);
+    expect(harness.getPublicRankingMetrics).toHaveBeenLastCalledWith({});
   });
 });

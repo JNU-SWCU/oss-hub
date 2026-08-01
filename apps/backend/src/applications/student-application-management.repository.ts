@@ -23,6 +23,7 @@ const APPLICATION_SELECT = {
   answers: true,
   submittedAt: true,
   updatedAt: true,
+  isRepositoryPublicationPlanned: true,
 } as const satisfies Prisma.ApplicationSelect;
 
 @Injectable()

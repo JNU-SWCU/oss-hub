@@ -14,6 +14,7 @@ export interface StudentApplication {
   };
   readonly submittedAt: string;
   readonly updatedAt: string;
+  readonly isRepositoryPublicationPlanned: boolean;
   readonly canEdit: boolean;
   readonly canCancel: boolean;
 }

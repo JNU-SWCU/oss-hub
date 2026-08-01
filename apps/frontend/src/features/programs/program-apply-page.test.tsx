@@ -1,4 +1,4 @@
-﻿import { renderToStaticMarkup } from 'react-dom/server';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
   ProgramApplyFormView,
@@ -34,6 +34,7 @@ const template: ApplicationFormTemplate = {
 
 const handlers = {
   onChange: () => undefined,
+  onTogglePublicationPlanned: () => undefined,
   onRequestSubmit: () => undefined,
   onRequestCancel: () => undefined,
   onCloseConfirmation: () => undefined,
@@ -46,7 +47,11 @@ function renderForm(overrides: { readonly serverError?: string | null } = {}) {
       program={program}
       template={template}
       applicantName="합성 학생"
-      values={{ title: '', summary: '' }}
+      values={{
+        title: '',
+        summary: '',
+        isRepositoryPublicationPlanned: true,
+      }}
       errors={{}}
       serverError={overrides.serverError ?? null}
       mode="create"
@@ -68,6 +73,7 @@ describe('ProgramApply views', () => {
     expect(html).toContain('name="title"');
     expect(html).toContain('name="summary"');
     expect(html).toContain('합성 학생');
+    expect(html).toContain('선정 시 저장소를 공개할 예정입니다');
   });
 
   it('제출 확인창에 승인 이후 제한 문구를 표시한다', () => {
@@ -76,7 +82,11 @@ describe('ProgramApply views', () => {
         program={program}
         template={template}
         applicantName="합성 학생"
-        values={{ title: '제목', summary: '요약' }}
+        values={{
+          title: '제목',
+          summary: '요약',
+          isRepositoryPublicationPlanned: true,
+        }}
         errors={{}}
         serverError={null}
         mode="create"
@@ -98,7 +108,11 @@ describe('ProgramApply views', () => {
         program={program}
         template={template}
         applicantName="합성 학생"
-        values={{ title: '기존 제목', summary: '기존 요약' }}
+        values={{
+          title: '기존 제목',
+          summary: '기존 요약',
+          isRepositoryPublicationPlanned: false,
+        }}
         errors={{}}
         serverError={null}
         mode="edit"
@@ -111,6 +125,8 @@ describe('ProgramApply views', () => {
 
     expect(html).toContain('수정 내용 저장');
     expect(html).toContain('신청 취소');
+    expect(html).toContain('제출 시 선택한 저장소 공개 예정 여부');
+    expect(html).toContain('disabled=""');
   });
 
   it('서버 오류 상태를 표시한다', () => {

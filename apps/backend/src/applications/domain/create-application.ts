@@ -4,4 +4,5 @@ export interface CreateApplicationInput {
   readonly answers: CreateApplicationAnswersInput;
   readonly teamId: string | null;
   readonly applicationTemplateVersion: number;
+  readonly isRepositoryPublicationPlanned: boolean;
 }

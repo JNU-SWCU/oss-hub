@@ -1,10 +1,19 @@
-﻿import { Injectable } from '@nestjs/common';
-import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
+import { Inject, Injectable } from '@nestjs/common';
+import {
+  ApplicationStatus,
+  RepositoryInvitationStatus,
+  RepositoryProvisionJobStatus,
+  SubmissionStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   COMPATIBLE_PROFILE_NAME_SELECT,
   resolveCompatibleProfileName,
 } from '../profiles/profile-compatibility';
+import {
+  REPOSITORIES_READ_PORT,
+  type RepositoriesReadPort,
+} from '../repositories/repositories-read.port';
 
 export interface StudentDashboardMilestone {
   readonly id: string;
@@ -28,6 +37,14 @@ export interface StudentDashboardItem {
   readonly nextMilestone: StudentDashboardMilestone | null;
   readonly detailUrl: string;
   readonly checklistUrl: string;
+  readonly repository: StudentDashboardRepository | null;
+}
+
+export interface StudentDashboardRepository {
+  readonly repositoryName: string | null;
+  readonly provisionStatus: 'NOT_STARTED' | RepositoryProvisionJobStatus;
+  readonly invitationStatus: RepositoryInvitationStatus | null;
+  readonly githubUrl: string | null;
 }
 
 function isNonEmptyString(value: string | null | undefined): value is string {
@@ -44,54 +61,67 @@ function isSafeProgramId(value: string): boolean {
 
 @Injectable()
 export class StudentDashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(REPOSITORIES_READ_PORT)
+    private readonly repositories: RepositoriesReadPort,
+  ) {}
 
   async getStudentDashboard(
     sessionGithubId: bigint,
   ): Promise<readonly StudentDashboardItem[]> {
-    const applications = await this.prisma.application.findMany({
-      where: {
-        OR: [
-          { teamId: null, applicant: { githubId: sessionGithubId } },
-          {
-            team: {
-              OR: [
-                { leader: { githubId: sessionGithubId } },
-                {
-                  members: {
-                    some: { user: { githubId: sessionGithubId } },
+    const [applications, projectedRepositories] = await Promise.all([
+      this.prisma.application.findMany({
+        where: {
+          OR: [
+            { teamId: null, applicant: { githubId: sessionGithubId } },
+            {
+              team: {
+                OR: [
+                  { leader: { githubId: sessionGithubId } },
+                  {
+                    members: {
+                      some: { user: { githubId: sessionGithubId } },
+                    },
                   },
-                },
-              ],
+                ],
+              },
+            },
+          ],
+        },
+        orderBy: [{ submittedAt: 'desc' }, { id: 'asc' }],
+        select: {
+          id: true,
+          status: true,
+          teamId: true,
+          applicant: {
+            select: {
+              nickname: true,
+              ...COMPATIBLE_PROFILE_NAME_SELECT,
             },
           },
-        ],
-      },
-      orderBy: [{ submittedAt: 'desc' }, { id: 'asc' }],
-      select: {
-        id: true,
-        status: true,
-        teamId: true,
-        applicant: {
-          select: {
-            nickname: true,
-            ...COMPATIBLE_PROFILE_NAME_SELECT,
-          },
-        },
-        team: { select: { name: true } },
-        program: {
-          select: {
-            id: true,
-            name: true,
-            milestones: {
-              orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
-              select: { id: true, name: true, dueAt: true },
+          team: { select: { name: true } },
+          program: {
+            select: {
+              id: true,
+              name: true,
+              milestones: {
+                orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
+                select: { id: true, name: true, dueAt: true },
+              },
             },
           },
+          submissions: { select: { milestoneId: true, status: true } },
         },
-        submissions: { select: { milestoneId: true, status: true } },
-      },
-    });
+      }),
+      this.repositories.getMyRepositories(sessionGithubId),
+    ]);
+    const repositoryByApplication = new Map(
+      projectedRepositories.map((repository) => [
+        repository.applicationId,
+        repository,
+      ]),
+    );
 
     const items: StudentDashboardItem[] = [];
     for (const application of applications) {
@@ -143,6 +173,31 @@ export class StudentDashboardService {
               submissionStatuses.get(milestone.id) ?? 'NOT_SUBMITTED',
           }
         : null;
+      let repository: StudentDashboardRepository | null = null;
+      if (application.status === ApplicationStatus.APPROVED) {
+        const projectedRepository = repositoryByApplication.get(application.id);
+        if (projectedRepository === undefined) {
+          repository = {
+            repositoryName: null,
+            provisionStatus: 'NOT_STARTED',
+            invitationStatus: null,
+            githubUrl: null,
+          };
+        } else {
+          const invitationStatus =
+            projectedRepository.provisionStatus ===
+              RepositoryProvisionJobStatus.SUCCEEDED &&
+            projectedRepository.invitationStatus === null
+              ? RepositoryInvitationStatus.FAILED_FINAL
+              : projectedRepository.invitationStatus;
+          repository = {
+            repositoryName: projectedRepository.repositoryName,
+            provisionStatus: projectedRepository.provisionStatus,
+            invitationStatus,
+            githubUrl: projectedRepository.githubUrl,
+          };
+        }
+      }
 
       items.push({
         applicationId: application.id,
@@ -157,6 +212,7 @@ export class StudentDashboardService {
             ? `/programs/${encodeURIComponent(application.program.id)}/apply`
             : `/programs/${encodeURIComponent(application.program.id)}`,
         checklistUrl: `/programs/${encodeURIComponent(application.program.id)}/submissions`,
+        repository,
       });
     }
 

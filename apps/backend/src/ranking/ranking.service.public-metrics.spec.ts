@@ -1,4 +1,4 @@
-import { RANKING_NOTICE, RANKING_PERIODS } from './domain/ranking';
+import { RANKING_PERIODS } from './domain/ranking';
 import { activity, setupRankingService } from './ranking.service.spec-helper';
 
 describe('RankingService public metrics', () => {
@@ -9,14 +9,13 @@ describe('RankingService public metrics', () => {
   });
 
   it('returns the canonical commit, pull request, and release metrics', async () => {
-    harness.findRankingActivity.mockResolvedValue([
+    harness.getPublicRankingMetrics.mockResolvedValue([
       activity(1n, 'mina', 2, 1, 3),
     ]);
 
     await expect(
       harness.service.findPage(RANKING_PERIODS.ALL, 1, 20),
     ).resolves.toEqual({
-      notice: RANKING_NOTICE,
       period: RANKING_PERIODS.ALL,
       items: [
         {
@@ -33,7 +32,7 @@ describe('RankingService public metrics', () => {
       pageSize: 20,
       total: 1,
     });
-    expect(harness.findRankingActivity).toHaveBeenCalledWith({});
+    expect(harness.getPublicRankingMetrics).toHaveBeenCalledWith({});
   });
 
   it('passes the Asia/Seoul current year to the canonical repository', async () => {
@@ -44,7 +43,7 @@ describe('RankingService public metrics', () => {
       new Date('2026-07-21T00:00:00.000Z'),
     );
 
-    expect(harness.findRankingActivity).toHaveBeenCalledWith({
+    expect(harness.getPublicRankingMetrics).toHaveBeenCalledWith({
       currentYear: 2026,
     });
   });

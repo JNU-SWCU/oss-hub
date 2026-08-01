@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -123,6 +123,7 @@ export function ProgramApplyPage({
         answers: applicationAnswers(values),
         teamId: state.teamId,
         applicationTemplateVersion: state.template.version,
+        isRepositoryPublicationPlanned: values.isRepositoryPublicationPlanned,
       });
       setState({
         kind: 'success',
@@ -203,6 +204,12 @@ export function ProgramApplyPage({
           submitting={submitting}
           onChange={(key, value) =>
             setValues((previous) => ({ ...previous, [key]: value }))
+          }
+          onTogglePublicationPlanned={(checked) =>
+            setValues((previous) => ({
+              ...previous,
+              isRepositoryPublicationPlanned: checked,
+            }))
           }
           onRequestSubmit={requestSubmit}
           onRequestCancel={() => setConfirmation('cancel')}

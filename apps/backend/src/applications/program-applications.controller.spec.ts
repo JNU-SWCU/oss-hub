@@ -38,6 +38,7 @@ describe('ProgramApplicationsController', () => {
       status: ApplicationStatus.SUBMITTED,
       teamId: null,
       submittedAt: new Date('2026-07-15T00:00:00.000Z'),
+      isRepositoryPublicationPlanned: true,
     });
     const service: Pick<ApplicationsService, 'create' | 'listForProgram'> = {
       create,
@@ -60,6 +61,7 @@ describe('ProgramApplicationsController', () => {
       answers: { title: '제목', summary: '요약' },
       teamId: null,
       applicationTemplateVersion: 1,
+      isRepositoryPublicationPlanned: true,
     });
     expect(response).toEqual({
       id: 'synthetic-application',
@@ -67,7 +69,78 @@ describe('ProgramApplicationsController', () => {
       status: ApplicationStatus.SUBMITTED,
       teamId: null,
       submittedAt: '2026-07-15T00:00:00.000Z',
+      isRepositoryPublicationPlanned: true,
     });
+  });
+
+  it('구 클라이언트가 isRepositoryPublicationPlanned 를 생략하면 true 로 기본 설정해 service.create 에 전달한다', async () => {
+    const create = jest.fn().mockResolvedValue({
+      id: 'synthetic-application',
+      programId: 'synthetic-program',
+      status: ApplicationStatus.SUBMITTED,
+      teamId: null,
+      submittedAt: new Date('2026-07-15T00:00:00.000Z'),
+      isRepositoryPublicationPlanned: true,
+    });
+    const service: Pick<ApplicationsService, 'create' | 'listForProgram'> = {
+      create,
+      listForProgram: jest.fn(),
+    };
+    const controller = new ProgramApplicationsController(service);
+    const body = Object.assign(new CreateApplicationRequestDto(), {
+      answers: { title: '제목', summary: '요약' },
+      teamId: null,
+      applicationTemplateVersion: 1,
+    });
+    delete (body as { isRepositoryPublicationPlanned?: boolean })
+      .isRepositoryPublicationPlanned;
+
+    await controller.create(
+      { sessionGithubId: 4242n },
+      'synthetic-program',
+      body,
+    );
+
+    expect(create).toHaveBeenCalledWith(
+      4242n,
+      'synthetic-program',
+      expect.objectContaining({ isRepositoryPublicationPlanned: true }),
+    );
+  });
+
+  it('명시적 isRepositoryPublicationPlanned=false 를 그대로 service.create 에 전달한다', async () => {
+    const create = jest.fn().mockResolvedValue({
+      id: 'synthetic-application',
+      programId: 'synthetic-program',
+      status: ApplicationStatus.SUBMITTED,
+      teamId: null,
+      submittedAt: new Date('2026-07-15T00:00:00.000Z'),
+      isRepositoryPublicationPlanned: false,
+    });
+    const service: Pick<ApplicationsService, 'create' | 'listForProgram'> = {
+      create,
+      listForProgram: jest.fn(),
+    };
+    const controller = new ProgramApplicationsController(service);
+    const body = Object.assign(new CreateApplicationRequestDto(), {
+      answers: { title: '제목', summary: '요약' },
+      teamId: null,
+      applicationTemplateVersion: 1,
+      isRepositoryPublicationPlanned: false,
+    });
+
+    const response = await controller.create(
+      { sessionGithubId: 4242n },
+      'synthetic-program',
+      body,
+    );
+
+    expect(create).toHaveBeenCalledWith(
+      4242n,
+      'synthetic-program',
+      expect.objectContaining({ isRepositoryPublicationPlanned: false }),
+    );
+    expect(response).toMatchObject({ isRepositoryPublicationPlanned: false });
   });
 
   it('programId·query 를 service.listForProgram 으로 넘기고 페이지 DTO 를 반환한다', async () => {
@@ -84,6 +157,7 @@ describe('ProgramApplicationsController', () => {
             updatedAt: new Date('2026-07-15T01:00:00.000Z'),
             safeErrorClass: null,
           },
+          isRepositoryPublicationPlanned: false,
           participation: 'INDIVIDUAL' as const,
           applicant: {
             id: 'synthetic-student',
@@ -138,6 +212,7 @@ describe('ProgramApplicationsController', () => {
             updatedAt: '2026-07-15T01:00:00.000Z',
             safeErrorClass: null,
           },
+          isRepositoryPublicationPlanned: false,
           participation: 'INDIVIDUAL',
           applicant: {
             id: 'synthetic-student',

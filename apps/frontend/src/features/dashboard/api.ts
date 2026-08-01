@@ -4,6 +4,8 @@ import type {
   DashboardApplicationStatus,
   DashboardItem,
   DashboardMilestone,
+  DashboardRepositoryInvitationStatus,
+  DashboardRepositoryProvisionStatus,
   DashboardSubmissionStatus,
   StudentDashboard,
 } from './types';
@@ -54,6 +56,76 @@ function isSubmissionStatus(
   );
 }
 
+function isRepositoryProvisionStatus(
+  value: unknown,
+): value is DashboardRepositoryProvisionStatus {
+  return (
+    value === 'NOT_STARTED' ||
+    value === 'PENDING' ||
+    value === 'PROCESSING' ||
+    value === 'SUCCEEDED' ||
+    value === 'FAILED_RETRYABLE' ||
+    value === 'FAILED_FINAL'
+  );
+}
+
+function isRepositoryInvitationStatus(
+  value: unknown,
+): value is DashboardRepositoryInvitationStatus {
+  return (
+    value === null ||
+    value === 'PENDING' ||
+    value === 'SUCCEEDED' ||
+    value === 'FAILED_RETRYABLE' ||
+    value === 'FAILED_FINAL'
+  );
+}
+
+function isSafeGithubUrl(value: string, repositoryName: string): boolean {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(repositoryName)) return false;
+  try {
+    const url = new URL(value);
+    const pathSegments = url.pathname.split('/').filter(Boolean);
+    return (
+      value === `https://github.com/JNU-SWCU/${repositoryName}` &&
+      url.origin === 'https://github.com' &&
+      url.username === '' &&
+      url.password === '' &&
+      url.search === '' &&
+      url.hash === '' &&
+      pathSegments.length === 2 &&
+      pathSegments[0] === 'JNU-SWCU' &&
+      pathSegments[1] === repositoryName
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isRepository(
+  value: unknown,
+): value is NonNullable<DashboardItem['repository']> {
+  if (!isRecord(value) || !isRepositoryProvisionStatus(value.provisionStatus)) {
+    return false;
+  }
+  if (!isRepositoryInvitationStatus(value.invitationStatus)) return false;
+
+  if (value.provisionStatus !== 'SUCCEEDED') {
+    return (
+      value.repositoryName === null &&
+      value.invitationStatus === null &&
+      value.githubUrl === null
+    );
+  }
+
+  return (
+    isNonEmptyString(value.repositoryName) &&
+    isNonEmptyString(value.githubUrl) &&
+    value.invitationStatus !== null &&
+    isSafeGithubUrl(value.githubUrl, value.repositoryName)
+  );
+}
+
 function isMilestone(value: unknown): value is DashboardMilestone {
   if (!isRecord(value)) return false;
 
@@ -88,7 +160,9 @@ function isDashboardItem(value: unknown): value is DashboardItem {
       programId,
       applicationStatus === 'SUBMITTED' ? '/apply' : '',
     ) &&
-    isProgramPath(value.checklistUrl, programId, '/submissions')
+    isProgramPath(value.checklistUrl, programId, '/submissions') &&
+    (value.repository === null || isRepository(value.repository)) &&
+    (applicationStatus === 'APPROVED' || value.repository === null)
   );
 }
 

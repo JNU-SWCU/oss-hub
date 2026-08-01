@@ -1,6 +1,6 @@
 import type {
-  CollectionRankingActivityDto,
-  CollectionRankingActivityQueryDto,
+  CollectionPublicRankingMetricsDto,
+  CollectionPublicRankingMetricsQueryDto,
   CollectionReadPort,
 } from '../collection/collection-read.port';
 import { RankingService } from './ranking.service';
@@ -11,30 +11,48 @@ export function activity(
   commitCount: number,
   prCount: number,
   releaseCount: number,
-): CollectionRankingActivityDto {
+): CollectionPublicRankingMetricsDto {
   return { githubId, githubLogin, commitCount, prCount, releaseCount };
 }
 
 export function setupRankingService(): {
   readonly service: RankingService;
-  readonly findRankingActivity: jest.Mock<
-    Promise<readonly CollectionRankingActivityDto[]>,
-    [CollectionRankingActivityQueryDto]
+  readonly getPublicRankingMetrics: jest.Mock<
+    Promise<readonly CollectionPublicRankingMetricsDto[]>,
+    [CollectionPublicRankingMetricsQueryDto]
   >;
 } {
-  const findRankingActivity = jest.fn<
-    Promise<readonly CollectionRankingActivityDto[]>,
-    [CollectionRankingActivityQueryDto]
+  const getPublicRankingMetrics = jest.fn<
+    Promise<readonly CollectionPublicRankingMetricsDto[]>,
+    [CollectionPublicRankingMetricsQueryDto]
   >();
-  findRankingActivity.mockResolvedValue([]);
+  getPublicRankingMetrics.mockResolvedValue([]);
   const collection = {
     findRepositoryActivity: () => Promise.resolve([]),
-    findRankingActivity,
+    findRankingActivity: () => Promise.resolve([]),
     getStatusSnapshot: () => Promise.resolve(null),
+    getRepositoryMetrics: () => Promise.resolve([]),
+    getContributorMetrics: () => Promise.resolve([]),
+    getPublicRankingMetrics,
+    getRepositoryCumulativeMetrics: () => Promise.resolve([]),
+    getContributorCumulativeMetrics: () => Promise.resolve([]),
+    getIncrementalStatusSnapshot: () =>
+      Promise.resolve({
+        trackedRepositoryCount: 0,
+        readyStreamCount: 0,
+        backfillingStreamCount: 0,
+        partialStreamCount: 0,
+        retryPendingStreamCount: 0,
+        oldestReadyCheckpointAt: null,
+        latestCheckpointAt: null,
+        oldestRetryPendingAt: null,
+        lastCycleStartedAt: null,
+        lastCycleCompletedAt: null,
+      }),
   } satisfies CollectionReadPort;
 
   return {
     service: new RankingService(collection),
-    findRankingActivity,
+    getPublicRankingMetrics,
   };
 }

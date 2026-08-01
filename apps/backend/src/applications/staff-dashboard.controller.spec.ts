@@ -1,9 +1,13 @@
-import { GUARDS_METADATA } from '@nestjs/common/constants';
+import {
+  GUARDS_METADATA,
+  HEADERS_METADATA,
+  PATH_METADATA,
+} from '@nestjs/common/constants';
 import { ProgramCategory } from '@prisma/client';
 import { SessionGuard } from '../auth/session.guard';
 import { ApplicationsStaffListGuard } from './applications-staff.guard';
-import type { ApplicationsService } from './applications.service';
 import { StaffDashboardController } from './staff-dashboard.controller';
+import type { StaffDashboardService } from './staff-dashboard.service';
 
 function readGuards(target: object, methodName: 'summary'): unknown[] {
   const method: unknown = Object.getOwnPropertyDescriptor(
@@ -16,19 +20,38 @@ function readGuards(target: object, methodName: 'summary'): unknown[] {
 }
 
 describe('StaffDashboardController', () => {
-  it('GET summary 에 SessionGuard·ApplicationsStaffListGuard 를 적용한다', () => {
+  it('applies route metadata, no-store cache, and staff list guards', () => {
+    // Given
+    const summary: unknown = Object.getOwnPropertyDescriptor(
+      StaffDashboardController.prototype,
+      'summary',
+    )?.value;
+    if (typeof summary !== 'function') {
+      throw new TypeError('StaffDashboardController.summary is missing');
+    }
+
+    // When / Then
+    expect(Reflect.getMetadata(PATH_METADATA, StaffDashboardController)).toBe(
+      'dashboard/staff',
+    );
+    expect(Reflect.getMetadata(PATH_METADATA, summary)).toBe('summary');
+    expect(Reflect.getMetadata(HEADERS_METADATA, summary)).toContainEqual({
+      name: 'Cache-Control',
+      value: 'private, no-store',
+    });
     expect(readGuards(StaffDashboardController.prototype, 'summary')).toEqual([
       SessionGuard,
       ApplicationsStaffListGuard,
     ]);
   });
 
-  it('service.staffSummary 결과를 DTO 로 반환한다', async () => {
-    const staffSummary = jest.fn().mockResolvedValue({
+  it('maps composed service summary into the response DTO', async () => {
+    // Given
+    const summary = jest.fn().mockResolvedValue({
       programs: [
         {
           id: 'program:1',
-          name: '합성 프로그램',
+          name: 'Synthetic program',
           category: ProgramCategory.BASIC,
           applicationPeriod: {
             startsAt: new Date('2026-07-01T00:00:00.000Z'),
@@ -37,21 +60,41 @@ describe('StaffDashboardController', () => {
           applications: {
             total: 3,
             submitted: 1,
+            pendingApproval: 1,
             approved: 1,
             rejected: 1,
           },
           applicantsPath: '/staff/programs/program%3A1/applicants',
+          activity: {
+            repositories: 1,
+            commits: 2,
+            pullRequests: 3,
+            releases: 4,
+            lastActivityAt: '2026-07-20T00:00:00.000Z',
+            dataAsOf: '2026-07-21T00:00:00.000Z',
+          },
+          submissions: {
+            approvedApplications: 1,
+            milestones: 2,
+            total: 2,
+            notSubmitted: 1,
+            submitted: 1,
+            approved: 0,
+            changesRequested: 0,
+            rejected: 0,
+          },
         },
       ],
     });
-    const service: Pick<ApplicationsService, 'staffSummary'> = { staffSummary };
+    const service: Pick<StaffDashboardService, 'summary'> = { summary };
     const controller = new StaffDashboardController(service);
 
+    // When / Then
     await expect(controller.summary()).resolves.toEqual({
       programs: [
         {
           id: 'program:1',
-          name: '합성 프로그램',
+          name: 'Synthetic program',
           category: ProgramCategory.BASIC,
           applicationPeriod: {
             startsAt: '2026-07-01T00:00:00.000Z',
@@ -60,13 +103,32 @@ describe('StaffDashboardController', () => {
           applications: {
             total: 3,
             submitted: 1,
+            pendingApproval: 1,
             approved: 1,
             rejected: 1,
           },
           applicantsPath: '/staff/programs/program%3A1/applicants',
+          activity: {
+            repositories: 1,
+            commits: 2,
+            pullRequests: 3,
+            releases: 4,
+            lastActivityAt: '2026-07-20T00:00:00.000Z',
+            dataAsOf: '2026-07-21T00:00:00.000Z',
+          },
+          submissions: {
+            approvedApplications: 1,
+            milestones: 2,
+            total: 2,
+            notSubmitted: 1,
+            submitted: 1,
+            approved: 0,
+            changesRequested: 0,
+            rejected: 0,
+          },
         },
       ],
     });
-    expect(staffSummary).toHaveBeenCalledTimes(1);
+    expect(summary).toHaveBeenCalledTimes(1);
   });
 });

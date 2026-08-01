@@ -18,6 +18,8 @@ import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.enum
 import { SubmissionReviewsService } from './submission-reviews.service';
 
 const REVIEWED_AT = new Date('2026-07-23T00:00:00.000Z');
+const PROGRAM_ENDED_AT = new Date('2026-07-01T00:00:00.000Z');
+const ACTOR_GITHUB_ID = 9_600_000_000_100_001n;
 
 function reviewDependencies() {
   const target = {
@@ -151,6 +153,8 @@ describe('SubmissionReviewsService.publishRepository', () => {
       visibility: RepositoryVisibility.PRIVATE,
       provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
       requiredMilestonesApproved: true,
+      isRepositoryPublicationPlanned: true,
+      programEndAt: PROGRAM_ENDED_AT,
     });
     repositories.publish.mockResolvedValue({
       id: 'repository-1',
@@ -163,11 +167,16 @@ describe('SubmissionReviewsService.publishRepository', () => {
     const service = new SubmissionReviewsService(repository, repositories);
 
     // When: 공개 버튼 액션을 실행한다.
-    const result = await service.publishRepository('repository-1', REVIEWED_AT);
+    const result = await service.publishRepository(
+      'repository-1',
+      ACTOR_GITHUB_ID,
+      REVIEWED_AT,
+    );
 
     // Then: #121 서비스에 repository id를 위임해 공개 상태로 수렴한다.
     expect(repositories.publish).toHaveBeenCalledWith(
       { repositoryId: 'repository-1' },
+      ACTOR_GITHUB_ID,
       REVIEWED_AT,
     );
     expect(result).toEqual({
@@ -185,17 +194,82 @@ describe('SubmissionReviewsService.publishRepository', () => {
       visibility: RepositoryVisibility.PRIVATE,
       provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
       requiredMilestonesApproved: false,
+      isRepositoryPublicationPlanned: true,
+      programEndAt: PROGRAM_ENDED_AT,
     });
     const service = new SubmissionReviewsService(repository, repositories);
 
     // When: 공개 전환을 요청한다.
-    const publish = service.publishRepository('repository-1');
+    const publish = service.publishRepository(
+      'repository-1',
+      ACTOR_GITHUB_ID,
+      REVIEWED_AT,
+    );
 
     // Then: 공개 조건 오류이며 외부 API는 호출하지 않는다.
     await expect(publish).rejects.toMatchObject({
       errorCode: {
         code: SubmissionReviewsErrorCode.REQUIRED_MILESTONES_NOT_APPROVED,
       },
+    });
+    expect(repositories.publish).not.toHaveBeenCalled();
+  });
+
+  it('지원서가 저장소 공개를 계획하지 않았으면 GitHub 호출을 막는다', async () => {
+    // Given: 지원서 단계에서 공개를 원치 않는다고 표시했다.
+    const { repository, repositories } = reviewDependencies();
+    repository.findPublishEligibility.mockResolvedValue({
+      repositoryId: 'repository-1',
+      visibility: RepositoryVisibility.PRIVATE,
+      provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
+      requiredMilestonesApproved: true,
+      isRepositoryPublicationPlanned: false,
+      programEndAt: PROGRAM_ENDED_AT,
+    });
+    const service = new SubmissionReviewsService(repository, repositories);
+
+    // When: 공개 전환을 요청한다.
+    const publish = service.publishRepository(
+      'repository-1',
+      ACTOR_GITHUB_ID,
+      REVIEWED_AT,
+    );
+
+    // Then: 공개 계획 오류이며 외부 API는 호출하지 않는다.
+    await expect(publish).rejects.toMatchObject({
+      errorCode: {
+        code: SubmissionReviewsErrorCode.REPOSITORY_PUBLICATION_NOT_PLANNED,
+      },
+    });
+    expect(repositories.publish).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['프로그램이 아직 진행 중이면', new Date('2026-08-01T00:00:00.000Z')],
+    ['프로그램 종료일이 없으면', null],
+  ] as const)('%s GitHub 호출을 막는다', async (_label, programEndAt) => {
+    // Given: endAt이 아직 지나지 않았거나 설정되지 않았다.
+    const { repository, repositories } = reviewDependencies();
+    repository.findPublishEligibility.mockResolvedValue({
+      repositoryId: 'repository-1',
+      visibility: RepositoryVisibility.PRIVATE,
+      provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
+      requiredMilestonesApproved: true,
+      isRepositoryPublicationPlanned: true,
+      programEndAt,
+    });
+    const service = new SubmissionReviewsService(repository, repositories);
+
+    // When: 공개 전환을 요청한다.
+    const publish = service.publishRepository(
+      'repository-1',
+      ACTOR_GITHUB_ID,
+      REVIEWED_AT,
+    );
+
+    // Then: 프로그램 미종료 오류이며 외부 API는 호출하지 않는다.
+    await expect(publish).rejects.toMatchObject({
+      errorCode: { code: SubmissionReviewsErrorCode.PROGRAM_NOT_ENDED },
     });
     expect(repositories.publish).not.toHaveBeenCalled();
   });
@@ -208,6 +282,8 @@ describe('SubmissionReviewsService.publishRepository', () => {
       visibility: RepositoryVisibility.PRIVATE,
       provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
       requiredMilestonesApproved: true,
+      isRepositoryPublicationPlanned: true,
+      programEndAt: PROGRAM_ENDED_AT,
     });
     repositories.publish.mockRejectedValue(
       new GithubOperationsError(GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM, true),
@@ -215,7 +291,11 @@ describe('SubmissionReviewsService.publishRepository', () => {
     const service = new SubmissionReviewsService(repository, repositories);
 
     // When: 공개 전환을 요청한다.
-    const publish = service.publishRepository('repository-1');
+    const publish = service.publishRepository(
+      'repository-1',
+      ACTOR_GITHUB_ID,
+      REVIEWED_AT,
+    );
 
     // Then: 별도 재시도 가능한 공개 실패로 변환한다.
     await expect(publish).rejects.toBeInstanceOf(DomainException);
@@ -231,13 +311,15 @@ describe('SubmissionReviewsService.publishRepository', () => {
       visibility: RepositoryVisibility.PRIVATE,
       provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
       requiredMilestonesApproved: true,
+      isRepositoryPublicationPlanned: true,
+      programEndAt: PROGRAM_ENDED_AT,
     });
     const internalError = new Error('synthetic database failure');
     repositories.publish.mockRejectedValue(internalError);
     const service = new SubmissionReviewsService(repository, repositories);
 
-    await expect(service.publishRepository('repository-1')).rejects.toBe(
-      internalError,
-    );
+    await expect(
+      service.publishRepository('repository-1', ACTOR_GITHUB_ID, REVIEWED_AT),
+    ).rejects.toBe(internalError);
   });
 });
