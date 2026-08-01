@@ -24,8 +24,10 @@ function EmptyState({
   return (
     <div
       data-slot="empty-state"
+      // 시안 v2 `.empty` — 점선 테두리 + 카드 모서리. 비어 있음을 "아직 채워지지
+      // 않은 자리"로 보여 준다. 안쪽 글줄만 폭을 제한해 읽는 길이를 유지한다.
       className={cn(
-        'mx-auto grid max-w-sm justify-items-center gap-2 py-12 text-center',
+        'grid justify-items-center gap-3 rounded-card border border-dashed border-border p-12 text-center',
         className,
       )}
       {...props}
@@ -39,11 +41,13 @@ function EmptyState({
           {icon}
         </div>
       ) : null}
-      <p className="font-heading text-base font-medium text-foreground">
+      <p className="font-heading text-body font-semibold text-foreground">
         {title}
       </p>
       {description ? (
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <p className="max-w-[46ch] text-body text-muted-foreground">
+          {description}
+        </p>
       ) : null}
       {action ? <div className="mt-2">{action}</div> : null}
     </div>

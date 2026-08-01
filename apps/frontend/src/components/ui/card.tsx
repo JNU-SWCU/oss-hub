@@ -12,7 +12,10 @@ function Card({
       data-slot="card"
       data-size={size}
       className={cn(
-        'group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl bg-card py-(--card-spacing) text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl',
+        // 시안 v2 — 카드는 안쪽 여백 24(`--card-padding`) · 모서리 12(`--card-radius`).
+        // 여백을 `--card-spacing` 한 변수로 흘려보내므로 Header/Content/Footer가
+        // 같은 값을 따라온다. `size="sm"`은 그 안에서 한 단계(16) 좁힌다.
+        'group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-card bg-card py-(--card-spacing) text-body text-card-foreground ring-1 ring-foreground/10 [--card-spacing:var(--card-padding)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(4)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-card *:[img:last-child]:rounded-b-card',
         className,
       )}
       {...props}
@@ -25,7 +28,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot="card-header"
       className={cn(
-        'group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl px-(--card-spacing) has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing)',
+        'group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-card px-(--card-spacing) has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing)',
         className,
       )}
       {...props}
@@ -38,7 +41,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot="card-title"
       className={cn(
-        'font-heading text-base leading-snug font-medium group-data-[size=sm]/card:text-sm',
+        'font-heading text-body leading-snug font-semibold tracking-tight group-data-[size=sm]/card:text-sm',
         className,
       )}
       {...props}
@@ -50,7 +53,7 @@ function CardDescription({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-description"
-      className={cn('text-sm text-muted-foreground', className)}
+      className={cn('text-small text-muted-foreground', className)}
       {...props}
     />
   );
@@ -84,7 +87,9 @@ function CardFooter({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot="card-footer"
       className={cn(
-        'flex items-center rounded-b-xl border-t bg-muted/50 p-(--card-spacing)',
+        // 카드 발치의 액션 줄. 시안의 `.card-foot`처럼 항상 바닥에 붙어(`mt-auto`)
+        // 같은 줄 카드끼리 버튼 높이가 어긋나지 않는다.
+        'mt-auto flex items-center rounded-b-card border-t bg-muted/50 p-(--card-spacing)',
         className,
       )}
       {...props}

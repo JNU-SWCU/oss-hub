@@ -24,23 +24,27 @@ function PageHeader({
   return (
     <header
       data-slot="page-header"
+      // 시안 v2 — 페이지 머리에는 선을 긋지 않는다. 제목 크기(40)와 아래 여백만으로
+      // 이미 구분되고, 선을 더하면 섹션 구분선과 위계가 섞인다.
       className={cn(
-        'flex flex-col gap-4 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between',
+        'flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between',
         className,
       )}
       {...props}
     >
-      <div className="flex flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-3">
         <h1
           data-slot="page-header-title"
-          className="font-heading text-3xl font-bold tracking-tight"
+          // 크기 계단의 맨 위 칸. 좁은 화면에서 40px은 제목 한 줄이 화면을 넘기므로
+          // 한 계단 내려 섹션 크기로 쓴다(시안의 900px 미만 규칙과 같은 취지).
+          className="font-heading text-section leading-tight font-bold tracking-tight sm:text-page"
         >
           {title}
         </h1>
         {description ? (
           <p
             data-slot="page-header-description"
-            className="text-sm text-muted-foreground"
+            className="max-w-[60ch] text-body text-muted-foreground"
           >
             {description}
           </p>
@@ -49,8 +53,9 @@ function PageHeader({
       {actions ? (
         <div
           data-slot="page-header-actions"
-          className="flex items-center gap-2"
+          className="flex flex-wrap items-center gap-3"
         >
+
           {actions}
         </div>
       ) : null}
