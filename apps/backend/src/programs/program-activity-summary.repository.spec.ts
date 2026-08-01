@@ -4,63 +4,45 @@ import {
 } from './program-activity-summary.repository';
 
 describe('ProgramActivitySummaryRepository', () => {
-  it('uses completed canonical history even when a linked repository is archived', async () => {
-    let queryText = '';
+  it('returns linked repositories without applying an archived filter', async () => {
+    // Given
+    const findMany = jest
+      .fn()
+      .mockResolvedValue([
+        { programId: 'program-archived', githubRepositoryId: 101n },
+      ]);
     const prisma = {
-      repository: { findMany: jest.fn() },
-      $queryRaw: <T>(query: unknown): Promise<T> => {
-        queryText = sqlText(query);
-        return Promise.resolve([
-          {
-            githubRepositoryId: 101n,
-            commitCount: 2n,
-            pullRequestCount: 1n,
-            releaseCount: 0n,
-            lastActivityAt: new Date('2026-07-22T00:00:00.000Z'),
-            dataAsOf: new Date('2026-07-25T00:00:00.000Z'),
-          },
-        ] as T);
-      },
+      repository: { findMany },
     } satisfies ProgramActivitySummaryDataSource;
 
+    // When
     const result = await new ProgramActivitySummaryRepository(
       prisma,
-    ).findCanonicalActivity([101n]);
+    ).findRepositoryLinks(['program-archived']);
 
-    expect(queryText).toContain('generation."finishedAt" AS "dataAsOf"');
-    expect(queryText).toContain('generation."finishedAt" IS NOT NULL');
-    expect(queryText).not.toContain('repository."archived" = false');
-    expect(queryText).not.toContain('state."updatedAt" AS "dataAsOf"');
+    // Then
+    expect(findMany).toHaveBeenCalledWith({
+      where: { programId: { in: ['program-archived'] } },
+      select: { programId: true, githubRepositoryId: true },
+    });
     expect(result).toEqual([
       {
+        programId: 'program-archived',
         githubRepositoryId: 101n,
-        commitCount: 2,
-        pullRequestCount: 1,
-        releaseCount: 0,
-        lastActivityAt: new Date('2026-07-22T00:00:00.000Z'),
-        dataAsOf: new Date('2026-07-25T00:00:00.000Z'),
       },
     ]);
   });
 
-  it('skips canonical reads when no repository is linked', async () => {
-    const queryRaw = jest.fn();
+  it('skips repository reads when no program is requested', async () => {
+    // Given
+    const findMany = jest.fn();
     const prisma = {
-      repository: { findMany: jest.fn() },
-      $queryRaw: queryRaw,
+      repository: { findMany },
     } satisfies ProgramActivitySummaryDataSource;
 
     await expect(
-      new ProgramActivitySummaryRepository(prisma).findCanonicalActivity([]),
+      new ProgramActivitySummaryRepository(prisma).findRepositoryLinks([]),
     ).resolves.toEqual([]);
-    expect(queryRaw).not.toHaveBeenCalled();
+    expect(findMany).not.toHaveBeenCalled();
   });
 });
-
-function sqlText(value: unknown): string {
-  if (typeof value === 'object' && value !== null) {
-    const strings: unknown = Reflect.get(value, 'strings');
-    if (Array.isArray(strings)) return strings.join('');
-  }
-  return String(value);
-}
