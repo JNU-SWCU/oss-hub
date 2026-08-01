@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-07-20 · Updated: 2026-07-30 (하위 모듈 문서 정리) -->
+<!-- Generated: 2026-07-20 · Updated: 2026-08-01 (public-projects/submission-reviews 문서화, audit-log 목록 오류·public-eligibility staleness 정정) -->
 
 # apps/backend/src — 애플리케이션 코드
 
@@ -7,7 +7,7 @@
 
 NestJS 모듈별 소스이며 모듈마다 폴더 하나를 쓴다.
 `common/`·`prisma/`는 전 모듈이 공유하는 기반 계층이다.
-`health/`·`audit-log/`·`consents/`·`login-history/`·`profiles/`·`ranking/`·`showcase/`·`users/`·`system-status/`·`repository-ownership/`·`runtime-config/`·`submission-reviews/`·`public-eligibility/`는 별도 문서 없이 이 문서가 다룬다.
+`health/`·`consents/`·`login-history/`·`profiles/`·`ranking/`·`showcase/`·`users/`·`system-status/`·`repository-ownership/`·`runtime-config/`·`public-eligibility/`는 별도 문서 없이 이 문서가 다룬다.
 `login-history/README.md`만 보존 정책을 추가로 설명한다.
 
 ## Key Files
@@ -26,13 +26,15 @@ NestJS 모듈별 소스이며 모듈마다 폴더 하나를 쓴다.
 | `collection/` | GitHub 활동 수집기 | [collection/AGENTS.md](collection/AGENTS.md) |
 | `common/` | 전 모듈 공유 에러·필터 | [common/AGENTS.md](common/AGENTS.md) |
 | `applications/` | 프로그램 신청·판정 | [applications/AGENTS.md](applications/AGENTS.md) |
+| `audit-log/` | 불변 감사 원장(schemaVersion 1/2/legacy) | [audit-log/AGENTS.md](audit-log/AGENTS.md) |
 | `roles/` | 역할 온보딩·RoleRequest 교직원 요청 흐름 | [roles/AGENTS.md](roles/AGENTS.md) |
 | `users/` | 사용자 프로필·관리자 사용자 목록/상세·역할/접근 관리 | — 이 문서가 다룸 |
 | `programs/` | 프로그램·마일스톤·팀 | [programs/AGENTS.md](programs/AGENTS.md) |
 | `submissions/` | 제출물·파일 라이프사이클 | [submissions/AGENTS.md](submissions/AGENTS.md) |
-| `submission-reviews/` | 제출 검토·저장소 공개 전환(`repositories/`의 `publish`를 소비) | — 이 문서가 다룸 |
-| `repositories/` | GitHub 저장소 프로비저닝·공개 전환 | [repositories/AGENTS.md](repositories/AGENTS.md) |
-| `public-eligibility/` | todo 15 — platform 발행 + Collection freshness fence를 합치는 단일 public eligibility 정책(`PublicEligibilityService`). 아직 어떤 controller도 소비하지 않는다 | — 이 문서가 다룸 |
+| `submission-reviews/` | 제출 검토 + 저장소 수동 공개 확정(다섯 게이트 CAS+typed audit, `repositories/`의 `publish`를 소비) | [submission-reviews/AGENTS.md](submission-reviews/AGENTS.md) |
+| `repositories/` | GitHub 저장소 프로비저닝·공개 전환(CAS `publishRepositoryIfPrivate` + 트랜잭션 내 typed audit) | [repositories/AGENTS.md](repositories/AGENTS.md) |
+| `public-projects/` | 공개 프로젝트 목록(keyset cursor)·상세·공개 프로필 read API — 구 `showcase`/`profiles` 공개 read 라우트를 대체(404화) | [public-projects/AGENTS.md](public-projects/AGENTS.md) |
+| `public-eligibility/` | todo 15 — platform 발행 + Collection freshness fence를 합치는 단일 public eligibility 정책(`PublicEligibilityService`). `public-projects/`(todo 16)가 유일한 소비자다 | — 이 문서가 다룸 |
 | `notifications/` | 알림 설정·마감 다이제스트 메일 | [notifications/AGENTS.md](notifications/AGENTS.md) |
 | `runtime-config/` | 전역 런타임 환경변수 snapshot | — 이 문서가 다룸 |
 | `prisma/` | NestJS용 Prisma 서비스/모듈 래퍼(`prisma.service.ts`·`prisma.module.ts`) — 스키마·마이그레이션·시드는 `apps/backend/prisma/`(리포 루트 기준 다른 디렉터리)가 원본 |
@@ -45,6 +47,8 @@ NestJS 모듈별 소스이며 모듈마다 폴더 하나를 쓴다.
 - 도메인 실패 enum을 가진 모듈은 기존 prefix와 `DomainException` 경로를 유지한다.
 - `submissions/`와 `submission-reviews/`는 독립 enum이면서 모두 `SUB_*` prefix를 쓰므로 실제 문자열 중복을 확인한다.
 - 테스트는 `pnpm --filter backend test:unit`(기본)과 `test:integration`(`*.integration.spec.ts`, 격리 DB 컨테이너) 두 트랙으로 나뉜다 — 파일명이 트랙을 결정한다.
+- `collection/` 밖에서는 `COLLECTION_READ_PORT`/`CollectionReadPort`/DTO로만 collection을 소비한다 — concrete 구현·Prisma delegate 직접 import는 `eslint.config.mjs`가 강제하는 4가지 경계로 차단된다(ADR-003 DEC-42, `common/architecture-boundary.eslint.spec.ts`가 회귀 고정).
+- `showcase/`는 마지막 writer 호출(수동 공개 확정, `submission-reviews/`)이 제거돼 테이블이 read-only다 — 물리 삭제는 Issue #463로 이연됐고 새 코드는 이 테이블을 쓰지 않는다. 공개 read는 이제 `public-projects/`가 담당한다.
 
 ## Dependencies
 

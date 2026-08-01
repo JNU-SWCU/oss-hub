@@ -144,6 +144,30 @@ describe('AuditLogView', () => {
     expect(html).toContain('ROLE_REQUEST / request-legacy');
   });
 
+  it('REPOSITORY_PUBLISHED(schemaVersion 2 target 스냅샷과 별개의 독립 sibling 타입) 행도 targetType/targetId 폴백 라벨로 표시한다', () => {
+    const html = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[
+          {
+            id: 'audit-repository-published',
+            actor: 'synthetic-staff',
+            action: 'REPOSITORY_PUBLISHED',
+            targetType: 'REPOSITORY',
+            targetId: 'repository-synthetic-1',
+            target: 'REPOSITORY / repository-synthetic-1',
+            occurredAt: '2026-07-24T04:00:00.000Z',
+          },
+        ]}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+
+    expect(html).toContain('REPOSITORY_PUBLISHED');
+    expect(html).toContain('REPOSITORY / repository-synthetic-1');
+  });
+
   it('필터 이름을 각 컨트롤과 연결한다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView
@@ -166,12 +190,16 @@ describe('AuditLogView', () => {
     }
   });
 
-  it('액션 필터의 API 값과 한국어 표시 이름을 함께 제공한다', () => {
+  it('백엔드 action registry 전체(REPOSITORY_PUBLISHED 포함)를 필터의 API 값과 한국어 표시 이름으로 제공한다', () => {
     for (const [value, label] of [
       ['', '전체'],
       ['STAFF_ROLE_REQUEST_APPROVED', '승인'],
       ['STAFF_ROLE_REQUEST_REJECTED', '반려'],
       ['STAFF_ROLE_REQUEST_REVOKED', '회수'],
+      ['STAFF_ROLE_REQUEST_RESTORED', '복구'],
+      ['USER_ROLE_CHANGED', '역할 변경'],
+      ['USER_ACCOUNT_STATUS_CHANGED', '계정 상태 변경'],
+      ['REPOSITORY_PUBLISHED', '저장소 공개'],
     ]) {
       const html = renderToStaticMarkup(
         <AuditLogView

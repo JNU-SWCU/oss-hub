@@ -25,6 +25,7 @@ function submission(
     lastReviewedAt: null,
     reviewComment: null,
     canResubmit: false,
+    file: null,
     ...overrides,
   };
 }
@@ -91,6 +92,7 @@ const CHECKLIST: SubmissionChecklist = {
 const handlers = {
   onTextChange: vi.fn(),
   onReleaseUrlChange: vi.fn(),
+  onFileChange: vi.fn(),
   onCommentChange: vi.fn(),
   onResubmit: vi.fn(),
 };
@@ -105,10 +107,12 @@ function render(overrides: Partial<SubmissionChecklistViewProps> = {}): string {
       input={{ file: null, text: '', releaseUrl: '' }}
       comment=""
       errors={{}}
+      fileError={null}
       serverError={null}
       staleNotice={null}
       toastMessage={null}
       submitting={false}
+      submissionPhase={null}
       {...handlers}
       {...overrides}
     />,
@@ -234,10 +238,12 @@ describe('SubmissionChecklistView 선택 패널', () => {
     expect(html).not.toContain('id="submission-text"');
   });
 
-  it('FILE 유형 보완 요청은 fail-closed로 재제출을 막는다', () => {
+  it('FILE changes-requested milestones render the replacement file resubmission form', () => {
     // Given: FILE 마일스톤이 보완 요청 상태.
+    const planItem = ITEMS[0];
+    if (!planItem) throw new Error('expected file checklist fixture');
     const fileItem: SubmissionChecklistItem = {
-      ...ITEMS[0]!,
+      ...planItem,
       submission: submission({
         id: 'submission-plan',
         status: 'CHANGES_REQUESTED',
@@ -251,9 +257,9 @@ describe('SubmissionChecklistView 선택 패널', () => {
     });
 
     // Then
-    expect(html).toContain('파일 제출은 현재 지원하지 않습니다.');
-    expect(html).not.toContain('revision 2 제출');
-    expect(html).not.toContain('type="file"');
+    expect(html).toContain('type="file"');
+    expect(html).toContain('PDF, HWP, JPG, PNG, ZIP');
+    expect(html).toContain('revision 2 제출');
   });
 
   it('미제출 선택 시 #115 제출 화면으로 안내한다', () => {

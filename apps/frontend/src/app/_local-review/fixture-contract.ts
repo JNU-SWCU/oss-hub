@@ -23,11 +23,14 @@ export type LocalReviewFixtureId = (typeof LOCAL_REVIEW_FIXTURE_IDS)[number];
 /**
  * next.config의 쿠키 조건이 쓰는 값 패턴. Next는 이 문자열을 `^…$`로 감싸 완전
  * 일치로 검사하므로(prepare-destination의 matchHas), 여기 없는 페르소나는 쿠키가
- * 있어도 어댑터로 가지 못하고 실제 backend로 새어 나간다 — 새 id를 추가할 때
- * `LOCAL_REVIEW_FIXTURE_IDS`와 함께 반드시 고친다.
+ * 있어도 어댑터로 가지 못하고 실제 backend로 새어 나간다.
+ *
+ * 손으로 적어 두면 id 목록과 두 곳에서 따로 관리하게 돼, 새 페르소나를 넣고 한쪽만
+ * 고치는 사고가 난다. 목록에서 직접 파생시켜 그 가능성을 없앤다.
  */
-export const LOCAL_REVIEW_FIXTURE_PATTERN =
-  '(?:anonymous|student|staff|admin|settings|loading|error|error-once|unassigned|wrong-role|role-pending)' as const;
+export const LOCAL_REVIEW_FIXTURE_PATTERN = `(?:${LOCAL_REVIEW_FIXTURE_IDS.join(
+  '|',
+)})` as const;
 
 /**
  * 정확히 일치할 때만 허용하는 진입 경로. 하위 경로가 없는 화면들이다.
@@ -113,12 +116,27 @@ export type LocalReviewActivation =
       readonly target: string;
     };
 
+// 로컬 리뷰 하네스가 지원하는 진입 host 목록. 라우트의 host 검사와 next.config.ts의
+// rewrite `has` 규칙이 같은 집합을 봐야 진입부터 /api/v1 rewrite까지 계약이 끊기지 않으므로
+// 여기 한 곳에서만 정의하고 정규식도 이 목록에서 파생시킨다.
+//
+// IPv6 loopback(`::1`)은 목록에서 뺐다. Next의 rewrite host matcher는 Host 헤더를
+// `host.split(':', 1)[0]`으로 잘라 hostname을 얻는데(next/dist/shared/lib/router/utils/
+// prepare-destination.js), `[::1]:3000`은 이 방식으로 복원되지 않아 rewrite가 절대 매치되지
+// 않는다. 라우트에서만 허용하면 fixture cookie는 심기지만 /api/v1이 adapter로 가지 않고
+// 실제 backend로 조용히 나가는 반쪽 계약이 된다 — 지원 못 하는 host는 진입부터 막는 편이 낫다.
+export const LOCAL_REVIEW_LOOPBACK_HOSTNAMES = [
+  'localhost',
+  '127.0.0.1',
+] as const;
+
+export const LOCAL_REVIEW_LOOPBACK_HOST_PATTERN = `(?:${LOCAL_REVIEW_LOOPBACK_HOSTNAMES.map(
+  (hostname) => hostname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+).join('|')})`;
+
 export function isLoopbackHostname(hostname: string): boolean {
-  return (
-    hostname === 'localhost' ||
-    hostname === '127.0.0.1' ||
-    hostname === '[::1]' ||
-    hostname === '::1'
+  return LOCAL_REVIEW_LOOPBACK_HOSTNAMES.some(
+    (candidate) => candidate === hostname,
   );
 }
 

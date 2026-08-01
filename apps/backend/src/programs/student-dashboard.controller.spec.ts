@@ -35,6 +35,12 @@ describe('StudentDashboardController', () => {
           },
           detailUrl: '/programs/program-1',
           checklistUrl: '/programs/program-1/submissions',
+          repository: {
+            repositoryName: 'synthetic-repository',
+            provisionStatus: 'SUCCEEDED' as const,
+            invitationStatus: 'PENDING' as const,
+            githubUrl: 'https://github.com/JNU-SWCU/synthetic-repository',
+          },
         },
       ]),
     } as jest.Mocked<Pick<StudentDashboardService, 'getStudentDashboard'>>;
@@ -50,6 +56,12 @@ describe('StudentDashboardController', () => {
 
     expect(dashboard.getStudentDashboard).toHaveBeenCalledWith(123n);
     expect(response.items[0]?.nextMilestone?.dueAt).toBe(DUE_AT.toISOString());
+    expect(response.items[0]?.repository).toEqual({
+      repositoryName: 'synthetic-repository',
+      provisionStatus: 'SUCCEEDED',
+      invitationStatus: 'PENDING',
+      githubUrl: 'https://github.com/JNU-SWCU/synthetic-repository',
+    });
   });
 
   it('keeps unauthenticated handling with SessionGuard metadata', () => {

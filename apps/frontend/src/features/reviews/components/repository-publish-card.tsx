@@ -32,7 +32,7 @@ export function RepositoryPublishCard({
       <Card>
         <CardHeader>
           <CardTitle>저장소 공개</CardTitle>
-          <CardDescription>
+          <CardDescription className="[word-break:keep-all]">
             이 신청에는 공개할 GitHub 저장소가 연결되어 있지 않습니다.
           </CardDescription>
         </CardHeader>

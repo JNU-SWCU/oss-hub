@@ -137,6 +137,8 @@ const CAPSTONE_CHECKLIST = {
         lastReviewedAt: '2026-07-16T10:30:00.000+09:00',
         reviewComment: '기획 범위가 명확합니다.',
         canResubmit: false,
+        // 본문만 낸 제출이라 첨부는 없다.
+        file: null,
       },
     },
     {
@@ -158,6 +160,8 @@ const CAPSTONE_CHECKLIST = {
         lastReviewedAt: '2026-07-30T16:20:00.000+09:00',
         reviewComment: '릴리스 노트에 실행 환경과 변경 내역을 추가해 주세요.',
         canResubmit: true,
+        // 본문만 낸 제출이라 첨부는 없다.
+        file: null,
       },
     },
   ],
@@ -179,6 +183,8 @@ const CONTEST_CHECKLIST = {
         lastReviewedAt: '2026-07-29T14:10:00.000+09:00',
         reviewComment: '재현 순서와 테스트 결과를 릴리스 노트에 보완해 주세요.',
         canResubmit: true,
+        // 본문만 낸 제출이라 첨부는 없다.
+        file: null,
       },
     },
     {

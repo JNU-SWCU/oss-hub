@@ -1,3 +1,5 @@
+import type { Readable } from 'node:stream';
+
 export const SUBMISSION_FILE_STORAGE = Symbol('SUBMISSION_FILE_STORAGE');
 
 export interface StoreSubmissionFileInput {
@@ -16,12 +18,14 @@ export interface StoredSubmissionFile {
 
 export interface SubmissionFileStoragePort {
   put(input: StoreSubmissionFileInput): Promise<StoredSubmissionFile>;
+  get(objectKey: string): Promise<Readable>;
   delete(objectKey: string): Promise<void>;
 }
 
 export const SUBMISSION_FILE_STORAGE_ERROR_CODES = {
   CONFIGURATION: 'SUBMISSION_FILE_STORAGE_CONFIGURATION',
   PUT_FAILED: 'SUBMISSION_FILE_STORAGE_PUT_FAILED',
+  GET_FAILED: 'SUBMISSION_FILE_STORAGE_GET_FAILED',
   DELETE_FAILED: 'SUBMISSION_FILE_STORAGE_DELETE_FAILED',
 } as const;
 

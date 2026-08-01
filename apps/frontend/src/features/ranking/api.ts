@@ -1,6 +1,5 @@
 import { apiClient } from '@/lib/api-client';
 import {
-  RANKING_NOTICE,
   RANKING_PERIODS,
   type RankingItem,
   type RankingPage,
@@ -67,15 +66,7 @@ function isRankingItem(value: unknown): value is RankingItem {
 export function parseRankingPage(value: unknown): RankingPage {
   if (
     !isRecord(value) ||
-    !hasExactKeys(value, [
-      'notice',
-      'period',
-      'items',
-      'page',
-      'pageSize',
-      'total',
-    ]) ||
-    value.notice !== RANKING_NOTICE ||
+    !hasExactKeys(value, ['period', 'items', 'page', 'pageSize', 'total']) ||
     !isRankingPeriod(value.period) ||
     !Array.isArray(value.items) ||
     !value.items.every(isRankingItem) ||
@@ -87,7 +78,6 @@ export function parseRankingPage(value: unknown): RankingPage {
   }
 
   return {
-    notice: value.notice,
     period: value.period,
     items: value.items.map((item) => ({ ...item })),
     page: value.page,

@@ -40,6 +40,27 @@ describe('SubmissionFileUploadCache', () => {
       expect(upload).toHaveBeenCalledTimes(2);
     },
   );
+
+  it('file change invalidates only the previous selected file upload', async () => {
+    // Given
+    const cache = new SubmissionFileUploadCache();
+    const first = new File(['%PDF'], 'first.pdf', { type: 'application/pdf' });
+    const second = new File(['%PDF'], 'second.pdf', {
+      type: 'application/pdf',
+    });
+    const upload = vi
+      .fn<() => Promise<{ fileId: string }>>()
+      .mockResolvedValueOnce({ fileId: 'file-first' })
+      .mockResolvedValueOnce({ fileId: 'file-second' });
+
+    // When
+    await expect(cache.resolve(first, upload)).resolves.toBe('file-first');
+    cache.discardUnless(second);
+    await expect(cache.resolve(second, upload)).resolves.toBe('file-second');
+
+    // Then
+    expect(upload).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('validateSubmissionFile', () => {

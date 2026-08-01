@@ -35,10 +35,18 @@ export function uploadSubmissionFile(
   applicationId: string,
   milestoneId: string,
   file: File,
+  context?: {
+    readonly submissionId: string;
+    readonly baseRevision: number;
+  },
 ): Promise<UploadedSubmissionFile> {
   const body = new FormData();
   body.append('applicationId', applicationId);
   body.append('milestoneId', milestoneId);
+  if (context) {
+    body.append('submissionId', context.submissionId);
+    body.append('baseRevision', String(context.baseRevision));
+  }
   body.append('file', file);
 
   return apiClient<UploadedSubmissionFile>('submission-files', {

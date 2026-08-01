@@ -1,4 +1,5 @@
-import { MilestoneSubmissionType } from '@prisma/client';
+import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
+import { Readable } from 'node:stream';
 import { DomainException } from '../common/error-code';
 import {
   SUBMISSION_FILE_STORAGE_ERROR_CODES,
@@ -8,6 +9,7 @@ import {
 } from './submission-file-storage.port';
 import {
   type CreatePendingSubmissionFileInput,
+  type DownloadableSubmissionFile,
   SubmissionFileRetentionUnavailableError,
   type SubmissionFilesRepository,
 } from './submission-files.repository';
@@ -17,18 +19,32 @@ import { SubmissionsErrorCode } from './submissions-error-code.enum';
 const NOW = new Date('2026-07-25T12:00:00.000Z');
 const PROGRAM_END = new Date('2027-02-28T09:30:00.000Z');
 
+function authorization(
+  overrides: Partial<{
+    readonly applicationApproved: boolean;
+    readonly submissionType: MilestoneSubmissionType;
+    readonly dueAt: Date;
+    readonly programEndAt: Date | null;
+    readonly resubmissionStatus: SubmissionStatus;
+    readonly currentRevision: number;
+  }> = {},
+) {
+  return {
+    uploaderId: 'student-opaque',
+    applicationId: 'application-opaque',
+    milestoneId: 'milestone-opaque',
+    applicationApproved: true,
+    submissionType: MilestoneSubmissionType.FILE,
+    dueAt: new Date('2026-07-26T00:00:00.000Z'),
+    programEndAt: PROGRAM_END,
+    ...overrides,
+  };
+}
+
 function setup() {
   const repository = {
     findActiveStudentByGithubId: jest.fn().mockResolvedValue('student-opaque'),
-    findUploadAuthorization: jest.fn().mockResolvedValue({
-      uploaderId: 'student-opaque',
-      applicationId: 'application-opaque',
-      milestoneId: 'milestone-opaque',
-      applicationApproved: true,
-      submissionType: MilestoneSubmissionType.FILE,
-      dueAt: new Date('2026-07-26T00:00:00.000Z'),
-      programEndAt: PROGRAM_END,
-    }),
+    findUploadAuthorization: jest.fn().mockResolvedValue(authorization()),
     createPending: jest
       .fn<
         Promise<{
@@ -49,6 +65,16 @@ function setup() {
           expiresAt: new Date('2028-02-28T09:30:00.000Z'),
         }),
       ),
+    findDownloadableFile: jest
+      .fn<Promise<DownloadableSubmissionFile | null>, [bigint, string, Date]>()
+      .mockResolvedValue({
+        id: 'file-opaque',
+        storageKey: 'submission-files/private-key',
+        originalFileName: 'report.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 14,
+        expiresAt: new Date('2028-02-28T09:30:00.000Z'),
+      }),
   };
   const storage = {
     put: jest
@@ -65,6 +91,9 @@ function setup() {
         }),
       ),
     delete: jest.fn().mockResolvedValue(undefined),
+    get: jest
+      .fn<ReturnType<SubmissionFileStoragePort['get']>, [string]>()
+      .mockResolvedValue(Readable.from(Buffer.from('private-file-body'))),
   };
   const service = new SubmissionFilesService(
     repository as unknown as SubmissionFilesRepository,
@@ -178,6 +207,7 @@ describe('SubmissionFilesService', () => {
       'student-opaque',
       'application:opaque/01',
       'milestone:opaque/02',
+      null,
     );
     expect(repository.createPending).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -194,6 +224,118 @@ describe('SubmissionFilesService', () => {
       service.upload(1n, 'app', 'milestone', file()),
       SubmissionsErrorCode.NOT_APPLICATION_MEMBER,
     );
+    expect(storage.put).not.toHaveBeenCalled();
+  });
+
+  it('allows a CHANGES_REQUESTED replacement upload after the milestone deadline', async () => {
+    const { service, repository, storage } = setup();
+    repository.findUploadAuthorization.mockResolvedValue(
+      authorization({
+        dueAt: new Date('2026-07-24T00:00:00.000Z'),
+        resubmissionStatus: SubmissionStatus.CHANGES_REQUESTED,
+        currentRevision: 1,
+      }),
+    );
+
+    await expect(
+      service.upload(1n, 'app', 'milestone', file(), 'submission-opaque', '1'),
+    ).resolves.toMatchObject({ fileId: 'file-opaque' });
+
+    expect(repository.findUploadAuthorization).toHaveBeenCalledWith(
+      'student-opaque',
+      'app',
+      'milestone',
+      { submissionId: 'submission-opaque', baseRevision: 1 },
+    );
+    expect(storage.put).toHaveBeenCalledTimes(1);
+  });
+
+  it('requires submissionId and baseRevision to be paired', async () => {
+    const { service, repository, storage } = setup();
+
+    await expectCode(
+      service.upload(1n, 'app', 'milestone', file(), 'submission-opaque'),
+      SubmissionsErrorCode.INVALID_FILE_UPLOAD,
+    );
+
+    expect(repository.findUploadAuthorization).not.toHaveBeenCalled();
+    expect(storage.put).not.toHaveBeenCalled();
+  });
+
+  it('rejects mismatched replacement upload context before storage', async () => {
+    const { service, repository, storage } = setup();
+    repository.findUploadAuthorization.mockResolvedValue(null);
+
+    await expectCode(
+      service.upload(1n, 'app', 'milestone', file(), 'other-submission', '1'),
+      SubmissionsErrorCode.NOT_APPLICATION_MEMBER,
+    );
+
+    expect(repository.findUploadAuthorization).toHaveBeenCalledWith(
+      'student-opaque',
+      'app',
+      'milestone',
+      { submissionId: 'other-submission', baseRevision: 1 },
+    );
+    expect(storage.put).not.toHaveBeenCalled();
+  });
+
+  it('rejects non-CHANGES replacement upload context before storage', async () => {
+    const { service, repository, storage } = setup();
+    repository.findUploadAuthorization.mockResolvedValue(
+      authorization({
+        resubmissionStatus: SubmissionStatus.SUBMITTED,
+        currentRevision: 1,
+      }),
+    );
+
+    await expectCode(
+      service.upload(1n, 'app', 'milestone', file(), 'submission-opaque', '1'),
+      SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED,
+    );
+
+    expect(repository.createPending).not.toHaveBeenCalled();
+    expect(storage.put).not.toHaveBeenCalled();
+  });
+
+  it('rejects stale replacement upload context before storage', async () => {
+    const { service, repository, storage } = setup();
+    repository.findUploadAuthorization.mockResolvedValue(
+      authorization({
+        resubmissionStatus: SubmissionStatus.CHANGES_REQUESTED,
+        currentRevision: 2,
+      }),
+    );
+
+    await expectCode(
+      service.upload(1n, 'app', 'milestone', file(), 'submission-opaque', '1'),
+      SubmissionsErrorCode.STALE_SUBMISSION_REVISION,
+    );
+
+    expect(repository.createPending).not.toHaveBeenCalled();
+    expect(storage.put).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['unsafe number', Number.MAX_SAFE_INTEGER + 1],
+    ['unsafe digit string', '9007199254740992'],
+    ['huge digit string', '123456789012345678901234567890'],
+  ])('rejects %s baseRevision before authorization', async (_label, value) => {
+    const { service, repository, storage } = setup();
+
+    await expectCode(
+      service.upload(
+        1n,
+        'app',
+        'milestone',
+        file(),
+        'submission-opaque',
+        value,
+      ),
+      SubmissionsErrorCode.INVALID_FILE_UPLOAD,
+    );
+
+    expect(repository.findUploadAuthorization).not.toHaveBeenCalled();
     expect(storage.put).not.toHaveBeenCalled();
   });
 
@@ -379,4 +521,69 @@ describe('SubmissionFilesService', () => {
       expect(storage.put).not.toHaveBeenCalled();
     },
   );
+
+  it('streams an authorized attached file with safe metadata', async () => {
+    const { service, repository, storage } = setup();
+
+    const download = await service.download(123n, 'file-opaque');
+
+    expect(repository.findDownloadableFile).toHaveBeenCalledWith(
+      123n,
+      'file-opaque',
+      NOW,
+    );
+    expect(storage.get).toHaveBeenCalledWith('submission-files/private-key');
+    expect(download).toMatchObject({
+      fileName: 'report.pdf',
+      contentType: 'application/pdf',
+      contentLength: 14,
+    });
+  });
+
+  it('returns indistinguishable not-found without reading storage when access is denied', async () => {
+    const { service, repository, storage } = setup();
+    repository.findDownloadableFile.mockResolvedValue(null);
+
+    await expectCode(
+      service.download(123n, 'file-opaque'),
+      SubmissionsErrorCode.SUBMISSION_FILE_NOT_FOUND,
+    );
+
+    expect(storage.get).not.toHaveBeenCalled();
+  });
+
+  it('maps download storage failures to the public unavailable error', async () => {
+    const { service, storage } = setup();
+    storage.get.mockRejectedValue(
+      new SubmissionFileStorageError(
+        SUBMISSION_FILE_STORAGE_ERROR_CODES.GET_FAILED,
+      ),
+    );
+
+    const error = await service
+      .download(123n, 'file-opaque')
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(DomainException);
+    expect((error as DomainException).errorCode.code).toBe(
+      SubmissionsErrorCode.FILE_STORAGE_UNAVAILABLE,
+    );
+    expect((error as Error).message).not.toContain('SUBMISSION_FILE_STORAGE');
+  });
+
+  it('falls back to octet-stream for unsafe stored content types', async () => {
+    const { service, repository } = setup();
+    repository.findDownloadableFile.mockResolvedValue({
+      id: 'file-opaque',
+      storageKey: 'submission-files/private-key',
+      originalFileName: 'report.html',
+      mimeType: 'text/html',
+      sizeBytes: 14,
+      expiresAt: new Date('2028-02-28T09:30:00.000Z'),
+    });
+
+    await expect(service.download(123n, 'file-opaque')).resolves.toMatchObject({
+      contentType: 'application/octet-stream',
+    });
+  });
 });

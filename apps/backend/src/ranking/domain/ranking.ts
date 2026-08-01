@@ -6,9 +6,6 @@ export const RANKING_PERIODS = {
 export type RankingPeriod =
   (typeof RANKING_PERIODS)[keyof typeof RANKING_PERIODS];
 
-export const RANKING_NOTICE =
-  '본 랭킹은 공개 GitHub 활동량 집계이며 평가·시상과 무관합니다.';
-
 export interface RankingMetrics {
   readonly commitCount: number;
   readonly prCount: number;
@@ -23,7 +20,6 @@ export interface RankingEntry extends RankingMetrics {
 }
 
 export interface RankingPage {
-  readonly notice: typeof RANKING_NOTICE;
   readonly period: RankingPeriod;
   readonly items: readonly RankingEntry[];
   readonly page: number;
