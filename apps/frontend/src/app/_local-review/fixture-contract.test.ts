@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  LOCAL_REVIEW_LOOPBACK_HOSTNAMES,
+  LOCAL_REVIEW_LOOPBACK_HOST_PATTERN,
   createLocalReviewActivation,
+  isLoopbackHostname,
   parseRequestHostname,
 } from './fixture-contract';
 
@@ -21,6 +24,29 @@ describe('local review activation contract', () => {
     );
     expect(parseRequestHostname(null)).toBeNull();
     expect(parseRequestHostname('not a valid host')).toBeNull();
+  });
+
+  it('라우트의 host 허용 집합과 rewrite host 패턴이 정확히 같은 범위를 가리킨다', () => {
+    // Given — next.config.ts의 rewrite `has` 규칙이 쓰는 정규식이다.
+    const pattern = new RegExp(`^${LOCAL_REVIEW_LOOPBACK_HOST_PATTERN}$`);
+
+    // When / Then — 허용 host는 양쪽 모두 통과해야 한다.
+    for (const hostname of LOCAL_REVIEW_LOOPBACK_HOSTNAMES) {
+      expect(isLoopbackHostname(hostname)).toBe(true);
+      expect(pattern.test(hostname)).toBe(true);
+    }
+
+    // 지원 범위 밖 host는 양쪽 모두에서 막혀야 한다. IPv6 loopback은 Next의 host matcher가
+    // Host 헤더를 ':'로 잘라 복원하지 못해 rewrite가 매치될 수 없으므로 지원하지 않는다.
+    for (const hostname of [
+      '::1',
+      '[::1]',
+      '127.0.0.11',
+      'review.example.com',
+    ]) {
+      expect(isLoopbackHostname(hostname)).toBe(false);
+      expect(pattern.test(hostname)).toBe(false);
+    }
   });
 
   it('is unavailable in production even when the flag is set', () => {
