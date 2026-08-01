@@ -1,5 +1,10 @@
 import { dashboardFixture } from '@/features/dashboard/fixtures';
 import type { AuthRole } from '@/features/auth/types';
+import {
+  AUDIT_LOG_ACCESS_RECORD_FIXTURE,
+  AUDIT_LOG_LEGACY_RECORD_FIXTURE,
+  AUDIT_LOG_REPOSITORY_PUBLISHED_RECORD_FIXTURE,
+} from '@/features/audit-log/fixtures';
 import type { AuditLogPage, AuditLogRecord } from '@/features/audit-log/types';
 import type { StaffDashboardSummary } from '@/features/programs/types';
 import { apiPath } from '@/lib/api-client';
@@ -126,78 +131,41 @@ type AuditLogWirePage = Omit<AuditLogPage, 'items'> & {
   readonly items: readonly AuditLogWireRecord[];
 };
 
-const AUDIT_LOG_ACTIONS = [
-  'STAFF_ROLE_REQUEST_APPROVED',
-  'STAFF_ROLE_REQUEST_REJECTED',
-  'STAFF_ROLE_REQUEST_REVOKED',
-] as const;
+/**
+ * 감사 로그 fixture. 레코드 모양·metadata 스키마는 화면과 같은 canonical
+ * fixture(`features/audit-log/fixtures.ts`)를 seed 로 그대로 쓴다. 여기서 다시
+ * 만들면 계약 소유자가 둘이 되어, 파서 키 검사는 통과해도 metadata 의미가
+ * 바뀔 때 fixture 내용만 조용히 어긋난다.
+ *
+ * 로컬 검토가 canonical 에서 더 필요로 하는 것은 "여러 페이지"뿐이라,
+ * 이 파일은 id·시각·대상 식별자만 변형해 건수를 늘린다.
+ */
+const AUDIT_LOG_SEEDS = [
+  AUDIT_LOG_ACCESS_RECORD_FIXTURE,
+  AUDIT_LOG_REPOSITORY_PUBLISHED_RECORD_FIXTURE,
+  AUDIT_LOG_LEGACY_RECORD_FIXTURE,
+] as const satisfies readonly AuditLogWireRecord[];
 
-// schemaVersion 2 metadata의 after 스냅샷. action마다 결과 상태가 달라야 metadata가
-// action과 앞뒤 맞는 합성 데이터가 된다.
-const AUDIT_LOG_RESULT_BY_ACTION = {
-  STAFF_ROLE_REQUEST_APPROVED: { role: 'STUDENT', requestStatus: 'APPROVED' },
-  STAFF_ROLE_REQUEST_REJECTED: { role: null, requestStatus: 'REJECTED' },
-  STAFF_ROLE_REQUEST_REVOKED: { role: null, requestStatus: 'REVOKED' },
-} as const satisfies Readonly<
-  Record<
-    (typeof AUDIT_LOG_ACTIONS)[number],
-    { readonly role: string | null; readonly requestStatus: string }
-  >
->;
-
-// 감사 로그 기본 limit은 20이다. 로컬 리뷰에서 페이지 이동을 실제로 눌러 볼 수
-// 있도록 한 페이지를 넘기는 건수를 둔다 — 20건 이하면 이전·다음이 항상 비활성이라
-// 페이지네이션을 검토할 수 없다.
+// 기본 limit 은 20이다. 한 페이지를 넘겨야 이전·다음 버튼이 살아나므로, 페이지
+// 이동을 실제로 눌러 보려면 20건보다 많아야 한다.
 const AUDIT_LOG_FIXTURE_COUNT = 23;
 
 const AUDIT_LOG_FIXTURES: readonly AuditLogWireRecord[] = Array.from(
   { length: AUDIT_LOG_FIXTURE_COUNT },
   (_, index) => {
-    const action = AUDIT_LOG_ACTIONS[index % AUDIT_LOG_ACTIONS.length];
-    const actor = index % 4 === 0 ? 'synthetic-admin' : 'synthetic-reviewer';
-    const targetId = `fixture:role-request:${index + 1}`;
-    const base = {
-      id: `fixture:audit:${index + 1}`,
-      actor,
-      action,
-      targetType: 'ROLE_REQUEST',
+    const seed = AUDIT_LOG_SEEDS[index % AUDIT_LOG_SEEDS.length];
+    const suffix = index + 1;
+    const targetId = `${seed.targetId}-${suffix}`;
+    return {
+      ...seed,
+      id: `${seed.id}-${suffix}`,
       targetId,
+      // legacy 행의 대상 라벨은 `targetType / targetId` 폴백이라 id 를 바꾸면
+      // 라벨도 같이 따라가야 한다. schemaVersion 2 행의 라벨은 대상의 GitHub
+      // 로그인이라 seed 값을 그대로 둔다.
+      target: seed.legacy ? `${seed.targetType} / ${targetId}` : seed.target,
       // 최신순 — 백엔드의 occurredAt desc 정렬과 같은 순서로 둔다.
       occurredAt: `2026-07-${String(AUDIT_LOG_FIXTURE_COUNT - index).padStart(2, '0')}T01:00:00.000Z`,
-    } as const;
-
-    // 5건에 한 건은 metadata가 없는 legacy 행이다. 파서가 legacy=true → metadata null,
-    // legacy=false → metadata 객체를 서로 다르게 검증하므로, 두 모양이 한 화면에 함께
-    // 있어야 계약도 대상 라벨 폴백도 실제로 검토된다.
-    if (index % 5 === 4) {
-      return {
-        ...base,
-        // legacy 행은 대상의 GitHub 로그인을 복원할 수 없어 `targetType / targetId` 폴백이다.
-        target: `ROLE_REQUEST / ${targetId}`,
-        legacy: true,
-        metadata: null,
-      };
-    }
-
-    const targetLogin = `synthetic-target-${index + 1}`;
-    const { role, requestStatus } = AUDIT_LOG_RESULT_BY_ACTION[action];
-    return {
-      ...base,
-      // schemaVersion 2 행의 사람이 읽는 대상 라벨 — 대상의 GitHub 로그인이다.
-      target: targetLogin,
-      legacy: false,
-      metadata: {
-        schemaVersion: 2,
-        eventKind: action,
-        actor: { displayName: null, githubLogin: actor },
-        target: { displayName: null, githubLogin: targetLogin },
-        before: {
-          role: null,
-          accountStatus: 'ACTIVE',
-          requestStatus: 'PENDING',
-        },
-        after: { role, accountStatus: 'ACTIVE', requestStatus },
-      },
     };
   },
 );
