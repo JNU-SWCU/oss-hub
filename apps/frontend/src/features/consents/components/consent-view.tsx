@@ -130,7 +130,21 @@ function ConsentPolicyDialog({
   return (
     <DialogPrimitive.Root>
       <DialogPrimitive.Trigger asChild>
-        <Button ref={triggerRef} className="w-fit" type="button" variant="link">
+        {/*
+          동의 항목 이름이 그대로 라벨에 들어가서 좁은 화면에서는 한 줄에 담기지
+          않는다. Button 기본값이 `whitespace-nowrap`·`h-control`(고정 높이)이라
+          `w-fit` 만 두면 글자가 화면 밖으로 나가 잘렸다 — 375px 에서 버튼 오른쪽
+          끝이 429px 였다. 무엇에 동의하는지 읽지 못하면 동의를 물을 수 없다.
+
+          그래서 줄바꿈을 허용하고 폭을 화면 안으로 가둔다. 높이는 고정 대신
+          최소값으로 바꿔 줄이 늘어도 44px 터치 타깃은 지킨다.
+        */}
+        <Button
+          ref={triggerRef}
+          className="h-auto max-w-full min-h-11 w-fit justify-start whitespace-normal text-left"
+          type="button"
+          variant="link"
+        >
           {label} 전문 보기
         </Button>
       </DialogPrimitive.Trigger>
