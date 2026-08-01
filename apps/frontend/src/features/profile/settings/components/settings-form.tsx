@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { DEPARTMENT_GROUPS, OTHER_DEPARTMENT } from '../../departments';
 import {
+  isDepartmentRequiredForProfile,
   profileFieldRequirement,
   type ProfileRole,
 } from '../../profile-requirements';
@@ -83,6 +84,13 @@ export function SettingsForm({
   // 역할에게는 선택 항목으로 열어 두고, 한 번 저장하면 학적 식별자로 고정한다.
   const requirement = profileFieldRequirement(role);
   const isStudentIdLocked = hasSavedStudentId(values);
+  // 아직 학번이 없는 사용자가 학번을 적어 넣으면 학과도 함께 받아야 한다 — 학번이
+  // 유일성 제약 아래 저장되는 행이 학과를 요구하기 때문이다. 이미 고정된 학번은 다시
+  // 보내지 않으므로 그때는 역할 기준 그대로 둔다.
+  const showDepartment =
+    !isStudentIdLocked && isDepartmentRequiredForProfile(role, values.studentId)
+      ? true
+      : requirement.department;
   const editableFields = requirement.department
     ? '이름과 학과를 수정할 수 있습니다.'
     : '이름을 수정할 수 있습니다.';
@@ -161,7 +169,7 @@ export function SettingsForm({
             )}
           </Field>
 
-          {requirement.department ? (
+          {showDepartment ? (
             <Field data-invalid={showDepartmentError || undefined}>
               <FieldLabel htmlFor="settings-department">학과</FieldLabel>
               <Select

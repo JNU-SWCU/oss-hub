@@ -9,11 +9,13 @@ function harness() {
   const userUpdate = jest.fn().mockResolvedValue({});
   const userProfileCreate = jest.fn().mockResolvedValue({});
   const userProfileUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
+  const userProfileFindUnique = jest.fn().mockResolvedValue(null);
   const transaction = {
     user: { updateMany: userUpdateMany, update: userUpdate },
     userProfile: {
       create: userProfileCreate,
       updateMany: userProfileUpdateMany,
+      findUnique: userProfileFindUnique,
     },
   };
   const prisma = {
@@ -27,6 +29,7 @@ function harness() {
     userUpdate,
     userProfileCreate,
     userProfileUpdateMany,
+    userProfileFindUnique,
     repository: new UsersRepository(prisma),
   };
 }
@@ -214,5 +217,69 @@ describe('UsersRepository profile field updates', () => {
       where: { id: 'user-legacy-only' },
       data: { name: '수정된 이름' },
     });
+  });
+});
+
+describe('UsersRepository 학번 최초 저장', () => {
+  const expected = {
+    id: 'user-legacy-only',
+    role: 'STAFF' as const,
+    name: '합성 교직원',
+    studentId: null,
+    department: '인공지능학부',
+  };
+  const profile = {
+    name: '합성 교직원',
+    studentId: '153406',
+    department: '인공지능학부',
+  };
+
+  it('UserProfile 행이 없던 교직원도 행을 만들어 제약 아래 학번을 넣는다', async () => {
+    // Given — 갱신 경로(updateMany)는 0행을 갱신하고 제약 없는 User 컬럼만 남겼다
+    const { repository, userProfileUpdateMany, userProfileCreate } = harness();
+
+    // When
+    const outcome = await repository.fillStudentId(expected, profile);
+
+    // Then
+    expect(outcome).toBe('filled');
+    expect(userProfileCreate).toHaveBeenCalledWith({
+      data: { userId: expected.id, ...profile },
+    });
+    expect(userProfileUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it('다른 계정이 소유한 학번은 쓰지 않고 taken을 돌려준다', async () => {
+    // Given
+    const { repository, userProfileFindUnique, userUpdateMany } = harness();
+    userProfileFindUnique.mockResolvedValue({ userId: 'other-user' });
+
+    // When / Then
+    await expect(repository.fillStudentId(expected, profile)).resolves.toBe(
+      'taken',
+    );
+    expect(userUpdateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('UsersRepository 완료 저장의 학번 경로', () => {
+  it('학번이 실렸는데 학과가 없으면 조용히 legacy에 쓰지 않고 멈춘다', async () => {
+    // Given — 이 조합은 서비스가 먼저 400으로 막아야 한다(USR_005)
+    const { repository, userUpdateMany } = harness();
+
+    // When / Then
+    await expect(
+      repository.completeProfileIfUnchanged(
+        {
+          id: 'user-admin',
+          role: 'ADMIN',
+          name: null,
+          studentId: null,
+          department: null,
+        },
+        { name: '합성 관리자', studentId: '153407', department: null },
+      ),
+    ).rejects.toThrow('학번을 저장하려면 학과가 필요합니다');
+    expect(userUpdateMany).not.toHaveBeenCalled();
   });
 });

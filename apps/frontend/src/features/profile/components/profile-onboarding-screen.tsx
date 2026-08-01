@@ -27,6 +27,7 @@ import {
 } from '../api';
 import { DEPARTMENT_GROUPS, OTHER_DEPARTMENT } from '../departments';
 import {
+  isDepartmentRequiredForProfile,
   profileFieldRequirement,
   type ProfileRole,
 } from '../profile-requirements';
@@ -87,6 +88,10 @@ export function ProfileForm({
   // 한다. 비워 두면 요청에서 키가 빠지고, 넣으면 학적 식별자로 고정된다.
   // 머리말은 필수 항목을 먼저 늘어놓고, 선택으로 열린 학번을 맨 뒤에 덧붙인다.
   const requirement = profileFieldRequirement(role);
+  // 학번을 적어 넣는 순간 학과도 필요해진다 — 학번이 유일성 제약 아래 저장되는 자리가
+  // 학과를 요구하는 행이기 때문이다(`isDepartmentRequiredForProfile`). 그래서 학과 칸은
+  // 역할이 요구할 때뿐 아니라 사용자가 학번을 적었을 때도 함께 연다.
+  const showDepartment = isDepartmentRequiredForProfile(role, values.studentId);
   const profileFields = [
     '이름',
     ...(requirement.studentId ? ['학번'] : []),
@@ -154,7 +159,7 @@ export function ProfileForm({
             ) : null}
           </Field>
 
-          {requirement.department ? (
+          {showDepartment ? (
             <Field data-invalid={showDepartmentError || undefined}>
               <FieldLabel htmlFor="profile-department">학과</FieldLabel>
               <Select
@@ -244,6 +249,7 @@ export function ProfileOnboardingScreen({
         case 'already-complete':
           router.replace(PROFILE_ONBOARDING_NEXT_PATH);
           return true;
+        case 'student-id-taken':
         case 'generic':
           return false;
       }
@@ -305,7 +311,12 @@ export function ProfileOnboardingScreen({
       router.refresh();
     } catch (error: unknown) {
       if (!navigateForError(error)) {
-        setSubmitError('잠시 후 다시 시도해 주세요.');
+        // 학번 중복은 재시도로 풀리지 않는다 — "잠시 후 다시"로 접으면 같은 벽을 반복한다.
+        setSubmitError(
+          classifyProfileApiError(error) === 'student-id-taken'
+            ? '이미 다른 계정이 사용 중인 학번입니다. 학번을 다시 확인해 주세요.'
+            : '잠시 후 다시 시도해 주세요.',
+        );
       }
     } finally {
       submissionInFlight.current = false;

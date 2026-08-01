@@ -159,6 +159,8 @@ test.each([
   [401, 'AUT_003', 'unauthorized'],
   [422, 'CON_003', 'consent-required'],
   [409, 'USR_001', 'already-complete'],
+  // 재시도로 풀리지 않는 실패는 따로 분류해야 화면이 "잠시 후 다시"라고 말하지 않는다.
+  [409, 'USR_004', 'student-id-taken'],
   [500, 'SYS_001', 'generic'],
 ] as const)(
   'ProblemDetail %i/%s를 %s 프로필 오류로 분류한다',

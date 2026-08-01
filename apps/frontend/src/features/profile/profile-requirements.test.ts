@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isConsistentCompleteProfile,
+  isDepartmentRequiredForProfile,
   isProfileComplete,
   profileFieldRequirement,
   type ProfileRole,
@@ -100,5 +101,21 @@ describe('server isComplete consistency', () => {
     expect(isConsistentCompleteProfile(fields({ department: '   ' }))).toBe(
       false,
     );
+  });
+});
+
+describe('학번을 함께 저장할 때의 학과', () => {
+  it('학과가 필수가 아닌 역할도 학번을 적으면 학과가 필요해진다', () => {
+    // Given / When / Then — 학번이 유일성 제약 아래 저장되는 행이 학과를 요구한다
+    expect(isDepartmentRequiredForProfile('ADMIN', '')).toBe(false);
+    expect(isDepartmentRequiredForProfile('ADMIN', '   ')).toBe(false);
+    expect(isDepartmentRequiredForProfile('ADMIN', STUDENT_ID)).toBe(true);
+  });
+
+  it('학과가 원래 필수인 역할은 학번과 무관하게 그대로다', () => {
+    for (const role of ['STUDENT', 'STAFF'] as const) {
+      expect(isDepartmentRequiredForProfile(role, '')).toBe(true);
+      expect(isDepartmentRequiredForProfile(role, STUDENT_ID)).toBe(true);
+    }
   });
 });

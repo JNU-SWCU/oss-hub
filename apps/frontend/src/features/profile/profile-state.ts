@@ -1,5 +1,6 @@
 import { DEPARTMENT_OPTIONS, OTHER_DEPARTMENT } from './departments';
 import {
+  isDepartmentRequiredForProfile,
   isProfileComplete,
   isValidDepartment,
   isValidProfileName,
@@ -93,7 +94,7 @@ export function validateProfileForm(
     studentId: studentIdError(values.studentId.trim(), requirement.studentId),
     department: departmentError(
       resolveDepartment(values),
-      requirement.department,
+      isDepartmentRequiredForProfile(role, values.studentId),
     ),
   };
 }
@@ -160,7 +161,10 @@ export function validateSettingsProfileForm(
       : studentIdError(values.studentId.trim(), requirement.studentId),
     department: departmentError(
       resolveDepartment(values),
-      requirement.department,
+      // 이미 저장된 학번은 다시 보내지 않으므로 학과를 새로 요구할 이유가 없다.
+      hasSavedStudentId(values)
+        ? requirement.department
+        : isDepartmentRequiredForProfile(role, values.studentId),
     ),
   };
 }
