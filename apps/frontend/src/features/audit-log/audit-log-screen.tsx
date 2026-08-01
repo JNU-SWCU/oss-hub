@@ -4,15 +4,17 @@ import { useCallback, useEffect, useReducer, useState } from 'react';
 import { ApiError } from '@/lib/api-client';
 import { fetchAuditLogs } from './api';
 import {
+  AUDIT_LOG_PAGE_LIMIT,
+  auditLogQueryParams,
   auditLogStateReducer,
   initialAuditLogState,
-  retryAuditLogFilters,
 } from './audit-log-state';
 import { AuditLogView } from './audit-log-view';
-import type { AuditLogFilters, AuditLogRecord } from './types';
+import type { AuditLogListParams, AuditLogRecord } from './types';
 
 export function AuditLogScreen() {
   const [records, setRecords] = useState<readonly AuditLogRecord[]>([]);
+  const [total, setTotal] = useState(0);
   const [filterState, dispatchFilters] = useReducer(
     auditLogStateReducer,
     initialAuditLogState,
@@ -20,11 +22,13 @@ export function AuditLogScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const load = useCallback(async (filters: AuditLogFilters) => {
+  const load = useCallback(async (params: AuditLogListParams) => {
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      setRecords(await fetchAuditLogs(filters));
+      const page = await fetchAuditLogs(params);
+      setRecords(page.items);
+      setTotal(page.total);
     } catch (error) {
       setErrorMessage(
         error instanceof ApiError
@@ -36,20 +40,27 @@ export function AuditLogScreen() {
     }
   }, []);
 
+  const { appliedFilters, page } = filterState;
   useEffect(() => {
-    void load(filterState.appliedFilters);
-  }, [filterState.appliedFilters, load]);
+    void load({ ...appliedFilters, page, limit: AUDIT_LOG_PAGE_LIMIT });
+  }, [appliedFilters, page, load]);
 
   return (
     <AuditLogView
       records={records}
       filters={filterState.draftFilters}
+      page={filterState.page}
+      limit={AUDIT_LOG_PAGE_LIMIT}
+      total={total}
       isLoading={isLoading}
       errorMessage={errorMessage}
       onFilterChange={(filters) => dispatchFilters({ type: 'edit', filters })}
       onSearch={() => dispatchFilters({ type: 'search' })}
       onReset={() => dispatchFilters({ type: 'reset' })}
-      onRetry={() => void load(retryAuditLogFilters(filterState))}
+      onPageChange={(nextPage) =>
+        dispatchFilters({ type: 'page', page: nextPage })
+      }
+      onRetry={() => void load(auditLogQueryParams(filterState))}
     />
   );
 }

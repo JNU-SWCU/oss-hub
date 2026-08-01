@@ -89,6 +89,7 @@ export interface CreateApplicationRecordInput {
   readonly teamId: string | null;
   readonly answers: Prisma.InputJsonValue;
   readonly applicationTemplateVersion: number;
+  readonly isRepositoryPublicationPlanned: boolean;
 }
 
 export interface CreatedApplication {
@@ -97,6 +98,7 @@ export interface CreatedApplication {
   readonly status: ApplicationStatus;
   readonly teamId: string | null;
   readonly submittedAt: Date;
+  readonly isRepositoryPublicationPlanned: boolean;
 }
 
 export interface ApplicationListAnswers {
@@ -131,6 +133,7 @@ export interface ApplicationListItem {
   readonly submittedAt: Date;
   readonly rejectionReason: string | null;
   readonly repositoryProvisioning: ApplicationRepositoryProvisioning;
+  readonly isRepositoryPublicationPlanned: boolean;
   readonly participation: 'INDIVIDUAL' | 'TEAM';
   readonly applicant: {
     readonly id: string;
@@ -323,6 +326,7 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
           teamId: input.teamId,
           answers: input.answers,
           applicationTemplateVersion: input.applicationTemplateVersion,
+          isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
           status: ApplicationStatus.SUBMITTED,
         },
         select: {
@@ -331,6 +335,7 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
           status: true,
           teamId: true,
           submittedAt: true,
+          isRepositoryPublicationPlanned: true,
         },
       });
     } catch (error) {
@@ -433,6 +438,7 @@ export class ApplicationsRepository {
                 rejectionReason: true,
                 teamId: true,
                 answers: true,
+                isRepositoryPublicationPlanned: true,
                 program: {
                   select: { repositoryProvisioningEnabled: true },
                 },
@@ -654,6 +660,7 @@ type ApplicationListRow = {
   readonly rejectionReason: string | null;
   readonly teamId: string | null;
   readonly answers: Prisma.JsonValue;
+  readonly isRepositoryPublicationPlanned: boolean;
   readonly program: {
     readonly repositoryProvisioningEnabled: boolean;
   };
@@ -706,6 +713,7 @@ function toApplicationListItem(
       outbox,
       job,
     ),
+    isRepositoryPublicationPlanned: row.isRepositoryPublicationPlanned,
     participation: team ? 'TEAM' : 'INDIVIDUAL',
     applicant: {
       id: row.applicant.id,

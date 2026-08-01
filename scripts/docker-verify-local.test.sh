@@ -144,7 +144,11 @@ both_modes_run_migration() {
 }
 write_compose_env() {
   local env_file=$1
-  cat >"$env_file" <<'EOF'
+  cat >"$env_file" <<EOF
+GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE=$fixture_dir/collection.pem
+GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE=$fixture_dir/operations.pem
+EOF
+  cat >>"$env_file" <<'EOF'
 POSTGRES_USER=oss
 POSTGRES_PASSWORD=oss-dev
 POSTGRES_DB=oss_hub

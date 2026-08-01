@@ -7,7 +7,6 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { ShowcaseProjectionRepository } from './showcase-projection.repository';
-import { ShowcasePublicService } from './showcase-public.service';
 import { ShowcaseProjectionService } from './showcase-projection.service';
 
 assertIsolatedIntegrationDatabase({
@@ -18,7 +17,6 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const repository = new ShowcaseProjectionRepository();
 const service = new ShowcaseProjectionService(prisma, repository);
-const publicService = new ShowcasePublicService(prisma);
 const PREFIX = 'synthetic-public-showcase';
 const PROGRAM_ID = `${PREFIX}-program`;
 const USER_ID = `${PREFIX}-user`;
@@ -168,30 +166,31 @@ describe('ShowcaseProjectionRepository integration', () => {
       ],
     });
   });
-  it('serves only projection data without private fields', async () => {
-    const list = await publicService.findPage({
-      q: '',
-      page: 1,
-      pageSize: 20,
+  /**
+   * todo 16 — 이 writer가 채우는 legacy projection 테이블은 todo 20까지 구버전 호환용으로
+   * 남지만, 그것을 읽던 공개 컨트롤러(`ShowcasePublicController`/`Service`)는 제거되어 이제
+   * 어떤 라우트도 이 테이블을 서빙하지 않는다(구 라우트는 404 — `public-projects` 쪽 스펙이
+   * 다룬다). 이 테스트는 오직 writer의 projection 산출물 자체에 private 필드가 없다는 계약만
+   * 직접 테이블을 읽어 검증한다.
+   */
+  it('projects only allowlisted fields without private data', async () => {
+    const rows = await prisma.publicShowcaseRepository.findMany({
+      where: { repositoryId: { in: [...REPOSITORY_IDS] } },
+      select: {
+        repositoryId: true,
+        contributors: {
+          select: { userId: true, githubNickname: true, avatarUrl: true },
+        },
+      },
     });
-    const detail = await publicService.findDetail(REPOSITORY_IDS[0]);
-    const serialized = JSON.stringify({ list, detail });
+    const serialized = JSON.stringify(rows);
 
-    expect(list.items).toContainEqual(
+    expect(rows).toContainEqual(
       expect.objectContaining({ repositoryId: REPOSITORY_IDS[0] }),
     );
-    expect(list.items).not.toContainEqual(
+    expect(rows).not.toContainEqual(
       expect.objectContaining({ repositoryId: REPOSITORY_IDS[1] }),
     );
-    expect(detail).toMatchObject({
-      repositoryId: REPOSITORY_IDS[0],
-      contributors: [
-        {
-          userId: USER_ID,
-          githubNickname: `${PREFIX}-login`,
-        },
-      ],
-    });
     for (const forbiddenField of [
       'answers',
       'email',
@@ -201,11 +200,6 @@ describe('ShowcaseProjectionRepository integration', () => {
     ]) {
       expect(serialized).not.toContain(`"${forbiddenField}"`);
     }
-    await expect(
-      publicService.findDetail(REPOSITORY_IDS[1]),
-    ).rejects.toMatchObject({
-      errorCode: { code: 'SHW_001', status: 404 },
-    });
   });
 
   it('revokes a projection synchronously when eligibility is lost', async () => {

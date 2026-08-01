@@ -34,9 +34,12 @@ flowchart LR
   Nginx -->|/| Front[front]
   Nginx -->|/api| Back[back]
   Back --> Postgres[(postgres / pgdata)]
+  Back --> Minio[(minio / minio_data)]
 ```
 
-nginx는 `/` 요청을 front로, `/api` 요청을 back으로 전달한다. `/api/v1` 접두사는 proxy에서 제거하지 않는다. 런타임 컨테이너는 nginx, front, back, postgres 네 개다.
+nginx는 `/` 요청을 front로, `/api` 요청을 back으로 전달한다.
+`/api/v1` 접두사는 proxy에서 제거하지 않는다.
+런타임 컨테이너는 nginx, front, back, postgres와 제출 파일 object storage인 `minio` 지속 서비스·`minio-bucket` 초기화 서비스까지 여섯 개다.
 
 ## 핵심 흐름
 
@@ -49,7 +52,8 @@ nginx는 `/` 요청을 front로, `/api` 요청을 back으로 전달한다. `/api
 
 ### 배포 경로
 
-1. main 병합은 Jenkins의 build·test 검증만 시작하고 production을 변경하지 않는다.
-2. 사람이 공개 GitHub Release를 발행하면 Jenkins가 latest full Release와 tag의 main ancestry를 검증하고 exact commit SHA를 checkout한다.
-3. 동일·하위 Release는 no-op으로 종료한다. 새 Release는 test → DB backup → SHA 이미지 1회 build → migration → Compose 순서로 배포한다.
-4. `/`와 `/api/v1/health` smoke가 성공한 뒤에만 정상 배포 상태를 기록한다. 실패하면 이전 이미지를 한 번 복구하고 DB restore는 승인된 수동 절차로 남긴다.
+1. PR과 main 병합의 품질 검증은 GitHub Actions `ci`가 단독으로 수행하며 Jenkins는 실행되지 않으므로 병합만으로는 production이 바뀌지 않는다.
+2. Jenkins는 draft·prerelease가 아닌 GitHub Release가 발행될 때만 실행되고 그 발행 자체가 배포 인가다.
+3. Jenkins는 latest full Release와 tag의 main ancestry를 검증하고 exact commit SHA를 checkout한다.
+4. 동일·하위 Release는 no-op으로 종료한다. 새 Release는 test → DB backup → SHA 이미지 1회 build → migration → Compose 순서로 배포한다.
+5. Compose ingress에서 `/`·`/api/v1/health` 200과 제출 파일 업로드 경로 403 smoke가 성공한 뒤에만 정상 배포 상태를 기록한다. 실패하면 이전 이미지를 한 번 복구하고 DB restore는 승인된 수동 절차로 남긴다.

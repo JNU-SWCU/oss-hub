@@ -1,7 +1,13 @@
 import { Role } from '@prisma/client';
-import { ProgramActivityService } from './program-activity.service';
+import type {
+  CollectionReadPort,
+  CollectionRepositoryActivityDto,
+} from '../collection/collection-read.port';
+import {
+  ProgramActivityService,
+  type ProgramActivityRepository,
+} from './program-activity.service';
 import type { ProgramViewer } from './program-viewer.service';
-import type { ProgramsRepository } from './programs.repository';
 
 const staff: ProgramViewer = {
   githubId: 1n,
@@ -9,22 +15,46 @@ const staff: ProgramViewer = {
   role: Role.STAFF,
 };
 
-function repositoryActivity(updatedAt: string) {
+function repositoryActivity(
+  updatedAt: string,
+): CollectionRepositoryActivityDto {
   return {
-    updatedAt: new Date(updatedAt),
-    activeGeneration: {
-      repositories: [
-        {
-          githubRepositoryId: 101n,
-          commits: [
-            { committedAt: new Date('2026-07-20T00:00:00.000Z') },
-            { committedAt: new Date('2026-07-21T00:00:00.000Z') },
-          ],
-          pullRequests: [{ createdAt: new Date('2026-07-22T00:00:00.000Z') }],
-          releases: [{ publishedAt: new Date('2026-07-23T00:00:00.000Z') }],
-        },
-      ],
-    },
+    repositoryId: 101n,
+    dataAsOf: new Date(updatedAt),
+    commitDates: [
+      new Date('2026-07-20T00:00:00.000Z'),
+      new Date('2026-07-21T00:00:00.000Z'),
+    ],
+    pullRequestDates: [new Date('2026-07-22T00:00:00.000Z')],
+    releaseDates: [new Date('2026-07-23T00:00:00.000Z')],
+  };
+}
+
+function collectionReadPort(
+  findRepositoryActivity: CollectionReadPort['findRepositoryActivity'],
+): CollectionReadPort {
+  return {
+    findRepositoryActivity,
+    findRankingActivity: () => Promise.resolve([]),
+    getStatusSnapshot: () => Promise.resolve(null),
+    getRepositoryMetrics: () => Promise.resolve([]),
+    getContributorMetrics: () => Promise.resolve([]),
+    getPublicRankingMetrics: () => Promise.resolve([]),
+    getRepositoryCumulativeMetrics: () => Promise.resolve([]),
+    getContributorCumulativeMetrics: () => Promise.resolve([]),
+    getIncrementalStatusSnapshot: () =>
+      Promise.resolve({
+        trackedRepositoryCount: 0,
+        readyStreamCount: 0,
+        backfillingStreamCount: 0,
+        partialStreamCount: 0,
+        retryPendingStreamCount: 0,
+        oldestReadyCheckpointAt: null,
+        latestCheckpointAt: null,
+        oldestRetryPendingAt: null,
+        lastCycleStartedAt: null,
+        lastCycleCompletedAt: null,
+      }),
   };
 }
 
@@ -39,21 +69,27 @@ const programRepository = {
 
 describe('ProgramActivityService', () => {
   it('활성 canonical generation의 커밋·PR·릴리스와 데이터 기준 시각을 요약한다', async () => {
-    const findProgramRepositories = jest
-      .fn()
-      .mockResolvedValue([programRepository]);
-    const findCanonicalRepositoryActivity = jest
-      .fn()
-      .mockResolvedValue([repositoryActivity('2026-07-24T00:00:00.000Z')]);
+    const findProgramRepositories = jest.fn<
+      ReturnType<ProgramActivityRepository['findProgramRepositories']>,
+      Parameters<ProgramActivityRepository['findProgramRepositories']>
+    >();
+    findProgramRepositories.mockResolvedValue([programRepository]);
+    const findRepositoryActivity = jest.fn<
+      ReturnType<CollectionReadPort['findRepositoryActivity']>,
+      Parameters<CollectionReadPort['findRepositoryActivity']>
+    >();
+    findRepositoryActivity.mockResolvedValue([
+      repositoryActivity('2026-07-24T00:00:00.000Z'),
+    ]);
     const repository = {
       findProgramRepositories,
-      findCanonicalRepositoryActivity,
-    } as unknown as ProgramsRepository;
+      findStudentActivityApplications: () => Promise.resolve([]),
+    } satisfies ProgramActivityRepository;
 
-    const result = await new ProgramActivityService(repository).activity(
-      'program-1',
-      staff,
-    );
+    const result = await new ProgramActivityService(
+      repository,
+      collectionReadPort(findRepositoryActivity),
+    ).activity('program-1', staff);
 
     expect(result).toEqual([
       {
@@ -67,17 +103,32 @@ describe('ProgramActivityService', () => {
       },
     ]);
     expect(findProgramRepositories).toHaveBeenCalledWith('program-1', null);
-    expect(findCanonicalRepositoryActivity).toHaveBeenCalledWith([101n]);
+    expect(findRepositoryActivity).toHaveBeenCalledWith({
+      repositoryIds: [101n],
+    });
   });
 
   it('활성 generation이 없으면 저장소를 빈 canonical 요약으로 반환한다', async () => {
+    const findProgramRepositories = jest.fn<
+      ReturnType<ProgramActivityRepository['findProgramRepositories']>,
+      Parameters<ProgramActivityRepository['findProgramRepositories']>
+    >();
+    findProgramRepositories.mockResolvedValue([programRepository]);
+    const findRepositoryActivity = jest.fn<
+      ReturnType<CollectionReadPort['findRepositoryActivity']>,
+      Parameters<CollectionReadPort['findRepositoryActivity']>
+    >();
+    findRepositoryActivity.mockResolvedValue([]);
     const repository = {
-      findProgramRepositories: jest.fn().mockResolvedValue([programRepository]),
-      findCanonicalRepositoryActivity: jest.fn().mockResolvedValue([]),
-    } as unknown as ProgramsRepository;
+      findProgramRepositories,
+      findStudentActivityApplications: () => Promise.resolve([]),
+    } satisfies ProgramActivityRepository;
 
     await expect(
-      new ProgramActivityService(repository).activity('program-1', staff),
+      new ProgramActivityService(
+        repository,
+        collectionReadPort(findRepositoryActivity),
+      ).activity('program-1', staff),
     ).resolves.toEqual([
       {
         applicationId: 'application-1',
@@ -92,18 +143,30 @@ describe('ProgramActivityService', () => {
   });
 
   it('TeamMember 행이 없는 팀장도 팀 저장소 조회 범위에 포함된다', async () => {
-    const findProgramRepositories = jest.fn().mockResolvedValue([]);
+    const findProgramRepositories = jest.fn<
+      ReturnType<ProgramActivityRepository['findProgramRepositories']>,
+      Parameters<ProgramActivityRepository['findProgramRepositories']>
+    >();
+    findProgramRepositories.mockResolvedValue([]);
+    const findRepositoryActivity = jest.fn<
+      ReturnType<CollectionReadPort['findRepositoryActivity']>,
+      Parameters<CollectionReadPort['findRepositoryActivity']>
+    >();
+    findRepositoryActivity.mockResolvedValue([]);
     const repository = {
       findProgramRepositories,
-      findCanonicalRepositoryActivity: jest.fn().mockResolvedValue([]),
-    } as unknown as ProgramsRepository;
+      findStudentActivityApplications: () => Promise.resolve([]),
+    } satisfies ProgramActivityRepository;
     const leader: ProgramViewer = {
       githubId: 11n,
       userId: 'leader-1',
       role: Role.STUDENT,
     };
 
-    await new ProgramActivityService(repository).activity('program-1', leader);
+    await new ProgramActivityService(
+      repository,
+      collectionReadPort(findRepositoryActivity),
+    ).activity('program-1', leader);
 
     expect(findProgramRepositories).toHaveBeenCalledWith(
       'program-1',

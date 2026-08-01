@@ -116,6 +116,7 @@ export class SubmissionReviewsService {
 
   async publishRepository(
     repositoryId: string,
+    actorGithubId: bigint,
     publishedAt = new Date(),
   ): Promise<RepositoryPublishResult> {
     const eligibility =
@@ -128,6 +129,27 @@ export class SubmissionReviewsService {
       throw new DomainException(
         SUBMISSION_REVIEWS_ERROR_CODES[
           SubmissionReviewsErrorCode.REPOSITORY_NOT_READY
+        ],
+      );
+    }
+    if (
+      eligibility.visibility === RepositoryVisibility.PRIVATE &&
+      !eligibility.isRepositoryPublicationPlanned
+    ) {
+      throw new DomainException(
+        SUBMISSION_REVIEWS_ERROR_CODES[
+          SubmissionReviewsErrorCode.REPOSITORY_PUBLICATION_NOT_PLANNED
+        ],
+      );
+    }
+    if (
+      eligibility.visibility === RepositoryVisibility.PRIVATE &&
+      (eligibility.programEndAt === null ||
+        eligibility.programEndAt.getTime() > publishedAt.getTime())
+    ) {
+      throw new DomainException(
+        SUBMISSION_REVIEWS_ERROR_CODES[
+          SubmissionReviewsErrorCode.PROGRAM_NOT_ENDED
         ],
       );
     }
@@ -146,6 +168,7 @@ export class SubmissionReviewsService {
     try {
       published = await this.repositories.publish(
         { repositoryId },
+        actorGithubId,
         publishedAt,
       );
     } catch (error) {

@@ -10,5 +10,5 @@ export type AppRole = AuthRole;
 export function roleHomePath(role: AppRole): string {
   if (role === 'STUDENT') return '/dashboard';
   if (role === 'STAFF') return '/staff/dashboard';
-  return '/admin/staff-requests';
+  return '/admin/access';
 }

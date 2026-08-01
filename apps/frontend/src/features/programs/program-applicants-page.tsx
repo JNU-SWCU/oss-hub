@@ -361,9 +361,16 @@ export function ProgramApplicantsPage({
         id: 'repository',
         header: '저장소 작업',
         cell: (row) => (
-          <span title={row.repositoryProvisioning.safeErrorClass ?? undefined}>
-            {PROVISIONING_LABELS[row.repositoryProvisioning.jobStatus]}
-          </span>
+          <div className="grid gap-1">
+            <span
+              title={row.repositoryProvisioning.safeErrorClass ?? undefined}
+            >
+              {PROVISIONING_LABELS[row.repositoryProvisioning.jobStatus]}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {row.isRepositoryPublicationPlanned ? '공개 예정' : '비공개 예정'}
+            </span>
+          </div>
         ),
       },
       {

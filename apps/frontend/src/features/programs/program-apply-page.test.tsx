@@ -44,11 +44,16 @@ describe('ProgramApply views', () => {
         program={program}
         template={template}
         applicantName="합성 학생"
-        values={{ title: '', summary: '' }}
+        values={{
+          title: '',
+          summary: '',
+          isRepositoryPublicationPlanned: true,
+        }}
         errors={{}}
         serverError={null}
         submitting={false}
         onChange={() => undefined}
+        onTogglePublicationPlanned={() => undefined}
         onSubmit={() => undefined}
       />,
     );
@@ -68,11 +73,16 @@ describe('ProgramApply views', () => {
         program={program}
         template={template}
         applicantName="합성 학생"
-        values={{ title: '', summary: '' }}
+        values={{
+          title: '',
+          summary: '',
+          isRepositoryPublicationPlanned: true,
+        }}
         errors={{ title: '제목을 입력해 주세요.' }}
         serverError="이미 제출한 신청이 있습니다."
         submitting={false}
         onChange={() => undefined}
+        onTogglePublicationPlanned={() => undefined}
         onSubmit={() => undefined}
       />,
     );
@@ -80,6 +90,31 @@ describe('ProgramApply views', () => {
     expect(html).toContain('제목을 입력해 주세요.');
     expect(html).toContain('제출 실패');
     expect(html).toContain('이미 제출한 신청이 있습니다.');
+  });
+
+  it('저장소 공개 예정 체크박스를 값에 맞춰 렌더한다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramApplyFormView
+        program={program}
+        template={template}
+        applicantName="합성 학생"
+        values={{
+          title: '',
+          summary: '',
+          isRepositoryPublicationPlanned: false,
+        }}
+        errors={{}}
+        serverError={null}
+        submitting={false}
+        onChange={() => undefined}
+        onTogglePublicationPlanned={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    expect(html).toContain('id="repository-publication-planned"');
+    expect(html).toContain('선정 시 저장소를 공개할 예정입니다');
+    expect(html).not.toContain('checked=""');
   });
 
   it('성공 상태를 표시한다', () => {

@@ -136,6 +136,10 @@ describe('AdminAccessService mutation', () => {
             displayName: '합성 관리자',
             githubLogin: 'synthetic-admin',
           },
+          target: {
+            displayName: '합성 사용자',
+            githubLogin: 'synthetic-target',
+          },
           before: {
             role: null,
             accountStatus: AccountStatus.ACTIVE,
@@ -188,6 +192,10 @@ describe('AdminAccessService mutation', () => {
           actor: {
             displayName: '합성 관리자',
             githubLogin: 'synthetic-admin',
+          },
+          target: {
+            displayName: '합성 사용자',
+            githubLogin: 'synthetic-target',
           },
           before: {
             role: Role.STUDENT,

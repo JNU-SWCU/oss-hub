@@ -125,80 +125,42 @@ it('executes PATCH /users/:id/access through the real transaction and audit path
   ).resolves.toBe(1);
 });
 
-it('rejects a legacy PATCH /users/:id/role demotion of the final active ADMIN with RFC7807', async () => {
+it('레거시 GET /users(목록)·PATCH /users/:id/role은 원자적 전환 이후 리다이렉트 없이 404를 반환한다(PR04H)', async () => {
   // Given
-  await harness.demoteAllActiveAdmins();
   const actor = await harness.createUser(
-    'legacy-final-admin',
+    'legacy-tombstone-actor',
     Role.ADMIN,
+    AccountStatus.ACTIVE,
+  );
+  const target = await harness.createUser(
+    'legacy-tombstone-target',
+    Role.STUDENT,
     AccountStatus.ACTIVE,
   );
 
   // When
-  const response = await harness.request(
-    'PATCH',
-    `/users/${actor.id}/role`,
-    actor.githubId,
-    { role: Role.STAFF },
-  );
+  const [listResponse, roleResponse] = await Promise.all([
+    harness.request('GET', '/users', actor.githubId),
+    harness.request('PATCH', `/users/${target.id}/role`, actor.githubId, {
+      role: Role.STAFF,
+    }),
+  ]);
 
-  // Then
-  await expectProblem(response, 409, RolesErrorCode.LAST_ACTIVE_ADMIN_REQUIRED);
+  // Then — 원자적 전환(PR04H)으로 AdminUsersController가 모듈 등록에서
+  // 빠졌으므로 플레인 404가 나온다(별도 리다이렉트 핸들러 없음).
+  expect(listResponse.status).toBe(404);
+  expect(listResponse.redirected).toBe(false);
+  expect(roleResponse.status).toBe(404);
+  expect(roleResponse.redirected).toBe(false);
   await expect(
-    harness.prisma.user.findUniqueOrThrow({ where: { id: actor.id } }),
+    harness.prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
   ).resolves.toMatchObject({
-    role: Role.ADMIN,
+    role: Role.STUDENT,
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(
-    harness.prisma.auditLog.count({ where: { targetId: actor.id } }),
+    harness.prisma.auditLog.count({ where: { targetId: target.id } }),
   ).resolves.toBe(0);
-});
-
-it('settles concurrent legacy and unified ADMIN demotions with one active ADMIN remaining', async () => {
-  // Given
-  await harness.demoteAllActiveAdmins();
-  const firstAdmin = await harness.createUser(
-    'interleaving-first-admin',
-    Role.ADMIN,
-    AccountStatus.ACTIVE,
-  );
-  const secondAdmin = await harness.createUser(
-    'interleaving-second-admin',
-    Role.ADMIN,
-    AccountStatus.ACTIVE,
-  );
-
-  // When
-  const responses = await Promise.all([
-    harness.request(
-      'PATCH',
-      `/users/${secondAdmin.id}/role`,
-      firstAdmin.githubId,
-      { role: Role.STAFF },
-    ),
-    harness.request(
-      'PATCH',
-      `/users/${firstAdmin.id}/access`,
-      secondAdmin.githubId,
-      accessBody({ expectedRole: Role.ADMIN, desiredRole: Role.STAFF }),
-    ),
-  ]);
-
-  // Then
-  expect(responses.map((response) => response.status).sort()).toEqual([
-    200, 409,
-  ]);
-  await expect(
-    harness.prisma.user.count({
-      where: { role: Role.ADMIN, accountStatus: AccountStatus.ACTIVE },
-    }),
-  ).resolves.toBeGreaterThanOrEqual(1);
-  await expect(
-    harness.prisma.auditLog.count({
-      where: { targetId: { in: [firstAdmin.id, secondAdmin.id] } },
-    }),
-  ).resolves.toBe(1);
 });
 
 function accessBody(overrides: Readonly<Record<string, unknown>>) {
@@ -219,10 +181,13 @@ it('returns 401/AUT_003 for an anonymous access-list request', async () => {
   await expect(response.json()).resolves.toMatchObject({ code: 'AUT_003' });
 });
 
-it('returns 403/ROL_004 for a non-admin actor', async () => {
+it.each([
+  ['STAFF', Role.STAFF],
+  ['STUDENT', Role.STUDENT],
+] as const)('returns 403/ROL_004 for a non-admin %s actor', async (_, role) => {
   const actor = await harness.createUser(
-    'forbidden-actor',
-    Role.STAFF,
+    `forbidden-actor-${role}`,
+    role,
     AccountStatus.ACTIVE,
   );
 

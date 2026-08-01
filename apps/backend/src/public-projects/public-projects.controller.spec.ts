@@ -1,0 +1,124 @@
+import type { PublicProjectRow } from './public-projects.repository';
+import { PublicProjectsController } from './public-projects.controller';
+import type { PublicProjectsService } from './public-projects.service';
+
+function row(
+  overrides: Partial<PublicProjectRow> & { id: string },
+): PublicProjectRow {
+  return {
+    githubRepositoryId: 9001n,
+    repositoryName: 'synthetic-repo',
+    githubUrl: 'https://github.com/synthetic-org/synthetic-repo',
+    publishedAt: new Date('2026-07-20T00:00:00.000Z'),
+    programId: 'synthetic-program-1',
+    programName: 'synthetic-program',
+    category: 'BASIC',
+    teamName: null,
+    applicantNickname: 'synthetic-applicant',
+    ...overrides,
+  };
+}
+
+describe('PublicProjectsController', () => {
+  it('GET / — 서비스 결과를 페이지 응답 DTO로 매핑하고, 서비스가 결정한 raw 커서를 그대로 전달한다', async () => {
+    const found = row({ id: 'synthetic-repository-1' });
+    const findPage = jest.fn().mockResolvedValue({
+      items: [found],
+      pageSize: 20,
+      nextPageId: 'opaque-cursor',
+    });
+    const controller = new PublicProjectsController({
+      findPage,
+    } as unknown as PublicProjectsService);
+
+    const result = await controller.findPage({
+      pageId: undefined,
+      pageSize: 20,
+    });
+
+    expect(findPage).toHaveBeenCalledWith(undefined, 20);
+    expect(result.pageSize).toBe(20);
+    expect(result.nextPageId).toBe('opaque-cursor');
+    expect(result.items).toEqual([
+      {
+        projectId: 'synthetic-repository-1',
+        programId: 'synthetic-program-1',
+        programName: 'synthetic-program',
+        category: 'BASIC',
+        applicationMode: 'PERSONAL',
+        displayName: 'synthetic-applicant',
+        repositoryName: 'synthetic-repo',
+        githubUrl: 'https://github.com/synthetic-org/synthetic-repo',
+        publishedAt: '2026-07-20T00:00:00.000Z',
+      },
+    ]);
+  });
+
+  it('GET / — pageId를 서비스에 그대로 전달한다', async () => {
+    const findPage = jest
+      .fn()
+      .mockResolvedValue({ items: [], pageSize: 5, nextPageId: null });
+    const controller = new PublicProjectsController({
+      findPage,
+    } as unknown as PublicProjectsService);
+
+    await controller.findPage({
+      pageId: 'client-provided-cursor',
+      pageSize: 5,
+    });
+
+    expect(findPage).toHaveBeenCalledWith('client-provided-cursor', 5);
+  });
+
+  it('GET /:projectId — 상세 결과를 응답 DTO로 매핑하며 금지 필드(실명/studentId/이메일 등)를 포함하지 않는다', async () => {
+    const found = row({
+      id: 'synthetic-repository-1',
+      teamName: 'synthetic-team',
+    });
+    const findDetail = jest.fn().mockResolvedValue({
+      row: found,
+      metrics: { commitCount: 10, pullRequestCount: 2, releaseCount: 1 },
+      contributors: [
+        {
+          githubLogin: 'synthetic-login',
+          commitCount: 10,
+          pullRequestCount: 2,
+          releaseCount: 1,
+        },
+      ],
+    });
+    const controller = new PublicProjectsController({
+      findDetail,
+    } as unknown as PublicProjectsService);
+
+    const result = await controller.findDetail('synthetic-repository-1');
+
+    expect(findDetail).toHaveBeenCalledWith('synthetic-repository-1');
+    expect(result.applicationMode).toBe('TEAM');
+    expect(result.displayName).toBe('synthetic-team');
+    expect(result.metrics).toEqual({
+      commitCount: 10,
+      pullRequestCount: 2,
+      releaseCount: 1,
+    });
+    expect(result.contributors).toEqual([
+      {
+        githubLogin: 'synthetic-login',
+        commitCount: 10,
+        pullRequestCount: 2,
+        releaseCount: 1,
+      },
+    ]);
+    const serialized = JSON.stringify(result);
+    for (const forbidden of [
+      'studentId',
+      'department',
+      'email',
+      'role',
+      'rejectionReason',
+      'answers',
+    ]) {
+      expect(serialized).not.toContain(`"${forbidden}"`);
+    }
+  });
+});

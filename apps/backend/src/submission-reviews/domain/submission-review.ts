@@ -92,6 +92,8 @@ export interface RepositoryPublishEligibility {
   readonly visibility: RepositoryVisibility;
   readonly provisionStatus: RepositoryProvisionJobStatus | null;
   readonly requiredMilestonesApproved: boolean;
+  readonly isRepositoryPublicationPlanned: boolean;
+  readonly programEndAt: Date | null;
 }
 
 export interface RepositoryPublishResult {

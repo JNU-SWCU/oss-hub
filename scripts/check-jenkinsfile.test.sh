@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC1003,SC2016,SC2050
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -38,6 +39,22 @@ expect_fail() {
   fi
 }
 
+expect_fail_with_code() {
+  local name=$1
+  local mode=$2
+  local path=$3
+  local status
+
+  if "$checker" "$mode" "$path" >/dev/null 2>&1; then
+    printf 'not ok - %s (실패해야 하지만 성공)\n' "$name" >&2
+    failed=$((failed + 1))
+  else
+    status=$?
+    printf 'ok - %s (checker exit=%s)\n' "$name" "$status"
+    passed=$((passed + 1))
+  fi
+}
+
 make_fixture() {
   local source=$1
   local name=$2
@@ -70,17 +87,26 @@ make_fixture "$v2_source" v2-missing-prerelease-check "jq -r '.prerelease'" "jq 
 make_fixture "$v2_source" v2-missing-tag-format 'tag ==~ /' 'tag !=~ /'
 make_fixture "$v2_source" v2-missing-tag-resolution 'git rev-parse "${RELEASE_TAG}^{commit}"' 'git rev-parse HEAD'
 make_fixture "$v2_source" v2-missing-main-ancestry 'git merge-base --is-ancestor "$release_sha" origin/main' 'true'
-make_fixture "$v2_source" v2-missing-approval-pagination 'for page in $(seq 1 20); do' 'for page in 1; do'
-make_fixture "$v2_source" v2-missing-pm-approval "--arg actor 'GoBeromsu'" "--arg actor 'RemovedPm'"
 make_fixture "$v2_source" v2-moving-checkout 'git checkout --detach "$RELEASE_SHA"' 'git checkout main'
 make_fixture "$v2_source" v2-missing-image-tag-release 'env.IMAGE_TAG = tag' 'env.IMAGE_TAG = releaseSha'
 make_fixture "$v2_source" v2-missing-release-sha-binding 'env.RELEASE_SHA = releaseSha' 'env.RELEASE_SHA = env.IMAGE_TAG'
-make_fixture "$v2_source" v2-missing-pm-sha-approval 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${RELEASE_SHA}' 'RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${IMAGE_TAG}'
 make_fixture "$v2_source" v2-missing-prisma-generate 'pnpm --filter backend exec prisma generate' 'true'
 make_fixture "$v2_source" v2-missing-test 'pnpm test' 'true'
 make_fixture "$v2_source" v2-missing-backup 'pg_dump' 'pg_isready'
 make_fixture "$v2_source" v2-missing-migration 'npx prisma migrate deploy' 'npx prisma migrate status'
 make_fixture "$v2_source" v2-missing-no-build 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait' 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --wait'
+make_fixture "$v2_source" v2-missing-primary-upload-403-smoke \
+  'require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused' \
+  'require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files-removed --retry 5 --retry-connrefused'
+make_fixture "$v2_source" v2-missing-rollback-upload-403-smoke \
+  'require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files$' \
+  'require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files-removed'
+make_fixture "$v2_source" v2-weakened-upload-403-status \
+  'require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused' \
+  'require_status 000 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused'
+make_fixture "$v2_source" v2-upload-403-curl-fail \
+  'curl -o /dev/null -w' \
+  'curl --fail -o /dev/null -w'
 make_fixture "$v2_source" v2-missing-rollback-guard 'if (!env.PREV_TAG?.trim())' 'if (false)'
 make_fixture "$v2_source" v2-missing-production-credential "credentialsId: 'oss-hub-production-env'" "credentialsId: 'removed'"
 make_fixture "$v2_source" v2-missing-running-ps-q 'ps -q frontend' 'ps --status frontend'
@@ -105,14 +131,16 @@ if cmp -s "$v2_source" "$fixture_dir/v2-restored-parameters"; then
   exit 1
 fi
 
-sed \
-  -e "s|--arg actor 'GoBeromsu'|--arg actor 'Lumiere001'|" \
-  -e 's|RELEASE_ACCEPT role=PM tag=${RELEASE_TAG} head=${RELEASE_SHA}|RELEASE_ACCEPT role=TECH_LEAD tag=${RELEASE_TAG} head=${RELEASE_SHA}|' \
-  "$v2_source" >"$fixture_dir/v2-restored-tech-lead-accept"
-if cmp -s "$v2_source" "$fixture_dir/v2-restored-tech-lead-accept"; then
-  printf 'fixture pattern not found: v2-restored-tech-lead-accept\n' >&2
-  exit 1
-fi
+append_fixture "$v2_source" v2-restored-release-accept \
+  "sh \"echo 'RELEASE_ACCEPT role=PM tag=v0.0.0 head=0000000000000000000000000000000000000000'\""
+append_fixture "$v2_source" v2-restored-release-comment-scraping \
+  "sh 'curl https://api.github.com/repos/JNU-SWCU/oss-hub/issues/199/comments'"
+append_fixture "$v2_source" v2-restored-pm-actor-parsing \
+  "sh \"jq --arg actor 'GoBeromsu'\""
+append_fixture "$v2_source" v2-restored-tech-lead-accept \
+  "sh \"echo 'RELEASE_ACCEPT role=TECH_LEAD tag=v0.0.0 head=0000000000000000000000000000000000000000'\""
+append_fixture "$v2_source" v2-restored-pm-override \
+  "sh \"echo 'RELEASE_OVERRIDE role=PM tag=v0.0.0 head=0000000000000000000000000000000000000000'\""
 
 append_fixture "$v2_source" v2-destructive-volume-removal 'docker compose down -v'
 append_fixture "$v2_source" v2-main-auto-deploy "branch 'main'"
@@ -558,298 +586,148 @@ fi
 # Real condition remains; executable terminal is replaced by echo/println/string.
 # ---------------------------------------------------------------------------
 
+# Two Python helpers generalize the terminal-spoof adversarial fixtures below:
+# spoof_terminal() finds an anchor branch, walks forward replacing the first
+# executable terminal token(s) it meets with a non-executable echo/println
+# string, and stops at the branch's closing token (skip_closes lets a branch
+# skip over intermediate closes when a sibling branch must stay untouched).
+python3 - "$v2_source" "$fixture_dir" <<'PYTERM'
+from pathlib import Path
+import re
+import sys
+
+source = Path(sys.argv[1]).read_text()
+fixture_dir = Path(sys.argv[2])
+lines = source.splitlines(keepends=True)
+
+
+def write_fixture(name: str, content: str) -> None:
+    if content == source:
+        raise SystemExit(f"fixture not distinct: {name}")
+    (fixture_dir / name).write_text(content)
+
+
+def find_anchor(pattern: str) -> int:
+    rx = re.compile(pattern)
+    for i, line in enumerate(lines):
+        if rx.search(line):
+            return i
+    raise SystemExit(f"fixture pattern not found: {pattern!r}")
+
+
+def spoof_terminal(
+    name: str,
+    anchor: str,
+    terminal: str,
+    replacement: str,
+    end: str,
+    skip_closes: int = 0,
+) -> None:
+    rx_terminal = re.compile(terminal)
+    rx_end = re.compile(end)
+    idx = find_anchor(anchor)
+    out = lines[: idx + 1]
+    i = idx + 1
+    closes = 0
+    while i < len(lines):
+        line = lines[i]
+        if rx_terminal.search(line):
+            out.append(replacement)
+            i += 1
+            continue
+        out.append(line)
+        i += 1
+        if rx_end.search(line):
+            if closes < skip_closes:
+                closes += 1
+                continue
+            break
+    else:
+        raise SystemExit(f"fixture end pattern not found: {name}")
+    out.extend(lines[i:])
+    write_fixture(name, "".join(out))
+
+
+FI = r"^\s*fi\s*$"
+BRACE = r"^\s*\}\s*$"
+EXIT_N = r"^\s*exit\s+[0-9]+\s*$"
+EXIT2 = r"^\s*exit\s+2\s*$"
+EXIT3 = r"^\s*exit\s+3\s*$"
+ERROR_OPEN = r"^\s*error\s*\("
+RETURN = r"^\s*return\s*;?\s*$"
+DEPLOY_NOOP = r"^\s*(env\.)?DEPLOY_NOOP\s*=\s*'true'"
+
+ANCHOR_STOPPED = r'\[\s*-z\s+"\$fe_running"\s*\]\s*&&\s*\[\s*-z\s+"\$be_running"\s*\]'
+ANCHOR_PARTIAL = r'\[\s*-n\s+"\$fe_all"\s*\]\s*&&\s*\[\s*-z\s+"\$be_all"\s*\]'
+ANCHOR_AMBIGUOUS = r"if \(state != 'running'\) \{"
+ANCHOR_SAME_TAG = r"prevTag == env\.RELEASE_TAG && prevSha != env\.RELEASE_SHA"
+ANCHOR_DOWNGRADE = r"if \(cmp < 0\) \{"
+ANCHOR_FRONTEND_MISSING = r"count\s*==\s*0"
+ANCHOR_FRONTEND_UNIQ = r"count\s*!=\s*1"
+
 # stopped: shell echo 'exit 2' instead of executable exit
-awk '
-  /\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\]/ {
-    print
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*exit[[:space:]]+[0-9]+[[:space:]]*$/) {
-        print "  echo '\''exit 2'\''"
-        continue
-      }
-      print line
-      if (line ~ /^[[:space:]]*fi[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-stopped-echo-exit"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-stopped-echo-exit"; then
-  printf 'fixture not distinct: v2-spoof-stopped-echo-exit\n' >&2
-  exit 1
-fi
-if ! grep -Fq "echo 'exit 2'" "$fixture_dir/v2-spoof-stopped-echo-exit"; then
-  printf 'fixture missing echo exit spoof: v2-spoof-stopped-echo-exit\n' >&2
-  exit 1
-fi
-if awk '
-  /\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\]/ { grab=1; next }
-  grab {
-    if ($0 ~ /^[[:space:]]*exit[[:space:]]+[0-9]+[[:space:]]*$/) found=1
-    if ($0 ~ /^[[:space:]]*fi[[:space:]]*$/) exit
-  }
-  END { exit found ? 0 : 1 }
-' "$fixture_dir/v2-spoof-stopped-echo-exit"; then
-  printf 'fixture still has executable exit: v2-spoof-stopped-echo-exit\n' >&2
-  exit 1
-fi
-
+spoof_terminal(
+    "v2-spoof-stopped-echo-exit", ANCHOR_STOPPED, EXIT_N, "  echo 'exit 2'\n", FI
+)
 # partial: shell echo 'exit 2' instead of executable exit
-awk '
-  /\[[[:space:]]*-n[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_all"[[:space:]]*\]/ {
-    print
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*exit[[:space:]]+[0-9]+[[:space:]]*$/) {
-        print "  echo '\''exit 2'\''"
-        continue
-      }
-      print line
-      if (line ~ /^[[:space:]]*fi[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-partial-echo-exit"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-partial-echo-exit"; then
-  printf 'fixture not distinct: v2-spoof-partial-echo-exit\n' >&2
-  exit 1
-fi
-if ! grep -Fq "echo 'exit 2'" "$fixture_dir/v2-spoof-partial-echo-exit"; then
-  printf 'fixture missing echo exit spoof: v2-spoof-partial-echo-exit\n' >&2
-  exit 1
-fi
-
+spoof_terminal(
+    "v2-spoof-partial-echo-exit", ANCHOR_PARTIAL, EXIT_N, "  echo 'exit 2'\n", FI
+)
 # non-running: Groovy echo "error(...)" instead of executable error(...)
-awk '
-  /if \(state != '\''running'\''\) \{/ {
-    print
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*error[[:space:]]*\(/) {
-        print "              echo \"error(FAIL_CLOSED unexpected_probe_state: spoof)\""
-        continue
-      }
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-ambiguous-echo-error"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-ambiguous-echo-error"; then
-  printf 'fixture not distinct: v2-spoof-ambiguous-echo-error\n' >&2
-  exit 1
-fi
-if ! grep -Fq 'echo "error(' "$fixture_dir/v2-spoof-ambiguous-echo-error"; then
-  printf 'fixture missing echo error spoof: v2-spoof-ambiguous-echo-error\n' >&2
-  exit 1
-fi
-if awk '
-  /if \(state != '\''running'\''\) \{/ { grab=1; next }
-  grab {
-    if ($0 ~ /^[[:space:]]*error[[:space:]]*\(/) found=1
-    if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
-  }
-  END { exit found ? 0 : 1 }
-' "$fixture_dir/v2-spoof-ambiguous-echo-error"; then
-  printf 'fixture still has executable error: v2-spoof-ambiguous-echo-error\n' >&2
-  exit 1
-fi
-
+spoof_terminal(
+    "v2-spoof-ambiguous-echo-error",
+    ANCHOR_AMBIGUOUS,
+    ERROR_OPEN,
+    '              echo "error(FAIL_CLOSED unexpected_probe_state: spoof)"\n',
+    BRACE,
+)
 # non-running: Groovy println "error(...)" variant
-awk '
-  /if \(state != '\''running'\''\) \{/ {
-    print
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*error[[:space:]]*\(/) {
-        print "              println(\"error(FAIL_CLOSED unexpected_probe_state: spoof)\")"
-        continue
-      }
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-ambiguous-println-error"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-ambiguous-println-error"; then
-  printf 'fixture not distinct: v2-spoof-ambiguous-println-error\n' >&2
-  exit 1
-fi
-if ! grep -Fq 'println("error(' "$fixture_dir/v2-spoof-ambiguous-println-error"; then
-  printf 'fixture missing println error spoof: v2-spoof-ambiguous-println-error\n' >&2
-  exit 1
-fi
-
+spoof_terminal(
+    "v2-spoof-ambiguous-println-error",
+    ANCHOR_AMBIGUOUS,
+    ERROR_OPEN,
+    '              println("error(FAIL_CLOSED unexpected_probe_state: spoof)")\n',
+    BRACE,
+)
 # same-tag/different-SHA: echo error(...) keeps marker text, no executable error
-awk '
-  /prevTag == env.RELEASE_TAG && prevSha != env.RELEASE_SHA/ {
-    print
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*error[[:space:]]*\(/) {
-        print "              echo \"error(FAIL_CLOSED same_tag_different_sha: retag SHA mismatch)\""
-        continue
-      }
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-same-tag-echo-error"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-same-tag-echo-error"; then
-  printf 'fixture not distinct: v2-spoof-same-tag-echo-error\n' >&2
-  exit 1
-fi
-if ! grep -Fq 'FAIL_CLOSED same_tag_different_sha' "$fixture_dir/v2-spoof-same-tag-echo-error"; then
-  printf 'fixture lost diagnostic: v2-spoof-same-tag-echo-error\n' >&2
-  exit 1
-fi
-if awk '
-  /prevTag == env.RELEASE_TAG && prevSha != env.RELEASE_SHA/ { grab=1; next }
-  grab {
-    if ($0 ~ /^[[:space:]]*error[[:space:]]*\(/) found=1
-    if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
-  }
-  END { exit found ? 0 : 1 }
-' "$fixture_dir/v2-spoof-same-tag-echo-error"; then
-  printf 'fixture still has executable error: v2-spoof-same-tag-echo-error\n' >&2
-  exit 1
-fi
-
+spoof_terminal(
+    "v2-spoof-same-tag-echo-error",
+    ANCHOR_SAME_TAG,
+    ERROR_OPEN,
+    '              echo "error(FAIL_CLOSED same_tag_different_sha: retag SHA mismatch)"\n',
+    BRACE,
+)
 # SemVer downgrade: string-wrapped return (echo "return") keeps DEPLOY_NOOP assignment
-awk '
-  /if \(cmp < 0\) \{/ {
-    print
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*return[[:space:]]*;?[[:space:]]*$/) {
-        print "              echo \"return\""
-        continue
-      }
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-downgrade-string-return"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-downgrade-string-return"; then
-  printf 'fixture not distinct: v2-spoof-downgrade-string-return\n' >&2
-  exit 1
-fi
-if ! grep -Fq 'echo "return"' "$fixture_dir/v2-spoof-downgrade-string-return"; then
-  printf 'fixture missing string return spoof: v2-spoof-downgrade-string-return\n' >&2
-  exit 1
-fi
-if awk '
-  /if \(cmp < 0\) \{/ { grab=1; next }
-  grab {
-    if ($0 ~ /^[[:space:]]*return[[:space:]]*;?[[:space:]]*$/) found=1
-    if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
-  }
-  END { exit found ? 0 : 1 }
-' "$fixture_dir/v2-spoof-downgrade-string-return"; then
-  printf 'fixture still has executable return: v2-spoof-downgrade-string-return\n' >&2
-  exit 1
-fi
-
+spoof_terminal(
+    "v2-spoof-downgrade-string-return",
+    ANCHOR_DOWNGRADE,
+    RETURN,
+    '              echo "return"\n',
+    BRACE,
+)
 # SemVer downgrade: string-wrapped no-op assignment; keep executable return
-awk '
-  /if \(cmp < 0\) \{/ {
-    print
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''true'\''/) {
-        print "              echo \"env.DEPLOY_NOOP = '\''true'\''\""
-        continue
-      }
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-downgrade-string-noop"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-downgrade-string-noop"; then
-  printf 'fixture not distinct: v2-spoof-downgrade-string-noop\n' >&2
-  exit 1
-fi
-if ! grep -Fq "echo \"env.DEPLOY_NOOP = 'true'\"" "$fixture_dir/v2-spoof-downgrade-string-noop"; then
-  printf 'fixture missing string noop spoof: v2-spoof-downgrade-string-noop\n' >&2
-  exit 1
-fi
-if awk '
-  /if \(cmp < 0\) \{/ { grab=1; next }
-  grab {
-    if ($0 ~ /^[[:space:]]*(env\.)?DEPLOY_NOOP[[:space:]]*=[[:space:]]*'\''true'\''/) found=1
-    if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) exit
-  }
-  END { exit found ? 0 : 1 }
-' "$fixture_dir/v2-spoof-downgrade-string-noop"; then
-  printf 'fixture still has executable DEPLOY_NOOP: v2-spoof-downgrade-string-noop\n' >&2
-  exit 1
-fi
-
+spoof_terminal(
+    "v2-spoof-downgrade-string-noop",
+    ANCHOR_DOWNGRADE,
+    DEPLOY_NOOP,
+    "              echo \"env.DEPLOY_NOOP = 'true'\"\n",
+    BRACE,
+)
 # FRONTEND_URL missing path: replace executable exit 2 with echo 'exit 2'
-awk '
-  /count[[:space:]]*==[[:space:]]*0/ {
-    print
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*exit[[:space:]]+2[[:space:]]*$/) {
-        print "        echo '\''exit 2'\''"
-        continue
-      }
-      print line
-      # leave the block after uniqueness exit 3 still real — only spoof exit 2
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/ && seen_close++) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-frontend-url-echo-exit2"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-frontend-url-echo-exit2"; then
-  printf 'fixture not distinct: v2-spoof-frontend-url-echo-exit2\n' >&2
-  exit 1
-fi
-if ! grep -Fq "echo 'exit 2'" "$fixture_dir/v2-spoof-frontend-url-echo-exit2"; then
-  printf 'fixture missing echo exit 2 spoof: v2-spoof-frontend-url-echo-exit2\n' >&2
-  exit 1
-fi
-# ensure no remaining executable exit 2 remains in the file for the missing path
-if awk '
-  /count[[:space:]]*==[[:space:]]*0/ { grab=1; next }
-  grab {
-    if ($0 ~ /^[[:space:]]*exit[[:space:]]+2[[:space:]]*$/) found=1
-    if ($0 ~ /count[[:space:]]*!=[[:space:]]*1/) exit
-  }
-  END { exit found ? 0 : 1 }
-' "$fixture_dir/v2-spoof-frontend-url-echo-exit2"; then
-  printf 'fixture still has executable exit 2: v2-spoof-frontend-url-echo-exit2\n' >&2
-  exit 1
-fi
-
+# (skip_closes=1 leaves the sibling count!=1 / exit 3 branch untouched)
+spoof_terminal(
+    "v2-spoof-frontend-url-echo-exit2",
+    ANCHOR_FRONTEND_MISSING,
+    EXIT2,
+    "        echo 'exit 2'\n",
+    BRACE,
+    skip_closes=1,
+)
 # FRONTEND_URL uniqueness path: replace executable exit 3 with echo 'exit 3'
-awk '
-  /count[[:space:]]*!=[[:space:]]*1/ {
-    print
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*exit[[:space:]]+3[[:space:]]*$/) {
-        print "        echo '\''exit 3'\''"
-        continue
-      }
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-frontend-url-echo-exit3"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-frontend-url-echo-exit3"; then
-  printf 'fixture not distinct: v2-spoof-frontend-url-echo-exit3\n' >&2
-  exit 1
-fi
-if ! grep -Fq "echo 'exit 3'" "$fixture_dir/v2-spoof-frontend-url-echo-exit3"; then
-  printf 'fixture missing echo exit 3 spoof: v2-spoof-frontend-url-echo-exit3\n' >&2
-  exit 1
-fi
+spoof_terminal(
+    "v2-spoof-frontend-url-echo-exit3", ANCHOR_FRONTEND_UNIQ, EXIT3, "        echo 'exit 3'\n", BRACE
+)
+PYTERM
 
 
 # ---------------------------------------------------------------------------
@@ -858,288 +736,528 @@ fi
 # bind terminals from an unrelated branch.
 # ---------------------------------------------------------------------------
 
+# Two Python helpers generalize the opener-spoof adversarial fixtures below:
+# spoof_opener_echo() drops the real opener/branch entirely and replaces it
+# with an echo/println-quoted opener plus an if(false) branch that keeps the
+# same terminal tokens present but unreachable; spoof_opener_duplicate() keeps
+# the real opener/branch intact and appends a second, identical, executable
+# opener so a checker that only requires "at least one occurrence" is fooled.
+python3 - "$v2_source" "$fixture_dir" <<'PYOPENER'
+from pathlib import Path
+import re
+import sys
+
+source = Path(sys.argv[1]).read_text()
+fixture_dir = Path(sys.argv[2])
+lines = source.splitlines(keepends=True)
+
+
+def write_fixture(name: str, content: str) -> None:
+    if content == source:
+        raise SystemExit(f"fixture not distinct: {name}")
+    (fixture_dir / name).write_text(content)
+
+
+def find_anchor_in(lines_, pattern: str) -> int:
+    rx = re.compile(pattern)
+    for i, line in enumerate(lines_):
+        if rx.search(line):
+            return i
+    raise SystemExit(f"fixture pattern not found: {pattern!r}")
+
+
+def consume_until(lines_, start: int, end: str) -> int:
+    rx = re.compile(end)
+    i = start
+    while i < len(lines_):
+        if rx.search(lines_[i]):
+            return i + 1
+        i += 1
+    raise SystemExit(f"fixture end pattern not found: {end!r}")
+
+
+def spoof_opener_echo(name: str, anchor: str, replacement_lines, end: str) -> None:
+    idx = find_anchor_in(lines, anchor)
+    block_end = consume_until(lines, idx + 1, end)
+    out = lines[:idx] + replacement_lines + lines[block_end:]
+    write_fixture(name, "".join(out))
+
+
+def duplicate_block(lines_, anchor: str, end: str, duplicate_lines):
+    idx = find_anchor_in(lines_, anchor)
+    block_end = consume_until(lines_, idx, end)
+    return lines_[:block_end] + duplicate_lines + lines_[block_end:]
+
+
+def spoof_opener_duplicate(name: str, anchor: str, end: str, duplicate_lines) -> None:
+    write_fixture(name, "".join(duplicate_block(lines, anchor, end, duplicate_lines)))
+
+
+FI = r"^\s*fi\s*$"
+BRACE = r"^\s*\}\s*$"
+
+ANCHOR_STOPPED = r'^\s*if\s+\[\s*-z\s+"\$fe_running"\s*\]\s*&&\s*\[\s*-z\s+"\$be_running"\s*\]\s*;\s*then\s*$'
+ANCHOR_PARTIAL = (
+    r'^\s*if\s+\{\s*\[\s*-n\s+"\$fe_all"\s*\]\s*&&\s*\[\s*-z\s+"\$be_all"\s*\]\s*;\s*\}'
+    r'\s*\|\|\s*\{\s*\[\s*-z\s+"\$fe_all"\s*\]\s*&&\s*\[\s*-n\s+"\$be_all"\s*\]\s*;\s*\}\s*;\s*then\s*$'
+)
+ANCHOR_AMBIGUOUS = r"^\s*if\s*\(\s*state\s*!=\s*'running'\s*\)\s*\{\s*$"
+ANCHOR_SAME_TAG = r"^\s*if\s*\(\s*prevTag\s*==\s*env\.RELEASE_TAG\s*&&\s*prevSha\s*!=\s*env\.RELEASE_SHA\s*\)\s*\{\s*$"
+ANCHOR_DOWNGRADE = r"^\s*if\s*\(\s*cmp\s*<\s*0\s*\)\s*\{\s*$"
+ANCHOR_FRONTEND_MISSING = r"^\s*if\s*\(\s*count\s*==\s*0\s*\)\s*\{\s*$"
+ANCHOR_FRONTEND_UNIQ = r"^\s*if\s*\(\s*count\s*!=\s*1\s*\)\s*\{\s*$"
+
 # stopped: replace real opener with echo '...condition...' and keep a false branch exit
-awk '
-  /^[[:space:]]*if[[:space:]]+\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\][[:space:]]*;[[:space:]]*then[[:space:]]*$/ {
-    print "echo '\''if [ -z \"$fe_running\" ] && [ -z \"$be_running\" ]; then'\''"
-    print "if false; then"
-    print "  exit 2"
-    print "fi"
-    # drop original branch body through fi
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*fi[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-stopped-echo-opener"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-stopped-echo-opener"; then
-  printf 'fixture not distinct: v2-spoof-stopped-echo-opener\n' >&2
-  exit 1
-fi
-if grep -E -q '^[[:space:]]*if[[:space:]]+\[[[:space:]]*-z[[:space:]]+"\$fe_running"' "$fixture_dir/v2-spoof-stopped-echo-opener"; then
-  printf 'fixture still has real stopped opener: v2-spoof-stopped-echo-opener\n' >&2
-  exit 1
-fi
-
+spoof_opener_echo(
+    "v2-spoof-stopped-echo-opener",
+    ANCHOR_STOPPED,
+    [
+        "echo 'if [ -z \"$fe_running\" ] && [ -z \"$be_running\" ]; then'\n",
+        "if false; then\n",
+        "  exit 2\n",
+        "fi\n",
+    ],
+    FI,
+)
 # stopped: duplicate real opener; second branch is no-op (exit removed in first would still pass old checker)
-awk '
-  /^[[:space:]]*if[[:space:]]+\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\][[:space:]]*;[[:space:]]*then[[:space:]]*$/ {
-    print
-    while ((getline line) > 0) {
-      print line
-      if (line ~ /^[[:space:]]*fi[[:space:]]*$/) break
-    }
-    # inject a second identical executable opener with a terminal exit
-    print "if [ -z \"$fe_running\" ] && [ -z \"$be_running\" ]; then"
-    print "  exit 2"
-    print "fi"
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-stopped-duplicate-opener"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-stopped-duplicate-opener"; then
-  printf 'fixture not distinct: v2-spoof-stopped-duplicate-opener\n' >&2
-  exit 1
-fi
-stopped_openers=$(grep -E -c '^[[:space:]]*if[[:space:]]+\[[[:space:]]*-z[[:space:]]+"\$fe_running"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_running"[[:space:]]*\][[:space:]]*;[[:space:]]*then[[:space:]]*$' "$fixture_dir/v2-spoof-stopped-duplicate-opener" || true)
-if [[ "$stopped_openers" -lt 2 ]]; then
-  printf 'fixture missing duplicate stopped opener\n' >&2
-  exit 1
-fi
-
+spoof_opener_duplicate(
+    "v2-spoof-stopped-duplicate-opener",
+    ANCHOR_STOPPED,
+    FI,
+    [
+        'if [ -z "$fe_running" ] && [ -z "$be_running" ]; then\n',
+        "  exit 2\n",
+        "fi\n",
+    ],
+)
 # partial: echo-wrapped opener + false branch terminal
-awk '
-  /^[[:space:]]*if[[:space:]]+\{[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*\|\|[[:space:]]*\{[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*;[[:space:]]*then[[:space:]]*$/ {
-    print "echo '\''if { [ -n \"$fe_all\" ] && [ -z \"$be_all\" ]; } || { [ -z \"$fe_all\" ] && [ -n \"$be_all\" ]; }; then'\''"
-    print "if false; then"
-    print "  exit 2"
-    print "fi"
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*fi[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-partial-echo-opener"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-partial-echo-opener"; then
-  printf 'fixture not distinct: v2-spoof-partial-echo-opener\n' >&2
-  exit 1
-fi
-
+spoof_opener_echo(
+    "v2-spoof-partial-echo-opener",
+    ANCHOR_PARTIAL,
+    [
+        "echo 'if { [ -n \"$fe_all\" ] && [ -z \"$be_all\" ]; } || { [ -z \"$fe_all\" ] && [ -n \"$be_all\" ]; }; then'\n",
+        "if false; then\n",
+        "  exit 2\n",
+        "fi\n",
+    ],
+    FI,
+)
 # partial: duplicate real opener
-awk '
-  /^[[:space:]]*if[[:space:]]+\{[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*\|\|[[:space:]]*\{[[:space:]]*\[[[:space:]]*-z[[:space:]]+"\$fe_all"[[:space:]]*\][[:space:]]*&&[[:space:]]*\[[[:space:]]*-n[[:space:]]+"\$be_all"[[:space:]]*\][[:space:]]*;[[:space:]]*\}[[:space:]]*;[[:space:]]*then[[:space:]]*$/ {
-    print
-    while ((getline line) > 0) {
-      print line
-      if (line ~ /^[[:space:]]*fi[[:space:]]*$/) break
-    }
-    print "if { [ -n \"$fe_all\" ] && [ -z \"$be_all\" ]; } || { [ -z \"$fe_all\" ] && [ -n \"$be_all\" ]; }; then"
-    print "  exit 2"
-    print "fi"
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-partial-duplicate-opener"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-partial-duplicate-opener"; then
-  printf 'fixture not distinct: v2-spoof-partial-duplicate-opener\n' >&2
-  exit 1
-fi
-
+spoof_opener_duplicate(
+    "v2-spoof-partial-duplicate-opener",
+    ANCHOR_PARTIAL,
+    FI,
+    [
+        'if { [ -n "$fe_all" ] && [ -z "$be_all" ]; } || { [ -z "$fe_all" ] && [ -n "$be_all" ]; }; then\n',
+        "  exit 2\n",
+        "fi\n",
+    ],
+)
 # non-running Groovy: println-wrapped opener + unrelated error terminal
-awk '
-  /^[[:space:]]*if[[:space:]]*\([[:space:]]*state[[:space:]]*!=[[:space:]]*'\''running'\''[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
-    print "              println(\"if (state != '\''running'\'') {\")"
-    print "            if (false) {"
-    print "              error(\"FAIL_CLOSED unexpected_probe_state: spoof\")"
-    print "            }"
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-ambiguous-println-opener"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-ambiguous-println-opener"; then
-  printf 'fixture not distinct: v2-spoof-ambiguous-println-opener\n' >&2
-  exit 1
-fi
-
+spoof_opener_echo(
+    "v2-spoof-ambiguous-println-opener",
+    ANCHOR_AMBIGUOUS,
+    [
+        '              println("if (state != \'running\') {")\n',
+        "            if (false) {\n",
+        '              error("FAIL_CLOSED unexpected_probe_state: spoof")\n',
+        "            }\n",
+    ],
+    BRACE,
+)
 # non-running Groovy: duplicate real opener
-awk '
-  /^[[:space:]]*if[[:space:]]*\([[:space:]]*state[[:space:]]*!=[[:space:]]*'\''running'\''[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
-    print
-    while ((getline line) > 0) {
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    print "            if (state != '\''running'\'') {"
-    print "              error(\"FAIL_CLOSED unexpected_probe_state: dup\")"
-    print "            }"
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-ambiguous-duplicate-opener"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-ambiguous-duplicate-opener"; then
-  printf 'fixture not distinct: v2-spoof-ambiguous-duplicate-opener\n' >&2
-  exit 1
-fi
-
+spoof_opener_duplicate(
+    "v2-spoof-ambiguous-duplicate-opener",
+    ANCHOR_AMBIGUOUS,
+    BRACE,
+    [
+        "            if (state != 'running') {\n",
+        '              error("FAIL_CLOSED unexpected_probe_state: dup")\n',
+        "            }\n",
+    ],
+)
 # same-tag/different-SHA: echo-quoted opener + false branch error
-awk '
-  /^[[:space:]]*if[[:space:]]*\([[:space:]]*prevTag[[:space:]]*==[[:space:]]*env\.RELEASE_TAG[[:space:]]*&&[[:space:]]*prevSha[[:space:]]*!=[[:space:]]*env\.RELEASE_SHA[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
-    print "              echo \"if (prevTag == env.RELEASE_TAG && prevSha != env.RELEASE_SHA) {\""
-    print "            if (false) {"
-    print "              error(\"FAIL_CLOSED same_tag_different_sha: spoof\")"
-    print "            }"
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-same-tag-echo-opener"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-same-tag-echo-opener"; then
-  printf 'fixture not distinct: v2-spoof-same-tag-echo-opener\n' >&2
-  exit 1
-fi
-
+spoof_opener_echo(
+    "v2-spoof-same-tag-echo-opener",
+    ANCHOR_SAME_TAG,
+    [
+        '              echo "if (prevTag == env.RELEASE_TAG && prevSha != env.RELEASE_SHA) {"\n',
+        "            if (false) {\n",
+        '              error("FAIL_CLOSED same_tag_different_sha: spoof")\n',
+        "            }\n",
+    ],
+    BRACE,
+)
 # same-tag/different-SHA: duplicate real opener
-awk '
-  /^[[:space:]]*if[[:space:]]*\([[:space:]]*prevTag[[:space:]]*==[[:space:]]*env\.RELEASE_TAG[[:space:]]*&&[[:space:]]*prevSha[[:space:]]*!=[[:space:]]*env\.RELEASE_SHA[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
-    print
-    while ((getline line) > 0) {
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    print "            if (prevTag == env.RELEASE_TAG && prevSha != env.RELEASE_SHA) {"
-    print "              error(\"FAIL_CLOSED same_tag_different_sha: dup\")"
-    print "            }"
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-same-tag-duplicate-opener"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-same-tag-duplicate-opener"; then
-  printf 'fixture not distinct: v2-spoof-same-tag-duplicate-opener\n' >&2
-  exit 1
-fi
-
+spoof_opener_duplicate(
+    "v2-spoof-same-tag-duplicate-opener",
+    ANCHOR_SAME_TAG,
+    BRACE,
+    [
+        "            if (prevTag == env.RELEASE_TAG && prevSha != env.RELEASE_SHA) {\n",
+        '              error("FAIL_CLOSED same_tag_different_sha: dup")\n',
+        "            }\n",
+    ],
+)
 # SemVer downgrade: echo-quoted opener + false branch with real terminals
-awk '
-  /^[[:space:]]*if[[:space:]]*\([[:space:]]*cmp[[:space:]]*<[[:space:]]*0[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
-    print "              echo \"if (cmp < 0) {\""
-    print "            if (false) {"
-    print "              env.DEPLOY_NOOP = '\''true'\''"
-    print "              return"
-    print "            }"
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-downgrade-echo-opener"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-downgrade-echo-opener"; then
-  printf 'fixture not distinct: v2-spoof-downgrade-echo-opener\n' >&2
-  exit 1
-fi
-
+spoof_opener_echo(
+    "v2-spoof-downgrade-echo-opener",
+    ANCHOR_DOWNGRADE,
+    [
+        '              echo "if (cmp < 0) {"\n',
+        "            if (false) {\n",
+        "              env.DEPLOY_NOOP = 'true'\n",
+        "              return\n",
+        "            }\n",
+    ],
+    BRACE,
+)
 # SemVer downgrade: duplicate real opener
-awk '
-  /^[[:space:]]*if[[:space:]]*\([[:space:]]*cmp[[:space:]]*<[[:space:]]*0[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
-    print
-    while ((getline line) > 0) {
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    print "            if (cmp < 0) {"
-    print "              env.DEPLOY_NOOP = '\''true'\''"
-    print "              return"
-    print "            }"
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-downgrade-duplicate-opener"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-downgrade-duplicate-opener"; then
-  printf 'fixture not distinct: v2-spoof-downgrade-duplicate-opener\n' >&2
-  exit 1
-fi
-
+spoof_opener_duplicate(
+    "v2-spoof-downgrade-duplicate-opener",
+    ANCHOR_DOWNGRADE,
+    BRACE,
+    [
+        "            if (cmp < 0) {\n",
+        "              env.DEPLOY_NOOP = 'true'\n",
+        "              return\n",
+        "            }\n",
+    ],
+)
 # FRONTEND_URL missing path: echo-quoted count==0 opener + false exit 2
-awk '
-  /^[[:space:]]*if[[:space:]]*\([[:space:]]*count[[:space:]]*==[[:space:]]*0[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
-    print "      echo \"if (count == 0) {\""
-    print "      if (false) {"
-    print "        exit 2"
-    print "      }"
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-frontend-url-echo-opener-missing"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-frontend-url-echo-opener-missing"; then
-  printf 'fixture not distinct: v2-spoof-frontend-url-echo-opener-missing\n' >&2
-  exit 1
-fi
-
+spoof_opener_echo(
+    "v2-spoof-frontend-url-echo-opener-missing",
+    ANCHOR_FRONTEND_MISSING,
+    [
+        '      echo "if (count == 0) {"\n',
+        "      if (false) {\n",
+        "        exit 2\n",
+        "      }\n",
+    ],
+    BRACE,
+)
 # FRONTEND_URL uniqueness path: echo-quoted count!=1 opener + false exit 3
-awk '
-  /^[[:space:]]*if[[:space:]]*\([[:space:]]*count[[:space:]]*!=[[:space:]]*1[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
-    print "      echo \"if (count != 1) {\""
-    print "      if (false) {"
-    print "        exit 3"
-    print "      }"
-    while ((getline line) > 0) {
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-frontend-url-echo-opener-uniq"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-frontend-url-echo-opener-uniq"; then
-  printf 'fixture not distinct: v2-spoof-frontend-url-echo-opener-uniq\n' >&2
-  exit 1
-fi
-
+spoof_opener_echo(
+    "v2-spoof-frontend-url-echo-opener-uniq",
+    ANCHOR_FRONTEND_UNIQ,
+    [
+        '      echo "if (count != 1) {"\n',
+        "      if (false) {\n",
+        "        exit 3\n",
+        "      }\n",
+    ],
+    BRACE,
+)
 # FRONTEND_URL: duplicate real openers for both count branches
-awk '
-  /^[[:space:]]*if[[:space:]]*\([[:space:]]*count[[:space:]]*==[[:space:]]*0[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
-    print
-    while ((getline line) > 0) {
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    print "      if (count == 0) {"
-    print "        exit 2"
-    print "      }"
-    next
-  }
-  /^[[:space:]]*if[[:space:]]*\([[:space:]]*count[[:space:]]*!=[[:space:]]*1[[:space:]]*\)[[:space:]]*\{[[:space:]]*$/ {
-    print
-    while ((getline line) > 0) {
-      print line
-      if (line ~ /^[[:space:]]*\}[[:space:]]*$/) break
-    }
-    print "      if (count != 1) {"
-    print "        exit 3"
-    print "      }"
-    next
-  }
-  { print }
-' "$v2_source" >"$fixture_dir/v2-spoof-frontend-url-duplicate-openers"
-if cmp -s "$v2_source" "$fixture_dir/v2-spoof-frontend-url-duplicate-openers"; then
-  printf 'fixture not distinct: v2-spoof-frontend-url-duplicate-openers\n' >&2
-  exit 1
-fi
+_frontend_dup = duplicate_block(
+    lines,
+    ANCHOR_FRONTEND_MISSING,
+    BRACE,
+    ["      if (count == 0) {\n", "        exit 2\n", "      }\n"],
+)
+_frontend_dup = duplicate_block(
+    _frontend_dup,
+    ANCHOR_FRONTEND_UNIQ,
+    BRACE,
+    ["      if (count != 1) {\n", "        exit 3\n", "      }\n"],
+)
+write_fixture("v2-spoof-frontend-url-duplicate-openers", "".join(_frontend_dup))
+PYOPENER
+
+python3 - "$v2_source" "$fixture_dir" <<'PYHARDEN'
+from pathlib import Path
+import sys
+
+
+source = Path(sys.argv[1]).read_text()
+fixture_dir = Path(sys.argv[2])
+
+
+def write_fixture(name: str, content: str) -> None:
+    if content == source:
+        raise SystemExit(f"fixture not distinct: {name}")
+    (fixture_dir / name).write_text(content)
+
+
+def replace_once(name: str, old: str, new: str) -> None:
+    if source.count(old) < 1:
+        raise SystemExit(f"fixture pattern missing: {name}: {old!r}")
+    write_fixture(name, source.replace(old, new, 1))
+
+
+def status_region(rollout: bool) -> tuple[int, int, str]:
+    if rollout:
+        anchor = "                require_status 200 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused\n"
+        closing = "              '''"
+        indent = "                "
+    else:
+        anchor = "                    require_status 200 GET http://127.0.0.1:8081/\n"
+        closing = "                  '''"
+        indent = "                    "
+    start = source.index(anchor)
+    end = source.index(closing, start)
+    return start, end, indent
+
+
+def wrap_status_region(name: str, opener: str, closer: str, rollout: bool = True) -> None:
+    start, end, indent = status_region(rollout)
+    wrapped = f"{indent}{opener}\n{source[start:end]}{indent}{closer}\n"
+    write_fixture(name, source[:start] + wrapped + source[end:])
+
+
+wrap_status_region("v2-hardening-smoke-if-false", "if false; then", "fi")
+wrap_status_region("v2-hardening-smoke-if-bracket-false", "if [ 1 -eq 0 ]; then", "fi")
+wrap_status_region("v2-hardening-smoke-if-test-false", "if test 1 -eq 0; then", "fi")
+wrap_status_region("v2-hardening-smoke-function-body", "dead_smoke() {", "}")
+wrap_status_region("v2-hardening-smoke-heredoc", ": <<'SMOKE_DISABLED'", "SMOKE_DISABLED")
+wrap_status_region("v2-hardening-rollback-smoke-if-false", "if false; then", "fi", rollout=False)
+
+case_start, case_end, case_indent = status_region(True)
+case_wrapped = (
+    f"{case_indent}case never in\n"
+    f"{case_indent}  matching)\n"
+    f"{source[case_start:case_end]}"
+    f"{case_indent}    ;;\n"
+    f"{case_indent}esac\n"
+)
+write_fixture(
+    "v2-hardening-smoke-case-no-match",
+    source[:case_start] + case_wrapped + source[case_end:],
+)
+
+prune_command = 'docker buildx prune --force --max-used-space "$BUILD_CACHE_MAX_SPACE"'
+prune_line = prune_command + "\n"
+backup_prune_line = 'bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"\n'
+image_loop_line = 'while IFS="$(printf \'\\t\')" read -r repo tag image_id; do\n'
+
+replace_once("v2-hardening-prune-deleted", prune_command, "echo 'BuildKit cache prune removed'")
+replace_once(
+    "v2-hardening-prune-if-false",
+    prune_line,
+    f"if false; then\n  {prune_command}\nfi\n",
+)
+replace_once(
+    "v2-hardening-prune-function-body",
+    prune_line,
+    f"dead_prune() {{\n  {prune_command}\n}}\n",
+)
+replace_once(
+    "v2-hardening-prune-duplicated",
+    prune_line,
+    prune_line + prune_line,
+)
+
+without_prune = source.replace(prune_line, "", 1)
+if without_prune == source:
+    raise SystemExit("prune move source line missing")
+write_fixture(
+    "v2-hardening-prune-before-image-loop",
+    without_prune.replace(image_loop_line, prune_line + image_loop_line, 1),
+)
+write_fixture(
+    "v2-hardening-prune-after-backup",
+    without_prune.replace(backup_prune_line, backup_prune_line + prune_line, 1),
+)
+
+replace_once(
+    "v2-hardening-cache-cap-changed",
+    "BUILD_CACHE_MAX_SPACE = '5GB'",
+    "BUILD_CACHE_MAX_SPACE = '6GB'",
+)
+cache_line = "    BUILD_CACHE_MAX_SPACE = '5GB'\n"
+without_cache = source.replace(cache_line, "", 1)
+if without_cache == source:
+    raise SystemExit("cache environment line missing")
+write_fixture(
+    "v2-hardening-cache-cap-outside-environment",
+    without_cache.replace("  stages {\n", cache_line + "  stages {\n", 1),
+)
+
+replace_once(
+    "v2-hardening-exact-200-restored-curl-fail",
+    "require_status 200 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused",
+    "curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8081/",
+)
+replace_once(
+    "v2-hardening-status-helper-weakened",
+    'if [ "$actual" != "$expected" ]; then',
+    'if [ "$actual" = "$expected" ]; then',
+)
+replace_once(
+    "v2-hardening-loopback-mixed-case-deleted",
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused",
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files-removed --retry 5 --retry-connrefused",
+)
+replace_once(
+    "v2-hardening-tls-mixed-case-deleted",
+    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused",
+    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files-removed --retry 5 --retry-connrefused",
+)
+replace_once(
+    "v2-hardening-loopback-post-deleted",
+    "require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused",
+    "require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files-removed --retry 5 --retry-connrefused",
+)
+replace_once(
+    "v2-hardening-tls-post-deleted",
+    "require_status 403 POST https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused",
+    "require_status 403 POST https://54.116.116.174/api/v1/submission-files-removed --retry 5 --retry-connrefused",
+)
+replace_once(
+    "v2-hardening-descendant-deleted",
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused",
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files-removed/1 --retry 5 --retry-connrefused",
+)
+replace_once(
+    "v2-hardening-rollback-loopback-mixed-case-deleted",
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files\n",
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files-removed\n",
+)
+replace_once(
+    "v2-hardening-rollback-loopback-post-deleted",
+    "require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files\n",
+    "require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files-removed\n",
+)
+replace_once(
+    "v2-hardening-rollback-tls-mixed-case-deleted",
+    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files \\\n",
+    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files-removed \\\n",
+)
+replace_once(
+    "v2-hardening-rollback-tls-post-deleted",
+    "require_status 403 POST https://54.116.116.174/api/v1/submission-files \\\n",
+    "require_status 403 POST https://54.116.116.174/api/v1/submission-files-removed \\\n",
+)
+
+preflight_start = source.index("    stage('Buildx 캐시 상한 사전 검증') {")
+frontend_preflight_start = source.index("    stage('FRONTEND_URL HTTPS 사전 검증') {", preflight_start)
+preflight_block = source[preflight_start:frontend_preflight_start]
+without_preflight = source[:preflight_start] + source[frontend_preflight_start:]
+write_fixture("v2-hardening-buildx-preflight-deleted", without_preflight)
+build_stage_start = without_preflight.index("    stage('버전 이미지 빌드') {")
+write_fixture(
+    "v2-hardening-buildx-preflight-after-mutation",
+    without_preflight[:build_stage_start] + preflight_block + without_preflight[build_stage_start:],
+)
+replace_once(
+    "v2-hardening-buildx-preflight-capability-deleted",
+    "grep -F -- '--max-used-space'",
+    "grep -F -- '--max-used-space-removed'",
+)
+replace_once(
+    "v2-hardening-buildx-preflight-destructive",
+    "docker buildx prune --help 2>&1",
+    "docker buildx prune --force 2>&1",
+)
+
+rollout_nginx_test = '                docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -t\n'
+rollout_nginx_reload = '                docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -s reload\n'
+rollout_smoke = "                require_status 200 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused\n"
+rollback_nginx_test = '                    docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -t\n'
+rollback_nginx_reload = '                    docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -s reload\n'
+rollback_smoke = "                    require_status 200 GET http://127.0.0.1:8081/\n"
+
+replace_once("v2-nginx-rollout-test-deleted", rollout_nginx_test, "")
+replace_once("v2-nginx-rollout-reload-deleted", rollout_nginx_reload, "")
+replace_once(
+    "v2-nginx-rollout-reload-if-false",
+    rollout_nginx_reload,
+    f"                if false; then\n{rollout_nginx_reload}                fi\n",
+)
+rollout_without_reload = source.replace(rollout_nginx_reload, "", 1)
+write_fixture(
+    "v2-nginx-rollout-reload-after-smoke",
+    rollout_without_reload.replace(rollout_smoke, rollout_smoke + rollout_nginx_reload, 1),
+)
+
+replace_once("v2-nginx-rollback-test-deleted", rollback_nginx_test, "")
+replace_once("v2-nginx-rollback-reload-deleted", rollback_nginx_reload, "")
+rollback_without_reload = source.replace(rollback_nginx_reload, "", 1)
+write_fixture(
+    "v2-nginx-rollback-reload-after-smoke",
+    rollback_without_reload.replace(rollback_smoke, rollback_smoke + rollback_nginx_reload, 1),
+)
+
+noop_stage_marker = "    stage('no-op 실행 중 nginx 드리프트 검증') {"
+retention_stage_marker = "    stage('성공 후 이미지·백업 보존 정리') {"
+noop_stage_start = source.index(noop_stage_marker)
+retention_stage_start = source.index(retention_stage_marker, noop_stage_start)
+noop_stage = source[noop_stage_start:retention_stage_start]
+
+
+def mutate_noop(name: str, old: str, new: str) -> None:
+    if old not in noop_stage:
+        raise SystemExit(f"no-op fixture pattern missing: {name}: {old!r}")
+    mutated_stage = noop_stage.replace(old, new, 1)
+    write_fixture(name, source[:noop_stage_start] + mutated_stage + source[retention_stage_start:])
+
+
+write_fixture(
+    "v2-nginx-noop-stage-deleted",
+    source[:noop_stage_start] + source[retention_stage_start:],
+)
+replace_once(
+    "v2-nginx-noop-when-inverted",
+    "expression { env.DEPLOY_NOOP == 'true' }",
+    "expression { env.DEPLOY_NOOP != 'true' }",
+)
+
+noop_anchor = "          require_status 200 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused\n"
+noop_mutations = {
+    "v2-nginx-noop-up-injected": '          docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait\n',
+    "v2-nginx-noop-reload-injected": "          nginx -s reload\n",
+    "v2-nginx-noop-force-recreate-injected": '          docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --force-recreate nginx\n',
+    "v2-nginx-noop-pull-injected": '          docker compose --env-file "$OSS_HUB_ENV_FILE" pull nginx\n',
+    "v2-nginx-noop-image-rm-injected": "          docker image rm forbidden:latest\n",
+    "v2-nginx-noop-prune-injected": "          docker buildx prune --force\n",
+}
+for name, mutation in noop_mutations.items():
+    mutate_noop(name, noop_anchor, mutation + noop_anchor)
+
+mutate_noop(
+    "v2-nginx-noop-loopback-mixed-case-deleted",
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused",
+    "require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files-removed --retry 5 --retry-connrefused",
+)
+mutate_noop(
+    "v2-nginx-noop-tls-mixed-case-deleted",
+    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused",
+    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files-removed --retry 5 --retry-connrefused",
+)
+mutate_noop(
+    "v2-nginx-noop-loopback-post-deleted",
+    "require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused",
+    "require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files-removed --retry 5 --retry-connrefused",
+)
+mutate_noop(
+    "v2-nginx-noop-tls-post-deleted",
+    "require_status 403 POST https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused",
+    "require_status 403 POST https://54.116.116.174/api/v1/submission-files-removed --retry 5 --retry-connrefused",
+)
+
+noop_smoke_start = noop_stage.index(noop_anchor)
+noop_smoke_end = noop_stage.index("        '''", noop_smoke_start)
+noop_smoke = noop_stage[noop_smoke_start:noop_smoke_end]
+noop_wrapped = f"          if false; then\n{noop_smoke}          fi\n"
+write_fixture(
+    "v2-nginx-noop-smoke-if-false",
+    source[:noop_stage_start]
+    + noop_stage[:noop_smoke_start]
+    + noop_wrapped
+    + noop_stage[noop_smoke_end:]
+    + source[retention_stage_start:],
+)
+PYHARDEN
 
 expect_pass 'v2: 현재 candidate Release 배포 계약' v2 "$fixture_dir/v2-valid"
 expect_pass 'v2: 기본 path 호출' v2 "$v2_source"
 expect_fail 'v2: parameters 블록 부활' v2 "$fixture_dir/v2-restored-parameters"
 expect_fail 'v2: DEPLOY_STATE_FILE 부활' v2 "$fixture_dir/v2-restored-deploy-state-file"
+expect_fail 'v2: RELEASE_ACCEPT role=PM 부활' v2 "$fixture_dir/v2-restored-release-accept"
+expect_fail 'v2: #199 Release 승인 댓글 scraping 부활' v2 "$fixture_dir/v2-restored-release-comment-scraping"
+expect_fail 'v2: PM 승인 actor 파싱 부활' v2 "$fixture_dir/v2-restored-pm-actor-parsing"
 expect_fail 'v2: RELEASE_ACCEPT role=TECH_LEAD 부활' v2 "$fixture_dir/v2-restored-tech-lead-accept"
+expect_fail 'v2: RELEASE_OVERRIDE role=PM 부활' v2 "$fixture_dir/v2-restored-pm-override"
 expect_fail 'v2: releases/latest 조회 제거' v2 "$fixture_dir/v2-missing-latest-release"
 expect_fail 'v2: RUN_MODE 부활' v2 "$fixture_dir/v2-restored-run-mode"
 expect_fail 'v2: 동시 배포 방지 누락' v2 "$fixture_dir/v2-missing-concurrency"
@@ -1150,17 +1268,18 @@ expect_fail 'v2: SemVer tag 검증 누락' v2 "$fixture_dir/v2-missing-tag-forma
 expect_fail 'v2: sandbox 비승인 BigInteger 생성자 부활' v2 "$fixture_dir/v2-restored-big-integer"
 expect_fail 'v2: Release tag SHA 해석 누락' v2 "$fixture_dir/v2-missing-tag-resolution"
 expect_fail 'v2: main ancestry 검증 누락' v2 "$fixture_dir/v2-missing-main-ancestry"
-expect_fail 'v2: Release 승인 댓글 pagination 누락' v2 "$fixture_dir/v2-missing-approval-pagination"
-expect_fail 'v2: PM Release 승인 검증 누락' v2 "$fixture_dir/v2-missing-pm-approval"
 expect_fail 'v2: 정확한 RELEASE_SHA checkout 누락' v2 "$fixture_dir/v2-moving-checkout"
 expect_fail 'v2: IMAGE_TAG=RELEASE_TAG 계약 파손' v2 "$fixture_dir/v2-missing-image-tag-release"
 expect_fail 'v2: RELEASE_SHA 바인딩 파손' v2 "$fixture_dir/v2-missing-release-sha-binding"
-expect_fail 'v2: PM 승인 head=RELEASE_SHA 파손' v2 "$fixture_dir/v2-missing-pm-sha-approval"
 expect_fail 'v2: 명시적 Prisma client 생성 누락' v2 "$fixture_dir/v2-missing-prisma-generate"
 expect_fail 'v2: 배포 전 test 누락' v2 "$fixture_dir/v2-missing-test"
 expect_fail 'v2: migration 전 backup 누락' v2 "$fixture_dir/v2-missing-backup"
 expect_fail 'v2: Prisma migration 누락' v2 "$fixture_dir/v2-missing-migration"
 expect_fail 'v2: Compose 교체의 --no-build 누락' v2 "$fixture_dir/v2-missing-no-build"
+expect_fail 'v2: primary 제출 파일 403 smoke 누락' v2 "$fixture_dir/v2-missing-primary-upload-403-smoke"
+expect_fail 'v2: rollback 제출 파일 403 smoke 누락' v2 "$fixture_dir/v2-missing-rollback-upload-403-smoke"
+expect_fail 'v2: 제출 파일 smoke의 exact 403 단언 약화' v2 "$fixture_dir/v2-weakened-upload-403-status"
+expect_fail 'v2: 제출 파일 403 smoke에 curl --fail 사용' v2 "$fixture_dir/v2-upload-403-curl-fail"
 expect_fail 'v2: greenfield rollback skip guard 누락' v2 "$fixture_dir/v2-missing-rollback-guard"
 expect_fail 'v2: 운영 환경 credential 주입 누락' v2 "$fixture_dir/v2-missing-production-credential"
 expect_fail 'v2: 실행 중 ps -q 권위 누락' v2 "$fixture_dir/v2-missing-running-ps-q"
@@ -1233,6 +1352,57 @@ expect_fail 'v2 spoof: SemVer downgrade duplicate real opener' v2 "$fixture_dir/
 expect_fail 'v2 spoof: FRONTEND_URL missing echo/quoted opener' v2 "$fixture_dir/v2-spoof-frontend-url-echo-opener-missing"
 expect_fail 'v2 spoof: FRONTEND_URL uniqueness echo/quoted opener' v2 "$fixture_dir/v2-spoof-frontend-url-echo-opener-uniq"
 expect_fail 'v2 spoof: FRONTEND_URL duplicate real openers' v2 "$fixture_dir/v2-spoof-frontend-url-duplicate-openers"
+
+expect_fail_with_code 'v2 hardening: rollout smoke를 if false로 비활성화' v2 "$fixture_dir/v2-hardening-smoke-if-false"
+expect_fail_with_code 'v2 hardening: rollout smoke를 불일치 case에 배치' v2 "$fixture_dir/v2-hardening-smoke-case-no-match"
+expect_fail_with_code 'v2 hardening: rollout smoke를 bracket 거짓 guard로 비활성화' v2 "$fixture_dir/v2-hardening-smoke-if-bracket-false"
+expect_fail_with_code 'v2 hardening: rollout smoke를 test 거짓 guard로 비활성화' v2 "$fixture_dir/v2-hardening-smoke-if-test-false"
+expect_fail_with_code 'v2 hardening: rollout smoke를 미호출 함수 본문에 배치' v2 "$fixture_dir/v2-hardening-smoke-function-body"
+expect_fail_with_code 'v2 hardening: rollout smoke를 heredoc으로 주석화' v2 "$fixture_dir/v2-hardening-smoke-heredoc"
+expect_fail_with_code 'v2 hardening: rollback smoke를 if false로 비활성화' v2 "$fixture_dir/v2-hardening-rollback-smoke-if-false"
+expect_fail_with_code 'v2 hardening: BuildKit prune 삭제' v2 "$fixture_dir/v2-hardening-prune-deleted"
+expect_fail_with_code 'v2 hardening: BuildKit prune를 if false로 비활성화' v2 "$fixture_dir/v2-hardening-prune-if-false"
+expect_fail_with_code 'v2 hardening: BuildKit prune를 미호출 함수 본문에 배치' v2 "$fixture_dir/v2-hardening-prune-function-body"
+expect_fail_with_code 'v2 hardening: BuildKit prune 중복' v2 "$fixture_dir/v2-hardening-prune-duplicated"
+expect_fail_with_code 'v2 hardening: BuildKit prune를 이미지 loop 앞으로 이동' v2 "$fixture_dir/v2-hardening-prune-before-image-loop"
+expect_fail_with_code 'v2 hardening: BuildKit prune를 backup prune 뒤로 이동' v2 "$fixture_dir/v2-hardening-prune-after-backup"
+expect_fail_with_code 'v2 hardening: BuildKit cache 상한을 5GB에서 변경' v2 "$fixture_dir/v2-hardening-cache-cap-changed"
+expect_fail_with_code 'v2 hardening: BuildKit cache 상한을 environment 밖으로 이동' v2 "$fixture_dir/v2-hardening-cache-cap-outside-environment"
+expect_fail_with_code 'v2 hardening: exact 200 대신 curl --fail 복원' v2 "$fixture_dir/v2-hardening-exact-200-restored-curl-fail"
+expect_fail_with_code 'v2 hardening: require_status equality 검사를 반전' v2 "$fixture_dir/v2-hardening-status-helper-weakened"
+expect_fail_with_code 'v2 hardening: loopback mixed-case 403 삭제' v2 "$fixture_dir/v2-hardening-loopback-mixed-case-deleted"
+expect_fail_with_code 'v2 hardening: TLS mixed-case 403 삭제' v2 "$fixture_dir/v2-hardening-tls-mixed-case-deleted"
+expect_fail_with_code 'v2 hardening: loopback POST 403 삭제' v2 "$fixture_dir/v2-hardening-loopback-post-deleted"
+expect_fail_with_code 'v2 hardening: TLS POST 403 삭제' v2 "$fixture_dir/v2-hardening-tls-post-deleted"
+expect_fail_with_code 'v2 hardening: descendant 403 삭제' v2 "$fixture_dir/v2-hardening-descendant-deleted"
+expect_fail_with_code 'v2 hardening: rollback loopback mixed-case 403 삭제' v2 "$fixture_dir/v2-hardening-rollback-loopback-mixed-case-deleted"
+expect_fail_with_code 'v2 hardening: rollback loopback POST 403 삭제' v2 "$fixture_dir/v2-hardening-rollback-loopback-post-deleted"
+expect_fail_with_code 'v2 hardening: rollback TLS mixed-case 403 삭제' v2 "$fixture_dir/v2-hardening-rollback-tls-mixed-case-deleted"
+expect_fail_with_code 'v2 hardening: rollback TLS POST 403 삭제' v2 "$fixture_dir/v2-hardening-rollback-tls-post-deleted"
+expect_fail_with_code 'v2 hardening: Buildx capability preflight 삭제' v2 "$fixture_dir/v2-hardening-buildx-preflight-deleted"
+expect_fail_with_code 'v2 hardening: Buildx capability preflight를 production mutation 뒤로 이동' v2 "$fixture_dir/v2-hardening-buildx-preflight-after-mutation"
+expect_fail_with_code 'v2 hardening: Buildx capability token 삭제' v2 "$fixture_dir/v2-hardening-buildx-preflight-capability-deleted"
+expect_fail_with_code 'v2 hardening: Buildx preflight에서 destructive prune 실행' v2 "$fixture_dir/v2-hardening-buildx-preflight-destructive"
+expect_fail_with_code 'v2 nginx: rollout nginx -t 삭제' v2 "$fixture_dir/v2-nginx-rollout-test-deleted"
+expect_fail_with_code 'v2 nginx: rollout reload 삭제' v2 "$fixture_dir/v2-nginx-rollout-reload-deleted"
+expect_fail_with_code 'v2 nginx: rollout reload를 if false로 비활성화' v2 "$fixture_dir/v2-nginx-rollout-reload-if-false"
+expect_fail_with_code 'v2 nginx: rollout reload를 smoke 뒤로 이동' v2 "$fixture_dir/v2-nginx-rollout-reload-after-smoke"
+expect_fail_with_code 'v2 nginx: rollback nginx -t 삭제' v2 "$fixture_dir/v2-nginx-rollback-test-deleted"
+expect_fail_with_code 'v2 nginx: rollback reload 삭제' v2 "$fixture_dir/v2-nginx-rollback-reload-deleted"
+expect_fail_with_code 'v2 nginx: rollback reload를 smoke 뒤로 이동' v2 "$fixture_dir/v2-nginx-rollback-reload-after-smoke"
+expect_fail_with_code 'v2 nginx: no-op drift stage 삭제' v2 "$fixture_dir/v2-nginx-noop-stage-deleted"
+expect_fail_with_code 'v2 nginx: no-op when 조건 반전' v2 "$fixture_dir/v2-nginx-noop-when-inverted"
+expect_fail_with_code 'v2 nginx: no-op stage에 up 주입' v2 "$fixture_dir/v2-nginx-noop-up-injected"
+expect_fail_with_code 'v2 nginx: no-op stage에 reload 주입' v2 "$fixture_dir/v2-nginx-noop-reload-injected"
+expect_fail_with_code 'v2 nginx: no-op stage에 force-recreate 주입' v2 "$fixture_dir/v2-nginx-noop-force-recreate-injected"
+expect_fail_with_code 'v2 nginx: no-op stage에 pull 주입' v2 "$fixture_dir/v2-nginx-noop-pull-injected"
+expect_fail_with_code 'v2 nginx: no-op stage에 image rm 주입' v2 "$fixture_dir/v2-nginx-noop-image-rm-injected"
+expect_fail_with_code 'v2 nginx: no-op stage에 prune 주입' v2 "$fixture_dir/v2-nginx-noop-prune-injected"
+expect_fail_with_code 'v2 nginx: no-op loopback mixed-case 403 삭제' v2 "$fixture_dir/v2-nginx-noop-loopback-mixed-case-deleted"
+expect_fail_with_code 'v2 nginx: no-op TLS mixed-case 403 삭제' v2 "$fixture_dir/v2-nginx-noop-tls-mixed-case-deleted"
+expect_fail_with_code 'v2 nginx: no-op loopback POST 403 삭제' v2 "$fixture_dir/v2-nginx-noop-loopback-post-deleted"
+expect_fail_with_code 'v2 nginx: no-op TLS POST 403 삭제' v2 "$fixture_dir/v2-nginx-noop-tls-post-deleted"
+expect_fail_with_code 'v2 nginx: no-op smoke를 if false로 비활성화' v2 "$fixture_dir/v2-nginx-noop-smoke-if-false"
 
 printf '%s passed, %s failed\n' "$passed" "$failed"
 ((failed == 0))
