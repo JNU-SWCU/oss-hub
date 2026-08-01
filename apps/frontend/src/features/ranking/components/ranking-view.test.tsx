@@ -190,3 +190,186 @@ test('GitHub 로그인이 같아도 순위가 다른 행에 고유 키를 사용
 
   expect(html).toContain('data-row-keys="1,2"');
 });
+
+// F4 QA 감사 갭: outcome-1·2·4·5는 지금까지 backend 통합 테스트
+// (`public-exposure-matrix.integration.spec.ts`)에서만 증명됐다. 아래는 그 outcome들의 ranking
+// 화면 절반을 고정한다 — archive 쪽 절반(outcome-2 기여자 분리, outcome-4 stale-allow,
+// outcome-5 회수)은 `archive/archive.test.tsx`가 동일한 synthetic 식별자로 짝을 맞춘다.
+const forbiddenRankingFields = [
+  'studentId',
+  'department',
+  'accountStatus',
+  '"role"',
+  'realName',
+  '@example.com',
+];
+
+test('outcome-1: 발행 전 프로젝트의 기여자는 다른 참여자가 랭킹에 있어도 함께 나타나지 않는다', () => {
+  const html = renderToStaticMarkup(
+    <RankingView
+      period={RANKING_PERIODS.ALL}
+      page={1}
+      state={{
+        kind: 'ready',
+        ranking: {
+          notice: RANKING_NOTICE,
+          period: RANKING_PERIODS.ALL,
+          items: [
+            {
+              rank: 1,
+              displayName: 'synthetic 활성 참여자',
+              githubLogin: 'synthetic-outcome2-owner-login',
+              commitCount: 5,
+              prCount: 2,
+              releaseCount: 1,
+              total: 8,
+            },
+          ],
+          page: 1,
+          pageSize: 20,
+          total: 1,
+        },
+      }}
+      {...handlers}
+    />,
+  );
+
+  expect(html).toContain('synthetic-outcome2-owner-login');
+  expect(html).not.toContain('synthetic-outcome1');
+});
+
+test('outcome-2: 발행 후 관측된 저장소의 기여자 2명이 각자의 순위와 커밋/PR/릴리스 수치로 정확히 분리되어 랭킹에 표시된다', () => {
+  const html = renderToStaticMarkup(
+    <RankingView
+      period={RANKING_PERIODS.ALL}
+      page={1}
+      state={{
+        kind: 'ready',
+        ranking: {
+          notice: RANKING_NOTICE,
+          period: RANKING_PERIODS.ALL,
+          items: [
+            {
+              rank: 1,
+              displayName: 'synthetic-outcome2-owner-login',
+              githubLogin: 'synthetic-outcome2-owner-login',
+              commitCount: 5,
+              prCount: 2,
+              releaseCount: 1,
+              total: 8,
+            },
+            {
+              rank: 2,
+              displayName: 'synthetic-outcome2-other-login',
+              githubLogin: 'synthetic-outcome2-other-login',
+              commitCount: 3,
+              prCount: 1,
+              releaseCount: 0,
+              total: 4,
+            },
+          ],
+          page: 1,
+          pageSize: 20,
+          total: 2,
+        },
+      }}
+      {...handlers}
+    />,
+  );
+
+  expect(html).toContain('@synthetic-outcome2-owner-login');
+  expect(html).toContain('@synthetic-outcome2-other-login');
+  expect(html).toContain('data-row-keys="1,2"');
+  for (const forbidden of forbiddenRankingFields) {
+    expect(html).not.toContain(forbidden);
+  }
+});
+
+test('outcome-4: 발행 이전 stale 관측 때문에 아카이브에는 여전히 노출되는 프로젝트라도, 현재 관측이 비공개면 그 기여자는 랭킹에서 제외된다', () => {
+  const html = renderToStaticMarkup(
+    <RankingView
+      period={RANKING_PERIODS.ALL}
+      page={1}
+      state={{
+        kind: 'ready',
+        ranking: {
+          notice: RANKING_NOTICE,
+          period: RANKING_PERIODS.ALL,
+          items: [
+            {
+              rank: 1,
+              displayName: 'synthetic 다른 활성 참여자',
+              githubLogin: 'synthetic-outcome2-other-login',
+              commitCount: 3,
+              prCount: 1,
+              releaseCount: 0,
+              total: 4,
+            },
+          ],
+          page: 1,
+          pageSize: 20,
+          total: 1,
+        },
+      }}
+      {...handlers}
+    />,
+  );
+
+  expect(html).toContain('synthetic-outcome2-other-login');
+  expect(html).not.toContain('synthetic-outcome4-applicant-login');
+});
+
+test('outcome-5: 발행 후 비공개로 전환(회수)된 기여자는 이전엔 랭킹에 있었더라도 최신 응답에서 빠지면 화면에서 사라진다', () => {
+  const beforeRevocationHtml = renderToStaticMarkup(
+    <RankingView
+      period={RANKING_PERIODS.ALL}
+      page={1}
+      state={{
+        kind: 'ready',
+        ranking: {
+          notice: RANKING_NOTICE,
+          period: RANKING_PERIODS.ALL,
+          items: [
+            {
+              rank: 1,
+              displayName: 'synthetic 회수 예정 참여자',
+              githubLogin: 'synthetic-outcome5-applicant-login',
+              commitCount: 3,
+              prCount: 1,
+              releaseCount: 0,
+              total: 4,
+            },
+          ],
+          page: 1,
+          pageSize: 20,
+          total: 1,
+        },
+      }}
+      {...handlers}
+    />,
+  );
+  expect(beforeRevocationHtml).toContain('synthetic-outcome5-applicant-login');
+
+  const afterRevocationHtml = renderToStaticMarkup(
+    <RankingView
+      period={RANKING_PERIODS.ALL}
+      page={1}
+      state={{
+        kind: 'ready',
+        ranking: {
+          notice: RANKING_NOTICE,
+          period: RANKING_PERIODS.ALL,
+          items: [],
+          page: 1,
+          pageSize: 20,
+          total: 0,
+        },
+      }}
+      {...handlers}
+    />,
+  );
+  expect(afterRevocationHtml).not.toContain(
+    'synthetic-outcome5-applicant-login',
+  );
+  expect(afterRevocationHtml).toContain('집계된 활동 데이터가 없습니다');
+});
