@@ -62,6 +62,7 @@ export function SubmissionChecklistPage({
   const [submissionPhase, setSubmissionPhase] =
     useState<ResubmissionPhase | null>(null);
   const uploadedFile = useRef(new SubmissionFileUploadCache());
+  const resubmitInFlight = useRef(false);
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
@@ -97,6 +98,7 @@ export function SubmissionChecklistPage({
   }, [milestoneId]);
 
   const resubmit = async (checklist: SubmissionChecklist) => {
+    if (resubmitInFlight.current) return;
     const item = checklist.items.find(
       (candidate) => candidate.milestoneId === milestoneId,
     );
@@ -112,6 +114,7 @@ export function SubmissionChecklistPage({
     setToastMessage(null);
     if (Object.keys(nextErrors).length > 0) return;
 
+    resubmitInFlight.current = true;
     setSubmitting(true);
     try {
       const result = await submitResubmissionRevision({
@@ -178,6 +181,7 @@ export function SubmissionChecklistPage({
     } finally {
       setSubmissionPhase(null);
       setSubmitting(false);
+      resubmitInFlight.current = false;
     }
   };
 

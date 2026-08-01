@@ -45,6 +45,7 @@ function buildService(
     readonly target?: ResubmissionTarget | null;
     readonly exists?: boolean;
     readonly createError?: Error;
+    readonly targets?: readonly (ResubmissionTarget | null)[];
   } = {},
 ) {
   const store = {
@@ -66,6 +67,11 @@ function buildService(
       ? jest.fn().mockRejectedValue(overrides.createError)
       : jest.fn().mockResolvedValue({ revision: 2 }),
   };
+  if (overrides.targets) {
+    for (const value of overrides.targets) {
+      store.findSubmissionForParticipant.mockResolvedValueOnce(value);
+    }
+  }
   const repository = {
     ...store,
     withTransaction: (
@@ -76,8 +82,75 @@ function buildService(
     service: new SubmissionsService(repository),
     createSubmissionRevision: store.createSubmissionRevision,
     submissionExists: store.submissionExists,
+    findSubmissionForParticipant: store.findSubmissionForParticipant,
   };
 }
+
+it('FILE 재제출은 Program 잠금 뒤 authoritative target을 다시 검증한다', async () => {
+  // Given
+  const fileInput: ResubmitSubmissionInput = {
+    baseRevision: 1,
+    content: { type: MilestoneSubmissionType.FILE, fileId: 'file-1' },
+    comment: null,
+  };
+  const { service, createSubmissionRevision, findSubmissionForParticipant } =
+    buildService({
+      targets: [
+        target({ submissionType: MilestoneSubmissionType.FILE }),
+        target({ submissionType: MilestoneSubmissionType.TEXT }),
+      ],
+    });
+
+  // When
+  const result = service.resubmit(githubId, submissionId, fileInput);
+
+  // Then
+  await expect(result).rejects.toMatchObject({
+    errorCode: { code: SubmissionsErrorCode.CONTENT_TYPE_MISMATCH },
+  });
+  expect(findSubmissionForParticipant).toHaveBeenCalledTimes(2);
+  expect(createSubmissionRevision).not.toHaveBeenCalled();
+});
+
+it.each([
+  {
+    name: 'status',
+    lockedTarget: target({ status: SubmissionStatus.SUBMITTED }),
+    code: SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED,
+  },
+  {
+    name: 'baseRevision',
+    lockedTarget: target({ currentRevision: 2 }),
+    code: SubmissionsErrorCode.STALE_SUBMISSION_REVISION,
+  },
+  {
+    name: 'application approval',
+    lockedTarget: target({ applicationStatus: ApplicationStatus.SUBMITTED }),
+    code: SubmissionsErrorCode.APPLICATION_APPROVAL_REQUIRED,
+  },
+])('FILE 재제출은 Program 잠금 뒤 최신 $name을 검증한다', async (scenario) => {
+  // Given
+  const fileInput: ResubmitSubmissionInput = {
+    baseRevision: 1,
+    content: { type: MilestoneSubmissionType.FILE, fileId: 'file-1' },
+    comment: null,
+  };
+  const { service, createSubmissionRevision } = buildService({
+    targets: [
+      target({ submissionType: MilestoneSubmissionType.FILE }),
+      scenario.lockedTarget,
+    ],
+  });
+
+  // When
+  const result = service.resubmit(githubId, submissionId, fileInput);
+
+  // Then
+  await expect(result).rejects.toMatchObject({
+    errorCode: { code: scenario.code },
+  });
+  expect(createSubmissionRevision).not.toHaveBeenCalled();
+});
 
 it('CHANGES_REQUESTED + 일치하는 baseRevision이면 새 revision을 만들고 SUBMITTED로 응답한다', async () => {
   // Given

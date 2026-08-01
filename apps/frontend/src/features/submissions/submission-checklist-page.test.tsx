@@ -226,6 +226,37 @@ beforeEach(() => {
 });
 
 describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
+  it('coalesces repeated submits from the same render into one upload and revision request', async () => {
+    // Given
+    const pendingUpload = {
+      resolve: null as ((value: ReturnType<typeof uploaded>) => void) | null,
+    };
+    vi.mocked(uploadSubmissionFile).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          pendingUpload.resolve = resolve;
+        }),
+    );
+    vi.mocked(createResubmission).mockResolvedValue(CREATED_RESUBMISSION);
+    await renderReadyPage();
+    currentViewProps().onFileChange(FILE);
+    renderPage();
+
+    // When
+    currentViewProps().onResubmit();
+    currentViewProps().onResubmit();
+    await flushAsyncWork();
+
+    // Then
+    expect(uploadSubmissionFile).toHaveBeenCalledTimes(1);
+    if (pendingUpload.resolve === null) {
+      throw new Error('expected upload request to be pending');
+    }
+    pendingUpload.resolve(uploaded('file-first'));
+    await flushAsyncWork();
+    expect(createResubmission).toHaveBeenCalledTimes(1);
+  });
+
   it('discards the cached upload id when create-resubmission returns SUB_010', async () => {
     // Given
     vi.mocked(uploadSubmissionFile)

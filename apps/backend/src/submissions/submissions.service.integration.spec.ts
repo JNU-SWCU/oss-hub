@@ -128,6 +128,10 @@ describe('SubmissionsService integration', () => {
     await prisma.submission.deleteMany({
       where: { milestoneId: { in: milestoneIds } },
     });
+    await prisma.milestone.updateMany({
+      where: { id: FILE_MILESTONE_ID },
+      data: { submissionType: MilestoneSubmissionType.FILE },
+    });
   });
 
   afterAll(async () => {
@@ -621,7 +625,85 @@ describe('SubmissionsService integration', () => {
       submissionRevisionId: null,
     });
   });
+
+  it('교직원이 FILE 유형을 바꾸는 동안 대기한 재제출은 잠금 뒤 최신 유형으로 거절한다', async () => {
+    // Given
+    const fixture = await seedFileResubmissionFixture('type-race');
+    let releaseProgramLock: (() => void) | undefined;
+    const programLockRelease = new Promise<void>((resolve) => {
+      releaseProgramLock = resolve;
+    });
+    let markStaffUpdateReady: (() => void) | undefined;
+    const staffUpdateReady = new Promise<void>((resolve) => {
+      markStaffUpdateReady = resolve;
+    });
+    const staffUpdate = prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`
+        SELECT id
+        FROM "Program"
+        WHERE id = ${MILESTONES_PROGRAM_ID}
+        FOR UPDATE
+      `;
+      await transaction.milestone.update({
+        where: { id: FILE_MILESTONE_ID },
+        data: { submissionType: MilestoneSubmissionType.TEXT },
+      });
+      markStaffUpdateReady?.();
+      await programLockRelease;
+    });
+    await staffUpdateReady;
+
+    // When
+    const resubmission = service.resubmit(
+      seedGithubId(PERSONAL_USER_ID),
+      fixture.submissionId,
+      {
+        baseRevision: 1,
+        content: {
+          type: MilestoneSubmissionType.FILE,
+          fileId: fixture.replacementFileId,
+        },
+        comment: null,
+      },
+    );
+
+    try {
+      await waitForProgramLockWaiter();
+    } finally {
+      releaseProgramLock?.();
+    }
+    await staffUpdate;
+
+    // Then
+    await expect(resubmission).rejects.toMatchObject({
+      errorCode: { code: SubmissionsErrorCode.CONTENT_TYPE_MISMATCH },
+    });
+    await expect(
+      prisma.submission.findUniqueOrThrow({
+        where: { id: fixture.submissionId },
+        select: { status: true, currentRevision: true },
+      }),
+    ).resolves.toEqual({
+      status: SubmissionStatus.CHANGES_REQUESTED,
+      currentRevision: 1,
+    });
+  });
 });
+
+async function waitForProgramLockWaiter(): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const rows = await prisma.$queryRaw<readonly { waiting: bigint }[]>`
+      SELECT COUNT(*) AS waiting
+      FROM pg_stat_activity
+      WHERE datname = current_database()
+        AND wait_event_type = 'Lock'
+        AND query LIKE '%SELECT "endAt"%'
+    `;
+    if ((rows[0]?.waiting ?? 0n) > 0n) return;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error('Expected the student resubmission to wait on Program lock.');
+}
 
 async function seedFileResubmissionFixture(suffix: string): Promise<{
   readonly submissionId: string;

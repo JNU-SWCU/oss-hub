@@ -176,7 +176,7 @@ export class SubmissionsService {
     try {
       return await this.repository.withTransaction(async (store) => {
         const actor = await this.requireStudent(store, githubId);
-        const target = await store.findSubmissionForParticipant(
+        let target = await store.findSubmissionForParticipant(
           submissionId,
           actor.id,
         );
@@ -190,16 +190,31 @@ export class SubmissionsService {
         if (target.applicationStatus !== ApplicationStatus.APPROVED) {
           throw this.error(SubmissionsErrorCode.APPLICATION_APPROVAL_REQUIRED);
         }
-        this.assertResubmittable(target, input);
-
         let fileExpiresAt: Date | null = null;
         if (input.content.type === 'FILE') {
           const programEndAt = await store.lockProgramEndAt(target.programId);
           if (programEndAt === null) {
             throw this.error(SubmissionsErrorCode.FILE_RETENTION_UNAVAILABLE);
           }
+          const lockedTarget = await store.findSubmissionForParticipant(
+            submissionId,
+            actor.id,
+          );
+          if (!lockedTarget) {
+            throw this.error(
+              (await store.submissionExists(submissionId))
+                ? SubmissionsErrorCode.NOT_APPLICATION_MEMBER
+                : SubmissionsErrorCode.SUBMISSION_NOT_FOUND,
+            );
+          }
+          target = lockedTarget;
           fileExpiresAt = addOneCalendarYear(programEndAt);
         }
+
+        if (target.applicationStatus !== ApplicationStatus.APPROVED) {
+          throw this.error(SubmissionsErrorCode.APPLICATION_APPROVAL_REQUIRED);
+        }
+        this.assertResubmittable(target, input);
 
         const created = await store.createSubmissionRevision({
           submissionId: target.id,
