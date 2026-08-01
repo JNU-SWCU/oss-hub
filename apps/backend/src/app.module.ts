@@ -7,9 +7,9 @@ import { ConsentsModule } from './consents/consents.module';
 import { HealthModule } from './health/health.module';
 import { LoginHistoryModule } from './login-history/login-history.module';
 import { NotificationsModule } from './notifications/notifications.module';
-import { ProfilesModule } from './profiles/profiles.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProgramsModule } from './programs/programs.module';
+import { PublicProjectsModule } from './public-projects/public-projects.module';
 import { RankingModule } from './ranking/ranking.module';
 import { RepositoryOwnershipModule } from './repository-ownership/repository-ownership.module';
 import { RepositoriesModule } from './repositories/repositories.module';
@@ -41,10 +41,15 @@ import { UsersModule } from './users/users.module';
     RepositoryOwnershipModule,
     SubmissionsModule,
     UsersModule,
+    /**
+     * todo 16 — `PublicUserProfileController`(`GET /users/:userId/profile`)가 이 모듈에
+     * 있다. `/users/me/profile`(위 `UsersModule`, `SessionGuard` 보호)보다 반드시 뒤에
+     * import해야 라우트 매칭에서 `me`가 `:userId`로 흡수되지 않는다.
+     */
+    PublicProjectsModule,
     RepositoriesModule,
     SubmissionReviewsModule,
     ShowcaseModule,
-    ProfilesModule,
   ],
 })
 export class AppModule {}

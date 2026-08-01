@@ -1,6 +1,7 @@
 import { AccountStatus, Role } from '@prisma/client';
 import {
   ACCESS_AUDIT_EVENT_KINDS,
+  ACCESS_AUDIT_SCHEMA_VERSION,
   createAccessAuditMetadata,
 } from './audit-log-metadata';
 import { AuditLogErrorCode } from './audit-log-error-code.enum';
@@ -30,6 +31,7 @@ function createRepository(): jest.Mocked<AuditLogRepositoryPort> {
           action: 'STAFF_ROLE_REQUEST_APPROVED',
           targetType: 'ROLE_REQUEST',
           targetId: 'request-2',
+          target: 'ROLE_REQUEST / request-2',
           occurredAt: new Date('2026-07-24T02:00:00.000Z'),
           legacy: true,
           metadata: null,
@@ -40,6 +42,7 @@ function createRepository(): jest.Mocked<AuditLogRepositoryPort> {
           action: 'STAFF_ROLE_REQUEST_REJECTED',
           targetType: 'ROLE_REQUEST',
           targetId: 'request-1',
+          target: 'ROLE_REQUEST / request-1',
           occurredAt: new Date('2026-07-24T01:00:00.000Z'),
           legacy: true,
           metadata: null,
@@ -53,8 +56,15 @@ function createRepository(): jest.Mocked<AuditLogRepositoryPort> {
         action: input.action,
         targetType: input.targetType,
         targetId: input.targetId,
+        target:
+          input.metadata.schemaVersion === ACCESS_AUDIT_SCHEMA_VERSION
+            ? input.metadata.target.githubLogin
+            : `${input.targetType} / ${input.targetId}`,
         occurredAt: new Date('2026-07-24T03:00:00.000Z'),
-        actor: input.metadata.actor.githubLogin,
+        actor:
+          'actor' in input.metadata
+            ? input.metadata.actor.githubLogin
+            : 'synthetic-actor',
         legacy: false,
         metadata: input.metadata,
       }),
@@ -120,6 +130,10 @@ describe('AuditLogService', () => {
         actor: {
           displayName: '합성 관리자',
           githubLogin: 'synthetic-admin',
+        },
+        target: {
+          displayName: '합성 대상',
+          githubLogin: 'synthetic-target',
         },
         before: {
           role: null,

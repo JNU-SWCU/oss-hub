@@ -17,6 +17,7 @@ export class ApplicationListItemResponseDto {
     readonly updatedAt: string;
     readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
   };
+  readonly isRepositoryPublicationPlanned: boolean;
   readonly participation: 'INDIVIDUAL' | 'TEAM';
   readonly applicant: {
     readonly id: string;
@@ -43,6 +44,7 @@ export class ApplicationListItemResponseDto {
       ...item.repositoryProvisioning,
       updatedAt: item.repositoryProvisioning.updatedAt.toISOString(),
     };
+    this.isRepositoryPublicationPlanned = item.isRepositoryPublicationPlanned;
     this.participation = item.participation;
     this.applicant = item.applicant;
     this.team = item.team;

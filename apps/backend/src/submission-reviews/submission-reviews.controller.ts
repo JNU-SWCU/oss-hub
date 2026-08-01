@@ -8,8 +8,10 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import type { AuthenticatedRequest } from '../auth/session.guard';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
+import { ConfirmRepositoryPublishRequestDto } from './dto/confirm-repository-publish-request.dto';
 import { CreateSubmissionReviewRequestDto } from './dto/create-submission-review-request.dto';
 import {
   type CreateSubmissionReviewResponseDto,
@@ -27,6 +29,8 @@ type ReviewActorRequest = Pick<
   SubmissionReviewStaffRequest,
   'submissionReviewerId'
 >;
+
+type PublishActorRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
 @Controller('submissions')
 @UseGuards(SessionGuard, SubmissionReviewsStaffGuard)
@@ -67,10 +71,16 @@ export class SubmissionRepositoryPublishingController {
   @HttpCode(200)
   @UseGuards(OriginGuard)
   async publish(
+    @Req() request: PublishActorRequest,
     @Param('repositoryId') repositoryId: string,
+    @Body() body: ConfirmRepositoryPublishRequestDto,
   ): Promise<RepositoryPublishResponseDto> {
+    body.assertConfirmed();
     return toRepositoryPublishResponse(
-      await this.service.publishRepository(repositoryId),
+      await this.service.publishRepository(
+        repositoryId,
+        request.sessionGithubId,
+      ),
     );
   }
 }

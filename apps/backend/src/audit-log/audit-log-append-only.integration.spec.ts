@@ -1,14 +1,6 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import { StaffRoleRequestsRepository } from '../roles/staff-role-requests.repository';
-import {
-  ACCESS_AUDIT_ACTIONS,
-  ACCESS_AUDIT_EVENT_KINDS,
-  createAccessAuditMetadata,
-} from './audit-log-metadata';
-import { AuditLogRepository } from './audit-log.repository';
-import { AuditLogService } from './audit-log.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -17,8 +9,6 @@ assertIsolatedIntegrationDatabase({
 
 const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 const TEST_PREFIX = 'test:audit-log:append-only:';
-const ROLLBACK_REQUEST_ID = `${TEST_PREFIX}rollback-request`;
-const MISSING_ACTOR_GITHUB_ID = 9_402_999_999n;
 
 describe('AuditLog append-only database enforcement', () => {
   const prisma = new PrismaService();
@@ -31,19 +21,6 @@ describe('AuditLog append-only database enforcement', () => {
         githubId: 9_402_000_001n,
         nickname: 'synthetic-audit-actor',
         role: Role.ADMIN,
-      },
-    });
-    const requestOwner = await prisma.user.create({
-      data: {
-        id: `${TEST_PREFIX}request-owner`,
-        githubId: 9_402_000_002n,
-        nickname: 'synthetic-request-owner',
-      },
-    });
-    await prisma.roleRequest.create({
-      data: {
-        id: ROLLBACK_REQUEST_ID,
-        userId: requestOwner.id,
       },
     });
     await prisma.auditLog.createMany({
@@ -84,66 +61,9 @@ describe('AuditLog append-only database enforcement', () => {
     ).rejects.toThrow(/AuditLog is append-only/);
   });
 
-  it('감사 삽입 실패는 같은 트랜잭션의 역할 요청 변경을 롤백한다', async () => {
-    const roleRequests = new StaffRoleRequestsRepository(prisma);
-    const auditLog = new AuditLogService(new AuditLogRepository(prisma));
-    let domainTransitionApplied = false;
-
-    await expect(
-      roleRequests.withTransaction(async (store) => {
-        domainTransitionApplied = await store.transitionRequest({
-          requestId: ROLLBACK_REQUEST_ID,
-          actorId: `${TEST_PREFIX}actor`,
-          expectedStatus: RoleRequestStatus.PENDING,
-          nextStatus: RoleRequestStatus.REJECTED,
-          rejectionReason: 'synthetic forced audit failure',
-          decidedAt: new Date('2026-07-31T13:00:00.000Z'),
-        });
-        await auditLog.record(
-          {
-            actorGithubId: MISSING_ACTOR_GITHUB_ID,
-            action: ACCESS_AUDIT_ACTIONS.ROLE_REQUEST_REJECTED,
-            targetType: 'ROLE_REQUEST',
-            targetId: ROLLBACK_REQUEST_ID,
-            metadata: createAccessAuditMetadata({
-              eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REJECTED,
-              actor: {
-                displayName: null,
-                githubLogin: 'synthetic-missing-actor',
-              },
-              before: {
-                role: null,
-                accountStatus: AccountStatus.ACTIVE,
-                requestStatus: RoleRequestStatus.PENDING,
-              },
-              after: {
-                role: null,
-                accountStatus: AccountStatus.ACTIVE,
-                requestStatus: RoleRequestStatus.REJECTED,
-              },
-              rejectionReason: 'synthetic forced audit failure',
-            }),
-          },
-          store.auditLogWriter,
-        );
-      }),
-    ).rejects.toMatchObject({ code: 'P2025' });
-    expect(domainTransitionApplied).toBe(true);
-    await expect(
-      prisma.roleRequest.findUniqueOrThrow({
-        where: { id: ROLLBACK_REQUEST_ID },
-        select: {
-          status: true,
-          rejectionReason: true,
-          decidedAt: true,
-          decidedById: true,
-        },
-      }),
-    ).resolves.toEqual({
-      status: RoleRequestStatus.PENDING,
-      rejectionReason: null,
-      decidedAt: null,
-      decidedById: null,
-    });
-  });
+  // 감사 삽입 실패가 같은 트랜잭션의 도메인 쓰기를 롤백하는지는
+  // admin-access.integration.spec.ts의
+  // 'rolls back the user CAS when PostgreSQL rejects the audit insert'가
+  // 통합 접근(AdminAccess) 경로로 이미 검증한다(PR04H, 레거시
+  // StaffRoleRequests 경로 제거로 대체).
 });

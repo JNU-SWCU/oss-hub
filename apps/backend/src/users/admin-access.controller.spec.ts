@@ -12,7 +12,10 @@ import { SessionGuard } from '../auth/session.guard';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
 import { AdminAccessController } from './admin-access.controller';
 import { AdminAccessService } from './admin-access.service';
-import { AdminAccessHistoryRequestDto } from './dto/admin-access-query.dto';
+import {
+  AdminAccessHistoryRequestDto,
+  AdminAccessListRequestDto,
+} from './dto/admin-access-query.dto';
 import type { PatchAdminAccessRequestDto } from './dto/patch-admin-access.dto';
 
 const REQUEST: Pick<AuthenticatedRequest, 'sessionGithubId'> = {
@@ -56,6 +59,35 @@ describe('AdminAccessController routes', () => {
 });
 
 describe('AdminAccessController delegation', () => {
+  it.each([
+    ['name', 'asc'],
+    ['createdAt', 'desc'],
+    ['lastLoginAt', 'asc'],
+  ] as const)(
+    'passes sort=%s&direction=%s to the service',
+    async (sort, direction) => {
+      // Given
+      const service = serviceHarness();
+      const controller = new AdminAccessController(service);
+      const query = Object.assign(new AdminAccessListRequestDto(), {
+        sort,
+        direction,
+      });
+
+      // When
+      await controller.list(REQUEST, query);
+
+      // Then
+      expect(service.list).toHaveBeenCalledWith(REQUEST.sessionGithubId, {
+        query: '',
+        page: 1,
+        limit: 20,
+        sort,
+        direction,
+      });
+    },
+  );
+
   it('passes independent history pages to the service', async () => {
     // Given
     const service = serviceHarness();
