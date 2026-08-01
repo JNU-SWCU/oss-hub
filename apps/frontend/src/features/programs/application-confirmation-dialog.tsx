@@ -47,11 +47,11 @@ export function ApplicationConfirmationDialog({
         <Card className="shadow-xl">
           <CardHeader>
             <AlertDialog.Title asChild>
-              <CardTitle>{title}</CardTitle>
+              <CardTitle className="[word-break:keep-all]">{title}</CardTitle>
             </AlertDialog.Title>
           </CardHeader>
           <CardContent className="space-y-5">
-            <AlertDialog.Description className="text-sm leading-6 text-muted-foreground">
+            <AlertDialog.Description className="text-sm leading-6 text-muted-foreground [word-break:keep-all]">
               {description}
             </AlertDialog.Description>
             <div className="flex flex-wrap justify-end gap-2">
