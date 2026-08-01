@@ -39,6 +39,8 @@ const LOCAL_REVIEW_TARGET_PATHS = new Set([
   '/dashboard',
   '/my-repos',
   '/consent',
+  // 가입·로그인 진입. 하위 경로가 없는 단일 화면이라 접두사가 아니라 여기에 둔다.
+  '/signup',
   '/staff/dashboard',
   // 관리자 접근은 한 화면으로 합쳐졌다. 예전의 `/admin/staff-requests`·
   // `/admin/users` 를 열어 두던 자리를 `/admin/access` 가 대신한다.
