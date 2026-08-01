@@ -8,6 +8,7 @@ import { GithubAppTokenProvider } from './github-app.token';
 import { GithubOperationsConfig } from './github-operations.config';
 import { RepositoriesRepository } from './repositories.repository';
 import { RepositoriesService } from './repositories.service';
+import { REPOSITORIES_READ_PORT } from './repositories-read.port';
 import { RepositoryOutboxConsumer } from './repository-outbox.consumer';
 import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
 import { RepositoryProvisionScheduler } from './repository-provision.scheduler';
@@ -60,6 +61,10 @@ import { RepositoryProvisionWorker } from './repository-provision.worker';
         new RepositoriesService(repository, github, auditLog),
     },
     {
+      provide: REPOSITORIES_READ_PORT,
+      useExisting: RepositoriesService,
+    },
+    {
       provide: RepositoryProvisionScheduler,
       inject: [RepositoryOutboxConsumer, RepositoryProvisionWorker],
       useFactory: (
@@ -69,6 +74,6 @@ import { RepositoryProvisionWorker } from './repository-provision.worker';
         new RepositoryProvisionScheduler(outbox, worker),
     },
   ],
-  exports: [RepositoriesService],
+  exports: [RepositoriesService, REPOSITORIES_READ_PORT],
 })
 export class RepositoriesModule {}
