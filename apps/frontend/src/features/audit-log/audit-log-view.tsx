@@ -8,13 +8,12 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { AuditLogFilters, AuditLogRecord } from './types';
-
-const ACTIONS = [
-  { value: 'STAFF_ROLE_REQUEST_APPROVED', label: '승인' },
-  { value: 'STAFF_ROLE_REQUEST_REJECTED', label: '반려' },
-  { value: 'STAFF_ROLE_REQUEST_REVOKED', label: '회수' },
-] as const;
+import {
+  AUDIT_LOG_ACTION_LABELS,
+  AUDIT_LOG_ACTIONS,
+  type AuditLogFilters,
+  type AuditLogRecord,
+} from './types';
 
 export interface AuditLogViewProps {
   readonly records: readonly AuditLogRecord[];
@@ -128,9 +127,9 @@ export function AuditLogView(props: AuditLogViewProps) {
             onChange={(event) => update('action', event.target.value)}
           >
             <option value="">전체</option>
-            {ACTIONS.map((action) => (
-              <option key={action.value} value={action.value}>
-                {action.label}
+            {AUDIT_LOG_ACTIONS.map((action) => (
+              <option key={action} value={action}>
+                {AUDIT_LOG_ACTION_LABELS[action]}
               </option>
             ))}
           </select>
