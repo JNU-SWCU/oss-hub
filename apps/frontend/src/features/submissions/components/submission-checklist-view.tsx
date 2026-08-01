@@ -1,9 +1,11 @@
 import Link from 'next/link';
+import { Download, FileText } from 'lucide-react';
 import { EmptyState, StatusBadge } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { formatFileSize } from '@/lib/format-file-size';
 import {
   CHECKLIST_STATUS_LABELS,
   CHECKLIST_STATUS_VARIANTS,
@@ -18,6 +20,7 @@ import type {
 } from '../submission-form';
 import type {
   ChecklistSubmission,
+  SubmissionFileMetadata,
   SubmissionChecklist,
   SubmissionChecklistItem,
 } from '../types';
@@ -63,7 +66,7 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
     <main className="mx-auto grid max-w-3xl gap-6 px-4 py-8">
       <header className="grid gap-1">
         <h1 className="text-2xl font-bold tracking-tight">제출 체크리스트</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground [word-break:keep-all]">
           마일스톤별 제출 상태를 확인하고, 보완 요청을 받은 제출을 재제출할 수
           있습니다.
         </p>
@@ -136,9 +139,14 @@ function ChecklistRow({
           </StatusBadge>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center justify-between gap-2">
-          <StatusBadge variant={CHECKLIST_STATUS_VARIANTS[status]}>
-            {CHECKLIST_STATUS_LABELS[status]}
-          </StatusBadge>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <StatusBadge variant={CHECKLIST_STATUS_VARIANTS[status]}>
+              {CHECKLIST_STATUS_LABELS[status]}
+            </StatusBadge>
+            {item.submission?.file ? (
+              <SubmissionFileLink file={item.submission.file} compact />
+            ) : null}
+          </div>
           <Button asChild size="sm" variant="outline">
             {status === 'NOT_SUBMITTED' ? (
               <Link href={submitHref(programId, item.milestoneId)}>
@@ -338,6 +346,14 @@ function ReviewMeta({
 }) {
   return (
     <dl className="grid gap-2 text-sm sm:grid-cols-2">
+      {submission.file !== null ? (
+        <div className="sm:col-span-2">
+          <dt className="font-medium">제출 파일</dt>
+          <dd className="mt-1">
+            <SubmissionFileLink file={submission.file} />
+          </dd>
+        </div>
+      ) : null}
       {submission.reviewComment !== null ? (
         <div>
           <dt className="font-medium">교직원 코멘트</dt>
@@ -355,6 +371,37 @@ function ReviewMeta({
         </div>
       ) : null}
     </dl>
+  );
+}
+
+function SubmissionFileLink({
+  file,
+  compact = false,
+}: {
+  readonly file: SubmissionFileMetadata;
+  readonly compact?: boolean;
+}) {
+  return (
+    <a
+      href={file.downloadUrl}
+      download={file.fileName}
+      className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      <FileText
+        aria-hidden="true"
+        className="size-4 shrink-0 text-muted-foreground"
+      />
+      <span className="min-w-0 truncate">{file.fileName}</span>
+      <span className="shrink-0 text-muted-foreground">
+        {formatFileSize(file.size)}
+      </span>
+      {compact ? null : (
+        <Download
+          aria-hidden="true"
+          className="size-4 shrink-0 text-muted-foreground"
+        />
+      )}
+    </a>
   );
 }
 

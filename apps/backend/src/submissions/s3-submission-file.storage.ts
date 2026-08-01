@@ -1,9 +1,11 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import { Readable } from 'node:stream';
 import {
   createSubmissionFileObjectKey,
   sanitizeSubmissionFileOriginalName,
@@ -20,7 +22,9 @@ import {
 export const SUBMISSION_FILE_S3_CLIENT = Symbol('SUBMISSION_FILE_S3_CLIENT');
 
 export interface SubmissionFileS3Client {
-  send(command: PutObjectCommand | DeleteObjectCommand): Promise<unknown>;
+  send(
+    command: PutObjectCommand | GetObjectCommand | DeleteObjectCommand,
+  ): Promise<unknown>;
 }
 
 @Injectable()
@@ -76,6 +80,30 @@ export class S3SubmissionFileStorage implements SubmissionFileStoragePort {
       if (isNotFound(error)) return;
       throw new SubmissionFileStorageError(
         SUBMISSION_FILE_STORAGE_ERROR_CODES.DELETE_FAILED,
+      );
+    }
+  }
+
+  async get(objectKey: string): Promise<Readable> {
+    const { client, bucket } = this.requireClient();
+    try {
+      const result = await client.send(
+        new GetObjectCommand({ Bucket: bucket, Key: objectKey }),
+      );
+      if (
+        typeof result === 'object' &&
+        result !== null &&
+        'Body' in result &&
+        result.Body instanceof Readable
+      ) {
+        return result.Body;
+      }
+      throw new SubmissionFileStorageError(
+        SUBMISSION_FILE_STORAGE_ERROR_CODES.GET_FAILED,
+      );
+    } catch {
+      throw new SubmissionFileStorageError(
+        SUBMISSION_FILE_STORAGE_ERROR_CODES.GET_FAILED,
       );
     }
   }
