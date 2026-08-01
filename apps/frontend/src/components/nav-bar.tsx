@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { Menu } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
@@ -57,29 +56,9 @@ function NavBar({
           {brand}
         </div>
       ) : null}
-      <details className="group relative shrink-0 sm:hidden">
-        <summary
-          aria-label="전체 메뉴 열기"
-          className="flex size-9 cursor-pointer list-none items-center justify-center rounded-md text-foreground/80 hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground [&::-webkit-details-marker]:hidden"
-        >
-          <Menu aria-hidden="true" className="size-4" />
-        </summary>
-        <ul className="absolute left-0 top-full z-30 mt-2 min-w-32 border border-border bg-background p-1 shadow-sm">
-          {items.map((item) => (
-            <li key={item.href}>
-              <LinkComponent
-                href={item.href}
-                className="block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-foreground/80 hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground"
-              >
-                {item.label}
-              </LinkComponent>
-            </li>
-          ))}
-        </ul>
-      </details>
       <ul
         data-slot="nav-bar-items"
-        className="hidden min-w-0 flex-1 items-center gap-1 sm:flex"
+        className="flex min-w-0 flex-1 items-center gap-0 sm:gap-1"
       >
         {items.map((item) => (
           <li key={item.href}>
