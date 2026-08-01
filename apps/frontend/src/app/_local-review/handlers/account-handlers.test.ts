@@ -212,7 +212,7 @@ describe('account fixture responses', () => {
     });
   });
 
-  it('sends the login link to the role screen instead of raw JSON', () => {
+  it('sends the login link to the consent screen instead of raw JSON', () => {
     // Given: 랜딩의 "GitHub으로 로그인"은 fetch가 아니라 링크로 전체 이동한다.
     // When
     const plan = call('anonymous', 'GET', 'auth/github');
@@ -221,7 +221,7 @@ describe('account fixture responses', () => {
     if (plan.kind !== 'redirect') throw new Error('expected a redirect plan');
     expect(plan.status).toBe(303);
     expect(plan.location).toBe(
-      '/local-review/unassigned?to=%2Fonboarding%2Frole%3Fnotice%3Dlocal-review-login',
+      '/local-review/unassigned?to=%2Fconsent%3Fnotice%3Dlocal-review-login',
     );
   });
 
@@ -241,12 +241,13 @@ describe('account fixture responses', () => {
       targetParam: url.searchParams.get('to'),
     });
 
-    // Then: 미배정 페르소나로 켜지고 목적지는 역할 선택 화면이다.
+    // Then: 미배정 페르소나로 켜지고 목적지는 약관 동의 화면이다 — 실제
+    // backend 의 로그인 후 진입점과 같아야 한다.
     // target이 계약에서 걸리면 `/`로 떨어져 검토자가 랜딩으로 되돌아온다.
     expect(activation).toEqual({
       kind: 'redirect',
       fixture: 'unassigned',
-      target: '/onboarding/role?notice=local-review-login',
+      target: '/consent?notice=local-review-login',
     });
   });
 

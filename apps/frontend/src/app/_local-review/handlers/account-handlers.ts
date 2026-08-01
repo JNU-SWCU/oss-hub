@@ -518,16 +518,20 @@ function patchedNotificationChannel(context: LocalReviewContext): {
 }
 
 /**
- * 로그인 뒤 도착할 화면. 검토자가 "왜 갑자기 역할 선택이 떴지?" 하지 않도록
- * 질의로 출처를 남긴다 — 화면이 이 값을 읽어 한 줄 안내를 띄우면 된다.
- * (지금 `features/roles`는 질의를 읽지 않아 안내는 아직 보이지 않는다.)
+ * 로그인 뒤 도착할 화면. **실제 backend와 같은 곳이어야 한다** —
+ * `auth/domain/login-landing.ts`의 `ONBOARDING_ENTRY_PATH`가 `/consent`다.
+ * 가입 순서를 `약관 → 역할 → 프로필`로 바꿀 때 이 값만 옛 순서(`/onboarding/role`)로
+ * 남아, 검토에서는 로그인 직후 약관을 건너뛰고 역할 선택이 떴다.
+ *
+ * 검토자가 "왜 갑자기 이 화면이 떴지?" 하지 않도록 질의로 출처를 남긴다.
+ * (지금 `features/consents`는 질의를 읽지 않아 안내는 아직 보이지 않는다.)
  */
-const LOCAL_REVIEW_LOGIN_SCREEN = '/onboarding/role?notice=local-review-login';
+const LOCAL_REVIEW_LOGIN_SCREEN = '/consent?notice=local-review-login';
 
 /**
- * `/onboarding/role`로 바로 보내면 안 된다 — 비로그인 상태 그대로라 온보딩
- * 게이트가 랜딩으로 되돌려 왕복만 한다. 미배정 페르소나를 켜면서 같은 화면으로
- * 이어 주는 활성화 경로를 거쳐야 로그인한 것처럼 이어진다.
+ * 목적지로 바로 보내면 안 된다 — 비로그인 상태 그대로라 온보딩 게이트가
+ * 랜딩으로 되돌려 왕복만 한다. 미배정 페르소나를 켜면서 같은 화면으로 이어 주는
+ * 활성화 경로를 거쳐야 로그인한 것처럼 이어진다.
  */
 const LOCAL_REVIEW_LOGIN_REDIRECT = `/local-review/unassigned?to=${encodeURIComponent(
   LOCAL_REVIEW_LOGIN_SCREEN,

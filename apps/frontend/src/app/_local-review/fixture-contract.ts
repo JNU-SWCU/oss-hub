@@ -90,11 +90,40 @@ function isSafeInternalPath(value: string): boolean {
   );
 }
 
+/**
+ * 화면이 상태를 질의로 받는 목적지가 있다. 로그인 뒤 약관(`/consent?notice=…`),
+ * 로그인 실패 뒤 랜딩(`/?authError`)이 그렇다. 예전에는 질의까지 통째로 목록과
+ * 비교해서 이런 값이 모두 "목록에 없음"으로 떨어졌고, 검토자는 약관이 떠야 할
+ * 자리에 랜딩을 봤다.
+ *
+ * 그렇다고 질의를 통째로 무시하면 `/programs?next=https://evil.com` 같은 값이
+ * 통과한다. 지금 그 값을 읽는 화면은 없지만, 나중에 누가 읽기 시작하면 그때
+ * 열린다 — 방어는 그 전에 있어야 한다.
+ *
+ * 그래서 **경로는 목록으로, 질의는 아는 키만** 허용한다. 검토 하네스가 필요한
+ * 질의는 이 둘뿐이고, 값에는 스킴이나 경로 구분자를 담지 못한다.
+ */
+const LOCAL_REVIEW_TARGET_QUERY_KEYS = new Set(['notice', 'authError']);
+
+function hasAllowedQuery(search: string): boolean {
+  if (search === '') return true;
+  return search.split('&').every((pair) => {
+    const [key = '', value = ''] = pair.split('=');
+    if (!LOCAL_REVIEW_TARGET_QUERY_KEYS.has(key)) return false;
+    // 값에 `:`나 `/`가 있으면 주소를 실어 나르려는 것이다.
+    return !/[:/]/.test(decodeURIComponent(value));
+  });
+}
+
 export function isLocalReviewTarget(value: string): boolean {
   if (!isSafeInternalPath(value)) return false;
-  if (LOCAL_REVIEW_TARGET_PATHS.has(value)) return true;
+  // 해시는 브라우저가 서버로 보내지 않으므로 판정에서 제외한다.
+  const [pathAndQuery = value] = value.split('#');
+  const [pathname = pathAndQuery, search = ''] = pathAndQuery.split('?');
+  if (!hasAllowedQuery(search)) return false;
+  if (LOCAL_REVIEW_TARGET_PATHS.has(pathname)) return true;
   return LOCAL_REVIEW_TARGET_PREFIXES.some((prefix) =>
-    value.startsWith(prefix),
+    pathname.startsWith(prefix),
   );
 }
 
