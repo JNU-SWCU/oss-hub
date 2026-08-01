@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { CanonicalCollectionRunStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CollectionCanonicalRepository } from './collection-canonical.repository';
 import { asiaSeoulYear } from './collection-incremental.repository';
@@ -32,6 +31,12 @@ export class CollectionReadService implements CollectionReadPort {
     private readonly canonicalRepository: CollectionCanonicalRepository,
   ) {}
 
+  /**
+   * todo 14 원자 전환 — 증분 저장소(`CollectionRepository`/facts)를 직접 읽는다. 이 포트의 유일한
+   * 활성 호출자(`program-activity.service.ts`)를 새 authority로 옮기는 것이 이 메서드의 목적이다.
+   * 다른 두 legacy 메서드(`findRankingActivity`/`getStatusSnapshot`)는 실제 운영 호출자가 없어
+   * ADR-006의 "old generation 테이블 rollback 참조" 용도로만 old Canonical 테이블을 그대로 읽는다.
+   */
   async findRepositoryActivity(
     query: CollectionRepositoryActivityQueryDto,
   ): Promise<readonly CollectionRepositoryActivityDto[]> {
@@ -40,54 +45,38 @@ export class CollectionReadService implements CollectionReadPort {
     const authorWhere = query.authorGithubId
       ? { authorGithubId: query.authorGithubId }
       : undefined;
-    const generations = await this.prisma.canonicalOrganizationState.findMany({
-      where: {
-        activeGenerationId: { not: null },
-        activeGeneration: {
-          status: CanonicalCollectionRunStatus.SUCCEEDED,
-          repositories: {
-            some: { githubRepositoryId: { in: [...query.repositoryIds] } },
-          },
-        },
-      },
+
+    const repositories = await this.prisma.collectionRepository.findMany({
+      where: { githubRepositoryId: { in: [...query.repositoryIds] } },
       select: {
+        githubRepositoryId: true,
         updatedAt: true,
-        activeGeneration: {
-          select: {
-            repositories: {
-              where: { githubRepositoryId: { in: [...query.repositoryIds] } },
-              select: {
-                githubRepositoryId: true,
-                commits: {
-                  where: authorWhere,
-                  select: { committedAt: true },
-                },
-                pullRequests: {
-                  where: authorWhere,
-                  select: { createdAt: true },
-                },
-                releases: {
-                  where: authorWhere,
-                  select: { publishedAt: true },
-                },
-              },
-            },
-          },
+        lastCompleteInventoryObservedAt: true,
+        commits: {
+          where: authorWhere,
+          select: { committedAt: true },
+        },
+        pullRequests: {
+          where: authorWhere,
+          select: { createdAt: true },
+        },
+        releases: {
+          where: authorWhere,
+          select: { publishedAt: true },
         },
       },
     });
 
-    return generations.flatMap((generation) =>
-      (generation.activeGeneration?.repositories ?? []).map((repository) => ({
-        repositoryId: repository.githubRepositoryId,
-        dataAsOf: generation.updatedAt,
-        commitDates: repository.commits.map((commit) => commit.committedAt),
-        pullRequestDates: repository.pullRequests.map(
-          (pullRequest) => pullRequest.createdAt,
-        ),
-        releaseDates: repository.releases.map((release) => release.publishedAt),
-      })),
-    );
+    return repositories.map((repository) => ({
+      repositoryId: repository.githubRepositoryId,
+      dataAsOf:
+        repository.lastCompleteInventoryObservedAt ?? repository.updatedAt,
+      commitDates: repository.commits.map((commit) => commit.committedAt),
+      pullRequestDates: repository.pullRequests.map(
+        (pullRequest) => pullRequest.createdAt,
+      ),
+      releaseDates: repository.releases.map((release) => release.publishedAt),
+    }));
   }
 
   async findRankingActivity(

@@ -7,6 +7,9 @@ import { CollectionAppClient } from './collection-app.client';
 import { CollectionAppConfig } from './collection-app.config';
 import { CollectionAppTokenProvider } from './collection-app.token';
 import { CollectionCanonicalRepository } from './collection-canonical.repository';
+import { CollectionCutoverRepository } from './collection-cutover.repository';
+import { CollectionCutoverService } from './collection-cutover.service';
+import { CollectionGenerationImportService } from './collection-generation-import.service';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { CollectionAdminController } from './collection-admin.controller';
 import { CollectionAdminGuard } from './collection-admin.guard';
@@ -26,9 +29,10 @@ import {
 } from './collection-sync.service';
 
 /**
- * C2 retirement(#151, ADR-006): Collection authority는 installation token 기반
- * REST reconciliation 하나뿐이다. webhook ingress·OAuth/PAT 수집·legacy batch
- * runtime은 제거되었고, legacy 관측 테이블은 호환 릴리스 동안 inert로만 남는다(M3).
+ * todo 14 원자 전환(ADR-006): 유일하게 배선된 live writer trigger가 old(`CollectionReconciliationService`)
+ * 에서 new(`CollectionSyncService`)로 바뀌었다 — 스케줄러/관리자 트리거 모두 새 writer만 부른다.
+ * old writer는 rollback 참조용 코드로만 provider에 남는다(어떤 controller/scheduler도 더 이상
+ * 주입하지 않는다). `CollectionCutoverService`(todo 14 전환 orchestration)는 CLI에서만 실행한다.
  */
 @Module({
   imports: [ScheduleModule.forRoot(), AuthModule],
@@ -38,8 +42,55 @@ import {
     CollectionSchedulerService,
     CollectionCanonicalRepository,
     CollectionIncrementalRepository,
+    CollectionCutoverRepository,
     CollectionReadService,
     { provide: COLLECTION_READ_PORT, useExisting: CollectionReadService },
+    {
+      provide: CollectionCutoverService,
+      inject: [
+        CollectionCanonicalRepository,
+        CollectionIncrementalRepository,
+        CollectionCutoverRepository,
+        CollectionSyncService,
+        RUNTIME_CONFIG,
+      ],
+      useFactory: (
+        canonicalRepository: CollectionCanonicalRepository,
+        incrementalRepository: CollectionIncrementalRepository,
+        cutoverRepository: CollectionCutoverRepository,
+        syncService: CollectionSyncService,
+        runtimeConfig: RuntimeConfig,
+      ): CollectionCutoverService => {
+        let tokens: CollectionAppTokenProvider | undefined;
+        const resolveGithubOrganizationId = async (): Promise<bigint> => {
+          if (!tokens) {
+            // Lazy: credentials validated on first cutover run, not module bootstrap.
+            const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
+            tokens = new CollectionAppTokenProvider(config);
+          }
+          const identity = await tokens.getInstallationIdentity();
+          return BigInt(identity.organizationId);
+        };
+        const generationImportService = new CollectionGenerationImportService(
+          canonicalRepository,
+          incrementalRepository,
+          resolveGithubOrganizationId,
+        );
+        return new CollectionCutoverService(
+          canonicalRepository,
+          generationImportService,
+          syncService,
+          cutoverRepository,
+          () => {
+            const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
+            return Promise.resolve({
+              appId: BigInt(config.appId),
+              organizationLogin: config.orgLogin.toLowerCase(),
+            });
+          },
+        );
+      },
+    },
     {
       provide: CollectionReconciliationService,
       inject: [CollectionCanonicalRepository, RUNTIME_CONFIG],

@@ -1095,3 +1095,19 @@ model CollectionSyncLease {
 
   @@id([appId, organizationLogin])
 }
+
+/// todo 14 원자 전환(atomic reader/writer cutover) 절차 전용 quiesce lease. `CollectionSyncLease`와
+/// 같은 epoch-fenced 패턴이다 — lease 보유 자체가 "cutover 진행 중"을 나타내며, 이 창(window) 동안
+/// 스케줄러/관리자 트리거는 명시적으로 거부된다(silent skip이 아니라 별도 에러 코드로 reject한다).
+/// 절차 완료(성공/abort 무관) 시 항상 해제해 트리거가 재개되도록 한다(ADR-006).
+model CollectionCutoverLease {
+  appId             BigInt
+  organizationLogin String
+  epoch             BigInt   @default(1)
+  ownerId           String
+  runId             String
+  expiresAt         DateTime
+  updatedAt         DateTime @updatedAt
+
+  @@id([appId, organizationLogin])
+}
