@@ -1,5 +1,6 @@
 import { ApiError, apiClient } from '@/lib/api-client';
 import type { ProgramCategory } from './program-templates';
+import { parseStaffDashboardSummary } from './staff-dashboard-parser';
 import type {
   ApplicationFormField,
   ApplicationFormFieldKey,
@@ -375,6 +376,8 @@ export function decideApplication(
 }
 
 /** #117 교직원 운영 대시보드 요약. */
-export function getStaffDashboardSummary(): Promise<StaffDashboardSummary> {
-  return apiClient<StaffDashboardSummary>('dashboard/staff/summary');
+export async function getStaffDashboardSummary(): Promise<StaffDashboardSummary> {
+  return parseStaffDashboardSummary(
+    await apiClient<unknown>('dashboard/staff/summary'),
+  );
 }
