@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { EmptyState, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -118,6 +121,8 @@ interface ProgramApplyFormViewProps {
 }
 
 export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
+  const submitButtonRef = useRef<HTMLButtonElement>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const {
     program,
     template,
@@ -199,6 +204,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
           ) : null}
           <div className="flex flex-wrap gap-2">
             <Button
+              ref={submitButtonRef}
               type="button"
               disabled={submitting}
               onClick={onRequestSubmit}
@@ -214,6 +220,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
             </Button>
             {mode === 'edit' && canCancel ? (
               <Button
+                ref={cancelButtonRef}
                 type="button"
                 variant="destructive"
                 disabled={submitting}
@@ -231,6 +238,9 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
           submitting={submitting}
           onClose={onCloseConfirmation}
           onConfirm={onConfirm}
+          returnFocusRef={
+            confirmation === 'cancel' ? cancelButtonRef : submitButtonRef
+          }
         />
       ) : null}
     </main>

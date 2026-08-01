@@ -1,3 +1,4 @@
+import type { RefObject } from 'react';
 import { AlertDialog } from 'radix-ui';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,11 +9,13 @@ export function ApplicationConfirmationDialog({
   submitting,
   onClose,
   onConfirm,
+  returnFocusRef,
 }: {
   readonly kind: Exclude<ApplicationConfirmation, null>;
   readonly submitting: boolean;
   readonly onClose: () => void;
   readonly onConfirm: () => void;
+  readonly returnFocusRef: RefObject<HTMLButtonElement | null>;
 }) {
   const isCancellation = kind === 'cancel';
   const title = isCancellation
@@ -34,7 +37,13 @@ export function ApplicationConfirmationDialog({
       }}
     >
       <AlertDialog.Overlay className="fixed inset-0 z-50 bg-foreground/35" />
-      <AlertDialog.Content className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 outline-none">
+      <AlertDialog.Content
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          returnFocusRef.current?.focus();
+        }}
+        className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 outline-none"
+      >
         <Card className="shadow-xl">
           <CardHeader>
             <AlertDialog.Title asChild>
