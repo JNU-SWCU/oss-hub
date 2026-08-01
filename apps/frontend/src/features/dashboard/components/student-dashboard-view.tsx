@@ -4,8 +4,46 @@ import Link from 'next/link';
 import { CardGrid, EmptyState, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import type { StudentDashboard, StudentDashboardStatus } from '../types';
+import type {
+  DashboardItem,
+  StudentDashboard,
+  StudentDashboardStatus,
+} from '../types';
 import { StudentDashboardCard } from './student-dashboard-card';
+
+/**
+ * 채운 남색은 화면당 주 행동 하나에만 쓴다. 카드마다 "제출 체크리스트"를 채운
+ * 버튼으로 두면 카드 수만큼 주 행동이 늘어 어디부터 볼지 시선이 갈라진다.
+ * 그래서 마감이 가장 급한 카드 하나만 채운 버튼으로 남기고 나머지는 낮춘다.
+ * 급한 순서는 다음 마일스톤 마감이 이른 쪽이며, 이미 지난 마감이 가장 급하다.
+ * 승인 대기·반려 카드는 아직 제출할 것이 없어 후보에서 뺀다.
+ */
+function primaryActionApplicationId(
+  items: readonly DashboardItem[],
+): string | null {
+  let soonest: { id: string; dueAt: number } | null = null;
+  let fallback: string | null = null;
+
+  for (const item of items) {
+    if (
+      item.applicationStatus === 'SUBMITTED' ||
+      item.applicationStatus === 'REJECTED'
+    )
+      continue;
+    fallback ??= item.applicationId;
+
+    const milestone = item.nextMilestone;
+    if (milestone === null) continue;
+    const dueAt = Date.parse(milestone.dueAt);
+    if (Number.isNaN(dueAt)) continue;
+    if (soonest === null || dueAt < soonest.dueAt)
+      soonest = { id: item.applicationId, dueAt };
+  }
+
+  // 마감이 잡힌 카드가 하나도 없으면(전부 완료) 첫 참여 카드를 주 행동으로 둔다 —
+  // 채운 버튼이 0개가 되면 이번엔 무엇부터 할지가 사라진다.
+  return soonest?.id ?? fallback;
+}
 
 interface StudentDashboardViewProps {
   data: StudentDashboard | null;
@@ -33,6 +71,10 @@ export function StudentDashboardView({
   now = new Date(),
   onRetry,
 }: StudentDashboardViewProps) {
+  const primaryApplicationId = data
+    ? primaryActionApplicationId(data.items)
+    : null;
+
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-5 sm:p-8">
       <PageHeader
@@ -74,6 +116,7 @@ export function StudentDashboardView({
               key={item.applicationId}
               item={item}
               now={now}
+              isPrimaryAction={item.applicationId === primaryApplicationId}
             />
           ))}
         </CardGrid>
