@@ -66,7 +66,7 @@ export class PublicProjectPageResponseDto {
   }
 }
 
-class PublicProjectMetricsResponseDto {
+export class PublicProjectMetricsResponseDto {
   readonly commitCount: number;
   readonly pullRequestCount: number;
   readonly releaseCount: number;

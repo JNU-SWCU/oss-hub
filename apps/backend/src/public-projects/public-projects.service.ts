@@ -7,7 +7,9 @@ import { DomainException } from '../common/error-code';
 import { PublicEligibilityService } from '../public-eligibility/public-eligibility.service';
 import type {
   PublicProjectDetailResult,
+  PublicProjectMetrics,
   PublicProjectPageResult,
+  PublicUserProfileProjectResult,
   PublicUserProfileResult,
 } from './public-project-result';
 import {
@@ -126,7 +128,8 @@ export class PublicProjectsService {
   /**
    * 존재하지 않는 사용자와 공개 가능한 프로젝트가 하나도 없는 사용자를 항상 동일한 404로
    * 응답한다. 페이지당 질의: 신원 조회 1개 + 후보 조회 1개(병렬) + eligibility 배치 조회 1개
-   * = 3개, 사용자가 참여한 저장소 개수와 무관하다.
+   * + 저장소 지표 배치 조회 1개 + 기여자 지표 배치 조회 1개(병렬) = 5개, 사용자가 참여한
+   * 저장소 개수와 무관하다.
    */
   async findProfile(userId: string): Promise<PublicUserProfileResult> {
     const [identity, rows] = await Promise.all([
@@ -156,6 +159,69 @@ export class PublicProjectsService {
       );
     }
 
-    return { identity, projects };
+    const repositoryIds = projects.map((project) => project.githubRepositoryId);
+    const [repositoryMetricsRows, contributorRows] = await Promise.all([
+      this.collection.getRepositoryCumulativeMetrics({ repositoryIds }),
+      this.collection.getContributorCumulativeMetrics({ repositoryIds }),
+    ]);
+
+    const observedByRepository = new Map(
+      repositoryMetricsRows.map((metric) => [
+        metric.repositoryId.toString(),
+        metric,
+      ]),
+    );
+    // 이 사용자의 githubId와 정확히 일치하는 기여자 행만 남긴다 — 다른 기여자(null author를
+    // 포함해 애초에 이 집계 테이블에 행이 생기지 않는 경우도 마찬가지)의 활동은 절대 섞이지
+    // 않는다.
+    const ownContributionByRepository = new Map(
+      contributorRows
+        .filter((contributor) => contributor.githubUserId === identity.githubId)
+        .map((contributor) => [
+          contributor.repositoryId.toString(),
+          contributor,
+        ]),
+    );
+
+    const profileProjects: PublicUserProfileProjectResult[] = projects.map(
+      (project) => {
+        const key = project.githubRepositoryId.toString();
+        const repositoryMetric = observedByRepository.get(key);
+        if (repositoryMetric === undefined) {
+          return {
+            row: project,
+            observed: false,
+            dataAsOf: null,
+            metrics: null,
+          };
+        }
+        const own = ownContributionByRepository.get(key);
+        return {
+          row: project,
+          observed: true,
+          dataAsOf: repositoryMetric.dataAsOf,
+          metrics: {
+            commitCount: own?.commitCount ?? 0,
+            pullRequestCount: own?.pullRequestCount ?? 0,
+            releaseCount: own?.releaseCount ?? 0,
+          },
+        };
+      },
+    );
+
+    const observedTotals = profileProjects.reduce<PublicProjectMetrics>(
+      (totals, project) =>
+        project.metrics === null
+          ? totals
+          : {
+              commitCount: totals.commitCount + project.metrics.commitCount,
+              pullRequestCount:
+                totals.pullRequestCount + project.metrics.pullRequestCount,
+              releaseCount: totals.releaseCount + project.metrics.releaseCount,
+            },
+      { commitCount: 0, pullRequestCount: 0, releaseCount: 0 },
+    );
+
+    return { identity, projects: profileProjects, observedTotals };
   }
 }

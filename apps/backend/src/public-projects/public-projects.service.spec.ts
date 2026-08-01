@@ -317,6 +317,7 @@ describe('PublicProjectsService', () => {
       userId: 'synthetic-user-1',
       githubNickname: 'synthetic-login',
       avatarUrl: null,
+      githubId: 501n,
     };
 
     it('존재하지 않는 사용자는 USER_PROFILE_NOT_FOUND 404를 던진다', async () => {
@@ -347,17 +348,21 @@ describe('PublicProjectsService', () => {
       ).rejects.toMatchObject({ errorCode: { code: 'PPJ_002', status: 404 } });
     });
 
-    it('신원 조회·후보 조회를 병렬로 호출하고 eligibility 배치 조회 1개를 더해 총 3개 질의로 고정된다', async () => {
+    it('신원 조회·후보 조회를 병렬로 호출하고 eligibility 배치 조회 1개 + 지표/기여자 배치 조회 2개(병렬)를 더해 총 5개 질의로 고정된다', async () => {
       const found = row({ id: 'synthetic-repository-1' });
       const findUserIdentity = jest.fn().mockResolvedValue(identity);
       const listForUser = jest.fn().mockResolvedValue([found]);
       const filterEligibleRepositoryIds = jest
         .fn()
         .mockResolvedValue(new Set([found.githubRepositoryId]));
+      const getRepositoryCumulativeMetrics = jest.fn().mockResolvedValue([]);
+      const getContributorCumulativeMetrics = jest.fn().mockResolvedValue([]);
       const { service } = serviceWith({
         findUserIdentity,
         listForUser,
         filterEligibleRepositoryIds,
+        getRepositoryCumulativeMetrics,
+        getContributorCumulativeMetrics,
       });
 
       const profile = await service.findProfile('synthetic-user-1');
@@ -365,8 +370,178 @@ describe('PublicProjectsService', () => {
       expect(findUserIdentity).toHaveBeenCalledTimes(1);
       expect(listForUser).toHaveBeenCalledTimes(1);
       expect(filterEligibleRepositoryIds).toHaveBeenCalledTimes(1);
+      expect(getRepositoryCumulativeMetrics).toHaveBeenCalledWith({
+        repositoryIds: [found.githubRepositoryId],
+      });
+      expect(getContributorCumulativeMetrics).toHaveBeenCalledWith({
+        repositoryIds: [found.githubRepositoryId],
+      });
       expect(profile.identity).toEqual(identity);
-      expect(profile.projects).toEqual([found]);
+      // 아직 collection이 이 저장소를 관측하지 않았다 — 미관측(observed=false)이다.
+      expect(profile.projects).toEqual([
+        { row: found, observed: false, dataAsOf: null, metrics: null },
+      ]);
+      expect(profile.observedTotals).toEqual({
+        commitCount: 0,
+        pullRequestCount: 0,
+        releaseCount: 0,
+      });
+    });
+
+    it('두 프로젝트의 기여를 정확히 합산하고, 다른 기여자의 활동은 섞이지 않는다', async () => {
+      const projectA = row({
+        id: 'synthetic-repository-a',
+        githubRepositoryId: 9101n,
+      });
+      const projectB = row({
+        id: 'synthetic-repository-b',
+        githubRepositoryId: 9102n,
+      });
+      const findUserIdentity = jest.fn().mockResolvedValue(identity);
+      const listForUser = jest.fn().mockResolvedValue([projectA, projectB]);
+      const filterEligibleRepositoryIds = jest
+        .fn()
+        .mockResolvedValue(
+          new Set([projectA.githubRepositoryId, projectB.githubRepositoryId]),
+        );
+      const dataAsOfA = new Date('2026-07-28T00:00:00.000Z');
+      const dataAsOfB = new Date('2026-07-29T00:00:00.000Z');
+      const getRepositoryCumulativeMetrics = jest.fn().mockResolvedValue([
+        {
+          repositoryId: 9101n,
+          dataAsOf: dataAsOfA,
+          commitCount: 999,
+          pullRequestCount: 999,
+          releaseCount: 999,
+        },
+        {
+          repositoryId: 9102n,
+          dataAsOf: dataAsOfB,
+          commitCount: 999,
+          pullRequestCount: 999,
+          releaseCount: 999,
+        },
+      ]);
+      // repositoryId 9101의 다른 기여자(githubUserId 999n)는 이 사용자(501n)의 합계에
+      // 절대 섞이지 않아야 한다 — repository 전체 합계(999)와 달리 이 사용자만의 기여만
+      // 카운트돼야 한다.
+      const getContributorCumulativeMetrics = jest.fn().mockResolvedValue([
+        {
+          repositoryId: 9101n,
+          githubUserId: 999n,
+          githubLogin: 'someone-else',
+          dataAsOf: dataAsOfA,
+          commitCount: 900,
+          pullRequestCount: 900,
+          releaseCount: 900,
+        },
+        {
+          repositoryId: 9101n,
+          githubUserId: 501n,
+          githubLogin: 'synthetic-login',
+          dataAsOf: dataAsOfA,
+          commitCount: 5,
+          pullRequestCount: 1,
+          releaseCount: 0,
+        },
+        {
+          repositoryId: 9102n,
+          githubUserId: 501n,
+          githubLogin: 'synthetic-login',
+          dataAsOf: dataAsOfB,
+          commitCount: 3,
+          pullRequestCount: 2,
+          releaseCount: 1,
+        },
+      ]);
+      const { service } = serviceWith({
+        findUserIdentity,
+        listForUser,
+        filterEligibleRepositoryIds,
+        getRepositoryCumulativeMetrics,
+        getContributorCumulativeMetrics,
+      });
+
+      const profile = await service.findProfile('synthetic-user-1');
+
+      expect(profile.projects).toEqual([
+        {
+          row: projectA,
+          observed: true,
+          dataAsOf: dataAsOfA,
+          metrics: { commitCount: 5, pullRequestCount: 1, releaseCount: 0 },
+        },
+        {
+          row: projectB,
+          observed: true,
+          dataAsOf: dataAsOfB,
+          metrics: { commitCount: 3, pullRequestCount: 2, releaseCount: 1 },
+        },
+      ]);
+      expect(profile.observedTotals).toEqual({
+        commitCount: 8,
+        pullRequestCount: 3,
+        releaseCount: 1,
+      });
+    });
+
+    it('관측됐지만 이 사용자의 기여가 없는 project는 0값 metrics로, 아직 관측되지 않은 project는 metrics null로 구분한다', async () => {
+      const observedZero = row({
+        id: 'synthetic-repository-zero',
+        githubRepositoryId: 9201n,
+      });
+      const unobserved = row({
+        id: 'synthetic-repository-unobserved',
+        githubRepositoryId: 9202n,
+      });
+      const findUserIdentity = jest.fn().mockResolvedValue(identity);
+      const listForUser = jest
+        .fn()
+        .mockResolvedValue([observedZero, unobserved]);
+      const filterEligibleRepositoryIds = jest
+        .fn()
+        .mockResolvedValue(
+          new Set([
+            observedZero.githubRepositoryId,
+            unobserved.githubRepositoryId,
+          ]),
+        );
+      const dataAsOf = new Date('2026-07-30T00:00:00.000Z');
+      const getRepositoryCumulativeMetrics = jest.fn().mockResolvedValue([
+        {
+          repositoryId: 9201n,
+          dataAsOf,
+          commitCount: 0,
+          pullRequestCount: 0,
+          releaseCount: 0,
+        },
+      ]);
+      // 이 사용자의 기여자 행이 없다(다른 사람만 기여했거나 아직 이 사용자 기여가 없다).
+      const getContributorCumulativeMetrics = jest.fn().mockResolvedValue([]);
+      const { service } = serviceWith({
+        findUserIdentity,
+        listForUser,
+        filterEligibleRepositoryIds,
+        getRepositoryCumulativeMetrics,
+        getContributorCumulativeMetrics,
+      });
+
+      const profile = await service.findProfile('synthetic-user-1');
+
+      expect(profile.projects).toEqual([
+        {
+          row: observedZero,
+          observed: true,
+          dataAsOf,
+          metrics: { commitCount: 0, pullRequestCount: 0, releaseCount: 0 },
+        },
+        { row: unobserved, observed: false, dataAsOf: null, metrics: null },
+      ]);
+      expect(profile.observedTotals).toEqual({
+        commitCount: 0,
+        pullRequestCount: 0,
+        releaseCount: 0,
+      });
     });
   });
 });
