@@ -2,6 +2,7 @@ import type { NextConfig } from 'next';
 import {
   LOCAL_REVIEW_FIXTURE_COOKIE,
   LOCAL_REVIEW_FIXTURE_PATTERN,
+  LOCAL_REVIEW_LOOPBACK_HOST_PATTERN,
   isLocalReviewRuntime,
 } from './src/app/_local-review/fixture-contract';
 
@@ -40,7 +41,7 @@ const nextConfig: NextConfig = {
           has: [
             {
               type: 'host' as const,
-              value: '(?:localhost|127\\.0\\.0\\.1)',
+              value: LOCAL_REVIEW_LOOPBACK_HOST_PATTERN,
             },
             {
               type: 'cookie' as const,
