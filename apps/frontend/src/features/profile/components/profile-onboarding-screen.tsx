@@ -312,8 +312,13 @@ export function ProfileOnboardingScreen({
     setSubmitError(null);
     try {
       await completeMyProfile(request);
-      router.replace(nextPath);
-      router.refresh();
+      // 여기만 전체 이동을 쓴다. 저장으로 세션의 `isProfileComplete`가 바뀌는데,
+      // 공유 세션 저장소(`features/auth/session-store.ts`)는 페이지를 새로 읽을 때만
+      // 채워진다. 클라이언트 라우팅으로 나가면 다음 화면의 `RoleGate`가 옛 값(미완료)을
+      // 보고 이 화면으로 되돌리고, 이 화면은 프로필이 완료된 것을 보고 다시 내보내
+      // 가입 마지막 단계에서 무한 왕복이 된다. 역할 선택이 전체 이동을 쓰는 이유와 같다
+      // (`features/roles`의 `navigateAfterRoleSelection`).
+      window.location.assign(nextPath);
     } catch (error: unknown) {
       if (!navigateForError(error)) {
         // 학번 중복은 재시도로 풀리지 않는다 — "잠시 후 다시"로 접으면 같은 벽을 반복한다.
