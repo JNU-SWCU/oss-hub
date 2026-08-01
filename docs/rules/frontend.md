@@ -34,3 +34,7 @@ const baseURL = '/api/v1';
 ## 위반 탐지
 
 리뷰에서 `apps/frontend`의 `fetch(`, `axios`, `ky`, `'/api/v1'`, `"/api/v1"` 사용을 확인한다. `lib/api-client.ts` 밖에서 발견되면 단일 클라이언트 규칙 위반으로 처리한다. lint 또는 정적 검사 도입 시 같은 범위를 검사 규칙으로 자동화한다.
+
+## Affordance는 런타임 상태 추측으로 숨기지 않는다
+
+UI affordance는 런타임 상태 추측으로 숨기지 않는다. 실패는 액션 시점에 ProblemDetail 에러로 표면화한다(ADR-007).
