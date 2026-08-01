@@ -22,7 +22,6 @@ const LOCAL_REVIEW_TARGETS = new Set([
   '/',
   '/dashboard',
   '/staff/dashboard',
-  '/admin/staff-requests',
   '/admin/audit-log',
   '/settings',
   '/onboarding/role',

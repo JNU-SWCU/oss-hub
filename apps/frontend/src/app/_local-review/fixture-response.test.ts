@@ -128,12 +128,7 @@ describe('local review fixture responses', () => {
       path: 'dashboard/staff/summary',
       searchParams: new URLSearchParams(),
     });
-    const admin = resolveLocalReviewResponse({
-      fixture: 'admin',
-      method: 'GET',
-      path: 'role-requests',
-      searchParams: new URLSearchParams('status=PENDING&page=1&limit=20'),
-    });
+    const admin = auditLogsFor('page=1&limit=20');
     const profile = resolveLocalReviewResponse({
       fixture: 'settings',
       method: 'GET',
@@ -154,7 +149,7 @@ describe('local review fixture responses', () => {
     });
     expect(admin).toMatchObject({
       kind: 'json',
-      body: { items: expect.any(Array), total: 1 },
+      body: { items: expect.any(Array) },
     });
     expect(profile).toMatchObject({
       kind: 'json',

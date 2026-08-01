@@ -2,10 +2,6 @@ import { dashboardFixture } from '@/features/dashboard/fixtures';
 import type { AuthRole } from '@/features/auth/types';
 import type { AuditLogPage, AuditLogRecord } from '@/features/audit-log/types';
 import type { StaffDashboardSummary } from '@/features/programs/types';
-import type {
-  StaffRoleRequest,
-  StaffRoleRequestPage,
-} from '@/features/roles/types';
 import { apiPath } from '@/lib/api-client';
 import type { LocalReviewFixtureId } from './fixture-contract';
 
@@ -64,29 +60,6 @@ const STAFF_DASHBOARD_FIXTURE = {
   ],
 } as const satisfies StaffDashboardSummary;
 
-const STAFF_REQUEST_FIXTURES = [
-  {
-    id: 'fixture:staff-request:pending',
-    githubLogin: 'synthetic-staff',
-    requestedRole: 'STAFF',
-    status: 'PENDING',
-    requestedAt: '2026-07-21T00:00:00.000Z',
-    decidedAt: null,
-    decidedBy: null,
-    rejectionReason: null,
-  },
-  {
-    id: 'fixture:staff-request:approved',
-    githubLogin: 'synthetic-approved-staff',
-    requestedRole: 'STAFF',
-    status: 'APPROVED',
-    requestedAt: '2026-07-20T00:00:00.000Z',
-    decidedAt: '2026-07-21T01:00:00.000Z',
-    decidedBy: 'synthetic-admin',
-    rejectionReason: null,
-  },
-] as const satisfies readonly StaffRoleRequest[];
-
 const AUDIT_LOG_ACTIONS = [
   'STAFF_ROLE_REQUEST_APPROVED',
   'STAFF_ROLE_REQUEST_REJECTED',
@@ -105,7 +78,9 @@ const AUDIT_LOG_FIXTURES: readonly AuditLogRecord[] = Array.from(
     actor: index % 4 === 0 ? 'synthetic-admin' : 'synthetic-reviewer',
     action: AUDIT_LOG_ACTIONS[index % AUDIT_LOG_ACTIONS.length],
     targetType: 'ROLE_REQUEST',
-    targetId: `fixture:staff-request:${index + 1}`,
+    targetId: `fixture:role-request:${index + 1}`,
+    // schemaVersion 2 행의 사람이 읽는 대상 라벨 — 대상의 GitHub 로그인이다.
+    target: `synthetic-target-${index + 1}`,
     // 최신순 — 백엔드의 occurredAt desc 정렬과 같은 순서로 둔다.
     occurredAt: `2026-07-${String(AUDIT_LOG_FIXTURE_COUNT - index).padStart(2, '0')}T01:00:00.000Z`,
   }),
@@ -171,22 +146,6 @@ function sessionResponse(
   }
 }
 
-function staffRequestPage(searchParams: URLSearchParams): StaffRoleRequestPage {
-  const status = searchParams.get('status') ?? 'PENDING';
-  const query = (searchParams.get('query') ?? '').trim().toLowerCase();
-  const items = STAFF_REQUEST_FIXTURES.filter(
-    (request) =>
-      request.status === status &&
-      (query === '' || request.githubLogin.toLowerCase().includes(query)),
-  );
-  return {
-    items,
-    page: Number(searchParams.get('page') ?? '1'),
-    limit: Number(searchParams.get('limit') ?? '20'),
-    total: items.length,
-  };
-}
-
 function auditLogPage(searchParams: URLSearchParams): AuditLogPage {
   const actor = (searchParams.get('actor') ?? '').trim().toLowerCase();
   const action = searchParams.get('action') ?? '';
@@ -245,10 +204,6 @@ export function resolveLocalReviewResponse({
     (fixture === 'staff' || fixture === 'admin')
   ) {
     return json(200, STAFF_DASHBOARD_FIXTURE);
-  }
-
-  if (method === 'GET' && path === 'role-requests' && fixture === 'admin') {
-    return json(200, staffRequestPage(searchParams));
   }
 
   if (method === 'GET' && path === 'audit-logs' && fixture === 'admin') {
