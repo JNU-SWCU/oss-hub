@@ -6,6 +6,7 @@ import {
   Role,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { programApplicationParticipantWhere } from '../programs/program-participant';
 import type {
   OwnedStudentApplication,
   StudentApplicationActor,
@@ -48,10 +49,7 @@ export class StudentApplicationManagementRepository implements StudentApplicatio
     return this.prisma.application.findFirst({
       where: {
         programId,
-        OR: [
-          { applicantId: studentId, teamId: null },
-          { team: { is: { leaderId: studentId } } },
-        ],
+        ...programApplicationParticipantWhere(studentId),
       },
       select: APPLICATION_SELECT,
     });
