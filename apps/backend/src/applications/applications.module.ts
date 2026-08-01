@@ -20,6 +20,7 @@ import { StudentApplicationsController } from './student-applications.controller
   imports: [AuthModule, ProgramsModule, SubmissionsModule],
   controllers: [
     StaffDashboardController,
+    StudentApplicationsController,
     ProgramApplicationsController,
     ApplicationsController,
   ],
@@ -28,6 +29,13 @@ import { StudentApplicationsController } from './student-applications.controller
     ApplicationsStaffListGuard,
     ApplicationsRepository,
     ApplicationsService,
+    StudentApplicationManagementRepository,
+    {
+      provide: StudentApplicationManagementService,
+      useFactory: (store: StudentApplicationManagementRepository) =>
+        new StudentApplicationManagementService(store),
+      inject: [StudentApplicationManagementRepository],
+    },
     StaffDashboardService,
   ],
 })
