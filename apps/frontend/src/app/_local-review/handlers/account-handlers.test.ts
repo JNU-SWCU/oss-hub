@@ -343,7 +343,7 @@ describe('account fixture responses', () => {
       selectedRole: 'STUDENT',
       role: 'STUDENT',
       requestStatus: null,
-      redirectTo: '/dashboard',
+      redirectTo: '/onboarding/profile',
     });
     expect(staff).toEqual({
       selectedRole: 'STAFF',
@@ -359,7 +359,7 @@ describe('account fixture responses', () => {
     const staffRequest = jsonBody(call('unassigned', 'POST', 'role-requests'));
 
     // Then: 화면은 redirectTo만 사용하므로 앱 내부 경로여야 한다.
-    expect(selection).toMatchObject({ redirectTo: '/dashboard' });
+    expect(selection).toMatchObject({ redirectTo: '/onboarding/profile' });
     expect(staffRequest).toMatchObject({
       requestedRole: 'STAFF',
       status: 'PENDING',

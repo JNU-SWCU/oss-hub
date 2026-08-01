@@ -8,7 +8,7 @@ export class RoleSelectionResponseDto {
   readonly selectedRole: SelectableRole;
   readonly role: Role | null;
   readonly requestStatus: RoleRequestStatus | null;
-  readonly redirectTo: '/programs' | '/onboarding/pending';
+  readonly redirectTo: '/onboarding/profile' | '/onboarding/pending';
 
   private constructor(result: RoleSelectionResult) {
     this.selectedRole = result.selectedRole;

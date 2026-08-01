@@ -136,7 +136,11 @@ export class RolesService {
       selectedRole: Role.STUDENT,
       role: Role.STUDENT,
       requestStatus: null,
-      redirectTo: '/programs',
+      // 역할이 정해졌다고 가입이 끝난 것은 아니다. 프로필을 받아야 가입이
+      // 완결되므로 남은 단계로 보낸다. 예전에는 `/programs` 로 보냈는데,
+      // 그 화면은 비로그인도 볼 수 있어 게이트가 없다 — 학생이 프로필을
+      // 비운 채 둘러보다 나중에 막히는 상태가 만들어졌다.
+      redirectTo: '/onboarding/profile',
     };
   }
 

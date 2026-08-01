@@ -112,7 +112,7 @@ it.each([Role.STUDENT, Role.STAFF])(
 );
 
 it.each([
-  [Role.STUDENT, Role.STUDENT, null, '/programs'],
+  [Role.STUDENT, Role.STUDENT, null, '/onboarding/profile'],
   [Role.STAFF, null, RoleRequestStatus.PENDING, '/onboarding/pending'],
 ] as const)(
   '%s 선택의 기존 결과는 그대로 보존한다',

@@ -394,7 +394,7 @@ function roleSelectionResult(selected: RoleSelection): RoleSelectionResult {
         selectedRole: 'STUDENT',
         role: 'STUDENT',
         requestStatus: null,
-        redirectTo: '/dashboard',
+        redirectTo: '/onboarding/profile',
       };
 }
 

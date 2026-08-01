@@ -161,7 +161,7 @@ describe('RolesService', () => {
       selectedRole: Role.STUDENT,
       role: Role.STUDENT,
       requestStatus: null,
-      redirectTo: '/programs',
+      redirectTo: '/onboarding/profile',
     });
   });
 
