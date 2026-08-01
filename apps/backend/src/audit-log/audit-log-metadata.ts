@@ -1,4 +1,9 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  RepositoryVisibility,
+  Role,
+  RoleRequestStatus,
+} from '@prisma/client';
 
 export const ACCESS_AUDIT_SCHEMA_VERSION_V1 = 1 as const;
 export const ACCESS_AUDIT_SCHEMA_VERSION = 2 as const;
@@ -100,15 +105,55 @@ export type AccessAuditMetadataInput = DistributiveOmit<
   'schemaVersion'
 >;
 
+/**
+ * todo 20 — repository 수동 공개 typed audit의 최소 정의. 전체 action registry(#action
+ * 카탈로그·문서화 등)는 todo 21 소관이라 여기서는 이 한 번의 write에 필요한 타입만 둔다.
+ * 실명·studentId·email 등 금지 필드는 담지 않는다 — actor는 `AuditLog.actorId` FK로 이미
+ * 식별되므로 metadata에 다시 스냅샷하지 않는다.
+ */
+export const REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION = 1 as const;
+
+export const REPOSITORY_PUBLISH_AUDIT_ACTIONS = {
+  REPOSITORY_PUBLISHED: 'REPOSITORY_PUBLISHED',
+} as const;
+
+export type RepositoryPublishAuditAction =
+  (typeof REPOSITORY_PUBLISH_AUDIT_ACTIONS)[keyof typeof REPOSITORY_PUBLISH_AUDIT_ACTIONS];
+
+export type RepositoryPublishAuditVisibilityState = {
+  readonly visibility: RepositoryVisibility;
+};
+
+export type RepositoryPublishAuditMetadata = {
+  readonly schemaVersion: typeof REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION;
+  readonly repositoryId: string;
+  readonly before: RepositoryPublishAuditVisibilityState;
+  readonly after: RepositoryPublishAuditVisibilityState & {
+    readonly publishedAt: string;
+  };
+};
+
+export type RepositoryPublishAuditMetadataInput = DistributiveOmit<
+  RepositoryPublishAuditMetadata,
+  'schemaVersion'
+>;
+
+export function createRepositoryPublishAuditMetadata(
+  input: RepositoryPublishAuditMetadataInput,
+): RepositoryPublishAuditMetadata {
+  return { schemaVersion: REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION, ...input };
+}
+
+export type AuditLogMetadata =
+  AccessAuditMetadata | RepositoryPublishAuditMetadata;
+
 export type AuditLogMetadataEvidence =
   | { readonly legacy: true; readonly metadata: null }
-  | { readonly legacy: false; readonly metadata: AccessAuditMetadata };
+  | { readonly legacy: false; readonly metadata: AuditLogMetadata };
 
 export class InvalidAuditLogMetadataError extends Error {
   constructor() {
-    super(
-      'Audit log metadata does not match a supported access-audit schema version.',
-    );
+    super('Audit log metadata does not match a known audit schema version.');
     this.name = 'InvalidAuditLogMetadataError';
   }
 }
@@ -125,10 +170,33 @@ export function parseAuditLogMetadata(
   if (isJsonObject(value) && Object.keys(value).length === 0) {
     return { legacy: true, metadata: null };
   }
-  if (!isAccessAuditMetadata(value)) {
-    throw new InvalidAuditLogMetadataError();
+  if (isAccessAuditMetadata(value) || isRepositoryPublishAuditMetadata(value)) {
+    return { legacy: false, metadata: value };
   }
-  return { legacy: false, metadata: value };
+  throw new InvalidAuditLogMetadataError();
+}
+
+function isRepositoryPublishAuditMetadata(
+  value: unknown,
+): value is RepositoryPublishAuditMetadata {
+  return (
+    isJsonObject(value) &&
+    value.schemaVersion === REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION &&
+    typeof value.repositoryId === 'string' &&
+    isRepositoryPublishAuditVisibilityState(value.before) &&
+    isRepositoryPublishAuditVisibilityState(value.after) &&
+    typeof (value.after as { publishedAt?: unknown }).publishedAt === 'string'
+  );
+}
+
+function isRepositoryPublishAuditVisibilityState(
+  value: unknown,
+): value is RepositoryPublishAuditVisibilityState {
+  return (
+    isJsonObject(value) &&
+    (value.visibility === RepositoryVisibility.PRIVATE ||
+      value.visibility === RepositoryVisibility.PUBLIC)
+  );
 }
 
 function isAccessAuditMetadata(value: unknown): value is AccessAuditMetadata {
