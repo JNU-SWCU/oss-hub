@@ -1,3 +1,4 @@
+import { Role } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { completeCompatibleProfileIfUnchanged } from '../profiles/profile-compatibility.repository';
@@ -66,8 +67,79 @@ it('학번·학과를 DB에 저장하고 다시 조회한다', async () => {
 
   await expect(repository.findByGithubId(githubId)).resolves.toEqual({
     id: userId,
+    role: null,
     ...firstProfile,
   });
+});
+
+it('학번 없는 교직원 프로필은 UserProfile 행 없이 legacy 컬럼에만 저장한다', async () => {
+  // Given — UserProfile.studentId가 NOT NULL이라 행을 만들 수 없다(#439)
+  await prisma.user.update({
+    where: { id: userId },
+    data: { role: Role.STAFF },
+  });
+  const current = await repository.findByGithubId(githubId);
+  if (!current) {
+    throw new Error('합성 프로필 사용자가 존재해야 합니다.');
+  }
+
+  // When
+  await expect(
+    repository.completeProfileIfUnchanged(current, {
+      name: '합성 교직원',
+      studentId: null,
+      department: '인공지능학부',
+    }),
+  ).resolves.toBe(true);
+
+  // Then
+  const legacyRows = await prisma.$queryRaw<StoredProfileFields[]>`
+    SELECT "name", "studentId", "department"
+    FROM "User"
+    WHERE "id" = ${userId}
+  `;
+  const profileRows = await prisma.$queryRaw<StoredProfileFields[]>`
+    SELECT "name", "studentId", "department"
+    FROM "UserProfile"
+    WHERE "userId" = ${userId}
+  `;
+  expect(legacyRows).toEqual([
+    { name: '합성 교직원', studentId: null, department: '인공지능학부' },
+  ]);
+  expect(profileRows).toEqual([]);
+  await expect(repository.findByGithubId(githubId)).resolves.toMatchObject({
+    role: Role.STAFF,
+    studentId: null,
+    department: '인공지능학부',
+  });
+});
+
+it('UserProfile 행이 없는 프로필도 이름·학과를 갱신할 수 있다', async () => {
+  // Given
+  await prisma.user.update({
+    where: { id: userId },
+    data: { role: Role.STAFF, department: '인공지능학부' },
+  });
+
+  // When
+  await repository.updateProfileFields(userId, {
+    name: '합성 수정 교직원',
+    department: '소프트웨어공학과',
+  });
+
+  // Then
+  const legacyRows = await prisma.$queryRaw<StoredProfileFields[]>`
+    SELECT "name", "studentId", "department"
+    FROM "User"
+    WHERE "id" = ${userId}
+  `;
+  expect(legacyRows).toEqual([
+    {
+      name: '합성 수정 교직원',
+      studentId: null,
+      department: '소프트웨어공학과',
+    },
+  ]);
 });
 
 it('프로필 저장은 UserProfile과 구버전 User 컬럼을 같은 값으로 유지한다', async () => {
@@ -204,7 +276,7 @@ it('이미 생성된 UserProfile과 충돌하면 legacy User 변경도 롤백한
 it('동일한 완료 요청이 경쟁하면 한 요청만 성공하고 다른 요청은 CAS miss로 수렴한다', async () => {
   // Given
   await prisma.user.update({ where: { id: userId }, data: firstProfile });
-  const expected = { id: userId, ...firstProfile };
+  const expected = { id: userId, role: null, ...firstProfile };
   const complete = () =>
     prisma.$transaction((transaction) =>
       completeCompatibleProfileIfUnchanged(transaction, expected, firstProfile),
