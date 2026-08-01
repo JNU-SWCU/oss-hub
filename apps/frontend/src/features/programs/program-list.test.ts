@@ -140,7 +140,114 @@ describe('filterAndGroupPrograms', () => {
     ).toEqual(['current-recruiting']);
   });
 
-  it('orders exact same-name and same-start programs by canonical id', () => {
+  it('preserves the authoritative backend order within a group', () => {
+    const seedProgram = programs[0];
+    expect(seedProgram).toBeDefined();
+    if (seedProgram === undefined) return;
+    const programsWithDifferentDeadlines: readonly ProgramListItem[] = [
+      {
+        ...seedProgram,
+        id: 'later-deadline',
+        applicationStartAt: '2026-07-20T00:00:00.000Z',
+        applicationEndAt: '2026-08-30T00:00:00.000Z',
+      },
+      {
+        ...seedProgram,
+        id: 'earlier-deadline',
+        applicationStartAt: '2026-07-01T00:00:00.000Z',
+        applicationEndAt: '2026-08-01T00:00:00.000Z',
+      },
+    ];
+
+    const result = filterAndGroupPrograms(programsWithDifferentDeadlines, {
+      search: '',
+      status: 'all',
+      now: new Date('2026-07-31T00:00:00.000Z'),
+    });
+
+    expect(result[0]?.programs.map(({ id }) => id)).toEqual([
+      'later-deadline',
+      'earlier-deadline',
+    ]);
+  });
+
+  it('groups recruiting programs before scheduled programs while preserving backend order', () => {
+    const seedProgram = programs[0];
+    expect(seedProgram).toBeDefined();
+    if (seedProgram === undefined) return;
+
+    // Given: open and closed programs arrive in an arbitrary API order.
+    const sortedPrograms: readonly ProgramListItem[] = [
+      {
+        ...seedProgram,
+        id: 'scheduled-earliest',
+        name: 'Scheduled earliest',
+        applicationStartAt: '2026-09-01T00:00:00.000Z',
+        applicationEndAt: '2026-09-10T00:00:00.000Z',
+      },
+      {
+        ...seedProgram,
+        id: 'recruiting-same-name-b',
+        name: 'Alpha',
+        applicationEndAt: '2026-08-01T00:00:00.000Z',
+      },
+      {
+        ...seedProgram,
+        id: 'past-program',
+        name: 'Past program',
+        applicationStartAt: '2025-07-01T00:00:00.000Z',
+        applicationEndAt: '2025-08-01T00:00:00.000Z',
+      },
+      {
+        ...seedProgram,
+        id: 'closed-current-program',
+        name: 'Closed current program',
+        applicationStartAt: '2026-01-01T00:00:00.000Z',
+        applicationEndAt: '2026-02-01T00:00:00.000Z',
+      },
+      {
+        ...seedProgram,
+        id: 'recruiting-later',
+        name: 'Bravo',
+        applicationEndAt: '2026-08-30T00:00:00.000Z',
+      },
+      {
+        ...seedProgram,
+        id: 'recruiting-same-name-a',
+        name: 'Alpha',
+        applicationEndAt: '2026-08-01T00:00:00.000Z',
+      },
+    ];
+
+    // When: the list is filtered and grouped for the public program list.
+    const result = filterAndGroupPrograms(sortedPrograms, {
+      search: '',
+      status: 'all',
+      now: new Date('2026-07-21T00:00:00.000Z'),
+    });
+
+    // Then: recruiting appears before scheduled, and each group is stable.
+    expect(
+      result.map(({ key, programs: items }) => [
+        key,
+        items.map(({ id }) => id),
+      ]),
+    ).toEqual([
+      [
+        'current-recruiting',
+        [
+          'recruiting-same-name-b',
+          'recruiting-later',
+          'recruiting-same-name-a',
+        ],
+      ],
+      ['scheduled', ['scheduled-earliest']],
+      ['current-closed', ['closed-current-program']],
+      ['past', ['past-program']],
+    ]);
+  });
+
+  it('preserves backend tie-break order for identical names and deadlines', () => {
     const seedProgram = programs[0];
     expect(seedProgram).toBeDefined();
     if (seedProgram === undefined) return;
@@ -156,8 +263,8 @@ describe('filterAndGroupPrograms', () => {
     });
 
     expect(result[0]?.programs.map(({ id }) => id)).toEqual([
-      'program-a',
       'program-b',
+      'program-a',
     ]);
   });
 });

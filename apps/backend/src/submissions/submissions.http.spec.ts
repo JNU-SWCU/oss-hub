@@ -327,7 +327,7 @@ it('FILE replacement multipart context를 업로드 서비스에 전달한다', 
     fileId: 'synthetic-file',
   });
   expect(upload).toHaveBeenCalledWith(
-    undefined,
+    SESSION_GITHUB_ID,
     'synthetic-application',
     'synthetic-milestone',
     expect.objectContaining({

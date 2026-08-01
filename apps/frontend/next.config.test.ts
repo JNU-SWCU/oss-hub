@@ -43,4 +43,45 @@ describe('nextConfig rewrites', () => {
       },
     ]);
   });
+
+  it('명시적으로 켠 로컬 개발에서만 fixture cookie 요청을 앱 내부 adapter로 보낸다', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('BACKEND_ORIGIN', 'http://localhost:4000');
+    vi.stubEnv('OSS_HUB_LOCAL_REVIEW_FIXTURES', '1');
+
+    await expect(getRewrites()).resolves.toEqual({
+      beforeFiles: [
+        {
+          source: '/api/v1/:path*',
+          has: [
+            {
+              type: 'host',
+              value: '(?:localhost|127\\.0\\.0\\.1)',
+            },
+            {
+              type: 'cookie',
+              key: 'oss_hub_local_review_fixture',
+              value:
+                '(?:anonymous|student|staff|admin|settings|loading|error|unassigned|wrong-role)',
+            },
+          ],
+          destination: '/local-review-api/:path*',
+        },
+      ],
+      afterFiles: [],
+      fallback: [
+        {
+          source: '/api/v1/:path*',
+          destination: 'http://localhost:4000/api/v1/:path*',
+        },
+      ],
+    });
+  });
+
+  it('production에서는 fixture flag가 있어도 adapter rewrite를 만들지 않는다', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('OSS_HUB_LOCAL_REVIEW_FIXTURES', '1');
+
+    await expect(getRewrites()).resolves.toEqual([]);
+  });
 });

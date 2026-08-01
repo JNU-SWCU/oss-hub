@@ -1,14 +1,14 @@
-import * as React from 'react';
 import Link from 'next/link';
+import * as React from 'react';
 
 import {
   Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
   CardAction,
   CardContent,
+  CardDescription,
   CardFooter,
+  CardHeader,
+  CardTitle,
 } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
@@ -24,6 +24,8 @@ interface ProgramCardBaseProps extends Omit<
   period?: string;
   /** 상태 표시 슬롯 — StatusBadge 등을 그대로 전달한다 */
   status?: React.ReactNode;
+  /** 상태 슬롯 배치 방식 */
+  statusPlacement?: 'header' | 'body-center';
 }
 
 type ProgramCardProps = ProgramCardBaseProps &
@@ -42,34 +44,58 @@ function ProgramCard({
   category,
   period,
   status,
+  statusPlacement = 'header',
   href,
   footer,
   className,
   children,
   ...props
 }: ProgramCardProps) {
+  const header = (
+    <CardHeader>
+      <CardTitle>{title}</CardTitle>
+      {category ? <CardDescription>{category}</CardDescription> : null}
+      {statusPlacement === 'header' && status ? (
+        <CardAction>{status}</CardAction>
+      ) : null}
+    </CardHeader>
+  );
+  const content =
+    period || children ? (
+      <CardContent className="flex flex-col gap-1 text-sm text-muted-foreground">
+        {period ? <span>{period}</span> : null}
+        {children}
+      </CardContent>
+    ) : null;
   const card = (
     <Card
       data-slot="program-card"
+      data-status-placement={statusPlacement}
       className={cn(
         'h-full',
+        statusPlacement === 'body-center' && '@container/program-card-status',
         href &&
           'transition-colors group-hover/program-card:border-ring group-hover/program-card:bg-muted/40',
         className,
       )}
       {...props}
     >
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        {category ? <CardDescription>{category}</CardDescription> : null}
-        {status ? <CardAction>{status}</CardAction> : null}
-      </CardHeader>
-      {period || children ? (
-        <CardContent className="flex flex-col gap-1 text-sm text-muted-foreground">
-          {period ? <span>{period}</span> : null}
-          {children}
-        </CardContent>
-      ) : null}
+      {statusPlacement === 'body-center' && status ? (
+        <div className="grid flex-1 grid-cols-1 gap-4 @min-[32rem]/program-card-status:grid-cols-[minmax(0,1fr)_auto] @min-[32rem]/program-card-status:items-center">
+          <div className="grid gap-(--card-spacing)">
+            {header}
+            {content}
+          </div>
+          <div className="px-(--card-spacing) @min-[32rem]/program-card-status:justify-self-end @min-[32rem]/program-card-status:pl-0 @min-[32rem]/program-card-status:pr-(--card-spacing)">
+            {status}
+          </div>
+        </div>
+      ) : (
+        <>
+          {header}
+          {content}
+        </>
+      )}
       {footer ? <CardFooter>{footer}</CardFooter> : null}
     </Card>
   );

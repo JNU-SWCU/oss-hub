@@ -66,6 +66,55 @@ describe('card components', () => {
     expect(html).not.toContain('더 보기');
   });
 
+  it('renders a large StatusBadge for prominent card status', () => {
+    const html = renderToStaticMarkup(
+      <StatusBadge size="lg" variant="recruiting">
+        모집중
+      </StatusBadge>,
+    );
+
+    expect(html).toContain('px-4');
+    expect(html).toContain('py-2');
+    expect(html).toContain('text-base');
+  });
+
+  it('centers a prominent status within the card body', () => {
+    const html = renderToStaticMarkup(
+      <ProgramCard
+        footer={<button type="button">Details</button>}
+        period="2026.07 - 2026.08"
+        status={<StatusBadge size="lg">Recruiting</StatusBadge>}
+        statusPlacement="body-center"
+        title="Internship"
+      />,
+    );
+
+    expect(html).toContain('data-status-placement="body-center"');
+    expect(html).toContain('items-center');
+  });
+
+  it('stacks a prominent status as its own row until the card is wide enough', () => {
+    const html = renderToStaticMarkup(
+      <ProgramCard
+        period="2026.07 - 2026.08"
+        status={<StatusBadge size="lg">Recruiting</StatusBadge>}
+        statusPlacement="body-center"
+        title="Internship"
+      />,
+    );
+
+    expect(html).toContain('@container/program-card-status');
+    expect(html.indexOf('@container/program-card-status')).toBeLessThan(
+      html.indexOf('@min-[32rem]/program-card-status:grid-cols'),
+    );
+    expect(html).toContain('grid-cols-1');
+    expect(html).toContain(
+      '@min-[32rem]/program-card-status:grid-cols-[minmax(0,1fr)_auto]',
+    );
+    expect(html).toContain('@min-[32rem]/program-card-status:items-center');
+    expect(html).toContain('@min-[32rem]/program-card-status:justify-self-end');
+  });
+
   it('renders EmptyState with icon, description, and action slot', () => {
     const html = renderToStaticMarkup(
       <EmptyState
