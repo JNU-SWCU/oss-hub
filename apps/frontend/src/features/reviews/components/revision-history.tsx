@@ -1,4 +1,6 @@
+import { Download, FileText } from 'lucide-react';
 import { StatusBadge } from '@/components';
+import { formatFileSize } from '@/lib/format-file-size';
 import {
   Card,
   CardContent,
@@ -13,7 +15,7 @@ import {
   revisionContent,
   revisionLinks,
 } from '../review-format';
-import type { SubmissionRevision } from '../types';
+import type { SubmissionRevision, SubmissionRevisionFile } from '../types';
 
 function ReviewResult({ revision }: { readonly revision: SubmissionRevision }) {
   const review = revision.review;
@@ -85,6 +87,18 @@ export function RevisionCard({
             </ul>
           </div>
         ) : null}
+        {revision.files.length > 0 ? (
+          <div className="grid gap-1">
+            <h3 className="text-sm font-medium">첨부 파일</h3>
+            <ul className="grid gap-2 text-sm">
+              {revision.files.map((file) => (
+                <li key={file.fileId}>
+                  <RevisionFileLink file={file} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         {revision.comment ? (
           <div className="grid gap-1">
             <h3 className="text-sm font-medium">제출 코멘트</h3>
@@ -99,5 +113,28 @@ export function RevisionCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function RevisionFileLink({ file }: { readonly file: SubmissionRevisionFile }) {
+  return (
+    <a
+      href={file.downloadUrl}
+      download={file.fileName}
+      className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      <FileText
+        aria-hidden="true"
+        className="size-4 shrink-0 text-muted-foreground"
+      />
+      <span className="min-w-0 truncate">{file.fileName}</span>
+      <span className="shrink-0 text-muted-foreground">
+        {formatFileSize(file.size)}
+      </span>
+      <Download
+        aria-hidden="true"
+        className="size-4 shrink-0 text-muted-foreground"
+      />
+    </a>
   );
 }

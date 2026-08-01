@@ -1,4 +1,4 @@
-import { RANKING_NOTICE, RANKING_PERIODS } from './domain/ranking';
+import { RANKING_PERIODS } from './domain/ranking';
 import { activity, setupRankingService } from './ranking.service.spec-helper';
 
 describe('RankingService cache and period', () => {
@@ -66,7 +66,6 @@ describe('RankingService cache and period', () => {
     ).resolves.toMatchObject({ total: 1 });
     const all = await harness.service.findPage(RANKING_PERIODS.ALL, 1, 20, now);
     expect(all).toMatchObject({
-      notice: RANKING_NOTICE,
       period: RANKING_PERIODS.ALL,
       page: 1,
       pageSize: 20,

@@ -37,6 +37,15 @@ export interface CreatedSubmissionResponseDto {
   readonly submittedAt: string;
 }
 
+export interface SubmissionFileMetadataResponseDto {
+  readonly fileId: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly size: number;
+  readonly expiresAt: string;
+  readonly downloadUrl: string;
+}
+
 export interface SubmissionChecklistItemResponseDto {
   readonly milestoneId: string;
   readonly name: string;
@@ -49,6 +58,7 @@ export interface SubmissionChecklistItemResponseDto {
     readonly lastReviewedAt: string | null;
     readonly reviewComment: string | null;
     readonly canResubmit: boolean;
+    readonly file: SubmissionFileMetadataResponseDto | null;
   } | null;
 }
 

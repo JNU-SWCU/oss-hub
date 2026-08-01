@@ -78,6 +78,15 @@ export interface ChecklistLatestReview {
   readonly comment: string | null;
 }
 
+export interface SubmissionFileMetadata {
+  readonly fileId: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly size: number;
+  readonly expiresAt: Date;
+  readonly downloadUrl: string;
+}
+
 export interface ChecklistMilestone {
   readonly id: string;
   readonly name: string;
@@ -88,11 +97,15 @@ export interface ChecklistMilestone {
     readonly status: SubmissionStatus;
     readonly currentRevision: number;
     readonly latestReview: ChecklistLatestReview | null;
+    readonly file: SubmissionFileMetadata | null;
   } | null;
 }
 
 export interface ResubmissionTarget {
   readonly id: string;
+  readonly applicationId: string;
+  readonly milestoneId: string;
+  readonly programId: string;
   readonly status: SubmissionStatus;
   readonly currentRevision: number;
   readonly submissionType: MilestoneSubmissionType;
@@ -106,6 +119,10 @@ export interface CreateSubmissionRevisionInput {
   readonly content: SubmissionContentInput;
   readonly comment: string | null;
   readonly submittedById: string;
+  readonly applicationId: string;
+  readonly milestoneId: string;
+  readonly fileExpiresAt: Date | null;
+  readonly now: Date;
 }
 
 export interface SubmissionsStore {
@@ -141,6 +158,7 @@ export interface SubmissionsStore {
   listChecklistMilestones(
     programId: string,
     applicationId: string,
+    now: Date,
   ): Promise<readonly ChecklistMilestone[]>;
   findSubmissionForParticipant(
     submissionId: string,
@@ -333,11 +351,12 @@ class PrismaSubmissionsStore implements SubmissionsStore {
   async listChecklistMilestones(
     programId: string,
     applicationId: string,
+    now: Date,
   ): Promise<readonly ChecklistMilestone[]> {
     const milestones = await this.database.milestone.findMany({
       where: { programId },
       orderBy: checklistMilestoneOrderBy,
-      select: checklistMilestoneSelect(applicationId),
+      select: checklistMilestoneSelect(applicationId, now),
     });
     return milestones.map(toChecklistMilestone);
   }
@@ -353,9 +372,11 @@ class PrismaSubmissionsStore implements SubmissionsStore {
       },
       select: {
         id: true,
+        applicationId: true,
+        milestoneId: true,
         status: true,
         currentRevision: true,
-        milestone: { select: { submissionType: true } },
+        milestone: { select: { programId: true, submissionType: true } },
         application: {
           select: { status: true, repository: { select: { url: true } } },
         },
@@ -364,6 +385,9 @@ class PrismaSubmissionsStore implements SubmissionsStore {
     if (!submission) return null;
     return {
       id: submission.id,
+      applicationId: submission.applicationId,
+      milestoneId: submission.milestoneId,
+      programId: submission.milestone.programId,
       status: submission.status,
       currentRevision: submission.currentRevision,
       submissionType: submission.milestone.submissionType,
@@ -408,8 +432,31 @@ class PrismaSubmissionsStore implements SubmissionsStore {
           comment: input.comment,
           submittedById: input.submittedById,
         },
-        select: { revision: true },
+        select: { id: true, revision: true },
       });
+      if (input.content.type === 'FILE') {
+        if (input.fileExpiresAt === null) {
+          throw new SubmissionFileUnavailableError();
+        }
+        const attached = await this.database.submissionFile.updateMany({
+          where: {
+            id: input.content.fileId,
+            uploaderId: input.submittedById,
+            applicationId: input.applicationId,
+            milestoneId: input.milestoneId,
+            lifecycle: SubmissionFileLifecycle.PENDING,
+            submissionRevisionId: null,
+            pendingExpiresAt: { gt: input.now },
+          },
+          data: {
+            submissionRevisionId: revision.id,
+            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            pendingExpiresAt: null,
+            expiresAt: input.fileExpiresAt,
+          },
+        });
+        if (attached.count !== 1) throw new SubmissionFileUnavailableError();
+      }
       return revision;
     } catch (error: unknown) {
       if (
@@ -489,8 +536,8 @@ export class SubmissionsRepository implements SubmissionsStore {
     return this.store.findChecklistApplication(programId, userId);
   }
 
-  listChecklistMilestones(programId: string, applicationId: string) {
-    return this.store.listChecklistMilestones(programId, applicationId);
+  listChecklistMilestones(programId: string, applicationId: string, now: Date) {
+    return this.store.listChecklistMilestones(programId, applicationId, now);
   }
 
   findSubmissionForParticipant(submissionId: string, userId: string) {
