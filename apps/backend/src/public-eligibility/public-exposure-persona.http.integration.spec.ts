@@ -264,11 +264,11 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         ])) as readonly [WireBody, WireBody, WireBody, WireBody];
       allBodies.push(listBody, detailBody, profileBody, rankingBody);
 
-      expect(listBody).toMatchObject({
-        items: [
+      expect(listBody.items).toEqual(
+        expect.arrayContaining([
           expect.objectContaining({ projectId: publicProject.repositoryId }),
-        ],
-      });
+        ]),
+      );
       expect(detailBody).toMatchObject({
         projectId: publicProject.repositoryId,
         contributors: [

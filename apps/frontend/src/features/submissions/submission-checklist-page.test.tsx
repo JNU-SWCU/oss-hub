@@ -10,6 +10,7 @@ import { SubmissionChecklistPage } from './submission-checklist-page';
 import type { SubmissionChecklistViewProps } from './components/submission-checklist-view';
 import type { SubmissionChecklist } from './types';
 
+// allow: SIZE_OK — hook-driven page orchestration scenarios share one mock state.
 const pageView = vi.hoisted(() => ({
   props: null as SubmissionChecklistViewProps | null,
 }));
@@ -144,6 +145,7 @@ const CHECKLIST: SubmissionChecklist = {
         lastReviewedAt: '2026-08-28T01:00:00.000Z',
         reviewComment: 'Replace the file',
         canResubmit: true,
+        file: null,
       },
     },
   ],
