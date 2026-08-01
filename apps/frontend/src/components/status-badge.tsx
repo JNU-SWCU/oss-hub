@@ -9,9 +9,13 @@ import { cn } from '@/lib/utils';
  * children으로 호출부가 주입한다.
  */
 const statusBadgeVariants = cva(
-  'inline-flex w-fit shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium',
+  'inline-flex w-fit shrink-0 items-center rounded-full font-medium',
   {
     variants: {
+      size: {
+        default: 'px-2 py-0.5 text-xs',
+        lg: 'min-w-24 justify-center px-4 py-2 text-base font-semibold',
+      },
       variant: {
         recruiting: 'bg-status-recruiting-bg text-status-recruiting-fg',
         closed: 'bg-status-closed-bg text-status-closed-fg',
@@ -21,6 +25,7 @@ const statusBadgeVariants = cva(
       },
     },
     defaultVariants: {
+      size: 'default',
       variant: 'recruiting',
     },
   },
@@ -28,14 +33,16 @@ const statusBadgeVariants = cva(
 
 function StatusBadge({
   className,
+  size = 'default',
   variant = 'recruiting',
   ...props
 }: React.ComponentProps<'span'> & VariantProps<typeof statusBadgeVariants>) {
   return (
     <span
       data-slot="status-badge"
+      data-size={size}
       data-variant={variant}
-      className={cn(statusBadgeVariants({ variant }), className)}
+      className={cn(statusBadgeVariants({ size, variant }), className)}
       {...props}
     />
   );
