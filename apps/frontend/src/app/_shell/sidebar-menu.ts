@@ -5,9 +5,9 @@ import { ADMIN_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
 import type { ShellIconName } from './shell-icons';
 
 /**
- * 사이드바 메뉴 — 라벨·경로의 단일 원본은 역할 메뉴는 `role-menus.ts`,
- * 공개 화면은 `public-menus.ts`다. 이 파일은 거기에 아이콘과 묶음(그룹)만 얹는다.
- * 메뉴 문구를 여기서 다시 적으면 두 곳이 갈라진다 — 공개 화면에서 실제로 그랬다(#513).
+ * 사이드바 메뉴 — 라벨·경로의 단일 원본은 역할 메뉴가 `role-menus.ts`, 공개 화면이
+ * `public-menus.ts`다(#513). 이 파일은 거기에 아이콘과 묶음(그룹)만 얹는다.
+ * 메뉴 문구를 여기서 다시 적으면 두 곳이 갈라진다.
  */
 export interface SidebarItem extends NavItem {
   readonly icon: ShellIconName;
@@ -34,13 +34,7 @@ const MENU_ICONS: Readonly<Record<string, ShellIconName>> = {
   // 공개 화면
   '/programs': 'list',
   '/archive': 'archive',
-  /**
-   * 랭킹은 활동량(커밋·PR·릴리스) 집계라 막대 그래프가 가장 가깝다. 교직원에게는
-   * `운영 대시보드`와 같은 그림이 되지만, 있는 아이콘 중 겹치지 않는 것들은
-   * (`inbox`·`shield`·`repo`) 랭킹을 전혀 가리키지 못하고, 같은 묶음 안에서
-   * 겹치는 `list`(프로그램)는 접힌 사이드바에서 바로 옆 항목과 헷갈린다.
-   * 겹치더라도 다른 묶음이고 뜻이 맞는 쪽을 골랐다.
-   */
+  // 활동량 집계라 막대 그래프다. `운영 대시보드`와 겹치지만 남은 아이콘은 뜻이 맞지 않는다.
   '/ranking': 'chart',
 };
 
@@ -56,8 +50,7 @@ function withIcons(items: readonly NavItem[]): readonly SidebarItem[] {
 /**
  * 공개 화면 — 로그인 없이도 볼 수 있으므로 **세 역할 모두**에게 보인다.
  * (시안 v1에서 이 묶음을 역할 메뉴로 착각해 빼먹었다가 지적받은 부분이다.)
- *
- * 항목은 `public-menus.ts`가 정한다 — 랜딩 헤더가 읽는 목록과 같은 것이다.
+ * 항목은 `public-menus.ts`가 정한다 — 랜딩 헤더가 읽는 목록과 같다.
  */
 export const PUBLIC_GROUP: SidebarGroup = {
   label: '둘러보기',

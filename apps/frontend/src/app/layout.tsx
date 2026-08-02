@@ -26,11 +26,8 @@ export default function RootLayout({
         <SkipLink />
         {/* 랜딩은 상단 헤더, 그 외는 사이드바 + 상단바 — 분기는 AppFrame이 한다 */}
         {/*
-          nav-config(#136)의 메뉴 목록은 `public-menus.ts`가 원본이다. 여기에 다시
-          적으면 사이드바와 갈라진다(#513). `홈`은 목록에 없다 — 왼쪽 브랜드가
-          이미 `/` 링크라 같은 바 안에 같은 목적지가 둘이 된다.
-          로그인/프로필은 기존 login-button.tsx를 actions 슬롯에 배선만 한다.
-          내부 로직은 #98 소관.
+          공통 셸 nav-config(#136) — 메뉴 목록의 원본은 `public-menus.ts`다(#513).
+          로그인/프로필은 기존 login-button.tsx를 actions 슬롯에 배선만 한다(#98).
         */}
         <AppFrame
           brand={<Link href="/">OSS Hub</Link>}
