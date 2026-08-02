@@ -17,6 +17,7 @@ const syntheticUser: AuthUser = {
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
   role: null,
+  isProfileComplete: false,
 };
 
 function buildConfig(): AuthConfig {

@@ -30,7 +30,10 @@ function FieldLegend({
       data-slot="field-legend"
       data-variant={variant}
       className={cn(
-        'mb-1.5 font-medium data-[variant=label]:text-sm data-[variant=legend]:text-base',
+        // legend는 폼 구역의 제목 — 화면의 섹션 제목과 같은 계단 칸(24)을 쓴다.
+        // 여기서 크기를 정하는 이유: 이 클래스에는 `data-[variant=…]` 조건이 붙어
+        // 명시도가 한 단계 높아, 호출부가 맨 클래스로 덮어써도 이 값이 이긴다.
+        'mb-1.5 font-semibold data-[variant=label]:text-sm data-[variant=legend]:text-section data-[variant=legend]:tracking-tight',
         className,
       )}
       {...props}

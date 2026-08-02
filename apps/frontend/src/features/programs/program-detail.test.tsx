@@ -25,7 +25,7 @@ const milestone: ProgramMilestone = {
 };
 
 describe('MilestoneRow', () => {
-  it('비로그인에게 비공개 제출 상태 대신 로그인 안내를 표시한다', () => {
+  it('역할 없는 사람에게 비공개 제출 상태 대신 가입 안내를 표시한다', () => {
     const html = renderToStaticMarkup(
       <MilestoneRow
         programId="program-1"
@@ -36,7 +36,10 @@ describe('MilestoneRow', () => {
     );
     expect(html).toContain('기획서 제출');
     expect(html).toContain('D-5');
-    expect(html).toContain('로그인 후 확인');
+    expect(html).toContain('가입 후 확인');
+    // 이 갈래에는 GitHub만 연결하고 프로필을 못 채운 사람도 들어오므로, 이미 로그인한
+    // 그에게 거짓이 되는 "로그인" 안내가 되살아나지 않게 못 박는다.
+    expect(html).not.toContain('로그인');
     expect(html).not.toContain('최종 반려');
   });
 
@@ -200,6 +203,23 @@ describe('ProgramDetailPage states', () => {
     expect(html).toContain('신청자 목록');
     expect(html).not.toContain('/staff/programs/program-1/submissions');
     expect(html).not.toContain('전체 제출 현황');
+  });
+
+  // 이 갈래에는 비로그인 방문자와 "GitHub만 연결하고 프로필을 안 채운 사람"이 함께
+  // 들어온다. 뒤쪽은 이미 로그인한 상태라 예전 문구·목적지(랜딩)가 둘 다 틀렸었다.
+  it('역할 없는 사람을 랜딩이 아니라 가입 진입점으로 보낸다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramActions
+        program={{
+          ...programWithoutMilestones,
+          viewer: { role: null, applicationStatus: null },
+        }}
+      />,
+    );
+    expect(html).toContain('가입하고 신청하기');
+    expect(html).toContain('href="/signup"');
+    expect(html).not.toContain('로그인');
+    expect(html).not.toContain('href="/"');
   });
 
   it('마일스톤이 없으면 빈 상태와 교직원 설정 진입을 표시한다', () => {

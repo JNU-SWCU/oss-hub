@@ -23,7 +23,7 @@ export type ApplicationConfirmation = 'submit' | 'save' | 'cancel' | null;
 export function ApplySkeleton() {
   return (
     <main
-      className="mx-auto grid max-w-3xl gap-6 px-4 py-8"
+      className="mx-auto grid w-full max-w-3xl gap-6 px-4 py-8"
       aria-label="신청 양식 불러오는 중"
     >
       <div className="h-20 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
@@ -58,7 +58,7 @@ export function BlockedView({
           };
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-12">
+    <main className="mx-auto w-full max-w-3xl px-4 py-12">
       <EmptyState
         title={content.title}
         description={content.description}
@@ -82,7 +82,7 @@ export function ProgramApplySuccessView({
   readonly mode?: ApplicationFormMode;
 }) {
   return (
-    <main className="mx-auto max-w-3xl space-y-6 px-4 py-12">
+    <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-12">
       <Alert>
         <AlertTitle>
           {mode === 'create'
@@ -148,7 +148,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
   } as const;
 
   return (
-    <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
+    <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
       <PageHeader
         title={`${program.name} ${mode === 'create' ? '신청' : '신청서'}`}
         description={

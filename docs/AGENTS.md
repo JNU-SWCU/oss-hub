@@ -12,7 +12,7 @@
 | 파일 | 역할 |
 | --- | --- |
 | `architecture.md` | 예정 저장소 구조·컴포넌트 경계 지도. 결정 근거는 `decisions/`가 원본이라 여기서 재서술하지 않는다 |
-| `design.md` | Frontend 디자인 계약(색상·타이포그래피·토큰 3-tier·프리미티브 컴포넌트 소유권) — frontend 스킬 게이트가 참조 |
+| `design.md` | Frontend 디자인 계약(색상·타이포그래피·토큰 3-tier·프리미티브 컴포넌트 소유권, 랜딩 우주 여정을 비롯한 화면별 레이아웃 규칙) — frontend 스킬 게이트가 참조 |
 | `onboarding.md` | 신규 참여자용 착수 순서 안내 |
 
 ## Subdirectories

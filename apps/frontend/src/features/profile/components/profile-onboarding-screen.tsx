@@ -9,7 +9,14 @@ import {
   type FormEvent,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { FormSection, PageHeader } from '@/components';
+import {
+  signupPrimaryClassName,
+  FormSection,
+  PageBody,
+  SignupEyebrow,
+  SignupLede,
+  SignupTitle,
+} from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,6 +26,8 @@ import {
   FieldLabel,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { rememberSignupCompletion } from '@/lib/signup-completion-notice';
 import {
   classifyProfileApiError,
   completeMyProfile,
@@ -26,18 +35,24 @@ import {
 } from '../api';
 import { DEPARTMENT_GROUPS, OTHER_DEPARTMENT } from '../departments';
 import {
+  isDepartmentRequiredForProfile,
+  profileFieldRequirement,
+  type ProfileRole,
+} from '../profile-requirements';
+import {
   createInitialProfileForm,
   getProfileRedirect,
   isProfileFormValid,
   PROFILE_DEPARTMENT_MAX_LENGTH,
   PROFILE_NAME_MAX_LENGTH,
-  PROFILE_ONBOARDING_NEXT_PATH,
   toCompleteProfileRequest,
   validateProfileForm,
 } from '../profile-state';
 import type { ProfileFormErrors, ProfileFormValues } from '../types';
 
 interface ProfileFormProps {
+  /** 세션 역할. 아직 배정 전이면 `null`이고, 그때는 학생 기준을 따른다. */
+  readonly role: ProfileRole | null;
   readonly values: ProfileFormValues;
   readonly errors: ProfileFormErrors;
   readonly showRequiredErrors: boolean;
@@ -49,18 +64,19 @@ interface ProfileFormProps {
 
 export function ProfileSkeleton() {
   return (
-    <main
-      className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6"
+    <PageBody
+      className="max-w-2xl"
       role="status"
       aria-label="프로필을 불러오는 중"
     >
-      <div className="h-16 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-80 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-    </main>
+      <div className="h-16 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
+      <div className="h-80 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
+    </PageBody>
   );
 }
 
 export function ProfileForm({
+  role,
   values,
   errors,
   showRequiredErrors,
@@ -74,6 +90,22 @@ export function ProfileForm({
     onSubmit();
   }
 
+  // 학과는 역할이 요구하지 않으면 감추지만, 학번은 감추지 않고 "선택"으로 열어 둔다 —
+  // 조교처럼 대학원생 신분을 겸하는 교직원은 학번이 실제로 있고 그 값을 남기고 싶어
+  // 한다. 비워 두면 요청에서 키가 빠지고, 넣으면 학적 식별자로 고정된다.
+  // 머리말은 필수 항목을 먼저 늘어놓고, 선택으로 열린 학번을 맨 뒤에 덧붙인다.
+  const requirement = profileFieldRequirement(role);
+  // 학번을 적어 넣는 순간 학과도 필요해진다 — 학번이 유일성 제약 아래 저장되는 자리가
+  // 학과를 요구하는 행이기 때문이다(`isDepartmentRequiredForProfile`). 그래서 학과 칸은
+  // 역할이 요구할 때뿐 아니라 사용자가 학번을 적었을 때도 함께 연다.
+  const showDepartment = isDepartmentRequiredForProfile(role, values.studentId);
+  const profileFields = [
+    '이름',
+    ...(requirement.studentId ? ['학번'] : []),
+    ...(requirement.department ? ['학과'] : []),
+    ...(requirement.studentId ? [] : ['학번 선택']),
+  ];
+
   const showNameError = showRequiredErrors && errors.name !== null;
   const showStudentIdError =
     errors.studentId !== null &&
@@ -82,22 +114,36 @@ export function ProfileForm({
   const isValid = isProfileFormValid(errors);
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
-      <PageHeader
-        title="기본 프로필을 입력해 주세요"
-        description="프로그램 참여에 필요한 이름, 학번, 학과를 확인합니다."
-      />
-      <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
+    <>
+      <SignupEyebrow>STEP 3 / 3 · 마지막</SignupEyebrow>
+      {/* 회원가입의 정의가 여기서 완성된다 — GitHub 연결만으로는 가입이 아니고
+          이 화면을 마쳐야 회원이다. 제목과 버튼이 그 사실을 그대로 말한다.
+          "입력해 주세요"는 아직 몇 개가 더 남았는지 알려 주지 않았다. */}
+      <SignupTitle>
+        기본 정보를 입력하면
+        <br />
+        가입이 끝납니다
+      </SignupTitle>
+      {/* 항목을 괄호로 묶어 나열한다 — "학번 선택"처럼 항목 이름 자체가 두 낱말인
+          경우가 있어, 문장에 그대로 이어 붙이면 어디까지가 한 항목인지 흐려진다. */}
+      <SignupLede>
+        {`프로그램 신청과 팀 구성에 쓰이는 정보입니다. 필요한 항목(${profileFields.join(', ')})을 확인합니다.`}
+      </SignupLede>
+      <form className="flex flex-col gap-10" onSubmit={handleSubmit}>
         <FormSection
           title="신원 정보"
           description="입력한 정보는 이후 프로그램 신청과 프로필에 사용됩니다."
         >
           <Field data-invalid={showNameError || undefined}>
-            <FieldLabel htmlFor="profile-name">이름</FieldLabel>
+            <FieldLabel htmlFor="profile-name">
+              이름
+              <RequiredMark />
+            </FieldLabel>
             <Input
               id="profile-name"
               name="name"
               autoComplete="name"
+              aria-required="true"
               maxLength={PROFILE_NAME_MAX_LENGTH}
               value={values.name}
               aria-invalid={showNameError}
@@ -107,7 +153,16 @@ export function ProfileForm({
           </Field>
 
           <Field data-invalid={showStudentIdError || undefined}>
-            <FieldLabel htmlFor="profile-student-id">학번</FieldLabel>
+            <FieldLabel htmlFor="profile-student-id">
+              학번
+              {requirement.studentId ? (
+                <RequiredMark />
+              ) : (
+                <span className="ml-1 text-small font-normal text-muted-foreground">
+                  선택
+                </span>
+              )}
+            </FieldLabel>
             <Input
               id="profile-student-id"
               name="studentId"
@@ -117,58 +172,67 @@ export function ProfileForm({
               aria-invalid={showStudentIdError}
               onChange={(event) => onChange({ studentId: event.target.value })}
             />
-            <FieldDescription>숫자 6~10자리</FieldDescription>
+            <FieldDescription>
+              {requirement.studentId
+                ? '숫자 6~10자리'
+                : '학번이 있으면 입력합니다. 숫자 6~10자리, 한 번 저장하면 변경할 수 없습니다.'}
+            </FieldDescription>
             {showStudentIdError ? (
               <FieldError>{errors.studentId}</FieldError>
             ) : null}
           </Field>
 
-          <Field data-invalid={showDepartmentError || undefined}>
-            <FieldLabel htmlFor="profile-department">학과</FieldLabel>
-            <select
-              id="profile-department"
-              name="department"
-              className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-              value={values.departmentOption}
-              aria-invalid={showDepartmentError}
-              onChange={(event) =>
-                onChange({
-                  departmentOption: event.target.value,
-                  otherDepartment:
-                    event.target.value === OTHER_DEPARTMENT
-                      ? values.otherDepartment
-                      : '',
-                })
-              }
-            >
-              <option value="">학과를 선택해 주세요</option>
-              {DEPARTMENT_GROUPS.map((group) => (
-                <optgroup key={group.label} label={group.label}>
-                  {group.departments.map((department) => (
-                    <option key={department} value={department}>
-                      {department}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-              <option value={OTHER_DEPARTMENT}>기타(직접 입력)</option>
-            </select>
-            {values.departmentOption === OTHER_DEPARTMENT ? (
-              <Input
-                aria-label="기타 학과"
-                placeholder="학과 또는 전공을 입력해 주세요"
-                maxLength={PROFILE_DEPARTMENT_MAX_LENGTH}
-                value={values.otherDepartment}
+          {showDepartment ? (
+            <Field data-invalid={showDepartmentError || undefined}>
+              <FieldLabel htmlFor="profile-department">
+                학과
+                <RequiredMark />
+              </FieldLabel>
+              <Select
+                id="profile-department"
+                name="department"
+                aria-required="true"
+                value={values.departmentOption}
                 aria-invalid={showDepartmentError}
                 onChange={(event) =>
-                  onChange({ otherDepartment: event.target.value })
+                  onChange({
+                    departmentOption: event.target.value,
+                    otherDepartment:
+                      event.target.value === OTHER_DEPARTMENT
+                        ? values.otherDepartment
+                        : '',
+                  })
                 }
-              />
-            ) : null}
-            {showDepartmentError ? (
-              <FieldError>{errors.department}</FieldError>
-            ) : null}
-          </Field>
+              >
+                <option value="">학과를 선택해 주세요</option>
+                {DEPARTMENT_GROUPS.map((group) => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.departments.map((department) => (
+                      <option key={department} value={department}>
+                        {department}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+                <option value={OTHER_DEPARTMENT}>기타(직접 입력)</option>
+              </Select>
+              {values.departmentOption === OTHER_DEPARTMENT ? (
+                <Input
+                  aria-label="기타 학과"
+                  placeholder="학과 또는 전공을 입력해 주세요"
+                  maxLength={PROFILE_DEPARTMENT_MAX_LENGTH}
+                  value={values.otherDepartment}
+                  aria-invalid={showDepartmentError}
+                  onChange={(event) =>
+                    onChange({ otherDepartment: event.target.value })
+                  }
+                />
+              ) : null}
+              {showDepartmentError ? (
+                <FieldError>{errors.department}</FieldError>
+              ) : null}
+            </Field>
+          ) : null}
         </FormSection>
 
         {submitError ? (
@@ -178,15 +242,47 @@ export function ProfileForm({
           </Alert>
         ) : null}
 
-        <Button type="submit" size="lg" disabled={!isValid || isSubmitting}>
-          {isSubmitting ? '저장 중…' : '저장하고 역할 선택으로 이동'}
+        <Button
+          className={signupPrimaryClassName}
+          type="submit"
+          size="lg"
+          disabled={!isValid || isSubmitting}
+        >
+          {isSubmitting ? '저장 중…' : '가입 마치기'}
         </Button>
       </form>
-    </main>
+    </>
   );
 }
 
-export function ProfileOnboardingScreen() {
+/**
+ * 필수 항목 표시.
+ *
+ * 예전에는 이 화면에 필수 표시가 하나도 없었다 — 무엇을 꼭 채워야 하는지 알
+ * 방법이 "버튼이 안 켜진다"뿐이었다. 별표(*) 대신 글자로 적는 이유는 별표가
+ * 스크린 리더에서 읽히지 않거나 "애스터리스크"로 읽혀 뜻이 전달되지 않아서다.
+ * 입력칸에는 `aria-required`를 따로 붙인다.
+ */
+function RequiredMark() {
+  return (
+    <span className="ml-1 text-small font-semibold text-cosmos-repository">
+      필수
+    </span>
+  );
+}
+
+export function ProfileOnboardingScreen({
+  role,
+  nextPath,
+}: {
+  /** app 계층이 세션에서 읽어 넘긴다 — feature는 auth·roles에 직접 의존할 수 없다. */
+  readonly role: ProfileRole | null;
+  /**
+   * 저장을 마친 뒤 갈 곳. 프로필이 온보딩의 마지막 단계라 목적지가 역할마다 다르고,
+   * 그 판단은 세션·역할 요청을 아는 app 계층이 한다.
+   */
+  readonly nextPath: string;
+}) {
   const router = useRouter();
   const [values, setValues] = useState<ProfileFormValues | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -205,13 +301,14 @@ export function ProfileOnboardingScreen() {
           router.replace('/consent');
           return true;
         case 'already-complete':
-          router.replace(PROFILE_ONBOARDING_NEXT_PATH);
+          router.replace(nextPath);
           return true;
+        case 'student-id-taken':
         case 'generic':
           return false;
       }
     },
-    [router],
+    [nextPath, router],
   );
 
   const loadProfile = useCallback(
@@ -219,7 +316,7 @@ export function ProfileOnboardingScreen() {
       setLoadError(null);
       try {
         const profile = await getMyProfile(signal);
-        const redirect = getProfileRedirect(profile);
+        const redirect = getProfileRedirect(profile, role, nextPath);
         if (redirect) {
           router.replace(redirect);
           return;
@@ -232,7 +329,7 @@ export function ProfileOnboardingScreen() {
         setLoadError('프로필 정보를 불러오지 못했습니다. 다시 시도해 주세요.');
       }
     },
-    [navigateForError, router],
+    [navigateForError, nextPath, role, router],
   );
 
   useEffect(() => {
@@ -244,9 +341,9 @@ export function ProfileOnboardingScreen() {
   const errors = useMemo(
     () =>
       values
-        ? validateProfileForm(values)
+        ? validateProfileForm(values, role)
         : { name: null, studentId: null, department: null },
-    [values],
+    [role, values],
   );
 
   async function submit(): Promise<void> {
@@ -254,7 +351,7 @@ export function ProfileOnboardingScreen() {
       return;
     }
     setHasSubmitted(true);
-    const request = toCompleteProfileRequest(values);
+    const request = toCompleteProfileRequest(values, role);
     if (!request) {
       return;
     }
@@ -264,11 +361,25 @@ export function ProfileOnboardingScreen() {
     setSubmitError(null);
     try {
       await completeMyProfile(request);
-      router.replace(PROFILE_ONBOARDING_NEXT_PATH);
-      router.refresh();
+      // 가입이 끝난 순간은 여기다 — GitHub 연결이 아니라 프로필 저장이 회원가입을
+      // 완성한다. 그 사실을 아는 곳은 이 한 줄뿐이라 안내 표시도 여기서 남긴다.
+      // 다음 화면이 표시를 읽는 즉시 지운다(`lib/signup-completion-notice.ts`).
+      rememberSignupCompletion(nextPath);
+      // 여기만 전체 이동을 쓴다. 저장으로 세션의 `isProfileComplete`가 바뀌는데,
+      // 공유 세션 저장소(`features/auth/session-store.ts`)는 페이지를 새로 읽을 때만
+      // 채워진다. 클라이언트 라우팅으로 나가면 다음 화면의 `RoleGate`가 옛 값(미완료)을
+      // 보고 이 화면으로 되돌리고, 이 화면은 프로필이 완료된 것을 보고 다시 내보내
+      // 가입 마지막 단계에서 무한 왕복이 된다. 역할 선택이 전체 이동을 쓰는 이유와 같다
+      // (`features/roles`의 `navigateAfterRoleSelection`).
+      window.location.assign(nextPath);
     } catch (error: unknown) {
       if (!navigateForError(error)) {
-        setSubmitError('잠시 후 다시 시도해 주세요.');
+        // 학번 중복은 재시도로 풀리지 않는다 — "잠시 후 다시"로 접으면 같은 벽을 반복한다.
+        setSubmitError(
+          classifyProfileApiError(error) === 'student-id-taken'
+            ? '이미 다른 계정이 사용 중인 학번입니다. 학번을 다시 확인해 주세요.'
+            : '잠시 후 다시 시도해 주세요.',
+        );
       }
     } finally {
       submissionInFlight.current = false;
@@ -278,10 +389,10 @@ export function ProfileOnboardingScreen() {
 
   if (loadError) {
     return (
-      <main className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-6">
+      <PageBody className="max-w-2xl">
         <Alert variant="destructive">
           <AlertTitle>프로필을 불러오지 못했습니다</AlertTitle>
-          <AlertDescription className="flex flex-col items-start gap-3">
+          <AlertDescription className="flex flex-col items-start gap-4">
             <span>{loadError}</span>
             <Button
               type="button"
@@ -292,7 +403,7 @@ export function ProfileOnboardingScreen() {
             </Button>
           </AlertDescription>
         </Alert>
-      </main>
+      </PageBody>
     );
   }
 
@@ -302,6 +413,7 @@ export function ProfileOnboardingScreen() {
 
   return (
     <ProfileForm
+      role={role}
       values={values}
       errors={errors}
       showRequiredErrors={hasSubmitted}

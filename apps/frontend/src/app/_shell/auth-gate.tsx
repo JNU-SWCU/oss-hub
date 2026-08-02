@@ -28,7 +28,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (status === 'loading' || status === 'anonymous') {
     return (
-      <p className="p-6 text-sm text-muted-foreground" role="status">
+      <p
+        className="flex min-h-[50svh] items-center justify-center px-6 py-16 text-sm text-muted-foreground"
+        role="status"
+      >
         확인 중…
       </p>
     );

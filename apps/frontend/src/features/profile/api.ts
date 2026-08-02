@@ -1,8 +1,5 @@
 import { ApiError, apiClient } from '@/lib/api-client';
-import {
-  PROFILE_DEPARTMENT_MAX_LENGTH,
-  PROFILE_NAME_MAX_LENGTH,
-} from './profile-state';
+import { isConsistentCompleteProfile } from './profile-requirements';
 import type {
   CompleteProfileRequest,
   UpdateProfileRequest,
@@ -10,7 +7,12 @@ import type {
 } from './types';
 
 export type ProfileApiErrorKind =
-  'unauthorized' | 'consent-required' | 'already-complete' | 'generic';
+  | 'unauthorized'
+  | 'consent-required'
+  | 'already-complete'
+  /** 다른 계정이 이미 그 학번을 쓰고 있다 — 다시 시도해도 결과가 같다. */
+  | 'student-id-taken'
+  | 'generic';
 
 export class ProfileResponseError extends Error {
   constructor() {
@@ -23,22 +25,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function hasCompleteProfileFields(value: {
-  readonly name: string;
-  readonly studentId: string | null;
-  readonly department: string | null;
-}): boolean {
-  return (
-    value.name.trim().length > 0 &&
-    value.name.length <= PROFILE_NAME_MAX_LENGTH &&
-    value.studentId !== null &&
-    /^\d{6,10}$/.test(value.studentId) &&
-    value.department !== null &&
-    value.department.trim().length > 0 &&
-    value.department.length <= PROFILE_DEPARTMENT_MAX_LENGTH
-  );
-}
-
 function parseProfile(value: unknown): UserProfile {
   if (
     !isRecord(value) ||
@@ -46,12 +32,14 @@ function parseProfile(value: unknown): UserProfile {
     (value.studentId !== null && typeof value.studentId !== 'string') ||
     (value.department !== null && typeof value.department !== 'string') ||
     typeof value.isComplete !== 'boolean' ||
-    value.isComplete !==
-      hasCompleteProfileFields({
+    // 역할별로 필수 항목이 달라 응답만으로 완료 여부를 재계산할 수 없다.
+    // 어느 역할에서도 성립해야 하는 불변식만 검사한다(`isConsistentCompleteProfile`).
+    (value.isComplete &&
+      !isConsistentCompleteProfile({
         name: value.name,
         studentId: value.studentId,
         department: value.department,
-      })
+      }))
   ) {
     throw new ProfileResponseError();
   }
@@ -109,6 +97,10 @@ export function classifyProfileApiError(error: unknown): ProfileApiErrorKind {
   }
   if (error.problem.status === 409 && error.problem.code === 'USR_001') {
     return 'already-complete';
+  }
+  // 재시도로 풀리지 않는 실패라 "잠시 후 다시"로 접으면 사용자가 계속 같은 벽에 부딪힌다.
+  if (error.problem.status === 409 && error.problem.code === 'USR_004') {
+    return 'student-id-taken';
   }
   return 'generic';
 }

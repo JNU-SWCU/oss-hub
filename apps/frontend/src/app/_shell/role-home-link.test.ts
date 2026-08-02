@@ -23,18 +23,22 @@ describe('resolveSessionEntry', () => {
     },
   );
 
-  it('역할 미확정 사용자는 필수 동의에서 온보딩을 계속한다', () => {
+  // 온보딩을 끝내지 못한 사용자에게 별도의 "이어서" 행동을 만들지 않는다.
+  // 비로그인 방문자와 같은 버튼 하나를 주고, 재개 지점 판단은 `/signup`이 한다.
+  it('역할 미확정 사용자도 가입·로그인 진입으로 보낸다', () => {
     const destination = resolveSessionEntry('unassigned', null);
 
     expect(destination).toEqual({
-      href: '/consent',
-      label: '가입 계속하기',
-      compactLabel: '가입 계속',
+      href: '/signup',
+      label: '회원가입 / 로그인',
+      compactLabel: '회원가입',
     });
   });
 
+  // 비로그인은 같은 actions 슬롯의 LoginButton이 이미 맡고 있어 nav 링크를 하나 더
+  // 내지 않는다. 랜딩 본문의 주 행동은 landing-entry-action이 따로 그린다.
   it.each(['anonymous', 'loading'] as const)(
-    '%s 상태는 이동 대상을 노출하지 않는다',
+    '%s 상태는 nav 이동 대상을 노출하지 않는다',
     (status) => {
       const destination = resolveSessionEntry(status, null);
 

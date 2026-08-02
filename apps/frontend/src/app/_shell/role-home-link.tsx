@@ -1,7 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import {
+  SIGNUP_ENTRY,
+  shouldShowEntryLink,
+} from '@/features/auth/signup-entry-link';
 import { useSessionRole, type SessionStatus } from './use-session-role';
 import { roleHomePath, type AppRole } from './role';
 import { ADMIN_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
@@ -22,16 +27,13 @@ interface SessionEntry {
   readonly compactLabel: string;
 }
 
-const ONBOARDING_ENTRY = {
-  href: '/consent',
-  label: '가입 계속하기',
-  compactLabel: '가입 계속',
-} as const satisfies SessionEntry;
-
 /**
  * 랜딩은 항상 볼 수 있게 두고, 세션 상태에 맞는 다음 행동만 nav에 제공한다.
- * 역할 미확정 사용자는 `/consent`에서 시작한다. 기존 ConsentFlow가 현행 동의를
- * 확인해 미동의자는 동의 화면을, 동의 완료자는 역할 온보딩을 이어서 보여 준다.
+ *
+ * 비로그인(`anonymous`)은 여기서 다루지 않는다 — 같은 actions 슬롯의
+ * LoginButton이 이미 그 자리를 갖고 있어, 링크를 하나 더 내면 로그인 버튼이 둘이
+ * 된다. 그 LoginButton도 `SIGNUP_ENTRY`로 보내므로 목적지는 여기와 같다. 랜딩
+ * 본문의 주 행동은 `landing-entry-action.tsx`가 같은 상수로 직접 그린다.
  */
 export function resolveSessionEntry(
   status: SessionStatus,
@@ -45,8 +47,12 @@ export function resolveSessionEntry(
     // 띄우면 모든 화면 상단에 같은 경고가 중복으로 뜬다.
     case 'error':
       return null;
+    // 온보딩을 끝내지 못한 사용자에게도 비로그인 방문자와 **같은** 버튼을 준다.
+    // 예전에는 이 자리에 온보딩 입구(`/consent`)로 곧장 가는 별도 행동이 하나 더
+    // 있었지만, 사용자 눈에는 둘 다 "들어가기"일 뿐이다 — 재개 지점 판단은
+    // `/signup`이 대신하므로 사용자에게 두 갈래를 고르게 할 이유가 없다.
     case 'unassigned':
-      return ONBOARDING_ENTRY;
+      return SIGNUP_ENTRY;
     case 'assigned':
       return role
         ? {
@@ -65,11 +71,20 @@ export function resolveSessionEntry(
 /**
  * nav actions 슬롯의 세션별 진입 링크. 자동 리다이렉트 없이 사용자가 직접
  * 클릭해 이동하므로 랜딩 뒤로가기 함정을 만들지 않는다.
+ *
+ * 온보딩을 끝내지 못한 사용자를 랜딩에서 자동으로 밀어내는 방식은 이미 시도했다가
+ * 되돌렸다(#144 → #147) — 뒤로가기를 누르면 랜딩에 닿는 즉시 다시 튕겨 나가
+ * 사용자가 랜딩을 볼 수 없었다. 랜딩은 누구에게나 열려 있어야 하고, 재개는
+ * 사용자가 스스로 들어온 `/signup` 안에서만 일어난다. 다시 넣지 않는다.
  */
 export function SessionEntryNavLink() {
   const { status, role } = useSessionRole();
+  const pathname = usePathname();
   const destination = resolveSessionEntry(status, role);
-  if (!destination) return null;
+  // 지금 있는 화면을 다시 가리키는 링크는 내지 않는다 — 눌러도 제자리라 고장으로 읽힌다.
+  if (!destination || !shouldShowEntryLink(destination.href, pathname)) {
+    return null;
+  }
 
   return (
     <Button asChild variant="ghost">

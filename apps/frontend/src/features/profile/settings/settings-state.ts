@@ -1,3 +1,4 @@
+import type { ProfileRole } from '../profile-requirements';
 import {
   createInitialProfileForm,
   toUpdateProfileRequest,
@@ -28,6 +29,7 @@ export function createInitialSettingsForm(
   return {
     name: seed.name,
     studentId: seed.studentId,
+    savedStudentId: profile.studentId ?? '',
     departmentOption: seed.departmentOption,
     otherDepartment: seed.otherDepartment,
     notificationEmail: notification?.notificationEmail ?? '',
@@ -38,10 +40,12 @@ export function createInitialSettingsForm(
 export function validateSettingsForm(
   values: SettingsFormValues,
   notificationAvailable: boolean,
+  role: ProfileRole | null,
 ): SettingsFormErrors {
-  const profileErrors = validateSettingsProfileForm(values);
+  const profileErrors = validateSettingsProfileForm(values, role);
   return {
     name: profileErrors.name,
+    studentId: profileErrors.studentId,
     department: profileErrors.department,
     notificationEmail:
       notificationAvailable &&
@@ -55,8 +59,11 @@ export function isSettingsFormValid(errors: SettingsFormErrors): boolean {
   return Object.values(errors).every((error) => error === null);
 }
 
-export function toSettingsProfileRequest(values: SettingsFormValues) {
-  return toUpdateProfileRequest(values);
+export function toSettingsProfileRequest(
+  values: SettingsFormValues,
+  role: ProfileRole | null,
+) {
+  return toUpdateProfileRequest(values, role);
 }
 
 export function toSettingsNotificationRequest(values: SettingsFormValues) {

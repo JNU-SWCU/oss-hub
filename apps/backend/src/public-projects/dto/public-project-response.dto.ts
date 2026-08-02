@@ -32,7 +32,7 @@ export class PublicProjectListItemResponseDto {
   readonly publishedAt: string;
 
   private constructor(row: PublicProjectRow) {
-    this.projectId = row.id;
+    this.projectId = row.projectId;
     this.programId = row.programId;
     this.programName = row.programName;
     this.category = row.category;
@@ -116,7 +116,7 @@ export class PublicProjectDetailResponseDto {
   readonly contributors: PublicProjectContributorResponseDto[];
 
   private constructor(detail: PublicProjectDetailResult) {
-    this.projectId = detail.row.id;
+    this.projectId = detail.row.projectId;
     this.programId = detail.row.programId;
     this.programName = detail.row.programName;
     this.category = detail.row.category;

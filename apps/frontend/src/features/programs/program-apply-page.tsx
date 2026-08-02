@@ -149,7 +149,7 @@ export function ProgramApplyPage({
       return <ApplySkeleton />;
     case 'not-found':
       return (
-        <main className="mx-auto max-w-3xl px-4 py-12">
+        <main className="mx-auto w-full max-w-3xl px-4 py-12">
           <EmptyState
             title="프로그램을 찾을 수 없습니다"
             description="삭제되었거나 공개되지 않은 프로그램입니다."
@@ -163,7 +163,7 @@ export function ProgramApplyPage({
       );
     case 'failed':
       return (
-        <main className="mx-auto max-w-3xl px-4 py-12">
+        <main className="mx-auto w-full max-w-3xl px-4 py-12">
           <EmptyState
             title="신청 양식을 불러오지 못했습니다"
             description={state.message}

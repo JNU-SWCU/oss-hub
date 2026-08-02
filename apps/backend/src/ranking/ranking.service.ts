@@ -3,6 +3,7 @@ import {
   COLLECTION_READ_PORT,
   type CollectionReadPort,
 } from '../collection/collection-read.port';
+import { UserDisplayNameRepository } from '../users/user-display-name.repository';
 import {
   RANKING_PERIODS,
   type RankingEntry,
@@ -29,6 +30,7 @@ export class RankingService {
   constructor(
     @Inject(COLLECTION_READ_PORT)
     private readonly collection: CollectionReadPort,
+    private readonly displayNames: UserDisplayNameRepository,
   ) {}
 
   async findPage(
@@ -82,18 +84,29 @@ export class RankingService {
       period === RANKING_PERIODS.THIS_YEAR ? { currentYear } : {},
     );
 
-    return activity
+    const candidates = activity
       .map(({ githubId, githubLogin, commitCount, prCount, releaseCount }) => ({
         githubId,
-        rank: 0,
-        displayName: githubLogin,
         githubLogin,
         commitCount,
         prCount,
         releaseCount,
         total: commitCount + prCount + releaseCount,
       }))
-      .filter((entry) => entry.total > 0)
+      .filter((entry) => entry.total > 0);
+
+    // 이름 조회는 60초 캐시로 감싸인 buildEntries 안에서 이뤄진다 — 랭킹 목록과 같은
+    // staleness를 허용하는 대신, 캐시가 살아있는 동안은 추가 질의 없이 재사용된다.
+    const names = await this.findDisplayNames(
+      candidates.map((entry) => entry.githubId),
+    );
+
+    return candidates
+      .map((entry) => ({
+        ...entry,
+        rank: 0,
+        displayName: names.get(entry.githubId)?.trim() || entry.githubLogin,
+      }))
       .sort((left, right) => {
         const normalizedLoginOrder = left.githubLogin
           .normalize()
@@ -124,5 +137,13 @@ export class RankingService {
         releaseCount: entry.releaseCount,
         total: entry.total,
       }));
+  }
+
+  private async findDisplayNames(
+    githubIds: readonly bigint[],
+  ): Promise<ReadonlyMap<bigint, string | null>> {
+    const uniqueIds = [...new Set(githubIds)];
+    const users = await this.displayNames.findByGithubIds(uniqueIds);
+    return new Map(users.map((user) => [user.githubId, user.name]));
   }
 }

@@ -19,6 +19,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { ApiError } from '@/lib/api-client';
 import {
   decideApplication,
@@ -137,7 +138,7 @@ function participationLabel(item: ApplicationListItem): string {
 function ApplicantsSkeleton(): ReactElement {
   return (
     <main
-      className="mx-auto grid max-w-6xl gap-6 px-4 py-8"
+      className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8"
       aria-label="신청자 목록 불러오는 중"
     >
       <div className="h-20 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
@@ -423,7 +424,7 @@ export function ProgramApplicantsPage({
   if (loadState.kind === 'loading') return <ApplicantsSkeleton />;
   if (loadState.kind === 'not-found')
     return (
-      <main className="mx-auto max-w-3xl px-4 py-12">
+      <main className="mx-auto w-full max-w-3xl px-4 py-12">
         <EmptyState
           title="프로그램을 찾을 수 없습니다"
           description="삭제되었거나 공개되지 않은 프로그램입니다."
@@ -437,7 +438,7 @@ export function ProgramApplicantsPage({
     );
   if (loadState.kind === 'error')
     return (
-      <main className="mx-auto max-w-3xl px-4 py-12">
+      <main className="mx-auto w-full max-w-3xl px-4 py-12">
         <EmptyState
           title="신청자 목록을 불러오지 못했습니다"
           description={loadState.message}
@@ -456,7 +457,7 @@ export function ProgramApplicantsPage({
     : undefined;
   const hasFilters = search.trim() !== '' || status !== 'all' || mode !== 'all';
   return (
-    <main className="mx-auto grid max-w-6xl gap-6 px-4 py-8">
+    <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8">
       <PageHeader
         title={`${program.name} 신청자`}
         description="프로그램 신청을 검색·필터하고 상세로 이동할 수 있습니다."
@@ -496,8 +497,7 @@ export function ProgramApplicantsPage({
         </label>
         <label className="grid gap-1 text-sm">
           <span className="text-muted-foreground">상태</span>
-          <select
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          <Select
             value={status}
             onChange={(event) => {
               setStatus(event.target.value as ApplicationListStatus);
@@ -509,12 +509,11 @@ export function ProgramApplicantsPage({
             <option value="SUBMITTED">제출됨</option>
             <option value="APPROVED">승인</option>
             <option value="REJECTED">반려</option>
-          </select>
+          </Select>
         </label>
         <label className="grid gap-1 text-sm">
           <span className="text-muted-foreground">구분</span>
-          <select
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          <Select
             value={mode}
             onChange={(event) => {
               setMode(event.target.value as ApplicationListMode);
@@ -525,10 +524,21 @@ export function ProgramApplicantsPage({
             <option value="all">전체</option>
             <option value="personal">개인</option>
             <option value="team">팀</option>
-          </select>
+          </Select>
         </label>
       </form>
+      {/* 신청자 표는 열이 많아 사이드바가 있는 1440에서도 폭이 모자란다. 이 화면에서
+          실제로 하는 일(보기·승인·반려)이 맨 오른쪽 열에 있어, 밀 수 있다는 것을
+          알리지 않으면 할 수 있는 일이 없는 화면처럼 보인다. 감사 로그·제출 현황이
+          쓰는 안내 문구와 같은 방식으로 맞춘다. */}
+      <p
+        id="applicants-table-scroll-hint"
+        className="text-sm text-muted-foreground"
+      >
+        표를 좌우로 스크롤할 수 있습니다.
+      </p>
       <DataTable
+        aria-describedby="applicants-table-scroll-hint"
         columns={columns}
         data={[...applicationPage.items]}
         rowKey={(row) => row.id}

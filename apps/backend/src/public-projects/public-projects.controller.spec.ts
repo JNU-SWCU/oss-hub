@@ -6,6 +6,7 @@ function row(
   overrides: Partial<PublicProjectRow> & { id: string },
 ): PublicProjectRow {
   return {
+    projectId: '9001',
     githubRepositoryId: 9001n,
     repositoryName: 'synthetic-repo',
     githubUrl: 'https://github.com/synthetic-org/synthetic-repo',
@@ -41,7 +42,7 @@ describe('PublicProjectsController', () => {
     expect(result.nextPageId).toBe('opaque-cursor');
     expect(result.items).toEqual([
       {
-        projectId: 'synthetic-repository-1',
+        projectId: '9001',
         programId: 'synthetic-program-1',
         programName: 'synthetic-program',
         category: 'BASIC',

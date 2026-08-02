@@ -13,6 +13,7 @@ const authenticated: AuthSessionState = {
     email: null,
     avatarUrl: null,
     role: 'STUDENT',
+    isProfileComplete: true,
   },
   logoutError: null,
 };

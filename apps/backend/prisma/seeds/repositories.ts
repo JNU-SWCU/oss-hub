@@ -259,6 +259,14 @@ async function seedRepositoryReady(stats: SeedStats): Promise<void> {
   );
 }
 
+/**
+ * `visibility: PUBLIC`이지만 의도적으로 `publishedAt: null`이다 — 공개 아카이브
+ * (`GET /api/v1/projects`)의 platform-public 원본 질의는 `publishedAt: { not: null }`도
+ * 함께 요구하므로, 이 fixture는 "공개 전이는 됐지만 아직 발행 시각이 찍히지 않은" 내부
+ * 상태 검증에만 쓰이고 공개 API에는 절대 노출되지 않는다. 합성 fixture URL을 실제
+ * `https://github.com/JNU-SWCU/...`처럼 보이게 바꾸지 않는다(반쪽짜리 실제 데이터 금지,
+ * `AGENTS.md` antipattern #2).
+ */
 async function seedRepositoryPublic(stats: SeedStats): Promise<void> {
   const scenarioId = 'repository-public';
   const { applicationId } = await ensureApplication(stats, scenarioId);
@@ -271,7 +279,7 @@ async function seedRepositoryPublic(stats: SeedStats): Promise<void> {
     () =>
       prisma.repository.upsert({
         where: { id: repositoryId },
-        update: {},
+        update: { publishedAt: null },
         create: {
           id: repositoryId,
           applicationId,
@@ -280,7 +288,7 @@ async function seedRepositoryPublic(stats: SeedStats): Promise<void> {
           name: `seed-${scenarioId}`,
           url: seedFixtureUrl(scenarioId),
           visibility: RepositoryVisibility.PUBLIC,
-          publishedAt: offsetDays(-1),
+          publishedAt: null,
         },
       }),
   );

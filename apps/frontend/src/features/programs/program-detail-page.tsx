@@ -23,7 +23,7 @@ export type DetailState =
 function DetailSkeleton() {
   return (
     <main
-      className="mx-auto grid max-w-6xl gap-6 px-4 py-8"
+      className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8"
       aria-label="프로그램 상세 불러오는 중"
     >
       <div className="h-24 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
@@ -34,16 +34,32 @@ function DetailSkeleton() {
   );
 }
 
+/**
+ * 가입 진입점. `@/features/auth/signup-entry-link`의 `SIGNUP_ENTRY.href`와 같은 값을
+ * 여기 한 벌 더 적는다 — feature는 다른 feature의 내부 경로를 직접 읽을 수 없고
+ * (eslint `no-restricted-imports`, docs/rules/frontend.md), 이 한 자리를 위해 공용
+ * 계약을 새로 파낼 만큼 값이 자라지 않았다. 진입 경로가 바뀌면 두 곳을 같이 고친다.
+ */
+const SIGNUP_ENTRY_HREF = '/signup';
+
 export function ProgramActions({
   program,
 }: {
   readonly program: ProgramDetail;
 }) {
   const role = program.viewer.role;
+  // 역할이 없는 사람은 두 종류가 섞여 들어온다 — 아직 GitHub도 연결하지 않은
+  // 방문자와, 연결은 했지만 프로필을 채우지 않아 가입이 끝나지 않은 사람. 뒤쪽에게
+  // "로그인 후 확인"은 거짓말이라(그는 이미 로그인해 있다) 어느 쪽에도 참인 "가입"으로
+  // 말한다. GitHub 연결만으로는 회원이 아니고, 프로필까지 마쳐야 신청할 수 있다.
+  //
+  // 목적지도 랜딩이 아니라 가입 진입점 하나다. 재개 지점 판단은 `/signup`이 대신하므로
+  // 프로필만 남은 사람은 프로필로 이어진다. 반대로 `/programs` 자체를 막는 방식은
+  // 쓰지 않는다 — 프로그램 열람은 비로그인 방문자에게도 열려 있어야 한다.
   if (role === null)
     return (
       <Button asChild>
-        <Link href="/">로그인 후 확인</Link>
+        <Link href={SIGNUP_ENTRY_HREF}>가입하고 신청하기</Link>
       </Button>
     );
   if (role === 'STUDENT' && program.viewer.applicationStatus === null) {
@@ -114,7 +130,7 @@ export function ProgramDetailFailureState({
 }) {
   if (kind === 'not-found') {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-12">
+      <main className="mx-auto w-full max-w-3xl px-4 py-12">
         <EmptyState
           title="프로그램을 찾을 수 없습니다"
           description="삭제되었거나 공개되지 않은 프로그램입니다."
@@ -128,7 +144,7 @@ export function ProgramDetailFailureState({
     );
   }
   return (
-    <main className="mx-auto max-w-3xl px-4 py-12">
+    <main className="mx-auto w-full max-w-3xl px-4 py-12">
       <EmptyState
         title="프로그램을 불러오지 못했습니다"
         description="잠시 후 다시 시도해 주세요."
@@ -248,7 +264,7 @@ export function ProgramDetailReadyState({
   }, []);
 
   return (
-    <main className="mx-auto grid max-w-6xl gap-8 px-4 py-8">
+    <main className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-8">
       <PageHeader
         title={
           <span className="break-keep text-2xl sm:text-3xl">

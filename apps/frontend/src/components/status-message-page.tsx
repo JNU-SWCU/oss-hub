@@ -59,7 +59,17 @@ function StatusMessagePage({
           {title}
         </h1>
         {description ? (
-          <p className="text-sm text-muted-foreground">{description}</p>
+          // 폭을 묶지 않으면 넓은 화면에서 한 줄이 뷰포트 끝까지(1000px 넘게) 늘어나
+          // 다음 줄 첫 글자를 눈으로 되찾기 어렵다. 같은 처지의 전면 안내인
+          // `app/_shell/session-error.tsx`·`access-denied.tsx`가 이미 쓰는 폭을 그대로
+          // 따라, 이 부품을 함께 쓰는 화면들이 서로 다른 폭으로 갈라지지 않게 한다.
+          //
+          // `w-full`이 아니라 최대 폭만 건다 — 부모가 `items-center`라 문단은 제 내용
+          // 만큼만 차지하고, 그래서 짧은 문구도 가운데 정렬이 유지되며 좁은 화면에서
+          // 양옆에 빈 폭이 남지 않는다.
+          <p className="mx-auto max-w-md break-keep text-sm text-muted-foreground">
+            {description}
+          </p>
         ) : null}
         {action ? (
           <div data-slot="status-message-page-action" className="mt-2">

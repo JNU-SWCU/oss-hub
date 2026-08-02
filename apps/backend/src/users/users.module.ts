@@ -5,6 +5,7 @@ import { ConsentsModule } from '../consents/consents.module';
 import { AdminAccessController } from './admin-access.controller';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
+import { UserDisplayNameRepository } from './user-display-name.repository';
 import { UsersController } from './users.controller';
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
@@ -15,9 +16,10 @@ import { UsersService } from './users.service';
   providers: [
     AdminAccessRepository,
     AdminAccessService,
+    UserDisplayNameRepository,
     UsersRepository,
     UsersService,
   ],
-  exports: [UsersService],
+  exports: [UserDisplayNameRepository, UsersService],
 })
 export class UsersModule {}

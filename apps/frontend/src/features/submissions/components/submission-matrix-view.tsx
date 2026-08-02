@@ -3,6 +3,7 @@ import type { FormEvent, ReactElement, ReactNode } from 'react';
 import {
   DataTable,
   EmptyState,
+  PageBody,
   PageHeader,
   StatusBadge,
   type DataTableColumn,
@@ -29,6 +30,14 @@ import type {
   MatrixRow,
   SubmissionMatrixPage,
 } from '../types';
+
+const SECTION_BODY = 'flex min-w-0 flex-col gap-8';
+const TABLE_CARD = 'min-w-0 overflow-hidden rounded-card border border-border';
+/** 필터 줄 — 시안은 필터를 카드에 넣지 않는다. 표(카드)와 제목 사이의 조작 줄이다. */
+const FILTER_ROW =
+  'grid w-full min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:items-end';
+const SELECT_CONTROL =
+  'h-control w-full min-w-0 rounded-control border border-input bg-background px-4 text-body outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50';
 
 const MODE_FILTER_OPTIONS = [
   { value: 'ALL', label: '전체' },
@@ -79,8 +88,8 @@ function MatrixCellContent({
         <span
           className={
             deadline.overdue
-              ? 'text-xs font-medium text-destructive'
-              : 'text-xs text-muted-foreground'
+              ? 'text-small font-semibold text-destructive'
+              : 'text-small text-muted-foreground'
           }
         >
           {deadline.label}
@@ -97,7 +106,9 @@ function MatrixCellContent({
     >
       {badge}
       {cell.revision !== null ? (
-        <span className="text-xs text-muted-foreground">v{cell.revision}</span>
+        <span className="text-small text-muted-foreground">
+          v{cell.revision}
+        </span>
       ) : null}
     </Link>
   );
@@ -125,7 +136,7 @@ function MatrixPagination({
       >
         이전
       </Button>
-      <span className="text-sm text-muted-foreground">
+      <span className="text-small text-muted-foreground">
         {page} / {totalPages}
       </span>
       <Button
@@ -144,7 +155,7 @@ function MatrixSkeleton(): ReactElement {
     <div
       aria-busy="true"
       aria-label="제출 현황을 불러오는 중"
-      className="flex flex-col gap-3 rounded-lg border border-border p-4"
+      className="flex flex-col gap-3 rounded-card border border-border p-card"
     >
       <span className="bg-muted h-4 w-1/3 animate-pulse rounded" />
       {[0, 1, 2, 3].map((row) => (
@@ -220,7 +231,7 @@ function MatrixBody(props: SubmissionMatrixViewProps): ReactNode {
             {matrixRowTitle(row)} · {MATRIX_MODE_LABELS[row.applicationMode]}
           </span>
           {row.githubLogins.length > 0 ? (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-small text-muted-foreground">
               {row.githubLogins.map((login) => `@${login}`).join(' ')}
             </span>
           ) : null}
@@ -232,7 +243,7 @@ function MatrixBody(props: SubmissionMatrixViewProps): ReactNode {
       header: (
         <span className="flex flex-col gap-0.5">
           <span>{milestone.name}</span>
-          <span className="text-xs font-normal text-muted-foreground">
+          <span className="text-small font-normal text-muted-foreground">
             {formatMatrixDueDate(milestone.dueAt)} 마감
           </span>
         </span>
@@ -251,11 +262,11 @@ function MatrixBody(props: SubmissionMatrixViewProps): ReactNode {
 
   return (
     <>
-      <p id="matrix-scroll-hint" className="text-muted-foreground text-sm">
+      <p id="matrix-scroll-hint" className="text-small text-muted-foreground">
         총 {total}건 · 표를 좌우로 스크롤할 수 있습니다.
       </p>
       <DataTable
-        className="min-w-0 rounded-lg border border-border"
+        className={TABLE_CARD}
         aria-describedby="matrix-scroll-hint"
         columns={columns}
         data={[...rows]}
@@ -277,7 +288,7 @@ export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
   };
 
   return (
-    <section className="flex min-w-0 flex-col gap-6 p-4 sm:p-6">
+    <PageBody>
       <PageHeader
         title="제출 현황"
         description={
@@ -286,71 +297,72 @@ export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
           </span>
         }
       />
-      <form
-        className="grid w-full min-w-0 gap-4 rounded-lg border border-border p-4 sm:grid-cols-2 xl:grid-cols-4 xl:items-end"
-        onSubmit={submit}
-      >
-        <div className="flex w-full min-w-0 flex-col gap-2">
-          <label htmlFor="matrix-search" className="text-sm font-medium">
-            검색
-          </label>
-          <Input
-            id="matrix-search"
-            className="min-h-11 w-full min-w-0"
-            value={props.search}
-            onChange={(event) => props.onSearchChange(event.target.value)}
-            placeholder="신청자·팀명·GitHub ID"
-          />
-        </div>
-        <div className="flex w-full min-w-0 flex-col gap-2">
-          <label htmlFor="matrix-mode" className="text-sm font-medium">
-            형태
-          </label>
-          <select
-            id="matrix-mode"
-            className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 min-h-11 w-full min-w-0 rounded-md border px-3 text-sm outline-none focus-visible:ring-[3px]"
-            value={props.mode}
-            onChange={(event) =>
-              props.onModeChange(parseMatrixModeFilter(event.target.value))
-            }
-          >
-            {MODE_FILTER_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex w-full min-w-0 gap-2 sm:col-span-2">
-          <Button type="submit" className="min-h-11 min-w-0 flex-1">
-            조회
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-11 min-w-0 flex-1"
-            onClick={props.onResetFilters}
-          >
-            초기화
-          </Button>
-        </div>
-      </form>
-      {props.errorMessage !== null ? (
-        <Alert variant="destructive">
-          <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span>{props.errorMessage}</span>
+      <div className={SECTION_BODY}>
+        <form className={FILTER_ROW} onSubmit={submit}>
+          <div className="flex w-full min-w-0 flex-col gap-2">
+            <label htmlFor="matrix-search" className="text-small font-semibold">
+              검색
+            </label>
+            <Input
+              id="matrix-search"
+              className="h-control w-full min-w-0"
+              value={props.search}
+              onChange={(event) => props.onSearchChange(event.target.value)}
+              placeholder="신청자·팀명·GitHub ID"
+            />
+          </div>
+          <div className="flex w-full min-w-0 flex-col gap-2">
+            <label htmlFor="matrix-mode" className="text-small font-semibold">
+              형태
+            </label>
+            <select
+              id="matrix-mode"
+              className={SELECT_CONTROL}
+              value={props.mode}
+              onChange={(event) =>
+                props.onModeChange(parseMatrixModeFilter(event.target.value))
+              }
+            >
+              {MODE_FILTER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex w-full min-w-0 gap-2 sm:col-span-2">
+            {/* 이 화면의 주 행동은 조회 하나뿐이다 — 채운 버튼도 하나뿐이다.
+                버튼은 글자만큼만 넓힌다. 좁은 화면에서만 한 줄을 반씩 나눠 갖는다. */}
+            <Button type="submit" className="h-control flex-1 sm:flex-none">
+              조회
+            </Button>
             <Button
               type="button"
               variant="outline"
-              className="min-h-11"
-              onClick={props.onRetry}
+              className="h-control flex-1 sm:flex-none"
+              onClick={props.onResetFilters}
             >
-              다시 시도
+              초기화
             </Button>
-          </AlertDescription>
-        </Alert>
-      ) : null}
-      <MatrixBody {...props} />
-    </section>
+          </div>
+        </form>
+        {props.errorMessage !== null ? (
+          <Alert variant="destructive">
+            <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span>{props.errorMessage}</span>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-control"
+                onClick={props.onRetry}
+              >
+                다시 시도
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        <MatrixBody {...props} />
+      </div>
+    </PageBody>
   );
 }

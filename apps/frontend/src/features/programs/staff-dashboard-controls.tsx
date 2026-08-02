@@ -1,5 +1,6 @@
 import type { FormEvent, ReactElement } from 'react';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { parseStaffDashboardStatus } from './staff-dashboard-filters';
 import type { ProgramListStatus } from './types';
 
@@ -39,8 +40,7 @@ export function StaffDashboardControls({
       </label>
       <label className="grid gap-1 text-sm">
         <span className="text-muted-foreground">모집 상태</span>
-        <select
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+        <Select
           value={status}
           onChange={(event) =>
             onStatusChange(parseStaffDashboardStatus(event.target.value))
@@ -50,7 +50,7 @@ export function StaffDashboardControls({
           <option value="all">전체</option>
           <option value="recruiting">모집중</option>
           <option value="closed">마감</option>
-        </select>
+        </Select>
       </label>
     </form>
   );

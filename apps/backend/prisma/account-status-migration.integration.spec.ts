@@ -7,13 +7,13 @@ import { AuthRepository } from '../src/auth/auth.repository';
 import { AuthService } from '../src/auth/auth.service';
 import { AuditLogRepository } from '../src/audit-log/audit-log.repository';
 import { AuditLogService } from '../src/audit-log/audit-log.service';
+import type { ConsentsService } from '../src/consents/consents.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { loadRuntimeConfig } from '../src/runtime-config/runtime-config';
 import { RolesRepository } from '../src/roles/roles.repository';
 import { RolesService } from '../src/roles/roles.service';
 import { AdminAccessRepository } from '../src/users/admin-access.repository';
 import { AdminAccessService } from '../src/users/admin-access.service';
-import type { UsersService } from '../src/users/users.service';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 
 assertIsolatedIntegrationDatabase({
@@ -58,13 +58,18 @@ describe('accountStatus migration regression', () => {
     authConfig,
     new AuthRepository(prisma, authConfig),
   );
-  const rolesService = new RolesService(
-    new RolesRepository(prisma),
-    { requireCurrent: jest.fn() },
-    {
-      requireCompleteProfile: jest.fn(),
-    } satisfies Pick<UsersService, 'requireCompleteProfile'>,
-  );
+  // 이 회귀 테스트가 보는 것은 마이그레이션 결과이지 온보딩 게이트가 아니다 —
+  // `getMyRequest`는 동의 확인을 거치지 않으므로 이 mock은 한 번도 호출되지 않고,
+  // 생성자를 채워 서비스를 세우는 역할만 한다. 그래서 `satisfies`로 실제 서비스
+  // 시그니처와 모양이 어긋나면 컴파일에서 잡히게 묶어 둔다.
+  //
+  // 예전에 세 번째로 넘기던 `UsersService` mock은 지웠다. 역할 배정의 선행 조건에서
+  // "완료된 프로필"이 빠지면서(RolesService 문서 주석 참고) `RolesService`가 더 이상
+  // 그 협력자를 받지 않는다. 남겨 두면 그 mock이 지키던 계약이 사라졌는데도 있는 것처럼
+  // 보일 뿐 아니라, 인자 수가 맞지 않아 typecheck가 TS2554로 죽는다.
+  const rolesService = new RolesService(new RolesRepository(prisma), {
+    requireCurrent: jest.fn(),
+  } satisfies Pick<ConsentsService, 'requireCurrent'>);
   const adminAccessService = new AdminAccessService(
     new AdminAccessRepository(prisma),
     new AuditLogService(new AuditLogRepository(prisma)),

@@ -12,7 +12,9 @@ function CardGrid({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot="card-grid"
       className={cn(
-        'grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(18rem,100%),1fr))]',
+        // `items-stretch` + 타일 최소 높이 — 같은 줄에 놓인 카드는 내용 길이가
+        // 달라도 높이가 같다. 시안이 "같은 줄 카드는 높이를 묶는다"고 정한 지점이다.
+        'grid items-stretch gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(18rem,100%),1fr))] [&>*]:min-h-tile',
         className,
       )}
       {...props}

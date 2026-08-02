@@ -1,0 +1,316 @@
+import type { ActivityGranularity } from '@/features/activity-timeline/types';
+import { PROGRAM_TEMPLATE_DEFINITIONS } from '@/features/programs/program-templates';
+import { apiPath } from '@/lib/api-client';
+import {
+  accepted,
+  bodyString,
+  json,
+  matchGet,
+  matchPath,
+  notFound,
+  problem,
+  unauthorized,
+  type LocalReviewContext,
+  type LocalReviewHandler,
+  type LocalReviewResponsePlan,
+} from '../handler-kit';
+import { STUDENT_JOURNEY_RESPONSES } from '../student-journey-fixtures';
+import {
+  JOINED_TEAM_FIXTURE,
+  MY_TEAM_FIXTURES,
+  PROGRAM_CHECKLISTS,
+  SUBMISSION_FORMS,
+  isPublicProgramId,
+  programActivityFor,
+  programDetailFor,
+} from './student-program-fixtures';
+
+/**
+ * 학생 동선의 로컬 검토 응답.
+ * 담당 경로: `programs/{id}/viewer|activity|submissions/me|teams/me`,
+ * `programs/application-templates`, `programs/{id}/milestones/{id}/submission-form`,
+ * `dashboard/student*`, 학생 조작(신청·팀·제출·재제출).
+ *
+ * `fixture-response.ts`가 `student` 페르소나에 한해 `STUDENT_JOURNEY_RESPONSES`를 먼저
+ * 시도한다. 여기서는 그 규칙이 응답하지 못한 경우만 채운다.
+ */
+
+const PROGRAM_NOT_FOUND_CODE = 'PROGRAM_NOT_FOUND';
+
+/**
+ * 학생 동선 픽스처를 다른 학생 역할 페르소나(`settings`·`wrong-role`)에도 그대로
+ * 준다. 같은 데이터를 두 벌 적으면 한쪽만 고쳐져 화면이 어긋난다.
+ */
+function studentJourneyFallbackHandler(
+  context: LocalReviewContext,
+): LocalReviewResponsePlan | null {
+  if (context.method !== 'GET' || context.role !== 'STUDENT') return null;
+  const body = STUDENT_JOURNEY_RESPONSES[context.path];
+  return body === undefined ? null : json(200, body);
+}
+
+/**
+ * 신청 양식 템플릿. 카테고리 정의(SSOT)에서 만들어 키·버전이 화면 폴백과 어긋나지
+ * 않게 한다. 실제 API처럼 participation은 대문자로 준다.
+ */
+function applicationTemplatesHandler(
+  context: LocalReviewContext,
+): LocalReviewResponsePlan | null {
+  if (matchGet(context, 'programs/application-templates') === null) return null;
+  return json(200, {
+    items: PROGRAM_TEMPLATE_DEFINITIONS.map((definition) => ({
+      key: definition.template.key,
+      version: definition.template.version,
+      name: definition.template.name,
+      participation:
+        definition.template.participation === 'team' ? 'TEAM' : 'INDIVIDUAL',
+      fields: definition.template.fields,
+    })),
+  });
+}
+
+const MONTH_ACTIVITY_POINTS = [
+  { period: '2026-03', commitCount: 4, prCount: 1, releaseCount: 0 },
+  { period: '2026-04', commitCount: 9, prCount: 2, releaseCount: 1 },
+  { period: '2026-05', commitCount: 6, prCount: 1, releaseCount: 0 },
+  { period: '2026-06', commitCount: 14, prCount: 3, releaseCount: 1 },
+  { period: '2026-07', commitCount: 21, prCount: 5, releaseCount: 2 },
+] as const;
+
+const YEAR_ACTIVITY_POINTS = [
+  { period: '2025', commitCount: 12, prCount: 3, releaseCount: 1 },
+  { period: '2026', commitCount: 54, prCount: 12, releaseCount: 4 },
+] as const;
+
+/** 파서가 `total === commit + pr + release`를 검사하므로 합계를 계산해서 준다. */
+function activityPoints(granularity: ActivityGranularity) {
+  const points =
+    granularity === 'YEAR' ? YEAR_ACTIVITY_POINTS : MONTH_ACTIVITY_POINTS;
+  return points.map((point) => ({
+    ...point,
+    total: point.commitCount + point.prCount + point.releaseCount,
+  }));
+}
+
+function activityTimelineHandler(
+  context: LocalReviewContext,
+): LocalReviewResponsePlan | null {
+  if (matchGet(context, 'dashboard/student/activity-timeline') === null) {
+    return null;
+  }
+  if (context.role !== 'STUDENT') {
+    return context.isAuthenticated
+      ? problem(403, 'ACT_403', apiPath(context.path))
+      : unauthorized(context.path);
+  }
+
+  // 파서는 응답의 granularity가 요청한 값과 같을 때만 통과시킨다.
+  const granularity: ActivityGranularity =
+    context.searchParams.get('granularity') === 'YEAR' ? 'YEAR' : 'MONTH';
+
+  return json(200, {
+    dataAsOf: '2026-07-31T00:00:00.000Z',
+    programs: [
+      {
+        programId: 'program-capstone',
+        programName: '합성 캡스톤 2026',
+        year: 2026,
+        applicationMode: 'PERSONAL',
+      },
+      {
+        programId: 'program-oss-contest',
+        programName: '합성 OSS 경진대회',
+        year: 2026,
+        applicationMode: 'TEAM',
+      },
+    ],
+    series: { granularity, points: activityPoints(granularity) },
+  });
+}
+
+/**
+ * 로그인 사용자의 프로그램 상세. 비로그인은 **401**이어야 한다 —
+ * `features/programs/api.ts`의 `getProgramDetail`이 401일 때만 공개 상세로 폴백하고,
+ * 404를 주면 그 폴백 흐름이 재현되지 않는다.
+ */
+function programViewerHandler(
+  context: LocalReviewContext,
+): LocalReviewResponsePlan | null {
+  const params = matchGet(context, 'programs/:id/viewer');
+  if (params === null) return null;
+  if (!context.isAuthenticated) return unauthorized(context.path);
+
+  const programId = params.id ?? '';
+  return isPublicProgramId(programId)
+    ? json(200, programDetailFor(programId, context.role))
+    : notFound(PROGRAM_NOT_FOUND_CODE, context.path);
+}
+
+/** 비로그인 폴백이 읽는 공개 상세. 뷰어 정보 없이 프로그램 정보만 준다. */
+function publicProgramDetailHandler(
+  context: LocalReviewContext,
+): LocalReviewResponsePlan | null {
+  const params = matchGet(context, 'programs/:id');
+  if (params === null) return null;
+
+  const programId = params.id ?? '';
+  if (programId === 'application-templates') return null;
+
+  return isPublicProgramId(programId)
+    ? json(200, programDetailFor(programId, null))
+    : notFound(PROGRAM_NOT_FOUND_CODE, context.path);
+}
+
+function programActivityHandler(
+  context: LocalReviewContext,
+): LocalReviewResponsePlan | null {
+  const params = matchGet(context, 'programs/:id/activity');
+  if (params === null) return null;
+
+  const programId = params.id ?? '';
+  return isPublicProgramId(programId)
+    ? json(200, programActivityFor(programId))
+    : notFound(PROGRAM_NOT_FOUND_CODE, context.path);
+}
+
+function submissionChecklistHandler(
+  context: LocalReviewContext,
+): LocalReviewResponsePlan | null {
+  const params = matchGet(context, 'programs/:id/submissions/me');
+  if (params === null) return null;
+
+  const programId = params.id ?? '';
+  const checklist = PROGRAM_CHECKLISTS[programId];
+  if (checklist !== undefined) return json(200, checklist);
+
+  // 신청 전이거나 승인된 신청이 없으면 체크리스트가 존재하지 않는다.
+  return problem(
+    404,
+    'SUB_001',
+    apiPath(context.path),
+    '승인된 신청이 없어 제출 체크리스트를 만들 수 없습니다.',
+  );
+}
+
+function submissionFormHandler(
+  context: LocalReviewContext,
+): LocalReviewResponsePlan | null {
+  const params = matchGet(
+    context,
+    'programs/:id/milestones/:milestoneId/submission-form',
+  );
+  if (params === null) return null;
+
+  const form = SUBMISSION_FORMS[`${params.id}/${params.milestoneId}`];
+  return form === undefined
+    ? problem(
+        404,
+        'SUB_001',
+        apiPath(context.path),
+        '해당 마일스톤의 제출 양식을 찾을 수 없습니다.',
+      )
+    : json(200, form);
+}
+
+function myTeamHandler(
+  context: LocalReviewContext,
+): LocalReviewResponsePlan | null {
+  const params = matchGet(context, 'programs/:id/teams/me');
+  if (params === null) return null;
+
+  const team = MY_TEAM_FIXTURES[params.id ?? ''];
+  // 팀이 없으면 404다 — 화면은 이때 팀 만들기·참여코드 합류 화면을 보여준다.
+  return team === undefined
+    ? notFound('TEAM_010', context.path)
+    : json(200, team);
+}
+
+/** 재제출 revision은 체크리스트의 현재 revision 다음 값이어야 화면 문구가 맞는다. */
+const NEXT_RESUBMISSION_REVISIONS: Readonly<Record<string, number>> = {
+  'submission-revision': 2,
+  'submission-contest-revision': 3,
+};
+
+function studentMutationHandler(
+  context: LocalReviewContext,
+): LocalReviewResponsePlan | null {
+  if (context.method !== 'POST') return null;
+
+  const applicationParams = matchPath(
+    'programs/:id/applications',
+    context.path,
+  );
+  if (applicationParams !== null) {
+    // 팀 신청이면 요청 본문의 팀을 그대로 돌려준다(개인 신청은 `teamId: null`).
+    // 한계: 신청 내용은 저장되지 않아 다시 열면 픽스처의 신청 전 상태로 돌아온다.
+    return accepted({
+      id: 'synthetic-application-basic',
+      programId: applicationParams.id,
+      status: 'SUBMITTED',
+      teamId: bodyString(context, 'teamId'),
+      submittedAt: '2026-08-01T00:00:00.000Z',
+    });
+  }
+
+  if (matchPath('programs/:id/teams', context.path) !== null) {
+    // 화면은 이 응답의 이름과 참여코드를 그대로 명단 화면에 그린다 — 방금 입력한
+    // 팀명을 되돌려 준다. 한계: 저장되지 않아 다시 열면 팀 없음 상태로 돌아온다.
+    return accepted({
+      id: 'synthetic-team-created',
+      name: bodyString(context, 'name') ?? '합성 신규 팀',
+      joinCode: 'FIXTURE01',
+      memberCount: 1,
+    });
+  }
+
+  if (matchPath('programs/:id/teams/join', context.path) !== null) {
+    return accepted(JOINED_TEAM_FIXTURE);
+  }
+
+  if (context.path === 'submissions') {
+    return accepted({
+      submissionId: 'synthetic-submission-01',
+      status: 'SUBMITTED',
+      submittedAt: '2026-08-01T00:00:00.000Z',
+    });
+  }
+
+  if (context.path === 'submission-files') {
+    return accepted({
+      fileId: 'synthetic-file-01',
+      fileName: 'synthetic-submission.pdf',
+      contentType: 'application/pdf',
+      size: 20_480,
+      expiresAt: '2026-08-01T01:00:00.000Z',
+    });
+  }
+
+  const resubmissionParams = matchPath(
+    'submissions/:submissionId/resubmissions',
+    context.path,
+  );
+  if (resubmissionParams !== null) {
+    const submissionId = resubmissionParams.submissionId ?? '';
+    return accepted({
+      submissionId,
+      revision: NEXT_RESUBMISSION_REVISIONS[submissionId] ?? 2,
+      status: 'SUBMITTED',
+    });
+  }
+
+  return null;
+}
+
+export const STUDENT_HANDLERS: readonly LocalReviewHandler[] = [
+  studentJourneyFallbackHandler,
+  applicationTemplatesHandler,
+  activityTimelineHandler,
+  programViewerHandler,
+  programActivityHandler,
+  submissionChecklistHandler,
+  submissionFormHandler,
+  myTeamHandler,
+  studentMutationHandler,
+  // 2 세그먼트 `programs/{id}`는 다른 규칙을 가리기 쉬우므로 마지막에 둔다.
+  publicProgramDetailHandler,
+];
