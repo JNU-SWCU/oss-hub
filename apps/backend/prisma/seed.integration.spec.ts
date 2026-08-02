@@ -39,6 +39,8 @@ const OSS_HUB_APPLICATION_ID = seedId('oss-hub', 'application');
 const OSS_HUB_REPOSITORY_ID = seedId('oss-hub', 'repository');
 const OSS_HUB_PROVISION_JOB_ID = seedId('oss-hub', 'provision-job');
 const OSS_HUB_REPOSITORY_URL = 'https://github.com/JNU-SWCU/oss-hub';
+/** JNU-SWCU/oss-hub 공개 저장소의 실제 GitHub numeric id (GitHub REST API로 확인, public 정보). */
+const OSS_HUB_GITHUB_REPOSITORY_ID = 1297138137n;
 const OSS_HUB_NOTICE_EXAMPLES = [
   '[모집홍보] 2026 오픈소스 개발자대회 모집 안내',
   '｢모집홍보｣ 『LLMOps 파이프라인 개발』 교육 2026학년 2학기 자유학기(자유교과목) 신청 안내',
@@ -471,6 +473,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
       expect(repository).toMatchObject({
         applicationId: OSS_HUB_APPLICATION_ID,
         teamId: OSS_HUB_TEAM_ID,
+        githubRepositoryId: OSS_HUB_GITHUB_REPOSITORY_ID,
         url: OSS_HUB_REPOSITORY_URL,
         visibility: RepositoryVisibility.PUBLIC,
       });

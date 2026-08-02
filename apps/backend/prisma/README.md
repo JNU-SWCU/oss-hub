@@ -59,7 +59,7 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `os
     상태다. `기능 시연`·`최종 발표`는 마감 전이라 제출이 없다.
   - Repository 1개 — 실제 공개 저장소 `github.com/JNU-SWCU/oss-hub`를 팀 신청에 연결해 공개
     완료(`PUBLIC`) 상태로 추적하고, 짝이 되는 RepositoryProvisionJob은 `SUCCEEDED`다. `githubRepositoryId`는
-    실제 GitHub 저장소 numeric id가 아니라 `seedRepositoryId`가 만든 합성 값이다.
+    GitHub API로 확인한 이 저장소의 실제 numeric id(`1297138137`, public 정보)를 그대로 쓴다.
 
 `intake`/`milestones`/`repositories` 각 profile은 서로 참조하지 않고 자체 Program·User
 backbone을 만든다 — 빈 DB에서 어떤 profile을 단독 실행해도 성공한다.

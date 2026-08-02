@@ -17,7 +17,6 @@ import {
   OssHubTeamAccount,
   prisma,
   seedId,
-  seedRepositoryId,
   SeedStats,
   upsertTracked,
 } from './helpers';
@@ -31,6 +30,8 @@ const PROVISION_JOB_ID = seedId('oss-hub', 'provision-job');
 const OSS_HUB_REPOSITORY_URL = 'https://github.com/JNU-SWCU/oss-hub';
 const PROGRAM_NAME = '오픈소스 플랫폼 구축';
 const PROGRAM_ORGANIZER = '오픈소스 SW 개발 사업단';
+/** JNU-SWCU/oss-hub 공개 저장소의 실제 GitHub numeric id (GitHub REST API로 확인, public 정보). */
+const OSS_HUB_GITHUB_REPOSITORY_ID = 1297138137n;
 const PROGRAM_DESCRIPTION =
   '오픈소스 SW 개발 사업단이 주관하는 오픈소스 플랫폼 구축 프로그램. 참여 팀은 마일스톤별로 계획서·중간 점검·기능 시연·최종 발표를 제출하고, GitHub 저장소를 통해 결과물을 공개한다. 공지 예시: [모집홍보] 2026 오픈소스 개발자대회 모집 안내 (https://sojoong.kr/notice/notice-board/?mod=document&uid=922); ｢모집홍보｣ 『LLMOps 파이프라인 개발』 교육 2026학년 2학기 자유학기(자유교과목) 신청 안내 (https://sojoong.kr/notice/notice-board/?mod=document&uid=939).';
 
@@ -394,6 +395,7 @@ export async function seedOssHub(
       prisma.repository.upsert({
         where: { id: REPOSITORY_ID },
         update: {
+          githubRepositoryId: OSS_HUB_GITHUB_REPOSITORY_ID,
           visibility: RepositoryVisibility.PUBLIC,
         },
         create: {
@@ -401,7 +403,7 @@ export async function seedOssHub(
           applicationId: APPLICATION_ID,
           programId: PROGRAM_ID,
           teamId: TEAM_ID,
-          githubRepositoryId: seedRepositoryId('oss-hub-repository'),
+          githubRepositoryId: OSS_HUB_GITHUB_REPOSITORY_ID,
           name: 'oss-hub',
           url: OSS_HUB_REPOSITORY_URL,
           visibility: RepositoryVisibility.PUBLIC,
