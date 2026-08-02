@@ -30,12 +30,7 @@ import { StudentApplicationsController } from './student-applications.controller
     ApplicationsRepository,
     ApplicationsService,
     StudentApplicationManagementRepository,
-    {
-      provide: StudentApplicationManagementService,
-      useFactory: (store: StudentApplicationManagementRepository) =>
-        new StudentApplicationManagementService(store),
-      inject: [StudentApplicationManagementRepository],
-    },
+    StudentApplicationManagementService,
     StaffDashboardService,
   ],
 })

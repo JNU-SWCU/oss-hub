@@ -5,7 +5,7 @@ import {
   type ProgramApplyBlockedReason,
   type ProgramApplyFormValues,
 } from './program-apply-flow';
-import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
+import { resolveProgramApplicationTemplate } from './program-templates';
 import { getMyApplication } from './student-application-api';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
 
@@ -43,20 +43,6 @@ function loadSessionSnapshot(): Promise<SessionSnapshot> {
   return apiClient<SessionSnapshot>('auth/session');
 }
 
-function resolveTemplate(
-  program: ProgramDetail,
-  templates: readonly ApplicationFormTemplate[],
-): ApplicationFormTemplate | null {
-  const definition = PROGRAM_TEMPLATE_DEFINITIONS.find(
-    (item) => item.category === program.category,
-  );
-  if (!definition) return null;
-  return (
-    templates.find((item) => item.key === definition.template.key) ??
-    definition.template
-  );
-}
-
 async function resolveTeamId(
   programId: string,
   template: ApplicationFormTemplate,
@@ -88,7 +74,7 @@ export async function loadProgramApplyContext(
       listApplicationTemplates().catch(() => [] as ApplicationFormTemplate[]),
       loadSessionSnapshot().catch(() => ({ isAuthenticated: false as const })),
     ]);
-    const template = resolveTemplate(program, templates);
+    const template = resolveProgramApplicationTemplate(program, templates);
     if (!template) {
       return { kind: 'failed', message: '신청 양식을 찾을 수 없습니다.' };
     }

@@ -7,19 +7,43 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { programApplicationParticipantWhere } from '../programs/program-participant';
-import type {
-  OwnedStudentApplication,
-  StudentApplicationActor,
-  StudentApplicationPolicy,
-  StudentApplicationStore,
-  UpdatePendingApplicationRecord,
-} from './student-application-management.service';
+
+export interface StudentApplicationActor {
+  readonly id: string;
+  readonly name: string | null;
+  readonly nickname: string;
+}
+
+export interface StudentApplicationPolicy {
+  readonly applicationStartAt: Date;
+  readonly applicationEndAt: Date;
+  readonly applicationTemplateVersion: number;
+}
+
+export interface OwnedStudentApplication {
+  readonly id: string;
+  readonly programId: string;
+  readonly status: ApplicationStatus;
+  readonly teamId: string | null;
+  readonly applicant: StudentApplicationActor;
+  readonly answers: Prisma.JsonValue;
+  readonly submittedAt: Date;
+  readonly updatedAt: Date;
+  readonly isRepositoryPublicationPlanned: boolean;
+}
+
+export interface UpdatePendingApplicationRecord {
+  readonly applicationId: string;
+  readonly answers: Prisma.InputJsonValue;
+  readonly applicationTemplateVersion: number;
+}
 
 const APPLICATION_SELECT = {
   id: true,
   programId: true,
   status: true,
   teamId: true,
+  applicant: { select: { id: true, name: true, nickname: true } },
   answers: true,
   submittedAt: true,
   updatedAt: true,
@@ -27,7 +51,7 @@ const APPLICATION_SELECT = {
 } as const satisfies Prisma.ApplicationSelect;
 
 @Injectable()
-export class StudentApplicationManagementRepository implements StudentApplicationStore {
+export class StudentApplicationManagementRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   findActiveStudentByGithubId(

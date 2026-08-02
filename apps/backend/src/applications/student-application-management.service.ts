@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ApplicationStatus, type Prisma } from '@prisma/client';
+import { ApplicationStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import {
   checkApplicationTemplateVersion,
@@ -11,52 +11,12 @@ import {
   ApplicationsErrorCode,
 } from './applications-error-code.enum';
 import type { UpdateStudentApplicationInput } from './domain/update-student-application';
-
-export interface StudentApplicationActor {
-  readonly id: string;
-  readonly name: string | null;
-  readonly nickname: string;
-}
-
-export interface StudentApplicationPolicy {
-  readonly applicationStartAt: Date;
-  readonly applicationEndAt: Date;
-  readonly applicationTemplateVersion: number;
-}
-
-export interface OwnedStudentApplication {
-  readonly id: string;
-  readonly programId: string;
-  readonly status: ApplicationStatus;
-  readonly teamId: string | null;
-  readonly answers: Prisma.JsonValue;
-  readonly submittedAt: Date;
-  readonly updatedAt: Date;
-  readonly isRepositoryPublicationPlanned: boolean;
-}
-
-export interface UpdatePendingApplicationRecord {
-  readonly applicationId: string;
-  readonly answers: Prisma.InputJsonValue;
-  readonly applicationTemplateVersion: number;
-}
-
-export interface StudentApplicationStore {
-  findActiveStudentByGithubId(
-    githubId: bigint,
-  ): Promise<StudentApplicationActor | null>;
-  findOwnedApplication(
-    programId: string,
-    studentId: string,
-  ): Promise<OwnedStudentApplication | null>;
-  findProgramPolicy(
-    programId: string,
-  ): Promise<StudentApplicationPolicy | null>;
-  updatePendingApplication(
-    input: UpdatePendingApplicationRecord,
-  ): Promise<OwnedStudentApplication | null>;
-  deletePendingApplication(applicationId: string): Promise<boolean>;
-}
+import {
+  StudentApplicationManagementRepository,
+  type OwnedStudentApplication,
+  type StudentApplicationActor,
+  type StudentApplicationPolicy,
+} from './student-application-management.repository';
 
 export interface StudentApplicationView {
   readonly id: string;
@@ -79,7 +39,9 @@ interface StudentApplicationContext {
 
 @Injectable()
 export class StudentApplicationManagementService {
-  constructor(private readonly store: StudentApplicationStore) {}
+  constructor(
+    private readonly repository: StudentApplicationManagementRepository,
+  ) {}
 
   async getMine(
     githubId: bigint,
@@ -88,7 +50,7 @@ export class StudentApplicationManagementService {
   ): Promise<StudentApplicationView> {
     const context = await this.requireContext(githubId, programId);
     const editable = this.isEditable(context.application, context.policy, now);
-    return this.toView(context.application, context.student, editable);
+    return this.toView(context.application, editable);
   }
 
   async updateMine(
@@ -107,7 +69,8 @@ export class StudentApplicationManagementService {
       throw this.error(ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH);
     }
     const applicantName = (
-      context.student.name ?? context.student.nickname
+      context.application.applicant.name ??
+      context.application.applicant.nickname
     ).trim();
     const answers = normalizeAndValidateApplicationAnswers(
       input.answers,
@@ -116,7 +79,7 @@ export class StudentApplicationManagementService {
     if (!answers.ok) {
       throw this.error(ApplicationsErrorCode.INVALID_ANSWERS);
     }
-    const updated = await this.store.updatePendingApplication({
+    const updated = await this.repository.updatePendingApplication({
       applicationId: context.application.id,
       answers: answers.answers,
       applicationTemplateVersion: context.policy.applicationTemplateVersion,
@@ -124,7 +87,7 @@ export class StudentApplicationManagementService {
     if (!updated) {
       throw this.error(ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED);
     }
-    return this.toView(updated, context.student, true);
+    return this.toView(updated, true);
   }
 
   async cancelMine(
@@ -134,7 +97,7 @@ export class StudentApplicationManagementService {
   ): Promise<{ readonly cancelled: true }> {
     const context = await this.requireContext(githubId, programId);
     this.requireEditable(context.application, context.policy, now);
-    const cancelled = await this.store.deletePendingApplication(
+    const cancelled = await this.repository.deletePendingApplication(
       context.application.id,
     );
     if (!cancelled) {
@@ -147,11 +110,11 @@ export class StudentApplicationManagementService {
     githubId: bigint,
     programId: string,
   ): Promise<StudentApplicationContext> {
-    const student = await this.store.findActiveStudentByGithubId(githubId);
+    const student = await this.repository.findActiveStudentByGithubId(githubId);
     if (!student) throw this.error(ApplicationsErrorCode.STUDENT_ONLY);
     const [application, policy] = await Promise.all([
-      this.store.findOwnedApplication(programId, student.id),
-      this.store.findProgramPolicy(programId),
+      this.repository.findOwnedApplication(programId, student.id),
+      this.repository.findProgramPolicy(programId),
     ]);
     if (!policy) throw this.error(ApplicationsErrorCode.PROGRAM_NOT_FOUND);
     if (!application) {
@@ -190,12 +153,11 @@ export class StudentApplicationManagementService {
 
   private toView(
     application: OwnedStudentApplication,
-    student: StudentApplicationActor,
     editable: boolean,
   ): StudentApplicationView {
     const answers = normalizeAndValidateApplicationAnswers(
       application.answers,
-      (student.name ?? student.nickname).trim(),
+      (application.applicant.name ?? application.applicant.nickname).trim(),
     );
     if (!answers.ok) {
       throw this.error(ApplicationsErrorCode.INVALID_ANSWERS);

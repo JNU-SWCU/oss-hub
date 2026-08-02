@@ -64,6 +64,10 @@ describe('ApplicationConfirmationDialog', () => {
     );
 
     const cancelButton = getButton('돌아가서 확인');
+    const returnButton = getButton('수정 내용 저장');
+    const focusReturned = new Promise<void>((resolve) => {
+      returnButton.addEventListener('focus', () => resolve(), { once: true });
+    });
     expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
     expect(document.activeElement).toBe(cancelButton);
 
@@ -76,8 +80,9 @@ describe('ApplicationConfirmationDialog', () => {
         }),
       );
     });
+    await focusReturned;
 
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
-    expect(document.activeElement).toBe(getButton('수정 내용 저장'));
+    expect(document.activeElement).toBe(returnButton);
   });
 });

@@ -23,7 +23,7 @@ import {
   type ProgramTeamsPageState,
 } from './program-teams-flow';
 import { programHref } from './program-paths';
-import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
+import { resolveProgramApplicationTemplate } from './program-templates';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
 
 function TeamsSkeleton() {
@@ -35,20 +35,6 @@ function TeamsSkeleton() {
       <div className="h-20 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
       <div className="h-56 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
     </main>
-  );
-}
-
-function resolveTemplate(
-  program: ProgramDetail,
-  templates: readonly ApplicationFormTemplate[],
-): ApplicationFormTemplate | null {
-  const definition = PROGRAM_TEMPLATE_DEFINITIONS.find(
-    (item) => item.category === program.category,
-  );
-  if (!definition) return null;
-  return (
-    templates.find((item) => item.key === definition.template.key) ??
-    definition.template
   );
 }
 
@@ -255,7 +241,7 @@ export function ProgramTeamsPage({
         getProgramDetail(programId),
         listApplicationTemplates().catch(() => [] as ApplicationFormTemplate[]),
       ]);
-      const template = resolveTemplate(program, templates);
+      const template = resolveProgramApplicationTemplate(program, templates);
       if (!template) {
         setState({
           kind: 'failed',
