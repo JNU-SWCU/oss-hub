@@ -1,4 +1,4 @@
-import { ApplicationStatus } from '@prisma/client';
+﻿import { ApplicationStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApplicationsErrorCode } from './applications-error-code.enum';
@@ -227,5 +227,35 @@ describe('StudentApplicationManagementService', () => {
       ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED,
     );
     expect(deletePendingApplication.mock.calls).toHaveLength(0);
+  });
+  it('uses the repository-resolved applicant name instead of the current actor nickname', async () => {
+    // Given
+    const { repository, findActiveStudentByGithubId, findOwnedApplication } =
+      createRepository();
+    findActiveStudentByGithubId.mockResolvedValue({
+      id: 'student-1',
+      name: null,
+      nickname: 'current-actor-login',
+    });
+    findOwnedApplication.mockResolvedValue({
+      ...APPLICATION,
+      applicant: {
+        id: 'applicant-1',
+        name: 'Profile Applicant',
+        nickname: 'legacy-applicant-login',
+      },
+      answers: {
+        applicantName: 'current-actor-login',
+        title: 'Existing title',
+        summary: 'Existing summary',
+      },
+    });
+    const service = new StudentApplicationManagementService(repository);
+
+    // When
+    const result = await service.getMine(4242n, 'program-1', NOW);
+
+    // Then
+    expect(result.answers.applicantName).toBe('Profile Applicant');
   });
 });

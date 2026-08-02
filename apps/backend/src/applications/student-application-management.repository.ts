@@ -5,6 +5,10 @@ import {
   type Prisma,
   Role,
 } from '@prisma/client';
+import {
+  COMPATIBLE_PROFILE_NAME_SELECT,
+  resolveCompatibleProfileName,
+} from '../profiles/profile-compatibility';
 import { PrismaService } from '../prisma/prisma.service';
 import { programApplicationParticipantWhere } from '../programs/program-participant';
 
@@ -43,41 +47,68 @@ const APPLICATION_SELECT = {
   programId: true,
   status: true,
   teamId: true,
-  applicant: { select: { id: true, name: true, nickname: true } },
+  applicant: {
+    select: { id: true, nickname: true, ...COMPATIBLE_PROFILE_NAME_SELECT },
+  },
   answers: true,
   submittedAt: true,
   updatedAt: true,
   isRepositoryPublicationPlanned: true,
 } as const satisfies Prisma.ApplicationSelect;
 
+type ApplicationRow = Prisma.ApplicationGetPayload<{
+  readonly select: typeof APPLICATION_SELECT;
+}>;
+
+function toOwnedStudentApplication(
+  row: ApplicationRow,
+): OwnedStudentApplication {
+  return {
+    ...row,
+    applicant: {
+      id: row.applicant.id,
+      name: resolveCompatibleProfileName(row.applicant),
+      nickname: row.applicant.nickname,
+    },
+  };
+}
+
 @Injectable()
 export class StudentApplicationManagementRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  findActiveStudentByGithubId(
+  async findActiveStudentByGithubId(
     githubId: bigint,
   ): Promise<StudentApplicationActor | null> {
-    return this.prisma.user.findFirst({
+    const user = await this.prisma.user.findFirst({
       where: {
         githubId,
         accountStatus: AccountStatus.ACTIVE,
         role: Role.STUDENT,
       },
-      select: { id: true, name: true, nickname: true },
+      select: { id: true, nickname: true, ...COMPATIBLE_PROFILE_NAME_SELECT },
     });
+    return user
+      ? {
+          id: user.id,
+          name: resolveCompatibleProfileName(user),
+          nickname: user.nickname,
+        }
+      : null;
   }
 
-  findOwnedApplication(
+  async findOwnedApplication(
     programId: string,
     studentId: string,
   ): Promise<OwnedStudentApplication | null> {
-    return this.prisma.application.findFirst({
+    const row = await this.prisma.application.findFirst({
       where: {
         programId,
         ...programApplicationParticipantWhere(studentId),
       },
       select: APPLICATION_SELECT,
     });
+    return row ? toOwnedStudentApplication(row) : null;
   }
 
   findProgramPolicy(
@@ -108,10 +139,11 @@ export class StudentApplicationManagementRepository {
         },
       });
       if (matched.count !== 1) return null;
-      return transaction.application.findUnique({
+      const row = await transaction.application.findUnique({
         where: { id: input.applicationId },
         select: APPLICATION_SELECT,
       });
+      return row ? toOwnedStudentApplication(row) : null;
     });
   }
 

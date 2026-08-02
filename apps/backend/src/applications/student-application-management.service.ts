@@ -68,10 +68,7 @@ export class StudentApplicationManagementService {
     if (!versionCheck.ok) {
       throw this.error(ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH);
     }
-    const applicantName = (
-      context.application.applicant.name ??
-      context.application.applicant.nickname
-    ).trim();
+    const applicantName = this.resolveApplicantName(context.application);
     const answers = normalizeAndValidateApplicationAnswers(
       input.answers,
       applicantName,
@@ -157,7 +154,7 @@ export class StudentApplicationManagementService {
   ): StudentApplicationView {
     const answers = normalizeAndValidateApplicationAnswers(
       application.answers,
-      (application.applicant.name ?? application.applicant.nickname).trim(),
+      this.resolveApplicantName(application),
     );
     if (!answers.ok) {
       throw this.error(ApplicationsErrorCode.INVALID_ANSWERS);
@@ -175,6 +172,12 @@ export class StudentApplicationManagementService {
       canEdit: editable,
       canCancel: editable,
     };
+  }
+
+  private resolveApplicantName(application: OwnedStudentApplication): string {
+    return (
+      application.applicant.name ?? application.applicant.nickname
+    ).trim();
   }
 
   private error(code: ApplicationsErrorCode): DomainException {
