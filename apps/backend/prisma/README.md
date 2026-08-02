@@ -47,6 +47,9 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `os
   `submission-approved`, `submission-changes-requested`, `submission-rejected`.
 - `repositories` (5) — `seeds/repositories.ts`: `repo-job-pending`, `repo-job-succeeded`,
   `repo-job-failed-retryable`, `repository-ready`, `repository-public`.
+  `repository-public`은 `visibility: PUBLIC`이지만 `publishedAt: null`이라 공개 아카이브
+  (`GET /api/v1/projects`)의 `publishedAt: { not: null }` 필터에 걸려 노출되지 않는다 — 합성
+  fixture URL을 실제 저장소처럼 보이게 만들지 않기 위한 의도된 설계다.
 - `oss-hub` — 기존 `auth` 합성 계정과 함께 `OSS_HUB_TEAM_ACCOUNTS`의 네 계정을 `ADMIN`으로 upsert하고,
   결정적 ID의 Program 1개·Team 1개·TeamMember 4개·Application 1개(팀 신청)를 만든다.
   변수는 쉼표로 구분한 `githubId:login:ADMIN` 네 항목만 허용하며 누락·형식 오류·중복 ID 또는 login·`ADMIN` 이외 역할을 모두 거부한다.
