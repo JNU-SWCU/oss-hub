@@ -79,7 +79,7 @@ export function LandingJourney({
   const hintRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<CosmosGraph | null>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
-  const { graph: publicGraph } = useLandingGraph();
+  const { graph: publicGraph, completeness } = useLandingGraph();
 
   const programNamesRef = useRef<readonly string[]>([]);
   const programNames = useMemo(
@@ -91,11 +91,19 @@ export function LandingJourney({
   );
   const counts = useMemo(() => countByKind(publicGraph), [publicGraph]);
   const hasCounts = counts.programs + counts.repositories + counts.students > 0;
+  /*
+   * 상세 일부가 전송 단계에서 실패하면 기여자 수는 실제보다 적다. 프로그램·저장소
+   * 수는 목록 하나에서 나오므로 그대로 정확하다. 줄어든 것은 기여자뿐이니, 기여자
+   * 자리만 `—`로 비우고 배지로 `일부 집계`임을 밝힌다.
+   */
+  const isPartial = completeness === 'partial';
   const statNote = !hasCounts
     ? '공개 집계 준비 중'
-    : publicGraph.source === 'public'
-      ? '공개 아카이브 기준'
-      : '예시 데이터 기준';
+    : isPartial
+      ? '일부 집계'
+      : publicGraph.source === 'public'
+        ? '공개 아카이브 기준'
+        : '예시 데이터 기준';
 
   useEffect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -348,7 +356,7 @@ export function LandingJourney({
             </li>
             <li>
               <div className={styles.statValue}>
-                {formatCount(counts.students)}
+                {isPartial ? '—' : formatCount(counts.students)}
               </div>
               <div className={styles.statKey}>공개 기여자</div>
             </li>
