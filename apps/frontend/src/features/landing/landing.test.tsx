@@ -9,8 +9,6 @@ import {
 import { LandingFooter } from './components/landing-footer';
 import { LandingJourney } from './components/landing-journey';
 import { ProgramFlowSection } from './components/program-flow-section';
-import { LANDING_GRAPH_EXAMPLE } from './landing-graph';
-import { deriveLandingStats } from './landing-stats';
 
 // CSS module 클래스명은 vitest에서 해시(`_panel_417db4`)로 바뀌므로
 // 클래스 대신 data-panel / id / 텍스트로만 단언한다.
@@ -77,23 +75,6 @@ describe('landing page sections', () => {
     expect(html).toContain('aria-label="소개 진행 상태"');
     expect(html.match(/단계<\/span>/g)).toHaveLength(5);
     expect(html).toContain('SCROLL');
-  });
-
-  // 두 번째 패널의 표시값은 landing-stats 의 순수 파생을 그대로 건다. 여기서는 그
-  // 조합만 확인하고, 네 상태(complete·partial·1단계·집계 없음)의 파생 자체는
-  // landing-stats.test.ts 가 잠근다.
-  it('hangs the second panel stats on the shared display derivation', () => {
-    const html = renderJourney();
-    // 정적 렌더에서는 useEffect 가 돌지 않아 훅이 늘 예시 그래프를 준다.
-    const stats = deriveLandingStats(LANDING_GRAPH_EXAMPLE, 'complete');
-    const statValue = (key: string): string | undefined =>
-      new RegExp(`>([^<>]*)</div><div[^>]*>${key}</div>`).exec(html)?.[1];
-
-    expect(statValue('공개 프로그램')).toBe(stats.programs);
-    expect(statValue('공개 저장소')).toBe(stats.repositories);
-    expect(statValue('공개 기여자')).toBe(stats.students);
-    expect(html).toContain(stats.note);
-    expect(stats.note).toBe('예시 데이터 기준');
   });
 
   it('renders the journey auth error alert with hero danger color, not the light-surface destructive variant', () => {

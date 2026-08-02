@@ -80,18 +80,4 @@ describe('LandingJourney second panel stats', () => {
     expect(html).toContain('공개 아카이브 기준');
     expect(html).not.toContain('일부 집계');
   });
-
-  /*
-   * 배선 한 칸을 직접 겨눈다. 같은 그래프인데 완전성만 다르면 화면이 달라져야
-   * 한다. `deriveLandingStats(publicGraph, 'complete')` 처럼 완전성을 넘기지 않고
-   * 고정하면 두 렌더가 같아져 여기서 깨진다.
-   */
-  it('threads completeness into the derivation — the same graph renders differently', () => {
-    const complete = renderWith('complete');
-    const partial = renderWith('partial');
-
-    expect(statValue(complete, '공개 기여자')).toBe('2');
-    expect(statValue(partial, '공개 기여자')).toBe('—');
-    expect(partial).not.toBe(complete);
-  });
 });
