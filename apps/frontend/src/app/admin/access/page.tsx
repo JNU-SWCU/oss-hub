@@ -1,7 +1,6 @@
 import { Suspense } from 'react';
 
 import { RolePanelShell } from '../../_shell/role-panel-shell';
-import { ADMIN_MENU } from '../../_shell/role-menus';
 import { AdminAccessScreen } from '@/features/roles/components/admin-access-screen';
 
 // 통합 접근 화면(URL: /admin/access) — 접근: ADMIN만. ADMIN_MENU의 유일한
@@ -11,7 +10,7 @@ import { AdminAccessScreen } from '@/features/roles/components/admin-access-scre
 // 경계로 감싼다.
 export default function AdminAccessPage() {
   return (
-    <RolePanelShell menu={ADMIN_MENU} allow={['ADMIN']}>
+    <RolePanelShell allow={['ADMIN']}>
       <Suspense fallback={null}>
         <AdminAccessScreen />
       </Suspense>

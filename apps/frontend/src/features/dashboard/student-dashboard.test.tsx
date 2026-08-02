@@ -158,6 +158,28 @@ describe('StudentDashboardView', () => {
     expect(html).toContain('aria-busy="true"');
     expect(html).toContain('대시보드를 불러오는 중');
   });
+
+  it('가입을 막 마치고 도착했을 때만 완료 안내를 표시한다', () => {
+    // When
+    const arrived = renderView({ showSignupCompleteNotice: true });
+    const revisited = renderView();
+
+    // Then
+    expect(arrived).toContain('가입이 완료되었습니다');
+    expect(arrived).toContain(
+      '프로그램을 신청하고 저장소를 연결할 수 있습니다',
+    );
+    // 다시 온 사용자(새로고침·재접속·뒤로가기)에게는 흔적도 남지 않는다
+    expect(revisited).not.toContain('가입이 완료되었습니다');
+  });
+
+  it('완료 안내가 떠도 화면 제목은 그대로 "내 대시보드"다', () => {
+    // Given: 제목을 축하 문구로 바꾸면 3년 뒤 재방문자도 그 문구를 보게 된다
+    const arrived = renderView({ showSignupCompleteNotice: true });
+
+    expect(arrived).toContain('내 대시보드');
+    expect(arrived).toContain('신청한 프로그램과 다음 제출 일정을 확인합니다');
+  });
 });
 
 describe('loadStudentDashboard', () => {

@@ -22,6 +22,11 @@ const ONBOARDING_ENTRY_PATH = '/consent';
  * 직접 참조하지 않기 위해서다(ADR-003 모듈 경계). 재개 지점을 `/consent` 하나로
  * 두면 그 화면이 이미 끝난 단계를 건너뛰고 다음 단계로 전달한다.
  *
+ * 3. **프로필이 아직 완료되지 않았다** — 순서를 역할 → 프로필로 바꾼 뒤로는 역할이
+ *    있으면서 프로필은 비어 있는 상태가 정상적으로 존재한다. 이 조건이 없으면 프로필
+ *    단계에서 창을 닫은 사용자가 다음 로그인부터 랜딩으로 떨어져, 남은 단계로 돌아갈
+ *    길이 화면에 드러나지 않는다.
+ *
  * 이전 구현은 1번만 보았다. 그래서 첫 로그인에서 온보딩을 끝내지 못한 사용자는
  * **두 번째 로그인부터 랜딩으로 떨어졌고**, 가입을 이어갈 경로가 화면에 드러나지
  * 않았다. 실제로 역할이 비어 있는 계정이 관측돼 이 결함을 확인했다.
@@ -29,11 +34,12 @@ const ONBOARDING_ENTRY_PATH = '/consent';
 export function loginLandingUrl(
   frontendUrl: string,
   login: {
-    readonly user: Pick<AuthUser, 'role'>;
+    readonly user: Pick<AuthUser, 'role' | 'isProfileComplete'>;
     readonly isNew: boolean;
   },
 ): string {
-  const needsOnboarding = login.isNew || login.user.role === null;
+  const needsOnboarding =
+    login.isNew || login.user.role === null || !login.user.isProfileComplete;
   return needsOnboarding
     ? `${frontendUrl}${ONBOARDING_ENTRY_PATH}`
     : frontendUrl;

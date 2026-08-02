@@ -82,18 +82,36 @@ test('완료 사용자는 이름·학과만 PATCH하고 학번은 보내지 않�
   expect(body).not.toHaveProperty('studentId');
 });
 
-test('완료 플래그와 필드가 모순된 응답을 거부한다', async () => {
+test('학번·학과가 비어도 완료로 표시된 응답은 그대로 파싱한다', async () => {
+  // 역할마다 필수 항목이 다르고 응답에는 역할이 없다 — 관리자·교직원의 정상 응답을
+  // 파서가 모순으로 오판하면 안 된다.
+  const staffProfile = { ...emptyProfile, isComplete: true };
   vi.stubGlobal(
     'fetch',
     vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ...emptyProfile, isComplete: true }), {
+      new Response(JSON.stringify(staffProfile), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }),
     ),
   );
 
-  await expect(getMyProfile()).rejects.toBeInstanceOf(ProfileResponseError);
+  await expect(getMyProfile()).resolves.toEqual(staffProfile);
+});
+
+test('세 필드를 모두 담은 서버 응답도 그대로 파싱한다', async () => {
+  const fullProfile = { ...completeRequest, isComplete: true };
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(fullProfile), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    ),
+  );
+
+  await expect(getMyProfile()).resolves.toEqual(fullProfile);
 });
 
 test('공백 이름을 완료로 표시한 프로필 응답을 거부한다', async () => {
@@ -141,6 +159,8 @@ test.each([
   [401, 'AUT_003', 'unauthorized'],
   [422, 'CON_003', 'consent-required'],
   [409, 'USR_001', 'already-complete'],
+  // 재시도로 풀리지 않는 실패는 따로 분류해야 화면이 "잠시 후 다시"라고 말하지 않는다.
+  [409, 'USR_004', 'student-id-taken'],
   [500, 'SYS_001', 'generic'],
 ] as const)(
   'ProblemDetail %i/%s를 %s 프로필 오류로 분류한다',

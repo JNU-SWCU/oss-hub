@@ -17,7 +17,7 @@ function ProgramListPagination({
   return (
     <nav
       aria-label="프로그램 목록 페이지"
-      className="flex items-center justify-center gap-3"
+      className="flex items-center justify-center gap-4"
     >
       <Button
         disabled={page <= 1}
@@ -26,7 +26,7 @@ function ProgramListPagination({
       >
         이전
       </Button>
-      <span className="text-sm text-muted-foreground">
+      <span className="text-small text-muted-foreground">
         {page} / {totalPages}
       </span>
       <Button

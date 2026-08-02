@@ -16,22 +16,29 @@ const POLICY_LINKS: FooterLink[] = [
 export function LandingFooter() {
   return (
     <footer className="border-t border-border bg-background">
-      <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-8 py-7 text-xs text-muted-foreground sm:flex-row sm:items-center">
+      <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-2 px-8 py-4 text-xs text-muted-foreground sm:flex-row sm:items-center">
         <span>
           © 2026 전남대학교 SW중심대학사업단 ·{' '}
+          {/* 푸터 링크도 손가락으로 누르는 조작 요소다. 글자 크기(12px)만 따라
+              높이가 16~20px에 머물면 눌러야 할 자리를 빗맞힌다. 글자 크기는 그대로
+              두고 세로 여백만 얹어 조작 높이(44px) 기준을 맞춘다. */}
           <a
             href="https://github.com/JNU-SWCU"
             target="_blank"
             rel="noreferrer noopener"
-            className="hover:text-primary"
+            className="ml-1 inline-flex min-h-control items-center hover:text-primary"
           >
             github.com/JNU-SWCU
           </a>
         </span>
 
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-3">
           {POLICY_LINKS.map(({ label, href }) => (
-            <Link key={href} href={href} className="hover:text-primary">
+            <Link
+              key={href}
+              href={href}
+              className="inline-flex min-h-control items-center hover:text-primary"
+            >
               {label}
             </Link>
           ))}

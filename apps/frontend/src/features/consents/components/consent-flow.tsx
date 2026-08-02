@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Dialog as DialogPrimitive } from 'radix-ui';
 
+import { SignupEyebrow, SignupLede, SignupTitle } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,6 +26,15 @@ import {
   ConsentStatusCard,
 } from './consent-view';
 
+/**
+ * 동의 화면(`/consent`)의 내용 — 배지·제목·리드와 본문. 정책을 불러오고, 선택을
+ * 모으고, 저장하고, 다음 단계로 보낸다.
+ *
+ * 바깥 틀(우주 바탕 무대 · 왼쪽 진행 표시)은 여기 없다. `app/consent/page.tsx`가
+ * `SignupStage`로 감싼다 — 의존 방향이 `app → features` 단방향이라 feature가 app의
+ * 무대를 직접 가져다 쓸 수 없다. 글자 위계(`Signup*`)만 공용 표현 계층
+ * `@/components`에 내려와 있어 여기서 쓸 수 있다.
+ */
 export function ConsentFlow() {
   const router = useRouter();
   const [state, setState] = useState<ConsentFlowState>({ kind: 'loading' });
@@ -224,27 +233,34 @@ export function ConsentFlow() {
     }
   }
 
+  /*
+    예전에는 이 아래 전체를 Radix `Dialog`(Overlay + Content)로 감싸 화면을 덮었다.
+    걷어냈다. **다시 넣지 마라** — 여기는 모달이 될 수 없는 자리다.
+
+    모달은 "잠깐 위에 띄웠다가 원래 화면으로 돌아가는" 장치인데, 이 화면에는 돌아갈
+    화면이 없다(가입 동선의 한 단계다). 실제로 `open`이 고정이고 `onEscapeKeyDown`·
+    `onPointerDownOutside`를 모두 막아 **닫을 수 없는 모달**이었다. 일반 화면인데
+    팝업 옷만 입고 있었던 셈이다.
+
+    걷어내면서 결함 셋이 함께 사라진다. 되돌리면 셋 다 되살아난다.
+    1) 떠 있는 판이 왼쪽 진행 표시를 반쯤 덮어 몇 단계인지 보이지 않았다.
+    2) 화면에 `h1`이 없었다 — 제목을 `DialogPrimitive.Title`이 그렸는데 그건 `h2`로
+       나온다. 이제 `SignupTitle`(h1)이 그 자리를 맡는다.
+    3) 375px에서 동의 버튼이 첫 화면 밖(bottom = 812 = 창 높이)으로 잘려 나갔다.
+       판 높이가 `max-h-[calc(100dvh-2rem)]`로 묶여 있어 안쪽이 스크롤 영역이 됐고,
+       사용자는 스크롤할 것이 있다는 사실조차 알 수 없었다.
+
+    약관 전문 팝업(`consent-view.tsx`)은 그대로 둔다. 그건 읽고 닫으면 원래 자리로
+    돌아오는 진짜 팝업이다.
+  */
   return (
-    <DialogPrimitive.Root open>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-foreground/40" />
-        <DialogPrimitive.Content
-          aria-modal="true"
-          className="fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 flex-col gap-6 overflow-y-auto rounded-lg border border-border bg-background p-6 shadow-lg focus:outline-none"
-          onEscapeKeyDown={(event) => event.preventDefault()}
-          onPointerDownOutside={(event) => event.preventDefault()}
-        >
-          <header className="flex flex-col gap-1 border-b border-border pb-4">
-            <DialogPrimitive.Title className="font-heading text-3xl font-bold tracking-tight">
-              개인정보·활동 동의
-            </DialogPrimitive.Title>
-            <DialogPrimitive.Description className="text-sm text-muted-foreground">
-              필수 항목을 확인하고 동의하면 다음 단계로 이동합니다.
-            </DialogPrimitive.Description>
-          </header>
-          {content}
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+    <>
+      <SignupEyebrow>STEP 1 / 3</SignupEyebrow>
+      <SignupTitle>개인정보·활동 동의</SignupTitle>
+      <SignupLede>
+        필수 항목을 확인하고 동의하면 다음 단계로 이동합니다.
+      </SignupLede>
+      {content}
+    </>
   );
 }

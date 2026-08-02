@@ -201,7 +201,7 @@ it('returns exact issue-99 metadata and URLs for an authenticated GET', async ()
       },
     ],
     consented: false,
-    nextUrl: '/onboarding/profile',
+    nextUrl: '/onboarding/role',
   });
 });
 
@@ -218,7 +218,7 @@ it('returns 200 and exact issue-99 metadata for a valid POST', async () => {
   expect(await readJson(response)).toEqual({
     policyVersion: expectedPolicyVersion,
     consentedAt: consentedAt.toISOString(),
-    nextUrl: '/onboarding/profile',
+    nextUrl: '/onboarding/role',
   });
   expect(createConsent).toHaveBeenCalledTimes(1);
 });

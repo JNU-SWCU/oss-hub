@@ -1,7 +1,6 @@
 import Link from 'next/link';
-import { StatusBadge } from '@/components';
+import { ListRow, StatusBadge } from '@/components';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   formatSeoulDate,
   submissionLabel,
@@ -39,7 +38,7 @@ function StudentState({
   const status = milestone.viewerSubmissionStatus;
   if (applicationStatus !== 'APPROVED' || !status) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-small text-muted-foreground">
         신청 승인 후 제출 상태를 확인할 수 있습니다.
       </p>
     );
@@ -51,7 +50,7 @@ function StudentState({
     ? `/programs/${programId}/submissions?milestoneId=${milestone.id}`
     : `/programs/${programId}/milestones/${milestone.id}/submit`;
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-3">
       <StatusBadge variant={STATUS_VARIANTS[status]}>
         {submissionLabel(status)}
       </StatusBadge>
@@ -80,15 +79,33 @@ export function MilestoneRow({
       summary.rejected
     : 0;
   return (
-    <Card className="gap-3" data-testid="milestone-row">
-      <CardHeader className="gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-        <div className="grid gap-1">
-          <CardTitle>{milestone.name}</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            {formatSeoulDate(milestone.dueAt)} ·{' '}
-            {submissionTypeLabel(milestone.submissionType)}
+    // 마일스톤은 서로 독립된 대상이 아니라 순서대로 이어지는 항목이다 — 카드를
+    // 항목마다 두지 않고 목록 한 줄로 둔다(시안의 `.list-item`).
+    <ListRow data-testid="milestone-row">
+      <div className="grid min-w-0 flex-1 gap-1">
+        <p className="font-heading text-body font-semibold tracking-tight">
+          {milestone.name}
+        </p>
+        <p className="text-small text-muted-foreground">
+          {formatSeoulDate(milestone.dueAt)} ·{' '}
+          {submissionTypeLabel(milestone.submissionType)}
+        </p>
+        {milestone.description ? (
+          <p className="text-small leading-normal break-keep text-muted-foreground">
+            {milestone.description}
           </p>
-        </div>
+        ) : null}
+        {(viewerRole === 'STAFF' || viewerRole === 'ADMIN') && summary ? (
+          <p className="text-small">
+            <strong>
+              {submitted}/{summary.total}
+            </strong>{' '}
+            신청 제출 · 미제출 {summary.notSubmitted} · 승인 {summary.approved}{' '}
+            · 보완 {summary.changesRequested} · 반려 {summary.rejected}
+          </p>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
         <StatusBadge
           variant={
             milestone.dDay < 0
@@ -100,16 +117,16 @@ export function MilestoneRow({
         >
           {milestone.deadlineLabel}
         </StatusBadge>
-      </CardHeader>
-      <CardContent className="grid gap-3">
-        {milestone.description ? (
-          <p className="text-sm leading-normal break-keep">
-            {milestone.description}
-          </p>
-        ) : null}
+        {/*
+          역할이 없는 사람에는 비로그인 방문자와 프로필을 아직 못 채운 가입 미완자가
+          함께 들어온다. 후자는 이미 로그인해 있으므로 "로그인"이라고 하면 틀린 말이
+          되고, 두 경우 모두에 참인 조건은 "가입"이다(상세 화면 주 버튼과 같은 기준,
+          program-detail-page.tsx의 `ProgramActions`). 줄마다 반복되는 자리라 주
+          버튼보다 짧게 적는다.
+        */}
         {viewerRole === null ? (
-          <p className="text-sm font-medium text-muted-foreground">
-            로그인 후 확인
+          <p className="text-small font-semibold text-muted-foreground">
+            가입 후 확인
           </p>
         ) : null}
         {viewerRole === 'STUDENT' ? (
@@ -119,19 +136,7 @@ export function MilestoneRow({
             applicationStatus={applicationStatus}
           />
         ) : null}
-        {(viewerRole === 'STAFF' || viewerRole === 'ADMIN') && summary ? (
-          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-            <span>
-              <strong>
-                {submitted}/{summary.total}
-              </strong>{' '}
-              신청 제출 · 미제출 {summary.notSubmitted} · 승인{' '}
-              {summary.approved} · 보완 {summary.changesRequested} · 반려{' '}
-              {summary.rejected}
-            </span>
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
+      </div>
+    </ListRow>
   );
 }

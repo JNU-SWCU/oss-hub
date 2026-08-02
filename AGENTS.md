@@ -29,6 +29,7 @@
 | 구현 진행 상태 | GitHub Issue·PR | Issue/PR 번호 |
 | 시크릿(키·토큰) | secret store(배포 환경 변수) | 변수 이름만(`.env.example`) |
 | 개인정보·실데이터 | 제한 저장소(repo 밖) | 없음 — 합성 fixture만 반입 |
+실값은 Notion "Credentials" 페이지가 원본이며 배포 설정 변경 시의 갱신 요건은 `docs/rules/security.md`가 원본이다.
 
 ## 3. 작성권 — 산출물마다 작성자 1인
 
@@ -78,7 +79,9 @@ production release 배포의 인가·트리거·실행 검증과 실패·복구 
 형식은 [Conventional Commits v1.0.0](https://www.conventionalcommits.org/en/v1.0.0/)을 따르며 아래는 이 repo의 로컬 규칙이다.
 
 - 아토믹: 한 커밋 = 하나의 논리적 변경이며 요약에 "및·그리고"가 들어가면 쪼개라는 신호이고 중간 상태로 빌드가 깨지는 커밋을 만들지 않는다.
-- 요약은 한국어 한 줄이며 type은 `feat`(기능) `fix`(버그) `docs`(문서) `refactor`(동작 불변 정리) `test` `chore`(설정·잡무) `ci`만 쓴다.
+- 요약은 한국어 한 줄이며 type은 `feat`(기능) `fix`(버그) `docs`(문서) `refactor`(동작 불변 정리) `style`(공백·줄바꿈 등 표기만) `test` `chore`(설정·잡무) `ci`만 쓴다. `style`과 `refactor`는 갈린다 — 코드가 하는 일도 구조도 그대로고 표기만 바뀌면 `style`, 하는 일은 같은데 구조를 손봤으면 `refactor`다.
+- 이 목록은 `commitlint.config.cjs`의 `type-enum`과 **한 벌이다.** 한쪽만 고치면 문서와 검사가 갈라진다.
+- `.githooks/commit-msg`가 커밋하는 순간 이 규칙을 검사한다 — CI에서만 걸리면 이미 이력에 박힌 뒤라 고치려면 역사를 다시 써야 하고, 그 커밋을 다른 브랜치가 가리키면 강제 푸시가 남의 작업을 무너뜨린다. 훅을 켜려면 §7과 같은 `git config core.hooksPath .githooks` 하나면 된다.
 - 본문은 요약으로 "왜"가 부족할 때만 1~3줄로 쓰며 PR 본문과 중복 서술하지 않는다.
 - 에이전트가 만든 커밋도 동일 규칙이다 — 여러 파일을 한 번에 고쳤어도 논리 단위로 나눠 커밋한다.
 

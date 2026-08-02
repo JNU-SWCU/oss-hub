@@ -88,6 +88,7 @@ describe('PublicProjectsRepository', () => {
       expect(rows).toEqual([
         {
           id: 'synthetic-repository-1',
+          projectId: '9001',
           githubRepositoryId: 9001n,
           repositoryName: 'synthetic-repo',
           githubUrl: 'https://github.com/synthetic-org/synthetic-repo',
@@ -128,15 +129,15 @@ describe('PublicProjectsRepository', () => {
   });
 
   describe('findById', () => {
-    it('visibility/publishedAt 필터를 findFirst where에 함께 걸어 private/미존재를 동일하게 null로 만든다', async () => {
+    it('projectId(githubRepositoryId 문자열)와 visibility/publishedAt 필터를 findFirst where에 함께 걸어 private/미존재를 동일하게 null로 만든다', async () => {
       const findFirst = jest.fn().mockResolvedValue(null);
       const { repository } = repositoryWith({ repositoryFindFirst: findFirst });
 
-      const result = await repository.findById('synthetic-repository-1');
+      const result = await repository.findById('9001');
 
       expect(findFirst).toHaveBeenCalledWith({
         where: {
-          id: 'synthetic-repository-1',
+          githubRepositoryId: 9001n,
           visibility: 'PUBLIC',
           publishedAt: { not: null },
         },
@@ -149,10 +150,23 @@ describe('PublicProjectsRepository', () => {
       const findFirst = jest.fn().mockResolvedValue(RAW_ROW);
       const { repository } = repositoryWith({ repositoryFindFirst: findFirst });
 
-      const result = await repository.findById('synthetic-repository-1');
+      const result = await repository.findById('9001');
 
+      expect(result?.projectId).toBe('9001');
       expect(result?.repositoryName).toBe('synthetic-repo');
       expect(result?.githubRepositoryId).toBe(9001n);
+    });
+
+    it('숫자가 아닌 projectId는 findFirst를 호출하지 않고 null을 반환한다(Repository.id 등 콜론 포함 값 유입 방지)', async () => {
+      const findFirst = jest.fn();
+      const { repository } = repositoryWith({ repositoryFindFirst: findFirst });
+
+      const result = await repository.findById(
+        'seed:repositories:repository-public:repository',
+      );
+
+      expect(findFirst).not.toHaveBeenCalled();
+      expect(result).toBeNull();
     });
   });
 

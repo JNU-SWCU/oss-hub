@@ -12,6 +12,19 @@ interface NavBarProps extends Omit<React.ComponentProps<'nav'>, 'children'> {
   brand?: React.ReactNode;
   actions?: React.ReactNode;
   /**
+   * 접힌 메뉴를 다시 그릴 기준값. 보통 현재 경로를 넘긴다.
+   *
+   * 접힌 메뉴는 `<details>`라 열림 상태를 브라우저가 들고 있는데, 클라이언트
+   * 내비게이션은 셸을 그대로 두고 본문만 갈아 끼우므로 이 요소가 살아남아
+   * **열린 메뉴가 새 화면을 계속 덮는다**. 값이 바뀌면 React가 `<details>`를
+   * 새로 만들어 닫힌 상태로 돌린다.
+   *
+   * 경로를 이 컴포넌트가 직접 읽지 않는 이유는 nav-config 원칙 때문이다 —
+   * 라우팅을 아는 것은 호출부이고, 여기서 `usePathname`을 쓰면 이 컴포넌트가
+   * 클라이언트 전용이 되어 디자인 시스템 단독 이식이 막힌다.
+   */
+  menuResetKey?: string;
+  /**
    * 아이템 링크를 렌더링할 컴포넌트. 라우터는 호출부(세션·라우팅을 아는 쪽)의
    * 책임이라는 이 컴포넌트의 nav-config 원칙(위 주석 참고)이 items에도 그대로
    * 적용된다 — 미지정 시 순수 `<a>`로 폴백해 이 디자인 시스템이 Next 라우터
@@ -26,6 +39,23 @@ interface NavBarProps extends Omit<React.ComponentProps<'nav'>, 'children'> {
 }
 
 /**
+ * 메뉴를 한 줄에 펼치기 시작하는 폭. 이보다 좁으면 메뉴는 접힌다.
+ *
+ * 320px에서 마지막 메뉴("아카이브")와 actions("GitHub으로 로그인")가 47.6px,
+ * 360px에서 7.6px 겹쳤다 — 메뉴는 `whitespace-nowrap`이라 줄어들지 않는데
+ * actions는 `shrink-0`이라 서로 물러서지 않았기 때문이다. 폭을 나눠 갖게 만드는
+ * 대신(그러면 둘 다 읽을 수 없게 잘린다) 좁은 화면에서는 메뉴를 접는다.
+ *
+ * 480px을 고른 이유: 실측상 겹침은 약 368px 아래에서 시작하고, 이 셸은 이미
+ * 479px을 좁은 화면 경계로 쓰고 있다(shell-nav.tsx의 `max-[479px]:px-1`).
+ *
+ * 접힌 형태는 `<details>`/`<summary>`다 — 상태를 브라우저가 들고 있어 이 컴포넌트가
+ * 클라이언트 컴포넌트가 되지 않고, 키보드 조작·Esc 닫기도 브라우저가 처리한다.
+ * 같은 링크가 두 벌 렌더되지만 각 폭에서 한쪽은 `display:none`이라 접근성 트리에도
+ * 하나만 남는다.
+ */
+
+/**
  * 상단 내비게이션. 메뉴 구성은 호출부가 `items`로 주입하는 nav-config 방식이다 —
  * 이 컴포넌트는 role prop을 받지 않고 역할 분기 로직도 갖지 않는다.
  * 역할별 메뉴 계산은 호출부(세션을 아는 쪽)의 책임이다.
@@ -36,6 +66,7 @@ function NavBar({
   actions,
   className,
   linkComponent,
+  menuResetKey,
   ...props
 }: NavBarProps) {
   const LinkComponent = linkComponent ?? 'a';
@@ -56,9 +87,53 @@ function NavBar({
           {brand}
         </div>
       ) : null}
+      {/* 좁은 화면(<480px) — 메뉴를 접어 actions와 자리를 다투지 않게 한다 */}
+      <details
+        key={menuResetKey}
+        data-slot="nav-bar-menu"
+        className="group relative min-w-0 flex-1 min-[480px]:hidden"
+      >
+        <summary
+          data-slot="nav-bar-menu-trigger"
+          aria-label="메뉴"
+          className="flex size-11 cursor-pointer list-none items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground [&::-webkit-details-marker]:hidden"
+        >
+          <svg
+            aria-hidden
+            focusable="false"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.7}
+            strokeLinecap="round"
+            className="size-5"
+          >
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </summary>
+        <ul
+          data-slot="nav-bar-menu-items"
+          data-surface="default"
+          className="absolute top-full left-0 z-50 mt-1 w-52 overflow-hidden rounded-lg border border-border bg-background py-1 shadow-lg"
+        >
+          {items.map((item) => (
+            <li key={item.href}>
+              <LinkComponent
+                href={item.href}
+                // `w-full`이 필요하다 — 호출부(ShellNav)가 터치 타깃 확보용으로
+                // `[&_a]:inline-flex`를 걸어 두어, 이 항목들이 글자 폭만큼만
+                // 줄어들면 줄의 빈 곳을 눌러도 아무 일도 일어나지 않는다.
+                className="flex min-h-11 w-full items-center px-3 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground"
+              >
+                {item.label}
+              </LinkComponent>
+            </li>
+          ))}
+        </ul>
+      </details>
       <ul
         data-slot="nav-bar-items"
-        className="flex min-w-0 flex-1 items-center gap-0 sm:gap-1"
+        className="hidden min-w-0 flex-1 items-center gap-0 min-[480px]:flex sm:gap-1"
       >
         {items.map((item) => (
           <li key={item.href}>

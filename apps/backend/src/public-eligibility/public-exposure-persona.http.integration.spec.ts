@@ -30,7 +30,11 @@ let studentPersona: Awaited<ReturnType<typeof harness.createUser>>;
 let staffPersona: Awaited<ReturnType<typeof harness.createUser>>;
 let adminPersona: Awaited<ReturnType<typeof harness.createUser>>;
 
-let publicProject: { repositoryId: string; applicantId: string };
+let publicProject: {
+  repositoryId: string;
+  applicantId: string;
+  githubRepositoryId: bigint;
+};
 let gateRepoForStaff: { repositoryId: string; githubRepositoryId: bigint };
 let gateRepoForAdmin: { repositoryId: string; githubRepositoryId: bigint };
 
@@ -236,7 +240,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         harness.request('GET', '/projects', githubId),
         harness.request(
           'GET',
-          `/projects/${publicProject.repositoryId}`,
+          `/projects/${publicProject.githubRepositoryId}`,
           githubId,
         ),
         harness.request(
@@ -264,13 +268,15 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         ])) as readonly [WireBody, WireBody, WireBody, WireBody];
       allBodies.push(listBody, detailBody, profileBody, rankingBody);
 
-      expect(listBody).toMatchObject({
-        items: [
-          expect.objectContaining({ projectId: publicProject.repositoryId }),
-        ],
-      });
+      expect(listBody.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            projectId: publicProject.githubRepositoryId.toString(),
+          }),
+        ]),
+      );
       expect(detailBody).toMatchObject({
-        projectId: publicProject.repositoryId,
+        projectId: publicProject.githubRepositoryId.toString(),
         contributors: [
           expect.objectContaining({
             githubLogin: `${PREFIX}-published-owner-login`,

@@ -6,6 +6,7 @@ describe('PublicUserProfileController', () => {
   it('GET /:userId/profile — 서비스 결과를 프로필 응답 DTO로 매핑하며 userId를 그대로 전달한다', async () => {
     const project: PublicProjectRow = {
       id: 'synthetic-repository-1',
+      projectId: '9001',
       githubRepositoryId: 9001n,
       repositoryName: 'synthetic-repo',
       githubUrl: 'https://github.com/synthetic-org/synthetic-repo',
@@ -43,7 +44,7 @@ describe('PublicUserProfileController', () => {
     expect(result.userId).toBe('synthetic-user-1');
     expect(result.githubNickname).toBe('synthetic-login');
     expect(result.projects).toHaveLength(1);
-    expect(result.projects[0]?.projectId).toBe('synthetic-repository-1');
+    expect(result.projects[0]?.projectId).toBe('9001');
     expect(result.projects[0]?.observed).toBe(true);
     expect(result.projects[0]?.metrics).toEqual({
       commitCount: 5,

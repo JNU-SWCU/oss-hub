@@ -66,7 +66,7 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
     items.find((item) => item.milestoneId === props.selectedMilestoneId) ??
     null;
   return (
-    <main className="mx-auto grid max-w-3xl gap-6 px-4 py-8">
+    <main className="mx-auto grid w-full max-w-3xl gap-6 px-4 py-8">
       <header className="grid gap-1">
         <h1 className="text-2xl font-bold tracking-tight">제출 체크리스트</h1>
         <p className="text-sm text-muted-foreground [word-break:keep-all]">
@@ -416,7 +416,7 @@ function SubmissionFileLink({
 export function ChecklistSkeleton() {
   return (
     <main
-      className="mx-auto grid max-w-3xl gap-6 px-4 py-8"
+      className="mx-auto grid w-full max-w-3xl gap-6 px-4 py-8"
       aria-label="체크리스트 불러오는 중"
     >
       <div className="h-16 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
@@ -435,7 +435,7 @@ export function ChecklistLoadFailure({
   readonly onRetry: () => void;
 }) {
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
+    <main className="mx-auto w-full max-w-3xl px-4 py-8">
       <Alert variant="destructive">
         <AlertTitle>체크리스트 불러오기 실패</AlertTitle>
         <AlertDescription className="space-y-3">

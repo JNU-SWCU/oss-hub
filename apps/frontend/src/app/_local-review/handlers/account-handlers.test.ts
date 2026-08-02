@@ -1,0 +1,596 @@
+import { describe, expect, it, vi } from 'vitest';
+import { parsePublicProfile } from '@/features/profile/public-profile-api';
+import { parseMyRepositoriesResponse } from '@/features/repositories/parser';
+import type { RoleRequestStatus } from '@/features/roles/types';
+import { onboardingPathFor } from '../../_shell/onboarding-route';
+import {
+  createLocalReviewActivation,
+  type LocalReviewFixtureId,
+} from '../fixture-contract';
+import {
+  resetLocalReviewFixtureState,
+  resolveLocalReviewResponse,
+} from '../fixture-response';
+import { resetLocalReviewRoleSelection } from './account-handlers';
+
+function call(
+  fixture: LocalReviewFixtureId,
+  method: string,
+  path: string,
+  search = '',
+) {
+  return resolveLocalReviewResponse({
+    fixture,
+    method,
+    path,
+    searchParams: new URLSearchParams(search),
+  });
+}
+
+/** 고른 역할·입력한 값처럼 요청 본문에만 있는 입력을 함께 보낸다. */
+function callWithBody(
+  fixture: LocalReviewFixtureId,
+  method: string,
+  path: string,
+  body: unknown,
+) {
+  return resolveLocalReviewResponse({
+    fixture,
+    method,
+    path,
+    searchParams: new URLSearchParams(),
+    body,
+  });
+}
+
+function jsonBody(
+  plan: ReturnType<typeof resolveLocalReviewResponse>,
+  status = 200,
+): unknown {
+  if (plan.kind !== 'json') throw new Error('expected a json fixture plan');
+  expect(plan.status).toBe(status);
+  return plan.body;
+}
+
+/**
+ * 백엔드 `consents/domain/consent-policy.ts`의 정책 버전. 문서 파일 이름이 곧 이
+ * 버전이라 어긋나면 "전문 보기"가 404가 된다.
+ */
+const CONSENT_POLICY_VERSION = '2026-07-21';
+
+const AUTHENTICATED_FIXTURES = [
+  'student',
+  'staff',
+  'admin',
+  'settings',
+  'wrong-role',
+  'unassigned',
+] as const satisfies readonly LocalReviewFixtureId[];
+
+describe('account fixture responses', () => {
+  it('serves a public profile that the real parser accepts', () => {
+    // Given / When
+    const body = jsonBody(
+      call('anonymous', 'GET', 'users/synthetic-user-01/public-profile'),
+    );
+
+    // Then: 파서가 githubUrl·detailUrl·publishedAt 형식을 모두 검사한다.
+    const profile = parsePublicProfile(body);
+    expect(profile.githubNickname).toBe('synthetic-contributor-01');
+    expect(profile.projects.map((item) => item.projectId)).toEqual([
+      'synthetic-repo-capstone',
+      'synthetic-repo-contest',
+    ]);
+    // 공개 아카이브 상세로 이어지는 경로가 끊기지 않아야 한다.
+    expect(profile.projects[0]?.detailUrl).toBe(
+      '/archive/synthetic-repo-capstone',
+    );
+  });
+
+  it('keeps an empty public profile reviewable and 404s unknown users', () => {
+    // Given / When
+    const empty = jsonBody(
+      call('student', 'GET', 'users/synthetic-user-05/public-profile'),
+    );
+    const missing = call(
+      'student',
+      'GET',
+      'users/synthetic-user-99/public-profile',
+    );
+
+    // Then
+    expect(parsePublicProfile(empty).projects).toEqual([]);
+    expect(missing).toMatchObject({
+      kind: 'json',
+      status: 404,
+      body: { code: 'PRF_001' },
+    });
+  });
+
+  it.each(AUTHENTICATED_FIXTURES)(
+    '%s fixture can read /my-repos without hitting the failure state',
+    (fixture) => {
+      // Given / When
+      const body = jsonBody(call(fixture, 'GET', 'repositories/me'));
+
+      // Then: 파서는 SUCCEEDED가 아닌 항목의 저장소 필드가 비어 있는지까지 본다.
+      const repositories = parseMyRepositoriesResponse(body);
+      expect(repositories.items).toHaveLength(4);
+      expect(repositories.items.map((item) => item.provisionStatus)).toEqual([
+        'SUCCEEDED',
+        'SUCCEEDED',
+        'PROCESSING',
+        'FAILED_FINAL',
+      ]);
+      expect(repositories.items[0]?.canOpenGithub).toBe(true);
+      expect(repositories.items[2]?.canOpenGithub).toBe(false);
+    },
+  );
+
+  it('rejects the signed-out reviewer on account-only reads', () => {
+    // Given / When
+    const repositories = call('anonymous', 'GET', 'repositories/me');
+    const consent = call('anonymous', 'GET', 'consents/current');
+
+    // Then
+    expect(repositories).toMatchObject({ kind: 'json', status: 401 });
+    expect(consent).toMatchObject({ kind: 'json', status: 401 });
+  });
+
+  it('opens the consent screen instead of redirecting straight past it', () => {
+    // Given / When
+    const body = jsonBody(call('unassigned', 'GET', 'consents/current'));
+
+    // Then: consented가 true면 화면이 즉시 빠져나가 동의 화면을 볼 수 없다.
+    expect(body).toMatchObject({
+      policyVersion: CONSENT_POLICY_VERSION,
+      consented: false,
+      nextUrl: '/onboarding/role',
+    });
+    expect((body as { requiredItems: unknown[] }).requiredItems).toHaveLength(
+      3,
+    );
+  });
+
+  // "전문 보기"가 열어야 할 문서는 `public/policies/`에 실제로 있는 파일이다.
+  // 없는 주소를 주면 대화상자에 404가 뜨고, 검토자는 약관 내용을 못 본 채 동의한다.
+  it('약관 전문 주소가 제품이 배포하는 실제 문서를 가리킨다', () => {
+    // Given / When
+    const body = jsonBody(call('unassigned', 'GET', 'consents/current')) as {
+      requiredItems: readonly { key: string; documentUrl: string }[];
+    };
+
+    // Then: 키·주소 모두 백엔드 `CURRENT_CONSENT_POLICY`와 같은 값이다.
+    expect(body.requiredItems.map((item) => item.key)).toEqual([
+      'PRIVACY_COLLECTION',
+      'GITHUB_ACTIVITY',
+      'ORG_REPOSITORY_TERMS',
+    ]);
+    expect(body.requiredItems.map((item) => item.documentUrl)).toEqual([
+      `/policies/privacy/${CONSENT_POLICY_VERSION}.html`,
+      `/policies/github-activity/${CONSENT_POLICY_VERSION}.html`,
+      `/policies/org-repository-terms/${CONSENT_POLICY_VERSION}.html`,
+    ]);
+  });
+
+  it('lets the approval-waiting reviewer past the consent step', () => {
+    // Given / When
+    const body = jsonBody(call('role-pending', 'GET', 'consents/current'));
+
+    // Then: 이미 동의를 마친 상태여야 랜딩 진입 버튼(`/consent`)이 1단계에서
+    // 멈추지 않고 `/onboarding/pending`까지 이어진다.
+    expect(body).toMatchObject({
+      policyVersion: CONSENT_POLICY_VERSION,
+      consented: true,
+      nextUrl: '/onboarding/role',
+    });
+  });
+
+  it('accepts the consent submission with the next onboarding step', () => {
+    // Given / When
+    const body = jsonBody(call('unassigned', 'POST', 'consents'));
+
+    // Then
+    expect(body).toMatchObject({
+      policyVersion: CONSENT_POLICY_VERSION,
+      nextUrl: '/onboarding/role',
+    });
+    expect(
+      Number.isFinite(
+        Date.parse((body as { consentedAt: string }).consentedAt),
+      ),
+    ).toBe(true);
+  });
+
+  it('confirms the logout every header exposes', () => {
+    // Given / When
+    const plan = call('student', 'POST', 'auth/logout');
+
+    // Then: isAuthenticated가 true면 화면이 "로그아웃하지 못했습니다"로 남는다.
+    expect(plan).toEqual({
+      kind: 'json',
+      status: 200,
+      body: { isAuthenticated: false },
+    });
+  });
+
+  it('sends the login link to the consent screen instead of raw JSON', () => {
+    // Given: 랜딩의 "GitHub으로 로그인"은 fetch가 아니라 링크로 전체 이동한다.
+    // When
+    const plan = call('anonymous', 'GET', 'auth/github');
+
+    // Then: JSON이면 브라우저가 그 JSON을 그대로 렌더한다 — 이동이어야 한다.
+    if (plan.kind !== 'redirect') throw new Error('expected a redirect plan');
+    expect(plan.status).toBe(303);
+    expect(plan.location).toBe(
+      '/local-review/unassigned?to=%2Fconsent%3Fnotice%3Dlocal-review-login',
+    );
+  });
+
+  it('routes the login redirect through an activation the contract accepts', () => {
+    // Given: 목적지로 바로 보내면 비로그인 상태라 게이트가 랜딩으로 되튕긴다.
+    const plan = call('anonymous', 'GET', 'auth/github');
+    if (plan.kind !== 'redirect') throw new Error('expected a redirect plan');
+    const url = new URL(plan.location, 'http://localhost:3000');
+
+    // When: 활성화 경로가 실제로 페르소나를 켜고 그 화면으로 이어 주는지 본다.
+    const activation = createLocalReviewActivation({
+      nodeEnv: 'development',
+      enabled: '1',
+      backendOrigin: 'http://localhost:4000',
+      requestHostname: 'localhost',
+      fixtureParam: url.pathname.split('/').at(-1) ?? '',
+      targetParam: url.searchParams.get('to'),
+    });
+
+    // Then: 미배정 페르소나로 켜지고 목적지는 약관 동의 화면이다 — 실제
+    // backend 의 로그인 후 진입점과 같아야 한다.
+    // target이 계약에서 걸리면 `/`로 떨어져 검토자가 랜딩으로 되돌아온다.
+    expect(activation).toEqual({
+      kind: 'redirect',
+      fixture: 'unassigned',
+      target: '/consent?notice=local-review-login',
+    });
+  });
+
+  it('leaves the logout fixture as a plain JSON confirmation', () => {
+    // Given / When: 로그아웃은 fetch로 부르므로 이동으로 바꾸면 안 된다.
+    const plan = call('student', 'POST', 'auth/logout');
+
+    // Then
+    expect(plan.kind).toBe('json');
+  });
+
+  it('saves the settings screen edits instead of failing the submit', () => {
+    // Given / When
+    const profile = jsonBody(call('settings', 'PATCH', 'users/me/profile'));
+    const notification = jsonBody(
+      call('settings', 'PATCH', 'users/me/notification-email'),
+    );
+
+    // Then: 프로필 파서는 isComplete와 값의 정합성이 맞아야 통과시킨다.
+    expect(profile).toEqual({
+      name: '합성 설정 사용자',
+      studentId: '260001',
+      department: '인공지능학부',
+      isComplete: true,
+    });
+    expect(notification).toEqual({
+      notificationEmail: 'fixture@example.com',
+      notifyEnabled: true,
+    });
+  });
+
+  it('설정 화면의 저장은 입력한 값을 그대로 돌려준다', () => {
+    // Given / When: 설정 화면은 학번을 뺀 `{ name, department }`를 보낸다.
+    const profile = jsonBody(
+      callWithBody('settings', 'PATCH', 'users/me/profile', {
+        name: '합성 변경 이름',
+        department: '빅데이터융합학과',
+      }),
+    );
+    const notification = jsonBody(
+      callWithBody('settings', 'PATCH', 'users/me/notification-email', {
+        notificationEmail: 'changed@example.com',
+        notifyEnabled: false,
+      }),
+    );
+
+    // Then: 안 보낸 학번은 픽스처 값을 유지하고 isComplete는 그에 맞게 계산된다.
+    expect(profile).toEqual({
+      name: '합성 변경 이름',
+      studentId: '260001',
+      department: '빅데이터융합학과',
+      isComplete: true,
+    });
+    expect(notification).toEqual({
+      notificationEmail: 'changed@example.com',
+      notifyEnabled: false,
+    });
+  });
+
+  it('온보딩 프로필 저장은 미완성 입력을 미완성으로 답한다', () => {
+    // Given / When: 파서는 isComplete와 값의 정합성이 어긋나면 응답을 거부한다.
+    const profile = jsonBody(
+      callWithBody('unassigned', 'PATCH', 'users/me/profile', {
+        name: '합성 온보딩 사용자',
+        studentId: '12',
+        department: '인공지능학부',
+      }),
+    );
+
+    // Then
+    expect(profile).toEqual({
+      name: '합성 온보딩 사용자',
+      studentId: '12',
+      department: '인공지능학부',
+      isComplete: false,
+    });
+  });
+
+  it('역할 선택은 고른 역할에 맞는 이동 경로를 준다', () => {
+    // Given / When
+    const student = jsonBody(
+      callWithBody('unassigned', 'POST', 'onboarding/role', {
+        selectedRole: 'STUDENT',
+      }),
+    );
+    const staff = jsonBody(
+      callWithBody('unassigned', 'POST', 'onboarding/role', {
+        selectedRole: 'STAFF',
+      }),
+    );
+
+    // Then: 교직원은 즉시 확정되지 않고 승인 대기 화면으로 간다.
+    expect(student).toEqual({
+      selectedRole: 'STUDENT',
+      role: 'STUDENT',
+      requestStatus: null,
+      redirectTo: '/onboarding/profile',
+    });
+    expect(staff).toEqual({
+      selectedRole: 'STAFF',
+      role: null,
+      requestStatus: 'PENDING',
+      redirectTo: '/onboarding/pending',
+    });
+  });
+
+  it('lets the unassigned reviewer finish role onboarding', () => {
+    // Given / When
+    const selection = jsonBody(call('unassigned', 'POST', 'onboarding/role'));
+    const staffRequest = jsonBody(call('unassigned', 'POST', 'role-requests'));
+
+    // Then: 화면은 redirectTo만 사용하므로 앱 내부 경로여야 한다.
+    expect(selection).toMatchObject({ redirectTo: '/onboarding/profile' });
+    expect(staffRequest).toMatchObject({
+      requestedRole: 'STAFF',
+      status: 'PENDING',
+    });
+  });
+
+  // 학생 선택을 기억하지 않으면 세션이 계속 미배정이라, 제출은 되는데 게이트가
+  // 역할 선택 화면으로 되돌려 검토자가 제자리에 갇힌다. 백엔드도 학생은 승인 없이
+  // 즉시 배정하므로(roles.service.ts `selectStudent`) 세션이 함께 바뀌어야 맞다.
+  it('학생 선택은 세션 역할까지 확정해 프로필 단계로 이어 준다', () => {
+    // Given
+    resetLocalReviewFixtureState();
+
+    // When
+    callWithBody('unassigned', 'POST', 'onboarding/role', {
+      selectedRole: 'STUDENT',
+    });
+    const session = jsonBody(call('unassigned', 'GET', 'auth/session'));
+
+    // Then: 프로필은 아직 비어 있어야 RoleGate가 프로필 입력으로 넘긴다.
+    expect(session).toMatchObject({
+      isAuthenticated: true,
+      user: { role: 'STUDENT', isProfileComplete: false },
+    });
+  });
+
+  it('교직원 선택은 승인 전이라 세션 역할 대신 대기 요청으로 남는다', () => {
+    // Given
+    resetLocalReviewFixtureState();
+
+    // When
+    callWithBody('unassigned', 'POST', 'onboarding/role', {
+      selectedRole: 'STAFF',
+    });
+    const session = jsonBody(call('unassigned', 'GET', 'auth/session'));
+    const roleRequest = jsonBody(call('unassigned', 'GET', 'role-requests/me'));
+
+    // Then
+    expect(session).toMatchObject({ user: { role: null } });
+    expect(roleRequest).toMatchObject({
+      requestedRole: 'STAFF',
+      status: 'PENDING',
+    });
+  });
+
+  // 검토판 링크를 다시 누르는 것이 곧 "처음부터 다시"여야 한다. 지우지 않으면 한 번
+  // 걸어 본 가입 동선을 서버를 다시 띄우기 전에는 볼 수 없다.
+  it('페르소나를 다시 켜면 앞선 검토의 역할 선택이 지워진다', () => {
+    // Given: 교직원까지 골라 둔 상태.
+    callWithBody('unassigned', 'POST', 'onboarding/role', {
+      selectedRole: 'STAFF',
+    });
+
+    // When: 활성화 경로가 하는 일과 같은 초기화.
+    resetLocalReviewRoleSelection();
+
+    // Then: 역할 선택 화면이 다시 첫 화면이 된다.
+    expect(jsonBody(call('unassigned', 'GET', 'role-requests/me'))).toBeNull();
+    expect(jsonBody(call('unassigned', 'GET', 'auth/session'))).toMatchObject({
+      user: { role: null },
+    });
+  });
+
+  it('교직원 프로필은 학번 없이도 완료로 답한다', () => {
+    // Given: 교직원을 고른 사람의 프로필 화면은 학번 칸 자체를 열지 않는다.
+    resetLocalReviewFixtureState();
+    callWithBody('unassigned', 'POST', 'onboarding/role', {
+      selectedRole: 'STAFF',
+    });
+
+    // When
+    const profile = jsonBody(
+      callWithBody('unassigned', 'PATCH', 'users/me/profile', {
+        name: '합성 교직원 사용자',
+        department: '인공지능학부',
+      }),
+    );
+
+    // Then: 여기서 학번을 요구하면 화면은 묻지도 않는데 저장만 안 되는 모순이 된다.
+    expect(profile).toEqual({
+      name: '합성 교직원 사용자',
+      studentId: null,
+      department: '인공지능학부',
+      isComplete: true,
+    });
+  });
+
+  // 학번을 요구하지 않는 역할이라도 실려 온 값의 형식은 맞아야 한다. 형식이 깨진
+  // 학번을 완료로 답하면 응답 파서가 그 모순을 잡아 응답 자체를 거부하고, 검토자는
+  // 원인을 알 수 없는 "저장 실패"만 본다.
+  it('교직원이라도 형식이 깨진 학번이 실려 오면 완료로 답하지 않는다', () => {
+    // Given
+    resetLocalReviewFixtureState();
+    callWithBody('unassigned', 'POST', 'onboarding/role', {
+      selectedRole: 'STAFF',
+    });
+
+    // When
+    const profile = jsonBody(
+      callWithBody('unassigned', 'PATCH', 'users/me/profile', {
+        name: '합성 교직원 사용자',
+        studentId: '12',
+        department: '인공지능학부',
+      }),
+    );
+
+    // Then
+    expect(profile).toMatchObject({ studentId: '12', isComplete: false });
+  });
+
+  it('leaves the loading and error personas to the global fixture rules', () => {
+    // Given / When
+    const loading = call('loading', 'GET', 'repositories/me');
+    const error = call('error', 'POST', 'auth/logout');
+
+    // Then
+    expect(loading).toEqual({ kind: 'delay', milliseconds: 60_000 });
+    expect(error).toMatchObject({ kind: 'json', status: 503 });
+  });
+});
+
+/**
+ * 검토자가 실제로 걷는 가입 동선을 통째로 잠근다.
+ *
+ * 화면이 다음 단계를 어디로 정하는지는 `_shell/onboarding-route.ts`의
+ * `onboardingPathFor`가 결정한다. 그 함수에 픽스처 응답을 그대로 먹여 동선을
+ * 따라가는 이유는, 여기서 같은 판단을 다시 적으면 잠그는 대상이 화면이 아니라
+ * 이 테스트 자신이 되기 때문이다.
+ */
+describe('가입 동선 — 약관 → 교직원 선택 → 프로필 → 승인 대기', () => {
+  /** 지금 이 검토자가 있어야 할 온보딩 화면. 게이트가 읽는 두 값에서 파생시킨다. */
+  function currentOnboardingPath(): string | null {
+    const roleRequest = jsonBody(
+      call('unassigned', 'GET', 'role-requests/me'),
+    ) as { readonly status: RoleRequestStatus } | null;
+    const profile = jsonBody(call('unassigned', 'GET', 'users/me/profile')) as {
+      readonly isComplete: boolean;
+    };
+    return onboardingPathFor(
+      roleRequest?.status ?? null,
+      profile.isComplete ? 'complete' : 'incomplete',
+    );
+  }
+
+  it('교직원을 고른 검토자가 프로필을 거쳐 승인 대기 화면까지 도착한다', () => {
+    // Given: 검토판 링크(`/local-review/unassigned?to=/consent`)를 막 누른 상태.
+    resetLocalReviewFixtureState();
+
+    // When / Then 1 — 약관. 아직 동의 전이라 화면이 떠야 하고, 다음은 역할 선택이다.
+    expect(
+      jsonBody(call('unassigned', 'GET', 'consents/current')),
+    ).toMatchObject({ consented: false, nextUrl: '/onboarding/role' });
+    expect(jsonBody(call('unassigned', 'POST', 'consents'))).toMatchObject({
+      nextUrl: '/onboarding/role',
+    });
+
+    // 2 — 교직원 선택. 승인이 필요하므로 대기 화면으로 보낸다.
+    expect(
+      jsonBody(
+        callWithBody('unassigned', 'POST', 'onboarding/role', {
+          selectedRole: 'STAFF',
+        }),
+      ),
+    ).toMatchObject({
+      requestStatus: 'PENDING',
+      redirectTo: '/onboarding/pending',
+    });
+
+    // 3 — 그 대기 화면의 게이트는 비어 있는 프로필을 보고 프로필 입력으로 넘긴다.
+    //     여기서 역할 선택이 잊히면 `/onboarding/role`로 되튕겨 제자리를 돈다.
+    expect(currentOnboardingPath()).toBe('/onboarding/profile');
+
+    // 4 — 프로필 저장. 교직원이라 학번은 묻지 않는다.
+    expect(
+      jsonBody(
+        callWithBody('unassigned', 'PATCH', 'users/me/profile', {
+          name: '합성 교직원 사용자',
+          department: '인공지능학부',
+        }),
+      ),
+    ).toMatchObject({ isComplete: true });
+
+    // 5 — 저장 뒤 다시 게이트. 이번엔 승인 대기 화면이 목적지다. 세션 역할은 승인
+    //     전이라 계속 비어 있어야 온보딩 밖(역할 홈)으로 튕기지 않는다.
+    expect(currentOnboardingPath()).toBe('/onboarding/pending');
+    expect(jsonBody(call('unassigned', 'GET', 'auth/session'))).toMatchObject({
+      isAuthenticated: true,
+      user: { role: null, isProfileComplete: true },
+    });
+  });
+
+  /**
+   * 검토가 실제로 깨진 자리. Next 개발 서버는 화면을 처음 열 때 그 라우트를
+   * 컴파일하면서 서버 모듈을 새로 평가하고, 모듈 최상단 `let`에 담아 둔 값은 그때
+   * 초기값으로 돌아간다. `vi.resetModules()` + 동적 import 가 그 재평가와 같은 일을
+   * 한다 — 이 잠금이 없으면 "요청 사이에 남는다"까지만 확인하게 되고, 정작 검토가
+   * 깨지는 조건(라우트 첫 컴파일)은 아무도 지키지 않는다.
+   */
+  it('라우트가 처음 컴파일돼 모듈이 다시 평가돼도 가입 도중 상태가 남는다', async () => {
+    // Given: 교직원을 고르고 프로필까지 저장한 상태.
+    resetLocalReviewFixtureState();
+    callWithBody('unassigned', 'POST', 'onboarding/role', {
+      selectedRole: 'STAFF',
+    });
+    callWithBody('unassigned', 'PATCH', 'users/me/profile', {
+      name: '합성 교직원 사용자',
+      department: '인공지능학부',
+    });
+
+    // When: `/onboarding/pending`을 처음 여는 순간과 같은 모듈 재평가.
+    vi.resetModules();
+    const reloaded = await import('../fixture-response');
+    const readAfterReload = (path: string) =>
+      reloaded.resolveLocalReviewResponse({
+        fixture: 'unassigned',
+        method: 'GET',
+        path,
+        searchParams: new URLSearchParams(),
+      });
+
+    // Then: 역할 요청이 `null`로 바뀌면 대기 화면이 역할 선택으로 되튕겨,
+    // 검토자는 방금 고른 교직원이 안 골라진 것으로 본다.
+    expect(jsonBody(readAfterReload('role-requests/me'))).toMatchObject({
+      requestedRole: 'STAFF',
+      status: 'PENDING',
+    });
+    expect(jsonBody(readAfterReload('users/me/profile'))).toMatchObject({
+      isComplete: true,
+    });
+  });
+});

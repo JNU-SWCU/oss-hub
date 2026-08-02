@@ -2,8 +2,6 @@ import { Role, RoleRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import type { ConsentsService } from '../consents/consents.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { UsersRepository } from '../users/users.repository';
-import { UsersService } from '../users/users.service';
 import { RolesRepository } from './roles.repository';
 import { RolesService } from './roles.service';
 
@@ -29,11 +27,7 @@ describe('RolesRepository integration', () => {
   const consentsService: Pick<ConsentsService, 'requireCurrent'> = {
     requireCurrent: jest.fn().mockResolvedValue(undefined),
   };
-  const usersService = new UsersService(
-    new UsersRepository(prisma),
-    consentsService,
-  );
-  const service = new RolesService(repository, consentsService, usersService);
+  const service = new RolesService(repository, consentsService);
 
   beforeAll(async () => {
     await prisma.$connect();
@@ -116,10 +110,15 @@ describe('RolesRepository integration', () => {
     expect(Number(storedUser.role === Role.STUDENT) + pendingCount).toBe(1);
   });
 
-  it.each([Role.STUDENT, Role.STAFF])(
-    '미완료 프로필의 %s 선택은 역할과 요청을 남기지 않는다',
-    async (selectedRole) => {
-      // Given
+  it.each([
+    [Role.STUDENT, Role.STUDENT, 0],
+    [Role.STAFF, null, 1],
+  ] as const)(
+    '프로필이 비어 있어도 %s 선택은 그대로 기록된다',
+    async (selectedRole, expectedRole, expectedRequestCount) => {
+      // Given — 온보딩 순서가 약관 → 역할 → 프로필로 바뀌어, 역할을 고르는 시점에
+      // 프로필은 아직 비어 있는 것이 정상이다. 예전에는 여기서 USR_002로 막혔고,
+      // 그 때문에 교직원이 학번을 지어내야 앞으로 나아갈 수 있었다.
       const user = await prisma.user.create({
         data: {
           id: `${TEST_PREFIX}incomplete-${selectedRole.toLowerCase()}`,
@@ -130,18 +129,16 @@ describe('RolesRepository integration', () => {
       });
 
       // When
-      const promise = service.selectRole(user.githubId, selectedRole);
+      const result = await service.selectRole(user.githubId, selectedRole);
 
       // Then
-      await expect(promise).rejects.toMatchObject({
-        errorCode: { code: 'USR_002' },
-      });
+      expect(result.selectedRole).toBe(selectedRole);
       const [storedUser, requestCount] = await Promise.all([
         prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
         prisma.roleRequest.count({ where: { userId: user.id } }),
       ]);
-      expect(storedUser.role).toBeNull();
-      expect(requestCount).toBe(0);
+      expect(storedUser.role).toBe(expectedRole);
+      expect(requestCount).toBe(expectedRequestCount);
     },
   );
 });

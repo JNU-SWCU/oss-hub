@@ -3,11 +3,11 @@
 import Link from 'next/link';
 import { ArrowRight, LoaderCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { githubLoginPath } from '@/features/landing/api';
 import { cn } from '@/lib/utils';
+import { SIGNUP_ENTRY } from '@/features/auth/signup-entry-link';
 import { resolveSessionEntry } from './role-home-link';
 import type { AppRole } from './role';
-import { useSessionRole, type SessionStatus } from './use-session-role';
+import type { SessionStatus } from './use-session-role';
 
 interface LandingEntryActionViewProps {
   readonly status: SessionStatus;
@@ -23,6 +23,7 @@ export function LandingEntryActionView({
   inverted = false,
 }: LandingEntryActionViewProps) {
   const className = cn(
+    'min-h-11',
     inverted && 'bg-background text-primary hover:bg-background/90',
   );
 
@@ -35,13 +36,15 @@ export function LandingEntryActionView({
     );
   }
 
+  // GitHub으로 바로 던지지 않고 `/signup`을 거친다 — 무슨 일이 일어나는지,
+  // GitHub 계정이 없으면 어떻게 하는지를 말할 자리가 그 화면이다.
   if (status === 'anonymous') {
     return (
       <Button asChild className={className} size="lg">
-        <a href={githubLoginPath}>
-          {hasAuthError ? 'GitHub 로그인 다시 시도' : 'GitHub으로 로그인'}
+        <Link href={SIGNUP_ENTRY.href}>
+          {hasAuthError ? '로그인 다시 시도' : SIGNUP_ENTRY.label}
           <ArrowRight aria-hidden="true" />
-        </a>
+        </Link>
       </Button>
     );
   }
@@ -57,14 +60,4 @@ export function LandingEntryActionView({
       </Link>
     </Button>
   );
-}
-
-interface LandingEntryActionProps {
-  readonly hasAuthError?: boolean;
-  readonly inverted?: boolean;
-}
-
-export function LandingEntryAction(props: LandingEntryActionProps) {
-  const { status, role } = useSessionRole();
-  return <LandingEntryActionView {...props} status={status} role={role} />;
 }
