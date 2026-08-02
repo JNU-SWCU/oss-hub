@@ -76,8 +76,13 @@ export function createCosmosQualityGovernor(): CosmosQualityGovernor {
         return;
       }
 
-      // 예산 안으로 들어온 창 하나면 방금 올린 단계는 시험을 통과한 것이다.
-      justRaised = false;
+      if (justRaised) {
+        // 예산 안으로 들어온 창 하나면 방금 올린 단계는 시험을 통과한 것이다.
+        // 다음 승격이 노리는 것은 더 위 단계이므로, 여기까지 쌓인 실패 기록도 지운다.
+        // 그러지 않으면 아래 단계에서 미끄러진 기록이 위 단계의 실패로 합산된다.
+        justRaised = false;
+        raiseFailures = 0;
+      }
 
       if (p95 > budgetMs * RECOVERY_BUDGET_RATIO) {
         // 예산 안이지만 여유는 없는 구간. 유지만 하고 복귀 기록은 다시 센다.

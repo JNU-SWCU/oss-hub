@@ -235,6 +235,53 @@ describe('createCosmosQualityGovernor', () => {
     expect(governor.qualityScale()).toBe(0.75);
   });
 
+  it('does not carry a failure across a promotion that proved itself', () => {
+    // Given — 바닥까지 내려간 뒤 0.75 승격이 첫 창에서 한 번 미끄러진다
+    const governor = createCosmosQualityGovernor();
+    record(governor, 24, 40);
+    expect(governor.qualityScale()).toBe(0.5);
+    record(governor, 36, 8);
+    expect(governor.qualityScale()).toBe(0.75);
+    record(governor, 12, 24);
+    expect(governor.qualityScale()).toBe(0.5);
+
+    // When — 다시 올라간 0.75는 첫 창을 무사히 넘겨 검증되고, 여유가 이어져 1.0까지 간다
+    record(governor, 36, 8);
+    expect(governor.qualityScale()).toBe(0.75);
+    record(governor, 12, 8);
+    record(governor, 24, 8);
+    expect(governor.qualityScale()).toBe(1);
+
+    // 그리고 1.0이 첫 창에서 미끄러진다 — 이 단계로서는 첫 실패다
+    record(governor, 12, 24);
+    expect(governor.qualityScale()).toBe(0.75);
+    record(governor, 36, 8);
+
+    // Then — 0.75의 지난 실패와 합산해 1.0을 세션 내내 금지하면 안 된다
+    expect(governor.qualityScale()).toBe(1);
+  });
+
+  it('does not count a late stall as the verdict on an earlier promotion', () => {
+    // Given — 최고 단계가 첫 창을 통과해 검증된 뒤, 한참 뒤의 멈춤으로 한 번 내려온다
+    const governor = createCosmosQualityGovernor();
+    record(governor, 12, 24);
+    record(governor, 36, 8);
+    expect(governor.qualityScale()).toBe(1);
+    record(governor, 12, 8);
+    record(governor, 12, 24);
+    expect(governor.qualityScale()).toBe(0.75);
+
+    // When — 다시 올라간 뒤 첫 창에서 미끄러진다. 이 단계로서는 첫 실패여야 한다
+    record(governor, 36, 8);
+    expect(governor.qualityScale()).toBe(1);
+    record(governor, 12, 24);
+    expect(governor.qualityScale()).toBe(0.75);
+    record(governor, 36, 8);
+
+    // Then — 지난 멈춤까지 승격 판정으로 세면 두 번째 실패가 되어 1.0이 금지된다
+    expect(governor.qualityScale()).toBe(1);
+  });
+
   it('does not cap the ceiling when stalls arrive long after the step proved itself', () => {
     // Given
     const governor = createCosmosQualityGovernor();
