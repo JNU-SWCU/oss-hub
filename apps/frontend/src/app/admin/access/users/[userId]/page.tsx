@@ -1,5 +1,4 @@
 import { RolePanelShell } from '../../../../_shell/role-panel-shell';
-import { ADMIN_MENU } from '../../../../_shell/role-menus';
 import { AdminAccessDetailView } from '@/features/roles/components/admin-access-detail-view';
 
 type AdminAccessDetailPageProps = {
@@ -24,7 +23,7 @@ export default async function AdminAccessDetailPage({
   }
 
   return (
-    <RolePanelShell menu={ADMIN_MENU} allow={['ADMIN']}>
+    <RolePanelShell allow={['ADMIN']}>
       <AdminAccessDetailView userId={decodedUserId} />
     </RolePanelShell>
   );
