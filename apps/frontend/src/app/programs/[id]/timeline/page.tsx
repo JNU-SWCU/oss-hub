@@ -1,5 +1,4 @@
 import { RolePanelShell } from '../../../_shell/role-panel-shell';
-import { STUDENT_MENU } from '../../../_shell/role-menus';
 import { MilestoneTimelineScreen } from '@/features/milestone-timeline';
 
 export default async function ProgramTimelinePage({
@@ -9,7 +8,7 @@ export default async function ProgramTimelinePage({
 }) {
   const { id } = await params;
   return (
-    <RolePanelShell menu={STUDENT_MENU} allow={['STUDENT']}>
+    <RolePanelShell allow={['STUDENT']}>
       <MilestoneTimelineScreen programId={decodeURIComponent(id)} />
     </RolePanelShell>
   );

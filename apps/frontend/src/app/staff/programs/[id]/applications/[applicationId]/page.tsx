@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { RolePanelShell } from '../../../../../_shell/role-panel-shell';
-import { STAFF_MENU } from '../../../../../_shell/role-menus';
 import { EmptyState, PageHeader } from '@/components';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,7 +29,7 @@ export default async function StaffApplicationDetailRoute({
   }
 
   return (
-    <RolePanelShell menu={STAFF_MENU} allow={['STAFF', 'ADMIN']}>
+    <RolePanelShell allow={['STAFF', 'ADMIN']}>
       <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
         <PageHeader
           title="신청 상세"

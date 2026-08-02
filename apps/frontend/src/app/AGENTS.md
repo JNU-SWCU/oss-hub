@@ -43,9 +43,9 @@ Next.js App Router 라우트. 역할 기반(STUDENT/STAFF/ADMIN) 화면 접근 �
   - `sidebar-menu.ts` — 역할 메뉴에 아이콘·묶음을 얹어 사이드바 구성을 만든다(`sidebarGroupsFor`). 공개 화면(프로그램·공개 아카이브)은 **세 역할 모두**에게 보인다. 상단바 breadcrumb 라벨(`shellPageLabel`)도 여기서 파생된다.
   - `app-frame.tsx`(`AppFrame`) — 셸 분기. 랜딩(`/`)만 `ShellNav`(우주 위 투명 헤더 → 흰 구간에서 흰 바)를 쓰고, 그 외 라우트는 `ProductShell`을 쓴다.
   - `product-shell.tsx`·`app-sidebar.tsx`·`app-topbar.tsx` — 업무 화면 셸(사이드바 펼침 248 / 접힘 72, 상단바 64). 접힘 여부는 `localStorage['oss-hub-sidebar']`에 남고 서버 렌더는 항상 펼침이다(hydration 일치). 접힌 상태에서도 아이콘이 그대로 링크다.
-  - `role-panel-shell.tsx`(`RolePanelShell`) — 이제 `RoleGate`만 감싼다. 좌측 메뉴는 셸의 사이드바로 올라갔으므로 여기서 다시 그리지 않는다. `menu` prop은 호출부 호환용으로만 남아 있다.
+  - `role-panel-shell.tsx`(`RolePanelShell`) — 이제 `RoleGate`만 감싼다. 좌측 메뉴는 셸의 사이드바로 올라갔으므로 여기서 다시 그리지 않는다. 호환용으로 남겨 뒀던 `menu` prop은 읽히지 않는 죽은 prop이라 제거했다 — 라우트는 `role-menus.ts`를 import하지 않는다.
   - `ticket-stub.tsx`(`TicketStub`) — 아직 미구현 화면을 `EmptyState` + 이슈 링크로 채우는 표준 스텁. 화면을 실제로 구현하기 전까지는 이 컴포넌트로 채운다.
-- 새 라우트의 전형적 패턴: `RolePanelShell menu={<ROLE>_MENU} allow={[...]}` 안에 `TicketStub` 또는 실제 화면 컴포넌트를 넣는다(`dashboard/page.tsx` 참조).
+- 새 라우트의 전형적 패턴: `RolePanelShell allow={[...]}` 안에 `TicketStub` 또는 실제 화면 컴포넌트를 넣는다(`dashboard/page.tsx` 참조). 메뉴는 넘기지 않는다 — 사이드바가 `sidebar-menu.ts`에서 알아서 읽는다.
 - 서버 사이드 접근 강화(middleware)는 아직 이 라우트 골격 범위 밖이다 — `RoleGate`/`AuthGate`는 클라이언트 사이드 redirect만 수행한다.
 
 ## Dependencies

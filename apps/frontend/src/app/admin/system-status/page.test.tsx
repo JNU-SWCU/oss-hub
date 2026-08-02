@@ -20,9 +20,8 @@ vi.mock('../../_shell/role-panel-shell', () => ({
     </div>
   ),
 }));
-vi.mock('../../_shell/role-menus', () => ({
-  ADMIN_MENU: [{ href: '/admin/system-status', label: '시스템 상태' }],
-}));
+// `role-menus` mock은 두지 않는다 — 이 라우트는 더 이상 메뉴를 import하지
+// 않으므로(RolePanelShell의 죽은 `menu` prop 제거) 없는 의존을 흉내 내는 셈이다.
 
 import AdminSystemStatusPage from './page';
 
