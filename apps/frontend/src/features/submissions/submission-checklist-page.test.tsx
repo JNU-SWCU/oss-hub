@@ -16,6 +16,15 @@ const pageView = vi.hoisted(() => ({
   props: null as SubmissionChecklistViewProps | null,
 }));
 
+const initialSubmissionPage = vi.hoisted(() => ({
+  props: null as {
+    readonly onSubmitted: () => void;
+    readonly onSubmittingChange?: (submitting: boolean) => void;
+  } | null,
+  posts: 0,
+  resolvePost: null as (() => void) | null,
+}));
+
 type StateSetter<T> = (nextValue: T | ((previous: T) => T)) => void;
 
 const hooks = vi.hoisted(() => {
@@ -130,6 +139,16 @@ vi.mock('./components/submission-checklist-view', () => ({
   },
 }));
 
+vi.mock('./submission-page', () => ({
+  SubmissionPage: (props: {
+    readonly onSubmitted: () => void;
+    readonly onSubmittingChange?: (submitting: boolean) => void;
+  }) => {
+    initialSubmissionPage.props = props;
+    return null;
+  },
+}));
+
 const CHECKLIST: SubmissionChecklist = {
   applicationId: 'application-1',
   applicationMode: 'PERSONAL',
@@ -188,16 +207,30 @@ function currentViewProps(): SubmissionChecklistViewProps {
   return pageView.props;
 }
 
+let selectedMilestoneId: string | null = 'milestone-file';
+let closeSelected: ReturnType<typeof vi.fn>;
+
 function renderPage(): void {
   hooks.begin();
   renderToStaticMarkup(
     SubmissionChecklistPage({
       programId: 'program-1',
-      milestoneId: 'milestone-file',
-      onCloseSelected: vi.fn(),
+      milestoneId: selectedMilestoneId,
+      onCloseSelected: closeSelected,
     }),
   );
   hooks.run();
+}
+
+function renderPageBeforeEffects(): void {
+  hooks.begin();
+  renderToStaticMarkup(
+    SubmissionChecklistPage({
+      programId: 'program-1',
+      milestoneId: selectedMilestoneId,
+      onCloseSelected: closeSelected,
+    }),
+  );
 }
 
 async function flushAsyncWork(): Promise<void> {
@@ -220,9 +253,36 @@ async function selectFileAndSubmit(file: File): Promise<void> {
   renderPage();
 }
 
+async function submitInitialPost(): Promise<void> {
+  const initialSubmission = currentViewProps().initialSubmission;
+  if (
+    !isValidElement<{
+      readonly onSubmitted: () => void;
+      readonly onSubmittingChange?: (submitting: boolean) => void;
+    }>(initialSubmission)
+  ) {
+    throw new Error('expected initial submission element');
+  }
+  const props = initialSubmission.props;
+  initialSubmissionPage.posts += 1;
+  props.onSubmittingChange?.(true);
+  await new Promise<void>((resolve) => {
+    initialSubmissionPage.resolvePost = resolve;
+  });
+  props.onSubmittingChange?.(false);
+  props.onSubmitted();
+}
+
 beforeEach(() => {
   hooks.reset();
   pageView.props = null;
+  selectedMilestoneId = 'milestone-file';
+  closeSelected = vi.fn(() => {
+    selectedMilestoneId = null;
+  });
+  initialSubmissionPage.props = null;
+  initialSubmissionPage.posts = 0;
+  initialSubmissionPage.resolvePost = null;
   vi.mocked(getSubmissionChecklist).mockReset();
   vi.mocked(uploadSubmissionFile).mockReset();
   vi.mocked(createResubmission).mockReset();
@@ -349,5 +409,109 @@ describe('SubmissionChecklistPage initial submission refresh', () => {
     expect(getSubmissionChecklist).toHaveBeenCalledTimes(2);
     expect(currentViewProps().checklist).toEqual(unsubmitted);
     expect(currentViewProps().refreshError).toBe('CHECKLIST_UNAVAILABLE');
+  });
+
+  it('pending initial POST가 열린 동안 browser Back으로 선택을 닫아도 201 후 authoritative checklist를 읽어 최신 제출 상태를 표시한다', async () => {
+    const [firstItem] = CHECKLIST.items;
+    if (!firstItem) throw new Error('expected checklist item fixture');
+    const unsubmitted: SubmissionChecklist = {
+      ...CHECKLIST,
+      items: [{ ...firstItem, submission: null }],
+    };
+    const submitted: SubmissionChecklist = {
+      ...CHECKLIST,
+      items: [
+        {
+          ...firstItem,
+          submission: {
+            id: 'submission-created',
+            status: 'SUBMITTED',
+            currentRevision: 1,
+            lastReviewedAt: null,
+            reviewComment: null,
+            canResubmit: false,
+            file: null,
+          },
+        },
+      ],
+    };
+    vi.mocked(getSubmissionChecklist)
+      .mockResolvedValueOnce(unsubmitted)
+      .mockResolvedValueOnce(submitted);
+    await renderReadyPage();
+
+    const post = submitInitialPost();
+    await flushAsyncWork();
+    currentViewProps().onCloseSelected?.();
+    expect(closeSelected).toHaveBeenCalledTimes(1);
+    expect(selectedMilestoneId).toBeNull();
+
+    if (initialSubmissionPage.resolvePost === null) {
+      throw new Error('expected POST to be pending');
+    }
+    initialSubmissionPage.resolvePost();
+    await post;
+    await flushAsyncWork();
+    renderPage();
+
+    expect(initialSubmissionPage.posts).toBe(1);
+    expect(getSubmissionChecklist).toHaveBeenCalledTimes(2);
+    expect(currentViewProps().checklist).toEqual(submitted);
+    expect(currentViewProps().checklist.items[0]?.submission?.status).toBe(
+      'SUBMITTED',
+    );
+  });
+
+  it('effect가 늦어 selected ref가 이전 id여도 browser Back 직후 initial POST 201은 authoritative checklist를 한 번만 읽는다', async () => {
+    // Given
+    const [firstItem] = CHECKLIST.items;
+    if (!firstItem) throw new Error('expected checklist item fixture');
+    const unsubmitted: SubmissionChecklist = {
+      ...CHECKLIST,
+      items: [{ ...firstItem, submission: null }],
+    };
+    const submitted: SubmissionChecklist = {
+      ...CHECKLIST,
+      items: [
+        {
+          ...firstItem,
+          submission: {
+            id: 'submission-created',
+            status: 'SUBMITTED',
+            currentRevision: 1,
+            lastReviewedAt: null,
+            reviewComment: null,
+            canResubmit: false,
+            file: null,
+          },
+        },
+      ],
+    };
+    vi.mocked(getSubmissionChecklist)
+      .mockResolvedValueOnce(unsubmitted)
+      .mockResolvedValueOnce(submitted);
+    await renderReadyPage();
+
+    // When
+    const post = submitInitialPost();
+    await flushAsyncWork();
+    selectedMilestoneId = null;
+    renderPageBeforeEffects();
+    if (initialSubmissionPage.resolvePost === null) {
+      throw new Error('expected POST to be pending');
+    }
+    initialSubmissionPage.resolvePost();
+    await post;
+    await flushAsyncWork();
+    renderPage();
+
+    // Then
+    expect(closeSelected).not.toHaveBeenCalled();
+    expect(initialSubmissionPage.posts).toBe(1);
+    expect(getSubmissionChecklist).toHaveBeenCalledTimes(2);
+    expect(currentViewProps().checklist).toEqual(submitted);
+    expect(currentViewProps().checklist.items[0]?.submission?.status).toBe(
+      'SUBMITTED',
+    );
   });
 });

@@ -1,4 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server';
+import {
+  Children,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import {
   ChecklistLoadFailure,
@@ -6,6 +12,7 @@ import {
   SubmissionChecklistView,
   type SubmissionChecklistViewProps,
 } from './components/submission-checklist-view';
+import { ChecklistRow } from './components/submission-checklist-row';
 import type {
   ChecklistSubmission,
   SubmissionChecklist,
@@ -119,6 +126,55 @@ function render(overrides: Partial<SubmissionChecklistViewProps> = {}): string {
   );
 }
 
+type LinkClickEvent = {
+  readonly button: number;
+  readonly metaKey: boolean;
+  readonly altKey: boolean;
+  readonly ctrlKey: boolean;
+  readonly shiftKey: boolean;
+  readonly defaultPrevented: boolean;
+  preventDefault: () => void;
+  wasPrevented: () => boolean;
+};
+
+type LinkElementProps = {
+  readonly children?: ReactNode;
+  readonly href?: string;
+  readonly onClick?: (event: LinkClickEvent) => void;
+};
+
+function linkClickEvent(
+  overrides: Partial<Omit<LinkClickEvent, 'preventDefault' | 'wasPrevented'>>,
+): LinkClickEvent {
+  let prevented = overrides.defaultPrevented ?? false;
+  return {
+    button: overrides.button ?? 0,
+    metaKey: overrides.metaKey ?? false,
+    altKey: overrides.altKey ?? false,
+    ctrlKey: overrides.ctrlKey ?? false,
+    shiftKey: overrides.shiftKey ?? false,
+    get defaultPrevented() {
+      return prevented;
+    },
+    preventDefault: () => {
+      prevented = true;
+    },
+    wasPrevented: () => prevented,
+  };
+}
+
+function findLinkElement(
+  node: ReactNode,
+): ReactElement<LinkElementProps> | null {
+  if (!isValidElement<LinkElementProps>(node)) return null;
+  if (node.props.href?.includes('?submission=') === true) return node;
+  for (const child of Children.toArray(node.props.children)) {
+    const link = findLinkElement(child);
+    if (link !== null) return link;
+  }
+  return null;
+}
+
 describe('SubmissionChecklistView 체크리스트', () => {
   it('프로그램 상세의 레거시 체크리스트 앵커를 유지한다', () => {
     const html = render({ embedded: true });
@@ -190,6 +246,39 @@ describe('SubmissionChecklistView 체크리스트', () => {
     expect(html).toContain('제출 상태가 변경되었습니다');
     expect(html).toContain('재제출 실패');
     expect(html).toContain('재제출하지 못했습니다.');
+  });
+});
+
+describe('ChecklistRow 제출 CTA', () => {
+  it('ordinary primary click만 modal 선택으로 가로채고 modified click은 native Link 동작을 보존한다', () => {
+    // Given
+    const item = ITEMS[4];
+    if (!item) throw new Error('expected unsubmitted checklist item fixture');
+    const onSelectMilestone = vi.fn();
+    const link = findLinkElement(
+      ChecklistRow({
+        programId: 'program-1',
+        item,
+        now: NOW,
+        onSelectMilestone,
+      }),
+    );
+    if (link?.props.onClick === undefined) {
+      throw new Error('expected row CTA click handler');
+    }
+
+    const modifiedClick = linkClickEvent({ metaKey: true });
+    link.props.onClick(modifiedClick);
+
+    expect(modifiedClick.wasPrevented()).toBe(false);
+    expect(onSelectMilestone).not.toHaveBeenCalled();
+
+    const ordinaryClick = linkClickEvent({});
+    link.props.onClick(ordinaryClick);
+
+    expect(ordinaryClick.wasPrevented()).toBe(true);
+    expect(onSelectMilestone).toHaveBeenCalledTimes(1);
+    expect(onSelectMilestone).toHaveBeenCalledWith('milestone-final');
   });
 });
 

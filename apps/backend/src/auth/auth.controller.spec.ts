@@ -19,14 +19,16 @@ const syntheticUser: AuthUser = {
   avatarUrl: null,
   accountStatus: AccountStatus.ACTIVE,
   role: null,
+  isProfileComplete: false,
 };
 /**
- * 온보딩을 끝낸 사용자 — 역할이 확정돼 있다. 로그인 후 착지 지점이 role 유무로
- * 갈리므로, 랜딩으로 가는 경로를 검증하는 테스트는 이 픽스처를 써야 한다.
+ * 온보딩을 끝낸 사용자 — 역할이 확정됐고 프로필도 완료됐다. 로그인 후 착지 지점이
+ * 이 둘로 갈리므로, 랜딩으로 가는 경로를 검증하는 테스트는 이 픽스처를 써야 한다.
  */
 const syntheticOnboardedUser: AuthUser = {
   ...syntheticUser,
   role: Role.STUDENT,
+  isProfileComplete: true,
 };
 const recordLogin = jest.fn();
 

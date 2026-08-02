@@ -73,6 +73,8 @@ export function SubmissionChecklistPage({
   const uploadedFile = useRef(new SubmissionFileUploadCache());
   const resubmitInFlight = useRef(false);
   const refreshAfterClose = useRef(false);
+  const selectedMilestoneId = useRef(milestoneId);
+  selectedMilestoneId.current = milestoneId;
 
   const refresh = useCallback(async () => {
     try {
@@ -113,6 +115,7 @@ export function SubmissionChecklistPage({
 
   // 선택 마일스톤(?milestoneId=)이 바뀌면 폼 입력·오류를 초기화한다.
   useEffect(() => {
+    selectedMilestoneId.current = milestoneId;
     setInput(EMPTY_INPUT);
     setComment('');
     setErrors({});
@@ -125,6 +128,7 @@ export function SubmissionChecklistPage({
 
   const closeSelected = () => {
     if (submitting || initialSubmitting) return;
+    selectedMilestoneId.current = null;
     onCloseSelected?.();
     if (!refreshAfterClose.current) return;
     refreshAfterClose.current = false;
@@ -247,6 +251,10 @@ export function SubmissionChecklistPage({
             milestoneId={milestoneId}
             onCancel={closeSelected}
             onSubmitted={() => {
+              if (selectedMilestoneId.current === null) {
+                void refresh();
+                return;
+              }
               refreshAfterClose.current = true;
             }}
             onSubmittingChange={setInitialSubmitting}

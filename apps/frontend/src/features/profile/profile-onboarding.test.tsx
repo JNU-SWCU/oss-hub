@@ -10,6 +10,7 @@ import {
   PROFILE_NAME_MAX_LENGTH,
   validateProfileForm,
 } from './profile-state';
+import type { ProfileRole } from './profile-requirements';
 import type { ProfileFormValues } from './types';
 
 const noOp = () => undefined;
@@ -27,15 +28,18 @@ function values(overrides: Partial<ProfileFormValues> = {}): ProfileFormValues {
 function renderForm(
   formValues: ProfileFormValues,
   options: {
+    readonly role?: ProfileRole | null;
     readonly showRequiredErrors?: boolean;
     readonly isSubmitting?: boolean;
     readonly submitError?: string | null;
   } = {},
 ) {
+  const role = options.role ?? null;
   return renderToStaticMarkup(
     <ProfileForm
+      role={role}
       values={formValues}
-      errors={validateProfileForm(formValues)}
+      errors={validateProfileForm(formValues, role)}
       showRequiredErrors={options.showRequiredErrors ?? false}
       isSubmitting={options.isSubmitting ?? false}
       submitError={options.submitError ?? null}
@@ -95,6 +99,67 @@ describe('profile onboarding view', () => {
     expect(html).toContain('이름은 100자 이하로 입력해 주세요.');
     expect(html).toContain('학과는 100자 이하로 입력해 주세요.');
     expect(html).toContain('disabled=""');
+  });
+
+  it('학생에게는 이름·학번·학과를 모두 보여 준다', () => {
+    const html = renderForm(values(), { role: 'STUDENT' });
+
+    expect(html).toContain('profile-name');
+    expect(html).toContain('profile-student-id');
+    expect(html).toContain('profile-department');
+    expect(html).toContain('항목(이름, 학번, 학과)');
+  });
+
+  it('교직원에게는 학번을 선택 항목으로 보여 준다', () => {
+    const html = renderForm(values({ studentId: '' }), {
+      role: 'STAFF',
+      showRequiredErrors: true,
+    });
+
+    expect(html).toContain('profile-student-id');
+    expect(html).toContain('선택');
+    expect(html).not.toContain('학번은 숫자 6~10자리로 입력해 주세요.');
+    expect(html).toContain('profile-department');
+    expect(html).toContain('항목(이름, 학과, 학번 선택)');
+    // 학번 없이도 저장 버튼이 열린다.
+    expect(html).not.toMatch(/type="submit"[^>]*disabled/);
+  });
+
+  it('교직원이 넣은 학번의 형식이 틀리면 저장을 막고 오류를 보여 준다', () => {
+    const html = renderForm(values({ studentId: '12A456' }), {
+      role: 'STAFF',
+      showRequiredErrors: true,
+    });
+
+    expect(html).toContain('학번은 숫자 6~10자리로 입력해 주세요.');
+    expect(html).toMatch(/type="submit"[^>]*disabled/);
+  });
+
+  it('관리자에게는 학과를 감추고 학번만 선택 항목으로 보여 준다', () => {
+    const html = renderForm(values({ studentId: '', departmentOption: '' }), {
+      role: 'ADMIN',
+      showRequiredErrors: true,
+    });
+
+    expect(html).toContain('profile-student-id');
+    expect(html).not.toContain('profile-department');
+    expect(html).toContain('profile-name');
+    expect(html).toContain('항목(이름, 학번 선택)');
+    expect(html).not.toMatch(/type="submit"[^>]*disabled/);
+  });
+
+  it('관리자가 학번을 적어 넣으면 학과 칸이 함께 열린다', () => {
+    // Given / When — 학번이 유일성 제약 아래 저장되는 자리가 학과를 요구한다.
+    // 학과를 감춘 채 학번만 받으면 백엔드가 USR_005로 거절해 빠져나갈 곳이 없어진다.
+    const html = renderForm(
+      values({ studentId: '1'.repeat(6), departmentOption: '' }),
+      { role: 'ADMIN', showRequiredErrors: true },
+    );
+
+    // Then
+    expect(html).toContain('profile-department');
+    expect(html).toContain('학과를 선택하거나 입력해 주세요.');
+    expect(html).toMatch(/type="submit"[^>]*disabled/);
   });
 
   it('저장 중 중복 클릭을 막고 서버 실패 Alert를 표시한다', () => {

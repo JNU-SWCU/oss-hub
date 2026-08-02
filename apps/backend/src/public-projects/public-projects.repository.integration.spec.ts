@@ -192,9 +192,9 @@ describe('PublicProjectsRepository integration', () => {
   it('findById는 private/unpublished/미존재 저장소 모두 동일하게 null을 반환한다', async () => {
     const [privateResult, unpublishedResult, missingResult] = await Promise.all(
       [
-        repository.findById(`${PREFIX}-private-repository`),
-        repository.findById(`${PREFIX}-unpublished-repository`),
-        repository.findById(`${PREFIX}-does-not-exist`),
+        repository.findById('8700000099001'),
+        repository.findById('8700000099002'),
+        repository.findById('8700000099999'),
       ],
     );
 
@@ -202,6 +202,84 @@ describe('PublicProjectsRepository integration', () => {
     expect(unpublishedResult).toBeNull();
     expect(missingResult).toBeNull();
   });
+
+  it('findById는 콜론이 섞인 Repository.id를 그대로 받아도(비숫자) DB를 조회하지 않고 null을 반환한다', async () => {
+    const result = await repository.findById(
+      `${PREFIX}-repository-0`.replace(/-/g, ':'),
+    );
+
+    expect(result).toBeNull();
+  });
+
+  it(
+    '공개 프로젝션 계약(#archive 회귀) — listPage의 모든 행에서 projectId는 프런트 계약 정규식' +
+      '(/^[A-Za-z0-9_-]+$/)을 만족하고, Repository.id에 콜론이 섞인 seed 스타일 행도 projectId는' +
+      'githubRepositoryId 기반 콜론-free 값이며 githubUrl은 JNU-SWCU 정확 계약을 만족한다',
+    async () => {
+      const page = await repository.listPage(null, PUBLIC_REPOSITORY_COUNT);
+      expect(page.length).toBeGreaterThan(0);
+      for (const row of page) {
+        expect(row.projectId).toMatch(/^[A-Za-z0-9_-]+$/);
+      }
+
+      const contractApplicantId = `${PREFIX}-contract-applicant`;
+      const contractApplicationId = `${PREFIX}-contract-application`;
+      // 실제 oss-hub seed(`prisma/seeds/oss-hub.ts`)와 동일하게 Repository.id에 콜론을
+      // 의도적으로 섞는다 — 이 값이 그대로 공개 projectId로 새는 게 이 회귀의 근본 원인이었다.
+      const contractRepositoryId = `seed:public-projects-contract:jnu-repo:repository`;
+      const contractGithubRepositoryId = 8_800_000_000_001n;
+      const contractRepositoryName = 'public-projects-contract-repo';
+
+      await prisma.user.create({
+        data: {
+          id: contractApplicantId,
+          githubId: 8_600_000_099_101n,
+          nickname: `${PREFIX}-contract-applicant`,
+          role: Role.STUDENT,
+        },
+      });
+      await prisma.application.create({
+        data: {
+          id: contractApplicationId,
+          programId: PROGRAM_ID,
+          applicantId: contractApplicantId,
+          answers: {},
+          applicationTemplateVersion: 1,
+          status: ApplicationStatus.APPROVED,
+        },
+      });
+      await prisma.repository.create({
+        data: {
+          id: contractRepositoryId,
+          applicationId: contractApplicationId,
+          programId: PROGRAM_ID,
+          githubRepositoryId: contractGithubRepositoryId,
+          name: contractRepositoryName,
+          url: `https://github.com/JNU-SWCU/${contractRepositoryName}`,
+          visibility: RepositoryVisibility.PUBLIC,
+          publishedAt: BASE_PUBLISHED_AT,
+        },
+      });
+
+      try {
+        const found = await repository.findById(
+          contractGithubRepositoryId.toString(),
+        );
+        expect(found).not.toBeNull();
+        expect(found?.projectId).toBe(contractGithubRepositoryId.toString());
+        expect(found?.projectId).toMatch(/^[A-Za-z0-9_-]+$/);
+        expect(found?.githubUrl).toBe(
+          `https://github.com/JNU-SWCU/${contractRepositoryName}`,
+        );
+      } finally {
+        await prisma.repository.delete({ where: { id: contractRepositoryId } });
+        await prisma.application.delete({
+          where: { id: contractApplicationId },
+        });
+        await prisma.user.delete({ where: { id: contractApplicantId } });
+      }
+    },
+  );
 
   it(
     'EXPLAIN 증거 — 첫 페이지(cursor 없음)와 다음 페이지(keyset cursor) 조회 모두 ' +

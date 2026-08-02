@@ -192,7 +192,7 @@ export function ChecklistSkeleton({
   }
   return (
     <main
-      className="mx-auto grid max-w-3xl gap-6 px-4 py-8"
+      className="mx-auto grid w-full max-w-3xl gap-6 px-4 py-8"
       aria-label="체크리스트 불러오는 중"
     >
       {content}
@@ -221,5 +221,5 @@ export function ChecklistLoadFailure({
     </Alert>
   );
   if (embedded) return <section aria-label="마일스톤 및 제출">{alert}</section>;
-  return <main className="mx-auto max-w-3xl px-4 py-8">{alert}</main>;
+  return <main className="mx-auto w-full max-w-3xl px-4 py-8">{alert}</main>;
 }

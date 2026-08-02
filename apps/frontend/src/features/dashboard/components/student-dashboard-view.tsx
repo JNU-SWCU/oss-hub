@@ -1,16 +1,59 @@
-import { AlertCircle, ArrowRight, FolderOpen } from 'lucide-react';
+import { AlertCircle, ArrowRight, CircleCheck, FolderOpen } from 'lucide-react';
 import Link from 'next/link';
 
 import { CardGrid, EmptyState, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import type { StudentDashboard, StudentDashboardStatus } from '../types';
+import type {
+  DashboardItem,
+  StudentDashboard,
+  StudentDashboardStatus,
+} from '../types';
 import { StudentDashboardCard } from './student-dashboard-card';
+
+/**
+ * 채운 남색은 화면당 주 행동 하나에만 쓴다. 카드마다 "제출 체크리스트"를 채운
+ * 버튼으로 두면 카드 수만큼 주 행동이 늘어 어디부터 볼지 시선이 갈라진다.
+ * 그래서 마감이 가장 급한 카드 하나만 채운 버튼으로 남기고 나머지는 낮춘다.
+ * 급한 순서는 다음 마일스톤 마감이 이른 쪽이며, 이미 지난 마감이 가장 급하다.
+ * 승인 대기·반려 카드는 아직 제출할 것이 없어 후보에서 뺀다.
+ */
+function primaryActionApplicationId(
+  items: readonly DashboardItem[],
+): string | null {
+  let soonest: { id: string; dueAt: number } | null = null;
+  let fallback: string | null = null;
+
+  for (const item of items) {
+    if (
+      item.applicationStatus === 'SUBMITTED' ||
+      item.applicationStatus === 'REJECTED'
+    )
+      continue;
+    fallback ??= item.applicationId;
+
+    const milestone = item.nextMilestone;
+    if (milestone === null) continue;
+    const dueAt = Date.parse(milestone.dueAt);
+    if (Number.isNaN(dueAt)) continue;
+    if (soonest === null || dueAt < soonest.dueAt)
+      soonest = { id: item.applicationId, dueAt };
+  }
+
+  // 마감이 잡힌 카드가 하나도 없으면(전부 완료) 첫 참여 카드를 주 행동으로 둔다 —
+  // 채운 버튼이 0개가 되면 이번엔 무엇부터 할지가 사라진다.
+  return soonest?.id ?? fallback;
+}
 
 interface StudentDashboardViewProps {
   data: StudentDashboard | null;
   status: StudentDashboardStatus;
   now?: Date;
+  /**
+   * 방금 가입을 마치고 이 화면에 처음 도착했는가. 판단은 화면(screen)이 하고
+   * 여기서는 받은 값만 그린다 — 브라우저 저장소를 보는 쪽과 그리는 쪽을 섞지 않는다.
+   */
+  showSignupCompleteNotice?: boolean;
   onRetry: () => void;
 }
 
@@ -31,8 +74,13 @@ export function StudentDashboardView({
   data,
   status,
   now = new Date(),
+  showSignupCompleteNotice = false,
   onRetry,
 }: StudentDashboardViewProps) {
+  const primaryApplicationId = data
+    ? primaryActionApplicationId(data.items)
+    : null;
+
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-5 sm:p-8">
       <PageHeader
@@ -47,6 +95,22 @@ export function StudentDashboardView({
           </Button>
         }
       />
+
+      {/*
+        가입 완료는 화면 제목이 아니라 이 일회성 안내가 말한다. 제목("내 대시보드")은
+        3년 뒤 다시 들어온 사람도 보는 자리라 축하 문구를 놓을 수 없다. 이 안내는
+        프로필 저장 직후의 첫 도착 한 번만 뜨고 그 뒤로는 사라진다 — 조건의 출처는
+        `lib/signup-completion-notice.ts`.
+      */}
+      {showSignupCompleteNotice ? (
+        <Alert>
+          <CircleCheck aria-hidden="true" />
+          <AlertTitle>가입이 완료되었습니다</AlertTitle>
+          <AlertDescription>
+            이제 프로그램을 신청하고 저장소를 연결할 수 있습니다.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {status === 'loading' ? (
         <DashboardSkeleton />
@@ -74,6 +138,7 @@ export function StudentDashboardView({
               key={item.applicationId}
               item={item}
               now={now}
+              isPrimaryAction={item.applicationId === primaryApplicationId}
             />
           ))}
         </CardGrid>

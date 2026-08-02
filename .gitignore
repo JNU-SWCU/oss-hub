@@ -57,6 +57,12 @@ out/
 # Local package store
 .pnpm-store/
 
+# architecture-boundary.eslint.spec.ts 가 실제 모듈 폴더 안에 잠깐 썼다가 지우는
+# lint fixture. glob(`src/<module>/**`)에 걸리려면 src 안에 있어야 하는데, 테스트가
+# 중간에 죽으면 남아 tsc·lint·build 대상이 되고 실수로 커밋된다(실제로 한 번 그랬다).
+# 항상 재생성되는 파일이므로 추적하지 않는다.
+apps/backend/src/**/__lint_fixture_*.ts
+
 # design-sync (claude.ai/design) — staged scripts, build output, machine state
 .ds-sync/
 ds-bundle/

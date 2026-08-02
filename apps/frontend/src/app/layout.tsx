@@ -6,8 +6,9 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { type NavItem } from '@/components';
 import { LoginButton } from '@/features/auth/components/login-button';
+import { AppFrame } from './_shell/app-frame';
 import { SessionEntryNavLink } from './_shell/role-home-link';
-import { ShellNav } from './_shell/shell-nav';
+import { SkipLink } from './_shell/skip-link';
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -31,7 +32,9 @@ export default function RootLayout({
   return (
     <html lang="ko" className={cn('font-sans', geist.variable)}>
       <body className="relative">
-        <ShellNav
+        <SkipLink />
+        {/* 랜딩은 상단 헤더, 그 외는 사이드바 + 상단바 — 분기는 AppFrame이 한다 */}
+        <AppFrame
           brand={<Link href="/">OSS Hub</Link>}
           items={NAV_ITEMS}
           actions={
@@ -40,8 +43,9 @@ export default function RootLayout({
               <LoginButton />
             </>
           }
-        />
-        {children}
+        >
+          {children}
+        </AppFrame>
       </body>
     </html>
   );

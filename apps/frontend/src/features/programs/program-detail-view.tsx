@@ -11,6 +11,8 @@ import { categoryLabel, formatSeoulDate } from './program-detail-format';
 import { programHref, staffProgramHref } from './program-paths';
 import type { ProgramDetail } from './types';
 
+const SIGNUP_ENTRY_HREF = '/signup';
+
 export function ProgramDetailSkeleton() {
   return (
     <main
@@ -34,7 +36,7 @@ export function ProgramActions({
   if (role === null)
     return (
       <Button asChild>
-        <Link href="/">로그인 후 확인</Link>
+        <Link href={SIGNUP_ENTRY_HREF}>가입하고 신청하기</Link>
       </Button>
     );
   if (role === 'STUDENT' && program.viewer.applicationStatus === null) {

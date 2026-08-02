@@ -252,3 +252,136 @@ describe('globals.css의 --status-* 토큰은 variant마다 서로 다른 색을
     expectAllDistinct(fgDeclarations, '.dark --status-*-fg');
   });
 });
+
+// 미감 시안 v2가 정한 치수 규격이 토큰으로 남아 있는지 지킨다. 색과 달리 치수는
+// 화면마다 리터럴(`h-[44px]`, `p-[24px]`)을 쓰기 쉬워서, 토큰이 있어도 이름이
+// 사라지면 조용히 제각각이 된다. 이 테스트는 (1) 이름이 존재하고 (2) semantic
+// 계층이 primitive만 참조하며 (3) Tailwind 유틸리티로 매핑되는지를 본다.
+describe('globals.css의 시안 v2 치수 토큰', () => {
+  const DIMENSION_DARK_SELECTOR = '.dark {';
+  const dimensionDarkIndex = strippedCss.indexOf(DIMENSION_DARK_SELECTOR);
+  const lightScope = strippedCss.slice(0, dimensionDarkIndex);
+  const darkScope = strippedCss.slice(dimensionDarkIndex);
+
+  /**
+   * `--sidebar-current`가 `--color-sidebar-current`의 접미사이듯, 토큰 이름은 서로의
+   * 부분 문자열이다. 이름 앞이 식별자 문자가 아님을 확인하지 않으면 매핑 줄을 선언으로
+   * 잘못 읽는다.
+   */
+  function declarationIn(scope: string, property: string): string | null {
+    const match = new RegExp(`(?<![\\w-])${property}\\s*:\\s*([^;]+);`).exec(
+      scope,
+    );
+    return match ? match[1].trim() : null;
+  }
+
+  function declarationValue(property: string): string | null {
+    return declarationIn(strippedCss, property);
+  }
+
+  it('여백 척도는 8의 배수 한 벌(4·8·12·16·24·32·48·64·96)이다', () => {
+    const expected = [
+      '4px',
+      '8px',
+      '12px',
+      '16px',
+      '24px',
+      '32px',
+      '48px',
+      '64px',
+      '96px',
+    ];
+    expect(
+      expected.map((_, index) => declarationValue(`--space-${index + 1}`)),
+    ).toEqual(expected);
+  });
+
+  it('크기 계단은 네 단계다 — 페이지 40 / 섹션 24 / 본문 16 / 보조 13', () => {
+    expect(declarationValue('--step-page')).toBe('40px');
+    expect(declarationValue('--step-section')).toBe('24px');
+    expect(declarationValue('--step-body')).toBe('16px');
+    expect(declarationValue('--step-small')).toBe('13px');
+  });
+
+  // 조작 가능한 사각형은 전부 같은 높이다. 배지만 예외(읽는 라벨이라 누르지 않는다).
+  it('조작 높이는 44px 하나, 배지만 26px 예외다', () => {
+    expect(declarationValue('--measure-44')).toBe('44px');
+    expect(declarationValue('--control-height')).toBe('var(--measure-44)');
+    expect(declarationValue('--tag-height')).toBe('var(--measure-26)');
+    expect(declarationValue('--measure-26')).toBe('26px');
+  });
+
+  it('카드는 안쪽 여백 24 · 모서리 12, 사이드바는 248/72다', () => {
+    expect(declarationValue('--card-padding')).toBe('var(--space-5)');
+    expect(declarationValue('--card-radius')).toBe('var(--space-3)');
+    expect(declarationValue('--control-radius')).toBe('var(--space-2)');
+    expect(declarationValue('--sidebar-open-width')).toBe('var(--measure-248)');
+    expect(declarationValue('--sidebar-collapsed-width')).toBe(
+      'var(--measure-72)',
+    );
+    expect(declarationValue('--measure-248')).toBe('248px');
+    expect(declarationValue('--measure-72')).toBe('72px');
+  });
+
+  // 3-tier의 핵심 — semantic은 primitive만 가리킨다. 여기에 px가 새로 들어오면
+  // 램프를 우회한 값이 생겨 "척도 하나" 규칙이 무너진다.
+  it('치수 semantic 토큰은 primitive(--space-*/--measure-*)만 참조한다', () => {
+    const semanticNames = [
+      '--control-height',
+      '--tag-height',
+      '--row-height',
+      '--tile-height',
+      '--card-padding',
+      '--card-radius',
+      '--control-radius',
+      '--topbar-height',
+      '--sidebar-open-width',
+      '--sidebar-collapsed-width',
+    ];
+    const offenders = semanticNames
+      .map((name) => ({ name, value: declarationValue(name) }))
+      .filter(
+        ({ value }) =>
+          value === null || !/^var\(--(space|measure)-[\w-]+\)$/.test(value),
+      );
+
+    expect(
+      offenders,
+      `primitive 램프를 참조하지 않는 치수 semantic 토큰: ${
+        offenders.map((o) => `${o.name}: ${o.value}`).join(', ') || '없음'
+      }`,
+    ).toEqual([]);
+  });
+
+  it('component 계층(@theme inline)이 치수 토큰을 유틸리티로 노출한다', () => {
+    const themeBlock = extractBlockBody(strippedCss, '@theme inline {');
+    for (const mapping of [
+      '--spacing-control: var(--control-height)',
+      '--spacing-topbar: var(--topbar-height)',
+      '--spacing-sidebar-open: var(--sidebar-open-width)',
+      '--spacing-sidebar-collapsed: var(--sidebar-collapsed-width)',
+      '--spacing-card: var(--card-padding)',
+      '--text-page: var(--step-page)',
+      '--text-small: var(--step-small)',
+      '--radius-card: var(--card-radius)',
+      '--radius-control: var(--control-radius)',
+    ]) {
+      expect(themeBlock, `누락된 매핑: ${mapping}`).toContain(mapping);
+    }
+  });
+
+  // 사이드바 현재 위치는 색 하나에 기대지 않지만, 색 자체는 팔레트 안에 있어야 한다.
+  it('사이드바 현재 위치 토큰은 라이트·다크 모두 팔레트 primitive를 참조한다', () => {
+    for (const scope of [lightScope, darkScope]) {
+      for (const name of [
+        '--sidebar-current',
+        '--sidebar-current-foreground',
+        '--sidebar-current-marker',
+      ]) {
+        expect(declarationIn(scope, name), `${name} 선언이 없다`).toMatch(
+          /^var\(--palette-[\w-]+\)$/,
+        );
+      }
+    }
+  });
+});

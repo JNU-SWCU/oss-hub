@@ -137,6 +137,18 @@ it('학번 없는 name·department PATCH도 DTO 검증을 통과한다', async (
   });
 });
 
+it('학과까지 없는 이름만의 PATCH도 DTO 검증을 통과한다', async () => {
+  // Given — 관리자는 이름만 필수라 학과 키 자체를 보내지 않는다(#439)
+  // When
+  const response = await patch({ name: validBody.name });
+
+  // Then
+  expect(response.status).toBe(200);
+  expect(usersService.patchMyProfile).toHaveBeenCalledWith(githubId, {
+    name: validBody.name,
+  });
+});
+
 it.each([
   { name: '학번 5자리', body: { ...validBody, studentId: '1'.repeat(5) } },
   { name: '학번 11자리', body: { ...validBody, studentId: '1'.repeat(11) } },

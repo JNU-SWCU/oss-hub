@@ -19,6 +19,7 @@ import type { GithubAppClient } from '../repositories/github-app.client';
 import { RepositoriesRepository } from '../repositories/repositories.repository';
 import { RepositoriesService } from '../repositories/repositories.service';
 import { RankingService } from '../ranking/ranking.service';
+import { UserDisplayNameRepository } from '../users/user-display-name.repository';
 import { PublicProjectsErrorCode } from '../public-projects/public-projects-error-code.enum';
 import { PublicProjectsRepository } from '../public-projects/public-projects.repository';
 import { PublicProjectsService } from '../public-projects/public-projects.service';
@@ -54,7 +55,10 @@ const publicProjectsService = new PublicProjectsService(
   eligibilityService,
   collection,
 );
-const rankingService = new RankingService(collection);
+const rankingService = new RankingService(
+  collection,
+  new UserDisplayNameRepository(prisma),
+);
 
 const github = {
   publishRepository: jest.fn(),
@@ -505,7 +509,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     );
 
     await expect(
-      publicProjectsService.findDetail(outcome1.repositoryId),
+      publicProjectsService.findDetail(outcome1.githubRepositoryId.toString()),
     ).rejects.toMatchObject({
       errorCode: { code: PublicProjectsErrorCode.PROJECT_NOT_FOUND },
     });
@@ -531,7 +535,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     );
 
     const detail = await publicProjectsService.findDetail(
-      outcome2.repositoryId,
+      outcome2.githubRepositoryId.toString(),
     );
     expect(detail.contributors).toHaveLength(2);
     expect(detail.contributors.map((c) => c.githubLogin).sort()).toEqual(
@@ -564,7 +568,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     );
 
     await expect(
-      publicProjectsService.findDetail(outcome3.repositoryId),
+      publicProjectsService.findDetail(outcome3.githubRepositoryId.toString()),
     ).resolves.toMatchObject({ row: { id: outcome3.repositoryId } });
 
     const profile = await publicProjectsService.findProfile(
@@ -591,7 +595,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     );
 
     await expect(
-      publicProjectsService.findDetail(outcome4.repositoryId),
+      publicProjectsService.findDetail(outcome4.githubRepositoryId.toString()),
     ).resolves.toMatchObject({ row: { id: outcome4.repositoryId } });
 
     const ranking = await rankingService.findPage('ALL', 1, 100);
@@ -609,7 +613,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     );
 
     await expect(
-      publicProjectsService.findDetail(outcome5.repositoryId),
+      publicProjectsService.findDetail(outcome5.githubRepositoryId.toString()),
     ).rejects.toMatchObject({
       errorCode: { code: PublicProjectsErrorCode.PROJECT_NOT_FOUND },
     });
@@ -656,7 +660,9 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         false,
       );
       await expect(
-        publicProjectsService.findDetail(outcome6.repositoryId),
+        publicProjectsService.findDetail(
+          outcome6.githubRepositoryId.toString(),
+        ),
       ).rejects.toMatchObject({
         errorCode: { code: PublicProjectsErrorCode.PROJECT_NOT_FOUND },
       });
@@ -753,7 +759,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     );
 
     const detail = await publicProjectsService.findDetail(
-      outcome8.repositoryId,
+      outcome8.githubRepositoryId.toString(),
     );
     expect(detail.contributors).toHaveLength(2);
 
@@ -809,7 +815,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       // `public-exposure-persona.http.integration.spec.ts`로 미룬다.
       const page = await publicProjectsService.findPage(undefined, 50);
       const detail = await publicProjectsService.findDetail(
-        outcome2.repositoryId,
+        outcome2.githubRepositoryId.toString(),
       );
       const profile = await publicProjectsService.findProfile(
         outcome2.applicantId,

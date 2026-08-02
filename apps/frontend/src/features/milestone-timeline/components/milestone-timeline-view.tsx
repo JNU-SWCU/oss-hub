@@ -1,9 +1,16 @@
-import { AlertCircle, CalendarClock, FileText } from 'lucide-react';
+import { AlertCircle, FileText } from 'lucide-react';
 import Link from 'next/link';
-import { EmptyState, PageHeader, StatusBadge } from '@/components';
+import {
+  EmptyState,
+  ListPanel,
+  ListRow,
+  PageBody,
+  PageHeader,
+  SectionHeading,
+  StatusBadge,
+} from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type {
   MilestoneTimelineItem,
   MilestoneTimelineState,
@@ -27,92 +34,94 @@ const STATUS_VARIANTS = {
 
 function LoadingState() {
   return (
-    <main
-      className="mx-auto grid w-full max-w-6xl gap-6 p-5 sm:p-8"
-      aria-label="마일스톤 타임라인을 불러오는 중"
-    >
-      <div className="h-20 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-64 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-    </main>
+    <PageBody aria-label="마일스톤 타임라인을 불러오는 중">
+      <div className="h-24 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
+      <div className="h-64 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
+    </PageBody>
   );
 }
 
 function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
   return (
-    <main className="mx-auto grid w-full max-w-3xl gap-6 p-5 sm:p-8">
+    <PageBody className="max-w-3xl">
       <Alert variant="destructive">
         <AlertCircle aria-hidden="true" />
         <AlertTitle>마일스톤 타임라인을 불러오지 못했습니다</AlertTitle>
-        <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+        <AlertDescription className="flex flex-wrap items-center justify-between gap-4">
           <span>잠시 후 다시 시도해 주세요.</span>
           <Button type="button" variant="outline" size="sm" onClick={onRetry}>
             다시 시도
           </Button>
         </AlertDescription>
       </Alert>
-    </main>
+    </PageBody>
   );
 }
 
-function TimelineCard({
+/**
+ * 타임라인 한 칸. 시안 v2에서 "순서대로 이어지는 같은 성격의 항목"은 카드를
+ * 항목마다 두지 않고 목록 한 줄로 둔다(programs 상세의 마일스톤 목록과 같은 형태).
+ * 순서는 카드 사이의 연결선 대신 줄 앞의 번호가 지고, 줄 높이는 76으로 고정된다.
+ */
+function TimelineRow({
   item,
   position,
+  emphasized,
 }: {
   readonly item: MilestoneTimelineItem;
   readonly position: number;
+  /**
+   * 채운 버튼은 화면에 하나뿐이다. 지금 손대야 할 첫 마일스톤만 채우고 나머지는
+   * 테두리 버튼으로 둔다 — 전부 채우면 "무엇부터"가 사라진다.
+   */
+  readonly emphasized: boolean;
 }) {
   return (
-    <li className="relative flex min-w-0 flex-1 flex-row gap-3 md:flex-col">
-      <div className="flex flex-col items-center md:flex-row">
-        <span className="grid size-8 shrink-0 place-items-center rounded-full border border-primary/30 bg-background text-xs font-semibold text-primary">
-          {position}
-        </span>
+    <ListRow role="listitem">
+      {/* 좁은 화면에서는 번호+제목이 한 줄을 다 쓰고 상태·행동이 아래로 내려간다 */}
+      <div className="flex w-full min-w-0 items-start gap-4 sm:w-auto sm:flex-1">
         <span
           aria-hidden="true"
-          className="h-full w-px bg-border md:h-px md:w-full"
-        />
-      </div>
-      <Card className="min-w-0 flex-1">
-        <CardHeader className="gap-2">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <CardTitle>{item.name}</CardTitle>
-            <StatusBadge variant={STATUS_VARIANTS[item.status]}>
-              {item.statusLabel}
-            </StatusBadge>
-          </div>
-          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-            <CalendarClock aria-hidden="true" className="size-4" />
-            <span>{item.dueLabel}</span>
+          className="grid size-tag shrink-0 place-items-center rounded-full bg-muted text-small font-semibold text-muted-foreground"
+        >
+          {position}
+        </span>
+        <div className="grid min-w-0 flex-1 gap-1">
+          <p className="font-heading text-body font-semibold tracking-tight">
+            {item.name}
+          </p>
+          {/* 제출 유형은 `submissionGuide`가 한국어로 그대로 옮긴 값이라
+              (`SUBMISSION_GUIDES[submissionType]`) enum을 함께 보여주지 않는다 */}
+          <p className="text-small text-muted-foreground">
+            {item.dueLabel} ·{' '}
             <strong className="font-semibold text-foreground">
               {item.dDayLabel}
             </strong>
           </p>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="grid gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {item.submissionType}
-            </span>
-            <span className="text-muted-foreground">
-              {item.submissionGuide}
-            </span>
-          </div>
-          {item.submitHref && item.submitLabel ? (
-            <div>
-              <Button asChild variant="outline" size="sm">
-                <Link href={item.submitHref}>{item.submitLabel}</Link>
-              </Button>
-            </div>
-          ) : item.submitDisabledLabel ? (
-            <div>
-              <Button type="button" variant="outline" size="sm" disabled>
-                {item.submitDisabledLabel}
-              </Button>
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
-    </li>
+          <p className="text-small leading-normal break-keep text-muted-foreground">
+            {item.submissionGuide}
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <StatusBadge variant={STATUS_VARIANTS[item.status]}>
+          {item.statusLabel}
+        </StatusBadge>
+        {item.submitHref && item.submitLabel ? (
+          <Button
+            asChild
+            size="sm"
+            variant={emphasized ? 'default' : 'outline'}
+          >
+            <Link href={item.submitHref}>{item.submitLabel}</Link>
+          </Button>
+        ) : item.submitDisabledLabel ? (
+          <Button type="button" variant="outline" size="sm" disabled>
+            {item.submitDisabledLabel}
+          </Button>
+        ) : null}
+      </div>
+    </ListRow>
   );
 }
 
@@ -124,8 +133,12 @@ export function MilestoneTimelineView({
   if (state.kind === 'error') return <ErrorState onRetry={onRetry} />;
 
   const { timeline } = state;
+  // 채운 버튼 한 개 — 지금 제출할 수 있는 첫 마일스톤이 그 자리를 가진다.
+  const emphasizedIndex = timeline.items.findIndex(
+    (item) => item.submitHref !== null && item.submitLabel !== null,
+  );
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-5 sm:p-8">
+    <PageBody>
       <PageHeader
         title="마일스톤 타임라인"
         description={`${timeline.applicationMode === 'PERSONAL' ? '개인' : '팀'} 신청의 마감일과 제출 상태를 확인합니다.`}
@@ -140,30 +153,25 @@ export function MilestoneTimelineView({
       ) : (
         <section
           aria-labelledby="milestone-timeline-title"
-          className="grid gap-4"
+          className="grid gap-6"
         >
-          <div className="flex items-center justify-between gap-3">
-            <h2
-              id="milestone-timeline-title"
-              className="font-heading text-xl font-semibold"
-            >
-              마일스톤 타임라인
-            </h2>
-            <span className="text-sm text-muted-foreground">
-              {timeline.items.length}개
-            </span>
-          </div>
-          <ol className="flex flex-col gap-4 md:flex-row md:items-stretch">
+          <SectionHeading
+            id="milestone-timeline-title"
+            title="마일스톤"
+            meta={`${timeline.items.length}개`}
+          />
+          <ListPanel role="list">
             {timeline.items.map((item, index) => (
-              <TimelineCard
+              <TimelineRow
                 key={item.milestoneId}
                 item={item}
                 position={index + 1}
+                emphasized={index === emphasizedIndex}
               />
             ))}
-          </ol>
+          </ListPanel>
         </section>
       )}
-    </main>
+    </PageBody>
   );
 }

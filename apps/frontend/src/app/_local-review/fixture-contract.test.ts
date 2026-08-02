@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  LOCAL_REVIEW_FIXTURE_IDS,
+  LOCAL_REVIEW_FIXTURE_PATTERN,
   LOCAL_REVIEW_LOOPBACK_HOSTNAMES,
   LOCAL_REVIEW_LOOPBACK_HOST_PATTERN,
   createLocalReviewActivation,
@@ -15,6 +17,18 @@ const LOCAL_INPUT = {
 } as const;
 
 describe('local review activation contract', () => {
+  it('routes every known fixture cookie to the adapter', () => {
+    // Given: next.config의 쿠키 조건은 이 패턴을 `^…$`로 감싸 완전 일치로 본다.
+    const cookieMatcher = new RegExp(`^${LOCAL_REVIEW_FIXTURE_PATTERN}$`);
+
+    // When / Then: 패턴에서 빠진 페르소나는 쿠키가 있어도 어댑터 대신 실제
+    // backend로 새어 나가, 검토자에게는 "그 페르소나만 계속 오류"로 보인다.
+    for (const fixture of LOCAL_REVIEW_FIXTURE_IDS) {
+      expect(cookieMatcher.test(fixture)).toBe(true);
+    }
+    expect(cookieMatcher.test('error-once-extra')).toBe(false);
+  });
+
   it('parses the raw request Host header instead of trusting a normalized URL', () => {
     expect(parseRequestHostname('localhost:3000')).toBe('localhost');
     expect(parseRequestHostname('127.0.0.1:3000')).toBe('127.0.0.1');
@@ -104,6 +118,103 @@ describe('local review activation contract', () => {
     expect(externalTarget).toEqual({
       kind: 'redirect',
       fixture: 'admin',
+      target: '/',
+    });
+  });
+
+  // 가입·로그인 진입은 비로그인 방문자가 보는 화면이라, 검토도 `anonymous`
+  // 페르소나로 열려야 한다. 허용 목록에서 빠지면 `to=/signup`이 조용히 랜딩으로
+  // 떨어져 아무도 이 화면을 못 본다.
+  it('opens the signup entry for the anonymous persona', () => {
+    // Given / When
+    const activation = createLocalReviewActivation({
+      ...LOCAL_INPUT,
+      fixtureParam: 'anonymous',
+      targetParam: '/signup',
+    });
+
+    // Then
+    expect(activation).toEqual({
+      kind: 'redirect',
+      fixture: 'anonymous',
+      target: '/signup',
+    });
+  });
+
+  it.each(['/', '/programs', '/archive'] as const)(
+    'keeps the public shell route %s reachable as a fixture destination',
+    (target) => {
+      // Given / When
+      const activation = createLocalReviewActivation({
+        ...LOCAL_INPUT,
+        fixtureParam: 'student',
+        targetParam: target,
+      });
+
+      // Then
+      expect(activation).toEqual({
+        kind: 'redirect',
+        fixture: 'student',
+        target,
+      });
+    },
+  );
+
+  it.each([
+    '/programs/program-capstone',
+    '/programs/program-capstone/apply',
+    '/programs/program-capstone/teams',
+    '/programs/',
+    '/archive/repository-1',
+    '/staff/programs/program-capstone/applicants',
+    '/dashboard/activity',
+    '/onboarding/pending',
+    '/profile/synthetic-user-01',
+  ])('reaches the in-app detail destination %j through a prefix', (target) => {
+    // Given / When: 상세 화면은 id가 열려 있어 완전 일치 목록으로 적을 수 없다.
+    const activation = createLocalReviewActivation({
+      ...LOCAL_INPUT,
+      fixtureParam: 'student',
+      targetParam: target,
+    });
+
+    // Then
+    expect(activation).toEqual({
+      kind: 'redirect',
+      fixture: 'student',
+      target,
+    });
+  });
+
+  it.each([
+    '/admin/console',
+    '//evil.com',
+    'https://evil.com',
+    'http://localhost:3000/programs',
+    '/programs?next=https://evil.com',
+    '',
+    // 접두사 허용이 생겨도 아래 표기는 앱 밖으로 나갈 수 있어 계속 막는다.
+    '\\\\evil.com',
+    '/\\evil.com',
+    '/programs/\\evil.com',
+    '//evil.com/programs/',
+    '\n/programs/program-capstone',
+    '/programs/\r\nSet-Cookie: a=b',
+    '/programs/\u0000',
+    'programs/program-capstone',
+  ])('never redirects to the non-allowlisted destination %j', (target) => {
+    // Given / When
+    const activation = createLocalReviewActivation({
+      ...LOCAL_INPUT,
+      fixtureParam: 'student',
+      targetParam: target,
+    });
+
+    // Then: the allowlist exists to block open redirects, so anything outside
+    // it falls back to the local root instead of leaving the app.
+    expect(activation).toEqual({
+      kind: 'redirect',
+      fixture: 'student',
       target: '/',
     });
   });

@@ -42,7 +42,7 @@ describe('ConsentsController.getCurrent', () => {
         },
       ],
       consented: false,
-      nextUrl: '/onboarding/profile',
+      nextUrl: '/onboarding/role',
     });
   });
 });
@@ -78,7 +78,7 @@ describe('ConsentsController.create', () => {
     expect(response).toEqual({
       policyVersion: '2026-07-21',
       consentedAt: '2026-07-19T01:00:00.000Z',
-      nextUrl: '/onboarding/profile',
+      nextUrl: '/onboarding/role',
     });
   });
 });

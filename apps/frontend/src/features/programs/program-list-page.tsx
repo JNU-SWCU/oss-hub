@@ -18,6 +18,7 @@ import {
 } from '@/components';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { ApiError } from '@/lib/api-client';
 import { listPrograms } from './api';
 import { programHref } from './program-paths';
@@ -234,9 +235,8 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
           placeholder="프로그램명 검색"
           value={search}
         />
-        <select
+        <Select
           aria-label="모집 상태 필터"
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
           onChange={(event) => {
             setPage(1);
             setStatus(parseStatus(event.target.value));
@@ -246,7 +246,7 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
           <option value="all">전체 상태</option>
           <option value="recruiting">모집중</option>
           <option value="closed">마감</option>
-        </select>
+        </Select>
       </div>
       {content}
       <ProgramListPagination

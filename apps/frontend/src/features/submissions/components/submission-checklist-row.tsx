@@ -32,6 +32,16 @@ export function ChecklistRow({
 }) {
   const status = checklistItemStatus(item);
   const deadline = milestoneDeadline(item.dueAt, now);
+  const actionLabel =
+    status === 'NOT_SUBMITTED'
+      ? '제출하기'
+      : status === 'CHANGES_REQUESTED'
+        ? '사유·재제출'
+        : '보기';
+  const submissionHref = studentProgramSubmissionHref(
+    programId,
+    item.milestoneId,
+  );
   return (
     <li>
       <Card className="gap-3" data-testid="checklist-row">
@@ -55,34 +65,32 @@ export function ChecklistRow({
               <SubmissionFileLink file={item.submission.file} compact />
             ) : null}
           </div>
-          {onSelectMilestone ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
+          <Button asChild size="sm" variant="outline">
+            <Link
+              href={submissionHref}
               id={submissionTriggerId(item.milestoneId)}
-              onClick={() => onSelectMilestone(item.milestoneId)}
+              onClick={
+                onSelectMilestone
+                  ? (event) => {
+                      if (
+                        event.defaultPrevented ||
+                        event.button !== 0 ||
+                        event.metaKey ||
+                        event.altKey ||
+                        event.ctrlKey ||
+                        event.shiftKey
+                      ) {
+                        return;
+                      }
+                      event.preventDefault();
+                      onSelectMilestone(item.milestoneId);
+                    }
+                  : undefined
+              }
             >
-              {status === 'NOT_SUBMITTED'
-                ? '제출하기'
-                : status === 'CHANGES_REQUESTED'
-                  ? '사유·재제출'
-                  : '보기'}
-            </Button>
-          ) : (
-            <Button asChild size="sm" variant="outline">
-              <Link
-                href={studentProgramSubmissionHref(programId, item.milestoneId)}
-                id={submissionTriggerId(item.milestoneId)}
-              >
-                {status === 'NOT_SUBMITTED'
-                  ? '제출하기'
-                  : status === 'CHANGES_REQUESTED'
-                    ? '사유·재제출'
-                    : '보기'}
-              </Link>
-            </Button>
-          )}
+              {actionLabel}
+            </Link>
+          </Button>
         </CardContent>
       </Card>
     </li>

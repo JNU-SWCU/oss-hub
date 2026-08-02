@@ -31,10 +31,10 @@
 - 기존 `STUDENT`가 다시 학생을 선택하는 경로는 멱등 성공한다.
 - 다른 역할이 이미 있거나 역할 보유자가 STAFF를 선택하면 `ROLE_ALREADY_CONFIRMED`를 던진다.
 - 확정된 역할 직접 변경과 관리자 사용자 목록·상세·접근 변경은 `users/`가 소유한다.
-- `selectRole`은 호출 전 `ConsentsService.requireCurrent`·`UsersService.requireCompleteProfile`을 선행 검사한다 — 이 모듈이 동의·프로필 완성 로직을 재구현하지 않는다(ADR-003 공개 표면만 참조).
+- `selectRole`은 호출 전 `ConsentsService.requireCurrent`만 선행 검사한다. 온보딩 순서가 약관 → 역할 → 프로필이라 역할을 고르는 시점에 프로필은 비어 있는 것이 정상이다 — 프로필 완료를 요구하면 학번이 필요 없는 교직원이 가짜 학번을 지어내야 한다. 미완료 프로필을 다음 단계로 미는 책임은 화면 게이트가 진다.
 - 교직원 요청 결정은 `AuditLogService.record`를 같은 트랜잭션의 `store.auditLogWriter`로 넘겨 커밋 원자성을 보장한다 — 감사 로그를 별도 트랜잭션으로 쓰지 않는다.
 
 ## Dependencies
 
 - [apps/backend/src/AGENTS.md](../AGENTS.md) — 모듈 경계·에러 코드 규약.
-- `auth/`(`AuthModule`), `audit-log/`(`AuditLogModule`), `consents/`(`ConsentsService`), `users/`(`UsersService`).
+- `auth/`(`AuthModule`), `audit-log/`(`AuditLogModule`), `consents/`(`ConsentsService`).

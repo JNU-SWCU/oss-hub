@@ -9,7 +9,11 @@ import { cn } from '@/lib/utils';
  * children으로 호출부가 주입한다.
  */
 const statusBadgeVariants = cva(
-  'inline-flex w-fit shrink-0 items-center rounded-full font-medium',
+  // 시안 v2 — 배지는 유일한 예외 높이(`--tag-height` = 26)다. 누르는 것이 아니라
+  // 읽는 라벨이라 44에 맞추지 않는다.
+  // 앞의 점은 장식이 아니다. 상태를 색으로만 구분하면 색각 이상 사용자가 읽을 수
+  // 없으므로 색 + 글자 + 점 세 신호를 함께 쓴다(글자는 호출부가 children으로 준다).
+  "inline-flex h-tag w-fit shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold before:size-1.5 before:shrink-0 before:rounded-full before:bg-current before:content-['']",
   {
     variants: {
       size: {
