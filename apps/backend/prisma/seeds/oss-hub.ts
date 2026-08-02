@@ -29,8 +29,10 @@ const REPOSITORY_ID = seedId('oss-hub', 'repository');
 const PROVISION_JOB_ID = seedId('oss-hub', 'provision-job');
 /** JNU-SWCU/oss-hub 플랫폼 자체의 공개 저장소 — 실제 공개 URL 참조는 허용된다. */
 const OSS_HUB_REPOSITORY_URL = 'https://github.com/JNU-SWCU/oss-hub';
+const PROGRAM_NAME = '오픈소스 플랫폼 구축';
+const PROGRAM_ORGANIZER = '오픈소스 SW 개발 사업단';
 const PROGRAM_DESCRIPTION =
-  'oss-hub 합성 프로그램 추적 fixture. 공지 예시: [모집홍보] 2026 오픈소스 개발자대회 모집 안내 (https://sojoong.kr/notice/notice-board/?mod=document&uid=922); ｢모집홍보｣ 『LLMOps 파이프라인 개발』 교육 2026학년 2학기 자유학기(자유교과목) 신청 안내 (https://sojoong.kr/notice/notice-board/?mod=document&uid=939).';
+  '오픈소스 SW 개발 사업단이 주관하는 오픈소스 플랫폼 구축 프로그램. 참여 팀은 마일스톤별로 계획서·중간 점검·기능 시연·최종 발표를 제출하고, GitHub 저장소를 통해 결과물을 공개한다. 공지 예시: [모집홍보] 2026 오픈소스 개발자대회 모집 안내 (https://sojoong.kr/notice/notice-board/?mod=document&uid=922); ｢모집홍보｣ 『LLMOps 파이프라인 개발』 교육 2026학년 2학기 자유학기(자유교과목) 신청 안내 (https://sojoong.kr/notice/notice-board/?mod=document&uid=939).';
 
 async function upsertConfiguredUser(
   stats: SeedStats,
@@ -85,8 +87,8 @@ export async function seedOssHub(
       prisma.program.upsert({
         where: { id: PROGRAM_ID },
         update: {
-          name: 'oss-hub',
-          organizer: 'oss-hub',
+          name: PROGRAM_NAME,
+          organizer: PROGRAM_ORGANIZER,
           category: ProgramCategory.OSS_CONTEST,
           applicationTemplateKey: ProgramCategory.OSS_CONTEST.toLowerCase(),
           applicationTemplateVersion: 1,
@@ -101,8 +103,8 @@ export async function seedOssHub(
         },
         create: {
           id: PROGRAM_ID,
-          name: 'oss-hub',
-          organizer: 'oss-hub',
+          name: PROGRAM_NAME,
+          organizer: PROGRAM_ORGANIZER,
           category: ProgramCategory.OSS_CONTEST,
           applicationTemplateKey: ProgramCategory.OSS_CONTEST.toLowerCase(),
           applicationTemplateVersion: 1,
