@@ -36,6 +36,28 @@ const OSS_HUB_GITHUB_REPOSITORY_ID = 1297138137n;
 const PROGRAM_DESCRIPTION =
   '오픈소스 SW 개발 사업단이 주관하는 오픈소스 플랫폼 구축 프로그램. 참여 팀은 마일스톤별로 진행 상황과 산출물을 제출하고, GitHub 저장소를 통해 결과물을 공개한다. 공지 예시: [모집홍보] 2026 오픈소스 개발자대회 모집 안내 (https://sojoong.kr/notice/notice-board/?mod=document&uid=922); ｢모집홍보｣ 『LLMOps 파이프라인 개발』 교육 2026학년 2학기 자유학기(자유교과목) 신청 안내 (https://sojoong.kr/notice/notice-board/?mod=document&uid=939).';
 
+// oss-hub-practice — 별도 Program·Team·Application·Repository 체인(#113: Repository는
+// applicationId당 최대 한 건, #164: 같은 팀은 같은 Program에 신청을 한 건만 낼 수 있다 —
+// `Application_programId_teamId_team_key` partial unique index, Prisma schema에는 표현되지
+// 않고 마이그레이션 SQL이 원본이다. 그래서 기존 oss-hub Program·Team을 재사용할 수 없고,
+// 같은 네 명의 ADMIN 계정으로 별도 Program·Team을 새로 만든다).
+const PRACTICE_PROGRAM_ID = seedId('oss-hub-practice', 'program');
+const PRACTICE_TEAM_ID = seedId('oss-hub-practice', 'team');
+const PRACTICE_APPLICATION_ID = seedId('oss-hub-practice', 'application');
+const PRACTICE_REPOSITORY_ID = seedId('oss-hub-practice', 'repository');
+const PRACTICE_PROVISION_JOB_ID = seedId('oss-hub-practice', 'provision-job');
+const PRACTICE_PROGRAM_NAME = '오픈소스 실습 배포 퀘스트';
+/** JNU-SWCU/oss-hub-practice 학생 실습용 공개 저장소 — 실제 공개 URL 참조는 허용된다. */
+const OSS_HUB_PRACTICE_REPOSITORY_URL =
+  'https://github.com/JNU-SWCU/oss-hub-practice';
+/** JNU-SWCU/oss-hub-practice 공개 저장소의 실제 GitHub numeric id (GitHub REST API로 확인, public 정보). */
+const OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID = 1296567792n;
+/** 실제 GitHub 저장소 생성일(2026-07-10, public 정보) — Asia/Seoul 자정 기준. */
+const OSS_HUB_PRACTICE_CREATED_AT = kstMidnight('2026-07-10');
+const OSS_HUB_PRACTICE_DESCRIPTION =
+  'JNU OSS Hub practice repository for student fork and deployment quests (학생 fork/배포 퀘스트 실습용). 기본 브랜치는 main입니다.';
+const PRACTICE_PROGRAM_DESCRIPTION = `학생이 ${OSS_HUB_PRACTICE_REPOSITORY_URL}를 fork하고 배포까지 완료하는 실습 퀘스트 프로그램입니다. ${OSS_HUB_PRACTICE_DESCRIPTION}`;
+
 /**
  * Notion "📅 Schedule" DB의 실제 프로젝트 마일스톤 날짜를 그대로 반영하는 고정 UTC Date.
  * `isoDate`는 Asia/Seoul 자정 기준이다 — offsetDays(SEED_NOW 상대)를 쓰지 않는다.
@@ -525,6 +547,176 @@ export async function seedOssHub(
           nextAttemptAt: offsetDays(-30),
           startedAt: offsetDays(-30),
           finishedAt: offsetDays(-30),
+        },
+      }),
+  );
+
+  // oss-hub-practice — 별도 Program·Team(학생 fork/배포 퀘스트 실습용). 같은 팀은 같은
+  // Program에 신청을 한 건만 낼 수 있어(#164 partial unique index) 기존 oss-hub Program·Team을
+  // 재사용할 수 없다 — 같은 네 명의 ADMIN 계정으로 새 Program·Team을 만든다.
+  await upsertTracked(
+    stats,
+    'Program',
+    () => prisma.program.findUnique({ where: { id: PRACTICE_PROGRAM_ID } }),
+    () =>
+      prisma.program.upsert({
+        where: { id: PRACTICE_PROGRAM_ID },
+        update: {
+          name: PRACTICE_PROGRAM_NAME,
+          organizer: PROGRAM_ORGANIZER,
+          category: ProgramCategory.OSS_CONTEST,
+          applicationTemplateKey: 'oss-contest',
+          applicationTemplateVersion: 1,
+          applicationStartAt: OSS_HUB_PRACTICE_CREATED_AT,
+          applicationEndAt: offsetDays(60),
+          endAt: offsetDays(120),
+          teamMinSize: 4,
+          teamMaxSize: 4,
+          description: PRACTICE_PROGRAM_DESCRIPTION,
+          repositoryProvisioningEnabled: true,
+          notifyOnDeadline: false,
+        },
+        create: {
+          id: PRACTICE_PROGRAM_ID,
+          name: PRACTICE_PROGRAM_NAME,
+          organizer: PROGRAM_ORGANIZER,
+          category: ProgramCategory.OSS_CONTEST,
+          applicationTemplateKey: 'oss-contest',
+          applicationTemplateVersion: 1,
+          applicationStartAt: OSS_HUB_PRACTICE_CREATED_AT,
+          applicationEndAt: offsetDays(60),
+          endAt: offsetDays(120),
+          teamMinSize: 4,
+          teamMaxSize: 4,
+          description: PRACTICE_PROGRAM_DESCRIPTION,
+          repositoryProvisioningEnabled: true,
+        },
+      }),
+  );
+
+  await upsertTracked(
+    stats,
+    'Team',
+    () => prisma.team.findUnique({ where: { id: PRACTICE_TEAM_ID } }),
+    () =>
+      prisma.team.upsert({
+        where: { id: PRACTICE_TEAM_ID },
+        update: {
+          name: 'oss-hub-practice',
+          joinCodeDigest: computeJoinCodeDigest('SEED-OSS-HUB-PRACTICE'),
+          leaderId: users[0]!.id,
+        },
+        create: {
+          id: PRACTICE_TEAM_ID,
+          programId: PRACTICE_PROGRAM_ID,
+          name: 'oss-hub-practice',
+          joinCodeDigest: computeJoinCodeDigest('SEED-OSS-HUB-PRACTICE'),
+          leaderId: users[0]!.id,
+        },
+      }),
+  );
+
+  const practiceMemberIds = accounts.map((account) =>
+    seedId('oss-hub-practice', 'team-member', account.githubId.toString()),
+  );
+  for (const [index, user] of users.entries()) {
+    const id = practiceMemberIds[index]!;
+    await upsertTracked(
+      stats,
+      'TeamMember',
+      () => prisma.teamMember.findUnique({ where: { id } }),
+      () =>
+        prisma.teamMember.upsert({
+          where: { id },
+          update: {
+            teamId: PRACTICE_TEAM_ID,
+            programId: PRACTICE_PROGRAM_ID,
+            userId: user.id,
+          },
+          create: {
+            id,
+            teamId: PRACTICE_TEAM_ID,
+            programId: PRACTICE_PROGRAM_ID,
+            userId: user.id,
+          },
+        }),
+    );
+  }
+
+  await upsertTracked(
+    stats,
+    'Application',
+    () =>
+      prisma.application.findUnique({ where: { id: PRACTICE_APPLICATION_ID } }),
+    () =>
+      prisma.application.upsert({
+        where: { id: PRACTICE_APPLICATION_ID },
+        update: {
+          status: ApplicationStatus.APPROVED,
+        },
+        create: {
+          id: PRACTICE_APPLICATION_ID,
+          programId: PRACTICE_PROGRAM_ID,
+          applicantId: users[0]!.id,
+          teamId: PRACTICE_TEAM_ID,
+          answers: {
+            applicantName: 'oss-hub',
+            title: 'oss-hub-practice 학생 실습 저장소',
+            summary: OSS_HUB_PRACTICE_DESCRIPTION,
+          },
+          applicationTemplateVersion: 1,
+          status: ApplicationStatus.APPROVED,
+          processedAt: OSS_HUB_PRACTICE_CREATED_AT,
+        },
+      }),
+  );
+
+  // 저장소 추적 — 실제 공개 저장소(github.com/JNU-SWCU/oss-hub-practice)를 연결·공개
+  // 완료 상태로 표현한다. githubRepositoryId는 GitHub API로 확인한 실제 numeric id다.
+  await upsertTracked(
+    stats,
+    'Repository',
+    () =>
+      prisma.repository.findUnique({ where: { id: PRACTICE_REPOSITORY_ID } }),
+    () =>
+      prisma.repository.upsert({
+        where: { id: PRACTICE_REPOSITORY_ID },
+        update: {
+          githubRepositoryId: OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
+          visibility: RepositoryVisibility.PUBLIC,
+        },
+        create: {
+          id: PRACTICE_REPOSITORY_ID,
+          applicationId: PRACTICE_APPLICATION_ID,
+          programId: PRACTICE_PROGRAM_ID,
+          teamId: PRACTICE_TEAM_ID,
+          githubRepositoryId: OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
+          name: 'oss-hub-practice',
+          url: OSS_HUB_PRACTICE_REPOSITORY_URL,
+          visibility: RepositoryVisibility.PUBLIC,
+          publishedAt: OSS_HUB_PRACTICE_CREATED_AT,
+        },
+      }),
+  );
+  await upsertTracked(
+    stats,
+    'RepositoryProvisionJob',
+    () =>
+      prisma.repositoryProvisionJob.findUnique({
+        where: { id: PRACTICE_PROVISION_JOB_ID },
+      }),
+    () =>
+      prisma.repositoryProvisionJob.upsert({
+        where: { id: PRACTICE_PROVISION_JOB_ID },
+        update: { status: RepositoryProvisionJobStatus.SUCCEEDED },
+        create: {
+          id: PRACTICE_PROVISION_JOB_ID,
+          applicationId: PRACTICE_APPLICATION_ID,
+          repositoryId: PRACTICE_REPOSITORY_ID,
+          status: RepositoryProvisionJobStatus.SUCCEEDED,
+          nextAttemptAt: OSS_HUB_PRACTICE_CREATED_AT,
+          startedAt: OSS_HUB_PRACTICE_CREATED_AT,
+          finishedAt: OSS_HUB_PRACTICE_CREATED_AT,
         },
       }),
   );

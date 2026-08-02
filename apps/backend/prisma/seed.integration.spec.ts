@@ -61,6 +61,21 @@ const OSS_HUB_PROVISION_JOB_ID = seedId('oss-hub', 'provision-job');
 const OSS_HUB_REPOSITORY_URL = 'https://github.com/JNU-SWCU/oss-hub';
 /** JNU-SWCU/oss-hub 공개 저장소의 실제 GitHub numeric id (GitHub REST API로 확인, public 정보). */
 const OSS_HUB_GITHUB_REPOSITORY_ID = 1297138137n;
+const OSS_HUB_PRACTICE_PROGRAM_ID = seedId('oss-hub-practice', 'program');
+const OSS_HUB_PRACTICE_TEAM_ID = seedId('oss-hub-practice', 'team');
+const OSS_HUB_PRACTICE_APPLICATION_ID = seedId(
+  'oss-hub-practice',
+  'application',
+);
+const OSS_HUB_PRACTICE_REPOSITORY_ID = seedId('oss-hub-practice', 'repository');
+const OSS_HUB_PRACTICE_PROVISION_JOB_ID = seedId(
+  'oss-hub-practice',
+  'provision-job',
+);
+const OSS_HUB_PRACTICE_REPOSITORY_URL =
+  'https://github.com/JNU-SWCU/oss-hub-practice';
+/** JNU-SWCU/oss-hub-practice 공개 저장소의 실제 GitHub numeric id (GitHub REST API로 확인, public 정보). */
+const OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID = 1296567792n;
 const OSS_HUB_NOTICE_EXAMPLES = [
   '[모집홍보] 2026 오픈소스 개발자대회 모집 안내',
   '｢모집홍보｣ 『LLMOps 파이프라인 개발』 교육 2026학년 2학기 자유학기(자유교과목) 신청 안내',
@@ -312,6 +327,11 @@ describe('seed profile=oss-hub contract (integration)', () => {
         intakeFreezeSubmission,
         repository,
         provisionJob,
+        practiceProgram,
+        practiceTeam,
+        practiceApplication,
+        practiceRepository,
+        practiceProvisionJob,
         configuredUsersConsentCount,
         ossHubProgramCount,
         ossHubTeamCount,
@@ -362,6 +382,22 @@ describe('seed profile=oss-hub contract (integration)', () => {
         }),
         prisma.repositoryProvisionJob.findUniqueOrThrow({
           where: { id: OSS_HUB_PROVISION_JOB_ID },
+        }),
+        prisma.program.findUniqueOrThrow({
+          where: { id: OSS_HUB_PRACTICE_PROGRAM_ID },
+        }),
+        prisma.team.findUniqueOrThrow({
+          where: { id: OSS_HUB_PRACTICE_TEAM_ID },
+          include: { members: { orderBy: { id: 'asc' } } },
+        }),
+        prisma.application.findUniqueOrThrow({
+          where: { id: OSS_HUB_PRACTICE_APPLICATION_ID },
+        }),
+        prisma.repository.findUniqueOrThrow({
+          where: { id: OSS_HUB_PRACTICE_REPOSITORY_ID },
+        }),
+        prisma.repositoryProvisionJob.findUniqueOrThrow({
+          where: { id: OSS_HUB_PRACTICE_PROVISION_JOB_ID },
         }),
         prisma.consent.count({
           where: {
@@ -531,6 +567,46 @@ describe('seed profile=oss-hub contract (integration)', () => {
       expect(provisionJob).toMatchObject({
         applicationId: OSS_HUB_APPLICATION_ID,
         repositoryId: OSS_HUB_REPOSITORY_ID,
+        status: RepositoryProvisionJobStatus.SUCCEEDED,
+      });
+
+      // oss-hub-practice — 별도 Program·Team·Application·Repository 체인(학생 fork/배포
+      // 퀘스트 실습용). `Application_programId_teamId_team_key` partial unique index(같은
+      // 팀은 같은 Program에 신청을 한 건만 낼 수 있다 — 마이그레이션 SQL에만 있고 Prisma
+      // schema에는 표현되지 않는다) 때문에 기존 oss-hub Program·Team을 재사용할 수 없어
+      // 같은 네 명의 ADMIN 계정으로 별도 Program·Team을 새로 만든다.
+      expect(practiceProgram.repositoryProvisioningEnabled).toBe(true);
+      expect(practiceTeam.leaderId).toBe(configuredUsers[0]?.id);
+      expect(
+        practiceTeam.members.map(({ id, userId }) => ({ id, userId })),
+      ).toEqual(
+        configuredUsers.map((user) => ({
+          id: seedId(
+            'oss-hub-practice',
+            'team-member',
+            user.githubId.toString(),
+          ),
+          userId: user.id,
+        })),
+      );
+      expect(practiceApplication).toMatchObject({
+        programId: OSS_HUB_PRACTICE_PROGRAM_ID,
+        teamId: OSS_HUB_PRACTICE_TEAM_ID,
+        applicantId: configuredUsers[0]?.id,
+        status: ApplicationStatus.APPROVED,
+      });
+      expect(practiceRepository).toMatchObject({
+        applicationId: OSS_HUB_PRACTICE_APPLICATION_ID,
+        programId: OSS_HUB_PRACTICE_PROGRAM_ID,
+        teamId: OSS_HUB_PRACTICE_TEAM_ID,
+        githubRepositoryId: OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
+        url: OSS_HUB_PRACTICE_REPOSITORY_URL,
+        visibility: RepositoryVisibility.PUBLIC,
+      });
+      expect(practiceRepository.publishedAt).not.toBeNull();
+      expect(practiceProvisionJob).toMatchObject({
+        applicationId: OSS_HUB_PRACTICE_APPLICATION_ID,
+        repositoryId: OSS_HUB_PRACTICE_REPOSITORY_ID,
         status: RepositoryProvisionJobStatus.SUCCEEDED,
       });
     },
