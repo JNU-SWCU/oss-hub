@@ -40,11 +40,6 @@ type ExpectedLegacyProfile = CompatibleProfile & {
   readonly id: string;
 };
 
-type MutableProfileFields = {
-  readonly name: string;
-  readonly department: string;
-};
-
 export async function completeCompatibleProfileIfUnchanged(
   transaction: CompletionTransaction,
   expected: ExpectedLegacyProfile,
@@ -132,15 +127,6 @@ export async function fillCompatibleStudentIdIfUnchanged(
     throw error;
   }
   return 'filled';
-}
-
-export async function updateCompatibleProfileFields(
-  transaction: ProfileTransaction,
-  userId: string,
-  fields: MutableProfileFields,
-): Promise<void> {
-  await transaction.userProfile.update({ where: { userId }, data: fields });
-  await transaction.user.update({ where: { id: userId }, data: fields });
 }
 
 export async function upsertCompatibleProfile(

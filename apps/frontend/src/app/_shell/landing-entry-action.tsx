@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { SIGNUP_ENTRY } from '@/features/auth/signup-entry-link';
 import { resolveSessionEntry } from './role-home-link';
 import type { AppRole } from './role';
-import { useSessionRole, type SessionStatus } from './use-session-role';
+import type { SessionStatus } from './use-session-role';
 
 interface LandingEntryActionViewProps {
   readonly status: SessionStatus;
@@ -60,14 +60,4 @@ export function LandingEntryActionView({
       </Link>
     </Button>
   );
-}
-
-interface LandingEntryActionProps {
-  readonly hasAuthError?: boolean;
-  readonly inverted?: boolean;
-}
-
-export function LandingEntryAction(props: LandingEntryActionProps) {
-  const { status, role } = useSessionRole();
-  return <LandingEntryActionView {...props} status={status} role={role} />;
 }

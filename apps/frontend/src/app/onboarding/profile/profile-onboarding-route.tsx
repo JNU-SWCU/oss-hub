@@ -1,12 +1,67 @@
 'use client';
 
 import { ProfileOnboardingScreen } from '@/features/profile/components/profile-onboarding-screen';
+import type { ProfileRole } from '@/features/profile/profile-requirements';
 import {
   effectiveProfileRole,
   onboardingPathFor,
 } from '../../_shell/onboarding-route';
 import { roleHomePath } from '../../_shell/role';
-import { useSessionRole } from '../../_shell/use-session-role';
+import { SessionError } from '../../_shell/session-error';
+import {
+  useSessionRole,
+  type SessionRoleState,
+} from '../../_shell/use-session-role';
+
+export type ProfileOnboardingView =
+  | { readonly kind: 'pending' }
+  | { readonly kind: 'error' }
+  | {
+      readonly kind: 'form';
+      readonly role: ProfileRole | null;
+      readonly nextPath: string;
+    };
+
+/**
+ * 세션·역할 상태를 프로필 화면의 표시 결정으로 바꾼다.
+ *
+ * 역할이 확정되기 전에는 폼을 만들지 않는다. `role`도 `roleRequestStatus`도 아직
+ * 비어 있는 조회 중 상태를 그대로 넘기면 `effectiveProfileRole`이 null을 돌려주고,
+ * 화면은 그것을 가장 엄격한 학생 기준으로 읽는다 — 승인을 기다리는 교직원에게 잠깐
+ * 학번 필수 폼이 뜨고, `nextPath`도 역할 홈이 아니라 `/onboarding/role`을 가리킨다.
+ * 무엇을 물을지와 어디로 보낼지는 조회가 끝난 뒤에야 정해진다.
+ *
+ * 조회 실패도 폼으로 흘리지 않는다. 실패는 "역할이 없음"이 아니라 "역할을 모름"이라
+ * 학생 기준으로 되돌리면 위와 같은 오진을 그대로 저지른다. 다른 게이트들과 같이
+ * `SessionError`로 드러내고 재시도 수단을 준다.
+ *
+ * 비로그인은 바깥 `AuthGate`가 랜딩으로 되돌린다 — 여기서는 그 이동이 일어날 때까지
+ * 폼을 그리지 않고 기다리기만 하면 된다.
+ */
+export function profileOnboardingView(
+  state: SessionRoleState,
+): ProfileOnboardingView {
+  switch (state.status) {
+    case 'loading':
+    case 'anonymous':
+      return { kind: 'pending' };
+    case 'error':
+      return { kind: 'error' };
+    case 'unassigned':
+    case 'assigned':
+      return {
+        kind: 'form',
+        role: effectiveProfileRole(state.role, state.roleRequestStatus),
+        nextPath: state.role
+          ? roleHomePath(state.role)
+          : onboardingPathFor(state.roleRequestStatus),
+      };
+    default: {
+      const exhaustive: never = state.status;
+      return exhaustive;
+    }
+  }
+}
 
 /**
  * 세션 역할을 프로필 화면으로 넘기는 얇은 경계.
@@ -21,13 +76,31 @@ import { useSessionRole } from '../../_shell/use-session-role';
  *
  * 저장 뒤 목적지도 여기서 정한다 — 역할이 확정된 사용자는 자기 역할 홈으로, 승인을
  * 기다리는 교직원은 `onboardingPathFor`가 가리키는 승인 대기 화면으로 간다.
+ *
+ * 바깥 `AuthGate`가 이미 통과시킨 뒤라도 이 훅은 여기서 새로 마운트되어 역할 요청
+ * 조회를 처음부터 다시 한다 — 게이트를 지났다고 이 자리의 역할이 확정된 것은 아니다.
+ * 그래서 loading·error를 여기서도 직접 소진한다(`profileOnboardingView`).
  */
 export function ProfileOnboardingRoute() {
-  const { role, roleRequestStatus } = useSessionRole();
-  const profileRole = effectiveProfileRole(role, roleRequestStatus);
-  const nextPath = role
-    ? roleHomePath(role)
-    : onboardingPathFor(roleRequestStatus);
+  const state = useSessionRole();
+  const view = profileOnboardingView(state);
 
-  return <ProfileOnboardingScreen role={profileRole} nextPath={nextPath} />;
+  if (view.kind === 'error') {
+    return <SessionError onRetry={state.retry} />;
+  }
+
+  // 바깥 `AuthGate`와 같은 대기 표시를 쓴다. 한 라우트 안에서 문구가 바뀌면 사용자는
+  // 화면이 한 번 더 넘어간 것으로 읽는다.
+  if (view.kind === 'pending') {
+    return (
+      <p
+        className="flex min-h-[50svh] items-center justify-center px-6 py-16 text-sm text-muted-foreground"
+        role="status"
+      >
+        확인 중…
+      </p>
+    );
+  }
+
+  return <ProfileOnboardingScreen role={view.role} nextPath={view.nextPath} />;
 }

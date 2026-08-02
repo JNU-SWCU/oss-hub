@@ -13,8 +13,10 @@ import {
   SettingsOnboardingNotice,
 } from './settings-onboarding-notice';
 
+// 설정 화면이 쓰는 판단은 `RoleGate`가 쓰는 것과 같은 함수다. 허용 역할 목록은
+// 이동 여부에 관여하지 않으므로(권한 불일치는 안내 화면이 맡는다) 넘기지 않는다.
 function settingsRedirect(state: SessionRoleState): string | null {
-  return roleGateRedirectPath(state, SETTINGS_ALLOWED_ROLES);
+  return roleGateRedirectPath(state);
 }
 
 describe('설정 화면 접근 규칙', () => {

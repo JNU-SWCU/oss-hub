@@ -9,11 +9,15 @@ import { useSessionRole } from './use-session-role';
 import type { SessionRoleState, SessionStatus } from './use-session-role';
 import { roleHomePath, type AppRole } from './role';
 
-export function roleGateRedirectPath(
-  state: SessionRoleState,
-  allow: readonly AppRole[],
-  deniedPath?: string,
-): string | null {
+/**
+ * 상태만 보고 이동할 곳을 정한다.
+ *
+ * `allow`·`deniedPath`를 받지 않는다 — 권한 불일치를 리다이렉트로 처리하던 시절에는
+ * 필요했지만, 지금은 불일치를 `AccessDenied` 안내 화면으로 돌리기로 해서 이 판단에
+ * 역할 목록이 끼어들 자리가 없다. 인자로 남겨 두면 "여기서도 allow를 본다"고 읽혀
+ * 호출부가 없는 값을 계속 나른다.
+ */
+export function roleGateRedirectPath(state: SessionRoleState): string | null {
   switch (state.status) {
     case 'loading':
       return null;
@@ -100,7 +104,7 @@ export function RoleGate({
   const hasNotice = unassignedNotice !== undefined;
 
   useEffect(() => {
-    const redirectPath = roleGateRedirectPath(state, allow, deniedPath);
+    const redirectPath = roleGateRedirectPath(state);
     if (!redirectPath) {
       return;
     }
@@ -112,7 +116,7 @@ export function RoleGate({
       router.replace(redirectPath);
     }, UNASSIGNED_NOTICE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [state, allow, deniedPath, hasNotice, router]);
+  }, [state, hasNotice, router]);
 
   const isAllowed =
     status === 'assigned' &&

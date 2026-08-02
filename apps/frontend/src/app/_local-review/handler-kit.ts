@@ -1,4 +1,6 @@
 import type { AuthRole } from '@/features/auth/types';
+import type { UserProfile } from '@/features/profile/types';
+import type { RoleSelection } from '@/features/roles/types';
 import { apiPath } from '@/lib/api-client';
 import type { LocalReviewFixtureId } from './fixture-contract';
 
@@ -46,6 +48,92 @@ export interface LocalReviewContext {
 export type LocalReviewHandler = (
   context: LocalReviewContext,
 ) => LocalReviewResponsePlan | null;
+
+/**
+ * 검토 세션이 **요청 사이에** 기억해야 하는 값 전부. 한 곳에 모아 둔 이유는 아래
+ * `localReviewSessionState`의 주석에 있다.
+ */
+export interface LocalReviewSessionState {
+  /**
+   * 온보딩에서 고른 역할. 고르기 전이면 `null`이다.
+   *
+   * 순서가 역할 → 프로필로 바뀌면서, 가입을 끝까지 걸어 보려면 "역할은 골랐고
+   * 프로필은 아직 비어 있는" 상태가 필요해졌다. 선택을 기억하지 않으면 다음 화면의
+   * 게이트가 아직 아무것도 고르지 않은 것으로 읽어 역할 선택 화면으로 되돌리고,
+   * 정작 확인해야 할 프로필 화면에 아무도 도달하지 못한다.
+   */
+  selectedRole: RoleSelection | null;
+  /**
+   * 온보딩 중 저장한 프로필. 저장 전이면 `null`이다.
+   *
+   * 프로필이 마지막 단계라 저장 뒤에는 승인 대기 화면으로 넘어가야 한다. 저장을
+   * 잊어버리면 그 화면의 게이트가 다시 "프로필 미완료"로 읽어 프로필 입력으로
+   * 되돌리고, 검토자는 끝나지 않는 왕복을 제품 결함으로 오해한다.
+   */
+  savedOnboardingProfile: UserProfile | null;
+  /** `error-once`에 남은 실패 횟수 — "첫 조회만 실패"는 요청 사이의 기억으로만 만들어진다. */
+  errorOnceFailuresLeft: number;
+  /** 직전 요청의 페르소나. 다른 페르소나를 거쳐 돌아오면 실패 예산을 다시 채운다. */
+  lastRequestedFixture: LocalReviewFixtureId | null;
+}
+
+function createLocalReviewSessionState(): LocalReviewSessionState {
+  return {
+    selectedRole: null,
+    savedOnboardingProfile: null,
+    errorOnceFailuresLeft: 1,
+    lastRequestedFixture: null,
+  };
+}
+
+/**
+ * 상태를 매다는 자리. **모듈 최상단 `let`으로 두면 안 된다.**
+ *
+ * Next 개발 서버는 화면을 처음 열 때 그 라우트를 그때그때 컴파일하고, 그 순간 서버
+ * 모듈을 새로 평가한다. 모듈 변수에 담아 둔 값은 그때 초기값으로 돌아간다. 그래서
+ * "교직원을 골랐다"는 사실이 `/onboarding/pending`을 **처음 여는 바로 그 순간**
+ * 사라졌다 — `role-requests/me`가 방금까지 `PENDING`이었는데 그 화면을 처음
+ * 컴파일한 직후 같은 조회가 `null`이 된다. 검토자 눈에는 골랐는데 안 골라진 것으로
+ * 보이고, 가입 동선의 마지막 화면에는 아무도 도달하지 못한다.
+ *
+ * 두 번째 방문부터는 이미 컴파일돼 있어 멀쩡하다 — 손으로 다시 해 보면 재현되지
+ * 않아 "그럴 리 없다"로 덮이기 쉬운 종류다. 되돌리지 마라.
+ *
+ * 모듈이 아니라 **프로세스**에 매달면 사라지지 않는다. `globalThis`는 모듈을 몇 번
+ * 다시 평가하든 개발 서버 프로세스에 하나뿐이라, 새로 평가된 모듈도 앞서 담아 둔
+ * 값을 그대로 집는다. 활성화 경로(`local-review/[fixture]`)와 응답 경로
+ * (`local-review-api/[...path]`)가 서로 다른 라우트 번들이라 각자 다른 모듈 사본을
+ * 볼 수 있다는 문제도 같이 사라진다 — 두 라우트가 하나의 상태를 본다.
+ *
+ * 전역 가변 상태를 두어도 되는 근거: 이 어댑터는 development + loopback + 명시
+ * 플래그가 모두 맞을 때만 살아 있고(`isLocalReviewRuntime`), 검토자 한 명의 브라우저
+ * 하나만 바라본다. 값이 이상하게 굳어도 개발 서버를 다시 띄우면 초기값으로 돌아간다.
+ * 배포 경로에는 이 코드가 도달하지 않는다.
+ */
+const LOCAL_REVIEW_SESSION_STATE_KEY = '__ossHubLocalReviewSessionState';
+
+type LocalReviewStateHost = typeof globalThis & {
+  [LOCAL_REVIEW_SESSION_STATE_KEY]?: LocalReviewSessionState;
+};
+
+export function localReviewSessionState(): LocalReviewSessionState {
+  const host = globalThis as LocalReviewStateHost;
+  const existing = host[LOCAL_REVIEW_SESSION_STATE_KEY];
+  if (existing !== undefined) {
+    return existing;
+  }
+  const created = createLocalReviewSessionState();
+  host[LOCAL_REVIEW_SESSION_STATE_KEY] = created;
+  return created;
+}
+
+/**
+ * 상태를 초기값으로 되돌린다. 객체를 새로 갈아 끼우지 않고 제자리에서 덮어쓰는
+ * 이유는, 이미 참조를 들고 있는 호출부가 버려진 객체에 계속 쓰는 일을 막기 위해서다.
+ */
+export function resetLocalReviewSessionState(): void {
+  Object.assign(localReviewSessionState(), createLocalReviewSessionState());
+}
 
 export function json(status: number, body: unknown): LocalReviewResponsePlan {
   return { kind: 'json', status, body };

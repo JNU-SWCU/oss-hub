@@ -1,3 +1,8 @@
+import {
+  isConsistentCompleteProfile,
+  isProfileComplete,
+  type ProfileRole,
+} from '@/features/profile/profile-requirements';
 import type {
   PublicProfile,
   PublicProfileCategory,
@@ -16,6 +21,7 @@ import {
   bodyEnum,
   bodyString,
   json,
+  localReviewSessionState,
   matchGet,
   notFound,
   redirect,
@@ -247,15 +253,6 @@ const EMPTY_PROFILE_FIXTURE = {
   isComplete: false,
 } as const satisfies UserProfile;
 
-/**
- * 온보딩 중 저장한 프로필. 검토 세션 동안만 기억한다.
- *
- * 순서가 역할 → 프로필로 바뀌면서 프로필이 마지막 단계가 됐고, 저장 뒤에는 승인 대기
- * 화면으로 넘어가야 한다. 저장을 잊어버리면 그 화면의 게이트가 다시 "프로필 미완료"로
- * 읽어 프로필 입력으로 되돌리고, 검토자는 끝나지 않는 왕복을 제품 결함으로 오해한다.
- */
-let savedOnboardingProfile: UserProfile | null = null;
-
 /** 온보딩 중인 페르소나(`unassigned`)만 빈 프로필을 본다. */
 export function myProfileFixtureFor(
   fixture: LocalReviewFixtureId,
@@ -263,7 +260,9 @@ export function myProfileFixtureFor(
   if (fixture !== 'unassigned') {
     return MY_PROFILE_FIXTURE;
   }
-  return savedOnboardingProfile ?? EMPTY_PROFILE_FIXTURE;
+  return (
+    localReviewSessionState().savedOnboardingProfile ?? EMPTY_PROFILE_FIXTURE
+  );
 }
 
 const NOTIFICATION_CHANNEL_FIXTURE = {
@@ -338,39 +337,33 @@ const PENDING_STAFF_ROLE_REQUEST = {
 } as const satisfies RoleRequest;
 
 /**
- * 검토 세션 동안 기억하는 역할 선택.
- *
- * 순서가 역할 → 프로필로 바뀌면서, 가입을 끝까지 걸어 보려면 "역할은 골랐고 프로필은
- * 아직 비어 있는" 상태가 필요해졌다. 선택을 기억하지 않으면 다음 화면의 게이트가
- * 아직 아무것도 고르지 않은 것으로 읽어 역할 선택 화면으로 되돌리고, 정작 확인해야 할
- * 프로필 화면에 아무도 도달하지 못한다.
- *
- * 교직원만 기억하던 때는 학생 쪽이 그 함정에 그대로 빠져 있었다 — 픽스처는
- * `redirectTo: '/dashboard'`를 주는데 세션 역할이 계속 미배정이라, 게이트가 다시
- * `/onboarding/role`로 되돌려 제자리에 머물렀다. 그래서 고른 역할 자체를 기억한다:
- * 교직원은 `role-requests/me`의 `PENDING`으로, 학생은 세션의 배정 역할로 이어진다
- * (백엔드도 학생은 승인 없이 즉시 배정한다 — `roles.service.ts`의 `selectStudent`).
- *
- * 전역 가변 상태를 두는 근거는 `error-once`와 같다 — 이 어댑터는 development +
- * loopback + 명시 플래그가 모두 맞을 때만 살아 있고, 검토자 한 명의 브라우저 하나만
- * 바라본다. 서버를 다시 띄우면 초기값으로 돌아간다.
- */
-let selectedRoleInReview: RoleSelection | null = null;
-
-/**
  * 학생을 고른 뒤의 세션 역할. 고르기 전이거나 교직원을 골랐으면 `null`이다.
  *
  * 세션 응답(`fixture-response.ts`)이 이 값을 읽어야 학생 선택이 실제로 확정된다.
  * 교직원은 관리자 승인 전까지 세션 역할이 비는 것이 정상이라 여기서 빠진다.
+ *
+ * 고른 역할 자체를 기억하는 이유: 교직원만 기억하던 때는 학생 쪽이 함정에 빠져
+ * 있었다 — 픽스처는 `redirectTo: '/dashboard'`를 주는데 세션 역할이 계속 미배정이라,
+ * 게이트가 다시 `/onboarding/role`로 되돌려 제자리에 머물렀다. 교직원은
+ * `role-requests/me`의 `PENDING`으로, 학생은 세션의 배정 역할로 이어진다(백엔드도
+ * 학생은 승인 없이 즉시 배정한다 — `roles.service.ts`의 `selectStudent`).
+ *
+ * 값을 어디에 두는지도 규칙이다. 고른 역할·저장한 프로필은 요청 사이에 남아야 하므로
+ * 검토 세션 상태(`handler-kit`의 `localReviewSessionState`)에 둔다. **모듈 최상단
+ * `let`으로 되돌리지 마라** — 화면이 처음 열려 컴파일되는 순간 값이 사라져 고른 역할이
+ * 없던 일이 된다. 자세한 근거는 그 함수의 주석에 있다.
  */
 export function reviewAssignedRole(): 'STUDENT' | null {
-  return selectedRoleInReview === 'STUDENT' ? 'STUDENT' : null;
+  return localReviewSessionState().selectedRole === 'STUDENT'
+    ? 'STUDENT'
+    : null;
 }
 
-/** 테스트·검토 초기화 전용. */
+/** 테스트·검토 초기화 전용. 실패 예산 같은 다른 값은 건드리지 않는다. */
 export function resetLocalReviewRoleSelection(): void {
-  selectedRoleInReview = null;
-  savedOnboardingProfile = null;
+  const state = localReviewSessionState();
+  state.selectedRole = null;
+  state.savedOnboardingProfile = null;
 }
 
 /**
@@ -453,33 +446,45 @@ function consentHandler(
   return null;
 }
 
-/** 프로필 규칙의 길이 상한. `features/profile`의 검증과 같은 값이다. */
-const PROFILE_FIELD_MAX_LENGTH = 100;
+/**
+ * 이 프로필을 어느 역할 기준으로 볼지. 온보딩 중인 페르소나만 고른 역할을 따른다.
+ *
+ * 교직원을 고른 사람은 승인 전이라 세션 역할이 아직 비어 있지만, 프로필 화면은
+ * 이미 교직원 기준으로 학번을 묻지 않는다(`_shell/onboarding-route.ts`의
+ * `effectiveProfileRole`이 살아 있는 `PENDING` 요청을 STAFF로 인정한다). 픽스처가
+ * 같은 기준을 쓰지 않으면 화면에서는 학번을 묻지 않는데 저장만 안 되는 모순이 뜬다.
+ *
+ * 고르기 전이면 `null`이고, 규칙은 `null`을 학생 기준으로 본다 — 백엔드가 역할
+ * 배정 전에 학번을 포함한 완료 프로필을 요구하므로 그 편이 맞다.
+ */
+function reviewProfileRole(fixture: LocalReviewFixtureId): ProfileRole | null {
+  return fixture === 'unassigned'
+    ? localReviewSessionState().selectedRole
+    : null;
+}
 
 /**
  * 프로필 파서(`features/profile/api.ts` `parseProfile`)는 `isComplete`가 값과
  * 어긋나면 응답을 거부한다 — 입력을 반영하면 완성 여부도 같이 계산해야 한다.
- * 모든 항목이 채워졌을 때만 완료로 보는 가장 엄격한 기준을 쓴다(어느 역할
- * 기준으로 보더라도 모순이 없다).
+ *
+ * 판정 규칙은 여기서 다시 만들지 않는다. 역할별 필수 항목의 단일 출처는
+ * `features/profile/profile-requirements.ts`이고, 화면의 폼 검증·요청 빌더·응답
+ * 파서가 모두 그 파일을 쓴다. 픽스처만 규칙을 따로 들고 있으면 규칙이 바뀔 때
+ * 이쪽만 조용히 남아, 화면과 픽스처가 서로 다른 답을 낸다.
+ *
+ * 두 함수를 **함께** 본다. `isProfileComplete`는 그 역할이 요구하는 항목이 다
+ * 찼는지만 보므로, 교직원처럼 학번을 요구하지 않는 역할에서는 형식이 깨진 학번이
+ * 실려 와도 완료로 본다. 그대로 `isComplete: true`로 답하면 파서가
+ * `isConsistentCompleteProfile`로 그 모순을 잡아 응답 자체를 거부하고, 검토자는
+ * "저장 실패"만 본다. 그래서 파서가 볼 불변식을 여기서 먼저 확인한다.
  */
 function isCompleteProfile(
   profile: UserProfile,
   fixture: LocalReviewFixtureId,
 ): boolean {
-  const filled = (value: string | null): boolean =>
-    value !== null &&
-    value.trim().length > 0 &&
-    value.length <= PROFILE_FIELD_MAX_LENGTH;
-  // 교직원을 고른 미배정 페르소나는 학번 없이도 완료다. 여기서 학번을 요구하면
-  // 검토자가 화면에서는 학번을 묻지 않는데 저장이 안 되는 모순을 보게 된다.
-  const needsStudentId = !(
-    fixture === 'unassigned' && selectedRoleInReview === 'STAFF'
-  );
   return (
-    filled(profile.name) &&
-    (!needsStudentId ||
-      (profile.studentId !== null && /^\d{6,10}$/.test(profile.studentId))) &&
-    filled(profile.department)
+    isProfileComplete(profile, reviewProfileRole(fixture)) &&
+    isConsistentCompleteProfile(profile)
   );
 }
 
@@ -564,7 +569,7 @@ function accountMutationHandler(
     // 프로필을 조회하기 때문에, 잊어버리면 그 자리에서 왕복이 시작된다.
     const profile = patchedProfile(context);
     if (context.fixture === 'unassigned') {
-      savedOnboardingProfile = profile;
+      localReviewSessionState().savedOnboardingProfile = profile;
     }
     return json(200, profile);
   }
@@ -588,7 +593,7 @@ function onboardingRoleHandler(
     const selected =
       bodyEnum<RoleSelection>(context, 'selectedRole', ['STUDENT', 'STAFF']) ??
       'STUDENT';
-    selectedRoleInReview = selected;
+    localReviewSessionState().selectedRole = selected;
     return json(200, roleSelectionResult(selected));
   }
 
@@ -612,7 +617,8 @@ function myRoleRequestHandler(
   if (!context.isAuthenticated) return unauthorized(context.path);
   const isPending =
     context.fixture === 'role-pending' ||
-    (context.fixture === 'unassigned' && selectedRoleInReview === 'STAFF');
+    (context.fixture === 'unassigned' &&
+      localReviewSessionState().selectedRole === 'STAFF');
   return isPending ? json(200, PENDING_STAFF_ROLE_REQUEST) : json(200, null);
 }
 

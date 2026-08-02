@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { parsePublicProfile } from '@/features/profile/public-profile-api';
 import { parseMyRepositoriesResponse } from '@/features/repositories/parser';
+import type { RoleRequestStatus } from '@/features/roles/types';
+import { onboardingPathFor } from '../../_shell/onboarding-route';
 import {
   createLocalReviewActivation,
   type LocalReviewFixtureId,
@@ -424,6 +426,53 @@ describe('account fixture responses', () => {
     });
   });
 
+  it('교직원 프로필은 학번 없이도 완료로 답한다', () => {
+    // Given: 교직원을 고른 사람의 프로필 화면은 학번 칸 자체를 열지 않는다.
+    resetLocalReviewFixtureState();
+    callWithBody('unassigned', 'POST', 'onboarding/role', {
+      selectedRole: 'STAFF',
+    });
+
+    // When
+    const profile = jsonBody(
+      callWithBody('unassigned', 'PATCH', 'users/me/profile', {
+        name: '합성 교직원 사용자',
+        department: '인공지능학부',
+      }),
+    );
+
+    // Then: 여기서 학번을 요구하면 화면은 묻지도 않는데 저장만 안 되는 모순이 된다.
+    expect(profile).toEqual({
+      name: '합성 교직원 사용자',
+      studentId: null,
+      department: '인공지능학부',
+      isComplete: true,
+    });
+  });
+
+  // 학번을 요구하지 않는 역할이라도 실려 온 값의 형식은 맞아야 한다. 형식이 깨진
+  // 학번을 완료로 답하면 응답 파서가 그 모순을 잡아 응답 자체를 거부하고, 검토자는
+  // 원인을 알 수 없는 "저장 실패"만 본다.
+  it('교직원이라도 형식이 깨진 학번이 실려 오면 완료로 답하지 않는다', () => {
+    // Given
+    resetLocalReviewFixtureState();
+    callWithBody('unassigned', 'POST', 'onboarding/role', {
+      selectedRole: 'STAFF',
+    });
+
+    // When
+    const profile = jsonBody(
+      callWithBody('unassigned', 'PATCH', 'users/me/profile', {
+        name: '합성 교직원 사용자',
+        studentId: '12',
+        department: '인공지능학부',
+      }),
+    );
+
+    // Then
+    expect(profile).toMatchObject({ studentId: '12', isComplete: false });
+  });
+
   it('leaves the loading and error personas to the global fixture rules', () => {
     // Given / When
     const loading = call('loading', 'GET', 'repositories/me');
@@ -432,5 +481,116 @@ describe('account fixture responses', () => {
     // Then
     expect(loading).toEqual({ kind: 'delay', milliseconds: 60_000 });
     expect(error).toMatchObject({ kind: 'json', status: 503 });
+  });
+});
+
+/**
+ * 검토자가 실제로 걷는 가입 동선을 통째로 잠근다.
+ *
+ * 화면이 다음 단계를 어디로 정하는지는 `_shell/onboarding-route.ts`의
+ * `onboardingPathFor`가 결정한다. 그 함수에 픽스처 응답을 그대로 먹여 동선을
+ * 따라가는 이유는, 여기서 같은 판단을 다시 적으면 잠그는 대상이 화면이 아니라
+ * 이 테스트 자신이 되기 때문이다.
+ */
+describe('가입 동선 — 약관 → 교직원 선택 → 프로필 → 승인 대기', () => {
+  /** 지금 이 검토자가 있어야 할 온보딩 화면. 게이트가 읽는 두 값에서 파생시킨다. */
+  function currentOnboardingPath(): string | null {
+    const roleRequest = jsonBody(
+      call('unassigned', 'GET', 'role-requests/me'),
+    ) as { readonly status: RoleRequestStatus } | null;
+    const profile = jsonBody(call('unassigned', 'GET', 'users/me/profile')) as {
+      readonly isComplete: boolean;
+    };
+    return onboardingPathFor(
+      roleRequest?.status ?? null,
+      profile.isComplete ? 'complete' : 'incomplete',
+    );
+  }
+
+  it('교직원을 고른 검토자가 프로필을 거쳐 승인 대기 화면까지 도착한다', () => {
+    // Given: 검토판 링크(`/local-review/unassigned?to=/consent`)를 막 누른 상태.
+    resetLocalReviewFixtureState();
+
+    // When / Then 1 — 약관. 아직 동의 전이라 화면이 떠야 하고, 다음은 역할 선택이다.
+    expect(
+      jsonBody(call('unassigned', 'GET', 'consents/current')),
+    ).toMatchObject({ consented: false, nextUrl: '/onboarding/role' });
+    expect(jsonBody(call('unassigned', 'POST', 'consents'))).toMatchObject({
+      nextUrl: '/onboarding/role',
+    });
+
+    // 2 — 교직원 선택. 승인이 필요하므로 대기 화면으로 보낸다.
+    expect(
+      jsonBody(
+        callWithBody('unassigned', 'POST', 'onboarding/role', {
+          selectedRole: 'STAFF',
+        }),
+      ),
+    ).toMatchObject({
+      requestStatus: 'PENDING',
+      redirectTo: '/onboarding/pending',
+    });
+
+    // 3 — 그 대기 화면의 게이트는 비어 있는 프로필을 보고 프로필 입력으로 넘긴다.
+    //     여기서 역할 선택이 잊히면 `/onboarding/role`로 되튕겨 제자리를 돈다.
+    expect(currentOnboardingPath()).toBe('/onboarding/profile');
+
+    // 4 — 프로필 저장. 교직원이라 학번은 묻지 않는다.
+    expect(
+      jsonBody(
+        callWithBody('unassigned', 'PATCH', 'users/me/profile', {
+          name: '합성 교직원 사용자',
+          department: '인공지능학부',
+        }),
+      ),
+    ).toMatchObject({ isComplete: true });
+
+    // 5 — 저장 뒤 다시 게이트. 이번엔 승인 대기 화면이 목적지다. 세션 역할은 승인
+    //     전이라 계속 비어 있어야 온보딩 밖(역할 홈)으로 튕기지 않는다.
+    expect(currentOnboardingPath()).toBe('/onboarding/pending');
+    expect(jsonBody(call('unassigned', 'GET', 'auth/session'))).toMatchObject({
+      isAuthenticated: true,
+      user: { role: null, isProfileComplete: true },
+    });
+  });
+
+  /**
+   * 검토가 실제로 깨진 자리. Next 개발 서버는 화면을 처음 열 때 그 라우트를
+   * 컴파일하면서 서버 모듈을 새로 평가하고, 모듈 최상단 `let`에 담아 둔 값은 그때
+   * 초기값으로 돌아간다. `vi.resetModules()` + 동적 import 가 그 재평가와 같은 일을
+   * 한다 — 이 잠금이 없으면 "요청 사이에 남는다"까지만 확인하게 되고, 정작 검토가
+   * 깨지는 조건(라우트 첫 컴파일)은 아무도 지키지 않는다.
+   */
+  it('라우트가 처음 컴파일돼 모듈이 다시 평가돼도 가입 도중 상태가 남는다', async () => {
+    // Given: 교직원을 고르고 프로필까지 저장한 상태.
+    resetLocalReviewFixtureState();
+    callWithBody('unassigned', 'POST', 'onboarding/role', {
+      selectedRole: 'STAFF',
+    });
+    callWithBody('unassigned', 'PATCH', 'users/me/profile', {
+      name: '합성 교직원 사용자',
+      department: '인공지능학부',
+    });
+
+    // When: `/onboarding/pending`을 처음 여는 순간과 같은 모듈 재평가.
+    vi.resetModules();
+    const reloaded = await import('../fixture-response');
+    const readAfterReload = (path: string) =>
+      reloaded.resolveLocalReviewResponse({
+        fixture: 'unassigned',
+        method: 'GET',
+        path,
+        searchParams: new URLSearchParams(),
+      });
+
+    // Then: 역할 요청이 `null`로 바뀌면 대기 화면이 역할 선택으로 되튕겨,
+    // 검토자는 방금 고른 교직원이 안 골라진 것으로 본다.
+    expect(jsonBody(readAfterReload('role-requests/me'))).toMatchObject({
+      requestedRole: 'STAFF',
+      status: 'PENDING',
+    });
+    expect(jsonBody(readAfterReload('users/me/profile'))).toMatchObject({
+      isComplete: true,
+    });
   });
 });

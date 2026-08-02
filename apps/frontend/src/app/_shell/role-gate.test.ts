@@ -11,64 +11,40 @@ describe('roleGateRedirectPath', () => {
   // 밀려나고 화면상 로그아웃된 것처럼 보인다. 실패는 어디로도 보내지 않는다.
   it('세션 조회 실패는 어디로도 리다이렉트하지 않는다', () => {
     expect(
-      roleGateRedirectPath(
-        {
-          status: 'error',
-          role: null,
-          roleRequestStatus: null,
-          isProfileComplete: true,
-        },
-        ['STUDENT'],
-      ),
-    ).toBeNull();
-  });
-
-  it('조회 실패는 deniedPath가 주어져도 리다이렉트하지 않는다', () => {
-    expect(
-      roleGateRedirectPath(
-        {
-          status: 'error',
-          role: null,
-          roleRequestStatus: null,
-          isProfileComplete: true,
-        },
-        ['STUDENT'],
-        '/staff/dashboard',
-      ),
+      roleGateRedirectPath({
+        status: 'error',
+        role: null,
+        roleRequestStatus: null,
+        isProfileComplete: true,
+      }),
     ).toBeNull();
   });
 
   // 권한 불일치를 조용히 되돌리면 사용자는 왜 다른 화면이 떠 있는지 모른 채
-  // 같은 시도를 반복한다. 이제 이동시키지 않고 안내 화면을 띄운다.
+  // 같은 시도를 반복한다. 이제 이동시키지 않고 안내 화면을 띄운다 — 그래서 이
+  // 판단은 어떤 역할이 허용됐는지(`allow`)를 아예 보지 않는다.
   it.each(['STAFF', 'ADMIN'] as const)(
-    '학생 전용 화면에 들어온 %s를 이동시키지 않는다',
+    '역할이 배정된 %s는 허용 목록과 무관하게 이동시키지 않는다',
     (role) => {
       expect(
-        roleGateRedirectPath(
-          {
-            status: 'assigned',
-            role,
-            roleRequestStatus: null,
-            isProfileComplete: true,
-          },
-          ['STUDENT'],
-          '/staff/dashboard',
-        ),
+        roleGateRedirectPath({
+          status: 'assigned',
+          role,
+          roleRequestStatus: null,
+          isProfileComplete: true,
+        }),
       ).toBeNull();
     },
   );
 
-  it('허용된 역할도 이동시키지 않는다', () => {
+  it('프로필까지 마친 학생도 이동시키지 않는다', () => {
     expect(
-      roleGateRedirectPath(
-        {
-          status: 'assigned',
-          role: 'STUDENT',
-          roleRequestStatus: null,
-          isProfileComplete: true,
-        },
-        ['STUDENT'],
-      ),
+      roleGateRedirectPath({
+        status: 'assigned',
+        role: 'STUDENT',
+        roleRequestStatus: null,
+        isProfileComplete: true,
+      }),
     ).toBeNull();
   });
 
@@ -83,16 +59,12 @@ describe('roleGateRedirectPath', () => {
 
   it('역할 미선택 사용자는 기존 온보딩 흐름을 유지한다', () => {
     expect(
-      roleGateRedirectPath(
-        {
-          status: 'unassigned',
-          role: null,
-          roleRequestStatus: null,
-          isProfileComplete: true,
-        },
-        ['STUDENT'],
-        '/staff/dashboard',
-      ),
+      roleGateRedirectPath({
+        status: 'unassigned',
+        role: null,
+        roleRequestStatus: null,
+        isProfileComplete: true,
+      }),
     ).toBe('/onboarding/role');
   });
 });

@@ -335,12 +335,6 @@ export function programActivityFor(
   return PROGRAM_FIXTURES[programId].activity;
 }
 
-export function studentApplicationStatusFor(
-  programId: PublicProgramId,
-): ApplicationStatus | null {
-  return PROGRAM_FIXTURES[programId].studentApplicationStatus;
-}
-
 /**
  * 학생 제출 체크리스트. 학생 동선 픽스처가 캡스톤·경진대회를 이미 덮으므로
  * 여기서는 `student` 외의 학생 역할 페르소나가 같은 화면을 볼 때만 쓰인다.

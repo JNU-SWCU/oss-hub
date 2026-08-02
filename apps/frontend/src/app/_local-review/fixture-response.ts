@@ -20,7 +20,10 @@ import type { LocalReviewFixtureId } from './fixture-contract';
 import {
   isAuthenticatedFixture,
   json,
+  localReviewSessionState,
+  positiveIntParam,
   problem,
+  resetLocalReviewSessionState,
   roleForFixture,
   type LocalReviewContext,
   type LocalReviewHandler,
@@ -29,7 +32,6 @@ import {
 import {
   ACCOUNT_HANDLERS,
   myProfileFixtureFor,
-  resetLocalReviewRoleSelection,
   reviewAssignedRole,
 } from './handlers/account-handlers';
 import { ADMIN_HANDLERS } from './handlers/admin-handlers';
@@ -379,41 +381,33 @@ function authenticatedSession(
 }
 
 /**
- * `error-once`에 남은 실패 횟수. "첫 조회는 실패하고 재시도는 성공한다"는 요청
- * **사이에** 기억이 남아야 만들어지므로 모듈 스코프에 둔다.
+ * `error-once`의 실패 예산도 요청 **사이에** 남아야 만들어지는 상태라 검토 세션
+ * 상태(`handler-kit`의 `localReviewSessionState`)에 함께 둔다. 여기 모듈 변수로
+ * 두면 라우트가 처음 컴파일될 때 예산이 조용히 다시 차, 이미 복구된 세션이 갑자기
+ * 다시 실패한다 — 고른 역할이 사라지던 것과 정확히 같은 원인이다.
  *
- * 전역 가변 상태를 두어도 되는 이유: 이 어댑터는 development + 로컬호스트 + 명시
- * 플래그가 모두 맞을 때만 살아 있고(`isLocalReviewRuntime`), 검토자 한 명의
- * 브라우저 하나만 바라본다. 값이 이상하게 굳어도 개발 서버를 다시 띄우면 초기값
- * (실패 1회 남음)으로 돌아간다. 배포 경로에는 이 코드가 도달하지 않는다.
+ * 다른 페르소나를 거쳐 `error-once`로 돌아오면 예산을 다시 채운다. 한 번 쓰고
+ * 끝내면 서버를 재시작하기 전에는 오류 화면을 다시 볼 수 없어, 다음 검토자가 같은
+ * 흐름을 확인할 방법이 없다.
  */
-let errorOnceFailuresLeft = 1;
-
-/**
- * 직전 요청의 페르소나. 다른 페르소나를 거쳐 `error-once`로 돌아오면 실패 예산을
- * 다시 채우기 위해 기억한다 — 한 번 쓰고 끝내면 서버를 재시작하기 전에는 오류
- * 화면을 다시 볼 수 없어, 다음 검토자가 같은 흐름을 확인할 방법이 없다.
- */
-let lastRequestedFixture: LocalReviewFixtureId | null = null;
-
 function rearmErrorOnceOnFixtureChange(fixture: LocalReviewFixtureId): void {
-  if (fixture === lastRequestedFixture) return;
-  lastRequestedFixture = fixture;
-  errorOnceFailuresLeft = 1;
+  const state = localReviewSessionState();
+  if (fixture === state.lastRequestedFixture) return;
+  state.lastRequestedFixture = fixture;
+  state.errorOnceFailuresLeft = 1;
 }
 
 /** 실패 예산이 남았으면 한 번 쓰고 `true`. 그 다음 조회부터는 성공해야 한다. */
 function consumeErrorOnceFailure(): boolean {
-  if (errorOnceFailuresLeft <= 0) return false;
-  errorOnceFailuresLeft -= 1;
+  const state = localReviewSessionState();
+  if (state.errorOnceFailuresLeft <= 0) return false;
+  state.errorOnceFailuresLeft -= 1;
   return true;
 }
 
-/** 테스트 전용 — 모듈 수준 상태를 초기화한다. */
+/** 테스트 전용 — 검토 세션 상태를 통째로 초기화한다. */
 export function resetLocalReviewFixtureState(): void {
-  errorOnceFailuresLeft = 1;
-  lastRequestedFixture = null;
-  resetLocalReviewRoleSelection();
+  resetLocalReviewSessionState();
 }
 
 function sessionResponse(
@@ -487,11 +481,6 @@ function auditLogPage(searchParams: URLSearchParams): AuditLogWirePage {
     page,
     limit,
   };
-}
-
-function positiveIntParam(value: string | null, fallback: number): number {
-  const parsed = Number(value);
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function recruitmentState(
