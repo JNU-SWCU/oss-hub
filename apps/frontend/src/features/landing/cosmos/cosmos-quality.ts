@@ -20,6 +20,15 @@ const RECOVERY_BUDGET_RATIO = 0.7;
  */
 const RECOVERY_WINDOWS = 3;
 
+/**
+ * 같은 단계에서 승격이 몇 번 연달아 실패해야 그 단계를 포기하는지. 첫 창 한 번의
+ * 실패는 증거가 못 된다 — 올리는 순간 canvas와 블룸 버퍼를 더 큰 크기로 다시 잡으므로
+ * 전환 비용 자체가 그 창에 섞이고, GC 멈춤도 하필 그때 들어올 수 있다. p95는 12표본의
+ * 최댓값이라 느린 프레임 하나면 창 전체가 떨어진다. 한 번은 시험을 다시 치르게 하고,
+ * 두 번 연달아 떨어질 때만 이 기기에 맞지 않는 단계로 본다.
+ */
+const RAISE_FAILURE_LIMIT = 2;
+
 export function createCosmosQualityGovernor(): CosmosQualityGovernor {
   let qualityIndex = 0;
   let samples: number[] = [];
@@ -27,12 +36,14 @@ export function createCosmosQualityGovernor(): CosmosQualityGovernor {
   let calmWindows = 0;
   // 직전 창에서 막 올라왔는지. 올린 단계의 첫 창만이 그 단계에 대한 판정이다.
   let justRaised = false;
+  // 지금 넘보는 단계에서 승격이 연달아 실패한 횟수. 다른 단계로 내려가면 0으로 돌아간다.
+  let raiseFailures = 0;
   /**
    * 이 기기가 올라갈 수 있는 최고 단계. 여유선과 연속 조건은 프레임 비용이 화질과
    * 무관할 때만 출렁임을 막는다. 낮은 단계가 싸고 높은 단계가 예산을 넘는 기기에서는
    * 여유가 진짜여도 올라간 뒤에는 남아 있지 않아, 올렸다 내렸다를 영원히 반복한다.
-   * 그래서 올린 직후 첫 창이 예산을 넘기면 그 단계를 한계로 적어 두고 다시 넘보지 않는다.
-   * 한 번 올라가 재 본 결과라, 우연한 멈춤 하나로 묶이는 것과는 다르다.
+   * 그래서 같은 단계가 첫 창부터 거푸 무너지면 한계로 적어 두고 다시 넘보지 않는다.
+   * 올라가 두 번 재 본 결과라, 우연한 멈춤 하나로 묶이는 것과는 다르다.
    */
   let ceilingIndex = 0;
 
@@ -50,8 +61,16 @@ export function createCosmosQualityGovernor(): CosmosQualityGovernor {
         // 예산 초과는 곧바로 반영한다. 동시에 복귀 연속 기록도 끊는다 —
         // 초과와 여유를 번갈아 겪는 기기는 "여유롭다"고 볼 수 없다.
         calmWindows = 0;
-        // 막 올라온 단계가 첫 창부터 예산을 넘겼다면, 그 단계는 이 기기에 맞지 않는다.
-        if (justRaised) ceilingIndex = qualityIndex + 1;
+        if (justRaised) {
+          // 막 올라온 단계가 첫 창부터 무너졌다. 한 번은 우연일 수 있으니 다시 시험하고,
+          // 정해진 횟수만큼 거푸 무너질 때만 이 기기에 맞지 않는 단계로 확정한다.
+          raiseFailures += 1;
+          if (raiseFailures >= RAISE_FAILURE_LIMIT)
+            ceilingIndex = qualityIndex + 1;
+        } else {
+          // 승격과 무관하게 더 내려간다 — 다음 시도는 다른 단계라 실패 기록을 잇지 않는다.
+          raiseFailures = 0;
+        }
         justRaised = false;
         if (qualityIndex < QUALITY_STEPS.length - 1) qualityIndex += 1;
         return;

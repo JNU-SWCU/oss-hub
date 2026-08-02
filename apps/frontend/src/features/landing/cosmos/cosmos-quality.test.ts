@@ -195,17 +195,62 @@ describe('createCosmosQualityGovernor', () => {
     expect(new Set(observed.slice(-20))).toEqual(new Set([0.75]));
   });
 
-  it('does not cap the ceiling when a stall arrives long after the step proved itself', () => {
-    // Given — 올린 단계가 한 창을 무사히 넘겨 검증된 뒤
+  it('retries a step when a single stray frame spoiled the promotion window', () => {
+    // Given — 여유가 이어져 최고 화질로 올라간 직후
     const governor = createCosmosQualityGovernor();
     record(governor, 12, 24);
     record(governor, 36, 8);
     expect(governor.qualityScale()).toBe(1);
-    record(governor, 12, 8);
 
-    // When — 한참 뒤에 찾아온 멈춤 한 번. 내려가긴 해도 한계로 기억되진 않는다
+    // When — 승격 첫 창에 느린 프레임이 하나 섞인다. 올린 순간 canvas와 블룸 버퍼를
+    // 더 큰 크기로 다시 잡으므로 전환 비용 자체가 여기 섞이고, GC 멈춤도 마찬가지다.
+    // p95는 12표본의 최댓값이라 이 한 프레임이 창 전체를 떨어뜨린다.
+    record(governor, 11, 8);
+    governor.recordFrame(40, BUDGET_MS);
+    expect(governor.qualityScale()).toBe(0.75);
+
+    // 그 뒤로는 계속 여유롭다 — 이 단계가 안 맞는 게 아니었다
+    record(governor, 36, 8);
+
+    // Then — 단발성 지연 한 번을 영구 증거로 쓰면 #506이 그대로 되돌아온다
+    expect(governor.qualityScale()).toBe(1);
+  });
+
+  it('does not carry a failure over to a different step', () => {
+    // Given — 최고 단계 승격이 한 번 실패한 뒤(기록 1회), 승격과 무관하게 더 내려간다
+    const governor = createCosmosQualityGovernor();
+    record(governor, 12, 24);
+    record(governor, 36, 8);
     record(governor, 12, 24);
     expect(governor.qualityScale()).toBe(0.75);
+    record(governor, 12, 24);
+    expect(governor.qualityScale()).toBe(0.5);
+
+    // When — 이제 한 단계 아래를 시험한다. 앞의 실패는 다른 단계의 일이다
+    record(governor, 36, 8);
+    record(governor, 12, 24);
+    record(governor, 36, 8);
+
+    // Then — 서로 다른 두 단계의 실패를 합쳐 한계로 굳히면 안 된다
+    expect(governor.qualityScale()).toBe(0.75);
+  });
+
+  it('does not cap the ceiling when stalls arrive long after the step proved itself', () => {
+    // Given
+    const governor = createCosmosQualityGovernor();
+    record(governor, 12, 24);
+
+    // When — 검증을 마친 단계에서 한참 뒤의 멈춤을 두 번 겪는다. 승격 직후의 판정이
+    // 아니므로 몇 번을 겪든 실패 기록으로 쌓여선 안 된다.
+    for (let cycle = 0; cycle < 2; cycle += 1) {
+      record(governor, 36, 8);
+      expect(governor.qualityScale()).toBe(1);
+      // 올린 단계가 한 창을 무사히 넘겨 검증된다
+      record(governor, 12, 8);
+      // 그러고 한참 뒤에 찾아온 멈춤. 내려가긴 해도 한계로 기억되진 않는다
+      record(governor, 12, 24);
+      expect(governor.qualityScale()).toBe(0.75);
+    }
     record(governor, 36, 8);
 
     // Then — 그러지 않으면 #506(한 번 내려가면 세션 내내 복귀 없음)이 되돌아온다
