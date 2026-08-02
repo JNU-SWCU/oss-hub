@@ -2,7 +2,7 @@ import { assertIsolatedIntegrationDatabase } from '../test/integration-database.
 import { AccountStatus, Role } from '@prisma/client';
 import { runProfile } from './seed';
 import { AUTH_SCENARIOS } from './seeds/auth';
-import { prisma, SeedStats, upsertSeedUser } from './seeds/helpers';
+import { prisma, seedId, SeedStats, upsertSeedUser } from './seeds/helpers';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -19,6 +19,20 @@ const profileCompleteUserId = AUTH_SCENARIOS['profile-complete'];
 const staffPendingUserId = AUTH_SCENARIOS['staff-pending'];
 const staffRejectedUserId = AUTH_SCENARIOS['staff-rejected'];
 const staffRevokedUserId = AUTH_SCENARIOS['staff-revoked'];
+const OSS_HUB_TEAM_ACCOUNTS = [
+  '9800000000000001:seed-operator-alpha:ADMIN',
+  '9800000000000002:seed-operator-beta:ADMIN',
+  '9800000000000003:seed-operator-gamma:ADMIN',
+  '9800000000000004:seed-operator-delta:ADMIN',
+].join(',');
+const OSS_HUB_PROGRAM_ID = seedId('oss-hub', 'program');
+const OSS_HUB_TEAM_ID = seedId('oss-hub', 'team');
+const OSS_HUB_NOTICE_EXAMPLES = [
+  '[모집홍보] 2026 오픈소스 개발자대회 모집 안내',
+  '｢모집홍보｣ 『LLMOps 파이프라인 개발』 교육 2026학년 2학기 자유학기(자유교과목) 신청 안내',
+  'https://sojoong.kr/notice/notice-board/?mod=document&uid=922',
+  'https://sojoong.kr/notice/notice-board/?mod=document&uid=939',
+] as const;
 
 /** #110 시드가 실제로 건드리는 전체 모델. 카운트가 두 실행 사이에 흔들리면 멱등성이 깨진 것이다. */
 const SEEDED_MODEL_COUNTERS: ReadonlyArray<
@@ -212,6 +226,140 @@ async function deleteAllSeeded(): Promise<void> {
     where: { ...seedIdFilter, ...excluding(protectedUserIds) },
   });
 }
+describe('seed profile=oss-hub contract (integration)', () => {
+  beforeAll(async () => {
+    await prisma.$connect();
+  }, DATABASE_CONNECTION_TIMEOUT_MS);
+
+  afterAll(async () => {
+    delete process.env.OSS_HUB_TEAM_ACCOUNTS;
+    await prisma.$disconnect();
+  });
+
+  it(
+    '합성 auth 계정과 설정된 ADMIN 네 명의 프로그램 추적 데이터를 멱등하게 만든다',
+    async () => {
+      // Given: 격리된 빈 DB와 공개 안전한 합성 운영자 계정 설정.
+      process.env.OSS_HUB_TEAM_ACCOUNTS = OSS_HUB_TEAM_ACCOUNTS;
+
+      // When: oss-hub profile을 두 번 실행한다.
+      await runProfile('oss-hub', new SeedStats());
+      const countsAfterFirstRun = await countAllSeeded();
+      await runProfile('oss-hub', new SeedStats());
+      const countsAfterSecondRun = await countAllSeeded();
+
+      // Then: 기존 auth 역할 계정과 정확한 oss-hub 관계 shape가 유지된다.
+      const [
+        syntheticAdmin,
+        syntheticStaff,
+        syntheticStudent,
+        configuredUsers,
+        program,
+        team,
+        ossHubProgramCount,
+        ossHubTeamCount,
+        ossHubMemberCount,
+        ossHubMilestoneCount,
+      ] = await Promise.all([
+        prisma.user.findUniqueOrThrow({
+          where: { id: AUTH_SCENARIOS['admin-confirmed'] },
+        }),
+        prisma.user.findUniqueOrThrow({
+          where: { id: AUTH_SCENARIOS['staff-approved'] },
+        }),
+        prisma.user.findUniqueOrThrow({
+          where: { id: AUTH_SCENARIOS['student-confirmed'] },
+        }),
+        prisma.user.findMany({
+          where: {
+            githubId: {
+              in: [
+                9800000000000001n,
+                9800000000000002n,
+                9800000000000003n,
+                9800000000000004n,
+              ],
+            },
+          },
+          orderBy: { githubId: 'asc' },
+        }),
+        prisma.program.findUniqueOrThrow({
+          where: { id: OSS_HUB_PROGRAM_ID },
+          include: { milestones: { orderBy: { id: 'asc' } } },
+        }),
+        prisma.team.findUniqueOrThrow({
+          where: { id: OSS_HUB_TEAM_ID },
+          include: { members: { orderBy: { id: 'asc' } } },
+        }),
+        prisma.program.count({
+          where: { id: { startsWith: 'seed:oss-hub:' } },
+        }),
+        prisma.team.count({ where: { id: { startsWith: 'seed:oss-hub:' } } }),
+        prisma.teamMember.count({
+          where: { id: { startsWith: 'seed:oss-hub:' } },
+        }),
+        prisma.milestone.count({
+          where: { id: { startsWith: 'seed:oss-hub:' } },
+        }),
+      ]);
+
+      expect(countsAfterSecondRun).toEqual(countsAfterFirstRun);
+      expect([
+        syntheticAdmin.role,
+        syntheticStaff.role,
+        syntheticStudent.role,
+      ]).toEqual([Role.ADMIN, Role.STAFF, Role.STUDENT]);
+      expect(configuredUsers).toHaveLength(4);
+      expect(
+        configuredUsers.map(({ id, nickname, role }) => ({
+          id,
+          nickname,
+          role,
+        })),
+      ).toEqual([
+        {
+          id: seedId('oss-hub', 'user', '9800000000000001'),
+          nickname: 'seed-operator-alpha',
+          role: Role.ADMIN,
+        },
+        {
+          id: seedId('oss-hub', 'user', '9800000000000002'),
+          nickname: 'seed-operator-beta',
+          role: Role.ADMIN,
+        },
+        {
+          id: seedId('oss-hub', 'user', '9800000000000003'),
+          nickname: 'seed-operator-gamma',
+          role: Role.ADMIN,
+        },
+        {
+          id: seedId('oss-hub', 'user', '9800000000000004'),
+          nickname: 'seed-operator-delta',
+          role: Role.ADMIN,
+        },
+      ]);
+      expect([ossHubProgramCount, ossHubTeamCount, ossHubMemberCount]).toEqual([
+        1, 1, 4,
+      ]);
+      for (const noticeExample of OSS_HUB_NOTICE_EXAMPLES) {
+        expect(program.description).toContain(noticeExample);
+      }
+      expect(ossHubMilestoneCount).toBe(2);
+      expect(program.milestones.map(({ id }) => id)).toEqual([
+        seedId('oss-hub', 'milestone', 'checkpoint'),
+        seedId('oss-hub', 'milestone', 'kickoff'),
+      ]);
+      expect(team.leaderId).toBe(configuredUsers[0]?.id);
+      expect(team.members.map(({ id, userId }) => ({ id, userId }))).toEqual(
+        configuredUsers.map((user) => ({
+          id: seedId('oss-hub', 'team-member', user.githubId.toString()),
+          userId: user.id,
+        })),
+      );
+    },
+    SEED_RUN_TIMEOUT_MS,
+  );
+});
 
 describe('seed profile=all 멱등성 (integration)', () => {
   beforeAll(async () => {

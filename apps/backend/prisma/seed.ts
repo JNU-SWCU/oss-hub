@@ -1,6 +1,7 @@
 import { seedAuth } from './seeds/auth';
 import {
   assertSeedAllowed,
+  parseOssHubTeamAccounts,
   prisma,
   resolveSeedProfile,
   SeedProfile,
@@ -9,6 +10,7 @@ import {
 } from './seeds/helpers';
 import { seedIntake } from './seeds/intake';
 import { seedMilestones } from './seeds/milestones';
+import { seedOssHub } from './seeds/oss-hub';
 import { seedRepositories } from './seeds/repositories';
 import { backfillUserProfiles } from './user-profile-backfill';
 
@@ -23,7 +25,11 @@ export async function runProfile(
   profile: SeedProfile,
   stats: SeedStats,
 ): Promise<void> {
-  if (profile === 'auth' || profile === 'all') {
+  const ossHubAccounts =
+    profile === 'oss-hub'
+      ? parseOssHubTeamAccounts(process.env.OSS_HUB_TEAM_ACCOUNTS)
+      : undefined;
+  if (profile === 'auth' || profile === 'oss-hub' || profile === 'all') {
     await seedAuth(stats);
   }
   if (profile === 'intake' || profile === 'all') {
@@ -34,6 +40,9 @@ export async function runProfile(
   }
   if (profile === 'repositories' || profile === 'all') {
     await seedRepositories(stats);
+  }
+  if (profile === 'oss-hub' && ossHubAccounts) {
+    await seedOssHub(stats, ossHubAccounts);
   }
   await backfillUserProfiles(prisma);
 }

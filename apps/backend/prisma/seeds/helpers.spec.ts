@@ -1,6 +1,7 @@
 import {
   assertSeedAllowed,
   DEFAULT_SEED_PROFILE,
+  parseOssHubTeamAccounts,
   resolveSeedProfile,
   seedFixtureUrl,
   seedGithubId,
@@ -94,6 +95,71 @@ describe('resolveSeedProfile', () => {
     expect(() =>
       resolveSeedProfile(['node', 'seed.ts'], { SEED_PROFILE: 'bogus' }),
     ).toThrow(/알 수 없는 SEED_PROFILE/);
+  });
+
+  it.each(['auth', 'intake', 'milestones', 'repositories', 'all'] as const)(
+    '기존 %s profile을 그대로 해석한다',
+    (profile) => {
+      expect(
+        resolveSeedProfile(['node', 'seed.ts', '--profile', profile], {}),
+      ).toBe(profile);
+    },
+  );
+
+  it('oss-hub profile을 해석한다', () => {
+    expect(
+      resolveSeedProfile(['node', 'seed.ts', '--profile', 'oss-hub'], {}),
+    ).toBe('oss-hub');
+  });
+});
+
+describe('parseOssHubTeamAccounts', () => {
+  const validInput = [
+    '101:team-alpha:ADMIN',
+    '102:team-beta:ADMIN',
+    '103:team-gamma:ADMIN',
+    '104:team-delta:ADMIN',
+  ].join(',');
+
+  it('서로 다른 GitHub 계정 네 개를 ADMIN으로 해석한다', () => {
+    expect(parseOssHubTeamAccounts(validInput)).toEqual([
+      { githubId: 101n, login: 'team-alpha', role: 'ADMIN' },
+      { githubId: 102n, login: 'team-beta', role: 'ADMIN' },
+      { githubId: 103n, login: 'team-gamma', role: 'ADMIN' },
+      { githubId: 104n, login: 'team-delta', role: 'ADMIN' },
+    ]);
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['empty', ''],
+    ['three entries', validInput.split(',').slice(0, 3).join(',')],
+    ['five entries', `${validInput},105:team-epsilon:ADMIN`],
+    ['malformed id', validInput.replace('101', 'not-numeric')],
+    ['zero id', validInput.replace('101', '0')],
+    ['out-of-range id', validInput.replace('101', '9223372036854775808')],
+    ['malformed login', validInput.replace('team-alpha', '-invalid')],
+    ['malformed entry', validInput.replace('101:team-alpha:ADMIN', 'broken')],
+    ['non-admin role', validInput.replace('ADMIN', 'STAFF')],
+    ['duplicate id', validInput.replace('104', '101')],
+    ['duplicate login', validInput.replace('team-delta', 'TEAM-ALPHA')],
+  ])('%s 입력을 fail-closed로 거부한다', (_label, raw) => {
+    expect(() => parseOssHubTeamAccounts(raw)).toThrow(/OSS_HUB_TEAM_ACCOUNTS/);
+  });
+
+  it('오류에 원문 입력을 포함하지 않는다', () => {
+    const raw = `${validInput},sentinel-raw-value`;
+    let message = '';
+
+    try {
+      parseOssHubTeamAccounts(raw);
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+
+    expect(message).toContain('OSS_HUB_TEAM_ACCOUNTS');
+    expect(message).not.toContain(raw);
+    expect(message).not.toContain('sentinel-raw-value');
   });
 });
 
