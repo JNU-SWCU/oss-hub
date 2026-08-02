@@ -1,5 +1,13 @@
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
-import { AccountStatus, Role } from '@prisma/client';
+import {
+  AccountStatus,
+  ApplicationStatus,
+  RepositoryProvisionJobStatus,
+  RepositoryVisibility,
+  ReviewDecision,
+  Role,
+  SubmissionStatus,
+} from '@prisma/client';
 import { runProfile } from './seed';
 import { AUTH_SCENARIOS } from './seeds/auth';
 import { prisma, seedId, SeedStats, upsertSeedUser } from './seeds/helpers';
@@ -27,6 +35,10 @@ const OSS_HUB_TEAM_ACCOUNTS = [
 ].join(',');
 const OSS_HUB_PROGRAM_ID = seedId('oss-hub', 'program');
 const OSS_HUB_TEAM_ID = seedId('oss-hub', 'team');
+const OSS_HUB_APPLICATION_ID = seedId('oss-hub', 'application');
+const OSS_HUB_REPOSITORY_ID = seedId('oss-hub', 'repository');
+const OSS_HUB_PROVISION_JOB_ID = seedId('oss-hub', 'provision-job');
+const OSS_HUB_REPOSITORY_URL = 'https://github.com/JNU-SWCU/oss-hub';
 const OSS_HUB_NOTICE_EXAMPLES = [
   '[모집홍보] 2026 오픈소스 개발자대회 모집 안내',
   '｢모집홍보｣ 『LLMOps 파이프라인 개발』 교육 2026학년 2학기 자유학기(자유교과목) 신청 안내',
@@ -273,10 +285,21 @@ describe('seed profile=oss-hub contract (integration)', () => {
         configuredUsers,
         program,
         team,
+        application,
+        planSubmission,
+        checkpointSubmission,
+        repository,
+        provisionJob,
         ossHubProgramCount,
         ossHubTeamCount,
         ossHubMemberCount,
         ossHubMilestoneCount,
+        ossHubApplicationCount,
+        ossHubSubmissionCount,
+        ossHubSubmissionRevisionCount,
+        ossHubReviewCount,
+        ossHubRepositoryCount,
+        ossHubRepositoryProvisionJobCount,
       ] = await Promise.all([
         prisma.user.findUniqueOrThrow({
           where: { id: AUTH_SCENARIOS['admin-confirmed'] },
@@ -308,6 +331,23 @@ describe('seed profile=oss-hub contract (integration)', () => {
           where: { id: OSS_HUB_TEAM_ID },
           include: { members: { orderBy: { id: 'asc' } } },
         }),
+        prisma.application.findUniqueOrThrow({
+          where: { id: OSS_HUB_APPLICATION_ID },
+        }),
+        prisma.submission.findUniqueOrThrow({
+          where: { id: seedId('oss-hub', 'submission', 'plan') },
+          include: { revisions: { include: { review: true } } },
+        }),
+        prisma.submission.findUniqueOrThrow({
+          where: { id: seedId('oss-hub', 'submission', 'checkpoint') },
+          include: { revisions: { include: { review: true } } },
+        }),
+        prisma.repository.findUniqueOrThrow({
+          where: { id: OSS_HUB_REPOSITORY_ID },
+        }),
+        prisma.repositoryProvisionJob.findUniqueOrThrow({
+          where: { id: OSS_HUB_PROVISION_JOB_ID },
+        }),
         prisma.program.count({
           where: { id: { startsWith: 'seed:oss-hub:' } },
         }),
@@ -316,6 +356,24 @@ describe('seed profile=oss-hub contract (integration)', () => {
           where: { id: { startsWith: 'seed:oss-hub:' } },
         }),
         prisma.milestone.count({
+          where: { id: { startsWith: 'seed:oss-hub:' } },
+        }),
+        prisma.application.count({
+          where: { id: { startsWith: 'seed:oss-hub:' } },
+        }),
+        prisma.submission.count({
+          where: { id: { startsWith: 'seed:oss-hub:' } },
+        }),
+        prisma.submissionRevision.count({
+          where: { id: { startsWith: 'seed:oss-hub:' } },
+        }),
+        prisma.review.count({
+          where: { id: { startsWith: 'seed:oss-hub:' } },
+        }),
+        prisma.repository.count({
+          where: { id: { startsWith: 'seed:oss-hub:' } },
+        }),
+        prisma.repositoryProvisionJob.count({
           where: { id: { startsWith: 'seed:oss-hub:' } },
         }),
       ]);
@@ -361,10 +419,14 @@ describe('seed profile=oss-hub contract (integration)', () => {
       for (const noticeExample of OSS_HUB_NOTICE_EXAMPLES) {
         expect(program.description).toContain(noticeExample);
       }
-      expect(ossHubMilestoneCount).toBe(2);
+      expect(program.repositoryProvisioningEnabled).toBe(true);
+      // 마일스톤 전체 arc: 계획서 제출 → 중간 점검 → 기능 시연 → 최종 발표(id asc 정렬).
+      expect(ossHubMilestoneCount).toBe(4);
       expect(program.milestones.map(({ id }) => id)).toEqual([
         seedId('oss-hub', 'milestone', 'checkpoint'),
-        seedId('oss-hub', 'milestone', 'kickoff'),
+        seedId('oss-hub', 'milestone', 'demo'),
+        seedId('oss-hub', 'milestone', 'final'),
+        seedId('oss-hub', 'milestone', 'plan'),
       ]);
       expect(team.leaderId).toBe(configuredUsers[0]?.id);
       expect(team.members.map(({ id, userId }) => ({ id, userId }))).toEqual(
@@ -373,6 +435,51 @@ describe('seed profile=oss-hub contract (integration)', () => {
           userId: user.id,
         })),
       );
+
+      // 팀의 프로그램 신청 — Submission·Repository·RepositoryProvisionJob이 매달리는 backbone.
+      expect(ossHubApplicationCount).toBe(1);
+      expect(application).toMatchObject({
+        teamId: OSS_HUB_TEAM_ID,
+        applicantId: configuredUsers[0]?.id,
+        status: ApplicationStatus.APPROVED,
+      });
+
+      // plan: 승인 리뷰까지 완료된 제출.
+      expect(ossHubSubmissionCount).toBe(2);
+      expect(ossHubSubmissionRevisionCount).toBe(2);
+      expect(ossHubReviewCount).toBe(1);
+      expect(planSubmission).toMatchObject({
+        status: SubmissionStatus.APPROVED,
+        currentRevision: 1,
+      });
+      expect(planSubmission.revisions).toHaveLength(1);
+      expect(planSubmission.revisions[0]?.review).toMatchObject({
+        decision: ReviewDecision.APPROVED,
+        reviewerId: AUTH_SCENARIOS['staff-approved'],
+      });
+
+      // checkpoint: 제출은 있지만 아직 리뷰 대기 중(review 없음).
+      expect(checkpointSubmission).toMatchObject({
+        status: SubmissionStatus.SUBMITTED,
+        currentRevision: 1,
+      });
+      expect(checkpointSubmission.revisions).toHaveLength(1);
+      expect(checkpointSubmission.revisions[0]?.review).toBeNull();
+
+      // 저장소 — 실제 공개 저장소를 연결·공개 완료 상태로 추적한다.
+      expect(ossHubRepositoryCount).toBe(1);
+      expect(repository).toMatchObject({
+        applicationId: OSS_HUB_APPLICATION_ID,
+        teamId: OSS_HUB_TEAM_ID,
+        url: OSS_HUB_REPOSITORY_URL,
+        visibility: RepositoryVisibility.PUBLIC,
+      });
+      expect(ossHubRepositoryProvisionJobCount).toBe(1);
+      expect(provisionJob).toMatchObject({
+        applicationId: OSS_HUB_APPLICATION_ID,
+        repositoryId: OSS_HUB_REPOSITORY_ID,
+        status: RepositoryProvisionJobStatus.SUCCEEDED,
+      });
     },
     SEED_RUN_TIMEOUT_MS,
   );

@@ -47,9 +47,19 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `os
   `submission-approved`, `submission-changes-requested`, `submission-rejected`.
 - `repositories` (5) — `seeds/repositories.ts`: `repo-job-pending`, `repo-job-succeeded`,
   `repo-job-failed-retryable`, `repository-ready`, `repository-public`.
-- `oss-hub` — 기존 `auth` 합성 계정과 함께 `OSS_HUB_TEAM_ACCOUNTS`의 네 계정을 `ADMIN`으로 upsert하고, 결정적 ID의 Program 1개·Team 1개·TeamMember 4개·Milestone 2개를 만든다.
+- `oss-hub` — 기존 `auth` 합성 계정과 함께 `OSS_HUB_TEAM_ACCOUNTS`의 네 계정을 `ADMIN`으로 upsert하고,
+  결정적 ID의 Program 1개·Team 1개·TeamMember 4개·Application 1개(팀 신청)를 만든다.
   변수는 쉼표로 구분한 `githubId:login:ADMIN` 네 항목만 허용하며 누락·형식 오류·중복 ID 또는 login·`ADMIN` 이외 역할을 모두 거부한다.
   오류와 실행 로그에는 변수 원문을 출력하지 않는다.
+  트래킹 화면을 실데이터로 채우기 위해 다음도 함께 만든다:
+  - Milestone 4개로 전체 arc를 표현한다 — `계획서 제출`(마감 지남) → `중간 점검`(마감 지남) →
+    `기능 시연`(예정) → `최종 발표`(예정).
+  - Submission — `계획서 제출`은 팀장이 제출하고 합성 STAFF 계정(`auth` profile의 `staff-approved`)이
+    승인 리뷰를 남긴 상태, `중간 점검`은 다른 팀원이 저장소 릴리즈 링크를 제출하고 아직 리뷰 대기 중인
+    상태다. `기능 시연`·`최종 발표`는 마감 전이라 제출이 없다.
+  - Repository 1개 — 실제 공개 저장소 `github.com/JNU-SWCU/oss-hub`를 팀 신청에 연결해 공개
+    완료(`PUBLIC`) 상태로 추적하고, 짝이 되는 RepositoryProvisionJob은 `SUCCEEDED`다. `githubRepositoryId`는
+    실제 GitHub 저장소 numeric id가 아니라 `seedRepositoryId`가 만든 합성 값이다.
 
 `intake`/`milestones`/`repositories` 각 profile은 서로 참조하지 않고 자체 Program·User
 backbone을 만든다 — 빈 DB에서 어떤 profile을 단독 실행해도 성공한다.
