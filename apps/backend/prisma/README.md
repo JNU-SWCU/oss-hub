@@ -16,7 +16,9 @@ SEED_PROFILE=intake pnpm --filter backend prisma db seed
 pnpm --filter backend prisma db seed -- --profile milestones
 
 # oss-hub profile — 명시적 비운영 환경, 확인값, 정확히 네 개의 ADMIN 항목이 필요
-NODE_ENV=<development|test|staging|preview> OSS_HUB_SEED_CONFIRMATION=NON_PRODUCTION OSS_HUB_TEAM_ACCOUNTS='<github-id-1>:<github-login-1>:ADMIN,<github-id-2>:<github-login-2>:ADMIN,<github-id-3>:<github-login-3>:ADMIN,<github-id-4>:<github-login-4>:ADMIN' pnpm --filter backend db:seed -- --profile oss-hub
+# 각 항목은 githubId:login:ADMIN[:displayName] — displayName은 선택이며 넣으면 그 계정의
+# User.name까지 채워 로그인 시 온보딩 화면으로 되돌아가지 않는다.
+NODE_ENV=<development|test|staging|preview> OSS_HUB_SEED_CONFIRMATION=NON_PRODUCTION OSS_HUB_TEAM_ACCOUNTS='<github-id-1>:<github-login-1>:ADMIN:<display-name-1>,<github-id-2>:<github-login-2>:ADMIN:<display-name-2>,<github-id-3>:<github-login-3>:ADMIN:<display-name-3>,<github-id-4>:<github-login-4>:ADMIN:<display-name-4>' pnpm --filter backend db:seed -- --profile oss-hub
 ```
 
 profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `oss-hub` · `all`.
@@ -52,7 +54,8 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `os
   fixture URL을 실제 저장소처럼 보이게 만들지 않기 위한 의도된 설계다.
 - `oss-hub` — 기존 `auth` 합성 계정과 함께 `OSS_HUB_TEAM_ACCOUNTS`의 네 계정을 `ADMIN`으로 upsert하고,
   결정적 ID의 Program 1개·Team 1개·TeamMember 4개·Application 1개(팀 신청)를 만든다.
-  변수는 쉼표로 구분한 `githubId:login:ADMIN` 네 항목만 허용하며 누락·형식 오류·중복 ID 또는 login·`ADMIN` 이외 역할을 모두 거부한다.
+  변수는 쉼표로 구분한 `githubId:login:ADMIN[:displayName]` 네 항목만 허용하며 누락·형식 오류·중복 ID 또는
+  login·`ADMIN` 이외 역할·(있다면) 유효하지 않은 displayName을 모두 거부한다.
   오류와 실행 로그에는 변수 원문을 출력하지 않는다.
   트래킹 화면을 실데이터로 채우기 위해 다음도 함께 만든다:
   - Milestone 7개로 팀 Notion "📅 Schedule" DB의 실제 프로젝트 일정을 그대로 표현한다(고정

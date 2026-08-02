@@ -160,6 +160,37 @@ describe('parseOssHubTeamAccounts', () => {
     ]);
   });
 
+  it('4번째 세그먼트(displayName)가 있으면 함께 해석한다', () => {
+    const withDisplayNames = [
+      '101:team-alpha:ADMIN:시드운영자알파',
+      '102:team-beta:ADMIN:시드운영자베타',
+      '103:team-gamma:ADMIN',
+      '104:team-delta:ADMIN:시드운영자델타',
+    ].join(',');
+
+    expect(parseOssHubTeamAccounts(withDisplayNames)).toEqual([
+      {
+        githubId: 101n,
+        login: 'team-alpha',
+        role: 'ADMIN',
+        displayName: '시드운영자알파',
+      },
+      {
+        githubId: 102n,
+        login: 'team-beta',
+        role: 'ADMIN',
+        displayName: '시드운영자베타',
+      },
+      { githubId: 103n, login: 'team-gamma', role: 'ADMIN' },
+      {
+        githubId: 104n,
+        login: 'team-delta',
+        role: 'ADMIN',
+        displayName: '시드운영자델타',
+      },
+    ]);
+  });
+
   it.each([
     ['missing', undefined],
     ['empty', ''],
@@ -173,6 +204,24 @@ describe('parseOssHubTeamAccounts', () => {
     ['non-admin role', validInput.replace('ADMIN', 'STAFF')],
     ['duplicate id', validInput.replace('104', '101')],
     ['duplicate login', validInput.replace('team-delta', 'TEAM-ALPHA')],
+    [
+      'too many segments',
+      validInput.replace(
+        '101:team-alpha:ADMIN',
+        '101:team-alpha:ADMIN:시드운영자알파:extra',
+      ),
+    ],
+    [
+      'blank displayName',
+      validInput.replace('101:team-alpha:ADMIN', '101:team-alpha:ADMIN:   '),
+    ],
+    [
+      'too long displayName',
+      validInput.replace(
+        '101:team-alpha:ADMIN',
+        `101:team-alpha:ADMIN:${'시'.repeat(101)}`,
+      ),
+    ],
   ])('%s 입력을 fail-closed로 거부한다', (_label, raw) => {
     expect(() => parseOssHubTeamAccounts(raw)).toThrow(/OSS_HUB_TEAM_ACCOUNTS/);
   });

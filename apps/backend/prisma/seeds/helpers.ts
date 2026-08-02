@@ -1,5 +1,6 @@
 import { AccountStatus, PrismaClient, Role, User } from '@prisma/client';
 import { createHash } from 'node:crypto';
+import { isValidUserName } from '../../src/users/user-profile-policy';
 
 /**
  * #110 시드 전용 Prisma 클라이언트. Nest DI 라이프사이클(OnModuleInit 등) 밖에서
@@ -108,13 +109,18 @@ export type OssHubTeamAccount = {
   githubId: bigint;
   login: string;
   role: 'ADMIN';
+  /**
+   * 배포 환경에서만 주입되는 실제 표시 이름(랭킹·팀 화면용). tracked 파일에는 절대
+   * 하드코딩하지 않는다 — 이 필드는 항상 `OSS_HUB_TEAM_ACCOUNTS` env의 4번째 세그먼트에서만 온다.
+   */
+  displayName?: string;
 };
 
 const OSS_HUB_TEAM_ACCOUNT_COUNT = 4;
 const POSTGRES_BIGINT_MAX = 9_223_372_036_854_775_807n;
 const GITHUB_LOGIN_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
 const OSS_HUB_TEAM_ACCOUNTS_ERROR =
-  'OSS_HUB_TEAM_ACCOUNTS는 githubId:login:ADMIN 형식의 서로 다른 4개 항목이어야 합니다.';
+  'OSS_HUB_TEAM_ACCOUNTS는 githubId:login:ADMIN[:displayName] 형식의 서로 다른 4개 항목이어야 합니다.';
 
 export function parseOssHubTeamAccounts(
   raw: string | undefined,
@@ -128,17 +134,18 @@ export function parseOssHubTeamAccounts(
   const logins = new Set<string>();
   const accounts = entries.map((entry): OssHubTeamAccount => {
     const parts = entry.split(':');
-    if (parts.length !== 3) {
+    if (parts.length !== 3 && parts.length !== 4) {
       throw new Error(OSS_HUB_TEAM_ACCOUNTS_ERROR);
     }
 
-    const [githubIdRaw, login, role] = parts;
+    const [githubIdRaw, login, role, displayName] = parts;
     if (
       !githubIdRaw ||
       !/^[0-9]+$/.test(githubIdRaw) ||
       !login ||
       !GITHUB_LOGIN_PATTERN.test(login) ||
-      role !== Role.ADMIN
+      role !== Role.ADMIN ||
+      (displayName !== undefined && !isValidUserName(displayName))
     ) {
       throw new Error(OSS_HUB_TEAM_ACCOUNTS_ERROR);
     }
@@ -157,7 +164,12 @@ export function parseOssHubTeamAccounts(
 
     githubIds.add(normalizedGithubId);
     logins.add(normalizedLogin);
-    return { githubId, login, role: Role.ADMIN };
+    return {
+      githubId,
+      login,
+      role: Role.ADMIN,
+      ...(displayName !== undefined ? { displayName } : {}),
+    };
   });
 
   return accounts.sort((left, right) =>
