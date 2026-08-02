@@ -1,5 +1,4 @@
 import { RolePanelShell } from '../../../../_shell/role-panel-shell';
-import { STAFF_MENU } from '../../../../_shell/role-menus';
 import { SubmissionMatrixScreen } from '@/features/submissions/components/submission-matrix-screen';
 import { decodeRouteProgramId } from '@/features/programs/program-paths';
 
@@ -12,7 +11,7 @@ export default async function StaffProgramSubmissionsPage({
 }) {
   const { id } = await params;
   return (
-    <RolePanelShell menu={STAFF_MENU} allow={['STAFF', 'ADMIN']}>
+    <RolePanelShell allow={['STAFF', 'ADMIN']}>
       <SubmissionMatrixScreen programId={decodeRouteProgramId(id)} />
     </RolePanelShell>
   );

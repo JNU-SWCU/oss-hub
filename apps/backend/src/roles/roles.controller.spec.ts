@@ -71,7 +71,7 @@ describe('OnboardingController', () => {
       selectedRole: Role.STUDENT,
       role: Role.STUDENT,
       requestStatus: null,
-      redirectTo: '/programs',
+      redirectTo: '/onboarding/profile',
     });
     const controller = createOnboardingController(selectRole);
     const body = plainToInstance(SelectRoleRequestDto, {
@@ -86,7 +86,7 @@ describe('OnboardingController', () => {
       selectedRole: Role.STUDENT,
       role: Role.STUDENT,
       requestStatus: null,
-      redirectTo: '/programs',
+      redirectTo: '/onboarding/profile',
     });
     expect(selectRole).toHaveBeenCalledWith(424242n, Role.STUDENT);
   });

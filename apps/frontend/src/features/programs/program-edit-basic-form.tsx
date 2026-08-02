@@ -73,7 +73,7 @@ export function ProgramEditBasicForm({
             <FieldLabel htmlFor="program-category">유형</FieldLabel>
             <select
               id="program-category"
-              className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm disabled:opacity-60"
+              className="h-control rounded-control border border-input bg-background px-4 text-body disabled:opacity-60"
               value={form.category}
               disabled={templateLockReason !== null}
               aria-invalid={Boolean(errors.category)}
@@ -88,7 +88,7 @@ export function ProgramEditBasicForm({
               ))}
             </select>
             {templateLockReason ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-small text-muted-foreground">
                 {templateLockReason}
               </p>
             ) : null}
@@ -163,7 +163,7 @@ export function ProgramEditBasicForm({
               onChange={(event) =>
                 onFieldChange('description', event.target.value)
               }
-              className="min-h-32 rounded-lg border border-input bg-transparent p-3 text-sm"
+              className="min-h-32 rounded-control border border-input bg-transparent p-4 text-body"
             />
             <FieldError>{errors.description}</FieldError>
           </Field>

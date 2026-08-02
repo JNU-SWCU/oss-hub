@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
-import { EmptyState } from '@/components';
+import { EmptyState, PageBody } from '@/components';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
 
@@ -13,6 +13,9 @@ import { reviewFormError, type ReviewDecisionInput } from '../review-form';
 import type { ReviewContext, ReviewDecision } from '../types';
 import { SubmissionReviewView } from './submission-review-view';
 
+/** 검토는 읽고 판단하는 화면이라 폭을 5xl로 둔다 — 나머지 여백은 PageBody가 갖는다. */
+const REVIEW_WIDTH = 'max-w-5xl';
+
 type LoadState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'ready'; readonly context: ReviewContext }
@@ -20,15 +23,17 @@ type LoadState =
 
 function ReviewSkeleton() {
   return (
-    <main
-      className="mx-auto grid w-full max-w-5xl gap-6 p-4 sm:p-6 lg:p-8"
+    <PageBody
+      className={REVIEW_WIDTH}
       aria-busy="true"
       aria-label="제출 상세를 불러오는 중"
     >
-      <div className="h-20 animate-pulse rounded-xl bg-muted" />
-      <div className="h-72 animate-pulse rounded-xl bg-muted" />
-      <div className="h-64 animate-pulse rounded-xl bg-muted" />
-    </main>
+      <div className="mb-12 h-20 animate-pulse rounded-card bg-muted" />
+      <div className="flex flex-col gap-8">
+        <div className="h-72 animate-pulse rounded-card bg-muted" />
+        <div className="h-64 animate-pulse rounded-card bg-muted" />
+      </div>
+    </PageBody>
   );
 }
 

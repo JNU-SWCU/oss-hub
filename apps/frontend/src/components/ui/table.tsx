@@ -23,7 +23,9 @@ function TableHeader({ className, ...props }: React.ComponentProps<'thead'>) {
   return (
     <thead
       data-slot="table-header"
-      className={cn('[&_tr]:border-b', className)}
+      // 시안 v2 — 진한 선은 머리글 아래 한 줄뿐이다. 행 사이는 아래 TableBody가
+      // 옅게 긋는다. 표에 격자를 다 그리면 값보다 선이 먼저 읽힌다.
+      className={cn('[&_tr]:border-b [&_tr]:border-border', className)}
       {...props}
     />
   );
@@ -33,7 +35,12 @@ function TableBody({ className, ...props }: React.ComponentProps<'tbody'>) {
   return (
     <tbody
       data-slot="table-body"
-      className={cn('[&_tr:last-child]:border-0', className)}
+      className={cn(
+        // 행 높이 `--row-height`(76) · 행 사이는 옅은 선. 마지막 행은 긋지 않는다
+        // (카드 테두리와 겹쳐 이중선이 된다).
+        '[&>tr]:h-row [&>tr]:border-border/50 [&_tr:last-child]:border-0',
+        className,
+      )}
       {...props}
     />
   );
@@ -70,7 +77,7 @@ function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
     <th
       data-slot="table-head"
       className={cn(
-        'h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0',
+        'px-6 py-4 text-left align-middle text-xs font-semibold tracking-wide whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0',
         className,
       )}
       {...props}
@@ -83,7 +90,7 @@ function TableCell({ className, ...props }: React.ComponentProps<'td'>) {
     <td
       data-slot="table-cell"
       className={cn(
-        'p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0',
+        'px-6 py-4 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0',
         className,
       )}
       {...props}

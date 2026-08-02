@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PageBody } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -8,6 +9,7 @@ import {
   getMyProfile,
   updateMyProfile,
 } from '../../api';
+import type { ProfileRole } from '../../profile-requirements';
 import {
   classifyNotificationChannelApiError,
   getMyNotificationChannel,
@@ -27,7 +29,12 @@ import type {
 } from '../types';
 import { SettingsForm, SettingsSkeleton } from './settings-form';
 
-export function SettingsScreen() {
+export function SettingsScreen({
+  role,
+}: {
+  /** app 계층이 세션에서 읽어 넘긴다 — feature는 auth·roles에 직접 의존할 수 없다. */
+  readonly role: ProfileRole | null;
+}) {
   const [values, setValues] = useState<SettingsFormValues | null>(null);
   const [notificationLoad, setNotificationLoad] =
     useState<SettingsNotificationLoadState>({ kind: 'ready' });
@@ -106,9 +113,14 @@ export function SettingsScreen() {
   const errors = useMemo(
     () =>
       values
-        ? validateSettingsForm(values, notificationLoad.kind === 'ready')
-        : { name: null, department: null, notificationEmail: null },
-    [values, notificationLoad.kind],
+        ? validateSettingsForm(values, notificationLoad.kind === 'ready', role)
+        : {
+            name: null,
+            studentId: null,
+            department: null,
+            notificationEmail: null,
+          },
+    [values, notificationLoad.kind, role],
   );
 
   async function submit(): Promise<void> {
@@ -121,8 +133,9 @@ export function SettingsScreen() {
     const nextErrors = validateSettingsForm(
       values,
       notificationLoad.kind === 'ready',
+      role,
     );
-    const profileRequest = toSettingsProfileRequest(values);
+    const profileRequest = toSettingsProfileRequest(values, role);
     if (!profileRequest || !isSettingsFormValid(nextErrors)) {
       return;
     }
@@ -133,6 +146,20 @@ export function SettingsScreen() {
 
     try {
       await updateMyProfile(profileRequest);
+
+      // 방금 처음 채운 학번은 그 자리에서 고정한다 — 다시 불러오기 전에 또 고치면
+      // 백엔드가 USR_003으로 막고, 사용자는 이유를 알 수 없는 실패를 보게 된다.
+      const savedStudentId = profileRequest.studentId;
+      if (savedStudentId) {
+        setValues(
+          (current) =>
+            current && {
+              ...current,
+              savedStudentId,
+              studentId: savedStudentId,
+            },
+        );
+      }
 
       if (notificationLoad.kind === 'ready') {
         const notificationRequest = toSettingsNotificationRequest(values);
@@ -171,6 +198,11 @@ export function SettingsScreen() {
         case 'consent-required':
           setSubmitError('동의가 필요합니다. 동의 화면으로 이동해 주세요.');
           return;
+        case 'student-id-taken':
+          setSubmitError(
+            '이미 다른 계정이 사용 중인 학번입니다. 학번을 다시 확인해 주세요.',
+          );
+          return;
         case 'already-complete':
         case 'generic':
           setSubmitError('잠시 후 다시 시도해 주세요.');
@@ -184,10 +216,10 @@ export function SettingsScreen() {
 
   if (loadError) {
     return (
-      <main className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-6">
+      <PageBody className="max-w-2xl">
         <Alert variant="destructive">
           <AlertTitle>설정을 불러오지 못했습니다</AlertTitle>
-          <AlertDescription className="flex flex-col items-start gap-3">
+          <AlertDescription className="flex flex-col items-start gap-4">
             <span>{loadError}</span>
             <Button
               type="button"
@@ -198,7 +230,7 @@ export function SettingsScreen() {
             </Button>
           </AlertDescription>
         </Alert>
-      </main>
+      </PageBody>
     );
   }
 
@@ -208,6 +240,7 @@ export function SettingsScreen() {
 
   return (
     <SettingsForm
+      role={role}
       values={values}
       errors={errors}
       showValidationErrors={hasSubmitted}

@@ -6,6 +6,7 @@ import { AlertCircle, Archive, RotateCcw } from 'lucide-react';
 import { CardGrid, EmptyState, PageHeader, StatusBadge } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
 import {
   Card,
   CardContent,
@@ -109,9 +110,9 @@ function ArchiveCategoryFilter({
       <label className="sr-only" htmlFor="archive-category">
         프로그램 분류
       </label>
-      <select
+      <Select
         id="archive-category"
-        className="h-9 w-fit rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+        className="w-fit"
         value={category ?? ''}
         onChange={(event) =>
           onCategoryChange(
@@ -127,7 +128,7 @@ function ArchiveCategoryFilter({
             {ARCHIVE_CATEGORY_LABELS[value]}
           </option>
         ))}
-      </select>
+      </Select>
     </div>
   );
 }

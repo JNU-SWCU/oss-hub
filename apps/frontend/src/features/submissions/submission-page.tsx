@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { PageBody } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -189,37 +190,37 @@ export function SubmissionPage({
   if (state.kind === 'loading') return <SubmissionLoading />;
   if (state.kind === 'failed') {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-8">
+      <PageBody className="max-w-3xl">
         <Alert variant="destructive">
           <AlertTitle>제출 정보 불러오기 실패</AlertTitle>
-          <AlertDescription className="space-y-3">
+          <AlertDescription className="grid gap-5">
             <p>{state.message}</p>
-            <Button type="button" onClick={() => void load()}>
+            <Button type="button" onClick={() => void load()} className="w-fit">
               다시 시도
             </Button>
           </AlertDescription>
         </Alert>
-      </main>
+      </PageBody>
     );
   }
   if (state.kind === 'success') {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-8">
+      <PageBody className="max-w-3xl">
         <Card role="status" aria-live="polite">
           <CardHeader>
             <CardTitle>제출을 완료했습니다</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
+          <CardContent className="grid gap-5">
+            <p className="text-body text-muted-foreground">
               제출 시각{' '}
               {new Date(state.submission.submittedAt).toLocaleString('ko-KR')}
             </p>
-            <Button asChild>
+            <Button asChild className="w-fit">
               <Link href={`/programs/${programId}`}>프로그램으로 돌아가기</Link>
             </Button>
           </CardContent>
         </Card>
-      </main>
+      </PageBody>
     );
   }
 
@@ -276,12 +277,9 @@ function submissionContent(
 
 function SubmissionLoading() {
   return (
-    <main
-      className="mx-auto grid max-w-3xl gap-6 px-4 py-8"
-      aria-label="제출 정보 불러오는 중"
-    >
-      <div className="h-44 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-80 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-    </main>
+    <PageBody aria-label="제출 정보 불러오는 중">
+      <div className="h-24 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
+      <div className="h-80 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
+    </PageBody>
   );
 }

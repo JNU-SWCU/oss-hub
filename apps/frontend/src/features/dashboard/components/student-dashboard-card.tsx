@@ -84,9 +84,13 @@ function RepositorySummary({ item }: { item: DashboardItem }) {
 export function StudentDashboardCard({
   item,
   now,
+  // 이 카드가 화면의 주 행동을 맡는지. 채운 남색은 화면당 하나뿐이라
+  // 어느 카드가 그 하나인지는 목록 전체를 아는 부모가 정한다.
+  isPrimaryAction = false,
 }: {
   item: DashboardItem;
   now: Date;
+  isPrimaryAction?: boolean;
 }) {
   const isPending = item.applicationStatus === 'SUBMITTED';
   const isRejected = item.applicationStatus === 'REJECTED';
@@ -206,7 +210,12 @@ export function StudentDashboardCard({
         </Button>
         {!isPending && !isRejected ? (
           <>
-            <Button asChild size="sm" className="min-h-10 px-3 sm:min-h-8">
+            <Button
+              asChild
+              size="sm"
+              variant={isPrimaryAction ? 'default' : 'outline'}
+              className="min-h-10 px-3 sm:min-h-8"
+            >
               <Link href={item.checklistUrl}>
                 제출 체크리스트
                 <ArrowRight aria-hidden="true" />
