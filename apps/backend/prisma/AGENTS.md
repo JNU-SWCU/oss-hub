@@ -57,6 +57,7 @@ PM 지시로 축적된, 이 디렉터리에서 seed를 만들거나 고칠 때 �
 6. seed 로그·보고에 env 값을 echo하지 않는다. 존재 여부·개수·exit code만 남긴다.
 7. production에서 seed를 실행하지 않는다. `assertSeedAllowed`/`assertOssHubSeedAllowed` gate를 우회하는 코드를 추가하지 않는다.
 8. 결정적 seedId 키를 깨지 않는다. 키 체계(slug)를 바꿀 때는 기존 배포 DB에 orphan·중복 row가 남는지 반드시 검증하고(FK가 RESTRICT인 관계는 자식부터 지운다), 마이그레이션 방법을 `README.md`에 남긴다.
+9. 배포 서버가 실제로 쓰는 seed/운영 env는 Notion Credentials 페이지에 codeblock으로, placeholder 없이 바로 실행 가능한 실값 그대로(키=값 줄) 보관한다. repo에는 루트 `.env.example`에 키 이름만 추가한다 — 일반 규칙은 [루트 AGENTS.md §2](../../../AGENTS.md)와 [보안 규칙](../../../docs/rules/security.md)이 원본이다.
 
 ## Dependencies
 
