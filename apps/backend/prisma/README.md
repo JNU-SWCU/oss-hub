@@ -52,14 +52,27 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `os
   변수는 쉼표로 구분한 `githubId:login:ADMIN` 네 항목만 허용하며 누락·형식 오류·중복 ID 또는 login·`ADMIN` 이외 역할을 모두 거부한다.
   오류와 실행 로그에는 변수 원문을 출력하지 않는다.
   트래킹 화면을 실데이터로 채우기 위해 다음도 함께 만든다:
-  - Milestone 4개로 전체 arc를 표현한다 — `계획서 제출`(마감 지남) → `중간 점검`(마감 지남) →
-    `기능 시연`(예정) → `최종 발표`(예정).
-  - Submission — `계획서 제출`은 팀장이 제출하고 합성 STAFF 계정(`auth` profile의 `staff-approved`)이
-    승인 리뷰를 남긴 상태, `중간 점검`은 다른 팀원이 저장소 릴리즈 링크를 제출하고 아직 리뷰 대기 중인
-    상태다. `기능 시연`·`최종 발표`는 마감 전이라 제출이 없다.
+  - Milestone 7개로 팀 Notion "📅 Schedule" DB의 실제 프로젝트 일정을 그대로 표현한다(고정
+    ISO 날짜, Asia/Seoul 자정 기준 — `offsetDays` 상대 날짜가 아니다) — `AWS Staging`
+    (2026-08-08) → `Intake 기능 동결`(2026-08-08) → `Intake Gate`(2026-08-15) → `구현 마감`
+    (2026-08-21) → `Full-loop Dry-run`(2026-08-24) → `Full-loop Live Beta`(마감 2026-08-31,
+    실사용 검증은 2026-08-27~29 — 스키마가 기간 필드를 지원하지 않아 `dueAt`은 검증 종료일로
+    두고 시작일은 `instructions`에 남긴다) → `Release Complete`(2026-08-31).
+  - Submission — `AWS Staging`은 팀장이 staging 배포 릴리즈 링크를 제출하고 합성 STAFF 계정
+    (`auth` profile의 `staff-approved`)이 승인 리뷰를 남긴 상태, `Intake 기능 동결`은 다른
+    팀원이 기능 동결 요약을 제출하고 아직 리뷰 대기 중인 상태다. 나머지 5개는 마감 전이라
+    제출이 없다.
+  - 마일스톤 마이그레이션 — 마일스톤 이름이 바뀌면(예: 이전 4개 arc `계획서 제출`/`중간 점검`/
+    `기능 시연`/`최종 발표` → 현재 7개) 결정적 seedId의 slug도 함께 바뀐다. 재실행 시 새 slug
+    집합에 없는 이전 마일스톤은 Review → SubmissionRevision → Submission → Milestone 순으로
+    지워 정리한다(세 관계 모두 `onDelete` 미지정이라 기본값인 RESTRICT가 걸려 있어 자식부터
+    지워야 한다) — 이미 배포된 DB에 구버전 마일스톤이 남아 있어도 다음 재시딩에서 자동으로
+    새 구성으로 수렴하고 orphan을 남기지 않는다. 단 `SubmissionFile.milestoneId`처럼 seed
+    밖에서 생긴 실사용 참조가 그 마일스톤에 남아 있으면 삭제가 의도적으로 FK 위반으로 실패한다
+    — 이 경우 시드가 조용히 넘어가지 않고, 운영자가 직접 그 데이터를 확인해야 한다는 신호다.
   - Repository 1개 — 실제 공개 저장소 `github.com/JNU-SWCU/oss-hub`를 팀 신청에 연결해 공개
     완료(`PUBLIC`) 상태로 추적하고, 짝이 되는 RepositoryProvisionJob은 `SUCCEEDED`다. `githubRepositoryId`는
-    실제 GitHub 저장소 numeric id가 아니라 `seedRepositoryId`가 만든 합성 값이다.
+    GitHub API로 확인한 이 저장소의 실제 numeric id(`1297138137`, public 정보)를 그대로 쓴다.
 
 `intake`/`milestones`/`repositories` 각 profile은 서로 참조하지 않고 자체 Program·User
 backbone을 만든다 — 빈 DB에서 어떤 profile을 단독 실행해도 성공한다.
