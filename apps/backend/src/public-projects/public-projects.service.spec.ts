@@ -24,8 +24,11 @@ function githubRepositoryIdFor(id: string): bigint {
 function row(
   overrides: Partial<PublicProjectRow> & { id: string },
 ): PublicProjectRow {
+  const githubRepositoryId =
+    overrides.githubRepositoryId ?? githubRepositoryIdFor(overrides.id);
   return {
-    githubRepositoryId: githubRepositoryIdFor(overrides.id),
+    projectId: githubRepositoryId.toString(),
+    githubRepositoryId,
     repositoryName: `repo-${overrides.id}`,
     githubUrl: `https://github.com/synthetic-org/${overrides.id}`,
     publishedAt: new Date('2026-07-20T00:00:00.000Z'),

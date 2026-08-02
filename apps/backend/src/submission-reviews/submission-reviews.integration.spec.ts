@@ -283,7 +283,9 @@ describe('SubmissionReviewsService integration', () => {
     });
     expect(auditRows).toHaveLength(1);
 
-    const publicRow = await publicProjects.findById(repositoryId);
+    const publicRow = await publicProjects.findById(
+      repository.githubRepositoryId.toString(),
+    );
     expect(publicRow).not.toBeNull();
     expect(publicRow?.publishedAt).toEqual(published.publishedAt);
   });
@@ -313,18 +315,24 @@ describe('SubmissionReviewsService integration', () => {
   });
 
   it('이미 public인 seed 저장소는 반복 요청에도 외부 호출 없이 수렴한다', async () => {
-    const repositoryId = seedId(
-      'repositories',
-      'repository-public',
-      'repository',
-    );
+    // repository-public seed는 공개 아카이브 노출에서 의도적으로 제외되도록
+    // publishedAt: null을 유지한다(repositories.ts 주석 참고) — 그래서 이 테스트는
+    // "이미 PUBLIC" 상태만 필요한 별도 fixture를 직접 만들어 그 불변식과 분리한다.
+    const target = await createFreshPrivateRepository();
+    await prisma.repository.update({
+      where: { id: target.repositoryId },
+      data: {
+        visibility: RepositoryVisibility.PUBLIC,
+        publishedAt: new Date('2026-07-01T00:00:00.000Z'),
+      },
+    });
 
     const first = await service.publishRepository(
-      repositoryId,
+      target.repositoryId,
       REVIEWER_GITHUB_ID,
     );
     const second = await service.publishRepository(
-      repositoryId,
+      target.repositoryId,
       REVIEWER_GITHUB_ID,
     );
 
@@ -352,7 +360,9 @@ describe('SubmissionReviewsService integration', () => {
       description: null,
     });
 
-    const beforePublish = await publicProjects.findById(target.repositoryId);
+    const beforePublish = await publicProjects.findById(
+      target.githubRepositoryId.toString(),
+    );
     expect(beforePublish).toBeNull();
 
     const [first, second] = await Promise.all([
@@ -388,7 +398,9 @@ describe('SubmissionReviewsService integration', () => {
     });
     expect(auditRows).toHaveLength(1);
 
-    const publicRow = await publicProjects.findById(target.repositoryId);
+    const publicRow = await publicProjects.findById(
+      target.githubRepositoryId.toString(),
+    );
     expect(publicRow).not.toBeNull();
     expect(publicRow?.publishedAt).toEqual(publishedAt);
   });

@@ -12,6 +12,13 @@ import { PrismaService } from '../prisma/prisma.service';
  */
 export interface PublicProjectRow {
   readonly id: string;
+  /**
+   * 공개 API가 노출하는 프로젝트 식별자. `Repository.id`(내부 seed 추적 키 — `seed:...`처럼
+   * 콜론을 포함할 수 있다)와 달리, 프런트(`apps/frontend/src/features/archive/api.ts`)가
+   * 강제하는 `/^[A-Za-z0-9_-]+$/` 계약을 항상 만족하는 `githubRepositoryId`(BigInt, unique,
+   * non-null) 문자열이다. cursor 등 내부 용도로는 여전히 `id`를 쓴다.
+   */
+  readonly projectId: string;
   readonly githubRepositoryId: bigint;
   readonly repositoryName: string;
   readonly githubUrl: string;
@@ -66,6 +73,7 @@ type ProjectRowSelection = {
 function toProjectRow(row: ProjectRowSelection): PublicProjectRow {
   return {
     id: row.id,
+    projectId: row.githubRepositoryId.toString(),
     githubRepositoryId: row.githubRepositoryId,
     repositoryName: row.name,
     githubUrl: row.url,
@@ -113,10 +121,16 @@ export class PublicProjectsRepository {
     return rows.map(toProjectRow);
   }
 
+  /**
+   * `projectId`는 공개 계약상 `githubRepositoryId`(BigInt) 문자열이다. 숫자가 아니면
+   * `BigInt()` 변환이 던지므로, 존재하지 않는 프로젝트와 동일하게 `null`을 돌려준다.
+   */
   async findById(projectId: string): Promise<PublicProjectRow | null> {
+    if (!/^[0-9]+$/.test(projectId)) return null;
+
     const row = await this.prisma.repository.findFirst({
       where: {
-        id: projectId,
+        githubRepositoryId: BigInt(projectId),
         visibility: 'PUBLIC',
         publishedAt: { not: null },
       },
