@@ -19,6 +19,7 @@ import type { GithubAppClient } from '../repositories/github-app.client';
 import { RepositoriesRepository } from '../repositories/repositories.repository';
 import { RepositoriesService } from '../repositories/repositories.service';
 import { RankingService } from '../ranking/ranking.service';
+import { UserDisplayNameRepository } from '../users/user-display-name.repository';
 import { PublicProjectsErrorCode } from '../public-projects/public-projects-error-code.enum';
 import { PublicProjectsRepository } from '../public-projects/public-projects.repository';
 import { PublicProjectsService } from '../public-projects/public-projects.service';
@@ -54,7 +55,10 @@ const publicProjectsService = new PublicProjectsService(
   eligibilityService,
   collection,
 );
-const rankingService = new RankingService(collection);
+const rankingService = new RankingService(
+  collection,
+  new UserDisplayNameRepository(prisma),
+);
 
 const github = {
   publishRepository: jest.fn(),

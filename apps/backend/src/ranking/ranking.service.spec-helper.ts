@@ -3,6 +3,10 @@ import type {
   CollectionPublicRankingMetricsQueryDto,
   CollectionReadPort,
 } from '../collection/collection-read.port';
+import type {
+  UserDisplayName,
+  UserDisplayNameRepository,
+} from '../users/user-display-name.repository';
 import { RankingService } from './ranking.service';
 
 export function activity(
@@ -20,6 +24,10 @@ export function setupRankingService(): {
   readonly getPublicRankingMetrics: jest.Mock<
     Promise<readonly CollectionPublicRankingMetricsDto[]>,
     [CollectionPublicRankingMetricsQueryDto]
+  >;
+  readonly findByGithubIds: jest.Mock<
+    Promise<readonly UserDisplayName[]>,
+    [readonly bigint[]]
   >;
 } {
   const getPublicRankingMetrics = jest.fn<
@@ -51,8 +59,18 @@ export function setupRankingService(): {
       }),
   } satisfies CollectionReadPort;
 
+  const findByGithubIds = jest.fn<
+    Promise<readonly UserDisplayName[]>,
+    [readonly bigint[]]
+  >();
+  findByGithubIds.mockResolvedValue([]);
+  const displayNameRepository = {
+    findByGithubIds,
+  } as unknown as UserDisplayNameRepository;
+
   return {
-    service: new RankingService(collection),
+    service: new RankingService(collection, displayNameRepository),
     getPublicRankingMetrics,
+    findByGithubIds,
   };
 }
