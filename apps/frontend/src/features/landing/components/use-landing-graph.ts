@@ -38,10 +38,13 @@ export function useLandingGraph(): LandingGraphState {
     // 2단계가 실패하면(상세 응답이 계약을 어긴 경우) 1단계 그래프에 머문다.
     // 1단계는 기여자가 0이라 화면이 `—`로 내보내므로, 줄어든 수를 정확한 수처럼
     // 보여 주는 일이 없다.
+    //
+    // unmount 뒤에도 `complete` 는 반드시 await 한다. 여기서 일찍 빠져나가면
+    // 계약 위반으로 거절되는 promise 에 소비자가 없어 unhandled rejection 으로
+    // 남는다. 막을 것은 await 가 아니라 setState 쪽이다.
     void streamLandingGraph()
       .then(async ({ base, complete }) => {
-        if (!active) return;
-        setStage(base);
+        if (active) setStage(base);
         const enriched = await complete;
         if (active) setStage(enriched);
       })
