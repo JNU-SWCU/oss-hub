@@ -176,4 +176,39 @@ describe('createCosmosQualityGovernor', () => {
     expect(observed[0]).toBe(0.75);
     expect(new Set(observed)).toEqual(new Set([0.75]));
   });
+
+  it('settles when the top step is the very thing that blows the budget', () => {
+    // Given — 낮춘 단계에서는 예산에 한참 여유가 있지만, 최고 화질로 올리는 순간
+    // 그 화질 자체가 예산을 넘는 기기. 여유선과 연속 조건만으로는 올렸다 내렸다를
+    // 영원히 반복한다 — 여유는 진짜지만 그 여유가 올라간 뒤에는 남아 있지 않다.
+    const governor = createCosmosQualityGovernor();
+    const frameCostFor = (scale: number): number => (scale === 1 ? 20 : 8);
+
+    // When
+    const observed: number[] = [];
+    for (let window = 0; window < 60; window += 1) {
+      record(governor, 12, frameCostFor(governor.qualityScale()));
+      observed.push(governor.qualityScale());
+    }
+
+    // Then — 한 번 시험해 보고 안 되면 그 단계는 접는다. 끝에서는 한 값으로 굳는다
+    expect(new Set(observed.slice(-20))).toEqual(new Set([0.75]));
+  });
+
+  it('does not cap the ceiling when a stall arrives long after the step proved itself', () => {
+    // Given — 올린 단계가 한 창을 무사히 넘겨 검증된 뒤
+    const governor = createCosmosQualityGovernor();
+    record(governor, 12, 24);
+    record(governor, 36, 8);
+    expect(governor.qualityScale()).toBe(1);
+    record(governor, 12, 8);
+
+    // When — 한참 뒤에 찾아온 멈춤 한 번. 내려가긴 해도 한계로 기억되진 않는다
+    record(governor, 12, 24);
+    expect(governor.qualityScale()).toBe(0.75);
+    record(governor, 36, 8);
+
+    // Then — 그러지 않으면 #506(한 번 내려가면 세션 내내 복귀 없음)이 되돌아온다
+    expect(governor.qualityScale()).toBe(1);
+  });
 });
