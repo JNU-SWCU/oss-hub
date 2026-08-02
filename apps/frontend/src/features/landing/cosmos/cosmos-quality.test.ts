@@ -120,6 +120,32 @@ describe('createCosmosQualityGovernor', () => {
     expect(governor.qualityScale()).toBe(0.75);
   });
 
+  it('restarts the calm run when a window blows the budget outright', () => {
+    // Given — 여유로운 창 두 개를 쌓아 복귀 직전까지 온 상태
+    const governor = createCosmosQualityGovernor();
+    record(governor, 12, 24);
+    record(governor, 24, 8);
+
+    // When — 예산을 넘긴 창이 끼어들면 한 단계 더 내려가고 연속 기록도 함께 끊긴다
+    record(governor, 12, 24);
+    expect(governor.qualityScale()).toBe(0.5);
+    record(governor, 24, 8);
+
+    // Then — 끊기지 않았다면 이미 올라갔을 창 수지만, 아직 두 창밖에 못 쌓았다
+    expect(governor.qualityScale()).toBe(0.5);
+  });
+
+  it('stays at full quality no matter how long the calm run continues', () => {
+    // Given — 이미 최고 화질
+    const governor = createCosmosQualityGovernor();
+
+    // When — 복귀 조건을 두 번 채우고도 남을 만큼 여유로운 창이 이어진다
+    record(governor, 72, 8);
+
+    // Then — 위로는 더 갈 곳이 없다. 단계를 넘어서면 배열 밖으로 나가 최저 화질로 떨어진다
+    expect(governor.qualityScale()).toBe(1);
+  });
+
   it('settles instead of flapping when the lowered quality only barely fits', () => {
     // Given — 최고 화질은 예산을 넘고, 한 단계 낮추면 예산 안이지만 여유는 없는 기기.
     // 여유 없는 통과만으로 되돌리는 governor라면 두 단계 사이를 영원히 오간다.
