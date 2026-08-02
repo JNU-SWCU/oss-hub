@@ -1,9 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
+  BlockedView,
   ProgramApplyFormView,
   ProgramApplySuccessView,
-} from './program-apply-page';
+} from './program-apply-views';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
 
 const program: ProgramDetail = {
@@ -134,6 +135,16 @@ describe('ProgramApply views', () => {
 
     expect(html).toContain('저장 실패');
     expect(html).toContain('이미 판정된 신청입니다.');
+  });
+
+  it('team-required blocked state keeps detail CTA and shows team setup CTA', () => {
+    const html = renderToStaticMarkup(
+      <BlockedView reason="team-required" program={program} />,
+    );
+
+    expect(html).toContain('/programs/program-1');
+    expect(html).toContain('/programs/program-1/teams');
+    expect(html).toContain('팀 구성으로 이동');
   });
 
   it('성공 상태를 표시한다', () => {

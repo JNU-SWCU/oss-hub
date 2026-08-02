@@ -10,9 +10,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { ApplicationConfirmationDialog } from './application-confirmation-dialog';
 import { FormRenderer } from './form-renderer';
-import type {
-  ProgramApplyFormErrors,
-  ProgramApplyFormValues,
+import {
+  teamSetupHref,
+  type ProgramApplyFormErrors,
+  type ProgramApplyFormValues,
 } from './program-apply-flow';
 import { programHref } from './program-paths';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
@@ -63,9 +64,20 @@ export function BlockedView({
         title={content.title}
         description={content.description}
         action={
-          <Button asChild variant="outline">
-            <Link href={programHref(program.id)}>프로그램 상세로</Link>
-          </Button>
+          reason === 'team-required' ? (
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button asChild>
+                <Link href={teamSetupHref(program.id)}>팀 구성으로 이동</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={programHref(program.id)}>프로그램 상세로</Link>
+              </Button>
+            </div>
+          ) : (
+            <Button asChild variant="outline">
+              <Link href={programHref(program.id)}>프로그램 상세로</Link>
+            </Button>
+          )
         }
       />
     </main>

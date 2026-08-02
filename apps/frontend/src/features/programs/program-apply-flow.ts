@@ -4,30 +4,6 @@ import type { ApplicationFormTemplate, ProgramDetail } from './types';
 export type ProgramApplyBlockedReason =
   'period-closed' | 'already-applied' | 'team-required';
 
-export type ProgramApplyReadyState = {
-  readonly kind: 'ready';
-  readonly program: ProgramDetail;
-  readonly template: ApplicationFormTemplate;
-  readonly applicantName: string;
-  readonly teamId: string | null;
-};
-
-export type ProgramApplyPageState =
-  | { readonly kind: 'loading' }
-  | { readonly kind: 'not-found' }
-  | { readonly kind: 'failed'; readonly message: string }
-  | {
-      readonly kind: 'blocked';
-      readonly reason: ProgramApplyBlockedReason;
-      readonly program: ProgramDetail;
-    }
-  | ProgramApplyReadyState
-  | {
-      readonly kind: 'success';
-      readonly program: ProgramDetail;
-      readonly applicationId: string;
-    };
-
 export type ProgramApplyFormValues = {
   readonly title: string;
   readonly summary: string;

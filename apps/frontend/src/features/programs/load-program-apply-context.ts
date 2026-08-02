@@ -82,8 +82,14 @@ export async function loadProgramApplyContext(
       ? (session.user.name ?? session.user.nickname)
       : '';
 
-    if (program.viewer.applicationStatus === 'SUBMITTED') {
+    if (program.viewer.applicationStatus !== null) {
       const application = await getMyApplication(programId);
+      if (application.status !== 'SUBMITTED') {
+        return { kind: 'blocked', reason: 'already-applied', program };
+      }
+      if (!application.canEdit) {
+        return { kind: 'blocked', reason: 'period-closed', program };
+      }
       return {
         kind: 'ready',
         mode: 'edit',
