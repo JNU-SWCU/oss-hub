@@ -1,11 +1,13 @@
 import type { NavItem } from '@/components';
+import { PUBLIC_MENU } from './public-menus';
 import type { AppRole } from './role';
 import { ADMIN_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
 import type { ShellIconName } from './shell-icons';
 
 /**
- * 사이드바 메뉴 — 라벨·경로의 단일 원본은 `role-menus.ts`다. 이 파일은 거기에
- * 아이콘과 묶음(그룹)만 얹는다. 메뉴 문구를 여기서 다시 적으면 두 곳이 갈라진다.
+ * 사이드바 메뉴 — 라벨·경로의 단일 원본은 역할 메뉴가 `role-menus.ts`, 공개 화면이
+ * `public-menus.ts`다(#513). 이 파일은 거기에 아이콘과 묶음(그룹)만 얹는다.
+ * 메뉴 문구를 여기서 다시 적으면 두 곳이 갈라진다.
  */
 export interface SidebarItem extends NavItem {
   readonly icon: ShellIconName;
@@ -17,28 +19,10 @@ export interface SidebarGroup {
 }
 
 /**
- * 공개 화면 — 로그인 없이도 볼 수 있으므로 **세 역할 모두**에게 보인다.
- * (시안 v1에서 이 묶음을 역할 메뉴로 착각해 빼먹었다가 지적받은 부분이다.)
+ * 메뉴 경로 → 아이콘. 경로를 키로 잡아 원본 목록이 메뉴를 늘려도 라벨이 아니라
+ * 경로만 여기 추가하면 된다. 빠진 경로는 아래 기본값으로 떨어진다.
  */
-export const PUBLIC_GROUP: SidebarGroup = {
-  label: '둘러보기',
-  items: [
-    { label: '프로그램', href: '/programs', icon: 'list' },
-    { label: '공개 아카이브', href: '/archive', icon: 'archive' },
-  ],
-};
-
-/** 계정 묶음 — `/settings`는 로그인만 요구하는 공용 화면이다(AuthGate). */
-const ACCOUNT_GROUP: SidebarGroup = {
-  label: '계정',
-  items: [{ label: '설정', href: '/settings', icon: 'gear' }],
-};
-
-/**
- * 역할 메뉴 경로 → 아이콘. 경로를 키로 잡아 `role-menus.ts`가 메뉴를 늘려도
- * 라벨이 아니라 경로만 여기 추가하면 된다. 빠진 경로는 아래 기본값으로 떨어진다.
- */
-const ROLE_MENU_ICONS: Readonly<Record<string, ShellIconName>> = {
+const MENU_ICONS: Readonly<Record<string, ShellIconName>> = {
   '/dashboard': 'home',
   '/my-repos': 'repo',
   '/staff/dashboard': 'chart',
@@ -47,9 +31,37 @@ const ROLE_MENU_ICONS: Readonly<Record<string, ShellIconName>> = {
   '/admin/access': 'people',
   '/admin/audit-log': 'shield',
   '/admin/system-status': 'pulse',
+  // 공개 화면
+  '/programs': 'list',
+  '/archive': 'archive',
+  // 활동량 집계라 막대 그래프다. `운영 대시보드`와 겹치지만 남은 아이콘은 뜻이 맞지 않는다.
+  '/ranking': 'chart',
 };
 
 const FALLBACK_ICON: ShellIconName = 'detail';
+
+function withIcons(items: readonly NavItem[]): readonly SidebarItem[] {
+  return items.map((item) => ({
+    ...item,
+    icon: MENU_ICONS[item.href] ?? FALLBACK_ICON,
+  }));
+}
+
+/**
+ * 공개 화면 — 로그인 없이도 볼 수 있으므로 **세 역할 모두**에게 보인다.
+ * (시안 v1에서 이 묶음을 역할 메뉴로 착각해 빼먹었다가 지적받은 부분이다.)
+ * 항목은 `public-menus.ts`가 정한다 — 랜딩 헤더가 읽는 목록과 같다.
+ */
+export const PUBLIC_GROUP: SidebarGroup = {
+  label: '둘러보기',
+  items: withIcons(PUBLIC_MENU),
+};
+
+/** 계정 묶음 — `/settings`는 로그인만 요구하는 공용 화면이다(AuthGate). */
+const ACCOUNT_GROUP: SidebarGroup = {
+  label: '계정',
+  items: [{ label: '설정', href: '/settings', icon: 'gear' }],
+};
 
 const ROLE_GROUP_LABEL: Readonly<Record<AppRole, string>> = {
   STUDENT: '내 작업',
@@ -62,13 +74,6 @@ const ROLE_MENU: Readonly<Record<AppRole, readonly NavItem[]>> = {
   STAFF: STAFF_MENU,
   ADMIN: ADMIN_MENU,
 };
-
-function withIcons(items: readonly NavItem[]): readonly SidebarItem[] {
-  return items.map((item) => ({
-    ...item,
-    icon: ROLE_MENU_ICONS[item.href] ?? FALLBACK_ICON,
-  }));
-}
 
 /**
  * 역할별 사이드바 구성. 역할을 아직 모르는 사용자(비로그인·조회 중·역할 미배정)는

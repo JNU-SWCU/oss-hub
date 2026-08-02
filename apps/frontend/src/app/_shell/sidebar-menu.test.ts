@@ -11,8 +11,9 @@ const ROLES = ['STUDENT', 'STAFF', 'ADMIN'] as const;
 
 describe('sidebarGroupsFor', () => {
   // v1에서 공개 화면을 역할 메뉴로 착각해 빼먹었다가 지적받은 지점이다.
+  // 목록이 원본(`public-menus.ts`)과 어긋나지 않는지는 `public-menus.test.ts`가 본다.
   it.each(ROLES)(
-    '%s 에게도 공개 화면(프로그램·공개 아카이브)을 보여 준다',
+    '%s 에게도 공개 화면(프로그램·공개 아카이브·랭킹)을 보여 준다',
     (role) => {
       const hrefs = sidebarGroupsFor(role).flatMap((group) =>
         group.items.map((item) => item.href),
@@ -20,6 +21,7 @@ describe('sidebarGroupsFor', () => {
 
       expect(hrefs).toContain('/programs');
       expect(hrefs).toContain('/archive');
+      expect(hrefs).toContain('/ranking');
     },
   );
 
@@ -89,6 +91,7 @@ describe('shellPageLabel', () => {
   it('메뉴 라벨을 그대로 쓴다', () => {
     expect(shellPageLabel('/dashboard')).toBe('내 대시보드');
     expect(shellPageLabel('/archive')).toBe('공개 아카이브');
+    expect(shellPageLabel('/ranking')).toBe('랭킹');
     expect(shellPageLabel('/settings')).toBe('설정');
   });
 
