@@ -16,7 +16,9 @@ SEED_PROFILE=intake pnpm --filter backend prisma db seed
 pnpm --filter backend prisma db seed -- --profile milestones
 
 # oss-hub profile — 명시적 비운영 환경, 확인값, 정확히 네 개의 ADMIN 항목이 필요
-NODE_ENV=<development|test|staging|preview> OSS_HUB_SEED_CONFIRMATION=NON_PRODUCTION OSS_HUB_TEAM_ACCOUNTS='<github-id-1>:<github-login-1>:ADMIN,<github-id-2>:<github-login-2>:ADMIN,<github-id-3>:<github-login-3>:ADMIN,<github-id-4>:<github-login-4>:ADMIN' pnpm --filter backend db:seed -- --profile oss-hub
+# 각 항목은 githubId:login:ADMIN[:displayName] — displayName은 선택이며 넣으면 그 계정의
+# User.name까지 채워 로그인 시 온보딩 화면으로 되돌아가지 않는다.
+NODE_ENV=<development|test|staging|preview> OSS_HUB_SEED_CONFIRMATION=NON_PRODUCTION OSS_HUB_TEAM_ACCOUNTS='<github-id-1>:<github-login-1>:ADMIN:<display-name-1>,<github-id-2>:<github-login-2>:ADMIN:<display-name-2>,<github-id-3>:<github-login-3>:ADMIN:<display-name-3>,<github-id-4>:<github-login-4>:ADMIN:<display-name-4>' pnpm --filter backend db:seed -- --profile oss-hub
 ```
 
 profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `oss-hub` · `all`.
@@ -51,9 +53,16 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `os
   (`GET /api/v1/projects`)의 `publishedAt: { not: null }` 필터에 걸려 노출되지 않는다 — 합성
   fixture URL을 실제 저장소처럼 보이게 만들지 않기 위한 의도된 설계다.
 - `oss-hub` — 기존 `auth` 합성 계정과 함께 `OSS_HUB_TEAM_ACCOUNTS`의 네 계정을 `ADMIN`으로 upsert하고,
-  결정적 ID의 Program 1개·Team 1개·TeamMember 4개·Application 1개(팀 신청)를 만든다.
-  변수는 쉼표로 구분한 `githubId:login:ADMIN` 네 항목만 허용하며 누락·형식 오류·중복 ID 또는 login·`ADMIN` 이외 역할을 모두 거부한다.
+  결정적 ID의 Program 2개(oss-hub 본 프로그램·oss-hub-practice 실습 프로그램)·Team 2개·
+  TeamMember 8개(각 Program에 같은 네 명)·Application 2개(각 Program당 팀 신청 1건)를 만든다.
+  변수는 쉼표로 구분한 `githubId:login:ADMIN[:displayName]` 네 항목만 허용하며 누락·형식 오류·중복 ID 또는
+  login·`ADMIN` 이외 역할·(있다면) 유효하지 않은 displayName을 모두 거부한다.
   오류와 실행 로그에는 변수 원문을 출력하지 않는다.
+  네 계정은 실제 온보딩 완료 사용자와 같은 DB 상태로 만들어진다 — `role=ADMIN`, `accountStatus=ACTIVE`,
+  Consent 완료(`upsertConsent`). `displayName`이 있으면 `User.name`도 그 값으로 채워 로그인 시
+  프로필 온보딩 화면으로 되돌아가지 않는다(`isCompleteProfileFields`/`isProfileComplete` 계약과 동일 —
+  ADMIN도 이름은 항상 필수다). `displayName`이 없으면 이름은 비워 두며, 이 경우 그 계정은 여전히
+  온보딩 미완료로 남는다(정책을 완화하지 않는다).
   트래킹 화면을 실데이터로 채우기 위해 다음도 함께 만든다:
   - Milestone 7개로 팀 Notion "📅 Schedule" DB의 실제 프로젝트 일정을 그대로 표현한다(고정
     ISO 날짜, Asia/Seoul 자정 기준 — `offsetDays` 상대 날짜가 아니다) — `AWS Staging`
@@ -76,6 +85,19 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `os
   - Repository 1개 — 실제 공개 저장소 `github.com/JNU-SWCU/oss-hub`를 팀 신청에 연결해 공개
     완료(`PUBLIC`) 상태로 추적하고, 짝이 되는 RepositoryProvisionJob은 `SUCCEEDED`다. `githubRepositoryId`는
     GitHub API로 확인한 이 저장소의 실제 numeric id(`1297138137`, public 정보)를 그대로 쓴다.
+  - Repository 2개째(`oss-hub-practice`) — `github.com/JNU-SWCU/oss-hub-practice`(학생
+    fork/배포 퀘스트 실습용 저장소)를 별도 Program·Team·Application·Repository 체인으로
+    공개 완료(`PUBLIC`) 상태로 추적한다. 기존 oss-hub Program·Team을 재사용하지 않는 이유는
+    `Application_programId_teamId_team_key` partial unique index(같은 팀은 같은 Program에
+    신청을 한 건만 낼 수 있다) 때문이다 — 이 제약은 `schema.prisma`에는 표현되지 않고
+    마이그레이션 SQL에만 있어 정적으로는 드러나지 않는다. 그래서 같은 네 명의 ADMIN 계정을
+    팀원으로 하는 새 Program(`오픈소스 실습 배포 퀘스트`)·Team(`oss-hub-practice`)을 만들고
+    그 아래 Application·Repository·RepositoryProvisionJob을 매단다. `githubRepositoryId`는
+    GitHub API로 확인한 실제 numeric id(`1296567792`, public 정보)를 그대로 쓴다. 아카이브
+    상세 화면의 지표·기여자는 별도 시드 데이터 없이 `githubRepositoryId` 기준 collection
+    파이프라인 조인으로 자동 채워진다(`program-activity.service.ts`/
+    `public-projects.repository.ts`의 `canonicalByRepository` 패턴 — Program 정체성과
+    무관하게 Repository 행 기준으로 조인한다).
 
 `intake`/`milestones`/`repositories` 각 profile은 서로 참조하지 않고 자체 Program·User
 backbone을 만든다 — 빈 DB에서 어떤 profile을 단독 실행해도 성공한다.
