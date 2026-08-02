@@ -15,6 +15,7 @@ export interface SubmissionChecklistViewProps {
   readonly programId: string;
   readonly embedded?: boolean;
   readonly onCloseSelected?: () => void;
+  readonly onSelectMilestone?: (milestoneId: string) => void;
   readonly initialSubmission?: React.ReactNode;
   readonly checklist: SubmissionChecklist;
   readonly selectedMilestoneId: string | null;
@@ -27,6 +28,7 @@ export interface SubmissionChecklistViewProps {
   readonly serverError: string | null;
   readonly staleNotice: string | null;
   readonly toastMessage: string | null;
+  readonly refreshError?: string | null;
   readonly submitting: boolean;
   readonly submissionPhase: 'uploading' | 'creating' | null;
   readonly onTextChange: (value: string) => void;
@@ -34,6 +36,7 @@ export interface SubmissionChecklistViewProps {
   readonly onFileChange: (file: File | null) => void;
   readonly onCommentChange: (value: string) => void;
   readonly onResubmit: () => void;
+  readonly onRefresh?: () => void;
 }
 
 export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
@@ -88,6 +91,19 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
           <AlertDescription>{props.serverError}</AlertDescription>
         </Alert>
       ) : null}
+      {props.refreshError ? (
+        <Alert variant="destructive">
+          <AlertTitle>제출 상태 갱신 실패</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>{props.refreshError}</p>
+            {props.onRefresh ? (
+              <Button type="button" onClick={props.onRefresh}>
+                다시 시도
+              </Button>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
       {items.length === 0 ? (
         <EmptyState
           title="표시할 마일스톤이 없습니다"
@@ -101,6 +117,7 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
               programId={props.programId}
               item={item}
               now={props.now}
+              onSelectMilestone={props.onSelectMilestone}
             />
           ))}
         </ul>
@@ -129,6 +146,7 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
             description="마일스톤 제출 내용과 상태를 확인합니다."
             onClose={props.onCloseSelected}
             returnFocusId={submissionTriggerId(selected.milestoneId)}
+            busy={props.submitting}
           >
             {selectedContent}
           </SubmissionDialog>

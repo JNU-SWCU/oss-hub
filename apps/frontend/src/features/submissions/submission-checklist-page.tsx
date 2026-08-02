@@ -49,11 +49,13 @@ export function SubmissionChecklistPage({
   milestoneId,
   embedded = false,
   onCloseSelected,
+  onSelectMilestone,
 }: {
   readonly programId: string;
   readonly milestoneId: string | null;
   readonly embedded?: boolean;
   readonly onCloseSelected?: () => void;
+  readonly onSelectMilestone?: (milestoneId: string) => void;
 }) {
   const [state, setState] = useState<ChecklistPageState>({ kind: 'loading' });
   const [input, setInput] = useState<SubmissionFormInput>(EMPTY_INPUT);
@@ -64,13 +66,31 @@ export function SubmissionChecklistPage({
   const [staleNotice, setStaleNotice] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [initialSubmitting, setInitialSubmitting] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [submissionPhase, setSubmissionPhase] =
     useState<ResubmissionPhase | null>(null);
   const uploadedFile = useRef(new SubmissionFileUploadCache());
   const resubmitInFlight = useRef(false);
+  const refreshAfterClose = useRef(false);
+
+  const refresh = useCallback(async () => {
+    try {
+      const data = await getSubmissionChecklist(programId);
+      setState({ kind: 'ready', data });
+      setRefreshError(null);
+    } catch (error: unknown) {
+      setRefreshError(
+        error instanceof ApiError
+          ? error.problem.detail
+          : '최신 제출 상태를 불러오지 못했습니다.',
+      );
+    }
+  }, [programId]);
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
+    setRefreshError(null);
     try {
       setState({
         kind: 'ready',
@@ -99,8 +119,17 @@ export function SubmissionChecklistPage({
     setFileError(null);
     setServerError(null);
     setSubmissionPhase(null);
+    setInitialSubmitting(false);
     uploadedFile.current.discard();
   }, [milestoneId]);
+
+  const closeSelected = () => {
+    if (submitting || initialSubmitting) return;
+    onCloseSelected?.();
+    if (!refreshAfterClose.current) return;
+    refreshAfterClose.current = false;
+    void refresh();
+  };
 
   const resubmit = async (checklist: SubmissionChecklist) => {
     if (resubmitInFlight.current) return;
@@ -209,14 +238,18 @@ export function SubmissionChecklistPage({
     <SubmissionChecklistView
       programId={programId}
       embedded={embedded}
-      onCloseSelected={onCloseSelected}
+      onCloseSelected={closeSelected}
+      onSelectMilestone={onSelectMilestone}
       initialSubmission={
         selected?.submission === null && milestoneId ? (
           <SubmissionPage
             embedded
             milestoneId={milestoneId}
-            onCancel={onCloseSelected}
-            onSubmitted={() => void load()}
+            onCancel={closeSelected}
+            onSubmitted={() => {
+              refreshAfterClose.current = true;
+            }}
+            onSubmittingChange={setInitialSubmitting}
             programId={programId}
           />
         ) : undefined
@@ -231,7 +264,9 @@ export function SubmissionChecklistPage({
       serverError={serverError}
       staleNotice={staleNotice}
       toastMessage={toastMessage}
-      submitting={submitting}
+      submitting={submitting || initialSubmitting}
+      refreshError={refreshError}
+      onRefresh={() => void refresh()}
       submissionPhase={submissionPhase}
       onTextChange={(text) => setInput((previous) => ({ ...previous, text }))}
       onReleaseUrlChange={(releaseUrl) =>

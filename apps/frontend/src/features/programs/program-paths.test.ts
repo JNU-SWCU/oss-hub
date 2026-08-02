@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   decodeRouteProgramId,
   programHref,
-  programSubmissionHref,
   staffApplicationDetailHref,
   staffProgramHref,
 } from './program-paths';
@@ -24,11 +23,5 @@ describe('program-paths', () => {
     const href = programHref('seed:basic', '/apply');
     expect(href).toBe('/programs/seed%3Abasic/apply');
     expect(decodeRouteProgramId('seed%3Abasic')).toBe('seed:basic');
-  });
-
-  it('programSubmissionHref 는 프로그램과 마일스톤 ID를 한 번씩 인코딩한다', () => {
-    expect(programSubmissionHref('seed:basic', 'milestone/final')).toBe(
-      '/programs/seed%3Abasic?submission=milestone%2Ffinal',
-    );
   });
 });

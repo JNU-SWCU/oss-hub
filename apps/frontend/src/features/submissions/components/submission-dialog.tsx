@@ -9,19 +9,21 @@ export function SubmissionDialog({
   description,
   onClose,
   returnFocusId,
+  busy = false,
   children,
 }: {
   readonly title: string;
   readonly description: string;
   readonly onClose: () => void;
   readonly returnFocusId: string;
+  readonly busy?: boolean;
   readonly children: React.ReactNode;
 }) {
   return (
     <DialogPrimitive.Root
       open
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open && !busy) onClose();
       }}
     >
       <DialogPrimitive.Portal>
@@ -33,6 +35,12 @@ export function SubmissionDialog({
             if (!(returnTarget instanceof HTMLElement)) return;
             event.preventDefault();
             returnTarget.focus();
+          }}
+          onEscapeKeyDown={(event) => {
+            if (busy) event.preventDefault();
+          }}
+          onPointerDownOutside={(event) => {
+            if (busy) event.preventDefault();
           }}
         >
           <header className="grid gap-1 pr-10">
@@ -50,6 +58,7 @@ export function SubmissionDialog({
               size="icon"
               className="absolute top-4 right-4"
               aria-label="제출 창 닫기"
+              disabled={busy}
             >
               <X aria-hidden="true" />
             </Button>

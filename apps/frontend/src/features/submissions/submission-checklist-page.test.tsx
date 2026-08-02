@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
+import { isValidElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import {
@@ -193,6 +194,7 @@ function renderPage(): void {
     SubmissionChecklistPage({
       programId: 'program-1',
       milestoneId: 'milestone-file',
+      onCloseSelected: vi.fn(),
     }),
   );
   hooks.run();
@@ -310,5 +312,42 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
       content: { type: 'FILE', fileId: 'file-first' },
       comment: '',
     });
+  });
+});
+
+describe('SubmissionChecklistPage initial submission refresh', () => {
+  it('성공 화면을 닫기 전에는 갱신하지 않고 실패해도 기존 목록을 보존한다', async () => {
+    const [firstItem] = CHECKLIST.items;
+    if (!firstItem) throw new Error('expected checklist item fixture');
+    const unsubmitted: SubmissionChecklist = {
+      ...CHECKLIST,
+      items: [{ ...firstItem, submission: null }],
+    };
+    vi.mocked(getSubmissionChecklist)
+      .mockResolvedValueOnce(unsubmitted)
+      .mockRejectedValueOnce(new ApiError(problem('CHECKLIST_UNAVAILABLE')));
+    await renderReadyPage();
+
+    const initialSubmission = currentViewProps().initialSubmission;
+    if (
+      !isValidElement<{
+        readonly onSubmitted: () => void;
+        readonly onCancel: () => void;
+      }>(initialSubmission)
+    ) {
+      throw new Error('expected initial submission element');
+    }
+    const submissionProps = initialSubmission.props;
+
+    submissionProps.onSubmitted();
+    await flushAsyncWork();
+    expect(getSubmissionChecklist).toHaveBeenCalledTimes(1);
+
+    submissionProps.onCancel();
+    await flushAsyncWork();
+    renderPage();
+    expect(getSubmissionChecklist).toHaveBeenCalledTimes(2);
+    expect(currentViewProps().checklist).toEqual(unsubmitted);
+    expect(currentViewProps().refreshError).toBe('CHECKLIST_UNAVAILABLE');
   });
 });

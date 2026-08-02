@@ -23,10 +23,12 @@ export function ChecklistRow({
   programId,
   item,
   now,
+  onSelectMilestone,
 }: {
   readonly programId: string;
   readonly item: SubmissionChecklistItem;
   readonly now: Date;
+  readonly onSelectMilestone?: (milestoneId: string) => void;
 }) {
   const status = checklistItemStatus(item);
   const deadline = milestoneDeadline(item.dueAt, now);
@@ -53,18 +55,34 @@ export function ChecklistRow({
               <SubmissionFileLink file={item.submission.file} compact />
             ) : null}
           </div>
-          <Button asChild size="sm" variant="outline">
-            <Link
-              href={studentProgramSubmissionHref(programId, item.milestoneId)}
+          {onSelectMilestone ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
               id={submissionTriggerId(item.milestoneId)}
+              onClick={() => onSelectMilestone(item.milestoneId)}
             >
               {status === 'NOT_SUBMITTED'
                 ? '제출하기'
                 : status === 'CHANGES_REQUESTED'
                   ? '사유·재제출'
                   : '보기'}
-            </Link>
-          </Button>
+            </Button>
+          ) : (
+            <Button asChild size="sm" variant="outline">
+              <Link
+                href={studentProgramSubmissionHref(programId, item.milestoneId)}
+                id={submissionTriggerId(item.milestoneId)}
+              >
+                {status === 'NOT_SUBMITTED'
+                  ? '제출하기'
+                  : status === 'CHANGES_REQUESTED'
+                    ? '사유·재제출'
+                    : '보기'}
+              </Link>
+            </Button>
+          )}
         </CardContent>
       </Card>
     </li>

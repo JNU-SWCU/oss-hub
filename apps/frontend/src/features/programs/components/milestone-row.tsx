@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { StatusBadge } from '@/components';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { studentProgramSubmissionHref } from '@/lib/program-route';
 import {
   formatSeoulDate,
   submissionLabel,
@@ -13,7 +14,6 @@ import type {
   SubmissionStatus,
   ViewerRole,
 } from '../types';
-import { programSubmissionHref } from '../program-paths';
 
 const STATUS_VARIANTS = {
   NOT_SUBMITTED: 'pending',
@@ -48,7 +48,7 @@ function StudentState({
   const isResubmission = status === 'CHANGES_REQUESTED';
   const canSubmit =
     isResubmission || (status === 'NOT_SUBMITTED' && milestone.dDay >= 0);
-  const submitHref = programSubmissionHref(programId, milestone.id);
+  const submitHref = studentProgramSubmissionHref(programId, milestone.id);
   return (
     <div className="flex flex-wrap items-center gap-2">
       <StatusBadge variant={STATUS_VARIANTS[status]}>

@@ -269,6 +269,17 @@ describe('SubmissionChecklistView 선택 패널', () => {
     expect(html).toContain('아직 제출 전입니다');
     expect(html).toContain('/programs/program-1?submission=milestone-final');
   });
+
+  it('백그라운드 갱신 실패를 기존 체크리스트와 함께 보여준다', () => {
+    const html = render({
+      refreshError: '일시적으로 최신 상태를 불러오지 못했습니다.',
+      onRefresh: vi.fn(),
+    });
+    expect(html).toContain('제출 상태 갱신 실패');
+    expect(html).toContain('일시적으로 최신 상태를 불러오지 못했습니다.');
+    expect(html).toContain('기획서 제출');
+    expect(html).toContain('다시 시도');
+  });
 });
 
 describe('체크리스트 로딩·오류 화면', () => {

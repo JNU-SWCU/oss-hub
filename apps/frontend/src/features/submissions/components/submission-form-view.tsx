@@ -231,7 +231,7 @@ function SubmissionSummary({ data }: { readonly data: SubmissionFormData }) {
           </div>
         </dl>
         {data.milestone.instructions ? (
-          <p className="whitespace-pre-wrap text-sm leading-6">
+          <p className="whitespace-pre-wrap text-sm leading-6 [overflow-wrap:anywhere] [word-break:keep-all]">
             {data.milestone.instructions}
           </p>
         ) : null}

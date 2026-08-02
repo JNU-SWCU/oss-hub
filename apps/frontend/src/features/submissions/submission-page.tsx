@@ -43,12 +43,14 @@ export function SubmissionPage({
   embedded = false,
   onCancel,
   onSubmitted,
+  onSubmittingChange,
 }: {
   readonly programId: string;
   readonly milestoneId: string;
   readonly embedded?: boolean;
   readonly onCancel?: () => void;
   readonly onSubmitted?: () => void;
+  readonly onSubmittingChange?: (submitting: boolean) => void;
 }) {
   const [state, setState] = useState<SubmissionPageState>({ kind: 'loading' });
   const [input, setInput] = useState<SubmissionFormInput>(EMPTY_INPUT);
@@ -109,6 +111,7 @@ export function SubmissionPage({
 
     submitInFlight.current = true;
     setSubmitting(true);
+    onSubmittingChange?.(true);
     try {
       let content = submissionContent(data, input);
       if (data.milestone.submissionType === 'FILE' && file) {
@@ -186,6 +189,7 @@ export function SubmissionPage({
       submitInFlight.current = false;
       setSubmissionPhase(null);
       setSubmitting(false);
+      onSubmittingChange?.(false);
     }
   };
 
