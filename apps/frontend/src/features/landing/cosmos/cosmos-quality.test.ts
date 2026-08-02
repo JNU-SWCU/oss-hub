@@ -120,6 +120,19 @@ describe('createCosmosQualityGovernor', () => {
     expect(governor.qualityScale()).toBe(0.75);
   });
 
+  it('counts a window sitting exactly on the recovery line as calm', () => {
+    // Given — 한 단계 내려간 상태. 복귀 판정선은 예산의 70%다.
+    const governor = createCosmosQualityGovernor();
+    record(governor, 12, 24);
+    expect(governor.qualityScale()).toBe(0.75);
+
+    // When — 판정선에 정확히 걸친 창만 세 번. 경계는 복귀 쪽에 포함된다(70% 이하)
+    record(governor, 36, BUDGET_MS * 0.7);
+
+    // Then
+    expect(governor.qualityScale()).toBe(1);
+  });
+
   it('restarts the calm run when a window blows the budget outright', () => {
     // Given — 여유로운 창 두 개를 쌓아 복귀 직전까지 온 상태
     const governor = createCosmosQualityGovernor();
