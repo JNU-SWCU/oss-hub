@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowRight, FolderOpen } from 'lucide-react';
+import { AlertCircle, ArrowRight, CircleCheck, FolderOpen } from 'lucide-react';
 import Link from 'next/link';
 
 import { CardGrid, EmptyState, PageHeader } from '@/components';
@@ -49,6 +49,11 @@ interface StudentDashboardViewProps {
   data: StudentDashboard | null;
   status: StudentDashboardStatus;
   now?: Date;
+  /**
+   * 방금 가입을 마치고 이 화면에 처음 도착했는가. 판단은 화면(screen)이 하고
+   * 여기서는 받은 값만 그린다 — 브라우저 저장소를 보는 쪽과 그리는 쪽을 섞지 않는다.
+   */
+  showSignupCompleteNotice?: boolean;
   onRetry: () => void;
 }
 
@@ -69,6 +74,7 @@ export function StudentDashboardView({
   data,
   status,
   now = new Date(),
+  showSignupCompleteNotice = false,
   onRetry,
 }: StudentDashboardViewProps) {
   const primaryApplicationId = data
@@ -89,6 +95,22 @@ export function StudentDashboardView({
           </Button>
         }
       />
+
+      {/*
+        가입 완료는 화면 제목이 아니라 이 일회성 안내가 말한다. 제목("내 대시보드")은
+        3년 뒤 다시 들어온 사람도 보는 자리라 축하 문구를 놓을 수 없다. 이 안내는
+        프로필 저장 직후의 첫 도착 한 번만 뜨고 그 뒤로는 사라진다 — 조건의 출처는
+        `lib/signup-completion-notice.ts`.
+      */}
+      {showSignupCompleteNotice ? (
+        <Alert>
+          <CircleCheck aria-hidden="true" />
+          <AlertTitle>가입이 완료되었습니다</AlertTitle>
+          <AlertDescription>
+            이제 프로그램을 신청하고 저장소를 연결할 수 있습니다.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {status === 'loading' ? (
         <DashboardSkeleton />

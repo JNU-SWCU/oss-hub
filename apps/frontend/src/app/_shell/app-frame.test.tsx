@@ -71,9 +71,27 @@ describe('AppFrame', () => {
     expect(html).not.toContain('fixed inset-x-0 top-0 z-40');
   });
 
-  it('로그인 뒤 화면(동의·온보딩)은 회원 동선이라 셸을 그대로 쓴다', () => {
-    expect(render('/consent')).toContain('data-slot="product-shell"');
-    expect(render('/onboarding/role')).toContain('data-slot="product-shell"');
+  // 회원가입의 정의가 바뀌면서 이 판정이 뒤집혔다 — GitHub 연결만으로는 가입이
+  // 아니고 프로필 입력까지 마쳐야 회원이다. 그래서 가입 중 화면은 회원 동선이
+  // 아니고, 업무 사이드바를 달지 않는다. 실제로 그 사이드바는 가입 중인 학생이
+  // 프로그램 목록으로 빠져나가는 통로였다.
+  it.each(['/consent', '/onboarding/role', '/onboarding/profile'])(
+    '가입을 마치기 전 화면(%s)에는 업무 사이드바를 달지 않는다',
+    (path) => {
+      const html = render(path);
+
+      expect(html).not.toContain('data-slot="product-shell"');
+      expect(html).not.toContain('data-slot="app-sidebar"');
+      expect(html).toContain('data-slot="nav-bar"');
+    },
+  );
+
+  // 교직원이 프로필까지 마치고 승인을 기다리는 화면이다. 정의상 이미 회원이고
+  // 역할만 아직 붙지 않았으므로 업무 셸 그대로다.
+  it('승인 대기(/onboarding/pending)는 이미 회원이므로 업무 셸을 쓴다', () => {
+    expect(render('/onboarding/pending')).toContain(
+      'data-slot="product-shell"',
+    );
   });
 
   it('그 외 라우트는 사이드바 + 상단바 셸을 쓴다', () => {

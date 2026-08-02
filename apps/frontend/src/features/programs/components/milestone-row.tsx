@@ -117,9 +117,16 @@ export function MilestoneRow({
         >
           {milestone.deadlineLabel}
         </StatusBadge>
+        {/*
+          역할이 없는 사람에는 비로그인 방문자와 프로필을 아직 못 채운 가입 미완자가
+          함께 들어온다. 후자는 이미 로그인해 있으므로 "로그인"이라고 하면 틀린 말이
+          되고, 두 경우 모두에 참인 조건은 "가입"이다(상세 화면 주 버튼과 같은 기준,
+          program-detail-page.tsx의 `ProgramActions`). 줄마다 반복되는 자리라 주
+          버튼보다 짧게 적는다.
+        */}
         {viewerRole === null ? (
           <p className="text-small font-semibold text-muted-foreground">
-            로그인 후 확인
+            가입 후 확인
           </p>
         ) : null}
         {viewerRole === 'STUDENT' ? (

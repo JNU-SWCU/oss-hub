@@ -26,3 +26,9 @@ export { ListPanel, ListRow } from './list-panel';
 export { SectionHeading } from './section-heading';
 export type { SectionHeadingProps } from './section-heading';
 export { PageBody } from './page-body';
+export {
+  signupPrimaryClassName,
+  SignupEyebrow,
+  SignupLede,
+  SignupTitle,
+} from './signup-typography';

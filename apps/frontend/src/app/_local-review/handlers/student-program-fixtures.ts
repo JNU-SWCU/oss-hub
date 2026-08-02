@@ -292,7 +292,7 @@ function staffMilestones(
 }
 
 /**
- * 페르소나별 프로그램 상세. `viewer.role`이 `null`이면 화면이 "로그인 후 확인"으로
+ * 페르소나별 프로그램 상세. `viewer.role`이 `null`이면 화면이 가입 안내로
  * 갈리므로, 역할이 배정되지 않은 로그인 사용자도 `null`로 둔다 — `PENDING`을 주면
  * 상세 화면이 `/onboarding/pending`으로 튕겨 나가 상세를 볼 수 없다.
  */

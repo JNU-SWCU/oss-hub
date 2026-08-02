@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { NavBar, type NavItem } from '@/components';
+import { COSMOS_GROUND_PATHS } from './signup-routes';
 
 interface ShellNavProps {
   items: NavItem[];
@@ -34,6 +35,13 @@ export const LANDING_SOLID_SENTINEL_ID = 'landing-solid-sentinel';
 export function ShellNav({ items, brand, actions }: ShellNavProps) {
   const pathname = usePathname();
   const overlay = pathname === '/';
+  /**
+   * 가입 화면도 어두운 우주 바탕 위에 선다. 랜딩과 달리 도중에 흰 구간으로
+   * 넘어가지 않으므로 표식을 관찰할 것이 없고, 처음부터 끝까지 반전이다.
+   * `fixed`도 쓰지 않는다 — 가입 화면은 sticky 무대가 아니라 한 화면짜리 폼이라
+   * 헤더가 떠 있을 이유가 없고, 떠 있으면 좁은 화면에서 본문 첫 줄을 덮는다.
+   */
+  const onCosmosGround = COSMOS_GROUND_PATHS.has(pathname);
   const [onSolid, setOnSolid] = useState(false);
 
   useEffect(() => {
@@ -67,7 +75,7 @@ export function ShellNav({ items, brand, actions }: ShellNavProps) {
     };
   }, [overlay, pathname]);
 
-  const inverted = overlay && !onSolid;
+  const inverted = (overlay && !onSolid) || onCosmosGround;
 
   /**
    * 접힌 메뉴에서 항목을 고르면 메뉴를 닫는다.

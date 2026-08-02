@@ -25,7 +25,10 @@ describe('SignupEntryView', () => {
   it('GitHub 계정이 없는 방문자에게 계정 만들 곳을 알려 준다', () => {
     const html = renderInvite();
 
-    expect(html).toContain('GitHub 계정이 없으신가요?');
+    // 카드를 하나 더 쌓지 않고 주 버튼 옆 링크 + 한 문단으로 내렸다. 카드가 둘이면
+    // 무게가 비슷해져 "둘 중 무엇을 눌러야 하나"가 되는데 이 화면의 주 행동은 하나다.
+    expect(html).toContain('GitHub 계정 만들기');
+    expect(html).toContain('계정이 없다면');
     expect(html).toContain(`href="${GITHUB_SIGNUP_URL}"`);
   });
 
@@ -50,7 +53,7 @@ describe('SignupEntryView', () => {
   it('동의 항목 설명은 다음 화면에 맡기고 예고만 한다', () => {
     const html = renderInvite();
 
-    expect(html).toContain('다음 화면에서 약관에 동의');
+    expect(html).toContain('약관 동의부터 이어집니다');
     expect(html).not.toContain('보유 기간');
     expect(html).not.toContain('소속·학과·학번');
     expect(html).not.toContain('커밋 메시지');
@@ -58,7 +61,19 @@ describe('SignupEntryView', () => {
 
   it('안내는 조작 높이 44px(h-control)를 그대로 쓴다', () => {
     // Button은 size와 무관하게 h-control(44px)이다 — 자체 높이를 덮어쓰지 않았는지만 본다.
-    expect(renderInvite()).not.toContain('h-[');
+    //
+    // 화면 전체에서 `h-[`를 찾던 검사였는데, 무대(`SignupStage`)가 화면 높이를,
+    // 진행 눈금이 랜딩과 같은 눈금 길이를 임의값으로 쓰면서 조작 요소와 무관한
+    // 곳까지 걸리게 됐다. 원래 지키려던 것은 "조작 요소의 높이"이므로 거기만 본다.
+    const controls = renderInvite().match(
+      /<(?:a|button)\b[^>]*data-slot="button"[^>]*>/g,
+    );
+
+    expect(controls).not.toBeNull();
+    for (const control of controls ?? []) {
+      expect(control).toContain('h-control');
+      expect(control).not.toContain('h-[');
+    }
   });
 
   it('세션을 확인하는 동안에는 가입 권유를 보여 주지 않는다', () => {
