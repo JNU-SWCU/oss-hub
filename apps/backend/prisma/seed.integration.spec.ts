@@ -2,6 +2,7 @@ import { assertIsolatedIntegrationDatabase } from '../test/integration-database.
 import {
   AccountStatus,
   ApplicationStatus,
+  MilestoneSubmissionType,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
   ReviewDecision,
@@ -288,8 +289,8 @@ describe('seed profile=oss-hub contract (integration)', () => {
         program,
         team,
         application,
-        planSubmission,
-        checkpointSubmission,
+        awsStagingSubmission,
+        intakeFreezeSubmission,
         repository,
         provisionJob,
         ossHubProgramCount,
@@ -337,11 +338,11 @@ describe('seed profile=oss-hub contract (integration)', () => {
           where: { id: OSS_HUB_APPLICATION_ID },
         }),
         prisma.submission.findUniqueOrThrow({
-          where: { id: seedId('oss-hub', 'submission', 'plan') },
+          where: { id: seedId('oss-hub', 'submission', 'aws-staging') },
           include: { revisions: { include: { review: true } } },
         }),
         prisma.submission.findUniqueOrThrow({
-          where: { id: seedId('oss-hub', 'submission', 'checkpoint') },
+          where: { id: seedId('oss-hub', 'submission', 'intake-freeze') },
           include: { revisions: { include: { review: true } } },
         }),
         prisma.repository.findUniqueOrThrow({
@@ -422,13 +423,18 @@ describe('seed profile=oss-hub contract (integration)', () => {
         expect(program.description).toContain(noticeExample);
       }
       expect(program.repositoryProvisioningEnabled).toBe(true);
-      // 마일스톤 전체 arc: 계획서 제출 → 중간 점검 → 기능 시연 → 최종 발표(id asc 정렬).
-      expect(ossHubMilestoneCount).toBe(4);
+      // 마일스톤 전체 arc(Notion "📅 Schedule" DB 기준, id asc 정렬): AWS Staging →
+      // Full-loop Dry-run → 구현 마감 → Intake 기능 동결 → Intake Gate → Full-loop Live Beta →
+      // Release Complete.
+      expect(ossHubMilestoneCount).toBe(7);
       expect(program.milestones.map(({ id }) => id)).toEqual([
-        seedId('oss-hub', 'milestone', 'checkpoint'),
-        seedId('oss-hub', 'milestone', 'demo'),
-        seedId('oss-hub', 'milestone', 'final'),
-        seedId('oss-hub', 'milestone', 'plan'),
+        seedId('oss-hub', 'milestone', 'aws-staging'),
+        seedId('oss-hub', 'milestone', 'dry-run'),
+        seedId('oss-hub', 'milestone', 'implementation-deadline'),
+        seedId('oss-hub', 'milestone', 'intake-freeze'),
+        seedId('oss-hub', 'milestone', 'intake-gate'),
+        seedId('oss-hub', 'milestone', 'live-beta'),
+        seedId('oss-hub', 'milestone', 'release-complete'),
       ]);
       expect(team.leaderId).toBe(configuredUsers[0]?.id);
       expect(team.members.map(({ id, userId }) => ({ id, userId }))).toEqual(
@@ -446,27 +452,27 @@ describe('seed profile=oss-hub contract (integration)', () => {
         status: ApplicationStatus.APPROVED,
       });
 
-      // plan: 승인 리뷰까지 완료된 제출.
+      // aws-staging: 승인 리뷰까지 완료된 제출.
       expect(ossHubSubmissionCount).toBe(2);
       expect(ossHubSubmissionRevisionCount).toBe(2);
       expect(ossHubReviewCount).toBe(1);
-      expect(planSubmission).toMatchObject({
+      expect(awsStagingSubmission).toMatchObject({
         status: SubmissionStatus.APPROVED,
         currentRevision: 1,
       });
-      expect(planSubmission.revisions).toHaveLength(1);
-      expect(planSubmission.revisions[0]?.review).toMatchObject({
+      expect(awsStagingSubmission.revisions).toHaveLength(1);
+      expect(awsStagingSubmission.revisions[0]?.review).toMatchObject({
         decision: ReviewDecision.APPROVED,
         reviewerId: AUTH_SCENARIOS['staff-approved'],
       });
 
-      // checkpoint: 제출은 있지만 아직 리뷰 대기 중(review 없음).
-      expect(checkpointSubmission).toMatchObject({
+      // intake-freeze: 제출은 있지만 아직 리뷰 대기 중(review 없음).
+      expect(intakeFreezeSubmission).toMatchObject({
         status: SubmissionStatus.SUBMITTED,
         currentRevision: 1,
       });
-      expect(checkpointSubmission.revisions).toHaveLength(1);
-      expect(checkpointSubmission.revisions[0]?.review).toBeNull();
+      expect(intakeFreezeSubmission.revisions).toHaveLength(1);
+      expect(intakeFreezeSubmission.revisions[0]?.review).toBeNull();
 
       // 저장소 — 실제 공개 저장소를 연결·공개 완료 상태로 추적한다.
       expect(ossHubRepositoryCount).toBe(1);
@@ -483,6 +489,102 @@ describe('seed profile=oss-hub contract (integration)', () => {
         repositoryId: OSS_HUB_REPOSITORY_ID,
         status: RepositoryProvisionJobStatus.SUCCEEDED,
       });
+    },
+    SEED_RUN_TIMEOUT_MS,
+  );
+
+  it(
+    '이전 마일스톤 구성이 남긴 제출·리뷰가 있어도 FK 오류 없이 정리하고 새 7개로 수렴한다',
+    async () => {
+      // Given: profile을 한 번 실행해 프로그램을 만든 뒤, 실제 배포 DB에 남아있을 법한
+      // "구버전 마일스톤 + 제출 + 리비전 + 리뷰"를 수동으로 심는다. Milestone.submissions,
+      // Submission.revisions, SubmissionRevision.review는 모두 onDelete 미지정(RESTRICT)이라
+      // 이 자식들이 남아 있는 채로 마일스톤을 지우면 FK 위반이 나야 정상이다.
+      await runProfile('oss-hub', new SeedStats());
+      const staleMilestoneId = seedId('oss-hub', 'milestone', 'legacy-plan');
+      await prisma.milestone.create({
+        data: {
+          id: staleMilestoneId,
+          programId: OSS_HUB_PROGRAM_ID,
+          name: '구버전 계획서 제출',
+          dueAt: new Date('2026-01-01T00:00:00+09:00'),
+          submissionType: MilestoneSubmissionType.TEXT,
+          instructions: '마이그레이션 테스트용 구버전 마일스톤(legacy-plan).',
+        },
+      });
+      const staleSubmissionId = seedId('oss-hub', 'submission', 'legacy-plan');
+      await prisma.submission.create({
+        data: {
+          id: staleSubmissionId,
+          milestoneId: staleMilestoneId,
+          applicationId: OSS_HUB_APPLICATION_ID,
+          status: SubmissionStatus.SUBMITTED,
+          currentRevision: 1,
+        },
+      });
+      const staleRevisionId = seedId(
+        'oss-hub',
+        'submission',
+        'legacy-plan',
+        'revision-1',
+      );
+      await prisma.submissionRevision.create({
+        data: {
+          id: staleRevisionId,
+          submissionId: staleSubmissionId,
+          revision: 1,
+          submissionType: MilestoneSubmissionType.TEXT,
+          content: {
+            type: MilestoneSubmissionType.TEXT,
+            text: '구버전 제출 (migration test).',
+          },
+          submittedById: AUTH_SCENARIOS['staff-approved'],
+        },
+      });
+      const staleReviewId = seedId(
+        'oss-hub',
+        'submission',
+        'legacy-plan',
+        'review',
+      );
+      await prisma.review.create({
+        data: {
+          id: staleReviewId,
+          submissionRevisionId: staleRevisionId,
+          reviewerId: AUTH_SCENARIOS['staff-approved'],
+          decision: ReviewDecision.APPROVED,
+          comment: '구버전 리뷰 (migration test).',
+        },
+      });
+
+      // When: oss-hub profile을 다시 실행한다 — 새 7개 마일스톤을 upsert하기 전에 stale
+      // 마일스톤과 그 자식(Review → SubmissionRevision → Submission)을 먼저 지워야 한다.
+      await expect(
+        runProfile('oss-hub', new SeedStats()),
+      ).resolves.not.toThrow();
+
+      // Then: 구버전 마일스톤/제출/리비전/리뷰가 모두 사라지고, 이 프로그램의 마일스톤은
+      // 새 7개만 남는다 — orphan도, FK 위반도 없다.
+      const [
+        staleMilestone,
+        staleSubmission,
+        staleRevision,
+        staleReview,
+        milestoneCount,
+      ] = await Promise.all([
+        prisma.milestone.findUnique({ where: { id: staleMilestoneId } }),
+        prisma.submission.findUnique({ where: { id: staleSubmissionId } }),
+        prisma.submissionRevision.findUnique({
+          where: { id: staleRevisionId },
+        }),
+        prisma.review.findUnique({ where: { id: staleReviewId } }),
+        prisma.milestone.count({ where: { programId: OSS_HUB_PROGRAM_ID } }),
+      ]);
+      expect(staleMilestone).toBeNull();
+      expect(staleSubmission).toBeNull();
+      expect(staleRevision).toBeNull();
+      expect(staleReview).toBeNull();
+      expect(milestoneCount).toBe(7);
     },
     SEED_RUN_TIMEOUT_MS,
   );
