@@ -67,11 +67,24 @@ async function handle(
 
   // 링크로 전체 이동해 온 요청(로그인 시작 경로 등)은 화면으로 되돌려 보낸다.
   // JSON을 주면 브라우저가 그 JSON을 그대로 렌더해 검토 동선이 거기서 끊긴다.
+  //
+  // Location은 규칙이 준 값을 그대로 둔다. `NextResponse.redirect(new URL(location,
+  // request.url))`은 절대 URL을 만드는데, dev 서버에서 `request.url`의 host는 실제
+  // Host 헤더가 아니라 localhost로 정규화된다. 그래서 127.0.0.1로 진입한 검토자가
+  // `Location: http://localhost:3100/...`을 받아 다른 출처로 튕겼고, 픽스처 쿠키는
+  // host-only로 127.0.0.1에만 심겨 있어 다음 요청에 실려 가지 않았다 — 세션이 끊긴
+  // 화면을 기다리다 동선이 timeout으로 죽었다. 상대 Location은 브라우저가 요청 URL을
+  // 기준으로 해석하므로 진입 host가 끝까지 남는다. 활성화 경로(`local-review/[fixture]`)가
+  // 같은 이유로 이미 이렇게 답하고 있어 두 경로의 답이 어긋나지 않는다.
+  //
+  // `plan.location`은 규칙이 정한 상수이고 계약상 `/`로 시작하는 앱 내부 경로만 온다
+  // (`handler-kit`의 redirect 주석). 요청 값이 섞이지 않으니 다른 origin으로 샐 여지가
+  // 없고, 혹시 절대 URL이 오더라도 그대로 내보내는 편이 host를 덮어쓰지 않아 안전하다.
   if (plan.kind === 'redirect') {
-    const response = NextResponse.redirect(
-      new URL(plan.location, request.url),
-      plan.status,
-    );
+    const response = new NextResponse(null, {
+      status: plan.status,
+      headers: { Location: plan.location },
+    });
     response.headers.set('Cache-Control', 'private, no-store');
     response.headers.set('X-OSS-Hub-Local-Fixture', fixture);
     return response;
