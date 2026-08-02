@@ -74,7 +74,7 @@ function NavBar({
     <nav
       data-slot="nav-bar"
       className={cn(
-        'flex min-h-14 flex-nowrap items-center gap-x-1 overflow-x-clip border-b border-border bg-background px-2 py-2 sm:h-14 sm:gap-x-4 sm:px-4 sm:py-0',
+        'flex min-h-topbar flex-nowrap items-center gap-x-1 overflow-x-clip border-b border-border bg-background px-2 py-2 sm:h-topbar sm:gap-x-4 sm:px-4 sm:py-0',
         className,
       )}
       {...props}
@@ -96,7 +96,7 @@ function NavBar({
         <summary
           data-slot="nav-bar-menu-trigger"
           aria-label="메뉴"
-          className="flex size-11 cursor-pointer list-none items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground [&::-webkit-details-marker]:hidden"
+          className="flex size-control cursor-pointer list-none items-center justify-center rounded-control text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground [&::-webkit-details-marker]:hidden"
         >
           <svg
             aria-hidden
@@ -114,7 +114,7 @@ function NavBar({
         <ul
           data-slot="nav-bar-menu-items"
           data-surface="default"
-          className="absolute top-full left-0 z-50 mt-1 w-52 overflow-hidden rounded-lg border border-border bg-background py-1 shadow-lg"
+          className="absolute top-full left-0 z-50 mt-1 w-52 overflow-hidden rounded-control border border-border bg-background py-1 shadow-lg"
         >
           {items.map((item) => (
             <li key={item.href}>
@@ -123,7 +123,7 @@ function NavBar({
                 // `w-full`이 필요하다 — 호출부(ShellNav)가 터치 타깃 확보용으로
                 // `[&_a]:inline-flex`를 걸어 두어, 이 항목들이 글자 폭만큼만
                 // 줄어들면 줄의 빈 곳을 눌러도 아무 일도 일어나지 않는다.
-                className="flex min-h-11 w-full items-center px-3 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground"
+                className="flex min-h-control w-full items-center px-3 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground"
               >
                 {item.label}
               </LinkComponent>
@@ -139,7 +139,7 @@ function NavBar({
           <li key={item.href}>
             <LinkComponent
               href={item.href}
-              className="whitespace-nowrap rounded-md px-1 py-1.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground sm:px-2.5"
+              className="inline-flex min-h-control items-center whitespace-nowrap rounded-control px-1 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground sm:px-2.5"
             >
               {item.label}
             </LinkComponent>
@@ -149,7 +149,7 @@ function NavBar({
       {actions ? (
         <div
           data-slot="nav-bar-actions"
-          className="flex shrink-0 items-center justify-end gap-0 sm:gap-2"
+          className="flex shrink-0 items-center justify-end gap-0 sm:gap-2 [&_a:not([role=menuitem])]:min-h-control [&_a:not([role=menuitem])]:min-w-control [&_button:not([role=menuitem])]:min-h-control [&_button:not([role=menuitem])]:min-w-control"
         >
           {actions}
         </div>

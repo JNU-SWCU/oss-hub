@@ -2,12 +2,12 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
 import { Geist } from 'next/font/google';
-import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { type NavItem } from '@/components';
 import { LoginButton } from '@/features/auth/components/login-button';
 import { AppFrame } from './_shell/app-frame';
 import { SessionEntryNavLink } from './_shell/role-home-link';
+import { ShellBrand } from './_shell/shell-brand';
 import { SkipLink } from './_shell/skip-link';
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
@@ -35,7 +35,7 @@ export default function RootLayout({
         <SkipLink />
         {/* 랜딩은 상단 헤더, 그 외는 사이드바 + 상단바 — 분기는 AppFrame이 한다 */}
         <AppFrame
-          brand={<Link href="/">OSS Hub</Link>}
+          brand={<ShellBrand />}
           items={NAV_ITEMS}
           actions={
             <>

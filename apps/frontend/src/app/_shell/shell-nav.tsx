@@ -111,7 +111,7 @@ export function ShellNav({ items, brand, actions }: ShellNavProps) {
         actions={actions}
         // 경로가 바뀌면 접힌 메뉴를 닫는다 — 셸은 유지되므로 스스로 닫히지 않는다.
         menuResetKey={pathname}
-        className={`max-[479px]:px-1 [&_a]:inline-flex [&_a]:min-h-11 [&_a]:min-w-11 [&_a]:items-center [&_a]:justify-center [&_button]:min-h-11 [&_button]:min-w-11${
+        className={`max-[479px]:px-1${
           inverted ? ' border-transparent' : ''
         }${overlay && onSolid ? ' shadow-sm' : ''}`}
         linkComponent={Link}

@@ -57,6 +57,9 @@ describe('layout components', () => {
     )?.[1];
 
     expect(navClass?.split(' ')).toContain('flex-nowrap');
+    expect(navClass?.split(' ')).toContain('min-h-topbar');
+    expect(navClass?.split(' ')).toContain('sm:h-topbar');
+    expect(navClass?.split(' ')).not.toContain('min-h-14');
     expect(navClass?.split(' ')).toContain('gap-x-1');
     expect(navClass?.split(' ')).toContain('px-2');
     expect(navClass?.split(' ')).not.toContain('flex-wrap');

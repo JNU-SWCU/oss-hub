@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { ShellIcon } from './shell-icons';
 import { isCurrentSidebarItem, type SidebarGroup } from './sidebar-menu';
+import { ShellBrand, ShellBrandMark } from './shell-brand';
 
 /**
  * 왼쪽 사이드바(확정 미감 시안 v2).
@@ -54,17 +55,11 @@ export function AppSidebar({
             title="사이드바 펼치기"
             className="flex size-control items-center justify-center rounded-control text-sidebar-foreground hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
           >
-            <BrandMark />
+            <ShellBrandMark />
           </button>
         ) : (
           <>
-            <Link
-              href="/"
-              className="font-heading flex min-h-control items-center gap-3 rounded-control text-[17px] font-bold tracking-[-0.02em] whitespace-nowrap text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
-            >
-              <BrandMark />
-              OSS Hub
-            </Link>
+            <ShellBrand className="text-sidebar-foreground focus-visible:ring-sidebar-ring" />
             <button
               type="button"
               onClick={onToggle}
@@ -169,16 +164,5 @@ export function AppSidebar({
         SW중심대학사업단
       </p>
     </aside>
-  );
-}
-
-function BrandMark() {
-  return (
-    <span
-      aria-hidden
-      className="grid size-8 shrink-0 place-items-center rounded-control bg-primary text-sm font-bold text-primary-foreground"
-    >
-      O
-    </span>
   );
 }

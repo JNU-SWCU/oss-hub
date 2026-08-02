@@ -92,4 +92,12 @@ describe('AppSidebar', () => {
     expect(open).toContain('aria-label="사이드바 접기"');
     expect(open).not.toContain('aria-label="사이드바 펼치기"');
   });
+
+  it('펼친 상태는 랜딩과 공유하는 브랜드 링크를 쓴다', () => {
+    const html = render('/dashboard', false);
+
+    expect(html).toContain('data-slot="shell-brand"');
+    expect(html).toContain('data-slot="shell-brand-mark"');
+    expect(html).toContain('href="/"');
+  });
 });

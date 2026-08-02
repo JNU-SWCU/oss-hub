@@ -64,9 +64,9 @@ describe('ShellNav', () => {
     expect(html).toContain('프로그램');
     expect(html).toContain('아카이브');
     expect(html).toContain('href="/archive"');
-    expect(html).toContain('[&amp;_a]:min-h-11');
-    expect(html).toContain('[&amp;_a]:min-w-11');
-    expect(html).toContain('[&amp;_button]:min-h-11');
-    expect(html).toContain('[&amp;_button]:min-w-11');
+    const desktopItems = html.match(
+      /data-slot="nav-bar-items"[\s\S]*?<\/ul>/,
+    )?.[0];
+    expect(desktopItems?.match(/min-h-control/g)).toHaveLength(ITEMS.length);
   });
 });
