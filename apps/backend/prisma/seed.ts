@@ -1,5 +1,6 @@
 import { seedAuth } from './seeds/auth';
 import {
+  assertOssHubSeedAllowed,
   assertSeedAllowed,
   parseOssHubTeamAccounts,
   prisma,
@@ -25,6 +26,12 @@ export async function runProfile(
   profile: SeedProfile,
   stats: SeedStats,
 ): Promise<void> {
+  if (profile === 'oss-hub') {
+    assertOssHubSeedAllowed(
+      process.env.NODE_ENV,
+      process.env.OSS_HUB_SEED_CONFIRMATION,
+    );
+  }
   const ossHubAccounts =
     profile === 'oss-hub'
       ? parseOssHubTeamAccounts(process.env.OSS_HUB_TEAM_ACCOUNTS)

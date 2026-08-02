@@ -231,17 +231,34 @@ describe('seed profile=oss-hub contract (integration)', () => {
     await prisma.$connect();
   }, DATABASE_CONNECTION_TIMEOUT_MS);
 
-  afterAll(async () => {
+  beforeEach(() => {
+    process.env.OSS_HUB_TEAM_ACCOUNTS = OSS_HUB_TEAM_ACCOUNTS;
+    process.env.OSS_HUB_SEED_CONFIRMATION = 'NON_PRODUCTION';
+  });
+
+  afterEach(() => {
     delete process.env.OSS_HUB_TEAM_ACCOUNTS;
+    delete process.env.OSS_HUB_SEED_CONFIRMATION;
+  });
+
+  afterAll(async () => {
     await prisma.$disconnect();
+  });
+
+  it('명시적 확인값 없이는 oss-hub profile 실행을 거부한다', async () => {
+    // Given: 격리 DB와 계정 설정은 있지만 운영자 확인값이 없다.
+    delete process.env.OSS_HUB_SEED_CONFIRMATION;
+
+    // When & Then: import한 runProfile 경로도 DB 쓰기 전에 거부한다.
+    await expect(runProfile('oss-hub', new SeedStats())).rejects.toThrow(
+      /OSS_HUB_SEED_CONFIRMATION/,
+    );
   });
 
   it(
     '합성 auth 계정과 설정된 ADMIN 네 명의 프로그램 추적 데이터를 멱등하게 만든다',
     async () => {
       // Given: 격리된 빈 DB와 공개 안전한 합성 운영자 계정 설정.
-      process.env.OSS_HUB_TEAM_ACCOUNTS = OSS_HUB_TEAM_ACCOUNTS;
-
       // When: oss-hub profile을 두 번 실행한다.
       await runProfile('oss-hub', new SeedStats());
       const countsAfterFirstRun = await countAllSeeded();

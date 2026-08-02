@@ -42,6 +42,30 @@ export function assertSeedAllowed(
   }
 }
 
+const OSS_HUB_ALLOWED_NODE_ENVS: readonly string[] = [
+  'development',
+  'test',
+  'staging',
+  'preview',
+];
+const OSS_HUB_SEED_CONFIRMATION = 'NON_PRODUCTION';
+
+export function assertOssHubSeedAllowed(
+  nodeEnv: string | undefined,
+  confirmation: string | undefined,
+): void {
+  if (!nodeEnv || !OSS_HUB_ALLOWED_NODE_ENVS.includes(nodeEnv)) {
+    throw new Error(
+      `oss-hub 시드는 명시적인 비운영 NODE_ENV에서만 실행할 수 있습니다 (${OSS_HUB_ALLOWED_NODE_ENVS.join(', ')}).`,
+    );
+  }
+  if (confirmation !== OSS_HUB_SEED_CONFIRMATION) {
+    throw new Error(
+      'oss-hub 시드는 OSS_HUB_SEED_CONFIRMATION=NON_PRODUCTION 확인값이 필요합니다.',
+    );
+  }
+}
+
 export type SeedProfile =
   'auth' | 'intake' | 'milestones' | 'repositories' | 'oss-hub' | 'all';
 

@@ -1,4 +1,5 @@
 import {
+  assertOssHubSeedAllowed,
   assertSeedAllowed,
   DEFAULT_SEED_PROFILE,
   parseOssHubTeamAccounts,
@@ -67,6 +68,35 @@ describe('assertSeedAllowed', () => {
     expect(() => assertSeedAllowed('test')).not.toThrow();
     expect(() => assertSeedAllowed(undefined)).not.toThrow();
   });
+});
+
+describe('assertOssHubSeedAllowed', () => {
+  it.each([undefined, '', 'production', 'ci', 'Production'])(
+    'NODE_ENV=%p이면 확인값이 있어도 oss-hub 실행을 거부한다',
+    (nodeEnv) => {
+      expect(() => assertOssHubSeedAllowed(nodeEnv, 'NON_PRODUCTION')).toThrow(
+        /NODE_ENV/,
+      );
+    },
+  );
+
+  it.each([undefined, '', 'NON_PRODUCTION ', 'YES'])(
+    'OSS_HUB_SEED_CONFIRMATION=%p이면 oss-hub 실행을 거부한다',
+    (confirmation) => {
+      expect(() => assertOssHubSeedAllowed('test', confirmation)).toThrow(
+        /OSS_HUB_SEED_CONFIRMATION/,
+      );
+    },
+  );
+
+  it.each(['development', 'test', 'staging', 'preview'] as const)(
+    '%s 환경에서 정확한 확인값이 있으면 oss-hub 실행을 허용한다',
+    (nodeEnv) => {
+      expect(() =>
+        assertOssHubSeedAllowed(nodeEnv, 'NON_PRODUCTION'),
+      ).not.toThrow();
+    },
+  );
 });
 
 describe('resolveSeedProfile', () => {

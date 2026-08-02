@@ -15,8 +15,8 @@ SEED_PROFILE=intake pnpm --filter backend prisma db seed
 # profile 지정 — CLI 인자
 pnpm --filter backend prisma db seed -- --profile milestones
 
-# oss-hub profile — 정확히 네 개의 ADMIN 항목
-OSS_HUB_TEAM_ACCOUNTS='<github-id-1>:<github-login-1>:ADMIN,<github-id-2>:<github-login-2>:ADMIN,<github-id-3>:<github-login-3>:ADMIN,<github-id-4>:<github-login-4>:ADMIN' pnpm --filter backend prisma db seed -- --profile oss-hub
+# oss-hub profile — 명시적 비운영 환경, 확인값, 정확히 네 개의 ADMIN 항목이 필요
+NODE_ENV=<development|test|staging|preview> OSS_HUB_SEED_CONFIRMATION=NON_PRODUCTION OSS_HUB_TEAM_ACCOUNTS='<github-id-1>:<github-login-1>:ADMIN,<github-id-2>:<github-login-2>:ADMIN,<github-id-3>:<github-login-3>:ADMIN,<github-id-4>:<github-login-4>:ADMIN' pnpm --filter backend db:seed -- --profile oss-hub
 ```
 
 profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `oss-hub` · `all`.
@@ -24,6 +24,7 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `os
 - `prisma migrate reset`/`migrate dev`는 이 시드 훅을 자동 실행한다(기본값 `auth`만 돈다 — 안전한 최소).
 - `prisma migrate deploy`(예: `scripts/run-backend-integration.sh`)는 자동 시드를 실행하지 않는다.
 - `NODE_ENV=production`에서는 실행을 거부한다.
+- `oss-hub`는 `development`·`test`·`staging`·`preview` 중 하나를 `NODE_ENV`에 명시하고 `OSS_HUB_SEED_CONFIRMATION=NON_PRODUCTION`을 함께 설정해야만 실행한다.
 - 같은 profile을 여러 번 실행해도 안전하다 — 모든 row는 결정적 id(`seed:...`)로 upsert되어
   행 수가 늘지 않는다(멱등). `apps/backend/prisma/seed.integration.spec.ts`가 이 성질을 검증한다.
 
