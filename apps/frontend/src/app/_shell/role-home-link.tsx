@@ -42,9 +42,10 @@ export function resolveSessionEntry(
   switch (status) {
     case 'loading':
     case 'anonymous':
-    // 조회 실패 시 역할을 모르므로 진입 링크를 만들 수 없다. nav는 링크를 숨기고,
-    // 실패 표시와 재시도는 본문 게이트(SessionError)가 담당한다 — nav에 오류를
-    // 띄우면 모든 화면 상단에 같은 경고가 중복으로 뜬다.
+    // 조회 실패 시 역할을 모르므로 **역할 홈** 링크를 만들 수 없다 — 실패 표시와
+    // 재시도는 본문 게이트(SessionError) 몫이고, nav에 띄우면 모든 화면 상단에
+    // 같은 경고가 중복된다. 랜딩 히어로와 판단이 갈리는 근거는 `docs/design.md`의
+    // `세션별 주 CTA`.
     case 'error':
       return null;
     // 온보딩을 끝내지 못한 사용자에게도 비로그인 방문자와 **같은** 버튼을 준다.
