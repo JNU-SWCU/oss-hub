@@ -12,6 +12,9 @@ import {
 import { runProfile } from './seed';
 import { AUTH_SCENARIOS } from './seeds/auth';
 import { prisma, seedId, SeedStats, upsertSeedUser } from './seeds/helpers';
+import { CONSENT_POLICY_VERSION } from '../src/consents/domain/consent-policy';
+import { resolveCompatibleProfile } from '../src/profiles/profile-compatibility';
+import { isCompleteUserProfile } from '../src/users/user-profile-policy';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -28,12 +31,28 @@ const profileCompleteUserId = AUTH_SCENARIOS['profile-complete'];
 const staffPendingUserId = AUTH_SCENARIOS['staff-pending'];
 const staffRejectedUserId = AUTH_SCENARIOS['staff-rejected'];
 const staffRevokedUserId = AUTH_SCENARIOS['staff-revoked'];
+// displayName(4번째 세그먼트)은 합성 fixture 이름만 쓴다 — 실명은 절대 넣지 않는다.
 const OSS_HUB_TEAM_ACCOUNTS = [
-  '9800000000000001:seed-operator-alpha:ADMIN',
-  '9800000000000002:seed-operator-beta:ADMIN',
-  '9800000000000003:seed-operator-gamma:ADMIN',
-  '9800000000000004:seed-operator-delta:ADMIN',
+  '9800000000000001:seed-operator-alpha:ADMIN:시드운영자알파',
+  '9800000000000002:seed-operator-beta:ADMIN:시드운영자베타',
+  '9800000000000003:seed-operator-gamma:ADMIN:시드운영자감마',
+  '9800000000000004:seed-operator-delta:ADMIN:시드운영자델타',
 ].join(',');
+const OSS_HUB_TEAM_ACCOUNT_DISPLAY_NAMES = [
+  '시드운영자알파',
+  '시드운영자베타',
+  '시드운영자감마',
+  '시드운영자델타',
+];
+const OSS_HUB_TEAM_ACCOUNT_GITHUB_IDS = [
+  9800000000000001n,
+  9800000000000002n,
+  9800000000000003n,
+  9800000000000004n,
+];
+const OSS_HUB_TEAM_ACCOUNT_USER_IDS = OSS_HUB_TEAM_ACCOUNT_GITHUB_IDS.map(
+  (githubId) => seedId('oss-hub', 'user', githubId.toString()),
+);
 const OSS_HUB_PROGRAM_ID = seedId('oss-hub', 'program');
 const OSS_HUB_TEAM_ID = seedId('oss-hub', 'team');
 const OSS_HUB_APPLICATION_ID = seedId('oss-hub', 'application');
@@ -293,6 +312,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
         intakeFreezeSubmission,
         repository,
         provisionJob,
+        configuredUsersConsentCount,
         ossHubProgramCount,
         ossHubTeamCount,
         ossHubMemberCount,
@@ -314,17 +334,9 @@ describe('seed profile=oss-hub contract (integration)', () => {
           where: { id: AUTH_SCENARIOS['student-confirmed'] },
         }),
         prisma.user.findMany({
-          where: {
-            githubId: {
-              in: [
-                9800000000000001n,
-                9800000000000002n,
-                9800000000000003n,
-                9800000000000004n,
-              ],
-            },
-          },
+          where: { githubId: { in: OSS_HUB_TEAM_ACCOUNT_GITHUB_IDS } },
           orderBy: { githubId: 'asc' },
+          include: { profile: true },
         }),
         prisma.program.findUniqueOrThrow({
           where: { id: OSS_HUB_PROGRAM_ID },
@@ -350,6 +362,12 @@ describe('seed profile=oss-hub contract (integration)', () => {
         }),
         prisma.repositoryProvisionJob.findUniqueOrThrow({
           where: { id: OSS_HUB_PROVISION_JOB_ID },
+        }),
+        prisma.consent.count({
+          where: {
+            userId: { in: OSS_HUB_TEAM_ACCOUNT_USER_IDS },
+            policyVersion: CONSENT_POLICY_VERSION,
+          },
         }),
         prisma.program.count({
           where: { id: { startsWith: 'seed:oss-hub:' } },
@@ -389,33 +407,59 @@ describe('seed profile=oss-hub contract (integration)', () => {
       ]).toEqual([Role.ADMIN, Role.STAFF, Role.STUDENT]);
       expect(configuredUsers).toHaveLength(4);
       expect(
-        configuredUsers.map(({ id, nickname, role }) => ({
+        configuredUsers.map(({ id, nickname, role, name, accountStatus }) => ({
           id,
           nickname,
           role,
+          name,
+          accountStatus,
         })),
       ).toEqual([
         {
           id: seedId('oss-hub', 'user', '9800000000000001'),
           nickname: 'seed-operator-alpha',
           role: Role.ADMIN,
+          name: '시드운영자알파',
+          accountStatus: AccountStatus.ACTIVE,
         },
         {
           id: seedId('oss-hub', 'user', '9800000000000002'),
           nickname: 'seed-operator-beta',
           role: Role.ADMIN,
+          name: '시드운영자베타',
+          accountStatus: AccountStatus.ACTIVE,
         },
         {
           id: seedId('oss-hub', 'user', '9800000000000003'),
           nickname: 'seed-operator-gamma',
           role: Role.ADMIN,
+          name: '시드운영자감마',
+          accountStatus: AccountStatus.ACTIVE,
         },
         {
           id: seedId('oss-hub', 'user', '9800000000000004'),
           nickname: 'seed-operator-delta',
           role: Role.ADMIN,
+          name: '시드운영자델타',
+          accountStatus: AccountStatus.ACTIVE,
         },
       ]);
+      // 네 계정 모두 실제 로그인 게이트(`auth.repository.ts`의 isProfileComplete)와 동일한
+      // 정책 함수로 온보딩 완료가 판정된다 — 규칙을 여기서 다시 인코딩하지 않는다.
+      for (const configuredUser of configuredUsers) {
+        expect(
+          isCompleteUserProfile({
+            id: configuredUser.id,
+            ...resolveCompatibleProfile(configuredUser),
+            role: configuredUser.role,
+          }),
+        ).toBe(true);
+      }
+      expect(configuredUsers.map(({ name }) => name)).toEqual(
+        OSS_HUB_TEAM_ACCOUNT_DISPLAY_NAMES,
+      );
+      // Consent — 4명 모두 현행 정책 버전으로 동의 완료 상태다.
+      expect(configuredUsersConsentCount).toBe(4);
       expect([ossHubProgramCount, ossHubTeamCount, ossHubMemberCount]).toEqual([
         1, 1, 4,
       ]);

@@ -18,6 +18,7 @@ import {
   prisma,
   seedId,
   SeedStats,
+  upsertConsent,
   upsertTracked,
 } from './helpers';
 
@@ -43,12 +44,23 @@ function kstMidnight(isoDate: string): Date {
   return new Date(`${isoDate}T00:00:00+09:00`);
 }
 
+/**
+ * 설정된 ADMIN 계정을 실제 온보딩 완료 사용자와 동일한 DB 상태로 만든다 — role=ADMIN,
+ * accountStatus=ACTIVE, Consent 완료, (제공된 경우) name까지 채워 로그인 시 온보딩/동의
+ * 화면으로 되돌아가지 않게 한다(`auth.repository.ts`의 `isProfileComplete` 계약과 동일).
+ *
+ * name은 `account.displayName`이 있을 때만 쓴다 — 없으면 생성 시 비워 두고, 갱신 시에도
+ * 기존 값을 지우지 않는다(재로그인이 온보딩에서 확정한 이름을 덮어쓰지 않는다는
+ * `auth.repository.ts`의 원칙과 같은 이유).
+ */
 async function upsertConfiguredUser(
   stats: SeedStats,
   account: OssHubTeamAccount,
 ): Promise<User> {
   const id = seedId('oss-hub', 'user', account.githubId.toString());
-  return upsertTracked(
+  const nameField =
+    account.displayName !== undefined ? { name: account.displayName } : {};
+  const user = await upsertTracked(
     stats,
     'User',
     () => prisma.user.findUnique({ where: { githubId: account.githubId } }),
@@ -59,6 +71,7 @@ async function upsertConfiguredUser(
           nickname: account.login,
           role: Role.ADMIN,
           accountStatus: AccountStatus.ACTIVE,
+          ...nameField,
         },
         create: {
           id,
@@ -66,9 +79,12 @@ async function upsertConfiguredUser(
           nickname: account.login,
           role: Role.ADMIN,
           accountStatus: AccountStatus.ACTIVE,
+          ...nameField,
         },
       }),
   );
+  await upsertConsent(stats, user.id);
+  return user;
 }
 
 type OssHubMilestoneSeed = {

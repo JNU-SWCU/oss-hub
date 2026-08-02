@@ -1,5 +1,6 @@
 import { AccountStatus, PrismaClient, Role, User } from '@prisma/client';
 import { createHash } from 'node:crypto';
+import { CONSENT_POLICY_VERSION } from '../../src/consents/domain/consent-policy';
 import { isValidUserName } from '../../src/users/user-profile-policy';
 
 /**
@@ -295,6 +296,37 @@ export async function upsertSeedUser(
         where: { id },
         update: { nickname: login, role, accountStatus },
         create: { id, githubId, nickname: login, role, accountStatus },
+      }),
+  );
+}
+
+/** 여러 도메인 시드 파일이 공유하는 Consent upsert. 정책 버전은 현행 고정값 하나다. */
+export async function upsertConsent(
+  stats: SeedStats,
+  userId: string,
+): Promise<void> {
+  await upsertTracked(
+    stats,
+    'Consent',
+    () =>
+      prisma.consent.findUnique({
+        where: {
+          userId_policyVersion: {
+            userId,
+            policyVersion: CONSENT_POLICY_VERSION,
+          },
+        },
+      }),
+    () =>
+      prisma.consent.upsert({
+        where: {
+          userId_policyVersion: {
+            userId,
+            policyVersion: CONSENT_POLICY_VERSION,
+          },
+        },
+        update: {},
+        create: { userId, policyVersion: CONSENT_POLICY_VERSION },
       }),
   );
 }

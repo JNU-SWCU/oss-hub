@@ -1,11 +1,11 @@
 import { AccountStatus, Role, RoleRequestStatus, User } from '@prisma/client';
-import { CONSENT_POLICY_VERSION } from '../../src/consents/domain/consent-policy';
 import { upsertCompatibleProfile } from '../../src/profiles/profile-compatibility.repository';
 import {
   offsetDays,
   prisma,
   seedId,
   SeedStats,
+  upsertConsent,
   upsertSeedUser,
   upsertTracked,
 } from './helpers';
@@ -32,33 +32,6 @@ async function upsertUser(
   role: Role | null,
 ): Promise<User> {
   return upsertSeedUser(stats, { id: AUTH_SCENARIOS[scenarioId], role });
-}
-
-async function upsertConsent(stats: SeedStats, userId: string): Promise<void> {
-  await upsertTracked(
-    stats,
-    'Consent',
-    () =>
-      prisma.consent.findUnique({
-        where: {
-          userId_policyVersion: {
-            userId,
-            policyVersion: CONSENT_POLICY_VERSION,
-          },
-        },
-      }),
-    () =>
-      prisma.consent.upsert({
-        where: {
-          userId_policyVersion: {
-            userId,
-            policyVersion: CONSENT_POLICY_VERSION,
-          },
-        },
-        update: {},
-        create: { userId, policyVersion: CONSENT_POLICY_VERSION },
-      }),
-  );
 }
 
 async function setProfile(
