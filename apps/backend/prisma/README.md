@@ -1,7 +1,7 @@
 # 시드 데이터 (#110)
 
-역할별·상태별 테스트 시나리오를 결정적(deterministic)으로 만드는 시드다. 모든 식별자·이름·URL은
-합성값이며, 실제 GitHub 계정·저장소·개인정보를 담지 않는다.
+역할별·상태별 테스트 시나리오를 결정적(deterministic)으로 만드는 시드다.
+기본 profile의 모든 식별자·이름·URL은 합성값이며, `oss-hub` profile의 계정 값은 운영자가 비공개 환경 변수로만 주입하고 tracked file이나 로그에 남기지 않는다.
 
 ## 실행
 
@@ -14,13 +14,17 @@ SEED_PROFILE=intake pnpm --filter backend prisma db seed
 
 # profile 지정 — CLI 인자
 pnpm --filter backend prisma db seed -- --profile milestones
+
+# oss-hub profile — 명시적 비운영 환경, 확인값, 정확히 네 개의 ADMIN 항목이 필요
+NODE_ENV=<development|test|staging|preview> OSS_HUB_SEED_CONFIRMATION=NON_PRODUCTION OSS_HUB_TEAM_ACCOUNTS='<github-id-1>:<github-login-1>:ADMIN,<github-id-2>:<github-login-2>:ADMIN,<github-id-3>:<github-login-3>:ADMIN,<github-id-4>:<github-login-4>:ADMIN' pnpm --filter backend db:seed -- --profile oss-hub
 ```
 
-profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `all`.
+profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `oss-hub` · `all`.
 
 - `prisma migrate reset`/`migrate dev`는 이 시드 훅을 자동 실행한다(기본값 `auth`만 돈다 — 안전한 최소).
 - `prisma migrate deploy`(예: `scripts/run-backend-integration.sh`)는 자동 시드를 실행하지 않는다.
 - `NODE_ENV=production`에서는 실행을 거부한다.
+- `oss-hub`는 `development`·`test`·`staging`·`preview` 중 하나를 `NODE_ENV`에 명시하고 `OSS_HUB_SEED_CONFIRMATION=NON_PRODUCTION`을 함께 설정해야만 실행한다.
 - 같은 profile을 여러 번 실행해도 안전하다 — 모든 row는 결정적 id(`seed:...`)로 upsert되어
   행 수가 늘지 않는다(멱등). `apps/backend/prisma/seed.integration.spec.ts`가 이 성질을 검증한다.
 
@@ -43,6 +47,19 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `al
   `submission-approved`, `submission-changes-requested`, `submission-rejected`.
 - `repositories` (5) — `seeds/repositories.ts`: `repo-job-pending`, `repo-job-succeeded`,
   `repo-job-failed-retryable`, `repository-ready`, `repository-public`.
+- `oss-hub` — 기존 `auth` 합성 계정과 함께 `OSS_HUB_TEAM_ACCOUNTS`의 네 계정을 `ADMIN`으로 upsert하고,
+  결정적 ID의 Program 1개·Team 1개·TeamMember 4개·Application 1개(팀 신청)를 만든다.
+  변수는 쉼표로 구분한 `githubId:login:ADMIN` 네 항목만 허용하며 누락·형식 오류·중복 ID 또는 login·`ADMIN` 이외 역할을 모두 거부한다.
+  오류와 실행 로그에는 변수 원문을 출력하지 않는다.
+  트래킹 화면을 실데이터로 채우기 위해 다음도 함께 만든다:
+  - Milestone 4개로 전체 arc를 표현한다 — `계획서 제출`(마감 지남) → `중간 점검`(마감 지남) →
+    `기능 시연`(예정) → `최종 발표`(예정).
+  - Submission — `계획서 제출`은 팀장이 제출하고 합성 STAFF 계정(`auth` profile의 `staff-approved`)이
+    승인 리뷰를 남긴 상태, `중간 점검`은 다른 팀원이 저장소 릴리즈 링크를 제출하고 아직 리뷰 대기 중인
+    상태다. `기능 시연`·`최종 발표`는 마감 전이라 제출이 없다.
+  - Repository 1개 — 실제 공개 저장소 `github.com/JNU-SWCU/oss-hub`를 팀 신청에 연결해 공개
+    완료(`PUBLIC`) 상태로 추적하고, 짝이 되는 RepositoryProvisionJob은 `SUCCEEDED`다. `githubRepositoryId`는
+    실제 GitHub 저장소 numeric id가 아니라 `seedRepositoryId`가 만든 합성 값이다.
 
 `intake`/`milestones`/`repositories` 각 profile은 서로 참조하지 않고 자체 Program·User
 backbone을 만든다 — 빈 DB에서 어떤 profile을 단독 실행해도 성공한다.
@@ -63,4 +80,4 @@ backbone을 만든다 — 빈 DB에서 어떤 profile을 단독 실행해도 성
 
 ## 실제 계정 ↔ 역할 매핑
 
-이 시드는 합성 계정만 만든다. 실제 GitHub 계정을 특정 역할(STAFF/ADMIN)로 테스트하려면 [온보딩의 역할별 테스트 계정 로그인 절](../../../docs/onboarding.md#역할별-테스트-계정-로그인)을 따라 `AUTH_INITIAL_ROLES`를 설정한다 — 값은 이 문서에 적지 않는다.
+`oss-hub` profile 외에서 실제 GitHub 계정을 특정 역할(STAFF/ADMIN)로 테스트하려면 [온보딩의 역할별 테스트 계정 로그인 절](../../../docs/onboarding.md#역할별-테스트-계정-로그인)을 따라 `AUTH_INITIAL_ROLES`를 설정한다 — 값은 이 문서에 적지 않는다.

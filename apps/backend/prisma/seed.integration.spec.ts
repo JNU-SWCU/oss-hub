@@ -1,8 +1,16 @@
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
-import { AccountStatus, Role } from '@prisma/client';
+import {
+  AccountStatus,
+  ApplicationStatus,
+  RepositoryProvisionJobStatus,
+  RepositoryVisibility,
+  ReviewDecision,
+  Role,
+  SubmissionStatus,
+} from '@prisma/client';
 import { runProfile } from './seed';
 import { AUTH_SCENARIOS } from './seeds/auth';
-import { prisma, SeedStats, upsertSeedUser } from './seeds/helpers';
+import { prisma, seedId, SeedStats, upsertSeedUser } from './seeds/helpers';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -19,6 +27,24 @@ const profileCompleteUserId = AUTH_SCENARIOS['profile-complete'];
 const staffPendingUserId = AUTH_SCENARIOS['staff-pending'];
 const staffRejectedUserId = AUTH_SCENARIOS['staff-rejected'];
 const staffRevokedUserId = AUTH_SCENARIOS['staff-revoked'];
+const OSS_HUB_TEAM_ACCOUNTS = [
+  '9800000000000001:seed-operator-alpha:ADMIN',
+  '9800000000000002:seed-operator-beta:ADMIN',
+  '9800000000000003:seed-operator-gamma:ADMIN',
+  '9800000000000004:seed-operator-delta:ADMIN',
+].join(',');
+const OSS_HUB_PROGRAM_ID = seedId('oss-hub', 'program');
+const OSS_HUB_TEAM_ID = seedId('oss-hub', 'team');
+const OSS_HUB_APPLICATION_ID = seedId('oss-hub', 'application');
+const OSS_HUB_REPOSITORY_ID = seedId('oss-hub', 'repository');
+const OSS_HUB_PROVISION_JOB_ID = seedId('oss-hub', 'provision-job');
+const OSS_HUB_REPOSITORY_URL = 'https://github.com/JNU-SWCU/oss-hub';
+const OSS_HUB_NOTICE_EXAMPLES = [
+  '[모집홍보] 2026 오픈소스 개발자대회 모집 안내',
+  '｢모집홍보｣ 『LLMOps 파이프라인 개발』 교육 2026학년 2학기 자유학기(자유교과목) 신청 안내',
+  'https://sojoong.kr/notice/notice-board/?mod=document&uid=922',
+  'https://sojoong.kr/notice/notice-board/?mod=document&uid=939',
+] as const;
 
 /** #110 시드가 실제로 건드리는 전체 모델. 카운트가 두 실행 사이에 흔들리면 멱등성이 깨진 것이다. */
 const SEEDED_MODEL_COUNTERS: ReadonlyArray<
@@ -212,6 +238,252 @@ async function deleteAllSeeded(): Promise<void> {
     where: { ...seedIdFilter, ...excluding(protectedUserIds) },
   });
 }
+describe('seed profile=oss-hub contract (integration)', () => {
+  beforeAll(async () => {
+    await prisma.$connect();
+  }, DATABASE_CONNECTION_TIMEOUT_MS);
+
+  beforeEach(() => {
+    process.env.OSS_HUB_TEAM_ACCOUNTS = OSS_HUB_TEAM_ACCOUNTS;
+    process.env.OSS_HUB_SEED_CONFIRMATION = 'NON_PRODUCTION';
+  });
+
+  afterEach(() => {
+    delete process.env.OSS_HUB_TEAM_ACCOUNTS;
+    delete process.env.OSS_HUB_SEED_CONFIRMATION;
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  it('명시적 확인값 없이는 oss-hub profile 실행을 거부한다', async () => {
+    // Given: 격리 DB와 계정 설정은 있지만 운영자 확인값이 없다.
+    delete process.env.OSS_HUB_SEED_CONFIRMATION;
+
+    // When & Then: import한 runProfile 경로도 DB 쓰기 전에 거부한다.
+    await expect(runProfile('oss-hub', new SeedStats())).rejects.toThrow(
+      /OSS_HUB_SEED_CONFIRMATION/,
+    );
+  });
+
+  it(
+    '합성 auth 계정과 설정된 ADMIN 네 명의 프로그램 추적 데이터를 멱등하게 만든다',
+    async () => {
+      // Given: 격리된 빈 DB와 공개 안전한 합성 운영자 계정 설정.
+      // When: oss-hub profile을 두 번 실행한다.
+      await runProfile('oss-hub', new SeedStats());
+      const countsAfterFirstRun = await countAllSeeded();
+      await runProfile('oss-hub', new SeedStats());
+      const countsAfterSecondRun = await countAllSeeded();
+
+      // Then: 기존 auth 역할 계정과 정확한 oss-hub 관계 shape가 유지된다.
+      const [
+        syntheticAdmin,
+        syntheticStaff,
+        syntheticStudent,
+        configuredUsers,
+        program,
+        team,
+        application,
+        planSubmission,
+        checkpointSubmission,
+        repository,
+        provisionJob,
+        ossHubProgramCount,
+        ossHubTeamCount,
+        ossHubMemberCount,
+        ossHubMilestoneCount,
+        ossHubApplicationCount,
+        ossHubSubmissionCount,
+        ossHubSubmissionRevisionCount,
+        ossHubReviewCount,
+        ossHubRepositoryCount,
+        ossHubRepositoryProvisionJobCount,
+      ] = await Promise.all([
+        prisma.user.findUniqueOrThrow({
+          where: { id: AUTH_SCENARIOS['admin-confirmed'] },
+        }),
+        prisma.user.findUniqueOrThrow({
+          where: { id: AUTH_SCENARIOS['staff-approved'] },
+        }),
+        prisma.user.findUniqueOrThrow({
+          where: { id: AUTH_SCENARIOS['student-confirmed'] },
+        }),
+        prisma.user.findMany({
+          where: {
+            githubId: {
+              in: [
+                9800000000000001n,
+                9800000000000002n,
+                9800000000000003n,
+                9800000000000004n,
+              ],
+            },
+          },
+          orderBy: { githubId: 'asc' },
+        }),
+        prisma.program.findUniqueOrThrow({
+          where: { id: OSS_HUB_PROGRAM_ID },
+          include: { milestones: { orderBy: { id: 'asc' } } },
+        }),
+        prisma.team.findUniqueOrThrow({
+          where: { id: OSS_HUB_TEAM_ID },
+          include: { members: { orderBy: { id: 'asc' } } },
+        }),
+        prisma.application.findUniqueOrThrow({
+          where: { id: OSS_HUB_APPLICATION_ID },
+        }),
+        prisma.submission.findUniqueOrThrow({
+          where: { id: seedId('oss-hub', 'submission', 'plan') },
+          include: { revisions: { include: { review: true } } },
+        }),
+        prisma.submission.findUniqueOrThrow({
+          where: { id: seedId('oss-hub', 'submission', 'checkpoint') },
+          include: { revisions: { include: { review: true } } },
+        }),
+        prisma.repository.findUniqueOrThrow({
+          where: { id: OSS_HUB_REPOSITORY_ID },
+        }),
+        prisma.repositoryProvisionJob.findUniqueOrThrow({
+          where: { id: OSS_HUB_PROVISION_JOB_ID },
+        }),
+        prisma.program.count({
+          where: { id: { startsWith: 'seed:oss-hub:' } },
+        }),
+        prisma.team.count({ where: { id: { startsWith: 'seed:oss-hub:' } } }),
+        prisma.teamMember.count({
+          where: { id: { startsWith: 'seed:oss-hub:' } },
+        }),
+        prisma.milestone.count({
+          where: { id: { startsWith: 'seed:oss-hub:' } },
+        }),
+        prisma.application.count({
+          where: { id: { startsWith: 'seed:oss-hub:' } },
+        }),
+        prisma.submission.count({
+          where: { id: { startsWith: 'seed:oss-hub:' } },
+        }),
+        prisma.submissionRevision.count({
+          where: { id: { startsWith: 'seed:oss-hub:' } },
+        }),
+        prisma.review.count({
+          where: { id: { startsWith: 'seed:oss-hub:' } },
+        }),
+        prisma.repository.count({
+          where: { id: { startsWith: 'seed:oss-hub:' } },
+        }),
+        prisma.repositoryProvisionJob.count({
+          where: { id: { startsWith: 'seed:oss-hub:' } },
+        }),
+      ]);
+
+      expect(countsAfterSecondRun).toEqual(countsAfterFirstRun);
+      expect([
+        syntheticAdmin.role,
+        syntheticStaff.role,
+        syntheticStudent.role,
+      ]).toEqual([Role.ADMIN, Role.STAFF, Role.STUDENT]);
+      expect(configuredUsers).toHaveLength(4);
+      expect(
+        configuredUsers.map(({ id, nickname, role }) => ({
+          id,
+          nickname,
+          role,
+        })),
+      ).toEqual([
+        {
+          id: seedId('oss-hub', 'user', '9800000000000001'),
+          nickname: 'seed-operator-alpha',
+          role: Role.ADMIN,
+        },
+        {
+          id: seedId('oss-hub', 'user', '9800000000000002'),
+          nickname: 'seed-operator-beta',
+          role: Role.ADMIN,
+        },
+        {
+          id: seedId('oss-hub', 'user', '9800000000000003'),
+          nickname: 'seed-operator-gamma',
+          role: Role.ADMIN,
+        },
+        {
+          id: seedId('oss-hub', 'user', '9800000000000004'),
+          nickname: 'seed-operator-delta',
+          role: Role.ADMIN,
+        },
+      ]);
+      expect([ossHubProgramCount, ossHubTeamCount, ossHubMemberCount]).toEqual([
+        1, 1, 4,
+      ]);
+      for (const noticeExample of OSS_HUB_NOTICE_EXAMPLES) {
+        expect(program.description).toContain(noticeExample);
+      }
+      expect(program.repositoryProvisioningEnabled).toBe(true);
+      // 마일스톤 전체 arc: 계획서 제출 → 중간 점검 → 기능 시연 → 최종 발표(id asc 정렬).
+      expect(ossHubMilestoneCount).toBe(4);
+      expect(program.milestones.map(({ id }) => id)).toEqual([
+        seedId('oss-hub', 'milestone', 'checkpoint'),
+        seedId('oss-hub', 'milestone', 'demo'),
+        seedId('oss-hub', 'milestone', 'final'),
+        seedId('oss-hub', 'milestone', 'plan'),
+      ]);
+      expect(team.leaderId).toBe(configuredUsers[0]?.id);
+      expect(team.members.map(({ id, userId }) => ({ id, userId }))).toEqual(
+        configuredUsers.map((user) => ({
+          id: seedId('oss-hub', 'team-member', user.githubId.toString()),
+          userId: user.id,
+        })),
+      );
+
+      // 팀의 프로그램 신청 — Submission·Repository·RepositoryProvisionJob이 매달리는 backbone.
+      expect(ossHubApplicationCount).toBe(1);
+      expect(application).toMatchObject({
+        teamId: OSS_HUB_TEAM_ID,
+        applicantId: configuredUsers[0]?.id,
+        status: ApplicationStatus.APPROVED,
+      });
+
+      // plan: 승인 리뷰까지 완료된 제출.
+      expect(ossHubSubmissionCount).toBe(2);
+      expect(ossHubSubmissionRevisionCount).toBe(2);
+      expect(ossHubReviewCount).toBe(1);
+      expect(planSubmission).toMatchObject({
+        status: SubmissionStatus.APPROVED,
+        currentRevision: 1,
+      });
+      expect(planSubmission.revisions).toHaveLength(1);
+      expect(planSubmission.revisions[0]?.review).toMatchObject({
+        decision: ReviewDecision.APPROVED,
+        reviewerId: AUTH_SCENARIOS['staff-approved'],
+      });
+
+      // checkpoint: 제출은 있지만 아직 리뷰 대기 중(review 없음).
+      expect(checkpointSubmission).toMatchObject({
+        status: SubmissionStatus.SUBMITTED,
+        currentRevision: 1,
+      });
+      expect(checkpointSubmission.revisions).toHaveLength(1);
+      expect(checkpointSubmission.revisions[0]?.review).toBeNull();
+
+      // 저장소 — 실제 공개 저장소를 연결·공개 완료 상태로 추적한다.
+      expect(ossHubRepositoryCount).toBe(1);
+      expect(repository).toMatchObject({
+        applicationId: OSS_HUB_APPLICATION_ID,
+        teamId: OSS_HUB_TEAM_ID,
+        url: OSS_HUB_REPOSITORY_URL,
+        visibility: RepositoryVisibility.PUBLIC,
+      });
+      expect(ossHubRepositoryProvisionJobCount).toBe(1);
+      expect(provisionJob).toMatchObject({
+        applicationId: OSS_HUB_APPLICATION_ID,
+        repositoryId: OSS_HUB_REPOSITORY_ID,
+        status: RepositoryProvisionJobStatus.SUCCEEDED,
+      });
+    },
+    SEED_RUN_TIMEOUT_MS,
+  );
+});
 
 describe('seed profile=all 멱등성 (integration)', () => {
   beforeAll(async () => {
