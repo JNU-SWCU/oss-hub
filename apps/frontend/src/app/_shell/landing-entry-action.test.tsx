@@ -66,6 +66,36 @@ describe('LandingEntryActionView', () => {
     expect(html).toContain('href="/admin/access"');
   });
 
+  // 실패해도 첫 화면에 진입로가 남아야 한다. 목적지는 비로그인과 **같은**
+  // `/signup`이다 — 진입점이 둘이어도 목적지가 갈라지면 안 된다.
+  it('still offers a way forward when the session lookup fails', () => {
+    const html = renderToStaticMarkup(
+      <LandingEntryActionView status="error" role={null} />,
+    );
+
+    expect(html).toContain('회원가입 / 로그인');
+    expect(html).toContain('href="/signup"');
+    expect(html).not.toContain(githubLoginPath);
+  });
+
+  it('does not pass a failed session lookup off as a logged-out visitor', () => {
+    const html = renderToStaticMarkup(
+      <LandingEntryActionView status="error" role={null} />,
+    );
+
+    expect(html).toContain('로그인 정보를 확인하지 못했습니다');
+    expect(html).toContain('로그아웃된 것은 아닙니다');
+  });
+
+  it('keeps the failure note readable on the dark landing surfaces', () => {
+    const html = renderToStaticMarkup(
+      <LandingEntryActionView status="error" role={null} inverted />,
+    );
+
+    expect(html).toContain('text-hero-muted');
+    expect(html).not.toContain('text-muted-foreground');
+  });
+
   it('makes authentication recovery explicit for an anonymous visitor', () => {
     const html = renderToStaticMarkup(
       <LandingEntryActionView status="anonymous" role={null} hasAuthError />,

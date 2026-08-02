@@ -14,7 +14,7 @@ import {
   PANEL_RANGES,
   type CosmosGraph,
 } from '@/features/landing/cosmos';
-import type { LandingGraph } from '../landing-overview';
+import { deriveLandingStats } from '../landing-stats';
 import styles from './landing-journey.module.css';
 import { useLandingGraph } from './use-landing-graph';
 
@@ -33,26 +33,6 @@ const FLOW_STEPS: readonly (readonly [string, string, string])[] = [
   ['STEP 3', '제출·검토', '— 마일스톤 단위로 교직원이 검토'],
   ['STEP 4', '공개 아카이브', '— 연도별 아카이브에 남음'],
 ];
-
-interface GraphCounts {
-  readonly programs: number;
-  readonly repositories: number;
-  readonly students: number;
-}
-
-/** 공개 집계가 아직 없을 때 0을 늘어놓지 않는다 — 없는 것은 없다고 표시한다 */
-function formatCount(value: number): string {
-  return value > 0 ? String(value) : '—';
-}
-
-function countByKind(graph: LandingGraph): GraphCounts {
-  return {
-    programs: graph.nodes.filter((node) => node.kind === 'program').length,
-    repositories: graph.nodes.filter((node) => node.kind === 'repository')
-      .length,
-    students: graph.nodes.filter((node) => node.kind === 'student').length,
-  };
-}
 
 /** 프로그램 항성의 이름만 공개 프로그램명으로 바꾼다 — 배치는 다시 잡지 않는다 */
 function applyProgramNames(graph: CosmosGraph, names: readonly string[]): void {
@@ -79,7 +59,7 @@ export function LandingJourney({
   const hintRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<CosmosGraph | null>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
-  const { graph: publicGraph } = useLandingGraph();
+  const { graph: publicGraph, completeness } = useLandingGraph();
 
   const programNamesRef = useRef<readonly string[]>([]);
   const programNames = useMemo(
@@ -89,13 +69,12 @@ export function LandingJourney({
         .map((node) => node.label),
     [publicGraph],
   );
-  const counts = useMemo(() => countByKind(publicGraph), [publicGraph]);
-  const hasCounts = counts.programs + counts.repositories + counts.students > 0;
-  const statNote = !hasCounts
-    ? '공개 집계 준비 중'
-    : publicGraph.source === 'public'
-      ? '공개 아카이브 기준'
-      : '예시 데이터 기준';
+  // 표시 파생은 컴포넌트 밖의 순수 함수가 쥔다 — 부분 실패 표기의 경계라
+  // 렌더가 아니라 인접 단위 테스트로 못 박는다(`landing-stats.test.ts`).
+  const stats = useMemo(
+    () => deriveLandingStats(publicGraph, completeness),
+    [publicGraph, completeness],
+  );
 
   useEffect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -335,25 +314,19 @@ export function LandingJourney({
           </p>
           <ul className={styles.stats}>
             <li>
-              <div className={styles.statValue}>
-                {formatCount(counts.programs)}
-              </div>
+              <div className={styles.statValue}>{stats.programs}</div>
               <div className={styles.statKey}>공개 프로그램</div>
             </li>
             <li>
-              <div className={styles.statValue}>
-                {formatCount(counts.repositories)}
-              </div>
+              <div className={styles.statValue}>{stats.repositories}</div>
               <div className={styles.statKey}>공개 저장소</div>
             </li>
             <li>
-              <div className={styles.statValue}>
-                {formatCount(counts.students)}
-              </div>
+              <div className={styles.statValue}>{stats.students}</div>
               <div className={styles.statKey}>공개 기여자</div>
             </li>
           </ul>
-          <span className={styles.statNote}>{statNote}</span>
+          <span className={styles.statNote}>{stats.note}</span>
         </section>
 
         <section
