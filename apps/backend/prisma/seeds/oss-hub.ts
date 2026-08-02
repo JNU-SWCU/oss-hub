@@ -190,7 +190,8 @@ export async function seedOssHub(
       name: '기능 시연',
       dueAt: offsetDays(14),
       submissionType: MilestoneSubmissionType.FILE,
-      instructions: '핵심 기능을 시연하는 영상 또는 스크린샷 파일을 제출합니다.',
+      instructions:
+        '핵심 기능을 시연하는 영상 또는 스크린샷 파일을 제출합니다.',
     },
     {
       id: seedId('oss-hub', 'milestone', 'final'),
@@ -317,14 +318,16 @@ export async function seedOssHub(
         where: { id: planReviewId },
         update: {
           decision: ReviewDecision.APPROVED,
-          comment: '계획서에 목표와 일정이 명확하게 정리되어 있습니다. 이대로 진행해 주세요 (seed fixture).',
+          comment:
+            '계획서에 목표와 일정이 명확하게 정리되어 있습니다. 이대로 진행해 주세요 (seed fixture).',
         },
         create: {
           id: planReviewId,
           submissionRevisionId: planRevisionId,
           reviewerId: AUTH_SCENARIOS['staff-approved'],
           decision: ReviewDecision.APPROVED,
-          comment: '계획서에 목표와 일정이 명확하게 정리되어 있습니다. 이대로 진행해 주세요 (seed fixture).',
+          comment:
+            '계획서에 목표와 일정이 명확하게 정리되어 있습니다. 이대로 진행해 주세요 (seed fixture).',
         },
       }),
   );
