@@ -29,6 +29,7 @@
 | 구현 진행 상태 | GitHub Issue·PR | Issue/PR 번호 |
 | 시크릿(키·토큰) | secret store(배포 환경 변수) | 변수 이름만(`.env.example`) |
 | 개인정보·실데이터 | 제한 저장소(repo 밖) | 없음 — 합성 fixture만 반입 |
+실값은 Notion "Credentials" 페이지가 원본이며 배포 설정 변경 시의 갱신 요건은 `docs/rules/security.md`가 원본이다.
 
 ## 3. 작성권 — 산출물마다 작성자 1인
 
