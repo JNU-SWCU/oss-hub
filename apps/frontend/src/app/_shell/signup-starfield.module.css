@@ -1,0 +1,69 @@
+/*
+ * 가입 무대 별밭의 움직임(#522). 랜딩을 흉내내지 않는다 — 랜딩의 별은 반짝이지 않고
+ * (`cosmos-renderer.ts:433`) 거기서 움직이는 것은 카메라다. 여기는 카메라가 없으므로
+ * 별 자신이 아주 약하게 숨 쉬고 흐른다.
+ *
+ * 불변식 셋.
+ * 1) **렌더 루프를 만들지 않는다.** CSS 애니메이션뿐이라 화질 거버너
+ *    (`cosmos-quality.ts`)가 재는 프레임 예산 밖에 있다.
+ * 2) **애니메이션은 층에만 건다.** 별 655개에 요소를 하나씩 두면 비싸다 — 한 층이
+ *    점 수백 개를 subpath 목록 하나로 들고 있고, 위상만 셋으로 갈라 층 전체가 함께
+ *    밝아졌다 어두워지는 것으로 보이지 않게 한다(움직이는 요소 9개).
+ * 3) **`prefers-reduced-motion: reduce`에서 멈춘다.** 그때는 `opacity`도 `transform`도
+ *    CSS가 손대지 않으므로 `opacity` presentation 속성만 남아 예전의 정지 SVG와
+ *    글자 그대로 같은 그림이 된다.
+ */
+
+.layer {
+  /*
+    확대의 기준점을 viewBox 가운데로 못 박는다. **SVG 그래픽 요소의 `transform-origin`
+    기본값은 가운데가 아니라 `(0, 0)`이다** — HTML 요소와 다르다. 그대로 두면 확대가
+    오른쪽·아래로만 퍼져 여유가 한쪽에만 생기고, 양의 흐름 구간에서 왼쪽·위쪽
+    가장자리에 별이 하나도 없는 띠가 남는다(1440에서 좌 14.8px · 상 6.7px 실측).
+    별빛은 화면 전체에 고르게 있어야 한다(#518부터의 요구, #522).
+  */
+  transform-box: view-box;
+  transform-origin: center;
+  animation-name: signup-star-breath, signup-star-flow;
+  animation-duration: var(--star-breath), var(--star-flow);
+  animation-delay: var(--star-phase), 0s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+/* 밝기는 층이 정한 값의 0.72~1.18배 사이만 오간다. 절대값을 쓰지 않는 이유는 층마다
+   기준 밝기가 다르기 때문이다 — 비율이라야 세 층의 위계가 그대로 남는다. */
+@keyframes signup-star-breath {
+  from {
+    opacity: calc(var(--star-opacity) * 0.72);
+  }
+  to {
+    opacity: calc(var(--star-opacity) * 1.18);
+  }
+}
+
+/* 5% 확대는 흐름이 만드는 빈 가장자리를 덮는 여유다 — 기준점이 가운데일 때만 viewBox
+   1000 기준 각 변에 25 단위씩 갈라지고, 그래야 최대 진폭 18 단위보다 넓다. 기준점을
+   위에서 명시하는 이유가 이것이다. 확대를 SVG 안에 두는 것도 핵심이다 — 무대 요소에
+   transform을 걸면 그 넘침이 그대로 가로 스크롤이 된다. */
+@keyframes signup-star-flow {
+  from {
+    transform: scale(1.05)
+      translate3d(
+        calc(var(--star-drift) * -1),
+        calc(var(--star-drift) * -0.4),
+        0
+      );
+  }
+  to {
+    transform: scale(1.05)
+      translate3d(var(--star-drift), calc(var(--star-drift) * 0.4), 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layer {
+    animation: none;
+  }
+}
