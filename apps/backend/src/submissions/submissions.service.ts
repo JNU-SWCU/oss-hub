@@ -259,6 +259,7 @@ export class SubmissionsService {
             id: milestone.submission.id,
             status: milestone.submission.status,
             currentRevision: milestone.submission.currentRevision,
+            decision: milestone.submission.latestReview?.decision ?? null,
             lastReviewedAt:
               milestone.submission.latestReview?.reviewedAt.toISOString() ??
               null,

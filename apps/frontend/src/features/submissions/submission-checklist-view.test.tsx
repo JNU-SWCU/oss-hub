@@ -29,6 +29,7 @@ function submission(
     id: 'submission-1',
     status: 'SUBMITTED',
     currentRevision: 1,
+    decision: null,
     lastReviewedAt: null,
     reviewComment: null,
     canResubmit: false,
@@ -46,6 +47,7 @@ const ITEMS: readonly SubmissionChecklistItem[] = [
     submission: submission({
       id: 'submission-plan',
       status: 'APPROVED',
+      decision: 'APPROVED',
       lastReviewedAt: '2026-07-22T01:00:00.000Z',
     }),
   },
@@ -57,6 +59,7 @@ const ITEMS: readonly SubmissionChecklistItem[] = [
     submission: submission({
       id: 'submission-interim',
       status: 'CHANGES_REQUESTED',
+      decision: 'CHANGES_REQUESTED',
       reviewComment: '실행 화면 캡처를 추가해 주세요.',
       lastReviewedAt: '2026-07-23T01:00:00.000Z',
       canResubmit: true,
@@ -77,6 +80,7 @@ const ITEMS: readonly SubmissionChecklistItem[] = [
     submission: submission({
       id: 'submission-retro',
       status: 'REJECTED',
+      decision: 'REJECTED',
       reviewComment: '중복 제출로 최종 반려되었습니다.',
       lastReviewedAt: '2026-07-23T02:00:00.000Z',
     }),
@@ -283,13 +287,16 @@ describe('ChecklistRow 제출 CTA', () => {
 });
 
 describe('SubmissionChecklistView 선택 패널', () => {
-  it('보완 필요 선택 시 코멘트·현재 revision·#115 입력·재제출 버튼을 보여준다', () => {
+  it('보완 요청 판정과 코멘트, 재제출 경로를 보여준다', () => {
     // When
     const html = render({ selectedMilestoneId: 'milestone-interim' });
 
     // Then
     expect(html).toContain('교직원 코멘트');
     expect(html).toContain('실행 화면 캡처를 추가해 주세요.');
+    expect(html).toContain('판정');
+    expect(html).toContain('보완 요청');
+    expect(html).toContain('수정한 뒤 재제출할 수 있습니다.');
     expect(html).toContain('현재 revision');
     expect(html).toContain('id="submission-text"'); // #115 유형별 입력 재사용
     expect(html).toContain('id="resubmission-comment"');
@@ -316,6 +323,8 @@ describe('SubmissionChecklistView 선택 패널', () => {
     expect(html).toContain('제출이 승인되었습니다');
     expect(html).toContain('data-variant="approved"');
     expect(html).toContain('검토 시각');
+    expect(html).toContain('판정');
+    expect(html).toContain('승인');
   });
 
   it('최종 반려 선택 시 코멘트 읽기 전용이고 재제출 폼이 없다', () => {
@@ -325,6 +334,8 @@ describe('SubmissionChecklistView 선택 패널', () => {
     // Then
     expect(html).toContain('중복 제출로 최종 반려되었습니다.');
     expect(html).toContain('최종 반려된 제출은 재제출할 수 없습니다.');
+    expect(html).toContain('판정');
+    expect(html).toContain('반려');
     expect(html).not.toContain('<form');
     expect(html).not.toContain('id="submission-text"');
   });
@@ -338,6 +349,7 @@ describe('SubmissionChecklistView 선택 패널', () => {
       submission: submission({
         id: 'submission-plan',
         status: 'CHANGES_REQUESTED',
+        decision: 'CHANGES_REQUESTED',
         reviewComment: '파일을 교체해 주세요.',
         canResubmit: true,
       }),
