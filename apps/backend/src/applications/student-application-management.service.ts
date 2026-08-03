@@ -14,7 +14,6 @@ import type { UpdateStudentApplicationInput } from './domain/update-student-appl
 import {
   StudentApplicationManagementRepository,
   type OwnedStudentApplication,
-  type StudentApplicationActor,
   type StudentApplicationPolicy,
 } from './student-application-management.repository';
 
@@ -32,7 +31,6 @@ export interface StudentApplicationView {
 }
 
 interface StudentApplicationContext {
-  readonly student: StudentApplicationActor;
   readonly application: OwnedStudentApplication;
   readonly policy: StudentApplicationPolicy;
 }
@@ -117,7 +115,7 @@ export class StudentApplicationManagementService {
     if (!application) {
       throw this.error(ApplicationsErrorCode.APPLICATION_NOT_FOUND);
     }
-    return { student, application, policy };
+    return { application, policy };
   }
 
   private requireEditable(

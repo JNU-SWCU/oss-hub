@@ -31,11 +31,6 @@ import {
   updateMyApplication,
 } from './student-application-api';
 
-export {
-  ProgramApplyFormView,
-  ProgramApplySuccessView,
-} from './program-apply-views';
-
 type ReadyContext = Extract<ProgramApplyContext, { kind: 'ready' }>;
 type ProgramApplyPageState =
   | { readonly kind: 'loading' }
