@@ -6,13 +6,15 @@ describe('DeadlineDigestService', () => {
   const findUpcomingDeadlineMilestones = jest.fn();
   const findStaffRecipients = jest.fn();
   const findMissingSubmitters = jest.fn();
-  const recordNotification = jest.fn();
+  const claimNotification = jest.fn();
+  const completeNotification = jest.fn();
   const send: jest.MockedFunction<MailSender['send']> = jest.fn();
   const repository = {
     findUpcomingDeadlineMilestones,
     findStaffRecipients,
     findMissingSubmitters,
-    recordNotification,
+    claimNotification,
+    completeNotification,
   } as unknown as DeadlineDigestRepositoryPort;
   const mailSender: MailSender = { send };
   const service = new DeadlineDigestService(repository, mailSender);
@@ -29,7 +31,8 @@ describe('DeadlineDigestService', () => {
   beforeEach(() => {
     findUpcomingDeadlineMilestones.mockReset();
     findStaffRecipients.mockReset();
-    recordNotification.mockReset().mockResolvedValue(undefined);
+    claimNotification.mockReset().mockResolvedValue(true);
+    completeNotification.mockReset().mockResolvedValue(undefined);
     findMissingSubmitters.mockReset().mockResolvedValue(new Map());
     send.mockReset().mockResolvedValue(undefined);
   });
@@ -41,7 +44,7 @@ describe('DeadlineDigestService', () => {
 
     expect(findStaffRecipients).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
-    expect(recordNotification).not.toHaveBeenCalled();
+    expect(claimNotification).not.toHaveBeenCalled();
   });
 
   it('마감 임박 마일스톤이 있으면 각 교직원 수신자에게 발송하고 SENT를 기록한다', async () => {
@@ -57,13 +60,13 @@ describe('DeadlineDigestService', () => {
     expect(send).toHaveBeenCalledWith(
       expect.objectContaining({ to: 'a@example.com' }),
     );
-    expect(recordNotification).toHaveBeenCalledWith(
-      's1',
+    expect(completeNotification).toHaveBeenCalledWith(
+      'deadline-digest:2026-08-14:s1',
       'SENT',
       expect.any(Object),
     );
-    expect(recordNotification).toHaveBeenCalledWith(
-      's2',
+    expect(completeNotification).toHaveBeenCalledWith(
+      'deadline-digest:2026-08-14:s2',
       'SENT',
       expect.any(Object),
     );
@@ -129,15 +132,32 @@ describe('DeadlineDigestService', () => {
 
     await service.sendDeadlineDigests(now);
 
-    expect(recordNotification).toHaveBeenCalledWith(
-      's1',
+    expect(completeNotification).toHaveBeenCalledWith(
+      'deadline-digest:2026-08-14:s1',
       'FAILED',
       expect.objectContaining({ error: 'smtp down' }),
     );
-    expect(recordNotification).toHaveBeenCalledWith(
-      's2',
+    expect(completeNotification).toHaveBeenCalledWith(
+      'deadline-digest:2026-08-14:s2',
       'SENT',
       expect.any(Object),
+    );
+  });
+  it('same-day claimed digest is not sent again', async () => {
+    findUpcomingDeadlineMilestones.mockResolvedValue([milestone]);
+    findStaffRecipients.mockResolvedValue([
+      { id: 's1', notificationEmail: 'a@example.com' },
+    ]);
+    claimNotification.mockResolvedValue(false);
+
+    await service.sendDeadlineDigests(now);
+
+    expect(send).not.toHaveBeenCalled();
+    expect(completeNotification).not.toHaveBeenCalled();
+    expect(claimNotification).toHaveBeenCalledWith(
+      's1',
+      'deadline-digest:2026-08-14:s1',
+      { milestoneCount: 1 },
     );
   });
 });

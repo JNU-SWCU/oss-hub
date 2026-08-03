@@ -684,13 +684,14 @@ model Notification {
   userId String
   user   User   @relation(fields: [userId], references: [id])
 
-  type    String
-  payload Json
-  channel String
-  status  String
+  type           String
+  payload        Json
+  channel        String
+  status         String
+  idempotencyKey String?  @unique
 
   sentAt    DateTime?
-  createdAt DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
 }
