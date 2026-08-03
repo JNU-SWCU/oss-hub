@@ -22,6 +22,8 @@ const service = new ApplicationsService(new ApplicationsRepository(prisma));
 const ACTOR_ID = 'synthetic-decision-actor';
 const APPLICANT_ID = 'synthetic-decision-applicant';
 const TEAM_ID = 'synthetic-decision-team';
+const CREATE_PROGRAM_ID = 'synthetic-create-program';
+const CREATE_TEAM_ID = 'synthetic-create-team';
 const APPLICATION_IDS = [
   'synthetic-enabled-application',
   'synthetic-disabled-application',
@@ -89,12 +91,28 @@ describe('ApplicationsService integration', () => {
       where: { aggregateId: { in: [...APPLICATION_IDS] } },
     });
     await prisma.application.deleteMany({
-      where: { id: { in: [...APPLICATION_IDS] } },
+      where: {
+        OR: [
+          { id: { in: [...APPLICATION_IDS] } },
+          { programId: CREATE_PROGRAM_ID },
+        ],
+      },
     });
-    await prisma.teamMember.deleteMany({ where: { teamId: TEAM_ID } });
-    await prisma.team.deleteMany({ where: { id: TEAM_ID } });
+    await prisma.teamMember.deleteMany({
+      where: { teamId: { in: [TEAM_ID, CREATE_TEAM_ID] } },
+    });
+    await prisma.team.deleteMany({
+      where: { id: { in: [TEAM_ID, CREATE_TEAM_ID] } },
+    });
     await prisma.program.deleteMany({
-      where: { id: { in: APPLICATION_IDS.map((id) => `${id}-program`) } },
+      where: {
+        id: {
+          in: [
+            ...APPLICATION_IDS.map((id) => `${id}-program`),
+            CREATE_PROGRAM_ID,
+          ],
+        },
+      },
     });
   });
 
@@ -105,6 +123,84 @@ describe('ApplicationsService integration', () => {
     await prisma.$disconnect();
   });
 
+  it('프로그램 최소 인원이 동시에 증가하면 최신 값으로 팀 신청을 거절한다', async () => {
+    // Given
+    await prisma.program.create({
+      data: {
+        id: CREATE_PROGRAM_ID,
+        name: 'synthetic-create-program',
+        organizer: 'synthetic-organizer',
+        category: ProgramCategory.CAPSTONE,
+        applicationTemplateKey: 'synthetic-template',
+        applicationTemplateVersion: 1,
+        applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
+        applicationEndAt: new Date('2026-12-31T00:00:00.000Z'),
+        description: 'synthetic-description',
+        teamMinSize: 2,
+        teamMaxSize: 4,
+      },
+    });
+    await prisma.team.create({
+      data: {
+        id: CREATE_TEAM_ID,
+        programId: CREATE_PROGRAM_ID,
+        name: 'synthetic-create-team',
+        joinCodeDigest: 'synthetic-create-team-code-digest',
+        leaderId: APPLICANT_ID,
+        members: {
+          create: [{ userId: APPLICANT_ID }, { userId: ACTOR_ID }],
+        },
+      },
+    });
+    let releaseProgramUpdate: (() => void) | undefined;
+    const programUpdateReleased = new Promise<void>((resolve) => {
+      releaseProgramUpdate = resolve;
+    });
+    let markProgramLocked: (() => void) | undefined;
+    const programLocked = new Promise<void>((resolve) => {
+      markProgramLocked = resolve;
+    });
+    const programUpdate = prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`
+        SELECT id FROM "Program" WHERE id = ${CREATE_PROGRAM_ID} FOR UPDATE
+      `;
+      markProgramLocked?.();
+      await programUpdateReleased;
+      await transaction.program.update({
+        where: { id: CREATE_PROGRAM_ID },
+        data: { teamMinSize: 3 },
+      });
+    });
+    await programLocked;
+
+    // When
+    const application = service.create(
+      8_000_000_000_002n,
+      CREATE_PROGRAM_ID,
+      {
+        answers: { title: '팀 제목', summary: '팀 요약' },
+        teamId: CREATE_TEAM_ID,
+        applicationTemplateVersion: 1,
+        isRepositoryPublicationPlanned: true,
+      },
+      new Date('2026-07-15T00:00:00.000Z'),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    releaseProgramUpdate?.();
+    await programUpdate;
+
+    // Then
+    await expect(application).rejects.toMatchObject({
+      errorCode: {
+        code: ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET,
+        status: 422,
+      },
+      extensions: { memberCount: 2, teamMinSize: 3 },
+    });
+    await expect(
+      prisma.application.count({ where: { programId: CREATE_PROGRAM_ID } }),
+    ).resolves.toBe(0);
+  });
   it('nullable teamId 신청을 승인하면 같은 트랜잭션에 outbox를 남긴다', async () => {
     // Given
     const applicationId = APPLICATION_IDS[0];

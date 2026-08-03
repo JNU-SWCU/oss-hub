@@ -41,8 +41,10 @@ type ApplicationWithProgram = PrismaTypes.ApplicationGetPayload<{
 
 type ApplicationDatabase = Pick<
   PrismaTypes.TransactionClient,
-  'user' | 'program' | 'team' | 'application'
+  'user' | 'program' | 'team' | 'application' | '$queryRaw'
 >;
+
+type LockedProgramRow = Readonly<{ id: string }>;
 
 export interface ApplicationsTransactionStore {
   findApplicationById(
@@ -183,6 +185,7 @@ export interface StaffDashboardSummary {
 }
 
 export interface ApplicationCreateStore {
+  lockProgramForApply(programId: string): Promise<boolean>;
   findTeamForApply(
     teamId: string,
     programId: string,
@@ -270,6 +273,13 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
 
 class PrismaApplicationCreateStore implements ApplicationCreateStore {
   constructor(private readonly database: ApplicationDatabase) {}
+
+  async lockProgramForApply(programId: string): Promise<boolean> {
+    const rows = await this.database.$queryRaw<readonly LockedProgramRow[]>(
+      Prisma.sql`SELECT id FROM "Program" WHERE id = ${programId} FOR UPDATE`,
+    );
+    return rows.length === 1;
+  }
 
   async findTeamForApply(
     teamId: string,

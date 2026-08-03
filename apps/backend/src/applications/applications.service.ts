@@ -114,6 +114,10 @@ export class ApplicationsService {
 
     try {
       return await this.repository.withCreateTransaction(async (store) => {
+        const programLocked = await store.lockProgramForApply(programId);
+        if (!programLocked) {
+          throw this.error(ApplicationsErrorCode.PROGRAM_NOT_FOUND);
+        }
         if (teamId !== null) {
           const team = await store.findTeamForApply(
             teamId,

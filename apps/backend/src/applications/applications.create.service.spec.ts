@@ -60,6 +60,7 @@ function buildService(overrides: {
   });
 
   const store: ApplicationCreateStore = {
+    lockProgramForApply: jest.fn().mockResolvedValue(true),
     findTeamForApply: jest.fn().mockResolvedValue(null),
     findPersonalDuplicate: jest.fn().mockResolvedValue(false),
     findTeamDuplicate: jest.fn().mockResolvedValue(false),
