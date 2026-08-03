@@ -3,7 +3,7 @@
 import { act, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ApplicationConfirmationDialog } from './application-confirmation-dialog';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -13,19 +13,20 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 
 function ApplicationConfirmationDialogHarness() {
   const [open, setOpen] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const returnFocusRef = useRef<HTMLButtonElement>(null);
 
   return (
     <>
-      <button ref={returnFocusRef} type="button">
+      <button ref={returnFocusRef} type="button" disabled={submitting}>
         수정 내용 저장
       </button>
       {open ? (
         <ApplicationConfirmationDialog
           kind="save"
-          submitting={false}
+          submitting={submitting}
           onClose={() => setOpen(false)}
-          onConfirm={vi.fn()}
+          onConfirm={() => setSubmitting(true)}
           returnFocusRef={returnFocusRef}
         />
       ) : null}
@@ -106,5 +107,20 @@ describe('ApplicationConfirmationDialog', () => {
     // Then
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
     expect(document.activeElement).toBe(returnButton);
+  });
+  it('확인 중에는 실제 AlertDialog를 열어 두고 중복 확정을 막는다', async () => {
+    await act(async () =>
+      root.render(<ApplicationConfirmationDialogHarness />),
+    );
+
+    const confirmButton = document
+      .querySelector('[role="alertdialog"]')
+      ?.querySelector<HTMLButtonElement>('button:last-child');
+    if (!confirmButton) throw new TypeError('Confirm button not found');
+    await act(async () => confirmButton.click());
+
+    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+    expect(getButton('처리 중…').disabled).toBe(true);
+    expect(getButton('돌아가서 확인').disabled).toBe(true);
   });
 });

@@ -30,8 +30,12 @@ export function ApplicationConfirmationDialog({
       ? '저장한 내용은 담당자의 신청 검토 화면에 즉시 반영됩니다.'
       : '신청 기간 내 승인 대기 상태에서는 수정하거나 취소할 수 있지만, 승인된 이후에는 수정 및 취소가 불가능합니다. 제출 내용을 다시 확인해 주세요.';
 
+  function handleOpenChange(nextOpen: boolean): void {
+    if (!nextOpen && !submitting) setOpen(false);
+  }
+
   return (
-    <AlertDialog.Root open={open} onOpenChange={setOpen}>
+    <AlertDialog.Root open={open} onOpenChange={handleOpenChange}>
       <AlertDialog.Overlay className="fixed inset-0 z-50 bg-foreground/35" />
       <AlertDialog.Content
         onCloseAutoFocus={(event) => {
@@ -57,22 +61,20 @@ export function ApplicationConfirmationDialog({
                   돌아가서 확인
                 </Button>
               </AlertDialog.Cancel>
-              <AlertDialog.Action asChild>
-                <Button
-                  type="button"
-                  variant={isCancellation ? 'destructive' : 'default'}
-                  disabled={submitting}
-                  onClick={onConfirm}
-                >
-                  {submitting
-                    ? '처리 중…'
-                    : isCancellation
-                      ? '신청 취소'
-                      : kind === 'save'
-                        ? '수정 내용 저장'
-                        : '신청서 제출'}
-                </Button>
-              </AlertDialog.Action>
+              <Button
+                type="button"
+                variant={isCancellation ? 'destructive' : 'default'}
+                disabled={submitting}
+                onClick={onConfirm}
+              >
+                {submitting
+                  ? '처리 중…'
+                  : isCancellation
+                    ? '신청 취소'
+                    : kind === 'save'
+                      ? '수정 내용 저장'
+                      : '신청서 제출'}
+              </Button>
             </div>
           </CardContent>
         </Card>
