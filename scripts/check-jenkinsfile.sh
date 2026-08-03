@@ -404,32 +404,32 @@ require_status_smoke_contract() {
   local -a rollout_commands=(
     "$rollout_anchor"
     "require_status 200 GET http://127.0.0.1:8081/api/v1/health $rollout_retry"
-    "require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files $rollout_retry"
+    "require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files $rollout_retry"
     "require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files $rollout_retry"
-    "require_status 401 GET http://127.0.0.1:8081/api/v1/Submission-Files $rollout_retry"
+    "require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files $rollout_retry"
     "require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files $rollout_retry"
     "require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 $rollout_retry"
     "require_status 200 GET https://54.116.116.174/ $rollout_retry $tls_resolve"
     "require_status 200 GET https://54.116.116.174/api/v1/health $rollout_retry $tls_resolve"
-    "require_status 401 GET https://54.116.116.174/api/v1/submission-files $rollout_retry $tls_resolve"
+    "require_status 404 GET https://54.116.116.174/api/v1/submission-files $rollout_retry $tls_resolve"
     "require_status 401 POST https://54.116.116.174/api/v1/submission-files $rollout_retry $tls_resolve"
-    "require_status 401 GET https://54.116.116.174/api/v1/Submission-Files $rollout_retry $tls_resolve"
+    "require_status 404 GET https://54.116.116.174/api/v1/Submission-Files $rollout_retry $tls_resolve"
     "require_status 401 POST https://54.116.116.174/api/v1/Submission-Files $rollout_retry $tls_resolve"
     "require_status 401 GET https://54.116.116.174/api/v1/submission-files/1 $rollout_retry $tls_resolve"
   )
   local -a rollback_commands=(
     "$rollback_anchor"
     'require_status 200 GET http://127.0.0.1:8081/api/v1/health'
-    'require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files'
+    'require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files'
     'require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files'
-    'require_status 401 GET http://127.0.0.1:8081/api/v1/Submission-Files'
+    'require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files'
     'require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files'
     'require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1'
     "require_status 200 GET https://54.116.116.174/ $tls_resolve"
     "require_status 200 GET https://54.116.116.174/api/v1/health $tls_resolve"
-    "require_status 401 GET https://54.116.116.174/api/v1/submission-files $tls_resolve"
+    "require_status 404 GET https://54.116.116.174/api/v1/submission-files $tls_resolve"
     "require_status 401 POST https://54.116.116.174/api/v1/submission-files $tls_resolve"
-    "require_status 401 GET https://54.116.116.174/api/v1/Submission-Files $tls_resolve"
+    "require_status 404 GET https://54.116.116.174/api/v1/Submission-Files $tls_resolve"
     "require_status 401 POST https://54.116.116.174/api/v1/Submission-Files $tls_resolve"
     "require_status 401 GET https://54.116.116.174/api/v1/submission-files/1 $tls_resolve"
   )
@@ -528,16 +528,16 @@ require_noop_nginx_drift_contract() {
   local -a commands=(
     "$anchor"
     "require_status 200 GET http://127.0.0.1:8081/api/v1/health $rollout_retry"
-    "require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files $rollout_retry"
+    "require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files $rollout_retry"
     "require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files $rollout_retry"
-    "require_status 401 GET http://127.0.0.1:8081/api/v1/Submission-Files $rollout_retry"
+    "require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files $rollout_retry"
     "require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files $rollout_retry"
     "require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 $rollout_retry"
     "require_status 200 GET https://54.116.116.174/ $rollout_retry $tls_resolve"
     "require_status 200 GET https://54.116.116.174/api/v1/health $rollout_retry $tls_resolve"
-    "require_status 401 GET https://54.116.116.174/api/v1/submission-files $rollout_retry $tls_resolve"
+    "require_status 404 GET https://54.116.116.174/api/v1/submission-files $rollout_retry $tls_resolve"
     "require_status 401 POST https://54.116.116.174/api/v1/submission-files $rollout_retry $tls_resolve"
-    "require_status 401 GET https://54.116.116.174/api/v1/Submission-Files $rollout_retry $tls_resolve"
+    "require_status 404 GET https://54.116.116.174/api/v1/Submission-Files $rollout_retry $tls_resolve"
     "require_status 401 POST https://54.116.116.174/api/v1/Submission-Files $rollout_retry $tls_resolve"
     "require_status 401 GET https://54.116.116.174/api/v1/submission-files/1 $rollout_retry $tls_resolve"
   )
