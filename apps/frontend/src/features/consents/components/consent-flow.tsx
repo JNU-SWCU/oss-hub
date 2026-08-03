@@ -295,10 +295,23 @@ export function ConsentFlow() {
     행으로 바뀌는 폭은 `CONSENT_POLICY_INLINE_BREAKPOINT_PX`와 **같은 값**이어야 한다.
     Tailwind는 소스의 글자를 그대로 읽으므로 상수를 끼워 넣을 수 없어 리터럴로 적고,
     두 값이 갈라지지 않는지는 `consent-policy-breakpoint.test.ts`가 지킨다.
+
+    불변식 셋(#522).
+    1) **세로로 두 기둥은 서로 독립이다.** 행이 남은 높이를 통째로 받고(`flex-1`),
+       왼쪽은 그 안에서 자기만 가운데 정렬한다. 예전에는 무대(`main`)의
+       `justify-center`가 두 기둥을 **합친 덩어리**를 가운데 맞췄기 때문에, 전문을
+       열어 오른쪽이 길어지면 왼쪽 제목·버튼이 2560에서 209px 밀려 올라갔다.
+       오른쪽은 stretch로 행 높이를 받을 뿐 행 높이를 만들지 않는다.
+    2) 두 기둥의 합에 상한(1576 = 672 + 96 + 808)을 두고 가운데로 모은다. 2560에서
+       오른쪽에만 1072px가 몰리던 것이 좌우로 갈라진다.
+    3) 열 간격은 상한이 물리기 시작하는 폭부터만 벌어진다 — 1280·1440에서는
+       `100vw - 1392px`가 3rem 아래라 예전 48px 그대로이고, 1488부터 96px로 선다.
+       그 사이 구간에서는 늘어난 폭을 간격이 그대로 먹어 오른쪽 기둥이 576px로
+       유지된다(1440 실측값을 깎지 않는다).
   */
   return (
-    <div className="flex w-full flex-col gap-8 min-[1280px]:flex-row min-[1280px]:items-start min-[1280px]:gap-12">
-      <div className="flex w-full max-w-2xl flex-none flex-col gap-8">
+    <div className="flex w-full flex-col gap-8 min-[1280px]:mx-auto min-[1280px]:max-w-[1576px] min-[1280px]:flex-1 min-[1280px]:flex-row min-[1280px]:gap-[clamp(3rem,100vw_-_1392px,6rem)]">
+      <div className="flex w-full max-w-2xl flex-none flex-col gap-8 min-[1280px]:justify-center">
         <SignupEyebrow>STEP 1 / 3</SignupEyebrow>
         <SignupTitle>개인정보·활동 동의</SignupTitle>
         <SignupLede>
