@@ -6,6 +6,7 @@ import {
   Prisma,
   RepositoryProvisionJobStatus,
   Role,
+  ProgramLifecycle,
   type ProgramCategory,
 } from '@prisma/client';
 import type {
@@ -44,7 +45,7 @@ type ApplicationDatabase = Pick<
   'user' | 'program' | 'team' | 'application' | '$queryRaw'
 >;
 
-type LockedProgramRow = Readonly<{ id: string }>;
+type LockedProgramRow = Readonly<{ lifecycle: ProgramLifecycle }>;
 
 export interface ApplicationsTransactionStore {
   findApplicationById(
@@ -72,6 +73,7 @@ export interface ApplicationStudentActor {
 
 export interface ApplyProgramRecord {
   readonly id: string;
+  readonly lifecycle?: ProgramLifecycle;
   readonly category: ProgramCategory;
   readonly applicationTemplateVersion: number;
   readonly applicationStartAt: Date;
@@ -185,7 +187,7 @@ export interface StaffDashboardSummary {
 }
 
 export interface ApplicationCreateStore {
-  lockProgramForApply(programId: string): Promise<boolean>;
+  lockProgramForApply(programId: string): Promise<ProgramLifecycle | null>;
   findTeamForApply(
     teamId: string,
     programId: string,
@@ -274,11 +276,13 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
 class PrismaApplicationCreateStore implements ApplicationCreateStore {
   constructor(private readonly database: ApplicationDatabase) {}
 
-  async lockProgramForApply(programId: string): Promise<boolean> {
+  async lockProgramForApply(
+    programId: string,
+  ): Promise<ProgramLifecycle | null> {
     const rows = await this.database.$queryRaw<readonly LockedProgramRow[]>(
-      Prisma.sql`SELECT id FROM "Program" WHERE id = ${programId} FOR UPDATE`,
+      Prisma.sql`SELECT "lifecycle" FROM "Program" WHERE id = ${programId} FOR UPDATE`,
     );
-    return rows.length === 1;
+    return rows[0]?.lifecycle ?? null;
   }
 
   async findTeamForApply(
@@ -415,6 +419,7 @@ export class ApplicationsRepository {
       where: { id: programId },
       select: {
         id: true,
+        lifecycle: true,
         category: true,
         applicationTemplateVersion: true,
         applicationStartAt: true,

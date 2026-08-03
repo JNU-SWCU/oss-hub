@@ -1,4 +1,8 @@
-import { ApplicationStatus, ProgramCategory } from '@prisma/client';
+import {
+  ApplicationStatus,
+  ProgramCategory,
+  ProgramLifecycle,
+} from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import {
   ApplicationDuplicateError,
@@ -23,6 +27,7 @@ const STUDENT: ApplicationStudentActor = {
 const OPEN_PROGRAM: ApplyProgramRecord = {
   id: PROGRAM_ID,
   category: ProgramCategory.BASIC,
+  lifecycle: ProgramLifecycle.PUBLISHED,
   applicationTemplateVersion: 1,
   applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
   applicationEndAt: new Date('2026-07-31T23:59:59.000Z'),
@@ -96,6 +101,28 @@ function buildService(overrides: {
 }
 
 describe('ApplicationsService.create', () => {
+  it('내린 프로그램 신청을 전용 오류로 차단한다', async () => {
+    const { service, createApplication } = buildService({
+      program: { ...OPEN_PROGRAM, lifecycle: ProgramLifecycle.ARCHIVED },
+    });
+
+    await expect(
+      service.create(
+        GITHUB_ID,
+        PROGRAM_ID,
+        {
+          answers: { title: '제목', summary: '요약' },
+          teamId: null,
+          applicationTemplateVersion: 1,
+          isRepositoryPublicationPlanned: false,
+        },
+        NOW,
+      ),
+    ).rejects.toMatchObject({
+      errorCode: { code: ApplicationsErrorCode.PROGRAM_ARCHIVED, status: 422 },
+    });
+    expect(createApplication).not.toHaveBeenCalled();
+  });
   it('개인 신청을 SUBMITTED 로 생성하고 서버 applicantName 을 주입한다', async () => {
     const { service, createApplication } = buildService({});
 

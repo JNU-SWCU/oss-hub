@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuthModule } from '../auth/auth.module';
 import { CollectionModule } from '../collection/collection.module';
 import { RepositoriesModule } from '../repositories/repositories.module';
@@ -12,6 +13,7 @@ import { ProgramActivityService } from './program-activity.service';
 import { ProgramEditorController } from './program-editor.controller';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
+import { ProgramLifecycleService } from './program-lifecycle.service';
 import { ProgramTeamsController } from './program-teams.controller';
 import { ProgramTeamsRepository } from './program-teams.repository';
 import { ProgramTeamsService } from './program-teams.service';
@@ -25,7 +27,7 @@ import { ProgramsService } from './programs.service';
 import { StudentDashboardService } from './student-dashboard.service';
 
 @Module({
-  imports: [AuthModule, CollectionModule, RepositoriesModule],
+  imports: [AuthModule, AuditLogModule, CollectionModule, RepositoriesModule],
   controllers: [
     // static sibling first — programs/application-templates before programs/:id
     ApplicationTemplatesController,
@@ -50,6 +52,7 @@ import { StudentDashboardService } from './student-dashboard.service';
     StudentDashboardService,
     ProgramEditorService,
     ProgramEditorRepository,
+    ProgramLifecycleService,
     ProgramTeamsService,
     ProgramTeamsRepository,
   ],

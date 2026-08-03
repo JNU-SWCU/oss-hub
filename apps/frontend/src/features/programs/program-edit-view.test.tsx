@@ -16,6 +16,7 @@ const editableProgram: EditableProgram = {
   name: 'OSS 경진대회',
   organizer: 'SW중심대학사업단',
   category: 'OSS_CONTEST',
+  lifecycle: 'PUBLISHED',
   applicationTemplateKey: 'oss-contest',
   applicationTemplateVersion: 1,
   applicationCount: 3,
