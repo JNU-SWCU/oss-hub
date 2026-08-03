@@ -101,6 +101,28 @@ function buildService(overrides: {
 }
 
 describe('ApplicationsService.create', () => {
+  it('내린 프로그램 신청을 전용 오류로 차단한다', async () => {
+    const { service, createApplication } = buildService({
+      program: { ...OPEN_PROGRAM, lifecycle: ProgramLifecycle.ARCHIVED },
+    });
+
+    await expect(
+      service.create(
+        GITHUB_ID,
+        PROGRAM_ID,
+        {
+          answers: { title: '제목', summary: '요약' },
+          teamId: null,
+          applicationTemplateVersion: 1,
+          isRepositoryPublicationPlanned: false,
+        },
+        NOW,
+      ),
+    ).rejects.toMatchObject({
+      errorCode: { code: ApplicationsErrorCode.PROGRAM_ARCHIVED, status: 422 },
+    });
+    expect(createApplication).not.toHaveBeenCalled();
+  });
   it('개인 신청을 SUBMITTED 로 생성하고 서버 applicantName 을 주입한다', async () => {
     const { service, createApplication } = buildService({});
 
