@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { OnboardingProgress, type OnboardingStep } from './onboarding-progress';
+import { SignupStarfield } from './signup-starfield';
 
 /**
  * 가입 동선 네 화면(`/signup` · `/consent` · `/onboarding/role` · `/onboarding/profile`)의
@@ -26,11 +27,17 @@ export function SignupStage({
   step,
   children,
   className,
+  contentClassName,
 }: {
   /** 3단계 중 몇 번째인가. `/signup`은 아직 단계 밖이라 넘기지 않는다. */
   readonly step?: OnboardingStep;
   readonly children: ReactNode;
   readonly className?: string;
+  /**
+   * 본문 기둥의 폭 제한을 화면이 넓힐 때 쓴다. 기본은 한 기둥(`max-w-2xl`)이고,
+   * `/consent`만 전문을 오른쪽에 나란히 펼치려고 이 제한을 푼다(#517).
+   */
+  readonly contentClassName?: string;
 }) {
   return (
     <div
@@ -43,16 +50,19 @@ export function SignupStage({
         className,
       )}
     >
-      {/* 랜딩 성단의 초록 광원을 한 겹만 흉내낸다 — 별을 그리지 않아도 바탕이
-          검정 단색으로 죽지 않는다. 장식이므로 스크린 리더에서 감춘다. */}
+      {/* 랜딩 성단의 초록 광원을 한 겹만 흉내낸다. 광원 자리를 오른쪽(78%)에서
+          가운데로 옮겼다 — 랜딩은 그래프가 오른쪽에 있어 그쪽이 밝지만, 가입 화면에는
+          그 그래프가 없어 한쪽만 밝으면 화면이 기울어 보인다. 장식이므로 스크린
+          리더에서 감춘다. */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(60rem 40rem at 78% 38%, color-mix(in oklch, var(--cosmos-repository) 13%, transparent), transparent 70%)',
+            'radial-gradient(70rem 50rem at 50% 42%, color-mix(in oklch, var(--cosmos-repository) 11%, transparent), transparent 70%)',
         }}
       />
+      <SignupStarfield />
 
       <OnboardingProgress current={step} />
 
@@ -61,7 +71,10 @@ export function SignupStage({
           어긋날 자리 자체가 없어진다. */}
       <main
         id="signup-main"
-        className="relative z-10 flex w-full max-w-2xl flex-col justify-center gap-8 py-16 pr-6 sm:pr-12"
+        className={cn(
+          'relative z-10 flex w-full max-w-2xl flex-col justify-center gap-8 py-16 pr-6 sm:pr-12',
+          contentClassName,
+        )}
       >
         {children}
       </main>

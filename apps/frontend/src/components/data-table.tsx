@@ -48,14 +48,9 @@ function DataTable<TRow>({
   const colSpan = columns.length || 1;
 
   return (
-    // `min-w-0`이 없으면 표를 감싼 이 상자가 grid/flex 항목일 때 `min-width: auto`가
-    // 표의 min-content(모든 열을 펼친 폭)로 굳는다. 안쪽 `overflow-x-auto`는 도움이
-    // 안 된다 — 스크롤 상자는 저 안쪽이고, 줄어들어야 하는 건 항목인 이 상자다.
-    // 그 결과 트랙이 표 폭으로 벌어져 화면 전체가 가로로 밀렸다(신청자 목록이
-    // 375·768·1440 어디서든 1170px로 고정되던 원인).
     <div
       data-slot="data-table"
-      className={cn('w-full min-w-0', className)}
+      className={cn('min-w-0 w-full', className)}
       {...props}
     >
       <Table>
