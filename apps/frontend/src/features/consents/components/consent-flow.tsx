@@ -291,9 +291,13 @@ export function ConsentFlow() {
     두 기둥이다. 왼쪽은 동의 항목, 오른쪽은 펼친 전문(#517). 왼쪽 폭이 `max-w-2xl`로
     고정이라 전문을 펼쳐도 항목이 움직이지 않는다. 닫혀 있는 동안 오른쪽 기둥은
     아예 그리지 않는다 — 빈 자리에 안내 문구를 두지 않기로 했다.
+
+    행으로 바뀌는 폭은 `CONSENT_POLICY_INLINE_BREAKPOINT_PX`와 **같은 값**이어야 한다.
+    Tailwind는 소스의 글자를 그대로 읽으므로 상수를 끼워 넣을 수 없어 리터럴로 적고,
+    두 값이 갈라지지 않는지는 `consent-policy-breakpoint.test.ts`가 지킨다.
   */
   return (
-    <div className="flex w-full flex-col gap-8 lg:flex-row lg:items-start lg:gap-12">
+    <div className="flex w-full flex-col gap-8 min-[1280px]:flex-row min-[1280px]:items-start min-[1280px]:gap-12">
       <div className="flex w-full max-w-2xl flex-none flex-col gap-8">
         <SignupEyebrow>STEP 1 / 3</SignupEyebrow>
         <SignupTitle>개인정보·활동 동의</SignupTitle>

@@ -13,8 +13,9 @@ export default function ConsentPage() {
     <AuthGate>
       {/* 이 화면만 본문 폭 제한을 푼다 — 넓은 화면에서 약관 전문이 동의 항목
           오른쪽에 나란히 펼쳐지기 때문이다(#517). 항목 기둥 자체는 `ConsentFlow`
-          안에서 `max-w-2xl`로 남는다. */}
-      <SignupStage step={1} contentClassName="lg:max-w-none">
+          안에서 `max-w-2xl`로 남는다. 폭 값은 `CONSENT_POLICY_INLINE_BREAKPOINT_PX`와
+          같아야 한다 — `consent-policy-breakpoint.test.ts`가 지킨다. */}
+      <SignupStage step={1} contentClassName="min-[1280px]:max-w-none">
         <ConsentFlow />
       </SignupStage>
     </AuthGate>
