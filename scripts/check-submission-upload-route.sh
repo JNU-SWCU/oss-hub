@@ -59,7 +59,7 @@ class Node:
     children: list[Node] | None
 
 
-MIN_UPLOAD_BODY_BYTES = 50 * 1024 * 1024
+MIN_UPLOAD_BODY_BYTES = 5 * 1024 * 1024
 
 
 def _at_least_bytes(value: str, minimum: int) -> bool:
@@ -338,7 +338,7 @@ def main() -> None:
         if blocking_returns(selected, top_level_only=False):
             fail(f'{path} selects {describe(selected)} which blocks backend access')
 
-    # 업로드 본문 한도. nginx 기본값 1m 이면 backend 가 허용하는 50MiB 제출이 413 으로
+    # 업로드 본문 한도. nginx 기본값 1m 이면 backend 가 허용하는 5MB 제출이 413 으로
     # 죽는다 — 차단 return 이 없어도 실질적으로 업로드가 막히므로 계약으로 고정한다.
     body_size = next(
         (
@@ -371,7 +371,7 @@ def main() -> None:
     print(
         f'{PREFIX}: ok '
         f'(proxied={len(MUST_PROXY)} paths incl. case variants, '
-        f'unblocked={len(MUST_NOT_BLOCK)} siblings, /api/ intact, upload body >= 50MiB, location-selection parse)'
+        f'unblocked={len(MUST_NOT_BLOCK)} siblings, /api/ intact, upload body >= 5MB, location-selection parse)'
     )
 
 

@@ -67,7 +67,7 @@ QA에서 먼저 건드리면 뒤 시나리오가 막히므로 **마지막에 실
 | ST6 | 최소 정원 미달 팀 → 교 | 정원 충족 시에만 신청 생성 | 미달 시 `APP_019` 차단 |
 | ST7 | 교 양식 변경 → 열린 신청 | 최신 버전·유효 답으로 접수 | 구버전·필드 오류·개인형에 팀 지정·타 팀 지정 → `APP_016/015/013/014` |
 | ST8 | 교 프로그램·마일스톤 편집 | 신청 전 유효 기간 변경 반영 | 신청 후 유형 변경·역전 기간·마감 역전·제출 있는 마일스톤 삭제 → `PRG_006~010` |
-| ST9 | 학 파일 업로드 → 교 다운로드 | `PENDING→ATTACHED`, 보존 만료 후 `DELETE_PENDING→DELETED` | 입력·형식·50MiB 초과·종료일 없음·storage 장애 → `SUB_017~021` |
+| ST9 | 학 파일 업로드 → 교 다운로드 | `PENDING→ATTACHED`, 보존 만료 후 `DELETE_PENDING→DELETED` | 입력·형식·5MB 초과·종료일 없음·storage 장애 → `SUB_017~021` |
 | ST10 | 학 릴리스 제출 → 교 | 타입·연결 저장소 tag/release URL 일치 | 타입 불일치·저장소 미준비·타 저장소 URL → `SUB_007/008/009` |
 | ST11 | 학 재제출 ↔ 교 동시 심사 | 최신 revision 기준 단일 Review | 학생 선행 `SUB_003`, 타 교직원 선행 `SUB_004`, 코멘트 없음 `SUB_005` |
 | ST12 | 승인 → worker → 팀원 | Outbox `PENDING→PROCESSING→PROCESSED`, job·초대 성공 | `FAILED_RETRYABLE` 후 재시도, `FAILED_FINAL` terminal |

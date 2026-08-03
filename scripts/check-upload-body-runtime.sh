@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # 실행 중 ingress 가 제출 파일 업로드 본문을 실제로 통과시키는지 확인한다.
 #
-# nginx 의 client_max_body_size 기본값은 1m 이다. 저장소 설정에 한도를 적어두어도
+# nginx 의 client_max_body_size 기본값은 1m 이고 backend 한도는 5MB 다.
+# 프로브는 그 사이(4MB)를 쏴서 기본값 회귀와 과소 설정을 함께 잡는다. 저장소 설정에 한도를 적어두어도
 # 실행 중 컨테이너가 옛 설정을 서빙하면 1MB 를 넘는 제출이 backend 에 닿기도 전에
 # 413 으로 죽는다. 저장소 파일만 읽는 검사로는 이 드리프트를 증명할 수 없다(ADR-002).
 #
@@ -19,7 +20,7 @@ fi
 url=$1
 shift
 
-probe_bytes=${UPLOAD_BODY_PROBE_BYTES:-2097152}
+probe_bytes=${UPLOAD_BODY_PROBE_BYTES:-4194304}
 probe_file=$(mktemp)
 trap 'rm -f "$probe_file"' EXIT
 head -c "$probe_bytes" /dev/zero >"$probe_file"
