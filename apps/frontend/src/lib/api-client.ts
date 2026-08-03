@@ -67,7 +67,14 @@ export async function apiClient<T>(
   const response = await fetch(target, init);
 
   if (response.ok) {
-    return response.json() as Promise<T>;
+    // 본문 없는 성공 응답은 `null`로 읽는다. Nest는 handler가 `null`을 돌려주면
+    // 본문을 아예 붙이지 않고 200을 보내는데(`role-requests/me`가 그렇다),
+    // 그 응답에 `response.json()`을 걸면 `SyntaxError`로 거절된다. 호출부는 그
+    // 거절을 조회 실패로 읽어 화면 전체를 오류로 접었다 — 역할 요청이 아직 없는
+    // 신규 가입자는 첫 화면에서 더 갈 곳이 없었다. `null`을 정상값으로 기대하는
+    // 쪽(`RoleRequest | null`)이 이미 있으므로 여기서 그 형태로 맞춘다.
+    const body = await response.text();
+    return (body.length === 0 ? null : JSON.parse(body)) as T;
   }
 
   const body: unknown = await response.json().catch(() => undefined);
