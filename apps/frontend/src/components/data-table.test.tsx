@@ -53,4 +53,22 @@ describe('DataTable', () => {
     expect(html).toContain('불러오는 중입니다.');
     expect(html).not.toContain('홍길동');
   });
+
+  it('applies layout classes without turning rows into controls', () => {
+    const html = renderToStaticMarkup(
+      <DataTable
+        columns={columns}
+        data={rows}
+        rowKey={(row) => row.id}
+        className="[&_tbody_tr]:relative"
+      />,
+    );
+
+    expect(html).toMatch(
+      /<div[^>]*data-slot="data-table"[^>]*class="[^"]*min-w-0[^"]*\[&amp;_tbody_tr\]:relative[^"]*"/,
+    );
+    expect(html).not.toMatch(/<tr[^>]*class="[^"]*relative[^"]*"/);
+    expect(html).not.toContain('tabindex=');
+    expect(html).not.toContain('aria-label="홍길동 열기"');
+  });
 });
