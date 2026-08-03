@@ -368,12 +368,18 @@ export function resetLocalReviewRoleSelection(): void {
 
 /**
  * 역할 선택 결과. 요청 본문의 `selectedRole`(features/roles/api.ts `selectRole`)에
- * 따라 갈린다 — 학생은 역할이 즉시 확정돼 대시보드로, 교직원은 승인 대기 상태가
- * 되어 `/onboarding/pending`으로 간다. 화면은 `redirectTo`로 이동한다.
+ * 따라 갈린다 — 학생은 역할이 즉시 확정되고, 교직원은 승인 대기 요청만 생긴다.
+ * 화면은 `redirectTo`로 이동한다.
  *
- * 두 선택 모두 위 `selectedRoleInReview`에 남아 다음 단계로 이어진다. 학생은
- * 역할 홈(`/dashboard`)에 도착하지만 프로필이 비어 있어 `RoleGate`가 곧바로
- * `/onboarding/profile`로 넘긴다 — 학번을 묻는 자리가 거기다.
+ * **두 역할 모두 `/onboarding/profile`로 간다.** 역할이 정해졌다고 가입이 끝난 것이
+ * 아니고, 교직원도 학과가 필수라(백엔드 `users/user-profile-policy.ts`) 남은 단계가
+ * 프로필이기 때문이다. 백엔드 `roles.service.ts`의 `selectStaff`와 같은 값을
+ * 유지한다 — 예전에 교직원만 `/onboarding/pending`을 주던 때는 그 화면의
+ * `OnboardingGate`가 비어 있는 프로필을 보고 즉시 프로필로 되돌려, 승인 대기 화면이
+ * 반 초쯤 떴다 사라졌다.
+ *
+ * 두 선택 모두 위 `reviewAssignedRole`이 읽는 세션 상태에 남아 다음 단계로 이어진다.
+ * 프로필을 마친 뒤 교직원을 승인 대기 화면으로 잇는 일은 게이트가 한다.
  */
 function roleSelectionResult(selected: RoleSelection): RoleSelectionResult {
   return selected === 'STAFF'
@@ -381,7 +387,7 @@ function roleSelectionResult(selected: RoleSelection): RoleSelectionResult {
         selectedRole: 'STAFF',
         role: null,
         requestStatus: 'PENDING',
-        redirectTo: '/onboarding/pending',
+        redirectTo: '/onboarding/profile',
       }
     : {
         selectedRole: 'STUDENT',

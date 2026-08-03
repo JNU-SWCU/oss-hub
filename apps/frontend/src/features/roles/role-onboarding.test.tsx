@@ -50,10 +50,42 @@ describe('role onboarding views', () => {
     // Then — 자리표시 상자도, 어느 역할의 안내 문구도 아직 없다
     expect(emptyHtml).not.toContain('다음 단계 안내');
     expect(emptyHtml).not.toContain('data-role="none"');
-    expect(emptyHtml).not.toContain(
-      '선택을 완료하면 바로 학생 화면으로 이동합니다',
-    );
-    expect(emptyHtml).not.toContain('승인 후 교직원 기능을 사용할 수 있습니다');
+    expect(emptyHtml).not.toContain('기본 정보를 입력하면 가입이 끝납니다');
+    expect(emptyHtml).not.toContain('기본 정보를 입력한 뒤 승인을 기다립니다');
+  });
+
+  /**
+   * 안내가 실제 도착지와 같은 곳을 말하는가.
+   *
+   * 백엔드 `roles.service.ts`는 두 역할 모두에게 `/onboarding/profile`을 돌려준다.
+   * 그런데 이 안내는 학생에게 "바로 학생 화면으로", 교직원에게 "승인 상태를 확인할
+   * 수 있는 화면으로" 간다고 말했다 — 둘 다 도착하지 않는 화면이다. 고른 직후 읽는
+   * 문장이 도착지와 다르면 사용자는 화면이 잘못 떴다고 읽는다.
+   */
+  it.each([
+    ['STUDENT', '이름·학번·학과를 입력하는 화면으로 이동합니다'],
+    ['STAFF', '이름·학과를 입력하는 화면으로 이동합니다'],
+  ] as const)(
+    '%s 안내는 다음 화면이 프로필 입력임을 말한다',
+    (role, phrase) => {
+      // Given / When
+      const html = renderRoleForm(role);
+
+      // Then
+      expect(html).toContain(phrase);
+      expect(html).not.toContain('바로 학생 화면으로 이동합니다');
+      expect(html).not.toContain('승인 상태를 확인할 수 있는 화면으로');
+    },
+  );
+
+  // 교직원은 프로필을 마친 뒤에야 승인 대기 화면으로 이어진다 — 그 순서가 안내에
+  // 드러나야 "승인은 어디서 기다리나"를 사용자가 다시 묻지 않는다.
+  it('교직원 안내는 프로필 다음이 승인 대기임을 함께 말한다', () => {
+    // Given / When
+    const html = renderRoleForm('STAFF');
+
+    // Then
+    expect(html).toContain('기본 정보를 입력한 뒤 승인을 기다립니다');
   });
 
   // 안내가 선택 시점에 새로 끼어들면 세로 가운데 정렬인 무대가 위아래로 벌어져
@@ -67,7 +99,7 @@ describe('role onboarding views', () => {
     const slot = 'data-slot="role-guidance"';
     expect(emptyHtml).toContain(slot);
     expect(staffHtml).toContain(slot);
-    expect(staffHtml).toContain('승인 후 교직원 기능을 사용할 수 있습니다');
+    expect(staffHtml).toContain('기본 정보를 입력한 뒤 승인을 기다립니다');
   });
 
   // 카드 높이는 서로 맞춰야 한다 — 한쪽에만 있는 줄이 생기면 어긋난다.
