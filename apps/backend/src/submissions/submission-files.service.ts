@@ -25,7 +25,7 @@ import {
   SubmissionsErrorCode,
 } from './submissions-error-code.enum';
 
-const MAX_FILE_BYTES = 50 * 1024 * 1024;
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const PENDING_TTL_MS = 24 * 60 * 60 * 1000;
 
 export interface SubmissionFileUpload {

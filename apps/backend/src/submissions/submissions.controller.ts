@@ -49,7 +49,7 @@ type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
 const MultipartFileInterceptor = FileInterceptor('file', {
   limits: {
-    fileSize: 50 * 1024 * 1024,
+    fileSize: 5 * 1024 * 1024,
     fieldNameSize: 100,
     fieldSize: 512,
     fields: 4,

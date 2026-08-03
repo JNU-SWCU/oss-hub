@@ -326,11 +326,11 @@ if grep -Eq '\$request([^_a-zA-Z0-9]|$)|\$request_uri([^_a-zA-Z0-9]|$)|\$args([^
 fi
 
 # 제출 파일 업로드가 지나는 앱 경로(location /)의 본문 한도. nginx 기본값 1m 이면
-# backend 가 허용하는 50MiB 제출이 Compose nginx 에 닿기도 전에 413 으로 죽는다.
+# backend 가 허용하는 5MB 제출이 Compose nginx 에 닿기도 전에 413 으로 죽는다.
 if ! python3 - "$active_config" <<'PYEOF'
 import re, sys
 
-MIN_BYTES = 50 * 1024 * 1024
+MIN_BYTES = 5 * 1024 * 1024
 text = open(sys.argv[1], encoding='utf-8').read()
 
 
@@ -375,7 +375,7 @@ if best is None:
 if to_bytes(best) < MIN_BYTES:
     print(
         f'host nginx contract: location / client_max_body_size {best} '
-        'is below the backend 50MiB file limit',
+        'is below the backend 5MB file limit',
         file=sys.stderr,
     )
     raise SystemExit(1)
@@ -384,4 +384,4 @@ then
   exit 1
 fi
 
-echo 'host nginx contract: ok (IP TLS, ACME webroot, loopback Compose, exact parameterless POST-only Jenkins trigger, upload body >= 50MiB)'
+echo 'host nginx contract: ok (IP TLS, ACME webroot, loopback Compose, exact parameterless POST-only Jenkins trigger, upload body >= 5MB)'
