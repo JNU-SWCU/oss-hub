@@ -30,7 +30,6 @@ interface DataTableProps<TRow> extends Omit<
   isLoading?: boolean;
   loadingSlot?: React.ReactNode;
   emptyState?: React.ReactNode;
-  rowClassName?: string;
 }
 
 // 소비 화면이 컬럼·행 데이터를 주입하는 운영 데이터 테이블. 역할별 컬럼·액션 노출
@@ -43,7 +42,6 @@ function DataTable<TRow>({
   isLoading = false,
   loadingSlot,
   emptyState,
-  rowClassName,
   className,
   ...props
 }: DataTableProps<TRow>) {
@@ -87,7 +85,7 @@ function DataTable<TRow>({
             </TableRow>
           ) : (
             data.map((row, rowIndex) => (
-              <TableRow key={rowKey(row, rowIndex)} className={rowClassName}>
+              <TableRow key={rowKey(row, rowIndex)}>
                 {columns.map((column) => (
                   <TableCell key={column.id} className={column.cellClassName}>
                     {column.cell(row, rowIndex)}

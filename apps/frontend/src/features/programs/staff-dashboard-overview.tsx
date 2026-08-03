@@ -80,7 +80,7 @@ export function StaffDashboardOverview({
           data={[...programs]}
           rowKey={(program) => program.id}
           caption={`총 ${totalPrograms}개 프로그램 운영 현황`}
-          rowClassName="relative cursor-pointer has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring has-[a:focus-visible]:ring-inset"
+          className="[&_tbody_tr]:relative [&_tbody_tr]:cursor-pointer [&_tbody_tr:has(a:focus-visible)]:ring-2 [&_tbody_tr:has(a:focus-visible)]:ring-ring [&_tbody_tr:has(a:focus-visible)]:ring-inset"
         />
       </div>
       <section

@@ -60,16 +60,15 @@ describe('DataTable', () => {
         columns={columns}
         data={rows}
         rowKey={(row) => row.id}
-        rowClassName="relative"
+        className="[&_tbody_tr]:relative"
       />,
     );
 
-    expect(html).toMatch(/<tr[^>]*class="[^"]*relative[^"]*"/);
     expect(html).toMatch(
-      /<div[^>]*data-slot="data-table"[^>]*class="[^"]*min-w-0[^"]*"/,
+      /<div[^>]*data-slot="data-table"[^>]*class="[^"]*min-w-0[^"]*\[&amp;_tbody_tr\]:relative[^"]*"/,
     );
+    expect(html).not.toMatch(/<tr[^>]*class="[^"]*relative[^"]*"/);
     expect(html).not.toContain('tabindex=');
     expect(html).not.toContain('aria-label="홍길동 열기"');
-    expect(html).not.toContain('rowClassName');
   });
 });
