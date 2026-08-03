@@ -51,6 +51,20 @@ main {
   padding: 1.75rem 1.25rem 3rem;
 }
 
+/*
+  넓은 화면의 인라인 전문에서만 글 폭을 48rem까지 연다(#522). 재 보니 이득은 여기서
+  멈춘다 — Org 약관 높이가 42rem에서 801px, 48rem에서 745px이고 54·60·66rem에서도
+  745px 그대로다. 더 벌리면 줄만 길어져(66rem에서 86자) 읽기 한계(90자)에 다가간다.
+
+  기준을 800px로 잡은 것은 팝업 갈래를 건드리지 않기 위해서다 — 이 media query는
+  틀(iframe) 자신의 폭으로 판정하는데, 팝업의 틀은 1024에서도 766px이 최대다.
+*/
+@media (min-width: 800px) {
+  main {
+    max-width: 48rem;
+  }
+}
+
 h1 {
   margin: 0;
   color: var(--policy-title);

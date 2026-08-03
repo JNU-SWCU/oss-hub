@@ -231,6 +231,11 @@ function ConsentPolicyTrigger({
  *
  * 칸막이 선도 패널 테두리도 두지 않는다 — 우주 바탕 위에 제목·문서·닫기만 얹는다.
  * 열기 전 이 기둥은 아무것도 그리지 않는다(안내 문구도 두지 않는다).
+ *
+ * 불변식 둘(#522). 폭 상한 808 = 문서가 글에 주는 최대 폭 768(`policy-document.css`의
+ * 48rem) + 문서 자기 좌우 여백 40 — 더 넓혀도 문서 안이 빈 여백으로 남고 불투명한 틀이
+ * 별밭만 더 가린다. 세로로는 **자기 높이를 스스로 만들지 않는다**(`min-h-0` + 문서 틀
+ * `flex-1`): 정해진 높이를 갖고 있으면 그만큼 행이 길어져 왼쪽 기둥이 밀려 올라간다.
  */
 export function ConsentPolicyInline({
   item,
@@ -258,7 +263,7 @@ export function ConsentPolicyInline({
       data-slot="consent-policy-inline"
       aria-labelledby={titleId}
       tabIndex={-1}
-      className="flex w-full max-w-2xl min-w-0 flex-1 flex-col gap-3 focus:outline-none"
+      className="flex w-full max-w-[808px] min-h-0 min-w-0 flex-1 flex-col gap-3 focus:outline-none"
       onKeyDown={(event) => {
         if (event.key === 'Escape') onClose();
       }}
@@ -274,10 +279,24 @@ export function ConsentPolicyInline({
         </h2>
         <ConsentPolicyCloseButton onClick={onClose} />
       </div>
-      <ConsentPolicyDocumentFrame item={item} className="min-h-[58dvh]" />
+      <ConsentPolicyDocumentFrame item={item} className="min-h-0 flex-1" />
     </section>
   );
 }
+
+/**
+ * 좁은 화면 전문 팝업의 자리와 크기(#519).
+ *
+ * 불변식 둘: 손에 쥐는 폭에서는 `top`·`bottom`을 함께 묶어 높이를 **정해진 값**으로
+ * 두고(`max-h`로만 묶으면 판이 내용만큼만 자란다), 물러나는 만큼은
+ * `env(safe-area-inset-*)`뿐이다(`100dvh`는 노치 기기에서 잘린다).
+ * `sm` 위는 이 이슈의 범위가 아니라 예전 그대로 가운데 카드다.
+ */
+export const consentPolicyDialogClassName = cn(
+  'fixed z-50 flex flex-col overflow-hidden bg-cosmos-near focus:outline-none',
+  'top-[env(safe-area-inset-top)] right-0 bottom-[env(safe-area-inset-bottom)] left-0',
+  'sm:top-1/2 sm:right-auto sm:bottom-auto sm:left-1/2 sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100%-2rem)] sm:max-w-3xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-card sm:border sm:border-cosmos-border sm:shadow-lg',
+);
 
 /**
  * 좁은 화면에서 쓰는 전문 팝업. 나란히 놓을 폭이 없으므로 팝업은 남기고, 흰
@@ -310,7 +329,7 @@ export function ConsentPolicyDialog({
         <DialogPrimitive.Content
           ref={contentRef}
           data-surface="inverted"
-          className="fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-card border border-cosmos-border bg-cosmos-near shadow-lg focus:outline-none"
+          className={consentPolicyDialogClassName}
           /*
             열릴 때 초점을 판 자체에 둔다. 두지 않으면 Radix가 첫 초점 대상인 iframe으로
             보내는데, 그 iframe은 `sandbox=""`라 다른 문서다 — Escape 키가 그 문서에서
@@ -328,8 +347,9 @@ export function ConsentPolicyDialog({
           }}
         >
           {/* 제목·본문·닫기 세 구역으로 나눈다 — 경계는 우주 바탕의 테두리 색 하나다.
-              본문만 스크롤되므로 제목과 닫기는 어디까지 읽었든 늘 보인다. */}
-          <div className="flex items-center justify-between gap-3 border-b border-cosmos-border px-5 py-3">
+              본문만 스크롤되므로 제목과 닫기는 어디까지 읽었든 늘 보인다. 좁은 화면에서
+              두 줄은 조작 요소 높이(44px) 그대로 서고 나머지는 본문 칸이다(#519). */}
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-cosmos-border px-5 sm:py-3">
             <DialogPrimitive.Title className="font-heading text-lg font-semibold text-cosmos-copy">
               {item?.label} 전문
             </DialogPrimitive.Title>
@@ -344,13 +364,15 @@ export function ConsentPolicyDialog({
               여기서 더 두면 375px에서 읽는 폭이 두 번 깎인다. */}
           <div className="min-h-0 flex-1 overflow-y-auto">
             {item ? (
+              /* 판 높이가 정해진 좁은 화면에서는 `h-full`이 남는 높이를 받고, 판이
+                 내용만큼 자라는 `sm` 위에서는 예전처럼 `min-h`가 값을 준다(#519). */
               <ConsentPolicyDocumentFrame
                 item={item}
-                className="min-h-[52dvh]"
+                className="h-full min-h-[52dvh]"
               />
             ) : null}
           </div>
-          <div className="flex justify-end border-t border-cosmos-border px-5 py-3">
+          <div className="flex shrink-0 justify-end border-t border-cosmos-border px-5 sm:py-3">
             <DialogPrimitive.Close asChild>
               <Button
                 className="border-cosmos-border text-cosmos-copy hover:bg-cosmos-muted/10 hover:text-cosmos-copy"
