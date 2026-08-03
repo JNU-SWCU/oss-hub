@@ -8,6 +8,16 @@
 프로그램 제출물 검토 흐름과, 저장소를 공개로 전환하는 수동 확정 절차(다섯 게이트)를 담당한다.
 실제 공개 전환(CAS + typed audit)은 이 모듈이 실행하지 않고 `repositories/`의 `RepositoriesService.publish`를 호출만 한다.
 
+이름이 같은 `review`가 **두 개념**을 가리키므로 문서·PR·QA에서 섞어 쓰지 않는다.
+
+| 개념 | 뜻 | 표면 |
+| --- | --- | --- |
+| **판정** | 마일스톤 제출물에 대한 교직원 결정(`ReviewDecision`: `APPROVED`·`REJECTED`·`CHANGES_REQUESTED`) | `@Controller('submissions')`의 `POST :submissionId/reviews` |
+| **공개 확정** | 저장소를 공개로 전환하는 다섯 게이트 절차 | `@Controller('repositories')`의 `POST :repositoryId/publish` |
+
+한 파일이 두 `@Controller` prefix를 함께 담고 있어 모듈명이 실제 책임보다 좁게 읽힌다 — 개명 검토는 [#558](https://github.com/JNU-SWCU/oss-hub/issues/558)이다.
+대회 입상·수상 결과는 서비스 범위가 아니다. 서비스가 책임지는 것은 마일스톤별 필수 제출물에 대한 판정까지다.
+
 ## Key Files
 
 | 파일 | 역할 |
