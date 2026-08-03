@@ -160,6 +160,19 @@ describe('좁은 화면 전문 팝업의 높이 계약', () => {
     .split(' ')
     .filter((token) => !token.startsWith('sm:'));
 
+  const source = readFileSync(
+    path.resolve(__dirname, './consent-view.tsx'),
+    'utf-8',
+  );
+
+  /** 팝업의 제목 줄과 닫기 줄 — 구역 경계선과 좌우 여백을 함께 가진 두 줄이다. */
+  const bars = [...source.matchAll(/className="([^"]*)"/g)]
+    .map((match) => match[1]!)
+    .filter(
+      (value) =>
+        value.includes('border-cosmos-border') && value.includes('px-5'),
+    );
+
   // 높이를 `max-h`로만 묶으면 판이 내용만큼만 자란다. 812px 화면에서 판이 562px에
   // 그쳐 문서에 422px(최악 문서의 38%)만 돌아갔다(#519).
   it('좁은 화면에서는 위·아래를 함께 묶어 높이를 정한다', () => {
@@ -192,11 +205,23 @@ describe('좁은 화면 전문 팝업의 높이 계약', () => {
 
   // 판 높이를 정해도 문서 틀이 자기 높이를 고집하면 본문 칸이 남는 높이를 못 받는다.
   it('문서 틀이 본문 칸을 채운다', () => {
-    const source = readFileSync(
-      path.resolve(__dirname, './consent-view.tsx'),
-      'utf-8',
-    );
-
     expect(source).toContain('className="h-full min-h-[52dvh]"');
+  });
+
+  // 두 줄이 좁은 화면에서 세로 여백을 되찾는 순간 그만큼이 본문 칸에서 빠진다 —
+  // `sm:py-3`를 `py-3`로 되돌리면 문서 칸이 722px에서 674px(최악 문서 65.8%)이 되어
+  // 완료 조건이 깨진다. 값은 `sm` 위에만 있어야 한다(#519).
+  it('제목 줄·닫기 줄은 좁은 화면에서 세로 여백을 갖지 않는다', () => {
+    expect(bars).toHaveLength(2);
+
+    for (const bar of bars) {
+      const tokens = bar.split(' ');
+
+      expect(tokens).toContain('sm:py-3');
+      expect(tokens).toContain('shrink-0');
+      expect(tokens.filter((token) => /^-?(p|py|pt|pb)-/.test(token))).toEqual(
+        [],
+      );
+    }
   });
 });

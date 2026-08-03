@@ -294,13 +294,6 @@ export const consentPolicyDialogClassName = cn(
 );
 
 /**
- * 좁은 화면에서 제목 줄·닫기 줄은 조작 요소 높이(44px) 그대로 선다 — 나머지 높이는
- * 전부 본문 칸으로 간다(#519).
- */
-const consentPolicyDialogBarClassName =
-  'flex shrink-0 items-center gap-3 px-5 sm:py-3';
-
-/**
  * 좁은 화면에서 쓰는 전문 팝업. 나란히 놓을 폭이 없으므로 팝업은 남기고, 흰
  * 바탕(`bg-background`)만 걷어내 우주 톤으로 바꾼다(#517).
  *
@@ -349,13 +342,9 @@ export function ConsentPolicyDialog({
           }}
         >
           {/* 제목·본문·닫기 세 구역으로 나눈다 — 경계는 우주 바탕의 테두리 색 하나다.
-              본문만 스크롤되므로 제목과 닫기는 어디까지 읽었든 늘 보인다. */}
-          <div
-            className={cn(
-              consentPolicyDialogBarClassName,
-              'justify-between border-b border-cosmos-border',
-            )}
-          >
+              본문만 스크롤되므로 제목과 닫기는 어디까지 읽었든 늘 보인다. 좁은 화면에서
+              두 줄은 조작 요소 높이(44px) 그대로 서고 나머지는 본문 칸이다(#519). */}
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-cosmos-border px-5 sm:py-3">
             <DialogPrimitive.Title className="font-heading text-lg font-semibold text-cosmos-copy">
               {item?.label} 전문
             </DialogPrimitive.Title>
@@ -378,12 +367,7 @@ export function ConsentPolicyDialog({
               />
             ) : null}
           </div>
-          <div
-            className={cn(
-              consentPolicyDialogBarClassName,
-              'justify-end border-t border-cosmos-border',
-            )}
-          >
+          <div className="flex shrink-0 justify-end border-t border-cosmos-border px-5 sm:py-3">
             <DialogPrimitive.Close asChild>
               <Button
                 className="border-cosmos-border text-cosmos-copy hover:bg-cosmos-muted/10 hover:text-cosmos-copy"
