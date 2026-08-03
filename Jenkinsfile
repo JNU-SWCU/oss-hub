@@ -489,13 +489,13 @@ esac
             test ! -e "$object_backup_target"
             object_backup_tmp="$(mktemp -d "${object_backup_target}.XXXXXX")"
             # 자격증명은 실행 중인 minio 컨테이너 자신의 환경에서만 읽는다.
-            # `docker compose exec`는 --env-file 해석 계층을 한 번 더 거쳐 MINIO_ROOT_USER 가
-            # 빈 값으로 전달되는 경우가 있어(build 40 Access Denied) 컨테이너 id 로 직접 exec 한다.
+            # 내부 스크립트를 홑따옴표로 굳혀 바깥 셸이 MINIO_ROOT_USER 를 먼저 확장하지
+            # 못하게 하고(build 40·41 이 빈 자격증명으로 Access Denied), 경로만 위치 인자로 넘긴다.
             # 로그인 셸(-l)도 쓰지 않는다 — 최소 이미지에서 환경이 초기화될 수 있다.
             minio_container_id="$(docker compose --env-file "$OSS_HUB_ENV_FILE" ps -q minio)"
             test -n "$minio_container_id"
             trap 'rm -rf "$object_backup_tmp"; docker exec -i "$minio_container_id" sh -c "rm -rf \"$minio_backup_tmp\""' EXIT
-            docker exec -i "$minio_container_id" sh -c "set -eu; rm -rf \"$minio_backup_tmp\"; mc alias set local http://127.0.0.1:9000 \"\$MINIO_ROOT_USER\" \"\$MINIO_ROOT_PASSWORD\" >/dev/null; mc mirror local/oss-hub-submission-files \"$minio_backup_tmp\""
+            docker exec -i "$minio_container_id" sh -c 'set -eu; rm -rf "$1"; mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null; mc mirror local/oss-hub-submission-files "$1"' _ "$minio_backup_tmp"
             docker cp "${minio_container_id}:${minio_backup_tmp}/." "$object_backup_tmp"
             test -d "$object_backup_tmp"
             docker exec -i "$minio_container_id" sh -c "rm -rf \"$minio_backup_tmp\""
