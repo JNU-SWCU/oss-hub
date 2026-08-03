@@ -95,16 +95,16 @@ make_fixture "$v2_source" v2-missing-test 'pnpm test' 'true'
 make_fixture "$v2_source" v2-missing-backup 'pg_dump' 'pg_isready'
 make_fixture "$v2_source" v2-missing-migration 'npx prisma migrate deploy' 'npx prisma migrate status'
 make_fixture "$v2_source" v2-missing-no-build 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait' 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --wait'
-make_fixture "$v2_source" v2-missing-primary-upload-403-smoke \
-  'require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused' \
-  'require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files-removed --retry 5 --retry-connrefused'
-make_fixture "$v2_source" v2-missing-rollback-upload-403-smoke \
-  'require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files$' \
-  'require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files-removed'
-make_fixture "$v2_source" v2-weakened-upload-403-status \
-  'require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused' \
+make_fixture "$v2_source" v2-missing-primary-upload-401-smoke \
+  'require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused' \
+  'require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files-removed --retry 5 --retry-connrefused'
+make_fixture "$v2_source" v2-missing-rollback-upload-401-smoke \
+  'require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files$' \
+  'require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files-removed'
+make_fixture "$v2_source" v2-weakened-upload-401-status \
+  'require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused' \
   'require_status 000 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused'
-make_fixture "$v2_source" v2-upload-403-curl-fail \
+make_fixture "$v2_source" v2-upload-401-curl-fail \
   'curl -o /dev/null -w' \
   'curl --fail -o /dev/null -w'
 make_fixture "$v2_source" v2-missing-rollback-guard 'if (!env.PREV_TAG?.trim())' 'if (false)'
@@ -1085,48 +1085,48 @@ replace_once(
 )
 replace_once(
     "v2-hardening-loopback-mixed-case-deleted",
-    "require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused",
-    "require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files-removed --retry 5 --retry-connrefused",
+    "require_status 401 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused",
+    "require_status 401 GET http://127.0.0.1:8081/api/v1/Submission-Files-removed --retry 5 --retry-connrefused",
 )
 replace_once(
     "v2-hardening-tls-mixed-case-deleted",
-    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused",
-    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files-removed --retry 5 --retry-connrefused",
+    "require_status 401 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused",
+    "require_status 401 GET https://54.116.116.174/api/v1/Submission-Files-removed --retry 5 --retry-connrefused",
 )
 replace_once(
     "v2-hardening-loopback-post-deleted",
-    "require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused",
-    "require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files-removed --retry 5 --retry-connrefused",
+    "require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused",
+    "require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files-removed --retry 5 --retry-connrefused",
 )
 replace_once(
     "v2-hardening-tls-post-deleted",
-    "require_status 403 POST https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused",
-    "require_status 403 POST https://54.116.116.174/api/v1/submission-files-removed --retry 5 --retry-connrefused",
+    "require_status 401 POST https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused",
+    "require_status 401 POST https://54.116.116.174/api/v1/submission-files-removed --retry 5 --retry-connrefused",
 )
 replace_once(
     "v2-hardening-descendant-deleted",
-    "require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused",
-    "require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files-removed/1 --retry 5 --retry-connrefused",
+    "require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused",
+    "require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files-removed/1 --retry 5 --retry-connrefused",
 )
 replace_once(
     "v2-hardening-rollback-loopback-mixed-case-deleted",
-    "require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files\n",
-    "require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files-removed\n",
+    "require_status 401 GET http://127.0.0.1:8081/api/v1/Submission-Files\n",
+    "require_status 401 GET http://127.0.0.1:8081/api/v1/Submission-Files-removed\n",
 )
 replace_once(
     "v2-hardening-rollback-loopback-post-deleted",
-    "require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files\n",
-    "require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files-removed\n",
+    "require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files\n",
+    "require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files-removed\n",
 )
 replace_once(
     "v2-hardening-rollback-tls-mixed-case-deleted",
-    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files \\\n",
-    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files-removed \\\n",
+    "require_status 401 GET https://54.116.116.174/api/v1/Submission-Files \\\n",
+    "require_status 401 GET https://54.116.116.174/api/v1/Submission-Files-removed \\\n",
 )
 replace_once(
     "v2-hardening-rollback-tls-post-deleted",
-    "require_status 403 POST https://54.116.116.174/api/v1/submission-files \\\n",
-    "require_status 403 POST https://54.116.116.174/api/v1/submission-files-removed \\\n",
+    "require_status 401 POST https://54.116.116.174/api/v1/submission-files \\\n",
+    "require_status 401 POST https://54.116.116.174/api/v1/submission-files-removed \\\n",
 )
 
 preflight_start = source.index("    stage('Buildx 캐시 상한 사전 검증') {")
@@ -1216,23 +1216,23 @@ for name, mutation in noop_mutations.items():
 
 mutate_noop(
     "v2-nginx-noop-loopback-mixed-case-deleted",
-    "require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused",
-    "require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files-removed --retry 5 --retry-connrefused",
+    "require_status 401 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused",
+    "require_status 401 GET http://127.0.0.1:8081/api/v1/Submission-Files-removed --retry 5 --retry-connrefused",
 )
 mutate_noop(
     "v2-nginx-noop-tls-mixed-case-deleted",
-    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused",
-    "require_status 403 GET https://54.116.116.174/api/v1/Submission-Files-removed --retry 5 --retry-connrefused",
+    "require_status 401 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused",
+    "require_status 401 GET https://54.116.116.174/api/v1/Submission-Files-removed --retry 5 --retry-connrefused",
 )
 mutate_noop(
     "v2-nginx-noop-loopback-post-deleted",
-    "require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused",
-    "require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files-removed --retry 5 --retry-connrefused",
+    "require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused",
+    "require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files-removed --retry 5 --retry-connrefused",
 )
 mutate_noop(
     "v2-nginx-noop-tls-post-deleted",
-    "require_status 403 POST https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused",
-    "require_status 403 POST https://54.116.116.174/api/v1/submission-files-removed --retry 5 --retry-connrefused",
+    "require_status 401 POST https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused",
+    "require_status 401 POST https://54.116.116.174/api/v1/submission-files-removed --retry 5 --retry-connrefused",
 )
 
 noop_smoke_start = noop_stage.index(noop_anchor)
@@ -1276,10 +1276,10 @@ expect_fail 'v2: 배포 전 test 누락' v2 "$fixture_dir/v2-missing-test"
 expect_fail 'v2: migration 전 backup 누락' v2 "$fixture_dir/v2-missing-backup"
 expect_fail 'v2: Prisma migration 누락' v2 "$fixture_dir/v2-missing-migration"
 expect_fail 'v2: Compose 교체의 --no-build 누락' v2 "$fixture_dir/v2-missing-no-build"
-expect_fail 'v2: primary 제출 파일 403 smoke 누락' v2 "$fixture_dir/v2-missing-primary-upload-403-smoke"
-expect_fail 'v2: rollback 제출 파일 403 smoke 누락' v2 "$fixture_dir/v2-missing-rollback-upload-403-smoke"
-expect_fail 'v2: 제출 파일 smoke의 exact 403 단언 약화' v2 "$fixture_dir/v2-weakened-upload-403-status"
-expect_fail 'v2: 제출 파일 403 smoke에 curl --fail 사용' v2 "$fixture_dir/v2-upload-403-curl-fail"
+expect_fail 'v2: primary 제출 파일 401 smoke 누락' v2 "$fixture_dir/v2-missing-primary-upload-401-smoke"
+expect_fail 'v2: rollback 제출 파일 401 smoke 누락' v2 "$fixture_dir/v2-missing-rollback-upload-401-smoke"
+expect_fail 'v2: 제출 파일 smoke의 exact 401 단언 약화' v2 "$fixture_dir/v2-weakened-upload-401-status"
+expect_fail 'v2: 제출 파일 401 smoke에 curl --fail 사용' v2 "$fixture_dir/v2-upload-401-curl-fail"
 expect_fail 'v2: greenfield rollback skip guard 누락' v2 "$fixture_dir/v2-missing-rollback-guard"
 expect_fail 'v2: 운영 환경 credential 주입 누락' v2 "$fixture_dir/v2-missing-production-credential"
 expect_fail 'v2: 실행 중 ps -q 권위 누락' v2 "$fixture_dir/v2-missing-running-ps-q"
@@ -1370,15 +1370,15 @@ expect_fail_with_code 'v2 hardening: BuildKit cache 상한을 5GB에서 변경' 
 expect_fail_with_code 'v2 hardening: BuildKit cache 상한을 environment 밖으로 이동' v2 "$fixture_dir/v2-hardening-cache-cap-outside-environment"
 expect_fail_with_code 'v2 hardening: exact 200 대신 curl --fail 복원' v2 "$fixture_dir/v2-hardening-exact-200-restored-curl-fail"
 expect_fail_with_code 'v2 hardening: require_status equality 검사를 반전' v2 "$fixture_dir/v2-hardening-status-helper-weakened"
-expect_fail_with_code 'v2 hardening: loopback mixed-case 403 삭제' v2 "$fixture_dir/v2-hardening-loopback-mixed-case-deleted"
-expect_fail_with_code 'v2 hardening: TLS mixed-case 403 삭제' v2 "$fixture_dir/v2-hardening-tls-mixed-case-deleted"
-expect_fail_with_code 'v2 hardening: loopback POST 403 삭제' v2 "$fixture_dir/v2-hardening-loopback-post-deleted"
-expect_fail_with_code 'v2 hardening: TLS POST 403 삭제' v2 "$fixture_dir/v2-hardening-tls-post-deleted"
-expect_fail_with_code 'v2 hardening: descendant 403 삭제' v2 "$fixture_dir/v2-hardening-descendant-deleted"
-expect_fail_with_code 'v2 hardening: rollback loopback mixed-case 403 삭제' v2 "$fixture_dir/v2-hardening-rollback-loopback-mixed-case-deleted"
-expect_fail_with_code 'v2 hardening: rollback loopback POST 403 삭제' v2 "$fixture_dir/v2-hardening-rollback-loopback-post-deleted"
-expect_fail_with_code 'v2 hardening: rollback TLS mixed-case 403 삭제' v2 "$fixture_dir/v2-hardening-rollback-tls-mixed-case-deleted"
-expect_fail_with_code 'v2 hardening: rollback TLS POST 403 삭제' v2 "$fixture_dir/v2-hardening-rollback-tls-post-deleted"
+expect_fail_with_code 'v2 hardening: loopback mixed-case 401 삭제' v2 "$fixture_dir/v2-hardening-loopback-mixed-case-deleted"
+expect_fail_with_code 'v2 hardening: TLS mixed-case 401 삭제' v2 "$fixture_dir/v2-hardening-tls-mixed-case-deleted"
+expect_fail_with_code 'v2 hardening: loopback POST 401 삭제' v2 "$fixture_dir/v2-hardening-loopback-post-deleted"
+expect_fail_with_code 'v2 hardening: TLS POST 401 삭제' v2 "$fixture_dir/v2-hardening-tls-post-deleted"
+expect_fail_with_code 'v2 hardening: descendant 401 삭제' v2 "$fixture_dir/v2-hardening-descendant-deleted"
+expect_fail_with_code 'v2 hardening: rollback loopback mixed-case 401 삭제' v2 "$fixture_dir/v2-hardening-rollback-loopback-mixed-case-deleted"
+expect_fail_with_code 'v2 hardening: rollback loopback POST 401 삭제' v2 "$fixture_dir/v2-hardening-rollback-loopback-post-deleted"
+expect_fail_with_code 'v2 hardening: rollback TLS mixed-case 401 삭제' v2 "$fixture_dir/v2-hardening-rollback-tls-mixed-case-deleted"
+expect_fail_with_code 'v2 hardening: rollback TLS POST 401 삭제' v2 "$fixture_dir/v2-hardening-rollback-tls-post-deleted"
 expect_fail_with_code 'v2 hardening: Buildx capability preflight 삭제' v2 "$fixture_dir/v2-hardening-buildx-preflight-deleted"
 expect_fail_with_code 'v2 hardening: Buildx capability preflight를 production mutation 뒤로 이동' v2 "$fixture_dir/v2-hardening-buildx-preflight-after-mutation"
 expect_fail_with_code 'v2 hardening: Buildx capability token 삭제' v2 "$fixture_dir/v2-hardening-buildx-preflight-capability-deleted"
@@ -1398,10 +1398,10 @@ expect_fail_with_code 'v2 nginx: no-op stage에 force-recreate 주입' v2 "$fixt
 expect_fail_with_code 'v2 nginx: no-op stage에 pull 주입' v2 "$fixture_dir/v2-nginx-noop-pull-injected"
 expect_fail_with_code 'v2 nginx: no-op stage에 image rm 주입' v2 "$fixture_dir/v2-nginx-noop-image-rm-injected"
 expect_fail_with_code 'v2 nginx: no-op stage에 prune 주입' v2 "$fixture_dir/v2-nginx-noop-prune-injected"
-expect_fail_with_code 'v2 nginx: no-op loopback mixed-case 403 삭제' v2 "$fixture_dir/v2-nginx-noop-loopback-mixed-case-deleted"
-expect_fail_with_code 'v2 nginx: no-op TLS mixed-case 403 삭제' v2 "$fixture_dir/v2-nginx-noop-tls-mixed-case-deleted"
-expect_fail_with_code 'v2 nginx: no-op loopback POST 403 삭제' v2 "$fixture_dir/v2-nginx-noop-loopback-post-deleted"
-expect_fail_with_code 'v2 nginx: no-op TLS POST 403 삭제' v2 "$fixture_dir/v2-nginx-noop-tls-post-deleted"
+expect_fail_with_code 'v2 nginx: no-op loopback mixed-case 401 삭제' v2 "$fixture_dir/v2-nginx-noop-loopback-mixed-case-deleted"
+expect_fail_with_code 'v2 nginx: no-op TLS mixed-case 401 삭제' v2 "$fixture_dir/v2-nginx-noop-tls-mixed-case-deleted"
+expect_fail_with_code 'v2 nginx: no-op loopback POST 401 삭제' v2 "$fixture_dir/v2-nginx-noop-loopback-post-deleted"
+expect_fail_with_code 'v2 nginx: no-op TLS POST 401 삭제' v2 "$fixture_dir/v2-nginx-noop-tls-post-deleted"
 expect_fail_with_code 'v2 nginx: no-op smoke를 if false로 비활성화' v2 "$fixture_dir/v2-nginx-noop-smoke-if-false"
 
 printf '%s passed, %s failed\n' "$passed" "$failed"
