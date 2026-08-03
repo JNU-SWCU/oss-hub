@@ -1,15 +1,9 @@
 import Link from 'next/link';
-import {
-  PageBody,
-  PageHeader,
-  SectionHeading,
-  StatusBadge,
-} from '@/components';
+import { SectionHeading } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
-import { deadlineVariant } from '../submission-checklist';
 import type {
   SubmissionFormErrors,
   SubmissionFormInput,
@@ -35,7 +29,6 @@ const BLOCKED_MESSAGES = {
 } as const satisfies Readonly<Record<SubmissionBlockedReason, string>>;
 
 export interface SubmissionFormViewProps {
-  readonly programId: string;
   readonly data: SubmissionFormData;
   readonly input: SubmissionFormInput;
   readonly comment: string;
@@ -52,8 +45,7 @@ export interface SubmissionFormViewProps {
   readonly onCommentChange: (value: string) => void;
   readonly onSubmit: () => void;
   readonly onReload: () => void;
-  readonly embedded?: boolean;
-  readonly onCancel?: () => void;
+  readonly onCancel: () => void;
 }
 
 export function formatDeadline(value: string): string {
@@ -67,8 +59,8 @@ export function formatDeadline(value: string): string {
 export function SubmissionFormView(props: SubmissionFormViewProps) {
   const { data } = props;
   if (!data.canSubmit && data.blockedReason) {
-    const content = (
-      <>
+    return (
+      <div className="grid gap-5">
         <SubmissionSummary data={data} />
         <div className="grid gap-6">
           <Alert>
@@ -89,34 +81,12 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
                 새로고침
               </Button>
             ) : null}
-            {props.onCancel ? (
-              <Button type="button" variant="outline" onClick={props.onCancel}>
-                닫기
-              </Button>
-            ) : (
-              <Button
-                asChild
-                variant={
-                  data.existingSubmission ||
-                  data.blockedReason === 'REPOSITORY_NOT_READY'
-                    ? 'outline'
-                    : 'default'
-                }
-              >
-                <Link href={`/programs/${props.programId}`}>프로그램으로</Link>
-              </Button>
-            )}
+            <Button type="button" variant="outline" onClick={props.onCancel}>
+              닫기
+            </Button>
           </div>
         </div>
-      </>
-    );
-    return props.embedded ? (
-      <div className="grid gap-5">{content}</div>
-    ) : (
-      <PageBody className="max-w-3xl">
-        <SubmissionHeader data={data} />
-        <div className="flex flex-col gap-16">{content}</div>
-      </PageBody>
+      </div>
     );
   }
 
@@ -187,15 +157,9 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
             </CardContent>
           </Card>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            {props.onCancel ? (
-              <Button type="button" variant="outline" onClick={props.onCancel}>
-                취소
-              </Button>
-            ) : (
-              <Button asChild variant="outline">
-                <Link href={`/programs/${props.programId}`}>취소</Link>
-              </Button>
-            )}
+            <Button type="button" variant="outline" onClick={props.onCancel}>
+              취소
+            </Button>
             <Button type="submit" disabled={props.submitting}>
               {props.submitting
                 ? props.submissionPhase === 'uploading'
@@ -208,32 +172,7 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
       </div>
     </>
   );
-  return props.embedded ? (
-    <div className="grid min-w-0 gap-5">{content}</div>
-  ) : (
-    <PageBody className="max-w-3xl">
-      <SubmissionHeader data={data} />
-      {content}
-    </PageBody>
-  );
-}
-
-/**
- * 화면의 주인공은 마일스톤이다 — 이름은 카드 제목이 아니라 페이지 제목(40)
- * 자리에 두고, 남은 기간은 조작이 아니라 읽는 라벨이므로 상태 배지(26)로 준다.
- */
-function SubmissionHeader({ data }: { readonly data: SubmissionFormData }) {
-  return (
-    <PageHeader
-      title={data.milestone.name}
-      description="제출 내용을 확인하고 마일스톤 산출물을 제출합니다."
-      actions={
-        <StatusBadge variant={deadlineVariant(data.milestone.dDay)}>
-          {data.milestone.deadlineLabel}
-        </StatusBadge>
-      }
-    />
-  );
+  return <div className="grid min-w-0 gap-5">{content}</div>;
 }
 
 function SubmissionSummary({ data }: { readonly data: SubmissionFormData }) {

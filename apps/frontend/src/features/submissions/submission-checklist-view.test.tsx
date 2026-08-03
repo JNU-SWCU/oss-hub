@@ -177,7 +177,7 @@ function findLinkElement(
 
 describe('SubmissionChecklistView 체크리스트', () => {
   it('프로그램 상세의 레거시 체크리스트 앵커를 유지한다', () => {
-    const html = render({ embedded: true });
+    const html = render();
     expect(html).toContain('id="milestones"');
   });
 

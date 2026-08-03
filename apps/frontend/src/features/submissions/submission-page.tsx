@@ -13,7 +13,7 @@ import {
   SubmissionLoading,
   SubmissionSuccess,
 } from './components/submission-page-states';
-import { submissionContent } from './submission-content';
+import { resubmissionContent } from './submission-checklist';
 import {
   getSubmissionFileErrorMessage,
   type SubmissionFormErrors,
@@ -40,15 +40,13 @@ const EMPTY_INPUT: SubmissionFormInput = {
 export function SubmissionPage({
   programId,
   milestoneId,
-  embedded = false,
   onCancel,
   onSubmitted,
   onSubmittingChange,
 }: {
   readonly programId: string;
   readonly milestoneId: string;
-  readonly embedded?: boolean;
-  readonly onCancel?: () => void;
+  readonly onCancel: () => void;
   readonly onSubmitted?: () => void;
   readonly onSubmittingChange?: (submitting: boolean) => void;
 }) {
@@ -113,7 +111,7 @@ export function SubmissionPage({
     setSubmitting(true);
     onSubmittingChange?.(true);
     try {
-      let content = submissionContent(data, input);
+      let content = resubmissionContent(data.milestone.submissionType, input);
       if (data.milestone.submissionType === 'FILE' && file) {
         const fileId = await uploadedFile.current.resolve(file, async () => {
           setSubmissionPhase('uploading');
@@ -123,7 +121,7 @@ export function SubmissionPage({
             file,
           );
         });
-        content = { type: 'FILE', fileId };
+        content = resubmissionContent('FILE', input, fileId);
       }
       if (!content) return;
 
@@ -193,29 +191,21 @@ export function SubmissionPage({
     }
   };
 
-  if (state.kind === 'loading')
-    return <SubmissionLoading embedded={embedded} />;
+  if (state.kind === 'loading') return <SubmissionLoading />;
   if (state.kind === 'failed')
     return (
       <SubmissionLoadFailure
-        embedded={embedded}
         message={state.message}
         onRetry={() => void load()}
       />
     );
   if (state.kind === 'success')
     return (
-      <SubmissionSuccess
-        embedded={embedded}
-        onClose={onCancel}
-        programId={programId}
-        submission={state.submission}
-      />
+      <SubmissionSuccess onClose={onCancel} submission={state.submission} />
     );
 
   return (
     <SubmissionFormView
-      programId={programId}
       data={state.data}
       input={input}
       comment={comment}
@@ -239,7 +229,6 @@ export function SubmissionPage({
       onCommentChange={setComment}
       onSubmit={() => void submit(state.data)}
       onReload={() => void load()}
-      embedded={embedded}
       onCancel={onCancel}
     />
   );

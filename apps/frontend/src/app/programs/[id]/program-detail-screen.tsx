@@ -26,7 +26,6 @@ export function ProgramDetailScreen({
       programId={programId}
       approvedStudentMilestones={
         <SubmissionChecklistPage
-          embedded
           milestoneId={selectedMilestoneId}
           onCloseSelected={() => {
             if (openedInPage.current) {

@@ -47,13 +47,11 @@ const FILE_SUBMISSION_UNAVAILABLE_CODE = 'SUB_010';
 export function SubmissionChecklistPage({
   programId,
   milestoneId,
-  embedded = false,
   onCloseSelected,
   onSelectMilestone,
 }: {
   readonly programId: string;
   readonly milestoneId: string | null;
-  readonly embedded?: boolean;
   readonly onCloseSelected?: () => void;
   readonly onSelectMilestone?: (milestoneId: string) => void;
 }) {
@@ -223,12 +221,10 @@ export function SubmissionChecklistPage({
     }
   };
 
-  if (state.kind === 'loading')
-    return <ChecklistSkeleton embedded={embedded} />;
+  if (state.kind === 'loading') return <ChecklistSkeleton />;
   if (state.kind === 'failed') {
     return (
       <ChecklistLoadFailure
-        embedded={embedded}
         message={state.message}
         onRetry={() => void load()}
       />
@@ -241,13 +237,11 @@ export function SubmissionChecklistPage({
   return (
     <SubmissionChecklistView
       programId={programId}
-      embedded={embedded}
       onCloseSelected={closeSelected}
       onSelectMilestone={onSelectMilestone}
       initialSubmission={
         selected?.submission === null && milestoneId ? (
           <SubmissionPage
-            embedded
             milestoneId={milestoneId}
             onCancel={closeSelected}
             onSubmitted={() => {

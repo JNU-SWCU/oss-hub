@@ -13,7 +13,6 @@ import { SubmissionDialog } from './submission-dialog';
 
 export interface SubmissionChecklistViewProps {
   readonly programId: string;
-  readonly embedded?: boolean;
   readonly onCloseSelected?: () => void;
   readonly onSelectMilestone?: (milestoneId: string) => void;
   readonly initialSubmission?: React.ReactNode;
@@ -54,18 +53,14 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
   const content = (
     <>
       <header className="grid gap-1">
-        {props.embedded ? (
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="font-heading text-xl font-semibold">
-              마일스톤 및 제출
-            </h2>
-            <span className="text-sm text-muted-foreground">
-              {items.length}개
-            </span>
-          </div>
-        ) : (
-          <h1 className="text-2xl font-bold tracking-tight">제출 체크리스트</h1>
-        )}
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-heading text-xl font-semibold">
+            마일스톤 및 제출
+          </h2>
+          <span className="text-sm text-muted-foreground">
+            {items.length}개
+          </span>
+        </div>
         <p className="text-sm text-muted-foreground [word-break:keep-all]">
           마일스톤별 제출 상태를 확인하고, 보완 요청을 받은 제출을 재제출할 수
           있습니다.
@@ -157,7 +152,7 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
     </>
   );
 
-  return props.embedded ? (
+  return (
     <section
       id="milestones"
       className="grid scroll-mt-24 gap-4"
@@ -165,61 +160,38 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
     >
       {content}
     </section>
-  ) : (
-    <main className="mx-auto grid max-w-3xl gap-6 px-4 py-8">{content}</main>
   );
 }
 
-export function ChecklistSkeleton({
-  embedded = false,
-}: {
-  readonly embedded?: boolean;
-}) {
-  const content = (
-    <>
+export function ChecklistSkeleton() {
+  return (
+    <section className="grid gap-4" aria-label="체크리스트 불러오는 중">
       <div className="h-16 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
       <div className="h-28 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
       <div className="h-28 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
       <div className="h-28 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-    </>
-  );
-  if (embedded) {
-    return (
-      <section className="grid gap-4" aria-label="체크리스트 불러오는 중">
-        {content}
-      </section>
-    );
-  }
-  return (
-    <main
-      className="mx-auto grid w-full max-w-3xl gap-6 px-4 py-8"
-      aria-label="체크리스트 불러오는 중"
-    >
-      {content}
-    </main>
+    </section>
   );
 }
 
 export function ChecklistLoadFailure({
   message,
   onRetry,
-  embedded = false,
 }: {
   readonly message: string;
   readonly onRetry: () => void;
-  readonly embedded?: boolean;
 }) {
-  const alert = (
-    <Alert variant="destructive">
-      <AlertTitle>체크리스트 불러오기 실패</AlertTitle>
-      <AlertDescription className="space-y-3">
-        <p>{message}</p>
-        <Button type="button" onClick={onRetry}>
-          다시 시도
-        </Button>
-      </AlertDescription>
-    </Alert>
+  return (
+    <section aria-label="마일스톤 및 제출">
+      <Alert variant="destructive">
+        <AlertTitle>체크리스트 불러오기 실패</AlertTitle>
+        <AlertDescription className="space-y-3">
+          <p>{message}</p>
+          <Button type="button" onClick={onRetry}>
+            다시 시도
+          </Button>
+        </AlertDescription>
+      </Alert>
+    </section>
   );
-  if (embedded) return <section aria-label="마일스톤 및 제출">{alert}</section>;
-  return <main className="mx-auto w-full max-w-3xl px-4 py-8">{alert}</main>;
 }

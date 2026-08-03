@@ -2,6 +2,10 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { SubmissionFormView } from './components/submission-form-view';
 import { consumeSelectedFile } from './components/submission-input';
+import {
+  SubmissionLoadFailure,
+  SubmissionSuccess,
+} from './components/submission-page-states';
 import { SubmissionLoading } from './submission-page';
 import type { SubmissionFormData } from './types';
 
@@ -35,7 +39,6 @@ const handlers = {
 function render(data: SubmissionFormData, file: File | null = null): string {
   return renderToStaticMarkup(
     <SubmissionFormView
-      programId="program-1"
       data={data}
       input={{ file, text: '', releaseUrl: '' }}
       comment=""
@@ -46,6 +49,7 @@ function render(data: SubmissionFormData, file: File | null = null): string {
       file={file}
       fileError={null}
       submissionPhase={null}
+      onCancel={vi.fn()}
       {...handlers}
     />,
   );
@@ -59,12 +63,9 @@ describe('SubmissionFormView', () => {
     const html = render(baseData);
 
     // Then
-    expect(html).toContain('최종 제출');
-    // 제목 위계: 마일스톤 이름이 페이지 제목(h1), "제출 내용"이 섹션 머리(h2).
-    // 공용 PageHeader·SectionHeading이 속성을 붙이므로 태그와 글자만 고정한다.
-    expect(html).toMatch(/<h1[^>]*>최종 제출<\/h1>/);
+    expect(html).not.toContain('<main');
+    expect(html).not.toContain('<h1');
     expect(html).toMatch(/<h2[^>]*>제출 내용<\/h2>/);
-    expect(html).toContain('D-69');
     expect(html).toContain('최종 보고 내용을 입력하세요.');
     expect(html).toContain('id="submission-text"');
     expect(html).toContain('required=""');
@@ -175,10 +176,32 @@ describe('SubmissionFormView', () => {
 });
 
 describe('SubmissionLoading', () => {
-  it('embedded 모달 로딩은 중첩 main 없이 렌더한다', () => {
-    const html = renderToStaticMarkup(<SubmissionLoading embedded />);
+  it('모달 로딩은 중첩 main 없이 렌더한다', () => {
+    const html = renderToStaticMarkup(<SubmissionLoading />);
 
     expect(html).toContain('aria-label="제출 정보 불러오는 중"');
     expect(html).not.toContain('<main');
+  });
+
+  it('모달 오류와 성공 상태도 중첩 main 없이 렌더한다', () => {
+    const failure = renderToStaticMarkup(
+      <SubmissionLoadFailure message="다시 시도해 주세요." onRetry={vi.fn()} />,
+    );
+    const success = renderToStaticMarkup(
+      <SubmissionSuccess
+        onClose={vi.fn()}
+        submission={{
+          submissionId: 'submission-1',
+          status: 'SUBMITTED',
+          submittedAt: '2026-08-03T12:00:00.000Z',
+        }}
+      />,
+    );
+
+    expect(failure).toContain('제출 정보 불러오기 실패');
+    expect(success).toContain('제출을 완료했습니다');
+    expect(success).toContain('확인');
+    expect(failure).not.toContain('<main');
+    expect(success).not.toContain('<main');
   });
 });
