@@ -51,7 +51,10 @@ async function resolveTeam(
   template: ApplicationFormTemplate,
   requestedTeamId: string | null,
   isAuthenticated: boolean,
-): Promise<{ readonly teamId: string | null; readonly minimum: TeamMinimum | null }> {
+): Promise<{
+  readonly teamId: string | null;
+  readonly minimum: TeamMinimum | null;
+}> {
   if (template.participation !== 'team' || !isAuthenticated) {
     return { teamId: requestedTeamId, minimum: null };
   }

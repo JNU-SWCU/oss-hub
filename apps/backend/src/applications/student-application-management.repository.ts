@@ -97,7 +97,8 @@ export class StudentApplicationManagementRepository {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(STUDENT_APPLICATION_MANAGEMENT_CLOCK)
-    private readonly clock: StudentApplicationManagementClock = () => new Date(),
+    private readonly clock: StudentApplicationManagementClock = () =>
+      new Date(),
   ) {}
 
   async findOwnedApplication(
