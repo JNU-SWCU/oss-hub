@@ -20,7 +20,7 @@ import {
   mapCreateApplicationError,
   remainingTeamMembers,
   resolveApplyBlockedReason,
-  resolveApplicationTeam,
+  resolveTeamMinimum,
   teamSetupHref,
   validateApplyForm,
   type ProgramApplyFormErrors,
@@ -309,9 +309,8 @@ export function ProgramApplyPage({
       if (template.participation === 'team' && session.isAuthenticated) {
         try {
           const team = await getMyTeam(programId);
-          const resolvedTeam = resolveApplicationTeam(team);
-          resolvedTeamId = resolvedTeam.teamId;
-          teamMinimum = resolvedTeam.teamMinimum;
+          resolvedTeamId = team.id;
+          teamMinimum = resolveTeamMinimum(team);
         } catch (error: unknown) {
           if (!(error instanceof ApiError && error.problem.status === 404)) {
             throw error;

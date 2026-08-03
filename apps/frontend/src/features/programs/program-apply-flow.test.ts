@@ -5,7 +5,6 @@ import {
   mapCreateApplicationError,
   remainingTeamMembers,
   resolveApplyBlockedReason,
-  resolveApplicationTeam,
   resolveTeamMinimum,
   teamSetupHref,
   validateApplyForm,
@@ -144,24 +143,6 @@ describe('program-apply-flow', () => {
     expect(teamSetupHref('seed:program')).toBe(
       '/programs/seed%3Aprogram/teams',
     );
-  });
-
-  it('조회된 내 팀을 신청 팀으로 사용한다', () => {
-    // Given
-    const myTeam = {
-      id: 'my-team',
-      memberCount: 1,
-      minMembers: 2,
-    };
-
-    // When
-    const resolved = resolveApplicationTeam(myTeam);
-
-    // Then
-    expect(resolved).toEqual({
-      teamId: 'my-team',
-      teamMinimum: { memberCount: 1, teamMinSize: 2 },
-    });
   });
 
   it('최소 인원 설정이 없으면 제한하지 않는다', () => {
