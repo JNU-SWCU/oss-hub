@@ -263,7 +263,9 @@ export function ConsentPolicyInline({
         if (event.key === 'Escape') onClose();
       }}
     >
-      <div className="flex items-center justify-between gap-3">
+      {/* 좌우 여백은 문서(`policy-document.css`)가 이미 20px를 두고 있다 — 제목도 같은
+          만큼 들여야 제목과 본문의 첫 글자가 한 줄로 선다. */}
+      <div className="flex items-center justify-between gap-3 px-5">
         <h2
           id={titleId}
           className="font-heading text-lg font-semibold text-cosmos-copy"
@@ -338,7 +340,9 @@ export function ConsentPolicyDialog({
           <DialogPrimitive.Description className="sr-only">
             {item?.label}의 전체 내용을 확인합니다.
           </DialogPrimitive.Description>
-          <div className="min-h-0 flex-1 overflow-y-auto p-5">
+          {/* 본문 칸에는 여백을 두지 않는다 — 문서가 자기 여백(20px)을 이미 갖고 있어
+              여기서 더 두면 375px에서 읽는 폭이 두 번 깎인다. */}
+          <div className="min-h-0 flex-1 overflow-y-auto">
             {item ? (
               <ConsentPolicyDocumentFrame
                 item={item}
@@ -385,9 +389,13 @@ function ConsentPolicyCloseButton(props: ComponentProps<'button'>) {
 }
 
 /**
- * 전문 본문. 내용은 정책 문서가 주는 그대로 띄우기만 한다 — 문구·수집 범위·보유
- * 기간은 #490이 확정한다. 테두리를 두지 않는 이유도 같다: 얹히는 것은 문서 한 장뿐이고
- * 그 둘레에 판을 만들지 않는다(#517).
+ * 전문 본문. 문구는 정책 문서가 주는 그대로 띄운다 — 수집 범위·보유 기간은 #490이
+ * 확정한다. 테두리를 두지 않는 이유도 같다: 얹히는 것은 문서 한 장뿐이고 그 둘레에
+ * 판을 만들지 않는다(#517).
+ *
+ * 바탕색은 문서가 다 오기 전 한 프레임을 위한 것이라 문서 쪽
+ * (`public/policies/policy-document.css`)의 면과 같은 값이어야 한다. 어긋나면 열 때마다
+ * 다른 색이 한 번 번쩍인다.
  */
 function ConsentPolicyDocumentFrame({
   item,
@@ -398,7 +406,7 @@ function ConsentPolicyDocumentFrame({
 }) {
   return (
     <iframe
-      className={cn('w-full rounded-card bg-cosmos-copy', className)}
+      className={cn('w-full rounded-card bg-cosmos-near', className)}
       sandbox=""
       src={item.documentUrl}
       title={`${item.label} 전문`}

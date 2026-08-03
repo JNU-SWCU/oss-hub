@@ -309,7 +309,8 @@ Tailwind v4 기본 spacing 스케일을 그대로 쓴다.
 #### 색 토큰
 
 `globals.css`의 `--cosmos-*` semantic 토큰은 DOM 계층(패널·범례·진행 표시·버튼)만 칠한다.
-canvas 안의 색은 `cosmos-theme.ts`의 RGB 상수 세트(`DEEP_SPACE_THEME`)에서 나온다 — **두 곳이 분리돼 있으므로 우주 색을 바꿀 때는 양쪽을 함께 본다.**
+canvas 안의 색은 `cosmos-theme.ts`의 RGB 상수 세트(`DEEP_SPACE_THEME`)에서 나온다.
+약관 전문 문서(`public/policies/policy-document.css`)도 세 번째 사본이다 — 그 문서는 `sandbox=""` iframe 안의 별도 문서라 이 변수들을 물려받지 못해 같은 palette 값을 리터럴로 다시 선언한다. **세 곳이 분리돼 있으므로 우주 색을 바꿀 때는 셋을 함께 본다.**
 
 | semantic 토큰 | 참조 | 소비처 |
 | --- | --- | --- |
