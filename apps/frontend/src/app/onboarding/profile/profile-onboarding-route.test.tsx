@@ -3,15 +3,20 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { SessionRoleState } from '../../_shell/use-session-role';
 
-const mocks = vi.hoisted(() => ({
-  useSessionRole: vi.fn(),
-  useRouter: vi.fn(() => ({ replace: vi.fn(), push: vi.fn() })),
-}));
+const mocks = vi.hoisted(() => ({ useSessionRole: vi.fn() }));
 
 vi.mock('../../_shell/use-session-role', () => ({
   useSessionRole: mocks.useSessionRole,
 }));
-vi.mock('next/navigation', () => ({ useRouter: mocks.useRouter }));
+/**
+ * `redirect`는 진짜를 그대로 쓴다 — 이동을 흉내 내면 이 라우트가 실제로 이동하는지는
+ * 확인하지 못한다. `useRouter`만 대신 세워 준다. 자식 `ProfileOnboardingScreen`이
+ * 저장 후 이동에 쓰는데, 서버 렌더에는 app router가 없어 그대로 두면 던진다.
+ */
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn(), refresh: vi.fn() }),
+}));
 
 import {
   ProfileOnboardingRoute,
@@ -22,6 +27,12 @@ import {
 const PROFILE_SCREEN_MARK = '프로필을 불러오는 중';
 /** 학생 기준 폼에서만 나오는 필수 항목. */
 const STUDENT_ONLY_FIELD = '학번';
+/**
+ * `redirect('/')`가 렌더를 중단시키며 남기는 표식. `next/navigation`을 그대로 쓰므로
+ * 흉내 낸 값이 아니라 Next가 실제로 만드는 digest다 — `replace`라 뒤로 가기에 이
+ * 화면이 남지 않는다(`AuthGate`의 `router.replace('/')`와 같은 성질).
+ */
+const LANDING_REDIRECT_DIGEST = 'NEXT_REDIRECT;replace;/;307;';
 
 function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
   return {
@@ -39,6 +50,16 @@ function render(overrides: Partial<SessionRoleState> = {}) {
     retry: () => {},
   });
   return renderToStaticMarkup(<ProfileOnboardingRoute />);
+}
+
+/** 렌더가 이동으로 끝났을 때 Next가 던지는 오류의 digest. 끝나지 않았으면 실패시킨다. */
+function renderRedirectDigest(overrides: Partial<SessionRoleState>) {
+  try {
+    render(overrides);
+  } catch (error) {
+    return (error as { digest?: string }).digest;
+  }
+  return '이동 없이 렌더가 끝났다';
 }
 
 describe('profileOnboardingView', () => {
@@ -95,16 +116,121 @@ describe('profileOnboardingView', () => {
     });
   });
 
-  it('역할 요청 이력이 없는 미배정 사용자는 역할 선택으로 되돌린다', () => {
+  it('승인된 역할 요청도 폼을 연다', () => {
+    expect(
+      profileOnboardingView(
+        state({ status: 'unassigned', roleRequestStatus: 'APPROVED' }),
+      ),
+    ).toEqual({
+      kind: 'form',
+      role: 'STAFF',
+      nextPath: '/onboarding/pending',
+    });
+  });
+
+  // 역할을 고르지 않은 사람은 가입을 마치지 않은 사람이다(#493). 폼을 열어 주면 역할을
+  // 모르는 채 학생 기준으로 그려져, 학번이 필요 없는 사람이 가짜 학번을 지어내야 넘어가고
+  // 백엔드가 그 값을 잠근다(`USR_003`). 비로그인과 같이 랜딩으로 되돌린다.
+  it('역할 요청 이력이 없는 미배정 사용자는 랜딩으로 되돌린다', () => {
     expect(profileOnboardingView(state({ status: 'unassigned' }))).toEqual({
+      kind: 'redirect',
+      path: '/',
+    });
+  });
+
+  // 되돌리는 범위는 "요청이 아예 없음" 하나다. 회수·반려는 역할을 고르긴 고른
+  // 사용자라 `onboardingPathFor`가 정해 둔 기존 경로를 그대로 둔다(PR #525 리뷰).
+  it.each(['REVOKED', 'REJECTED'] as const)(
+    '역할 요청 이력이 있는 %s 사용자는 되돌리지 않는다',
+    (roleRequestStatus) => {
+      expect(
+        profileOnboardingView(
+          state({ status: 'unassigned', roleRequestStatus }),
+        ).kind,
+      ).not.toBe('redirect');
+    },
+  );
+
+  it('회수된 사용자의 처리는 그대로 둔다', () => {
+    expect(
+      profileOnboardingView(
+        state({ status: 'unassigned', roleRequestStatus: 'REVOKED' }),
+      ),
+    ).toEqual({
       kind: 'form',
       role: null,
       nextPath: '/onboarding/role',
     });
   });
+
+  it.each(['PENDING', 'APPROVED'] as const)(
+    '역할을 고른 %s 상태의 교직원은 되돌리지 않는다',
+    (roleRequestStatus) => {
+      expect(
+        profileOnboardingView(
+          state({ status: 'unassigned', roleRequestStatus }),
+        ).kind,
+      ).toBe('form');
+    },
+  );
+
+  it.each(['STUDENT', 'STAFF', 'ADMIN'] as const)(
+    '역할이 배정된 %s 사용자는 되돌리지 않는다',
+    (role) => {
+      expect(
+        profileOnboardingView(state({ status: 'assigned', role })).kind,
+      ).toBe('form');
+    },
+  );
+
+  // 반려는 이 PR의 판단 대상이 아니다 — 역할을 고르긴 골랐고, 되돌릴 자리는
+  // `onboardingPathFor`가 승인 대기(반려 사유를 읽는 자리)로 정해 두었다.
+  it('반려된 사용자의 처리는 그대로 둔다', () => {
+    expect(
+      profileOnboardingView(
+        state({ status: 'unassigned', roleRequestStatus: 'REJECTED' }),
+      ),
+    ).toEqual({
+      kind: 'form',
+      role: null,
+      nextPath: '/onboarding/pending',
+    });
+  });
 });
 
 describe('ProfileOnboardingRoute', () => {
+  // 이동을 결정만 하고 실행하지 않으면 폼이 그대로 열린다. 결정과 실행을 함께 본다.
+  it('역할을 고르지 않은 사용자는 폼을 그리기 전에 랜딩으로 이동한다', () => {
+    expect(renderRedirectDigest({ status: 'unassigned' })).toBe(
+      LANDING_REDIRECT_DIGEST,
+    );
+  });
+
+  // 승인 전 교직원은 세션 `role`이 비어 있을 뿐 역할을 고른 사람이다. 여기서 되돌리면
+  // 교직원 가입이 통째로 막힌다.
+  it('승인 대기 중인 교직원은 되돌리지 않고 프로필 화면을 연다', () => {
+    const html = render({ status: 'unassigned', roleRequestStatus: 'PENDING' });
+
+    expect(html).toContain(PROFILE_SCREEN_MARK);
+    expect(html).not.toContain('확인 중…');
+  });
+
+  it.each(['REVOKED', 'REJECTED'] as const)(
+    '역할 요청 이력이 있는 %s 사용자도 화면을 그대로 연다',
+    (roleRequestStatus) => {
+      const html = render({ status: 'unassigned', roleRequestStatus });
+
+      expect(html).toContain(PROFILE_SCREEN_MARK);
+    },
+  );
+
+  it('역할이 배정된 사용자는 되돌리지 않는다', () => {
+    const html = render({ status: 'assigned', role: 'STUDENT' });
+
+    expect(html).toContain(PROFILE_SCREEN_MARK);
+    expect(html).not.toContain('확인 중…');
+  });
+
   it('역할 조회 중에는 프로필 화면을 마운트하지 않는다', () => {
     const html = render({ status: 'loading' });
 
