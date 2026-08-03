@@ -32,7 +32,6 @@ export interface OwnedStudentApplication {
 export interface UpdatePendingApplicationRecord {
   readonly programId: string;
   readonly studentId: string;
-  readonly now: Date;
   readonly answers: Prisma.InputJsonValue;
   readonly applicationTemplateVersion: number;
 }
@@ -40,7 +39,6 @@ export interface UpdatePendingApplicationRecord {
 export interface DeletePendingApplicationRecord {
   readonly programId: string;
   readonly studentId: string;
-  readonly now: Date;
 }
 
 export type StudentApplicationMutationFailure =
@@ -90,7 +88,10 @@ function toOwnedStudentApplication(
 
 @Injectable()
 export class StudentApplicationManagementRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly clock: () => Date = () => new Date(),
+  ) {}
 
   async findOwnedApplication(
     programId: string,
@@ -118,7 +119,7 @@ export class StudentApplicationManagementRepository {
         input.studentId,
       );
       if (!application) return { kind: 'application-not-found' };
-      const failure = this.validateMutation(application, policy, input.now);
+      const failure = this.validateMutation(application, policy, this.clock());
       if (failure) return failure;
       if (
         input.applicationTemplateVersion !== policy.applicationTemplateVersion
@@ -149,7 +150,7 @@ export class StudentApplicationManagementRepository {
         input.studentId,
       );
       if (!application) return { kind: 'application-not-found' };
-      const failure = this.validateMutation(application, policy, input.now);
+      const failure = this.validateMutation(application, policy, this.clock());
       if (failure) return failure;
       await transaction.application.delete({ where: { id: application.id } });
       return { kind: 'cancelled' };

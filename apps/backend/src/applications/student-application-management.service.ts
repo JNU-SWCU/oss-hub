@@ -82,7 +82,6 @@ export class StudentApplicationManagementService {
     const result = await this.repository.updatePendingApplication({
       programId,
       studentId: context.studentId,
-      now,
       answers: answers.answers,
       applicationTemplateVersion: input.applicationTemplateVersion,
     });
@@ -100,7 +99,6 @@ export class StudentApplicationManagementService {
     const result = await this.repository.deletePendingApplication({
       programId,
       studentId: context.studentId,
-      now,
     });
     if (result.kind !== 'cancelled') this.throwMutationFailure(result);
     return { cancelled: true };

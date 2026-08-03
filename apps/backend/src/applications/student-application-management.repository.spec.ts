@@ -34,6 +34,7 @@ describe('StudentApplicationManagementRepository', () => {
     const findFirst = jest.fn().mockResolvedValue(APPLICATION);
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ application: { findFirst } }),
+      () => NOW,
     );
 
     await repository.findOwnedApplication('program-1', 'student-1');
@@ -65,12 +66,12 @@ describe('StudentApplicationManagementRepository', () => {
     });
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
+      () => NOW,
     );
 
     const result = await repository.updatePendingApplication({
       programId: 'program-1',
       studentId: 'student-1',
-      now: NOW,
       answers: { title: 'Updated', summary: 'Updated' },
       applicationTemplateVersion: 1,
     });
@@ -88,13 +89,13 @@ describe('StudentApplicationManagementRepository', () => {
     });
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
+      () => NOW,
     );
 
     await expect(
       repository.updatePendingApplication({
         programId: 'program-1',
         studentId: 'student-1',
-        now: NOW,
         answers: { title: 'Updated', summary: 'Updated' },
         applicationTemplateVersion: 1,
       }),
@@ -115,16 +116,75 @@ describe('StudentApplicationManagementRepository', () => {
     });
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
+      () => NOW,
     );
 
     await expect(
       repository.deletePendingApplication({
         programId: 'program-1',
         studentId: 'student-1',
-        now: NOW,
       }),
     ).resolves.toEqual({ kind: 'already-decided' });
   });
+  it.each(['update', 'delete'] as const)(
+    'rejects %s after application lock wait crosses the deadline',
+    async (operation) => {
+      let releaseApplicationLock: (() => void) | undefined;
+      const applicationLock = new Promise<readonly { id: string }[]>(
+        (resolve) => {
+          releaseApplicationLock = () => resolve([{ id: APPLICATION.id }]);
+        },
+      );
+      let applicationLockRequested: (() => void) | undefined;
+      const applicationLockReady = new Promise<void>((resolve) => {
+        applicationLockRequested = resolve;
+      });
+      let locks = 0;
+      const transaction = createTransaction({
+        application: {
+          findFirst: jest
+            .fn()
+            .mockResolvedValueOnce({ id: APPLICATION.id })
+            .mockResolvedValueOnce(APPLICATION),
+          update: jest.fn().mockResolvedValue(APPLICATION),
+        },
+      });
+      transaction.$queryRaw.mockImplementation(() => {
+        locks += 1;
+        if (locks === 2) {
+          applicationLockRequested?.();
+          return applicationLock;
+        }
+        return Promise.resolve([{ id: 'locked' }]);
+      });
+      const clock = jest.fn(() => NOW);
+      const repository = new StudentApplicationManagementRepository(
+        createPrisma({ transaction }),
+        clock,
+      );
+
+      const result =
+        operation === 'update'
+          ? repository.updatePendingApplication({
+              programId: 'program-1',
+              studentId: 'student-1',
+              answers: { title: 'Updated', summary: 'Updated' },
+              applicationTemplateVersion: 1,
+            })
+          : repository.deletePendingApplication({
+              programId: 'program-1',
+              studentId: 'student-1',
+            });
+
+      await applicationLockReady;
+      clock.mockReturnValue(new Date('2026-08-01T00:00:00.000Z'));
+      releaseApplicationLock?.();
+
+      await expect(result).resolves.toEqual({ kind: 'period-closed' });
+      expect(transaction.application.update).not.toHaveBeenCalled();
+      expect(transaction.application.delete).not.toHaveBeenCalled();
+    },
+  );
 });
 
 type Transaction = ReturnType<typeof createTransaction>;

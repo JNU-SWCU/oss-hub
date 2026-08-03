@@ -14,7 +14,8 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const applicationsRepository = new ApplicationsRepository(prisma);
-const repository = new StudentApplicationManagementRepository(prisma);
+const now = () => NOW;
+const repository = new StudentApplicationManagementRepository(prisma, now);
 const service = new StudentApplicationManagementService(
   repository,
   applicationsRepository,
