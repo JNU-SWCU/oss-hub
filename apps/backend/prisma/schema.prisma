@@ -586,8 +586,9 @@ model RepositoryInvitation {
 
   githubLogin String
 
-  status       RepositoryInvitationStatus @default(PENDING)
-  attemptCount Int                        @default(0)
+  status              RepositoryInvitationStatus @default(PENDING)
+  attemptCount        Int                        @default(0)
+  reconciliationCount Int                        @default(0)
 
   lastErrorCode    String?
   lastErrorMessage String?
