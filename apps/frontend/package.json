@@ -33,6 +33,7 @@
     "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^9.0.0",
     "eslint-config-prettier": "^10.1.8",
+    "happy-dom": "^20.11.1",
     "postcss": "^8.5.19",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.0.0",
