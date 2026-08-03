@@ -280,6 +280,27 @@ export function ConsentPolicyInline({
 }
 
 /**
+ * 좁은 화면 전문 팝업의 자리와 크기(#519).
+ *
+ * 불변식 둘: 손에 쥐는 폭에서는 `top`·`bottom`을 함께 묶어 높이를 **정해진 값**으로
+ * 두고(`max-h`로만 묶으면 판이 내용만큼만 자란다), 물러나는 만큼은
+ * `env(safe-area-inset-*)`뿐이다(`100dvh`는 노치 기기에서 잘린다).
+ * `sm` 위는 이 이슈의 범위가 아니라 예전 그대로 가운데 카드다.
+ */
+export const consentPolicyDialogClassName = cn(
+  'fixed z-50 flex flex-col overflow-hidden bg-cosmos-near focus:outline-none',
+  'top-[env(safe-area-inset-top)] right-0 bottom-[env(safe-area-inset-bottom)] left-0',
+  'sm:top-1/2 sm:right-auto sm:bottom-auto sm:left-1/2 sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100%-2rem)] sm:max-w-3xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-card sm:border sm:border-cosmos-border sm:shadow-lg',
+);
+
+/**
+ * 좁은 화면에서 제목 줄·닫기 줄은 조작 요소 높이(44px) 그대로 선다 — 나머지 높이는
+ * 전부 본문 칸으로 간다(#519).
+ */
+const consentPolicyDialogBarClassName =
+  'flex shrink-0 items-center gap-3 px-5 sm:py-3';
+
+/**
  * 좁은 화면에서 쓰는 전문 팝업. 나란히 놓을 폭이 없으므로 팝업은 남기고, 흰
  * 바탕(`bg-background`)만 걷어내 우주 톤으로 바꾼다(#517).
  *
@@ -310,7 +331,7 @@ export function ConsentPolicyDialog({
         <DialogPrimitive.Content
           ref={contentRef}
           data-surface="inverted"
-          className="fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-card border border-cosmos-border bg-cosmos-near shadow-lg focus:outline-none"
+          className={consentPolicyDialogClassName}
           /*
             열릴 때 초점을 판 자체에 둔다. 두지 않으면 Radix가 첫 초점 대상인 iframe으로
             보내는데, 그 iframe은 `sandbox=""`라 다른 문서다 — Escape 키가 그 문서에서
@@ -329,7 +350,12 @@ export function ConsentPolicyDialog({
         >
           {/* 제목·본문·닫기 세 구역으로 나눈다 — 경계는 우주 바탕의 테두리 색 하나다.
               본문만 스크롤되므로 제목과 닫기는 어디까지 읽었든 늘 보인다. */}
-          <div className="flex items-center justify-between gap-3 border-b border-cosmos-border px-5 py-3">
+          <div
+            className={cn(
+              consentPolicyDialogBarClassName,
+              'justify-between border-b border-cosmos-border',
+            )}
+          >
             <DialogPrimitive.Title className="font-heading text-lg font-semibold text-cosmos-copy">
               {item?.label} 전문
             </DialogPrimitive.Title>
@@ -344,13 +370,20 @@ export function ConsentPolicyDialog({
               여기서 더 두면 375px에서 읽는 폭이 두 번 깎인다. */}
           <div className="min-h-0 flex-1 overflow-y-auto">
             {item ? (
+              /* 판 높이가 정해진 좁은 화면에서는 `h-full`이 남는 높이를 받고, 판이
+                 내용만큼 자라는 `sm` 위에서는 예전처럼 `min-h`가 값을 준다(#519). */
               <ConsentPolicyDocumentFrame
                 item={item}
-                className="min-h-[52dvh]"
+                className="h-full min-h-[52dvh]"
               />
             ) : null}
           </div>
-          <div className="flex justify-end border-t border-cosmos-border px-5 py-3">
+          <div
+            className={cn(
+              consentPolicyDialogBarClassName,
+              'justify-end border-t border-cosmos-border',
+            )}
+          >
             <DialogPrimitive.Close asChild>
               <Button
                 className="border-cosmos-border text-cosmos-copy hover:bg-cosmos-muted/10 hover:text-cosmos-copy"

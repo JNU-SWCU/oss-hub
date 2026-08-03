@@ -1,9 +1,16 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { CurrentConsent } from '../api';
 import type { ConsentPolicyPresentation } from '../consent-policy-presentation';
-import { ConsentForm, ConsentPolicyInline } from './consent-view';
+import {
+  ConsentForm,
+  ConsentPolicyInline,
+  consentPolicyDialogClassName,
+} from './consent-view';
 
 const policy: CurrentConsent = {
   policyVersion: 'policy-popup-test',
@@ -142,5 +149,54 @@ describe('ConsentPolicyInline', () => {
   // 펼친 영역까지 Tab으로 다시 걸어 내려오지 않도록 초점을 받을 수 있어야 한다.
   it('초점을 받을 수 있는 영역이다', () => {
     expect(renderInline()).toContain('tabindex="-1"');
+  });
+});
+
+// 여기서 지키는 것은 **높이를 정하는 방식**이지 높이 자체가 아니다. 실제 픽셀은
+// 브라우저가 배치해야 나오는 값이라 `renderToStaticMarkup`으로는 잴 수 없다 —
+// 375×812에서 실측한 값(문서에 722px, 최악 문서 70.4%)은 PR 본문에 남긴다.
+describe('좁은 화면 전문 팝업의 높이 계약', () => {
+  const narrow = consentPolicyDialogClassName
+    .split(' ')
+    .filter((token) => !token.startsWith('sm:'));
+
+  // 높이를 `max-h`로만 묶으면 판이 내용만큼만 자란다. 812px 화면에서 판이 562px에
+  // 그쳐 문서에 422px(최악 문서의 38%)만 돌아갔다(#519).
+  it('좁은 화면에서는 위·아래를 함께 묶어 높이를 정한다', () => {
+    expect(narrow).toContain('top-[env(safe-area-inset-top)]');
+    expect(narrow).toContain('bottom-[env(safe-area-inset-bottom)]');
+    expect(narrow.some((token) => token.startsWith('max-h-'))).toBe(false);
+    expect(narrow.some((token) => token.startsWith('-translate-y-'))).toBe(
+      false,
+    );
+  });
+
+  // `100dvh`를 그대로 쓰면 노치·홈 표시줄이 있는 기기에서 위아래가 잘린다.
+  it('좁은 화면은 뷰포트 단위가 아니라 안전영역만큼 물러난다', () => {
+    expect(narrow.some((token) => token.includes('dvh'))).toBe(false);
+  });
+
+  // 넓은 화면 가운데 카드는 이 이슈의 범위가 아니다 — 예전 값 그대로 `sm` 위에만 산다.
+  it('가운데 카드는 sm 위에만 남는다', () => {
+    for (const token of [
+      'sm:top-1/2',
+      'sm:-translate-y-1/2',
+      'sm:max-h-[calc(100dvh-2rem)]',
+      'sm:w-[calc(100%-2rem)]',
+      'sm:max-w-3xl',
+      'sm:rounded-card',
+    ]) {
+      expect(consentPolicyDialogClassName).toContain(token);
+    }
+  });
+
+  // 판 높이를 정해도 문서 틀이 자기 높이를 고집하면 본문 칸이 남는 높이를 못 받는다.
+  it('문서 틀이 본문 칸을 채운다', () => {
+    const source = readFileSync(
+      path.resolve(__dirname, './consent-view.tsx'),
+      'utf-8',
+    );
+
+    expect(source).toContain('className="h-full min-h-[52dvh]"');
   });
 });
