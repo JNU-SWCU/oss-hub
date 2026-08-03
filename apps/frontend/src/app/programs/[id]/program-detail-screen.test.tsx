@@ -1,6 +1,13 @@
-import type { ReactNode } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+// @vitest-environment happy-dom
+
+import { act, type ReactNode } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
+  configurable: true,
+  value: true,
+});
 
 type ProgramDetailPageProps = {
   readonly programId: string;
@@ -27,16 +34,6 @@ const captured = vi.hoisted(() => ({
   checklistProps: null as SubmissionChecklistPageProps | null,
 }));
 
-const openedInPage = vi.hoisted(() => ({ current: false }));
-
-vi.mock('react', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('react')>();
-  return {
-    ...actual,
-    useRef: () => openedInPage,
-  };
-});
-
 vi.mock('next/navigation', () => ({
   useRouter: () => navigation.router,
   useSearchParams: () => navigation.searchParams,
@@ -60,8 +57,10 @@ function setSearchParams(query: string): void {
   navigation.searchParams = new URLSearchParams(query);
 }
 
-function renderScreen(): void {
-  renderToStaticMarkup(<ProgramDetailScreen programId="program:basic" />);
+async function renderScreen(root: Root): Promise<void> {
+  await act(async () => {
+    root.render(<ProgramDetailScreen programId="program:basic" />);
+  });
 }
 
 function checklistProps(): SubmissionChecklistPageProps {
@@ -72,8 +71,13 @@ function checklistProps(): SubmissionChecklistPageProps {
 }
 
 describe('ProgramDetailScreen submission dialog history', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
   beforeEach(() => {
-    openedInPage.current = false;
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
     captured.checklistProps = null;
     setSearchParams('');
     navigation.router.back.mockReset();
@@ -81,9 +85,14 @@ describe('ProgramDetailScreen submission dialog history', () => {
     navigation.router.replace.mockReset();
   });
 
-  it('closes a direct deep-linked submission by replacing the query', () => {
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  it('closes a direct deep-linked submission by replacing the query', async () => {
     setSearchParams('submission=milestone-1&tab=overview');
-    renderScreen();
+    await renderScreen(root);
 
     checklistProps().onCloseSelected?.();
 
@@ -94,11 +103,11 @@ describe('ProgramDetailScreen submission dialog history', () => {
     expect(navigation.router.back).not.toHaveBeenCalled();
   });
 
-  it('closes an in-page opened submission with browser back', () => {
-    renderScreen();
+  it('closes an in-page opened submission with browser back', async () => {
+    await renderScreen(root);
     checklistProps().onSelectMilestone?.('milestone-1');
     setSearchParams('submission=milestone-1');
-    renderScreen();
+    await renderScreen(root);
 
     checklistProps().onCloseSelected?.();
 
@@ -110,16 +119,16 @@ describe('ProgramDetailScreen submission dialog history', () => {
     expect(navigation.router.replace).not.toHaveBeenCalled();
   });
 
-  it('preserves in-page provenance after browser back and forward restore the submission query', () => {
-    renderScreen();
+  it('preserves in-page provenance after browser back and forward restore the submission query', async () => {
+    await renderScreen(root);
     checklistProps().onSelectMilestone?.('milestone-1');
     setSearchParams('submission=milestone-1');
-    renderScreen();
+    await renderScreen(root);
     setSearchParams('');
-    renderScreen();
+    await renderScreen(root);
     expect(checklistProps().milestoneId).toBeNull();
     setSearchParams('submission=milestone-1');
-    renderScreen();
+    await renderScreen(root);
     expect(checklistProps().milestoneId).toBe('milestone-1');
 
     checklistProps().onCloseSelected?.();
