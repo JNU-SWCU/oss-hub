@@ -20,6 +20,7 @@ export enum ApplicationsErrorCode {
   TEAM_NOT_FOUND = 'APP_017',
   /** 목록·요약 등 조회용 — 판정 전용 문구 금지 (#106/#117). */
   STAFF_LIST_ONLY = 'APP_018',
+  TEAM_MIN_SIZE_NOT_MET = 'APP_019',
 }
 
 export const APPLICATIONS_ERROR_CODES: Record<
@@ -116,5 +117,10 @@ export const APPLICATIONS_ERROR_CODES: Record<
     code: ApplicationsErrorCode.STAFF_LIST_ONLY,
     status: 403,
     message: '승인된 교직원 또는 관리자만 조회할 수 있습니다.',
+  },
+  [ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET]: {
+    code: ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET,
+    status: 422,
+    message: '팀 최소 인원을 충족해야 신청할 수 있습니다.',
   },
 };

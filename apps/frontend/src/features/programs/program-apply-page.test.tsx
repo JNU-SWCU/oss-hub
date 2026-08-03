@@ -92,6 +92,39 @@ describe('ProgramApply views', () => {
     expect(html).toContain('이미 제출한 신청이 있습니다.');
   });
 
+  it('팀 최소 인원이 부족하면 제출 버튼을 비활성화하고 부족 인원을 안내한다', () => {
+    // Given
+    const teamTemplate = { ...template, participation: 'team' as const };
+
+    // When
+    const html = renderToStaticMarkup(
+      <ProgramApplyFormView
+        program={program}
+        template={teamTemplate}
+        applicantName="합성 학생"
+        values={{
+          title: '팀 제목',
+          summary: '팀 요약',
+          isRepositoryPublicationPlanned: true,
+        }}
+        errors={{}}
+        serverError={null}
+        submitting={false}
+        teamMinimum={{ memberCount: 1, teamMinSize: 2 }}
+        onChange={() => undefined}
+        onTogglePublicationPlanned={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    // Then
+    expect(html).toContain('disabled=""');
+    expect(html).toContain('최소 2명이 필요합니다');
+    expect(html).toContain('현재 1명이며 1명이 더');
+    expect(html).toContain('필요합니다');
+    expect(html).toContain('/programs/program-1/teams');
+  });
+
   it('저장소 공개 예정 체크박스를 값에 맞춰 렌더한다', () => {
     const html = renderToStaticMarkup(
       <ProgramApplyFormView

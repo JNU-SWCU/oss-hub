@@ -81,6 +81,8 @@ export interface ApplyTeamRecord {
   readonly programId: string;
   readonly leaderId: string;
   readonly isMember: boolean;
+  readonly memberCount: number;
+  readonly teamMinSize: number | null;
 }
 
 export interface CreateApplicationRecordInput {
@@ -280,6 +282,8 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
         id: true,
         programId: true,
         leaderId: true,
+        program: { select: { teamMinSize: true } },
+        _count: { select: { members: true } },
         members: {
           where: { userId },
           select: { id: true },
@@ -293,6 +297,8 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
       programId: team.programId,
       leaderId: team.leaderId,
       isMember: team.leaderId === userId || team.members.length > 0,
+      memberCount: team._count.members,
+      teamMinSize: team.program.teamMinSize,
     };
   }
 

@@ -1,4 +1,5 @@
 import type { ProblemDetail } from '@/lib/api-client';
+import type { ProgramTeam } from './api';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
 
 export type ProgramApplyBlockedReason =
@@ -10,7 +11,25 @@ export type ProgramApplyReadyState = {
   readonly template: ApplicationFormTemplate;
   readonly applicantName: string;
   readonly teamId: string | null;
+  readonly teamMinimum: TeamMinimum | null;
 };
+
+export type TeamMinimum = {
+  readonly memberCount: number;
+  readonly teamMinSize: number;
+};
+
+export function resolveTeamMinimum(
+  team: Pick<ProgramTeam, 'memberCount' | 'minMembers'>,
+): TeamMinimum | null {
+  if (team.minMembers === null) return null;
+  return { memberCount: team.memberCount, teamMinSize: team.minMembers };
+}
+
+export function remainingTeamMembers(teamMinimum: TeamMinimum | null): number {
+  if (teamMinimum === null) return 0;
+  return Math.max(teamMinimum.teamMinSize - teamMinimum.memberCount, 0);
+}
 
 export type ProgramApplyPageState =
   | { readonly kind: 'loading' }
@@ -84,6 +103,8 @@ export function mapCreateApplicationError(problem: ProblemDetail): string {
       return '이미 제출한 신청이 있습니다.';
     case 'APP_012':
       return '팀 구성 후 신청할 수 있습니다.';
+    case 'APP_019':
+      return '팀 최소 인원을 충족한 뒤 신청해 주세요.';
     case 'APP_015':
       return '신청 항목을 확인해 주세요.';
     case 'APP_016':

@@ -18,12 +18,15 @@ import { FormRenderer } from './form-renderer';
 import {
   EMPTY_APPLY_FORM,
   mapCreateApplicationError,
+  remainingTeamMembers,
   resolveApplyBlockedReason,
+  resolveTeamMinimum,
   teamSetupHref,
   validateApplyForm,
   type ProgramApplyFormErrors,
   type ProgramApplyFormValues,
   type ProgramApplyPageState,
+  type TeamMinimum,
 } from './program-apply-flow';
 import { programHref } from './program-paths';
 import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
@@ -146,6 +149,7 @@ export function ProgramApplyFormView({
   errors,
   serverError,
   submitting,
+  teamMinimum = null,
   onChange,
   onTogglePublicationPlanned,
   onSubmit,
@@ -157,10 +161,12 @@ export function ProgramApplyFormView({
   readonly errors: ProgramApplyFormErrors;
   readonly serverError: string | null;
   readonly submitting: boolean;
+  readonly teamMinimum?: TeamMinimum | null;
   readonly onChange: (key: keyof ProgramApplyFormValues, value: string) => void;
   readonly onTogglePublicationPlanned: (checked: boolean) => void;
   readonly onSubmit: () => void;
 }) {
+  const missingTeamMembers = remainingTeamMembers(teamMinimum);
   const fieldValues = useMemo(
     () => ({
       applicantName,
@@ -210,8 +216,29 @@ export function ProgramApplyFormView({
               <AlertDescription>{serverError}</AlertDescription>
             </Alert>
           ) : null}
+          {missingTeamMembers > 0 && teamMinimum ? (
+            <Alert>
+              <AlertTitle>
+                최소 {teamMinimum.teamMinSize}명이 필요합니다
+              </AlertTitle>
+              <AlertDescription>
+                현재 {teamMinimum.memberCount}명이며 {missingTeamMembers}명이 더
+                필요합니다.{' '}
+                <Link
+                  className="font-semibold underline underline-offset-4"
+                  href={teamSetupHref(program.id)}
+                >
+                  팀 구성원 관리
+                </Link>
+              </AlertDescription>
+            </Alert>
+          ) : null}
           <div className="flex flex-wrap gap-2">
-            <Button type="button" disabled={submitting} onClick={onSubmit}>
+            <Button
+              type="button"
+              disabled={submitting || missingTeamMembers > 0}
+              onClick={onSubmit}
+            >
               {submitting ? '제출 중…' : '신청 제출'}
             </Button>
             <Button asChild variant="outline">
@@ -278,14 +305,14 @@ export function ProgramApplyPage({
         : '';
 
       let resolvedTeamId = teamId;
-      if (
-        template.participation === 'team' &&
-        resolvedTeamId === null &&
-        session.isAuthenticated
-      ) {
+      let teamMinimum: TeamMinimum | null = null;
+      if (template.participation === 'team' && session.isAuthenticated) {
         try {
           const team = await getMyTeam(programId);
-          resolvedTeamId = team.id;
+          if (resolvedTeamId === null) resolvedTeamId = team.id;
+          if (resolvedTeamId === team.id) {
+            teamMinimum = resolveTeamMinimum(team);
+          }
         } catch (error: unknown) {
           if (!(error instanceof ApiError && error.problem.status === 404)) {
             throw error;
@@ -309,6 +336,7 @@ export function ProgramApplyPage({
         template,
         applicantName,
         teamId: resolvedTeamId,
+        teamMinimum,
       });
     } catch (error: unknown) {
       if (error instanceof ApiError && error.problem.status === 404) {
@@ -331,6 +359,7 @@ export function ProgramApplyPage({
 
   const submit = async () => {
     if (state.kind !== 'ready') return;
+    if (remainingTeamMembers(state.teamMinimum) > 0) return;
     const nextErrors = validateApplyForm(values);
     setErrors(nextErrors);
     setServerError(null);
@@ -441,6 +470,7 @@ export function ProgramApplyPage({
           errors={errors}
           serverError={serverError}
           submitting={submitting}
+          teamMinimum={state.teamMinimum}
           onChange={(key, value) =>
             setValues((previous) => ({ ...previous, [key]: value }))
           }

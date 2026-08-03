@@ -53,6 +53,11 @@ interface RepositoryEventConflictExtensions extends ProblemDetailExtensions {
   readonly eventId: string;
 }
 
+interface TeamMinimumExtensions extends ProblemDetailExtensions {
+  readonly memberCount: number;
+  readonly teamMinSize: number;
+}
+
 @Injectable()
 export class ApplicationsService {
   private readonly logger = new Logger(ApplicationsService.name);
@@ -120,6 +125,21 @@ export class ApplicationsService {
           }
           if (!team.isMember) {
             throw this.error(ApplicationsErrorCode.TEAM_MEMBERSHIP_REQUIRED);
+          }
+          if (
+            team.teamMinSize !== null &&
+            team.memberCount < team.teamMinSize
+          ) {
+            const extensions: TeamMinimumExtensions = {
+              memberCount: team.memberCount,
+              teamMinSize: team.teamMinSize,
+            };
+            throw new DomainException(
+              APPLICATIONS_ERROR_CODES[
+                ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET
+              ],
+              extensions,
+            );
           }
 
           const duplicate = await store.findTeamDuplicate(programId, teamId);

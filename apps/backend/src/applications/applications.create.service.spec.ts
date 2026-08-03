@@ -320,6 +320,8 @@ describe('ApplicationsService.create', () => {
           programId: PROGRAM_ID,
           leaderId: 'other',
           isMember: false,
+          memberCount: 1,
+          teamMinSize: 2,
         }),
       },
     });
@@ -339,6 +341,43 @@ describe('ApplicationsService.create', () => {
     ).rejects.toMatchObject({
       errorCode: { code: ApplicationsErrorCode.TEAM_MEMBERSHIP_REQUIRED },
     });
+  });
+
+  it('팀원이 최소 인원보다 적으면 신청을 생성하지 않고 APP_019를 반환한다', async () => {
+    // Given
+    const { service, createApplication } = buildService({
+      program: { ...OPEN_PROGRAM, category: ProgramCategory.OSS_CONTEST },
+      store: {
+        findTeamForApply: jest.fn().mockResolvedValue({
+          id: 'team-1',
+          programId: PROGRAM_ID,
+          leaderId: STUDENT.id,
+          isMember: true,
+          memberCount: 1,
+          teamMinSize: 2,
+        }),
+      },
+    });
+
+    // When
+    const submission = service.create(
+      GITHUB_ID,
+      PROGRAM_ID,
+      {
+        answers: { title: '팀 제목', summary: '팀 요약' },
+        teamId: 'team-1',
+        applicationTemplateVersion: 1,
+        isRepositoryPublicationPlanned: true,
+      },
+      NOW,
+    );
+
+    // Then
+    await expect(submission).rejects.toMatchObject({
+      errorCode: { code: 'APP_019', status: 422 },
+      extensions: { memberCount: 1, teamMinSize: 2 },
+    });
+    expect(createApplication).not.toHaveBeenCalled();
   });
 
   it('중복 개인 신청 precheck 는 APP_011', async () => {
@@ -410,6 +449,8 @@ describe('ApplicationsService.create', () => {
           programId: PROGRAM_ID,
           leaderId: STUDENT.id,
           isMember: true,
+          memberCount: 2,
+          teamMinSize: 2,
         }),
         findTeamDuplicate: jest.fn().mockResolvedValue(false),
       },
