@@ -10,11 +10,15 @@ import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
 } from './applications-error-code.enum';
+import {
+  ApplicationsRepository,
+  type ApplyProgramRecord,
+} from './applications.repository';
 import type { UpdateStudentApplicationInput } from './domain/update-student-application';
 import {
   StudentApplicationManagementRepository,
   type OwnedStudentApplication,
-  type StudentApplicationPolicy,
+  type StudentApplicationMutationFailure,
 } from './student-application-management.repository';
 
 export interface StudentApplicationView {
@@ -31,14 +35,16 @@ export interface StudentApplicationView {
 }
 
 interface StudentApplicationContext {
+  readonly studentId: string;
   readonly application: OwnedStudentApplication;
-  readonly policy: StudentApplicationPolicy;
+  readonly policy: ApplyProgramRecord;
 }
 
 @Injectable()
 export class StudentApplicationManagementService {
   constructor(
     private readonly repository: StudentApplicationManagementRepository,
+    private readonly applicationsRepository: ApplicationsRepository,
   ) {}
 
   async getMine(
@@ -66,23 +72,22 @@ export class StudentApplicationManagementService {
     if (!versionCheck.ok) {
       throw this.error(ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH);
     }
-    const applicantName = this.resolveApplicantName(context.application);
     const answers = normalizeAndValidateApplicationAnswers(
       input.answers,
-      applicantName,
+      this.resolveApplicantName(context.application),
     );
     if (!answers.ok) {
       throw this.error(ApplicationsErrorCode.INVALID_ANSWERS);
     }
-    const updated = await this.repository.updatePendingApplication({
-      applicationId: context.application.id,
+    const result = await this.repository.updatePendingApplication({
+      programId,
+      studentId: context.studentId,
+      now,
       answers: answers.answers,
-      applicationTemplateVersion: context.policy.applicationTemplateVersion,
+      applicationTemplateVersion: input.applicationTemplateVersion,
     });
-    if (!updated) {
-      throw this.error(ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED);
-    }
-    return this.toView(updated, true);
+    if (result.kind !== 'updated') this.throwMutationFailure(result);
+    return this.toView(result.application, true);
   }
 
   async cancelMine(
@@ -92,12 +97,12 @@ export class StudentApplicationManagementService {
   ): Promise<{ readonly cancelled: true }> {
     const context = await this.requireContext(githubId, programId);
     this.requireEditable(context.application, context.policy, now);
-    const cancelled = await this.repository.deletePendingApplication(
-      context.application.id,
-    );
-    if (!cancelled) {
-      throw this.error(ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED);
-    }
+    const result = await this.repository.deletePendingApplication({
+      programId,
+      studentId: context.studentId,
+      now,
+    });
+    if (result.kind !== 'cancelled') this.throwMutationFailure(result);
     return { cancelled: true };
   }
 
@@ -105,22 +110,37 @@ export class StudentApplicationManagementService {
     githubId: bigint,
     programId: string,
   ): Promise<StudentApplicationContext> {
-    const student = await this.repository.findActiveStudentByGithubId(githubId);
+    const student =
+      await this.applicationsRepository.findActiveStudentByGithubId(githubId);
     if (!student) throw this.error(ApplicationsErrorCode.STUDENT_ONLY);
     const [application, policy] = await Promise.all([
       this.repository.findOwnedApplication(programId, student.id),
-      this.repository.findProgramPolicy(programId),
+      this.applicationsRepository.findProgramById(programId),
     ]);
     if (!policy) throw this.error(ApplicationsErrorCode.PROGRAM_NOT_FOUND);
     if (!application) {
       throw this.error(ApplicationsErrorCode.APPLICATION_NOT_FOUND);
     }
-    return { application, policy };
+    return { studentId: student.id, application, policy };
+  }
+
+  private throwMutationFailure(
+    failure: StudentApplicationMutationFailure,
+  ): never {
+    const code = {
+      'program-not-found': ApplicationsErrorCode.PROGRAM_NOT_FOUND,
+      'application-not-found': ApplicationsErrorCode.APPLICATION_NOT_FOUND,
+      'already-decided': ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED,
+      'period-closed': ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED,
+      'template-version-mismatch':
+        ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH,
+    }[failure.kind];
+    throw this.error(code);
   }
 
   private requireEditable(
     application: OwnedStudentApplication,
-    policy: StudentApplicationPolicy,
+    policy: ApplyProgramRecord,
     now: Date,
   ): void {
     if (application.status !== ApplicationStatus.SUBMITTED) {
@@ -133,7 +153,7 @@ export class StudentApplicationManagementService {
 
   private isEditable(
     application: OwnedStudentApplication,
-    policy: StudentApplicationPolicy,
+    policy: ApplyProgramRecord,
     now: Date,
   ): boolean {
     return (
@@ -142,7 +162,7 @@ export class StudentApplicationManagementService {
     );
   }
 
-  private isPeriodOpen(policy: StudentApplicationPolicy, now: Date): boolean {
+  private isPeriodOpen(policy: ApplyProgramRecord, now: Date): boolean {
     return policy.applicationStartAt <= now && now <= policy.applicationEndAt;
   }
 

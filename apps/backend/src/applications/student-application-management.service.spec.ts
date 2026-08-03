@@ -1,7 +1,8 @@
-﻿import { ApplicationStatus } from '@prisma/client';
+import { ApplicationStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApplicationsErrorCode } from './applications-error-code.enum';
+import { ApplicationsRepository } from './applications.repository';
 import { StudentApplicationManagementRepository } from './student-application-management.repository';
 import { StudentApplicationManagementService } from './student-application-management.service';
 
@@ -37,33 +38,37 @@ const APPLICATION = {
 } as const;
 
 function createRepository() {
-  const repository = new StudentApplicationManagementRepository(
-    new PrismaService(),
-  );
+  const prisma = new PrismaService();
+  const repository = new StudentApplicationManagementRepository(prisma);
+  const applicationsRepository = new ApplicationsRepository(prisma);
   const findActiveStudentByGithubId = jest
-    .spyOn(repository, 'findActiveStudentByGithubId')
+    .spyOn(applicationsRepository, 'findActiveStudentByGithubId')
     .mockResolvedValue(STUDENT);
   const findOwnedApplication = jest
     .spyOn(repository, 'findOwnedApplication')
     .mockResolvedValue(APPLICATION);
   const findProgramPolicy = jest
-    .spyOn(repository, 'findProgramPolicy')
-    .mockResolvedValue(OPEN_PROGRAM);
+    .spyOn(applicationsRepository, 'findProgramById')
+    .mockResolvedValue({ id: 'program-1', category: 'BASIC', ...OPEN_PROGRAM });
   const updatePendingApplication = jest
     .spyOn(repository, 'updatePendingApplication')
     .mockResolvedValue({
-      ...APPLICATION,
-      answers: {
-        applicantName: '합성 신청자',
-        title: '수정 제목',
-        summary: '수정 요약',
+      kind: 'updated',
+      application: {
+        ...APPLICATION,
+        answers: {
+          applicantName: '합성 신청자',
+          title: '수정 제목',
+          summary: '수정 요약',
+        },
       },
     });
   const deletePendingApplication = jest
     .spyOn(repository, 'deletePendingApplication')
-    .mockResolvedValue(true);
+    .mockResolvedValue({ kind: 'cancelled' });
   return {
     repository,
+    applicationsRepository,
     findActiveStudentByGithubId,
     findOwnedApplication,
     findProgramPolicy,
@@ -71,7 +76,6 @@ function createRepository() {
     deletePendingApplication,
   };
 }
-
 async function expectDomainCode(
   operation: Promise<unknown>,
   code: ApplicationsErrorCode,
@@ -88,8 +92,11 @@ async function expectDomainCode(
 describe('StudentApplicationManagementService', () => {
   it('신청 기간 내 승인 대기 신청을 조회한다', async () => {
     // Given
-    const { repository } = createRepository();
-    const service = new StudentApplicationManagementService(repository);
+    const { repository, applicationsRepository } = createRepository();
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
 
     // When
     const result = await service.getMine(4242n, 'program-1', NOW);
@@ -115,8 +122,12 @@ describe('StudentApplicationManagementService', () => {
 
   it('신청 기간 내 승인 대기 신청 내용을 수정한다', async () => {
     // Given
-    const { repository, updatePendingApplication } = createRepository();
-    const service = new StudentApplicationManagementService(repository);
+    const { repository, applicationsRepository, updatePendingApplication } =
+      createRepository();
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
 
     // When
     const result = await service.updateMine(
@@ -133,7 +144,9 @@ describe('StudentApplicationManagementService', () => {
     expect(updatePendingApplication.mock.calls).toEqual([
       [
         {
-          applicationId: 'application-1',
+          programId: 'program-1',
+          studentId: 'student-1',
+          now: NOW,
           answers: {
             applicantName: '합성 신청자',
             title: '수정 제목',
@@ -148,8 +161,12 @@ describe('StudentApplicationManagementService', () => {
 
   it('팀원이 조회하고 수정해도 원 신청자 이름을 유지한다', async () => {
     // Given
-    const { repository, updatePendingApplication } = createRepository();
-    const service = new StudentApplicationManagementService(repository);
+    const { repository, applicationsRepository, updatePendingApplication } =
+      createRepository();
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
 
     // When
     const beforeUpdate = await service.getMine(4242n, 'program-1', NOW);
@@ -175,13 +192,20 @@ describe('StudentApplicationManagementService', () => {
 
   it('승인된 신청은 수정하지 않는다', async () => {
     // Given
-    const { repository, findOwnedApplication, updatePendingApplication } =
-      createRepository();
+    const {
+      repository,
+      applicationsRepository,
+      findOwnedApplication,
+      updatePendingApplication,
+    } = createRepository();
     findOwnedApplication.mockResolvedValue({
       ...APPLICATION,
       status: ApplicationStatus.APPROVED,
     });
-    const service = new StudentApplicationManagementService(repository);
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
 
     // When / Then
     await expectDomainCode(
@@ -201,21 +225,31 @@ describe('StudentApplicationManagementService', () => {
 
   it('신청 기간 내 승인 대기 신청을 취소한다', async () => {
     // Given
-    const { repository, deletePendingApplication } = createRepository();
-    const service = new StudentApplicationManagementService(repository);
+    const { repository, applicationsRepository, deletePendingApplication } =
+      createRepository();
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
 
     // When
     const result = await service.cancelMine(4242n, 'program-1', NOW);
 
     // Then
-    expect(deletePendingApplication.mock.calls).toEqual([['application-1']]);
+    expect(deletePendingApplication.mock.calls).toEqual([
+      [{ programId: 'program-1', studentId: 'student-1', now: NOW }],
+    ]);
     expect(result).toEqual({ cancelled: true });
   });
 
   it('신청 기간이 끝나면 취소하지 않는다', async () => {
     // Given
-    const { repository, deletePendingApplication } = createRepository();
-    const service = new StudentApplicationManagementService(repository);
+    const { repository, applicationsRepository, deletePendingApplication } =
+      createRepository();
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
 
     // When / Then
     await expectDomainCode(
@@ -230,8 +264,12 @@ describe('StudentApplicationManagementService', () => {
   });
   it('uses the repository-resolved applicant name instead of the current actor nickname', async () => {
     // Given
-    const { repository, findActiveStudentByGithubId, findOwnedApplication } =
-      createRepository();
+    const {
+      repository,
+      applicationsRepository,
+      findActiveStudentByGithubId,
+      findOwnedApplication,
+    } = createRepository();
     findActiveStudentByGithubId.mockResolvedValue({
       id: 'student-1',
       name: null,
@@ -250,7 +288,10 @@ describe('StudentApplicationManagementService', () => {
         summary: 'Existing summary',
       },
     });
-    const service = new StudentApplicationManagementService(repository);
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
 
     // When
     const result = await service.getMine(4242n, 'program-1', NOW);

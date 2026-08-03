@@ -1,45 +1,43 @@
-import { AccountStatus, ApplicationStatus, Role } from '@prisma/client';
+import { ApplicationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StudentApplicationManagementRepository } from './student-application-management.repository';
-const EXPECTED_APPLICATION_SELECT = {
-  id: true,
-  programId: true,
-  status: true,
-  teamId: true,
+
+const NOW = new Date('2026-07-15T00:00:00.000Z');
+const POLICY = {
+  applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
+  applicationEndAt: new Date('2026-07-31T23:59:59.000Z'),
+  applicationTemplateVersion: 1,
+};
+const APPLICATION = {
+  id: 'application-1',
+  programId: 'program-1',
+  status: ApplicationStatus.SUBMITTED,
+  teamId: null,
   applicant: {
-    select: {
-      id: true,
-      name: true,
-      nickname: true,
-      profile: { select: { name: true } },
-    },
+    id: 'applicant-1',
+    name: 'Applicant',
+    nickname: 'applicant',
+    profile: null,
   },
-  answers: true,
-  submittedAt: true,
-  updatedAt: true,
+  answers: {
+    applicantName: 'Applicant',
+    title: 'Original title',
+    summary: 'Original summary',
+  },
+  submittedAt: NOW,
+  updatedAt: NOW,
   isRepositoryPublicationPlanned: true,
-} as const;
+};
 
-describe('StudentApplicationManagementRepository ownership', () => {
+describe('StudentApplicationManagementRepository', () => {
   it('includes team participation when finding the owned application', async () => {
-    // Given
-    const findFirst = jest.fn().mockResolvedValue(
-      applicationRow({
-        applicant: {
-          id: 'applicant-1',
-          name: 'Legacy Applicant',
-          nickname: 'synthetic-applicant',
-          profile: null,
-        },
-      }),
+    const findFirst = jest.fn().mockResolvedValue(APPLICATION);
+    const repository = new StudentApplicationManagementRepository(
+      createPrisma({ application: { findFirst } }),
     );
-    const prisma = createPrisma({ application: { findFirst } });
-    const repository = new StudentApplicationManagementRepository(prisma);
 
-    // When
     await repository.findOwnedApplication('program-1', 'student-1');
 
-    // Then
     expect(findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
@@ -54,209 +52,115 @@ describe('StudentApplicationManagementRepository ownership', () => {
     );
   });
 
-  it('returns null when the student does not own the application', async () => {
-    // Given
-    const findFirst = jest.fn().mockResolvedValue(null);
-    const prisma = createPrisma({ application: { findFirst } });
-    const repository = new StudentApplicationManagementRepository(prisma);
-
-    // When / Then
-    await expect(
-      repository.findOwnedApplication('program-1', 'outsider-1'),
-    ).resolves.toBeNull();
-  });
-
-  it('uses profile name for owned application applicant when profile exists', async () => {
-    // Given
-    const row = applicationRow({
-      applicant: {
-        id: 'applicant-1',
-        name: 'Legacy Applicant',
-        nickname: 'synthetic-applicant',
-        profile: { name: 'Profile Applicant' },
+  it('locks and revalidates the program and owned application before updating', async () => {
+    const update = jest.fn().mockResolvedValue(APPLICATION);
+    const transaction = createTransaction({
+      application: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce({ id: APPLICATION.id })
+          .mockResolvedValueOnce(APPLICATION),
+        update,
       },
     });
-    const findFirst = jest.fn().mockResolvedValue(row);
-    const prisma = createPrisma({ application: { findFirst } });
-    const repository = new StudentApplicationManagementRepository(prisma);
-
-    // When
-    const result = await repository.findOwnedApplication(
-      'program-1',
-      'student-1',
+    const repository = new StudentApplicationManagementRepository(
+      createPrisma({ transaction }),
     );
 
-    // Then
-    expect(result?.applicant).toEqual({
-      id: 'applicant-1',
-      name: 'Profile Applicant',
-      nickname: 'synthetic-applicant',
-    });
-    expect(findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        select: EXPECTED_APPLICATION_SELECT,
-      }),
-    );
-  });
-
-  it('keeps legacy name for owned application applicant when profile is absent', async () => {
-    // Given
-    const row = applicationRow({
-      applicant: {
-        id: 'applicant-1',
-        name: 'Legacy Applicant',
-        nickname: 'synthetic-applicant',
-        profile: null,
-      },
-    });
-    const findFirst = jest.fn().mockResolvedValue(row);
-    const prisma = createPrisma({ application: { findFirst } });
-    const repository = new StudentApplicationManagementRepository(prisma);
-
-    // When
-    const result = await repository.findOwnedApplication(
-      'program-1',
-      'student-1',
-    );
-
-    // Then
-    expect(result?.applicant.name).toBe('Legacy Applicant');
-  });
-
-  it('uses profile name for updated pending application applicant when profile exists', async () => {
-    // Given
-    const row = applicationRow({
-      applicant: {
-        id: 'applicant-1',
-        name: null,
-        nickname: 'synthetic-applicant',
-        profile: { name: 'Profile Applicant' },
-      },
-    });
-    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
-    const findUnique = jest.fn().mockResolvedValue(row);
-    const transaction = { application: { updateMany, findUnique } };
-    const transactionRunner: PrismaTransactionRunner = (operation) =>
-      operation(transaction);
-    const prisma = createPrisma({ $transaction: transactionRunner });
-    const repository = new StudentApplicationManagementRepository(prisma);
-
-    // When
     const result = await repository.updatePendingApplication({
-      applicationId: 'application-1',
-      answers: { title: 'Updated title', summary: 'Updated summary' },
+      programId: 'program-1',
+      studentId: 'student-1',
+      now: NOW,
+      answers: { title: 'Updated', summary: 'Updated' },
       applicationTemplateVersion: 1,
     });
 
-    // Then
-    expect(result?.applicant.name).toBe('Profile Applicant');
-    expect(findUnique).toHaveBeenCalledWith({
-      where: { id: 'application-1' },
-      select: EXPECTED_APPLICATION_SELECT,
-    });
+    expect(result).toMatchObject({ kind: 'updated' });
+    expect(transaction.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: APPLICATION.id } }),
+    );
   });
 
-  it('resolves active student names from profile before legacy columns', async () => {
-    // Given
-    const findFirst = jest.fn().mockResolvedValue({
-      id: 'student-1',
-      name: 'Legacy Student',
-      nickname: 'synthetic-student',
-      profile: { name: 'Profile Student' },
+  it('returns application-not-found when cancellation wins a race', async () => {
+    const transaction = createTransaction({
+      application: { findFirst: jest.fn().mockResolvedValue(null) },
     });
-    const prisma = createPrisma({ user: { findFirst } });
-    const repository = new StudentApplicationManagementRepository(prisma);
+    const repository = new StudentApplicationManagementRepository(
+      createPrisma({ transaction }),
+    );
 
-    // When
-    const result = await repository.findActiveStudentByGithubId(4242n);
+    await expect(
+      repository.updatePendingApplication({
+        programId: 'program-1',
+        studentId: 'student-1',
+        now: NOW,
+        answers: { title: 'Updated', summary: 'Updated' },
+        applicationTemplateVersion: 1,
+      }),
+    ).resolves.toEqual({ kind: 'application-not-found' });
+  });
 
-    // Then
-    expect(result).toEqual({
-      id: 'student-1',
-      name: 'Profile Student',
-      nickname: 'synthetic-student',
-    });
-    expect(findFirst).toHaveBeenCalledWith({
-      where: {
-        githubId: 4242n,
-        accountStatus: AccountStatus.ACTIVE,
-        role: Role.STUDENT,
-      },
-      select: {
-        id: true,
-        nickname: true,
-        name: true,
-        profile: { select: { name: true } },
+  it('returns already-decided when approval wins a race', async () => {
+    const transaction = createTransaction({
+      application: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce({ id: APPLICATION.id })
+          .mockResolvedValueOnce({
+            ...APPLICATION,
+            status: ApplicationStatus.APPROVED,
+          }),
       },
     });
+    const repository = new StudentApplicationManagementRepository(
+      createPrisma({ transaction }),
+    );
+
+    await expect(
+      repository.deletePendingApplication({
+        programId: 'program-1',
+        studentId: 'student-1',
+        now: NOW,
+      }),
+    ).resolves.toEqual({ kind: 'already-decided' });
   });
 });
 
-type ApplicationRowOptions = {
-  readonly applicant: {
-    readonly id: string;
-    readonly name: string | null;
-    readonly nickname: string;
-    readonly profile: { readonly name: string } | null;
-  };
-};
+type Transaction = ReturnType<typeof createTransaction>;
 
-function applicationRow(options: ApplicationRowOptions) {
+function createTransaction(input?: {
+  readonly application?: {
+    readonly findFirst?: jest.Mock;
+    readonly update?: jest.Mock;
+    readonly delete?: jest.Mock;
+  };
+}) {
   return {
-    id: 'application-1',
-    programId: 'program-1',
-    status: ApplicationStatus.SUBMITTED,
-    teamId: null,
-    applicant: options.applicant,
-    answers: {
-      applicantName: 'Original Applicant',
-      title: 'Original title',
-      summary: 'Original summary',
+    $queryRaw: jest.fn().mockResolvedValue([{ id: 'locked' }]),
+    program: { findUnique: jest.fn().mockResolvedValue(POLICY) },
+    application: {
+      findFirst: input?.application?.findFirst ?? jest.fn(),
+      update: input?.application?.update ?? jest.fn(),
+      delete: input?.application?.delete ?? jest.fn(),
     },
-    submittedAt: new Date('2026-07-10T00:00:00.000Z'),
-    updatedAt: new Date('2026-07-10T00:00:00.000Z'),
-    isRepositoryPublicationPlanned: true,
   };
 }
 
-type TransactionStub = {
-  readonly application: {
-    readonly findUnique: jest.Mock;
-    readonly updateMany: jest.Mock;
-  };
-};
-
-type PrismaTransactionRunner = <T>(
-  operation: (transaction: TransactionStub) => Promise<T>,
-) => Promise<T>;
-
-type PrismaStubInput = {
-  readonly user?: { readonly findFirst?: jest.Mock };
-  readonly application?: {
-    readonly findFirst?: jest.Mock;
-    readonly findUnique?: jest.Mock;
-    readonly updateMany?: jest.Mock;
-    readonly deleteMany?: jest.Mock;
-  };
-  readonly program?: { readonly findUnique?: jest.Mock };
-  readonly $transaction?: PrismaTransactionRunner;
-};
-
-function createPrisma(input: PrismaStubInput): PrismaService {
-  const application = {
-    findFirst: input.application?.findFirst ?? jest.fn(),
-    findUnique: input.application?.findUnique ?? jest.fn(),
-    updateMany: input.application?.updateMany ?? jest.fn(),
-    deleteMany: input.application?.deleteMany ?? jest.fn(),
-  };
-  const fallbackTransaction: PrismaTransactionRunner = (operation) =>
-    operation({ application });
+function createPrisma(input: {
+  readonly application?: { readonly findFirst?: jest.Mock };
+  readonly transaction?: Transaction;
+}): PrismaService {
   const prisma = new PrismaService();
+  const transaction = input.transaction ?? createTransaction();
   Object.defineProperties(prisma, {
-    user: { value: { findFirst: input.user?.findFirst ?? jest.fn() } },
-    application: { value: application },
-    program: { value: { findUnique: input.program?.findUnique ?? jest.fn() } },
-    $transaction: { value: input.$transaction ?? fallbackTransaction },
+    application: {
+      value: { findFirst: input.application?.findFirst ?? jest.fn() },
+    },
+    $transaction: {
+      value: (operation: (client: Transaction) => Promise<unknown>) =>
+        operation(transaction),
+    },
   });
   return prisma;
 }

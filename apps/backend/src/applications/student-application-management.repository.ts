@@ -1,22 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import {
-  AccountStatus,
-  ApplicationStatus,
-  type Prisma,
-  Role,
-} from '@prisma/client';
+import { ApplicationStatus, type Prisma } from '@prisma/client';
 import {
   COMPATIBLE_PROFILE_NAME_SELECT,
   resolveCompatibleProfileName,
 } from '../profiles/profile-compatibility';
 import { PrismaService } from '../prisma/prisma.service';
 import { programApplicationParticipantWhere } from '../programs/program-participant';
-
-export interface StudentApplicationActor {
-  readonly id: string;
-  readonly name: string | null;
-  readonly nickname: string;
-}
 
 export interface StudentApplicationPolicy {
   readonly applicationStartAt: Date;
@@ -29,7 +18,11 @@ export interface OwnedStudentApplication {
   readonly programId: string;
   readonly status: ApplicationStatus;
   readonly teamId: string | null;
-  readonly applicant: StudentApplicationActor;
+  readonly applicant: {
+    readonly id: string;
+    readonly name: string | null;
+    readonly nickname: string;
+  };
   readonly answers: Prisma.JsonValue;
   readonly submittedAt: Date;
   readonly updatedAt: Date;
@@ -37,10 +30,32 @@ export interface OwnedStudentApplication {
 }
 
 export interface UpdatePendingApplicationRecord {
-  readonly applicationId: string;
+  readonly programId: string;
+  readonly studentId: string;
+  readonly now: Date;
   readonly answers: Prisma.InputJsonValue;
   readonly applicationTemplateVersion: number;
 }
+
+export interface DeletePendingApplicationRecord {
+  readonly programId: string;
+  readonly studentId: string;
+  readonly now: Date;
+}
+
+export type StudentApplicationMutationFailure =
+  | { readonly kind: 'program-not-found' }
+  | { readonly kind: 'application-not-found' }
+  | { readonly kind: 'already-decided' }
+  | { readonly kind: 'period-closed' }
+  | { readonly kind: 'template-version-mismatch' };
+
+export type UpdatePendingApplicationResult =
+  | { readonly kind: 'updated'; readonly application: OwnedStudentApplication }
+  | StudentApplicationMutationFailure;
+
+export type DeletePendingApplicationResult =
+  { readonly kind: 'cancelled' } | StudentApplicationMutationFailure;
 
 const APPLICATION_SELECT = {
   id: true,
@@ -77,26 +92,6 @@ function toOwnedStudentApplication(
 export class StudentApplicationManagementRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findActiveStudentByGithubId(
-    githubId: bigint,
-  ): Promise<StudentApplicationActor | null> {
-    const user = await this.prisma.user.findFirst({
-      where: {
-        githubId,
-        accountStatus: AccountStatus.ACTIVE,
-        role: Role.STUDENT,
-      },
-      select: { id: true, nickname: true, ...COMPATIBLE_PROFILE_NAME_SELECT },
-    });
-    return user
-      ? {
-          id: user.id,
-          name: resolveCompatibleProfileName(user),
-          nickname: user.nickname,
-        }
-      : null;
-  }
-
   async findOwnedApplication(
     programId: string,
     studentId: string,
@@ -111,10 +106,65 @@ export class StudentApplicationManagementRepository {
     return row ? toOwnedStudentApplication(row) : null;
   }
 
-  findProgramPolicy(
+  updatePendingApplication(
+    input: UpdatePendingApplicationRecord,
+  ): Promise<UpdatePendingApplicationResult> {
+    return this.prisma.$transaction(async (transaction) => {
+      const policy = await this.lockProgram(transaction, input.programId);
+      if (!policy) return { kind: 'program-not-found' };
+      const application = await this.lockOwnedApplication(
+        transaction,
+        input.programId,
+        input.studentId,
+      );
+      if (!application) return { kind: 'application-not-found' };
+      const failure = this.validateMutation(application, policy, input.now);
+      if (failure) return failure;
+      if (
+        input.applicationTemplateVersion !== policy.applicationTemplateVersion
+      ) {
+        return { kind: 'template-version-mismatch' };
+      }
+      const row = await transaction.application.update({
+        where: { id: application.id },
+        data: {
+          answers: input.answers,
+          applicationTemplateVersion: policy.applicationTemplateVersion,
+        },
+        select: APPLICATION_SELECT,
+      });
+      return { kind: 'updated', application: toOwnedStudentApplication(row) };
+    });
+  }
+
+  deletePendingApplication(
+    input: DeletePendingApplicationRecord,
+  ): Promise<DeletePendingApplicationResult> {
+    return this.prisma.$transaction(async (transaction) => {
+      const policy = await this.lockProgram(transaction, input.programId);
+      if (!policy) return { kind: 'program-not-found' };
+      const application = await this.lockOwnedApplication(
+        transaction,
+        input.programId,
+        input.studentId,
+      );
+      if (!application) return { kind: 'application-not-found' };
+      const failure = this.validateMutation(application, policy, input.now);
+      if (failure) return failure;
+      await transaction.application.delete({ where: { id: application.id } });
+      return { kind: 'cancelled' };
+    });
+  }
+
+  private async lockProgram(
+    transaction: Prisma.TransactionClient,
     programId: string,
   ): Promise<StudentApplicationPolicy | null> {
-    return this.prisma.program.findUnique({
+    const locked = await transaction.$queryRaw<readonly { id: string }[]>`
+      SELECT "id" FROM "Program" WHERE "id" = ${programId} FOR UPDATE
+    `;
+    if (locked.length === 0) return null;
+    return transaction.program.findUnique({
       where: { id: programId },
       select: {
         applicationStartAt: true,
@@ -124,33 +174,45 @@ export class StudentApplicationManagementRepository {
     });
   }
 
-  updatePendingApplication(
-    input: UpdatePendingApplicationRecord,
+  private async lockOwnedApplication(
+    transaction: Prisma.TransactionClient,
+    programId: string,
+    studentId: string,
   ): Promise<OwnedStudentApplication | null> {
-    return this.prisma.$transaction(async (transaction) => {
-      const matched = await transaction.application.updateMany({
-        where: {
-          id: input.applicationId,
-          status: ApplicationStatus.SUBMITTED,
-        },
-        data: {
-          answers: input.answers,
-          applicationTemplateVersion: input.applicationTemplateVersion,
-        },
-      });
-      if (matched.count !== 1) return null;
-      const row = await transaction.application.findUnique({
-        where: { id: input.applicationId },
-        select: APPLICATION_SELECT,
-      });
-      return row ? toOwnedStudentApplication(row) : null;
+    const candidate = await transaction.application.findFirst({
+      where: {
+        programId,
+        ...programApplicationParticipantWhere(studentId),
+      },
+      select: { id: true },
     });
+    if (!candidate) return null;
+    const locked = await transaction.$queryRaw<readonly { id: string }[]>`
+      SELECT "id" FROM "Application" WHERE "id" = ${candidate.id} FOR UPDATE
+    `;
+    if (locked.length === 0) return null;
+    const row = await transaction.application.findFirst({
+      where: {
+        id: candidate.id,
+        programId,
+        ...programApplicationParticipantWhere(studentId),
+      },
+      select: APPLICATION_SELECT,
+    });
+    return row ? toOwnedStudentApplication(row) : null;
   }
 
-  async deletePendingApplication(applicationId: string): Promise<boolean> {
-    const result = await this.prisma.application.deleteMany({
-      where: { id: applicationId, status: ApplicationStatus.SUBMITTED },
-    });
-    return result.count === 1;
+  private validateMutation(
+    application: OwnedStudentApplication,
+    policy: StudentApplicationPolicy,
+    now: Date,
+  ): StudentApplicationMutationFailure | null {
+    if (application.status !== ApplicationStatus.SUBMITTED) {
+      return { kind: 'already-decided' };
+    }
+    if (!(policy.applicationStartAt <= now && now <= policy.applicationEndAt)) {
+      return { kind: 'period-closed' };
+    }
+    return null;
   }
 }

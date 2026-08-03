@@ -83,29 +83,42 @@ export async function loadProgramApplyContext(
       : '';
 
     if (program.viewer.applicationStatus !== null) {
-      const application = await getMyApplication(programId);
-      if (application.status !== 'SUBMITTED') {
+      const application = await getMyApplication(programId).catch(
+        (error: unknown) => {
+          if (
+            error instanceof ApiError &&
+            error.problem.status === 404 &&
+            error.problem.code === 'APP_001'
+          ) {
+            return null;
+          }
+          throw error;
+        },
+      );
+      if (application !== null && application.status !== 'SUBMITTED') {
         return { kind: 'blocked', reason: 'already-applied', program };
       }
-      if (!application.canEdit) {
+      if (application !== null && !application.canEdit) {
         return { kind: 'blocked', reason: 'period-closed', program };
       }
-      return {
-        kind: 'ready',
-        mode: 'edit',
-        program,
-        template,
-        applicantName: application.answers.applicantName,
-        teamId: application.teamId,
-        applicationId: application.id,
-        canCancel: application.canCancel,
-        initialValues: {
-          title: application.answers.title,
-          summary: application.answers.summary,
-          isRepositoryPublicationPlanned:
-            application.isRepositoryPublicationPlanned,
-        },
-      };
+      if (application !== null) {
+        return {
+          kind: 'ready',
+          mode: 'edit',
+          program,
+          template,
+          applicantName: application.answers.applicantName,
+          teamId: application.teamId,
+          applicationId: application.id,
+          canCancel: application.canCancel,
+          initialValues: {
+            title: application.answers.title,
+            summary: application.answers.summary,
+            isRepositoryPublicationPlanned:
+              application.isRepositoryPublicationPlanned,
+          },
+        };
+      }
     }
 
     const teamId = await resolveTeamId(

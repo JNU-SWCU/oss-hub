@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, ApiError } from '@/lib/api-client';
 import { getMyTeam, getProgramDetail, listApplicationTemplates } from './api';
 import { loadProgramApplyContext } from './load-program-apply-context';
 import {
@@ -10,7 +10,11 @@ import type { ApplicationFormTemplate, ProgramDetail } from './types';
 
 vi.mock('@/lib/api-client', () => ({
   ApiError: class ApiError extends Error {
-    readonly problem = { status: 404 };
+    constructor(
+      readonly problem: { readonly status: number; readonly code: string },
+    ) {
+      super(problem.code);
+    }
   },
   apiClient: vi.fn(),
 }));
@@ -151,5 +155,22 @@ describe('loadProgramApplyContext', () => {
         isRepositoryPublicationPlanned: false,
       },
     });
+  });
+
+  it('converges to create state when another tab already cancelled the application', async () => {
+    vi.mocked(getMyApplication).mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: 'Not found',
+        status: 404,
+        detail: 'Application not found',
+        instance: '/applications/me',
+        code: 'APP_001',
+      }),
+    );
+
+    const result = await loadProgramApplyContext('program-1', null);
+
+    expect(result).toMatchObject({ kind: 'ready', mode: 'create' });
   });
 });
