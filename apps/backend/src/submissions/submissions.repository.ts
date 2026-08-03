@@ -7,6 +7,7 @@ import {
   SubmissionStatus,
   type ApplicationStatus,
   type MilestoneSubmissionType,
+  type ReviewDecision,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
@@ -74,6 +75,7 @@ export interface ChecklistApplication {
 }
 
 export interface ChecklistLatestReview {
+  readonly decision: ReviewDecision;
   readonly reviewedAt: Date;
   readonly comment: string | null;
 }

@@ -353,6 +353,7 @@ export const PROGRAM_CHECKLISTS: Readonly<Record<string, SubmissionChecklist>> =
           submission: {
             id: 'submission-approved',
             status: 'APPROVED',
+            decision: 'APPROVED' as const,
             currentRevision: 1,
             lastReviewedAt: '2026-07-16T10:30:00.000+09:00',
             reviewComment: '기획 범위가 명확합니다.',
@@ -376,6 +377,7 @@ export const PROGRAM_CHECKLISTS: Readonly<Record<string, SubmissionChecklist>> =
           submission: {
             id: 'submission-revision',
             status: 'CHANGES_REQUESTED',
+            decision: 'CHANGES_REQUESTED' as const,
             currentRevision: 1,
             lastReviewedAt: '2026-07-30T16:20:00.000+09:00',
             reviewComment:
@@ -399,6 +401,7 @@ export const PROGRAM_CHECKLISTS: Readonly<Record<string, SubmissionChecklist>> =
           submission: {
             id: 'submission-contest-revision',
             status: 'CHANGES_REQUESTED',
+            decision: 'CHANGES_REQUESTED' as const,
             currentRevision: 2,
             lastReviewedAt: '2026-07-29T14:10:00.000+09:00',
             reviewComment:
