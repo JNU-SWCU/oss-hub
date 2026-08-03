@@ -12,7 +12,7 @@
 
 | 파일 | 역할 |
 | --- | --- |
-| `submissions.service.ts` | `form`(제출 폼 컨텍스트) · `create`(최초 제출, `blockedReason` 사전 계산과 `assertSubmittable` 실제 검증이 분리돼 있음) · `resubmit`(보완 재제출, `CHANGES_REQUESTED`만 허용) · `checklist` |
+| `submissions.service.ts` | `form`(제출 폼 컨텍스트) · `create`(최초 제출, `blockedReason` 사전 계산과 `assertSubmittable` 실제 검증이 분리돼 있음) · `resubmit`(보완 재제출 또는 마감 전 교체) · `checklist` |
 | `submission-file-storage.port.ts` | `SubmissionFileStoragePort` 인터페이스·`SUBMISSION_FILE_STORAGE` DI 토큰 |
 | `s3-submission-file.storage.ts` | 포트의 유일한 구현체 — lazy client 초기화 |
 | `submission-file-cleanup.service.ts` / `.scheduler.ts` | 만료된 파일 정리(매시 cron) — `SubmissionFileCleanupService.runDue()` |
@@ -31,7 +31,7 @@
 ## For AI Agents
 
 - 제출 타입은 마일스톤의 `submissionType`과 정확히 일치해야 한다(`CONTENT_TYPE_MISMATCH`) — `REPOSITORY_RELEASE`는 신청에 연결된 저장소가 있어야 하고(`REPOSITORY_NOT_READY`), `FILE`은 프로그램 종료일이 설정돼야 한다(`FILE_RETENTION_UNAVAILABLE`, 만료일을 `programEndAt + 1년`으로 계산).
-- 재제출은 `CHANGES_REQUESTED` 상태에서만 허용되고 마감일(`dueAt`)을 검사하지 않는다(#116, 보완 재제출은 마감 후에도 허용) — 최초 제출과 재제출의 검증 로직(`assertSubmittable` vs `assertResubmittable`)을 혼용하지 않는다.
+- `CHANGES_REQUESTED` 보완 재제출은 마감 후에도 허용한다(#116). 그 외 제출물 교체는 마감 전이고 최종 반려가 아닐 때만 허용한다 — 최초 제출과 재제출의 검증 로직(`assertSubmittable` vs `assertResubmittable`)을 혼용하지 않는다.
 - `submission-reviews/` 모듈이 이 모듈을 참조하지 않고 별도 트랜잭션으로 `SubmissionStatus`를 전환한다(ADR-003) — 검토 승인/반려 로직을 이 모듈에 추가하지 않는다.
 
 ## Dependencies
