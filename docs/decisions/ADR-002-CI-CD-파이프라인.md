@@ -38,12 +38,12 @@ tag가 가리키는 정확한 commit SHA가 main 이력에 포함될 때만 해�
 공개 댓글 marker 승인 게이트(`RELEASE_ACCEPT`·`RELEASE_OVERRIDE`)는 폐지한다 — 권한 통제를 이미 가진 플랫폼 위에 별도 문자열 파싱 게이트를 얹으면 실패 지점만 늘고 인가 주체는 그대로다.
 별도 staging 서버는 두지 않는다.
 
-Jenkins는 매 실행에서 최신 Release로 수렴하는 멱등 작업이다. 현재 실행 중인 컨테이너의 이미지 태그를 조회해 대상 Release와 같거나 대상이 더 낮으면 성공 no-op 처리한다. 새 Release는 명시적 Prisma client generate → test → PostgreSQL backup → 서버 로컬 frontend/backend 이미지 1회 build → `prisma migrate deploy` → `up -d --no-build --wait` → smoke 순서로 배포한다.
-smoke는 Compose ingress에서 `/` 200, `/api/v1/health` 200, 제출 파일 업로드 경로 403을 함께 단언하며 rollback 경로에서도 같은 3종을 단언한다.
+Jenkins는 매 실행에서 최신 Release로 수렴하는 멱등 작업이다. 현재 실행 중인 컨테이너의 이미지 태그를 조회해 대상 Release와 같거나 대상이 더 낮으면 성공 no-op 처리한다. 새 Release는 명시적 Prisma client generate → test → PostgreSQL backup → object backup → 서버 로컬 frontend/backend 이미지 1회 build → `prisma migrate deploy` → `up -d --no-build --wait` → smoke 순서로 배포한다.
+smoke는 rollout과 rollback의 Compose ingress에서 `/` 200과 `/api/v1/health` 200을 단언하며, 제출 파일 차단 해제 뒤에는 미인증 접근 401과 인증 접근의 정상 동작을 단언한다. 제출 파일 접근의 구체적인 단언 문구는 구현 PR이 정한다.
 `/api/v1/health`는 PostgreSQL 연결을 실제로 확인하고 DB에 닿지 못하면 503을 반환한다 — 상수 응답은 nginx와 Node 프로세스가 살아 있다는 것만 증명하므로 배포 판정 근거가 되지 못한다.
 이미지는 release tag로 태깅하므로 별도 영속 배포 상태 파일을 두지 않으며, 배포 상태의 원본은 실행 중인 컨테이너 자신이다. 서비스 교체 또는 smoke가 실패하면 `PREV_TAG` 이미지로 한 번 rollback한다. 배포 전에는 운영 환경 파일의 `FRONTEND_URL`이 `https://`인지 확인한다. DB restore는 자동화하지 않고 보존한 backup을 사용해 사람이 승인한 수동 복구로 남긴다. `down -v`는 사용하지 않으며 PostgreSQL 데이터는 named volume `pgdata`에, 제출 파일 object data는 named volume `minio_data`에 보존한다.
 
-배포가 성공한 **뒤에만** 이미지와 backup을 정리한다. 실행 중인 이미지와 직전 성공 배포 이미지는 rollback 대상이므로 절대 삭제하지 않고, 그보다 이전 이미지만 제거한다. 개수가 아니라 이 보존 규칙이 판단 기준이다. DB backup은 최근 N개만 유지하며, N은 실측한 dump 크기·증가율·가용 예산·최대 배포 빈도·복구 보존 기간으로 산정해 승인 기록에 남긴다. N이 확정되기 전에는 정리를 수행하지 않는다(fail-closed).
+배포가 성공한 **뒤에만** 이미지와 backup을 정리한다. 실행 중인 이미지와 직전 성공 배포 이미지는 rollback 대상이므로 절대 삭제하지 않고, 그보다 이전 이미지만 제거한다. 개수가 아니라 이 보존 규칙이 판단 기준이다. PostgreSQL과 object backup은 같은 `BACKUP_DIR`에 저장하고 같은 `BACKUP_RETENTION_N` 보존 규율을 적용한다. 보존 값은 실측한 backup 크기·증가율·가용 예산·최대 배포 빈도·복구 보존 기간으로 산정해 승인 기록에 남긴다. 값이 확정되기 전에는 정리를 수행하지 않는다(fail-closed).
 
 ## Alternatives considered
 
@@ -68,7 +68,7 @@ smoke는 Compose ingress에서 `/` 200, `/api/v1/health` 200, 제출 파일 업�
 - release tag 이미지와 `PREV_TAG`로 배포 및 rollback 대상을 명확히 식별하며, tag와 이미지가 같은 이름 공간을 쓰므로 별도 매핑 상태를 유지하지 않는다.
 - draft·prerelease가 아닌 GitHub Release 발행 한 번이 배포 인가이며, 인가 주체 통제는 GitHub의 Release 발행 권한이 담당한다. 배포를 시작하려는 사람이 저장소 밖 문자열 규약을 외울 필요가 없다.
 - 동일·하위 Release 재전달은 no-op이므로 webhook 재전송이 중복 배포로 이어지지 않는다.
-- smoke가 제출 파일 업로드 403을 Compose ingress에서 직접 단언하므로 fail-closed 차단이 실제로 동작하는지가 배포마다 증명된다.
+- smoke는 제출 파일 차단 해제 뒤 미인증 접근 401과 인증 접근의 정상 동작을 Compose ingress에서 직접 단언하므로 접근 제어와 정상 경로가 배포마다 증명된다.
 - `/api/v1/health`가 PostgreSQL 연결을 확인하므로 DB에 닿지 못하는 배포가 smoke를 통과하지 못한다.
 
 ### Costs / trade-offs
@@ -93,13 +93,13 @@ smoke는 Compose ingress에서 `/` 200, `/api/v1/health` 200, 제출 파일 업�
 - host nginx만 공인 80/443을 열고 약 6일 유효한 Let's Encrypt IP 인증서를 종료한다. Compose nginx는 `127.0.0.1:8081`에만 bind하여 `/`를 front로, `/api`를 back으로 라우팅하고 `/api/v1` 접두사는 제거하지 않는다. 런타임은 nginx, front, back, postgres와 제출 파일 object storage(`minio` 지속 서비스, `minio-bucket` 초기화 서비스)로 구성된다.
 - Compose nginx의 설정은 **디렉터리 마운트**(`./deploy/nginx:/etc/nginx/conf.d:ro`)로 주입한다. 단일 파일 bind mount는 컨테이너 생성 시점의 inode를 고정하는데 Jenkins는 배포마다 git checkout으로 그 파일을 교체하므로, 수명이 긴 nginx 컨테이너가 저장소와 무관한 옛 설정을 계속 서빙한다. 디렉터리를 마운트하면 컨테이너가 매번 현재 파일을 읽는다.
 - 저장소 파일만 읽는 검사는 실행 중 설정이 저장소와 같다는 증거가 되지 못한다. 실행 중 설정에 대한 계약은 Compose ingress를 실제로 호출하는 배포 smoke가 증명한다.
-- 배포 smoke는 Compose ingress에서 `/` 200, `/api/v1/health` 200, 제출 파일 업로드 경로 403을 단언하며 rollback 경로에서도 같은 3종을 단언한다. `/api/v1/health`는 PostgreSQL 연결을 실제로 확인하고 닿지 못하면 503을 반환한다 — 상수 200은 배포 판정 근거가 아니다.
-- 제출 파일 object data는 `minio_data` volume에 있으며 **현재 배포 파이프라인의 backup 대상이 아니다**. `pg_dump`는 PostgreSQL만 보호한다. 이 간극이 닫히기 전까지 제출 파일 업로드 경로는 Compose nginx에서 fail-closed로 차단하고, 차단 해제는 off-host object backup과 restore drill을 완료한 뒤 별도 high-risk 변경으로만 수행한다.
+- 배포 smoke는 rollout과 rollback의 Compose ingress에서 `/` 200과 `/api/v1/health` 200을 단언하며, 제출 파일 차단 해제 뒤에는 미인증 접근 401과 인증 접근의 정상 동작을 단언한다. 제출 파일 접근의 구체적인 단언 문구는 구현 PR이 정하며, `/api/v1/health`는 PostgreSQL 연결을 실제로 확인하고 닿지 못하면 503을 반환한다 — 상수 200은 배포 판정 근거가 아니다.
+- 제출 파일 object data는 `minio_data` volume에 있으며, Jenkins는 PostgreSQL backup과 같은 `BACKUP_DIR`에 object backup을 저장하고 같은 `BACKUP_RETENTION_N` 보존 규율을 적용한다. object backup 실패는 배포를 fail-closed로 중단한다. Compose nginx의 제출 파일 차단은 off-host object backup과 [배포 런북](../deploy/server-runbook.md)의 restore drill을 완료한 뒤 별도 high-risk 변경으로만 해제한다.
 - Certbot 5.4 이상의 `shortlived` IP 인증서를 webroot로 자동 갱신하고 성공한 갱신 뒤 host nginx를 reload한다. 인증서 갱신 실패는 만료 전 운영 경보 대상이다.
 
 ## Changelog
 
-- 2026-07-31: 공개 댓글 `RELEASE_ACCEPT role=PM` 승인 게이트를 폐지하고 draft·prerelease가 아닌 GitHub Release 발행 자체를 배포 인가로 확정했다. 인가 주체 통제를 GitHub의 Release 발행 권한에 맡기고 marker 문자열 파싱을 제거한 것이며, latest Release 자체 조회·full SemVer·main ancestry·no-op·fail-closed·1회 rollback은 그대로 유지한다. 파이프라인 실증 뒤에는 값 누락·오타가 Release를 조용히 무배포로 만드는 실패 경로로만 남은 `DEPLOY_TRIGGER_ENABLED` feature flag도 제거했다. 함께 Compose nginx 설정 주입을 단일 파일에서 디렉터리 마운트(`./deploy/nginx:/etc/nginx/conf.d:ro`)로 전환했다 — 단일 파일 bind mount가 inode를 고정하는데 Jenkins가 배포마다 그 파일을 git checkout으로 교체하므로, 수명이 긴 nginx 컨테이너가 제출 파일 업로드 403 fail-closed 블록이 빠진 옛 설정을 이틀간 운영에서 계속 서빙했고 저장소 파일만 읽는 검사는 그동안 전부 통과했다. 이 사고가 배포 smoke 강화의 근거이기도 하다 — 실행 중 설정에 대한 계약은 ingress를 실제로 호출해야만 증명되므로 rollout·rollback 양쪽 smoke에 업로드 경로 403 단언을 추가하고, `/api/v1/health`가 상수 `{status:'ok'}` 대신 PostgreSQL 연결을 확인해 실패 시 503을 반환하도록 했다.
+- 2026-08-03: 제출 파일 object backup을 PostgreSQL backup과 같은 `BACKUP_DIR`·`BACKUP_RETENTION_N` 규율의 fail-closed 배포 단계로 편입했다. Compose nginx 차단 해제는 off-host object backup과 배포 런북의 restore drill 완료 뒤 별도 high-risk 변경으로 제한하고, 해제 뒤 smoke는 업로드 경로 403 대신 미인증 401과 인증 정상 동작을 구현 PR이 정한 문구로 단언하도록 계약을 갱신했다.
 - 2026-07-29: v0.4.1 Release의 `published` 이벤트 → `deploy.yml` → parameterless Jenkins #27 → production health까지 자동 왕복을 실증하고, 존재하지 않는 `release.yml`·`workflow_call`·수동 deploy dispatch 목표를 제거해 최종 운영 경로에 수렴했다.
 - 2026-07-29: root `Jenkinsfile` 단일 parameterless Release pipeline 전환 완료. v0.3.1 실제 배포, loopback/TLS health, 독립 no-op 재실행을 확인하고 legacy pipeline·병행 `Jenkinsfile.v2`·이중 checker mode를 제거했다.
 - 2026-07-28: 배포 트리거에서 파라미터를 제거하고 Jenkins가 latest Release를 자체 조회하도록 계약을 전환. 이미지 태그를 release tag로 통일하고 영속 배포 상태 파일과 `RUN_MODE` 분기를 폐기했으며, 태그 조작 방어의 원본이 `RELEASE_ACCEPT role=PM` 승인 바인딩임을 명시. 릴리즈 발행(`release.yml`)과 배포 트리거(`deploy.yml`)를 분리해 배포 단독 재시도를 허용. 이 개정은 목표 상태를 기술하며 구현은 [#305](https://github.com/JNU-SWCU/oss-hub/issues/305)의 후속 PR에서 순차 진행된다.
