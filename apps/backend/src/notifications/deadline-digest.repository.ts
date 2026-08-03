@@ -1,13 +1,21 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { type Prisma, Role } from '@prisma/client';
+import { type Prisma, ApplicationStatus, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface UpcomingMilestone {
+  readonly id: string;
+  readonly programId: string;
   readonly programName: string;
   readonly milestoneName: string;
   readonly dueAt: Date;
 }
 
+export interface MissingSubmitter {
+  readonly id: string;
+  readonly nickname: string;
+  readonly notificationEmail: string | null;
+  readonly notifyEnabled: boolean;
+}
 export interface DigestRecipient {
   readonly id: string;
   readonly notificationEmail: string;
@@ -21,6 +29,9 @@ export interface DeadlineDigestRepositoryPort {
     to: Date,
   ): Promise<UpcomingMilestone[]>;
   findStaffRecipients(): Promise<DigestRecipient[]>;
+  findMissingSubmitters(
+    milestones: readonly UpcomingMilestone[],
+  ): Promise<ReadonlyMap<string, MissingSubmitter[]>>;
   recordNotification(
     userId: string,
     status: DigestNotificationStatus,
@@ -42,6 +53,8 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
         program: { notifyOnDeadline: true },
       },
       select: {
+        id: true,
+        programId: true,
         name: true,
         dueAt: true,
         program: { select: { name: true } },
@@ -49,10 +62,90 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
       orderBy: { dueAt: 'asc' },
     });
     return rows.map((row) => ({
+      id: row.id,
+      programId: row.programId,
       programName: row.program.name,
       milestoneName: row.name,
       dueAt: row.dueAt,
     }));
+  }
+  async findMissingSubmitters(
+    milestones: readonly UpcomingMilestone[],
+  ): Promise<ReadonlyMap<string, MissingSubmitter[]>> {
+    const missingByMilestone = new Map(
+      milestones.map((milestone) => [milestone.id, [] as MissingSubmitter[]]),
+    );
+    if (milestones.length === 0) {
+      return missingByMilestone;
+    }
+
+    const rows = await this.prisma.application.findMany({
+      where: {
+        status: ApplicationStatus.APPROVED,
+        programId: {
+          in: [...new Set(milestones.map((milestone) => milestone.programId))],
+        },
+      },
+      select: {
+        programId: true,
+        applicant: {
+          select: {
+            id: true,
+            nickname: true,
+            notificationEmail: true,
+            notifyEnabled: true,
+          },
+        },
+        team: {
+          select: {
+            members: {
+              select: {
+                user: {
+                  select: {
+                    id: true,
+                    nickname: true,
+                    notificationEmail: true,
+                    notifyEnabled: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        submissions: {
+          where: {
+            milestoneId: { in: milestones.map((milestone) => milestone.id) },
+          },
+          select: { milestoneId: true },
+        },
+      },
+    });
+
+    for (const milestone of milestones) {
+      const missingSubmitters = missingByMilestone.get(milestone.id);
+      if (!missingSubmitters) {
+        continue;
+      }
+      for (const application of rows) {
+        if (
+          application.programId !== milestone.programId ||
+          application.submissions.some(
+            (submission) => submission.milestoneId === milestone.id,
+          )
+        ) {
+          continue;
+        }
+        if (application.team) {
+          missingSubmitters.push(
+            ...application.team.members.map((member) => member.user),
+          );
+        } else {
+          missingSubmitters.push(application.applicant);
+        }
+      }
+    }
+
+    return missingByMilestone;
   }
 
   async findStaffRecipients(): Promise<DigestRecipient[]> {
