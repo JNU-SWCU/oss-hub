@@ -177,10 +177,33 @@ describe('RolesService', () => {
       selectedRole: Role.STAFF,
       role: null,
       requestStatus: RoleRequestStatus.PENDING,
-      redirectTo: '/onboarding/pending',
+      redirectTo: '/onboarding/profile',
     });
     expect(store.requestCount()).toBe(1);
   });
+
+  /**
+   * 승인 대기 화면이 깜빡이던 결함을 고정한다.
+   *
+   * 교직원에게 `/onboarding/pending`을 주면 그 화면의 `OnboardingGate`가 비어 있는
+   * 프로필을 보고 곧바로 `/onboarding/profile`로 되돌린다. 사용자는 "관리자 승인을
+   * 기다려 주세요"를 반 초쯤 봤다가 빼앗긴다. 교직원도 학과가 필수라
+   * (`users/user-profile-policy.ts`) 프로필이 남은 단계인 것이 사실이므로, 처음부터
+   * 그리로 보낸다.
+   */
+  it.each([Role.STUDENT, Role.STAFF])(
+    '%s 선택은 프로필이 남아 있으므로 프로필 입력으로 보낸다',
+    async (selectedRole) => {
+      // Given — 방금 동의를 마쳤을 뿐 프로필은 한 글자도 없다
+      const { service } = createService(null);
+
+      // When
+      const result = await service.selectRole(424242n, selectedRole);
+
+      // Then — 두 역할 모두 왕복 없이 한 번에 도착해야 한다
+      expect(result.redirectTo).toBe('/onboarding/profile');
+    },
+  );
 
   it('활성 요청이 있으면 교직원 선택을 멱등 처리한다', async () => {
     // Given
