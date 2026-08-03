@@ -112,24 +112,27 @@ it.each([Role.STUDENT, Role.STAFF])(
 );
 
 it.each([
-  [Role.STUDENT, Role.STUDENT, null, '/onboarding/profile'],
-  [Role.STAFF, null, RoleRequestStatus.PENDING, '/onboarding/pending'],
+  [Role.STUDENT, Role.STUDENT, null],
+  [Role.STAFF, null, RoleRequestStatus.PENDING],
 ] as const)(
-  '%s 선택의 기존 결과는 그대로 보존한다',
-  async (selectedRole, role, requestStatus, redirectTo) => {
+  '%s 선택은 역할 배정 결과와 함께 남은 단계인 프로필로 보낸다',
+  async (selectedRole, role, requestStatus) => {
     // Given
     const { service } = buildService();
 
     // When
     const result = await service.selectRole(GITHUB_ID, selectedRole);
 
-    // Then — 프로필이 미완료면 화면 게이트가 여기서 다시 `/onboarding/profile`로
-    // 보낸다. 목적지 계산을 두 곳에 두지 않으려고 이 응답은 건드리지 않았다.
+    // Then — 역할 배정 결과(role·requestStatus)는 두 역할이 서로 다르지만, 남은
+    // 단계는 같다. 프로필이 비어 있으니 프로필이다. 여기서 완료 여부를 다시 계산하지
+    // 않는다는 원칙은 그대로다 — 프로필을 마친 뒤 승인 대기로 잇는 일은 화면의
+    // 게이트가 한다. 교직원에게만 `/onboarding/pending`을 주던 때는 그 게이트가
+    // 곧바로 프로필로 되돌려 대기 화면이 반 초쯤 깜빡였다.
     expect(result).toEqual({
       selectedRole,
       role,
       requestStatus,
-      redirectTo,
+      redirectTo: '/onboarding/profile',
     });
   },
 );

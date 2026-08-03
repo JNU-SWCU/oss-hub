@@ -36,7 +36,21 @@ interface RoleOption {
   /** 카드 하단 한 줄 요약. 두 카드 모두 이 줄을 가져야 높이가 같아진다. */
   readonly note: string;
   readonly noteClassName: string;
-  /** 선택 직후 안내 슬롯에 들어갈 내용. */
+  /**
+   * 선택 직후 안내 슬롯에 들어갈 내용.
+   *
+   * **두 역할 모두 다음 화면은 프로필 입력이다** — 백엔드 `roles.service.ts`가
+   * 학생·교직원 모두에게 `/onboarding/profile`을 돌려준다. 교직원도 학과가 필수라
+   * 역할을 골랐다고 가입이 끝나지 않기 때문이다. 여기서 "바로 학생 화면으로" ·
+   * "승인 상태를 확인할 수 있는 화면으로"라고 말하던 때는, 사용자가 기대한 화면과
+   * 실제 도착지가 서로 달랐다.
+   *
+   * **길이도 규칙이다.** 안내 슬롯은 높이를 미리 잡아 두어(`RoleGuidanceSlot`) 안내가
+   * 나타나도 '선택 완료' 버튼이 움직이지 않는다. 그 여유가 좁은 폭에서 7.5px,
+   * sm 이상에서 11px뿐이라(실측: 상자 88.5/69px, 슬롯 96/80px) 어느 문장이든 한 줄이
+   * 더 생기면 버튼이 20px 밀린다. 문구를 고칠 때는 지금 길이(제목 20자 이내 ·
+   * 설명 35자 이내)를 넘기지 말고, 넘겨야 한다면 슬롯 높이를 함께 다시 재라.
+   */
   readonly guidanceTitle: string;
   readonly guidanceDescription: string;
 }
@@ -51,9 +65,9 @@ const ROLE_OPTIONS: readonly RoleOption[] = [
     // 값이라(green-700 · amber-800) 바탕에 묻힌다. 대비가 검증된 --cosmos-* 안에서
     // "바로 갈 수 있다"는 초록(랜딩의 저장소 색)과 기다림의 흰색으로 나눈다.
     noteClassName: 'text-cosmos-repository',
-    guidanceTitle: '선택을 완료하면 바로 학생 화면으로 이동합니다',
+    guidanceTitle: '기본 정보를 입력하면 가입이 끝납니다',
     guidanceDescription:
-      '모집 중인 프로그램을 둘러보고 개인 또는 팀으로 지원할 수 있습니다.',
+      '선택을 완료하면 이름·학번·학과를 입력하는 화면으로 이동합니다.',
   },
   {
     role: 'STAFF',
@@ -61,9 +75,9 @@ const ROLE_OPTIONS: readonly RoleOption[] = [
     description: '프로그램을 만들고 지원자와 제출물을 관리합니다.',
     note: '관리자 승인이 필요합니다',
     noteClassName: 'text-cosmos-copy',
-    guidanceTitle: '승인 후 교직원 기능을 사용할 수 있습니다',
+    guidanceTitle: '기본 정보를 입력한 뒤 승인을 기다립니다',
     guidanceDescription:
-      '요청을 제출하면 승인 상태를 확인할 수 있는 화면으로 이동합니다.',
+      '선택을 완료하면 이름·학과를 입력하는 화면으로 이동합니다.',
   },
 ];
 
