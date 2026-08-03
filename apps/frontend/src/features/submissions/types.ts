@@ -80,11 +80,14 @@ export interface CreatedSubmission {
 /** 저장되는 Submission 상태 — 미제출은 submission=null로 표현된다. */
 export type ChecklistSubmissionStatus =
   'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
+export type ChecklistReviewDecision =
+  'APPROVED' | 'REJECTED' | 'CHANGES_REQUESTED';
 
 export interface ChecklistSubmission {
   readonly id: string;
   readonly status: ChecklistSubmissionStatus;
   readonly currentRevision: number;
+  readonly decision: ChecklistReviewDecision | null;
   readonly lastReviewedAt: string | null;
   readonly reviewComment: string | null;
   readonly canResubmit: boolean;

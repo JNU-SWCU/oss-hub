@@ -1,6 +1,11 @@
 import type { ChecklistSubmission } from '../types';
 import { SubmissionFileLink } from './submission-checklist-row';
 import { formatDeadline } from './submission-form-view';
+const REVIEW_DECISION_LABELS = {
+  APPROVED: '승인',
+  REJECTED: '반려',
+  CHANGES_REQUESTED: '보완 요청',
+} as const;
 
 export function SubmissionReviewMeta({
   submission,
@@ -14,6 +19,14 @@ export function SubmissionReviewMeta({
           <dt className="font-medium">제출 파일</dt>
           <dd className="mt-1">
             <SubmissionFileLink file={submission.file} />
+          </dd>
+        </div>
+      ) : null}
+      {submission.decision !== null ? (
+        <div>
+          <dt className="font-medium">판정</dt>
+          <dd className="text-muted-foreground">
+            {REVIEW_DECISION_LABELS[submission.decision]}
           </dd>
         </div>
       ) : null}
