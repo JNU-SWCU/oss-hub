@@ -71,18 +71,40 @@ describe('별밭 움직임 스타일', () => {
     );
   });
 
-  // 흐름이 만드는 빈 가장자리는 SVG 안쪽 확대로 덮는다. 무대 요소에 transform을 걸면
-  // 그 넘침이 가로 스크롤이 된다.
-  it('흐름의 최대 진폭이 확대로 벌어 둔 여유 안에 있다', () => {
-    const scale = Number(
-      /transform: scale\((\d+(?:\.\d+)?)\)/.exec(stylesheet)?.[1],
-    );
-    const drifts = [...source.matchAll(/drift: (\d+)/g)].map((match) =>
-      Number(match[1]),
-    );
+  const VIEW_BOX = 1000;
+  const layerRule = /\.layer \{([\s\S]*?)\}/.exec(stylesheet)?.[1] ?? '';
+  const scale = Number(
+    /transform: scale\((\d+(?:\.\d+)?)\)/.exec(stylesheet)?.[1],
+  );
+  const drifts = [...source.matchAll(/drift: (\d+)/g)].map((match) =>
+    Number(match[1]),
+  );
+  const transformBox = /transform-box: ([^;]+);/.exec(layerRule)?.[1]?.trim();
+  const transformOrigin = /transform-origin: ([^;]+);/
+    .exec(layerRule)?.[1]
+    ?.trim();
+  /** 가운데를 뜻하는 표기들 — 어느 것으로 적어도 기준점은 (500, 500)이다. */
+  const CENTERED = ['center', 'center center', '50% 50%'];
+
+  // **SVG 그래픽 요소의 `transform-origin` 기본값은 가운데가 아니라 `(0, 0)`이다.**
+  // 명시하지 않으면 확대가 오른쪽·아래로만 퍼져, 양의 흐름 구간에서 왼쪽·위쪽
+  // 가장자리에 별이 하나도 없는 띠가 생긴다(고치기 전 1440에서 좌 14.8px · 상 6.7px).
+  it('확대 기준점을 viewBox 가운데로 못 박는다', () => {
+    expect(transformBox).toBe('view-box');
+    expect(CENTERED).toContain(transformOrigin);
+  });
+
+  // 숫자만 비교하면 기준점이 빠져도 통과한다. 선언된 기준점을 그대로 식에 넣어
+  // **네 변이 실제로 덮이는지**를 본다 — 기준점이 (0, 0)이면 여기서 죽는다.
+  it('흐름의 어느 극단에서도 viewBox 네 변이 덮인다', () => {
+    const origin = CENTERED.includes(transformOrigin ?? '') ? VIEW_BOX / 2 : 0;
+    const drift = Math.max(...drifts);
+    /** 확대·이동을 함께 적용한 자리. x' = s*x + (1 - s)*o + s*d */
+    const at = (x: number, d: number): number =>
+      scale * x + (1 - scale) * origin + scale * d;
 
     expect(drifts.length).toBeGreaterThan(0);
-    // viewBox 1000 기준. 확대가 각 변에 남기는 여유는 1000 * (scale - 1) / 2다.
-    expect(Math.max(...drifts)).toBeLessThan((1000 * (scale - 1)) / 2);
+    expect(at(0, drift)).toBeLessThanOrEqual(0);
+    expect(at(VIEW_BOX, -drift)).toBeGreaterThanOrEqual(VIEW_BOX);
   });
 });

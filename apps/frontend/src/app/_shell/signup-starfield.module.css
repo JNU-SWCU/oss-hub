@@ -15,6 +15,15 @@
  */
 
 .layer {
+  /*
+    확대의 기준점을 viewBox 가운데로 못 박는다. **SVG 그래픽 요소의 `transform-origin`
+    기본값은 가운데가 아니라 `(0, 0)`이다** — HTML 요소와 다르다. 그대로 두면 확대가
+    오른쪽·아래로만 퍼져 여유가 한쪽에만 생기고, 양의 흐름 구간에서 왼쪽·위쪽
+    가장자리에 별이 하나도 없는 띠가 남는다(1440에서 좌 14.8px · 상 6.7px 실측).
+    별빛은 화면 전체에 고르게 있어야 한다(#518부터의 요구, #522).
+  */
+  transform-box: view-box;
+  transform-origin: center;
   animation-name: signup-star-breath, signup-star-flow;
   animation-duration: var(--star-breath), var(--star-flow);
   animation-delay: var(--star-phase), 0s;
@@ -34,9 +43,10 @@
   }
 }
 
-/* 5% 확대는 흐름이 만드는 빈 가장자리를 덮는 여유다 — viewBox 1000 기준 각 변에 25
-   단위가 남아 최대 진폭 18 단위보다 넓다. 확대를 SVG 안에 두는 것이 핵심이다. 무대
-   요소에 transform을 걸면 그 넘침이 그대로 가로 스크롤이 된다. */
+/* 5% 확대는 흐름이 만드는 빈 가장자리를 덮는 여유다 — 기준점이 가운데일 때만 viewBox
+   1000 기준 각 변에 25 단위씩 갈라지고, 그래야 최대 진폭 18 단위보다 넓다. 기준점을
+   위에서 명시하는 이유가 이것이다. 확대를 SVG 안에 두는 것도 핵심이다 — 무대 요소에
+   transform을 걸면 그 넘침이 그대로 가로 스크롤이 된다. */
 @keyframes signup-star-flow {
   from {
     transform: scale(1.05)
