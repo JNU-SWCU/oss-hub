@@ -25,8 +25,8 @@ import {
   ChecklistSkeleton,
   SubmissionChecklistView,
 } from './components/submission-checklist-view';
+import { useSubmissionChecklistInitialSubmissionFlow } from './submission-checklist-initial-submission';
 import type { SubmissionChecklist } from './types';
-import { SubmissionPage } from './submission-page';
 
 type ChecklistPageState =
   | { readonly kind: 'loading' }
@@ -64,15 +64,11 @@ export function SubmissionChecklistPage({
   const [staleNotice, setStaleNotice] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [initialSubmitting, setInitialSubmitting] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [submissionPhase, setSubmissionPhase] =
     useState<ResubmissionPhase | null>(null);
   const uploadedFile = useRef(new SubmissionFileUploadCache());
   const resubmitInFlight = useRef(false);
-  const refreshAfterClose = useRef(false);
-  const selectedMilestoneId = useRef(milestoneId);
-  selectedMilestoneId.current = milestoneId;
 
   const refresh = useCallback(async () => {
     try {
@@ -87,6 +83,14 @@ export function SubmissionChecklistPage({
       );
     }
   }, [programId]);
+
+  const initialSubmission = useSubmissionChecklistInitialSubmissionFlow({
+    milestoneId,
+    onCloseSelected,
+    programId,
+    refresh: () => void refresh(),
+    resubmitting: submitting,
+  });
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
@@ -113,25 +117,15 @@ export function SubmissionChecklistPage({
 
   // 선택 마일스톤(?milestoneId=)이 바뀌면 폼 입력·오류를 초기화한다.
   useEffect(() => {
-    selectedMilestoneId.current = milestoneId;
     setInput(EMPTY_INPUT);
     setComment('');
     setErrors({});
     setFileError(null);
     setServerError(null);
     setSubmissionPhase(null);
-    setInitialSubmitting(false);
+    initialSubmission.reset();
     uploadedFile.current.discard();
-  }, [milestoneId]);
-
-  const closeSelected = () => {
-    if (submitting || initialSubmitting) return;
-    selectedMilestoneId.current = null;
-    onCloseSelected?.();
-    if (!refreshAfterClose.current) return;
-    refreshAfterClose.current = false;
-    void refresh();
-  };
+  }, [milestoneId, initialSubmission.reset]);
 
   const resubmit = async (checklist: SubmissionChecklist) => {
     if (resubmitInFlight.current) return;
@@ -237,25 +231,11 @@ export function SubmissionChecklistPage({
   return (
     <SubmissionChecklistView
       programId={programId}
-      onCloseSelected={closeSelected}
+      onCloseSelected={initialSubmission.closeSelected}
       onSelectMilestone={onSelectMilestone}
-      initialSubmission={
-        selected?.submission === null && milestoneId ? (
-          <SubmissionPage
-            milestoneId={milestoneId}
-            onCancel={closeSelected}
-            onSubmitted={() => {
-              if (selectedMilestoneId.current === null) {
-                void refresh();
-                return;
-              }
-              refreshAfterClose.current = true;
-            }}
-            onSubmittingChange={setInitialSubmitting}
-            programId={programId}
-          />
-        ) : undefined
-      }
+      initialSubmission={initialSubmission.render(
+        selected?.submission === null,
+      )}
       checklist={state.data}
       selectedMilestoneId={milestoneId}
       now={new Date()}
@@ -266,7 +246,7 @@ export function SubmissionChecklistPage({
       serverError={serverError}
       staleNotice={staleNotice}
       toastMessage={toastMessage}
-      submitting={submitting || initialSubmitting}
+      submitting={submitting || initialSubmission.submitting}
       refreshError={refreshError}
       onRefresh={() => void refresh()}
       submissionPhase={submissionPhase}
