@@ -495,7 +495,7 @@ esac
             minio_container_id="$(docker compose --env-file "$OSS_HUB_ENV_FILE" ps -q minio)"
             test -n "$minio_container_id"
             trap 'rm -rf "$object_backup_tmp"; docker exec -i "$minio_container_id" sh -c "rm -rf \"$minio_backup_tmp\""' EXIT
-            docker exec -i "$minio_container_id" sh -c 'set -eu; rm -rf "$1"; mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null; mc mirror local/oss-hub-submission-files "$1"' _ "$minio_backup_tmp"
+            docker exec -i "$minio_container_id" sh -c 'set -eu; rm -rf "$1"; mkdir -p "$1"; mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null; mc mirror local/oss-hub-submission-files "$1"' _ "$minio_backup_tmp"
             docker cp "${minio_container_id}:${minio_backup_tmp}/." "$object_backup_tmp"
             test -d "$object_backup_tmp"
             docker exec -i "$minio_container_id" sh -c "rm -rf \"$minio_backup_tmp\""
