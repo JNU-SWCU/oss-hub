@@ -27,70 +27,13 @@ const captured = vi.hoisted(() => ({
   checklistProps: null as SubmissionChecklistPageProps | null,
 }));
 
-const hooks = vi.hoisted(() => {
-  const slots: unknown[] = [];
-  let cursor = 0;
-  let effects: Array<() => void> = [];
-
-  function depsChanged(
-    previous: readonly unknown[] | undefined,
-    next: readonly unknown[] | undefined,
-  ): boolean {
-    return (
-      previous === undefined ||
-      next === undefined ||
-      previous.length !== next.length ||
-      next.some((value, index) => !Object.is(value, previous[index]))
-    );
-  }
-
-  function begin(): void {
-    cursor = 0;
-    effects = [];
-  }
-
-  function reset(): void {
-    slots.length = 0;
-    begin();
-  }
-
-  function runEffects(): void {
-    const pendingEffects = effects;
-    effects = [];
-    for (const effect of pendingEffects) effect();
-  }
-
-  function useEffect(
-    effect: () => void,
-    deps: readonly unknown[] | undefined,
-  ): void {
-    const index = cursor;
-    cursor += 1;
-    const previous = slots[index] as readonly unknown[] | undefined;
-    if (!depsChanged(previous, deps)) return;
-    slots[index] = deps;
-    effects.push(effect);
-  }
-
-  function useRef<T>(initialValue: T): { current: T } {
-    const index = cursor;
-    cursor += 1;
-    const previous = slots[index] as { current: T } | undefined;
-    if (previous) return previous;
-    const ref = { current: initialValue };
-    slots[index] = ref;
-    return ref;
-  }
-
-  return { begin, reset, runEffects, useEffect, useRef };
-});
+const openedInPage = vi.hoisted(() => ({ current: false }));
 
 vi.mock('react', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react')>();
   return {
     ...actual,
-    useEffect: hooks.useEffect,
-    useRef: hooks.useRef,
+    useRef: () => openedInPage,
   };
 });
 
@@ -118,9 +61,7 @@ function setSearchParams(query: string): void {
 }
 
 function renderScreen(): void {
-  hooks.begin();
   renderToStaticMarkup(<ProgramDetailScreen programId="program:basic" />);
-  hooks.runEffects();
 }
 
 function checklistProps(): SubmissionChecklistPageProps {
@@ -132,7 +73,7 @@ function checklistProps(): SubmissionChecklistPageProps {
 
 describe('ProgramDetailScreen submission dialog history', () => {
   beforeEach(() => {
-    hooks.reset();
+    openedInPage.current = false;
     captured.checklistProps = null;
     setSearchParams('');
     navigation.router.back.mockReset();
