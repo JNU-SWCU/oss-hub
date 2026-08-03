@@ -59,6 +59,24 @@ class Node:
     children: list[Node] | None
 
 
+MIN_UPLOAD_BODY_BYTES = 50 * 1024 * 1024
+
+
+def _at_least_bytes(value: str, minimum: int) -> bool:
+    """nginx size 문법(숫자 + 선택 k/m/g)을 바이트로 환산해 하한과 비교한다."""
+    text = value.strip().lower()
+    unit = 1
+    if text.endswith('k'):
+        unit, text = 1024, text[:-1]
+    elif text.endswith('m'):
+        unit, text = 1024 * 1024, text[:-1]
+    elif text.endswith('g'):
+        unit, text = 1024 * 1024 * 1024, text[:-1]
+    if not text.isdigit():
+        return False
+    return int(text) * unit >= minimum
+
+
 def fail(message: str) -> None:
     raise SystemExit(f'{PREFIX}: {message}')
 
@@ -320,6 +338,29 @@ def main() -> None:
         if blocking_returns(selected, top_level_only=False):
             fail(f'{path} selects {describe(selected)} which blocks backend access')
 
+    # 업로드 본문 한도. nginx 기본값 1m 이면 backend 가 허용하는 50MiB 제출이 413 으로
+    # 죽는다 — 차단 return 이 없어도 실질적으로 업로드가 막히므로 계약으로 고정한다.
+    body_size = next(
+        (
+            child.args[0]
+            for child in (api_node.children or [])
+            if child.name == 'client_max_body_size'
+            and child.children is None
+            and child.args
+        ),
+        None,
+    )
+    if not body_size:
+        fail(
+            'location /api/ has no client_max_body_size; '
+            'nginx defaults to 1m and rejects submissions larger than 1MB with 413'
+        )
+    if not _at_least_bytes(body_size, MIN_UPLOAD_BODY_BYTES):
+        fail(
+            f'location /api/ client_max_body_size {body_size} is below the backend '
+            f'file limit; must allow at least {MIN_UPLOAD_BODY_BYTES} bytes'
+        )
+
     for path in MUST_NOT_BLOCK:
         selected = select_location(locations, path)
         if selected is None:
@@ -330,7 +371,7 @@ def main() -> None:
     print(
         f'{PREFIX}: ok '
         f'(proxied={len(MUST_PROXY)} paths incl. case variants, '
-        f'unblocked={len(MUST_NOT_BLOCK)} siblings, /api/ intact, location-selection parse)'
+        f'unblocked={len(MUST_NOT_BLOCK)} siblings, /api/ intact, upload body >= 50MiB, location-selection parse)'
     )
 
 
