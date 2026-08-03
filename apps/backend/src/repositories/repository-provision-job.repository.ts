@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, RepositoryProvisionJobStatus } from '@prisma/client';
+import {
+  Prisma,
+  RepositoryInvitationStatus,
+  RepositoryProvisionJobStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { assertSingleProvisionUpdate } from './repository-provision-state.helpers';
+import { DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS } from './repository-provision.failure';
 
 export interface ClaimRepositoryProvisionJobInput {
   readonly workerId: string;
@@ -41,6 +46,17 @@ export class RepositoryProvisionJobRepository {
             AND "nextAttemptAt" <= ${input.now}
           )
           OR (
+            "status" = CAST(${RepositoryProvisionJobStatus.SUCCEEDED} AS "RepositoryProvisionJobStatus")
+            AND "nextAttemptAt" <= ${input.now}
+            AND EXISTS (
+              SELECT 1
+              FROM "RepositoryInvitation" AS invitation
+              WHERE invitation."repositoryId" = job."repositoryId"
+                AND invitation."status" = CAST(${RepositoryInvitationStatus.PENDING} AS "RepositoryInvitationStatus")
+                AND invitation."reconciliationCount" < ${DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS}
+            )
+          )
+          OR (
             "status" = CAST(${RepositoryProvisionJobStatus.PROCESSING} AS "RepositoryProvisionJobStatus")
             AND ("lockedAt" IS NULL OR "lockedAt" < ${leaseCutoff})
           )
@@ -51,7 +67,11 @@ export class RepositoryProvisionJobRepository {
       )
       UPDATE "RepositoryProvisionJob" AS job
       SET "status" = CAST(${RepositoryProvisionJobStatus.PROCESSING} AS "RepositoryProvisionJobStatus"),
-          "attemptCount" = job."attemptCount" + 1,
+          "attemptCount" = CASE
+            WHEN job."status" = CAST(${RepositoryProvisionJobStatus.SUCCEEDED} AS "RepositoryProvisionJobStatus")
+              THEN job."attemptCount"
+            ELSE job."attemptCount" + 1
+          END,
           "lockedAt" = ${input.now},
           "lockedBy" = ${input.workerId},
           "startedAt" = COALESCE(job."startedAt", ${input.now}),

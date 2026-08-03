@@ -24,6 +24,10 @@ import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event';
 import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
 import { RepositoryProvisionStateRepository } from './repository-provision-state.repository';
 import { RepositoryProvisionWorker } from './repository-provision.worker';
+import {
+  DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
+  DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS,
+} from './repository-provision.failure';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -39,6 +43,7 @@ const APPLICANT_ID = 'synthetic-worker-applicant-id';
 const APPLICATION_IDS = [
   'synthetic-worker-success',
   'synthetic-worker-partial',
+  'synthetic-worker-reconciliation-cap',
 ] as const;
 
 type ProvisionGithubClient = jest.Mocked<
@@ -120,8 +125,42 @@ describe('RepositoryProvisionWorker integration', () => {
       ['synthetic-leader', RepositoryInvitationStatus.PENDING],
       ['synthetic-student', RepositoryInvitationStatus.SUCCEEDED],
     ]);
-  });
+    await prisma.repositoryInvitation.updateMany({
+      where: {
+        repositoryId: repository.id,
+        githubLogin: 'synthetic-leader',
+      },
+      data: { attemptCount: 1 },
+    });
+    github.ensureCollaborator.mockResolvedValue(
+      COLLABORATOR_OUTCOMES.SUCCEEDED,
+    );
 
+    const reconciliationAt = new Date(
+      NOW.getTime() + DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
+    );
+    await worker.runNext('provision-worker-reconcile', reconciliationAt);
+
+    await expect(
+      prisma.repositoryInvitation.findFirstOrThrow({
+        where: {
+          repositoryId: repository.id,
+          githubLogin: 'synthetic-leader',
+        },
+      }),
+    ).resolves.toMatchObject({
+      status: RepositoryInvitationStatus.SUCCEEDED,
+      attemptCount: 1,
+    });
+    await expect(
+      prisma.repositoryProvisionJob.findUniqueOrThrow({
+        where: { applicationId },
+      }),
+    ).resolves.toMatchObject({
+      status: RepositoryProvisionJobStatus.SUCCEEDED,
+      attemptCount: 1,
+    });
+  });
   it('일부 초대 재시도에서 repository를 다시 만들지 않는다', async () => {
     // Given: 첫 실행에서 두 번째 invitation만 일시 실패한다.
     const applicationId = APPLICATION_IDS[1];
@@ -165,6 +204,37 @@ describe('RepositoryProvisionWorker integration', () => {
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       attemptCount: 2,
     });
+  });
+  it('수락 대기 확인 상한에 도달한 invitation은 다시 claim하지 않는다', async () => {
+    // Given: 발송 후 확인 상한에 도달한 PENDING invitation이 있다.
+    const applicationId = APPLICATION_IDS[2];
+    await createApplicationAndEvent(applicationId, ['synthetic-student']);
+    await outbox.consumeNext('outbox-worker-cap', NOW);
+    const github = githubClient();
+    github.ensureCollaborator.mockResolvedValue(COLLABORATOR_OUTCOMES.PENDING);
+    const worker = new RepositoryProvisionWorker(jobs, state, github);
+    await worker.runNext('provision-worker-cap-initial', NOW);
+    const repository = await prisma.repository.findUniqueOrThrow({
+      where: { applicationId },
+    });
+    await prisma.repositoryInvitation.updateMany({
+      where: { repositoryId: repository.id },
+      data: {
+        reconciliationCount: DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS,
+      },
+    });
+
+    // When: 다음 확인 시각에 worker를 실행한다.
+    const result = await worker.runNext(
+      'provision-worker-cap-reconcile',
+      new Date(
+        NOW.getTime() + DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
+      ),
+    );
+
+    // Then: 상한 invitation은 다시 확인하지 않고 worker가 비어 있다.
+    expect(result).toEqual({ kind: 'EMPTY' });
+    expect(github.ensureCollaborator).toHaveBeenCalledTimes(1);
   });
 });
 
