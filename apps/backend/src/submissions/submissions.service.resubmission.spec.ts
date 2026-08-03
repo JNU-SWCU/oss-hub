@@ -35,6 +35,7 @@ function target(
     submissionType: MilestoneSubmissionType.TEXT,
     applicationStatus: ApplicationStatus.APPROVED,
     repositoryUrl: null,
+    dueAt: new Date('2027-01-01T00:00:00.000Z'),
     ...overrides,
   };
 }
@@ -116,7 +117,7 @@ it.each([
   {
     name: 'status',
     lockedTarget: target({ status: SubmissionStatus.SUBMITTED }),
-    code: SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED,
+    code: SubmissionsErrorCode.STALE_SUBMISSION_REVISION,
   },
   {
     name: 'baseRevision',
@@ -171,6 +172,7 @@ it('CHANGES_REQUESTED + 일치하는 baseRevision이면 새 revision을 만들�
       applicationId: 'application-1',
       milestoneId: 'milestone-1',
       baseRevision: 1,
+      baseStatus: SubmissionStatus.CHANGES_REQUESTED,
       content: textInput.content,
       comment: textInput.comment,
       submittedById: 'student-1',
@@ -179,17 +181,46 @@ it('CHANGES_REQUESTED + 일치하는 baseRevision이면 새 revision을 만들�
   );
 });
 
-it.each([
-  [SubmissionStatus.SUBMITTED],
-  [SubmissionStatus.APPROVED],
-  [SubmissionStatus.REJECTED],
-])('최신 상태 %s는 409 RESUBMISSION_NOT_ALLOWED다', async (status) => {
-  // Given
+it.each([SubmissionStatus.SUBMITTED, SubmissionStatus.APPROVED])(
+  '마감 후 %s 제출물 교체는 422 SUBMISSION_REPLACEMENT_CLOSED다',
+  async (status) => {
+    const { service, createSubmissionRevision } = buildService({
+      target: target({
+        status,
+        dueAt: new Date('2026-01-01T00:00:00.000Z'),
+      }),
+    });
+
+    await expect(
+      service.resubmit(githubId, submissionId, textInput),
+    ).rejects.toMatchObject({
+      errorCode: { code: SubmissionsErrorCode.SUBMISSION_REPLACEMENT_CLOSED },
+    });
+    expect(createSubmissionRevision).not.toHaveBeenCalled();
+  },
+);
+
+it('마감 전 SUBMITTED 제출물은 새 revision으로 교체한다', async () => {
   const { service, createSubmissionRevision } = buildService({
-    target: target({ status }),
+    target: target({ status: SubmissionStatus.SUBMITTED }),
   });
 
-  // When & Then
+  const result = await service.resubmit(githubId, submissionId, textInput);
+
+  expect(result).toMatchObject({
+    revision: 2,
+    status: SubmissionStatus.SUBMITTED,
+  });
+  expect(createSubmissionRevision).toHaveBeenCalledWith(
+    expect.objectContaining({ baseStatus: SubmissionStatus.SUBMITTED }),
+  );
+});
+
+it('REJECTED 제출물은 마감 전에도 교체할 수 없다', async () => {
+  const { service, createSubmissionRevision } = buildService({
+    target: target({ status: SubmissionStatus.REJECTED }),
+  });
+
   await expect(
     service.resubmit(githubId, submissionId, textInput),
   ).rejects.toMatchObject({
