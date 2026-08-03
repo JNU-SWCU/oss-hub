@@ -10,7 +10,9 @@ import {
   acceptConsent,
   classifyConsentApiError,
   getCurrentConsent,
+  type ConsentRequiredItem,
 } from '../api';
+import { useConsentPolicyPresentation } from '../use-consent-policy-presentation';
 import {
   applyAcceptedConsent,
   applyConsentFailure,
@@ -22,6 +24,8 @@ import {
 } from '../consent-state';
 import {
   ConsentForm,
+  ConsentPolicyDialog,
+  ConsentPolicyInline,
   ConsentPolicySkeleton,
   ConsentStatusCard,
 } from './consent-view';
@@ -39,6 +43,30 @@ export function ConsentFlow() {
   const router = useRouter();
   const [state, setState] = useState<ConsentFlowState>({ kind: 'loading' });
   const submissionInFlight = useRef(false);
+
+  /*
+    전문 열림 상태가 폼이 아니라 여기 있는 이유는 자리 때문이다 — 넓은 화면에서
+    전문은 폼 오른쪽 기둥, 즉 폼 바깥에 나타난다. 닫을 때 초점을 눌렀던 `전문 보기`로
+    되돌리려고 그 버튼 자체를 함께 들고 있는다.
+  */
+  const [openPolicy, setOpenPolicy] = useState<ConsentRequiredItem | null>(
+    null,
+  );
+  const policyTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const presentation = useConsentPolicyPresentation();
+
+  const openPolicyDocument = useCallback(
+    (item: ConsentRequiredItem, trigger: HTMLButtonElement) => {
+      policyTriggerRef.current = trigger;
+      setOpenPolicy(item);
+    },
+    [],
+  );
+  const closePolicyDocument = useCallback(() => setOpenPolicy(null), []);
+  const focusPolicyTrigger = useCallback(
+    () => policyTriggerRef.current?.focus(),
+    [],
+  );
 
   const applyFlowState = useCallback(
     (next: ConsentFlowState) => {
@@ -181,10 +209,13 @@ export function ConsentFlow() {
       content = (
         <ConsentForm
           state={state}
+          presentation={presentation}
+          openPolicyKey={openPolicy?.key ?? null}
           onToggle={(key) =>
             setState((current) => toggleConsentSelection(current, key))
           }
           onSubmit={() => void submit()}
+          onOpenPolicy={openPolicyDocument}
         />
       );
       break;
@@ -194,10 +225,13 @@ export function ConsentFlow() {
           content = (
             <ConsentForm
               state={state}
+              presentation={presentation}
+              openPolicyKey={openPolicy?.key ?? null}
               onToggle={(key) =>
                 setState((current) => toggleConsentSelection(current, key))
               }
               onSubmit={() => void submit()}
+              onOpenPolicy={openPolicyDocument}
             />
           );
           break;
@@ -253,14 +287,39 @@ export function ConsentFlow() {
     약관 전문 팝업(`consent-view.tsx`)은 그대로 둔다. 그건 읽고 닫으면 원래 자리로
     돌아오는 진짜 팝업이다.
   */
+  /*
+    두 기둥이다. 왼쪽은 동의 항목, 오른쪽은 펼친 전문(#517). 왼쪽 폭이 `max-w-2xl`로
+    고정이라 전문을 펼쳐도 항목이 움직이지 않는다. 닫혀 있는 동안 오른쪽 기둥은
+    아예 그리지 않는다 — 빈 자리에 안내 문구를 두지 않기로 했다.
+  */
   return (
-    <>
-      <SignupEyebrow>STEP 1 / 3</SignupEyebrow>
-      <SignupTitle>개인정보·활동 동의</SignupTitle>
-      <SignupLede>
-        필수 항목을 확인하고 동의하면 다음 단계로 이동합니다.
-      </SignupLede>
-      {content}
-    </>
+    <div className="flex w-full flex-col gap-8 lg:flex-row lg:items-start lg:gap-12">
+      <div className="flex w-full max-w-2xl flex-none flex-col gap-8">
+        <SignupEyebrow>STEP 1 / 3</SignupEyebrow>
+        <SignupTitle>개인정보·활동 동의</SignupTitle>
+        <SignupLede>
+          필수 항목을 확인하고 동의하면 다음 단계로 이동합니다.
+        </SignupLede>
+        {content}
+      </div>
+
+      {presentation === 'inline' ? (
+        openPolicy ? (
+          <ConsentPolicyInline
+            item={openPolicy}
+            onClose={() => {
+              closePolicyDocument();
+              focusPolicyTrigger();
+            }}
+          />
+        ) : null
+      ) : (
+        <ConsentPolicyDialog
+          item={openPolicy}
+          onClose={closePolicyDocument}
+          onCloseFocusTrigger={focusPolicyTrigger}
+        />
+      )}
+    </div>
   );
 }

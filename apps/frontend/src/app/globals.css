@@ -183,6 +183,7 @@
   --color-cosmos-repository: var(--cosmos-repository);
   --color-cosmos-edge: var(--cosmos-edge);
   --color-cosmos-border: var(--cosmos-border);
+  --color-cosmos-danger: var(--cosmos-danger);
   /* 시안 v2 치수 semantic → Tailwind 유틸리티.
      `--spacing-*` 네임스페이스는 크기·여백 유틸리티를 함께 만든다
      (`h-control`·`min-h-control`·`w-sidebar-open`·`p-card`·`gap-card` …).
@@ -321,6 +322,10 @@
   --cosmos-repository: var(--palette-green-300);
   --cosmos-edge: var(--palette-navy-300);
   --cosmos-border: color-mix(in oklch, var(--palette-white) 12%, transparent);
+  /* 어두운 우주 바탕 위 경고 글자(#517). `--destructive`는 반전 스코프에서
+     `--hero-danger`(red-100)로 덮여 있어 여기서는 쓸 수 없다 — 이 계열은
+     검정 바탕에서 8.2:1로 AA를 넘는다. */
+  --cosmos-danger: var(--palette-red-300);
   --cosmos-scrim-strong: color-mix(
     in oklch,
     var(--palette-black) 95%,

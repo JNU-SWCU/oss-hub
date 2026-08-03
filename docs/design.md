@@ -304,6 +304,7 @@ Tailwind v4 기본 spacing 스케일을 그대로 쓴다.
 - 스크롤·리사이즈 리스너는 진행도만 갱신하고 그리기는 루프 한 곳에서만 한다. 스크롤은 passive 리스너다.
 - 언마운트에서 루프·리스너·옵저버를 모두 해제하고 블룸 버퍼와 투영 배열을 비운다.
 - 힘 기반 레이아웃은 마운트 시 한 번만 돌고 결과가 굳는다. 프레임마다 노드 쌍을 다시 비교하지 않는다.
+- 가입 동선 네 화면(`app/_shell/signup-starfield.tsx`)의 별밭은 이 canvas를 재사용하지 않는다. 움직일 카메라가 없어 정적 SVG 한 장(고정 seed로 뽑은 3층, `preserveAspectRatio="xMidYMid slice"`)으로 굳혔다 — 렌더 루프가 없으므로 위 화질 거버너의 대상이 아니다.
 
 #### 색 토큰
 
@@ -318,7 +319,8 @@ canvas 안의 색은 `cosmos-theme.ts`의 RGB 상수 세트(`DEEP_SPACE_THEME`)�
 | `--cosmos-repository` | `--palette-green-300` | 흐름 패널의 STEP 번호 |
 | `--cosmos-edge` | `--palette-navy-300` | 통계 항목명 |
 | `--cosmos-border` | white 12% | eyebrow·외곽선 버튼·출처 배지·범례·건너뛰기 링크 테두리 |
-| `--cosmos-near` | `--palette-navy-950` | 정의만 있고 현재 소비처가 없다 |
+| `--cosmos-danger` | `--palette-red-300` | 어두운 바탕 위 경고 글자(동의 화면의 거부 안내). 반전 스코프가 `--destructive`를 `--hero-danger`로 덮으므로 그쪽을 쓸 수 없다 |
+| `--cosmos-near` | `--palette-navy-950` | 좁은 화면 약관 전문 팝업의 판 바탕 |
 | `--cosmos-student` | `--palette-navy-200` | 정의만 있다 — 범례의 학생 점은 canvas 테마와 맞춘 인라인 색을 쓴다 |
 | `--cosmos-scrim-strong` · `--cosmos-scrim-soft` | black 95% · 48% | 정의만 있다 — 스크림은 현재 CSS module에서 같은 값의 리터럴로 쓴다 |
 
