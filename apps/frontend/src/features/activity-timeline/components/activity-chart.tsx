@@ -63,7 +63,7 @@ export function ActivityChart({
               }}
             />
             <Legend
-              formatter={(value) => (
+              formatter={(value: string) => (
                 <span className="text-foreground">{value}</span>
               )}
               wrapperStyle={{ fontSize: 12 }}
