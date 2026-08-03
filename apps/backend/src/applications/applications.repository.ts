@@ -41,8 +41,10 @@ type ApplicationWithProgram = PrismaTypes.ApplicationGetPayload<{
 
 type ApplicationDatabase = Pick<
   PrismaTypes.TransactionClient,
-  'user' | 'program' | 'team' | 'application'
+  'user' | 'program' | 'team' | 'application' | '$queryRaw'
 >;
+
+type LockedProgramRow = Readonly<{ id: string }>;
 
 export interface ApplicationsTransactionStore {
   findApplicationById(
@@ -81,6 +83,8 @@ export interface ApplyTeamRecord {
   readonly programId: string;
   readonly leaderId: string;
   readonly isMember: boolean;
+  readonly memberCount: number;
+  readonly teamMinSize: number | null;
 }
 
 export interface CreateApplicationRecordInput {
@@ -181,6 +185,7 @@ export interface StaffDashboardSummary {
 }
 
 export interface ApplicationCreateStore {
+  lockProgramForApply(programId: string): Promise<boolean>;
   findTeamForApply(
     teamId: string,
     programId: string,
@@ -269,6 +274,13 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
 class PrismaApplicationCreateStore implements ApplicationCreateStore {
   constructor(private readonly database: ApplicationDatabase) {}
 
+  async lockProgramForApply(programId: string): Promise<boolean> {
+    const rows = await this.database.$queryRaw<readonly LockedProgramRow[]>(
+      Prisma.sql`SELECT id FROM "Program" WHERE id = ${programId} FOR UPDATE`,
+    );
+    return rows.length === 1;
+  }
+
   async findTeamForApply(
     teamId: string,
     programId: string,
@@ -280,6 +292,8 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
         id: true,
         programId: true,
         leaderId: true,
+        program: { select: { teamMinSize: true } },
+        _count: { select: { members: true } },
         members: {
           where: { userId },
           select: { id: true },
@@ -293,6 +307,8 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
       programId: team.programId,
       leaderId: team.leaderId,
       isMember: team.leaderId === userId || team.members.length > 0,
+      memberCount: team._count.members,
+      teamMinSize: team.program.teamMinSize,
     };
   }
 
