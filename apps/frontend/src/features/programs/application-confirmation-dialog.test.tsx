@@ -93,9 +93,15 @@ describe('ApplicationConfirmationDialog', () => {
     );
     const cancelButton = getButton('돌아가서 확인');
     const returnButton = getButton('수정 내용 저장');
+    const focusReturned = new Promise<void>((resolve) => {
+      returnButton.addEventListener('focus', () => resolve(), { once: true });
+    });
 
     // When
-    await act(async () => cancelButton.click());
+    await act(async () => {
+      cancelButton.click();
+      await focusReturned;
+    });
 
     // Then
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
