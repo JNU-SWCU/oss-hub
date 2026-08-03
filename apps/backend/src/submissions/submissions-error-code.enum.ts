@@ -23,6 +23,7 @@ export const SubmissionsErrorCode = {
   FILE_STORAGE_UNAVAILABLE: 'SUB_020',
   FILE_RETENTION_UNAVAILABLE: 'SUB_021',
   SUBMISSION_FILE_NOT_FOUND: 'SUB_022',
+  SUBMISSION_REPLACEMENT_CLOSED: 'SUB_023',
 } as const;
 
 export type SubmissionsErrorCode =
@@ -140,5 +141,10 @@ export const SUBMISSIONS_ERROR_CODES: Readonly<
     code: SubmissionsErrorCode.SUBMISSION_FILE_NOT_FOUND,
     status: 404,
     message: '파일을 찾을 수 없습니다.',
+  },
+  [SubmissionsErrorCode.SUBMISSION_REPLACEMENT_CLOSED]: {
+    code: SubmissionsErrorCode.SUBMISSION_REPLACEMENT_CLOSED,
+    status: 422,
+    message: '마감된 마일스톤의 제출물은 교체할 수 없습니다.',
   },
 };

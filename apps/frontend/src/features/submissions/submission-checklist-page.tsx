@@ -136,7 +136,7 @@ export function SubmissionChecklistPage({
       (candidate) => candidate.milestoneId === milestoneId,
     );
     const submission = item?.submission;
-    if (!item || !submission || submission.status !== 'CHANGES_REQUESTED') {
+    if (!item || !submission || !submission.canResubmit) {
       return;
     }
 

@@ -55,6 +55,9 @@ export function SelectedMilestonePanel(props: SelectedMilestonePanelProps) {
     );
   }
   const submission = item.submission;
+  if (submission.canResubmit) {
+    return <ResubmissionForm {...props} submission={submission} />;
+  }
   switch (submission.status) {
     case 'APPROVED':
       return (
@@ -114,7 +117,9 @@ function ResubmissionForm(
   return (
     <PanelCard item={item} status="CHANGES_REQUESTED" testId="resubmission">
       <p className="text-sm text-muted-foreground">
-        보완 요청에 따라 수정한 뒤 재제출할 수 있습니다.
+        {submission.status === 'CHANGES_REQUESTED'
+          ? '보완 요청에 따라 수정한 뒤 재제출할 수 있습니다.'
+          : '마감 전에는 제출물을 교체할 수 있습니다.'}
       </p>
       <SubmissionReviewMeta submission={submission} />
       <dl className="grid gap-2 text-sm sm:grid-cols-2">
