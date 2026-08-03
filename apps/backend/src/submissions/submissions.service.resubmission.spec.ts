@@ -181,24 +181,39 @@ it('CHANGES_REQUESTED + 일치하는 baseRevision이면 새 revision을 만들�
   );
 });
 
-it.each([SubmissionStatus.SUBMITTED, SubmissionStatus.APPROVED])(
-  '마감 후 %s 제출물 교체는 422 SUBMISSION_REPLACEMENT_CLOSED다',
-  async (status) => {
-    const { service, createSubmissionRevision } = buildService({
-      target: target({
-        status,
-        dueAt: new Date('2026-01-01T00:00:00.000Z'),
-      }),
-    });
+it('마감 후 SUBMITTED 제출물 교체는 422 SUBMISSION_REPLACEMENT_CLOSED다', async () => {
+  const { service, createSubmissionRevision } = buildService({
+    target: target({
+      status: SubmissionStatus.SUBMITTED,
+      dueAt: new Date('2026-01-01T00:00:00.000Z'),
+    }),
+  });
 
-    await expect(
-      service.resubmit(githubId, submissionId, textInput),
-    ).rejects.toMatchObject({
-      errorCode: { code: SubmissionsErrorCode.SUBMISSION_REPLACEMENT_CLOSED },
-    });
-    expect(createSubmissionRevision).not.toHaveBeenCalled();
-  },
-);
+  await expect(
+    service.resubmit(githubId, submissionId, textInput),
+  ).rejects.toMatchObject({
+    errorCode: { code: SubmissionsErrorCode.SUBMISSION_REPLACEMENT_CLOSED },
+  });
+  expect(createSubmissionRevision).not.toHaveBeenCalled();
+});
+
+// 승인된 제출물은 마감 전이든 후든 교체하지 않는다 — 교체를 허용하면 교직원 판정이
+// 옛 revision 을 가리킨 채 남아 심사 무결성이 깨진다.
+it.each([
+  new Date('2026-01-01T00:00:00.000Z'),
+  new Date('2099-01-01T00:00:00.000Z'),
+])('APPROVED 제출물 교체는 마감(%s)과 무관하게 거부한다', async (dueAt) => {
+  const { service, createSubmissionRevision } = buildService({
+    target: target({ status: SubmissionStatus.APPROVED, dueAt }),
+  });
+
+  await expect(
+    service.resubmit(githubId, submissionId, textInput),
+  ).rejects.toMatchObject({
+    errorCode: { code: SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED },
+  });
+  expect(createSubmissionRevision).not.toHaveBeenCalled();
+});
 
 it('마감 전 SUBMITTED 제출물은 새 revision으로 교체한다', async () => {
   const { service, createSubmissionRevision } = buildService({

@@ -111,8 +111,10 @@ it('팀형 신청은 applicationMode=TEAM으로 반환한다', async () => {
   expect(checklist.applicationMode).toBe('TEAM');
 });
 
+// 마감 전 SUBMITTED 는 교체할 수 있다(#블로커 6b) — 잘못 낸 파일을 마감 전에 고칠
+// 경로가 없던 것이 결함이었다. APPROVED·REJECTED 는 판정이 난 뒤라 교체하지 않는다.
 it.each([
-  [SubmissionStatus.SUBMITTED, false],
+  [SubmissionStatus.SUBMITTED, true],
   [SubmissionStatus.APPROVED, false],
   [SubmissionStatus.CHANGES_REQUESTED, true],
   [SubmissionStatus.REJECTED, false],

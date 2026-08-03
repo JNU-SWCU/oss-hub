@@ -275,7 +275,7 @@ export class SubmissionsService {
             canResubmit:
               milestone.submission.status ===
                 SubmissionStatus.CHANGES_REQUESTED ||
-              (milestone.submission.status !== SubmissionStatus.REJECTED &&
+              (milestone.submission.status === SubmissionStatus.SUBMITTED &&
                 now <= milestone.dueAt),
             file: milestone.submission.file
               ? {
@@ -300,6 +300,9 @@ export class SubmissionsService {
     if (input.baseRevision !== target.currentRevision)
       throw this.error(SubmissionsErrorCode.STALE_SUBMISSION_REVISION);
     if (target.status === SubmissionStatus.REJECTED)
+      throw this.error(SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED);
+    // 승인된 제출물은 교체하지 않는다 — 교직원 판정이 옛 revision 을 가리킨 채 남는다.
+    if (target.status === SubmissionStatus.APPROVED)
       throw this.error(SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED);
     if (
       target.status !== SubmissionStatus.CHANGES_REQUESTED &&
