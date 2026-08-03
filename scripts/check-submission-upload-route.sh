@@ -1,18 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Compose nginx 제출 파일 업로드 경로 fail-closed 계약 검사 (G004 D6).
+# Compose nginx 제출 파일 경로가 backend로 프록시되는 계약 검사.
 # 실제 nginx 기동 없이 결정론적으로 검증한다:
 #   1) nginx location 선택 규칙(= → ^~ → 정규식 선언 순서 → 최장 prefix)을 그대로 모사한다
-#   2) 차단해야 하는 경로(exact·descendant·대소문자 변형)가 모두 fail-closed 블록으로 선택된다
-#   3) 그 블록은 최상위 무조건 return 403 이고 트리 전체 proxy_pass 가 없다
+#   2) 제출 파일 경로(exact·descendant·대소문자 변형)가 모두 /api/ backend proxy로 선택된다
+#   3) 해당 경로를 가로채는 4xx/5xx return location이 남아 있지 않다
 #   4) sibling 경로(submission-files-export 등)와 무관한 /api/ 는 차단되지 않는다
 #   5) /api/ 는 최상위 backend proxy 를 유지하고 차단 return 이 없다
-# Nest(Express)는 라우트 대소문자를 구분하지 않으므로 대소문자를 구분하는 = · ^~ 만으로는
-# /api/v1/Submission-Files 가 /api/ 프록시로 새어 backend 에 도달한다. 그래서 문자열 대조가 아니라
-# 경로 선택 결과로 판정한다 — 차단 형태는 자유이나 우회 가능한 조합은 계약 위반이다.
+# Nest(Express)는 라우트 대소문자를 구분하지 않는다. 차단 location을 제거하면 대소문자
+# 변형도 /api/ 하나로 수렴하므로, 이전의 case-insensitive regex deny는 더 이상 필요 없다.
 # 인용·이스케이프·주석·세미콜론 묶음·중첩 블록을 인식하는 제한 nginx 파서로만 판정한다
-# (정규식/라인 폴백 없음). 조건부·중첩-only return, 문자열 속 지시어 위장, sibling 과차단
+# (정규식/라인 폴백 없음). 조건부·중첩 return, 문자열 속 지시어 위장, sibling 과차단
 # 은 계약 위반. 위반·파일 부재는 exit 1.
 
 config=${1:-deploy/nginx/nginx.conf}
@@ -32,9 +31,9 @@ import sys
 
 PREFIX = 'submission-upload-route contract'
 
-# 업로드 차단이 반드시 걸려야 하는 경로. 대소문자 변형은 Express 라우팅이 대소문자를
-# 구분하지 않기 때문에 포함한다(nginx 가 흘리면 backend 컨트롤러에 그대로 도달한다).
-MUST_BLOCK = (
+# backend proxy에 반드시 도달해야 하는 제출 파일 경로. 대소문자 변형은 Express 라우팅이
+# 구분하지 않기 때문에 포함한다.
+MUST_PROXY = (
     '/api/v1/submission-files',
     '/api/v1/Submission-Files',
     '/api/v1/SUBMISSION-FILES',
@@ -230,34 +229,6 @@ def blocking_returns(node: Node, *, top_level_only: bool) -> list[str]:
     return statuses
 
 
-def fail_closed_defect(node: Node) -> str | None:
-    if node.children is None:
-        return 'is not a block'
-
-    if has_proxy_pass(node):
-        return 'still proxies upstream'
-
-    top_returns = [child for child in node.children if child.name == 'return' and child.children is None]
-    if not top_returns:
-        nested_returns = [
-            child for child in walk(node.children)
-            if child.name == 'return' and child.children is None
-        ]
-        if nested_returns:
-            return 'has only conditional or nested return; need unconditional top-level return 403'
-        return 'has no explicit return 403'
-
-    if len(top_returns) != 1:
-        return 'has multiple top-level return directives'
-
-    status = return_status(top_returns[0])
-    if status is None:
-        return 'has malformed return status'
-    if status != '403':
-        return f'returns {status}; expected exact 403 fail-closed'
-    return None
-
-
 def describe(node: Node) -> str:
     return 'location ' + ' '.join(node.args)
 
@@ -324,21 +295,6 @@ def main() -> None:
     locations = location_nodes(tree)
     require_unique_locations(locations)
 
-    for path in MUST_BLOCK:
-        selected = select_location(locations, path)
-        if selected is None:
-            fail(f'{path} matches no location; upload block is not effective')
-        defect = fail_closed_defect(selected)
-        if defect is not None:
-            fail(f'{path} selects {describe(selected)} which {defect}')
-
-    for path in MUST_NOT_BLOCK:
-        selected = select_location(locations, path)
-        if selected is None:
-            fail(f'{path} matches no location; unrelated route lost its proxy')
-        if blocking_returns(selected, top_level_only=False):
-            fail(f'{path} selects {describe(selected)} which over-blocks an unrelated route')
-
     api_args = ('/api/',)
     api = [node for node in locations if match_location(node, api_args)]
 
@@ -355,9 +311,25 @@ def main() -> None:
     if blocked:
         fail('location /api/ over-blocks unrelated routes')
 
+    for path in MUST_PROXY:
+        selected = select_location(locations, path)
+        if selected is None:
+            fail(f'{path} matches no location; backend proxy is unavailable')
+        if selected is not api_node:
+            fail(f'{path} selects {describe(selected)} instead of location /api/')
+        if blocking_returns(selected, top_level_only=False):
+            fail(f'{path} selects {describe(selected)} which blocks backend access')
+
+    for path in MUST_NOT_BLOCK:
+        selected = select_location(locations, path)
+        if selected is None:
+            fail(f'{path} matches no location; unrelated route lost its proxy')
+        if blocking_returns(selected, top_level_only=False):
+            fail(f'{path} selects {describe(selected)} which over-blocks an unrelated route')
+
     print(
         f'{PREFIX}: ok '
-        f'(blocked={len(MUST_BLOCK)} paths incl. case variants, '
+        f'(proxied={len(MUST_PROXY)} paths incl. case variants, '
         f'unblocked={len(MUST_NOT_BLOCK)} siblings, /api/ intact, location-selection parse)'
     )
 
