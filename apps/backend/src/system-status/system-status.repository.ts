@@ -17,4 +17,10 @@ export class SystemStatusRepository {
       select: { role: true, accountStatus: true },
     });
   }
+
+  countFinalProvisionFailures(): Promise<number> {
+    return this.prisma.repositoryProvisionJob.count({
+      where: { status: 'FAILED_FINAL' },
+    });
+  }
 }

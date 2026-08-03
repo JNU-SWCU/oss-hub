@@ -60,6 +60,13 @@ export class CollectionSystemStatusResponseDto {
   ) {}
 }
 
+export class RepositoryProvisioningSystemStatusResponseDto {
+  constructor(readonly finalFailureCount: number) {}
+}
+
 export class SystemStatusResponseDto {
-  constructor(readonly collection: CollectionSystemStatusResponseDto) {}
+  constructor(
+    readonly collection: CollectionSystemStatusResponseDto,
+    readonly repositoryProvisioning: RepositoryProvisioningSystemStatusResponseDto,
+  ) {}
 }

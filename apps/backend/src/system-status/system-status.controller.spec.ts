@@ -22,6 +22,9 @@ describe('SystemStatusController', () => {
         currentRunStatus: 'IDLE' as const,
         safeReason: null,
       },
+      repositoryProvisioning: {
+        finalFailureCount: 0,
+      },
     };
     const getStatus = jest.fn<
       ReturnType<SystemStatusService['getStatus']>,

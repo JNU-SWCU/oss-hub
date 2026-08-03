@@ -31,8 +31,12 @@ function snapshot(
 describe('SystemStatusService', () => {
   const findActor = jest.fn();
   const getIncrementalStatusSnapshot = jest.fn();
+  const countFinalProvisionFailures = jest.fn();
   const service = new SystemStatusService(
-    { findActor } as unknown as SystemStatusRepository,
+    {
+      findActor,
+      countFinalProvisionFailures,
+    } as unknown as SystemStatusRepository,
     { getIncrementalStatusSnapshot } as unknown as CollectionReadPort,
     () => NOW,
   );
@@ -43,6 +47,7 @@ describe('SystemStatusService', () => {
       accountStatus: AccountStatus.ACTIVE,
     });
     getIncrementalStatusSnapshot.mockReset().mockResolvedValue(snapshot());
+    countFinalProvisionFailures.mockReset().mockResolvedValue(2);
   });
 
   it('ACTIVE ADMIN에게만 정확한 공개 DTO를 반환한다', async () => {
@@ -62,9 +67,13 @@ describe('SystemStatusService', () => {
         currentRunStatus: 'IDLE',
         safeReason: null,
       },
+      repositoryProvisioning: {
+        finalFailureCount: 2,
+      },
     });
     expect(findActor).toHaveBeenCalledWith(ACTOR_ID);
     expect(getIncrementalStatusSnapshot).toHaveBeenCalledTimes(1);
+    expect(countFinalProvisionFailures).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -80,6 +89,7 @@ describe('SystemStatusService', () => {
       ForbiddenException,
     );
     expect(getIncrementalStatusSnapshot).not.toHaveBeenCalled();
+    expect(countFinalProvisionFailures).not.toHaveBeenCalled();
   });
 
   it('추적 중인 저장소가 없으면 EMPTY다', async () => {

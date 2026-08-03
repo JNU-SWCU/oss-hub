@@ -102,6 +102,8 @@ export function StudentDashboardCard({
     item.repository.githubUrl !== null
       ? item.repository.githubUrl
       : null;
+  const hasFinalProvisionFailure =
+    item.repository?.provisionStatus === 'FAILED_FINAL';
   const ModeIcon = item.applicationMode === 'PERSONAL' ? UserRound : UsersRound;
 
   return (
@@ -194,6 +196,23 @@ export function StudentDashboardCard({
             </div>
           ) : null}
         </div>
+        {hasFinalProvisionFailure ? (
+          <div
+            role="alert"
+            className="flex items-start gap-3 border-l-2 border-destructive/40 pl-4"
+          >
+            <AlertCircle
+              aria-hidden="true"
+              className="mt-0.5 size-5 text-destructive"
+            />
+            <div>
+              <p className="font-medium">저장소 생성에 실패했습니다.</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                운영자에게 문의해 주세요.
+              </p>
+            </div>
+          </div>
+        ) : null}
         {!isPending && !isRejected ? <RepositorySummary item={item} /> : null}
       </CardContent>
 

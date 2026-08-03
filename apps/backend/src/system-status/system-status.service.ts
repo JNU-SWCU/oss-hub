@@ -8,12 +8,12 @@ import {
 import { SystemStatusRepository } from './system-status.repository';
 import {
   CollectionSystemStatusResponseDto,
+  RepositoryProvisioningSystemStatusResponseDto,
   SystemStatusResponseDto,
   type CollectionHealthResponseDto,
   type CurrentRunStatusResponseDto,
   type SystemStatusSafeReasonResponseDto,
 } from './dto/system-status-response.dto';
-
 const STALE_AFTER_MS = 90 * 60 * 1000;
 export const SYSTEM_STATUS_CLOCK = Symbol('SYSTEM_STATUS_CLOCK');
 export type SystemStatusClock = () => Date;
@@ -47,7 +47,10 @@ export class SystemStatusService {
       throw new ForbiddenException('Active administrator access is required');
     }
 
-    const snapshot = await this.collection.getIncrementalStatusSnapshot();
+    const [snapshot, finalFailureCount] = await Promise.all([
+      this.collection.getIncrementalStatusSnapshot(),
+      this.repository.countFinalProvisionFailures(),
+    ]);
     const decision = this.decide(snapshot);
     return new SystemStatusResponseDto(
       new CollectionSystemStatusResponseDto(
@@ -65,6 +68,7 @@ export class SystemStatusService {
         this.currentRunStatus(snapshot),
         decision.reason,
       ),
+      new RepositoryProvisioningSystemStatusResponseDto(finalFailureCount),
     );
   }
 
