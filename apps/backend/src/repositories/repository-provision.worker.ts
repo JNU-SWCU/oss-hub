@@ -50,7 +50,7 @@ export class RepositoryProvisionWorker {
   constructor(
     private readonly jobs: Pick<
       RepositoryProvisionJobRepository,
-      'claimNext' | 'renewLease'
+      'claimNext' | 'claimNextReconciliation' | 'renewLease'
     >,
     private readonly state: RepositoryProvisionStateStore,
     private readonly github: Pick<
@@ -65,12 +65,15 @@ export class RepositoryProvisionWorker {
     fixedNow?: Date,
   ): Promise<RepositoryProvisionResult> {
     const now = (): Date => fixedNow ?? new Date();
-    const job = await this.jobs.claimNext({
+    const claimInput = {
       workerId,
       now: now(),
       leaseMs: this.options.leaseMs,
-    });
-    if (job === null) {
+    };
+    const job =
+      (await this.jobs.claimNext(claimInput)) ??
+      (await this.jobs.claimNextReconciliation(claimInput));
+    if (job == null) {
       return { kind: 'EMPTY' };
     }
 

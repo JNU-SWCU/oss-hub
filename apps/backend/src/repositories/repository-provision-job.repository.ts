@@ -46,17 +46,6 @@ export class RepositoryProvisionJobRepository {
             AND "nextAttemptAt" <= ${input.now}
           )
           OR (
-            "status" = CAST(${RepositoryProvisionJobStatus.SUCCEEDED} AS "RepositoryProvisionJobStatus")
-            AND "nextAttemptAt" <= ${input.now}
-            AND EXISTS (
-              SELECT 1
-              FROM "RepositoryInvitation" AS invitation
-              WHERE invitation."repositoryId" = job."repositoryId"
-                AND invitation."status" = CAST(${RepositoryInvitationStatus.PENDING} AS "RepositoryInvitationStatus")
-                AND invitation."reconciliationCount" < ${DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS}
-            )
-          )
-          OR (
             "status" = CAST(${RepositoryProvisionJobStatus.PROCESSING} AS "RepositoryProvisionJobStatus")
             AND ("lockedAt" IS NULL OR "lockedAt" < ${leaseCutoff})
           )
@@ -67,11 +56,7 @@ export class RepositoryProvisionJobRepository {
       )
       UPDATE "RepositoryProvisionJob" AS job
       SET "status" = CAST(${RepositoryProvisionJobStatus.PROCESSING} AS "RepositoryProvisionJobStatus"),
-          "attemptCount" = CASE
-            WHEN job."status" = CAST(${RepositoryProvisionJobStatus.SUCCEEDED} AS "RepositoryProvisionJobStatus")
-              THEN job."attemptCount"
-            ELSE job."attemptCount" + 1
-          END,
+          "attemptCount" = job."attemptCount" + 1,
           "lockedAt" = ${input.now},
           "lockedBy" = ${input.workerId},
           "startedAt" = COALESCE(job."startedAt", ${input.now}),
@@ -81,6 +66,42 @@ export class RepositoryProvisionJobRepository {
       WHERE job."id" = candidate."id"
       RETURNING job."id", job."applicationId", job."repositoryId", job."attemptCount"
     `);
+    return jobs[0] ?? null;
+  }
+  async claimNextReconciliation(
+    input: ClaimRepositoryProvisionJobInput,
+  ): Promise<ClaimedRepositoryProvisionJob | null> {
+    const jobs = await this.prisma.$queryRaw<
+      ClaimedRepositoryProvisionJobRow[]
+    >(
+      Prisma.sql`
+        WITH candidate AS (
+          SELECT job."id"
+          FROM "RepositoryProvisionJob" AS job
+          WHERE job."status" = CAST(${RepositoryProvisionJobStatus.SUCCEEDED} AS "RepositoryProvisionJobStatus")
+            AND job."nextAttemptAt" <= ${input.now}
+            AND EXISTS (
+              SELECT 1
+              FROM "RepositoryInvitation" AS invitation
+              WHERE invitation."repositoryId" = job."repositoryId"
+                AND invitation."status" = CAST(${RepositoryInvitationStatus.PENDING} AS "RepositoryInvitationStatus")
+                AND invitation."reconciliationCount" < ${DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS}
+            )
+          ORDER BY job."nextAttemptAt", job."createdAt", job."id"
+          FOR UPDATE SKIP LOCKED
+          LIMIT 1
+        )
+        UPDATE "RepositoryProvisionJob" AS job
+        SET "status" = CAST(${RepositoryProvisionJobStatus.PROCESSING} AS "RepositoryProvisionJobStatus"),
+            "lockedAt" = ${input.now},
+            "lockedBy" = ${input.workerId},
+            "finishedAt" = NULL,
+            "updatedAt" = ${input.now}
+        FROM candidate
+        WHERE job."id" = candidate."id"
+        RETURNING job."id", job."applicationId", job."repositoryId", job."attemptCount"
+      `,
+    );
     return jobs[0] ?? null;
   }
 

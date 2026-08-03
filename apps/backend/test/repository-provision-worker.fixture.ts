@@ -44,7 +44,10 @@ export function provisionContext(
 }
 
 export function jobRepositoryMock(): jest.Mocked<
-  Pick<RepositoryProvisionJobRepository, 'claimNext' | 'renewLease'>
+  Pick<
+    RepositoryProvisionJobRepository,
+    'claimNext' | 'claimNextReconciliation' | 'renewLease'
+  >
 > {
   return {
     claimNext: jest.fn().mockResolvedValue({
@@ -53,6 +56,7 @@ export function jobRepositoryMock(): jest.Mocked<
       repositoryId: null,
       attemptCount: 1,
     }),
+    claimNextReconciliation: jest.fn().mockResolvedValue(null),
     renewLease: jest.fn().mockResolvedValue(undefined),
   };
 }
