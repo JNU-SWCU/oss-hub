@@ -1,15 +1,9 @@
 import Link from 'next/link';
-import {
-  PageBody,
-  PageHeader,
-  SectionHeading,
-  StatusBadge,
-} from '@/components';
+import { SectionHeading } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
-import { deadlineVariant } from '../submission-checklist';
 import type {
   SubmissionFormErrors,
   SubmissionFormInput,
@@ -35,7 +29,6 @@ const BLOCKED_MESSAGES = {
 } as const satisfies Readonly<Record<SubmissionBlockedReason, string>>;
 
 export interface SubmissionFormViewProps {
-  readonly programId: string;
   readonly data: SubmissionFormData;
   readonly input: SubmissionFormInput;
   readonly comment: string;
@@ -52,6 +45,7 @@ export interface SubmissionFormViewProps {
   readonly onCommentChange: (value: string) => void;
   readonly onSubmit: () => void;
   readonly onReload: () => void;
+  readonly onCancel: () => void;
 }
 
 export function formatDeadline(value: string): string {
@@ -66,55 +60,38 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
   const { data } = props;
   if (!data.canSubmit && data.blockedReason) {
     return (
-      <PageBody>
-        <SubmissionHeader data={data} />
-        {/* 섹션 사이 64 — 마일스톤 안내와 "지금은 제출할 수 없다"는 서로 다른 이야기다 */}
-        <div className="flex flex-col gap-16">
-          <SubmissionSummary data={data} />
-          {/* 안내는 Alert가, 다음 걸음은 그 아래 줄이 진다. 링크 버튼을 Alert
-              본문에 넣으면 Alert의 밑줄 규칙이 버튼 위에 그어진다. */}
-          <div className="grid gap-6">
-            <Alert>
-              <AlertTitle>지금은 제출할 수 없습니다</AlertTitle>
-              <AlertDescription>
-                {BLOCKED_MESSAGES[data.blockedReason]}
-              </AlertDescription>
-            </Alert>
-            {/* 막힌 화면에도 다음 걸음은 하나여야 한다 — 앞선 행동이 없을
-                때만 "프로그램으로"가 그 자리(채운 버튼)를 가진다. */}
-            <div className="flex flex-wrap gap-3">
-              {data.existingSubmission ? (
-                <Button asChild>
-                  <Link href={data.existingSubmission.checklistUrl}>
-                    제출 내용 확인
-                  </Link>
-                </Button>
-              ) : data.blockedReason === 'REPOSITORY_NOT_READY' ? (
-                <Button type="button" onClick={props.onReload}>
-                  새로고침
-                </Button>
-              ) : null}
-              <Button
-                asChild
-                variant={
-                  data.existingSubmission ||
-                  data.blockedReason === 'REPOSITORY_NOT_READY'
-                    ? 'outline'
-                    : 'default'
-                }
-              >
-                <Link href={`/programs/${props.programId}`}>프로그램으로</Link>
+      <div className="grid gap-5">
+        <SubmissionSummary data={data} />
+        <div className="grid gap-6">
+          <Alert>
+            <AlertTitle>지금은 제출할 수 없습니다</AlertTitle>
+            <AlertDescription>
+              {BLOCKED_MESSAGES[data.blockedReason]}
+            </AlertDescription>
+          </Alert>
+          <div className="flex flex-wrap gap-3">
+            {data.existingSubmission ? (
+              <Button asChild>
+                <Link href={data.existingSubmission.checklistUrl}>
+                  제출 내용 확인
+                </Link>
               </Button>
-            </div>
+            ) : data.blockedReason === 'REPOSITORY_NOT_READY' ? (
+              <Button type="button" onClick={props.onReload}>
+                새로고침
+              </Button>
+            ) : null}
+            <Button type="button" variant="outline" onClick={props.onCancel}>
+              닫기
+            </Button>
           </div>
         </div>
-      </PageBody>
+      </div>
     );
   }
 
-  return (
-    <PageBody>
-      <SubmissionHeader data={data} />
+  const content = (
+    <>
       {props.serverError ? (
         <Alert variant="destructive">
           <AlertTitle>
@@ -130,7 +107,7 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
       <div className="flex flex-col gap-16">
         <SubmissionSummary data={data} />
         <form
-          className="grid gap-6"
+          className="grid min-w-0 gap-6"
           aria-labelledby="submission-content-title"
           onSubmit={(event) => {
             event.preventDefault();
@@ -138,8 +115,8 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
           }}
         >
           <SectionHeading id="submission-content-title" title="제출 내용" />
-          <Card>
-            <CardContent className="grid gap-5">
+          <Card className="min-w-0">
+            <CardContent className="grid min-w-0 gap-5">
               <SubmissionInput
                 submissionType={data.milestone.submissionType}
                 repositoryUrl={data.repository?.url ?? null}
@@ -180,8 +157,8 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
             </CardContent>
           </Card>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Button asChild variant="outline">
-              <Link href={`/programs/${props.programId}`}>취소</Link>
+            <Button type="button" variant="outline" onClick={props.onCancel}>
+              취소
             </Button>
             <Button type="submit" disabled={props.submitting}>
               {props.submitting
@@ -193,43 +170,26 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
           </div>
         </form>
       </div>
-    </PageBody>
+    </>
   );
-}
-
-/**
- * 화면의 주인공은 마일스톤이다 — 이름은 카드 제목이 아니라 페이지 제목(40)
- * 자리에 두고, 남은 기간은 조작이 아니라 읽는 라벨이므로 상태 배지(26)로 준다.
- */
-function SubmissionHeader({ data }: { readonly data: SubmissionFormData }) {
-  return (
-    <PageHeader
-      title={data.milestone.name}
-      description="제출 내용을 확인하고 마일스톤 산출물을 제출합니다."
-      actions={
-        <StatusBadge variant={deadlineVariant(data.milestone.dDay)}>
-          {data.milestone.deadlineLabel}
-        </StatusBadge>
-      }
-    />
-  );
+  return <div className="grid min-w-0 gap-5">{content}</div>;
 }
 
 function SubmissionSummary({ data }: { readonly data: SubmissionFormData }) {
   return (
-    <Card>
-      <CardContent className="grid gap-4 break-keep">
+    <Card className="min-w-0">
+      <CardContent className="grid min-w-0 gap-4 break-keep">
         <div className="flex flex-wrap gap-x-6 gap-y-2 text-small">
-          <span>
+          <span className="min-w-0 break-words">
             <strong>마감</strong> {formatDeadline(data.milestone.dueAt)}
           </span>
-          <span>
+          <span className="min-w-0 break-words">
             <strong>제출 유형</strong>{' '}
             {TYPE_LABELS[data.milestone.submissionType]}
           </span>
         </div>
         {data.milestone.instructions ? (
-          <p className="text-body leading-relaxed break-keep whitespace-pre-wrap">
+          <p className="text-body leading-relaxed break-keep whitespace-pre-wrap [overflow-wrap:anywhere]">
             {data.milestone.instructions}
           </p>
         ) : null}

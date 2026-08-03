@@ -1,11 +1,6 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { PageBody } from '@/components';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ApiError } from '@/lib/api-client';
 import {
   createSubmission,
@@ -13,6 +8,12 @@ import {
   uploadSubmissionFile,
 } from './api';
 import { SubmissionFormView } from './components/submission-form-view';
+import {
+  SubmissionLoadFailure,
+  SubmissionLoading,
+  SubmissionSuccess,
+} from './components/submission-page-states';
+import { resubmissionContent } from './submission-checklist';
 import {
   getSubmissionFileErrorMessage,
   type SubmissionFormErrors,
@@ -22,11 +23,7 @@ import {
   validateSubmissionFile,
   SubmissionFileUploadCache,
 } from './submission-form';
-import type {
-  CreatedSubmission,
-  CreateSubmissionContent,
-  SubmissionFormData,
-} from './types';
+import type { CreatedSubmission, SubmissionFormData } from './types';
 
 type SubmissionPageState =
   | { readonly kind: 'loading' }
@@ -43,9 +40,15 @@ const EMPTY_INPUT: SubmissionFormInput = {
 export function SubmissionPage({
   programId,
   milestoneId,
+  onCancel,
+  onSubmitted,
+  onSubmittingChange,
 }: {
   readonly programId: string;
   readonly milestoneId: string;
+  readonly onCancel: () => void;
+  readonly onSubmitted?: () => void;
+  readonly onSubmittingChange?: (submitting: boolean) => void;
 }) {
   const [state, setState] = useState<SubmissionPageState>({ kind: 'loading' });
   const [input, setInput] = useState<SubmissionFormInput>(EMPTY_INPUT);
@@ -106,8 +109,9 @@ export function SubmissionPage({
 
     submitInFlight.current = true;
     setSubmitting(true);
+    onSubmittingChange?.(true);
     try {
-      let content = submissionContent(data, input);
+      let content = resubmissionContent(data.milestone.submissionType, input);
       if (data.milestone.submissionType === 'FILE' && file) {
         const fileId = await uploadedFile.current.resolve(file, async () => {
           setSubmissionPhase('uploading');
@@ -117,20 +121,19 @@ export function SubmissionPage({
             file,
           );
         });
-        content = { type: 'FILE', fileId };
+        content = resubmissionContent('FILE', input, fileId);
       }
       if (!content) return;
 
       setSubmissionPhase('creating');
-      setState({
-        kind: 'success',
-        submission: await createSubmission({
-          applicationId: data.applicationId,
-          milestoneId: data.milestone.id,
-          content,
-          comment,
-        }),
+      const submission = await createSubmission({
+        applicationId: data.applicationId,
+        milestoneId: data.milestone.id,
+        content,
+        comment,
       });
+      setState({ kind: 'success', submission });
+      onSubmitted?.();
     } catch (error: unknown) {
       if (
         error instanceof ApiError &&
@@ -184,49 +187,25 @@ export function SubmissionPage({
       submitInFlight.current = false;
       setSubmissionPhase(null);
       setSubmitting(false);
+      onSubmittingChange?.(false);
     }
   };
 
   if (state.kind === 'loading') return <SubmissionLoading />;
-  if (state.kind === 'failed') {
+  if (state.kind === 'failed')
     return (
-      <PageBody className="max-w-3xl">
-        <Alert variant="destructive">
-          <AlertTitle>제출 정보 불러오기 실패</AlertTitle>
-          <AlertDescription className="grid gap-5">
-            <p>{state.message}</p>
-            <Button type="button" onClick={() => void load()} className="w-fit">
-              다시 시도
-            </Button>
-          </AlertDescription>
-        </Alert>
-      </PageBody>
+      <SubmissionLoadFailure
+        message={state.message}
+        onRetry={() => void load()}
+      />
     );
-  }
-  if (state.kind === 'success') {
+  if (state.kind === 'success')
     return (
-      <PageBody className="max-w-3xl">
-        <Card role="status" aria-live="polite">
-          <CardHeader>
-            <CardTitle>제출을 완료했습니다</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-5">
-            <p className="text-body text-muted-foreground">
-              제출 시각{' '}
-              {new Date(state.submission.submittedAt).toLocaleString('ko-KR')}
-            </p>
-            <Button asChild className="w-fit">
-              <Link href={`/programs/${programId}`}>프로그램으로 돌아가기</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </PageBody>
+      <SubmissionSuccess onClose={onCancel} submission={state.submission} />
     );
-  }
 
   return (
     <SubmissionFormView
-      programId={programId}
       data={state.data}
       input={input}
       comment={comment}
@@ -250,36 +229,9 @@ export function SubmissionPage({
       onCommentChange={setComment}
       onSubmit={() => void submit(state.data)}
       onReload={() => void load()}
+      onCancel={onCancel}
     />
   );
 }
 
-function submissionContent(
-  data: SubmissionFormData,
-  input: SubmissionFormInput,
-): CreateSubmissionContent | null {
-  switch (data.milestone.submissionType) {
-    case 'TEXT':
-      return { type: 'TEXT', text: input.text.trim() };
-    case 'REPOSITORY_RELEASE':
-      return {
-        type: 'REPOSITORY_RELEASE',
-        releaseUrl: input.releaseUrl.trim(),
-      };
-    case 'FILE':
-      return null;
-    default: {
-      const exhaustiveType: never = data.milestone.submissionType;
-      return exhaustiveType;
-    }
-  }
-}
-
-function SubmissionLoading() {
-  return (
-    <PageBody aria-label="제출 정보 불러오는 중">
-      <div className="h-24 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
-      <div className="h-80 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
-    </PageBody>
-  );
-}
+export { SubmissionLoading } from './components/submission-page-states';

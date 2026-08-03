@@ -1,5 +1,5 @@
-import { RoleGate } from '../../../../../_shell/role-gate';
-import { SubmissionPage } from '@/features/submissions/submission-page';
+import { redirect } from 'next/navigation';
+import { studentProgramSubmissionHref } from '@/lib/program-route';
 
 // #115 "마일스톤 제출"(URL: /programs/[id]/milestones/[milestoneId]/submit) —
 // 접근: 승인된 application의 STUDENT(개인형 본인/팀형 팀원). 문맥적 경로라
@@ -13,12 +13,10 @@ export default async function MilestoneSubmitPage({
   }>;
 }) {
   const { id, milestoneId } = await params;
-  return (
-    <RoleGate allow={['STUDENT']}>
-      <SubmissionPage
-        programId={decodeURIComponent(id)}
-        milestoneId={decodeURIComponent(milestoneId)}
-      />
-    </RoleGate>
+  redirect(
+    studentProgramSubmissionHref(
+      decodeURIComponent(id),
+      decodeURIComponent(milestoneId),
+    ),
   );
 }
