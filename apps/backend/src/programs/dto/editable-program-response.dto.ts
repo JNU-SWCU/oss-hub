@@ -28,6 +28,7 @@ export class EditableProgramResponseDto {
   readonly name: string;
   readonly organizer: string;
   readonly category: EditableProgramView['category'];
+  readonly lifecycle: EditableProgramView['lifecycle'];
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
   readonly applicationCount: number;
@@ -46,6 +47,7 @@ export class EditableProgramResponseDto {
     this.name = program.name;
     this.organizer = program.organizer;
     this.category = program.category;
+    this.lifecycle = program.lifecycle;
     this.applicationTemplateKey = program.applicationTemplateKey;
     this.applicationTemplateVersion = program.applicationTemplateVersion;
     this.applicationCount = program.applicationCount;

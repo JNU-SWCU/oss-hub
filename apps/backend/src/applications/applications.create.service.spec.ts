@@ -1,4 +1,8 @@
-import { ApplicationStatus, ProgramCategory } from '@prisma/client';
+import {
+  ApplicationStatus,
+  ProgramCategory,
+  ProgramLifecycle,
+} from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import {
   ApplicationDuplicateError,
@@ -23,6 +27,7 @@ const STUDENT: ApplicationStudentActor = {
 const OPEN_PROGRAM: ApplyProgramRecord = {
   id: PROGRAM_ID,
   category: ProgramCategory.BASIC,
+  lifecycle: ProgramLifecycle.PUBLISHED,
   applicationTemplateVersion: 1,
   applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
   applicationEndAt: new Date('2026-07-31T23:59:59.000Z'),

@@ -4,6 +4,7 @@ import {
   ApplicationStatus,
   Prisma,
   ProgramCategory,
+  ProgramLifecycle,
   RoleRequestStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -33,12 +34,16 @@ function recruitmentWhere(
   now: Date,
 ): Prisma.ProgramWhereInput {
   const whereByStatus = {
-    all: {},
+    all: { lifecycle: ProgramLifecycle.PUBLISHED },
     recruiting: {
+      lifecycle: ProgramLifecycle.PUBLISHED,
       applicationStartAt: { lte: now },
       applicationEndAt: { gte: now },
     },
-    closed: { applicationEndAt: { lt: now } },
+    closed: {
+      lifecycle: ProgramLifecycle.PUBLISHED,
+      applicationEndAt: { lt: now },
+    },
   } satisfies Readonly<
     Record<ProgramListQueryStatus, Prisma.ProgramWhereInput>
   >;
@@ -51,6 +56,7 @@ function programListSqlWhere(
   now: Date,
 ): Prisma.Sql {
   const conditions: Prisma.Sql[] = [];
+  conditions.push(Prisma.sql`p."lifecycle" = 'PUBLISHED'`);
   if (status === 'recruiting') {
     conditions.push(
       Prisma.sql`p."applicationStartAt" <= ${now} AND p."applicationEndAt" >= ${now}`,
@@ -112,6 +118,7 @@ export class ProgramsRepository {
     return this.prisma.program.findUnique({
       where: { id: programId },
       select: {
+        lifecycle: true,
         id: true,
         name: true,
         organizer: true,
