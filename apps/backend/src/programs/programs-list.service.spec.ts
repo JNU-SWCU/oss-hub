@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, ProgramLifecycle } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProgramsRepository } from './programs.repository';
 import type { ProgramListRecord } from './programs.repository';
@@ -36,6 +36,7 @@ describe('ProgramsRepository list', () => {
     );
 
     const where = {
+      lifecycle: ProgramLifecycle.PUBLISHED,
       applicationStartAt: { lte: now },
       applicationEndAt: { gte: now },
       name: { contains: 'contest', mode: 'insensitive' },
@@ -80,7 +81,10 @@ describe('ProgramsRepository list', () => {
     const rawQuery = queryRaw.mock.calls[0]?.[0];
     expect(rawQuery?.values).toContain(now);
     expect(count).toHaveBeenCalledWith({
-      where: { applicationEndAt: { lt: now } },
+      where: {
+        lifecycle: ProgramLifecycle.PUBLISHED,
+        applicationEndAt: { lt: now },
+      },
     });
   });
 });

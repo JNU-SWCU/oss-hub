@@ -10,6 +10,7 @@ import {
 } from '../runtime-config/runtime-config.module';
 import { ProgramEditorController } from './program-editor.controller';
 import { ProgramEditorService } from './program-editor.service';
+import { ProgramLifecycleService } from './program-lifecycle.service';
 import { ProgramsModule } from './programs.module';
 
 const controllerMethod = (name: keyof ProgramEditorController): object => {
@@ -32,13 +33,17 @@ describe('ProgramEditorController boundaries', () => {
     updateProgram: jest.fn(),
     createMilestone: jest.fn(),
   };
+  const lifecycle = { update: jest.fn() };
   let controller: ProgramEditorController;
 
   beforeEach(async () => {
     jest.clearAllMocks();
     const module = await Test.createTestingModule({
       controllers: [ProgramEditorController],
-      providers: [{ provide: ProgramEditorService, useValue: editor }],
+      providers: [
+        { provide: ProgramEditorService, useValue: editor },
+        { provide: ProgramLifecycleService, useValue: lifecycle },
+      ],
     })
       .overrideGuard(OriginGuard)
       .useValue({ canActivate: jest.fn() })
@@ -125,6 +130,9 @@ describe('ProgramEditorController boundaries', () => {
     ).toEqual([SessionGuard, OriginGuard]);
     expect(
       Reflect.getMetadata(GUARDS_METADATA, controllerMethod('createMilestone')),
+    ).toEqual([SessionGuard, OriginGuard]);
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, controllerMethod('updateLifecycle')),
     ).toEqual([SessionGuard, OriginGuard]);
   });
 });
