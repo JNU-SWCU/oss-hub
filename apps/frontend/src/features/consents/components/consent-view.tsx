@@ -231,6 +231,11 @@ function ConsentPolicyTrigger({
  *
  * 칸막이 선도 패널 테두리도 두지 않는다 — 우주 바탕 위에 제목·문서·닫기만 얹는다.
  * 열기 전 이 기둥은 아무것도 그리지 않는다(안내 문구도 두지 않는다).
+ *
+ * 불변식 둘(#522). 폭 상한 808 = 문서가 글에 주는 최대 폭 768(`policy-document.css`의
+ * 48rem) + 문서 자기 좌우 여백 40 — 더 넓혀도 문서 안이 빈 여백으로 남고 불투명한 틀이
+ * 별밭만 더 가린다. 세로로는 **자기 높이를 스스로 만들지 않는다**(`min-h-0` + 문서 틀
+ * `flex-1`): 정해진 높이를 갖고 있으면 그만큼 행이 길어져 왼쪽 기둥이 밀려 올라간다.
  */
 export function ConsentPolicyInline({
   item,
@@ -258,7 +263,7 @@ export function ConsentPolicyInline({
       data-slot="consent-policy-inline"
       aria-labelledby={titleId}
       tabIndex={-1}
-      className="flex w-full max-w-2xl min-w-0 flex-1 flex-col gap-3 focus:outline-none"
+      className="flex w-full max-w-[808px] min-h-0 min-w-0 flex-1 flex-col gap-3 focus:outline-none"
       onKeyDown={(event) => {
         if (event.key === 'Escape') onClose();
       }}
@@ -274,7 +279,7 @@ export function ConsentPolicyInline({
         </h2>
         <ConsentPolicyCloseButton onClick={onClose} />
       </div>
-      <ConsentPolicyDocumentFrame item={item} className="min-h-[58dvh]" />
+      <ConsentPolicyDocumentFrame item={item} className="min-h-0 flex-1" />
     </section>
   );
 }
