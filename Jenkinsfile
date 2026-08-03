@@ -480,6 +480,24 @@ esac
             test -s "$backup_tmp"
             mv "$backup_tmp" "$backup_target"
             trap - EXIT
+
+            object_backup_parent="${BACKUP_DIR}/objects"
+            object_backup_target="${object_backup_parent}/${RELEASE_TAG}-${BUILD_NUMBER}"
+            object_backup_tmp=
+            minio_backup_tmp="/tmp/oss-hub-object-backup-${BUILD_NUMBER}"
+            mkdir -p "$object_backup_parent"
+            test ! -e "$object_backup_target"
+            object_backup_tmp="$(mktemp -d "${object_backup_target}.XXXXXX")"
+            trap 'rm -rf "$object_backup_tmp"; docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T minio sh -lc "rm -rf \"$minio_backup_tmp\""' EXIT
+            docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T minio sh -lc "set -eu; rm -rf \"$minio_backup_tmp\"; mc alias set local http://127.0.0.1:9000 \"\$MINIO_ROOT_USER\" \"\$MINIO_ROOT_PASSWORD\"; mc mirror local/oss-hub-submission-files \"$minio_backup_tmp\""
+            minio_container_id="$(docker compose --env-file "$OSS_HUB_ENV_FILE" ps -q minio)"
+            test -n "$minio_container_id"
+            docker cp "${minio_container_id}:${minio_backup_tmp}/." "$object_backup_tmp"
+            test -d "$object_backup_tmp"
+            docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T minio sh -lc "rm -rf \"$minio_backup_tmp\""
+            mv "$object_backup_tmp" "$object_backup_target"
+            object_backup_tmp=
+            trap - EXIT
           '''
         }
       }
@@ -739,6 +757,7 @@ docker buildx prune --force --max-used-space "$BUILD_CACHE_MAX_SPACE"
 
 # backup retention N=120 (C4). Jenkins와 격리 fixture가 같은 fail-closed 구현을 호출한다.
 bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"
+bash scripts/prune-deploy-backups.sh "$BACKUP_DIR/objects" "$BACKUP_RETENTION_N" --objects
 
 echo "retention: kept image tags=${retention_keep_tags[*]}; backup keep newest n=${BACKUP_RETENTION_N}; build cache cap=${BUILD_CACHE_MAX_SPACE}"
 '''
