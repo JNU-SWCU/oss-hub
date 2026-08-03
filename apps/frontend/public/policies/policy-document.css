@@ -1,0 +1,87 @@
+/* 세 정책 문서가 함께 참조하는 단 하나의 스타일. 문서 안에 인라인으로 박지 않는 이유는
+   본문의 주인이 따로 있기 때문이다 — 사업단이 약관 문구를 통째로 갈아 끼워도 이 파일이
+   남아 있으면 화면 톤은 그대로 살아남는다(#517). 문구는 여기서 건드리지 않는다(#490). */
+
+/* 값은 `src/app/globals.css`의 palette primitive를 그대로 옮긴 것이다. 이 문서는
+   `sandbox=""` iframe 안의 별도 문서라 앱의 CSS 변수를 물려받지 못하므로, 색을 새로
+   짓지 않고 같은 값을 여기서 다시 선언한다. 앱 쪽 팔레트가 바뀌면 이 표도 함께 본다. */
+:root {
+  --policy-surface: #000d29; /* --palette-navy-950 */
+  --policy-title: #ffffff; /* --palette-white */
+  --policy-body: #adc1eb; /* --palette-navy-200 */
+  --policy-accent: #5cc687; /* --palette-green-300 */
+  /* white 12% — 가입 화면의 구분선(`--cosmos-border`)과 같은 값이다. */
+  --policy-rule: #ffffff1f;
+
+  /* 스크롤 막대·기본 위젯도 어두운 면 기준으로 그리게 한다. `prefers-color-scheme`으로
+     갈래를 나누지 않는다 — 이 문서는 언제나 어두운 가입 화면 안에서만 열린다. */
+  color-scheme: dark;
+}
+
+/*
+  바탕은 반드시 불투명하다. 투명하게 두면 뒤의 별밭이 글자 사이로 비쳐,
+  검정 기준 10:1이던 본문이 별빛 픽셀 위에서 1:1 대까지 떨어진다.
+*/
+html {
+  background: var(--policy-surface);
+}
+
+body {
+  margin: 0;
+  background: var(--policy-surface);
+  color: var(--policy-body);
+  font-family:
+    system-ui,
+    -apple-system,
+    'Apple SD Gothic Neo',
+    'Noto Sans KR',
+    'Malgun Gothic',
+    sans-serif;
+  font-size: 16px;
+  line-height: 1.75;
+  /* 한국어는 낱말 단위로 접는다 — 글자 단위로 접히면 긴 약관이 읽기 어려워진다. */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  -webkit-text-size-adjust: 100%;
+}
+
+main {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 1.75rem 1.25rem 3rem;
+}
+
+h1 {
+  margin: 0;
+  color: var(--policy-title);
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+/* 제목 바로 다음 문단은 언제나 "정책 버전: …" 한 줄이다 — 본문이 아니라 딱지로 다룬다. */
+h1 + p {
+  margin: 0.5rem 0 0;
+  color: var(--policy-accent);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+h2 {
+  margin: 2rem 0 0.75rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--policy-rule);
+  color: var(--policy-title);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+p {
+  margin: 0 0 1rem;
+}
+
+p:last-child {
+  margin-bottom: 0;
+}
