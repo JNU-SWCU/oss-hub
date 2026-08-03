@@ -40,7 +40,13 @@ export class DeadlineDigestService {
 
     await Promise.all(
       (await this.repository.findStaffRecipients()).map((recipient) =>
-        this.sendAndRecord(recipient, subject, staffBody, milestones.length),
+        this.sendAndRecord(
+          recipient,
+          subject,
+          staffBody,
+          milestones.length,
+          now,
+        ),
       ),
     );
 
@@ -79,6 +85,7 @@ export class DeadlineDigestService {
             '[oss-hub] 마감 임박 제출 리마인더',
             this.buildStudentBody(reminderMilestones),
             reminderMilestones.length,
+            now,
           ),
       ),
     );
@@ -89,24 +96,52 @@ export class DeadlineDigestService {
     subject: string,
     body: string,
     milestoneCount: number,
+    now: Date,
   ): Promise<void> {
+    const idempotencyKey = `deadline-digest:${this.digestDate(now)}:${recipient.id}`;
+    const payload = { milestoneCount };
+    if (
+      !(await this.repository.claimNotification(
+        recipient.id,
+        idempotencyKey,
+        payload,
+      ))
+    ) {
+      this.logger.log(`마감 알림 중복 발송 생략 userId=${recipient.id}`);
+      return;
+    }
+
     try {
       await this.mailSender.send({
         to: recipient.notificationEmail,
         subject,
         body,
       });
-      await this.repository.recordNotification(recipient.id, 'SENT', {
-        milestoneCount,
-      });
+      await this.repository.completeNotification(
+        idempotencyKey,
+        'SENT',
+        payload,
+      );
       this.logger.log(`마감 알림 발송 성공 userId=${recipient.id}`);
     } catch (error) {
-      await this.repository.recordNotification(recipient.id, 'FAILED', {
-        milestoneCount,
+      await this.repository.completeNotification(idempotencyKey, 'FAILED', {
+        ...payload,
         error: error instanceof Error ? error.message : 'unknown',
       });
       this.logger.error(`마감 알림 발송 실패 userId=${recipient.id}`);
     }
+  }
+
+  private digestDate(now: Date): string {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(now);
+    const value = (type: Intl.DateTimeFormatPartTypes): string =>
+      parts.find((part) => part.type === type)?.value ?? '';
+    return `${value('year')}-${value('month')}-${value('day')}`;
   }
 
   private buildStaffBody(

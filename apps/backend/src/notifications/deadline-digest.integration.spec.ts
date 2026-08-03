@@ -305,6 +305,12 @@ it('교직원과 미제출 동의 학생에게만 발송하고 SENT를 기록한
     });
     expect(row.sentAt).not.toBeNull();
   }
+  await service.sendDeadlineDigests(now);
+
+  expect(mailSender.sent).toHaveLength(3);
+  expect(
+    await prisma.notification.count({ where: { type: 'DEADLINE_DIGEST' } }),
+  ).toBe(3);
 });
 
 it('수신 이메일을 변경하면 다음 발송 대상 주소가 새 값이 된다', async () => {

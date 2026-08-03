@@ -1,5 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { type Prisma, ApplicationStatus, Role } from '@prisma/client';
+import {
+  type Prisma,
+  AccountStatus,
+  ApplicationStatus,
+  Role,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface UpcomingMilestone {
@@ -32,8 +37,13 @@ export interface DeadlineDigestRepositoryPort {
   findMissingSubmitters(
     milestones: readonly UpcomingMilestone[],
   ): Promise<ReadonlyMap<string, MissingSubmitter[]>>;
-  recordNotification(
+  claimNotification(
     userId: string,
+    idempotencyKey: string,
+    payload: Prisma.InputJsonValue,
+  ): Promise<boolean>;
+  completeNotification(
+    idempotencyKey: string,
     status: DigestNotificationStatus,
     payload: Prisma.InputJsonValue,
   ): Promise<void>;
@@ -165,20 +175,71 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
     );
   }
 
-  async recordNotification(
+  async claimNotification(
     userId: string,
+    idempotencyKey: string,
+    payload: Prisma.InputJsonValue,
+  ): Promise<boolean> {
+    try {
+      await this.prisma.notification.create({
+        data: {
+          userId,
+          idempotencyKey,
+          type: 'DEADLINE_DIGEST',
+          payload,
+          channel: 'EMAIL',
+          status: 'PENDING',
+        },
+      });
+      return true;
+    } catch (error) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'P2002'
+      ) {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  async completeNotification(
+    idempotencyKey: string,
     status: DigestNotificationStatus,
     payload: Prisma.InputJsonValue,
   ): Promise<void> {
-    await this.prisma.notification.create({
+    await this.prisma.notification.update({
+      where: { idempotencyKey },
       data: {
-        userId,
-        type: 'DEADLINE_DIGEST',
-        payload,
-        channel: 'EMAIL',
         status,
+        payload,
         sentAt: status === 'SENT' ? new Date() : null,
       },
     });
+  }
+  async findFailedNotifications(): Promise<
+    Array<{
+      readonly id: string;
+      readonly createdAt: Date;
+      readonly payload: Prisma.JsonValue;
+    }>
+  > {
+    return this.prisma.notification.findMany({
+      where: { type: 'DEADLINE_DIGEST', status: 'FAILED' },
+      select: { id: true, createdAt: true, payload: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findActiveAdmin(githubId: bigint): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { githubId },
+      select: { role: true, accountStatus: true },
+    });
+    return (
+      user?.role === Role.ADMIN && user.accountStatus === AccountStatus.ACTIVE
+    );
   }
 }
