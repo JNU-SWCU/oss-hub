@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ListRow, StatusBadge } from '@/components';
 import { Button } from '@/components/ui/button';
+import { studentProgramSubmissionHref } from '@/lib/program-route';
 import {
   formatSeoulDate,
   submissionLabel,
@@ -46,9 +47,7 @@ function StudentState({
   const isResubmission = status === 'CHANGES_REQUESTED';
   const canSubmit =
     isResubmission || (status === 'NOT_SUBMITTED' && milestone.dDay >= 0);
-  const submitHref = isResubmission
-    ? `/programs/${programId}/submissions?milestoneId=${milestone.id}`
-    : `/programs/${programId}/milestones/${milestone.id}/submit`;
+  const submitHref = studentProgramSubmissionHref(programId, milestone.id);
   return (
     <div className="flex flex-wrap items-center gap-3">
       <StatusBadge variant={STATUS_VARIANTS[status]}>

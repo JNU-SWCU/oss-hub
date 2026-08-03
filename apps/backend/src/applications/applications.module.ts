@@ -12,7 +12,10 @@ import { ApplicationsService } from './applications.service';
 import { ProgramApplicationsController } from './program-applications.controller';
 import { StaffDashboardController } from './staff-dashboard.controller';
 import { StaffDashboardService } from './staff-dashboard.service';
-import { StudentApplicationManagementRepository } from './student-application-management.repository';
+import {
+  StudentApplicationManagementRepository,
+  STUDENT_APPLICATION_MANAGEMENT_CLOCK,
+} from './student-application-management.repository';
 import { StudentApplicationManagementService } from './student-application-management.service';
 import { StudentApplicationsController } from './student-applications.controller';
 
@@ -32,6 +35,10 @@ import { StudentApplicationsController } from './student-applications.controller
     StudentApplicationManagementRepository,
     StudentApplicationManagementService,
     StaffDashboardService,
+    {
+      provide: STUDENT_APPLICATION_MANAGEMENT_CLOCK,
+      useValue: () => new Date(),
+    },
   ],
 })
 export class ApplicationsModule {}

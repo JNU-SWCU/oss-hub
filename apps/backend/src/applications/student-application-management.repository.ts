@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ApplicationStatus, type Prisma } from '@prisma/client';
 import {
   COMPATIBLE_PROFILE_NAME_SELECT,
@@ -86,11 +86,18 @@ function toOwnedStudentApplication(
   };
 }
 
+export const STUDENT_APPLICATION_MANAGEMENT_CLOCK = Symbol(
+  'STUDENT_APPLICATION_MANAGEMENT_CLOCK',
+);
+
+export type StudentApplicationManagementClock = () => Date;
+
 @Injectable()
 export class StudentApplicationManagementRepository {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly clock: () => Date = () => new Date(),
+    @Inject(STUDENT_APPLICATION_MANAGEMENT_CLOCK)
+    private readonly clock: StudentApplicationManagementClock = () => new Date(),
   ) {}
 
   async findOwnedApplication(

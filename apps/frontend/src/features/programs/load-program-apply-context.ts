@@ -2,8 +2,10 @@ import { apiClient, ApiError } from '@/lib/api-client';
 import { getMyTeam, getProgramDetail, listApplicationTemplates } from './api';
 import {
   resolveApplyBlockedReason,
+  resolveTeamMinimum,
   type ProgramApplyBlockedReason,
   type ProgramApplyFormValues,
+  type TeamMinimum,
 } from './program-apply-flow';
 import { resolveProgramApplicationTemplate } from './program-templates';
 import { getMyApplication } from './student-application-api';
@@ -34,6 +36,7 @@ export type ProgramApplyContext =
       readonly template: ApplicationFormTemplate;
       readonly applicantName: string;
       readonly teamId: string | null;
+      readonly teamMinimum: TeamMinimum | null;
       readonly applicationId: string | null;
       readonly canCancel: boolean;
       readonly initialValues: ProgramApplyFormValues;
@@ -43,23 +46,22 @@ function loadSessionSnapshot(): Promise<SessionSnapshot> {
   return apiClient<SessionSnapshot>('auth/session');
 }
 
-async function resolveTeamId(
+async function resolveTeam(
   programId: string,
   template: ApplicationFormTemplate,
   requestedTeamId: string | null,
   isAuthenticated: boolean,
-): Promise<string | null> {
-  if (
-    template.participation !== 'team' ||
-    requestedTeamId !== null ||
-    !isAuthenticated
-  ) {
-    return requestedTeamId;
+): Promise<{ readonly teamId: string | null; readonly minimum: TeamMinimum | null }> {
+  if (template.participation !== 'team' || !isAuthenticated) {
+    return { teamId: requestedTeamId, minimum: null };
   }
   try {
-    return (await getMyTeam(programId)).id;
+    const team = await getMyTeam(programId);
+    return { teamId: team.id, minimum: resolveTeamMinimum(team) };
   } catch (error: unknown) {
-    if (error instanceof ApiError && error.problem.status === 404) return null;
+    if (error instanceof ApiError && error.problem.status === 404) {
+      return { teamId: null, minimum: null };
+    }
     throw error;
   }
 }
@@ -115,6 +117,7 @@ export async function loadProgramApplyContext(
         template,
         applicantName: application.answers.applicantName,
         teamId: application.teamId,
+        teamMinimum: null,
         applicationId: application.id,
         canCancel: application.canCancel,
         initialValues: {
@@ -126,13 +129,13 @@ export async function loadProgramApplyContext(
       };
     }
 
-    const teamId = await resolveTeamId(
+    const team = await resolveTeam(
       programId,
       template,
       requestedTeamId,
       session.isAuthenticated,
     );
-    const blocked = resolveApplyBlockedReason(program, template, teamId);
+    const blocked = resolveApplyBlockedReason(program, template, team.teamId);
     if (blocked) return { kind: 'blocked', reason: blocked, program };
     return {
       kind: 'ready',
@@ -140,7 +143,8 @@ export async function loadProgramApplyContext(
       program,
       template,
       applicantName,
-      teamId,
+      teamId: team.teamId,
+      teamMinimum: team.minimum,
       applicationId: null,
       canCancel: false,
       initialValues: {

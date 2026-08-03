@@ -14,6 +14,7 @@ import {
 import {
   EMPTY_APPLY_FORM,
   mapCreateApplicationError,
+  remainingTeamMembers,
   validateApplyForm,
   type ProgramApplyFormErrors,
   type ProgramApplyFormValues,
@@ -81,6 +82,7 @@ export function ProgramApplyPage({
 
   function requestSubmit(): void {
     if (state.kind !== 'ready') return;
+    if (remainingTeamMembers(state.teamMinimum) > 0) return;
     const nextErrors = validateApplyForm(values);
     setErrors(nextErrors);
     setServerError(null);
@@ -196,6 +198,7 @@ export function ProgramApplyPage({
           mode={state.mode}
           canCancel={state.canCancel}
           confirmation={confirmation}
+          teamMinimum={state.teamMinimum}
           submitting={submitting}
           onChange={(key, value) =>
             setValues((previous) => ({ ...previous, [key]: value }))

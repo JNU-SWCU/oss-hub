@@ -1,5 +1,5 @@
-import { RoleGate } from '../../../_shell/role-gate';
-import { SubmissionChecklistPage } from '@/features/submissions/submission-checklist-page';
+import { redirect } from 'next/navigation';
+import { studentProgramSubmissionHref } from '@/lib/program-route';
 
 // #116 "제출 체크리스트와 보완 재제출"
 // (URL: /programs/[id]/submissions, 선택 마일스톤: ?milestoneId={id}) —
@@ -17,12 +17,9 @@ export default async function ProgramSubmissionsPage({
   const { id } = await params;
   const resolvedSearchParams = await searchParams;
   const rawMilestoneId = resolvedSearchParams?.milestoneId;
-  return (
-    <RoleGate allow={['STUDENT']}>
-      <SubmissionChecklistPage
-        programId={decodeURIComponent(id)}
-        milestoneId={typeof rawMilestoneId === 'string' ? rawMilestoneId : null}
-      />
-    </RoleGate>
-  );
+  const programId = decodeURIComponent(id);
+  if (typeof rawMilestoneId === 'string') {
+    redirect(studentProgramSubmissionHref(programId, rawMilestoneId));
+  }
+  redirect(`/programs/${encodeURIComponent(programId)}#milestones`);
 }

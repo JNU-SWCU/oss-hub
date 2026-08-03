@@ -146,7 +146,6 @@ describe('StudentApplicationManagementService', () => {
         {
           programId: 'program-1',
           studentId: 'student-1',
-          now: NOW,
           answers: {
             applicantName: '합성 신청자',
             title: '수정 제목',
@@ -237,7 +236,7 @@ describe('StudentApplicationManagementService', () => {
 
     // Then
     expect(deletePendingApplication.mock.calls).toEqual([
-      [{ programId: 'program-1', studentId: 'student-1', now: NOW }],
+      [{ programId: 'program-1', studentId: 'student-1' }],
     ]);
     expect(result).toEqual({ cancelled: true });
   });

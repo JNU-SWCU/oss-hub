@@ -11,9 +11,11 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { ApplicationConfirmationDialog } from './application-confirmation-dialog';
 import { FormRenderer } from './form-renderer';
 import {
+  remainingTeamMembers,
   teamSetupHref,
   type ProgramApplyFormErrors,
   type ProgramApplyFormValues,
+  type TeamMinimum,
 } from './program-apply-flow';
 import { programHref } from './program-paths';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
@@ -131,6 +133,7 @@ interface ProgramApplyFormViewProps {
   readonly mode: ApplicationFormMode;
   readonly canCancel: boolean;
   readonly confirmation: ApplicationConfirmation;
+  readonly teamMinimum?: TeamMinimum | null;
   readonly submitting: boolean;
   readonly onChange: (key: keyof ProgramApplyFormValues, value: string) => void;
   readonly onTogglePublicationPlanned: (checked: boolean) => void;
@@ -153,6 +156,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     mode,
     canCancel,
     confirmation,
+    teamMinimum = null,
     submitting,
     onChange,
     onTogglePublicationPlanned,
@@ -166,6 +170,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     title: values.title,
     summary: values.summary,
   } as const;
+  const missingTeamMembers = remainingTeamMembers(teamMinimum);
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
@@ -222,11 +227,28 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
               <AlertDescription>{serverError}</AlertDescription>
             </Alert>
           ) : null}
+          {missingTeamMembers > 0 && teamMinimum ? (
+            <Alert>
+              <AlertTitle>
+                최소 {teamMinimum.teamMinSize}명이 필요합니다
+              </AlertTitle>
+              <AlertDescription className="[word-break:keep-all]">
+                현재 {teamMinimum.memberCount}명이며 {missingTeamMembers}명이 더
+                필요합니다.{' '}
+                <Link
+                  className="font-semibold underline underline-offset-4"
+                  href={teamSetupHref(program.id)}
+                >
+                  팀 구성원 관리
+                </Link>
+              </AlertDescription>
+            </Alert>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <Button
               ref={submitButtonRef}
               type="button"
-              disabled={submitting}
+              disabled={submitting || missingTeamMembers > 0}
               onClick={onRequestSubmit}
             >
               {submitting
