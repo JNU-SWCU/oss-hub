@@ -104,6 +104,45 @@ describe('StudentDashboardView', () => {
       'href="https://github.com/JNU-SWCU/capstone-hong"',
     );
   });
+  it('최종 저장소 생성 실패는 사용자에게 경고하고 재시도와 구분한다', () => {
+    const firstItem = dashboardFixture.items[0];
+    if (!firstItem?.repository) {
+      throw new Error('저장소가 포함된 대시보드 fixture가 필요합니다.');
+    }
+
+    const finalFailureHtml = renderView({
+      data: {
+        items: [
+          {
+            ...firstItem,
+            repository: {
+              ...firstItem.repository,
+              provisionStatus: 'FAILED_FINAL',
+            },
+          },
+        ],
+      },
+    });
+    const retryableFailureHtml = renderView({
+      data: {
+        items: [
+          {
+            ...firstItem,
+            repository: {
+              ...firstItem.repository,
+              provisionStatus: 'FAILED_RETRYABLE',
+            },
+          },
+        ],
+      },
+    });
+
+    expect(finalFailureHtml).toContain('role="alert"');
+    expect(finalFailureHtml).toContain('저장소 생성에 실패했습니다.');
+    expect(finalFailureHtml).toContain('저장소 확인 필요');
+    expect(retryableFailureHtml).toContain('저장소 생성 재시도 중');
+    expect(retryableFailureHtml).not.toContain('저장소 생성에 실패했습니다.');
+  });
 
   it('승인 대기 신청에는 제출 링크나 마일스톤을 노출하지 않는다', () => {
     const html = renderView({ data: pendingDashboardFixture });
