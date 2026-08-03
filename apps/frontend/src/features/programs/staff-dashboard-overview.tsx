@@ -11,7 +11,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { programHref, staffProgramHref } from './program-paths';
-import { StaffDashboardEditLink } from './staff-dashboard-edit-link';
 import {
   formatStaffApplicationPeriod,
   getStaffRecruitmentBadge,
@@ -124,10 +123,13 @@ function ProgramIdentity({
   return (
     <div className="grid min-w-0 gap-1">
       <CardTitle className="break-keep text-base">
-        <StaffDashboardEditLink
-          programId={program.id}
-          programName={program.name}
-        />
+        <Link
+          href={staffProgramHref(program.id, '/edit')}
+          aria-label={`${program.name} 편집`}
+          className="font-medium break-keep underline-offset-4 after:absolute after:inset-0 after:z-[1] hover:underline focus-visible:underline focus-visible:outline-none"
+        >
+          {program.name}
+        </Link>
       </CardTitle>
       <CardDescription>
         {STAFF_CATEGORY_LABELS[program.category]}
