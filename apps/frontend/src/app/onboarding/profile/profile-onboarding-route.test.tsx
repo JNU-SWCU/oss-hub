@@ -1,17 +1,39 @@
+import type { DependencyList, EffectCallback } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { SessionRoleState } from '../../_shell/use-session-role';
 
 const mocks = vi.hoisted(() => ({
   useSessionRole: vi.fn(),
-  useRouter: vi.fn(() => ({ replace: vi.fn(), push: vi.fn() })),
+  replace: vi.fn(),
+  push: vi.fn(),
+  /**
+   * 서버 렌더에서 React의 `useEffect`는 실행되지 않는다(이 패키지의 vitest 환경은
+   * `node`다). 이동을 실제로 일으키는지 보려면 그 한 번만 효과를 직접 돌려야 한다.
+   */
+  runEffectsSynchronously: { value: false },
 }));
 
 vi.mock('../../_shell/use-session-role', () => ({
   useSessionRole: mocks.useSessionRole,
 }));
-vi.mock('next/navigation', () => ({ useRouter: mocks.useRouter }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: mocks.replace, push: mocks.push }),
+}));
+vi.mock('react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react')>();
+  return {
+    ...actual,
+    useEffect: (effect: EffectCallback, deps?: DependencyList) => {
+      if (mocks.runEffectsSynchronously.value) {
+        effect();
+        return;
+      }
+      actual.useEffect(effect, deps);
+    },
+  };
+});
 
 import {
   ProfileOnboardingRoute,
@@ -95,16 +117,120 @@ describe('profileOnboardingView', () => {
     });
   });
 
-  it('역할 요청 이력이 없는 미배정 사용자는 역할 선택으로 되돌린다', () => {
+  it('승인된 역할 요청도 폼을 연다', () => {
+    expect(
+      profileOnboardingView(
+        state({ status: 'unassigned', roleRequestStatus: 'APPROVED' }),
+      ),
+    ).toEqual({
+      kind: 'form',
+      role: 'STAFF',
+      nextPath: '/onboarding/pending',
+    });
+  });
+
+  // 역할을 고르지 않은 사람은 가입을 마치지 않은 사람이다(#493). 폼을 열어 주면 역할을
+  // 모르는 채 학생 기준으로 그려져, 학번이 필요 없는 사람이 가짜 학번을 지어내야 넘어가고
+  // 백엔드가 그 값을 잠근다(`USR_003`). 비로그인과 같이 랜딩으로 되돌린다.
+  it('역할 요청 이력이 없는 미배정 사용자는 랜딩으로 되돌린다', () => {
     expect(profileOnboardingView(state({ status: 'unassigned' }))).toEqual({
+      kind: 'redirect',
+      path: '/',
+    });
+  });
+
+  // 회수된 역할은 `onboardingPathFor`가 요청 없음과 같은 자리(역할 선택)로 분류한다.
+  // 다시 고르기 전에는 무엇을 물어야 할지 알 수 없으므로 같이 되돌린다.
+  it('역할이 회수된 사용자도 랜딩으로 되돌린다', () => {
+    expect(
+      profileOnboardingView(
+        state({ status: 'unassigned', roleRequestStatus: 'REVOKED' }),
+      ),
+    ).toEqual({ kind: 'redirect', path: '/' });
+  });
+
+  it.each(['PENDING', 'APPROVED'] as const)(
+    '역할을 고른 %s 상태의 교직원은 되돌리지 않는다',
+    (roleRequestStatus) => {
+      expect(
+        profileOnboardingView(
+          state({ status: 'unassigned', roleRequestStatus }),
+        ).kind,
+      ).toBe('form');
+    },
+  );
+
+  it.each(['STUDENT', 'STAFF', 'ADMIN'] as const)(
+    '역할이 배정된 %s 사용자는 되돌리지 않는다',
+    (role) => {
+      expect(
+        profileOnboardingView(state({ status: 'assigned', role })).kind,
+      ).toBe('form');
+    },
+  );
+
+  // 반려는 이 PR의 판단 대상이 아니다 — 역할을 고르긴 골랐고, 되돌릴 자리는
+  // `onboardingPathFor`가 승인 대기(반려 사유를 읽는 자리)로 정해 두었다.
+  it('반려된 사용자의 처리는 그대로 둔다', () => {
+    expect(
+      profileOnboardingView(
+        state({ status: 'unassigned', roleRequestStatus: 'REJECTED' }),
+      ),
+    ).toEqual({
       kind: 'form',
       role: null,
-      nextPath: '/onboarding/role',
+      nextPath: '/onboarding/pending',
     });
   });
 });
 
 describe('ProfileOnboardingRoute', () => {
+  beforeEach(() => {
+    mocks.replace.mockClear();
+    mocks.runEffectsSynchronously.value = false;
+  });
+
+  afterEach(() => {
+    mocks.runEffectsSynchronously.value = false;
+  });
+
+  it('역할을 고르지 않은 사용자에게는 폼 대신 랜딩으로 되돌린다', () => {
+    mocks.runEffectsSynchronously.value = true;
+
+    const html = render({ status: 'unassigned' });
+
+    expect(mocks.replace).toHaveBeenCalledWith('/');
+    expect(html).toContain('확인 중…');
+    expect(html).not.toContain(PROFILE_SCREEN_MARK);
+    expect(html).not.toContain(STUDENT_ONLY_FIELD);
+  });
+
+  it('역할이 회수된 사용자도 랜딩으로 되돌린다', () => {
+    mocks.runEffectsSynchronously.value = true;
+
+    const html = render({ status: 'unassigned', roleRequestStatus: 'REVOKED' });
+
+    expect(mocks.replace).toHaveBeenCalledWith('/');
+    expect(html).not.toContain(PROFILE_SCREEN_MARK);
+  });
+
+  // 승인 전 교직원은 세션 `role`이 비어 있을 뿐 역할을 고른 사람이다. 여기서 되돌리면
+  // 교직원 가입이 통째로 막힌다. 되돌리는 화면은 `확인 중…`이므로 프로필 화면이 떴다는
+  // 것 자체가 통과의 증거다(프로필 화면은 효과를 돌리지 않아도 마운트된다).
+  it('승인 대기 중인 교직원은 되돌리지 않고 프로필 화면을 연다', () => {
+    const html = render({ status: 'unassigned', roleRequestStatus: 'PENDING' });
+
+    expect(html).toContain(PROFILE_SCREEN_MARK);
+    expect(html).not.toContain('확인 중…');
+  });
+
+  it('역할이 배정된 사용자는 되돌리지 않는다', () => {
+    const html = render({ status: 'assigned', role: 'STUDENT' });
+
+    expect(html).toContain(PROFILE_SCREEN_MARK);
+    expect(html).not.toContain('확인 중…');
+  });
+
   it('역할 조회 중에는 프로필 화면을 마운트하지 않는다', () => {
     const html = render({ status: 'loading' });
 
