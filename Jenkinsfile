@@ -585,6 +585,13 @@ docker build \
                 require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
                 require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
                 require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused
+                # 실행 중 ingress 가 업로드 본문을 실제로 통과시키는지 확인한다.
+                # 저장소 설정 검사만으로는 실행 중 설정 드리프트를 증명하지 못한다(ADR-002).
+                bash scripts/check-upload-body-runtime.sh \
+                  http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
+                bash scripts/check-upload-body-runtime.sh \
+                  https://54.116.116.174/api/v1/submission-files \
+                  --retry 5 --retry-connrefused --resolve '54.116.116.174:443:127.0.0.1'
                 require_status 200 GET https://54.116.116.174/ --retry 5 --retry-connrefused \
                   --resolve '54.116.116.174:443:127.0.0.1'
                 require_status 200 GET https://54.116.116.174/api/v1/health --retry 5 --retry-connrefused \
