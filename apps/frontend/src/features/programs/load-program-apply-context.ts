@@ -81,6 +81,7 @@ export async function loadProgramApplyContext(
     const applicantName = session.isAuthenticated
       ? (session.user.name ?? session.user.nickname)
       : '';
+    let currentProgram = program;
 
     if (program.viewer.applicationStatus !== null) {
       const application = await getMyApplication(programId).catch(
@@ -119,6 +120,10 @@ export async function loadProgramApplyContext(
           },
         };
       }
+      currentProgram = {
+        ...program,
+        viewer: { ...program.viewer, applicationStatus: null },
+      };
     }
 
     const teamId = await resolveTeamId(
@@ -127,12 +132,13 @@ export async function loadProgramApplyContext(
       requestedTeamId,
       session.isAuthenticated,
     );
-    const blocked = resolveApplyBlockedReason(program, template, teamId);
-    if (blocked) return { kind: 'blocked', reason: blocked, program };
+    const blocked = resolveApplyBlockedReason(currentProgram, template, teamId);
+    if (blocked)
+      return { kind: 'blocked', reason: blocked, program: currentProgram };
     return {
       kind: 'ready',
       mode: 'create',
-      program,
+      program: currentProgram,
       template,
       applicantName,
       teamId,
