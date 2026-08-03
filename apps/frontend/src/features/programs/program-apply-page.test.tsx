@@ -1,9 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
+  BlockedView,
   ProgramApplyFormView,
   ProgramApplySuccessView,
-} from './program-apply-page';
+} from './program-apply-views';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
 
 const program: ProgramDetail = {
@@ -26,128 +27,124 @@ const template: ApplicationFormTemplate = {
   name: '기본 신청서',
   participation: 'individual',
   fields: [
-    {
-      key: 'applicantName',
-      type: 'auto',
-      label: '신청자',
-      required: true,
-    },
+    { key: 'applicantName', type: 'auto', label: '신청자', required: true },
     { key: 'title', type: 'text', label: '제목', required: true },
     { key: 'summary', type: 'textarea', label: '요약', required: true },
   ],
 };
 
+const handlers = {
+  onChange: () => undefined,
+  onTogglePublicationPlanned: () => undefined,
+  onRequestSubmit: () => undefined,
+  onRequestCancel: () => undefined,
+  onCloseConfirmation: () => undefined,
+  onConfirm: () => undefined,
+} as const;
+
+function renderForm(overrides: { readonly serverError?: string | null } = {}) {
+  return renderToStaticMarkup(
+    <ProgramApplyFormView
+      program={program}
+      template={template}
+      applicantName="합성 학생"
+      values={{
+        title: '',
+        summary: '',
+        isRepositoryPublicationPlanned: true,
+      }}
+      errors={{}}
+      serverError={overrides.serverError ?? null}
+      mode="create"
+      canCancel={false}
+      confirmation={null}
+      submitting={false}
+      {...handlers}
+    />,
+  );
+}
+
 describe('ProgramApply views', () => {
-  it('ready 상태에서 편집 가능한 제목·요약 필드를 렌더한다', () => {
-    const html = renderToStaticMarkup(
-      <ProgramApplyFormView
-        program={program}
-        template={template}
-        applicantName="합성 학생"
-        values={{
-          title: '',
-          summary: '',
-          isRepositoryPublicationPlanned: true,
-        }}
-        errors={{}}
-        serverError={null}
-        submitting={false}
-        onChange={() => undefined}
-        onTogglePublicationPlanned={() => undefined}
-        onSubmit={() => undefined}
-      />,
-    );
+  it('신청 정책과 편집 가능한 제목·요약 필드를 렌더한다', () => {
+    const html = renderForm();
 
     expect(html).toContain('합성 프로그램 신청');
     expect(html).toContain('신청 제출');
+    expect(html).toContain('신청 기간 내 ‘승인 대기’ 상태');
     expect(html).toContain('name="title"');
     expect(html).toContain('name="summary"');
     expect(html).toContain('합성 학생');
-    expect(html).not.toContain('TicketStub');
-    expect(html).not.toContain('원본 양식 확정 후');
+    expect(html).toContain('선정 시 저장소를 공개할 예정입니다');
   });
 
-  it('검증·서버 오류 상태를 표시한다', () => {
+  it('제출 확인창에 승인 이후 제한 문구를 표시한다', () => {
     const html = renderToStaticMarkup(
       <ProgramApplyFormView
         program={program}
         template={template}
         applicantName="합성 학생"
         values={{
-          title: '',
-          summary: '',
-          isRepositoryPublicationPlanned: true,
-        }}
-        errors={{ title: '제목을 입력해 주세요.' }}
-        serverError="이미 제출한 신청이 있습니다."
-        submitting={false}
-        onChange={() => undefined}
-        onTogglePublicationPlanned={() => undefined}
-        onSubmit={() => undefined}
-      />,
-    );
-
-    expect(html).toContain('제목을 입력해 주세요.');
-    expect(html).toContain('제출 실패');
-    expect(html).toContain('이미 제출한 신청이 있습니다.');
-  });
-
-  it('팀 최소 인원이 부족하면 제출 버튼을 비활성화하고 부족 인원을 안내한다', () => {
-    // Given
-    const teamTemplate = { ...template, participation: 'team' as const };
-
-    // When
-    const html = renderToStaticMarkup(
-      <ProgramApplyFormView
-        program={program}
-        template={teamTemplate}
-        applicantName="합성 학생"
-        values={{
-          title: '팀 제목',
-          summary: '팀 요약',
+          title: '제목',
+          summary: '요약',
           isRepositoryPublicationPlanned: true,
         }}
         errors={{}}
         serverError={null}
+        mode="create"
+        canCancel={false}
+        confirmation="submit"
         submitting={false}
-        teamMinimum={{ memberCount: 1, teamMinSize: 2 }}
-        onChange={() => undefined}
-        onTogglePublicationPlanned={() => undefined}
-        onSubmit={() => undefined}
+        {...handlers}
       />,
     );
 
-    // Then
-    expect(html).toContain('disabled=""');
-    expect(html).toContain('최소 2명이 필요합니다');
-    expect(html).toContain('현재 1명이며 1명이 더');
-    expect(html).toContain('필요합니다');
-    expect(html).toContain('/programs/program-1/teams');
+    expect(html).toContain('신청서를 제출하시겠습니까?');
+    expect(html).toContain('승인된 이후에는 수정 및 취소가 불가능합니다');
+    expect(html).toContain('돌아가서 확인');
   });
 
-  it('저장소 공개 예정 체크박스를 값에 맞춰 렌더한다', () => {
+  it('승인 대기 신청에는 수정과 신청 취소 동작을 표시한다', () => {
     const html = renderToStaticMarkup(
       <ProgramApplyFormView
         program={program}
         template={template}
         applicantName="합성 학생"
         values={{
-          title: '',
-          summary: '',
+          title: '기존 제목',
+          summary: '기존 요약',
           isRepositoryPublicationPlanned: false,
         }}
         errors={{}}
         serverError={null}
+        mode="edit"
+        canCancel
+        confirmation={null}
         submitting={false}
-        onChange={() => undefined}
-        onTogglePublicationPlanned={() => undefined}
-        onSubmit={() => undefined}
+        {...handlers}
       />,
     );
 
-    expect(html).toContain('id="repository-publication-planned"');
-    expect(html).toContain('선정 시 저장소를 공개할 예정입니다');
-    expect(html).not.toContain('checked=""');
+    expect(html).toContain('수정 내용 저장');
+    expect(html).toContain('신청 취소');
+    expect(html).toContain('제출 시 선택한 저장소 공개 예정 여부');
+    expect(html).toContain('disabled=""');
+  });
+
+  it('서버 오류 상태를 표시한다', () => {
+    const html = renderForm({ serverError: '이미 판정된 신청입니다.' });
+
+    expect(html).toContain('저장 실패');
+    expect(html).toContain('이미 판정된 신청입니다.');
+  });
+
+  it('team-required blocked state keeps detail CTA and shows team setup CTA', () => {
+    const html = renderToStaticMarkup(
+      <BlockedView reason="team-required" program={program} />,
+    );
+
+    expect(html).toContain('/programs/program-1');
+    expect(html).toContain('/programs/program-1/teams');
+    expect(html).toContain('팀 구성으로 이동');
   });
 
   it('성공 상태를 표시한다', () => {
@@ -156,6 +153,6 @@ describe('ProgramApply views', () => {
     );
     expect(html).toContain('신청이 접수되었습니다');
     expect(html).toContain('app-1');
-    expect(html).toContain('/programs/program-1');
+    expect(html).toContain('/dashboard');
   });
 });

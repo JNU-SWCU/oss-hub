@@ -1,4 +1,8 @@
-import type { ApplicationFormField, ApplicationFormTemplate } from './types';
+import type {
+  ApplicationFormField,
+  ApplicationFormTemplate,
+  ProgramDetail,
+} from './types';
 
 export const PROGRAM_CATEGORIES = [
   'BASIC',
@@ -100,6 +104,20 @@ export const PROGRAM_TEMPLATE_DEFINITIONS: readonly ProgramTemplateDefinition[] 
       'individual',
     ),
   ];
+
+export function resolveProgramApplicationTemplate(
+  program: ProgramDetail,
+  templates: readonly ApplicationFormTemplate[],
+): ApplicationFormTemplate | null {
+  const definition = PROGRAM_TEMPLATE_DEFINITIONS.find(
+    (item) => item.category === program.category,
+  );
+  if (!definition) return null;
+  return (
+    templates.find((item) => item.key === definition.template.key) ??
+    definition.template
+  );
+}
 
 /** API 템플릿 fields를 카테고리 라벨 정의에 병합한다 (서버 fields SSOT). */
 export function mergeTemplateFieldsFromApi(

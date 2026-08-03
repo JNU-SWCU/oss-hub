@@ -1,268 +1,53 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { EmptyState, PageHeader } from '@/components';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
+import { EmptyState } from '@/components';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Field, FieldError, FieldLabel } from '@/components/ui/field';
-import { apiClient, ApiError } from '@/lib/api-client';
+import { ApiError } from '@/lib/api-client';
+import { createApplication } from './api';
 import {
-  createApplication,
-  getMyTeam,
-  getProgramDetail,
-  listApplicationTemplates,
-} from './api';
-import { FormRenderer } from './form-renderer';
+  loadProgramApplyContext,
+  type ProgramApplyContext,
+} from './load-program-apply-context';
 import {
   EMPTY_APPLY_FORM,
   mapCreateApplicationError,
   remainingTeamMembers,
-  resolveApplyBlockedReason,
-  resolveTeamMinimum,
-  teamSetupHref,
   validateApplyForm,
   type ProgramApplyFormErrors,
   type ProgramApplyFormValues,
-  type ProgramApplyPageState,
-  type TeamMinimum,
 } from './program-apply-flow';
-import { programHref } from './program-paths';
-import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
-import type { ApplicationFormTemplate, ProgramDetail } from './types';
+import {
+  ApplySkeleton,
+  BlockedView,
+  ProgramApplyFormView,
+  ProgramApplySuccessView,
+  type ApplicationConfirmation,
+  type ApplicationFormMode,
+} from './program-apply-views';
+import {
+  cancelMyApplication,
+  updateMyApplication,
+} from './student-application-api';
 
-/** auth feature 직접 import 금지 — 세션 스냅샷만 api-client로 읽는다. */
-type SessionSnapshot =
-  | { readonly isAuthenticated: false }
+type ReadyContext = Extract<ProgramApplyContext, { kind: 'ready' }>;
+type ProgramApplyPageState =
+  | { readonly kind: 'loading' }
+  | ProgramApplyContext
   | {
-      readonly isAuthenticated: true;
-      readonly user: {
-        readonly name: string | null;
-        readonly nickname: string;
-      };
+      readonly kind: 'success';
+      readonly program: ReadyContext['program'];
+      readonly applicationId: string;
+      readonly mode: ApplicationFormMode;
     };
 
-function loadSessionSnapshot(): Promise<SessionSnapshot> {
-  return apiClient<SessionSnapshot>('auth/session');
-}
-
-function ApplySkeleton() {
-  return (
-    <main
-      className="mx-auto grid w-full max-w-3xl gap-6 px-4 py-8"
-      aria-label="신청 양식 불러오는 중"
-    >
-      <div className="h-20 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-72 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-    </main>
-  );
-}
-
-function BlockedView({
-  reason,
-  program,
-}: {
-  readonly reason: 'period-closed' | 'already-applied' | 'team-required';
-  readonly program: ProgramDetail;
-}) {
-  if (reason === 'period-closed') {
-    return (
-      <main className="mx-auto w-full max-w-3xl px-4 py-12">
-        <EmptyState
-          title="신청 기간이 아닙니다"
-          description="모집 기간에만 신청할 수 있습니다."
-          action={
-            <Button asChild variant="outline">
-              <Link href={programHref(program.id)}>프로그램 상세로</Link>
-            </Button>
-          }
-        />
-      </main>
-    );
-  }
-
-  if (reason === 'already-applied') {
-    return (
-      <main className="mx-auto w-full max-w-3xl px-4 py-12">
-        <EmptyState
-          title="이미 신청했습니다"
-          description="이 프로그램에는 이미 제출한 신청이 있습니다."
-          action={
-            <Button asChild variant="outline">
-              <Link href={programHref(program.id)}>프로그램 상세로</Link>
-            </Button>
-          }
-        />
-      </main>
-    );
-  }
-
-  return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-12">
-      <EmptyState
-        title="팀 구성이 필요합니다"
-        description="팀형 프로그램은 팀을 만든 뒤 신청할 수 있습니다. 팀 구성 화면에서 팀을 만들거나 참여 코드로 합류한 다음 다시 시도해 주세요."
-        action={
-          <div className="flex flex-wrap gap-2">
-            <Button asChild>
-              <Link href={teamSetupHref(program.id)}>팀 구성으로 이동</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href={programHref(program.id)}>프로그램 상세로</Link>
-            </Button>
-          </div>
-        }
-      />
-    </main>
-  );
-}
-
-export function ProgramApplySuccessView({
-  program,
-  applicationId,
-}: {
-  readonly program: ProgramDetail;
-  readonly applicationId: string;
-}) {
-  return (
-    <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-12">
-      <Alert>
-        <AlertTitle>신청이 접수되었습니다</AlertTitle>
-        <AlertDescription>
-          신청 번호 {applicationId} 로 제출되었습니다. 결과는 프로그램 상세에서
-          확인할 수 있습니다.
-        </AlertDescription>
-      </Alert>
-      <Button asChild>
-        <Link href={programHref(program.id)}>프로그램 상세로</Link>
-      </Button>
-    </main>
-  );
-}
-
-export function ProgramApplyFormView({
-  program,
-  template,
-  applicantName,
-  values,
-  errors,
-  serverError,
-  submitting,
-  teamMinimum = null,
-  onChange,
-  onTogglePublicationPlanned,
-  onSubmit,
-}: {
-  readonly program: ProgramDetail;
-  readonly template: ApplicationFormTemplate;
-  readonly applicantName: string;
-  readonly values: ProgramApplyFormValues;
-  readonly errors: ProgramApplyFormErrors;
-  readonly serverError: string | null;
-  readonly submitting: boolean;
-  readonly teamMinimum?: TeamMinimum | null;
-  readonly onChange: (key: keyof ProgramApplyFormValues, value: string) => void;
-  readonly onTogglePublicationPlanned: (checked: boolean) => void;
-  readonly onSubmit: () => void;
-}) {
-  const missingTeamMembers = remainingTeamMembers(teamMinimum);
-  const fieldValues = useMemo(
-    () => ({
-      applicantName,
-      title: values.title,
-      summary: values.summary,
-    }),
-    [applicantName, values.summary, values.title],
-  );
-
-  return (
-    <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
-      <PageHeader
-        title={`${program.name} 신청`}
-        description="필수 항목을 작성한 뒤 제출해 주세요."
-      />
-      <Card>
-        <CardHeader>
-          <CardTitle>신청서</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <FormRenderer
-            template={template}
-            mode="edit"
-            values={fieldValues}
-            onChange={(key, value) => {
-              if (key === 'title' || key === 'summary') onChange(key, value);
-            }}
-          />
-          {errors.title ? <FieldError>{errors.title}</FieldError> : null}
-          {errors.summary ? <FieldError>{errors.summary}</FieldError> : null}
-          <Field orientation="horizontal">
-            <input
-              id="repository-publication-planned"
-              type="checkbox"
-              checked={values.isRepositoryPublicationPlanned}
-              onChange={(event) =>
-                onTogglePublicationPlanned(event.target.checked)
-              }
-            />
-            <FieldLabel htmlFor="repository-publication-planned">
-              선정 시 저장소를 공개할 예정입니다
-            </FieldLabel>
-          </Field>
-          {serverError ? (
-            <Alert variant="destructive">
-              <AlertTitle>제출 실패</AlertTitle>
-              <AlertDescription>{serverError}</AlertDescription>
-            </Alert>
-          ) : null}
-          {missingTeamMembers > 0 && teamMinimum ? (
-            <Alert>
-              <AlertTitle>
-                최소 {teamMinimum.teamMinSize}명이 필요합니다
-              </AlertTitle>
-              <AlertDescription className="break-keep">
-                현재 {teamMinimum.memberCount}명이며 {missingTeamMembers}명이 더
-                필요합니다.{' '}
-                <Link
-                  className="font-semibold underline underline-offset-4"
-                  href={teamSetupHref(program.id)}
-                >
-                  팀 구성원 관리
-                </Link>
-              </AlertDescription>
-            </Alert>
-          ) : null}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              disabled={submitting || missingTeamMembers > 0}
-              onClick={onSubmit}
-            >
-              {submitting ? '제출 중…' : '신청 제출'}
-            </Button>
-            <Button asChild variant="outline">
-              <Link href={programHref(program.id)}>취소</Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </main>
-  );
-}
-
-function resolveTemplate(
-  program: ProgramDetail,
-  templates: readonly ApplicationFormTemplate[],
-): ApplicationFormTemplate | null {
-  const definition = PROGRAM_TEMPLATE_DEFINITIONS.find(
-    (item) => item.category === program.category,
-  );
-  if (!definition) return null;
-  return (
-    templates.find((item) => item.key === definition.template.key) ??
-    definition.template
-  );
+function applicationAnswers(values: ProgramApplyFormValues) {
+  return {
+    title: values.title.trim(),
+    summary: values.summary.trim(),
+  } as const;
 }
 
 export function ProgramApplyPage({
@@ -272,6 +57,7 @@ export function ProgramApplyPage({
   readonly programId: string;
   readonly teamId?: string | null;
 }) {
+  const router = useRouter();
   const [state, setState] = useState<ProgramApplyPageState>({
     kind: 'loading',
   });
@@ -279,98 +65,59 @@ export function ProgramApplyPage({
     useState<ProgramApplyFormValues>(EMPTY_APPLY_FORM);
   const [errors, setErrors] = useState<ProgramApplyFormErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
+  const [confirmation, setConfirmation] =
+    useState<ApplicationConfirmation>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
-    try {
-      const [program, templates, session] = await Promise.all([
-        getProgramDetail(programId),
-        listApplicationTemplates().catch(() => [] as ApplicationFormTemplate[]),
-        loadSessionSnapshot().catch(() => ({
-          isAuthenticated: false as const,
-        })),
-      ]);
-      const template = resolveTemplate(program, templates);
-      if (!template) {
-        setState({
-          kind: 'failed',
-          message: '신청 양식을 찾을 수 없습니다.',
-        });
-        return;
-      }
-
-      const applicantName = session.isAuthenticated
-        ? (session.user.name ?? session.user.nickname)
-        : '';
-
-      let resolvedTeamId = teamId;
-      let teamMinimum: TeamMinimum | null = null;
-      if (template.participation === 'team' && session.isAuthenticated) {
-        try {
-          const team = await getMyTeam(programId);
-          resolvedTeamId = team.id;
-          teamMinimum = resolveTeamMinimum(team);
-        } catch (error: unknown) {
-          if (!(error instanceof ApiError && error.problem.status === 404)) {
-            throw error;
-          }
-          resolvedTeamId = null;
-        }
-      }
-
-      const blocked = resolveApplyBlockedReason(
-        program,
-        template,
-        resolvedTeamId,
-      );
-      if (blocked) {
-        setState({ kind: 'blocked', reason: blocked, program });
-        return;
-      }
-
-      setState({
-        kind: 'ready',
-        program,
-        template,
-        applicantName,
-        teamId: resolvedTeamId,
-        teamMinimum,
-      });
-    } catch (error: unknown) {
-      if (error instanceof ApiError && error.problem.status === 404) {
-        setState({ kind: 'not-found' });
-        return;
-      }
-      setState({
-        kind: 'failed',
-        message:
-          error instanceof ApiError
-            ? error.problem.detail
-            : '신청 양식을 불러오지 못했습니다.',
-      });
-    }
+    const context = await loadProgramApplyContext(programId, teamId);
+    if (context.kind === 'ready') setValues(context.initialValues);
+    setState(context);
   }, [programId, teamId]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const submit = async () => {
+  function requestSubmit(): void {
     if (state.kind !== 'ready') return;
     if (remainingTeamMembers(state.teamMinimum) > 0) return;
     const nextErrors = validateApplyForm(values);
     setErrors(nextErrors);
     setServerError(null);
     if (Object.keys(nextErrors).length > 0) return;
+    setConfirmation(state.mode === 'create' ? 'submit' : 'save');
+  }
 
+  async function confirmAction(): Promise<void> {
+    if (state.kind !== 'ready' || confirmation === null) return;
     setSubmitting(true);
+    setServerError(null);
     try {
+      if (confirmation === 'cancel') {
+        await cancelMyApplication(programId);
+        router.push('/dashboard');
+        router.refresh();
+        return;
+      }
+      if (confirmation === 'save') {
+        if (state.applicationId === null) return;
+        const updated = await updateMyApplication(programId, {
+          answers: applicationAnswers(values),
+          applicationTemplateVersion: state.template.version,
+        });
+        setState({
+          kind: 'success',
+          program: state.program,
+          applicationId: updated.id,
+          mode: 'edit',
+        });
+        setConfirmation(null);
+        return;
+      }
       const created = await createApplication(programId, {
-        answers: {
-          title: values.title.trim(),
-          summary: values.summary.trim(),
-        },
+        answers: applicationAnswers(values),
         teamId: state.teamId,
         applicationTemplateVersion: state.template.version,
         isRepositoryPublicationPlanned: values.isRepositoryPublicationPlanned,
@@ -379,41 +126,20 @@ export function ProgramApplyPage({
         kind: 'success',
         program: state.program,
         applicationId: created.id,
+        mode: 'create',
       });
+      setConfirmation(null);
     } catch (error: unknown) {
-      if (error instanceof ApiError) {
-        if (error.problem.code === 'APP_012') {
-          setState({
-            kind: 'blocked',
-            reason: 'team-required',
-            program: state.program,
-          });
-          return;
-        }
-        if (error.problem.code === 'APP_010') {
-          setState({
-            kind: 'blocked',
-            reason: 'period-closed',
-            program: state.program,
-          });
-          return;
-        }
-        if (error.problem.code === 'APP_011') {
-          setState({
-            kind: 'blocked',
-            reason: 'already-applied',
-            program: state.program,
-          });
-          return;
-        }
-        setServerError(mapCreateApplicationError(error.problem));
-      } else {
-        setServerError('신청을 제출하지 못했습니다.');
-      }
+      setConfirmation(null);
+      setServerError(
+        error instanceof ApiError
+          ? mapCreateApplicationError(error.problem)
+          : '신청서를 저장하지 못했습니다.',
+      );
     } finally {
       setSubmitting(false);
     }
-  };
+  }
 
   switch (state.kind) {
     case 'loading':
@@ -457,6 +183,7 @@ export function ProgramApplyPage({
         <ProgramApplySuccessView
           program={state.program}
           applicationId={state.applicationId}
+          mode={state.mode}
         />
       );
     case 'ready':
@@ -468,8 +195,11 @@ export function ProgramApplyPage({
           values={values}
           errors={errors}
           serverError={serverError}
-          submitting={submitting}
+          mode={state.mode}
+          canCancel={state.canCancel}
+          confirmation={confirmation}
           teamMinimum={state.teamMinimum}
+          submitting={submitting}
           onChange={(key, value) =>
             setValues((previous) => ({ ...previous, [key]: value }))
           }
@@ -479,7 +209,10 @@ export function ProgramApplyPage({
               isRepositoryPublicationPlanned: checked,
             }))
           }
-          onSubmit={() => void submit()}
+          onRequestSubmit={requestSubmit}
+          onRequestCancel={() => setConfirmation('cancel')}
+          onCloseConfirmation={() => setConfirmation(null)}
+          onConfirm={() => void confirmAction()}
         />
       );
     default: {

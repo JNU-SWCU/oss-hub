@@ -207,7 +207,10 @@ export class StudentDashboardService {
         displayName,
         applicationStatus: application.status,
         nextMilestone,
-        detailUrl: `/programs/${encodeURIComponent(application.program.id)}`,
+        detailUrl:
+          application.status === ApplicationStatus.SUBMITTED
+            ? `/programs/${encodeURIComponent(application.program.id)}/apply`
+            : `/programs/${encodeURIComponent(application.program.id)}`,
         checklistUrl: `/programs/${encodeURIComponent(application.program.id)}/submissions`,
         repository,
       });
