@@ -85,4 +85,20 @@ describe('ApplicationConfirmationDialog', () => {
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
     expect(document.activeElement).toBe(returnButton);
   });
+
+  it('돌아가서 확인을 클릭해 닫아도 원래 저장 버튼에 포커스를 돌려준다', async () => {
+    // Given
+    await act(async () =>
+      root.render(<ApplicationConfirmationDialogHarness />),
+    );
+    const cancelButton = getButton('돌아가서 확인');
+    const returnButton = getButton('수정 내용 저장');
+
+    // When
+    await act(async () => cancelButton.click());
+
+    // Then
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(document.activeElement).toBe(returnButton);
+  });
 });

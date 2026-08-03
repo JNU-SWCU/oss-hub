@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import { useState, type RefObject } from 'react';
 import { AlertDialog } from 'radix-ui';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +17,7 @@ export function ApplicationConfirmationDialog({
   readonly onConfirm: () => void;
   readonly returnFocusRef: RefObject<HTMLButtonElement | null>;
 }) {
+  const [open, setOpen] = useState(true);
   const isCancellation = kind === 'cancel';
   const title = isCancellation
     ? '신청을 취소하시겠습니까?'
@@ -30,17 +31,13 @@ export function ApplicationConfirmationDialog({
       : '신청 기간 내 승인 대기 상태에서는 수정하거나 취소할 수 있지만, 승인된 이후에는 수정 및 취소가 불가능합니다. 제출 내용을 다시 확인해 주세요.';
 
   return (
-    <AlertDialog.Root
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
+    <AlertDialog.Root open={open} onOpenChange={setOpen}>
       <AlertDialog.Overlay className="fixed inset-0 z-50 bg-foreground/35" />
       <AlertDialog.Content
         onCloseAutoFocus={(event) => {
           event.preventDefault();
           returnFocusRef.current?.focus();
+          onClose();
         }}
         className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 outline-none"
       >
