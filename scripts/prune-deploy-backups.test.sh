@@ -638,6 +638,28 @@ expect_pass 'duplicate/omit sort notes untouched' bash -c "[[ '$before_dup_notes
 expect_pass 'duplicate/omit sort newest content untouched' bash -c "[[ '$before_dup_newest' == '$after_dup_newest' ]]"
 expect_pass 'duplicate/omit sort oldest content untouched' bash -c "[[ '$before_dup_oldest' == '$after_dup_oldest' ]]"
 
+# --- object backup retention ---
+object_dir="$fixture_root/objects"
+python3 - "$object_dir" <<'PY'
+import os
+import sys
+
+directory = sys.argv[1]
+base_ts = 1_700_100_000
+for i in range(1, 122):
+    path = os.path.join(directory, f"v1.2.3-{i}")
+    os.makedirs(path)
+    with open(os.path.join(path, "object"), "w", encoding="utf-8") as handle:
+        handle.write(f"synthetic-object-{i}\n")
+    os.utime(path, (base_ts + i, base_ts + i))
+PY
+expect_pass 'object retain 120 runs' "$pruner" "$object_dir" 120 --objects
+expect_pass 'object retain 120 deletes oldest directory' bash -c "[[ ! -e '$object_dir/v1.2.3-1' && -d '$object_dir/v1.2.3-2' && -d '$object_dir/v1.2.3-121' ]]"
+empty_object_dir="$fixture_root/empty-objects"
+mkdir -p "$empty_object_dir"
+expect_pass 'empty object directory no-op' "$pruner" "$empty_object_dir" 120 --objects
+ln -s "$object_dir/v1.2.3-2" "$object_dir/v1.2.3-999"
+expect_fail 'contract-named object symlink rejected' "$pruner" "$object_dir" 120 --objects
 # --- retain 120 accepted as positive integer (empty dir) ---
 accept_dir="$fixture_root/accept120"
 mkdir -p "$accept_dir"

@@ -209,6 +209,46 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8081/api/v1/submission
 - **no-op 재확인**: 파라미터 없이 job을 다시 실행하면 실행 중 tag·revision과 latest Release가 같음을 증명하고 성공 no-op 처리되는지 확인한다.
 - 실패 시: `PREV_TAG`가 없는 첫 배포는 자동 rollback 대상이 없다. [init-operations](../exec-plan/active/init-operations.md) 복구 절차대로 로그·백업을 보존하고 수동 복구한다. `down -v`는 사용하지 않는다.
 
+## M8. 제출 파일 object backup 복구 드릴
+
+Jenkins는 성공한 배포마다 `${BACKUP_DIR}/objects/${RELEASE_TAG}-${BUILD_NUMBER}/`에 MinIO 버킷 내용을 보존하고, 성공 뒤 최신 `${BACKUP_RETENTION_N}`개만 남긴다.
+복구 전에는 운영 버킷을 건드리지 않고 반드시 scratch 버킷에서 아래 절차를 완료한다.
+
+```sh
+backup_dir="/var/lib/oss-hub/backups/objects/<release-tag>-<build-number>"
+scratch_bucket="oss-hub-submission-files-restore-drill"
+minio_id="$(sudo docker compose --env-file "$OSS_HUB_ENV_FILE" ps -q minio)"
+test -d "$backup_dir" && test -n "$minio_id"
+
+# 백업을 컨테이너 임시 경로로 복사한 뒤 scratch 버킷에 복원한다.
+sudo docker cp "$backup_dir/." "${minio_id}:/tmp/restore-drill"
+sudo docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T minio sh -lc '
+  set -eu
+  mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+  mc rb --force "local/'"$scratch_bucket"'" || true
+  mc mb "local/'"$scratch_bucket"'"
+  mc mirror /tmp/restore-drill "local/'"$scratch_bucket"'"
+'
+
+# object 수와 checksum manifest가 원본 버킷과 scratch 버킷에서 일치해야 한다.
+sudo docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T minio sh -lc '
+  set -eu
+  mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+  mc mirror local/oss-hub-submission-files /tmp/restore-source
+  mc mirror "local/'"$scratch_bucket"'" /tmp/restore-scratch
+  find /tmp/restore-source -type f -exec sha256sum {} \; | sed "s#/tmp/restore-source/##" | sort > /tmp/source.sha256
+  find /tmp/restore-scratch -type f -exec sha256sum {} \; | sed "s#/tmp/restore-scratch/##" | sort > /tmp/restore.sha256
+  diff -u /tmp/source.sha256 /tmp/restore.sha256
+  wc -l /tmp/source.sha256 /tmp/restore.sha256
+  mc rb --force "local/'"$scratch_bucket"'"
+  rm -rf /tmp/restore-drill /tmp/restore-source /tmp/restore-scratch /tmp/source.sha256 /tmp/restore.sha256
+'
+```
+
+빈 버킷은 두 manifest가 모두 0행인 정상 결과다.
+복원 결과가 불일치하거나 scratch 정리가 실패하면 운영 버킷 교체를 판단하지 않고 실패로 처리한다.
+일치할 때도 운영 버킷 교체는 별도 incident 승인·정지 창·현재 버킷 보존 계획을 갖춘 high-risk 변경으로만 결정한다.
+이 드릴 완료만으로 Compose nginx의 제출 파일 403 차단을 해제하지 않는다([ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md) §97).
 ## 8. Notion에 기록할 접근 정보 체크리스트 (aside 위임)
 
 아래 항목의 **실제 값**은 이 저장소가 아니라 **Notion credentials 페이지**가 원본이다. Notion 기록 작업은 craft-skills aside에 위임한다(이 저장소·PR·로그에는 항목명만 남기고 값은 남기지 않는다).
