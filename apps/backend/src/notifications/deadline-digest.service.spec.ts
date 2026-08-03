@@ -7,7 +7,7 @@ describe('DeadlineDigestService', () => {
   const findStaffRecipients = jest.fn();
   const findMissingSubmitters = jest.fn();
   const recordNotification = jest.fn();
-  const send = jest.fn();
+  const send: jest.MockedFunction<MailSender['send']> = jest.fn();
   const repository = {
     findUpcomingDeadlineMilestones,
     findStaffRecipients,
@@ -104,23 +104,19 @@ describe('DeadlineDigestService', () => {
     await service.sendDeadlineDigests(now);
 
     expect(send).toHaveBeenCalledTimes(2);
-    expect(send).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: 'staff@example.com',
-        body: expect.stringContaining(
-          '미제출자: 미제출학생, 미제출학생, 수신거부학생',
-        ),
-      }),
+
+    const sentTo = (address: string): string | undefined =>
+      send.mock.calls
+        .map(([message]) => message)
+        .find((message) => message.to === address)?.body;
+
+    expect(sentTo('staff@example.com')).toContain(
+      '미제출자: 미제출학생, 미제출학생, 수신거부학생',
     );
-    expect(send).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: 'student@example.com',
-        body: expect.stringContaining('2026. 08. 15. 09:00 (Asia/Seoul)'),
-      }),
+    expect(sentTo('student@example.com')).toContain(
+      '2026. 08. 15. 09:00 (Asia/Seoul)',
     );
-    expect(send).not.toHaveBeenCalledWith(
-      expect.objectContaining({ to: 'opt-out@example.com' }),
-    );
+    expect(sentTo('opt-out@example.com')).toBeUndefined();
   });
 
   it('발송이 실패하면 FAILED를 기록하고 다음 수신자로 계속한다', async () => {
