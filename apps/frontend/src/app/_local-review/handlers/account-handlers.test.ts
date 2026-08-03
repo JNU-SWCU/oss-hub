@@ -328,7 +328,7 @@ describe('account fixture responses', () => {
     });
   });
 
-  it('역할 선택은 고른 역할에 맞는 이동 경로를 준다', () => {
+  it('역할 선택은 고른 역할에 맞는 배정 결과를 준다', () => {
     // Given / When
     const student = jsonBody(
       callWithBody('unassigned', 'POST', 'onboarding/role', {
@@ -341,7 +341,9 @@ describe('account fixture responses', () => {
       }),
     );
 
-    // Then: 교직원은 즉시 확정되지 않고 승인 대기 화면으로 간다.
+    // Then: 학생은 즉시 확정되고 교직원은 승인 대기 요청만 생긴다. 다만 이동 경로는
+    // 둘 다 프로필이다 — 아직 프로필이 비어 있고 교직원도 학과가 필수라 남은 단계가
+    // 같다. 백엔드 `roles.service.ts`가 주는 값을 그대로 흉내 낸다.
     expect(student).toEqual({
       selectedRole: 'STUDENT',
       role: 'STUDENT',
@@ -352,7 +354,7 @@ describe('account fixture responses', () => {
       selectedRole: 'STAFF',
       role: null,
       requestStatus: 'PENDING',
-      redirectTo: '/onboarding/pending',
+      redirectTo: '/onboarding/profile',
     });
   });
 
@@ -519,21 +521,24 @@ describe('가입 동선 — 약관 → 교직원 선택 → 프로필 → 승인
       nextUrl: '/onboarding/role',
     });
 
-    // 2 — 교직원 선택. 승인이 필요하므로 대기 화면으로 보낸다.
-    expect(
-      jsonBody(
-        callWithBody('unassigned', 'POST', 'onboarding/role', {
-          selectedRole: 'STAFF',
-        }),
-      ),
-    ).toMatchObject({
+    // 2 — 교직원 선택. 승인 요청이 생기고, 남은 단계인 프로필로 바로 보낸다.
+    const selection = jsonBody(
+      callWithBody('unassigned', 'POST', 'onboarding/role', {
+        selectedRole: 'STAFF',
+      }),
+    ) as { readonly redirectTo: string };
+    expect(selection).toMatchObject({
       requestStatus: 'PENDING',
-      redirectTo: '/onboarding/pending',
+      redirectTo: '/onboarding/profile',
     });
 
-    // 3 — 그 대기 화면의 게이트는 비어 있는 프로필을 보고 프로필 입력으로 넘긴다.
+    // 3 — 왕복이 없어야 한다. 역할 선택이 준 목적지가 곧 게이트가 말하는 다음
+    //     화면이면 도착하자마자 다시 튕겨 나가는 일이 없다. 예전에는 여기서
+    //     `/onboarding/pending`을 주고 그 화면의 게이트가 비어 있는 프로필을 보고
+    //     프로필로 되돌려, 승인 대기 화면이 반 초쯤 떴다 사라졌다.
     //     여기서 역할 선택이 잊히면 `/onboarding/role`로 되튕겨 제자리를 돈다.
     expect(currentOnboardingPath()).toBe('/onboarding/profile');
+    expect(selection.redirectTo).toBe(currentOnboardingPath());
 
     // 4 — 프로필 저장. 교직원이라 학번은 묻지 않는다.
     expect(
