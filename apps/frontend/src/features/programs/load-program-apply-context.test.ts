@@ -171,6 +171,9 @@ describe('loadProgramApplyContext', () => {
 
     const result = await loadProgramApplyContext('program-1', null);
 
-    expect(result).toMatchObject({ kind: 'ready', mode: 'create' });
+    expect(result).toEqual({
+      kind: 'failed',
+      message: '신청 상태가 변경되었습니다. 새로고침 후 다시 시도해 주세요.',
+    });
   });
 });

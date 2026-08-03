@@ -81,7 +81,6 @@ export async function loadProgramApplyContext(
     const applicantName = session.isAuthenticated
       ? (session.user.name ?? session.user.nickname)
       : '';
-    let currentProgram = program;
 
     if (program.viewer.applicationStatus !== null) {
       const application = await getMyApplication(programId).catch(
@@ -96,33 +95,34 @@ export async function loadProgramApplyContext(
           throw error;
         },
       );
-      if (application !== null && application.status !== 'SUBMITTED') {
-        return { kind: 'blocked', reason: 'already-applied', program };
-      }
-      if (application !== null && !application.canEdit) {
-        return { kind: 'blocked', reason: 'period-closed', program };
-      }
-      if (application !== null) {
+      if (application === null) {
         return {
-          kind: 'ready',
-          mode: 'edit',
-          program,
-          template,
-          applicantName: application.answers.applicantName,
-          teamId: application.teamId,
-          applicationId: application.id,
-          canCancel: application.canCancel,
-          initialValues: {
-            title: application.answers.title,
-            summary: application.answers.summary,
-            isRepositoryPublicationPlanned:
-              application.isRepositoryPublicationPlanned,
-          },
+          kind: 'failed',
+          message:
+            '신청 상태가 변경되었습니다. 새로고침 후 다시 시도해 주세요.',
         };
       }
-      currentProgram = {
-        ...program,
-        viewer: { ...program.viewer, applicationStatus: null },
+      if (application.status !== 'SUBMITTED') {
+        return { kind: 'blocked', reason: 'already-applied', program };
+      }
+      if (!application.canEdit) {
+        return { kind: 'blocked', reason: 'period-closed', program };
+      }
+      return {
+        kind: 'ready',
+        mode: 'edit',
+        program,
+        template,
+        applicantName: application.answers.applicantName,
+        teamId: application.teamId,
+        applicationId: application.id,
+        canCancel: application.canCancel,
+        initialValues: {
+          title: application.answers.title,
+          summary: application.answers.summary,
+          isRepositoryPublicationPlanned:
+            application.isRepositoryPublicationPlanned,
+        },
       };
     }
 
@@ -132,13 +132,12 @@ export async function loadProgramApplyContext(
       requestedTeamId,
       session.isAuthenticated,
     );
-    const blocked = resolveApplyBlockedReason(currentProgram, template, teamId);
-    if (blocked)
-      return { kind: 'blocked', reason: blocked, program: currentProgram };
+    const blocked = resolveApplyBlockedReason(program, template, teamId);
+    if (blocked) return { kind: 'blocked', reason: blocked, program };
     return {
       kind: 'ready',
       mode: 'create',
-      program: currentProgram,
+      program,
       template,
       applicantName,
       teamId,
