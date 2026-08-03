@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { EmptyState, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -93,6 +93,12 @@ export function ProgramApplySuccessView({
   readonly applicationId: string;
   readonly mode?: ApplicationFormMode;
 }) {
+  const dashboardLinkRef = useRef<HTMLAnchorElement>(null);
+
+  useEffect(() => {
+    dashboardLinkRef.current?.focus();
+  }, []);
+
   return (
     <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-12">
       <Alert>
@@ -107,7 +113,9 @@ export function ProgramApplySuccessView({
         </AlertDescription>
       </Alert>
       <Button asChild>
-        <Link href="/dashboard">내 대시보드로</Link>
+        <Link ref={dashboardLinkRef} href="/dashboard">
+          내 대시보드로
+        </Link>
       </Button>
     </main>
   );
