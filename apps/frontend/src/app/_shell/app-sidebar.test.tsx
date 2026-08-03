@@ -79,8 +79,14 @@ describe('AppSidebar', () => {
     const html = render('/dashboard', false);
     const links =
       html.match(/class="group relative flex h-control[^"]*"/g) ?? [];
+    // 개수를 숫자로 박으면 메뉴가 하나 늘 때마다 이 규격 검사가 대신 깨진다.
+    // 확인하려는 것은 "메뉴 전부"가 규격을 쓰는지다.
+    const menuCount = sidebarGroupsFor('STUDENT').reduce(
+      (total, group) => total + group.items.length,
+      0,
+    );
 
-    expect(links.length).toBe(5);
+    expect(links.length).toBe(menuCount);
   });
 
   it('접힌 상태에서는 로고가 펼치기 버튼이 된다', () => {

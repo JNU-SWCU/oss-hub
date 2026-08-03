@@ -21,6 +21,17 @@ export interface LandingGraph {
   readonly edges: readonly LandingGraphEdge[];
 }
 
+/**
+ * 그래프에 반영되지 못한 공개 데이터가 있는지.
+ *
+ * - `complete` — 반영해야 할 응답이 모두 반영됐다. 상세가 아직 도착하지 않은
+ *   1단계 그래프도 여기 속한다. 기여자가 아직 0이라 화면이 `—`로 내보내므로
+ *   틀린 수를 정확한 수처럼 보여 주는 일이 없다.
+ * - `partial` — 상세 요청 일부가 전송 단계에서 실패해 기여자가 실제보다 적다.
+ *   화면은 이 수를 정확한 값으로 내보이면 안 된다.
+ */
+export type LandingGraphCompleteness = 'complete' | 'partial';
+
 export interface LandingProgram {
   readonly id: string;
   readonly name: string;
