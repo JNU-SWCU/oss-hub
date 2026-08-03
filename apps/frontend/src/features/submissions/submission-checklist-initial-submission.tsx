@@ -27,13 +27,17 @@ export function useSubmissionChecklistInitialSubmissionFlow({
     [],
   );
 
+  const consumePendingRefresh = useCallback(() => {
+    if (!refreshAfterClose.current) return;
+    refreshAfterClose.current = false;
+    refresh();
+  }, [refresh]);
+
   const closeSelected = () => {
     if (resubmitting || initialSubmitting) return;
     selectedMilestoneId.current = null;
     onCloseSelected?.();
-    if (!refreshAfterClose.current) return;
-    refreshAfterClose.current = false;
-    refresh();
+    consumePendingRefresh();
   };
 
   const renderInitialSubmission = (isAvailable: boolean): ReactNode => {
@@ -58,6 +62,7 @@ export function useSubmissionChecklistInitialSubmissionFlow({
 
   return {
     closeSelected,
+    consumePendingRefresh,
     render: renderInitialSubmission,
     reset: resetInitialSubmission,
     submitting: initialSubmitting,

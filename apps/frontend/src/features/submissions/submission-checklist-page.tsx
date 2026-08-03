@@ -88,7 +88,7 @@ export function SubmissionChecklistPage({
     milestoneId,
     onCloseSelected,
     programId,
-    refresh: () => void refresh(),
+    refresh,
     resubmitting: submitting,
   });
 
@@ -126,6 +126,9 @@ export function SubmissionChecklistPage({
     initialSubmission.reset();
     uploadedFile.current.discard();
   }, [milestoneId, initialSubmission.reset]);
+  useEffect(() => {
+    if (milestoneId === null) initialSubmission.consumePendingRefresh();
+  }, [initialSubmission.consumePendingRefresh, milestoneId]);
 
   const resubmit = async (checklist: SubmissionChecklist) => {
     if (resubmitInFlight.current) return;

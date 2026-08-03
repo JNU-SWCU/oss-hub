@@ -410,6 +410,58 @@ describe('SubmissionChecklistPage initial submission refresh', () => {
     expect(currentViewProps().checklist).toEqual(unsubmitted);
     expect(currentViewProps().refreshError).toBe('CHECKLIST_UNAVAILABLE');
   });
+  it('POST 201 성공 화면에서 browser Back으로 닫으면 authoritative checklist를 한 번 읽어 SUBMITTED를 표시한다', async () => {
+    const [firstItem] = CHECKLIST.items;
+    if (!firstItem) throw new Error('expected checklist item fixture');
+    const unsubmitted: SubmissionChecklist = {
+      ...CHECKLIST,
+      items: [{ ...firstItem, submission: null }],
+    };
+    const submitted: SubmissionChecklist = {
+      ...CHECKLIST,
+      items: [
+        {
+          ...firstItem,
+          submission: {
+            id: 'submission-created',
+            status: 'SUBMITTED',
+            currentRevision: 1,
+            lastReviewedAt: null,
+            reviewComment: null,
+            canResubmit: false,
+            file: null,
+          },
+        },
+      ],
+    };
+    vi.mocked(getSubmissionChecklist)
+      .mockResolvedValueOnce(unsubmitted)
+      .mockResolvedValueOnce(submitted);
+    await renderReadyPage();
+
+    const initialSubmission = currentViewProps().initialSubmission;
+    if (
+      !isValidElement<{
+        readonly onSubmitted: () => void;
+      }>(initialSubmission)
+    ) {
+      throw new Error('expected initial submission element');
+    }
+    initialSubmission.props.onSubmitted();
+    await flushAsyncWork();
+    expect(getSubmissionChecklist).toHaveBeenCalledTimes(1);
+
+    selectedMilestoneId = null;
+    renderPage();
+    await flushAsyncWork();
+    renderPage();
+
+    expect(closeSelected).not.toHaveBeenCalled();
+    expect(getSubmissionChecklist).toHaveBeenCalledTimes(2);
+    expect(currentViewProps().checklist.items[0]?.submission?.status).toBe(
+      'SUBMITTED',
+    );
+  });
 
   it('pending initial POST가 열린 동안 browser Back으로 선택을 닫아도 201 후 authoritative checklist를 읽어 최신 제출 상태를 표시한다', async () => {
     const [firstItem] = CHECKLIST.items;
