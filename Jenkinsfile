@@ -480,6 +480,28 @@ esac
             test -s "$backup_tmp"
             mv "$backup_tmp" "$backup_target"
             trap - EXIT
+
+            object_backup_parent="${BACKUP_DIR}/objects"
+            object_backup_target="${object_backup_parent}/${RELEASE_TAG}-${BUILD_NUMBER}"
+            object_backup_tmp=
+            minio_backup_tmp="/tmp/oss-hub-object-backup-${BUILD_NUMBER}"
+            mkdir -p "$object_backup_parent"
+            test ! -e "$object_backup_target"
+            object_backup_tmp="$(mktemp -d "${object_backup_target}.XXXXXX")"
+            # 자격증명은 실행 중인 minio 컨테이너 자신의 환경에서만 읽는다.
+            # 내부 스크립트를 홑따옴표로 굳혀 바깥 셸이 MINIO_ROOT_USER 를 먼저 확장하지
+            # 못하게 하고(build 40·41 이 빈 자격증명으로 Access Denied), 경로만 위치 인자로 넘긴다.
+            # 로그인 셸(-l)도 쓰지 않는다 — 최소 이미지에서 환경이 초기화될 수 있다.
+            minio_container_id="$(docker compose --env-file "$OSS_HUB_ENV_FILE" ps -q minio)"
+            test -n "$minio_container_id"
+            trap 'rm -rf "$object_backup_tmp"; docker exec -i "$minio_container_id" sh -c "rm -rf \"$minio_backup_tmp\""' EXIT
+            docker exec -i "$minio_container_id" sh -c 'set -eu; rm -rf "$1"; mkdir -p "$1"; mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null; mc mirror local/oss-hub-submission-files "$1"' _ "$minio_backup_tmp"
+            docker cp "${minio_container_id}:${minio_backup_tmp}/." "$object_backup_tmp"
+            test -d "$object_backup_tmp"
+            docker exec -i "$minio_container_id" sh -c "rm -rf \"$minio_backup_tmp\""
+            mv "$object_backup_tmp" "$object_backup_target"
+            object_backup_tmp=
+            trap - EXIT
           '''
         }
       }
@@ -557,24 +579,25 @@ docker build \
                 docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -s reload
                 require_status 200 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused
                 require_status 200 GET http://127.0.0.1:8081/api/v1/health --retry 5 --retry-connrefused
-                require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
-                require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
-                require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
-                require_status 403 POST http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
-                require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused
+                # 미인증 401은 nginx를 통과해 backend SessionGuard에 도달했음을 검증한다.
+                require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
+                require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
+                require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
+                require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
+                require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused
                 require_status 200 GET https://54.116.116.174/ --retry 5 --retry-connrefused \
                   --resolve '54.116.116.174:443:127.0.0.1'
                 require_status 200 GET https://54.116.116.174/api/v1/health --retry 5 --retry-connrefused \
                   --resolve '54.116.116.174:443:127.0.0.1'
-                require_status 403 GET https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
+                require_status 404 GET https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
                   --resolve '54.116.116.174:443:127.0.0.1'
-                require_status 403 POST https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
+                require_status 401 POST https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
                   --resolve '54.116.116.174:443:127.0.0.1'
-                require_status 403 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
+                require_status 404 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
                   --resolve '54.116.116.174:443:127.0.0.1'
-                require_status 403 POST https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
+                require_status 401 POST https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
                   --resolve '54.116.116.174:443:127.0.0.1'
-                require_status 403 GET https://54.116.116.174/api/v1/submission-files/1 --retry 5 --retry-connrefused \
+                require_status 401 GET https://54.116.116.174/api/v1/submission-files/1 --retry 5 --retry-connrefused \
                   --resolve '54.116.116.174:443:127.0.0.1'
               '''
             } catch (deploymentFailure) {
@@ -600,29 +623,29 @@ docker build \
                     }
 
                     docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait --wait-timeout 180
-                    # rollback은 이전 앱 이미지만 복구하고 nginx 설정은 현재 워크스페이스를 유지하므로 아래 스모크로 fail-closed를 다시 검증한다.
+                    # rollback은 이전 앱 이미지만 복구하고 nginx 설정은 현재 워크스페이스를 유지하므로 아래 스모크로 backend 인증 경로를 다시 검증한다.
                     docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -t
                     docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -s reload
                     require_status 200 GET http://127.0.0.1:8081/
                     require_status 200 GET http://127.0.0.1:8081/api/v1/health
-                    require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files
-                    require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files
-                    require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files
-                    require_status 403 POST http://127.0.0.1:8081/api/v1/Submission-Files
-                    require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files/1
+                    require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files
+                    require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files
+                    require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files
+                    require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files
+                    require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1
                     require_status 200 GET https://54.116.116.174/ \
                       --resolve '54.116.116.174:443:127.0.0.1'
                     require_status 200 GET https://54.116.116.174/api/v1/health \
                       --resolve '54.116.116.174:443:127.0.0.1'
-                    require_status 403 GET https://54.116.116.174/api/v1/submission-files \
+                    require_status 404 GET https://54.116.116.174/api/v1/submission-files \
                       --resolve '54.116.116.174:443:127.0.0.1'
-                    require_status 403 POST https://54.116.116.174/api/v1/submission-files \
+                    require_status 401 POST https://54.116.116.174/api/v1/submission-files \
                       --resolve '54.116.116.174:443:127.0.0.1'
-                    require_status 403 GET https://54.116.116.174/api/v1/Submission-Files \
+                    require_status 404 GET https://54.116.116.174/api/v1/Submission-Files \
                       --resolve '54.116.116.174:443:127.0.0.1'
-                    require_status 403 POST https://54.116.116.174/api/v1/Submission-Files \
+                    require_status 401 POST https://54.116.116.174/api/v1/Submission-Files \
                       --resolve '54.116.116.174:443:127.0.0.1'
-                    require_status 403 GET https://54.116.116.174/api/v1/submission-files/1 \
+                    require_status 401 GET https://54.116.116.174/api/v1/submission-files/1 \
                       --resolve '54.116.116.174:443:127.0.0.1'
                   '''
                 }
@@ -658,24 +681,24 @@ docker build \
           # no-op은 checkout한 릴리스가 실행 중 버전보다 낮을 수 있으므로 reload 없이 읽기 전용 스모크로 드리프트만 검출한다.
           require_status 200 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused
           require_status 200 GET http://127.0.0.1:8081/api/v1/health --retry 5 --retry-connrefused
-          require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
-          require_status 403 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
-          require_status 403 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
-          require_status 403 POST http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
-          require_status 403 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused
+          require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
+          require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
+          require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
+          require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
+          require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused
           require_status 200 GET https://54.116.116.174/ --retry 5 --retry-connrefused \
             --resolve '54.116.116.174:443:127.0.0.1'
           require_status 200 GET https://54.116.116.174/api/v1/health --retry 5 --retry-connrefused \
             --resolve '54.116.116.174:443:127.0.0.1'
-          require_status 403 GET https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
+          require_status 404 GET https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
             --resolve '54.116.116.174:443:127.0.0.1'
-          require_status 403 POST https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
+          require_status 401 POST https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
             --resolve '54.116.116.174:443:127.0.0.1'
-          require_status 403 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
+          require_status 404 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
             --resolve '54.116.116.174:443:127.0.0.1'
-          require_status 403 POST https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
+          require_status 401 POST https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
             --resolve '54.116.116.174:443:127.0.0.1'
-          require_status 403 GET https://54.116.116.174/api/v1/submission-files/1 --retry 5 --retry-connrefused \
+          require_status 401 GET https://54.116.116.174/api/v1/submission-files/1 --retry 5 --retry-connrefused \
             --resolve '54.116.116.174:443:127.0.0.1'
         '''
       }
@@ -739,6 +762,7 @@ docker buildx prune --force --max-used-space "$BUILD_CACHE_MAX_SPACE"
 
 # backup retention N=120 (C4). Jenkins와 격리 fixture가 같은 fail-closed 구현을 호출한다.
 bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"
+bash scripts/prune-deploy-backups.sh "$BACKUP_DIR/objects" "$BACKUP_RETENTION_N" --objects
 
 echo "retention: kept image tags=${retention_keep_tags[*]}; backup keep newest n=${BACKUP_RETENTION_N}; build cache cap=${BUILD_CACHE_MAX_SPACE}"
 '''

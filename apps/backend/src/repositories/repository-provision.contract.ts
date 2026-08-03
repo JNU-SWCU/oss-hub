@@ -94,6 +94,7 @@ export interface RepositoryProvisionStateStore {
     workerId: string,
     repositoryId: string,
     now: Date,
+    nextReconciliationAt?: Date,
   ): Promise<void>;
   failJob(input: FailRepositoryProvisionJobInput): Promise<void>;
 }

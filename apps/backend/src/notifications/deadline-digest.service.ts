@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { DeadlineDigestRepository } from './deadline-digest.repository';
 import type {
   DeadlineDigestRepositoryPort,
+  MissingSubmitter,
   UpcomingMilestone,
 } from './deadline-digest.repository';
 import { MAIL_SENDER } from './mail-sender.port';
@@ -32,36 +33,150 @@ export class DeadlineDigestService {
       return;
     }
 
-    const recipients = await this.repository.findStaffRecipients();
+    const missingByMilestone =
+      await this.repository.findMissingSubmitters(milestones);
     const subject = `[oss-hub] 마감 임박 마일스톤 ${milestones.length}건`;
-    const body = this.buildBody(milestones);
+    const staffBody = this.buildStaffBody(milestones, missingByMilestone);
 
-    for (const recipient of recipients) {
-      try {
-        await this.mailSender.send({
-          to: recipient.notificationEmail,
+    await Promise.all(
+      (await this.repository.findStaffRecipients()).map((recipient) =>
+        this.sendAndRecord(
+          recipient,
           subject,
-          body,
-        });
-        await this.repository.recordNotification(recipient.id, 'SENT', {
-          milestoneCount: milestones.length,
-        });
-        this.logger.log(`마감 알림 발송 성공 userId=${recipient.id}`);
-      } catch (error) {
-        await this.repository.recordNotification(recipient.id, 'FAILED', {
-          milestoneCount: milestones.length,
-          error: error instanceof Error ? error.message : 'unknown',
-        });
-        this.logger.error(`마감 알림 발송 실패 userId=${recipient.id}`);
+          staffBody,
+          milestones.length,
+          now,
+        ),
+      ),
+    );
+
+    const reminders = new Map<
+      string,
+      {
+        recipient: { id: string; notificationEmail: string };
+        milestones: UpcomingMilestone[];
       }
+    >();
+    for (const milestone of milestones) {
+      for (const submitter of missingByMilestone.get(milestone.id) ?? []) {
+        if (!submitter.notifyEnabled || !submitter.notificationEmail) {
+          continue;
+        }
+        const reminder = reminders.get(submitter.id);
+        if (reminder) {
+          reminder.milestones.push(milestone);
+          continue;
+        }
+        reminders.set(submitter.id, {
+          recipient: {
+            id: submitter.id,
+            notificationEmail: submitter.notificationEmail,
+          },
+          milestones: [milestone],
+        });
+      }
+    }
+
+    await Promise.all(
+      [...reminders.values()].map(
+        ({ recipient, milestones: reminderMilestones }) =>
+          this.sendAndRecord(
+            recipient,
+            '[oss-hub] 마감 임박 제출 리마인더',
+            this.buildStudentBody(reminderMilestones),
+            reminderMilestones.length,
+            now,
+          ),
+      ),
+    );
+  }
+
+  private async sendAndRecord(
+    recipient: { readonly id: string; readonly notificationEmail: string },
+    subject: string,
+    body: string,
+    milestoneCount: number,
+    now: Date,
+  ): Promise<void> {
+    const idempotencyKey = `deadline-digest:${this.digestDate(now)}:${recipient.id}`;
+    const payload = { milestoneCount };
+    if (
+      !(await this.repository.claimNotification(
+        recipient.id,
+        idempotencyKey,
+        payload,
+      ))
+    ) {
+      this.logger.log(`마감 알림 중복 발송 생략 userId=${recipient.id}`);
+      return;
+    }
+
+    try {
+      await this.mailSender.send({
+        to: recipient.notificationEmail,
+        subject,
+        body,
+      });
+      await this.repository.completeNotification(
+        idempotencyKey,
+        'SENT',
+        payload,
+      );
+      this.logger.log(`마감 알림 발송 성공 userId=${recipient.id}`);
+    } catch (error) {
+      await this.repository.completeNotification(idempotencyKey, 'FAILED', {
+        ...payload,
+        error: error instanceof Error ? error.message : 'unknown',
+      });
+      this.logger.error(`마감 알림 발송 실패 userId=${recipient.id}`);
     }
   }
 
-  private buildBody(milestones: readonly UpcomingMilestone[]): string {
+  private digestDate(now: Date): string {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(now);
+    const value = (type: Intl.DateTimeFormatPartTypes): string =>
+      parts.find((part) => part.type === type)?.value ?? '';
+    return `${value('year')}-${value('month')}-${value('day')}`;
+  }
+
+  private buildStaffBody(
+    milestones: readonly UpcomingMilestone[],
+    missingByMilestone: ReadonlyMap<string, readonly MissingSubmitter[]>,
+  ): string {
+    const lines = milestones.flatMap((milestone) => [
+      `- ${milestone.programName} / ${milestone.milestoneName} (마감 ${this.formatDueAt(milestone.dueAt)})`,
+      `  미제출자: ${
+        (missingByMilestone.get(milestone.id) ?? [])
+          .map((submitter) => submitter.nickname)
+          .join(', ') || '없음'
+      }`,
+    ]);
+    return ['마감이 임박한 마일스톤입니다.', '', ...lines].join('\n');
+  }
+
+  private buildStudentBody(milestones: readonly UpcomingMilestone[]): string {
     const lines = milestones.map(
       (milestone) =>
-        `- ${milestone.programName} / ${milestone.milestoneName} (마감 ${milestone.dueAt.toISOString()})`,
+        `- ${milestone.programName} / ${milestone.milestoneName} (마감 ${this.formatDueAt(milestone.dueAt)})`,
     );
-    return ['마감이 임박한 마일스톤입니다.', '', ...lines].join('\n');
+    return ['제출하지 않은 마감 임박 마일스톤입니다.', '', ...lines].join('\n');
+  }
+
+  private formatDueAt(dueAt: Date): string {
+    const date = new Intl.DateTimeFormat('ko-KR', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).format(dueAt);
+    return `${date} (Asia/Seoul)`;
   }
 }

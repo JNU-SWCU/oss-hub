@@ -8,6 +8,7 @@ import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import { ProgramEditorController } from './program-editor.controller';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
+import { ProgramLifecycleService } from './program-lifecycle.service';
 import type {
   ProgramEditorRepositoryPort,
   ProgramEditorTransactionStore,
@@ -63,6 +64,7 @@ beforeAll(async () => {
     providers: [
       ProgramEditorService,
       { provide: ProgramEditorRepository, useValue: repository },
+      { provide: ProgramLifecycleService, useValue: { update: jest.fn() } },
     ],
   })
     .overrideGuard(SessionGuard)

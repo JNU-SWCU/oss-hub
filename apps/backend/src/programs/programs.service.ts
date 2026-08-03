@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Role, SubmissionStatus } from '@prisma/client';
+import { ProgramLifecycle, Role, SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import type {
   ApplicationSubmissionSummaryResponseDto,
@@ -63,6 +63,13 @@ export class ProgramsService {
     try {
       const program = await this.repository.findProgramDetail(programId);
       if (!program) throw new DomainException(PROGRAM_ERROR_CODES.NOT_FOUND);
+      if (
+        program.lifecycle === ProgramLifecycle.ARCHIVED &&
+        viewer.role !== Role.STAFF &&
+        viewer.role !== Role.ADMIN
+      ) {
+        throw new DomainException(PROGRAM_ERROR_CODES.NOT_FOUND);
+      }
 
       const studentApplication =
         viewer.role === Role.STUDENT && viewer.userId

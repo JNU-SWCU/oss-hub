@@ -5,7 +5,7 @@
 set -euo pipefail
 
 usage() {
-  printf 'usage: %s <backup_dir> <retain_n>\n' "$(basename -- "$0")" >&2
+  printf 'usage: %s <backup_dir> <retain_n> [--objects]\n' "$(basename -- "$0")" >&2
   exit 1
 }
 
@@ -31,6 +31,57 @@ file_mtime_epoch() {
   else
     return 1
   fi
+}
+prune_object_backups() {
+  local object_dir=$1
+  local retain=$2
+  local object_name_re='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-[1-9][0-9]*$'
+  local p base mtime record_mtime record_base
+  local -a candidates=()
+  local inventory
+  local sorted
+  local total i stale
+
+  [[ ! -L "$object_dir" && -d "$object_dir" ]] || fail_closed "object backup directory must be a non-symlink directory"
+  object_dir=$(cd -- "$object_dir" && pwd -P)
+  inventory=$(mktemp -d "${TMPDIR:-/tmp}/prune-deploy-object-backups.XXXXXX") \
+    || fail_closed "object backup inventory creation failed"
+  trap 'rm -rf -- "$inventory"' RETURN
+  sorted="$inventory/sorted.tsv"
+
+  for p in "$object_dir"/*; do
+    [[ -e "$p" || -L "$p" ]] || continue
+    base=${p##*/}
+    if [[ "$base" =~ $object_name_re && -L "$p" ]]; then
+      fail_closed "contract-named object backup symlink entry is forbidden"
+    fi
+    [[ ! -L "$p" && -d "$p" && "$base" =~ $object_name_re ]] || continue
+    mtime=$(file_mtime_epoch "$p") || fail_closed "object backup stat failed"
+    [[ "$mtime" =~ ^[0-9]+$ ]] || fail_closed "object backup mtime invalid"
+    candidates+=("${mtime}"$'\t'"${base}")
+  done
+
+  ((${#candidates[@]} == 0)) && return 0
+  if ! printf '%s\n' "${candidates[@]}" | LC_ALL=C sort -t $'\t' -k1,1nr -k2,2 >"$sorted"; then
+    fail_closed "object backup order producer failed"
+  fi
+  candidates=()
+  while IFS= read -r p; do
+    record_mtime=${p%%$'\t'*}
+    record_base=${p#*$'\t'}
+    [[ "$record_mtime" =~ ^[0-9]+$ && "$record_base" =~ $object_name_re ]] || fail_closed "object backup order record invalid"
+    candidates+=("$p")
+  done <"$sorted"
+  total=${#candidates[@]}
+  ((total <= retain)) && return 0
+
+  for ((i = retain; i < total; i++)); do
+    base=${candidates[i]#*$'\t'}
+    stale="$object_dir/$base"
+    [[ "$stale" == "$object_dir"/* && ! -L "$stale" && -d "$stale" ]] \
+      || fail_closed "object backup stale path is unsafe"
+    rm -rf -- "$stale"
+  done
 }
 
 
@@ -120,13 +171,19 @@ read_tsv_record() {
   return 2
 }
 
-[[ $# -eq 2 ]] || usage
+[[ $# -eq 2 || $# -eq 3 ]] || usage
 
 backup_dir=$1
 retain_n=$2
 
 if ! [[ "$retain_n" =~ ^[1-9][0-9]*$ ]]; then
   fail_closed "retain_n must be a positive integer (got: ${retain_n})"
+fi
+if [[ $# -eq 3 ]]; then
+  [[ "$3" == "--objects" ]] || usage
+  [[ -e "$backup_dir" ]] || fail_closed "object backup directory does not exist"
+  prune_object_backups "$backup_dir" "$retain_n"
+  exit 0
 fi
 
 if [[ ! -e "$backup_dir" ]]; then

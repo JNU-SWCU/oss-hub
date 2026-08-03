@@ -110,6 +110,7 @@ export interface EditableProgram {
   readonly name: string;
   readonly organizer: string;
   readonly category: ProgramCategory;
+  readonly lifecycle: 'PUBLISHED' | 'ARCHIVED';
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
   readonly applicationCount: number;
@@ -198,6 +199,19 @@ export function updateProgram(
       body: JSON.stringify(input),
     },
   );
+}
+export function updateProgramLifecycle(
+  programId: string,
+  lifecycle: EditableProgram['lifecycle'],
+): Promise<{
+  readonly id: string;
+  readonly lifecycle: EditableProgram['lifecycle'];
+}> {
+  return apiClient(`programs/${encodeURIComponent(programId)}/lifecycle`, {
+    method: 'PATCH',
+    headers: jsonHeaders,
+    body: JSON.stringify({ lifecycle }),
+  });
 }
 
 export function createMilestone(

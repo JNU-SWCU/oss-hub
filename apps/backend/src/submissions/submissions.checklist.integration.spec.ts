@@ -175,6 +175,7 @@ describe('SubmissionsService checklist/resubmission integration', () => {
     expect(approved?.submission).toMatchObject({
       status: SubmissionStatus.APPROVED,
       currentRevision: 1,
+      // 승인된 제출물은 마감 전이어도 교체 진입을 열지 않는다 — 판정 무결성 보호.
       canResubmit: false,
     });
     expect(approved?.submission?.lastReviewedAt).not.toBeNull();
@@ -189,7 +190,7 @@ describe('SubmissionsService checklist/resubmission integration', () => {
     });
   });
 
-  it('팀원은 팀 신청 기준 체크리스트를 보고 CHANGES_REQUESTED만 canResubmit=true다', async () => {
+  it('팀원은 마감 전 제출물과 CHANGES_REQUESTED 제출을 교체할 수 있다', async () => {
     // Given
     const [changesRequestedId] =
       MILESTONE_SCENARIOS['submission-changes-requested'];
@@ -222,7 +223,7 @@ describe('SubmissionsService checklist/resubmission integration', () => {
     );
     expect(existing?.submission).toMatchObject({
       status: SubmissionStatus.SUBMITTED,
-      canResubmit: false,
+      canResubmit: true,
       lastReviewedAt: null,
       reviewComment: null,
     });
@@ -427,8 +428,7 @@ describe('SubmissionsService checklist/resubmission integration', () => {
     expect(stored.revisions).toHaveLength(2);
   });
 
-  it('SUBMITTED·APPROVED·REJECTED 제출의 재제출은 409 RESUBMISSION_NOT_ALLOWED다', async () => {
-    // Given: #110 seed의 검토 대기·승인·최종 반려 제출.
+  it('마감 후 SUBMITTED·APPROVED 교체와 REJECTED 교체를 차단한다', async () => {
     const submittedId = seedId(
       'milestones',
       'submission-existing',
@@ -452,20 +452,37 @@ describe('SubmissionsService checklist/resubmission integration', () => {
       },
       comment: null,
     } as const;
+    const afterDeadline = new Date('2099-01-01T00:00:00.000Z');
 
-    // When & Then
     await expect(
-      service.resubmit(seedGithubId(TEAM_MEMBER_ID), submittedId, input),
+      service.resubmit(
+        seedGithubId(TEAM_MEMBER_ID),
+        submittedId,
+        input,
+        afterDeadline,
+      ),
+    ).rejects.toMatchObject({
+      errorCode: { code: SubmissionsErrorCode.SUBMISSION_REPLACEMENT_CLOSED },
+    });
+    // APPROVED 는 마감과 무관하게 교체하지 않는다 — 교직원 판정이 옛 revision 을
+    // 가리킨 채 남기 때문에 SUBMISSION_REPLACEMENT_CLOSED 보다 앞서 거부한다.
+    await expect(
+      service.resubmit(
+        seedGithubId(PERSONAL_USER_ID),
+        approvedId,
+        input,
+        afterDeadline,
+      ),
     ).rejects.toMatchObject({
       errorCode: { code: SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED },
     });
     await expect(
-      service.resubmit(seedGithubId(PERSONAL_USER_ID), approvedId, input),
-    ).rejects.toMatchObject({
-      errorCode: { code: SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED },
-    });
-    await expect(
-      service.resubmit(seedGithubId(PERSONAL_USER_ID), rejectedId, input),
+      service.resubmit(
+        seedGithubId(PERSONAL_USER_ID),
+        rejectedId,
+        input,
+        afterDeadline,
+      ),
     ).rejects.toMatchObject({
       errorCode: { code: SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED },
     });

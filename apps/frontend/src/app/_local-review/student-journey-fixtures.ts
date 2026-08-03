@@ -133,6 +133,7 @@ const CAPSTONE_CHECKLIST = {
       submission: {
         id: 'submission-approved',
         status: 'APPROVED',
+        decision: 'APPROVED',
         currentRevision: 1,
         lastReviewedAt: '2026-07-16T10:30:00.000+09:00',
         reviewComment: '기획 범위가 명확합니다.',
@@ -156,6 +157,7 @@ const CAPSTONE_CHECKLIST = {
       submission: {
         id: 'submission-revision',
         status: 'CHANGES_REQUESTED',
+        decision: 'CHANGES_REQUESTED',
         currentRevision: 1,
         lastReviewedAt: '2026-07-30T16:20:00.000+09:00',
         reviewComment: '릴리스 노트에 실행 환경과 변경 내역을 추가해 주세요.',
@@ -179,6 +181,7 @@ const CONTEST_CHECKLIST = {
       submission: {
         id: 'submission-contest-revision',
         status: 'CHANGES_REQUESTED',
+        decision: 'CHANGES_REQUESTED',
         currentRevision: 2,
         lastReviewedAt: '2026-07-29T14:10:00.000+09:00',
         reviewComment: '재현 순서와 테스트 결과를 릴리스 노트에 보완해 주세요.',

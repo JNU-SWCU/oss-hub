@@ -262,6 +262,7 @@ function toEditableProgramView(program: ProgramRecord): EditableProgramView {
     name: program.name,
     organizer: program.organizer,
     category: program.category,
+    lifecycle: program.lifecycle,
     applicationTemplateKey: program.applicationTemplateKey,
     applicationTemplateVersion: program.applicationTemplateVersion,
     applicationCount: program._count.applications,

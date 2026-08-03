@@ -1,6 +1,7 @@
 import {
   ApplicationStatus,
   MilestoneSubmissionType,
+  ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
 import { SubmissionsErrorCode } from './submissions-error-code.enum';
@@ -110,8 +111,10 @@ it('팀형 신청은 applicationMode=TEAM으로 반환한다', async () => {
   expect(checklist.applicationMode).toBe('TEAM');
 });
 
+// 마감 전 SUBMITTED 는 교체할 수 있다(#블로커 6b) — 잘못 낸 파일을 마감 전에 고칠
+// 경로가 없던 것이 결함이었다. APPROVED·REJECTED 는 판정이 난 뒤라 교체하지 않는다.
 it.each([
-  [SubmissionStatus.SUBMITTED, false],
+  [SubmissionStatus.SUBMITTED, true],
   [SubmissionStatus.APPROVED, false],
   [SubmissionStatus.CHANGES_REQUESTED, true],
   [SubmissionStatus.REJECTED, false],
@@ -138,49 +141,57 @@ it.each([
   expect(checklist.items[0]?.submission).toMatchObject({ canResubmit });
 });
 
-it('최신 Review의 시각과 코멘트를 반환하고, 미검토면 둘 다 null이다', async () => {
-  // Given
-  const { service } = buildService({
-    milestones: [
-      milestone({
-        id: 'reviewed',
-        submission: {
-          id: 'submission-reviewed',
-          status: SubmissionStatus.CHANGES_REQUESTED,
-          currentRevision: 1,
-          latestReview: {
-            reviewedAt: new Date('2026-08-28T01:00:00.000Z'),
-            comment: '실행 화면을 추가해 주세요',
+it.each([
+  [ReviewDecision.APPROVED, SubmissionStatus.APPROVED],
+  [ReviewDecision.REJECTED, SubmissionStatus.REJECTED],
+  [ReviewDecision.CHANGES_REQUESTED, SubmissionStatus.CHANGES_REQUESTED],
+])(
+  '판정 %s과 코멘트를 본인 체크리스트에 반환한다',
+  async (decision, status) => {
+    // Given
+    const { service } = buildService({
+      milestones: [
+        milestone({
+          id: `reviewed-${decision}`,
+          submission: {
+            id: 'submission-reviewed',
+            status,
+            currentRevision: 1,
+            latestReview: {
+              decision,
+              reviewedAt: new Date('2026-08-28T01:00:00.000Z'),
+              comment: '검토 코멘트',
+            },
+            file: null,
           },
-          file: null,
-        },
-      }),
-      milestone({
-        id: 'unreviewed',
-        submission: {
-          id: 'submission-unreviewed',
-          status: SubmissionStatus.SUBMITTED,
-          currentRevision: 1,
-          latestReview: null,
-          file: null,
-        },
-      }),
-    ],
-  });
+        }),
+        milestone({
+          id: 'unreviewed',
+          submission: {
+            id: 'submission-unreviewed',
+            status: SubmissionStatus.SUBMITTED,
+            currentRevision: 1,
+            latestReview: null,
+            file: null,
+          },
+        }),
+      ],
+    });
 
-  // When
-  const checklist = await service.checklist(githubId, 'program-1');
+    const checklist = await service.checklist(githubId, 'program-1');
 
-  // Then
-  expect(checklist.items[0]?.submission).toMatchObject({
-    lastReviewedAt: '2026-08-28T01:00:00.000Z',
-    reviewComment: '실행 화면을 추가해 주세요',
-  });
-  expect(checklist.items[1]?.submission).toMatchObject({
-    lastReviewedAt: null,
-    reviewComment: null,
-  });
-});
+    expect(checklist.items[0]?.submission).toMatchObject({
+      decision,
+      lastReviewedAt: '2026-08-28T01:00:00.000Z',
+      reviewComment: '검토 코멘트',
+    });
+    expect(checklist.items[1]?.submission).toMatchObject({
+      decision: null,
+      lastReviewedAt: null,
+      reviewComment: null,
+    });
+  },
+);
 
 it('현재 revision의 첨부 파일은 storageKey 없이 다운로드 URL과 안전한 메타데이터만 반환한다', async () => {
   // Given

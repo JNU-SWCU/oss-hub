@@ -360,6 +360,46 @@ describe('SubmissionsService integration', () => {
       },
     });
   });
+  it('마감 전 교체는 이전 revision을 보존하고 currentRevision만 전진시킨다', async () => {
+    const [milestoneId] = MILESTONE_SCENARIOS['milestones-upcoming'];
+    const created = await service.create(
+      seedGithubId(PERSONAL_USER_ID),
+      {
+        applicationId: PERSONAL_APPLICATION_ID,
+        milestoneId,
+        content: { type: MilestoneSubmissionType.TEXT, text: '초기 본문' },
+        comment: null,
+      },
+      NOW,
+    );
+
+    await expect(
+      service.resubmit(
+        seedGithubId(PERSONAL_USER_ID),
+        created.submissionId,
+        {
+          baseRevision: 1,
+          content: { type: MilestoneSubmissionType.TEXT, text: '교체 본문' },
+          comment: '파일 교체',
+        },
+        NOW,
+      ),
+    ).resolves.toMatchObject({
+      revision: 2,
+      status: SubmissionStatus.SUBMITTED,
+    });
+
+    const stored = await prisma.submission.findUniqueOrThrow({
+      where: { id: created.submissionId },
+      include: { revisions: { orderBy: { revision: 'asc' } } },
+    });
+    expect(stored.currentRevision).toBe(2);
+    expect(stored.revisions).toHaveLength(2);
+    expect(stored.revisions.map((revision) => revision.content)).toEqual([
+      { type: MilestoneSubmissionType.TEXT, text: '초기 본문' },
+      { type: MilestoneSubmissionType.TEXT, text: '교체 본문' },
+    ]);
+  });
 
   it('마감과 지정 유형 불일치를 서버 시각 기준으로 차단한다', async () => {
     // Given

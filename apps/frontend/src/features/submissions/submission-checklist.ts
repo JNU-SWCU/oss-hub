@@ -232,6 +232,9 @@ export function applyResubmission(
               ...item.submission,
               status: result.status,
               currentRevision: result.revision,
+              decision: null,
+              lastReviewedAt: null,
+              reviewComment: null,
               canResubmit: false,
             },
           }

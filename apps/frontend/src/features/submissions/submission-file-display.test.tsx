@@ -18,6 +18,7 @@ function submission(
     id: 'submission-file',
     status: 'SUBMITTED',
     currentRevision: 1,
+    decision: null,
     lastReviewedAt: null,
     reviewComment: null,
     canResubmit: false,
