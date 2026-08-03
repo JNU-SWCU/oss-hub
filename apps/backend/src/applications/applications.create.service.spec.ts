@@ -495,4 +495,69 @@ describe('ApplicationsService.create', () => {
       expect.objectContaining({ isRepositoryPublicationPlanned: false }),
     );
   });
+  it('최소 인원 설정이 없으면 팀 신청을 허용한다', async () => {
+    // Given
+    const { service, createApplication } = buildService({
+      program: { ...OPEN_PROGRAM, category: ProgramCategory.CAPSTONE },
+      store: {
+        findTeamForApply: jest.fn().mockResolvedValue({
+          id: 'team-1',
+          programId: PROGRAM_ID,
+          leaderId: STUDENT.id,
+          isMember: true,
+          memberCount: 1,
+          teamMinSize: null,
+        }),
+      },
+    });
+
+    // When
+    await service.create(
+      GITHUB_ID,
+      PROGRAM_ID,
+      {
+        answers: { title: '팀 제목', summary: '팀 요약' },
+        teamId: 'team-1',
+        applicationTemplateVersion: 1,
+        isRepositoryPublicationPlanned: true,
+      },
+      NOW,
+    );
+
+    // Then
+    expect(createApplication).toHaveBeenCalled();
+  });
+
+  it('최소 인원을 초과한 팀 신청을 허용한다', async () => {
+    // Given
+    const { service, createApplication } = buildService({
+      program: { ...OPEN_PROGRAM, category: ProgramCategory.CAPSTONE },
+      store: {
+        findTeamForApply: jest.fn().mockResolvedValue({
+          id: 'team-1',
+          programId: PROGRAM_ID,
+          leaderId: STUDENT.id,
+          isMember: true,
+          memberCount: 3,
+          teamMinSize: 2,
+        }),
+      },
+    });
+
+    // When
+    await service.create(
+      GITHUB_ID,
+      PROGRAM_ID,
+      {
+        answers: { title: '팀 제목', summary: '팀 요약' },
+        teamId: 'team-1',
+        applicationTemplateVersion: 1,
+        isRepositoryPublicationPlanned: true,
+      },
+      NOW,
+    );
+
+    // Then
+    expect(createApplication).toHaveBeenCalled();
+  });
 });

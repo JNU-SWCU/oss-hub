@@ -26,6 +26,15 @@ export function resolveTeamMinimum(
   return { memberCount: team.memberCount, teamMinSize: team.minMembers };
 }
 
+export function resolveApplicationTeam(
+  team: Pick<ProgramTeam, 'id' | 'memberCount' | 'minMembers'>,
+): Pick<ProgramApplyReadyState, 'teamId' | 'teamMinimum'> {
+  return {
+    teamId: team.id,
+    teamMinimum: resolveTeamMinimum(team),
+  };
+}
+
 export function remainingTeamMembers(teamMinimum: TeamMinimum | null): number {
   if (teamMinimum === null) return 0;
   return Math.max(teamMinimum.teamMinSize - teamMinimum.memberCount, 0);

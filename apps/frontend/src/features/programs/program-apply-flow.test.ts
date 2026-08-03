@@ -3,7 +3,10 @@ import type { ProblemDetail } from '@/lib/api-client';
 import {
   isApplicationPeriodOpen,
   mapCreateApplicationError,
+  remainingTeamMembers,
   resolveApplyBlockedReason,
+  resolveApplicationTeam,
+  resolveTeamMinimum,
   teamSetupHref,
   validateApplyForm,
 } from './program-apply-flow';
@@ -141,5 +144,40 @@ describe('program-apply-flow', () => {
     expect(teamSetupHref('seed:program')).toBe(
       '/programs/seed%3Aprogram/teams',
     );
+  });
+
+  it('조회된 내 팀을 신청 팀으로 사용한다', () => {
+    // Given
+    const myTeam = {
+      id: 'my-team',
+      memberCount: 1,
+      minMembers: 2,
+    };
+
+    // When
+    const resolved = resolveApplicationTeam(myTeam);
+
+    // Then
+    expect(resolved).toEqual({
+      teamId: 'my-team',
+      teamMinimum: { memberCount: 1, teamMinSize: 2 },
+    });
+  });
+
+  it('최소 인원 설정이 없으면 제한하지 않는다', () => {
+    // Given
+    const team = { memberCount: 1, minMembers: null };
+
+    // When
+    const minimum = resolveTeamMinimum(team);
+
+    // Then
+    expect(minimum).toBeNull();
+    expect(remainingTeamMembers(minimum)).toBe(0);
+  });
+
+  it('최소 인원을 충족하거나 초과하면 부족 인원이 없다', () => {
+    expect(remainingTeamMembers({ memberCount: 2, teamMinSize: 2 })).toBe(0);
+    expect(remainingTeamMembers({ memberCount: 3, teamMinSize: 2 })).toBe(0);
   });
 });

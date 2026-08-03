@@ -20,7 +20,7 @@ import {
   mapCreateApplicationError,
   remainingTeamMembers,
   resolveApplyBlockedReason,
-  resolveTeamMinimum,
+  resolveApplicationTeam,
   teamSetupHref,
   validateApplyForm,
   type ProgramApplyFormErrors,
@@ -221,7 +221,7 @@ export function ProgramApplyFormView({
               <AlertTitle>
                 최소 {teamMinimum.teamMinSize}명이 필요합니다
               </AlertTitle>
-              <AlertDescription>
+              <AlertDescription className="break-keep">
                 현재 {teamMinimum.memberCount}명이며 {missingTeamMembers}명이 더
                 필요합니다.{' '}
                 <Link
@@ -309,14 +309,14 @@ export function ProgramApplyPage({
       if (template.participation === 'team' && session.isAuthenticated) {
         try {
           const team = await getMyTeam(programId);
-          if (resolvedTeamId === null) resolvedTeamId = team.id;
-          if (resolvedTeamId === team.id) {
-            teamMinimum = resolveTeamMinimum(team);
-          }
+          const resolvedTeam = resolveApplicationTeam(team);
+          resolvedTeamId = resolvedTeam.teamId;
+          teamMinimum = resolvedTeam.teamMinimum;
         } catch (error: unknown) {
           if (!(error instanceof ApiError && error.problem.status === 404)) {
             throw error;
           }
+          resolvedTeamId = null;
         }
       }
 
