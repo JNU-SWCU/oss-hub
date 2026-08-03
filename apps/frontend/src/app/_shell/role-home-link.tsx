@@ -38,6 +38,7 @@ interface SessionEntry {
 export function resolveSessionEntry(
   status: SessionStatus,
   role: AppRole | null,
+  isProfileComplete: boolean,
 ): SessionEntry | null {
   switch (status) {
     case 'loading':
@@ -55,6 +56,14 @@ export function resolveSessionEntry(
     case 'unassigned':
       return SIGNUP_ENTRY;
     case 'assigned':
+      // 역할이 붙었어도 프로필이 비어 있으면 가입이 끝나지 않았다 — 학생은 역할을
+      // 고르는 즉시 배정되므로 프로필 단계에서 창을 닫으면 정확히 이 상태가 된다.
+      // 그 사람에게 역할 홈("내 대시보드")을 내밀면 오른쪽 위가 회원의 헤더가 되고,
+      // 눌러도 `RoleGate`가 프로필로 되돌려 고장으로 읽힌다. 남은 단계로 데려가는
+      // 버튼은 방문자와 같은 것 하나면 된다 — 재개 지점은 `/signup`이 정한다.
+      if (!isProfileComplete) {
+        return SIGNUP_ENTRY;
+      }
       return role
         ? {
             href: roleHomePath(role),
@@ -79,9 +88,9 @@ export function resolveSessionEntry(
  * 사용자가 스스로 들어온 `/signup` 안에서만 일어난다. 다시 넣지 않는다.
  */
 export function SessionEntryNavLink() {
-  const { status, role } = useSessionRole();
+  const { status, role, isProfileComplete } = useSessionRole();
   const pathname = usePathname();
-  const destination = resolveSessionEntry(status, role);
+  const destination = resolveSessionEntry(status, role, isProfileComplete);
   // 지금 있는 화면을 다시 가리키는 링크는 내지 않는다 — 눌러도 제자리라 고장으로 읽힌다.
   if (!destination || !shouldShowEntryLink(destination.href, pathname)) {
     return null;

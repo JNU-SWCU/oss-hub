@@ -19,7 +19,7 @@ import { SessionError } from './_shell/session-error';
 import { useSessionRole } from './_shell/use-session-role';
 
 export default function HomePage() {
-  const { status, role, retry } = useSessionRole();
+  const { status, role, isProfileComplete, retry } = useSessionRole();
   const [serializedSearchParams, setSerializedSearchParams] = useState('');
   const authErrorMessage = hasAuthError(serializedSearchParams)
     ? AUTH_ERROR_MESSAGE
@@ -35,6 +35,7 @@ export default function HomePage() {
     <LandingEntryActionView
       hasAuthError={Boolean(authErrorMessage)}
       inverted
+      isProfileComplete={isProfileComplete}
       role={role}
       status={status}
     />
@@ -42,6 +43,7 @@ export default function HomePage() {
   const entryActionOnLight = (
     <LandingEntryActionView
       hasAuthError={Boolean(authErrorMessage)}
+      isProfileComplete={isProfileComplete}
       role={role}
       status={status}
     />
