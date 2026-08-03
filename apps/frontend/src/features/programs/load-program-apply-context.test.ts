@@ -147,6 +147,7 @@ describe('loadProgramApplyContext', () => {
       template,
       applicantName: 'Applicant',
       teamId: 'team-1',
+      teamMinimum: null,
       applicationId: 'application-1',
       canCancel: false,
       initialValues: {
