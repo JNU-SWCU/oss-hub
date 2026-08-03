@@ -165,7 +165,9 @@ export class SubmissionsService {
     return {
       applicationId: application.id,
       applicationMode: application.teamId ? 'TEAM' : 'PERSONAL',
-      items: milestones.map((milestone) => this.toChecklistItem(milestone)),
+      items: milestones.map((milestone) =>
+        this.toChecklistItem(milestone, now),
+      ),
     };
   }
 
@@ -192,6 +194,7 @@ export class SubmissionsService {
         if (target.applicationStatus !== ApplicationStatus.APPROVED) {
           throw this.error(SubmissionsErrorCode.APPLICATION_APPROVAL_REQUIRED);
         }
+        const baseStatus = target.status;
         let fileExpiresAt: Date | null = null;
         if (input.content.type === 'FILE') {
           const programEndAt = await store.lockProgramEndAt(target.programId);
@@ -216,13 +219,17 @@ export class SubmissionsService {
         if (target.applicationStatus !== ApplicationStatus.APPROVED) {
           throw this.error(SubmissionsErrorCode.APPLICATION_APPROVAL_REQUIRED);
         }
-        this.assertResubmittable(target, input);
+        if (target.status !== baseStatus) {
+          throw this.error(SubmissionsErrorCode.STALE_SUBMISSION_REVISION);
+        }
+        this.assertResubmittable(target, input, now);
 
         const created = await store.createSubmissionRevision({
           submissionId: target.id,
           applicationId: target.applicationId,
           milestoneId: target.milestoneId,
           baseRevision: input.baseRevision,
+          baseStatus,
           content: input.content,
           comment: input.comment,
           submittedById: actor.id,
@@ -248,6 +255,7 @@ export class SubmissionsService {
 
   private toChecklistItem(
     milestone: ChecklistMilestone,
+    now: Date,
   ): SubmissionChecklistItemResponseDto {
     return {
       milestoneId: milestone.id,
@@ -259,13 +267,16 @@ export class SubmissionsService {
             id: milestone.submission.id,
             status: milestone.submission.status,
             currentRevision: milestone.submission.currentRevision,
+            decision: milestone.submission.latestReview?.decision ?? null,
             lastReviewedAt:
               milestone.submission.latestReview?.reviewedAt.toISOString() ??
               null,
             reviewComment: milestone.submission.latestReview?.comment ?? null,
             canResubmit:
               milestone.submission.status ===
-              SubmissionStatus.CHANGES_REQUESTED,
+                SubmissionStatus.CHANGES_REQUESTED ||
+              (milestone.submission.status === SubmissionStatus.SUBMITTED &&
+                now <= milestone.dueAt),
             file: milestone.submission.file
               ? {
                   ...milestone.submission.file,
@@ -278,17 +289,27 @@ export class SubmissionsService {
   }
 
   /**
-   * 재제출 규칙(#116) — 최신 상태 CHANGES_REQUESTED만 허용하고 dueAt은 검사하지
-   * 않는다(보완 재제출은 마감 후에도 허용). 내용 검증은 #115와 동일하다.
+   * 보완 요청은 마감 후에도, 마감 전 교체는 최종 반려를 제외하고 허용한다.
+   * 내용 검증은 #115와 동일하다.
    */
   private assertResubmittable(
     target: ResubmissionTarget,
     input: ResubmitSubmissionInput,
+    now: Date,
   ): void {
-    if (target.status !== SubmissionStatus.CHANGES_REQUESTED)
-      throw this.error(SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED);
     if (input.baseRevision !== target.currentRevision)
       throw this.error(SubmissionsErrorCode.STALE_SUBMISSION_REVISION);
+    if (target.status === SubmissionStatus.REJECTED)
+      throw this.error(SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED);
+    // 승인된 제출물은 교체하지 않는다 — 교직원 판정이 옛 revision 을 가리킨 채 남는다.
+    if (target.status === SubmissionStatus.APPROVED)
+      throw this.error(SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED);
+    if (
+      target.status !== SubmissionStatus.CHANGES_REQUESTED &&
+      now > target.dueAt
+    ) {
+      throw this.error(SubmissionsErrorCode.SUBMISSION_REPLACEMENT_CLOSED);
+    }
     if (input.content.type !== target.submissionType)
       throw this.error(SubmissionsErrorCode.CONTENT_TYPE_MISMATCH);
     if (input.content.type === MilestoneSubmissionType.REPOSITORY_RELEASE) {

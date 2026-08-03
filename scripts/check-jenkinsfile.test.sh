@@ -96,13 +96,13 @@ make_fixture "$v2_source" v2-missing-backup 'pg_dump' 'pg_isready'
 make_fixture "$v2_source" v2-missing-migration 'npx prisma migrate deploy' 'npx prisma migrate status'
 make_fixture "$v2_source" v2-missing-no-build 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait' 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --wait'
 make_fixture "$v2_source" v2-missing-primary-upload-401-smoke \
-  'require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused' \
+  'require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused' \
   'require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files-removed --retry 5 --retry-connrefused'
 make_fixture "$v2_source" v2-missing-rollback-upload-401-smoke \
-  'require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files$' \
+  'require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files$' \
   'require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files-removed'
 make_fixture "$v2_source" v2-weakened-upload-401-status \
-  'require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused' \
+  'require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused' \
   'require_status 000 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused'
 make_fixture "$v2_source" v2-upload-401-curl-fail \
   'curl -o /dev/null -w' \
@@ -1085,12 +1085,12 @@ replace_once(
 )
 replace_once(
     "v2-hardening-loopback-mixed-case-deleted",
-    "require_status 401 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused",
+    "require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused",
     "require_status 401 GET http://127.0.0.1:8081/api/v1/Submission-Files-removed --retry 5 --retry-connrefused",
 )
 replace_once(
     "v2-hardening-tls-mixed-case-deleted",
-    "require_status 401 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused",
+    "require_status 404 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused",
     "require_status 401 GET https://54.116.116.174/api/v1/Submission-Files-removed --retry 5 --retry-connrefused",
 )
 replace_once(
@@ -1110,7 +1110,7 @@ replace_once(
 )
 replace_once(
     "v2-hardening-rollback-loopback-mixed-case-deleted",
-    "require_status 401 GET http://127.0.0.1:8081/api/v1/Submission-Files\n",
+    "require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files\n",
     "require_status 401 GET http://127.0.0.1:8081/api/v1/Submission-Files-removed\n",
 )
 replace_once(
@@ -1120,7 +1120,7 @@ replace_once(
 )
 replace_once(
     "v2-hardening-rollback-tls-mixed-case-deleted",
-    "require_status 401 GET https://54.116.116.174/api/v1/Submission-Files \\\n",
+    "require_status 404 GET https://54.116.116.174/api/v1/Submission-Files \\\n",
     "require_status 401 GET https://54.116.116.174/api/v1/Submission-Files-removed \\\n",
 )
 replace_once(
@@ -1216,12 +1216,12 @@ for name, mutation in noop_mutations.items():
 
 mutate_noop(
     "v2-nginx-noop-loopback-mixed-case-deleted",
-    "require_status 401 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused",
+    "require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused",
     "require_status 401 GET http://127.0.0.1:8081/api/v1/Submission-Files-removed --retry 5 --retry-connrefused",
 )
 mutate_noop(
     "v2-nginx-noop-tls-mixed-case-deleted",
-    "require_status 401 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused",
+    "require_status 404 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused",
     "require_status 401 GET https://54.116.116.174/api/v1/Submission-Files-removed --retry 5 --retry-connrefused",
 )
 mutate_noop(

@@ -1,5 +1,6 @@
 import {
   ApplicationStatus,
+  ProgramLifecycle,
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
 import { Injectable, Logger } from '@nestjs/common';
@@ -79,6 +80,9 @@ export class ApplicationsService {
     if (!program) {
       throw this.error(ApplicationsErrorCode.PROGRAM_NOT_FOUND);
     }
+    if (program.lifecycle === ProgramLifecycle.ARCHIVED) {
+      throw this.error(ApplicationsErrorCode.PROGRAM_ARCHIVED);
+    }
 
     if (now < program.applicationStartAt || now > program.applicationEndAt) {
       throw this.error(ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED);
@@ -114,9 +118,12 @@ export class ApplicationsService {
 
     try {
       return await this.repository.withCreateTransaction(async (store) => {
-        const programLocked = await store.lockProgramForApply(programId);
-        if (!programLocked) {
+        const programLifecycle = await store.lockProgramForApply(programId);
+        if (!programLifecycle) {
           throw this.error(ApplicationsErrorCode.PROGRAM_NOT_FOUND);
+        }
+        if (programLifecycle === ProgramLifecycle.ARCHIVED) {
+          throw this.error(ApplicationsErrorCode.PROGRAM_ARCHIVED);
         }
         if (teamId !== null) {
           const team = await store.findTeamForApply(

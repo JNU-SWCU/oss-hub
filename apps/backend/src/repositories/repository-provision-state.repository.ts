@@ -20,6 +20,7 @@ import {
   finalProvisionFailure,
   PROVISION_ERROR_CODES,
 } from './repository-provision.failure';
+import { DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS } from './repository-provision.failure';
 import {
   assertProvisionLease,
   assertSingleProvisionUpdate,
@@ -162,7 +163,9 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
         OR: [
           {
             status: RepositoryInvitationStatus.PENDING,
-            attemptCount: 0,
+            reconciliationCount: {
+              lt: DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS,
+            },
           },
           { status: RepositoryInvitationStatus.FAILED_RETRYABLE },
         ],
@@ -181,7 +184,11 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
         where: { id: input.invitationId },
         data: {
           status: input.status,
-          attemptCount: { increment: 1 },
+          attemptCount: undefined,
+          reconciliationCount:
+            input.status === RepositoryInvitationStatus.PENDING
+              ? { increment: 1 }
+              : undefined,
           lastErrorCode: null,
           lastErrorMessage: null,
           processedAt: input.now,
@@ -215,12 +222,14 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
     workerId: string,
     repositoryId: string,
     now: Date,
+    nextReconciliationAt?: Date,
   ): Promise<void> {
     const updated = await this.prisma.repositoryProvisionJob.updateMany({
       where: claimedJobWhere(jobId, workerId),
       data: {
         repositoryId,
         status: RepositoryProvisionJobStatus.SUCCEEDED,
+        nextAttemptAt: nextReconciliationAt ?? now,
         lockedAt: null,
         lockedBy: null,
         lastErrorCode: null,

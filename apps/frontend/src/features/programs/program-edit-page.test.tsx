@@ -7,6 +7,7 @@ const editableProgram: EditableProgram = {
   name: 'OSS',
   organizer: 'Center',
   category: 'OSS_CONTEST',
+  lifecycle: 'PUBLISHED',
   applicationTemplateKey: 'oss-contest',
   applicationTemplateVersion: 1,
   applicationCount: 0,

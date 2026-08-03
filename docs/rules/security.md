@@ -29,7 +29,16 @@ repository는 요청 입력으로 구성되는 query를 받지 않고, 명시적
 service는 공개 field allowlist와 eligibility를 적용하고 private 또는 nonexistent 대상에 동일한 404를 반환한다.
 private 테이블 간 임의 join, wildcard `include`, 전체 row 조회 후 redact-later, forbidden field fetch는 계속 금지한다.
 selector 및 integration review evidence가 없거나 exact-head owner receipt가 없으면 예외를 사용하지 않는다.
-허용되는 데이터도 실명·학번·학과·연락처·role/account status·answers/rejection·submission content/review/file·provision error·raw GitHub payload/code/diff/message/email/body·credential와 generation/control metadata를 포함하지 않는다.
+허용되는 데이터도 학번·학과·연락처·role/account status·answers/rejection·submission content/review/file·provision error·raw GitHub payload/code/diff/message/email/body·credential와 generation/control metadata를 포함하지 않는다.
+실명은 아래 랭킹 표시명 예외에서만 허용하며 그 밖의 공개 응답에는 포함하지 않는다.
+
+### 랭킹 표시명 실명 예외
+
+학내 오픈소스 활동을 공개하는 것이 서비스 취지이므로 공개 랭킹의 **가입자 표시명에 한해** 실명 노출을 허용한다(PM 결정, 2026-08-03).
+근거는 전역 `Consent`(개인정보·활동 동의)이며 미가입 org 기여자는 실명 대신 `githubLogin`과 '미가입' 표시로 구분한다.
+이 예외는 **제품의 공개 API 응답**에만 적용되고, deny-list 1번(실명)이 규율하는 **repo 표면**(코드·Issue·PR 본문·커밋 메시지·CI 로그·스크린샷)에는 적용되지 않는다 — 두 기준을 섞지 않는다.
+학번·학과·연락처를 비롯한 나머지 금지 항목은 랭킹에서도 그대로 금지한다.
+미해결: 랭킹 노출 시점에 동의를 재확인하지 않으며 동의 철회 endpoint가 없다([#554](https://github.com/JNU-SWCU/oss-hub/issues/554)).
 
 ### Git commit identity 이메일 예외
 

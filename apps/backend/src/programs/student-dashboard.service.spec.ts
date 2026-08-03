@@ -231,6 +231,40 @@ describe('StudentDashboardService', () => {
       githubUrl: null,
     });
   });
+  it('distinguishes retryable and final provisioning failures without exposing raw errors', async () => {
+    findMany.mockResolvedValue([
+      application(),
+      application({ id: 'application-2' }),
+    ]);
+    getMyRepositories.mockResolvedValue([
+      {
+        applicationId: 'application-1',
+        repositoryName: null,
+        provisionStatus: RepositoryProvisionJobStatus.FAILED_RETRYABLE,
+        invitationStatus: null,
+        githubUrl: null,
+        lastErrorCode: 'raw upstream response that must not be exposed',
+      },
+      {
+        applicationId: 'application-2',
+        repositoryName: null,
+        provisionStatus: RepositoryProvisionJobStatus.FAILED_FINAL,
+        invitationStatus: null,
+        githubUrl: null,
+        lastErrorCode: 'raw upstream response that must not be exposed',
+      },
+    ]);
+
+    const items = await service.getStudentDashboard(101n);
+
+    expect(items.map((item) => item.repository?.provisionStatus)).toEqual([
+      'FAILED_RETRYABLE',
+      'FAILED_FINAL',
+    ]);
+    expect(JSON.stringify(items)).not.toContain(
+      'raw upstream response that must not be exposed',
+    );
+  });
 
   it('fails closed when repository creation succeeded without current-user invitation evidence', async () => {
     findMany.mockResolvedValue([application()]);

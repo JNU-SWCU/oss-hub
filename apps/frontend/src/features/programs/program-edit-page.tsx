@@ -9,6 +9,7 @@ import {
   getEditableProgram,
   updateMilestone,
   updateProgram,
+  updateProgramLifecycle,
 } from './api';
 import {
   buildMilestoneInput,
@@ -64,6 +65,7 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
     null,
   );
   const [isMilestoneBusy, setIsMilestoneBusy] = useState(false);
+  const [isLifecycleBusy, setIsLifecycleBusy] = useState(false);
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
@@ -227,6 +229,28 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
       setIsMilestoneBusy(false);
     }
   };
+  const toggleLifecycle = async () => {
+    const lifecycle =
+      state.kind === 'ready' && state.program.lifecycle === 'PUBLISHED'
+        ? 'ARCHIVED'
+        : 'PUBLISHED';
+    const message =
+      lifecycle === 'ARCHIVED'
+        ? '대회를 내리면 익명 사용자에게 보이지 않고 신청이 차단됩니다. 계속할까요?'
+        : '내린 대회를 다시 발행할까요?';
+    if (!window.confirm(message)) return;
+    setIsLifecycleBusy(true);
+    try {
+      await updateProgramLifecycle(programId, lifecycle);
+      await load();
+    } catch {
+      setGeneralAlert(
+        '상태를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+      );
+    } finally {
+      setIsLifecycleBusy(false);
+    }
+  };
 
   if (state.kind === 'failed') {
     return (
@@ -241,26 +265,40 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
   }
 
   return (
-    <ProgramEditView
-      program={state.program}
-      form={form}
-      errors={errors}
-      toastMessage={toastMessage}
-      generalAlert={generalAlert}
-      isSaving={isSaving}
-      milestoneEditor={milestoneEditor}
-      deleteTarget={deleteTarget}
-      isMilestoneBusy={isMilestoneBusy}
-      onFieldChange={updateField}
-      onSubmit={(event) => void submit(event)}
-      onAddMilestone={openAddMilestone}
-      onEditMilestone={openEditMilestone}
-      onCancelMilestone={() => setMilestoneEditor({ mode: 'closed' })}
-      onMilestoneFieldChange={updateMilestoneField}
-      onSaveMilestone={(event) => void saveMilestone(event)}
-      onRequestDeleteMilestone={setDeleteTarget}
-      onCancelDelete={() => setDeleteTarget(null)}
-      onConfirmDelete={() => void confirmDelete()}
-    />
+    <>
+      <div className="mb-4 flex justify-end">
+        <button
+          type="button"
+          className="rounded-md border border-destructive px-4 py-2 text-sm font-medium text-destructive"
+          disabled={isLifecycleBusy}
+          onClick={() => void toggleLifecycle()}
+        >
+          {state.program.lifecycle === 'PUBLISHED'
+            ? '대회 내리기'
+            : '대회 복구하기'}
+        </button>
+      </div>
+      <ProgramEditView
+        program={state.program}
+        form={form}
+        errors={errors}
+        toastMessage={toastMessage}
+        generalAlert={generalAlert}
+        isSaving={isSaving}
+        milestoneEditor={milestoneEditor}
+        deleteTarget={deleteTarget}
+        isMilestoneBusy={isMilestoneBusy}
+        onFieldChange={updateField}
+        onSubmit={(event) => void submit(event)}
+        onAddMilestone={openAddMilestone}
+        onEditMilestone={openEditMilestone}
+        onCancelMilestone={() => setMilestoneEditor({ mode: 'closed' })}
+        onMilestoneFieldChange={updateMilestoneField}
+        onSaveMilestone={(event) => void saveMilestone(event)}
+        onRequestDeleteMilestone={setDeleteTarget}
+        onCancelDelete={() => setDeleteTarget(null)}
+        onConfirmDelete={() => void confirmDelete()}
+      />
+    </>
   );
 }

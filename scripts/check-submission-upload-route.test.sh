@@ -13,7 +13,16 @@ expect_pass() { local name=$1 path=$2; if "$checker" "$path" >/dev/null 2>&1; th
 expect_fail() { local name=$1 path=$2; if "$checker" "$path" >/dev/null 2>&1; then printf 'not ok - %s (실패해야 하지만 성공)\n' "$name" >&2; failed=$((failed + 1)); else printf 'ok - %s\n' "$name"; passed=$((passed + 1)); fi; }
 write_fixture() { local name=$1; cat >"$fixture_dir/$name"; }
 write_fixture valid <<'EOF'
+server { location /api/ { client_max_body_size 52m; proxy_pass http://backend:4000; } }
+EOF
+write_fixture upload-body-missing <<'EOF'
 server { location /api/ { proxy_pass http://backend:4000; } }
+EOF
+write_fixture upload-body-too-small <<'EOF'
+server { location /api/ { client_max_body_size 1m; proxy_pass http://backend:4000; } }
+EOF
+write_fixture upload-body-kilobytes <<'EOF'
+server { location /api/ { client_max_body_size 8k; proxy_pass http://backend:4000; } }
 EOF
 write_fixture submission-files-return-403 <<'EOF'
 server { location ~* ^/api/v1/submission-files(/|$) { return 403; } location /api/ { proxy_pass http://backend:4000; } }
@@ -43,6 +52,9 @@ expect_fail '대소문자 우회 가능 차단도 불허' "$fixture_dir/case-sen
 expect_fail '/api/ 과차단' "$fixture_dir/api-overblock"
 expect_fail 'sibling 과차단' "$fixture_dir/sibling-overblock"
 expect_fail '가짜 API proxy 문자열' "$fixture_dir/fake-proxy-string"
+expect_fail '업로드 본문 한도 미설정(기본 1m 이면 1MB 초과 제출이 413)' "$fixture_dir/upload-body-missing"
+expect_fail '업로드 본문 한도가 backend 50MiB 보다 작음' "$fixture_dir/upload-body-too-small"
+expect_fail '업로드 본문 한도 단위 축소(8k)' "$fixture_dir/upload-body-kilobytes"
 expect_fail '설정 파일 부재' "$missing_path"
 printf '%s passed, %s failed\n' "$passed" "$failed"
 ((failed == 0))

@@ -1,4 +1,8 @@
-import type { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
+import type {
+  MilestoneSubmissionType,
+  ReviewDecision,
+  SubmissionStatus,
+} from '@prisma/client';
 
 export type SubmissionBlockedReasonResponseDto =
   | 'SUBMISSION_ALREADY_EXISTS'
@@ -55,6 +59,7 @@ export interface SubmissionChecklistItemResponseDto {
     readonly id: string;
     readonly status: SubmissionStatus;
     readonly currentRevision: number;
+    readonly decision: ReviewDecision | null;
     readonly lastReviewedAt: string | null;
     readonly reviewComment: string | null;
     readonly canResubmit: boolean;

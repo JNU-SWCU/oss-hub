@@ -29,7 +29,9 @@ export const checklistMilestoneSelect = (applicationId: string, now: Date) =>
           orderBy: { revision: 'desc' as const },
           select: {
             revision: true,
-            review: { select: { reviewedAt: true, comment: true } },
+            review: {
+              select: { decision: true, reviewedAt: true, comment: true },
+            },
             files: {
               where: {
                 lifecycle: SubmissionFileLifecycle.ATTACHED,

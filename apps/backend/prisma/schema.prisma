@@ -143,11 +143,17 @@ enum ProgramCategory {
 
 /// 기간·팀 인원 CHECK 3건은 Prisma로 표현할 수 없어 마이그레이션 SQL에 둔다(#164).
 /// NULL 피연산자는 CHECK를 통과하므로 개인형 프로그램의 nullable 인원 필드는 유지된다.
+enum ProgramLifecycle {
+  PUBLISHED
+  ARCHIVED
+}
+
 model Program {
   id        String          @id @default(cuid())
   name      String
   organizer String
   category  ProgramCategory
+  lifecycle ProgramLifecycle @default(PUBLISHED)
 
   /// 서버 고정 registry가 결정한다(#100) — 클라이언트가 임의 값을 보낼 수 없다.
   applicationTemplateKey     String
@@ -586,8 +592,9 @@ model RepositoryInvitation {
 
   githubLogin String
 
-  status       RepositoryInvitationStatus @default(PENDING)
-  attemptCount Int                        @default(0)
+  status              RepositoryInvitationStatus @default(PENDING)
+  attemptCount        Int                        @default(0)
+  reconciliationCount Int                        @default(0)
 
   lastErrorCode    String?
   lastErrorMessage String?
@@ -677,13 +684,14 @@ model Notification {
   userId String
   user   User   @relation(fields: [userId], references: [id])
 
-  type    String
-  payload Json
-  channel String
-  status  String
+  type           String
+  payload        Json
+  channel        String
+  status         String
+  idempotencyKey String?  @unique
 
   sentAt    DateTime?
-  createdAt DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
 }

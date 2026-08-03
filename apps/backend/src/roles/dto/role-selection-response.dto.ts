@@ -8,7 +8,8 @@ export class RoleSelectionResponseDto {
   readonly selectedRole: SelectableRole;
   readonly role: Role | null;
   readonly requestStatus: RoleRequestStatus | null;
-  readonly redirectTo: '/onboarding/profile' | '/onboarding/pending';
+  /** 도메인 결과와 같은 단일 값. 근거는 `domain/role-onboarding.ts`에 있다. */
+  readonly redirectTo: '/onboarding/profile';
 
   private constructor(result: RoleSelectionResult) {
     this.selectedRole = result.selectedRole;

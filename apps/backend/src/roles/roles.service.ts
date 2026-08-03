@@ -166,7 +166,17 @@ export class RolesService {
       selectedRole: Role.STAFF,
       role: null,
       requestStatus: request.status,
-      redirectTo: '/onboarding/pending',
+      // 학생과 같은 이유로 남은 단계를 가리킨다. 교직원도 학과가 필수라
+      // (`users/user-profile-policy.ts`의 `STAFF: { department: true }`) 역할을
+      // 골랐다고 가입이 끝난 것이 아니다. 예전에는 `/onboarding/pending`을 줬는데,
+      // 그 화면의 `OnboardingGate`가 비어 있는 프로필을 보고 즉시
+      // `/onboarding/profile`로 다시 보내 승인 대기 화면이 반 초쯤 깜빡였다
+      // — 아직 오지 않은 승인을 기다리라고 말한 뒤 곧바로 취소한 셈이다.
+      //
+      // 여기서 프로필 완료 여부를 다시 계산하지는 않는다. 목적지 판단이 두 곳으로
+      // 갈라지면 반드시 어긋나기 때문이다(위 클래스 주석). 프로필을 마친 뒤
+      // 승인 대기로 잇는 일은 그대로 화면의 게이트가 한다.
+      redirectTo: '/onboarding/profile',
     };
   }
 

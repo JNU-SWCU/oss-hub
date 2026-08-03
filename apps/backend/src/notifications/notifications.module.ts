@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { DeadlineDigestFailuresController } from './deadline-digest-failures.controller';
+import { DeadlineDigestFailuresService } from './deadline-digest-failures.service';
 import { DeadlineDigestRepository } from './deadline-digest.repository';
 import { DeadlineDigestScheduler } from './deadline-digest.scheduler';
 import { DeadlineDigestService } from './deadline-digest.service';
@@ -14,12 +16,16 @@ import { NotificationSettingsService } from './notification-settings.service';
  */
 @Module({
   imports: [AuthModule],
-  controllers: [NotificationSettingsController],
+  controllers: [
+    NotificationSettingsController,
+    DeadlineDigestFailuresController,
+  ],
   providers: [
     NotificationSettingsRepository,
     NotificationSettingsService,
     DeadlineDigestRepository,
     DeadlineDigestService,
+    DeadlineDigestFailuresService,
     DeadlineDigestScheduler,
     mailSenderProvider,
   ],

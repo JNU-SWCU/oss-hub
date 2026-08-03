@@ -25,7 +25,7 @@ import {
   SubmissionsErrorCode,
 } from './submissions-error-code.enum';
 
-const MAX_FILE_BYTES = 50 * 1024 * 1024;
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const PENDING_TTL_MS = 24 * 60 * 60 * 1000;
 
 export interface SubmissionFileUpload {
@@ -106,8 +106,17 @@ export class SubmissionFilesService {
       throw this.error(SubmissionsErrorCode.CONTENT_TYPE_MISMATCH);
     }
     if (resubmissionContext !== null) {
+      // 교체 허용 조건은 submissions.service.ts 의 assertResubmittable 과 같은 계약이다.
+      // 보완 요청은 마감과 무관하게 열리고, 아직 판정 전(SUBMITTED)이면 마감 전까지 교체할 수 있다.
+      // 여기서만 CHANGES_REQUESTED 로 좁히면 체크리스트가 canResubmit=true 로 안내하는데
+      // FILE 유형만 업로드 단계에서 막혀 학생이 잘못 낸 파일을 마감 전에 고칠 수 없다.
+      const status = authorization.resubmissionStatus;
+      const replaceableBeforeDue =
+        status === SubmissionStatus.SUBMITTED &&
+        Date.now() <= authorization.dueAt.getTime();
       if (
-        authorization.resubmissionStatus !== SubmissionStatus.CHANGES_REQUESTED
+        status !== SubmissionStatus.CHANGES_REQUESTED &&
+        !replaceableBeforeDue
       ) {
         throw this.error(SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED);
       }

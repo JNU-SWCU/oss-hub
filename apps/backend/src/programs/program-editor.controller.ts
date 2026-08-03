@@ -15,14 +15,19 @@ import {
   ProgramMilestoneResponseDto,
 } from './dto/editable-program-response.dto';
 import { UpdateProgramRequestDto } from './dto/update-program-request.dto';
+import { UpdateProgramLifecycleRequestDto } from './dto/update-program-lifecycle-request.dto';
 import { UpsertMilestoneRequestDto } from './dto/upsert-milestone-request.dto';
 import { ProgramEditorService } from './program-editor.service';
+import { ProgramLifecycleService } from './program-lifecycle.service';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
 @Controller('programs')
 export class ProgramEditorController {
-  constructor(private readonly editor: ProgramEditorService) {}
+  constructor(
+    private readonly editor: ProgramEditorService,
+    private readonly lifecycle: ProgramLifecycleService,
+  ) {}
 
   @Get(':id/edit')
   @UseGuards(SessionGuard)
@@ -47,6 +52,15 @@ export class ProgramEditorController {
       input,
     );
     return EditableProgramResponseDto.from(program);
+  }
+  @Patch(':id/lifecycle')
+  @UseGuards(SessionGuard, OriginGuard)
+  updateLifecycle(
+    @Req() request: SessionIdentity,
+    @Param('id') id: string,
+    @Body() input: UpdateProgramLifecycleRequestDto,
+  ) {
+    return this.lifecycle.update(request.sessionGithubId, id, input.lifecycle);
   }
 
   @Post(':id/milestones')

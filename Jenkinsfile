@@ -495,7 +495,7 @@ esac
             minio_container_id="$(docker compose --env-file "$OSS_HUB_ENV_FILE" ps -q minio)"
             test -n "$minio_container_id"
             trap 'rm -rf "$object_backup_tmp"; docker exec -i "$minio_container_id" sh -c "rm -rf \"$minio_backup_tmp\""' EXIT
-            docker exec -i "$minio_container_id" sh -c 'set -eu; rm -rf "$1"; mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null; mc mirror local/oss-hub-submission-files "$1"' _ "$minio_backup_tmp"
+            docker exec -i "$minio_container_id" sh -c 'set -eu; rm -rf "$1"; mkdir -p "$1"; mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null; mc mirror local/oss-hub-submission-files "$1"' _ "$minio_backup_tmp"
             docker cp "${minio_container_id}:${minio_backup_tmp}/." "$object_backup_tmp"
             test -d "$object_backup_tmp"
             docker exec -i "$minio_container_id" sh -c "rm -rf \"$minio_backup_tmp\""
@@ -580,20 +580,27 @@ docker build \
                 require_status 200 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused
                 require_status 200 GET http://127.0.0.1:8081/api/v1/health --retry 5 --retry-connrefused
                 # 미인증 401은 nginx를 통과해 backend SessionGuard에 도달했음을 검증한다.
-                require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
+                require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
                 require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
-                require_status 401 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
+                require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
                 require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
                 require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused
+                # 실행 중 ingress 가 업로드 본문을 실제로 통과시키는지 확인한다.
+                # 저장소 설정 검사만으로는 실행 중 설정 드리프트를 증명하지 못한다(ADR-002).
+                bash scripts/check-upload-body-runtime.sh \
+                  http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
+                bash scripts/check-upload-body-runtime.sh \
+                  https://54.116.116.174/api/v1/submission-files \
+                  --retry 5 --retry-connrefused --resolve '54.116.116.174:443:127.0.0.1'
                 require_status 200 GET https://54.116.116.174/ --retry 5 --retry-connrefused \
                   --resolve '54.116.116.174:443:127.0.0.1'
                 require_status 200 GET https://54.116.116.174/api/v1/health --retry 5 --retry-connrefused \
                   --resolve '54.116.116.174:443:127.0.0.1'
-                require_status 401 GET https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
+                require_status 404 GET https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
                   --resolve '54.116.116.174:443:127.0.0.1'
                 require_status 401 POST https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
                   --resolve '54.116.116.174:443:127.0.0.1'
-                require_status 401 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
+                require_status 404 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
                   --resolve '54.116.116.174:443:127.0.0.1'
                 require_status 401 POST https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
                   --resolve '54.116.116.174:443:127.0.0.1'
@@ -628,20 +635,20 @@ docker build \
                     docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -s reload
                     require_status 200 GET http://127.0.0.1:8081/
                     require_status 200 GET http://127.0.0.1:8081/api/v1/health
-                    require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files
+                    require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files
                     require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files
-                    require_status 401 GET http://127.0.0.1:8081/api/v1/Submission-Files
+                    require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files
                     require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files
                     require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1
                     require_status 200 GET https://54.116.116.174/ \
                       --resolve '54.116.116.174:443:127.0.0.1'
                     require_status 200 GET https://54.116.116.174/api/v1/health \
                       --resolve '54.116.116.174:443:127.0.0.1'
-                    require_status 401 GET https://54.116.116.174/api/v1/submission-files \
+                    require_status 404 GET https://54.116.116.174/api/v1/submission-files \
                       --resolve '54.116.116.174:443:127.0.0.1'
                     require_status 401 POST https://54.116.116.174/api/v1/submission-files \
                       --resolve '54.116.116.174:443:127.0.0.1'
-                    require_status 401 GET https://54.116.116.174/api/v1/Submission-Files \
+                    require_status 404 GET https://54.116.116.174/api/v1/Submission-Files \
                       --resolve '54.116.116.174:443:127.0.0.1'
                     require_status 401 POST https://54.116.116.174/api/v1/Submission-Files \
                       --resolve '54.116.116.174:443:127.0.0.1'
@@ -681,20 +688,20 @@ docker build \
           # no-op은 checkout한 릴리스가 실행 중 버전보다 낮을 수 있으므로 reload 없이 읽기 전용 스모크로 드리프트만 검출한다.
           require_status 200 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused
           require_status 200 GET http://127.0.0.1:8081/api/v1/health --retry 5 --retry-connrefused
-          require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
+          require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
           require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused
-          require_status 401 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
+          require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
           require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused
           require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused
           require_status 200 GET https://54.116.116.174/ --retry 5 --retry-connrefused \
             --resolve '54.116.116.174:443:127.0.0.1'
           require_status 200 GET https://54.116.116.174/api/v1/health --retry 5 --retry-connrefused \
             --resolve '54.116.116.174:443:127.0.0.1'
-          require_status 401 GET https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
+          require_status 404 GET https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
             --resolve '54.116.116.174:443:127.0.0.1'
           require_status 401 POST https://54.116.116.174/api/v1/submission-files --retry 5 --retry-connrefused \
             --resolve '54.116.116.174:443:127.0.0.1'
-          require_status 401 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
+          require_status 404 GET https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
             --resolve '54.116.116.174:443:127.0.0.1'
           require_status 401 POST https://54.116.116.174/api/v1/Submission-Files --retry 5 --retry-connrefused \
             --resolve '54.116.116.174:443:127.0.0.1'

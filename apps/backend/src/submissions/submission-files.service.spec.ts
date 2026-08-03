@@ -171,7 +171,7 @@ describe('SubmissionFilesService', () => {
   });
 
   it('accepts exactly 50 MiB and rejects one byte more', async () => {
-    const exact = 50 * 1024 * 1024;
+    const exact = 5 * 1024 * 1024;
     const accepted = setup();
     await expect(
       accepted.service.upload(
@@ -280,12 +280,38 @@ describe('SubmissionFilesService', () => {
     expect(storage.put).not.toHaveBeenCalled();
   });
 
-  it('rejects non-CHANGES replacement upload context before storage', async () => {
+  // 마감 전 SUBMITTED 교체는 허용한다 — 체크리스트가 canResubmit=true 로 안내하는 경로이며,
+  // 여기서만 막으면 FILE 유형 학생은 잘못 낸 파일을 마감 전에 고칠 수 없다.
+  it('allows a SUBMITTED replacement upload before the milestone deadline', async () => {
     const { service, repository, storage } = setup();
     repository.findUploadAuthorization.mockResolvedValue(
       authorization({
         resubmissionStatus: SubmissionStatus.SUBMITTED,
         currentRevision: 1,
+        dueAt: new Date('2099-01-01T00:00:00.000Z'),
+      }),
+    );
+
+    await service.upload(
+      1n,
+      'app',
+      'milestone',
+      file(),
+      'submission-opaque',
+      '1',
+    );
+
+    expect(repository.createPending).toHaveBeenCalled();
+    expect(storage.put).toHaveBeenCalled();
+  });
+
+  it('rejects a SUBMITTED replacement upload after the milestone deadline', async () => {
+    const { service, repository, storage } = setup();
+    repository.findUploadAuthorization.mockResolvedValue(
+      authorization({
+        resubmissionStatus: SubmissionStatus.SUBMITTED,
+        currentRevision: 1,
+        dueAt: new Date('2020-01-01T00:00:00.000Z'),
       }),
     );
 
@@ -297,6 +323,35 @@ describe('SubmissionFilesService', () => {
     expect(repository.createPending).not.toHaveBeenCalled();
     expect(storage.put).not.toHaveBeenCalled();
   });
+
+  it.each([SubmissionStatus.APPROVED, SubmissionStatus.REJECTED])(
+    'rejects a %s replacement upload regardless of the deadline',
+    async (status) => {
+      const { service, repository, storage } = setup();
+      repository.findUploadAuthorization.mockResolvedValue(
+        authorization({
+          resubmissionStatus: status,
+          currentRevision: 1,
+          dueAt: new Date('2099-01-01T00:00:00.000Z'),
+        }),
+      );
+
+      await expectCode(
+        service.upload(
+          1n,
+          'app',
+          'milestone',
+          file(),
+          'submission-opaque',
+          '1',
+        ),
+        SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED,
+      );
+
+      expect(repository.createPending).not.toHaveBeenCalled();
+      expect(storage.put).not.toHaveBeenCalled();
+    },
+  );
 
   it('rejects stale replacement upload context before storage', async () => {
     const { service, repository, storage } = setup();

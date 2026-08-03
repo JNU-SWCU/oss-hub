@@ -2,6 +2,7 @@ import type {
   AccountStatus,
   MilestoneSubmissionType,
   ProgramCategory,
+  ProgramLifecycle,
   RoleRequestStatus,
   Role,
 } from '@prisma/client';
@@ -33,6 +34,7 @@ export type EditableProgramView = {
   readonly name: string;
   readonly organizer: string;
   readonly category: ProgramCategory;
+  readonly lifecycle?: ProgramLifecycle;
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
   readonly applicationCount: number;

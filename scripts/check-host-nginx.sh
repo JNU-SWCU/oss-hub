@@ -325,4 +325,63 @@ if grep -Eq '\$request([^_a-zA-Z0-9]|$)|\$request_uri([^_a-zA-Z0-9]|$)|\$args([^
   exit 1
 fi
 
-echo 'host nginx contract: ok (IP TLS, ACME webroot, loopback Compose, exact parameterless POST-only Jenkins trigger)'
+# 제출 파일 업로드가 지나는 앱 경로(location /)의 본문 한도. nginx 기본값 1m 이면
+# backend 가 허용하는 5MB 제출이 Compose nginx 에 닿기도 전에 413 으로 죽는다.
+if ! python3 - "$active_config" <<'PYEOF'
+import re, sys
+
+MIN_BYTES = 5 * 1024 * 1024
+text = open(sys.argv[1], encoding='utf-8').read()
+
+
+def to_bytes(value: str) -> int:
+    v = value.strip().lower()
+    unit = 1
+    if v.endswith('k'):
+        unit, v = 1024, v[:-1]
+    elif v.endswith('m'):
+        unit, v = 1024 * 1024, v[:-1]
+    elif v.endswith('g'):
+        unit, v = 1024 * 1024 * 1024, v[:-1]
+    return int(v) * unit if v.isdigit() else 0
+
+
+# proxy_pass 로 Compose 로 넘기는 location / 블록만 본다(HTTP 리다이렉트 전용 블록 제외).
+best = None
+for m in re.finditer(r'location\s+/\s*\{', text):
+    depth, i = 1, m.end()
+    while i < len(text) and depth:
+        if text[i] == '{':
+            depth += 1
+        elif text[i] == '}':
+            depth -= 1
+        i += 1
+    block = text[m.end():i]
+    if 'proxy_pass' not in block:
+        continue
+    found = re.search(r'client_max_body_size\s+([0-9]+[kKmMgG]?)\s*;', block)
+    if not found:
+        print(
+            'host nginx contract: location / has no client_max_body_size; '
+            'nginx defaults to 1m and rejects submissions larger than 1MB with 413',
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+    best = found.group(1)
+
+if best is None:
+    print('host nginx contract: no proxying location / found', file=sys.stderr)
+    raise SystemExit(1)
+if to_bytes(best) < MIN_BYTES:
+    print(
+        f'host nginx contract: location / client_max_body_size {best} '
+        'is below the backend 5MB file limit',
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+PYEOF
+then
+  exit 1
+fi
+
+echo 'host nginx contract: ok (IP TLS, ACME webroot, loopback Compose, exact parameterless POST-only Jenkins trigger, upload body >= 5MB)'

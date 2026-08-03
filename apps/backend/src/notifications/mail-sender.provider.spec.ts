@@ -82,6 +82,35 @@ describe('resolveMailSender / mailSenderProvider', () => {
     );
     expect(sender).toBeInstanceOf(LogMailSender);
   });
+  it('production dry-run throws even with complete credentials', () => {
+    expect(() =>
+      resolveMailSender(
+        frozenSnapshot({
+          NODE_ENV: 'production',
+          MAIL_MODE: 'dry-run',
+          ...COMPLETE_GMAIL,
+        }),
+      ),
+    ).toThrow(/Production requires MAIL_MODE=send/);
+  });
+
+  it.each([
+    ['GMAIL_SENDER'],
+    ['GMAIL_OAUTH_CLIENT_ID'],
+    ['GMAIL_OAUTH_CLIENT_SECRET'],
+    ['GMAIL_OAUTH_REFRESH_TOKEN'],
+  ] as const)('production send missing %s throws', (missingKey) => {
+    expect(() =>
+      resolveMailSender(
+        frozenSnapshot({
+          NODE_ENV: 'production',
+          MAIL_MODE: 'send',
+          ...COMPLETE_GMAIL,
+          [missingKey]: undefined,
+        }),
+      ),
+    ).toThrow(/GMAIL_/);
+  });
 
   it('send with complete four credentials resolves GmailMailSender', () => {
     const sender = resolveMailSender(

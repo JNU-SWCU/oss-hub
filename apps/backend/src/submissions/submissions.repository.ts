@@ -7,6 +7,7 @@ import {
   SubmissionStatus,
   type ApplicationStatus,
   type MilestoneSubmissionType,
+  type ReviewDecision,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
@@ -74,6 +75,7 @@ export interface ChecklistApplication {
 }
 
 export interface ChecklistLatestReview {
+  readonly decision: ReviewDecision;
   readonly reviewedAt: Date;
   readonly comment: string | null;
 }
@@ -111,11 +113,13 @@ export interface ResubmissionTarget {
   readonly submissionType: MilestoneSubmissionType;
   readonly applicationStatus: ApplicationStatus;
   readonly repositoryUrl: string | null;
+  readonly dueAt: Date;
 }
 
 export interface CreateSubmissionRevisionInput {
   readonly submissionId: string;
   readonly baseRevision: number;
+  readonly baseStatus: SubmissionStatus;
   readonly content: SubmissionContentInput;
   readonly comment: string | null;
   readonly submittedById: string;
@@ -376,7 +380,9 @@ class PrismaSubmissionsStore implements SubmissionsStore {
         milestoneId: true,
         status: true,
         currentRevision: true,
-        milestone: { select: { programId: true, submissionType: true } },
+        milestone: {
+          select: { programId: true, submissionType: true, dueAt: true },
+        },
         application: {
           select: { status: true, repository: { select: { url: true } } },
         },
@@ -393,6 +399,7 @@ class PrismaSubmissionsStore implements SubmissionsStore {
       submissionType: submission.milestone.submissionType,
       applicationStatus: submission.application.status,
       repositoryUrl: submission.application.repository?.url ?? null,
+      dueAt: submission.milestone.dueAt,
     };
   }
 
@@ -408,12 +415,12 @@ class PrismaSubmissionsStore implements SubmissionsStore {
     input: CreateSubmissionRevisionInput,
   ): Promise<{ readonly revision: number }> {
     const nextRevision = input.baseRevision + 1;
-    // 재제출 가능 상태·baseRevision을 조건으로 건 optimistic update —
-    // 동시 재제출이 끼어들면 count 0이 되어 stale로 끝난다(이전 revision·Review는 보존).
+    // 상태·baseRevision을 조건으로 건 optimistic update —
+    // 교직원 판정과 경합하거나 동시 교체가 끼어들면 count 0이 되어 stale로 끝난다.
     const updated = await this.database.submission.updateMany({
       where: {
         id: input.submissionId,
-        status: SubmissionStatus.CHANGES_REQUESTED,
+        status: input.baseStatus,
         currentRevision: input.baseRevision,
       },
       data: {

@@ -21,6 +21,7 @@ export enum ApplicationsErrorCode {
   /** 목록·요약 등 조회용 — 판정 전용 문구 금지 (#106/#117). */
   STAFF_LIST_ONLY = 'APP_018',
   TEAM_MIN_SIZE_NOT_MET = 'APP_019',
+  PROGRAM_ARCHIVED = 'APP_020',
 }
 
 export const APPLICATIONS_ERROR_CODES: Record<
@@ -122,5 +123,10 @@ export const APPLICATIONS_ERROR_CODES: Record<
     code: ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET,
     status: 422,
     message: '팀 최소 인원을 충족해야 신청할 수 있습니다.',
+  },
+  [ApplicationsErrorCode.PROGRAM_ARCHIVED]: {
+    code: ApplicationsErrorCode.PROGRAM_ARCHIVED,
+    status: 422,
+    message: '내린 프로그램에는 신청할 수 없습니다.',
   },
 };

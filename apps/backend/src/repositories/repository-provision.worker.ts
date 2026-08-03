@@ -17,6 +17,7 @@ import type {
 } from './repository-provision.contract';
 import {
   DEFAULT_PROVISION_OPTIONS,
+  DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
   finalProvisionFailure,
   normalizeProvisionFailure,
   PROVISION_ERROR_CODES,
@@ -49,7 +50,7 @@ export class RepositoryProvisionWorker {
   constructor(
     private readonly jobs: Pick<
       RepositoryProvisionJobRepository,
-      'claimNext' | 'renewLease'
+      'claimNext' | 'claimNextReconciliation' | 'renewLease'
     >,
     private readonly state: RepositoryProvisionStateStore,
     private readonly github: Pick<
@@ -64,12 +65,15 @@ export class RepositoryProvisionWorker {
     fixedNow?: Date,
   ): Promise<RepositoryProvisionResult> {
     const now = (): Date => fixedNow ?? new Date();
-    const job = await this.jobs.claimNext({
+    const claimInput = {
       workerId,
       now: now(),
       leaseMs: this.options.leaseMs,
-    });
-    if (job === null) {
+    };
+    const job =
+      (await this.jobs.claimNext(claimInput)) ??
+      (await this.jobs.claimNextReconciliation(claimInput));
+    if (job == null) {
       return { kind: 'EMPTY' };
     }
 
@@ -90,7 +94,7 @@ export class RepositoryProvisionWorker {
         workerId,
         repository.id,
       );
-      await this.processInvitations(
+      const hasPendingInvitation = await this.processInvitations(
         invitations,
         repository,
         job.id,
@@ -98,7 +102,19 @@ export class RepositoryProvisionWorker {
         job.attemptCount,
         now,
       );
-      await this.state.completeJob(job.id, workerId, repository.id, now());
+      const completedAt = now();
+      await this.state.completeJob(
+        job.id,
+        workerId,
+        repository.id,
+        completedAt,
+        hasPendingInvitation
+          ? new Date(
+              completedAt.getTime() +
+                DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
+            )
+          : undefined,
+      );
       this.logResult(context, job.id, job.attemptCount, 'SUCCEEDED');
       return { kind: 'SUCCEEDED', jobId: job.id, repositoryId: repository.id };
     } catch (error) {
@@ -203,7 +219,8 @@ export class RepositoryProvisionWorker {
     workerId: string,
     attemptCount: number,
     now: () => Date,
-  ): Promise<void> {
+  ): Promise<boolean> {
+    let hasPendingInvitation = false;
     for (const invitation of invitations) {
       try {
         await this.jobs.renewLease(jobId, workerId, now());
@@ -211,16 +228,20 @@ export class RepositoryProvisionWorker {
           repository.name,
           invitation.githubLogin,
         );
+        const status =
+          outcome === COLLABORATOR_OUTCOMES.SUCCEEDED
+            ? RepositoryInvitationStatus.SUCCEEDED
+            : RepositoryInvitationStatus.PENDING;
         await this.state.completeInvitation({
           jobId,
           workerId,
           invitationId: invitation.id,
-          status:
-            outcome === COLLABORATOR_OUTCOMES.SUCCEEDED
-              ? RepositoryInvitationStatus.SUCCEEDED
-              : RepositoryInvitationStatus.PENDING,
+          status,
           now: now(),
         });
+        if (status === RepositoryInvitationStatus.PENDING) {
+          hasPendingInvitation = true;
+        }
       } catch (error) {
         if (error instanceof RepositoryProvisionLeaseLostError) {
           throw error;
@@ -237,6 +258,7 @@ export class RepositoryProvisionWorker {
         throw error;
       }
     }
+    return hasPendingInvitation;
   }
 
   private logResult(

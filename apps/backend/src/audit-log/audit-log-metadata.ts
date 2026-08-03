@@ -1,5 +1,6 @@
 import {
   AccountStatus,
+  ProgramLifecycle,
   RepositoryVisibility,
   Role,
   RoleRequestStatus,
@@ -144,8 +145,29 @@ export function createRepositoryPublishAuditMetadata(
   return { schemaVersion: REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION, ...input };
 }
 
+export const PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION = 1 as const;
+
+export const PROGRAM_LIFECYCLE_AUDIT_ACTIONS = {
+  PROGRAM_ARCHIVED: 'PROGRAM_ARCHIVED',
+  PROGRAM_RESTORED: 'PROGRAM_RESTORED',
+} as const;
+
+export type ProgramLifecycleAuditMetadata = {
+  readonly schemaVersion: typeof PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION;
+  readonly before: { readonly lifecycle: ProgramLifecycle };
+  readonly after: { readonly lifecycle: ProgramLifecycle };
+};
+
+export function createProgramLifecycleAuditMetadata(
+  input: Omit<ProgramLifecycleAuditMetadata, 'schemaVersion'>,
+): ProgramLifecycleAuditMetadata {
+  return { schemaVersion: PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION, ...input };
+}
+
 export type AuditLogMetadata =
-  AccessAuditMetadata | RepositoryPublishAuditMetadata;
+  | AccessAuditMetadata
+  | RepositoryPublishAuditMetadata
+  | ProgramLifecycleAuditMetadata;
 
 export type AuditLogMetadataEvidence =
   | { readonly legacy: true; readonly metadata: null }
@@ -170,7 +192,11 @@ export function parseAuditLogMetadata(
   if (isJsonObject(value) && Object.keys(value).length === 0) {
     return { legacy: true, metadata: null };
   }
-  if (isAccessAuditMetadata(value) || isRepositoryPublishAuditMetadata(value)) {
+  if (
+    isAccessAuditMetadata(value) ||
+    isRepositoryPublishAuditMetadata(value) ||
+    isProgramLifecycleAuditMetadata(value)
+  ) {
     return { legacy: false, metadata: value };
   }
   throw new InvalidAuditLogMetadataError();
@@ -196,6 +222,26 @@ function isRepositoryPublishAuditVisibilityState(
     isJsonObject(value) &&
     (value.visibility === RepositoryVisibility.PRIVATE ||
       value.visibility === RepositoryVisibility.PUBLIC)
+  );
+}
+function isProgramLifecycleAuditMetadata(
+  value: unknown,
+): value is ProgramLifecycleAuditMetadata {
+  return (
+    isJsonObject(value) &&
+    value.schemaVersion === PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION &&
+    isProgramLifecycleState(value.before) &&
+    isProgramLifecycleState(value.after)
+  );
+}
+
+function isProgramLifecycleState(
+  value: unknown,
+): value is { readonly lifecycle: ProgramLifecycle } {
+  return (
+    isJsonObject(value) &&
+    (value.lifecycle === ProgramLifecycle.PUBLISHED ||
+      value.lifecycle === ProgramLifecycle.ARCHIVED)
   );
 }
 

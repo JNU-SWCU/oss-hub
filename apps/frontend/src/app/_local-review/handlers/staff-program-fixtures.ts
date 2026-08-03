@@ -91,6 +91,7 @@ const BASIC_PROGRAM = {
     '로컬 검토용 합성 프로그램입니다. 실제 모집이나 실제 참여자와 무관합니다.',
   teamMinSize: null,
   teamMaxSize: null,
+  lifecycle: 'PUBLISHED',
   categoryLocked: {
     locked: true,
     byApplications: true,
@@ -242,6 +243,7 @@ const CAPSTONE_PROGRAM = {
     '로컬 검토용 합성 프로그램입니다. 승인된 신청이 없는 상태를 확인합니다.',
   teamMinSize: 2,
   teamMaxSize: 5,
+  lifecycle: 'PUBLISHED',
   categoryLocked: {
     locked: false,
     byApplications: false,
@@ -287,6 +289,7 @@ const CONTEST_PROGRAM = {
     '로컬 검토용 합성 경진대회입니다. 팀형 신청·제출 화면을 확인합니다.',
   teamMinSize: 2,
   teamMaxSize: 4,
+  lifecycle: 'PUBLISHED',
   categoryLocked: {
     locked: true,
     byApplications: true,
@@ -439,6 +442,7 @@ const CREATED_PROGRAM = {
     '방금 등록한 프로그램 자리입니다. 로컬 검토용 합성 데이터이며 입력값은 저장되지 않습니다.',
   teamMinSize: null,
   teamMaxSize: null,
+  lifecycle: 'PUBLISHED',
   categoryLocked: {
     locked: false,
     byApplications: false,
