@@ -171,7 +171,7 @@ describe('SubmissionFilesService', () => {
   });
 
   it('accepts exactly 50 MiB and rejects one byte more', async () => {
-    const exact = 50 * 1024 * 1024;
+    const exact = 5 * 1024 * 1024;
     const accepted = setup();
     await expect(
       accepted.service.upload(

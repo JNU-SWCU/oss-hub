@@ -1,6 +1,6 @@
 import type { SubmissionType } from './types';
 
-export const SUBMISSION_FILE_MAX_BYTES = 50 * 1024 * 1024;
+export const SUBMISSION_FILE_MAX_BYTES = 5 * 1024 * 1024;
 
 export const SUBMISSION_FILE_ACCEPT =
   '.pdf,.hwp,.jpg,.jpeg,.png,.zip,application/pdf,application/x-hwp,image/jpeg,image/png,application/zip';
