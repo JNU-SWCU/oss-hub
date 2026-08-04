@@ -29,8 +29,7 @@ interface StudentApplicationResponse {
   readonly submittedAt: string;
   readonly updatedAt: string;
   readonly isRepositoryPublicationPlanned: boolean;
-  readonly canEdit: boolean;
-  readonly canCancel: boolean;
+  readonly canManage: boolean;
 }
 
 function toResponse(

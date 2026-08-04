@@ -29,8 +29,7 @@ describe('student application API', () => {
       },
       submittedAt: '2026-07-10T00:00:00.000Z',
       updatedAt: '2026-07-10T00:00:00.000Z',
-      canEdit: true,
-      canCancel: true,
+      canManage: true,
     };
     vi.mocked(apiClient).mockResolvedValue(response);
 

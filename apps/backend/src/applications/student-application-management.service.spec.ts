@@ -115,8 +115,7 @@ describe('StudentApplicationManagementService', () => {
       updatedAt: APPLICATION.updatedAt,
       isRepositoryPublicationPlanned:
         APPLICATION.isRepositoryPublicationPlanned,
-      canEdit: true,
-      canCancel: true,
+      canManage: true,
     });
   });
 

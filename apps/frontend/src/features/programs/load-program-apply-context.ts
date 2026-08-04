@@ -38,7 +38,7 @@ export type ProgramApplyContext =
       readonly teamId: string | null;
       readonly teamMinimum: TeamMinimum | null;
       readonly applicationId: string | null;
-      readonly canCancel: boolean;
+      readonly canManage: boolean;
       readonly initialValues: ProgramApplyFormValues;
     };
 
@@ -110,7 +110,7 @@ export async function loadProgramApplyContext(
       if (application.status !== 'SUBMITTED') {
         return { kind: 'blocked', reason: 'already-applied', program };
       }
-      if (!application.canEdit) {
+      if (!application.canManage) {
         return { kind: 'blocked', reason: 'period-closed', program };
       }
       return {
@@ -122,7 +122,7 @@ export async function loadProgramApplyContext(
         teamId: application.teamId,
         teamMinimum: null,
         applicationId: application.id,
-        canCancel: application.canCancel,
+        canManage: application.canManage,
         initialValues: {
           title: application.answers.title,
           summary: application.answers.summary,
@@ -149,7 +149,7 @@ export async function loadProgramApplyContext(
       teamId: team.teamId,
       teamMinimum: team.minimum,
       applicationId: null,
-      canCancel: false,
+      canManage: false,
       initialValues: {
         title: '',
         summary: '',

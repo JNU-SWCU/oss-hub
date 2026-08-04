@@ -56,7 +56,7 @@ function renderForm(overrides: { readonly serverError?: string | null } = {}) {
       errors={{}}
       serverError={overrides.serverError ?? null}
       mode="create"
-      canCancel={false}
+      canManage={false}
       confirmation={null}
       submitting={false}
       {...handlers}
@@ -91,7 +91,7 @@ describe('ProgramApply views', () => {
         errors={{}}
         serverError={null}
         mode="create"
-        canCancel={false}
+        canManage={false}
         confirmation="submit"
         submitting={false}
         {...handlers}
@@ -117,7 +117,7 @@ describe('ProgramApply views', () => {
         errors={{}}
         serverError={null}
         mode="edit"
-        canCancel
+        canManage
         confirmation={null}
         submitting={false}
         {...handlers}
