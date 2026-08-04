@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactElement } from 'react';
 import { EmptyState, PageHeader } from '@/components';
 import { Button } from '@/components/ui/button';
+import { programNewHref } from '@/lib/program-route';
 import { ProgramListPagination } from './program-list-pagination';
 import { StaffDashboardControls } from './staff-dashboard-controls';
 import { StaffDashboardOverview } from './staff-dashboard-overview';
@@ -100,7 +101,7 @@ function StaffDashboardReadyState({
         description="프로그램 행에서 바로 편집하거나 운영 현황을 확인합니다."
         actions={
           <Button asChild>
-            <Link href="/staff/programs/new">프로그램 만들기</Link>
+            <Link href={programNewHref()}>프로그램 만들기</Link>
           </Button>
         }
       />
@@ -117,7 +118,7 @@ function StaffDashboardReadyState({
           description="프로그램을 만들면 운영 현황이 여기에 표시됩니다."
           action={
             <Button asChild variant="outline">
-              <Link href="/staff/programs/new">프로그램 만들기</Link>
+              <Link href={programNewHref()}>프로그램 만들기</Link>
             </Button>
           }
         />

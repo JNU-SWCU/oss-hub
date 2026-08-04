@@ -691,7 +691,7 @@ export class ApplicationsRepository {
             endsAt: program.applicationEndAt,
           },
           applications,
-          applicantsPath: `/staff/programs/${encodeURIComponent(program.id)}/applicants`,
+          applicantsPath: `/programs/${encodeURIComponent(program.id)}/applicants`,
         };
       }),
     };

@@ -11,7 +11,7 @@ import {
   ProgramApplicantsPage,
   staleApplicationDecisionTitle,
 } from './program-applicants-page';
-import { staffApplicationDetailHref } from './program-paths';
+import { programApplicationDetailHref } from '@/lib/program-route';
 import type {
   ApplicationListItem,
   ApplicationListPage,
@@ -200,8 +200,8 @@ describe('program applicants display helpers', () => {
   });
 
   it('상세 href 는 locked #119 경로를 쓴다', () => {
-    expect(staffApplicationDetailHref('program:1', 'app:2')).toBe(
-      '/staff/programs/program%3A1/applications/app%3A2',
+    expect(programApplicationDetailHref('program:1', 'app:2')).toBe(
+      '/programs/program%3A1/applications/app%3A2',
     );
   });
 });
@@ -231,11 +231,11 @@ describe('application list request epoch', () => {
   });
 });
 
-describe('staffApplicationDetailHref in markup', () => {
+describe('programApplicationDetailHref in markup', () => {
   it('행 링크가 인코딩된 상세 경로를 가리킨다', () => {
-    const href = staffApplicationDetailHref('program-1', 'app-1');
+    const href = programApplicationDetailHref('program-1', 'app-1');
     const html = renderToStaticMarkup(<a href={href}>보기</a>);
-    expect(html).toContain('/staff/programs/program-1/applications/app-1');
+    expect(html).toContain('/programs/program-1/applications/app-1');
     expect(html).not.toContain('판정');
   });
 });

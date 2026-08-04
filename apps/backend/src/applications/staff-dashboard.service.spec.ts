@@ -33,7 +33,7 @@ describe('StaffDashboardService', () => {
             approved: 1,
             rejected: 1,
           },
-          applicantsPath: '/staff/programs/program%3A1/applicants',
+          applicantsPath: '/programs/program%3A1/applicants',
         },
         {
           id: 'program:2',
@@ -49,7 +49,7 @@ describe('StaffDashboardService', () => {
             approved: 0,
             rejected: 0,
           },
-          applicantsPath: '/staff/programs/program%3A2/applicants',
+          applicantsPath: '/programs/program%3A2/applicants',
         },
       ],
     });
@@ -103,7 +103,7 @@ describe('StaffDashboardService', () => {
         approved: 1,
         rejected: 1,
       },
-      applicantsPath: '/staff/programs/program%3A1/applicants',
+      applicantsPath: '/programs/program%3A1/applicants',
       activity: {
         repositories: 2,
         commits: 5,

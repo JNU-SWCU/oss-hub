@@ -181,7 +181,7 @@ describe('SubmissionMatrixService', () => {
               revision: 2,
               status: SubmissionStatus.CHANGES_REQUESTED,
               submittedAt: submittedAt.toISOString(),
-              reviewUrl: `/staff/programs/${PROGRAM_ID}/submissions/submission-1/review`,
+              reviewUrl: `/programs/${PROGRAM_ID}/submissions/submission-1/review`,
             },
             {
               milestoneId: 'milestone-2',

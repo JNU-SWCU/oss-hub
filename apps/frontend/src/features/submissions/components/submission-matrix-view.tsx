@@ -29,6 +29,7 @@ import {
   notSubmittedDeadline,
   type MatrixQuickFilter,
 } from '../matrix';
+import { programEditHref } from '@/lib/program-route';
 import type {
   MatrixCell,
   MatrixMilestone,
@@ -286,9 +287,7 @@ function MatrixBody(props: SubmissionMatrixViewProps): ReactNode {
         description="프로그램에 마일스톤을 추가하면 제출 현황을 조회할 수 있습니다."
         action={
           <Button asChild variant="outline">
-            <Link
-              href={`/staff/programs/${encodeURIComponent(props.programId)}/edit`}
-            >
+            <Link href={programEditHref(props.programId)}>
               프로그램 편집에서 마일스톤 추가
             </Link>
           </Button>

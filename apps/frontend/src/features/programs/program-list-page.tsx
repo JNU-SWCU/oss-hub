@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
 import { listPrograms } from './api';
+import { programNewHref } from '@/lib/program-route';
 import { programHref } from './program-paths';
 import {
   filterAndGroupPrograms,
@@ -178,7 +179,7 @@ function ProgramListPage({
           action={
             canCreateProgram && !hasFilters ? (
               <Button asChild>
-                <Link href="/staff/programs/new">프로그램 만들기</Link>
+                <Link href={programNewHref()}>프로그램 만들기</Link>
               </Button>
             ) : undefined
           }

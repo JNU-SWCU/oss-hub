@@ -13,7 +13,8 @@ import {
   formatSeoulDate,
   formatSeoulDateOnly,
 } from './program-detail-format';
-import { programHref, staffProgramHref } from './program-paths';
+import { programApplicantsHref, programEditHref } from '@/lib/program-route';
+import { programHref } from './program-paths';
 import type { ProgramOverview } from './program-overview-api';
 import type { ProgramDetail } from './types';
 
@@ -56,12 +57,10 @@ export function ProgramActions({
     return (
       <div className="flex flex-wrap gap-2">
         <Button asChild variant="outline">
-          <Link href={staffProgramHref(program.id, '/applicants')}>
-            신청자 목록
-          </Link>
+          <Link href={programApplicantsHref(program.id)}>신청자 목록</Link>
         </Button>
         <Button asChild variant="outline">
-          <Link href={staffProgramHref(program.id, '/edit')}>편집</Link>
+          <Link href={programEditHref(program.id)}>편집</Link>
         </Button>
       </div>
     );
@@ -244,7 +243,7 @@ export function ProgramMilestones({
             program.viewer.role === 'STAFF' ||
             program.viewer.role === 'ADMIN' ? (
               <Button asChild variant="outline">
-                <Link href={staffProgramHref(program.id, '/edit#milestones')}>
+                <Link href={`${programEditHref(program.id)}#milestones`}>
                   마일스톤 설정
                 </Link>
               </Button>

@@ -22,7 +22,7 @@ const submittedCell: MatrixCell = {
   revision: 2,
   status: 'SUBMITTED',
   submittedAt: '2026-08-19T10:00:00+09:00',
-  reviewUrl: '/staff/programs/program-1/submissions/submission-existing/review',
+  reviewUrl: '/programs/program-1/submissions/submission-existing/review',
 };
 
 const teamRow: MatrixRow = {

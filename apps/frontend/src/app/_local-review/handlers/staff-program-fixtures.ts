@@ -25,7 +25,7 @@ import type { MatrixRow } from '@/features/submissions/types';
 
 /** `submissionMatrixReviewUrl`(backend)와 같은 규칙으로 검토 화면 경로를 만든다. */
 function reviewUrl(programId: string, submissionId: string): string {
-  return `/staff/programs/${programId}/submissions/${submissionId}/review`;
+  return `/programs/${programId}/submissions/${submissionId}/review`;
 }
 
 const PROVISIONING_SUCCEEDED = {

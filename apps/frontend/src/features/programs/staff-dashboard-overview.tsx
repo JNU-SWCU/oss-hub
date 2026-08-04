@@ -10,7 +10,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { programHref, staffProgramHref } from './program-paths';
+import { programEditHref, programStatusHref } from '@/lib/program-route';
+import { programHref } from './program-paths';
 import {
   formatStaffApplicationPeriod,
   getStaffRecruitmentBadge,
@@ -124,7 +125,7 @@ function ProgramIdentity({
     <div className="grid min-w-0 gap-1">
       <CardTitle className="break-keep text-base">
         <Link
-          href={staffProgramHref(program.id, '/edit')}
+          href={programEditHref(program.id)}
           aria-label={`${program.name} 편집`}
           className="font-medium break-keep underline-offset-4 after:absolute after:inset-0 after:z-[1] hover:underline focus-visible:underline focus-visible:outline-none"
         >
@@ -174,9 +175,7 @@ function StaffDashboardActions({
         <Link href={program.applicantsPath}>신청자</Link>
       </Button>
       <Button asChild size="sm" variant="outline">
-        <Link href={staffProgramHref(program.id, '/submissions')}>
-          제출 현황
-        </Link>
+        <Link href={programStatusHref(program.id)}>제출 현황</Link>
       </Button>
     </div>
   );

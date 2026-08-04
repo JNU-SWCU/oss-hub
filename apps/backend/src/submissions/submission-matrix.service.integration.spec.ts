@@ -260,7 +260,7 @@ describe('SubmissionMatrixService integration', () => {
       submissionId: approvedSubmissionId,
       revision: 1,
       status: SubmissionStatus.APPROVED,
-      reviewUrl: `/staff/programs/${PROGRAM_ID}/submissions/${approvedSubmissionId}/review`,
+      reviewUrl: `/programs/${PROGRAM_ID}/submissions/${approvedSubmissionId}/review`,
     });
     expect(approvedCell.submittedAt).toMatch(/T.*Z$/);
     expect(
