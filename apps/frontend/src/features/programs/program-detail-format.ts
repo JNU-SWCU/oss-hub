@@ -49,3 +49,30 @@ export function submissionTypeLabel(type: SubmissionType): string {
 export function formatSeoulDate(value: string): string {
   return DATE_FORMAT.format(new Date(value));
 }
+
+const SEOUL_PARTS_FORMAT = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+function seoulParts(value: string): Record<string, string> {
+  const parts = SEOUL_PARTS_FORMAT.formatToParts(new Date(value));
+  return Object.fromEntries(parts.map((part) => [part.type, part.value]));
+}
+
+/** 팩트 바 기간 표기 — "2026.09.01" */
+export function formatSeoulDateOnly(value: string): string {
+  const { year, month, day } = seoulParts(value);
+  return `${year}.${month}.${day}`;
+}
+
+/** 제출 타임스탬프 표기 — "09.16 14:22" */
+export function formatSeoulShortDateTime(value: string): string {
+  const { month, day, hour, minute } = seoulParts(value);
+  return `${month}.${day} ${hour}:${minute}`;
+}

@@ -51,7 +51,7 @@ export function ProgramEditMilestones({
             마일스톤
           </h2>
           <p className="text-small text-muted-foreground">
-            canonical ID 기준으로 등록, 수정, 삭제합니다.
+            학생이 제출물을 올릴 마일스톤을 등록·수정·삭제할 수 있습니다.
           </p>
         </div>
         <Button type="button" variant="outline" onClick={onAdd}>

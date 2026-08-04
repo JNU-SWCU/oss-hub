@@ -1,7 +1,10 @@
 import { EmptyState } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { sortChecklistItems } from '../submission-checklist';
+import {
+  checklistSubmittedCount,
+  sortChecklistItems,
+} from '../submission-checklist';
 import type {
   SubmissionFormErrors,
   SubmissionFormInput,
@@ -50,20 +53,19 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
       <SelectedMilestonePanel {...props} item={selected} />
     )
   ) : null;
+  const count = checklistSubmittedCount(items);
   const content = (
     <>
       <header className="grid gap-1">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-heading text-xl font-semibold">
-            마일스톤 및 제출
-          </h2>
-          <span className="text-sm text-muted-foreground">
-            {items.length}개
+          <h2 className="font-heading text-xl font-semibold">내 제출물</h2>
+          <span className="text-sm font-semibold text-muted-foreground">
+            {count.submitted}/{count.total}
           </span>
         </div>
         <p className="text-sm text-muted-foreground [word-break:keep-all]">
-          마일스톤별 제출 상태를 확인하고, 보완 요청을 받은 제출을 재제출할 수
-          있습니다.
+          낼 서류 {count.total}건 중 {count.submitted}건 제출 — 마일스톤별로
+          모아 보고 이 자리에서 바로 냅니다.
         </p>
       </header>
       {props.toastMessage ? (

@@ -16,6 +16,7 @@
 | `submission-file-storage.port.ts` | `SubmissionFileStoragePort` 인터페이스·`SUBMISSION_FILE_STORAGE` DI 토큰 |
 | `s3-submission-file.storage.ts` | 포트의 유일한 구현체 — lazy client 초기화 |
 | `submission-file-cleanup.service.ts` / `.scheduler.ts` | 만료된 파일 정리(매시 cron) — `SubmissionFileCleanupService.runDue()` |
+| `submission-file-cleanup-failures.controller.ts` / `.service.ts` | 재시도를 소진해 멈춘 정리 대상의 관리자 전용 조회(`GET /submission-files/cleanup/failures`, #545) |
 | `submission-matrix.service.ts` | 교직원 제출 현황 매트릭스(#124) |
 | `submission-release-url.ts` | 저장소 릴리스 URL이 신청 시 연결된 저장소와 일치하는지 검증(`isLinkedRepositoryReleaseUrl`) |
 | `submissions-error-code.enum.ts` | `SUB_*` 코드 레지스트리 |

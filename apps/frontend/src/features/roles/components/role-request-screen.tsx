@@ -1,7 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { CircleCheck, Clock3, RefreshCw, TriangleAlert } from 'lucide-react';
+import {
+  CircleCheck,
+  Clock3,
+  RefreshCw,
+  TriangleAlert,
+  UserPen,
+} from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { StatusBadge } from '@/components/status-badge';
@@ -12,6 +19,30 @@ import { ApiError } from '@/lib/api-client';
 
 import { fetchMyRoleRequest, requestStaffRole } from '../api';
 import type { RoleRequest } from '../types';
+
+/**
+ * 승인을 기다리는 교직원이 자기 이름·학과를 고치러 가는 자리(#598).
+ *
+ * 고칠 **수단**은 이미 있었다 — 설정 화면이 그들에게 열려 있다(#581). 없던 것은
+ * 그 화면으로 가는 **길**이다. 설정으로 가는 입구가 머리글 계정 메뉴 하나뿐이라
+ * (2026-08-04 실측: 세 역할 × 세 폭 아홉 조합 모두 계정 메뉴 1개), 그 메뉴를 모르는
+ * 사람에게는 이름의 오타 하나가 영영 고쳐지지 않았다. 그래서 이미 서 있는 자리에
+ * 입구를 하나 더 낸다.
+ *
+ * 프로필 입력 단계(`/onboarding/profile`)로 보내지 않는다. 두 가지 이유다.
+ *
+ * 1. 그 화면은 `STEP 3 / 3`·`가입 마치기`를 말하는 **가입 절차의 마지막 칸**이다.
+ *    이미 가입을 마치고 승인만 기다리는 사람에게 다시 열면 가입이 되돌아간 것으로
+ *    읽힌다. 게다가 프로필이 이미 완료라 그 화면은 스스로 되돌아 나온다
+ *    (`features/profile/profile-state.ts`의 `getProfileRedirect`).
+ * 2. 설정 화면은 이 사람을 위해 만들어졌다 — 학번은 잠그고 이름·학과만 열며
+ *    "가입이 아직 진행 중입니다" 안내를 함께 세운다
+ *    (`app/settings/settings-onboarding-notice.tsx`).
+ *
+ * 역할 선택 단계는 여기서 **열지 않는다.** 승인 대기 중에 역할을 다시 고르면 요청이
+ * 하나 더 만들어져 관리자 승인 목록에 같은 사람이 두 번 뜬다.
+ */
+export const PENDING_PROFILE_EDIT_PATH = '/settings';
 
 interface RoleRequestStatusViewProps {
   readonly request: RoleRequest;
@@ -125,6 +156,26 @@ export function RoleRequestStatusView({
               <Button type="button" variant="outline" onClick={onRefresh}>
                 <RefreshCw />
                 상태 새로고침
+              </Button>
+            ) : null}
+
+            {/* 승인 대기(`PENDING`)에서만 낸다 — 설정 화면의 문(`app/settings/
+                settings-access.ts`의 `isSettingsOpenForStaffAwaitingRole`)이 열리는
+                갈래와 같아야 한다. 반려·회수는 그 문이 닫혀 있어 링크를 내면 눌러도
+                이 화면으로 되돌아오는 제자리 걸음이 된다. 승인은 이 화면에 머무르지
+                않고 `/dashboard`로 나간다. 두 곳이 갈라지지 않도록
+                `app/onboarding/pending/profile-edit-path.test.ts`가 못박는다. */}
+            {request.status === 'PENDING' ? (
+              // 링크 문구는 고칠 수 있는 항목을 그대로 적는다 — 학번은 한 번
+              // 저장하면 잠기므로(`users.service.ts`의 `STUDENT_ID_IMMUTABLE`)
+              // 여기에 넣으면 고치러 갔다가 잠긴 칸을 보고 고장으로 읽는다.
+              // `~할 수 있습니다`도 쓰지 않는다: 375px에서 의존명사 `수` 앞뒤로
+              // 줄이 갈린다(`settings-onboarding-notice.tsx`와 같은 규칙).
+              <Button asChild variant="ghost">
+                <Link href={PENDING_PROFILE_EDIT_PATH}>
+                  <UserPen />
+                  이름·학과 고치기
+                </Link>
               </Button>
             ) : null}
           </div>

@@ -2,6 +2,7 @@ import type {
   MatrixApplicationMode,
   MatrixCell,
   MatrixCellStatus,
+  MatrixMilestone,
   MatrixRow,
 } from './types';
 
@@ -170,4 +171,122 @@ export function notSubmittedDeadline(
     };
   }
   return { overdue: false, label: dDay === 0 ? '오늘 마감' : `D-${dDay}` };
+}
+
+const SUBMITTED_AT_FORMAT = new Intl.DateTimeFormat('ko-KR', {
+  timeZone: SEOUL_TIME_ZONE,
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+
+/** 제출 시각 표시 — 프로토타입 표기("09.16 14:22")와 같은 "MM.DD HH:MM" 포맷. */
+export function formatSubmittedAt(submittedAt: string): string {
+  const parts = SUBMITTED_AT_FORMAT.formatToParts(new Date(submittedAt));
+  const get = (type: string) =>
+    parts.find((part) => part.type === type)?.value ?? '';
+  return `${get('month')}.${get('day')} ${get('hour')}:${get('minute')}`;
+}
+
+/** 제출됨 셀이 해당 마일스톤 마감(dueAt) 이후에 들어왔는지 — "지각" 판정(#619 스펙). */
+export function isLateSubmission(
+  cell: MatrixCell,
+  milestone: MatrixMilestone,
+): boolean {
+  if (cell.status === 'NOT_SUBMITTED' || cell.submittedAt === null) {
+    return false;
+  }
+  return (
+    new Date(cell.submittedAt).getTime() > new Date(milestone.dueAt).getTime()
+  );
+}
+
+/** #619 스펙 3버튼 빠른 필터 — "전체"/"빈 칸 있는 팀"/"한 장도 안 낸 팀". */
+export type MatrixQuickFilter = 'ALL' | 'HAS_EMPTY' | 'ZERO_SUBMISSION';
+
+/** 빈 칸 있는 팀 — 로드된 마일스톤 중 하나라도 NOT_SUBMITTED인 행. */
+export function matrixRowHasEmptyCell(
+  row: MatrixRow,
+  milestones: readonly MatrixMilestone[],
+): boolean {
+  return milestones.some(
+    (milestone) =>
+      cellForMilestone(row, milestone.id).status === 'NOT_SUBMITTED',
+  );
+}
+
+/** 한 장도 안 낸 팀 — 로드된 마일스톤 전부가 NOT_SUBMITTED인 행. */
+export function matrixRowIsZeroSubmission(
+  row: MatrixRow,
+  milestones: readonly MatrixMilestone[],
+): boolean {
+  return milestones.every(
+    (milestone) =>
+      cellForMilestone(row, milestone.id).status === 'NOT_SUBMITTED',
+  );
+}
+
+/**
+ * 빠른 필터 적용 — matrixPageStats와 같은 전제로 이 페이지에 로드된 행만
+ * 대상으로 한다(서버 재조회 없음).
+ */
+export function applyMatrixQuickFilter(
+  rows: readonly MatrixRow[],
+  milestones: readonly MatrixMilestone[],
+  filter: MatrixQuickFilter,
+): readonly MatrixRow[] {
+  if (filter === 'HAS_EMPTY') {
+    return rows.filter((row) => matrixRowHasEmptyCell(row, milestones));
+  }
+  if (filter === 'ZERO_SUBMISSION') {
+    return rows.filter((row) => matrixRowIsZeroSubmission(row, milestones));
+  }
+  return rows;
+}
+
+export interface MatrixPageStats {
+  /** 로드된(현재 페이지) 행 × 마일스톤 칸 수. */
+  readonly totalCells: number;
+  readonly filledCells: number;
+  readonly emptyCells: number;
+  /** 모든 마일스톤이 NOT_SUBMITTED인 행(팀) 수. */
+  readonly zeroSubmissionRows: number;
+  /** dueAt 이후 제출된 칸 수. */
+  readonly lateCells: number;
+}
+
+/**
+ * 현재 페이지에 로드된 행만을 기준으로 한 요약 — #124 API가 페이지 단위로
+ * 응답하므로 전체 total 행을 기준으로 한 정확한 전체 집계는 별도 백엔드
+ * 집계 API 없이는 낼 수 없다. 호출부는 이 값을 "이 페이지 기준"으로 표기한다.
+ */
+export function matrixPageStats(
+  rows: readonly MatrixRow[],
+  milestones: readonly MatrixMilestone[],
+): MatrixPageStats {
+  const totalCells = rows.length * milestones.length;
+  let filledCells = 0;
+  let zeroSubmissionRows = 0;
+  let lateCells = 0;
+  for (const row of rows) {
+    let rowHasSubmission = false;
+    for (const milestone of milestones) {
+      const cell = cellForMilestone(row, milestone.id);
+      if (cell.status !== 'NOT_SUBMITTED') {
+        filledCells += 1;
+        rowHasSubmission = true;
+        if (isLateSubmission(cell, milestone)) lateCells += 1;
+      }
+    }
+    if (!rowHasSubmission) zeroSubmissionRows += 1;
+  }
+  return {
+    totalCells,
+    filledCells,
+    emptyCells: totalCells - filledCells,
+    zeroSubmissionRows,
+    lateCells,
+  };
 }

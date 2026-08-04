@@ -28,7 +28,7 @@ export interface LandingJourneyProps {
 
 const PANEL_COUNT = 5;
 const FLOW_STEPS: readonly (readonly [string, string, string])[] = [
-  ['STEP 1', '신청·팀 구성', '— 참여코드로 팀원이 합류'],
+  ['STEP 1', '신청·팀 구성', '— 참여 코드로 팀원이 합류'],
   ['STEP 2', '저장소 연결', '— 승인되면 팀 저장소가 열림'],
   ['STEP 3', '제출·검토', '— 마일스톤 단위로 교직원이 검토'],
   ['STEP 4', '공개 아카이브', '— 연도별 아카이브에 남음'],

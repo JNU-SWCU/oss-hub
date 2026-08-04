@@ -8,6 +8,7 @@ import {
   MATRIX_PAGE_SIZE,
   type MatrixModeFilter,
   type MatrixQueryInput,
+  type MatrixQuickFilter,
 } from '../matrix';
 import type { SubmissionMatrixPage } from '../types';
 import { SubmissionMatrixView } from './submission-matrix-view';
@@ -27,6 +28,8 @@ export function SubmissionMatrixScreen({
 }) {
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState<MatrixQueryInput>(INITIAL_QUERY);
+  // #619 스펙 3버튼 빠른 필터 — 서버 재조회 없이 로드된 페이지 행만 거른다.
+  const [quickFilter, setQuickFilter] = useState<MatrixQuickFilter>('ALL');
   const [data, setData] = useState<SubmissionMatrixPage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -69,21 +72,29 @@ export function SubmissionMatrixScreen({
       search={search}
       mode={query.mode}
       filterActive={isMatrixFilterActive(query.q, query.mode)}
+      quickFilter={quickFilter}
       isLoading={isLoading}
       errorMessage={errorMessage}
       now={new Date()}
       onSearchChange={setSearch}
-      onSearch={() =>
-        setQuery((prev) => ({ ...prev, q: search.trim(), page: 1 }))
-      }
-      onModeChange={(mode: MatrixModeFilter) =>
-        setQuery((prev) => ({ ...prev, mode, page: 1 }))
-      }
+      onSearch={() => {
+        setQuickFilter('ALL');
+        setQuery((prev) => ({ ...prev, q: search.trim(), page: 1 }));
+      }}
+      onModeChange={(mode: MatrixModeFilter) => {
+        setQuickFilter('ALL');
+        setQuery((prev) => ({ ...prev, mode, page: 1 }));
+      }}
+      onQuickFilterChange={setQuickFilter}
       onResetFilters={() => {
         setSearch('');
+        setQuickFilter('ALL');
         setQuery(INITIAL_QUERY);
       }}
-      onPageChange={(page) => setQuery((prev) => ({ ...prev, page }))}
+      onPageChange={(page) => {
+        setQuickFilter('ALL');
+        setQuery((prev) => ({ ...prev, page }));
+      }}
       onRetry={() => {
         requestIdRef.current += 1;
         void load(query, requestIdRef.current);

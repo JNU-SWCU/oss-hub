@@ -185,7 +185,7 @@ describe('SubmissionChecklistView 체크리스트', () => {
     expect(html).toContain('id="milestones"');
   });
 
-  it('상태 5종을 programs 화면과 같은 라벨·행동 버튼으로 렌더한다', () => {
+  it('상태 5종을 programs 화면과 같은 라벨로, 행동 버튼은 #619 mydocs 표기로 렌더한다', () => {
     // When
     const html = render();
 
@@ -195,13 +195,23 @@ describe('SubmissionChecklistView 체크리스트', () => {
     expect(html).toContain('승인');
     expect(html).toContain('보완 필요');
     expect(html).toContain('최종 반려');
-    // 행동 버튼: 미제출 → #115 제출 화면, 보완 → 사유·재제출, 나머지 → 보기.
+    // 행동 버튼(#619 mydocs 스펙): 미제출 → 올리기, 재제출 가능 → 수정, 나머지(읽기전용) → 보기.
     expect(html).toContain('/programs/program-1?submission=milestone-final');
     expect(html).toContain('id="submission-trigger-milestone-final"');
-    expect(html).toContain('제출하기');
-    expect(html).toContain('사유·재제출');
+    expect(html).toContain('올리기');
+    expect(html).toContain('수정');
     expect(html).toContain('보기');
     expect(html).toContain('/programs/program-1?submission=milestone-interim');
+  });
+
+  it('낼 서류 건수 중 제출 건수를 요약해 보여준다(좌측 패널과 같은 규칙)', () => {
+    // When — ITEMS 5개 중 submission!==null인 항목 4개(기획서/중간보고/시연/회고).
+    const html = render();
+
+    // Then
+    expect(html).toContain('내 제출물');
+    expect(html).toContain('4/5');
+    expect(html).toContain('낼 서류 5건 중 4건 제출');
   });
 
   it('D-day는 Asia/Seoul 기준 표시 상태로 계산한다', () => {
@@ -283,6 +293,39 @@ describe('ChecklistRow 제출 CTA', () => {
     expect(ordinaryClick.wasPrevented()).toBe(true);
     expect(onSelectMilestone).toHaveBeenCalledTimes(1);
     expect(onSelectMilestone).toHaveBeenCalledWith('milestone-final');
+  });
+});
+
+describe('ChecklistRow 업로드 가능 여부', () => {
+  it('마감이 지난 미제출 마일스톤은 올리기 버튼을 비활성화한다', () => {
+    // Given: dueAt이 NOW(2026-07-24 Seoul)보다 지난 미제출 마일스톤.
+    const overdueUnsubmitted: SubmissionChecklistItem = {
+      milestoneId: 'milestone-overdue-empty',
+      name: '지난 마감 서류',
+      dueAt: '2026-07-20T14:59:59.000Z',
+      submissionType: 'TEXT',
+      submission: null,
+    };
+    const html = renderToStaticMarkup(
+      <ChecklistRow
+        programId="program-1"
+        item={overdueUnsubmitted}
+        now={NOW}
+      />,
+    );
+
+    // Then
+    expect(html).toContain('올리기');
+    expect(html).toContain('disabled=""');
+    expect(html).not.toContain('href="/programs/program-1?submission=');
+  });
+
+  it('마감 전 미제출 마일스톤은 올리기 버튼이 활성화된 링크다', () => {
+    const html = render({ selectedMilestoneId: null });
+    expect(html).toContain('올리기');
+    expect(html).toContain(
+      'href="/programs/program-1?submission=milestone-final"',
+    );
   });
 });
 

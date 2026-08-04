@@ -36,8 +36,12 @@ import {
   reviewSessionProfileComplete,
 } from './handlers/account-handlers';
 import { ADMIN_HANDLERS } from './handlers/admin-handlers';
+import { BOARD_HANDLERS } from './handlers/board-handlers';
+import { MILESTONE_DOCUMENT_HANDLERS } from './handlers/milestone-document-handlers';
+import { PROGRAM_OVERVIEW_HANDLERS } from './handlers/program-overview-handlers';
 import { STAFF_HANDLERS } from './handlers/staff-handlers';
 import { STUDENT_HANDLERS } from './handlers/student-handlers';
+import { TEAM_INVITATION_HANDLERS } from './handlers/team-invitation-handlers';
 import { STUDENT_JOURNEY_RESPONSES } from './student-journey-fixtures';
 
 export type { LocalReviewResponsePlan } from './handler-kit';
@@ -60,6 +64,10 @@ const DOMAIN_HANDLERS: readonly LocalReviewHandler[] = [
   ...STUDENT_HANDLERS,
   ...STAFF_HANDLERS,
   ...ADMIN_HANDLERS,
+  ...PROGRAM_OVERVIEW_HANDLERS,
+  ...MILESTONE_DOCUMENT_HANDLERS,
+  ...BOARD_HANDLERS,
+  ...TEAM_INVITATION_HANDLERS,
 ];
 
 /**

@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { ActivityPanelBody } from './components/activity-graph-panel';
 import { MilestoneRow } from './components/milestone-row';
 import { ApiError } from '@/lib/api-client';
+import { MilestoneDocumentSectionBody } from './milestone-document-list';
+import type { MilestoneDocument } from './milestone-document-api';
 import {
   detailFailure,
   ProgramActions,
@@ -10,6 +12,8 @@ import {
   ProgramDetailFailureState,
   ProgramMilestones,
 } from './program-detail-page';
+import { ProgramFactBar } from './program-detail-view';
+import type { ProgramOverview } from './program-overview-api';
 import type { ProgramDetail, ProgramMilestone } from './types';
 
 const milestone: ProgramMilestone = {
@@ -184,7 +188,10 @@ const programWithoutMilestones: ProgramDetail = {
 };
 
 describe('ProgramDetailPage states', () => {
-  it('승인된 학생에게 별도 페이지 대신 상세 안의 제출 체크리스트를 불러온다', () => {
+  // 승인된 학생 전용 체크리스트로 마일스톤 섹션을 통째로 갈아 끼우던 이전 분기는
+  // milestone documents API 기반 인라인 서류 제출로 대체됐다 — approvedStudentMilestones가
+  // 넘어와도 이제는 무시하고 항상 ProgramMilestones(팩트 바 + 서류 제출 행)를 그린다.
+  it('승인된 학생에게도 approvedStudentMilestones 대신 항상 마일스톤 목록을 그린다', () => {
     const html = renderToStaticMarkup(
       <ProgramDetailReadyState
         program={{
@@ -193,14 +200,15 @@ describe('ProgramDetailPage states', () => {
           milestones: [milestone],
         }}
         approvedStudentMilestones={
-          <section id="milestones" aria-label="체크리스트 불러오는 중" />
+          <section id="should-not-render" aria-label="체크리스트 불러오는 중" />
         }
       />,
     );
 
     expect(html).toContain('id="milestones"');
-    expect(html).toContain('체크리스트 불러오는 중');
-    expect(html).not.toContain('/programs/program-1/submissions');
+    expect(html).toContain('기획서 제출');
+    expect(html).not.toContain('id="should-not-render"');
+    expect(html).not.toContain('체크리스트 불러오는 중');
   });
 
   it('renders the activity anchor used by the staff dashboard direct link', () => {
@@ -270,5 +278,190 @@ describe('ProgramDetailPage states', () => {
     expect(notFoundHtml).toContain('프로그램을 찾을 수 없습니다');
     expect(failedHtml).toContain('프로그램을 불러오지 못했습니다');
     expect(failedHtml).toContain('다시 시도');
+  });
+});
+
+const overviewBase: ProgramOverview = {
+  programId: 'program-1',
+  name: 'OSS 경진대회',
+  category: 'OSS_CONTEST',
+  lifecycle: 'ACTIVE',
+  milestoneCount: 1,
+  boardPostCount: 0,
+  participantCount: 12,
+  teamCount: 4,
+  connectedRepositoryCount: 3,
+  viewerRole: 'STUDENT',
+  viewerDocumentsCompleted: null,
+  viewerDocumentsTotal: null,
+  fullySubmittedParticipantCount: null,
+};
+
+describe('ProgramFactBar', () => {
+  it('overview 조회 실패 시(null) 프로그램 기본 정보만으로 앞 두 항목만 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramFactBar program={programWithoutMilestones} overview={null} />,
+    );
+    expect(html).toContain('주관');
+    expect(html).toContain('신청 기간');
+    expect(html).not.toContain('참여 학생');
+    expect(html).not.toContain('연결된 저장소');
+  });
+
+  it('학생에게는 참여 현황과 함께 내 제출 N/M을 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramFactBar
+        program={programWithoutMilestones}
+        overview={{
+          ...overviewBase,
+          viewerRole: 'STUDENT',
+          viewerDocumentsCompleted: 2,
+          viewerDocumentsTotal: 5,
+        }}
+      />,
+    );
+    expect(html).toContain('참여 학생');
+    expect(html).toContain('12명');
+    expect(html).toContain('연결된 저장소');
+    expect(html).toContain('내 제출');
+    expect(html).toContain('2 / 5 서류');
+    expect(html).not.toContain('제출률');
+  });
+
+  it('교직원에게는 내 제출 대신 참여자 기준 제출률을 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramFactBar
+        program={programWithoutMilestones}
+        overview={{
+          ...overviewBase,
+          viewerRole: 'STAFF',
+          participantCount: 10,
+          fullySubmittedParticipantCount: 3,
+        }}
+      />,
+    );
+    expect(html).toContain('제출률');
+    expect(html).toContain('30% (3/10)');
+    expect(html).not.toContain('내 제출');
+  });
+});
+
+function buildDocument(
+  overrides: Partial<MilestoneDocument> = {},
+): MilestoneDocument {
+  return {
+    id: 'document-1',
+    milestoneId: 'milestone-1',
+    name: '기획서',
+    required: true,
+    sortOrder: 0,
+    submissionType: 'FILE',
+    hasTemplateFile: false,
+    ...overrides,
+  };
+}
+
+describe('MilestoneDocumentSectionBody', () => {
+  it('로딩 중에는 아무것도 그리지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <MilestoneDocumentSectionBody
+        state={{ kind: 'loading' }}
+        viewerRole="STUDENT"
+        closed={false}
+        onRetry={vi.fn()}
+        onDocumentChange={vi.fn()}
+      />,
+    );
+    expect(html).toBe('');
+  });
+
+  it('조회 실패 시 재시도 버튼을 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <MilestoneDocumentSectionBody
+        state={{ kind: 'failed' }}
+        viewerRole="STUDENT"
+        closed={false}
+        onRetry={vi.fn()}
+        onDocumentChange={vi.fn()}
+      />,
+    );
+    expect(html).toContain('제출 서류를 불러오지 못했습니다');
+    expect(html).toContain('다시 시도');
+  });
+
+  it('서류가 없으면 아무것도 그리지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <MilestoneDocumentSectionBody
+        state={{ kind: 'ready', documents: [] }}
+        viewerRole="STUDENT"
+        closed={false}
+        onRetry={vi.fn()}
+        onDocumentChange={vi.fn()}
+      />,
+    );
+    expect(html).toBe('');
+  });
+
+  it('교직원에게는 팀 제출 카운트와 양식 올리기/교체 버튼을 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <MilestoneDocumentSectionBody
+        state={{
+          kind: 'ready',
+          documents: [
+            buildDocument({
+              hasTemplateFile: true,
+              teamSubmissionCount: { submitted: 2, total: 4 },
+            }),
+          ],
+        }}
+        viewerRole="STAFF"
+        closed={false}
+        onRetry={vi.fn()}
+        onDocumentChange={vi.fn()}
+      />,
+    );
+    expect(html).toContain('2 / 4팀 제출');
+    expect(html).toContain('양식 교체');
+    expect(html).not.toContain('양식 올리기');
+  });
+
+  it('학생에게는 제출 상태와 제출/재제출 버튼을 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <MilestoneDocumentSectionBody
+        state={{
+          kind: 'ready',
+          documents: [
+            buildDocument({
+              viewerSubmission: {
+                submitted: true,
+                submittedAt: '2026-08-01T05:22:00.000Z',
+              },
+            }),
+          ],
+        }}
+        viewerRole="STUDENT"
+        closed={false}
+        onRetry={vi.fn()}
+        onDocumentChange={vi.fn()}
+      />,
+    );
+    expect(html).toContain('제출함');
+    expect(html).toContain('수정');
+    expect(html).toContain('제출 1/1 완료');
+  });
+
+  it('미제출 학생에게는 미제출 배지와 올리기 버튼을 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <MilestoneDocumentSectionBody
+        state={{ kind: 'ready', documents: [buildDocument()] }}
+        viewerRole="STUDENT"
+        closed={false}
+        onRetry={vi.fn()}
+        onDocumentChange={vi.fn()}
+      />,
+    );
+    expect(html).toContain('미제출');
+    expect(html).toContain('올리기');
+    expect(html).toContain('제출 0/1 완료');
   });
 });

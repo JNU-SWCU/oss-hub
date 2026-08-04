@@ -42,6 +42,65 @@ describe('listPrograms', () => {
     );
     expect(result).toEqual(response);
   });
+
+  it('카드 note·뷰어 신청 상태·교직원 집계 필드를 그대로 통과시킨다', async () => {
+    // Given — 학생: 본인 지원 상태 note, 교직원: 지원 건수 집계 note
+    const response = {
+      items: [
+        {
+          id: 'program-1',
+          name: '2026 동계 오픈소스 해커톤',
+          organizer: '오픈소스활동지원',
+          category: 'OSS_CONTEST',
+          applicationStartAt: '2026-12-01T00:00:00.000Z',
+          applicationEndAt: '2026-12-05T00:00:00.000Z',
+          endAt: null,
+          description: '설명',
+          note: { text: '지원서 제출됨 · 교직원 승인을 기다립니다' },
+          viewerApplicationStatus: 'SUBMITTED',
+        },
+        {
+          id: 'program-2',
+          name: '2026-2학기 오픈소스 SW 프로젝트',
+          organizer: 'SW중심대학사업단',
+          category: 'BASIC',
+          applicationStartAt: '2026-09-01T00:00:00.000Z',
+          applicationEndAt: '2026-09-08T00:00:00.000Z',
+          endAt: '2026-12-19T00:00:00.000Z',
+          description: '설명',
+          note: { text: '지원 3건 · 승인 대기 1건', icon: 'team' },
+          applicationCount: 3,
+          pendingApplicationCount: 1,
+        },
+      ],
+      page: 1,
+      pageSize: 20,
+      totalItems: 2,
+      totalPages: 1,
+    } satisfies ProgramListPage;
+    vi.mocked(apiClient).mockResolvedValue(response);
+
+    // When
+    const result = await listPrograms({
+      page: 1,
+      pageSize: 20,
+      search: '',
+      status: 'all',
+    });
+
+    // Then
+    expect(result).toEqual(response);
+    expect(result.items[0]?.viewerApplicationStatus).toBe('SUBMITTED');
+    expect(result.items[0]?.note?.text).toBe(
+      '지원서 제출됨 · 교직원 승인을 기다립니다',
+    );
+    expect(result.items[1]?.note).toEqual({
+      text: '지원 3건 · 승인 대기 1건',
+      icon: 'team',
+    });
+    expect(result.items[1]?.applicationCount).toBe(3);
+    expect(result.items[1]?.pendingApplicationCount).toBe(1);
+  });
 });
 
 describe('getProgramStatusCounts', () => {
