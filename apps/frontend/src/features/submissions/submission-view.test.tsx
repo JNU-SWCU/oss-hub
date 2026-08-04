@@ -173,6 +173,28 @@ describe('SubmissionFormView', () => {
       '/programs/program-1/submissions?milestoneId=milestone-text',
     );
   });
+
+  // #354 — "지원하지 않습니다"는 학생이 다음에 무엇을 할지 알려주지 않는다.
+  // 막힌 범위(이 마일스톤)와 물어볼 대상(담당 교직원)이 함께 있어야 한다.
+  it('파일 제출이 막히면 막힌 범위와 문의 대상을 함께 안내한다', () => {
+    // Given
+    const blockedData: SubmissionFormData = {
+      ...baseData,
+      milestone: { ...baseData.milestone, submissionType: 'FILE' },
+      canSubmit: false,
+      blockedReason: 'FILE_UPLOAD_UNAVAILABLE',
+    };
+
+    // When
+    const html = render(blockedData);
+
+    // Then
+    expect(html).toContain('이 마일스톤에는 현재 파일을 제출할 수 없습니다');
+    expect(html).toContain('담당 교직원');
+    expect(html).toContain('다른 제출 방법을 문의');
+    // 옛 문구는 원인도 문의처도 없이 "지원하지 않습니다"로 끝났다.
+    expect(html).not.toContain('파일 제출은 현재 지원하지 않습니다');
+  });
 });
 
 describe('SubmissionLoading', () => {

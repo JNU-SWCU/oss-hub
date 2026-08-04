@@ -118,16 +118,42 @@ describe('validateSubmissionFile', () => {
 
 describe('getSubmissionFileErrorMessage', () => {
   it.each([
-    ['SUB_017', '파일, 신청 ID, 마일스톤 ID를 올바르게 입력해 주세요.'],
+    [
+      'SUB_017',
+      '제출 화면 정보가 만료되었습니다. 프로그램 상세에서 해당 마일스톤의 제출 화면을 다시 열어 주세요.',
+    ],
     ['SUB_018', 'PDF, HWP, JPG, PNG, ZIP 파일만 제출할 수 있습니다.'],
     ['SUB_019', '파일 크기는 50 MiB를 초과할 수 없습니다.'],
     [
       'SUB_020',
       '파일 저장소를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
     ],
-    ['SUB_021', '프로그램 종료일이 설정된 후 파일을 제출할 수 있습니다.'],
+    [
+      'SUB_021',
+      '프로그램 종료일이 설정되지 않아 파일을 제출할 수 없습니다. 담당 교직원에게 확인해 주세요.',
+    ],
   ])('%s를 안정적인 사용자 메시지로 매핑한다', (code, message) => {
     expect(getSubmissionFileErrorMessage(code)).toBe(message);
+  });
+
+  // #354 — 사용자가 만들지도 고치지도 못하는 값(신청 ID·마일스톤 ID)을 입력하라고
+  // 지시하면 따를 방법이 없다. 화면을 다시 여는 행동만 제시해야 한다.
+  it('SUB_017은 사용자가 고칠 수 없는 내부 식별자 입력을 요구하지 않는다', () => {
+    const message = getSubmissionFileErrorMessage('SUB_017') ?? '';
+
+    expect(message).not.toMatch(/신청 ID|마일스톤 ID/);
+    expect(message).not.toMatch(/올바르게 입력/);
+    expect(message).toContain('제출 화면을 다시 열어');
+  });
+
+  // #354 — 막힌 이유와 물어볼 대상이 없으면 학생이 다음 행동을 고를 수 없다.
+  it('SUB_021은 막힌 이유와 문의 대상을 함께 알려준다', () => {
+    const message = getSubmissionFileErrorMessage('SUB_021') ?? '';
+
+    expect(message).toContain('프로그램 종료일이 설정되지 않아');
+    expect(message).toContain('담당 교직원');
+    // 옛 문구는 "설정된 후 제출할 수 있습니다"로 끝나 누구에게 물을지가 없었다.
+    expect(message).not.toMatch(/설정된 후 파일을 제출할 수 있습니다/);
   });
 
   it('알 수 없는 코드는 서버 메시지를 노출하지 않는다', () => {

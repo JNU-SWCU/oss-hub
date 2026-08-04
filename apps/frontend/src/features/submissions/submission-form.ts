@@ -30,11 +30,13 @@ export type SubmissionFileValidation =
   { readonly ok: true } | { readonly ok: false; readonly message: string };
 
 const SUBMISSION_FILE_ERROR_MESSAGES: Readonly<Record<string, string>> = {
-  SUB_017: '파일, 신청 ID, 마일스톤 ID를 올바르게 입력해 주세요.',
+  SUB_017:
+    '제출 화면 정보가 만료되었습니다. 프로그램 상세에서 해당 마일스톤의 제출 화면을 다시 열어 주세요.',
   SUB_018: 'PDF, HWP, JPG, PNG, ZIP 파일만 제출할 수 있습니다.',
   SUB_019: '파일 크기는 50 MiB를 초과할 수 없습니다.',
   SUB_020: '파일 저장소를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
-  SUB_021: '프로그램 종료일이 설정된 후 파일을 제출할 수 있습니다.',
+  SUB_021:
+    '프로그램 종료일이 설정되지 않아 파일을 제출할 수 없습니다. 담당 교직원에게 확인해 주세요.',
 };
 
 const STALE_SUBMISSION_FORM_CODES = new Set(['SUB_005', 'SUB_006']);
