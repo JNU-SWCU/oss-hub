@@ -4,10 +4,12 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { AppSidebar } from './app-sidebar';
-import { sidebarGroupsFor } from './sidebar-menu';
+import {
+  shellSectionFromPathname,
+  sidebarGroupsFor,
+} from './sidebar-menu';
 import { useSessionRole } from './use-session-role';
 
-/** 접힘 여부는 사용자가 정한다 — 새로고침해도 유지되도록 브라우저에 기억시킨다. */
 export const SIDEBAR_STORAGE_KEY = 'oss-hub-sidebar';
 export const SIDEBAR_COLLAPSED_VALUE = 'shut';
 export const SIDEBAR_OPEN_VALUE = 'open';
@@ -17,12 +19,7 @@ export function readStoredCollapsed(raw: string | null): boolean {
 }
 
 /**
- * 상단 ShellNav **아래** 왼쪽 사이드 패널 + 본문.
- *
- * - **프로그램 메뉴**(모집중·진행중·접수대기·종료)는 비회원 포함 항상
- * - **내 상황** 역할 홈은 가입 완료 시에만
- *
- * 서버 렌더는 항상 “펼침”이다 (localStorage hydration).
+ * 상단 ShellNav 아래 — **현재 섹션**의 하위 사이드 패널 + 본문 (컨텍스트형).
  */
 export function ProductShell({ children }: { readonly children: ReactNode }) {
   const pathname = usePathname();
@@ -31,7 +28,8 @@ export function ProductShell({ children }: { readonly children: ReactNode }) {
   const { status, role, isProfileComplete } = useSessionRole();
   const member =
     status === 'assigned' && role !== null && isProfileComplete;
-  const groups = sidebarGroupsFor(member ? role : null);
+  const section = shellSectionFromPathname(pathname);
+  const groups = sidebarGroupsFor(section, member ? role : null);
 
   const [collapsed, setCollapsed] = useState(false);
   const [restored, setRestored] = useState(false);
@@ -42,7 +40,7 @@ export function ProductShell({ children }: { readonly children: ReactNode }) {
         readStoredCollapsed(window.localStorage.getItem(SIDEBAR_STORAGE_KEY)),
       );
     } catch {
-      // Safari 프라이빗 모드 등
+      // ignore
     }
     setRestored(true);
   }, []);
@@ -61,10 +59,19 @@ export function ProductShell({ children }: { readonly children: ReactNode }) {
 
   const toggle = useCallback(() => setCollapsed((prev) => !prev), []);
 
+  if (groups.length === 0) {
+    return (
+      <div id="main-content" tabIndex={-1} className="min-w-0 flex-1">
+        {children}
+      </div>
+    );
+  }
+
   return (
     <div
       data-slot="product-shell"
       data-collapsed={collapsed ? 'true' : 'false'}
+      data-section={section ?? undefined}
       className={cn(
         'grid min-h-0 flex-1 grid-cols-1',
         collapsed

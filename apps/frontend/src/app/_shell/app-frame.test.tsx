@@ -86,32 +86,41 @@ describe('AppFrame', () => {
     }
   });
 
-  it('가입 완료 업무 화면은 상단 Nav + 사이드(프로그램 메뉴·내 상황)다', () => {
+  it('가입 완료 시 상단에 대시보드가 붙고 /dashboard 좌측은 역할 메뉴만', () => {
     const html = render('/dashboard', {
       status: 'assigned',
       role: 'STUDENT',
       isProfileComplete: true,
     });
     expect(html).toContain('data-slot="nav-bar"');
-    expect(html).toContain('data-slot="product-shell"');
+    expect(html).toContain('>대시보드<');
     expect(html).toContain('data-slot="app-sidebar"');
-    expect(html).toContain('프로그램 메뉴');
-    expect(html).toContain('href="/dashboard"');
     expect(html).toContain('href="/my-repos"');
-    expect(html).toContain('href="/programs?status=recruiting"');
+    // 컨텍스트형: 대시보드 섹션에 프로그램 필터 없음
+    expect(html).not.toContain('모집중');
   });
 
-  it('비로그인 /programs 에도 프로그램 메뉴 사이드 패널이 있다', () => {
+  it('비로그인 /programs 는 프로그램 메뉴만 좌측에 있다', () => {
     const html = render('/programs', {
       status: 'anonymous',
       role: null,
       isProfileComplete: false,
     });
-    expect(html).toContain('data-slot="nav-bar"');
-    expect(html).toContain('data-slot="app-sidebar"');
     expect(html).toContain('프로그램 메뉴');
+    expect(html).toContain('data-slot="app-sidebar-depth-children"');
     expect(html).toContain('href="/programs?status=ended"');
-    expect(html).not.toContain('href="/dashboard"');
+    expect(html).not.toContain('>대시보드<');
+  });
+
+  it('/programs 에서 로그인해도 좌측에 역할 메뉴를 섞지 않는다', () => {
+    const html = render('/programs', {
+      status: 'assigned',
+      role: 'STUDENT',
+      isProfileComplete: true,
+    });
+    expect(html).toContain('프로그램 메뉴');
+    expect(html).toContain('>대시보드<'); // top nav
+    expect(html).not.toContain('내 저장소');
   });
 
   it('본문을 SkipLink 목적지(#main-content)로 감싼다', () => {

@@ -1,21 +1,24 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import type { NavItem } from '@/components';
 import { PUBLIC_MENU } from './public-menus';
 import { ProductShell } from './product-shell';
 import { ShellNav } from './shell-nav';
 import { COSMOS_GROUND_PATHS, PRE_MEMBER_PATHS } from './signup-routes';
+import { useSessionRole } from './use-session-role';
+
+/** 상단 4번째 — 역할 무관 라벨·경로. 가입 완료 시에만 붙인다. */
+export const DASHBOARD_NAV_ITEM: NavItem = {
+  label: '대시보드',
+  href: '/dashboard',
+};
 
 /**
- * 전 화면 공통 셸 — **상단 ShellNav(공개 메뉴)는 항상**, 랜딩과 업무가 재사용.
- *
- * - 색 톤만 경로에 따라 갈린다(우주 inverted / 그 외 흰 바) — `shell-nav.tsx`.
- * - 가입 전(`PRE_MEMBER_PATHS`): 상단만. 사이드바를 달면 가입 흐름이 샌다.
- * - 그 외: 상단 아래 `ProductShell` — 왼쪽 패널에 프로그램 메뉴(+ 회원 내 상황).
- *
- * 메뉴 분담: 상단 = 공개 입구, 왼쪽 = 프로그램 상태 탑다운 + 역할 홈.
+ * 전 화면 공통 셸.
+ * - 상단: 공개 3 + (회원) 대시보드
+ * - 좌측: **현재 섹션** 하위만 (컨텍스트형 ProductShell)
  */
 export function AppFrame({
   brand,
@@ -24,14 +27,24 @@ export function AppFrame({
   children,
 }: {
   readonly brand?: ReactNode;
-  /** 기본은 공개 메뉴. 테스트에서만 덮어쓸 수 있다. */
   readonly items?: readonly NavItem[];
   readonly actions?: ReactNode;
   readonly children: ReactNode;
 }) {
   const pathname = usePathname();
+  const { status, isProfileComplete } = useSessionRole();
   const onCosmosGround = COSMOS_GROUND_PATHS.has(pathname);
   const preMember = PRE_MEMBER_PATHS.has(pathname);
+
+  const navItems = useMemo(() => {
+    const base = [...items];
+    if (status === 'assigned' && isProfileComplete) {
+      if (!base.some((item) => item.href === DASHBOARD_NAV_ITEM.href)) {
+        base.push(DASHBOARD_NAV_ITEM);
+      }
+    }
+    return base;
+  }, [items, status, isProfileComplete]);
 
   if (preMember) {
     return (
@@ -40,7 +53,7 @@ export function AppFrame({
           onCosmosGround ? 'flex min-h-dvh flex-col bg-cosmos-void' : undefined
         }
       >
-        <ShellNav brand={brand} items={[...items]} actions={actions} />
+        <ShellNav brand={brand} items={navItems} actions={actions} />
         <div
           className={onCosmosGround ? 'flex min-h-0 flex-1 flex-col' : undefined}
           id="main-content"
@@ -52,10 +65,9 @@ export function AppFrame({
     );
   }
 
-  // L1: 전체 폭 공통 Nav → 아래 사이드바|본문 (ProductShell이 회원만 사이드바)
   return (
     <div className="flex min-h-dvh flex-col">
-      <ShellNav brand={brand} items={[...items]} actions={actions} />
+      <ShellNav brand={brand} items={navItems} actions={actions} />
       <ProductShell>{children}</ProductShell>
     </div>
   );
