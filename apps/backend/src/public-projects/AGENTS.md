@@ -14,9 +14,9 @@
 | 파일 | 역할 |
 | --- | --- |
 | `public-projects.module.ts` | 모듈 조립 — `PublicEligibilityModule`·`CollectionModule` import |
-| `public-projects.controller.ts` | `GET /projects`, `GET /projects/:projectId` |
+| `public-projects.controller.ts` | `GET /projects`(`category` 선택), `GET /projects/category-counts`, `GET /projects/:projectId` |
 | `public-user-profile.controller.ts` | `GET /users/:userId/profile` |
-| `public-projects.service.ts` | `findPage`(목록)·`findDetail`(상세)·`findProfile`(프로필) 3개 메서드 |
+| `public-projects.service.ts` | `findPage`·`categoryCounts`·`findDetail`·`findProfile` |
 | `public-project-cursor.ts` | opaque base64url keyset cursor 인코딩/디코딩 |
 | `public-project-result.ts` | 응답 DTO 형태 정의 |
 | `public-projects-error-code.enum.ts` | 도메인 실패 enum |

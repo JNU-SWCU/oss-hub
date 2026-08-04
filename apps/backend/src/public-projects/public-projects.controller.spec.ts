@@ -37,7 +37,7 @@ describe('PublicProjectsController', () => {
       pageSize: 20,
     });
 
-    expect(findPage).toHaveBeenCalledWith(undefined, 20);
+    expect(findPage).toHaveBeenCalledWith(undefined, 20, undefined);
     expect(result.pageSize).toBe(20);
     expect(result.nextPageId).toBe('opaque-cursor');
     expect(result.items).toEqual([
@@ -55,7 +55,7 @@ describe('PublicProjectsController', () => {
     ]);
   });
 
-  it('GET / — pageId를 서비스에 그대로 전달한다', async () => {
+  it('GET / — pageId·category를 서비스에 그대로 전달한다', async () => {
     const findPage = jest
       .fn()
       .mockResolvedValue({ items: [], pageSize: 5, nextPageId: null });
@@ -66,9 +66,44 @@ describe('PublicProjectsController', () => {
     await controller.findPage({
       pageId: 'client-provided-cursor',
       pageSize: 5,
+      category: 'CAPSTONE',
     });
 
-    expect(findPage).toHaveBeenCalledWith('client-provided-cursor', 5);
+    expect(findPage).toHaveBeenCalledWith(
+      'client-provided-cursor',
+      5,
+      'CAPSTONE',
+    );
+  });
+
+  it('GET /category-counts — 서비스 결과를 카운트 응답 DTO로 매핑한다', async () => {
+    const categoryCounts = jest.fn().mockResolvedValue({
+      all: 3,
+      BASIC: 1,
+      SW_VALUE_SPREAD: 0,
+      OSS_CONTEST: 1,
+      CAPSTONE: 1,
+      SW_CONVERGENCE: 0,
+      GLOBAL_MAKERTHON: 0,
+      CORPORATE_INTERNSHIP: 0,
+    });
+    const controller = new PublicProjectsController({
+      categoryCounts,
+    } as unknown as PublicProjectsService);
+
+    const result = await controller.categoryCounts();
+
+    expect(categoryCounts).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      all: 3,
+      BASIC: 1,
+      SW_VALUE_SPREAD: 0,
+      OSS_CONTEST: 1,
+      CAPSTONE: 1,
+      SW_CONVERGENCE: 0,
+      GLOBAL_MAKERTHON: 0,
+      CORPORATE_INTERNSHIP: 0,
+    });
   });
 
   it('GET /:projectId — 상세 결과를 응답 DTO로 매핑하며 금지 필드(실명/studentId/이메일 등)를 포함하지 않는다', async () => {

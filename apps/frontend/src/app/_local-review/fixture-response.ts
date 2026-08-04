@@ -530,12 +530,14 @@ function publicArchivePage(searchParams: URLSearchParams): unknown {
   const pageSize = positiveIntParam(searchParams.get('pageSize'), 12);
   const query = (searchParams.get('q') ?? '').trim().toLocaleLowerCase('ko');
   const mode = searchParams.get('applicationMode');
+  const category = searchParams.get('category');
   const matched = PUBLIC_ARCHIVE_FIXTURES.map((fixture) => fixture.item).filter(
     (item) =>
       (query === '' ||
         item.displayName.toLocaleLowerCase('ko').includes(query) ||
         item.programName.toLocaleLowerCase('ko').includes(query)) &&
-      (mode === null || item.applicationMode === mode),
+      (mode === null || item.applicationMode === mode) &&
+      (category === null || item.category === category),
   );
   const offset = (page - 1) * pageSize;
 
@@ -546,6 +548,25 @@ function publicArchivePage(searchParams: URLSearchParams): unknown {
     nextPageId:
       offset + items.length < matched.length ? String(page + 1) : null,
   };
+}
+
+function publicArchiveCategoryCounts(): unknown {
+  const empty = {
+    all: 0,
+    BASIC: 0,
+    SW_VALUE_SPREAD: 0,
+    OSS_CONTEST: 0,
+    CAPSTONE: 0,
+    SW_CONVERGENCE: 0,
+    GLOBAL_MAKERTHON: 0,
+    CORPORATE_INTERNSHIP: 0,
+  };
+  const counts = { ...empty };
+  for (const fixture of PUBLIC_ARCHIVE_FIXTURES) {
+    counts[fixture.item.category] += 1;
+    counts.all += 1;
+  }
+  return counts;
 }
 
 function publicArchiveDetail(projectId: string): unknown | null {
@@ -591,6 +612,10 @@ export function resolveLocalReviewResponse({
 
   if (method === 'GET' && path === 'projects') {
     return json(200, publicArchivePage(searchParams));
+  }
+
+  if (method === 'GET' && path === 'projects/category-counts') {
+    return json(200, publicArchiveCategoryCounts());
   }
 
   const projectId = method === 'GET' ? publicProjectId(path) : null;

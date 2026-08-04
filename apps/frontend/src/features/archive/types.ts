@@ -16,6 +16,37 @@ export const ARCHIVE_CATEGORIES = Object.keys(
   ARCHIVE_CATEGORY_LABELS,
 ) as readonly ArchiveCategory[];
 
+/** 사이드 패널·칩 공용. `all`은 쿼리 없이 `/archive`. */
+export const ARCHIVE_LIST_FILTERS = ['all', ...ARCHIVE_CATEGORIES] as const;
+export type ArchiveListFilter = (typeof ARCHIVE_LIST_FILTERS)[number];
+
+export const ARCHIVE_LIST_FILTER_LABELS = {
+  all: '전체',
+  ...ARCHIVE_CATEGORY_LABELS,
+} as const satisfies Readonly<Record<ArchiveListFilter, string>>;
+
+export function archiveListHref(filter: ArchiveListFilter): string {
+  if (filter === 'all') return '/archive';
+  return `/archive?category=${filter}`;
+}
+
+export function parseArchiveListFilter(
+  value: string | null,
+): ArchiveListFilter {
+  if (
+    value !== null &&
+    (ARCHIVE_LIST_FILTERS as readonly string[]).includes(value)
+  ) {
+    return value as ArchiveListFilter;
+  }
+  return 'all';
+}
+
+/** `GET /projects/category-counts` — 0 포함 전 키. */
+export type ArchiveCategoryCounts = {
+  readonly all: number;
+} & Readonly<Record<ArchiveCategory, number>>;
+
 export type ArchiveListItem = {
   readonly projectId: string;
   readonly programId: string;
