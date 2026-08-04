@@ -274,7 +274,7 @@ describe('staleApplicationDecisionTitle', () => {
     expect(
       staleApplicationDecisionTitle(
         new ApiError({
-          ...problem(409, 'APP_013'),
+          ...problem(409, 'APP_023'),
           revertBlockedReason:
             'repository provision already succeeded; undo is locked to protect the provisioned repository',
         } as ProblemDetail & { readonly revertBlockedReason: string }),
@@ -286,7 +286,7 @@ describe('staleApplicationDecisionTitle', () => {
     expect(
       staleApplicationDecisionTitle(new ApiError(problem(409, 'APP_002'))),
     ).not.toBe(
-      staleApplicationDecisionTitle(new ApiError(problem(409, 'APP_013'))),
+      staleApplicationDecisionTitle(new ApiError(problem(409, 'APP_023'))),
     );
   });
 
@@ -391,7 +391,7 @@ describe('program applicants revert action', () => {
         status: 409,
         detail: '저장소 프로비저닝이 완료된 승인은 되돌릴 수 없습니다.',
         instance: 'urn:test:applications:app-team',
-        code: 'APP_013',
+        code: 'APP_023',
         revertBlockedReason:
           'repository provision already succeeded; undo is locked to protect the provisioned repository',
       } as ProblemDetail & { readonly revertBlockedReason: string }),
