@@ -74,6 +74,7 @@ export interface ApplyProgramRecord {
   readonly applicationTemplateVersion: number;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
+  readonly earlyClosedAt?: Date | null;
 }
 
 export interface ApplyTeamRecord {
@@ -403,6 +404,7 @@ export class ApplicationsRepository {
         applicationTemplateVersion: true,
         applicationStartAt: true,
         applicationEndAt: true,
+        earlyClosedAt: true,
       },
     });
   }
@@ -525,6 +527,7 @@ export class ApplicationsRepository {
         category: true,
         applicationStartAt: true,
         applicationEndAt: true,
+        earlyClosedAt: true,
       },
     });
 

@@ -8,6 +8,8 @@ export class ProgramListResponseDto {
   readonly category: ProgramCategory;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
+  readonly earlyClosedAt: string | null;
+  readonly earlyCloseReason: string | null;
   readonly description: string;
 
   private constructor(
@@ -19,6 +21,8 @@ export class ProgramListResponseDto {
       | 'category'
       | 'applicationStartAt'
       | 'applicationEndAt'
+      | 'earlyClosedAt'
+      | 'earlyCloseReason'
       | 'description'
     >,
   ) {
@@ -28,6 +32,8 @@ export class ProgramListResponseDto {
     this.category = program.category;
     this.applicationStartAt = program.applicationStartAt.toISOString();
     this.applicationEndAt = program.applicationEndAt.toISOString();
+    this.earlyClosedAt = program.earlyClosedAt?.toISOString() ?? null;
+    this.earlyCloseReason = program.earlyCloseReason;
     this.description = program.description;
   }
 
@@ -40,6 +46,8 @@ export class ProgramListResponseDto {
       | 'category'
       | 'applicationStartAt'
       | 'applicationEndAt'
+      | 'earlyClosedAt'
+      | 'earlyCloseReason'
       | 'description'
     >,
   ): ProgramListResponseDto {

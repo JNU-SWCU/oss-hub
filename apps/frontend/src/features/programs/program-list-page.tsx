@@ -69,6 +69,7 @@ function formatApplicationPeriod(program: ProgramListItem): string {
 const RECRUITMENT_BADGES = {
   scheduled: { label: '모집 예정', variant: 'pending' },
   recruiting: { label: '모집중', variant: 'recruiting' },
+  'early-closed': { label: '조기 마감', variant: 'closed' },
   closed: { label: '마감', variant: 'closed' },
 } as const satisfies Readonly<
   Record<
@@ -208,9 +209,14 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
                 period={formatApplicationPeriod(program)}
                 statusPlacement="body-center"
                 status={
-                  <StatusBadge size="lg" variant={badge.variant}>
-                    {badge.label}
-                  </StatusBadge>
+                  <div className="grid justify-items-center gap-2">
+                    <StatusBadge size="lg" variant={badge.variant}>
+                      {badge.label}
+                    </StatusBadge>
+                    {recruitmentState === 'early-closed' && program.earlyCloseReason ? (
+                      <span className="text-center text-xs text-muted-foreground">{program.earlyCloseReason}</span>
+                    ) : null}
+                  </div>
                 }
                 title={program.name}
               >

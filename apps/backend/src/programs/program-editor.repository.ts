@@ -99,6 +99,18 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     return toEditableProgramView(program);
   }
 
+  async earlyCloseRecruitment(
+    programId: string,
+    closedAt: Date,
+    reason: string,
+  ): Promise<EditableProgramView> {
+    const program = await this.transaction.program.update({
+      where: { id: programId },
+      data: { earlyClosedAt: closedAt, earlyCloseReason: reason },
+      include: editableProgramInclude,
+    });
+    return toEditableProgramView(program);
+  }
   async findProgramScheduleForMilestoneCreate(
     programId: string,
   ): Promise<ProgramSchedule | null> {
@@ -269,6 +281,8 @@ function toEditableProgramView(program: ProgramRecord): EditableProgramView {
     categoryLocked: toCategoryLockState(program._count),
     applicationStartAt: program.applicationStartAt,
     applicationEndAt: program.applicationEndAt,
+    earlyClosedAt: program.earlyClosedAt,
+    earlyCloseReason: program.earlyCloseReason,
     endAt: program.endAt?.toISOString() ?? null,
     teamMinSize: program.teamMinSize,
     teamMaxSize: program.teamMaxSize,

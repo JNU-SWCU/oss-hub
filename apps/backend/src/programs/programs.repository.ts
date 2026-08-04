@@ -25,6 +25,8 @@ export type ProgramListRecord = Pick<
   | 'category'
   | 'applicationStartAt'
   | 'applicationEndAt'
+  | 'earlyClosedAt'
+  | 'earlyCloseReason'
   | 'description'
 >;
 
@@ -37,8 +39,11 @@ function recruitmentWhere(
     recruiting: {
       applicationStartAt: { lte: now },
       applicationEndAt: { gte: now },
+      earlyClosedAt: null,
     },
-    closed: { applicationEndAt: { lt: now } },
+    closed: {
+      OR: [{ applicationEndAt: { lt: now } }, { earlyClosedAt: { not: null } }],
+    },
   } satisfies Readonly<
     Record<ProgramListQueryStatus, Prisma.ProgramWhereInput>
   >;
@@ -53,10 +58,12 @@ function programListSqlWhere(
   const conditions: Prisma.Sql[] = [];
   if (status === 'recruiting') {
     conditions.push(
-      Prisma.sql`p."applicationStartAt" <= ${now} AND p."applicationEndAt" >= ${now}`,
+      Prisma.sql`p."applicationStartAt" <= ${now} AND p."applicationEndAt" >= ${now} AND p."earlyClosedAt" IS NULL`,
     );
   } else if (status === 'closed') {
-    conditions.push(Prisma.sql`p."applicationEndAt" < ${now}`);
+    conditions.push(
+      Prisma.sql`(p."applicationEndAt" < ${now} OR p."earlyClosedAt" IS NOT NULL)`,
+    );
   }
   if (search) {
     conditions.push(Prisma.sql`p."name" ILIKE ${`%${search}%`}`);
@@ -88,13 +95,16 @@ export class ProgramsRepository {
           p."category",
           p."applicationStartAt",
           p."applicationEndAt",
+          p."earlyClosedAt",
+          p."earlyCloseReason",
           p."description"
         FROM "Program" AS p
         ${sqlWhere}
         ORDER BY
           CASE
             WHEN p."applicationStartAt" <= ${now}
-              AND p."applicationEndAt" >= ${now} THEN 0
+              AND p."applicationEndAt" >= ${now}
+              AND p."earlyClosedAt" IS NULL THEN 0
             WHEN p."applicationStartAt" > ${now} THEN 1
             ELSE 2
           END ASC,
@@ -119,6 +129,8 @@ export class ProgramsRepository {
         description: true,
         applicationStartAt: true,
         applicationEndAt: true,
+        earlyClosedAt: true,
+        earlyCloseReason: true,
         milestones: {
           orderBy: [{ dueAt: 'asc' as const }, { createdAt: 'asc' as const }],
           select: {

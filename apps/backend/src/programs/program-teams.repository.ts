@@ -22,6 +22,7 @@ export interface TeamProgramRecord {
   readonly category: ProgramCategory;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
+  readonly earlyClosedAt?: Date | null;
   readonly teamMinSize: number | null;
   readonly teamMaxSize: number | null;
 }
@@ -133,6 +134,7 @@ export class ProgramTeamsRepository {
         category: true,
         applicationStartAt: true,
         applicationEndAt: true,
+        earlyClosedAt: true,
         teamMinSize: true,
         teamMaxSize: true,
       },

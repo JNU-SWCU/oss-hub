@@ -12,6 +12,7 @@ const PROGRAM_GROUPS = {
 export const PROGRAM_RECRUITMENT_STATES = [
   'scheduled',
   'recruiting',
+  'early-closed',
   'closed',
 ] as const;
 export type ProgramRecruitmentState =
@@ -36,6 +37,7 @@ export function getProgramRecruitmentState(
   now: Date,
 ): ProgramRecruitmentState {
   const nowTime = now.getTime();
+  if (program.earlyClosedAt != null) return 'early-closed';
   if (nowTime < new Date(program.applicationStartAt).getTime()) {
     return 'scheduled';
   }
@@ -64,7 +66,8 @@ function matchesStatus(
   now: Date,
 ): boolean {
   if (status === 'all') return true;
-  return getProgramRecruitmentState(program, now) === status;
+  const state = getProgramRecruitmentState(program, now);
+  return status === 'closed' ? state === 'closed' || state === 'early-closed' : state === status;
 }
 
 export function filterAndGroupPrograms(
@@ -101,7 +104,7 @@ export function filterAndGroupPrograms(
       programs: filtered.filter(
         (program) =>
           programYear(program) === currentYear &&
-          getProgramRecruitmentState(program, options.now) === 'closed',
+          ['closed', 'early-closed'].includes(getProgramRecruitmentState(program, options.now)),
       ),
     },
     {
@@ -110,7 +113,7 @@ export function filterAndGroupPrograms(
       programs: filtered.filter(
         (program) =>
           programYear(program) < currentYear &&
-          getProgramRecruitmentState(program, options.now) === 'closed',
+          ['closed', 'early-closed'].includes(getProgramRecruitmentState(program, options.now)),
       ),
     },
   ];

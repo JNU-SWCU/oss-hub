@@ -11,6 +11,8 @@ export enum ProgramErrorCode {
   MILESTONE_BEFORE_APPLICATION_END = 'PRG_008',
   MILESTONE_HAS_SUBMISSIONS = 'PRG_009',
   MILESTONE_REQUIRED = 'PRG_010',
+  RECRUITMENT_ALREADY_CLOSED = 'PRG_011',
+  RECRUITMENT_CLOSE_NOT_OPEN = 'PRG_012',
 }
 
 export const PROGRAM_ERROR_CODES: Record<ProgramErrorCode, ErrorCode> = {
@@ -58,6 +60,16 @@ export const PROGRAM_ERROR_CODES: Record<ProgramErrorCode, ErrorCode> = {
     code: ProgramErrorCode.MILESTONE_HAS_SUBMISSIONS,
     status: 409,
     message: '제출물이 있는 마일스톤은 삭제할 수 없습니다.',
+  },
+  [ProgramErrorCode.RECRUITMENT_ALREADY_CLOSED]: {
+    code: ProgramErrorCode.RECRUITMENT_ALREADY_CLOSED,
+    status: 409,
+    message: '모집이 이미 종료되었습니다.',
+  },
+  [ProgramErrorCode.RECRUITMENT_CLOSE_NOT_OPEN]: {
+    code: ProgramErrorCode.RECRUITMENT_CLOSE_NOT_OPEN,
+    status: 409,
+    message: '모집 중인 프로그램만 조기 마감할 수 있습니다.',
   },
   [ProgramErrorCode.MILESTONE_REQUIRED]: {
     code: ProgramErrorCode.MILESTONE_REQUIRED,

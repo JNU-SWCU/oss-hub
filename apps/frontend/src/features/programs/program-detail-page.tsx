@@ -48,6 +48,10 @@ export function ProgramActions({
   readonly program: ProgramDetail;
 }) {
   const role = program.viewer.role;
+  const recruitmentOpen =
+    program.applicationPeriod.earlyClosedAt == null &&
+    new Date(program.applicationPeriod.startsAt).getTime() <= Date.now() &&
+    Date.now() <= new Date(program.applicationPeriod.endsAt).getTime();
   // 역할이 없는 사람은 두 종류가 섞여 들어온다 — 아직 GitHub도 연결하지 않은
   // 방문자와, 연결은 했지만 프로필을 채우지 않아 가입이 끝나지 않은 사람. 뒤쪽에게
   // "로그인 후 확인"은 거짓말이라(그는 이미 로그인해 있다) 어느 쪽에도 참인 "가입"으로
@@ -62,7 +66,7 @@ export function ProgramActions({
         <Link href={SIGNUP_ENTRY_HREF}>가입하고 신청하기</Link>
       </Button>
     );
-  if (role === 'STUDENT' && program.viewer.applicationStatus === null) {
+  if (role === 'STUDENT' && program.viewer.applicationStatus === null && recruitmentOpen) {
     return (
       <Button asChild>
         <Link href={programHref(program.id, '/apply')}>신청하기</Link>
@@ -90,7 +94,8 @@ function ProgramSummary({ program }: { readonly program: ProgramDetail }) {
   const now = Date.now();
   const startsAt = new Date(program.applicationPeriod.startsAt).getTime();
   const endsAt = new Date(program.applicationPeriod.endsAt).getTime();
-  const recruiting = startsAt <= now && now <= endsAt;
+  const earlyClosed = program.applicationPeriod.earlyClosedAt != null;
+  const recruiting = !earlyClosed && startsAt <= now && now <= endsAt;
   return (
     <Card>
       <CardHeader>
@@ -113,9 +118,14 @@ function ProgramSummary({ program }: { readonly program: ProgramDetail }) {
         <p className="text-sm leading-6 break-keep whitespace-pre-wrap">
           {program.description}
         </p>
-        <StatusBadge variant={recruiting ? 'recruiting' : 'closed'}>
-          {recruiting ? '모집중' : '모집 마감'}
-        </StatusBadge>
+        <div className="grid justify-items-start gap-2">
+          <StatusBadge variant={recruiting ? 'recruiting' : 'closed'}>
+            {earlyClosed ? '조기 마감' : recruiting ? '모집중' : '모집 마감'}
+          </StatusBadge>
+          {earlyClosed && program.applicationPeriod.earlyCloseReason ? (
+            <p className="text-sm text-muted-foreground" role="note">조기 마감 사유: {program.applicationPeriod.earlyCloseReason}</p>
+          ) : null}
+        </div>
       </CardContent>
     </Card>
   );

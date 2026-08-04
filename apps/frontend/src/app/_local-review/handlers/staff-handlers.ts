@@ -306,6 +306,19 @@ function milestoneFrom(
 }
 
 /** 한계: 저장되지 않아 화면을 다시 열면 추가한 마일스톤은 사라진다. */
+const earlyCloseRecruitmentHandler: LocalReviewHandler = (context) => {
+  const params = matchMethod(context, 'POST', 'programs/:id/recruitment/early-close');
+  if (staffRole(context) === null || params === null) return null;
+  const fixture = findStaffProgram(params.id as string);
+  if (fixture === null) return notFound('PRG_004', context.path);
+  const reason = bodyString(context, 'reason')?.trim();
+  if (!reason) return json(422, { code: 'VALIDATION_ERROR', message: '조기 마감 사유를 입력해 주세요.' });
+  return accepted({
+    ...fixture.program,
+    earlyClosedAt: '2026-08-04T09:00:00.000Z',
+    earlyCloseReason: reason,
+  });
+};
 const createMilestoneHandler: LocalReviewHandler = (context) => {
   const params = matchMethod(context, 'POST', 'programs/:id/milestones');
   if (staffRole(context) === null || params === null) return null;
@@ -422,6 +435,7 @@ export const STAFF_HANDLERS: readonly LocalReviewHandler[] = [
   reviewContextHandler,
   createProgramHandler,
   updateProgramHandler,
+  earlyCloseRecruitmentHandler,
   createMilestoneHandler,
   updateMilestoneHandler,
   deleteMilestoneHandler,

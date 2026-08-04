@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -6,6 +6,7 @@ import type { EditableMilestone } from './api';
 import {
   createMilestone,
   deleteMilestone,
+  earlyCloseRecruitment,
   getEditableProgram,
   updateMilestone,
   updateProgram,
@@ -64,6 +65,8 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
     null,
   );
   const [isMilestoneBusy, setIsMilestoneBusy] = useState(false);
+  const [isClosingRecruitment, setIsClosingRecruitment] = useState(false);
+  const [earlyCloseReasonDraft, setEarlyCloseReasonDraft] = useState('');
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
@@ -150,6 +153,25 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
     }
   };
 
+  const closeRecruitment = async () => {
+    const reason = earlyCloseReasonDraft.trim();
+    if (!reason) {
+      setGeneralAlert('조기 마감 사유를 입력해 주세요.');
+      return;
+    }
+    setIsClosingRecruitment(true);
+    setGeneralAlert(null);
+    try {
+      const updated = await earlyCloseRecruitment(programId, reason);
+      setState({ kind: 'ready', program: updated });
+      setEarlyCloseReasonDraft('');
+      setToastMessage('모집을 조기 마감했습니다. 학생 화면에 사유가 표시됩니다.');
+    } catch {
+      setGeneralAlert('모집을 조기 마감하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setIsClosingRecruitment(false);
+    }
+  };
   const openAddMilestone = () => {
     setMilestoneEditor({
       mode: 'create',
@@ -248,6 +270,10 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
       toastMessage={toastMessage}
       generalAlert={generalAlert}
       isSaving={isSaving}
+      isClosingRecruitment={isClosingRecruitment}
+      earlyCloseReasonDraft={earlyCloseReasonDraft}
+      onEarlyCloseReasonChange={setEarlyCloseReasonDraft}
+      onEarlyClose={() => void closeRecruitment()}
       milestoneEditor={milestoneEditor}
       deleteTarget={deleteTarget}
       isMilestoneBusy={isMilestoneBusy}

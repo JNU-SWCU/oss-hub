@@ -41,6 +41,8 @@ export interface ProgramListItem {
   readonly category: ProgramCategory;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
+  readonly earlyClosedAt?: string | null;
+  readonly earlyCloseReason?: string | null;
   readonly description: string;
 }
 
@@ -172,6 +174,8 @@ export interface StaffDashboardProgramSummary {
   readonly applicationPeriod: {
     readonly startsAt: string;
     readonly endsAt: string;
+    readonly earlyClosedAt?: string | null;
+    readonly earlyCloseReason?: string | null;
   };
   readonly applications: StaffDashboardApplicationCounts;
   readonly applicantsPath: string;
@@ -213,6 +217,8 @@ export interface ProgramDetail {
   readonly applicationPeriod: {
     readonly startsAt: string;
     readonly endsAt: string;
+    readonly earlyClosedAt?: string | null;
+    readonly earlyCloseReason?: string | null;
   };
   readonly viewer: {
     readonly role: ViewerRole;

@@ -1,4 +1,4 @@
-﻿import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import type { EditableMilestone, EditableProgram } from './api';
@@ -11,7 +11,7 @@ import {
   type ProgramMilestoneEditor,
   type ProgramMilestoneField,
 } from './program-edit-flow';
-import { PageBody } from '@/components';
+import { PageBody, StatusBadge } from '@/components';
 
 /** 폼 화면은 읽기 폭을 좁게 잡는다 — 본문 여백·최대폭의 나머지는 PageBody가 갖는다. */
 const FORM_WIDTH = 'max-w-4xl';
@@ -25,6 +25,10 @@ interface ProgramEditViewProps {
   readonly toastMessage: string | null;
   readonly generalAlert: string | null;
   readonly isSaving: boolean;
+  readonly isClosingRecruitment: boolean;
+  readonly earlyCloseReasonDraft: string;
+  readonly onEarlyCloseReasonChange: (value: string) => void;
+  readonly onEarlyClose: () => void;
   readonly milestoneEditor: ProgramMilestoneEditor;
   readonly deleteTarget: EditableMilestone | null;
   readonly isMilestoneBusy: boolean;
@@ -85,6 +89,10 @@ export function ProgramEditView({
   toastMessage,
   generalAlert,
   isSaving,
+  isClosingRecruitment = false,
+  earlyCloseReasonDraft = "",
+  onEarlyCloseReasonChange = () => {},
+  onEarlyClose = () => {},
   milestoneEditor,
   deleteTarget,
   isMilestoneBusy,
@@ -99,6 +107,13 @@ export function ProgramEditView({
   onCancelDelete,
   onConfirmDelete,
 }: ProgramEditViewProps) {
+  const now = Date.now();
+  const recruitmentOpen =
+    program.earlyClosedAt == null &&
+    new Date(program.applicationStartAt).getTime() <= now &&
+    now <= new Date(program.applicationEndAt).getTime();
+  const earlyClosed = program.earlyClosedAt != null;
+  const deadlineClosed = !recruitmentOpen && !earlyClosed;
   return (
     <PageBody className={FORM_WIDTH}>
       <header className="grid gap-4">
@@ -138,6 +153,45 @@ export function ProgramEditView({
             <AlertDescription>{generalAlert}</AlertDescription>
           </Alert>
         ) : null}
+        <Card>
+          <CardContent className="grid gap-4 pt-card">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="font-heading text-lg font-semibold">모집 상태</h2>
+                <p className="mt-1 text-sm text-muted-foreground">설정한 종료일 전에 모집 인원이 충원되었다면 조기 마감할 수 있습니다.</p>
+              </div>
+              <StatusBadge variant={earlyClosed || deadlineClosed ? 'closed' : 'recruiting'}>
+                {earlyClosed ? '조기 마감' : deadlineClosed ? '모집 마감' : '모집중'}
+              </StatusBadge>
+            </div>
+            {earlyClosed || deadlineClosed ? (
+              <p className="rounded-card border border-border bg-muted px-3 py-2 text-sm" role="status">
+                {earlyClosed
+                  ? `조기 마감 사유: ${program.earlyCloseReason}`
+                  : '모집 기간이 종료되어 자동 마감되었습니다.'}
+              </p>
+            ) : (
+              <div className="grid gap-3">
+                <label className="grid gap-2 text-sm font-medium" htmlFor="early-close-reason">
+                  조기 마감 사유
+                  <textarea
+                    id="early-close-reason"
+                    className="min-h-24 rounded-field border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    maxLength={300}
+                    onChange={(event) => onEarlyCloseReasonChange(event.target.value)}
+                    placeholder="예: 모집 인원이 모두 충원되어 조기 마감합니다."
+                    value={earlyCloseReasonDraft}
+                  />
+                </label>
+                <div>
+                  <Button type="button" variant="destructive" disabled={isClosingRecruitment} onClick={onEarlyClose}>
+                    {isClosingRecruitment ? '조기 마감 처리 중…' : '모집 조기 마감'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
         <ProgramEditBasicForm
           program={program}
           form={form}

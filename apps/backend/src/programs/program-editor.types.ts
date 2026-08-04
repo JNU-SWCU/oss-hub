@@ -40,6 +40,8 @@ export type EditableProgramView = {
   readonly categoryLocked: ProgramCategoryLockState;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
+  readonly earlyClosedAt?: Date | null;
+  readonly earlyCloseReason?: string | null;
   readonly endAt?: string | null;
   readonly teamMinSize: number | null;
   readonly teamMaxSize: number | null;
@@ -111,6 +113,7 @@ export interface ProgramEditorTransactionStore {
     programId: string,
   ): Promise<EditableProgramView | null>;
   updateProgram(input: ProgramUpdateInput): Promise<EditableProgramView>;
+  earlyCloseRecruitment(programId: string, closedAt: Date, reason: string): Promise<EditableProgramView>;
   findProgramScheduleForMilestoneCreate(
     programId: string,
   ): Promise<ProgramSchedule | null>;

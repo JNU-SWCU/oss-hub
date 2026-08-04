@@ -115,6 +115,8 @@ export interface EditableProgram {
   readonly applicationCount: number;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
+  readonly earlyClosedAt?: string | null;
+  readonly earlyCloseReason?: string | null;
   readonly endAt: string | null;
   readonly repositoryProvisioningEnabled: boolean;
   readonly description: string;
@@ -183,6 +185,20 @@ export function getEditableProgram(
 ): Promise<EditableProgram> {
   return apiClient<EditableProgram>(
     `programs/${encodeURIComponent(programId)}/edit`,
+  );
+}
+
+export function earlyCloseRecruitment(
+  programId: string,
+  reason: string,
+): Promise<EditableProgram> {
+  return apiClient<EditableProgram>(
+    `programs/${encodeURIComponent(programId)}/recruitment/early-close`,
+    {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({ reason }),
+    },
   );
 }
 

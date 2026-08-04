@@ -213,6 +213,8 @@ const PUBLIC_PROGRAM_FIXTURES = [
     category: 'CAPSTONE',
     applicationStartAt: '2026-06-30T15:00:00.000Z',
     applicationEndAt: '2026-12-31T14:59:59.000Z',
+    earlyClosedAt: '2026-07-08T09:00:00.000Z',
+    earlyCloseReason: '모집 인원이 모두 충원되어 조기 마감했습니다.',
     description:
       '로컬 검토용 합성 프로그램입니다. 실제 모집이나 실제 참여자와 무관합니다.',
   },

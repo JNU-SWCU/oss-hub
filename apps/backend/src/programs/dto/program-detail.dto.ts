@@ -40,6 +40,8 @@ export interface ProgramDetailResponseDto {
   readonly applicationPeriod: {
     readonly startsAt: string;
     readonly endsAt: string;
+    readonly earlyClosedAt: string | null;
+    readonly earlyCloseReason: string | null;
   };
   readonly viewer: {
     readonly role: ProgramViewerRoleResponseDto;

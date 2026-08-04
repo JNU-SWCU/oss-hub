@@ -20,6 +20,8 @@ const CAPSTONE_DETAIL = {
   applicationPeriod: {
     startsAt: '2026-07-01T00:00:00.000+09:00',
     endsAt: '2026-07-15T23:59:59.000+09:00',
+    earlyClosedAt: '2026-07-08T09:00:00.000Z',
+    earlyCloseReason: '모집 인원이 모두 충원되어 조기 마감했습니다.',
   },
   viewer: { role: 'STUDENT', applicationStatus: 'APPROVED' },
   milestones: [

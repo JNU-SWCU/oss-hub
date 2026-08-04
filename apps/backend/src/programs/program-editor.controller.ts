@@ -14,6 +14,7 @@ import {
   EditableProgramResponseDto,
   ProgramMilestoneResponseDto,
 } from './dto/editable-program-response.dto';
+import { EarlyCloseProgramRequestDto } from './dto/early-close-program-request.dto';
 import { UpdateProgramRequestDto } from './dto/update-program-request.dto';
 import { UpsertMilestoneRequestDto } from './dto/upsert-milestone-request.dto';
 import { ProgramEditorService } from './program-editor.service';
@@ -49,6 +50,20 @@ export class ProgramEditorController {
     return EditableProgramResponseDto.from(program);
   }
 
+  @Post(':id/recruitment/early-close')
+  @UseGuards(SessionGuard, OriginGuard)
+  async earlyCloseRecruitment(
+    @Req() request: SessionIdentity,
+    @Param('id') id: string,
+    @Body() input: EarlyCloseProgramRequestDto,
+  ): Promise<EditableProgramResponseDto> {
+    const program = await this.editor.earlyCloseRecruitment(
+      request.sessionGithubId,
+      id,
+      input.reason,
+    );
+    return EditableProgramResponseDto.from(program);
+  }
   @Post(':id/milestones')
   @UseGuards(SessionGuard, OriginGuard)
   async createMilestone(

@@ -85,6 +85,8 @@ export class ProgramsService {
         applicationPeriod: {
           startsAt: program.applicationStartAt.toISOString(),
           endsAt: program.applicationEndAt.toISOString(),
+          earlyClosedAt: program.earlyClosedAt?.toISOString() ?? null,
+          earlyCloseReason: program.earlyCloseReason,
         },
         viewer: {
           role: viewer.role,

@@ -155,6 +155,9 @@ model Program {
 
   applicationStartAt DateTime
   applicationEndAt   DateTime
+  /// Staff can close recruitment before the configured deadline.
+  earlyClosedAt      DateTime?
+  earlyCloseReason   String?
   /// null = 미종료; 공개 적격성 판정은 endAt 경과가 필요하다(#264).
   endAt              DateTime?
 

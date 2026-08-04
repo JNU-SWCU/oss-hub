@@ -190,7 +190,11 @@ export class ProgramTeamsService {
       throw this.error(TeamsErrorCode.PROGRAM_NOT_FOUND);
     }
     this.assertTeamParticipation(program);
-    if (now < program.applicationStartAt || now > program.applicationEndAt) {
+    if (
+      now < program.applicationStartAt ||
+      now > program.applicationEndAt ||
+      program.earlyClosedAt != null
+    ) {
       throw this.error(TeamsErrorCode.APPLICATION_PERIOD_CLOSED);
     }
     if (program.teamMaxSize == null) {

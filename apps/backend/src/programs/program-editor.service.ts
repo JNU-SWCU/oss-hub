@@ -219,6 +219,33 @@ export class ProgramEditorService {
     });
   }
 
+  earlyCloseRecruitment(
+    githubId: bigint,
+    programId: string,
+    reasonInput: string,
+    now: Date = new Date(),
+  ) {
+    return this.repository.withTransaction(async (store) => {
+      await this.requireEditor(store, githubId);
+      const existing = await store.findEditableProgramForUpdate(programId);
+      if (existing === null) this.fail(ProgramErrorCode.PROGRAM_NOT_FOUND);
+      if (existing.earlyClosedAt != null) {
+        this.fail(ProgramErrorCode.RECRUITMENT_ALREADY_CLOSED);
+      }
+      if (now < existing.applicationStartAt || now > existing.applicationEndAt) {
+        this.fail(ProgramErrorCode.RECRUITMENT_CLOSE_NOT_OPEN);
+      }
+      const reason = reasonInput.trim();
+      if (!reason) {
+        this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+          fieldErrors: [
+            { field: 'reason', code: 'REQUIRED', message: '조기 마감 사유를 입력해 주세요.' },
+          ],
+        });
+      }
+      return store.earlyCloseRecruitment(programId, now, reason);
+    });
+  }
   createMilestone(
     githubId: bigint,
     programId: string,
