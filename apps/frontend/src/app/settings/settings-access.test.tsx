@@ -177,7 +177,9 @@ describe('승인 대기 교직원의 설정 수정', () => {
     isComplete: true,
   };
   const SAVED_NOTIFICATION = {
-    notificationEmail: 'staff@jnu.ac.kr',
+    // 실제 도메인 주소는 쓰지 않는다 — `docs/rules/security.md` 의 deny-list 3번이
+    // 연락처 이메일을 금지하고, RFC 2606 예약 도메인의 합성 예시만 허용한다.
+    notificationEmail: 'staff@example.com',
     notifyEnabled: true,
   };
 
