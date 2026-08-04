@@ -75,6 +75,8 @@ it('학번·학과를 DB에 저장하고 다시 조회한다', async () => {
   await expect(repository.findByGithubId(githubId)).resolves.toEqual({
     id: userId,
     role: null,
+    // 아직 역할을 고르기 전이다 — 프로필만 저장한다고 선택이 생기지는 않는다(#569).
+    selectedRole: null,
     hasPendingStaffRequest: false,
     ...firstProfile,
   });
@@ -287,6 +289,7 @@ it('동일한 완료 요청이 경쟁하면 한 요청만 성공하고 다른 �
   const expected = {
     id: userId,
     role: null,
+    selectedRole: null,
     hasPendingStaffRequest: false,
     ...firstProfile,
   };
