@@ -38,7 +38,10 @@ interface FilterProgramsOptions {
 }
 
 export function getProgramRecruitmentState(
-  program: ProgramListItem,
+  program: Pick<
+    ProgramListItem,
+    'lifecycle' | 'applicationStartAt' | 'applicationEndAt' | 'endAt'
+  >,
   now: Date,
 ): ProgramRecruitmentState {
   if (program.lifecycle === 'ARCHIVED') {

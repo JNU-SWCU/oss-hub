@@ -1,6 +1,5 @@
-import Link from 'next/link';
 import { ProgramCard, StatusBadge } from '@/components';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { getProgramRecruitmentState } from './program-list';
 import { programHref } from './program-paths';
 import type { ProgramCategory } from './program-templates';
@@ -48,10 +47,11 @@ function ProgramListCard({
     <ProgramCard
       category={CATEGORY_LABELS[program.category]}
       footer={
-        <Button asChild variant="outline">
-          <Link href={programHref(program.id)}>자세히 보기</Link>
-        </Button>
+        <span className={buttonVariants({ variant: 'outline' })}>
+          자세히 보기
+        </span>
       }
+      href={programHref(program.id)}
       period={formatApplicationPeriod(program)}
       statusPlacement="body-center"
       status={

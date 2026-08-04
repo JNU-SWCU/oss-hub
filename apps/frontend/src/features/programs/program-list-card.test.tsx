@@ -26,6 +26,7 @@ describe('ProgramListCard', () => {
     expect(html).toContain('모집중');
     expect(html).toContain('자세히 보기');
     expect(html).toContain('href="/programs/program-1"');
+    expect(html.match(/href=/g)).toHaveLength(1);
     expect(html).not.toContain('신청하기');
     expect(html).not.toContain('신청 완료');
   });

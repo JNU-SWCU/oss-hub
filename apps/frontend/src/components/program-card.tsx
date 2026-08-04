@@ -28,11 +28,10 @@ interface ProgramCardBaseProps extends Omit<
   statusPlacement?: 'header' | 'body-center';
 }
 
-type ProgramCardProps = ProgramCardBaseProps &
-  (
-    | { readonly href: string; readonly footer?: never }
-    | { readonly href?: never; readonly footer?: React.ReactNode }
-  );
+type ProgramCardProps = ProgramCardBaseProps & {
+  readonly href?: string;
+  readonly footer?: React.ReactNode;
+};
 
 /**
  * 프로그램 요약 카드. B-5 Card 프리미티브를 조합만 하고 자체 스타일은

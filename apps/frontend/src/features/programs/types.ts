@@ -46,7 +46,7 @@ export interface ProgramListItem {
   /** null이면 종료일을 아직 안 닫은 것 — 접수 종료 후 진행중으로 본다. */
   readonly endAt: string | null;
   readonly description: string;
-  readonly applicationStatus?: ApplicationStatus | null;
+  readonly applicationStatus: ApplicationStatus | null;
 }
 
 /** 공개 카탈로그 필터 — 연습대회 없음. backend 목록 status와 한 벌. */

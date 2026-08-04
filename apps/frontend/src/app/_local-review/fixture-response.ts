@@ -11,6 +11,7 @@ import {
 } from '@/features/audit-log/fixtures';
 import type { AuditLogPage, AuditLogRecord } from '@/features/audit-log/types';
 import type {
+  ApplicationStatus,
   ProgramListItem,
   ProgramListPage,
   StaffDashboardSummary,
@@ -241,7 +242,18 @@ const PUBLIC_PROGRAM_FIXTURES = [
     endAt: null,
     description: '신청 전 상태를 확인하기 위한 합성 프로그램입니다.',
   },
-] as const satisfies readonly ProgramListItem[];
+] as const satisfies readonly Omit<ProgramListItem, 'applicationStatus'>[];
+
+const STUDENT_APPLICATION_STATUS_BY_PROGRAM = {
+  'program-capstone': 'APPROVED',
+  'program-oss-contest': 'APPROVED',
+  'program-basic-study': null,
+} as const satisfies Readonly<
+  Record<
+    (typeof PUBLIC_PROGRAM_FIXTURES)[number]['id'],
+    ApplicationStatus | null
+  >
+>;
 
 type PublicArchiveApiItem = {
   readonly projectId: string;
@@ -488,7 +500,7 @@ function auditLogPage(searchParams: URLSearchParams): AuditLogWirePage {
 }
 
 function recruitmentState(
-  program: ProgramListItem,
+  program: Pick<ProgramListItem, 'applicationStartAt' | 'applicationEndAt'>,
   now: Date,
 ): 'scheduled' | 'recruiting' | 'closed' {
   const nowTime = now.getTime();
@@ -520,10 +532,11 @@ function programListPage(
   const offset = (page - 1) * pageSize;
 
   return {
-    items: matched.slice(offset, offset + pageSize).map((program, index) => ({
+    items: matched.slice(offset, offset + pageSize).map((program) => ({
       ...program,
-      applicationStatus:
-        includeViewer && index === 0 ? ('SUBMITTED' as const) : null,
+      applicationStatus: includeViewer
+        ? STUDENT_APPLICATION_STATUS_BY_PROGRAM[program.id]
+        : null,
     })),
     page,
     pageSize,
