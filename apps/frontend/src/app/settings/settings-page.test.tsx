@@ -118,10 +118,12 @@ describe('설정 화면', () => {
     await act(async () => root.render(<SettingsPage />));
   }
 
-  function renderPendingStaff(): Promise<void> {
+  function renderStaffAwaitingRole(
+    roleRequestStatus: RoleRequestStatus = 'PENDING',
+  ): Promise<void> {
     return render({
       status: 'unassigned',
-      roleRequestStatus: 'PENDING',
+      roleRequestStatus,
       selectedRole: 'STAFF',
     });
   }
@@ -147,43 +149,52 @@ describe('설정 화면', () => {
   }
 
   /**
-   * 신고 그대로의 재현: 승인을 기다리는 교직원이 설정을 열어 이름을 고친다.
+   * 신고 그대로의 재현: 역할을 기다리는 교직원이 설정을 열어 이름을 고친다.
    *
    * 안내가 떴는지까지만 보면 부족하다 — 사용자가 원한 것은 안내가 아니라 수정이고,
    * 되돌려보내기를 걷어내도 폼이 학생 기준(학번 필수)으로 그려지면 저장이 막힌 채
    * 증상만 모양을 바꾼다. 그래서 폼에 값을 넣고 저장까지 눌러 PATCH 본문을 확인한다.
+   *
+   * `APPROVED`도 함께 본다. 결재가 끝나고 세션에 역할이 아직 오지 않은 사람이 겪는
+   * 일은 `PENDING`과 똑같고, 유지보수자가 그 창도 열기로 정했다(2026-08-04).
    */
-  it('승인 대기 교직원은 안내와 함께 폼에 도달하고, 고친 이름이 저장된다', async () => {
-    await renderPendingStaff();
+  it.each(['PENDING', 'APPROVED'] as const)(
+    '역할 요청이 %s 인 교직원은 안내와 함께 폼에 도달하고, 고친 이름이 저장된다',
+    async (roleRequestStatus) => {
+      await renderStaffAwaitingRole(roleRequestStatus);
 
-    // 되돌려보내지 않는다 — 신고된 증상("다시 이 창으로 돌아와지더라구요")이다.
-    expect(mocks.replace).not.toHaveBeenCalled();
-    expect(container.textContent).toContain(SETTINGS_ONBOARDING_NOTICE_HEADING);
-    expect(field('settings-name').value).toBe(SAVED_PROFILE.name);
-
-    await type(field('settings-name'), '김교직원');
-    const form = container.querySelector('form');
-    await act(async () => {
-      form?.dispatchEvent(
-        new Event('submit', { bubbles: true, cancelable: true }),
+      // 되돌려보내지 않는다 — 신고된 증상("다시 이 창으로 돌아와지더라구요")이다.
+      expect(mocks.replace).not.toHaveBeenCalled();
+      expect(container.textContent).toContain(
+        SETTINGS_ONBOARDING_NOTICE_HEADING,
       );
-    });
+      expect(field('settings-name').value).toBe(SAVED_PROFILE.name);
 
-    const saved = requests.find(
-      (request) =>
-        request.method === 'PATCH' && request.url.endsWith('/users/me/profile'),
-    );
-    expect(saved?.body).toMatchObject({ name: '김교직원' });
-    expect(container.textContent).toContain('저장되었습니다');
-  });
+      await type(field('settings-name'), '김교직원');
+      const form = container.querySelector('form');
+      await act(async () => {
+        form?.dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true }),
+        );
+      });
+
+      const saved = requests.find(
+        (request) =>
+          request.method === 'PATCH' &&
+          request.url.endsWith('/users/me/profile'),
+      );
+      expect(saved?.body).toMatchObject({ name: '김교직원' });
+      expect(container.textContent).toContain('저장되었습니다');
+    },
+  );
 
   /**
    * 역할을 세션의 `role`(=null)로만 읽으면 가장 엄격한 학생 기준이 적용돼 학번이
    * 필수가 된다. 학번 없이 가입한 교직원은 이름 한 글자를 고치려 해도 저장이
    * 막히므로, 화면을 열어 준 것만으로는 신고가 해결되지 않는다.
    */
-  it('승인 대기 교직원에게 학번을 요구하지 않는다', async () => {
-    await renderPendingStaff();
+  it('역할을 기다리는 교직원에게 학번을 요구하지 않는다', async () => {
+    await renderStaffAwaitingRole();
 
     expect(field('settings-student-id').value).toBe('');
     expect(container.textContent).toContain('학번이 있으면 입력합니다');

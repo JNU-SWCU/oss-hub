@@ -22,7 +22,7 @@ Next.js App Router 라우트. 역할 기반(STUDENT/STAFF/ADMIN) 화면 접근 �
 | `_shell/` | (라우트 아님 — 아래 참조) | — |
 | `signup/` | `/signup` | 게이트 없음 — 가입·로그인 진입. 로그인한 사용자는 화면 안에서 멈춘 자리(`/consent` 또는 역할 홈)로 되돌린다 |
 | `consent/` | `/consent` | `AuthGate`(로그인만 요구, 역할 무관) |
-| `settings/` | `/settings` | `RoleGate`(세 역할 모두) + **승인 대기 교직원 예외** — #156 프로필·알림 설정. 역할이 없어도 여는 갈래는 `unassigned` + 역할 요청 `PENDING` 하나뿐이다(`settings/settings-access.ts`의 `isSettingsOpenForPendingStaff`, #581). 요청 없음·`REJECTED`·`REVOKED`·가입 중 역할만 고른 사용자는 종전대로 온보딩으로 되돌린다 |
+| `settings/` | `/settings` | `RoleGate`(세 역할 모두) + **역할을 기다리는 교직원 예외** — #156 프로필·알림 설정. 역할이 없어도 여는 갈래는 `unassigned` + 살아 있는 역할 요청(`PENDING`·`APPROVED`) 둘뿐이다(`settings/settings-access.ts`의 `isSettingsOpenForStaffAwaitingRole`, #581). `APPROVED`까지 여는 것은 유지보수자의 명시적 결정이다(2026-08-04) — 결재가 끝나고 세션에 역할이 아직 오지 않은 사람도 자기 이름을 못 고치는 것은 #581과 같은 증상이다. 요청 없음·`REJECTED`·`REVOKED`·가입 중 역할만 고른 사용자는 종전대로 온보딩으로 되돌린다 |
 | `onboarding/role/`, `onboarding/pending/` | `/onboarding/role`, `/onboarding/pending` | `AuthGate` |
 | `dashboard/` | `/dashboard` | `STUDENT` |
 | `my-repos/` | `/my-repos` | 로그인한 모든 역할(학생 메뉴 아래 있지만 role 무관 접근 허용) |
