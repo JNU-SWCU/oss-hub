@@ -501,7 +501,10 @@ function recruitmentState(
 }
 
 /** `/programs`(status=all)와 랜딩(status=recruiting)이 같은 경로를 쓰므로 질의를 그대로 반영한다 */
-function programListPage(searchParams: URLSearchParams): ProgramListPage {
+function programListPage(
+  searchParams: URLSearchParams,
+  includeViewer: boolean,
+): ProgramListPage {
   const now = new Date();
   const page = positiveIntParam(searchParams.get('page'), 1);
   const pageSize = positiveIntParam(searchParams.get('pageSize'), 20);
@@ -517,7 +520,11 @@ function programListPage(searchParams: URLSearchParams): ProgramListPage {
   const offset = (page - 1) * pageSize;
 
   return {
-    items: matched.slice(offset, offset + pageSize),
+    items: matched.slice(offset, offset + pageSize).map((program, index) => ({
+      ...program,
+      applicationStatus:
+        includeViewer && index === 0 ? ('SUBMITTED' as const) : null,
+    })),
     page,
     pageSize,
     totalItems: matched.length,
@@ -606,8 +613,8 @@ export function resolveLocalReviewResponse({
     return sessionResponse(fixture);
   }
 
-  if (method === 'GET' && path === 'programs') {
-    return json(200, programListPage(searchParams));
+  if (method === 'GET' && (path === 'programs' || path === 'programs/viewer')) {
+    return json(200, programListPage(searchParams, path === 'programs/viewer'));
   }
 
   if (method === 'GET' && path === 'projects') {

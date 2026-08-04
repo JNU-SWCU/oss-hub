@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { Role, SubmissionStatus } from '@prisma/client';
+import {
+  Role,
+  SubmissionStatus,
+  type ApplicationStatus,
+} from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import type {
   ApplicationSubmissionSummaryResponseDto,
@@ -22,7 +26,9 @@ type SubmissionRecord = {
 };
 
 export interface ProgramListPage {
-  readonly items: readonly ProgramListRecord[];
+  readonly items: readonly (ProgramListRecord & {
+    readonly applicationStatus: ApplicationStatus | null;
+  })[];
   readonly page: number;
   readonly pageSize: number;
   readonly totalItems: number;
@@ -46,11 +52,29 @@ export class ProgramsService {
 
   async list(
     query: ProgramListQuery,
+    viewer: ProgramViewer = {
+      githubId: null,
+      userId: null,
+      role: null,
+    },
     now = new Date(),
   ): Promise<ProgramListPage> {
     const [items, totalItems] = await this.repository.listPrograms(query, now);
+    const applicationStatuses =
+      viewer.role === Role.STUDENT && viewer.userId
+        ? await this.repository.findStudentApplicationStatuses(
+            items.map(({ id }) => id),
+            viewer.userId,
+          )
+        : [];
+    const statusByProgram = new Map(
+      applicationStatuses.map(({ programId, status }) => [programId, status]),
+    );
     return {
-      items,
+      items: items.map((program) => ({
+        ...program,
+        applicationStatus: statusByProgram.get(program.id) ?? null,
+      })),
       page: query.page,
       pageSize: query.pageSize,
       totalItems,

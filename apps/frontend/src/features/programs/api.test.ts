@@ -42,6 +42,26 @@ describe('listPrograms', () => {
     );
     expect(result).toEqual(response);
   });
+
+  it('학생 목록은 viewer 경로로 현재 신청 상태를 요청한다', async () => {
+    const response = {
+      items: [],
+      page: 1,
+      pageSize: 20,
+      totalItems: 0,
+      totalPages: 0,
+    } satisfies ProgramListPage;
+    vi.mocked(apiClient).mockResolvedValue(response);
+
+    await listPrograms(
+      { page: 1, pageSize: 20, search: '', status: 'all' },
+      true,
+    );
+
+    expect(apiClient).toHaveBeenCalledWith(
+      'programs/viewer?page=1&pageSize=20&search=&status=all',
+    );
+  });
 });
 
 describe('getProgramStatusCounts', () => {
@@ -133,6 +153,26 @@ describe('createApplication', () => {
       }),
     );
     expect(result).toEqual(response);
+  });
+
+  it('학생 목록은 viewer 경로로 현재 신청 상태를 요청한다', async () => {
+    const response = {
+      items: [],
+      page: 1,
+      pageSize: 20,
+      totalItems: 0,
+      totalPages: 0,
+    } satisfies ProgramListPage;
+    vi.mocked(apiClient).mockResolvedValue(response);
+
+    await listPrograms(
+      { page: 1, pageSize: 20, search: '', status: 'all' },
+      true,
+    );
+
+    expect(apiClient).toHaveBeenCalledWith(
+      'programs/viewer?page=1&pageSize=20&search=&status=all',
+    );
   });
 });
 

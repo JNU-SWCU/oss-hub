@@ -1,6 +1,7 @@
 import {
   ProgramCategory,
   ProgramLifecycle,
+  type ApplicationStatus,
   type Program,
 } from '@prisma/client';
 import type { ProgramListPage } from '../programs.service';
@@ -16,6 +17,7 @@ export class ProgramListResponseDto {
   readonly applicationEndAt: string;
   readonly endAt: string | null;
   readonly description: string;
+  readonly applicationStatus: ApplicationStatus | null;
 
   private constructor(
     program: Pick<
@@ -29,7 +31,7 @@ export class ProgramListResponseDto {
       | 'applicationEndAt'
       | 'endAt'
       | 'description'
-    >,
+    > & { readonly applicationStatus: ApplicationStatus | null },
   ) {
     this.id = program.id;
     this.name = program.name;
@@ -40,6 +42,7 @@ export class ProgramListResponseDto {
     this.applicationEndAt = program.applicationEndAt.toISOString();
     this.endAt = program.endAt ? program.endAt.toISOString() : null;
     this.description = program.description;
+    this.applicationStatus = program.applicationStatus;
   }
 
   static from(
@@ -54,7 +57,7 @@ export class ProgramListResponseDto {
       | 'applicationEndAt'
       | 'endAt'
       | 'description'
-    >,
+    > & { readonly applicationStatus: ApplicationStatus | null },
   ): ProgramListResponseDto {
     return new ProgramListResponseDto(program);
   }

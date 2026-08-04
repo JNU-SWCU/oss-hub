@@ -77,6 +77,40 @@ describe('ProgramsController read boundaries', () => {
     ).toBeUndefined();
   });
 
+  it('인증 목록은 SessionGuard 뒤에서 viewer를 해석한다', async () => {
+    const viewer = { githubId: 101n, userId: 'student-1', role: 'STUDENT' };
+    viewers.fromGithubId.mockResolvedValue(viewer);
+    programs.list.mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 20,
+      totalItems: 0,
+      totalPages: 0,
+    });
+
+    await controller.viewerList(
+      {
+        page: 1,
+        pageSize: 20,
+        search: '',
+        status: 'all',
+        toQuery: () => ({
+          page: 1,
+          pageSize: 20,
+          search: '',
+          status: 'all' as const,
+        }),
+      },
+      { sessionGithubId: 101n },
+    );
+
+    expect(viewers.fromGithubId).toHaveBeenCalledWith(101n);
+    expect(programs.list).toHaveBeenCalledWith(expect.any(Object), viewer);
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, controllerMethod('viewerList')),
+    ).toContain(SessionGuard);
+  });
+
   it('프로그램 생성은 공용 세션·origin guard 뒤에 있다', () => {
     expect(
       Reflect.getMetadata(GUARDS_METADATA, controllerMethod('create')),

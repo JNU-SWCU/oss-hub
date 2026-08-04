@@ -67,6 +67,21 @@ export class ProgramsController {
     );
   }
 
+  @Get('viewer')
+  @Header('Cache-Control', 'private, no-store')
+  @UseGuards(SessionGuard)
+  async viewerList(
+    @Query() query: ProgramListQueryRequestDto,
+    @Req() request: SessionIdentity,
+  ): Promise<ProgramListPageResponseDto> {
+    return ProgramListPageResponseDto.from(
+      await this.programs.list(
+        query.toQuery(),
+        await this.viewers.fromGithubId(request.sessionGithubId),
+      ),
+    );
+  }
+
   @Post()
   @HttpCode(201)
   @UseGuards(SessionGuard, OriginGuard)

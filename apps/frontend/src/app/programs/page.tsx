@@ -10,7 +10,10 @@ export default function ProgramsPage() {
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <ProgramListPage canCreateProgram={canCreateProgram} />
+      <ProgramListPage
+        canCreateProgram={canCreateProgram}
+        includeViewer={status === 'assigned' && role === 'STUDENT'}
+      />
     </main>
   );
 }
