@@ -53,9 +53,7 @@ function linkAriaLabel(
   collapsed: boolean,
 ): string | undefined {
   if (!collapsed) return undefined;
-  return item.count !== undefined
-    ? `${item.label} ${item.count}`
-    : item.label;
+  return item.count !== undefined ? `${item.label} ${item.count}` : item.label;
 }
 
 function tooltipText(item: SidebarGroup['items'][number]): string {

@@ -4,10 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { AppSidebar } from './app-sidebar';
-import {
-  SECTION_FACETS,
-  type SectionFacetData,
-} from './section-facets';
+import { SECTION_FACETS, type SectionFacetData } from './section-facets';
 import {
   SIDEBAR_COLLAPSED_VALUE,
   SIDEBAR_OPEN_VALUE,

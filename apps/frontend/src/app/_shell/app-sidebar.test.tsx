@@ -92,9 +92,7 @@ describe('AppSidebar', () => {
     const html = renderWithCounts(true);
     expect(html).toContain('data-slot="app-sidebar-count"');
     // count slot must not be the element that is itself class-hidden
-    const countSlots = html.match(
-      /data-slot="app-sidebar-count"[^>]*>/g,
-    );
+    const countSlots = html.match(/data-slot="app-sidebar-count"[^>]*>/g);
     expect(countSlots?.length).toBeGreaterThan(0);
     for (const slot of countSlots ?? []) {
       // class may exist but must not include standalone `hidden` that hides the badge

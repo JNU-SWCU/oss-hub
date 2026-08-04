@@ -26,7 +26,9 @@ export interface SectionFacetSpec {
   readonly param: 'status' | 'category' | 'year';
   /** Optional: load counts/years. Prefer AbortSignal; if feature API lacks signal, call API then check signal.aborted. */
   readonly load?: (signal: AbortSignal) => Promise<SectionFacetData>;
-  readonly items: (data: SectionFacetData | undefined) => readonly SidebarItem[];
+  readonly items: (
+    data: SectionFacetData | undefined,
+  ) => readonly SidebarItem[];
   /**
    * 상세 경로 하이라이트 예외.
    * - `null`: 목록 경로 — 기본 쿼리 파라미터 비교 사용
