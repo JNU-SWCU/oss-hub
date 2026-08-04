@@ -9,9 +9,9 @@ import { issueSessionToken } from '../auth/session-token';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import {
-  SubmissionMatrixRepository,
+  SubmissionMatrixStore,
   type SubmissionMatrixRepositoryPort,
-} from './submission-matrix.repository';
+} from './submission-matrix.store';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import { SubmissionMatrixController } from './submissions.controller';
 
@@ -101,7 +101,7 @@ beforeAll(async () => {
         provide: AuthService,
         useValue: { getMe: jest.fn().mockResolvedValue({ id: 'synthetic' }) },
       },
-      { provide: SubmissionMatrixRepository, useValue: repository },
+      { provide: SubmissionMatrixStore, useValue: repository },
     ],
   }).compile();
 

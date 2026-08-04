@@ -72,7 +72,7 @@ export class SubmissionFileRetentionUnavailableError extends Error {
 }
 
 @Injectable()
-export class SubmissionFilesRepository {
+export class SubmissionFilesStore {
   constructor(private readonly prisma: PrismaService) {}
 
   async findActiveStudentByGithubId(githubId: bigint): Promise<string | null> {

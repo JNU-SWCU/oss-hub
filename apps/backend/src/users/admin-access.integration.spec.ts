@@ -7,7 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
 import { AdminAccessController } from './admin-access.controller';
 import { BarrierAdminAccessRepository } from './admin-access.integration-support';
-import { AdminAccessRepository } from './admin-access.repository';
+import { AdminAccessStore } from './admin-access.store';
 import { AdminAccessService } from './admin-access.service';
 import { PatchAdminAccessRequestDto } from './dto/patch-admin-access.dto';
 
@@ -17,7 +17,7 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const repository = new AdminAccessRepository(prisma);
+const repository = new AdminAccessStore(prisma);
 const auditLog = new AuditLogService(new AuditLogRepository(prisma));
 const service = new AdminAccessService(repository, auditLog);
 const AUDIT_FAILURE_FUNCTION = 'fail_admin_access_audit_insert';

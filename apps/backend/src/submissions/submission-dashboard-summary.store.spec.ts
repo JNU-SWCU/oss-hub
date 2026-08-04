@@ -4,8 +4,8 @@ import {
   type DashboardMilestoneRow,
   type DashboardSubmissionRow,
   type SubmissionDashboardSummaryDataSource,
-  SubmissionDashboardSummaryRepository,
-} from './submission-dashboard-summary.repository';
+  SubmissionDashboardSummaryStore,
+} from './submission-dashboard-summary.store';
 
 class FakeFindManyDelegate<TArgs, TRow> {
   readonly calls: TArgs[] = [];
@@ -18,7 +18,7 @@ class FakeFindManyDelegate<TArgs, TRow> {
   }
 }
 
-describe('SubmissionDashboardSummaryRepository', () => {
+describe('SubmissionDashboardSummaryStore', () => {
   it('queries approved applications, milestones, and current submissions once for all programs', async () => {
     // Given
     const applications = new FakeFindManyDelegate<
@@ -58,7 +58,7 @@ describe('SubmissionDashboardSummaryRepository', () => {
       milestone: milestones,
       submission: submissions,
     } satisfies SubmissionDashboardSummaryDataSource;
-    const repository = new SubmissionDashboardSummaryRepository(prisma);
+    const repository = new SubmissionDashboardSummaryStore(prisma);
 
     // When
     const records = await repository.listRecords(['program-a', 'program-b']);
@@ -148,7 +148,7 @@ describe('SubmissionDashboardSummaryRepository', () => {
     } satisfies SubmissionDashboardSummaryDataSource;
 
     // When
-    const records = await new SubmissionDashboardSummaryRepository(
+    const records = await new SubmissionDashboardSummaryStore(
       prisma,
     ).listRecords([]);
 

@@ -1,5 +1,5 @@
 import type { PrismaService } from '../prisma/prisma.service';
-import { UsersRepository } from './users.repository';
+import { UsersStore } from './users.store';
 
 type TransactionCallback<T> = (transaction: unknown) => Promise<T>;
 
@@ -42,11 +42,11 @@ function harness() {
     userProfileFindUnique,
     roleRequestFindFirst,
     roleRequestCreate,
-    repository: new UsersRepository(prisma),
+    repository: new UsersStore(prisma),
   };
 }
 
-describe('UsersRepository profile compatibility reads', () => {
+describe('UsersStore profile compatibility reads', () => {
   it('prefers UserProfile fields over stale legacy User fields', async () => {
     // Given
     const { findUnique, repository } = harness();
@@ -137,7 +137,7 @@ describe('UsersRepository profile compatibility reads', () => {
   });
 });
 
-describe('UsersRepository profile completion writes', () => {
+describe('UsersStore profile completion writes', () => {
   const expected = {
     id: 'user-complete',
     role: null,
@@ -222,7 +222,7 @@ describe('UsersRepository profile completion writes', () => {
   });
 });
 
-describe('UsersRepository profile field updates', () => {
+describe('UsersStore profile field updates', () => {
   it('UserProfile 행이 없어도 실패하지 않고 User 컬럼을 갱신한다', async () => {
     // Given
     const { repository, userProfileUpdateMany, userUpdate } = harness();
@@ -244,7 +244,7 @@ describe('UsersRepository profile field updates', () => {
   });
 });
 
-describe('UsersRepository 학번 최초 저장', () => {
+describe('UsersStore 학번 최초 저장', () => {
   const expected = {
     id: 'user-legacy-only',
     role: 'STAFF' as const,
@@ -286,7 +286,7 @@ describe('UsersRepository 학번 최초 저장', () => {
   });
 });
 
-describe('UsersRepository 완료 저장의 학번 경로', () => {
+describe('UsersStore 완료 저장의 학번 경로', () => {
   it('학번이 실렸는데 학과가 없으면 조용히 legacy에 쓰지 않고 멈춘다', async () => {
     // Given — 이 조합은 서비스가 먼저 400으로 막아야 한다(USR_005)
     const { repository, userUpdateMany } = harness();
@@ -319,7 +319,7 @@ describe('UsersRepository 완료 저장의 학번 경로', () => {
  * 끊겼을 때 "프로필은 완료됐는데 역할이 없는" 계정이 남고, 그 계정은 프로필 화면이
  * 이미 완료라며 곧바로 내보내므로 다시 확정될 기회를 얻지 못한다.
  */
-describe('UsersRepository 가입 마치기 확정', () => {
+describe('UsersStore 가입 마치기 확정', () => {
   const student = {
     id: 'user-finishing-student',
     role: null,

@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import {
   completeCompatibleProfileIfUnchanged,
   fillCompatibleStudentIdIfUnchanged,
-} from './profile-compatibility.repository';
+} from './profile-compatibility.store';
 
 function uniqueConstraintError(): Prisma.PrismaClientKnownRequestError {
   return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {

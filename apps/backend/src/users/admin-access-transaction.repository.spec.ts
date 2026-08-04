@@ -1,8 +1,8 @@
 import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
-import { AdminAccessRepository } from './admin-access.repository';
+import { AdminAccessStore } from './admin-access.store';
 
-describe('AdminAccessRepository transaction store', () => {
+describe('AdminAccessStore transaction store', () => {
   it('locks active admins deterministically before exposing CAS primitives', async () => {
     // Given
     const operations: string[] = [];
@@ -36,7 +36,7 @@ describe('AdminAccessRepository transaction store', () => {
       roleRequest: { updateMany: updateRequest },
       auditLog: { create: jest.fn() },
     };
-    const repository = new AdminAccessRepository({
+    const repository = new AdminAccessStore({
       $transaction: <T>(
         operation: (store: typeof transaction) => Promise<T>,
       ): Promise<T> => operation(transaction),

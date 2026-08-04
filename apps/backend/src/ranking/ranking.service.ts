@@ -3,7 +3,7 @@ import {
   COLLECTION_READ_PORT,
   type CollectionReadPort,
 } from '../collection/collection-read.port';
-import { UserDisplayNameRepository } from '../users/user-display-name.repository';
+import { UserDisplayNameStore } from '../users/user-display-name.store';
 import {
   RANKING_YEAR_ALL,
   type RankingEntry,
@@ -29,7 +29,7 @@ export class RankingService {
   constructor(
     @Inject(COLLECTION_READ_PORT)
     private readonly collection: CollectionReadPort,
-    private readonly displayNames: UserDisplayNameRepository,
+    private readonly displayNames: UserDisplayNameStore,
   ) {}
 
   async findPage(

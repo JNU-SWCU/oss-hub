@@ -10,7 +10,7 @@ import type {
   AdminAccessUserPageRecord,
   AdminAccessUserRecord,
   AdminAccessUserUpdate,
-} from './admin-access.repository';
+} from './admin-access.store';
 import type {
   AdminAccessListQuery,
   AdminAccessLoginHistoryPage,

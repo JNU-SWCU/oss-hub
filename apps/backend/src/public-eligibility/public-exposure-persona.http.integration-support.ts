@@ -18,7 +18,7 @@ import { RepositoriesRepository } from '../repositories/repositories.repository'
 import { RepositoriesService } from '../repositories/repositories.service';
 import { RankingController } from '../ranking/ranking.controller';
 import { RankingService } from '../ranking/ranking.service';
-import { UserDisplayNameRepository } from '../users/user-display-name.repository';
+import { UserDisplayNameStore } from '../users/user-display-name.store';
 import { PublicProjectsController } from '../public-projects/public-projects.controller';
 import { PublicProjectsRepository } from '../public-projects/public-projects.repository';
 import { PublicProjectsService } from '../public-projects/public-projects.service';
@@ -69,7 +69,7 @@ export class PublicExposurePersonaHttpHarness {
     );
     const rankingService = new RankingService(
       this.collection,
-      new UserDisplayNameRepository(this.prisma),
+      new UserDisplayNameStore(this.prisma),
     );
 
     const github = {

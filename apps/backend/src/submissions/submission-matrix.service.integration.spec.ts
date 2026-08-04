@@ -17,7 +17,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../prisma/prisma.service';
 import type { SubmissionMatrixQuery } from './domain/submission-matrix';
 import type { MatrixRowResponseDto } from './dto/submission-matrix-response.dto';
-import { SubmissionMatrixRepository } from './submission-matrix.repository';
+import { SubmissionMatrixStore } from './submission-matrix.store';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import { SubmissionsErrorCode } from './submissions-error-code.enum';
 
@@ -28,9 +28,7 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const service = new SubmissionMatrixService(
-  new SubmissionMatrixRepository(prisma),
-);
+const service = new SubmissionMatrixService(new SubmissionMatrixStore(prisma));
 
 const PROGRAM_ID = seedId('milestones', 'program');
 const PERSONAL_APPLICATION_ID = seedId('milestones', 'application', 'personal');

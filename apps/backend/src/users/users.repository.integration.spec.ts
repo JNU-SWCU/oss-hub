@@ -1,8 +1,8 @@
 import { Role } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import { completeCompatibleProfileIfUnchanged } from '../profiles/profile-compatibility.repository';
-import { UsersRepository } from './users.repository';
+import { completeCompatibleProfileIfUnchanged } from '../profiles/profile-compatibility.store';
+import { UsersStore } from './users.store';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -32,7 +32,7 @@ type StoredProfileFields = {
 };
 
 const prisma = new PrismaService();
-const repository = new UsersRepository(prisma);
+const repository = new UsersStore(prisma);
 
 async function completeCurrentProfile(
   profile: typeof firstProfile | typeof secondProfile,

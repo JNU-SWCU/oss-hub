@@ -5,7 +5,7 @@ import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
 import { FailingDecisionAdminAccessRepository } from './admin-access.integration-support';
-import { AdminAccessRepository } from './admin-access.repository';
+import { AdminAccessStore } from './admin-access.store';
 import { AdminAccessService } from './admin-access.service';
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from './domain/admin-access';
 
@@ -50,7 +50,7 @@ it('rolls back the user CAS when the pending-request CAS fails second', async ()
   const request = await prisma.roleRequest.create({
     data: { id: `${target.id}:request`, userId: target.id },
   });
-  const realRepository = new AdminAccessRepository(prisma);
+  const realRepository = new AdminAccessStore(prisma);
   const service = new AdminAccessService(
     new FailingDecisionAdminAccessRepository(realRepository),
     new AuditLogService(new AuditLogRepository(prisma)),

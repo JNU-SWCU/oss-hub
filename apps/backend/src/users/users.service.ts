@@ -17,13 +17,13 @@ import {
   toUserProfile,
 } from './domain/user-profile';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.enum';
-import { UsersRepository } from './users.repository';
-import type { UsersRepositoryPort } from './users.repository';
+import { UsersStore } from './users.store';
+import type { UsersRepositoryPort } from './users.store';
 
 @Injectable()
 export class UsersService {
   constructor(
-    @Inject(UsersRepository)
+    @Inject(UsersStore)
     private readonly repository: UsersRepositoryPort,
     @Inject(ConsentsService)
     private readonly consentsService: Pick<ConsentsService, 'requireCurrent'>,

@@ -8,7 +8,7 @@ import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.enum';
 import type {
   AdminAccessActor,
   AdminAccessUserRecord,
-} from './admin-access.repository';
+} from './admin-access.store';
 import {
   ADMIN_ACCESS_DECISION_KINDS,
   ADMIN_ACCESS_REQUEST_EFFECTS,

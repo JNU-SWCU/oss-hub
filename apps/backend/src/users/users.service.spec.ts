@@ -3,10 +3,7 @@ import { DomainException } from '../common/error-code';
 import { SystemErrorCode } from '../common/system-error-code.enum';
 import type { PatchUserProfileInput } from './domain/user-profile';
 import { UsersErrorCode } from './users-error-code.enum';
-import type {
-  StudentIdFillOutcome,
-  UsersRepositoryPort,
-} from './users.repository';
+import type { StudentIdFillOutcome, UsersRepositoryPort } from './users.store';
 import { UsersService } from './users.service';
 
 const githubId = 4242n;

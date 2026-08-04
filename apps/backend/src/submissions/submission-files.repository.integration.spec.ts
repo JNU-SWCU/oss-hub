@@ -14,7 +14,7 @@ import {
 } from '../../prisma/seeds/helpers';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import { SubmissionFilesRepository } from './submission-files.repository';
+import { SubmissionFilesStore } from './submission-files.store';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -22,7 +22,7 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const repository = new SubmissionFilesRepository(prisma);
+const repository = new SubmissionFilesStore(prisma);
 const NOW = new Date('2026-07-31T00:00:00.000Z');
 const PENDING_EXPIRES_AT = new Date('2026-08-01T00:00:00.000Z');
 const FUTURE_EXPIRES_AT = new Date('2027-01-01T00:00:00.000Z');
@@ -138,7 +138,7 @@ async function deleteIssue342Rows(): Promise<void> {
   });
 }
 
-describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
+describe('SubmissionFilesStore.findDownloadableFile integration', () => {
   beforeAll(async () => {
     await Promise.all([prisma.$connect(), seedPrisma.$connect()]);
     await runProfile('milestones', new SeedStats());

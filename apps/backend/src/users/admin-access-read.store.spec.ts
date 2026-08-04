@@ -4,7 +4,7 @@ import type { PrismaService } from '../prisma/prisma.service';
 import {
   findAdminAccessUserById,
   toAdminAccessUserRecord,
-} from './admin-access-read.repository';
+} from './admin-access-read.store';
 import { enforceAdminAccessGuards } from './admin-access-mutation-policy';
 import {
   ADMIN_ACCESS_DECISION_KINDS,

@@ -1,5 +1,5 @@
 import { AccountStatus, Role, RoleRequestStatus, User } from '@prisma/client';
-import { upsertCompatibleProfile } from '../../src/profiles/profile-compatibility.repository';
+import { upsertCompatibleProfile } from '../../src/profiles/profile-compatibility.store';
 import {
   offsetDays,
   prisma,

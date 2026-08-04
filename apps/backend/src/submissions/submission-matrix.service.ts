@@ -10,12 +10,12 @@ import type {
   SubmissionMatrixResponseDto,
 } from './dto/submission-matrix-response.dto';
 import {
-  SubmissionMatrixRepository,
+  SubmissionMatrixStore,
   type MatrixApplicationRecord,
   type MatrixMilestoneRecord,
   type MatrixSubmissionRecord,
   type SubmissionMatrixRepositoryPort,
-} from './submission-matrix.repository';
+} from './submission-matrix.store';
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
@@ -24,7 +24,7 @@ import {
 @Injectable()
 export class SubmissionMatrixService {
   constructor(
-    @Inject(SubmissionMatrixRepository)
+    @Inject(SubmissionMatrixStore)
     private readonly repository: SubmissionMatrixRepositoryPort,
   ) {}
 

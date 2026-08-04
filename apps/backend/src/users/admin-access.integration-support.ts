@@ -7,7 +7,7 @@ import type {
   AdminAccessUserRecord,
   AdminAccessUserUpdate,
   AdminAccessPendingDecisionUpdate,
-} from './admin-access.repository';
+} from './admin-access.store';
 import type {
   AdminAccessFacets,
   AdminAccessListQuery,

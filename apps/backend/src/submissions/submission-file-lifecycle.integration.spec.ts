@@ -16,7 +16,7 @@ import { addOneCalendarYear } from '../common/add-one-calendar-year';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3SubmissionFileStorage } from './s3-submission-file.storage';
 import { SubmissionFileStorageConfig } from './submission-file-storage.config';
-import { SubmissionFilesRepository } from './submission-files.repository';
+import { SubmissionFilesStore } from './submission-files.store';
 
 const REQUIRED_ENV = [
   'DATABASE_URL',
@@ -41,7 +41,7 @@ if (integrationReady) {
 
 const describeIntegration = integrationReady ? describe : describe.skip;
 const prisma = new PrismaService();
-const files = new SubmissionFilesRepository(prisma);
+const files = new SubmissionFilesStore(prisma);
 const storageConfig = new SubmissionFileStorageConfig();
 const storage = new S3SubmissionFileStorage(storageConfig);
 const APPLICATION_ID = seedId('milestones', 'application', 'personal');

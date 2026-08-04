@@ -13,7 +13,7 @@ import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminAccessController } from './admin-access.controller';
-import { AdminAccessRepository } from './admin-access.repository';
+import { AdminAccessStore } from './admin-access.store';
 import { AdminAccessService } from './admin-access.service';
 
 const sessionSecret = new Uint8Array(32).fill(17);
@@ -36,7 +36,7 @@ export class AdminAccessHttpHarness {
       controllers: [AdminAccessController],
       providers: [
         AdminAccessService,
-        AdminAccessRepository,
+        AdminAccessStore,
         AuditLogService,
         AuditLogRepository,
         SessionGuard,

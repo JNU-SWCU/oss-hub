@@ -3,23 +3,23 @@ import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuthModule } from '../auth/auth.module';
 import { ConsentsModule } from '../consents/consents.module';
 import { AdminAccessController } from './admin-access.controller';
-import { AdminAccessRepository } from './admin-access.repository';
+import { AdminAccessStore } from './admin-access.store';
 import { AdminAccessService } from './admin-access.service';
-import { UserDisplayNameRepository } from './user-display-name.repository';
+import { UserDisplayNameStore } from './user-display-name.store';
 import { UsersController } from './users.controller';
-import { UsersRepository } from './users.repository';
+import { UsersStore } from './users.store';
 import { UsersService } from './users.service';
 
 @Module({
   imports: [AuditLogModule, AuthModule, ConsentsModule],
   controllers: [AdminAccessController, UsersController],
   providers: [
-    AdminAccessRepository,
+    AdminAccessStore,
     AdminAccessService,
-    UserDisplayNameRepository,
-    UsersRepository,
+    UserDisplayNameStore,
+    UsersStore,
     UsersService,
   ],
-  exports: [UserDisplayNameRepository, UsersService],
+  exports: [UserDisplayNameStore, UsersService],
 })
 export class UsersModule {}

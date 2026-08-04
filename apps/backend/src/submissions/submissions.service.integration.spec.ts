@@ -19,7 +19,7 @@ import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubmissionsErrorCode } from './submissions-error-code.enum';
 import type { SubmissionFileStoragePort } from './submission-file-storage.port';
-import { SubmissionFilesRepository } from './submission-files.repository';
+import { SubmissionFilesStore } from './submission-files.store';
 import { SubmissionFilesService } from './submission-files.service';
 import { SubmissionsRepository } from './submissions.repository';
 import { SubmissionsService } from './submissions.service';
@@ -497,7 +497,7 @@ describe('SubmissionsService integration', () => {
       get: jest.fn<ReturnType<SubmissionFileStoragePort['get']>, [string]>(),
     };
     const fileService = new SubmissionFilesService(
-      new SubmissionFilesRepository(prisma),
+      new SubmissionFilesStore(prisma),
       storage,
     );
 

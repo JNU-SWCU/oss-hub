@@ -9,14 +9,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   listAdminAccessLoginHistory,
   listAdminAccessRoleRequestHistory,
-} from './admin-access-history.repository';
+} from './admin-access-history.store';
 import {
   ADMIN_ACCESS_USER_SELECT,
   findAdminAccessUserById,
   listAdminAccessFacets,
   listAdminAccessUsers,
   toAdminAccessUserRecord,
-} from './admin-access-read.repository';
+} from './admin-access-read.store';
 import type {
   AdminAccessActor,
   AdminAccessPendingDecisionUpdate,
@@ -135,7 +135,7 @@ class PrismaAdminAccessTransactionStore implements AdminAccessTransactionStore {
 }
 
 @Injectable()
-export class AdminAccessRepository implements AdminAccessRepositoryPort {
+export class AdminAccessStore implements AdminAccessRepositoryPort {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   withTransaction<T>(

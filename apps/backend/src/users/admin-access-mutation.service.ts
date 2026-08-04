@@ -15,7 +15,7 @@ import type {
   AdminAccessRepositoryPort,
   AdminAccessTransactionStore,
   AdminAccessUserRecord,
-} from './admin-access.repository';
+} from './admin-access.store';
 import {
   ADMIN_ACCESS_PENDING_STATES,
   resolveAdminAccessTransition,

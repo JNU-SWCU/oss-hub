@@ -3,7 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../../app.module';
 import { PrismaService } from '../../prisma/prisma.service';
 import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
-import { SubmissionFilesRepository } from '../submission-files.repository';
+import { SubmissionFilesStore } from '../submission-files.store';
 
 const ENABLED_VALUE = '1';
 
@@ -36,7 +36,7 @@ async function main(): Promise<void> {
     }
 
     const reset = await app
-      .get(SubmissionFilesRepository)
+      .get(SubmissionFilesStore)
       .resetDeleteAttempts(fileId, new Date());
     if (!reset) {
       throw new Error('Cleanup retry target is unavailable');

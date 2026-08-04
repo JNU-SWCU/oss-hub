@@ -4,9 +4,9 @@ import {
   ADMIN_ACCESS_PENDING_FILTERS,
   ADMIN_ACCESS_ROLE_FILTERS,
 } from './domain/admin-access';
-import { AdminAccessRepository } from './admin-access.repository';
+import { AdminAccessStore } from './admin-access.store';
 
-describe('AdminAccessRepository', () => {
+describe('AdminAccessStore', () => {
   it('builds the paged access read model and search-scoped facets', async () => {
     // Given
     const queryRaw = jest.fn().mockResolvedValue([{ id: 'student' }]);
@@ -38,7 +38,7 @@ describe('AdminAccessRepository', () => {
       .mockResolvedValueOnce(1)
       .mockResolvedValueOnce(2)
       .mockResolvedValueOnce(1);
-    const repository = new AdminAccessRepository({
+    const repository = new AdminAccessStore({
       $queryRaw: queryRaw,
       user: { findMany, count },
     } as unknown as PrismaService);
@@ -153,7 +153,7 @@ describe('AdminAccessRepository', () => {
         loginAt: new Date('2026-07-23T00:00:00.000Z'),
       },
     ]);
-    const repository = new AdminAccessRepository({
+    const repository = new AdminAccessStore({
       user: { findUnique: jest.fn().mockResolvedValue(detail) },
       roleRequest: {
         findMany: roleRequestFindMany,

@@ -4,7 +4,7 @@ import type {
   SubmissionDashboardMilestoneRecord,
   SubmissionDashboardSubmissionRecord,
   SubmissionDashboardSummaryRepositoryPort,
-} from './submission-dashboard-summary.repository';
+} from './submission-dashboard-summary.store';
 import { SubmissionDashboardSummaryService } from './submission-dashboard-summary.service';
 
 class FakeSubmissionDashboardSummaryRepository implements SubmissionDashboardSummaryRepositoryPort {

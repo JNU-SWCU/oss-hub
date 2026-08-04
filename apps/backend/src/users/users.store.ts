@@ -5,7 +5,7 @@ import {
   completeCompatibleProfileIfUnchanged,
   fillCompatibleStudentIdIfUnchanged,
   type StudentIdFillOutcome,
-} from '../profiles/profile-compatibility.repository';
+} from '../profiles/profile-compatibility.store';
 import {
   COMPATIBLE_PROFILE_SELECT,
   resolveCompatibleProfile,
@@ -37,7 +37,7 @@ export interface UsersRepositoryPort {
 }
 
 @Injectable()
-export class UsersRepository implements UsersRepositoryPort {
+export class UsersStore implements UsersRepositoryPort {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async findByGithubId(githubId: bigint): Promise<UserProfileRecord | null> {

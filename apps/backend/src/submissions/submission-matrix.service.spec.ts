@@ -9,7 +9,7 @@ import {
   type MatrixMilestoneRecord,
   type MatrixSubmissionRecord,
   type SubmissionMatrixRepositoryPort,
-} from './submission-matrix.repository';
+} from './submission-matrix.store';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import { SubmissionsErrorCode } from './submissions-error-code.enum';
 

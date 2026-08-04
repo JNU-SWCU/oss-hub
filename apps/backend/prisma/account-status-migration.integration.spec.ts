@@ -12,7 +12,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { loadRuntimeConfig } from '../src/runtime-config/runtime-config';
 import { RolesRepository } from '../src/roles/roles.repository';
 import { RolesService } from '../src/roles/roles.service';
-import { AdminAccessRepository } from '../src/users/admin-access.repository';
+import { AdminAccessStore } from '../src/users/admin-access.store';
 import { AdminAccessService } from '../src/users/admin-access.service';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 
@@ -71,7 +71,7 @@ describe('accountStatus migration regression', () => {
     requireCurrent: jest.fn(),
   } satisfies Pick<ConsentsService, 'requireCurrent'>);
   const adminAccessService = new AdminAccessService(
-    new AdminAccessRepository(prisma),
+    new AdminAccessStore(prisma),
     new AuditLogService(new AuditLogRepository(prisma)),
   );
 

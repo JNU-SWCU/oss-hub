@@ -5,7 +5,7 @@ import {
   ROLES_ERROR_CODES,
   RolesErrorCode,
 } from '../roles/roles-error-code.enum';
-import type { AdminAccessActor } from './admin-access.repository';
+import type { AdminAccessActor } from './admin-access.store';
 
 export function requireActiveAdmin(
   actor: AdminAccessActor | null,

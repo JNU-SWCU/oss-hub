@@ -9,7 +9,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { AdminAccessRepository } from './admin-access.repository';
+import { AdminAccessStore } from './admin-access.store';
 import { AdminAccessService } from './admin-access.service';
 
 assertIsolatedIntegrationDatabase({
@@ -18,7 +18,7 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const repository = new AdminAccessRepository(prisma);
+const repository = new AdminAccessStore(prisma);
 const service = new AdminAccessService(
   repository,
   new AuditLogService(new AuditLogRepository(prisma)),

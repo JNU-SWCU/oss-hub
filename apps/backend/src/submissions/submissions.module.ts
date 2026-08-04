@@ -5,12 +5,12 @@ import { SubmissionFileCleanupService } from './submission-file-cleanup.service'
 import { S3SubmissionFileStorage } from './s3-submission-file.storage';
 import { SubmissionFileStorageConfig } from './submission-file-storage.config';
 import { SUBMISSION_FILE_STORAGE } from './submission-file-storage.port';
-import { SubmissionFilesRepository } from './submission-files.repository';
+import { SubmissionFilesStore } from './submission-files.store';
 import { SubmissionFilesService } from './submission-files.service';
-import { SubmissionDashboardSummaryRepository } from './submission-dashboard-summary.repository';
+import { SubmissionDashboardSummaryStore } from './submission-dashboard-summary.store';
 import { SUBMISSION_DASHBOARD_SUMMARY_PORT } from './submission-dashboard-summary.port';
 import { SubmissionDashboardSummaryService } from './submission-dashboard-summary.service';
-import { SubmissionMatrixRepository } from './submission-matrix.repository';
+import { SubmissionMatrixStore } from './submission-matrix.store';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import {
   SubmissionChecklistController,
@@ -33,7 +33,7 @@ import { SubmissionsService } from './submissions.service';
   ],
   providers: [
     SubmissionsRepository,
-    SubmissionFilesRepository,
+    SubmissionFilesStore,
     SubmissionFilesService,
     SubmissionFileCleanupService,
     SubmissionFileCleanupScheduler,
@@ -44,13 +44,13 @@ import { SubmissionsService } from './submissions.service';
       useExisting: S3SubmissionFileStorage,
     },
     SubmissionsService,
-    SubmissionDashboardSummaryRepository,
+    SubmissionDashboardSummaryStore,
     SubmissionDashboardSummaryService,
     {
       provide: SUBMISSION_DASHBOARD_SUMMARY_PORT,
       useExisting: SubmissionDashboardSummaryService,
     },
-    SubmissionMatrixRepository,
+    SubmissionMatrixStore,
     SubmissionMatrixService,
   ],
   exports: [SUBMISSION_DASHBOARD_SUMMARY_PORT],

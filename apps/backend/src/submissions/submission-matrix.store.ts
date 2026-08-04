@@ -138,7 +138,7 @@ function toMatrixApplication(
 }
 
 @Injectable()
-export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPort {
+export class SubmissionMatrixStore implements SubmissionMatrixRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
 
   findActiveStaffOrAdmin(

@@ -88,7 +88,7 @@ export interface SubmissionDashboardSummaryRepositoryPort {
 }
 
 @Injectable()
-export class SubmissionDashboardSummaryRepository implements SubmissionDashboardSummaryRepositoryPort {
+export class SubmissionDashboardSummaryStore implements SubmissionDashboardSummaryRepositoryPort {
   constructor(
     @Inject(PrismaService)
     private readonly prisma: SubmissionDashboardSummaryDataSource,

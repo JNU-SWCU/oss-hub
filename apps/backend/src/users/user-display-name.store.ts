@@ -33,7 +33,7 @@ export interface UserDisplayNameProjectionClient {
 }
 
 @Injectable()
-export class UserDisplayNameRepository {
+export class UserDisplayNameStore {
   constructor(
     @Inject(PrismaService)
     private readonly prisma: UserDisplayNameProjectionClient,

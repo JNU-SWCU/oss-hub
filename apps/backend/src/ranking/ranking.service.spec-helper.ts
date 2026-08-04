@@ -5,8 +5,8 @@ import type {
 } from '../collection/collection-read.port';
 import type {
   UserDisplayName,
-  UserDisplayNameRepository,
-} from '../users/user-display-name.repository';
+  UserDisplayNameStore,
+} from '../users/user-display-name.store';
 import { RankingService } from './ranking.service';
 
 export function activity(
@@ -70,7 +70,7 @@ export function setupRankingService(): {
   findByGithubIds.mockResolvedValue([]);
   const displayNameRepository = {
     findByGithubIds,
-  } as unknown as UserDisplayNameRepository;
+  } as unknown as UserDisplayNameStore;
 
   return {
     service: new RankingService(collection, displayNameRepository),

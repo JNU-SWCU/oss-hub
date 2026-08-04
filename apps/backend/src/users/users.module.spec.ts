@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { AdminAccessController } from './admin-access.controller';
-import { AdminAccessRepository } from './admin-access.repository';
+import { AdminAccessStore } from './admin-access.store';
 import { AdminAccessService } from './admin-access.service';
 import { UsersController } from './users.controller';
 import { UsersModule } from './users.module';
@@ -23,7 +23,7 @@ describe('UsersModule admin access wiring', () => {
       expect.arrayContaining([AdminAccessController]),
     );
     expect(providers).toEqual(
-      expect.arrayContaining([AdminAccessRepository, AdminAccessService]),
+      expect.arrayContaining([AdminAccessStore, AdminAccessService]),
     );
   });
 

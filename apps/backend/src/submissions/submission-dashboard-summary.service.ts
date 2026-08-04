@@ -1,9 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { SubmissionStatus } from '@prisma/client';
 import {
-  SubmissionDashboardSummaryRepository,
+  SubmissionDashboardSummaryStore,
   type SubmissionDashboardSummaryRepositoryPort,
-} from './submission-dashboard-summary.repository';
+} from './submission-dashboard-summary.store';
 import type {
   SubmissionDashboardProgramSummary,
   SubmissionDashboardSummaryPort,
@@ -28,7 +28,7 @@ class UnexpectedSubmissionStatusError extends Error {
 @Injectable()
 export class SubmissionDashboardSummaryService implements SubmissionDashboardSummaryPort {
   constructor(
-    @Inject(SubmissionDashboardSummaryRepository)
+    @Inject(SubmissionDashboardSummaryStore)
     private readonly repository: SubmissionDashboardSummaryRepositoryPort,
   ) {}
 

@@ -18,7 +18,7 @@ import {
 import type {
   AdminAccessActor,
   AdminAccessUserRecord,
-} from './admin-access.repository';
+} from './admin-access.store';
 
 export type AdminAccessAudit = {
   readonly action: AccessAuditAction;

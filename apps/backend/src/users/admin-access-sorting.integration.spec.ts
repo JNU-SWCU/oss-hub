@@ -3,7 +3,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { AdminAccessRepository } from './admin-access.repository';
+import { AdminAccessStore } from './admin-access.store';
 import { AdminAccessService } from './admin-access.service';
 
 assertIsolatedIntegrationDatabase({
@@ -13,7 +13,7 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const service = new AdminAccessService(
-  new AdminAccessRepository(prisma),
+  new AdminAccessStore(prisma),
   new AuditLogService(new AuditLogRepository(prisma)),
 );
 const prefix = 'test:pr04a:admin-access-sorting:';

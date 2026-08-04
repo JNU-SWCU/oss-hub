@@ -19,7 +19,7 @@ import type { GithubAppClient } from '../repositories/github-app.client';
 import { RepositoriesRepository } from '../repositories/repositories.repository';
 import { RepositoriesService } from '../repositories/repositories.service';
 import { RankingService } from '../ranking/ranking.service';
-import { UserDisplayNameRepository } from '../users/user-display-name.repository';
+import { UserDisplayNameStore } from '../users/user-display-name.store';
 import { PublicProjectsErrorCode } from '../public-projects/public-projects-error-code.enum';
 import { PublicProjectsRepository } from '../public-projects/public-projects.repository';
 import { PublicProjectsService } from '../public-projects/public-projects.service';
@@ -57,7 +57,7 @@ const publicProjectsService = new PublicProjectsService(
 );
 const rankingService = new RankingService(
   collection,
-  new UserDisplayNameRepository(prisma),
+  new UserDisplayNameStore(prisma),
 );
 
 const github = {

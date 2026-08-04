@@ -18,8 +18,8 @@ import {
   type CreatePendingSubmissionFileInput,
   type SubmissionFileResubmissionContext,
   SubmissionFileRetentionUnavailableError,
-  SubmissionFilesRepository,
-} from './submission-files.repository';
+  SubmissionFilesStore,
+} from './submission-files.store';
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
@@ -53,7 +53,7 @@ export interface DownloadedSubmissionFile {
 @Injectable()
 export class SubmissionFilesService {
   constructor(
-    private readonly repository: SubmissionFilesRepository,
+    private readonly repository: SubmissionFilesStore,
     @Inject(SUBMISSION_FILE_STORAGE)
     private readonly storage: SubmissionFileStoragePort,
   ) {}

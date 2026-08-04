@@ -1,9 +1,9 @@
 import {
-  UserDisplayNameRepository,
+  UserDisplayNameStore,
   type UserDisplayNameProjectionClient,
-} from './user-display-name.repository';
+} from './user-display-name.store';
 
-describe('UserDisplayNameRepository', () => {
+describe('UserDisplayNameStore', () => {
   it('resolves the compatible profile name for requested github ids', async () => {
     const findMany = jest.fn().mockResolvedValue([
       { githubId: 1n, name: 'legacy-name', profile: null },
@@ -14,7 +14,7 @@ describe('UserDisplayNameRepository', () => {
       user: { findMany },
     };
 
-    const result = await new UserDisplayNameRepository(prisma).findByGithubIds([
+    const result = await new UserDisplayNameStore(prisma).findByGithubIds([
       1n,
       2n,
       3n,
@@ -40,7 +40,7 @@ describe('UserDisplayNameRepository', () => {
     const prisma: UserDisplayNameProjectionClient = {
       user: { findMany },
     };
-    const repository = new UserDisplayNameRepository(prisma);
+    const repository = new UserDisplayNameStore(prisma);
 
     await expect(repository.findByGithubIds([])).resolves.toEqual([]);
     expect(findMany).not.toHaveBeenCalled();

@@ -11,8 +11,8 @@ import {
   type CreatePendingSubmissionFileInput,
   type DownloadableSubmissionFile,
   SubmissionFileRetentionUnavailableError,
-  type SubmissionFilesRepository,
-} from './submission-files.repository';
+  type SubmissionFilesStore,
+} from './submission-files.store';
 import { SubmissionFilesService } from './submission-files.service';
 import { SubmissionsErrorCode } from './submissions-error-code.enum';
 
@@ -96,7 +96,7 @@ function setup() {
       .mockResolvedValue(Readable.from(Buffer.from('private-file-body'))),
   };
   const service = new SubmissionFilesService(
-    repository as unknown as SubmissionFilesRepository,
+    repository as unknown as SubmissionFilesStore,
     storage,
   );
   return { service, repository, storage };

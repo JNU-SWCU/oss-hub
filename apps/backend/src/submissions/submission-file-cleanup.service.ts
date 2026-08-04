@@ -3,7 +3,7 @@ import {
   SUBMISSION_FILE_STORAGE,
   type SubmissionFileStoragePort,
 } from './submission-file-storage.port';
-import { SubmissionFilesRepository } from './submission-files.repository';
+import { SubmissionFilesStore } from './submission-files.store';
 
 const DELETE_LEASE_MS = 10 * 60 * 1_000;
 const MAX_DELETE_ATTEMPTS = 6;
@@ -21,7 +21,7 @@ export class SubmissionFileCleanupService {
   private readonly logger = new Logger(SubmissionFileCleanupService.name);
 
   constructor(
-    private readonly files: SubmissionFilesRepository,
+    private readonly files: SubmissionFilesStore,
     @Inject(SUBMISSION_FILE_STORAGE)
     private readonly storage: SubmissionFileStoragePort,
     @Optional()

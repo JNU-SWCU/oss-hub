@@ -5,12 +5,12 @@ import { requireActiveAdmin } from './admin-access-authorization';
 import { roleError } from './admin-access-mutation-policy';
 import { mutateAdminAccess } from './admin-access-mutation.service';
 import {
-  AdminAccessRepository,
+  AdminAccessStore,
   type AdminAccessActor,
   type AdminAccessRepositoryPort,
   type AdminAccessUserDetailRecord,
   type AdminAccessUserRecord,
-} from './admin-access.repository';
+} from './admin-access.store';
 import {
   type AdminAccessFacets,
   type AdminAccessHistoryQuery,
@@ -25,7 +25,7 @@ import {
 @Injectable()
 export class AdminAccessService {
   constructor(
-    @Inject(AdminAccessRepository)
+    @Inject(AdminAccessStore)
     private readonly repository: AdminAccessRepositoryPort,
     private readonly auditLog: AuditLogService,
   ) {}
