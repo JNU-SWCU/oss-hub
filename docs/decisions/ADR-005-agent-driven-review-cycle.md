@@ -34,7 +34,7 @@ owner의 사후 확인 코멘트는 병합 조건이 아니다.
 PR #407은 직접 UI 피드백에서 시작되어 사전 Issue 선점 없이 구현된 절차 위반을 인정한다. 이미 구현과 exact-head 기술 검증이 완료된 상태에서 잘못 생성된 #480을 재사용하지 않고, 실제 범위·owner·PR 관계를 보존하는 사후 추적 Issue #484를 canonical 구현 기록으로 둔다. 이 일회성 예외는 #407에만 적용하며 사후 Issue를 일반적인 선점 대체 수단으로 허용하지 않는다. 이후 동일 규모의 변경은 착수 전에 Issue로 범위와 owner를 선언해야 하고, 누락 시 구현 완료 여부와 관계없이 blocker로 처리한다.
 
 전남은 이 저장소의 독립 PR 검토 역할을 맡는 코드리뷰 에이전트이며, 수동 파일럿에서는 @GoBeromsu, @Lumiere001 또는 리뷰 증거 전용 계정 @Lumeire002가 실행 결과를 GitHub에 기록한다.
-@Lumeire002의 권한은 `MERGE_READY` 기록에 한정하며 manual accept, `RISK_ACCEPT`, 병합 권한은 위임하지 않는다.
+@Lumeire002의 권한은 `MERGE_READY` 기록에 한정하며 병합 권한은 위임하지 않는다.
 Ponytail은 기존 라이브러리 재사용, 중복과 불필요한 복잡도만 확인하는 검토 렌즈이며 기능 존재·동작 여부를 판정하거나 실제 QA를 대체하지 않는다.
 
 일반 PR은 전남의 exact-head `MERGE_READY`가 병합 검토의 단일 수렴 결과다.
@@ -76,25 +76,23 @@ CODEOWNERS 경로는 검토 후보를 찾는 신호이며 그 자체가 high ris
 다음 경로를 변경하는 PR은 배포 계약 경로로 정의한다: `Jenkinsfile`, `compose.yml`, `.env.example`, `deploy/**`, `apps/*/Dockerfile`, `.dockerignore`, `.github/workflows/deploy.yml`, `scripts/check-jenkinsfile.sh`, `scripts/check-jenkinsfile.test.sh`, `scripts/jenkins/**`.
 `scripts/jenkins/**`는 Jenkinsfile의 절차 로직을 외부 script로 추출할 때 그 보호 수준이 함께 옮겨가도록 미리 포함한다 — 추출이 승인 요건을 낮추는 우회 경로가 되지 않게 한다.
 수동 파일럿에서 CODEOWNERS 후보 또는 분류가 모호한 변경은 기본적으로 `HIGH_RISK`다.
-이를 `GENERAL`로 낮추려면 @GoBeromsu 또는 @Lumiere001 중 한 명이 동일한 head·base에 `RISK_ACCEPT role=<PM|TECH_LEAD> head=<sha> base=<ref> base_sha=<sha> risk=GENERAL`을 남기면 충분하다.
-단 배포 계약 경로를 변경하는 PR은 `role=PM`이어야 한다.
+risk 분류는 전남이 `MERGE_READY`에 기록하는 판단이며, accept 코멘트로 낮추는 별도 절차는 두지 않는다.
 
-@GoBeromsu가 작성한 PR은 위 증거·accept 요건 전체에서 면제된다 — 어떤 사람의 review·`MERGE_READY`·accept도 요구하지 않으며 @Lumiere001의 검토도 조건이 아니다.
+@GoBeromsu가 작성한 PR은 위 증거 요건 전체에서 면제된다 — 어떤 사람의 review·`MERGE_READY`도 요구하지 않으며 @Lumiere001의 검토도 조건이 아니다.
 이 PR의 병합 조건은 required check(`ci`·`public-safe`)뿐이다.
 면제는 작성자 identity에만 근거하므로 `authorLogin`이 정확히 `GoBeromsu`가 아니거나 확인되지 않으면 적용하지 않는다(fail-closed).
 head·base SHA 형식 검증과 base가 default branch인지의 검사는 면제 대상이 아니며 그대로 적용한다.
 
-high risk PR은 `MERGE_READY` 이후 @GoBeromsu 또는 @Lumiere001 중 한 명이 동일한 head·base에 manual accept를 남기면 병합할 수 있다.
-단 배포 계약 경로를 변경하는 PR은 @GoBeromsu의 `PM_ACCEPT`가 반드시 있어야 하며 Tech Lead accept로 대체할 수 없다.
+high risk PR도 exact-head `MERGE_READY` 확인만으로 병합 절차를 진행한다 — accept 코멘트를 병합 조건으로 두지 않는다.
+누가 실제로 병합을 실행할 수 있는지는 GitHub 저장소 설정(branch protection·merge 권한 등)이 정하며, 이 ADR은 코멘트 프로토콜로 접근 제어를 대체하지 않는다(2026-08-04 결정).
 Jenkins의 실패 시 중단·증적 보존·기존 이미지 복구 동작은 ADR-002의 배포 계약을 유지하며, 이 ADR은 별도의 rollback 동작 변경을 결정하지 않는다.
 
 수동 파일럿의 canonical evidence는 PR 최상위 댓글에 아래 형식과 40자 full SHA로 남긴다.
 `MERGE_READY head=<sha> base=<ref> base_sha=<sha> risk=<GENERAL|HIGH_RISK>`는 @GoBeromsu, @Lumiere001 또는 @Lumeire002 계정으로 실행한 전남 검토 결과만 허용한다.
 그 댓글에는 `CODE_CONTRACT:`, `PONYTAIL:`, `QA:`, `CLI:`, `CI:` marker와 각각의 비어 있지 않은 public-safe URL 또는 요약을 한 줄씩 포함한다.
 `QA:`의 `N/A`는 관찰 가능한 동작이 없다는 구체적인 사유를 함께 적고, `BLOCKED/UNVERIFIED`에는 `MERGE_READY`를 사용하지 않는다.
-high risk는 `PM_ACCEPT head=<sha> base=<ref> base_sha=<sha>`를 @GoBeromsu가 또는 `TECH_LEAD_ACCEPT head=<sha> base=<ref> base_sha=<sha>`를 @Lumiere001이 남기면 충분하다.
-head, base ref 또는 base SHA가 바뀌면 이전 증거와 accept는 모두 무효다.
-후속 #226의 `merge-policy` required check는 이 증거와 함께 `GENERAL` 하향에 필요한 `RISK_ACCEPT`의 actor·role·head·base도 검증한다.
+head, base ref 또는 base SHA가 바뀌면 이전 증거는 모두 무효다.
+후속 #226의 `merge-policy` required check는 이 `MERGE_READY` 증거(actor·형식·head·base 고정·evidence marker)를 검증한다.
 required check가 적용되기 전에는 병합자가 이 actor·형식·head·base를 수동으로 대조한다.
 이 저장소의 기존 branch protection은 사람 리뷰를 required gate로 강제하지 않았으므로 수동 파일럿은 적용 중인 기계 게이트를 제거하지 않는다.
 수동 파일럿 동안 병합 권한은 @GoBeromsu와 @Lumiere001로 제한하고 admin bypass를 사용하지 않으며, #226 병합 뒤 `merge-policy`를 required check로 전환한다.
@@ -104,12 +102,11 @@ required check가 적용되기 전에는 병합자가 이 actor·형식·head·b
 - draft와 merge conflict가 없다.
 - 관련 CI와 required check가 통과했다.
 - root와 적용되는 nested `AGENTS`를 준수했다.
-- @GoBeromsu 작성 PR은 required check만 통과하면 병합 가능하다(review·accept 면제). 그 외 PR은 일반이면 전남의 현재 head `MERGE_READY`가 있고, high risk면 PM 또는 Tech Lead 중 한 명의 현재 head manual accept가 있다. 배포 계약 경로를 변경하는 PR은 @GoBeromsu의 `PM_ACCEPT`여야 한다.
+- @GoBeromsu 작성 PR은 required check만 통과하면 병합 가능하다(review·`MERGE_READY` 면제). 그 외 PR은 risk와 무관하게 전남의 현재 head `MERGE_READY`가 있다.
 - 해결되지 않은 blocker가 없다.
 - GitHub가 병합 가능한 상태로 표시한다.
 
-전남은 일반 PR에 대해 `MERGE_READY`와 현재 GitHub mergeability를 확인한 뒤 병합할 수 있다.
-high risk PR은 PM 또는 Tech Lead 중 한 명의 current-head accept가 확인되기 전에는 병합하지 않는다.
+전남은 risk와 무관하게 `MERGE_READY`와 현재 GitHub mergeability를 확인한 뒤 병합할 수 있다.
 GitHub 상태나 승인 범위를 확인할 수 없거나 모호하면 병합하지 않으며, admin bypass로 gate를 우회하지 않는다.
 
 ADR-002에 따라 production 배포는 release tag를 통한 별도 단계다.
@@ -121,8 +118,8 @@ production 배포의 인가·트리거·실행 검증 계약은 ADR-002를 따�
 
 - 최신 변경에 대한 검증 근거를 GitHub에서 다시 확인할 수 있다.
 - head, base ref 또는 base SHA가 바뀌면 검증을 반복해야 한다.
-- high risk PR 작성자가 자기 accept를 남겨 사실상 1인 병합이 가능해진다 — 완화 수단은 전남의 exact-head `MERGE_READY` 증거, required CI, 배포 계약 경로의 PM 전속이다.
-- @GoBeromsu 작성 PR의 review 면제로 그 PR에는 사람 검토가 전혀 없다 — 배포 계약 경로의 PM 전속도 자기 작성 PR에는 실효가 없다. 남는 통제는 required check(`ci`·`public-safe`)와 ADR-002의 Jenkins 기술 검증(full SemVer·main ancestry·실행 중 metadata·rollback·smoke)이다. 이는 PM이 자기 산출물 검토 부담을 없애는 대가로 감수한 위험이다(2026-07-30·2026-07-31 결정).
+- accept 코멘트 프로토콜을 폐지하면서 "누가 병합을 실행할 수 있는가"는 이 ADR이 아니라 GitHub 저장소 설정(branch protection·merge 권한)이 정한다 — 완화 수단은 전남의 exact-head `MERGE_READY` 증거와 required CI이며, 접근 제어 자체의 강제는 repo 소유자가 GitHub에서 구성한다(2026-08-04 결정).
+- @GoBeromsu 작성 PR의 review 면제로 그 PR에는 사람 검토가 전혀 없다. 남는 통제는 required check(`ci`·`public-safe`)와 ADR-002의 Jenkins 기술 검증(full SemVer·main ancestry·실행 중 metadata·rollback·smoke)이다. 이는 PM이 자기 산출물 검토 부담을 없애는 대가로 감수한 위험이다(2026-07-30·2026-07-31 결정).
 - 새 계약을 지키는 기본 수단이 전용 검사기에서 구조·앱 테스트로 이동한다. 검사기 수는 단조 증가하지 않고 상위 수단으로 흡수되며 줄어들 수 있다.
 - 검사기 신설에 근거 기재 비용이 추가된다. 반대로 상위 수단으로 옮기는 정리 PR은 별도 완화 accept 없이 진행할 수 있다.
 - fail-closed 보안·배포 게이트는 예외로 남아 우선순위와 무관하게 유지된다 — 이 부분의 강제 수준은 변하지 않는다.
@@ -137,6 +134,7 @@ production 배포의 인가·트리거·실행 검증 계약은 ADR-002를 따�
 
 - 2026-08-01: PR #407의 사전 Issue 선점 누락을 절차 위반으로 기록하고, 잘못 생성된 #480 대신 사후 추적 Issue #484로 범위·owner·PR 관계를 보존하는 일회성 예외를 수용했다. 이 예외는 #407에만 적용하며 향후 사후 Issue가 착수 전 선점을 대체하지 못하도록 명시했다.
 - 2026-08-04: Issue #574와 운영 승인에 따라 @Lumeire002를 전남 `MERGE_READY` 기록 계정으로 추가했다. 권한은 독립 리뷰 증거 작성에만 한정하며 `PM_ACCEPT`, `TECH_LEAD_ACCEPT`, `RISK_ACCEPT`, 병합 권한과 배포 계약의 PM 전속은 변경하지 않았다.
+- 2026-08-04: repo owner 결정에 따라 accept 코멘트 병합 게이트(`PM_ACCEPT`, `TECH_LEAD_ACCEPT`, `RISK_ACCEPT`)를 폐지했다. 근거: 단순함이 우선이며 접근 제어는 bespoke 코멘트 프로토콜 대신 GitHub platform 기능(branch protection·merge 권한 등)으로 옮기는 것이 낫다는 판단. `MERGE_READY` 리뷰 기록·evidence marker 검증·PM 작성 PR 면제·fail-closed 입력 검증은 그대로 유지하며, high risk PR과 배포 계약 경로 PR도 이제 accept 없이 `MERGE_READY`만으로 병합 절차를 진행한다. `merge-policy-check-lib.mjs`에서 배포 계약 경로 분류(`DEPLOY_CONTRACT_PATTERNS`)와 CODEOWNERS 후보 판정은 accept 요건에만 쓰이던 로직이라 함께 제거했다 — `merge-policy` required check 자체는 유지한다. 실제 병합 권한 제한은 이 ADR이 아니라 GitHub 저장소 설정이 원본이다.
 - 2026-07-17: Issue #37에 따라 root `AGENTS.md`와 PR 템플릿에 조건부 Draft/Ready와 독립 리뷰 결과 분류를 운용 규칙으로 연결했다. 권한 경계와 병합 조건은 변경하지 않았다.
 - 2026-07-16: Code Owner review #4705528344의 승인 범위와 ADR-002 배포 경계를 반영하고 `Accepted`로 전환했다.
 - 2026-07-16: Owner 댓글 #4991669947의 Tech Lead 위임 경계와 독립 리뷰 분류를 수용했다.
