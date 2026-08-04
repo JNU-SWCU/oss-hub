@@ -72,6 +72,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 랭킹 연도 쿼리·사이드 연도 목록 | @GoBeromsu | review | [.omc/plans/sidepanel-section-nav.md](../../.omc/plans/sidepanel-section-nav.md) · [.omc/plans/backend-sidenav-api-execution.md](../../.omc/plans/backend-sidenav-api-execution.md) | [#584](https://github.com/JNU-SWCU/oss-hub/pull/584) | pending | 스택 3/5: ?year= + GET /ranking/years + 범위 가드·Cache-Control. base: archive 카테고리 |
 | 아카이브 카운트·목록 eligibility fence 정책 고정 | @GoBeromsu | review | [.omc/plans/backend-sidenav-api-execution.md](../../.omc/plans/backend-sidenav-api-execution.md) | [#585](https://github.com/JNU-SWCU/oss-hub/pull/585) | pending | 스택 4/5: 뱃지는 fence 제외·목록은 fence 적용 의도 단언. base: ranking 연도 |
 | 셸 사이드바 접기 재설계·패싯 레지스트리 | @GoBeromsu | review | [.omc/plans/shell-nav-sidebar-design.md](../../.omc/plans/shell-nav-sidebar-design.md) | [#586](https://github.com/JNU-SWCU/oss-hub/pull/586) | pending | 스택 5/5: F1–F5 + SECTION_FACETS. base: fence 정책 테스트 |
+| backend ESLint 회귀 수정 — Release v0.6.22 배포 검증 실패 대응 | @GoBeromsu | done | 선행 Issue 없음 — Release v0.6.22 배포 검증(Jenkins job #54) `pnpm lint` 실패로 발견 | [#589](https://github.com/JNU-SWCU/oss-hub/pull/589) | pass — lint·typecheck·unit·integration·build 전부 success(전체 스위트 4m55s) | PR #586이 `ci` 완료 전 병합돼 backend ESLint 7건이 main에 유입 → Release v0.6.22 배포(Jenkins job #54)가 `빌드·테스트 검증`에서 fail-closed, production 영향 없음(v0.6.21 계속 서비스), 재배포는 Release v0.6.23으로 진행 |
 | GitHub OAuth 로그인 | @Lumiere001 | done | #9 | #13 (+#22) | pass | 없음 |
 | GitHub 활동 수집기 | @Lumiere001 | done | #10 | #14 | pass | 없음 |
 | 중첩 AGENTS 가이드 | @Lumiere001 | done | #11 | #12 (+#20) | pass | 없음 |
@@ -261,7 +262,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 리스크 | owner | trigger | due | fallback |
 | --- | --- | --- | --- | --- |
 | `merge-policy` required check 전 수동 `MERGE_READY`·high-risk 이중 accept의 기록 누락·stale head/base 위험 | @GoBeromsu @Lumiere001 | #225 병합 후 | #226 | 병합자가 head·base full SHA와 actor를 수동 대조하고 admin bypass 금지 |
-| `enforce_admins=false`로 관리자가 required check를 우회할 수 있음 | @GoBeromsu @Lumiere001 | 상시 | #226 적용 시 재검토 | push 권한을 두 owner로 제한하고 정책상 admin bypass 금지 |
+| `enforce_admins=false`로 관리자가 required check를 우회할 수 있음 — 2026-08-04 실현: PR #586이 `ci` 완료 전에 병합돼 backend ESLint 7건이 main에 유입, Release v0.6.22 배포(Jenkins job #54)가 `빌드·테스트 검증` 단계에서 fail-closed로 중단됐다(production 영향 없음, PR #589가 해소) | @GoBeromsu @Lumiere001 | 상시 | #226 적용 시 재검토 | push 권한을 두 owner로 제한하고 정책상 admin bypass 금지 |
 | 운영 TLS 부재 시 Secure/`__Host-` 쿠키 미작동 | @GoBeromsu | 프로덕션 배포 시점 | 프로덕션 배포 전 | 외부 terminator 계약 명시 or nginx TLS 추가 |
 | 수집 App Basic 한도(5,000/hr) 부족 | @Lumiere001 | 수집 대상 확대 | 8/15 전국 디지털 경진대회 전 | GitHub App 인증 ADR(#120, 발행 완료)로 흡수 — 아직 미착수 |
 | 실사용 3개 행사(8/15 전국 디지털 경진대회 · 8/19–21 · 8/27–29 Full-loop) 전 40건 백로그 병렬 착수 시 DB 마이그레이션 직렬 규칙(AGENTS.md §3) 위반 위험 — 4개 영역이 동시에 스키마 접촉 가능 | @GoBeromsu | 백로그 착수 시점 | 2026-08-15 | 마이그레이션 PR은 순번 예약(Issue 코멘트)으로 직렬화, 영역 간 공용 계약·fixture 선합의(#56 배분 원칙) |
