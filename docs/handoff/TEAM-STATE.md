@@ -88,6 +88,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 기능 | owner | 상태 | parent Issue | PR | CI | blocker (unblock owner) |
 | --- | --- | --- | --- | --- | --- | --- |
 | 관리자 승격 두 단계 안내 | @Lumiere001 | review | [#576](https://github.com/JNU-SWCU/oss-hub/issues/576) | (이 PR) | frontend 1388 pass | 등급 사다리·전이 규칙 무변경. 안내 문구만 추가 |
+| 로그아웃 후 계정 전환 경로 | @Lumiere001 | review | [#348](https://github.com/JNU-SWCU/oss-hub/issues/348) | (이 PR) | frontend 1443 pass | `/logout` 전용 화면 + 복귀 주소 검증기 `lib/` 승격 |
 | 랜딩 모집 프로그램 표시 · solid 시작하기 섹션 중복 제거 | @GoBeromsu | review | 선행 Issue 없음 — 로컬 랜딩 QA 중 발견 | [#597](https://github.com/JNU-SWCU/oss-hub/pull/597) | frontend landing 51 pass | 모집 섹션 seed id 파싱·localhost 예시 폴백 제거, solid `#landing-entry` 제거. 그래프는 [#606](https://github.com/JNU-SWCU/oss-hub/issues/606) |
 | 프로그램 상태 기간 판정 단일화 (status-counts 배타) | @GoBeromsu | review | [.omc/plans/program-status-derivation.md](../../.omc/plans/program-status-derivation.md) | [#589](https://github.com/JNU-SWCU/oss-hub/pull/589) | pending | CASE 단일화 + all에 ARCHIVED. unit·integration 245 pass · 파생 status 저장/DTO 없음 |
 | 섹션 컨텍스트 사이드 네비 — 셸·프로그램 상태 필터 | @GoBeromsu | review | [.omc/plans/sidepanel-section-nav.md](../../.omc/plans/sidepanel-section-nav.md) | [#582](https://github.com/JNU-SWCU/oss-hub/pull/582) | pending | 스택 1/5: dual chrome + status 필터 + status-counts. 후속: archive·ranking·design |
