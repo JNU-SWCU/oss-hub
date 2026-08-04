@@ -372,29 +372,17 @@ export class ApplicationsService {
               };
             }
 
-            // 멱등키 `repository-provision:${applicationId}` 충돌이 구조적으로 불가능한 이유:
-            // 승인 되돌리기는 프로비저닝이 SUCCEEDED가 아닐 때만 허용된다. SUCCEEDED면
-            // REVERT가 409로 잠기므로 APPROVED→SUBMITTED→재승인 경로 자체가 열리지 않는다.
-            // 미완료(PENDING/PROCESSING/FAILED_*) 상태에서 되돌린 뒤 재승인하면 같은
-            // 멱등키의 기존 outbox 이벤트가 이미 있을 수 있으므로, 새 이벤트를 만들지 않고
-            // 기존 eventId를 재사용한다. 따라서 P2002 unique 충돌 분기는 재승인 정상 경로에서
-            // 발생하지 않는다(동시 이중 승인 CAS는 기존 APPLICATION_ALREADY_DECIDED로 막힘).
-            const existingEvent =
-              await store.findRepositoryProvisionEvent(idempotencyKey);
-            if (existingEvent) {
-              const job = await store.findRepositoryProvisionJob(applicationId);
-              return {
-                kind: 'APPROVED',
-                applicationId,
-                status: plan.nextStatus,
-                repositoryProvisioning: {
-                  enabled: true,
-                  eventId: existingEvent.id,
-                  jobStatus:
-                    job?.status ?? RepositoryProvisionJobStatus.PENDING,
-                },
-              };
-            }
+            // 승인은 항상 **새 요청을 발행**한다. 남아 있는 미완료 요청은 먼저 지운다.
+            //
+            // 기존 이벤트를 재사용하던 방식은 조용히 깨진다. 컨슈머가 이벤트를 집은 뒤
+            // job을 넣기 직전에 되돌리기가 끼면 고아 job이 남고, 워커가 그걸
+            // `APPLICATION_NOT_APPROVED`로 FAILED_FINAL로 만든다. `claimNext`는
+            // FAILED_FINAL을 다시 집지 않으므로 재사용 경로에서는 저장소가 영영
+            // 만들어지지 않는다. 지우고 새로 발행하면 그 창이 닫힌다.
+            //
+            // 여기 도달했다는 것은 신청이 SUBMITTED였다는 뜻이고, 프로비저닝이
+            // 완료된 건은 되돌리기 가드가 이미 막았으므로 지우는 대상은 항상 미완료다.
+            await store.discardRepositoryProvisionRequest(applicationId);
 
             const event = await store.createRepositoryProvisionEvent({
               applicationId,

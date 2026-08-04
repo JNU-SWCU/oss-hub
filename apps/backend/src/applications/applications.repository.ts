@@ -294,11 +294,14 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
   async discardRepositoryProvisionRequest(
     applicationId: string,
   ): Promise<void> {
-    await this.transaction.repositoryProvisionJob.deleteMany({
-      where: { applicationId },
-    });
+    // outbox를 먼저 지운다 — 컨슈머가 아직 이벤트를 집지 않았다면 job 자체가 생기지
+    // 않는다. 이미 집은 뒤라면 아래 job 삭제가 정리하고, 그 사이에 컨슈머가 넣은
+    // 고아 job은 다음 승인이 같은 경로로 다시 지운다.
     await this.transaction.outboxEvent.deleteMany({
       where: { idempotencyKey: `repository-provision:${applicationId}` },
+    });
+    await this.transaction.repositoryProvisionJob.deleteMany({
+      where: { applicationId },
     });
   }
 

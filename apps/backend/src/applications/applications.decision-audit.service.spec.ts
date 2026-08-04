@@ -430,6 +430,7 @@ describe('ApplicationsService.decide — REVERT', () => {
       createRepositoryProvisionEvent,
       findRepositoryProvisionEvent,
       findRepositoryProvisionJob,
+      discardRepositoryProvisionRequest,
     } = createHarness({ provisioningEnabled: true });
 
     // 1) APPROVED + PENDING job → REVERT
@@ -450,7 +451,7 @@ describe('ApplicationsService.decide — REVERT', () => {
       action: APPLICATION_DECISION_ACTIONS.REVERT,
     });
 
-    // 2) SUBMITTED 재승인 — 기존 outbox 이벤트 재사용
+    // 2) SUBMITTED 재승인 — 남은 요청을 지우고 새 이벤트를 발행한다
     (store.findApplicationById as jest.Mock).mockResolvedValue(
       baseApplication({
         status: ApplicationStatus.SUBMITTED,
@@ -474,16 +475,15 @@ describe('ApplicationsService.decide — REVERT', () => {
       { action: APPLICATION_DECISION_ACTIONS.APPROVE },
     );
 
-    expect(createRepositoryProvisionEvent).not.toHaveBeenCalled();
-    expect(reapprove).toEqual({
+    // 되돌리기와 재승인이 각각 남은 요청을 지운다 — 고아 job이 FAILED_FINAL로
+    // 굳어 저장소가 영영 안 만들어지는 경로를 닫는다.
+    expect(discardRepositoryProvisionRequest).toHaveBeenCalledTimes(2);
+    expect(createRepositoryProvisionEvent).toHaveBeenCalledTimes(1);
+    expect(reapprove).toMatchObject({
       kind: 'APPROVED',
       applicationId: APPLICATION_ID,
       status: ApplicationStatus.APPROVED,
-      repositoryProvisioning: {
-        enabled: true,
-        eventId: 'existing-provision-event',
-        jobStatus: RepositoryProvisionJobStatus.PENDING,
-      },
+      repositoryProvisioning: { enabled: true },
     });
   });
 

@@ -395,7 +395,7 @@ describe('ApplicationsService integration', () => {
     ).resolves.toBe(1);
   });
 
-  it('기존 idempotencyKey가 있으면 새 이벤트 없이 그 event id를 재사용한다', async () => {
+  it('남은 미완료 요청은 지우고 새 이벤트를 발행한다 — 멱등키 충돌 없음', async () => {
     // Given
     const applicationId = APPLICATION_IDS[4];
     await createApplication(applicationId, true);
@@ -414,12 +414,19 @@ describe('ApplicationsService integration', () => {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
 
-    // Then — 되돌리기 후 재승인이 가능해야 하므로(D4) 같은 멱등키의 기존 이벤트는
-    // 충돌이 아니라 재사용 대상이다. 저장소가 두 번 만들어지지 않는 것이 핵심이다.
-    await expect(decision).resolves.toMatchObject({
+    // Then — 승인은 항상 새 요청을 발행한다. 남은 이벤트를 재사용하면 컨슈머가
+    // 만든 고아 job이 FAILED_FINAL로 굳어 저장소가 영영 안 만들어질 수 있다.
+    // 멱등키가 유일하게 유지되므로 저장소가 두 번 만들어지지도 않는다.
+    const approved = await decision;
+    expect(approved).toMatchObject({
       kind: 'APPROVED',
-      repositoryProvisioning: { enabled: true, eventId: existing.id },
+      repositoryProvisioning: { enabled: true },
     });
+    expect(
+      approved.kind === 'APPROVED'
+        ? approved.repositoryProvisioning.eventId
+        : null,
+    ).not.toBe(existing.id);
     await expect(
       prisma.application.findUniqueOrThrow({ where: { id: applicationId } }),
     ).resolves.toMatchObject({ status: ApplicationStatus.APPROVED });
