@@ -1,6 +1,6 @@
 import { AccountStatus, Role } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../audit-log/audit-log.repository';
+import { AuditLogStore } from '../audit-log/audit-log.store';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
@@ -14,7 +14,7 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const service = new AdminAccessService(
   new AdminAccessRepository(prisma),
-  new AuditLogService(new AuditLogRepository(prisma)),
+  new AuditLogService(new AuditLogStore(prisma)),
 );
 const prefix = 'test:pr03:admin-access-read-ordering:';
 const queryFragment = 'synthetic-access-ordering';

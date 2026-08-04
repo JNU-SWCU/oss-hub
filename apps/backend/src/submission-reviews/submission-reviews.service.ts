@@ -20,9 +20,9 @@ import type {
 } from './domain/submission-review';
 import {
   ReviewAlreadyExistsError,
-  SubmissionReviewsRepository,
+  SubmissionReviewsStore,
   type SubmissionReviewsRepositoryPort,
-} from './submission-reviews.repository';
+} from './submission-reviews.store';
 import {
   SUBMISSION_REVIEWS_ERROR_CODES,
   SubmissionReviewsErrorCode,
@@ -31,7 +31,7 @@ import {
 @Injectable()
 export class SubmissionReviewsService {
   constructor(
-    @Inject(SubmissionReviewsRepository)
+    @Inject(SubmissionReviewsStore)
     private readonly repository: SubmissionReviewsRepositoryPort,
     @Inject(RepositoriesService)
     private readonly repositories: Pick<RepositoriesService, 'publish'>,

@@ -5,7 +5,7 @@ import {
   type Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { ShowcaseProjectionRepository } from './showcase-projection.repository';
+import { ShowcaseProjectionStore } from './showcase-projection.store';
 
 export interface ShowcaseBackfillResult {
   readonly projected: number;
@@ -19,7 +19,7 @@ type ProjectionResult = 'projected' | 'revoked' | 'skipped';
 export class ShowcaseProjectionService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly repository: ShowcaseProjectionRepository,
+    private readonly repository: ShowcaseProjectionStore,
   ) {}
 
   async projectRepository(
@@ -115,7 +115,7 @@ export class ShowcaseProjectionService {
 
   private isEligible(
     repository: Awaited<
-      ReturnType<ShowcaseProjectionRepository['findRepositoryForProjection']>
+      ReturnType<ShowcaseProjectionStore['findRepositoryForProjection']>
     >,
     now: Date,
   ): repository is NonNullable<typeof repository> {
@@ -137,7 +137,7 @@ export class ShowcaseProjectionService {
   private contributors(
     repository: NonNullable<
       Awaited<
-        ReturnType<ShowcaseProjectionRepository['findRepositoryForProjection']>
+        ReturnType<ShowcaseProjectionStore['findRepositoryForProjection']>
       >
     >,
   ): { userId: string; githubNickname: string; avatarUrl: string | null }[] {

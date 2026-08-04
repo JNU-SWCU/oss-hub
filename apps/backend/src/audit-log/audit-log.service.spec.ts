@@ -8,7 +8,7 @@ import { AuditLogErrorCode } from './audit-log-error-code.enum';
 import type {
   AuditLogRecordInput,
   AuditLogRepositoryPort,
-} from './audit-log.repository';
+} from './audit-log.store';
 import { AuditLogService } from './audit-log.service';
 
 const ADMIN_GITHUB_ID = 1001n;

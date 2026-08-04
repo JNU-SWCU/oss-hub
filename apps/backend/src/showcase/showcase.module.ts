@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
-import { ShowcaseProjectionRepository } from './showcase-projection.repository';
+import { ShowcaseProjectionStore } from './showcase-projection.store';
 import { ShowcaseProjectionService } from './showcase-projection.service';
 
 /**
@@ -13,7 +13,7 @@ import { ShowcaseProjectionService } from './showcase-projection.service';
  */
 @Module({
   imports: [PrismaModule],
-  providers: [ShowcaseProjectionRepository, ShowcaseProjectionService],
+  providers: [ShowcaseProjectionStore, ShowcaseProjectionService],
   exports: [ShowcaseProjectionService],
 })
 export class ShowcaseModule {}

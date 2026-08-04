@@ -4,7 +4,7 @@ import {
   RepositoryVisibility,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { ShowcaseProjectionRepository } from './showcase-projection.repository';
+import { ShowcaseProjectionStore } from './showcase-projection.store';
 import { ShowcaseProjectionService } from './showcase-projection.service';
 
 const NOW = new Date('2026-07-26T00:00:00.000Z');
@@ -56,7 +56,7 @@ function harness(row: ReturnType<typeof fixture> | null) {
     findRepositoryForProjection: jest.fn().mockResolvedValue(row),
     countApprovedSubmissions: jest.fn().mockResolvedValue(3),
     listPublicRepositoryIds: jest.fn().mockResolvedValue(['repository-1']),
-  } as unknown as jest.Mocked<ShowcaseProjectionRepository>;
+  } as unknown as jest.Mocked<ShowcaseProjectionStore>;
   return {
     service: new ShowcaseProjectionService(prisma, repository),
     repository,

@@ -6,13 +6,13 @@ import {
   AuditLogErrorCode,
 } from './audit-log-error-code.enum';
 import {
-  AuditLogRepository,
+  AuditLogStore,
   type AuditLogListResult,
   type AuditLogRecord,
   type AuditLogRecordInput,
   type AuditLogRepositoryPort,
   type AuditLogTransactionWriter,
-} from './audit-log.repository';
+} from './audit-log.store';
 import type { AuditLogListQueryRequestDto } from './dto/audit-log-query.dto';
 
 export type AuditLogPage = AuditLogListResult & {
@@ -23,7 +23,7 @@ export type AuditLogPage = AuditLogListResult & {
 @Injectable()
 export class AuditLogService {
   constructor(
-    @Inject(AuditLogRepository)
+    @Inject(AuditLogStore)
     private readonly repository: AuditLogRepositoryPort,
   ) {}
 

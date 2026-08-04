@@ -1,4 +1,4 @@
-import type { PublicProjectRow } from './public-projects.repository';
+import type { PublicProjectRow } from './public-projects.store';
 import { PublicUserProfileController } from './public-user-profile.controller';
 import type { PublicProjectsService } from './public-projects.service';
 

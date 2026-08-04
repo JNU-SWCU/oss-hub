@@ -78,7 +78,7 @@ export interface AuditLogRepositoryPort {
 }
 
 @Injectable()
-export class AuditLogRepository implements AuditLogRepositoryPort {
+export class AuditLogStore implements AuditLogRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
 
   findActorByGithubId(githubId: bigint): Promise<AuditLogActor | null> {

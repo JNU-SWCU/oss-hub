@@ -2,7 +2,7 @@ import type { ProgramCategory } from '@prisma/client';
 import type {
   PublicProjectRow,
   PublicUserIdentity,
-} from './public-projects.repository';
+} from './public-projects.store';
 
 /**
  * todo 16 — 서비스 계층이 생산하는 도메인 결과 형태. `dto/*.ts`는 응답 계약(DTO)만 담아야

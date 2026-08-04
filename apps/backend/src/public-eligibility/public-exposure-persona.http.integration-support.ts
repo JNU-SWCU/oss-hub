@@ -3,7 +3,7 @@ import type { INestApplication } from '@nestjs/common';
 import type { Role } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuditLogController } from '../audit-log/audit-log.controller';
-import { AuditLogRepository } from '../audit-log/audit-log.repository';
+import { AuditLogStore } from '../audit-log/audit-log.store';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
@@ -20,11 +20,11 @@ import { RankingController } from '../ranking/ranking.controller';
 import { RankingService } from '../ranking/ranking.service';
 import { UserDisplayNameRepository } from '../users/user-display-name.repository';
 import { PublicProjectsController } from '../public-projects/public-projects.controller';
-import { PublicProjectsRepository } from '../public-projects/public-projects.repository';
+import { PublicProjectsStore } from '../public-projects/public-projects.store';
 import { PublicProjectsService } from '../public-projects/public-projects.service';
 import { PublicUserProfileController } from '../public-projects/public-user-profile.controller';
 import { SubmissionRepositoryPublishingController } from '../submission-reviews/submission-reviews.controller';
-import { SubmissionReviewsRepository } from '../submission-reviews/submission-reviews.repository';
+import { SubmissionReviewsStore } from '../submission-reviews/submission-reviews.store';
 import { SubmissionReviewsService } from '../submission-reviews/submission-reviews.service';
 import { SubmissionReviewsStaffGuard } from '../submission-reviews/submission-reviews-staff.guard';
 import {
@@ -61,7 +61,7 @@ export class PublicExposurePersonaHttpHarness {
     await this.prisma.$connect();
 
     const eligibilityService = new PublicEligibilityService(this.collection);
-    const publicProjectsRepository = new PublicProjectsRepository(this.prisma);
+    const publicProjectsRepository = new PublicProjectsStore(this.prisma);
     const publicProjectsService = new PublicProjectsService(
       publicProjectsRepository,
       eligibilityService,
@@ -75,9 +75,7 @@ export class PublicExposurePersonaHttpHarness {
     const github = {
       publishRepository: jest.fn(),
     } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
-    const auditLogService = new AuditLogService(
-      new AuditLogRepository(this.prisma),
-    );
+    const auditLogService = new AuditLogService(new AuditLogStore(this.prisma));
     const repositoriesRepository = new RepositoriesRepository(this.prisma);
     const repositoriesService = new RepositoriesService(
       repositoriesRepository,
@@ -85,7 +83,7 @@ export class PublicExposurePersonaHttpHarness {
       auditLogService,
     );
     const submissionReviewsService = new SubmissionReviewsService(
-      new SubmissionReviewsRepository(this.prisma),
+      new SubmissionReviewsStore(this.prisma),
       repositoriesService,
     );
     this.githubPublishRepositoryMock = github.publishRepository;
@@ -158,7 +156,7 @@ export class PublicExposurePersonaHttpHarness {
         githubId,
         // id와 nickname을 의도적으로 다른 문자열로 둔다 — audit-log 응답의 `actor`는
         // `AuditLog.actorId`가 가리키는 User의 **nickname**이지 raw internal id가 아니다
-        // (`audit-log.repository.ts`: `actor: log.actor.nickname`). id와 nickname이 같은
+        // (`audit-log.store.ts`: `actor: log.actor.nickname`). id와 nickname이 같은
         // 문자열이면 "actor가 raw id가 아니다"라는 단언이 항상 공허하게 실패해 이 구분을
         // 증명하지 못한다.
         nickname: `${this.fixtureNamespace}-http-${label}-${this.sequence}-login`,

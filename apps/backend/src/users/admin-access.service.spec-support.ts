@@ -1,5 +1,5 @@
 import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
+import type { AuditLogTransactionWriter } from '../audit-log/audit-log.store';
 import type { AuditLogService } from '../audit-log/audit-log.service';
 import type {
   AdminAccessActor,

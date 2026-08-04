@@ -6,7 +6,7 @@ import type {
   PublicProjectMetrics,
   PublicProjectPageResult,
 } from '../public-project-result';
-import type { PublicProjectRow } from '../public-projects.repository';
+import type { PublicProjectRow } from '../public-projects.store';
 
 export enum PublicProjectApplicationMode {
   PERSONAL = 'PERSONAL',

@@ -1,6 +1,6 @@
 import type { ProgramCategory } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
-import { PublicProjectsRepository } from './public-projects.repository';
+import { PublicProjectsStore } from './public-projects.store';
 
 type FindManyMock = jest.Mock<Promise<unknown[]>, [unknown]>;
 type FindFirstMock = jest.Mock<Promise<unknown>, [unknown]>;
@@ -17,7 +17,7 @@ function repositoryWith(overrides: {
   repositoryFindFirst?: FindFirstMock;
   userFindUnique?: FindUniqueMock;
   queryRaw?: jest.Mock;
-}): { repository: PublicProjectsRepository; prisma: MockPrismaClient } {
+}): { repository: PublicProjectsStore; prisma: MockPrismaClient } {
   const prisma: MockPrismaClient = {
     repository: {
       findMany: overrides.repositoryFindMany ?? jest.fn(),
@@ -29,14 +29,12 @@ function repositoryWith(overrides: {
     $queryRaw: overrides.queryRaw ?? jest.fn().mockResolvedValue([]),
   };
   return {
-    repository: new PublicProjectsRepository(
-      prisma as unknown as PrismaService,
-    ),
+    repository: new PublicProjectsStore(prisma as unknown as PrismaService),
     prisma,
   };
 }
 
-// PublicProjectsRepository의 PROJECT_ROW_SELECT와 동일한 모양 — wildcard include를 쓰지
+// PublicProjectsStore의 PROJECT_ROW_SELECT와 동일한 모양 — wildcard include를 쓰지
 // 않는다는 계약을 테스트가 명시적으로 고정한다.
 const PROJECT_ROW_SELECT = {
   id: true,
@@ -62,7 +60,7 @@ const RAW_ROW = {
   application: { applicant: { nickname: 'synthetic-applicant' } },
 };
 
-describe('PublicProjectsRepository', () => {
+describe('PublicProjectsStore', () => {
   describe('listPage', () => {
     it('첫 페이지(cursor=null)에서는 OR 절 없이 visibility/publishedAt 필터만으로 명시적 select를 쓴다', async () => {
       const findMany = jest.fn().mockResolvedValue([RAW_ROW]);

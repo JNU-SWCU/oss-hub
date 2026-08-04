@@ -5,7 +5,7 @@ import { AuthErrorCode } from '../src/auth/auth-error-code.enum';
 import { AuthConfig } from '../src/auth/auth.config';
 import { AuthRepository } from '../src/auth/auth.repository';
 import { AuthService } from '../src/auth/auth.service';
-import { AuditLogRepository } from '../src/audit-log/audit-log.repository';
+import { AuditLogStore } from '../src/audit-log/audit-log.store';
 import { AuditLogService } from '../src/audit-log/audit-log.service';
 import type { ConsentsService } from '../src/consents/consents.service';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -72,7 +72,7 @@ describe('accountStatus migration regression', () => {
   } satisfies Pick<ConsentsService, 'requireCurrent'>);
   const adminAccessService = new AdminAccessService(
     new AdminAccessRepository(prisma),
-    new AuditLogService(new AuditLogRepository(prisma)),
+    new AuditLogService(new AuditLogStore(prisma)),
   );
 
   beforeAll(async () => {

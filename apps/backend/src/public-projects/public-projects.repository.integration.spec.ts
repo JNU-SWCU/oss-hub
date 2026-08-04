@@ -7,7 +7,7 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import { PublicProjectsRepository } from './public-projects.repository';
+import { PublicProjectsStore } from './public-projects.store';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -15,14 +15,14 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const repository = new PublicProjectsRepository(prisma);
+const repository = new PublicProjectsStore(prisma);
 const PREFIX = 'synthetic-public-projects';
 const PROGRAM_ID = `${PREFIX}-program`;
 // 대표 카디널리티 fixture — 페이지네이션 EXPLAIN·N+1 가드 둘 다 이 개수로 충분한 규모를 갖는다.
 const PUBLIC_REPOSITORY_COUNT = 40;
 const BASE_PUBLISHED_AT = new Date('2026-06-01T00:00:00.000Z');
 
-describe('PublicProjectsRepository integration', () => {
+describe('PublicProjectsStore integration', () => {
   beforeAll(async () => {
     await prisma.$connect();
     await prisma.program.create({
@@ -306,7 +306,7 @@ describe('PublicProjectsRepository integration', () => {
       log: [{ emit: 'event', level: 'query' }],
     });
     await queryLogClient.$connect();
-    const loggedRepository = new PublicProjectsRepository(
+    const loggedRepository = new PublicProjectsStore(
       queryLogClient as unknown as PrismaService,
     );
 

@@ -3,7 +3,7 @@ import {
   PUBLIC_PROJECTS_ERROR_CODES,
   PublicProjectsErrorCode,
 } from './public-projects-error-code.enum';
-import type { PublicProjectCursor } from './public-projects.repository';
+import type { PublicProjectCursor } from './public-projects.store';
 
 /**
  * todo 16 — "index 기반 page ID". opaque 토큰이지만 내용은 `Repository_visibility_

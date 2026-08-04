@@ -8,7 +8,7 @@ import {
   ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
-import { AuditLogRepository } from '../audit-log/audit-log.repository';
+import { AuditLogStore } from '../audit-log/audit-log.store';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../audit-log/audit-log-metadata';
 import {
@@ -30,9 +30,9 @@ import type { GithubAppClient } from '../repositories/github-app.client';
 import { BarrierRepositoriesRepository } from '../repositories/repositories.integration-support';
 import { RepositoriesRepository } from '../repositories/repositories.repository';
 import { RepositoriesService } from '../repositories/repositories.service';
-import { PublicProjectsRepository } from '../public-projects/public-projects.repository';
+import { PublicProjectsStore } from '../public-projects/public-projects.store';
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.enum';
-import { SubmissionReviewsRepository } from './submission-reviews.repository';
+import { SubmissionReviewsStore } from './submission-reviews.store';
 import { SubmissionReviewsService } from './submission-reviews.service';
 
 assertIsolatedIntegrationDatabase({
@@ -44,7 +44,7 @@ const prisma = new PrismaService();
 const github = {
   publishRepository: jest.fn(),
 } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
-const auditLog = new AuditLogService(new AuditLogRepository(prisma));
+const auditLog = new AuditLogService(new AuditLogStore(prisma));
 const repositoriesRepository = new RepositoriesRepository(prisma);
 const repositories = new RepositoriesService(
   repositoriesRepository,
@@ -52,10 +52,10 @@ const repositories = new RepositoriesService(
   auditLog,
 );
 const service = new SubmissionReviewsService(
-  new SubmissionReviewsRepository(prisma),
+  new SubmissionReviewsStore(prisma),
   repositories,
 );
-const publicProjects = new PublicProjectsRepository(prisma);
+const publicProjects = new PublicProjectsStore(prisma);
 const PROGRAM_ID = seedId('milestones', 'program');
 const REPOSITORIES_PROGRAM_ID = seedId('repositories', 'program');
 const REVIEWER_ID = seedId('milestones', 'user', 'reviewer');

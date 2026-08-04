@@ -6,7 +6,7 @@ import {
 } from '@prisma/client';
 
 @Injectable()
-export class ShowcaseProjectionRepository {
+export class ShowcaseProjectionStore {
   async findRepositoryForProjection(
     prisma: Prisma.TransactionClient,
     repositoryId: string,

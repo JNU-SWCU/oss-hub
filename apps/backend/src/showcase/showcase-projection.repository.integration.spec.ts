@@ -6,7 +6,7 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import { ShowcaseProjectionRepository } from './showcase-projection.repository';
+import { ShowcaseProjectionStore } from './showcase-projection.store';
 import { ShowcaseProjectionService } from './showcase-projection.service';
 
 assertIsolatedIntegrationDatabase({
@@ -15,7 +15,7 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const repository = new ShowcaseProjectionRepository();
+const repository = new ShowcaseProjectionStore();
 const service = new ShowcaseProjectionService(prisma, repository);
 const PREFIX = 'synthetic-public-showcase';
 const PROGRAM_ID = `${PREFIX}-program`;
@@ -31,7 +31,7 @@ const REPOSITORY_IDS = [
 ] as const;
 const NOW = new Date('2026-07-26T00:00:00.000Z');
 
-describe('ShowcaseProjectionRepository integration', () => {
+describe('ShowcaseProjectionStore integration', () => {
   beforeAll(async () => {
     await prisma.$connect();
     await prisma.user.createMany({

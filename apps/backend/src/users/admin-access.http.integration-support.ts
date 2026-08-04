@@ -2,7 +2,7 @@ import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import type { AccountStatus, Role } from '@prisma/client';
 import { Test } from '@nestjs/testing';
-import { AuditLogRepository } from '../audit-log/audit-log.repository';
+import { AuditLogStore } from '../audit-log/audit-log.store';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
@@ -38,7 +38,7 @@ export class AdminAccessHttpHarness {
         AdminAccessService,
         AdminAccessRepository,
         AuditLogService,
-        AuditLogRepository,
+        AuditLogStore,
         SessionGuard,
         OriginGuard,
         { provide: PrismaService, useValue: this.prisma },

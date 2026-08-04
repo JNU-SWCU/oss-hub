@@ -10,7 +10,7 @@ import { createCollectionReadPortForIntegrationTest } from '../collection/collec
 import { PrismaService } from '../prisma/prisma.service';
 import { PublicEligibilityService } from '../public-eligibility/public-eligibility.service';
 import { PublicUserProfileResponseDto } from './dto/public-user-profile-response.dto';
-import { PublicProjectsRepository } from './public-projects.repository';
+import { PublicProjectsStore } from './public-projects.store';
 import { PublicProjectsService } from './public-projects.service';
 
 assertIsolatedIntegrationDatabase({
@@ -22,7 +22,7 @@ const prisma = new PrismaService();
 const collectionReadService =
   createCollectionReadPortForIntegrationTest(prisma);
 const eligibilityService = new PublicEligibilityService(collectionReadService);
-const publicProjectsRepository = new PublicProjectsRepository(prisma);
+const publicProjectsRepository = new PublicProjectsStore(prisma);
 const service = new PublicProjectsService(
   publicProjectsRepository,
   eligibilityService,

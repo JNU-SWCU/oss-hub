@@ -3,7 +3,7 @@ import { CollectionModule } from '../collection/collection.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PublicEligibilityModule } from '../public-eligibility/public-eligibility.module';
 import { PublicProjectsController } from './public-projects.controller';
-import { PublicProjectsRepository } from './public-projects.repository';
+import { PublicProjectsStore } from './public-projects.store';
 import { PublicProjectsService } from './public-projects.service';
 import { PublicUserProfileController } from './public-user-profile.controller';
 
@@ -16,6 +16,6 @@ import { PublicUserProfileController } from './public-user-profile.controller';
 @Module({
   imports: [PrismaModule, PublicEligibilityModule, CollectionModule],
   controllers: [PublicProjectsController, PublicUserProfileController],
-  providers: [PublicProjectsRepository, PublicProjectsService],
+  providers: [PublicProjectsStore, PublicProjectsService],
 })
 export class PublicProjectsModule {}

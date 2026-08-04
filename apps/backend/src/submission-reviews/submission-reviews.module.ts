@@ -5,7 +5,7 @@ import {
   SubmissionRepositoryPublishingController,
   SubmissionReviewsController,
 } from './submission-reviews.controller';
-import { SubmissionReviewsRepository } from './submission-reviews.repository';
+import { SubmissionReviewsStore } from './submission-reviews.store';
 import { SubmissionReviewsStaffGuard } from './submission-reviews-staff.guard';
 import { SubmissionReviewsService } from './submission-reviews.service';
 
@@ -16,7 +16,7 @@ import { SubmissionReviewsService } from './submission-reviews.service';
     SubmissionRepositoryPublishingController,
   ],
   providers: [
-    SubmissionReviewsRepository,
+    SubmissionReviewsStore,
     SubmissionReviewsService,
     SubmissionReviewsStaffGuard,
   ],

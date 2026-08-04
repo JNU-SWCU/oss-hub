@@ -1,6 +1,6 @@
 import { AccountStatus, Role } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../audit-log/audit-log.repository';
+import { AuditLogStore } from '../audit-log/audit-log.store';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import type { AuthenticatedRequest } from '../auth/session.guard';
 import { PrismaService } from '../prisma/prisma.service';
@@ -18,7 +18,7 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const repository = new AdminAccessRepository(prisma);
-const auditLog = new AuditLogService(new AuditLogRepository(prisma));
+const auditLog = new AuditLogService(new AuditLogStore(prisma));
 const service = new AdminAccessService(repository, auditLog);
 const AUDIT_FAILURE_FUNCTION = 'fail_admin_access_audit_insert';
 const AUDIT_FAILURE_TRIGGER = 'fail_admin_access_audit_insert_trigger';

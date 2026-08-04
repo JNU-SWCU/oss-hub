@@ -9,15 +9,15 @@ import {
   ACCESS_AUDIT_EVENT_KINDS,
   createAccessAuditMetadata,
 } from './audit-log-metadata';
-import { AuditLogRepository } from './audit-log.repository';
+import { AuditLogStore } from './audit-log.store';
 
-describe('AuditLogRepository', () => {
+describe('AuditLogStore', () => {
   it('필터를 AND로 적용하고 발생 시각 최신순으로 조회한다', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
     const prisma = {
       auditLog: { findMany, count: jest.fn().mockResolvedValue(0) },
     } as unknown as PrismaService;
-    const repository = new AuditLogRepository(prisma);
+    const repository = new AuditLogStore(prisma);
 
     await repository.list({
       actor: 'synthetic-admin',
@@ -77,7 +77,7 @@ describe('AuditLogRepository', () => {
         occurredAt: new Date('2026-07-24T03:00:00.000Z'),
       });
     const prisma = { auditLog: { create } } as unknown as PrismaService;
-    const repository = new AuditLogRepository(prisma);
+    const repository = new AuditLogStore(prisma);
     const input = {
       actorGithubId: 1001n,
       action: 'STAFF_ROLE_REQUEST_REJECTED',
@@ -113,7 +113,7 @@ describe('AuditLogRepository', () => {
     const prisma = {
       auditLog: { findMany, count: jest.fn().mockResolvedValue(1) },
     } as unknown as PrismaService;
-    const repository = new AuditLogRepository(prisma);
+    const repository = new AuditLogStore(prisma);
 
     const result = await repository.list({ page: 1, limit: 20 });
 
@@ -162,7 +162,7 @@ describe('AuditLogRepository', () => {
         count: jest.fn().mockResolvedValue(1),
       },
     } as unknown as PrismaService;
-    const repository = new AuditLogRepository(prisma);
+    const repository = new AuditLogStore(prisma);
 
     const result = await repository.list({ page: 1, limit: 20 });
 
@@ -212,7 +212,7 @@ describe('AuditLogRepository', () => {
         count: jest.fn().mockResolvedValue(1),
       },
     } as unknown as PrismaService;
-    const repository = new AuditLogRepository(prisma);
+    const repository = new AuditLogStore(prisma);
 
     const result = await repository.list({ page: 1, limit: 20 });
 
@@ -232,7 +232,7 @@ describe('AuditLogRepository', () => {
     const prisma = {
       auditLog: { findMany, count },
     } as unknown as PrismaService;
-    const repository = new AuditLogRepository(prisma);
+    const repository = new AuditLogStore(prisma);
 
     const result = await repository.list({
       actor: 'synthetic-admin',

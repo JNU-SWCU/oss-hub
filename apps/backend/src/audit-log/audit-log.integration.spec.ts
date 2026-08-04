@@ -6,7 +6,7 @@ import {
   ACCESS_AUDIT_EVENT_KINDS,
   createAccessAuditMetadata,
 } from './audit-log-metadata';
-import { AuditLogRepository } from './audit-log.repository';
+import { AuditLogStore } from './audit-log.store';
 import { AuditLogService } from './audit-log.service';
 
 assertIsolatedIntegrationDatabase({
@@ -21,7 +21,7 @@ const STAFF_GITHUB_ID = 9_132_000_002n;
 
 describe('Audit log integration', () => {
   const prisma = new PrismaService();
-  const service = new AuditLogService(new AuditLogRepository(prisma));
+  const service = new AuditLogService(new AuditLogStore(prisma));
 
   beforeAll(async () => {
     await prisma.$connect();

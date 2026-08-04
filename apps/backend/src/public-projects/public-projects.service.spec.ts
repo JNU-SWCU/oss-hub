@@ -8,9 +8,9 @@ import type { PublicEligibilityService } from '../public-eligibility/public-elig
 import { encodePublicProjectCursor } from './public-project-cursor';
 import type {
   PublicProjectRow,
-  PublicProjectsRepository,
+  PublicProjectsStore,
   PublicUserIdentity,
-} from './public-projects.repository';
+} from './public-projects.store';
 import { PublicProjectsService } from './public-projects.service';
 
 function githubRepositoryIdFor(id: string): bigint {
@@ -60,7 +60,7 @@ function serviceWith(overrides: {
     listForUser: overrides.listForUser ?? jest.fn().mockResolvedValue([]),
     findUserIdentity:
       overrides.findUserIdentity ?? jest.fn().mockResolvedValue(null),
-  } as unknown as PublicProjectsRepository;
+  } as unknown as PublicProjectsStore;
   const eligibility = {
     filterEligibleRepositoryIds:
       overrides.filterEligibleRepositoryIds ??

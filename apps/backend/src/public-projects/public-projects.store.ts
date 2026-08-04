@@ -88,7 +88,7 @@ function toProjectRow(row: ProjectRowSelection): PublicProjectRow {
 }
 
 @Injectable()
-export class PublicProjectsRepository {
+export class PublicProjectsStore {
   constructor(private readonly prisma: PrismaService) {}
 
   /**

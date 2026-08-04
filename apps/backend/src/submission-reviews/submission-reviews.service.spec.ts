@@ -13,7 +13,7 @@ import type { RepositoriesService } from '../repositories/repositories.service';
 import type {
   SubmissionReviewTransactionStore,
   SubmissionReviewsRepositoryPort,
-} from './submission-reviews.repository';
+} from './submission-reviews.store';
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.enum';
 import { SubmissionReviewsService } from './submission-reviews.service';
 

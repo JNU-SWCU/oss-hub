@@ -7,7 +7,7 @@ import {
   Role,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../audit-log/audit-log.repository';
+import { AuditLogStore } from '../audit-log/audit-log.store';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../audit-log/audit-log-metadata';
 import {
@@ -21,10 +21,10 @@ import { RepositoriesService } from '../repositories/repositories.service';
 import { RankingService } from '../ranking/ranking.service';
 import { UserDisplayNameRepository } from '../users/user-display-name.repository';
 import { PublicProjectsErrorCode } from '../public-projects/public-projects-error-code.enum';
-import { PublicProjectsRepository } from '../public-projects/public-projects.repository';
+import { PublicProjectsStore } from '../public-projects/public-projects.store';
 import { PublicProjectsService } from '../public-projects/public-projects.service';
 import { SubmissionReviewsErrorCode } from '../submission-reviews/submission-reviews-error-code.enum';
-import { SubmissionReviewsRepository } from '../submission-reviews/submission-reviews.repository';
+import { SubmissionReviewsStore } from '../submission-reviews/submission-reviews.store';
 import { SubmissionReviewsService } from '../submission-reviews/submission-reviews.service';
 import { PublicEligibilityService } from './public-eligibility.service';
 
@@ -49,7 +49,7 @@ const prisma = new PrismaService();
 const collection: CollectionReadPort =
   createCollectionReadPortForIntegrationTest(prisma);
 const eligibilityService = new PublicEligibilityService(collection);
-const publicProjectsRepository = new PublicProjectsRepository(prisma);
+const publicProjectsRepository = new PublicProjectsStore(prisma);
 const publicProjectsService = new PublicProjectsService(
   publicProjectsRepository,
   eligibilityService,
@@ -63,7 +63,7 @@ const rankingService = new RankingService(
 const github = {
   publishRepository: jest.fn(),
 } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
-const auditLogService = new AuditLogService(new AuditLogRepository(prisma));
+const auditLogService = new AuditLogService(new AuditLogStore(prisma));
 const repositoriesRepository = new RepositoriesRepository(prisma);
 const repositoriesService = new RepositoriesService(
   repositoriesRepository,
@@ -71,7 +71,7 @@ const repositoriesService = new RepositoriesService(
   auditLogService,
 );
 const submissionReviewsService = new SubmissionReviewsService(
-  new SubmissionReviewsRepository(prisma),
+  new SubmissionReviewsStore(prisma),
   repositoriesService,
 );
 

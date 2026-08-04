@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus, Prisma, Role, RoleRequestStatus } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
+import type { AuditLogTransactionWriter } from '../audit-log/audit-log.store';
 import {
   COMPATIBLE_PROFILE_NAME_SELECT,
   resolveCompatibleProfileName,

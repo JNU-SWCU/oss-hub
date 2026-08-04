@@ -114,7 +114,7 @@ class PrismaSubmissionReviewTransactionStore implements SubmissionReviewTransact
 }
 
 @Injectable()
-export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryPort {
+export class SubmissionReviewsStore implements SubmissionReviewsRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
 
   async withTransaction<T>(

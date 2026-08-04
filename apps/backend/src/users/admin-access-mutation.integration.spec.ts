@@ -4,7 +4,7 @@ import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
 } from '../audit-log/audit-log-metadata';
-import { AuditLogRepository } from '../audit-log/audit-log.repository';
+import { AuditLogStore } from '../audit-log/audit-log.store';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
@@ -20,7 +20,7 @@ const prisma = new PrismaService();
 const repository = new AdminAccessRepository(prisma);
 const service = new AdminAccessService(
   repository,
-  new AuditLogService(new AuditLogRepository(prisma)),
+  new AuditLogService(new AuditLogStore(prisma)),
 );
 let sequence = 0;
 

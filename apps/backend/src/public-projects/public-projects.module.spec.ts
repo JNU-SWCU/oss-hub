@@ -4,7 +4,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { PublicEligibilityModule } from '../public-eligibility/public-eligibility.module';
 import { PublicProjectsController } from './public-projects.controller';
 import { PublicProjectsModule } from './public-projects.module';
-import { PublicProjectsRepository } from './public-projects.repository';
+import { PublicProjectsStore } from './public-projects.store';
 import { PublicProjectsService } from './public-projects.service';
 import { PublicUserProfileController } from './public-user-profile.controller';
 
@@ -42,7 +42,7 @@ describe('PublicProjectsModule', () => {
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
 
     expect(providers).toEqual(
-      expect.arrayContaining([PublicProjectsRepository, PublicProjectsService]),
+      expect.arrayContaining([PublicProjectsStore, PublicProjectsService]),
     );
   });
 });

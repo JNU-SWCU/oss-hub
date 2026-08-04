@@ -22,7 +22,7 @@ import {
   PUBLIC_PROJECTS_ERROR_CODES,
   PublicProjectsErrorCode,
 } from './public-projects-error-code.enum';
-import { PublicProjectsRepository } from './public-projects.repository';
+import { PublicProjectsStore } from './public-projects.store';
 
 /**
  * todo 16 — list/detail/profile 행 선택이 todo 15의 `PublicEligibilityService` 하나를
@@ -33,7 +33,7 @@ import { PublicProjectsRepository } from './public-projects.repository';
 @Injectable()
 export class PublicProjectsService {
   constructor(
-    private readonly repository: PublicProjectsRepository,
+    private readonly repository: PublicProjectsStore,
     private readonly eligibility: PublicEligibilityService,
     @Inject(COLLECTION_READ_PORT)
     private readonly collection: CollectionReadPort,
