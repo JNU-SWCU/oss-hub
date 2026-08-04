@@ -55,6 +55,15 @@ export class CollectionAdminController {
         errorName: error instanceof Error ? error.name : 'UnknownError',
       });
     });
+    // Independent void promise — E1 external sweep must not block the org
+    // sweep above (separate lease scope, separate failure surface).
+    void this.sync.runExternal(this.ownerId).catch((error: unknown) => {
+      this.logger.error({
+        event: 'collection.admin.external_sync_failed',
+        runId,
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+    });
     return new CollectionTriggerResponseDto(runId);
   }
 
