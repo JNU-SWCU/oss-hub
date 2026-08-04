@@ -91,6 +91,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 | 승인 대기 화면의 프로필 수정 경로 | @Lumiere001 | review | [#598](https://github.com/JNU-SWCU/oss-hub/issues/598) | (이 PR) | frontend pass | 설정 화면으로 가는 두 번째 입구. 역할 단계 미개방 |
 | 프로그램·신청 영역 안내 문구 정리 | @Lumiere001 | review | [#355](https://github.com/JNU-SWCU/oss-hub/issues/355) | (이 PR) | frontend 1422 pass | 팀원 이슈 대행. 내부 용어 제거 + 동작별 실패 안내 |
 | 제출 파일 정리 소진 운영자 노출 | @Lumiere001 | review | [#545](https://github.com/JNU-SWCU/oss-hub/issues/545) | (이 PR) | backend unit·integration pass | 스키마 무접촉. 관리자 전용 조회 신설(PR #544 패턴) |
+| 제출·검토 영역 안내 문구 정리 | @Lumiere001 | review | [#354](https://github.com/JNU-SWCU/oss-hub/issues/354) | (이 PR) | frontend 1421 pass | 팀원 이슈 대행. revision 등 내부 용어 11곳 교체 |
 | 관리자 승격 두 단계 안내 | @Lumiere001 | review | [#576](https://github.com/JNU-SWCU/oss-hub/issues/576) | (이 PR) | frontend 1388 pass | 등급 사다리·전이 규칙 무변경. 안내 문구만 추가 |
 | 로그아웃 후 계정 전환 경로 | @Lumiere001 | review | [#348](https://github.com/JNU-SWCU/oss-hub/issues/348) | (이 PR) | frontend 1443 pass | `/logout` 전용 화면 + 복귀 주소 검증기 `lib/` 승격 |
 | 설정·역할 요청·시스템 상태 안내 문구 보강 | @Lumiere001 | review | [#356](https://github.com/JNU-SWCU/oss-hub/issues/356) | (이 PR) | frontend 1397 pass | 알림 설정 부분 재조회 UI 포함. 백엔드 무접촉 |
