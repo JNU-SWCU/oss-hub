@@ -25,7 +25,7 @@ Collection GitHub App installation token으로 `JNU-SWCU` 조직 설치 범위�
 | `collection-live-smoke.service.ts` | E1 live smoke(2-pass 멱등 digest, 공개-safe 출력) |
 | `collection-error-code.enum.ts` | `COL_*` 에러 코드 레지스트리 — `COL_008 COLLECTION_QUIESCED`(409, cutover 절차 진행 중 트리거 거부) 포함 |
 | `collection-generation-import.service.ts` | 최신 성공 활성 canonical generation → ADR-006 안정 ID facts/state/집계 backfill(멱등, ETag·safe frontier 미발명 — stream은 `VERIFYING`으로 남는다). todo 14 cutover 절차가 pin된 generation을 재확인하기 위해 이 backfill을 재실행한다 |
-| `collection-sync.service.ts` | todo 10/14 — repository별 증분 동기화 orchestration이자 유일한 live writer. inventory(complete/partial 구분) → 신규/미검증 저장소 full backfill → READY 저장소 조건부 poll을 fair serial queue·lease-fenced 트랜잭션 위에서 durable cursor로 이어간다 |
+| `collection-sync.service.ts` | todo 10/14 — repository별 증분 동기화 orchestration이자 유일한 live writer. inventory(complete/partial 구분) → 신규/미검증 저장소 full backfill → READY 저장소 조건부 poll을 fair serial queue·lease-fenced 트랜잭션 위에서 durable cursor로 이어간다. `run`/`runExternal`은 트리거가 만든 runId를 받아 lease에 그대로 쓴다(#546). stream 실패는 `lastErrorCode`(public-safe 분류)로 남기고 성공하면 지운다 — run budget 소진(deadline)은 오류로 세지 않는다 |
 | `collection-sync.types.ts` | `CollectionSyncLease` epoch-fenced lease 계약 타입(`SyncLeaseKey`/`SyncLeaseToken`/`AcquireSyncLeaseInput`) |
 | `collection-cutover.types.ts` | todo 14 원자 전환 quiesce lease/결과 계약 타입(`CutoverLeaseKey`/`CutoverLeaseToken`/`CutoverAbortReason`/`CutoverAggregateComparison`/`CutoverResult`) |
 | `collection-cutover.repository.ts` | `CollectionCutoverLease` epoch-fenced quiesce lease(acquire/release/`isQuiesced` 존재 확인) + aggregate 비교용 VERIFYING stream·facts count 조회 |

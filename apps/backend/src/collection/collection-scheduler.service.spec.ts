@@ -106,6 +106,15 @@ describe('CollectionSchedulerService', () => {
     );
   });
 
+  // #546 — 트리거가 돌려준 runId와 내부 run의 runId가 같아야 조회가 성립한다.
+  it('트리거가 만든 runId를 그대로 내부 sync run에 넘긴다', async () => {
+    run.mockResolvedValue(completedRun());
+
+    const result = await service.trigger();
+
+    expect(run).toHaveBeenCalledWith(expect.any(String), result.runId);
+  });
+
   // #511 — 성공 tick에도 로그가 1줄 남아야 한다. 이전에는 실패 이벤트만 기록돼
   // "정상 실행됐는가"를 DB 직접 조회 없이 판정할 수 없었다.
   it('sync가 성공하면 소요 시간·대상 repo 수·신규 수집 건수를 담은 완료 로그를 남긴다', async () => {

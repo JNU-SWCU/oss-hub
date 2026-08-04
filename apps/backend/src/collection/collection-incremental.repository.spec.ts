@@ -35,6 +35,7 @@ interface MockDb {
     upsert: jest.Mock;
     findUnique: jest.Mock;
     groupBy: jest.Mock;
+    updateMany: jest.Mock;
   };
   collectionSyncCursor: {
     upsert: jest.Mock;
@@ -79,9 +80,10 @@ const createDb = (): MockDb => {
       upsert: jest.fn().mockResolvedValue({}),
     },
     collectionRepositoryStream: {
-      upsert: jest.fn(),
+      upsert: jest.fn().mockResolvedValue({}),
       findUnique: jest.fn(),
       groupBy: jest.fn().mockResolvedValue([]),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     collectionSyncCursor: {
       upsert: jest.fn(),
@@ -966,5 +968,52 @@ describe('CollectionIncrementalRepository — #511 실행 이력 프로젝션', 
     for (const args of calls) {
       expect(args.where.repository.source).toBe('EXTERNAL_PUBLIC');
     }
+  });
+});
+
+// #546 — repo 단위 실패가 stream에 남아야 system-status가 FAILED를 판정할 수 있다.
+describe('CollectionIncrementalRepository — #546 stream 오류 표시', () => {
+  const at = new Date('2026-08-04T01:00:00.000Z');
+
+  it('오류 기록은 upsert라 stream 행이 아직 없어도 남고, frontier/status는 건드리지 않는다', async () => {
+    const db = createDb();
+
+    await repositoryFor(db).markStreamErrorState('repo-1', 'COMMIT', {
+      lastErrorAt: at,
+      lastErrorCode: 'PROVIDER_UPSTREAM',
+    });
+
+    expect(db.collectionRepositoryStream.updateMany).not.toHaveBeenCalled();
+    const [args] = db.collectionRepositoryStream.upsert.mock.calls.flat() as [
+      { create: Record<string, unknown>; update: Record<string, unknown> },
+    ];
+    expect(args.create).toMatchObject({
+      status: 'PENDING',
+      lastErrorCode: 'PROVIDER_UPSTREAM',
+      lastErrorAt: at,
+    });
+    expect(args.update).toEqual({
+      lastErrorAt: at,
+      lastErrorCode: 'PROVIDER_UPSTREAM',
+    });
+  });
+
+  it('오류 해제는 표시가 남아 있는 행만 갱신하고 새 행을 만들지 않는다', async () => {
+    const db = createDb();
+
+    await repositoryFor(db).markStreamErrorState('repo-1', 'RELEASE', {
+      lastErrorAt: null,
+      lastErrorCode: null,
+    });
+
+    expect(db.collectionRepositoryStream.upsert).not.toHaveBeenCalled();
+    expect(db.collectionRepositoryStream.updateMany).toHaveBeenCalledWith({
+      where: {
+        repositoryId: 'repo-1',
+        streamType: 'RELEASE',
+        lastErrorCode: { not: null },
+      },
+      data: { lastErrorAt: null, lastErrorCode: null },
+    });
   });
 });

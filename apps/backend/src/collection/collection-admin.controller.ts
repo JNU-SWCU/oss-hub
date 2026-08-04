@@ -54,14 +54,33 @@ export class CollectionAdminController {
         COLLECTION_ERROR_CODES[CollectionErrorCode.COLLECTION_QUIESCED],
       );
     }
+    // #546 — 이 runId를 그대로 내부 run에 넘긴다. 예전에는 202로 돌려준 값과
+    // lease에 박히는 내부 runId가 서로 달라, 관리자가 받은 runId로는 완료·실패를
+    // 어디서도 조회할 수 없었다.
     const runId = randomUUID();
-    void this.sync.run(this.ownerId).catch((error: unknown) => {
-      this.logger.error({
-        event: 'collection.admin.sync_failed',
-        runId,
-        errorName: error instanceof Error ? error.name : 'UnknownError',
-      });
-    });
+    const startedAt = Date.now();
+    void this.sync.run(this.ownerId, runId).then(
+      (result) => {
+        this.logger.log({
+          event: 'collection.admin.completed',
+          runId,
+          syncStatus: result.status,
+          durationMs: Date.now() - startedAt,
+          repositoryCount: result.processedRepositoryCount,
+          insertedFactCount: result.insertedFactCount,
+          inventoryComplete: result.inventoryComplete,
+          cycleCompleted: result.cycleCompleted,
+          stoppedForBudget: result.stoppedForBudget,
+        });
+      },
+      (error: unknown) => {
+        this.logger.error({
+          event: 'collection.admin.sync_failed',
+          runId,
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+        });
+      },
+    );
     return new CollectionTriggerResponseDto(runId);
   }
 

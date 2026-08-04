@@ -14,7 +14,7 @@ import { CollectionSyncService } from './collection-sync.service';
 describe('CollectionAdminController', () => {
   const run = jest.fn<
     Promise<{ runId: string; status: 'COMPLETED' }>,
-    [string]
+    [string, string?]
   >();
   const isQuiesced = jest.fn<Promise<boolean>, [Date]>();
   const listSyncRuns = jest.fn<
@@ -152,6 +152,22 @@ describe('CollectionAdminController', () => {
 
     expect(guards).toEqual([SessionGuard, CollectionAdminGuard, OriginGuard]);
     expect(statusCode).toBe(200);
+  });
+
+  // #546 — 202로 돌려준 runId와 내부 run의 runId가 달라 조회가 불가능했다.
+  it('202로 돌려준 runId를 그대로 내부 sync run에 넘긴다', async () => {
+    run.mockResolvedValue({ runId: 'ignored', status: 'COMPLETED' });
+    const controller = new CollectionAdminController(
+      { run } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
+      { listSyncRuns } as unknown as CollectionIncrementalRepository,
+    );
+
+    const response = await controller.trigger();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(run).toHaveBeenCalledWith(expect.any(String), response.runId);
   });
 
   // #511 — ADMIN이 DB에 직접 붙지 않고 실행 이력을 볼 수 있어야 한다.

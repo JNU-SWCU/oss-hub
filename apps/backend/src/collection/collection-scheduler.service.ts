@@ -65,7 +65,8 @@ export class CollectionSchedulerService {
     }
     const runId = randomUUID();
     const startedAt = Date.now();
-    void this.sync.run(this.ownerId).then(
+    // #546 — 트리거 표면이 만든 runId를 그대로 내부 run/lease에 넘긴다.
+    void this.sync.run(this.ownerId, runId).then(
       (result) => {
         // #511 — 실패 이벤트만 남던 자리에 성공 1줄을 추가한다. 운영자가 로그만으로
         // "이번 정각 tick이 실제로 돌았는가"를 판정할 수 있어야 하며 DB 직접 조회가

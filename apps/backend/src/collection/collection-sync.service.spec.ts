@@ -2,8 +2,10 @@ import { CollectionIncrementalRepository } from './collection-incremental.reposi
 import {
   CollectionSyncRuntime,
   CollectionSyncService,
+  DEFAULT_STREAM_ERROR_CODE,
 } from './collection-sync.service';
 import type { PrismaService } from '../prisma/prisma.service';
+import { CollectionAppClientError } from './collection-app.client';
 import type {
   CollectionAppClient,
   CollectionCommit,
@@ -354,6 +356,31 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
         return (
           box.store.streams.get(`${k.repositoryId}:${k.streamType}`) ?? null
         );
+      },
+      // #546 — 오류 해제 전용 부분 갱신. 행이 없으면 0건이고, `lastErrorCode: { not: null }`
+      // 가드 때문에 실제로 표시가 남아 있을 때만 쓴다(없는 행을 새로 만들지 않는다).
+      updateMany: ({
+        where,
+        data,
+      }: {
+        where: Row & { repositoryId: string; streamType: string };
+        data: Row;
+      }): { count: number } => {
+        const key = `${where.repositoryId}:${where.streamType}`;
+        const existing = box.store.streams.get(key);
+        if (!existing) return { count: 0 };
+        const guard = where.lastErrorCode;
+        if (
+          guard !== undefined &&
+          typeof guard === 'object' &&
+          guard !== null &&
+          'not' in guard &&
+          (existing.lastErrorCode ?? null) === null
+        ) {
+          return { count: 0 };
+        }
+        box.store.streams.set(key, applyUpdate(existing, data));
+        return { count: 1 };
       },
     },
     collectionSyncCursor: {
@@ -894,7 +921,13 @@ describe('CollectionSyncService — fenced transactions and lease safety', () =>
     expect(result.status).toBe('COMPLETED');
     expect(result.cycleCompleted).toBe(false);
     expect(result.processedRepositoryCount).toBe(0);
-    expect(box.store.streams.size).toBe(0);
+    // #546 이후 실패한 stream에는 오류 표시 행이 생긴다 — 다만 frontier/status는
+    // 여전히 전진하지 않는다(오류 표시만 담긴 PENDING 행).
+    const failedStream = [...box.store.streams.values()][0];
+    expect(box.store.streams.size).toBe(1);
+    expect(failedStream?.status).toBe('PENDING');
+    expect(failedStream?.frontierSha ?? null).toBeNull();
+    expect(failedStream?.lastErrorCode).toBe(DEFAULT_STREAM_ERROR_CODE);
     expect(box.store.commitFacts.size).toBe(0);
     expect(box.store.cursors.size).toBe(1);
     const cursor = [...box.store.cursors.values()][0];
@@ -1059,5 +1092,127 @@ describe('CollectionSyncService — durable cursor draining a mixed fixture acro
     expect(new Set(processedOrder).size).toBe(100);
     expect(runs).toBeGreaterThan(1);
     stopAfter = Number.MAX_SAFE_INTEGER;
+  });
+});
+
+// #546 — 트리거가 돌려준 runId로 실제 실행을 조회할 수 있어야 하고, repo 단위 실패는
+// stream에 오류 코드로 남아 system-status가 FAILED를 판정할 근거가 되어야 한다.
+describe('CollectionSyncService — #546 트리거 결과 추적', () => {
+  const streamOf = (box: { store: Store }, streamType: string): Row => {
+    const repoId = [...box.store.repositories.values()][0]?.id as string;
+    return box.store.streams.get(`${repoId}:${streamType}`) ?? {};
+  };
+
+  it('호출자가 넘긴 runId를 그대로 결과와 lease에 쓴다', async () => {
+    const { db, box } = createFakeDb();
+    const client = createClient([providerRepository()]);
+    quietStreams(client);
+    const service = createService(db, client, {
+      createRunId: () => 'internal-run-id',
+    });
+
+    const result = await service.run('admin:owner-1', 'trigger-run-id');
+
+    expect(result.runId).toBe('trigger-run-id');
+    const lease = [...box.store.leases.values()][0];
+    expect(lease?.runId).toBe('trigger-run-id');
+  });
+
+  it('runId를 넘기지 않으면 예전처럼 서비스가 만든 runId를 쓴다', async () => {
+    const { db } = createFakeDb();
+    const client = createClient([providerRepository()]);
+    quietStreams(client);
+    const service = createService(db, client, {
+      createRunId: () => 'internal-run-id',
+    });
+
+    await expect(service.run('owner-1')).resolves.toMatchObject({
+      runId: 'internal-run-id',
+    });
+  });
+
+  it('repo 단위 stream 실패를 lastErrorCode로 기록한다(stream 행이 아직 없어도)', async () => {
+    const { db, box } = createFakeDb();
+    const client = createClient([providerRepository()]);
+    quietStreams(client);
+    client.listCommitsUntilKnownSha.mockRejectedValue(
+      new CollectionAppClientError('UPSTREAM'),
+    );
+
+    const service = createService(db, client);
+    await service.run('owner-1');
+
+    const stream = streamOf(box, 'COMMIT');
+    expect(stream.lastErrorCode).toBe('PROVIDER_UPSTREAM');
+    expect(stream.lastErrorAt).toBeInstanceOf(Date);
+    // frontier/status는 실패로 되돌리지 않는다 — 다음 run이 전체 이력을 다시 훑지 않도록.
+    expect(stream.status).toBe('PENDING');
+  });
+
+  it('provider 오류 종류를 모르면 고정 코드만 남기고 원문 메시지는 담지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    const client = createClient([providerRepository()]);
+    quietStreams(client);
+    client.listCommitsUntilKnownSha.mockRejectedValue(
+      new Error('token ghs_must_not_leak leaked in message'),
+    );
+
+    const service = createService(db, client);
+    await service.run('owner-1');
+
+    const stream = streamOf(box, 'COMMIT');
+    expect(stream.lastErrorCode).toBe(DEFAULT_STREAM_ERROR_CODE);
+    expect(JSON.stringify(stream)).not.toContain('ghs_must_not_leak');
+  });
+
+  it('다음 run이 성공하면 남아 있던 오류 표시를 지운다(변경 없는 READY stream 포함)', async () => {
+    const { db, box } = createFakeDb();
+    const client = createClient([providerRepository()]);
+    quietStreams(client);
+    client.listCommitsUntilKnownSha.mockRejectedValueOnce(
+      new CollectionAppClientError('UPSTREAM'),
+    );
+    client.listCommitsUntilKnownSha.mockResolvedValue({
+      commits: [commit({ sha: 'head-sha' })],
+      disconnectedFullScan: true,
+      fingerprint: fingerprint('/repos/o/r/commits'),
+    });
+
+    const service = createService(db, client);
+    await service.run('owner-1');
+    expect(streamOf(box, 'COMMIT').lastErrorCode).toBe('PROVIDER_UPSTREAM');
+
+    await service.run('owner-1');
+    expect(streamOf(box, 'COMMIT').lastErrorCode).toBeNull();
+    expect(streamOf(box, 'COMMIT').lastErrorAt).toBeNull();
+
+    // 이미 READY이고 변경이 없는 3번째 run(조기 반환 경로)에서도 표시는 지워진 채 남는다.
+    await service.run('owner-1');
+    expect(streamOf(box, 'COMMIT').lastErrorCode).toBeNull();
+  });
+
+  it('run budget 소진(deadline)은 오류로 기록하지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    const client = createClient([providerRepository()]);
+    quietStreams(client);
+    // release stream만 deadline을 넘기게 한다 — probe는 통과시키고, 그 사이 시계를
+    // run budget 너머로 밀어 다음 provider 호출이 RunDeadlineError로 끊기게 만든다.
+    let clock = new Date('2026-08-01T00:00:00.000Z').getTime();
+    client.probeLatestRelease.mockImplementation(() => {
+      clock += 46 * 60_000;
+      return Promise.resolve({
+        changed: true,
+        frontier: null,
+        fingerprint: fingerprint('/repos/o/r/releases'),
+        etag: 'etag-release',
+      });
+    });
+
+    const service = createService(db, client, { now: () => new Date(clock) });
+    const result = await service.run('owner-1');
+
+    expect(result.stoppedForBudget).toBe(true);
+    expect(streamOf(box, 'RELEASE').lastErrorCode ?? null).toBeNull();
+    expect(client.listChangedPublishedReleases).not.toHaveBeenCalled();
   });
 });
