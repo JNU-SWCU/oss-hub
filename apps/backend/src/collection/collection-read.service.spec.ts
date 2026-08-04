@@ -337,6 +337,36 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
   });
 });
 
+describe('CollectionReadService — listPublicRankingYears', () => {
+  it('lists distinct years with public non-zero activity newest first', async () => {
+    const db = createDb();
+    db.collectionContributorYearAggregate.findMany.mockResolvedValue([
+      { year: 2026 },
+      { year: 2025 },
+    ]);
+
+    await expect(serviceFor(db).listPublicRankingYears()).resolves.toEqual([
+      2026, 2025,
+    ]);
+
+    expect(db.collectionContributorYearAggregate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          repository: { visibility: 'PUBLIC', presence: 'PRESENT' },
+          OR: [
+            { commitCount: { gt: 0 } },
+            { pullRequestCount: { gt: 0 } },
+            { releaseCount: { gt: 0 } },
+          ],
+        },
+        select: { year: true },
+        distinct: ['year'],
+        orderBy: { year: 'desc' },
+      }),
+    );
+  });
+});
+
 /**
  * todo 16 — `getRepositoryCumulativeMetrics`/`getContributorCumulativeMetrics`만 다룬다.
  * `year` 필터 없이 전체 연도를 합산하는 lifetime 누적 계약을 검증한다.
