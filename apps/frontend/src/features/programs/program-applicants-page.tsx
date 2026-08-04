@@ -100,7 +100,7 @@ type Notice = {
  * 404를 일반 오류로 흘리면 목록이 갱신되지 않아 이미 사라진 신청이 계속 대기 상태로
  * 남고, 다시 눌러도 같은 404가 반복된다.
  *
- * 프로비저닝이 끝난 승인 되돌리기(409 + `revertBlockedReason` / `APP_013`)도 같은
+ * 프로비저닝이 끝난 승인 되돌리기(409 + `revertBlockedReason` / `APP_023`)도 같은
  * 경로로 처리한다. 목록을 다시 읽되, 내부 잠금 사유 문자열 대신 사람 말 안내를 쓴다.
  */
 export function staleApplicationDecisionTitle(error: unknown): string | null {
@@ -115,11 +115,11 @@ export function staleApplicationDecisionTitle(error: unknown): string | null {
   return null;
 }
 
-/** 백엔드 APP_013 — extensions에 `revertBlockedReason`이 실리거나 코드로 구분한다. */
+/** 백엔드 APP_023 — extensions에 `revertBlockedReason`이 실리거나 코드로 구분한다. */
 function isRevertBlockedDecisionError(problem: {
   readonly code: string;
 }): boolean {
-  if (problem.code === 'APP_013') return true;
+  if (problem.code === 'APP_023') return true;
   if (!('revertBlockedReason' in problem)) return false;
   return (
     typeof (problem as { readonly revertBlockedReason?: unknown })

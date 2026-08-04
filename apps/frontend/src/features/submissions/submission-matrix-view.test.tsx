@@ -125,7 +125,7 @@ function render(overrides: Partial<SubmissionMatrixViewProps> = {}): string {
 }
 
 describe('SubmissionMatrixView', () => {
-  it('개인·팀 행을 같은 매트릭스에 표시하고 5개 상태 라벨을 구분한다', () => {
+  it('개인·팀 행을 같은 매트릭스에 표시하고 셀을 화면 3종으로 접는다', () => {
     // Given / When
     const html = render();
 
@@ -137,12 +137,14 @@ describe('SubmissionMatrixView', () => {
     // Then — 열: 마일스톤 이름 + Asia/Seoul 마감일.
     expect(html).toContain('기획서');
     expect(html).toContain('9월 10일 마감');
-    // Then — 상태 5종은 기존 화면과 동일 문자열.
-    expect(html).toContain('승인');
-    expect(html).toContain('보완 필요');
-    expect(html).toContain('제출됨');
-    expect(html).toContain('최종 반려');
-    expect(html).toContain('제출 전');
+    // Then — 셀은 저장 enum 5종이 아니라 화면 3종으로 접혀 나온다.
+    // 이 표에서 묻는 것은 검토 단계가 아니라 제출 여부다(design.md §서류 현황 표).
+    expect(html).toContain('제출함');
+    expect(html).toContain('미제출');
+    // 검토 단계 문자열은 이 화면에 노출되지 않는다 — 「열어 보기」로 들어가 본다.
+    expect(html).not.toContain('보완 필요');
+    expect(html).not.toContain('최종 반려');
+    expect(html).not.toContain('제출 전');
   });
 
   it('NOT_SUBMITTED 셀은 dueAt 파생 보조 표시(OVERDUE/D-n)를 붙인다', () => {

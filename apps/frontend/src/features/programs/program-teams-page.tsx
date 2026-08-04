@@ -438,10 +438,10 @@ export function ProgramTeamsPage({
         });
         return;
       }
-      if (template.participation === 'individual') {
-        setState({ kind: 'individual', program });
-        return;
-      }
+      // 참여 유형으로 이 화면을 단락시키지 않는다(D6). 모든 신청이 팀을 갖고
+      // 개인 참여는 멤버 1명인 팀이므로, 개인형 프로그램에도 볼 팀이 실재한다.
+      // 예전에는 여기서 「개인형 프로그램입니다」로 빠져 좌측 패널의 「참여 팀 N」과
+      // 목적지가 어긋났다.
 
       void loadDirectory();
       void loadInbox();
@@ -721,22 +721,6 @@ export function ProgramTeamsPage({
             action={
               <Button asChild variant="outline">
                 <Link href="/programs">프로그램 목록으로</Link>
-              </Button>
-            }
-          />
-        </PageBody>
-      );
-    case 'individual':
-      return (
-        <PageBody className="max-w-3xl">
-          <EmptyState
-            title="개인형 프로그램입니다"
-            description="이 프로그램은 팀 구성 없이 바로 신청할 수 있습니다."
-            action={
-              <Button asChild>
-                <Link href={programHref(state.program.id, '/apply')}>
-                  신청서로 이동
-                </Link>
               </Button>
             }
           />

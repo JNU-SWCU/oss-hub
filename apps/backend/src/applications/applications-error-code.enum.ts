@@ -12,10 +12,9 @@ export enum ApplicationsErrorCode {
   PROGRAM_NOT_FOUND = 'APP_009',
   APPLICATION_PERIOD_CLOSED = 'APP_010',
   DUPLICATE_APPLICATION = 'APP_011',
-  /** OWN 연결인데 repositoryUrl이 없거나 https URL이 아닐 때. */
-  OWN_REPOSITORY_URL_REQUIRED = 'APP_012',
-  /** 프로비저닝이 완료된 승인은 되돌릴 수 없다. */
-  APPLICATION_REVERT_BLOCKED = 'APP_013',
+  // APP_012·APP_013은 참여 유형(TEAM_REQUIRED·TEAM_NOT_ALLOWED)이 쓰던 번호이고
+  // D6로 은퇴했다. 공개 계약이라 다른 의미로 재사용하지 않는다(ADR-004) —
+  // 구 클라이언트가 은퇴 코드를 옛 뜻으로 읽으면 오동작한다.
   TEAM_MEMBERSHIP_REQUIRED = 'APP_014',
   INVALID_ANSWERS = 'APP_015',
   TEMPLATE_VERSION_MISMATCH = 'APP_016',
@@ -26,6 +25,10 @@ export enum ApplicationsErrorCode {
   PROGRAM_ARCHIVED = 'APP_020',
   /** SUBMITTED 등 판정 전이 아닌 상태에 REVERT를 시도. */
   APPLICATION_REVERT_INVALID_STATUS = 'APP_021',
+  /** OWN 연결인데 repositoryUrl이 없거나 https URL이 아닐 때. */
+  OWN_REPOSITORY_URL_REQUIRED = 'APP_022',
+  /** 프로비저닝이 완료된 승인은 되돌릴 수 없다. */
+  APPLICATION_REVERT_BLOCKED = 'APP_023',
 }
 
 export const APPLICATIONS_ERROR_CODES: Record<

@@ -160,8 +160,8 @@ export function mapCreateApplicationError(
       return '신청 기간이 아닙니다.';
     case 'APP_011':
       return '이미 제출한 신청이 있습니다.';
-    case 'APP_012':
-      return '팀 구성 후 신청할 수 있습니다.';
+    case 'APP_022':
+      return '연결할 저장소 주소를 확인해 주세요.';
     case 'APP_019':
       return '팀 최소 인원을 충족한 뒤 신청해 주세요.';
     case 'APP_015':

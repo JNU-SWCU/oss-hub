@@ -186,6 +186,9 @@ export function ProductShell({
                 total: scopeOverview.viewerDocumentsTotal,
               }
             : undefined,
+        // 서류가 있는 마일스톤을 depth-1 자식으로 편다. 이 값을 넘기지 않으면
+        // `programScopeSidebarGroups`의 기본값 `[]` 때문에 자식이 영영 0개다.
+        milestoneDocuments: scopeOverview?.milestoneDocuments,
       })
     : [];
   const scopeGroups =

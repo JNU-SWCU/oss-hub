@@ -20,7 +20,7 @@ export interface ProgramOverviewRecord {
  * 서류 항목이 걸린 "현재 제출 마일스톤" — 실제 순번(no) 필드가 스키마에 없어 dueAt으로
  * 대신 판정한다: 서류가 있는 마일스톤 중 dueAt이 아직 지나지 않은 것 중 가장 이른 것을
  * 고르고, 전부 지났으면 가장 최근에 지난 것으로 대체한다. 프로토타입의 "마일스톤 #3"이
- * 시드 데이터에서 이 규칙과 일치한다(#619 program-detail.md).
+ * 시드 데이터에서 이 규칙과 일치한다(#619 `docs/design.md`).
  */
 export interface CurrentSubmissionMilestone {
   milestoneId: string;

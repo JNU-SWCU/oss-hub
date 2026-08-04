@@ -23,6 +23,14 @@ interface ProgramOverviewBase {
   readonly studentDocumentsCompleted: number;
   readonly studentDocumentsTotal: number;
   readonly fullySubmittedParticipantCount: number;
+  /** 서류가 있는 마일스톤 — 좌측 패널 depth-1 자식 확인용. */
+  readonly milestoneDocuments: readonly {
+    readonly milestoneId: string;
+    readonly title: string;
+    readonly studentCompleted: number;
+    readonly studentTotal: number;
+    readonly staffCompleted: number;
+  }[];
 }
 
 const PROGRAM_OVERVIEW_BASES: Readonly<
@@ -42,6 +50,29 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
     // viewerSubmissionStatus와 앞뒤가 맞아야 한다.
     studentDocumentsCompleted: 2,
     studentDocumentsTotal: 3,
+    milestoneDocuments: [
+      {
+        milestoneId: 'milestones-approved',
+        title: '기획서 제출',
+        studentCompleted: 1,
+        studentTotal: 1,
+        staffCompleted: 31,
+      },
+      {
+        milestoneId: 'milestones-revision',
+        title: '중간 보고',
+        studentCompleted: 1,
+        studentTotal: 1,
+        staffCompleted: 12,
+      },
+      {
+        milestoneId: 'milestones-overdue',
+        title: '최종 릴리스',
+        studentCompleted: 0,
+        studentTotal: 1,
+        staffCompleted: 0,
+      },
+    ],
     fullySubmittedParticipantCount: 96,
   },
   'program-oss-contest': {
@@ -57,6 +88,15 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
     // "제출됨" — student-program-fixtures.ts의 viewerSubmissionStatus와 맞춘다.
     studentDocumentsCompleted: 1,
     studentDocumentsTotal: 2,
+    milestoneDocuments: [
+      {
+        milestoneId: 'milestones-contest-final',
+        title: '예선 제출',
+        studentCompleted: 1,
+        studentTotal: 2,
+        staffCompleted: 5,
+      },
+    ],
     fullySubmittedParticipantCount: 5,
   },
   'program-basic-study': {
@@ -71,6 +111,22 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
     // 신청 전 상태라 두 서류 모두 미제출이다(student-program-fixtures.ts BASIC_MILESTONES).
     studentDocumentsCompleted: 0,
     studentDocumentsTotal: 2,
+    milestoneDocuments: [
+      {
+        milestoneId: 'milestones-basic-intro',
+        title: '스터디 계획서',
+        studentCompleted: 0,
+        studentTotal: 1,
+        staffCompleted: 0,
+      },
+      {
+        milestoneId: 'milestones-basic-final',
+        title: '스터디 결과 보고',
+        studentCompleted: 0,
+        studentTotal: 1,
+        staffCompleted: 0,
+      },
+    ],
     fullySubmittedParticipantCount: 1,
   },
 };
@@ -97,6 +153,13 @@ export function programOverviewFor(
     fullySubmittedParticipantCount: isStudent
       ? null
       : base.fullySubmittedParticipantCount,
+    // 분자·분모의 의미가 역할로 갈린다 — 학생은 내 서류 수, 교직원은 완주 팀 수.
+    milestoneDocuments: base.milestoneDocuments.map((entry) => ({
+      milestoneId: entry.milestoneId,
+      title: entry.title,
+      completed: isStudent ? entry.studentCompleted : entry.staffCompleted,
+      total: isStudent ? entry.studentTotal : base.teamCount,
+    })),
   } satisfies ProgramOverview;
 }
 

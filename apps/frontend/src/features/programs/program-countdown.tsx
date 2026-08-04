@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 
 /**
  * 프로그램 스코프 사이드바 하단 — 다음 마감 마일스톤까지 초 단위 실시간 카운트다운
- * (chrome-tokens §2-3). 데이터는 순수 props(`nextMilestoneLabel`, `dueAt`)로만 받는다 —
+ * (`docs/design.md` §업무 화면 내비게이션). 데이터는 순수 props(`nextMilestoneLabel`, `dueAt`)로만 받는다 —
  * 어떤 마일스톤이 "다음 마감"인지 고르는 로직은 호출부 책임이다.
  *
  * 서버 렌더 시점의 "지금"과 클라이언트 하이드레이션 시점의 "지금"은 항상 다르므로,
