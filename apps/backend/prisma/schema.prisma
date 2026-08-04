@@ -236,6 +236,12 @@ enum ApplicationStatus {
   REJECTED
 }
 
+/// 저장소 연결 방식 — 제출 시 1회 결정, 이후 수정 endpoint는 두지 않는다.
+enum RepositoryConnectionMode {
+  NEW
+  OWN
+}
+
 /// teamId는 nullable이다 — 개인형은 null, 팀형만 API 검증으로 필수(#109 계약 잠금).
 /// 개인·팀 중복 신청 방지 partial unique는 Prisma로 표현할 수 없어 마이그레이션 SQL에 둔다(#164).
 model Application {
@@ -255,6 +261,11 @@ model Application {
 
   /// 저장소 공개 예정 선택(#414 DEC-33/34) — 제출 시 1회 결정, 이후 수정 endpoint는 두지 않는다.
   isRepositoryPublicationPlanned Boolean @default(true)
+
+  /// 저장소 연결 방식 — 제출 시 1회 결정, 이후 수정 endpoint는 두지 않는다.
+  repositoryConnectionMode RepositoryConnectionMode @default(NEW)
+  /// OWN일 때 연결할 기존 저장소 URL. NEW면 null.
+  repositoryUrl String?
 
   status          ApplicationStatus @default(SUBMITTED)
   rejectionReason String?

@@ -3,6 +3,8 @@ import { PROGRAM_TEMPLATE_DEFINITIONS } from '@/features/programs/program-templa
 import { apiPath } from '@/lib/api-client';
 import {
   accepted,
+  bodyEnum,
+  bodyNullableString,
   bodyString,
   json,
   matchGet,
@@ -242,13 +244,23 @@ function studentMutationHandler(
   );
   if (applicationParams !== null) {
     // 팀 신청이면 요청 본문의 팀을 그대로 돌려준다(개인 신청은 `teamId: null`).
+    // 저장소 연결 필드도 에코해 브라우저 QA가 제출 payload를 확인할 수 있게 한다.
     // 한계: 신청 내용은 저장되지 않아 다시 열면 픽스처의 신청 전 상태로 돌아온다.
+    const repositoryConnectionMode =
+      bodyEnum(context, 'repositoryConnectionMode', ['NEW', 'OWN'] as const) ??
+      'NEW';
     return accepted({
       id: 'synthetic-application-basic',
       programId: applicationParams.id,
       status: 'SUBMITTED',
       teamId: bodyString(context, 'teamId'),
       submittedAt: '2026-08-01T00:00:00.000Z',
+      repositoryConnectionMode,
+      repositoryUrl:
+        repositoryConnectionMode === 'OWN'
+          ? (bodyNullableString(context, 'repositoryUrl') ??
+            bodyString(context, 'repositoryUrl'))
+          : null,
     });
   }
 

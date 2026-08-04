@@ -1,6 +1,7 @@
 import {
   ApplicationStatus,
   ProgramCategory,
+  RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
   Role,
 } from '@prisma/client';
@@ -197,6 +198,8 @@ describe('ApplicationsService integration', () => {
         teamId: CREATE_TEAM_ID,
         applicationTemplateVersion: 1,
         isRepositoryPublicationPlanned: true,
+        repositoryConnectionMode: RepositoryConnectionMode.NEW,
+        repositoryUrl: null,
       },
       new Date('2026-07-15T00:00:00.000Z'),
     );

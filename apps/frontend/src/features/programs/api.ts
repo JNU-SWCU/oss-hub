@@ -257,6 +257,8 @@ export function deleteMilestone(
   );
 }
 
+export type CreateApplicationRepositoryConnectionMode = 'new' | 'own';
+
 export interface CreateApplicationInput {
   readonly answers: {
     readonly title: string;
@@ -265,6 +267,13 @@ export interface CreateApplicationInput {
   readonly teamId: string | null;
   readonly applicationTemplateVersion: number;
   readonly isRepositoryPublicationPlanned: boolean;
+  /** 폼 값 — wire 전송 시 `NEW`/`OWN`으로 매핑한다. */
+  readonly repositoryConnectionMode: CreateApplicationRepositoryConnectionMode;
+  /**
+   * 폼 값. `own`이면 trim 한 URL을 보내고, `new`이면 빈 문자열이어도 wire에는
+   * `null`을 넣는다(백엔드가 빈 문자열을 400으로 거절한다).
+   */
+  readonly repositoryUrl: string;
 }
 
 export interface CreatedApplication {
@@ -276,16 +285,36 @@ export interface CreatedApplication {
   readonly isRepositoryPublicationPlanned: boolean;
 }
 
+/** 폼 `new`/`own` → 신청 생성 API `NEW`/`OWN`. 응답 쪽 `mapParticipation`과 같은 경계. */
+function mapRepositoryConnectionModeForApi(
+  mode: CreateApplicationRepositoryConnectionMode,
+): 'NEW' | 'OWN' {
+  return mode === 'own' ? 'OWN' : 'NEW';
+}
+
 export function createApplication(
   programId: string,
   input: CreateApplicationInput,
 ): Promise<CreatedApplication> {
+  const repositoryConnectionMode = mapRepositoryConnectionModeForApi(
+    input.repositoryConnectionMode,
+  );
   return apiClient<CreatedApplication>(
     `programs/${encodeURIComponent(programId)}/applications`,
     {
       method: 'POST',
       headers: jsonHeaders,
-      body: JSON.stringify(input),
+      body: JSON.stringify({
+        answers: input.answers,
+        teamId: input.teamId,
+        applicationTemplateVersion: input.applicationTemplateVersion,
+        isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
+        repositoryConnectionMode,
+        repositoryUrl:
+          repositoryConnectionMode === 'OWN'
+            ? input.repositoryUrl.trim()
+            : null,
+      }),
     },
   );
 }

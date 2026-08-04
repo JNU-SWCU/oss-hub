@@ -48,9 +48,8 @@ export type ProgramApplyPageState =
     };
 
 /**
- * 새 신청서 생성 시점에만 쓰는 저장소 연결 방식. 백엔드 `Application`에는 아직
- * 대응 필드가 없다 — 값은 폼 안에서만 유지하고 제출 payload에는 실어 보내지
- * 않는다(자세한 계약은 apiContract 참고, 임의로 백엔드 스키마를 바꾸지 않는다).
+ * 새 신청서 생성 시점에만 쓰는 저장소 연결 방식.
+ * 제출 시 API 경계(`createApplication`)에서 `NEW`/`OWN`으로 올려 보낸다.
  */
 export const REPOSITORY_CONNECTION_MODES = ['new', 'own'] as const;
 export type RepositoryConnectionMode =

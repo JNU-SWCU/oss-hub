@@ -1,5 +1,6 @@
 import type {
   ApplicationStatus,
+  RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
 
@@ -22,6 +23,8 @@ export interface ApplicationDecisionTarget {
   readonly status: ApplicationStatus;
   readonly repositoryProvisioningEnabled: boolean;
   readonly collaboratorGithubLogins: readonly string[];
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  readonly repositoryUrl: string | null;
 }
 
 export interface ApplicationTransition {
@@ -38,6 +41,8 @@ export interface RepositoryProvisionEventInput {
   readonly programId: string;
   readonly teamId: string | null;
   readonly collaboratorGithubLogins: readonly string[];
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  readonly repositoryUrl: string | null;
   readonly idempotencyKey: string;
   readonly requestedAt: Date;
 }
