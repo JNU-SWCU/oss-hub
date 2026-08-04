@@ -2,7 +2,6 @@ import {
   AccountStatus,
   LoginHistoryEvent,
   ProgramCategory,
-  RepositoryVisibility,
   Role,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -67,8 +66,6 @@ describe('Admin access account status transitions (PR04H, formerly StaffRoleRequ
       programs: 1,
       applications: 1,
       repositories: 1,
-      inventories: 1,
-      activityEvents: 1,
     });
 
     const reactivated = await service.patchAccess(actor.githubId, target.id, {
@@ -96,8 +93,6 @@ describe('Admin access account status transitions (PR04H, formerly StaffRoleRequ
       programs: 1,
       applications: 1,
       repositories: 1,
-      inventories: 1,
-      activityEvents: 1,
     });
   });
 });
@@ -158,7 +153,7 @@ async function createPreservedAssets(
       applicationTemplateVersion: 1,
     },
   });
-  const repository = await prisma.repository.create({
+  await prisma.repository.create({
     data: {
       id: `${prefix}repository`,
       applicationId: application.id,
@@ -166,27 +161,6 @@ async function createPreservedAssets(
       githubRepositoryId: 9_004_800_001n,
       name: 'synthetic-pr04h-repository',
       url: 'https://example.invalid/synthetic-pr04h-repository',
-    },
-  });
-  const inventory = await prisma.orgRepositoryInventory.create({
-    data: {
-      id: `${prefix}inventory`,
-      githubRepositoryId: repository.githubRepositoryId,
-      fullName: 'synthetic-org/synthetic-pr04h-repository',
-      visibility: RepositoryVisibility.PRIVATE,
-      archived: false,
-      repositoryId: repository.id,
-    },
-  });
-  await prisma.orgRepositoryActivityEvent.create({
-    data: {
-      id: `${prefix}activity-event`,
-      inventoryId: inventory.id,
-      deliveryId: 'synthetic-pr04h-delivery',
-      eventType: 'push',
-      occurredAt: new Date('2026-07-21T10:00:00.000Z'),
-      dedupeKey: `${prefix}asset`,
-      commitDelta: 1,
     },
   });
 }
@@ -200,37 +174,20 @@ async function countPreservedAssets(
   readonly programs: number;
   readonly applications: number;
   readonly repositories: number;
-  readonly inventories: number;
-  readonly activityEvents: number;
 }> {
-  const [
-    consents,
-    loginHistories,
-    programs,
-    applications,
-    repositories,
-    inventories,
-    activityEvents,
-  ] = await Promise.all([
-    prisma.consent.count({ where: { userId: staffId } }),
-    prisma.loginHistory.count({ where: { userId: staffId } }),
-    prisma.program.count({ where: { id: `${prefix}program` } }),
-    prisma.application.count({ where: { applicantId: staffId } }),
-    prisma.repository.count({ where: { id: `${prefix}repository` } }),
-    prisma.orgRepositoryInventory.count({
-      where: { id: `${prefix}inventory` },
-    }),
-    prisma.orgRepositoryActivityEvent.count({
-      where: { id: `${prefix}activity-event` },
-    }),
-  ]);
+  const [consents, loginHistories, programs, applications, repositories] =
+    await Promise.all([
+      prisma.consent.count({ where: { userId: staffId } }),
+      prisma.loginHistory.count({ where: { userId: staffId } }),
+      prisma.program.count({ where: { id: `${prefix}program` } }),
+      prisma.application.count({ where: { applicantId: staffId } }),
+      prisma.repository.count({ where: { id: `${prefix}repository` } }),
+    ]);
   return {
     consents,
     loginHistories,
     programs,
     applications,
     repositories,
-    inventories,
-    activityEvents,
   };
 }

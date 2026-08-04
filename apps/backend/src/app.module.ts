@@ -11,7 +11,6 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ProgramsModule } from './programs/programs.module';
 import { PublicProjectsModule } from './public-projects/public-projects.module';
 import { RankingModule } from './ranking/ranking.module';
-import { RepositoryOwnershipModule } from './repository-ownership/repository-ownership.module';
 import { RepositoriesModule } from './repositories/repositories.module';
 import { RolesModule } from './roles/roles.module';
 import { RuntimeConfigModule } from './runtime-config/runtime-config.module';
@@ -38,7 +37,6 @@ import { UsersModule } from './users/users.module';
     ApplicationsModule,
     RolesModule,
     ProgramsModule,
-    RepositoryOwnershipModule,
     SubmissionsModule,
     UsersModule,
     /**
