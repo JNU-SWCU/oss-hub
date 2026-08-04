@@ -4,7 +4,7 @@ import './globals.css';
 import { Geist } from 'next/font/google';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { LoginButton } from '@/features/auth/components/login-button';
+import { AccountSlot } from './_shell/account-slot';
 import { AppFrame } from './_shell/app-frame';
 import { PUBLIC_MENU } from './_shell/public-menus';
 import { SessionEntryNavLink } from './_shell/role-home-link';
@@ -28,6 +28,8 @@ export default function RootLayout({
         {/*
           공통 셸 nav-config(#136) — 메뉴 목록의 원본은 `public-menus.ts`다(#513).
           로그인/프로필은 기존 login-button.tsx를 actions 슬롯에 배선만 한다(#98).
+          그 배선을 `AccountSlot`이 감싼다 — 가입을 마치지 않은 사람에게는 가입 화면
+          밖에서 계정 표식을 내지 않는다(`_shell/signup-completion.ts`).
         */}
         <AppFrame
           brand={<Link href="/">OSS Hub</Link>}
@@ -35,7 +37,7 @@ export default function RootLayout({
           actions={
             <>
               <SessionEntryNavLink />
-              <LoginButton />
+              <AccountSlot />
             </>
           }
         >

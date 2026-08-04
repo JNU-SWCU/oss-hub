@@ -12,6 +12,11 @@ import type { SessionStatus } from './use-session-role';
 interface LandingEntryActionViewProps {
   readonly status: SessionStatus;
   readonly role: AppRole | null;
+  /**
+   * 배정된 역할 기준 프로필 완료 여부. 기본값을 두지 않는다 — 모르는 채로 회원
+   * 취급하면 가입을 마치지 않은 사람에게 랜딩의 주 행동이 "내 대시보드"가 된다.
+   */
+  readonly isProfileComplete: boolean;
   readonly hasAuthError?: boolean;
   readonly inverted?: boolean;
 }
@@ -19,6 +24,7 @@ interface LandingEntryActionViewProps {
 export function LandingEntryActionView({
   status,
   role,
+  isProfileComplete,
   hasAuthError = false,
   inverted = false,
 }: LandingEntryActionViewProps) {
@@ -73,7 +79,7 @@ export function LandingEntryActionView({
     );
   }
 
-  const destination = resolveSessionEntry(status, role);
+  const destination = resolveSessionEntry(status, role, isProfileComplete);
   if (!destination) return null;
 
   return (
