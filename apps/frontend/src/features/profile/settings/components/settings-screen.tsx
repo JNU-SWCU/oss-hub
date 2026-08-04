@@ -18,6 +18,7 @@ import {
 import {
   createInitialSettingsForm,
   isSettingsFormValid,
+  notificationSaveFailureMessage,
   notificationUnavailableMessage,
   toSettingsNotificationRequest,
   toSettingsProfileRequest,
@@ -43,7 +44,9 @@ export function SettingsScreen({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [isRetryingNotification, setIsRetryingNotification] = useState(false);
   const submissionInFlight = useRef(false);
+  const notificationRetryInFlight = useRef(false);
 
   const loadSettings = useCallback(async (signal?: AbortSignal) => {
     setLoadError(null);
@@ -110,6 +113,45 @@ export function SettingsScreen({
     return () => controller.abort();
   }, [loadSettings]);
 
+  /**
+   * 알림 설정만 다시 불러온다.
+   * 프로필은 이미 화면에 있고 사용자가 고쳐 놓았을 수도 있으므로 전체 재조회로
+   * 폼을 날리지 않는다 — 실패한 조각만 제자리에서 복구한다.
+   */
+  const retryNotificationLoad = useCallback(async (): Promise<void> => {
+    if (notificationRetryInFlight.current) {
+      return;
+    }
+    notificationRetryInFlight.current = true;
+    setIsRetryingNotification(true);
+
+    try {
+      const notification = await getMyNotificationChannel();
+      setNotificationLoad({ kind: 'ready' });
+      setValues(
+        (current) =>
+          current && {
+            ...current,
+            notificationEmail: notification.notificationEmail ?? '',
+            notifyEnabled: notification.notifyEnabled,
+          },
+      );
+    } catch (error: unknown) {
+      const kind = classifyNotificationChannelApiError(error);
+      if (kind === 'unauthorized') {
+        window.location.assign('/');
+        return;
+      }
+      setNotificationLoad({
+        kind: 'unavailable',
+        message: notificationUnavailableMessage(kind),
+      });
+    } finally {
+      notificationRetryInFlight.current = false;
+      setIsRetryingNotification(false);
+    }
+  }, []);
+
   const errors = useMemo(
     () =>
       values
@@ -170,22 +212,14 @@ export function SettingsScreen({
         try {
           await updateMyNotificationChannel(notificationRequest);
         } catch (error: unknown) {
-          switch (classifyNotificationChannelApiError(error)) {
-            case 'unauthorized':
-              window.location.assign('/');
-              return;
-            case 'forbidden':
-              setSubmitError(
-                '프로필은 저장됐지만 알림 설정은 변경 권한이 없습니다.',
-              );
-              return;
-            case 'not-found':
-            case 'generic':
-              setSubmitError(
-                '프로필은 저장됐지만 알림 설정을 저장하지 못했습니다.',
-              );
-              return;
+          const kind = classifyNotificationChannelApiError(error);
+          if (kind === 'unauthorized') {
+            window.location.assign('/');
+            return;
           }
+          // 폼 값은 그대로 둔다 — 안내가 "입력한 값은 그대로 두었다"고 약속하기 때문이다.
+          setSubmitError(notificationSaveFailureMessage(kind));
+          return;
         }
       }
 
@@ -245,12 +279,14 @@ export function SettingsScreen({
       errors={errors}
       showValidationErrors={hasSubmitted}
       notificationLoad={notificationLoad}
+      isRetryingNotification={isRetryingNotification}
       isSubmitting={isSubmitting}
       submitError={submitError}
       toastMessage={toastMessage}
       onChange={(patch) =>
         setValues((current) => current && { ...current, ...patch })
       }
+      onRetryNotification={() => void retryNotificationLoad()}
       onSubmit={() => void submit()}
     />
   );
