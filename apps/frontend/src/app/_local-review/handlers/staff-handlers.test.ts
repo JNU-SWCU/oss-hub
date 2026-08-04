@@ -121,27 +121,34 @@ describe('staff local review handlers', () => {
     expect(counted('REJECTED')).toBe(1);
   });
 
-  it('신청자 목록은 상태·구분·검색 질의를 그대로 반영한다', () => {
+  it('신청자 목록은 상태·검색 질의를 반영하고 mode는 무시한다', () => {
     // Given / When
     const submitted = bodyOf<ApplicationListPage>(
       resolve(
         'GET',
         'programs/program-basic-study/applications',
-        'page=1&pageSize=20&search=&status=SUBMITTED&mode=all',
+        'page=1&pageSize=20&search=&status=SUBMITTED',
       ),
     );
-    const teamOnly = bodyOf<ApplicationListPage>(
+    const withLegacyMode = bodyOf<ApplicationListPage>(
       resolve(
         'GET',
         'programs/program-basic-study/applications',
         'page=1&pageSize=20&search=&status=all&mode=team',
       ),
     );
+    const withoutMode = bodyOf<ApplicationListPage>(
+      resolve(
+        'GET',
+        'programs/program-basic-study/applications',
+        'page=1&pageSize=20&search=&status=all',
+      ),
+    );
     const searched = bodyOf<ApplicationListPage>(
       resolve(
         'GET',
         'programs/program-oss-contest/applications',
-        'page=1&pageSize=20&search=챔피언&status=all&mode=all',
+        'page=1&pageSize=20&search=챔피언&status=all',
       ),
     );
 
@@ -149,7 +156,11 @@ describe('staff local review handlers', () => {
     expect(submitted.items.map((item) => item.id)).toEqual([
       'application-basic-submitted',
     ]);
-    expect(teamOnly.totalItems).toBe(0);
+    // D6: mode 필터 폐지 — 구 클라이언트의 mode 값은 결과 집합을 바꾸지 않는다.
+    expect(withLegacyMode.totalItems).toBe(withoutMode.totalItems);
+    expect(withLegacyMode.items.map((item) => item.id)).toEqual(
+      withoutMode.items.map((item) => item.id),
+    );
     expect(searched.items.map((item) => item.id)).toEqual([
       'application-contest-champion',
     ]);
@@ -311,6 +322,26 @@ describe('staff local review handlers', () => {
     expect(rejected.status).toBe('REJECTED');
     expect(rejected.rejectionReason).toBe('합성 반려 사유');
     expect(rejected.repositoryProvisioning).toBeUndefined();
+  });
+  it('신청 되돌리기는 SUBMITTED로 돌아온다', () => {
+    // Given
+    const applicationId = 'application-basic-rejected';
+
+    // When
+    const reverted = bodyOf<{
+      readonly status: string;
+      readonly rejectionReason?: string;
+      readonly repositoryProvisioning?: unknown;
+    }>(
+      resolveWithBody('PATCH', `applications/${applicationId}`, {
+        action: 'REVERT',
+      }),
+    );
+
+    // Then
+    expect(reverted.status).toBe('SUBMITTED');
+    expect(reverted.rejectionReason).toBeUndefined();
+    expect(reverted.repositoryProvisioning).toBeUndefined();
   });
 
   it('프로그램 등록은 고른 유형과 그 유형의 신청 양식을 돌려준다', () => {

@@ -253,7 +253,6 @@ describe('submissions api', () => {
     // When
     const result = await getSubmissionMatrix('program/1', {
       q: ' 홍길동 ',
-      mode: 'TEAM',
       page: 2,
       pageSize: 20,
     });
@@ -262,7 +261,6 @@ describe('submissions api', () => {
     expect(result).toEqual(page);
     const expectedQuery = new URLSearchParams({
       q: '홍길동',
-      applicationMode: 'TEAM',
       page: '2',
       pageSize: '20',
     });
@@ -272,7 +270,7 @@ describe('submissions api', () => {
     );
   });
 
-  it('매트릭스 조회에서 빈 검색어와 ALL 형태는 query에 넣지 않는다', async () => {
+  it('매트릭스 조회에서 빈 검색어는 query에 넣지 않는다', async () => {
     // Given
     const request = vi.fn().mockResolvedValue(
       new Response(
@@ -291,7 +289,6 @@ describe('submissions api', () => {
     // When
     await getSubmissionMatrix('program-1', {
       q: '  ',
-      mode: 'ALL',
       page: 1,
       pageSize: 20,
     });

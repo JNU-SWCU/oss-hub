@@ -101,7 +101,6 @@ const matrixData: SubmissionMatrixPage = {
 const handlers = {
   onSearchChange: vi.fn(),
   onSearch: vi.fn(),
-  onModeChange: vi.fn(),
   onQuickFilterChange: vi.fn(),
   onResetFilters: vi.fn(),
   onPageChange: vi.fn(),
@@ -114,7 +113,6 @@ function render(overrides: Partial<SubmissionMatrixViewProps> = {}): string {
       programId="program-1"
       data={matrixData}
       search=""
-      mode="ALL"
       filterActive={false}
       quickFilter="ALL"
       isLoading={false}
@@ -318,15 +316,14 @@ describe('SubmissionMatrixView', () => {
     expect(html).toContain('다시 시도');
   });
 
-  it('검색 입력과 형태 필터(전체|개인|팀)를 제공한다', () => {
+  it('검색 입력을 제공하고 형태(개인|팀) 필터 컨트롤은 두지 않는다', () => {
     // Given / When
-    const html = render({ mode: 'TEAM' });
+    const html = render();
 
     // Then
     expect(html).toContain('신청자·팀명·GitHub ID');
-    expect(html).toContain('>전체</option>');
-    expect(html).toContain('>개인</option>');
-    expect(html).toContain('>팀</option>');
-    expect(html).toContain('selected=""');
+    expect(html).not.toContain('id="matrix-mode"');
+    expect(html).not.toContain('>개인</option>');
+    expect(html).not.toContain('형태');
   });
 });

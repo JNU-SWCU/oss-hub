@@ -387,7 +387,6 @@ export function listProgramApplications(
     pageSize: String(params.pageSize),
     search: params.search,
     status: params.status,
-    mode: params.mode,
   });
   return apiClient<ApplicationListPage>(
     `programs/${encodeURIComponent(programId)}/applications?${search.toString()}`,
@@ -396,7 +395,8 @@ export function listProgramApplications(
 
 export type ApplicationDecisionInput =
   | { readonly action: 'APPROVE' }
-  | { readonly action: 'REJECT'; readonly reason: string };
+  | { readonly action: 'REJECT'; readonly reason: string }
+  | { readonly action: 'REVERT' };
 
 export type ApplicationDecisionResponse =
   | {
@@ -408,6 +408,10 @@ export type ApplicationDecisionResponse =
       readonly applicationId: string;
       readonly status: 'REJECTED';
       readonly rejectionReason: string;
+    }
+  | {
+      readonly applicationId: string;
+      readonly status: 'SUBMITTED';
     };
 
 export function decideApplication(

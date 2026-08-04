@@ -27,8 +27,6 @@ import {
   matrixRowTitle,
   matrixTotalPages,
   notSubmittedDeadline,
-  parseMatrixModeFilter,
-  type MatrixModeFilter,
   type MatrixQuickFilter,
 } from '../matrix';
 import type {
@@ -42,21 +40,12 @@ const SECTION_BODY = 'flex min-w-0 flex-col gap-8';
 const TABLE_CARD = 'min-w-0 overflow-hidden rounded-card border border-border';
 /** 필터 줄 — 시안은 필터를 카드에 넣지 않는다. 표(카드)와 제목 사이의 조작 줄이다. */
 const FILTER_ROW =
-  'grid w-full min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:items-end';
-const SELECT_CONTROL =
-  'h-control w-full min-w-0 rounded-control border border-input bg-background px-4 text-body outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50';
-
-const MODE_FILTER_OPTIONS = [
-  { value: 'ALL', label: '전체' },
-  { value: 'PERSONAL', label: MATRIX_MODE_LABELS.PERSONAL },
-  { value: 'TEAM', label: MATRIX_MODE_LABELS.TEAM },
-] as const;
+  'grid w-full min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3 xl:items-end';
 
 export interface SubmissionMatrixViewProps {
   readonly programId: string;
   readonly data: SubmissionMatrixPage | null;
   readonly search: string;
-  readonly mode: MatrixModeFilter;
   readonly filterActive: boolean;
   /** #619 스펙 3버튼 빠른 필터 — 서버 재조회 없이 로드된 페이지 행만 거른다. */
   readonly quickFilter: MatrixQuickFilter;
@@ -65,7 +54,6 @@ export interface SubmissionMatrixViewProps {
   readonly now: Date;
   readonly onSearchChange: (value: string) => void;
   readonly onSearch: () => void;
-  readonly onModeChange: (mode: MatrixModeFilter) => void;
   readonly onQuickFilterChange: (filter: MatrixQuickFilter) => void;
   readonly onResetFilters: () => void;
   readonly onPageChange: (page: number) => void;
@@ -320,7 +308,7 @@ function MatrixBody(props: SubmissionMatrixViewProps): ReactNode {
     return (
       <EmptyState
         title="검색 결과가 없습니다"
-        description="다른 검색어나 형태 필터를 사용해 보세요."
+        description="다른 검색어를 사용해 보세요."
         action={
           <Button
             type="button"
@@ -456,26 +444,7 @@ export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
               placeholder="신청자·팀명·GitHub ID"
             />
           </div>
-          <div className="flex w-full min-w-0 flex-col gap-2">
-            <label htmlFor="matrix-mode" className="text-small font-semibold">
-              형태
-            </label>
-            <select
-              id="matrix-mode"
-              className={SELECT_CONTROL}
-              value={props.mode}
-              onChange={(event) =>
-                props.onModeChange(parseMatrixModeFilter(event.target.value))
-              }
-            >
-              {MODE_FILTER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex w-full min-w-0 gap-2 sm:col-span-2">
+          <div className="flex w-full min-w-0 gap-2 sm:col-span-1">
             {/* 이 화면의 주 행동은 조회 하나뿐이다 — 채운 버튼도 하나뿐이다.
                 버튼은 글자만큼만 넓힌다. 좁은 화면에서만 한 줄을 반씩 나눠 갖는다. */}
             <Button type="submit" className="h-control flex-1 sm:flex-none">

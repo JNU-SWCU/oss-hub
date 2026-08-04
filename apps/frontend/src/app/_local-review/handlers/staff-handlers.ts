@@ -69,7 +69,6 @@ function matchesApplicationFilters(
   item: ApplicationListItem,
   search: string,
   status: string,
-  mode: string,
 ): boolean {
   const haystack = [
     item.answers.applicantName,
@@ -80,11 +79,8 @@ function matchesApplicationFilters(
   ]
     .join(' ')
     .toLocaleLowerCase('ko');
-  const participation = mode === 'personal' ? 'INDIVIDUAL' : 'TEAM';
   return (
-    haystack.includes(search) &&
-    (status === 'all' || item.status === status) &&
-    (mode === 'all' || item.participation === participation)
+    haystack.includes(search) && (status === 'all' || item.status === status)
   );
 }
 
@@ -98,9 +94,8 @@ function applicationListPage(
     .trim()
     .toLocaleLowerCase('ko');
   const status = searchParams.get('status') ?? 'all';
-  const mode = searchParams.get('mode') ?? 'all';
   const matched = items.filter((item) =>
-    matchesApplicationFilters(item, search, status, mode),
+    matchesApplicationFilters(item, search, status),
   );
   const offset = (page - 1) * pageSize;
 
@@ -129,12 +124,9 @@ function submissionMatrixPage(
   const page = positiveIntParam(searchParams.get('page'), 1);
   const pageSize = positiveIntParam(searchParams.get('pageSize'), 20);
   const query = (searchParams.get('q') ?? '').trim().toLocaleLowerCase('ko');
-  // `applicationMode`는 값이 있을 때만 오는 필터다 — 없으면 전체(#124 계약).
-  const mode = searchParams.get('applicationMode');
-  const matched = fixture.matrixRows.filter(
-    (row) =>
-      matchesMatrixQuery(row, query) &&
-      (mode === null || row.applicationMode === mode),
+  // D6: applicationMode 형태 필터는 폐지 — 값이 와도 무시한다.
+  const matched = fixture.matrixRows.filter((row) =>
+    matchesMatrixQuery(row, query),
   );
   const offset = (page - 1) * pageSize;
 
@@ -351,23 +343,32 @@ const deleteMilestoneHandler: LocalReviewHandler = (context) => {
 };
 
 /**
- * 신청 판정. 승인·반려는 요청 본문의 `action`으로 갈린다
+ * 신청 판정. 승인·반려·되돌리기는 요청 본문의 `action`으로 갈린다
  * (features/programs/api.ts `ApplicationDecisionInput`). 반려는 저장소 작업 없이
  * 입력한 사유를 담은 `REJECTED` 응답이어야 화면 안내가 "반려 결과"로 바뀐다.
+ * 되돌리기는 `SUBMITTED`로 돌려 다시 판정할 수 있게 한다.
  *
  * 한계: 판정은 저장되지 않아 판정 직후 다시 불러오는 신청자 목록은 픽스처 원래
- * 상태(제출됨)를 그대로 보여준다.
+ * 상태를 그대로 보여준다. 기초 스터디 픽스처에는 승인·반려 행이 있어 되돌리기
+ * 버튼을 브라우저에서 바로 확인할 수 있다.
  */
 const decideApplicationHandler: LocalReviewHandler = (context) => {
   const params = matchMethod(context, 'PATCH', 'applications/:id');
   if (staffRole(context) === null || params === null) return null;
   const applicationId = params.id as string;
+  const action = bodyString(context, 'action');
   // 본문을 못 읽으면 승인으로 본다 — 저장소 작업 상태까지 보이는 쪽이 기본이다.
-  if (bodyString(context, 'action') === 'REJECT') {
+  if (action === 'REJECT') {
     return accepted({
       applicationId,
       status: 'REJECTED',
       rejectionReason: bodyString(context, 'reason') ?? '',
+    });
+  }
+  if (action === 'REVERT') {
+    return accepted({
+      applicationId,
+      status: 'SUBMITTED',
     });
   }
   return accepted({

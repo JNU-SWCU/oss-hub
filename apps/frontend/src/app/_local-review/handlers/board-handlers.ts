@@ -16,6 +16,7 @@ import {
 } from '../handler-kit';
 import {
   boardActorId,
+  boardActorRole,
   boardPostDetailFor,
   boardPostsFor,
   studentHasBoardAccess,
@@ -236,6 +237,7 @@ const createCommentHandler: LocalReviewHandler = (context) => {
     id: 'synthetic-comment-created',
     postId,
     authorId: boardActorId(role),
+    authorRole: boardActorRole(role),
     body: bodyString(context, 'body') ?? '',
     createdAt: '2026-08-01T00:00:00.000Z',
   });

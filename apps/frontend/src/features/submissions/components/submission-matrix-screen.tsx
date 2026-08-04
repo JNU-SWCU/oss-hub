@@ -6,7 +6,6 @@ import { getSubmissionMatrix } from '../api';
 import {
   isMatrixFilterActive,
   MATRIX_PAGE_SIZE,
-  type MatrixModeFilter,
   type MatrixQueryInput,
   type MatrixQuickFilter,
 } from '../matrix';
@@ -15,12 +14,11 @@ import { SubmissionMatrixView } from './submission-matrix-view';
 
 const INITIAL_QUERY: MatrixQueryInput = {
   q: '',
-  mode: 'ALL',
   page: 1,
   pageSize: MATRIX_PAGE_SIZE,
 };
 
-/** #124 제출 현황 매트릭스 — 검색·형태 필터·페이지는 서버 조회 조건(#124 query 계약). */
+/** #124 제출 현황 매트릭스 — 검색·페이지는 서버 조회 조건(#124 query 계약). */
 export function SubmissionMatrixScreen({
   programId,
 }: {
@@ -70,8 +68,7 @@ export function SubmissionMatrixScreen({
       programId={programId}
       data={data}
       search={search}
-      mode={query.mode}
-      filterActive={isMatrixFilterActive(query.q, query.mode)}
+      filterActive={isMatrixFilterActive(query.q)}
       quickFilter={quickFilter}
       isLoading={isLoading}
       errorMessage={errorMessage}
@@ -80,10 +77,6 @@ export function SubmissionMatrixScreen({
       onSearch={() => {
         setQuickFilter('ALL');
         setQuery((prev) => ({ ...prev, q: search.trim(), page: 1 }));
-      }}
-      onModeChange={(mode: MatrixModeFilter) => {
-        setQuickFilter('ALL');
-        setQuery((prev) => ({ ...prev, mode, page: 1 }));
       }}
       onQuickFilterChange={setQuickFilter}
       onResetFilters={() => {
