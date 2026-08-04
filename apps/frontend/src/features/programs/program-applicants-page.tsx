@@ -90,6 +90,21 @@ type Notice = {
   readonly message: string;
 } | null;
 
+/**
+ * 판정 실패 중 "내가 보던 행이 이미 낡았다"에 해당하는 응답을 가려낸다.
+ *
+ * 409는 다른 운영자가 먼저 판정한 경우, 404(`APP_001`)는 학생이 먼저 취소한 경우다.
+ * 원인은 다르지만 교직원이 취해야 할 행동은 같다 — 목록을 다시 불러와 최신 상태를 본다.
+ * 404를 일반 오류로 흘리면 목록이 갱신되지 않아 이미 사라진 신청이 계속 대기 상태로
+ * 남고, 다시 눌러도 같은 404가 반복된다.
+ */
+export function staleApplicationDecisionTitle(error: unknown): string | null {
+  if (!(error instanceof ApiError)) return null;
+  if (error.problem.status === 404) return '신청이 이미 취소되었습니다';
+  if (error.problem.status === 409) return '신청 상태가 변경되었습니다';
+  return null;
+}
+
 const STATUS_LABELS: Readonly<Record<ApplicationStatus, string>> = {
   SUBMITTED: '제출됨',
   APPROVED: '승인',
@@ -293,13 +308,14 @@ export function ProgramApplicantsPage({
         });
       }
     } catch (error: unknown) {
-      if (error instanceof ApiError && error.problem.status === 409) {
+      const staleTitle = staleApplicationDecisionTitle(error);
+      if (staleTitle !== null) {
         try {
           await reloadApplications();
           setDialog(null);
           setNotice({
             kind: 'error',
-            title: '신청 상태가 변경되었습니다',
+            title: staleTitle,
             message: '최신 행 상태를 다시 불러왔습니다.',
           });
         } catch {
