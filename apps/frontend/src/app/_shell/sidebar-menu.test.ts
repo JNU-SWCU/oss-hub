@@ -16,6 +16,7 @@ import {
 describe('shellSectionFromPathname', () => {
   it('maps paths to sections', () => {
     expect(shellSectionFromPathname('/programs')).toBe('programs');
+    expect(shellSectionFromPathname('/programs/new')).toBe('programs');
     expect(shellSectionFromPathname('/programs/x')).toBe('programs');
     expect(shellSectionFromPathname('/archive')).toBe('archive');
     expect(shellSectionFromPathname('/ranking')).toBe('ranking');
@@ -228,6 +229,10 @@ describe('SECTION_FACETS registry (U4)', () => {
 describe('programDetailIdFromPathname', () => {
   it('list root (with or without query-relevant path) is not a detail scope', () => {
     expect(programDetailIdFromPathname('/programs')).toBeNull();
+  });
+
+  it('static /programs/new is section-scoped, not program detail scope', () => {
+    expect(programDetailIdFromPathname('/programs/new')).toBeNull();
   });
 
   it('detail id and nested detail sub-paths resolve the same id', () => {
