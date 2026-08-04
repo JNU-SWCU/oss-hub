@@ -446,6 +446,16 @@ esac
       }
     }
 
+    stage('호스트 nginx 드리프트 사전 검증') {
+      steps {
+        // 호스트 nginx 는 시스템 서비스라 이 파이프라인이 파일을 반영하지 않는다(#562).
+        // 반영은 배포 런북 절차로 사람이 수행하므로, 저장소 원본과 실행 중 설정이 갈라진 채로
+        // 배포가 흘러가지 않게 여기서 fail-closed 로 세운다. 새 권한은 필요하지 않다 —
+        // 활성 설정이 0644 라 배포 계정이 읽을 수 있다.
+        sh 'bash scripts/check-host-nginx-drift.sh'
+      }
+    }
+
     stage('빌드·테스트 검증') {
       when {
         expression { env.DEPLOY_NOOP != 'true' }

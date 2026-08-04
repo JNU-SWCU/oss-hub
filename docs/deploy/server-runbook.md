@@ -249,6 +249,36 @@ sudo docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T minio sh -lc '
 복원 결과가 불일치하거나 scratch 정리가 실패하면 운영 버킷 교체를 판단하지 않고 실패로 처리한다.
 일치할 때도 운영 버킷 교체는 별도 incident 승인·정지 창·현재 버킷 보존 계획을 갖춘 high-risk 변경으로만 결정한다.
 이 드릴 완료만으로 Compose nginx의 제출 파일 403 차단을 해제하지 않는다([ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md) §97).
+## M9. 호스트 nginx 설정 반영
+
+호스트 nginx는 Compose가 아니라 시스템 서비스이고 Jenkins 계정에는 sudo가 없다.
+따라서 `deploy/host-nginx/oss-hub.conf`를 바꾼 PR을 병합해도 서버에는 자동으로 반영되지 않는다.
+반영하지 않은 채 배포하면 `호스트 nginx 드리프트 사전 검증` stage가 fail-closed로 배포를 세운다([#562](https://github.com/JNU-SWCU/oss-hub/issues/562)).
+
+sudo 권한이 있는 계정으로 아래를 순서대로 수행한다.
+
+```bash
+# 1. 저장소 원본을 서버로 옮긴다(로컬에서 실행)
+scp deploy/host-nginx/oss-hub.conf <host>:/tmp/oss-hub-new.conf
+
+# 2. 백업 → 교체 → 문법 검사 → reload (서버에서 실행)
+sudo cp /etc/nginx/conf.d/oss-hub.conf "/etc/nginx/conf.d/oss-hub.conf.bak-$(date +%Y%m%d-%H%M%S)"
+sudo cp /tmp/oss-hub-new.conf /etc/nginx/conf.d/oss-hub.conf && rm -f /tmp/oss-hub-new.conf
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+`nginx -t`가 실패하면 reload하지 말고 백업본을 되돌린다.
+
+반영 뒤 드리프트가 사라졌는지 배포 계정 권한으로 확인한다.
+
+```bash
+sudo -u jenkins bash scripts/check-host-nginx-drift.sh
+```
+
+교체 전 백업본은 `/etc/nginx/conf.d/oss-hub.conf.bak-<timestamp>`로 남으므로 되돌릴 때 그대로 복사한다.
+활성 설정 파일은 `0644`라 배포 계정이 읽을 수 있고, 이 검사는 새 권한을 요구하지 않는다.
+
 ## 8. Notion에 기록할 접근 정보 체크리스트 (aside 위임)
 
 아래 항목의 **실제 값**은 이 저장소가 아니라 **Notion credentials 페이지**가 원본이다. Notion 기록 작업은 craft-skills aside에 위임한다(이 저장소·PR·로그에는 항목명만 남기고 값은 남기지 않는다).
