@@ -6,6 +6,7 @@ import {
   parseAuditLogMetadata,
   type AuditLogMetadata,
   type AuditLogMetadataEvidence,
+  type AuditLogMetadataView,
 } from './audit-log-metadata';
 import type { AuditLogListQueryRequestDto } from './dto/audit-log-query.dto';
 
@@ -46,12 +47,14 @@ type AuditLogRecordBase = {
   readonly occurredAt: Date;
 };
 
+// 응답에 실리는 metadata는 `AuditLogMetadataView` — 종류별로 등록한 필드만 남긴 형태다(#621).
+// 저장 형태(`AuditLogMetadata`)는 `AuditLogRecordInput`에만 쓴다.
 export type AuditLogRecord = AuditLogRecordBase &
   (
     | { readonly legacy: true; readonly metadata: null }
     | {
         readonly legacy: false;
-        readonly metadata: AuditLogMetadata;
+        readonly metadata: AuditLogMetadataView;
       }
   );
 
