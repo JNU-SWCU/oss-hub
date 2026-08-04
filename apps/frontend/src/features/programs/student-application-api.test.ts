@@ -29,6 +29,7 @@ describe('student application API', () => {
       },
       submittedAt: '2026-07-10T00:00:00.000Z',
       updatedAt: '2026-07-10T00:00:00.000Z',
+      canManage: true,
       canEdit: true,
       canCancel: true,
     };

@@ -196,7 +196,7 @@ export function ProgramApplyPage({
           errors={errors}
           serverError={serverError}
           mode={state.mode}
-          canCancel={state.canCancel}
+          canManage={state.canManage}
           confirmation={confirmation}
           teamMinimum={state.teamMinimum}
           submitting={submitting}
