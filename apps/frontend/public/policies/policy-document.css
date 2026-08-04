@@ -6,6 +6,9 @@
    `sandbox=""` iframe 안의 별도 문서라 앱의 CSS 변수를 물려받지 못하므로, 색을 새로
    짓지 않고 같은 값을 여기서 다시 선언한다. 앱 쪽 팔레트가 바뀌면 이 표도 함께 본다. */
 :root {
+  /* 감싼 가입 화면 바탕(`--cosmos-void`)이 #00133a 로 밝아졌지만(#627) 이 면은
+     navy-950 그대로 둔다 — 약관은 별도의 문서 패널이라 바탕보다 한 단계 어두운
+     편이 오히려 면이 구분되고, ramp 밖 값 대신 설계된 palette 값을 유지한다. */
   --policy-surface: #000d29; /* --palette-navy-950 */
   --policy-title: #ffffff; /* --palette-white */
   --policy-body: #adc1eb; /* --palette-navy-200 */

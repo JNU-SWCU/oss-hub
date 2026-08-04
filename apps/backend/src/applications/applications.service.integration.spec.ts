@@ -10,6 +10,8 @@ import { APPLICATION_DECISION_ACTIONS } from './domain/application-decision';
 import { ApplicationsErrorCode } from './applications-error-code.enum';
 import { ApplicationsRepository } from './applications.repository';
 import { ApplicationsService } from './applications.service';
+import { StudentApplicationManagementRepository } from './student-application-management.repository';
+import { StudentApplicationManagementService } from './student-application-management.service';
 
 // allow: SIZE_OK — 판정 트랜잭션 시나리오가 하나의 격리 PostgreSQL lifecycle을 공유한다.
 assertIsolatedIntegrationDatabase({
@@ -18,9 +20,15 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const service = new ApplicationsService(new ApplicationsRepository(prisma));
+const repository = new ApplicationsRepository(prisma);
+const service = new ApplicationsService(repository);
+const studentService = new StudentApplicationManagementService(
+  new StudentApplicationManagementRepository(prisma),
+  repository,
+);
 const ACTOR_ID = 'synthetic-decision-actor';
 const APPLICANT_ID = 'synthetic-decision-applicant';
+const APPLICANT_GITHUB_ID = 8_000_000_000_002n;
 const TEAM_ID = 'synthetic-decision-team';
 const CREATE_PROGRAM_ID = 'synthetic-create-program';
 const CREATE_TEAM_ID = 'synthetic-create-team';
@@ -31,6 +39,7 @@ const APPLICATION_IDS = [
   'synthetic-parallel-application',
   'synthetic-conflict-application',
   'synthetic-decided-application',
+  'synthetic-cancelled-application',
   'synthetic-transaction-failure-application',
 ] as const;
 
@@ -78,7 +87,7 @@ describe('ApplicationsService integration', () => {
         },
         {
           id: APPLICANT_ID,
-          githubId: 8_000_000_000_002n,
+          githubId: APPLICANT_GITHUB_ID,
           nickname: 'Synthetic-Applicant',
           role: Role.STUDENT,
         },
@@ -412,6 +421,56 @@ describe('ApplicationsService integration', () => {
     });
   });
 
+  it('판정 사전 조회 후 학생 취소가 먼저 완료되면 404를 반환한다', async () => {
+    // Given
+    const applicationId = APPLICATION_IDS[6];
+    await createApplication(applicationId, false);
+    const originalWithTransaction = repository.withTransaction.bind(repository);
+    let releaseDecision: (() => void) | undefined;
+    const decisionGate = new Promise<void>((resolve) => {
+      releaseDecision = resolve;
+    });
+    let markDecisionReady: (() => void) | undefined;
+    const decisionReady = new Promise<void>((resolve) => {
+      markDecisionReady = resolve;
+    });
+    jest
+      .spyOn(repository, 'withTransaction')
+      .mockImplementationOnce((operation) =>
+        originalWithTransaction((store) =>
+          operation({
+            findApplicationById: (id) => store.findApplicationById(id),
+            transitionApplication: async (input) => {
+              markDecisionReady?.();
+              await decisionGate;
+              return store.transitionApplication(input);
+            },
+            createRepositoryProvisionEvent: (input) =>
+              store.createRepositoryProvisionEvent(input),
+          }),
+        ),
+      );
+
+    // When
+    const decision = service.decide(ACTOR_ID, applicationId, {
+      action: APPLICATION_DECISION_ACTIONS.APPROVE,
+    });
+    await decisionReady;
+    await studentService.cancelMine(
+      APPLICANT_GITHUB_ID,
+      `${applicationId}-program`,
+      new Date('2026-07-15T00:00:00.000Z'),
+    );
+    releaseDecision?.();
+
+    // Then
+    await expect(decision).rejects.toMatchObject({
+      errorCode: {
+        code: ApplicationsErrorCode.APPLICATION_NOT_FOUND,
+        status: 404,
+      },
+    });
+  });
   it('없는 신청은 404로 거부한다', async () => {
     // When
     const decision = service.decide(ACTOR_ID, 'synthetic-missing-application', {
@@ -429,7 +488,7 @@ describe('ApplicationsService integration', () => {
 
   it('판정 트랜잭션 실패는 전용 500을 반환하고 상태와 outbox를 롤백한다', async () => {
     // Given
-    const applicationId = APPLICATION_IDS[6];
+    const applicationId = APPLICATION_IDS[7];
     await createApplication(applicationId, true);
 
     // When

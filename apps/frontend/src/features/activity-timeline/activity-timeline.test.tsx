@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { apiPath } from '@/lib/api-client';
 import { fetchActivityTimeline } from './api';
+import { orderActivityPoints } from './activity-point-order';
 import { ActivityChart } from './components/activity-chart';
 import { ActivityTimelineView } from './components/activity-timeline-view';
 import type { ActivityTimeline } from './types';
@@ -48,6 +49,32 @@ function stubTimelineResponse(body: unknown) {
 }
 
 describe('activity timeline', () => {
+  it('그래프는 과거부터, 표는 최근부터 기간을 정렬한다', () => {
+    const points = [
+      { ...timeline.series.points[0], period: '2026-07' },
+      { ...timeline.series.points[0], period: '2025-12' },
+      { ...timeline.series.points[0], period: '2026-01' },
+    ];
+
+    const ordered = orderActivityPoints(points);
+
+    expect(ordered.chart.map((point) => point.period)).toEqual([
+      '2025-12',
+      '2026-01',
+      '2026-07',
+    ]);
+    expect(ordered.table.map((point) => point.period)).toEqual([
+      '2026-07',
+      '2026-01',
+      '2025-12',
+    ]);
+    expect(points.map((point) => point.period)).toEqual([
+      '2026-07',
+      '2025-12',
+      '2026-01',
+    ]);
+  });
+
   it('granularity를 current-user API query로 전달한다', async () => {
     const yearlyTimeline: ActivityTimeline = {
       ...timeline,

@@ -68,6 +68,7 @@ const application = {
   submittedAt: '2026-07-15T00:00:00.000Z',
   updatedAt: '2026-07-16T00:00:00.000Z',
   isRepositoryPublicationPlanned: false,
+  canManage: true,
   canEdit: true,
   canCancel: true,
 } satisfies StudentApplication;
@@ -90,7 +91,7 @@ describe('loadProgramApplyContext', () => {
 
   it('blocks a submitted application as period-closed when it cannot be edited', async () => {
     // Given
-    const readonlyApplication = { ...application, canEdit: false };
+    const readonlyApplication = { ...application, canManage: false };
     vi.mocked(getMyApplication).mockResolvedValue(readonlyApplication);
 
     // When
@@ -113,8 +114,7 @@ describe('loadProgramApplyContext', () => {
     const decidedApplication = {
       ...application,
       status: 'APPROVED',
-      canEdit: false,
-      canCancel: false,
+      canManage: false,
     } satisfies StudentApplication;
     vi.mocked(getProgramDetail).mockResolvedValue(decidedProgram);
     vi.mocked(getMyApplication).mockResolvedValue(decidedApplication);
@@ -133,7 +133,7 @@ describe('loadProgramApplyContext', () => {
 
   it('returns edit state only when a submitted application can be edited', async () => {
     // Given
-    const editableApplication = { ...application, canCancel: false };
+    const editableApplication = application;
     vi.mocked(getMyApplication).mockResolvedValue(editableApplication);
 
     // When
@@ -151,7 +151,7 @@ describe('loadProgramApplyContext', () => {
       teamMinimum: null,
       team: null,
       applicationId: 'application-1',
-      canCancel: false,
+      canManage: true,
       initialValues: {
         title: 'Existing title',
         summary: 'Existing summary',

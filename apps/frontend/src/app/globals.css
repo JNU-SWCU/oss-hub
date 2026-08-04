@@ -316,9 +316,12 @@
   --hero-border: color-mix(in oklch, var(--palette-white) 10%, transparent);
   --hero-danger: var(--palette-red-100);
 
-  /* 시네마틱 랜딩 — 기존 primitive만 조합하는 의미 토큰 */
-  --cosmos-void: var(--palette-black);
-  --cosmos-near: var(--palette-navy-950);
+  /* 시네마틱 랜딩 — 기존 primitive만 조합하는 의미 토큰
+     ⚠ `--cosmos-void` 는 canvas 하늘 맨 위 색(cosmos-theme.ts 의 sky[0])과
+     같아야 한다. 다르면 canvas 가 첫 프레임을 그리기 전에 배경색이 튄다.
+     ramp 사이에 없는 값이라 여기서 직접 적는다(#627). */
+  --cosmos-void: #00133a;
+  --cosmos-near: #063a8f;
   --cosmos-copy: var(--palette-white);
   --cosmos-muted: var(--palette-navy-200);
   --cosmos-student: var(--palette-navy-200);
@@ -329,16 +332,13 @@
      `--hero-danger`(red-100)로 덮여 있어 여기서는 쓸 수 없다 — 이 계열은
      검정 바탕에서 8.2:1로 AA를 넘는다. */
   --cosmos-danger: var(--palette-red-300);
-  --cosmos-scrim-strong: color-mix(
-    in oklch,
-    var(--palette-black) 95%,
-    transparent
-  );
-  --cosmos-scrim-soft: color-mix(
-    in oklch,
-    var(--palette-black) 48%,
-    transparent
-  );
+  /* 글자가 읽히도록 canvas 를 덮는 막. 검정으로 두면 하늘을 남색으로 바꿔도
+     그 위가 검정에 눌려 아무 차이가 안 보인다 — 하늘의 가장 어두운 색을
+     그대로 쓴다(#627).
+     막은 정지점마다 투명도가 달라 채널만 토큰으로 내보낸다. */
+  --cosmos-scrim-rgb: 0 19 58; /* = --cosmos-void */
+  --cosmos-scrim-strong: rgb(var(--cosmos-scrim-rgb) / 95%);
+  --cosmos-scrim-soft: rgb(var(--cosmos-scrim-rgb) / 48%);
 }
 
 /* 사이드바 폭 트랜지션 — reduced motion 사용자는 즉시 전환 (F5) */

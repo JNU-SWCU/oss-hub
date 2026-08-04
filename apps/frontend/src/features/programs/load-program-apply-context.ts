@@ -47,7 +47,7 @@ export type ProgramApplyContext =
       /** 팀형 신청의 현재 팀 요약(이름·팀원). 개인형이거나 팀이 없으면 null. */
       readonly team: ProgramTeam | null;
       readonly applicationId: string | null;
-      readonly canCancel: boolean;
+      readonly canManage: boolean;
       readonly initialValues: ProgramApplyFormValues;
     };
 
@@ -121,7 +121,7 @@ export async function loadProgramApplyContext(
       if (application.status !== 'SUBMITTED') {
         return { kind: 'blocked', reason: 'already-applied', program };
       }
-      if (!application.canEdit) {
+      if (!application.canManage) {
         return { kind: 'blocked', reason: 'period-closed', program };
       }
       const editTeam = await resolveTeam(
@@ -141,7 +141,7 @@ export async function loadProgramApplyContext(
         teamMinimum: null,
         team: editTeam.team,
         applicationId: application.id,
-        canCancel: application.canCancel,
+        canManage: application.canManage,
         initialValues: {
           title: application.answers.title,
           summary: application.answers.summary,
@@ -175,7 +175,7 @@ export async function loadProgramApplyContext(
       teamMinimum: team.minimum,
       team: team.team,
       applicationId: null,
-      canCancel: false,
+      canManage: false,
       initialValues: {
         title: '',
         summary: '',

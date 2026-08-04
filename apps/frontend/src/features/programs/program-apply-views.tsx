@@ -138,7 +138,7 @@ interface ProgramApplyFormViewProps {
   readonly errors: ProgramApplyFormErrors;
   readonly serverError: string | null;
   readonly mode: ApplicationFormMode;
-  readonly canCancel: boolean;
+  readonly canManage: boolean;
   readonly confirmation: ApplicationConfirmation;
   readonly teamMinimum?: TeamMinimum | null;
   readonly submitting: boolean;
@@ -338,7 +338,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     errors,
     serverError,
     mode,
-    canCancel,
+    canManage,
     confirmation,
     teamMinimum = null,
     submitting,
@@ -472,7 +472,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
             <Button asChild variant="outline">
               <Link href={programHref(program.id)}>프로그램 상세</Link>
             </Button>
-            {mode === 'edit' && canCancel ? (
+            {mode === 'edit' && canManage ? (
               <Button
                 ref={cancelButtonRef}
                 type="button"
