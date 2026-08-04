@@ -2,13 +2,16 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, apiClient } from '@/lib/api-client';
 import {
+  loadArchiveCategoryCounts,
   loadArchiveDetail,
   loadArchivePage,
+  parseArchiveCategoryCounts,
   parseArchiveDetail,
   parseArchivePage,
 } from './api';
 import { ArchiveDetailContent } from './components/archive-detail-view';
 import { ArchiveListContent } from './components/archive-list-view';
+import { archiveListHref, parseArchiveListFilter } from './types';
 
 vi.mock('@/lib/api-client', () => ({
   ApiError: class ApiError extends Error {
@@ -144,6 +147,16 @@ describe('public archive parsers', () => {
   });
 });
 
+describe('archive list filter helpers', () => {
+  it('builds category deep links and parses unknown as all', () => {
+    expect(archiveListHref('all')).toBe('/archive');
+    expect(archiveListHref('CAPSTONE')).toBe('/archive?category=CAPSTONE');
+    expect(parseArchiveListFilter(null)).toBe('all');
+    expect(parseArchiveListFilter('CAPSTONE')).toBe('CAPSTONE');
+    expect(parseArchiveListFilter('UNKNOWN')).toBe('all');
+  });
+});
+
 describe('public archive API boundary', () => {
   it('uses apiClient with keyset cursor pagination', async () => {
     vi.mocked(apiClient).mockResolvedValue(pageResponse);
@@ -164,6 +177,40 @@ describe('public archive API boundary', () => {
 
     await loadArchivePage({ pageId: null, pageSize: 12 });
     expect(apiClient).toHaveBeenCalledWith('projects?pageSize=12');
+  });
+
+  it('sends category to the server list query', async () => {
+    vi.mocked(apiClient).mockResolvedValue({
+      ...pageResponse,
+      nextPageId: null,
+    });
+
+    await loadArchivePage({
+      pageId: null,
+      pageSize: 12,
+      category: 'CAPSTONE',
+    });
+    expect(apiClient).toHaveBeenCalledWith(
+      'projects?pageSize=12&category=CAPSTONE',
+    );
+  });
+
+  it('loads category counts for the sidebar', async () => {
+    const counts = {
+      all: 3,
+      BASIC: 1,
+      SW_VALUE_SPREAD: 0,
+      OSS_CONTEST: 1,
+      CAPSTONE: 1,
+      SW_CONVERGENCE: 0,
+      GLOBAL_MAKERTHON: 0,
+      CORPORATE_INTERNSHIP: 0,
+    };
+    vi.mocked(apiClient).mockResolvedValue(counts);
+
+    await expect(loadArchiveCategoryCounts()).resolves.toEqual(counts);
+    expect(apiClient).toHaveBeenCalledWith('projects/category-counts');
+    expect(parseArchiveCategoryCounts(counts).all).toBe(3);
   });
 
   it('maps the canonical not-found problem code without exposing its detail', async () => {
@@ -187,7 +234,7 @@ describe('public archive API boundary', () => {
 
 describe('public archive views', () => {
   const callbacks = {
-    onCategoryChange: vi.fn(),
+    onFilterChange: vi.fn(),
     onNext: vi.fn(),
     onPrevious: vi.fn(),
     onRetry: vi.fn(),
@@ -197,8 +244,9 @@ describe('public archive views', () => {
     const html = renderToStaticMarkup(
       <ArchiveListContent
         state={{ kind: 'ready', page: parseArchivePage(pageResponse) }}
+        filter="all"
         hasPrevious={true}
-        onCategoryChange={callbacks.onCategoryChange}
+        onFilterChange={callbacks.onFilterChange}
         onNext={callbacks.onNext}
         onPrevious={callbacks.onPrevious}
         onRetry={callbacks.onRetry}
@@ -207,6 +255,8 @@ describe('public archive views', () => {
     expect(html).toContain('공개 프로젝트');
     expect(html).toContain('GitHub PUBLIC');
     expect(html).toContain('href="/archive/repo_123"');
+    expect(html).toContain('data-slot="archive-list-category-chips"');
+    expect(html).not.toContain('id="archive-category"');
   });
 
   it('renders ordinary and filter-empty states', () => {
@@ -214,19 +264,21 @@ describe('public archive views', () => {
     const emptyHtml = renderToStaticMarkup(
       <ArchiveListContent
         state={{ kind: 'ready', page: emptyPage }}
+        filter="all"
         hasPrevious={false}
-        onCategoryChange={callbacks.onCategoryChange}
+        onFilterChange={callbacks.onFilterChange}
         onNext={callbacks.onNext}
         onPrevious={callbacks.onPrevious}
         onRetry={callbacks.onRetry}
       />,
     );
+    // 서버가 category 로 이미 걸러 빈 페이지를 준 경우
     const filterEmptyHtml = renderToStaticMarkup(
       <ArchiveListContent
-        state={{ kind: 'ready', page: parseArchivePage(pageResponse) }}
-        category="CAPSTONE"
+        state={{ kind: 'ready', page: emptyPage }}
+        filter="CAPSTONE"
         hasPrevious={false}
-        onCategoryChange={callbacks.onCategoryChange}
+        onFilterChange={callbacks.onFilterChange}
         onNext={callbacks.onNext}
         onPrevious={callbacks.onPrevious}
         onRetry={callbacks.onRetry}
@@ -278,8 +330,9 @@ describe('public archive views', () => {
     const html = renderToStaticMarkup(
       <ArchiveListContent
         state={{ kind: 'error' }}
+        filter="all"
         hasPrevious={false}
-        onCategoryChange={callbacks.onCategoryChange}
+        onFilterChange={callbacks.onFilterChange}
         onNext={callbacks.onNext}
         onPrevious={callbacks.onPrevious}
         onRetry={callbacks.onRetry}
@@ -297,7 +350,7 @@ describe('public archive views', () => {
 // `ranking/components/ranking-view.test.tsx`가 동일한 synthetic 식별자로 짝을 맞춘다.
 describe('F4 gap — screen-level exposure outcomes (outcome-1/2/4/5/8)', () => {
   const callbacks = {
-    onCategoryChange: vi.fn(),
+    onFilterChange: vi.fn(),
     onNext: vi.fn(),
     onPrevious: vi.fn(),
     onRetry: vi.fn(),
@@ -329,8 +382,9 @@ describe('F4 gap — screen-level exposure outcomes (outcome-1/2/4/5/8)', () => 
             nextPageId: null,
           }),
         }}
+        filter="all"
         hasPrevious={false}
-        onCategoryChange={callbacks.onCategoryChange}
+        onFilterChange={callbacks.onFilterChange}
         onNext={callbacks.onNext}
         onPrevious={callbacks.onPrevious}
         onRetry={callbacks.onRetry}
@@ -443,8 +497,9 @@ describe('F4 gap — screen-level exposure outcomes (outcome-1/2/4/5/8)', () => 
             nextPageId: null,
           }),
         }}
+        filter="all"
         hasPrevious={false}
-        onCategoryChange={callbacks.onCategoryChange}
+        onFilterChange={callbacks.onFilterChange}
         onNext={callbacks.onNext}
         onPrevious={callbacks.onPrevious}
         onRetry={callbacks.onRetry}
@@ -462,8 +517,9 @@ describe('F4 gap — screen-level exposure outcomes (outcome-1/2/4/5/8)', () => 
             nextPageId: null,
           }),
         }}
+        filter="all"
         hasPrevious={false}
-        onCategoryChange={callbacks.onCategoryChange}
+        onFilterChange={callbacks.onFilterChange}
         onNext={callbacks.onNext}
         onPrevious={callbacks.onPrevious}
         onRetry={callbacks.onRetry}
@@ -521,8 +577,9 @@ describe('F4 gap — screen-level exposure outcomes (outcome-1/2/4/5/8)', () => 
             nextPageId: null,
           }),
         }}
+        filter="all"
         hasPrevious={false}
-        onCategoryChange={callbacks.onCategoryChange}
+        onFilterChange={callbacks.onFilterChange}
         onNext={callbacks.onNext}
         onPrevious={callbacks.onPrevious}
         onRetry={callbacks.onRetry}

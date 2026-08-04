@@ -9,12 +9,14 @@ type FindUniqueMock = jest.Mock<Promise<unknown>, [unknown]>;
 interface MockPrismaClient {
   repository: { findMany: FindManyMock; findFirst: FindFirstMock };
   user: { findUnique: FindUniqueMock };
+  $queryRaw: jest.Mock;
 }
 
 function repositoryWith(overrides: {
   repositoryFindMany?: FindManyMock;
   repositoryFindFirst?: FindFirstMock;
   userFindUnique?: FindUniqueMock;
+  queryRaw?: jest.Mock;
 }): { repository: PublicProjectsRepository; prisma: MockPrismaClient } {
   const prisma: MockPrismaClient = {
     repository: {
@@ -24,6 +26,7 @@ function repositoryWith(overrides: {
     user: {
       findUnique: overrides.userFindUnique ?? jest.fn(),
     },
+    $queryRaw: overrides.queryRaw ?? jest.fn().mockResolvedValue([]),
   };
   return {
     repository: new PublicProjectsRepository(
@@ -125,6 +128,40 @@ describe('PublicProjectsRepository', () => {
           take: 6,
         }),
       );
+    });
+
+    it('category가 있으면 program.category 필터를 where에 덧붙인다', async () => {
+      const findMany = jest.fn().mockResolvedValue([]);
+      const { repository } = repositoryWith({ repositoryFindMany: findMany });
+
+      await repository.listPage(null, 12, 'CAPSTONE');
+
+      expect(findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            visibility: 'PUBLIC',
+            publishedAt: { not: null },
+            program: { category: 'CAPSTONE' },
+          },
+          take: 12,
+        }),
+      );
+    });
+  });
+
+  describe('countByCategory', () => {
+    it('GROUP BY 결과를 number count로 매핑한다', async () => {
+      const queryRaw = jest.fn().mockResolvedValue([
+        { category: 'BASIC', count: 2n },
+        { category: 'CAPSTONE', count: 1n },
+      ]);
+      const { repository } = repositoryWith({ queryRaw });
+
+      await expect(repository.countByCategory()).resolves.toEqual([
+        { category: 'BASIC', count: 2 },
+        { category: 'CAPSTONE', count: 1 },
+      ]);
+      expect(queryRaw).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -1,5 +1,6 @@
 import { type ProgramCategory } from '@prisma/client';
 import type {
+  PublicProjectCategoryCountsResult,
   PublicProjectContributor,
   PublicProjectDetailResult,
   PublicProjectMetrics,
@@ -63,6 +64,35 @@ export class PublicProjectPageResponseDto {
 
   static from(page: PublicProjectPageResult): PublicProjectPageResponseDto {
     return new PublicProjectPageResponseDto(page);
+  }
+}
+
+/** `GET /projects/category-counts` — 좌측 아카이브 메뉴 뱃지용. */
+export class PublicProjectCategoryCountsResponseDto {
+  readonly all: number;
+  readonly BASIC: number;
+  readonly SW_VALUE_SPREAD: number;
+  readonly OSS_CONTEST: number;
+  readonly CAPSTONE: number;
+  readonly SW_CONVERGENCE: number;
+  readonly GLOBAL_MAKERTHON: number;
+  readonly CORPORATE_INTERNSHIP: number;
+
+  private constructor(counts: PublicProjectCategoryCountsResult) {
+    this.all = counts.all;
+    this.BASIC = counts.BASIC;
+    this.SW_VALUE_SPREAD = counts.SW_VALUE_SPREAD;
+    this.OSS_CONTEST = counts.OSS_CONTEST;
+    this.CAPSTONE = counts.CAPSTONE;
+    this.SW_CONVERGENCE = counts.SW_CONVERGENCE;
+    this.GLOBAL_MAKERTHON = counts.GLOBAL_MAKERTHON;
+    this.CORPORATE_INTERNSHIP = counts.CORPORATE_INTERNSHIP;
+  }
+
+  static from(
+    counts: PublicProjectCategoryCountsResult,
+  ): PublicProjectCategoryCountsResponseDto {
+    return new PublicProjectCategoryCountsResponseDto(counts);
   }
 }
 

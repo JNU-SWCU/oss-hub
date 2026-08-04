@@ -1,12 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, Archive, RotateCcw } from 'lucide-react';
 import { CardGrid, EmptyState, PageHeader, StatusBadge } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Select } from '@/components/ui/select';
 import {
   Card,
   CardContent,
@@ -15,10 +15,11 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { loadArchivePage } from '../api';
+import { ArchiveListCategoryChips } from '../archive-list-category-nav';
 import {
-  ARCHIVE_CATEGORIES,
-  ARCHIVE_CATEGORY_LABELS,
-  type ArchiveCategory,
+  archiveListHref,
+  parseArchiveListFilter,
+  type ArchiveListFilter,
   type ArchiveListItem,
   type ArchiveListState,
 } from '../types';
@@ -27,9 +28,9 @@ const PAGE_SIZE = 12;
 
 type ArchiveListContentProps = {
   readonly state: ArchiveListState;
-  readonly category?: ArchiveCategory;
+  readonly filter: ArchiveListFilter;
   readonly hasPrevious: boolean;
-  readonly onCategoryChange: (category?: ArchiveCategory) => void;
+  readonly onFilterChange: (filter: ArchiveListFilter) => void;
   readonly onNext: () => void;
   readonly onPrevious: () => void;
   readonly onRetry: () => void;
@@ -101,43 +102,11 @@ function ArchiveCard({ item }: { readonly item: ArchiveListItem }) {
   );
 }
 
-function ArchiveCategoryFilter({
-  category,
-  onCategoryChange,
-}: Pick<ArchiveListContentProps, 'category' | 'onCategoryChange'>) {
-  return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-      <label className="sr-only" htmlFor="archive-category">
-        프로그램 분류
-      </label>
-      <Select
-        id="archive-category"
-        className="w-fit"
-        value={category ?? ''}
-        onChange={(event) =>
-          onCategoryChange(
-            event.target.value === ''
-              ? undefined
-              : (event.target.value as ArchiveCategory),
-          )
-        }
-      >
-        <option value="">전체 분류</option>
-        {ARCHIVE_CATEGORIES.map((value) => (
-          <option key={value} value={value}>
-            {ARCHIVE_CATEGORY_LABELS[value]}
-          </option>
-        ))}
-      </Select>
-    </div>
-  );
-}
-
 export function ArchiveListContent({
   state,
-  category,
+  filter,
   hasPrevious,
-  onCategoryChange,
+  onFilterChange,
   onNext,
   onPrevious,
   onRetry,
@@ -146,22 +115,22 @@ export function ArchiveListContent({
   if (state.kind === 'error') return <ErrorState onRetry={onRetry} />;
 
   const { page } = state;
-  const items =
-    category === undefined
-      ? page.items
-      : page.items.filter((item) => item.category === category);
-  const filterActive = category !== undefined;
+  // 서버가 category 쿼리로 이미 거른다 — 클라이언트 재필터 금지.
+  const items = page.items;
+  const filterActive = filter !== 'all';
   const hasNext = page.nextPageId !== null;
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-5 sm:p-8">
       <PageHeader
         title="공개 아카이브"
-        description="공개된 프로젝트와 누적 활동 기록을 확인합니다."
+        description="공개된 프로젝트와 누적 활동 기록을 확인합니다. 분류는 왼쪽 메뉴에서 고릅니다."
       />
-      <ArchiveCategoryFilter
-        category={category}
-        onCategoryChange={onCategoryChange}
+      {/* 좁은 폭: 전역 사이드가 가로 띠라 분류 칩을 본문에 한 번 더 둔다 */}
+      <ArchiveListCategoryChips
+        className="min-[900px]:hidden"
+        value={filter}
+        onChange={onFilterChange}
       />
       {items.length === 0 ? (
         <EmptyState
@@ -177,7 +146,7 @@ export function ArchiveListContent({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => onCategoryChange(undefined)}
+                onClick={() => onFilterChange('all')}
               >
                 필터 초기화
               </Button>
@@ -231,9 +200,17 @@ export function ArchiveListContent({
   );
 }
 
+/**
+ * 분류 필터는 **전역 사이드 패널**(공개 아카이브 메뉴)이 URL `?category=` 로 보낸다.
+ * 이 페이지는 그 쿼리를 읽고 서버에 전달하며, 좁은 폭에서만 칩으로 같은 전환을 제공한다.
+ */
 export function ArchiveListView() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const filter = parseArchiveListFilter(searchParams.get('category'));
+  const category = filter === 'all' ? undefined : filter;
+
   const [attempt, setAttempt] = useState(0);
-  const [category, setCategory] = useState<ArchiveCategory | undefined>();
   const [cursorStack, setCursorStack] = useState<readonly (string | null)[]>([
     null,
   ]);
@@ -241,10 +218,12 @@ export function ArchiveListView() {
   const cursor = cursorStack[cursorStack.length - 1] ?? null;
 
   const retry = useCallback(() => setAttempt((current) => current + 1), []);
-  const changeCategory = useCallback((nextCategory?: ArchiveCategory) => {
-    setCategory(nextCategory);
-    setCursorStack([null]);
-  }, []);
+  const changeFilter = useCallback(
+    (next: ArchiveListFilter) => {
+      router.push(archiveListHref(next));
+    },
+    [router],
+  );
   const next = useCallback(() => {
     if (state.kind === 'ready' && state.page.nextPageId !== null) {
       const nextPageId = state.page.nextPageId;
@@ -257,10 +236,15 @@ export function ArchiveListView() {
     );
   }, []);
 
+  // 분류가 바뀌면 커서 스택을 비워 이전 분류 커서가 오염되지 않게 한다.
+  useEffect(() => {
+    setCursorStack([null]);
+  }, [filter]);
+
   useEffect(() => {
     let active = true;
     setState({ kind: 'loading' });
-    loadArchivePage({ pageId: cursor, pageSize: PAGE_SIZE })
+    loadArchivePage({ pageId: cursor, pageSize: PAGE_SIZE, category })
       .then((page) => {
         if (active) setState({ kind: 'ready', page });
       })
@@ -270,14 +254,14 @@ export function ArchiveListView() {
     return () => {
       active = false;
     };
-  }, [attempt, cursor]);
+  }, [attempt, cursor, category]);
 
   return (
     <ArchiveListContent
       state={state}
-      category={category}
+      filter={filter}
       hasPrevious={cursorStack.length > 1}
-      onCategoryChange={changeCategory}
+      onFilterChange={changeFilter}
       onNext={next}
       onPrevious={previous}
       onRetry={retry}
