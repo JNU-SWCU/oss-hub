@@ -39,6 +39,26 @@ describe('landing public overview boundary', () => {
     expect(JSON.stringify(page)).not.toContain('privateMemo');
   });
 
+  it('accepts seed-style program ids that use colons', () => {
+    const page = parseLandingProgramPage({
+      items: [
+        {
+          id: 'seed:intake:program-seven-templates:BASIC',
+          name: 'seed-program-basic',
+          organizer: 'seed-organizer',
+          category: 'BASIC',
+          applicationEndAt: '2026-08-24T06:25:11.317Z',
+        },
+      ],
+      page: 1,
+      pageSize: 3,
+      totalItems: 1,
+      totalPages: 1,
+    });
+
+    expect(page[0]?.id).toBe('seed:intake:program-seven-templates:BASIC');
+  });
+
   it('builds a typed graph only from public archive projections', () => {
     const archive = parseLandingArchivePage({
       items: [
