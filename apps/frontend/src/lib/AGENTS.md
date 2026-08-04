@@ -12,6 +12,7 @@
 | 파일 | 역할 |
 | --- | --- |
 | `api-client.ts` | `apiClient<T>(path, init?)`, `apiPath(path)`, `ApiError`(`ProblemDetail` 래핑) — `/api/v1` baseURL의 **유일한** 소유자 |
+| `internal-path.ts` | `isInternalPath(value)`, `toInternalPath(value, fallback)` — 밖에서 온 문자열을 앱 내부 주소로 쓰기 전의 open-redirect 관문. 이동·링크 목적지가 사용자 입력(URL 쿼리·API 응답)에서 오면 반드시 여기를 거친다 |
 | `utils.ts` | `cn(...)` — `clsx` + `tailwind-merge` 클래스 병합 헬퍼 |
 
 ## For AI Agents
