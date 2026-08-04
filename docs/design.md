@@ -162,7 +162,7 @@ Tailwind v4 기본 spacing 스케일을 그대로 쓴다.
 | `features/landing/cosmos/cosmos-graph.ts` | 연출용 그래프 생성과 3D 힘 기반 배치 |
 | `features/landing/cosmos/cosmos-camera.ts` | 다섯 구간 카메라 안무와 패널 구간 상수 |
 | `features/landing/cosmos/cosmos-renderer.ts` | canvas 2D 렌더 — 하늘·별·오로라·성운·관계선·천체·블룸·라벨·속도선 |
-| `features/landing/cosmos/cosmos-theme.ts` | canvas 전용 색 상수(`DEEP_SPACE_THEME`)와 보간 헬퍼 |
+| `features/landing/cosmos/cosmos-theme.ts` | canvas 전용 색 상수(`DAWN_THEME`)와 보간 헬퍼 |
 | `features/landing/cosmos/cosmos-quality.ts` | 프레임 예산을 넘기면 해상도를 낮추는 품질 거버너 |
 
 #### 무대 구조
@@ -309,12 +309,12 @@ Tailwind v4 기본 spacing 스케일을 그대로 쓴다.
 #### 색 토큰
 
 `globals.css`의 `--cosmos-*` semantic 토큰은 DOM 계층(패널·범례·진행 표시·버튼)만 칠한다.
-canvas 안의 색은 `cosmos-theme.ts`의 RGB 상수 세트(`DEEP_SPACE_THEME`)에서 나온다.
+canvas 안의 색은 `cosmos-theme.ts`의 RGB 상수 세트(`DAWN_THEME`)에서 나온다.
 약관 전문 문서(`public/policies/policy-document.css`)도 세 번째 사본이다 — 그 문서는 `sandbox=""` iframe 안의 별도 문서라 이 변수들을 물려받지 못해 같은 palette 값을 리터럴로 다시 선언한다. **세 곳이 분리돼 있으므로 우주 색을 바꿀 때는 셋을 함께 본다.**
 
 | semantic 토큰 | 참조 | 소비처 |
 | --- | --- | --- |
-| `--cosmos-void` | `--palette-black` | 여정 컨테이너 배경 |
+| `--cosmos-void` | `#00133a` (ramp 밖, `sky[0]`과 같아야 함) | 여정 컨테이너 배경, 가입 동선 바탕 |
 | `--cosmos-copy` | `--palette-white` | 제목·본문 기본색, 활성 진행 눈금, 링크·외곽선 버튼 |
 | `--cosmos-muted` | `--palette-navy-200` | eyebrow, 본문, 범례, 비활성 눈금, SCROLL 힌트 |
 | `--cosmos-repository` | `--palette-green-300` | 흐름 패널의 STEP 번호 |

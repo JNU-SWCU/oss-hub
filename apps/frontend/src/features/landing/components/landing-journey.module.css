@@ -36,14 +36,14 @@
     radial-gradient(
       120% 80% at 50% 45%,
       transparent 40%,
-      rgb(0 0 0 / 60%) 100%
+      rgb(var(--cosmos-scrim-rgb) / 60%) 100%
     ),
     linear-gradient(
       to bottom,
-      rgb(0 0 0 / 75%) 0%,
+      rgb(var(--cosmos-scrim-rgb) / 75%) 0%,
       transparent 22%,
       transparent 72%,
-      rgb(0 0 0 / 90%) 100%
+      rgb(var(--cosmos-scrim-rgb) / 90%) 100%
     );
 }
 
@@ -63,10 +63,10 @@
   z-index: 3;
   background: linear-gradient(
     100deg,
-    rgb(0 0 0 / 95%) 0%,
-    rgb(0 0 0 / 88%) max(26%, 420px),
-    rgb(0 0 0 / 62%) max(50%, 880px),
-    rgb(0 0 0 / 12%) max(70%, 1030px),
+    rgb(var(--cosmos-scrim-rgb) / 95%) 0%,
+    rgb(var(--cosmos-scrim-rgb) / 88%) max(26%, 420px),
+    rgb(var(--cosmos-scrim-rgb) / 62%) max(50%, 880px),
+    rgb(var(--cosmos-scrim-rgb) / 12%) max(70%, 1030px),
     transparent max(84%, 1180px)
   );
 }
@@ -81,10 +81,10 @@
   .scrim {
     background: linear-gradient(
       to bottom,
-      rgb(0 0 0 / 28%) 0%,
-      rgb(0 0 0 / 76%) 30%,
-      rgb(0 0 0 / 76%) 82%,
-      rgb(0 0 0 / 32%) 100%
+      rgb(var(--cosmos-scrim-rgb) / 28%) 0%,
+      rgb(var(--cosmos-scrim-rgb) / 76%) 30%,
+      rgb(var(--cosmos-scrim-rgb) / 76%) 82%,
+      rgb(var(--cosmos-scrim-rgb) / 32%) 100%
     );
   }
 }
@@ -311,7 +311,7 @@
   gap: 18px;
   align-items: center;
   border: 1px solid var(--cosmos-border);
-  background: rgb(0 0 0 / 60%);
+  background: rgb(var(--cosmos-scrim-rgb) / 60%);
   backdrop-filter: blur(8px);
   border-radius: 999px;
   padding: 9px 16px;
@@ -426,7 +426,7 @@
   padding: 0 16px;
   border: 1px solid var(--cosmos-border);
   border-radius: 8px;
-  background: rgb(0 0 0 / 75%);
+  background: rgb(var(--cosmos-scrim-rgb) / 75%);
   color: var(--cosmos-copy);
   font-size: 14px;
   font-weight: 600;
