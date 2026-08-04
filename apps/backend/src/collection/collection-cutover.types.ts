@@ -1,11 +1,13 @@
 /**
  * todo 14 원자 전환(atomic reader/writer cutover) quiesce lease 계약. `SyncLeaseKey`/
  * `SyncLeaseToken`과 같은 epoch-fenced 상호배제 shape이지만, 별도 테이블(`CollectionCutoverLease`)
- * 이다 — lease 보유 자체가 "cutover 절차 진행 중"을 나타낸다.
+ * 이다 — lease 보유 자체가 "cutover 절차 진행 중"을 나타낸다. `scope`는 `SyncLeaseKey`와 같은
+ * 일반화된 키다 — cutover는 org sweep 전환 절차이므로 항상 `` `org:${organizationLogin}` ``를
+ * 쓴다(external sweep에는 아직 cutover 절차가 없다).
  */
 export interface CutoverLeaseKey {
   appId: bigint;
-  organizationLogin: string;
+  scope: string;
 }
 
 export interface CutoverLeaseToken extends CutoverLeaseKey {

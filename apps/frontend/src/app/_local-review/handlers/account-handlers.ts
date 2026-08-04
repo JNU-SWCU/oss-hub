@@ -275,7 +275,7 @@ const NOTIFICATION_CHANNEL_FIXTURE = {
  * 백엔드 `consents/domain/consent-policy.ts`의 `CONSENT_POLICY_VERSION`과 같은 값이다.
  * 문서 파일 이름이 곧 이 버전이라(`public/policies/{항목}/{버전}.html`) 어긋나면 전문이 404가 된다.
  */
-const CONSENT_POLICY_VERSION = '2026-07-21';
+const CONSENT_POLICY_VERSION = '2026-08-04';
 
 /**
  * 동의 후 이동 경로. 온보딩은 동의 → **역할** → 프로필 순서다.

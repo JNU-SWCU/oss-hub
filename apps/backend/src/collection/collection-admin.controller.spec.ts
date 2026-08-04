@@ -6,6 +6,7 @@ import { SessionGuard } from '../auth/session.guard';
 import { CollectionAdminController } from './collection-admin.controller';
 import { CollectionAdminGuard } from './collection-admin.guard';
 import { CollectionCutoverRepository } from './collection-cutover.repository';
+import { CollectionExternalDiscoveryService } from './collection-external-discovery.service';
 import { CollectionSyncService } from './collection-sync.service';
 
 describe('CollectionAdminController', () => {
@@ -14,11 +15,21 @@ describe('CollectionAdminController', () => {
     [string]
   >();
   const isQuiesced = jest.fn<Promise<boolean>, [Date]>();
+  const discoverForStudent = jest.fn<
+    Promise<{
+      githubLogin: string;
+      discoveredCount: number;
+      upsertedCount: number;
+      skippedOrgProvisionedCount: number;
+    }>,
+    [string]
+  >();
 
   beforeEach(() => {
     run.mockReset();
     isQuiesced.mockReset();
     isQuiesced.mockResolvedValue(false);
+    discoverForStudent.mockReset();
   });
 
   it('실행을 시작하고 202 응답 DTO를 반환한다', async () => {
@@ -27,6 +38,10 @@ describe('CollectionAdminController', () => {
       providers: [
         { provide: CollectionSyncService, useValue: { run } },
         { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
+        {
+          provide: CollectionExternalDiscoveryService,
+          useValue: { discoverForStudent },
+        },
       ],
     })
       .overrideGuard(SessionGuard)
@@ -53,6 +68,7 @@ describe('CollectionAdminController', () => {
     const controller = new CollectionAdminController(
       { run } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
+      { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
     );
 
     await expect(controller.trigger()).rejects.toMatchObject({
@@ -78,5 +94,49 @@ describe('CollectionAdminController', () => {
 
     expect(guards).toEqual([SessionGuard, CollectionAdminGuard, OriginGuard]);
     expect(statusCode).toBe(202);
+  });
+
+  it('학생 GitHub login으로 외부 discovery를 호출하고 집계 결과를 200으로 반환한다', async () => {
+    discoverForStudent.mockResolvedValue({
+      githubLogin: 'octocat',
+      discoveredCount: 3,
+      upsertedCount: 2,
+      skippedOrgProvisionedCount: 1,
+    });
+    const controller = new CollectionAdminController(
+      { run } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
+    );
+
+    const result = await controller.discoverExternal({
+      githubLogin: 'octocat',
+    });
+
+    expect(discoverForStudent).toHaveBeenCalledWith('octocat');
+    expect(result.status).toBe('COMPLETED');
+    expect(result.githubLogin).toBe('octocat');
+    expect(result.discoveredCount).toBe(3);
+    expect(result.upsertedCount).toBe(2);
+    expect(result.skippedOrgProvisionedCount).toBe(1);
+  });
+
+  it('discover-external은 세션, ADMIN 역할, origin 순서로 보호하고 HTTP 200을 선언한다', () => {
+    const handler: unknown = Object.getOwnPropertyDescriptor(
+      CollectionAdminController.prototype,
+      'discoverExternal',
+    )?.value;
+    expect(typeof handler).toBe('function');
+    if (typeof handler !== 'function') {
+      return;
+    }
+    const guards: unknown = Reflect.getMetadata(GUARDS_METADATA, handler);
+    const statusCode: unknown = Reflect.getMetadata(
+      HTTP_CODE_METADATA,
+      handler,
+    );
+
+    expect(guards).toEqual([SessionGuard, CollectionAdminGuard, OriginGuard]);
+    expect(statusCode).toBe(200);
   });
 });

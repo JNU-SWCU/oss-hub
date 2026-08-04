@@ -210,11 +210,12 @@ describe('Collection cutover rollback data-preservation contract (ADR-006, F3 au
       await incrementalRepository.recordRepositoryObservation({
         githubOrganizationId: newGithubOrganizationId,
         githubRepositoryId: newGithubRepositoryId,
-        fullName: 'synthetic-rollback-org/post-cutover-project',
+        nameWithOwner: 'synthetic-rollback-org/post-cutover-project',
         defaultBranch: 'main',
         archived: false,
         visibility: 'PUBLIC',
         presence: 'PRESENT',
+        source: 'ORG_PROVISIONED',
         observedAt: new Date('2026-02-01T00:00:00.000Z'),
       });
     await incrementalRepository.recordCommitFacts(newRepository.id, [
@@ -244,7 +245,7 @@ describe('Collection cutover rollback data-preservation contract (ADR-006, F3 au
     ]);
     await incrementalRepository.upsertSyncCursor({
       appId: newGithubOrganizationId,
-      organizationLogin: 'synthetic-rollback-org',
+      scope: 'org:synthetic-rollback-org',
       lastGithubRepositoryId: newGithubRepositoryId,
       cycleStartedAt: new Date('2026-02-01T00:00:00.000Z'),
       cycleCompletedAt: new Date('2026-02-01T00:05:00.000Z'),
@@ -253,23 +254,23 @@ describe('Collection cutover rollback data-preservation contract (ADR-006, F3 au
 
   afterAll(async () => {
     await prisma.$executeRawUnsafe(
-      'DELETE FROM "CollectionCommitFact" WHERE "repositoryId" IN (SELECT id FROM "CollectionRepository" WHERE "githubOrganizationId" = $1)',
+      'DELETE FROM "CollectionCommitFact" WHERE "repositoryId" IN (SELECT id FROM "GithubRepository" WHERE "githubOrganizationId" = $1)',
       newGithubOrganizationId,
     );
     await prisma.$executeRawUnsafe(
-      'DELETE FROM "CollectionPullRequestFact" WHERE "repositoryId" IN (SELECT id FROM "CollectionRepository" WHERE "githubOrganizationId" = $1)',
+      'DELETE FROM "CollectionPullRequestFact" WHERE "repositoryId" IN (SELECT id FROM "GithubRepository" WHERE "githubOrganizationId" = $1)',
       newGithubOrganizationId,
     );
     await prisma.$executeRawUnsafe(
-      'DELETE FROM "CollectionReleaseFact" WHERE "repositoryId" IN (SELECT id FROM "CollectionRepository" WHERE "githubOrganizationId" = $1)',
+      'DELETE FROM "CollectionReleaseFact" WHERE "repositoryId" IN (SELECT id FROM "GithubRepository" WHERE "githubOrganizationId" = $1)',
       newGithubOrganizationId,
     );
     await prisma.$executeRawUnsafe(
-      'DELETE FROM "CollectionRepositoryYearAggregate" WHERE "repositoryId" IN (SELECT id FROM "CollectionRepository" WHERE "githubOrganizationId" = $1)',
+      'DELETE FROM "CollectionRepositoryYearAggregate" WHERE "repositoryId" IN (SELECT id FROM "GithubRepository" WHERE "githubOrganizationId" = $1)',
       newGithubOrganizationId,
     );
     await prisma.$executeRawUnsafe(
-      'DELETE FROM "CollectionContributorYearAggregate" WHERE "repositoryId" IN (SELECT id FROM "CollectionRepository" WHERE "githubOrganizationId" = $1)',
+      'DELETE FROM "CollectionContributorYearAggregate" WHERE "repositoryId" IN (SELECT id FROM "GithubRepository" WHERE "githubOrganizationId" = $1)',
       newGithubOrganizationId,
     );
     await prisma.$executeRawUnsafe(
@@ -277,7 +278,7 @@ describe('Collection cutover rollback data-preservation contract (ADR-006, F3 au
       newGithubOrganizationId,
     );
     await prisma.$executeRawUnsafe(
-      'DELETE FROM "CollectionRepository" WHERE "githubOrganizationId" = $1',
+      'DELETE FROM "GithubRepository" WHERE "githubOrganizationId" = $1',
       newGithubOrganizationId,
     );
     await prisma.$executeRawUnsafe(

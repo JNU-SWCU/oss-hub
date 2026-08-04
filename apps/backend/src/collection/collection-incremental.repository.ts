@@ -61,50 +61,46 @@ export class CollectionIncrementalRepository {
 
   /**
    * complete inventory 관찰 1건을 반영한다. visibility/presence 갱신은 이 경로로만
-   * 일어난다(DEC-46) — partial 관찰은 이 메서드를 호출하지 않는다.
+   * 일어난다(DEC-46) — partial 관찰은 이 메서드를 호출하지 않는다. upsert 식별자는
+   * `githubRepositoryId` 단독이다(GitHub repository id는 전역 유일) — org sweep과 external
+   * sweep이 같은 저장소를 서로 다른 관찰로 덮어쓰는 충돌은 발생하지 않는다(둘은 서로소인
+   * 저장소 집합을 관찰한다).
    */
   async recordRepositoryObservation(
     input: RecordRepositoryObservationInput,
   ): Promise<CollectionRepositoryRow> {
-    return this.db.collectionRepository.upsert({
-      where: {
-        githubOrganizationId_githubRepositoryId: {
-          githubOrganizationId: input.githubOrganizationId,
-          githubRepositoryId: input.githubRepositoryId,
-        },
-      },
+    return this.db.githubRepository.upsert({
+      where: { githubRepositoryId: input.githubRepositoryId },
       create: {
         githubOrganizationId: input.githubOrganizationId,
         githubRepositoryId: input.githubRepositoryId,
-        fullName: input.fullName,
+        nameWithOwner: input.nameWithOwner,
         defaultBranch: input.defaultBranch,
         archived: input.archived,
         visibility: input.visibility,
         presence: input.presence,
+        source: input.source,
         lastCompleteInventoryObservedAt: input.observedAt,
       },
       update: {
-        fullName: input.fullName,
+        githubOrganizationId: input.githubOrganizationId,
+        nameWithOwner: input.nameWithOwner,
         defaultBranch: input.defaultBranch,
         archived: input.archived,
         visibility: input.visibility,
         presence: input.presence,
+        source: input.source,
         lastCompleteInventoryObservedAt: input.observedAt,
       },
     });
   }
 
+  /** 단일 unique key(`githubRepositoryId`)로 저장소를 조회한다 — source와 무관하다. */
   async findRepositoryByLogicalKey(
-    githubOrganizationId: bigint,
     githubRepositoryId: bigint,
   ): Promise<CollectionRepositoryRow | null> {
-    return this.db.collectionRepository.findUnique({
-      where: {
-        githubOrganizationId_githubRepositoryId: {
-          githubOrganizationId,
-          githubRepositoryId,
-        },
-      },
+    return this.db.githubRepository.findUnique({
+      where: { githubRepositoryId },
     });
   }
 
@@ -459,14 +455,14 @@ export class CollectionIncrementalRepository {
   async upsertSyncCursor(input: SyncCursorInput): Promise<SyncCursorRow> {
     return this.db.collectionSyncCursor.upsert({
       where: {
-        appId_organizationLogin: {
+        appId_scope: {
           appId: input.appId,
-          organizationLogin: input.organizationLogin,
+          scope: input.scope,
         },
       },
       create: {
         appId: input.appId,
-        organizationLogin: input.organizationLogin,
+        scope: input.scope,
         lastGithubRepositoryId: input.lastGithubRepositoryId ?? null,
         cycleStartedAt: input.cycleStartedAt ?? null,
         cycleCompletedAt: input.cycleCompletedAt ?? null,
@@ -487,10 +483,10 @@ export class CollectionIncrementalRepository {
 
   async getSyncCursor(
     appId: bigint,
-    organizationLogin: string,
+    scope: string,
   ): Promise<SyncCursorRow | null> {
     return this.db.collectionSyncCursor.findUnique({
-      where: { appId_organizationLogin: { appId, organizationLogin } },
+      where: { appId_scope: { appId, scope } },
     });
   }
 
@@ -498,15 +494,22 @@ export class CollectionIncrementalRepository {
    * complete inventory 관찰 이후 더 이상 목록에 없는 저장소를 ABSENT로 표시한다 — 이 경로 역시
    * DEC-46(visibility/presence는 complete inventory 관찰에서만 갱신)을 지키며, 호출자가 lease-fenced
    * 트랜잭션(`runInTransaction` + `assertSyncLeaseValid`) 안에서 호출한다.
+   *
+   * `source: 'ORG_PROVISIONED'`를 명시적으로 포함한다(GR-6) — `EXTERNAL_PUBLIC` 저장소는
+   * organization installation listing에 애초에 나타나지 않으므로, 이 필터가 없으면 매
+   * org sweep마다 학생이 등록한 external repo가 전부 ABSENT로 잘못 표시되어 조용히 추적이
+   * 끊긴다. `githubOrganizationId`가 org sweep 관찰에서는 항상 채워지지만, 그 값의
+   * non-null 여부에만 기대지 않고 source를 별도로 명시한다.
    */
   async markAbsentRepositories(
     githubOrganizationId: bigint,
     presentGithubRepositoryIds: readonly bigint[],
     observedAt: Date,
   ): Promise<void> {
-    await this.db.collectionRepository.updateMany({
+    await this.db.githubRepository.updateMany({
       where: {
         githubOrganizationId,
+        source: 'ORG_PROVISIONED',
         presence: 'PRESENT',
         githubRepositoryId: { notIn: [...presentGithubRepositoryIds] },
       },
@@ -514,12 +517,32 @@ export class CollectionIncrementalRepository {
     });
   }
 
-  /** partial inventory(이번 run의 provider listing 실패) 시 stream sync가 이어갈 이전 관찰. */
+  /**
+   * partial inventory(이번 run의 provider listing 실패) 시 stream sync가 이어갈 이전 관찰.
+   * `source: 'ORG_PROVISIONED'`를 명시한다(GR-6) — org installation listing 실패로부터
+   * 복구하는 partial-inventory 경로이므로 external 저장소는 이 조회 대상이 아니다.
+   */
   async listPresentRepositories(
     githubOrganizationId: bigint,
   ): Promise<CollectionRepositoryRow[]> {
-    return this.db.collectionRepository.findMany({
-      where: { githubOrganizationId, presence: 'PRESENT' },
+    return this.db.githubRepository.findMany({
+      where: {
+        githubOrganizationId,
+        source: 'ORG_PROVISIONED',
+        presence: 'PRESENT',
+      },
+    });
+  }
+
+  /**
+   * E1 — external sweep의 discovery. 자동 GraphQL 발견(추후 과제)이 아니라, 학생이 이미
+   * 등록해 `EXTERNAL_PUBLIC` source로 저장된 행을 그대로 읽는다. org sweep의
+   * `syncInventory`(provider listing → observation 기록)와 달리 이 메서드는 관찰을 쓰지
+   * 않는다 — 단순 조회다.
+   */
+  async listExternalRepositories(): Promise<CollectionRepositoryRow[]> {
+    return this.db.githubRepository.findMany({
+      where: { source: 'EXTERNAL_PUBLIC', presence: 'PRESENT' },
     });
   }
 
@@ -531,15 +554,15 @@ export class CollectionIncrementalRepository {
     input: AcquireSyncLeaseInput,
   ): Promise<SyncLeaseToken | null> {
     const rows = await this.db.$queryRawUnsafe<SyncLeaseToken[]>(
-      `INSERT INTO "CollectionSyncLease" ("appId", "organizationLogin", "epoch", "ownerId", "expiresAt", "runId", "updatedAt")
+      `INSERT INTO "CollectionSyncLease" ("appId", "scope", "epoch", "ownerId", "expiresAt", "runId", "updatedAt")
        VALUES ($1, $2, 1, $3, $4, $5, $6)
-       ON CONFLICT ("appId", "organizationLogin") DO UPDATE SET
+       ON CONFLICT ("appId", "scope") DO UPDATE SET
          "epoch" = "CollectionSyncLease"."epoch" + 1, "ownerId" = EXCLUDED."ownerId",
          "expiresAt" = EXCLUDED."expiresAt", "runId" = EXCLUDED."runId", "updatedAt" = EXCLUDED."updatedAt"
        WHERE "CollectionSyncLease"."expiresAt" <= $6
-       RETURNING "appId", "organizationLogin", "ownerId", "epoch", "runId", "expiresAt"`,
+       RETURNING "appId", "scope", "ownerId", "epoch", "runId", "expiresAt"`,
       input.appId,
-      input.organizationLogin,
+      input.scope,
       input.ownerId,
       input.expiresAt,
       input.runId,
@@ -555,9 +578,9 @@ export class CollectionIncrementalRepository {
   ): Promise<void> {
     const count = await this.db.$executeRawUnsafe(
       `UPDATE "CollectionSyncLease" SET "expiresAt" = $6, "updatedAt" = $5
-       WHERE "appId" = $1 AND "organizationLogin" = $2 AND "ownerId" = $3 AND "epoch" = $4 AND "expiresAt" > $5 AND "runId" = $7`,
+       WHERE "appId" = $1 AND "scope" = $2 AND "ownerId" = $3 AND "epoch" = $4 AND "expiresAt" > $5 AND "runId" = $7`,
       token.appId,
-      token.organizationLogin,
+      token.scope,
       token.ownerId,
       token.epoch,
       now,
@@ -571,9 +594,9 @@ export class CollectionIncrementalRepository {
   async releaseSyncLease(token: SyncLeaseToken, now: Date): Promise<void> {
     await this.db.$executeRawUnsafe(
       `UPDATE "CollectionSyncLease" SET "expiresAt" = $6, "updatedAt" = $6
-       WHERE "appId" = $1 AND "organizationLogin" = $2 AND "ownerId" = $3 AND "epoch" = $4 AND "runId" = $5`,
+       WHERE "appId" = $1 AND "scope" = $2 AND "ownerId" = $3 AND "epoch" = $4 AND "runId" = $5`,
       token.appId,
-      token.organizationLogin,
+      token.scope,
       token.ownerId,
       token.epoch,
       token.runId,
@@ -588,10 +611,10 @@ export class CollectionIncrementalRepository {
    */
   async assertSyncLeaseValid(token: SyncLeaseToken, now: Date): Promise<void> {
     const rows = await this.db.$queryRawUnsafe<Array<{ owned: boolean }>>(
-      `SELECT true AS "owned" FROM "CollectionSyncLease" WHERE "appId" = $1 AND "organizationLogin" = $2
+      `SELECT true AS "owned" FROM "CollectionSyncLease" WHERE "appId" = $1 AND "scope" = $2
        AND "ownerId" = $3 AND "epoch" = $4 AND "runId" = $5 AND "expiresAt" > $6 FOR UPDATE`,
       token.appId,
-      token.organizationLogin,
+      token.scope,
       token.ownerId,
       token.epoch,
       token.runId,

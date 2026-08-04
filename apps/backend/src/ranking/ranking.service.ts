@@ -98,17 +98,17 @@ export class RankingService {
       }))
       .filter((entry) => entry.total > 0);
 
-    // 이름 조회는 60초 캐시로 감싸인 buildEntries 안에서 이뤄진다 — 랭킹 목록과 같은
-    // staleness를 허용하는 대신, 캐시가 살아있는 동안은 추가 질의 없이 재사용된다.
-    const names = await this.findDisplayNames(
-      candidates.map((entry) => entry.githubId),
-    );
-
+    // 정책 결정 D3(.omc/plans/student-repo-ranking-tracking.md §1 "확정된 정책" 표,
+    // `:41`) — 비인증 공개 /ranking 응답의 공개 표기는 GitHub nickname으로
+    // 단일화한다. `d7bfc566`가 실명을 우선 노출하도록 바꿨던 것은 이 정책 위반이라
+    // 되돌린다 — displayName은 항상 githubLogin이다. `findDisplayNames`(아래)는 이
+    // 되돌림으로 더는 호출되지 않지만, `UserDisplayNameRepository`를 완전히
+    // 제거할지는 별도 판단이 필요해 이번 변경 범위 밖으로 남겨 둔다.
     return candidates
       .map((entry) => ({
         ...entry,
         rank: 0,
-        displayName: names.get(entry.githubId)?.trim() || entry.githubLogin,
+        displayName: entry.githubLogin,
       }))
       .sort((left, right) => {
         const normalizedLoginOrder = left.githubLogin

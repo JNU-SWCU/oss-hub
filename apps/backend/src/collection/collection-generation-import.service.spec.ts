@@ -39,17 +39,13 @@ interface Store {
   streams: Map<string, Row>;
 }
 
-interface OrgRepoKey {
-  githubOrganizationId: bigint;
-  githubRepositoryId: bigint;
-}
 interface RepositoryUpsertArgs {
-  where: { githubOrganizationId_githubRepositoryId: OrgRepoKey };
+  where: { githubRepositoryId: bigint };
   create: Row;
   update: Row;
 }
 interface RepositoryFindUniqueArgs {
-  where: { githubOrganizationId_githubRepositoryId: OrgRepoKey };
+  where: { githubRepositoryId: bigint };
 }
 interface CommitFactData {
   repositoryId: string;
@@ -137,10 +133,9 @@ interface FailureControl {
 
 function makeFacade(box: { store: Store }, control: FailureControl): unknown {
   return {
-    collectionRepository: {
+    githubRepository: {
       upsert: ({ where, create, update }: RepositoryUpsertArgs): Row => {
-        const k = where.githubOrganizationId_githubRepositoryId;
-        const key = `${String(k.githubOrganizationId)}:${String(k.githubRepositoryId)}`;
+        const key = String(where.githubRepositoryId);
         const existing = box.store.repositories.get(key);
         const row = existing
           ? applyUpdate(existing, update)
@@ -149,8 +144,7 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
         return row;
       },
       findUnique: ({ where }: RepositoryFindUniqueArgs): Row | null => {
-        const k = where.githubOrganizationId_githubRepositoryId;
-        const key = `${String(k.githubOrganizationId)}:${String(k.githubRepositoryId)}`;
+        const key = String(where.githubRepositoryId);
         return box.store.repositories.get(key) ?? null;
       },
     },

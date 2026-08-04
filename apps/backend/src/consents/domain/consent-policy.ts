@@ -5,7 +5,7 @@
  * 시드는 이 값을 import하며, 정책이 개정되어도 과거 Consent 행은
  * 삭제하지 않는다(append-only, schema 계약).
  */
-export const CONSENT_POLICY_VERSION = '2026-07-21';
+export const CONSENT_POLICY_VERSION = '2026-08-04';
 
 export const CONSENT_ITEM_KEYS = {
   PRIVACY_COLLECTION: 'PRIVACY_COLLECTION',

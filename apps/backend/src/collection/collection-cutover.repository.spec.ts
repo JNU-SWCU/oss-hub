@@ -31,7 +31,7 @@ describe('CollectionCutoverRepository — todo 14 quiesce lease (epoch fencing)'
     db.$queryRawUnsafe.mockResolvedValue([
       {
         appId: 1n,
-        organizationLogin: 'jnu-swcu',
+        scope: 'org:jnu-swcu',
         ownerId: 'owner-1',
         epoch: 1n,
         runId: 'run-1',
@@ -41,7 +41,7 @@ describe('CollectionCutoverRepository — todo 14 quiesce lease (epoch fencing)'
 
     const token = await repositoryFor(db).acquireLease({
       appId: 1n,
-      organizationLogin: 'jnu-swcu',
+      scope: 'org:jnu-swcu',
       ownerId: 'owner-1',
       runId: 'run-1',
       now,
@@ -52,7 +52,7 @@ describe('CollectionCutoverRepository — todo 14 quiesce lease (epoch fencing)'
     expect(db.$queryRawUnsafe).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO "CollectionCutoverLease"'),
       1n,
-      'jnu-swcu',
+      'org:jnu-swcu',
       'owner-1',
       expiresAt,
       'run-1',
@@ -66,7 +66,7 @@ describe('CollectionCutoverRepository — todo 14 quiesce lease (epoch fencing)'
 
     const token = await repositoryFor(db).acquireLease({
       appId: 1n,
-      organizationLogin: 'jnu-swcu',
+      scope: 'org:jnu-swcu',
       ownerId: 'owner-1',
       runId: 'run-1',
       now,
@@ -83,7 +83,7 @@ describe('CollectionCutoverRepository — todo 14 quiesce lease (epoch fencing)'
     await repositoryFor(db).releaseLease(
       {
         appId: 1n,
-        organizationLogin: 'jnu-swcu',
+        scope: 'org:jnu-swcu',
         ownerId: 'owner-1',
         epoch: 1n,
         runId: 'run-1',
@@ -95,7 +95,7 @@ describe('CollectionCutoverRepository — todo 14 quiesce lease (epoch fencing)'
     expect(db.$executeRawUnsafe).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE "CollectionCutoverLease"'),
       1n,
-      'jnu-swcu',
+      'org:jnu-swcu',
       'owner-1',
       1n,
       'run-1',
