@@ -3,8 +3,12 @@ name: ci
 # paths 필터를 사용하지 않아 모든 PR에서 required check이 생성되어 교착을 방지한다.
 # issues·issue_comment는 Issue 본문·댓글 public-safe 스캔 전용 트리거다
 # (PR title/body만 검사하던 사각지대 — #56 실증, docs/rules/security.md).
+# push(main)는 required check 우회 병합 등으로 main 자체가 red가 돼도
+# 병합 시점까지 아무 신호가 없던 사각지대를 잡는다 (PR #586 postmortem, ci job만 재실행).
 on:
   pull_request:
+  push:
+    branches: [main]
   issues:
     types: [opened, edited]
   issue_comment:
@@ -18,7 +22,7 @@ permissions:
 jobs:
   ci:
     name: ci
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: 체크아웃
@@ -27,6 +31,10 @@ jobs:
           fetch-depth: 0
 
       # 변경된 앱만 검사해 CI 실행 시간과 과금을 절감한다.
+      # base는 pull_request 이벤트에서는 무시되므로(PR base 브랜치를 API로 조회) 지정하지 않는다.
+      # push 이벤트에서는 base를 생략하면 저장소 기본 브랜치(main)로 자동 결정된다.
+      # main push는 base와 head가 같으므로, paths-filter가 push 전 마지막 커밋
+      # (github.event.before) 기준으로 diff를 비교한다 — 병합 커밋의 변경분만 잡힌다.
       - name: 변경 감지
         id: changes
         uses: dorny/paths-filter@v3
