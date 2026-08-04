@@ -58,17 +58,24 @@ export function roleGateDeniedHomePath(
   return deniedPath ?? roleHomePath(role);
 }
 
-/** 안내를 읽을 시간. 이만큼 머문 뒤 온보딩으로 이동한다. */
-export const UNASSIGNED_NOTICE_DELAY_MS = 2_000;
-
 /**
- * 이동 전에 안내를 먼저 보여줄지.
+ * 미배정 사용자에게 이 화면을 그대로 열어 줄지.
  *
- * 미배정 사용자만 해당한다 — 이들은 "로그인은 했는데 왜 화면이 바뀌지?" 상태라
- * 이유를 모른 채 튕긴다. 비로그인은 랜딩이 곧 로그인 안내라 지체시킬 이유가 없고,
- * 조회 실패·권한 불일치는 애초에 이동하지 않고 각자의 안내 화면을 띄운다.
+ * 안내(`unassignedNotice`)를 준 화면만 해당한다. 예전에는 그 안내를 잠깐 띄운 뒤
+ * 온보딩으로 되돌렸는데, 안내를 붙인 화면이 하필 설정(#156)이었다 — 승인을 기다리는
+ * 교직원이 이름·학과를 고치러 들어왔다가 안내만 보고 승인 대기 화면으로 되돌아갔고,
+ * 다시 눌러도 같은 일이 반복돼 고칠 방법이 아예 없었다(#581). 되돌리는 대신 화면을
+ * 열고, 안내는 "곧 나갑니다"가 아니라 "가입 중이지만 여기까지는 쓸 수 있습니다"의
+ * 표시로 남긴다.
+ *
+ * 미배정만 열어 준다. 비로그인은 남의 프로필을 여는 셈이라 랜딩으로 보내야 하고,
+ * 조회 실패는 "역할이 없음"이 아니라 "역할을 모름"이라 화면을 열 근거가 되지 못한다
+ * — 둘 다 기존 판단(`roleGateRedirectPath`)에 그대로 맡긴다.
+ *
+ * 판단이 `hasNotice`에 걸려 있으므로 안내를 주지 않는 화면(역할 패널 전부)의 동작은
+ * 종전과 완전히 같다.
  */
-export function shouldDelayRedirectForNotice(
+export function shouldOpenForUnassigned(
   status: SessionStatus,
   hasNotice: boolean,
 ): boolean {
@@ -82,10 +89,10 @@ export function shouldDelayRedirectForNotice(
  * - 역할은 확정됐지만 `allow`에 없음: 이동하지 않고 접근 권한 안내를 띄운다.
  * 서버 사이드 강화(middleware)는 이 티켓 범위 밖이다.
  *
- * `unassignedNotice`를 주면 미배정 사용자를 온보딩으로 보내기 직전에 그 안내를
- * 대신 띄운다(#156 설정 화면). 목적지가 아니라 출발지에서 말하는 이유는, 온보딩
- * 화면은 프로필 미완료 같은 사정으로 한 번 더 이동할 수 있어 거기에 붙인 안내는
- * 사라질 수 있기 때문이다.
+ * `unassignedNotice`를 주면 미배정 사용자를 온보딩으로 되돌리지 않고, 그 안내를
+ * 화면 위에 얹은 채 자식을 그대로 그린다(#156 설정 화면, #581). 안내를 목적지가
+ * 아니라 출발지에서 띄우는 이유는, 온보딩 화면은 프로필 미완료 같은 사정으로 한 번
+ * 더 이동할 수 있어 거기에 붙인 안내는 사라질 수 있기 때문이다.
  */
 export function RoleGate({
   allow,
@@ -104,18 +111,14 @@ export function RoleGate({
   const hasNotice = unassignedNotice !== undefined;
 
   useEffect(() => {
+    if (shouldOpenForUnassigned(state.status, hasNotice)) {
+      return;
+    }
     const redirectPath = roleGateRedirectPath(state);
     if (!redirectPath) {
       return;
     }
-    if (!shouldDelayRedirectForNotice(state.status, hasNotice)) {
-      router.replace(redirectPath);
-      return;
-    }
-    const timer = setTimeout(() => {
-      router.replace(redirectPath);
-    }, UNASSIGNED_NOTICE_DELAY_MS);
-    return () => clearTimeout(timer);
+    router.replace(redirectPath);
   }, [state, hasNotice, router]);
 
   const isAllowed =
@@ -139,8 +142,15 @@ export function RoleGate({
     return <AccessDenied homePath={roleGateDeniedHomePath(role, deniedPath)} />;
   }
 
-  if (shouldDelayRedirectForNotice(status, hasNotice)) {
-    return <>{unassignedNotice}</>;
+  // 안내를 얹고 화면을 그대로 연다. 안내가 자식보다 앞에 오는 것은 순서가 곧 읽는
+  // 순서이기 때문이다 — 왜 이 화면이 평소와 다른지 먼저 알고 폼을 만져야 한다.
+  if (shouldOpenForUnassigned(status, hasNotice)) {
+    return (
+      <>
+        {unassignedNotice}
+        {children}
+      </>
+    );
   }
 
   if (!isAllowed) {
