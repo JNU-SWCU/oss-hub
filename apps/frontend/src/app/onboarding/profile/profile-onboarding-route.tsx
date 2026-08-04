@@ -6,6 +6,7 @@ import { ProfileOnboardingScreen } from '@/features/profile/components/profile-o
 import type { ProfileRole } from '@/features/profile/profile-requirements';
 import {
   effectiveProfileRole,
+  isClosedRoleRequest,
   onboardingPathFor,
 } from '../../_shell/onboarding-route';
 import { roleHomePath } from '../../_shell/role';
@@ -24,7 +25,10 @@ const ROLE_PATH = '/onboarding/role';
 export type ProfileOnboardingView =
   | { readonly kind: 'pending' }
   | { readonly kind: 'error' }
-  | { readonly kind: 'redirect'; readonly path: typeof LANDING_PATH }
+  | {
+      readonly kind: 'redirect';
+      readonly path: typeof LANDING_PATH | typeof ROLE_PATH;
+    }
   | {
       readonly kind: 'form';
       readonly role: ProfileRole | null;
@@ -117,6 +121,20 @@ export function profileOnboardingView(
         state.selectedRole === null
       ) {
         return { kind: 'redirect', path: LANDING_PATH };
+      }
+
+      // 회수·반려는 살아 있는 신청이 없는 상태라 역할부터 다시 고른다(#535).
+      //
+      // 여기서 폼을 그리면 역할을 모르는 채로 가장 엄격한 학생 기준이 적용돼
+      // 학번을 필수로 묻는다. 교직원이었다가 회수된 사람에게는 학번이 없어
+      // 지어내야 하고, 한 번 저장하면 백엔드가 그 값을 잠근다(`USR_003`).
+      // `onboardingPathFor`는 이미 이 두 상태를 역할 선택으로 보내고 있었다 —
+      // 화면만 그 계약을 따르지 않고 있었다.
+      if (
+        state.status === 'unassigned' &&
+        isClosedRoleRequest(state.roleRequestStatus)
+      ) {
+        return { kind: 'redirect', path: ROLE_PATH };
       }
 
       return {
