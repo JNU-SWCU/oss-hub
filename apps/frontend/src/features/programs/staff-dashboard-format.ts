@@ -63,7 +63,7 @@ export function getStaffRecruitmentBadge(
     {
       applicationStartAt: program.applicationPeriod.startsAt,
       applicationEndAt: program.applicationPeriod.endsAt,
-        endAt: null,
+      endAt: null,
     },
     now,
   );
