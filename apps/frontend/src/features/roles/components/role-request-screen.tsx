@@ -243,6 +243,11 @@ export function RoleRequestScreen() {
 
   const loadRequest = useCallback(async (): Promise<void> => {
     setState({ kind: 'loading' });
+    // 재요청 실패 안내는 그때의 서버 상태를 말한다. 상태를 다시 불러오면 그 말은
+    // 더 이상 지금을 설명하지 않으므로 함께 지운다. 특히 그 안내가 '상태 새로고침'을
+    // 눌러 확인하라고 직접 가리키므로, 눌러도 같은 경고가 남아 있으면 사용자는
+    // 안내를 따랐는데 아무 일도 일어나지 않은 것으로 읽는다.
+    setRetryError(null);
 
     try {
       const request = await fetchMyRoleRequest();
