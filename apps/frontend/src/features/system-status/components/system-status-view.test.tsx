@@ -1,7 +1,11 @@
 import type { ReactElement, ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import type { SystemStatus, SystemStatusViewState } from '../types';
+import type {
+  SystemStatus,
+  SystemStatusViewState,
+  TriggerNotice,
+} from '../types';
 import { SystemStatusView } from './system-status-view';
 
 const normal: SystemStatus = {
@@ -20,10 +24,31 @@ const normal: SystemStatus = {
   safeReason: null,
 };
 
-function render(state: SystemStatusViewState): string {
+function render(
+  state: SystemStatusViewState,
+  overrides: {
+    readonly isTriggering?: boolean;
+    readonly triggerNotice?: TriggerNotice | null;
+  } = {},
+): string {
   return renderToStaticMarkup(
-    <SystemStatusView state={state} onRetry={() => undefined} />,
+    <SystemStatusView
+      state={state}
+      onRetry={() => undefined}
+      onTrigger={() => undefined}
+      isTriggering={overrides.isTriggering ?? false}
+      triggerNotice={overrides.triggerNotice ?? null}
+    />,
   );
+}
+
+/** 텍스트 바로 앞의 `<button ...>` 시작 태그만 잘라내 `disabled` 여부를 확인한다. */
+function buttonTagContaining(html: string, label: string): string {
+  const labelIndex = html.indexOf(label);
+  if (labelIndex === -1) throw new Error(`label not found: ${label}`);
+  const openIndex = html.lastIndexOf('<button', labelIndex);
+  const closeIndex = html.indexOf('>', openIndex);
+  return html.slice(openIndex, closeIndex + 1);
 }
 
 function findRetry(node: ReactNode): (() => void) | undefined {
@@ -138,6 +163,9 @@ describe('SystemStatusView', () => {
     const outer = SystemStatusView({
       state: { kind: 'error' },
       onRetry,
+      onTrigger: () => undefined,
+      isTriggering: false,
+      triggerNotice: null,
     }) as ReactElement;
     const rendered = (outer.type as (props: typeof outer.props) => ReactNode)(
       outer.props,
@@ -146,5 +174,64 @@ describe('SystemStatusView', () => {
     expect(retry).toBe(onRetry);
     retry?.();
     expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('평상시에는 수집 트리거 버튼이 활성화되어 있다', () => {
+    const html = render({ kind: 'success', status: normal });
+    const button = buttonTagContaining(html, '지금 수집 실행');
+    // Tailwind class에도 `disabled:` variant 문자열이 섞여 있어 속성 형태(`disabled=""`)로
+    // 정확히 확인한다 — 부분 문자열 `disabled`만 보면 class 때문에 항상 참이 된다.
+    expect(button).not.toContain('disabled=""');
+  });
+
+  it('트리거 요청이 진행 중이면 버튼을 비활성화하고 진행 문구를 보여준다', () => {
+    const html = render(
+      { kind: 'success', status: normal },
+      { isTriggering: true },
+    );
+    const button = buttonTagContaining(html, '실행 요청 중');
+    expect(button).toContain('disabled=""');
+  });
+
+  it('이미 수집이 진행 중(PROCESSING)이면 요청 중이 아니어도 버튼을 비활성화한다', () => {
+    const html = render({
+      kind: 'success',
+      status: { ...normal, currentRunStatus: 'PROCESSING' },
+    });
+    const button = buttonTagContaining(html, '지금 수집 실행');
+    expect(button).toContain('disabled=""');
+  });
+
+  it('트리거 성공 알림은 role="alert"로 즉시 통지되고 원문 오류를 노출하지 않는다', () => {
+    const html = render(
+      { kind: 'success', status: normal },
+      {
+        triggerNotice: {
+          kind: 'success',
+          message: '수집을 시작했습니다. 최신 상태를 다시 불러왔습니다.',
+        },
+      },
+    );
+    expect(html).toContain('role="alert"');
+    expect(html).toContain('수집 요청을 보냈습니다');
+    expect(html).toContain(
+      '수집을 시작했습니다. 최신 상태를 다시 불러왔습니다.',
+    );
+  });
+
+  it('전환(quiesce) 사유의 트리거 실패는 안내 문구를 사람이 읽을 수 있게 보여준다', () => {
+    const html = render(
+      { kind: 'success', status: normal },
+      {
+        triggerNotice: {
+          kind: 'error',
+          message:
+            '저장소 전환 작업이 진행 중이라 지금은 수집을 시작할 수 없습니다. 전환이 끝난 뒤 다시 시도해 주세요.',
+        },
+      },
+    );
+    expect(html).toContain('수집을 시작하지 못했습니다');
+    expect(html).toContain('저장소 전환 작업이 진행 중');
+    expect(html).not.toContain('COL_008');
   });
 });

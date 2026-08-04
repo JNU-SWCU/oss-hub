@@ -4,6 +4,7 @@ import {
   Clock3,
   Database,
   GitBranch,
+  PlayCircle,
   RotateCcw,
 } from 'lucide-react';
 import { CardGrid, EmptyState, PageHeader, StatusBadge } from '@/components';
@@ -15,11 +16,15 @@ import type {
   CurrentRunStatus,
   SystemStatusSafeReason,
   SystemStatusViewState,
+  TriggerNotice,
 } from '../types';
 
 interface SystemStatusViewProps {
   readonly state: SystemStatusViewState;
   readonly onRetry: () => void;
+  readonly onTrigger: () => void;
+  readonly isTriggering: boolean;
+  readonly triggerNotice: TriggerNotice | null;
 }
 
 const HEALTH = {
@@ -97,7 +102,13 @@ function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
   );
 }
 
-export function SystemStatusView({ state, onRetry }: SystemStatusViewProps) {
+export function SystemStatusView({
+  state,
+  onRetry,
+  onTrigger,
+  isTriggering,
+  triggerNotice,
+}: SystemStatusViewProps) {
   if (state.kind === 'loading') return <LoadingState />;
   if (state.kind === 'error') return <ErrorState onRetry={onRetry} />;
 
@@ -105,13 +116,42 @@ export function SystemStatusView({ state, onRetry }: SystemStatusViewProps) {
   const health = HEALTH[status.health];
   const run = RUN_STATUS[status.currentRunStatus];
   const isEmpty = status.health === 'EMPTY';
+  // 이미 실행 중인 사이클에 두 번째 트리거를 보내 봐야 lease가 거절한다 — 요청을
+  // 보내기 전에 막아 관리자가 실패 응답을 받고서야 알게 되는 상황을 없앤다.
+  const triggerDisabled =
+    isTriggering || status.currentRunStatus === 'PROCESSING';
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-5 sm:p-8">
       <PageHeader
         title="시스템 상태"
         description="증분 데이터 수집 상태와 최신 checkpoint 시각을 확인합니다."
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            disabled={triggerDisabled}
+            onClick={onTrigger}
+          >
+            <PlayCircle aria-hidden="true" />
+            {isTriggering ? '실행 요청 중…' : '지금 수집 실행'}
+          </Button>
+        }
       />
+
+      {/* 트리거 결과 알림 — Alert의 role="alert"가 등장 즉시 스크린 리더에 통지한다. */}
+      {triggerNotice ? (
+        <Alert
+          variant={triggerNotice.kind === 'error' ? 'destructive' : 'default'}
+        >
+          <AlertTitle>
+            {triggerNotice.kind === 'error'
+              ? '수집을 시작하지 못했습니다'
+              : '수집 요청을 보냈습니다'}
+          </AlertTitle>
+          <AlertDescription>{triggerNotice.message}</AlertDescription>
+        </Alert>
+      ) : null}
 
       {isEmpty ? (
         <EmptyState
