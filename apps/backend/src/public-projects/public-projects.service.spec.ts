@@ -245,7 +245,7 @@ describe('PublicProjectsService', () => {
         .mockResolvedValue([{ category: 'BASIC', count: 1 }]);
       const filterEligibleRepositoryIds = jest.fn();
       const isEligible = jest.fn();
-      const { service, eligibility } = serviceWith({
+      const { service } = serviceWith({
         countByCategory,
         filterEligibleRepositoryIds,
         isEligible,
@@ -254,8 +254,8 @@ describe('PublicProjectsService', () => {
       await service.categoryCounts();
 
       expect(countByCategory).toHaveBeenCalledTimes(1);
-      expect(eligibility.filterEligibleRepositoryIds).not.toHaveBeenCalled();
-      expect(eligibility.isEligible).not.toHaveBeenCalled();
+      expect(filterEligibleRepositoryIds).not.toHaveBeenCalled();
+      expect(isEligible).not.toHaveBeenCalled();
     });
   });
 
@@ -288,7 +288,7 @@ describe('PublicProjectsService', () => {
       const countByCategory = jest
         .fn()
         .mockResolvedValue([{ category: 'CAPSTONE', count: 2 }]);
-      const { service, eligibility } = serviceWith({
+      const { service } = serviceWith({
         listPage,
         filterEligibleRepositoryIds,
         countByCategory,
@@ -302,7 +302,7 @@ describe('PublicProjectsService', () => {
       expect(counts.all).toBe(2);
       expect(page.items).toHaveLength(1);
       expect(page.items.map((item) => item.id)).toEqual(['capstone-a']);
-      expect(eligibility.filterEligibleRepositoryIds).toHaveBeenCalledTimes(1);
+      expect(filterEligibleRepositoryIds).toHaveBeenCalledTimes(1);
       expect(countByCategory).toHaveBeenCalledTimes(1);
     });
 

@@ -66,7 +66,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 
 | 기능 | owner | 상태 | parent Issue | PR | CI | blocker (unblock owner) |
 | --- | --- | --- | --- | --- | --- | --- |
-| 프로그램 상태 기간 판정 단일화 (status-counts 배타) | @GoBeromsu | active | [.omc/plans/program-status-derivation.md](../../.omc/plans/program-status-derivation.md) | pending | local unit pass | CASE 단일화 + all 모수에 ARCHIVED 포함. 파생 status 저장/DTO 없음 |
+| 프로그램 상태 기간 판정 단일화 (status-counts 배타) | @GoBeromsu | review | [.omc/plans/program-status-derivation.md](../../.omc/plans/program-status-derivation.md) | [#589](https://github.com/JNU-SWCU/oss-hub/pull/589) | pending | CASE 단일화 + all에 ARCHIVED. unit·integration 245 pass · 파생 status 저장/DTO 없음 |
 | 섹션 컨텍스트 사이드 네비 — 셸·프로그램 상태 필터 | @GoBeromsu | review | [.omc/plans/sidepanel-section-nav.md](../../.omc/plans/sidepanel-section-nav.md) | [#582](https://github.com/JNU-SWCU/oss-hub/pull/582) | pending | 스택 1/5: dual chrome + status 필터 + status-counts. 후속: archive·ranking·design |
 | 아카이브 카테고리 서버 필터·사이드 패널 | @GoBeromsu | review | [.omc/plans/sidepanel-section-nav.md](../../.omc/plans/sidepanel-section-nav.md) | [#583](https://github.com/JNU-SWCU/oss-hub/pull/583) | pending | 스택 2/5: GET projects?category= + category-counts. base: 셸·프로그램 섹션 네비 |
 | 랭킹 연도 쿼리·사이드 연도 목록 | @GoBeromsu | review | [.omc/plans/sidepanel-section-nav.md](../../.omc/plans/sidepanel-section-nav.md) · [.omc/plans/backend-sidenav-api-execution.md](../../.omc/plans/backend-sidenav-api-execution.md) | [#584](https://github.com/JNU-SWCU/oss-hub/pull/584) | pending | 스택 3/5: ?year= + GET /ranking/years + 범위 가드·Cache-Control. base: archive 카테고리 |
