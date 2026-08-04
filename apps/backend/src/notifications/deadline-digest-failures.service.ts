@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
-import { DeadlineDigestRepository } from './deadline-digest.repository';
+import { DeadlineDigestStore } from './deadline-digest.store';
 
 export interface DeadlineDigestFailure {
   readonly id: string;
@@ -9,7 +9,7 @@ export interface DeadlineDigestFailure {
 
 @Injectable()
 export class DeadlineDigestFailuresService {
-  constructor(private readonly repository: DeadlineDigestRepository) {}
+  constructor(private readonly repository: DeadlineDigestStore) {}
 
   async listFailures(githubId: bigint): Promise<DeadlineDigestFailure[]> {
     if (!(await this.repository.findActiveAdmin(githubId))) {

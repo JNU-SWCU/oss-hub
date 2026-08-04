@@ -2,7 +2,7 @@ import {
   LOGIN_HISTORY_EVENTS,
   type LoginHistoryPage,
 } from './domain/login-history';
-import { LoginHistoryRepository } from './login-history.repository';
+import { LoginHistoryStore } from './login-history.store';
 import { LoginHistoryService } from './login-history.service';
 
 const emptyPage: LoginHistoryPage = {
@@ -18,7 +18,7 @@ describe('LoginHistoryService', () => {
   const service = new LoginHistoryService({
     create,
     findPage,
-  } as unknown as LoginHistoryRepository);
+  } as unknown as LoginHistoryStore);
 
   beforeEach(() => {
     create.mockReset();

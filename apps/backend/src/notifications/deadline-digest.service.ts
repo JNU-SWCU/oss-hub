@@ -1,10 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { DeadlineDigestRepository } from './deadline-digest.repository';
+import { DeadlineDigestStore } from './deadline-digest.store';
 import type {
   DeadlineDigestRepositoryPort,
   MissingSubmitter,
   UpcomingMilestone,
-} from './deadline-digest.repository';
+} from './deadline-digest.store';
 import { MAIL_SENDER } from './mail-sender.port';
 import type { MailSender } from './mail-sender.port';
 
@@ -16,7 +16,7 @@ export class DeadlineDigestService {
   private readonly logger = new Logger('DeadlineDigestService');
 
   constructor(
-    @Inject(DeadlineDigestRepository)
+    @Inject(DeadlineDigestStore)
     private readonly repository: DeadlineDigestRepositoryPort,
     @Inject(MAIL_SENDER)
     private readonly mailSender: MailSender,

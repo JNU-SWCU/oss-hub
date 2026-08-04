@@ -13,10 +13,7 @@ import type {
   RoleConfirmation,
   RoleConfirmationTarget,
 } from './role-confirmation';
-import type {
-  RolesRepositoryPort,
-  RolesTransactionStore,
-} from './roles.repository';
+import type { RolesRepositoryPort, RolesTransactionStore } from './roles.store';
 import { RolesErrorCode } from './roles-error-code.enum';
 import { RolesService } from './roles.service';
 

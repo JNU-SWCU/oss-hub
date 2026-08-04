@@ -7,10 +7,10 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import { DeadlineDigestRepository } from './deadline-digest.repository';
+import { DeadlineDigestStore } from './deadline-digest.store';
 import { DeadlineDigestService } from './deadline-digest.service';
 import type { DeadlineDigestMail, MailSender } from './mail-sender.port';
-import { NotificationSettingsRepository } from './notification-settings.repository';
+import { NotificationSettingsStore } from './notification-settings.store';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -41,8 +41,8 @@ const OFF_APPLICATION = 'test:notifications:application:off';
 const SUBMISSION = 'test:notifications:submission';
 
 const prisma = new PrismaService();
-const repository = new DeadlineDigestRepository(prisma);
-const settingsRepository = new NotificationSettingsRepository(prisma);
+const repository = new DeadlineDigestStore(prisma);
+const settingsRepository = new NotificationSettingsStore(prisma);
 
 class RecordingMailSender implements MailSender {
   readonly sent: DeadlineDigestMail[] = [];

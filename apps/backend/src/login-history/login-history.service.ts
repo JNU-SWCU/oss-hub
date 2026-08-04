@@ -3,11 +3,11 @@ import {
   LOGIN_HISTORY_EVENTS,
   type LoginHistoryPage,
 } from './domain/login-history';
-import { LoginHistoryRepository } from './login-history.repository';
+import { LoginHistoryStore } from './login-history.store';
 
 @Injectable()
 export class LoginHistoryService {
-  constructor(private readonly repository: LoginHistoryRepository) {}
+  constructor(private readonly repository: LoginHistoryStore) {}
 
   async recordLogin(userId: string): Promise<void> {
     await this.repository.create(userId, LOGIN_HISTORY_EVENTS.LOGIN);

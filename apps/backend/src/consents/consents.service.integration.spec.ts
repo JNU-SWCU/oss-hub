@@ -3,7 +3,7 @@ import { runProfile } from '../../prisma/seed';
 import { AUTH_SCENARIOS } from '../../prisma/seeds/auth';
 import { prisma, seedGithubId, SeedStats } from '../../prisma/seeds/helpers';
 import { PrismaService } from '../prisma/prisma.service';
-import { ConsentsRepository } from './consents.repository';
+import { ConsentsStore } from './consents.store';
 import { ConsentsService } from './consents.service';
 import { CURRENT_CONSENT_POLICY } from './domain/consent-policy';
 
@@ -29,7 +29,7 @@ const allRequiredKeys = CURRENT_CONSENT_POLICY.requiredItems.map(
 
 describe('ConsentsService integration (seed auth 시나리오)', () => {
   const prismaService = new PrismaService();
-  const service = new ConsentsService(new ConsentsRepository(prismaService));
+  const service = new ConsentsService(new ConsentsStore(prismaService));
 
   beforeAll(async () => {
     await prismaService.$connect();

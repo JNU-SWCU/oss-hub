@@ -50,7 +50,7 @@ export interface DeadlineDigestRepositoryPort {
 }
 
 @Injectable()
-export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
+export class DeadlineDigestStore implements DeadlineDigestRepositoryPort {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async findUpcomingDeadlineMilestones(

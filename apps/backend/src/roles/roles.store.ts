@@ -117,7 +117,7 @@ class PrismaRolesTransactionStore implements RolesTransactionStore {
 }
 
 @Injectable()
-export class RolesRepository implements RolesRepositoryPort {
+export class RolesStore implements RolesRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
 
   async withTransaction<T>(

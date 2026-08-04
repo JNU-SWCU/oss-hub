@@ -10,7 +10,7 @@ import { sessionCookieName } from '../auth/cookies';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import { ConsentsController } from './consents.controller';
-import { ConsentsRepository } from './consents.repository';
+import { ConsentsStore } from './consents.store';
 import { ConsentsService } from './consents.service';
 import type { ConsentRecord, ConsentUser } from './domain/consent';
 
@@ -44,7 +44,7 @@ const repository = {
   findConsent,
   createConsent,
 } satisfies Pick<
-  ConsentsRepository,
+  ConsentsStore,
   'findUserByGithubId' | 'findConsent' | 'createConsent'
 >;
 
@@ -125,7 +125,7 @@ beforeAll(async () => {
           useSecureCookies: false,
         },
       },
-      { provide: ConsentsRepository, useValue: repository },
+      { provide: ConsentsStore, useValue: repository },
     ],
   }).compile();
 

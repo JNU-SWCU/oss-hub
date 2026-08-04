@@ -1,4 +1,4 @@
-import type { NotificationSettings } from '../notification-settings.repository';
+import type { NotificationSettings } from '../notification-settings.store';
 
 export class NotificationSettingsResponseDto {
   private constructor(

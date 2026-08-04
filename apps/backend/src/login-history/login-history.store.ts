@@ -9,7 +9,7 @@ import {
 } from './domain/login-history';
 
 @Injectable()
-export class LoginHistoryRepository {
+export class LoginHistoryStore {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(userId: string, event: LoginHistoryEvent): Promise<void> {

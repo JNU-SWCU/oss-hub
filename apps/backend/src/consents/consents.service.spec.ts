@@ -1,7 +1,7 @@
 import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { ConsentErrorCode } from './consent-error-code.enum';
-import { ConsentsRepository } from './consents.repository';
+import { ConsentsStore } from './consents.store';
 import { ConsentsService } from './consents.service';
 import { ConsentRecord } from './domain/consent';
 import {
@@ -21,7 +21,7 @@ const allRequiredKeys = CURRENT_CONSENT_POLICY.requiredItems.map(
   (item) => item.key,
 );
 
-function buildService(overrides: Partial<ConsentsRepository> = {}): {
+function buildService(overrides: Partial<ConsentsStore> = {}): {
   service: ConsentsService;
   findUserByGithubId: jest.Mock;
   findConsent: jest.Mock;
@@ -38,7 +38,7 @@ function buildService(overrides: Partial<ConsentsRepository> = {}): {
     findConsent,
     createConsent,
     ...overrides,
-  } as unknown as ConsentsRepository;
+  } as unknown as ConsentsStore;
   return {
     service: new ConsentsService(repository),
     findUserByGithubId,

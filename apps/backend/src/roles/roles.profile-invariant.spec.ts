@@ -20,10 +20,7 @@ import {
 } from '../consents/consent-error-code.enum';
 import type { ConsentsService } from '../consents/consents.service';
 import type { RoleUser } from './domain/role-onboarding';
-import type {
-  RolesRepositoryPort,
-  RolesTransactionStore,
-} from './roles.repository';
+import type { RolesRepositoryPort, RolesTransactionStore } from './roles.store';
 import { RolesService } from './roles.service';
 
 const GITHUB_ID = 424242n;

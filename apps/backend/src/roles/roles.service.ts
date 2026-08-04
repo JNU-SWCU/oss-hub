@@ -10,11 +10,8 @@ import type {
   RoleSelectionState,
   SelectableRole,
 } from './domain/role-onboarding';
-import { RolesRepository } from './roles.repository';
-import type {
-  RolesRepositoryPort,
-  RolesTransactionStore,
-} from './roles.repository';
+import { RolesStore } from './roles.store';
+import type { RolesRepositoryPort, RolesTransactionStore } from './roles.store';
 import { ROLES_ERROR_CODES, RolesErrorCode } from './roles-error-code.enum';
 
 /**
@@ -50,7 +47,7 @@ import { ROLES_ERROR_CODES, RolesErrorCode } from './roles-error-code.enum';
 @Injectable()
 export class RolesService {
   constructor(
-    @Inject(RolesRepository)
+    @Inject(RolesStore)
     private readonly repository: RolesRepositoryPort,
     @Inject(ConsentsService)
     private readonly consentsService: Pick<ConsentsService, 'requireCurrent'>,

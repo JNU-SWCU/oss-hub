@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { CollectionModule } from '../collection/collection.module';
 import { SystemStatusController } from './system-status.controller';
-import { SystemStatusRepository } from './system-status.repository';
+import { SystemStatusStore } from './system-status.store';
 import {
   SYSTEM_STATUS_CLOCK,
   SystemStatusService,
@@ -12,7 +12,7 @@ import {
   imports: [AuthModule, CollectionModule],
   controllers: [SystemStatusController],
   providers: [
-    SystemStatusRepository,
+    SystemStatusStore,
     SystemStatusService,
     { provide: SYSTEM_STATUS_CLOCK, useValue: () => new Date() },
   ],

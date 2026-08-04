@@ -1,6 +1,6 @@
 import { DomainException } from '../common/error-code';
 import { NotificationSettingsService } from './notification-settings.service';
-import type { NotificationSettingsRepositoryPort } from './notification-settings.repository';
+import type { NotificationSettingsRepositoryPort } from './notification-settings.store';
 
 describe('NotificationSettingsService', () => {
   const updateByGithubId = jest.fn();

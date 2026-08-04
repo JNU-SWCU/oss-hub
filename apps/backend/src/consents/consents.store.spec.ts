@@ -1,6 +1,6 @@
 import { Consent as PrismaConsent, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { ConsentsRepository } from './consents.repository';
+import { ConsentsStore } from './consents.store';
 
 // 합성 데이터만 사용한다 (docs/rules/security.md)
 const syntheticUserId = 'cuid-synthetic-consent-user';
@@ -23,14 +23,14 @@ function uniqueViolation(): Prisma.PrismaClientKnownRequestError {
   });
 }
 
-describe('ConsentsRepository.createConsent', () => {
+describe('ConsentsStore.createConsent', () => {
   it('생성 결과를 Prisma row가 아닌 도메인 필드만으로 반환한다', async () => {
     const create = jest.fn().mockResolvedValue(buildRow());
     const prisma = {
       consent: { create },
     } as unknown as PrismaService;
 
-    const record = await new ConsentsRepository(prisma).createConsent(
+    const record = await new ConsentsStore(prisma).createConsent(
       syntheticUserId,
       syntheticVersion,
     );
@@ -51,7 +51,7 @@ describe('ConsentsRepository.createConsent', () => {
       consent: { create, findUnique },
     } as unknown as PrismaService;
 
-    const record = await new ConsentsRepository(prisma).createConsent(
+    const record = await new ConsentsStore(prisma).createConsent(
       syntheticUserId,
       syntheticVersion,
     );
@@ -74,7 +74,7 @@ describe('ConsentsRepository.createConsent', () => {
     } as unknown as PrismaService;
 
     await expect(
-      new ConsentsRepository(prisma).createConsent(
+      new ConsentsStore(prisma).createConsent(
         syntheticUserId,
         syntheticVersion,
       ),

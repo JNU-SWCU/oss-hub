@@ -2,7 +2,7 @@ import { Role, RoleRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import type { ConsentsService } from '../consents/consents.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { RolesRepository } from './roles.repository';
+import { RolesStore } from './roles.store';
 import { RolesService } from './roles.service';
 
 assertIsolatedIntegrationDatabase({
@@ -21,9 +21,9 @@ const COMPLETE_PROFILE = {
   department: '인공지능학부',
 } as const;
 
-describe('RolesRepository integration', () => {
+describe('RolesStore integration', () => {
   const prisma = new PrismaService();
-  const repository = new RolesRepository(prisma);
+  const repository = new RolesStore(prisma);
   const consentsService: Pick<ConsentsService, 'requireCurrent'> = {
     requireCurrent: jest.fn().mockResolvedValue(undefined),
   };

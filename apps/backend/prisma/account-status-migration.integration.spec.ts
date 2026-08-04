@@ -10,7 +10,7 @@ import { AuditLogService } from '../src/audit-log/audit-log.service';
 import type { ConsentsService } from '../src/consents/consents.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { loadRuntimeConfig } from '../src/runtime-config/runtime-config';
-import { RolesRepository } from '../src/roles/roles.repository';
+import { RolesStore } from '../src/roles/roles.store';
 import { RolesService } from '../src/roles/roles.service';
 import { AdminAccessRepository } from '../src/users/admin-access.repository';
 import { AdminAccessService } from '../src/users/admin-access.service';
@@ -67,7 +67,7 @@ describe('accountStatus migration regression', () => {
   // "완료된 프로필"이 빠지면서(RolesService 문서 주석 참고) `RolesService`가 더 이상
   // 그 협력자를 받지 않는다. 남겨 두면 그 mock이 지키던 계약이 사라졌는데도 있는 것처럼
   // 보일 뿐 아니라, 인자 수가 맞지 않아 typecheck가 TS2554로 죽는다.
-  const rolesService = new RolesService(new RolesRepository(prisma), {
+  const rolesService = new RolesService(new RolesStore(prisma), {
     requireCurrent: jest.fn(),
   } satisfies Pick<ConsentsService, 'requireCurrent'>);
   const adminAccessService = new AdminAccessService(

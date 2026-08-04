@@ -8,7 +8,7 @@ export interface SystemStatusActor {
 }
 
 @Injectable()
-export class SystemStatusRepository {
+export class SystemStatusStore {
   constructor(private readonly prisma: PrismaService) {}
 
   findActor(githubId: bigint): Promise<SystemStatusActor | null> {

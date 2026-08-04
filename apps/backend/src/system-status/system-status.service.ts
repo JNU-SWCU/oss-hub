@@ -5,7 +5,7 @@ import {
   type CollectionIncrementalStatusSnapshotDto,
   type CollectionReadPort,
 } from '../collection/collection-read.port';
-import { SystemStatusRepository } from './system-status.repository';
+import { SystemStatusStore } from './system-status.store';
 import {
   CollectionSystemStatusResponseDto,
   RepositoryProvisioningSystemStatusResponseDto,
@@ -32,7 +32,7 @@ interface StatusDecision {
 @Injectable()
 export class SystemStatusService {
   constructor(
-    private readonly repository: SystemStatusRepository,
+    private readonly repository: SystemStatusStore,
     @Inject(COLLECTION_READ_PORT)
     private readonly collection: CollectionReadPort,
     @Inject(SYSTEM_STATUS_CLOCK) private readonly clock: SystemStatusClock,

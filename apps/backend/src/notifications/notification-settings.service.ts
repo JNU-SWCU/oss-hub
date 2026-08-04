@@ -4,11 +4,11 @@ import {
   NOTIFICATIONS_ERROR_CODES,
   NotificationsErrorCode,
 } from './notifications-error-code.enum';
-import { NotificationSettingsRepository } from './notification-settings.repository';
+import { NotificationSettingsStore } from './notification-settings.store';
 import type {
   NotificationSettings,
   NotificationSettingsRepositoryPort,
-} from './notification-settings.repository';
+} from './notification-settings.store';
 
 export interface UpdateNotificationEmailInput {
   readonly notificationEmail: string;
@@ -18,7 +18,7 @@ export interface UpdateNotificationEmailInput {
 @Injectable()
 export class NotificationSettingsService {
   constructor(
-    @Inject(NotificationSettingsRepository)
+    @Inject(NotificationSettingsStore)
     private readonly repository: NotificationSettingsRepositoryPort,
   ) {}
 

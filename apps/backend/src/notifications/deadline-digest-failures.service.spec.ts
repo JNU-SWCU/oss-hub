@@ -1,6 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { DeadlineDigestFailuresService } from './deadline-digest-failures.service';
-import { DeadlineDigestRepository } from './deadline-digest.repository';
+import { DeadlineDigestStore } from './deadline-digest.store';
 
 describe('DeadlineDigestFailuresService', () => {
   const findActiveAdmin = jest.fn();
@@ -8,7 +8,7 @@ describe('DeadlineDigestFailuresService', () => {
   const repository = {
     findActiveAdmin,
     findFailedNotifications,
-  } as unknown as DeadlineDigestRepository;
+  } as unknown as DeadlineDigestStore;
   const service = new DeadlineDigestFailuresService(repository);
 
   beforeEach(() => {

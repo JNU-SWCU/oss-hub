@@ -2,12 +2,12 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { DeadlineDigestFailuresController } from './deadline-digest-failures.controller';
 import { DeadlineDigestFailuresService } from './deadline-digest-failures.service';
-import { DeadlineDigestRepository } from './deadline-digest.repository';
+import { DeadlineDigestStore } from './deadline-digest.store';
 import { DeadlineDigestScheduler } from './deadline-digest.scheduler';
 import { DeadlineDigestService } from './deadline-digest.service';
 import { mailSenderProvider } from './mail-sender.provider';
 import { NotificationSettingsController } from './notification-settings.controller';
-import { NotificationSettingsRepository } from './notification-settings.repository';
+import { NotificationSettingsStore } from './notification-settings.store';
 import { NotificationSettingsService } from './notification-settings.service';
 
 /**
@@ -21,9 +21,9 @@ import { NotificationSettingsService } from './notification-settings.service';
     DeadlineDigestFailuresController,
   ],
   providers: [
-    NotificationSettingsRepository,
+    NotificationSettingsStore,
     NotificationSettingsService,
-    DeadlineDigestRepository,
+    DeadlineDigestStore,
     DeadlineDigestService,
     DeadlineDigestFailuresService,
     DeadlineDigestScheduler,

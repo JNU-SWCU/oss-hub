@@ -1,5 +1,5 @@
 import { DeadlineDigestService } from './deadline-digest.service';
-import type { DeadlineDigestRepositoryPort } from './deadline-digest.repository';
+import type { DeadlineDigestRepositoryPort } from './deadline-digest.store';
 import type { MailSender } from './mail-sender.port';
 
 describe('DeadlineDigestService', () => {

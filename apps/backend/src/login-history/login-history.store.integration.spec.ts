@@ -1,7 +1,7 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { LOGIN_HISTORY_EVENTS } from './domain/login-history';
-import { LoginHistoryRepository } from './login-history.repository';
+import { LoginHistoryStore } from './login-history.store';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -12,9 +12,9 @@ const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 const firstGithubId = 9_000_000_000_000_157n;
 const secondGithubId = 9_000_000_000_000_158n;
 
-describe('LoginHistoryRepository integration', () => {
+describe('LoginHistoryStore integration', () => {
   const prisma = new PrismaService();
-  const repository = new LoginHistoryRepository(prisma);
+  const repository = new LoginHistoryStore(prisma);
   let firstUserId: string;
   let secondUserId: string;
 

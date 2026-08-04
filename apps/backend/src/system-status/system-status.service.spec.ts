@@ -4,7 +4,7 @@ import type {
   CollectionIncrementalStatusSnapshotDto,
   CollectionReadPort,
 } from '../collection/collection-read.port';
-import { SystemStatusRepository } from './system-status.repository';
+import { SystemStatusStore } from './system-status.store';
 import { SystemStatusService } from './system-status.service';
 
 const NOW = new Date('2026-07-25T12:00:00.000Z');
@@ -36,7 +36,7 @@ describe('SystemStatusService', () => {
     {
       findActor,
       countFinalProvisionFailures,
-    } as unknown as SystemStatusRepository,
+    } as unknown as SystemStatusStore,
     { getIncrementalStatusSnapshot } as unknown as CollectionReadPort,
     () => NOW,
   );

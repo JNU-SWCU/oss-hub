@@ -5,7 +5,7 @@ import {
   CONSENT_ERROR_CODES,
   ConsentErrorCode,
 } from './consent-error-code.enum';
-import { ConsentsRepository } from './consents.repository';
+import { ConsentsStore } from './consents.store';
 import { ConsentRecord, ConsentUser } from './domain/consent';
 import { ConsentPolicy, CURRENT_CONSENT_POLICY } from './domain/consent-policy';
 
@@ -27,7 +27,7 @@ export interface AcceptConsentInput {
 
 @Injectable()
 export class ConsentsService {
-  constructor(private readonly repository: ConsentsRepository) {}
+  constructor(private readonly repository: ConsentsStore) {}
 
   async getCurrent(githubId: bigint): Promise<ConsentStatus> {
     const user = await this.requireUser(githubId);

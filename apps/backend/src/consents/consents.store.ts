@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ConsentRecord, ConsentUser } from './domain/consent';
 
 @Injectable()
-export class ConsentsRepository {
+export class ConsentsStore {
   constructor(private readonly prisma: PrismaService) {}
 
   async findUserByGithubId(githubId: bigint): Promise<ConsentUser | null> {

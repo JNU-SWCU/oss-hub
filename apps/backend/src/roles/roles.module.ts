@@ -6,13 +6,13 @@ import {
   OnboardingController,
   RoleRequestsController,
 } from './roles.controller';
-import { RolesRepository } from './roles.repository';
+import { RolesStore } from './roles.store';
 import { RolesService } from './roles.service';
 
 @Module({
   // UsersModule은 더 이상 필요하지 않다 — 역할 배정이 프로필 완료를 요구하지 않는다.
   imports: [AuditLogModule, AuthModule, ConsentsModule],
   controllers: [OnboardingController, RoleRequestsController],
-  providers: [RolesRepository, RolesService],
+  providers: [RolesStore, RolesService],
 })
 export class RolesModule {}

@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { LoginHistoryRepository } from './login-history.repository';
+import { LoginHistoryStore } from './login-history.store';
 import { LoginHistoryService } from './login-history.service';
 
 @Module({
-  providers: [LoginHistoryRepository, LoginHistoryService],
+  providers: [LoginHistoryStore, LoginHistoryService],
   exports: [LoginHistoryService],
 })
 export class LoginHistoryModule {}
