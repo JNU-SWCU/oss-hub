@@ -24,7 +24,7 @@ CI와 Git 훅, 로컬 검증, 배포 보조에 필요한 실행 파일을 둔다
 
 - 변경 경로별 검증 명령의 원본은 `docs/rules/ci-path-verification.md`다.
 - 새 스크립트나 검사 범위를 추가하면 해당 매핑도 같은 변경에서 갱신한다.
-- **계약 검사 테스트(`check-*.test.sh`/`check-*.test.mjs`)와 `merge-policy-check.test.mjs`는 합성 입력·fixture만 쓴다** — 외부 서비스·실데이터·운영 자격증명을 참조하지 않는다.
+- **계약 검사 테스트(`check-*.test.sh`/`check-*.test.mjs`)는 합성 입력·fixture만 쓴다** — 외부 서비스·실데이터·운영 자격증명을 참조하지 않는다.
 - `team-state-check.mjs`는 GitHub 상태를 읽고, Docker·통합·개발 스크립트는 로컬 인프라를 변경한다.
 - 비-test 실행 파일을 같은 이름의 test fixture와 혼동하지 않는다.
 - shell은 `set -euo pipefail`과 fail-closed 오류 처리를 우선하며, Node 스크립트는 Node 24 문법 검사를 통과해야 한다.

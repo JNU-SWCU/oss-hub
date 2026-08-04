@@ -215,22 +215,21 @@ G0는 확인을 완료했고 결과는 **보호 미적용**이었다.
 - P4를 P2 뒤에 두는 이유는 resolver가 해석한 exact SHA를 checkout과 image label이 그대로 공유해야 하기 때문이다.
 - P5를 마지막에 두는 이유는 running probe가 앞 단계의 target identity와 credential scope를 모두 받아 no-op과 mutation 진입을 결정하기 때문이다.
 - `pr-scope.md`의 직렬화 원칙에 따라 stacked PR을 금지하고 각 PR은 이전 PR 병합 후 main에서 새로 시작한다.
-- 어떤 PR이든 head·base ref·base SHA가 바뀌면 `MERGE_READY`와 `PM_ACCEPT`를 새 exact head·base에 대해 다시 취득한다.
+- 병합 게이트는 required check(`ci`·`public-safe`) 통과와 GitHub mergeable 상태뿐이다 — 댓글 기반 `MERGE_READY`·accept 게이트는 모두 폐지됐다(ADR-005 2026-08-04 변경).
 
 ### PR별 예상 변경량과 승인
 
-| PR | 범위 | 예상 변경량 | 200~400줄 기준 위반 여부 | risk | PM_ACCEPT |
-| --- | --- | ---: | --- | --- | --- |
-| P1 | rollback script·test·Jenkins wiring | 160~240줄 | 아니오 | HIGH_RISK | 필요, @GoBeromsu, Tech Lead 대체 불가 |
-| P2 | `FRONTEND_URL` script·test·Jenkins wiring | 100~180줄 | 아니오 | HIGH_RISK | 필요, @GoBeromsu, Tech Lead 대체 불가 |
-| P4 | Release resolver·test·Jenkins wiring | 180~280줄 | 아니오 | HIGH_RISK | 필요, @GoBeromsu, Tech Lead 대체 불가 |
-| P5A | probe script·test fixture | 240~380줄 | 아니오 | HIGH_RISK | 필요, @GoBeromsu, Tech Lead 대체 불가 |
-| P5B | probe Jenkins wiring·정적 checker 정렬 | 120~220줄 | 아니오 | HIGH_RISK | 필요, @GoBeromsu, Tech Lead 대체 불가 |
+| PR | 범위 | 예상 변경량 | 200~400줄 기준 위반 여부 | risk |
+| --- | --- | ---: | --- | --- |
+| P1 | rollback script·test·Jenkins wiring | 160~240줄 | 아니오 | HIGH_RISK |
+| P2 | `FRONTEND_URL` script·test·Jenkins wiring | 100~180줄 | 아니오 | HIGH_RISK |
+| P4 | Release resolver·test·Jenkins wiring | 180~280줄 | 아니오 | HIGH_RISK |
+| P5A | probe script·test fixture | 240~380줄 | 아니오 | HIGH_RISK |
+| P5B | probe Jenkins wiring·정적 checker 정렬 | 120~220줄 | 아니오 | HIGH_RISK |
 
 - 변경량은 구현·test·fixture·wiring을 합친 예상치이며 200~400줄을 넘지 않도록 PR 시작 전에 다시 산정한다.
 - 각 PR은 배포·rollback 계약을 다루므로 문서만 추가하는 이 계획 PR의 `GENERAL` 분류를 추출 PR에 전이하지 않는다.
-- 각 P PR은 ADR-005 69~71줄과 78~90줄에 따라 exact-head `MERGE_READY` 뒤 @GoBeromsu의 current-head `PM_ACCEPT`가 필요하다.
-- P PR에서 `RISK_ACCEPT role=GENERAL` 하향을 사용하지 않으며, 사용이 제안되더라도 배포 계약 경로는 PM role만 허용한다.
+- 각 P PR도 다른 PR과 동일하게 required check(`ci`·`public-safe`) 통과만으로 병합한다 — 댓글 기반 `MERGE_READY`·accept 게이트는 모두 폐지됐고(ADR-005 2026-08-04 변경), 실제 병합 권한 제한은 GitHub 저장소 설정이 맡는다.
 
 ## M5. 동등성 증명과 실행 증거
 
@@ -310,7 +309,7 @@ G0는 확인을 완료했고 결과는 **보호 미적용**이었다.
 - [ ] M1의 latest Release·exact SHA·no-op·fail-closed·HTTPS·rollback·순서·보안 계약을 모두 대조했다.
 - [ ] M2의 stdout key·stderr marker·exit code·nonzero 전파·stub fixture 공통 계약을 확정했다.
 - [ ] P1~P5 후보별 script 경로·인자·stdout·exit code·stderr marker·잔여 Jenkins wiring·fixture·checker 정리 위치를 기록했다.
-- [ ] P1→P2→P4→P5A→P5B 직렬 PR 순서와 각 PR의 HIGH_RISK·@GoBeromsu PM_ACCEPT 조건을 기록했다.
+- [ ] P1→P2→P4→P5A→P5B 직렬 PR 순서와 각 PR의 HIGH_RISK 분류·required check 통과 조건을 기록했다.
 - [ ] baseline 명령, `bash -n`, fixture, legacy oracle 동등성 대조, normalizer 범위의 결과를 PR별로 보존했다.
 - [ ] P1~P5B의 Jenkins 증거를 해당 PR의 exact head·base full SHA와 함께 기록했다.
 - [ ] 현재 실행 중 tag보다 높은 SemVer의 실제 Release SHA 배포 1회와 관찰 항목 아홉 가지를 완료했다.

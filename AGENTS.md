@@ -57,10 +57,10 @@ DB 마이그레이션은 직렬로만 진행하며 동시 마이그레이션 PR�
 권한 경계와 병합 조건은 [ADR-005](docs/decisions/ADR-005-agent-driven-review-cycle.md)가 원본이다.
 전남의 독립 리뷰는 적용되는 `AGENTS.md`·팀 컨벤션 준수, 중복 구현, 기존 기능의 불필요한 재구현, correctness·security·명시적 계약 위반을 검증한다.
 리뷰 결과는 `blocker`, `fix-now`, `follow-up`, `reject`로 분류하며 정확한 의미는 ADR-005를 따른다.
-일반 PR은 전남이 exact head·base에서 코드·계약, Ponytail, 실제 UI/API QA, 저장소 검증과 required CI를 통과시켜 `MERGE_READY`를 기록하면 사람 상호 리뷰 없이 병합할 수 있으며, 동작 변경의 직접 QA가 막히면 미검증으로 처리해 병합하지 않는다.
-전남의 `MERGE_READY`는 @GoBeromsu, @Lumiere001 또는 리뷰 증거 전용 계정 @Lumeire002가 기록할 수 있지만, @Lumeire002에는 manual accept·위험도 하향·병합 권한을 위임하지 않는다.
+병합 게이트는 required check(`ci`·`public-safe`)의 실제 통과와 GitHub mergeable 상태뿐이다 — 코멘트로 선언하는 별도 병합 상태는 두지 않는다.
+전남의 exact head·base 코드·계약 리뷰, Ponytail, 실제 UI/API QA는 PR 리뷰 코멘트로 남기는 권장 관행이며 병합의 필요조건은 아니다.
 high risk의 전체 분류표와 예외는 ADR-005만을 원본으로 사용한다.
-high risk PR은 `MERGE_READY` 이후 @GoBeromsu 또는 @Lumiere001 중 한 명의 같은 head·base manual accept로 병합하되, 배포 계약 경로 변경 PR은 @GoBeromsu의 `PM_ACCEPT`가 반드시 있어야 하고 Tech Lead accept로 대체할 수 없으며, `GENERAL` 하향도 한 명의 `RISK_ACCEPT`로 충분하되 배포 계약 경로는 `role=PM`이어야 한다.
+accept 코멘트(`PM_ACCEPT`·`TECH_LEAD_ACCEPT`·`RISK_ACCEPT`)와 `MERGE_READY` 병합 게이트는 모두 폐지됐다 — 댓글로 선언하는 상태는 실제 CI 결과와 어긋날 수 있는 second source of truth이기 때문이며(ADR-005 2026-08-04 변경), high risk PR과 배포 계약 경로 변경 PR도 required check 통과만으로 병합 절차를 진행하고 실제 병합 권한 제한은 GitHub 저장소 설정(branch protection 등)이 원본이다.
 production release 배포의 인가·트리거·실행 검증과 실패·복구 동작은 ADR-002가 원본이며, 별도의 release accept 절차는 두지 않는다.
 
 ## 4. 에이전트 금지 목록과 공개 strict-read 경계

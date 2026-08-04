@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-07-20 · Updated: 2026-07-31 (ISSUE_TEMPLATE 라우팅 추가) -->
+<!-- Generated: 2026-07-20 · Updated: 2026-08-04 (merge-policy.yml 제거 — 병합 게이트는 ci·public-safe green) -->
 
 # .github/ — CI·작성권 설정
 
@@ -14,7 +14,6 @@ PR에서 실행되는 워크플로와 high-risk 후보 경로를 설정한다.
 | --- | --- |
 | `workflows/ci.yml` | PR·Issue 표면의 CI 및 public-safe 검사를 정의한다 |
 | `workflows/deploy.yml` | 공개 full Release를 parameterless Jenkins trigger로 전달한다 |
-| `workflows/merge-policy.yml` | default branch 기준 merge-policy check run을 발행한다 |
 | `CODEOWNERS` | ADR-005의 high-risk 검토 후보 경로 라우팅. 경로 일치만으로 high risk가 확정되지는 않는다 |
 | `pull_request_template.md` | PR 생성 시 기본 본문 템플릿 |
 | `ISSUE_TEMPLATE/work-ticket.md` | 화면 1개 단위 작업 티켓 템플릿과 발행·할당 운영 관례 |
@@ -23,7 +22,7 @@ PR에서 실행되는 워크플로와 high-risk 후보 경로를 설정한다.
 
 | 경로 | 내용 |
 | --- | --- |
-| `workflows/` | CI, 배포 trigger, 병합 정책 workflow. 각 workflow가 실행 경계의 원본이다 |
+| `workflows/` | CI, 배포 trigger workflow. 각 workflow가 실행 경계의 원본이다 |
 | `ISSUE_TEMPLATE/` | Issue 발행 템플릿. `work-ticket.md`가 유일한 템플릿이다 |
 
 ## For AI Agents
@@ -47,7 +46,7 @@ PR에서 실행되는 워크플로와 high-risk 후보 경로를 설정한다.
 - `docs/rules/ci-path-verification.md`가 "어떤 변경 경로가 어떤 검증을 실행해야 하는가" 계약의 원본이다 — 새 paths-filter 카테고리를 추가하면 그 문서도 함께 갱신한다.
 - `.github/workflows/deploy.yml`은 얇은 HTTPS trigger만 담당한다.
 - 실제 checkout·build·migration·smoke·rollback은 Jenkins와 `docs/deploy/` 계약이 담당한다.
-- `.github/workflows/merge-policy.yml`은 PR head 코드를 실행하지 않고 default branch의 판정기와 metadata만 사용한다.
+- 병합 가능 여부는 `ci`·`public-safe` required check의 실제 통과 여부로만 판정한다 — 댓글로 선언하는 별도 상태는 두지 않는다(ADR-005 2026-08-04 변경).
 - required check 이름과 신뢰 경계를 임의로 바꾸지 않는다.
 - `ISSUE_TEMPLATE/work-ticket.md`로 만든 Issue를 "oss-hub 티켓 #<번호> 진행해줘" 형태로 지시받으면 `.claude/skills/tickets/SKILL.md`를 따른다.
   이 템플릿은 화면 1개 단위 기능 명세만 담고, 공통 규칙은 재서술하지 않는다.
