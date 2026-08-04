@@ -1,5 +1,4 @@
 import { CollectionAppConfigValues } from './collection-app.config';
-import { CollectionAppTokenProvider } from './collection-app.token';
 import {
   PullRequestFrontier,
   ReleaseFrontier,
@@ -9,6 +8,23 @@ import {
 const API_VERSION = '2022-11-28';
 const ACCEPT = 'application/vnd.github+json';
 type Fetcher = (input: string | URL, init?: RequestInit) => Promise<Response>;
+
+/**
+ * Minimal shape a token provider must satisfy to authenticate Collection
+ * App requests. Deliberately narrower than `CollectionAppTokenProvider`
+ * (`collection-app.token.ts`) — TS treats that class nominally (private
+ * fields), so a structurally-identical but differently-declared provider
+ * (e.g. `CollectionPublicTokenProvider`, `collection-public.token.ts`) can
+ * never satisfy the class type, only this narrower structural shape.
+ * Mirrors `CollectionDiscoveryTokenProvider`
+ * (`collection-discovery.client.ts:19-22`) for the identical reason. Both
+ * `CollectionAppTokenProvider` and `CollectionPublicTokenProvider` already
+ * provide this exact `getToken`/`clear` shape.
+ */
+export interface CollectionAppClientTokenProvider {
+  getToken(signal?: AbortSignal): Promise<string>;
+  clear(expectedToken?: string): void;
+}
 
 export type CollectionAppErrorKind =
   | 'UPSTREAM'
@@ -140,7 +156,7 @@ function dedupeByKey<T>(items: readonly T[], key: (item: T) => string): T[] {
 export class CollectionAppClient {
   constructor(
     private readonly config: CollectionAppConfigValues,
-    private readonly tokens: CollectionAppTokenProvider,
+    private readonly tokens: CollectionAppClientTokenProvider,
     private readonly fetcher: Fetcher = globalThis.fetch,
     private readonly now: () => number = Date.now,
   ) {}
