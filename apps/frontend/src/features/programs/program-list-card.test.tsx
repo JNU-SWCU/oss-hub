@@ -10,6 +10,7 @@ const program: ProgramListItem = {
   category: 'OSS_CONTEST',
   applicationStartAt: '2026-07-01T00:00:00.000Z',
   applicationEndAt: '2026-08-31T00:00:00.000Z',
+  endAt: null,
   description: '프로그램 설명',
   applicationStatus: null,
 };
@@ -44,15 +45,18 @@ describe('ProgramListCard', () => {
     expect(html).toContain('자세히 보기');
   });
 
-  it('마감된 프로그램은 마감 상태와 자세히 보기를 표시한다', () => {
+  it('종료된 프로그램은 종료 상태와 자세히 보기를 표시한다', () => {
     const html = renderToStaticMarkup(
       <ProgramListCard
         now={new Date('2026-09-01T00:00:00.001Z')}
-        program={program}
+        program={{
+          ...program,
+          endAt: '2026-08-31T00:00:00.000Z',
+        }}
       />,
     );
 
-    expect(html).toContain('마감');
+    expect(html).toContain('종료');
     expect(html).toContain('자세히 보기');
   });
 });

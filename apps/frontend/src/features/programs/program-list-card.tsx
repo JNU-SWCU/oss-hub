@@ -16,9 +16,10 @@ const CATEGORY_LABELS = {
 } satisfies Readonly<Record<ProgramCategory, string>>;
 
 const RECRUITMENT_BADGES = {
-  scheduled: { label: '모집 예정', variant: 'pending' },
+  upcoming: { label: '접수대기', variant: 'pending' },
   recruiting: { label: '모집중', variant: 'recruiting' },
-  closed: { label: '마감', variant: 'closed' },
+  in_progress: { label: '진행중', variant: 'approved' },
+  ended: { label: '종료', variant: 'closed' },
 } as const;
 
 function formatApplicationPeriod(program: ProgramListItem): string {
