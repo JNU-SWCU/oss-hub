@@ -99,6 +99,24 @@ jobs:
               - 'scripts/*.mjs'
               - '.github/workflows/**'
 
+      # push(main)는 paths filter를 무시하고 전체 스코프를 강제한다. push 이벤트에서도
+      # filter 결과를 그대로 쓰면, 특정 앱만 바뀐 커밋이 다른 앱의 lint/typecheck/test/build
+      # 없이 main에 올라가고 그대로 Release로 배포될 수 있었다(배포 시점 재검증 삭제 전 마지막 방어선).
+      # pull_request에서는 기존 paths filter 결과를 그대로 쓴다 — PR 비용 절감이 목적이므로 유지한다.
+      - name: 실행 스코프 결정
+        id: scope
+        run: |
+          {
+            echo "frontend=${{ github.event_name == 'push' && 'true' || steps.changes.outputs.frontend }}"
+            echo "backend=${{ github.event_name == 'push' && 'true' || steps.changes.outputs.backend }}"
+            echo "nginx=${{ github.event_name == 'push' && 'true' || steps.changes.outputs.nginx }}"
+            echo "production_compose=${{ github.event_name == 'push' && 'true' || steps.changes.outputs.production_compose }}"
+            echo "jenkins=${{ github.event_name == 'push' && 'true' || steps.changes.outputs.jenkins }}"
+            echo "docker_context=${{ github.event_name == 'push' && 'true' || steps.changes.outputs.docker_context }}"
+            echo "shell_scripts=${{ github.event_name == 'push' && 'true' || steps.changes.outputs.shell_scripts }}"
+            echo "node_scripts=${{ github.event_name == 'push' && 'true' || steps.changes.outputs.node_scripts }}"
+          } >> "$GITHUB_OUTPUT"
+
       # 의존성이 없는 Node 내장 테스트는 모든 PR에서 실행한다.
       - name: Node 설정
         uses: actions/setup-node@v4
@@ -116,11 +134,11 @@ jobs:
       # 앱 변경이 있을 때만 pnpm store를 만들고 캐시한다. docs-only PR에서
       # 존재하지 않는 store를 저장하려는 setup-node 후처리 실패를 막는다.
       - name: pnpm 설정
-        if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' || steps.changes.outputs.production_compose == 'true' }}
+        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.production_compose == 'true' }}
         uses: pnpm/action-setup@v4
 
       - name: pnpm 캐시 설정
-        if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' || steps.changes.outputs.production_compose == 'true' }}
+        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.production_compose == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -128,7 +146,7 @@ jobs:
 
       # bash -n 은 첫 인자만 파싱하고 나머지는 위치 인자로 버린다. 한 파일씩 돌려야 전수 검사가 된다.
       - name: shell script 문법 검사
-        if: ${{ steps.changes.outputs.shell_scripts == 'true' }}
+        if: ${{ steps.scope.outputs.shell_scripts == 'true' }}
         run: |
           find scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
           for hook in .githooks/*; do
@@ -136,22 +154,22 @@ jobs:
           done
 
       - name: TEAM-STATE pre-push 가드 회귀 테스트
-        if: ${{ steps.changes.outputs.shell_scripts == 'true' }}
+        if: ${{ steps.scope.outputs.shell_scripts == 'true' }}
         run: bash scripts/check-team-state-updated.test.sh
 
       - name: 호스트 lane DATABASE_URL 가드 회귀 테스트
-        if: ${{ steps.changes.outputs.shell_scripts == 'true' }}
+        if: ${{ steps.scope.outputs.shell_scripts == 'true' }}
         run: bash scripts/check-host-db-url.test.sh
 
       - name: Node script 문법 검사
-        if: ${{ steps.changes.outputs.node_scripts == 'true' }}
+        if: ${{ steps.scope.outputs.node_scripts == 'true' }}
         run: |
           for script in scripts/*.mjs; do
             node --check "$script"
           done
 
       - name: nginx ingress 계약 검사
-        if: ${{ steps.changes.outputs.nginx == 'true' }}
+        if: ${{ steps.scope.outputs.nginx == 'true' }}
         run: |
           bash scripts/probe-nginx-callback-log.sh
           bash scripts/check-host-nginx.test.sh
@@ -160,74 +178,74 @@ jobs:
           bash scripts/check-submission-upload-route.sh
 
       - name: Jenkins 배포 계약 회귀 테스트
-        if: ${{ steps.changes.outputs.jenkins == 'true' }}
+        if: ${{ steps.scope.outputs.jenkins == 'true' }}
         run: |
           bash scripts/check-jenkinsfile.test.sh
           bash scripts/check-jenkinsfile.sh Jenkinsfile
           bash scripts/prune-deploy-backups.test.sh
 
       - name: Docker build context 계약 회귀 테스트
-        if: ${{ steps.changes.outputs.docker_context == 'true' }}
+        if: ${{ steps.scope.outputs.docker_context == 'true' }}
         run: |
           bash scripts/check-docker-context.test.sh
           bash scripts/check-docker-context.sh
 
       - name: 의존성 설치
-        if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' || steps.changes.outputs.production_compose == 'true' }}
+        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.production_compose == 'true' }}
         run: pnpm install --frozen-lockfile
 
       - name: env 계약 양방향 검사
-        if: ${{ steps.changes.outputs.production_compose == 'true' }}
+        if: ${{ steps.scope.outputs.production_compose == 'true' }}
         run: |
           node --test scripts/check-env-example-coverage.test.mjs
           node scripts/check-env-example-coverage.mjs --require-docker
 
       - name: 로컬 두 파일 compose 계약 회귀 테스트
-        if: ${{ steps.changes.outputs.production_compose == 'true' }}
+        if: ${{ steps.scope.outputs.production_compose == 'true' }}
         run: bash scripts/docker-verify-local.test.sh
 
       - name: prettier 포맷 검사
-        if: ${{ steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true' }}
+        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' }}
         run: pnpm format:check
 
       - name: frontend lint
-        if: ${{ steps.changes.outputs.frontend == 'true' }}
+        if: ${{ steps.scope.outputs.frontend == 'true' }}
         run: pnpm --filter frontend lint
 
       - name: frontend typecheck
-        if: ${{ steps.changes.outputs.frontend == 'true' }}
+        if: ${{ steps.scope.outputs.frontend == 'true' }}
         run: pnpm --filter frontend typecheck
 
       - name: frontend test
-        if: ${{ steps.changes.outputs.frontend == 'true' }}
+        if: ${{ steps.scope.outputs.frontend == 'true' }}
         run: pnpm --filter frontend test
 
       - name: frontend build
-        if: ${{ steps.changes.outputs.frontend == 'true' }}
+        if: ${{ steps.scope.outputs.frontend == 'true' }}
         run: pnpm --filter frontend build
 
       - name: backend lint
-        if: ${{ steps.changes.outputs.backend == 'true' }}
+        if: ${{ steps.scope.outputs.backend == 'true' }}
         run: pnpm --filter backend lint
 
       - name: backend typecheck
-        if: ${{ steps.changes.outputs.backend == 'true' }}
+        if: ${{ steps.scope.outputs.backend == 'true' }}
         run: pnpm --filter backend typecheck
 
       - name: backend unit test
-        if: ${{ steps.changes.outputs.backend == 'true' }}
+        if: ${{ steps.scope.outputs.backend == 'true' }}
         run: pnpm --filter backend test:unit
 
       - name: backend integration runner contract
-        if: ${{ steps.changes.outputs.backend == 'true' }}
+        if: ${{ steps.scope.outputs.backend == 'true' }}
         run: bash scripts/run-backend-integration.test.sh
 
       - name: backend integration test
-        if: ${{ steps.changes.outputs.backend == 'true' }}
+        if: ${{ steps.scope.outputs.backend == 'true' }}
         run: pnpm --filter backend test:integration
 
       - name: backend build
-        if: ${{ steps.changes.outputs.backend == 'true' }}
+        if: ${{ steps.scope.outputs.backend == 'true' }}
         run: pnpm --filter backend build
 
   # 1차 도입은 advisory다. drift·unknown은 non-zero로 보고하되 required ci를 차단하지 않는다.
