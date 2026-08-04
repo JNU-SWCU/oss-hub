@@ -12,7 +12,7 @@ import {
 } from './cosmos-graph';
 import {
   clamp01,
-  DEEP_SPACE_THEME,
+  DAWN_THEME,
   lerp,
   mix,
   rgba,
@@ -53,7 +53,7 @@ const BLOOM_SCALE = 3;
 export function createCosmosRenderer({
   canvas,
   graph,
-  theme = DEEP_SPACE_THEME,
+  theme = DAWN_THEME,
   fontFamily = 'system-ui, sans-serif',
 }: CosmosRendererOptions): CosmosRenderer {
   const ctx = canvas.getContext('2d');
@@ -112,20 +112,34 @@ export function createCosmosRenderer({
     if (A < 0.004) return;
     ctx.globalCompositeOperation = 'screen';
 
-    const STRIPS = 26;
+    // ⚠ 세로 줄무늬(#627). 커튼 하나를 세로 띠 여러 개로 그리는데, 띠끼리
+    // 겹치는 양이 자리마다 달라 겹이 두꺼운 열과 얇은 열이 번갈아 생긴다.
+    // 바탕이 검정이고 알파가 0.032 일 때는 그 차이가 눈에 안 띄지만, 바탕이
+    // 밝은 남색이고 알파가 0.09 로 오르면 'screen' 합성의 여유가 줄어
+    // 이음매가 세로줄로 드러난다. 띠를 촘촘히·넓게 겹치는 것만으로는 줄이
+    // 남는 것을 확인했고, 오로라 층에만 흐림을 거는 쪽이 실제로 듣는다.
+    //
+    // 흐림이 이음매를 지워 주므로 띠를 촘촘히 그릴 이유가 없다 —
+    // 26개에서 16개로 줄여 그리는 횟수를 오히려 예전보다 낮춘다.
+    const STRIPS = 16;
+    const OVERLAP = 3.4;
+    const EVEN = 1.9 / OVERLAP; // 겹침을 늘린 만큼 밝기를 되돌린다
+    const previousFilter = ctx.filter;
+    ctx.filter = `blur(${Math.max(5, Math.round(w * 0.009))}px)`;
+
     for (const curtain of graph.curtains) {
       const tint = tintAt(theme.aurora, curtain.tint);
       const tt = t * curtain.speed + curtain.ph;
       const x0 = (curtain.x - curtain.w / 2) * w - cam.fx * w * 0.12;
       const x1 = (curtain.x + curtain.w / 2) * w - cam.fx * w * 0.12;
       const yTop = curtain.top * h - cam.fy * h * 0.12;
-      const stripW = ((x1 - x0) / STRIPS) * 1.9;
+      const stripW = ((x1 - x0) / STRIPS) * OVERLAP;
 
       for (let i = 0; i < STRIPS; i += 1) {
         const u = (i + 0.5) / STRIPS;
         const bell = Math.sin(u * Math.PI); // 양끝 0, 가운데 1
-        const a = A * bell * bell;
-        if (a < 0.002) continue;
+        const a = A * bell * bell * EVEN;
+        if (a < 0.0008) continue;
 
         const wob = Math.sin(u * 4.1 + tt) * curtain.amp * h;
         const x =
@@ -150,6 +164,7 @@ export function createCosmosRenderer({
         ctx.stroke();
       }
     }
+    ctx.filter = previousFilter;
     ctx.lineCap = 'butt';
     ctx.globalCompositeOperation = 'source-over';
   }
