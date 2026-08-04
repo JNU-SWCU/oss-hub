@@ -52,11 +52,7 @@ export class PublicProjectsService {
   ): Promise<PublicProjectPageResult> {
     const cursor =
       pageId === undefined ? null : decodePublicProjectCursor(pageId);
-    const rows = await this.repository.listPage(
-      cursor,
-      pageSize + 1,
-      category,
-    );
+    const rows = await this.repository.listPage(cursor, pageSize + 1, category);
     const hasMore = rows.length > pageSize;
     const pageRows = rows.slice(0, pageSize);
 
