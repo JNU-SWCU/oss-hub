@@ -250,13 +250,13 @@ describe('SubmissionChecklistView 체크리스트', () => {
   it('토스트·stale 안내·일반 오류 Alert를 렌더한다', () => {
     const html = render({
       toastMessage:
-        'revision 2을 제출했습니다. 검토 대기 상태로 전환되었습니다.',
+        '제출본 2번을 제출했습니다. 검토 대기 상태로 전환되었습니다.',
       staleNotice:
         '다른 곳에서 제출 상태가 바뀌어 최신 상태를 다시 불러왔습니다.',
       serverError: '재제출하지 못했습니다.',
     });
     expect(html).toContain('role="status"');
-    expect(html).toContain('revision 2을 제출했습니다');
+    expect(html).toContain('제출본 2번을 제출했습니다');
     expect(html).toContain('제출 상태가 변경되었습니다');
     expect(html).toContain('재제출 실패');
     expect(html).toContain('재제출하지 못했습니다.');
@@ -340,22 +340,25 @@ describe('SubmissionChecklistView 선택 패널', () => {
     expect(html).toContain('판정');
     expect(html).toContain('보완 요청');
     expect(html).toContain('수정한 뒤 재제출할 수 있습니다.');
-    expect(html).toContain('현재 revision');
+    expect(html).toContain('현재 제출본');
     expect(html).toContain('id="submission-text"'); // #115 유형별 입력 재사용
     expect(html).toContain('id="resubmission-comment"');
-    expect(html).toContain('revision 2 제출');
+    expect(html).toContain('제출본 2번 제출');
     expect(html).toContain('취소');
+    // #354 — 내부 용어가 학생 화면으로 새어 나오지 않아야 한다.
+    expect(html).not.toMatch(/revision/i);
   });
 
-  it('검토 대기 선택 시 revision을 보여주고 입력을 비활성화한다', () => {
+  it('검토 대기 선택 시 제출본 번호를 보여주고 입력을 비활성화한다', () => {
     // When
     const html = render({ selectedMilestoneId: 'milestone-demo' });
 
     // Then
-    expect(html).toContain('revision 1 검토 대기 중입니다');
+    expect(html).toContain('제출본 1번이 검토 대기 중입니다');
     expect(html).toContain('disabled=""');
     expect(html).toContain('검토 대기 중');
-    expect(html).not.toContain('revision 2 제출');
+    expect(html).not.toContain('제출본 2번 제출');
+    expect(html).not.toMatch(/revision/i);
   });
 
   it('승인 선택 시 완료 배지와 검토 시각을 보여준다', () => {
@@ -363,11 +366,12 @@ describe('SubmissionChecklistView 선택 패널', () => {
     const html = render({ selectedMilestoneId: 'milestone-plan' });
 
     // Then
-    expect(html).toContain('제출이 승인되었습니다');
+    expect(html).toContain('제출본 1번이 승인되었습니다');
     expect(html).toContain('data-variant="approved"');
     expect(html).toContain('검토 시각');
     expect(html).toContain('판정');
     expect(html).toContain('승인');
+    expect(html).not.toMatch(/revision/i);
   });
 
   it('최종 반려 선택 시 코멘트 읽기 전용이고 재제출 폼이 없다', () => {
@@ -405,7 +409,8 @@ describe('SubmissionChecklistView 선택 패널', () => {
     // Then
     expect(html).toContain('type="file"');
     expect(html).toContain('PDF, HWP, JPG, PNG, ZIP');
-    expect(html).toContain('revision 2 제출');
+    expect(html).toContain('제출본 2번 제출');
+    expect(html).not.toMatch(/revision/i);
   });
 
   it('미제출 선택 시 #115 제출 화면으로 안내한다', () => {

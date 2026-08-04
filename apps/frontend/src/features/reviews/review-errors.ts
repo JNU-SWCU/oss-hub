@@ -8,10 +8,10 @@ const REVIEW_ERROR_CODES = {
 export function reviewConflictMessage(error: unknown): string | null {
   if (!(error instanceof ApiError)) return null;
   if (error.problem.code === REVIEW_ERROR_CODES.staleRevision) {
-    return '새 revision이 제출되어 최신 내용을 다시 불러왔습니다.';
+    return '학생이 새 제출본을 올려 최신 내용을 다시 불러왔습니다. 새 제출본을 확인한 뒤 다시 판정해 주세요.';
   }
   if (error.problem.code === REVIEW_ERROR_CODES.alreadyReviewed) {
-    return '이미 판정된 revision입니다. 최신 내용을 다시 불러왔습니다.';
+    return '이미 판정이 끝난 제출본입니다. 최신 내용을 다시 불러왔으니 화면의 판정 결과를 확인해 주세요.';
   }
   return null;
 }

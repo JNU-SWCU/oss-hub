@@ -25,7 +25,8 @@ const APPLICATION_MODE_LABELS = {
 
 const BLOCKED_REASON_LABELS: Readonly<Record<string, string>> = {
   REQUIRED_MILESTONES_NOT_APPROVED: '모든 필수 마일스톤의 승인이 필요합니다.',
-  REPOSITORY_NOT_READY: '저장소 준비가 완료되지 않았습니다.',
+  REPOSITORY_NOT_READY:
+    '저장소 생성이 아직 끝나지 않았습니다. 생성이 끝난 뒤 이 화면을 새로고침해 주세요.',
 };
 
 export function applicationModeLabel(mode: ApplicationMode): string {
@@ -35,7 +36,7 @@ export function applicationModeLabel(mode: ApplicationMode): string {
 export function blockedReasonLabel(reason: string): string {
   return (
     BLOCKED_REASON_LABELS[reason] ??
-    '저장소 공개 조건이 아직 충족되지 않았습니다.'
+    '모든 필수 마일스톤을 승인하고 저장소 생성 상태를 확인한 뒤 다시 공개해 주세요.'
   );
 }
 

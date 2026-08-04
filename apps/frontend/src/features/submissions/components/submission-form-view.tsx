@@ -25,7 +25,8 @@ const BLOCKED_MESSAGES = {
   SUBMISSION_ALREADY_EXISTS: '이미 최초 제출을 완료했습니다.',
   MILESTONE_CLOSED: '마감된 마일스톤입니다.',
   REPOSITORY_NOT_READY: '저장소 생성 중입니다. 잠시 후 새로고침해 주세요.',
-  FILE_UPLOAD_UNAVAILABLE: '파일 제출은 현재 지원하지 않습니다.',
+  FILE_UPLOAD_UNAVAILABLE:
+    '이 마일스톤에는 현재 파일을 제출할 수 없습니다. 담당 교직원에게 다른 제출 방법을 문의해 주세요.',
 } as const satisfies Readonly<Record<SubmissionBlockedReason, string>>;
 
 export interface SubmissionFormViewProps {

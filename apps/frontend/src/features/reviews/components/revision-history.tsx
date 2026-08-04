@@ -54,8 +54,7 @@ export function RevisionCard({
     <Card size={current ? 'default' : 'sm'}>
       <CardHeader className="border-b border-border">
         <CardTitle>
-          revision {revision.number}
-          {current ? ' (최신)' : ''}
+          제출본 {revision.number}번{current ? ' (최신)' : ''}
         </CardTitle>
         <CardDescription>
           {formatReviewDate(revision.submittedAt)}

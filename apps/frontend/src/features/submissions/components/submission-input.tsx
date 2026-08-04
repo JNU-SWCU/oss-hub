@@ -80,7 +80,9 @@ export function SubmissionInput({
     case 'REPOSITORY_RELEASE':
       return (
         <Field data-invalid={Boolean(errors.releaseUrl)}>
-          <FieldLabel htmlFor="release-url">태그 또는 릴리스 URL *</FieldLabel>
+          <FieldLabel htmlFor="release-url">
+            GitHub 태그 또는 릴리스 주소 *
+          </FieldLabel>
           <Input
             id="release-url"
             type="url"
@@ -98,7 +100,8 @@ export function SubmissionInput({
             onChange={(event) => onReleaseUrlChange(event.target.value)}
           />
           <FieldDescription id="release-url-description">
-            연결 저장소 아래의 태그 또는 릴리스 URL만 제출할 수 있습니다.
+            태그 또는 릴리스는 제출할 버전을 고정해 공개한 기록입니다. 연결된
+            저장소 아래의 태그 또는 릴리스 전체 주소만 제출할 수 있습니다.
           </FieldDescription>
           <FieldError id="release-url-error">{errors.releaseUrl}</FieldError>
         </Field>

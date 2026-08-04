@@ -118,16 +118,55 @@ describe('validateSubmissionFile', () => {
 
 describe('getSubmissionFileErrorMessage', () => {
   it.each([
-    ['SUB_017', '파일, 신청 ID, 마일스톤 ID를 올바르게 입력해 주세요.'],
+    [
+      'SUB_017',
+      '제출 요청이 서버에 온전히 전달되지 않았습니다. 파일을 다시 선택해 제출해 보고, 그래도 안 되면 프로그램 상세에서 해당 마일스톤의 제출 화면을 다시 열어 주세요.',
+    ],
     ['SUB_018', 'PDF, HWP, JPG, PNG, ZIP 파일만 제출할 수 있습니다.'],
     ['SUB_019', '파일 크기는 50 MiB를 초과할 수 없습니다.'],
     [
       'SUB_020',
       '파일 저장소를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
     ],
-    ['SUB_021', '프로그램 종료일이 설정된 후 파일을 제출할 수 있습니다.'],
+    [
+      'SUB_021',
+      '프로그램 종료일이 설정되지 않아 파일을 제출할 수 없습니다. 담당 교직원에게 확인해 주세요.',
+    ],
   ])('%s를 안정적인 사용자 메시지로 매핑한다', (code, message) => {
     expect(getSubmissionFileErrorMessage(code)).toBe(message);
+  });
+
+  // #354 — 사용자가 만들지도 고치지도 못하는 값(신청 ID·마일스톤 ID)을 입력하라고
+  // 지시하면 따를 방법이 없다. 화면을 다시 여는 행동만 제시해야 한다.
+  it('SUB_017은 사용자가 고칠 수 없는 내부 식별자 입력을 요구하지 않는다', () => {
+    const message = getSubmissionFileErrorMessage('SUB_017') ?? '';
+
+    expect(message).not.toMatch(/신청 ID|마일스톤 ID/);
+    expect(message).not.toMatch(/올바르게 입력/);
+    expect(message).toContain('제출 화면을 다시 열어');
+  });
+
+  // #354 — SUB_017(INVALID_FILE_UPLOAD)의 백엔드 발생 조건은 파일 부분 누락,
+  // 식별자 형식 오류, 회차 값 오류, multipart 한도 초과로 여러 갈래다. 그중
+  // "만료"인 것은 하나도 없으므로 원인을 만료로 단정하면 틀린 안내가 된다.
+  it('SUB_017은 원인을 만료로 단정하지 않고 파일 재선택을 먼저 제시한다', () => {
+    const message = getSubmissionFileErrorMessage('SUB_017') ?? '';
+
+    expect(message).not.toMatch(/만료/);
+    // 파일 부분 누락이 실제 발생 조건이므로 학생이 바로 할 수 있는 행동이다.
+    expect(message).toContain('파일을 다시 선택');
+    // 식별자·회차 오류까지 덮는 두 번째 행동.
+    expect(message).toContain('제출 화면을 다시 열어');
+  });
+
+  // #354 — 막힌 이유와 물어볼 대상이 없으면 학생이 다음 행동을 고를 수 없다.
+  it('SUB_021은 막힌 이유와 문의 대상을 함께 알려준다', () => {
+    const message = getSubmissionFileErrorMessage('SUB_021') ?? '';
+
+    expect(message).toContain('프로그램 종료일이 설정되지 않아');
+    expect(message).toContain('담당 교직원');
+    // 옛 문구는 "설정된 후 제출할 수 있습니다"로 끝나 누구에게 물을지가 없었다.
+    expect(message).not.toMatch(/설정된 후 파일을 제출할 수 있습니다/);
   });
 
   it('알 수 없는 코드는 서버 메시지를 노출하지 않는다', () => {
@@ -157,7 +196,7 @@ describe('validateSubmissionContent', () => {
 
     // Then
     expect(errors).toEqual({
-      releaseUrl: '태그 또는 릴리스의 전체 URL을 입력해 주세요.',
+      releaseUrl: '태그 또는 릴리스의 전체 주소를 입력해 주세요.',
     });
   });
 

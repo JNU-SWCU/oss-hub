@@ -171,7 +171,7 @@ export function SubmissionChecklistPage({
       setFileError(null);
       uploadedFile.current.discard();
       setToastMessage(
-        `revision ${result.revision}을 제출했습니다. 검토 대기 상태로 전환되었습니다.`,
+        `제출본 ${result.revision}번을 제출했습니다. 검토 대기 상태로 전환되었습니다.`,
       );
       setInput(EMPTY_INPUT);
       setComment('');

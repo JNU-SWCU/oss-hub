@@ -63,7 +63,7 @@ export function SelectedMilestonePanel(props: SelectedMilestonePanelProps) {
       return (
         <PanelCard item={item} status="APPROVED">
           <p className="text-sm text-muted-foreground">
-            revision {submission.currentRevision} 제출이 승인되었습니다.
+            제출본 {submission.currentRevision}번이 승인되었습니다.
           </p>
           <SubmissionReviewMeta submission={submission} />
         </PanelCard>
@@ -81,7 +81,7 @@ export function SelectedMilestonePanel(props: SelectedMilestonePanelProps) {
       return (
         <PanelCard item={item} status="SUBMITTED">
           <p className="text-sm text-muted-foreground">
-            revision {submission.currentRevision} 검토 대기 중입니다. 검토가
+            제출본 {submission.currentRevision}번이 검토 대기 중입니다. 검토가
             끝날 때까지 입력이 비활성화됩니다.
           </p>
           <SubmissionReviewMeta submission={submission} />
@@ -124,9 +124,9 @@ function ResubmissionForm(
       <SubmissionReviewMeta submission={submission} />
       <dl className="grid gap-2 text-sm sm:grid-cols-2">
         <div>
-          <dt className="font-medium">현재 revision</dt>
+          <dt className="font-medium">현재 제출본</dt>
           <dd className="text-muted-foreground">
-            {submission.currentRevision}
+            {submission.currentRevision}번
           </dd>
         </div>
       </dl>
@@ -184,7 +184,7 @@ function ResubmissionForm(
               ? props.submissionPhase === 'uploading'
                 ? '업로드 중…'
                 : '제출 중…'
-              : `revision ${submission.currentRevision + 1} 제출`}
+              : `제출본 ${submission.currentRevision + 1}번 제출`}
           </Button>
         </div>
       </form>
