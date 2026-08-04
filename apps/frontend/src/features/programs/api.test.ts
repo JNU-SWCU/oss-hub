@@ -144,6 +144,8 @@ describe('createApplication', () => {
       teamId: null,
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: true,
+      repositoryConnectionMode: 'new',
+      repositoryUrl: '',
     });
 
     expect(apiClient).toHaveBeenCalledWith(
@@ -155,6 +157,8 @@ describe('createApplication', () => {
           teamId: null,
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: true,
+          repositoryConnectionMode: 'NEW',
+          repositoryUrl: null,
         }),
       }),
     );
@@ -177,6 +181,8 @@ describe('createApplication', () => {
       teamId: null,
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: false,
+      repositoryConnectionMode: 'new',
+      repositoryUrl: 'https://github.com/ignored/when-new',
     });
 
     expect(apiClient).toHaveBeenCalledWith(
@@ -188,6 +194,45 @@ describe('createApplication', () => {
           teamId: null,
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: false,
+          repositoryConnectionMode: 'NEW',
+          repositoryUrl: null,
+        }),
+      }),
+    );
+    expect(result).toEqual(response);
+  });
+
+  it('own 선택 시 OWN 과 trim 한 repositoryUrl 을 보낸다', async () => {
+    const response = {
+      id: 'app-3',
+      programId: 'program-1',
+      status: 'SUBMITTED' as const,
+      teamId: null,
+      submittedAt: '2026-07-15T00:00:00.000Z',
+      isRepositoryPublicationPlanned: true,
+    };
+    vi.mocked(apiClient).mockResolvedValue(response);
+
+    const result = await createApplication('program-1', {
+      answers: { title: '제목', summary: '요약' },
+      teamId: null,
+      applicationTemplateVersion: 1,
+      isRepositoryPublicationPlanned: true,
+      repositoryConnectionMode: 'own',
+      repositoryUrl: '  https://github.com/team/repo  ',
+    });
+
+    expect(apiClient).toHaveBeenCalledWith(
+      'programs/program-1/applications',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          answers: { title: '제목', summary: '요약' },
+          teamId: null,
+          applicationTemplateVersion: 1,
+          isRepositoryPublicationPlanned: true,
+          repositoryConnectionMode: 'OWN',
+          repositoryUrl: 'https://github.com/team/repo',
         }),
       }),
     );

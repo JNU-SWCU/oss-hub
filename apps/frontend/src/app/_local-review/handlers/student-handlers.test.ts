@@ -331,12 +331,37 @@ describe('student fixture responses', () => {
           answers: { title: '합성 제목', summary: '합성 요약' },
           teamId: 'synthetic-team-created',
           applicationTemplateVersion: 1,
+          repositoryConnectionMode: 'OWN',
+          repositoryUrl: 'https://github.com/team/repo',
+        },
+      }),
+    );
+    const newRepositoryApplication = jsonBody(
+      resolveLocalReviewResponse({
+        fixture: 'student',
+        method: 'POST',
+        path: 'programs/program-basic-study/applications',
+        searchParams: new URLSearchParams(),
+        body: {
+          answers: { title: '합성 제목', summary: '합성 요약' },
+          teamId: null,
+          applicationTemplateVersion: 1,
+          repositoryConnectionMode: 'NEW',
+          repositoryUrl: null,
         },
       }),
     );
 
     // Then
     expect(team).toMatchObject({ name: '합성 입력 팀' });
-    expect(application).toMatchObject({ teamId: 'synthetic-team-created' });
+    expect(application).toMatchObject({
+      teamId: 'synthetic-team-created',
+      repositoryConnectionMode: 'OWN',
+      repositoryUrl: 'https://github.com/team/repo',
+    });
+    expect(newRepositoryApplication).toMatchObject({
+      repositoryConnectionMode: 'NEW',
+      repositoryUrl: null,
+    });
   });
 });

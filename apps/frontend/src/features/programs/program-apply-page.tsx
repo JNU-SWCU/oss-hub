@@ -124,6 +124,8 @@ export function ProgramApplyPage({
         teamId: state.teamId,
         applicationTemplateVersion: state.template.version,
         isRepositoryPublicationPlanned: values.isRepositoryPublicationPlanned,
+        repositoryConnectionMode: values.repositoryConnectionMode,
+        repositoryUrl: values.repositoryUrl,
       });
       setState({
         kind: 'success',
