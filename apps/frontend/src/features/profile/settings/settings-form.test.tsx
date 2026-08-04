@@ -6,7 +6,10 @@ import {
   PROFILE_NAME_MAX_LENGTH,
 } from '../profile-state';
 import { SettingsForm, SettingsSkeleton } from './components/settings-form';
-import { validateSettingsForm } from './settings-state';
+import {
+  notificationUnavailableMessage,
+  validateSettingsForm,
+} from './settings-state';
 import type { ProfileRole } from '../profile-requirements';
 import type { SettingsFormValues } from './types';
 
@@ -36,6 +39,7 @@ function renderForm(
     readonly submitError?: string | null;
     readonly toastMessage?: string | null;
     readonly notificationAvailable?: boolean;
+    readonly isRetryingNotification?: boolean;
   } = {},
 ) {
   const notificationAvailable = options.notificationAvailable ?? true;
@@ -51,13 +55,15 @@ function renderForm(
           ? { kind: 'ready' }
           : {
               kind: 'unavailable',
-              message: '알림 설정은 현재 이 계정에서 사용할 수 없습니다.',
+              message: notificationUnavailableMessage('forbidden'),
             }
       }
+      isRetryingNotification={options.isRetryingNotification ?? false}
       isSubmitting={options.isSubmitting ?? false}
       submitError={options.submitError ?? null}
       toastMessage={options.toastMessage ?? null}
       onChange={noOp}
+      onRetryNotification={noOp}
       onSubmit={noOp}
     />,
   );
@@ -209,11 +215,31 @@ describe('settings form view', () => {
     });
 
     expect(html).toContain('알림 설정을 사용할 수 없습니다');
-    expect(html).toContain('알림 설정은 현재 이 계정에서 사용할 수 없습니다.');
+    expect(html).toContain(notificationUnavailableMessage('forbidden'));
     expect(html).not.toContain('settings-notification-email');
     expect(html).not.toContain('이메일 형식이 올바르지 않습니다.');
     // 프로필 필드는 유효하므로 저장 버튼은 활성(disabled 없음 on submit)
     expect(html).toContain('>저장</button>');
+  });
+
+  // 조회 실패를 표시만 하고 끝내면 전체 새로고침 전까지 복구할 길이 없다.
+  it('알림 조회 실패 자리에 알림만 다시 불러오는 버튼을 둔다', () => {
+    const html = renderForm(values(), { notificationAvailable: false });
+
+    expect(html).toContain('알림 설정 다시 불러오기');
+    // form 안의 버튼이므로 submit으로 새지 않아야 한다.
+    expect(html).toContain('type="button"');
+  });
+
+  it('알림을 다시 불러오는 동안에는 버튼을 진행 상태로 잠근다', () => {
+    const html = renderForm(values(), {
+      notificationAvailable: false,
+      isRetryingNotification: true,
+    });
+
+    expect(html).toContain('알림 설정 불러오는 중…');
+    expect(html).not.toContain('알림 설정 다시 불러오기');
+    expect(html).toContain('disabled=""');
   });
 
   it('저장 중 중복 클릭을 막고 성공 toast·실패 Alert를 표시한다', () => {

@@ -34,10 +34,14 @@ interface SettingsFormProps {
   readonly errors: SettingsFormErrors;
   readonly showValidationErrors: boolean;
   readonly notificationLoad: SettingsNotificationLoadState;
+  /** 알림 설정만 다시 불러오는 중인지. 버튼 중복 클릭을 막고 진행 상태를 알린다. */
+  readonly isRetryingNotification: boolean;
   readonly isSubmitting: boolean;
   readonly submitError: string | null;
   readonly toastMessage: string | null;
   readonly onChange: (patch: Partial<SettingsFormValues>) => void;
+  /** 알림 설정 조회 실패를 이 자리에서 복구한다 — 전체 새로고침을 요구하지 않는다. */
+  readonly onRetryNotification: () => void;
   readonly onSubmit: () => void;
 }
 
@@ -60,10 +64,12 @@ export function SettingsForm({
   errors,
   showValidationErrors,
   notificationLoad,
+  isRetryingNotification,
   isSubmitting,
   submitError,
   toastMessage,
   onChange,
+  onRetryNotification,
   onSubmit,
 }: SettingsFormProps) {
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
@@ -225,7 +231,23 @@ export function SettingsForm({
           {notificationLoad.kind === 'unavailable' ? (
             <Alert>
               <AlertTitle>알림 설정을 사용할 수 없습니다</AlertTitle>
-              <AlertDescription>{notificationLoad.message}</AlertDescription>
+              {/* 실패한 조각만 제자리에서 되살린다 — 전체 새로고침을 시키면 사용자가
+                  이미 고쳐 둔 프로필 입력이 함께 날아간다. 권한 문제로 보이는 경우에도
+                  버튼을 감추지 않는다(docs/rules/frontend.md — affordance는 런타임
+                  상태 추측으로 숨기지 않는다). 역할이 방금 바뀌었을 수 있다. */}
+              <AlertDescription className="flex flex-col items-start gap-4">
+                <span>{notificationLoad.message}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isRetryingNotification}
+                  onClick={onRetryNotification}
+                >
+                  {isRetryingNotification
+                    ? '알림 설정 불러오는 중…'
+                    : '알림 설정 다시 불러오기'}
+                </Button>
+              </AlertDescription>
             </Alert>
           ) : (
             <>
