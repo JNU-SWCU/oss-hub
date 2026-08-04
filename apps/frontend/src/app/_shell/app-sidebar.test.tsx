@@ -87,23 +87,14 @@ describe('AppSidebar', () => {
     expect(html).not.toContain('모집중');
   });
 
-  // C1 — collapsed keeps count badges visible (not hidden solely by `hidden`)
-  it('C1: collapsed keeps count badges visible', () => {
+  // C1 — collapsed rail is icon-only; counts stay on tooltip/aria, not visible digits
+  it('C1: collapsed hides count badges', () => {
     const html = renderWithCounts(true);
-    expect(html).toContain('data-slot="app-sidebar-count"');
-    // count slot must not be the element that is itself class-hidden
-    const countSlots = html.match(/data-slot="app-sidebar-count"[^>]*>/g);
-    expect(countSlots?.length).toBeGreaterThan(0);
-    for (const slot of countSlots ?? []) {
-      // class may exist but must not include standalone `hidden` that hides the badge
-      const classMatch = slot.match(/class="([^"]*)"/);
-      if (classMatch) {
-        const classes = classMatch[1].split(/\s+/);
-        expect(classes).not.toContain('hidden');
-      }
-    }
-    expect(html).toContain('>3<');
-    expect(html).toContain('>15<');
+    expect(html).not.toContain('data-slot="app-sidebar-count"');
+    expect(html).not.toContain('>3<');
+    expect(html).not.toContain('>15<');
+    // still reachable via aria / tooltip content contract
+    expect(html).toContain('aria-label="모집중 3"');
   });
 
   // C2 — same toggle object; aria-label + aria-expanded by state
@@ -136,8 +127,8 @@ describe('AppSidebar', () => {
     expect(html).toContain('aria-label="종료 9"');
   });
 
-  // U5 — count 0 renders; undefined does not create count slot
-  it('U5: count 0 renders; undefined count has no count slot', () => {
+  // U5 — expanded: count 0 renders; undefined has no count slot. collapsed: no digits.
+  it('U5: count 0 renders when expanded; collapsed never shows count slot', () => {
     const withZero = renderWithCounts(false);
     expect(withZero).toContain('data-slot="app-sidebar-count"');
     expect(withZero).toContain('>0<');
@@ -146,8 +137,8 @@ describe('AppSidebar', () => {
     expect(withoutCounts).not.toContain('data-slot="app-sidebar-count"');
 
     const withZeroCollapsed = renderWithCounts(true);
-    expect(withZeroCollapsed).toContain('>0<');
-    expect(withZeroCollapsed).toContain('data-slot="app-sidebar-count"');
+    expect(withZeroCollapsed).not.toContain('data-slot="app-sidebar-count"');
+    expect(withZeroCollapsed).not.toContain('>0<');
 
     const withoutCountsCollapsed = render('/programs', true);
     expect(withoutCountsCollapsed).not.toContain(
@@ -162,7 +153,7 @@ describe('AppSidebar', () => {
     expect(formatSidebarCount(1500)).toBe('99+');
   });
 
-  it('collapsed ranking years show year metric without count slot', () => {
+  it('collapsed ranking years are icon-only with year in aria-label', () => {
     const groups = sidebarGroupsFor('ranking', null, {
       rankingYears: [2026, 2025],
     });
@@ -175,10 +166,11 @@ describe('AppSidebar', () => {
         onToggle={() => {}}
       />,
     );
-    expect(html).toContain('>2026<');
-    expect(html).toContain('>2025<');
-    // years have no backend count → no count slot
     expect(html).not.toContain('data-slot="app-sidebar-count"');
+    // year digits must not appear as visible metric under icons
+    expect(html).not.toMatch(/>2026</);
+    expect(html).not.toMatch(/>2025</);
     expect(html).toContain('aria-label="2026"');
+    expect(html).toContain('aria-label="2025"');
   });
 });

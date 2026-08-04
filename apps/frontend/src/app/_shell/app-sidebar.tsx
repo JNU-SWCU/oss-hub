@@ -23,29 +23,9 @@ interface AppSidebarProps {
   readonly onToggle: () => void;
 }
 
-/** 사이드바 카운트 표시: 99 초과는 `99+`. */
+/** 사이드바 카운트 표시: 99 초과는 `99+`. 펼침 뱃지·툴팁/aria 공통. */
 export function formatSidebarCount(n: number): string {
   return n > 99 ? '99+' : String(n);
-}
-
-const YEAR_LABEL_RE = /^\d{4}$/;
-const YEAR_HREF_RE = /[?&]year=\d{4}\b/;
-
-/**
- * 접힌 레일에서 아이콘 아래 표시할 메트릭.
- * - count 있으면 포맷된 숫자
- * - 랭킹 연도처럼 count 없는 연도 항목은 라벨(연도)로 구분 (M1)
- */
-function collapsedMetric(
-  item: SidebarGroup['items'][number],
-): { text: string; isCount: boolean } | null {
-  if (item.count !== undefined) {
-    return { text: formatSidebarCount(item.count), isCount: true };
-  }
-  if (YEAR_LABEL_RE.test(item.label) || YEAR_HREF_RE.test(item.href)) {
-    return { text: item.label, isCount: false };
-  }
-  return null;
 }
 
 function linkAriaLabel(
@@ -177,8 +157,7 @@ function SidebarLink({
   readonly collapsed: boolean;
 }) {
   const current = isCurrentSidebarItem(pathname, item.href, search);
-  const showCount = item.count !== undefined;
-  const metric = collapsed ? collapsedMetric(item) : null;
+  const showCount = !collapsed && item.count !== undefined;
   const ariaLabel = linkAriaLabel(item, collapsed);
 
   const link = (
@@ -190,13 +169,11 @@ function SidebarLink({
       data-depth={item.depth ?? 0}
       data-icon={item.icon}
       className={cn(
-        'group relative flex shrink-0 rounded-control text-[15px] whitespace-nowrap text-muted-foreground transition-colors',
+        'group relative flex h-control shrink-0 items-center rounded-control text-[15px] whitespace-nowrap text-muted-foreground transition-colors',
         'hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
         current &&
           'bg-sidebar-current font-semibold text-sidebar-current-foreground',
-        collapsed
-          ? 'h-auto w-control flex-col items-center justify-center gap-0.5 px-0 py-1.5'
-          : 'h-control items-center gap-3 px-3',
+        collapsed ? 'w-control justify-center px-0' : 'gap-3 px-3',
       )}
     >
       {current ? (
@@ -210,7 +187,7 @@ function SidebarLink({
       <span className={cn('min-w-0 flex-1 truncate', collapsed && 'hidden')}>
         {item.label}
       </span>
-      {!collapsed && showCount ? (
+      {showCount ? (
         <span
           data-slot="app-sidebar-count"
           className={cn(
@@ -220,19 +197,6 @@ function SidebarLink({
           )}
         >
           {formatSidebarCount(item.count as number)}
-        </span>
-      ) : null}
-      {collapsed && metric ? (
-        <span
-          data-slot={metric.isCount ? 'app-sidebar-count' : undefined}
-          className={cn(
-            'text-xs font-semibold tabular-nums',
-            current
-              ? 'text-sidebar-current-foreground'
-              : 'text-muted-foreground',
-          )}
-        >
-          {metric.text}
         </span>
       ) : null}
     </Link>
