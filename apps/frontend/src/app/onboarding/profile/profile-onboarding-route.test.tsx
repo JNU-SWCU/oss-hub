@@ -33,6 +33,7 @@ const STUDENT_ONLY_FIELD = '학번';
  * 화면이 남지 않는다(`AuthGate`의 `router.replace('/')`와 같은 성질).
  */
 const LANDING_REDIRECT_DIGEST = 'NEXT_REDIRECT;replace;/;307;';
+const ROLE_REDIRECT_DIGEST = 'NEXT_REDIRECT;replace;/onboarding/role;307;';
 
 function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
   return {
@@ -186,32 +187,30 @@ describe('profileOnboardingView', () => {
     expect(view).toMatchObject({ kind: 'form', role: 'STAFF' });
   });
 
-  // 되돌리는 범위는 "요청이 아예 없음" 하나다. 회수·반려는 역할을 고르긴 고른
-  // 사용자라 `onboardingPathFor`가 정해 둔 기존 경로를 그대로 둔다(PR #525 리뷰).
+  // 회수·반려는 살아 있는 신청이 없는 상태라 역할부터 다시 고른다(#535).
+  //
+  // 여기서 폼을 그리면 역할을 모르는 채 가장 엄격한 학생 기준이 적용돼 학번을
+  // 필수로 묻는다. 교직원이었다가 회수된 사람에게는 학번이 없어 지어내야 하고,
+  // 한 번 저장하면 백엔드가 그 값을 잠근다(`USR_003`).
   it.each(['REVOKED', 'REJECTED'] as const)(
-    '역할 요청 이력이 있는 %s 사용자는 되돌리지 않는다',
+    '살아 있는 신청이 없는 %s 사용자는 역할 선택으로 되돌린다',
     (roleRequestStatus) => {
       expect(
         profileOnboardingView(
           state({ status: 'unassigned', roleRequestStatus }),
-        ).kind,
-      ).not.toBe('redirect');
+        ),
+      ).toEqual({ kind: 'redirect', path: '/onboarding/role' });
     },
   );
 
-  it('회수된 사용자의 처리는 그대로 둔다', () => {
+  it('회수된 사용자에게는 학생 기준 폼 대신 역할 선택을 준다', () => {
+    // 이 자리가 #535 가 기록한 결함이다 — 코드는 `onboardingPathFor`로 "역할을
+    // 다시 골라야 한다"를 알면서도 화면은 폼을 그렸다.
     expect(
       profileOnboardingView(
         state({ status: 'unassigned', roleRequestStatus: 'REVOKED' }),
       ),
-    ).toEqual({
-      kind: 'form',
-      role: null,
-      nextPath: '/onboarding/role',
-      // 요청 이력이 있는 사용자의 되돌아가기는 `onboardingPathFor`가 이미 정해
-      // 두었다(회수는 역할 선택, 반려는 승인 대기). 여기에 두 번째 문을 내지 않는다.
-      canChangeRole: false,
-    });
+    ).toEqual({ kind: 'redirect', path: '/onboarding/role' });
   });
 
   it.each(['PENDING', 'APPROVED'] as const)(
@@ -234,19 +233,15 @@ describe('profileOnboardingView', () => {
     },
   );
 
-  // 반려는 이 PR의 판단 대상이 아니다 — 역할을 고르긴 골랐고, 되돌릴 자리는
-  // `onboardingPathFor`가 승인 대기(반려 사유를 읽는 자리)로 정해 두었다.
-  it('반려된 사용자의 처리는 그대로 둔다', () => {
+  // 반려도 회수와 같게 다룬다(#535). 두 상태 모두 살아 있는 신청이 없고, 사용자에게
+  // 남은 일이 같다 — 역할을 다시 고르는 것이다. 상태마다 목적지를 따로 두면 상태가
+  // 하나 늘 때마다 같은 논의를 반복하게 된다.
+  it('반려된 사용자도 역할 선택으로 되돌린다', () => {
     expect(
       profileOnboardingView(
         state({ status: 'unassigned', roleRequestStatus: 'REJECTED' }),
       ),
-    ).toEqual({
-      kind: 'form',
-      role: null,
-      nextPath: '/onboarding/pending',
-      canChangeRole: false,
-    });
+    ).toEqual({ kind: 'redirect', path: '/onboarding/role' });
   });
 });
 
@@ -267,12 +262,14 @@ describe('ProfileOnboardingRoute', () => {
     expect(html).not.toContain('확인 중…');
   });
 
+  // 결정만 바꾸고 실행하지 않으면 폼이 그대로 열린다. 여기서는 실제로 이동까지
+  // 일어나는지 본다(#535).
   it.each(['REVOKED', 'REJECTED'] as const)(
-    '역할 요청 이력이 있는 %s 사용자도 화면을 그대로 연다',
+    '살아 있는 신청이 없는 %s 사용자는 폼을 그리기 전에 역할 선택으로 이동한다',
     (roleRequestStatus) => {
-      const html = render({ status: 'unassigned', roleRequestStatus });
-
-      expect(html).toContain(PROFILE_SCREEN_MARK);
+      expect(
+        renderRedirectDigest({ status: 'unassigned', roleRequestStatus }),
+      ).toBe(ROLE_REDIRECT_DIGEST);
     },
   );
 

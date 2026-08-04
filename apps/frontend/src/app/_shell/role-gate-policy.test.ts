@@ -72,7 +72,8 @@ describe('roleGateRedirectPath', () => {
     ['REVOKED', '/onboarding/role'],
     ['PENDING', '/onboarding/pending'],
     ['APPROVED', '/onboarding/pending'],
-    ['REJECTED', '/onboarding/pending'],
+    // 반려는 살아 있는 신청이 없어 역할부터 다시 고른다(#535).
+    ['REJECTED', '/onboarding/role'],
   ] as readonly (readonly [RoleRequestStatus | null, string])[])(
     '%s 미배정 사용자의 온보딩 목적지는 %s 다',
     (roleRequestStatus, path) => {

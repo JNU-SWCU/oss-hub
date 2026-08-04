@@ -113,7 +113,8 @@ describe('RoleGate 렌더', () => {
       { unassignedAccess: () => false, unassignedNotice: <p>{NOTICE}</p> },
     );
 
-    expect(mocks.replace).toHaveBeenCalledWith('/onboarding/pending');
+    // 반려는 역할 선택으로 되돌린다(#535).
+    expect(mocks.replace).toHaveBeenCalledWith('/onboarding/role');
     expect(text).not.toContain(CHILD);
     expect(text).not.toContain(NOTICE);
   });
@@ -185,7 +186,8 @@ describe('RoleGate 렌더', () => {
     ['REVOKED', '/onboarding/role'],
     ['PENDING', '/onboarding/pending'],
     ['APPROVED', '/onboarding/pending'],
-    ['REJECTED', '/onboarding/pending'],
+    // 반려는 살아 있는 신청이 없어 역할부터 다시 고른다(#535).
+    ['REJECTED', '/onboarding/role'],
   ] as readonly (readonly [RoleRequestStatus | null, string])[])(
     '규칙을 주지 않은 화면은 %s 미배정 사용자를 %s 로 종전대로 되돌린다',
     async (roleRequestStatus, path) => {

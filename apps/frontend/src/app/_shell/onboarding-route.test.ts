@@ -71,17 +71,21 @@ describe('onboardingPathFor', () => {
   );
 
   it.each(['incomplete', 'complete'] as const)(
-    '반려된 요청은 프로필이 %s여도 요청 상태 화면으로 보낸다',
+    '반려된 요청은 프로필이 %s여도 역할 선택으로 보낸다',
     (profileStatus) => {
       // Given — 반려된 사용자는 역할을 다시 골라야 하고, 무엇을 고르느냐에 따라
       // 필요한 프로필 항목이 달라진다. 그 전에 프로필을 물으면 기준이 없다.
+      //
+      // 승인 대기 화면으로 보내던 규칙은 접었다(#535). 기다리는 신청이 없는데
+      // 대기 화면으로 보내는 것은 사실과 다르고, 그 화면이 프로필 저장 뒤의
+      // 목적지이기도 해서 반려된 사람이 학생 기준 폼을 거쳐 대기 화면에 닿았다.
       const requestStatus = 'REJECTED';
 
       // When
       const path = onboardingPathFor(requestStatus, profileStatus);
 
       // Then
-      expect(path).toBe('/onboarding/pending');
+      expect(path).toBe('/onboarding/role');
     },
   );
 });

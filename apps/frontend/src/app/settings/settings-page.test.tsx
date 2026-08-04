@@ -238,8 +238,9 @@ describe('설정 화면', () => {
       { selectedRole: 'STAFF' as const },
     ],
     [
+      // 반려는 살아 있는 신청이 없어 역할 선택으로 되돌린다(#535).
       '반려된 사용자',
-      '/onboarding/pending',
+      '/onboarding/role',
       { roleRequestStatus: 'REJECTED' as RoleRequestStatus },
     ],
     [
