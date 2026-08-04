@@ -39,6 +39,7 @@ function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
     status: 'loading',
     role: null,
     roleRequestStatus: null,
+    selectedRole: null,
     isProfileComplete: false,
     ...overrides,
   };
@@ -103,6 +104,8 @@ describe('profileOnboardingView', () => {
       kind: 'form',
       role: 'STAFF',
       nextPath: '/onboarding/pending',
+      // 이미 확정된 사람이다. 되돌아가면 백엔드가 409로 막으므로 길을 열지 않는다.
+      canChangeRole: false,
     });
   });
 
@@ -113,6 +116,7 @@ describe('profileOnboardingView', () => {
       kind: 'form',
       role: 'STUDENT',
       nextPath: '/dashboard',
+      canChangeRole: false,
     });
   });
 
@@ -125,17 +129,61 @@ describe('profileOnboardingView', () => {
       kind: 'form',
       role: 'STAFF',
       nextPath: '/onboarding/pending',
+      canChangeRole: false,
     });
   });
 
   // 역할을 고르지 않은 사람은 가입을 마치지 않은 사람이다(#493). 폼을 열어 주면 역할을
   // 모르는 채 학생 기준으로 그려져, 학번이 필요 없는 사람이 가짜 학번을 지어내야 넘어가고
   // 백엔드가 그 값을 잠근다(`USR_003`). 비로그인과 같이 랜딩으로 되돌린다.
-  it('역할 요청 이력이 없는 미배정 사용자는 랜딩으로 되돌린다', () => {
+  it('고른 흔적이 하나도 없는 미배정 사용자는 랜딩으로 되돌린다', () => {
     expect(profileOnboardingView(state({ status: 'unassigned' }))).toEqual({
       kind: 'redirect',
       path: '/',
     });
+  });
+
+  /**
+   * #569 회귀 검사 — **고른 역할만 있는 사람은 되돌리지 않는다.**
+   *
+   * 확정을 `가입 마치기`로 미룬 뒤, 프로필을 처음 채우는 사람에게는 역할도 요청도
+   * 없고 고른 기록만 있다. 여기서 요청 유무만 보고 되돌리면 가입 동선이 프로필
+   * 단계에서 끊겨 아무도 가입을 마칠 수 없다.
+   */
+  it.each(['STUDENT', 'STAFF'] as const)(
+    '%s을 고른 사람은 요청이 없어도 폼을 연다',
+    (selectedRole) => {
+      expect(
+        profileOnboardingView(state({ status: 'unassigned', selectedRole })),
+      ).toEqual({
+        kind: 'form',
+        role: selectedRole,
+        nextPath:
+          selectedRole === 'STUDENT' ? '/dashboard' : '/onboarding/pending',
+        // 아직 확정 전이라 되돌아갈 수 있다.
+        canChangeRole: true,
+      });
+    },
+  );
+
+  /**
+   * #569 회귀 검사 ③ — 승인 대기 교직원의 필수 항목은 그대로 '학번 선택'이다.
+   *
+   * 판정 근거에 고른 역할이 하나 늘었는데(`effectiveProfileRole`) 우선순위가
+   * 어긋나면, 승인을 기다리는 교직원이 학생 기준으로 그려져 학번을 요구받는다.
+   */
+  it('승인 대기 교직원은 고른 기록이 비어 있어도 교직원 기준이다', () => {
+    // Given — 마이그레이션 전에 신청한 사용자는 새 칸이 비어 있을 수 있다.
+    const view = profileOnboardingView(
+      state({
+        status: 'unassigned',
+        roleRequestStatus: 'PENDING',
+        selectedRole: null,
+      }),
+    );
+
+    // Then
+    expect(view).toMatchObject({ kind: 'form', role: 'STAFF' });
   });
 
   // 되돌리는 범위는 "요청이 아예 없음" 하나다. 회수·반려는 역할을 고르긴 고른
@@ -160,6 +208,9 @@ describe('profileOnboardingView', () => {
       kind: 'form',
       role: null,
       nextPath: '/onboarding/role',
+      // 요청 이력이 있는 사용자의 되돌아가기는 `onboardingPathFor`가 이미 정해
+      // 두었다(회수는 역할 선택, 반려는 승인 대기). 여기에 두 번째 문을 내지 않는다.
+      canChangeRole: false,
     });
   });
 
@@ -194,6 +245,7 @@ describe('profileOnboardingView', () => {
       kind: 'form',
       role: null,
       nextPath: '/onboarding/pending',
+      canChangeRole: false,
     });
   });
 });

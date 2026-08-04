@@ -28,6 +28,7 @@ describe('설정 화면 접근 규칙', () => {
         status: 'unassigned',
         role: null,
         roleRequestStatus: null,
+        selectedRole: null,
         isProfileComplete: true,
       }),
     ).toBe('/onboarding/role');
@@ -44,6 +45,7 @@ describe('설정 화면 접근 규칙', () => {
           status: 'unassigned',
           role: null,
           roleRequestStatus,
+          selectedRole: null,
           isProfileComplete: true,
         }),
       ).toBe('/onboarding/pending');
@@ -56,6 +58,7 @@ describe('설정 화면 접근 규칙', () => {
         status: 'unassigned',
         role: null,
         roleRequestStatus: 'REVOKED',
+        selectedRole: null,
         isProfileComplete: true,
       }),
     ).toBe('/onboarding/role');
@@ -68,6 +71,7 @@ describe('설정 화면 접근 규칙', () => {
         status: 'assigned',
         role,
         roleRequestStatus: null,
+        selectedRole: null,
         isProfileComplete: true,
       };
 
@@ -82,6 +86,7 @@ describe('설정 화면 접근 규칙', () => {
         status: 'anonymous',
         role: null,
         roleRequestStatus: null,
+        selectedRole: null,
         isProfileComplete: true,
       }),
     ).toBe('/');
@@ -95,6 +100,7 @@ describe('설정 화면 접근 규칙', () => {
         status: 'error',
         role: null,
         roleRequestStatus: null,
+        selectedRole: null,
         isProfileComplete: true,
       }),
     ).toBeNull();
@@ -106,6 +112,7 @@ describe('설정 화면 접근 규칙', () => {
         status: 'loading',
         role: null,
         roleRequestStatus: null,
+        selectedRole: null,
         isProfileComplete: true,
       }),
     ).toBeNull();

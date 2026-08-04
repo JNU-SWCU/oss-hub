@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ProfileOnboardingScreen } from '@/features/profile/components/profile-onboarding-screen';
 import type { ProfileRole } from '@/features/profile/profile-requirements';
@@ -17,6 +18,9 @@ import {
 /** 아직 가입을 마치지 않은 사용자를 되돌릴 자리 — `AuthGate`가 비로그인을 보내는 곳과 같다. */
 const LANDING_PATH = '/';
 
+/** 역할 선택으로 되돌아가는 자리 — 아직 확정되지 않은 사용자만 쓸 수 있다(#569). */
+const ROLE_PATH = '/onboarding/role';
+
 export type ProfileOnboardingView =
   | { readonly kind: 'pending' }
   | { readonly kind: 'error' }
@@ -25,7 +29,40 @@ export type ProfileOnboardingView =
       readonly kind: 'form';
       readonly role: ProfileRole | null;
       readonly nextPath: string;
+      /**
+       * 역할 선택으로 되돌아갈 수 있는가.
+       *
+       * 확정 전에만 참이다. 되돌아가는 일은 기록한 선택을 바꾸는 것뿐이라 회수·해제가
+       * 필요 없지만, 확정된 뒤에는 그렇지 않다 — 승인을 기다리는 교직원이 되돌아가면
+       * 백엔드가 409로 막고(`ROL_003`) 사용자는 이유를 알 수 없는 오류만 본다.
+       */
+      readonly canChangeRole: boolean;
     };
+
+/**
+ * 가입을 마친 뒤 도착할 곳.
+ *
+ * 확정을 `가입 마치기`로 미룬 뒤로, **저장이 끝나야 비로소 역할이 생긴다**(#569).
+ * 그래서 목적지를 지금 세션의 역할로 정할 수 없다 — 학생은 저장 직후 STUDENT가 되고
+ * 교직원은 승인 대기가 된다. 무엇이 될 사람인지 아는 근거가 고른 역할이다.
+ *
+ * 이미 확정된 사용자(`role`)는 그 역할 홈으로 간다. 둘 다 없으면 기존 판단
+ * (`onboardingPathFor`)에 맡긴다 — 반려·회수처럼 선택이 아니라 이력이 목적지를
+ * 정하는 상태들이다.
+ */
+export function signupDestination(state: SessionRoleState): string {
+  if (state.role) {
+    return roleHomePath(state.role);
+  }
+  switch (state.selectedRole) {
+    case 'STUDENT':
+      return roleHomePath('STUDENT');
+    case 'STAFF':
+      return '/onboarding/pending';
+    case null:
+      return onboardingPathFor(state.roleRequestStatus);
+  }
+}
 
 /**
  * 세션·역할 상태를 프로필 화면의 표시 결정으로 바꾼다.
@@ -48,8 +85,10 @@ export type ProfileOnboardingView =
  * 단계 순서를 약관 → 역할 → 프로필로 뒤집어 없앴다고 한 바로 그 실패다.
  *
  * 다만 "역할이 없다"와 "세션에 역할이 아직 안 붙었다"는 다르다. 승인을 기다리는 교직원은
- * `role`이 비어 있어도 역할을 이미 골랐고 프로필을 반드시 채워야 한다. 그래서 판정은
- * `role`이 아니라 역할 요청 자체의 유무(`roleRequestStatus === null`)로 한다.
+ * `role`이 비어 있어도 역할을 이미 골랐고 프로필을 반드시 채워야 한다. 확정을
+ * `가입 마치기`로 미룬 뒤로는(#569) **프로필을 처음 채우는 사람도 그 상태다** — 역할도
+ * 요청도 없고 고른 기록만 있다. 그래서 판정은 "고른 흔적이 하나도 없는가"로 한다:
+ * 살아 있는 요청도 없고(`roleRequestStatus === null`) 고른 역할도 없을 때만 되돌린다.
  *
  * 되돌리는 범위는 딱 그 하나다. 회수(`REVOKED`)·반려(`REJECTED`)는 역할을 고르긴 고른
  * 사용자라 여기서 함께 묶지 않고 기존 경로를 그대로 둔다 — 그 상태들의 처리는
@@ -69,18 +108,28 @@ export function profileOnboardingView(
       return { kind: 'error' };
     case 'unassigned':
     case 'assigned':
-      // `assigned`는 세션에 역할이 붙은 사용자다. 그쪽의 `roleRequestStatus`는 조회하지
-      // 않아 항상 null이므로 상태를 함께 봐야 배정된 사용자를 되돌리지 않는다.
-      if (state.status === 'unassigned' && state.roleRequestStatus === null) {
+      // `assigned`는 세션에 역할이 붙은 사용자다. 그쪽의 `roleRequestStatus`·
+      // `selectedRole`은 조회하지 않아 항상 null이므로 상태를 함께 봐야 배정된
+      // 사용자를 되돌리지 않는다.
+      if (
+        state.status === 'unassigned' &&
+        state.roleRequestStatus === null &&
+        state.selectedRole === null
+      ) {
         return { kind: 'redirect', path: LANDING_PATH };
       }
 
       return {
         kind: 'form',
-        role: effectiveProfileRole(state.role, state.roleRequestStatus),
-        nextPath: state.role
-          ? roleHomePath(state.role)
-          : onboardingPathFor(state.roleRequestStatus),
+        role: effectiveProfileRole(
+          state.role,
+          state.roleRequestStatus,
+          state.selectedRole,
+        ),
+        nextPath: signupDestination(state),
+        // 확정된 것이 하나도 없을 때만 되돌아갈 수 있다.
+        canChangeRole:
+          state.status === 'unassigned' && state.roleRequestStatus === null,
       };
     default: {
       const exhaustive: never = state.status;
@@ -140,5 +189,36 @@ export function ProfileOnboardingRoute() {
     );
   }
 
-  return <ProfileOnboardingScreen role={view.role} nextPath={view.nextPath} />;
+  return (
+    <>
+      <ProfileOnboardingScreen role={view.role} nextPath={view.nextPath} />
+      {view.canChangeRole ? <ChangeRoleLink /> : null}
+    </>
+  );
+}
+
+/**
+ * 역할 선택으로 되돌아가는 링크(#569).
+ *
+ * 예전에는 이 화면에서 역할 선택으로 돌아갈 방법이 하나도 없었다 — 본문에 링크가 없고,
+ * 주소로 `/onboarding/role`을 쳐도 게이트가 프로필로 되돌렸다. 역할이 이미 확정된
+ * 뒤라서 그랬다. 확정을 `가입 마치기`로 미룬 지금은 되돌아가도 되고, 되돌아가서 하는
+ * 일은 기록한 선택을 바꾸는 것뿐이라 취소할 요청도 되돌릴 역할도 없다.
+ *
+ * 화면 컴포넌트(`features/profile`)가 아니라 여기 있는 이유는 "되돌아가도 되는가"가
+ * 세션·역할 요청을 봐야 나오는 답이고, 그것을 아는 계층이 app이기 때문이다. 무대의
+ * 본문이 세로 flex(`gap-8`)라 이 링크는 폼 아래 한 칸 띄워 선다.
+ */
+function ChangeRoleLink() {
+  return (
+    <p className="text-small text-cosmos-muted">
+      <Link
+        href={ROLE_PATH}
+        className="underline underline-offset-4 hover:text-cosmos-copy"
+      >
+        역할을 다시 고르기
+      </Link>
+      {' — 아직 확정되지 않았습니다.'}
+    </p>
+  );
 }

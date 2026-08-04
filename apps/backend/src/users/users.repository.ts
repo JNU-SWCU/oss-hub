@@ -11,6 +11,7 @@ import {
   resolveCompatibleProfile,
   type CompleteCompatibleProfile,
 } from '../profiles/profile-compatibility';
+import { confirmSelectedRole } from '../roles/role-confirmation';
 import type {
   CompleteUserProfileInput,
   UpdateProfileFieldsInput,
@@ -46,6 +47,9 @@ export class UsersRepository implements UsersRepositoryPort {
         id: true,
         // 완료 판정이 역할에 따라 달라져 함께 읽는다(#439).
         role: true,
+        // 확정을 `가입 마치기`로 미룬 뒤(#569) 프로필을 입력하는 동안에는 role도
+        // 승인 요청도 없다. 그 구간에서 무엇을 필수로 볼지 아는 근거가 이 값뿐이다.
+        selectedRole: true,
         // 승인 대기 중인 교직원은 아직 role이 null이다. 그 사람이 지금 프로필을
         // 채우는 당사자라, 이 표시가 없으면 학생 기준으로 학번을 요구받는다.
         roleRequests: {
@@ -60,6 +64,7 @@ export class UsersRepository implements UsersRepositoryPort {
       ? {
           id: user.id,
           role: user.role,
+          selectedRole: user.selectedRole,
           hasPendingStaffRequest: user.roleRequests.length > 0,
           ...resolveCompatibleProfile(user),
         }
@@ -78,6 +83,12 @@ export class UsersRepository implements UsersRepositoryPort {
    * 학번이 실린 채로 legacy 분기에 오는 일은 없다 — 그 조합(학번 있음 + 학과 없음)은
    * 유일성 제약이 걸리지 않는 User 컬럼에만 학번을 남기게 되므로 서비스가 먼저 400으로
    * 막는다. 여기서도 분기 조건을 학번 기준으로 적어 그 계약을 코드로 남긴다.
+   *
+   * **여기가 가입이 끝나는 지점이다(#569).** 프로필이 완료되는 이 순간에 고른 역할이
+   * 확정된다 — 학생은 `User.role`이 붙고 교직원은 승인 요청이 만들어진다. 확정을 같은
+   * 트랜잭션 안에 두는 이유는, 따로 떼면 그 사이에서 끊겼을 때 "프로필은 완료됐는데
+   * 역할이 없는" 계정이 남기 때문이다. 그 계정은 프로필 화면이 이미 완료라며 곧바로
+   * 내보내므로 `가입 마치기`를 다시 누를 기회를 영영 얻지 못한다.
    */
   async completeProfileIfUnchanged(
     expected: UserProfileRecord,
@@ -85,27 +96,16 @@ export class UsersRepository implements UsersRepositoryPort {
   ): Promise<boolean> {
     try {
       return await this.prisma.$transaction(async (transaction) => {
-        if (input.studentId !== null) {
-          return completeCompatibleProfileIfUnchanged(
-            transaction,
-            expected,
-            requireStorableStudentId(
-              input.name,
-              input.studentId,
-              input.department,
-            ),
-          );
+        const completed = await completeFields(transaction, expected, input);
+        if (!completed) {
+          return false;
         }
-        const updated = await transaction.user.updateMany({
-          where: {
-            id: expected.id,
-            name: expected.name,
-            studentId: expected.studentId,
-            department: expected.department,
-          },
-          data: input,
+        await confirmSelectedRole(transaction, {
+          id: expected.id,
+          role: expected.role ?? null,
+          selectedRole: expected.selectedRole ?? null,
         });
-        return updated.count === 1;
+        return true;
       });
     } catch (error) {
       if (
@@ -154,6 +154,37 @@ export class UsersRepository implements UsersRepositoryPort {
       await transaction.user.update({ where: { id: userId }, data: fields });
     });
   }
+}
+
+/**
+ * 프로필 값만 쓴다 — 역할 확정은 호출부가 같은 트랜잭션 안에서 이어서 한다.
+ *
+ * 학번이 실린 저장은 UserProfile 행을 만드는 경로로 가고(유일성 제약이 거기에만 있다),
+ * 학번이 없는 저장은 구버전 User 컬럼에만 남긴다. 두 경로 모두 "직전에 읽은 값이
+ * 그대로인가"를 CAS로 확인해, 같은 계정의 동시 저장 두 건 중 하나만 통과시킨다.
+ */
+async function completeFields(
+  transaction: Prisma.TransactionClient,
+  expected: UserProfileRecord,
+  input: CompleteUserProfileInput,
+): Promise<boolean> {
+  if (input.studentId !== null) {
+    return completeCompatibleProfileIfUnchanged(
+      transaction,
+      expected,
+      requireStorableStudentId(input.name, input.studentId, input.department),
+    );
+  }
+  const updated = await transaction.user.updateMany({
+    where: {
+      id: expected.id,
+      name: expected.name,
+      studentId: expected.studentId,
+      department: expected.department,
+    },
+    data: input,
+  });
+  return updated.count === 1;
 }
 
 /**

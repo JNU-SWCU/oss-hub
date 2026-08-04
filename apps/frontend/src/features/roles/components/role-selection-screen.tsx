@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   BriefcaseBusiness,
   Circle,
@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
-import { selectRole } from '../api';
+import { fetchMyRoleSelection, selectRole } from '../api';
 import type { RoleSelection } from '../types';
 
 interface RoleSelectionFormProps {
@@ -283,8 +283,50 @@ export function RoleSelectionForm({
   );
 }
 
-export function RoleSelectionScreen() {
+/**
+ * 되돌아온 사람에게 이전 선택을 되살린다(#569).
+ *
+ * 확정을 `가입 마치기`로 미루면서 프로필 화면에서 여기로 되돌아올 수 있게 됐다.
+ * 되돌아왔는데 아무것도 골라지지 않은 화면이 뜨면, 사용자는 자기가 무엇을 골랐었는지
+ * 화면에서 확인할 수 없어 방금 한 선택이 지워진 것으로 읽는다.
+ *
+ * **사용자가 이미 카드를 눌렀으면 덮어쓰지 않는다.** 조회는 화면이 뜬 뒤에 끝나므로,
+ * 그 사이에 고른 것을 뒤늦게 도착한 응답이 되돌리면 눌렀던 카드가 저절로 바뀐다.
+ */
+function useRestoredRoleSelection(): {
+  readonly selectedRole: RoleSelection | null;
+  readonly select: (role: RoleSelection) => void;
+} {
   const [selectedRole, setSelectedRole] = useState<RoleSelection | null>(null);
+  const hasChosen = useRef(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchMyRoleSelection(controller.signal)
+      .then((state) => {
+        if (!controller.signal.aborted && !hasChosen.current) {
+          setSelectedRole(state.selectedRole);
+        }
+      })
+      .catch(() => {
+        // 되살리기에 실패해도 화면은 그대로 쓸 수 있다 — 아무것도 고르지 않은 상태로
+        // 시작할 뿐이다. 여기서 오류를 띄우면 처음 온 사람(고른 것이 없는 것이 정상)
+        // 에게도 실패 화면이 뜬다.
+      });
+    return () => controller.abort();
+  }, []);
+
+  return {
+    selectedRole,
+    select: (role) => {
+      hasChosen.current = true;
+      setSelectedRole(role);
+    },
+  };
+}
+
+export function RoleSelectionScreen() {
+  const { selectedRole, select } = useRestoredRoleSelection();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -314,7 +356,7 @@ export function RoleSelectionScreen() {
       selectedRole={selectedRole}
       isSubmitting={isSubmitting}
       errorMessage={errorMessage}
-      onSelect={setSelectedRole}
+      onSelect={select}
       onSubmit={() => void handleSubmit()}
     />
   );
