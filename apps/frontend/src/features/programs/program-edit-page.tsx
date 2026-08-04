@@ -15,7 +15,7 @@ import {
   buildMilestoneInput,
   buildProgramEditInput,
   emptyMilestoneForm,
-  isMilestoneSubmissionConflict,
+  mapMilestoneDeleteError,
   mapMilestoneError,
   mapProgramEditError,
   toMilestoneForm,
@@ -220,11 +220,7 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
       setState((current) => removeMilestone(current, deleteTarget.id));
       setDeleteTarget(null);
     } catch (error: unknown) {
-      setGeneralAlert(
-        isMilestoneSubmissionConflict(error)
-          ? '제출물이 있는 마일스톤은 삭제할 수 없습니다.'
-          : '마일스톤을 삭제하지 못했습니다.',
-      );
+      setGeneralAlert(mapMilestoneDeleteError(error));
     } finally {
       setIsMilestoneBusy(false);
     }

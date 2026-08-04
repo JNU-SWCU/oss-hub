@@ -203,9 +203,20 @@ export function mapProgramEditError(error: unknown): ProgramEditErrors {
   return mapProgramProblem(error.problem);
 }
 
+/**
+ * 저장 실패는 편집기를 열어 둔 채 errors만 채우므로(program-edit-page의 catch가
+ * milestoneEditor의 form을 유지한다) 입력이 남아 있다고 단언할 수 있다.
+ */
+export const MILESTONE_SAVE_FAILED_MESSAGE =
+  '마일스톤을 저장하지 못했습니다. 입력한 내용은 그대로 남아 있으니 잠시 후 다시 저장해 주세요.';
+
+/** 삭제는 서버 상태가 갈릴 수 있어 남은 내용을 단언하지 않고 확인을 먼저 권한다. */
+export const MILESTONE_DELETE_FAILED_MESSAGE =
+  '마일스톤을 삭제하지 못했습니다. 목록을 새로고침해 현재 상태를 확인한 뒤 다시 시도해 주세요.';
+
 export function mapMilestoneError(error: unknown): ProgramMilestoneErrors {
   if (!(error instanceof ApiError)) {
-    return { general: '마일스톤을 저장하지 못했습니다.' };
+    return { general: MILESTONE_SAVE_FAILED_MESSAGE };
   }
   const fieldErrors = mapProblemFieldErrors(error.problem.fieldErrors);
   if (Object.keys(fieldErrors).length > 0) return fieldErrors;
@@ -227,6 +238,14 @@ export function isMilestoneSubmissionConflict(error: unknown): boolean {
     error instanceof ApiError &&
     error.problem.code === PROGRAM_EDIT_ERROR_CODES.MILESTONE_HAS_SUBMISSIONS
   );
+}
+
+/** 삭제 실패 문구를 한 곳에 모은다. 화면은 이 결과를 그대로 알림에 넣는다. */
+export function mapMilestoneDeleteError(error: unknown): string {
+  if (isMilestoneSubmissionConflict(error)) {
+    return '제출물이 있는 마일스톤은 삭제할 수 없습니다.';
+  }
+  return MILESTONE_DELETE_FAILED_MESSAGE;
 }
 
 function mapProgramProblem(problem: ProblemDetail): ProgramEditErrors {
