@@ -115,3 +115,58 @@ describe('logoutCompletePath', () => {
     expect(logoutCompletePath(input)).toBe(LOGOUT_COMPLETE_PATH);
   });
 });
+
+/**
+ * 내부 경로라고 해서 다 돌아갈 자리는 아니다. 이 목록이 없으면 로그아웃 화면에서
+ * 로그아웃한 사람은 자기 자신으로 돌아오는 링크를(눌러도 제자리) 받고, 가입 절차
+ * 중간에서 로그아웃한 사람은 앞 단계를 잃은 채 절차 한가운데로 되돌려진다.
+ */
+describe('복귀 주소로 삼지 않는 자리', () => {
+  it.each([
+    ['로그아웃 화면 자신', LOGOUT_COMPLETE_PATH],
+    ['가입 입구', '/signup'],
+    ['약관 동의', '/consent'],
+    ['역할 선택', '/onboarding/role'],
+    ['프로필 입력', '/onboarding/profile'],
+    ['승인 대기', '/onboarding/pending'],
+  ])('%s는 주소를 만들 때 기본값으로 떨어진다', (_label, input) => {
+    expect(logoutCompletePath(input)).toBe(LOGOUT_COMPLETE_PATH);
+  });
+
+  // 만드는 쪽만 막으면 주소창에 손으로 적어 넣은 값이 검사를 비켜 간다.
+  it.each([
+    ['로그아웃 화면 자신', LOGOUT_COMPLETE_PATH],
+    ['약관 동의', '/consent'],
+    ['역할 선택', '/onboarding/role'],
+  ])('%s는 주소를 읽을 때도 기본값으로 떨어진다', (_label, input) => {
+    const query = new URLSearchParams({ [LOGOUT_RETURN_TO_PARAM]: input });
+
+    expect(resolveLogoutReturnTo(query.toString())).toBe(
+      LOGOUT_DEFAULT_RETURN_TO,
+    );
+  });
+
+  // 경계는 세그먼트다 — 이름만 겹치는 다른 화면까지 함께 막으면 멀쩡한 복귀가 끊긴다.
+  it.each([
+    ['가입 안내', '/signup-guide'],
+    ['온보딩과 이름만 겹치는 화면', '/onboarding-faq'],
+    ['로그아웃과 이름만 겹치는 화면', '/logout-help'],
+  ])('%s는 그대로 복귀 주소가 된다', (_label, input) => {
+    expect(logoutCompletePath(input)).toBe(
+      `${LOGOUT_COMPLETE_PATH}?${LOGOUT_RETURN_TO_PARAM}=${encodeURIComponent(input)}`,
+    );
+  });
+
+  /**
+   * 복귀 주소는 경로만 싣는다. 이 값은 주소창에 남아 복사·공유되고 서버 로그에도
+   * 남는데, 쿼리에는 화면 상태만이 아니라 식별자가 실릴 수 있다. 경로만으로도
+   * 있던 화면은 되찾히므로 값을 좁게 받는다. 해시는 서버에 가지도 않는다.
+   */
+  it.each([
+    ['쿼리', '/admin/access?userId=42'],
+    ['해시', '/programs/1#team-7'],
+    ['쿼리로 위장한 자기 참조', `${LOGOUT_COMPLETE_PATH}?x=1`],
+  ])('%s가 붙은 값은 싣지 않는다', (_label, input) => {
+    expect(logoutCompletePath(input)).toBe(LOGOUT_COMPLETE_PATH);
+  });
+});

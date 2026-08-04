@@ -87,6 +87,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 
 | 기능 | owner | 상태 | parent Issue | PR | CI | blocker (unblock owner) |
 | --- | --- | --- | --- | --- | --- | --- |
+| 로그아웃 복귀 주소 배선 (#634 후속) | @Lumiere001 | review | [#348](https://github.com/JNU-SWCU/oss-hub/issues/348) | (이 PR) | frontend 1499 pass | #634 병합본에서 복귀 주소가 배선되지 않아 죽은 코드였음 |
 | 수집 실행 관측성·트리거 추적·감사 기록 3종 | @Lumiere001 | review | [#511](https://github.com/JNU-SWCU/oss-hub/issues/511) · [#546](https://github.com/JNU-SWCU/oss-hub/issues/546) · [#547](https://github.com/JNU-SWCU/oss-hub/issues/547) | (이 PR) | backend unit 1923 · integration 238 pass | 스키마 무접촉 — 기존 lease/cursor/stream 프로젝션으로 구현 |
 | 승인 대기 화면의 프로필 수정 경로 | @Lumiere001 | review | [#598](https://github.com/JNU-SWCU/oss-hub/issues/598) | (이 PR) | frontend pass | 설정 화면으로 가는 두 번째 입구. 역할 단계 미개방 |
 | 프로그램·신청 영역 안내 문구 정리 | @Lumiere001 | review | [#355](https://github.com/JNU-SWCU/oss-hub/issues/355) | (이 PR) | frontend 1422 pass | 팀원 이슈 대행. 내부 용어 제거 + 동작별 실패 안내 |
