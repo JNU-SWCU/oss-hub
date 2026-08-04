@@ -461,22 +461,6 @@ esac
       }
     }
 
-    stage('빌드·테스트 검증') {
-      when {
-        expression { env.DEPLOY_NOOP != 'true' }
-      }
-      steps {
-        sh '''
-          pnpm install --frozen-lockfile
-          pnpm --filter backend exec prisma generate
-          pnpm lint
-          pnpm typecheck
-          pnpm test
-          pnpm build
-        '''
-      }
-    }
-
     stage('PostgreSQL 기동 및 배포 전 백업') {
       when {
         expression { env.DEPLOY_NOOP != 'true' }

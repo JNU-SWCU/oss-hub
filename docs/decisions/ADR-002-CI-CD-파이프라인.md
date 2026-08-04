@@ -38,7 +38,7 @@ tag가 가리키는 정확한 commit SHA가 main 이력에 포함될 때만 해�
 공개 댓글 marker 승인 게이트(`RELEASE_ACCEPT`·`RELEASE_OVERRIDE`)는 폐지한다 — 권한 통제를 이미 가진 플랫폼 위에 별도 문자열 파싱 게이트를 얹으면 실패 지점만 늘고 인가 주체는 그대로다.
 별도 staging 서버는 두지 않는다.
 
-Jenkins는 매 실행에서 최신 Release로 수렴하는 멱등 작업이다. 현재 실행 중인 컨테이너의 이미지 태그를 조회해 대상 Release와 같거나 대상이 더 낮으면 성공 no-op 처리한다. 새 Release는 명시적 Prisma client generate → test → PostgreSQL backup → object backup → 서버 로컬 frontend/backend 이미지 1회 build → `prisma migrate deploy` → `up -d --no-build --wait` → smoke 순서로 배포한다.
+Jenkins는 매 실행에서 최신 Release로 수렴하는 멱등 작업이다. 현재 실행 중인 컨테이너의 이미지 태그를 조회해 대상 Release와 같거나 대상이 더 낮으면 성공 no-op 처리한다. Jenkins는 exact `RELEASE_SHA`를 해석한 직후 GitHub Actions REST API로 그 SHA의 `ci` job이 `event=push`로 `success`했는지 확인하고, job이 없거나 실패했거나 `issues`·`issue_comment` 등 push가 아닌 이벤트로만 통과한 경우 배포를 fail-closed로 거절한다(`scripts/jenkins/validate-ci-status.sh`). **배포 시점 재검증(lint·typecheck·test·앱 build)은 폐지했다** — 품질 검증 책임은 전부 CI 레이어(merge 전 `ci` required check)에 있고, Jenkins는 그 검증이 이미 exact 배포 대상 커밋에서 green으로 끝났다는 사실만 이 게이트로 확인한다. 새 Release는 PostgreSQL backup → object backup → 서버 로컬 frontend/backend 이미지 1회 build → `prisma migrate deploy` → `up -d --no-build --wait` → smoke 순서로 배포한다. 이미지 build는 각 Dockerfile 내부에서 자체적으로 `pnpm install --frozen-lockfile`·`prisma generate`·`pnpm build`를 수행하므로 별도 host 단계에서 이를 반복할 필요가 없다.
 smoke는 rollout과 rollback의 Compose ingress에서 `/` 200과 `/api/v1/health` 200을 단언하며, 제출 파일 차단 해제 뒤에는 미인증 접근 401과 인증 접근의 정상 동작을 단언한다. 제출 파일 접근의 구체적인 단언 문구는 구현 PR이 정한다.
 `/api/v1/health`는 PostgreSQL 연결을 실제로 확인하고 DB에 닿지 못하면 503을 반환한다 — 상수 응답은 nginx와 Node 프로세스가 살아 있다는 것만 증명하므로 배포 판정 근거가 되지 못한다.
 이미지는 release tag로 태깅하므로 별도 영속 배포 상태 파일을 두지 않으며, 배포 상태의 원본은 실행 중인 컨테이너 자신이다. 서비스 교체 또는 smoke가 실패하면 `PREV_TAG` 이미지로 한 번 rollback한다. 배포 전에는 운영 환경 파일의 `FRONTEND_URL`이 `https://`인지 확인한다. DB restore는 자동화하지 않고 보존한 backup을 사용해 사람이 승인한 수동 복구로 남긴다. `down -v`는 사용하지 않으며 PostgreSQL 데이터는 named volume `pgdata`에, 제출 파일 object data는 named volume `minio_data`에 보존한다.
@@ -99,6 +99,7 @@ smoke는 rollout과 rollback의 Compose ingress에서 `/` 200과 `/api/v1/health
 
 ## Changelog
 
+- 2026-08-04(제안, 병합 전): `event=push` `ci` job green 게이트(#596, `scripts/jenkins/validate-ci-status.sh`)를 root `Jenkinsfile`에 병합해 fail-closed로 활성화한 뒤, 배포 시점 재검증 stage(`빌드·테스트 검증`: `pnpm install --frozen-lockfile`·`prisma generate`·lint·typecheck·test·build)를 제거하는 순서로 진행한다. 두 Dockerfile(`apps/backend`, `apps/frontend`)이 각자 `pnpm install --frozen-lockfile`·`prisma generate`·`pnpm build`를 이미지 build 단계 안에서 독립적으로 수행하므로 host 단계의 반복 실행은 불필요했다. 순서를 반대로 하면(게이트보다 재검증 stage 제거가 먼저면) 게이트가 아직 증명되지 않은 상태에서 무검증 커밋이 배포될 수 있으므로, 이 stage 제거 변경은 게이트가 실제 배포로 증명되기 전까지 준비만 하고 병합하지 않는다.
 - 2026-08-03: 제출 파일 object backup을 PostgreSQL backup과 같은 `BACKUP_DIR`·`BACKUP_RETENTION_N` 규율의 fail-closed 배포 단계로 편입했다. Compose nginx 차단 해제는 off-host object backup과 배포 런북의 restore drill 완료 뒤 별도 high-risk 변경으로 제한하고, 해제 뒤 smoke는 업로드 경로 403 대신 미인증 401과 인증 정상 동작을 구현 PR이 정한 문구로 단언하도록 계약을 갱신했다.
 - 2026-07-29: v0.4.1 Release의 `published` 이벤트 → `deploy.yml` → parameterless Jenkins #27 → production health까지 자동 왕복을 실증하고, 존재하지 않는 `release.yml`·`workflow_call`·수동 deploy dispatch 목표를 제거해 최종 운영 경로에 수렴했다.
 - 2026-07-29: root `Jenkinsfile` 단일 parameterless Release pipeline 전환 완료. v0.3.1 실제 배포, loopback/TLS health, 독립 no-op 재실행을 확인하고 legacy pipeline·병행 `Jenkinsfile.v2`·이중 checker mode를 제거했다.
