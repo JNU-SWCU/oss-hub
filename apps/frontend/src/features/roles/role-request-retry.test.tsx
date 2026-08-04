@@ -4,17 +4,20 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({
-  replace: vi.fn(),
-  refresh: vi.fn(),
-}));
+const mocks = vi.hoisted(() => {
+  const replace = vi.fn();
+  const refresh = vi.fn();
+  const push = vi.fn();
+  // ⚠ 한 번 만든 객체를 계속 돌려준다. 렌더마다 새 객체를 주면 `useRouter()` 결과의
+  // 참조가 바뀌고, 그 값을 의존성으로 갖는 `loadRequest`(useCallback)와 그것을
+  // 의존성으로 갖는 useEffect 가 매 렌더 다시 돌아 무한 루프가 된다 — 실제로 이
+  // 파일이 힙을 소진시켜 CI 가 OOM 으로 죽었다. 실제 next/navigation 의 router 도
+  // 렌더 간 안정적인 참조다.
+  return { replace, refresh, push, router: { replace, refresh, push } };
+});
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({
-    replace: mocks.replace,
-    push: vi.fn(),
-    refresh: mocks.refresh,
-  }),
+  useRouter: () => mocks.router,
 }));
 
 import {
