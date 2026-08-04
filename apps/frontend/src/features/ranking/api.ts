@@ -94,7 +94,8 @@ export function parseRankingYears(value: unknown): RankingYears {
     !hasExactKeys(value, ['years']) ||
     !Array.isArray(value.years) ||
     !value.years.every(
-      (year) => typeof year === 'number' && Number.isInteger(year) && year >= 2000,
+      (year) =>
+        typeof year === 'number' && Number.isInteger(year) && year >= 2000,
     )
   ) {
     throw new RankingResponseError();
