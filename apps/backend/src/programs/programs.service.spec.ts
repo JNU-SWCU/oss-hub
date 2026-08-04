@@ -79,10 +79,12 @@ describe('ProgramsService detail', () => {
       lifecycle: 'ARCHIVED' as const,
     });
 
-    await expect(service.detail('program-1', anonymous)).resolves.toMatchObject({
-      id: 'program-1',
-      name: 'OSS 경진대회',
-    });
+    await expect(service.detail('program-1', anonymous)).resolves.toMatchObject(
+      {
+        id: 'program-1',
+        name: 'OSS 경진대회',
+      },
+    );
   });
 
   it('승인된 학생에게 마일스톤별 현재 제출 상태를 반환한다', async () => {

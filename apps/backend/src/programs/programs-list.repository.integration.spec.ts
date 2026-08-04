@@ -160,10 +160,7 @@ describe('ProgramsRepository list ordering integration', () => {
     // I1: 전역 파티션 합 = all (다른 행이 있어도 성립해야 한다)
     const counts = await repository.countProgramsByStatus(NOW);
     expect(counts.all).toBe(
-      counts.recruiting +
-        counts.in_progress +
-        counts.upcoming +
-        counts.ended,
+      counts.recruiting + counts.in_progress + counts.upcoming + counts.ended,
     );
 
     // I2: 이 픽스처 5행만 검색해 status 별 totalItems 고정
