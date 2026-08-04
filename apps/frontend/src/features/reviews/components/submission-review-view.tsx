@@ -32,7 +32,7 @@ const DECISION_OPTIONS = [
   {
     value: 'APPROVED',
     label: '승인',
-    description: '현재 revision을 승인합니다.',
+    description: '현재 제출본을 승인합니다.',
   },
   {
     value: 'CHANGES_REQUESTED',
@@ -190,11 +190,11 @@ export function SubmissionReviewView(props: SubmissionReviewViewProps) {
             id="revision-history-title"
             className="font-heading text-section font-semibold tracking-[-0.02em]"
           >
-            이전 revision과 판정 이력
+            이전 제출본과 판정 이력
           </h2>
           {reviewContext.history.length === 0 ? (
             <p className="rounded-card border border-border p-card text-small text-muted-foreground">
-              이전 revision이 없습니다.
+              이전 제출본이 없습니다. 지금 화면의 제출본이 최초 제출입니다.
             </p>
           ) : (
             reviewContext.history.map((revision) => (

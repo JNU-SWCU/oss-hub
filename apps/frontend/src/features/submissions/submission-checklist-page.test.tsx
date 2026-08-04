@@ -322,6 +322,25 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
     expect(createResubmission).toHaveBeenCalledTimes(1);
   });
 
+  // #354 — 재제출 성공 토스트는 학생이 보는 문구다. 내부 용어 revision 대신
+  // 제출본 번호로 말해야 재제출과 제출본의 관계를 이해할 수 있다.
+  it('재제출 성공 토스트는 내부 용어 revision 없이 제출본 번호를 알려준다', async () => {
+    // Given
+    vi.mocked(uploadSubmissionFile).mockResolvedValue(uploaded('file-first'));
+    vi.mocked(createResubmission).mockResolvedValue(CREATED_RESUBMISSION);
+    await renderReadyPage();
+
+    // When
+    await selectFileAndSubmit(FILE);
+
+    // Then
+    const toast = currentViewProps().toastMessage ?? '';
+    expect(toast).toBe(
+      '제출본 4번을 제출했습니다. 검토 대기 상태로 전환되었습니다.',
+    );
+    expect(toast).not.toMatch(/revision/i);
+  });
+
   it('discards the cached upload id when create-resubmission returns SUB_010', async () => {
     // Given
     vi.mocked(uploadSubmissionFile)

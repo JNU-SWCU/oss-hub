@@ -110,14 +110,14 @@ export function validateSubmissionContent(
     case 'REPOSITORY_RELEASE': {
       if (!URL.canParse(input.releaseUrl)) {
         return {
-          releaseUrl: '태그 또는 릴리스의 전체 URL을 입력해 주세요.',
+          releaseUrl: '태그 또는 릴리스의 전체 주소를 입력해 주세요.',
         };
       }
       const protocol = new URL(input.releaseUrl).protocol;
       return protocol === 'http:' || protocol === 'https:'
         ? {}
         : {
-            releaseUrl: '태그 또는 릴리스의 전체 URL을 입력해 주세요.',
+            releaseUrl: '태그 또는 릴리스의 전체 주소를 입력해 주세요.',
           };
     }
     default: {

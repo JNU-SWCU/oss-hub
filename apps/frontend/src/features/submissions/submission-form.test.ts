@@ -183,7 +183,7 @@ describe('validateSubmissionContent', () => {
 
     // Then
     expect(errors).toEqual({
-      releaseUrl: '태그 또는 릴리스의 전체 URL을 입력해 주세요.',
+      releaseUrl: '태그 또는 릴리스의 전체 주소를 입력해 주세요.',
     });
   });
 

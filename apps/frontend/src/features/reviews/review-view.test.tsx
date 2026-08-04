@@ -97,6 +97,27 @@ describe('SubmissionReviewView', () => {
     expect(html).toContain('href="https://example.com/repository"');
   });
 
+  // #354 — 검토 화면은 교직원과 학생이 함께 보는 흐름이라 내부 데이터 용어
+  // revision을 그대로 노출하지 않는다. 이력이 없을 때는 그 뜻까지 풀어 준다.
+  it('제출본 번호·이력·판정 설명에 내부 용어 revision을 노출하지 않는다', () => {
+    // Given: history가 비어 있어 "이전 제출본 없음" 분기를 함께 지난다.
+    const reviewContext = context({ history: [] });
+
+    // When
+    const html = render(reviewContext);
+
+    // Then
+    expect(html).toContain('제출본 2번');
+    expect(html).toContain('이전 제출본과 판정 이력');
+    expect(html).toContain('이전 제출본이 없습니다');
+    expect(html).toContain('최초 제출입니다');
+    expect(html).toContain('현재 제출본을 승인합니다');
+    // aria 속성·id를 뺀 사용자 가시 문구에는 revision이 남지 않아야 한다.
+    expect(html.replace(/revision-history-title/g, '')).not.toMatch(
+      /revision/i,
+    );
+  });
+
   it('이미 검토한 최신 revision은 판정과 코멘트를 읽기 전용으로 표시한다', () => {
     // Given
     const reviewContext = context({
