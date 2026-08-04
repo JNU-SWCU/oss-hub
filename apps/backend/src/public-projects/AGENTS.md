@@ -15,7 +15,7 @@
 | --- | --- |
 | `public-projects.module.ts` | 모듈 조립 — `PublicEligibilityModule`·`CollectionModule` import |
 | `public-projects.controller.ts` | `GET /projects`(`category` 선택), `GET /projects/category-counts`, `GET /projects/:projectId` |
-| `public-user-profile.controller.ts` | `GET /users/:userId/profile` |
+| `public-user-profile.controller.ts` | `GET /users/:userId/public-profile` |
 | `public-projects.service.ts` | `findPage`·`categoryCounts`·`findDetail`·`findProfile` |
 | `public-project-cursor.ts` | opaque base64url keyset cursor 인코딩/디코딩 |
 | `public-project-result.ts` | 응답 DTO 형태 정의 |
@@ -42,7 +42,7 @@ N+1을 만드는 변경(반복문 안 쿼리, 관련 엔티티별 추가 조회)
 
 - `public-eligibility/` (`PublicEligibilityService`) — 공개 노출 가능 여부의 유일한 판정자.
 - `collection/` (`CollectionReadPort`의 `getRepositoryCumulativeMetrics`·`getContributorCumulativeMetrics`) — 누적 지표 조회.
-- `users/`의 `UsersModule` — `app.module.ts`의 import 순서에서 `/users/me/profile` 라우트가 `/users/:userId/profile`보다 먼저 매칭되도록 이 모듈 이전에 등록돼야 한다. import 순서를 바꾸면 라우트 충돌이 생긴다.
+- `users/`의 `UsersModule` — 공개 프로필은 `/users/:userId/public-profile`, 내 프로필은 `/users/me/profile`로 마지막 세그먼트가 달라 어떤 import 순서에서도 충돌하지 않는다(#551). 이 경로 분리를 되돌려 `/users/:userId/profile`로 합치면 모듈 등록 순서가 곧 라우팅 계약이 되므로 되돌리지 않는다 — Express 5(path-to-regexp v8)는 `:param` 정규식 제약을 지원하지 않아 순서 무관성을 다른 방법으로 확보할 수 없다. 회귀 고정은 `public-user-profile-route.http.spec.ts`가 두 등록 순서 모두에서 검증한다.
 
 ## For AI Agents
 

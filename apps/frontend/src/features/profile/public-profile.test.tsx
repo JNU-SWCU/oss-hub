@@ -164,7 +164,8 @@ describe('public profile API boundary', () => {
     await expect(loadPublicProfile('user_123')).resolves.toMatchObject({
       userId: 'user_123',
     });
-    expect(apiClient).toHaveBeenCalledWith('users/user_123/profile');
+    // 세션 보호 경로(`users/me/profile`)와 겹치지 않는 공개 경로를 호출한다(#551).
+    expect(apiClient).toHaveBeenCalledWith('users/user_123/public-profile');
   });
 
   it('does not request an unsafe user identifier', async () => {

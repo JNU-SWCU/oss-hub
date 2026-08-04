@@ -5,6 +5,10 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ApiError } from '@/lib/api-client';
 import { getProgramDetail } from './api';
 import {
+  getProgramOverview,
+  type ProgramOverview,
+} from './program-overview-api';
+import {
   ProgramDetailFailureState,
   ProgramDetailReadyState,
   ProgramDetailSkeleton,
@@ -15,7 +19,12 @@ export type DetailState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'not-found' }
   | { readonly kind: 'failed' }
-  | { readonly kind: 'ready'; readonly program: ProgramDetail };
+  | {
+      readonly kind: 'ready';
+      readonly program: ProgramDetail;
+      /** 팩트 바 전용. 조회 실패(비로그인 등)해도 페이지 전체를 실패로 만들지 않는다. */
+      readonly overview: ProgramOverview | null;
+    };
 
 export function detailFailure(error: unknown): DetailState {
   return error instanceof ApiError && error.problem.code === 'PROGRAM_NOT_FOUND'
@@ -35,7 +44,9 @@ export function ProgramDetailPage({
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
     try {
-      setState({ kind: 'ready', program: await getProgramDetail(programId) });
+      const program = await getProgramDetail(programId);
+      const overview = await getProgramOverview(programId).catch(() => null);
+      setState({ kind: 'ready', program, overview });
     } catch (error: unknown) {
       setState(detailFailure(error));
     }
@@ -63,6 +74,7 @@ export function ProgramDetailPage({
   return (
     <ProgramDetailReadyState
       program={state.program}
+      overview={state.overview}
       approvedStudentMilestones={approvedStudentMilestones}
     />
   );

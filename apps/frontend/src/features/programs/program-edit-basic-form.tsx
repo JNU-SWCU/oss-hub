@@ -180,7 +180,7 @@ export function ProgramEditBasicForm({
               }
             />
             <FieldLabel htmlFor="repository-provisioning">
-              저장소 프로비저닝 사용
+              신청 승인 시 GitHub 저장소 자동 생성
             </FieldLabel>
           </Field>
           <FieldError>{errors.general}</FieldError>

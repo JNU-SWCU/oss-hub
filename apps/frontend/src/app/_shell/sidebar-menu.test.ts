@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { ARCHIVE_CATEGORIES } from '@/features/archive/types';
-import { SECTION_FACETS } from './section-facets';
+import { PROGRAM_LIST_STATUS_LABELS } from '@/features/programs/types';
+import { programDetailIdFromPathname, SECTION_FACETS } from './section-facets';
 import { STUDENT_MENU } from './role-menus';
 import {
   archiveSidebarGroup,
   isCurrentSidebarItem,
+  programScopeSidebarGroups,
   programSidebarGroup,
   rankingSidebarGroup,
   shellSectionFromPathname,
@@ -30,11 +32,11 @@ describe('sidebarGroupsFor (context)', () => {
     expect(groups).toHaveLength(1);
     expect(groups[0]?.label).toBe('프로그램 메뉴');
     expect(groups[0]?.items.map((i) => i.label)).toEqual([
-      '전체',
-      '모집중',
-      '진행중',
-      '접수대기',
-      '종료',
+      PROGRAM_LIST_STATUS_LABELS.all,
+      PROGRAM_LIST_STATUS_LABELS.recruiting,
+      PROGRAM_LIST_STATUS_LABELS.in_progress,
+      PROGRAM_LIST_STATUS_LABELS.upcoming,
+      PROGRAM_LIST_STATUS_LABELS.ended,
     ]);
   });
 
@@ -42,11 +44,11 @@ describe('sidebarGroupsFor (context)', () => {
     const items = programSidebarGroup().items;
     expect(items.every((i) => (i.depth ?? 0) === 0)).toBe(true);
     expect(items.map((i) => i.label)).toEqual([
-      '전체',
-      '모집중',
-      '진행중',
-      '접수대기',
-      '종료',
+      PROGRAM_LIST_STATUS_LABELS.all,
+      PROGRAM_LIST_STATUS_LABELS.recruiting,
+      PROGRAM_LIST_STATUS_LABELS.in_progress,
+      PROGRAM_LIST_STATUS_LABELS.upcoming,
+      PROGRAM_LIST_STATUS_LABELS.ended,
     ]);
     const icons = items.map((i) => i.icon);
     expect(new Set(icons).size).toBe(icons.length);
@@ -220,5 +222,129 @@ describe('SECTION_FACETS registry (U4)', () => {
     expect(SECTION_FACETS.archive?.param).toBe('category');
     expect(SECTION_FACETS.ranking?.param).toBe('year');
     expect(SECTION_FACETS.dashboard).toBeUndefined();
+  });
+});
+
+describe('programDetailIdFromPathname', () => {
+  it('list root (with or without query-relevant path) is not a detail scope', () => {
+    expect(programDetailIdFromPathname('/programs')).toBeNull();
+  });
+
+  it('detail id and nested detail sub-paths resolve the same id', () => {
+    expect(programDetailIdFromPathname('/programs/prog-1')).toBe('prog-1');
+    expect(programDetailIdFromPathname('/programs/prog-1/teams')).toBe(
+      'prog-1',
+    );
+    expect(programDetailIdFromPathname('/programs/prog-1/board')).toBe(
+      'prog-1',
+    );
+  });
+
+  it('decodes encoded ids (seed ids contain `:`)', () => {
+    expect(programDetailIdFromPathname('/programs/seed%3A1')).toBe('seed:1');
+  });
+
+  it('other sections are not program detail scope', () => {
+    expect(programDetailIdFromPathname('/archive/1')).toBeNull();
+    expect(programDetailIdFromPathname('/dashboard')).toBeNull();
+  });
+});
+
+describe('programScopeSidebarGroups', () => {
+  const base = {
+    programId: 'prog-1',
+    teamCount: 47,
+    boardPostCount: 3,
+  } as const;
+
+  it('STUDENT view: 내 제출물 parent with completed/total, no 서류 현황', () => {
+    const groups = programScopeSidebarGroups({
+      ...base,
+      viewerRole: 'STUDENT',
+      viewerDocuments: { completed: 2, total: 6 },
+      milestoneDocuments: [
+        {
+          milestoneId: 'm3',
+          title: '프로젝트 계획서 제출',
+          completed: 2,
+          total: 3,
+        },
+      ],
+    });
+    expect(groups).toHaveLength(3);
+    const [overview, documents, board] = groups;
+    expect(overview?.items.map((i) => i.label)).toEqual([
+      '프로그램 개요',
+      '참여 팀',
+    ]);
+    expect(overview?.items[1]?.count).toBe('47');
+    expect(documents?.items[0]).toMatchObject({
+      label: '내 제출물',
+      count: '2/6',
+      depth: 0,
+    });
+    expect(documents?.items[1]).toMatchObject({
+      label: '프로젝트 계획서 제출',
+      count: '2/3',
+      depth: 1,
+    });
+    expect(documents?.items.some((i) => i.label === '서류 현황')).toBe(false);
+    expect(board?.items[0]).toMatchObject({ label: '게시판', count: '3' });
+  });
+
+  it('STAFF view: 서류 현황 parent has no count; child count is team-based', () => {
+    const groups = programScopeSidebarGroups({
+      ...base,
+      viewerRole: 'STAFF',
+      milestoneDocuments: [
+        {
+          milestoneId: 'm3',
+          title: '프로젝트 계획서 제출',
+          completed: 2,
+          total: 3,
+        },
+        {
+          milestoneId: 'm4',
+          title: '1차 중간 산출물 제출',
+          completed: 0,
+          total: 3,
+        },
+      ],
+    });
+    const documents = groups[1];
+    expect(documents?.items[0]?.label).toBe('서류 현황');
+    expect(documents?.items[0]?.count).toBeUndefined();
+    expect(documents?.items[1]).toMatchObject({
+      label: '프로젝트 계획서 제출',
+      count: '2/47팀',
+    });
+    expect(documents?.items[2]).toMatchObject({
+      label: '1차 중간 산출물 제출',
+      count: '0/47팀',
+    });
+    expect(documents?.items.some((i) => i.label === '내 제출물')).toBe(false);
+  });
+
+  it('ADMIN viewer is treated as staff view', () => {
+    const groups = programScopeSidebarGroups({ ...base, viewerRole: 'ADMIN' });
+    expect(groups[1]?.items[0]?.label).toBe('서류 현황');
+  });
+
+  it('no milestone documents means parent-only, no children', () => {
+    const groups = programScopeSidebarGroups({
+      ...base,
+      viewerRole: 'STAFF',
+    });
+    expect(groups[1]?.items).toHaveLength(1);
+  });
+
+  it('hrefs are namespaced under the program id', () => {
+    const groups = programScopeSidebarGroups({
+      ...base,
+      viewerRole: 'STUDENT',
+    });
+    expect(groups[0]?.items[0]?.href).toBe('/programs/prog-1');
+    expect(groups[0]?.items[1]?.href).toBe('/programs/prog-1/teams');
+    expect(groups[2]?.items[0]?.href).toBe('/programs/prog-1/board');
   });
 });

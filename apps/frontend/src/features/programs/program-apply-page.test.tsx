@@ -36,10 +36,21 @@ const template: ApplicationFormTemplate = {
 const handlers = {
   onChange: () => undefined,
   onTogglePublicationPlanned: () => undefined,
+  onRepositoryModeChange: () => undefined,
+  onToggleConsent: () => undefined,
   onRequestSubmit: () => undefined,
   onRequestCancel: () => undefined,
   onCloseConfirmation: () => undefined,
   onConfirm: () => undefined,
+} as const;
+
+const baseValues = {
+  title: '',
+  summary: '',
+  isRepositoryPublicationPlanned: true,
+  repositoryConnectionMode: 'new',
+  repositoryUrl: '',
+  personalDataConsent: false,
 } as const;
 
 function renderForm(overrides: { readonly serverError?: string | null } = {}) {
@@ -48,11 +59,8 @@ function renderForm(overrides: { readonly serverError?: string | null } = {}) {
       program={program}
       template={template}
       applicantName="합성 학생"
-      values={{
-        title: '',
-        summary: '',
-        isRepositoryPublicationPlanned: true,
-      }}
+      githubHandle="synthetic-student"
+      values={baseValues}
       errors={{}}
       serverError={overrides.serverError ?? null}
       mode="create"
@@ -77,6 +85,135 @@ describe('ProgramApply views', () => {
     expect(html).toContain('선정 시 저장소를 공개할 예정입니다');
   });
 
+  it('새 신청서 작성에서 GitHub 계정 연동 안내와 저장소 연결 방식·동의 체크박스를 표시한다', () => {
+    const html = renderForm();
+
+    expect(html).toContain('@synthetic-student');
+    expect(html).toContain('계정에 연결된 GitHub');
+    expect(html).toContain('새 저장소를 만들어 받습니다');
+    expect(html).toContain('이미 쓰던 저장소를 연결합니다');
+    expect(html).toContain('개인정보 수집·이용 동의');
+    expect(html).toContain('약관 보기');
+  });
+
+  it('저장소를 직접 연결하면 URL 입력을 함께 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramApplyFormView
+        program={program}
+        template={template}
+        applicantName="합성 학생"
+        githubHandle="synthetic-student"
+        values={{ ...baseValues, repositoryConnectionMode: 'own' }}
+        errors={{}}
+        serverError={null}
+        mode="create"
+        canManage={false}
+        confirmation={null}
+        submitting={false}
+        {...handlers}
+      />,
+    );
+
+    expect(html).toContain('https://github.com/team/repo');
+  });
+
+  it('팀형 프로그램은 팀 구성 섹션에 팀 이름·팀원을 표시한다', () => {
+    const teamTemplate: ApplicationFormTemplate = {
+      ...template,
+      participation: 'team',
+    };
+    const html = renderToStaticMarkup(
+      <ProgramApplyFormView
+        program={program}
+        template={teamTemplate}
+        applicantName="합성 학생"
+        githubHandle="synthetic-student"
+        team={{
+          id: 'team-1',
+          name: '합성 팀',
+          memberCount: 2,
+          minMembers: 2,
+          maxMembers: 4,
+          locked: false,
+          isLeader: true,
+          members: [
+            {
+              userId: 'user-1',
+              nickname: 'leader-nick',
+              name: '팀장',
+              isLeader: true,
+            },
+            {
+              userId: 'user-2',
+              nickname: 'member-nick',
+              name: null,
+              isLeader: false,
+            },
+          ],
+        }}
+        values={baseValues}
+        errors={{}}
+        serverError={null}
+        mode="create"
+        canManage={false}
+        confirmation={null}
+        submitting={false}
+        {...handlers}
+      />,
+    );
+
+    expect(html).toContain('합성 팀');
+    expect(html).toContain('@leader-nick');
+    expect(html).toContain('@member-nick');
+    expect(html).toContain('/programs/program-1/teams');
+  });
+
+  it('저장소 URL·동의 오류를 공통 배너로 표시한다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramApplyFormView
+        program={program}
+        template={template}
+        applicantName="합성 학생"
+        githubHandle="synthetic-student"
+        values={baseValues}
+        errors={{
+          personalDataConsent:
+            '개인정보 수집·이용에 동의해야 지원할 수 있습니다.',
+        }}
+        serverError={null}
+        mode="create"
+        canManage={false}
+        confirmation={null}
+        submitting={false}
+        {...handlers}
+      />,
+    );
+
+    expect(html).toContain('개인정보 수집·이용에 동의해야 지원할 수 있습니다.');
+  });
+
+  it('수정 화면에는 저장소 연결·동의 섹션을 다시 보여주지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramApplyFormView
+        program={program}
+        template={template}
+        applicantName="합성 학생"
+        githubHandle="synthetic-student"
+        values={{ ...baseValues, title: '기존 제목', summary: '기존 요약' }}
+        errors={{}}
+        serverError={null}
+        mode="edit"
+        canManage
+        confirmation={null}
+        submitting={false}
+        {...handlers}
+      />,
+    );
+
+    expect(html).not.toContain('새 저장소를 만들어 받습니다');
+    expect(html).not.toContain('개인정보 수집·이용 동의');
+  });
+
   it('제출 확인창에 승인 이후 제한 문구를 표시한다', () => {
     const html = renderToStaticMarkup(
       <ProgramApplyFormView
@@ -84,9 +221,10 @@ describe('ProgramApply views', () => {
         template={template}
         applicantName="합성 학생"
         values={{
+          ...baseValues,
           title: '제목',
           summary: '요약',
-          isRepositoryPublicationPlanned: true,
+          personalDataConsent: true,
         }}
         errors={{}}
         serverError={null}
@@ -110,6 +248,7 @@ describe('ProgramApply views', () => {
         template={template}
         applicantName="합성 학생"
         values={{
+          ...baseValues,
           title: '기존 제목',
           summary: '기존 요약',
           isRepositoryPublicationPlanned: false,
