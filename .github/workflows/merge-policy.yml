@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      # 신뢰 경계: 판정 스크립트·CODEOWNERS는 항상 default branch에서 읽는다. PR head 금지.
+      # 신뢰 경계: 판정 스크립트는 항상 default branch에서 읽는다. PR head 금지.
       - name: 체크아웃 (default branch)
         uses: actions/checkout@v4
         with:

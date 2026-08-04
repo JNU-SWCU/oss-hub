@@ -1,22 +1,18 @@
 // merge-policy 판정 entry — GitHub metadata를 조회해 판정하고 check run으로 발행한다.
-// PR head 코드는 checkout·실행하지 않는다. CODEOWNERS는 신뢰된 default-branch 체크아웃에서 읽는다.
+// PR head 코드는 checkout·실행하지 않는다.
 // 사용법:
 //   node scripts/merge-policy-check.mjs --pr 123             # 판정 + check run 발행 (CI)
 //   node scripts/merge-policy-check.mjs --pr 123 --simulate  # 판정만 출력 (dry-run, 로컬)
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 
 import {
   CHECK_RUN_NAME,
-  collectChangedPaths,
   evaluateMergePolicy,
   formatSummary,
-  hasCompletePullFiles,
   planCheckRunPublish,
 } from './merge-policy-check-lib.mjs';
 
-const CODEOWNERS_PATH = '.github/CODEOWNERS';
 const COMMAND_TIMEOUT_MS = 30_000;
 
 function run(command, args) {
@@ -81,7 +77,6 @@ export function fetchInputs(repository, prNumber) {
     ?.sha;
   if (
     !Number.isInteger(response?.number) ||
-    !Number.isInteger(response?.changed_files) ||
     typeof response?.head?.sha !== 'string' ||
     typeof response?.user?.login !== 'string' ||
     typeof baseRef !== 'string' ||
@@ -95,7 +90,6 @@ export function fetchInputs(repository, prNumber) {
     headSha: response.head.sha,
     baseRef,
     baseSha,
-    changedFiles: response.changed_files,
   };
   const comments = api(
     `repos/${repository}/issues/${prNumber}/comments`,
@@ -118,12 +112,7 @@ export function fetchInputs(repository, prNumber) {
       updatedAt: comment.updated_at,
     };
   });
-  const files = api(`repos/${repository}/pulls/${prNumber}/files`, true);
-  if (!hasCompletePullFiles(files, pull.changedFiles)) {
-    throw new Error('GitHub pull files metadata was incomplete or malformed');
-  }
-  const changedFiles = collectChangedPaths(files);
-  return { pull, comments, files, changedFiles };
+  return { pull, comments };
 }
 
 function fetchExistingCheckRuns(repository, headSha) {
@@ -195,15 +184,9 @@ function publishCheckRun(repository, pull, result) {
 function main() {
   const options = parseArguments(process.argv.slice(2));
   const repository = repositoryName();
-  const { pull, comments, changedFiles } = fetchInputs(repository, options.pr);
-  const codeownersText = readFileSync(CODEOWNERS_PATH, 'utf8');
+  const { pull, comments } = fetchInputs(repository, options.pr);
 
-  const result = evaluateMergePolicy({
-    pull,
-    comments,
-    changedFiles,
-    codeownersText,
-  });
+  const result = evaluateMergePolicy({ pull, comments });
   const summary = formatSummary(result, pull);
   process.stdout.write(
     `merge-policy #${pull.number}: ${result.conclusion}\n${summary}`,
