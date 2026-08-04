@@ -90,6 +90,36 @@ function actionOptionLabel(
   return caption ? `${label} (${caption})` : label;
 }
 
+/**
+ * 학생을 관리자로 올리려는 관리자에게 남은 단계를 알려 주는 문구(#576).
+ *
+ * 승격은 `admin-access-mutation-policy.ts`의 `GRANT_TARGET_BY_RANK`대로 한
+ * 단계씩만 일어나므로 학생을 고르면 부여 항목이 교직원만 가리킨다. 화면에는
+ * "교직원로 승격"만 보이니 관리자까지 두 번 올려야 한다는 사실이 어디에도
+ * 드러나지 않아, 관리자로 올리려던 사람이 한 번 부여하고 멈춘다. 사다리
+ * 자체는 그대로 두고(2026-08-04 Tech Lead 판단) 남은 한 단계만 말해 준다.
+ */
+const TWO_STEP_ADMIN_PROMOTION_HINT =
+  '관리자로 올리려면 먼저 교직원으로 올린 뒤 다시 관리자로 올려 주세요.';
+const TWO_STEP_ADMIN_PROMOTION_HINT_ID = 'admin-access-two-step-admin-hint';
+
+/**
+ * 부여가 실제로 가능하고 그 대상이 교직원일 때만 참 — 즉 지금 보고 있는
+ * 사람과 관리자 사이에 부여가 두 번 남은 경우다(학생, 그리고 아직 역할이
+ * 없는 미지정 사용자). 교직원은 한 번이면 관리자가 되므로 안내할 다음
+ * 단계가 없고, 관리자는 더 올라갈 곳이 없다. 부여 항목 자체가 없는 상태
+ * (대기 중인 요청이 있어 결정이 먼저인 경우)에서는 없는 버튼을 가리키게
+ * 되므로 함께 감춘다.
+ */
+function showsTwoStepAdminPromotionHint(detail: AdminAccessDetail): boolean {
+  return (
+    isAdminAccessMutationAvailable(
+      ADMIN_ACCESS_MUTATION_ACTIONS.GRANT,
+      detail,
+    ) && adminAccessGrantTargetRole(detail.role) === 'STAFF'
+  );
+}
+
 function defaultSelectedAction(
   availableActions: readonly AdminAccessMutationAction[],
 ): AdminAccessMutationAction | null {
@@ -137,6 +167,7 @@ export function AdminAccessMutationActions({
   }
 
   const destructive = DESTRUCTIVE_ACTIONS.has(effectiveAction);
+  const showsPromotionHint = showsTwoStepAdminPromotionHint(detail);
 
   return (
     <Card>
@@ -156,7 +187,13 @@ export function AdminAccessMutationActions({
             setSelectedAction(value as AdminAccessMutationAction)
           }
         >
-          <SelectTrigger id="admin-access-mutation-action" className="h-11">
+          <SelectTrigger
+            id="admin-access-mutation-action"
+            className="h-11"
+            aria-describedby={
+              showsPromotionHint ? TWO_STEP_ADMIN_PROMOTION_HINT_ID : undefined
+            }
+          >
             <SelectValue>
               <span className={cn(destructive && 'text-destructive')}>
                 {actionOptionLabel(effectiveAction, detail.role)}
@@ -178,6 +215,15 @@ export function AdminAccessMutationActions({
             ))}
           </SelectContent>
         </Select>
+        {showsPromotionHint ? (
+          <p
+            id={TWO_STEP_ADMIN_PROMOTION_HINT_ID}
+            data-slot="admin-access-two-step-admin-hint"
+            className="text-sm text-muted-foreground"
+          >
+            {TWO_STEP_ADMIN_PROMOTION_HINT}
+          </p>
+        ) : null}
         <Button
           type="button"
           className="h-11"
