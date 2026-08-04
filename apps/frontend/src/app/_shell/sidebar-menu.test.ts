@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ARCHIVE_CATEGORIES } from '@/features/archive/types';
+import { SECTION_FACETS } from './section-facets';
 import { STUDENT_MENU } from './role-menus';
 import {
   archiveSidebarGroup,
@@ -180,5 +181,32 @@ describe('isCurrentSidebarItem', () => {
     expect(isCurrentSidebarItem('/ranking', '/ranking', 'year=2025')).toBe(
       false,
     );
+  });
+
+  it('archive detail does not highlight 전체; category peers highlight', () => {
+    expect(isCurrentSidebarItem('/archive/123', '/archive', '')).toBe(false);
+    expect(
+      isCurrentSidebarItem(
+        '/archive/123',
+        '/archive?category=CAPSTONE',
+        '',
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('SECTION_FACETS registry (U4)', () => {
+  it('ranking.items(undefined) returns only 전체', () => {
+    const items = SECTION_FACETS.ranking?.items(undefined) ?? [];
+    expect(items).toHaveLength(1);
+    expect(items[0]?.label).toBe('전체');
+    expect(items[0]?.href).toBe('/ranking');
+  });
+
+  it('registry params match peer-filter keys', () => {
+    expect(SECTION_FACETS.programs?.param).toBe('status');
+    expect(SECTION_FACETS.archive?.param).toBe('category');
+    expect(SECTION_FACETS.ranking?.param).toBe('year');
+    expect(SECTION_FACETS.dashboard).toBeUndefined();
   });
 });
