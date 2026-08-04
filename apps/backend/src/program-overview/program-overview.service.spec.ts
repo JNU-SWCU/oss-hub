@@ -34,19 +34,25 @@ const currentMilestone: CurrentSubmissionMilestone = {
   requiredDocumentIds: ['doc-1', 'doc-2'],
 };
 
-/** 서류 0개 마일스톤(#1) + 서류 걸린 마일스톤(#3, currentMilestone과 동일)의 카탈로그. */
+/** 서류 0개 마일스톤(#1) + 서류 걸린 마일스톤 두 개. */
 const milestoneDocumentCatalog: MilestoneDocumentCatalogEntry[] = [
   {
     milestoneId: 'cuid-synthetic-milestone-1',
-    milestoneTitle: 'seed-program-overview-milestone-1',
+    title: 'seed-program-overview-milestone-1',
     documentIds: [],
     requiredDocumentIds: [],
   },
   {
     milestoneId: currentMilestone.milestoneId,
-    milestoneTitle: 'seed-program-overview-milestone-3',
+    title: 'seed-program-overview-milestone-3',
     documentIds: currentMilestone.documentIds,
     requiredDocumentIds: currentMilestone.requiredDocumentIds,
+  },
+  {
+    milestoneId: 'cuid-synthetic-milestone-4',
+    title: 'seed-program-overview-milestone-4',
+    documentIds: ['doc-4', 'doc-5', 'doc-6'],
+    requiredDocumentIds: ['doc-4', 'doc-5'],
   },
 ];
 
@@ -67,7 +73,7 @@ describe('ProgramOverviewService', () => {
       });
     });
 
-    it('학생이면서 서류 걸린 마일스톤이 있으면 내 제출 N/M과 마일스톤별 분해를 채운다', async () => {
+    it('학생이면서 서류 걸린 마일스톤이 있으면 프로그램 전체 내 제출 N/M과 마일스톤별 분해를 채운다', async () => {
       // Given
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
       const findViewerIdentity = jest
@@ -79,20 +85,19 @@ describe('ProgramOverviewService', () => {
       const findViewerApplicationId = jest
         .fn()
         .mockResolvedValue(syntheticApplicationId);
-      const countSubmittedDocuments = jest.fn().mockResolvedValue(2);
       const findMilestoneDocumentCatalog = jest
         .fn()
         .mockResolvedValue(milestoneDocumentCatalog);
+      // m3: doc-1,doc-2 / m4: doc-4 → parent completed=3, total=6
       const findSubmittedDocumentIds = jest
         .fn()
-        .mockResolvedValue(new Set(['doc-1', 'doc-2']));
+        .mockResolvedValue(new Set(['doc-1', 'doc-2', 'doc-4']));
       const findMilestoneSchedules = jest.fn().mockResolvedValue([]);
       const repository = {
         findByProgramId,
         findViewerIdentity,
         findCurrentSubmissionMilestone,
         findViewerApplicationId,
-        countSubmittedDocuments,
         findMilestoneDocumentCatalog,
         findSubmittedDocumentIds,
         findMilestoneSchedules,
@@ -106,24 +111,26 @@ describe('ProgramOverviewService', () => {
       );
 
       // Then
-      expect(countSubmittedDocuments).toHaveBeenCalledWith(
-        syntheticApplicationId,
-        currentMilestone.documentIds,
-      );
       expect(findSubmittedDocumentIds).toHaveBeenCalledWith(
         syntheticApplicationId,
-        ['doc-1', 'doc-2', 'doc-3'],
+        ['doc-1', 'doc-2', 'doc-3', 'doc-4', 'doc-5', 'doc-6'],
       );
       expect(result.viewer).toEqual({
         role: Role.STUDENT,
-        myDocumentsCompleted: 2,
-        myDocumentsTotal: 3,
+        myDocumentsCompleted: 3,
+        myDocumentsTotal: 6,
         fullySubmittedParticipantCount: null,
-        milestoneDocumentBreakdown: [
+        milestoneDocuments: [
           {
             milestoneId: currentMilestone.milestoneId,
-            milestoneTitle: 'seed-program-overview-milestone-3',
+            title: 'seed-program-overview-milestone-3',
             completed: 2,
+            total: 3,
+          },
+          {
+            milestoneId: 'cuid-synthetic-milestone-4',
+            title: 'seed-program-overview-milestone-4',
+            completed: 1,
             total: 3,
           },
         ],
@@ -143,7 +150,6 @@ describe('ProgramOverviewService', () => {
         .fn()
         .mockResolvedValue(currentMilestone);
       const findViewerApplicationId = jest.fn().mockResolvedValue(null);
-      const countSubmittedDocuments = jest.fn().mockResolvedValue(0);
       const findMilestoneDocumentCatalog = jest
         .fn()
         .mockResolvedValue(milestoneDocumentCatalog);
@@ -154,7 +160,6 @@ describe('ProgramOverviewService', () => {
         findViewerIdentity,
         findCurrentSubmissionMilestone,
         findViewerApplicationId,
-        countSubmittedDocuments,
         findMilestoneDocumentCatalog,
         findSubmittedDocumentIds,
         findMilestoneSchedules,
@@ -168,17 +173,22 @@ describe('ProgramOverviewService', () => {
       );
 
       // Then
-      expect(countSubmittedDocuments).not.toHaveBeenCalled();
       expect(findSubmittedDocumentIds).not.toHaveBeenCalled();
       expect(result.viewer).toEqual({
         role: Role.STUDENT,
         myDocumentsCompleted: 0,
-        myDocumentsTotal: 3,
+        myDocumentsTotal: 6,
         fullySubmittedParticipantCount: null,
-        milestoneDocumentBreakdown: [
+        milestoneDocuments: [
           {
             milestoneId: currentMilestone.milestoneId,
-            milestoneTitle: 'seed-program-overview-milestone-3',
+            title: 'seed-program-overview-milestone-3',
+            completed: 0,
+            total: 3,
+          },
+          {
+            milestoneId: 'cuid-synthetic-milestone-4',
+            title: 'seed-program-overview-milestone-4',
             completed: 0,
             total: 3,
           },
@@ -220,7 +230,7 @@ describe('ProgramOverviewService', () => {
         myDocumentsCompleted: null,
         myDocumentsTotal: null,
         fullySubmittedParticipantCount: null,
-        milestoneDocumentBreakdown: [],
+        milestoneDocuments: [],
       });
     });
 
@@ -237,9 +247,12 @@ describe('ProgramOverviewService', () => {
       const findMilestoneDocumentCatalog = jest
         .fn()
         .mockResolvedValue(milestoneDocumentCatalog);
-      const countFullySubmittedParticipantsByMilestone = jest
-        .fn()
-        .mockResolvedValue(new Map([[currentMilestone.milestoneId, 100]]));
+      const countFullySubmittedTeamsByMilestone = jest.fn().mockResolvedValue(
+        new Map([
+          [currentMilestone.milestoneId, 12],
+          ['cuid-synthetic-milestone-4', 0],
+        ]),
+      );
       const findMilestoneSchedules = jest.fn().mockResolvedValue([]);
       const repository = {
         findByProgramId,
@@ -247,7 +260,7 @@ describe('ProgramOverviewService', () => {
         findCurrentSubmissionMilestone,
         countFullySubmittedParticipants,
         findMilestoneDocumentCatalog,
-        countFullySubmittedParticipantsByMilestone,
+        countFullySubmittedTeamsByMilestone,
         findMilestoneSchedules,
       } as unknown as ProgramOverviewRepository;
       const service = new ProgramOverviewService(repository);
@@ -264,21 +277,27 @@ describe('ProgramOverviewService', () => {
         currentMilestone.requiredDocumentIds,
       );
       // 서류 0개 마일스톤(#1)은 배치 호출에서도 빠진다.
-      expect(countFullySubmittedParticipantsByMilestone).toHaveBeenCalledWith(
+      expect(countFullySubmittedTeamsByMilestone).toHaveBeenCalledWith(
         syntheticProgramId,
-        [milestoneDocumentCatalog[1]],
+        [milestoneDocumentCatalog[1], milestoneDocumentCatalog[2]],
       );
       expect(result.viewer).toEqual({
         role: Role.STAFF,
         myDocumentsCompleted: null,
         myDocumentsTotal: null,
         fullySubmittedParticipantCount: 128,
-        milestoneDocumentBreakdown: [
+        milestoneDocuments: [
           {
             milestoneId: currentMilestone.milestoneId,
-            milestoneTitle: 'seed-program-overview-milestone-3',
-            completed: 100,
-            total: 188,
+            title: 'seed-program-overview-milestone-3',
+            completed: 12,
+            total: 47,
+          },
+          {
+            milestoneId: 'cuid-synthetic-milestone-4',
+            title: 'seed-program-overview-milestone-4',
+            completed: 0,
+            total: 47,
           },
         ],
       });
@@ -297,7 +316,7 @@ describe('ProgramOverviewService', () => {
       const findMilestoneDocumentCatalog = jest
         .fn()
         .mockResolvedValue(milestoneDocumentCatalog);
-      const countFullySubmittedParticipantsByMilestone = jest
+      const countFullySubmittedTeamsByMilestone = jest
         .fn()
         .mockResolvedValue(new Map([[currentMilestone.milestoneId, 9]]));
       const findMilestoneSchedules = jest.fn().mockResolvedValue([]);
@@ -307,7 +326,7 @@ describe('ProgramOverviewService', () => {
         findCurrentSubmissionMilestone,
         countFullySubmittedParticipants,
         findMilestoneDocumentCatalog,
-        countFullySubmittedParticipantsByMilestone,
+        countFullySubmittedTeamsByMilestone,
         findMilestoneSchedules,
       } as unknown as ProgramOverviewRepository;
       const service = new ProgramOverviewService(repository);
@@ -321,12 +340,18 @@ describe('ProgramOverviewService', () => {
       // Then
       expect(result.viewer.role).toBe(Role.ADMIN);
       expect(result.viewer.fullySubmittedParticipantCount).toBe(10);
-      expect(result.viewer.milestoneDocumentBreakdown).toEqual([
+      expect(result.viewer.milestoneDocuments).toEqual([
         {
           milestoneId: currentMilestone.milestoneId,
-          milestoneTitle: 'seed-program-overview-milestone-3',
+          title: 'seed-program-overview-milestone-3',
           completed: 9,
-          total: 188,
+          total: 47,
+        },
+        {
+          milestoneId: 'cuid-synthetic-milestone-4',
+          title: 'seed-program-overview-milestone-4',
+          completed: 0,
+          total: 47,
         },
       ]);
     });
@@ -360,7 +385,7 @@ describe('ProgramOverviewService', () => {
         myDocumentsCompleted: null,
         myDocumentsTotal: null,
         fullySubmittedParticipantCount: null,
-        milestoneDocumentBreakdown: [],
+        milestoneDocuments: [],
       });
     });
 
