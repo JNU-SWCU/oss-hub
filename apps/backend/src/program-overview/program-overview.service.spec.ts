@@ -2,6 +2,8 @@ import { Role } from '@prisma/client';
 import { ProgramOverviewErrorCode } from './program-overview-error-code.enum';
 import {
   CurrentSubmissionMilestone,
+  MilestoneDocumentCatalogEntry,
+  MilestoneSchedule,
   ProgramOverviewRecord,
   ProgramOverviewRepository,
   PublicTeamRow,
@@ -32,6 +34,22 @@ const currentMilestone: CurrentSubmissionMilestone = {
   requiredDocumentIds: ['doc-1', 'doc-2'],
 };
 
+/** 서류 0개 마일스톤(#1) + 서류 걸린 마일스톤(#3, currentMilestone과 동일)의 카탈로그. */
+const milestoneDocumentCatalog: MilestoneDocumentCatalogEntry[] = [
+  {
+    milestoneId: 'cuid-synthetic-milestone-1',
+    milestoneTitle: 'seed-program-overview-milestone-1',
+    documentIds: [],
+    requiredDocumentIds: [],
+  },
+  {
+    milestoneId: currentMilestone.milestoneId,
+    milestoneTitle: 'seed-program-overview-milestone-3',
+    documentIds: currentMilestone.documentIds,
+    requiredDocumentIds: currentMilestone.requiredDocumentIds,
+  },
+];
+
 describe('ProgramOverviewService', () => {
   describe('getOverview', () => {
     it('프로그램이 없으면 POV_001로 거부한다', async () => {
@@ -49,7 +67,7 @@ describe('ProgramOverviewService', () => {
       });
     });
 
-    it('학생이면서 서류 걸린 마일스톤이 있으면 내 제출 N/M을 채운다', async () => {
+    it('학생이면서 서류 걸린 마일스톤이 있으면 내 제출 N/M과 마일스톤별 분해를 채운다', async () => {
       // Given
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
       const findViewerIdentity = jest
@@ -62,12 +80,22 @@ describe('ProgramOverviewService', () => {
         .fn()
         .mockResolvedValue(syntheticApplicationId);
       const countSubmittedDocuments = jest.fn().mockResolvedValue(2);
+      const findMilestoneDocumentCatalog = jest
+        .fn()
+        .mockResolvedValue(milestoneDocumentCatalog);
+      const findSubmittedDocumentIds = jest
+        .fn()
+        .mockResolvedValue(new Set(['doc-1', 'doc-2']));
+      const findMilestoneSchedules = jest.fn().mockResolvedValue([]);
       const repository = {
         findByProgramId,
         findViewerIdentity,
         findCurrentSubmissionMilestone,
         findViewerApplicationId,
         countSubmittedDocuments,
+        findMilestoneDocumentCatalog,
+        findSubmittedDocumentIds,
+        findMilestoneSchedules,
       } as unknown as ProgramOverviewRepository;
       const service = new ProgramOverviewService(repository);
 
@@ -82,11 +110,23 @@ describe('ProgramOverviewService', () => {
         syntheticApplicationId,
         currentMilestone.documentIds,
       );
+      expect(findSubmittedDocumentIds).toHaveBeenCalledWith(
+        syntheticApplicationId,
+        ['doc-1', 'doc-2', 'doc-3'],
+      );
       expect(result.viewer).toEqual({
         role: Role.STUDENT,
         myDocumentsCompleted: 2,
         myDocumentsTotal: 3,
         fullySubmittedParticipantCount: null,
+        milestoneDocumentBreakdown: [
+          {
+            milestoneId: currentMilestone.milestoneId,
+            milestoneTitle: 'seed-program-overview-milestone-3',
+            completed: 2,
+            total: 3,
+          },
+        ],
       });
       expect(result.participantCount).toBe(188);
       expect(result.teamCount).toBe(47);
@@ -104,12 +144,20 @@ describe('ProgramOverviewService', () => {
         .mockResolvedValue(currentMilestone);
       const findViewerApplicationId = jest.fn().mockResolvedValue(null);
       const countSubmittedDocuments = jest.fn().mockResolvedValue(0);
+      const findMilestoneDocumentCatalog = jest
+        .fn()
+        .mockResolvedValue(milestoneDocumentCatalog);
+      const findSubmittedDocumentIds = jest.fn();
+      const findMilestoneSchedules = jest.fn().mockResolvedValue([]);
       const repository = {
         findByProgramId,
         findViewerIdentity,
         findCurrentSubmissionMilestone,
         findViewerApplicationId,
         countSubmittedDocuments,
+        findMilestoneDocumentCatalog,
+        findSubmittedDocumentIds,
+        findMilestoneSchedules,
       } as unknown as ProgramOverviewRepository;
       const service = new ProgramOverviewService(repository);
 
@@ -121,15 +169,24 @@ describe('ProgramOverviewService', () => {
 
       // Then
       expect(countSubmittedDocuments).not.toHaveBeenCalled();
+      expect(findSubmittedDocumentIds).not.toHaveBeenCalled();
       expect(result.viewer).toEqual({
         role: Role.STUDENT,
         myDocumentsCompleted: 0,
         myDocumentsTotal: 3,
         fullySubmittedParticipantCount: null,
+        milestoneDocumentBreakdown: [
+          {
+            milestoneId: currentMilestone.milestoneId,
+            milestoneTitle: 'seed-program-overview-milestone-3',
+            completed: 0,
+            total: 3,
+          },
+        ],
       });
     });
 
-    it('서류 걸린 마일스톤이 하나도 없으면 학생 viewer 수치는 전부 null이다', async () => {
+    it('서류 걸린 마일스톤이 하나도 없으면 학생 viewer 수치는 전부 null/빈 배열이다', async () => {
       // Given
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
       const findViewerIdentity = jest
@@ -137,11 +194,15 @@ describe('ProgramOverviewService', () => {
         .mockResolvedValue({ userId: syntheticUserId, role: Role.STUDENT });
       const findCurrentSubmissionMilestone = jest.fn().mockResolvedValue(null);
       const findViewerApplicationId = jest.fn();
+      const findMilestoneDocumentCatalog = jest.fn();
+      const findMilestoneSchedules = jest.fn().mockResolvedValue([]);
       const repository = {
         findByProgramId,
         findViewerIdentity,
         findCurrentSubmissionMilestone,
         findViewerApplicationId,
+        findMilestoneDocumentCatalog,
+        findMilestoneSchedules,
       } as unknown as ProgramOverviewRepository;
       const service = new ProgramOverviewService(repository);
 
@@ -153,15 +214,17 @@ describe('ProgramOverviewService', () => {
 
       // Then
       expect(findViewerApplicationId).not.toHaveBeenCalled();
+      expect(findMilestoneDocumentCatalog).not.toHaveBeenCalled();
       expect(result.viewer).toEqual({
         role: Role.STUDENT,
         myDocumentsCompleted: null,
         myDocumentsTotal: null,
         fullySubmittedParticipantCount: null,
+        milestoneDocumentBreakdown: [],
       });
     });
 
-    it('교직원이면 제출률 분자(fullySubmittedParticipantCount)를 채운다', async () => {
+    it('교직원이면 제출률 분자와 마일스톤별 분해(팀 수 기준)를 채운다', async () => {
       // Given
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
       const findViewerIdentity = jest
@@ -171,11 +234,21 @@ describe('ProgramOverviewService', () => {
         .fn()
         .mockResolvedValue(currentMilestone);
       const countFullySubmittedParticipants = jest.fn().mockResolvedValue(128);
+      const findMilestoneDocumentCatalog = jest
+        .fn()
+        .mockResolvedValue(milestoneDocumentCatalog);
+      const countFullySubmittedParticipantsByMilestone = jest
+        .fn()
+        .mockResolvedValue(new Map([[currentMilestone.milestoneId, 100]]));
+      const findMilestoneSchedules = jest.fn().mockResolvedValue([]);
       const repository = {
         findByProgramId,
         findViewerIdentity,
         findCurrentSubmissionMilestone,
         countFullySubmittedParticipants,
+        findMilestoneDocumentCatalog,
+        countFullySubmittedParticipantsByMilestone,
+        findMilestoneSchedules,
       } as unknown as ProgramOverviewRepository;
       const service = new ProgramOverviewService(repository);
 
@@ -190,15 +263,28 @@ describe('ProgramOverviewService', () => {
         syntheticProgramId,
         currentMilestone.requiredDocumentIds,
       );
+      // 서류 0개 마일스톤(#1)은 배치 호출에서도 빠진다.
+      expect(countFullySubmittedParticipantsByMilestone).toHaveBeenCalledWith(
+        syntheticProgramId,
+        [milestoneDocumentCatalog[1]],
+      );
       expect(result.viewer).toEqual({
         role: Role.STAFF,
         myDocumentsCompleted: null,
         myDocumentsTotal: null,
         fullySubmittedParticipantCount: 128,
+        milestoneDocumentBreakdown: [
+          {
+            milestoneId: currentMilestone.milestoneId,
+            milestoneTitle: 'seed-program-overview-milestone-3',
+            completed: 100,
+            total: 188,
+          },
+        ],
       });
     });
 
-    it('ADMIN도 교직원과 같은 제출률 경로를 탄다', async () => {
+    it('ADMIN도 교직원과 같은 제출률·분해 경로를 탄다', async () => {
       // Given
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
       const findViewerIdentity = jest
@@ -208,11 +294,21 @@ describe('ProgramOverviewService', () => {
         .fn()
         .mockResolvedValue(currentMilestone);
       const countFullySubmittedParticipants = jest.fn().mockResolvedValue(10);
+      const findMilestoneDocumentCatalog = jest
+        .fn()
+        .mockResolvedValue(milestoneDocumentCatalog);
+      const countFullySubmittedParticipantsByMilestone = jest
+        .fn()
+        .mockResolvedValue(new Map([[currentMilestone.milestoneId, 9]]));
+      const findMilestoneSchedules = jest.fn().mockResolvedValue([]);
       const repository = {
         findByProgramId,
         findViewerIdentity,
         findCurrentSubmissionMilestone,
         countFullySubmittedParticipants,
+        findMilestoneDocumentCatalog,
+        countFullySubmittedParticipantsByMilestone,
+        findMilestoneSchedules,
       } as unknown as ProgramOverviewRepository;
       const service = new ProgramOverviewService(repository);
 
@@ -225,19 +321,29 @@ describe('ProgramOverviewService', () => {
       // Then
       expect(result.viewer.role).toBe(Role.ADMIN);
       expect(result.viewer.fullySubmittedParticipantCount).toBe(10);
+      expect(result.viewer.milestoneDocumentBreakdown).toEqual([
+        {
+          milestoneId: currentMilestone.milestoneId,
+          milestoneTitle: 'seed-program-overview-milestone-3',
+          completed: 9,
+          total: 188,
+        },
+      ]);
     });
 
-    it('역할이 확정되지 않은 뷰어는 viewer 수치가 전부 null이다', async () => {
+    it('역할이 확정되지 않은 뷰어는 viewer 수치가 전부 null/빈 배열이다', async () => {
       // Given
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
       const findViewerIdentity = jest
         .fn()
         .mockResolvedValue({ userId: syntheticUserId, role: null });
       const findCurrentSubmissionMilestone = jest.fn();
+      const findMilestoneSchedules = jest.fn().mockResolvedValue([]);
       const repository = {
         findByProgramId,
         findViewerIdentity,
         findCurrentSubmissionMilestone,
+        findMilestoneSchedules,
       } as unknown as ProgramOverviewRepository;
       const service = new ProgramOverviewService(repository);
 
@@ -254,6 +360,111 @@ describe('ProgramOverviewService', () => {
         myDocumentsCompleted: null,
         myDocumentsTotal: null,
         fullySubmittedParticipantCount: null,
+        milestoneDocumentBreakdown: [],
+      });
+    });
+
+    describe('nextMilestone(마감 카운트다운)', () => {
+      const now = new Date('2026-08-04T00:00:00.000Z');
+
+      beforeEach(() => {
+        jest.useFakeTimers().setSystemTime(now);
+      });
+
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
+      /** viewer 계산은 이 describe의 관심사가 아니므로 역할 미확정 뷰어로 고정한다. */
+      function repositoryWithSchedules(
+        schedules: MilestoneSchedule[],
+      ): ProgramOverviewRepository {
+        return {
+          findByProgramId: jest.fn().mockResolvedValue(baseOverview),
+          findViewerIdentity: jest
+            .fn()
+            .mockResolvedValue({ userId: syntheticUserId, role: null }),
+          findMilestoneSchedules: jest.fn().mockResolvedValue(schedules),
+        } as unknown as ProgramOverviewRepository;
+      }
+
+      it('마감이 지나지 않은 마일스톤 중 정렬 순서와 무관하게 가장 이른 것을 고른다', async () => {
+        const farMilestone: MilestoneSchedule = {
+          milestoneId: 'm-far',
+          label: '늦은 마일스톤',
+          dueAt: new Date('2026-09-01T00:00:00.000Z'),
+        };
+        const nearMilestone: MilestoneSchedule = {
+          milestoneId: 'm-near',
+          label: '가장 이른 마일스톤',
+          dueAt: new Date('2026-08-10T00:00:00.000Z'),
+        };
+        const service = new ProgramOverviewService(
+          repositoryWithSchedules([farMilestone, nearMilestone]),
+        );
+
+        const result = await service.getOverview(
+          syntheticProgramId,
+          syntheticGithubId,
+        );
+
+        expect(result.nextMilestone).toEqual({
+          label: nearMilestone.label,
+          dueAt: nearMilestone.dueAt,
+        });
+      });
+
+      it('마감이 지난 마일스톤은 제외한다', async () => {
+        const pastMilestone: MilestoneSchedule = {
+          milestoneId: 'm-past',
+          label: '지난 마일스톤',
+          dueAt: new Date('2026-08-01T00:00:00.000Z'),
+        };
+        const upcomingMilestone: MilestoneSchedule = {
+          milestoneId: 'm-upcoming',
+          label: '다가오는 마일스톤',
+          dueAt: new Date('2026-08-20T00:00:00.000Z'),
+        };
+        const service = new ProgramOverviewService(
+          repositoryWithSchedules([pastMilestone, upcomingMilestone]),
+        );
+
+        const result = await service.getOverview(
+          syntheticProgramId,
+          syntheticGithubId,
+        );
+
+        expect(result.nextMilestone).toEqual({
+          label: upcomingMilestone.label,
+          dueAt: upcomingMilestone.dueAt,
+        });
+      });
+
+      it('dueAt이 지금과 정확히 같은 마일스톤도 제외한다(dueAt > now)', async () => {
+        const schedules: MilestoneSchedule[] = [
+          { milestoneId: 'm-now', label: '지금 마감', dueAt: now },
+        ];
+        const service = new ProgramOverviewService(
+          repositoryWithSchedules(schedules),
+        );
+
+        const result = await service.getOverview(
+          syntheticProgramId,
+          syntheticGithubId,
+        );
+
+        expect(result.nextMilestone).toBeNull();
+      });
+
+      it('다가오는 마일스톤이 없으면 null이다', async () => {
+        const service = new ProgramOverviewService(repositoryWithSchedules([]));
+
+        const result = await service.getOverview(
+          syntheticProgramId,
+          syntheticGithubId,
+        );
+
+        expect(result.nextMilestone).toBeNull();
       });
     });
   });
