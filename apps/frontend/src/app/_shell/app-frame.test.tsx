@@ -107,7 +107,7 @@ describe('AppFrame', () => {
       isProfileComplete: false,
     });
     expect(html).toContain('프로그램 메뉴');
-    expect(html).toContain('data-slot="app-sidebar-depth-children"');
+    expect(html).not.toContain('data-slot="app-sidebar-depth-children"');
     expect(html).toContain('href="/programs?status=ended"');
     expect(html).not.toContain('>대시보드<');
   });

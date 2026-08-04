@@ -38,13 +38,16 @@ function render(
 }
 
 describe('AppSidebar', () => {
-  it('renders program menu with depth children container', () => {
+  it('is desktop-only and keeps filters flat with distinct icons', () => {
     const html = render('/programs', false);
+    expect(html).toContain('hidden min-[900px]:flex');
     expect(html).toContain('프로그램 메뉴');
-    expect(html).toContain('data-slot="app-sidebar-depth-children"');
+    expect(html).not.toContain('data-slot="app-sidebar-depth-children"');
     expect(html).toContain('data-depth="0"');
-    expect(html).toContain('data-depth="1"');
+    expect(html).not.toContain('data-depth="1"');
     expect(html).toContain('href="/programs?status=recruiting"');
+    expect(html).toContain('data-icon="megaphone"');
+    expect(html).toContain('data-icon="play"');
   });
 
   it('shows count badge when provided', () => {

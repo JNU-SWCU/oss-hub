@@ -6,8 +6,8 @@ import { ShellIcon } from './shell-icons';
 import { isCurrentSidebarItem, type SidebarGroup } from './sidebar-menu';
 
 /**
- * 왼쪽 사이드 패널 — 상단에서 고른 섹션의 하위 네비.
- * 그룹 라벨이 제목. 프로그램 자식 항목은 depth=1 들여쓰기.
+ * 데스크톱(≥900px) 전용 왼쪽 사이드 패널.
+ * 모바일은 본문 칩/필터로 대체한다 — 가로 스크롤 아이콘 띠는 깨지기 쉽다.
  */
 interface AppSidebarProps {
   readonly groups: readonly SidebarGroup[];
@@ -30,13 +30,17 @@ export function AppSidebar({
     <aside
       data-slot="app-sidebar"
       data-collapsed={collapsed ? 'true' : 'false'}
-      className="flex flex-col border-b border-sidebar-border bg-sidebar min-[900px]:sticky min-[900px]:top-0 min-[900px]:max-h-[calc(100dvh-3.5rem)] min-[900px]:min-h-[calc(100dvh-3.5rem)] min-[900px]:border-r min-[900px]:border-b-0"
+      className={cn(
+        // 모바일: 숨김 — 필터는 페이지 칩이 담당
+        'hidden min-[900px]:flex min-[900px]:flex-col',
+        'border-sidebar-border bg-sidebar min-[900px]:sticky min-[900px]:top-0 min-[900px]:max-h-[calc(100dvh-3.5rem)] min-[900px]:min-h-[calc(100dvh-3.5rem)] min-[900px]:border-r',
+      )}
     >
       <div
         data-slot="app-sidebar-brand"
         className={cn(
           'flex h-topbar shrink-0 items-center gap-3 border-b border-sidebar-border px-4',
-          collapsed && 'min-[900px]:justify-center min-[900px]:px-0',
+          collapsed && 'justify-center px-0',
         )}
       >
         {collapsed ? (
@@ -61,7 +65,7 @@ export function AppSidebar({
               aria-expanded
               aria-label="사이드바 접기"
               title="사이드바 접기"
-              className="ml-auto hidden size-control items-center justify-center rounded-control border border-sidebar-border text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none min-[900px]:flex"
+              className="ml-auto flex size-control items-center justify-center rounded-control border border-sidebar-border text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
             >
               <ShellIcon name="chevronLeft" className="size-[18px] shrink-0" />
             </button>
@@ -73,67 +77,39 @@ export function AppSidebar({
         data-slot="app-sidebar-nav"
         aria-label={title}
         className={cn(
-          'flex gap-1 overflow-x-auto p-3 min-[900px]:flex-col min-[900px]:gap-0.5 min-[900px]:overflow-x-visible',
-          collapsed && 'min-[900px]:items-center min-[900px]:px-2',
+          'flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-3',
+          collapsed && 'items-center px-2',
         )}
       >
-        {groups.map((group) => {
-          const parents = group.items.filter((i) => (i.depth ?? 0) === 0);
-          const children = group.items.filter((i) => (i.depth ?? 0) === 1);
-          // 평평한 그룹(depth 없는 역할 메뉴)은 전부 depth 0으로 취급
-          const flat =
-            children.length === 0
-              ? group.items
-              : parents.length > 0
-                ? parents
-                : group.items;
-
-          return (
-            <div
-              key={group.label}
-              role="group"
-              aria-label={group.label}
-              data-slot="app-sidebar-group"
-              className="flex shrink-0 gap-1 min-[900px]:w-full min-[900px]:flex-col min-[900px]:gap-0.5"
-            >
-              {flat.map((item) => (
-                <SidebarLink
-                  key={item.href}
-                  item={item}
-                  pathname={pathname}
-                  search={search}
-                  collapsed={collapsed}
-                />
-              ))}
-              {children.length > 0 ? (
-                <div
-                  data-slot="app-sidebar-depth-children"
-                  className={cn(
-                    'flex shrink-0 gap-1 min-[900px]:ml-3 min-[900px]:flex-col min-[900px]:gap-0.5 min-[900px]:border-l min-[900px]:border-sidebar-border min-[900px]:pl-3',
-                    collapsed && 'min-[900px]:ml-0 min-[900px]:border-l-0 min-[900px]:pl-0',
-                  )}
-                >
-                  {children.map((item) => (
-                    <SidebarLink
-                      key={item.href}
-                      item={item}
-                      pathname={pathname}
-                      search={search}
-                      collapsed={collapsed}
-                    />
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
+        {groups.map((group) => (
+          <div
+            key={group.label}
+            role="group"
+            aria-label={group.label}
+            data-slot="app-sidebar-group"
+            className={cn(
+              'flex w-full flex-col gap-0.5',
+              collapsed && 'items-center',
+            )}
+          >
+            {group.items.map((item) => (
+              <SidebarLink
+                key={item.href}
+                item={item}
+                pathname={pathname}
+                search={search}
+                collapsed={collapsed}
+              />
+            ))}
+          </div>
+        ))}
       </nav>
 
       <p
         data-slot="app-sidebar-foot"
         className={cn(
-          'mt-auto hidden border-t border-sidebar-border p-4 text-small whitespace-nowrap text-muted-foreground',
-          !collapsed && 'min-[900px]:block',
+          'mt-auto border-t border-sidebar-border p-4 text-small whitespace-nowrap text-muted-foreground',
+          collapsed && 'hidden',
         )}
       >
         전남대학교
@@ -164,13 +140,13 @@ function SidebarLink({
       aria-current={current ? 'page' : undefined}
       data-current={current ? 'true' : undefined}
       data-depth={item.depth ?? 0}
+      data-icon={item.icon}
       className={cn(
         'group relative flex h-control shrink-0 items-center gap-3 rounded-control px-3 text-[15px] whitespace-nowrap text-muted-foreground transition-colors',
         'hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
         current &&
           'bg-sidebar-current font-semibold text-sidebar-current-foreground',
-        collapsed &&
-          'min-[900px]:w-control min-[900px]:justify-center min-[900px]:px-0',
+        collapsed && 'w-control justify-center px-0',
       )}
     >
       {current ? (
@@ -181,7 +157,7 @@ function SidebarLink({
         />
       ) : null}
       <ShellIcon name={item.icon} />
-      <span className={cn('min-w-0 flex-1 truncate', collapsed && 'min-[900px]:hidden')}>
+      <span className={cn('min-w-0 flex-1 truncate', collapsed && 'hidden')}>
         {item.label}
       </span>
       {showCount ? (
@@ -189,8 +165,9 @@ function SidebarLink({
           data-slot="app-sidebar-count"
           className={cn(
             'ml-auto inline-flex shrink-0 items-center rounded-md border border-transparent bg-secondary px-2 py-0.5 text-xs font-semibold text-secondary-foreground',
-            collapsed && 'min-[900px]:hidden',
-            current && 'bg-primary-foreground/15 text-sidebar-current-foreground',
+            collapsed && 'hidden',
+            current &&
+              'bg-primary-foreground/15 text-sidebar-current-foreground',
           )}
         >
           {item.count}
@@ -199,7 +176,7 @@ function SidebarLink({
       {collapsed ? (
         <span
           data-slot="app-sidebar-tooltip"
-          className="pointer-events-none absolute top-1/2 left-full z-30 ml-2.5 hidden -translate-y-1/2 rounded-control bg-foreground px-2.5 py-1.5 text-xs font-medium text-background opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 min-[900px]:block"
+          className="pointer-events-none absolute top-1/2 left-full z-30 ml-2.5 -translate-y-1/2 rounded-control bg-foreground px-2.5 py-1.5 text-xs font-medium whitespace-nowrap text-background opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
         >
           {item.label}
           {showCount ? ` (${item.count})` : ''}

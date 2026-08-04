@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, test, vi } from 'vitest';
-import { RANKING_PERIODS, type RankingItem } from '../types';
+import { RANKING_YEAR_ALL, type RankingItem } from '../types';
 import { RankingView } from './ranking-view';
 
 vi.mock('@/components', async (importOriginal) => {
@@ -51,22 +51,20 @@ vi.mock('@/components', async (importOriginal) => {
 });
 
 const handlers = {
-  onPeriodChange: () => undefined,
   onPageChange: () => undefined,
   onRetry: () => undefined,
 };
 
-test('선택한 집계 기간과 모바일 레이아웃을 명시한다', () => {
+test('모바일 레이아웃을 명시하고 기간 토글 버튼을 렌더하지 않는다', () => {
   const displayName = 'A very long participant display name';
   const githubLogin = 'participant-with-a-very-long-github-login';
   const html = renderToStaticMarkup(
     <RankingView
-      period={RANKING_PERIODS.THIS_YEAR}
       page={1}
       state={{
         kind: 'ready',
         ranking: {
-          period: RANKING_PERIODS.THIS_YEAR,
+          year: 2026,
           items: [
             {
               rank: 1,
@@ -87,8 +85,10 @@ test('선택한 집계 기간과 모바일 레이아웃을 명시한다', () => 
     />,
   );
 
-  expect(html).toContain('aria-pressed="true"');
-  expect(html).toContain('aria-pressed="false"');
+  expect(html).not.toContain('aria-label="랭킹 기간"');
+  expect(html).not.toContain('aria-pressed');
+  expect(html).not.toContain('>올해<');
+  expect(html).not.toContain('>전체<');
   expect(html).toContain('break-keep');
   expect(html).toContain('table-fixed');
   expect(html).toContain(
@@ -104,12 +104,11 @@ test('선택한 집계 기간과 모바일 레이아웃을 명시한다', () => 
 test('표 캡션을 렌더하지 않는다', () => {
   const html = renderToStaticMarkup(
     <RankingView
-      period={RANKING_PERIODS.THIS_YEAR}
       page={1}
       state={{
         kind: 'ready',
         ranking: {
-          period: RANKING_PERIODS.THIS_YEAR,
+          year: 2026,
           items: [
             {
               rank: 1,
@@ -137,12 +136,11 @@ test('표 캡션을 렌더하지 않는다', () => {
 test('빈 상태와 오류 재시도 상태를 사용자에게 표시한다', () => {
   const empty = renderToStaticMarkup(
     <RankingView
-      period={RANKING_PERIODS.THIS_YEAR}
       page={1}
       state={{
         kind: 'ready',
         ranking: {
-          period: RANKING_PERIODS.THIS_YEAR,
+          year: 2025,
           items: [],
           page: 1,
           pageSize: 20,
@@ -153,12 +151,7 @@ test('빈 상태와 오류 재시도 상태를 사용자에게 표시한다', ()
     />,
   );
   const failure = renderToStaticMarkup(
-    <RankingView
-      period={RANKING_PERIODS.ALL}
-      page={1}
-      state={{ kind: 'error' }}
-      {...handlers}
-    />,
+    <RankingView page={1} state={{ kind: 'error' }} {...handlers} />,
   );
 
   expect(empty).toContain('집계된 활동 데이터가 없습니다');
@@ -172,12 +165,7 @@ test('빈 상태와 오류 재시도 상태를 사용자에게 표시한다', ()
 
 test('집계 안내 문구를 더 이상 화면에 표시하지 않는다', () => {
   const html = renderToStaticMarkup(
-    <RankingView
-      period={RANKING_PERIODS.THIS_YEAR}
-      page={1}
-      state={{ kind: 'loading' }}
-      {...handlers}
-    />,
+    <RankingView page={1} state={{ kind: 'loading' }} {...handlers} />,
   );
 
   expect(html).not.toContain('집계 안내');
@@ -192,12 +180,11 @@ test('집계 안내 문구를 더 이상 화면에 표시하지 않는다', () =
 test('GitHub 로그인이 같아도 순위가 다른 행에 고유 키를 사용한다', () => {
   const html = renderToStaticMarkup(
     <RankingView
-      period={RANKING_PERIODS.THIS_YEAR}
       page={1}
       state={{
         kind: 'ready',
         ranking: {
-          period: RANKING_PERIODS.THIS_YEAR,
+          year: 2026,
           items: [
             {
               rank: 1,
@@ -246,12 +233,11 @@ const forbiddenRankingFields = [
 test('outcome-1: 발행 전 프로젝트의 기여자는 다른 참여자가 랭킹에 있어도 함께 나타나지 않는다', () => {
   const html = renderToStaticMarkup(
     <RankingView
-      period={RANKING_PERIODS.ALL}
       page={1}
       state={{
         kind: 'ready',
         ranking: {
-          period: RANKING_PERIODS.ALL,
+          year: RANKING_YEAR_ALL,
           items: [
             {
               rank: 1,
@@ -279,12 +265,11 @@ test('outcome-1: 발행 전 프로젝트의 기여자는 다른 참여자가 랭
 test('outcome-2: 발행 후 관측된 저장소의 기여자 2명이 각자의 순위와 커밋/PR/릴리스 수치로 정확히 분리되어 랭킹에 표시된다', () => {
   const html = renderToStaticMarkup(
     <RankingView
-      period={RANKING_PERIODS.ALL}
       page={1}
       state={{
         kind: 'ready',
         ranking: {
-          period: RANKING_PERIODS.ALL,
+          year: RANKING_YEAR_ALL,
           items: [
             {
               rank: 1,
@@ -325,12 +310,11 @@ test('outcome-2: 발행 후 관측된 저장소의 기여자 2명이 각자의 �
 test('outcome-4: 발행 이전 stale 관측 때문에 아카이브에는 여전히 노출되는 프로젝트라도, 현재 관측이 비공개면 그 기여자는 랭킹에서 제외된다', () => {
   const html = renderToStaticMarkup(
     <RankingView
-      period={RANKING_PERIODS.ALL}
       page={1}
       state={{
         kind: 'ready',
         ranking: {
-          period: RANKING_PERIODS.ALL,
+          year: RANKING_YEAR_ALL,
           items: [
             {
               rank: 1,
@@ -358,12 +342,11 @@ test('outcome-4: 발행 이전 stale 관측 때문에 아카이브에는 여전�
 test('outcome-5: 발행 후 비공개로 전환(회수)된 기여자는 이전엔 랭킹에 있었더라도 최신 응답에서 빠지면 화면에서 사라진다', () => {
   const beforeRevocationHtml = renderToStaticMarkup(
     <RankingView
-      period={RANKING_PERIODS.ALL}
       page={1}
       state={{
         kind: 'ready',
         ranking: {
-          period: RANKING_PERIODS.ALL,
+          year: RANKING_YEAR_ALL,
           items: [
             {
               rank: 1,
@@ -387,12 +370,11 @@ test('outcome-5: 발행 후 비공개로 전환(회수)된 기여자는 이전�
 
   const afterRevocationHtml = renderToStaticMarkup(
     <RankingView
-      period={RANKING_PERIODS.ALL}
       page={1}
       state={{
         kind: 'ready',
         ranking: {
-          period: RANKING_PERIODS.ALL,
+          year: RANKING_YEAR_ALL,
           items: [],
           page: 1,
           pageSize: 20,
