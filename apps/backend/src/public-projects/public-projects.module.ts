@@ -17,5 +17,6 @@ import { PublicUserProfileController } from './public-user-profile.controller';
   imports: [PrismaModule, PublicEligibilityModule, CollectionModule],
   controllers: [PublicProjectsController, PublicUserProfileController],
   providers: [PublicProjectsRepository, PublicProjectsService],
+  exports: [PublicProjectsService],
 })
 export class PublicProjectsModule {}

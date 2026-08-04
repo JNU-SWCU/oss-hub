@@ -45,4 +45,10 @@ describe('PublicProjectsModule', () => {
       expect.arrayContaining([PublicProjectsRepository, PublicProjectsService]),
     );
   });
+
+  it('exports PublicProjectsService for other public consumers', () => {
+    const exports = getMetadataArray(MODULE_METADATA.EXPORTS);
+
+    expect(exports).toContain(PublicProjectsService);
+  });
 });

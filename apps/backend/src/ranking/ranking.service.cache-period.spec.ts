@@ -21,6 +21,7 @@ describe('RankingService cache and year scope', () => {
 
     expect(harness.getPublicRankingMetrics).toHaveBeenCalledTimes(1);
     expect(harness.getPublicRankingMetrics).toHaveBeenCalledWith({
+      repositoryIds: [101n, 102n],
       currentYear: 2026,
     });
   });
@@ -41,9 +42,11 @@ describe('RankingService cache and year scope', () => {
 
     expect(harness.getPublicRankingMetrics).toHaveBeenCalledTimes(2);
     expect(harness.getPublicRankingMetrics).toHaveBeenNthCalledWith(1, {
+      repositoryIds: [101n, 102n],
       currentYear: 2025,
     });
     expect(harness.getPublicRankingMetrics).toHaveBeenNthCalledWith(2, {
+      repositoryIds: [101n, 102n],
       currentYear: 2026,
     });
   });
@@ -68,7 +71,9 @@ describe('RankingService cache and year scope', () => {
     });
     expect(all.items).toHaveLength(2);
     expect(harness.getPublicRankingMetrics).toHaveBeenCalledTimes(2);
-    expect(harness.getPublicRankingMetrics).toHaveBeenLastCalledWith({});
+    expect(harness.getPublicRankingMetrics).toHaveBeenLastCalledWith({
+      repositoryIds: [101n, 102n],
+    });
   });
 
   it('listYears는 공개 연도 목록을 collection port에 위임한다', async () => {

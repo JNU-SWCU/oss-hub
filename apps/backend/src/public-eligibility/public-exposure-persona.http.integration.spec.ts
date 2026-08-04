@@ -163,6 +163,21 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         },
       ],
     });
+    const rankingUserId = `${PREFIX}-published-ranking-user`;
+    await harness.prisma.user.create({
+      data: {
+        id: rankingUserId,
+        githubId: 8_950_000_000_001n,
+        nickname: `${PREFIX}-published-owner-login`,
+        role: Role.STUDENT,
+      },
+    });
+    await harness.prisma.consent.create({
+      data: {
+        userId: rankingUserId,
+        policyVersion: '2026-07-21',
+      },
+    });
     await harness.prisma.collectionRepositoryYearAggregate.create({
       data: {
         repositoryId: `${PREFIX}-published-collection-repository`,
@@ -187,7 +202,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       visibility: RepositoryVisibility.PRIVATE,
       publishedAt: null,
     });
-  });
+  }, 60_000);
 
   afterAll(async () => {
     try {
@@ -209,6 +224,9 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       await harness.prisma.application.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
+      await harness.prisma.consent.deleteMany({
+        where: { userId: { startsWith: `${PREFIX}-` } },
+      });
       // AuditLog는 append-only다 — 이 파일이 만든 REPOSITORY_PUBLISHED 행은 지우지 않고,
       // 그 행들이 actorId로 FK 참조하는 STAFF/ADMIN persona User도 `not: [...]`로 정리
       // 대상에서 제외한다(`submission-reviews.integration.spec.ts`와 동일한 관행).
@@ -224,7 +242,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     } finally {
       await harness.stop();
     }
-  });
+  }, 60_000);
 
   it('공개 라우트(list/detail/profile/ranking)는 익명·STUDENT·STAFF·ADMIN 전부에게 동일하게 200이다', async () => {
     const personas: (bigint | undefined)[] = [

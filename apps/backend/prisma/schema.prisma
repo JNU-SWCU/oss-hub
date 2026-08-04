@@ -134,9 +134,23 @@ model Consent {
   user   User   @relation(fields: [userId], references: [id])
 
   policyVersion String
-  consentedAt   DateTime @default(now())
+  consentedAt   DateTime           @default(now())
+  withdrawal    ConsentWithdrawal?
 
   @@unique([userId, policyVersion])
+  @@unique([id, userId])
+}
+
+/// 현행 동의 철회를 append-only로 기록한다. 행이 존재하면 해당 동의는 공개 자격에 사용할 수 없다.
+model ConsentWithdrawal {
+  id          String   @id @default(cuid())
+  consentId   String   @unique
+  userId      String
+  consent     Consent  @relation(fields: [consentId, userId], references: [id, userId], onDelete: Cascade)
+  withdrawnAt DateTime @default(now())
+
+  @@unique([consentId, userId])
+  @@index([userId, withdrawnAt])
 }
 
 /// 프로그램 유형 7종 고정(#109 계약 잠금) — 임의 필드 빌더는 post-pilot.
@@ -523,6 +537,14 @@ model RepositoryOwnerProjection {
   updatedAt          DateTime @updatedAt
 
   @@index([ownerGithubId])
+}
+
+/// 공개 랭킹 요청이 private User/Consent join 없이 읽는 최소 사용자 자격 projection.
+/// 행의 존재 자체가 현행 정책 동의 + ACTIVE 계정임을 뜻한다.
+model RankingUserEligibilityProjection {
+  githubUserId  BigInt   @id
+  policyVersion String
+  updatedAt     DateTime @updatedAt
 }
 
 /// Org 전체 저장소의 canonical identity. program/team 매핑이 없는 저장소도 독립적으로 유지한다(#177).

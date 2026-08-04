@@ -136,6 +136,7 @@ export type CollectionContributorCumulativeMetricsDto = {
 };
 
 export type CollectionPublicRankingMetricsQueryDto = {
+  readonly repositoryIds: readonly bigint[];
   readonly currentYear?: number;
 };
 

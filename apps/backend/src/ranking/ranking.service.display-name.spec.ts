@@ -1,112 +1,75 @@
 import { RANKING_YEAR_ALL } from './domain/ranking';
 import { activity, setupRankingService } from './ranking.service.spec-helper';
 
-describe('RankingService display name', () => {
+describe('RankingService public user eligibility', () => {
   let harness: ReturnType<typeof setupRankingService>;
 
   beforeEach(() => {
     harness = setupRankingService();
   });
 
-  it('shows the resolved profile name when one exists', async () => {
+  it('shows only contributors present in the public eligibility projection', async () => {
     harness.getPublicRankingMetrics.mockResolvedValue([
-      activity(1n, 'octo-cat', 2, 0, 0),
+      activity(1n, 'eligible-user', 2, 0, 0),
+      activity(2n, 'withdrawn-user', 3, 0, 0),
     ]);
-    harness.findByGithubIds.mockResolvedValue([
-      { githubId: 1n, name: 'Octo Cat' },
-    ]);
+    harness.findEligibleGithubIds.mockResolvedValue(new Set([1n]));
 
     const result = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
 
     expect(result.items).toEqual([
-      expect.objectContaining({
-        displayName: 'Octo Cat',
-        githubLogin: 'octo-cat',
-      }),
+      {
+        rank: 1,
+        displayName: 'eligible-user',
+        githubLogin: 'eligible-user',
+        commitCount: 2,
+        prCount: 0,
+        releaseCount: 0,
+        total: 2,
+      },
     ]);
-    expect(harness.findByGithubIds).toHaveBeenCalledWith([1n]);
+    expect(harness.findEligibleGithubIds).toHaveBeenCalledWith([1n, 2n]);
   });
 
-  it('falls back to the GitHub login when the name is null', async () => {
-    harness.getPublicRankingMetrics.mockResolvedValue([
-      activity(2n, 'nameless', 1, 0, 0),
-    ]);
-    harness.findByGithubIds.mockResolvedValue([{ githubId: 2n, name: null }]);
-
-    const result = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
-
-    expect(result.items).toEqual([
-      expect.objectContaining({
-        displayName: 'nameless',
-        githubLogin: 'nameless',
-      }),
-    ]);
-  });
-
-  it('falls back to the GitHub login when the name is empty or whitespace only', async () => {
-    harness.getPublicRankingMetrics.mockResolvedValue([
-      activity(3n, 'blank-name', 1, 0, 0),
-      activity(4n, 'whitespace-name', 1, 0, 0),
-    ]);
-    harness.findByGithubIds.mockResolvedValue([
-      { githubId: 3n, name: '' },
-      { githubId: 4n, name: '   ' },
-    ]);
-
-    const result = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
-
-    expect(
-      result.items.map(({ displayName, githubLogin }) => ({
-        displayName,
-        githubLogin,
-      })),
-    ).toEqual(
-      expect.arrayContaining([
-        { displayName: 'blank-name', githubLogin: 'blank-name' },
-        { displayName: 'whitespace-name', githubLogin: 'whitespace-name' },
-      ]),
-    );
-  });
-
-  it('falls back to the GitHub login when the user row is missing entirely', async () => {
+  it('fails closed when no contributor has a public eligibility row', async () => {
     harness.getPublicRankingMetrics.mockResolvedValue([
       activity(5n, 'ghost-user', 1, 0, 0),
     ]);
-    harness.findByGithubIds.mockResolvedValue([]);
+    harness.findEligibleGithubIds.mockResolvedValue(new Set());
 
     const result = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
 
-    expect(result.items).toEqual([
-      expect.objectContaining({
-        displayName: 'ghost-user',
-        githubLogin: 'ghost-user',
-      }),
-    ]);
+    expect(result.items).toEqual([]);
+    expect(result.total).toBe(0);
   });
 
-  it('trims surrounding whitespace on an otherwise valid name', async () => {
+  it('uses the canonical GitHub login without reading a private profile name', async () => {
     harness.getPublicRankingMetrics.mockResolvedValue([
-      activity(6n, 'padded-name', 1, 0, 0),
-    ]);
-    harness.findByGithubIds.mockResolvedValue([
-      { githubId: 6n, name: '  Padded Name  ' },
+      activity(6n, 'public-handle', 1, 0, 0),
     ]);
 
     const result = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
 
-    expect(result.items).toEqual([
-      expect.objectContaining({
-        displayName: 'Padded Name',
-        githubLogin: 'padded-name',
-      }),
-    ]);
+    expect(result.items[0]).toMatchObject({
+      displayName: 'public-handle',
+      githubLogin: 'public-handle',
+    });
   });
 
-  it('does not query display names for an empty ranking', async () => {
-    harness.getPublicRankingMetrics.mockResolvedValue([]);
+  it('rechecks user eligibility even when activity metrics are cached', async () => {
+    harness.getPublicRankingMetrics.mockResolvedValue([
+      activity(7n, 'revoked-user', 1, 0, 0),
+    ]);
+    harness.findEligibleGithubIds
+      .mockResolvedValueOnce(new Set([7n]))
+      .mockResolvedValueOnce(new Set());
 
-    await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
+    const first = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
+    const second = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
 
-    expect(harness.findByGithubIds).toHaveBeenCalledWith([]);
+    expect(first.total).toBe(1);
+    expect(second.total).toBe(0);
+    expect(harness.getPublicRankingMetrics).toHaveBeenCalledTimes(1);
+    expect(harness.findEligibleGithubIds).toHaveBeenCalledTimes(2);
   });
 });

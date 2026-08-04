@@ -35,6 +35,11 @@ export interface PublicProjectCursor {
   readonly id: string;
 }
 
+export interface PublicProjectEligibilityCandidate {
+  readonly githubRepositoryId: bigint;
+  readonly publishedAt: Date;
+}
+
 export interface PublicUserIdentity {
   readonly userId: string;
   readonly githubNickname: string;
@@ -124,6 +129,18 @@ export class PublicProjectsRepository {
     return rows.map(toProjectRow);
   }
 
+  /** 랭킹 후보용 platform-public 저장소를 한 번의 배치 질의로 반환한다. */
+  async listAllPublished(): Promise<PublicProjectEligibilityCandidate[]> {
+    const rows = await this.prisma.repository.findMany({
+      where: { visibility: 'PUBLIC', publishedAt: { not: null } },
+      orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
+      select: { githubRepositoryId: true, publishedAt: true },
+    });
+    return rows.map((row) => ({
+      githubRepositoryId: row.githubRepositoryId,
+      publishedAt: row.publishedAt!,
+    }));
+  }
   /**
    * 플랫폼 공개 프로젝트의 프로그램 분류별 개수. eligibility fence는 적용하지 않는다.
    * `Program.category`로 GROUP BY 1회. 없는 분류는 호출 측에서 0으로 채운다.

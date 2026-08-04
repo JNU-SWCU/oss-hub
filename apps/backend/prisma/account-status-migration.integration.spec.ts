@@ -77,6 +77,9 @@ describe('accountStatus migration regression', () => {
 
   beforeAll(async () => {
     await prisma.$connect();
+    await prisma.$executeRawUnsafe(
+      'DROP TRIGGER "ranking_user_eligibility_user_sync" ON "User"',
+    );
     await prisma.$executeRaw`ALTER TABLE "User" DROP COLUMN "accountStatus"`;
     await prisma.$executeRaw`DROP TYPE "AccountStatus"`;
     await prisma.$executeRaw`
@@ -102,6 +105,12 @@ describe('accountStatus migration regression', () => {
     for (const statement of migrationStatements) {
       await prisma.$executeRawUnsafe(statement);
     }
+    await prisma.$executeRawUnsafe(
+      `CREATE TRIGGER ranking_user_eligibility_user_sync
+       AFTER INSERT OR UPDATE OR DELETE ON "User"
+       FOR EACH ROW
+       EXECUTE FUNCTION sync_ranking_user_eligibility_from_user()`,
+    );
   }, DATABASE_CONNECTION_TIMEOUT_MS);
 
   afterAll(async () => {

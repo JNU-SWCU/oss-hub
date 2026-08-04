@@ -3,10 +3,7 @@ import type {
   CollectionPublicRankingMetricsQueryDto,
   CollectionReadPort,
 } from '../collection/collection-read.port';
-import type {
-  UserDisplayName,
-  UserDisplayNameRepository,
-} from '../users/user-display-name.repository';
+
 import { RankingService } from './ranking.service';
 
 export function activity(
@@ -26,10 +23,11 @@ export function setupRankingService(): {
     [CollectionPublicRankingMetricsQueryDto]
   >;
   readonly listPublicRankingYears: jest.Mock<Promise<readonly number[]>, []>;
-  readonly findByGithubIds: jest.Mock<
-    Promise<readonly UserDisplayName[]>,
+  readonly findEligibleGithubIds: jest.Mock<
+    Promise<ReadonlySet<bigint>>,
     [readonly bigint[]]
   >;
+  readonly findEligibleRepositoryIds: jest.Mock<Promise<readonly bigint[]>, []>;
 } {
   const getPublicRankingMetrics = jest.fn<
     Promise<readonly CollectionPublicRankingMetricsDto[]>,
@@ -63,19 +61,25 @@ export function setupRankingService(): {
       }),
   } satisfies CollectionReadPort;
 
-  const findByGithubIds = jest.fn<
-    Promise<readonly UserDisplayName[]>,
+  const findEligibleGithubIds = jest.fn<
+    Promise<ReadonlySet<bigint>>,
     [readonly bigint[]]
   >();
-  findByGithubIds.mockResolvedValue([]);
-  const displayNameRepository = {
-    findByGithubIds,
-  } as unknown as UserDisplayNameRepository;
+  findEligibleGithubIds.mockImplementation((githubIds) =>
+    Promise.resolve(new Set(githubIds)),
+  );
+  const findEligibleRepositoryIds = jest.fn<Promise<readonly bigint[]>, []>();
+  findEligibleRepositoryIds.mockResolvedValue([101n, 102n]);
 
   return {
-    service: new RankingService(collection, displayNameRepository),
+    service: new RankingService(
+      collection,
+      { findEligibleRepositoryIds },
+      { findEligibleGithubIds },
+    ),
     getPublicRankingMetrics,
     listPublicRankingYears,
-    findByGithubIds,
+    findEligibleGithubIds,
+    findEligibleRepositoryIds,
   };
 }

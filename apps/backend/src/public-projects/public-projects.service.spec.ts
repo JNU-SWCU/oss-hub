@@ -42,6 +42,7 @@ function row(
 }
 
 function serviceWith(overrides: {
+  listAllPublished?: jest.Mock;
   listPage?: jest.Mock;
   countByCategory?: jest.Mock;
   findById?: jest.Mock;
@@ -53,6 +54,8 @@ function serviceWith(overrides: {
   getContributorCumulativeMetrics?: jest.Mock;
 }) {
   const repository = {
+    listAllPublished:
+      overrides.listAllPublished ?? jest.fn().mockResolvedValue([]),
     listPage: overrides.listPage ?? jest.fn().mockResolvedValue([]),
     countByCategory:
       overrides.countByCategory ?? jest.fn().mockResolvedValue([]),
@@ -92,6 +95,28 @@ function serviceWith(overrides: {
 }
 
 describe('PublicProjectsService', () => {
+  it('returns only repository ids accepted by the shared public eligibility policy', async () => {
+    const candidates = [row({ id: 'eligible' }), row({ id: 'blocked' })];
+    const listAllPublished = jest.fn().mockResolvedValue(candidates);
+    const filterEligibleRepositoryIds = jest
+      .fn()
+      .mockResolvedValue(new Set([candidates[0]!.githubRepositoryId]));
+    const { service } = serviceWith({
+      listAllPublished,
+      filterEligibleRepositoryIds,
+    });
+
+    await expect(service.findEligibleRepositoryIds()).resolves.toEqual([
+      candidates[0]!.githubRepositoryId,
+    ]);
+    expect(listAllPublished).toHaveBeenCalledTimes(1);
+    expect(filterEligibleRepositoryIds).toHaveBeenCalledWith(
+      candidates.map((candidate) => ({
+        githubRepositoryId: candidate.githubRepositoryId,
+        publishedAt: candidate.publishedAt,
+      })),
+    );
+  });
   describe('findPage — N+1 회귀 가드', () => {
     it.each([1, 5, 20, 50])(
       'pageSize=%i 라도 원본 조회 1개 + eligibility 배치 조회 1개, 총 2개 질의로 고정된다',

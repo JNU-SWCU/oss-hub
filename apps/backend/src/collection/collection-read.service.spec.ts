@@ -228,11 +228,17 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
     const db = createDb();
     db.collectionContributorYearAggregate.findMany.mockResolvedValue([]);
 
-    await serviceFor(db).getPublicRankingMetrics({});
+    await serviceFor(db).getPublicRankingMetrics({ repositoryIds: [101n] });
 
     expect(db.collectionContributorYearAggregate.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { repository: { visibility: 'PUBLIC', presence: 'PRESENT' } },
+        where: {
+          repository: {
+            githubRepositoryId: { in: [101n] },
+            visibility: 'PUBLIC',
+            presence: 'PRESENT',
+          },
+        },
       }),
     );
   });
@@ -241,12 +247,19 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
     const db = createDb();
     db.collectionContributorYearAggregate.findMany.mockResolvedValue([]);
 
-    await serviceFor(db).getPublicRankingMetrics({ currentYear: 2026 });
+    await serviceFor(db).getPublicRankingMetrics({
+      repositoryIds: [101n],
+      currentYear: 2026,
+    });
 
     expect(db.collectionContributorYearAggregate.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          repository: { visibility: 'PUBLIC', presence: 'PRESENT' },
+          repository: {
+            githubRepositoryId: { in: [101n] },
+            visibility: 'PUBLIC',
+            presence: 'PRESENT',
+          },
           year: 2026,
         },
       }),
@@ -272,7 +285,9 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
       },
     ]);
 
-    const result = await serviceFor(db).getPublicRankingMetrics({});
+    const result = await serviceFor(db).getPublicRankingMetrics({
+      repositoryIds: [101n],
+    });
 
     expect(result).toEqual([
       {
@@ -304,7 +319,9 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
       },
     ]);
 
-    const result = await serviceFor(db).getPublicRankingMetrics({});
+    const result = await serviceFor(db).getPublicRankingMetrics({
+      repositoryIds: [101n],
+    });
 
     expect(result).toEqual([
       {
@@ -321,7 +338,7 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
     const db = createDb();
     db.collectionContributorYearAggregate.findMany.mockResolvedValue([]);
 
-    await serviceFor(db).getPublicRankingMetrics({});
+    await serviceFor(db).getPublicRankingMetrics({ repositoryIds: [101n] });
 
     expect(db.collectionContributorYearAggregate.findMany).toHaveBeenCalledWith(
       expect.objectContaining({

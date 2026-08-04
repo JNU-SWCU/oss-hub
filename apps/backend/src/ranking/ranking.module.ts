@@ -1,13 +1,14 @@
 import { Module } from '@nestjs/common';
 import { CollectionModule } from '../collection/collection.module';
+import { PublicProjectsModule } from '../public-projects/public-projects.module';
 import { RepositoryOwnershipModule } from '../repository-ownership/repository-ownership.module';
-import { UsersModule } from '../users/users.module';
 import { RankingController } from './ranking.controller';
+import { RankingUserEligibilityRepository } from './ranking-user-eligibility.repository';
 import { RankingService } from './ranking.service';
 
 @Module({
-  imports: [CollectionModule, RepositoryOwnershipModule, UsersModule],
+  imports: [CollectionModule, PublicProjectsModule, RepositoryOwnershipModule],
   controllers: [RankingController],
-  providers: [RankingService],
+  providers: [RankingService, RankingUserEligibilityRepository],
 })
 export class RankingModule {}

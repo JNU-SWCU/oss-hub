@@ -39,6 +39,19 @@ export class PublicProjectsService {
     private readonly collection: CollectionReadPort,
   ) {}
 
+  /** 랭킹도 목록·상세·프로필과 동일한 공개 적격성 정책을 사용한다. */
+  async findEligibleRepositoryIds(): Promise<readonly bigint[]> {
+    const rows = await this.repository.listAllPublished();
+    const eligible = await this.eligibility.filterEligibleRepositoryIds(
+      rows.map((row) => ({
+        githubRepositoryId: row.githubRepositoryId,
+        publishedAt: row.publishedAt,
+      })),
+    );
+    return rows
+      .filter((row) => eligible.has(row.githubRepositoryId))
+      .map((row) => row.githubRepositoryId);
+  }
   /**
    * 페이지 경계는 원본 keyset 조회(`pageSize + 1` lookahead)만으로 결정되고, eligibility
    * 필터링은 그 경계 안에서 항목을 지울 뿐 다음 페이지로 밀어내지 않는다 — freshness fence가

@@ -3,7 +3,8 @@ import {
   COLLECTION_READ_PORT,
   type CollectionReadPort,
 } from '../collection/collection-read.port';
-import { UserDisplayNameRepository } from '../users/user-display-name.repository';
+import { PublicProjectsService } from '../public-projects/public-projects.service';
+import { RankingUserEligibilityRepository } from './ranking-user-eligibility.repository';
 import {
   RANKING_YEAR_ALL,
   type RankingEntry,
@@ -13,8 +14,17 @@ import {
 
 const RANKING_CACHE_TTL_MS = 60_000;
 
+type RankingCandidate = {
+  readonly githubId: bigint;
+  readonly githubLogin: string;
+  readonly commitCount: number;
+  readonly prCount: number;
+  readonly releaseCount: number;
+  readonly total: number;
+};
+
 interface CachedRanking {
-  readonly entries: readonly RankingEntry[];
+  readonly candidates: readonly RankingCandidate[];
   readonly expiresAt: number;
 }
 
@@ -23,13 +33,22 @@ export class RankingService {
   private readonly cache = new Map<string, CachedRanking>();
   private readonly inFlightBuilds = new Map<
     string,
-    Promise<readonly RankingEntry[]>
+    Promise<readonly RankingCandidate[]>
   >();
 
   constructor(
     @Inject(COLLECTION_READ_PORT)
     private readonly collection: CollectionReadPort,
-    private readonly displayNames: UserDisplayNameRepository,
+    @Inject(PublicProjectsService)
+    private readonly publicProjects: Pick<
+      PublicProjectsService,
+      'findEligibleRepositoryIds'
+    >,
+    @Inject(RankingUserEligibilityRepository)
+    private readonly userEligibility: Pick<
+      RankingUserEligibilityRepository,
+      'findEligibleGithubIds'
+    >,
   ) {}
 
   async findPage(
@@ -37,7 +56,15 @@ export class RankingService {
     page: number,
     pageSize: number,
   ): Promise<RankingPage> {
-    const entries = await this.findEntries(year);
+    const candidates = await this.findCandidates(year);
+    const eligibleGithubIds = await this.userEligibility.findEligibleGithubIds(
+      candidates.map((candidate) => candidate.githubId),
+    );
+    const entries = this.rankEntries(
+      candidates.filter((candidate) =>
+        eligibleGithubIds.has(candidate.githubId),
+      ),
+    );
     const start = (page - 1) * pageSize;
     return {
       year,
@@ -56,38 +83,46 @@ export class RankingService {
     return this.collection.listPublicRankingYears();
   }
 
-  private async findEntries(
+  private async findCandidates(
     year: RankingYear,
-  ): Promise<readonly RankingEntry[]> {
+  ): Promise<readonly RankingCandidate[]> {
+    const repositoryIds = await this.publicProjects.findEligibleRepositoryIds();
+    const repositoryScope = [...repositoryIds]
+      .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))
+      .join(',');
     const cacheKey =
-      year === RANKING_YEAR_ALL ? RANKING_YEAR_ALL : `year:${year}`;
+      (year === RANKING_YEAR_ALL ? RANKING_YEAR_ALL : 'year:' + year) +
+      ':' +
+      repositoryScope;
     const cached = this.cache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) return cached.entries;
+    if (cached && cached.expiresAt > Date.now()) return cached.candidates;
 
     const existingBuild = this.inFlightBuilds.get(cacheKey);
     if (existingBuild) return existingBuild;
 
-    const build = this.buildEntries(year)
-      .then((entries) => {
+    const build = this.buildCandidates(year, repositoryIds)
+      .then((candidates) => {
         this.cache.set(cacheKey, {
-          entries,
+          candidates,
           expiresAt: Date.now() + RANKING_CACHE_TTL_MS,
         });
-        return entries;
+        return candidates;
       })
       .finally(() => this.inFlightBuilds.delete(cacheKey));
     this.inFlightBuilds.set(cacheKey, build);
     return build;
   }
 
-  private async buildEntries(
+  private async buildCandidates(
     year: RankingYear,
-  ): Promise<readonly RankingEntry[]> {
-    const activity = await this.collection.getPublicRankingMetrics(
-      year === RANKING_YEAR_ALL ? {} : { currentYear: year },
-    );
+    repositoryIds: readonly bigint[],
+  ): Promise<readonly RankingCandidate[]> {
+    const activity = await this.collection.getPublicRankingMetrics({
+      repositoryIds,
+      ...(year === RANKING_YEAR_ALL ? {} : { currentYear: year }),
+    });
 
-    const candidates = activity
+    return activity
       .map(({ githubId, githubLogin, commitCount, prCount, releaseCount }) => ({
         githubId,
         githubLogin,
@@ -97,19 +132,12 @@ export class RankingService {
         total: commitCount + prCount + releaseCount,
       }))
       .filter((entry) => entry.total > 0);
+  }
 
-    // 이름 조회는 60초 캐시로 감싸인 buildEntries 안에서 이뤄진다 — 랭킹 목록과 같은
-    // staleness를 허용하는 대신, 캐시가 살아있는 동안은 추가 질의 없이 재사용된다.
-    const names = await this.findDisplayNames(
-      candidates.map((entry) => entry.githubId),
-    );
-
-    return candidates
-      .map((entry) => ({
-        ...entry,
-        rank: 0,
-        displayName: names.get(entry.githubId)?.trim() || entry.githubLogin,
-      }))
+  private rankEntries(
+    candidates: readonly RankingCandidate[],
+  ): readonly RankingEntry[] {
+    return [...candidates]
       .sort((left, right) => {
         const normalizedLoginOrder = left.githubLogin
           .normalize()
@@ -133,20 +161,12 @@ export class RankingService {
       })
       .map((entry, index) => ({
         rank: index + 1,
-        displayName: entry.displayName,
+        displayName: entry.githubLogin,
         githubLogin: entry.githubLogin,
         commitCount: entry.commitCount,
         prCount: entry.prCount,
         releaseCount: entry.releaseCount,
         total: entry.total,
       }));
-  }
-
-  private async findDisplayNames(
-    githubIds: readonly bigint[],
-  ): Promise<ReadonlyMap<bigint, string | null>> {
-    const uniqueIds = [...new Set(githubIds)];
-    const users = await this.displayNames.findByGithubIds(uniqueIds);
-    return new Map(users.map((user) => [user.githubId, user.name]));
   }
 }

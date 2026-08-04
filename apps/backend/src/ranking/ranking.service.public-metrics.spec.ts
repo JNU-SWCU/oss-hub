@@ -32,13 +32,16 @@ describe('RankingService public metrics', () => {
       pageSize: 20,
       total: 1,
     });
-    expect(harness.getPublicRankingMetrics).toHaveBeenCalledWith({});
+    expect(harness.getPublicRankingMetrics).toHaveBeenCalledWith({
+      repositoryIds: [101n, 102n],
+    });
   });
 
   it('passes the requested calendar year to the canonical repository', async () => {
     await harness.service.findPage(2026, 1, 20);
 
     expect(harness.getPublicRankingMetrics).toHaveBeenCalledWith({
+      repositoryIds: [101n, 102n],
       currentYear: 2026,
     });
   });

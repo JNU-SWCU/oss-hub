@@ -278,9 +278,15 @@ export class CollectionReadService implements CollectionReadPort {
   async getPublicRankingMetrics(
     query: CollectionPublicRankingMetricsQueryDto,
   ): Promise<readonly CollectionPublicRankingMetricsDto[]> {
+    if (query.repositoryIds.length === 0) return [];
+
     const rows = await this.prisma.collectionContributorYearAggregate.findMany({
       where: {
-        repository: { visibility: 'PUBLIC', presence: 'PRESENT' },
+        repository: {
+          githubRepositoryId: { in: [...query.repositoryIds] },
+          visibility: 'PUBLIC',
+          presence: 'PRESENT',
+        },
         ...(query.currentYear === undefined ? {} : { year: query.currentYear }),
       },
       select: {

@@ -3,7 +3,6 @@ import type {
   CollectionPublicRankingMetricsQueryDto,
   CollectionReadPort,
 } from '../collection/collection-read.port';
-import type { UserDisplayNameRepository } from '../users/user-display-name.repository';
 import { RANKING_YEAR_ALL } from './domain/ranking';
 import { RankingService } from './ranking.service';
 
@@ -88,10 +87,14 @@ describe('RankingService deterministic ordering', () => {
           lastCycleCompletedAt: null,
         }),
     } satisfies CollectionReadPort;
-    const displayNameRepository = {
-      findByGithubIds: () => Promise.resolve([]),
-    } as unknown as UserDisplayNameRepository;
-    const service = new RankingService(collection, displayNameRepository);
+    const service = new RankingService(
+      collection,
+      { findEligibleRepositoryIds: () => Promise.resolve([101n, 102n]) },
+      {
+        findEligibleGithubIds: (githubIds) =>
+          Promise.resolve(new Set(githubIds)),
+      },
+    );
 
     const page = await service.findPage(RANKING_YEAR_ALL, 1, 20);
 

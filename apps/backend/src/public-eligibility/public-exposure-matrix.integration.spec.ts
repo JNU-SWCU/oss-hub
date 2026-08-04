@@ -19,7 +19,7 @@ import type { GithubAppClient } from '../repositories/github-app.client';
 import { RepositoriesRepository } from '../repositories/repositories.repository';
 import { RepositoriesService } from '../repositories/repositories.service';
 import { RankingService } from '../ranking/ranking.service';
-import { UserDisplayNameRepository } from '../users/user-display-name.repository';
+import { RankingUserEligibilityRepository } from '../ranking/ranking-user-eligibility.repository';
 import { PublicProjectsErrorCode } from '../public-projects/public-projects-error-code.enum';
 import { PublicProjectsRepository } from '../public-projects/public-projects.repository';
 import { PublicProjectsService } from '../public-projects/public-projects.service';
@@ -57,7 +57,8 @@ const publicProjectsService = new PublicProjectsService(
 );
 const rankingService = new RankingService(
   collection,
-  new UserDisplayNameRepository(prisma),
+  publicProjectsService,
+  new RankingUserEligibilityRepository(prisma),
 );
 
 const github = {
@@ -244,6 +245,19 @@ async function seedContributors(
   });
 }
 
+async function seedEligibleRankingUser(
+  githubId: bigint,
+  githubLogin: string,
+): Promise<void> {
+  const userId = `${PREFIX}-ranking-user-${githubId}`;
+  await prisma.user.create({
+    data: { id: userId, githubId, nickname: githubLogin, role: Role.STUDENT },
+  });
+  await prisma.consent.create({
+    data: { userId, policyVersion: '2026-07-21' },
+  });
+}
+
 const PUBLISHED_AT = new Date('2026-06-01T00:00:00.000Z');
 const BEFORE_PUBLISH = new Date('2026-05-01T00:00:00.000Z');
 const AFTER_PUBLISH = new Date('2026-06-15T00:00:00.000Z');
@@ -327,6 +341,14 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       outcome2Collection,
       GITHUB_ID_BASE + 900_001n,
       `${PREFIX}-outcome-2-owner-login`,
+      GITHUB_ID_BASE + 900_002n,
+      `${PREFIX}-outcome-2-other-login`,
+    );
+    await seedEligibleRankingUser(
+      GITHUB_ID_BASE + 900_001n,
+      `${PREFIX}-outcome-2-owner-login`,
+    );
+    await seedEligibleRankingUser(
       GITHUB_ID_BASE + 900_002n,
       `${PREFIX}-outcome-2-other-login`,
     );
@@ -465,7 +487,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       GITHUB_ID_BASE + 900_004n,
       `${PREFIX}-outcome-8-other-login`,
     );
-  });
+  }, 60_000);
 
   afterAll(async () => {
     try {
@@ -487,6 +509,9 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       await prisma.application.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
+      await prisma.consent.deleteMany({
+        where: { userId: { startsWith: `${PREFIX}-` } },
+      });
       // AuditLog는 append-only(트리거로 삭제/수정을 막는다) — 이 테스트가 만든 synthetic
       // REPOSITORY_PUBLISHED 행은 의도적으로 지우지 않는다(다른 append-only 통합 테스트와
       // 동일한 관행). 그 행들이 `actorId`로 REVIEWER_ID를 FK 참조하므로, REVIEWER_ID User는
@@ -500,7 +525,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     } finally {
       await prisma.$disconnect();
     }
-  });
+  }, 60_000);
 
   it('outcome-1: platform-private 저장소는 발행 전이라 list/detail/profile/ranking 어디에도 절대 나타나지 않는다', async () => {
     const page = await publicProjectsService.findPage(undefined, 50);
@@ -678,7 +703,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
           (entry) =>
             entry.githubLogin === `${PREFIX}-outcome-6-applicant-login`,
         ),
-      ).toBe(true);
+      ).toBe(false);
     },
   );
 
@@ -712,7 +737,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
           (entry) =>
             entry.githubLogin === `${PREFIX}-outcome-7-applicant-login`,
         ),
-      ).toBe(true);
+      ).toBe(false);
     },
   );
 

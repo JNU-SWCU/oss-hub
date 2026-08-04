@@ -63,6 +63,27 @@ const RAW_ROW = {
 };
 
 describe('PublicProjectsRepository', () => {
+  it('listAllPublished reads every platform-published candidate in one query', async () => {
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        githubRepositoryId: RAW_ROW.githubRepositoryId,
+        publishedAt: RAW_ROW.publishedAt,
+      },
+    ]);
+    const { repository } = repositoryWith({ repositoryFindMany: findMany });
+
+    await expect(repository.listAllPublished()).resolves.toEqual([
+      {
+        githubRepositoryId: RAW_ROW.githubRepositoryId,
+        publishedAt: RAW_ROW.publishedAt,
+      },
+    ]);
+    expect(findMany).toHaveBeenCalledWith({
+      where: { visibility: 'PUBLIC', publishedAt: { not: null } },
+      orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
+      select: { githubRepositoryId: true, publishedAt: true },
+    });
+  });
   describe('listPage', () => {
     it('첫 페이지(cursor=null)에서는 OR 절 없이 visibility/publishedAt 필터만으로 명시적 select를 쓴다', async () => {
       const findMany = jest.fn().mockResolvedValue([RAW_ROW]);
