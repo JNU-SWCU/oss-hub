@@ -5,6 +5,8 @@ export enum CollectionErrorCode {
   COLLECTION_RUN_IN_PROGRESS = 'COL_006',
   COLLECTION_APP_UNAVAILABLE = 'COL_007',
   COLLECTION_QUIESCED = 'COL_008',
+  EXTERNAL_STUDENT_NOT_FOUND = 'COL_009',
+  EXTERNAL_DISCOVERY_FAILED = 'COL_010',
 }
 
 export const COLLECTION_ERROR_CODES: Record<CollectionErrorCode, ErrorCode> = {
@@ -29,6 +31,18 @@ export const COLLECTION_ERROR_CODES: Record<CollectionErrorCode, ErrorCode> = {
     code: CollectionErrorCode.COLLECTION_QUIESCED,
     status: 409,
     message: '저장소 전환 작업이 진행 중이라 수집을 시작할 수 없습니다.',
+    exposeToClient: true,
+  },
+  [CollectionErrorCode.EXTERNAL_STUDENT_NOT_FOUND]: {
+    code: CollectionErrorCode.EXTERNAL_STUDENT_NOT_FOUND,
+    status: 404,
+    message: '해당 GitHub 계정으로 등록된 학생을 찾을 수 없습니다.',
+    exposeToClient: true,
+  },
+  [CollectionErrorCode.EXTERNAL_DISCOVERY_FAILED]: {
+    code: CollectionErrorCode.EXTERNAL_DISCOVERY_FAILED,
+    status: 502,
+    message: '외부 public 저장소 탐색 요청이 실패했습니다.',
     exposeToClient: true,
   },
 };
