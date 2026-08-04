@@ -212,9 +212,20 @@ export function createSubmissionFileCleanupAuditMetadata(
 }
 
 /**
- * #547 — STAFF 신청 승인·거절. 거절 사유는 판정 근거 자체라 기록한다(역할 요청 거절
- * 기록과 같은 취급). 신청자 실명·studentId는 담지 않는다 — 대상은 `targetId`(신청 id)로만
+ * #547 — STAFF 신청 승인·거절. 상태 전이만 담고 **반려 사유 원문은 담지 않는다**.
+ * 감사 기록의 목적은 "누가 언제 무엇을 했는가"이지 "무슨 내용을 적었는가"가 아니며,
+ * 사유 원문은 이미 도메인 테이블(`Application.rejectionReason`)에 있으므로 사본을 둘
+ * 이유가 없다. 신청자 실명·studentId도 담지 않는다 — 대상은 `targetId`(신청 id)로만
  * 식별한다.
+ *
+ * ⚠ `AuditLog`는 append-only 트리거(`20260731130000_enforce_audit_log_append_only`)로
+ * UPDATE·DELETE가 막혀 있다. 한 번 쓴 개인정보는 지울 수 없다. 게다가 `GET /audit-logs`는
+ * metadata JSON을 필드 선별 없이 그대로 응답에 싣는다(조회 계층 화이트리스트 부재 = #621).
+ * 그래서 "쓸 때 담지 않는 것"이 유일하게 안전한 해법이다.
+ *
+ * 사유 "제공 여부" boolean조차 두지 않는다 — REJECT는 DTO에서 비어 있지 않은 사유를
+ * 강제하므로(`patch-application-decision-request.dto.ts`) `action`/`after.status`에서 이미
+ * 결정되는 값이라 정보량이 0이다.
  */
 export const APPLICATION_DECISION_AUDIT_SCHEMA_VERSION = 1 as const;
 
@@ -227,7 +238,6 @@ export type ApplicationDecisionAuditMetadata = {
   readonly schemaVersion: typeof APPLICATION_DECISION_AUDIT_SCHEMA_VERSION;
   readonly before: { readonly status: ApplicationStatus };
   readonly after: { readonly status: ApplicationStatus };
-  readonly rejectionReason: string | null;
 };
 
 export function createApplicationDecisionAuditMetadata(
@@ -308,8 +318,9 @@ function isApplicationDecisionAuditMetadata(
     value.schemaVersion === APPLICATION_DECISION_AUDIT_SCHEMA_VERSION &&
     isApplicationDecisionState(value.before) &&
     isApplicationDecisionState(value.after) &&
-    (typeof value.rejectionReason === 'string' ||
-      value.rejectionReason === null)
+    // 반려 사유 원문이 섞여 들어오면 알 수 없는 스키마로 취급한다 — append-only 원장이라
+    // 나중에 지울 수 없으니, 쓰기 경로가 실수로 담는 순간 여기서 막힌다.
+    !('rejectionReason' in value)
   );
 }
 

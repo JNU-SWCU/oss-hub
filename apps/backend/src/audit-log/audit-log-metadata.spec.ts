@@ -164,18 +164,20 @@ describe('parseAuditLogMetadata — #547 신규 typed action', () => {
     const approved = createApplicationDecisionAuditMetadata({
       before: { status: ApplicationStatus.SUBMITTED },
       after: { status: ApplicationStatus.APPROVED },
-      rejectionReason: null,
     });
     const rejected = createApplicationDecisionAuditMetadata({
       before: { status: ApplicationStatus.SUBMITTED },
       after: { status: ApplicationStatus.REJECTED },
-      rejectionReason: '합성 반려 사유',
     });
 
     expect(parseAuditLogMetadata(approved)).toMatchObject({ legacy: false });
-    expect(parseAuditLogMetadata(rejected)).toMatchObject({
+    expect(parseAuditLogMetadata(rejected)).toEqual({
       legacy: false,
-      metadata: { rejectionReason: '합성 반려 사유' },
+      metadata: {
+        schemaVersion: 1,
+        before: { status: ApplicationStatus.SUBMITTED },
+        after: { status: ApplicationStatus.REJECTED },
+      },
     });
   });
 
@@ -185,7 +187,34 @@ describe('parseAuditLogMetadata — #547 신규 typed action', () => {
         schemaVersion: 1,
         before: { status: 'NOT_A_STATUS' },
         after: { status: ApplicationStatus.APPROVED },
-        rejectionReason: null,
+      }),
+    ).toThrow(InvalidAuditLogMetadataError);
+  });
+
+  // 회귀 방지: 판정 metadata에 반려 사유 원문이 다시 들어오면 여기서 깨진다.
+  // `GET /audit-logs`는 metadata를 필드 선별 없이 응답에 싣고(#621), `AuditLog`는
+  // append-only라 한 번 쓴 값을 지울 수 없다 — 쓰기 자체를 막는 것이 유일한 방어다.
+  it('판정 metadata는 반려 사유 원문을 담지 않는다', () => {
+    const rejected = createApplicationDecisionAuditMetadata({
+      before: { status: ApplicationStatus.SUBMITTED },
+      after: { status: ApplicationStatus.REJECTED },
+    });
+
+    expect(Object.keys(rejected).sort()).toEqual([
+      'after',
+      'before',
+      'schemaVersion',
+    ]);
+    expect(JSON.stringify(rejected)).not.toContain('rejectionReason');
+  });
+
+  it('반려 사유 원문이 섞인 판정 metadata는 읽기에서도 거부한다', () => {
+    expect(() =>
+      parseAuditLogMetadata({
+        schemaVersion: 1,
+        before: { status: ApplicationStatus.SUBMITTED },
+        after: { status: ApplicationStatus.REJECTED },
+        rejectionReason: '섞이면 안 되는 사유',
       }),
     ).toThrow(InvalidAuditLogMetadataError);
   });

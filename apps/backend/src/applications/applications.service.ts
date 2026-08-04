@@ -291,6 +291,10 @@ export class ApplicationsService {
 
         // #547 — 승인·거절은 actor가 명확한 중요 조작이다. 전이와 같은 트랜잭션에서
         // 기록해, 판정만 커밋되고 감사 기록이 빠지는 상태를 만들지 않는다.
+        // ⚠ 반려 사유 원문(`plan.rejectionReason`)은 여기 넘기지 않는다. 사유는 이미
+        // `Application.rejectionReason`에 남고, 감사 원장은 append-only 트리거로
+        // UPDATE·DELETE가 막혀 있어 한 번 담기면 지울 수 없다. `GET /audit-logs`가
+        // metadata를 그대로 실어 보내므로 담는 순간 곧바로 노출된다.
         await this.auditLog.record(
           {
             actorGithubId,
@@ -303,7 +307,6 @@ export class ApplicationsService {
             metadata: createApplicationDecisionAuditMetadata({
               before: { status: application.status },
               after: { status: plan.status },
-              rejectionReason: plan.rejectionReason,
             }),
           },
           store.auditLogWriter,
