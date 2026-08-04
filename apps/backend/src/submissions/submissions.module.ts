@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { SubmissionFileCleanupFailuresController } from './submission-file-cleanup-failures.controller';
+import { SubmissionFileCleanupFailuresService } from './submission-file-cleanup-failures.service';
 import { SubmissionFileCleanupScheduler } from './submission-file-cleanup.scheduler';
 import { SubmissionFileCleanupService } from './submission-file-cleanup.service';
 import { S3SubmissionFileStorage } from './s3-submission-file.storage';
@@ -25,6 +27,7 @@ import { SubmissionsService } from './submissions.service';
 @Module({
   imports: [AuthModule],
   controllers: [
+    SubmissionFileCleanupFailuresController,
     SubmissionFilesController,
     SubmissionChecklistController,
     SubmissionFormsController,
@@ -36,6 +39,7 @@ import { SubmissionsService } from './submissions.service';
     SubmissionFilesRepository,
     SubmissionFilesService,
     SubmissionFileCleanupService,
+    SubmissionFileCleanupFailuresService,
     SubmissionFileCleanupScheduler,
     SubmissionFileStorageConfig,
     S3SubmissionFileStorage,

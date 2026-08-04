@@ -336,10 +336,33 @@ describeIntegration(
           ),
         }),
       ).resolves.toBeNull();
+
+      // 소진된 행은 스케줄러가 다시 집지 않으므로 운영자 조회에 반드시 떠야 한다(#545).
+      const exhausted = (await files.findExhaustedCleanups()).find(
+        (entry) => entry.id === row.id,
+      );
+      expect(exhausted).toMatchObject({
+        deleteAttemptCount: 6,
+        lastDeleteError: 'STORAGE_DELETE_FAILED',
+      });
+      // 파일명·저장소 키·업로더는 select 단계에서 이미 빠져 있어야 한다.
+      expect(Object.keys(exhausted!).sort()).toEqual([
+        'createdAt',
+        'deleteAttemptCount',
+        'id',
+        'lastDeleteError',
+      ]);
+
       const resetAt = new Date(now.getTime() + HOUR);
       await expect(files.resetDeleteAttempts(row.id, resetAt)).resolves.toBe(
         true,
       );
+      // 운영자 재시도로 되살아난 행은 더 이상 소진 목록에 남지 않는다.
+      await expect(
+        files
+          .findExhaustedCleanups()
+          .then((entries) => entries.some((entry) => entry.id === row.id)),
+      ).resolves.toBe(false);
       await expect(
         files.claimNextForDeletion({
           now: resetAt,

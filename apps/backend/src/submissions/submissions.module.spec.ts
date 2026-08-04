@@ -1,6 +1,8 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { SUBMISSION_DASHBOARD_SUMMARY_PORT } from './submission-dashboard-summary.port';
 import { SubmissionDashboardSummaryService } from './submission-dashboard-summary.service';
+import { SubmissionFileCleanupFailuresController } from './submission-file-cleanup-failures.controller';
+import { SubmissionFileCleanupFailuresService } from './submission-file-cleanup-failures.service';
 import { SubmissionsModule } from './submissions.module';
 
 const getMetadataArray = (key: string): unknown[] => {
@@ -26,5 +28,15 @@ describe('SubmissionsModule', () => {
     );
     expect(exports).toContain(SUBMISSION_DASHBOARD_SUMMARY_PORT);
     expect(exports).not.toContain(SubmissionDashboardSummaryService);
+  });
+
+  it('registers the operator-facing cleanup exhaustion read surface (#545)', () => {
+    // Given
+    const controllers = getMetadataArray(MODULE_METADATA.CONTROLLERS);
+    const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
+
+    // Then
+    expect(controllers).toContain(SubmissionFileCleanupFailuresController);
+    expect(providers).toContain(SubmissionFileCleanupFailuresService);
   });
 });

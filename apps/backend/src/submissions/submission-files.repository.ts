@@ -59,6 +59,17 @@ export interface DownloadableSubmissionFile {
   readonly expiresAt: Date;
 }
 
+/**
+ * 재시도를 소진해 멈춘 정리 대상의 운영자 조회 행(#545).
+ * 파일명·저장소 키·업로더는 담지 않는다 — 운영자에게 필요한 것은 CLI가 받는 opaque id뿐이다.
+ */
+export interface ExhaustedSubmissionFileCleanup {
+  readonly id: string;
+  readonly deleteAttemptCount: number;
+  readonly lastDeleteError: string | null;
+  readonly createdAt: Date;
+}
+
 export interface RecordSubmissionFileDeleteFailureInput {
   readonly id: string;
   readonly claimOwner: string;
@@ -85,6 +96,38 @@ export class SubmissionFilesRepository {
       select: { id: true },
     });
     return user?.id ?? null;
+  }
+
+  async findActiveAdminByGithubId(githubId: bigint): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { githubId },
+      select: { role: true, accountStatus: true },
+    });
+    return (
+      user?.role === Role.ADMIN && user.accountStatus === AccountStatus.ACTIVE
+    );
+  }
+
+  /**
+   * 재시도를 소진해 `nextDeleteAttemptAt = null`로 멈춘 DELETE_PENDING 행만 돌려준다(#545).
+   * `claimNextForDeletion`이 `deleteAttemptCount < MAX_DELETE_ATTEMPTS`만 집으므로
+   * 여기 걸리는 행은 스케줄러가 다시 집지 않는다 — 운영자 수동 재시도 없이는 영구히 멈춘다.
+   * select는 opaque id·시도 횟수·redacted 오류·생성 시각으로 고정한다.
+   */
+  findExhaustedCleanups(): Promise<ExhaustedSubmissionFileCleanup[]> {
+    return this.prisma.submissionFile.findMany({
+      where: {
+        lifecycle: SubmissionFileLifecycle.DELETE_PENDING,
+        deleteAttemptCount: { gte: MAX_DELETE_ATTEMPTS },
+      },
+      select: {
+        id: true,
+        deleteAttemptCount: true,
+        lastDeleteError: true,
+        createdAt: true,
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
   }
 
   async findDownloadableFile(
