@@ -109,7 +109,7 @@ export const PROGRAM_SIDEBAR_ITEMS: readonly SidebarItem[] =
 /**
  * 프로그램 상세(`/programs/:id` 하위) 스코프 사이드바 — `AppSidebar`/`SidebarItem`과는
  * 별개 모델이다. 이 메뉴의 카운트는 "2/6", "12/47팀" 같은 분수·자유형식이 필요해서
- * (chrome-tokens §2-2) 숫자 전용인 `SidebarItem.count`를 재사용할 수 없다.
+ * (docs/design.md §업무 화면 내비게이션 › 프로그램 스코프 좌측 패널) 숫자 전용인 `SidebarItem.count`를 재사용할 수 없다.
  * 렌더는 `ProgramScopeSidebar`(program-scope-sidebar.tsx) 담당, 여기는 순수 데이터 조립만.
  */
 export interface ProgramScopeSidebarItem {
@@ -135,7 +135,7 @@ export interface ProgramScopeMilestoneDocsSummary {
   readonly completed: number;
   /** STUDENT 뷰어: 그 마일스톤 서류 총수(분모로만 씀). STAFF/ADMIN 뷰어에서는 무시하고
    *  대신 `teamCount`를 분모로 쓴다 — 프로토타입의 고정 표본(8팀)이 아니라 실제 참여
-   *  팀 수 기준(program-detail.md §7 미결 참고). */
+   *  팀 수 기준(docs/design.md §업무 화면 내비게이션 › 참여 팀). */
   readonly total: number;
 }
 
@@ -156,9 +156,9 @@ export interface ProgramScopeSidebarInput {
 
 /**
  * 프로그램 상세 좌측 패널 3그룹(개요/참여 팀 · 서류 현황 또는 내 제출물 · 게시판).
- * chrome-tokens §2-2 B) 그대로 — g2 부모 라벨·자식 유무는 역할로 갈린다.
+ * docs/design.md §업무 화면 내비게이션 › 프로그램 스코프 좌측 패널 그대로 — g2 부모 라벨·자식 유무는 역할로 갈린다.
  * hrefs는 `programHref` 접미사(`/teams`, `/status`, `/mydocs`, `/board`)로 만든다 —
- * 해당 라우트가 아직 없다면 이 함수 하나만 고치면 된다(가정: program-detail.md 미결).
+ * 해당 라우트가 아직 없다면 이 함수 하나만 고치면 된다(docs/design.md §업무 화면 내비게이션 › 프로그램 스코프 좌측 패널).
  */
 export function programScopeSidebarGroups(
   input: ProgramScopeSidebarInput,

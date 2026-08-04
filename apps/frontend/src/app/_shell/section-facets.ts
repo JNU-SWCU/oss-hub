@@ -121,7 +121,7 @@ export function facetSectionFromHrefPath(
  *
  * 목록 루트가 아닌 `/programs/*` 는 프로그램 상세 스코프로 판정해 좌측 패널을
  * `programScopeSidebarGroups()` + `ProgramScopeSidebar`로 바꿔야 한다는 신호다
- * (chrome-tokens §2-1, program-detail.md §0). 그 전환(어느 컴포넌트를 렌더할지 고르는
+ * (docs/design.md §업무 화면 내비게이션 › 프로그램 스코프 좌측 패널). 그 전환(어느 컴포넌트를 렌더할지 고르는
  * 지점)은 `ProductShell`이 담당— 이 함수는 판정에 필요한 순수 로직만 제공한다.
  * 실제 프로그램 개요/서류/게시판 데이터 로딩은 이 레인 범위 밖이다.
  */
