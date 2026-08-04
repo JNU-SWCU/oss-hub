@@ -16,21 +16,17 @@ interface ShellNavProps {
 export const LANDING_SOLID_SENTINEL_ID = 'landing-solid-sentinel';
 
 /**
- * 랜딩(`/`)에서만 nav를 우주 히어로 위에 얹는다 — 그 외 라우트는 지금까지와
- * 동일한 흰 바 그대로다. `NavBar`는 건드리지 않고, `[data-surface='inverted']`
- * 토큰 스코프(globals.css)가 하위 shadcn 컴포넌트를 `.dark`와 같은 메커니즘으로
- * 다시 색칠한다.
+ * 전 화면 상단 nav. 컴포넌트는 항상 같고, **색 톤만** 경로에 따라 갈린다.
+ * `NavBar`는 건드리지 않고, `[data-surface='inverted']` 토큰 스코프(globals.css)가
+ * 하위 shadcn 컴포넌트를 `.dark`와 같은 메커니즘으로 다시 색칠한다.
  *
- * 랜딩에서 헤더는 `fixed`다 — 히어로가 sticky 무대에서 560vh 동안 이어지는 동안
- * 계속 떠 있어야 하기 때문.
+ * - 랜딩(`/`) 우주 위: 투명 + 흰 글자, `fixed` (sticky 무대 560vh 동안 떠 있음)
+ * - 가입 cosmos 경로: 반전 톤, document flow (fixed 아님 — 본문 첫 줄을 덮지 않음)
+ * - 그 외(대시보드·공개 목록 등): 흰 바 + 어두운 글자
  *
- * 여정이 끝나 흰 페이지가 올라오면 흰 글자 헤더는 흰 배경 위에서 사라져 버린다.
- * 그래서 그 순간 표면을 바꾼다 — 어두운 화면 위에서는 투명 + 흰 글자, 흰 화면
- * 위에서는 흰 바 + 어두운 글자.
- *
- * 전환 시점을 스크롤 위치 숫자로 박지 않는다. 여정 높이는 화면 높이에 따라
- * 달라지고 모션 축소에서는 아예 접히므로, 기기마다 그 숫자가 다르다. 대신 일반
- * 페이지 구간 맨 앞에 둔 표식이 헤더 높이까지 올라왔는지를 관찰한다.
+ * 랜딩에서 여정이 끝나 흰 페이지가 올라오면 흰 글자 헤더는 흰 배경 위에서
+ * 사라져 버린다. 그 순간 표면을 바꾼다. 전환 시점을 스크롤 숫자로 박지 않고,
+ * 일반 페이지 구간 맨 앞 표식이 헤더 높이까지 올라왔는지를 관찰한다.
  */
 export function ShellNav({ items, brand, actions }: ShellNavProps) {
   const pathname = usePathname();

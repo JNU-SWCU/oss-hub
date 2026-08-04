@@ -6,18 +6,13 @@ import { ShellIcon } from './shell-icons';
 import { isCurrentSidebarItem, type SidebarGroup } from './sidebar-menu';
 
 /**
- * 왼쪽 사이드바(확정 미감 시안 v2).
+ * 왼쪽 “내 상황” 사이드바 — 가입 완료 회원의 역할 홈만.
+ * 공개 메뉴·브랜드는 위 공통 `ShellNav`가 담당한다(랜딩과 동일 컴포넌트).
  *
- * - 펼침 248px / 접힘 72px. 폭 자체는 셸 그리드(`ProductShell`)가 토큰으로 정한다.
- * - **접힌 상태에서도 아이콘이 그대로 링크다** — 펼치지 않고 눌러서 바로 이동한다.
- * - 접힌 상태의 이름표는 hover뿐 아니라 **키보드 포커스에서도** 보인다.
- * - 현재 위치는 색 하나가 아니라 배경 + 굵기 + 왼쪽 막대 셋으로 표시한다.
- * - 접힌 상태에서 로고를 누르면 펼쳐진다.
- *
- * 900px 미만에서는 세로 사이드바가 아니라 상단 가로 스크롤 띠가 된다(시안 동일).
- * 그 폭에서는 접힘 개념이 없으므로 접기 버튼도, 아이콘 전용 표시도 쓰지 않는다.
- * `min-[900px]:` 접두사가 곳곳에 반복되는 이유는 Tailwind가 소스에서 **문자 그대로**
- * 클래스명을 훑기 때문이다 — 상수로 뽑아 조립하면 그 클래스는 생성되지 않는다.
+ * - 펼침 248px / 접힘 72px. 폭은 셸 그리드(`ProductShell`) 토큰.
+ * - 접힌 상태에서도 아이콘이 링크다. 이름표는 hover·키보드 포커스 모두.
+ * - 현재 위치는 배경 + 굵기 + 왼쪽 막대.
+ * - 900px 미만은 가로 스크롤 띠(접힘 없음).
  */
 interface AppSidebarProps {
   readonly groups: readonly SidebarGroup[];
@@ -36,7 +31,7 @@ export function AppSidebar({
     <aside
       data-slot="app-sidebar"
       data-collapsed={collapsed ? 'true' : 'false'}
-      className="flex flex-col border-b border-sidebar-border bg-sidebar min-[900px]:sticky min-[900px]:top-0 min-[900px]:h-dvh min-[900px]:border-r min-[900px]:border-b-0"
+      className="flex flex-col border-b border-sidebar-border bg-sidebar min-[900px]:sticky min-[900px]:top-0 min-[900px]:max-h-[calc(100dvh-3.5rem)] min-[900px]:min-h-[calc(100dvh-3.5rem)] min-[900px]:border-r min-[900px]:border-b-0"
     >
       <div
         data-slot="app-sidebar-brand"
@@ -58,13 +53,9 @@ export function AppSidebar({
           </button>
         ) : (
           <>
-            <Link
-              href="/"
-              className="font-heading flex min-h-control items-center gap-3 rounded-control text-[17px] font-bold tracking-[-0.02em] whitespace-nowrap text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
-            >
-              <BrandMark />
-              OSS Hub
-            </Link>
+            <p className="font-heading text-[15px] font-bold tracking-[-0.02em] text-sidebar-foreground">
+              내 상황
+            </p>
             <button
               type="button"
               onClick={onToggle}
@@ -81,7 +72,7 @@ export function AppSidebar({
 
       <nav
         data-slot="app-sidebar-nav"
-        aria-label="주요 메뉴"
+        aria-label="내 상황"
         className={cn(
           'flex gap-1 overflow-x-auto p-3 min-[900px]:flex-col min-[900px]:gap-0.5 min-[900px]:overflow-x-visible',
           collapsed && 'min-[900px]:items-center min-[900px]:px-2',
