@@ -24,6 +24,45 @@ describe('apiClient', () => {
     });
   });
 
+  /**
+   * Nest는 handler가 `null`을 돌려주면 본문 없이 200을 보낸다. 실배포의
+   * `role-requests/me`가 그 경우이고, 여기서 거절하면 역할 요청이 아직 없는
+   * 신규 가입자가 첫 화면에서 통째로 오류로 접혔다.
+   */
+  it('본문이 빈 성공 응답을 null로 읽는다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      apiClient<{ status: string } | null>('role-requests/me'),
+    ).resolves.toBeNull();
+  });
+
+  it('본문이 JSON null인 성공 응답도 null로 읽는다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('null', {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      apiClient<{ status: string } | null>('role-requests/me'),
+    ).resolves.toBeNull();
+  });
+
+  it('본문이 있는데 JSON이 아니면 그대로 거절한다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response('<html></html>', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(apiClient('programs')).rejects.toBeInstanceOf(SyntaxError);
+  });
+
   it('ProblemDetail 오류 응답을 ApiError로 변환한다', async () => {
     const problem = {
       type: 'https://oss-hub.dev/problems/member-not-found',
