@@ -189,6 +189,22 @@ describe('isCurrentSidebarItem', () => {
       isCurrentSidebarItem('/archive/123', '/archive?category=CAPSTONE', ''),
     ).toBe(true);
   });
+
+  it('회원 공통 홈 메뉴는 운영·관리 콘솔 딥링크에서도 강조된다', () => {
+    expect(isCurrentSidebarItem('/dashboard', '/dashboard', '')).toBe(true);
+    expect(isCurrentSidebarItem('/staff/dashboard', '/dashboard', '')).toBe(
+      true,
+    );
+    expect(isCurrentSidebarItem('/admin/access', '/dashboard', '')).toBe(true);
+    expect(
+      isCurrentSidebarItem('/admin/access/users/u1', '/dashboard', ''),
+    ).toBe(true);
+    // 별 사이드 항목 — 홈의 자식으로 취급하지 않는다
+    expect(isCurrentSidebarItem('/dashboard/activity', '/dashboard', '')).toBe(
+      false,
+    );
+    expect(isCurrentSidebarItem('/my-repos', '/dashboard', '')).toBe(false);
+  });
 });
 
 describe('SECTION_FACETS registry (U4)', () => {

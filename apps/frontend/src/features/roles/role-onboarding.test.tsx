@@ -157,7 +157,7 @@ describe('role onboarding views', () => {
 
     // Then
     expect(html).toContain('data-status="APPROVED"');
-    expect(html).toContain('href="/staff/dashboard"');
+    expect(html).toContain('href="/dashboard"');
   });
 
   it('회수된 요청 응답도 안전하게 역할 재선택 경로를 표시한다', () => {

@@ -6,9 +6,15 @@ import type { AuthRole } from '@/features/auth/types';
 
 export type AppRole = AuthRole;
 
-/** 역할 불일치 시 되돌아갈 "자기 역할 홈". #107 공식 권한 흐름의 목적지를 따른다. */
-export function roleHomePath(role: AppRole): string {
-  if (role === 'STUDENT') return '/dashboard';
-  if (role === 'STAFF') return '/staff/dashboard';
-  return '/admin/access';
+/**
+ * 회원 공통 역할 홈 입구.
+ *
+ * 세션 쿠키 JWT에는 `sub`(githubId)만 있고 역할 클레임은 없다. 역할은 DB
+ * `User.role`에 저장되며 `/auth/me`가 세션 주체로 조회해 내려준다. 프론트는 그
+ * 값으로 `/dashboard` **본문만** 가르고, URL 입구는 역할과 무관하게 하나다.
+ *
+ * `_role`은 호출부·테스트 시그니처를 유지하기 위해 받는다(역할별 경로는 쓰지 않음).
+ */
+export function roleHomePath(_role: AppRole): string {
+  return '/dashboard';
 }

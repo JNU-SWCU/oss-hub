@@ -283,7 +283,14 @@ export function isCurrentSidebarItem(
   }
 
   if (pathname === hrefPath) return true;
-  // `/dashboard` 는 `/dashboard/activity` 의 부모가 아니다 — 둘 다 사이드 항목.
-  if (hrefPath === '/dashboard') return false;
+  // 회원 공통 홈(`/dashboard`)과 같은 본문의 딥링크 — 메뉴 강조만 맞춘다.
+  // `/dashboard/activity` 는 별 사이드 항목이라 부모 매칭하지 않는다.
+  if (hrefPath === '/dashboard') {
+    if (pathname === '/staff/dashboard') return true;
+    if (pathname === '/admin/access' || pathname.startsWith('/admin/access/')) {
+      return true;
+    }
+    return false;
+  }
   return pathname.startsWith(`${hrefPath}/`);
 }
