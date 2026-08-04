@@ -44,7 +44,7 @@ function PageHeader({
         {description ? (
           <p
             data-slot="page-header-description"
-            className="max-w-[60ch] text-body text-muted-foreground"
+            className="max-w-[60ch] break-keep text-body text-muted-foreground"
           >
             {description}
           </p>
