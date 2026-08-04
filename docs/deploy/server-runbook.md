@@ -281,6 +281,29 @@ sudo -u jenkins bash scripts/check-host-nginx-drift.sh
 교체 전 백업본은 `/etc/nginx/conf.d/oss-hub.conf.bak-<timestamp>`로 남으므로 되돌릴 때 그대로 복사한다.
 활성 설정 파일은 `0644`라 배포 계정이 읽을 수 있고, 이 검사는 새 권한을 요구하지 않는다.
 
+## M10. 팀 모델 통일 마이그레이션 전 OutboxEvent drain
+
+D5 백필(`Application.teamId` non-nullable + 기존 null 행 1인 팀 부여)을 적용하기 전에, 미처리 repository provision outbox가 0건인지 확인한다.
+백필 이전에 기록된 PENDING 이벤트의 payload `teamId`는 null이다.
+워커는 레거시 null payload를 허용하지만, drain 없이 백필하면 배포 창 동안 프로비저닝 큐 상태가 불명확해지므로 선행 drain을 강제한다.
+
+```sh
+# backend 컨테이너 또는 DATABASE_URL이 설정된 셸에서 실행
+docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T postgres \
+  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
+  "SELECT status, count(*) AS n
+   FROM \"OutboxEvent\"
+   WHERE type = 'REPOSITORY_PROVISION_REQUESTED'
+     AND status IN ('PENDING', 'PROCESSING')
+   GROUP BY status
+   ORDER BY status;"
+```
+
+- 예상 출력: 행이 없거나 각 `n`이 0.
+- 검증: `PENDING`/`PROCESSING` 합이 0일 때만 D5 마이그레이션을 진행한다.
+- 0이 아니면 repository provision worker가 drain할 때까지 기다린 뒤 같은 질의를 다시 실행한다.
+- drain이 멈추면 worker 로그의 `repositories.provision.failed`와 `OutboxEvent`/`RepositoryProvisionJob` 상태를 먼저 보고, 백필을 강행하지 않는다.
+
 ## 8. Notion에 기록할 접근 정보 체크리스트 (aside 위임)
 
 아래 항목의 **실제 값**은 이 저장소가 아니라 **Notion credentials 페이지**가 원본이다. Notion 기록 작업은 craft-skills aside에 위임한다(이 저장소·PR·로그에는 항목명만 남기고 값은 남기지 않는다).

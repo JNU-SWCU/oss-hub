@@ -40,12 +40,8 @@ export function mapTeamError(problem: ProblemDetail): string {
   switch (problem.code) {
     case 'TEAM_001':
       return '승인된 학생 계정만 팀을 구성할 수 있습니다.';
-    case 'TEAM_003':
-      return '개인형 프로그램에서는 팀을 구성할 수 없습니다.';
     case 'TEAM_004':
       return '신청 기간이 아닙니다.';
-    case 'TEAM_005':
-      return '팀 인원 설정이 올바르지 않은 프로그램입니다.';
     case 'TEAM_006':
       return '이미 이 프로그램의 팀에 소속되어 있습니다.';
     case 'TEAM_007':
