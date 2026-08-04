@@ -76,7 +76,8 @@
 <!-- ADR-005 기준. head, base ref 또는 base SHA가 바뀌면 아래 증거를 모두 다시 받는다. -->
 <!-- head·base SHA는 본문에 적지 않는다 — 판정기는 GitHub API의 head를 권위로 쓰고 본문은 읽지 않는다.
      본문에 적힌 사본은 이후 push로 낡아 검토자가 그대로 복사하면 exact-head 불일치로 거절된다.
-     accept·MERGE_READY 댓글에 쓸 값은 `gh pr view <번호> --json headRefOid,baseRefName` 으로 그때그때 확인한다. -->
+     MERGE_READY 댓글에 쓸 값은 `gh pr view <번호> --json headRefOid,baseRefName` 으로 그때그때 확인한다.
+     accept 코멘트(PM_ACCEPT·TECH_LEAD_ACCEPT·RISK_ACCEPT) 병합 게이트는 폐지됐다 — 접근 제어는 GitHub 저장소 설정이 맡는다. -->
 
 - risk: `GENERAL | HIGH_RISK`
 - `MERGE_READY` 댓글 URL:
@@ -85,6 +86,3 @@
 - 실제 UI/API QA 증거 URL 또는 N/A 사유: `N/A는 관찰 가능한 동작이 없을 때만, 환경·선행 PR·외부 자원 blocker는 BLOCKED/UNVERIFIED`
 - `CLI:` 증거 URL 또는 public-safe 요약: `재현 가능한 계약 검증이면 된다 — 전용 검사기 대신 구조(타입·스키마·생성)나 앱 테스트로 성립하면 그 결과를 적는다(ADR-005 우선순위). 새 전용 검사기를 추가했다면 어떤 불변식이고 왜 상위 수단으로 안 되는지 함께 적는다`
 - `CI:` 증거 URL:
-- `RISK_ACCEPT role=PM|TECH_LEAD head=<full-sha> base=<ref> base_sha=<full-sha> risk=GENERAL` 댓글 URL: `CODEOWNERS 후보 또는 분류가 모호한 변경을 GENERAL로 낮출 때만 — 한 명이면 충분하되 배포 계약 경로는 role=PM 필수`
-- `PM_ACCEPT head=<full-sha> base=<ref> base_sha=<full-sha>` 댓글 URL: `HIGH_RISK만, 일반 PR은 N/A — 배포 계약 경로 변경 PR은 필수(Tech Lead accept로 대체 불가)`
-- `TECH_LEAD_ACCEPT head=<full-sha> base=<ref> base_sha=<full-sha>` 댓글 URL: `HIGH_RISK만, 일반 PR은 N/A — 배포 계약 경로가 아니면 PM_ACCEPT 대신 이것 하나로 충분`
