@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ProgramDetailPage } from '@/features/programs/program-detail-page';
 import { programHref } from '@/features/programs/program-paths';
@@ -16,10 +16,6 @@ export function ProgramDetailScreen({
   const searchParams = useSearchParams();
   const selectedMilestoneId = searchParams.get('submission');
   const openedInPage = useRef(false);
-
-  useEffect(() => {
-    if (!selectedMilestoneId) openedInPage.current = false;
-  }, [selectedMilestoneId]);
 
   return (
     <ProgramDetailPage
