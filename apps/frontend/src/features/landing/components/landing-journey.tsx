@@ -50,7 +50,7 @@ export function LandingJourney({
   authErrorMessage,
   notice,
   primaryAction,
-  contentAnchor = '#landing-entry',
+  contentAnchor = '#current-programs',
 }: LandingJourneyProps) {
   const journeyRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
