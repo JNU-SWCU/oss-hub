@@ -45,6 +45,60 @@ export const LOGOUT_RETURN_TO_PARAM = 'returnTo';
  */
 export const LOGOUT_DEFAULT_RETURN_TO = SIGNUP_ENTRY.href;
 
+/**
+ * 로그아웃한 사람을 되돌려 놓으면 안 되는 자리. 두 종류다.
+ *
+ * 1. **로그아웃 완료 화면 자신**(`/logout`). 자기를 복귀 주소로 실으면 "다른 계정으로
+ *    로그인"이 같은 화면을 다시 그린다 — 눌러도 제자리라 사용자에게는 고장으로 읽힌다.
+ * 2. **가입 절차 화면**(`/signup`·`/consent`·`/onboarding/**`). 절차의 중간 지점이라
+ *    앞 단계를 마친 사람에게만 뜻이 있다. 방금 세션을 버린 사람을 약관 동의나 역할 선택
+ *    화면에 떨어뜨리면, 그는 자기가 어디까지 했는지 알 수 없는 절차 한가운데 서게 된다.
+ *    다시 시작하는 자리는 입구(`LOGOUT_DEFAULT_RETURN_TO`) 하나로 모은다.
+ *
+ * 접두사로 보되 경계는 **세그먼트**다 — `/onboarding` 아래 화면이 늘어도 규칙이 따라가고,
+ * `/signup-guide`처럼 이름만 겹치는 다른 화면까지 막지는 않는다.
+ *
+ * 가입 절차 화면 목록의 원본은 `app/_shell/signup-routes.ts`지만 의존 방향이
+ * app → features 단방향이라 여기서 읽을 수 없다(docs/rules/frontend.md). 두 목록이
+ * 어긋나는 순간은 둘 다 볼 수 있는 app 계층의 검사(`_shell/signup-routes.test.ts`)가 잡는다.
+ */
+const NON_RETURNABLE_PREFIXES: readonly string[] = [
+  LOGOUT_COMPLETE_PATH,
+  SIGNUP_ENTRY.href,
+  '/consent',
+  '/onboarding',
+];
+
+/**
+ * 복귀 주소로 쓸 수 있는 값인가.
+ *
+ * `toInternalPath`(open redirect 관문)를 통과한 뒤 한 겹 더 본다. 저쪽은 "우리 앱의
+ * 주소인가"를, 이쪽은 "로그아웃한 사람을 여기 세워도 되는가"를 판단한다 — 섞으면
+ * lib의 범용 관문에 이 화면 사정이 스며든다.
+ *
+ * **쿼리·해시가 붙은 값은 통째로 떨군다.** 복귀 주소는 주소창에 그대로 남아 복사·공유되고
+ * 서버 로그에도 남는데, 이 앱의 쿼리에는 화면 상태만이 아니라 식별자가 실릴 수 있다
+ * (`/admin/access/users/[userId]` 계열 화면의 목록 필터 등). 경로만으로도 "있던 화면"은
+ * 되찾히므로 값을 좁게 받는 편이 싸다. 해시는 애초에 서버에 가지도 않는다.
+ */
+function isReturnableAfterLogout(path: string): boolean {
+  if (path.includes('?') || path.includes('#')) {
+    return false;
+  }
+  return !NON_RETURNABLE_PREFIXES.some(
+    (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+  );
+}
+
+/**
+ * 밖에서 온 값을 복귀 주소로 확정한다 — 주소를 **만들 때**와 **읽을 때** 같은 판정을
+ * 쓰기 위한 한 벌. 한쪽에만 걸면 주소창에 직접 적어 넣은 값이 검사를 비켜 간다.
+ */
+function toLogoutReturnTo(value: unknown): string {
+  const path = toInternalPath(value, LOGOUT_DEFAULT_RETURN_TO);
+  return isReturnableAfterLogout(path) ? path : LOGOUT_DEFAULT_RETURN_TO;
+}
+
 export function hasLogoutNotice(searchParams: SearchParamsInput): boolean {
   return hasSearchParam(searchParams, LOGOUT_NOTICE_PARAM);
 }
@@ -57,7 +111,7 @@ export function hasLogoutNotice(searchParams: SearchParamsInput): boolean {
  * 계속 들고 다닌다.
  */
 export function logoutCompletePath(returnTo?: unknown): string {
-  const resolved = toInternalPath(returnTo, LOGOUT_DEFAULT_RETURN_TO);
+  const resolved = toLogoutReturnTo(returnTo);
   if (resolved === LOGOUT_DEFAULT_RETURN_TO) {
     return LOGOUT_COMPLETE_PATH;
   }
@@ -72,10 +126,12 @@ export function logoutCompletePath(returnTo?: unknown): string {
  * 그걸 링크로 내보낸다. 검사가 없으면 `/logout?returnTo=https://evil.example`
  * 한 줄로 "로그아웃했습니다 → 다시 로그인" 흐름이 남의 로그인 화면으로 이어진다.
  * 방금 계정을 다루던 사람은 그 링크를 의심하지 않는다.
+ *
+ * 자기 자신·가입 절차 화면도 여기서 함께 떨군다 — 주소를 만드는 쪽만 막으면 손으로 적어
+ * 넣은 `/logout?returnTo=/logout`이 그대로 통과한다.
  */
 export function resolveLogoutReturnTo(searchParams: SearchParamsInput): string {
-  return toInternalPath(
+  return toLogoutReturnTo(
     readSearchParam(searchParams, LOGOUT_RETURN_TO_PARAM),
-    LOGOUT_DEFAULT_RETURN_TO,
   );
 }

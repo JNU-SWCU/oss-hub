@@ -11,10 +11,11 @@ const mocks = vi.hoisted(() => ({
   refreshSession: vi.fn(),
   useSession: vi.fn(),
   assign: vi.fn(),
+  usePathname: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/dashboard',
+  usePathname: mocks.usePathname,
 }));
 
 vi.mock('../api', () => ({
@@ -29,7 +30,12 @@ vi.mock('../use-session', () => ({
   useSession: mocks.useSession,
 }));
 
-import { LOGOUT_COMPLETE_PATH } from '../logout-notice';
+import {
+  LOGOUT_COMPLETE_PATH,
+  LOGOUT_DEFAULT_RETURN_TO,
+  LOGOUT_RETURN_TO_PARAM,
+  resolveLogoutReturnTo,
+} from '../logout-notice';
 import { LoginButton } from './login-button';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -83,7 +89,9 @@ describe('LoginButton 로그아웃 착지', () => {
     mocks.refreshSession.mockReset();
     mocks.useSession.mockReset();
     mocks.assign.mockReset();
+    mocks.usePathname.mockReset();
     mocks.useSession.mockReturnValue(authenticatedState);
+    mocks.usePathname.mockReturnValue('/dashboard');
 
     // happy-dom의 location은 실제로 이동을 시도하므로 이동 요청만 가로챈다.
     Object.defineProperty(window, 'location', {
@@ -102,11 +110,8 @@ describe('LoginButton 로그아웃 착지', () => {
     vi.restoreAllMocks();
   });
 
-  it('로그아웃이 확정되면 전용 로그아웃 화면으로 전체 이동한다', async () => {
-    // Given
-    mocks.logout.mockResolvedValue({ isAuthenticated: false });
-
-    // When
+  async function logoutFrom(pathname: string): Promise<void> {
+    mocks.usePathname.mockReturnValue(pathname);
     await act(async () => {
       root.render(<LoginButton />);
     });
@@ -114,13 +119,74 @@ describe('LoginButton 로그아웃 착지', () => {
     await act(async () => {
       await Promise.resolve();
     });
+  }
+
+  it('로그아웃이 확정되면 전용 로그아웃 화면으로 전체 이동한다', async () => {
+    // Given
+    mocks.logout.mockResolvedValue({ isAuthenticated: false });
+
+    // When
+    await logoutFrom('/dashboard');
 
     // Then — 쿼리 표식(`/?loggedOut=1`)이 아니라 자기 주소를 가진 화면이다.
-    expect(mocks.assign).toHaveBeenCalledWith(LOGOUT_COMPLETE_PATH);
+    expect(mocks.assign).toHaveBeenCalledWith(
+      expect.stringContaining(LOGOUT_COMPLETE_PATH),
+    );
     expect(mocks.assign).not.toHaveBeenCalledWith(
       expect.stringContaining('loggedOut'),
     );
   });
+
+  /**
+   * 이 배선이 빠져 있었다. 복귀 주소 계약(`logoutCompletePath(returnTo)`)도, 그 값을
+   * 읽어 링크로 내는 화면도 다 있었는데 **호출부가 값을 넘기지 않아** 로그아웃은
+   * 언제나 기본 복귀 주소로 착지했다 — 검증기·화면·테스트가 모두 통과하는 죽은 기능.
+   * 그래서 "지금 서 있던 경로가 실제로 복귀 주소로 실린다"를 여기서 못으로 박는다.
+   */
+  it('서 있던 경로를 복귀 주소로 실어 보낸다', async () => {
+    // Given
+    mocks.logout.mockResolvedValue({ isAuthenticated: false });
+
+    // When — 로그아웃을 누른 자리
+    await logoutFrom('/programs/42');
+
+    // Then — 완료 화면이 그 자리를 그대로 되읽는다.
+    const assigned = mocks.assign.mock.calls[0]?.[0] as string;
+    expect(assigned).toBe(
+      `${LOGOUT_COMPLETE_PATH}?${LOGOUT_RETURN_TO_PARAM}=%2Fprograms%2F42`,
+    );
+    expect(resolveLogoutReturnTo(assigned.split('?')[1])).toBe('/programs/42');
+  });
+
+  /**
+   * 복귀 주소로 삼으면 안 되는 자리들. 로그아웃 화면 자신은 눌러도 제자리인 링크가
+   * 되고, 가입 절차 화면은 방금 세션을 버린 사람을 절차 한가운데 떨어뜨린다. 외부
+   * 주소는 애초에 호출부가 만들 수 없는 값이지만, 호출부가 관문을 우회하지 않는다는
+   * 사실 자체를 확인한다 — 관문은 `logoutCompletePath` 한 곳뿐이어야 한다.
+   */
+  it.each([
+    ['로그아웃 화면 자신', LOGOUT_COMPLETE_PATH],
+    ['가입 입구', '/signup'],
+    ['약관 동의', '/consent'],
+    ['역할 선택', '/onboarding/role'],
+    ['외부 주소', 'https://evil.example'],
+  ])(
+    '%s에서 로그아웃하면 복귀 주소를 싣지 않는다',
+    async (_label, pathname) => {
+      // Given
+      mocks.logout.mockResolvedValue({ isAuthenticated: false });
+
+      // When
+      await logoutFrom(pathname);
+
+      // Then — 파라미터 없는 완료 화면이고, 읽어도 기본 복귀 주소다.
+      const assigned = mocks.assign.mock.calls[0]?.[0] as string;
+      expect(assigned).toBe(LOGOUT_COMPLETE_PATH);
+      expect(resolveLogoutReturnTo(assigned.split('?')[1])).toBe(
+        LOGOUT_DEFAULT_RETURN_TO,
+      );
+    },
+  );
 
   it('로그아웃 요청이 실패하면 이동하지 않고 오류를 남긴다', async () => {
     // Given — 세션이 아직 살아 있는데 완료 화면을 띄우면 거짓말이 된다.
