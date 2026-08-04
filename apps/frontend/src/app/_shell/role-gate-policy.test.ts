@@ -86,13 +86,11 @@ describe('roleGateRedirectPath', () => {
 });
 
 describe('roleGateDeniedHomePath', () => {
-  it('안내 화면의 돌아가기는 deniedPath를, 없으면 자기 역할 홈을 가리킨다', () => {
-    expect(roleGateDeniedHomePath('STAFF', '/staff/dashboard')).toBe(
-      '/staff/dashboard',
-    );
-    expect(roleGateDeniedHomePath('STAFF')).toBe('/staff/dashboard');
+  it('안내 화면의 돌아가기는 deniedPath를, 없으면 회원 공통 대시보드 입구를 가리킨다', () => {
+    expect(roleGateDeniedHomePath('STAFF', '/programs')).toBe('/programs');
+    expect(roleGateDeniedHomePath('STAFF')).toBe('/dashboard');
     expect(roleGateDeniedHomePath('STUDENT')).toBe('/dashboard');
-    expect(roleGateDeniedHomePath('ADMIN')).toBe('/admin/access');
+    expect(roleGateDeniedHomePath('ADMIN')).toBe('/dashboard');
   });
 });
 

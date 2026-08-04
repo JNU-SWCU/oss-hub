@@ -3,6 +3,7 @@ import {
   CollectionRepositoryPresence,
   ProgramCategory,
   RepositoryProvisionJobStatus,
+  RepositorySource,
   RepositoryVisibility,
   Role,
 } from '@prisma/client';
@@ -188,13 +189,14 @@ async function observeCollection(params: {
   readonly observedAt: Date | null;
 }): Promise<string> {
   const collectionRepositoryId = `${PREFIX}-${params.key}-collection-repository`;
-  await prisma.collectionRepository.create({
+  await prisma.githubRepository.create({
     data: {
       id: collectionRepositoryId,
       githubOrganizationId: 8_900_000_000_000n,
       githubRepositoryId: params.githubRepositoryId,
-      fullName: `synthetic-org/${PREFIX}-${params.key}`,
+      nameWithOwner: `synthetic-org/${PREFIX}-${params.key}`,
       defaultBranch: 'main',
+      source: RepositorySource.ORG_PROVISIONED,
       visibility: params.visibility,
       presence: params.presence,
       lastCompleteInventoryObservedAt: params.observedAt,
@@ -475,7 +477,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       await prisma.collectionRepositoryYearAggregate.deleteMany({
         where: { repositoryId: { startsWith: `${PREFIX}-` } },
       });
-      await prisma.collectionRepository.deleteMany({
+      await prisma.githubRepository.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
       await prisma.repositoryProvisionJob.deleteMany({

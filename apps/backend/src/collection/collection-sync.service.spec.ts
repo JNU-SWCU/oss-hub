@@ -30,7 +30,11 @@ import { ProviderRequestQueue } from './collection-provider-queue';
  */
 type Row = Record<string, unknown>;
 
-/** rebuild count/findFirst 호출이 쓰는 `{ field: value }` / `{ field: { gte, lt } }` where만 지원한다. */
+/**
+ * rebuild count/findFirst 호출이 쓰는 `{ field: value }` / `{ field: { gte, lt } }`에 더해,
+ * GR-6 `markAbsentRepositories`/`listPresentRepositories`가 쓰는 `{ field: { notIn } }`도
+ * 지원한다.
+ */
 function matchesWhere(row: Row, where: Row): boolean {
   return Object.entries(where).every(([field, condition]) => {
     if (
@@ -38,6 +42,10 @@ function matchesWhere(row: Row, where: Row): boolean {
       typeof condition === 'object' &&
       !(condition instanceof Date)
     ) {
+      if ('notIn' in condition) {
+        const notIn = (condition as { notIn: readonly unknown[] }).notIn;
+        return !notIn.includes(row[field]);
+      }
       const range = condition as { gte?: Date; lt?: Date };
       const value = row[field] as Date;
       if (range.gte !== undefined && value < range.gte) return false;
@@ -100,30 +108,23 @@ interface FailureControl {
   failCommitShas: Set<string>;
 }
 
-const repoKey = (orgId: bigint, repoId: bigint): string =>
-  `${String(orgId)}:${String(repoId)}`;
-const cursorKey = (appId: bigint, organizationLogin: string): string =>
-  `${String(appId)}:${organizationLogin}`;
+const repoKey = (repoId: bigint): string => String(repoId);
+const cursorKey = (appId: bigint, scope: string): string =>
+  `${String(appId)}:${scope}`;
 
 function makeFacade(box: { store: Store }, control: FailureControl): unknown {
   return {
-    collectionRepository: {
+    githubRepository: {
       upsert: ({
         where,
         create,
         update,
       }: {
-        where: {
-          githubOrganizationId_githubRepositoryId: {
-            githubOrganizationId: bigint;
-            githubRepositoryId: bigint;
-          };
-        };
+        where: { githubRepositoryId: bigint };
         create: Row;
         update: Row;
       }): Row => {
-        const k = where.githubOrganizationId_githubRepositoryId;
-        const key = repoKey(k.githubOrganizationId, k.githubRepositoryId);
+        const key = repoKey(where.githubRepositoryId);
         const existing = box.store.repositories.get(key);
         const row = existing
           ? applyUpdate(existing, update)
@@ -134,55 +135,33 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
       findUnique: ({
         where,
       }: {
-        where: {
-          githubOrganizationId_githubRepositoryId: {
-            githubOrganizationId: bigint;
-            githubRepositoryId: bigint;
-          };
-        };
-      }): Row | null => {
-        const k = where.githubOrganizationId_githubRepositoryId;
-        return (
-          box.store.repositories.get(
-            repoKey(k.githubOrganizationId, k.githubRepositoryId),
-          ) ?? null
-        );
-      },
+        where: { githubRepositoryId: bigint };
+      }): Row | null =>
+        box.store.repositories.get(repoKey(where.githubRepositoryId)) ?? null,
+      // GR-6: production callers (`markAbsentRepositories`/
+      // `listPresentRepositories`) now include `source: 'ORG_PROVISIONED'`
+      // in their `where` — matching generically via `matchesWhere` (rather
+      // than hand-picking fields) is what lets this fake actually enforce
+      // that filter instead of silently ignoring it.
       updateMany: ({
         where,
         data,
       }: {
-        where: {
-          githubOrganizationId: bigint;
-          presence: string;
-          githubRepositoryId: { notIn: bigint[] };
-        };
+        where: Row;
         data: Row;
       }): { count: number } => {
         let count = 0;
         for (const [key, row] of box.store.repositories) {
-          if (
-            row.githubOrganizationId === where.githubOrganizationId &&
-            row.presence === where.presence &&
-            !where.githubRepositoryId.notIn.includes(
-              row.githubRepositoryId as bigint,
-            )
-          ) {
+          if (matchesWhere(row, where)) {
             box.store.repositories.set(key, { ...row, ...data });
             count += 1;
           }
         }
         return { count };
       },
-      findMany: ({
-        where,
-      }: {
-        where: { githubOrganizationId: bigint; presence: string };
-      }): Row[] =>
-        [...box.store.repositories.values()].filter(
-          (row) =>
-            row.githubOrganizationId === where.githubOrganizationId &&
-            row.presence === where.presence,
+      findMany: ({ where }: { where: Row }): Row[] =>
+        [...box.store.repositories.values()].filter((row) =>
+          matchesWhere(row, where),
         ),
     },
     collectionCommitFact: {
@@ -383,14 +362,12 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
         create,
         update,
       }: {
-        where: {
-          appId_organizationLogin: { appId: bigint; organizationLogin: string };
-        };
+        where: { appId_scope: { appId: bigint; scope: string } };
         create: Row;
         update: Row;
       }): Row => {
-        const k = where.appId_organizationLogin;
-        const key = cursorKey(k.appId, k.organizationLogin);
+        const k = where.appId_scope;
+        const key = cursorKey(k.appId, k.scope);
         const existing = box.store.cursors.get(key);
         const row = existing ? applyUpdate(existing, update) : { ...create };
         box.store.cursors.set(key, row);
@@ -399,14 +376,10 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
       findUnique: ({
         where,
       }: {
-        where: {
-          appId_organizationLogin: { appId: bigint; organizationLogin: string };
-        };
+        where: { appId_scope: { appId: bigint; scope: string } };
       }): Row | null => {
-        const k = where.appId_organizationLogin;
-        return (
-          box.store.cursors.get(cursorKey(k.appId, k.organizationLogin)) ?? null
-        );
+        const k = where.appId_scope;
+        return box.store.cursors.get(cursorKey(k.appId, k.scope)) ?? null;
       },
     },
     // The lease table only exists via raw SQL in production; this fake
@@ -431,7 +404,7 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
         const epoch = existing ? (existing.epoch as bigint) + 1n : 1n;
         const row = {
           appId: args[0],
-          organizationLogin: args[1],
+          scope: args[1],
           ownerId,
           epoch,
           runId,
@@ -466,7 +439,7 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
       const key = cursorKey(args[0] as bigint, args[1] as string);
       const existing = box.store.leases.get(key);
       if (sql.includes('"expiresAt" > $5')) {
-        // heartbeat: appId, organizationLogin, ownerId, epoch, now, expiresAt, runId
+        // heartbeat: appId, scope, ownerId, epoch, now, expiresAt, runId
         const [, , ownerId, epoch, now, expiresAt, runId] = args as [
           bigint,
           string,
@@ -486,7 +459,7 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
         box.store.leases.set(key, { ...existing, expiresAt });
         return Promise.resolve(1);
       }
-      // release: appId, organizationLogin, ownerId, epoch, runId, now
+      // release: appId, scope, ownerId, epoch, runId, now
       const [, , ownerId, epoch, runId, now] = args as [
         bigint,
         string,
@@ -648,6 +621,26 @@ function createService(
   );
 }
 
+// E1 — same shape as `createService`, but also wires an
+// `externalRuntimeFactory` (ctor arg 6) so `runExternal()` tests can run
+// against a real `CollectionSyncService`. The org `runtimeFactory` is left
+// pointed at the same client double — `runExternal()` never calls it, so
+// which client backs it is irrelevant to these tests.
+function createServiceWithExternal(
+  db: PrismaService,
+  externalClient: ClientMock,
+  overrides: { now?: () => Date; createRunId?: () => string } = {},
+): CollectionSyncService {
+  return new CollectionSyncService(
+    new CollectionIncrementalRepository(db),
+    () => runtimeFor(externalClient),
+    () => Promise.resolve(GITHUB_ORG_ID),
+    overrides.now ?? (() => new Date('2026-08-01T00:00:00.000Z')),
+    overrides.createRunId ?? (() => 'run-1'),
+    () => runtimeFor(externalClient),
+  );
+}
+
 // Silence every stream's default-branch/PR/release calls to a stable no-op
 // baseline so tests that only care about one stream don't need to restate
 // the other two.
@@ -680,15 +673,16 @@ describe('CollectionSyncService — inventory complete vs partial (DEC-46)', () 
     // Seed a previously-PRESENT repo that this run's complete inventory no
     // longer lists — it must be marked ABSENT by the independent inventory
     // transaction regardless of what happens afterward in the repo loop.
-    box.store.repositories.set(repoKey(GITHUB_ORG_ID, 777n), {
+    box.store.repositories.set(repoKey(777n), {
       id: 'repo-missing',
       githubOrganizationId: GITHUB_ORG_ID,
       githubRepositoryId: 777n,
-      fullName: 'synthetic-org/missing',
+      nameWithOwner: 'synthetic-org/missing',
       defaultBranch: 'main',
       archived: false,
       visibility: 'PRIVATE',
       presence: 'PRESENT',
+      source: 'ORG_PROVISIONED',
       lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
     });
 
@@ -696,25 +690,26 @@ describe('CollectionSyncService — inventory complete vs partial (DEC-46)', () 
     const result = await service.run('owner-1');
 
     expect(result.inventoryComplete).toBe(true);
-    const missing = box.store.repositories.get(repoKey(GITHUB_ORG_ID, 777n));
+    const missing = box.store.repositories.get(repoKey(777n));
     expect(missing?.presence).toBe('ABSENT');
     // the stream failure must not roll back the already-committed inventory
     // transaction — it only stops that repository's own progress this run.
-    const seen = box.store.repositories.get(repoKey(GITHUB_ORG_ID, 100n));
+    const seen = box.store.repositories.get(repoKey(100n));
     expect(seen?.presence).toBe('PRESENT');
   });
 
   it('a partial inventory (provider listing failure) never marks anything ABSENT and falls back to previously-known PRESENT repos', async () => {
     const { db, box } = createFakeDb();
-    box.store.repositories.set(repoKey(GITHUB_ORG_ID, 777n), {
+    box.store.repositories.set(repoKey(777n), {
       id: 'repo-existing',
       githubOrganizationId: GITHUB_ORG_ID,
       githubRepositoryId: 777n,
-      fullName: 'synthetic-org/existing',
+      nameWithOwner: 'synthetic-org/existing',
       defaultBranch: 'main',
       archived: false,
       visibility: 'PRIVATE',
       presence: 'PRESENT',
+      source: 'ORG_PROVISIONED',
       lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
     });
     const client = createClient([]);
@@ -728,11 +723,114 @@ describe('CollectionSyncService — inventory complete vs partial (DEC-46)', () 
 
     expect(result.inventoryComplete).toBe(false);
     // stale pre-publication observation is untouched — no revocation happened.
-    const existing = box.store.repositories.get(repoKey(GITHUB_ORG_ID, 777n));
+    const existing = box.store.repositories.get(repoKey(777n));
     expect(existing?.presence).toBe('PRESENT');
     // the fallback list still let the run attempt that repo's stream sync —
     // this repo has no stream row yet, so it takes the full-backfill path.
     expect(client.listCommitsUntilKnownSha).toHaveBeenCalled();
+  });
+});
+
+describe('CollectionSyncService — GR-6 external 저장소는 org sweep에서 살아남는다', () => {
+  it('service.run()의 완전한 org inventory 관찰이 EXTERNAL_PUBLIC 저장소를 ABSENT로 바꾸지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    // Seed an EXTERNAL_PUBLIC repo carrying the SAME org id the org sweep
+    // observes below — this proves the `source` filter (GR-6), not an
+    // incidental org-id/null mismatch, is what keeps it PRESENT even though
+    // the installation listing never mentions it.
+    box.store.repositories.set(repoKey(555n), {
+      id: 'repo-external',
+      githubOrganizationId: GITHUB_ORG_ID,
+      githubRepositoryId: 555n,
+      nameWithOwner: 'student/external-repo',
+      defaultBranch: 'main',
+      archived: false,
+      visibility: 'PUBLIC',
+      presence: 'PRESENT',
+      source: 'EXTERNAL_PUBLIC',
+      lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+    const repoA = providerRepository({
+      id: '100',
+      fullName: 'synthetic-org/a',
+    });
+    const client = createClient([repoA]);
+    quietStreams(client);
+    client.listCommitsUntilKnownSha.mockResolvedValue({
+      commits: [],
+      disconnectedFullScan: true,
+      fingerprint: fingerprint('/repos/o/r/commits'),
+    });
+
+    const service = createService(db, client);
+    const result = await service.run('owner-1');
+
+    expect(result.inventoryComplete).toBe(true);
+    const external = box.store.repositories.get(repoKey(555n));
+    expect(external?.presence).toBe('PRESENT');
+  });
+});
+
+describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
+  it('listExternalRepositories()가 돌려준 EXTERNAL_PUBLIC 저장소를 처리해 commit fact를 적재하고 aggregate를 재계산한다', async () => {
+    const { db, box } = createFakeDb();
+    // Seed exactly the row shape GR-6's test seeds — `runExternal()` never
+    // discovers repositories itself, it only reads rows already persisted
+    // with `source: 'EXTERNAL_PUBLIC'`/`presence: 'PRESENT'`.
+    box.store.repositories.set(repoKey(555n), {
+      id: 'repo-external',
+      githubOrganizationId: GITHUB_ORG_ID,
+      githubRepositoryId: 555n,
+      nameWithOwner: 'student/external-repo',
+      defaultBranch: 'main',
+      archived: false,
+      visibility: 'PUBLIC',
+      presence: 'PRESENT',
+      source: 'EXTERNAL_PUBLIC',
+      lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+
+    const client = createClient([]);
+    quietStreams(client);
+    client.listCommitsUntilKnownSha.mockResolvedValue({
+      commits: [commit({ sha: 'external-head-sha' })],
+      disconnectedFullScan: true,
+      fingerprint: fingerprint('/repos/o/r/commits'),
+    });
+
+    const service = createServiceWithExternal(db, client);
+    const result = await service.runExternal('owner-1');
+
+    // Then: discovery came from the DB read, never the provider's
+    // installation listing (that's the org sweep's discovery path only).
+    expect(result.status).toBe('COMPLETED');
+    expect(client.listInstallationRepositories).not.toHaveBeenCalled();
+
+    // The commit stream synced and got promoted to READY, same stage
+    // pipeline as the org sweep.
+    const stream = box.store.streams.get('repo-external:COMMIT');
+    expect(stream?.status).toBe('READY');
+    expect(stream?.frontierSha).toBe('external-head-sha');
+
+    // Commit facts were recorded for the external repository.
+    expect(box.store.commitFacts.size).toBe(1);
+    const fact = [...box.store.commitFacts.values()][0];
+    expect(fact?.sha).toBe('external-head-sha');
+    expect(fact?.repositoryId).toBe('repo-external');
+
+    // Recording facts rebuilds the repository/contributor year aggregates.
+    expect(box.store.yearAggregates.size).toBeGreaterThan(0);
+    expect(box.store.contributorYearAggregates.size).toBeGreaterThan(0);
+  });
+
+  it('externalRuntimeFactory가 배선되지 않으면 명시적으로 실패한다', async () => {
+    const { db } = createFakeDb();
+    const client = createClient([]);
+    const service = createService(db, client);
+
+    await expect(service.runExternal('owner-1')).rejects.toThrow(
+      /external runtime not configured/,
+    );
   });
 });
 
@@ -770,15 +868,16 @@ describe('CollectionSyncService — new/VERIFYING repository backfill', () => {
     });
 
     // Seed exactly what todo 8's backfill leaves behind: VERIFYING + null frontier.
-    box.store.repositories.set(repoKey(GITHUB_ORG_ID, BigInt(repository.id)), {
+    box.store.repositories.set(repoKey(BigInt(repository.id)), {
       id: 'repo-1',
       githubOrganizationId: GITHUB_ORG_ID,
       githubRepositoryId: BigInt(repository.id),
-      fullName: repository.fullName,
+      nameWithOwner: repository.fullName,
       defaultBranch: repository.defaultBranch,
       archived: false,
       visibility: 'PUBLIC',
       presence: 'PRESENT',
+      source: 'ORG_PROVISIONED',
       lastCompleteInventoryObservedAt: new Date('2026-07-01T00:00:00.000Z'),
     });
     box.store.streams.set('repo-1:COMMIT', {
@@ -810,15 +909,16 @@ describe('CollectionSyncService — READY repository conditional polling', () =>
     const { db, box } = createFakeDb();
     const repository = providerRepository();
     const client = createClient([repository]);
-    box.store.repositories.set(repoKey(GITHUB_ORG_ID, BigInt(repository.id)), {
+    box.store.repositories.set(repoKey(BigInt(repository.id)), {
       id: 'repo-1',
       githubOrganizationId: GITHUB_ORG_ID,
       githubRepositoryId: BigInt(repository.id),
-      fullName: repository.fullName,
+      nameWithOwner: repository.fullName,
       defaultBranch: repository.defaultBranch,
       archived: false,
       visibility: 'PUBLIC',
       presence: 'PRESENT',
+      source: 'ORG_PROVISIONED',
       lastCompleteInventoryObservedAt: new Date('2026-07-01T00:00:00.000Z'),
     });
     box.store.streams.set('repo-1:COMMIT', {
@@ -909,16 +1009,11 @@ describe('CollectionSyncService — fenced transactions and lease safety', () =>
         if (token) {
           // Steal it right after acquisition succeeds but before any fenced
           // write runs, by directly mutating the fake lease store.
-          box.store.leases.set(
-            cursorKey(input.appId, input.organizationLogin),
-            {
-              ...box.store.leases.get(
-                cursorKey(input.appId, input.organizationLogin),
-              ),
-              ownerId: 'someone-else',
-              epoch: token.epoch + 1n,
-            },
-          );
+          box.store.leases.set(cursorKey(input.appId, input.scope), {
+            ...box.store.leases.get(cursorKey(input.appId, input.scope)),
+            ownerId: 'someone-else',
+            epoch: token.epoch + 1n,
+          });
         }
         return token;
       });

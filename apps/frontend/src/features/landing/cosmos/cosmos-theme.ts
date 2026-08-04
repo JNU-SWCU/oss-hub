@@ -2,14 +2,19 @@
  * 우주 히어로의 색 세트. 배경 그라디언트·안개·별·오로라·노드색·글로우가
  * 전부 이 객체 하나에서 나온다 — 색을 바꾸려면 여기만 고친다.
  *
- * 진짜 우주는 남색이 아니라 검정이다. 아래쪽에만 아주 옅은 남색을 남겨
- * 완전한 무채색이 되지 않게 한다(사업단 주조색의 흔적).
+ * 바탕은 검정이 아니라 사업단 주조색인 남색이다(#627). 위는 깊은 남색,
+ * 아래로 갈수록 밝아져 대기권 위에서 지구를 내려다보는 인상을 만든다.
+ * "진짜 우주는 검정"이 더 사실적이지만, 첫 화면이 온통 검정이면 무겁고
+ * 브랜드 색이 드러나지 않는다는 판단이 앞섰다.
+ *
+ * ⚠ `sky[0]` 은 `globals.css` 의 `--cosmos-void` 와 같아야 한다. 다르면
+ * 캔버스가 그려지기 전 한 프레임 동안 배경색이 튄다.
  */
 export type CosmosColor = readonly [number, number, number];
 
 export interface CosmosTheme {
   readonly sky: readonly (readonly [number, string])[];
-  /** 멀어질수록 노드가 수렴하는 색 = 배경 검정 */
+  /** 멀어질수록 노드가 수렴하는 색 = 하늘 아래쪽 색 */
   readonly fog: CosmosColor;
   readonly star: CosmosColor;
   readonly edge: CosmosColor;
@@ -24,39 +29,43 @@ export interface CosmosTheme {
   readonly focusNebulaTint: CosmosColor;
 }
 
-export const DEEP_SPACE_THEME: CosmosTheme = {
+export const DAWN_THEME: CosmosTheme = {
   sky: [
-    [0, '#000000'],
-    [0.5, '#03040a'],
-    [1, '#070a15'],
+    [0, '#00133a'],
+    [0.5, '#063a8f'],
+    [1, '#1f5cc4'],
   ],
-  fog: [3, 4, 10],
-  star: [214, 224, 245],
-  edge: [127, 156, 219],
+  // 안개는 하늘 아래쪽 색과 같다. 그래야 멀리 있는 노드가 배경으로 사라진다.
+  fog: [31, 92, 196],
+  // 바탕이 밝아진 만큼 별과 선도 함께 밝혀야 대비가 유지된다.
+  star: [242, 247, 255],
+  edge: [172, 198, 244],
   program: [255, 255, 255],
-  programGlow: [186, 208, 255],
+  programGlow: [214, 230, 255],
   studentTints: [
-    [157, 185, 240],
-    [173, 193, 235],
-    [140, 170, 232],
-    [186, 202, 244],
+    [196, 216, 252],
+    [214, 228, 253],
+    [180, 205, 250],
+    [224, 234, 254],
   ],
+  // 저장소의 초록은 사업단 보조색이다. 밝은 남색 위에서 묻히지 않도록
+  // deep space 시절보다 한 단계씩 밝게 올렸다.
   repoTints: [
-    [92, 198, 135],
-    [42, 171, 99],
-    [150, 220, 174],
-    [63, 182, 160],
+    [126, 226, 166],
+    [88, 208, 138],
+    [176, 238, 198],
+    [104, 214, 190],
   ],
-  // deep space는 남색이 주조. 초록은 한 겹만 섞어 사업단 보조색을 남긴다.
+  // 남색이 주조. 초록은 한 겹만 섞어 사업단 보조색을 남긴다.
   aurora: [
-    [79, 130, 210],
-    [92, 198, 135],
-    [104, 146, 226],
+    [130, 178, 246],
+    [104, 214, 154],
+    [160, 196, 252],
   ],
-  auroraAlpha: 0.032,
-  bloom: 0.4,
-  nebulaTint: [79, 130, 210],
-  focusNebulaTint: [92, 198, 135],
+  auroraAlpha: 0.09,
+  bloom: 0.7,
+  nebulaTint: [130, 178, 246],
+  focusNebulaTint: [104, 214, 154],
 };
 
 export const clamp01 = (value: number): number =>

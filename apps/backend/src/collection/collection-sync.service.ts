@@ -2,15 +2,18 @@ import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import {
   CollectionAppClient,
+  CollectionAppClientTokenProvider,
   CollectionCommit,
   CollectionPullRequest,
   CollectionRelease,
 } from './collection-app.client';
 import { requestFingerprintKey } from './collection-app.frontier';
-import { CollectionAppTokenProvider } from './collection-app.token';
 import { ProviderRequestQueue } from './collection-provider-queue';
 import type { CollectionIncrementalRepository } from './collection-incremental.repository';
-import type { CollectionRepositoryRow } from './collection-incremental.types';
+import type {
+  CollectionRepositoryRow,
+  RepositorySource,
+} from './collection-incremental.types';
 import type { SyncLeaseToken } from './collection-sync.types';
 
 const LEASE_MS = 10 * 60_000;
@@ -20,7 +23,11 @@ const RUN_DEADLINE_MS = 45 * 60_000;
 export interface CollectionSyncRuntime {
   appId: string;
   organizationLogin: string;
-  tokens: CollectionAppTokenProvider;
+  // Narrow structural shape (not the `CollectionAppTokenProvider` class
+  // directly) so an external-sweep runtime can carry
+  // `CollectionPublicTokenProvider` here too — see
+  // `CollectionAppClientTokenProvider` (`collection-app.client.ts`).
+  tokens: CollectionAppClientTokenProvider;
   client: CollectionAppClient;
   queue: ProviderRequestQueue;
 }
@@ -53,6 +60,7 @@ type SyncRepository = Pick<
   | 'recordRepositoryObservation'
   | 'markAbsentRepositories'
   | 'listPresentRepositories'
+  | 'listExternalRepositories'
   | 'getSyncCursor'
   | 'upsertSyncCursor'
   | 'acquireSyncLease'
@@ -64,13 +72,25 @@ type SyncRepository = Pick<
 const compareBigint = (a: bigint, b: bigint): number =>
   a < b ? -1 : a > b ? 1 : 0;
 
-const splitFullName = (fullName: string): [string, string] => {
-  const index = fullName.indexOf('/');
+const splitNameWithOwner = (nameWithOwner: string): [string, string] => {
+  const index = nameWithOwner.indexOf('/');
   if (index < 0) {
-    throw new Error(`invalid collection repository full name: ${fullName}`);
+    throw new Error(
+      `invalid collection repository nameWithOwner: ${nameWithOwner}`,
+    );
   }
-  return [fullName.slice(0, index), fullName.slice(index + 1)];
+  return [nameWithOwner.slice(0, index), nameWithOwner.slice(index + 1)];
 };
+
+/** org sweep의 scope 관례 — external sweep의 고정 `"external"`과 서로소다. */
+const orgScope = (organizationLogin: string): string =>
+  `org:${organizationLogin}`;
+const EXTERNAL_SCOPE = 'external';
+
+interface SweepInventory {
+  readonly complete: boolean;
+  readonly repositories: readonly CollectionRepositoryRow[];
+}
 
 /**
  * ADR-006 조직 전체 누적·증분 수집의 provider traversal orchestration(public-admin-exposure
@@ -102,14 +122,74 @@ export class CollectionSyncService {
     private readonly resolveGithubOrganizationId: () => Promise<bigint>,
     private readonly now: () => Date = () => new Date(),
     private readonly createRunId: () => string = randomUUID,
+    // E1 — external sweep runtime (`CollectionPublicTokenProvider` service
+    // account PAT, per plan §4.2), provisioned separately from the org
+    // installation runtime above and with its own `ProviderRequestQueue`
+    // (independent rate-limit budget). `collection.module.ts` wires this in
+    // for the DI-managed service; the CLI entry points under `cli/` still
+    // leave it undefined, since they have no external-sweep use case yet —
+    // `runExternal` fails closed with a clear error rather than silently
+    // reusing the org installation-token client (which cannot read repos
+    // outside the installation's scope).
+    private readonly externalRuntimeFactory?: CollectionSyncRuntimeFactory,
   ) {}
 
   async run(ownerId: string): Promise<CollectionSyncRunResult> {
     const runtime = await this.runtimeFactory();
-    const key = {
+    const githubOrganizationId = await this.resolveGithubOrganizationId();
+    return this.runSweep({
+      source: 'ORG_PROVISIONED',
+      scope: orgScope(runtime.organizationLogin),
       appId: BigInt(runtime.appId),
-      organizationLogin: runtime.organizationLogin,
-    };
+      ownerId,
+      runtime,
+      discoverInventory: (lease, deadline) =>
+        this.syncOrgInventory(runtime, lease, githubOrganizationId, deadline),
+    });
+  }
+
+  /**
+   * E1 — external(학생 등록 public repo) sweep. org sweep과 stage ②~⑨(metadata/commit/
+   * PR/release/cursor/fact-load/aggregate)는 완전히 공유하되, discovery만 다르다: org
+   * installation listing 대신 이미 `EXTERNAL_PUBLIC` source로 저장된 행을 읽는다(자동
+   * GraphQL 발견은 이 메서드의 범위가 아니다 — 별도 과제). 자신만의 `scope`(`"external"`)로
+   * lease/cursor를 갖기 때문에 org sweep의 45분 run budget이나 lease를 절대 소비하지
+   * 않는다(GR-9).
+   */
+  async runExternal(ownerId: string): Promise<CollectionSyncRunResult> {
+    if (!this.externalRuntimeFactory) {
+      throw new Error(
+        'collection sync: external runtime not configured (runExternal requires an externalRuntimeFactory)',
+      );
+    }
+    const runtime = await this.externalRuntimeFactory();
+    return this.runSweep({
+      source: 'EXTERNAL_PUBLIC',
+      scope: EXTERNAL_SCOPE,
+      appId: BigInt(runtime.appId),
+      ownerId,
+      runtime,
+      discoverInventory: () => this.syncExternalInventory(),
+    });
+  }
+
+  private async runSweep(params: {
+    source: RepositorySource;
+    scope: string;
+    appId: bigint;
+    ownerId: string;
+    runtime: CollectionSyncRuntime;
+    discoverInventory: (
+      lease: SyncLeaseToken,
+      deadline: number,
+    ) => Promise<SweepInventory>;
+  }): Promise<CollectionSyncRunResult> {
+    // `source` isn't read directly here — it's already baked into the
+    // caller-provided `discoverInventory` closure (`syncOrgInventory` /
+    // `syncExternalInventory`). It's still a required field on `params` so
+    // every call site stays explicit about which sweep it's running.
+    const { scope, appId, ownerId, runtime, discoverInventory } = params;
+    const key = { appId, scope };
     const runId = this.createRunId();
     const acquiredAt = this.now();
     const lease = await this.incrementalRepository.acquireSyncLease({
@@ -132,12 +212,13 @@ export class CollectionSyncService {
 
     try {
       return await this.withHeartbeat(lease, () =>
-        this.syncOrganization(runtime, lease, key, runId),
+        this.syncSweep(runtime, lease, key, runId, discoverInventory),
       );
     } catch (error) {
       this.logger.error({
         event: 'collection.sync.failed',
         runId,
+        scope,
         errorName: error instanceof Error ? error.name : 'UnknownError',
       });
       await this.incrementalRepository
@@ -154,25 +235,23 @@ export class CollectionSyncService {
     }
   }
 
-  private async syncOrganization(
+  private async syncSweep(
     runtime: CollectionSyncRuntime,
     lease: SyncLeaseToken,
-    key: { appId: bigint; organizationLogin: string },
+    key: { appId: bigint; scope: string },
     runId: string,
+    discoverInventory: (
+      lease: SyncLeaseToken,
+      deadline: number,
+    ) => Promise<SweepInventory>,
   ): Promise<CollectionSyncRunResult> {
     const deadline = this.now().getTime() + RUN_DEADLINE_MS;
-    const githubOrganizationId = await this.resolveGithubOrganizationId();
 
-    const inventory = await this.syncInventory(
-      runtime,
-      lease,
-      githubOrganizationId,
-      deadline,
-    );
+    const inventory = await discoverInventory(lease, deadline);
 
     const cursor = await this.incrementalRepository.getSyncCursor(
       key.appId,
-      key.organizationLogin,
+      key.scope,
     );
     const startAfter =
       cursor && cursor.cycleCompletedAt === null
@@ -186,7 +265,7 @@ export class CollectionSyncService {
         await repo.assertSyncLeaseValid(lease, this.now());
         await repo.upsertSyncCursor({
           appId: key.appId,
-          organizationLogin: key.organizationLogin,
+          scope: key.scope,
           cycleStartedAt: this.now(),
           cycleCompletedAt: null,
         });
@@ -234,7 +313,7 @@ export class CollectionSyncService {
         await repo.assertSyncLeaseValid(lease, this.now());
         await repo.upsertSyncCursor({
           appId: key.appId,
-          organizationLogin: key.organizationLogin,
+          scope: key.scope,
           lastGithubRepositoryId: repository.githubRepositoryId,
         });
       });
@@ -250,7 +329,7 @@ export class CollectionSyncService {
         await repo.assertSyncLeaseValid(lease, this.now());
         await repo.upsertSyncCursor({
           appId: key.appId,
-          organizationLogin: key.organizationLogin,
+          scope: key.scope,
           lastGithubRepositoryId: null,
           cycleCompletedAt: this.now(),
         });
@@ -269,12 +348,19 @@ export class CollectionSyncService {
     };
   }
 
-  private async syncInventory(
+  /**
+   * E1 org-side discovery — installation listing 성공 시 `source: 'ORG_PROVISIONED'`로
+   * 관찰을 기록하고, 이번에 관찰되지 않은 기존 ORG_PROVISIONED 저장소를 ABSENT로 표시한다
+   * (GR-6: `markAbsentRepositories`가 ORG_PROVISIONED만 스윕하므로 external 저장소는 이
+   * 경로의 영향을 받지 않는다). 실패(partial) 시에도 같은 이유로 ORG_PROVISIONED만
+   * 되짚는다.
+   */
+  private async syncOrgInventory(
     runtime: CollectionSyncRuntime,
     lease: SyncLeaseToken,
     githubOrganizationId: bigint,
     deadline: number,
-  ): Promise<{ complete: boolean; repositories: CollectionRepositoryRow[] }> {
+  ): Promise<SweepInventory> {
     let listed;
     try {
       listed = await this.beforeDeadline(
@@ -302,11 +388,12 @@ export class CollectionSyncService {
             await repo.recordRepositoryObservation({
               githubOrganizationId,
               githubRepositoryId: BigInt(item.id),
-              fullName: item.fullName,
+              nameWithOwner: item.fullName,
               defaultBranch: item.defaultBranch,
               archived: item.archived,
               visibility: item.private ? 'PRIVATE' : 'PUBLIC',
               presence: 'PRESENT',
+              source: 'ORG_PROVISIONED',
               observedAt,
             }),
           );
@@ -323,13 +410,25 @@ export class CollectionSyncService {
     return { complete: true, repositories };
   }
 
+  /**
+   * E1 external-side discovery — 학생이 이미 등록해 `EXTERNAL_PUBLIC` source로 저장된
+   * 행을 그대로 읽는다. org discovery와 달리 provider 목록 호출이 없으므로 항상
+   * complete다(자동 GraphQL 발견은 별도 과제이며 이 메서드의 범위가 아니다) — DB 조회
+   * 자체가 실패하면 예외가 그대로 전파되어 상위 `run` 경로에서 FAILED로 처리된다.
+   */
+  private async syncExternalInventory(): Promise<SweepInventory> {
+    const repositories =
+      await this.incrementalRepository.listExternalRepositories();
+    return { complete: true, repositories };
+  }
+
   private async syncRepository(
     runtime: CollectionSyncRuntime,
     lease: SyncLeaseToken,
     repository: CollectionRepositoryRow,
     deadline: number,
   ): Promise<void> {
-    const [owner, name] = splitFullName(repository.fullName);
+    const [owner, name] = splitNameWithOwner(repository.nameWithOwner);
     await this.syncCommitStream(
       runtime,
       lease,
@@ -364,6 +463,16 @@ export class CollectionSyncService {
     name: string,
     deadline: number,
   ): Promise<void> {
+    const defaultBranch = repository.defaultBranch;
+    if (defaultBranch === null) {
+      // Empty repository — GitHub reports no default branch when a
+      // repository has zero commits, so there is nothing to sync yet. Leave
+      // the stream frontier untouched (no provider call, no write) so a real
+      // backfill runs once the repository gets its first commit and a later
+      // observation reports an actual default branch.
+      return;
+    }
+
     const existing = await this.incrementalRepository.getStreamFrontier(
       repository.id,
       'COMMIT',
@@ -375,7 +484,7 @@ export class CollectionSyncService {
         runtime.client.listCommitsUntilKnownSha(
           owner,
           name,
-          repository.defaultBranch,
+          defaultBranch,
           new Set(),
         ),
         deadline,
@@ -395,7 +504,7 @@ export class CollectionSyncService {
       runtime.client.probeDefaultBranchHead(
         owner,
         name,
-        repository.defaultBranch,
+        defaultBranch,
         existing.etag,
       ),
       deadline,
@@ -409,7 +518,7 @@ export class CollectionSyncService {
       runtime.client.listCommitsUntilKnownSha(
         owner,
         name,
-        repository.defaultBranch,
+        defaultBranch,
         known,
       ),
       deadline,

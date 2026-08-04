@@ -5,7 +5,7 @@ import {
 import type { PrismaService } from '../prisma/prisma.service';
 
 interface MockDb {
-  collectionRepository: {
+  githubRepository: {
     upsert: jest.Mock;
     findUnique: jest.Mock;
     updateMany: jest.Mock;
@@ -41,7 +41,7 @@ interface MockDb {
 /** 기본값은 "빈 DB"(COUNT 0, 최신 fact 없음) — 각 테스트가 필요한 만큼만 override한다. */
 const createDb = (): MockDb => {
   const db: MockDb = {
-    collectionRepository: {
+    githubRepository: {
       upsert: jest.fn(),
       findUnique: jest.fn(),
       updateMany: jest.fn(),
@@ -83,6 +83,67 @@ const createDb = (): MockDb => {
 const repositoryFor = (db: MockDb): CollectionIncrementalRepository =>
   new CollectionIncrementalRepository(db as unknown as PrismaService);
 
+/**
+ * `where` 절을 얕은 동등 비교 + `{ notIn }` 연산자만 지원하는 최소 Prisma 흉내로
+ * 매칭한다. GR-6 회귀 테스트가 "실제로 실패할 수 있는" 테스트가 되려면 mock이 호출
+ * 인자를 그대로 기록하는 것으로는 부족하다 — production 코드가 `source` 필터를
+ * where 절에서 빠뜨리면 이 fake가 그 실수를 그대로 반영해 external 행도 갱신/조회
+ * 대상에 포함시켜야 테스트가 fail한다.
+ */
+interface FakeRepoRow {
+  id: string;
+  githubOrganizationId: bigint | null;
+  githubRepositoryId: bigint;
+  presence: 'PRESENT' | 'ABSENT';
+  source: 'ORG_PROVISIONED' | 'EXTERNAL_PUBLIC';
+}
+
+function matchesWhere(
+  row: FakeRepoRow,
+  where: Record<string, unknown>,
+): boolean {
+  return Object.entries(where).every(([key, condition]) => {
+    const value = (row as unknown as Record<string, unknown>)[key];
+    if (
+      condition !== null &&
+      typeof condition === 'object' &&
+      'notIn' in (condition as Record<string, unknown>)
+    ) {
+      const notIn = (condition as { notIn: readonly unknown[] }).notIn;
+      return !notIn.includes(value);
+    }
+    return value === condition;
+  });
+}
+
+function createFakeGithubRepositoryStore(seed: readonly FakeRepoRow[]) {
+  const rows = seed.map((row) => ({ ...row }));
+  return {
+    rows,
+    updateMany: jest.fn(
+      ({
+        where,
+        data,
+      }: {
+        where: Record<string, unknown>;
+        data: Partial<FakeRepoRow>;
+      }) => {
+        let count = 0;
+        for (const row of rows) {
+          if (matchesWhere(row, where)) {
+            Object.assign(row, data);
+            count += 1;
+          }
+        }
+        return Promise.resolve({ count });
+      },
+    ),
+    findMany: jest.fn(({ where }: { where: Record<string, unknown> }) =>
+      Promise.resolve(rows.filter((row) => matchesWhere(row, where))),
+    ),
+  };
+}
+
 describe('asiaSeoulYear', () => {
   it('UTC 12/31 15:30(=KST 1/1 00:30)을 다음 해로 계산한다', () => {
     expect(asiaSeoulYear(new Date('2025-12-31T15:30:00.000Z'))).toBe(2026);
@@ -94,32 +155,28 @@ describe('asiaSeoulYear', () => {
 });
 
 describe('CollectionIncrementalRepository — repository identity', () => {
-  it('App installation id 없이 (githubOrganizationId, githubRepositoryId)로만 upsert한다', async () => {
+  it('githubRepositoryId 단일 unique key로 upsert한다(github repository id는 전역 유일)', async () => {
     const db = createDb();
-    db.collectionRepository.upsert.mockResolvedValue({ id: 'repo-1' });
+    db.githubRepository.upsert.mockResolvedValue({ id: 'repo-1' });
 
     await repositoryFor(db).recordRepositoryObservation({
       githubOrganizationId: 10n,
       githubRepositoryId: 20n,
-      fullName: 'org/repo',
+      nameWithOwner: 'org/repo',
       defaultBranch: 'main',
       archived: false,
       visibility: 'PUBLIC',
       presence: 'PRESENT',
+      source: 'ORG_PROVISIONED',
       observedAt: new Date('2026-07-31T00:00:00.000Z'),
     });
 
-    expect(db.collectionRepository.upsert).toHaveBeenCalledWith(
+    expect(db.githubRepository.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {
-          githubOrganizationId_githubRepositoryId: {
-            githubOrganizationId: 10n,
-            githubRepositoryId: 20n,
-          },
-        },
+        where: { githubRepositoryId: 20n },
       }),
     );
-    const calls = db.collectionRepository.upsert.mock
+    const calls = db.githubRepository.upsert.mock
       .calls as unknown as ReadonlyArray<
       readonly [
         {
@@ -131,6 +188,11 @@ describe('CollectionIncrementalRepository — repository identity', () => {
     const call = calls[0]?.[0];
     expect(call?.create).not.toHaveProperty('appId');
     expect(call?.update).not.toHaveProperty('appId');
+    expect(call?.create).toMatchObject({ source: 'ORG_PROVISIONED' });
+    expect(call?.update).toMatchObject({
+      source: 'ORG_PROVISIONED',
+      githubOrganizationId: 10n,
+    });
   });
 });
 
@@ -389,17 +451,18 @@ describe('CollectionIncrementalRepository — release facts (parity)', () => {
 describe('CollectionIncrementalRepository — transactional scope (todo 8 import)', () => {
   it('runs the callback against a repository scoped to one Prisma transaction and returns its result', async () => {
     const db = createDb();
-    db.collectionRepository.upsert.mockResolvedValue({ id: 'repo-1' });
+    db.githubRepository.upsert.mockResolvedValue({ id: 'repo-1' });
 
     const result = await repositoryFor(db).runInTransaction(async (repo) => {
       const row = await repo.recordRepositoryObservation({
         githubOrganizationId: 10n,
         githubRepositoryId: 20n,
-        fullName: 'org/repo',
+        nameWithOwner: 'org/repo',
         defaultBranch: 'main',
         archived: false,
         visibility: 'PUBLIC',
         presence: 'PRESENT',
+        source: 'ORG_PROVISIONED',
         observedAt: new Date('2026-07-31T00:00:00.000Z'),
       });
       return row.id;
@@ -407,23 +470,24 @@ describe('CollectionIncrementalRepository — transactional scope (todo 8 import
 
     expect(result).toBe('repo-1');
     expect(db.$transaction).toHaveBeenCalledTimes(1);
-    expect(db.collectionRepository.upsert).toHaveBeenCalledTimes(1);
+    expect(db.githubRepository.upsert).toHaveBeenCalledTimes(1);
   });
 
   it('propagates a mid-callback failure so the caller sees no partial success', async () => {
     const db = createDb();
-    db.collectionRepository.upsert.mockRejectedValue(new Error('boom'));
+    db.githubRepository.upsert.mockRejectedValue(new Error('boom'));
 
     await expect(
       repositoryFor(db).runInTransaction(async (repo) => {
         await repo.recordRepositoryObservation({
           githubOrganizationId: 10n,
           githubRepositoryId: 20n,
-          fullName: 'org/repo',
+          nameWithOwner: 'org/repo',
           defaultBranch: 'main',
           archived: false,
           visibility: 'PUBLIC',
           presence: 'PRESENT',
+          source: 'ORG_PROVISIONED',
           observedAt: new Date('2026-07-31T00:00:00.000Z'),
         });
       }),
@@ -452,21 +516,21 @@ describe('CollectionIncrementalRepository — Jan-1 empty current-year read', ()
 });
 
 describe('CollectionIncrementalRepository — todo 10 sync cursor/inventory', () => {
-  it('getSyncCursor은 (appId, organizationLogin) 복합키로 조회한다', async () => {
+  it('getSyncCursor은 (appId, scope) 복합키로 조회한다', async () => {
     const db = createDb();
     db.collectionSyncCursor.findUnique.mockResolvedValue({
       appId: 1n,
-      organizationLogin: 'jnu-swcu',
+      scope: 'org:jnu-swcu',
       lastGithubRepositoryId: 5n,
       cycleStartedAt: null,
       cycleCompletedAt: null,
     });
 
-    const result = await repositoryFor(db).getSyncCursor(1n, 'jnu-swcu');
+    const result = await repositoryFor(db).getSyncCursor(1n, 'org:jnu-swcu');
 
     expect(db.collectionSyncCursor.findUnique).toHaveBeenCalledWith({
       where: {
-        appId_organizationLogin: { appId: 1n, organizationLogin: 'jnu-swcu' },
+        appId_scope: { appId: 1n, scope: 'org:jnu-swcu' },
       },
     });
     expect(result?.lastGithubRepositoryId).toBe(5n);
@@ -474,14 +538,15 @@ describe('CollectionIncrementalRepository — todo 10 sync cursor/inventory', ()
 
   it('markAbsentRepositories는 이번 관찰에 없는 PRESENT 저장소만 ABSENT로 갱신한다', async () => {
     const db = createDb();
-    db.collectionRepository.updateMany.mockResolvedValue({ count: 2 });
+    db.githubRepository.updateMany.mockResolvedValue({ count: 2 });
 
     const observedAt = new Date('2026-08-01T00:00:00.000Z');
     await repositoryFor(db).markAbsentRepositories(10n, [1n, 2n], observedAt);
 
-    expect(db.collectionRepository.updateMany).toHaveBeenCalledWith({
+    expect(db.githubRepository.updateMany).toHaveBeenCalledWith({
       where: {
         githubOrganizationId: 10n,
+        source: 'ORG_PROVISIONED',
         presence: 'PRESENT',
         githubRepositoryId: { notIn: [1n, 2n] },
       },
@@ -491,14 +556,111 @@ describe('CollectionIncrementalRepository — todo 10 sync cursor/inventory', ()
 
   it('listPresentRepositories는 partial inventory 시 이어갈 PRESENT 저장소만 읽는다', async () => {
     const db = createDb();
-    db.collectionRepository.findMany.mockResolvedValue([{ id: 'repo-1' }]);
+    db.githubRepository.findMany.mockResolvedValue([{ id: 'repo-1' }]);
 
     const result = await repositoryFor(db).listPresentRepositories(10n);
 
-    expect(db.collectionRepository.findMany).toHaveBeenCalledWith({
-      where: { githubOrganizationId: 10n, presence: 'PRESENT' },
+    expect(db.githubRepository.findMany).toHaveBeenCalledWith({
+      where: {
+        githubOrganizationId: 10n,
+        source: 'ORG_PROVISIONED',
+        presence: 'PRESENT',
+      },
     });
     expect(result).toEqual([{ id: 'repo-1' }]);
+  });
+
+  it('listExternalRepositories는 EXTERNAL_PUBLIC이면서 PRESENT인 저장소만 읽는다', async () => {
+    const db = createDb();
+    db.githubRepository.findMany.mockResolvedValue([{ id: 'ext-1' }]);
+
+    const result = await repositoryFor(db).listExternalRepositories();
+
+    expect(db.githubRepository.findMany).toHaveBeenCalledWith({
+      where: { source: 'EXTERNAL_PUBLIC', presence: 'PRESENT' },
+    });
+    expect(result).toEqual([{ id: 'ext-1' }]);
+  });
+});
+
+describe('CollectionIncrementalRepository — GR-6 external 저장소는 org ABSENT sweep에서 살아남는다', () => {
+  /**
+   * 회귀 테스트: `markAbsentRepositories`/`listPresentRepositories`의 `where` 절에서
+   * `source: 'ORG_PROVISIONED'` 필터를 빼면 이 테스트가 fail한다. mock을 단순히
+   * "어떤 인자로 호출됐는지"만 기록하는 게 아니라, seed된 행 배열에 대해 실제로
+   * `where` 절을 적용하는 fake Prisma delegate(`createFakeGithubRepositoryStore`)를
+   * 써서 검증한다 — external 행의 `githubOrganizationId`를 org sweep과 **똑같은 값**으로
+   * seed해, 이 테스트가 "external 행은 githubOrganizationId가 null이라서 우연히 살아남는다"가
+   * 아니라 "source 필터가 실제로 막아준다"를 증명하도록 한다.
+   */
+  it('markAbsentRepositories는 organization installation listing에 없는 EXTERNAL_PUBLIC 저장소를 ABSENT로 바꾸지 않는다', async () => {
+    const store = createFakeGithubRepositoryStore([
+      {
+        id: 'org-kept',
+        githubOrganizationId: 10n,
+        githubRepositoryId: 1n,
+        presence: 'PRESENT',
+        source: 'ORG_PROVISIONED',
+      },
+      {
+        id: 'org-removed',
+        githubOrganizationId: 10n,
+        githubRepositoryId: 2n,
+        presence: 'PRESENT',
+        source: 'ORG_PROVISIONED',
+      },
+      {
+        id: 'ext-untouched',
+        githubOrganizationId: 10n, // org sweep과 동일한 조직 id로 seed — source 필터만이 이 행을 지킨다.
+        githubRepositoryId: 99n,
+        presence: 'PRESENT',
+        source: 'EXTERNAL_PUBLIC',
+      },
+    ]);
+    const db = createDb();
+    db.githubRepository.updateMany = store.updateMany;
+
+    // 이번 org installation listing에는 repo 1만 관찰됨(repo 2는 조직에서 제거됨).
+    // external 행(99)은 애초에 org listing에 나타나지 않으므로 관찰 목록에서 빠진다.
+    await repositoryFor(db).markAbsentRepositories(
+      10n,
+      [1n],
+      new Date('2026-08-01T00:00:00.000Z'),
+    );
+
+    const external = store.rows.find((row) => row.id === 'ext-untouched');
+    const removedOrgRepo = store.rows.find((row) => row.id === 'org-removed');
+    const keptOrgRepo = store.rows.find((row) => row.id === 'org-kept');
+    expect(external?.presence).toBe('PRESENT');
+    expect(removedOrgRepo?.presence).toBe('ABSENT');
+    expect(keptOrgRepo?.presence).toBe('PRESENT');
+  });
+
+  it('listPresentRepositories는 같은 조직 id를 가진 EXTERNAL_PUBLIC 저장소를 반환하지 않는다', async () => {
+    const store = createFakeGithubRepositoryStore([
+      {
+        id: 'org-1',
+        githubOrganizationId: 10n,
+        githubRepositoryId: 1n,
+        presence: 'PRESENT',
+        source: 'ORG_PROVISIONED',
+      },
+      {
+        id: 'ext-1',
+        githubOrganizationId: 10n,
+        githubRepositoryId: 99n,
+        presence: 'PRESENT',
+        source: 'EXTERNAL_PUBLIC',
+      },
+    ]);
+    const db = createDb();
+    db.githubRepository.findMany = store.findMany;
+
+    const result = await repositoryFor(db).listPresentRepositories(10n);
+
+    expect(result.map((row) => (row as unknown as FakeRepoRow).id)).toEqual([
+      'org-1',
+    ]);
   });
 });
 
@@ -511,7 +673,7 @@ describe('CollectionIncrementalRepository — todo 10 sync lease (epoch fencing)
     db.$queryRawUnsafe.mockResolvedValue([
       {
         appId: 1n,
-        organizationLogin: 'jnu-swcu',
+        scope: 'org:jnu-swcu',
         ownerId: 'owner-1',
         epoch: 1n,
         runId: 'run-1',
@@ -521,7 +683,7 @@ describe('CollectionIncrementalRepository — todo 10 sync lease (epoch fencing)
 
     const token = await repositoryFor(db).acquireSyncLease({
       appId: 1n,
-      organizationLogin: 'jnu-swcu',
+      scope: 'org:jnu-swcu',
       ownerId: 'owner-1',
       runId: 'run-1',
       now,
@@ -532,7 +694,7 @@ describe('CollectionIncrementalRepository — todo 10 sync lease (epoch fencing)
     expect(db.$queryRawUnsafe).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO "CollectionSyncLease"'),
       1n,
-      'jnu-swcu',
+      'org:jnu-swcu',
       'owner-1',
       expiresAt,
       'run-1',
@@ -546,7 +708,7 @@ describe('CollectionIncrementalRepository — todo 10 sync lease (epoch fencing)
 
     const token = await repositoryFor(db).acquireSyncLease({
       appId: 1n,
-      organizationLogin: 'jnu-swcu',
+      scope: 'org:jnu-swcu',
       ownerId: 'owner-1',
       runId: 'run-1',
       now,
@@ -564,7 +726,7 @@ describe('CollectionIncrementalRepository — todo 10 sync lease (epoch fencing)
       repositoryFor(db).heartbeatSyncLease(
         {
           appId: 1n,
-          organizationLogin: 'jnu-swcu',
+          scope: 'org:jnu-swcu',
           ownerId: 'owner-1',
           epoch: 1n,
           runId: 'run-1',
@@ -584,7 +746,7 @@ describe('CollectionIncrementalRepository — todo 10 sync lease (epoch fencing)
       repositoryFor(db).heartbeatSyncLease(
         {
           appId: 1n,
-          organizationLogin: 'jnu-swcu',
+          scope: 'org:jnu-swcu',
           ownerId: 'owner-1',
           epoch: 1n,
           runId: 'run-1',
@@ -603,7 +765,7 @@ describe('CollectionIncrementalRepository — todo 10 sync lease (epoch fencing)
     await repositoryFor(db).releaseSyncLease(
       {
         appId: 1n,
-        organizationLogin: 'jnu-swcu',
+        scope: 'org:jnu-swcu',
         ownerId: 'owner-1',
         epoch: 1n,
         runId: 'run-1',
@@ -615,7 +777,7 @@ describe('CollectionIncrementalRepository — todo 10 sync lease (epoch fencing)
     expect(db.$executeRawUnsafe).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE "CollectionSyncLease"'),
       1n,
-      'jnu-swcu',
+      'org:jnu-swcu',
       'owner-1',
       1n,
       'run-1',
@@ -631,7 +793,7 @@ describe('CollectionIncrementalRepository — todo 10 sync lease (epoch fencing)
       repositoryFor(db).assertSyncLeaseValid(
         {
           appId: 1n,
-          organizationLogin: 'jnu-swcu',
+          scope: 'org:jnu-swcu',
           ownerId: 'owner-1',
           epoch: 1n,
           runId: 'run-1',
@@ -650,7 +812,7 @@ describe('CollectionIncrementalRepository — todo 10 sync lease (epoch fencing)
       repositoryFor(db).assertSyncLeaseValid(
         {
           appId: 1n,
-          organizationLogin: 'jnu-swcu',
+          scope: 'org:jnu-swcu',
           ownerId: 'owner-1',
           epoch: 1n,
           runId: 'run-1',
@@ -662,7 +824,7 @@ describe('CollectionIncrementalRepository — todo 10 sync lease (epoch fencing)
     expect(db.$queryRawUnsafe).toHaveBeenCalledWith(
       expect.stringContaining('FOR UPDATE'),
       1n,
-      'jnu-swcu',
+      'org:jnu-swcu',
       'owner-1',
       1n,
       'run-1',

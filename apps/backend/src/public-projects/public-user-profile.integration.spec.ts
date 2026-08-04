@@ -2,6 +2,7 @@ import {
   ApplicationStatus,
   CollectionRepositoryPresence,
   ProgramCategory,
+  RepositorySource,
   RepositoryVisibility,
   Role,
 } from '@prisma/client';
@@ -135,13 +136,14 @@ describe('PublicProjectsService.findProfile integration', () => {
     // collection 관측: repo-a/repo-b/repo-d에는 CollectionRepository 행을 만든다(observed).
     // repo-c는 만들지 않는다(unobserved).
     for (const key of ['a', 'b', 'd'] as const) {
-      await prisma.collectionRepository.create({
+      await prisma.githubRepository.create({
         data: {
           id: `${PREFIX}-collection-repository-${key}`,
           githubOrganizationId: 8_800_500_000_000n,
           githubRepositoryId: githubRepositoryIdByKey[key],
-          fullName: `synthetic-org/${PREFIX}-repo-${key}`,
+          nameWithOwner: `synthetic-org/${PREFIX}-repo-${key}`,
           defaultBranch: 'main',
+          source: RepositorySource.ORG_PROVISIONED,
           visibility: RepositoryVisibility.PUBLIC,
           presence: CollectionRepositoryPresence.PRESENT,
           lastCompleteInventoryObservedAt: new Date('2026-05-01T00:00:00.000Z'),
@@ -208,7 +210,7 @@ describe('PublicProjectsService.findProfile integration', () => {
           repositoryId: { startsWith: `${PREFIX}-collection-repository` },
         },
       });
-      await prisma.collectionRepository.deleteMany({
+      await prisma.githubRepository.deleteMany({
         where: { id: { startsWith: `${PREFIX}-collection-repository` } },
       });
       // Repository.teamId가 Team을 참조하므로(RESTRICT) repository를 team보다 먼저 지운다.

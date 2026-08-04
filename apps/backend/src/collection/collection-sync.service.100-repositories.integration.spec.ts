@@ -39,6 +39,11 @@ assertIsolatedIntegrationDatabase({
 // writes through the runtime.
 const APP_ID = BigInt(SYNTHETIC_APP_ID);
 const ORG_LOGIN = SYNTHETIC_ORG_LOGIN;
+// Matches `CollectionSyncService`'s private `orgScope()` convention — org
+// sweep lease/cursor rows are keyed by `` `org:${organizationLogin}` ``, not
+// by the bare login, since `scope` also has to make room for the external
+// sweep's disjoint `"external"` key (GR-9).
+const SCOPE = `org:${ORG_LOGIN}`;
 const GITHUB_ORGANIZATION_ID = 9_000_000_300_002n;
 const OWNER_ID = 'synthetic-scale-suite-instance';
 
@@ -387,7 +392,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       APP_ID,
     );
     await prisma.$executeRawUnsafe(
-      'DELETE FROM "CollectionRepository" WHERE "githubOrganizationId" = $1',
+      'DELETE FROM "GithubRepository" WHERE "githubOrganizationId" = $1',
       GITHUB_ORGANIZATION_ID,
     );
     await prisma.$disconnect();
@@ -489,7 +494,6 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     expect(duplicateSeed.commits).toHaveLength(6);
     expect(uniqueCommitCount(duplicateSeed)).toBe(5);
     const duplicateRepoRow = await repository.findRepositoryByLogicalKey(
-      GITHUB_ORGANIZATION_ID,
       BigInt(duplicateSeed.id),
     );
     if (!duplicateRepoRow) throw new Error('duplicate-commit repo not synced');
@@ -503,7 +507,6 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     const tiesSeed = seeds.find((s) => s.name === PR_TIES_NAME);
     if (!tiesSeed) throw new Error('fixture missing PR-ties repo');
     const tiesRepoRow = await repository.findRepositoryByLogicalKey(
-      GITHUB_ORGANIZATION_ID,
       BigInt(tiesSeed.id),
     );
     if (!tiesRepoRow) throw new Error('PR-ties repo not synced');
@@ -606,7 +609,6 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     const tiesSeed = seeds.find((s) => s.name === PR_TIES_NAME);
     if (!tiesSeed) throw new Error('fixture missing PR-ties repo');
     const tiesRepoRow = await repository.findRepositoryByLogicalKey(
-      GITHUB_ORGANIZATION_ID,
       BigInt(tiesSeed.id),
     );
     if (!tiesRepoRow) throw new Error('PR-ties repo not synced');
@@ -641,7 +643,6 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     expect(delta['commit-list']).toBe(syntheticPageCount(rewritten.length) + 1);
 
     const repoRow = await repository.findRepositoryByLogicalKey(
-      GITHUB_ORGANIZATION_ID,
       BigInt(seed.id),
     );
     if (!repoRow) throw new Error('disconnected repo not synced');
@@ -679,7 +680,6 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     );
 
     const repoRow = await repository.findRepositoryByLogicalKey(
-      GITHUB_ORGANIZATION_ID,
       BigInt(seed.id),
     );
     if (!repoRow) throw new Error('release-changed repo not synced');
@@ -694,7 +694,6 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     const seed = seeds.find((s) => s.name === STABLE_CONTRAST_NAME);
     if (!seed) throw new Error('fixture missing stable contrast repo');
     const repoRow = await repository.findRepositoryByLogicalKey(
-      GITHUB_ORGANIZATION_ID,
       BigInt(seed.id),
     );
     if (!repoRow) throw new Error('stable contrast repo not synced');
@@ -734,13 +733,13 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     // (`2026-01-01T00:00:00.000Z` onward) fully deterministic and
     // independent of that real-clock state.
     await prisma.collectionSyncLease.deleteMany({
-      where: { appId: APP_ID, organizationLogin: ORG_LOGIN },
+      where: { appId: APP_ID, scope: SCOPE },
     });
 
     const now = new Date('2026-01-01T00:00:00.000Z');
     const stale = await repository.acquireSyncLease({
       appId: APP_ID,
-      organizationLogin: ORG_LOGIN,
+      scope: SCOPE,
       ownerId: 'stale-owner',
       runId: 'stale-run',
       now,
@@ -752,7 +751,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     const takeoverAt = new Date(now.getTime() + 2_000);
     const winner = await repository.acquireSyncLease({
       appId: APP_ID,
-      organizationLogin: ORG_LOGIN,
+      scope: SCOPE,
       ownerId: 'winning-owner',
       runId: 'winning-run',
       now: takeoverAt,
@@ -764,7 +763,6 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     const seed = seeds.find((s) => s.name === STABLE_CONTRAST_NAME);
     if (!seed) throw new Error('fixture missing stable contrast repo');
     const repoRow = await repository.findRepositoryByLogicalKey(
-      GITHUB_ORGANIZATION_ID,
       BigInt(seed.id),
     );
     if (!repoRow) throw new Error('stable contrast repo not synced');
@@ -793,7 +791,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     ).toBe(before);
 
     // Clean up the winning lease so it does not interfere with any other
-    // integration spec sharing this appId/organizationLogin.
+    // integration spec sharing this appId/scope.
     await repository.releaseSyncLease(
       winner!,
       new Date(takeoverAt.getTime() + 1),

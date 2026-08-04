@@ -162,7 +162,7 @@ Tailwind v4 기본 spacing 스케일을 그대로 쓴다.
 | `features/landing/cosmos/cosmos-graph.ts` | 연출용 그래프 생성과 3D 힘 기반 배치 |
 | `features/landing/cosmos/cosmos-camera.ts` | 다섯 구간 카메라 안무와 패널 구간 상수 |
 | `features/landing/cosmos/cosmos-renderer.ts` | canvas 2D 렌더 — 하늘·별·오로라·성운·관계선·천체·블룸·라벨·속도선 |
-| `features/landing/cosmos/cosmos-theme.ts` | canvas 전용 색 상수(`DEEP_SPACE_THEME`)와 보간 헬퍼 |
+| `features/landing/cosmos/cosmos-theme.ts` | canvas 전용 색 상수(`DAWN_THEME`)와 보간 헬퍼 |
 | `features/landing/cosmos/cosmos-quality.ts` | 프레임 예산을 넘기면 해상도를 낮추는 품질 거버너 |
 
 #### 무대 구조
@@ -309,12 +309,12 @@ Tailwind v4 기본 spacing 스케일을 그대로 쓴다.
 #### 색 토큰
 
 `globals.css`의 `--cosmos-*` semantic 토큰은 DOM 계층(패널·범례·진행 표시·버튼)만 칠한다.
-canvas 안의 색은 `cosmos-theme.ts`의 RGB 상수 세트(`DEEP_SPACE_THEME`)에서 나온다.
+canvas 안의 색은 `cosmos-theme.ts`의 RGB 상수 세트(`DAWN_THEME`)에서 나온다.
 약관 전문 문서(`public/policies/policy-document.css`)도 세 번째 사본이다 — 그 문서는 `sandbox=""` iframe 안의 별도 문서라 이 변수들을 물려받지 못해 같은 palette 값을 리터럴로 다시 선언한다. **세 곳이 분리돼 있으므로 우주 색을 바꿀 때는 셋을 함께 본다.**
 
 | semantic 토큰 | 참조 | 소비처 |
 | --- | --- | --- |
-| `--cosmos-void` | `--palette-black` | 여정 컨테이너 배경 |
+| `--cosmos-void` | `#00133a` (ramp 밖, `sky[0]`과 같아야 함) | 여정 컨테이너 배경, 가입 동선 바탕 |
 | `--cosmos-copy` | `--palette-white` | 제목·본문 기본색, 활성 진행 눈금, 링크·외곽선 버튼 |
 | `--cosmos-muted` | `--palette-navy-200` | eyebrow, 본문, 범례, 비활성 눈금, SCROLL 힌트 |
 | `--cosmos-repository` | `--palette-green-300` | 흐름 패널의 STEP 번호 |
@@ -336,9 +336,9 @@ canvas 안의 색은 `cosmos-theme.ts`의 RGB 상수 세트(`DEEP_SPACE_THEME`)�
 | 확인 중 | `세션 확인 중` (비활성, `aria-busy="true"`) | — |
 | 익명 | `회원가입 / 로그인` — 로그인 실패 뒤에는 `로그인 다시 시도` | `/signup` |
 | 로그인·역할 미확정 | `회원가입 / 로그인` — 비로그인과 **같은** 버튼 | `/signup` |
-| 학생 | `내 대시보드` | `/dashboard` |
-| 교직원 | `운영 대시보드` | `/staff/dashboard` |
-| 관리자 | `교직원 승인` | `/admin/staff-requests` |
+| 학생 | `내 대시보드` | `/dashboard` (본문: 학생 대시보드) |
+| 교직원 | `운영 대시보드` | `/dashboard` (본문: 운영 대시보드) |
+| 관리자 | `관리 콘솔` | `/dashboard` (본문: 관리 콘솔) |
 | 조회 실패 | `회원가입 / 로그인` — 비로그인과 **같은** 버튼을 그대로 낸다 | `/signup` |
 
 익명과 역할 미확정이 목적지를 공유하는 이유는 **진입점이 둘이어도 목적지는 하나여야 하기** 때문이다 — 사용자 눈에는 둘 다 "들어가기"일 뿐이고, 재개 지점 판단은 `/signup`이 대신하므로 `가입 계속하기`라는 별도 갈래를 두지 않는다(`features/auth/signup-entry-link.ts`).
@@ -393,8 +393,8 @@ nav는 조회 실패에서 종전대로 링크를 숨긴다(`role-home-link.tsx`
 | 항목 | 결정 |
 | --- | --- |
 | 바탕 | 순백색을 유지한다 |
-| 상단 Nav | 프로그램 · 공개 아카이브 · 랭킹. 가입 완료 시 **대시보드**(`/dashboard`, 라벨 고정) |
-| 왼쪽 사이드 패널 | **컨텍스트형** — 프로그램 `?status=` · 아카이브 `?category=` · 랭킹 `?year=` · 대시보드 역할 홈. 필터는 flat 피어(네스트 트리 금지). 카운트 뱃지 0도 표시 |
+| 상단 Nav | 프로그램 · 공개 아카이브 · 랭킹. 가입 완료 시 **대시보드**(`/dashboard`, 라벨 고정). 입구 URL은 역할 무관 하나이고, 본문·좌측 메뉴만 세션 `User.role`(DB, `/auth/me`)로 갈린다. 비회원에게는 항목 자체를 붙이지 않는다 |
+| 왼쪽 사이드 패널 | **컨텍스트형** — 프로그램 `?status=` · 아카이브 `?category=` · 랭킹 `?year=` · 대시보드 역할 메뉴(학생: 저장소·활동 / 교직원: 프로그램 등록 / 관리자: 감사·시스템). 필터는 flat 피어(네스트 트리 금지). 카운트 뱃지 0도 표시 |
 | 모바일(&lt;900px) | 좌측 패널 숨김. 본문 칩으로 동일 필터 |
 | 레이아웃 | 전체 폭 Nav 아래 `[사이드 \| 본문]`(≥900px). 랜딩·가입은 패널 없음 |
 | 표면 톤 | 우주/랜딩 오버레이는 `data-surface="inverted"`, 그 외는 기본(흰 바) |

@@ -182,7 +182,7 @@ export class CollectionGenerationImportService {
           const row = await repo.recordRepositoryObservation({
             githubOrganizationId,
             githubRepositoryId: group.repository.githubRepositoryId,
-            fullName: group.repository.fullName,
+            nameWithOwner: group.repository.fullName,
             defaultBranch: group.repository.defaultBranch,
             archived: group.repository.archived,
             visibility:
@@ -190,6 +190,10 @@ export class CollectionGenerationImportService {
                 ? 'PUBLIC'
                 : 'PRIVATE',
             presence: 'PRESENT',
+            // Legacy canonical generations only ever held org installation
+            // repositories — external public repos did not exist in that
+            // model, so backfill import always claims ORG_PROVISIONED.
+            source: 'ORG_PROVISIONED',
             observedAt: snapshot.finishedAt,
           });
 

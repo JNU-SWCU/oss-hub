@@ -51,6 +51,7 @@ PR을 제출하기 전 `docs/handoff/TEAM-STATE.md`의 해당 기능 행을 이 
 
 공용 경로(공유 lib·설정·CI)는 독립 소형 PR로만 수정하고 착수 전 Issue로 선점을 선언하며 PR 범위·분해 기준은 `docs/rules/pr-scope.md`가 원본이다.
 DB 마이그레이션은 직렬로만 진행하며 동시 마이그레이션 PR을 만들지 않는다.
+테이블 추가·모델 명명·projection 설계 기준은 `docs/rules/data-modeling.md`가 원본이다.
 
 ### 리뷰 결과 운용 — ADR-005 waypoint
 

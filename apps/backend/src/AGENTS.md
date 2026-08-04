@@ -7,7 +7,7 @@
 
 NestJS 모듈별 소스이며 모듈마다 폴더 하나를 쓴다.
 `common/`·`prisma/`는 전 모듈이 공유하는 기반 계층이다.
-`health/`·`consents/`·`login-history/`·`profiles/`·`ranking/`·`showcase/`·`users/`·`system-status/`·`repository-ownership/`·`runtime-config/`·`public-eligibility/`는 별도 문서 없이 이 문서가 다룬다.
+`health/`·`consents/`·`login-history/`·`profiles/`·`ranking/`·`showcase/`·`users/`·`system-status/`·`runtime-config/`·`public-eligibility/`는 별도 문서 없이 이 문서가 다룬다.
 `login-history/README.md`만 보존 정책을 추가로 설명한다.
 
 ## Key Files

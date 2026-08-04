@@ -12,10 +12,10 @@ describe('resolveSessionEntry', () => {
 
   it.each([
     ['STUDENT', '/dashboard', '내 대시보드'],
-    ['STAFF', '/staff/dashboard', '운영 대시보드'],
-    ['ADMIN', '/admin/access', '관리 콘솔'],
+    ['STAFF', '/dashboard', '운영 대시보드'],
+    ['ADMIN', '/dashboard', '관리 콘솔'],
   ] as const)(
-    'role이 확정된(assigned) %s는 역할 홈 경로를 반환한다(랜딩 CTA 등)',
+    'role이 확정된(assigned) %s는 회원 공통 대시보드 입구를 반환한다(랜딩 CTA 등)',
     (role, href, label) => {
       const destination = resolveSessionEntry('assigned', role, true);
 

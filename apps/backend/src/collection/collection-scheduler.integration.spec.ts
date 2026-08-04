@@ -11,13 +11,17 @@ describe('CollectionScheduler integration', () => {
     Promise<{ runId: string; status: 'COMPLETED' }>,
     [string]
   >();
+  const runExternal = jest.fn<
+    Promise<{ runId: string; status: 'COMPLETED' }>,
+    [string]
+  >();
   const isQuiesced = jest.fn<Promise<boolean>, [Date]>();
 
   beforeAll(async () => {
     testingModule = await Test.createTestingModule({
       providers: [
         CollectionSchedulerService,
-        { provide: CollectionSyncService, useValue: { run } },
+        { provide: CollectionSyncService, useValue: { run, runExternal } },
         { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
       ],
     }).compile();
@@ -26,6 +30,7 @@ describe('CollectionScheduler integration', () => {
 
   afterEach(() => {
     run.mockReset();
+    runExternal.mockReset();
     isQuiesced.mockReset();
   });
 
@@ -39,11 +44,17 @@ describe('CollectionScheduler integration', () => {
       runId: 'synthetic-scheduler-run-id',
       status: 'COMPLETED',
     });
+    runExternal.mockResolvedValue({
+      runId: 'synthetic-scheduler-external-run-id',
+      status: 'COMPLETED',
+    });
 
     const result = await scheduler.trigger();
     expect(result.status).toBe('PENDING');
     expect(run).toHaveBeenCalledTimes(1);
     expect(run.mock.calls[0]?.[0]).toMatch(/^scheduler:/);
+    expect(runExternal).toHaveBeenCalledTimes(1);
+    expect(runExternal.mock.calls[0]?.[0]).toBe(run.mock.calls[0]?.[0]);
   });
 
   it('COL_008 quiesce 거부를 변경 없이 전파한다', async () => {
@@ -53,5 +64,6 @@ describe('CollectionScheduler integration', () => {
       errorCode: { code: 'COL_008', status: 409 },
     });
     expect(run).not.toHaveBeenCalled();
+    expect(runExternal).not.toHaveBeenCalled();
   });
 });

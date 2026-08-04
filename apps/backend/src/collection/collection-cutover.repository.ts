@@ -19,15 +19,15 @@ export class CollectionCutoverRepository {
     input: AcquireCutoverLeaseInput,
   ): Promise<CutoverLeaseToken | null> {
     const rows = await this.db.$queryRawUnsafe<CutoverLeaseToken[]>(
-      `INSERT INTO "CollectionCutoverLease" ("appId", "organizationLogin", "epoch", "ownerId", "expiresAt", "runId", "updatedAt")
+      `INSERT INTO "CollectionCutoverLease" ("appId", "scope", "epoch", "ownerId", "expiresAt", "runId", "updatedAt")
        VALUES ($1, $2, 1, $3, $4, $5, $6)
-       ON CONFLICT ("appId", "organizationLogin") DO UPDATE SET
+       ON CONFLICT ("appId", "scope") DO UPDATE SET
          "epoch" = "CollectionCutoverLease"."epoch" + 1, "ownerId" = EXCLUDED."ownerId",
          "expiresAt" = EXCLUDED."expiresAt", "runId" = EXCLUDED."runId", "updatedAt" = EXCLUDED."updatedAt"
        WHERE "CollectionCutoverLease"."expiresAt" <= $6
-       RETURNING "appId", "organizationLogin", "ownerId", "epoch", "runId", "expiresAt"`,
+       RETURNING "appId", "scope", "ownerId", "epoch", "runId", "expiresAt"`,
       input.appId,
-      input.organizationLogin,
+      input.scope,
       input.ownerId,
       input.expiresAt,
       input.runId,
@@ -40,9 +40,9 @@ export class CollectionCutoverRepository {
   async releaseLease(token: CutoverLeaseToken, now: Date): Promise<void> {
     await this.db.$executeRawUnsafe(
       `UPDATE "CollectionCutoverLease" SET "expiresAt" = $6, "updatedAt" = $6
-       WHERE "appId" = $1 AND "organizationLogin" = $2 AND "ownerId" = $3 AND "epoch" = $4 AND "runId" = $5`,
+       WHERE "appId" = $1 AND "scope" = $2 AND "ownerId" = $3 AND "epoch" = $4 AND "runId" = $5`,
       token.appId,
-      token.organizationLogin,
+      token.scope,
       token.ownerId,
       token.epoch,
       token.runId,

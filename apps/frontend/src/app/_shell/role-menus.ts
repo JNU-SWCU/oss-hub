@@ -12,12 +12,15 @@ export const STUDENT_MENU: NavItem[] = [
 ];
 
 export const STAFF_MENU: NavItem[] = [
-  { label: '운영 대시보드', href: '/staff/dashboard' },
+  // 입구 URL은 회원 공통 `/dashboard`. 본문만 세션 역할(STAFF)로 갈린다.
+  { label: '운영 대시보드', href: '/dashboard' },
   { label: '프로그램 등록', href: '/staff/programs/new' },
 ];
 
 export const ADMIN_MENU: NavItem[] = [
-  { label: '관리 콘솔', href: '/admin/access' },
+  // 입구 URL은 회원 공통 `/dashboard`. 본문만 세션 역할(ADMIN)로 갈린다.
+  // `/admin/access` 물리 경로·모달 intercept는 deep link로 당분간 유지한다.
+  { label: '관리 콘솔', href: '/dashboard' },
   { label: '감사 로그', href: '/admin/audit-log' },
   { label: '시스템 상태', href: '/admin/system-status' },
 ];
