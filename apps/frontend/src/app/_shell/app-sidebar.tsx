@@ -6,17 +6,14 @@ import { ShellIcon } from './shell-icons';
 import { isCurrentSidebarItem, type SidebarGroup } from './sidebar-menu';
 
 /**
- * 왼쪽 “내 상황” 사이드바 — 가입 완료 회원의 역할 홈만.
- * 공개 메뉴·브랜드는 위 공통 `ShellNav`가 담당한다(랜딩과 동일 컴포넌트).
- *
- * - 펼침 248px / 접힘 72px. 폭은 셸 그리드(`ProductShell`) 토큰.
- * - 접힌 상태에서도 아이콘이 링크다. 이름표는 hover·키보드 포커스 모두.
- * - 현재 위치는 배경 + 굵기 + 왼쪽 막대.
- * - 900px 미만은 가로 스크롤 띠(접힘 없음).
+ * 왼쪽 사이드 패널 — 프로그램 메뉴(탑다운 상태) + (회원) 내 상황.
+ * 상단 `ShellNav`와 짝이다.
  */
 interface AppSidebarProps {
   readonly groups: readonly SidebarGroup[];
   readonly pathname: string;
+  /** `useSearchParams().toString()` — 프로그램 status 강조용 */
+  readonly search?: string;
   readonly collapsed: boolean;
   readonly onToggle: () => void;
 }
@@ -24,6 +21,7 @@ interface AppSidebarProps {
 export function AppSidebar({
   groups,
   pathname,
+  search = '',
   collapsed,
   onToggle,
 }: AppSidebarProps) {
@@ -54,7 +52,7 @@ export function AppSidebar({
         ) : (
           <>
             <p className="font-heading text-[15px] font-bold tracking-[-0.02em] text-sidebar-foreground">
-              내 상황
+              메뉴
             </p>
             <button
               type="button"
@@ -72,7 +70,7 @@ export function AppSidebar({
 
       <nav
         data-slot="app-sidebar-nav"
-        aria-label="내 상황"
+        aria-label="주요 메뉴"
         className={cn(
           'flex gap-1 overflow-x-auto p-3 min-[900px]:flex-col min-[900px]:gap-0.5 min-[900px]:overflow-x-visible',
           collapsed && 'min-[900px]:items-center min-[900px]:px-2',
@@ -101,7 +99,11 @@ export function AppSidebar({
               {group.label}
             </p>
             {group.items.map((item) => {
-              const current = isCurrentSidebarItem(pathname, item.href);
+              const current = isCurrentSidebarItem(
+                pathname,
+                item.href,
+                search,
+              );
               return (
                 <Link
                   key={item.href}

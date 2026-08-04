@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { AppSidebar } from './app-sidebar';
 import { sidebarGroupsFor } from './sidebar-menu';
@@ -17,20 +17,21 @@ export function readStoredCollapsed(raw: string | null): boolean {
 }
 
 /**
- * 상단 ShellNav **아래**에 붙는 업무 레일 — 왼쪽 “내 상황” 사이드바 + 본문.
+ * 상단 ShellNav **아래** 왼쪽 사이드 패널 + 본문.
  *
- * 공개 메뉴·계정 슬롯은 위 공통 Nav가 담당한다(랜딩과 같은 `ShellNav`).
- * 여기는 가입을 마친 사람의 역할 홈만 담는다. 비회원이면 사이드바 없이 본문만.
+ * - **프로그램 메뉴**(모집중·진행중·접수대기·종료)는 비회원 포함 항상
+ * - **내 상황** 역할 홈은 가입 완료 시에만
  *
- * 서버 렌더는 항상 “펼침”이다. localStorage는 브라우저에만 있어 서버가 알 수 없고,
- * 서버·클라이언트가 다른 값을 그리면 hydration이 깨진다.
+ * 서버 렌더는 항상 “펼침”이다 (localStorage hydration).
  */
 export function ProductShell({ children }: { readonly children: ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const search = searchParams.toString();
   const { status, role, isProfileComplete } = useSessionRole();
-  const showSituation =
+  const member =
     status === 'assigned' && role !== null && isProfileComplete;
-  const groups = showSituation ? sidebarGroupsFor(role) : [];
+  const groups = sidebarGroupsFor(member ? role : null);
 
   const [collapsed, setCollapsed] = useState(false);
   const [restored, setRestored] = useState(false);
@@ -41,32 +42,24 @@ export function ProductShell({ children }: { readonly children: ReactNode }) {
         readStoredCollapsed(window.localStorage.getItem(SIDEBAR_STORAGE_KEY)),
       );
     } catch {
-      // Safari 프라이빗 모드 등 — 기본값(펼침)
+      // Safari 프라이빗 모드 등
     }
     setRestored(true);
   }, []);
 
   useEffect(() => {
-    if (!restored || !showSituation) return;
+    if (!restored) return;
     try {
       window.localStorage.setItem(
         SIDEBAR_STORAGE_KEY,
         collapsed ? SIDEBAR_COLLAPSED_VALUE : SIDEBAR_OPEN_VALUE,
       );
     } catch {
-      // 저장 실패해도 이번 세션 접힘 상태는 유지
+      // ignore
     }
-  }, [collapsed, restored, showSituation]);
+  }, [collapsed, restored]);
 
   const toggle = useCallback(() => setCollapsed((prev) => !prev), []);
-
-  if (!showSituation || groups.length === 0) {
-    return (
-      <div id="main-content" tabIndex={-1} className="min-w-0 flex-1">
-        {children}
-      </div>
-    );
-  }
 
   return (
     <div
@@ -82,6 +75,7 @@ export function ProductShell({ children }: { readonly children: ReactNode }) {
       <AppSidebar
         groups={groups}
         pathname={pathname}
+        search={search}
         collapsed={collapsed}
         onToggle={toggle}
       />

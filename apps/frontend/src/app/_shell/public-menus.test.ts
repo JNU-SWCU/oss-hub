@@ -34,14 +34,17 @@ describe('공개 메뉴 단일 원본 (상단 전담)', () => {
     expect(publicHrefs).not.toContain('/settings');
   });
 
-  it('사이드바(내 상황)에는 공개 목적지가 없다 — 상단 전담', () => {
+  it('사이드바에는 아카이브·랭킹이 없다 — 상단 전담 (프로그램 상태 필터는 패널)', () => {
     for (const role of ['STUDENT', 'STAFF', 'ADMIN'] as const) {
       const hrefs = sidebarGroupsFor(role).flatMap((g) =>
         g.items.map((i) => i.href),
       );
-      for (const item of PUBLIC_MENU) {
-        expect(hrefs, `${role} / ${item.label}`).not.toContain(item.href);
-      }
+      expect(hrefs).not.toContain('/archive');
+      expect(hrefs).not.toContain('/ranking');
+      // 프로그램 목록 입구·status 필터는 사이드 패널에 있다
+      expect(hrefs.some((h) => h === '/programs' || h.startsWith('/programs?'))).toBe(
+        true,
+      );
     }
   });
 

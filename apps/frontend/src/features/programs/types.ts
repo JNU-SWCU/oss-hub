@@ -64,6 +64,12 @@ export const PROGRAM_LIST_STATUS_LABELS = {
   ended: '종료',
 } as const satisfies Readonly<Record<ProgramListStatus, string>>;
 
+/** 사이드 패널·칩 공용. `all`은 쿼리 없이 `/programs`. */
+export function programListHref(status: ProgramListStatus): string {
+  if (status === 'all') return '/programs';
+  return `/programs?status=${status}`;
+}
+
 export interface ProgramListParams {
   readonly page: number;
   readonly pageSize: number;
