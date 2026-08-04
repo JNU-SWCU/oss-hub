@@ -13,7 +13,7 @@ const RISK_ACCEPT_LINE =
 const EVIDENCE_MARKERS = ['CODE_CONTRACT', 'PONYTAIL', 'QA', 'CLI', 'CI'];
 const QA_NA_MIN_REASON_LENGTH = 10;
 
-export const MERGE_READY_ACTORS = ['GoBeromsu', 'Lumiere001'];
+export const MERGE_READY_ACTORS = ['GoBeromsu', 'Lumiere001', 'Lumeire002'];
 export const PM_ACTOR = 'GoBeromsu';
 export const TECH_LEAD_ACTOR = 'Lumiere001';
 
