@@ -111,6 +111,15 @@ test('일반 PR: 현재 head·base 고정 MERGE_READY와 증거가 있으면 통
   assert.equal(result.mergeReadyCommentId, 10);
 });
 
+test('리뷰 증거 전용 계정의 MERGE_READY는 일반 PR에서 유효하다', () => {
+  const result = evaluate({
+    comments: [comment(10, 'Lumeire002', mergeReadyBody())],
+  });
+  assert.equal(result.conclusion, 'success');
+  assert.equal(result.risk, 'GENERAL');
+  assert.equal(result.mergeReadyCommentId, 10);
+});
+
 test('증거 marker가 없으면 실패한다', () => {
   const result = evaluate({
     comments: [
@@ -447,6 +456,46 @@ test('HIGH_RISK: 잘못된 actor의 PM_ACCEPT는 무효다', () => {
     ],
   });
   assert.equal(result.conclusion, 'failure');
+});
+
+test('리뷰 증거 전용 계정의 TECH_LEAD_ACCEPT는 무효다', () => {
+  const result = evaluate({
+    comments: [
+      comment(10, 'Lumeire002', mergeReadyBody({ risk: 'HIGH_RISK' })),
+      comment(11, 'Lumeire002', techLeadAccept()),
+    ],
+  });
+  assert.equal(result.conclusion, 'failure');
+  assert.ok(
+    result.reasons.some(
+      (reason) =>
+        reason.includes('PM_ACCEPT') && reason.includes('TECH_LEAD_ACCEPT'),
+    ),
+  );
+});
+
+test('리뷰 증거 전용 계정의 RISK_ACCEPT는 무효다', () => {
+  const result = evaluate({
+    changedFiles: CANDIDATE_FILES,
+    comments: [
+      comment(10, 'Lumeire002', mergeReadyBody()),
+      comment(11, 'Lumeire002', riskAccept('TECH_LEAD')),
+    ],
+  });
+  assert.equal(result.conclusion, 'failure');
+  assert.ok(result.reasons.some((reason) => reason.includes('RISK_ACCEPT')));
+});
+
+test('리뷰 증거 전용 계정의 PM_ACCEPT는 배포 계약 승인이 아니다', () => {
+  const result = evaluate({
+    changedFiles: DEPLOY_CONTRACT_FILES,
+    comments: [
+      comment(10, 'Lumeire002', mergeReadyBody({ risk: 'HIGH_RISK' })),
+      comment(11, 'Lumeire002', pmAccept()),
+    ],
+  });
+  assert.equal(result.conclusion, 'failure');
+  assert.ok(result.reasons.some((reason) => reason.includes('PM_ACCEPT')));
 });
 
 test('docs-only QA N/A는 구체적 사유가 있으면 허용한다', () => {
