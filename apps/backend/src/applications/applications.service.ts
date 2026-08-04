@@ -16,16 +16,14 @@ import {
   normalizeAndValidateApplicationAnswers,
 } from '../programs/application-answers.validator';
 import {
-  getProgramTemplate,
-  PROGRAM_PARTICIPATION,
-} from '../programs/program-template.registry';
-import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
 } from './applications-error-code.enum';
 import type { ApplicationListQuery } from './application-list-query';
 import {
   ApplicationDuplicateError,
+  ApplicationJoinCodeDigestConflictError,
+  ApplicationTeamMembershipConflictError,
   ApplicationsRepository,
   type ApplicationListPage,
   type CreatedApplication,
@@ -63,6 +61,8 @@ interface TeamMinimumExtensions extends ProblemDetailExtensions {
   readonly memberCount: number;
   readonly teamMinSize: number;
 }
+
+const JOIN_CODE_ATTEMPTS = 5;
 
 @Injectable()
 export class ApplicationsService {
@@ -113,16 +113,7 @@ export class ApplicationsService {
       throw this.error(ApplicationsErrorCode.INVALID_ANSWERS);
     }
 
-    const template = getProgramTemplate(program.category);
-    const teamId = input.teamId;
-
-    if (template.participation === PROGRAM_PARTICIPATION.INDIVIDUAL) {
-      if (teamId !== null) {
-        throw this.error(ApplicationsErrorCode.TEAM_NOT_ALLOWED);
-      }
-    } else if (teamId === null) {
-      throw this.error(ApplicationsErrorCode.TEAM_REQUIRED);
-    }
+    const teamName = input.teamName?.trim() || applicantName;
 
     try {
       return await this.repository.withCreateTransaction(async (store) => {
@@ -133,46 +124,48 @@ export class ApplicationsService {
         if (programLifecycle === ProgramLifecycle.ARCHIVED) {
           throw this.error(ApplicationsErrorCode.PROGRAM_ARCHIVED);
         }
-        if (teamId !== null) {
-          const team = await store.findTeamForApply(
-            teamId,
-            programId,
-            student.id,
-          );
-          if (!team) {
-            throw this.error(ApplicationsErrorCode.TEAM_NOT_FOUND);
-          }
-          if (!team.isMember) {
-            throw this.error(ApplicationsErrorCode.TEAM_MEMBERSHIP_REQUIRED);
-          }
-          if (
-            team.teamMinSize !== null &&
-            team.memberCount < team.teamMinSize
-          ) {
-            const extensions: TeamMinimumExtensions = {
-              memberCount: team.memberCount,
-              teamMinSize: team.teamMinSize,
-            };
-            throw new DomainException(
-              APPLICATIONS_ERROR_CODES[
-                ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET
-              ],
-              extensions,
-            );
-          }
 
-          const duplicate = await store.findTeamDuplicate(programId, teamId);
-          if (duplicate) {
-            throw this.error(ApplicationsErrorCode.DUPLICATE_APPLICATION);
-          }
-        } else {
-          const duplicate = await store.findPersonalDuplicate(
-            programId,
-            student.id,
+        const teamMinSize = await store.findTeamMinSize(programId);
+        // 신청 시 항상 1인 팀을 만든다. 최소 인원 > 1 이면 초대 후 재신청이 필요하다.
+        if (teamMinSize !== null && teamMinSize > 1) {
+          const extensions: TeamMinimumExtensions = {
+            memberCount: 1,
+            teamMinSize,
+          };
+          throw new DomainException(
+            APPLICATIONS_ERROR_CODES[
+              ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET
+            ],
+            extensions,
           );
-          if (duplicate) {
-            throw this.error(ApplicationsErrorCode.DUPLICATE_APPLICATION);
+        }
+
+        let teamId: string | null = null;
+        for (let attempt = 0; attempt < JOIN_CODE_ATTEMPTS; attempt += 1) {
+          const joinCode = this.repository.generateJoinCode();
+          const joinCodeDigest =
+            this.repository.computeJoinCodeDigest(joinCode);
+          try {
+            const team = await store.createTeamWithLeader({
+              programId,
+              name: teamName,
+              joinCodeDigest,
+              leaderId: student.id,
+            });
+            teamId = team.id;
+            break;
+          } catch (error) {
+            if (error instanceof ApplicationJoinCodeDigestConflictError) {
+              continue;
+            }
+            if (error instanceof ApplicationTeamMembershipConflictError) {
+              throw this.error(ApplicationsErrorCode.DUPLICATE_APPLICATION);
+            }
+            throw error;
           }
+        }
+        if (teamId === null) {
+          throw new Error('join code digest collision retries exhausted');
         }
 
         return store.createApplication({
@@ -189,6 +182,9 @@ export class ApplicationsService {
     } catch (error) {
       if (error instanceof DomainException) throw error;
       if (error instanceof ApplicationDuplicateError) {
+        throw this.error(ApplicationsErrorCode.DUPLICATE_APPLICATION);
+      }
+      if (error instanceof ApplicationTeamMembershipConflictError) {
         throw this.error(ApplicationsErrorCode.DUPLICATE_APPLICATION);
       }
       throw error;

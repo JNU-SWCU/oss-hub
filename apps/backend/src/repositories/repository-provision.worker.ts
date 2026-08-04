@@ -168,10 +168,11 @@ export class RepositoryProvisionWorker {
     }
     try {
       const event = parseRepositoryProvisionEvent(context.eventPayload);
+      // 백필 이전에 기록된 PENDING 이벤트는 teamId가 null이다.
       if (
         event.applicationId !== context.applicationId ||
         event.programId !== context.programId ||
-        event.teamId !== context.teamId
+        (event.teamId !== null && event.teamId !== context.teamId)
       ) {
         throw new InvalidRepositoryProvisionEventError();
       }

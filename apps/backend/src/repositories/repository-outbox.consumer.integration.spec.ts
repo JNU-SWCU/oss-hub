@@ -34,10 +34,16 @@ function programId(applicationId: string): string {
   return `${applicationId}-program`;
 }
 
+function teamIdFor(applicationId: string): string {
+  return `${applicationId}-team`;
+}
+
 async function createApprovedApplication(applicationId: string): Promise<void> {
+  const program = programId(applicationId);
+  const teamId = teamIdFor(applicationId);
   await prisma.program.create({
     data: {
-      id: programId(applicationId),
+      id: program,
       name: `program-${applicationId}`,
       organizer: 'synthetic-organizer',
       category: ProgramCategory.BASIC,
@@ -49,11 +55,29 @@ async function createApprovedApplication(applicationId: string): Promise<void> {
       repositoryProvisioningEnabled: true,
     },
   });
+  await prisma.team.create({
+    data: {
+      id: teamId,
+      programId: program,
+      name: `${applicationId}-team`,
+      joinCodeDigest: `${applicationId}-team-digest`,
+      leaderId: APPLICANT_ID,
+    },
+  });
+  await prisma.teamMember.create({
+    data: {
+      id: `${applicationId}-team-member`,
+      teamId,
+      programId: program,
+      userId: APPLICANT_ID,
+    },
+  });
   await prisma.application.create({
     data: {
       id: applicationId,
-      programId: programId(applicationId),
+      programId: program,
       applicantId: APPLICANT_ID,
+      teamId,
       answers: { synthetic: true },
       applicationTemplateVersion: 1,
       status: ApplicationStatus.APPROVED,
@@ -110,6 +134,12 @@ describe('RepositoryOutboxConsumer integration', () => {
     });
     await prisma.application.deleteMany({
       where: { id: { in: [...APPLICATION_IDS] } },
+    });
+    await prisma.teamMember.deleteMany({
+      where: { id: { in: APPLICATION_IDS.map((id) => `${id}-team-member`) } },
+    });
+    await prisma.team.deleteMany({
+      where: { id: { in: APPLICATION_IDS.map(teamIdFor) } },
     });
     await prisma.program.deleteMany({
       where: { id: { in: APPLICATION_IDS.map(programId) } },

@@ -144,11 +144,29 @@ async function createPreservedAssets(
       description: 'Synthetic account lifecycle fixture (PR04H)',
     },
   });
+  const team = await prisma.team.create({
+    data: {
+      id: `${prefix}team`,
+      programId: program.id,
+      name: `${prefix}team`,
+      joinCodeDigest: `${prefix}team-digest`,
+      leaderId: staffId,
+    },
+  });
+  await prisma.teamMember.create({
+    data: {
+      id: `${prefix}team-member`,
+      teamId: team.id,
+      programId: program.id,
+      userId: staffId,
+    },
+  });
   const application = await prisma.application.create({
     data: {
       id: `${prefix}application`,
       programId: program.id,
       applicantId: staffId,
+      teamId: team.id,
       answers: { synthetic: true },
       applicationTemplateVersion: 1,
     },

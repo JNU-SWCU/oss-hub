@@ -25,9 +25,12 @@ let baseUrl = '';
 
 const applications = [
   {
-    teamId: null,
+    teamId: 'team-1',
     applicant: { githubId: 11n },
-    team: null,
+    team: {
+      leader: { githubId: 11n },
+      members: [{ user: { githubId: 11n } }],
+    },
     program: {
       id: 'program-1',
       name: 'Capstone 2026',
@@ -118,7 +121,7 @@ it.each([
     expect(response.status).toBe(200);
     const body: unknown = await response.json();
     expect(body).toMatchObject({
-      programs: [{ programId: 'program-1', applicationMode: 'PERSONAL' }],
+      programs: [{ programId: 'program-1', applicationMode: 'TEAM' }],
       series: {
         granularity,
         points: [

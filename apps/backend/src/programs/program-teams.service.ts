@@ -8,10 +8,6 @@ import {
 import type { RuntimeConfig } from '../runtime-config/runtime-config';
 import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
 import {
-  getProgramTemplate,
-  PROGRAM_PARTICIPATION,
-} from './program-template.registry';
-import {
   JoinCodeDigestConflictError,
   ProgramTeamsRepository,
   TeamMembershipConflictError,
@@ -24,7 +20,7 @@ import type { CreatedTeamView, ProgramTeamView } from './program-teams.types';
 
 const JOIN_CODE_ATTEMPTS = 5;
 
-function generateJoinCode(): string {
+export function generateJoinCode(): string {
   return randomBytes(6).toString('base64url').toUpperCase().slice(0, 10);
 }
 
@@ -46,7 +42,7 @@ export class ProgramTeamsService {
     now: Date = new Date(),
   ): Promise<CreatedTeamView> {
     const student = await this.requireStudent(githubId);
-    await this.requireTeamProgram(programId, now);
+    await this.requireOpenProgram(programId, now);
     const trimmedName = name.trim();
 
     let joinCode = '';
@@ -107,8 +103,7 @@ export class ProgramTeamsService {
     now: Date = new Date(),
   ): Promise<ProgramTeamView> {
     const student = await this.requireStudent(githubId);
-    const program = await this.requireTeamProgram(programId, now);
-    const maxSize = program.teamMaxSize as number;
+    const program = await this.requireOpenProgram(programId, now);
     const normalizedCode = joinCode.trim();
     if (!normalizedCode) {
       throw this.error(TeamsErrorCode.JOIN_CODE_NOT_FOUND);
@@ -138,7 +133,11 @@ export class ProgramTeamsService {
         if (team.hasApplication) {
           throw this.error(TeamsErrorCode.TEAM_LOCKED_AFTER_APPLICATION);
         }
-        if (team.memberCount >= maxSize) {
+        // teamMaxSize == null means unlimited capacity.
+        if (
+          program.teamMaxSize != null &&
+          team.memberCount >= program.teamMaxSize
+        ) {
           throw this.error(TeamsErrorCode.TEAM_FULL);
         }
 
@@ -161,7 +160,6 @@ export class ProgramTeamsService {
     if (!program) {
       throw this.error(TeamsErrorCode.PROGRAM_NOT_FOUND);
     }
-    this.assertTeamParticipation(program);
 
     const detail = await this.repository.findTeamDetailForUser(
       programId,
@@ -181,7 +179,7 @@ export class ProgramTeamsService {
     return student;
   }
 
-  private async requireTeamProgram(
+  private async requireOpenProgram(
     programId: string,
     now: Date,
   ): Promise<TeamProgramRecord> {
@@ -189,35 +187,22 @@ export class ProgramTeamsService {
     if (!program) {
       throw this.error(TeamsErrorCode.PROGRAM_NOT_FOUND);
     }
-    this.assertTeamParticipation(program);
     if (now < program.applicationStartAt || now > program.applicationEndAt) {
       throw this.error(TeamsErrorCode.APPLICATION_PERIOD_CLOSED);
     }
-    if (program.teamMaxSize == null) {
-      throw this.error(TeamsErrorCode.TEAM_SIZE_MISCONFIGURED);
-    }
     return program;
-  }
-
-  private assertTeamParticipation(program: TeamProgramRecord): void {
-    const template = getProgramTemplate(program.category);
-    if (template.participation === PROGRAM_PARTICIPATION.INDIVIDUAL) {
-      throw this.error(TeamsErrorCode.TEAM_NOT_ALLOWED);
-    }
   }
 
   private toTeamView(
     detail: TeamDetailRecord,
     viewerUserId: string,
   ): ProgramTeamView {
-    if (detail.teamMaxSize == null) {
-      throw this.error(TeamsErrorCode.TEAM_SIZE_MISCONFIGURED);
-    }
     return {
       id: detail.id,
       name: detail.name,
       memberCount: detail.members.length,
       minMembers: detail.teamMinSize,
+      // null maxMembers means unlimited capacity.
       maxMembers: detail.teamMaxSize,
       locked: detail.hasApplication,
       isLeader: detail.leaderId === viewerUserId,

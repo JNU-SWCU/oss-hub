@@ -66,11 +66,30 @@ describe('ShowcaseProjectionRepository integration', () => {
         description: 'synthetic-description',
       },
     });
+    const showcaseTeamIds = APPLICATION_IDS.map((id) => `${id}-team`);
+    await prisma.team.createMany({
+      data: APPLICATION_IDS.map((id, index) => ({
+        id: showcaseTeamIds[index]!,
+        programId: PROGRAM_ID,
+        name: `${id}-team`,
+        joinCodeDigest: `${id}-team-digest`,
+        leaderId: index === 0 ? USER_ID : OTHER_USER_ID,
+      })),
+    });
+    await prisma.teamMember.createMany({
+      data: APPLICATION_IDS.map((id, index) => ({
+        id: `${id}-team-member`,
+        teamId: showcaseTeamIds[index]!,
+        programId: PROGRAM_ID,
+        userId: index === 0 ? USER_ID : OTHER_USER_ID,
+      })),
+    });
     await prisma.application.createMany({
       data: APPLICATION_IDS.map((id, index) => ({
         id,
         programId: PROGRAM_ID,
         applicantId: index === 0 ? USER_ID : OTHER_USER_ID,
+        teamId: showcaseTeamIds[index]!,
         answers: {},
         applicationTemplateVersion: 1,
         status: ApplicationStatus.APPROVED,
@@ -115,6 +134,12 @@ describe('ShowcaseProjectionRepository integration', () => {
       });
       await prisma.application.deleteMany({
         where: { id: { in: [...APPLICATION_IDS] } },
+      });
+      await prisma.teamMember.deleteMany({
+        where: { programId: PROGRAM_ID },
+      });
+      await prisma.team.deleteMany({
+        where: { programId: PROGRAM_ID },
       });
       await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
       await prisma.user.deleteMany({

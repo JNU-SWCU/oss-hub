@@ -80,6 +80,33 @@ describe('SubmissionsService integration', () => {
       ],
       skipDuplicates: true,
     });
+    const unapprovedTeamId = `${UNAPPROVED_APPLICATION_ID}-team`;
+    await prisma.team.upsert({
+      where: { id: unapprovedTeamId },
+      update: {},
+      create: {
+        id: unapprovedTeamId,
+        programId: MILESTONES_PROGRAM_ID,
+        name: `${UNAPPROVED_APPLICATION_ID}-team`,
+        joinCodeDigest: `${UNAPPROVED_APPLICATION_ID}-team-digest`,
+        leaderId: UNAPPROVED_USER_ID,
+      },
+    });
+    await prisma.teamMember.upsert({
+      where: {
+        teamId_userId: {
+          teamId: unapprovedTeamId,
+          userId: UNAPPROVED_USER_ID,
+        },
+      },
+      update: {},
+      create: {
+        id: `${UNAPPROVED_APPLICATION_ID}-team-member`,
+        teamId: unapprovedTeamId,
+        programId: MILESTONES_PROGRAM_ID,
+        userId: UNAPPROVED_USER_ID,
+      },
+    });
     await prisma.application.upsert({
       where: { id: UNAPPROVED_APPLICATION_ID },
       update: { status: ApplicationStatus.SUBMITTED },
@@ -87,6 +114,7 @@ describe('SubmissionsService integration', () => {
         id: UNAPPROVED_APPLICATION_ID,
         programId: MILESTONES_PROGRAM_ID,
         applicantId: UNAPPROVED_USER_ID,
+        teamId: unapprovedTeamId,
         answers: { synthetic: true },
         applicationTemplateVersion: 1,
         status: ApplicationStatus.SUBMITTED,
@@ -140,6 +168,12 @@ describe('SubmissionsService integration', () => {
     });
     await prisma.application.deleteMany({
       where: { id: UNAPPROVED_APPLICATION_ID },
+    });
+    await prisma.teamMember.deleteMany({
+      where: { id: `${UNAPPROVED_APPLICATION_ID}-team-member` },
+    });
+    await prisma.team.deleteMany({
+      where: { id: `${UNAPPROVED_APPLICATION_ID}-team` },
     });
     await prisma.user.deleteMany({
       where: { id: { in: [NON_STUDENT_USER_ID, UNAPPROVED_USER_ID] } },

@@ -3,9 +3,7 @@ import type { ErrorCode } from '../common/error-code';
 export enum TeamsErrorCode {
   STUDENT_ONLY = 'TEAM_001',
   PROGRAM_NOT_FOUND = 'TEAM_002',
-  TEAM_NOT_ALLOWED = 'TEAM_003',
   APPLICATION_PERIOD_CLOSED = 'TEAM_004',
-  TEAM_SIZE_MISCONFIGURED = 'TEAM_005',
   ALREADY_IN_PROGRAM_TEAM = 'TEAM_006',
   TEAM_FULL = 'TEAM_007',
   TEAM_LOCKED_AFTER_APPLICATION = 'TEAM_008',
@@ -24,20 +22,10 @@ export const TEAMS_ERROR_CODES: Record<TeamsErrorCode, ErrorCode> = {
     status: 404,
     message: '프로그램을 찾을 수 없습니다.',
   },
-  [TeamsErrorCode.TEAM_NOT_ALLOWED]: {
-    code: TeamsErrorCode.TEAM_NOT_ALLOWED,
-    status: 422,
-    message: '개인형 프로그램에서는 팀을 구성할 수 없습니다.',
-  },
   [TeamsErrorCode.APPLICATION_PERIOD_CLOSED]: {
     code: TeamsErrorCode.APPLICATION_PERIOD_CLOSED,
     status: 422,
     message: '신청 기간이 아닙니다.',
-  },
-  [TeamsErrorCode.TEAM_SIZE_MISCONFIGURED]: {
-    code: TeamsErrorCode.TEAM_SIZE_MISCONFIGURED,
-    status: 422,
-    message: '팀 최대 인원이 설정되지 않은 프로그램입니다.',
   },
   [TeamsErrorCode.ALREADY_IN_PROGRAM_TEAM]: {
     code: TeamsErrorCode.ALREADY_IN_PROGRAM_TEAM,

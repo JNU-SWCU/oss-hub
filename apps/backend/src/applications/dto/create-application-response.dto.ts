@@ -8,7 +8,7 @@ export class CreateApplicationResponseDto {
   readonly id: string;
   readonly programId: string;
   readonly status: ApplicationStatus;
-  readonly teamId: string | null;
+  readonly teamId: string;
   readonly submittedAt: string;
   readonly isRepositoryPublicationPlanned: boolean;
   readonly repositoryConnectionMode: RepositoryConnectionMode;

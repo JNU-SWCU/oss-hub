@@ -17,7 +17,7 @@ export interface ProgramTeamView {
   readonly name: string;
   readonly memberCount: number;
   readonly minMembers: number | null;
-  readonly maxMembers: number;
+  readonly maxMembers: number | null;
   readonly locked: boolean;
   readonly isLeader: boolean;
   readonly members: readonly TeamMemberView[];

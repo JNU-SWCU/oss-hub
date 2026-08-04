@@ -242,7 +242,9 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
             operation(transaction),
         ),
     };
-    const repository = new ApplicationsRepository(prisma as never);
+    const repository = new ApplicationsRepository(prisma as never, {
+      TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
+    });
 
     const page = await repository.listApplicationsForProgram(PROGRAM_ID, query);
 

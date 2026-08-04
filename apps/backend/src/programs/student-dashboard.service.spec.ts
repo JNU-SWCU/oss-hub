@@ -18,9 +18,10 @@ function application(overrides: Record<string, unknown> = {}) {
   return {
     id: 'application-1',
     status: ApplicationStatus.APPROVED,
-    teamId: null,
+    // D5: 개인 참여 = 1인 팀. teamId/team은 항상 있다.
+    teamId: 'solo-team-1',
     applicant: { name: 'Synthetic Applicant', nickname: 'synthetic' },
-    team: null,
+    team: { name: 'Synthetic Applicant' },
     program: {
       id: 'program-1',
       name: 'Synthetic Program',
@@ -76,7 +77,7 @@ describe('StudentDashboardService', () => {
     );
   });
 
-  it('maps owned personal and team applications and queries no other ownership paths', async () => {
+  it('maps owned solo-team and multi-member team applications and queries team membership only', async () => {
     findMany.mockResolvedValue([
       application(),
       application({
@@ -89,10 +90,11 @@ describe('StudentDashboardService', () => {
 
     const items = await service.getStudentDashboard(101n);
 
+    // D5: teamId non-null → applicationMode는 항상 TEAM. displayName은 team.name.
     expect(items).toEqual([
       expect.objectContaining({
         applicationId: 'application-1',
-        applicationMode: 'PERSONAL',
+        applicationMode: 'TEAM',
         displayName: 'Synthetic Applicant',
         detailUrl: '/programs/program-1',
         checklistUrl: '/programs/program-1/submissions',
@@ -109,17 +111,13 @@ describe('StudentDashboardService', () => {
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          OR: [
-            { teamId: null, applicant: { githubId: 101n } },
-            {
-              team: {
-                OR: [
-                  { leader: { githubId: 101n } },
-                  { members: { some: { user: { githubId: 101n } } } },
-                ],
-              },
-            },
-          ],
+          // production student-dashboard.service.ts — 팀 소속 하나로 판정(D5).
+          team: {
+            OR: [
+              { leader: { githubId: 101n } },
+              { members: { some: { user: { githubId: 101n } } } },
+            ],
+          },
         },
       }),
     );

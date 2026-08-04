@@ -138,6 +138,33 @@ describe('SubmissionMatrixService integration', () => {
         status: RoleRequestStatus.PENDING,
       },
     });
+    const unsubmittedTeamId = `${UNSUBMITTED_APPLICATION_ID}-team`;
+    await prisma.team.upsert({
+      where: { id: unsubmittedTeamId },
+      update: {},
+      create: {
+        id: unsubmittedTeamId,
+        programId: PROGRAM_ID,
+        name: `${UNSUBMITTED_APPLICATION_ID}-team`,
+        joinCodeDigest: `${UNSUBMITTED_APPLICATION_ID}-team-digest`,
+        leaderId: ROWHOLDER_ID,
+      },
+    });
+    await prisma.teamMember.upsert({
+      where: {
+        teamId_userId: {
+          teamId: unsubmittedTeamId,
+          userId: ROWHOLDER_ID,
+        },
+      },
+      update: {},
+      create: {
+        id: `${UNSUBMITTED_APPLICATION_ID}-team-member`,
+        teamId: unsubmittedTeamId,
+        programId: PROGRAM_ID,
+        userId: ROWHOLDER_ID,
+      },
+    });
     await prisma.application.upsert({
       where: { id: UNSUBMITTED_APPLICATION_ID },
       update: { status: ApplicationStatus.APPROVED },
@@ -145,6 +172,7 @@ describe('SubmissionMatrixService integration', () => {
         id: UNSUBMITTED_APPLICATION_ID,
         programId: PROGRAM_ID,
         applicantId: ROWHOLDER_ID,
+        teamId: unsubmittedTeamId,
         answers: { synthetic: true },
         applicationTemplateVersion: 1,
         status: ApplicationStatus.APPROVED,
@@ -155,6 +183,12 @@ describe('SubmissionMatrixService integration', () => {
   afterAll(async () => {
     await prisma.application.deleteMany({
       where: { id: UNSUBMITTED_APPLICATION_ID },
+    });
+    await prisma.teamMember.deleteMany({
+      where: { id: `${UNSUBMITTED_APPLICATION_ID}-team-member` },
+    });
+    await prisma.team.deleteMany({
+      where: { id: `${UNSUBMITTED_APPLICATION_ID}-team` },
     });
     await prisma.roleRequest.deleteMany({ where: { id: PENDING_REQUEST_ID } });
     await prisma.user.deleteMany({
@@ -348,9 +382,12 @@ describe('SubmissionMatrixService integration', () => {
     },
   );
 
-  it('형태 필터는 개인형과 팀형을 정확히 나눈다', async () => {
-    // When
-    const [personalOnly, teamOnly] = await Promise.all([
+  it('참여 유형 필터는 더 이상 행을 가르지 않는다', async () => {
+    // 모든 신청이 Team을 갖고 개인 참여는 1인 팀이므로(D5·D6) 개인형/팀형 구분이
+    // 사라졌다. 예전 필터를 그대로 두면 조용히 0건을 반환하므로 필터링을 제거했고,
+    // 어떤 값을 넣어도 전체 행이 그대로 나오는 것이 새 계약이다.
+    // 쿼리 파라미터 자체의 제거는 표시 계층 정리에서 이어서 한다.
+    const [personalOnly, teamOnly, noFilter] = await Promise.all([
       service.matrix(
         seedGithubId(STAFF_VIEWER_ID),
         PROGRAM_ID,
@@ -361,18 +398,23 @@ describe('SubmissionMatrixService integration', () => {
         PROGRAM_ID,
         query({ applicationMode: 'TEAM' }),
       ),
+      service.matrix(seedGithubId(STAFF_VIEWER_ID), PROGRAM_ID, query({})),
     ]);
 
     // Then
-    expect(personalOnly.rows.map((row) => row.applicationId)).toEqual([
+    expect(personalOnly.rows.map((row) => row.applicationId)).toEqual(
+      noFilter.rows.map((row) => row.applicationId),
+    );
+    expect(teamOnly.rows.map((row) => row.applicationId)).toEqual(
+      noFilter.rows.map((row) => row.applicationId),
+    );
+    expect(personalOnly.total).toBe(noFilter.total);
+    expect(teamOnly.total).toBe(noFilter.total);
+    expect(noFilter.rows.map((row) => row.applicationId)).toEqual([
       PERSONAL_APPLICATION_ID,
+      TEAM_APPLICATION_ID,
       UNSUBMITTED_APPLICATION_ID,
     ]);
-    expect(personalOnly.total).toBe(2);
-    expect(teamOnly.rows.map((row) => row.applicationId)).toEqual([
-      TEAM_APPLICATION_ID,
-    ]);
-    expect(teamOnly.total).toBe(1);
   });
 
   it('페이지네이션은 안정 정렬을 유지하고 total은 페이지와 무관하다', async () => {

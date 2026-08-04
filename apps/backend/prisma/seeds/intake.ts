@@ -102,6 +102,29 @@ async function upsertApplication(
   },
 ) {
   const answers = placeholderAnswers(params.scenarioId);
+  // 모든 신청이 Team을 갖는다(D5). 시나리오가 팀을 지정하지 않으면 프로덕션의 신청
+  // 경로와 같은 모양으로 신청자 1인 팀을 만들어 붙인다.
+  const teamId =
+    params.teamId ??
+    (
+      await upsertTeam(stats, {
+        id: seedId('intake', params.scenarioId, 'solo-team'),
+        programId: params.programId,
+        name: `${params.scenarioId} 1인 팀`,
+        // 시나리오 전체를 써야 digest가 시나리오마다 달라진다. joinCodeDigest는
+        // @unique라 앞부분만 자르면 시나리오끼리 충돌한다.
+        joinCode: `SEED-SOLO-${params.scenarioId.toUpperCase()}`,
+        leaderId: params.applicantId,
+      })
+    ).id;
+  if (!params.teamId) {
+    await upsertTeamMember(stats, {
+      id: seedId('intake', params.scenarioId, 'solo-team-member'),
+      teamId,
+      programId: params.programId,
+      userId: params.applicantId,
+    });
+  }
   return upsertTracked(
     stats,
     'Application',
@@ -119,7 +142,7 @@ async function upsertApplication(
           id: params.id,
           programId: params.programId,
           applicantId: params.applicantId,
-          teamId: params.teamId,
+          teamId,
           answers,
           applicationTemplateVersion: 1,
           status: params.status,

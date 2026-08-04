@@ -90,11 +90,29 @@ describe('PublicProjectsService.findProfile integration', () => {
     const applicationIds = repoKeys.map(
       (key) => `${PREFIX}-application-${key}`,
     );
+    await prisma.team.createMany({
+      data: repoKeys.map((key, index) => ({
+        id: `${PREFIX}-application-team-${key}`,
+        programId: PROGRAM_ID,
+        name: `${PREFIX}-application-team-${key}`,
+        joinCodeDigest: `${PREFIX}-application-team-digest-${key}`,
+        leaderId: applicantIds[index]!,
+      })),
+    });
+    await prisma.teamMember.createMany({
+      data: repoKeys.map((key, index) => ({
+        id: `${PREFIX}-application-team-member-${key}`,
+        teamId: `${PREFIX}-application-team-${key}`,
+        programId: PROGRAM_ID,
+        userId: applicantIds[index]!,
+      })),
+    });
     await prisma.application.createMany({
       data: repoKeys.map((key, index) => ({
         id: `${PREFIX}-application-${key}`,
         programId: PROGRAM_ID,
         applicantId: applicantIds[index]!,
+        teamId: `${PREFIX}-application-team-${key}`,
         answers: {},
         applicationTemplateVersion: 1,
         status: ApplicationStatus.APPROVED,
@@ -213,14 +231,16 @@ describe('PublicProjectsService.findProfile integration', () => {
       await prisma.githubRepository.deleteMany({
         where: { id: { startsWith: `${PREFIX}-collection-repository` } },
       });
-      // Repository.teamId가 Team을 참조하므로(RESTRICT) repository를 team보다 먼저 지운다.
+      // Application.teamId / Repository.teamId가 Team을 참조하므로(RESTRICT)
+      // repository·application을 team보다 먼저 지운다.
       await prisma.repository.deleteMany({
         where: { programId: PROGRAM_ID },
       });
-      await prisma.team.deleteMany({
-        where: { id: { startsWith: `${PREFIX}-team` } },
-      });
       await prisma.application.deleteMany({ where: { programId: PROGRAM_ID } });
+      await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
+      await prisma.team.deleteMany({
+        where: { programId: PROGRAM_ID },
+      });
       await prisma.userProfile.deleteMany({ where: { userId: OWNER_ID } });
       await prisma.user.deleteMany({
         where: { id: { startsWith: PREFIX } },

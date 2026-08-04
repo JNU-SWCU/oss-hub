@@ -80,8 +80,9 @@ export function submissionMatrixApplicationWhere(
     programId,
     status: ApplicationStatus.APPROVED,
   };
-  if (filter.applicationMode === 'PERSONAL') where.teamId = null;
-  if (filter.applicationMode === 'TEAM') where.teamId = { not: null };
+  // 참여 유형(개인형/팀형) 필터는 D6로 폐지됐다 — 모든 신청이 Team을 갖고 개인 참여는
+  // 1인 팀이라 teamId로는 더 이상 구분되지 않는다. 조용히 0건을 반환하는 필터를
+  // 남기지 않기 위해 여기서 제거한다.
   if (filter.q.length > 0) {
     const contains = { contains: filter.q, mode: 'insensitive' as const };
     where.OR = [

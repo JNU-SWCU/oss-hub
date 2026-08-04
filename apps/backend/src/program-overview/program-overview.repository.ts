@@ -111,24 +111,19 @@ export class ProgramOverviewRepository {
       return null;
     }
 
-    const [teamMemberRows, individualApplicantRows, connectedRepositoryCount] =
-      await Promise.all([
-        this.prisma.teamMember.findMany({
-          where: { programId },
-          select: { userId: true },
-          distinct: ['userId'],
-        }),
-        this.prisma.application.findMany({
-          where: { programId, teamId: null },
-          select: { applicantId: true },
-          distinct: ['applicantId'],
-        }),
-        this.prisma.repository.count({ where: { programId } }),
-      ]);
-    const participantIds = new Set<string>([
-      ...teamMemberRows.map((row) => row.userId),
-      ...individualApplicantRows.map((row) => row.applicantId),
+    // 모든 신청이 Team을 갖고 개인 참여는 1인 팀이므로(D5) 참여자는 TeamMember 하나로
+    // 세어진다. 예전에는 teamId가 null인 개인 신청자를 따로 합쳐야 했다.
+    const [teamMemberRows, connectedRepositoryCount] = await Promise.all([
+      this.prisma.teamMember.findMany({
+        where: { programId },
+        select: { userId: true },
+        distinct: ['userId'],
+      }),
+      this.prisma.repository.count({ where: { programId } }),
     ]);
+    const participantIds = new Set<string>(
+      teamMemberRows.map((row) => row.userId),
+    );
 
     return {
       programId: program.id,

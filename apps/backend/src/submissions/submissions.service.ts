@@ -63,7 +63,7 @@ export class SubmissionsService {
     const deadline = programDeadline(milestone.dueAt, now);
     return {
       applicationId: application.id,
-      applicationMode: application.teamId ? 'TEAM' : 'PERSONAL',
+      applicationMode: application.teamMemberCount > 1 ? 'TEAM' : 'PERSONAL',
       milestone: {
         id: milestone.id,
         name: milestone.name,
@@ -164,7 +164,7 @@ export class SubmissionsService {
     );
     return {
       applicationId: application.id,
-      applicationMode: application.teamId ? 'TEAM' : 'PERSONAL',
+      applicationMode: application.teamMemberCount > 1 ? 'TEAM' : 'PERSONAL',
       items: milestones.map((milestone) =>
         this.toChecklistItem(milestone, now),
       ),

@@ -26,6 +26,7 @@ const LEADER_APPLICATION_ID = `${PREFIX}-leader-application`;
 const MEMBER_APPLICATION_ID = `${PREFIX}-member-application`;
 const UNRELATED_APPLICATION_ID = `${PREFIX}-unrelated-application`;
 const UNAPPROVED_APPLICATION_ID = `${PREFIX}-unapproved-application`;
+const PERSONAL_TEAM_ID = `${PREFIX}-personal-team`;
 const LEADER_TEAM_ID = `${PREFIX}-leader-team`;
 const MEMBER_TEAM_ID = `${PREFIX}-member-team`;
 const UNRELATED_TEAM_ID = `${PREFIX}-unrelated-team`;
@@ -80,6 +81,13 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
     });
     await prisma.team.createMany({
       data: [
+        {
+          id: PERSONAL_TEAM_ID,
+          programId: PROGRAM_ID,
+          name: `${PREFIX}-personal-team`,
+          joinCodeDigest: `${PREFIX}-personal-team-digest`,
+          leaderId: CURRENT_USER_ID,
+        },
         {
           id: LEADER_TEAM_ID,
           programId: PROGRAM_ID,
@@ -138,6 +146,7 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
         where: {
           teamId: {
             in: [
+              PERSONAL_TEAM_ID,
               LEADER_TEAM_ID,
               MEMBER_TEAM_ID,
               UNRELATED_TEAM_ID,
@@ -150,6 +159,7 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
         where: {
           id: {
             in: [
+              PERSONAL_TEAM_ID,
               LEADER_TEAM_ID,
               MEMBER_TEAM_ID,
               UNRELATED_TEAM_ID,
@@ -181,10 +191,10 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
     expect(byApplication.get(PERSONAL_APPLICATION_ID)).toEqual({
       application: {
         id: PERSONAL_APPLICATION_ID,
-        teamId: null,
+        teamId: PERSONAL_TEAM_ID,
         applicant: { nickname: `${PREFIX}-Current` },
         program: { name: `${PREFIX}-program` },
-        team: null,
+        team: { name: `${PREFIX}-personal-team` },
       },
       status: RepositoryProvisionJobStatus.PENDING,
       lastErrorCode: 'SYNTHETIC_ERROR',
@@ -240,7 +250,7 @@ async function createFixtures(): Promise<void> {
       application(
         PERSONAL_APPLICATION_ID,
         CURRENT_USER_ID,
-        null,
+        PERSONAL_TEAM_ID,
         ApplicationStatus.APPROVED,
       ),
       application(
@@ -351,7 +361,7 @@ async function createFixtures(): Promise<void> {
 function application(
   id: string,
   applicantId: string,
-  teamId: string | null,
+  teamId: string,
   status: ApplicationStatus,
 ) {
   return {

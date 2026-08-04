@@ -130,11 +130,30 @@ async function createScenario(params: {
   });
 
   const applicationId = `${PREFIX}-${params.key}-application`;
+  const teamId = `${PREFIX}-${params.key}-team`;
+  await prisma.team.create({
+    data: {
+      id: teamId,
+      programId: params.programId,
+      name: `${PREFIX}-${params.key}-team`,
+      joinCodeDigest: `${PREFIX}-${params.key}-team-digest`,
+      leaderId: applicantId,
+    },
+  });
+  await prisma.teamMember.create({
+    data: {
+      id: `${PREFIX}-${params.key}-team-member`,
+      teamId,
+      programId: params.programId,
+      userId: applicantId,
+    },
+  });
   await prisma.application.create({
     data: {
       id: applicationId,
       programId: params.programId,
       applicantId,
+      teamId,
       answers: { syntheticFixture: true },
       applicationTemplateVersion: 1,
       status: ApplicationStatus.APPROVED,
@@ -487,6 +506,12 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         where: { id: { startsWith: `${PREFIX}-` } },
       });
       await prisma.application.deleteMany({
+        where: { id: { startsWith: `${PREFIX}-` } },
+      });
+      await prisma.teamMember.deleteMany({
+        where: { id: { startsWith: `${PREFIX}-` } },
+      });
+      await prisma.team.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
       // AuditLog는 append-only(트리거로 삭제/수정을 막는다) — 이 테스트가 만든 synthetic

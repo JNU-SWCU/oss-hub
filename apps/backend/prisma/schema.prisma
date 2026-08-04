@@ -242,8 +242,9 @@ enum RepositoryConnectionMode {
   OWN
 }
 
-/// teamId는 nullable이다 — 개인형은 null, 팀형만 API 검증으로 필수(#109 계약 잠금).
-/// 개인·팀 중복 신청 방지 partial unique는 Prisma로 표현할 수 없어 마이그레이션 SQL에 둔다(#164).
+/// 모든 신청은 Team을 갖는다. 개인 참여는 멤버 1명인 팀이다(사용자 결정 D5 — 기존 #109 nullable 계약을 대체).
+/// (programId, teamId) full unique. 1 프로그램당 1 팀 소속은 TeamMember @@unique([programId, userId])가 막고,
+/// 1 팀당 1 신청은 이 unique가 막아 신청자 중복을 성립시킨다.
 model Application {
   id        String  @id @default(cuid())
   programId String
@@ -252,8 +253,8 @@ model Application {
   applicantId String
   applicant   User   @relation("ApplicationApplicant", fields: [applicantId], references: [id])
 
-  teamId String?
-  team   Team?   @relation(fields: [teamId], references: [id])
+  teamId String
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Restrict)
 
   /// 7종 고정 템플릿 field별 응답(#118 계약을 따른다).
   answers                    Json
@@ -288,6 +289,7 @@ model Application {
   @@index([programId])
   @@index([applicantId])
   @@index([teamId])
+  @@unique([programId, teamId])
 }
 
 model Team {
@@ -629,7 +631,7 @@ enum RepositoryVisibility {
   PUBLIC
 }
 
-/// application id당 최대 한 건 — 개인형도 지원해야 하므로 programId+teamId unique로 식별하지 않는다(#113 계약 잠금).
+/// application id당 최대 한 건. 모든 신청이 Team을 갖더라도(1인 팀 포함, D5) 저장소 식별 단위는 application이다 — programId+teamId unique로 식별하지 않는다(#113).
 model Repository {
   id String @id @default(cuid())
 

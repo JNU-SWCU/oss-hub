@@ -110,6 +110,28 @@ async function cleanup(): Promise<void> {
       id: { in: [MISSING_APPLICATION, SUBMITTED_APPLICATION, OFF_APPLICATION] },
     },
   });
+  await prisma.teamMember.deleteMany({
+    where: {
+      teamId: {
+        in: [
+          `${MISSING_APPLICATION}-team`,
+          `${SUBMITTED_APPLICATION}-team`,
+          `${OFF_APPLICATION}-team`,
+        ],
+      },
+    },
+  });
+  await prisma.team.deleteMany({
+    where: {
+      id: {
+        in: [
+          `${MISSING_APPLICATION}-team`,
+          `${SUBMITTED_APPLICATION}-team`,
+          `${OFF_APPLICATION}-team`,
+        ],
+      },
+    },
+  });
   await prisma.milestone.deleteMany({
     where: { id: { in: [NOTIFY_MILESTONE, SILENT_MILESTONE] } },
   });
@@ -205,33 +227,47 @@ beforeEach(async () => {
       Role.STUDENT,
     ),
   });
+  const applicationTeamFixtures = [
+    {
+      applicationId: MISSING_APPLICATION,
+      applicantId: STUDENT_MISSING,
+    },
+    {
+      applicationId: SUBMITTED_APPLICATION,
+      applicantId: STUDENT_SUBMITTED,
+    },
+    {
+      applicationId: OFF_APPLICATION,
+      applicantId: STUDENT_OFF,
+    },
+  ] as const;
+  await prisma.team.createMany({
+    data: applicationTeamFixtures.map(({ applicationId, applicantId }) => ({
+      id: `${applicationId}-team`,
+      programId: NOTIFY_PROGRAM,
+      name: `${applicationId}-team`,
+      joinCodeDigest: `${applicationId}-digest`,
+      leaderId: applicantId,
+    })),
+  });
+  await prisma.teamMember.createMany({
+    data: applicationTeamFixtures.map(({ applicationId, applicantId }) => ({
+      id: `${applicationId}-member`,
+      teamId: `${applicationId}-team`,
+      programId: NOTIFY_PROGRAM,
+      userId: applicantId,
+    })),
+  });
   await prisma.application.createMany({
-    data: [
-      {
-        id: MISSING_APPLICATION,
-        programId: NOTIFY_PROGRAM,
-        applicantId: STUDENT_MISSING,
-        answers: {},
-        applicationTemplateVersion: 1,
-        status: ApplicationStatus.APPROVED,
-      },
-      {
-        id: SUBMITTED_APPLICATION,
-        programId: NOTIFY_PROGRAM,
-        applicantId: STUDENT_SUBMITTED,
-        answers: {},
-        applicationTemplateVersion: 1,
-        status: ApplicationStatus.APPROVED,
-      },
-      {
-        id: OFF_APPLICATION,
-        programId: NOTIFY_PROGRAM,
-        applicantId: STUDENT_OFF,
-        answers: {},
-        applicationTemplateVersion: 1,
-        status: ApplicationStatus.APPROVED,
-      },
-    ],
+    data: applicationTeamFixtures.map(({ applicationId, applicantId }) => ({
+      id: applicationId,
+      programId: NOTIFY_PROGRAM,
+      applicantId,
+      teamId: `${applicationId}-team`,
+      answers: {},
+      applicationTemplateVersion: 1,
+      status: ApplicationStatus.APPROVED,
+    })),
   });
   await prisma.submission.create({
     data: {

@@ -7,6 +7,8 @@ import {
 import { DomainException } from '../common/error-code';
 import {
   ApplicationDuplicateError,
+  ApplicationJoinCodeDigestConflictError,
+  ApplicationTeamMembershipConflictError,
   type ApplicationCreateStore,
   type ApplicationsRepository,
   type ApplyProgramRecord,
@@ -42,11 +44,20 @@ const CREATED: CreatedApplication = {
   id: 'synthetic-application',
   programId: PROGRAM_ID,
   status: ApplicationStatus.SUBMITTED,
-  teamId: null,
+  teamId: 'synthetic-team',
   submittedAt: NOW,
   isRepositoryPublicationPlanned: true,
   repositoryConnectionMode: RepositoryConnectionMode.NEW,
   repositoryUrl: null,
+};
+
+const DEFAULT_INPUT = {
+  answers: { title: '제목', summary: '요약' },
+  teamName: null as string | null,
+  applicationTemplateVersion: 1,
+  isRepositoryPublicationPlanned: true,
+  repositoryConnectionMode: RepositoryConnectionMode.NEW,
+  repositoryUrl: null as string | null,
 };
 
 function buildService(overrides: {
@@ -54,6 +65,8 @@ function buildService(overrides: {
   readonly program?: ApplyProgramRecord | null;
   readonly store?: Partial<ApplicationCreateStore>;
   readonly createThrows?: Error;
+  readonly createTeamThrows?: Error | readonly Error[];
+  readonly joinCodes?: readonly string[];
 }) {
   const createApplication = jest.fn().mockImplementation((input: unknown) => {
     if (overrides.createThrows) {
@@ -63,7 +76,7 @@ function buildService(overrides: {
       typeof input === 'object' && input !== null && 'teamId' in input
         ? Reflect.get(input, 'teamId')
         : null;
-    const teamId = typeof rawTeamId === 'string' ? rawTeamId : null;
+    const teamId = typeof rawTeamId === 'string' ? rawTeamId : CREATED.teamId;
     const created: CreatedApplication = {
       ...CREATED,
       teamId,
@@ -71,15 +84,37 @@ function buildService(overrides: {
     return Promise.resolve(created);
   });
 
+  let createTeamCall = 0;
+  const createTeamWithLeader = jest
+    .fn()
+    .mockImplementation((input: { readonly name: string }) => {
+      const throws = overrides.createTeamThrows;
+      if (throws instanceof Error) {
+        return Promise.reject(throws);
+      }
+      if (throws) {
+        const error: Error | undefined = throws[createTeamCall];
+        createTeamCall += 1;
+        if (error) return Promise.reject(error);
+      }
+      return Promise.resolve({
+        id: 'synthetic-team',
+        name: input.name,
+      });
+    });
+
   const store: ApplicationCreateStore = {
-    lockProgramForApply: jest.fn().mockResolvedValue(true),
-    findTeamForApply: jest.fn().mockResolvedValue(null),
-    findPersonalDuplicate: jest.fn().mockResolvedValue(false),
-    findTeamDuplicate: jest.fn().mockResolvedValue(false),
+    lockProgramForApply: jest
+      .fn()
+      .mockResolvedValue(ProgramLifecycle.PUBLISHED),
+    findTeamMinSize: jest.fn().mockResolvedValue(null),
+    createTeamWithLeader,
     createApplication,
     ...overrides.store,
   };
 
+  let joinCodeCall = 0;
+  const joinCodes = overrides.joinCodes ?? ['JOINCODE01'];
   const repository = {
     findActiveStudentByGithubId: jest
       .fn()
@@ -91,6 +126,14 @@ function buildService(overrides: {
       .mockResolvedValue(
         overrides.program === undefined ? OPEN_PROGRAM : overrides.program,
       ),
+    generateJoinCode: jest.fn().mockImplementation(() => {
+      const code = joinCodes[joinCodeCall] ?? `JOINCODE0${joinCodeCall + 1}`;
+      joinCodeCall += 1;
+      return code;
+    }),
+    computeJoinCodeDigest: jest
+      .fn()
+      .mockImplementation((joinCode: string) => `digest:${joinCode}`),
     withCreateTransaction: jest.fn(
       async (operation: (s: ApplicationCreateStore) => Promise<unknown>) =>
         operation(store),
@@ -104,6 +147,7 @@ function buildService(overrides: {
     repository,
     store,
     createApplication,
+    createTeamWithLeader,
   };
 }
 
@@ -114,50 +158,40 @@ describe('ApplicationsService.create', () => {
     });
 
     await expect(
-      service.create(
-        GITHUB_ID,
-        PROGRAM_ID,
-        {
-          answers: { title: '제목', summary: '요약' },
-          teamId: null,
-          applicationTemplateVersion: 1,
-          isRepositoryPublicationPlanned: false,
-          repositoryConnectionMode: RepositoryConnectionMode.NEW,
-          repositoryUrl: null,
-        },
-        NOW,
-      ),
+      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
     ).rejects.toMatchObject({
       errorCode: { code: ApplicationsErrorCode.PROGRAM_ARCHIVED, status: 422 },
     });
     expect(createApplication).not.toHaveBeenCalled();
   });
-  it('개인 신청을 SUBMITTED 로 생성하고 서버 applicantName 을 주입한다', async () => {
-    const { service, createApplication } = buildService({});
+
+  it('신청 시 1인 팀을 만들고 leader 가 신청자이며 SUBMITTED 로 생성한다', async () => {
+    const { service, createApplication, createTeamWithLeader } = buildService(
+      {},
+    );
 
     const result = await service.create(
       GITHUB_ID,
       PROGRAM_ID,
-      {
-        answers: { title: '제목', summary: '요약' },
-        teamId: null,
-        applicationTemplateVersion: 1,
-        isRepositoryPublicationPlanned: true,
-        repositoryConnectionMode: RepositoryConnectionMode.NEW,
-        repositoryUrl: null,
-      },
+      DEFAULT_INPUT,
       NOW,
     );
 
     expect(result).toMatchObject({
       id: 'synthetic-application',
       status: ApplicationStatus.SUBMITTED,
-      teamId: null,
+      teamId: 'synthetic-team',
+    });
+    expect(createTeamWithLeader).toHaveBeenCalledWith({
+      programId: PROGRAM_ID,
+      name: '합성 학생',
+      joinCodeDigest: 'digest:JOINCODE01',
+      leaderId: STUDENT.id,
     });
     expect(createApplication).toHaveBeenCalledWith({
       programId: PROGRAM_ID,
       applicantId: STUDENT.id,
-      teamId: null,
+      teamId: 'synthetic-team',
       answers: {
         applicantName: '합성 학생',
         title: '제목',
@@ -170,49 +204,86 @@ describe('ApplicationsService.create', () => {
     });
   });
 
-  it('name 이 없으면 nickname 을 applicantName 으로 쓴다', async () => {
-    const { service, createApplication } = buildService({
-      student: { ...STUDENT, name: null },
-    });
+  it('팀 이름 미입력 시 신청자 표시명 기반 기본값을 쓴다', async () => {
+    const { service, createTeamWithLeader } = buildService({});
+
+    await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
+
+    expect(createTeamWithLeader).toHaveBeenCalledWith(
+      expect.objectContaining({ name: '합성 학생' }),
+    );
+  });
+
+  it('팀 이름 입력 시 그 이름을 쓴다', async () => {
+    const { service, createTeamWithLeader } = buildService({});
 
     await service.create(
       GITHUB_ID,
       PROGRAM_ID,
-      {
-        answers: { title: '제목', summary: '요약' },
-        teamId: null,
-        applicationTemplateVersion: 1,
-        isRepositoryPublicationPlanned: true,
-        repositoryConnectionMode: RepositoryConnectionMode.NEW,
-        repositoryUrl: null,
-      },
+      { ...DEFAULT_INPUT, teamName: '  오픈소스팀  ' },
       NOW,
     );
 
-    expect(createApplication).toHaveBeenCalled();
+    expect(createTeamWithLeader).toHaveBeenCalledWith(
+      expect.objectContaining({ name: '오픈소스팀' }),
+    );
+  });
+
+  it('name 이 없으면 nickname 을 applicantName·기본 팀 이름으로 쓴다', async () => {
+    const { service, createApplication, createTeamWithLeader } = buildService({
+      student: { ...STUDENT, name: null },
+    });
+
+    await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
+
+    expect(createTeamWithLeader).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'synthetic-login' }),
+    );
     const calls = createApplication.mock.calls as unknown as ReadonlyArray<
       readonly [{ readonly answers: { readonly applicantName: string } }]
     >;
     expect(calls[0]?.[0].answers.applicantName).toBe('synthetic-login');
   });
 
+  it('이전 INDIVIDUAL 템플릿 프로그램에도 동일하게 1인 팀을 만든다', async () => {
+    const { service, createTeamWithLeader, createApplication } = buildService({
+      program: { ...OPEN_PROGRAM, category: ProgramCategory.BASIC },
+    });
+
+    await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
+
+    expect(createTeamWithLeader).toHaveBeenCalledTimes(1);
+    expect(createApplication).toHaveBeenCalledWith(
+      expect.objectContaining({ teamId: 'synthetic-team' }),
+    );
+  });
+
+  it('초대를 전혀 하지 않은 1인 팀으로도 신청이 정상 완성된다', async () => {
+    const { service, createTeamWithLeader, createApplication } = buildService({
+      store: {
+        findTeamMinSize: jest.fn().mockResolvedValue(null),
+      },
+    });
+
+    const result = await service.create(
+      GITHUB_ID,
+      PROGRAM_ID,
+      DEFAULT_INPUT,
+      NOW,
+    );
+
+    expect(result.teamId).toBe('synthetic-team');
+    expect(createTeamWithLeader).toHaveBeenCalledWith(
+      expect.objectContaining({ leaderId: STUDENT.id }),
+    );
+    expect(createApplication).toHaveBeenCalledTimes(1);
+  });
+
   it('ACTIVE STUDENT 가 아니면 APP_008', async () => {
     const { service } = buildService({ student: null });
 
     await expect(
-      service.create(
-        GITHUB_ID,
-        PROGRAM_ID,
-        {
-          answers: { title: '제목', summary: '요약' },
-          teamId: null,
-          applicationTemplateVersion: 1,
-          isRepositoryPublicationPlanned: true,
-          repositoryConnectionMode: RepositoryConnectionMode.NEW,
-          repositoryUrl: null,
-        },
-        NOW,
-      ),
+      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
     ).rejects.toMatchObject({
       errorCode: { code: ApplicationsErrorCode.STUDENT_ONLY },
     });
@@ -222,19 +293,7 @@ describe('ApplicationsService.create', () => {
     const { service } = buildService({ program: null });
 
     await expect(
-      service.create(
-        GITHUB_ID,
-        PROGRAM_ID,
-        {
-          answers: { title: '제목', summary: '요약' },
-          teamId: null,
-          applicationTemplateVersion: 1,
-          isRepositoryPublicationPlanned: true,
-          repositoryConnectionMode: RepositoryConnectionMode.NEW,
-          repositoryUrl: null,
-        },
-        NOW,
-      ),
+      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
     ).rejects.toMatchObject({
       errorCode: { code: ApplicationsErrorCode.PROGRAM_NOT_FOUND },
     });
@@ -247,14 +306,7 @@ describe('ApplicationsService.create', () => {
       service.create(
         GITHUB_ID,
         PROGRAM_ID,
-        {
-          answers: { title: '제목', summary: '요약' },
-          teamId: null,
-          applicationTemplateVersion: 1,
-          isRepositoryPublicationPlanned: true,
-          repositoryConnectionMode: RepositoryConnectionMode.NEW,
-          repositoryUrl: null,
-        },
+        DEFAULT_INPUT,
         new Date('2026-08-01T00:00:00.000Z'),
       ),
     ).rejects.toMatchObject({
@@ -269,14 +321,7 @@ describe('ApplicationsService.create', () => {
       service.create(
         GITHUB_ID,
         PROGRAM_ID,
-        {
-          answers: { title: '제목', summary: '요약' },
-          teamId: null,
-          applicationTemplateVersion: 2,
-          isRepositoryPublicationPlanned: true,
-          repositoryConnectionMode: RepositoryConnectionMode.NEW,
-          repositoryUrl: null,
-        },
+        { ...DEFAULT_INPUT, applicationTemplateVersion: 2 },
         NOW,
       ),
     ).rejects.toMatchObject({
@@ -292,12 +337,8 @@ describe('ApplicationsService.create', () => {
         GITHUB_ID,
         PROGRAM_ID,
         {
+          ...DEFAULT_INPUT,
           answers: { title: '제목' },
-          teamId: null,
-          applicationTemplateVersion: 1,
-          isRepositoryPublicationPlanned: true,
-          repositoryConnectionMode: RepositoryConnectionMode.NEW,
-          repositoryUrl: null,
         },
         NOW,
       ),
@@ -310,12 +351,8 @@ describe('ApplicationsService.create', () => {
         GITHUB_ID,
         PROGRAM_ID,
         {
+          ...DEFAULT_INPUT,
           answers: { title: '제목', summary: '요약', extra: 'no' },
-          teamId: null,
-          applicationTemplateVersion: 1,
-          isRepositoryPublicationPlanned: true,
-          repositoryConnectionMode: RepositoryConnectionMode.NEW,
-          repositoryUrl: null,
         },
         NOW,
       ),
@@ -324,149 +361,50 @@ describe('ApplicationsService.create', () => {
     });
   });
 
-  it('개인형에 teamId 가 있으면 APP_013', async () => {
-    const { service } = buildService({});
-
-    await expect(
-      service.create(
-        GITHUB_ID,
-        PROGRAM_ID,
-        {
-          answers: { title: '제목', summary: '요약' },
-          teamId: 'team-1',
-          applicationTemplateVersion: 1,
-          isRepositoryPublicationPlanned: true,
-          repositoryConnectionMode: RepositoryConnectionMode.NEW,
-          repositoryUrl: null,
-        },
-        NOW,
-      ),
-    ).rejects.toMatchObject({
-      errorCode: { code: ApplicationsErrorCode.TEAM_NOT_ALLOWED },
-    });
-  });
-
-  it('팀형에 teamId 없으면 APP_012', async () => {
-    const { service } = buildService({
-      program: { ...OPEN_PROGRAM, category: ProgramCategory.OSS_CONTEST },
-    });
-
-    await expect(
-      service.create(
-        GITHUB_ID,
-        PROGRAM_ID,
-        {
-          answers: { title: '제목', summary: '요약' },
-          teamId: null,
-          applicationTemplateVersion: 1,
-          isRepositoryPublicationPlanned: true,
-          repositoryConnectionMode: RepositoryConnectionMode.NEW,
-          repositoryUrl: null,
-        },
-        NOW,
-      ),
-    ).rejects.toMatchObject({
-      errorCode: { code: ApplicationsErrorCode.TEAM_REQUIRED },
-    });
-  });
-
-  it('팀 구성원이 아니면 APP_014', async () => {
-    const { service } = buildService({
-      program: { ...OPEN_PROGRAM, category: ProgramCategory.OSS_CONTEST },
+  it('팀 최소 인원이 1보다 크면 1인 팀 신청을 막고 APP_019를 반환한다', async () => {
+    const { service, createApplication, createTeamWithLeader } = buildService({
       store: {
-        findTeamForApply: jest.fn().mockResolvedValue({
-          id: 'team-1',
-          programId: PROGRAM_ID,
-          leaderId: 'other',
-          isMember: false,
-          memberCount: 1,
-          teamMinSize: 2,
-        }),
+        findTeamMinSize: jest.fn().mockResolvedValue(2),
       },
     });
 
     await expect(
-      service.create(
-        GITHUB_ID,
-        PROGRAM_ID,
-        {
-          answers: { title: '제목', summary: '요약' },
-          teamId: 'team-1',
-          applicationTemplateVersion: 1,
-          isRepositoryPublicationPlanned: true,
-          repositoryConnectionMode: RepositoryConnectionMode.NEW,
-          repositoryUrl: null,
-        },
-        NOW,
-      ),
+      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
     ).rejects.toMatchObject({
-      errorCode: { code: ApplicationsErrorCode.TEAM_MEMBERSHIP_REQUIRED },
-    });
-  });
-
-  it('팀원이 최소 인원보다 적으면 신청을 생성하지 않고 APP_019를 반환한다', async () => {
-    // Given
-    const { service, createApplication } = buildService({
-      program: { ...OPEN_PROGRAM, category: ProgramCategory.OSS_CONTEST },
-      store: {
-        findTeamForApply: jest.fn().mockResolvedValue({
-          id: 'team-1',
-          programId: PROGRAM_ID,
-          leaderId: STUDENT.id,
-          isMember: true,
-          memberCount: 1,
-          teamMinSize: 2,
-        }),
-      },
-    });
-
-    // When
-    const submission = service.create(
-      GITHUB_ID,
-      PROGRAM_ID,
-      {
-        answers: { title: '팀 제목', summary: '팀 요약' },
-        teamId: 'team-1',
-        applicationTemplateVersion: 1,
-        isRepositoryPublicationPlanned: true,
-        repositoryConnectionMode: RepositoryConnectionMode.NEW,
-        repositoryUrl: null,
-      },
-      NOW,
-    );
-
-    // Then
-    await expect(submission).rejects.toMatchObject({
       errorCode: { code: 'APP_019', status: 422 },
       extensions: { memberCount: 1, teamMinSize: 2 },
     });
+    expect(createTeamWithLeader).not.toHaveBeenCalled();
     expect(createApplication).not.toHaveBeenCalled();
   });
 
-  it('중복 개인 신청 precheck 는 APP_011', async () => {
+  it('팀 멤버십 충돌(이미 프로그램 팀 소속)은 APP_011 로 매핑한다', async () => {
     const { service } = buildService({
-      store: {
-        findPersonalDuplicate: jest.fn().mockResolvedValue(true),
-      },
+      createTeamThrows: new ApplicationTeamMembershipConflictError(),
     });
 
     await expect(
-      service.create(
-        GITHUB_ID,
-        PROGRAM_ID,
-        {
-          answers: { title: '제목', summary: '요약' },
-          teamId: null,
-          applicationTemplateVersion: 1,
-          isRepositoryPublicationPlanned: true,
-          repositoryConnectionMode: RepositoryConnectionMode.NEW,
-          repositoryUrl: null,
-        },
-        NOW,
-      ),
+      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
     ).rejects.toMatchObject({
       errorCode: { code: ApplicationsErrorCode.DUPLICATE_APPLICATION },
     });
+  });
+
+  it('joinCodeDigest 충돌 시 재시도 후 성공한다', async () => {
+    const { service, createTeamWithLeader } = buildService({
+      createTeamThrows: [
+        new ApplicationJoinCodeDigestConflictError(),
+        undefined as unknown as Error,
+      ],
+      joinCodes: ['CODEAAAAAA', 'CODEBBBBBB'],
+    });
+
+    await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
+
+    expect(createTeamWithLeader).toHaveBeenCalledTimes(2);
+    expect(createTeamWithLeader).toHaveBeenLastCalledWith(
+      expect.objectContaining({ joinCodeDigest: 'digest:CODEBBBBBB' }),
+    );
   });
 
   it('P2002 레이스는 APP_011 로 매핑한다', async () => {
@@ -475,76 +413,14 @@ describe('ApplicationsService.create', () => {
     });
 
     await expect(
-      service.create(
-        GITHUB_ID,
-        PROGRAM_ID,
-        {
-          answers: { title: '제목', summary: '요약' },
-          teamId: null,
-          applicationTemplateVersion: 1,
-          isRepositoryPublicationPlanned: true,
-          repositoryConnectionMode: RepositoryConnectionMode.NEW,
-          repositoryUrl: null,
-        },
-        NOW,
-      ),
+      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
     ).rejects.toBeInstanceOf(DomainException);
 
     await expect(
-      service.create(
-        GITHUB_ID,
-        PROGRAM_ID,
-        {
-          answers: { title: '제목', summary: '요약' },
-          teamId: null,
-          applicationTemplateVersion: 1,
-          isRepositoryPublicationPlanned: true,
-          repositoryConnectionMode: RepositoryConnectionMode.NEW,
-          repositoryUrl: null,
-        },
-        NOW,
-      ),
+      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
     ).rejects.toMatchObject({
       errorCode: { code: ApplicationsErrorCode.DUPLICATE_APPLICATION },
     });
-  });
-
-  it('팀 신청 성공 경로를 생성한다', async () => {
-    const { service, createApplication } = buildService({
-      program: { ...OPEN_PROGRAM, category: ProgramCategory.CAPSTONE },
-      store: {
-        findTeamForApply: jest.fn().mockResolvedValue({
-          id: 'team-1',
-          programId: PROGRAM_ID,
-          leaderId: STUDENT.id,
-          isMember: true,
-          memberCount: 2,
-          teamMinSize: 2,
-        }),
-        findTeamDuplicate: jest.fn().mockResolvedValue(false),
-      },
-    });
-
-    await service.create(
-      GITHUB_ID,
-      PROGRAM_ID,
-      {
-        answers: { title: '팀 제목', summary: '팀 요약' },
-        teamId: 'team-1',
-        applicationTemplateVersion: 1,
-        isRepositoryPublicationPlanned: true,
-        repositoryConnectionMode: RepositoryConnectionMode.NEW,
-        repositoryUrl: null,
-      },
-      NOW,
-    );
-
-    expect(createApplication).toHaveBeenCalledWith(
-      expect.objectContaining({
-        teamId: 'team-1',
-        applicantId: STUDENT.id,
-      }),
-    );
   });
 
   it('명시적 isRepositoryPublicationPlanned=false 를 store.createApplication 까지 그대로 전달한다', async () => {
@@ -553,14 +429,7 @@ describe('ApplicationsService.create', () => {
     await service.create(
       GITHUB_ID,
       PROGRAM_ID,
-      {
-        answers: { title: '제목', summary: '요약' },
-        teamId: null,
-        applicationTemplateVersion: 1,
-        isRepositoryPublicationPlanned: false,
-        repositoryConnectionMode: RepositoryConnectionMode.NEW,
-        repositoryUrl: null,
-      },
+      { ...DEFAULT_INPUT, isRepositoryPublicationPlanned: false },
       NOW,
     );
 
@@ -568,75 +437,31 @@ describe('ApplicationsService.create', () => {
       expect.objectContaining({ isRepositoryPublicationPlanned: false }),
     );
   });
-  it('최소 인원 설정이 없으면 팀 신청을 허용한다', async () => {
-    // Given
+
+  it('최소 인원 설정이 없으면 1인 팀 신청을 허용한다', async () => {
     const { service, createApplication } = buildService({
-      program: { ...OPEN_PROGRAM, category: ProgramCategory.CAPSTONE },
       store: {
-        findTeamForApply: jest.fn().mockResolvedValue({
-          id: 'team-1',
-          programId: PROGRAM_ID,
-          leaderId: STUDENT.id,
-          isMember: true,
-          memberCount: 1,
-          teamMinSize: null,
-        }),
+        findTeamMinSize: jest.fn().mockResolvedValue(null),
       },
     });
 
-    // When
-    await service.create(
-      GITHUB_ID,
-      PROGRAM_ID,
-      {
-        answers: { title: '팀 제목', summary: '팀 요약' },
-        teamId: 'team-1',
-        applicationTemplateVersion: 1,
-        isRepositoryPublicationPlanned: true,
-        repositoryConnectionMode: RepositoryConnectionMode.NEW,
-        repositoryUrl: null,
-      },
-      NOW,
-    );
+    await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
 
-    // Then
     expect(createApplication).toHaveBeenCalled();
   });
 
-  it('최소 인원을 초과한 팀 신청을 허용한다', async () => {
-    // Given
+  it('최소 인원이 1이면 1인 팀 신청을 허용한다', async () => {
     const { service, createApplication } = buildService({
-      program: { ...OPEN_PROGRAM, category: ProgramCategory.CAPSTONE },
       store: {
-        findTeamForApply: jest.fn().mockResolvedValue({
-          id: 'team-1',
-          programId: PROGRAM_ID,
-          leaderId: STUDENT.id,
-          isMember: true,
-          memberCount: 3,
-          teamMinSize: 2,
-        }),
+        findTeamMinSize: jest.fn().mockResolvedValue(1),
       },
     });
 
-    // When
-    await service.create(
-      GITHUB_ID,
-      PROGRAM_ID,
-      {
-        answers: { title: '팀 제목', summary: '팀 요약' },
-        teamId: 'team-1',
-        applicationTemplateVersion: 1,
-        isRepositoryPublicationPlanned: true,
-        repositoryConnectionMode: RepositoryConnectionMode.NEW,
-        repositoryUrl: null,
-      },
-      NOW,
-    );
+    await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
 
-    // Then
     expect(createApplication).toHaveBeenCalled();
   });
+
   it('OWN + repositoryUrl 을 store.createApplication 까지 그대로 전달한다', async () => {
     const { service, createApplication } = buildService({});
 
@@ -644,10 +469,7 @@ describe('ApplicationsService.create', () => {
       GITHUB_ID,
       PROGRAM_ID,
       {
-        answers: { title: '제목', summary: '요약' },
-        teamId: null,
-        applicationTemplateVersion: 1,
-        isRepositoryPublicationPlanned: true,
+        ...DEFAULT_INPUT,
         repositoryConnectionMode: RepositoryConnectionMode.OWN,
         repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
       },
@@ -665,19 +487,7 @@ describe('ApplicationsService.create', () => {
   it('구 클라이언트 정규화값(NEW + null)을 store.createApplication 까지 전달한다', async () => {
     const { service, createApplication } = buildService({});
 
-    await service.create(
-      GITHUB_ID,
-      PROGRAM_ID,
-      {
-        answers: { title: '제목', summary: '요약' },
-        teamId: null,
-        applicationTemplateVersion: 1,
-        isRepositoryPublicationPlanned: true,
-        repositoryConnectionMode: RepositoryConnectionMode.NEW,
-        repositoryUrl: null,
-      },
-      NOW,
-    );
+    await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
 
     expect(createApplication).toHaveBeenCalledWith(
       expect.objectContaining({

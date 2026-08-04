@@ -62,6 +62,72 @@ describe('RepositoryProvisionWorker failure', () => {
     expect(state.failJob.mock.calls[0]?.[0].final).toBe(true);
   });
 
+  it('레거시 teamId null payload는 백필된 context teamId와 달라도 통과한다', async () => {
+    // Given: 백필 이전 outbox payload는 teamId null이고 context는 백필된 teamId다.
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(
+      provisionContext({
+        teamId: 'synthetic-backfilled-team',
+        eventPayload: {
+          applicationId: 'synthetic-application-id',
+          programId: 'synthetic-program-id',
+          teamId: null,
+          requestedAt: PROVISION_NOW.toISOString(),
+          collaboratorGithubLogins: ['synthetic-leader', 'synthetic-student'],
+        },
+      }),
+    );
+    const github = githubClientMock();
+    const worker = new RepositoryProvisionWorker(jobs, state, github, OPTIONS);
+
+    // When: provision job을 실행한다.
+    const result = await worker.runNext(
+      'worker-legacy-null-team',
+      PROVISION_NOW,
+    );
+
+    // Then: 레거시 null payload를 거부하지 않고 저장소 생성까지 진행한다.
+    expect(result).toEqual({
+      kind: 'SUCCEEDED',
+      jobId: 'synthetic-job-id',
+      repositoryId: PROVISION_REPOSITORY.id,
+    });
+    expect(state.recordRepository.mock.calls).toHaveLength(1);
+  });
+
+  it('event.teamId 와 context.teamId 가 서로 다른 non-null 이면 INVALID_EVENT 로 거부한다', async () => {
+    // Given: payload teamId와 context teamId가 둘 다 있지만 서로 다르다.
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(
+      provisionContext({
+        teamId: 'synthetic-context-team',
+        eventPayload: {
+          applicationId: 'synthetic-application-id',
+          programId: 'synthetic-program-id',
+          teamId: 'synthetic-payload-team',
+          requestedAt: PROVISION_NOW.toISOString(),
+          collaboratorGithubLogins: ['synthetic-leader', 'synthetic-student'],
+        },
+      }),
+    );
+    const github = githubClientMock();
+    const worker = new RepositoryProvisionWorker(jobs, state, github, OPTIONS);
+
+    // When: job을 실행한다.
+    const result = await worker.runNext('worker-team-mismatch', PROVISION_NOW);
+
+    // Then: 이벤트 계약 불일치로 최종 실패하고 외부 호출을 막는다.
+    expect(result).toEqual({
+      kind: 'FAILED_FINAL',
+      jobId: 'synthetic-job-id',
+      errorCode: PROVISION_ERROR_CODES.INVALID_EVENT,
+    });
+    expect(github.findRepository.mock.calls).toHaveLength(0);
+    expect(state.failJob.mock.calls[0]?.[0].final).toBe(true);
+  });
+
   it('GitHub 5xx는 지수 backoff 뒤 재시도한다', async () => {
     // Given: 두 번째 시도에서 GitHub가 일시 오류를 반환한다.
     const jobs = jobRepositoryMock();

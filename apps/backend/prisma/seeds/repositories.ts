@@ -17,6 +17,7 @@ import {
   upsertSeedUser,
   upsertTracked,
 } from './helpers';
+import { computeJoinCodeDigest } from '../../src/common/join-code-digest';
 
 /**
  * repositories profile도 intake/milestones 없이 빈 DB에서 단독 성공해야 한다
@@ -62,6 +63,46 @@ async function ensureApplication(
     id: seedId('repositories', scenarioId, 'applicant'),
     role: Role.STUDENT,
   });
+  // 모든 신청이 Team을 갖는다(D5). 시드도 신청자 1인 팀을 만들어 붙인다.
+  const teamId = seedId('repositories', scenarioId, 'team');
+  await upsertTracked(
+    stats,
+    'Team',
+    () => prisma.team.findUnique({ where: { id: teamId } }),
+    () =>
+      prisma.team.upsert({
+        where: { id: teamId },
+        update: {},
+        create: {
+          id: teamId,
+          programId: PROGRAM_ID,
+          name: `${scenarioId} 1인 팀`,
+          joinCodeDigest: computeJoinCodeDigest(
+            `SEED-REPOSITORIES-${scenarioId}`,
+          ),
+          leaderId: applicant.id,
+        },
+      }),
+  );
+  await upsertTracked(
+    stats,
+    'TeamMember',
+    () =>
+      prisma.teamMember.findUnique({
+        where: { teamId_userId: { teamId, userId: applicant.id } },
+      }),
+    () =>
+      prisma.teamMember.upsert({
+        where: { teamId_userId: { teamId, userId: applicant.id } },
+        update: {},
+        create: {
+          id: seedId('repositories', scenarioId, 'team-member'),
+          teamId,
+          programId: PROGRAM_ID,
+          userId: applicant.id,
+        },
+      }),
+  );
   const applicationId = seedId('repositories', scenarioId, 'application');
   await upsertTracked(
     stats,
@@ -76,6 +117,7 @@ async function ensureApplication(
           programId: PROGRAM_ID,
           applicantId: applicant.id,
           answers: { seedPlaceholder: true, scenarioId },
+          teamId,
           applicationTemplateVersion: 1,
           status: ApplicationStatus.APPROVED,
           processedAt: offsetDays(-2),
