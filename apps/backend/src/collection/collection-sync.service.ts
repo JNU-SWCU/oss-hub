@@ -3,12 +3,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   CollectionAppClient,
   CollectionAppClientError,
+  CollectionAppClientTokenProvider,
   CollectionCommit,
   CollectionPullRequest,
   CollectionRelease,
 } from './collection-app.client';
 import { requestFingerprintKey } from './collection-app.frontier';
-import { CollectionAppTokenProvider } from './collection-app.token';
 import { ProviderRequestQueue } from './collection-provider-queue';
 import type { CollectionIncrementalRepository } from './collection-incremental.repository';
 import type {
@@ -25,7 +25,11 @@ const RUN_DEADLINE_MS = 45 * 60_000;
 export interface CollectionSyncRuntime {
   appId: string;
   organizationLogin: string;
-  tokens: CollectionAppTokenProvider;
+  // Narrow structural shape (not the `CollectionAppTokenProvider` class
+  // directly) so an external-sweep runtime can carry
+  // `CollectionPublicTokenProvider` here too — see
+  // `CollectionAppClientTokenProvider` (`collection-app.client.ts`).
+  tokens: CollectionAppClientTokenProvider;
   client: CollectionAppClient;
   queue: ProviderRequestQueue;
 }
@@ -140,13 +144,15 @@ export class CollectionSyncService {
     private readonly resolveGithubOrganizationId: () => Promise<bigint>,
     private readonly now: () => Date = () => new Date(),
     private readonly createRunId: () => string = randomUUID,
-    // E1 — external sweep credentials/runtime (OAuth App Basic Auth per
-    // plan §4.2) are provisioned separately from the org installation
-    // runtime above. Left undefined by existing callers (module wiring,
-    // CLI) until that runtime factory is wired in; `runExternal` fails
-    // closed with a clear error rather than silently reusing the org
-    // installation-token client (which cannot read repos outside the
-    // installation's scope).
+    // E1 — external sweep runtime (`CollectionPublicTokenProvider` service
+    // account PAT, per plan §4.2), provisioned separately from the org
+    // installation runtime above and with its own `ProviderRequestQueue`
+    // (independent rate-limit budget). `collection.module.ts` wires this in
+    // for the DI-managed service; the CLI entry points under `cli/` still
+    // leave it undefined, since they have no external-sweep use case yet —
+    // `runExternal` fails closed with a clear error rather than silently
+    // reusing the org installation-token client (which cannot read repos
+    // outside the installation's scope).
     private readonly externalRuntimeFactory?: CollectionSyncRuntimeFactory,
   ) {}
 

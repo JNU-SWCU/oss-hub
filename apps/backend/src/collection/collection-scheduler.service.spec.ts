@@ -30,17 +30,22 @@ describe('CollectionSchedulerService', () => {
   let testingModule: TestingModule;
   let service: CollectionSchedulerService;
   const run = jest.fn<Promise<CollectionSyncRunResult>, [string]>();
+  const runExternal = jest.fn<Promise<CollectionSyncRunResult>, [string]>();
   const isQuiesced = jest.fn<Promise<boolean>, [Date]>();
 
   beforeEach(async () => {
     run.mockReset();
+    runExternal.mockReset();
+    runExternal.mockResolvedValue(
+      completedRun({ runId: 'synthetic-external-run-id' }),
+    );
     isQuiesced.mockReset();
     isQuiesced.mockResolvedValue(false);
     testingModule = await Test.createTestingModule({
       imports: [ScheduleModule.forRoot()],
       providers: [
         CollectionSchedulerService,
-        { provide: CollectionSyncService, useValue: { run } },
+        { provide: CollectionSyncService, useValue: { run, runExternal } },
         { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
       ],
     }).compile();
@@ -76,6 +81,19 @@ describe('CollectionSchedulerService', () => {
     expect(run.mock.calls[1]?.[0]).toBe(run.mock.calls[0]?.[0]);
   });
 
+  it('org sweep과 함께 E1 external sweep도 같은 quiesce guard 안에서 시작한다', async () => {
+    run.mockResolvedValue(completedRun());
+
+    await service.trigger();
+    await expect(service.handleCron()).resolves.toBeUndefined();
+
+    expect(runExternal).toHaveBeenCalledTimes(2);
+    expect(runExternal.mock.calls[0]?.[0]).toMatch(/^scheduler:/);
+    expect(runExternal.mock.calls[1]?.[0]).toBe(runExternal.mock.calls[0]?.[0]);
+    // org sweep과 external sweep은 같은 ownerId를 공유한다(lease scope만 다르다).
+    expect(runExternal.mock.calls[0]?.[0]).toBe(run.mock.calls[0]?.[0]);
+  });
+
   it('quiesce lease가 걸려 있으면 COL_008로 트리거를 거부하고 새 writer를 호출하지 않는다', async () => {
     isQuiesced.mockResolvedValue(true);
 
@@ -83,6 +101,7 @@ describe('CollectionSchedulerService', () => {
       errorCode: { code: 'COL_008', status: 409 },
     });
     expect(run).not.toHaveBeenCalled();
+    expect(runExternal).not.toHaveBeenCalled();
   });
 
   it('cron 실패를 안전한 분류만 기록하고 프로세스로 전파하지 않는다', async () => {
@@ -175,6 +194,29 @@ describe('CollectionSchedulerService', () => {
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(logger).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'collection.scheduler.sync_failed' }),
+    );
+  });
+
+  it('백그라운드 external sweep 실패는 트리거 응답이나 org sweep에 영향을 주지 않고 별도 이벤트로 기록된다', async () => {
+    const logger = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    run.mockResolvedValue(completedRun());
+    runExternal.mockRejectedValue(new Error('external provider unavailable'));
+
+    await expect(service.trigger()).resolves.toEqual(
+      expect.objectContaining({ status: 'PENDING' }),
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(logger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'collection.scheduler.external_sync_failed',
+      }),
+    );
+    expect(logger).not.toHaveBeenCalledWith(
       expect.objectContaining({ event: 'collection.scheduler.sync_failed' }),
     );
   });

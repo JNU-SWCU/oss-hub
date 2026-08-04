@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { GUARDS_METADATA, HTTP_CODE_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 
@@ -15,6 +16,10 @@ import { CollectionSyncService } from './collection-sync.service';
 
 describe('CollectionAdminController', () => {
   const run = jest.fn<
+    Promise<{ runId: string; status: 'COMPLETED' }>,
+    [string, string?]
+  >();
+  const runExternal = jest.fn<
     Promise<{ runId: string; status: 'COMPLETED' }>,
     [string, string?]
   >();
@@ -37,6 +42,11 @@ describe('CollectionAdminController', () => {
 
   beforeEach(() => {
     run.mockReset();
+    runExternal.mockReset();
+    runExternal.mockResolvedValue({
+      runId: 'synthetic-external-run-id',
+      status: 'COMPLETED',
+    });
     isQuiesced.mockReset();
     isQuiesced.mockResolvedValue(false);
     listSyncRuns.mockReset();
@@ -50,7 +60,7 @@ describe('CollectionAdminController', () => {
     const testingModule = await Test.createTestingModule({
       controllers: [CollectionAdminController],
       providers: [
-        { provide: CollectionSyncService, useValue: { run } },
+        { provide: CollectionSyncService, useValue: { run, runExternal } },
         { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
         {
           provide: CollectionExternalDiscoveryService,
@@ -82,10 +92,28 @@ describe('CollectionAdminController', () => {
     await testingModule.close();
   });
 
+  it('org sweep과 함께 E1 external sweep도 같은 quiesce guard 안에서 시작한다', async () => {
+    run.mockResolvedValue({ runId: 'synthetic-run-id', status: 'COMPLETED' });
+    const controller = new CollectionAdminController(
+      { run, runExternal } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
+      { listSyncRuns } as unknown as CollectionIncrementalRepository,
+      { record } as unknown as AuditLogService,
+    );
+
+    await controller.trigger(sessionRequest);
+
+    expect(runExternal).toHaveBeenCalledTimes(1);
+    expect(runExternal.mock.calls[0]?.[0]).toMatch(/^admin:/);
+    // org sweep과 external sweep은 같은 ownerId를 공유한다(lease scope만 다르다).
+    expect(runExternal.mock.calls[0]?.[0]).toBe(run.mock.calls[0]?.[0]);
+  });
+
   it('quiesce lease가 걸려 있으면 COL_008을 던지고 새 writer를 호출하지 않는다', async () => {
     isQuiesced.mockResolvedValue(true);
     const controller = new CollectionAdminController(
-      { run } as unknown as CollectionSyncService,
+      { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
@@ -96,6 +124,36 @@ describe('CollectionAdminController', () => {
       errorCode: { code: 'COL_008', status: 409 },
     });
     expect(run).not.toHaveBeenCalled();
+    expect(runExternal).not.toHaveBeenCalled();
+  });
+
+  it('백그라운드 external sweep 실패는 트리거 응답이나 org sweep에 영향을 주지 않고 별도 이벤트로 기록된다', async () => {
+    const logger = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    run.mockResolvedValue({ runId: 'synthetic-run-id', status: 'COMPLETED' });
+    runExternal.mockRejectedValue(new Error('external provider unavailable'));
+    const controller = new CollectionAdminController(
+      { run, runExternal } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
+      { listSyncRuns } as unknown as CollectionIncrementalRepository,
+      { record } as unknown as AuditLogService,
+    );
+
+    const result = await controller.trigger(sessionRequest);
+    expect(result.status).toBe('PENDING');
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(logger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'collection.admin.external_sync_failed',
+      }),
+    );
+    expect(logger).not.toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'collection.admin.sync_failed' }),
+    );
   });
 
   it('세션, ADMIN 역할, origin 순서로 보호하고 HTTP 202를 선언한다', () => {
@@ -125,7 +183,7 @@ describe('CollectionAdminController', () => {
       skippedOrgProvisionedCount: 1,
     });
     const controller = new CollectionAdminController(
-      { run } as unknown as CollectionSyncService,
+      { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
@@ -167,7 +225,7 @@ describe('CollectionAdminController', () => {
   it('202로 돌려준 runId를 그대로 내부 sync run에 넘긴다', async () => {
     run.mockResolvedValue({ runId: 'ignored', status: 'COMPLETED' });
     const controller = new CollectionAdminController(
-      { run } as unknown as CollectionSyncService,
+      { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
@@ -184,7 +242,7 @@ describe('CollectionAdminController', () => {
   it('트리거를 typed audit action으로 기록한다(응답 계약은 그대로)', async () => {
     run.mockResolvedValue({ runId: 'ignored', status: 'COMPLETED' });
     const controller = new CollectionAdminController(
-      { run } as unknown as CollectionSyncService,
+      { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
@@ -206,7 +264,7 @@ describe('CollectionAdminController', () => {
   it('quiesce로 거부된 트리거는 감사 기록을 남기지 않는다', async () => {
     isQuiesced.mockResolvedValue(true);
     const controller = new CollectionAdminController(
-      { run } as unknown as CollectionSyncService,
+      { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
@@ -240,7 +298,7 @@ describe('CollectionAdminController', () => {
       },
     ]);
     const controller = new CollectionAdminController(
-      { run } as unknown as CollectionSyncService,
+      { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
@@ -292,7 +350,7 @@ describe('CollectionAdminController', () => {
       },
     ]);
     const controller = new CollectionAdminController(
-      { run } as unknown as CollectionSyncService,
+      { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,

@@ -648,6 +648,26 @@ function createService(
   );
 }
 
+// E1 — same shape as `createService`, but also wires an
+// `externalRuntimeFactory` (ctor arg 6) so `runExternal()` tests can run
+// against a real `CollectionSyncService`. The org `runtimeFactory` is left
+// pointed at the same client double — `runExternal()` never calls it, so
+// which client backs it is irrelevant to these tests.
+function createServiceWithExternal(
+  db: PrismaService,
+  externalClient: ClientMock,
+  overrides: { now?: () => Date; createRunId?: () => string } = {},
+): CollectionSyncService {
+  return new CollectionSyncService(
+    new CollectionIncrementalRepository(db),
+    () => runtimeFor(externalClient),
+    () => Promise.resolve(GITHUB_ORG_ID),
+    overrides.now ?? (() => new Date('2026-08-01T00:00:00.000Z')),
+    overrides.createRunId ?? (() => 'run-1'),
+    () => runtimeFor(externalClient),
+  );
+}
+
 // Silence every stream's default-branch/PR/release calls to a stable no-op
 // baseline so tests that only care about one stream don't need to restate
 // the other two.
@@ -775,6 +795,69 @@ describe('CollectionSyncService — GR-6 external 저장소는 org sweep에서 �
     expect(result.inventoryComplete).toBe(true);
     const external = box.store.repositories.get(repoKey(555n));
     expect(external?.presence).toBe('PRESENT');
+  });
+});
+
+describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
+  it('listExternalRepositories()가 돌려준 EXTERNAL_PUBLIC 저장소를 처리해 commit fact를 적재하고 aggregate를 재계산한다', async () => {
+    const { db, box } = createFakeDb();
+    // Seed exactly the row shape GR-6's test seeds — `runExternal()` never
+    // discovers repositories itself, it only reads rows already persisted
+    // with `source: 'EXTERNAL_PUBLIC'`/`presence: 'PRESENT'`.
+    box.store.repositories.set(repoKey(555n), {
+      id: 'repo-external',
+      githubOrganizationId: GITHUB_ORG_ID,
+      githubRepositoryId: 555n,
+      nameWithOwner: 'student/external-repo',
+      defaultBranch: 'main',
+      archived: false,
+      visibility: 'PUBLIC',
+      presence: 'PRESENT',
+      source: 'EXTERNAL_PUBLIC',
+      lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+
+    const client = createClient([]);
+    quietStreams(client);
+    client.listCommitsUntilKnownSha.mockResolvedValue({
+      commits: [commit({ sha: 'external-head-sha' })],
+      disconnectedFullScan: true,
+      fingerprint: fingerprint('/repos/o/r/commits'),
+    });
+
+    const service = createServiceWithExternal(db, client);
+    const result = await service.runExternal('owner-1');
+
+    // Then: discovery came from the DB read, never the provider's
+    // installation listing (that's the org sweep's discovery path only).
+    expect(result.status).toBe('COMPLETED');
+    expect(client.listInstallationRepositories).not.toHaveBeenCalled();
+
+    // The commit stream synced and got promoted to READY, same stage
+    // pipeline as the org sweep.
+    const stream = box.store.streams.get('repo-external:COMMIT');
+    expect(stream?.status).toBe('READY');
+    expect(stream?.frontierSha).toBe('external-head-sha');
+
+    // Commit facts were recorded for the external repository.
+    expect(box.store.commitFacts.size).toBe(1);
+    const fact = [...box.store.commitFacts.values()][0];
+    expect(fact?.sha).toBe('external-head-sha');
+    expect(fact?.repositoryId).toBe('repo-external');
+
+    // Recording facts rebuilds the repository/contributor year aggregates.
+    expect(box.store.yearAggregates.size).toBeGreaterThan(0);
+    expect(box.store.contributorYearAggregates.size).toBeGreaterThan(0);
+  });
+
+  it('externalRuntimeFactory가 배선되지 않으면 명시적으로 실패한다', async () => {
+    const { db } = createFakeDb();
+    const client = createClient([]);
+    const service = createService(db, client);
+
+    await expect(service.runExternal('owner-1')).rejects.toThrow(
+      /external runtime not configured/,
+    );
   });
 });
 

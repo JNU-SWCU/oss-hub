@@ -26,7 +26,10 @@ import {
 } from './collection-error-code.enum';
 import { CollectionExternalDiscoveryService } from './collection-external-discovery.service';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
-import { CollectionSyncService } from './collection-sync.service';
+import {
+  CollectionSyncService,
+  type CollectionSyncRunResult,
+} from './collection-sync.service';
 import { CollectionExternalDiscoveryRequestDto } from './dto/collection-external-discovery-request.dto';
 import { CollectionExternalDiscoveryResponseDto } from './dto/collection-external-discovery-response.dto';
 import { CollectionRunListResponseDto } from './dto/collection-run-list-response.dto';
@@ -78,10 +81,42 @@ export class CollectionAdminController {
       metadata: createCollectionTriggerAuditMetadata({ runId }),
     });
     const startedAt = Date.now();
-    void this.sync.run(this.ownerId, runId).then(
+    this.observeSweep(
+      'org',
+      runId,
+      startedAt,
+      this.sync.run(this.ownerId, runId),
+    );
+    // Independent void promise — E1 external sweep must not block the org
+    // sweep above (separate lease scope, separate failure surface).
+    this.observeSweep(
+      'external',
+      runId,
+      startedAt,
+      this.sync.runExternal(this.ownerId, runId),
+    );
+    return new CollectionTriggerResponseDto(runId);
+  }
+
+  /**
+   * #511 — 수동 트리거도 성공 시 로그 1줄을 남긴다. 실패 이벤트만 있던 자리라
+   * 관리자가 "내가 누른 수집이 끝났는가"를 로그로 판정할 수 없었다.
+   *
+   * org·external 두 sweep에 대칭으로 건다 — 한쪽만 남기면 조직 밖 수집의 완료 여부가
+   * 다시 판정 불가능해진다. 실패 이벤트 이름은 기존 것을 그대로 유지해 이미 걸려 있는
+   * 경보를 깨뜨리지 않는다. 토큰·시크릿·저장소 이름은 담지 않는다(#511 수용 기준).
+   */
+  private observeSweep(
+    scope: 'org' | 'external',
+    runId: string,
+    startedAt: number,
+    sweep: Promise<CollectionSyncRunResult>,
+  ): void {
+    void sweep.then(
       (result) => {
         this.logger.log({
           event: 'collection.admin.completed',
+          scope,
           runId,
           syncStatus: result.status,
           durationMs: Date.now() - startedAt,
@@ -94,13 +129,16 @@ export class CollectionAdminController {
       },
       (error: unknown) => {
         this.logger.error({
-          event: 'collection.admin.sync_failed',
+          event:
+            scope === 'org'
+              ? 'collection.admin.sync_failed'
+              : 'collection.admin.external_sync_failed',
+          scope,
           runId,
           errorName: error instanceof Error ? error.name : 'UnknownError',
         });
       },
     );
-    return new CollectionTriggerResponseDto(runId);
   }
 
   /**
