@@ -1,5 +1,5 @@
 import type { ProblemDetail } from '@/lib/api-client';
-import type { BoardPostCategory } from './types';
+import type { BoardAuthorRole, BoardPostCategory } from './types';
 
 /** 프로토타입 원문(`oss-hub-standalone-src.dc.html` boardRows/kindText)과 동일한 라벨. */
 export const BOARD_CATEGORY_LABELS: Readonly<
@@ -28,10 +28,40 @@ export function boardPostAuthorRoleLabel(category: BoardPostCategory): string {
 }
 
 /**
- * 댓글 작성자는 응답(`BoardCommentResponseDto`)에 `authorId`만 있고 역할·이름 정보가
- * 전혀 없어(글과 달리 category로 역산할 근거도 없음) 공통 라벨만 붙인다.
+ * 댓글 작성자 표시 이름 자리. 서버는 `authorId`만 주고 닉네임을 실지 않으므로
+ * 공통 자리 표시만 둔다. 역할 구분은 `authorRole` 뱃지가 담당한다.
  */
 export const BOARD_COMMENT_AUTHOR_LABEL = '참여자';
+
+/**
+ * 댓글 작성자 역할 라벨. 프로토타입은 학생/교직원 2종만 다루므로 ADMIN은
+ * 교직원으로 접는다(게시판 접근·고정·공지 작성에서 ADMIN=교직원 권한과 동일).
+ * 라벨 자체는 정적 표시 문구라 프런트 소유(ADR-008). 원본 `authorRole` 값은
+ * 백엔드가 소유·전송한다.
+ */
+export const BOARD_COMMENT_AUTHOR_ROLE_LABEL: Readonly<
+  Record<BoardAuthorRole, string>
+> = {
+  STUDENT: '학생',
+  STAFF: '교직원',
+  ADMIN: '교직원',
+};
+
+/**
+ * 역할칩 색 — `account-slot.tsx`와 동일하게 StatusBadge 톤을 재사용한다.
+ * 학생 = recruiting, 교직원·ADMIN = approved.
+ */
+export const BOARD_COMMENT_AUTHOR_ROLE_VARIANT: Readonly<
+  Record<BoardAuthorRole, 'recruiting' | 'approved'>
+> = {
+  STUDENT: 'recruiting',
+  STAFF: 'approved',
+  ADMIN: 'approved',
+};
+
+export function boardCommentAuthorRoleLabel(role: BoardAuthorRole): string {
+  return BOARD_COMMENT_AUTHOR_ROLE_LABEL[role];
+}
 
 /** 프로토타입 `writeLabel`(#619 board 화면). */
 export function boardWriteButtonLabel(isStaff: boolean): string {

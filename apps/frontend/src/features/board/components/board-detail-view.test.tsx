@@ -16,14 +16,23 @@ const post: BoardPostDetail = {
   pinned: false,
   createdAt: '2026-08-01T03:00:00.000Z',
   updatedAt: '2026-08-01T03:00:00.000Z',
-  commentCount: 1,
+  commentCount: 2,
   comments: [
     {
-      id: 'comment-1',
+      id: 'comment-staff',
       postId: 'post-1',
-      authorId: 'user-2',
+      authorId: 'user-staff',
+      authorRole: 'STAFF',
       body: '10월 17일 18시까지입니다.',
       createdAt: '2026-08-01T04:00:00.000Z',
+    },
+    {
+      id: 'comment-student',
+      postId: 'post-1',
+      authorId: 'user-student',
+      authorRole: 'STUDENT',
+      body: '감사합니다.',
+      createdAt: '2026-08-01T05:00:00.000Z',
     },
   ],
 };
@@ -97,13 +106,84 @@ describe('BoardDetailContent', () => {
     expect(html).toContain('중간 산출물 마감일이 정확히 언제인가요?');
     expect(html).toContain('학생'); // 작성자(QNA) 역할 라벨
     expect(html).toContain('질문');
-    expect(html).toContain('댓글 1');
+    expect(html).toContain('댓글 2');
     expect(html).toContain('10월 17일 18시까지입니다.');
-    expect(html).toContain('참여자'); // 댓글 작성자 공통 라벨
+    expect(html).toContain('참여자');
+    expect(html).toContain('교직원'); // 교직원 댓글 역할 태그
+    expect(html).toContain('감사합니다.');
     expect(html).toContain('수정');
     expect(html).toContain('삭제');
     expect(html).toContain('댓글을 입력하세요');
     expect(html).toContain('댓글 달기');
+  });
+
+  it('교직원이 쓴 댓글에 교직원 역할 태그가 붙는다', () => {
+    const html = renderToStaticMarkup(
+      <BoardDetailContent
+        {...baseProps({
+          state: {
+            kind: 'ready',
+            post: {
+              ...post,
+              commentCount: 1,
+              comments: [post.comments[0]!],
+            },
+          },
+        })}
+      />,
+    );
+    expect(html).toContain('교직원 역할');
+    expect(html).toContain('교직원');
+    expect(html).not.toContain('학생 역할');
+  });
+
+  it('학생이 쓴 댓글에 학생 역할 태그가 붙는다', () => {
+    const html = renderToStaticMarkup(
+      <BoardDetailContent
+        {...baseProps({
+          state: {
+            kind: 'ready',
+            post: {
+              ...post,
+              commentCount: 1,
+              comments: [post.comments[1]!],
+            },
+          },
+        })}
+      />,
+    );
+    expect(html).toContain('학생 역할');
+    expect(html).toContain('학생');
+  });
+
+  it('ADMIN 댓글은 표시 라벨을 교직원으로 접는다', () => {
+    const html = renderToStaticMarkup(
+      <BoardDetailContent
+        {...baseProps({
+          state: {
+            kind: 'ready',
+            post: {
+              ...post,
+              commentCount: 1,
+              comments: [
+                {
+                  id: 'comment-admin',
+                  postId: 'post-1',
+                  authorId: 'user-admin',
+                  authorRole: 'ADMIN',
+                  body: '플랫폼 운영 안내입니다.',
+                  createdAt: '2026-08-01T06:00:00.000Z',
+                },
+              ],
+            },
+          },
+        })}
+      />,
+    );
+    expect(html).toContain('교직원 역할');
+    expect(html).toContain('교직원');
+    expect(html).not.toContain('aria-label="관리자 역할"');
+    expect(html).not.toContain('>관리자<');
   });
 
   it('학생 뷰에는 고정 버튼이 없다', () => {

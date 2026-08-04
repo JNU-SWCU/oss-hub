@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { BoardPostCategory } from '@prisma/client';
+import { BoardPostCategory, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** 게시판 목록 화면 한 행 — 본문(body)은 목록에서 쓰지 않아 select에서 뺀다. */
@@ -24,6 +24,8 @@ export interface BoardCommentRecord {
   id: string;
   postId: string;
   authorId: string;
+  /** 작성자 `User.role`. null이면 학생으로 본다(게시판 참여자는 역할이 있어야 한다). */
+  authorRole: Role;
   body: string;
   createdAt: Date;
 }
@@ -77,6 +79,15 @@ export interface CreateBoardCommentInput {
   body: string;
 }
 
+const commentSelect = {
+  id: true,
+  postId: true,
+  authorId: true,
+  body: true,
+  createdAt: true,
+  author: { select: { role: true } },
+} as const;
+
 const postDetailSelect = {
   id: true,
   programId: true,
@@ -89,13 +100,7 @@ const postDetailSelect = {
   updatedAt: true,
   comments: {
     orderBy: { createdAt: 'asc' as const },
-    select: {
-      id: true,
-      postId: true,
-      authorId: true,
-      body: true,
-      createdAt: true,
-    },
+    select: commentSelect,
   },
   _count: { select: { comments: true } },
 };
@@ -206,20 +211,15 @@ export class BoardRepository {
   async createComment(
     input: CreateBoardCommentInput,
   ): Promise<BoardCommentRecord> {
-    return this.prisma.boardComment.create({
+    const comment = await this.prisma.boardComment.create({
       data: {
         postId: input.postId,
         authorId: input.authorId,
         body: input.body,
       },
-      select: {
-        id: true,
-        postId: true,
-        authorId: true,
-        body: true,
-        createdAt: true,
-      },
+      select: commentSelect,
     });
+    return toCommentRecord(comment);
   }
 
   async findCommentRefById(commentId: string): Promise<BoardCommentRef | null> {
@@ -246,6 +246,15 @@ export class BoardRepository {
   }
 }
 
+interface CommentRow {
+  id: string;
+  postId: string;
+  authorId: string;
+  body: string;
+  createdAt: Date;
+  author: { role: Role | null };
+}
+
 interface PostDetailRow {
   id: string;
   programId: string;
@@ -256,8 +265,20 @@ interface PostDetailRow {
   pinned: boolean;
   createdAt: Date;
   updatedAt: Date;
-  comments: BoardCommentRecord[];
+  comments: CommentRow[];
   _count: { comments: number };
+}
+
+function toCommentRecord(comment: CommentRow): BoardCommentRecord {
+  return {
+    id: comment.id,
+    postId: comment.postId,
+    authorId: comment.authorId,
+    // 역할 미확정 작성자는 게시판 접근 경로상 거의 없지만, 표시는 학생으로 접는다.
+    authorRole: comment.author.role ?? Role.STUDENT,
+    body: comment.body,
+    createdAt: comment.createdAt,
+  };
 }
 
 function toDetailRecord(post: PostDetailRow): BoardPostDetailRecord {
@@ -272,6 +293,6 @@ function toDetailRecord(post: PostDetailRow): BoardPostDetailRecord {
     createdAt: post.createdAt,
     updatedAt: post.updatedAt,
     commentCount: post._count.comments,
-    comments: post.comments,
+    comments: post.comments.map(toCommentRecord),
   };
 }

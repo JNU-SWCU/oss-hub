@@ -1,4 +1,4 @@
-import { BoardPostCategory } from '@prisma/client';
+import { BoardPostCategory, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BoardRepository } from './board.repository';
 
@@ -137,5 +137,170 @@ describe('BoardRepository.findCommentRefById', () => {
     );
 
     expect(ref).toBeNull();
+  });
+});
+
+describe('BoardRepository.findDetailById', () => {
+  it('댓글 author.role을 authorRole로 평탄화한다', async () => {
+    const createdAt = new Date('2026-07-01T00:00:00.000Z');
+    const updatedAt = new Date('2026-07-01T00:00:00.000Z');
+    const commentAt = new Date('2026-07-01T01:00:00.000Z');
+    const findUnique = jest.fn().mockResolvedValue({
+      id: syntheticPostId,
+      programId: syntheticProgramId,
+      authorId: syntheticAuthorId,
+      category: BoardPostCategory.QNA,
+      title: '제목',
+      body: '본문',
+      pinned: false,
+      createdAt,
+      updatedAt,
+      comments: [
+        {
+          id: syntheticCommentId,
+          postId: syntheticPostId,
+          authorId: 'cuid-synthetic-staff',
+          body: '교직원 답변',
+          createdAt: commentAt,
+          author: { role: Role.STAFF },
+        },
+        {
+          id: 'cuid-synthetic-comment-student',
+          postId: syntheticPostId,
+          authorId: syntheticAuthorId,
+          body: '학생 의견',
+          createdAt: commentAt,
+          author: { role: Role.STUDENT },
+        },
+        {
+          id: 'cuid-synthetic-comment-admin',
+          postId: syntheticPostId,
+          authorId: 'cuid-synthetic-admin',
+          body: '관리자 답변',
+          createdAt: commentAt,
+          author: { role: Role.ADMIN },
+        },
+      ],
+      _count: { comments: 3 },
+    });
+    const prisma = {
+      boardPost: { findUnique },
+    } as unknown as PrismaService;
+
+    const detail = await new BoardRepository(prisma).findDetailById(
+      syntheticPostId,
+    );
+
+    expect(detail?.comments).toEqual([
+      {
+        id: syntheticCommentId,
+        postId: syntheticPostId,
+        authorId: 'cuid-synthetic-staff',
+        authorRole: Role.STAFF,
+        body: '교직원 답변',
+        createdAt: commentAt,
+      },
+      {
+        id: 'cuid-synthetic-comment-student',
+        postId: syntheticPostId,
+        authorId: syntheticAuthorId,
+        authorRole: Role.STUDENT,
+        body: '학생 의견',
+        createdAt: commentAt,
+      },
+      {
+        id: 'cuid-synthetic-comment-admin',
+        postId: syntheticPostId,
+        authorId: 'cuid-synthetic-admin',
+        authorRole: Role.ADMIN,
+        body: '관리자 답변',
+        createdAt: commentAt,
+      },
+    ]);
+    expect(findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          comments: expect.objectContaining({
+            select: expect.objectContaining({
+              author: { select: { role: true } },
+            }) as unknown,
+          }) as unknown,
+        }) as unknown,
+      }),
+    );
+  });
+
+  it('author.role이 null이면 authorRole을 STUDENT로 접는다', async () => {
+    const createdAt = new Date('2026-07-01T00:00:00.000Z');
+    const findUnique = jest.fn().mockResolvedValue({
+      id: syntheticPostId,
+      programId: syntheticProgramId,
+      authorId: syntheticAuthorId,
+      category: BoardPostCategory.QNA,
+      title: '제목',
+      body: '본문',
+      pinned: false,
+      createdAt,
+      updatedAt: createdAt,
+      comments: [
+        {
+          id: syntheticCommentId,
+          postId: syntheticPostId,
+          authorId: syntheticAuthorId,
+          body: '역할 미확정',
+          createdAt,
+          author: { role: null },
+        },
+      ],
+      _count: { comments: 1 },
+    });
+    const prisma = {
+      boardPost: { findUnique },
+    } as unknown as PrismaService;
+
+    const detail = await new BoardRepository(prisma).findDetailById(
+      syntheticPostId,
+    );
+
+    expect(detail?.comments[0]?.authorRole).toBe(Role.STUDENT);
+  });
+});
+
+describe('BoardRepository.createComment', () => {
+  it('작성 응답에 author.role을 authorRole로 실어 보낸다', async () => {
+    const createdAt = new Date('2026-07-01T00:00:00.000Z');
+    const create = jest.fn().mockResolvedValue({
+      id: syntheticCommentId,
+      postId: syntheticPostId,
+      authorId: syntheticAuthorId,
+      body: '새 댓글',
+      createdAt,
+      author: { role: Role.STUDENT },
+    });
+    const prisma = {
+      boardComment: { create },
+    } as unknown as PrismaService;
+
+    const comment = await new BoardRepository(prisma).createComment({
+      postId: syntheticPostId,
+      authorId: syntheticAuthorId,
+      body: '새 댓글',
+    });
+
+    expect(comment).toEqual({
+      id: syntheticCommentId,
+      postId: syntheticPostId,
+      authorId: syntheticAuthorId,
+      authorRole: Role.STUDENT,
+      body: '새 댓글',
+      createdAt,
+    });
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          author: { select: { role: true } },
+        }) as unknown,
+      }),
+    );
   });
 });

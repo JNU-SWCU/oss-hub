@@ -206,6 +206,7 @@ describe('board api', () => {
       id: 'comment-1',
       postId: 'post-1',
       authorId: 'user-2',
+      authorRole: 'STAFF',
       body: '댓글 내용',
       createdAt: '2026-08-01T00:00:00.000Z',
     };
