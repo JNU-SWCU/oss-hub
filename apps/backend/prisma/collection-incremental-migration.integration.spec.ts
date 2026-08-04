@@ -26,7 +26,7 @@ async function cleanFixtures(): Promise<void> {
   await prisma.collectionRepositoryStream.deleteMany({
     where: { repository: { githubOrganizationId: ORG_ID } },
   });
-  await prisma.collectionRepository.deleteMany({
+  await prisma.githubRepository.deleteMany({
     where: { githubOrganizationId: ORG_ID },
   });
   await prisma.application.deleteMany({
@@ -76,7 +76,7 @@ describe('collection incremental migration — DB invariants', () => {
 
   it('eligibility/frontier/author/year 인덱스가 모두 존재한다', async () => {
     await expect(
-      indexExists('CollectionRepository_visibility_presence_idx'),
+      indexExists('GithubRepository_visibility_presence_idx'),
     ).resolves.toBe(true);
     await expect(
       indexExists('CollectionRepositoryStream_status_idx'),
@@ -101,18 +101,14 @@ describe('collection incremental migration — DB invariants', () => {
   it('App installation 교체를 흉내내도 논리 저장소는 org+repo id 기준 한 행만 유지한다', async () => {
     const observedAt = new Date('2026-07-31T00:00:00.000Z');
     const create = (): Promise<{ id: string }> =>
-      prisma.collectionRepository.upsert({
-        where: {
-          githubOrganizationId_githubRepositoryId: {
-            githubOrganizationId: ORG_ID,
-            githubRepositoryId: REPO_ID,
-          },
-        },
+      prisma.githubRepository.upsert({
+        where: { githubRepositoryId: REPO_ID },
         create: {
           githubOrganizationId: ORG_ID,
           githubRepositoryId: REPO_ID,
-          fullName: 'org/repo',
+          nameWithOwner: 'org/repo',
           defaultBranch: 'main',
+          source: 'ORG_PROVISIONED',
           visibility: 'PUBLIC',
           presence: 'PRESENT',
           lastCompleteInventoryObservedAt: observedAt,
@@ -123,19 +119,20 @@ describe('collection incremental migration — DB invariants', () => {
     await create();
     await create(); // 두 번째 App installation이 다시 관측한 것을 흉내낸다.
 
-    const rows = await prisma.collectionRepository.findMany({
+    const rows = await prisma.githubRepository.findMany({
       where: { githubOrganizationId: ORG_ID, githubRepositoryId: REPO_ID },
     });
     expect(rows).toHaveLength(1);
   });
 
   it('commit fact의 (repositoryId, sha) 중복 삽입은 unique 제약 위반으로 거부된다', async () => {
-    const repository = await prisma.collectionRepository.create({
+    const repository = await prisma.githubRepository.create({
       data: {
         githubOrganizationId: ORG_ID,
         githubRepositoryId: REPO_ID + 1n,
-        fullName: 'org/repo-2',
+        nameWithOwner: 'org/repo-2',
         defaultBranch: 'main',
+        source: 'ORG_PROVISIONED',
         visibility: 'PRIVATE',
         presence: 'PRESENT',
       },
@@ -160,12 +157,13 @@ describe('collection incremental migration — DB invariants', () => {
   });
 
   it('연도 집계 행이 없는 새해 1/1에는 빈 결과를 반환한다(0으로 안전하게 읽는다)', async () => {
-    const repository = await prisma.collectionRepository.create({
+    const repository = await prisma.githubRepository.create({
       data: {
         githubOrganizationId: ORG_ID,
         githubRepositoryId: REPO_ID + 2n,
-        fullName: 'org/repo-3',
+        nameWithOwner: 'org/repo-3',
         defaultBranch: 'main',
+        source: 'ORG_PROVISIONED',
         visibility: 'PUBLIC',
         presence: 'PRESENT',
       },

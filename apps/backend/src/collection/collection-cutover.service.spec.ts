@@ -26,7 +26,7 @@ const KEY: CanonicalLeaseKey = { appId: 1n, organizationLogin: 'jnu-swcu' };
 
 const LEASE_TOKEN: CutoverLeaseToken = {
   appId: 1n,
-  organizationLogin: 'jnu-swcu',
+  scope: 'org:jnu-swcu',
   ownerId: 'cli:owner-1',
   epoch: 1n,
   runId: 'cutover-run-1',
