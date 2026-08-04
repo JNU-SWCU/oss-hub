@@ -74,7 +74,7 @@ describe('RolesRepository integration', () => {
       where: { userId: user.id, status: RoleRequestStatus.PENDING },
     });
     expect(results).toHaveLength(2);
-    expect(results.every((result) => result.requestStatus === 'PENDING')).toBe(
+    expect(results.every((result) => result.selectedRole === Role.STAFF)).toBe(
       true,
     );
     expect(pendingCount).toBe(1);
@@ -110,15 +110,18 @@ describe('RolesRepository integration', () => {
     expect(Number(storedUser.role === Role.STUDENT) + pendingCount).toBe(1);
   });
 
-  it.each([
-    [Role.STUDENT, Role.STUDENT, 0],
-    [Role.STAFF, null, 1],
-  ] as const)(
-    '프로필이 비어 있어도 %s 선택은 그대로 기록된다',
-    async (selectedRole, expectedRole, expectedRequestCount) => {
-      // Given — 온보딩 순서가 약관 → 역할 → 프로필로 바뀌어, 역할을 고르는 시점에
-      // 프로필은 아직 비어 있는 것이 정상이다. 예전에는 여기서 USR_002로 막혔고,
-      // 그 때문에 교직원이 학번을 지어내야 앞으로 나아갈 수 있었다.
+  /**
+   * #569 회귀 검사 ① — 저장된 행으로 확인한다.
+   *
+   * 온보딩 순서가 약관 → 역할 → 프로필로 바뀌어, 역할을 고르는 시점에 프로필은 아직
+   * 비어 있는 것이 정상이다. 그 상태에서 확정까지 해 버리면 이름·학과가 빈 미완성
+   * 신청이 관리자 대기줄에 올라가고, 학생은 이름 없이 학생 권한을 갖는다. 고른 사실만
+   * `selectedRole`에 남고 `role`·`RoleRequest`는 그대로여야 한다.
+   */
+  it.each([Role.STUDENT, Role.STAFF])(
+    '프로필이 비어 있으면 %s 선택은 기록만 남기고 아무것도 확정하지 않는다',
+    async (selectedRole) => {
+      // Given
       const user = await prisma.user.create({
         data: {
           id: `${TEST_PREFIX}incomplete-${selectedRole.toLowerCase()}`,
@@ -132,13 +135,17 @@ describe('RolesRepository integration', () => {
       const result = await service.selectRole(user.githubId, selectedRole);
 
       // Then
-      expect(result.selectedRole).toBe(selectedRole);
+      expect(result).toEqual({
+        selectedRole,
+        redirectTo: '/onboarding/profile',
+      });
       const [storedUser, requestCount] = await Promise.all([
         prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
         prisma.roleRequest.count({ where: { userId: user.id } }),
       ]);
-      expect(storedUser.role).toBe(expectedRole);
-      expect(requestCount).toBe(expectedRequestCount);
+      expect(storedUser.selectedRole).toBe(selectedRole);
+      expect(storedUser.role).toBeNull();
+      expect(requestCount).toBe(0);
     },
   );
 });

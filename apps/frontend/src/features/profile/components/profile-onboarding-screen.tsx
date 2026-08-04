@@ -50,6 +50,18 @@ import {
 } from '../profile-state';
 import type { ProfileFormErrors, ProfileFormValues } from '../types';
 
+/**
+ * 오류 문구의 id — 입력칸이 `aria-describedby`로 이 문구를 가리킨다.
+ *
+ * 시각적으로는 칸 바로 아래에 붙어 있어 연결이 자명하지만, 스크린 리더에서는
+ * 가리키지 않으면 읽히지 않는다. 초점이 칸에 있는 채로 "무엇이 잘못됐는지"가
+ * 함께 읽혀야 제출 실패 뒤 초점 이동이 실제 안내가 된다.
+ */
+const NAME_ERROR_ID = 'profile-name-error';
+const STUDENT_ID_ERROR_ID = 'profile-student-id-error';
+const STUDENT_ID_DESCRIPTION_ID = 'profile-student-id-description';
+const DEPARTMENT_ERROR_ID = 'profile-department-error';
+
 interface ProfileFormProps {
   /** 세션 역할. 아직 배정 전이면 `null`이고, 그때는 학생 기준을 따른다. */
   readonly role: ProfileRole | null;
@@ -85,9 +97,42 @@ export function ProfileForm({
   onChange,
   onSubmit,
 }: ProfileFormProps) {
+  const nameRef = useRef<HTMLInputElement>(null);
+  const studentIdRef = useRef<HTMLInputElement>(null);
+  const departmentRef = useRef<HTMLSelectElement>(null);
+  const otherDepartmentRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * 아직 채워지지 않은 첫 칸.
+   *
+   * `errors`를 그대로 보고 고른다 — 표시 여부(`showRequiredErrors`)는 이 제출로
+   * 비로소 켜지는 값이라, 제출 순간에는 아직 꺼져 있다.
+   */
+  function firstInvalidControl(): HTMLElement | null {
+    if (errors.name !== null) {
+      return nameRef.current;
+    }
+    if (errors.studentId !== null) {
+      return studentIdRef.current;
+    }
+    if (errors.department !== null) {
+      return values.departmentOption === OTHER_DEPARTMENT
+        ? otherDepartmentRef.current
+        : departmentRef.current;
+    }
+    return null;
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     onSubmit();
+    // 저장으로 이어지지 않는 제출이라면 화면이 그 사실을 말해야 한다. 안내 문구는
+    // `onSubmit`이 켜는 `showRequiredErrors`가 띄우고, 여기서는 그 문구가 붙은 칸으로
+    // 초점을 옮겨 키보드·스크린 리더 사용자가 곧바로 고쳐 쓸 수 있게 한다. 입력 노드는
+    // 다시 그려도 그대로라 상태 반영 전에 초점을 옮겨도 안전하다.
+    if (!isValid) {
+      firstInvalidControl()?.focus();
+    }
   }
 
   // 학과는 역할이 요구하지 않으면 감추지만, 학번은 감추지 않고 "선택"으로 열어 둔다 —
@@ -142,14 +187,18 @@ export function ProfileForm({
             <Input
               id="profile-name"
               name="name"
+              ref={nameRef}
               autoComplete="name"
               aria-required="true"
               maxLength={PROFILE_NAME_MAX_LENGTH}
               value={values.name}
               aria-invalid={showNameError}
+              aria-describedby={showNameError ? NAME_ERROR_ID : undefined}
               onChange={(event) => onChange({ name: event.target.value })}
             />
-            {showNameError ? <FieldError>{errors.name}</FieldError> : null}
+            {showNameError ? (
+              <FieldError id={NAME_ERROR_ID}>{errors.name}</FieldError>
+            ) : null}
           </Field>
 
           <Field data-invalid={showStudentIdError || undefined}>
@@ -166,19 +215,27 @@ export function ProfileForm({
             <Input
               id="profile-student-id"
               name="studentId"
+              ref={studentIdRef}
               inputMode="numeric"
               autoComplete="off"
               value={values.studentId}
               aria-invalid={showStudentIdError}
+              aria-describedby={
+                showStudentIdError
+                  ? `${STUDENT_ID_DESCRIPTION_ID} ${STUDENT_ID_ERROR_ID}`
+                  : STUDENT_ID_DESCRIPTION_ID
+              }
               onChange={(event) => onChange({ studentId: event.target.value })}
             />
-            <FieldDescription>
+            <FieldDescription id={STUDENT_ID_DESCRIPTION_ID}>
               {requirement.studentId
                 ? '숫자 6~10자리'
                 : '학번이 있으면 입력합니다. 숫자 6~10자리, 한 번 저장하면 변경할 수 없습니다.'}
             </FieldDescription>
             {showStudentIdError ? (
-              <FieldError>{errors.studentId}</FieldError>
+              <FieldError id={STUDENT_ID_ERROR_ID}>
+                {errors.studentId}
+              </FieldError>
             ) : null}
           </Field>
 
@@ -191,9 +248,16 @@ export function ProfileForm({
               <Select
                 id="profile-department"
                 name="department"
+                ref={departmentRef}
                 aria-required="true"
+                // 네이티브 select 규격(`components/ui/select`)에는 입력칸과 달리
+                // 오류 테두리가 없다. 빈 학과를 알리는 자리가 이 칸이라 여기서만 덧댄다.
+                className="aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40"
                 value={values.departmentOption}
                 aria-invalid={showDepartmentError}
+                aria-describedby={
+                  showDepartmentError ? DEPARTMENT_ERROR_ID : undefined
+                }
                 onChange={(event) =>
                   onChange({
                     departmentOption: event.target.value,
@@ -219,17 +283,23 @@ export function ProfileForm({
               {values.departmentOption === OTHER_DEPARTMENT ? (
                 <Input
                   aria-label="기타 학과"
+                  ref={otherDepartmentRef}
                   placeholder="학과 또는 전공을 입력해 주세요"
                   maxLength={PROFILE_DEPARTMENT_MAX_LENGTH}
                   value={values.otherDepartment}
                   aria-invalid={showDepartmentError}
+                  aria-describedby={
+                    showDepartmentError ? DEPARTMENT_ERROR_ID : undefined
+                  }
                   onChange={(event) =>
                     onChange({ otherDepartment: event.target.value })
                   }
                 />
               ) : null}
               {showDepartmentError ? (
-                <FieldError>{errors.department}</FieldError>
+                <FieldError id={DEPARTMENT_ERROR_ID}>
+                  {errors.department}
+                </FieldError>
               ) : null}
             </Field>
           ) : null}
@@ -242,11 +312,16 @@ export function ProfileForm({
           </Alert>
         ) : null}
 
+        {/* 저장할 수 없는 상태에서도 누를 수 있게 둔다 — 버튼을 꺼 두면 화면이 무엇이
+            비었는지 말할 기회를 영영 얻지 못한다. 회색 버튼 하나가 유일한 단서였고,
+            그것은 남은 항목이 무엇인지 알려 주지 않는다. 누르면 안내 문구가 뜨고
+            첫 빈 칸으로 초점이 간다(`handleSubmit`). 저장 요청은 검증을 통과할 때만
+            나간다(`toCompleteProfileRequest`)므로 잘못된 값이 서버로 가지는 않는다. */}
         <Button
           className={signupPrimaryClassName}
           type="submit"
           size="lg"
-          disabled={!isValid || isSubmitting}
+          disabled={isSubmitting}
         >
           {isSubmitting ? '저장 중…' : '가입 마치기'}
         </Button>

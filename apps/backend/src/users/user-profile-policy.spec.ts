@@ -1,5 +1,6 @@
 import type { Role } from '@prisma/client';
 import {
+  effectiveProfileRole,
   isCompleteUserProfile,
   isValidCompleteUserProfileFields,
   profileFieldRequirement,
@@ -137,4 +138,77 @@ it('backfill이 쓰는 엄격 판정은 세 항목이 모두 유효할 때만 �
       department: '인공지능학부',
     }),
   ).toBe(false);
+});
+
+/**
+ * #569 회귀 검사 ③ — **승인 대기 교직원을 깨뜨리지 않는다.**
+ *
+ * 확정을 `가입 마치기`로 미루면서 판정 근거에 `selectedRole`이 하나 늘었다. 그
+ * 우선순위가 어긋나면 프로필까지 마치고 승인을 기다리는 교직원이 학생 기준으로
+ * 판정돼 미완료가 되고, 프로필 화면에서 학번이 '선택'에서 '필수'로 바뀐다 —
+ * 교직원 가입이 통째로 막힌다.
+ */
+it('승인 대기 교직원은 학번이 없어도 완료다', () => {
+  expect(
+    isCompleteUserProfile({
+      id: 'synthetic-pending-staff',
+      name: '합성 교직원',
+      studentId: null,
+      department: '인공지능학부',
+      role: null,
+      hasPendingStaffRequest: true,
+    }),
+  ).toBe(true);
+});
+
+it('승인 대기 교직원의 학번은 필수가 아니다', () => {
+  expect(
+    profileFieldRequirement(
+      effectiveProfileRole({ role: null, hasPendingStaffRequest: true }),
+    ),
+  ).toEqual({ studentId: false, department: true });
+});
+
+/**
+ * 새 칸이 비어 있는 기존 사용자를 학생 기준으로 되돌리지 않는다. 마이그레이션이
+ * backfill을 하지만, 그 사이에 들어온 요청도 살아 있는 요청을 근거로 답해야 한다.
+ */
+it('고른 역할이 비어 있어도 살아 있는 요청이 교직원 기준을 지킨다', () => {
+  expect(
+    effectiveProfileRole({
+      role: null,
+      hasPendingStaffRequest: true,
+      selectedRole: null,
+    }),
+  ).toBe('STAFF');
+});
+
+it.each([
+  ['STUDENT', { studentId: true, department: true }],
+  ['STAFF', { studentId: false, department: true }],
+] as const)(
+  '확정 전에는 고른 역할(%s)이 필수 항목을 정한다',
+  (selectedRole, expected) => {
+    // Given — 프로필을 입력하는 동안에는 role도 승인 요청도 없다(#569).
+    expect(
+      profileFieldRequirement(
+        effectiveProfileRole({
+          role: null,
+          hasPendingStaffRequest: false,
+          selectedRole,
+        }),
+      ),
+    ).toEqual(expected);
+  },
+);
+
+it('배정된 역할이 고른 역할을 이긴다', () => {
+  // Given — 관리자로 시드된 계정이 예전에 학생을 골라 뒀더라도 관리자다.
+  expect(
+    effectiveProfileRole({
+      role: 'ADMIN',
+      hasPendingStaffRequest: false,
+      selectedRole: 'STUDENT',
+    }),
+  ).toBe('ADMIN');
 });
