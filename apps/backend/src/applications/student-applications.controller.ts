@@ -30,6 +30,10 @@ interface StudentApplicationResponse {
   readonly updatedAt: string;
   readonly isRepositoryPublicationPlanned: boolean;
   readonly canManage: boolean;
+  /** @deprecated Use canManage. */
+  readonly canEdit: boolean;
+  /** @deprecated Use canManage. */
+  readonly canCancel: boolean;
 }
 
 function toResponse(
@@ -37,6 +41,8 @@ function toResponse(
 ): StudentApplicationResponse {
   return {
     ...application,
+    canEdit: application.canManage,
+    canCancel: application.canManage,
     submittedAt: application.submittedAt.toISOString(),
     updatedAt: application.updatedAt.toISOString(),
   };

@@ -69,6 +69,8 @@ const application = {
   updatedAt: '2026-07-16T00:00:00.000Z',
   isRepositoryPublicationPlanned: false,
   canManage: true,
+  canEdit: true,
+  canCancel: true,
 } satisfies StudentApplication;
 
 describe('loadProgramApplyContext', () => {
