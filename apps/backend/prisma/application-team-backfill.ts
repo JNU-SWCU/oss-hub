@@ -41,13 +41,21 @@ export type ApplicationTeamBackfillErrorKind =
   (typeof APPLICATION_TEAM_BACKFILL_ERROR_KIND)[keyof typeof APPLICATION_TEAM_BACKFILL_ERROR_KIND];
 
 export class ApplicationTeamBackfillError extends Error {
+  // parameter property(`constructor(readonly x)`)를 쓰지 않는다 — 운영 이미지에는
+  // ts-node가 없어 Node의 strip-only 타입 제거로 실행하는데, 그 문법은 지원되지 않는다
+  // (`db:backfill:application-teams:prod`, server-runbook M11).
+  readonly kind: ApplicationTeamBackfillErrorKind;
+  readonly applicationId?: string;
+
   constructor(
-    readonly kind: ApplicationTeamBackfillErrorKind,
+    kind: ApplicationTeamBackfillErrorKind,
     message: string,
-    readonly applicationId?: string,
+    applicationId?: string,
   ) {
     super(message);
     this.name = 'ApplicationTeamBackfillError';
+    this.kind = kind;
+    this.applicationId = applicationId;
   }
 }
 
