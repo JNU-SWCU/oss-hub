@@ -2,30 +2,42 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { loadArchiveCategoryCounts } from '@/features/archive/api';
-import type { ArchiveCategoryCounts } from '@/features/archive/types';
-import { getProgramStatusCounts } from '@/features/programs/api';
-import type { ProgramStatusCounts } from '@/features/programs/types';
-import { getRankingYears } from '@/features/ranking/api';
 import { cn } from '@/lib/utils';
 import { AppSidebar } from './app-sidebar';
+import {
+  SECTION_FACETS,
+  type SectionFacetData,
+} from './section-facets';
+import {
+  SIDEBAR_COLLAPSED_VALUE,
+  SIDEBAR_OPEN_VALUE,
+  SIDEBAR_STORAGE_KEY,
+} from './sidebar-collapsed';
 import { shellSectionFromPathname, sidebarGroupsFor } from './sidebar-menu';
 import { useSessionRole } from './use-session-role';
 
-export const SIDEBAR_STORAGE_KEY = 'oss-hub-sidebar';
-export const SIDEBAR_COLLAPSED_VALUE = 'shut';
-export const SIDEBAR_OPEN_VALUE = 'open';
-
-export function readStoredCollapsed(raw: string | null): boolean {
-  return raw === SIDEBAR_COLLAPSED_VALUE;
-}
+export {
+  SIDEBAR_COLLAPSED_VALUE,
+  SIDEBAR_OPEN_VALUE,
+  SIDEBAR_STORAGE_KEY,
+  readStoredCollapsed,
+} from './sidebar-collapsed';
 
 /**
  * 상단 ShellNav 아래 — **현재 섹션** 하위 사이드 패널 + 본문.
  * 모바일(<900px) 사이드바는 AppSidebar가 숨기고, 본문 칩이 필터를 담당한다.
- * 카운트/연도 fetch는 해당 섹션일 때만 한다.
+ * 카운트/연도 fetch는 해당 섹션일 때만 한다 (SECTION_FACETS 단일 이펙트).
+ *
+ * 초기 collapsed 는 서버 cookies() → layout → AppFrame → initialCollapsed 로
+ * 전달해 첫 페인트 점프(localStorage useEffect)를 없앤다 (F4).
  */
-export function ProductShell({ children }: { readonly children: ReactNode }) {
+export function ProductShell({
+  children,
+  initialCollapsed = false,
+}: {
+  readonly children: ReactNode;
+  readonly initialCollapsed?: boolean;
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const search = searchParams.toString();
@@ -33,87 +45,34 @@ export function ProductShell({ children }: { readonly children: ReactNode }) {
   const member = status === 'assigned' && role !== null && isProfileComplete;
   const section = shellSectionFromPathname(pathname);
 
-  const [programCounts, setProgramCounts] = useState<
-    ProgramStatusCounts | undefined
-  >(undefined);
-  const [archiveCounts, setArchiveCounts] = useState<
-    Partial<ArchiveCategoryCounts> | undefined
-  >(undefined);
-  const [rankingYears, setRankingYears] = useState<readonly number[]>([]);
-  const [collapsed, setCollapsed] = useState(false);
-  const [restored, setRestored] = useState(false);
+  const [facetData, setFacetData] = useState<SectionFacetData | undefined>(
+    undefined,
+  );
+  const [collapsed, setCollapsed] = useState(initialCollapsed);
 
+  // 쿠키 기록 — 첫 페인트는 서버가 이미 맞춰 두었고, 토글 시 동기화만 한다 (F4).
   useEffect(() => {
-    try {
-      setCollapsed(
-        readStoredCollapsed(window.localStorage.getItem(SIDEBAR_STORAGE_KEY)),
-      );
-    } catch {
-      // ignore
-    }
-    setRestored(true);
-  }, []);
+    document.cookie = `${SIDEBAR_STORAGE_KEY}=${
+      collapsed ? SIDEBAR_COLLAPSED_VALUE : SIDEBAR_OPEN_VALUE
+    }; Path=/; Max-Age=31536000; SameSite=Lax`;
+  }, [collapsed]);
 
+  // 섹션 패싯 단일 fetch — AbortController 로 스테일 응답 차단 (C5 / §3.3).
   useEffect(() => {
-    if (!restored) return;
-    try {
-      window.localStorage.setItem(
-        SIDEBAR_STORAGE_KEY,
-        collapsed ? SIDEBAR_COLLAPSED_VALUE : SIDEBAR_OPEN_VALUE,
-      );
-    } catch {
-      // ignore
-    }
-  }, [collapsed, restored]);
-
-  useEffect(() => {
-    if (section !== 'programs') {
-      setProgramCounts(undefined);
-      return;
-    }
-    let cancelled = false;
-    void getProgramStatusCounts()
-      .then((counts) => {
-        if (!cancelled) setProgramCounts(counts);
-      })
-      .catch(() => {
-        if (!cancelled) setProgramCounts(undefined);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [section]);
-
-  useEffect(() => {
-    if (section !== 'archive') {
-      setArchiveCounts(undefined);
-      return;
-    }
-    let active = true;
-    loadArchiveCategoryCounts()
-      .then((counts) => {
-        if (active) setArchiveCounts(counts);
-      })
-      .catch(() => {
-        if (active) setArchiveCounts(undefined);
-      });
-    return () => {
-      active = false;
-    };
-  }, [section]);
-
-  useEffect(() => {
-    if (section !== 'ranking') {
-      setRankingYears([]);
+    const spec = section ? SECTION_FACETS[section] : undefined;
+    if (!spec?.load) {
+      setFacetData(undefined);
       return;
     }
     const controller = new AbortController();
-    void getRankingYears(controller.signal)
-      .then((years) => {
-        if (!controller.signal.aborted) setRankingYears(years);
+    setFacetData(undefined); // clear stale on section change (C5)
+    void spec
+      .load(controller.signal)
+      .then((data) => {
+        if (!controller.signal.aborted) setFacetData(data);
       })
       .catch(() => {
-        if (!controller.signal.aborted) setRankingYears([]);
+        if (!controller.signal.aborted) setFacetData(undefined);
       });
     return () => controller.abort();
   }, [section]);
@@ -121,9 +80,10 @@ export function ProductShell({ children }: { readonly children: ReactNode }) {
   const toggle = useCallback(() => setCollapsed((prev) => !prev), []);
 
   const groups = sidebarGroupsFor(section, member ? role : null, {
-    programCounts: section === 'programs' ? programCounts : undefined,
-    archiveCounts: section === 'archive' ? archiveCounts : undefined,
-    rankingYears: section === 'ranking' ? rankingYears : undefined,
+    programCounts: facetData?.programCounts,
+    archiveCounts: facetData?.archiveCounts,
+    rankingYears: facetData?.rankingYears,
+    rankingCounts: facetData?.rankingCounts,
   });
 
   if (groups.length === 0) {
@@ -141,9 +101,13 @@ export function ProductShell({ children }: { readonly children: ReactNode }) {
       data-section={section ?? undefined}
       className={cn(
         'grid min-h-0 flex-1 grid-cols-1',
+        // 의도적 레이아웃 애니메이션(grid-template-columns).
+        // transform-only 는 main padding 이 어긋나므로 폭 자체에 트랜지션을 건다.
+        // 사용자 토글 1회당 1번 — prefers-reduced-motion 시 duration 0 (F5 / §4.6).
+        'min-[900px]:transition-[grid-template-columns] motion-reduce:transition-none',
         collapsed
-          ? 'min-[900px]:grid-cols-[var(--sidebar-collapsed-width)_minmax(0,1fr)]'
-          : 'min-[900px]:grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)]',
+          ? 'min-[900px]:grid-cols-[var(--sidebar-collapsed-width)_minmax(0,1fr)] min-[900px]:duration-[var(--sidebar-collapse-duration)] min-[900px]:ease-in'
+          : 'min-[900px]:grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)] min-[900px]:duration-[var(--sidebar-expand-duration)] min-[900px]:ease-out',
       )}
     >
       <AppSidebar

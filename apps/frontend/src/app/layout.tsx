@@ -2,10 +2,15 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
 import { Geist } from 'next/font/google';
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { AccountSlot } from './_shell/account-slot';
 import { AppFrame } from './_shell/app-frame';
+import {
+  readStoredCollapsed,
+  SIDEBAR_STORAGE_KEY,
+} from './_shell/sidebar-collapsed';
 import { PUBLIC_MENU } from './_shell/public-menus';
 import { SessionEntryNavLink } from './_shell/role-home-link';
 import { SkipLink } from './_shell/skip-link';
@@ -17,9 +22,15 @@ export const metadata: Metadata = {
   description: '오픈소스 허브',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
+  // 사이드바 접힘 쿠키 → 첫 페인트부터 올바른 폭 (F4). Root 는 cookies() 로 dynamic.
+  const cookieStore = await cookies();
+  const initialSidebarCollapsed = readStoredCollapsed(
+    cookieStore.get(SIDEBAR_STORAGE_KEY)?.value ?? null,
+  );
+
   return (
     <html lang="ko" className={cn('font-sans', geist.variable)}>
       <body className="relative">
@@ -38,6 +49,7 @@ export default function RootLayout({
               <AccountSlot />
             </>
           }
+          initialSidebarCollapsed={initialSidebarCollapsed}
         >
           {children}
         </AppFrame>
