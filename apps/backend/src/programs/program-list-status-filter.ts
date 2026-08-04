@@ -70,9 +70,7 @@ export function programListSqlWhere(
   search: string,
   now: Date,
 ): Prisma.Sql {
-  const conditions: Prisma.Sql[] = [
-    programListSqlStatusPredicate(status, now),
-  ];
+  const conditions: Prisma.Sql[] = [programListSqlStatusPredicate(status, now)];
   if (search) {
     conditions.push(Prisma.sql`p."name" ILIKE ${`%${search}%`}`);
   }

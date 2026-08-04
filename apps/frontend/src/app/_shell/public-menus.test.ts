@@ -38,9 +38,9 @@ describe('공개 메뉴 단일 원본 (상단 전담)', () => {
     const hrefs = sidebarGroupsFor('programs', 'STUDENT').flatMap((g) =>
       g.items.map((i) => i.href),
     );
-    expect(hrefs.some((h) => h === '/programs' || h.startsWith('/programs?'))).toBe(
-      true,
-    );
+    expect(
+      hrefs.some((h) => h === '/programs' || h.startsWith('/programs?')),
+    ).toBe(true);
     expect(hrefs).not.toContain('/archive');
     expect(hrefs).not.toContain('/ranking');
   });
