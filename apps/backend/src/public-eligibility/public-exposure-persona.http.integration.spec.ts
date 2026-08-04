@@ -60,11 +60,30 @@ async function createRepositoryFixture(params: {
     },
   });
   const applicationId = `${PREFIX}-${params.key}-application`;
+  const teamId = `${PREFIX}-${params.key}-team`;
+  await harness.prisma.team.create({
+    data: {
+      id: teamId,
+      programId: PROGRAM_ID,
+      name: `${PREFIX}-${params.key}-team`,
+      joinCodeDigest: `${PREFIX}-${params.key}-team-digest`,
+      leaderId: applicantId,
+    },
+  });
+  await harness.prisma.teamMember.create({
+    data: {
+      id: `${PREFIX}-${params.key}-team-member`,
+      teamId,
+      programId: PROGRAM_ID,
+      userId: applicantId,
+    },
+  });
   await harness.prisma.application.create({
     data: {
       id: applicationId,
       programId: PROGRAM_ID,
       applicantId,
+      teamId,
       answers: { syntheticFixture: true },
       applicationTemplateVersion: 1,
       status: ApplicationStatus.APPROVED,
@@ -209,6 +228,12 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         where: { id: { startsWith: `${PREFIX}-` } },
       });
       await harness.prisma.application.deleteMany({
+        where: { id: { startsWith: `${PREFIX}-` } },
+      });
+      await harness.prisma.teamMember.deleteMany({
+        where: { id: { startsWith: `${PREFIX}-` } },
+      });
+      await harness.prisma.team.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
       // AuditLog는 append-only다 — 이 파일이 만든 REPOSITORY_PUBLISHED 행은 지우지 않고,

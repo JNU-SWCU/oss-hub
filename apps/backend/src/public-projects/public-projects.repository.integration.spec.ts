@@ -54,11 +54,30 @@ describe('PublicProjectsRepository integration', () => {
     const applicationIds = applicantIds.map(
       (_, index) => `${PREFIX}-application-${index}`,
     );
+    const teamIds = applicantIds.map((_, index) => `${PREFIX}-team-${index}`);
+    await prisma.team.createMany({
+      data: teamIds.map((id, index) => ({
+        id,
+        programId: PROGRAM_ID,
+        name: `${PREFIX}-team-${index}`,
+        joinCodeDigest: `${PREFIX}-team-digest-${index}`,
+        leaderId: applicantIds[index]!,
+      })),
+    });
+    await prisma.teamMember.createMany({
+      data: teamIds.map((id, index) => ({
+        id: `${PREFIX}-team-member-${index}`,
+        teamId: id,
+        programId: PROGRAM_ID,
+        userId: applicantIds[index]!,
+      })),
+    });
     await prisma.application.createMany({
       data: applicationIds.map((id, index) => ({
         id,
         programId: PROGRAM_ID,
         applicantId: applicantIds[index]!,
+        teamId: teamIds[index]!,
         answers: {},
         applicationTemplateVersion: 1,
         status: ApplicationStatus.APPROVED,
@@ -100,12 +119,47 @@ describe('PublicProjectsRepository integration', () => {
         },
       ],
     });
+    await prisma.team.createMany({
+      data: [
+        {
+          id: `${PREFIX}-private-team`,
+          programId: PROGRAM_ID,
+          name: `${PREFIX}-private-team`,
+          joinCodeDigest: `${PREFIX}-private-team-digest`,
+          leaderId: privateApplicantId,
+        },
+        {
+          id: `${PREFIX}-unpublished-team`,
+          programId: PROGRAM_ID,
+          name: `${PREFIX}-unpublished-team`,
+          joinCodeDigest: `${PREFIX}-unpublished-team-digest`,
+          leaderId: unpublishedApplicantId,
+        },
+      ],
+    });
+    await prisma.teamMember.createMany({
+      data: [
+        {
+          id: `${PREFIX}-private-team-member`,
+          teamId: `${PREFIX}-private-team`,
+          programId: PROGRAM_ID,
+          userId: privateApplicantId,
+        },
+        {
+          id: `${PREFIX}-unpublished-team-member`,
+          teamId: `${PREFIX}-unpublished-team`,
+          programId: PROGRAM_ID,
+          userId: unpublishedApplicantId,
+        },
+      ],
+    });
     await prisma.application.createMany({
       data: [
         {
           id: `${PREFIX}-private-application`,
           programId: PROGRAM_ID,
           applicantId: privateApplicantId,
+          teamId: `${PREFIX}-private-team`,
           answers: {},
           applicationTemplateVersion: 1,
           status: ApplicationStatus.APPROVED,
@@ -114,6 +168,7 @@ describe('PublicProjectsRepository integration', () => {
           id: `${PREFIX}-unpublished-application`,
           programId: PROGRAM_ID,
           applicantId: unpublishedApplicantId,
+          teamId: `${PREFIX}-unpublished-team`,
           answers: {},
           applicationTemplateVersion: 1,
           status: ApplicationStatus.APPROVED,
@@ -152,6 +207,8 @@ describe('PublicProjectsRepository integration', () => {
         where: { programId: PROGRAM_ID },
       });
       await prisma.application.deleteMany({ where: { programId: PROGRAM_ID } });
+      await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
+      await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
       await prisma.user.deleteMany({
         where: { id: { startsWith: PREFIX } },
       });
@@ -238,11 +295,30 @@ describe('PublicProjectsRepository integration', () => {
           role: Role.STUDENT,
         },
       });
+      const contractTeamId = `${PREFIX}-contract-team`;
+      await prisma.team.create({
+        data: {
+          id: contractTeamId,
+          programId: PROGRAM_ID,
+          name: `${PREFIX}-contract-team`,
+          joinCodeDigest: `${PREFIX}-contract-team-digest`,
+          leaderId: contractApplicantId,
+        },
+      });
+      await prisma.teamMember.create({
+        data: {
+          id: `${PREFIX}-contract-team-member`,
+          teamId: contractTeamId,
+          programId: PROGRAM_ID,
+          userId: contractApplicantId,
+        },
+      });
       await prisma.application.create({
         data: {
           id: contractApplicationId,
           programId: PROGRAM_ID,
           applicantId: contractApplicantId,
+          teamId: contractTeamId,
           answers: {},
           applicationTemplateVersion: 1,
           status: ApplicationStatus.APPROVED,
@@ -276,6 +352,10 @@ describe('PublicProjectsRepository integration', () => {
         await prisma.application.delete({
           where: { id: contractApplicationId },
         });
+        await prisma.teamMember.delete({
+          where: { id: `${PREFIX}-contract-team-member` },
+        });
+        await prisma.team.delete({ where: { id: contractTeamId } });
         await prisma.user.delete({ where: { id: contractApplicantId } });
       }
     },

@@ -90,11 +90,30 @@ async function createFreshPrivateRepository(): Promise<{
     },
   });
   const applicationId = seedId('repositories', scenarioId, 'application');
+  const teamId = seedId('repositories', scenarioId, 'team');
+  await prisma.team.create({
+    data: {
+      id: teamId,
+      programId: REPOSITORIES_PROGRAM_ID,
+      name: `${scenarioId} 1인 팀`,
+      joinCodeDigest: `digest:${scenarioId}`,
+      leaderId: applicantId,
+    },
+  });
+  await prisma.teamMember.create({
+    data: {
+      id: seedId('repositories', scenarioId, 'team-member'),
+      teamId,
+      programId: REPOSITORIES_PROGRAM_ID,
+      userId: applicantId,
+    },
+  });
   await prisma.application.create({
     data: {
       id: applicationId,
       programId: REPOSITORIES_PROGRAM_ID,
       applicantId,
+      teamId,
       answers: { seedPlaceholder: true, scenarioId },
       applicationTemplateVersion: 1,
       status: ApplicationStatus.APPROVED,
@@ -182,6 +201,12 @@ describe('SubmissionReviewsService integration', () => {
       where: { aggregateId: { startsWith: seedId('repositories') } },
     });
     await prisma.application.deleteMany({
+      where: { programId: REPOSITORIES_PROGRAM_ID },
+    });
+    await prisma.teamMember.deleteMany({
+      where: { programId: REPOSITORIES_PROGRAM_ID },
+    });
+    await prisma.team.deleteMany({
       where: { programId: REPOSITORIES_PROGRAM_ID },
     });
     await prisma.program.deleteMany({ where: { id: REPOSITORIES_PROGRAM_ID } });

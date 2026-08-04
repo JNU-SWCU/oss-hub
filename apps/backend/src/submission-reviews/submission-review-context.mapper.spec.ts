@@ -110,18 +110,19 @@ describe('toReviewContext', () => {
     });
   });
 
-  it('개인 신청 표시 이름은 legacy User 이름보다 UserProfile 이름을 우선한다', () => {
-    // Given
+  it('1인 팀 신청 표시 이름은 팀 이름을 쓴다', () => {
+    // Given: D5 이후 개인 참여도 1인 팀이다. displayName은 team.name을 우선한다.
     const row = contextRow();
-    row.application.teamId = null;
-    row.application.team = null;
+    row.application.teamId = 'solo-team-1';
+    row.application.team = { name: 'Solo Participant Team' };
     row.application.applicant.profile = { name: 'Profile Applicant' };
 
     // When
     const context = toReviewContext(row);
 
     // Then
-    expect(context.application.displayName).toBe('Profile Applicant');
+    expect(context.application.displayName).toBe('Solo Participant Team');
+    expect(context.application.applicationMode).toBe('TEAM');
   });
 
   it('revision 첨부 파일은 ATTACHED·미만료 항목만 storageKey 없이 반환한다', () => {
