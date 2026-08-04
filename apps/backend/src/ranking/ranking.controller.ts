@@ -1,6 +1,12 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import { RankingQueryRequestDto } from './dto/ranking-query.dto';
-import { RankingPageResponseDto } from './dto/ranking-response.dto';
+import {
+  RankingQueryRequestDto,
+  resolveRankingQueryYear,
+} from './dto/ranking-query.dto';
+import {
+  RankingPageResponseDto,
+  RankingYearsResponseDto,
+} from './dto/ranking-response.dto';
 import { RankingService } from './ranking.service';
 
 @Controller('ranking')
@@ -13,10 +19,16 @@ export class RankingController {
   ): Promise<RankingPageResponseDto> {
     return RankingPageResponseDto.from(
       await this.rankingService.findPage(
-        query.period,
+        resolveRankingQueryYear(query),
         query.page,
         query.pageSize,
       ),
     );
+  }
+
+  /** Distinct years that have public ranking data (desc). Sidebar year list. */
+  @Get('years')
+  async listYears(): Promise<RankingYearsResponseDto> {
+    return RankingYearsResponseDto.from(await this.rankingService.listYears());
   }
 }
