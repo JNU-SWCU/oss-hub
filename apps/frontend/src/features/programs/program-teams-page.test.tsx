@@ -6,13 +6,26 @@ import {
   ProgramTeamsSetupView,
   type ProgramTeamDirectoryEntry,
 } from './program-teams-page';
+import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import type { ProgramTeam } from './api';
 import type { ProgramDetail } from './types';
 import {
   applyHrefWithTeam,
   mapInvitationError,
+  mapTeamActionError,
   mapTeamError,
 } from './program-teams-flow';
+
+function problem(code: string, status: number): ProblemDetail {
+  return {
+    type: 'about:blank',
+    title: 'Error',
+    status,
+    detail: '',
+    code,
+    instance: '/programs/p/teams',
+  };
+}
 
 const program: ProgramDetail = {
   id: 'program-1',
@@ -70,13 +83,15 @@ describe('ProgramTeams views', () => {
     );
 
     expect(html).toContain('팀 만들기');
-    expect(html).toContain('참여코드로 합류');
+    expect(html).toContain('참여 코드로 합류');
+    // 표기는 "참여 코드"로 통일한다 — 붙여 쓴 표기가 남으면 화면마다 갈린다(#355).
+    expect(html).not.toContain('참여코드');
     expect(html).toContain('name="teamName"');
     expect(html).toContain('name="joinCode"');
     expect(html).not.toContain('TicketStub');
   });
 
-  it('팀 현황·참여코드·멤버 목록을 표시한다', () => {
+  it('팀 현황·참여 코드·멤버 목록을 표시한다', () => {
     const html = renderToStaticMarkup(
       <ProgramTeamRosterView
         program={program}
@@ -88,6 +103,8 @@ describe('ProgramTeams views', () => {
     expect(html).toContain('오픈소스팀');
     expect(html).toContain('2/4명');
     expect(html).toContain('ABCD1234XY');
+    expect(html).toContain('참여 코드');
+    expect(html).not.toContain('참여코드');
     expect(html).toContain('팀장');
     expect(html).toContain('member2');
     expect(html).toContain('신청서 작성으로 이동');
@@ -166,6 +183,42 @@ describe('program-teams-flow', () => {
         instance: '/team-invitations/x/accept',
       }),
     ).toBe('알 수 없는 오류');
+  });
+
+  // #355 — 판정 기준은 "읽은 사람이 다음에 무엇을 할 수 있는지 아는가"다.
+  // 실패만 알리고 끝나는 문구가 다시 들어오지 못하도록 문장을 통째로 고정한다.
+  it('참여 코드를 못 찾으면 어디서 코드를 다시 받는지 알려 준다', () => {
+    expect(mapTeamError(problem('TEAM_009', 404))).toBe(
+      '참여 코드를 찾을 수 없습니다. 팀장에게 받은 코드를 다시 확인해 주세요.',
+    );
+  });
+
+  it('코드를 모르는 팀 오류도 다시 시도해도 되는 상황인지 알려 준다', () => {
+    expect(mapTeamError(problem('TEAM_999', 500))).toBe(
+      '팀 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+    );
+  });
+
+  it('ApiError 가 아닌 만들기 실패는 확인할 입력으로 팀 이름을 지목한다', () => {
+    expect(mapTeamActionError(new TypeError('network'), 'create')).toBe(
+      '팀을 만들지 못했습니다. 팀 이름을 확인한 뒤 다시 시도해 주세요.',
+    );
+  });
+
+  it('ApiError 가 아닌 합류 실패는 가장 흔한 원인인 참여 코드를 지목한다', () => {
+    expect(mapTeamActionError(new TypeError('network'), 'join')).toBe(
+      '팀에 합류하지 못했습니다. 참여 코드가 맞는지 확인한 뒤 다시 시도해 주세요.',
+    );
+  });
+
+  it('ApiError 는 동작과 무관하게 서버가 짚어 준 원인을 그대로 쓴다', () => {
+    const error = new ApiError(problem('TEAM_007', 409));
+    expect(mapTeamActionError(error, 'create')).toBe(
+      '팀 최대 인원을 초과할 수 없습니다.',
+    );
+    expect(mapTeamActionError(error, 'join')).toBe(
+      '팀 최대 인원을 초과할 수 없습니다.',
+    );
   });
 });
 
