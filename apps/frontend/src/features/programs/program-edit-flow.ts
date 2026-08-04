@@ -214,6 +214,17 @@ export const MILESTONE_SAVE_FAILED_MESSAGE =
 export const MILESTONE_DELETE_FAILED_MESSAGE =
   '마일스톤을 삭제하지 못했습니다. 목록을 새로고침해 현재 상태를 확인한 뒤 다시 시도해 주세요.';
 
+/**
+ * PRG_010의 실제 서버 규칙은 "저장소 자동 생성이 켜진 프로그램의 마일스톤 0개 금지"다
+ * (program-editor.service의 updateProgram·deleteMilestone 검사).
+ * 팀 여부와는 무관하므로 화면에서는 켜 둔 설정과 해야 할 일을 그대로 짚는다.
+ */
+export const MILESTONE_REQUIRED_ON_SAVE_MESSAGE =
+  '저장소 자동 생성을 켜려면 마일스톤이 1개 이상 있어야 합니다. 마일스톤을 추가한 뒤 다시 저장해 주세요.';
+
+export const MILESTONE_REQUIRED_ON_DELETE_MESSAGE =
+  '저장소 자동 생성이 켜져 있어 마지막 마일스톤은 삭제할 수 없습니다. 다른 마일스톤을 먼저 추가하거나 저장소 자동 생성을 꺼 주세요.';
+
 export function mapMilestoneError(error: unknown): ProgramMilestoneErrors {
   if (!(error instanceof ApiError)) {
     return { general: MILESTONE_SAVE_FAILED_MESSAGE };
@@ -225,9 +236,7 @@ export function mapMilestoneError(error: unknown): ProgramMilestoneErrors {
     case PROGRAM_EDIT_ERROR_CODES.MILESTONE_BEFORE_APPLICATION_END:
       return { dueAt: '마일스톤 마감은 신청 종료 이후여야 합니다.' };
     case PROGRAM_EDIT_ERROR_CODES.MILESTONE_REQUIRED:
-      return {
-        general: '팀 프로그램에는 최소 1개 이상의 마일스톤이 필요합니다.',
-      };
+      return { general: MILESTONE_REQUIRED_ON_SAVE_MESSAGE };
     default:
       return { general: error.problem.detail };
   }
@@ -245,6 +254,12 @@ export function mapMilestoneDeleteError(error: unknown): string {
   if (isMilestoneSubmissionConflict(error)) {
     return '제출물이 있는 마일스톤은 삭제할 수 없습니다.';
   }
+  if (
+    error instanceof ApiError &&
+    error.problem.code === PROGRAM_EDIT_ERROR_CODES.MILESTONE_REQUIRED
+  ) {
+    return MILESTONE_REQUIRED_ON_DELETE_MESSAGE;
+  }
   return MILESTONE_DELETE_FAILED_MESSAGE;
 }
 
@@ -261,6 +276,8 @@ function mapProgramProblem(problem: ProblemDetail): ProgramEditErrors {
       return { period: '신청 기간을 확인해 주세요.' };
     case PROGRAM_EDIT_ERROR_CODES.VALIDATION_ERROR:
       return { general: '입력값을 확인해 주세요.' };
+    case PROGRAM_EDIT_ERROR_CODES.MILESTONE_REQUIRED:
+      return { general: MILESTONE_REQUIRED_ON_SAVE_MESSAGE };
     default:
       return { general: problem.detail };
   }

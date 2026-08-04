@@ -5,6 +5,7 @@ import {
   buildProgramEditInput,
   mapMilestoneDeleteError,
   mapMilestoneError,
+  mapProgramEditError,
   toProgramEditForm,
 } from './program-edit-flow';
 
@@ -122,5 +123,25 @@ describe('마일스톤 실패 안내', () => {
     expect(mapMilestoneDeleteError(apiError('PRG_009', 409))).toBe(
       '제출물이 있는 마일스톤은 삭제할 수 없습니다.',
     );
+  });
+
+  // PRG_010 의 실제 서버 규칙은 저장소 자동 생성 설정이며 팀 여부와 무관하다.
+  // 화면이 "팀 프로그램" 을 원인으로 지목하면 교직원이 엉뚱한 곳을 고치게 된다.
+  it('PRG_010 은 팀이 아니라 저장소 자동 생성 설정을 원인으로 지목한다', () => {
+    const onSave = mapMilestoneError(apiError('PRG_010', 422)).general ?? '';
+    expect(onSave).toBe(
+      '저장소 자동 생성을 켜려면 마일스톤이 1개 이상 있어야 합니다. 마일스톤을 추가한 뒤 다시 저장해 주세요.',
+    );
+    expect(onSave).not.toContain('팀 프로그램');
+
+    const onProgramSave =
+      mapProgramEditError(apiError('PRG_010', 422)).general ?? '';
+    expect(onProgramSave).toBe(onSave);
+
+    const onDelete = mapMilestoneDeleteError(apiError('PRG_010', 422));
+    expect(onDelete).toBe(
+      '저장소 자동 생성이 켜져 있어 마지막 마일스톤은 삭제할 수 없습니다. 다른 마일스톤을 먼저 추가하거나 저장소 자동 생성을 꺼 주세요.',
+    );
+    expect(onDelete).not.toContain('팀 프로그램');
   });
 });
