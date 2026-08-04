@@ -1,4 +1,5 @@
 import {
+  AccountStatus,
   ApplicationStatus,
   CollectionRepositoryPresence,
   ProgramCategory,
@@ -6,8 +7,14 @@ import {
   RepositoryProvisionJobStatus,
   RepositorySource,
   RepositoryVisibility,
+  RoleRequestStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import {
+  ACCESS_AUDIT_ACTIONS,
+  ACCESS_AUDIT_EVENT_KINDS,
+  createAccessAuditMetadata,
+} from '../audit-log/audit-log-metadata';
 import { PublicExposurePersonaHttpHarness } from './public-exposure-persona.http.integration-support';
 
 /**
@@ -23,6 +30,17 @@ assertIsolatedIntegrationDatabase({
 
 const PREFIX = 'synthetic-exposure-persona';
 const harness = new PublicExposurePersonaHttpHarness(PREFIX);
+
+// `harness.createUser`가 만드는 페르소나 nickname의 공통 접두사다(`${PREFIX}-http-<label>-<seq>-login`).
+// `GET /audit-logs`의 `actor` 필터는 `User.nickname`에 대한 contains라, 이 값 하나로 "이 파일의
+// 페르소나가 쓴 감사 행"만 남긴 창을 서버에서 만들 수 있다.
+const OWN_AUDIT_ACTOR_FILTER = `${PREFIX}-http-`;
+
+// #622 회귀 고정용 — 다른 스펙 파일이 같은 append-only AuditLog 테이블에 남기는 행을 흉내낸다.
+// `OWN_AUDIT_ACTOR_FILTER`에 일부러 걸리지 않는 이름을 쓴다(그래야 "이 파일 밖의 행"이 된다).
+const FOREIGN_SUITE_ACTOR_ID = 'synthetic-foreign-audit-suite-actor';
+const FOREIGN_SUITE_ROLE_REQUEST_ID =
+  'synthetic-foreign-audit-suite-role-request';
 
 const PROGRAM_ID = `${PREFIX}-program`;
 const PUBLISHED_AT = new Date('2026-06-01T00:00:00.000Z');
@@ -239,6 +257,8 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       // AuditLog는 append-only다 — 이 파일이 만든 REPOSITORY_PUBLISHED 행은 지우지 않고,
       // 그 행들이 actorId로 FK 참조하는 STAFF/ADMIN persona User도 `not: [...]`로 정리
       // 대상에서 제외한다(`submission-reviews.integration.spec.ts`와 동일한 관행).
+      // 같은 이유로 `FOREIGN_SUITE_ACTOR_ID`도 남긴다 — 그 id는 `${PREFIX}-`로 시작하지
+      // 않으므로 아래 deleteMany의 대상이 아니다.
       await harness.prisma.user.deleteMany({
         where: {
           id: { startsWith: `${PREFIX}-` },
@@ -455,9 +475,58 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     expect(staff.status).toBe(403);
     await expect(staff.json()).resolves.toMatchObject({ code: 'AUD_001' });
 
+    // #622 — 이 파일 밖의 스위트(`users/admin-access-mutation.integration.spec.ts`)가 같은
+    // append-only AuditLog 테이블에 남기는 행을 여기서 직접 재현한다. 그 스위트가 먼저 돌면
+    // 전역 "최근 N건" 창에 딱 이 모양의 행이 섞여 들어와 아래 금지 키 검사가 깨졌었다.
+    // 이 fixture 덕분에 "누가 먼저 도는가"와 무관하게 이 파일 하나로 격리를 증명한다.
+    await harness.prisma.user.create({
+      data: {
+        id: FOREIGN_SUITE_ACTOR_ID,
+        githubId: 8_970_000_000_001n,
+        nickname: `${FOREIGN_SUITE_ACTOR_ID}-login`,
+        // 이 행의 actor 역할은 검사와 무관하다. append-only 원장이라 이 User는 FK 때문에
+        // 정리되지 않고 남으므로, 전역 ADMIN 수를 세는 다른 스펙과 얽히지 않게 STAFF로 둔다.
+        role: Role.STAFF,
+      },
+    });
+    await harness.prisma.auditLog.create({
+      data: {
+        actorId: FOREIGN_SUITE_ACTOR_ID,
+        action: ACCESS_AUDIT_ACTIONS.ROLE_REQUEST_REJECTED,
+        targetType: 'ROLE_REQUEST',
+        targetId: FOREIGN_SUITE_ROLE_REQUEST_ID,
+        metadata: createAccessAuditMetadata({
+          eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REJECTED,
+          rejectionReason: 'synthetic-foreign-suite-rejection-reason',
+          actor: {
+            displayName: null,
+            githubLogin: `${FOREIGN_SUITE_ACTOR_ID}-login`,
+          },
+          target: {
+            displayName: null,
+            githubLogin: `${FOREIGN_SUITE_ROLE_REQUEST_ID}-login`,
+          },
+          before: {
+            role: null,
+            accountStatus: AccountStatus.ACTIVE,
+            requestStatus: RoleRequestStatus.PENDING,
+          },
+          after: {
+            role: null,
+            accountStatus: AccountStatus.ACTIVE,
+            requestStatus: RoleRequestStatus.REJECTED,
+          },
+        }),
+      },
+    });
+
+    // 조회 창을 endpoint가 이미 제공하는 `actor` 필터로 이 파일의 페르소나가 쓴 행에 한정한다.
+    // 전역 최근 N건(`?limit=100`)을 그대로 보면 다른 스펙 파일이 만든 행이 창에 들어와 결과가
+    // 실행 순서에 좌우된다(#622). 좁히는 것은 "어느 데이터를 보는가"이며, 아래 금지 키 목록은
+    // 그대로 유지한다 — 노출 계약 자체는 조금도 무르게 하지 않는다.
     const admin = await harness.request(
       'GET',
-      '/audit-logs?limit=100',
+      `/audit-logs?limit=100&actor=${encodeURIComponent(OWN_AUDIT_ACTOR_FILTER)}`,
       adminPersona.githubId,
     );
     expect(admin.status).toBe(200);
@@ -465,6 +534,15 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       items: readonly Record<string, unknown>[];
       total: number;
     };
+
+    // 창이 실제로 닫혀 있다는 증거 — 방금 심은 외부 스위트 모방 행이 가장 최근 행인데도
+    // 응답에 없고, 이 파일이 만든 REPOSITORY_PUBLISHED 2건이 전부다. `limit=100`이 기대 건수보다
+    // 훨씬 넉넉하므로 이 2건은 잘려서가 아니라 필터로 좁혀진 결과다.
+    expect(adminBody.total).toBe(2);
+    expect([...adminBody.items].map((item) => item.targetId).sort()).toEqual(
+      [gateRepoForAdmin.repositoryId, gateRepoForStaff.repositoryId].sort(),
+    );
+
     const published = adminBody.items.filter(
       (item) =>
         item.action === 'REPOSITORY_PUBLISHED' &&
