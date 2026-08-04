@@ -41,11 +41,28 @@ export interface ProgramListItem {
   readonly category: ProgramCategory;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
+  /** null이면 종료일을 아직 안 닫은 것 — 접수 종료 후 진행중으로 본다. */
+  readonly endAt: string | null;
   readonly description: string;
 }
 
-export const PROGRAM_LIST_STATUSES = ['all', 'recruiting', 'closed'] as const;
+/** 공개 카탈로그 필터 — 연습대회 없음. backend 목록 status와 한 벌. */
+export const PROGRAM_LIST_STATUSES = [
+  'all',
+  'recruiting',
+  'in_progress',
+  'upcoming',
+  'ended',
+] as const;
 export type ProgramListStatus = (typeof PROGRAM_LIST_STATUSES)[number];
+
+export const PROGRAM_LIST_STATUS_LABELS = {
+  all: '전체',
+  recruiting: '모집중',
+  in_progress: '진행중',
+  upcoming: '접수대기',
+  ended: '종료',
+} as const satisfies Readonly<Record<ProgramListStatus, string>>;
 
 export interface ProgramListParams {
   readonly page: number;

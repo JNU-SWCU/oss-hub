@@ -213,6 +213,7 @@ const PUBLIC_PROGRAM_FIXTURES = [
     category: 'CAPSTONE',
     applicationStartAt: '2026-06-30T15:00:00.000Z',
     applicationEndAt: '2026-12-31T14:59:59.000Z',
+    endAt: null,
     description:
       '로컬 검토용 합성 프로그램입니다. 실제 모집이나 실제 참여자와 무관합니다.',
   },
@@ -223,6 +224,7 @@ const PUBLIC_PROGRAM_FIXTURES = [
     category: 'OSS_CONTEST',
     applicationStartAt: '2026-07-14T15:00:00.000Z',
     applicationEndAt: '2026-11-30T14:59:59.000Z',
+    endAt: null,
     description:
       '로컬 검토용 합성 경진대회입니다. 화면 구성 확인 외의 의미는 없습니다.',
   },
@@ -235,6 +237,7 @@ const PUBLIC_PROGRAM_FIXTURES = [
     // 보이면 상세와 어긋난다. 신청 화면을 검토하려면 모집이 열려 있어야 한다.
     applicationStartAt: '2026-06-30T15:00:00.000Z',
     applicationEndAt: '2026-10-31T14:59:59.000Z',
+    endAt: null,
     description: '신청 전 상태를 확인하기 위한 합성 프로그램입니다.',
   },
 ] as const satisfies readonly ProgramListItem[];
