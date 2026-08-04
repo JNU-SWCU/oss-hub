@@ -1,4 +1,9 @@
-import { Prisma, ProgramLifecycle } from '@prisma/client';
+import {
+  ApplicationStatus,
+  Prisma,
+  ProgramLifecycle,
+  Role,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PROGRAM_LIST_QUERY_STATUSES } from './program-list-query';
 import {
@@ -302,6 +307,89 @@ describe('ProgramsRepository list', () => {
   });
 });
 
+describe('ProgramsRepository viewer personalization batch queries', () => {
+  const findMany = jest.fn();
+  const groupBy = jest.fn();
+  const prisma = {
+    application: { findMany, groupBy },
+  } as unknown as PrismaService;
+  const repository = new ProgramsRepository(prisma);
+
+  beforeEach(() => {
+    findMany.mockReset();
+    groupBy.mockReset();
+  });
+
+  it('findViewerApplicationStatuses 는 programId in (...) 한 번으로 배치 조회한다', async () => {
+    findMany.mockResolvedValue([
+      { programId: 'program-a', status: 'SUBMITTED' },
+      { programId: 'program-b', status: 'APPROVED' },
+    ]);
+
+    const statuses = await repository.findViewerApplicationStatuses(
+      ['program-a', 'program-b', 'program-c'],
+      'student-1',
+    );
+
+    expect(findMany).toHaveBeenCalledTimes(1);
+    expect(findMany).toHaveBeenCalledWith({
+      where: {
+        programId: { in: ['program-a', 'program-b', 'program-c'] },
+        OR: [
+          { applicantId: 'student-1' },
+          { team: { leaderId: 'student-1' } },
+          { team: { members: { some: { userId: 'student-1' } } } },
+        ],
+      },
+      select: { programId: true, status: true },
+    });
+    expect(statuses.get('program-a')).toBe('SUBMITTED');
+    expect(statuses.get('program-b')).toBe('APPROVED');
+    expect(statuses.has('program-c')).toBe(false);
+  });
+
+  it('findViewerApplicationStatuses 는 빈 programId 목록에 쿼리를 보내지 않는다', async () => {
+    const statuses = await repository.findViewerApplicationStatuses(
+      [],
+      'student-1',
+    );
+
+    expect(findMany).not.toHaveBeenCalled();
+    expect(statuses.size).toBe(0);
+  });
+
+  it('countApplicationsByProgram 은 groupBy 한 번으로 total/pending 을 배치 집계한다', async () => {
+    groupBy.mockResolvedValue([
+      { programId: 'program-a', status: 'SUBMITTED', _count: { _all: 2 } },
+      { programId: 'program-a', status: 'APPROVED', _count: { _all: 1 } },
+      { programId: 'program-b', status: 'REJECTED', _count: { _all: 4 } },
+    ]);
+
+    const counts = await repository.countApplicationsByProgram([
+      'program-a',
+      'program-b',
+      'program-c',
+    ]);
+
+    expect(groupBy).toHaveBeenCalledTimes(1);
+    expect(groupBy).toHaveBeenCalledWith({
+      by: ['programId', 'status'],
+      where: { programId: { in: ['program-a', 'program-b', 'program-c'] } },
+      _count: { _all: true },
+    });
+    expect(counts.get('program-a')).toEqual({ total: 3, pending: 2 });
+    expect(counts.get('program-b')).toEqual({ total: 4, pending: 0 });
+    expect(counts.has('program-c')).toBe(false);
+  });
+
+  it('countApplicationsByProgram 은 빈 programId 목록에 쿼리를 보내지 않는다', async () => {
+    const counts = await repository.countApplicationsByProgram([]);
+
+    expect(groupBy).not.toHaveBeenCalled();
+    expect(counts.size).toBe(0);
+  });
+});
+
 type ProgramStatusCountsRow = {
   readonly all: number;
   readonly recruiting: number;
@@ -379,6 +467,27 @@ describe('status filter single source', () => {
   });
 });
 
+const anonymousViewer = { githubId: null, userId: null, role: null } as const;
+
+function listRecord(
+  overrides: Partial<ProgramListRecord> = {},
+): ProgramListRecord {
+  return {
+    id: 'program-1',
+    name: '프로그램',
+    organizer: '운영기관',
+    category: 'CAPSTONE',
+    lifecycle: ProgramLifecycle.PUBLISHED,
+    applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
+    applicationEndAt: new Date('2026-08-01T00:00:00.000Z'),
+    endAt: null,
+    description: '설명',
+    teamMinSize: null,
+    teamMaxSize: null,
+    ...overrides,
+  };
+}
+
 describe('ProgramsService list', () => {
   it('returns page metadata from the repository count', async () => {
     const repository = {
@@ -389,7 +498,10 @@ describe('ProgramsService list', () => {
     );
 
     await expect(
-      service.list({ page: 1, pageSize: 20, search: '', status: 'all' }),
+      service.list(
+        { page: 1, pageSize: 20, search: '', status: 'all' },
+        anonymousViewer,
+      ),
     ).resolves.toEqual({
       items: [],
       page: 1,
@@ -397,6 +509,192 @@ describe('ProgramsService list', () => {
       totalItems: 21,
       totalPages: 2,
     });
+  });
+
+  it('비인증 요청에는 개인화 필드를 절대 담지 않는다', async () => {
+    const items = [listRecord()];
+    const findViewerApplicationStatuses = jest.fn();
+    const countApplicationsByProgram = jest.fn();
+    const repository = {
+      listPrograms: jest.fn().mockResolvedValue([items, 1]),
+      findViewerApplicationStatuses,
+      countApplicationsByProgram,
+    };
+    const service = new ProgramsService(
+      repository as unknown as ProgramsRepository,
+    );
+
+    const page = await service.list(
+      { page: 1, pageSize: 20, search: '', status: 'all' },
+      anonymousViewer,
+    );
+
+    expect(page.items).toEqual(items);
+    expect(findViewerApplicationStatuses).not.toHaveBeenCalled();
+    expect(countApplicationsByProgram).not.toHaveBeenCalled();
+  });
+
+  it('학생 뷰어는 본인 신청 상태와 안내 문구를 배치 조회 한 번으로 붙인다', async () => {
+    const items = [
+      listRecord({ id: 'program-applied' }),
+      listRecord({ id: 'program-not-applied' }),
+    ];
+    const findViewerApplicationStatuses = jest
+      .fn()
+      .mockResolvedValue(
+        new Map([['program-applied', ApplicationStatus.SUBMITTED]]),
+      );
+    const repository = {
+      listPrograms: jest.fn().mockResolvedValue([items, 2]),
+      findViewerApplicationStatuses,
+    };
+    const service = new ProgramsService(
+      repository as unknown as ProgramsRepository,
+    );
+    const viewer = { githubId: 1n, userId: 'student-1', role: Role.STUDENT };
+
+    const page = await service.list(
+      { page: 1, pageSize: 20, search: '', status: 'all' },
+      viewer,
+    );
+
+    expect(findViewerApplicationStatuses).toHaveBeenCalledTimes(1);
+    expect(findViewerApplicationStatuses).toHaveBeenCalledWith(
+      ['program-applied', 'program-not-applied'],
+      'student-1',
+    );
+    expect(page.items[0]).toMatchObject({
+      viewerApplicationStatus: ApplicationStatus.SUBMITTED,
+      note: { text: '지원서 제출됨 · 교직원 승인을 기다립니다' },
+    });
+    expect(page.items[1]).toEqual(items[1]);
+    expect((page.items[1] as { note?: unknown }).note).toBeUndefined();
+    expect(
+      (page.items[1] as { viewerApplicationStatus?: unknown })
+        .viewerApplicationStatus,
+    ).toBeUndefined();
+  });
+
+  it('팀 단위 프로그램의 학생 note 에는 팀 아이콘이 붙는다', async () => {
+    const items = [
+      listRecord({ id: 'team-program', teamMinSize: 2, teamMaxSize: 4 }),
+    ];
+    const repository = {
+      listPrograms: jest.fn().mockResolvedValue([items, 1]),
+      findViewerApplicationStatuses: jest
+        .fn()
+        .mockResolvedValue(
+          new Map([['team-program', ApplicationStatus.APPROVED]]),
+        ),
+    };
+    const service = new ProgramsService(
+      repository as unknown as ProgramsRepository,
+    );
+    const viewer = { githubId: 1n, userId: 'student-1', role: Role.STUDENT };
+
+    const page = await service.list(
+      { page: 1, pageSize: 20, search: '', status: 'all' },
+      viewer,
+    );
+
+    expect(page.items[0]).toMatchObject({
+      note: { text: '축하합니다, 참가가 확정되었습니다', icon: 'team' },
+    });
+  });
+
+  it('교직원 뷰어는 전체 지원/승인 대기 집계를 배치 조회 한 번으로 붙인다', async () => {
+    const items = [
+      listRecord({ id: 'program-with-pending' }),
+      listRecord({ id: 'program-none' }),
+    ];
+    const countApplicationsByProgram = jest
+      .fn()
+      .mockResolvedValue(
+        new Map([['program-with-pending', { total: 3, pending: 1 }]]),
+      );
+    const repository = {
+      listPrograms: jest.fn().mockResolvedValue([items, 2]),
+      countApplicationsByProgram,
+    };
+    const service = new ProgramsService(
+      repository as unknown as ProgramsRepository,
+    );
+    const viewer = { githubId: 2n, userId: 'staff-1', role: Role.STAFF };
+
+    const page = await service.list(
+      { page: 1, pageSize: 20, search: '', status: 'all' },
+      viewer,
+    );
+
+    expect(countApplicationsByProgram).toHaveBeenCalledTimes(1);
+    expect(countApplicationsByProgram).toHaveBeenCalledWith([
+      'program-with-pending',
+      'program-none',
+    ]);
+    expect(page.items[0]).toMatchObject({
+      applicationCount: 3,
+      pendingApplicationCount: 1,
+      note: { text: '지원 3건 · 승인 대기 1건' },
+    });
+    expect(page.items[1]).toMatchObject({
+      applicationCount: 0,
+      pendingApplicationCount: 0,
+      note: { text: '지원 0건' },
+    });
+  });
+
+  it('ADMIN 뷰어도 교직원과 동일하게 지원 집계를 받는다', async () => {
+    const items = [listRecord({ id: 'program-1' })];
+    const countApplicationsByProgram = jest
+      .fn()
+      .mockResolvedValue(new Map([['program-1', { total: 5, pending: 0 }]]));
+    const repository = {
+      listPrograms: jest.fn().mockResolvedValue([items, 1]),
+      countApplicationsByProgram,
+    };
+    const service = new ProgramsService(
+      repository as unknown as ProgramsRepository,
+    );
+    const viewer = { githubId: 3n, userId: 'admin-1', role: Role.ADMIN };
+
+    const page = await service.list(
+      { page: 1, pageSize: 20, search: '', status: 'all' },
+      viewer,
+    );
+
+    expect(page.items[0]).toMatchObject({
+      applicationCount: 5,
+      pendingApplicationCount: 0,
+      note: { text: '지원 5건' },
+    });
+  });
+
+  it('PENDING 역할은 어느 개인화 조회도 트리거하지 않는다', async () => {
+    const items = [listRecord()];
+    const findViewerApplicationStatuses = jest.fn();
+    const countApplicationsByProgram = jest.fn();
+    const repository = {
+      listPrograms: jest.fn().mockResolvedValue([items, 1]),
+      findViewerApplicationStatuses,
+      countApplicationsByProgram,
+    };
+    const service = new ProgramsService(
+      repository as unknown as ProgramsRepository,
+    );
+    const viewer = {
+      githubId: 4n,
+      userId: 'pending-1',
+      role: 'PENDING' as const,
+    };
+
+    const page = await service.list(
+      { page: 1, pageSize: 20, search: '', status: 'all' },
+      viewer,
+    );
+
+    expect(page.items).toEqual(items);
+    expect(findViewerApplicationStatuses).not.toHaveBeenCalled();
+    expect(countApplicationsByProgram).not.toHaveBeenCalled();
   });
 
   it('returns status counts from the repository', async () => {

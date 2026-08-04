@@ -156,6 +156,40 @@ const SEEDED_MODEL_COUNTERS: ReadonlyArray<
         where: { id: { startsWith: 'seed:' } },
       }),
   ],
+  [
+    'MilestoneDocument',
+    () =>
+      prisma.milestoneDocument.count({
+        where: { id: { startsWith: 'seed:' } },
+      }),
+  ],
+  [
+    'MilestoneDocumentTemplateFile',
+    () =>
+      prisma.milestoneDocumentTemplateFile.count({
+        where: { id: { startsWith: 'seed:' } },
+      }),
+  ],
+  [
+    'MilestoneDocumentSubmission',
+    () =>
+      prisma.milestoneDocumentSubmission.count({
+        where: { id: { startsWith: 'seed:' } },
+      }),
+  ],
+  [
+    'BoardPost',
+    () => prisma.boardPost.count({ where: { id: { startsWith: 'seed:' } } }),
+  ],
+  [
+    'BoardComment',
+    () => prisma.boardComment.count({ where: { id: { startsWith: 'seed:' } } }),
+  ],
+  [
+    'TeamInvitation',
+    () =>
+      prisma.teamInvitation.count({ where: { id: { startsWith: 'seed:' } } }),
+  ],
 ];
 
 async function countAllSeeded(): Promise<Record<string, number>> {
@@ -172,12 +206,18 @@ async function countAllSeeded(): Promise<Record<string, number>> {
  * 여기서 정리한다. 정리하지 않으면 이 파일이 남긴 PUBLIC Repository 등 fixture가 다른
  * integration spec(예: public-exposure-persona)의 assertion과 섞여 실행 순서에 따라
  * 간헐 실패한다. FK 자식→부모 순서로 지운다:
- *   Review → SubmissionRevision → Submission
+ *   (자신이 참조하는) SubmissionFile → Review → SubmissionRevision → Submission
  *   → RepositoryProvisionJob → RepositoryInvitation → OutboxEvent → Repository
+ *   → MilestoneDocumentSubmission → MilestoneDocumentTemplateFile → MilestoneDocument
+ *   → BoardComment → BoardPost → TeamInvitation
  *   → TeamMember → Milestone → Application → Team → Program
  *   → RoleRequest → Consent → UserProfile → User
  *
- * 이 파일이 만들지 않는 AuditLog(append-only)·Notification·LoginHistory·
+ * program-overview 프로필은 서류 제출 예시를 위해 자신의 MilestoneDocumentSubmission을
+ * 참조하는 SubmissionFile을 함께 심는다. 이 행은 milestoneDocumentSubmissionId FK가
+ * ON DELETE SET NULL이라, 미리 지우지 않으면 부모 삭제 시 두 참조(submissionRevisionId·
+ * milestoneDocumentSubmissionId)가 모두 NULL이 되어 lifecycle CHECK 제약을 위반한다.
+ * 그 외 이 파일이 만들지 않는 AuditLog(append-only)·Notification·LoginHistory·
  * SubmissionFile은 다른 spec이 이 파일과 같은 `seed:` User/Application/Milestone을
  * actor·uploader·부모로 참조할 수 있고, 그 FK는 RESTRICT다. 그런 행을 참조당하는
  * 부모는 삭제 대상에서 제외해 다른 spec의 데이터를 건드리지 않으면서 FK violation
@@ -186,6 +226,14 @@ async function countAllSeeded(): Promise<Record<string, number>> {
 async function deleteAllSeeded(): Promise<void> {
   const seedPrefix = 'seed:';
   const seedIdFilter = { id: { startsWith: seedPrefix } } as const;
+
+  // program-overview 프로필이 자신의 MilestoneDocumentSubmission에 붙여 심은
+  // SubmissionFile은 이 파일 자신의 Application/Milestone도 함께 가리킨다.
+  // protected*Ids 조회보다 먼저 지워야 그 조회가 이 행을 "다른 spec이 참조 중"으로
+  // 오인해 자신의 Milestone/Application을 보호 대상으로 남기지 않는다.
+  await prisma.submissionFile.deleteMany({
+    where: { milestoneDocumentSubmissionId: { startsWith: seedPrefix } },
+  });
 
   const [
     submissionFilesByApplication,
@@ -254,6 +302,14 @@ async function deleteAllSeeded(): Promise<void> {
   await prisma.repositoryInvitation.deleteMany({ where: seedIdFilter });
   await prisma.outboxEvent.deleteMany({ where: seedIdFilter });
   await prisma.repository.deleteMany({ where: seedIdFilter });
+  await prisma.milestoneDocumentSubmission.deleteMany({ where: seedIdFilter });
+  await prisma.milestoneDocumentTemplateFile.deleteMany({
+    where: seedIdFilter,
+  });
+  await prisma.milestoneDocument.deleteMany({ where: seedIdFilter });
+  await prisma.boardComment.deleteMany({ where: seedIdFilter });
+  await prisma.boardPost.deleteMany({ where: seedIdFilter });
+  await prisma.teamInvitation.deleteMany({ where: seedIdFilter });
   await prisma.teamMember.deleteMany({ where: seedIdFilter });
   await prisma.milestone.deleteMany({
     where: { ...seedIdFilter, ...excluding(protectedMilestoneIds) },
