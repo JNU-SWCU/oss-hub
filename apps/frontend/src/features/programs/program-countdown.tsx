@@ -22,17 +22,39 @@ export interface ProgramCountdownProps {
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'] as const;
 
+// 마감 시각은 학사 일정이라 서울 기준으로만 뜻이 통한다 — `board-format.ts`·`deadline.ts`와
+// 같은 규약으로 실행 환경 시간대와 무관하게 Asia/Seoul로 고정해 읽는다.
+const SEOUL_CLOCK_FORMAT = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Seoul',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+});
+
+const SEOUL_DATE_FORMAT = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
 function pad2(n: number): string {
   return String(n).padStart(2, '0');
 }
 
 export function formatClock(d: Date): string {
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+  // en-GB + hour12:false 는 자정을 "24"로 내놓는 구현이 있어 그 경우만 접는다.
+  return SEOUL_CLOCK_FORMAT.format(d).replace(/^24:/, '00:');
 }
 
 export function formatCountdownDate(d: Date): string {
-  const weekday = WEEKDAY_LABELS[d.getDay()];
-  return `${d.getFullYear()}.${pad2(d.getMonth() + 1)}.${pad2(d.getDate())} (${weekday})`;
+  // en-CA는 `YYYY-MM-DD`를 준다 — 서울 달력일을 뽑아 그 날짜의 요일을 UTC 자정으로 되짚는다
+  // (시간대 보정 없이 요일만 구하는 `deadline.ts`의 seoulCalendarDay와 같은 방식).
+  const [year, month, day] = SEOUL_DATE_FORMAT.format(d).split('-').map(Number);
+  const weekday =
+    WEEKDAY_LABELS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+  return `${year}.${pad2(month)}.${pad2(day)} (${weekday})`;
 }
 
 export interface RemainingTime {
