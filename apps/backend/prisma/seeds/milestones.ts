@@ -202,6 +202,57 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     role: Role.STUDENT,
   });
 
+  // 모든 신청이 Team을 갖는다(D5). 개인 시나리오도 신청자 1인 팀을 만들어 붙인다.
+  const personalTeamId = seedId('milestones', 'application-personal', 'team');
+  await upsertTracked(
+    stats,
+    'Team',
+    () => prisma.team.findUnique({ where: { id: personalTeamId } }),
+    () =>
+      prisma.team.upsert({
+        where: { id: personalTeamId },
+        update: {
+          joinCodeDigest: computeJoinCodeDigest('SEED-MILESTONES-SOLO'),
+        },
+        create: {
+          id: personalTeamId,
+          programId: PROGRAM_ID,
+          name: '마일스톤 개인 참여 1인 팀',
+          joinCodeDigest: computeJoinCodeDigest('SEED-MILESTONES-SOLO'),
+          leaderId: applicantPersonal.id,
+        },
+      }),
+  );
+  await upsertTracked(
+    stats,
+    'TeamMember',
+    () =>
+      prisma.teamMember.findUnique({
+        where: {
+          teamId_userId: {
+            teamId: personalTeamId,
+            userId: applicantPersonal.id,
+          },
+        },
+      }),
+    () =>
+      prisma.teamMember.upsert({
+        where: {
+          teamId_userId: {
+            teamId: personalTeamId,
+            userId: applicantPersonal.id,
+          },
+        },
+        update: {},
+        create: {
+          id: seedId('milestones', 'application-personal', 'team-member'),
+          teamId: personalTeamId,
+          programId: PROGRAM_ID,
+          userId: applicantPersonal.id,
+        },
+      }),
+  );
+
   await upsertTracked(
     stats,
     'Application',
@@ -216,6 +267,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
           programId: PROGRAM_ID,
           applicantId: applicantPersonal.id,
           answers: { seedPlaceholder: true, scenarioId: 'milestones-personal' },
+          teamId: personalTeamId,
           applicationTemplateVersion: 1,
           status: ApplicationStatus.APPROVED,
         },

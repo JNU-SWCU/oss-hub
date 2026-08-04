@@ -32,6 +32,12 @@ async function cleanFixtures(): Promise<void> {
   await prisma.application.deleteMany({
     where: { id: { startsWith: TEST_PREFIX } },
   });
+  await prisma.teamMember.deleteMany({
+    where: { id: { startsWith: TEST_PREFIX } },
+  });
+  await prisma.team.deleteMany({
+    where: { id: { startsWith: TEST_PREFIX } },
+  });
   await prisma.program.deleteMany({
     where: { id: { startsWith: TEST_PREFIX } },
   });
@@ -204,11 +210,47 @@ describe('collection incremental migration — DB invariants', () => {
       },
     });
 
+    await prisma.team.createMany({
+      data: [
+        {
+          id: `${TEST_PREFIX}team:default`,
+          programId: `${TEST_PREFIX}program`,
+          name: `${TEST_PREFIX}team-default`,
+          joinCodeDigest: `${TEST_PREFIX}digest-default`,
+          leaderId: `${TEST_PREFIX}user`,
+        },
+        {
+          id: `${TEST_PREFIX}team:explicit-false`,
+          programId: `${TEST_PREFIX}program`,
+          name: `${TEST_PREFIX}team-explicit-false`,
+          joinCodeDigest: `${TEST_PREFIX}digest-explicit-false`,
+          leaderId: `${TEST_PREFIX}user:second`,
+        },
+      ],
+    });
+    await prisma.teamMember.createMany({
+      data: [
+        {
+          id: `${TEST_PREFIX}member:default`,
+          teamId: `${TEST_PREFIX}team:default`,
+          programId: `${TEST_PREFIX}program`,
+          userId: `${TEST_PREFIX}user`,
+        },
+        {
+          id: `${TEST_PREFIX}member:explicit-false`,
+          teamId: `${TEST_PREFIX}team:explicit-false`,
+          programId: `${TEST_PREFIX}program`,
+          userId: `${TEST_PREFIX}user:second`,
+        },
+      ],
+    });
+
     const defaulted = await prisma.application.create({
       data: {
         id: `${TEST_PREFIX}application:default`,
         programId: `${TEST_PREFIX}program`,
         applicantId: `${TEST_PREFIX}user`,
+        teamId: `${TEST_PREFIX}team:default`,
         answers: {},
         applicationTemplateVersion: 1,
       },
@@ -220,6 +262,7 @@ describe('collection incremental migration — DB invariants', () => {
         id: `${TEST_PREFIX}application:explicit-false`,
         programId: `${TEST_PREFIX}program`,
         applicantId: `${TEST_PREFIX}user:second`,
+        teamId: `${TEST_PREFIX}team:explicit-false`,
         answers: {},
         applicationTemplateVersion: 1,
         isRepositoryPublicationPlanned: false,

@@ -116,36 +116,9 @@ describe('core schema invariants integration', () => {
     await prisma.$disconnect();
   });
 
-  it('개인 신청은 같은 프로그램에서 사용자당 한 건만 허용한다', async () => {
-    // Given
-    await createProgram();
-    await prisma.application.create({
-      data: {
-        id: `${TEST_PREFIX}application:personal:first`,
-        programId: PROGRAM_ID,
-        applicantId: USER_A_ID,
-        answers: {},
-        applicationTemplateVersion: 1,
-      },
-    });
-
-    // When
-    const duplicateInsert = prisma.application.create({
-      data: {
-        id: `${TEST_PREFIX}application:personal:second`,
-        programId: PROGRAM_ID,
-        applicantId: USER_A_ID,
-        answers: {},
-        applicationTemplateVersion: 1,
-      },
-    });
-
-    // Then
-    await expect(duplicateInsert).rejects.toMatchObject({ code: 'P2002' });
-  });
-
-  it('팀 신청은 같은 프로그램에서 팀당 한 건만 허용한다', async () => {
-    // Given
+  it('신청은 같은 프로그램에서 팀당 한 건만 허용한다(programId, teamId full unique)', async () => {
+    // Given: D5 — 모든 신청이 Team을 갖고 (programId, teamId) full unique가 중복을 막는다.
+    // 이전 personal partial unique(programId, applicantId WHERE teamId IS NULL)는 제거됐다.
     await createProgram();
     await createTeam(TEAM_A_ID, PROGRAM_ID, USER_A_ID);
     await prisma.application.create({
@@ -159,7 +132,7 @@ describe('core schema invariants integration', () => {
       },
     });
 
-    // When
+    // When: 같은 팀으로 두 번째 신청을 넣는다(신청자만 다름).
     const duplicateInsert = prisma.application.create({
       data: {
         id: `${TEST_PREFIX}application:team:second`,
@@ -173,6 +146,28 @@ describe('core schema invariants integration', () => {
 
     // Then
     await expect(duplicateInsert).rejects.toMatchObject({ code: 'P2002' });
+  });
+
+  it('Application.teamId FK는 ON DELETE RESTRICT다', async () => {
+    // Given: 팀이 신청에 연결되어 있다.
+    await createProgram();
+    await createTeam(TEAM_A_ID, PROGRAM_ID, USER_A_ID);
+    await prisma.application.create({
+      data: {
+        id: `${TEST_PREFIX}application:restrict`,
+        programId: PROGRAM_ID,
+        applicantId: USER_A_ID,
+        teamId: TEAM_A_ID,
+        answers: {},
+        applicationTemplateVersion: 1,
+      },
+    });
+
+    // When: 연결된 팀을 삭제한다.
+    const deleteTeam = prisma.team.delete({ where: { id: TEAM_A_ID } });
+
+    // Then: SET NULL이 아니라 RESTRICT라 거절된다.
+    await expect(deleteTeam).rejects.toMatchObject({ code: 'P2003' });
   });
 
   it('사용자는 같은 프로그램의 두 팀에 동시에 속할 수 없다', async () => {
