@@ -210,4 +210,39 @@ describe('교직원 재요청 실패 안내', () => {
     // 화면 자체는 살아 있어야 한다 — 경고만 사라지고 상태는 다시 그려진다.
     expect(container.querySelector('[data-status="REJECTED"]')).not.toBeNull();
   });
+
+  /**
+   * 재요청이 날아가 있는 동안 새로고침을 누를 수 있으면, 경고를 지웠다가 뒤늦게
+   * 도착한 실패가 그 위에 다시 경고를 그린다 — 눌러서 사라진 것이 저절로
+   * 되살아난 것으로 보인다. 진행 중에는 아예 못 누르게 막는다.
+   */
+  it('재요청이 진행 중이면 상태 새로고침을 누를 수 없다', async () => {
+    let releaseRetry: (() => void) | undefined;
+    const retryGate = new Promise<void>((resolve) => {
+      releaseRetry = resolve;
+    });
+    retryResponder = async () => {
+      await retryGate;
+      return problemResponse(500, 'API_000', '서버 오류');
+    };
+    await renderRejectedScreen();
+
+    const refresh = () =>
+      [...container.querySelectorAll('button')].find((element) =>
+        element.textContent?.includes('상태 새로고침'),
+      );
+    expect(refresh()?.disabled).toBe(false);
+
+    // 여기서 await 하지 않는다 — 요청이 떠 있는 동안의 화면을 봐야 한다.
+    const retrying = clickRetry();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(refresh()?.disabled).toBe(true);
+
+    // 응답을 풀고, 클릭이 만든 act 가 상태 갱신까지 흘려보내도록 끝까지 기다린다.
+    releaseRetry?.();
+    await retrying;
+    expect(refresh()?.disabled).toBe(false);
+  });
 });
