@@ -66,6 +66,9 @@ function createHarness(
     .mockResolvedValue({ id: 'synthetic-event' });
   const findRepositoryProvisionJob = jest.fn().mockResolvedValue(null);
   const findRepositoryProvisionEvent = jest.fn().mockResolvedValue(null);
+  const discardRepositoryProvisionRequest = jest
+    .fn()
+    .mockResolvedValue(undefined);
   const store: ApplicationsTransactionStore = {
     auditLogWriter,
     findApplicationById: jest.fn().mockResolvedValue(
@@ -75,6 +78,7 @@ function createHarness(
     ),
     findRepositoryProvisionJob,
     findRepositoryProvisionEvent,
+    discardRepositoryProvisionRequest,
     transitionApplication,
     createRepositoryProvisionEvent,
   };
@@ -85,6 +89,7 @@ function createHarness(
       ) => operation(store),
     ),
     findRepositoryProvisionEvent: jest.fn(),
+    discardRepositoryProvisionRequest: jest.fn().mockResolvedValue(undefined),
   } as unknown as ApplicationsRepository;
   const service = new ApplicationsService(repository, {
     record,
@@ -97,6 +102,7 @@ function createHarness(
     createRepositoryProvisionEvent,
     findRepositoryProvisionJob,
     findRepositoryProvisionEvent,
+    discardRepositoryProvisionRequest,
   };
 }
 
@@ -306,6 +312,7 @@ describe('ApplicationsService.decide — REVERT', () => {
       service,
       transitionApplication,
       findRepositoryProvisionJob,
+      discardRepositoryProvisionRequest,
       store,
     } = createHarness();
     (store.findApplicationById as jest.Mock).mockResolvedValue(
@@ -338,6 +345,28 @@ describe('ApplicationsService.decide — REVERT', () => {
         nextStatus: ApplicationStatus.SUBMITTED,
         processedBy: 'preserve',
       }),
+    );
+    // 되돌리기는 진행 중이던 프로비저닝 요청도 지운다. 남겨 두면 워커가 집어 간 job이
+    // FAILED_FINAL이 되고, 재승인은 기존 이벤트를 재사용해 새 job을 만들지 않아
+    // 저장소가 영영 만들어지지 않는다.
+    expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
+      APPLICATION_ID,
+    );
+  });
+
+  it('반려 취소도 진행 중 프로비저닝 요청을 지운다', async () => {
+    const { service, store, discardRepositoryProvisionRequest } =
+      createHarness();
+    (store.findApplicationById as jest.Mock).mockResolvedValue(
+      baseApplication({ status: ApplicationStatus.REJECTED }),
+    );
+
+    await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+      action: APPLICATION_DECISION_ACTIONS.REVERT,
+    });
+
+    expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
+      APPLICATION_ID,
     );
   });
 

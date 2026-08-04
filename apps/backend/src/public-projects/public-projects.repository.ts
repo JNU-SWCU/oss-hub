@@ -27,6 +27,8 @@ export interface PublicProjectRow {
   readonly programName: string;
   readonly category: ProgramCategory;
   readonly teamName: string | null;
+  /** 개인 참여는 멤버 1명인 팀이다(D5·D6) — 표시명·유형 구분에 인원이 필요하다. */
+  readonly teamMemberCount: number;
   readonly applicantNickname: string;
 }
 
@@ -54,7 +56,7 @@ const PROJECT_ROW_SELECT = {
   publishedAt: true,
   programId: true,
   program: { select: { name: true, category: true } },
-  team: { select: { name: true } },
+  team: { select: { name: true, _count: { select: { members: true } } } },
   application: { select: { applicant: { select: { nickname: true } } } },
 } as const;
 
@@ -66,7 +68,7 @@ type ProjectRowSelection = {
   publishedAt: Date | null;
   programId: string;
   program: { name: string; category: ProgramCategory };
-  team: { name: string } | null;
+  team: { name: string; _count: { members: number } } | null;
   application: { applicant: { nickname: string } };
 };
 
@@ -83,6 +85,7 @@ function toProjectRow(row: ProjectRowSelection): PublicProjectRow {
     programName: row.program.name,
     category: row.program.category,
     teamName: row.team?.name ?? null,
+    teamMemberCount: row.team?._count?.members ?? 0,
     applicantNickname: row.application.applicant.nickname,
   };
 }

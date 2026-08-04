@@ -69,6 +69,12 @@ export interface ApplicationsTransactionStore {
   findRepositoryProvisionEvent(
     idempotencyKey: string,
   ): Promise<RepositoryProvisionEvent | null>;
+  /**
+   * 되돌리기 시 진행 중이던 프로비저닝 요청을 지운다 — outbox 이벤트와 job 양쪽.
+   * 남겨 두면 재승인이 기존 이벤트를 재사용해 새 job을 만들지 않아 저장소가
+   * 영영 만들어지지 않는다. 완료된 건은 상위 가드가 이미 409로 막는다.
+   */
+  discardRepositoryProvisionRequest(applicationId: string): Promise<void>;
   transitionApplication(input: ApplicationTransition): Promise<boolean>;
   createRepositoryProvisionEvent(
     input: RepositoryProvisionEventInput,
@@ -283,6 +289,17 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
       where: { idempotencyKey },
     });
     return event ? toRepositoryProvisionEvent(event) : null;
+  }
+
+  async discardRepositoryProvisionRequest(
+    applicationId: string,
+  ): Promise<void> {
+    await this.transaction.repositoryProvisionJob.deleteMany({
+      where: { applicationId },
+    });
+    await this.transaction.outboxEvent.deleteMany({
+      where: { idempotencyKey: `repository-provision:${applicationId}` },
+    });
   }
 
   async transitionApplication(input: ApplicationTransition): Promise<boolean> {

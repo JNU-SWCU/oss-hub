@@ -15,6 +15,7 @@ describe('PublicUserProfileController', () => {
       programName: 'synthetic-program',
       category: 'BASIC',
       teamName: null,
+      teamMemberCount: 1,
       applicantNickname: 'synthetic-applicant',
     };
     const findProfile = jest.fn().mockResolvedValue({

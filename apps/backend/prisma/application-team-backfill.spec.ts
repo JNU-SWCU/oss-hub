@@ -19,26 +19,31 @@ function uniqueConflict(
 }
 
 describe('buildSoloTeamName', () => {
-  it('프로필 이름을 최우선으로 쓴다', () => {
-    expect(
-      buildSoloTeamName({
-        id: 'user-1',
-        name: '레거시이름',
-        nickname: 'nick',
-        profile: { name: '홍길동' },
-      }),
-    ).toBe('홍길동의 팀');
+  it('실명이 있어도 GitHub 닉네임만 쓴다', () => {
+    // 팀 이름은 무인증 공개 아카이브의 표시명으로 흘러간다
+    // (`public-project-response.dto.ts`). 실명을 넣으면 그대로 공개된다.
+    const teamName = buildSoloTeamName({
+      id: 'user-1',
+      name: '레거시이름',
+      nickname: 'nick',
+      profile: { name: '홍길동' },
+    });
+
+    expect(teamName).toBe('nick의 팀');
+    expect(teamName).not.toContain('홍길동');
+    expect(teamName).not.toContain('레거시이름');
   });
 
-  it('프로필이 없으면 User.name 을 쓴다', () => {
-    expect(
-      buildSoloTeamName({
-        id: 'user-1',
-        name: '김철수',
-        nickname: 'nick',
-        profile: null,
-      }),
-    ).toBe('김철수의 팀');
+  it('프로필이 없어도 User.name 을 쓰지 않는다', () => {
+    const teamName = buildSoloTeamName({
+      id: 'user-1',
+      name: '김철수',
+      nickname: 'nick',
+      profile: null,
+    });
+
+    expect(teamName).toBe('nick의 팀');
+    expect(teamName).not.toContain('김철수');
   });
 
   it('이름 필드가 비면 nickname 을 쓴다', () => {
@@ -286,7 +291,7 @@ describe('backfillApplicationTeams', () => {
       {
         id: 'team-1',
         programId: 'prog-1',
-        name: '이영희의 팀',
+        name: 'student-a의 팀',
         joinCodeDigest: 'digest:test-secret:JOINCODE01',
         leaderId: 'user-1',
       },

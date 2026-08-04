@@ -152,7 +152,10 @@ export class ApplicationsService {
       throw this.error(ApplicationsErrorCode.INVALID_ANSWERS);
     }
 
-    const teamName = input.teamName?.trim() || applicantName;
+    // 팀 이름은 공개 아카이브의 표시명으로 흘러간다(`public-project-response.dto.ts`).
+    // 실명(`student.name`)을 기본값으로 쓰면 무인증 공개 endpoint에 실명이 노출되므로
+    // GitHub 닉네임만 쓴다 — 신청서 답안의 `applicantName`과 다른 값인 게 의도다.
+    const teamName = input.teamName?.trim() || `${student.nickname}의 팀`;
 
     try {
       return await this.repository.withCreateTransaction(async (store) => {
@@ -342,12 +345,19 @@ export class ApplicationsService {
               status: plan.nextStatus,
               rejectionReason: plan.rejectionReason,
             };
-          case 'REVERT':
+          case 'REVERT': {
+            // 되돌리기는 승인의 부수효과까지 되돌린다. 진행 중이던 프로비저닝
+            // 요청(outbox 이벤트 + job)을 지우지 않으면, 워커가 이미 집어 간 job이
+            // `APPLICATION_NOT_APPROVED`로 FAILED_FINAL이 되고 재승인은 기존
+            // 이벤트를 재사용해 새 job을 만들지 않아 **저장소가 영영 안 만들어진다**.
+            // 가드가 SUCCEEDED를 이미 막았으므로 여기서 지우는 것은 항상 미완료 건이다.
+            await store.discardRepositoryProvisionRequest(applicationId);
             return {
               kind: 'REVERTED',
               applicationId,
               status: plan.nextStatus,
             };
+          }
           case 'APPROVE': {
             if (!application.repositoryProvisioningEnabled) {
               return {
