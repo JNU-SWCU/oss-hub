@@ -255,9 +255,136 @@ export type AuditLogMetadata =
   | SubmissionFileCleanupAuditMetadata
   | ApplicationDecisionAuditMetadata;
 
+/**
+ * #621 — 조회 응답 관문. `GET /audit-logs`가 응답에 실을 metadata 필드를 종류별로 여기서
+ * **명시 선언**한다. 아래 `*View` 타입과 `to*View` 함수는 선언한 필드만 새 객체로 옮겨
+ * 담으므로, 저장된 JSON에 무엇이 더 들어 있든 등록하지 않은 키는 응답에 나가지 않는다
+ * (기본 거부). `is*AuditMetadata` 가드는 저장된 모양이 알려진 스키마인지만 보는
+ * shape validator라 이 역할을 대신하지 못한다 — 검증을 통과한 값에도 등록되지 않은 키가
+ * 그대로 남아 있을 수 있다.
+ *
+ * ⚠ `AuditLog`는 append-only 트리거(`20260731130000_enforce_audit_log_append_only`)로
+ * UPDATE·DELETE가 막혀 있어 한 번 쓴 값은 지울 수 없다. 이미 쌓인 행에서 무언가를 가릴 수
+ * 있는 자리는 이 조회 시점 관문이 유일하다(#570의 탈퇴자 이름 스냅샷 마스킹도 여기에 얹는다).
+ */
+type AccessAuditMetadataViewBase = {
+  readonly eventKind: AccessAuditEventKind;
+  readonly actor: AuditActorSnapshot;
+  readonly before: AccessAuditState;
+  readonly after: AccessAuditState;
+};
+
+// `rejectionReason`(관리자가 남긴 자유 서술)은 등록하지 않는다 — 행동 메타데이터가 아니라
+// 도메인 페이로드이고, 사유 원문은 `Application.rejectionReason`이 원본이다.
+export type AccessAuditMetadataView =
+  | (AccessAuditMetadataViewBase & {
+      readonly schemaVersion: typeof ACCESS_AUDIT_SCHEMA_VERSION_V1;
+    })
+  | (AccessAuditMetadataViewBase & {
+      readonly schemaVersion: typeof ACCESS_AUDIT_SCHEMA_VERSION;
+      readonly target: AuditTargetSnapshot;
+    });
+
+// `runId`는 등록하지 않는다 — 수집 실행 내부 식별자는 공개 노출 계약이 이 응답의 금지 키로
+// 선언해 둔 값이고(`public-exposure-persona.http.integration.spec.ts`), 같은 값이 이미
+// 감사 행의 `targetId`로 나가므로 metadata 사본을 둘 이유가 없다.
+export type CollectionTriggerAuditMetadataView = Omit<
+  CollectionTriggerAuditMetadata,
+  'runId'
+>;
+
+export type AuditLogMetadataView =
+  | AccessAuditMetadataView
+  | RepositoryPublishAuditMetadata
+  | ProgramLifecycleAuditMetadata
+  | CollectionTriggerAuditMetadataView
+  | SubmissionFileCleanupAuditMetadata
+  | ApplicationDecisionAuditMetadata;
+
+function toAuditPersonSnapshotView(
+  snapshot: AuditPersonSnapshot,
+): AuditPersonSnapshot {
+  return {
+    displayName: snapshot.displayName,
+    githubLogin: snapshot.githubLogin,
+  };
+}
+
+function toAccessAuditStateView(state: AccessAuditState): AccessAuditState {
+  return {
+    role: state.role,
+    accountStatus: state.accountStatus,
+    requestStatus: state.requestStatus,
+  };
+}
+
+function toAccessAuditMetadataView(
+  metadata: AccessAuditMetadata,
+): AccessAuditMetadataView {
+  const base = {
+    eventKind: metadata.eventKind,
+    actor: toAuditPersonSnapshotView(metadata.actor),
+    before: toAccessAuditStateView(metadata.before),
+    after: toAccessAuditStateView(metadata.after),
+  };
+  return metadata.schemaVersion === ACCESS_AUDIT_SCHEMA_VERSION
+    ? {
+        ...base,
+        schemaVersion: ACCESS_AUDIT_SCHEMA_VERSION,
+        target: toAuditPersonSnapshotView(metadata.target),
+      }
+    : { ...base, schemaVersion: ACCESS_AUDIT_SCHEMA_VERSION_V1 };
+}
+
+function toRepositoryPublishAuditMetadataView(
+  metadata: RepositoryPublishAuditMetadata,
+): RepositoryPublishAuditMetadata {
+  return {
+    schemaVersion: metadata.schemaVersion,
+    repositoryId: metadata.repositoryId,
+    before: { visibility: metadata.before.visibility },
+    after: {
+      visibility: metadata.after.visibility,
+      publishedAt: metadata.after.publishedAt,
+    },
+  };
+}
+
+function toProgramLifecycleAuditMetadataView(
+  metadata: ProgramLifecycleAuditMetadata,
+): ProgramLifecycleAuditMetadata {
+  return {
+    schemaVersion: metadata.schemaVersion,
+    before: { lifecycle: metadata.before.lifecycle },
+    after: { lifecycle: metadata.after.lifecycle },
+  };
+}
+
+function toCollectionTriggerAuditMetadataView(
+  metadata: CollectionTriggerAuditMetadata,
+): CollectionTriggerAuditMetadataView {
+  return { schemaVersion: metadata.schemaVersion };
+}
+
+function toSubmissionFileCleanupAuditMetadataView(
+  metadata: SubmissionFileCleanupAuditMetadata,
+): SubmissionFileCleanupAuditMetadata {
+  return { schemaVersion: metadata.schemaVersion, fileId: metadata.fileId };
+}
+
+function toApplicationDecisionAuditMetadataView(
+  metadata: ApplicationDecisionAuditMetadata,
+): ApplicationDecisionAuditMetadata {
+  return {
+    schemaVersion: metadata.schemaVersion,
+    before: { status: metadata.before.status },
+    after: { status: metadata.after.status },
+  };
+}
+
 export type AuditLogMetadataEvidence =
   | { readonly legacy: true; readonly metadata: null }
-  | { readonly legacy: false; readonly metadata: AuditLogMetadata };
+  | { readonly legacy: false; readonly metadata: AuditLogMetadataView };
 
 export class InvalidAuditLogMetadataError extends Error {
   constructor() {
@@ -272,21 +399,54 @@ export function createAccessAuditMetadata(
   return { schemaVersion: ACCESS_AUDIT_SCHEMA_VERSION, ...input };
 }
 
+/**
+ * 저장된 metadata JSON을 알려진 스키마로 판별하고, 그 종류에 등록된 필드만 남긴 조회용
+ * 형태(`AuditLogMetadataView`)로 되돌린다 — 판별과 관문이 같은 자리에 있어야 새 종류를
+ * 추가할 때 관문 등록을 빠뜨릴 수 없다.
+ *
+ * 어느 종류로도 판별되지 않는 모양은 통째로 버리거나 빈 객체로 만들지 않고 던진다. 조용히
+ * 비우면 "읽기 가드를 빠뜨렸다"는 사실이 빈 metadata로 위장돼, append-only라 다시 쓸 수도
+ * 없는 행이 영구히 설명 불가능한 상태로 남는다. 기본 거부는 지키면서(어떤 키도 나가지
+ * 않는다) 등록 누락은 소리 나게 실패하는 쪽을 택한다.
+ */
 export function parseAuditLogMetadata(
   value: unknown,
 ): AuditLogMetadataEvidence {
   if (isJsonObject(value) && Object.keys(value).length === 0) {
     return { legacy: true, metadata: null };
   }
-  if (
-    isAccessAuditMetadata(value) ||
-    isRepositoryPublishAuditMetadata(value) ||
-    isProgramLifecycleAuditMetadata(value) ||
-    isCollectionTriggerAuditMetadata(value) ||
-    isSubmissionFileCleanupAuditMetadata(value) ||
-    isApplicationDecisionAuditMetadata(value)
-  ) {
-    return { legacy: false, metadata: value };
+  if (isAccessAuditMetadata(value)) {
+    return { legacy: false, metadata: toAccessAuditMetadataView(value) };
+  }
+  if (isRepositoryPublishAuditMetadata(value)) {
+    return {
+      legacy: false,
+      metadata: toRepositoryPublishAuditMetadataView(value),
+    };
+  }
+  if (isProgramLifecycleAuditMetadata(value)) {
+    return {
+      legacy: false,
+      metadata: toProgramLifecycleAuditMetadataView(value),
+    };
+  }
+  if (isCollectionTriggerAuditMetadata(value)) {
+    return {
+      legacy: false,
+      metadata: toCollectionTriggerAuditMetadataView(value),
+    };
+  }
+  if (isSubmissionFileCleanupAuditMetadata(value)) {
+    return {
+      legacy: false,
+      metadata: toSubmissionFileCleanupAuditMetadataView(value),
+    };
+  }
+  if (isApplicationDecisionAuditMetadata(value)) {
+    return {
+      legacy: false,
+      metadata: toApplicationDecisionAuditMetadataView(value),
+    };
   }
   throw new InvalidAuditLogMetadataError();
 }
