@@ -52,6 +52,19 @@ function withoutLoadingCounts(
 }
 
 /**
+ * 프로그램 개요를 부를지 판정한다. 개요 endpoint는 `SessionGuard` 뒤에 있어
+ * (`program-overview.controller.ts`) 비회원 호출은 반드시 401이다 — 부르지 않는다.
+ * 세션 판정이 끝나기 전(`status`가 아직 `assigned`가 아님)에도 부르지 않고, 회원으로
+ * 확정된 뒤 이펙트가 다시 돌면서 부른다.
+ */
+export function shouldLoadProgramOverview(
+  programDetailId: string | null,
+  member: boolean,
+): programDetailId is string {
+  return programDetailId !== null && member;
+}
+
+/**
  * 상단 ShellNav 아래 — **현재 섹션** 하위 사이드 패널 + 본문.
  * 모바일(<900px) 사이드바는 AppSidebar가 숨기고, 본문 칩이 필터를 담당한다.
  * 카운트/연도 fetch는 해당 섹션일 때만 한다 (SECTION_FACETS 단일 이펙트).
@@ -118,7 +131,7 @@ export function ProductShell({
   // getProgramOverview는 signal을 받지 않으므로, 응답 후 aborted 여부만 확인한다
   // (section-facets.ts의 loadProgramFacets 등과 동일한 완화).
   useEffect(() => {
-    if (!programDetailId) {
+    if (!shouldLoadProgramOverview(programDetailId, member)) {
       setScopeOverview(undefined);
       return;
     }
@@ -132,7 +145,7 @@ export function ProductShell({
         if (!controller.signal.aborted) setScopeOverview(undefined);
       });
     return () => controller.abort();
-  }, [programDetailId]);
+  }, [programDetailId, member]);
 
   const toggle = useCallback(() => setCollapsed((prev) => !prev), []);
 

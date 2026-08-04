@@ -35,7 +35,7 @@ vi.mock('@/features/programs/program-overview-api', () => ({
   getProgramOverview: mocks.getProgramOverview,
 }));
 
-import { ProductShell } from './product-shell';
+import { ProductShell, shouldLoadProgramOverview } from './product-shell';
 
 function mockSession(
   overrides: {
@@ -63,6 +63,21 @@ function render(pathname: string) {
     </ProductShell>,
   );
 }
+
+describe('shouldLoadProgramOverview — 개요 fetch 발화 조건', () => {
+  it('프로그램 상세이면서 회원일 때만 부른다', () => {
+    expect(shouldLoadProgramOverview('prog-1', true)).toBe(true);
+  });
+
+  it('비회원은 부르지 않는다 — 개요 endpoint는 SessionGuard 뒤라 반드시 401이다', () => {
+    expect(shouldLoadProgramOverview('prog-1', false)).toBe(false);
+  });
+
+  it('프로그램 상세가 아니면 회원이어도 부르지 않는다', () => {
+    expect(shouldLoadProgramOverview(null, true)).toBe(false);
+    expect(shouldLoadProgramOverview(null, false)).toBe(false);
+  });
+});
 
 describe('ProductShell — 프로그램 상세 스코프 배선', () => {
   it('/programs 목록에서는 기존대로 AppSidebar(프로그램 메뉴 필터)를 그린다', () => {
