@@ -15,7 +15,7 @@ describe('resolveSessionEntry', () => {
     ['STAFF', '/staff/dashboard', '운영 대시보드'],
     ['ADMIN', '/admin/access', '관리 콘솔'],
   ] as const)(
-    'role이 확정된(assigned) %s는 role 홈 경로를 반환한다',
+    'role이 확정된(assigned) %s는 역할 홈 경로를 반환한다(랜딩 CTA 등)',
     (role, href, label) => {
       const destination = resolveSessionEntry('assigned', role, true);
 

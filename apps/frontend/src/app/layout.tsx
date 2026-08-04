@@ -24,12 +24,10 @@ export default function RootLayout({
     <html lang="ko" className={cn('font-sans', geist.variable)}>
       <body className="relative">
         <SkipLink />
-        {/* 랜딩은 상단 헤더, 그 외는 사이드바 + 상단바 — 분기는 AppFrame이 한다 */}
         {/*
-          공통 셸 nav-config(#136) — 메뉴 목록의 원본은 `public-menus.ts`다(#513).
-          로그인/프로필은 기존 login-button.tsx를 actions 슬롯에 배선만 한다(#98).
-          그 배선을 `AccountSlot`이 감싼다 — 가입을 마치지 않은 사람에게는 가입 화면
-          밖에서 계정 표식을 내지 않는다(`_shell/signup-completion.ts`).
+          공통 상단 NavBar — 랜딩·업무 동일 컴포넌트, 메뉴 원본은 PUBLIC_MENU.
+          가입 완료 시 왼쪽 “내 상황”은 AppFrame → ProductShell이 단다.
+          AccountSlot이 가입 미완료 표식을 가린다.
         */}
         <AppFrame
           brand={<Link href="/">OSS Hub</Link>}

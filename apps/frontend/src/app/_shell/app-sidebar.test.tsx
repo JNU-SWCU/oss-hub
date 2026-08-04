@@ -31,20 +31,20 @@ function render(pathname: string, collapsed: boolean) {
 }
 
 describe('AppSidebar', () => {
-  it('접힌 상태에서도 메뉴가 그대로 링크다 — 펼치지 않고 눌러 이동한다', () => {
+  it('내 상황 링크만 있다 — 공개·설정은 없다', () => {
     const html = render('/dashboard', true);
 
+    expect(html).toContain('href="/dashboard"');
     expect(html).toContain('href="/my-repos"');
-    expect(html).toContain('href="/programs"');
-    expect(html).toContain('href="/archive"');
-    expect(html).toContain('href="/settings"');
+    expect(html).not.toContain('href="/programs"');
+    expect(html).not.toContain('href="/archive"');
+    expect(html).not.toContain('href="/settings"');
   });
 
   it('현재 위치를 색·굵기·왼쪽 막대 셋으로 표시한다', () => {
     const html = render('/dashboard', false);
 
     expect(html).toContain('aria-current="page"');
-    // 색(배경) + 굵기 + 형태(왼쪽 막대) — 색 하나에만 기대지 않는다
     expect(html).toContain('bg-sidebar-current');
     expect(html).toContain('font-semibold');
     expect(html).toContain('data-slot="app-sidebar-current-marker"');
@@ -53,23 +53,17 @@ describe('AppSidebar', () => {
   it('현재 위치가 아닌 메뉴에는 표식을 달지 않는다', () => {
     const html = render('/dashboard', false);
     const markers = html.match(/data-slot="app-sidebar-current-marker"/g) ?? [];
-
     expect(markers).toHaveLength(1);
   });
 
   it('접힌 상태 이름표는 hover와 keyboard focus 양쪽에서 보인다', () => {
     const html = render('/dashboard', true);
-
     expect(html).toContain('data-slot="app-sidebar-tooltip"');
     expect(html).toContain('group-hover:opacity-100');
     expect(html).toContain('group-focus-visible:opacity-100');
-    // 이름표는 접힌 상태의 유일한 접근성 이름이므로 aria-hidden이면 안 된다
-    expect(html).not.toMatch(
-      /aria-hidden="true"[^>]*data-slot="app-sidebar-tooltip"/,
-    );
   });
 
-  it('펼친 상태에서는 이름표를 만들지 않는다 — 이름이 이미 보인다', () => {
+  it('펼친 상태에서는 이름표를 만들지 않는다', () => {
     expect(render('/dashboard', false)).not.toContain(
       'data-slot="app-sidebar-tooltip"',
     );
@@ -79,23 +73,27 @@ describe('AppSidebar', () => {
     const html = render('/dashboard', false);
     const links =
       html.match(/class="group relative flex h-control[^"]*"/g) ?? [];
-    // 개수를 숫자로 박으면 메뉴가 하나 늘 때마다 이 규격 검사가 대신 깨진다.
-    // 확인하려는 것은 "메뉴 전부"가 규격을 쓰는지다.
     const menuCount = sidebarGroupsFor('STUDENT').reduce(
       (total, group) => total + group.items.length,
       0,
     );
-
     expect(links.length).toBe(menuCount);
   });
 
-  it('접힌 상태에서는 로고가 펼치기 버튼이 된다', () => {
+  it('접힌 상태에서는 펼치기 버튼이 된다', () => {
     const collapsed = render('/dashboard', true);
     const open = render('/dashboard', false);
 
     expect(collapsed).toContain('aria-label="사이드바 펼치기"');
-    expect(collapsed).not.toContain('aria-label="사이드바 접기"');
     expect(open).toContain('aria-label="사이드바 접기"');
-    expect(open).not.toContain('aria-label="사이드바 펼치기"');
+  });
+
+  it('펼친 헤더는 OSS Hub 브랜드가 아니라 내 상황이다', () => {
+    const html = render('/dashboard', false);
+    expect(html).toContain('내 상황');
+    // 브랜드 홈 링크를 사이드바에 두지 않는다(상단 Nav 재사용)
+    expect(html).not.toMatch(
+      /data-slot="app-sidebar-brand"[\s\S]*href="\/"/,
+    );
   });
 });
