@@ -67,14 +67,14 @@ describe('ProgramsRepository list', () => {
     expect(rawQuery?.values).toContain(0);
   });
 
-  it('uses the same closed filter for count and page rows', async () => {
+  it('uses the same in_progress filter for count and page rows', async () => {
     queryRaw.mockResolvedValue([]);
     count.mockResolvedValue(21);
     transaction.mockResolvedValue([[], 21]);
     const now = new Date('2026-07-22T00:00:00.000Z');
 
     await repository.listPrograms(
-      { page: 1, pageSize: 20, search: '', status: 'closed' },
+      { page: 1, pageSize: 20, search: '', status: 'in_progress' },
       now,
     );
 
@@ -84,6 +84,50 @@ describe('ProgramsRepository list', () => {
       where: {
         lifecycle: ProgramLifecycle.PUBLISHED,
         applicationEndAt: { lt: now },
+        OR: [{ endAt: null }, { endAt: { gte: now } }],
+      },
+    });
+  });
+
+  it('uses the same upcoming filter for count and page rows', async () => {
+    queryRaw.mockResolvedValue([]);
+    count.mockResolvedValue(3);
+    transaction.mockResolvedValue([[], 3]);
+    const now = new Date('2026-07-22T00:00:00.000Z');
+
+    await repository.listPrograms(
+      { page: 1, pageSize: 20, search: '', status: 'upcoming' },
+      now,
+    );
+
+    expect(count).toHaveBeenCalledWith({
+      where: {
+        lifecycle: ProgramLifecycle.PUBLISHED,
+        applicationStartAt: { gt: now },
+      },
+    });
+  });
+
+  it('uses the same ended filter for count and page rows', async () => {
+    queryRaw.mockResolvedValue([]);
+    count.mockResolvedValue(9);
+    transaction.mockResolvedValue([[], 9]);
+    const now = new Date('2026-07-22T00:00:00.000Z');
+
+    await repository.listPrograms(
+      { page: 1, pageSize: 20, search: '', status: 'ended' },
+      now,
+    );
+
+    expect(count).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { lifecycle: ProgramLifecycle.ARCHIVED },
+          {
+            lifecycle: ProgramLifecycle.PUBLISHED,
+            endAt: { not: null, lt: now },
+          },
+        ],
       },
     });
   });

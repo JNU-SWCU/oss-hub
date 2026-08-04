@@ -16,15 +16,16 @@ export const STAFF_CATEGORY_LABELS = {
 } satisfies Readonly<Record<ProgramCategory, string>>;
 
 export const STAFF_RECRUITMENT_BADGES = {
-  scheduled: { label: '모집 예정', variant: 'pending' },
+  upcoming: { label: '접수대기', variant: 'pending' },
   recruiting: { label: '모집중', variant: 'recruiting' },
-  closed: { label: '마감', variant: 'closed' },
+  in_progress: { label: '진행중', variant: 'approved' },
+  ended: { label: '종료', variant: 'closed' },
 } as const satisfies Readonly<
   Record<
     ProgramRecruitmentState,
     {
       readonly label: string;
-      readonly variant: 'pending' | 'recruiting' | 'closed';
+      readonly variant: 'pending' | 'recruiting' | 'closed' | 'approved';
     }
   >
 >;
@@ -66,6 +67,7 @@ export function getStaffRecruitmentBadge(
       category: program.category,
       applicationStartAt: program.applicationPeriod.startsAt,
       applicationEndAt: program.applicationPeriod.endsAt,
+      endAt: null,
       description: '',
     },
     now,

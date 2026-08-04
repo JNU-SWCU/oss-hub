@@ -26,23 +26,46 @@ export type ProgramListRecord = Pick<
   | 'category'
   | 'applicationStartAt'
   | 'applicationEndAt'
+  | 'endAt'
   | 'description'
 >;
 
+/**
+ * 공개 목록 상태 필터 — 상호 배타 (연습대회 없음).
+ * - all: PUBLISHED 전체
+ * - upcoming: 접수 시작 전
+ * - recruiting: 접수 기간 중
+ * - in_progress: 접수 종료 후 · 프로그램 종료 전(또는 endAt 없음)
+ * - ended: endAt 경과 또는 ARCHIVED
+ */
 function recruitmentWhere(
   status: ProgramListQueryStatus,
   now: Date,
 ): Prisma.ProgramWhereInput {
   const whereByStatus = {
     all: { lifecycle: ProgramLifecycle.PUBLISHED },
+    upcoming: {
+      lifecycle: ProgramLifecycle.PUBLISHED,
+      applicationStartAt: { gt: now },
+    },
     recruiting: {
       lifecycle: ProgramLifecycle.PUBLISHED,
       applicationStartAt: { lte: now },
       applicationEndAt: { gte: now },
     },
-    closed: {
+    in_progress: {
       lifecycle: ProgramLifecycle.PUBLISHED,
       applicationEndAt: { lt: now },
+      OR: [{ endAt: null }, { endAt: { gte: now } }],
+    },
+    ended: {
+      OR: [
+        { lifecycle: ProgramLifecycle.ARCHIVED },
+        {
+          lifecycle: ProgramLifecycle.PUBLISHED,
+          endAt: { not: null, lt: now },
+        },
+      ],
     },
   } satisfies Readonly<
     Record<ProgramListQueryStatus, Prisma.ProgramWhereInput>
@@ -56,13 +79,23 @@ function programListSqlWhere(
   now: Date,
 ): Prisma.Sql {
   const conditions: Prisma.Sql[] = [];
-  conditions.push(Prisma.sql`p."lifecycle" = 'PUBLISHED'`);
-  if (status === 'recruiting') {
+  if (status === 'ended') {
     conditions.push(
-      Prisma.sql`p."applicationStartAt" <= ${now} AND p."applicationEndAt" >= ${now}`,
+      Prisma.sql`(p."lifecycle" = 'ARCHIVED' OR (p."lifecycle" = 'PUBLISHED' AND p."endAt" IS NOT NULL AND p."endAt" < ${now}))`,
     );
-  } else if (status === 'closed') {
-    conditions.push(Prisma.sql`p."applicationEndAt" < ${now}`);
+  } else {
+    conditions.push(Prisma.sql`p."lifecycle" = 'PUBLISHED'`);
+    if (status === 'upcoming') {
+      conditions.push(Prisma.sql`p."applicationStartAt" > ${now}`);
+    } else if (status === 'recruiting') {
+      conditions.push(
+        Prisma.sql`p."applicationStartAt" <= ${now} AND p."applicationEndAt" >= ${now}`,
+      );
+    } else if (status === 'in_progress') {
+      conditions.push(
+        Prisma.sql`p."applicationEndAt" < ${now} AND (p."endAt" IS NULL OR p."endAt" >= ${now})`,
+      );
+    }
   }
   if (search) {
     conditions.push(Prisma.sql`p."name" ILIKE ${`%${search}%`}`);
@@ -94,6 +127,7 @@ export class ProgramsRepository {
           p."category",
           p."applicationStartAt",
           p."applicationEndAt",
+          p."endAt",
           p."description"
         FROM "Program" AS p
         ${sqlWhere}
@@ -102,7 +136,9 @@ export class ProgramsRepository {
             WHEN p."applicationStartAt" <= ${now}
               AND p."applicationEndAt" >= ${now} THEN 0
             WHEN p."applicationStartAt" > ${now} THEN 1
-            ELSE 2
+            WHEN p."applicationEndAt" < ${now}
+              AND (p."endAt" IS NULL OR p."endAt" >= ${now}) THEN 2
+            ELSE 3
           END ASC,
           p."applicationEndAt" ASC,
           p."name" ASC,

@@ -1,10 +1,15 @@
 import { getProgramRecruitmentState } from './program-list';
 import { STAFF_CATEGORY_LABELS } from './staff-dashboard-format';
-import type { ProgramListStatus, StaffDashboardProgramSummary } from './types';
+import {
+  PROGRAM_LIST_STATUSES,
+  type ProgramListStatus,
+  type StaffDashboardProgramSummary,
+} from './types';
 
 export function parseStaffDashboardStatus(value: string): ProgramListStatus {
-  if (value === 'recruiting' || value === 'closed') return value;
-  return 'all';
+  return (PROGRAM_LIST_STATUSES as readonly string[]).includes(value)
+    ? (value as ProgramListStatus)
+    : 'all';
 }
 
 export function filterStaffDashboardPrograms(
@@ -23,6 +28,7 @@ export function filterStaffDashboardPrograms(
         category: program.category,
         applicationStartAt: program.applicationPeriod.startsAt,
         applicationEndAt: program.applicationPeriod.endsAt,
+        endAt: null,
         description: '',
       },
       now,
