@@ -186,11 +186,7 @@ describe('isCurrentSidebarItem', () => {
   it('archive detail does not highlight 전체; category peers highlight', () => {
     expect(isCurrentSidebarItem('/archive/123', '/archive', '')).toBe(false);
     expect(
-      isCurrentSidebarItem(
-        '/archive/123',
-        '/archive?category=CAPSTONE',
-        '',
-      ),
+      isCurrentSidebarItem('/archive/123', '/archive?category=CAPSTONE', ''),
     ).toBe(true);
   });
 });
