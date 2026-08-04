@@ -18,8 +18,9 @@ import {
   formatSubmittedAt,
   isLateSubmission,
   MATRIX_MODE_LABELS,
-  MATRIX_STATUS_LABELS,
-  MATRIX_STATUS_VARIANTS,
+  MATRIX_CELL_DISPLAY_LABELS,
+  MATRIX_CELL_DISPLAY_VARIANTS,
+  matrixCellDisplay,
   matrixEmptyKind,
   matrixPageStats,
   matrixRowHasEmptyCell,
@@ -74,9 +75,12 @@ function MatrixCellContent({
   readonly milestone: MatrixMilestone;
   readonly now: Date;
 }): ReactElement {
+  // 저장 enum 5종을 화면 3종(제출함·지각·미제출)으로 접는다 — 이 표에서 묻는 것은
+  // 검토 단계가 아니라 제출 여부다. 검토 단계는 행의 「열어 보기」에서 본다.
+  const display = matrixCellDisplay(cell, milestone);
   const badge = (
-    <StatusBadge variant={MATRIX_STATUS_VARIANTS[cell.status]}>
-      {MATRIX_STATUS_LABELS[cell.status]}
+    <StatusBadge variant={MATRIX_CELL_DISPLAY_VARIANTS[display]}>
+      {MATRIX_CELL_DISPLAY_LABELS[display]}
     </StatusBadge>
   );
   if (cell.status === 'NOT_SUBMITTED') {

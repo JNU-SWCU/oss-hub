@@ -40,6 +40,40 @@ export const MATRIX_STATUS_VARIANTS = {
   Record<MatrixCellStatus, 'pending' | 'approved' | 'rejected'>
 >;
 
+/**
+ * 서류 현황 표의 칸은 저장 enum 5종을 **화면 3종으로 접어** 보여 준다
+ * (`docs/design.md` §업무 화면 내비게이션 › 서류 현황 표).
+ * 교직원이 이 표에서 묻는 것은 "냈나 / 늦게 냈나 / 안 냈나"이지 검토 단계가 아니다.
+ * 검토 단계는 행의 「열어 보기」로 들어가 리뷰 화면에서 본다.
+ */
+export const MATRIX_CELL_DISPLAY_LABELS = {
+  SUBMITTED: '제출함',
+  LATE: '지각',
+  NOT_SUBMITTED: '미제출',
+} as const;
+
+export type MatrixCellDisplay = keyof typeof MATRIX_CELL_DISPLAY_LABELS;
+
+export const MATRIX_CELL_DISPLAY_VARIANTS = {
+  SUBMITTED: 'approved',
+  LATE: 'pending',
+  NOT_SUBMITTED: 'rejected',
+} as const satisfies Readonly<
+  Record<MatrixCellDisplay, 'pending' | 'approved' | 'rejected'>
+>;
+
+/**
+ * 저장 enum + 마감 시각을 화면 3종으로 접는다. 빈칸이 곧 미제출이고,
+ * 낸 뒤 마감을 넘긴 것은 지각으로 가른다(`isLateSubmission`이 판정 근거).
+ */
+export function matrixCellDisplay(
+  cell: MatrixCell,
+  milestone: MatrixMilestone,
+): MatrixCellDisplay {
+  if (cell.status === 'NOT_SUBMITTED') return 'NOT_SUBMITTED';
+  return isLateSubmission(cell, milestone) ? 'LATE' : 'SUBMITTED';
+}
+
 export const MATRIX_MODE_LABELS = {
   PERSONAL: '개인',
   TEAM: '팀',
