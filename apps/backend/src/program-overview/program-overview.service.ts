@@ -14,7 +14,7 @@ import {
 } from './program-overview.repository';
 
 /**
- * 팩트 바의 역할별 자리(#619 program-detail.md §3-6). 학생은 "내 제출 N/M 서류"
+ * 팩트 바의 역할별 자리(#619 `docs/design.md` §업무 화면 내비게이션). 학생은 "내 제출 N/M 서류"
  * (myDocumentsCompleted/myDocumentsTotal), 교직원은 "제출률 N/participantCount"
  * (fullySubmittedParticipantCount, 분모는 ProgramOverviewRecord.participantCount)를
  * 채운다. role이 STUDENT/STAFF/ADMIN이 아니거나(예: 역할 미확정) 서류가 걸린 마일스톤이

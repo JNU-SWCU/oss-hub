@@ -21,7 +21,7 @@ describe('formatClock / formatCountdownDate', () => {
 });
 
 describe('remainingUntil', () => {
-  it('matches the spec example (program-detail.md #2, 09.12 18:00 due)', () => {
+  it('matches the spec example (docs/design.md, 09.12 18:00 due)', () => {
     const now = new Date('2026-08-04T19:35:43+09:00');
     const due = new Date('2026-09-12T18:00:00+09:00');
     const remaining = remainingUntil(due, now);

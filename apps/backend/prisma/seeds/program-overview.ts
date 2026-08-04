@@ -23,7 +23,7 @@ import {
  * Program·User backbone을 만들며 다른 profile을 참조하지 않는다 — 빈 DB에서 단독 실행해도
  * 성공한다.
  *
- * 마일스톤 7개(#1 수강 신청·팀 등록 … #7 최종 발표·시연)는 프로토타입 스펙(program-detail.md)의
+ * 마일스톤 7개(#1 수강 신청·팀 등록 … #7 최종 발표·시연)는 프로토타입 스펙(`docs/design.md`)의
  * 제목을 그대로 쓰되 날짜는 SEED_NOW 기준 상대값(offsetDays)이다 — 다른 시드 파일과 달리
  * 이 profile은 실제 팀 일정을 반영하지 않는 합성 fixture다.
  */
