@@ -1,6 +1,6 @@
 import type { Role } from '@prisma/client';
 import {
-  ProgramOverviewMilestoneDocumentBreakdown,
+  ProgramOverviewMilestoneDocument,
   ProgramOverviewNextMilestone,
   ProgramOverviewView,
 } from '../program-overview.service';
@@ -22,24 +22,27 @@ export class NextMilestoneResponseDto {
   }
 }
 
-/** 마일스톤별 서류 분해 — "내 제출물"/"서류 현황" 아래 중첩 뱃지로 쓰인다. */
-export class MilestoneDocumentBreakdownResponseDto {
+/**
+ * 마일스톤별 서류 분해 — 프론트 `ProgramScopeMilestoneDocsSummary`와 동일 계약
+ * (`milestoneId` / `title` / `completed` / `total`).
+ */
+export class MilestoneDocumentSummaryResponseDto {
   readonly milestoneId: string;
-  readonly milestoneTitle: string;
+  readonly title: string;
   readonly completed: number;
   readonly total: number;
 
-  private constructor(entry: ProgramOverviewMilestoneDocumentBreakdown) {
+  private constructor(entry: ProgramOverviewMilestoneDocument) {
     this.milestoneId = entry.milestoneId;
-    this.milestoneTitle = entry.milestoneTitle;
+    this.title = entry.title;
     this.completed = entry.completed;
     this.total = entry.total;
   }
 
   static from(
-    entry: ProgramOverviewMilestoneDocumentBreakdown,
-  ): MilestoneDocumentBreakdownResponseDto {
-    return new MilestoneDocumentBreakdownResponseDto(entry);
+    entry: ProgramOverviewMilestoneDocument,
+  ): MilestoneDocumentSummaryResponseDto {
+    return new MilestoneDocumentSummaryResponseDto(entry);
   }
 }
 
@@ -51,22 +54,28 @@ export class ProgramOverviewResponseDto {
   lifecycle: string;
   milestoneCount: number;
   boardPostCount: number;
-  /** 팀 소속 인원 + 개인형 신청자를 합친 참여 학생 수(공개). */
+  /** 참여 학생 수(공개) — TeamMember distinct. */
   participantCount: number;
   teamCount: number;
   connectedRepositoryCount: number;
   /** 마감 카운트다운(공개, 역할 무관). 다가오는 마일스톤이 없으면 null. */
   nextMilestone: NextMilestoneResponseDto | null;
-  /** 아래 4개 필드는 요청자(viewer) 전용 — 역할별로 한쪽만 채워진다. */
+  /** 아래 viewer 필드는 요청자 전용 — 역할별로 한쪽만 채워진다. */
   viewerRole: Role | null;
-  /** 학생 전용: "내 제출 N / M 서류"의 N. */
+  /**
+   * 학생 전용: "내 제출물" 부모 합계 N.
+   * 범위는 **프로그램 전체 서류** 합(현재 마일스톤만이 아님).
+   */
   viewerDocumentsCompleted: number | null;
-  /** 학생 전용: "내 제출 N / M 서류"의 M. */
+  /** 학생 전용: "내 제출물" 부모 합계 M — 프로그램 전체 서류 수. */
   viewerDocumentsTotal: number | null;
-  /** 교직원 전용: "제출률"의 분자. 분모는 participantCount. */
+  /** 교직원 전용: 팩트 바 "제출률"의 분자. 분모는 participantCount. */
   fullySubmittedParticipantCount: number | null;
-  /** 마일스톤별 서류 분해(viewer 전용, 서류 0개 마일스톤은 뺀다). */
-  milestoneDocumentBreakdown: MilestoneDocumentBreakdownResponseDto[];
+  /**
+   * 마일스톤별 서류 분해(viewer 전용, 서류 0개 마일스톤은 뺀다).
+   * 프론트 `programScopeSidebarGroups({ milestoneDocuments })` 입력과 동일 키.
+   */
+  milestoneDocuments: MilestoneDocumentSummaryResponseDto[];
 
   private constructor(view: ProgramOverviewView) {
     this.programId = view.programId;
@@ -86,10 +95,9 @@ export class ProgramOverviewResponseDto {
     this.viewerDocumentsTotal = view.viewer.myDocumentsTotal;
     this.fullySubmittedParticipantCount =
       view.viewer.fullySubmittedParticipantCount;
-    this.milestoneDocumentBreakdown =
-      view.viewer.milestoneDocumentBreakdown.map((entry) =>
-        MilestoneDocumentBreakdownResponseDto.from(entry),
-      );
+    this.milestoneDocuments = view.viewer.milestoneDocuments.map((entry) =>
+      MilestoneDocumentSummaryResponseDto.from(entry),
+    );
   }
 
   static from(view: ProgramOverviewView): ProgramOverviewResponseDto {

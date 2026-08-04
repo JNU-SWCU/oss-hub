@@ -15,7 +15,6 @@ describe('ApplicationListQueryRequestDto', () => {
       pageSize: 20,
       search: '',
       status: 'all',
-      mode: 'all',
     });
   });
 
@@ -41,13 +40,12 @@ describe('ApplicationListQueryRequestDto', () => {
     expect(errors.some((error) => error.property === 'status')).toBe(true);
   });
 
-  it('search 를 trim 하고 mode·status 를 보존한다', async () => {
+  it('search 를 trim 하고 status 를 보존한다', async () => {
     const query = plainToInstance(ApplicationListQueryRequestDto, {
       page: '2',
       pageSize: '10',
       search: '  team-alpha  ',
       status: 'APPROVED',
-      mode: 'team',
     });
 
     const errors = await validate(query);
@@ -58,7 +56,28 @@ describe('ApplicationListQueryRequestDto', () => {
       pageSize: 10,
       search: 'team-alpha',
       status: 'APPROVED',
-      mode: 'team',
     });
+  });
+
+  it('구 클라이언트의 mode 쿼리는 수용하되 toQuery 결과에 넣지 않는다', async () => {
+    const query = plainToInstance(ApplicationListQueryRequestDto, {
+      page: '1',
+      pageSize: '20',
+      search: '',
+      status: 'all',
+      mode: 'personal',
+    });
+
+    const errors = await validate(query);
+
+    expect(errors).toHaveLength(0);
+    expect(query.mode).toBe('personal');
+    expect(query.toQuery()).toEqual({
+      page: 1,
+      pageSize: 20,
+      search: '',
+      status: 'all',
+    });
+    expect(query.toQuery()).not.toHaveProperty('mode');
   });
 });

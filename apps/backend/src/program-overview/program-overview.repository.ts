@@ -10,7 +10,7 @@ export interface ProgramOverviewRecord {
   lifecycle: string;
   milestoneCount: number;
   boardPostCount: number;
-  /** 팀 소속 인원 + 개인형 신청자를 합친 distinct 인원 수. */
+  /** 팀 소속 인원 수(모든 신청이 Team을 가지므로 TeamMember distinct). */
   participantCount: number;
   teamCount: number;
   connectedRepositoryCount: number;
@@ -60,7 +60,8 @@ export interface MilestoneSchedule {
  */
 export interface MilestoneDocumentCatalogEntry {
   milestoneId: string;
-  milestoneTitle: string;
+  /** 마일스톤 표시명 — 응답 필드 `title`로 나간다. */
+  title: string;
   documentIds: string[];
   requiredDocumentIds: string[];
 }
@@ -206,7 +207,7 @@ export class ProgramOverviewRepository {
     });
     return milestones.map((milestone) => ({
       milestoneId: milestone.id,
-      milestoneTitle: milestone.name,
+      title: milestone.name,
       documentIds: milestone.documents.map((document) => document.id),
       requiredDocumentIds: milestone.documents
         .filter((document) => document.required)
@@ -260,7 +261,10 @@ export class ProgramOverviewRepository {
     });
   }
 
-  /** 마일스톤별 서류 분해(학생) — applicationId가 제출 완료한 서류 id 집합. */
+  /**
+   * 학생 마일스톤 분해 — applicationId가 제출 완료한 서류 id 집합.
+   * 제출 행을 `groupBy(['milestoneDocumentId'])` 1회로 모아 접는다(마일스톤 수와 무관).
+   */
   async findSubmittedDocumentIds(
     applicationId: string,
     documentIds: string[],
@@ -268,9 +272,9 @@ export class ProgramOverviewRepository {
     if (documentIds.length === 0) {
       return new Set();
     }
-    const rows = await this.prisma.milestoneDocumentSubmission.findMany({
+    const rows = await this.prisma.milestoneDocumentSubmission.groupBy({
+      by: ['milestoneDocumentId'],
       where: { applicationId, milestoneDocumentId: { in: documentIds } },
-      select: { milestoneDocumentId: true },
     });
     return new Set(rows.map((row) => row.milestoneDocumentId));
   }
@@ -278,10 +282,13 @@ export class ProgramOverviewRepository {
   /**
    * "제출 완료" 판정 기준은 필수 서류(required) 전건 제출이다 — 선택 서류는 완료 여부에
    * 영향을 주지 않는다. 반환값은 완료한 신청에 속한 참여 학생 수의 합(팀이면 팀원 수,
-   * 개인형이면 1)이다. requiredDocumentIds가 비어 있으면(필수 서류 없음) 모든 신청을
+   * 개인 1인 팀이면 1)이다. requiredDocumentIds가 비어 있으면(필수 서류 없음) 모든 신청을
    * 완료로 간주한다(vacuous true).
    *
-   * 쿼리 수는 프로그램의 신청 건수와 무관하게 상수다: 신청 목록 조회 1 + 제출 조회 1
+   * 팩트 바 "제출률" 분자 전용. 사이드바 마일스톤 분해(팀 수)는
+   * countFullySubmittedTeamsByMilestone을 쓴다.
+   *
+   * 쿼리 수는 프로그램의 신청 건수와 무관하게 상수다: 신청 목록 조회 1 + 제출 groupBy 1
    * (+ 팀원 수 groupBy 1, 팀형 신청이 있을 때만) = 최대 3.
    */
   async countFullySubmittedParticipants(
@@ -296,11 +303,15 @@ export class ProgramOverviewRepository {
   }
 
   /**
-   * 마일스톤별 서류 분해(교직원/관리자) — countFullySubmittedParticipants와 같은 "완료"
-   * 정의를 마일스톤 단위로 한 번에 계산한다. 쿼리 수는 마일스톤 수와 무관하게 상수다
-   * (신청 목록 1 + 제출 조회 1 + 팀원 수 groupBy 1 = 최대 3, 마일스톤이 몇 개든 동일).
+   * 마일스톤별 서류 분해(교직원/관리자) — 필수 서류를 전부 낸 **팀 수**.
+   * D5: 모든 신청이 Team을 갖고 개인 참여는 1인 팀이므로 분모·분자는 팀 단위다.
+   *
+   * 쿼리 수는 마일스톤 수와 무관하게 상수다:
+   * 신청 목록 1 + 제출 `groupBy(['milestoneDocumentId','applicationId'])` 1 = 최대 2.
+   * (팀 완료 판정에는 applicationId가 필요해 milestoneDocumentId 단독 groupBy로는
+   * 접을 수 없다 — 차원 하나만 추가한 동일 1회 groupBy로 고정한다.)
    */
-  async countFullySubmittedParticipantsByMilestone(
+  async countFullySubmittedTeamsByMilestone(
     programId: string,
     milestones: readonly {
       milestoneId: string;
@@ -310,7 +321,7 @@ export class ProgramOverviewRepository {
     if (milestones.length === 0) {
       return new Map();
     }
-    return this.countFullySubmittedParticipantsForKeys(
+    return this.countFullySubmittedTeamsForKeys(
       programId,
       new Map(milestones.map((m) => [m.milestoneId, m.requiredDocumentIds])),
     );
@@ -330,27 +341,11 @@ export class ProgramOverviewRepository {
     }
 
     const applicationIds = applications.map((application) => application.id);
-    const allRequiredDocumentIds = Array.from(
-      new Set([...requiredDocumentIdsByKey.values()].flat()),
-    );
-    const submittedRows =
-      allRequiredDocumentIds.length === 0
-        ? []
-        : await this.prisma.milestoneDocumentSubmission.findMany({
-            where: {
-              applicationId: { in: applicationIds },
-              milestoneDocumentId: { in: allRequiredDocumentIds },
-            },
-            select: { applicationId: true, milestoneDocumentId: true },
-          });
-    const submittedDocumentIdsByApplication = new Map<string, Set<string>>();
-    for (const row of submittedRows) {
-      const set =
-        submittedDocumentIdsByApplication.get(row.applicationId) ??
-        new Set<string>();
-      set.add(row.milestoneDocumentId);
-      submittedDocumentIdsByApplication.set(row.applicationId, set);
-    }
+    const submittedDocumentIdsByApplication =
+      await this.loadSubmittedDocumentIdsByApplication(
+        applicationIds,
+        requiredDocumentIdsByKey,
+      );
 
     const memberCountByTeam = await this.loadMemberCountByTeam(
       programId,
@@ -361,13 +356,10 @@ export class ProgramOverviewRepository {
     for (const key of keys) {
       const requiredDocumentIds = requiredDocumentIdsByKey.get(key) ?? [];
       const fullySubmitted = applications.filter((application) =>
-        requiredDocumentIds.length === 0
-          ? true
-          : requiredDocumentIds.every((documentId) =>
-              submittedDocumentIdsByApplication
-                .get(application.id)
-                ?.has(documentId),
-            ),
+        this.hasAllRequiredDocuments(
+          submittedDocumentIdsByApplication.get(application.id),
+          requiredDocumentIds,
+        ),
       );
       result.set(
         key,
@@ -382,6 +374,99 @@ export class ProgramOverviewRepository {
       );
     }
     return result;
+  }
+
+  private async countFullySubmittedTeamsForKeys(
+    programId: string,
+    requiredDocumentIdsByKey: ReadonlyMap<string, string[]>,
+  ): Promise<Map<string, number>> {
+    const keys = [...requiredDocumentIdsByKey.keys()];
+    // D5: Application.teamId는 non-null. distinct teamId로 팀 단위 집계.
+    const applications = await this.prisma.application.findMany({
+      where: { programId },
+      select: { id: true, teamId: true },
+    });
+    if (applications.length === 0) {
+      return new Map(keys.map((key) => [key, 0]));
+    }
+
+    const applicationIds = applications.map((application) => application.id);
+    const submittedDocumentIdsByApplication =
+      await this.loadSubmittedDocumentIdsByApplication(
+        applicationIds,
+        requiredDocumentIdsByKey,
+      );
+
+    const result = new Map<string, number>();
+    for (const key of keys) {
+      const requiredDocumentIds = requiredDocumentIdsByKey.get(key) ?? [];
+      const completedTeamIds = new Set<string>();
+      for (const application of applications) {
+        if (
+          this.hasAllRequiredDocuments(
+            submittedDocumentIdsByApplication.get(application.id),
+            requiredDocumentIds,
+          )
+        ) {
+          // teamId가 있는 신청만 팀으로 센다. (스키마상 항상 있지만 방어적으로)
+          if (application.teamId) {
+            completedTeamIds.add(application.teamId);
+          } else {
+            // 레거시 null teamId 행이 남아 있으면 1인 팀으로 간주해 카운트에 포함한다.
+            completedTeamIds.add(`application:${application.id}`);
+          }
+        }
+      }
+      result.set(key, completedTeamIds.size);
+    }
+    return result;
+  }
+
+  /**
+   * 제출 집계 1회 — `groupBy(['milestoneDocumentId','applicationId'])`.
+   * milestoneDocumentId 단독 groupBy는 application 축이 없어 "팀 완주"를 접을 수 없다.
+   */
+  private async loadSubmittedDocumentIdsByApplication(
+    applicationIds: readonly string[],
+    requiredDocumentIdsByKey: ReadonlyMap<string, string[]>,
+  ): Promise<Map<string, Set<string>>> {
+    const allRequiredDocumentIds = Array.from(
+      new Set([...requiredDocumentIdsByKey.values()].flat()),
+    );
+    if (allRequiredDocumentIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await this.prisma.milestoneDocumentSubmission.groupBy({
+      by: ['milestoneDocumentId', 'applicationId'],
+      where: {
+        applicationId: { in: [...applicationIds] },
+        milestoneDocumentId: { in: allRequiredDocumentIds },
+      },
+    });
+
+    const submittedDocumentIdsByApplication = new Map<string, Set<string>>();
+    for (const row of rows) {
+      const set =
+        submittedDocumentIdsByApplication.get(row.applicationId) ??
+        new Set<string>();
+      set.add(row.milestoneDocumentId);
+      submittedDocumentIdsByApplication.set(row.applicationId, set);
+    }
+    return submittedDocumentIdsByApplication;
+  }
+
+  private hasAllRequiredDocuments(
+    submitted: Set<string> | undefined,
+    requiredDocumentIds: readonly string[],
+  ): boolean {
+    if (requiredDocumentIds.length === 0) {
+      return true;
+    }
+    if (!submitted) {
+      return false;
+    }
+    return requiredDocumentIds.every((documentId) => submitted.has(documentId));
   }
 
   private async loadMemberCountByTeam(

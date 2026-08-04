@@ -180,6 +180,21 @@ describe('parseAuditLogMetadata — #547 신규 typed action', () => {
       },
     });
   });
+  it('신청 되돌리기 metadata를 그대로 읽어낸다', () => {
+    const reverted = createApplicationDecisionAuditMetadata({
+      before: { status: ApplicationStatus.APPROVED },
+      after: { status: ApplicationStatus.SUBMITTED },
+    });
+
+    expect(parseAuditLogMetadata(reverted)).toEqual({
+      legacy: false,
+      metadata: {
+        schemaVersion: 1,
+        before: { status: ApplicationStatus.APPROVED },
+        after: { status: ApplicationStatus.SUBMITTED },
+      },
+    });
+  });
 
   it('알 수 없는 status가 담긴 판정 metadata는 거부한다', () => {
     expect(() =>

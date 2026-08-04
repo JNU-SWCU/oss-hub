@@ -395,7 +395,7 @@ describe('ApplicationsService integration', () => {
     ).resolves.toBe(1);
   });
 
-  it('기존 idempotencyKey 충돌은 승인까지 롤백하고 event id를 반환한다', async () => {
+  it('기존 idempotencyKey가 있으면 새 이벤트 없이 그 event id를 재사용한다', async () => {
     // Given
     const applicationId = APPLICATION_IDS[4];
     await createApplication(applicationId, true);
@@ -414,16 +414,20 @@ describe('ApplicationsService integration', () => {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
 
-    // Then
-    await expect(decision).rejects.toMatchObject({
-      errorCode: {
-        code: ApplicationsErrorCode.REPOSITORY_EVENT_ALREADY_EXISTS,
-      },
-      extensions: { eventId: existing.id },
+    // Then — 되돌리기 후 재승인이 가능해야 하므로(D4) 같은 멱등키의 기존 이벤트는
+    // 충돌이 아니라 재사용 대상이다. 저장소가 두 번 만들어지지 않는 것이 핵심이다.
+    await expect(decision).resolves.toMatchObject({
+      kind: 'APPROVED',
+      repositoryProvisioning: { enabled: true, eventId: existing.id },
     });
     await expect(
       prisma.application.findUniqueOrThrow({ where: { id: applicationId } }),
-    ).resolves.toMatchObject({ status: ApplicationStatus.SUBMITTED });
+    ).resolves.toMatchObject({ status: ApplicationStatus.APPROVED });
+    await expect(
+      prisma.outboxEvent.count({
+        where: { idempotencyKey: `repository-provision:${applicationId}` },
+      }),
+    ).resolves.toBe(1);
   });
 
   it('이미 판정된 신청은 409와 최신 상태를 반환한다', async () => {
@@ -473,6 +477,10 @@ describe('ApplicationsService integration', () => {
             // 경합 테스트의 대리 store도 감사 writer를 그대로 넘겨야 한다.
             auditLogWriter: store.auditLogWriter,
             findApplicationById: (id) => store.findApplicationById(id),
+            findRepositoryProvisionJob: (id) =>
+              store.findRepositoryProvisionJob(id),
+            findRepositoryProvisionEvent: (key) =>
+              store.findRepositoryProvisionEvent(key),
             transitionApplication: async (input) => {
               markDecisionReady?.();
               await decisionGate;

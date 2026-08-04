@@ -32,6 +32,8 @@ export class PatchApplicationDecisionRequestDto {
         }
         return { action: APPLICATION_DECISION_ACTIONS.REJECT, reason };
       }
+      case APPLICATION_DECISION_ACTIONS.REVERT:
+        return { action: APPLICATION_DECISION_ACTIONS.REVERT };
       default:
         throw new DomainException(
           APPLICATIONS_ERROR_CODES[

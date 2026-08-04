@@ -232,7 +232,6 @@ describe('ProgramApplicationsController', () => {
       pageSize: 20,
       search: '합성',
       status: 'SUBMITTED' as const,
-      mode: 'personal' as const,
     });
 
     const response = await controller.list('synthetic-program', query);
@@ -242,7 +241,6 @@ describe('ProgramApplicationsController', () => {
       pageSize: 20,
       search: '합성',
       status: 'SUBMITTED',
-      mode: 'personal',
     });
     expect(response).toEqual({
       items: [

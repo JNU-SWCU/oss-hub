@@ -114,10 +114,16 @@ describe('BoardListContent', () => {
         })}
       />,
     );
+    // 정보 구조: 공지/질문이 한 목록, 제목·작성자·작성일·댓글 수
     expect(html).toContain('1차 중간 산출물 제출 안내');
     expect(html).toContain('제출 마감일 문의드립니다');
     expect(html).toContain('공지');
     expect(html).toContain('질문');
+    expect(html).toContain('구분');
+    expect(html).toContain('제목');
+    expect(html).toContain('작성자');
+    expect(html).toContain('작성일');
+    expect(html).toContain('댓글');
     expect(html).toContain('교직원');
     expect(html).toContain('학생');
     expect(html).toContain('고정된 글');

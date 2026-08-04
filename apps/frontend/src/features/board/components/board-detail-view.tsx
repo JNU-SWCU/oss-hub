@@ -23,6 +23,8 @@ import {
   BOARD_CATEGORY_BADGE_VARIANT,
   BOARD_CATEGORY_LABELS,
   BOARD_COMMENT_AUTHOR_LABEL,
+  BOARD_COMMENT_AUTHOR_ROLE_VARIANT,
+  boardCommentAuthorRoleLabel,
   boardPostAuthorRoleLabel,
   formatBoardDateTime,
   mapBoardError,
@@ -270,6 +272,14 @@ export function BoardDetailContent({
                     <span className="font-bold">
                       {BOARD_COMMENT_AUTHOR_LABEL}
                     </span>
+                    <StatusBadge
+                      variant={
+                        BOARD_COMMENT_AUTHOR_ROLE_VARIANT[comment.authorRole]
+                      }
+                      aria-label={`${boardCommentAuthorRoleLabel(comment.authorRole)} 역할`}
+                    >
+                      {boardCommentAuthorRoleLabel(comment.authorRole)}
+                    </StatusBadge>
                     <span className="min-w-0 flex-1 leading-6 text-foreground">
                       {comment.body}
                     </span>

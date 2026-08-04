@@ -287,4 +287,20 @@ describe('decideApplication', () => {
       }),
     );
   });
+  it('되돌리기 판정을 typed PATCH 본문으로 보낸다', async () => {
+    vi.mocked(apiClient).mockResolvedValue({
+      applicationId: 'app-1',
+      status: 'SUBMITTED',
+    });
+
+    await decideApplication('app-1', { action: 'REVERT' });
+
+    expect(apiClient).toHaveBeenCalledWith(
+      'applications/app-1',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ action: 'REVERT' }),
+      }),
+    );
+  });
 });

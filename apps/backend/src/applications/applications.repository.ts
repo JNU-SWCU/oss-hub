@@ -34,6 +34,7 @@ import type {
   ApplicationTransition,
   RepositoryProvisionEvent,
   RepositoryProvisionEventInput,
+  RepositoryProvisionJobSnapshot,
 } from './domain/application-decision';
 
 type ApplicationWithProgram = PrismaTypes.ApplicationGetPayload<{
@@ -62,6 +63,12 @@ export interface ApplicationsTransactionStore {
   findApplicationById(
     applicationId: string,
   ): Promise<ApplicationDecisionTarget | null>;
+  findRepositoryProvisionJob(
+    applicationId: string,
+  ): Promise<RepositoryProvisionJobSnapshot | null>;
+  findRepositoryProvisionEvent(
+    idempotencyKey: string,
+  ): Promise<RepositoryProvisionEvent | null>;
   transitionApplication(input: ApplicationTransition): Promise<boolean>;
   createRepositoryProvisionEvent(
     input: RepositoryProvisionEventInput,
@@ -249,18 +256,45 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
     return application ? toApplicationDecisionTarget(application) : null;
   }
 
+  async findRepositoryProvisionJob(
+    applicationId: string,
+  ): Promise<RepositoryProvisionJobSnapshot | null> {
+    const job = await this.transaction.repositoryProvisionJob.findUnique({
+      where: { applicationId },
+      select: { status: true, repositoryId: true },
+    });
+    return job;
+  }
+
+  async findRepositoryProvisionEvent(
+    idempotencyKey: string,
+  ): Promise<RepositoryProvisionEvent | null> {
+    const event = await this.transaction.outboxEvent.findUnique({
+      where: { idempotencyKey },
+    });
+    return event ? toRepositoryProvisionEvent(event) : null;
+  }
+
   async transitionApplication(input: ApplicationTransition): Promise<boolean> {
+    const data: {
+      status: ApplicationStatus;
+      rejectionReason: string | null;
+      processedById?: string;
+      processedAt?: Date;
+    } = {
+      status: input.nextStatus,
+      rejectionReason: input.rejectionReason,
+    };
+    if (input.processedBy !== 'preserve') {
+      data.processedById = input.processedBy.id;
+      data.processedAt = input.processedBy.at;
+    }
     const result = await this.transaction.application.updateMany({
       where: {
         id: input.applicationId,
         status: input.expectedStatus,
       },
-      data: {
-        status: input.nextStatus,
-        rejectionReason: input.rejectionReason,
-        processedById: input.processedById,
-        processedAt: input.processedAt,
-      },
+      data,
     });
     return result.count === 1;
   }
@@ -668,11 +702,6 @@ function buildApplicationListWhere(
   programId: string,
   query: ApplicationListQuery,
 ): Prisma.ApplicationWhereInput {
-  // 참여 유형(개인형/팀형) 필터는 D6로 폐지됐다 — 모든 신청이 Team을 갖고 개인 참여는
-  // 1인 팀이라 teamId로는 더 이상 구분되지 않는다. 조용히 0건을 반환하는 필터를
-  // 남기지 않으려고 여기서 무시한다. 쿼리 파라미터 자체의 제거는 표시 계층 골에서 한다.
-  const modeWhere: Prisma.ApplicationWhereInput = {};
-
   const statusWhere: Prisma.ApplicationWhereInput =
     query.status === 'all' ? {} : { status: query.status };
 
@@ -711,7 +740,6 @@ function buildApplicationListWhere(
 
   return {
     programId,
-    ...modeWhere,
     ...statusWhere,
     ...searchWhere,
   };
@@ -947,6 +975,8 @@ function toApplicationDecisionTarget(
     ].sort(),
     repositoryConnectionMode: application.repositoryConnectionMode,
     repositoryUrl: application.repositoryUrl,
+    processedById: application.processedById,
+    processedAt: application.processedAt,
   };
 }
 

@@ -123,15 +123,11 @@ export const APPLICATION_LIST_STATUSES = [
 ] as const;
 export type ApplicationListStatus = (typeof APPLICATION_LIST_STATUSES)[number];
 
-export const APPLICATION_LIST_MODES = ['all', 'personal', 'team'] as const;
-export type ApplicationListMode = (typeof APPLICATION_LIST_MODES)[number];
-
 export interface ApplicationListParams {
   readonly page: number;
   readonly pageSize: number;
   readonly search: string;
   readonly status: ApplicationListStatus;
-  readonly mode: ApplicationListMode;
 }
 
 export const REPOSITORY_PROVISIONING_JOB_STATUSES = [

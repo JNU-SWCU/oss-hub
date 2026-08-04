@@ -1,12 +1,27 @@
+// @vitest-environment happy-dom
+
+import { act } from 'react';
+import { createRoot } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import {
   ApplicationListRequestEpoch,
+  ProgramApplicantsPage,
   staleApplicationDecisionTitle,
 } from './program-applicants-page';
 import { staffApplicationDetailHref } from './program-paths';
-import type { ApplicationListItem } from './types';
+import type {
+  ApplicationListItem,
+  ApplicationListPage,
+  ProgramDetail,
+} from './types';
+
+Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
+  configurable: true,
+  value: true,
+});
 
 vi.mock('next/link', () => ({
   default: ({
@@ -22,11 +37,27 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
 }));
 
+const {
+  decideApplicationMock,
+  getProgramDetailMock,
+  listProgramApplicationsMock,
+} = vi.hoisted(() => ({
+  decideApplicationMock: vi.fn(),
+  getProgramDetailMock: vi.fn(),
+  listProgramApplicationsMock: vi.fn(),
+}));
+
+vi.mock('./api', () => ({
+  decideApplication: decideApplicationMock,
+  getProgramDetail: getProgramDetailMock,
+  listProgramApplications: listProgramApplicationsMock,
+}));
+
 function participationLabel(item: ApplicationListItem): string {
-  if (item.participation === 'TEAM' && item.team) {
-    return `팀 · ${item.team.name} (${item.team.memberCount}명)`;
+  if (item.team) {
+    return `${item.team.name} (${item.team.memberCount}명)`;
   }
-  return '개인';
+  return '1명';
 }
 
 const personal: ApplicationListItem = {
@@ -80,6 +111,74 @@ const team: ApplicationListItem = {
     summary: '팀 요약',
   },
 };
+
+const rejected: ApplicationListItem = {
+  ...team,
+  id: 'app-rejected',
+  status: 'REJECTED',
+  rejectionReason: '합성 반려 사유',
+  repositoryProvisioning: {
+    enabled: false,
+    jobStatus: 'DISABLED',
+    updatedAt: '2026-07-16T00:00:00.000Z',
+    safeErrorClass: null,
+  },
+  answers: {
+    applicantName: '반려 학생',
+    title: '반려된 신청',
+    summary: '반려 요약',
+  },
+  applicant: {
+    id: 'student-3',
+    name: '반려 학생',
+    nickname: 'rejected-user',
+  },
+  team: null,
+  participation: 'INDIVIDUAL',
+};
+
+const program: ProgramDetail = {
+  id: 'program-1',
+  name: '합성 프로그램',
+  organizer: '합성 주관',
+  category: 'BASIC',
+  description: '설명',
+  applicationPeriod: {
+    startsAt: '2026-07-01T00:00:00.000Z',
+    endsAt: '2026-08-01T00:00:00.000Z',
+  },
+  viewer: { role: 'STAFF', applicationStatus: null },
+  milestones: [],
+};
+
+function applicationPage(
+  items: readonly ApplicationListItem[],
+): ApplicationListPage {
+  return {
+    items,
+    page: 1,
+    pageSize: 20,
+    totalItems: items.length,
+    totalPages: 1,
+  };
+}
+
+function getButton(name: string): HTMLButtonElement {
+  const button = Array.from(document.querySelectorAll('button')).find(
+    (candidate) => candidate.textContent?.trim() === name,
+  );
+  if (!(button instanceof HTMLButtonElement)) {
+    throw new TypeError(`Button not found: ${name}`);
+  }
+  return button;
+}
+
+function queryButton(name: string): HTMLButtonElement | undefined {
+  return Array.from(document.querySelectorAll('button')).find(
+    (candidate) => candidate.textContent?.trim() === name,
+  ) as HTMLButtonElement | undefined;
+}
+
 function deferred<T>(): {
   readonly promise: Promise<T>;
   readonly resolve: (value: T) => void;
@@ -92,13 +191,12 @@ function deferred<T>(): {
 }
 
 describe('program applicants display helpers', () => {
-  it('개인 신청은 가짜 팀명을 붙이지 않는다', () => {
-    expect(participationLabel(personal)).toBe('개인');
-    expect(participationLabel(personal)).not.toContain('팀');
+  it('팀이 없으면 인원만 표시한다', () => {
+    expect(participationLabel(personal)).toBe('1명');
   });
 
-  it('팀 신청은 팀명과 인원을 표시한다', () => {
-    expect(participationLabel(team)).toBe('팀 · 합성 팀 (3명)');
+  it('팀이 있으면 팀명과 인원을 표시한다', () => {
+    expect(participationLabel(team)).toBe('합성 팀 (3명)');
   });
 
   it('상세 href 는 locked #119 경로를 쓴다', () => {
@@ -172,6 +270,26 @@ describe('staleApplicationDecisionTitle', () => {
     );
   });
 
+  it('프로비저닝이 끝난 승인 되돌리기 409는 사람 말 안내를 쓴다', () => {
+    expect(
+      staleApplicationDecisionTitle(
+        new ApiError({
+          ...problem(409, 'APP_013'),
+          revertBlockedReason:
+            'repository provision already succeeded; undo is locked to protect the provisioned repository',
+        } as ProblemDetail & { readonly revertBlockedReason: string }),
+      ),
+    ).toBe('저장소가 이미 만들어진 승인은 되돌릴 수 없습니다');
+  });
+
+  it('일반 409와 되돌리기 잠금 409는 서로 다른 문구를 쓴다', () => {
+    expect(
+      staleApplicationDecisionTitle(new ApiError(problem(409, 'APP_002'))),
+    ).not.toBe(
+      staleApplicationDecisionTitle(new ApiError(problem(409, 'APP_013'))),
+    );
+  });
+
   it('권한·검증 실패는 목록 재조회 경로로 보내지 않는다', () => {
     expect(
       staleApplicationDecisionTitle(new ApiError(problem(403, 'APP_004'))),
@@ -188,5 +306,119 @@ describe('staleApplicationDecisionTitle', () => {
     expect(staleApplicationDecisionTitle(new Error('network'))).toBeNull();
     expect(staleApplicationDecisionTitle(null)).toBeNull();
     expect(staleApplicationDecisionTitle({ status: 404 })).toBeNull();
+  });
+});
+
+describe('program applicants revert action', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
+    decideApplicationMock.mockReset();
+    getProgramDetailMock.mockReset();
+    listProgramApplicationsMock.mockReset();
+    getProgramDetailMock.mockResolvedValue(program);
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  it('판정되지 않은 행에는 되돌리기가 보이지 않는다', async () => {
+    listProgramApplicationsMock.mockResolvedValue(applicationPage([personal]));
+
+    await act(async () => {
+      root.render(<ProgramApplicantsPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(queryButton('되돌리기')).toBeUndefined();
+    expect(getButton('승인')).toBeTruthy();
+    expect(getButton('반려')).toBeTruthy();
+  });
+
+  it('반려된 행에서 되돌리기를 확정하면 REVERT를 보낸다', async () => {
+    listProgramApplicationsMock
+      .mockResolvedValueOnce(applicationPage([rejected]))
+      .mockResolvedValueOnce(
+        applicationPage([
+          { ...rejected, status: 'SUBMITTED', rejectionReason: null },
+        ]),
+      );
+    decideApplicationMock.mockResolvedValue({
+      applicationId: rejected.id,
+      status: 'SUBMITTED',
+    });
+
+    await act(async () => {
+      root.render(<ProgramApplicantsPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      getButton('되돌리기').click();
+    });
+    await act(async () => {
+      getButton('되돌리기 확정').click();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(decideApplicationMock).toHaveBeenCalledWith(rejected.id, {
+      action: 'REVERT',
+    });
+    expect(container.textContent).toContain('되돌린 결과를 다시 불러왔습니다.');
+    expect(container.textContent).toContain('제출됨');
+  });
+
+  it('409 + revertBlockedReason 응답을 사람 말 안내로 보여 준다', async () => {
+    listProgramApplicationsMock
+      .mockResolvedValueOnce(applicationPage([team]))
+      .mockResolvedValueOnce(applicationPage([team]));
+    decideApplicationMock.mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: 'Conflict',
+        status: 409,
+        detail: '저장소 프로비저닝이 완료된 승인은 되돌릴 수 없습니다.',
+        instance: 'urn:test:applications:app-team',
+        code: 'APP_013',
+        revertBlockedReason:
+          'repository provision already succeeded; undo is locked to protect the provisioned repository',
+      } as ProblemDetail & { readonly revertBlockedReason: string }),
+    );
+
+    await act(async () => {
+      root.render(<ProgramApplicantsPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      getButton('되돌리기').click();
+    });
+    await act(async () => {
+      getButton('되돌리기 확정').click();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain(
+      '저장소가 이미 만들어진 승인은 되돌릴 수 없습니다',
+    );
+    expect(container.textContent).not.toContain(
+      'repository provision already succeeded',
+    );
   });
 });

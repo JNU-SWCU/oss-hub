@@ -1,23 +1,58 @@
-import { ApplicationStatus, RepositoryConnectionMode } from '@prisma/client';
+import {
+  ApplicationStatus,
+  RepositoryConnectionMode,
+  RepositoryProvisionJobStatus,
+} from '@prisma/client';
 import type { AuditLogService } from '../audit-log/audit-log.service';
+import { DomainException } from '../common/error-code';
 import { APPLICATION_DECISION_ACTIONS } from './domain/application-decision';
 import type {
   ApplicationsRepository,
   ApplicationsTransactionStore,
 } from './applications.repository';
+import { ApplicationsErrorCode } from './applications-error-code.enum';
 import { ApplicationsService } from './applications.service';
 
 /**
  * #547 — STAFF 승인·거절에 typed audit 기록이 없었다. 판정 전이와 같은 트랜잭션에서
  * 기록되는지, 그리고 기존 응답 계약이 그대로인지를 고정한다.
+ * REVERT 경로(반려 취소·미완료 승인 되돌리기·완료 잠금·재승인 멱등)도 여기서 고정한다.
  */
 const APPLICATION_ID = 'synthetic-application';
 const ACTOR_ID = 'synthetic-actor';
+const PRIOR_PROCESSOR_ID = 'synthetic-prior-processor';
 const ACTOR_GITHUB_ID = 4242n;
+const PRIOR_PROCESSED_AT = new Date('2026-07-01T00:00:00.000Z');
 
 const auditLogWriter = {
   auditLog: {},
 } as ApplicationsTransactionStore['auditLogWriter'];
+
+function baseApplication(
+  overrides: Partial<{
+    status: ApplicationStatus;
+    repositoryProvisioningEnabled: boolean;
+    repositoryConnectionMode: RepositoryConnectionMode;
+    repositoryUrl: string | null;
+    processedById: string | null;
+    processedAt: Date | null;
+  }> = {},
+) {
+  return {
+    id: APPLICATION_ID,
+    programId: 'synthetic-program',
+    teamId: null,
+    status: overrides.status ?? ApplicationStatus.SUBMITTED,
+    collaboratorGithubLogins: [] as string[],
+    repositoryProvisioningEnabled:
+      overrides.repositoryProvisioningEnabled ?? false,
+    repositoryConnectionMode:
+      overrides.repositoryConnectionMode ?? RepositoryConnectionMode.NEW,
+    repositoryUrl: overrides.repositoryUrl ?? null,
+    processedById: overrides.processedById ?? null,
+    processedAt: overrides.processedAt ?? null,
+  };
+}
 
 function createHarness(
   options: { provisioningEnabled: boolean } = {
@@ -29,18 +64,17 @@ function createHarness(
   const createRepositoryProvisionEvent = jest
     .fn()
     .mockResolvedValue({ id: 'synthetic-event' });
+  const findRepositoryProvisionJob = jest.fn().mockResolvedValue(null);
+  const findRepositoryProvisionEvent = jest.fn().mockResolvedValue(null);
   const store: ApplicationsTransactionStore = {
     auditLogWriter,
-    findApplicationById: jest.fn().mockResolvedValue({
-      id: APPLICATION_ID,
-      programId: 'synthetic-program',
-      teamId: null,
-      status: ApplicationStatus.SUBMITTED,
-      collaboratorGithubLogins: [],
-      repositoryProvisioningEnabled: options.provisioningEnabled,
-      repositoryConnectionMode: RepositoryConnectionMode.NEW,
-      repositoryUrl: null,
-    }),
+    findApplicationById: jest.fn().mockResolvedValue(
+      baseApplication({
+        repositoryProvisioningEnabled: options.provisioningEnabled,
+      }),
+    ),
+    findRepositoryProvisionJob,
+    findRepositoryProvisionEvent,
     transitionApplication,
     createRepositoryProvisionEvent,
   };
@@ -61,7 +95,17 @@ function createHarness(
     store,
     transitionApplication,
     createRepositoryProvisionEvent,
+    findRepositoryProvisionJob,
+    findRepositoryProvisionEvent,
   };
+}
+
+function expectDomainCode(error: unknown, code: ApplicationsErrorCode): void {
+  expect(error).toBeInstanceOf(DomainException);
+  if (!(error instanceof DomainException)) {
+    throw new Error('DomainException expected');
+  }
+  expect(error.errorCode.code).toBe(code);
 }
 
 describe('ApplicationsService.decide — #547 감사 기록', () => {
@@ -159,16 +203,9 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
 
   it('이미 판정된 신청은 감사 기록을 남기지 않는다', async () => {
     const { service, record, store } = createHarness();
-    (store.findApplicationById as jest.Mock).mockResolvedValue({
-      id: APPLICATION_ID,
-      programId: 'synthetic-program',
-      teamId: null,
-      status: ApplicationStatus.APPROVED,
-      collaboratorGithubLogins: [],
-      repositoryProvisioningEnabled: false,
-      repositoryConnectionMode: RepositoryConnectionMode.NEW,
-      repositoryUrl: null,
-    });
+    (store.findApplicationById as jest.Mock).mockResolvedValue(
+      baseApplication({ status: ApplicationStatus.APPROVED }),
+    );
 
     await expect(
       service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
@@ -191,20 +228,18 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
 
     expect(record).not.toHaveBeenCalled();
   });
+
   it('OWN이면 입력 URL이 프로비저닝 이벤트에 실린다', async () => {
     const { service, store, createRepositoryProvisionEvent } = createHarness({
       provisioningEnabled: true,
     });
-    (store.findApplicationById as jest.Mock).mockResolvedValue({
-      id: APPLICATION_ID,
-      programId: 'synthetic-program',
-      teamId: null,
-      status: ApplicationStatus.SUBMITTED,
-      collaboratorGithubLogins: ['synthetic-login'],
-      repositoryProvisioningEnabled: true,
-      repositoryConnectionMode: RepositoryConnectionMode.OWN,
-      repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
-    });
+    (store.findApplicationById as jest.Mock).mockResolvedValue(
+      baseApplication({
+        repositoryProvisioningEnabled: true,
+        repositoryConnectionMode: RepositoryConnectionMode.OWN,
+        repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
+      }),
+    );
 
     await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
@@ -217,5 +252,284 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
         repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
       }),
     );
+  });
+});
+
+describe('ApplicationsService.decide — REVERT', () => {
+  it('반려 취소: REJECTED → SUBMITTED 성공하고 APPLICATION_REVERTED를 기록한다', async () => {
+    const { service, record, store, transitionApplication } = createHarness();
+    (store.findApplicationById as jest.Mock).mockResolvedValue(
+      baseApplication({
+        status: ApplicationStatus.REJECTED,
+        processedById: PRIOR_PROCESSOR_ID,
+        processedAt: PRIOR_PROCESSED_AT,
+      }),
+    );
+
+    const result = await service.decide(
+      ACTOR_ID,
+      APPLICATION_ID,
+      ACTOR_GITHUB_ID,
+      { action: APPLICATION_DECISION_ACTIONS.REVERT },
+    );
+
+    expect(result).toEqual({
+      kind: 'REVERTED',
+      applicationId: APPLICATION_ID,
+      status: ApplicationStatus.SUBMITTED,
+    });
+    expect(transitionApplication).toHaveBeenCalledWith({
+      applicationId: APPLICATION_ID,
+      expectedStatus: ApplicationStatus.REJECTED,
+      nextStatus: ApplicationStatus.SUBMITTED,
+      rejectionReason: null,
+      processedBy: 'preserve',
+    });
+    expect(record).toHaveBeenCalledWith(
+      {
+        actorGithubId: ACTOR_GITHUB_ID,
+        action: 'APPLICATION_REVERTED',
+        targetType: 'APPLICATION',
+        targetId: APPLICATION_ID,
+        metadata: {
+          schemaVersion: 1,
+          before: { status: ApplicationStatus.REJECTED },
+          after: { status: ApplicationStatus.SUBMITTED },
+        },
+      },
+      auditLogWriter,
+    );
+  });
+
+  it('승인 되돌리기(프로비저닝 미완료): APPROVED → SUBMITTED 성공', async () => {
+    const {
+      service,
+      transitionApplication,
+      findRepositoryProvisionJob,
+      store,
+    } = createHarness();
+    (store.findApplicationById as jest.Mock).mockResolvedValue(
+      baseApplication({
+        status: ApplicationStatus.APPROVED,
+        processedById: PRIOR_PROCESSOR_ID,
+        processedAt: PRIOR_PROCESSED_AT,
+      }),
+    );
+    findRepositoryProvisionJob.mockResolvedValue({
+      status: RepositoryProvisionJobStatus.PENDING,
+      repositoryId: null,
+    });
+
+    const result = await service.decide(
+      ACTOR_ID,
+      APPLICATION_ID,
+      ACTOR_GITHUB_ID,
+      { action: APPLICATION_DECISION_ACTIONS.REVERT },
+    );
+
+    expect(result).toEqual({
+      kind: 'REVERTED',
+      applicationId: APPLICATION_ID,
+      status: ApplicationStatus.SUBMITTED,
+    });
+    expect(transitionApplication).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedStatus: ApplicationStatus.APPROVED,
+        nextStatus: ApplicationStatus.SUBMITTED,
+        processedBy: 'preserve',
+      }),
+    );
+  });
+
+  it('승인 되돌리기(프로비저닝 완료): 409 + revertBlockedReason', async () => {
+    const { service, record, findRepositoryProvisionJob, store } =
+      createHarness();
+    (store.findApplicationById as jest.Mock).mockResolvedValue(
+      baseApplication({ status: ApplicationStatus.APPROVED }),
+    );
+    findRepositoryProvisionJob.mockResolvedValue({
+      status: RepositoryProvisionJobStatus.SUCCEEDED,
+      repositoryId: 'synthetic-repository',
+    });
+
+    let thrown: unknown;
+    try {
+      await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+        action: APPLICATION_DECISION_ACTIONS.REVERT,
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expectDomainCode(thrown, ApplicationsErrorCode.APPLICATION_REVERT_BLOCKED);
+    expect(thrown).toBeInstanceOf(DomainException);
+    if (thrown instanceof DomainException) {
+      expect(thrown.errorCode.status).toBe(409);
+      expect(thrown.extensions).toEqual(
+        expect.objectContaining({
+          latestStatus: ApplicationStatus.APPROVED,
+          revertBlockedReason: expect.stringContaining('succeeded') as unknown,
+        }),
+      );
+    }
+    expect(record).not.toHaveBeenCalled();
+  });
+
+  it('SUBMITTED에 REVERT를 시도하면 APPLICATION_REVERT_INVALID_STATUS', async () => {
+    const { service, record } = createHarness();
+
+    let thrown: unknown;
+    try {
+      await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+        action: APPLICATION_DECISION_ACTIONS.REVERT,
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expectDomainCode(
+      thrown,
+      ApplicationsErrorCode.APPLICATION_REVERT_INVALID_STATUS,
+    );
+    expect(record).not.toHaveBeenCalled();
+  });
+
+  it('되돌리기 후 재승인: 성공하고 저장소 프로비저닝 이벤트를 재생성하지 않는다', async () => {
+    const {
+      service,
+      store,
+      createRepositoryProvisionEvent,
+      findRepositoryProvisionEvent,
+      findRepositoryProvisionJob,
+    } = createHarness({ provisioningEnabled: true });
+
+    // 1) APPROVED + PENDING job → REVERT
+    (store.findApplicationById as jest.Mock).mockResolvedValue(
+      baseApplication({
+        status: ApplicationStatus.APPROVED,
+        repositoryProvisioningEnabled: true,
+        processedById: PRIOR_PROCESSOR_ID,
+        processedAt: PRIOR_PROCESSED_AT,
+      }),
+    );
+    findRepositoryProvisionJob.mockResolvedValue({
+      status: RepositoryProvisionJobStatus.PENDING,
+      repositoryId: null,
+    });
+
+    await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+      action: APPLICATION_DECISION_ACTIONS.REVERT,
+    });
+
+    // 2) SUBMITTED 재승인 — 기존 outbox 이벤트 재사용
+    (store.findApplicationById as jest.Mock).mockResolvedValue(
+      baseApplication({
+        status: ApplicationStatus.SUBMITTED,
+        repositoryProvisioningEnabled: true,
+        processedById: PRIOR_PROCESSOR_ID,
+        processedAt: PRIOR_PROCESSED_AT,
+      }),
+    );
+    findRepositoryProvisionEvent.mockResolvedValue({
+      id: 'existing-provision-event',
+    });
+    findRepositoryProvisionJob.mockResolvedValue({
+      status: RepositoryProvisionJobStatus.PENDING,
+      repositoryId: null,
+    });
+
+    const reapprove = await service.decide(
+      ACTOR_ID,
+      APPLICATION_ID,
+      ACTOR_GITHUB_ID,
+      { action: APPLICATION_DECISION_ACTIONS.APPROVE },
+    );
+
+    expect(createRepositoryProvisionEvent).not.toHaveBeenCalled();
+    expect(reapprove).toEqual({
+      kind: 'APPROVED',
+      applicationId: APPLICATION_ID,
+      status: ApplicationStatus.APPROVED,
+      repositoryProvisioning: {
+        enabled: true,
+        eventId: 'existing-provision-event',
+        jobStatus: RepositoryProvisionJobStatus.PENDING,
+      },
+    });
+  });
+
+  it('OWN + repositoryUrl 없음 승인: 400 OWN_REPOSITORY_URL_REQUIRED', async () => {
+    const { service, record, store } = createHarness({
+      provisioningEnabled: true,
+    });
+    (store.findApplicationById as jest.Mock).mockResolvedValue(
+      baseApplication({
+        repositoryProvisioningEnabled: true,
+        repositoryConnectionMode: RepositoryConnectionMode.OWN,
+        repositoryUrl: null,
+      }),
+    );
+
+    let thrown: unknown;
+    try {
+      await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+        action: APPLICATION_DECISION_ACTIONS.APPROVE,
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expectDomainCode(thrown, ApplicationsErrorCode.OWN_REPOSITORY_URL_REQUIRED);
+    expect(record).not.toHaveBeenCalled();
+  });
+
+  it('되돌리기 시 processedBy를 preserve로 넘겨 감사 추적을 보존한다', async () => {
+    const { service, transitionApplication, store } = createHarness();
+    (store.findApplicationById as jest.Mock).mockResolvedValue(
+      baseApplication({
+        status: ApplicationStatus.REJECTED,
+        processedById: PRIOR_PROCESSOR_ID,
+        processedAt: PRIOR_PROCESSED_AT,
+      }),
+    );
+
+    await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+      action: APPLICATION_DECISION_ACTIONS.REVERT,
+    });
+
+    expect(transitionApplication).toHaveBeenCalledWith(
+      expect.objectContaining({
+        processedBy: 'preserve',
+      }),
+    );
+    // 새 actor id가 processedBy로 실리지 않는다.
+    const transitionCalls = transitionApplication.mock
+      .calls as readonly (readonly unknown[])[];
+    const firstTransition: unknown = transitionCalls[0]?.[0];
+    expect(firstTransition).not.toEqual(
+      expect.objectContaining({
+        processedBy: expect.objectContaining({ id: ACTOR_ID }) as unknown,
+      }),
+    );
+  });
+
+  it('FAILED_RETRYABLE 프로비저닝은 미완료로 보고 승인 되돌리기를 허용한다', async () => {
+    const { service, findRepositoryProvisionJob, store } = createHarness();
+    (store.findApplicationById as jest.Mock).mockResolvedValue(
+      baseApplication({ status: ApplicationStatus.APPROVED }),
+    );
+    findRepositoryProvisionJob.mockResolvedValue({
+      status: RepositoryProvisionJobStatus.FAILED_RETRYABLE,
+      repositoryId: null,
+    });
+
+    await expect(
+      service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+        action: APPLICATION_DECISION_ACTIONS.REVERT,
+      }),
+    ).resolves.toMatchObject({
+      kind: 'REVERTED',
+      status: ApplicationStatus.SUBMITTED,
+    });
   });
 });

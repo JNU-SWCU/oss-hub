@@ -10,12 +10,8 @@ const SEOUL_TIME_ZONE = 'Asia/Seoul';
 
 export const MATRIX_PAGE_SIZE = 20;
 
-/** 형태 필터 — ALL은 query에서 applicationMode를 생략한다(#124 계약). */
-export type MatrixModeFilter = 'ALL' | MatrixApplicationMode;
-
 export interface MatrixQueryInput {
   readonly q: string;
-  readonly mode: MatrixModeFilter;
   readonly page: number;
   readonly pageSize: number;
 }
@@ -49,19 +45,15 @@ export const MATRIX_MODE_LABELS = {
   TEAM: '팀',
 } as const satisfies Readonly<Record<MatrixApplicationMode, string>>;
 
-export function parseMatrixModeFilter(value: string): MatrixModeFilter {
-  if (value === 'PERSONAL' || value === 'TEAM') return value;
-  return 'ALL';
-}
-
-/** #124 계약: q·applicationMode는 값이 있을 때만 보낸다. page·pageSize는 항상 포함. */
+/** #124 계약: q는 값이 있을 때만 보낸다. page·pageSize는 항상 포함.
+ * applicationMode 쿼리는 D6로 폐지 — 서버도 무시하므로 보내지 않는다.
+ */
 export function buildMatrixSearchParams(
   input: MatrixQueryInput,
 ): URLSearchParams {
   const params = new URLSearchParams();
   const q = input.q.trim();
   if (q !== '') params.set('q', q);
-  if (input.mode !== 'ALL') params.set('applicationMode', input.mode);
   params.set('page', String(input.page));
   params.set('pageSize', String(input.pageSize));
   return params;
@@ -100,11 +92,8 @@ export function matrixRowTitle(row: MatrixRow): string {
   return row.displayName;
 }
 
-export function isMatrixFilterActive(
-  q: string,
-  mode: MatrixModeFilter,
-): boolean {
-  return q.trim() !== '' || mode !== 'ALL';
+export function isMatrixFilterActive(q: string): boolean {
+  return q.trim() !== '';
 }
 
 export type MatrixEmptyKind =

@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   BOARD_CATEGORY_LABELS,
   BOARD_COMMENT_AUTHOR_LABEL,
+  BOARD_COMMENT_AUTHOR_ROLE_LABEL,
+  BOARD_COMMENT_AUTHOR_ROLE_VARIANT,
+  boardCommentAuthorRoleLabel,
   boardPostAuthorRoleLabel,
   boardSubtitle,
   boardWriteButtonLabel,
@@ -22,8 +25,18 @@ describe('board-format', () => {
     expect(boardPostAuthorRoleLabel('QNA')).toBe('학생');
   });
 
-  it('댓글 작성자는 항상 공통 라벨을 쓴다', () => {
+  it('댓글 작성자 자리 표시는 공통 라벨을 쓴다', () => {
     expect(BOARD_COMMENT_AUTHOR_LABEL).toBe('참여자');
+  });
+
+  it('댓글 작성자 역할 라벨은 학생/교직원이며 ADMIN은 교직원으로 접는다', () => {
+    expect(boardCommentAuthorRoleLabel('STUDENT')).toBe('학생');
+    expect(boardCommentAuthorRoleLabel('STAFF')).toBe('교직원');
+    expect(boardCommentAuthorRoleLabel('ADMIN')).toBe('교직원');
+    expect(BOARD_COMMENT_AUTHOR_ROLE_LABEL.ADMIN).toBe('교직원');
+    expect(BOARD_COMMENT_AUTHOR_ROLE_VARIANT.STUDENT).toBe('recruiting');
+    expect(BOARD_COMMENT_AUTHOR_ROLE_VARIANT.STAFF).toBe('approved');
+    expect(BOARD_COMMENT_AUTHOR_ROLE_VARIANT.ADMIN).toBe('approved');
   });
 
   it('교직원·학생 쓰기 버튼 라벨이 다르다', () => {

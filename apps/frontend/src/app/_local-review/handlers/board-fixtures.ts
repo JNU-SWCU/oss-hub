@@ -1,4 +1,5 @@
 import type {
+  BoardAuthorRole,
   BoardComment,
   BoardPostCategory,
   BoardPostDetail,
@@ -22,6 +23,7 @@ export const BOARD_STUDENT_ACTOR_ID = 'synthetic-user-01';
 interface BoardCommentSeed {
   readonly id: string;
   readonly authorId: string;
+  readonly authorRole: BoardAuthorRole;
   readonly body: string;
   readonly createdAt: string;
 }
@@ -63,6 +65,7 @@ const CAPSTONE_POSTS: readonly BoardPostSeed[] = [
       {
         id: 'synthetic-comment-capstone-2-1',
         authorId: BOARD_STAFF_ACTOR_ID,
+        authorRole: 'STAFF',
         body: '신청 승인 시 GitHub 조직에 자동으로 초대됩니다. 초대 메일을 확인해 주세요.',
         createdAt: '2026-07-22T06:10:00.000Z',
       },
@@ -138,6 +141,7 @@ function toComment(postId: string, seed: BoardCommentSeed): BoardComment {
     id: seed.id,
     postId,
     authorId: seed.authorId,
+    authorRole: seed.authorRole,
     body: seed.body,
     createdAt: seed.createdAt,
   };
@@ -176,4 +180,11 @@ export function boardPostDetailFor(
 
 export function boardActorId(role: 'STUDENT' | 'STAFF' | 'ADMIN'): string {
   return role === 'STUDENT' ? BOARD_STUDENT_ACTOR_ID : BOARD_STAFF_ACTOR_ID;
+}
+
+/** 게시판 응답용 작성자 역할 — ADMIN도 원본 값을 그대로 실어 보낸다(백엔드 계약). */
+export function boardActorRole(
+  role: 'STUDENT' | 'STAFF' | 'ADMIN',
+): BoardAuthorRole {
+  return role;
 }

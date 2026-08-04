@@ -20,9 +20,15 @@ export interface RejectedApplicationDecisionResponseDto {
   readonly rejectionReason: string;
 }
 
+export interface RevertedApplicationDecisionResponseDto {
+  readonly applicationId: string;
+  readonly status: ApplicationStatus;
+}
+
 export type ApplicationDecisionResponseDto =
   | ApprovedApplicationDecisionResponseDto
-  | RejectedApplicationDecisionResponseDto;
+  | RejectedApplicationDecisionResponseDto
+  | RevertedApplicationDecisionResponseDto;
 
 export function toApplicationDecisionResponse(
   result: ApplicationDecisionResult,
@@ -39,6 +45,11 @@ export function toApplicationDecisionResponse(
         applicationId: result.applicationId,
         status: result.status,
         rejectionReason: result.rejectionReason,
+      };
+    case 'REVERTED':
+      return {
+        applicationId: result.applicationId,
+        status: result.status,
       };
     default: {
       const exhaustiveResult: never = result;

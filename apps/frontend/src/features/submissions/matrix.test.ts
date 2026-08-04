@@ -13,7 +13,6 @@ import {
   matrixRowTitle,
   matrixTotalPages,
   notSubmittedDeadline,
-  parseMatrixModeFilter,
 } from './matrix';
 import type { MatrixCell, MatrixMilestone, MatrixRow } from './types';
 
@@ -43,42 +42,32 @@ const personalRow: MatrixRow = {
 };
 
 describe('buildMatrixSearchParams', () => {
-  it('빈 검색어와 ALL 형태는 query에서 생략하고 page·pageSize만 보낸다', () => {
+  it('빈 검색어는 query에서 생략하고 page·pageSize만 보낸다', () => {
     // Given / When
     const params = buildMatrixSearchParams({
       q: '   ',
-      mode: 'ALL',
       page: 1,
       pageSize: 20,
     });
 
     // Then
     expect(params.toString()).toBe('page=1&pageSize=20');
+    expect(params.has('applicationMode')).toBe(false);
   });
 
-  it('검색어는 trim해 보내고 형태 필터는 applicationMode로 보낸다', () => {
+  it('검색어는 trim해 보내고 applicationMode는 보내지 않는다', () => {
     // Given / When
     const params = buildMatrixSearchParams({
       q: ' 홍길동 ',
-      mode: 'TEAM',
       page: 2,
       pageSize: 50,
     });
 
     // Then
     expect(params.get('q')).toBe('홍길동');
-    expect(params.get('applicationMode')).toBe('TEAM');
+    expect(params.has('applicationMode')).toBe(false);
     expect(params.get('page')).toBe('2');
     expect(params.get('pageSize')).toBe('50');
-  });
-});
-
-describe('parseMatrixModeFilter', () => {
-  it('PERSONAL·TEAM만 인정하고 나머지는 ALL로 되돌린다', () => {
-    expect(parseMatrixModeFilter('PERSONAL')).toBe('PERSONAL');
-    expect(parseMatrixModeFilter('TEAM')).toBe('TEAM');
-    expect(parseMatrixModeFilter('')).toBe('ALL');
-    expect(parseMatrixModeFilter('BOGUS')).toBe('ALL');
   });
 });
 
@@ -168,11 +157,10 @@ describe('matrixRowTitle', () => {
 });
 
 describe('isMatrixFilterActive', () => {
-  it('검색어 또는 형태 필터가 있으면 활성이다', () => {
-    expect(isMatrixFilterActive('', 'ALL')).toBe(false);
-    expect(isMatrixFilterActive('  ', 'ALL')).toBe(false);
-    expect(isMatrixFilterActive('홍', 'ALL')).toBe(true);
-    expect(isMatrixFilterActive('', 'TEAM')).toBe(true);
+  it('검색어가 있으면 활성이다', () => {
+    expect(isMatrixFilterActive('')).toBe(false);
+    expect(isMatrixFilterActive('  ')).toBe(false);
+    expect(isMatrixFilterActive('홍')).toBe(true);
   });
 });
 

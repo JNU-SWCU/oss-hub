@@ -31,7 +31,6 @@ import { ProgramListPagination } from './program-list-pagination';
 import { staffApplicationDetailHref, staffProgramHref } from './program-paths';
 import type {
   ApplicationListItem,
-  ApplicationListMode,
   ApplicationListPage,
   ApplicationListStatus,
   ApplicationStatus,
@@ -82,7 +81,7 @@ type LoadState =
   | { readonly kind: 'error'; readonly message: string };
 type DecisionDialog = {
   readonly applicationId: string;
-  readonly action: 'APPROVE' | 'REJECT';
+  readonly action: 'APPROVE' | 'REJECT' | 'REVERT';
 } | null;
 type Notice = {
   readonly kind: 'success' | 'error';
@@ -97,12 +96,32 @@ type Notice = {
  * 원인은 다르지만 교직원이 취해야 할 행동은 같다 — 목록을 다시 불러와 최신 상태를 본다.
  * 404를 일반 오류로 흘리면 목록이 갱신되지 않아 이미 사라진 신청이 계속 대기 상태로
  * 남고, 다시 눌러도 같은 404가 반복된다.
+ *
+ * 프로비저닝이 끝난 승인 되돌리기(409 + `revertBlockedReason` / `APP_013`)도 같은
+ * 경로로 처리한다. 목록을 다시 읽되, 내부 잠금 사유 문자열 대신 사람 말 안내를 쓴다.
  */
 export function staleApplicationDecisionTitle(error: unknown): string | null {
   if (!(error instanceof ApiError)) return null;
   if (error.problem.status === 404) return '신청이 이미 취소되었습니다';
-  if (error.problem.status === 409) return '신청 상태가 변경되었습니다';
+  if (error.problem.status === 409) {
+    if (isRevertBlockedDecisionError(error.problem)) {
+      return '저장소가 이미 만들어진 승인은 되돌릴 수 없습니다';
+    }
+    return '신청 상태가 변경되었습니다';
+  }
   return null;
+}
+
+/** 백엔드 APP_013 — extensions에 `revertBlockedReason`이 실리거나 코드로 구분한다. */
+function isRevertBlockedDecisionError(problem: {
+  readonly code: string;
+}): boolean {
+  if (problem.code === 'APP_013') return true;
+  if (!('revertBlockedReason' in problem)) return false;
+  return (
+    typeof (problem as { readonly revertBlockedReason?: unknown })
+      .revertBlockedReason === 'string'
+  );
 }
 
 const STATUS_LABELS: Readonly<Record<ApplicationStatus, string>> = {
@@ -146,9 +165,10 @@ function displayApplicantName(item: ApplicationListItem): string {
   );
 }
 function participationLabel(item: ApplicationListItem): string {
-  return item.participation === 'TEAM' && item.team
-    ? `팀 · ${item.team.name} (${item.team.memberCount}명)`
-    : '개인';
+  if (item.team) {
+    return `${item.team.name} (${item.team.memberCount}명)`;
+  }
+  return '1명';
 }
 function ApplicantsSkeleton(): ReactElement {
   return (
@@ -171,7 +191,6 @@ export function ProgramApplicantsPage({
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<ApplicationListStatus>('all');
-  const [mode, setMode] = useState<ApplicationListMode>('all');
   const [page, setPage] = useState(1);
   const [dialog, setDialog] = useState<DecisionDialog>(null);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -184,8 +203,8 @@ export function ProgramApplicantsPage({
   const pollAttempts = useRef(0);
 
   const applicationParams = useCallback(
-    () => ({ page, pageSize: PAGE_SIZE, search, status, mode }),
-    [mode, page, search, status],
+    () => ({ page, pageSize: PAGE_SIZE, search, status }),
+    [page, search, status],
   );
   const reloadApplications = useCallback(async (): Promise<void> => {
     const epoch = requestEpoch.current.begin();
@@ -282,7 +301,9 @@ export function ProgramApplicantsPage({
     const input: ApplicationDecisionInput =
       dialog.action === 'APPROVE'
         ? { action: 'APPROVE' }
-        : { action: 'REJECT', reason };
+        : dialog.action === 'REJECT'
+          ? { action: 'REJECT', reason }
+          : { action: 'REVERT' };
     setBusyApplicationId(dialog.applicationId);
     setNotice(null);
     try {
@@ -298,7 +319,9 @@ export function ProgramApplicantsPage({
           message:
             result.status === 'APPROVED'
               ? '승인 결과와 저장소 작업 상태를 다시 불러왔습니다.'
-              : '반려 결과를 다시 불러왔습니다.',
+              : result.status === 'REJECTED'
+                ? '반려 결과를 다시 불러왔습니다.'
+                : '되돌린 결과를 다시 불러왔습니다.',
         });
       } catch {
         setNotice({
@@ -350,7 +373,7 @@ export function ProgramApplicantsPage({
           </div>
         ),
       },
-      { id: 'participation', header: '구분', cell: participationLabel },
+      { id: 'participation', header: '팀/인원', cell: participationLabel },
       {
         id: 'title',
         header: '제목',
@@ -425,6 +448,18 @@ export function ProgramApplicantsPage({
                 </Button>
               </>
             ) : null}
+            {row.status === 'APPROVED' || row.status === 'REJECTED' ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busyApplicationId === row.id}
+                onClick={() =>
+                  setDialog({ applicationId: row.id, action: 'REVERT' })
+                }
+              >
+                되돌리기
+              </Button>
+            ) : null}
             <Button asChild size="sm" variant="outline">
               <Link href={staffApplicationDetailHref(programId, row.id)}>
                 보기
@@ -471,7 +506,7 @@ export function ProgramApplicantsPage({
   const selected = dialog
     ? applicationPage.items.find((item) => item.id === dialog.applicationId)
     : undefined;
-  const hasFilters = search.trim() !== '' || status !== 'all' || mode !== 'all';
+  const hasFilters = search.trim() !== '' || status !== 'all';
   return (
     <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8">
       <PageHeader
@@ -527,21 +562,6 @@ export function ProgramApplicantsPage({
             <option value="REJECTED">반려</option>
           </Select>
         </label>
-        <label className="grid gap-1 text-sm">
-          <span className="text-muted-foreground">구분</span>
-          <Select
-            value={mode}
-            onChange={(event) => {
-              setMode(event.target.value as ApplicationListMode);
-              setPage(1);
-            }}
-            aria-label="개인/팀 필터"
-          >
-            <option value="all">전체</option>
-            <option value="personal">개인</option>
-            <option value="team">팀</option>
-          </Select>
-        </label>
       </form>
       {/* 신청자 표는 열이 많아 사이드바가 있는 1440에서도 폭이 모자란다. 이 화면에서
           실제로 하는 일(보기·승인·반려)이 맨 오른쪽 열에 있어, 밀 수 있다는 것을
@@ -579,7 +599,11 @@ export function ProgramApplicantsPage({
         >
           <div className="grid w-full max-w-md gap-4 rounded-xl bg-background p-6 shadow-lg">
             <h2 id="decision-title" className="text-lg font-semibold">
-              {dialog.action === 'APPROVE' ? '신청 승인' : '신청 반려'}
+              {dialog.action === 'APPROVE'
+                ? '신청 승인'
+                : dialog.action === 'REJECT'
+                  ? '신청 반려'
+                  : '판정 되돌리기'}
             </h2>
             {dialog.action === 'APPROVE' ? (
               <p>
@@ -588,7 +612,7 @@ export function ProgramApplicantsPage({
                   ? '활성화되어 저장소 작업을 시작합니다.'
                   : '비활성화되어 저장소를 생성하지 않습니다.'}
               </p>
-            ) : (
+            ) : dialog.action === 'REJECT' ? (
               <label className="grid gap-2 text-sm">
                 <span>반려 사유</span>
                 <textarea
@@ -607,6 +631,11 @@ export function ProgramApplicantsPage({
                   </span>
                 ) : null}
               </label>
+            ) : (
+              <p>
+                판정을 취소하고 신청을 다시 제출됨 상태로 되돌립니다. 이후
+                승인·반려를 다시 할 수 있습니다.
+              </p>
             )}
             <div className="flex justify-end gap-2">
               <Button
@@ -624,7 +653,9 @@ export function ProgramApplicantsPage({
                   ? '처리 중…'
                   : dialog.action === 'APPROVE'
                     ? '승인 확정'
-                    : '반려 확정'}
+                    : dialog.action === 'REJECT'
+                      ? '반려 확정'
+                      : '되돌리기 확정'}
               </Button>
             </div>
           </div>
