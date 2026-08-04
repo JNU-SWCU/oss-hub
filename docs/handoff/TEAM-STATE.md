@@ -66,6 +66,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 
 | 기능 | owner | 상태 | parent Issue | PR | CI | blocker (unblock owner) |
 | --- | --- | --- | --- | --- | --- | --- |
+| 섹션 컨텍스트 사이드 네비 — 셸·프로그램 상태 필터 | @GoBeromsu | review | [.omc/plans/sidepanel-section-nav.md](../../.omc/plans/sidepanel-section-nav.md) | (push 후 PR 링크) | pending | 스택 1/5: dual chrome + status 필터 + status-counts. 후속: archive·ranking·design |
 | GitHub OAuth 로그인 | @Lumiere001 | done | #9 | #13 (+#22) | pass | 없음 |
 | GitHub 활동 수집기 | @Lumiere001 | done | #10 | #14 | pass | 없음 |
 | 중첩 AGENTS 가이드 | @Lumiere001 | done | #11 | #12 (+#20) | pass | 없음 |
