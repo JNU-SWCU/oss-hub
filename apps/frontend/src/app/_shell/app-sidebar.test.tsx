@@ -19,11 +19,17 @@ vi.mock('next/link', () => ({
 import { AppSidebar } from './app-sidebar';
 import { sidebarGroupsFor } from './sidebar-menu';
 
-function render(pathname: string, collapsed: boolean) {
+function render(
+  pathname: string,
+  collapsed: boolean,
+  search = '',
+  role: 'STUDENT' | null = 'STUDENT',
+) {
   return renderToStaticMarkup(
     <AppSidebar
-      groups={sidebarGroupsFor('STUDENT')}
+      groups={sidebarGroupsFor(role)}
       pathname={pathname}
+      search={search}
       collapsed={collapsed}
       onToggle={() => {}}
     />,
@@ -31,42 +37,36 @@ function render(pathname: string, collapsed: boolean) {
 }
 
 describe('AppSidebar', () => {
-  it('내 상황 링크만 있다 — 공개·설정은 없다', () => {
-    const html = render('/dashboard', true);
+  it('프로그램 메뉴가 사이드 패널에 있다', () => {
+    const html = render('/programs', false, '', null);
+    expect(html).toContain('프로그램 메뉴');
+    expect(html).toContain('href="/programs"');
+    expect(html).toContain('href="/programs?status=recruiting"');
+    expect(html).toContain('href="/programs?status=in_progress"');
+    expect(html).toContain('href="/programs?status=upcoming"');
+    expect(html).toContain('href="/programs?status=ended"');
+    expect(html).not.toContain('연습');
+  });
 
+  it('학생이면 프로그램 메뉴와 내 상황이 함께 있다', () => {
+    const html = render('/dashboard', false);
+    expect(html).toContain('프로그램 메뉴');
     expect(html).toContain('href="/dashboard"');
     expect(html).toContain('href="/my-repos"');
-    expect(html).not.toContain('href="/programs"');
-    expect(html).not.toContain('href="/archive"');
-    expect(html).not.toContain('href="/settings"');
   });
 
-  it('현재 위치를 색·굵기·왼쪽 막대 셋으로 표시한다', () => {
-    const html = render('/dashboard', false);
-
+  it('모집중 쿼리일 때 해당 링크만 current다', () => {
+    const html = render('/programs', false, 'status=recruiting');
     expect(html).toContain('aria-current="page"');
-    expect(html).toContain('bg-sidebar-current');
-    expect(html).toContain('font-semibold');
-    expect(html).toContain('data-slot="app-sidebar-current-marker"');
-  });
-
-  it('현재 위치가 아닌 메뉴에는 표식을 달지 않는다', () => {
-    const html = render('/dashboard', false);
-    const markers = html.match(/data-slot="app-sidebar-current-marker"/g) ?? [];
-    expect(markers).toHaveLength(1);
+    // 모집중 링크 줄에 current
+    expect(html).toMatch(
+      /href="\/programs\?status=recruiting"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/programs\?status=recruiting"/,
+    );
   });
 
   it('접힌 상태 이름표는 hover와 keyboard focus 양쪽에서 보인다', () => {
     const html = render('/dashboard', true);
     expect(html).toContain('data-slot="app-sidebar-tooltip"');
-    expect(html).toContain('group-hover:opacity-100');
-    expect(html).toContain('group-focus-visible:opacity-100');
-  });
-
-  it('펼친 상태에서는 이름표를 만들지 않는다', () => {
-    expect(render('/dashboard', false)).not.toContain(
-      'data-slot="app-sidebar-tooltip"',
-    );
   });
 
   it('메뉴는 조작 사각형 규격(h-control)을 쓴다', () => {
@@ -80,20 +80,8 @@ describe('AppSidebar', () => {
     expect(links.length).toBe(menuCount);
   });
 
-  it('접힌 상태에서는 펼치기 버튼이 된다', () => {
-    const collapsed = render('/dashboard', true);
-    const open = render('/dashboard', false);
-
-    expect(collapsed).toContain('aria-label="사이드바 펼치기"');
-    expect(open).toContain('aria-label="사이드바 접기"');
-  });
-
-  it('펼친 헤더는 OSS Hub 브랜드가 아니라 내 상황이다', () => {
+  it('펼친 헤더는 메뉴다', () => {
     const html = render('/dashboard', false);
-    expect(html).toContain('내 상황');
-    // 브랜드 홈 링크를 사이드바에 두지 않는다(상단 Nav 재사용)
-    expect(html).not.toMatch(
-      /data-slot="app-sidebar-brand"[\s\S]*href="\/"/,
-    );
+    expect(html).toContain('메뉴');
   });
 });

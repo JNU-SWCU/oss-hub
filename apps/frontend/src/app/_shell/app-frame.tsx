@@ -13,9 +13,9 @@ import { COSMOS_GROUND_PATHS, PRE_MEMBER_PATHS } from './signup-routes';
  *
  * - 색 톤만 경로에 따라 갈린다(우주 inverted / 그 외 흰 바) — `shell-nav.tsx`.
  * - 가입 전(`PRE_MEMBER_PATHS`): 상단만. 사이드바를 달면 가입 흐름이 샌다.
- * - 그 외: 상단 아래 `ProductShell` — 가입 완료 회원만 왼쪽 “내 상황” 사이드바.
+ * - 그 외: 상단 아래 `ProductShell` — 왼쪽 패널에 프로그램 메뉴(+ 회원 내 상황).
  *
- * 메뉴 분담: 상단 = `PUBLIC_MENU`(신청·둘러보기), 왼쪽 = `role-menus`(내 상황).
+ * 메뉴 분담: 상단 = 공개 입구, 왼쪽 = 프로그램 상태 탑다운 + 역할 홈.
  */
 export function AppFrame({
   brand,

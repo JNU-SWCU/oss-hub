@@ -1,72 +1,102 @@
 import { describe, expect, it } from 'vitest';
 import { ADMIN_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
-import { isCurrentSidebarItem, sidebarGroupsFor } from './sidebar-menu';
+import {
+  PROGRAM_SIDEBAR_GROUP,
+  isCurrentSidebarItem,
+  sidebarGroupsFor,
+} from './sidebar-menu';
 
 const ROLES = ['STUDENT', 'STAFF', 'ADMIN'] as const;
 
 describe('sidebarGroupsFor', () => {
-  it('역할을 모르면 빈 배열 — 사이드바를 달지 않는다', () => {
-    expect(sidebarGroupsFor(null)).toEqual([]);
+  it('역할이 없어도 프로그램 메뉴는 있다', () => {
+    const groups = sidebarGroupsFor(null);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.label).toBe('프로그램 메뉴');
+    expect(groups[0]?.items.map((i) => i.label)).toEqual([
+      '전체',
+      '모집중',
+      '진행중',
+      '접수대기',
+      '종료',
+    ]);
   });
 
-  it('역할 메뉴의 라벨·경로는 role-menus.ts에서 그대로 온다', () => {
-    const student = sidebarGroupsFor('STUDENT')[0];
-    const staff = sidebarGroupsFor('STAFF')[0];
-    const admin = sidebarGroupsFor('ADMIN')[0];
-
-    expect(student?.items.map(({ label, href }) => ({ label, href }))).toEqual(
-      STUDENT_MENU,
-    );
-    expect(staff?.items.map(({ label, href }) => ({ label, href }))).toEqual(
-      STAFF_MENU,
-    );
-    expect(admin?.items.map(({ label, href }) => ({ label, href }))).toEqual(
-      ADMIN_MENU,
-    );
+  it('가입 완료 역할이면 프로그램 메뉴 뒤에 내 상황이 온다', () => {
+    const student = sidebarGroupsFor('STUDENT');
+    expect(student.map((g) => g.label)).toEqual(['프로그램 메뉴', '내 상황']);
+    expect(
+      student[1]?.items.map(({ label, href }) => ({ label, href })),
+    ).toEqual(STUDENT_MENU);
+    expect(
+      sidebarGroupsFor('STAFF')[1]?.items.map(({ label, href }) => ({
+        label,
+        href,
+      })),
+    ).toEqual(STAFF_MENU);
+    expect(
+      sidebarGroupsFor('ADMIN')[1]?.items.map(({ label, href }) => ({
+        label,
+        href,
+      })),
+    ).toEqual(ADMIN_MENU);
   });
 
-  it('공개·설정 경로를 사이드바에 넣지 않는다', () => {
-    for (const role of ROLES) {
-      const hrefs = sidebarGroupsFor(role).flatMap((g) =>
-        g.items.map((i) => i.href),
-      );
-      expect(hrefs).not.toContain('/programs');
-      expect(hrefs).not.toContain('/archive');
-      expect(hrefs).not.toContain('/ranking');
-      expect(hrefs).not.toContain('/settings');
-    }
+  it('연습대회 항목이 없다', () => {
+    const labels = PROGRAM_SIDEBAR_GROUP.items.map((i) => i.label).join(' ');
+    expect(labels).not.toContain('연습');
   });
 
   it('모든 메뉴에 아이콘이 있다', () => {
-    for (const role of ROLES) {
+    for (const role of [null, ...ROLES] as const) {
       for (const group of sidebarGroupsFor(role)) {
         for (const item of group.items) {
-          expect(item.icon, `${role} / ${item.href}`).toBeTruthy();
+          expect(item.icon, item.href).toBeTruthy();
         }
       }
     }
   });
-
-  it('학생 구역 라벨은 내 상황이다', () => {
-    expect(sidebarGroupsFor('STUDENT')[0]?.label).toBe('내 상황');
-  });
 });
 
 describe('isCurrentSidebarItem', () => {
-  it('정확히 같은 경로는 현재 위치다', () => {
+  it('역할 홈 경로는 접두사로 맞춘다', () => {
     expect(isCurrentSidebarItem('/dashboard', '/dashboard')).toBe(true);
-  });
-
-  it('하위 경로도 그 메뉴의 현재 위치로 본다', () => {
     expect(isCurrentSidebarItem('/dashboard/activity', '/dashboard')).toBe(
       true,
     );
   });
 
-  it('접두사가 같아 보여도 경로 경계가 다르면 현재 위치가 아니다', () => {
-    expect(isCurrentSidebarItem('/programs-archive', '/programs')).toBe(false);
-    expect(isCurrentSidebarItem('/staff/programs/new', '/programs')).toBe(
-      false,
-    );
+  it('프로그램 상태 필터는 pathname=/programs 와 status 쿼리로 맞춘다', () => {
+    expect(isCurrentSidebarItem('/programs', '/programs', '')).toBe(true);
+    expect(
+      isCurrentSidebarItem('/programs', '/programs?status=recruiting', ''),
+    ).toBe(false);
+    expect(
+      isCurrentSidebarItem(
+        '/programs',
+        '/programs?status=recruiting',
+        'status=recruiting',
+      ),
+    ).toBe(true);
+    expect(
+      isCurrentSidebarItem(
+        '/programs',
+        '/programs?status=ended',
+        'status=recruiting',
+      ),
+    ).toBe(false);
+  });
+
+  it('프로그램 상세에서는 상태 필터를 켜지 않는다', () => {
+    expect(
+      isCurrentSidebarItem('/programs/abc', '/programs', ''),
+    ).toBe(false);
+    expect(
+      isCurrentSidebarItem(
+        '/programs/abc',
+        '/programs?status=recruiting',
+        'status=recruiting',
+      ),
+    ).toBe(false);
   });
 });

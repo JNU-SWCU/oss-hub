@@ -4,10 +4,14 @@ import type { NavItem } from '@/components';
 
 const mocks = vi.hoisted(() => ({
   usePathname: vi.fn(),
+  useSearchParams: vi.fn(() => new URLSearchParams()),
   useSessionRole: vi.fn(),
 }));
 
-vi.mock('next/navigation', () => ({ usePathname: mocks.usePathname }));
+vi.mock('next/navigation', () => ({
+  usePathname: mocks.usePathname,
+  useSearchParams: mocks.useSearchParams,
+}));
 vi.mock('next/link', () => ({
   default: ({
     href,
@@ -82,7 +86,7 @@ describe('AppFrame', () => {
     }
   });
 
-  it('가입 완료 업무 화면은 상단 Nav + 내 상황 사이드바다', () => {
+  it('가입 완료 업무 화면은 상단 Nav + 사이드(프로그램 메뉴·내 상황)다', () => {
     const html = render('/dashboard', {
       status: 'assigned',
       role: 'STUDENT',
@@ -91,22 +95,23 @@ describe('AppFrame', () => {
     expect(html).toContain('data-slot="nav-bar"');
     expect(html).toContain('data-slot="product-shell"');
     expect(html).toContain('data-slot="app-sidebar"');
+    expect(html).toContain('프로그램 메뉴');
     expect(html).toContain('href="/dashboard"');
     expect(html).toContain('href="/my-repos"');
-    // 공개는 상단만 — 사이드바 영역에 공개 링크가 중복되면 안 된다
-    // (상단 Nav에도 /programs가 있으므로 전체 html 카운트는 2 이상일 수 있음)
-    expect(html).toContain('href="/programs"');
+    expect(html).toContain('href="/programs?status=recruiting"');
   });
 
-  it('비로그인 공개 목록은 상단만 있고 사이드바가 없다', () => {
+  it('비로그인 /programs 에도 프로그램 메뉴 사이드 패널이 있다', () => {
     const html = render('/programs', {
       status: 'anonymous',
       role: null,
       isProfileComplete: false,
     });
     expect(html).toContain('data-slot="nav-bar"');
-    expect(html).not.toContain('data-slot="app-sidebar"');
-    expect(html).toContain('href="/programs"');
+    expect(html).toContain('data-slot="app-sidebar"');
+    expect(html).toContain('프로그램 메뉴');
+    expect(html).toContain('href="/programs?status=ended"');
+    expect(html).not.toContain('href="/dashboard"');
   });
 
   it('본문을 SkipLink 목적지(#main-content)로 감싼다', () => {

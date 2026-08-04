@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   useCallback,
   useEffect,
@@ -27,16 +28,14 @@ import {
 } from './program-list';
 import type { ProgramRecruitmentState } from './program-list';
 import { ProgramListPagination } from './program-list-pagination';
-import {
-  ProgramListStatusChips,
-  ProgramListStatusNav,
-} from './program-list-status-nav';
+import { ProgramListStatusChips } from './program-list-status-nav';
 import type { ProgramCategory } from './program-templates';
 import type {
   ProgramListItem,
   ProgramListPage as ProgramListPageData,
   ProgramListStatus,
 } from './types';
+import { PROGRAM_LIST_STATUSES, programListHref } from './types';
 
 interface ProgramListPageProps {
   readonly canCreateProgram: boolean;
@@ -84,6 +83,13 @@ const RECRUITMENT_BADGES = {
   >
 >;
 
+function parseStatus(value: string | null): ProgramListStatus {
+  if (value !== null && (PROGRAM_LIST_STATUSES as readonly string[]).includes(value)) {
+    return value as ProgramListStatus;
+  }
+  return 'all';
+}
+
 function ProgramListSkeleton(): ReactElement {
   return (
     <CardGrid aria-busy="true" aria-label="프로그램 목록을 불러오는 중">
@@ -94,10 +100,17 @@ function ProgramListSkeleton(): ReactElement {
   );
 }
 
+/**
+ * 상태 필터는 **전역 사이드 패널**(프로그램 메뉴)이 URL `?status=` 로 보낸다.
+ * 이 페이지는 그 쿼리를 읽고, 좁은 폭에서만 칩으로 같은 전환을 제공한다.
+ */
 function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const status = parseStatus(searchParams.get('status'));
+
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<ProgramListStatus>('all');
   const [page, setPage] = useState(1);
   const latestRequestId = useRef(0);
   const hasFilters = search.trim() !== '' || status !== 'all';
@@ -134,6 +147,11 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
     };
   }, [load]);
 
+  // status 쿼리가 바뀌면 1페이지로
+  useEffect(() => {
+    setPage(1);
+  }, [status]);
+
   const now = useMemo(() => new Date(), []);
   const groups = useMemo(
     () =>
@@ -147,9 +165,8 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
     [loadState, now, status],
   );
 
-  const setStatusAndResetPage = (next: ProgramListStatus) => {
-    setPage(1);
-    setStatus(next);
+  const goStatus = (next: ProgramListStatus) => {
+    router.push(programListHref(next));
   };
 
   const content = (() => {
@@ -228,45 +245,34 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
   })();
 
   return (
-    <section className="grid gap-6">
+    <section className="grid gap-6 p-4 sm:p-6">
       <PageHeader
         title="프로그램"
-        description="참여할 프로그램을 찾아보세요."
+        description="참여할 프로그램을 찾아보세요. 상태는 왼쪽 프로그램 메뉴에서 고릅니다."
       />
-      <div className="grid gap-6 lg:grid-cols-[minmax(12rem,16rem)_minmax(0,1fr)]">
-        <aside className="hidden lg:block">
-          <div className="sticky top-20">
-            <ProgramListStatusNav
-              value={status}
-              onChange={setStatusAndResetPage}
-            />
-          </div>
-        </aside>
-        <div className="grid min-w-0 gap-4">
-          <ProgramListStatusChips
-            className="lg:hidden"
-            value={status}
-            onChange={setStatusAndResetPage}
-          />
-          <Input
-            aria-label="프로그램명 검색"
-            onChange={(event) => {
-              setPage(1);
-              setSearch(event.target.value);
-            }}
-            placeholder="프로그램명 검색"
-            value={search}
-          />
-          {content}
-          <ProgramListPagination
-            onPageChange={setPage}
-            page={page}
-            totalPages={
-              loadState.kind === 'ready' ? loadState.programPage.totalPages : 0
-            }
-          />
-        </div>
-      </div>
+      {/* 좁은 폭: 전역 사이드가 가로 띠라 상태 칩을 본문에 한 번 더 둔다 */}
+      <ProgramListStatusChips
+        className="min-[900px]:hidden"
+        value={status}
+        onChange={goStatus}
+      />
+      <Input
+        aria-label="프로그램명 검색"
+        onChange={(event) => {
+          setPage(1);
+          setSearch(event.target.value);
+        }}
+        placeholder="프로그램명 검색"
+        value={search}
+      />
+      {content}
+      <ProgramListPagination
+        onPageChange={setPage}
+        page={page}
+        totalPages={
+          loadState.kind === 'ready' ? loadState.programPage.totalPages : 0
+        }
+      />
     </section>
   );
 }
