@@ -6,6 +6,7 @@ import {
   ProgramOverviewErrorCode,
 } from './program-overview-error-code.enum';
 import {
+  MilestoneSchedule,
   ProgramOverviewRecord,
   ProgramOverviewRepository,
   PublicTeamRow,
@@ -23,10 +24,28 @@ export interface ProgramOverviewViewerStats {
   myDocumentsCompleted: number | null;
   myDocumentsTotal: number | null;
   fullySubmittedParticipantCount: number | null;
+  /** 마일스톤별 서류 분해(#619 sidebar 중첩 뱃지) — 서류 0개 마일스톤은 뺀다. */
+  milestoneDocumentBreakdown: ProgramOverviewMilestoneDocumentBreakdown[];
+}
+
+export interface ProgramOverviewMilestoneDocumentBreakdown {
+  milestoneId: string;
+  milestoneTitle: string;
+  /** 학생: 내가 제출 완료한 서류 항목 수. 교직원/관리자: 서류를 전부 제출한 참여자(팀) 수. */
+  completed: number;
+  /** 학생: 그 마일스톤의 서류 항목 수. 교직원/관리자: 전체 참여자(팀) 수. */
+  total: number;
+}
+
+export interface ProgramOverviewNextMilestone {
+  label: string;
+  dueAt: Date;
 }
 
 export interface ProgramOverviewView extends ProgramOverviewRecord {
   viewer: ProgramOverviewViewerStats;
+  /** 마감 카운트다운 — 아직 마감되지 않은 가장 이른 마일스톤. 없으면 null(역할 무관 공통값). */
+  nextMilestone: ProgramOverviewNextMilestone | null;
 }
 
 const EMPTY_VIEWER_STATS: ProgramOverviewViewerStats = {
@@ -34,7 +53,32 @@ const EMPTY_VIEWER_STATS: ProgramOverviewViewerStats = {
   myDocumentsCompleted: null,
   myDocumentsTotal: null,
   fullySubmittedParticipantCount: null,
+  milestoneDocumentBreakdown: [],
 };
+
+/** dueAt이 아직 지나지 않은(> now) 마일스톤 중 가장 이른 것. 없으면 null. */
+function pickNextMilestone(
+  schedules: readonly MilestoneSchedule[],
+  now: Date,
+): ProgramOverviewNextMilestone | null {
+  const upcoming = schedules.filter(
+    (schedule) => schedule.dueAt.getTime() > now.getTime(),
+  );
+  if (upcoming.length === 0) {
+    return null;
+  }
+  const earliest = upcoming.reduce((soonest, schedule) =>
+    schedule.dueAt.getTime() < soonest.dueAt.getTime() ? schedule : soonest,
+  );
+  return { label: earliest.label, dueAt: earliest.dueAt };
+}
+
+/** 서류 0개 마일스톤은 breakdown에서 뺀다(#619). */
+function excludeEmptyDocumentEntries(
+  entries: ProgramOverviewMilestoneDocumentBreakdown[],
+): ProgramOverviewMilestoneDocumentBreakdown[] {
+  return entries.filter((entry) => entry.total > 0);
+}
 
 /**
  * 프로그램 상세 화면 상단 요약(#619) — 공개 집계(참여 학생·팀·연결 저장소 수)와
@@ -61,8 +105,19 @@ export class ProgramOverviewService {
       );
     }
 
-    const viewer = await this.resolveViewerStats(programId, viewerGithubId);
-    return { ...overview, viewer };
+    const [viewer, milestoneSchedules] = await Promise.all([
+      this.resolveViewerStats(
+        programId,
+        viewerGithubId,
+        overview.participantCount,
+      ),
+      this.repository.findMilestoneSchedules(programId),
+    ]);
+    return {
+      ...overview,
+      viewer,
+      nextMilestone: pickNextMilestone(milestoneSchedules, new Date()),
+    };
   }
 
   async getPublicTeams(programId: string): Promise<PublicTeamRow[]> {
@@ -80,6 +135,7 @@ export class ProgramOverviewService {
   private async resolveViewerStats(
     programId: string,
     viewerGithubId: bigint,
+    participantCount: number,
   ): Promise<ProgramOverviewViewerStats> {
     const identity = await this.repository.findViewerIdentity(viewerGithubId);
     if (!identity || identity.role === null) {
@@ -90,7 +146,7 @@ export class ProgramOverviewService {
       return this.resolveStudentStats(programId, identity.userId);
     }
     if (identity.role === Role.STAFF || identity.role === Role.ADMIN) {
-      return this.resolveStaffStats(programId, identity.role);
+      return this.resolveStaffStats(programId, identity.role, participantCount);
     }
     return { ...EMPTY_VIEWER_STATS, role: identity.role };
   }
@@ -107,28 +163,45 @@ export class ProgramOverviewService {
       return { ...EMPTY_VIEWER_STATS, role: Role.STUDENT };
     }
 
-    const applicationId = await this.repository.findViewerApplicationId(
-      programId,
-      userId,
-    );
+    const [applicationId, catalog] = await Promise.all([
+      this.repository.findViewerApplicationId(programId, userId),
+      this.repository.findMilestoneDocumentCatalog(programId),
+    ]);
     const completed = applicationId
       ? await this.repository.countSubmittedDocuments(
           applicationId,
           milestone.documentIds,
         )
       : 0;
+    const submittedDocumentIds = applicationId
+      ? await this.repository.findSubmittedDocumentIds(
+          applicationId,
+          catalog.flatMap((entry) => entry.documentIds),
+        )
+      : new Set<string>();
 
     return {
       role: Role.STUDENT,
       myDocumentsCompleted: completed,
       myDocumentsTotal: milestone.documentIds.length,
       fullySubmittedParticipantCount: null,
+      milestoneDocumentBreakdown: excludeEmptyDocumentEntries(
+        catalog.map((entry) => ({
+          milestoneId: entry.milestoneId,
+          milestoneTitle: entry.milestoneTitle,
+          completed: entry.documentIds.filter((id) =>
+            submittedDocumentIds.has(id),
+          ).length,
+          total: entry.documentIds.length,
+        })),
+      ),
     };
   }
 
   private async resolveStaffStats(
     programId: string,
     role: typeof Role.STAFF | typeof Role.ADMIN,
+    participantCount: number,
   ): Promise<ProgramOverviewViewerStats> {
     const milestone = await this.repository.findCurrentSubmissionMilestone(
       programId,
@@ -138,10 +211,20 @@ export class ProgramOverviewService {
       return { ...EMPTY_VIEWER_STATS, role };
     }
 
-    const fullySubmittedParticipantCount =
-      await this.repository.countFullySubmittedParticipants(
+    const [fullySubmittedParticipantCount, catalog] = await Promise.all([
+      this.repository.countFullySubmittedParticipants(
         programId,
         milestone.requiredDocumentIds,
+      ),
+      this.repository.findMilestoneDocumentCatalog(programId),
+    ]);
+    const documentedCatalog = catalog.filter(
+      (entry) => entry.documentIds.length > 0,
+    );
+    const completedByMilestone =
+      await this.repository.countFullySubmittedParticipantsByMilestone(
+        programId,
+        documentedCatalog,
       );
 
     return {
@@ -149,6 +232,12 @@ export class ProgramOverviewService {
       myDocumentsCompleted: null,
       myDocumentsTotal: null,
       fullySubmittedParticipantCount,
+      milestoneDocumentBreakdown: documentedCatalog.map((entry) => ({
+        milestoneId: entry.milestoneId,
+        milestoneTitle: entry.milestoneTitle,
+        completed: completedByMilestone.get(entry.milestoneId) ?? 0,
+        total: participantCount,
+      })),
     };
   }
 }
