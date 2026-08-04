@@ -35,6 +35,11 @@ export interface ProgramOverview {
   readonly viewerDocumentsTotal: number | null;
   /** 교직원 전용 — "제출률"의 분자(분모는 participantCount). */
   readonly fullySubmittedParticipantCount: number | null;
+  /** 다음 마감 마일스톤 — 전부 지났으면 `null`. 좌측 패널 카운트다운의 입력이다. */
+  readonly nextMilestone: {
+    readonly label: string;
+    readonly dueAt: string;
+  } | null;
   /** 서류가 있는 마일스톤만, 순서대로. 좌측 패널 depth-1 자식의 입력이다. */
   readonly milestoneDocuments: readonly ProgramOverviewMilestoneDocument[];
 }
