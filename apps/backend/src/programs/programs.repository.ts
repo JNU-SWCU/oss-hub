@@ -36,6 +36,11 @@ export type ProgramListRecord = Pick<
   | 'description'
 >;
 
+export type ProgramApplicationStatusRecord = {
+  readonly programId: string;
+  readonly status: ApplicationStatus;
+};
+
 @Injectable()
 export class ProgramsRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -98,6 +103,20 @@ export class ProgramsRepository {
       upcoming: row.upcoming,
       ended: row.ended,
     };
+  }
+
+  findStudentApplicationStatuses(
+    programIds: readonly string[],
+    userId: string,
+  ): Promise<readonly ProgramApplicationStatusRecord[]> {
+    if (programIds.length === 0) return Promise.resolve([]);
+    return this.prisma.application.findMany({
+      where: {
+        programId: { in: [...programIds] },
+        ...programApplicationParticipantWhere(userId),
+      },
+      select: { programId: true, status: true },
+    });
   }
 
   findProgramDetail(programId: string) {

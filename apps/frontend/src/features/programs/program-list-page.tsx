@@ -10,28 +10,16 @@ import {
   useState,
   type ReactElement,
 } from 'react';
-import {
-  CardGrid,
-  EmptyState,
-  PageHeader,
-  ProgramCard,
-  StatusBadge,
-} from '@/components';
+import { CardGrid, EmptyState, PageHeader } from '@/components';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
 import { listPrograms } from './api';
-import { programHref } from './program-paths';
-import {
-  filterAndGroupPrograms,
-  getProgramRecruitmentState,
-} from './program-list';
-import type { ProgramRecruitmentState } from './program-list';
+import { filterAndGroupPrograms } from './program-list';
+import { ProgramListCard } from './program-list-card';
 import { ProgramListPagination } from './program-list-pagination';
 import { ProgramListStatusChips } from './program-list-status-nav';
-import type { ProgramCategory } from './program-templates';
 import type {
-  ProgramListItem,
   ProgramListPage as ProgramListPageData,
   ProgramListStatus,
 } from './types';
@@ -39,6 +27,7 @@ import { PROGRAM_LIST_STATUSES, programListHref } from './types';
 
 interface ProgramListPageProps {
   readonly canCreateProgram: boolean;
+  readonly includeViewer: boolean;
 }
 
 type LoadState =
@@ -47,41 +36,6 @@ type LoadState =
   | { readonly kind: 'error'; readonly message: string };
 
 const PAGE_SIZE = 20;
-
-const CATEGORY_LABELS = {
-  BASIC: '기본',
-  SW_VALUE_SPREAD: 'SW 가치확산',
-  OSS_CONTEST: 'OSS 경진대회',
-  CAPSTONE: '캡스톤',
-  SW_CONVERGENCE: 'SW 융합',
-  GLOBAL_MAKERTHON: '글로벌 메이커톤',
-  CORPORATE_INTERNSHIP: '기업 인턴십',
-} satisfies Readonly<Record<ProgramCategory, string>>;
-
-function formatApplicationPeriod(program: ProgramListItem): string {
-  const formatter = new Intl.DateTimeFormat('ko-KR', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'Asia/Seoul',
-  });
-  return `${formatter.format(new Date(program.applicationStartAt))} ~ ${formatter.format(new Date(program.applicationEndAt))}`;
-}
-
-const RECRUITMENT_BADGES = {
-  upcoming: { label: '접수대기', variant: 'pending' },
-  recruiting: { label: '모집중', variant: 'recruiting' },
-  in_progress: { label: '진행중', variant: 'approved' },
-  ended: { label: '종료', variant: 'closed' },
-} as const satisfies Readonly<
-  Record<
-    ProgramRecruitmentState,
-    {
-      readonly label: string;
-      readonly variant: 'pending' | 'recruiting' | 'closed' | 'approved';
-    }
-  >
->;
 
 function parseStatus(value: string | null): ProgramListStatus {
   if (
@@ -107,11 +61,13 @@ function ProgramListSkeleton(): ReactElement {
  * 상태 필터는 **전역 사이드 패널**(프로그램 메뉴)이 URL `?status=` 로 보낸다.
  * 이 페이지는 그 쿼리를 읽고, 좁은 폭에서만 칩으로 같은 전환을 제공한다.
  */
-function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
+function ProgramListPage({
+  canCreateProgram,
+  includeViewer,
+}: ProgramListPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const status = parseStatus(searchParams.get('status'));
-
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -123,12 +79,10 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
     latestRequestId.current = requestId;
     setLoadState({ kind: 'loading' });
     try {
-      const programPage = await listPrograms({
-        page,
-        pageSize: PAGE_SIZE,
-        search,
-        status,
-      });
+      const programPage = await listPrograms(
+        { page, pageSize: PAGE_SIZE, search, status },
+        includeViewer,
+      );
       if (requestId !== latestRequestId.current) return;
       setLoadState({ kind: 'ready', programPage });
     } catch (error: unknown) {
@@ -141,7 +95,7 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
             : '프로그램 목록을 불러오지 못했습니다.',
       });
     }
-  }, [page, search, status]);
+  }, [includeViewer, page, search, status]);
 
   useEffect(() => {
     void load();
@@ -221,27 +175,9 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
           <h2 className="font-heading text-lg font-medium">{group.title}</h2>
         ) : null}
         <CardGrid>
-          {group.programs.map((program) => {
-            const recruitmentState = getProgramRecruitmentState(program, now);
-            const badge = RECRUITMENT_BADGES[recruitmentState];
-            return (
-              <ProgramCard
-                category={CATEGORY_LABELS[program.category]}
-                href={programHref(program.id)}
-                key={program.id}
-                period={formatApplicationPeriod(program)}
-                statusPlacement="body-center"
-                status={
-                  <StatusBadge size="lg" variant={badge.variant}>
-                    {badge.label}
-                  </StatusBadge>
-                }
-                title={program.name}
-              >
-                <span>{program.organizer}</span>
-              </ProgramCard>
-            );
-          })}
+          {group.programs.map((program) => (
+            <ProgramListCard key={program.id} now={now} program={program} />
+          ))}
         </CardGrid>
       </section>
     ));

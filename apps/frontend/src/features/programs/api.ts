@@ -149,6 +149,7 @@ export function createProgram(
 
 export function listPrograms(
   params: ProgramListParams,
+  includeViewer = false,
 ): Promise<ProgramListPage> {
   const search = new URLSearchParams({
     page: String(params.page),
@@ -156,7 +157,8 @@ export function listPrograms(
     search: params.search,
     status: params.status,
   });
-  return apiClient<ProgramListPage>('programs?' + search.toString());
+  const resource = includeViewer ? 'programs/viewer' : 'programs';
+  return apiClient<ProgramListPage>(resource + '?' + search.toString());
 }
 
 /** 프로그램 섹션 사이드바 뱃지 — 공개, 인증 불필요. */

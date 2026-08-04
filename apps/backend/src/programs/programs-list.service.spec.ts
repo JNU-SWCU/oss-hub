@@ -380,9 +380,22 @@ describe('status filter single source', () => {
 });
 
 describe('ProgramsService list', () => {
+  const program = {
+    id: 'program-1',
+    name: 'OSS 경진대회',
+    organizer: 'SW Center',
+    category: 'OSS_CONTEST',
+    lifecycle: ProgramLifecycle.PUBLISHED,
+    applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
+    applicationEndAt: new Date('2026-08-31T00:00:00.000Z'),
+    endAt: new Date('2026-12-31T00:00:00.000Z'),
+    description: '프로그램 설명',
+  } as const;
+
   it('returns page metadata from the repository count', async () => {
     const repository = {
       listPrograms: jest.fn().mockResolvedValue([[], 21]),
+      findStudentApplicationStatuses: jest.fn(),
     };
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
@@ -416,6 +429,51 @@ describe('ProgramsService list', () => {
 
     await expect(service.statusCounts()).resolves.toEqual(counts);
     expect(repository.countProgramsByStatus).toHaveBeenCalled();
+  });
+
+  it('익명 목록은 신청 상태를 조회하지 않고 null을 반환한다', async () => {
+    const findStudentApplicationStatuses = jest.fn();
+    const repository = {
+      listPrograms: jest.fn().mockResolvedValue([[program], 1]),
+      findStudentApplicationStatuses,
+    };
+    const service = new ProgramsService(
+      repository as unknown as ProgramsRepository,
+    );
+
+    const result = await service.list({
+      page: 1,
+      pageSize: 20,
+      search: '',
+      status: 'all',
+    });
+
+    expect(result.items[0]?.applicationStatus).toBeNull();
+    expect(findStudentApplicationStatuses).not.toHaveBeenCalled();
+  });
+
+  it('학생 목록은 본인이 신청한 프로그램에 신청 상태를 결합한다', async () => {
+    const findStudentApplicationStatuses = jest
+      .fn()
+      .mockResolvedValue([{ programId: 'program-1', status: 'SUBMITTED' }]);
+    const repository = {
+      listPrograms: jest.fn().mockResolvedValue([[program], 1]),
+      findStudentApplicationStatuses,
+    };
+    const service = new ProgramsService(
+      repository as unknown as ProgramsRepository,
+    );
+
+    const result = await service.list(
+      { page: 1, pageSize: 20, search: '', status: 'all' },
+      { githubId: 101n, userId: 'student-1', role: 'STUDENT' },
+    );
+
+    expect(result.items[0]?.applicationStatus).toBe('SUBMITTED');
+    expect(findStudentApplicationStatuses).toHaveBeenCalledWith(
+      ['program-1'],
+      'student-1',
+    );
   });
 });
 

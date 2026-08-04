@@ -11,8 +11,11 @@ import {
 } from '@/features/audit-log/fixtures';
 import type { AuditLogPage, AuditLogRecord } from '@/features/audit-log/types';
 import type {
+  ApplicationStatus,
   ProgramListItem,
   ProgramListPage,
+  ProgramListStatus,
+  ProgramStatusCounts,
   StaffDashboardSummary,
 } from '@/features/programs/types';
 import { apiPath } from '@/lib/api-client';
@@ -241,7 +244,18 @@ const PUBLIC_PROGRAM_FIXTURES = [
     endAt: null,
     description: '신청 전 상태를 확인하기 위한 합성 프로그램입니다.',
   },
-] as const satisfies readonly ProgramListItem[];
+] as const satisfies readonly Omit<ProgramListItem, 'applicationStatus'>[];
+
+const STUDENT_APPLICATION_STATUS_BY_PROGRAM = {
+  'program-capstone': 'APPROVED',
+  'program-oss-contest': 'APPROVED',
+  'program-basic-study': null,
+} as const satisfies Readonly<
+  Record<
+    (typeof PUBLIC_PROGRAM_FIXTURES)[number]['id'],
+    ApplicationStatus | null
+  >
+>;
 
 type PublicArchiveApiItem = {
   readonly projectId: string;
@@ -488,20 +502,47 @@ function auditLogPage(searchParams: URLSearchParams): AuditLogWirePage {
 }
 
 function recruitmentState(
-  program: ProgramListItem,
+  program: Pick<
+    ProgramListItem,
+    'lifecycle' | 'applicationStartAt' | 'applicationEndAt' | 'endAt'
+  >,
   now: Date,
-): 'scheduled' | 'recruiting' | 'closed' {
+): Exclude<ProgramListStatus, 'all'> {
+  if (program.lifecycle === 'ARCHIVED') return 'ended';
+
   const nowTime = now.getTime();
+  const endAt =
+    program.endAt === null ? null : new Date(program.endAt).getTime();
+  if (endAt !== null && !Number.isNaN(endAt) && endAt < nowTime) {
+    return 'ended';
+  }
   if (nowTime < new Date(program.applicationStartAt).getTime()) {
-    return 'scheduled';
+    return 'upcoming';
   }
   return nowTime <= new Date(program.applicationEndAt).getTime()
     ? 'recruiting'
-    : 'closed';
+    : 'in_progress';
+}
+
+function programStatusCounts(now = new Date()): ProgramStatusCounts {
+  const counts: Record<ProgramListStatus, number> = {
+    all: PUBLIC_PROGRAM_FIXTURES.length,
+    recruiting: 0,
+    in_progress: 0,
+    upcoming: 0,
+    ended: 0,
+  };
+  for (const program of PUBLIC_PROGRAM_FIXTURES) {
+    counts[recruitmentState(program, now)] += 1;
+  }
+  return counts;
 }
 
 /** `/programs`(status=all)와 랜딩(status=recruiting)이 같은 경로를 쓰므로 질의를 그대로 반영한다 */
-function programListPage(searchParams: URLSearchParams): ProgramListPage {
+function programListPage(
+  searchParams: URLSearchParams,
+  includeViewer: boolean,
+): ProgramListPage {
   const now = new Date();
   const page = positiveIntParam(searchParams.get('page'), 1);
   const pageSize = positiveIntParam(searchParams.get('pageSize'), 20);
@@ -517,7 +558,12 @@ function programListPage(searchParams: URLSearchParams): ProgramListPage {
   const offset = (page - 1) * pageSize;
 
   return {
-    items: matched.slice(offset, offset + pageSize),
+    items: matched.slice(offset, offset + pageSize).map((program) => ({
+      ...program,
+      applicationStatus: includeViewer
+        ? STUDENT_APPLICATION_STATUS_BY_PROGRAM[program.id]
+        : null,
+    })),
     page,
     pageSize,
     totalItems: matched.length,
@@ -606,8 +652,12 @@ export function resolveLocalReviewResponse({
     return sessionResponse(fixture);
   }
 
-  if (method === 'GET' && path === 'programs') {
-    return json(200, programListPage(searchParams));
+  if (method === 'GET' && path === 'programs/status-counts') {
+    return json(200, programStatusCounts());
+  }
+
+  if (method === 'GET' && (path === 'programs' || path === 'programs/viewer')) {
+    return json(200, programListPage(searchParams, path === 'programs/viewer'));
   }
 
   if (method === 'GET' && path === 'projects') {

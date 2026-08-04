@@ -61,14 +61,9 @@ export function getStaffRecruitmentBadge(
 ): (typeof STAFF_RECRUITMENT_BADGES)[ProgramRecruitmentState] {
   const state = getProgramRecruitmentState(
     {
-      id: program.id,
-      name: program.name,
-      organizer: '',
-      category: program.category,
       applicationStartAt: program.applicationPeriod.startsAt,
       applicationEndAt: program.applicationPeriod.endsAt,
       endAt: null,
-      description: '',
     },
     now,
   );
