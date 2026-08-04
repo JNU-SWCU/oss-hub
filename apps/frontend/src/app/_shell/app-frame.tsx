@@ -19,17 +19,20 @@ export const DASHBOARD_NAV_ITEM: NavItem = {
  * 전 화면 공통 셸.
  * - 상단: 공개 3 + (회원) 대시보드
  * - 좌측: **현재 섹션** 하위만 (컨텍스트형 ProductShell)
+ * - initialSidebarCollapsed: 서버 cookies() 에서 읽어 전달 (F4, client 에선 cookies 불가)
  */
 export function AppFrame({
   brand,
   items = PUBLIC_MENU,
   actions,
   children,
+  initialSidebarCollapsed = false,
 }: {
   readonly brand?: ReactNode;
   readonly items?: readonly NavItem[];
   readonly actions?: ReactNode;
   readonly children: ReactNode;
+  readonly initialSidebarCollapsed?: boolean;
 }) {
   const pathname = usePathname();
   const { status, isProfileComplete } = useSessionRole();
@@ -70,7 +73,9 @@ export function AppFrame({
   return (
     <div className="flex min-h-dvh flex-col">
       <ShellNav brand={brand} items={navItems} actions={actions} />
-      <ProductShell>{children}</ProductShell>
+      <ProductShell initialCollapsed={initialSidebarCollapsed}>
+        {children}
+      </ProductShell>
     </div>
   );
 }
