@@ -110,13 +110,13 @@ export function ProgramEditView({
         </div>
         <dl className="grid gap-4 text-small sm:grid-cols-2">
           <div className="rounded-card border border-border bg-card p-card">
-            <dt className="text-muted-foreground">템플릿 키</dt>
+            <dt className="text-muted-foreground">신청서 양식</dt>
             <dd className="mt-1 font-semibold">
               {program.applicationTemplateKey}
             </dd>
           </div>
           <div className="rounded-card border border-border bg-card p-card">
-            <dt className="text-muted-foreground">템플릿 버전</dt>
+            <dt className="text-muted-foreground">양식 버전</dt>
             <dd className="mt-1 font-semibold">
               v{program.applicationTemplateVersion}
             </dd>
