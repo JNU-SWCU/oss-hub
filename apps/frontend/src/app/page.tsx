@@ -2,11 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { AUTH_ERROR_MESSAGE, hasAuthError } from '@/features/auth/auth-error';
-import {
-  GITHUB_LOGOUT_URL,
-  LOGOUT_NOTICE_MESSAGE,
-  hasLogoutNotice,
-} from '@/features/auth/logout-notice';
+import { LogoutNoticeBanner } from '@/features/auth/components/logout-notice-banner';
+import { hasLogoutNotice } from '@/features/auth/logout-notice';
 import { ClosingCtaSection } from '@/features/landing/components/closing-cta-section';
 import { CurrentProgramSection } from '@/features/landing/components/current-program-section';
 import { LandingJourney } from '@/features/landing/components/landing-journey';
@@ -48,20 +45,7 @@ export default function HomePage() {
         <LandingJourney
           authErrorMessage={authErrorMessage}
           contentAnchor="#current-programs"
-          notice={
-            showLogoutNotice ? (
-              <>
-                {LOGOUT_NOTICE_MESSAGE}{' '}
-                <a
-                  href={GITHUB_LOGOUT_URL}
-                  className="font-semibold text-cosmos-copy underline underline-offset-2"
-                  rel="noreferrer noopener"
-                >
-                  GitHub에서 로그아웃
-                </a>
-              </>
-            ) : undefined
-          }
+          notice={showLogoutNotice ? <LogoutNoticeBanner /> : undefined}
           primaryAction={entryAction}
         />
 

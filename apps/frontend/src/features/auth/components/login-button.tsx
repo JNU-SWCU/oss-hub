@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { logout } from '../api';
-import { LOGOUT_NOTICE_PARAM } from '../logout-notice';
+import { logoutCompletePath } from '../logout-notice';
 import { SIGNUP_ENTRY, shouldShowEntryLink } from '../signup-entry-link';
 import { refreshSession } from '../session-store';
 import { toAccountMenuSession } from '../session-view';
@@ -214,11 +214,14 @@ export function LoginButton() {
             const next = applyLogoutSuccess({ me, logoutError }, result);
             if (next.me === null) {
               // 로그아웃 확정: 전체 내비게이션으로 모든 세션 소비자(예:
-              // RoleHomeNavLink)를 초기화하고 랜딩(`/`)에 착지한다.
-              // 표식을 붙여 랜딩이 로그아웃 완료와 계정 전환 방법을 안내하게 한다 —
-              // 안내가 없으면 사용자는 다시 로그인했을 때 같은 계정으로 들어오는 것을
-              // 보고 로그아웃이 실패한 줄로 읽는다.
-              window.location.assign(`/?${LOGOUT_NOTICE_PARAM}=1`);
+              // RoleHomeNavLink)를 초기화하고 로그아웃 완료 화면에 착지한다.
+              //
+              // 예전에는 랜딩에 `?loggedOut=1` 표식을 붙였다. 안내는 필요하지만
+              // 쿼리 표식은 새로고침·뒤로가기 한 번에 사라지고, 그러면 "다른 계정으로
+              // 로그인하려면 GitHub에서도 로그아웃해야 한다"는 말을 들을 자리가
+              // 없어진다 — 사용자는 같은 계정으로 다시 들어오는 것을 보고 로그아웃이
+              // 실패한 줄로 읽는다. 그래서 안내에 자기 주소를 준다.
+              window.location.assign(logoutCompletePath());
               return;
             }
             // 로그아웃이 확정되지 않았다면 세션은 아직 살아 있다. 지역 상태를

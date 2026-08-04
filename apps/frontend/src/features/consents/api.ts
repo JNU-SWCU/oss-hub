@@ -1,4 +1,5 @@
 import { ApiError, apiClient } from '@/lib/api-client';
+import { isInternalPath } from '@/lib/internal-path';
 
 export interface ConsentRequiredItem {
   readonly key: string;
@@ -40,15 +41,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
-}
-
-function isInternalPath(value: unknown): value is string {
-  return (
-    typeof value === 'string' &&
-    value.startsWith('/') &&
-    !value.startsWith('//') &&
-    !value.includes('\\')
-  );
 }
 
 function isDocumentUrl(value: unknown): value is string {
