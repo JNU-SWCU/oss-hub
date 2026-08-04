@@ -28,7 +28,8 @@ Next.js App Router 라우트. 역할 기반(STUDENT/STAFF/ADMIN) 화면 접근 �
 | `dashboard/` | `/dashboard` | `STUDENT` |
 | `my-repos/` | `/my-repos` | 로그인한 모든 역할(학생 메뉴 아래 있지만 role 무관 접근 허용) |
 | `programs/`, `programs/[id]/apply/`, `programs/[id]/milestones/[milestoneId]/submit/` | `/programs`, 신청, 마일스톤 제출 | 화면별 상이 — 각 `page.tsx` 주석 확인 |
-| `staff/dashboard/`, `staff/programs/new/`, `staff/programs/[id]/submissions/[submissionId]/review/` | 운영 화면 | `STAFF` |
+| `programs/new/`, `programs/[id]/edit/`, `programs/[id]/applicants/`, `programs/[id]/applications/[applicationId]/`, `programs/[id]/status/`, `programs/[id]/submissions/[submissionId]/review/` | 프로그램 운영 화면 | `STAFF`·`ADMIN` — 프로그램 내부 화면은 `/programs/:id` 한 스코프에 있고 역할로 본문만 갈린다. `programs/new`는 programId가 없어 프로그램 스코프가 아닌 섹션 사이드바를 쓴다 |
+| `staff/dashboard/` | 운영 대시보드 딥링크 | `STAFF` — 입구는 회원 공통 `/dashboard`이며 이 경로는 딥링크로만 유지한다 |
 | `admin/access/`, `admin/audit-log/`, `admin/system-status/` | 관리 콘솔 | `ADMIN` |
 | `archive/`, `archive/[repositoryId]/` | `/archive`, `/archive/:repositoryId` | 공개 — 게이트 없음(비로그인 접근 가능), `public-projects/` 목록·상세 API 소비 |
 | `ranking/` | `/ranking` | 공개 — 게이트 없음(비로그인 접근 가능) |
