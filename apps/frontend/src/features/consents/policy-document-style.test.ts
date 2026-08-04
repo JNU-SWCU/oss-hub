@@ -14,6 +14,13 @@ const DOCUMENTS = [
   'privacy/2026-07-21.html',
   'github-activity/2026-07-21.html',
   'org-repository-terms/2026-07-21.html',
+  // 2026-08-04: GitHub 활동 수집 범위 확장(#99 후속)에 맞춰 세 문서 모두 같은 버전으로
+  // 재게시했다 — CONSENT_POLICY_VERSION이 세 항목 공용이라 하나만 있으면 나머지 두
+  // 문서의 "전문 보기"가 404가 된다. privacy·org-repository-terms는 내용 변경 없이
+  // 버전 표기 줄만 갱신했다.
+  'privacy/2026-08-04.html',
+  'github-activity/2026-08-04.html',
+  'org-repository-terms/2026-08-04.html',
 ];
 
 const stylesheet = readFileSync(

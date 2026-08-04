@@ -23,22 +23,22 @@ describe('ConsentsController.getCurrent', () => {
 
     expect(getCurrent).toHaveBeenCalledWith(syntheticGithubId);
     expect(response).toEqual({
-      policyVersion: '2026-07-21',
+      policyVersion: '2026-08-04',
       requiredItems: [
         {
           key: 'PRIVACY_COLLECTION',
           label: '개인정보 수집·이용',
-          documentUrl: '/policies/privacy/2026-07-21.html',
+          documentUrl: '/policies/privacy/2026-08-04.html',
         },
         {
           key: 'GITHUB_ACTIVITY',
           label: 'GitHub 활동 수집·공개 범위',
-          documentUrl: '/policies/github-activity/2026-07-21.html',
+          documentUrl: '/policies/github-activity/2026-08-04.html',
         },
         {
           key: 'ORG_REPOSITORY_TERMS',
           label: 'Org 저장소 운영 약관',
-          documentUrl: '/policies/org-repository-terms/2026-07-21.html',
+          documentUrl: '/policies/org-repository-terms/2026-08-04.html',
         },
       ],
       consented: false,
@@ -76,7 +76,7 @@ describe('ConsentsController.create', () => {
       ],
     });
     expect(response).toEqual({
-      policyVersion: '2026-07-21',
+      policyVersion: '2026-08-04',
       consentedAt: '2026-07-19T01:00:00.000Z',
       nextUrl: '/onboarding/role',
     });
