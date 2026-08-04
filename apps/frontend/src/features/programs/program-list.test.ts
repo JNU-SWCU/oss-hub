@@ -86,6 +86,36 @@ describe('getProgramRecruitmentState', () => {
     expect(getProgramRecruitmentState(programs[2]!, now)).toBe('upcoming');
     expect(getProgramRecruitmentState(programs[3]!, now)).toBe('ended');
   });
+
+  it('prefers ended when apply window is open but endAt passed (U4)', () => {
+    const overlap = item({
+      id: 'overlap',
+      name: 'Overlap',
+      applicationStartAt: '2026-06-25T00:00:00.000Z',
+      applicationEndAt: '2026-09-13T00:00:00.000Z',
+      endAt: '2026-07-01T00:00:00.000Z',
+    });
+    expect(
+      getProgramRecruitmentState(overlap, new Date('2026-07-22T00:00:00.000Z')),
+    ).toBe('ended');
+  });
+
+  it('maps ARCHIVED to ended regardless of open dates', () => {
+    const archived = item({
+      id: 'archived',
+      name: 'Archived',
+      lifecycle: 'ARCHIVED',
+      applicationStartAt: '2026-06-01T00:00:00.000Z',
+      applicationEndAt: '2026-09-01T00:00:00.000Z',
+      endAt: null,
+    });
+    expect(
+      getProgramRecruitmentState(
+        archived,
+        new Date('2026-07-22T00:00:00.000Z'),
+      ),
+    ).toBe('ended');
+  });
 });
 
 describe('filterAndGroupPrograms', () => {
