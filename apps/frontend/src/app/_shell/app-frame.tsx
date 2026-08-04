@@ -9,7 +9,11 @@ import { ShellNav } from './shell-nav';
 import { COSMOS_GROUND_PATHS, PRE_MEMBER_PATHS } from './signup-routes';
 import { useSessionRole } from './use-session-role';
 
-/** 상단 4번째 — 역할 무관 라벨·경로. 가입 완료 시에만 붙인다. */
+/**
+ * 상단 4번째 — 회원 공통 대시보드 입구. 가입 완료 시에만 붙인다.
+ * href는 항상 `/dashboard`(역할 무관). 본문은 세션 `User.role`로 갈린다.
+ * 비로그인·가입 미완료에게는 항목 자체를 붙이지 않으므로 AccessDenied가 날 입구가 아니다.
+ */
 export const DASHBOARD_NAV_ITEM: NavItem = {
   label: '대시보드',
   href: '/dashboard',
