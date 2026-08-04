@@ -219,6 +219,14 @@ export function ProductShell({
           pathname={pathname}
           collapsed={collapsed}
           onToggle={toggle}
+          countdown={
+            scopeOverview?.nextMilestone
+              ? {
+                  nextMilestoneLabel: scopeOverview.nextMilestone.label,
+                  dueAt: scopeOverview.nextMilestone.dueAt,
+                }
+              : null
+          }
         />
       ) : (
         <AppSidebar

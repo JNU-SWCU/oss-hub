@@ -17,30 +17,6 @@ export interface MatrixQueryInput {
 }
 
 /**
- * 매트릭스 셀 상태 라벨 — 기존 화면(features/programs/program-detail-format.ts의
- * SUBMISSION_LABELS)과 동일 문자열을 유지한다. feature 간 직접 의존이 금지라
- * (docs/rules/frontend.md) 문자열 계약만 복제한다.
- */
-export const MATRIX_STATUS_LABELS = {
-  NOT_SUBMITTED: '제출 전',
-  SUBMITTED: '제출됨',
-  APPROVED: '승인',
-  CHANGES_REQUESTED: '보완 필요',
-  REJECTED: '최종 반려',
-} as const satisfies Readonly<Record<MatrixCellStatus, string>>;
-
-/** 상태→뱃지 색 — 기존 화면(milestone-row.tsx의 STATUS_VARIANTS)과 동일 매핑. */
-export const MATRIX_STATUS_VARIANTS = {
-  NOT_SUBMITTED: 'pending',
-  SUBMITTED: 'pending',
-  APPROVED: 'approved',
-  CHANGES_REQUESTED: 'rejected',
-  REJECTED: 'rejected',
-} as const satisfies Readonly<
-  Record<MatrixCellStatus, 'pending' | 'approved' | 'rejected'>
->;
-
-/**
  * 서류 현황 표의 칸은 저장 enum 5종을 **화면 3종으로 접어** 보여 준다
  * (`docs/design.md` §업무 화면 내비게이션 › 서류 현황 표).
  * 교직원이 이 표에서 묻는 것은 "냈나 / 늦게 냈나 / 안 냈나"이지 검토 단계가 아니다.

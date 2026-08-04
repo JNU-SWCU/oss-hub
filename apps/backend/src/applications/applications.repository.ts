@@ -222,6 +222,16 @@ export class ApplicationJoinCodeDigestConflictError extends Error {
 export interface ApplicationCreateStore {
   lockProgramForApply(programId: string): Promise<ProgramLifecycle | null>;
   findTeamMinSize(programId: string): Promise<number | null>;
+  /**
+   * 이 프로그램에서 학생이 이미 속한 팀 — 있으면 신청이 그 팀을 재사용한다.
+   * `TeamMember @@unique([programId, userId])` 때문에 많아야 하나다.
+   */
+  findExistingTeamMembership(
+    programId: string,
+    userId: string,
+  ): Promise<CreatedTeamForApplication | null>;
+  /** 재사용할 팀의 최소 인원 검증용. */
+  countTeamMembers(teamId: string): Promise<number>;
   createTeamWithLeader(
     input: CreateTeamForApplicationInput,
   ): Promise<CreatedTeamForApplication>;
@@ -351,6 +361,21 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
       select: { teamMinSize: true },
     });
     return program?.teamMinSize ?? null;
+  }
+
+  async findExistingTeamMembership(
+    programId: string,
+    userId: string,
+  ): Promise<CreatedTeamForApplication | null> {
+    const membership = await this.database.teamMember.findUnique({
+      where: { programId_userId: { programId, userId } },
+      select: { team: { select: { id: true, name: true } } },
+    });
+    return membership?.team ?? null;
+  }
+
+  async countTeamMembers(teamId: string): Promise<number> {
+    return this.database.teamMember.count({ where: { teamId } });
   }
 
   async createTeamWithLeader(

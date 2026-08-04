@@ -164,11 +164,20 @@ export class ApplicationsService {
           throw this.error(ApplicationsErrorCode.PROGRAM_ARCHIVED);
         }
 
+        // 이 프로그램에 이미 팀이 있으면 그 팀으로 신청한다. 없으면 1인 팀을 만든다.
+        // 재사용하지 않으면 `TeamMember @@unique([programId, userId])`에 걸려
+        // 팀을 먼저 만든 학생이 영영 신청하지 못한다.
+        const existingTeam = await store.findExistingTeamMembership(
+          programId,
+          student.id,
+        );
         const teamMinSize = await store.findTeamMinSize(programId);
-        // 신청 시 항상 1인 팀을 만든다. 최소 인원 > 1 이면 초대 후 재신청이 필요하다.
-        if (teamMinSize !== null && teamMinSize > 1) {
+        const memberCount = existingTeam
+          ? await store.countTeamMembers(existingTeam.id)
+          : 1;
+        if (teamMinSize !== null && memberCount < teamMinSize) {
           const extensions: TeamMinimumExtensions = {
-            memberCount: 1,
+            memberCount,
             teamMinSize,
           };
           throw new DomainException(
@@ -179,8 +188,12 @@ export class ApplicationsService {
           );
         }
 
-        let teamId: string | null = null;
-        for (let attempt = 0; attempt < JOIN_CODE_ATTEMPTS; attempt += 1) {
+        let teamId: string | null = existingTeam?.id ?? null;
+        for (
+          let attempt = 0;
+          teamId === null && attempt < JOIN_CODE_ATTEMPTS;
+          attempt += 1
+        ) {
           const joinCode = this.repository.generateJoinCode();
           const joinCodeDigest =
             this.repository.computeJoinCodeDigest(joinCode);

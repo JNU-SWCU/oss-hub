@@ -108,6 +108,8 @@ function buildService(overrides: {
       .fn()
       .mockResolvedValue(ProgramLifecycle.PUBLISHED),
     findTeamMinSize: jest.fn().mockResolvedValue(null),
+    findExistingTeamMembership: jest.fn().mockResolvedValue(null),
+    countTeamMembers: jest.fn().mockResolvedValue(1),
     createTeamWithLeader,
     createApplication,
     ...overrides.store,
@@ -494,6 +496,69 @@ describe('ApplicationsService.create', () => {
         repositoryConnectionMode: RepositoryConnectionMode.NEW,
         repositoryUrl: null,
       }),
+    );
+  });
+  it('이미 팀에 속해 있으면 새 팀을 만들지 않고 그 팀으로 신청한다', async () => {
+    // Given — /teams 에서 팀을 먼저 만든 학생.
+    const { service, createApplication, createTeamWithLeader } = buildService({
+      store: {
+        findExistingTeamMembership: jest
+          .fn()
+          .mockResolvedValue({ id: 'existing-team', name: '먼저 만든 팀' }),
+        countTeamMembers: jest.fn().mockResolvedValue(1),
+      },
+    });
+
+    // When
+    await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
+
+    // Then — 새 팀을 만들지 않는다. 만들면 TeamMember unique 에 걸려
+    // 학생이 영영 신청하지 못한다.
+    expect(createTeamWithLeader).not.toHaveBeenCalled();
+    expect(createApplication).toHaveBeenCalledWith(
+      expect.objectContaining({ teamId: 'existing-team' }),
+    );
+  });
+
+  it('재사용할 팀이 최소 인원에 못 미치면 실제 인원으로 거절한다', async () => {
+    // Given — 최소 2인 프로그램에 1인 팀만 가진 학생.
+    const { service } = buildService({
+      store: {
+        findTeamMinSize: jest.fn().mockResolvedValue(2),
+        findExistingTeamMembership: jest
+          .fn()
+          .mockResolvedValue({ id: 'existing-team', name: '먼저 만든 팀' }),
+        countTeamMembers: jest.fn().mockResolvedValue(1),
+      },
+    });
+
+    // When / Then
+    await expect(
+      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
+    ).rejects.toMatchObject({
+      errorCode: { code: ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET },
+      extensions: { memberCount: 1, teamMinSize: 2 },
+    });
+  });
+
+  it('재사용할 팀이 최소 인원을 채웠으면 신청을 허용한다', async () => {
+    // Given — 초대로 2인이 된 팀.
+    const { service, createApplication } = buildService({
+      store: {
+        findTeamMinSize: jest.fn().mockResolvedValue(2),
+        findExistingTeamMembership: jest
+          .fn()
+          .mockResolvedValue({ id: 'existing-team', name: '2인 팀' }),
+        countTeamMembers: jest.fn().mockResolvedValue(2),
+      },
+    });
+
+    // When
+    await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
+
+    // Then
+    expect(createApplication).toHaveBeenCalledWith(
+      expect.objectContaining({ teamId: 'existing-team' }),
     );
   });
 });
