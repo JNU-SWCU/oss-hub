@@ -283,9 +283,9 @@ sudo -u jenkins bash scripts/check-host-nginx-drift.sh
 
 ## M10. 팀 모델 통일 마이그레이션 전 OutboxEvent drain
 
-D5 백필(`Application.teamId` non-nullable + 기존 null 행 1인 팀 부여)을 적용하기 전에, 미처리 repository provision outbox가 0건인지 확인한다.
-백필 이전에 기록된 PENDING 이벤트의 payload `teamId`는 null이다.
-워커는 레거시 null payload를 허용하지만, drain 없이 백필하면 배포 창 동안 프로비저닝 큐 상태가 불명확해지므로 선행 drain을 강제한다.
+D5 마이그레이션(`Application.teamId` non-nullable)을 적용하기 전에, 미처리 repository provision outbox가 0건인지 확인한다.
+스키마 변경 창에서 프로비저닝 큐가 진행 중이면 큐 상태가 불명확해지므로 선행 drain을 강제한다.
+워커는 payload `teamId`가 null인 레거시 이벤트도 허용하지만(`repository-provision.worker.ts`), 그것에 기대지 않는다.
 
 ```sh
 # backend 컨테이너 또는 DATABASE_URL이 설정된 셸에서 실행
@@ -300,57 +300,35 @@ docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T postgres \
 ```
 
 - 예상 출력: 행이 없거나 각 `n`이 0.
-- 검증: `PENDING`/`PROCESSING` 합이 0일 때만 D5 마이그레이션을 진행한다.
+- 검증: `PENDING`/`PROCESSING` 합이 0일 때만 D5 마이그레이션을 진행한다(M11).
 - 0이 아니면 repository provision worker가 drain할 때까지 기다린 뒤 같은 질의를 다시 실행한다.
-- drain이 멈추면 worker 로그의 `repositories.provision.failed`와 `OutboxEvent`/`RepositoryProvisionJob` 상태를 먼저 보고, 백필을 강행하지 않는다.
+- drain이 멈추면 worker 로그의 `repositories.provision.failed`와 `OutboxEvent`/`RepositoryProvisionJob` 상태를 먼저 보고, 마이그레이션을 강행하지 않는다.
 
-### M11. 팀 모델 통일(D5) 마이그레이션 실행 절차 — **파이프라인 자동 배포로는 끝나지 않는다**
+### M11. 팀 모델 통일(D5) 마이그레이션 — 단일 패스
 
-`Application.teamId`를 NOT NULL로 만드는 릴리스는 마이그레이션이 3단으로 나뉘어 있고 **가운데 단계가 Node 스크립트**다. 순수 SQL로 못 만드는 이유는 `Team.joinCodeDigest`가 `HMAC-SHA256(joinCode, TEAM_JOIN_CODE_SECRET)`이고 그 시크릿이 런타임 env이기 때문이다. 임의값을 넣으면 그 팀은 참여코드 합류가 영구 불가가 된다.
+`Application.teamId`를 NOT NULL로 만드는 릴리스는 **마이그레이션 하나로 끝난다.** `prisma migrate deploy` 한 번이면 되고 별도 절차가 없다.
 
-| 단계 | 이름 | 성격 |
-| --- | --- | --- |
-| 1 | `20260804200000_application_require_team_structure` | SQL — 인덱스 교체·FK 재정의. `teamId`는 아직 nullable |
-| 2 | `db:backfill:application-teams:prod` | **Node 스크립트** — 1인 팀 생성 + 실제 digest 발급 |
-| 3 | `20260804201000_application_require_team_not_null` | SQL — 잔여 NULL 0 확인 후 `SET NOT NULL` |
+예전 계획은 구조 변경 → Node 백필 → `SET NOT NULL` 3단이었다. `Team.joinCodeDigest`가 `HMAC-SHA256(joinCode, TEAM_JOIN_CODE_SECRET)`이라 SQL에서 만들 수 없어, 기존 `teamId IS NULL` 신청에 팀을 붙이려면 애플리케이션 코드가 필요했기 때문이다. **이 릴리스는 스키마를 새로 만들고 배포하므로 살릴 레거시 행이 없다.** 백필 스크립트는 제거했다.
 
-파이프라인은 `npx prisma migrate deploy`를 **한 번만** 돌리므로(`Jenkinsfile`, `scripts/check-jenkinsfile.sh`가 정확히 1회를 강제) 2단을 건너뛰고 3단까지 시도한다. 3단은 fail-closed라 안전하게 멈추지만, `_prisma_migrations`에 failed로 기록돼 **이후 배포가 거부된다.**
+마이그레이션에는 fail-closed 가드가 남아 있다. `teamId IS NULL`인 행이 하나라도 있으면 다음과 같이 멈춘다.
 
-그러므로 이 릴리스는 **배포 전에 1·2단을 수동으로 끝내 두고** 파이프라인이 3단만 적용하게 한다.
-
-```bash
-# 0) M10의 outbox drain 확인이 끝난 뒤에 시작한다.
-
-# 1) 1단만 적용 — 2·3단은 아직 파일이 없거나 적용하지 않는다.
-docker run --rm --network "${COMPOSE_PROJECT_NAME}_default" \
-  --env-file "$OSS_HUB_ENV_FILE" "oss-hub-backend:${IMAGE_TAG}" \
-  npx prisma migrate resolve --applied 20260804200000_application_require_team_structure
-
-# 2) 백필 — 운영 이미지에는 ts-node가 없으므로 컴파일된 dist 산출물을 쓴다.
-docker run --rm --network "${COMPOSE_PROJECT_NAME}_default" \
-  --env-file "$OSS_HUB_ENV_FILE" "oss-hub-backend:${IMAGE_TAG}" \
-  npm run db:backfill:application-teams:prod
-
-# 3) 잔여 NULL이 0인지 직접 확인한 뒤에 파이프라인 배포를 트리거한다.
-docker compose -p "$COMPOSE_PROJECT_NAME" exec -T postgres \
-  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
-  'SELECT count(*) AS remaining FROM "Application" WHERE "teamId" IS NULL;'
+```
+Application.teamId NOT NULL blocked: N legacy application row(s) have teamId NULL
+HINT: This release assumes a schema created from scratch. Recreate the database ... and redeploy.
 ```
 
-- 백필은 **멱등**하다 — 행 단위 트랜잭션이고 이미 팀이 붙은 행은 건너뛴다. 중간에 죽어도 그대로 다시 돌리면 된다.
-- `JOIN_CODE_RETRIES_EXHAUSTED`로 멈추면 digest 충돌이 5회 연속 난 것이다. 그대로 재실행한다.
-- `MEMBERSHIP_CONFLICT`로 멈추면 같은 프로그램에 이미 다른 팀 멤버십이 있는 신청자가 있다는 뜻이다. **강행하지 말고** 해당 행을 먼저 확인한다.
-- 3단이 `remaining > 0`으로 실패했다면 백필이 덜 끝난 것이다. 다시 돌리고 재배포한다.
-
-**이미 3단이 failed로 기록된 경우**의 복구:
+이 예외를 보면 **데이터가 있는 DB에 잘못 적용한 것**이다. 조용히 깨진 게 아니라 아무것도 바꾸지 않고 멈춘 상태이므로, 데이터베이스를 새로 만들고 다시 배포한다.
 
 ```bash
+# 실패한 마이그레이션 기록을 되돌린다 — 안 하면 이후 배포가 거부된다.
 docker run --rm --network "${COMPOSE_PROJECT_NAME}_default" \
   --env-file "$OSS_HUB_ENV_FILE" "oss-hub-backend:${IMAGE_TAG}" \
-  npx prisma migrate resolve --rolled-back 20260804201000_application_require_team_not_null
+  npx prisma migrate resolve --rolled-back 20260804200000_application_require_team
 ```
 
-되돌린 뒤 위 2단부터 다시 한다. 3단은 `SET NOT NULL` 하나뿐이라 부분 적용 상태가 남지 않는다.
+마이그레이션 전체가 하나의 `BEGIN`/`COMMIT` 안이라 부분 적용 상태가 남지 않는다.
+
+M10의 outbox drain 확인은 그대로 유효하다 — 백필 이전 이벤트의 `teamId`가 null이라는 이유는 사라졌지만, 스키마 변경 전에 진행 중인 프로비저닝을 비워 두는 것은 여전히 안전한 습관이다.
 
 ## 8. Notion에 기록할 접근 정보 체크리스트 (aside 위임)
 

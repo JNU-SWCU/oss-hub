@@ -20,7 +20,7 @@ import type { CreatedTeamView, ProgramTeamView } from './program-teams.types';
 
 const JOIN_CODE_ATTEMPTS = 5;
 
-export function generateJoinCode(): string {
+function generateJoinCode(): string {
   return randomBytes(6).toString('base64url').toUpperCase().slice(0, 10);
 }
 
