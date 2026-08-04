@@ -47,6 +47,24 @@ export interface PublicTeamRow {
   members: PublicTeamMemberRow[];
 }
 
+/** 마감 카운트다운(#619 sidebar) 계산용 원자재 — 프로그램의 마일스톤 전체(서류 유무 무관). */
+export interface MilestoneSchedule {
+  milestoneId: string;
+  label: string;
+  dueAt: Date;
+}
+
+/**
+ * 마일스톤별 서류 분해(#619 sidebar 중첩 뱃지) 계산용 원자재 — 서류가 없는 마일스톤도
+ * 포함해서 반환한다("서류 0개 마일스톤 제외" 판정은 service가 한다).
+ */
+export interface MilestoneDocumentCatalogEntry {
+  milestoneId: string;
+  milestoneTitle: string;
+  documentIds: string[];
+  requiredDocumentIds: string[];
+}
+
 const CURRENT_MILESTONE_SELECT = {
   id: true,
   documents: {
@@ -159,6 +177,48 @@ export class ProgramOverviewRepository {
     return milestone ? toCurrentSubmissionMilestone(milestone) : null;
   }
 
+  /** 마감 카운트다운 — 프로그램의 마일스톤 전체를 dueAt 오름차순으로 반환한다. */
+  async findMilestoneSchedules(
+    programId: string,
+  ): Promise<MilestoneSchedule[]> {
+    const milestones = await this.prisma.milestone.findMany({
+      where: { programId },
+      orderBy: { dueAt: 'asc' },
+      select: { id: true, name: true, dueAt: true },
+    });
+    return milestones.map((milestone) => ({
+      milestoneId: milestone.id,
+      label: milestone.name,
+      dueAt: milestone.dueAt,
+    }));
+  }
+
+  /** 마일스톤별 서류 분해 — 프로그램의 마일스톤 전체(서류 없는 마일스톤 포함)를 반환한다. */
+  async findMilestoneDocumentCatalog(
+    programId: string,
+  ): Promise<MilestoneDocumentCatalogEntry[]> {
+    const milestones = await this.prisma.milestone.findMany({
+      where: { programId },
+      orderBy: { dueAt: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        documents: {
+          select: { id: true, required: true },
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
+    });
+    return milestones.map((milestone) => ({
+      milestoneId: milestone.id,
+      milestoneTitle: milestone.name,
+      documentIds: milestone.documents.map((document) => document.id),
+      requiredDocumentIds: milestone.documents
+        .filter((document) => document.required)
+        .map((document) => document.id),
+    }));
+  }
+
   /**
    * 학생 뷰어 본인의 신청(Application)을 찾는다: 본인이 신청자인 행을 먼저 찾고
    * (개인형 · 팀 리더가 신청서를 낸 경우), 없으면 소속 팀의 신청으로 대체한다
@@ -205,64 +265,139 @@ export class ProgramOverviewRepository {
     });
   }
 
+  /** 마일스톤별 서류 분해(학생) — applicationId가 제출 완료한 서류 id 집합. */
+  async findSubmittedDocumentIds(
+    applicationId: string,
+    documentIds: string[],
+  ): Promise<Set<string>> {
+    if (documentIds.length === 0) {
+      return new Set();
+    }
+    const rows = await this.prisma.milestoneDocumentSubmission.findMany({
+      where: { applicationId, milestoneDocumentId: { in: documentIds } },
+      select: { milestoneDocumentId: true },
+    });
+    return new Set(rows.map((row) => row.milestoneDocumentId));
+  }
+
   /**
    * "제출 완료" 판정 기준은 필수 서류(required) 전건 제출이다 — 선택 서류는 완료 여부에
    * 영향을 주지 않는다. 반환값은 완료한 신청에 속한 참여 학생 수의 합(팀이면 팀원 수,
    * 개인형이면 1)이다. requiredDocumentIds가 비어 있으면(필수 서류 없음) 모든 신청을
    * 완료로 간주한다(vacuous true).
    *
-   * 쿼리 수는 프로그램의 신청 건수와 무관하게 상수다: 신청 목록 조회 1 + 제출 groupBy 1
+   * 쿼리 수는 프로그램의 신청 건수와 무관하게 상수다: 신청 목록 조회 1 + 제출 조회 1
    * (+ 팀원 수 groupBy 1, 팀형 신청이 있을 때만) = 최대 3.
    */
   async countFullySubmittedParticipants(
     programId: string,
     requiredDocumentIds: string[],
   ): Promise<number> {
+    const result = await this.countFullySubmittedParticipantsForKeys(
+      programId,
+      new Map([['current', requiredDocumentIds]]),
+    );
+    return result.get('current') ?? 0;
+  }
+
+  /**
+   * 마일스톤별 서류 분해(교직원/관리자) — countFullySubmittedParticipants와 같은 "완료"
+   * 정의를 마일스톤 단위로 한 번에 계산한다. 쿼리 수는 마일스톤 수와 무관하게 상수다
+   * (신청 목록 1 + 제출 조회 1 + 팀원 수 groupBy 1 = 최대 3, 마일스톤이 몇 개든 동일).
+   */
+  async countFullySubmittedParticipantsByMilestone(
+    programId: string,
+    milestones: readonly {
+      milestoneId: string;
+      requiredDocumentIds: string[];
+    }[],
+  ): Promise<Map<string, number>> {
+    if (milestones.length === 0) {
+      return new Map();
+    }
+    return this.countFullySubmittedParticipantsForKeys(
+      programId,
+      new Map(milestones.map((m) => [m.milestoneId, m.requiredDocumentIds])),
+    );
+  }
+
+  private async countFullySubmittedParticipantsForKeys(
+    programId: string,
+    requiredDocumentIdsByKey: ReadonlyMap<string, string[]>,
+  ): Promise<Map<string, number>> {
+    const keys = [...requiredDocumentIdsByKey.keys()];
     const applications = await this.prisma.application.findMany({
       where: { programId },
       select: { id: true, teamId: true },
     });
     if (applications.length === 0) {
-      return 0;
-    }
-
-    if (requiredDocumentIds.length === 0) {
-      return this.sumParticipants(programId, applications);
+      return new Map(keys.map((key) => [key, 0]));
     }
 
     const applicationIds = applications.map((application) => application.id);
-    const submissionCounts =
-      await this.prisma.milestoneDocumentSubmission.groupBy({
-        by: ['applicationId'],
-        where: {
-          applicationId: { in: applicationIds },
-          milestoneDocumentId: { in: requiredDocumentIds },
-        },
-        _count: { milestoneDocumentId: true },
-      });
-    const submittedCountByApplication = new Map(
-      submissionCounts.map((row) => [
-        row.applicationId,
-        row._count.milestoneDocumentId,
-      ]),
+    const allRequiredDocumentIds = Array.from(
+      new Set([...requiredDocumentIdsByKey.values()].flat()),
     );
-    const fullySubmitted = applications.filter(
-      (application) =>
-        (submittedCountByApplication.get(application.id) ?? 0) ===
-        requiredDocumentIds.length,
+    const submittedRows =
+      allRequiredDocumentIds.length === 0
+        ? []
+        : await this.prisma.milestoneDocumentSubmission.findMany({
+            where: {
+              applicationId: { in: applicationIds },
+              milestoneDocumentId: { in: allRequiredDocumentIds },
+            },
+            select: { applicationId: true, milestoneDocumentId: true },
+          });
+    const submittedDocumentIdsByApplication = new Map<string, Set<string>>();
+    for (const row of submittedRows) {
+      const set =
+        submittedDocumentIdsByApplication.get(row.applicationId) ??
+        new Set<string>();
+      set.add(row.milestoneDocumentId);
+      submittedDocumentIdsByApplication.set(row.applicationId, set);
+    }
+
+    const memberCountByTeam = await this.loadMemberCountByTeam(
+      programId,
+      applications,
     );
-    return this.sumParticipants(programId, fullySubmitted);
+
+    const result = new Map<string, number>();
+    for (const key of keys) {
+      const requiredDocumentIds = requiredDocumentIdsByKey.get(key) ?? [];
+      const fullySubmitted = applications.filter((application) =>
+        requiredDocumentIds.length === 0
+          ? true
+          : requiredDocumentIds.every((documentId) =>
+              submittedDocumentIdsByApplication
+                .get(application.id)
+                ?.has(documentId),
+            ),
+      );
+      result.set(
+        key,
+        fullySubmitted.reduce(
+          (total, application) =>
+            total +
+            (application.teamId
+              ? (memberCountByTeam.get(application.teamId) ?? 0)
+              : 1),
+          0,
+        ),
+      );
+    }
+    return result;
   }
 
-  private async sumParticipants(
+  private async loadMemberCountByTeam(
     programId: string,
     applications: readonly { id: string; teamId: string | null }[],
-  ): Promise<number> {
+  ): Promise<Map<string, number>> {
     const teamIds = applications
       .map((application) => application.teamId)
       .filter((teamId): teamId is string => teamId !== null);
     if (teamIds.length === 0) {
-      return applications.length;
+      return new Map();
     }
 
     const memberCounts = await this.prisma.teamMember.groupBy({
@@ -270,17 +405,7 @@ export class ProgramOverviewRepository {
       where: { programId, teamId: { in: teamIds } },
       _count: { teamId: true },
     });
-    const memberCountByTeam = new Map(
-      memberCounts.map((row) => [row.teamId, row._count.teamId]),
-    );
-    return applications.reduce(
-      (total, application) =>
-        total +
-        (application.teamId
-          ? (memberCountByTeam.get(application.teamId) ?? 0)
-          : 1),
-      0,
-    );
+    return new Map(memberCounts.map((row) => [row.teamId, row._count.teamId]));
   }
 
   /**
