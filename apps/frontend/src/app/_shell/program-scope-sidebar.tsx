@@ -18,7 +18,7 @@ import type {
 /**
  * 프로그램 상세(`/programs/:id` 하위) 전용 좌측 패널.
  * `AppSidebar`의 마크업·아이콘·current 마커(3px)·카운트 뱃지·접기 토글 규약을
- * 그대로 재사용한다(chrome-tokens §2) — 다만 브랜드 행이 "‹ 프로그램 목록" 백링크 +
+ * 그대로 재사용한다(docs/design.md §업무 화면 내비게이션 › 프로그램 스코프 좌측 패널) — 다만 브랜드 행이 "‹ 프로그램 목록" 백링크 +
  * 프로그램명으로 바뀌고, 마감 카운트다운 블록이 하단(footer 위)에 추가된다.
  * `AppSidebar` 자체는 건드리지 않는다 — 두 컴포넌트는 완전히 별개다(SidebarItem.count는
  * 숫자 전용이라 이 화면의 분수 뱃지("2/6", "12/47팀")를 표현할 수 없다).
@@ -170,7 +170,7 @@ function ScopeSidebarLink({
   // 접두어), `isCurrentSidebarItem`의 범용 prefix fallback을 그대로 쓰면 "프로그램
   // 개요"가 모든 하위 화면에서 함께 강조되는 오탐이 난다. 자식(마일스톤별 서류) 행은
   // 여러 href가 같은 화면(status/mydocs)으로 모이므로 애초에 current 마커를 달지
-  // 않는다(프로토타입 계약 그대로 — chrome-tokens §2-2 B, 학생 자식: "current 마커
+  // 않는다(프로토타입 계약 그대로 — docs/design.md §업무 화면 내비게이션 › 프로그램 스코프 좌측 패널, 학생 자식: "current 마커
   // 없이"). 쿼리 문자열은 비교에서 제외한다(pathname에 애초에 없다).
   const current = depth === 0 && pathname === item.href;
   const showCount = !collapsed && item.count !== undefined;

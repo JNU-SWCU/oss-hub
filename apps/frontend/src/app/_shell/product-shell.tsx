@@ -86,7 +86,7 @@ export function ProductShell({
   const member = status === 'assigned' && role !== null && isProfileComplete;
   const section = shellSectionFromPathname(pathname);
   // `/programs/:id` 하위는 목록 패싯이 아니라 프로그램 스코프 패널로 갈린다
-  // (chrome-tokens §2-1, program-detail.md §0) — section은 여전히 'programs'로
+  // (docs/design.md §업무 화면 내비게이션 › 프로그램 스코프 좌측 패널) — section은 여전히 'programs'로
   // 잡히므로 이 id 하나로 두 렌더 경로를 가른다.
   const programDetailId = programDetailIdFromPathname(pathname);
 
