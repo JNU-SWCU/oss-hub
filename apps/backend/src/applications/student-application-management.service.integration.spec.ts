@@ -13,7 +13,9 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const applicationsRepository = new ApplicationsRepository(prisma);
+const applicationsRepository = new ApplicationsRepository(prisma, {
+  TEAM_JOIN_CODE_SECRET: 'synthetic-student-application-race-secret',
+});
 const now = () => NOW;
 const repository = new StudentApplicationManagementRepository(prisma, now);
 const service = new StudentApplicationManagementService(
@@ -40,11 +42,28 @@ async function seedApplication(): Promise<void> {
       description: 'Synthetic description',
     },
   });
+  await prisma.team.create({
+    data: {
+      id: `${APPLICATION_ID}-team`,
+      programId: PROGRAM_ID,
+      name: 'student-application-race-team',
+      joinCodeDigest: 'student-application-race-team-digest',
+      leaderId: STUDENT_ID,
+    },
+  });
+  await prisma.teamMember.create({
+    data: {
+      teamId: `${APPLICATION_ID}-team`,
+      programId: PROGRAM_ID,
+      userId: STUDENT_ID,
+    },
+  });
   await prisma.application.create({
     data: {
       id: APPLICATION_ID,
       programId: PROGRAM_ID,
       applicantId: STUDENT_ID,
+      teamId: `${APPLICATION_ID}-team`,
       answers: {
         applicantName: 'Synthetic Student',
         title: 'Original title',
@@ -87,6 +106,8 @@ describe('StudentApplicationManagementService integration races', () => {
   afterEach(async () => {
     jest.restoreAllMocks();
     await prisma.application.deleteMany({ where: { programId: PROGRAM_ID } });
+    await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
+    await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
   });
 

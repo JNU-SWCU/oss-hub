@@ -32,7 +32,7 @@
 - 두 guard는 같은 STAFF/ADMIN 권한을 검사하지만 실패 시 노출 문구가 다르다(`APP_004` vs `APP_018`) — 새 엔드포인트를 추가할 때 판정 성격이면 `ApplicationsStaffGuard`, 조회 성격이면 `ApplicationsStaffListGuard`를 쓴다.
 - `decide`는 중복 provision 이벤트의 기존 `eventId`를 조회해 `REPOSITORY_EVENT_ALREADY_EXISTS` `DomainException` extension에 담는다.
 - 이 경로는 성공 응답이 아니며 같은 idempotency key로 새 이벤트를 만들지 않는다.
-- 팀형 프로그램은 `program-template.registry.ts`(`programs/` 모듈)의 `PROGRAM_PARTICIPATION.TEAM` 여부로 `teamId` 필수 여부가 갈린다 — 이 판단은 `programs/` 공개 표면(`getProgramTemplate`)만 참조한다(ADR-003).
+- 신청 생성은 항상 같은 트랜잭션에서 1인 팀(leader=신청자)을 만든다. 선택적 `teamName`이 없으면 신청자 표시명 기본값을 쓴다. `joinCodeDigest`는 `common/join-code-digest` + `program-teams`와 동일 발급 규칙을 applications 계층에서 재현한다(그 함수는 비export).
 
 ## Dependencies
 

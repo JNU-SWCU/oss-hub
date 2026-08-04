@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   AccountStatus,
   ApplicationStatus,
@@ -15,12 +16,18 @@ import type {
   Prisma as PrismaTypes,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
+import {
+  computeJoinCodeDigest,
+  resolveJoinCodeSecretFromConfig,
+} from '../common/join-code-digest';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   compatibleProfileNameWhere,
   COMPATIBLE_PROFILE_NAME_SELECT,
   resolveCompatibleProfileName,
 } from '../profiles/profile-compatibility';
+import type { RuntimeConfig } from '../runtime-config/runtime-config';
+import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
 import type { ApplicationListQuery } from './application-list-query';
 import type {
   ApplicationDecisionTarget,
@@ -44,7 +51,7 @@ type ApplicationWithProgram = PrismaTypes.ApplicationGetPayload<{
 
 type ApplicationDatabase = Pick<
   PrismaTypes.TransactionClient,
-  'user' | 'program' | 'team' | 'application' | '$queryRaw'
+  'user' | 'program' | 'team' | 'teamMember' | 'application' | '$queryRaw'
 >;
 
 type LockedProgramRow = Readonly<{ lifecycle: ProgramLifecycle }>;
@@ -84,19 +91,22 @@ export interface ApplyProgramRecord {
   readonly applicationEndAt: Date;
 }
 
-export interface ApplyTeamRecord {
-  readonly id: string;
+export interface CreateTeamForApplicationInput {
   readonly programId: string;
+  readonly name: string;
+  readonly joinCodeDigest: string;
   readonly leaderId: string;
-  readonly isMember: boolean;
-  readonly memberCount: number;
-  readonly teamMinSize: number | null;
+}
+
+export interface CreatedTeamForApplication {
+  readonly id: string;
+  readonly name: string;
 }
 
 export interface CreateApplicationRecordInput {
   readonly programId: string;
   readonly applicantId: string;
-  readonly teamId: string | null;
+  readonly teamId: string;
   readonly answers: Prisma.InputJsonValue;
   readonly applicationTemplateVersion: number;
   readonly isRepositoryPublicationPlanned: boolean;
@@ -108,7 +118,7 @@ export interface CreatedApplication {
   readonly id: string;
   readonly programId: string;
   readonly status: ApplicationStatus;
-  readonly teamId: string | null;
+  readonly teamId: string;
   readonly submittedAt: Date;
   readonly isRepositoryPublicationPlanned: boolean;
   readonly repositoryConnectionMode: RepositoryConnectionMode;
@@ -194,18 +204,20 @@ export interface StaffDashboardSummary {
   readonly programs: readonly StaffDashboardProgramSummary[];
 }
 
+export class ApplicationTeamMembershipConflictError extends Error {
+  override readonly name = 'ApplicationTeamMembershipConflictError';
+}
+
+export class ApplicationJoinCodeDigestConflictError extends Error {
+  override readonly name = 'ApplicationJoinCodeDigestConflictError';
+}
+
 export interface ApplicationCreateStore {
   lockProgramForApply(programId: string): Promise<ProgramLifecycle | null>;
-  findTeamForApply(
-    teamId: string,
-    programId: string,
-    userId: string,
-  ): Promise<ApplyTeamRecord | null>;
-  findPersonalDuplicate(
-    programId: string,
-    applicantId: string,
-  ): Promise<boolean>;
-  findTeamDuplicate(programId: string, teamId: string): Promise<boolean>;
+  findTeamMinSize(programId: string): Promise<number | null>;
+  createTeamWithLeader(
+    input: CreateTeamForApplicationInput,
+  ): Promise<CreatedTeamForApplication>;
   createApplication(
     input: CreateApplicationRecordInput,
   ): Promise<CreatedApplication>;
@@ -299,54 +311,53 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
     return rows[0]?.lifecycle ?? null;
   }
 
-  async findTeamForApply(
-    teamId: string,
-    programId: string,
-    userId: string,
-  ): Promise<ApplyTeamRecord | null> {
-    const team = await this.database.team.findFirst({
-      where: { id: teamId, programId },
-      select: {
-        id: true,
-        programId: true,
-        leaderId: true,
-        program: { select: { teamMinSize: true } },
-        _count: { select: { members: true } },
-        members: {
-          where: { userId },
-          select: { id: true },
-          take: 1,
+  async findTeamMinSize(programId: string): Promise<number | null> {
+    const program = await this.database.program.findUnique({
+      where: { id: programId },
+      select: { teamMinSize: true },
+    });
+    return program?.teamMinSize ?? null;
+  }
+
+  async createTeamWithLeader(
+    input: CreateTeamForApplicationInput,
+  ): Promise<CreatedTeamForApplication> {
+    try {
+      const team = await this.database.team.create({
+        data: {
+          programId: input.programId,
+          name: input.name,
+          joinCodeDigest: input.joinCodeDigest,
+          leaderId: input.leaderId,
         },
-      },
-    });
-    if (!team) return null;
-    return {
-      id: team.id,
-      programId: team.programId,
-      leaderId: team.leaderId,
-      isMember: team.leaderId === userId || team.members.length > 0,
-      memberCount: team._count.members,
-      teamMinSize: team.program.teamMinSize,
-    };
-  }
-
-  async findPersonalDuplicate(
-    programId: string,
-    applicantId: string,
-  ): Promise<boolean> {
-    const existing = await this.database.application.findFirst({
-      where: { programId, applicantId, teamId: null },
-      select: { id: true },
-    });
-    return existing !== null;
-  }
-
-  async findTeamDuplicate(programId: string, teamId: string): Promise<boolean> {
-    const existing = await this.database.application.findFirst({
-      where: { programId, teamId },
-      select: { id: true },
-    });
-    return existing !== null;
+        select: { id: true, name: true },
+      });
+      await this.database.teamMember.create({
+        data: {
+          teamId: team.id,
+          programId: input.programId,
+          userId: input.leaderId,
+        },
+      });
+      return team;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const target = error.meta?.target;
+        const fields = Array.isArray(target)
+          ? target.map(String)
+          : typeof target === 'string'
+            ? [target]
+            : [];
+        if (fields.some((field) => field.includes('joinCodeDigest'))) {
+          throw new ApplicationJoinCodeDigestConflictError();
+        }
+        throw new ApplicationTeamMembershipConflictError();
+      }
+      throw error;
+    }
   }
 
   async createApplication(
@@ -390,7 +401,24 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
 
 @Injectable()
 export class ApplicationsRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly joinCodeSecret: string;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(RUNTIME_CONFIG)
+    runtimeConfig: Pick<RuntimeConfig, 'TEAM_JOIN_CODE_SECRET'>,
+  ) {
+    this.joinCodeSecret = resolveJoinCodeSecretFromConfig(runtimeConfig);
+  }
+
+  /** program-teams.service.ts generateJoinCode 와 동일 규칙. 그 함수는 비export. */
+  generateJoinCode(): string {
+    return randomBytes(6).toString('base64url').toUpperCase().slice(0, 10);
+  }
+
+  computeJoinCodeDigest(joinCode: string): string {
+    return computeJoinCodeDigest(joinCode, this.joinCodeSecret);
+  }
 
   async withTransaction<T>(
     operation: (store: ApplicationsTransactionStore) => Promise<T>,
@@ -640,12 +668,10 @@ function buildApplicationListWhere(
   programId: string,
   query: ApplicationListQuery,
 ): Prisma.ApplicationWhereInput {
-  const modeWhere: Prisma.ApplicationWhereInput =
-    query.mode === 'personal'
-      ? { teamId: null }
-      : query.mode === 'team'
-        ? { teamId: { not: null } }
-        : {};
+  // 참여 유형(개인형/팀형) 필터는 D6로 폐지됐다 — 모든 신청이 Team을 갖고 개인 참여는
+  // 1인 팀이라 teamId로는 더 이상 구분되지 않는다. 조용히 0건을 반환하는 필터를
+  // 남기지 않으려고 여기서 무시한다. 쿼리 파라미터 자체의 제거는 표시 계층 골에서 한다.
+  const modeWhere: Prisma.ApplicationWhereInput = {};
 
   const statusWhere: Prisma.ApplicationWhereInput =
     query.status === 'all' ? {} : { status: query.status };
@@ -733,7 +759,7 @@ function toApplicationListItem(
   job: ApplicationListProvisionJob | undefined,
 ): ApplicationListItem {
   const team =
-    row.teamId !== null && row.team !== null
+    row.team !== null
       ? {
           id: row.team.id,
           name: row.team.name,

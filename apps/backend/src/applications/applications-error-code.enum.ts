@@ -12,8 +12,6 @@ export enum ApplicationsErrorCode {
   PROGRAM_NOT_FOUND = 'APP_009',
   APPLICATION_PERIOD_CLOSED = 'APP_010',
   DUPLICATE_APPLICATION = 'APP_011',
-  TEAM_REQUIRED = 'APP_012',
-  TEAM_NOT_ALLOWED = 'APP_013',
   TEAM_MEMBERSHIP_REQUIRED = 'APP_014',
   INVALID_ANSWERS = 'APP_015',
   TEMPLATE_VERSION_MISMATCH = 'APP_016',
@@ -83,16 +81,6 @@ export const APPLICATIONS_ERROR_CODES: Record<
     code: ApplicationsErrorCode.DUPLICATE_APPLICATION,
     status: 409,
     message: '이미 제출한 신청이 있습니다.',
-  },
-  [ApplicationsErrorCode.TEAM_REQUIRED]: {
-    code: ApplicationsErrorCode.TEAM_REQUIRED,
-    status: 400,
-    message: '팀형 프로그램은 팀 구성 후 신청할 수 있습니다.',
-  },
-  [ApplicationsErrorCode.TEAM_NOT_ALLOWED]: {
-    code: ApplicationsErrorCode.TEAM_NOT_ALLOWED,
-    status: 400,
-    message: '개인형 프로그램에는 팀을 지정할 수 없습니다.',
   },
   [ApplicationsErrorCode.TEAM_MEMBERSHIP_REQUIRED]: {
     code: ApplicationsErrorCode.TEAM_MEMBERSHIP_REQUIRED,

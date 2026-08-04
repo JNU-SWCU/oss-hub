@@ -23,7 +23,9 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const repository = new ApplicationsRepository(prisma);
+const repository = new ApplicationsRepository(prisma, {
+  TEAM_JOIN_CODE_SECRET: 'synthetic-applications-integration-secret',
+});
 const service = new ApplicationsService(
   repository,
   new AuditLogService(new AuditLogRepository(prisma)),
@@ -55,6 +57,7 @@ async function createApplication(
   repositoryProvisioningEnabled: boolean,
 ): Promise<void> {
   const programId = `${applicationId}-program`;
+  const teamId = `${applicationId}-team`;
   await prisma.program.create({
     data: {
       id: programId,
@@ -69,12 +72,28 @@ async function createApplication(
       repositoryProvisioningEnabled,
     },
   });
+  await prisma.team.create({
+    data: {
+      id: teamId,
+      programId,
+      name: `team-${applicationId}`,
+      joinCodeDigest: `digest-${applicationId}`,
+      leaderId: APPLICANT_ID,
+    },
+  });
+  await prisma.teamMember.create({
+    data: {
+      teamId,
+      programId,
+      userId: APPLICANT_ID,
+    },
+  });
   await prisma.application.create({
     data: {
       id: applicationId,
       programId,
       applicantId: APPLICANT_ID,
-      teamId: null,
+      teamId,
       answers: { synthetic: true },
       applicationTemplateVersion: 1,
     },
@@ -115,10 +134,30 @@ describe('ApplicationsService integration', () => {
       },
     });
     await prisma.teamMember.deleteMany({
-      where: { teamId: { in: [TEAM_ID, CREATE_TEAM_ID] } },
+      where: {
+        OR: [
+          { teamId: { in: [TEAM_ID, CREATE_TEAM_ID] } },
+          {
+            teamId: {
+              in: APPLICATION_IDS.map((id) => `${id}-team`),
+            },
+          },
+          { programId: CREATE_PROGRAM_ID },
+        ],
+      },
     });
     await prisma.team.deleteMany({
-      where: { id: { in: [TEAM_ID, CREATE_TEAM_ID] } },
+      where: {
+        OR: [
+          { id: { in: [TEAM_ID, CREATE_TEAM_ID] } },
+          {
+            id: {
+              in: APPLICATION_IDS.map((id) => `${id}-team`),
+            },
+          },
+          { programId: CREATE_PROGRAM_ID },
+        ],
+      },
     });
     await prisma.program.deleteMany({
       where: {
@@ -139,7 +178,7 @@ describe('ApplicationsService integration', () => {
     await prisma.$disconnect();
   });
 
-  it('프로그램 최소 인원이 동시에 증가하면 최신 값으로 팀 신청을 거절한다', async () => {
+  it('프로그램 최소 인원이 1보다 크면 1인 팀 자동 생성 신청을 거절한다', async () => {
     // Given
     await prisma.program.create({
       data: {
@@ -156,38 +195,6 @@ describe('ApplicationsService integration', () => {
         teamMaxSize: 4,
       },
     });
-    await prisma.team.create({
-      data: {
-        id: CREATE_TEAM_ID,
-        programId: CREATE_PROGRAM_ID,
-        name: 'synthetic-create-team',
-        joinCodeDigest: 'synthetic-create-team-code-digest',
-        leaderId: APPLICANT_ID,
-        members: {
-          create: [{ userId: APPLICANT_ID }, { userId: ACTOR_ID }],
-        },
-      },
-    });
-    let releaseProgramUpdate: (() => void) | undefined;
-    const programUpdateReleased = new Promise<void>((resolve) => {
-      releaseProgramUpdate = resolve;
-    });
-    let markProgramLocked: (() => void) | undefined;
-    const programLocked = new Promise<void>((resolve) => {
-      markProgramLocked = resolve;
-    });
-    const programUpdate = prisma.$transaction(async (transaction) => {
-      await transaction.$queryRaw`
-        SELECT id FROM "Program" WHERE id = ${CREATE_PROGRAM_ID} FOR UPDATE
-      `;
-      markProgramLocked?.();
-      await programUpdateReleased;
-      await transaction.program.update({
-        where: { id: CREATE_PROGRAM_ID },
-        data: { teamMinSize: 3 },
-      });
-    });
-    await programLocked;
 
     // When
     const application = service.create(
@@ -195,7 +202,7 @@ describe('ApplicationsService integration', () => {
       CREATE_PROGRAM_ID,
       {
         answers: { title: '팀 제목', summary: '팀 요약' },
-        teamId: CREATE_TEAM_ID,
+        teamName: null,
         applicationTemplateVersion: 1,
         isRepositoryPublicationPlanned: true,
         repositoryConnectionMode: RepositoryConnectionMode.NEW,
@@ -203,9 +210,6 @@ describe('ApplicationsService integration', () => {
       },
       new Date('2026-07-15T00:00:00.000Z'),
     );
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    releaseProgramUpdate?.();
-    await programUpdate;
 
     // Then
     await expect(application).rejects.toMatchObject({
@@ -213,13 +217,16 @@ describe('ApplicationsService integration', () => {
         code: ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET,
         status: 422,
       },
-      extensions: { memberCount: 2, teamMinSize: 3 },
+      extensions: { memberCount: 1, teamMinSize: 2 },
     });
     await expect(
       prisma.application.count({ where: { programId: CREATE_PROGRAM_ID } }),
     ).resolves.toBe(0);
+    await expect(
+      prisma.team.count({ where: { programId: CREATE_PROGRAM_ID } }),
+    ).resolves.toBe(0);
   });
-  it('nullable teamId 신청을 승인하면 같은 트랜잭션에 outbox를 남긴다', async () => {
+  it('신청을 승인하면 같은 트랜잭션에 outbox를 남긴다', async () => {
     // Given
     const applicationId = APPLICATION_IDS[0];
     await createApplication(applicationId, true);
@@ -257,7 +264,7 @@ describe('ApplicationsService integration', () => {
     expect(event.payload).toMatchObject({
       applicationId,
       programId: `${applicationId}-program`,
-      teamId: null,
+      teamId: `${applicationId}-team`,
       requestedAt: application.processedAt?.toISOString(),
       collaboratorGithubLogins: ['synthetic-applicant'],
     });
@@ -304,26 +311,18 @@ describe('ApplicationsService integration', () => {
     ).resolves.toBe(0);
   });
 
-  it('팀형 승인은 팀장과 팀원을 정규화한 snapshot으로 고정한다', async () => {
+  it('팀 승인은 팀장과 팀원을 정규화한 snapshot으로 고정한다', async () => {
     // Given
     const applicationId = APPLICATION_IDS[0];
     const programId = `${applicationId}-program`;
+    const teamId = `${applicationId}-team`;
     await createApplication(applicationId, true);
-    await prisma.team.create({
+    await prisma.teamMember.create({
       data: {
-        id: TEAM_ID,
+        teamId,
         programId,
-        name: 'synthetic-team',
-        joinCodeDigest: 'synthetic-team-code-digest',
-        leaderId: APPLICANT_ID,
-        members: {
-          create: [{ userId: APPLICANT_ID }, { userId: ACTOR_ID }],
-        },
+        userId: ACTOR_ID,
       },
-    });
-    await prisma.application.update({
-      where: { id: applicationId },
-      data: { teamId: TEAM_ID },
     });
 
     // When
@@ -336,7 +335,7 @@ describe('ApplicationsService integration', () => {
       where: { idempotencyKey: `repository-provision:${applicationId}` },
     });
     expect(event.payload).toMatchObject({
-      teamId: TEAM_ID,
+      teamId,
       collaboratorGithubLogins: ['synthetic-applicant', 'synthetic-staff'],
     });
   });

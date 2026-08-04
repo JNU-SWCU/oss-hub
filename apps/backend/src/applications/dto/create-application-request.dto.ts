@@ -8,8 +8,8 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  MaxLength,
   Validate,
-  ValidateIf,
 } from 'class-validator';
 import type { CreateApplicationInput } from '../domain/create-application';
 import { RepositoryUrlByConnectionModeConstraint } from '../validation/repository-url-by-connection-mode.validator';
@@ -19,10 +19,11 @@ export class CreateApplicationRequestDto {
   @IsObject()
   declare readonly answers: Readonly<Record<string, unknown>>;
 
-  /** 개인형은 null, 팀형은 team id. undefined는 null로 정규화한다. */
-  @ValidateIf((_, value) => value !== null && value !== undefined)
+  /** 선택. 미입력·공백이면 신청자 표시명 기반 기본 팀 이름을 쓴다. Team.name MaxLength(100). */
+  @IsOptional()
   @IsString()
-  declare readonly teamId: string | null;
+  @MaxLength(100)
+  declare readonly teamName?: string | null;
 
   @Type(() => Number)
   @IsInt()
@@ -55,10 +56,14 @@ export class CreateApplicationRequestDto {
       repositoryConnectionMode === RepositoryConnectionMode.OWN
         ? (this.repositoryUrl ?? null)
         : null;
+    const trimmedTeamName = this.teamName?.trim();
 
     return {
       answers: this.answers,
-      teamId: this.teamId ?? null,
+      teamName:
+        trimmedTeamName !== undefined && trimmedTeamName.length > 0
+          ? trimmedTeamName
+          : null,
       applicationTemplateVersion: this.applicationTemplateVersion,
       isRepositoryPublicationPlanned:
         this.isRepositoryPublicationPlanned ?? true,
