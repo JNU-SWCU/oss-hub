@@ -15,6 +15,11 @@ import {
 import { RANKING_YEAR_ALL, rankingListHref } from '@/features/ranking/types';
 import type { AppRole } from './role';
 import { ADMIN_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
+import {
+  facetSectionFromHrefPath,
+  SECTION_FACETS,
+  type SectionFacetData,
+} from './section-facets';
 import type { ShellIconName } from './shell-icons';
 
 /**
@@ -204,6 +209,7 @@ export function shellSectionFromPathname(pathname: string): ShellSection {
 /**
  * 현재 섹션 하나의 그룹만 반환 (컨텍스트형).
  * 비회원도 programs/archive/ranking 하위는 본다.
+ * programs/archive/ranking 은 SECTION_FACETS 레지스트리; dashboard 는 역할 메뉴.
  */
 export function sidebarGroupsFor(
   section: ShellSection,
@@ -215,34 +221,33 @@ export function sidebarGroupsFor(
     readonly rankingCounts?: Partial<Record<'all' | number, number>>;
   },
 ): readonly SidebarGroup[] {
-  switch (section) {
-    case 'programs':
-      return [programSidebarGroup(options?.programCounts)];
-    case 'archive':
-      return [archiveSidebarGroup(options?.archiveCounts)];
-    case 'ranking':
-      return [
-        rankingSidebarGroup(
-          options?.rankingYears ?? [],
-          options?.rankingCounts,
-        ),
-      ];
-    case 'dashboard':
-      if (role === null) return [];
-      return [
-        {
-          label: ROLE_GROUP_LABEL[role],
-          items: withIcons(ROLE_MENU[role], 0),
-        },
-      ];
-    case null:
-      return [];
+  if (section === 'dashboard') {
+    if (role === null) return [];
+    return [
+      {
+        label: ROLE_GROUP_LABEL[role],
+        items: withIcons(ROLE_MENU[role], 0),
+      },
+    ];
   }
+  if (section === null) return [];
+
+  const spec = SECTION_FACETS[section];
+  if (!spec) return [];
+
+  const data: SectionFacetData | undefined = {
+    programCounts: options?.programCounts,
+    archiveCounts: options?.archiveCounts,
+    rankingYears: options?.rankingYears,
+    rankingCounts: options?.rankingCounts,
+  };
+  return [{ label: spec.groupLabel, items: spec.items(data) }];
 }
 
 /**
  * 현재 메뉴 강조.
- * `/programs?status=` 는 pathname + search. 상세(`/programs/id`)는 필터 비강조.
+ * 패싯 섹션은 `spec.param` 쿼리 피어 비교. 아카이브 상세 예외는 `matchDetail`.
+ * 상세(`/programs/id`)는 필터 비강조(프로그램·랭킹).
  */
 export function isCurrentSidebarItem(
   pathname: string,
@@ -253,39 +258,27 @@ export function isCurrentSidebarItem(
   const hrefPath = qIndex === -1 ? href : href.slice(0, qIndex);
   const hrefQuery = qIndex === -1 ? '' : href.slice(qIndex + 1);
 
-  if (hrefPath === '/programs') {
-    if (pathname !== '/programs') return false;
-    const wantStatus =
-      hrefQuery === ''
-        ? 'all'
-        : (new URLSearchParams(hrefQuery).get('status') ?? 'all');
-    const haveStatus = new URLSearchParams(search).get('status') ?? 'all';
-    return wantStatus === haveStatus;
-  }
+  const facetSection = facetSectionFromHrefPath(hrefPath);
+  if (facetSection !== null) {
+    const spec = SECTION_FACETS[facetSection];
+    if (!spec) return false;
 
-  if (hrefPath === '/archive') {
-    if (pathname !== '/archive' && !pathname.startsWith('/archive/')) {
+    if (spec.matchDetail) {
+      const detail = spec.matchDetail(pathname, href, hrefQuery);
+      if (detail !== null) return detail;
+    } else if (pathname !== hrefPath) {
       return false;
     }
-    if (pathname !== '/archive') {
-      // 상세는 "전체"에만 걸지 않음
-      return hrefQuery !== '' && pathname.startsWith('/archive/');
-    }
-    const want =
-      hrefQuery === ''
-        ? 'all'
-        : (new URLSearchParams(hrefQuery).get('category') ?? 'all');
-    const have = new URLSearchParams(search).get('category') ?? 'all';
-    return want === have || (want === 'all' && !search.includes('category='));
-  }
 
-  if (hrefPath === '/ranking') {
-    if (pathname !== '/ranking') return false;
     const want =
       hrefQuery === ''
         ? 'all'
-        : (new URLSearchParams(hrefQuery).get('year') ?? 'all');
-    const have = new URLSearchParams(search).get('year') ?? 'all';
+        : (new URLSearchParams(hrefQuery).get(spec.param) ?? 'all');
+    const have = new URLSearchParams(search).get(spec.param) ?? 'all';
+    // 아카이브 목록: category 키 부재를 all 과 동일 취급 (기존 계약)
+    if (facetSection === 'archive') {
+      return want === have || (want === 'all' && !search.includes('category='));
+    }
     return want === have;
   }
 
