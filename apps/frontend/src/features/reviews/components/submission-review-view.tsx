@@ -163,6 +163,25 @@ function ReviewForm(props: SubmissionReviewViewProps) {
   );
 }
 
+/**
+ * 이력이 비어 있는 것과 실제로 첫 제출인 것은 다르다. 회차 값이 근거이고,
+ * 이력 유무는 근거가 아니다. 2회차 이상인데 이력이 비면 조회가 실패했거나
+ * 잘린 것이므로 최초 제출로 안내하면 교직원이 재제출본을 오인한다.
+ */
+function EmptyHistoryNotice({
+  currentNumber,
+}: {
+  readonly currentNumber: number;
+}) {
+  return (
+    <p className="rounded-card border border-border p-card text-small text-muted-foreground [word-break:keep-all]">
+      {currentNumber > 1
+        ? `지금 화면의 제출본은 ${currentNumber}번째라 이전 제출본이 있어야 하지만, 이력을 불러오지 못했습니다. 최초 제출로 보지 말고 화면을 새로고침한 뒤, 그래도 비어 있으면 담당자에게 알려 주세요.`
+        : '이전 제출본이 없습니다. 지금 화면의 제출본이 최초 제출입니다.'}
+    </p>
+  );
+}
+
 export function SubmissionReviewView(props: SubmissionReviewViewProps) {
   const reviewContext = props.context;
   return (
@@ -192,14 +211,14 @@ export function SubmissionReviewView(props: SubmissionReviewViewProps) {
           >
             이전 제출본과 판정 이력
           </h2>
-          {reviewContext.history.length === 0 ? (
-            <p className="rounded-card border border-border p-card text-small text-muted-foreground">
-              이전 제출본이 없습니다. 지금 화면의 제출본이 최초 제출입니다.
-            </p>
-          ) : (
+          {reviewContext.history.length > 0 ? (
             reviewContext.history.map((revision) => (
               <RevisionCard key={revision.number} revision={revision} />
             ))
+          ) : (
+            <EmptyHistoryNotice
+              currentNumber={reviewContext.currentRevision.number}
+            />
           )}
         </section>
         <RepositoryPublishCard

@@ -120,7 +120,7 @@ describe('getSubmissionFileErrorMessage', () => {
   it.each([
     [
       'SUB_017',
-      '제출 화면 정보가 만료되었습니다. 프로그램 상세에서 해당 마일스톤의 제출 화면을 다시 열어 주세요.',
+      '제출 요청이 서버에 온전히 전달되지 않았습니다. 파일을 다시 선택해 제출해 보고, 그래도 안 되면 프로그램 상세에서 해당 마일스톤의 제출 화면을 다시 열어 주세요.',
     ],
     ['SUB_018', 'PDF, HWP, JPG, PNG, ZIP 파일만 제출할 수 있습니다.'],
     ['SUB_019', '파일 크기는 50 MiB를 초과할 수 없습니다.'],
@@ -143,6 +143,19 @@ describe('getSubmissionFileErrorMessage', () => {
 
     expect(message).not.toMatch(/신청 ID|마일스톤 ID/);
     expect(message).not.toMatch(/올바르게 입력/);
+    expect(message).toContain('제출 화면을 다시 열어');
+  });
+
+  // #354 — SUB_017(INVALID_FILE_UPLOAD)의 백엔드 발생 조건은 파일 부분 누락,
+  // 식별자 형식 오류, 회차 값 오류, multipart 한도 초과로 여러 갈래다. 그중
+  // "만료"인 것은 하나도 없으므로 원인을 만료로 단정하면 틀린 안내가 된다.
+  it('SUB_017은 원인을 만료로 단정하지 않고 파일 재선택을 먼저 제시한다', () => {
+    const message = getSubmissionFileErrorMessage('SUB_017') ?? '';
+
+    expect(message).not.toMatch(/만료/);
+    // 파일 부분 누락이 실제 발생 조건이므로 학생이 바로 할 수 있는 행동이다.
+    expect(message).toContain('파일을 다시 선택');
+    // 식별자·회차 오류까지 덮는 두 번째 행동.
     expect(message).toContain('제출 화면을 다시 열어');
   });
 

@@ -29,9 +29,17 @@ export interface SubmissionFormErrors {
 export type SubmissionFileValidation =
   { readonly ok: true } | { readonly ok: false; readonly message: string };
 
+// SUB_017(INVALID_FILE_UPLOAD)은 원인이 하나가 아니다. 백엔드 발생 조건 전부:
+//   - 업로드 요청의 파일 부분이 없거나 읽을 수 없음
+//     (submission-files.service.ts: file === undefined || !Buffer.isBuffer)
+//   - 신청 ID·마일스톤 ID·제출 ID가 빈 문자열이거나 공백이 섞인 형태 (requiredOpaqueId)
+//   - 재제출 회차 값이 양의 정수가 아님 (requiredPositiveInteger)
+//   - multipart 파싱 한도 초과 (submissions.controller.ts: LIMIT_FIELD_* / LIMIT_*_COUNT)
+// 어느 것도 "만료"가 아니고, 서버 응답만으로는 이 중 무엇인지 특정할 수 없다.
+// 그러니 원인을 단정하지 말고 사용자가 실제로 할 수 있는 행동만 제시한다.
 const SUBMISSION_FILE_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   SUB_017:
-    '제출 화면 정보가 만료되었습니다. 프로그램 상세에서 해당 마일스톤의 제출 화면을 다시 열어 주세요.',
+    '제출 요청이 서버에 온전히 전달되지 않았습니다. 파일을 다시 선택해 제출해 보고, 그래도 안 되면 프로그램 상세에서 해당 마일스톤의 제출 화면을 다시 열어 주세요.',
   SUB_018: 'PDF, HWP, JPG, PNG, ZIP 파일만 제출할 수 있습니다.',
   SUB_019: '파일 크기는 50 MiB를 초과할 수 없습니다.',
   SUB_020: '파일 저장소를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',

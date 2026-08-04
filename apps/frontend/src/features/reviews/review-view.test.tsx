@@ -100,14 +100,17 @@ describe('SubmissionReviewView', () => {
   // #354 — 검토 화면은 교직원과 학생이 함께 보는 흐름이라 내부 데이터 용어
   // revision을 그대로 노출하지 않는다. 이력이 없을 때는 그 뜻까지 풀어 준다.
   it('제출본 번호·이력·판정 설명에 내부 용어 revision을 노출하지 않는다', () => {
-    // Given: history가 비어 있어 "이전 제출본 없음" 분기를 함께 지난다.
-    const reviewContext = context({ history: [] });
+    // Given: 1회차 + history 비어 있음 = 진짜 최초 제출 분기를 함께 지난다.
+    const reviewContext = context({
+      currentRevision: { ...context().currentRevision, number: 1 },
+      history: [],
+    });
 
     // When
     const html = render(reviewContext);
 
     // Then
-    expect(html).toContain('제출본 2번');
+    expect(html).toContain('제출본 1번');
     expect(html).toContain('이전 제출본과 판정 이력');
     expect(html).toContain('이전 제출본이 없습니다');
     expect(html).toContain('최초 제출입니다');
@@ -116,6 +119,42 @@ describe('SubmissionReviewView', () => {
     expect(html.replace(/revision-history-title/g, '')).not.toMatch(
       /revision/i,
     );
+  });
+
+  // #354 — 이력이 비어 있는 것과 실제로 첫 제출인 것은 다르다. 이력 조회가
+  // 실패하거나 잘려도 화면은 "최초 제출"로 읽혔고, 교직원이 재제출본을 최초
+  // 제출로 오인하면 판정이 틀어진다. 회차 값 자체가 판정 근거여야 한다.
+  it('회차가 2 이상인데 이력이 비어 있으면 최초 제출이라고 하지 않는다', () => {
+    // Given: 2회차 제출본인데 이전 이력이 비어 있는 조합.
+    const reviewContext = context({
+      currentRevision: { ...context().currentRevision, number: 2 },
+      history: [],
+    });
+
+    // When
+    const html = render(reviewContext);
+
+    // Then
+    expect(html).not.toContain('최초 제출입니다');
+    expect(html).not.toContain('이전 제출본이 없습니다');
+    expect(html).toContain('2번째');
+    expect(html).toContain('이력을 불러오지 못했습니다');
+  });
+
+  it('회차가 1이고 이력이 비어 있을 때만 최초 제출이라고 안내한다', () => {
+    // Given
+    const reviewContext = context({
+      currentRevision: { ...context().currentRevision, number: 1 },
+      history: [],
+    });
+
+    // When
+    const html = render(reviewContext);
+
+    // Then
+    expect(html).toContain('이전 제출본이 없습니다');
+    expect(html).toContain('최초 제출입니다');
+    expect(html).not.toContain('이력을 불러오지 못했습니다');
   });
 
   it('이미 검토한 최신 revision은 판정과 코멘트를 읽기 전용으로 표시한다', () => {
