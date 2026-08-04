@@ -1,3 +1,4 @@
+import { HEADERS_METADATA } from '@nestjs/common/constants';
 import { RANKING_YEAR_ALL } from './domain/ranking';
 import type { RankingQueryRequestDto } from './dto/ranking-query.dto';
 import { RankingController } from './ranking.controller';
@@ -105,5 +106,20 @@ describe('RankingController', () => {
       years: [2026, 2025],
     });
     expect(listYears).toHaveBeenCalledTimes(1);
+  });
+
+  it('GET /ranking/years 는 public short-cache 헤더를 붙인다', () => {
+    const handler: unknown = Object.getOwnPropertyDescriptor(
+      RankingController.prototype,
+      'listYears',
+    )?.value;
+    if (typeof handler !== 'function') {
+      throw new TypeError('RankingController.listYears is missing');
+    }
+
+    expect(Reflect.getMetadata(HEADERS_METADATA, handler)).toContainEqual({
+      name: 'Cache-Control',
+      value: 'public, max-age=60',
+    });
   });
 });
