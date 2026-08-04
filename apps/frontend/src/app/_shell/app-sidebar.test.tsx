@@ -167,9 +167,8 @@ describe('AppSidebar', () => {
       />,
     );
     expect(html).not.toContain('data-slot="app-sidebar-count"');
-    // year digits must not appear as visible metric under icons
-    expect(html).not.toMatch(/>2026</);
-    expect(html).not.toMatch(/>2025</);
+    // labels stay in DOM with `hidden`; no separate metric span under icons
+    expect(html).toContain('truncate hidden">2026</span>');
     expect(html).toContain('aria-label="2026"');
     expect(html).toContain('aria-label="2025"');
   });
