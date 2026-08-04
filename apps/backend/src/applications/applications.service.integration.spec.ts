@@ -123,9 +123,9 @@ describe('ApplicationsService integration', () => {
   });
 
   afterAll(async () => {
-    await prisma.user.deleteMany({
-      where: { id: { in: [ACTOR_ID, APPLICANT_ID] } },
-    });
+    // #547 이후 판정이 `AuditLog` 행을 남긴다. 그 원장은 append-only 트리거로 삭제가
+    // 금지돼 있고 actor를 FK(restrict)로 잡으므로, 여기서 actor를 지우면 정리 자체가
+    // 실패한다. 통합 DB는 run마다 버려지는 컨테이너라 합성 사용자 2명은 그대로 둔다.
     await prisma.$disconnect();
   });
 
@@ -248,6 +248,18 @@ describe('ApplicationsService integration', () => {
       teamId: null,
       requestedAt: application.processedAt?.toISOString(),
       collaboratorGithubLogins: ['synthetic-applicant'],
+    });
+    // #547 — 판정과 같은 트랜잭션에서 typed audit이 실제 원장에 남는다.
+    const auditLog = await prisma.auditLog.findFirstOrThrow({
+      where: { targetType: 'APPLICATION', targetId: applicationId },
+    });
+    expect(auditLog).toMatchObject({
+      actorId: ACTOR_ID,
+      action: 'APPLICATION_APPROVED',
+    });
+    expect(auditLog.metadata).toMatchObject({
+      schemaVersion: 1,
+      after: { status: ApplicationStatus.APPROVED },
     });
   });
 
