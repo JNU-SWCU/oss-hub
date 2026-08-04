@@ -157,6 +157,38 @@ const SEEDED_MODEL_COUNTERS: ReadonlyArray<
         where: { id: { startsWith: 'seed:' } },
       }),
   ],
+  [
+    'MilestoneDocument',
+    () =>
+      prisma.milestoneDocument.count({ where: { id: { startsWith: 'seed:' } } }),
+  ],
+  [
+    'MilestoneDocumentTemplateFile',
+    () =>
+      prisma.milestoneDocumentTemplateFile.count({
+        where: { id: { startsWith: 'seed:' } },
+      }),
+  ],
+  [
+    'MilestoneDocumentSubmission',
+    () =>
+      prisma.milestoneDocumentSubmission.count({
+        where: { id: { startsWith: 'seed:' } },
+      }),
+  ],
+  [
+    'BoardPost',
+    () => prisma.boardPost.count({ where: { id: { startsWith: 'seed:' } } }),
+  ],
+  [
+    'BoardComment',
+    () => prisma.boardComment.count({ where: { id: { startsWith: 'seed:' } } }),
+  ],
+  [
+    'TeamInvitation',
+    () =>
+      prisma.teamInvitation.count({ where: { id: { startsWith: 'seed:' } } }),
+  ],
 ];
 
 async function countAllSeeded(): Promise<Record<string, number>> {
@@ -175,6 +207,8 @@ async function countAllSeeded(): Promise<Record<string, number>> {
  * 간헐 실패한다. FK 자식→부모 순서로 지운다:
  *   Review → SubmissionRevision → Submission
  *   → RepositoryProvisionJob → RepositoryInvitation → OutboxEvent → Repository
+ *   → MilestoneDocumentSubmission → MilestoneDocumentTemplateFile → MilestoneDocument
+ *   → BoardComment → BoardPost → TeamInvitation
  *   → TeamMember → Milestone → Application → Team → Program
  *   → RoleRequest → Consent → UserProfile → User
  *
@@ -255,6 +289,14 @@ async function deleteAllSeeded(): Promise<void> {
   await prisma.repositoryInvitation.deleteMany({ where: seedIdFilter });
   await prisma.outboxEvent.deleteMany({ where: seedIdFilter });
   await prisma.repository.deleteMany({ where: seedIdFilter });
+  await prisma.milestoneDocumentSubmission.deleteMany({ where: seedIdFilter });
+  await prisma.milestoneDocumentTemplateFile.deleteMany({
+    where: seedIdFilter,
+  });
+  await prisma.milestoneDocument.deleteMany({ where: seedIdFilter });
+  await prisma.boardComment.deleteMany({ where: seedIdFilter });
+  await prisma.boardPost.deleteMany({ where: seedIdFilter });
+  await prisma.teamInvitation.deleteMany({ where: seedIdFilter });
   await prisma.teamMember.deleteMany({ where: seedIdFilter });
   await prisma.milestone.deleteMany({
     where: { ...seedIdFilter, ...excluding(protectedMilestoneIds) },

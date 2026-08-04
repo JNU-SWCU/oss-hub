@@ -12,6 +12,7 @@ import {
 import { seedIntake } from './seeds/intake';
 import { seedMilestones } from './seeds/milestones';
 import { seedOssHub } from './seeds/oss-hub';
+import { seedProgramOverview } from './seeds/program-overview';
 import { seedRepositories } from './seeds/repositories';
 import { backfillUserProfiles } from './user-profile-backfill';
 
@@ -19,7 +20,7 @@ import { backfillUserProfiles } from './user-profile-backfill';
  * #110 시드 진입점. 실행 계약:
  *   SEED_PROFILE=<profile> pnpm --filter backend prisma db seed
  *   pnpm --filter backend prisma db seed -- --profile <profile>
- * profile: auth | intake | milestones | repositories | all (기본값 auth — 안전한 최소).
+ * profile: auth | intake | milestones | repositories | program-overview | oss-hub | all (기본값 auth — 안전한 최소).
  * 자세한 시나리오 카탈로그는 apps/backend/prisma/README.md 참조.
  */
 export async function runProfile(
@@ -47,6 +48,9 @@ export async function runProfile(
   }
   if (profile === 'repositories' || profile === 'all') {
     await seedRepositories(stats);
+  }
+  if (profile === 'program-overview' || profile === 'all') {
+    await seedProgramOverview(stats);
   }
   if (profile === 'oss-hub' && ossHubAccounts) {
     await seedOssHub(stats, ossHubAccounts);
