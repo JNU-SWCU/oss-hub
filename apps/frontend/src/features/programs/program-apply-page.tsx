@@ -12,10 +12,12 @@ import {
   type ProgramApplyContext,
 } from './load-program-apply-context';
 import {
+  applyActionFailureMessage,
   EMPTY_APPLY_FORM,
   mapCreateApplicationError,
   remainingTeamMembers,
   validateApplyForm,
+  type ProgramApplyAction,
   type ProgramApplyFormErrors,
   type ProgramApplyFormValues,
 } from './program-apply-flow';
@@ -92,6 +94,7 @@ export function ProgramApplyPage({
 
   async function confirmAction(): Promise<void> {
     if (state.kind !== 'ready' || confirmation === null) return;
+    const action: ProgramApplyAction = confirmation;
     setSubmitting(true);
     setServerError(null);
     try {
@@ -133,8 +136,8 @@ export function ProgramApplyPage({
       setConfirmation(null);
       setServerError(
         error instanceof ApiError
-          ? mapCreateApplicationError(error.problem)
-          : '신청서를 저장하지 못했습니다.',
+          ? mapCreateApplicationError(error.problem, action)
+          : applyActionFailureMessage(action),
       );
     } finally {
       setSubmitting(false);

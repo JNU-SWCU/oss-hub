@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ProblemDetail } from '@/lib/api-client';
 import {
+  applyActionFailureMessage,
   isApplicationPeriodOpen,
   mapCreateApplicationError,
   remainingTeamMembers,
@@ -189,6 +190,46 @@ describe('program-apply-flow', () => {
   it('팀 구성 CTA 경로를 만든다', () => {
     expect(teamSetupHref('seed:program')).toBe(
       '/programs/seed%3Aprogram/teams',
+    );
+  });
+
+  // #355 — 신청서는 길어서 "다시 써야 하나"를 판단하지 못하는 비용이 가장 크다.
+  // 입력이 남아 있다는 단언과 다음 행동이 한 문장에 함께 있어야 한다.
+  it('제출 실패는 입력이 남아 있다는 사실과 다음 행동을 함께 알린다', () => {
+    expect(applyActionFailureMessage('submit')).toBe(
+      '신청서를 제출하지 못했습니다. 입력한 내용은 그대로 남아 있으니 잠시 후 다시 제출해 주세요.',
+    );
+  });
+
+  it('저장 실패도 입력 보존을 단언한다', () => {
+    expect(applyActionFailureMessage('save')).toBe(
+      '신청서를 저장하지 못했습니다. 입력한 내용은 그대로 남아 있으니 잠시 후 다시 저장해 주세요.',
+    );
+  });
+
+  // 취소는 서버 상태가 갈릴 수 있어 "남아 있다"고 단언하면 거짓이 된다.
+  it('취소 실패는 입력 보존을 단언하지 않고 현재 상태 확인을 권한다', () => {
+    const message = applyActionFailureMessage('cancel');
+    expect(message).toBe(
+      '신청을 취소하지 못했습니다. 페이지를 새로고침해 현재 신청 상태를 확인한 뒤 다시 시도해 주세요.',
+    );
+    expect(message).not.toContain('입력한 내용은 그대로 남아');
+  });
+
+  it('코드를 모르는 서버 오류의 fallback 도 동작별 안내를 쓴다', () => {
+    const unknown: ProblemDetail = {
+      type: 'about:blank',
+      title: 'error',
+      status: 500,
+      detail: '',
+      instance: '/programs/x/applications',
+      code: 'APP_999',
+    };
+    expect(mapCreateApplicationError(unknown)).toBe(
+      applyActionFailureMessage('submit'),
+    );
+    expect(mapCreateApplicationError(unknown, 'cancel')).toBe(
+      applyActionFailureMessage('cancel'),
     );
   });
 
