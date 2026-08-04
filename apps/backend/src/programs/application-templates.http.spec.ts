@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { AuthConfig } from '../auth/auth.config';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { DomainException } from '../common/error-code';
@@ -49,6 +50,10 @@ beforeAll(async () => {
       {
         provide: ProgramViewerService,
         useValue: { fromGithubId: jest.fn() },
+      },
+      {
+        provide: AuthConfig,
+        useValue: { sessionSecret: new Uint8Array(32), useSecureCookies: true },
       },
     ],
   })

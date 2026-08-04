@@ -1,36 +1,31 @@
-import {
-  ProgramCategory,
-  ProgramLifecycle,
-  type Program,
-} from '@prisma/client';
-import type { ProgramListPage } from '../programs.service';
+import { type ApplicationStatus } from '@prisma/client';
+import type {
+  PersonalizedProgramListItem,
+  ProgramListItemNote,
+  ProgramListPage,
+} from '../programs.service';
 
 export class ProgramListResponseDto {
   readonly id: string;
   readonly name: string;
   readonly organizer: string;
-  readonly category: ProgramCategory;
+  readonly category: PersonalizedProgramListItem['category'];
   /** 게시 축(PUBLISHED|ARCHIVED). 모집 기간 파생 상태가 아니다. */
-  readonly lifecycle: ProgramLifecycle;
+  readonly lifecycle: PersonalizedProgramListItem['lifecycle'];
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
   readonly endAt: string | null;
   readonly description: string;
+  /** 카드 하단 안내. 인증되지 않은 요청·개인화 대상이 아닌 뷰어는 항상 생략된다. */
+  readonly note?: ProgramListItemNote;
+  /** 뷰어(학생) 본인의 신청 상태. 신청한 적 없으면 생략. */
+  readonly viewerApplicationStatus?: ApplicationStatus;
+  /** 뷰어(STAFF/ADMIN)용 — 전체 지원 건수 집계. 공개·학생 응답에는 절대 담기지 않는다. */
+  readonly applicationCount?: number;
+  /** 뷰어(STAFF/ADMIN)용 — 승인 대기 건수 집계. 공개·학생 응답에는 절대 담기지 않는다. */
+  readonly pendingApplicationCount?: number;
 
-  private constructor(
-    program: Pick<
-      Program,
-      | 'id'
-      | 'name'
-      | 'organizer'
-      | 'category'
-      | 'lifecycle'
-      | 'applicationStartAt'
-      | 'applicationEndAt'
-      | 'endAt'
-      | 'description'
-    >,
-  ) {
+  private constructor(program: PersonalizedProgramListItem) {
     this.id = program.id;
     this.name = program.name;
     this.organizer = program.organizer;
@@ -40,21 +35,14 @@ export class ProgramListResponseDto {
     this.applicationEndAt = program.applicationEndAt.toISOString();
     this.endAt = program.endAt ? program.endAt.toISOString() : null;
     this.description = program.description;
+    this.note = program.note;
+    this.viewerApplicationStatus = program.viewerApplicationStatus;
+    this.applicationCount = program.applicationCount;
+    this.pendingApplicationCount = program.pendingApplicationCount;
   }
 
   static from(
-    program: Pick<
-      Program,
-      | 'id'
-      | 'name'
-      | 'organizer'
-      | 'category'
-      | 'lifecycle'
-      | 'applicationStartAt'
-      | 'applicationEndAt'
-      | 'endAt'
-      | 'description'
-    >,
+    program: PersonalizedProgramListItem,
   ): ProgramListResponseDto {
     return new ProgramListResponseDto(program);
   }
