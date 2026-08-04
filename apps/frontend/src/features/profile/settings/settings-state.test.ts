@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import { OTHER_DEPARTMENT } from '../departments';
+import {
+  classifyNotificationChannelApiError,
+  NotificationChannelResponseError,
+} from './notification-channel-api';
 import {
   createInitialSettingsForm,
   isSettingsFormValid,
@@ -167,26 +172,107 @@ describe('settings form state', () => {
   });
 
   it.each(['forbidden', 'not-found', 'generic'] as const)(
-    '부분 저장 실패(%s) 안내는 프로필 저장 성공과 알림에 남은 값을 함께 말한다',
+    '부분 저장 실패(%s) 안내는 프로필이 저장됐다는 사실부터 말한다',
     (kind) => {
-      const message = notificationSaveFailureMessage(kind);
-
-      expect(message).toContain('프로필은 저장했습니다.');
-      // 알림 설정이 "어떤 값으로 남았는지"가 드러나야 한다.
-      expect(message).toContain('이전 값으로');
+      expect(notificationSaveFailureMessage(kind)).toContain(
+        '프로필은 저장했습니다.',
+      );
     },
   );
+
+  /**
+   * 입력 보존을 말하는 것은 "다시 눌러 보라"는 뜻이다. 그래서 다시 눌러 결과가
+   * 달라질 수 있는 경우에만 말한다 — 권한이 없는 사람에게 입력이 남아 있다고
+   * 알려 봐야 할 수 있는 일이 없고, 오히려 재시도를 권하는 것으로 읽힌다.
+   */
+  it.each(['not-found', 'generic'] as const)(
+    '다시 시도할 수 있는 실패(%s)에만 입력이 남아 있음을 알린다',
+    (kind) => {
+      expect(notificationSaveFailureMessage(kind)).toContain(
+        '입력한 값은 화면에 그대로 두었으니',
+      );
+    },
+  );
+
+  it('권한이 없어 다시 눌러도 소용없는 경우에는 입력 보존 대신 문의처를 준다', () => {
+    const message = notificationSaveFailureMessage('forbidden');
+
+    expect(message).not.toContain('입력한 값은 화면에 그대로 두었으니');
+    expect(message).toContain('사업단 관리자에게 문의해 주세요');
+  });
 
   it('부분 저장 실패 안내는 권한 문제와 일시적 실패의 다음 행동을 구분한다', () => {
     expect(notificationSaveFailureMessage('forbidden')).toContain(
       '사업단 관리자에게 문의해 주세요',
     );
+    expect(notificationSaveFailureMessage('generic')).toContain(
+      '저장을 다시 눌러 주세요',
+    );
+  });
 
-    for (const kind of ['not-found', 'generic'] as const) {
+  /**
+   * 회귀 방지 — 안내가 **거짓일 수 있는 최종 상태를 단정하지 않는가**.
+   *
+   * 백엔드는 값을 먼저 쓰고(`notification-settings.repository.ts`의 `user.updateMany`)
+   * 그 뒤에 다시 읽어 응답을 만든다. 그래서 오류를 받았다고 해서 값이 안 바뀐 것이
+   * 아니다. 아래 셋은 모두 **저장이 이미 끝났을 수 있는** 실제 오류 객체다.
+   * 여기서 "이전 값으로 남아 있다"고 말하면 사용자는 화면과 다른 서버 상태를
+   * 사실로 믿고 넘어간다 — 안내가 없는 것보다 나쁘다.
+   */
+  it.each([
+    [
+      '쓰기 뒤 조회가 터진 500',
+      new ApiError(problemDetail(500, 'API_000')) as unknown,
+    ],
+    [
+      '200을 받았지만 형식이 다른 응답',
+      new NotificationChannelResponseError() as unknown,
+    ],
+    ['응답을 못 받은 연결 실패', new TypeError('Failed to fetch') as unknown],
+  ])(
+    '실제 오류(%s)에는 알림 값이 이전 값이라고 단정하지 않는다',
+    (_label, error) => {
+      const kind = classifyNotificationChannelApiError(error);
+      expect(kind).toBe('generic');
+
+      // 화면은 'unauthorized'를 먼저 걸러 첫 화면으로 보낸 뒤에야 이 문구를 만든다
+      // (settings-screen.tsx). 테스트도 같은 좁히기를 거쳐 실제 호출 경로를 흉내낸다.
+      if (kind === 'unauthorized') throw new Error('unreachable');
       const message = notificationSaveFailureMessage(kind);
-      // 입력이 보존된다는 사실과, 그래서 저장만 다시 누르면 된다는 행동.
-      expect(message).toContain('입력한 값은 화면에 그대로 두었으니');
-      expect(message).toContain('저장을 다시 눌러 주세요');
-    }
+
+      // 단정 금지 — "저장되지 않았다"도 "이전 값으로 남아 있다"도 참이 아닐 수 있다.
+      expect(message).not.toContain('이전 값으로 남아 있습니다');
+      expect(message).not.toContain('저장되지 않아');
+      // 대신 불명임을 말하고, 지금 값을 확인할 방법을 준다.
+      expect(message).toContain('저장됐는지 확인하지 못했습니다');
+      expect(message).toContain('설정 화면을 새로 열어 지금 저장된 값을 확인');
+    },
+  );
+
+  /**
+   * 반대쪽 못박기 — 단정할 수 있는 경로까지 뭉뚱그리지 않는다.
+   * 403은 저장 단계에 닿기 전에 guard가 막으므로 값은 확실히 그대로다.
+   */
+  it('권한 거절(403 NOT_001)에는 이전 값 그대로임을 단정해도 된다', () => {
+    const kind = classifyNotificationChannelApiError(
+      new ApiError(problemDetail(403, 'NOT_001')),
+    );
+    expect(kind).toBe('forbidden');
+
+    if (kind === 'unauthorized') throw new Error('unreachable');
+    expect(notificationSaveFailureMessage(kind)).toContain(
+      '이전 값으로 그대로 남아 있습니다',
+    );
   });
 });
+
+function problemDetail(status: number, code: string): ProblemDetail {
+  return {
+    type: 'about:blank',
+    title: '요청 처리 실패',
+    status,
+    detail: '합성 오류 상세',
+    instance: 'urn:test:users:me:notification-email',
+    code,
+  };
+}

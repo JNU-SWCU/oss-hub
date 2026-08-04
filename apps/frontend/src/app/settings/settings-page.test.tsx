@@ -346,10 +346,13 @@ describe('설정 화면', () => {
 
   /**
    * 프로필은 저장됐는데 알림 저장만 실패한 부분 성공. 안내가 "무엇이 저장됐고
-   * 알림은 어떤 값으로 남았으며 지금 무엇을 하면 되는지"를 말해야 하고,
+   * 알림 설정은 지금 어떤 상태이며 지금 무엇을 하면 되는지"를 말해야 하고,
    * 그 안내가 약속한 대로 입력한 값이 화면에 남아 있어야 한다(#356).
+   *
+   * 503은 백엔드가 값을 쓴 **뒤에** 터졌을 수도 있는 응답이라, 화면은 알림 값이
+   * 이전 값 그대로라고 단정하면 안 된다 — 확인 방법을 주는 데까지가 이 화면의 몫이다.
    */
-  it('알림 저장만 실패하면 남은 값과 다음 행동을 알리고 입력을 보존한다', async () => {
+  it('알림 저장만 실패하면 상태를 단정하지 않고 확인 방법을 알리며 입력을 보존한다', async () => {
     await render({
       status: 'assigned',
       role: 'STAFF',
@@ -375,8 +378,13 @@ describe('설정 화면', () => {
       ),
     ).toBe(true);
     expect(container.textContent).toContain('프로필은 저장했습니다.');
-    expect(container.textContent).toContain('이전 값으로 남아 있습니다.');
+    // 거짓일 수 있는 단정을 하지 않는다 — 503은 쓰기 뒤에 터졌을 수 있다.
+    expect(container.textContent).not.toContain('이전 값으로 남아 있습니다');
+    expect(container.textContent).toContain('저장됐는지 확인하지 못했습니다');
     expect(container.textContent).toContain('저장을 다시 눌러 주세요.');
+    expect(container.textContent).toContain(
+      '설정 화면을 새로 열어 지금 저장된 값을 확인',
+    );
     // 입력을 되돌리지 않는다 — 안내가 그렇게 약속했다.
     expect(field('settings-notification-email').value).toBe(
       'changed@example.com',
