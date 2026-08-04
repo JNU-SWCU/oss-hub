@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ProgramLifecycle, Role, SubmissionStatus } from '@prisma/client';
+import { Role, SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import type {
   ApplicationSubmissionSummaryResponseDto,
@@ -70,13 +70,8 @@ export class ProgramsService {
     try {
       const program = await this.repository.findProgramDetail(programId);
       if (!program) throw new DomainException(PROGRAM_ERROR_CODES.NOT_FOUND);
-      if (
-        program.lifecycle === ProgramLifecycle.ARCHIVED &&
-        viewer.role !== Role.STAFF &&
-        viewer.role !== Role.ADMIN
-      ) {
-        throw new DomainException(PROGRAM_ERROR_CODES.NOT_FOUND);
-      }
+      // ARCHIVED 도 공개 목록(ended)에 포함되므로 상세 읽기는 허용한다.
+      // 신청·편집 등 쓰기는 각 쓰기 경로에서 lifecycle 로 거부한다.
 
       const studentApplication =
         viewer.role === Role.STUDENT && viewer.userId
