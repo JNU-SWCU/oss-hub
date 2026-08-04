@@ -111,12 +111,13 @@ cleanup() {
 
 start_watchers() {
   # pnpm -r 를 쓰지 않는다 — 대상을 명시해야 무관한 패키지가 끼어들지 않는다.
+  # `.envrc`의 PORT=4000은 Nest용이다. Next도 PORT를 읽으므로 frontend에는 3000을 명시한다.
   log 'backend watcher 시작 (nest start --watch)'
-  pnpm --filter backend dev &
+  PORT="$BACKEND_PORT" pnpm --filter backend dev &
   WATCHER_PIDS+=("$!")
 
   log 'frontend watcher 시작 (next dev)'
-  pnpm --filter frontend dev &
+  PORT="$FRONTEND_PORT" pnpm --filter frontend dev &
   WATCHER_PIDS+=("$!")
 
   log "backend http://localhost:$BACKEND_PORT · frontend http://localhost:$FRONTEND_PORT — 종료는 Ctrl+C"

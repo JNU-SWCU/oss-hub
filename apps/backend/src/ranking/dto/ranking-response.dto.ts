@@ -1,7 +1,7 @@
 import {
   type RankingEntry,
   type RankingPage,
-  type RankingPeriod,
+  type RankingYear,
 } from '../domain/ranking';
 
 class RankingEntryResponseDto {
@@ -29,14 +29,14 @@ class RankingEntryResponseDto {
 }
 
 export class RankingPageResponseDto {
-  readonly period: RankingPeriod;
+  readonly year: RankingYear;
   readonly items: readonly RankingEntryResponseDto[];
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
 
   private constructor(page: RankingPage) {
-    this.period = page.period;
+    this.year = page.year;
     this.items = page.items.map((entry) => RankingEntryResponseDto.from(entry));
     this.page = page.page;
     this.pageSize = page.pageSize;
@@ -45,5 +45,17 @@ export class RankingPageResponseDto {
 
   static from(page: RankingPage): RankingPageResponseDto {
     return new RankingPageResponseDto(page);
+  }
+}
+
+export class RankingYearsResponseDto {
+  readonly years: readonly number[];
+
+  private constructor(years: readonly number[]) {
+    this.years = years;
+  }
+
+  static from(years: readonly number[]): RankingYearsResponseDto {
+    return new RankingYearsResponseDto(years);
   }
 }

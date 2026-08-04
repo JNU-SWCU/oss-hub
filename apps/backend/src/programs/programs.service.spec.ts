@@ -15,6 +15,7 @@ const publicProgram = {
   name: 'OSS 경진대회',
   organizer: '운영기관',
   category: ProgramCategory.OSS_CONTEST,
+  lifecycle: 'PUBLISHED' as const,
   description: '프로그램 설명',
   applicationStartAt: new Date('2026-07-01T00:00:00+09:00'),
   applicationEndAt: new Date('2026-08-31T23:59:59+09:00'),
@@ -69,6 +70,21 @@ describe('ProgramsService detail', () => {
     expect(detail.milestones[0]?.viewerSubmissionStatus).toBeNull();
     expect(detail.milestones[0]?.deadlineLabel).toBe('오늘 마감');
     expect(detail.milestones[1]?.deadlineLabel).toBe('마감 지남');
+  });
+
+  it('ARCHIVED 프로그램도 공개 상세 읽기를 허용한다', async () => {
+    const { service, findUnique } = createService();
+    findUnique.mockResolvedValue({
+      ...publicProgram,
+      lifecycle: 'ARCHIVED' as const,
+    });
+
+    await expect(service.detail('program-1', anonymous)).resolves.toMatchObject(
+      {
+        id: 'program-1',
+        name: 'OSS 경진대회',
+      },
+    );
   });
 
   it('승인된 학생에게 마일스톤별 현재 제출 상태를 반환한다', async () => {

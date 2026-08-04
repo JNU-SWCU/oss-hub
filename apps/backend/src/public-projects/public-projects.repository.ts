@@ -96,15 +96,18 @@ export class PublicProjectsRepository {
    * 첫 페이지다. `take`는 호출자가 `pageSize + 1`을 넘겨 lookahead로 다음 페이지 존재 여부를
    * 판단할 수 있게 한다 — 페이지 경계는 이 원본 조회 하나로만 결정되고, eligibility 필터링이
    * 경계를 옮기지 않는다(`Repository_visibility_publishedAt_id_idx` 사용).
+   * `category`가 있으면 해당 프로그램 분류만 서버에서 거른다.
    */
   async listPage(
     cursor: PublicProjectCursor | null,
     take: number,
+    category?: ProgramCategory,
   ): Promise<PublicProjectRow[]> {
     const rows = await this.prisma.repository.findMany({
       where: {
         visibility: 'PUBLIC',
         publishedAt: { not: null },
+        ...(category === undefined ? {} : { program: { category } }),
         ...(cursor === null
           ? {}
           : {
@@ -119,6 +122,29 @@ export class PublicProjectsRepository {
       select: PROJECT_ROW_SELECT,
     });
     return rows.map(toProjectRow);
+  }
+
+  /**
+   * 플랫폼 공개 프로젝트의 프로그램 분류별 개수. eligibility fence는 적용하지 않는다.
+   * `Program.category`로 GROUP BY 1회. 없는 분류는 호출 측에서 0으로 채운다.
+   */
+  async countByCategory(): Promise<
+    readonly { readonly category: ProgramCategory; readonly count: number }[]
+  > {
+    const rows = await this.prisma.$queryRaw<
+      readonly { category: ProgramCategory; count: bigint }[]
+    >`
+      SELECT p.category AS category, COUNT(*)::bigint AS count
+      FROM "Repository" r
+      INNER JOIN "Program" p ON p.id = r."programId"
+      WHERE r.visibility = 'PUBLIC'::"RepositoryVisibility"
+        AND r."publishedAt" IS NOT NULL
+      GROUP BY p.category
+    `;
+    return rows.map((row) => ({
+      category: row.category,
+      count: Number(row.count),
+    }));
   }
 
   /**

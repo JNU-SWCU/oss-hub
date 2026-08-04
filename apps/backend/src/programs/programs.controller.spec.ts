@@ -27,7 +27,11 @@ const publicDetail = {
 
 describe('ProgramsController read boundaries', () => {
   const creation = { create: jest.fn() };
-  const programs = { detail: jest.fn(), list: jest.fn() };
+  const programs = {
+    detail: jest.fn(),
+    list: jest.fn(),
+    statusCounts: jest.fn(),
+  };
   const activity = { activity: jest.fn() };
   const viewers = { fromGithubId: jest.fn() };
   let controller: ProgramsController;
@@ -54,6 +58,22 @@ describe('ProgramsController read boundaries', () => {
   it('공개 목록은 익명·비활성 방문자에게 열려 있다', () => {
     expect(
       Reflect.getMetadata(GUARDS_METADATA, controllerMethod('list')),
+    ).toBeUndefined();
+  });
+
+  it('status-counts 는 인증 없이 열려 있고 5키를 반환한다', async () => {
+    const counts = {
+      all: 15,
+      recruiting: 3,
+      in_progress: 3,
+      upcoming: 0,
+      ended: 9,
+    };
+    programs.statusCounts.mockResolvedValue(counts);
+
+    await expect(controller.statusCounts()).resolves.toEqual(counts);
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, controllerMethod('statusCounts')),
     ).toBeUndefined();
   });
 

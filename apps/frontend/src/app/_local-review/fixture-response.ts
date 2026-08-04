@@ -214,6 +214,7 @@ const PUBLIC_PROGRAM_FIXTURES = [
     category: 'CAPSTONE',
     applicationStartAt: '2026-06-30T15:00:00.000Z',
     applicationEndAt: '2026-12-31T14:59:59.000Z',
+    endAt: null,
     description:
       '로컬 검토용 합성 프로그램입니다. 실제 모집이나 실제 참여자와 무관합니다.',
   },
@@ -224,6 +225,7 @@ const PUBLIC_PROGRAM_FIXTURES = [
     category: 'OSS_CONTEST',
     applicationStartAt: '2026-07-14T15:00:00.000Z',
     applicationEndAt: '2026-11-30T14:59:59.000Z',
+    endAt: null,
     description:
       '로컬 검토용 합성 경진대회입니다. 화면 구성 확인 외의 의미는 없습니다.',
   },
@@ -236,6 +238,7 @@ const PUBLIC_PROGRAM_FIXTURES = [
     // 보이면 상세와 어긋난다. 신청 화면을 검토하려면 모집이 열려 있어야 한다.
     applicationStartAt: '2026-06-30T15:00:00.000Z',
     applicationEndAt: '2026-10-31T14:59:59.000Z',
+    endAt: null,
     description: '신청 전 상태를 확인하기 위한 합성 프로그램입니다.',
   },
 ] as const satisfies readonly ProgramListItem[];
@@ -527,12 +530,14 @@ function publicArchivePage(searchParams: URLSearchParams): unknown {
   const pageSize = positiveIntParam(searchParams.get('pageSize'), 12);
   const query = (searchParams.get('q') ?? '').trim().toLocaleLowerCase('ko');
   const mode = searchParams.get('applicationMode');
+  const category = searchParams.get('category');
   const matched = PUBLIC_ARCHIVE_FIXTURES.map((fixture) => fixture.item).filter(
     (item) =>
       (query === '' ||
         item.displayName.toLocaleLowerCase('ko').includes(query) ||
         item.programName.toLocaleLowerCase('ko').includes(query)) &&
-      (mode === null || item.applicationMode === mode),
+      (mode === null || item.applicationMode === mode) &&
+      (category === null || item.category === category),
   );
   const offset = (page - 1) * pageSize;
 
@@ -543,6 +548,25 @@ function publicArchivePage(searchParams: URLSearchParams): unknown {
     nextPageId:
       offset + items.length < matched.length ? String(page + 1) : null,
   };
+}
+
+function publicArchiveCategoryCounts(): unknown {
+  const empty = {
+    all: 0,
+    BASIC: 0,
+    SW_VALUE_SPREAD: 0,
+    OSS_CONTEST: 0,
+    CAPSTONE: 0,
+    SW_CONVERGENCE: 0,
+    GLOBAL_MAKERTHON: 0,
+    CORPORATE_INTERNSHIP: 0,
+  };
+  const counts = { ...empty };
+  for (const fixture of PUBLIC_ARCHIVE_FIXTURES) {
+    counts[fixture.item.category] += 1;
+    counts.all += 1;
+  }
+  return counts;
 }
 
 function publicArchiveDetail(projectId: string): unknown | null {
@@ -588,6 +612,10 @@ export function resolveLocalReviewResponse({
 
   if (method === 'GET' && path === 'projects') {
     return json(200, publicArchivePage(searchParams));
+  }
+
+  if (method === 'GET' && path === 'projects/category-counts') {
+    return json(200, publicArchiveCategoryCounts());
   }
 
   const projectId = method === 'GET' ? publicProjectId(path) : null;

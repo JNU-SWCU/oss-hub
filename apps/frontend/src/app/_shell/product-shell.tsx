@@ -1,92 +1,121 @@
 'use client';
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { AppSidebar } from './app-sidebar';
-import { AppTopbar } from './app-topbar';
-import { sidebarGroupsFor } from './sidebar-menu';
+import { SECTION_FACETS, type SectionFacetData } from './section-facets';
+import {
+  SIDEBAR_COLLAPSED_VALUE,
+  SIDEBAR_OPEN_VALUE,
+  SIDEBAR_STORAGE_KEY,
+} from './sidebar-collapsed';
+import { shellSectionFromPathname, sidebarGroupsFor } from './sidebar-menu';
 import { useSessionRole } from './use-session-role';
 
-/** 접힘 여부는 사용자가 정한다 — 새로고침해도 유지되도록 브라우저에 기억시킨다. */
-export const SIDEBAR_STORAGE_KEY = 'oss-hub-sidebar';
-export const SIDEBAR_COLLAPSED_VALUE = 'shut';
-export const SIDEBAR_OPEN_VALUE = 'open';
-
-export function readStoredCollapsed(raw: string | null): boolean {
-  return raw === SIDEBAR_COLLAPSED_VALUE;
-}
+export {
+  SIDEBAR_COLLAPSED_VALUE,
+  SIDEBAR_OPEN_VALUE,
+  SIDEBAR_STORAGE_KEY,
+  readStoredCollapsed,
+} from './sidebar-collapsed';
 
 /**
- * 랜딩(`/`)을 제외한 모든 라우트의 셸 — 왼쪽 사이드바 + 상단바.
+ * 상단 ShellNav 아래 — **현재 섹션** 하위 사이드 패널 + 본문.
+ * 모바일(<900px) 사이드바는 AppSidebar가 숨기고, 본문 칩이 필터를 담당한다.
+ * 카운트/연도 fetch는 해당 섹션일 때만 한다 (SECTION_FACETS 단일 이펙트).
  *
- * 서버 렌더는 항상 "펼침"이다. localStorage는 브라우저에만 있어 서버가 알 수 없고,
- * 서버·클라이언트가 다른 값을 그리면 hydration이 깨진다. 저장된 값은 mount 뒤
- * 한 번 읽어 반영한다.
+ * 초기 collapsed 는 서버 cookies() → layout → AppFrame → initialCollapsed 로
+ * 전달해 첫 페인트 점프(localStorage useEffect)를 없앤다 (F4).
  */
 export function ProductShell({
-  actions,
   children,
+  initialCollapsed = false,
 }: {
-  readonly actions?: ReactNode;
   readonly children: ReactNode;
+  readonly initialCollapsed?: boolean;
 }) {
   const pathname = usePathname();
-  const { status, role } = useSessionRole();
-  // 역할이 확정된 사용자만 역할 메뉴를 본다. 조회 중·비로그인·역할 미배정은
-  // 공개 메뉴만 — 눌렀을 때 게이트에 튕길 링크를 미리 보여 주지 않는다.
-  const groups = sidebarGroupsFor(status === 'assigned' ? role : null);
+  const searchParams = useSearchParams();
+  const search = searchParams.toString();
+  const { status, role, isProfileComplete } = useSessionRole();
+  const member = status === 'assigned' && role !== null && isProfileComplete;
+  const section = shellSectionFromPathname(pathname);
 
-  const [collapsed, setCollapsed] = useState(false);
-  const [restored, setRestored] = useState(false);
+  const [facetData, setFacetData] = useState<SectionFacetData | undefined>(
+    undefined,
+  );
+  const [collapsed, setCollapsed] = useState(initialCollapsed);
 
+  // 쿠키 기록 — 첫 페인트는 서버가 이미 맞춰 두었고, 토글 시 동기화만 한다 (F4).
   useEffect(() => {
-    try {
-      setCollapsed(
-        readStoredCollapsed(window.localStorage.getItem(SIDEBAR_STORAGE_KEY)),
-      );
-    } catch {
-      // Safari 프라이빗 모드 등 localStorage 접근이 막힌 환경 — 기본값(펼침)으로 둔다
-    }
-    setRestored(true);
-  }, []);
+    document.cookie = `${SIDEBAR_STORAGE_KEY}=${
+      collapsed ? SIDEBAR_COLLAPSED_VALUE : SIDEBAR_OPEN_VALUE
+    }; Path=/; Max-Age=31536000; SameSite=Lax`;
+  }, [collapsed]);
 
+  // 섹션 패싯 단일 fetch — AbortController 로 스테일 응답 차단 (C5 / §3.3).
   useEffect(() => {
-    if (!restored) return;
-    try {
-      window.localStorage.setItem(
-        SIDEBAR_STORAGE_KEY,
-        collapsed ? SIDEBAR_COLLAPSED_VALUE : SIDEBAR_OPEN_VALUE,
-      );
-    } catch {
-      // 저장에 실패해도 이번 세션의 접힘 상태는 그대로 동작한다
+    const spec = section ? SECTION_FACETS[section] : undefined;
+    if (!spec?.load) {
+      setFacetData(undefined);
+      return;
     }
-  }, [collapsed, restored]);
+    const controller = new AbortController();
+    setFacetData(undefined); // clear stale on section change (C5)
+    void spec
+      .load(controller.signal)
+      .then((data) => {
+        if (!controller.signal.aborted) setFacetData(data);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setFacetData(undefined);
+      });
+    return () => controller.abort();
+  }, [section]);
 
   const toggle = useCallback(() => setCollapsed((prev) => !prev), []);
+
+  const groups = sidebarGroupsFor(section, member ? role : null, {
+    programCounts: facetData?.programCounts,
+    archiveCounts: facetData?.archiveCounts,
+    rankingYears: facetData?.rankingYears,
+    rankingCounts: facetData?.rankingCounts,
+  });
+
+  if (groups.length === 0) {
+    return (
+      <div id="main-content" tabIndex={-1} className="min-w-0 flex-1">
+        {children}
+      </div>
+    );
+  }
 
   return (
     <div
       data-slot="product-shell"
       data-collapsed={collapsed ? 'true' : 'false'}
+      data-section={section ?? undefined}
       className={cn(
-        'grid min-h-dvh grid-cols-1',
+        'grid min-h-0 flex-1 grid-cols-1',
+        // 의도적 레이아웃 애니메이션(grid-template-columns).
+        // transform-only 는 main padding 이 어긋나므로 폭 자체에 트랜지션을 건다.
+        // 사용자 토글 1회당 1번 — prefers-reduced-motion 시 duration 0 (F5 / §4.6).
+        'min-[900px]:transition-[grid-template-columns] motion-reduce:transition-none',
         collapsed
-          ? 'min-[900px]:grid-cols-[var(--sidebar-collapsed-width)_minmax(0,1fr)]'
-          : 'min-[900px]:grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)]',
+          ? 'min-[900px]:grid-cols-[var(--sidebar-collapsed-width)_minmax(0,1fr)] min-[900px]:duration-[var(--sidebar-collapse-duration)] min-[900px]:ease-in'
+          : 'min-[900px]:grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)] min-[900px]:duration-[var(--sidebar-expand-duration)] min-[900px]:ease-out',
       )}
     >
       <AppSidebar
         groups={groups}
         pathname={pathname}
+        search={search}
         collapsed={collapsed}
         onToggle={toggle}
       />
-      <div className="flex min-w-0 flex-col">
-        <AppTopbar pathname={pathname} actions={actions} />
-        <div id="main-content" tabIndex={-1} className="min-w-0 flex-1">
-          {children}
-        </div>
+      <div id="main-content" tabIndex={-1} className="min-w-0 flex-1">
+        {children}
       </div>
     </div>
   );

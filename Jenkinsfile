@@ -94,6 +94,11 @@ printf '%s' "$release_sha"
             error('Release tag를 정확한 commit SHA로 해석하지 못했습니다.')
           }
           env.RELEASE_SHA = releaseSha
+
+          // ancestry(merge-base)는 조상 관계만 증명하고 correctness는 증명하지 않는다.
+          // required check 완료 전에 병합된 commit도 ancestor가 될 수 있으므로(#590 사고),
+          // GitHub Actions ci.yml의 push run에서 job `ci`가 success인지 여기서 추가로 검증한다.
+          sh 'bash scripts/jenkins/validate-ci-status.sh'
         }
       }
     }

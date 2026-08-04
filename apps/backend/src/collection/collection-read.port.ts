@@ -192,11 +192,16 @@ export interface CollectionReadPort {
    * (`CollectionContributorYearAggregate`)를 읽되, PUBLIC + PRESENT 저장소만 port 경계에서
    * 필터링하고 githubId(githubUserId) 단위로 저장소·연도를 넘어 합산해 이미 병합된 행을
    * 반환한다 — private facts·platform User join·실명 없이 githubLogin만 노출한다.
-   * `currentYear`를 생략하면 전체 기간 누적(ALL), 지정하면 해당 연도만(THIS_YEAR) 반환한다.
+   * `currentYear`를 생략하면 전체 기간 누적, 지정하면 해당 연도만 반환한다.
    */
   getPublicRankingMetrics(
     query: CollectionPublicRankingMetricsQueryDto,
   ): Promise<readonly CollectionPublicRankingMetricsDto[]>;
+  /**
+   * Distinct calendar years that have public ranking activity on PUBLIC + PRESENT
+   * repositories (desc). Empty years are omitted — shell year sidebar only.
+   */
+  listPublicRankingYears(): Promise<readonly number[]>;
   /** todo 12 — 조직 전체 증분 collection의 per-repo/stream 진행 상황 집계(system-status source). */
   getIncrementalStatusSnapshot(): Promise<CollectionIncrementalStatusSnapshotDto>;
   /** todo 16 — 공개 프로젝트 상세/프로필 배치 지표(연도 무관 lifetime 누적). */
