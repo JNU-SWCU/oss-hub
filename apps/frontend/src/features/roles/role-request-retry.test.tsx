@@ -174,4 +174,40 @@ describe('교직원 재요청 실패 안내', () => {
 
     expect(container.textContent).toContain(ROLE_REQUEST_RETRY_FAILURE_MESSAGE);
   });
+
+  /**
+   * 실패 안내는 그때의 서버 상태를 말한다. 상태를 다시 불러오면 그 말은 더 이상
+   * 지금을 설명하지 않는다. 게다가 그 안내가 '상태 새로고침'을 눌러 확인하라고
+   * 직접 가리키므로, 눌러도 같은 경고가 남으면 사용자는 안내를 따랐는데 아무 일도
+   * 일어나지 않은 것으로 읽는다.
+   */
+  it('상태를 다시 불러오면 이전 실패 안내가 남지 않는다', async () => {
+    retryResponder = () =>
+      problemResponse(
+        409,
+        'ROL_003',
+        '처리 중인 교직원 권한 요청이 이미 있습니다.',
+      );
+    await renderRejectedScreen();
+    await clickRetry();
+    expect(container.textContent).toContain(
+      '처리 중인 교직원 권한 요청이 이미 있습니다.',
+    );
+
+    const refresh = [...container.querySelectorAll('button')].find((element) =>
+      element.textContent?.includes('상태 새로고침'),
+    );
+    if (!(refresh instanceof HTMLButtonElement)) {
+      throw new TypeError('상태 새로고침 버튼을 찾지 못했습니다.');
+    }
+    await act(async () => {
+      refresh.click();
+    });
+
+    expect(container.textContent).not.toContain(
+      '처리 중인 교직원 권한 요청이 이미 있습니다.',
+    );
+    // 화면 자체는 살아 있어야 한다 — 경고만 사라지고 상태는 다시 그려진다.
+    expect(container.querySelector('[data-status="REJECTED"]')).not.toBeNull();
+  });
 });

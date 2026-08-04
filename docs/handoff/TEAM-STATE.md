@@ -87,6 +87,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 
 | 기능 | owner | 상태 | parent Issue | PR | CI | blocker (unblock owner) |
 | --- | --- | --- | --- | --- | --- | --- |
+| 재요청 실패 안내가 새로고침 후에도 남는 문제 | @Lumiere001 | review | [#356](https://github.com/JNU-SWCU/oss-hub/issues/356) | (이 PR) | frontend 1748 pass | Codex 리뷰가 잡은 #645 후속 |
 | 로그아웃 복귀 주소 배선 (#634 후속) | @Lumiere001 | review | [#348](https://github.com/JNU-SWCU/oss-hub/issues/348) | (이 PR) | frontend 1499 pass | #634 병합본에서 복귀 주소가 배선되지 않아 죽은 코드였음 |
 | 알림 저장 실패·재요청 실패 안내 정정 (#633 후속) | @Lumiere001 | review | [#356](https://github.com/JNU-SWCU/oss-hub/issues/356) | (이 PR) | frontend 174 files pass | #633 병합본이 최종 상태를 단정하던 것을 정정 |
 | 수집 실행 관측성·트리거 추적·감사 기록 3종 | @Lumiere001 | review | [#511](https://github.com/JNU-SWCU/oss-hub/issues/511) · [#546](https://github.com/JNU-SWCU/oss-hub/issues/546) · [#547](https://github.com/JNU-SWCU/oss-hub/issues/547) | (이 PR) | backend unit 1923 · integration 238 pass | 스키마 무접촉 — 기존 lease/cursor/stream 프로젝션으로 구현 |
