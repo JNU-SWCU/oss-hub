@@ -104,7 +104,10 @@ export function SubmissionReviewScreen({
           setFormError(error.problem.detail);
         }
       } else {
-        setFormError('판정을 저장하지 못했습니다.');
+        // decision·comment state를 건드리지 않으므로 "유지했다"는 안내가 사실이다.
+        setFormError(
+          '판정을 저장하지 못했습니다. 선택한 판정과 코멘트는 그대로 남아 있으니 다시 저장해 주세요.',
+        );
       }
     } finally {
       setIsSaving(false);
@@ -124,7 +127,7 @@ export function SubmissionReviewScreen({
       setPublishError(
         error instanceof ApiError
           ? error.problem.detail
-          : '저장소를 공개 전환하지 못했습니다.',
+          : '저장소를 공개로 전환하지 못했습니다. 현재 공개 상태를 확인한 뒤 다시 시도해 주세요.',
       );
     } finally {
       setIsPublishing(false);
