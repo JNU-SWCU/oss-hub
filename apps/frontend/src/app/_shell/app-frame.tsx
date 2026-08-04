@@ -55,7 +55,9 @@ export function AppFrame({
       >
         <ShellNav brand={brand} items={navItems} actions={actions} />
         <div
-          className={onCosmosGround ? 'flex min-h-0 flex-1 flex-col' : undefined}
+          className={
+            onCosmosGround ? 'flex min-h-0 flex-1 flex-col' : undefined
+          }
           id="main-content"
           tabIndex={-1}
         >

@@ -12,10 +12,7 @@ import {
   programListHref,
   type ProgramListStatus,
 } from '@/features/programs/types';
-import {
-  RANKING_YEAR_ALL,
-  rankingListHref,
-} from '@/features/ranking/types';
+import { RANKING_YEAR_ALL, rankingListHref } from '@/features/ranking/types';
 import type { AppRole } from './role';
 import { ADMIN_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
 import type { ShellIconName } from './shell-icons';
@@ -38,11 +35,7 @@ export interface SidebarGroup {
 }
 
 export type ShellSection =
-  | 'programs'
-  | 'archive'
-  | 'ranking'
-  | 'dashboard'
-  | null;
+  'programs' | 'archive' | 'ranking' | 'dashboard' | null;
 
 const MENU_ICONS: Readonly<Record<string, ShellIconName>> = {
   '/dashboard': 'home',

@@ -52,7 +52,13 @@ describe('AppSidebar', () => {
 
   it('shows count badge when provided', () => {
     const groups = sidebarGroupsFor('programs', null, {
-      programCounts: { all: 15, recruiting: 3, in_progress: 0, upcoming: 0, ended: 9 },
+      programCounts: {
+        all: 15,
+        recruiting: 3,
+        in_progress: 0,
+        upcoming: 0,
+        ended: 9,
+      },
     });
     const html = renderToStaticMarkup(
       <AppSidebar

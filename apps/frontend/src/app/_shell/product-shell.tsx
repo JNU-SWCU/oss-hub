@@ -9,10 +9,7 @@ import type { ProgramStatusCounts } from '@/features/programs/types';
 import { getRankingYears } from '@/features/ranking/api';
 import { cn } from '@/lib/utils';
 import { AppSidebar } from './app-sidebar';
-import {
-  shellSectionFromPathname,
-  sidebarGroupsFor,
-} from './sidebar-menu';
+import { shellSectionFromPathname, sidebarGroupsFor } from './sidebar-menu';
 import { useSessionRole } from './use-session-role';
 
 export const SIDEBAR_STORAGE_KEY = 'oss-hub-sidebar';
@@ -33,8 +30,7 @@ export function ProductShell({ children }: { readonly children: ReactNode }) {
   const searchParams = useSearchParams();
   const search = searchParams.toString();
   const { status, role, isProfileComplete } = useSessionRole();
-  const member =
-    status === 'assigned' && role !== null && isProfileComplete;
+  const member = status === 'assigned' && role !== null && isProfileComplete;
   const section = shellSectionFromPathname(pathname);
 
   const [programCounts, setProgramCounts] = useState<
