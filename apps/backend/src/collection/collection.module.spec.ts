@@ -3,16 +3,23 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ConsentsModule } from '../consents/consents.module';
 import { ConsentsService } from '../consents/consents.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
+import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { CollectionAdminController } from './collection-admin.controller';
 import { CollectionCanonicalRepository } from './collection-canonical.repository';
 import { CollectionDiscoveryClient } from './collection-discovery.client';
 import { CollectionExternalDiscoveryService } from './collection-external-discovery.service';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
+import { ProviderRequestQueue } from './collection-provider-queue';
 import { CollectionPublicTokenProvider } from './collection-public.token';
 import { COLLECTION_READ_PORT } from './collection-read.port';
 import { CollectionReadService } from './collection-read.service';
 import { CollectionReconciliationService } from './collection-reconciliation.service';
 import { CollectionSchedulerService } from './collection-scheduler.service';
+import {
+  CollectionSyncRuntime,
+  CollectionSyncService,
+} from './collection-sync.service';
 
 import { CollectionModule } from './collection.module';
 const getMetadataArray = (key: string): unknown[] => {
@@ -20,6 +27,27 @@ const getMetadataArray = (key: string): unknown[] => {
   expect(Array.isArray(metadata)).toBe(true);
   return Array.isArray(metadata) ? metadata : [];
 };
+
+interface CollectionSyncServiceProviderEntry {
+  provide: unknown;
+  inject: unknown[];
+  useFactory: (...args: unknown[]) => CollectionSyncService;
+}
+
+function findCollectionSyncServiceProvider(
+  providers: unknown[],
+): CollectionSyncServiceProviderEntry {
+  const entry = providers.find(
+    (candidate): candidate is CollectionSyncServiceProviderEntry =>
+      typeof candidate === 'object' &&
+      candidate !== null &&
+      'provide' in candidate &&
+      (candidate as { provide?: unknown }).provide === CollectionSyncService,
+  );
+  expect(entry).toBeDefined();
+  if (!entry) throw new Error('unreachable — asserted above');
+  return entry;
+}
 
 describe('CollectionModule', () => {
   it('ScheduleModule을 초기화한다', () => {
@@ -120,5 +148,56 @@ describe('CollectionModule', () => {
         }),
       ]),
     );
+  });
+
+  it('CollectionSyncService가 CollectionPublicTokenProvider를 주입받아 E1 external sweep runtime factory를 갖는다', async () => {
+    // Given: 실제 모듈 metadata에서 CollectionSyncService factory를 꺼낸다.
+    const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
+    const provider = findCollectionSyncServiceProvider(providers);
+
+    expect(provider.inject).toEqual([
+      CollectionIncrementalRepository,
+      RUNTIME_CONFIG,
+      CollectionPublicTokenProvider,
+    ]);
+
+    // When: 합성 fixture로 factory를 직접 호출해 실제 서비스 인스턴스를 얻는다.
+    const runtimeConfig = loadRuntimeConfig({
+      GITHUB_COLLECTION_APP_ID: '12345',
+      GITHUB_APP_ORG: 'synthetic-org',
+      GITHUB_COLLECTION_APP_PRIVATE_KEY: 'synthetic-private-key',
+    });
+    const fakeIncrementalRepository = {} as CollectionIncrementalRepository;
+    const fakePublicTokens = {
+      getToken: jest.fn(),
+      clear: jest.fn(),
+    } as unknown as CollectionPublicTokenProvider;
+    const service = provider.useFactory(
+      fakeIncrementalRepository,
+      runtimeConfig,
+      fakePublicTokens,
+    );
+
+    const orgRuntime = await (
+      service as unknown as {
+        runtimeFactory: () =>
+          Promise<CollectionSyncRuntime> | CollectionSyncRuntime;
+      }
+    ).runtimeFactory();
+    const externalRuntimeFactory = (
+      service as unknown as {
+        externalRuntimeFactory?: () =>
+          Promise<CollectionSyncRuntime> | CollectionSyncRuntime;
+      }
+    ).externalRuntimeFactory;
+    expect(externalRuntimeFactory).toBeDefined();
+    const externalRuntime =
+      (await externalRuntimeFactory?.()) as CollectionSyncRuntime;
+
+    // Then: external runtime은 주입된 CollectionPublicTokenProvider로 인증하고,
+    // org runtime과는 별도의 ProviderRequestQueue 인스턴스를 쓴다(독립 5,000/hr 예산).
+    expect(externalRuntime.tokens).toBe(fakePublicTokens);
+    expect(externalRuntime.queue).toBeInstanceOf(ProviderRequestQueue);
+    expect(externalRuntime.queue).not.toBe(orgRuntime.queue);
   });
 });

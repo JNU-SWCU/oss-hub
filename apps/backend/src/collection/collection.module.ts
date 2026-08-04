@@ -182,39 +182,89 @@ import {
     },
     {
       provide: CollectionSyncService,
-      inject: [CollectionIncrementalRepository, RUNTIME_CONFIG],
+      inject: [
+        CollectionIncrementalRepository,
+        RUNTIME_CONFIG,
+        CollectionPublicTokenProvider,
+      ],
       useFactory: (
         incrementalRepository: CollectionIncrementalRepository,
         runtimeConfig: RuntimeConfig,
+        publicTokens: CollectionPublicTokenProvider,
       ): CollectionSyncService => {
+        // Hoisted separately from `runtimeFactory` (rather than destructured
+        // off its returned runtime, as before) because `CollectionSyncRuntime.tokens`
+        // is now the narrow `CollectionAppClientTokenProvider` shape
+        // (`collection-app.client.ts`) and no longer exposes
+        // `getInstallationIdentity()`. `run()` always calls `runtimeFactory()`
+        // before `resolveGithubOrganizationId()`, so in practice `orgTokens`
+        // is already set by the time it's read below; the lazy fallback here
+        // only guards a hypothetical standalone call.
+        let orgTokens: CollectionAppTokenProvider | undefined;
         let runtime: CollectionSyncRuntime | undefined;
         const runtimeFactory: CollectionSyncRuntimeFactory = () => {
           if (runtime) return runtime;
           // Lazy: credentials validated on first run, not module bootstrap.
           const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
-          const tokens = new CollectionAppTokenProvider(config);
+          orgTokens = new CollectionAppTokenProvider(config);
           const queue = new ProviderRequestQueue();
           runtime = {
             appId: config.appId,
             organizationLogin: config.orgLogin.toLowerCase(),
-            tokens,
+            tokens: orgTokens,
             client: new CollectionAppClient(
               config,
-              tokens,
+              orgTokens,
               queue.wrapFetcher(globalThis.fetch),
             ),
             queue,
           };
           return runtime;
         };
+        const resolveGithubOrganizationId = async (): Promise<bigint> => {
+          if (!orgTokens) {
+            const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
+            orgTokens = new CollectionAppTokenProvider(config);
+          }
+          const identity = await orgTokens.getInstallationIdentity();
+          return BigInt(identity.organizationId);
+        };
+        // E1 — external (student-registered public repo) sweep runtime,
+        // provisioned independently of the org runtime above. `client` is a
+        // `CollectionAppClient` built from the org's existing
+        // `CollectionAppConfigValues` — it reads only `apiBaseUrl`/
+        // `maxPages`/`deadlineMs` off it, never `appId`/`orgLogin`/
+        // `privateKey`, since `publicTokens` (a service-account PAT, not an
+        // installation token) authenticates every request here. `queue` is
+        // a NEW, separate `ProviderRequestQueue` — org and external
+        // credentials carry independent 5,000/hr rate-limit budgets, so
+        // sharing a queue would conflate them and needlessly pace external
+        // requests behind org ones.
+        let externalRuntime: CollectionSyncRuntime | undefined;
+        const externalRuntimeFactory: CollectionSyncRuntimeFactory = () => {
+          if (externalRuntime) return externalRuntime;
+          const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
+          const queue = new ProviderRequestQueue();
+          externalRuntime = {
+            appId: config.appId,
+            organizationLogin: config.orgLogin.toLowerCase(),
+            tokens: publicTokens,
+            client: new CollectionAppClient(
+              config,
+              publicTokens,
+              queue.wrapFetcher(globalThis.fetch),
+            ),
+            queue,
+          };
+          return externalRuntime;
+        };
         return new CollectionSyncService(
           incrementalRepository,
           runtimeFactory,
-          async () => {
-            const { tokens } = await runtimeFactory();
-            const identity = await tokens.getInstallationIdentity();
-            return BigInt(identity.organizationId);
-          },
+          resolveGithubOrganizationId,
+          undefined,
+          undefined,
+          externalRuntimeFactory,
         );
       },
     },
