@@ -105,23 +105,70 @@ describe('program-apply-flow', () => {
     ).toBe(null);
   });
 
+  const baseValues = {
+    title: '',
+    summary: '',
+    isRepositoryPublicationPlanned: true,
+    repositoryConnectionMode: 'new',
+    repositoryUrl: '',
+    personalDataConsent: false,
+  } as const;
+
   it('필수 입력 검증 오류를 반환한다', () => {
-    expect(
-      validateApplyForm({
-        title: '',
-        summary: '',
-        isRepositoryPublicationPlanned: true,
-      }),
-    ).toEqual({
+    expect(validateApplyForm(baseValues)).toEqual({
       title: '제목을 입력해 주세요.',
       summary: '요약을 입력해 주세요.',
+      personalDataConsent: '개인정보 수집·이용에 동의해야 지원할 수 있습니다.',
     });
     expect(
       validateApplyForm({
+        ...baseValues,
         title: '제목',
         summary: '요약',
-        isRepositoryPublicationPlanned: true,
+        personalDataConsent: true,
       }),
+    ).toEqual({});
+  });
+
+  it('저장소를 직접 연결하려면 URL이 필요하다', () => {
+    expect(
+      validateApplyForm({
+        ...baseValues,
+        title: '제목',
+        summary: '요약',
+        personalDataConsent: true,
+        repositoryConnectionMode: 'own',
+        repositoryUrl: '  ',
+      }),
+    ).toEqual({
+      repositoryUrl:
+        '연결할 repo URL을 입력하거나 새 저장소 생성을 선택해 주세요.',
+    });
+    expect(
+      validateApplyForm({
+        ...baseValues,
+        title: '제목',
+        summary: '요약',
+        personalDataConsent: true,
+        repositoryConnectionMode: 'own',
+        repositoryUrl: 'https://github.com/team/repo',
+      }),
+    ).toEqual({});
+  });
+
+  it('수정 모드에서는 저장소 연결·개인정보 동의를 다시 요구하지 않는다', () => {
+    expect(
+      validateApplyForm(
+        {
+          ...baseValues,
+          title: '제목',
+          summary: '요약',
+          personalDataConsent: false,
+          repositoryConnectionMode: 'own',
+          repositoryUrl: '',
+        },
+        'edit',
+      ),
     ).toEqual({});
   });
 

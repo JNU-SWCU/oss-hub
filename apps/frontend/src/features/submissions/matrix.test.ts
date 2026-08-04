@@ -1,15 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyMatrixQuickFilter,
   buildMatrixSearchParams,
   cellForMilestone,
+  formatSubmittedAt,
+  isLateSubmission,
   isMatrixFilterActive,
   matrixEmptyKind,
+  matrixPageStats,
+  matrixRowHasEmptyCell,
+  matrixRowIsZeroSubmission,
   matrixRowTitle,
   matrixTotalPages,
   notSubmittedDeadline,
   parseMatrixModeFilter,
 } from './matrix';
-import type { MatrixCell, MatrixRow } from './types';
+import type { MatrixCell, MatrixMilestone, MatrixRow } from './types';
 
 const submittedCell: MatrixCell = {
   milestoneId: 'milestone-plan',
@@ -167,6 +173,165 @@ describe('isMatrixFilterActive', () => {
     expect(isMatrixFilterActive('  ', 'ALL')).toBe(false);
     expect(isMatrixFilterActive('홍', 'ALL')).toBe(true);
     expect(isMatrixFilterActive('', 'TEAM')).toBe(true);
+  });
+});
+
+describe('formatSubmittedAt', () => {
+  it('Asia/Seoul 기준 "MM.DD HH:MM"으로 표시한다', () => {
+    expect(formatSubmittedAt('2026-08-19T10:00:00+09:00')).toBe('08.19 10:00');
+    // UTC로 저장된 시각도 Seoul 기준으로 변환한다(UTC 1:00 → Seoul 10:00).
+    expect(formatSubmittedAt('2026-08-19T01:00:00Z')).toBe('08.19 10:00');
+  });
+});
+
+describe('isLateSubmission', () => {
+  const milestone: MatrixMilestone = {
+    id: 'milestone-plan',
+    name: '기획서',
+    dueAt: '2026-08-19T23:59:59+09:00',
+  };
+
+  it('제출 시각이 마감 이후면 지각이다', () => {
+    expect(
+      isLateSubmission(
+        { ...submittedCell, submittedAt: '2026-08-20T00:00:01+09:00' },
+        milestone,
+      ),
+    ).toBe(true);
+  });
+
+  it('제출 시각이 마감 이전이면 지각이 아니다', () => {
+    expect(
+      isLateSubmission(
+        { ...submittedCell, submittedAt: '2026-08-19T10:00:00+09:00' },
+        milestone,
+      ),
+    ).toBe(false);
+  });
+
+  it('NOT_SUBMITTED 셀은 지각 판정 대상이 아니다', () => {
+    const empty: MatrixCell = {
+      milestoneId: 'milestone-plan',
+      submissionId: null,
+      revision: null,
+      status: 'NOT_SUBMITTED',
+      submittedAt: null,
+      reviewUrl: null,
+    };
+    expect(isLateSubmission(empty, milestone)).toBe(false);
+  });
+});
+
+describe('matrixPageStats', () => {
+  const milestones: MatrixMilestone[] = [
+    {
+      id: 'milestone-plan',
+      name: '기획서',
+      dueAt: '2026-08-19T23:59:59+09:00',
+    },
+    {
+      id: 'milestone-mid',
+      name: '중간 보고',
+      dueAt: '2026-09-12T23:59:59+09:00',
+    },
+  ];
+
+  it('로드된 행 기준으로 채운 칸·빈 칸·미제출 팀·지각 건수를 센다', () => {
+    // Given: teamRow는 기획서만 제출(지각), 중간 보고는 미제출.
+    //        personalRow는 두 마일스톤 모두 미제출(한 장도 안 낸 팀).
+    const late: MatrixRow = {
+      ...teamRow,
+      cells: [{ ...submittedCell, submittedAt: '2026-08-20T09:00:00+09:00' }],
+    };
+
+    // When
+    const stats = matrixPageStats([late, personalRow], milestones);
+
+    // Then
+    expect(stats).toEqual({
+      totalCells: 4,
+      filledCells: 1,
+      emptyCells: 3,
+      zeroSubmissionRows: 1,
+      lateCells: 1,
+    });
+  });
+
+  it('행이 없으면 모든 값이 0이다', () => {
+    expect(matrixPageStats([], milestones)).toEqual({
+      totalCells: 0,
+      filledCells: 0,
+      emptyCells: 0,
+      zeroSubmissionRows: 0,
+      lateCells: 0,
+    });
+  });
+});
+
+describe('matrixRowHasEmptyCell / matrixRowIsZeroSubmission', () => {
+  const milestones: MatrixMilestone[] = [
+    {
+      id: 'milestone-plan',
+      name: '기획서',
+      dueAt: '2026-08-19T23:59:59+09:00',
+    },
+    {
+      id: 'milestone-mid',
+      name: '중간 보고',
+      dueAt: '2026-09-12T23:59:59+09:00',
+    },
+  ];
+
+  it('일부만 제출한 팀은 빈 칸이 있지만 한 장도 안 낸 팀은 아니다', () => {
+    expect(matrixRowHasEmptyCell(teamRow, milestones)).toBe(true);
+    expect(matrixRowIsZeroSubmission(teamRow, milestones)).toBe(false);
+  });
+
+  it('전부 미제출인 팀은 빈 칸도 있고 한 장도 안 낸 팀이기도 하다', () => {
+    expect(matrixRowHasEmptyCell(personalRow, milestones)).toBe(true);
+    expect(matrixRowIsZeroSubmission(personalRow, milestones)).toBe(true);
+  });
+
+  it('모든 마일스톤을 제출한 팀은 빈 칸이 없다', () => {
+    const fullRow: MatrixRow = {
+      ...teamRow,
+      cells: [
+        submittedCell,
+        { ...submittedCell, milestoneId: 'milestone-mid' },
+      ],
+    };
+    expect(matrixRowHasEmptyCell(fullRow, milestones)).toBe(false);
+    expect(matrixRowIsZeroSubmission(fullRow, milestones)).toBe(false);
+  });
+});
+
+describe('applyMatrixQuickFilter', () => {
+  const milestones: MatrixMilestone[] = [
+    {
+      id: 'milestone-plan',
+      name: '기획서',
+      dueAt: '2026-08-19T23:59:59+09:00',
+    },
+    {
+      id: 'milestone-mid',
+      name: '중간 보고',
+      dueAt: '2026-09-12T23:59:59+09:00',
+    },
+  ];
+  const rows = [teamRow, personalRow];
+
+  it('ALL은 행을 그대로 돌려준다', () => {
+    expect(applyMatrixQuickFilter(rows, milestones, 'ALL')).toEqual(rows);
+  });
+
+  it('HAS_EMPTY는 빈 칸이 하나라도 있는 행만 남긴다', () => {
+    expect(applyMatrixQuickFilter(rows, milestones, 'HAS_EMPTY')).toEqual(rows);
+  });
+
+  it('ZERO_SUBMISSION은 전부 미제출인 행만 남긴다', () => {
+    expect(applyMatrixQuickFilter(rows, milestones, 'ZERO_SUBMISSION')).toEqual(
+      [personalRow],
+    );
   });
 });
 

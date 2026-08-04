@@ -47,21 +47,38 @@ export type ProgramApplyPageState =
       readonly applicationId: string;
     };
 
+/**
+ * 새 신청서 생성 시점에만 쓰는 저장소 연결 방식. 백엔드 `Application`에는 아직
+ * 대응 필드가 없다 — 값은 폼 안에서만 유지하고 제출 payload에는 실어 보내지
+ * 않는다(자세한 계약은 apiContract 참고, 임의로 백엔드 스키마를 바꾸지 않는다).
+ */
+export const REPOSITORY_CONNECTION_MODES = ['new', 'own'] as const;
+export type RepositoryConnectionMode =
+  (typeof REPOSITORY_CONNECTION_MODES)[number];
+
 export type ProgramApplyFormValues = {
   readonly title: string;
   readonly summary: string;
   readonly isRepositoryPublicationPlanned: boolean;
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  readonly repositoryUrl: string;
+  readonly personalDataConsent: boolean;
 };
 
 export type ProgramApplyFormErrors = {
   readonly title?: string;
   readonly summary?: string;
+  readonly repositoryUrl?: string;
+  readonly personalDataConsent?: string;
 };
 
 export const EMPTY_APPLY_FORM: ProgramApplyFormValues = {
   title: '',
   summary: '',
   isRepositoryPublicationPlanned: true,
+  repositoryConnectionMode: 'new',
+  repositoryUrl: '',
+  personalDataConsent: false,
 };
 
 export function isApplicationPeriodOpen(
@@ -86,12 +103,32 @@ export function resolveApplyBlockedReason(
   return null;
 }
 
+/**
+ * GitHub 저장소 연결·개인정보 동의는 **새 신청서 제출**에만 적용된다(프로토타입
+ * 원문 범위). 수정(`edit`)은 승인 전 이미 제출된 신청서의 제목·요약만 고치는
+ * 흐름이라 두 항목을 다시 요구하지 않는다.
+ */
 export function validateApplyForm(
   values: ProgramApplyFormValues,
+  mode: 'create' | 'edit' = 'create',
 ): ProgramApplyFormErrors {
   return {
     ...(!values.title.trim() ? { title: '제목을 입력해 주세요.' } : {}),
     ...(!values.summary.trim() ? { summary: '요약을 입력해 주세요.' } : {}),
+    ...(mode === 'create' &&
+    values.repositoryConnectionMode === 'own' &&
+    !values.repositoryUrl.trim()
+      ? {
+          repositoryUrl:
+            '연결할 repo URL을 입력하거나 새 저장소 생성을 선택해 주세요.',
+        }
+      : {}),
+    ...(mode === 'create' && !values.personalDataConsent
+      ? {
+          personalDataConsent:
+            '개인정보 수집·이용에 동의해야 지원할 수 있습니다.',
+        }
+      : {}),
   };
 }
 

@@ -146,14 +146,19 @@ describe('loadProgramApplyContext', () => {
       program,
       template,
       applicantName: 'Applicant',
+      githubHandle: 'applicant',
       teamId: 'team-1',
       teamMinimum: null,
+      team: null,
       applicationId: 'application-1',
       canCancel: false,
       initialValues: {
         title: 'Existing title',
         summary: 'Existing summary',
         isRepositoryPublicationPlanned: false,
+        repositoryConnectionMode: 'new',
+        repositoryUrl: '',
+        personalDataConsent: true,
       },
     });
   });
@@ -175,6 +180,68 @@ describe('loadProgramApplyContext', () => {
     expect(result).toEqual({
       kind: 'failed',
       message: '신청 상태가 변경되었습니다. 새로고침 후 다시 시도해 주세요.',
+    });
+  });
+
+  it('팀형 프로그램의 새 신청 상태에는 GitHub handle과 현재 팀을 함께 담는다', async () => {
+    // `resolveProgramApplicationTemplate`는 program.category로 정의를 고르고
+    // 그 정의의 key와 일치하는 템플릿만 API 응답에서 받아들인다(program-templates.ts).
+    // 팀형 정의(OSS_CONTEST)의 key는 'oss-contest'다.
+    const teamTemplate = {
+      ...template,
+      key: 'oss-contest',
+      participation: 'team',
+    } satisfies ApplicationFormTemplate;
+    const noApplicationProgram = {
+      ...program,
+      category: 'OSS_CONTEST',
+      // 신청 기간 판별은 실제 현재 시각(Date.now())을 쓴다 — 테스트가 언제
+      // 돌아도 열려 있도록 마감을 충분히 미래로 둔다.
+      applicationPeriod: {
+        startsAt: '2020-01-01T00:00:00.000Z',
+        endsAt: '2099-12-31T23:59:59.000Z',
+      },
+      viewer: { role: 'STUDENT', applicationStatus: null },
+    } satisfies ProgramDetail;
+    const team = {
+      id: 'team-1',
+      name: 'Synthetic Team',
+      memberCount: 2,
+      minMembers: 2,
+      maxMembers: 4,
+      locked: false,
+      isLeader: true,
+      members: [
+        { userId: 'user-1', nickname: 'leader', name: '팀장', isLeader: true },
+        { userId: 'user-2', nickname: 'member', name: null, isLeader: false },
+      ],
+    };
+    vi.mocked(listApplicationTemplates).mockResolvedValue([teamTemplate]);
+    vi.mocked(getProgramDetail).mockResolvedValue(noApplicationProgram);
+    vi.mocked(getMyTeam).mockResolvedValue(team);
+
+    const result = await loadProgramApplyContext('program-1', null);
+
+    expect(result).toEqual({
+      kind: 'ready',
+      mode: 'create',
+      program: noApplicationProgram,
+      template: teamTemplate,
+      applicantName: 'Applicant',
+      githubHandle: 'applicant',
+      teamId: 'team-1',
+      teamMinimum: { memberCount: 2, teamMinSize: 2 },
+      team,
+      applicationId: null,
+      canCancel: false,
+      initialValues: {
+        title: '',
+        summary: '',
+        isRepositoryPublicationPlanned: true,
+        repositoryConnectionMode: 'new',
+        repositoryUrl: '',
+        personalDataConsent: false,
+      },
     });
   });
 });

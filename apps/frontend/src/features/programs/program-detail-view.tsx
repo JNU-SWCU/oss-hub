@@ -7,8 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ActivityGraphPanel } from './components/activity-graph-panel';
 import { MilestoneRow } from './components/milestone-row';
-import { categoryLabel, formatSeoulDate } from './program-detail-format';
+import { MilestoneDocumentSection } from './milestone-document-list';
+import {
+  categoryLabel,
+  formatSeoulDate,
+  formatSeoulDateOnly,
+} from './program-detail-format';
 import { programHref, staffProgramHref } from './program-paths';
+import type { ProgramOverview } from './program-overview-api';
 import type { ProgramDetail } from './types';
 
 const SIGNUP_ENTRY_HREF = '/signup';
@@ -98,6 +104,80 @@ function ProgramSummary({ program }: { readonly program: ProgramDetail }) {
   );
 }
 
+/**
+ * 팩트 바 — 프로그램 상세 요약 스트립. 6번째 항목은 뷰어 역할별로 갈린다
+ * (program-overview 응답의 viewer* 필드는 역할별 한쪽만 채워진다). overview가
+ * 없으면(비로그인 등으로 조회 실패) 프로그램 기본 정보만으로 앞 두 항목만 보여준다.
+ */
+export function ProgramFactBar({
+  program,
+  overview,
+}: {
+  readonly program: ProgramDetail;
+  readonly overview: ProgramOverview | null;
+}) {
+  const items: {
+    readonly key: string;
+    readonly k: string;
+    readonly v: string;
+  }[] = [
+    { key: 'organizer', k: '주관', v: program.organizer },
+    {
+      key: 'period',
+      k: '신청 기간',
+      v: `${formatSeoulDateOnly(program.applicationPeriod.startsAt)} ~ ${formatSeoulDateOnly(program.applicationPeriod.endsAt)}`,
+    },
+  ];
+  if (overview) {
+    items.push(
+      {
+        key: 'participants',
+        k: '참여 학생',
+        v: `${overview.participantCount}명`,
+      },
+      { key: 'teams', k: '팀', v: `${overview.teamCount}팀` },
+      {
+        key: 'repositories',
+        k: '연결된 저장소',
+        v: `${overview.connectedRepositoryCount}개`,
+      },
+    );
+    if (overview.viewerRole === 'STUDENT') {
+      items.push({
+        key: 'my-submission',
+        k: '내 제출',
+        v: `${overview.viewerDocumentsCompleted ?? 0} / ${overview.viewerDocumentsTotal ?? 0} 서류`,
+      });
+    } else if (
+      overview.viewerRole === 'STAFF' ||
+      overview.viewerRole === 'ADMIN'
+    ) {
+      const denominator = overview.participantCount;
+      const numerator = overview.fullySubmittedParticipantCount ?? 0;
+      const rate =
+        denominator > 0 ? Math.round((numerator / denominator) * 100) : 0;
+      items.push({
+        key: 'submission-rate',
+        k: '제출률',
+        v: `${rate}% (${numerator}/${denominator})`,
+      });
+    }
+  }
+  return (
+    <dl
+      aria-label="프로그램 요약"
+      className="flex flex-wrap gap-x-8 gap-y-3 border-y border-border py-4"
+    >
+      {items.map((item) => (
+        <div key={item.key} className="grid gap-0.5">
+          <dt className="text-xs text-muted-foreground">{item.k}</dt>
+          <dd className="text-sm font-bold tabular-nums">{item.v}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 export function ProgramDetailFailureState({
   kind,
   onRetry,
@@ -173,13 +253,19 @@ export function ProgramMilestones({
         />
       ) : (
         program.milestones.map((milestone) => (
-          <MilestoneRow
-            key={milestone.id}
-            programId={program.id}
-            milestone={milestone}
-            viewerRole={program.viewer.role}
-            applicationStatus={program.viewer.applicationStatus}
-          />
+          <div key={milestone.id} className="grid gap-3">
+            <MilestoneRow
+              programId={program.id}
+              milestone={milestone}
+              viewerRole={program.viewer.role}
+              applicationStatus={program.viewer.applicationStatus}
+            />
+            <MilestoneDocumentSection
+              milestoneId={milestone.id}
+              viewerRole={program.viewer.role}
+              closed={milestone.dDay < 0}
+            />
+          </div>
         ))
       )}
     </section>
@@ -188,9 +274,21 @@ export function ProgramMilestones({
 
 export function ProgramDetailReadyState({
   program,
-  approvedStudentMilestones,
+  overview = null,
 }: {
   readonly program: ProgramDetail;
+  /**
+   * program-overview 팩트 바 데이터. 비로그인 등으로 조회에 실패하면 null —
+   * 이 경우 팩트 바는 프로그램 기본 정보만으로 앞 두 항목만 보여준다.
+   */
+  readonly overview?: ProgramOverview | null;
+  /**
+   * 마일스톤 섹션은 이제 항상 `ProgramMilestones`(팩트 바 + 서류 제출 행)를
+   * 그린다 — 승인된 학생 전용 체크리스트로 갈아 끼우던 이전 분기는 milestone
+   * documents API 기반 인라인 서류 제출로 대체되었다. 호출부 호환을 위해 이
+   * prop 자체는 그대로 받되(기존 caller가 여전히 넘겨도 타입 오류가 나지
+   * 않도록) 더는 사용하지 않는다.
+   */
   readonly approvedStudentMilestones?: ReactNode;
 }) {
   const didScrollActivityHash = useRef(false);
@@ -215,13 +313,8 @@ export function ProgramDetailReadyState({
         actions={<ProgramActions program={program} />}
       />
       <ProgramSummary program={program} />
-      {program.viewer.role === 'STUDENT' &&
-      program.viewer.applicationStatus === 'APPROVED' &&
-      approvedStudentMilestones !== undefined ? (
-        approvedStudentMilestones
-      ) : (
-        <ProgramMilestones program={program} />
-      )}
+      <ProgramFactBar program={program} overview={overview} />
+      <ProgramMilestones program={program} />
       <section id="activity" aria-label="활동 상세">
         <ActivityGraphPanel
           programId={program.id}

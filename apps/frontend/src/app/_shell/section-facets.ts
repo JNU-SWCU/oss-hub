@@ -113,3 +113,25 @@ export function facetSectionFromHrefPath(
   if (hrefPath === '/ranking') return 'ranking';
   return null;
 }
+
+/**
+ * `/programs/:id`(하위 전부 포함, 예: `/programs/:id/teams`)에서 프로그램 id를 뽑는다.
+ * `/programs` 목록 루트(쿼리 포함)는 `null` — 그 경우는 여전히 `programSidebarGroup`
+ * 상태 필터가 좌측 패널을 채운다(§sidebarGroupsFor, 기존 계약 그대로).
+ *
+ * 목록 루트가 아닌 `/programs/*` 는 프로그램 상세 스코프로 판정해 좌측 패널을
+ * `programScopeSidebarGroups()` + `ProgramScopeSidebar`로 바꿔야 한다는 신호다
+ * (chrome-tokens §2-1, program-detail.md §0). 그 전환(어느 컴포넌트를 렌더할지 고르는
+ * 지점)은 `ProductShell`이 담당— 이 함수는 판정에 필요한 순수 로직만 제공한다.
+ * 실제 프로그램 개요/서류/게시판 데이터 로딩은 이 레인 범위 밖이다.
+ */
+export function programDetailIdFromPathname(pathname: string): string | null {
+  if (pathname === '/programs') return null;
+  const match = /^\/programs\/([^/]+)(?:\/.*)?$/.exec(pathname);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1] as string);
+  } catch {
+    return match[1] as string;
+  }
+}

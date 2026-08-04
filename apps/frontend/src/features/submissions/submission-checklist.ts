@@ -91,6 +91,24 @@ export function sortChecklistItems(
   );
 }
 
+export interface ChecklistSubmittedCount {
+  readonly total: number;
+  readonly submitted: number;
+}
+
+/**
+ * "낼 서류 N건 중 M건 제출" 요약(#619 mydocs 스펙) — 좌측 사이드바 배지와
+ * 같은 규칙: submission이 있으면(리뷰 상태와 무관) 제출로 센다.
+ */
+export function checklistSubmittedCount(
+  items: readonly SubmissionChecklistItem[],
+): ChecklistSubmittedCount {
+  return {
+    total: items.length,
+    submitted: items.filter((item) => item.submission !== null).length,
+  };
+}
+
 export type ResubmissionFailure =
   | { readonly kind: 'stale' }
   | {

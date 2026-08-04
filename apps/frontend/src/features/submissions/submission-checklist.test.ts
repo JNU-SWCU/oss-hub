@@ -2,8 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ProblemDetail } from '@/lib/api-client';
 import {
   applyResubmission,
-  CHECKLIST_STATUS_LABELS,
   checklistItemStatus,
+  checklistSubmittedCount,
+  CHECKLIST_STATUS_LABELS,
   deadlineVariant,
   milestoneDeadline,
   resubmissionContent,
@@ -145,6 +146,36 @@ describe('sortChecklistItems', () => {
       'milestone-2',
     ]);
     expect(items[0]).toBe(first);
+  });
+});
+
+describe('checklistSubmittedCount', () => {
+  it('제출물이 있는 항목만 제출 수로 센다(리뷰 상태 무관)', () => {
+    // Given: 5개 중 4개는 제출(승인/보완필요/제출됨/최종반려), 1개는 미제출.
+    const items: SubmissionChecklistItem[] = [
+      checklistItem({
+        milestoneId: 'm1',
+        dueAt: '2026-09-01T00:00:00Z',
+        submission: {
+          id: 's1',
+          status: 'APPROVED',
+          currentRevision: 1,
+          decision: 'APPROVED',
+          lastReviewedAt: null,
+          reviewComment: null,
+          canResubmit: false,
+          file: null,
+        },
+      }),
+      checklistItem({ milestoneId: 'm2', dueAt: '2026-09-02T00:00:00Z' }),
+    ];
+
+    // When / Then
+    expect(checklistSubmittedCount(items)).toEqual({ total: 2, submitted: 1 });
+  });
+
+  it('빈 목록은 0/0이다', () => {
+    expect(checklistSubmittedCount([])).toEqual({ total: 0, submitted: 0 });
   });
 });
 
