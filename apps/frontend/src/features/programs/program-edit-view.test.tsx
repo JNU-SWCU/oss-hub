@@ -94,6 +94,50 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('href="/programs/program-1"');
   });
 
+  // #355 — 교직원 화면은 내부 구현 용어를 쓰지 않는다.
+  // 라벨은 값이 무엇인지 한국어로 말하고, 설명문은 화면에서 할 수 있는 일을 말한다.
+  it('내부 구현 용어 대신 교직원이 읽을 수 있는 라벨을 쓴다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramEditView
+        program={editableProgram}
+        form={toProgramEditForm(editableProgram)}
+        errors={{}}
+        toastMessage={null}
+        generalAlert={null}
+        isSaving={false}
+        milestoneEditor={{ mode: 'closed' }}
+        deleteTarget={null}
+        isMilestoneBusy={false}
+        onFieldChange={noOp}
+        onSubmit={vi.fn()}
+        onAddMilestone={noOp}
+        onEditMilestone={noOp}
+        onCancelMilestone={noOp}
+        onMilestoneFieldChange={noOp}
+        onSaveMilestone={vi.fn()}
+        onRequestDeleteMilestone={noOp}
+        onCancelDelete={noOp}
+        onConfirmDelete={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('신청서 양식');
+    expect(html).toContain('양식 버전');
+    expect(html).toContain('신청 승인 시 GitHub 저장소 자동 생성');
+    expect(html).toContain(
+      '학생이 제출물을 올릴 마일스톤을 등록·수정·삭제할 수 있습니다.',
+    );
+
+    for (const internalTerm of [
+      '템플릿 키',
+      '템플릿 버전',
+      '저장소 프로비저닝',
+      'canonical ID',
+    ]) {
+      expect(html).not.toContain(internalTerm);
+    }
+  });
+
   it('renders field errors without dropping current input values', () => {
     // Given
     const form = {

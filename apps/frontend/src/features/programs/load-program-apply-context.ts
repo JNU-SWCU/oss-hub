@@ -1,5 +1,10 @@
 import { apiClient, ApiError } from '@/lib/api-client';
-import { getMyTeam, getProgramDetail, listApplicationTemplates } from './api';
+import {
+  getMyTeam,
+  getProgramDetail,
+  listApplicationTemplates,
+  type ProgramTeam,
+} from './api';
 import {
   resolveApplyBlockedReason,
   resolveTeamMinimum,
@@ -35,8 +40,12 @@ export type ProgramApplyContext =
       readonly program: ProgramDetail;
       readonly template: ApplicationFormTemplate;
       readonly applicantName: string;
+      /** 세션에 연결된 GitHub 계정. 폼의 "GitHub 계정 연동" 안내행이 그대로 쓴다. */
+      readonly githubHandle: string;
       readonly teamId: string | null;
       readonly teamMinimum: TeamMinimum | null;
+      /** 팀형 신청의 현재 팀 요약(이름·팀원). 개인형이거나 팀이 없으면 null. */
+      readonly team: ProgramTeam | null;
       readonly applicationId: string | null;
       readonly canManage: boolean;
       readonly initialValues: ProgramApplyFormValues;
@@ -54,16 +63,17 @@ async function resolveTeam(
 ): Promise<{
   readonly teamId: string | null;
   readonly minimum: TeamMinimum | null;
+  readonly team: ProgramTeam | null;
 }> {
   if (template.participation !== 'team' || !isAuthenticated) {
-    return { teamId: requestedTeamId, minimum: null };
+    return { teamId: requestedTeamId, minimum: null, team: null };
   }
   try {
     const team = await getMyTeam(programId);
-    return { teamId: team.id, minimum: resolveTeamMinimum(team) };
+    return { teamId: team.id, minimum: resolveTeamMinimum(team), team };
   } catch (error: unknown) {
     if (error instanceof ApiError && error.problem.status === 404) {
-      return { teamId: null, minimum: null };
+      return { teamId: null, minimum: null, team: null };
     }
     throw error;
   }
@@ -86,6 +96,7 @@ export async function loadProgramApplyContext(
     const applicantName = session.isAuthenticated
       ? (session.user.name ?? session.user.nickname)
       : '';
+    const githubHandle = session.isAuthenticated ? session.user.nickname : '';
 
     if (program.viewer.applicationStatus !== null) {
       const application = await getMyApplication(programId).catch(
@@ -113,14 +124,22 @@ export async function loadProgramApplyContext(
       if (!application.canManage) {
         return { kind: 'blocked', reason: 'period-closed', program };
       }
+      const editTeam = await resolveTeam(
+        programId,
+        template,
+        application.teamId,
+        session.isAuthenticated,
+      );
       return {
         kind: 'ready',
         mode: 'edit',
         program,
         template,
         applicantName: application.answers.applicantName,
+        githubHandle,
         teamId: application.teamId,
         teamMinimum: null,
+        team: editTeam.team,
         applicationId: application.id,
         canManage: application.canManage,
         initialValues: {
@@ -128,6 +147,11 @@ export async function loadProgramApplyContext(
           summary: application.answers.summary,
           isRepositoryPublicationPlanned:
             application.isRepositoryPublicationPlanned,
+          // 저장소 연결 방식·개인정보 동의는 최초 제출 시점의 값이라 수정 화면에는
+          // 다시 묻지 않는다(program-apply-flow.validateApplyForm의 edit 분기 참고).
+          repositoryConnectionMode: 'new',
+          repositoryUrl: '',
+          personalDataConsent: true,
         },
       };
     }
@@ -146,14 +170,19 @@ export async function loadProgramApplyContext(
       program,
       template,
       applicantName,
+      githubHandle,
       teamId: team.teamId,
       teamMinimum: team.minimum,
+      team: team.team,
       applicationId: null,
       canManage: false,
       initialValues: {
         title: '',
         summary: '',
         isRepositoryPublicationPlanned: true,
+        repositoryConnectionMode: 'new',
+        repositoryUrl: '',
+        personalDataConsent: false,
       },
     };
   } catch (error: unknown) {

@@ -12,10 +12,12 @@ import {
   type ProgramApplyContext,
 } from './load-program-apply-context';
 import {
+  applyActionFailureMessage,
   EMPTY_APPLY_FORM,
   mapCreateApplicationError,
   remainingTeamMembers,
   validateApplyForm,
+  type ProgramApplyAction,
   type ProgramApplyFormErrors,
   type ProgramApplyFormValues,
 } from './program-apply-flow';
@@ -83,7 +85,7 @@ export function ProgramApplyPage({
   function requestSubmit(): void {
     if (state.kind !== 'ready') return;
     if (remainingTeamMembers(state.teamMinimum) > 0) return;
-    const nextErrors = validateApplyForm(values);
+    const nextErrors = validateApplyForm(values, state.mode);
     setErrors(nextErrors);
     setServerError(null);
     if (Object.keys(nextErrors).length > 0) return;
@@ -92,6 +94,7 @@ export function ProgramApplyPage({
 
   async function confirmAction(): Promise<void> {
     if (state.kind !== 'ready' || confirmation === null) return;
+    const action: ProgramApplyAction = confirmation;
     setSubmitting(true);
     setServerError(null);
     try {
@@ -133,8 +136,8 @@ export function ProgramApplyPage({
       setConfirmation(null);
       setServerError(
         error instanceof ApiError
-          ? mapCreateApplicationError(error.problem)
-          : '신청서를 저장하지 못했습니다.',
+          ? mapCreateApplicationError(error.problem, action)
+          : applyActionFailureMessage(action),
       );
     } finally {
       setSubmitting(false);
@@ -192,6 +195,8 @@ export function ProgramApplyPage({
           program={state.program}
           template={state.template}
           applicantName={state.applicantName}
+          githubHandle={state.githubHandle}
+          team={state.team}
           values={values}
           errors={errors}
           serverError={serverError}
@@ -207,6 +212,18 @@ export function ProgramApplyPage({
             setValues((previous) => ({
               ...previous,
               isRepositoryPublicationPlanned: checked,
+            }))
+          }
+          onRepositoryModeChange={(mode) =>
+            setValues((previous) => ({
+              ...previous,
+              repositoryConnectionMode: mode,
+            }))
+          }
+          onToggleConsent={(checked) =>
+            setValues((previous) => ({
+              ...previous,
+              personalDataConsent: checked,
             }))
           }
           onRequestSubmit={requestSubmit}

@@ -6,6 +6,7 @@ import {
   type ArchiveCategory,
   type ArchiveCategoryCounts,
 } from '@/features/archive/types';
+import { programHref } from '@/features/programs/program-paths';
 import {
   PROGRAM_LIST_STATUSES,
   PROGRAM_LIST_STATUS_LABELS,
@@ -104,6 +105,143 @@ export const PROGRAM_SIDEBAR_GROUP: SidebarGroup = programSidebarGroup();
 
 export const PROGRAM_SIDEBAR_ITEMS: readonly SidebarItem[] =
   PROGRAM_SIDEBAR_GROUP.items;
+
+/**
+ * 프로그램 상세(`/programs/:id` 하위) 스코프 사이드바 — `AppSidebar`/`SidebarItem`과는
+ * 별개 모델이다. 이 메뉴의 카운트는 "2/6", "12/47팀" 같은 분수·자유형식이 필요해서
+ * (chrome-tokens §2-2) 숫자 전용인 `SidebarItem.count`를 재사용할 수 없다.
+ * 렌더는 `ProgramScopeSidebar`(program-scope-sidebar.tsx) 담당, 여기는 순수 데이터 조립만.
+ */
+export interface ProgramScopeSidebarItem {
+  readonly label: string;
+  readonly href: string;
+  readonly icon: ShellIconName;
+  readonly depth?: 0 | 1;
+  /** 사전 포맷된 뱃지 텍스트. undefined면 뱃지 미표시. */
+  readonly count?: string;
+}
+
+export interface ProgramScopeSidebarGroup {
+  readonly label: string;
+  readonly items: readonly ProgramScopeSidebarItem[];
+}
+
+export type ProgramScopeViewerRole = 'STUDENT' | 'STAFF' | 'ADMIN';
+
+export interface ProgramScopeMilestoneDocsSummary {
+  readonly milestoneId: string;
+  readonly title: string;
+  /** STUDENT 뷰어: 내가 낸 서류 수. STAFF/ADMIN 뷰어: 완주(전체 서류 제출) 팀 수. */
+  readonly completed: number;
+  /** STUDENT 뷰어: 그 마일스톤 서류 총수(분모로만 씀). STAFF/ADMIN 뷰어에서는 무시하고
+   *  대신 `teamCount`를 분모로 쓴다 — 프로토타입의 고정 표본(8팀)이 아니라 실제 참여
+   *  팀 수 기준(program-detail.md §7 미결 참고). */
+  readonly total: number;
+}
+
+export interface ProgramScopeSidebarInput {
+  readonly programId: string;
+  readonly viewerRole: ProgramScopeViewerRole;
+  readonly teamCount: number;
+  readonly boardPostCount: number;
+  /** STUDENT 뷰어만 — "내 제출물" 부모 항목 합계
+   *  (program-overview 응답의 viewerDocumentsCompleted/viewerDocumentsTotal). */
+  readonly viewerDocuments?: {
+    readonly completed: number;
+    readonly total: number;
+  };
+  /** 서류가 있는 마일스톤만, 순서대로. 없으면 부모 항목만(자식 없이) 렌더. */
+  readonly milestoneDocuments?: readonly ProgramScopeMilestoneDocsSummary[];
+}
+
+/**
+ * 프로그램 상세 좌측 패널 3그룹(개요/참여 팀 · 서류 현황 또는 내 제출물 · 게시판).
+ * chrome-tokens §2-2 B) 그대로 — g2 부모 라벨·자식 유무는 역할로 갈린다.
+ * hrefs는 `programHref` 접미사(`/teams`, `/status`, `/mydocs`, `/board`)로 만든다 —
+ * 해당 라우트가 아직 없다면 이 함수 하나만 고치면 된다(가정: program-detail.md 미결).
+ */
+export function programScopeSidebarGroups(
+  input: ProgramScopeSidebarInput,
+): readonly ProgramScopeSidebarGroup[] {
+  const {
+    programId,
+    viewerRole,
+    teamCount,
+    boardPostCount,
+    viewerDocuments,
+    milestoneDocuments = [],
+  } = input;
+  const isStaffView = viewerRole !== 'STUDENT';
+
+  const overviewGroup: ProgramScopeSidebarGroup = {
+    label: '프로그램',
+    items: [
+      {
+        label: '프로그램 개요',
+        href: programHref(programId),
+        icon: 'home',
+        depth: 0,
+      },
+      {
+        label: '참여 팀',
+        href: programHref(programId, '/teams'),
+        icon: 'people',
+        depth: 0,
+        count: String(teamCount),
+      },
+    ],
+  };
+
+  const documentsParent: ProgramScopeSidebarItem = isStaffView
+    ? {
+        label: '서류 현황',
+        href: programHref(programId, '/status'),
+        icon: 'inbox',
+        depth: 0,
+      }
+    : {
+        label: '내 제출물',
+        href: programHref(programId, '/mydocs'),
+        icon: 'inbox',
+        depth: 0,
+        count: viewerDocuments
+          ? `${viewerDocuments.completed}/${viewerDocuments.total}`
+          : undefined,
+      };
+
+  const documentsChildren: readonly ProgramScopeSidebarItem[] =
+    milestoneDocuments.map((milestone) => ({
+      label: milestone.title,
+      href: isStaffView
+        ? `${programHref(programId, '/status')}?milestoneId=${encodeURIComponent(milestone.milestoneId)}`
+        : programHref(programId, '/mydocs'),
+      icon: 'inbox',
+      depth: 1,
+      count: isStaffView
+        ? `${milestone.completed}/${teamCount}팀`
+        : `${milestone.completed}/${milestone.total}`,
+    }));
+
+  const documentsGroup: ProgramScopeSidebarGroup = {
+    label: documentsParent.label,
+    items: [documentsParent, ...documentsChildren],
+  };
+
+  const boardGroup: ProgramScopeSidebarGroup = {
+    label: '게시판',
+    items: [
+      {
+        label: '게시판',
+        href: programHref(programId, '/board'),
+        icon: 'megaphone',
+        depth: 0,
+        count: String(boardPostCount),
+      },
+    ],
+  };
+
+  return [overviewGroup, documentsGroup, boardGroup];
+}
 
 const ARCHIVE_CATEGORY_ICONS: Readonly<
   Record<ArchiveCategory | 'all', ShellIconName>

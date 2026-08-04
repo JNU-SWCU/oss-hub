@@ -12,17 +12,24 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
+  applyMatrixQuickFilter,
   cellForMilestone,
   formatMatrixDueDate,
+  formatSubmittedAt,
+  isLateSubmission,
   MATRIX_MODE_LABELS,
   MATRIX_STATUS_LABELS,
   MATRIX_STATUS_VARIANTS,
   matrixEmptyKind,
+  matrixPageStats,
+  matrixRowHasEmptyCell,
+  matrixRowIsZeroSubmission,
   matrixRowTitle,
   matrixTotalPages,
   notSubmittedDeadline,
   parseMatrixModeFilter,
   type MatrixModeFilter,
+  type MatrixQuickFilter,
 } from '../matrix';
 import type {
   MatrixCell,
@@ -51,12 +58,15 @@ export interface SubmissionMatrixViewProps {
   readonly search: string;
   readonly mode: MatrixModeFilter;
   readonly filterActive: boolean;
+  /** #619 스펙 3버튼 빠른 필터 — 서버 재조회 없이 로드된 페이지 행만 거른다. */
+  readonly quickFilter: MatrixQuickFilter;
   readonly isLoading: boolean;
   readonly errorMessage: string | null;
   readonly now: Date;
   readonly onSearchChange: (value: string) => void;
   readonly onSearch: () => void;
   readonly onModeChange: (mode: MatrixModeFilter) => void;
+  readonly onQuickFilterChange: (filter: MatrixQuickFilter) => void;
   readonly onResetFilters: () => void;
   readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
@@ -97,19 +107,34 @@ function MatrixCellContent({
       </span>
     );
   }
-  if (cell.reviewUrl === null) return badge;
+  // 제출 시각 + 지각 여부(dueAt 이후 제출) — #619 스펙("지각" 배지 + 제출 일시).
+  const late = isLateSubmission(cell, milestone);
+  const meta = (
+    <span className="flex flex-col items-start gap-1">
+      <span className="flex flex-wrap items-center gap-1">
+        {badge}
+        {late ? <StatusBadge variant="pending">지각</StatusBadge> : null}
+      </span>
+      {cell.submittedAt !== null ? (
+        <span className="text-small text-muted-foreground">
+          {formatSubmittedAt(cell.submittedAt)}
+        </span>
+      ) : null}
+      {cell.revision !== null ? (
+        <span className="text-small text-muted-foreground">
+          v{cell.revision}
+        </span>
+      ) : null}
+    </span>
+  );
+  if (cell.reviewUrl === null) return meta;
   return (
     <Link
       href={cell.reviewUrl}
       aria-label={`${milestone.name} 제출물 검토`}
       className="inline-flex flex-col items-start gap-1 hover:opacity-80"
     >
-      {badge}
-      {cell.revision !== null ? (
-        <span className="text-small text-muted-foreground">
-          v{cell.revision}
-        </span>
-      ) : null}
+      {meta}
     </Link>
   );
 }
@@ -160,6 +185,96 @@ function MatrixSkeleton(): ReactElement {
       <span className="bg-muted h-4 w-1/3 animate-pulse rounded" />
       {[0, 1, 2, 3].map((row) => (
         <span key={row} className="bg-muted h-3 w-full animate-pulse rounded" />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * 서류 칸 요약 — #619 스펙의 4칸 통계를 현재 페이지에 로드된 행 기준으로 낸다.
+ * "전체 47팀" 같은 전수 집계는 페이지네이션 때문에 이 화면만으로 낼 수 없어
+ * "이 페이지" 표기를 붙인다(matrix.ts matrixPageStats 주석 참고).
+ */
+function MatrixStatsStrip({
+  rows,
+  milestones,
+}: {
+  readonly rows: readonly MatrixRow[];
+  readonly milestones: readonly MatrixMilestone[];
+}): ReactElement {
+  const stats = matrixPageStats(rows, milestones);
+  const facts: { readonly label: string; readonly value: string }[] = [
+    {
+      label: '서류 칸',
+      value: `${stats.filledCells}/${stats.totalCells} 채움`,
+    },
+    { label: '빈 칸', value: `${stats.emptyCells}개` },
+    { label: '한 장도 안 낸 팀', value: `${stats.zeroSubmissionRows}팀` },
+    { label: '지각 제출', value: `${stats.lateCells}건` },
+  ];
+  return (
+    <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-card border border-border p-card sm:grid-cols-4">
+      {facts.map((fact) => (
+        <div key={fact.label} className="flex flex-col gap-1">
+          <dt className="text-small text-muted-foreground">{fact.label}</dt>
+          <dd className="text-lg font-semibold">{fact.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+const QUICK_FILTER_BUTTON_BASE =
+  'h-control rounded-control px-4 text-small font-semibold transition-colors';
+
+/**
+ * 3버튼 빠른 필터(#619 스펙) — "전체 N팀"/"빈 칸 있는 팀 N"/"한 장도 안 낸 팀 N".
+ * 선택됨: secondary 배경 + foreground 텍스트 / 미선택: card 배경 + muted 텍스트.
+ */
+function MatrixQuickFilterButtons({
+  rows,
+  milestones,
+  quickFilter,
+  onQuickFilterChange,
+}: {
+  readonly rows: readonly MatrixRow[];
+  readonly milestones: readonly MatrixMilestone[];
+  readonly quickFilter: MatrixQuickFilter;
+  readonly onQuickFilterChange: (filter: MatrixQuickFilter) => void;
+}): ReactElement {
+  const hasEmptyCount = rows.filter((row) =>
+    matrixRowHasEmptyCell(row, milestones),
+  ).length;
+  const zeroSubmissionCount = rows.filter((row) =>
+    matrixRowIsZeroSubmission(row, milestones),
+  ).length;
+  const options: {
+    readonly value: MatrixQuickFilter;
+    readonly label: string;
+  }[] = [
+    { value: 'ALL', label: `전체 ${rows.length}팀` },
+    { value: 'HAS_EMPTY', label: `빈 칸 있는 팀 ${hasEmptyCount}` },
+    {
+      value: 'ZERO_SUBMISSION',
+      label: `한 장도 안 낸 팀 ${zeroSubmissionCount}`,
+    },
+  ];
+  return (
+    <div role="group" aria-label="빠른 필터" className="flex flex-wrap gap-2">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          aria-pressed={quickFilter === option.value}
+          className={
+            quickFilter === option.value
+              ? `${QUICK_FILTER_BUTTON_BASE} bg-secondary text-foreground`
+              : `${QUICK_FILTER_BUTTON_BASE} bg-card text-muted-foreground border border-border`
+          }
+          onClick={() => onQuickFilterChange(option.value)}
+        >
+          {option.label}
+        </button>
       ))}
     </div>
   );
@@ -260,18 +375,48 @@ function MatrixBody(props: SubmissionMatrixViewProps): ReactNode {
     })),
   ];
 
+  const quickFiltered = applyMatrixQuickFilter(
+    rows,
+    milestones,
+    props.quickFilter,
+  );
+
   return (
     <>
-      <p id="matrix-scroll-hint" className="text-small text-muted-foreground">
-        총 {total}건 · 표를 좌우로 스크롤할 수 있습니다.
-      </p>
-      <DataTable
-        className={TABLE_CARD}
-        aria-describedby="matrix-scroll-hint"
-        columns={columns}
-        data={[...rows]}
-        rowKey={(row) => row.applicationId}
+      <MatrixStatsStrip rows={rows} milestones={milestones} />
+      <MatrixQuickFilterButtons
+        rows={rows}
+        milestones={milestones}
+        quickFilter={props.quickFilter}
+        onQuickFilterChange={props.onQuickFilterChange}
       />
+      <p id="matrix-scroll-hint" className="text-small text-muted-foreground">
+        이 페이지 {rows.length}건(전체 {total}건) 중 {quickFiltered.length}건
+        표시 · 표를 좌우로 스크롤할 수 있습니다.
+      </p>
+      {quickFiltered.length === 0 ? (
+        <EmptyState
+          title="조건에 맞는 팀이 없습니다"
+          description="빠른 필터를 바꿔 다시 확인해 보세요."
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => props.onQuickFilterChange('ALL')}
+            >
+              전체 보기
+            </Button>
+          }
+        />
+      ) : (
+        <DataTable
+          className={TABLE_CARD}
+          aria-describedby="matrix-scroll-hint"
+          columns={columns}
+          data={[...quickFiltered]}
+          rowKey={(row) => row.applicationId}
+        />
+      )}
       <MatrixPagination
         page={page}
         totalPages={matrixTotalPages(total, pageSize)}
@@ -290,10 +435,10 @@ export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
   return (
     <PageBody>
       <PageHeader
-        title="제출 현황"
+        title="서류 현황"
         description={
           <span className="break-keep">
-            승인된 신청의 마일스톤별 제출 상태를 조회합니다.
+            팀·개인별 마일스톤 제출 여부와 제출 시각을 확인합니다.
           </span>
         }
       />

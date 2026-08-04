@@ -10,13 +10,7 @@ import {
   useState,
   type ReactElement,
 } from 'react';
-import {
-  CardGrid,
-  EmptyState,
-  PageHeader,
-  ProgramCard,
-  StatusBadge,
-} from '@/components';
+import { CardGrid, EmptyState, PageHeader, ProgramCard } from '@/components';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
@@ -24,21 +18,28 @@ import { listPrograms } from './api';
 import { programHref } from './program-paths';
 import {
   filterAndGroupPrograms,
-  getProgramRecruitmentState,
+  getProgramListBadge,
+  getProgramListHeading,
+  getProgramListSubtitle,
 } from './program-list';
-import type { ProgramRecruitmentState } from './program-list';
 import { ProgramListPagination } from './program-list-pagination';
 import { ProgramListStatusChips } from './program-list-status-nav';
-import type { ProgramCategory } from './program-templates';
 import type {
   ProgramListItem,
   ProgramListPage as ProgramListPageData,
   ProgramListStatus,
+  ViewerRole,
 } from './types';
-import { PROGRAM_LIST_STATUSES, programListHref } from './types';
+import {
+  PROGRAM_CATEGORY_LABELS,
+  PROGRAM_LIST_STATUSES,
+  programListHref,
+} from './types';
 
 interface ProgramListPageProps {
   readonly canCreateProgram: boolean;
+  /** 부제 문구를 가른다(교직원/관리자 vs 그 외). */
+  readonly viewerRole: ViewerRole;
 }
 
 type LoadState =
@@ -47,16 +48,6 @@ type LoadState =
   | { readonly kind: 'error'; readonly message: string };
 
 const PAGE_SIZE = 20;
-
-const CATEGORY_LABELS = {
-  BASIC: '기본',
-  SW_VALUE_SPREAD: 'SW 가치확산',
-  OSS_CONTEST: 'OSS 경진대회',
-  CAPSTONE: '캡스톤',
-  SW_CONVERGENCE: 'SW 융합',
-  GLOBAL_MAKERTHON: '글로벌 메이커톤',
-  CORPORATE_INTERNSHIP: '기업 인턴십',
-} satisfies Readonly<Record<ProgramCategory, string>>;
 
 function formatApplicationPeriod(program: ProgramListItem): string {
   const formatter = new Intl.DateTimeFormat('ko-KR', {
@@ -67,21 +58,6 @@ function formatApplicationPeriod(program: ProgramListItem): string {
   });
   return `${formatter.format(new Date(program.applicationStartAt))} ~ ${formatter.format(new Date(program.applicationEndAt))}`;
 }
-
-const RECRUITMENT_BADGES = {
-  upcoming: { label: '접수대기', variant: 'pending' },
-  recruiting: { label: '모집중', variant: 'recruiting' },
-  in_progress: { label: '진행중', variant: 'approved' },
-  ended: { label: '종료', variant: 'closed' },
-} as const satisfies Readonly<
-  Record<
-    ProgramRecruitmentState,
-    {
-      readonly label: string;
-      readonly variant: 'pending' | 'recruiting' | 'closed' | 'approved';
-    }
-  >
->;
 
 function parseStatus(value: string | null): ProgramListStatus {
   if (
@@ -107,7 +83,10 @@ function ProgramListSkeleton(): ReactElement {
  * 상태 필터는 **전역 사이드 패널**(프로그램 메뉴)이 URL `?status=` 로 보낸다.
  * 이 페이지는 그 쿼리를 읽고, 좁은 폭에서만 칩으로 같은 전환을 제공한다.
  */
-function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
+function ProgramListPage({
+  canCreateProgram,
+  viewerRole,
+}: ProgramListPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const status = parseStatus(searchParams.get('status'));
@@ -222,24 +201,22 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
         ) : null}
         <CardGrid>
           {group.programs.map((program) => {
-            const recruitmentState = getProgramRecruitmentState(program, now);
-            const badge = RECRUITMENT_BADGES[recruitmentState];
+            const badge = getProgramListBadge(program, now);
+            // ended만 열람 불가 — ProgramCard 내부적으로도 status==='ended'면
+            // href를 넘겨도 열리지 않지만, 애초에 넘기지 않는다.
+            const isOpenable = badge.status !== 'ended';
             return (
               <ProgramCard
-                category={CATEGORY_LABELS[program.category]}
-                href={programHref(program.id)}
+                badgeText={badge.label}
+                category={`${program.organizer} · ${PROGRAM_CATEGORY_LABELS[program.category]}`}
+                href={isOpenable ? programHref(program.id) : undefined}
                 key={program.id}
+                note={program.note?.text}
+                noteIcon={program.note?.icon}
                 period={formatApplicationPeriod(program)}
-                statusPlacement="body-center"
-                status={
-                  <StatusBadge size="lg" variant={badge.variant}>
-                    {badge.label}
-                  </StatusBadge>
-                }
+                status={badge.status}
                 title={program.name}
-              >
-                <span>{program.organizer}</span>
-              </ProgramCard>
+              />
             );
           })}
         </CardGrid>
@@ -250,8 +227,8 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
   return (
     <section className="grid gap-6 p-4 sm:p-6">
       <PageHeader
-        title="프로그램"
-        description="참여할 프로그램을 찾아보세요. 상태는 왼쪽 프로그램 메뉴에서 고릅니다."
+        title={getProgramListHeading(status)}
+        description={getProgramListSubtitle(viewerRole)}
       />
       {/* 좁은 폭: 전역 사이드가 가로 띠라 상태 칩을 본문에 한 번 더 둔다 */}
       <ProgramListStatusChips

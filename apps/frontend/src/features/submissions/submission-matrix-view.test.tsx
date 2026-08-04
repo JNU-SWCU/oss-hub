@@ -102,6 +102,7 @@ const handlers = {
   onSearchChange: vi.fn(),
   onSearch: vi.fn(),
   onModeChange: vi.fn(),
+  onQuickFilterChange: vi.fn(),
   onResetFilters: vi.fn(),
   onPageChange: vi.fn(),
   onRetry: vi.fn(),
@@ -115,6 +116,7 @@ function render(overrides: Partial<SubmissionMatrixViewProps> = {}): string {
       search=""
       mode="ALL"
       filterActive={false}
+      quickFilter="ALL"
       isLoading={false}
       errorMessage={null}
       now={NOW}
@@ -171,6 +173,78 @@ describe('SubmissionMatrixView', () => {
     );
     // Then — 최신 revision 표시.
     expect(html).toContain('v2');
+  });
+
+  it('제출된 셀에는 제출 시각을 표시한다', () => {
+    // Given / When — 모든 제출 셀의 submittedAt은 픽스처상 2026-08-19T10:00:00+09:00.
+    const html = render();
+
+    // Then
+    expect(html).toContain('08.19 10:00');
+  });
+
+  it('마감(dueAt) 이후 제출된 셀은 "지각" 배지를 덧붙인다', () => {
+    // Given — 기획서 마감은 09/10, 픽스처 submittedAt은 08/19(마감 전) → 지각 아님.
+    const html = render();
+    expect(html).not.toContain('>지각<');
+
+    // When — 마감을 제출 시각보다 이전으로 옮겨 지각 상태를 만든다.
+    const lateData: SubmissionMatrixPage = {
+      ...matrixData,
+      milestones: matrixData.milestones.map((milestone) =>
+        milestone.id === 'milestones-overdue'
+          ? { ...milestone, dueAt: '2026-08-01T00:00:00+09:00' }
+          : milestone,
+      ),
+    };
+    const lateHtml = render({ data: lateData });
+
+    // Then
+    expect(lateHtml).toContain('>지각<');
+  });
+
+  it('현재 페이지 로드분을 기준으로 서류 칸 요약 4종을 보여준다', () => {
+    // Given / When
+    const html = render();
+
+    // Then — 6칸(2행×3열) 중 4칸 채움, 2칸 빈 칸, 미제출 팀 0, 지각 0.
+    expect(html).toContain('서류 칸');
+    expect(html).toContain('4/6 채움');
+    expect(html).toContain('빈 칸');
+    expect(html).toContain('2개');
+    expect(html).toContain('한 장도 안 낸 팀');
+    expect(html).toContain('지각 제출');
+    expect(html).toContain('이 페이지 2건(전체 2건) 중 2건 표시');
+  });
+
+  it('3버튼 빠른 필터를 팀 수와 함께 보여준다(#619 스펙)', () => {
+    // Given / When — 픽스처: 팀 행(오픈소스팀)은 빈 칸 있음, 한 장도 안 낸 행은 없음.
+    const html = render();
+
+    // Then
+    expect(html).toContain('전체 2팀');
+    expect(html).toContain('빈 칸 있는 팀 2');
+    expect(html).toContain('한 장도 안 낸 팀 0');
+  });
+
+  it('빈 칸 있는 팀 필터를 고르면 해당 행만 표를 채운다', () => {
+    // Given — 개인 행은 최종 제출 미제출, 팀 행은 중간 보고 미제출 → 둘 다 빈 칸 있음.
+    const html = render({ quickFilter: 'HAS_EMPTY' });
+
+    // Then
+    expect(html).toContain('홍길동 · 개인');
+    expect(html).toContain('오픈소스팀(3) · 팀');
+    expect(html).toContain('중 2건 표시');
+  });
+
+  it('한 장도 안 낸 팀 필터는 전부 미제출인 행만 남기고 빈 상태를 보여준다', () => {
+    // Given — 픽스처 두 행 모두 제출이 하나 이상 있어 "한 장도 안 낸 팀"은 0.
+    const html = render({ quickFilter: 'ZERO_SUBMISSION' });
+
+    // Then
+    expect(html).toContain('조건에 맞는 팀이 없습니다');
+    expect(html).toContain('전체 보기');
+    expect(html).not.toContain('홍길동 · 개인');
   });
 
   it('승인된 신청이 없으면 빈 상태를, 검색 결과가 없으면 필터 초기화를 안내한다', () => {
