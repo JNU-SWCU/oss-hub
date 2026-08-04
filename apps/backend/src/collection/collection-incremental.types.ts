@@ -9,7 +9,10 @@
  */
 
 /** GithubRepository 행의 발견 경로 — ABSENT 판정·랭킹 노출 필터 등에서 이 값으로 갈린다. */
-export const REPOSITORY_SOURCES = ['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const;
+export const REPOSITORY_SOURCES = [
+  'ORG_PROVISIONED',
+  'EXTERNAL_PUBLIC',
+] as const;
 export type RepositorySource = (typeof REPOSITORY_SOURCES)[number];
 
 export const COLLECTION_STREAM_TYPES = [

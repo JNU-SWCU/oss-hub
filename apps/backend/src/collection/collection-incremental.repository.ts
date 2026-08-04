@@ -526,7 +526,11 @@ export class CollectionIncrementalRepository {
     githubOrganizationId: bigint,
   ): Promise<CollectionRepositoryRow[]> {
     return this.db.githubRepository.findMany({
-      where: { githubOrganizationId, source: 'ORG_PROVISIONED', presence: 'PRESENT' },
+      where: {
+        githubOrganizationId,
+        source: 'ORG_PROVISIONED',
+        presence: 'PRESENT',
+      },
     });
   }
 
