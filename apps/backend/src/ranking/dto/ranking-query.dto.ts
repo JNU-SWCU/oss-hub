@@ -1,13 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { Type } from 'class-transformer';
-import {
-  IsIn,
-  IsInt,
-  IsOptional,
-  Matches,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsIn, IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
 import {
   LEGACY_RANKING_PERIODS,
   RANKING_YEAR_ALL,
@@ -61,7 +54,11 @@ export function resolveRankingQueryYear(
   query: Pick<RankingQueryRequestDto, 'year' | 'period'>,
   now: Date = new Date(),
 ): RankingYear {
-  return resolveRankingYearFromQuery(parseYearParam(query.year), query.period, now);
+  return resolveRankingYearFromQuery(
+    parseYearParam(query.year),
+    query.period,
+    now,
+  );
 }
 
 function parseYearParam(raw: string | undefined): RankingYear | undefined {

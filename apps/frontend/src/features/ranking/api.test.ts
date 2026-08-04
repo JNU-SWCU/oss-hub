@@ -47,8 +47,8 @@ test('활동별 합계와 total이 일치하지 않으면 거부한다', () => {
 });
 
 test('legacy star 응답과 정확한 DTO 형태가 아닌 응답을 거부한다', () => {
-  const { releaseCount: _, ...legacyItem } = rankingPage(RANKING_YEAR_ALL)
-    .items[0];
+  const { releaseCount: _, ...legacyItem } =
+    rankingPage(RANKING_YEAR_ALL).items[0];
 
   expect(() =>
     parseRankingPage({
@@ -65,9 +65,9 @@ test('legacy star 응답과 정확한 DTO 형태가 아닌 응답을 거부한�
 });
 
 test('필수 필드가 없는 응답은 표시하지 않고 거부한다', () => {
-  expect(() =>
-    parseRankingPage({ year: RANKING_YEAR_ALL, items: [] }),
-  ).toThrow(RankingResponseError);
+  expect(() => parseRankingPage({ year: RANKING_YEAR_ALL, items: [] })).toThrow(
+    RankingResponseError,
+  );
 });
 
 test('notice 필드를 포함한 구식 응답은 계약 밖 필드로 간주해 거부한다', () => {
