@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   useCallback,
   useEffect,
@@ -18,7 +19,6 @@ import {
 } from '@/components';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import { ApiError } from '@/lib/api-client';
 import { listPrograms } from './api';
 import { programHref } from './program-paths';
@@ -26,14 +26,16 @@ import {
   filterAndGroupPrograms,
   getProgramRecruitmentState,
 } from './program-list';
-import { ProgramListPagination } from './program-list-pagination';
 import type { ProgramRecruitmentState } from './program-list';
+import { ProgramListPagination } from './program-list-pagination';
+import { ProgramListStatusChips } from './program-list-status-nav';
 import type { ProgramCategory } from './program-templates';
 import type {
   ProgramListItem,
   ProgramListPage as ProgramListPageData,
   ProgramListStatus,
 } from './types';
+import { PROGRAM_LIST_STATUSES, programListHref } from './types';
 
 interface ProgramListPageProps {
   readonly canCreateProgram: boolean;
@@ -67,20 +69,27 @@ function formatApplicationPeriod(program: ProgramListItem): string {
 }
 
 const RECRUITMENT_BADGES = {
-  scheduled: { label: '모집 예정', variant: 'pending' },
+  upcoming: { label: '접수대기', variant: 'pending' },
   recruiting: { label: '모집중', variant: 'recruiting' },
-  closed: { label: '마감', variant: 'closed' },
+  in_progress: { label: '진행중', variant: 'approved' },
+  ended: { label: '종료', variant: 'closed' },
 } as const satisfies Readonly<
   Record<
     ProgramRecruitmentState,
     {
       readonly label: string;
-      readonly variant: 'pending' | 'recruiting' | 'closed';
+      readonly variant: 'pending' | 'recruiting' | 'closed' | 'approved';
     }
   >
 >;
-function parseStatus(value: string): ProgramListStatus {
-  if (value === 'recruiting' || value === 'closed') return value;
+
+function parseStatus(value: string | null): ProgramListStatus {
+  if (
+    value !== null &&
+    (PROGRAM_LIST_STATUSES as readonly string[]).includes(value)
+  ) {
+    return value as ProgramListStatus;
+  }
   return 'all';
 }
 
@@ -94,10 +103,17 @@ function ProgramListSkeleton(): ReactElement {
   );
 }
 
+/**
+ * 상태 필터는 **전역 사이드 패널**(프로그램 메뉴)이 URL `?status=` 로 보낸다.
+ * 이 페이지는 그 쿼리를 읽고, 좁은 폭에서만 칩으로 같은 전환을 제공한다.
+ */
 function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const status = parseStatus(searchParams.get('status'));
+
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<ProgramListStatus>('all');
   const [page, setPage] = useState(1);
   const latestRequestId = useRef(0);
   const hasFilters = search.trim() !== '' || status !== 'all';
@@ -133,18 +149,28 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
       latestRequestId.current += 1;
     };
   }, [load]);
+
+  // status 쿼리가 바뀌면 1페이지로
+  useEffect(() => {
+    setPage(1);
+  }, [status]);
+
   const now = useMemo(() => new Date(), []);
   const groups = useMemo(
     () =>
       loadState.kind === 'ready'
         ? filterAndGroupPrograms(loadState.programPage.items, {
             search: '',
-            status: 'all',
+            status,
             now,
           })
         : [],
-    [loadState, now],
+    [loadState, now, status],
   );
+
+  const goStatus = (next: ProgramListStatus) => {
+    router.push(programListHref(next));
+  };
 
   const content = (() => {
     if (loadState.kind === 'loading') return <ProgramListSkeleton />;
@@ -167,7 +193,7 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
           }
           description={
             hasFilters
-              ? '검색어나 모집 상태를 바꿔 다시 찾아보세요.'
+              ? '검색어나 프로그램 상태를 바꿔 다시 찾아보세요.'
               : '새 프로그램이 등록되면 이곳에서 확인할 수 있습니다.'
           }
           action={
@@ -184,14 +210,16 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
       return (
         <EmptyState
           title="조건에 맞는 프로그램이 없습니다"
-          description="검색어나 모집 상태를 바꿔 다시 찾아보세요."
+          description="검색어나 프로그램 상태를 바꿔 다시 찾아보세요."
         />
       );
     }
 
     return groups.map((group) => (
       <section className="grid gap-3" key={group.key}>
-        <h2 className="font-heading text-lg font-medium">{group.title}</h2>
+        {status === 'all' ? (
+          <h2 className="font-heading text-lg font-medium">{group.title}</h2>
+        ) : null}
         <CardGrid>
           {group.programs.map((program) => {
             const recruitmentState = getProgramRecruitmentState(program, now);
@@ -220,34 +248,26 @@ function ProgramListPage({ canCreateProgram }: ProgramListPageProps) {
   })();
 
   return (
-    <section className="grid gap-6">
+    <section className="grid gap-6 p-4 sm:p-6">
       <PageHeader
         title="프로그램"
-        description="참여할 프로그램을 찾아보세요."
+        description="참여할 프로그램을 찾아보세요. 상태는 왼쪽 프로그램 메뉴에서 고릅니다."
       />
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,3fr)_minmax(12rem,1fr)]">
-        <Input
-          aria-label="프로그램명 검색"
-          onChange={(event) => {
-            setPage(1);
-            setSearch(event.target.value);
-          }}
-          placeholder="프로그램명 검색"
-          value={search}
-        />
-        <Select
-          aria-label="모집 상태 필터"
-          onChange={(event) => {
-            setPage(1);
-            setStatus(parseStatus(event.target.value));
-          }}
-          value={status}
-        >
-          <option value="all">전체 상태</option>
-          <option value="recruiting">모집중</option>
-          <option value="closed">마감</option>
-        </Select>
-      </div>
+      {/* 좁은 폭: 전역 사이드가 가로 띠라 상태 칩을 본문에 한 번 더 둔다 */}
+      <ProgramListStatusChips
+        className="min-[900px]:hidden"
+        value={status}
+        onChange={goStatus}
+      />
+      <Input
+        aria-label="프로그램명 검색"
+        onChange={(event) => {
+          setPage(1);
+          setSearch(event.target.value);
+        }}
+        placeholder="프로그램명 검색"
+        value={search}
+      />
       {content}
       <ProgramListPagination
         onPageChange={setPage}

@@ -94,6 +94,11 @@ printf '%s' "$release_sha"
             error('Release tag를 정확한 commit SHA로 해석하지 못했습니다.')
           }
           env.RELEASE_SHA = releaseSha
+
+          // ancestry(merge-base)는 조상 관계만 증명하고 correctness는 증명하지 않는다.
+          // required check 완료 전에 병합된 commit도 ancestor가 될 수 있으므로(#590 사고),
+          // GitHub Actions ci.yml의 push run에서 job `ci`가 success인지 여기서 추가로 검증한다.
+          sh 'bash scripts/jenkins/validate-ci-status.sh'
         }
       }
     }
@@ -453,22 +458,6 @@ esac
         // 배포가 흘러가지 않게 여기서 fail-closed 로 세운다. 새 권한은 필요하지 않다 —
         // 활성 설정이 0644 라 배포 계정이 읽을 수 있다.
         sh 'bash scripts/check-host-nginx-drift.sh'
-      }
-    }
-
-    stage('빌드·테스트 검증') {
-      when {
-        expression { env.DEPLOY_NOOP != 'true' }
-      }
-      steps {
-        sh '''
-          pnpm install --frozen-lockfile
-          pnpm --filter backend exec prisma generate
-          pnpm lint
-          pnpm typecheck
-          pnpm test
-          pnpm build
-        '''
       }
     }
 

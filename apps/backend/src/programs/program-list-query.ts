@@ -1,4 +1,10 @@
-const PROGRAM_LIST_QUERY_STATUSES = ['all', 'recruiting', 'closed'] as const;
+const PROGRAM_LIST_QUERY_STATUSES = [
+  'all',
+  'recruiting',
+  'in_progress',
+  'upcoming',
+  'ended',
+] as const;
 
 type ProgramListQueryStatus = (typeof PROGRAM_LIST_QUERY_STATUSES)[number];
 

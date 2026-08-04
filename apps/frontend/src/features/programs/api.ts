@@ -12,6 +12,7 @@ import type {
   ProgramDetail,
   ProgramListPage,
   ProgramListParams,
+  ProgramStatusCounts,
   RepositoryProvisioning,
   ProgramParticipation,
   StaffDashboardSummary,
@@ -156,6 +157,11 @@ export function listPrograms(
     status: params.status,
   });
   return apiClient<ProgramListPage>('programs?' + search.toString());
+}
+
+/** 프로그램 섹션 사이드바 뱃지 — 공개, 인증 불필요. */
+export function getProgramStatusCounts(): Promise<ProgramStatusCounts> {
+  return apiClient<ProgramStatusCounts>('programs/status-counts');
 }
 
 export async function getProgramDetail(

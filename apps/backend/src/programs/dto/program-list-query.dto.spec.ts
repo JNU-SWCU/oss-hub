@@ -39,7 +39,7 @@ describe('ProgramListQueryRequestDto', () => {
   it('rejects unsupported recruitment status values', async () => {
     // Given
     const query = plainToInstance(ProgramListQueryRequestDto, {
-      status: 'scheduled',
+      status: 'practice',
     });
 
     // When
@@ -48,5 +48,20 @@ describe('ProgramListQueryRequestDto', () => {
     // Then
     expect(errors).toHaveLength(1);
     expect(errors[0]?.property).toBe('status');
+  });
+
+  it('accepts catalog status filters without practice', async () => {
+    for (const status of [
+      'all',
+      'recruiting',
+      'in_progress',
+      'upcoming',
+      'ended',
+    ] as const) {
+      const query = plainToInstance(ProgramListQueryRequestDto, { status });
+      const errors = await validate(query);
+      expect(errors).toHaveLength(0);
+      expect(query.toQuery().status).toBe(status);
+    }
   });
 });

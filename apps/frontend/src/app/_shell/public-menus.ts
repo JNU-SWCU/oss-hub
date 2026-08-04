@@ -1,10 +1,8 @@
 import type { NavItem } from '@/components';
 
 /**
- * 공개 화면 메뉴 — 랜딩 헤더(`layout.tsx`)와 업무 사이드바(`sidebar-menu.ts`)가
- * 함께 읽는 라벨·경로 단일 원본이다(#513). 사이드바는 아이콘·묶음만 얹는다.
- * `/`는 목록에 없다 — 두 셸 모두 브랜드가 이미 `/` 링크다.
- * 역할 메뉴(`role-menus.ts`)·계정 묶음은 사이드바 전용이다(#512).
+ * 상단 Nav 공개 3종 — 누구나. 4번째 "대시보드"는 `AppFrame`이 가입 완료 시 붙인다.
+ * 좌측 패널은 섹션 하위(`sidebar-menu.ts`) 전용.
  */
 export const PUBLIC_MENU: NavItem[] = [
   { label: '프로그램', href: '/programs' },

@@ -39,13 +39,38 @@ export interface ProgramListItem {
   readonly name: string;
   readonly organizer: string;
   readonly category: ProgramCategory;
+  /** 게시 축. 모집 기간 파생 상태가 아니다. 없으면 PUBLISHED 로 본다. */
+  readonly lifecycle?: 'PUBLISHED' | 'ARCHIVED';
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
+  /** null이면 종료일을 아직 안 닫은 것 — 접수 종료 후 진행중으로 본다. */
+  readonly endAt: string | null;
   readonly description: string;
 }
 
-export const PROGRAM_LIST_STATUSES = ['all', 'recruiting', 'closed'] as const;
+/** 공개 카탈로그 필터 — 연습대회 없음. backend 목록 status와 한 벌. */
+export const PROGRAM_LIST_STATUSES = [
+  'all',
+  'recruiting',
+  'in_progress',
+  'upcoming',
+  'ended',
+] as const;
 export type ProgramListStatus = (typeof PROGRAM_LIST_STATUSES)[number];
+
+export const PROGRAM_LIST_STATUS_LABELS = {
+  all: '전체',
+  recruiting: '모집중',
+  in_progress: '진행중',
+  upcoming: '접수대기',
+  ended: '종료',
+} as const satisfies Readonly<Record<ProgramListStatus, string>>;
+
+/** 사이드 패널·칩 공용. `all`은 쿼리 없이 `/programs`. */
+export function programListHref(status: ProgramListStatus): string {
+  if (status === 'all') return '/programs';
+  return `/programs?status=${status}`;
+}
 
 export interface ProgramListParams {
   readonly page: number;
@@ -61,6 +86,9 @@ export interface ProgramListPage {
   readonly totalItems: number;
   readonly totalPages: number;
 }
+
+/** GET /programs/status-counts — 사이드바 뱃지. 5키 항상 존재. */
+export type ProgramStatusCounts = Readonly<Record<ProgramListStatus, number>>;
 
 export const APPLICATION_LIST_STATUSES = [
   'all',

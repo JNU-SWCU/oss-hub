@@ -1,4 +1,8 @@
-import { ProgramCategory, type Program } from '@prisma/client';
+import {
+  ProgramCategory,
+  ProgramLifecycle,
+  type Program,
+} from '@prisma/client';
 import type { ProgramListPage } from '../programs.service';
 
 export class ProgramListResponseDto {
@@ -6,8 +10,11 @@ export class ProgramListResponseDto {
   readonly name: string;
   readonly organizer: string;
   readonly category: ProgramCategory;
+  /** 게시 축(PUBLISHED|ARCHIVED). 모집 기간 파생 상태가 아니다. */
+  readonly lifecycle: ProgramLifecycle;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
+  readonly endAt: string | null;
   readonly description: string;
 
   private constructor(
@@ -17,8 +24,10 @@ export class ProgramListResponseDto {
       | 'name'
       | 'organizer'
       | 'category'
+      | 'lifecycle'
       | 'applicationStartAt'
       | 'applicationEndAt'
+      | 'endAt'
       | 'description'
     >,
   ) {
@@ -26,8 +35,10 @@ export class ProgramListResponseDto {
     this.name = program.name;
     this.organizer = program.organizer;
     this.category = program.category;
+    this.lifecycle = program.lifecycle;
     this.applicationStartAt = program.applicationStartAt.toISOString();
     this.applicationEndAt = program.applicationEndAt.toISOString();
+    this.endAt = program.endAt ? program.endAt.toISOString() : null;
     this.description = program.description;
   }
 
@@ -38,8 +49,10 @@ export class ProgramListResponseDto {
       | 'name'
       | 'organizer'
       | 'category'
+      | 'lifecycle'
       | 'applicationStartAt'
       | 'applicationEndAt'
+      | 'endAt'
       | 'description'
     >,
   ): ProgramListResponseDto {

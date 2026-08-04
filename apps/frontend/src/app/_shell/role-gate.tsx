@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { AccessDenied } from './access-denied';
 import { onboardingPathFor } from './onboarding-route';
 import { SessionError } from './session-error';
+import { SessionRoleProvider } from './session-role-context';
 import { useSessionRole } from './use-session-role';
-import type { SessionRoleState, SessionStatus } from './use-session-role';
+import type { SessionRoleState } from './use-session-role';
 import { roleHomePath, type AppRole } from './role';
 
 /**
@@ -58,21 +59,45 @@ export function roleGateDeniedHomePath(
   return deniedPath ?? roleHomePath(role);
 }
 
-/** 안내를 읽을 시간. 이만큼 머문 뒤 온보딩으로 이동한다. */
-export const UNASSIGNED_NOTICE_DELAY_MS = 2_000;
+/**
+ * 미배정 사용자 중 **누구에게** 이 화면을 열어 줄지 정하는 화면별 규칙.
+ *
+ * 세션 상태 전체를 받는다. `status`만으로는 부족하기 때문이다 — `unassigned`에는
+ * 성격이 전혀 다른 다섯 사람이 한데 들어 있다(역할 요청 없음 / 승인 대기 교직원 /
+ * 반려 / 회수 / 가입 중 역할만 고른 사람). 화면은 그중 자기가 감당할 수 있는
+ * 한 갈래만 골라야 한다.
+ */
+export type UnassignedAccessPolicy = (state: SessionRoleState) => boolean;
 
 /**
- * 이동 전에 안내를 먼저 보여줄지.
+ * 미배정 사용자에게 이 화면을 그대로 열어 줄지.
  *
- * 미배정 사용자만 해당한다 — 이들은 "로그인은 했는데 왜 화면이 바뀌지?" 상태라
- * 이유를 모른 채 튕긴다. 비로그인은 랜딩이 곧 로그인 안내라 지체시킬 이유가 없고,
- * 조회 실패·권한 불일치는 애초에 이동하지 않고 각자의 안내 화면을 띄운다.
+ * 예전에는 안내를 잠깐 띄운 뒤 온보딩으로 되돌렸는데, 안내를 붙인 화면이 하필
+ * 설정(#156)이었다 — 승인을 기다리는 교직원이 이름·학과를 고치러 들어왔다가 안내만
+ * 보고 승인 대기 화면으로 되돌아갔고, 다시 눌러도 같은 일이 반복돼 고칠 방법이 아예
+ * 없었다(#581). 되돌리는 대신 화면을 열고, 안내는 "곧 나갑니다"가 아니라 "가입
+ * 중이지만 여기까지는 쓸 수 있습니다"의 표시로 남긴다.
+ *
+ * 판단 근거는 **`unassignedAccess` 규칙 하나뿐이다**. 안내(`unassignedNotice`)가
+ * 있는지는 보지 않는다 — 안내는 그리는 것이고 권한은 정하는 것이라 애초에 다른
+ * 일이고, 섞어 두면 `null`·`false`처럼 **아무것도 그리지 않는** ReactNode가 권한을
+ * 열어 주는 fail-open이 된다(`undefined`만 없다고 치던 종전 검사의 구멍이다).
+ *
+ * 규칙이 뭐라 하든 `unassigned`가 아니면 열지 않는다. 비로그인은 남의 프로필을 여는
+ * 셈이라 랜딩으로 보내야 하고, 조회 실패는 "역할이 없음"이 아니라 "역할을 모름"이라
+ * 화면을 열 근거가 못 된다. 화면별 규칙이 실수로 넓어져도 공용 게이트에서 한 번 더
+ * 막는다.
+ *
+ * 규칙을 주지 않은 화면(역할 패널 전부)의 동작은 종전과 완전히 같다.
  */
-export function shouldDelayRedirectForNotice(
-  status: SessionStatus,
-  hasNotice: boolean,
+export function shouldOpenForUnassigned(
+  state: SessionRoleState,
+  policy: UnassignedAccessPolicy | undefined,
 ): boolean {
-  return hasNotice && status === 'unassigned';
+  if (state.status !== 'unassigned' || policy === undefined) {
+    return false;
+  }
+  return policy(state);
 }
 
 /**
@@ -82,41 +107,43 @@ export function shouldDelayRedirectForNotice(
  * - 역할은 확정됐지만 `allow`에 없음: 이동하지 않고 접근 권한 안내를 띄운다.
  * 서버 사이드 강화(middleware)는 이 티켓 범위 밖이다.
  *
- * `unassignedNotice`를 주면 미배정 사용자를 온보딩으로 보내기 직전에 그 안내를
- * 대신 띄운다(#156 설정 화면). 목적지가 아니라 출발지에서 말하는 이유는, 온보딩
- * 화면은 프로필 미완료 같은 사정으로 한 번 더 이동할 수 있어 거기에 붙인 안내는
- * 사라질 수 있기 때문이다.
+ * `unassignedAccess` 규칙을 주면 그 규칙이 인정한 미배정 사용자를 온보딩으로
+ * 되돌리지 않고 자식을 그대로 그린다(#156 설정 화면, #581). 함께 준
+ * `unassignedNotice`는 그때 자식 위에 얹히는 **표시일 뿐 권한이 아니다**. 안내를
+ * 목적지가 아니라 출발지에서 띄우는 이유는, 온보딩 화면은 프로필 미완료 같은 사정으로
+ * 한 번 더 이동할 수 있어 거기에 붙인 안내는 사라질 수 있기 때문이다.
+ *
+ * 판단에 쓴 세션 스냅샷은 `SessionRoleProvider`로 자식에게 그대로 물려준다 — 화면이
+ * 훅을 다시 부르면 조회가 두 번 나가고 게이트와 다른 순간의 답을 볼 수 있다.
  */
 export function RoleGate({
   allow,
   deniedPath,
+  unassignedAccess,
   unassignedNotice,
   children,
 }: {
   allow: readonly AppRole[];
   deniedPath?: string;
+  unassignedAccess?: UnassignedAccessPolicy;
   unassignedNotice?: ReactNode;
   children: ReactNode;
 }) {
   const router = useRouter();
   const state = useSessionRole();
   const { status, role, retry } = state;
-  const hasNotice = unassignedNotice !== undefined;
+  const openForUnassigned = shouldOpenForUnassigned(state, unassignedAccess);
 
   useEffect(() => {
+    if (shouldOpenForUnassigned(state, unassignedAccess)) {
+      return;
+    }
     const redirectPath = roleGateRedirectPath(state);
     if (!redirectPath) {
       return;
     }
-    if (!shouldDelayRedirectForNotice(state.status, hasNotice)) {
-      router.replace(redirectPath);
-      return;
-    }
-    const timer = setTimeout(() => {
-      router.replace(redirectPath);
-    }, UNASSIGNED_NOTICE_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [state, hasNotice, router]);
+    router.replace(redirectPath);
+  }, [state, unassignedAccess, router]);
 
   const isAllowed =
     status === 'assigned' &&
@@ -124,27 +151,31 @@ export function RoleGate({
     allow.includes(role) &&
     state.isProfileComplete;
 
+  let content: ReactNode;
   if (status === 'error') {
-    return <SessionError onRetry={retry} />;
-  }
-
-  // 프로필 미완료는 권한 문제가 아니라 남은 단계다 — 접근 거부 안내를 띄우면
-  // 사용자는 자기 화면에서 쫓겨난 것으로 읽는다. 위 리다이렉트에 맡긴다.
-  if (
+    content = <SessionError onRetry={retry} />;
+  } else if (
+    // 프로필 미완료는 권한 문제가 아니라 남은 단계다 — 접근 거부 안내를 띄우면
+    // 사용자는 자기 화면에서 쫓겨난 것으로 읽는다. 위 리다이렉트에 맡긴다.
     status === 'assigned' &&
     !!role &&
     state.isProfileComplete &&
     !allow.includes(role)
   ) {
-    return <AccessDenied homePath={roleGateDeniedHomePath(role, deniedPath)} />;
-  }
-
-  if (shouldDelayRedirectForNotice(status, hasNotice)) {
-    return <>{unassignedNotice}</>;
-  }
-
-  if (!isAllowed) {
-    return (
+    content = (
+      <AccessDenied homePath={roleGateDeniedHomePath(role, deniedPath)} />
+    );
+  } else if (openForUnassigned) {
+    // 안내가 자식보다 앞에 오는 것은 순서가 곧 읽는 순서이기 때문이다 — 왜 이 화면이
+    // 평소와 다른지 먼저 알고 폼을 만져야 한다.
+    content = (
+      <>
+        {unassignedNotice}
+        {children}
+      </>
+    );
+  } else if (!isAllowed) {
+    content = (
       <p
         className="flex min-h-[50svh] items-center justify-center px-6 py-16 text-sm text-muted-foreground"
         role="status"
@@ -152,7 +183,9 @@ export function RoleGate({
         확인 중…
       </p>
     );
+  } else {
+    content = children;
   }
 
-  return <>{children}</>;
+  return <SessionRoleProvider value={state}>{content}</SessionRoleProvider>;
 }

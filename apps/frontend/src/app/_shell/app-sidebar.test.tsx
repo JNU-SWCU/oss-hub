@@ -16,14 +16,44 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-import { AppSidebar } from './app-sidebar';
+import { AppSidebar, formatSidebarCount } from './app-sidebar';
 import { sidebarGroupsFor } from './sidebar-menu';
 
-function render(pathname: string, collapsed: boolean) {
+function render(
+  pathname: string,
+  collapsed: boolean,
+  search = '',
+  section: 'programs' | 'dashboard' = 'programs',
+) {
+  const role = section === 'dashboard' ? 'STUDENT' : null;
   return renderToStaticMarkup(
     <AppSidebar
-      groups={sidebarGroupsFor('STUDENT')}
+      groups={sidebarGroupsFor(section, role)}
       pathname={pathname}
+      search={search}
+      collapsed={collapsed}
+      onToggle={() => {}}
+    />,
+  );
+}
+
+const programCounts = {
+  all: 15,
+  recruiting: 3,
+  in_progress: 0,
+  upcoming: 0,
+  ended: 9,
+} as const;
+
+function renderWithCounts(collapsed: boolean) {
+  const groups = sidebarGroupsFor('programs', null, {
+    programCounts: { ...programCounts },
+  });
+  return renderToStaticMarkup(
+    <AppSidebar
+      groups={groups}
+      pathname="/programs"
+      search=""
       collapsed={collapsed}
       onToggle={() => {}}
     />,
@@ -31,71 +61,115 @@ function render(pathname: string, collapsed: boolean) {
 }
 
 describe('AppSidebar', () => {
-  it('접힌 상태에서도 메뉴가 그대로 링크다 — 펼치지 않고 눌러 이동한다', () => {
-    const html = render('/dashboard', true);
-
-    expect(html).toContain('href="/my-repos"');
-    expect(html).toContain('href="/programs"');
-    expect(html).toContain('href="/archive"');
-    expect(html).toContain('href="/settings"');
+  it('is desktop-only and keeps filters flat with distinct icons', () => {
+    const html = render('/programs', false);
+    expect(html).toContain('hidden min-[900px]:flex');
+    expect(html).toContain('프로그램 메뉴');
+    expect(html).not.toContain('data-slot="app-sidebar-depth-children"');
+    expect(html).toContain('data-depth="0"');
+    expect(html).not.toContain('data-depth="1"');
+    expect(html).toContain('href="/programs?status=recruiting"');
+    expect(html).toContain('data-icon="megaphone"');
+    expect(html).toContain('data-icon="play"');
   });
 
-  it('현재 위치를 색·굵기·왼쪽 막대 셋으로 표시한다', () => {
-    const html = render('/dashboard', false);
-
-    expect(html).toContain('aria-current="page"');
-    // 색(배경) + 굵기 + 형태(왼쪽 막대) — 색 하나에만 기대지 않는다
-    expect(html).toContain('bg-sidebar-current');
-    expect(html).toContain('font-semibold');
-    expect(html).toContain('data-slot="app-sidebar-current-marker"');
+  it('shows count badge when provided', () => {
+    const html = renderWithCounts(false);
+    expect(html).toContain('data-slot="app-sidebar-count"');
+    expect(html).toContain('>0<');
+    expect(html).toContain('>15<');
   });
 
-  it('현재 위치가 아닌 메뉴에는 표식을 달지 않는다', () => {
-    const html = render('/dashboard', false);
-    const markers = html.match(/data-slot="app-sidebar-current-marker"/g) ?? [];
-
-    expect(markers).toHaveLength(1);
+  it('dashboard section has no program filters', () => {
+    const html = render('/dashboard', false, '', 'dashboard');
+    expect(html).toContain('대시보드');
+    expect(html).toContain('href="/dashboard"');
+    expect(html).not.toContain('모집중');
   });
 
-  it('접힌 상태 이름표는 hover와 keyboard focus 양쪽에서 보인다', () => {
-    const html = render('/dashboard', true);
-
-    expect(html).toContain('data-slot="app-sidebar-tooltip"');
-    expect(html).toContain('group-hover:opacity-100');
-    expect(html).toContain('group-focus-visible:opacity-100');
-    // 이름표는 접힌 상태의 유일한 접근성 이름이므로 aria-hidden이면 안 된다
-    expect(html).not.toMatch(
-      /aria-hidden="true"[^>]*data-slot="app-sidebar-tooltip"/,
-    );
+  // C1 — collapsed rail is icon-only; counts stay on tooltip/aria, not visible digits
+  it('C1: collapsed hides count badges', () => {
+    const html = renderWithCounts(true);
+    expect(html).not.toContain('data-slot="app-sidebar-count"');
+    expect(html).not.toContain('>3<');
+    expect(html).not.toContain('>15<');
+    // still reachable via aria / tooltip content contract
+    expect(html).toContain('aria-label="모집중 3"');
   });
 
-  it('펼친 상태에서는 이름표를 만들지 않는다 — 이름이 이미 보인다', () => {
-    expect(render('/dashboard', false)).not.toContain(
-      'data-slot="app-sidebar-tooltip"',
-    );
-  });
-
-  it('메뉴는 조작 사각형 규격(h-control)을 쓴다', () => {
-    const html = render('/dashboard', false);
-    const links =
-      html.match(/class="group relative flex h-control[^"]*"/g) ?? [];
-    // 개수를 숫자로 박으면 메뉴가 하나 늘 때마다 이 규격 검사가 대신 깨진다.
-    // 확인하려는 것은 "메뉴 전부"가 규격을 쓰는지다.
-    const menuCount = sidebarGroupsFor('STUDENT').reduce(
-      (total, group) => total + group.items.length,
-      0,
-    );
-
-    expect(links.length).toBe(menuCount);
-  });
-
-  it('접힌 상태에서는 로고가 펼치기 버튼이 된다', () => {
-    const collapsed = render('/dashboard', true);
-    const open = render('/dashboard', false);
-
-    expect(collapsed).toContain('aria-label="사이드바 펼치기"');
-    expect(collapsed).not.toContain('aria-label="사이드바 접기"');
+  // C2 — same toggle object; aria-label + aria-expanded by state
+  it('C2: toggle aria-label and aria-expanded for both collapsed states', () => {
+    const open = render('/programs', false);
     expect(open).toContain('aria-label="사이드바 접기"');
-    expect(open).not.toContain('aria-label="사이드바 펼치기"');
+    expect(open).toMatch(/aria-expanded="?true"?/);
+
+    const closed = render('/programs', true);
+    expect(closed).toContain('aria-label="사이드바 펼치기"');
+    expect(closed).toMatch(/aria-expanded="?false"?/);
+  });
+
+  // C3 — no BrandMark "O" when collapsed; chevron present
+  it('C3: collapsed uses chevron toggle, not BrandMark', () => {
+    const html = render('/programs', true);
+    expect(html).not.toMatch(
+      /place-items-center rounded-control bg-primary[^>]*>\s*O\s*</,
+    );
+    // BrandMark was a grid size-8 with letter O — must not appear as toggle content
+    expect(html).not.toContain('>O</span>');
+    expect(html).toContain('rotate-180');
+  });
+
+  // C4 — collapsed links carry aria-label with label + count
+  it('C4: collapsed links expose aria-label with label and count', () => {
+    const html = renderWithCounts(true);
+    expect(html).toContain('aria-label="모집중 3"');
+    expect(html).toContain('aria-label="전체 15"');
+    expect(html).toContain('aria-label="종료 9"');
+  });
+
+  // U5 — expanded: count 0 renders; undefined has no count slot. collapsed: no digits.
+  it('U5: count 0 renders when expanded; collapsed never shows count slot', () => {
+    const withZero = renderWithCounts(false);
+    expect(withZero).toContain('data-slot="app-sidebar-count"');
+    expect(withZero).toContain('>0<');
+
+    const withoutCounts = render('/programs', false);
+    expect(withoutCounts).not.toContain('data-slot="app-sidebar-count"');
+
+    const withZeroCollapsed = renderWithCounts(true);
+    expect(withZeroCollapsed).not.toContain('data-slot="app-sidebar-count"');
+    expect(withZeroCollapsed).not.toContain('>0<');
+
+    const withoutCountsCollapsed = render('/programs', true);
+    expect(withoutCountsCollapsed).not.toContain(
+      'data-slot="app-sidebar-count"',
+    );
+  });
+
+  it('formatSidebarCount caps above 99', () => {
+    expect(formatSidebarCount(0)).toBe('0');
+    expect(formatSidebarCount(99)).toBe('99');
+    expect(formatSidebarCount(100)).toBe('99+');
+    expect(formatSidebarCount(1500)).toBe('99+');
+  });
+
+  it('collapsed ranking years are icon-only with year in aria-label', () => {
+    const groups = sidebarGroupsFor('ranking', null, {
+      rankingYears: [2026, 2025],
+    });
+    const html = renderToStaticMarkup(
+      <AppSidebar
+        groups={groups}
+        pathname="/ranking"
+        search="?year=2026"
+        collapsed={true}
+        onToggle={() => {}}
+      />,
+    );
+    expect(html).not.toContain('data-slot="app-sidebar-count"');
+    // labels stay in DOM with `hidden`; no separate metric span under icons
+    expect(html).toContain('truncate hidden">2026</span>');
+    expect(html).toContain('aria-label="2026"');
+    expect(html).toContain('aria-label="2025"');
   });
 });

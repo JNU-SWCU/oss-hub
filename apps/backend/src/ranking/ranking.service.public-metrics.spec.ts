@@ -1,4 +1,4 @@
-import { RANKING_PERIODS } from './domain/ranking';
+import { RANKING_YEAR_ALL } from './domain/ranking';
 import { activity, setupRankingService } from './ranking.service.spec-helper';
 
 describe('RankingService public metrics', () => {
@@ -14,9 +14,9 @@ describe('RankingService public metrics', () => {
     ]);
 
     await expect(
-      harness.service.findPage(RANKING_PERIODS.ALL, 1, 20),
+      harness.service.findPage(RANKING_YEAR_ALL, 1, 20),
     ).resolves.toEqual({
-      period: RANKING_PERIODS.ALL,
+      year: RANKING_YEAR_ALL,
       items: [
         {
           rank: 1,
@@ -35,13 +35,8 @@ describe('RankingService public metrics', () => {
     expect(harness.getPublicRankingMetrics).toHaveBeenCalledWith({});
   });
 
-  it('passes the Asia/Seoul current year to the canonical repository', async () => {
-    await harness.service.findPage(
-      RANKING_PERIODS.THIS_YEAR,
-      1,
-      20,
-      new Date('2026-07-21T00:00:00.000Z'),
-    );
+  it('passes the requested calendar year to the canonical repository', async () => {
+    await harness.service.findPage(2026, 1, 20);
 
     expect(harness.getPublicRankingMetrics).toHaveBeenCalledWith({
       currentYear: 2026,

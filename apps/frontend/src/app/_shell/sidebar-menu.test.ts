@@ -1,112 +1,208 @@
 import { describe, expect, it } from 'vitest';
-import { ADMIN_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
+import { ARCHIVE_CATEGORIES } from '@/features/archive/types';
+import { SECTION_FACETS } from './section-facets';
+import { STUDENT_MENU } from './role-menus';
 import {
-  PUBLIC_GROUP,
+  archiveSidebarGroup,
   isCurrentSidebarItem,
-  shellPageLabel,
+  programSidebarGroup,
+  rankingSidebarGroup,
+  shellSectionFromPathname,
   sidebarGroupsFor,
 } from './sidebar-menu';
 
-const ROLES = ['STUDENT', 'STAFF', 'ADMIN'] as const;
+describe('shellSectionFromPathname', () => {
+  it('maps paths to sections', () => {
+    expect(shellSectionFromPathname('/programs')).toBe('programs');
+    expect(shellSectionFromPathname('/programs/x')).toBe('programs');
+    expect(shellSectionFromPathname('/archive')).toBe('archive');
+    expect(shellSectionFromPathname('/ranking')).toBe('ranking');
+    expect(shellSectionFromPathname('/dashboard')).toBe('dashboard');
+    expect(shellSectionFromPathname('/my-repos')).toBe('dashboard');
+    expect(shellSectionFromPathname('/staff/dashboard')).toBe('dashboard');
+    expect(shellSectionFromPathname('/settings')).toBeNull();
+  });
+});
 
-describe('sidebarGroupsFor', () => {
-  // v1에서 공개 화면을 역할 메뉴로 착각해 빼먹었다가 지적받은 지점이다.
-  // 목록이 원본(`public-menus.ts`)과 어긋나지 않는지는 `public-menus.test.ts`가 본다.
-  it.each(ROLES)(
-    '%s 에게도 공개 화면(프로그램·공개 아카이브·랭킹)을 보여 준다',
-    (role) => {
-      const hrefs = sidebarGroupsFor(role).flatMap((group) =>
-        group.items.map((item) => item.href),
-      );
+describe('sidebarGroupsFor (context)', () => {
+  it('programs section only — no role menu mixed in', () => {
+    const groups = sidebarGroupsFor('programs', 'STUDENT');
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.label).toBe('프로그램 메뉴');
+    expect(groups[0]?.items.map((i) => i.label)).toEqual([
+      '전체',
+      '모집중',
+      '진행중',
+      '접수대기',
+      '종료',
+    ]);
+  });
 
-      expect(hrefs).toContain('/programs');
-      expect(hrefs).toContain('/archive');
-      expect(hrefs).toContain('/ranking');
-    },
-  );
+  it('program filters are flat peers with distinct icons', () => {
+    const items = programSidebarGroup().items;
+    expect(items.every((i) => (i.depth ?? 0) === 0)).toBe(true);
+    expect(items.map((i) => i.label)).toEqual([
+      '전체',
+      '모집중',
+      '진행중',
+      '접수대기',
+      '종료',
+    ]);
+    const icons = items.map((i) => i.icon);
+    expect(new Set(icons).size).toBe(icons.length);
+  });
 
-  it('역할 메뉴의 라벨·경로는 role-menus.ts에서 그대로 온다', () => {
-    const student = sidebarGroupsFor('STUDENT')[0];
-    const staff = sidebarGroupsFor('STAFF')[0];
-    const admin = sidebarGroupsFor('ADMIN')[0];
+  it('anonymous still sees programs menu', () => {
+    expect(sidebarGroupsFor('programs', null)[0]?.items).toHaveLength(5);
+  });
 
-    expect(student.items.map(({ label, href }) => ({ label, href }))).toEqual(
-      STUDENT_MENU,
-    );
-    expect(staff.items.map(({ label, href }) => ({ label, href }))).toEqual(
-      STAFF_MENU,
-    );
-    expect(admin.items.map(({ label, href }) => ({ label, href }))).toEqual(
-      ADMIN_MENU,
+  it('dashboard section is role menus only including activity', () => {
+    const groups = sidebarGroupsFor('dashboard', 'STUDENT');
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.label).toBe('대시보드');
+    expect(
+      groups[0]?.items.map(({ label, href }) => ({ label, href })),
+    ).toEqual(STUDENT_MENU);
+    expect(groups[0]?.items.map((i) => i.href)).toContain(
+      '/dashboard/activity',
     );
   });
 
-  it('모든 메뉴에 아이콘이 있다 — 접힌 사이드바에서는 이것만 보고 이동한다', () => {
-    for (const role of ROLES) {
-      for (const group of sidebarGroupsFor(role)) {
-        for (const item of group.items) {
-          expect(item.icon, `${role} / ${item.href}`).toBeTruthy();
-        }
-      }
-    }
+  it('dashboard without role is empty', () => {
+    expect(sidebarGroupsFor('dashboard', null)).toEqual([]);
   });
 
-  it('역할을 모르는 사용자에게는 공개 묶음만 보여 준다', () => {
-    expect(sidebarGroupsFor(null)).toEqual([PUBLIC_GROUP]);
+  it('no practice competition item', () => {
+    const labels = programSidebarGroup()
+      .items.map((i) => i.label)
+      .join(' ');
+    expect(labels).not.toContain('연습');
   });
 
-  it('역할별로 계정(설정)까지 세 묶음을 만든다', () => {
-    for (const role of ROLES) {
-      const labels = sidebarGroupsFor(role).map((group) => group.label);
-      expect(labels).toHaveLength(3);
-      expect(labels[1]).toBe('둘러보기');
-      expect(labels[2]).toBe('계정');
-    }
+  it('archive section is flat with distinct category icons', () => {
+    const groups = sidebarGroupsFor('archive', null);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.label).toBe('공개 아카이브');
+    const items = groups[0]?.items ?? [];
+    expect(items).toHaveLength(1 + ARCHIVE_CATEGORIES.length);
+    expect(items.every((i) => (i.depth ?? 0) === 0)).toBe(true);
+    expect(items[0]).toMatchObject({
+      label: '전체',
+      href: '/archive',
+      icon: 'archive',
+    });
+    expect(items.some((i) => i.href === '/archive?category=CAPSTONE')).toBe(
+      true,
+    );
+    const categoryIcons = items.slice(1).map((i) => i.icon);
+    expect(new Set(categoryIcons).size).toBe(categoryIcons.length);
+  });
+
+  it('archive counts inject badges', () => {
+    const group = archiveSidebarGroup({
+      all: 3,
+      BASIC: 1,
+      CAPSTONE: 2,
+    });
+    expect(group.items[0]?.count).toBe(3);
+    expect(
+      group.items.find((i) => i.href === '/archive?category=CAPSTONE')?.count,
+    ).toBe(2);
+  });
+
+  it('ranking section: 전체 + years as flat peers', () => {
+    const groups = sidebarGroupsFor('ranking', null, {
+      rankingYears: [2026, 2025],
+    });
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.label).toBe('랭킹');
+    expect(
+      groups[0]?.items.map((i) => ({
+        label: i.label,
+        href: i.href,
+        depth: i.depth,
+      })),
+    ).toEqual([
+      { label: '전체', href: '/ranking', depth: 0 },
+      { label: '2026', href: '/ranking?year=2026', depth: 0 },
+      { label: '2025', href: '/ranking?year=2025', depth: 0 },
+    ]);
+  });
+
+  it('ranking without years still has 전체', () => {
+    const items = rankingSidebarGroup().items;
+    expect(items).toHaveLength(1);
+    expect(items[0]?.label).toBe('전체');
   });
 });
 
 describe('isCurrentSidebarItem', () => {
-  it('정확히 같은 경로는 현재 위치다', () => {
-    expect(isCurrentSidebarItem('/dashboard', '/dashboard')).toBe(true);
-  });
-
-  it('하위 경로도 그 메뉴의 현재 위치로 본다', () => {
-    expect(isCurrentSidebarItem('/dashboard/activity', '/dashboard')).toBe(
-      true,
-    );
+  it('program status query', () => {
+    expect(isCurrentSidebarItem('/programs', '/programs', '')).toBe(true);
     expect(
-      isCurrentSidebarItem('/programs/program-capstone', '/programs'),
+      isCurrentSidebarItem(
+        '/programs',
+        '/programs?status=recruiting',
+        'status=recruiting',
+      ),
     ).toBe(true);
   });
 
-  it('접두사가 같아 보여도 경로 경계가 다르면 현재 위치가 아니다', () => {
-    expect(isCurrentSidebarItem('/programs-archive', '/programs')).toBe(false);
-    expect(isCurrentSidebarItem('/staff/programs/new', '/programs')).toBe(
+  it('program detail does not highlight filters', () => {
+    expect(isCurrentSidebarItem('/programs/x', '/programs', '')).toBe(false);
+  });
+
+  it('archive category query', () => {
+    expect(isCurrentSidebarItem('/archive', '/archive', '')).toBe(true);
+    expect(
+      isCurrentSidebarItem(
+        '/archive',
+        '/archive?category=CAPSTONE',
+        'category=CAPSTONE',
+      ),
+    ).toBe(true);
+    expect(
+      isCurrentSidebarItem(
+        '/archive',
+        '/archive?category=CAPSTONE',
+        'category=BASIC',
+      ),
+    ).toBe(false);
+  });
+
+  it('ranking year query', () => {
+    expect(isCurrentSidebarItem('/ranking', '/ranking', '')).toBe(true);
+    expect(
+      isCurrentSidebarItem('/ranking', '/ranking?year=2025', 'year=2025'),
+    ).toBe(true);
+    expect(isCurrentSidebarItem('/ranking', '/ranking?year=2025', '')).toBe(
+      false,
+    );
+    expect(isCurrentSidebarItem('/ranking', '/ranking', 'year=2025')).toBe(
       false,
     );
   });
+
+  it('archive detail does not highlight 전체; category peers highlight', () => {
+    expect(isCurrentSidebarItem('/archive/123', '/archive', '')).toBe(false);
+    expect(
+      isCurrentSidebarItem('/archive/123', '/archive?category=CAPSTONE', ''),
+    ).toBe(true);
+  });
 });
 
-describe('shellPageLabel', () => {
-  it('메뉴 라벨을 그대로 쓴다', () => {
-    expect(shellPageLabel('/dashboard')).toBe('내 대시보드');
-    expect(shellPageLabel('/archive')).toBe('공개 아카이브');
-    expect(shellPageLabel('/ranking')).toBe('랭킹');
-    expect(shellPageLabel('/settings')).toBe('설정');
+describe('SECTION_FACETS registry (U4)', () => {
+  it('ranking.items(undefined) returns only 전체', () => {
+    const items = SECTION_FACETS.ranking?.items(undefined) ?? [];
+    expect(items).toHaveLength(1);
+    expect(items[0]?.label).toBe('전체');
+    expect(items[0]?.href).toBe('/ranking');
   });
 
-  // 짧은 접두사가 먼저 걸리면 `/staff/programs/new`가 `/programs`로 표시된다.
-  it('가장 긴 접두사가 이긴다', () => {
-    expect(shellPageLabel('/staff/programs/new')).toBe('프로그램 등록');
-    expect(shellPageLabel('/admin/system-status')).toBe('시스템 상태');
-  });
-
-  it('상세 화면은 그 목록 메뉴의 이름으로 표시한다', () => {
-    expect(shellPageLabel('/programs/program-capstone')).toBe('프로그램');
-  });
-
-  it('메뉴에 없는 경로는 null이다 — 상단바가 빈 라벨을 그리지 않는다', () => {
-    expect(shellPageLabel('/consent')).toBeNull();
-    expect(shellPageLabel('/onboarding/role')).toBeNull();
+  it('registry params match peer-filter keys', () => {
+    expect(SECTION_FACETS.programs?.param).toBe('status');
+    expect(SECTION_FACETS.archive?.param).toBe('category');
+    expect(SECTION_FACETS.ranking?.param).toBe('year');
+    expect(SECTION_FACETS.dashboard).toBeUndefined();
   });
 });

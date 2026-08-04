@@ -4,7 +4,7 @@ import type {
   CollectionReadPort,
 } from '../collection/collection-read.port';
 import type { UserDisplayNameRepository } from '../users/user-display-name.repository';
-import { RANKING_PERIODS } from './domain/ranking';
+import { RANKING_YEAR_ALL } from './domain/ranking';
 import { RankingService } from './ranking.service';
 
 describe('RankingService deterministic ordering', () => {
@@ -71,6 +71,7 @@ describe('RankingService deterministic ordering', () => {
       getRepositoryMetrics: () => Promise.resolve([]),
       getContributorMetrics: () => Promise.resolve([]),
       getPublicRankingMetrics,
+      listPublicRankingYears: () => Promise.resolve([]),
       getRepositoryCumulativeMetrics: () => Promise.resolve([]),
       getContributorCumulativeMetrics: () => Promise.resolve([]),
       getIncrementalStatusSnapshot: () =>
@@ -92,12 +93,7 @@ describe('RankingService deterministic ordering', () => {
     } as unknown as UserDisplayNameRepository;
     const service = new RankingService(collection, displayNameRepository);
 
-    const page = await service.findPage(
-      RANKING_PERIODS.ALL,
-      1,
-      20,
-      new Date('2026-06-01T00:00:00.000Z'),
-    );
+    const page = await service.findPage(RANKING_YEAR_ALL, 1, 20);
 
     expect(page.items.map((item) => item.githubLogin)).toEqual([
       'top',

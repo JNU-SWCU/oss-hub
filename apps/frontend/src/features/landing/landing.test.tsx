@@ -4,7 +4,6 @@ import { ClosingCtaSection } from './components/closing-cta-section';
 import {
   CurrentProgramSection,
   CurrentProgramSectionView,
-  resolveProgramLoadFailure,
 } from './components/current-program-section';
 import { LandingFooter } from './components/landing-footer';
 import { LandingJourney } from './components/landing-journey';
@@ -60,7 +59,8 @@ describe('landing page sections', () => {
   it('lets the journey skip link point at the content anchor below the journey', () => {
     const html = renderJourney();
 
-    expect(html).toContain('href="#landing-entry"');
+    // solid "시작하기" 섹션을 제거한 뒤 첫 본문 구간은 모집 중 프로그램이다.
+    expect(html).toContain('href="#current-programs"');
     expect(html).toContain('로그인·프로그램 정보로 건너뛰기');
   });
 
@@ -127,7 +127,6 @@ describe('landing page sections', () => {
       <CurrentProgramSectionView
         state={{
           kind: 'ready',
-          source: 'public',
           programs: [
             {
               id: 'program_public_01',
@@ -144,6 +143,30 @@ describe('landing page sections', () => {
     expect(html).toContain('공개 OSS 기여 프로그램');
     expect(html).toContain('href="/programs/program_public_01"');
     expect(html).toContain('2026년 8월 14일 마감');
+  });
+
+  it('encodes seed-style program ids in detail links', () => {
+    const html = renderToStaticMarkup(
+      <CurrentProgramSectionView
+        state={{
+          kind: 'ready',
+          programs: [
+            {
+              id: 'seed:intake:program-capstone',
+              name: '캡스톤 시드',
+              organizer: 'seed-organizer',
+              category: 'CAPSTONE',
+              applicationEndAt: '2026-08-14T00:00:00.000Z',
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(html).toContain('캡스톤 시드');
+    expect(html).toContain(
+      `href="/programs/${encodeURIComponent('seed:intake:program-capstone')}"`,
+    );
   });
 
   it('renders the program flow section with the step-by-step flow', () => {
@@ -204,7 +227,6 @@ describe('landing page sections', () => {
       <CurrentProgramSectionView
         state={{
           kind: 'ready',
-          source: 'public',
           programs: [
             {
               id: 'program_public_01',
@@ -222,51 +244,15 @@ describe('landing page sections', () => {
     expect(html).toContain('<li');
   });
 
-  it('labels local fallback programs as example data', () => {
+  it('renders the error state without example program cards', () => {
     const html = renderToStaticMarkup(
-      <CurrentProgramSectionView
-        state={{
-          kind: 'ready',
-          source: 'example',
-          programs: [
-            {
-              id: 'program-capstone',
-              name: '캡스톤 2026',
-              organizer: '전남대학교 SW중심대학사업단',
-              category: 'CAPSTONE',
-              applicationEndAt: '2026-08-10T23:59:59.000+09:00',
-            },
-          ],
-        }}
-      />,
+      <CurrentProgramSectionView state={{ kind: 'error' }} />,
     );
 
-    expect(html).toContain('로컬 예시 데이터');
-    expect(html).toContain('href="/programs/program-capstone"');
-  });
-
-  it('renders labeled example cards when a development localhost program request fails', () => {
-    const state = resolveProgramLoadFailure({
-      allowLocalExamples: true,
-      hostname: 'localhost',
-    });
-    const html = renderToStaticMarkup(
-      <CurrentProgramSectionView state={state} />,
-    );
-
-    expect(html).toContain('로컬 예시 데이터');
-    expect(html).toContain('캡스톤 2026');
-    expect(html).toContain('href="/programs/program-capstone"');
-    expect(html).not.toContain('모집 정보를 불러오지 못했습니다');
-  });
-
-  it('does not expose local program examples on a remote hostname', () => {
-    expect(
-      resolveProgramLoadFailure({
-        allowLocalExamples: true,
-        hostname: 'oss-hub.example.com',
-      }),
-    ).toEqual({ kind: 'error' });
+    expect(html).toContain('모집 정보를 불러오지 못했습니다');
+    expect(html).toContain('프로그램 목록에서 확인하기');
+    expect(html).not.toContain('로컬 예시 데이터');
+    expect(html).not.toContain('캡스톤 2026');
   });
 
   it('renders the footer with copyright and policy links', () => {

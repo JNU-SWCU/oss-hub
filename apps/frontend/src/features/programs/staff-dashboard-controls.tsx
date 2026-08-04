@@ -49,7 +49,9 @@ export function StaffDashboardControls({
         >
           <option value="all">전체</option>
           <option value="recruiting">모집중</option>
-          <option value="closed">마감</option>
+          <option value="in_progress">진행중</option>
+          <option value="upcoming">접수대기</option>
+          <option value="ended">종료</option>
         </Select>
       </label>
     </form>

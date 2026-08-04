@@ -43,6 +43,7 @@ function row(
 
 function serviceWith(overrides: {
   listPage?: jest.Mock;
+  countByCategory?: jest.Mock;
   findById?: jest.Mock;
   listForUser?: jest.Mock;
   findUserIdentity?: jest.Mock;
@@ -53,6 +54,8 @@ function serviceWith(overrides: {
 }) {
   const repository = {
     listPage: overrides.listPage ?? jest.fn().mockResolvedValue([]),
+    countByCategory:
+      overrides.countByCategory ?? jest.fn().mockResolvedValue([]),
     findById: overrides.findById ?? jest.fn().mockResolvedValue(null),
     listForUser: overrides.listForUser ?? jest.fn().mockResolvedValue([]),
     findUserIdentity:
@@ -71,6 +74,7 @@ function serviceWith(overrides: {
     getRepositoryMetrics: jest.fn(),
     getContributorMetrics: jest.fn(),
     getPublicRankingMetrics: jest.fn(),
+    listPublicRankingYears: jest.fn(),
     getIncrementalStatusSnapshot: jest.fn(),
     getRepositoryCumulativeMetrics:
       overrides.getRepositoryCumulativeMetrics ??
@@ -131,10 +135,19 @@ describe('PublicProjectsService', () => {
 
       const page = await service.findPage(undefined, pageSize);
 
-      expect(listPage).toHaveBeenCalledWith(null, pageSize + 1);
+      expect(listPage).toHaveBeenCalledWith(null, pageSize + 1, undefined);
       expect(page.items).toHaveLength(2);
       expect(page.items.map((item) => item.id)).toEqual(['a', 'b']);
       expect(page.nextPageId).not.toBeNull();
+    });
+
+    it('category를 repository.listPage에 전달한다', async () => {
+      const listPage = jest.fn().mockResolvedValue([]);
+      const { service } = serviceWith({ listPage });
+
+      await service.findPage(undefined, 12, 'CAPSTONE');
+
+      expect(listPage).toHaveBeenCalledWith(null, 13, 'CAPSTONE');
     });
 
     it('lookahead 행이 없으면(더 볼 페이지 없음) nextPageId가 null이다', async () => {
@@ -194,7 +207,7 @@ describe('PublicProjectsService', () => {
 
       await service.findPage(pageId, 10);
 
-      expect(listPage).toHaveBeenCalledWith(cursor, 11);
+      expect(listPage).toHaveBeenCalledWith(cursor, 11, undefined);
     });
 
     it('잘못된 pageId는 INVALID_PAGE_ID DomainException을 던진다', async () => {
@@ -203,6 +216,143 @@ describe('PublicProjectsService', () => {
       await expect(service.findPage('not-a-valid-cursor', 10)).rejects.toThrow(
         DomainException,
       );
+    });
+  });
+
+  describe('categoryCounts', () => {
+    it('없는 분류는 0으로 채우고 all은 합계다', async () => {
+      const countByCategory = jest.fn().mockResolvedValue([
+        { category: 'BASIC', count: 2 },
+        { category: 'CAPSTONE', count: 1 },
+      ]);
+      const { service } = serviceWith({ countByCategory });
+
+      await expect(service.categoryCounts()).resolves.toEqual({
+        all: 3,
+        BASIC: 2,
+        SW_VALUE_SPREAD: 0,
+        OSS_CONTEST: 0,
+        CAPSTONE: 1,
+        SW_CONVERGENCE: 0,
+        GLOBAL_MAKERTHON: 0,
+        CORPORATE_INTERNSHIP: 0,
+      });
+    });
+
+    it('eligibility fence를 호출하지 않고 repository.countByCategory만 사용한다', async () => {
+      const countByCategory = jest
+        .fn()
+        .mockResolvedValue([{ category: 'BASIC', count: 1 }]);
+      const filterEligibleRepositoryIds = jest.fn();
+      const isEligible = jest.fn();
+      const { service } = serviceWith({
+        countByCategory,
+        filterEligibleRepositoryIds,
+        isEligible,
+      });
+
+      await service.categoryCounts();
+
+      expect(countByCategory).toHaveBeenCalledTimes(1);
+      expect(filterEligibleRepositoryIds).not.toHaveBeenCalled();
+      expect(isEligible).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * 의도된 trade-off: 아카이브 뱃지(categoryCounts)는 플랫폼 공개 base 카운트만 세고
+   * Collection eligibility fence를 적용하지 않는다. 목록(findPage)은 fence를 적용한다.
+   * 따라서 badge 숫자와 list 길이가 어긋날 수 있다 — 뱃지 = published platform-public 수,
+   * 목록 = fence 통과 후 크기.
+   */
+  describe('categoryCounts vs findPage — eligibility fence 의도적 차이', () => {
+    it('목록에서 fence가 일부를 걸러도 counts는 원본 countByCategory 값을 유지한다', async () => {
+      const rawRows = [
+        row({
+          id: 'capstone-a',
+          category: 'CAPSTONE',
+          githubRepositoryId: 9101n,
+        }),
+        row({
+          id: 'capstone-b',
+          category: 'CAPSTONE',
+          githubRepositoryId: 9102n,
+        }),
+      ];
+      const listPage = jest.fn().mockResolvedValue(rawRows);
+      // fence가 한 건만 통과 — 목록 items 길이는 1이 된다.
+      const filterEligibleRepositoryIds = jest
+        .fn()
+        .mockResolvedValue(new Set([rawRows[0]!.githubRepositoryId]));
+      // counts 경로는 fence 없이 CAPSTONE: 2 를 그대로 반환한다.
+      const countByCategory = jest
+        .fn()
+        .mockResolvedValue([{ category: 'CAPSTONE', count: 2 }]);
+      const { service } = serviceWith({
+        listPage,
+        filterEligibleRepositoryIds,
+        countByCategory,
+      });
+
+      const counts = await service.categoryCounts();
+      const page = await service.findPage(undefined, 20, 'CAPSTONE');
+
+      // badge = published platform-public count (post-fence list size 가 아님)
+      expect(counts.CAPSTONE).toBe(2);
+      expect(counts.all).toBe(2);
+      expect(page.items).toHaveLength(1);
+      expect(page.items.map((item) => item.id)).toEqual(['capstone-a']);
+      expect(filterEligibleRepositoryIds).toHaveBeenCalledTimes(1);
+      expect(countByCategory).toHaveBeenCalledTimes(1);
+    });
+
+    it('findPage는 fence로 탈락한 행을 빼고, categoryCounts는 탈락 여부와 무관하게 repository 집계를 반환한다', async () => {
+      const publishedPublic = [
+        row({
+          id: 'eligible-repo',
+          category: 'BASIC',
+          githubRepositoryId: 9201n,
+        }),
+        row({
+          id: 'fence-dropped-repo',
+          category: 'BASIC',
+          githubRepositoryId: 9202n,
+        }),
+        row({
+          id: 'another-fence-drop',
+          category: 'OSS_CONTEST',
+          githubRepositoryId: 9203n,
+        }),
+      ];
+      const listPage = jest.fn().mockResolvedValue(publishedPublic);
+      const filterEligibleRepositoryIds = jest
+        .fn()
+        .mockResolvedValue(new Set([publishedPublic[0]!.githubRepositoryId]));
+      const countByCategory = jest.fn().mockResolvedValue([
+        { category: 'BASIC', count: 2 },
+        { category: 'OSS_CONTEST', count: 1 },
+      ]);
+      const { service } = serviceWith({
+        listPage,
+        filterEligibleRepositoryIds,
+        countByCategory,
+      });
+
+      const page = await service.findPage(undefined, 20);
+      const counts = await service.categoryCounts();
+
+      expect(page.items).toHaveLength(1);
+      expect(page.items[0]!.id).toBe('eligible-repo');
+      expect(counts).toEqual({
+        all: 3,
+        BASIC: 2,
+        SW_VALUE_SPREAD: 0,
+        OSS_CONTEST: 1,
+        CAPSTONE: 0,
+        SW_CONVERGENCE: 0,
+        GLOBAL_MAKERTHON: 0,
+        CORPORATE_INTERNSHIP: 0,
+      });
     });
   });
 

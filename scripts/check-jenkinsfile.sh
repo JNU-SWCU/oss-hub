@@ -613,9 +613,6 @@ require_common_executor_guards() {
 require_common_smoke_and_build_guards() {
   require_status_smoke_contract
   require_noop_nginx_drift_contract
-  require_exact '의존성 설치는 한 번이어야 함' 'pnpm install --frozen-lockfile' 1
-  require_exact '재사용 workspace에서도 Prisma client를 명시 생성해야 함' 'pnpm --filter backend exec prisma generate' 1
-  require_exact 'test는 한 번이어야 함' 'pnpm test' 1
   require_exact 'DB backup은 한 번이어야 함' 'pg_dump' 1
   require_exact 'migration은 한 번이어야 함' 'npx prisma migrate deploy' 1
   require_exact 'primary·rollback은 기존 이미지만 사용해야 함' 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait' 2
@@ -730,6 +727,8 @@ check_v2() {
   require_exact 'main ancestry 검증은 한 번이어야 함' 'git merge-base --is-ancestor "$release_sha" origin/main' 1
   require_exact 'IMAGE_TAG는 RELEASE_TAG(tag)로 한 번만 할당해야 함' 'env.IMAGE_TAG = tag' 1
   require_exact 'RELEASE_SHA 바인딩은 한 번이어야 함' 'env.RELEASE_SHA = releaseSha' 1
+  require_exact 'GitHub Actions ci job 상태 게이트는 한 번 호출해야 함' \
+    "sh 'bash scripts/jenkins/validate-ci-status.sh'" 1
   require_exact 'exact RELEASE_SHA checkout은 한 번이어야 함' 'git checkout --detach "$RELEASE_SHA"' 1
 
   # no-op authority: running ps -q only; --all is classification
@@ -983,12 +982,14 @@ check_v2() {
 
   local environment_line stages_line build_cache_line checkout_line buildx_preflight_line https_line
   local rollback_stage_line rollback_input_line rollback_call_line first_production_mutation_line
-  local prisma_generate_line test_line
   local backup_line frontend_build_line backend_build_line migration_line rollout_line noop_stage_line retention_line
   local image_rm_line buildx_prune_line backup_prune_line retention_stage_line
+  local release_sha_binding_line ci_status_call_line
   environment_line=$(line_of 'environment {')
   stages_line=$(line_of 'stages {')
   build_cache_line=$(line_of "BUILD_CACHE_MAX_SPACE = '5GB'")
+  release_sha_binding_line=$(line_of 'env.RELEASE_SHA = releaseSha')
+  ci_status_call_line=$(line_of "sh 'bash scripts/jenkins/validate-ci-status.sh'")
   checkout_line=$(line_of 'git checkout --detach "$RELEASE_SHA"')
   buildx_preflight_line=$(line_of_shell_stage_depth_exact \
     'Buildx 캐시 상한 사전 검증' 0 "if ! docker buildx prune --help 2>&1 | grep -F -- '--max-used-space' >/dev/null; then")
@@ -996,8 +997,6 @@ check_v2() {
   rollback_stage_line=$(line_of "stage('롤백 이미지 사전 검증')")
   rollback_input_line=$(line_of "PREV_BE_IMAGE_ID=\${env.PREV_BE_IMAGE_ID ?: ''}")
   rollback_call_line=$(line_of "sh 'bash scripts/jenkins/validate-rollback-images.sh'")
-  prisma_generate_line=$(line_of 'pnpm --filter backend exec prisma generate')
-  test_line=$(line_of 'pnpm test')
   first_production_mutation_line=$(line_of_shell_stage_depth_exact \
     'PostgreSQL 기동 및 배포 전 백업' 0 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d postgres --wait --wait-timeout 90')
   backup_line=$(line_of 'pg_dump')
@@ -1018,8 +1017,9 @@ check_v2() {
   # bash 3.2 호환: declare -A 대신 변수명 배열 + ${!name} 간접 참조로 순회한다.
   local -a order_check_names=(
     environment_line stages_line build_cache_line
+    release_sha_binding_line ci_status_call_line
     checkout_line buildx_preflight_line https_line rollback_stage_line
-    rollback_input_line rollback_call_line prisma_generate_line test_line backup_line
+    rollback_input_line rollback_call_line backup_line
     first_production_mutation_line
     frontend_build_line backend_build_line migration_line
     rollout_line noop_stage_line retention_line retention_stage_line
@@ -1040,17 +1040,16 @@ check_v2() {
     'environment_line:<:build_cache_line'
     'retention_line:<:stages_line'
     'build_cache_line:<:stages_line'
+    'release_sha_binding_line:<:ci_status_call_line'
+    'ci_status_call_line:<:checkout_line'
     'checkout_line:<:buildx_preflight_line'
     'buildx_preflight_line:<:https_line'
     'buildx_preflight_line:<:first_production_mutation_line'
     'https_line:<:rollback_stage_line'
     'rollback_stage_line:<=:rollback_input_line'
     'rollback_input_line:<:rollback_call_line'
-    'rollback_call_line:<:prisma_generate_line'
-    'prisma_generate_line:<:test_line'
-    'test_line:<:first_production_mutation_line'
+    'rollback_call_line:<:first_production_mutation_line'
     'first_production_mutation_line:<:backup_line'
-    'test_line:<:backup_line'
     'backup_line:<:frontend_build_line'
     'frontend_build_line:<:backend_build_line'
     'backend_build_line:<:migration_line'
