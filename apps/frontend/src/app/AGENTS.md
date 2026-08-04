@@ -21,6 +21,7 @@ Next.js App Router 라우트. 역할 기반(STUDENT/STAFF/ADMIN) 화면 접근 �
 | --- | --- | --- |
 | `_shell/` | (라우트 아님 — 아래 참조) | — |
 | `signup/` | `/signup` | 게이트 없음 — 가입·로그인 진입. 로그인한 사용자는 화면 안에서 멈춘 자리(`/consent` 또는 역할 홈)로 되돌린다 |
+| `logout/` | `/logout` | 게이트 없음 — 로그아웃 완료 안내(#348). 정의상 세션이 없는 사람이 서는 화면이라 게이트를 걸면 자기 자신에게 튕겨 나간다. GitHub 세션이 남아 계정이 바뀌지 않는다는 사실과 계정 전환 왕복(GitHub 로그아웃은 새 탭 → 이 탭이 복귀 지점)을 안내한다. 복귀 주소는 `?returnTo=`로 받되 `lib/internal-path.ts`가 same-origin 상대경로만 통과시킨다 |
 | `consent/` | `/consent` | `AuthGate`(로그인만 요구, 역할 무관) |
 | `settings/` | `/settings` | `RoleGate`(세 역할 모두) + **역할을 기다리는 교직원 예외** — #156 프로필·알림 설정. 역할이 없어도 여는 갈래는 `unassigned` + 살아 있는 역할 요청(`PENDING`·`APPROVED`) 둘뿐이다(`settings/settings-access.ts`의 `isSettingsOpenForStaffAwaitingRole`, #581). `APPROVED`까지 여는 것은 유지보수자의 명시적 결정이다(2026-08-04) — 결재가 끝나고 세션에 역할이 아직 오지 않은 사람도 자기 이름을 못 고치는 것은 #581과 같은 증상이다. 요청 없음·`REJECTED`·`REVOKED`·가입 중 역할만 고른 사용자는 종전대로 온보딩으로 되돌린다 |
 | `onboarding/role/`, `onboarding/pending/` | `/onboarding/role`, `/onboarding/pending` | `AuthGate` |
