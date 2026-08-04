@@ -10,6 +10,8 @@ import { APPLICATION_DECISION_ACTIONS } from './domain/application-decision';
 import { ApplicationsErrorCode } from './applications-error-code.enum';
 import { ApplicationsRepository } from './applications.repository';
 import { ApplicationsService } from './applications.service';
+import { AuditLogRepository } from '../audit-log/audit-log.repository';
+import { AuditLogService } from '../audit-log/audit-log.service';
 
 // allow: SIZE_OK — 판정 트랜잭션 시나리오가 하나의 격리 PostgreSQL lifecycle을 공유한다.
 assertIsolatedIntegrationDatabase({
@@ -18,8 +20,12 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const service = new ApplicationsService(new ApplicationsRepository(prisma));
+const service = new ApplicationsService(
+  new ApplicationsRepository(prisma),
+  new AuditLogService(new AuditLogRepository(prisma)),
+);
 const ACTOR_ID = 'synthetic-decision-actor';
+const ACTOR_GITHUB_ID = 8_000_000_000_001n;
 const APPLICANT_ID = 'synthetic-decision-applicant';
 const TEAM_ID = 'synthetic-decision-team';
 const CREATE_PROGRAM_ID = 'synthetic-create-program';
@@ -207,9 +213,14 @@ describe('ApplicationsService integration', () => {
     await createApplication(applicationId, true);
 
     // When
-    const result = await service.decide(ACTOR_ID, applicationId, {
-      action: APPLICATION_DECISION_ACTIONS.APPROVE,
-    });
+    const result = await service.decide(
+      ACTOR_ID,
+      applicationId,
+      ACTOR_GITHUB_ID,
+      {
+        action: APPLICATION_DECISION_ACTIONS.APPROVE,
+      },
+    );
 
     // Then
     const application = await prisma.application.findUniqueOrThrow({
@@ -246,9 +257,14 @@ describe('ApplicationsService integration', () => {
     await createApplication(applicationId, false);
 
     // When
-    const result = await service.decide(ACTOR_ID, applicationId, {
-      action: APPLICATION_DECISION_ACTIONS.APPROVE,
-    });
+    const result = await service.decide(
+      ACTOR_ID,
+      applicationId,
+      ACTOR_GITHUB_ID,
+      {
+        action: APPLICATION_DECISION_ACTIONS.APPROVE,
+      },
+    );
 
     // Then
     expect(result).toMatchObject({
@@ -287,7 +303,7 @@ describe('ApplicationsService integration', () => {
     });
 
     // When
-    await service.decide(ACTOR_ID, applicationId, {
+    await service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
 
@@ -307,7 +323,7 @@ describe('ApplicationsService integration', () => {
     await createApplication(applicationId, true);
 
     // When
-    await service.decide(ACTOR_ID, applicationId, {
+    await service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.REJECT,
       reason: '합성 반려 사유',
     });
@@ -334,10 +350,10 @@ describe('ApplicationsService integration', () => {
 
     // When
     const decisions = await Promise.allSettled([
-      service.decide(ACTOR_ID, applicationId, {
+      service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
         action: APPLICATION_DECISION_ACTIONS.APPROVE,
       }),
-      service.decide(ACTOR_ID, applicationId, {
+      service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
         action: APPLICATION_DECISION_ACTIONS.APPROVE,
       }),
     ]);
@@ -371,7 +387,7 @@ describe('ApplicationsService integration', () => {
     });
 
     // When
-    const decision = service.decide(ACTOR_ID, applicationId, {
+    const decision = service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
 
@@ -397,7 +413,7 @@ describe('ApplicationsService integration', () => {
     });
 
     // When
-    const decision = service.decide(ACTOR_ID, applicationId, {
+    const decision = service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.REJECT,
       reason: '합성 반려 사유',
     });
@@ -414,9 +430,14 @@ describe('ApplicationsService integration', () => {
 
   it('없는 신청은 404로 거부한다', async () => {
     // When
-    const decision = service.decide(ACTOR_ID, 'synthetic-missing-application', {
-      action: APPLICATION_DECISION_ACTIONS.APPROVE,
-    });
+    const decision = service.decide(
+      ACTOR_ID,
+      'synthetic-missing-application',
+      ACTOR_GITHUB_ID,
+      {
+        action: APPLICATION_DECISION_ACTIONS.APPROVE,
+      },
+    );
 
     // Then
     await expect(decision).rejects.toMatchObject({
@@ -433,9 +454,14 @@ describe('ApplicationsService integration', () => {
     await createApplication(applicationId, true);
 
     // When
-    const decision = service.decide('synthetic-missing-actor', applicationId, {
-      action: APPLICATION_DECISION_ACTIONS.APPROVE,
-    });
+    const decision = service.decide(
+      'synthetic-missing-actor',
+      applicationId,
+      ACTOR_GITHUB_ID,
+      {
+        action: APPLICATION_DECISION_ACTIONS.APPROVE,
+      },
+    );
 
     // Then
     await expect(decision).rejects.toMatchObject({

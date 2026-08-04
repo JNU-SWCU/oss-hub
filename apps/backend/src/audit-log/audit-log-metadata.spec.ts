@@ -1,8 +1,16 @@
-import { AccountStatus, Role, RoleRequestStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  ApplicationStatus,
+  Role,
+  RoleRequestStatus,
+} from '@prisma/client';
 import {
   ACCESS_AUDIT_EVENT_KINDS,
   ACCESS_AUDIT_SCHEMA_VERSION,
   createAccessAuditMetadata,
+  createApplicationDecisionAuditMetadata,
+  createCollectionTriggerAuditMetadata,
+  createSubmissionFileCleanupAuditMetadata,
   InvalidAuditLogMetadataError,
   parseAuditLogMetadata,
 } from './audit-log-metadata';
@@ -124,5 +132,61 @@ describe('createAccessAuditMetadata', () => {
       displayName: null,
       githubLogin: 'synthetic-target',
     });
+  });
+});
+
+// #547 — 새로 기록하는 세 종류의 metadata를 조회 시점에 다시 읽어낼 수 있어야 한다.
+// 읽기 가드가 없으면 목록 조회가 InvalidAuditLogMetadataError로 통째로 깨진다.
+describe('parseAuditLogMetadata — #547 신규 typed action', () => {
+  it('수집 트리거 metadata를 그대로 읽어낸다', () => {
+    const metadata = createCollectionTriggerAuditMetadata({
+      runId: 'synthetic-run-id',
+    });
+
+    expect(parseAuditLogMetadata(metadata)).toEqual({
+      legacy: false,
+      metadata: { schemaVersion: 1, runId: 'synthetic-run-id' },
+    });
+  });
+
+  it('파일 정리 재시도 reset metadata를 그대로 읽어낸다', () => {
+    const metadata = createSubmissionFileCleanupAuditMetadata({
+      fileId: 'synthetic-file-id',
+    });
+
+    expect(parseAuditLogMetadata(metadata)).toEqual({
+      legacy: false,
+      metadata: { schemaVersion: 1, fileId: 'synthetic-file-id' },
+    });
+  });
+
+  it('신청 승인·거절 metadata를 그대로 읽어낸다', () => {
+    const approved = createApplicationDecisionAuditMetadata({
+      before: { status: ApplicationStatus.SUBMITTED },
+      after: { status: ApplicationStatus.APPROVED },
+      rejectionReason: null,
+    });
+    const rejected = createApplicationDecisionAuditMetadata({
+      before: { status: ApplicationStatus.SUBMITTED },
+      after: { status: ApplicationStatus.REJECTED },
+      rejectionReason: '합성 반려 사유',
+    });
+
+    expect(parseAuditLogMetadata(approved)).toMatchObject({ legacy: false });
+    expect(parseAuditLogMetadata(rejected)).toMatchObject({
+      legacy: false,
+      metadata: { rejectionReason: '합성 반려 사유' },
+    });
+  });
+
+  it('알 수 없는 status가 담긴 판정 metadata는 거부한다', () => {
+    expect(() =>
+      parseAuditLogMetadata({
+        schemaVersion: 1,
+        before: { status: 'NOT_A_STATUS' },
+        after: { status: ApplicationStatus.APPROVED },
+        rejectionReason: null,
+      }),
+    ).toThrow(InvalidAuditLogMetadataError);
   });
 });

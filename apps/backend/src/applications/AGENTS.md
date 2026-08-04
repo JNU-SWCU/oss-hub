@@ -12,8 +12,8 @@
 
 | 파일 | 역할 |
 | --- | --- |
-| `applications.service.ts` | `create`(팀/개인 중복·기간·양식버전 검증) · `decide`(승인/반려 트랜잭션, idempotency key로 provision 이벤트 재생성 방지) · `listForProgram`/`staffSummary` |
-| `applications.repository.ts` | `withCreateTransaction`/`withTransaction` — `ApplicationDuplicateError`·`RepositoryEventAlreadyExistsError` 등 트랜잭션 충돌을 타입 에러로 던짐 |
+| `applications.service.ts` | `create`(팀/개인 중복·기간·양식버전 검증) · `decide`(승인/반려 트랜잭션, idempotency key로 provision 이벤트 재생성 방지, 같은 트랜잭션에서 `APPLICATION_APPROVED`/`APPLICATION_REJECTED` typed audit 기록 — #547) · `listForProgram`/`staffSummary` |
+| `applications.repository.ts` | `withCreateTransaction`/`withTransaction` — `ApplicationDuplicateError`·`RepositoryEventAlreadyExistsError` 등 트랜잭션 충돌을 타입 에러로 던짐. `ApplicationsTransactionStore.auditLogWriter`가 판정 전이와 감사 기록을 한 트랜잭션에 묶는다 |
 | `applications-staff.guard.ts` | `ApplicationsStaffGuard`(판정용, `STAFF_ONLY` 문구) vs `ApplicationsStaffListGuard`(조회용, `STAFF_LIST_ONLY` 문구) — 목적별로 노출 문구를 분리해둔 것이 의도적 설계다 |
 | `applications.controller.ts` | `PATCH /applications/:id` — 판정 전용 |
 | `program-applications.controller.ts` | `GET`/`POST /programs/:programId/applications` — 목록·생성 thin sibling |

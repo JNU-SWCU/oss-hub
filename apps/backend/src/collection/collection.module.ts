@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuthModule } from '../auth/auth.module';
 import { ConsentsModule } from '../consents/consents.module';
 import { ConsentsService } from '../consents/consents.service';
@@ -41,7 +42,12 @@ import {
  * 주입하지 않는다). `CollectionCutoverService`(todo 14 전환 orchestration)는 CLI에서만 실행한다.
  */
 @Module({
-  imports: [ScheduleModule.forRoot(), AuthModule, ConsentsModule],
+  imports: [
+    ScheduleModule.forRoot(),
+    AuditLogModule,
+    AuthModule,
+    ConsentsModule,
+  ],
   controllers: [CollectionAdminController],
   providers: [
     CollectionAdminGuard,

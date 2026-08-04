@@ -1,6 +1,8 @@
 import { GUARDS_METADATA, HTTP_CODE_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 
+import { AuditLogService } from '../audit-log/audit-log.service';
+import type { AuditLogRecord } from '../audit-log/audit-log.repository';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { CollectionAdminController } from './collection-admin.controller';
@@ -30,6 +32,8 @@ describe('CollectionAdminController', () => {
     }>,
     [string]
   >();
+  const record = jest.fn<Promise<AuditLogRecord>, [unknown]>();
+  const sessionRequest = { sessionGithubId: 4242n };
 
   beforeEach(() => {
     run.mockReset();
@@ -38,6 +42,8 @@ describe('CollectionAdminController', () => {
     listSyncRuns.mockReset();
     listSyncRuns.mockResolvedValue([]);
     discoverForStudent.mockReset();
+    record.mockReset();
+    record.mockResolvedValue({} as AuditLogRecord);
   });
 
   it('실행을 시작하고 202 응답 DTO를 반환한다', async () => {
@@ -54,6 +60,7 @@ describe('CollectionAdminController', () => {
           provide: CollectionIncrementalRepository,
           useValue: { listSyncRuns },
         },
+        { provide: AuditLogService, useValue: { record } },
       ],
     })
       .overrideGuard(SessionGuard)
@@ -69,7 +76,7 @@ describe('CollectionAdminController', () => {
       status: 'COMPLETED',
     });
 
-    const result = await controller.trigger();
+    const result = await controller.trigger(sessionRequest);
     expect(result.status).toBe('PENDING');
     expect(typeof result.runId).toBe('string');
     await testingModule.close();
@@ -82,9 +89,10 @@ describe('CollectionAdminController', () => {
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
+      { record } as unknown as AuditLogService,
     );
 
-    await expect(controller.trigger()).rejects.toMatchObject({
+    await expect(controller.trigger(sessionRequest)).rejects.toMatchObject({
       errorCode: { code: 'COL_008', status: 409 },
     });
     expect(run).not.toHaveBeenCalled();
@@ -121,6 +129,7 @@ describe('CollectionAdminController', () => {
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
+      { record } as unknown as AuditLogService,
     );
 
     const result = await controller.discoverExternal({
@@ -162,12 +171,51 @@ describe('CollectionAdminController', () => {
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
+      { record } as unknown as AuditLogService,
     );
 
-    const response = await controller.trigger();
+    const response = await controller.trigger(sessionRequest);
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(run).toHaveBeenCalledWith(expect.any(String), response.runId);
+  });
+
+  // #547 — actor가 명확한 권한 조작인데 AuditLog에 typed action 기록이 없었다.
+  it('트리거를 typed audit action으로 기록한다(응답 계약은 그대로)', async () => {
+    run.mockResolvedValue({ runId: 'ignored', status: 'COMPLETED' });
+    const controller = new CollectionAdminController(
+      { run } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
+      { listSyncRuns } as unknown as CollectionIncrementalRepository,
+      { record } as unknown as AuditLogService,
+    );
+
+    const response = await controller.trigger(sessionRequest);
+
+    expect(record).toHaveBeenCalledWith({
+      actorGithubId: 4242n,
+      action: 'COLLECTION_SYNC_TRIGGERED',
+      targetType: 'COLLECTION_SYNC',
+      targetId: response.runId,
+      metadata: { schemaVersion: 1, runId: response.runId },
+    });
+    expect(response.status).toBe('PENDING');
+  });
+
+  it('quiesce로 거부된 트리거는 감사 기록을 남기지 않는다', async () => {
+    isQuiesced.mockResolvedValue(true);
+    const controller = new CollectionAdminController(
+      { run } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
+      { listSyncRuns } as unknown as CollectionIncrementalRepository,
+      { record } as unknown as AuditLogService,
+    );
+
+    await expect(controller.trigger(sessionRequest)).rejects.toBeDefined();
+
+    expect(record).not.toHaveBeenCalled();
   });
 
   // #511 — ADMIN이 DB에 직접 붙지 않고 실행 이력을 볼 수 있어야 한다.
@@ -196,6 +244,7 @@ describe('CollectionAdminController', () => {
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
+      { record } as unknown as AuditLogService,
     );
 
     const result = await controller.listRuns();
@@ -247,6 +296,7 @@ describe('CollectionAdminController', () => {
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
+      { record } as unknown as AuditLogService,
     );
 
     const serialized = JSON.stringify(await controller.listRuns());

@@ -5,12 +5,18 @@ import {
   HttpCode,
   Logger,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 
 import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { SessionGuard, type AuthenticatedRequest } from '../auth/session.guard';
+import {
+  COLLECTION_TRIGGER_AUDIT_ACTIONS,
+  createCollectionTriggerAuditMetadata,
+} from '../audit-log/audit-log-metadata';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { DomainException } from '../common/error-code';
 import { CollectionAdminGuard } from './collection-admin.guard';
 import { CollectionCutoverRepository } from './collection-cutover.repository';
@@ -43,12 +49,15 @@ export class CollectionAdminController {
     private readonly cutover: CollectionCutoverRepository,
     private readonly externalDiscovery: CollectionExternalDiscoveryService,
     private readonly incrementalRepository: CollectionIncrementalRepository,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   @Post('trigger')
   @HttpCode(202)
   @UseGuards(SessionGuard, CollectionAdminGuard, OriginGuard)
-  async trigger(): Promise<CollectionTriggerResponseDto> {
+  async trigger(
+    @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
+  ): Promise<CollectionTriggerResponseDto> {
     if (await this.cutover.isQuiesced(new Date())) {
       throw new DomainException(
         COLLECTION_ERROR_CODES[CollectionErrorCode.COLLECTION_QUIESCED],
@@ -58,6 +67,16 @@ export class CollectionAdminController {
     // lease에 박히는 내부 runId가 서로 달라, 관리자가 받은 runId로는 완료·실패를
     // 어디서도 조회할 수 없었다.
     const runId = randomUUID();
+    // #547 — actor가 명확한 권한 조작이므로 typed audit을 남긴다. 백그라운드 run을
+    // 시작하기 전에 기록해, 감사 기록 없이 수집이 도는 창을 만들지 않는다. 응답 계약
+    // (202 + runId)은 그대로다.
+    await this.auditLog.record({
+      actorGithubId: request.sessionGithubId,
+      action: COLLECTION_TRIGGER_AUDIT_ACTIONS.COLLECTION_SYNC_TRIGGERED,
+      targetType: 'COLLECTION_SYNC',
+      targetId: runId,
+      metadata: createCollectionTriggerAuditMetadata({ runId }),
+    });
     const startedAt = Date.now();
     void this.sync.run(this.ownerId, runId).then(
       (result) => {

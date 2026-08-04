@@ -14,6 +14,10 @@ import {
 } from './applications.repository';
 import { ApplicationsErrorCode } from './applications-error-code.enum';
 import { ApplicationsService } from './applications.service';
+import type { AuditLogService } from '../audit-log/audit-log.service';
+
+/** 이 스펙들은 판정 경로를 타지 않으므로 감사 기록기는 호출되지 않는다. */
+const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
 const NOW = new Date('2026-07-15T00:00:00.000Z');
 const GITHUB_ID = 4_242n;
@@ -93,7 +97,7 @@ function buildService(overrides: {
   } as unknown as ApplicationsRepository;
 
   return {
-    service: new ApplicationsService(repository),
+    service: new ApplicationsService(repository, noopAuditLog),
     repository,
     store,
     createApplication,

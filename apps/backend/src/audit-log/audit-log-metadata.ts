@@ -1,5 +1,6 @@
 import {
   AccountStatus,
+  ApplicationStatus,
   ProgramLifecycle,
   RepositoryVisibility,
   Role,
@@ -164,10 +165,84 @@ export function createProgramLifecycleAuditMetadata(
   return { schemaVersion: PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION, ...input };
 }
 
+/**
+ * #547 — ADMIN 수집 트리거. actor는 `AuditLog.actorId` FK로 이미 식별되므로 metadata에
+ * 다시 스냅샷하지 않는다. `runId`는 트리거가 202로 돌려준 값과 같은 값이라(#546) 이
+ * 기록만으로 실행 이력 조회까지 이어진다. 자격증명·저장소 이름은 담지 않는다.
+ */
+export const COLLECTION_TRIGGER_AUDIT_SCHEMA_VERSION = 1 as const;
+
+export const COLLECTION_TRIGGER_AUDIT_ACTIONS = {
+  COLLECTION_SYNC_TRIGGERED: 'COLLECTION_SYNC_TRIGGERED',
+} as const;
+
+export type CollectionTriggerAuditMetadata = {
+  readonly schemaVersion: typeof COLLECTION_TRIGGER_AUDIT_SCHEMA_VERSION;
+  readonly runId: string;
+};
+
+export function createCollectionTriggerAuditMetadata(
+  input: Omit<CollectionTriggerAuditMetadata, 'schemaVersion'>,
+): CollectionTriggerAuditMetadata {
+  return { schemaVersion: COLLECTION_TRIGGER_AUDIT_SCHEMA_VERSION, ...input };
+}
+
+/**
+ * #547 — 제출 파일 정리 재시도 reset(ADMIN CLI). 대상 파일은 불투명 id 하나로만 식별하며
+ * 파일명·저장 경로·업로더는 담지 않는다.
+ */
+export const SUBMISSION_FILE_CLEANUP_AUDIT_SCHEMA_VERSION = 1 as const;
+
+export const SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS = {
+  SUBMISSION_FILE_CLEANUP_RETRY_RESET: 'SUBMISSION_FILE_CLEANUP_RETRY_RESET',
+} as const;
+
+export type SubmissionFileCleanupAuditMetadata = {
+  readonly schemaVersion: typeof SUBMISSION_FILE_CLEANUP_AUDIT_SCHEMA_VERSION;
+  readonly fileId: string;
+};
+
+export function createSubmissionFileCleanupAuditMetadata(
+  input: Omit<SubmissionFileCleanupAuditMetadata, 'schemaVersion'>,
+): SubmissionFileCleanupAuditMetadata {
+  return {
+    schemaVersion: SUBMISSION_FILE_CLEANUP_AUDIT_SCHEMA_VERSION,
+    ...input,
+  };
+}
+
+/**
+ * #547 — STAFF 신청 승인·거절. 거절 사유는 판정 근거 자체라 기록한다(역할 요청 거절
+ * 기록과 같은 취급). 신청자 실명·studentId는 담지 않는다 — 대상은 `targetId`(신청 id)로만
+ * 식별한다.
+ */
+export const APPLICATION_DECISION_AUDIT_SCHEMA_VERSION = 1 as const;
+
+export const APPLICATION_DECISION_AUDIT_ACTIONS = {
+  APPLICATION_APPROVED: 'APPLICATION_APPROVED',
+  APPLICATION_REJECTED: 'APPLICATION_REJECTED',
+} as const;
+
+export type ApplicationDecisionAuditMetadata = {
+  readonly schemaVersion: typeof APPLICATION_DECISION_AUDIT_SCHEMA_VERSION;
+  readonly before: { readonly status: ApplicationStatus };
+  readonly after: { readonly status: ApplicationStatus };
+  readonly rejectionReason: string | null;
+};
+
+export function createApplicationDecisionAuditMetadata(
+  input: Omit<ApplicationDecisionAuditMetadata, 'schemaVersion'>,
+): ApplicationDecisionAuditMetadata {
+  return { schemaVersion: APPLICATION_DECISION_AUDIT_SCHEMA_VERSION, ...input };
+}
+
 export type AuditLogMetadata =
   | AccessAuditMetadata
   | RepositoryPublishAuditMetadata
-  | ProgramLifecycleAuditMetadata;
+  | ProgramLifecycleAuditMetadata
+  | CollectionTriggerAuditMetadata
+  | SubmissionFileCleanupAuditMetadata
+  | ApplicationDecisionAuditMetadata;
 
 export type AuditLogMetadataEvidence =
   | { readonly legacy: true; readonly metadata: null }
@@ -195,11 +270,57 @@ export function parseAuditLogMetadata(
   if (
     isAccessAuditMetadata(value) ||
     isRepositoryPublishAuditMetadata(value) ||
-    isProgramLifecycleAuditMetadata(value)
+    isProgramLifecycleAuditMetadata(value) ||
+    isCollectionTriggerAuditMetadata(value) ||
+    isSubmissionFileCleanupAuditMetadata(value) ||
+    isApplicationDecisionAuditMetadata(value)
   ) {
     return { legacy: false, metadata: value };
   }
   throw new InvalidAuditLogMetadataError();
+}
+
+function isCollectionTriggerAuditMetadata(
+  value: unknown,
+): value is CollectionTriggerAuditMetadata {
+  return (
+    isJsonObject(value) &&
+    value.schemaVersion === COLLECTION_TRIGGER_AUDIT_SCHEMA_VERSION &&
+    typeof value.runId === 'string'
+  );
+}
+
+function isSubmissionFileCleanupAuditMetadata(
+  value: unknown,
+): value is SubmissionFileCleanupAuditMetadata {
+  return (
+    isJsonObject(value) &&
+    value.schemaVersion === SUBMISSION_FILE_CLEANUP_AUDIT_SCHEMA_VERSION &&
+    typeof value.fileId === 'string'
+  );
+}
+
+function isApplicationDecisionAuditMetadata(
+  value: unknown,
+): value is ApplicationDecisionAuditMetadata {
+  return (
+    isJsonObject(value) &&
+    value.schemaVersion === APPLICATION_DECISION_AUDIT_SCHEMA_VERSION &&
+    isApplicationDecisionState(value.before) &&
+    isApplicationDecisionState(value.after) &&
+    (typeof value.rejectionReason === 'string' ||
+      value.rejectionReason === null)
+  );
+}
+
+function isApplicationDecisionState(
+  value: unknown,
+): value is { readonly status: ApplicationStatus } {
+  return (
+    isJsonObject(value) &&
+    typeof value.status === 'string' &&
+    Object.values(ApplicationStatus).includes(value.status as ApplicationStatus)
+  );
 }
 
 function isRepositoryPublishAuditMetadata(
