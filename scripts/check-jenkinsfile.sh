@@ -730,6 +730,8 @@ check_v2() {
   require_exact 'main ancestry 검증은 한 번이어야 함' 'git merge-base --is-ancestor "$release_sha" origin/main' 1
   require_exact 'IMAGE_TAG는 RELEASE_TAG(tag)로 한 번만 할당해야 함' 'env.IMAGE_TAG = tag' 1
   require_exact 'RELEASE_SHA 바인딩은 한 번이어야 함' 'env.RELEASE_SHA = releaseSha' 1
+  require_exact 'GitHub Actions ci job 상태 게이트는 한 번 호출해야 함' \
+    "sh 'bash scripts/jenkins/validate-ci-status.sh'" 1
   require_exact 'exact RELEASE_SHA checkout은 한 번이어야 함' 'git checkout --detach "$RELEASE_SHA"' 1
 
   # no-op authority: running ps -q only; --all is classification
@@ -986,9 +988,12 @@ check_v2() {
   local prisma_generate_line test_line
   local backup_line frontend_build_line backend_build_line migration_line rollout_line noop_stage_line retention_line
   local image_rm_line buildx_prune_line backup_prune_line retention_stage_line
+  local release_sha_binding_line ci_status_call_line
   environment_line=$(line_of 'environment {')
   stages_line=$(line_of 'stages {')
   build_cache_line=$(line_of "BUILD_CACHE_MAX_SPACE = '5GB'")
+  release_sha_binding_line=$(line_of 'env.RELEASE_SHA = releaseSha')
+  ci_status_call_line=$(line_of "sh 'bash scripts/jenkins/validate-ci-status.sh'")
   checkout_line=$(line_of 'git checkout --detach "$RELEASE_SHA"')
   buildx_preflight_line=$(line_of_shell_stage_depth_exact \
     'Buildx 캐시 상한 사전 검증' 0 "if ! docker buildx prune --help 2>&1 | grep -F -- '--max-used-space' >/dev/null; then")
@@ -1018,6 +1023,7 @@ check_v2() {
   # bash 3.2 호환: declare -A 대신 변수명 배열 + ${!name} 간접 참조로 순회한다.
   local -a order_check_names=(
     environment_line stages_line build_cache_line
+    release_sha_binding_line ci_status_call_line
     checkout_line buildx_preflight_line https_line rollback_stage_line
     rollback_input_line rollback_call_line prisma_generate_line test_line backup_line
     first_production_mutation_line
@@ -1040,6 +1046,8 @@ check_v2() {
     'environment_line:<:build_cache_line'
     'retention_line:<:stages_line'
     'build_cache_line:<:stages_line'
+    'release_sha_binding_line:<:ci_status_call_line'
+    'ci_status_call_line:<:checkout_line'
     'checkout_line:<:buildx_preflight_line'
     'buildx_preflight_line:<:https_line'
     'buildx_preflight_line:<:first_production_mutation_line'
