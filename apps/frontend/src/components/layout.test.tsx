@@ -136,6 +136,25 @@ describe('layout components', () => {
     expect(html).toContain('스태프 승인 후 이용할 수 있습니다.');
     expect(html).toContain('새로고침');
   });
+
+  /**
+   * 셸이 이미 채운 뷰포트를 한 번 더 요구하지 않는가(#598).
+   *
+   * 모든 라우트가 `app/layout.tsx` → `AppFrame`(`min-h-dvh`) 안에 서고 그 위에
+   * 머리글이 얹힌다. 이 부품이 `min-h-dvh`를 다시 걸면 머리글 높이만큼 내용이 없는
+   * 빈 스크롤이 남는다 — chromium 실측으로 1440x900·768x1024·375x812 모두 56px이
+   * 넘쳤고, `min-h-[50svh]`에서는 세 폭 모두 0px이다.
+   */
+  it('keeps StatusMessagePage from demanding a second viewport', () => {
+    const html = renderToStaticMarkup(<StatusMessagePage title="안내" />);
+
+    const root = /data-slot="status-message-page"[^>]*class="([^"]*)"/.exec(
+      html,
+    );
+    expect(root).not.toBeNull();
+    expect(root?.[1]).toContain('min-h-[50svh]');
+    expect(root?.[1]).not.toContain('min-h-dvh');
+  });
 });
 
 // header/footer가 선택(optional)인 grid 레이아웃에서, DOM 순서 기반 auto-placement에
