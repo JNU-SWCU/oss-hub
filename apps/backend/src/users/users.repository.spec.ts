@@ -445,10 +445,9 @@ describe('UsersRepository 가입 마치기 확정', () => {
 
     // Then
     expect(roleRequestCreate).not.toHaveBeenCalled();
-    expect(userUpdateMany).not.toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ role: null }),
-      }),
-    );
+    expect(userUpdateMany).not.toHaveBeenCalledWith({
+      where: { id: staff.id, role: null },
+      data: { role: 'STAFF' },
+    });
   });
 });
