@@ -2,12 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
   CollectionRepositoryRow,
+  CollectionSyncRunRow,
+  CollectionSyncRunTrigger,
+  CollectionSyncStreamSummary,
   CommitFactInput,
   ContributorYearAggregateRow,
   PullRequestFactInput,
   RecordFactsResult,
   RecordRepositoryObservationInput,
   ReleaseFactInput,
+  RepositorySource,
   RepositoryYearAggregateRow,
   StreamFrontierInput,
   StreamFrontierRow,
@@ -32,6 +36,36 @@ const seoulYearBoundsUtc = (year: number): readonly [Date, Date] => [
   new Date(Date.UTC(year, 0, 1) - 9 * 60 * 60 * 1000),
   new Date(Date.UTC(year + 1, 0, 1) - 9 * 60 * 60 * 1000),
 ];
+
+/** external sweep이 쓰는 고정 scope — `collection-sync.service.ts`의 `EXTERNAL_SCOPE`와 한 벌이다. */
+const EXTERNAL_SCOPE = 'external';
+
+/**
+ * scope ↔ 저장소 source 매핑. org sweep(`org:<login>`)은 `ORG_PROVISIONED` 저장소만,
+ * external sweep(`external`)은 `EXTERNAL_PUBLIC` 저장소만 훑는다 — 그래서 어떤 run의
+ * stream 요약을 낼 때 다른 sweep의 stream이 섞이지 않도록 이 매핑으로 걸러낸다.
+ */
+const sourceForScope = (scope: string): RepositorySource =>
+  scope === EXTERNAL_SCOPE ? 'EXTERNAL_PUBLIC' : 'ORG_PROVISIONED';
+
+/**
+ * lease의 `ownerId` 접두사로 트리거 종류를 판정한다(`scheduler:` / `admin:` / `cli:`).
+ * ownerId 원문은 절대 밖으로 내보내지 않는다 — 분류 결과만 노출한다(#511 수용 기준).
+ */
+const triggerForOwnerId = (ownerId: string): CollectionSyncRunTrigger => {
+  if (ownerId.startsWith('scheduler:')) return 'CRON';
+  if (ownerId.startsWith('admin:')) return 'MANUAL';
+  if (ownerId.startsWith('cli:')) return 'CLI';
+  return 'UNKNOWN';
+};
+
+const emptyStreamSummary = (): CollectionSyncStreamSummary => ({
+  readyCount: 0,
+  backfillingCount: 0,
+  pendingCount: 0,
+  verifyingCount: 0,
+  failedCount: 0,
+});
 
 /** rebuild 대상 (year, githubUserId) 쌍 — githubUserId는 repository 전체 집계에는 쓰이지 않는다. */
 interface AffectedYear {
@@ -488,6 +522,126 @@ export class CollectionIncrementalRepository {
     return this.db.collectionSyncCursor.findUnique({
       where: { appId_scope: { appId, scope } },
     });
+  }
+
+  /**
+   * #511 — ADMIN 실행 이력 조회의 저장소 계층. 신규 테이블 없이
+   * `CollectionSyncLease`(누가·어떤 runId로 마지막에 돌았는가) + `CollectionSyncCursor`
+   * (사이클 시작·완료 시각) + `CollectionRepositoryStream`(진행/오류 요약)을 합성한다.
+   *
+   * lease가 (appId, scope)당 한 행이므로 **scope당 최근 1건**만 나온다 — 진짜 N회 이력은
+   * append 되는 run 테이블이 있어야 한다(`collection-incremental.types.ts` 주석 참고).
+   * 응답에는 `ownerId`·token 등 자격증명 계열 값을 절대 담지 않는다(수용 기준).
+   */
+  async listSyncRuns(
+    now: Date,
+    limit: number,
+  ): Promise<CollectionSyncRunRow[]> {
+    const leases = await this.db.collectionSyncLease.findMany({
+      orderBy: { updatedAt: 'desc' },
+      take: limit,
+      select: {
+        appId: true,
+        scope: true,
+        ownerId: true,
+        runId: true,
+        expiresAt: true,
+        updatedAt: true,
+      },
+    });
+    if (leases.length === 0) return [];
+
+    const cursors = await this.db.collectionSyncCursor.findMany({
+      where: {
+        OR: leases.map((lease) => ({
+          appId: lease.appId,
+          scope: lease.scope,
+        })),
+      },
+      select: {
+        appId: true,
+        scope: true,
+        cycleStartedAt: true,
+        cycleCompletedAt: true,
+      },
+    });
+    const cursorKey = (appId: bigint, scope: string): string =>
+      `${appId.toString()}:${scope}`;
+    const cursorByKey = new Map(
+      cursors.map((cursor) => [cursorKey(cursor.appId, cursor.scope), cursor]),
+    );
+
+    const summaries = new Map<
+      RepositorySource,
+      { streams: CollectionSyncStreamSummary; errorCodes: string[] }
+    >();
+    for (const source of new Set(
+      leases.map((lease) => sourceForScope(lease.scope)),
+    )) {
+      summaries.set(source, await this.summarizeStreams(source));
+    }
+
+    return leases.map((lease) => {
+      const source = sourceForScope(lease.scope);
+      const summary = summaries.get(source) ?? {
+        streams: emptyStreamSummary(),
+        errorCodes: [],
+      };
+      const cursor = cursorByKey.get(cursorKey(lease.appId, lease.scope));
+      const running = lease.expiresAt.getTime() > now.getTime();
+      return {
+        runId: lease.runId,
+        scope: lease.scope,
+        trigger: triggerForOwnerId(lease.ownerId),
+        status: running
+          ? 'RUNNING'
+          : summary.errorCodes.length > 0
+            ? 'FAILED'
+            : 'COMPLETED',
+        startedAt: cursor?.cycleStartedAt ?? null,
+        lastObservedAt: lease.updatedAt,
+        cycleCompletedAt: cursor?.cycleCompletedAt ?? null,
+        streams: summary.streams,
+        errorCodes: summary.errorCodes,
+      };
+    });
+  }
+
+  private async summarizeStreams(
+    source: RepositorySource,
+  ): Promise<{ streams: CollectionSyncStreamSummary; errorCodes: string[] }> {
+    const where = { repository: { source, presence: 'PRESENT' } } as const;
+    const [statusGroups, errorGroups] = await Promise.all([
+      this.db.collectionRepositoryStream.groupBy({
+        by: ['status'],
+        where,
+        _count: { _all: true },
+      }),
+      this.db.collectionRepositoryStream.groupBy({
+        by: ['lastErrorCode'],
+        where: { ...where, lastErrorCode: { not: null } },
+        _count: { _all: true },
+      }),
+    ]);
+    const countFor = (status: string): number =>
+      statusGroups.find((group) => group.status === status)?._count._all ?? 0;
+    const failedGroups = errorGroups.filter(
+      (group): group is typeof group & { lastErrorCode: string } =>
+        typeof group.lastErrorCode === 'string',
+    );
+    return {
+      streams: {
+        readyCount: countFor('READY'),
+        backfillingCount: countFor('BACKFILLING'),
+        pendingCount: countFor('PENDING'),
+        verifyingCount: countFor('VERIFYING'),
+        failedCount: failedGroups.reduce(
+          (total, group) => total + group._count._all,
+          0,
+        ),
+      },
+      errorCodes: failedGroups.map((group) => group.lastErrorCode).sort(),
+    };
   }
 
   /**

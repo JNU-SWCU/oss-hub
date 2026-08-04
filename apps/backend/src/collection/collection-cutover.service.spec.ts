@@ -89,6 +89,7 @@ const syncResult = (
   processedRepositoryCount: 1,
   cycleCompleted: true,
   stoppedForBudget: false,
+  insertedFactCount: 0,
   ...overrides,
 });
 

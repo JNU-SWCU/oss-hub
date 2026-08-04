@@ -64,13 +64,33 @@ export class CollectionSchedulerService {
       );
     }
     const runId = randomUUID();
-    void this.sync.run(this.ownerId).catch((error: unknown) => {
-      this.logger.error({
-        event: 'collection.scheduler.sync_failed',
-        runId,
-        errorName: error instanceof Error ? error.name : 'UnknownError',
-      });
-    });
+    const startedAt = Date.now();
+    void this.sync.run(this.ownerId).then(
+      (result) => {
+        // #511 — 실패 이벤트만 남던 자리에 성공 1줄을 추가한다. 운영자가 로그만으로
+        // "이번 정각 tick이 실제로 돌았는가"를 판정할 수 있어야 하며 DB 직접 조회가
+        // 정상/무동작 구분의 유일한 수단이어서는 안 된다. 토큰·시크릿·저장소 이름은
+        // 담지 않는다(수용 기준) — 집계 수치와 안전한 분류만 남긴다.
+        this.logger.log({
+          event: 'collection.scheduler.completed',
+          runId,
+          syncStatus: result.status,
+          durationMs: Date.now() - startedAt,
+          repositoryCount: result.processedRepositoryCount,
+          insertedFactCount: result.insertedFactCount,
+          inventoryComplete: result.inventoryComplete,
+          cycleCompleted: result.cycleCompleted,
+          stoppedForBudget: result.stoppedForBudget,
+        });
+      },
+      (error: unknown) => {
+        this.logger.error({
+          event: 'collection.scheduler.sync_failed',
+          runId,
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+        });
+      },
+    );
     return { runId, status: 'PENDING' };
   }
 }

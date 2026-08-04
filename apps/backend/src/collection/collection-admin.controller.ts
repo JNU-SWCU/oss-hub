@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   Logger,
   Post,
@@ -18,10 +19,15 @@ import {
   CollectionErrorCode,
 } from './collection-error-code.enum';
 import { CollectionExternalDiscoveryService } from './collection-external-discovery.service';
+import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { CollectionSyncService } from './collection-sync.service';
 import { CollectionExternalDiscoveryRequestDto } from './dto/collection-external-discovery-request.dto';
 import { CollectionExternalDiscoveryResponseDto } from './dto/collection-external-discovery-response.dto';
+import { CollectionRunListResponseDto } from './dto/collection-run-list-response.dto';
 import { CollectionTriggerResponseDto } from './dto/collection-trigger-response.dto';
+
+/** 한 번에 돌려줄 실행 이력 최대 건수 — lease 행이 scope당 1건이라 사실상의 상한이다. */
+export const COLLECTION_RUN_LIST_LIMIT = 20;
 
 /**
  * todo 14 원자 전환: `CollectionSchedulerService`와 동일하게 old writer에서 new writer로
@@ -36,6 +42,7 @@ export class CollectionAdminController {
     private readonly sync: CollectionSyncService,
     private readonly cutover: CollectionCutoverRepository,
     private readonly externalDiscovery: CollectionExternalDiscoveryService,
+    private readonly incrementalRepository: CollectionIncrementalRepository,
   ) {}
 
   @Post('trigger')
@@ -56,6 +63,21 @@ export class CollectionAdminController {
       });
     });
     return new CollectionTriggerResponseDto(runId);
+  }
+
+  /**
+   * #511 — ADMIN이 DB에 직접 붙지 않고도 sync 실행 결과를 확인할 수 있게 하는 조회 표면.
+   * 스키마 무접촉 웨이브라 신규 run 테이블을 만들지 않고 기존 lease/cursor/stream 상태의
+   * 프로젝션으로 답한다 — 그래서 돌려주는 것은 **scope별 가장 최근 실행 1건**이다.
+   */
+  @Get('runs')
+  @UseGuards(SessionGuard, CollectionAdminGuard, OriginGuard)
+  async listRuns(): Promise<CollectionRunListResponseDto> {
+    const runs = await this.incrementalRepository.listSyncRuns(
+      new Date(),
+      COLLECTION_RUN_LIST_LIMIT,
+    );
+    return CollectionRunListResponseDto.from(runs);
   }
 
   /**

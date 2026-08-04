@@ -43,6 +43,12 @@ export interface CollectionSyncRunResult {
   processedRepositoryCount: number;
   cycleCompleted: boolean;
   stoppedForBudget: boolean;
+  /**
+   * #511 — 이번 run이 새로 적재한 fact 수(commit/PR/release 합). 중복 fact는 세지 않는다
+   * (`createMany`+`skipDuplicates`가 반환하는 실제 삽입 수만 누적). 트리거 표면이 성공
+   * 로그에 "신규 수집 건수"를 남기기 위한 유일한 출처다.
+   */
+  insertedFactCount: number;
 }
 
 type SyncRepository = Pick<
@@ -201,6 +207,7 @@ export class CollectionSyncService {
         processedRepositoryCount: 0,
         cycleCompleted: false,
         stoppedForBudget: false,
+        insertedFactCount: 0,
       };
     }
 
@@ -225,6 +232,7 @@ export class CollectionSyncService {
         processedRepositoryCount: 0,
         cycleCompleted: false,
         stoppedForBudget: false,
+        insertedFactCount: 0,
       };
     }
   }
@@ -277,6 +285,7 @@ export class CollectionSyncService {
       );
 
     let processedRepositoryCount = 0;
+    let insertedFactCount = 0;
     let stoppedForBudget = false;
     let lastError: string | null = null;
 
@@ -290,7 +299,12 @@ export class CollectionSyncService {
         break;
       }
       try {
-        await this.syncRepository(runtime, lease, repository, deadline);
+        insertedFactCount += await this.syncRepository(
+          runtime,
+          lease,
+          repository,
+          deadline,
+        );
       } catch (error) {
         lastError = error instanceof Error ? error.name : 'UnknownError';
         this.logger.warn({
@@ -339,6 +353,7 @@ export class CollectionSyncService {
       processedRepositoryCount,
       cycleCompleted,
       stoppedForBudget,
+      insertedFactCount,
     };
   }
 
@@ -416,14 +431,15 @@ export class CollectionSyncService {
     return { complete: true, repositories };
   }
 
+  /** 저장소 하나가 이번 run에서 새로 적재한 fact 수를 반환한다(#511 성공 로그 집계용). */
   private async syncRepository(
     runtime: CollectionSyncRuntime,
     lease: SyncLeaseToken,
     repository: CollectionRepositoryRow,
     deadline: number,
-  ): Promise<void> {
+  ): Promise<number> {
     const [owner, name] = splitNameWithOwner(repository.nameWithOwner);
-    await this.syncCommitStream(
+    const commitCount = await this.syncCommitStream(
       runtime,
       lease,
       repository,
@@ -431,7 +447,7 @@ export class CollectionSyncService {
       name,
       deadline,
     );
-    await this.syncPullRequestStream(
+    const pullRequestCount = await this.syncPullRequestStream(
       runtime,
       lease,
       repository,
@@ -439,7 +455,7 @@ export class CollectionSyncService {
       name,
       deadline,
     );
-    await this.syncReleaseStream(
+    const releaseCount = await this.syncReleaseStream(
       runtime,
       lease,
       repository,
@@ -447,6 +463,7 @@ export class CollectionSyncService {
       name,
       deadline,
     );
+    return commitCount + pullRequestCount + releaseCount;
   }
 
   private async syncCommitStream(
@@ -456,7 +473,7 @@ export class CollectionSyncService {
     owner: string,
     name: string,
     deadline: number,
-  ): Promise<void> {
+  ): Promise<number> {
     const defaultBranch = repository.defaultBranch;
     if (defaultBranch === null) {
       // Empty repository — GitHub reports no default branch when a
@@ -464,7 +481,7 @@ export class CollectionSyncService {
       // the stream frontier untouched (no provider call, no write) so a real
       // backfill runs once the repository gets its first commit and a later
       // observation reports an actual default branch.
-      return;
+      return 0;
     }
 
     const existing = await this.incrementalRepository.getStreamFrontier(
@@ -483,7 +500,7 @@ export class CollectionSyncService {
         ),
         deadline,
       );
-      await this.commitCheckpoint(
+      return this.commitCheckpoint(
         lease,
         repository.id,
         result.commits,
@@ -491,7 +508,6 @@ export class CollectionSyncService {
         requestFingerprintKey(result.fingerprint),
         null,
       );
-      return;
     }
 
     const probe = await this.beforeDeadline(
@@ -503,7 +519,7 @@ export class CollectionSyncService {
       ),
       deadline,
     );
-    if (!probe.changed) return; // no full-history call for an unchanged READY repo
+    if (!probe.changed) return 0; // no full-history call for an unchanged READY repo
 
     const known = existing.frontierSha
       ? new Set([existing.frontierSha])
@@ -518,7 +534,7 @@ export class CollectionSyncService {
       deadline,
     );
     const headSha = probe.headSha ?? result.commits[0]?.sha ?? null;
-    await this.commitCheckpoint(
+    return this.commitCheckpoint(
       lease,
       repository.id,
       result.commits,
@@ -535,10 +551,10 @@ export class CollectionSyncService {
     headSha: string | null,
     requestFingerprint: string,
     etag: string | null,
-  ): Promise<void> {
-    await this.incrementalRepository.runInTransaction(async (repo) => {
+  ): Promise<number> {
+    return this.incrementalRepository.runInTransaction(async (repo) => {
       await repo.assertSyncLeaseValid(lease, this.now());
-      await repo.recordCommitFacts(
+      const recorded = await repo.recordCommitFacts(
         repositoryId,
         commits.map((commit) => ({
           sha: commit.sha,
@@ -559,6 +575,7 @@ export class CollectionSyncService {
         etag,
         lastRunAt: this.now(),
       });
+      return recorded.insertedCount;
     });
   }
 
@@ -569,7 +586,7 @@ export class CollectionSyncService {
     owner: string,
     name: string,
     deadline: number,
-  ): Promise<void> {
+  ): Promise<number> {
     const existing = await this.incrementalRepository.getStreamFrontier(
       repository.id,
       'PULL_REQUEST',
@@ -589,9 +606,9 @@ export class CollectionSyncService {
       runtime.client.listNewPullRequests(owner, name, tieFrontier),
       deadline,
     );
-    if (tieFrontier !== null && result.pullRequests.length === 0) return;
+    if (tieFrontier !== null && result.pullRequests.length === 0) return 0;
 
-    await this.pullRequestCheckpoint(
+    return this.pullRequestCheckpoint(
       lease,
       repository.id,
       result.pullRequests,
@@ -606,10 +623,10 @@ export class CollectionSyncService {
     pullRequests: readonly CollectionPullRequest[],
     newFrontier: { createdAt: string; id: string } | null,
     requestFingerprint: string,
-  ): Promise<void> {
-    await this.incrementalRepository.runInTransaction(async (repo) => {
+  ): Promise<number> {
+    return this.incrementalRepository.runInTransaction(async (repo) => {
       await repo.assertSyncLeaseValid(lease, this.now());
-      await repo.recordPullRequestFacts(
+      const recorded = await repo.recordPullRequestFacts(
         repositoryId,
         pullRequests.map((pullRequest) => ({
           githubPullRequestId: BigInt(pullRequest.id),
@@ -631,6 +648,7 @@ export class CollectionSyncService {
         requestFingerprint,
         lastRunAt: this.now(),
       });
+      return recorded.insertedCount;
     });
   }
 
@@ -641,7 +659,7 @@ export class CollectionSyncService {
     owner: string,
     name: string,
     deadline: number,
-  ): Promise<void> {
+  ): Promise<number> {
     const existing = await this.incrementalRepository.getStreamFrontier(
       repository.id,
       'RELEASE',
@@ -653,13 +671,13 @@ export class CollectionSyncService {
       runtime.client.probeLatestRelease(owner, name, previousEtag),
       deadline,
     );
-    if (!probe.changed) return; // no full listing call for an unchanged READY repo
+    if (!probe.changed) return 0; // no full listing call for an unchanged READY repo
 
     const listing = await this.beforeDeadline(
       runtime.client.listChangedPublishedReleases(owner, name),
       deadline,
     );
-    await this.releaseCheckpoint(
+    return this.releaseCheckpoint(
       lease,
       repository.id,
       listing.releases,
@@ -676,10 +694,10 @@ export class CollectionSyncService {
     frontierProbe: string | null,
     requestFingerprint: string,
     etag: string | null,
-  ): Promise<void> {
-    await this.incrementalRepository.runInTransaction(async (repo) => {
+  ): Promise<number> {
+    return this.incrementalRepository.runInTransaction(async (repo) => {
       await repo.assertSyncLeaseValid(lease, this.now());
-      await repo.recordReleaseFacts(
+      const recorded = await repo.recordReleaseFacts(
         repositoryId,
         releases.map((release) => ({
           githubReleaseId: BigInt(release.id),
@@ -700,6 +718,7 @@ export class CollectionSyncService {
         etag,
         lastRunAt: this.now(),
       });
+      return recorded.insertedCount;
     });
   }
 
