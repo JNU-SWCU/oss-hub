@@ -1,4 +1,4 @@
-﻿import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { ApplicationStatus } from '@prisma/client';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
@@ -33,8 +33,7 @@ const APPLICATION = {
   },
   submittedAt: new Date('2026-07-10T00:00:00.000Z'),
   updatedAt: new Date('2026-07-11T00:00:00.000Z'),
-  canEdit: true,
-  canCancel: true,
+  canManage: true,
 } as const;
 
 function createService() {
@@ -75,6 +74,7 @@ describe('StudentApplicationsController', () => {
       id: 'application-1',
       submittedAt: '2026-07-10T00:00:00.000Z',
       updatedAt: '2026-07-11T00:00:00.000Z',
+      canManage: true,
       canEdit: true,
       canCancel: true,
     });

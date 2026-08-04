@@ -30,8 +30,7 @@ export interface StudentApplicationView {
   readonly submittedAt: Date;
   readonly updatedAt: Date;
   readonly isRepositoryPublicationPlanned: boolean;
-  readonly canEdit: boolean;
-  readonly canCancel: boolean;
+  readonly canManage: boolean;
 }
 
 interface StudentApplicationContext {
@@ -185,8 +184,7 @@ export class StudentApplicationManagementService {
       updatedAt: application.updatedAt,
       isRepositoryPublicationPlanned:
         application.isRepositoryPublicationPlanned,
-      canEdit: editable,
-      canCancel: editable,
+      canManage: editable,
     };
   }
 

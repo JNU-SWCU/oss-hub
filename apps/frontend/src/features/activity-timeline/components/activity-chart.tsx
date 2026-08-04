@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { orderActivityPoints } from '../activity-point-order';
 import type { ActivityPoint } from '../types';
 
 const series = [
@@ -33,12 +34,14 @@ export function ActivityChart({
 }: {
   points: readonly ActivityPoint[];
 }) {
+  const orderedPoints = orderActivityPoints(points);
+
   return (
     <div className="flex min-w-0 flex-col gap-6">
       <div aria-hidden="true" className="h-80 min-h-80 w-full overflow-hidden">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
-            data={[...points]}
+            data={orderedPoints.chart}
             margin={{ top: 12, right: 12, left: -12, bottom: 4 }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -105,7 +108,7 @@ export function ActivityChart({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {points.map((point) => (
+            {orderedPoints.table.map((point) => (
               <TableRow key={point.period}>
                 <TableHead scope="row">{point.period}</TableHead>
                 <TableCell className="text-right">

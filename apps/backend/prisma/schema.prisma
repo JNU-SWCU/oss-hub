@@ -46,20 +46,26 @@ model User {
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
-  roleRequests          RoleRequest[]        @relation("RoleRequestUser")
-  decidedRoleRequests   RoleRequest[]        @relation("RoleRequestDecidedBy")
-  consents              Consent[]
-  applications          Application[]        @relation("ApplicationApplicant")
-  processedApplications Application[]        @relation("ApplicationProcessedBy")
-  ledTeams              Team[]               @relation("TeamLeader")
-  teamMemberships       TeamMember[]
-  submissionRevisions   SubmissionRevision[]
-  uploadedFiles         SubmissionFile[]
-  reviews               Review[]
-  notifications         Notification[]
-  auditLogs             AuditLog[]
-  loginHistories        LoginHistory[]
-  profile               UserProfile?
+  roleRequests                           RoleRequest[]                   @relation("RoleRequestUser")
+  decidedRoleRequests                    RoleRequest[]                   @relation("RoleRequestDecidedBy")
+  consents                               Consent[]
+  applications                           Application[]                   @relation("ApplicationApplicant")
+  processedApplications                  Application[]                   @relation("ApplicationProcessedBy")
+  ledTeams                               Team[]                          @relation("TeamLeader")
+  teamMemberships                        TeamMember[]
+  sentTeamInvitations                    TeamInvitation[]                @relation("TeamInvitationInvitedBy")
+  receivedTeamInvitations                TeamInvitation[]                @relation("TeamInvitationInvitee")
+  submissionRevisions                    SubmissionRevision[]
+  uploadedFiles                          SubmissionFile[]
+  reviews                                Review[]
+  uploadedMilestoneDocumentTemplateFiles MilestoneDocumentTemplateFile[]
+  milestoneDocumentSubmissions           MilestoneDocumentSubmission[]
+  boardPosts                             BoardPost[]
+  boardComments                          BoardComment[]
+  notifications                          Notification[]
+  auditLogs                              AuditLog[]
+  loginHistories                         LoginHistory[]
+  profile                                UserProfile?
 }
 
 /// 플랫폼에서 직접 수집·확정한 비공개 사용자 프로필.
@@ -158,7 +164,7 @@ enum ProgramLifecycle {
 }
 
 model Program {
-  id        String          @id @default(cuid())
+  id        String           @id @default(cuid())
   name      String
   organizer String
   category  ProgramCategory
@@ -191,6 +197,7 @@ model Program {
   applications Application[]
   teams        Team[]
   repositories Repository[]
+  boardPosts   BoardPost[]
 }
 
 /// 제출물 유형 — #113 Submission·#115 제출 API가 정확히 이 값 이름을 사용한다.
@@ -215,6 +222,10 @@ model Milestone {
 
   submissions     Submission[]
   submissionFiles SubmissionFile[]
+  /// 마일스톤 하나에 서류 항목 여러 개(예: #3 "개인정보 동의서"/"프로젝트 계획서"/"팀 구성 확인서").
+  /// 기존 submissionType(마일스톤당 단일 제출 유형)은 하위호환을 위해 그대로 둔다 — 서류 항목이
+  /// 없는 마일스톤(#1/#2/#5/#7)은 계속 이 필드만으로 동작한다.
+  documents       MilestoneDocument[]
 
   @@index([programId])
 }
@@ -257,10 +268,11 @@ model Application {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  submissions     Submission[]
-  repository      Repository?
-  provisionJob    RepositoryProvisionJob?
-  submissionFiles SubmissionFile[]        @relation("SubmissionFileApplication")
+  submissions                  Submission[]
+  repository                   Repository?
+  provisionJob                 RepositoryProvisionJob?
+  submissionFiles              SubmissionFile[]              @relation("SubmissionFileApplication")
+  milestoneDocumentSubmissions MilestoneDocumentSubmission[]
 
   @@index([programId])
   @@index([applicantId])
@@ -286,6 +298,7 @@ model Team {
   members      TeamMember[]
   applications Application[]
   repositories Repository[]
+  invitations  TeamInvitation[]
 
   /// TeamMember의 비정규화 programId를 composite FK로 검증하기 위한 참조 대상(#164).
   @@unique([id, programId])
@@ -312,6 +325,89 @@ model TeamMember {
   @@unique([teamId, userId])
   @@unique([programId, userId])
   @@index([userId])
+}
+
+/// PENDING → ACCEPTED/DECLINED/EXPIRED. 참여코드(joinCodeDigest) 합류 방식은 그대로 두고,
+/// 검색으로 상대를 찾아 초대·상대가 수락하는 방식을 추가한 것이다(PM 결정).
+/// 동일 (teamId, inviteeId)에 PENDING이 동시에 여럿 존재하는 것을 막는 partial unique는
+/// Prisma로 표현할 수 없어 마이그레이션 SQL에 둔다(#164 패턴).
+enum TeamInvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+model TeamInvitation {
+  id String @id @default(cuid())
+
+  teamId    String
+  /// Team.programId의 비정규화 사본. TeamMember와 동일하게 composite FK로 팀·프로그램 정합을
+  /// 강제한다(#164 패턴).
+  programId String
+  team      Team   @relation(fields: [teamId, programId], references: [id, programId])
+
+  inviteeId String
+  invitee   User   @relation("TeamInvitationInvitee", fields: [inviteeId], references: [id])
+
+  invitedById String
+  invitedBy   User   @relation("TeamInvitationInvitedBy", fields: [invitedById], references: [id])
+
+  status TeamInvitationStatus @default(PENDING)
+
+  invitedAt   DateTime  @default(now())
+  respondedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([teamId])
+  @@index([programId, inviteeId])
+  @@index([inviteeId, status])
+}
+
+/// 게시글 종류는 작성자 역할이 정한다 — 교직원 작성은 NOTICE, 학생 작성은 QNA(#619 프로토타입
+/// 스펙, "공지"/"질문" 2종 고정). 종류를 사용자가 직접 고르는 UI는 없다.
+enum BoardPostCategory {
+  NOTICE
+  QNA
+}
+
+model BoardPost {
+  id        String  @id @default(cuid())
+  programId String
+  program   Program @relation(fields: [programId], references: [id])
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  category BoardPostCategory
+  title    String
+  body     String
+  pinned   Boolean           @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  comments BoardComment[]
+
+  @@index([programId, pinned, createdAt])
+}
+
+model BoardComment {
+  id     String    @id @default(cuid())
+  postId String
+  post   BoardPost @relation(fields: [postId], references: [id])
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  body String
+
+  createdAt DateTime @default(now())
+
+  @@index([postId, createdAt])
+  @@index([authorId])
 }
 
 /// 제출 현재 상태. REJECTED는 최종 반려, CHANGES_REQUESTED만 재제출 가능하다(#113 상태 enum 계약). D-day/OVERDUE는 Milestone.dueAt 파생 표시값이며 여기 저장하지 않는다.
@@ -393,11 +489,15 @@ model SubmissionFile {
   mimeType         String
   sizeBytes        Int
 
-  submissionRevisionId String?
-  submissionRevision   SubmissionRevision?     @relation(fields: [submissionRevisionId], references: [id])
-  lifecycle            SubmissionFileLifecycle @default(ATTACHED)
-  pendingExpiresAt     DateTime?
-  expiresAt            DateTime?
+  submissionRevisionId          String?
+  submissionRevision            SubmissionRevision?          @relation(fields: [submissionRevisionId], references: [id])
+  /// 마일스톤별 서류 항목(#619 확장) 제출에 첨부된 파일. 기존 submissionRevisionId 경로와는
+  /// 독립적이다 — 한 SubmissionFile 행이 두 경로를 동시에 채우지 않는다.
+  milestoneDocumentSubmissionId String?
+  milestoneDocumentSubmission   MilestoneDocumentSubmission? @relation(fields: [milestoneDocumentSubmissionId], references: [id])
+  lifecycle                     SubmissionFileLifecycle      @default(ATTACHED)
+  pendingExpiresAt              DateTime?
+  expiresAt                     DateTime?
 
   deleteClaimedAt      DateTime?
   deleteClaimExpiresAt DateTime?
@@ -414,6 +514,79 @@ model SubmissionFile {
   @@index([lifecycle, pendingExpiresAt])
   @@index([lifecycle, nextDeleteAttemptAt, deleteClaimExpiresAt])
   @@index([submissionRevisionId])
+  @@index([milestoneDocumentSubmissionId])
+}
+
+/// 마일스톤 하나가 요구하는 서류 항목 정의(#3 "프로젝트 계획서 제출" → 3개 항목 등).
+/// 기존 Milestone.submissionType(마일스톤당 단일 제출 유형)과 Submission/SubmissionRevision은
+/// 그대로 두고 이 모델이 항목 단위 확장을 더한다 — 서류가 없는 마일스톤은 documents가 비어 있다.
+model MilestoneDocument {
+  id          String    @id @default(cuid())
+  milestoneId String
+  milestone   Milestone @relation(fields: [milestoneId], references: [id])
+
+  name           String
+  required       Boolean
+  sortOrder      Int
+  /// 기존 Milestone.submissionType과 동일한 enum을 재사용한다.
+  submissionType MilestoneSubmissionType
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  templateFile MilestoneDocumentTemplateFile?
+  submissions  MilestoneDocumentSubmission[]
+
+  @@index([milestoneId, sortOrder])
+}
+
+/// 교직원이 올린 서류 항목별 양식 파일. 항목당 "현재 양식" 한 건만 유지하는 upsert 모양이라
+/// History 접미사를 쓰지 않는다 — "양식 교체"는 이 행을 덮어쓴다(#164 명명 규칙 §4).
+model MilestoneDocumentTemplateFile {
+  id                  String            @id @default(cuid())
+  milestoneDocumentId String            @unique
+  milestoneDocument   MilestoneDocument @relation(fields: [milestoneDocumentId], references: [id])
+
+  storageKey       String
+  originalFileName String
+  mimeType         String
+  sizeBytes        Int
+
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  uploadedAt   DateTime @default(now())
+
+  @@index([uploadedById])
+}
+
+/// (서류 항목 × 신청/팀)당 제출 상태·시각. 행이 존재하지 않으면 "미제출"이다(status enum에
+/// NOT_SUBMITTED를 두지 않는다 — DTO 계층이 없음을 'NOT_SUBMITTED' sentinel로 표현하는 기존
+/// viewerSubmissionStatus 관례를 따른다). FILE 유형은 files로, TEXT/REPOSITORY_RELEASE 유형은
+/// content Json으로 응답을 담는다.
+model MilestoneDocumentSubmission {
+  id String @id @default(cuid())
+
+  milestoneDocumentId String
+  milestoneDocument   MilestoneDocument @relation(fields: [milestoneDocumentId], references: [id])
+
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id])
+
+  status  SubmissionStatus @default(SUBMITTED)
+  content Json?
+
+  submittedById String
+  submittedBy   User     @relation(fields: [submittedById], references: [id])
+  submittedAt   DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  files SubmissionFile[]
+
+  @@unique([milestoneDocumentId, applicationId])
+  @@index([applicationId])
+  @@index([submittedById])
 }
 
 /// 판정: APPROVED/REJECTED/CHANGES_REQUESTED. 제출 판정과 저장소 공개 전환 상태를 같은 필드로 합치지 않는다(#113).
@@ -625,10 +798,10 @@ model Notification {
   payload        Json
   channel        String
   status         String
-  idempotencyKey String?  @unique
+  idempotencyKey String? @unique
 
   sentAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId])
 }

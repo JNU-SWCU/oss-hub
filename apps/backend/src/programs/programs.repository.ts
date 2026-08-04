@@ -34,7 +34,15 @@ export type ProgramListRecord = Pick<
   | 'applicationEndAt'
   | 'endAt'
   | 'description'
+  | 'teamMinSize'
+  | 'teamMaxSize'
 >;
+
+/** GET /programs 뷰어 개인화 배치 조회 결과. */
+export interface ProgramApplicationCounts {
+  readonly total: number;
+  readonly pending: number;
+}
 
 @Injectable()
 export class ProgramsRepository {
@@ -60,7 +68,9 @@ export class ProgramsRepository {
           p."applicationStartAt",
           p."applicationEndAt",
           p."endAt",
-          p."description"
+          p."description",
+          p."teamMinSize",
+          p."teamMaxSize"
         FROM "Program" AS p
         ${sqlWhere}
         ORDER BY
@@ -147,6 +157,55 @@ export class ProgramsRepository {
         submissions: { select: { milestoneId: true, status: true } },
       },
     });
+  }
+
+  /**
+   * 목록 뷰어(학생) 개인화 배치 조회 — programId in (...) 한 번으로 N+1을 피한다.
+   * 신청자 본인뿐 아니라 팀장/팀원으로 참여한 신청도 포함한다(상세 화면과 동일 규칙).
+   */
+  async findViewerApplicationStatuses(
+    programIds: readonly string[],
+    userId: string,
+  ): Promise<ReadonlyMap<string, ApplicationStatus>> {
+    if (programIds.length === 0) return new Map();
+    const applications = await this.prisma.application.findMany({
+      where: {
+        programId: { in: [...programIds] },
+        ...programApplicationParticipantWhere(userId),
+      },
+      select: { programId: true, status: true },
+    });
+    return new Map(
+      applications.map((application) => [
+        application.programId,
+        application.status,
+      ]),
+    );
+  }
+
+  /**
+   * 목록 뷰어(교직원) 개인화 배치 조회 — programId in (...) + status groupBy 한 번.
+   * pending 은 SUBMITTED(승인 대기) 건수, total 은 상태 무관 전체 건수다.
+   */
+  async countApplicationsByProgram(
+    programIds: readonly string[],
+  ): Promise<ReadonlyMap<string, ProgramApplicationCounts>> {
+    if (programIds.length === 0) return new Map();
+    const rows = await this.prisma.application.groupBy({
+      by: ['programId', 'status'],
+      where: { programId: { in: [...programIds] } },
+      _count: { _all: true },
+    });
+    const counts = new Map<string, { total: number; pending: number }>();
+    for (const row of rows) {
+      const bucket = counts.get(row.programId) ?? { total: 0, pending: 0 };
+      bucket.total += row._count._all;
+      if (row.status === ApplicationStatus.SUBMITTED) {
+        bucket.pending += row._count._all;
+      }
+      counts.set(row.programId, bucket);
+    }
+    return counts;
   }
 
   async findProgramRepositories(

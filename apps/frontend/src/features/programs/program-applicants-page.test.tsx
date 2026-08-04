@@ -1,6 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { ApplicationListRequestEpoch } from './program-applicants-page';
+import { ApiError, type ProblemDetail } from '@/lib/api-client';
+import {
+  ApplicationListRequestEpoch,
+  staleApplicationDecisionTitle,
+} from './program-applicants-page';
 import { staffApplicationDetailHref } from './program-paths';
 import type { ApplicationListItem } from './types';
 
@@ -135,5 +139,54 @@ describe('staffApplicationDetailHref in markup', () => {
     const html = renderToStaticMarkup(<a href={href}>보기</a>);
     expect(html).toContain('/staff/programs/program-1/applications/app-1');
     expect(html).not.toContain('판정');
+  });
+});
+
+describe('staleApplicationDecisionTitle', () => {
+  const problem = (status: number, code: string): ProblemDetail => ({
+    type: 'about:blank',
+    title: 'error',
+    status,
+    detail: 'detail',
+    instance: 'urn:test:applications:app-1',
+    code,
+  });
+
+  it('학생이 먼저 취소해 404가 오면 취소된 신청임을 알리고 목록을 다시 불러오게 한다', () => {
+    expect(
+      staleApplicationDecisionTitle(new ApiError(problem(404, 'APP_001'))),
+    ).toBe('신청이 이미 취소되었습니다');
+  });
+
+  it('다른 운영자가 먼저 판정해 409가 오면 상태 변경으로 알린다', () => {
+    expect(
+      staleApplicationDecisionTitle(new ApiError(problem(409, 'APP_002'))),
+    ).toBe('신청 상태가 변경되었습니다');
+  });
+
+  it('404와 409는 서로 다른 문구를 쓴다 — 교직원이 원인을 구분할 수 있어야 한다', () => {
+    expect(
+      staleApplicationDecisionTitle(new ApiError(problem(404, 'APP_001'))),
+    ).not.toBe(
+      staleApplicationDecisionTitle(new ApiError(problem(409, 'APP_002'))),
+    );
+  });
+
+  it('권한·검증 실패는 목록 재조회 경로로 보내지 않는다', () => {
+    expect(
+      staleApplicationDecisionTitle(new ApiError(problem(403, 'APP_004'))),
+    ).toBeNull();
+    expect(
+      staleApplicationDecisionTitle(new ApiError(problem(400, 'APP_003'))),
+    ).toBeNull();
+    expect(
+      staleApplicationDecisionTitle(new ApiError(problem(500, 'SYS_001'))),
+    ).toBeNull();
+  });
+
+  it('네트워크 오류처럼 ApiError가 아닌 실패는 판단하지 않는다', () => {
+    expect(staleApplicationDecisionTitle(new Error('network'))).toBeNull();
+    expect(staleApplicationDecisionTitle(null)).toBeNull();
+    expect(staleApplicationDecisionTitle({ status: 404 })).toBeNull();
   });
 });

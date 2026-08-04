@@ -2,6 +2,7 @@ import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { Test } from '@nestjs/testing';
+import { AuthConfig } from '../auth/auth.config';
 import { SessionGuard } from '../auth/session.guard';
 import { OriginGuard } from '../auth/origin.guard';
 import {
@@ -61,6 +62,10 @@ beforeAll(async () => {
             .fn()
             .mockResolvedValue(applications),
         },
+      },
+      {
+        provide: AuthConfig,
+        useValue: { sessionSecret: new Uint8Array(32), useSecureCookies: true },
       },
       {
         provide: COLLECTION_READ_PORT,
