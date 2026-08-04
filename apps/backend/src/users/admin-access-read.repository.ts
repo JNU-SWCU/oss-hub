@@ -23,7 +23,10 @@ import type {
   AdminAccessUserRecord,
 } from './admin-access.repository.types';
 import { listOrderedAdminAccessUserIds } from './admin-access-read-ordering';
-import { isCompleteUserProfile } from './user-profile-policy';
+import {
+  isCompleteUserProfile,
+  type UserProfileFields,
+} from './user-profile-policy';
 
 export const ADMIN_ACCESS_USER_SELECT = {
   id: true,
@@ -154,7 +157,7 @@ export function toAdminAccessUserRecord(
     name: profile.name,
     role: user.role,
     accountStatus: user.accountStatus,
-    isProfileComplete: isCompleteUserProfile({ id: user.id, ...profile }),
+    isProfileComplete: isCompleteAdminAccessProfile(user, profile),
     pendingRequest: pendingRequest
       ? {
           id: pendingRequest.id,
@@ -174,9 +177,34 @@ function toAdminAccessUserDetailRecord(
     ...toAdminAccessUserRecord(user),
     profile: {
       ...profile,
-      isComplete: isCompleteUserProfile({ id: user.id, ...profile }),
+      isComplete: isCompleteAdminAccessProfile(user, profile),
     },
   };
+}
+
+/**
+ * 관리자 화면의 프로필 완료 판정 — 역할 맥락을 함께 넘긴다(#577).
+ *
+ * 프로필 값(이름·학번·학과)만 넘기면 `effectiveProfileRole`이 역할을 알 수 없어
+ * `DEFAULT_PROFILE_ROLE`(학생) 기준으로 떨어진다. 승인 대기 교직원은 승인 전까지
+ * `role`이 null이라 전원이 그 경로를 타고, 화면 안내대로 학번을 비워 둔 사람이
+ * 미완료로 판정돼 `requiresCompleteProfile` 가드에 막혀 영구히 승인되지 못했다.
+ *
+ * 살아 있는 교직원 요청의 정의는 `users.repository.ts`의 `hasPendingStaffRequest`와
+ * 같다 — `roleRequests`를 PENDING만 골라 오고(`ADMIN_ACCESS_USER_SELECT`) 그 존재
+ * 여부를 그대로 쓴다. 승인된(APPROVED) 요청은 이미 `role`에 STAFF가 붙으므로 별도
+ * 취급이 필요 없다. 판정 규칙 자체(`user-profile-policy.ts`)는 그대로 둔다.
+ */
+function isCompleteAdminAccessProfile(
+  user: PrismaAdminAccessUser,
+  profile: UserProfileFields,
+): boolean {
+  return isCompleteUserProfile({
+    id: user.id,
+    ...profile,
+    role: user.role,
+    hasPendingStaffRequest: user.roleRequests.length > 0,
+  });
 }
 
 type FacetDimension = 'role' | 'accountStatus' | 'pendingRequest';

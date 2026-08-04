@@ -55,6 +55,10 @@ export class UsersService {
    * 학번을 요구하지 않는 역할에게도 학번은 **선택 항목으로 열어 둔다**. 조교처럼
    * 대학원생 신분을 겸하는 교직원은 학번이 실제로 있고, 그 값을 남기고 싶어 한다.
    * 없으면 비워 두면 되고, 한 번 넣으면 학적 식별자로서 고정된다.
+   *
+   * **미완료 → 완료 저장이 곧 `가입 마치기`다(#569).** 그 순간 고른 역할이 확정된다 —
+   * 학생은 역할이 배정되고 교직원은 승인 요청이 만들어진다. 확정을 저장과 같은
+   * 트랜잭션에 묶는 일은 저장소가 한다(`completeProfileIfUnchanged`).
    */
   async patchMyProfile(
     githubId: bigint,
@@ -65,6 +69,9 @@ export class UsersService {
     const next: UserProfileRecord = {
       id: user.id,
       role: user.role,
+      // 확정 전에는 이 값이 필수 항목을 정하는 유일한 근거다(#569). 빠뜨리면 교직원이
+      // 학생 기준으로 판정돼, 학번 없이 마친 프로필이 미완료로 되돌아간다.
+      selectedRole: user.selectedRole,
       hasPendingStaffRequest: user.hasPendingStaffRequest,
       name: input.name,
       studentId: input.studentId ?? user.studentId,

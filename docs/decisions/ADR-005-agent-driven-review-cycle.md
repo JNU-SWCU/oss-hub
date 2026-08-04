@@ -33,7 +33,8 @@ owner의 사후 확인 코멘트는 병합 조건이 아니다.
 
 PR #407은 직접 UI 피드백에서 시작되어 사전 Issue 선점 없이 구현된 절차 위반을 인정한다. 이미 구현과 exact-head 기술 검증이 완료된 상태에서 잘못 생성된 #480을 재사용하지 않고, 실제 범위·owner·PR 관계를 보존하는 사후 추적 Issue #484를 canonical 구현 기록으로 둔다. 이 일회성 예외는 #407에만 적용하며 사후 Issue를 일반적인 선점 대체 수단으로 허용하지 않는다. 이후 동일 규모의 변경은 착수 전에 Issue로 범위와 owner를 선언해야 하고, 누락 시 구현 완료 여부와 관계없이 blocker로 처리한다.
 
-전남은 이 저장소의 독립 PR 검토 역할을 맡는 코드리뷰 에이전트이며, 수동 파일럿에서는 @GoBeromsu 또는 @Lumiere001이 실행 결과를 GitHub에 기록한다.
+전남은 이 저장소의 독립 PR 검토 역할을 맡는 코드리뷰 에이전트이며, 수동 파일럿에서는 @GoBeromsu, @Lumiere001 또는 리뷰 증거 전용 계정 @Lumeire002가 실행 결과를 GitHub에 기록한다.
+@Lumeire002의 권한은 `MERGE_READY` 기록에 한정하며 manual accept, `RISK_ACCEPT`, 병합 권한은 위임하지 않는다.
 Ponytail은 기존 라이브러리 재사용, 중복과 불필요한 복잡도만 확인하는 검토 렌즈이며 기능 존재·동작 여부를 판정하거나 실제 QA를 대체하지 않는다.
 
 일반 PR은 전남의 exact-head `MERGE_READY`가 병합 검토의 단일 수렴 결과다.
@@ -88,7 +89,7 @@ high risk PR은 `MERGE_READY` 이후 @GoBeromsu 또는 @Lumiere001 중 한 명�
 Jenkins의 실패 시 중단·증적 보존·기존 이미지 복구 동작은 ADR-002의 배포 계약을 유지하며, 이 ADR은 별도의 rollback 동작 변경을 결정하지 않는다.
 
 수동 파일럿의 canonical evidence는 PR 최상위 댓글에 아래 형식과 40자 full SHA로 남긴다.
-`MERGE_READY head=<sha> base=<ref> base_sha=<sha> risk=<GENERAL|HIGH_RISK>`는 @GoBeromsu 또는 @Lumiere001 계정으로 실행한 전남 검토 결과만 허용한다.
+`MERGE_READY head=<sha> base=<ref> base_sha=<sha> risk=<GENERAL|HIGH_RISK>`는 @GoBeromsu, @Lumiere001 또는 @Lumeire002 계정으로 실행한 전남 검토 결과만 허용한다.
 그 댓글에는 `CODE_CONTRACT:`, `PONYTAIL:`, `QA:`, `CLI:`, `CI:` marker와 각각의 비어 있지 않은 public-safe URL 또는 요약을 한 줄씩 포함한다.
 `QA:`의 `N/A`는 관찰 가능한 동작이 없다는 구체적인 사유를 함께 적고, `BLOCKED/UNVERIFIED`에는 `MERGE_READY`를 사용하지 않는다.
 high risk는 `PM_ACCEPT head=<sha> base=<ref> base_sha=<sha>`를 @GoBeromsu가 또는 `TECH_LEAD_ACCEPT head=<sha> base=<ref> base_sha=<sha>`를 @Lumiere001이 남기면 충분하다.
@@ -135,6 +136,7 @@ production 배포의 인가·트리거·실행 검증 계약은 ADR-002를 따�
 ## Changelog
 
 - 2026-08-01: PR #407의 사전 Issue 선점 누락을 절차 위반으로 기록하고, 잘못 생성된 #480 대신 사후 추적 Issue #484로 범위·owner·PR 관계를 보존하는 일회성 예외를 수용했다. 이 예외는 #407에만 적용하며 향후 사후 Issue가 착수 전 선점을 대체하지 못하도록 명시했다.
+- 2026-08-04: Issue #574와 운영 승인에 따라 @Lumeire002를 전남 `MERGE_READY` 기록 계정으로 추가했다. 권한은 독립 리뷰 증거 작성에만 한정하며 `PM_ACCEPT`, `TECH_LEAD_ACCEPT`, `RISK_ACCEPT`, 병합 권한과 배포 계약의 PM 전속은 변경하지 않았다.
 - 2026-07-17: Issue #37에 따라 root `AGENTS.md`와 PR 템플릿에 조건부 Draft/Ready와 독립 리뷰 결과 분류를 운용 규칙으로 연결했다. 권한 경계와 병합 조건은 변경하지 않았다.
 - 2026-07-16: Code Owner review #4705528344의 승인 범위와 ADR-002 배포 경계를 반영하고 `Accepted`로 전환했다.
 - 2026-07-16: Owner 댓글 #4991669947의 Tech Lead 위임 경계와 독립 리뷰 분류를 수용했다.

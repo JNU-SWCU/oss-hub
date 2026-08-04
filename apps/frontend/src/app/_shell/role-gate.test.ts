@@ -15,6 +15,7 @@ describe('roleGateRedirectPath', () => {
         status: 'error',
         role: null,
         roleRequestStatus: null,
+        selectedRole: null,
         isProfileComplete: true,
       }),
     ).toBeNull();
@@ -31,6 +32,7 @@ describe('roleGateRedirectPath', () => {
           status: 'assigned',
           role,
           roleRequestStatus: null,
+          selectedRole: null,
           isProfileComplete: true,
         }),
       ).toBeNull();
@@ -43,6 +45,7 @@ describe('roleGateRedirectPath', () => {
         status: 'assigned',
         role: 'STUDENT',
         roleRequestStatus: null,
+        selectedRole: null,
         isProfileComplete: true,
       }),
     ).toBeNull();
@@ -63,6 +66,7 @@ describe('roleGateRedirectPath', () => {
         status: 'unassigned',
         role: null,
         roleRequestStatus: null,
+        selectedRole: null,
         isProfileComplete: true,
       }),
     ).toBe('/onboarding/role');

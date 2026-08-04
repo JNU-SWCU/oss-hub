@@ -44,8 +44,10 @@ function readGuards(target: object, propertyKey: string): readonly unknown[] {
 
 function createOnboardingController(
   selectRole: RolesService['selectRole'],
+  getMySelection: RolesService['getMySelection'] = () =>
+    Promise.resolve({ selectedRole: null }),
 ): OnboardingController {
-  return new OnboardingController({ selectRole });
+  return new OnboardingController({ selectRole, getMySelection });
 }
 
 function createRoleRequestsController(
@@ -69,8 +71,6 @@ describe('OnboardingController', () => {
     // Given
     const selectRole = jest.fn().mockResolvedValue({
       selectedRole: Role.STUDENT,
-      role: Role.STUDENT,
-      requestStatus: null,
       redirectTo: '/onboarding/profile',
     });
     const controller = createOnboardingController(selectRole);
@@ -81,14 +81,28 @@ describe('OnboardingController', () => {
     // When
     const result = await controller.selectRole(REQUEST, body);
 
-    // Then
+    // Then — 확정 결과(role·requestStatus)는 계약에 없다. 이 화면이 아무것도
+    // 확정하지 않기 때문이다(#569).
     expect(result).toEqual({
       selectedRole: Role.STUDENT,
-      role: Role.STUDENT,
-      requestStatus: null,
       redirectTo: '/onboarding/profile',
     });
     expect(selectRole).toHaveBeenCalledWith(424242n, Role.STUDENT);
+  });
+
+  it('지금 고른 역할을 응답 계약으로 반환한다', async () => {
+    // Given
+    const getMySelection = jest
+      .fn()
+      .mockResolvedValue({ selectedRole: Role.STAFF });
+    const controller = createOnboardingController(jest.fn(), getMySelection);
+
+    // When
+    const result = await controller.getMySelection(REQUEST);
+
+    // Then
+    expect(result).toEqual({ selectedRole: Role.STAFF });
+    expect(getMySelection).toHaveBeenCalledWith(424242n);
   });
 
   it('STUDENT와 STAFF가 아닌 역할 선택은 ROL_001로 거부한다', () => {

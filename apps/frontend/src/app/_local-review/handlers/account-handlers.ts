@@ -24,6 +24,7 @@ import {
   localReviewSessionState,
   matchGet,
   notFound,
+  roleForFixture,
   redirect,
   unauthorized,
   type LocalReviewContext,
@@ -337,16 +338,26 @@ const PENDING_STAFF_ROLE_REQUEST = {
 } as const satisfies RoleRequest;
 
 /**
- * 학생을 고른 뒤의 세션 역할. 고르기 전이거나 교직원을 골랐으면 `null`이다.
+ * 가입을 마쳤는가 — 고른 역할이 확정될 조건을 갖췄는가.
  *
- * 세션 응답(`fixture-response.ts`)이 이 값을 읽어야 학생 선택이 실제로 확정된다.
+ * 실물은 프로필이 **완료 저장되는 순간** 확정한다(#569, 백엔드
+ * `users.repository.ts`의 `completeProfileIfUnchanged`). 픽스처도 같은 조건을 써야
+ * 한다: 여기서 저장을 기다리지 않고 고르자마자 확정하면, 검토 화면에서는 확정이
+ * 일어나는데 실물에서는 일어나지 않는다.
+ */
+function hasFinishedSignup(): boolean {
+  return localReviewSessionState().savedOnboardingProfile?.isComplete === true;
+}
+
+/**
+ * 학생으로 가입을 **마친** 뒤의 세션 역할. 그전이거나 교직원을 골랐으면 `null`이다.
+ *
+ * 세션 응답(`fixture-response.ts`)이 이 값을 읽어야 학생 확정이 실제로 반영된다.
  * 교직원은 관리자 승인 전까지 세션 역할이 비는 것이 정상이라 여기서 빠진다.
  *
- * 고른 역할 자체를 기억하는 이유: 교직원만 기억하던 때는 학생 쪽이 함정에 빠져
- * 있었다 — 픽스처는 `redirectTo: '/dashboard'`를 주는데 세션 역할이 계속 미배정이라,
- * 게이트가 다시 `/onboarding/role`로 되돌려 제자리에 머물렀다. 교직원은
- * `role-requests/me`의 `PENDING`으로, 학생은 세션의 배정 역할로 이어진다(백엔드도
- * 학생은 승인 없이 즉시 배정한다 — `roles.service.ts`의 `selectStudent`).
+ * **고르는 것만으로는 배정되지 않는다.** 예전에는 고르는 즉시 배정했는데, 실물이
+ * 그때 그랬기 때문이다. 확정이 `가입 마치기`로 옮겨 간 지금 같은 값을 주면, 검토에서는
+ * 프로필을 건너뛰고 대시보드에 들어갈 수 있는데 실배포에서는 막힌다.
  *
  * 값을 어디에 두는지도 규칙이다. 고른 역할·저장한 프로필은 요청 사이에 남아야 하므로
  * 검토 세션 상태(`handler-kit`의 `localReviewSessionState`)에 둔다. **모듈 최상단
@@ -354,9 +365,28 @@ const PENDING_STAFF_ROLE_REQUEST = {
  * 없던 일이 된다. 자세한 근거는 그 함수의 주석에 있다.
  */
 export function reviewAssignedRole(): 'STUDENT' | null {
-  return localReviewSessionState().selectedRole === 'STUDENT'
+  return localReviewSessionState().selectedRole === 'STUDENT' &&
+    hasFinishedSignup()
     ? 'STUDENT'
     : null;
+}
+
+/**
+ * 세션 응답(`auth/me`)이 실을 `isProfileComplete`.
+ *
+ * 실물은 이 값을 **배정된 역할 기준**으로만 계산한다(백엔드 `auth.repository.ts`의
+ * `toDomain`). 역할이 없는 동안에는 가장 엄격한 학생 기준이라, 학번 없이 프로필을
+ * 마친 교직원은 여기서 미완료로 나오는 것이 정상이다 — 그 사람이 회원인지는 세션이
+ * 아니라 살아 있는 역할 요청이 답한다(`_shell/signup-completion.ts`).
+ *
+ * 프로필 응답(`users/me/profile`)의 `isComplete`와 다른 값이 될 수 있고, 그 차이가
+ * 실물의 계약이다. 두 값을 같게 맞추면 검토에서만 통과하는 화면이 만들어진다.
+ */
+export function reviewSessionProfileComplete(): boolean {
+  return isProfileComplete(
+    myProfileFixtureFor('unassigned'),
+    reviewAssignedRole(),
+  );
 }
 
 /** 테스트·검토 초기화 전용. 실패 예산 같은 다른 값은 건드리지 않는다. */
@@ -367,34 +397,21 @@ export function resetLocalReviewRoleSelection(): void {
 }
 
 /**
- * 역할 선택 결과. 요청 본문의 `selectedRole`(features/roles/api.ts `selectRole`)에
- * 따라 갈린다 — 학생은 역할이 즉시 확정되고, 교직원은 승인 대기 요청만 생긴다.
- * 화면은 `redirectTo`로 이동한다.
+ * 역할 선택 결과 — **두 역할의 답이 완전히 같다.**
  *
- * **두 역할 모두 `/onboarding/profile`로 간다.** 역할이 정해졌다고 가입이 끝난 것이
+ * 이 화면은 아무것도 확정하지 않고 고른 사실만 기록하므로(#569) 알려 줄 확정 결과가
+ * 없다. 백엔드 `roles/dto/role-selection-response.dto.ts`가 `role`·`requestStatus`를
+ * 아예 싣지 않으므로 여기서도 싣지 않는다 — 픽스처에만 남겨 두면 화면이 실배포에는
+ * 없는 값을 읽게 된다.
+ *
+ * **두 역할 모두 `/onboarding/profile`로 간다.** 고르기만 해서는 가입이 끝난 것이
  * 아니고, 교직원도 학과가 필수라(백엔드 `users/user-profile-policy.ts`) 남은 단계가
- * 프로필이기 때문이다. 백엔드 `roles.service.ts`의 `selectStaff`와 같은 값을
- * 유지한다 — 예전에 교직원만 `/onboarding/pending`을 주던 때는 그 화면의
+ * 프로필이기 때문이다. 예전에 교직원만 `/onboarding/pending`을 주던 때는 그 화면의
  * `OnboardingGate`가 비어 있는 프로필을 보고 즉시 프로필로 되돌려, 승인 대기 화면이
  * 반 초쯤 떴다 사라졌다.
- *
- * 두 선택 모두 위 `reviewAssignedRole`이 읽는 세션 상태에 남아 다음 단계로 이어진다.
- * 프로필을 마친 뒤 교직원을 승인 대기 화면으로 잇는 일은 게이트가 한다.
  */
 function roleSelectionResult(selected: RoleSelection): RoleSelectionResult {
-  return selected === 'STAFF'
-    ? {
-        selectedRole: 'STAFF',
-        role: null,
-        requestStatus: 'PENDING',
-        redirectTo: '/onboarding/profile',
-      }
-    : {
-        selectedRole: 'STUDENT',
-        role: 'STUDENT',
-        requestStatus: null,
-        redirectTo: '/onboarding/profile',
-      };
+  return { selectedRole: selected, redirectTo: '/onboarding/profile' };
 }
 
 function publicProfileHandler(
@@ -466,7 +483,22 @@ function consentHandler(
 function reviewProfileRole(fixture: LocalReviewFixtureId): ProfileRole | null {
   return fixture === 'unassigned'
     ? localReviewSessionState().selectedRole
-    : null;
+    : (roleForFixture(fixture) ?? reviewFixedSelectedRole(fixture));
+}
+
+/**
+ * 고정 페르소나가 "골라 둔" 역할.
+ *
+ * 실물은 이미 확정된 사용자의 `selectedRole`을 확정 역할에서 backfill하고, 승인을
+ * 기다리는 교직원에게는 `STAFF`를 남긴다(`prisma/migrations/…add_user_selected_role`).
+ * 여기서도 같은 값을 준다 — 역할이 이미 붙은 페르소나는 `roleForFixture`가 답하므로
+ * 이 함수가 실제로 답할 것은 승인 대기 교직원뿐이다. 관리자는 역할 선택 화면에 없는
+ * 값이라 backfill에서도 빠진다.
+ */
+function reviewFixedSelectedRole(
+  fixture: LocalReviewFixtureId,
+): RoleSelection | null {
+  return fixture === 'role-pending' ? 'STAFF' : null;
 }
 
 /**
@@ -594,6 +626,19 @@ function accountMutationHandler(
 function onboardingRoleHandler(
   context: LocalReviewContext,
 ): LocalReviewResponsePlan | null {
+  // 지금 고른 역할. 되돌아온 역할 선택 화면이 이전 선택을 되살리고, 프로필 화면이
+  // 무엇을 물을지 정하는 근거다(#569). 아직 고르지 않았으면 `null`을 **본문에 실어**
+  // 답한다 — 백엔드도 `{ selectedRole: null }`을 주지 빈 응답을 주지 않는다.
+  if (matchGet(context, 'onboarding/role') !== null) {
+    if (!context.isAuthenticated) return unauthorized(context.path);
+    return json(200, {
+      selectedRole:
+        context.fixture === 'unassigned'
+          ? localReviewSessionState().selectedRole
+          : reviewFixedSelectedRole(context.fixture),
+    });
+  }
+
   if (context.method === 'POST' && context.path === 'onboarding/role') {
     // 본문을 못 읽으면 학생으로 본다 — 확정 경로가 있어야 화면이 넘어간다.
     const selected =
@@ -621,10 +666,14 @@ function myRoleRequestHandler(
 ): LocalReviewResponsePlan | null {
   if (matchGet(context, 'role-requests/me') === null) return null;
   if (!context.isAuthenticated) return unauthorized(context.path);
+  // 교직원을 **골랐다는 것만으로는** 요청이 생기지 않는다 — 프로필을 마쳐야 생긴다
+  // (#569). 고르자마자 PENDING을 주면 검토자가 "미완성 신청이 대기줄에 올라오지
+  // 않는다"를 확인할 수 없고, 프로필 화면의 되돌아가기 링크도 사라진다.
   const isPending =
     context.fixture === 'role-pending' ||
     (context.fixture === 'unassigned' &&
-      localReviewSessionState().selectedRole === 'STAFF');
+      localReviewSessionState().selectedRole === 'STAFF' &&
+      hasFinishedSignup());
   return isPending ? json(200, PENDING_STAFF_ROLE_REQUEST) : json(200, null);
 }
 

@@ -32,8 +32,17 @@ model User {
   /// #127 마감 알림 수신 이메일·수신 여부. 교직원이 설정 화면에서 직접 설정한다(opt-in 기본 off).
   notificationEmail String?
   notifyEnabled     Boolean       @default(false)
-  /// 역할 선택 전 null, 학생 선택 시 STUDENT, 교직원 요청 승인 시에만 STAFF가 된다(#109).
+  /// 확정된 역할. 역할 선택만으로는 채워지지 않는다 — 학생은 가입을 마칠 때(프로필 완료) STUDENT가
+  /// 붙고, 교직원은 요청이 승인될 때에만 STAFF가 된다(#109, #569).
   role              Role?
+  /// 가입 절차에서 **고른** 역할 — 기록일 뿐 확정이 아니다(#569).
+  ///
+  /// `role`로는 이 사실을 담을 수 없다. 그 칸은 확정된 권한을 뜻해서, 프로필을 채우는 동안
+  /// 채워 두면 아직 가입을 마치지 않은 사람이 그 역할의 화면에 들어간다. 그렇다고 비워 두면
+  /// 프로필 화면이 무엇을 물어야 할지 모른다 — 교직원에게 학번을 요구하게 된다.
+  ///
+  /// 값은 STUDENT · STAFF · null뿐이다. ADMIN은 역할 선택 화면에 없는 값이라 여기 들어오지 않는다.
+  selectedRole      Role?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
