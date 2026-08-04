@@ -7,12 +7,7 @@ import {
   PageHeader,
   type DataTableColumn,
 } from '@/components';
-import {
-  RANKING_PERIODS,
-  type RankingItem,
-  type RankingPage,
-  type RankingPeriod,
-} from '../types';
+import type { RankingItem, RankingPage } from '../types';
 
 export type RankingViewState =
   | { readonly kind: 'loading' }
@@ -20,10 +15,8 @@ export type RankingViewState =
   | { readonly kind: 'error' };
 
 interface RankingViewProps {
-  readonly period: RankingPeriod;
   readonly page: number;
   readonly state: RankingViewState;
-  readonly onPeriodChange: (period: RankingPeriod) => void;
   readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
 }
@@ -80,42 +73,9 @@ const columns: DataTableColumn<RankingItem>[] = [
   },
 ];
 
-function PeriodButtons({
-  period,
-  onPeriodChange,
-}: Pick<RankingViewProps, 'period' | 'onPeriodChange'>) {
-  return (
-    <div
-      className="flex w-fit rounded-lg border border-border p-1"
-      aria-label="랭킹 기간"
-    >
-      <Button
-        type="button"
-        size="sm"
-        aria-pressed={period === RANKING_PERIODS.THIS_YEAR}
-        variant={period === RANKING_PERIODS.THIS_YEAR ? 'secondary' : 'ghost'}
-        onClick={() => onPeriodChange(RANKING_PERIODS.THIS_YEAR)}
-      >
-        올해
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        aria-pressed={period === RANKING_PERIODS.ALL}
-        variant={period === RANKING_PERIODS.ALL ? 'secondary' : 'ghost'}
-        onClick={() => onPeriodChange(RANKING_PERIODS.ALL)}
-      >
-        전체
-      </Button>
-    </div>
-  );
-}
-
 export function RankingView({
-  period,
   page,
   state,
-  onPeriodChange,
   onPageChange,
   onRetry,
 }: RankingViewProps) {
@@ -134,7 +94,6 @@ export function RankingView({
           </span>
         }
       />
-      <PeriodButtons period={period} onPeriodChange={onPeriodChange} />
       {state.kind === 'error' ? (
         <Alert variant="destructive">
           <AlertTitle>랭킹을 불러오지 못했습니다.</AlertTitle>

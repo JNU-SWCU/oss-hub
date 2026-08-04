@@ -1,9 +1,10 @@
 import { apiClient } from '@/lib/api-client';
 import {
-  RANKING_PERIODS,
+  RANKING_YEAR_ALL,
   type RankingItem,
   type RankingPage,
-  type RankingPeriod,
+  type RankingYear,
+  type RankingYears,
 } from './types';
 
 export class RankingResponseError extends Error {
@@ -25,8 +26,9 @@ function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
 
-function isRankingPeriod(value: unknown): value is RankingPeriod {
-  return value === RANKING_PERIODS.THIS_YEAR || value === RANKING_PERIODS.ALL;
+function isRankingYear(value: unknown): value is RankingYear {
+  if (value === RANKING_YEAR_ALL) return true;
+  return typeof value === 'number' && Number.isInteger(value) && value >= 2000;
 }
 
 function hasExactKeys(
@@ -66,8 +68,8 @@ function isRankingItem(value: unknown): value is RankingItem {
 export function parseRankingPage(value: unknown): RankingPage {
   if (
     !isRecord(value) ||
-    !hasExactKeys(value, ['period', 'items', 'page', 'pageSize', 'total']) ||
-    !isRankingPeriod(value.period) ||
+    !hasExactKeys(value, ['year', 'items', 'page', 'pageSize', 'total']) ||
+    !isRankingYear(value.year) ||
     !Array.isArray(value.items) ||
     !value.items.every(isRankingItem) ||
     !isPositiveInteger(value.page) ||
@@ -78,7 +80,7 @@ export function parseRankingPage(value: unknown): RankingPage {
   }
 
   return {
-    period: value.period,
+    year: value.year,
     items: value.items.map((item) => ({ ...item })),
     page: value.page,
     pageSize: value.pageSize,
@@ -86,14 +88,28 @@ export function parseRankingPage(value: unknown): RankingPage {
   };
 }
 
+export function parseRankingYears(value: unknown): RankingYears {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, ['years']) ||
+    !Array.isArray(value.years) ||
+    !value.years.every(
+      (year) => typeof year === 'number' && Number.isInteger(year) && year >= 2000,
+    )
+  ) {
+    throw new RankingResponseError();
+  }
+  return { years: value.years.map((year) => year) };
+}
+
 export async function getRanking(
-  period: RankingPeriod,
+  year: RankingYear,
   page: number,
   pageSize: number,
   signal?: AbortSignal,
 ): Promise<RankingPage> {
   const params = new URLSearchParams({
-    period,
+    year: String(year),
     page: String(page),
     pageSize: String(pageSize),
   });
@@ -102,4 +118,14 @@ export async function getRanking(
     signal ? { signal } : undefined,
   );
   return parseRankingPage(response);
+}
+
+export async function getRankingYears(
+  signal?: AbortSignal,
+): Promise<readonly number[]> {
+  const response = await apiClient<unknown>(
+    'ranking/years',
+    signal ? { signal } : undefined,
+  );
+  return parseRankingYears(response).years;
 }

@@ -25,6 +25,7 @@ export function setupRankingService(): {
     Promise<readonly CollectionPublicRankingMetricsDto[]>,
     [CollectionPublicRankingMetricsQueryDto]
   >;
+  readonly listPublicRankingYears: jest.Mock<Promise<readonly number[]>, []>;
   readonly findByGithubIds: jest.Mock<
     Promise<readonly UserDisplayName[]>,
     [readonly bigint[]]
@@ -35,6 +36,8 @@ export function setupRankingService(): {
     [CollectionPublicRankingMetricsQueryDto]
   >();
   getPublicRankingMetrics.mockResolvedValue([]);
+  const listPublicRankingYears = jest.fn<Promise<readonly number[]>, []>();
+  listPublicRankingYears.mockResolvedValue([]);
   const collection = {
     findRepositoryActivity: () => Promise.resolve([]),
     findRankingActivity: () => Promise.resolve([]),
@@ -42,6 +45,7 @@ export function setupRankingService(): {
     getRepositoryMetrics: () => Promise.resolve([]),
     getContributorMetrics: () => Promise.resolve([]),
     getPublicRankingMetrics,
+    listPublicRankingYears,
     getRepositoryCumulativeMetrics: () => Promise.resolve([]),
     getContributorCumulativeMetrics: () => Promise.resolve([]),
     getIncrementalStatusSnapshot: () =>
@@ -71,6 +75,7 @@ export function setupRankingService(): {
   return {
     service: new RankingService(collection, displayNameRepository),
     getPublicRankingMetrics,
+    listPublicRankingYears,
     findByGithubIds,
   };
 }
