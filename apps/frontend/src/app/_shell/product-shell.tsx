@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { loadArchiveCategoryCounts } from '@/features/archive/api';
+import type { ArchiveCategoryCounts } from '@/features/archive/types';
 import { getProgramStatusCounts } from '@/features/programs/api';
 import type { ProgramStatusCounts } from '@/features/programs/types';
+import { getRankingYears } from '@/features/ranking/api';
 import { cn } from '@/lib/utils';
 import { AppSidebar } from './app-sidebar';
 import {
@@ -21,7 +24,9 @@ export function readStoredCollapsed(raw: string | null): boolean {
 }
 
 /**
- * 상단 ShellNav 아래 — **현재 섹션**의 하위 사이드 패널 + 본문 (컨텍스트형).
+ * 상단 ShellNav 아래 — **현재 섹션** 하위 사이드 패널 + 본문.
+ * 모바일(<900px) 사이드바는 AppSidebar가 숨기고, 본문 칩이 필터를 담당한다.
+ * 카운트/연도 fetch는 해당 섹션일 때만 한다.
  */
 export function ProductShell({ children }: { readonly children: ReactNode }) {
   const pathname = usePathname();
@@ -31,10 +36,14 @@ export function ProductShell({ children }: { readonly children: ReactNode }) {
   const member =
     status === 'assigned' && role !== null && isProfileComplete;
   const section = shellSectionFromPathname(pathname);
+
   const [programCounts, setProgramCounts] = useState<
     ProgramStatusCounts | undefined
   >(undefined);
-
+  const [archiveCounts, setArchiveCounts] = useState<
+    Partial<ArchiveCategoryCounts> | undefined
+  >(undefined);
+  const [rankingYears, setRankingYears] = useState<readonly number[]>([]);
   const [collapsed, setCollapsed] = useState(false);
   const [restored, setRestored] = useState(false);
 
@@ -61,7 +70,6 @@ export function ProductShell({ children }: { readonly children: ReactNode }) {
     }
   }, [collapsed, restored]);
 
-  // 프로그램 섹션일 때만 상태 카운트 fetch (전역 쿼리 방지).
   useEffect(() => {
     if (section !== 'programs') {
       setProgramCounts(undefined);
@@ -73,7 +81,6 @@ export function ProductShell({ children }: { readonly children: ReactNode }) {
         if (!cancelled) setProgramCounts(counts);
       })
       .catch(() => {
-        // 실패 시 뱃지 없이 메뉴만 — 목록 자체는 독립.
         if (!cancelled) setProgramCounts(undefined);
       });
     return () => {
@@ -81,11 +88,47 @@ export function ProductShell({ children }: { readonly children: ReactNode }) {
     };
   }, [section]);
 
-  const groups = sidebarGroupsFor(section, member ? role : null, {
-    programCounts: section === 'programs' ? programCounts : undefined,
-  });
+  useEffect(() => {
+    if (section !== 'archive') {
+      setArchiveCounts(undefined);
+      return;
+    }
+    let active = true;
+    loadArchiveCategoryCounts()
+      .then((counts) => {
+        if (active) setArchiveCounts(counts);
+      })
+      .catch(() => {
+        if (active) setArchiveCounts(undefined);
+      });
+    return () => {
+      active = false;
+    };
+  }, [section]);
+
+  useEffect(() => {
+    if (section !== 'ranking') {
+      setRankingYears([]);
+      return;
+    }
+    const controller = new AbortController();
+    void getRankingYears(controller.signal)
+      .then((years) => {
+        if (!controller.signal.aborted) setRankingYears(years);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setRankingYears([]);
+      });
+    return () => controller.abort();
+  }, [section]);
 
   const toggle = useCallback(() => setCollapsed((prev) => !prev), []);
+
+  const groups = sidebarGroupsFor(section, member ? role : null, {
+    programCounts: section === 'programs' ? programCounts : undefined,
+    archiveCounts: section === 'archive' ? archiveCounts : undefined,
+    rankingYears: section === 'ranking' ? rankingYears : undefined,
+  });
 
   if (groups.length === 0) {
     return (
