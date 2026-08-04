@@ -176,6 +176,16 @@ export function unauthorized(path: string): LocalReviewResponsePlan {
   return problem(401, 'AUTH_401', apiPath(path));
 }
 
+/**
+ * 세션이 필요한 새 도메인(프로그램 개요·서류·게시판·팀 초대)의 401 —
+ * 실제 백엔드 `SessionGuard`가 주는 코드(`AuthErrorCode.UNAUTHENTICATED`,
+ * `auth-error-code.enum.ts`)와 맞춘다. 기존 `unauthorized()`는 다른 화면들이
+ * 이미 `AUTH_401`로 의존하고 있어 그대로 두고, 이 도메인들만 실제 코드를 쓴다.
+ */
+export function unauthenticated(path: string): LocalReviewResponsePlan {
+  return problem(401, 'AUT_003', apiPath(path), '로그인이 필요합니다.');
+}
+
 export function roleForFixture(fixture: LocalReviewFixtureId): AuthRole | null {
   switch (fixture) {
     case 'student':

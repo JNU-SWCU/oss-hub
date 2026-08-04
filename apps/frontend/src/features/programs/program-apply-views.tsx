@@ -8,6 +8,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import type { ProgramTeam } from './api';
 import { ApplicationConfirmationDialog } from './application-confirmation-dialog';
 import { FormRenderer } from './form-renderer';
 import {
@@ -15,6 +17,7 @@ import {
   teamSetupHref,
   type ProgramApplyFormErrors,
   type ProgramApplyFormValues,
+  type RepositoryConnectionMode,
   type TeamMinimum,
 } from './program-apply-flow';
 import { programHref } from './program-paths';
@@ -127,6 +130,10 @@ interface ProgramApplyFormViewProps {
   readonly program: ProgramDetail;
   readonly template: ApplicationFormTemplate;
   readonly applicantName: string;
+  /** 세션에 연결된 GitHub handle. "GitHub 계정 연동" 안내행에만 쓴다. */
+  readonly githubHandle?: string;
+  /** 팀형 신청의 현재 팀 요약(이름·팀원). 개인형이거나 팀이 없으면 null. */
+  readonly team?: ProgramTeam | null;
   readonly values: ProgramApplyFormValues;
   readonly errors: ProgramApplyFormErrors;
   readonly serverError: string | null;
@@ -137,10 +144,185 @@ interface ProgramApplyFormViewProps {
   readonly submitting: boolean;
   readonly onChange: (key: keyof ProgramApplyFormValues, value: string) => void;
   readonly onTogglePublicationPlanned: (checked: boolean) => void;
+  readonly onRepositoryModeChange: (mode: RepositoryConnectionMode) => void;
+  readonly onToggleConsent: (checked: boolean) => void;
   readonly onRequestSubmit: () => void;
   readonly onRequestCancel: () => void;
   readonly onCloseConfirmation: () => void;
   readonly onConfirm: () => void;
+}
+
+/**
+ * GitHub 저장소 연결 섹션 — 계정 연동 안내(읽기전용) + 연결 방식 라디오(2택).
+ * `own`을 고르면 조건부 repo URL 입력이 카드 안에 나타난다. 새 신청서 작성
+ * (`create`)에서만 보인다 — 수정 화면 범위 밖(program-apply-flow.validateApplyForm 참고).
+ */
+function RepositoryConnectionSection({
+  githubHandle,
+  repositoryConnectionMode,
+  repositoryUrl,
+  onModeChange,
+  onUrlChange,
+}: {
+  readonly githubHandle: string;
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  readonly repositoryUrl: string;
+  readonly onModeChange: (mode: RepositoryConnectionMode) => void;
+  readonly onUrlChange: (url: string) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <p className="font-medium text-foreground">GitHub 저장소</p>
+      {githubHandle ? (
+        <p className="text-sm text-muted-foreground">
+          <span className="font-semibold text-foreground">@{githubHandle}</span>{' '}
+          계정에 연결된 GitHub · 지원서에 함께 제출됩니다
+        </p>
+      ) : null}
+      <div
+        className="space-y-2"
+        role="radiogroup"
+        aria-label="GitHub 저장소 연결 방식"
+      >
+        <label className="flex cursor-pointer flex-col gap-1 rounded-control border border-border px-4 py-3 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+          <span className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="repository-connection-mode"
+              value="new"
+              checked={repositoryConnectionMode === 'new'}
+              onChange={() => onModeChange('new')}
+            />
+            <span className="font-medium">새 저장소를 만들어 받습니다</span>
+            <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
+              기본
+            </span>
+          </span>
+          <span className="pl-6 text-xs text-muted-foreground">
+            승인되면 JNU-SWCU 조직에 팀 저장소가 자동으로 생성되고, 내 GitHub
+            계정이 초대됩니다
+          </span>
+        </label>
+        <label className="flex cursor-pointer flex-col gap-1 rounded-control border border-border px-4 py-3 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+          <span className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="repository-connection-mode"
+              value="own"
+              checked={repositoryConnectionMode === 'own'}
+              onChange={() => onModeChange('own')}
+            />
+            <span className="font-medium">이미 쓰던 저장소를 연결합니다</span>
+          </span>
+          <span className="pl-6 text-xs text-muted-foreground">
+            진행 중인 프로젝트가 있다면 그 repo를 그대로 프로그램에 연결합니다
+          </span>
+          {repositoryConnectionMode === 'own' ? (
+            <Input
+              aria-label="연결할 저장소 URL"
+              className="ml-6 mt-1 w-[calc(100%-1.5rem)]"
+              placeholder="https://github.com/team/repo"
+              value={repositoryUrl}
+              onChange={(event) => onUrlChange(event.target.value)}
+            />
+          ) : null}
+        </label>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 팀 구성 섹션 — 현재 팀 요약(읽기전용)만 보여준다. 검색·초대 UI는 이 신청 폼
+ * 범위 밖이다: PM 결정은 team-invitations API·team-invitation-api.ts 클라이언트
+ * 재사용을 전제하지만, 둘 다 아직 만들어지지 않았다(apiContract·blockers 참고).
+ * 팀 생성·팀원 관리는 기존 팀 구성 페이지(`teamSetupHref`)로 안내한다.
+ */
+function TeamCompositionSection({
+  programId,
+  team,
+}: {
+  readonly programId: string;
+  readonly team: ProgramTeam | null;
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="font-medium text-foreground">
+        팀 구성{' '}
+        <span className="font-normal text-muted-foreground">
+          — 팀형 프로그램은 팀 구성 후 신청할 수 있습니다
+        </span>
+      </p>
+      {team ? (
+        <div className="space-y-2 rounded-control border border-border p-3">
+          <p className="text-sm">
+            <span className="font-semibold">{team.name}</span>{' '}
+            <span className="text-muted-foreground">
+              · {team.memberCount}명
+            </span>
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {team.members.map((member) => (
+              <span
+                key={member.userId}
+                className="rounded-full border border-border px-2 py-0.5 text-xs"
+              >
+                {member.name ?? member.nickname}{' '}
+                <span className="text-primary tabular-nums">
+                  @{member.nickname}
+                </span>
+                {member.isLeader ? ' · 팀장' : ''}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          아직 구성된 팀이 없습니다.
+        </p>
+      )}
+      <Link
+        className="text-sm font-semibold underline underline-offset-4"
+        href={teamSetupHref(programId)}
+      >
+        팀 구성원 관리
+      </Link>
+    </div>
+  );
+}
+
+/**
+ * 개인정보 수집·이용 동의 — 필수. `약관 보기`는 프로토타입 원문대로 실제 약관
+ * 문서가 아직 없어 클릭해도 페이지 이동만 막는다(preventDefault).
+ */
+function PersonalDataConsentField({
+  checked,
+  onToggle,
+}: {
+  readonly checked: boolean;
+  readonly onToggle: (checked: boolean) => void;
+}) {
+  return (
+    <Field orientation="horizontal">
+      <input
+        id="personal-data-consent"
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onToggle(event.target.checked)}
+      />
+      <FieldLabel htmlFor="personal-data-consent">
+        <span className="font-semibold text-destructive">[필수]</span> 개인정보
+        수집·이용 동의{' '}
+        <a
+          href="#"
+          className="underline underline-offset-4"
+          onClick={(event) => event.preventDefault()}
+        >
+          약관 보기
+        </a>
+      </FieldLabel>
+    </Field>
+  );
 }
 
 export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
@@ -150,6 +332,8 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     program,
     template,
     applicantName,
+    githubHandle = '',
+    team = null,
     values,
     errors,
     serverError,
@@ -160,6 +344,8 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     submitting,
     onChange,
     onTogglePublicationPlanned,
+    onRepositoryModeChange,
+    onToggleConsent,
     onRequestSubmit,
     onRequestCancel,
     onCloseConfirmation,
@@ -221,6 +407,32 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
                 : '선정 시 저장소를 공개할 예정입니다'}
             </FieldLabel>
           </Field>
+          {mode === 'create' ? (
+            <RepositoryConnectionSection
+              githubHandle={githubHandle}
+              repositoryConnectionMode={values.repositoryConnectionMode}
+              repositoryUrl={values.repositoryUrl}
+              onModeChange={onRepositoryModeChange}
+              onUrlChange={(url) => onChange('repositoryUrl', url)}
+            />
+          ) : null}
+          {template.participation === 'team' ? (
+            <TeamCompositionSection programId={program.id} team={team} />
+          ) : null}
+          {mode === 'create' ? (
+            <PersonalDataConsentField
+              checked={values.personalDataConsent}
+              onToggle={onToggleConsent}
+            />
+          ) : null}
+          {errors.repositoryUrl || errors.personalDataConsent ? (
+            <Alert variant="destructive">
+              <AlertTitle>제출할 수 없습니다</AlertTitle>
+              <AlertDescription>
+                {errors.repositoryUrl ?? errors.personalDataConsent}
+              </AlertDescription>
+            </Alert>
+          ) : null}
           {serverError ? (
             <Alert variant="destructive">
               <AlertTitle>저장 실패</AlertTitle>

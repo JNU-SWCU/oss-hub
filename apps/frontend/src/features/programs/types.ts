@@ -34,6 +34,12 @@ export interface ApplicationFormTemplate {
   readonly fields: readonly ApplicationFormField[];
 }
 
+/** 카드 하단 안내 문구 — 학생: 본인 지원 상태 / 교직원: 지원·승인대기 집계. */
+export interface ProgramListItemNote {
+  readonly text: string;
+  readonly icon?: 'team';
+}
+
 export interface ProgramListItem {
   readonly id: string;
   readonly name: string;
@@ -46,6 +52,14 @@ export interface ProgramListItem {
   /** null이면 종료일을 아직 안 닫은 것 — 접수 종료 후 진행중으로 본다. */
   readonly endAt: string | null;
   readonly description: string;
+  /** 카드 하단 안내 문구. 없으면 표시 안 함. */
+  readonly note?: ProgramListItemNote;
+  /** 뷰어 본인의 신청 상태. 신청한 적 없으면 undefined. */
+  readonly viewerApplicationStatus?: ApplicationStatus;
+  /** 교직원용 — 전체 지원 건수 집계. */
+  readonly applicationCount?: number;
+  /** 교직원용 — 승인 대기 건수 집계. */
+  readonly pendingApplicationCount?: number;
 }
 
 /** 공개 카탈로그 필터 — 연습대회 없음. backend 목록 status와 한 벌. */
@@ -62,9 +76,20 @@ export const PROGRAM_LIST_STATUS_LABELS = {
   all: '전체',
   recruiting: '모집중',
   in_progress: '진행중',
-  upcoming: '접수대기',
+  upcoming: '예정',
   ended: '종료',
 } as const satisfies Readonly<Record<ProgramListStatus, string>>;
+
+/** 카테고리 라벨 SSOT. program-detail-format.ts 서술형 문구를 canonical로 채택. */
+export const PROGRAM_CATEGORY_LABELS = {
+  BASIC: '기본 프로그램',
+  SW_VALUE_SPREAD: 'SW 가치확산',
+  OSS_CONTEST: 'OSS 경진대회',
+  CAPSTONE: '캡스톤',
+  SW_CONVERGENCE: 'SW 융합',
+  GLOBAL_MAKERTHON: '글로벌 메이커톤',
+  CORPORATE_INTERNSHIP: '기업 인턴십',
+} as const satisfies Record<ProgramCategory, string>;
 
 /** 사이드 패널·칩 공용. `all`은 쿼리 없이 `/programs`. */
 export function programListHref(status: ProgramListStatus): string {

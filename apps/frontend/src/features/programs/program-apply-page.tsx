@@ -83,7 +83,7 @@ export function ProgramApplyPage({
   function requestSubmit(): void {
     if (state.kind !== 'ready') return;
     if (remainingTeamMembers(state.teamMinimum) > 0) return;
-    const nextErrors = validateApplyForm(values);
+    const nextErrors = validateApplyForm(values, state.mode);
     setErrors(nextErrors);
     setServerError(null);
     if (Object.keys(nextErrors).length > 0) return;
@@ -192,6 +192,8 @@ export function ProgramApplyPage({
           program={state.program}
           template={state.template}
           applicantName={state.applicantName}
+          githubHandle={state.githubHandle}
+          team={state.team}
           values={values}
           errors={errors}
           serverError={serverError}
@@ -207,6 +209,18 @@ export function ProgramApplyPage({
             setValues((previous) => ({
               ...previous,
               isRepositoryPublicationPlanned: checked,
+            }))
+          }
+          onRepositoryModeChange={(mode) =>
+            setValues((previous) => ({
+              ...previous,
+              repositoryConnectionMode: mode,
+            }))
+          }
+          onToggleConsent={(checked) =>
+            setValues((previous) => ({
+              ...previous,
+              personalDataConsent: checked,
             }))
           }
           onRequestSubmit={requestSubmit}

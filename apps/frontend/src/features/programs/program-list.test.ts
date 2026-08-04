@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   filterAndGroupPrograms,
+  getProgramListBadge,
+  getProgramListHeading,
+  getProgramListSubtitle,
   getProgramRecruitmentState,
 } from './program-list';
 import type { ProgramListItem } from './types';
@@ -166,5 +169,91 @@ describe('filterAndGroupPrograms', () => {
       endAt: null,
     });
     expect(getProgramRecruitmentState(openEnded, now)).toBe('in_progress');
+  });
+});
+
+describe('getProgramListHeading', () => {
+  it('maps each status filter to its own H1 text', () => {
+    expect(getProgramListHeading('all')).toBe('프로그램');
+    expect(getProgramListHeading('recruiting')).toBe('모집중인 프로그램');
+    expect(getProgramListHeading('in_progress')).toBe('진행중인 프로그램');
+    expect(getProgramListHeading('upcoming')).toBe('예정된 프로그램');
+    expect(getProgramListHeading('ended')).toBe('종료된 프로그램');
+  });
+});
+
+describe('getProgramListSubtitle', () => {
+  it('shows the staff copy for STAFF and ADMIN', () => {
+    expect(getProgramListSubtitle('STAFF')).toBe(
+      '내가 운영하는 프로그램과 전체 프로그램입니다',
+    );
+    expect(getProgramListSubtitle('ADMIN')).toBe(
+      '내가 운영하는 프로그램과 전체 프로그램입니다',
+    );
+  });
+
+  it('falls back to the student copy for STUDENT, PENDING and null', () => {
+    expect(getProgramListSubtitle('STUDENT')).toBe(
+      '지금 참여 중이거나 지원할 수 있는 프로그램입니다',
+    );
+    expect(getProgramListSubtitle('PENDING')).toBe(
+      '지금 참여 중이거나 지원할 수 있는 프로그램입니다',
+    );
+    expect(getProgramListSubtitle(null)).toBe(
+      '지금 참여 중이거나 지원할 수 있는 프로그램입니다',
+    );
+  });
+});
+
+describe('getProgramListBadge', () => {
+  const hackathon = item({
+    id: 'hackathon',
+    name: '2026 동계 오픈소스 해커톤',
+    applicationStartAt: '2026-07-01T00:00:00.000Z',
+    applicationEndAt: '2026-08-01T00:00:00.000Z',
+    endAt: null,
+  });
+
+  it('uses the recruitment-state badge when the viewer has not applied', () => {
+    expect(getProgramListBadge(hackathon, now)).toEqual({
+      status: 'recruiting',
+      label: '모집중',
+    });
+    expect(getProgramListBadge(programs[1]!, now)).toEqual({
+      status: 'in_progress',
+      label: '진행중',
+    });
+    expect(getProgramListBadge(programs[3]!, now)).toEqual({
+      status: 'ended',
+      label: '종료',
+    });
+  });
+
+  it("overrides the badge with the viewer's own application status", () => {
+    expect(
+      getProgramListBadge(
+        { ...hackathon, viewerApplicationStatus: 'SUBMITTED' },
+        now,
+      ),
+    ).toEqual({ status: 'pending', label: '승인 대기' });
+    expect(
+      getProgramListBadge(
+        { ...hackathon, viewerApplicationStatus: 'APPROVED' },
+        now,
+      ),
+    ).toEqual({ status: 'approved', label: '승인됨' });
+    expect(
+      getProgramListBadge(
+        { ...hackathon, viewerApplicationStatus: 'REJECTED' },
+        now,
+      ),
+    ).toEqual({ status: 'rejected', label: '반려됨' });
+  });
+
+  it('staff (no viewerApplicationStatus) keeps seeing the plain recruiting badge', () => {
+    expect(getProgramListBadge(hackathon, now)).toEqual({
+      status: 'recruiting',
+      label: '모집중',
+    });
   });
 });

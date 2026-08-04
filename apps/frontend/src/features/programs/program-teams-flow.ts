@@ -49,3 +49,35 @@ export function mapTeamError(problem: ProblemDetail): string {
 export function applyHrefWithTeam(programId: string, teamId: string): string {
   return `${programHref(programId, '/apply')}?teamId=${encodeURIComponent(teamId)}`;
 }
+
+/** `team-invitations/*` 오류 코드(TIV_00N) → 한국어 문구. */
+export function mapInvitationError(problem: ProblemDetail): string {
+  switch (problem.code) {
+    case 'TIV_001':
+      return '로그인이 필요합니다.';
+    case 'TIV_002':
+      return '팀을 찾을 수 없습니다.';
+    case 'TIV_003':
+      return '팀장만 초대를 관리할 수 있습니다.';
+    case 'TIV_004':
+      return '팀 구성원만 조회할 수 있습니다.';
+    case 'TIV_005':
+      return '자기 자신을 초대할 수 없습니다.';
+    case 'TIV_006':
+      return '초대 대상 사용자를 찾을 수 없습니다.';
+    case 'TIV_007':
+      return '이미 이 프로그램의 다른 팀에 소속된 사용자입니다.';
+    case 'TIV_008':
+      return '이미 대기 중인 초대가 있습니다.';
+    case 'TIV_009':
+      return '팀 최대 인원을 초과할 수 없습니다.';
+    case 'TIV_010':
+      return '초대를 찾을 수 없습니다.';
+    case 'TIV_011':
+      return '이미 처리된 초대입니다.';
+    case 'TIV_012':
+      return '본인이 받은 초대만 응답할 수 있습니다.';
+    default:
+      return problem.detail || '초대 요청을 처리하지 못했습니다.';
+  }
+}
