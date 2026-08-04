@@ -25,6 +25,7 @@ import type {
 } from './dto/program-detail.dto';
 import { ProgramListQueryRequestDto } from './dto/program-list-query.dto';
 import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
+import { ProgramStatusCountsResponseDto } from './dto/program-status-counts-response.dto';
 import { StudentDashboardResponseDto } from './dto/student-dashboard-response.dto';
 import { ProgramActivityService } from './program-activity.service';
 import { ProgramCreationService } from './program-creation.service';
@@ -55,6 +56,14 @@ export class ProgramsController {
   ): Promise<ProgramListPageResponseDto> {
     return ProgramListPageResponseDto.from(
       await this.programs.list(query.toQuery()),
+    );
+  }
+
+  /** static sibling before programs/:id — 사이드바 상태 뱃지용 공개 집계. */
+  @Get('status-counts')
+  async statusCounts(): Promise<ProgramStatusCountsResponseDto> {
+    return ProgramStatusCountsResponseDto.from(
+      await this.programs.statusCounts(),
     );
   }
 

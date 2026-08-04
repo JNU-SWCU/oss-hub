@@ -4,7 +4,6 @@ import {
   ApplicationStatus,
   Prisma,
   ProgramCategory,
-  ProgramLifecycle,
   RoleRequestStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -12,12 +11,17 @@ import {
   COMPATIBLE_PROFILE_NAME_SELECT,
   resolveCompatibleProfileName,
 } from '../profiles/profile-compatibility';
-import type {
-  ProgramListQuery,
-  ProgramListQueryStatus,
-} from './program-list-query';
+import type { ProgramListQuery } from './program-list-query';
+import {
+  emptyProgramStatusCounts,
+  programListPrismaWhere,
+  programListSqlWhere,
+  programStatusCountsSql,
+  type ProgramStatusCounts,
+} from './program-list-status-filter';
 import { programApplicationParticipantWhere } from './program-participant';
 
+export type { ProgramStatusCounts };
 export type ProgramListRecord = Pick<
   Program,
   | 'id'
@@ -30,88 +34,13 @@ export type ProgramListRecord = Pick<
   | 'description'
 >;
 
-/**
- * 공개 목록 상태 필터 — 상호 배타 (연습대회 없음).
- * - all: PUBLISHED 전체
- * - upcoming: 접수 시작 전
- * - recruiting: 접수 기간 중
- * - in_progress: 접수 종료 후 · 프로그램 종료 전(또는 endAt 없음)
- * - ended: endAt 경과 또는 ARCHIVED
- */
-function recruitmentWhere(
-  status: ProgramListQueryStatus,
-  now: Date,
-): Prisma.ProgramWhereInput {
-  const whereByStatus = {
-    all: { lifecycle: ProgramLifecycle.PUBLISHED },
-    upcoming: {
-      lifecycle: ProgramLifecycle.PUBLISHED,
-      applicationStartAt: { gt: now },
-    },
-    recruiting: {
-      lifecycle: ProgramLifecycle.PUBLISHED,
-      applicationStartAt: { lte: now },
-      applicationEndAt: { gte: now },
-    },
-    in_progress: {
-      lifecycle: ProgramLifecycle.PUBLISHED,
-      applicationEndAt: { lt: now },
-      OR: [{ endAt: null }, { endAt: { gte: now } }],
-    },
-    ended: {
-      OR: [
-        { lifecycle: ProgramLifecycle.ARCHIVED },
-        {
-          lifecycle: ProgramLifecycle.PUBLISHED,
-          endAt: { not: null, lt: now },
-        },
-      ],
-    },
-  } satisfies Readonly<
-    Record<ProgramListQueryStatus, Prisma.ProgramWhereInput>
-  >;
-  return whereByStatus[status];
-}
-
-function programListSqlWhere(
-  status: ProgramListQueryStatus,
-  search: string,
-  now: Date,
-): Prisma.Sql {
-  const conditions: Prisma.Sql[] = [];
-  if (status === 'ended') {
-    conditions.push(
-      Prisma.sql`(p."lifecycle" = 'ARCHIVED' OR (p."lifecycle" = 'PUBLISHED' AND p."endAt" IS NOT NULL AND p."endAt" < ${now}))`,
-    );
-  } else {
-    conditions.push(Prisma.sql`p."lifecycle" = 'PUBLISHED'`);
-    if (status === 'upcoming') {
-      conditions.push(Prisma.sql`p."applicationStartAt" > ${now}`);
-    } else if (status === 'recruiting') {
-      conditions.push(
-        Prisma.sql`p."applicationStartAt" <= ${now} AND p."applicationEndAt" >= ${now}`,
-      );
-    } else if (status === 'in_progress') {
-      conditions.push(
-        Prisma.sql`p."applicationEndAt" < ${now} AND (p."endAt" IS NULL OR p."endAt" >= ${now})`,
-      );
-    }
-  }
-  if (search) {
-    conditions.push(Prisma.sql`p."name" ILIKE ${`%${search}%`}`);
-  }
-  return conditions.length === 0
-    ? Prisma.empty
-    : Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`;
-}
-
 @Injectable()
 export class ProgramsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   listPrograms(query: ProgramListQuery, now: Date) {
     const where: Prisma.ProgramWhereInput = {
-      ...recruitmentWhere(query.status, now),
+      ...programListPrismaWhere(query.status, now),
       ...(query.search
         ? { name: { contains: query.search, mode: 'insensitive' as const } }
         : {}),
@@ -148,6 +77,31 @@ export class ProgramsRepository {
       `),
       this.prisma.program.count({ where }),
     ]);
+  }
+
+  /**
+   * 공개 목록 status 필터와 동일 규칙의 5키 카운트.
+   * 목록 `totalItems` 와 키가 항상 일치해야 사이드바 뱃지가 신뢰된다.
+   */
+  async countProgramsByStatus(now: Date): Promise<ProgramStatusCounts> {
+    const rows = await this.prisma.$queryRaw<
+      readonly {
+        readonly all: number;
+        readonly recruiting: number;
+        readonly in_progress: number;
+        readonly upcoming: number;
+        readonly ended: number;
+      }[]
+    >(programStatusCountsSql(now));
+    const row = rows[0];
+    if (!row) return emptyProgramStatusCounts();
+    return {
+      all: row.all,
+      recruiting: row.recruiting,
+      in_progress: row.in_progress,
+      upcoming: row.upcoming,
+      ended: row.ended,
+    };
   }
 
   findProgramDetail(programId: string) {
