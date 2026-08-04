@@ -2,11 +2,15 @@ import type { ReactElement, ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type {
+  DiscoveryNotice,
   SystemStatus,
   SystemStatusViewState,
   TriggerNotice,
 } from '../types';
 import { SystemStatusView } from './system-status-view';
+
+// 실제 학생 계정이 아닌 합성 fixture — PUBLIC repo에 실명/실제 계정을 남기지 않는다.
+const SYNTHETIC_GITHUB_LOGIN = 'synthetic-test-login';
 
 const normal: SystemStatus = {
   health: 'NORMAL',
@@ -29,6 +33,9 @@ function render(
   overrides: {
     readonly isTriggering?: boolean;
     readonly triggerNotice?: TriggerNotice | null;
+    readonly isDiscovering?: boolean;
+    readonly discoveryNotice?: DiscoveryNotice | null;
+    readonly onDiscover?: (githubLogin: string) => void;
   } = {},
 ): string {
   return renderToStaticMarkup(
@@ -38,6 +45,9 @@ function render(
       onTrigger={() => undefined}
       isTriggering={overrides.isTriggering ?? false}
       triggerNotice={overrides.triggerNotice ?? null}
+      onDiscover={overrides.onDiscover ?? (() => undefined)}
+      isDiscovering={overrides.isDiscovering ?? false}
+      discoveryNotice={overrides.discoveryNotice ?? null}
     />,
   );
 }
@@ -166,6 +176,9 @@ describe('SystemStatusView', () => {
       onTrigger: () => undefined,
       isTriggering: false,
       triggerNotice: null,
+      onDiscover: () => undefined,
+      isDiscovering: false,
+      discoveryNotice: null,
     }) as ReactElement;
     const rendered = (outer.type as (props: typeof outer.props) => ReactNode)(
       outer.props,
@@ -233,5 +246,65 @@ describe('SystemStatusView', () => {
     expect(html).toContain('수집을 시작하지 못했습니다');
     expect(html).toContain('저장소 전환 작업이 진행 중');
     expect(html).not.toContain('COL_008');
+  });
+
+  it('탐색 패널은 GitHub 로그인 입력을 위한 label과 input을 함께 렌더링한다', () => {
+    const html = render({ kind: 'success', status: normal });
+    expect(html).toContain('for="discover-external-github-login"');
+    expect(html).toContain('id="discover-external-github-login"');
+    expect(html).toContain('학생 GitHub 로그인');
+  });
+
+  it('탐색 입력이 비어 있으면 탐색 버튼을 비활성화한다', () => {
+    const html = render({ kind: 'success', status: normal });
+    const button = buttonTagContaining(html, '지금 탐색 실행');
+    expect(button).toContain('disabled=""');
+  });
+
+  it('탐색이 진행 중이면 버튼을 비활성화하고 진행 문구를 보여준다', () => {
+    const html = render(
+      { kind: 'success', status: normal },
+      { isDiscovering: true },
+    );
+    const button = buttonTagContaining(html, '탐색 중');
+    expect(button).toContain('disabled=""');
+  });
+
+  it('탐색 성공 알림은 4개 집계 필드를 모두 표시한다', () => {
+    const html = render(
+      { kind: 'success', status: normal },
+      {
+        discoveryNotice: {
+          kind: 'success',
+          githubLogin: SYNTHETIC_GITHUB_LOGIN,
+          discoveredCount: 5,
+          upsertedCount: 3,
+          skippedOrgProvisionedCount: 2,
+        },
+      },
+    );
+    expect(html).toContain('role="alert"');
+    expect(html).toContain('저장소 탐색을 완료했습니다');
+    expect(html).toContain(SYNTHETIC_GITHUB_LOGIN);
+    expect(html).toContain('>5<');
+    expect(html).toContain('>3<');
+    expect(html).toContain('>2<');
+  });
+
+  it('탐색 실패(학생 없음)는 사람이 읽을 수 있는 안내만 보여주고 원문 코드를 노출하지 않는다', () => {
+    const html = render(
+      { kind: 'success', status: normal },
+      {
+        discoveryNotice: {
+          kind: 'error',
+          message: '해당 GitHub 계정으로 등록된 학생을 찾을 수 없습니다.',
+        },
+      },
+    );
+    expect(html).toContain('저장소 탐색에 실패했습니다');
+    expect(html).toContain(
+      '해당 GitHub 계정으로 등록된 학생을 찾을 수 없습니다.',
+    );
+    expect(html).not.toContain('COL_009');
   });
 });

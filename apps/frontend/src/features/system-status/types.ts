@@ -36,3 +36,13 @@ export type SystemStatusViewState =
 export type TriggerNotice =
   | { readonly kind: 'success'; readonly message: string }
   | { readonly kind: 'error'; readonly message: string };
+
+export type DiscoveryNotice =
+  | {
+      readonly kind: 'success';
+      readonly githubLogin: string;
+      readonly discoveredCount: number;
+      readonly upsertedCount: number;
+      readonly skippedOrgProvisionedCount: number;
+    }
+  | { readonly kind: 'error'; readonly message: string };

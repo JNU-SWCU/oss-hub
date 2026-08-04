@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import {
   Activity,
   AlertCircle,
@@ -6,14 +9,18 @@ import {
   GitBranch,
   PlayCircle,
   RotateCcw,
+  Search,
 } from 'lucide-react';
 import { CardGrid, EmptyState, PageHeader, StatusBadge } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import type {
   CollectionHealth,
   CurrentRunStatus,
+  DiscoveryNotice,
   SystemStatusSafeReason,
   SystemStatusViewState,
   TriggerNotice,
@@ -25,6 +32,9 @@ interface SystemStatusViewProps {
   readonly onTrigger: () => void;
   readonly isTriggering: boolean;
   readonly triggerNotice: TriggerNotice | null;
+  readonly onDiscover: (githubLogin: string) => void;
+  readonly isDiscovering: boolean;
+  readonly discoveryNotice: DiscoveryNotice | null;
 }
 
 const HEALTH = {
@@ -102,12 +112,127 @@ function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
   );
 }
 
+interface DiscoverExternalPanelProps {
+  readonly onDiscover: (githubLogin: string) => void;
+  readonly isDiscovering: boolean;
+  readonly discoveryNotice: DiscoveryNotice | null;
+}
+
+function DiscoverExternalPanel({
+  onDiscover,
+  isDiscovering,
+  discoveryNotice,
+}: DiscoverExternalPanelProps) {
+  const [githubLogin, setGithubLogin] = useState('');
+  const trimmedLogin = githubLogin.trim();
+  const submitDisabled = isDiscovering || trimmedLogin.length === 0;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Search aria-hidden="true" className="size-5" />
+          조직 밖 public 저장소 탐색
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <p className="text-sm text-muted-foreground">
+          학생 1명의 GitHub 계정으로 조직 밖 public 저장소를 찾아 추적 목록에
+          등록합니다. 여기서는 목록만 채워질 뿐, commit·PR·release 같은 실제
+          수집 데이터는 채워지지 않습니다 — 다음 예약 수집이나 &quot;지금 수집
+          실행&quot; 버튼을 실행해야 반영됩니다.
+        </p>
+
+        <form
+          className="flex flex-col gap-3 sm:flex-row sm:items-end"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (submitDisabled) return;
+            onDiscover(trimmedLogin);
+          }}
+        >
+          <div className="flex flex-1 flex-col gap-2">
+            <Label htmlFor="discover-external-github-login">
+              학생 GitHub 로그인
+            </Label>
+            <Input
+              id="discover-external-github-login"
+              name="githubLogin"
+              placeholder="예: octocat"
+              autoComplete="off"
+              disabled={isDiscovering}
+              value={githubLogin}
+              onChange={(event) => setGithubLogin(event.target.value)}
+            />
+          </div>
+          <Button type="submit" variant="outline" disabled={submitDisabled}>
+            <Search aria-hidden="true" />
+            {isDiscovering ? '탐색 중…' : '지금 탐색 실행'}
+          </Button>
+        </form>
+
+        {/* 탐색 결과 알림 — Alert의 role="alert"가 등장 즉시 스크린 리더에 통지한다. */}
+        {discoveryNotice ? (
+          <Alert
+            variant={
+              discoveryNotice.kind === 'error' ? 'destructive' : 'default'
+            }
+          >
+            <AlertTitle>
+              {discoveryNotice.kind === 'error'
+                ? '저장소 탐색에 실패했습니다'
+                : '저장소 탐색을 완료했습니다'}
+            </AlertTitle>
+            <AlertDescription>
+              {discoveryNotice.kind === 'error' ? (
+                discoveryNotice.message
+              ) : (
+                <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div>
+                    <dt className="text-muted-foreground">대상 계정</dt>
+                    <dd className="mt-1 font-medium">
+                      {discoveryNotice.githubLogin}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">발견</dt>
+                    <dd className="mt-1 font-medium">
+                      {discoveryNotice.discoveredCount}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">신규 등록</dt>
+                    <dd className="mt-1 font-medium">
+                      {discoveryNotice.upsertedCount}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">
+                      조직 소속으로 제외
+                    </dt>
+                    <dd className="mt-1 font-medium">
+                      {discoveryNotice.skippedOrgProvisionedCount}
+                    </dd>
+                  </div>
+                </dl>
+              )}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function SystemStatusView({
   state,
   onRetry,
   onTrigger,
   isTriggering,
   triggerNotice,
+  onDiscover,
+  isDiscovering,
+  discoveryNotice,
 }: SystemStatusViewProps) {
   if (state.kind === 'loading') return <LoadingState />;
   if (state.kind === 'error') return <ErrorState onRetry={onRetry} />;
@@ -152,6 +277,12 @@ export function SystemStatusView({
           <AlertDescription>{triggerNotice.message}</AlertDescription>
         </Alert>
       ) : null}
+
+      <DiscoverExternalPanel
+        onDiscover={onDiscover}
+        isDiscovering={isDiscovering}
+        discoveryNotice={discoveryNotice}
+      />
 
       {isEmpty ? (
         <EmptyState
