@@ -87,7 +87,8 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 
 | 기능 | owner | 상태 | parent Issue | PR | CI | blocker (unblock owner) |
 | --- | --- | --- | --- | --- | --- | --- |
-| 재요청 실패 안내가 새로고침 후에도 남는 문제 | @Lumiere001 | review | [#356](https://github.com/JNU-SWCU/oss-hub/issues/356) | (이 PR) | frontend 1748 pass | Codex 리뷰가 잡은 #645 후속 |
+| 재요청 중 상태 새로고침 잠금 (#646 후속) | @Lumiere001 | review | [#356](https://github.com/JNU-SWCU/oss-hub/issues/356) | (이 PR) | frontend 179 files 1758 tests pass | Codex 재검토 blocker — #646 병합본에 미반영 |
+| 재요청 실패 안내가 새로고침 후에도 남는 문제 | @Lumiere001 | done | [#356](https://github.com/JNU-SWCU/oss-hub/issues/356) | [#646](https://github.com/JNU-SWCU/oss-hub/pull/646) merged | frontend pass | Codex 리뷰가 잡은 #645 후속 |
 | 프로그램 스코프 라우트 신설 — 서류 현황·내 제출물 | @GoBeromsu | done | 선행 Issue 없음 — 프로토타입 정렬 실행 계획(`.gjc/plans/ralplan/.../pending-approval.md`) | [#647](https://github.com/JNU-SWCU/oss-hub/pull/647) merged | frontend 179 files/1756 tests pass · tsc·eslint·prettier exit 0 | `programScopeSidebarGroups()`가 이미 만들고 있던 `/programs/:id/status`·`/mydocs` 링크의 목적지 라우트가 없어 좌측 패널에서 흐름이 끊겨 있었다. 두 라우트를 신설해 기존 `SubmissionMatrixScreen`·`SubmissionChecklistPage`를 역할 게이트와 함께 마운트하고, `/programs/:id/submissions`는 백엔드 `checklistUrl` 호환을 위해 파일을 유지한 채 목적지만 `/mydocs`로 돌린다. UI 규약 원본을 `docs/design.md` 하나로 통일하고 실재하지 않는 `chrome-tokens`·`program-detail.md` 주석 참조 8곳을 제거했다. 사이드바·매트릭스·체크리스트 컴포넌트 내부는 무수정 |
 | 로그아웃 복귀 주소 배선 (#634 후속) | @Lumiere001 | done | [#348](https://github.com/JNU-SWCU/oss-hub/issues/348) | [#644](https://github.com/JNU-SWCU/oss-hub/pull/644) merged | frontend 1499 pass | #634 병합본에서 복귀 주소가 배선되지 않아 죽은 코드였음 |
 | 알림 저장 실패·재요청 실패 안내 정정 (#633 후속) | @Lumiere001 | done | [#356](https://github.com/JNU-SWCU/oss-hub/issues/356) | [#645](https://github.com/JNU-SWCU/oss-hub/pull/645) merged | frontend 174 files pass | #633 병합본이 최종 상태를 단정하던 것을 정정 |

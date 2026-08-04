@@ -194,7 +194,17 @@ export function RoleRequestStatusView({
             ) : null}
 
             {request.status === 'PENDING' || request.status === 'REJECTED' ? (
-              <Button type="button" variant="outline" onClick={onRefresh}>
+              // 재요청이 날아가 있는 동안에는 잠근다. 그 사이 새로고침을 누르면
+              // 경고를 지웠다가, 뒤늦게 도착한 재요청 실패가 그 위에 다시 경고를
+              // 그린다 — 사용자에게는 눌러서 사라진 것이 저절로 되살아난 것으로
+              // 보인다. 애초에 쓰기 요청이 진행 중일 때 같은 대상을 다시 읽어
+              // 화면을 갈아끼우는 것 자체가 상태를 흔든다.
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isRetrying}
+                onClick={onRefresh}
+              >
                 <RefreshCw />
                 상태 새로고침
               </Button>

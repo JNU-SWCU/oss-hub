@@ -48,6 +48,8 @@ describe('교직원 재요청 실패 안내', () => {
 
   let container: HTMLDivElement;
   let root: Root;
+  /** GET /role-requests/me 호출 횟수 — 새로고침이 실제로 막혔는지 동작으로 본다. */
+  let statusReads: number;
   /** POST /role-requests 응답을 시험마다 바꿔 실패 경로를 갈아 끼운다. */
   let retryResponder: () => Response | Promise<Response>;
 
@@ -72,6 +74,7 @@ describe('교직원 재요청 실패 안내', () => {
   beforeEach(() => {
     mocks.replace.mockReset();
     mocks.refresh.mockReset();
+    statusReads = 0;
     retryResponder = () =>
       problemResponse(500, 'API_000', '예기치 못한 서버 오류가 발생했습니다.');
     vi.stubGlobal(
@@ -80,6 +83,7 @@ describe('교직원 재요청 실패 안내', () => {
         const url = String(input);
         const method = init?.method ?? 'GET';
         if (method === 'GET' && url.endsWith('/role-requests/me')) {
+          statusReads += 1;
           return new Response(JSON.stringify(REJECTED_REQUEST), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
@@ -209,5 +213,71 @@ describe('교직원 재요청 실패 안내', () => {
     );
     // 화면 자체는 살아 있어야 한다 — 경고만 사라지고 상태는 다시 그려진다.
     expect(container.querySelector('[data-status="REJECTED"]')).not.toBeNull();
+  });
+
+  /**
+   * 재요청이 날아가 있는 동안 새로고침을 누를 수 있으면, 경고를 지웠다가 뒤늦게
+   * 도착한 실패가 그 위에 다시 경고를 그린다 — 눌러서 사라진 것이 저절로
+   * 되살아난 것으로 보인다. 진행 중에는 아예 못 누르게 막는다.
+   */
+  it('재요청이 진행 중이면 상태 새로고침을 눌러도 상태를 다시 읽지 않는다', async () => {
+    let releaseRetry: (() => void) | undefined;
+    const retryGate = new Promise<void>((resolve) => {
+      releaseRetry = resolve;
+    });
+    retryResponder = async () => {
+      await retryGate;
+      return problemResponse(500, 'API_000', '서버 오류');
+    };
+    await renderRejectedScreen();
+
+    const refresh = (): HTMLButtonElement => {
+      const found = [...container.querySelectorAll('button')].find((element) =>
+        element.textContent?.includes('상태 새로고침'),
+      );
+      if (!(found instanceof HTMLButtonElement)) {
+        throw new TypeError('상태 새로고침 버튼을 찾지 못했습니다.');
+      }
+      return found;
+    };
+    const retryButton = [...container.querySelectorAll('button')].find(
+      (element) => element.textContent?.includes('다시 승인 요청하기'),
+    );
+    if (!(retryButton instanceof HTMLButtonElement)) {
+      throw new TypeError('재요청 버튼을 찾지 못했습니다.');
+    }
+
+    expect(refresh().disabled).toBe(false);
+    const readsBeforeRetry = statusReads;
+
+    // 응답을 게이트로 붙잡아 둔 채 재요청을 띄운다. act 안에서 클릭까지만 흘려보내고
+    // 응답은 기다리지 않는다 — 요청이 떠 있는 동안의 화면을 봐야 하기 때문이다.
+    await act(async () => {
+      retryButton.click();
+      await Promise.resolve();
+    });
+
+    expect(refresh().disabled).toBe(true);
+
+    // 속성만 보지 않고 실제로 눌러 본다. 막혀 있다면 상태를 다시 읽지 않아야 한다.
+    await act(async () => {
+      refresh().click();
+      await Promise.resolve();
+    });
+    expect(statusReads).toBe(readsBeforeRetry);
+
+    // 응답을 풀면 잠금이 해제되고, 그때는 눌러서 실제로 다시 읽힌다.
+    releaseRetry?.();
+    await act(async () => {
+      await retryGate;
+      await Promise.resolve();
+    });
+    expect(refresh().disabled).toBe(false);
+
+    await act(async () => {
+      refresh().click();
+      await Promise.resolve();
+    });
+    expect(statusReads).toBeGreaterThan(readsBeforeRetry);
   });
 });
