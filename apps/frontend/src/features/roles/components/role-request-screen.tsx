@@ -21,13 +21,45 @@ import { fetchMyRoleRequest, requestStaffRole } from '../api';
 import type { RoleRequest } from '../types';
 
 /**
- * 재요청 제출이 실패했을 때의 안내.
- * 무엇이 실패했는지(요청 제출) · 무엇이 남았는지(역할 요청은 반려 상태 그대로) ·
- * 다음에 무엇을 누르면 되는지(바로 아래 버튼)를 모두 적는다.
- * 재요청 버튼은 REJECTED에서만 그려지므로 "반려 그대로"는 항상 참이다.
+ * 재요청 제출이 실패했는데 **원인을 알 수 없을** 때의 안내.
+ * 서버가 ProblemDetail을 돌려주지 못한 경우(연결 끊김, 형식이 다른 응답)라
+ * 요청이 서버에 닿았는지조차 알 수 없다. 그래서 남은 상태를 단정하지 않고,
+ * 지금 화면이 최신인지 확인할 수단(바로 아래 ‘상태 새로고침’)을 함께 준다.
  */
 export const ROLE_REQUEST_RETRY_FAILURE_MESSAGE =
-  '교직원 승인 요청을 제출하지 못했습니다. 요청 상태는 반려 그대로이니, 잠시 후 아래 ‘다시 승인 요청하기’를 눌러 주세요.';
+  '교직원 승인 요청을 제출하지 못했습니다. 요청이 접수됐는지 확인되지 않았으니, 아래 ‘상태 새로고침’으로 지금 상태를 확인한 뒤 여전히 반려면 ‘다시 승인 요청하기’를 눌러 주세요.';
+
+/** 같은 버튼을 다시 눌러도 결과가 달라지는 실패인가 — 409는 서버 상태가 이미 다르다. */
+const ROLE_REQUEST_RETRY_CONFLICT_STATUS = 409;
+
+/**
+ * 재요청 실패 안내를 만든다.
+ *
+ * 서버가 준 사유(`ProblemDetail.detail`)는 버리지 않는다. 이 엔드포인트의 실패는
+ * “처리 중인 교직원 권한 요청이 이미 있습니다”, “이미 확정된 역할은 변경할 수
+ * 없습니다” 처럼 사용자가 곧바로 이해하는 문장이라(`roles-error-code.enum.ts`),
+ * 우리 문구로 덮으면 실제로 무슨 일이 일어났는지가 사라진다. 대신 서버 문장은
+ * 원인만 말하고 다음 행동을 말해 주지 않으므로, 원인 뒤에 우리가 행동을 붙인다.
+ */
+export function roleRequestRetryFailureMessage(error: unknown): string {
+  if (!(error instanceof ApiError)) {
+    return ROLE_REQUEST_RETRY_FAILURE_MESSAGE;
+  }
+
+  const reason = error.message.trim();
+  if (reason.length === 0) {
+    return ROLE_REQUEST_RETRY_FAILURE_MESSAGE;
+  }
+
+  // 409는 서버가 이미 다른 상태라는 뜻이다(대기 중 요청 존재·역할 확정 등).
+  // 같은 버튼을 다시 눌러도 같은 답만 돌아오므로 화면을 최신으로 맞추는 쪽을 준다.
+  const nextAction =
+    error.problem.status === ROLE_REQUEST_RETRY_CONFLICT_STATUS
+      ? '이 화면의 상태가 오래됐을 수 있으니 아래 ‘상태 새로고침’을 눌러 확인해 주세요.'
+      : '잠시 후 아래 ‘다시 승인 요청하기’를 눌러 주세요.';
+
+  return `${reason} ${nextAction}`;
+}
 
 /**
  * 승인을 기다리는 교직원이 자기 이름·학과를 고치러 가는 자리(#598).
@@ -257,11 +289,7 @@ export function RoleRequestScreen() {
       const request = await requestStaffRole();
       setState({ kind: 'ready', request });
     } catch (error) {
-      if (error instanceof ApiError) {
-        setRetryError(error.message);
-      } else {
-        setRetryError(ROLE_REQUEST_RETRY_FAILURE_MESSAGE);
-      }
+      setRetryError(roleRequestRetryFailureMessage(error));
     } finally {
       setIsRetrying(false);
     }

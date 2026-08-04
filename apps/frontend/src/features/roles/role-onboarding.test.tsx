@@ -291,11 +291,17 @@ describe('role onboarding views', () => {
       />,
     );
 
-    // Then — 안내가 가리키는 버튼이 같은 화면에 실제로 있다
+    // Then — 안내가 가리키는 버튼이 둘 다 같은 화면에 실제로 있다
     expect(html).toContain(ROLE_REQUEST_RETRY_FAILURE_MESSAGE);
     expect(html).toContain('다시 승인 요청하기');
+    expect(html).toContain('상태 새로고침');
+    // 원인을 모르는 실패에서 남은 상태를 단정하지 않는다 — 요청이 서버에 닿았는지
+    // 알 수 없다. 대신 지금 상태를 확인할 수단을 먼저 가리킨다.
+    expect(ROLE_REQUEST_RETRY_FAILURE_MESSAGE).not.toContain(
+      '요청 상태는 반려 그대로',
+    );
     expect(ROLE_REQUEST_RETRY_FAILURE_MESSAGE).toContain(
-      '요청 상태는 반려 그대로이니',
+      '‘상태 새로고침’으로 지금 상태를 확인',
     );
     expect(ROLE_REQUEST_RETRY_FAILURE_MESSAGE).toContain(
       '‘다시 승인 요청하기’를 눌러 주세요',
