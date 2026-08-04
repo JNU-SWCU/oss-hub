@@ -295,6 +295,7 @@ const overviewBase: ProgramOverview = {
   viewerDocumentsCompleted: null,
   viewerDocumentsTotal: null,
   fullySubmittedParticipantCount: null,
+  milestoneDocuments: [],
 };
 
 describe('ProgramFactBar', () => {
