@@ -12,6 +12,10 @@ export enum ApplicationsErrorCode {
   PROGRAM_NOT_FOUND = 'APP_009',
   APPLICATION_PERIOD_CLOSED = 'APP_010',
   DUPLICATE_APPLICATION = 'APP_011',
+  /** OWN 연결인데 repositoryUrl이 없거나 https URL이 아닐 때. */
+  OWN_REPOSITORY_URL_REQUIRED = 'APP_012',
+  /** 프로비저닝이 완료된 승인은 되돌릴 수 없다. */
+  APPLICATION_REVERT_BLOCKED = 'APP_013',
   TEAM_MEMBERSHIP_REQUIRED = 'APP_014',
   INVALID_ANSWERS = 'APP_015',
   TEMPLATE_VERSION_MISMATCH = 'APP_016',
@@ -20,6 +24,8 @@ export enum ApplicationsErrorCode {
   STAFF_LIST_ONLY = 'APP_018',
   TEAM_MIN_SIZE_NOT_MET = 'APP_019',
   PROGRAM_ARCHIVED = 'APP_020',
+  /** SUBMITTED 등 판정 전이 아닌 상태에 REVERT를 시도. */
+  APPLICATION_REVERT_INVALID_STATUS = 'APP_021',
 }
 
 export const APPLICATIONS_ERROR_CODES: Record<
@@ -82,6 +88,16 @@ export const APPLICATIONS_ERROR_CODES: Record<
     status: 409,
     message: '이미 제출한 신청이 있습니다.',
   },
+  [ApplicationsErrorCode.OWN_REPOSITORY_URL_REQUIRED]: {
+    code: ApplicationsErrorCode.OWN_REPOSITORY_URL_REQUIRED,
+    status: 400,
+    message: '자체 저장소 연결에는 유효한 https repositoryUrl이 필요합니다.',
+  },
+  [ApplicationsErrorCode.APPLICATION_REVERT_BLOCKED]: {
+    code: ApplicationsErrorCode.APPLICATION_REVERT_BLOCKED,
+    status: 409,
+    message: '저장소 프로비저닝이 완료된 승인은 되돌릴 수 없습니다.',
+  },
   [ApplicationsErrorCode.TEAM_MEMBERSHIP_REQUIRED]: {
     code: ApplicationsErrorCode.TEAM_MEMBERSHIP_REQUIRED,
     status: 403,
@@ -116,5 +132,10 @@ export const APPLICATIONS_ERROR_CODES: Record<
     code: ApplicationsErrorCode.PROGRAM_ARCHIVED,
     status: 422,
     message: '내린 프로그램에는 신청할 수 없습니다.',
+  },
+  [ApplicationsErrorCode.APPLICATION_REVERT_INVALID_STATUS]: {
+    code: ApplicationsErrorCode.APPLICATION_REVERT_INVALID_STATUS,
+    status: 409,
+    message: '판정된 신청만 되돌릴 수 있습니다.',
   },
 };

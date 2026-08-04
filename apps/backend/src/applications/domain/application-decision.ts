@@ -7,6 +7,7 @@ import type {
 export const APPLICATION_DECISION_ACTIONS = {
   APPROVE: 'APPROVE',
   REJECT: 'REJECT',
+  REVERT: 'REVERT',
 } as const;
 
 export type ApplicationDecisionAction =
@@ -14,7 +15,8 @@ export type ApplicationDecisionAction =
   | {
       readonly action: typeof APPLICATION_DECISION_ACTIONS.REJECT;
       readonly reason: string;
-    };
+    }
+  | { readonly action: typeof APPLICATION_DECISION_ACTIONS.REVERT };
 
 export interface ApplicationDecisionTarget {
   readonly id: string;
@@ -25,6 +27,8 @@ export interface ApplicationDecisionTarget {
   readonly collaboratorGithubLogins: readonly string[];
   readonly repositoryConnectionMode: RepositoryConnectionMode;
   readonly repositoryUrl: string | null;
+  readonly processedById: string | null;
+  readonly processedAt: Date | null;
 }
 
 export interface ApplicationTransition {
@@ -32,8 +36,11 @@ export interface ApplicationTransition {
   readonly expectedStatus: ApplicationStatus;
   readonly nextStatus: ApplicationStatus;
   readonly rejectionReason: string | null;
-  readonly processedById: string;
-  readonly processedAt: Date;
+  /**
+   * 승인·반려는 actor/시각을 기록한다. 되돌리기는 감사 추적을 보존하려고
+   * `preserve`로 두어 `processedById`/`processedAt`을 덮어쓰지 않는다.
+   */
+  readonly processedBy: { readonly id: string; readonly at: Date } | 'preserve';
 }
 
 export interface RepositoryProvisionEventInput {
@@ -49,6 +56,11 @@ export interface RepositoryProvisionEventInput {
 
 export interface RepositoryProvisionEvent {
   readonly id: string;
+}
+
+export interface RepositoryProvisionJobSnapshot {
+  readonly status: RepositoryProvisionJobStatus;
+  readonly repositoryId: string | null;
 }
 
 export type ApplicationDecisionResult =
@@ -67,4 +79,9 @@ export type ApplicationDecisionResult =
       readonly applicationId: string;
       readonly status: ApplicationStatus;
       readonly rejectionReason: string;
+    }
+  | {
+      readonly kind: 'REVERTED';
+      readonly applicationId: string;
+      readonly status: ApplicationStatus;
     };

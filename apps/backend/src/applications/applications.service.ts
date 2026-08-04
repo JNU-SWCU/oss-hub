@@ -1,6 +1,7 @@
 import {
   ApplicationStatus,
   ProgramLifecycle,
+  RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
 import { Injectable, Logger } from '@nestjs/common';
@@ -33,6 +34,8 @@ import {
 import type {
   ApplicationDecisionAction,
   ApplicationDecisionResult,
+  ApplicationDecisionTarget,
+  ApplicationTransition,
 } from './domain/application-decision';
 import { APPLICATION_DECISION_ACTIONS } from './domain/application-decision';
 import type { CreateApplicationInput } from './domain/create-application';
@@ -40,13 +43,25 @@ import type { CreateApplicationInput } from './domain/create-application';
 type ApplicationDecisionPlan =
   | {
       readonly kind: 'APPROVE';
-      readonly status: typeof ApplicationStatus.APPROVED;
+      readonly expectedStatus: typeof ApplicationStatus.SUBMITTED;
+      readonly nextStatus: typeof ApplicationStatus.APPROVED;
       readonly rejectionReason: null;
+      readonly processedBy: { readonly id: string; readonly at: Date };
     }
   | {
       readonly kind: 'REJECT';
-      readonly status: typeof ApplicationStatus.REJECTED;
+      readonly expectedStatus: typeof ApplicationStatus.SUBMITTED;
+      readonly nextStatus: typeof ApplicationStatus.REJECTED;
       readonly rejectionReason: string;
+      readonly processedBy: { readonly id: string; readonly at: Date };
+    }
+  | {
+      readonly kind: 'REVERT';
+      readonly expectedStatus:
+        typeof ApplicationStatus.APPROVED | typeof ApplicationStatus.REJECTED;
+      readonly nextStatus: typeof ApplicationStatus.SUBMITTED;
+      readonly rejectionReason: null;
+      readonly processedBy: 'preserve';
     };
 
 interface ApplicationStatusConflictExtensions extends ProblemDetailExtensions {
@@ -62,7 +77,31 @@ interface TeamMinimumExtensions extends ProblemDetailExtensions {
   readonly teamMinSize: number;
 }
 
+interface RevertBlockedExtensions extends ProblemDetailExtensions {
+  readonly revertBlockedReason: string;
+  readonly latestStatus: ApplicationStatus;
+}
+
 const JOIN_CODE_ATTEMPTS = 5;
+
+/**
+ * 프로비저닝 "완료" = RepositoryProvisionJob.status === SUCCEEDED.
+ * FAILED_* 는 미완료(재시도/최종실패)로 보고 되돌리기를 허용한다.
+ * Repository 레코드 존재만으로는 판정하지 않는다 — job이 SUCCEEDED일 때만
+ * worker가 repositoryId를 붙이지만, 잠금의 정본은 job status다.
+ */
+function isProvisioningCompleted(
+  status: RepositoryProvisionJobStatus | undefined,
+): boolean {
+  return status === RepositoryProvisionJobStatus.SUCCEEDED;
+}
+
+function isHttpsUrl(value: string): boolean {
+  if (value.length === 0 || !URL.canParse(value)) {
+    return false;
+  }
+  return new URL(value).protocol === 'https:';
+}
 
 @Injectable()
 export class ApplicationsService {
@@ -228,49 +267,24 @@ export class ApplicationsService {
             ],
           );
         }
-        if (application.status !== ApplicationStatus.SUBMITTED) {
-          const extensions: ApplicationStatusConflictExtensions = {
-            latestStatus: application.status,
-          };
-          throw new DomainException(
-            APPLICATIONS_ERROR_CODES[
-              ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED
-            ],
-            extensions,
-          );
-        }
-
-        let plan: ApplicationDecisionPlan;
-        switch (action.action) {
-          case APPLICATION_DECISION_ACTIONS.APPROVE:
-            plan = {
-              kind: 'APPROVE',
-              status: ApplicationStatus.APPROVED,
-              rejectionReason: null,
-            };
-            break;
-          case APPLICATION_DECISION_ACTIONS.REJECT:
-            plan = {
-              kind: 'REJECT',
-              status: ApplicationStatus.REJECTED,
-              rejectionReason: action.reason,
-            };
-            break;
-          default: {
-            const exhaustiveAction: never = action;
-            return exhaustiveAction;
-          }
-        }
 
         const processedAt = new Date();
-        const transitioned = await store.transitionApplication({
-          applicationId,
-          expectedStatus: ApplicationStatus.SUBMITTED,
-          nextStatus: plan.status,
-          rejectionReason: plan.rejectionReason,
-          processedById: actorId,
+        const plan = await this.resolveDecisionPlan({
+          application,
+          action,
+          actorId,
           processedAt,
+          findProvisionJob: (id) => store.findRepositoryProvisionJob(id),
         });
+
+        const transition: ApplicationTransition = {
+          applicationId,
+          expectedStatus: plan.expectedStatus,
+          nextStatus: plan.nextStatus,
+          rejectionReason: plan.rejectionReason,
+          processedBy: plan.processedBy,
+        };
+        const transitioned = await store.transitionApplication(transition);
         if (!transitioned) {
           const latest = await store.findApplicationById(applicationId);
           if (!latest) {
@@ -287,8 +301,8 @@ export class ApplicationsService {
           );
         }
 
-        // #547 — 승인·거절은 actor가 명확한 중요 조작이다. 전이와 같은 트랜잭션에서
-        // 기록해, 판정만 커밋되고 감사 기록이 빠지는 상태를 만들지 않는다.
+        // #547 — 승인·거절·되돌리기는 actor가 명확한 중요 조작이다. 전이와 같은
+        // 트랜잭션에서 기록해, 판정만 커밋되고 감사 기록이 빠지는 상태를 만들지 않는다.
         // ⚠ 반려 사유 원문(`plan.rejectionReason`)은 여기 넘기지 않는다. 사유는 이미
         // `Application.rejectionReason`에 남고, 감사 원장은 append-only 트리거로
         // UPDATE·DELETE가 막혀 있어 한 번 담기면 지울 수 없다. `GET /audit-logs`가
@@ -296,15 +310,12 @@ export class ApplicationsService {
         await this.auditLog.record(
           {
             actorGithubId,
-            action:
-              plan.kind === 'APPROVE'
-                ? APPLICATION_DECISION_AUDIT_ACTIONS.APPLICATION_APPROVED
-                : APPLICATION_DECISION_AUDIT_ACTIONS.APPLICATION_REJECTED,
+            action: this.auditActionFor(plan.kind),
             targetType: 'APPLICATION',
             targetId: applicationId,
             metadata: createApplicationDecisionAuditMetadata({
               before: { status: application.status },
-              after: { status: plan.status },
+              after: { status: plan.nextStatus },
             }),
           },
           store.auditLogWriter,
@@ -315,15 +326,21 @@ export class ApplicationsService {
             return {
               kind: 'REJECTED',
               applicationId,
-              status: plan.status,
+              status: plan.nextStatus,
               rejectionReason: plan.rejectionReason,
+            };
+          case 'REVERT':
+            return {
+              kind: 'REVERTED',
+              applicationId,
+              status: plan.nextStatus,
             };
           case 'APPROVE': {
             if (!application.repositoryProvisioningEnabled) {
               return {
                 kind: 'APPROVED',
                 applicationId,
-                status: plan.status,
+                status: plan.nextStatus,
                 repositoryProvisioning: {
                   enabled: false,
                   eventId: null,
@@ -331,6 +348,31 @@ export class ApplicationsService {
                 },
               };
             }
+
+            // 멱등키 `repository-provision:${applicationId}` 충돌이 구조적으로 불가능한 이유:
+            // 승인 되돌리기는 프로비저닝이 SUCCEEDED가 아닐 때만 허용된다. SUCCEEDED면
+            // REVERT가 409로 잠기므로 APPROVED→SUBMITTED→재승인 경로 자체가 열리지 않는다.
+            // 미완료(PENDING/PROCESSING/FAILED_*) 상태에서 되돌린 뒤 재승인하면 같은
+            // 멱등키의 기존 outbox 이벤트가 이미 있을 수 있으므로, 새 이벤트를 만들지 않고
+            // 기존 eventId를 재사용한다. 따라서 P2002 unique 충돌 분기는 재승인 정상 경로에서
+            // 발생하지 않는다(동시 이중 승인 CAS는 기존 APPLICATION_ALREADY_DECIDED로 막힘).
+            const existingEvent =
+              await store.findRepositoryProvisionEvent(idempotencyKey);
+            if (existingEvent) {
+              const job = await store.findRepositoryProvisionJob(applicationId);
+              return {
+                kind: 'APPROVED',
+                applicationId,
+                status: plan.nextStatus,
+                repositoryProvisioning: {
+                  enabled: true,
+                  eventId: existingEvent.id,
+                  jobStatus:
+                    job?.status ?? RepositoryProvisionJobStatus.PENDING,
+                },
+              };
+            }
+
             const event = await store.createRepositoryProvisionEvent({
               applicationId,
               programId: application.programId,
@@ -344,7 +386,7 @@ export class ApplicationsService {
             return {
               kind: 'APPROVED',
               applicationId,
-              status: plan.status,
+              status: plan.nextStatus,
               repositoryProvisioning: {
                 enabled: true,
                 eventId: event.id,
@@ -386,6 +428,145 @@ export class ApplicationsService {
           ApplicationsErrorCode.DECISION_TRANSACTION_FAILED
         ],
       );
+    }
+  }
+
+  private async resolveDecisionPlan(input: {
+    readonly application: ApplicationDecisionTarget;
+    readonly action: ApplicationDecisionAction;
+    readonly actorId: string;
+    readonly processedAt: Date;
+    readonly findProvisionJob: (
+      applicationId: string,
+    ) => Promise<{ status: RepositoryProvisionJobStatus } | null>;
+  }): Promise<ApplicationDecisionPlan> {
+    const { application, action, actorId, processedAt } = input;
+
+    switch (action.action) {
+      case APPLICATION_DECISION_ACTIONS.APPROVE: {
+        // D4 가드 ①: 이미 APPROVED면 중복 승인 409 (기존 ALREADY_DECIDED 재사용).
+        if (application.status !== ApplicationStatus.SUBMITTED) {
+          const extensions: ApplicationStatusConflictExtensions = {
+            latestStatus: application.status,
+          };
+          throw new DomainException(
+            APPLICATIONS_ERROR_CODES[
+              ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED
+            ],
+            extensions,
+          );
+        }
+        // D4 가드 ②: OWN인데 repositoryUrl 없거나 https가 아니면 400.
+        if (
+          application.repositoryConnectionMode ===
+            RepositoryConnectionMode.OWN &&
+          (application.repositoryUrl === null ||
+            !isHttpsUrl(application.repositoryUrl))
+        ) {
+          throw this.error(ApplicationsErrorCode.OWN_REPOSITORY_URL_REQUIRED);
+        }
+        return {
+          kind: 'APPROVE',
+          expectedStatus: ApplicationStatus.SUBMITTED,
+          nextStatus: ApplicationStatus.APPROVED,
+          rejectionReason: null,
+          processedBy: { id: actorId, at: processedAt },
+        };
+      }
+      case APPLICATION_DECISION_ACTIONS.REJECT: {
+        if (application.status !== ApplicationStatus.SUBMITTED) {
+          const extensions: ApplicationStatusConflictExtensions = {
+            latestStatus: application.status,
+          };
+          throw new DomainException(
+            APPLICATIONS_ERROR_CODES[
+              ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED
+            ],
+            extensions,
+          );
+        }
+        return {
+          kind: 'REJECT',
+          expectedStatus: ApplicationStatus.SUBMITTED,
+          nextStatus: ApplicationStatus.REJECTED,
+          rejectionReason: action.reason,
+          processedBy: { id: actorId, at: processedAt },
+        };
+      }
+      case APPLICATION_DECISION_ACTIONS.REVERT: {
+        if (application.status === ApplicationStatus.SUBMITTED) {
+          const extensions: ApplicationStatusConflictExtensions = {
+            latestStatus: application.status,
+          };
+          throw new DomainException(
+            APPLICATIONS_ERROR_CODES[
+              ApplicationsErrorCode.APPLICATION_REVERT_INVALID_STATUS
+            ],
+            extensions,
+          );
+        }
+        if (
+          application.status !== ApplicationStatus.APPROVED &&
+          application.status !== ApplicationStatus.REJECTED
+        ) {
+          const extensions: ApplicationStatusConflictExtensions = {
+            latestStatus: application.status,
+          };
+          throw new DomainException(
+            APPLICATIONS_ERROR_CODES[
+              ApplicationsErrorCode.APPLICATION_REVERT_INVALID_STATUS
+            ],
+            extensions,
+          );
+        }
+
+        // D4 가드 ③: 완료된 프로비저닝의 승인 되돌리기 409 + revertBlockedReason.
+        if (application.status === ApplicationStatus.APPROVED) {
+          const job = await input.findProvisionJob(application.id);
+          if (isProvisioningCompleted(job?.status)) {
+            const extensions: RevertBlockedExtensions = {
+              latestStatus: application.status,
+              revertBlockedReason:
+                'repository provision already succeeded; undo is locked to protect the provisioned repository',
+            };
+            throw new DomainException(
+              APPLICATIONS_ERROR_CODES[
+                ApplicationsErrorCode.APPLICATION_REVERT_BLOCKED
+              ],
+              extensions,
+            );
+          }
+        }
+
+        return {
+          kind: 'REVERT',
+          expectedStatus: application.status,
+          nextStatus: ApplicationStatus.SUBMITTED,
+          rejectionReason: null,
+          processedBy: 'preserve',
+        };
+      }
+      default: {
+        const exhaustiveAction: never = action;
+        return exhaustiveAction;
+      }
+    }
+  }
+
+  private auditActionFor(
+    kind: ApplicationDecisionPlan['kind'],
+  ): (typeof APPLICATION_DECISION_AUDIT_ACTIONS)[keyof typeof APPLICATION_DECISION_AUDIT_ACTIONS] {
+    switch (kind) {
+      case 'APPROVE':
+        return APPLICATION_DECISION_AUDIT_ACTIONS.APPLICATION_APPROVED;
+      case 'REJECT':
+        return APPLICATION_DECISION_AUDIT_ACTIONS.APPLICATION_REJECTED;
+      case 'REVERT':
+        return APPLICATION_DECISION_AUDIT_ACTIONS.APPLICATION_REVERTED;
+      default: {
+        const exhaustiveKind: never = kind;
+        return exhaustiveKind;
+      }
     }
   }
 

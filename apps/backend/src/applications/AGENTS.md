@@ -30,8 +30,8 @@
 ## For AI Agents
 
 - 두 guard는 같은 STAFF/ADMIN 권한을 검사하지만 실패 시 노출 문구가 다르다(`APP_004` vs `APP_018`) — 새 엔드포인트를 추가할 때 판정 성격이면 `ApplicationsStaffGuard`, 조회 성격이면 `ApplicationsStaffListGuard`를 쓴다.
-- `decide`는 중복 provision 이벤트의 기존 `eventId`를 조회해 `REPOSITORY_EVENT_ALREADY_EXISTS` `DomainException` extension에 담는다.
-- 이 경로는 성공 응답이 아니며 같은 idempotency key로 새 이벤트를 만들지 않는다.
+- `decide`의 승인은 멱등이다 — 같은 idempotency key의 provision 이벤트가 이미 있으면 충돌로 던지지 않고 기존 `eventId`를 재사용한다.
+- 되돌리기(`REVERT`) 후 재승인이 가능해야 하므로 이 재사용이 필요하다. 같은 키로 새 이벤트를 만들지 않으니 저장소가 두 번 만들어지지 않는다.
 - 신청 생성은 항상 같은 트랜잭션에서 1인 팀(leader=신청자)을 만든다. 선택적 `teamName`이 없으면 신청자 표시명 기본값을 쓴다. `joinCodeDigest`는 `common/join-code-digest` + `program-teams`와 동일 발급 규칙을 applications 계층에서 재현한다(그 함수는 비export).
 
 ## Dependencies
