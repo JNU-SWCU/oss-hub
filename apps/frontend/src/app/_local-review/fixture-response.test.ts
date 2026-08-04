@@ -513,6 +513,18 @@ describe('local review fixture responses', () => {
     expect(all.length).toBeGreaterThanOrEqual(recruiting.length);
   });
 
+  it('최신 프로그램 상태 집계는 다섯 키를 모두 제공한다', () => {
+    const counts = jsonBody(publicGet('student', 'programs/status-counts'));
+
+    expect(counts).toMatchObject({
+      all: 3,
+      recruiting: expect.any(Number),
+      in_progress: expect.any(Number),
+      upcoming: expect.any(Number),
+      ended: expect.any(Number),
+    });
+  });
+
   it('학생 신청 상태는 검색과 페이지네이션에 관계없이 프로그램 ID에 고정된다', () => {
     // Given / When
     const applied = jsonBody(
