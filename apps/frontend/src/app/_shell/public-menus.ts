@@ -1,10 +1,8 @@
 import type { NavItem } from '@/components';
 
 /**
- * 공개 화면 메뉴 — 상단 NavBar 단일 원본(#513).
- * 랜딩·업무 화면이 같은 `ShellNav`로 이 목록을 읽는다.
- * 역할 메뉴는 왼쪽 “내 상황” 사이드바(`role-menus.ts`) 몫이다.
- * `/`는 브랜드 링크, `/settings`는 계정 드롭다운.
+ * 상단 Nav 공개 3종 — 누구나. 4번째 "대시보드"는 `AppFrame`이 가입 완료 시 붙인다.
+ * 좌측 패널은 섹션 하위(`sidebar-menu.ts`) 전용.
  */
 export const PUBLIC_MENU: NavItem[] = [
   { label: '프로그램', href: '/programs' },

@@ -34,18 +34,15 @@ describe('공개 메뉴 단일 원본 (상단 전담)', () => {
     expect(publicHrefs).not.toContain('/settings');
   });
 
-  it('사이드바에는 아카이브·랭킹이 없다 — 상단 전담 (프로그램 상태 필터는 패널)', () => {
-    for (const role of ['STUDENT', 'STAFF', 'ADMIN'] as const) {
-      const hrefs = sidebarGroupsFor(role).flatMap((g) =>
-        g.items.map((i) => i.href),
-      );
-      expect(hrefs).not.toContain('/archive');
-      expect(hrefs).not.toContain('/ranking');
-      // 프로그램 목록 입구·status 필터는 사이드 패널에 있다
-      expect(hrefs.some((h) => h === '/programs' || h.startsWith('/programs?'))).toBe(
-        true,
-      );
-    }
+  it('프로그램 섹션 좌측에는 상태 필터만 있고 아카이브·랭킹 href는 없다', () => {
+    const hrefs = sidebarGroupsFor('programs', 'STUDENT').flatMap((g) =>
+      g.items.map((i) => i.href),
+    );
+    expect(hrefs.some((h) => h === '/programs' || h.startsWith('/programs?'))).toBe(
+      true,
+    );
+    expect(hrefs).not.toContain('/archive');
+    expect(hrefs).not.toContain('/ranking');
   });
 
   it('`/`는 브랜드 링크로만 남는다', () => {

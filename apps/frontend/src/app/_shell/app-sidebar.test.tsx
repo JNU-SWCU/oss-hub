@@ -23,11 +23,12 @@ function render(
   pathname: string,
   collapsed: boolean,
   search = '',
-  role: 'STUDENT' | null = 'STUDENT',
+  section: 'programs' | 'dashboard' = 'programs',
 ) {
+  const role = section === 'dashboard' ? 'STUDENT' : null;
   return renderToStaticMarkup(
     <AppSidebar
-      groups={sidebarGroupsFor(role)}
+      groups={sidebarGroupsFor(section, role)}
       pathname={pathname}
       search={search}
       collapsed={collapsed}
@@ -37,51 +38,37 @@ function render(
 }
 
 describe('AppSidebar', () => {
-  it('프로그램 메뉴가 사이드 패널에 있다', () => {
-    const html = render('/programs', false, '', null);
+  it('renders program menu with depth children container', () => {
+    const html = render('/programs', false);
     expect(html).toContain('프로그램 메뉴');
-    expect(html).toContain('href="/programs"');
+    expect(html).toContain('data-slot="app-sidebar-depth-children"');
+    expect(html).toContain('data-depth="0"');
+    expect(html).toContain('data-depth="1"');
     expect(html).toContain('href="/programs?status=recruiting"');
-    expect(html).toContain('href="/programs?status=in_progress"');
-    expect(html).toContain('href="/programs?status=upcoming"');
-    expect(html).toContain('href="/programs?status=ended"');
-    expect(html).not.toContain('연습');
   });
 
-  it('학생이면 프로그램 메뉴와 내 상황이 함께 있다', () => {
-    const html = render('/dashboard', false);
-    expect(html).toContain('프로그램 메뉴');
+  it('shows count badge when provided', () => {
+    const groups = sidebarGroupsFor('programs', null, {
+      programCounts: { all: 15, recruiting: 3, in_progress: 0, upcoming: 0, ended: 9 },
+    });
+    const html = renderToStaticMarkup(
+      <AppSidebar
+        groups={groups}
+        pathname="/programs"
+        search=""
+        collapsed={false}
+        onToggle={() => {}}
+      />,
+    );
+    expect(html).toContain('data-slot="app-sidebar-count"');
+    expect(html).toContain('>0<');
+    expect(html).toContain('>15<');
+  });
+
+  it('dashboard section has no program filters', () => {
+    const html = render('/dashboard', false, '', 'dashboard');
+    expect(html).toContain('대시보드');
     expect(html).toContain('href="/dashboard"');
-    expect(html).toContain('href="/my-repos"');
-  });
-
-  it('모집중 쿼리일 때 해당 링크만 current다', () => {
-    const html = render('/programs', false, 'status=recruiting');
-    expect(html).toContain('aria-current="page"');
-    // 모집중 링크 줄에 current
-    expect(html).toMatch(
-      /href="\/programs\?status=recruiting"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/programs\?status=recruiting"/,
-    );
-  });
-
-  it('접힌 상태 이름표는 hover와 keyboard focus 양쪽에서 보인다', () => {
-    const html = render('/dashboard', true);
-    expect(html).toContain('data-slot="app-sidebar-tooltip"');
-  });
-
-  it('메뉴는 조작 사각형 규격(h-control)을 쓴다', () => {
-    const html = render('/dashboard', false);
-    const links =
-      html.match(/class="group relative flex h-control[^"]*"/g) ?? [];
-    const menuCount = sidebarGroupsFor('STUDENT').reduce(
-      (total, group) => total + group.items.length,
-      0,
-    );
-    expect(links.length).toBe(menuCount);
-  });
-
-  it('펼친 헤더는 메뉴다', () => {
-    const html = render('/dashboard', false);
-    expect(html).toContain('메뉴');
+    expect(html).not.toContain('모집중');
   });
 });

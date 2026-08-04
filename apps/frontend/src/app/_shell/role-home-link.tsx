@@ -94,9 +94,8 @@ export function resolveSessionEntry(
 export function SessionEntryNavLink() {
   const { status, role, isProfileComplete } = useSessionRole();
   const pathname = usePathname();
-  // 가입을 마친 사람의 역할 홈은 왼쪽 “내 상황” 사이드바에 있다.
-  // actions에 또 올리면 중복이다. 랜딩 히어로 CTA는 `resolveSessionEntry`를
-  // 직접 쓰므로 여기만 가린다.
+  // 가입 완료 시 역할 홈은 상단 "대시보드" 항목과 좌측 대시보드 섹션이 담당한다.
+  // actions에 또 올리면 중복. 랜딩 히어로 CTA는 resolveSessionEntry를 직접 쓴다.
   if (status === 'assigned' && isProfileComplete) {
     return null;
   }
