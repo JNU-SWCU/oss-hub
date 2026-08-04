@@ -1,3 +1,4 @@
+import type { ProgramCategory } from '@prisma/client';
 import type {
   PublicProjectRow,
   PublicUserIdentity,
@@ -13,6 +14,15 @@ export interface PublicProjectPageResult {
   readonly pageSize: number;
   readonly nextPageId: string | null;
 }
+
+/**
+ * 플랫폼 공개(visibility PUBLIC + publishedAt not null) 프로젝트의 분류별 개수.
+ * Collection freshness fence는 적용하지 않는다 — 목록과 동일 베이스 필터만 센다.
+ * 모든 ProgramCategory 키가 항상 존재하며 없으면 0.
+ */
+export type PublicProjectCategoryCountsResult = {
+  readonly all: number;
+} & Readonly<Record<ProgramCategory, number>>;
 
 export interface PublicProjectMetrics {
   readonly commitCount: number;

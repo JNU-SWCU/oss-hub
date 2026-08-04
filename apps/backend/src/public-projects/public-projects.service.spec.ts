@@ -43,6 +43,7 @@ function row(
 
 function serviceWith(overrides: {
   listPage?: jest.Mock;
+  countByCategory?: jest.Mock;
   findById?: jest.Mock;
   listForUser?: jest.Mock;
   findUserIdentity?: jest.Mock;
@@ -53,6 +54,8 @@ function serviceWith(overrides: {
 }) {
   const repository = {
     listPage: overrides.listPage ?? jest.fn().mockResolvedValue([]),
+    countByCategory:
+      overrides.countByCategory ?? jest.fn().mockResolvedValue([]),
     findById: overrides.findById ?? jest.fn().mockResolvedValue(null),
     listForUser: overrides.listForUser ?? jest.fn().mockResolvedValue([]),
     findUserIdentity:
@@ -71,6 +74,7 @@ function serviceWith(overrides: {
     getRepositoryMetrics: jest.fn(),
     getContributorMetrics: jest.fn(),
     getPublicRankingMetrics: jest.fn(),
+    listPublicRankingYears: jest.fn(),
     getIncrementalStatusSnapshot: jest.fn(),
     getRepositoryCumulativeMetrics:
       overrides.getRepositoryCumulativeMetrics ??
@@ -131,10 +135,19 @@ describe('PublicProjectsService', () => {
 
       const page = await service.findPage(undefined, pageSize);
 
-      expect(listPage).toHaveBeenCalledWith(null, pageSize + 1);
+      expect(listPage).toHaveBeenCalledWith(null, pageSize + 1, undefined);
       expect(page.items).toHaveLength(2);
       expect(page.items.map((item) => item.id)).toEqual(['a', 'b']);
       expect(page.nextPageId).not.toBeNull();
+    });
+
+    it('category를 repository.listPage에 전달한다', async () => {
+      const listPage = jest.fn().mockResolvedValue([]);
+      const { service } = serviceWith({ listPage });
+
+      await service.findPage(undefined, 12, 'CAPSTONE');
+
+      expect(listPage).toHaveBeenCalledWith(null, 13, 'CAPSTONE');
     });
 
     it('lookahead 행이 없으면(더 볼 페이지 없음) nextPageId가 null이다', async () => {
@@ -194,7 +207,7 @@ describe('PublicProjectsService', () => {
 
       await service.findPage(pageId, 10);
 
-      expect(listPage).toHaveBeenCalledWith(cursor, 11);
+      expect(listPage).toHaveBeenCalledWith(cursor, 11, undefined);
     });
 
     it('잘못된 pageId는 INVALID_PAGE_ID DomainException을 던진다', async () => {
@@ -203,6 +216,27 @@ describe('PublicProjectsService', () => {
       await expect(service.findPage('not-a-valid-cursor', 10)).rejects.toThrow(
         DomainException,
       );
+    });
+  });
+
+  describe('categoryCounts', () => {
+    it('없는 분류는 0으로 채우고 all은 합계다', async () => {
+      const countByCategory = jest.fn().mockResolvedValue([
+        { category: 'BASIC', count: 2 },
+        { category: 'CAPSTONE', count: 1 },
+      ]);
+      const { service } = serviceWith({ countByCategory });
+
+      await expect(service.categoryCounts()).resolves.toEqual({
+        all: 3,
+        BASIC: 2,
+        SW_VALUE_SPREAD: 0,
+        OSS_CONTEST: 0,
+        CAPSTONE: 1,
+        SW_CONVERGENCE: 0,
+        GLOBAL_MAKERTHON: 0,
+        CORPORATE_INTERNSHIP: 0,
+      });
     });
   });
 

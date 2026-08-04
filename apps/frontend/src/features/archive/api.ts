@@ -3,6 +3,7 @@ import {
   ARCHIVE_CATEGORY_LABELS,
   type ArchiveApplicationMode,
   type ArchiveCategory,
+  type ArchiveCategoryCounts,
   type ArchiveContributor,
   type ArchiveDetail,
   type ArchiveListItem,
@@ -273,13 +274,48 @@ export function parseArchiveDetail(value: unknown): ArchiveDetail {
 export async function loadArchivePage(input: {
   readonly pageId: string | null;
   readonly pageSize: number;
+  readonly category?: ArchiveCategory;
 }): Promise<ArchivePage> {
   const query = new URLSearchParams({ pageSize: String(input.pageSize) });
   if (input.pageId !== null) query.set('pageId', input.pageId);
+  if (input.category !== undefined) query.set('category', input.category);
 
   try {
     return parseArchivePage(
       await apiClient<unknown>(`projects?${query.toString()}`),
+    );
+  } catch {
+    throw new ArchiveLoadError();
+  }
+}
+
+const CATEGORY_COUNT_KEYS = [
+  'all',
+  ...Object.keys(ARCHIVE_CATEGORY_LABELS),
+] as const;
+
+export function parseArchiveCategoryCounts(
+  value: unknown,
+): ArchiveCategoryCounts {
+  if (!isRecord(value) || !hasExactKeys(value, CATEGORY_COUNT_KEYS)) {
+    return invalidResponse();
+  }
+  return {
+    all: nonNegativeInteger(value.all),
+    BASIC: nonNegativeInteger(value.BASIC),
+    SW_VALUE_SPREAD: nonNegativeInteger(value.SW_VALUE_SPREAD),
+    OSS_CONTEST: nonNegativeInteger(value.OSS_CONTEST),
+    CAPSTONE: nonNegativeInteger(value.CAPSTONE),
+    SW_CONVERGENCE: nonNegativeInteger(value.SW_CONVERGENCE),
+    GLOBAL_MAKERTHON: nonNegativeInteger(value.GLOBAL_MAKERTHON),
+    CORPORATE_INTERNSHIP: nonNegativeInteger(value.CORPORATE_INTERNSHIP),
+  };
+}
+
+export async function loadArchiveCategoryCounts(): Promise<ArchiveCategoryCounts> {
+  try {
+    return parseArchiveCategoryCounts(
+      await apiClient<unknown>('projects/category-counts'),
     );
   } catch {
     throw new ArchiveLoadError();
