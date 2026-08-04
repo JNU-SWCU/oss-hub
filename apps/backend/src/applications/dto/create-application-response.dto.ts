@@ -1,4 +1,7 @@
-import type { ApplicationStatus } from '@prisma/client';
+import type {
+  ApplicationStatus,
+  RepositoryConnectionMode,
+} from '@prisma/client';
 import type { CreatedApplication } from '../applications.repository';
 
 export class CreateApplicationResponseDto {
@@ -8,6 +11,8 @@ export class CreateApplicationResponseDto {
   readonly teamId: string | null;
   readonly submittedAt: string;
   readonly isRepositoryPublicationPlanned: boolean;
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  readonly repositoryUrl: string | null;
 
   private constructor(application: CreatedApplication) {
     this.id = application.id;
@@ -17,6 +22,8 @@ export class CreateApplicationResponseDto {
     this.submittedAt = application.submittedAt.toISOString();
     this.isRepositoryPublicationPlanned =
       application.isRepositoryPublicationPlanned;
+    this.repositoryConnectionMode = application.repositoryConnectionMode;
+    this.repositoryUrl = application.repositoryUrl;
   }
 
   static from(application: CreatedApplication): CreateApplicationResponseDto {

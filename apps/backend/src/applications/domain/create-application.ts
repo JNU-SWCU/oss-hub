@@ -1,3 +1,5 @@
+import type { RepositoryConnectionMode } from '@prisma/client';
+
 export type CreateApplicationAnswersInput = Readonly<Record<string, unknown>>;
 
 export interface CreateApplicationInput {
@@ -5,4 +7,6 @@ export interface CreateApplicationInput {
   readonly teamId: string | null;
   readonly applicationTemplateVersion: number;
   readonly isRepositoryPublicationPlanned: boolean;
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  readonly repositoryUrl: string | null;
 }

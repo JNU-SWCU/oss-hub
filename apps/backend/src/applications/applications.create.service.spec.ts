@@ -2,6 +2,7 @@ import {
   ApplicationStatus,
   ProgramCategory,
   ProgramLifecycle,
+  RepositoryConnectionMode,
 } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import {
@@ -44,6 +45,8 @@ const CREATED: CreatedApplication = {
   teamId: null,
   submittedAt: NOW,
   isRepositoryPublicationPlanned: true,
+  repositoryConnectionMode: RepositoryConnectionMode.NEW,
+  repositoryUrl: null,
 };
 
 function buildService(overrides: {
@@ -119,6 +122,8 @@ describe('ApplicationsService.create', () => {
           teamId: null,
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: false,
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          repositoryUrl: null,
         },
         NOW,
       ),
@@ -138,6 +143,8 @@ describe('ApplicationsService.create', () => {
         teamId: null,
         applicationTemplateVersion: 1,
         isRepositoryPublicationPlanned: true,
+        repositoryConnectionMode: RepositoryConnectionMode.NEW,
+        repositoryUrl: null,
       },
       NOW,
     );
@@ -158,6 +165,8 @@ describe('ApplicationsService.create', () => {
       },
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: true,
+      repositoryConnectionMode: RepositoryConnectionMode.NEW,
+      repositoryUrl: null,
     });
   });
 
@@ -174,6 +183,8 @@ describe('ApplicationsService.create', () => {
         teamId: null,
         applicationTemplateVersion: 1,
         isRepositoryPublicationPlanned: true,
+        repositoryConnectionMode: RepositoryConnectionMode.NEW,
+        repositoryUrl: null,
       },
       NOW,
     );
@@ -197,6 +208,8 @@ describe('ApplicationsService.create', () => {
           teamId: null,
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: true,
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          repositoryUrl: null,
         },
         NOW,
       ),
@@ -217,6 +230,8 @@ describe('ApplicationsService.create', () => {
           teamId: null,
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: true,
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          repositoryUrl: null,
         },
         NOW,
       ),
@@ -237,6 +252,8 @@ describe('ApplicationsService.create', () => {
           teamId: null,
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: true,
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          repositoryUrl: null,
         },
         new Date('2026-08-01T00:00:00.000Z'),
       ),
@@ -257,6 +274,8 @@ describe('ApplicationsService.create', () => {
           teamId: null,
           applicationTemplateVersion: 2,
           isRepositoryPublicationPlanned: true,
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          repositoryUrl: null,
         },
         NOW,
       ),
@@ -277,6 +296,8 @@ describe('ApplicationsService.create', () => {
           teamId: null,
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: true,
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          repositoryUrl: null,
         },
         NOW,
       ),
@@ -293,6 +314,8 @@ describe('ApplicationsService.create', () => {
           teamId: null,
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: true,
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          repositoryUrl: null,
         },
         NOW,
       ),
@@ -313,6 +336,8 @@ describe('ApplicationsService.create', () => {
           teamId: 'team-1',
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: true,
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          repositoryUrl: null,
         },
         NOW,
       ),
@@ -335,6 +360,8 @@ describe('ApplicationsService.create', () => {
           teamId: null,
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: true,
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          repositoryUrl: null,
         },
         NOW,
       ),
@@ -367,6 +394,8 @@ describe('ApplicationsService.create', () => {
           teamId: 'team-1',
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: true,
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          repositoryUrl: null,
         },
         NOW,
       ),
@@ -400,6 +429,8 @@ describe('ApplicationsService.create', () => {
         teamId: 'team-1',
         applicationTemplateVersion: 1,
         isRepositoryPublicationPlanned: true,
+        repositoryConnectionMode: RepositoryConnectionMode.NEW,
+        repositoryUrl: null,
       },
       NOW,
     );
@@ -428,6 +459,8 @@ describe('ApplicationsService.create', () => {
           teamId: null,
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: true,
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          repositoryUrl: null,
         },
         NOW,
       ),
@@ -450,6 +483,8 @@ describe('ApplicationsService.create', () => {
           teamId: null,
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: true,
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          repositoryUrl: null,
         },
         NOW,
       ),
@@ -464,6 +499,8 @@ describe('ApplicationsService.create', () => {
           teamId: null,
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: true,
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          repositoryUrl: null,
         },
         NOW,
       ),
@@ -496,6 +533,8 @@ describe('ApplicationsService.create', () => {
         teamId: 'team-1',
         applicationTemplateVersion: 1,
         isRepositoryPublicationPlanned: true,
+        repositoryConnectionMode: RepositoryConnectionMode.NEW,
+        repositoryUrl: null,
       },
       NOW,
     );
@@ -519,6 +558,8 @@ describe('ApplicationsService.create', () => {
         teamId: null,
         applicationTemplateVersion: 1,
         isRepositoryPublicationPlanned: false,
+        repositoryConnectionMode: RepositoryConnectionMode.NEW,
+        repositoryUrl: null,
       },
       NOW,
     );
@@ -552,6 +593,8 @@ describe('ApplicationsService.create', () => {
         teamId: 'team-1',
         applicationTemplateVersion: 1,
         isRepositoryPublicationPlanned: true,
+        repositoryConnectionMode: RepositoryConnectionMode.NEW,
+        repositoryUrl: null,
       },
       NOW,
     );
@@ -585,11 +628,62 @@ describe('ApplicationsService.create', () => {
         teamId: 'team-1',
         applicationTemplateVersion: 1,
         isRepositoryPublicationPlanned: true,
+        repositoryConnectionMode: RepositoryConnectionMode.NEW,
+        repositoryUrl: null,
       },
       NOW,
     );
 
     // Then
     expect(createApplication).toHaveBeenCalled();
+  });
+  it('OWN + repositoryUrl 을 store.createApplication 까지 그대로 전달한다', async () => {
+    const { service, createApplication } = buildService({});
+
+    await service.create(
+      GITHUB_ID,
+      PROGRAM_ID,
+      {
+        answers: { title: '제목', summary: '요약' },
+        teamId: null,
+        applicationTemplateVersion: 1,
+        isRepositoryPublicationPlanned: true,
+        repositoryConnectionMode: RepositoryConnectionMode.OWN,
+        repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
+      },
+      NOW,
+    );
+
+    expect(createApplication).toHaveBeenCalledWith(
+      expect.objectContaining({
+        repositoryConnectionMode: RepositoryConnectionMode.OWN,
+        repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
+      }),
+    );
+  });
+
+  it('구 클라이언트 정규화값(NEW + null)을 store.createApplication 까지 전달한다', async () => {
+    const { service, createApplication } = buildService({});
+
+    await service.create(
+      GITHUB_ID,
+      PROGRAM_ID,
+      {
+        answers: { title: '제목', summary: '요약' },
+        teamId: null,
+        applicationTemplateVersion: 1,
+        isRepositoryPublicationPlanned: true,
+        repositoryConnectionMode: RepositoryConnectionMode.NEW,
+        repositoryUrl: null,
+      },
+      NOW,
+    );
+
+    expect(createApplication).toHaveBeenCalledWith(
+      expect.objectContaining({
+        repositoryConnectionMode: RepositoryConnectionMode.NEW,
+        repositoryUrl: null,
+      }),
+    );
   });
 });

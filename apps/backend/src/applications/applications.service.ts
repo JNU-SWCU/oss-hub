@@ -182,6 +182,8 @@ export class ApplicationsService {
           answers: answersResult.answers,
           applicationTemplateVersion: program.applicationTemplateVersion,
           isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
+          repositoryConnectionMode: input.repositoryConnectionMode,
+          repositoryUrl: input.repositoryUrl,
         });
       });
     } catch (error) {
@@ -338,6 +340,8 @@ export class ApplicationsService {
               programId: application.programId,
               teamId: application.teamId,
               collaboratorGithubLogins: application.collaboratorGithubLogins,
+              repositoryConnectionMode: application.repositoryConnectionMode,
+              repositoryUrl: application.repositoryUrl,
               idempotencyKey,
               requestedAt: processedAt,
             });

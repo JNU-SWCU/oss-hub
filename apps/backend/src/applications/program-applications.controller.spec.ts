@@ -1,3 +1,4 @@
+import { RepositoryConnectionMode } from '@prisma/client';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { ApplicationStatus } from '@prisma/client';
 import { OriginGuard } from '../auth/origin.guard';
@@ -39,6 +40,8 @@ describe('ProgramApplicationsController', () => {
       teamId: null,
       submittedAt: new Date('2026-07-15T00:00:00.000Z'),
       isRepositoryPublicationPlanned: true,
+      repositoryConnectionMode: RepositoryConnectionMode.NEW,
+      repositoryUrl: null,
     });
     const service: Pick<ApplicationsService, 'create' | 'listForProgram'> = {
       create,
@@ -62,6 +65,8 @@ describe('ProgramApplicationsController', () => {
       teamId: null,
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: true,
+      repositoryConnectionMode: RepositoryConnectionMode.NEW,
+      repositoryUrl: null,
     });
     expect(response).toEqual({
       id: 'synthetic-application',
@@ -70,6 +75,8 @@ describe('ProgramApplicationsController', () => {
       teamId: null,
       submittedAt: '2026-07-15T00:00:00.000Z',
       isRepositoryPublicationPlanned: true,
+      repositoryConnectionMode: RepositoryConnectionMode.NEW,
+      repositoryUrl: null,
     });
   });
 
@@ -81,6 +88,8 @@ describe('ProgramApplicationsController', () => {
       teamId: null,
       submittedAt: new Date('2026-07-15T00:00:00.000Z'),
       isRepositoryPublicationPlanned: true,
+      repositoryConnectionMode: RepositoryConnectionMode.NEW,
+      repositoryUrl: null,
     });
     const service: Pick<ApplicationsService, 'create' | 'listForProgram'> = {
       create,
@@ -116,6 +125,8 @@ describe('ProgramApplicationsController', () => {
       teamId: null,
       submittedAt: new Date('2026-07-15T00:00:00.000Z'),
       isRepositoryPublicationPlanned: false,
+      repositoryConnectionMode: RepositoryConnectionMode.NEW,
+      repositoryUrl: null,
     });
     const service: Pick<ApplicationsService, 'create' | 'listForProgram'> = {
       create,
@@ -127,6 +138,8 @@ describe('ProgramApplicationsController', () => {
       teamId: null,
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: false,
+      repositoryConnectionMode: RepositoryConnectionMode.NEW,
+      repositoryUrl: null,
     });
 
     const response = await controller.create(

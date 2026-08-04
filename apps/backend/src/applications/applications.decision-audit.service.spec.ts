@@ -1,4 +1,4 @@
-import { ApplicationStatus } from '@prisma/client';
+import { ApplicationStatus, RepositoryConnectionMode } from '@prisma/client';
 import type { AuditLogService } from '../audit-log/audit-log.service';
 import { APPLICATION_DECISION_ACTIONS } from './domain/application-decision';
 import type {
@@ -38,6 +38,8 @@ function createHarness(
       status: ApplicationStatus.SUBMITTED,
       collaboratorGithubLogins: [],
       repositoryProvisioningEnabled: options.provisioningEnabled,
+      repositoryConnectionMode: RepositoryConnectionMode.NEW,
+      repositoryUrl: null,
     }),
     transitionApplication,
     createRepositoryProvisionEvent,
@@ -53,7 +55,13 @@ function createHarness(
   const service = new ApplicationsService(repository, {
     record,
   } as unknown as AuditLogService);
-  return { service, record, store, transitionApplication };
+  return {
+    service,
+    record,
+    store,
+    transitionApplication,
+    createRepositoryProvisionEvent,
+  };
 }
 
 describe('ApplicationsService.decide — #547 감사 기록', () => {
@@ -158,6 +166,8 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
       status: ApplicationStatus.APPROVED,
       collaboratorGithubLogins: [],
       repositoryProvisioningEnabled: false,
+      repositoryConnectionMode: RepositoryConnectionMode.NEW,
+      repositoryUrl: null,
     });
 
     await expect(
@@ -180,5 +190,32 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
     ).rejects.toBeDefined();
 
     expect(record).not.toHaveBeenCalled();
+  });
+  it('OWN이면 입력 URL이 프로비저닝 이벤트에 실린다', async () => {
+    const { service, store, createRepositoryProvisionEvent } = createHarness({
+      provisioningEnabled: true,
+    });
+    (store.findApplicationById as jest.Mock).mockResolvedValue({
+      id: APPLICATION_ID,
+      programId: 'synthetic-program',
+      teamId: null,
+      status: ApplicationStatus.SUBMITTED,
+      collaboratorGithubLogins: ['synthetic-login'],
+      repositoryProvisioningEnabled: true,
+      repositoryConnectionMode: RepositoryConnectionMode.OWN,
+      repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
+    });
+
+    await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+      action: APPLICATION_DECISION_ACTIONS.APPROVE,
+    });
+
+    expect(createRepositoryProvisionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        applicationId: APPLICATION_ID,
+        repositoryConnectionMode: RepositoryConnectionMode.OWN,
+        repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
+      }),
+    );
   });
 });

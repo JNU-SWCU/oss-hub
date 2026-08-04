@@ -4,6 +4,7 @@ import {
   ApplicationStatus,
   OutboxEventStatus,
   Prisma,
+  RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
   Role,
   ProgramLifecycle,
@@ -99,6 +100,8 @@ export interface CreateApplicationRecordInput {
   readonly answers: Prisma.InputJsonValue;
   readonly applicationTemplateVersion: number;
   readonly isRepositoryPublicationPlanned: boolean;
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  readonly repositoryUrl: string | null;
 }
 
 export interface CreatedApplication {
@@ -108,6 +111,8 @@ export interface CreatedApplication {
   readonly teamId: string | null;
   readonly submittedAt: Date;
   readonly isRepositoryPublicationPlanned: boolean;
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  readonly repositoryUrl: string | null;
 }
 
 export interface ApplicationListAnswers {
@@ -264,6 +269,8 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
             teamId: input.teamId,
             requestedAt: input.requestedAt.toISOString(),
             collaboratorGithubLogins: input.collaboratorGithubLogins,
+            repositoryConnectionMode: input.repositoryConnectionMode,
+            repositoryUrl: input.repositoryUrl,
           },
         },
       });
@@ -354,6 +361,8 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
           answers: input.answers,
           applicationTemplateVersion: input.applicationTemplateVersion,
           isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
+          repositoryConnectionMode: input.repositoryConnectionMode,
+          repositoryUrl: input.repositoryUrl,
           status: ApplicationStatus.SUBMITTED,
         },
         select: {
@@ -363,6 +372,8 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
           teamId: true,
           submittedAt: true,
           isRepositoryPublicationPlanned: true,
+          repositoryConnectionMode: true,
+          repositoryUrl: true,
         },
       });
     } catch (error) {
@@ -908,6 +919,8 @@ function toApplicationDecisionTarget(
     collaboratorGithubLogins: [
       ...new Set(githubLogins.map((login) => login.toLowerCase())),
     ].sort(),
+    repositoryConnectionMode: application.repositoryConnectionMode,
+    repositoryUrl: application.repositoryUrl,
   };
 }
 
