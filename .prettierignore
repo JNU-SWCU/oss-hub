@@ -26,6 +26,10 @@ apps/frontend/components.json
 .claude/worktrees/
 .omo/
 .playwright-mcp/
+# 화면 정합 대조용 프로토타입 로컬 작업본 — 도구 산출물이고 커밋 대상이 아니다(대조가 끝나면 폴더와 함께 이 두 줄도 지운다)
+# 한글 폴더명은 macOS(NFD)와 저장된 문자열(NFC)의 정규화가 달라 매칭에 실패하므로 ASCII 접두사 glob으로 지정한다
+OSS Hub *
+OSS Hub */**
 apps/backend/scripts/seed-staff-settings.js
 
 # design-sync 컨버터 산출물 — 도구가 생성하는 번들/타입, 손으로 포맷하지 않는다

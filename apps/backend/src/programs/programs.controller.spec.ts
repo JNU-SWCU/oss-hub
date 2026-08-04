@@ -1,12 +1,23 @@
+import { randomBytes } from 'node:crypto';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
+import { AuthConfig } from '../auth/auth.config';
 import { OriginGuard } from '../auth/origin.guard';
+import { sessionCookieName } from '../auth/cookies';
+import { issueSessionToken } from '../auth/session-token';
 import { SessionGuard } from '../auth/session.guard';
 import { ProgramActivityService } from './program-activity.service';
 import { ProgramCreationService } from './program-creation.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsController } from './programs.controller';
 import { ProgramsService } from './programs.service';
+
+const sessionSecret = new Uint8Array(randomBytes(32));
+const authConfig = { sessionSecret, useSecureCookies: true } as AuthConfig;
+
+function requestWithCookie(cookie?: string) {
+  return { headers: { cookie } };
+}
 
 const controllerMethod = (name: keyof ProgramsController): object => {
   const method: unknown = Object.getOwnPropertyDescriptor(
@@ -45,6 +56,7 @@ describe('ProgramsController read boundaries', () => {
         { provide: ProgramsService, useValue: programs },
         { provide: ProgramActivityService, useValue: activity },
         { provide: ProgramViewerService, useValue: viewers },
+        { provide: AuthConfig, useValue: authConfig },
       ],
     })
       .overrideGuard(OriginGuard)
@@ -59,6 +71,102 @@ describe('ProgramsController read boundaries', () => {
     expect(
       Reflect.getMetadata(GUARDS_METADATA, controllerMethod('list')),
     ).toBeUndefined();
+  });
+
+  it('세션 쿠키가 없으면 익명 뷰어로 목록을 조회한다', async () => {
+    const page = {
+      items: [],
+      page: 1,
+      pageSize: 20,
+      totalItems: 0,
+      totalPages: 0,
+    };
+    programs.list.mockResolvedValue(page);
+    viewers.fromGithubId.mockResolvedValue({
+      githubId: null,
+      userId: null,
+      role: null,
+    });
+    const query = {
+      toQuery: () => ({
+        page: 1,
+        pageSize: 20,
+        search: '',
+        status: 'all' as const,
+      }),
+    };
+
+    await controller.list(query as never, requestWithCookie() as never);
+
+    expect(viewers.fromGithubId).toHaveBeenCalledWith(null);
+    expect(programs.list).toHaveBeenCalledWith(
+      { page: 1, pageSize: 20, search: '', status: 'all' },
+      { githubId: null, userId: null, role: null },
+    );
+  });
+
+  it('유효한 세션 쿠키가 있으면 해석된 뷰어로 목록을 개인화한다', async () => {
+    const page = {
+      items: [],
+      page: 1,
+      pageSize: 20,
+      totalItems: 0,
+      totalPages: 0,
+    };
+    programs.list.mockResolvedValue(page);
+    const viewer = { githubId: 101n, userId: 'student-1', role: 'STUDENT' };
+    viewers.fromGithubId.mockResolvedValue(viewer);
+    const token = await issueSessionToken(sessionSecret, 101n);
+    const query = {
+      toQuery: () => ({
+        page: 1,
+        pageSize: 20,
+        search: '',
+        status: 'all' as const,
+      }),
+    };
+
+    await controller.list(
+      query as never,
+      requestWithCookie(`${sessionCookieName(true)}=${token}`) as never,
+    );
+
+    expect(viewers.fromGithubId).toHaveBeenCalledWith(101n);
+    expect(programs.list).toHaveBeenCalledWith(
+      { page: 1, pageSize: 20, search: '', status: 'all' },
+      viewer,
+    );
+  });
+
+  it('형식이 잘못된 세션 쿠키는 익명 뷰어로 수렴한다(목록은 예외를 던지지 않는다)', async () => {
+    const page = {
+      items: [],
+      page: 1,
+      pageSize: 20,
+      totalItems: 0,
+      totalPages: 0,
+    };
+    programs.list.mockResolvedValue(page);
+    viewers.fromGithubId.mockResolvedValue({
+      githubId: null,
+      userId: null,
+      role: null,
+    });
+    const query = {
+      toQuery: () => ({
+        page: 1,
+        pageSize: 20,
+        search: '',
+        status: 'all' as const,
+      }),
+    };
+
+    await controller.list(
+      query as never,
+      requestWithCookie(`${sessionCookieName(true)}=invalid-token`) as never,
+    );
+
+    expect(viewers.fromGithubId).toHaveBeenCalledWith(null);
   });
 
   it('status-counts 는 인증 없이 열려 있고 5키를 반환한다', async () => {

@@ -21,7 +21,7 @@ pnpm --filter backend prisma db seed -- --profile milestones
 NODE_ENV=<development|test|staging|preview> OSS_HUB_SEED_CONFIRMATION=NON_PRODUCTION OSS_HUB_TEAM_ACCOUNTS='<github-id-1>:<github-login-1>:ADMIN:<display-name-1>,<github-id-2>:<github-login-2>:ADMIN:<display-name-2>,<github-id-3>:<github-login-3>:ADMIN:<display-name-3>,<github-id-4>:<github-login-4>:ADMIN:<display-name-4>' pnpm --filter backend db:seed -- --profile oss-hub
 ```
 
-profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `oss-hub` · `all`.
+profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `program-overview` · `oss-hub` · `all`.
 
 - `prisma migrate reset`/`migrate dev`는 이 시드 훅을 자동 실행한다(기본값 `auth`만 돈다 — 안전한 최소).
 - `prisma migrate deploy`(예: `scripts/run-backend-integration.sh`)는 자동 시드를 실행하지 않는다.
@@ -52,6 +52,15 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `os
   `repository-public`은 `visibility: PUBLIC`이지만 `publishedAt: null`이라 공개 아카이브
   (`GET /api/v1/projects`)의 `publishedAt: { not: null }` 필터에 걸려 노출되지 않는다 — 합성
   fixture URL을 실제 저장소처럼 보이게 만들지 않기 위한 의도된 설계다.
+- `program-overview` — `seeds/program-overview.ts`: 마일스톤별 서류 항목(`MilestoneDocument`/
+  `MilestoneDocumentTemplateFile`/`MilestoneDocumentSubmission`)·프로그램 게시판(`BoardPost`/
+  `BoardComment`)·검색 초대형 팀 초대(`TeamInvitation`) 전용 합성 backbone이다. 다른 profile을
+  참조하지 않는 자체 Program(`CAPSTONE`)·팀 1개(팀장·팀원 각 1명)·초대 대상 1명으로, 마일스톤
+  7개(`#1 수강 신청 · 팀 등록` … `#7 최종 발표 · 시연`)를 만들고 `#3 프로젝트 계획서 제출`·
+  `#4 1차 중간 산출물 제출`에 각각 서류 항목 3종(필수 2 · 선택 1)을 매단다. `#3`의 서류 두 건은
+  제출 완료 예시로 `SubmissionFile`까지 채우고, 나머지는 프로토타입 스펙대로 미제출로 남긴다.
+  게시글 3건(공지 2 · 질문 1, 질문에는 답글)과 `PENDING` 팀 초대 1건도 함께 만든다. 모든 식별자·
+  이름은 합성값이다.
 - `oss-hub` — 기존 `auth` 합성 계정과 함께 `OSS_HUB_TEAM_ACCOUNTS`의 네 계정을 `ADMIN`으로 upsert하고,
   결정적 ID의 Program 2개(oss-hub 본 프로그램·oss-hub-practice 실습 프로그램)·Team 2개·
   TeamMember 8개(각 Program에 같은 네 명)·Application 2개(각 Program당 팀 신청 1건)를 만든다.
@@ -99,8 +108,8 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `os
     `public-projects.repository.ts`의 `canonicalByRepository` 패턴 — Program 정체성과
     무관하게 Repository 행 기준으로 조인한다).
 
-`intake`/`milestones`/`repositories` 각 profile은 서로 참조하지 않고 자체 Program·User
-backbone을 만든다 — 빈 DB에서 어떤 profile을 단독 실행해도 성공한다.
+`intake`/`milestones`/`repositories`/`program-overview` 각 profile은 서로 참조하지 않고 자체
+Program·User backbone을 만든다 — 빈 DB에서 어떤 profile을 단독 실행해도 성공한다.
 
 ## 알려진 제약
 

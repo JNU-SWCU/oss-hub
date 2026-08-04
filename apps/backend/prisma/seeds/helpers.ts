@@ -69,13 +69,20 @@ export function assertOssHubSeedAllowed(
 }
 
 export type SeedProfile =
-  'auth' | 'intake' | 'milestones' | 'repositories' | 'oss-hub' | 'all';
+  | 'auth'
+  | 'intake'
+  | 'milestones'
+  | 'repositories'
+  | 'program-overview'
+  | 'oss-hub'
+  | 'all';
 
 const SEED_PROFILES: readonly SeedProfile[] = [
   'auth',
   'intake',
   'milestones',
   'repositories',
+  'program-overview',
   'oss-hub',
   'all',
 ];

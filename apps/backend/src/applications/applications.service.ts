@@ -275,8 +275,11 @@ export class ApplicationsService {
         });
         if (!transitioned) {
           const latest = await store.findApplicationById(applicationId);
+          if (!latest) {
+            throw this.error(ApplicationsErrorCode.APPLICATION_NOT_FOUND);
+          }
           const extensions: ApplicationStatusConflictExtensions = {
-            latestStatus: latest?.status ?? application.status,
+            latestStatus: latest.status,
           };
           throw new DomainException(
             APPLICATIONS_ERROR_CODES[
