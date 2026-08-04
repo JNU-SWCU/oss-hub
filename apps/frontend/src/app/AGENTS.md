@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-07-20 · Updated: 2026-08-01 (공개 무인증 라우트 archive/ranking/profile 추가) -->
+<!-- Generated: 2026-07-20 · Updated: 2026-08-04 (설정 접근 규칙 정정 — RoleGate + 승인 대기 교직원 예외) -->
 
 # apps/frontend/src/app — 라우트 골격
 
@@ -22,7 +22,7 @@ Next.js App Router 라우트. 역할 기반(STUDENT/STAFF/ADMIN) 화면 접근 �
 | `_shell/` | (라우트 아님 — 아래 참조) | — |
 | `signup/` | `/signup` | 게이트 없음 — 가입·로그인 진입. 로그인한 사용자는 화면 안에서 멈춘 자리(`/consent` 또는 역할 홈)로 되돌린다 |
 | `consent/` | `/consent` | `AuthGate`(로그인만 요구, 역할 무관) |
-| `settings/` | `/settings` | `AuthGate`(로그인만 요구, 역할 무관) — #156 프로필·알림 설정 |
+| `settings/` | `/settings` | `RoleGate`(세 역할 모두) + **승인 대기 교직원 예외** — #156 프로필·알림 설정. 역할이 없어도 여는 갈래는 `unassigned` + 역할 요청 `PENDING` 하나뿐이다(`settings/settings-access.ts`의 `isSettingsOpenForPendingStaff`, #581). 요청 없음·`REJECTED`·`REVOKED`·가입 중 역할만 고른 사용자는 종전대로 온보딩으로 되돌린다 |
 | `onboarding/role/`, `onboarding/pending/` | `/onboarding/role`, `/onboarding/pending` | `AuthGate` |
 | `dashboard/` | `/dashboard` | `STUDENT` |
 | `my-repos/` | `/my-repos` | 로그인한 모든 역할(학생 메뉴 아래 있지만 role 무관 접근 허용) |
@@ -38,7 +38,9 @@ Next.js App Router 라우트. 역할 기반(STUDENT/STAFF/ADMIN) 화면 접근 �
 - **`_shell/`는 Next.js 라우트가 아니다** — 파일명이 밑줄로 시작해 라우팅에서 제외되는 private 폴더로, 여러 라우트가 공유하는 역할 게이트·패널 컴포넌트만 담는다(괄호 route group이 아님에 주의). 새 화면을 추가할 때는 이 폴더의 컴포넌트를 가져다 쓰고, 화면별로 게이트 로직을 새로 만들지 않는다.
   - `role.ts` — `AppRole = 'STUDENT' | 'STAFF' | 'ADMIN'`과 `roleHomePath(role)`(role 불일치 시 되돌아갈 "자기 역할 홈" — STUDENT→`/dashboard`, STAFF→`/staff/dashboard`, ADMIN→`/admin/access`).
   - `use-session-role.ts` — `/auth/me`를 호출해 `{status: 'loading'|'anonymous'|'unassigned'|'assigned', role}`를 반환하는 훅. `features/auth`(owner 전속)가 아직 응답에 `role`을 노출하지 않아 이 훅 안에서만 로컬로 타입을 넓혀 쓴다 — owner 경로는 건드리지 않는다.
-  - `role-gate.tsx`(`RoleGate`) — 비로그인은 `/`, 역할 미확정은 `/onboarding/role`, `allow`에 없는 역할은 `roleHomePath()`로 리다이렉트. `auth-gate.tsx`(`AuthGate`)는 로그인 여부만 확인(역할 무관 공용 화면용).
+  - `role-gate.tsx`(`RoleGate`) — 비로그인은 `/`, 역할 미확정은 `/onboarding/role`, `allow`에 없는 역할은 접근 안내 화면(`AccessDenied`). `auth-gate.tsx`(`AuthGate`)는 로그인 여부만 확인(역할 무관 공용 화면용).
+    - **역할 없이 열어 주는 예외는 `unassignedAccess` 규칙 하나로만 정한다** — `(state: SessionRoleState) => boolean`. 화면이 자기 규칙을 갖고, 게이트는 그 위에 "`unassigned`가 아니면 무조건 닫는다"를 한 번 더 얹는다. `unassignedNotice`는 그 판단이 끝난 뒤 자식 위에 얹히는 **표시일 뿐 권한이 아니다** — 둘을 묶었다가 `null`·`false`처럼 아무것도 그리지 않는 안내가 권한을 열어 주는 fail-open이 났었다(#581 후속). 규칙을 함수로 넘기므로 그 `page.tsx`는 클라이언트 컴포넌트여야 한다.
+    - 판단에 쓴 세션 스냅샷은 `session-role-context.tsx`(`SessionRoleProvider`)로 자식에게 물려준다. 화면은 `useSessionRole()`을 다시 부르지 말고 `useSharedSessionRole()`로 받는다 — 다시 부르면 역할 요청 조회가 한 번 더 나가고, 접근을 정한 근거와 폼이 무엇을 물을지 정하는 근거가 서로 다른 순간의 답이 될 수 있다. 게이트 밖에서 부르면 fallback 없이 던진다.
   - `role-menus.ts` — `STUDENT_MENU`/`STAFF_MENU`/`ADMIN_MENU`(`NavItem[]`). id가 필요한 문맥적 경로(신청·마일스톤 제출·제출물 검토)는 상세 화면에서 진입하는 흐름이라 고정 메뉴에 넣지 않는다. **메뉴 라벨·경로의 단일 원본이다** — 사이드바는 여기에 아이콘만 얹는다.
   - `public-menus.ts` — `PUBLIC_MENU`(`NavItem[]`). 로그인 없이 볼 수 있는 화면(프로그램·공개 아카이브·랭킹)의 **라벨·경로 단일 원본이다** — 랜딩 헤더(`layout.tsx`)와 업무 사이드바가 이 목록 하나를 함께 읽는다. 두 셸에 손으로 따로 적었다가 라벨이 갈리고 사이드바에서 `/ranking`이 빠졌던 사고(#513)를 막는 자리다. `/`는 여기 없다 — 두 셸 모두 브랜드가 이미 `/` 링크다. 역할 메뉴·계정은 사이드바 전용으로 남긴다(#512의 의도된 구분).
   - `sidebar-menu.ts` — 역할 메뉴(`role-menus.ts`)와 공개 메뉴(`public-menus.ts`)에 아이콘·묶음을 얹어 사이드바 구성을 만든다(`sidebarGroupsFor`). 공개 화면은 **세 역할 모두**에게 보인다. 상단바 breadcrumb 라벨(`shellPageLabel`)도 여기서 파생된다.

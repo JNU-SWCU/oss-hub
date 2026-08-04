@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act } from 'react';
+import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -24,132 +24,34 @@ vi.mock('./use-session-role', () => ({
   useSessionRole: mocks.useSessionRole,
 }));
 
-import {
-  RoleGate,
-  roleGateDeniedHomePath,
-  roleGateRedirectPath,
-  shouldOpenForUnassigned,
-} from './role-gate';
+import { RoleGate, type UnassignedAccessPolicy } from './role-gate';
+import { useSharedSessionRole } from './session-role-context';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
   value: true,
 });
 
-function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
-  return {
-    status: 'loading',
-    role: null,
-    roleRequestStatus: null,
-    selectedRole: null,
-    isProfileComplete: false,
-    ...overrides,
-  };
-}
-
-describe('roleGateRedirectPath', () => {
-  // 회귀 방지: 조회 실패를 anonymous로 접어 넣으면 로그인한 사용자가 랜딩으로
-  // 밀려나고 화면상 로그아웃된 것처럼 보인다. 실패는 어디로도 보내지 않는다.
-  it('세션 조회 실패는 어디로도 리다이렉트하지 않는다', () => {
-    expect(
-      roleGateRedirectPath({
-        status: 'error',
-        role: null,
-        roleRequestStatus: null,
-        selectedRole: null,
-        isProfileComplete: true,
-      }),
-    ).toBeNull();
-  });
-
-  // 권한 불일치를 조용히 되돌리면 사용자는 왜 다른 화면이 떠 있는지 모른 채
-  // 같은 시도를 반복한다. 이제 이동시키지 않고 안내 화면을 띄운다 — 그래서 이
-  // 판단은 어떤 역할이 허용됐는지(`allow`)를 아예 보지 않는다.
-  it.each(['STAFF', 'ADMIN'] as const)(
-    '역할이 배정된 %s는 허용 목록과 무관하게 이동시키지 않는다',
-    (role) => {
-      expect(
-        roleGateRedirectPath({
-          status: 'assigned',
-          role,
-          roleRequestStatus: null,
-          selectedRole: null,
-          isProfileComplete: true,
-        }),
-      ).toBeNull();
-    },
-  );
-
-  it('프로필까지 마친 학생도 이동시키지 않는다', () => {
-    expect(
-      roleGateRedirectPath({
-        status: 'assigned',
-        role: 'STUDENT',
-        roleRequestStatus: null,
-        selectedRole: null,
-        isProfileComplete: true,
-      }),
-    ).toBeNull();
-  });
-
-  it('안내 화면의 돌아가기는 deniedPath를, 없으면 자기 역할 홈을 가리킨다', () => {
-    expect(roleGateDeniedHomePath('STAFF', '/staff/dashboard')).toBe(
-      '/staff/dashboard',
-    );
-    expect(roleGateDeniedHomePath('STAFF')).toBe('/staff/dashboard');
-    expect(roleGateDeniedHomePath('STUDENT')).toBe('/dashboard');
-    expect(roleGateDeniedHomePath('ADMIN')).toBe('/admin/access');
-  });
-
-  it('역할 미선택 사용자는 기존 온보딩 흐름을 유지한다', () => {
-    expect(
-      roleGateRedirectPath({
-        status: 'unassigned',
-        role: null,
-        roleRequestStatus: null,
-        selectedRole: null,
-        isProfileComplete: true,
-      }),
-    ).toBe('/onboarding/role');
-  });
-});
-
-describe('shouldOpenForUnassigned', () => {
-  it('안내를 준 화면은 미배정 사용자에게 그대로 열린다', () => {
-    expect(shouldOpenForUnassigned('unassigned', true)).toBe(true);
-  });
-
-  it('안내를 주지 않은 화면은 기존대로 되돌려보낸다', () => {
-    expect(shouldOpenForUnassigned('unassigned', false)).toBe(false);
-  });
-
-  // 비로그인은 남의 프로필을 여는 셈이고, 조회 실패는 "역할이 없음"이 아니라
-  // "역할을 모름"이라 화면을 열 근거가 못 된다. loading·assigned는 각자의 처리가
-  // 따로 있다.
-  it.each(['anonymous', 'loading', 'error', 'assigned'] as const)(
-    '%s 상태는 안내가 있어도 열어 주지 않는다',
-    (status) => {
-      expect(shouldOpenForUnassigned(status, true)).toBe(false);
-    },
-  );
-});
-
 /**
  * 게이트가 실제로 무엇을 그리고 어디로 보내는지 본다.
  *
- * 판단 함수만 검사하면 "안내를 띄운 뒤 결국 되돌아갔다"와 "되돌아가지 않고 열어
- * 줬다"를 구분하지 못한다 — #581에서 사용자가 겪은 것이 정확히 그 차이다. 이동은
- * `useEffect`에서 일어나므로 서버 렌더가 아니라 클라이언트로 마운트한다.
+ * 판단 함수만 검사하면(`role-gate-policy.test.ts`) "안내를 띄운 뒤 결국 되돌아갔다"와
+ * "되돌아가지 않고 열어 줬다"를 구분하지 못한다 — #581에서 사용자가 겪은 것이 정확히
+ * 그 차이다. 이동은 `useEffect`에서 일어나므로 서버 렌더가 아니라 클라이언트로
+ * 마운트한다. 화면별 규칙은 여기서 검사하지 않는다(설정 규칙은 `settings/`가 갖는다)
+ * — 이 파일이 보는 것은 "규칙을 어떻게 대접하는가"다.
  */
 describe('RoleGate 렌더', () => {
   const NOTICE = '가입 안내';
   const CHILD = '설정 폼';
+  const OPEN: UnassignedAccessPolicy = () => true;
 
   let container: HTMLDivElement;
   let root: Root;
 
   beforeEach(() => {
     mocks.replace.mockReset();
+    mocks.useSessionRole.mockReset();
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -160,9 +62,23 @@ describe('RoleGate 렌더', () => {
     container.remove();
   });
 
+  function state(overrides: Partial<SessionRoleState>): SessionRoleState {
+    return {
+      status: 'loading',
+      role: null,
+      roleRequestStatus: null,
+      selectedRole: null,
+      isProfileComplete: false,
+      ...overrides,
+    };
+  }
+
   async function render(
     overrides: Partial<SessionRoleState>,
-    options: { readonly withNotice: boolean },
+    gate: {
+      readonly unassignedAccess?: UnassignedAccessPolicy;
+      readonly unassignedNotice?: ReactNode;
+    } = {},
   ): Promise<string> {
     mocks.useSessionRole.mockReturnValue({
       ...state(overrides),
@@ -170,10 +86,7 @@ describe('RoleGate 렌더', () => {
     });
     await act(async () =>
       root.render(
-        <RoleGate
-          allow={['STUDENT', 'STAFF', 'ADMIN']}
-          {...(options.withNotice ? { unassignedNotice: <p>{NOTICE}</p> } : {})}
-        >
+        <RoleGate allow={['STUDENT', 'STAFF', 'ADMIN']} {...gate}>
           <p>{CHILD}</p>
         </RoleGate>,
       ),
@@ -183,10 +96,10 @@ describe('RoleGate 렌더', () => {
 
   // 신고된 증상 그대로다: 승인을 기다리는 교직원이 설정에 들어가면 안내만 스치고
   // 승인 대기 화면으로 되돌아갔다. 이제는 되돌아가지 않고 폼까지 닿는다.
-  it('안내를 준 화면은 승인 대기 교직원을 되돌리지 않고 자식까지 그린다', async () => {
+  it('규칙이 인정한 미배정 사용자는 되돌리지 않고 안내와 자식을 함께 그린다', async () => {
     const text = await render(
       { status: 'unassigned', roleRequestStatus: 'PENDING' },
-      { withNotice: true },
+      { unassignedAccess: OPEN, unassignedNotice: <p>{NOTICE}</p> },
     );
 
     expect(mocks.replace).not.toHaveBeenCalled();
@@ -194,8 +107,57 @@ describe('RoleGate 렌더', () => {
     expect(text).toContain(CHILD);
   });
 
+  it('규칙이 거절한 미배정 사용자는 안내를 준 화면에서도 되돌린다', async () => {
+    const text = await render(
+      { status: 'unassigned', roleRequestStatus: 'REJECTED' },
+      { unassignedAccess: () => false, unassignedNotice: <p>{NOTICE}</p> },
+    );
+
+    expect(mocks.replace).toHaveBeenCalledWith('/onboarding/pending');
+    expect(text).not.toContain(CHILD);
+    expect(text).not.toContain(NOTICE);
+  });
+
+  /**
+   * 회귀 방지 — 이 PR 직전의 결함이다.
+   *
+   * 권한을 `unassignedNotice !== undefined`로 정하던 때에는, 아무것도 그리지 않는
+   * ReactNode(`null`·`false`)를 넘겨도 자식이 열렸다. 화면에는 안내조차 없는데 권한만
+   * 열리는 fail-open이라, 안내를 조건부로 만들다 실수하면 그대로 뚫린다. 이제 안내는
+   * 권한에 관여하지 않는다.
+   */
+  it.each([
+    ['null', null],
+    ['false', false],
+    ['빈 문자열', ''],
+  ] as readonly (readonly [string, ReactNode])[])(
+    '아무것도 그리지 않는 %s 안내는 규칙 없이 권한을 열지 않는다',
+    async (_label, notice) => {
+      const text = await render(
+        { status: 'unassigned', roleRequestStatus: 'PENDING' },
+        { unassignedNotice: notice },
+      );
+
+      expect(mocks.replace).toHaveBeenCalledWith('/onboarding/pending');
+      expect(text).not.toContain(CHILD);
+    },
+  );
+
+  it('규칙이 있으면 안내가 없어도 화면은 열린다 — 안내는 표시일 뿐이다', async () => {
+    const text = await render(
+      { status: 'unassigned', roleRequestStatus: 'PENDING' },
+      { unassignedAccess: OPEN },
+    );
+
+    expect(mocks.replace).not.toHaveBeenCalled();
+    expect(text).toContain(CHILD);
+  });
+
   it('안내가 있어도 비로그인은 랜딩으로 보내고 아무것도 열지 않는다', async () => {
-    const text = await render({ status: 'anonymous' }, { withNotice: true });
+    const text = await render(
+      { status: 'anonymous' },
+      { unassignedAccess: OPEN, unassignedNotice: <p>{NOTICE}</p> },
+    );
 
     expect(mocks.replace).toHaveBeenCalledWith('/');
     expect(text).not.toContain(CHILD);
@@ -203,7 +165,10 @@ describe('RoleGate 렌더', () => {
   });
 
   it('안내가 있어도 조회 실패는 어디로도 보내지 않고 재시도를 준다', async () => {
-    const text = await render({ status: 'error' }, { withNotice: true });
+    const text = await render(
+      { status: 'error' },
+      { unassignedAccess: OPEN, unassignedNotice: <p>{NOTICE}</p> },
+    );
 
     expect(mocks.replace).not.toHaveBeenCalled();
     expect(text).not.toContain(CHILD);
@@ -212,7 +177,7 @@ describe('RoleGate 렌더', () => {
   });
 
   /**
-   * `RoleGate`는 모든 역할 화면이 함께 쓴다. 안내를 넘기지 않는 화면의 미배정
+   * `RoleGate`는 모든 역할 화면이 함께 쓴다. 규칙을 넘기지 않는 화면의 미배정
    * 처리가 한 갈래라도 달라지면 업무 화면이 가입 중인 사용자에게 열린다.
    */
   it.each([
@@ -222,12 +187,9 @@ describe('RoleGate 렌더', () => {
     ['APPROVED', '/onboarding/pending'],
     ['REJECTED', '/onboarding/pending'],
   ] as readonly (readonly [RoleRequestStatus | null, string])[])(
-    '안내를 주지 않은 화면은 %s 미배정 사용자를 %s 로 종전대로 되돌린다',
+    '규칙을 주지 않은 화면은 %s 미배정 사용자를 %s 로 종전대로 되돌린다',
     async (roleRequestStatus, path) => {
-      const text = await render(
-        { status: 'unassigned', roleRequestStatus },
-        { withNotice: false },
-      );
+      const text = await render({ status: 'unassigned', roleRequestStatus });
 
       expect(mocks.replace).toHaveBeenCalledWith(path);
       expect(text).not.toContain(CHILD);
@@ -237,7 +199,7 @@ describe('RoleGate 렌더', () => {
   it('역할이 배정되고 프로필까지 마친 사용자는 안내 없이 자기 화면을 본다', async () => {
     const text = await render(
       { status: 'assigned', role: 'STAFF', isProfileComplete: true },
-      { withNotice: true },
+      { unassignedAccess: OPEN, unassignedNotice: <p>{NOTICE}</p> },
     );
 
     expect(mocks.replace).not.toHaveBeenCalled();
@@ -245,13 +207,47 @@ describe('RoleGate 렌더', () => {
     expect(text).not.toContain(NOTICE);
   });
 
-  it('역할은 있지만 프로필이 비어 있으면 안내와 무관하게 프로필 단계로 되돌린다', async () => {
+  it('역할은 있지만 프로필이 비어 있으면 규칙과 무관하게 프로필 단계로 되돌린다', async () => {
     const text = await render(
       { status: 'assigned', role: 'STAFF', isProfileComplete: false },
-      { withNotice: true },
+      { unassignedAccess: OPEN, unassignedNotice: <p>{NOTICE}</p> },
     );
 
     expect(mocks.replace).toHaveBeenCalledWith('/onboarding/profile');
     expect(text).not.toContain(CHILD);
+  });
+
+  /**
+   * 게이트가 판단에 쓴 스냅샷을 자식이 그대로 물려받는지. 자식이 훅을 다시 부르면
+   * 역할 요청 조회가 두 번 나가고, 게이트가 연 근거와 화면이 폼을 그리는 근거가
+   * 서로 다른 순간의 답이 될 수 있다.
+   */
+  it('판단에 쓴 세션 스냅샷을 자식에게 그대로 물려준다', async () => {
+    const snapshot = {
+      ...state({
+        status: 'unassigned',
+        roleRequestStatus: 'PENDING',
+        selectedRole: 'STAFF',
+      }),
+      retry: () => {},
+    };
+    mocks.useSessionRole.mockReturnValue(snapshot);
+    let received: unknown = null;
+
+    function Probe() {
+      received = useSharedSessionRole();
+      return null;
+    }
+
+    await act(async () =>
+      root.render(
+        <RoleGate allow={['STUDENT']} unassignedAccess={OPEN}>
+          <Probe />
+        </RoleGate>,
+      ),
+    );
+
+    expect(received).toBe(snapshot);
+    expect(mocks.useSessionRole).toHaveBeenCalledTimes(1);
   });
 });
