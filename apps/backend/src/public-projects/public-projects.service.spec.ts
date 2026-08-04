@@ -36,6 +36,7 @@ function row(
     programName: 'synthetic-program',
     category: 'BASIC',
     teamName: null,
+    teamMemberCount: 1,
     applicantNickname: 'synthetic-applicant',
     ...overrides,
   };

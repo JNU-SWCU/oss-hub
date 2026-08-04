@@ -13,12 +13,29 @@ export enum PublicProjectApplicationMode {
   TEAM = 'TEAM',
 }
 
+/**
+ * 개인 참여도 팀을 갖게 되면서(D5) 팀 유무로는 구분되지 않는다. 멤버가 1명뿐이면
+ * 개인 참여로 읽는다 — 팀 유무로 가르면 모든 프로젝트가 TEAM이 된다.
+ */
 function applicationMode(
-  teamName: string | null,
+  teamMemberCount: number,
 ): PublicProjectApplicationMode {
-  return teamName === null
-    ? PublicProjectApplicationMode.PERSONAL
-    : PublicProjectApplicationMode.TEAM;
+  return teamMemberCount > 1
+    ? PublicProjectApplicationMode.TEAM
+    : PublicProjectApplicationMode.PERSONAL;
+}
+
+/**
+ * 공개 표시명. **실명을 넣지 않는다** — 이 응답은 무인증 공개 endpoint로 나간다.
+ * 1인 팀은 자동 생성 팀명 대신 GitHub 닉네임을 보여 준다.
+ */
+function displayNameOf(row: {
+  readonly teamName: string | null;
+  readonly teamMemberCount: number;
+  readonly applicantNickname: string;
+}): string {
+  if (row.teamMemberCount > 1 && row.teamName) return row.teamName;
+  return row.applicantNickname;
 }
 
 export class PublicProjectListItemResponseDto {
@@ -37,8 +54,8 @@ export class PublicProjectListItemResponseDto {
     this.programId = row.programId;
     this.programName = row.programName;
     this.category = row.category;
-    this.applicationMode = applicationMode(row.teamName);
-    this.displayName = row.teamName ?? row.applicantNickname;
+    this.applicationMode = applicationMode(row.teamMemberCount);
+    this.displayName = displayNameOf(row);
     this.repositoryName = row.repositoryName;
     this.githubUrl = row.githubUrl;
     this.publishedAt = row.publishedAt.toISOString();
@@ -150,8 +167,8 @@ export class PublicProjectDetailResponseDto {
     this.programId = detail.row.programId;
     this.programName = detail.row.programName;
     this.category = detail.row.category;
-    this.applicationMode = applicationMode(detail.row.teamName);
-    this.displayName = detail.row.teamName ?? detail.row.applicantNickname;
+    this.applicationMode = applicationMode(detail.row.teamMemberCount);
+    this.displayName = displayNameOf(detail.row);
     this.repositoryName = detail.row.repositoryName;
     this.githubUrl = detail.row.githubUrl;
     this.publishedAt = detail.row.publishedAt.toISOString();

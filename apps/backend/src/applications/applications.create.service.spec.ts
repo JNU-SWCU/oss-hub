@@ -186,7 +186,7 @@ describe('ApplicationsService.create', () => {
     });
     expect(createTeamWithLeader).toHaveBeenCalledWith({
       programId: PROGRAM_ID,
-      name: '합성 학생',
+      name: 'synthetic-login의 팀',
       joinCodeDigest: 'digest:JOINCODE01',
       leaderId: STUDENT.id,
     });
@@ -206,13 +206,13 @@ describe('ApplicationsService.create', () => {
     });
   });
 
-  it('팀 이름 미입력 시 신청자 표시명 기반 기본값을 쓴다', async () => {
+  it('팀 이름 미입력 시 실명이 아닌 GitHub 닉네임 기반 기본값을 쓴다', async () => {
     const { service, createTeamWithLeader } = buildService({});
 
     await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
 
     expect(createTeamWithLeader).toHaveBeenCalledWith(
-      expect.objectContaining({ name: '합성 학생' }),
+      expect.objectContaining({ name: 'synthetic-login의 팀' }),
     );
   });
 
@@ -231,7 +231,7 @@ describe('ApplicationsService.create', () => {
     );
   });
 
-  it('name 이 없으면 nickname 을 applicantName·기본 팀 이름으로 쓴다', async () => {
+  it('실명이 있어도 팀 이름에는 쓰지 않는다 — 공개 아카이브 표시명으로 흘러간다', async () => {
     const { service, createApplication, createTeamWithLeader } = buildService({
       student: { ...STUDENT, name: null },
     });
@@ -239,7 +239,7 @@ describe('ApplicationsService.create', () => {
     await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
 
     expect(createTeamWithLeader).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'synthetic-login' }),
+      expect.objectContaining({ name: 'synthetic-login의 팀' }),
     );
     const calls = createApplication.mock.calls as unknown as ReadonlyArray<
       readonly [{ readonly answers: { readonly applicantName: string } }]

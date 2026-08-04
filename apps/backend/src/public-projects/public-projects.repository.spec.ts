@@ -46,7 +46,7 @@ const PROJECT_ROW_SELECT = {
   publishedAt: true,
   programId: true,
   program: { select: { name: true, category: true } },
-  team: { select: { name: true } },
+  team: { select: { name: true, _count: { select: { members: true } } } },
   application: { select: { applicant: { select: { nickname: true } } } },
 };
 
@@ -82,7 +82,9 @@ describe('PublicProjectsRepository', () => {
           publishedAt: true,
           programId: true,
           program: { select: { name: true, category: true } },
-          team: { select: { name: true } },
+          team: {
+            select: { name: true, _count: { select: { members: true } } },
+          },
           application: {
             select: { applicant: { select: { nickname: true } } },
           },
@@ -100,6 +102,7 @@ describe('PublicProjectsRepository', () => {
           programName: 'synthetic-program',
           category: 'BASIC',
           teamName: null,
+          teamMemberCount: 0,
           applicantNickname: 'synthetic-applicant',
         },
       ]);

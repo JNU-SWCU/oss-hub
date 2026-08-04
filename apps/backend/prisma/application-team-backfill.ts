@@ -59,18 +59,13 @@ export type ApplicantDisplaySource = {
 };
 
 /**
- * Prefer profile name → User.name → nickname → stable fallback.
- * Always returns a non-empty, human-readable team name.
+ * GitHub 닉네임만 쓴다 → 안정적 fallback.
+ *
+ * 팀 이름은 무인증 공개 아카이브의 표시명으로 흘러가므로(`public-project-response.dto.ts`
+ * displayName = teamName ?? applicantNickname) 실명(profile.name·User.name)을
+ * 넣으면 공개 범위에 실명이 새어 나간다. 여기서는 절대 실명을 쓰지 않는다.
  */
 export function buildSoloTeamName(applicant: ApplicantDisplaySource): string {
-  const profileName = applicant.profile?.name?.trim();
-  if (profileName) {
-    return `${profileName}의 팀`;
-  }
-  const legacyName = applicant.name?.trim();
-  if (legacyName) {
-    return `${legacyName}의 팀`;
-  }
   const nickname = applicant.nickname.trim();
   if (nickname) {
     return `${nickname}의 팀`;

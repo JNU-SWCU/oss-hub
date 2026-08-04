@@ -477,6 +477,8 @@ describe('ApplicationsService integration', () => {
             // 경합 테스트의 대리 store도 감사 writer를 그대로 넘겨야 한다.
             auditLogWriter: store.auditLogWriter,
             findApplicationById: (id) => store.findApplicationById(id),
+            discardRepositoryProvisionRequest: (id) =>
+              store.discardRepositoryProvisionRequest(id),
             findRepositoryProvisionJob: (id) =>
               store.findRepositoryProvisionJob(id),
             findRepositoryProvisionEvent: (key) =>
