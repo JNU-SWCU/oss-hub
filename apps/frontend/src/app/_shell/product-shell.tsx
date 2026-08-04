@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { getProgramStatusCounts } from '@/features/programs/api';
+import type { ProgramStatusCounts } from '@/features/programs/types';
 import { cn } from '@/lib/utils';
 import { AppSidebar } from './app-sidebar';
 import {
@@ -29,7 +31,9 @@ export function ProductShell({ children }: { readonly children: ReactNode }) {
   const member =
     status === 'assigned' && role !== null && isProfileComplete;
   const section = shellSectionFromPathname(pathname);
-  const groups = sidebarGroupsFor(section, member ? role : null);
+  const [programCounts, setProgramCounts] = useState<
+    ProgramStatusCounts | undefined
+  >(undefined);
 
   const [collapsed, setCollapsed] = useState(false);
   const [restored, setRestored] = useState(false);
@@ -56,6 +60,30 @@ export function ProductShell({ children }: { readonly children: ReactNode }) {
       // ignore
     }
   }, [collapsed, restored]);
+
+  // 프로그램 섹션일 때만 상태 카운트 fetch (전역 쿼리 방지).
+  useEffect(() => {
+    if (section !== 'programs') {
+      setProgramCounts(undefined);
+      return;
+    }
+    let cancelled = false;
+    void getProgramStatusCounts()
+      .then((counts) => {
+        if (!cancelled) setProgramCounts(counts);
+      })
+      .catch(() => {
+        // 실패 시 뱃지 없이 메뉴만 — 목록 자체는 독립.
+        if (!cancelled) setProgramCounts(undefined);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [section]);
+
+  const groups = sidebarGroupsFor(section, member ? role : null, {
+    programCounts: section === 'programs' ? programCounts : undefined,
+  });
 
   const toggle = useCallback(() => setCollapsed((prev) => !prev), []);
 
