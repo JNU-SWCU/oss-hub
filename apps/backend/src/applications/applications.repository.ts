@@ -13,6 +13,7 @@ import type {
   OutboxEvent as PrismaOutboxEvent,
   Prisma as PrismaTypes,
 } from '@prisma/client';
+import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   compatibleProfileNameWhere,
@@ -48,6 +49,8 @@ type ApplicationDatabase = Pick<
 type LockedProgramRow = Readonly<{ lifecycle: ProgramLifecycle }>;
 
 export interface ApplicationsTransactionStore {
+  /** #547 — 판정 전이와 감사 기록이 같은 트랜잭션에서 함께 커밋되도록 하는 writer. */
+  readonly auditLogWriter: AuditLogTransactionWriter;
   findApplicationById(
     applicationId: string,
   ): Promise<ApplicationDecisionTarget | null>;
@@ -205,6 +208,10 @@ export interface ApplicationCreateStore {
 
 class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore {
   constructor(private readonly transaction: PrismaTypes.TransactionClient) {}
+
+  get auditLogWriter(): AuditLogTransactionWriter {
+    return this.transaction;
+  }
 
   async findApplicationById(
     applicationId: string,

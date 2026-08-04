@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import {
   CollectionAppClient,
+  CollectionAppClientError,
   CollectionAppClientTokenProvider,
   CollectionCommit,
   CollectionPullRequest,
@@ -12,6 +13,7 @@ import { ProviderRequestQueue } from './collection-provider-queue';
 import type { CollectionIncrementalRepository } from './collection-incremental.repository';
 import type {
   CollectionRepositoryRow,
+  CollectionStreamType,
   RepositorySource,
 } from './collection-incremental.types';
 import type { SyncLeaseToken } from './collection-sync.types';
@@ -37,6 +39,19 @@ export type CollectionSyncRuntimeFactory = () =>
 
 class RunDeadlineError extends Error {}
 
+/** stream 오류 코드의 기본값 — provider 오류 종류를 특정하지 못했을 때 쓴다. */
+export const DEFAULT_STREAM_ERROR_CODE = 'STREAM_SYNC_FAILED';
+
+/**
+ * `CollectionRepositoryStream.lastErrorCode`에 남길 public-safe 분류(#546). provider client가
+ * 이미 안전한 enum(`kind`)으로 오류를 좁혀 두었으므로 그것만 쓰고, 그 밖에는 고정 코드를
+ * 쓴다 — 원문 메시지·토큰·URL은 어떤 경로로도 이 값에 섞이지 않는다.
+ */
+const streamErrorCode = (error: unknown): string =>
+  error instanceof CollectionAppClientError
+    ? `PROVIDER_${error.kind}`
+    : DEFAULT_STREAM_ERROR_CODE;
+
 export type CollectionSyncRunStatus =
   'SKIPPED_LEASE_HELD' | 'COMPLETED' | 'FAILED';
 
@@ -47,6 +62,12 @@ export interface CollectionSyncRunResult {
   processedRepositoryCount: number;
   cycleCompleted: boolean;
   stoppedForBudget: boolean;
+  /**
+   * #511 — 이번 run이 새로 적재한 fact 수(commit/PR/release 합). 중복 fact는 세지 않는다
+   * (`createMany`+`skipDuplicates`가 반환하는 실제 삽입 수만 누적). 트리거 표면이 성공
+   * 로그에 "신규 수집 건수"를 남기기 위한 유일한 출처다.
+   */
+  insertedFactCount: number;
 }
 
 type SyncRepository = Pick<
@@ -54,6 +75,7 @@ type SyncRepository = Pick<
   | 'runInTransaction'
   | 'getStreamFrontier'
   | 'upsertStreamFrontier'
+  | 'markStreamErrorState'
   | 'recordCommitFacts'
   | 'recordPullRequestFacts'
   | 'recordReleaseFacts'
@@ -134,7 +156,12 @@ export class CollectionSyncService {
     private readonly externalRuntimeFactory?: CollectionSyncRuntimeFactory,
   ) {}
 
-  async run(ownerId: string): Promise<CollectionSyncRunResult> {
+  /**
+   * `runId`는 트리거 표면이 만들어 넘길 수 있다(#546). 넘기지 않으면 예전처럼 이 서비스가
+   * 만든다 — 관리자 수동 트리거가 202로 돌려준 runId와 lease에 박히는 내부 runId가 서로
+   * 달라 완료·실패를 조회할 수 없던 문제를 이 한 인자로 닫는다.
+   */
+  async run(ownerId: string, runId?: string): Promise<CollectionSyncRunResult> {
     const runtime = await this.runtimeFactory();
     const githubOrganizationId = await this.resolveGithubOrganizationId();
     return this.runSweep({
@@ -142,6 +169,7 @@ export class CollectionSyncService {
       scope: orgScope(runtime.organizationLogin),
       appId: BigInt(runtime.appId),
       ownerId,
+      runId,
       runtime,
       discoverInventory: (lease, deadline) =>
         this.syncOrgInventory(runtime, lease, githubOrganizationId, deadline),
@@ -156,7 +184,10 @@ export class CollectionSyncService {
    * lease/cursor를 갖기 때문에 org sweep의 45분 run budget이나 lease를 절대 소비하지
    * 않는다(GR-9).
    */
-  async runExternal(ownerId: string): Promise<CollectionSyncRunResult> {
+  async runExternal(
+    ownerId: string,
+    runId?: string,
+  ): Promise<CollectionSyncRunResult> {
     if (!this.externalRuntimeFactory) {
       throw new Error(
         'collection sync: external runtime not configured (runExternal requires an externalRuntimeFactory)',
@@ -168,6 +199,7 @@ export class CollectionSyncService {
       scope: EXTERNAL_SCOPE,
       appId: BigInt(runtime.appId),
       ownerId,
+      runId,
       runtime,
       discoverInventory: () => this.syncExternalInventory(),
     });
@@ -178,6 +210,7 @@ export class CollectionSyncService {
     scope: string;
     appId: bigint;
     ownerId: string;
+    runId?: string;
     runtime: CollectionSyncRuntime;
     discoverInventory: (
       lease: SyncLeaseToken,
@@ -190,7 +223,7 @@ export class CollectionSyncService {
     // every call site stays explicit about which sweep it's running.
     const { scope, appId, ownerId, runtime, discoverInventory } = params;
     const key = { appId, scope };
-    const runId = this.createRunId();
+    const runId = params.runId ?? this.createRunId();
     const acquiredAt = this.now();
     const lease = await this.incrementalRepository.acquireSyncLease({
       ...key,
@@ -207,6 +240,7 @@ export class CollectionSyncService {
         processedRepositoryCount: 0,
         cycleCompleted: false,
         stoppedForBudget: false,
+        insertedFactCount: 0,
       };
     }
 
@@ -231,6 +265,7 @@ export class CollectionSyncService {
         processedRepositoryCount: 0,
         cycleCompleted: false,
         stoppedForBudget: false,
+        insertedFactCount: 0,
       };
     }
   }
@@ -283,6 +318,7 @@ export class CollectionSyncService {
       );
 
     let processedRepositoryCount = 0;
+    let insertedFactCount = 0;
     let stoppedForBudget = false;
     let lastError: string | null = null;
 
@@ -296,8 +332,19 @@ export class CollectionSyncService {
         break;
       }
       try {
-        await this.syncRepository(runtime, lease, repository, deadline);
+        insertedFactCount += await this.syncRepository(
+          runtime,
+          lease,
+          repository,
+          deadline,
+        );
       } catch (error) {
+        if (error instanceof RunDeadlineError) {
+          // 예산 소진은 실패가 아니다(#546) — stream에 오류 코드를 남기면
+          // system-status가 정상적인 budget stop을 FAILED로 잘못 판정한다.
+          stoppedForBudget = true;
+          break;
+        }
         lastError = error instanceof Error ? error.name : 'UnknownError';
         this.logger.warn({
           event: 'collection.sync.repository_failed',
@@ -345,6 +392,7 @@ export class CollectionSyncService {
       processedRepositoryCount,
       cycleCompleted,
       stoppedForBudget,
+      insertedFactCount,
     };
   }
 
@@ -422,37 +470,118 @@ export class CollectionSyncService {
     return { complete: true, repositories };
   }
 
+  /** 저장소 하나가 이번 run에서 새로 적재한 fact 수를 반환한다(#511 성공 로그 집계용). */
   private async syncRepository(
     runtime: CollectionSyncRuntime,
     lease: SyncLeaseToken,
     repository: CollectionRepositoryRow,
     deadline: number,
-  ): Promise<void> {
+  ): Promise<number> {
     const [owner, name] = splitNameWithOwner(repository.nameWithOwner);
-    await this.syncCommitStream(
-      runtime,
+    const commitCount = await this.trackStreamOutcome(
       lease,
-      repository,
-      owner,
-      name,
-      deadline,
+      repository.id,
+      'COMMIT',
+      () =>
+        this.syncCommitStream(
+          runtime,
+          lease,
+          repository,
+          owner,
+          name,
+          deadline,
+        ),
     );
-    await this.syncPullRequestStream(
-      runtime,
+    const pullRequestCount = await this.trackStreamOutcome(
       lease,
-      repository,
-      owner,
-      name,
-      deadline,
+      repository.id,
+      'PULL_REQUEST',
+      () =>
+        this.syncPullRequestStream(
+          runtime,
+          lease,
+          repository,
+          owner,
+          name,
+          deadline,
+        ),
     );
-    await this.syncReleaseStream(
-      runtime,
+    const releaseCount = await this.trackStreamOutcome(
       lease,
-      repository,
-      owner,
-      name,
-      deadline,
+      repository.id,
+      'RELEASE',
+      () =>
+        this.syncReleaseStream(
+          runtime,
+          lease,
+          repository,
+          owner,
+          name,
+          deadline,
+        ),
     );
+    return commitCount + pullRequestCount + releaseCount;
+  }
+
+  /**
+   * #546 — repo 단위 실패가 `CollectionRepositoryStream.lastErrorCode`에 남지 않아
+   * `system-status`가 FAILED로 판정할 근거를 얻지 못하고, 공개 사용자는 stale 값만 봤다.
+   * 이 래퍼가 stream 하나의 결과를 그 stream 행에 반영한다 — 실패면 오류 코드를 기록하고
+   * 원래 예외를 그대로 다시 던지며, 성공이면 남아 있던 오류 표시를 지운다.
+   *
+   * 성공 시의 해제가 checkpoint 안이 아니라 여기 있는 이유: 변경 없는 READY stream은
+   * checkpoint를 아예 쓰지 않고 조기 반환하므로, checkpoint에만 두면 한 번 실패한 저장소가
+   * 내용이 바뀔 때까지 영구히 FAILED로 남는다.
+   *
+   * `RunDeadlineError`는 오류가 아니라 run budget 소진이므로 기록하지 않는다.
+   */
+  private async trackStreamOutcome(
+    lease: SyncLeaseToken,
+    repositoryId: string,
+    streamType: CollectionStreamType,
+    operation: () => Promise<number>,
+  ): Promise<number> {
+    let insertedCount: number;
+    try {
+      insertedCount = await operation();
+    } catch (error) {
+      if (!(error instanceof RunDeadlineError)) {
+        await this.writeStreamErrorState(lease, repositoryId, streamType, {
+          lastErrorAt: this.now(),
+          lastErrorCode: streamErrorCode(error),
+        });
+      }
+      throw error;
+    }
+    await this.writeStreamErrorState(lease, repositoryId, streamType, {
+      lastErrorAt: null,
+      lastErrorCode: null,
+    });
+    return insertedCount;
+  }
+
+  /**
+   * 오류 표시는 bookkeeping이라 실패해도 원래 결과·예외를 덮지 않는다 — lease를 이미 잃은
+   * run이라면 fenced 트랜잭션이 거부하는 것이 정상이고, 그 경우 조용히 넘어간다.
+   */
+  private async writeStreamErrorState(
+    lease: SyncLeaseToken,
+    repositoryId: string,
+    streamType: CollectionStreamType,
+    state: { lastErrorAt: Date | null; lastErrorCode: string | null },
+  ): Promise<void> {
+    try {
+      await this.incrementalRepository.runInTransaction(async (repo) => {
+        await repo.assertSyncLeaseValid(lease, this.now());
+        await repo.markStreamErrorState(repositoryId, streamType, state);
+      });
+    } catch (error) {
+      this.logger.warn({
+        event: 'collection.sync.stream_state_write_failed',
+        streamType,
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+    }
   }
 
   private async syncCommitStream(
@@ -462,7 +591,7 @@ export class CollectionSyncService {
     owner: string,
     name: string,
     deadline: number,
-  ): Promise<void> {
+  ): Promise<number> {
     const defaultBranch = repository.defaultBranch;
     if (defaultBranch === null) {
       // Empty repository — GitHub reports no default branch when a
@@ -470,7 +599,7 @@ export class CollectionSyncService {
       // the stream frontier untouched (no provider call, no write) so a real
       // backfill runs once the repository gets its first commit and a later
       // observation reports an actual default branch.
-      return;
+      return 0;
     }
 
     const existing = await this.incrementalRepository.getStreamFrontier(
@@ -489,7 +618,7 @@ export class CollectionSyncService {
         ),
         deadline,
       );
-      await this.commitCheckpoint(
+      return this.commitCheckpoint(
         lease,
         repository.id,
         result.commits,
@@ -497,7 +626,6 @@ export class CollectionSyncService {
         requestFingerprintKey(result.fingerprint),
         null,
       );
-      return;
     }
 
     const probe = await this.beforeDeadline(
@@ -509,7 +637,7 @@ export class CollectionSyncService {
       ),
       deadline,
     );
-    if (!probe.changed) return; // no full-history call for an unchanged READY repo
+    if (!probe.changed) return 0; // no full-history call for an unchanged READY repo
 
     const known = existing.frontierSha
       ? new Set([existing.frontierSha])
@@ -524,7 +652,7 @@ export class CollectionSyncService {
       deadline,
     );
     const headSha = probe.headSha ?? result.commits[0]?.sha ?? null;
-    await this.commitCheckpoint(
+    return this.commitCheckpoint(
       lease,
       repository.id,
       result.commits,
@@ -541,10 +669,10 @@ export class CollectionSyncService {
     headSha: string | null,
     requestFingerprint: string,
     etag: string | null,
-  ): Promise<void> {
-    await this.incrementalRepository.runInTransaction(async (repo) => {
+  ): Promise<number> {
+    return this.incrementalRepository.runInTransaction(async (repo) => {
       await repo.assertSyncLeaseValid(lease, this.now());
-      await repo.recordCommitFacts(
+      const recorded = await repo.recordCommitFacts(
         repositoryId,
         commits.map((commit) => ({
           sha: commit.sha,
@@ -565,6 +693,7 @@ export class CollectionSyncService {
         etag,
         lastRunAt: this.now(),
       });
+      return recorded.insertedCount;
     });
   }
 
@@ -575,7 +704,7 @@ export class CollectionSyncService {
     owner: string,
     name: string,
     deadline: number,
-  ): Promise<void> {
+  ): Promise<number> {
     const existing = await this.incrementalRepository.getStreamFrontier(
       repository.id,
       'PULL_REQUEST',
@@ -595,9 +724,9 @@ export class CollectionSyncService {
       runtime.client.listNewPullRequests(owner, name, tieFrontier),
       deadline,
     );
-    if (tieFrontier !== null && result.pullRequests.length === 0) return;
+    if (tieFrontier !== null && result.pullRequests.length === 0) return 0;
 
-    await this.pullRequestCheckpoint(
+    return this.pullRequestCheckpoint(
       lease,
       repository.id,
       result.pullRequests,
@@ -612,10 +741,10 @@ export class CollectionSyncService {
     pullRequests: readonly CollectionPullRequest[],
     newFrontier: { createdAt: string; id: string } | null,
     requestFingerprint: string,
-  ): Promise<void> {
-    await this.incrementalRepository.runInTransaction(async (repo) => {
+  ): Promise<number> {
+    return this.incrementalRepository.runInTransaction(async (repo) => {
       await repo.assertSyncLeaseValid(lease, this.now());
-      await repo.recordPullRequestFacts(
+      const recorded = await repo.recordPullRequestFacts(
         repositoryId,
         pullRequests.map((pullRequest) => ({
           githubPullRequestId: BigInt(pullRequest.id),
@@ -637,6 +766,7 @@ export class CollectionSyncService {
         requestFingerprint,
         lastRunAt: this.now(),
       });
+      return recorded.insertedCount;
     });
   }
 
@@ -647,7 +777,7 @@ export class CollectionSyncService {
     owner: string,
     name: string,
     deadline: number,
-  ): Promise<void> {
+  ): Promise<number> {
     const existing = await this.incrementalRepository.getStreamFrontier(
       repository.id,
       'RELEASE',
@@ -659,13 +789,13 @@ export class CollectionSyncService {
       runtime.client.probeLatestRelease(owner, name, previousEtag),
       deadline,
     );
-    if (!probe.changed) return; // no full listing call for an unchanged READY repo
+    if (!probe.changed) return 0; // no full listing call for an unchanged READY repo
 
     const listing = await this.beforeDeadline(
       runtime.client.listChangedPublishedReleases(owner, name),
       deadline,
     );
-    await this.releaseCheckpoint(
+    return this.releaseCheckpoint(
       lease,
       repository.id,
       listing.releases,
@@ -682,10 +812,10 @@ export class CollectionSyncService {
     frontierProbe: string | null,
     requestFingerprint: string,
     etag: string | null,
-  ): Promise<void> {
-    await this.incrementalRepository.runInTransaction(async (repo) => {
+  ): Promise<number> {
+    return this.incrementalRepository.runInTransaction(async (repo) => {
       await repo.assertSyncLeaseValid(lease, this.now());
-      await repo.recordReleaseFacts(
+      const recorded = await repo.recordReleaseFacts(
         repositoryId,
         releases.map((release) => ({
           githubReleaseId: BigInt(release.id),
@@ -706,6 +836,7 @@ export class CollectionSyncService {
         etag,
         lastRunAt: this.now(),
       });
+      return recorded.insertedCount;
     });
   }
 

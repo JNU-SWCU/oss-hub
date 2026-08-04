@@ -4,6 +4,10 @@ import type {
   StaffDashboardSummary,
 } from './applications.repository';
 import { ApplicationsService } from './applications.service';
+import type { AuditLogService } from '../audit-log/audit-log.service';
+
+/** 이 스펙들은 판정 경로를 타지 않으므로 감사 기록기는 호출되지 않는다. */
+const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
 describe('ApplicationsService.staffSummary', () => {
   it('repository 요약을 그대로 반환한다', async () => {
@@ -31,7 +35,7 @@ describe('ApplicationsService.staffSummary', () => {
     const repository = {
       listStaffDashboardSummary,
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(repository);
+    const service = new ApplicationsService(repository, noopAuditLog);
 
     await expect(service.staffSummary()).resolves.toEqual(summary);
     expect(listStaffDashboardSummary).toHaveBeenCalledTimes(1);
@@ -41,7 +45,7 @@ describe('ApplicationsService.staffSummary', () => {
     const repository = {
       listStaffDashboardSummary: jest.fn().mockResolvedValue({ programs: [] }),
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(repository);
+    const service = new ApplicationsService(repository, noopAuditLog);
 
     await expect(service.staffSummary()).resolves.toEqual({ programs: [] });
   });

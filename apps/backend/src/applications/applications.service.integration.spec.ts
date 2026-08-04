@@ -10,6 +10,8 @@ import { APPLICATION_DECISION_ACTIONS } from './domain/application-decision';
 import { ApplicationsErrorCode } from './applications-error-code.enum';
 import { ApplicationsRepository } from './applications.repository';
 import { ApplicationsService } from './applications.service';
+import { AuditLogRepository } from '../audit-log/audit-log.repository';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { StudentApplicationManagementRepository } from './student-application-management.repository';
 import { StudentApplicationManagementService } from './student-application-management.service';
 
@@ -21,12 +23,16 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const repository = new ApplicationsRepository(prisma);
-const service = new ApplicationsService(repository);
+const service = new ApplicationsService(
+  repository,
+  new AuditLogService(new AuditLogRepository(prisma)),
+);
 const studentService = new StudentApplicationManagementService(
   new StudentApplicationManagementRepository(prisma),
   repository,
 );
 const ACTOR_ID = 'synthetic-decision-actor';
+const ACTOR_GITHUB_ID = 8_000_000_000_001n;
 const APPLICANT_ID = 'synthetic-decision-applicant';
 const APPLICANT_GITHUB_ID = 8_000_000_000_002n;
 const TEAM_ID = 'synthetic-decision-team';
@@ -126,9 +132,9 @@ describe('ApplicationsService integration', () => {
   });
 
   afterAll(async () => {
-    await prisma.user.deleteMany({
-      where: { id: { in: [ACTOR_ID, APPLICANT_ID] } },
-    });
+    // #547 이후 판정이 `AuditLog` 행을 남긴다. 그 원장은 append-only 트리거로 삭제가
+    // 금지돼 있고 actor를 FK(restrict)로 잡으므로, 여기서 actor를 지우면 정리 자체가
+    // 실패한다. 통합 DB는 run마다 버려지는 컨테이너라 합성 사용자 2명은 그대로 둔다.
     await prisma.$disconnect();
   });
 
@@ -216,9 +222,14 @@ describe('ApplicationsService integration', () => {
     await createApplication(applicationId, true);
 
     // When
-    const result = await service.decide(ACTOR_ID, applicationId, {
-      action: APPLICATION_DECISION_ACTIONS.APPROVE,
-    });
+    const result = await service.decide(
+      ACTOR_ID,
+      applicationId,
+      ACTOR_GITHUB_ID,
+      {
+        action: APPLICATION_DECISION_ACTIONS.APPROVE,
+      },
+    );
 
     // Then
     const application = await prisma.application.findUniqueOrThrow({
@@ -247,6 +258,18 @@ describe('ApplicationsService integration', () => {
       requestedAt: application.processedAt?.toISOString(),
       collaboratorGithubLogins: ['synthetic-applicant'],
     });
+    // #547 — 판정과 같은 트랜잭션에서 typed audit이 실제 원장에 남는다.
+    const auditLog = await prisma.auditLog.findFirstOrThrow({
+      where: { targetType: 'APPLICATION', targetId: applicationId },
+    });
+    expect(auditLog).toMatchObject({
+      actorId: ACTOR_ID,
+      action: 'APPLICATION_APPROVED',
+    });
+    expect(auditLog.metadata).toMatchObject({
+      schemaVersion: 1,
+      after: { status: ApplicationStatus.APPROVED },
+    });
   });
 
   it('저장소 기능이 꺼진 프로그램은 승인하고 outbox를 만들지 않는다', async () => {
@@ -255,9 +278,14 @@ describe('ApplicationsService integration', () => {
     await createApplication(applicationId, false);
 
     // When
-    const result = await service.decide(ACTOR_ID, applicationId, {
-      action: APPLICATION_DECISION_ACTIONS.APPROVE,
-    });
+    const result = await service.decide(
+      ACTOR_ID,
+      applicationId,
+      ACTOR_GITHUB_ID,
+      {
+        action: APPLICATION_DECISION_ACTIONS.APPROVE,
+      },
+    );
 
     // Then
     expect(result).toMatchObject({
@@ -296,7 +324,7 @@ describe('ApplicationsService integration', () => {
     });
 
     // When
-    await service.decide(ACTOR_ID, applicationId, {
+    await service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
 
@@ -316,7 +344,7 @@ describe('ApplicationsService integration', () => {
     await createApplication(applicationId, true);
 
     // When
-    await service.decide(ACTOR_ID, applicationId, {
+    await service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.REJECT,
       reason: '합성 반려 사유',
     });
@@ -343,10 +371,10 @@ describe('ApplicationsService integration', () => {
 
     // When
     const decisions = await Promise.allSettled([
-      service.decide(ACTOR_ID, applicationId, {
+      service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
         action: APPLICATION_DECISION_ACTIONS.APPROVE,
       }),
-      service.decide(ACTOR_ID, applicationId, {
+      service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
         action: APPLICATION_DECISION_ACTIONS.APPROVE,
       }),
     ]);
@@ -380,7 +408,7 @@ describe('ApplicationsService integration', () => {
     });
 
     // When
-    const decision = service.decide(ACTOR_ID, applicationId, {
+    const decision = service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
 
@@ -406,7 +434,7 @@ describe('ApplicationsService integration', () => {
     });
 
     // When
-    const decision = service.decide(ACTOR_ID, applicationId, {
+    const decision = service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.REJECT,
       reason: '합성 반려 사유',
     });
@@ -439,6 +467,9 @@ describe('ApplicationsService integration', () => {
       .mockImplementationOnce((operation) =>
         originalWithTransaction((store) =>
           operation({
+            // #547 — 판정 전이와 감사 기록이 같은 트랜잭션에서 커밋되므로
+            // 경합 테스트의 대리 store도 감사 writer를 그대로 넘겨야 한다.
+            auditLogWriter: store.auditLogWriter,
             findApplicationById: (id) => store.findApplicationById(id),
             transitionApplication: async (input) => {
               markDecisionReady?.();
@@ -452,7 +483,7 @@ describe('ApplicationsService integration', () => {
       );
 
     // When
-    const decision = service.decide(ACTOR_ID, applicationId, {
+    const decision = service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
     await decisionReady;
@@ -473,9 +504,14 @@ describe('ApplicationsService integration', () => {
   });
   it('없는 신청은 404로 거부한다', async () => {
     // When
-    const decision = service.decide(ACTOR_ID, 'synthetic-missing-application', {
-      action: APPLICATION_DECISION_ACTIONS.APPROVE,
-    });
+    const decision = service.decide(
+      ACTOR_ID,
+      'synthetic-missing-application',
+      ACTOR_GITHUB_ID,
+      {
+        action: APPLICATION_DECISION_ACTIONS.APPROVE,
+      },
+    );
 
     // Then
     await expect(decision).rejects.toMatchObject({
@@ -492,9 +528,14 @@ describe('ApplicationsService integration', () => {
     await createApplication(applicationId, true);
 
     // When
-    const decision = service.decide('synthetic-missing-actor', applicationId, {
-      action: APPLICATION_DECISION_ACTIONS.APPROVE,
-    });
+    const decision = service.decide(
+      'synthetic-missing-actor',
+      applicationId,
+      ACTOR_GITHUB_ID,
+      {
+        action: APPLICATION_DECISION_ACTIONS.APPROVE,
+      },
+    );
 
     // Then
     await expect(decision).rejects.toMatchObject({

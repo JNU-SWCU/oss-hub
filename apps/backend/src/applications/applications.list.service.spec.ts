@@ -12,6 +12,10 @@ import {
 } from './applications.repository';
 import { ApplicationsErrorCode } from './applications-error-code.enum';
 import { ApplicationsService } from './applications.service';
+import type { AuditLogService } from '../audit-log/audit-log.service';
+
+/** 이 스펙들은 판정 경로를 타지 않으므로 감사 기록기는 호출되지 않는다. */
+const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
 const PROGRAM_ID = 'synthetic-program';
 
@@ -38,7 +42,7 @@ describe('ApplicationsService.listForProgram', () => {
       findProgramById: jest.fn().mockResolvedValue(null),
       listApplicationsForProgram,
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(repository);
+    const service = new ApplicationsService(repository, noopAuditLog);
 
     await expect(
       service.listForProgram(PROGRAM_ID, {
@@ -121,7 +125,7 @@ describe('ApplicationsService.listForProgram', () => {
       findProgramById: jest.fn().mockResolvedValue(OPEN_PROGRAM),
       listApplicationsForProgram,
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(repository);
+    const service = new ApplicationsService(repository, noopAuditLog);
     const query = {
       page: 2,
       pageSize: 10,
@@ -143,7 +147,7 @@ describe('ApplicationsService.listForProgram', () => {
       findProgramById: jest.fn().mockResolvedValue(OPEN_PROGRAM),
       listApplicationsForProgram: jest.fn().mockResolvedValue(EMPTY_PAGE),
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(repository);
+    const service = new ApplicationsService(repository, noopAuditLog);
 
     await expect(
       service.listForProgram(PROGRAM_ID, {

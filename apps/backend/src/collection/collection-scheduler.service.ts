@@ -9,7 +9,10 @@ import {
   COLLECTION_ERROR_CODES,
   CollectionErrorCode,
 } from './collection-error-code.enum';
-import { CollectionSyncService } from './collection-sync.service';
+import {
+  CollectionSyncService,
+  type CollectionSyncRunResult,
+} from './collection-sync.service';
 
 export const COLLECTION_CRON_JOB_NAME = 'collection-reconciliation';
 export const DEFAULT_COLLECTION_CRON_EXPRESSION = '0 0 * * * *';
@@ -64,22 +67,70 @@ export class CollectionSchedulerService {
       );
     }
     const runId = randomUUID();
-    void this.sync.run(this.ownerId).catch((error: unknown) => {
-      this.logger.error({
-        event: 'collection.scheduler.sync_failed',
-        runId,
-        errorName: error instanceof Error ? error.name : 'UnknownError',
-      });
-    });
+    const startedAt = Date.now();
+    // #546 — 트리거 표면이 만든 runId를 그대로 내부 run/lease에 넘긴다.
+    // 그래야 202로 돌려준 runId로 실행 결과를 조회할 수 있다.
+    this.observeSweep(
+      'org',
+      runId,
+      startedAt,
+      this.sync.run(this.ownerId, runId),
+    );
     // Independent void promise — E1 external sweep must not block the org
     // sweep above (separate lease scope, separate failure surface).
-    void this.sync.runExternal(this.ownerId).catch((error: unknown) => {
-      this.logger.error({
-        event: 'collection.scheduler.external_sync_failed',
-        runId,
-        errorName: error instanceof Error ? error.name : 'UnknownError',
-      });
-    });
+    this.observeSweep(
+      'external',
+      runId,
+      startedAt,
+      this.sync.runExternal(this.ownerId, runId),
+    );
     return { runId, status: 'PENDING' };
+  }
+
+  /**
+   * #511 — 실패 이벤트만 남던 자리에 성공 1줄을 추가한다. 운영자가 로그만으로
+   * "이번 정각 tick이 실제로 돌았는가"를 판정할 수 있어야 하며, DB 직접 조회가
+   * 정상/무동작 구분의 유일한 수단이어서는 안 된다.
+   *
+   * org·external 두 sweep에 대칭으로 건다 — 한쪽만 남기면 "조직 밖 수집이 돌았는가"가
+   * 다시 로그로 판정 불가능해진다. 실패 이벤트 이름은 기존 것을 그대로 유지해
+   * 이미 걸려 있는 경보를 깨뜨리지 않는다.
+   *
+   * 토큰·시크릿·저장소 이름은 담지 않는다(#511 수용 기준) — 집계 수치와 안전한
+   * 분류만 남긴다.
+   */
+  private observeSweep(
+    scope: 'org' | 'external',
+    runId: string,
+    startedAt: number,
+    sweep: Promise<CollectionSyncRunResult>,
+  ): void {
+    void sweep.then(
+      (result) => {
+        this.logger.log({
+          event: 'collection.scheduler.completed',
+          scope,
+          runId,
+          syncStatus: result.status,
+          durationMs: Date.now() - startedAt,
+          repositoryCount: result.processedRepositoryCount,
+          insertedFactCount: result.insertedFactCount,
+          inventoryComplete: result.inventoryComplete,
+          cycleCompleted: result.cycleCompleted,
+          stoppedForBudget: result.stoppedForBudget,
+        });
+      },
+      (error: unknown) => {
+        this.logger.error({
+          event:
+            scope === 'org'
+              ? 'collection.scheduler.sync_failed'
+              : 'collection.scheduler.external_sync_failed',
+          scope,
+          runId,
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+        });
+      },
+    );
   }
 }

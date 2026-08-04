@@ -20,7 +20,7 @@ import { PatchApplicationDecisionRequestDto } from './dto/patch-application-deci
 
 type ApplicationActorRequest = Pick<
   ApplicationStaffRequest,
-  'applicationActorId'
+  'applicationActorId' | 'sessionGithubId'
 >;
 
 @Controller('applications')
@@ -40,6 +40,7 @@ export class ApplicationsController {
     const result = await this.service.decide(
       request.applicationActorId,
       applicationId,
+      request.sessionGithubId,
       body.toAction(),
     );
     return toApplicationDecisionResponse(result);

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuthModule } from '../auth/auth.module';
 import { ProgramsModule } from '../programs/programs.module';
 import { SubmissionsModule } from '../submissions/submissions.module';
@@ -20,7 +21,7 @@ import { StudentApplicationManagementService } from './student-application-manag
 import { StudentApplicationsController } from './student-applications.controller';
 
 @Module({
-  imports: [AuthModule, ProgramsModule, SubmissionsModule],
+  imports: [AuditLogModule, AuthModule, ProgramsModule, SubmissionsModule],
   controllers: [
     StaffDashboardController,
     StudentApplicationsController,

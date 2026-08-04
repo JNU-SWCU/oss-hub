@@ -17,15 +17,15 @@ Collection GitHub App installation token으로 `JNU-SWCU` 조직 설치 범위�
 | `collection-app.client.ts` | REST inventory/commit/PR/release reader — bounded pagination·typed 오류 |
 | `collection-reconciliation.service.ts` | (rollback 참조 전용, live writer 아님) fenced lease 기반 Org-wide atomic generation 수집·발행 — old canonical 테이블 authority |
 | `collection-canonical.repository.ts` | canonical run/lease/generation/공개 contributor projection 영속화(rollback 참조 대상, 신규 런타임 쓰기 없음) |
-| `collection-scheduler.service.ts` | 매시 정각(Asia/Seoul) cron 트리거. todo 14 전환 이후 `CollectionSyncService.run()`을 fire-and-forget으로 감싸 호출한다(즉시 PENDING 응답 계약 유지) — `CollectionCutoverLease`가 걸려 있으면 `COL_008`로 거부한다 |
-| `collection-admin.controller.ts` | `POST /admin/collection/trigger` — ADMIN manual trigger(202/`COL_008`). scheduler와 동일하게 `CollectionSyncService`만 호출한다. `POST /admin/collection/discover-external` — ADMIN이 학생 GitHub login 1건 단위로 external discovery를 즉시 실행하고 결과 집계(200)를 응답한다(E4, 백그라운드로 미루지 않는다) |
+| `collection-scheduler.service.ts` | 매시 정각(Asia/Seoul) cron 트리거. todo 14 전환 이후 `CollectionSyncService.run()`을 fire-and-forget으로 감싸 호출한다(즉시 PENDING 응답 계약 유지) — `CollectionCutoverLease`가 걸려 있으면 `COL_008`로 거부한다. #511 이후 성공 tick마다 `collection.scheduler.completed` 구조적 로그 1줄(소요 시간·대상 repo 수·신규 fact 수)을 남긴다 |
+| `collection-admin.controller.ts` | `POST /admin/collection/trigger` — ADMIN manual trigger(202/`COL_008`). scheduler와 동일하게 `CollectionSyncService`만 호출한다. `POST /admin/collection/discover-external` — ADMIN이 학생 GitHub login 1건 단위로 external discovery를 즉시 실행하고 결과 집계(200)를 응답한다(E4, 백그라운드로 미루지 않는다). `GET /admin/collection/runs` — #511 실행 이력 조회(스키마 무접촉 프로젝션이라 scope당 최근 1건). 트리거는 `COLLECTION_SYNC_TRIGGERED` typed audit을 남긴다(#547) |
 | `collection-discovery.client.ts` | GraphQL `contributionsCollection(from, to)` 기반 학생 기여 저장소 discovery(E4). private 저장소는 이 client가 직접 필터링한다. 인증은 `CollectionDiscoveryTokenProvider`(구조적 인터페이스) — installation JWT(`CollectionAppTokenProvider`)는 배선 금지, `CollectionPublicTokenProvider`만 배선한다 |
 | `collection-public.token.ts` | 외부 public 저장소 수집용 서비스 계정 PAT(`GITHUB_PUBLIC_READ_TOKEN`) provider. 자격증명 부재는 생성자가 아니라 `getToken()` 최초 호출 시점에만 fail-closed로 검증한다 — 조직 collection은 이 키 없이도 계속 동작한다 |
 | `collection-external-discovery.service.ts` | 학생 GitHub login → 활성·현재 정책 동의 확인(`ConsentsService.requireCurrent` 재사용, 정책 버전 하드코딩 없음) → `CollectionDiscoveryClient` 호출 → `GithubRepository` `source: 'EXTERNAL_PUBLIC'` upsert(E4). 이미 `ORG_PROVISIONED`로 관찰된 저장소는 덮어쓰지 않고 건너뛴다(org/external 저장소 집합의 서로소 불변식 보호) |
 | `collection-live-smoke.service.ts` | E1 live smoke(2-pass 멱등 digest, 공개-safe 출력) |
 | `collection-error-code.enum.ts` | `COL_*` 에러 코드 레지스트리 — `COL_008 COLLECTION_QUIESCED`(409, cutover 절차 진행 중 트리거 거부) 포함 |
 | `collection-generation-import.service.ts` | 최신 성공 활성 canonical generation → ADR-006 안정 ID facts/state/집계 backfill(멱등, ETag·safe frontier 미발명 — stream은 `VERIFYING`으로 남는다). todo 14 cutover 절차가 pin된 generation을 재확인하기 위해 이 backfill을 재실행한다 |
-| `collection-sync.service.ts` | todo 10/14 — repository별 증분 동기화 orchestration이자 유일한 live writer. inventory(complete/partial 구분) → 신규/미검증 저장소 full backfill → READY 저장소 조건부 poll을 fair serial queue·lease-fenced 트랜잭션 위에서 durable cursor로 이어간다 |
+| `collection-sync.service.ts` | todo 10/14 — repository별 증분 동기화 orchestration이자 유일한 live writer. inventory(complete/partial 구분) → 신규/미검증 저장소 full backfill → READY 저장소 조건부 poll을 fair serial queue·lease-fenced 트랜잭션 위에서 durable cursor로 이어간다. `run`/`runExternal`은 트리거가 만든 runId를 받아 lease에 그대로 쓴다(#546). stream 실패는 `lastErrorCode`(public-safe 분류)로 남기고 성공하면 지운다 — run budget 소진(deadline)은 오류로 세지 않는다 |
 | `collection-sync.types.ts` | `CollectionSyncLease` epoch-fenced lease 계약 타입(`SyncLeaseKey`/`SyncLeaseToken`/`AcquireSyncLeaseInput`) |
 | `collection-cutover.types.ts` | todo 14 원자 전환 quiesce lease/결과 계약 타입(`CutoverLeaseKey`/`CutoverLeaseToken`/`CutoverAbortReason`/`CutoverAggregateComparison`/`CutoverResult`) |
 | `collection-cutover.repository.ts` | `CollectionCutoverLease` epoch-fenced quiesce lease(acquire/release/`isQuiesced` 존재 확인) + aggregate 비교용 VERIFYING stream·facts count 조회 |
@@ -38,7 +38,7 @@ Collection GitHub App installation token으로 `JNU-SWCU` 조직 설치 범위�
 
 | 경로 | 내용 |
 | --- | --- |
-| `dto/` | `collection-trigger-response.dto.ts` — 공개 응답 계약. `collection-external-discovery-request.dto.ts`/`collection-external-discovery-response.dto.ts` — `discover-external` 요청/응답 계약(E4) |
+| `dto/` | `collection-trigger-response.dto.ts` — 공개 응답 계약. `collection-external-discovery-request.dto.ts`/`collection-external-discovery-response.dto.ts` — `discover-external` 요청/응답 계약(E4). `collection-run-list-response.dto.ts` — `GET /admin/collection/runs` 응답 계약(#511, lease `ownerId`는 trigger 분류로만 환원해 노출) |
 | `cli/` | `verify-collection-app.ts` — live smoke 엔트리(`pnpm --filter backend collection:verify-app`) · `collection-generation-import.ts` — backfill 엔트리(`pnpm --filter backend collection:import-generation`) · `collection-sync.ts` — todo 10 증분 동기화 엔트리(`pnpm --filter backend collection:sync`) · `collection-cutover.ts` — todo 14 원자 전환 절차 엔트리(`pnpm --filter backend collection:cutover`, 사람이 지켜보며 1회 실행) |
 
 ## For AI Agents

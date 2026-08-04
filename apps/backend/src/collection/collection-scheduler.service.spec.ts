@@ -8,28 +8,37 @@ import {
   CollectionSchedulerService,
   DEFAULT_COLLECTION_CRON_EXPRESSION,
 } from './collection-scheduler.service';
-import { CollectionSyncService } from './collection-sync.service';
+import {
+  CollectionSyncService,
+  type CollectionSyncRunResult,
+} from './collection-sync.service';
+
+const completedRun = (
+  overrides: Partial<CollectionSyncRunResult> = {},
+): CollectionSyncRunResult => ({
+  runId: 'synthetic-run-id',
+  status: 'COMPLETED',
+  inventoryComplete: true,
+  processedRepositoryCount: 1,
+  cycleCompleted: true,
+  stoppedForBudget: false,
+  insertedFactCount: 0,
+  ...overrides,
+});
 
 describe('CollectionSchedulerService', () => {
   let testingModule: TestingModule;
   let service: CollectionSchedulerService;
-  const run = jest.fn<
-    Promise<{ runId: string; status: 'COMPLETED' }>,
-    [string]
-  >();
-  const runExternal = jest.fn<
-    Promise<{ runId: string; status: 'COMPLETED' }>,
-    [string]
-  >();
+  const run = jest.fn<Promise<CollectionSyncRunResult>, [string]>();
+  const runExternal = jest.fn<Promise<CollectionSyncRunResult>, [string]>();
   const isQuiesced = jest.fn<Promise<boolean>, [Date]>();
 
   beforeEach(async () => {
     run.mockReset();
     runExternal.mockReset();
-    runExternal.mockResolvedValue({
-      runId: 'synthetic-external-run-id',
-      status: 'COMPLETED',
-    });
+    runExternal.mockResolvedValue(
+      completedRun({ runId: 'synthetic-external-run-id' }),
+    );
     isQuiesced.mockReset();
     isQuiesced.mockResolvedValue(false);
     testingModule = await Test.createTestingModule({
@@ -60,7 +69,7 @@ describe('CollectionSchedulerService', () => {
   });
 
   it('수동 진입점과 cron이 동일한 sync use case를 즉시 PENDING으로 응답하며 시작한다', async () => {
-    run.mockResolvedValue({ runId: 'synthetic-run-id', status: 'COMPLETED' });
+    run.mockResolvedValue(completedRun());
 
     const result = await service.trigger();
     expect(result.status).toBe('PENDING');
@@ -73,7 +82,7 @@ describe('CollectionSchedulerService', () => {
   });
 
   it('org sweep과 함께 E1 external sweep도 같은 quiesce guard 안에서 시작한다', async () => {
-    run.mockResolvedValue({ runId: 'synthetic-run-id', status: 'COMPLETED' });
+    run.mockResolvedValue(completedRun());
 
     await service.trigger();
     await expect(service.handleCron()).resolves.toBeUndefined();
@@ -116,6 +125,63 @@ describe('CollectionSchedulerService', () => {
     );
   });
 
+  // #546 — 트리거가 돌려준 runId와 내부 run의 runId가 같아야 조회가 성립한다.
+  it('트리거가 만든 runId를 그대로 내부 sync run에 넘긴다', async () => {
+    run.mockResolvedValue(completedRun());
+
+    const result = await service.trigger();
+
+    expect(run).toHaveBeenCalledWith(expect.any(String), result.runId);
+  });
+
+  // #511 — 성공 tick에도 로그가 1줄 남아야 한다. 이전에는 실패 이벤트만 기록돼
+  // "정상 실행됐는가"를 DB 직접 조회 없이 판정할 수 없었다.
+  it('sync가 성공하면 소요 시간·대상 repo 수·신규 수집 건수를 담은 완료 로그를 남긴다', async () => {
+    const logger = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+    run.mockResolvedValue(
+      completedRun({ processedRepositoryCount: 9, insertedFactCount: 12 }),
+    );
+
+    await expect(service.handleCron()).resolves.toBeUndefined();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(logger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'collection.scheduler.completed',
+        syncStatus: 'COMPLETED',
+        repositoryCount: 9,
+        insertedFactCount: 12,
+        inventoryComplete: true,
+        cycleCompleted: true,
+        stoppedForBudget: false,
+      }),
+    );
+    expect(logger).toHaveBeenCalledWith(
+      expect.objectContaining({ durationMs: expect.any(Number) as unknown }),
+    );
+  });
+
+  it('완료 로그에 자격증명·저장소 이름이 섞이지 않는다', async () => {
+    const logger = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+    run.mockResolvedValue({
+      ...completedRun(),
+      // 계약에 없는 필드를 결과에 섞어도 로그로 새지 않아야 한다.
+      installationToken: 'must-not-be-logged',
+      nameWithOwner: 'JNU-SWCU/secret-repo',
+    } as CollectionSyncRunResult);
+
+    await expect(service.handleCron()).resolves.toBeUndefined();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const serialized = JSON.stringify(logger.mock.calls);
+    expect(serialized).not.toContain('must-not-be-logged');
+    expect(serialized).not.toContain('secret-repo');
+  });
+
   it('백그라운드 sync 실패는 트리거 응답에 영향을 주지 않고 안전하게 기록된다', async () => {
     const logger = jest
       .spyOn(Logger.prototype, 'error')
@@ -136,7 +202,7 @@ describe('CollectionSchedulerService', () => {
     const logger = jest
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => undefined);
-    run.mockResolvedValue({ runId: 'synthetic-run-id', status: 'COMPLETED' });
+    run.mockResolvedValue(completedRun());
     runExternal.mockRejectedValue(new Error('external provider unavailable'));
 
     await expect(service.trigger()).resolves.toEqual(

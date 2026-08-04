@@ -12,7 +12,7 @@
 
 | 파일 | 역할 |
 | --- | --- |
-| `audit-log-metadata.ts` | `schemaVersion` 판별 유니온 타입과 `isAccessAuditMetadata` 검증 가드 — v1(액터만 스냅샷)·v2(액터+대상 스냅샷)·legacy(`{}`)를 모두 정의 |
+| `audit-log-metadata.ts` | `schemaVersion` 판별 유니온 타입과 `isAccessAuditMetadata` 검증 가드 — v1(액터만 스냅샷)·v2(액터+대상 스냅샷)·legacy(`{}`)를 모두 정의. 접근 변경 밖의 typed action(`REPOSITORY_PUBLISHED` · `PROGRAM_ARCHIVED`/`PROGRAM_RESTORED` · `COLLECTION_SYNC_TRIGGERED` · `SUBMISSION_FILE_CLEANUP_RETRY_RESET` · `APPLICATION_APPROVED`/`APPLICATION_REJECTED`)도 여기서 정의한다 — 새 action을 쓰기만 하고 읽기 가드를 빠뜨리면 목록 조회 전체가 `InvalidAuditLogMetadataError`로 깨진다 |
 | `audit-log.repository.ts` | Prisma 행을 `AuditLogRecord`로 매핑 — `resolveAuditTargetLabel`이 버전별 대상 표시 규칙을 결정 |
 | `audit-log.service.ts` | ADMIN 전용 조회·기간 필터·`record` 쓰기 헬퍼 |
 | `audit-log.controller.ts` | `/api/v1/audit-logs` 엔드포인트 |

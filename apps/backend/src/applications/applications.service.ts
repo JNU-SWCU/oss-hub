@@ -4,6 +4,11 @@ import {
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
 import { Injectable, Logger } from '@nestjs/common';
+import {
+  APPLICATION_DECISION_AUDIT_ACTIONS,
+  createApplicationDecisionAuditMetadata,
+} from '../audit-log/audit-log-metadata';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { DomainException } from '../common/error-code';
 import type { ProblemDetailExtensions } from '../common/error-code';
 import {
@@ -63,7 +68,10 @@ interface TeamMinimumExtensions extends ProblemDetailExtensions {
 export class ApplicationsService {
   private readonly logger = new Logger(ApplicationsService.name);
 
-  constructor(private readonly repository: ApplicationsRepository) {}
+  constructor(
+    private readonly repository: ApplicationsRepository,
+    private readonly auditLog: AuditLogService,
+  ) {}
 
   async create(
     githubId: bigint,
@@ -201,9 +209,14 @@ export class ApplicationsService {
     return this.repository.listStaffDashboardSummary();
   }
 
+  /**
+   * `actorGithubId`는 감사 기록 전용이다(#547) — `AuditLog.actor`가 GitHub id로 연결되기
+   * 때문이며, 신청 전이 자체는 계속 내부 `actorId`(User.id)로 기록한다. 응답 계약은 그대로다.
+   */
   async decide(
     actorId: string,
     applicationId: string,
+    actorGithubId: bigint,
     action: ApplicationDecisionAction,
   ): Promise<ApplicationDecisionResult> {
     const idempotencyKey = `repository-provision:${applicationId}`;
@@ -275,6 +288,29 @@ export class ApplicationsService {
             extensions,
           );
         }
+
+        // #547 — 승인·거절은 actor가 명확한 중요 조작이다. 전이와 같은 트랜잭션에서
+        // 기록해, 판정만 커밋되고 감사 기록이 빠지는 상태를 만들지 않는다.
+        // ⚠ 반려 사유 원문(`plan.rejectionReason`)은 여기 넘기지 않는다. 사유는 이미
+        // `Application.rejectionReason`에 남고, 감사 원장은 append-only 트리거로
+        // UPDATE·DELETE가 막혀 있어 한 번 담기면 지울 수 없다. `GET /audit-logs`가
+        // metadata를 그대로 실어 보내므로 담는 순간 곧바로 노출된다.
+        await this.auditLog.record(
+          {
+            actorGithubId,
+            action:
+              plan.kind === 'APPROVE'
+                ? APPLICATION_DECISION_AUDIT_ACTIONS.APPLICATION_APPROVED
+                : APPLICATION_DECISION_AUDIT_ACTIONS.APPLICATION_REJECTED,
+            targetType: 'APPLICATION',
+            targetId: applicationId,
+            metadata: createApplicationDecisionAuditMetadata({
+              before: { status: application.status },
+              after: { status: plan.status },
+            }),
+          },
+          store.auditLogWriter,
+        );
 
         switch (plan.kind) {
           case 'REJECT':

@@ -87,6 +87,7 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 
 | 기능 | owner | 상태 | parent Issue | PR | CI | blocker (unblock owner) |
 | --- | --- | --- | --- | --- | --- | --- |
+| 수집 실행 관측성·트리거 추적·감사 기록 3종 | @Lumiere001 | review | [#511](https://github.com/JNU-SWCU/oss-hub/issues/511) · [#546](https://github.com/JNU-SWCU/oss-hub/issues/546) · [#547](https://github.com/JNU-SWCU/oss-hub/issues/547) | (이 PR) | backend unit 1923 · integration 238 pass | 스키마 무접촉 — 기존 lease/cursor/stream 프로젝션으로 구현 |
 | 승인 대기 화면의 프로필 수정 경로 | @Lumiere001 | review | [#598](https://github.com/JNU-SWCU/oss-hub/issues/598) | (이 PR) | frontend pass | 설정 화면으로 가는 두 번째 입구. 역할 단계 미개방 |
 | 프로그램·신청 영역 안내 문구 정리 | @Lumiere001 | review | [#355](https://github.com/JNU-SWCU/oss-hub/issues/355) | (이 PR) | frontend 1422 pass | 팀원 이슈 대행. 내부 용어 제거 + 동작별 실패 안내 |
 | 제출 파일 정리 소진 운영자 노출 | @Lumiere001 | review | [#545](https://github.com/JNU-SWCU/oss-hub/issues/545) | (이 PR) | backend unit·integration pass | 스키마 무접촉. 관리자 전용 조회 신설(PR #544 패턴) |

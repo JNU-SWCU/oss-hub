@@ -174,3 +174,45 @@ export interface SyncCursorRow {
   cycleStartedAt: Date | null;
   cycleCompletedAt: Date | null;
 }
+
+/**
+ * #511 — sync 실행 이력의 **프로젝션**. 이번 웨이브는 스키마 무접촉이 전제이므로 별도 run
+ * 테이블을 만들지 않고 이미 있는 세 소스(`CollectionSyncLease`·`CollectionSyncCursor`·
+ * `CollectionRepositoryStream`)를 합성한다.
+ *
+ * 그래서 갖는 한계를 명시한다: `CollectionSyncLease`는 (appId, scope)당 **한 행만** 유지하며
+ * run마다 그 행을 덮어쓴다. 따라서 이 프로젝션이 답할 수 있는 것은 "scope별 가장 최근 run"
+ * 하나뿐이고, 진짜 "최근 N회" 이력은 append 되는 run 테이블 없이는 복원할 수 없다.
+ */
+export type CollectionSyncRunTrigger = 'CRON' | 'MANUAL' | 'CLI' | 'UNKNOWN';
+
+/**
+ * `RUNNING`은 lease가 아직 만료되지 않은 상태(진행 중), `FAILED`는 이 scope의 stream 중
+ * `lastErrorCode`가 남아 있는 것이 있는 상태, 그 밖은 `COMPLETED`다. 사이클이 끝까지 돌았는지는
+ * 별도 `cycleCompletedAt`으로 구분한다 — budget으로 중간에 멈춘 run도 실패는 아니기 때문이다.
+ */
+export type CollectionSyncRunStatusProjection =
+  'RUNNING' | 'FAILED' | 'COMPLETED';
+
+export interface CollectionSyncStreamSummary {
+  readyCount: number;
+  backfillingCount: number;
+  pendingCount: number;
+  verifyingCount: number;
+  failedCount: number;
+}
+
+export interface CollectionSyncRunRow {
+  runId: string;
+  scope: string;
+  trigger: CollectionSyncRunTrigger;
+  status: CollectionSyncRunStatusProjection;
+  /** 이 scope의 현재 사이클 시작 시각(`CollectionSyncCursor.cycleStartedAt`). */
+  startedAt: Date | null;
+  /** lease가 마지막으로 갱신·해제된 시각 — 진행 중이면 마지막 heartbeat, 끝났으면 종료 시각. */
+  lastObservedAt: Date;
+  cycleCompletedAt: Date | null;
+  streams: CollectionSyncStreamSummary;
+  /** 이 scope의 stream에 남아 있는 `lastErrorCode`의 중복 없는 목록(사전순). */
+  errorCodes: readonly string[];
+}

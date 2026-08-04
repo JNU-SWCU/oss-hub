@@ -27,7 +27,7 @@
 | --- | --- |
 | `domain/` | `submission-content.ts`(제출 내용 타입 3종) · `submission-matrix.ts` |
 | `dto/` | 제출·재제출·매트릭스 요청/응답 DTO |
-| `cli/` | `retry-submission-file-cleanup.ts` — 만료 파일 수동 재정리(`SUBMISSION_FILE_CLEANUP_MAINTENANCE_ENABLED=1` 필요) |
+| `cli/` | `retry-submission-file-cleanup.ts` — 만료 파일 수동 재정리(`SUBMISSION_FILE_CLEANUP_MAINTENANCE_ENABLED=1` 필요). reset 성공 시 `SUBMISSION_FILE_CLEANUP_RETRY_RESET` typed audit을 남긴다(#547). 실행 본체는 `main`으로 export하고 진입은 `require.main === module` 가드다 — import만으로 CLI가 돌면 테스트를 붙일 수 없다 |
 
 ## For AI Agents
 

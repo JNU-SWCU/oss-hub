@@ -31,8 +31,18 @@ interface MockDb {
     findUnique: jest.Mock;
   };
   collectionContributorYearAggregate: { upsert: jest.Mock };
-  collectionRepositoryStream: { upsert: jest.Mock; findUnique: jest.Mock };
-  collectionSyncCursor: { upsert: jest.Mock; findUnique: jest.Mock };
+  collectionRepositoryStream: {
+    upsert: jest.Mock;
+    findUnique: jest.Mock;
+    groupBy: jest.Mock;
+    updateMany: jest.Mock;
+  };
+  collectionSyncCursor: {
+    upsert: jest.Mock;
+    findUnique: jest.Mock;
+    findMany: jest.Mock;
+  };
+  collectionSyncLease: { findMany: jest.Mock };
   $transaction: jest.Mock;
   $queryRawUnsafe: jest.Mock;
   $executeRawUnsafe: jest.Mock;
@@ -69,8 +79,18 @@ const createDb = (): MockDb => {
     collectionContributorYearAggregate: {
       upsert: jest.fn().mockResolvedValue({}),
     },
-    collectionRepositoryStream: { upsert: jest.fn(), findUnique: jest.fn() },
-    collectionSyncCursor: { upsert: jest.fn(), findUnique: jest.fn() },
+    collectionRepositoryStream: {
+      upsert: jest.fn().mockResolvedValue({}),
+      findUnique: jest.fn(),
+      groupBy: jest.fn().mockResolvedValue([]),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
+    collectionSyncCursor: {
+      upsert: jest.fn(),
+      findUnique: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    collectionSyncLease: { findMany: jest.fn().mockResolvedValue([]) },
     $transaction: jest.fn(async (fn: (tx: MockDb) => Promise<unknown>) =>
       fn(db),
     ),
@@ -830,5 +850,170 @@ describe('CollectionIncrementalRepository — todo 10 sync lease (epoch fencing)
       'run-1',
       now,
     );
+  });
+});
+
+// #511 — sync 실행 이력을 신규 테이블 없이 lease/cursor/stream 프로젝션으로 답한다.
+describe('CollectionIncrementalRepository — #511 실행 이력 프로젝션', () => {
+  const at = new Date('2026-08-04T01:00:00.000Z');
+
+  const leaseRow = (
+    overrides: Record<string, unknown> = {},
+  ): Record<string, unknown> => ({
+    appId: 1n,
+    scope: 'org:jnu-swcu',
+    ownerId: 'scheduler:11111111-2222-3333-4444-555555555555',
+    runId: 'run-1',
+    expiresAt: new Date('2026-08-04T00:50:00.000Z'),
+    updatedAt: new Date('2026-08-04T00:45:00.000Z'),
+    ...overrides,
+  });
+
+  it('lease가 없으면 빈 목록을 돌려주고 추가 질의를 하지 않는다', async () => {
+    const db = createDb();
+
+    await expect(repositoryFor(db).listSyncRuns(at, 20)).resolves.toEqual([]);
+    expect(db.collectionSyncCursor.findMany).not.toHaveBeenCalled();
+    expect(db.collectionRepositoryStream.groupBy).not.toHaveBeenCalled();
+  });
+
+  it('만료된 lease + 오류 없는 stream은 COMPLETED이고 ownerId는 trigger 분류로만 노출한다', async () => {
+    const db = createDb();
+    db.collectionSyncLease.findMany.mockResolvedValue([leaseRow()]);
+    db.collectionSyncCursor.findMany.mockResolvedValue([
+      {
+        appId: 1n,
+        scope: 'org:jnu-swcu',
+        cycleStartedAt: new Date('2026-08-04T00:40:00.000Z'),
+        cycleCompletedAt: new Date('2026-08-04T00:44:00.000Z'),
+      },
+    ]);
+    db.collectionRepositoryStream.groupBy.mockImplementation(
+      (args: { by: readonly string[] }) =>
+        args.by[0] === 'status'
+          ? Promise.resolve([{ status: 'READY', _count: { _all: 27 } }])
+          : Promise.resolve([]),
+    );
+
+    const [run] = await repositoryFor(db).listSyncRuns(at, 20);
+
+    expect(run).toEqual({
+      runId: 'run-1',
+      scope: 'org:jnu-swcu',
+      trigger: 'CRON',
+      status: 'COMPLETED',
+      startedAt: new Date('2026-08-04T00:40:00.000Z'),
+      lastObservedAt: new Date('2026-08-04T00:45:00.000Z'),
+      cycleCompletedAt: new Date('2026-08-04T00:44:00.000Z'),
+      streams: {
+        readyCount: 27,
+        backfillingCount: 0,
+        pendingCount: 0,
+        verifyingCount: 0,
+        failedCount: 0,
+      },
+      errorCodes: [],
+    });
+    expect(JSON.stringify(run)).not.toContain('scheduler:');
+  });
+
+  it('아직 만료되지 않은 lease는 RUNNING으로 판정한다', async () => {
+    const db = createDb();
+    db.collectionSyncLease.findMany.mockResolvedValue([
+      leaseRow({
+        ownerId: 'admin:aaaa',
+        expiresAt: new Date('2026-08-04T01:10:00.000Z'),
+      }),
+    ]);
+
+    const [run] = await repositoryFor(db).listSyncRuns(at, 20);
+
+    expect(run?.status).toBe('RUNNING');
+    expect(run?.trigger).toBe('MANUAL');
+  });
+
+  it('stream에 lastErrorCode가 남아 있으면 FAILED로 판정하고 코드를 노출한다', async () => {
+    const db = createDb();
+    db.collectionSyncLease.findMany.mockResolvedValue([leaseRow()]);
+    db.collectionRepositoryStream.groupBy.mockImplementation(
+      (args: { by: readonly string[] }) =>
+        args.by[0] === 'status'
+          ? Promise.resolve([{ status: 'READY', _count: { _all: 2 } }])
+          : Promise.resolve([
+              { lastErrorCode: 'STREAM_SYNC_FAILED', _count: { _all: 3 } },
+            ]),
+    );
+
+    const [run] = await repositoryFor(db).listSyncRuns(at, 20);
+
+    expect(run?.status).toBe('FAILED');
+    expect(run?.streams.failedCount).toBe(3);
+    expect(run?.errorCodes).toEqual(['STREAM_SYNC_FAILED']);
+  });
+
+  it('external scope의 stream 요약은 EXTERNAL_PUBLIC 저장소만 센다', async () => {
+    const db = createDb();
+    db.collectionSyncLease.findMany.mockResolvedValue([
+      leaseRow({ scope: 'external', ownerId: 'cli:zzzz' }),
+    ]);
+
+    const [run] = await repositoryFor(db).listSyncRuns(at, 20);
+
+    expect(run?.trigger).toBe('CLI');
+    const calls =
+      db.collectionRepositoryStream.groupBy.mock.calls.flat() as Array<{
+        where: { repository: { source: string } };
+      }>;
+    expect(calls).not.toHaveLength(0);
+    for (const args of calls) {
+      expect(args.where.repository.source).toBe('EXTERNAL_PUBLIC');
+    }
+  });
+});
+
+// #546 — repo 단위 실패가 stream에 남아야 system-status가 FAILED를 판정할 수 있다.
+describe('CollectionIncrementalRepository — #546 stream 오류 표시', () => {
+  const at = new Date('2026-08-04T01:00:00.000Z');
+
+  it('오류 기록은 upsert라 stream 행이 아직 없어도 남고, frontier/status는 건드리지 않는다', async () => {
+    const db = createDb();
+
+    await repositoryFor(db).markStreamErrorState('repo-1', 'COMMIT', {
+      lastErrorAt: at,
+      lastErrorCode: 'PROVIDER_UPSTREAM',
+    });
+
+    expect(db.collectionRepositoryStream.updateMany).not.toHaveBeenCalled();
+    const [args] = db.collectionRepositoryStream.upsert.mock.calls.flat() as [
+      { create: Record<string, unknown>; update: Record<string, unknown> },
+    ];
+    expect(args.create).toMatchObject({
+      status: 'PENDING',
+      lastErrorCode: 'PROVIDER_UPSTREAM',
+      lastErrorAt: at,
+    });
+    expect(args.update).toEqual({
+      lastErrorAt: at,
+      lastErrorCode: 'PROVIDER_UPSTREAM',
+    });
+  });
+
+  it('오류 해제는 표시가 남아 있는 행만 갱신하고 새 행을 만들지 않는다', async () => {
+    const db = createDb();
+
+    await repositoryFor(db).markStreamErrorState('repo-1', 'RELEASE', {
+      lastErrorAt: null,
+      lastErrorCode: null,
+    });
+
+    expect(db.collectionRepositoryStream.upsert).not.toHaveBeenCalled();
+    expect(db.collectionRepositoryStream.updateMany).toHaveBeenCalledWith({
+      where: {
+        repositoryId: 'repo-1',
+        streamType: 'RELEASE',
+        lastErrorCode: { not: null },
+      },
+      data: { lastErrorAt: null, lastErrorCode: null },
+    });
   });
 });

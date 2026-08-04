@@ -43,9 +43,17 @@ describe('ApplicationsController', () => {
 
     // When
     const response = await controller.decide(
-      { applicationActorId: 'synthetic-actor' },
+      { applicationActorId: 'synthetic-actor', sessionGithubId: 4242n },
       'synthetic-application',
       body,
+    );
+
+    // #547 — 감사 기록 actor는 세션 GitHub id로 넘어간다(응답 계약은 그대로).
+    expect(decide).toHaveBeenCalledWith(
+      'synthetic-actor',
+      'synthetic-application',
+      4242n,
+      expect.anything(),
     );
 
     // Then
