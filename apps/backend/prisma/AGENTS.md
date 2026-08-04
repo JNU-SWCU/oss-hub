@@ -11,6 +11,7 @@
 
 - [루트 AGENTS.md §3](../../../AGENTS.md)
 - [ADR-003](../../../docs/decisions/ADR-003-backend-architecture.md)
+- [데이터 모델 규칙](../../../docs/rules/data-modeling.md) — 테이블 추가 전 확인 절차·모델링 축·projection 설계·명명
 - [보안 규칙](../../../docs/rules/security.md)
 
 ## Key Files
