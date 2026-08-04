@@ -25,8 +25,8 @@ describe('가입 화면 목록의 포함 관계', () => {
     }
   });
 
-  // 승인 대기 화면은 셸 기준으로는 회원 화면(사이드바가 붙는다)이지만, 반려된
-  // 요청을 들고 그 화면에 서는 사람은 회원이 아니라 계정 메뉴가 필요하다.
+  // 승인 대기 화면은 정의상 회원 경로에 가깝지만, 반려된 요청을 들고 그 화면에
+  // 서는 사람은 회원이 아니라 계정 메뉴가 필요하다.
   it('승인 대기 화면은 계정 표식 목록에만 있다', () => {
     expect(SIGNUP_FLOW_PATHS.has('/onboarding/pending')).toBe(true);
     expect(PRE_MEMBER_PATHS.has('/onboarding/pending')).toBe(false);

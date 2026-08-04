@@ -1,16 +1,37 @@
 import type { NavItem } from '@/components';
-import { PUBLIC_MENU } from './public-menus';
+import {
+  ARCHIVE_CATEGORIES,
+  ARCHIVE_LIST_FILTER_LABELS,
+  archiveListHref,
+  type ArchiveCategory,
+  type ArchiveCategoryCounts,
+} from '@/features/archive/types';
+import {
+  PROGRAM_LIST_STATUSES,
+  PROGRAM_LIST_STATUS_LABELS,
+  programListHref,
+  type ProgramListStatus,
+} from '@/features/programs/types';
+import { RANKING_YEAR_ALL, rankingListHref } from '@/features/ranking/types';
 import type { AppRole } from './role';
 import { ADMIN_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
+import {
+  facetSectionFromHrefPath,
+  SECTION_FACETS,
+  type SectionFacetData,
+} from './section-facets';
 import type { ShellIconName } from './shell-icons';
 
 /**
- * 사이드바 메뉴 — 라벨·경로의 단일 원본은 역할 메뉴가 `role-menus.ts`, 공개 화면이
- * `public-menus.ts`다(#513). 이 파일은 거기에 아이콘과 묶음(그룹)만 얹는다.
- * 메뉴 문구를 여기서 다시 적으면 두 곳이 갈라진다.
+ * 왼쪽 사이드 패널 = **현재 상단 섹션의 하위 네비** (컨텍스트형).
+ * 프로그램: 전체 + 들여쓴 상태 필터. 대시보드: 역할 홈. 아카이브·랭킹: 섹션 전용(후속 확장).
  */
 export interface SidebarItem extends NavItem {
   readonly icon: ShellIconName;
+  /** 0 = 부모(전체), 1 = 자식(상태·하위). 데이콘 해커톤 메뉴 depth. */
+  readonly depth?: 0 | 1;
+  /** 카운트 뱃지. undefined면 미표시, 0도 표시. */
+  readonly count?: number;
 }
 
 export interface SidebarGroup {
@@ -18,55 +39,142 @@ export interface SidebarGroup {
   readonly items: readonly SidebarItem[];
 }
 
-/**
- * 메뉴 경로 → 아이콘. 경로를 키로 잡아 원본 목록이 메뉴를 늘려도 라벨이 아니라
- * 경로만 여기 추가하면 된다. 빠진 경로는 아래 기본값으로 떨어진다.
- */
+export type ShellSection =
+  'programs' | 'archive' | 'ranking' | 'dashboard' | null;
+
 const MENU_ICONS: Readonly<Record<string, ShellIconName>> = {
   '/dashboard': 'home',
+  '/dashboard/activity': 'chart',
   '/my-repos': 'repo',
   '/staff/dashboard': 'chart',
   '/staff/programs/new': 'detail',
-  // 교직원 승인·사용자 관리가 관리자 접근 한 화면으로 합쳐졌다.
   '/admin/access': 'people',
   '/admin/audit-log': 'shield',
   '/admin/system-status': 'pulse',
-  // 공개 화면
   '/programs': 'list',
   '/archive': 'archive',
-  // 활동량 집계라 막대 그래프다. `운영 대시보드`와 겹치지만 남은 아이콘은 뜻이 맞지 않는다.
   '/ranking': 'chart',
 };
 
 const FALLBACK_ICON: ShellIconName = 'detail';
 
-function withIcons(items: readonly NavItem[]): readonly SidebarItem[] {
+function pathKey(href: string): string {
+  return href.split('?')[0] ?? href;
+}
+
+function withIcons(
+  items: readonly NavItem[],
+  depth: 0 | 1 = 0,
+): readonly SidebarItem[] {
   return items.map((item) => ({
     ...item,
-    icon: MENU_ICONS[item.href] ?? FALLBACK_ICON,
+    depth,
+    icon: MENU_ICONS[pathKey(item.href)] ?? FALLBACK_ICON,
   }));
 }
 
+const PROGRAM_STATUS_ICONS: Readonly<Record<ProgramListStatus, ShellIconName>> =
+  {
+    all: 'list',
+    recruiting: 'megaphone',
+    in_progress: 'play',
+    upcoming: 'clock',
+    ended: 'checkCircle',
+  };
+
 /**
- * 공개 화면 — 로그인 없이도 볼 수 있으므로 **세 역할 모두**에게 보인다.
- * (시안 v1에서 이 묶음을 역할 메뉴로 착각해 빼먹었다가 지적받은 부분이다.)
- * 항목은 `public-menus.ts`가 정한다 — 랜딩 헤더가 읽는 목록과 같다.
+ * 프로그램 메뉴 — 전체·상태 필터가 **같은 깊이**의 피어 목록.
+ * 아이콘은 상태 특성별로 구분(접힌 사이드바 식별용).
  */
-export const PUBLIC_GROUP: SidebarGroup = {
-  label: '둘러보기',
-  items: withIcons(PUBLIC_MENU),
+export function programSidebarGroup(
+  counts?: Partial<Record<ProgramListStatus, number>>,
+): SidebarGroup {
+  const items: SidebarItem[] = PROGRAM_LIST_STATUSES.map((status) => ({
+    label: PROGRAM_LIST_STATUS_LABELS[status],
+    href: programListHref(status),
+    icon: PROGRAM_STATUS_ICONS[status],
+    depth: 0 as const,
+    count: counts?.[status],
+  }));
+  return { label: '프로그램 메뉴', items };
+}
+
+/** @deprecated 테스트 호환 — `programSidebarGroup()` 사용 */
+export const PROGRAM_SIDEBAR_GROUP: SidebarGroup = programSidebarGroup();
+
+export const PROGRAM_SIDEBAR_ITEMS: readonly SidebarItem[] =
+  PROGRAM_SIDEBAR_GROUP.items;
+
+const ARCHIVE_CATEGORY_ICONS: Readonly<
+  Record<ArchiveCategory | 'all', ShellIconName>
+> = {
+  all: 'archive',
+  BASIC: 'detail',
+  SW_VALUE_SPREAD: 'people',
+  OSS_CONTEST: 'trophy',
+  CAPSTONE: 'shield',
+  SW_CONVERGENCE: 'layers',
+  GLOBAL_MAKERTHON: 'globe',
+  CORPORATE_INTERNSHIP: 'building',
 };
 
-/** 계정 묶음 — `/settings`는 로그인만 요구하는 공용 화면이다(AuthGate). */
-const ACCOUNT_GROUP: SidebarGroup = {
-  label: '계정',
-  items: [{ label: '설정', href: '/settings', icon: 'gear' }],
-};
+/**
+ * 공개 아카이브 메뉴 — 전체·분류 피어 필터 + 분류별 아이콘.
+ * URLs: `/archive`, `/archive?category=CAPSTONE`.
+ */
+export function archiveSidebarGroup(
+  counts?: Partial<ArchiveCategoryCounts>,
+): SidebarGroup {
+  const items: SidebarItem[] = [
+    {
+      label: ARCHIVE_LIST_FILTER_LABELS.all,
+      href: archiveListHref('all'),
+      icon: ARCHIVE_CATEGORY_ICONS.all,
+      depth: 0,
+      count: counts?.all,
+    },
+    ...ARCHIVE_CATEGORIES.map((category: ArchiveCategory) => ({
+      label: ARCHIVE_LIST_FILTER_LABELS[category],
+      href: archiveListHref(category),
+      icon: ARCHIVE_CATEGORY_ICONS[category],
+      depth: 0 as const,
+      count: counts?.[category],
+    })),
+  ];
+  return { label: '공개 아카이브', items };
+}
+
+/**
+ * 랭킹 메뉴 — 전체 + 데이터가 있는 연도(최신 순). 프로그램·아카이브와 같이 피어 필터(depth 0).
+ * counts 키: `all` 또는 연도 숫자(선택).
+ */
+export function rankingSidebarGroup(
+  years: readonly number[] = [],
+  counts?: Partial<Record<'all' | number, number>>,
+): SidebarGroup {
+  const items: SidebarItem[] = [
+    {
+      label: '전체',
+      href: rankingListHref(RANKING_YEAR_ALL),
+      icon: 'chart',
+      depth: 0,
+      count: counts?.all,
+    },
+    ...years.map((year) => ({
+      label: String(year),
+      href: rankingListHref(year),
+      icon: 'chart' as const,
+      depth: 0 as const,
+      count: counts?.[year],
+    })),
+  ];
+  return { label: '랭킹', items };
+}
 
 const ROLE_GROUP_LABEL: Readonly<Record<AppRole, string>> = {
-  STUDENT: '내 작업',
-  STAFF: '운영',
-  ADMIN: '관리',
+  STUDENT: '대시보드',
+  STAFF: '대시보드',
+  ADMIN: '대시보드',
 };
 
 const ROLE_MENU: Readonly<Record<AppRole, readonly NavItem[]>> = {
@@ -75,48 +183,107 @@ const ROLE_MENU: Readonly<Record<AppRole, readonly NavItem[]>> = {
   ADMIN: ADMIN_MENU,
 };
 
+export function shellSectionFromPathname(pathname: string): ShellSection {
+  if (pathname === '/programs' || pathname.startsWith('/programs/')) {
+    return 'programs';
+  }
+  if (pathname === '/archive' || pathname.startsWith('/archive/')) {
+    return 'archive';
+  }
+  if (pathname === '/ranking' || pathname.startsWith('/ranking/')) {
+    return 'ranking';
+  }
+  if (
+    pathname === '/dashboard' ||
+    pathname.startsWith('/dashboard/') ||
+    pathname === '/my-repos' ||
+    pathname.startsWith('/my-repos/') ||
+    pathname.startsWith('/staff/') ||
+    pathname.startsWith('/admin/')
+  ) {
+    return 'dashboard';
+  }
+  return null;
+}
+
 /**
- * 역할별 사이드바 구성. 역할을 아직 모르는 사용자(비로그인·조회 중·역할 미배정)는
- * 공개 묶음만 본다 — 로그인해야 열리는 메뉴를 미리 보여 주면 눌렀을 때 튕긴다.
+ * 현재 섹션 하나의 그룹만 반환 (컨텍스트형).
+ * 비회원도 programs/archive/ranking 하위는 본다.
+ * programs/archive/ranking 은 SECTION_FACETS 레지스트리; dashboard 는 역할 메뉴.
  */
 export function sidebarGroupsFor(
+  section: ShellSection,
   role: AppRole | null,
+  options?: {
+    readonly programCounts?: Partial<Record<ProgramListStatus, number>>;
+    readonly archiveCounts?: Partial<ArchiveCategoryCounts>;
+    readonly rankingYears?: readonly number[];
+    readonly rankingCounts?: Partial<Record<'all' | number, number>>;
+  },
 ): readonly SidebarGroup[] {
-  if (role === null) {
-    return [PUBLIC_GROUP];
+  if (section === 'dashboard') {
+    if (role === null) return [];
+    return [
+      {
+        label: ROLE_GROUP_LABEL[role],
+        items: withIcons(ROLE_MENU[role], 0),
+      },
+    ];
   }
-  return [
-    { label: ROLE_GROUP_LABEL[role], items: withIcons(ROLE_MENU[role]) },
-    PUBLIC_GROUP,
-    ACCOUNT_GROUP,
-  ];
-}
+  if (section === null) return [];
 
-/** 상단바 breadcrumb 후보 — 모든 역할의 메뉴를 합친 경로→라벨 표. */
-const ALL_LABELS: ReadonlyArray<readonly [string, string]> = [
-  ...STUDENT_MENU,
-  ...STAFF_MENU,
-  ...ADMIN_MENU,
-  ...PUBLIC_GROUP.items,
-  ...ACCOUNT_GROUP.items,
-].map((item) => [item.href, item.label] as const);
+  const spec = SECTION_FACETS[section];
+  if (!spec) return [];
+
+  const data: SectionFacetData | undefined = {
+    programCounts: options?.programCounts,
+    archiveCounts: options?.archiveCounts,
+    rankingYears: options?.rankingYears,
+    rankingCounts: options?.rankingCounts,
+  };
+  return [{ label: spec.groupLabel, items: spec.items(data) }];
+}
 
 /**
- * 현재 경로가 어느 메뉴에 속하는지. 상세 화면(`/programs/xxx`)은 목록 메뉴에
- * 속하므로 **가장 긴 접두사**가 이긴다 — 짧은 쪽이 먼저 걸리면 `/admin/access`가
- * 늘 `/admin`류 첫 항목으로 표시된다.
+ * 현재 메뉴 강조.
+ * 패싯 섹션은 `spec.param` 쿼리 피어 비교. 아카이브 상세 예외는 `matchDetail`.
+ * 상세(`/programs/id`)는 필터 비강조(프로그램·랭킹).
  */
-export function shellPageLabel(pathname: string): string | null {
-  let best: readonly [string, string] | null = null;
-  for (const entry of ALL_LABELS) {
-    const [href] = entry;
-    if (pathname !== href && !pathname.startsWith(`${href}/`)) continue;
-    if (best === null || href.length > best[0].length) best = entry;
-  }
-  return best?.[1] ?? null;
-}
+export function isCurrentSidebarItem(
+  pathname: string,
+  href: string,
+  search = '',
+): boolean {
+  const qIndex = href.indexOf('?');
+  const hrefPath = qIndex === -1 ? href : href.slice(0, qIndex);
+  const hrefQuery = qIndex === -1 ? '' : href.slice(qIndex + 1);
 
-/** 사이드바에서 현재 위치로 볼 항목인지. breadcrumb과 같은 규칙을 쓴다. */
-export function isCurrentSidebarItem(pathname: string, href: string): boolean {
-  return pathname === href || pathname.startsWith(`${href}/`);
+  const facetSection = facetSectionFromHrefPath(hrefPath);
+  if (facetSection !== null) {
+    const spec = SECTION_FACETS[facetSection];
+    if (!spec) return false;
+
+    if (spec.matchDetail) {
+      const detail = spec.matchDetail(pathname, href, hrefQuery);
+      if (detail !== null) return detail;
+    } else if (pathname !== hrefPath) {
+      return false;
+    }
+
+    const want =
+      hrefQuery === ''
+        ? 'all'
+        : (new URLSearchParams(hrefQuery).get(spec.param) ?? 'all');
+    const have = new URLSearchParams(search).get(spec.param) ?? 'all';
+    // 아카이브 목록: category 키 부재를 all 과 동일 취급 (기존 계약)
+    if (facetSection === 'archive') {
+      return want === have || (want === 'all' && !search.includes('category='));
+    }
+    return want === have;
+  }
+
+  if (pathname === hrefPath) return true;
+  // `/dashboard` 는 `/dashboard/activity` 의 부모가 아니다 — 둘 다 사이드 항목.
+  if (hrefPath === '/dashboard') return false;
+  return pathname.startsWith(`${hrefPath}/`);
 }

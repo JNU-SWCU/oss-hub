@@ -1,4 +1,4 @@
-import { RANKING_PERIODS } from './domain/ranking';
+import { RANKING_YEAR_ALL } from './domain/ranking';
 import { activity, setupRankingService } from './ranking.service.spec-helper';
 
 describe('RankingService canonical actor attribution', () => {
@@ -13,7 +13,7 @@ describe('RankingService canonical actor attribution', () => {
       activity(22n, 'release-author', 0, 0, 1),
     ]);
 
-    const result = await harness.service.findPage(RANKING_PERIODS.ALL, 1, 20);
+    const result = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
 
     expect(result.items).toEqual([
       {
@@ -32,7 +32,7 @@ describe('RankingService canonical actor attribution', () => {
     harness.getPublicRankingMetrics.mockResolvedValue([]);
 
     await expect(
-      harness.service.findPage(RANKING_PERIODS.ALL, 1, 20),
+      harness.service.findPage(RANKING_YEAR_ALL, 1, 20),
     ).resolves.toMatchObject({ items: [], total: 0 });
   });
 
@@ -45,7 +45,7 @@ describe('RankingService canonical actor attribution', () => {
       activity(9n, 'same', 1, 1, 0),
     ]);
 
-    const result = await harness.service.findPage(RANKING_PERIODS.ALL, 1, 20);
+    const result = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
 
     expect(
       result.items.map(({ githubLogin, total, rank }) => ({

@@ -1,4 +1,4 @@
-import { RANKING_PERIODS } from './domain/ranking';
+import { RANKING_YEAR_ALL } from './domain/ranking';
 import { activity, setupRankingService } from './ranking.service.spec-helper';
 
 describe('RankingService display name', () => {
@@ -16,7 +16,7 @@ describe('RankingService display name', () => {
       { githubId: 1n, name: 'Octo Cat' },
     ]);
 
-    const result = await harness.service.findPage(RANKING_PERIODS.ALL, 1, 20);
+    const result = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
 
     expect(result.items).toEqual([
       expect.objectContaining({
@@ -33,7 +33,7 @@ describe('RankingService display name', () => {
     ]);
     harness.findByGithubIds.mockResolvedValue([{ githubId: 2n, name: null }]);
 
-    const result = await harness.service.findPage(RANKING_PERIODS.ALL, 1, 20);
+    const result = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
 
     expect(result.items).toEqual([
       expect.objectContaining({
@@ -53,7 +53,7 @@ describe('RankingService display name', () => {
       { githubId: 4n, name: '   ' },
     ]);
 
-    const result = await harness.service.findPage(RANKING_PERIODS.ALL, 1, 20);
+    const result = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
 
     expect(
       result.items.map(({ displayName, githubLogin }) => ({
@@ -74,7 +74,7 @@ describe('RankingService display name', () => {
     ]);
     harness.findByGithubIds.mockResolvedValue([]);
 
-    const result = await harness.service.findPage(RANKING_PERIODS.ALL, 1, 20);
+    const result = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
 
     expect(result.items).toEqual([
       expect.objectContaining({
@@ -92,7 +92,7 @@ describe('RankingService display name', () => {
       { githubId: 6n, name: '  Padded Name  ' },
     ]);
 
-    const result = await harness.service.findPage(RANKING_PERIODS.ALL, 1, 20);
+    const result = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
 
     expect(result.items).toEqual([
       expect.objectContaining({
@@ -105,7 +105,7 @@ describe('RankingService display name', () => {
   it('does not query display names for an empty ranking', async () => {
     harness.getPublicRankingMetrics.mockResolvedValue([]);
 
-    await harness.service.findPage(RANKING_PERIODS.ALL, 1, 20);
+    await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
 
     expect(harness.findByGithubIds).toHaveBeenCalledWith([]);
   });

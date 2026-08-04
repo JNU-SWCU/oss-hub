@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '@/lib/api-client';
-import { createApplication, decideApplication, listPrograms } from './api';
-import type { ProgramListPage } from './types';
+import {
+  createApplication,
+  decideApplication,
+  getProgramStatusCounts,
+  listPrograms,
+} from './api';
+import type { ProgramListPage, ProgramStatusCounts } from './types';
 
 vi.mock('@/lib/api-client', () => ({
   apiClient: vi.fn(),
@@ -28,14 +33,34 @@ describe('listPrograms', () => {
       page: 2,
       pageSize: 20,
       search: '동명 프로그램',
-      status: 'closed',
+      status: 'ended',
     });
 
     // Then
     expect(apiClient).toHaveBeenCalledWith(
-      'programs?page=2&pageSize=20&search=%EB%8F%99%EB%AA%85+%ED%94%84%EB%A1%9C%EA%B7%B8%EB%9E%A8&status=closed',
+      'programs?page=2&pageSize=20&search=%EB%8F%99%EB%AA%85+%ED%94%84%EB%A1%9C%EA%B7%B8%EB%9E%A8&status=ended',
     );
     expect(result).toEqual(response);
+  });
+});
+
+describe('getProgramStatusCounts', () => {
+  beforeEach(() => {
+    vi.mocked(apiClient).mockReset();
+  });
+
+  it('fetches public status-counts for sidebar badges', async () => {
+    const response = {
+      all: 15,
+      recruiting: 3,
+      in_progress: 3,
+      upcoming: 0,
+      ended: 9,
+    } satisfies ProgramStatusCounts;
+    vi.mocked(apiClient).mockResolvedValue(response);
+
+    await expect(getProgramStatusCounts()).resolves.toEqual(response);
+    expect(apiClient).toHaveBeenCalledWith('programs/status-counts');
   });
 });
 

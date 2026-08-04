@@ -2,166 +2,139 @@
 
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { ShellIcon } from './shell-icons';
 import { isCurrentSidebarItem, type SidebarGroup } from './sidebar-menu';
 
 /**
- * 왼쪽 사이드바(확정 미감 시안 v2).
- *
- * - 펼침 248px / 접힘 72px. 폭 자체는 셸 그리드(`ProductShell`)가 토큰으로 정한다.
- * - **접힌 상태에서도 아이콘이 그대로 링크다** — 펼치지 않고 눌러서 바로 이동한다.
- * - 접힌 상태의 이름표는 hover뿐 아니라 **키보드 포커스에서도** 보인다.
- * - 현재 위치는 색 하나가 아니라 배경 + 굵기 + 왼쪽 막대 셋으로 표시한다.
- * - 접힌 상태에서 로고를 누르면 펼쳐진다.
- *
- * 900px 미만에서는 세로 사이드바가 아니라 상단 가로 스크롤 띠가 된다(시안 동일).
- * 그 폭에서는 접힘 개념이 없으므로 접기 버튼도, 아이콘 전용 표시도 쓰지 않는다.
- * `min-[900px]:` 접두사가 곳곳에 반복되는 이유는 Tailwind가 소스에서 **문자 그대로**
- * 클래스명을 훑기 때문이다 — 상수로 뽑아 조립하면 그 클래스는 생성되지 않는다.
+ * 데스크톱(≥900px) 전용 왼쪽 사이드 패널.
+ * 모바일은 본문 칩/필터로 대체한다 — 가로 스크롤 아이콘 띠는 깨지기 쉽다.
  */
 interface AppSidebarProps {
   readonly groups: readonly SidebarGroup[];
   readonly pathname: string;
+  readonly search?: string;
   readonly collapsed: boolean;
   readonly onToggle: () => void;
+}
+
+/** 사이드바 카운트 표시: 99 초과는 `99+`. 펼침 뱃지·툴팁/aria 공통. */
+export function formatSidebarCount(n: number): string {
+  return n > 99 ? '99+' : String(n);
+}
+
+function linkAriaLabel(
+  item: SidebarGroup['items'][number],
+  collapsed: boolean,
+): string | undefined {
+  if (!collapsed) return undefined;
+  return item.count !== undefined ? `${item.label} ${item.count}` : item.label;
+}
+
+function tooltipText(item: SidebarGroup['items'][number]): string {
+  return item.count !== undefined
+    ? `${item.label} ${formatSidebarCount(item.count)}`
+    : item.label;
 }
 
 export function AppSidebar({
   groups,
   pathname,
+  search = '',
   collapsed,
   onToggle,
 }: AppSidebarProps) {
+  const title = groups[0]?.label ?? '메뉴';
+  const toggleLabel = collapsed ? '사이드바 펼치기' : '사이드바 접기';
+
   return (
     <aside
       data-slot="app-sidebar"
       data-collapsed={collapsed ? 'true' : 'false'}
-      className="flex flex-col border-b border-sidebar-border bg-sidebar min-[900px]:sticky min-[900px]:top-0 min-[900px]:h-dvh min-[900px]:border-r min-[900px]:border-b-0"
+      className={cn(
+        // 모바일: 숨김 — 필터는 페이지 칩이 담당
+        'hidden min-[900px]:flex min-[900px]:flex-col',
+        'border-sidebar-border bg-sidebar min-[900px]:sticky min-[900px]:top-0 min-[900px]:max-h-[calc(100dvh-3.5rem)] min-[900px]:min-h-[calc(100dvh-3.5rem)] min-[900px]:border-r',
+      )}
     >
       <div
         data-slot="app-sidebar-brand"
         className={cn(
           'flex h-topbar shrink-0 items-center gap-3 border-b border-sidebar-border px-4',
-          collapsed && 'min-[900px]:justify-center min-[900px]:px-0',
+          collapsed && 'justify-center px-0',
         )}
       >
-        {collapsed ? (
-          <button
-            type="button"
-            onClick={onToggle}
-            aria-expanded={false}
-            aria-label="사이드바 펼치기"
-            title="사이드바 펼치기"
-            className="flex size-control items-center justify-center rounded-control text-sidebar-foreground hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
-          >
-            <BrandMark />
-          </button>
-        ) : (
-          <>
-            <Link
-              href="/"
-              className="font-heading flex min-h-control items-center gap-3 rounded-control text-[17px] font-bold tracking-[-0.02em] whitespace-nowrap text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
-            >
-              <BrandMark />
-              OSS Hub
-            </Link>
-            <button
-              type="button"
-              onClick={onToggle}
-              aria-expanded
-              aria-label="사이드바 접기"
-              title="사이드바 접기"
-              className="ml-auto hidden size-control items-center justify-center rounded-control border border-sidebar-border text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none min-[900px]:flex"
-            >
-              <ShellIcon name="chevronLeft" className="size-[18px] shrink-0" />
-            </button>
-          </>
-        )}
+        {!collapsed ? (
+          <p className="font-heading text-[15px] font-bold tracking-[-0.02em] text-sidebar-foreground">
+            {title}
+          </p>
+        ) : null}
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={!collapsed}
+          aria-label={toggleLabel}
+          title={toggleLabel}
+          className={cn(
+            'flex size-control items-center justify-center rounded-control text-sidebar-foreground hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
+            !collapsed &&
+              'ml-auto border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground',
+          )}
+        >
+          <ShellIcon
+            name="chevronLeft"
+            className={cn(
+              'size-[18px] shrink-0 transition-transform',
+              collapsed && 'rotate-180',
+            )}
+          />
+        </button>
       </div>
 
-      <nav
-        data-slot="app-sidebar-nav"
-        aria-label="주요 메뉴"
-        className={cn(
-          'flex gap-1 overflow-x-auto p-3 min-[900px]:flex-col min-[900px]:gap-0.5 min-[900px]:overflow-x-visible',
-          collapsed && 'min-[900px]:items-center min-[900px]:px-2',
-        )}
-      >
-        {groups.map((group, index) => (
-          <div
-            key={group.label}
-            role="group"
-            aria-label={group.label}
-            className={cn(
-              'flex shrink-0 gap-1 min-[900px]:w-full min-[900px]:flex-col min-[900px]:gap-0.5',
-              // 접힌 상태에서는 묶음 이름 대신 가는 선으로만 나눈다
-              collapsed &&
-                index > 0 &&
-                'min-[900px]:mt-2 min-[900px]:border-t min-[900px]:border-sidebar-border min-[900px]:pt-2',
-            )}
-          >
-            <p
-              aria-hidden
+      <TooltipProvider delayDuration={200}>
+        <nav
+          data-slot="app-sidebar-nav"
+          aria-label={title}
+          className={cn(
+            'flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-3',
+            collapsed && 'items-center px-2',
+          )}
+        >
+          {groups.map((group) => (
+            <div
+              key={group.label}
+              role="group"
+              aria-label={group.label}
+              data-slot="app-sidebar-group"
               className={cn(
-                'hidden px-3 pt-4 pb-2 text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap text-muted-foreground',
-                !collapsed && 'min-[900px]:block',
+                'flex w-full flex-col gap-0.5',
+                collapsed && 'items-center',
               )}
             >
-              {group.label}
-            </p>
-            {group.items.map((item) => {
-              const current = isCurrentSidebarItem(pathname, item.href);
-              return (
-                <Link
+              {group.items.map((item) => (
+                <SidebarLink
                   key={item.href}
-                  href={item.href}
-                  aria-current={current ? 'page' : undefined}
-                  data-current={current ? 'true' : undefined}
-                  className={cn(
-                    'group relative flex h-control shrink-0 items-center gap-3 rounded-control px-3 text-[15px] whitespace-nowrap text-muted-foreground transition-colors',
-                    'hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
-                    current &&
-                      'bg-sidebar-current font-semibold text-sidebar-current-foreground',
-                    collapsed &&
-                      'min-[900px]:w-control min-[900px]:justify-center min-[900px]:px-0',
-                  )}
-                >
-                  {/* 현재 위치의 세 번째 신호 — 색을 못 보는 사람도 형태로 안다 */}
-                  {current ? (
-                    <span
-                      aria-hidden
-                      data-slot="app-sidebar-current-marker"
-                      className="absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-full bg-sidebar-current-marker"
-                    />
-                  ) : null}
-                  <ShellIcon name={item.icon} />
-                  <span className={cn(collapsed && 'min-[900px]:hidden')}>
-                    {item.label}
-                  </span>
-                  {/* 접힌 상태 이름표 — hover와 keyboard focus 양쪽에서 보인다.
-                      `aria-hidden`을 붙이지 않는다: 접힌 넓은 화면에서는 위 이름표
-                      span이 `display:none`이라 접근성 트리에서 빠지므로, 이것까지
-                      숨기면 링크에 이름이 하나도 남지 않는다(아이콘도 aria-hidden). */}
-                  {collapsed ? (
-                    <span
-                      data-slot="app-sidebar-tooltip"
-                      className="pointer-events-none absolute top-1/2 left-full z-30 ml-2.5 hidden -translate-y-1/2 rounded-control bg-foreground px-2.5 py-1.5 text-xs font-medium text-background opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 min-[900px]:block"
-                    >
-                      {item.label}
-                    </span>
-                  ) : null}
-                </Link>
-              );
-            })}
-          </div>
-        ))}
-      </nav>
+                  item={item}
+                  pathname={pathname}
+                  search={search}
+                  collapsed={collapsed}
+                />
+              ))}
+            </div>
+          ))}
+        </nav>
+      </TooltipProvider>
 
       <p
         data-slot="app-sidebar-foot"
         className={cn(
-          'mt-auto hidden border-t border-sidebar-border p-4 text-small whitespace-nowrap text-muted-foreground',
-          !collapsed && 'min-[900px]:block',
+          'mt-auto border-t border-sidebar-border p-4 text-small whitespace-nowrap text-muted-foreground',
+          collapsed && 'hidden',
         )}
       >
         전남대학교
@@ -172,13 +145,73 @@ export function AppSidebar({
   );
 }
 
-function BrandMark() {
-  return (
-    <span
-      aria-hidden
-      className="grid size-8 shrink-0 place-items-center rounded-control bg-primary text-sm font-bold text-primary-foreground"
+function SidebarLink({
+  item,
+  pathname,
+  search,
+  collapsed,
+}: {
+  readonly item: SidebarGroup['items'][number];
+  readonly pathname: string;
+  readonly search: string;
+  readonly collapsed: boolean;
+}) {
+  const current = isCurrentSidebarItem(pathname, item.href, search);
+  const showCount = !collapsed && item.count !== undefined;
+  const ariaLabel = linkAriaLabel(item, collapsed);
+
+  const link = (
+    <Link
+      href={item.href}
+      aria-current={current ? 'page' : undefined}
+      aria-label={ariaLabel}
+      data-current={current ? 'true' : undefined}
+      data-depth={item.depth ?? 0}
+      data-icon={item.icon}
+      className={cn(
+        'group relative flex h-control shrink-0 items-center rounded-control text-[15px] whitespace-nowrap text-muted-foreground transition-colors',
+        'hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
+        current &&
+          'bg-sidebar-current font-semibold text-sidebar-current-foreground',
+        collapsed ? 'w-control justify-center px-0' : 'gap-3 px-3',
+      )}
     >
-      O
-    </span>
+      {current ? (
+        <span
+          aria-hidden
+          data-slot="app-sidebar-current-marker"
+          className="absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-full bg-sidebar-current-marker"
+        />
+      ) : null}
+      <ShellIcon name={item.icon} />
+      <span className={cn('min-w-0 flex-1 truncate', collapsed && 'hidden')}>
+        {item.label}
+      </span>
+      {showCount ? (
+        <span
+          data-slot="app-sidebar-count"
+          className={cn(
+            'ml-auto inline-flex shrink-0 items-center rounded-md border border-transparent bg-secondary px-2 py-0.5 text-xs font-semibold tabular-nums text-secondary-foreground',
+            current &&
+              'bg-primary-foreground/15 text-sidebar-current-foreground',
+          )}
+        >
+          {formatSidebarCount(item.count as number)}
+        </span>
+      ) : null}
+    </Link>
+  );
+
+  if (!collapsed) {
+    return link;
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{link}</TooltipTrigger>
+      <TooltipContent side="right" data-slot="app-sidebar-tooltip">
+        {tooltipText(item)}
+      </TooltipContent>
+    </Tooltip>
   );
 }

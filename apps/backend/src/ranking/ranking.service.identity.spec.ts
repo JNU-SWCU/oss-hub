@@ -1,4 +1,4 @@
-import { RANKING_PERIODS } from './domain/ranking';
+import { RANKING_YEAR_ALL } from './domain/ranking';
 import { activity, setupRankingService } from './ranking.service.spec-helper';
 
 describe('RankingService identity and privacy', () => {
@@ -14,7 +14,7 @@ describe('RankingService identity and privacy', () => {
     ]);
 
     await expect(
-      harness.service.findPage(RANKING_PERIODS.ALL, 1, 20),
+      harness.service.findPage(RANKING_YEAR_ALL, 1, 20),
     ).resolves.toMatchObject({
       items: [
         { githubLogin: 'new-login', commitCount: 2, prCount: 1, total: 3 },
@@ -29,7 +29,7 @@ describe('RankingService identity and privacy', () => {
     ]);
 
     await expect(
-      harness.service.findPage(RANKING_PERIODS.ALL, 1, 20),
+      harness.service.findPage(RANKING_YEAR_ALL, 1, 20),
     ).resolves.toMatchObject({
       items: [
         { githubLogin: 'old-login', commitCount: 2, prCount: 0, total: 2 },
@@ -44,7 +44,7 @@ describe('RankingService identity and privacy', () => {
       activity(2n, 'shared', 0, 1, 0),
     ]);
 
-    const result = await harness.service.findPage(RANKING_PERIODS.ALL, 1, 20);
+    const result = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
     expect(result.items).toHaveLength(2);
     expect(result.items.map((item) => item.githubLogin)).toEqual([
       'shared',

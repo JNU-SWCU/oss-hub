@@ -520,7 +520,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       errorCode: { code: PublicProjectsErrorCode.USER_PROFILE_NOT_FOUND },
     });
 
-    const ranking = await rankingService.findPage('ALL', 1, 100);
+    const ranking = await rankingService.findPage('all', 1, 100);
     expect(
       ranking.items.some(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-1-applicant-login`,
@@ -551,7 +551,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     expect(profile.projects).toHaveLength(1);
     expect(profile.projects[0]?.observed).toBe(true);
 
-    const ranking = await rankingService.findPage('ALL', 1, 100);
+    const ranking = await rankingService.findPage('all', 1, 100);
     const rankedLogins = ranking.items.map((entry) => entry.githubLogin);
     expect(rankedLogins).toEqual(
       expect.arrayContaining([
@@ -580,7 +580,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
 
     // ranking은 CollectionRepository 행 자체가 있어야만 그 저장소의 기여자를 합산한다 —
     // 행이 아예 없으니(unobserved) 이 지원자의 로그인은 ranking에 등장할 수 없다.
-    const ranking = await rankingService.findPage('ALL', 1, 100);
+    const ranking = await rankingService.findPage('all', 1, 100);
     expect(
       ranking.items.some(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-3-applicant-login`,
@@ -598,7 +598,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       publicProjectsService.findDetail(outcome4.githubRepositoryId.toString()),
     ).resolves.toMatchObject({ row: { id: outcome4.repositoryId } });
 
-    const ranking = await rankingService.findPage('ALL', 1, 100);
+    const ranking = await rankingService.findPage('all', 1, 100);
     expect(
       ranking.items.some(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-4-applicant-login`,
@@ -624,7 +624,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       errorCode: { code: PublicProjectsErrorCode.USER_PROFILE_NOT_FOUND },
     });
 
-    const ranking = await rankingService.findPage('ALL', 1, 100);
+    const ranking = await rankingService.findPage('all', 1, 100);
     expect(
       ranking.items.some(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-5-applicant-login`,
@@ -672,7 +672,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       // `presence`만 본다 — `Repository.visibility`/`isRepositoryPublicationPlanned`는 관여하지
       // 않는다). 이 outcome은 그 현재 동작을 characterization으로 고정한다 — "그래야 한다"가
       // 아니라 "지금 그렇다"의 증거다.
-      const ranking = await rankingService.findPage('ALL', 1, 100);
+      const ranking = await rankingService.findPage('all', 1, 100);
       expect(
         ranking.items.some(
           (entry) =>
@@ -706,7 +706,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         false,
       );
 
-      const ranking = await rankingService.findPage('ALL', 1, 100);
+      const ranking = await rankingService.findPage('all', 1, 100);
       expect(
         ranking.items.some(
           (entry) =>
@@ -820,7 +820,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       const profile = await publicProjectsService.findProfile(
         outcome2.applicantId,
       );
-      const ranking = await rankingService.findPage('ALL', 1, 100);
+      const ranking = await rankingService.findPage('all', 1, 100);
 
       // raw 도메인 결과에는 bigint 필드(githubRepositoryId/githubId)가 그대로 남아 있어
       // 기본 JSON.stringify는 TypeError를 던진다 — bigint를 문자열로 바꾸는 replacer로

@@ -24,18 +24,14 @@ const renderView = (
   );
 
 describe('StudentDashboardView', () => {
-  it('학생 대시보드에서 내 활동 이동 링크를 제공한다', () => {
-    // Given
-    const expectedActivityLink =
-      /<a\b[^>]*href="\/dashboard\/activity"[\s\S]*내 활동[\s\S]*<\/a>/;
-
-    // When
+  it('헤더에 내 활동 바로가기를 두지 않는다', () => {
+    // 네비는 상단 waypoint + 좌측 사이드 패널로 충분하다.
+    // 내 활동은 사이드 메뉴 항목이지 본문 PageHeader CTA가 아니다.
     const html = renderView();
     const emptyHtml = renderView({ data: { items: [] } });
 
-    // Then
-    expect(html).toMatch(expectedActivityLink);
-    expect(emptyHtml).toMatch(expectedActivityLink);
+    expect(html).not.toContain('href="/dashboard/activity"');
+    expect(emptyHtml).not.toContain('href="/dashboard/activity"');
   });
 
   it('개인형과 팀형 참여 카드를 구분하고 다음 제출 상태를 표시한다', () => {

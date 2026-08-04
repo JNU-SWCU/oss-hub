@@ -54,6 +54,7 @@ function collectionReadPort(
     getRepositoryMetrics: () => Promise.resolve([]),
     getContributorMetrics: () => Promise.resolve([]),
     getPublicRankingMetrics: () => Promise.resolve([]),
+    listPublicRankingYears: () => Promise.resolve([]),
     getRepositoryCumulativeMetrics: () => Promise.resolve([]),
     getContributorCumulativeMetrics: () => Promise.resolve([]),
     getIncrementalStatusSnapshot: () =>

@@ -288,6 +288,9 @@
   --topbar-height: var(--measure-64);
   --sidebar-open-width: var(--measure-248);
   --sidebar-collapsed-width: var(--measure-72);
+  /* 사이드바 폭 트랜지션 (F5) — 펼침 200ms ease-out / 접힘 140ms ease-in */
+  --sidebar-expand-duration: 200ms;
+  --sidebar-collapse-duration: 140ms;
 
   /* 상태 그룹 — StatusBadge(B-6)가 참조할 이름. 값은 브랜드 팔레트 재사용.
      recruiting은 navy(브랜드 주조색) 계열로 분리해 approved(green)와 구분한다 —
@@ -336,6 +339,14 @@
     var(--palette-black) 48%,
     transparent
   );
+}
+
+/* 사이드바 폭 트랜지션 — reduced motion 사용자는 즉시 전환 (F5) */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --sidebar-expand-duration: 0ms;
+    --sidebar-collapse-duration: 0ms;
+  }
 }
 
 .dark {

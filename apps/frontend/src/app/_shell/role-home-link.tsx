@@ -12,8 +12,10 @@ import { roleHomePath, type AppRole } from './role';
 import { ADMIN_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
 
 /**
- * nav 링크 라벨 — 리터럴을 따로 두지 않고 `role-menus.ts`의 역할별 첫 메뉴
+ * 역할 홈 라벨 — 리터럴을 따로 두지 않고 `role-menus.ts`의 역할별 첫 메뉴
  * 라벨에서 파생시켜, 두 값이 갈라질 수 없게 한다.
+ * actions 슬롯에는 더 이상 역할 홈을 올리지 않지만(상단 items가 담당),
+ * 다른 화면·테스트가 같은 라벨을 읽을 수 있게 export를 유지한다.
  */
 export const ROLE_HOME_LABEL: Record<AppRole, string> = {
   STUDENT: STUDENT_MENU[0].label,
@@ -64,6 +66,8 @@ export function resolveSessionEntry(
       if (!isProfileComplete) {
         return SIGNUP_ENTRY;
       }
+      // 랜딩 히어로 CTA 등 본문 진입은 역할 홈을 쓴다. nav actions 슬롯은
+      // `SessionEntryNavLink`가 상단 items와 겹치지 않게 따로 숨긴다.
       return role
         ? {
             href: roleHomePath(role),
@@ -90,6 +94,11 @@ export function resolveSessionEntry(
 export function SessionEntryNavLink() {
   const { status, role, isProfileComplete } = useSessionRole();
   const pathname = usePathname();
+  // 가입 완료 시 역할 홈은 상단 "대시보드" 항목과 좌측 대시보드 섹션이 담당한다.
+  // actions에 또 올리면 중복. 랜딩 히어로 CTA는 resolveSessionEntry를 직접 쓴다.
+  if (status === 'assigned' && isProfileComplete) {
+    return null;
+  }
   const destination = resolveSessionEntry(status, role, isProfileComplete);
   // 지금 있는 화면을 다시 가리키는 링크는 내지 않는다 — 눌러도 제자리라 고장으로 읽힌다.
   if (!destination || !shouldShowEntryLink(destination.href, pathname)) {

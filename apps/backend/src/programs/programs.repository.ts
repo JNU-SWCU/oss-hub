@@ -4,7 +4,6 @@ import {
   ApplicationStatus,
   Prisma,
   ProgramCategory,
-  ProgramLifecycle,
   RoleRequestStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -12,12 +11,17 @@ import {
   COMPATIBLE_PROFILE_NAME_SELECT,
   resolveCompatibleProfileName,
 } from '../profiles/profile-compatibility';
-import type {
-  ProgramListQuery,
-  ProgramListQueryStatus,
-} from './program-list-query';
+import type { ProgramListQuery } from './program-list-query';
+import {
+  emptyProgramStatusCounts,
+  programListPrismaWhere,
+  programListSqlWhere,
+  programStatusCountsSql,
+  type ProgramStatusCounts,
+} from './program-list-status-filter';
 import { programApplicationParticipantWhere } from './program-participant';
 
+export type { ProgramStatusCounts };
 export type ProgramListRecord = Pick<
   Program,
   | 'id'
@@ -26,51 +30,9 @@ export type ProgramListRecord = Pick<
   | 'category'
   | 'applicationStartAt'
   | 'applicationEndAt'
+  | 'endAt'
   | 'description'
 >;
-
-function recruitmentWhere(
-  status: ProgramListQueryStatus,
-  now: Date,
-): Prisma.ProgramWhereInput {
-  const whereByStatus = {
-    all: { lifecycle: ProgramLifecycle.PUBLISHED },
-    recruiting: {
-      lifecycle: ProgramLifecycle.PUBLISHED,
-      applicationStartAt: { lte: now },
-      applicationEndAt: { gte: now },
-    },
-    closed: {
-      lifecycle: ProgramLifecycle.PUBLISHED,
-      applicationEndAt: { lt: now },
-    },
-  } satisfies Readonly<
-    Record<ProgramListQueryStatus, Prisma.ProgramWhereInput>
-  >;
-  return whereByStatus[status];
-}
-
-function programListSqlWhere(
-  status: ProgramListQueryStatus,
-  search: string,
-  now: Date,
-): Prisma.Sql {
-  const conditions: Prisma.Sql[] = [];
-  conditions.push(Prisma.sql`p."lifecycle" = 'PUBLISHED'`);
-  if (status === 'recruiting') {
-    conditions.push(
-      Prisma.sql`p."applicationStartAt" <= ${now} AND p."applicationEndAt" >= ${now}`,
-    );
-  } else if (status === 'closed') {
-    conditions.push(Prisma.sql`p."applicationEndAt" < ${now}`);
-  }
-  if (search) {
-    conditions.push(Prisma.sql`p."name" ILIKE ${`%${search}%`}`);
-  }
-  return conditions.length === 0
-    ? Prisma.empty
-    : Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`;
-}
 
 @Injectable()
 export class ProgramsRepository {
@@ -78,7 +40,7 @@ export class ProgramsRepository {
 
   listPrograms(query: ProgramListQuery, now: Date) {
     const where: Prisma.ProgramWhereInput = {
-      ...recruitmentWhere(query.status, now),
+      ...programListPrismaWhere(query.status, now),
       ...(query.search
         ? { name: { contains: query.search, mode: 'insensitive' as const } }
         : {}),
@@ -94,6 +56,7 @@ export class ProgramsRepository {
           p."category",
           p."applicationStartAt",
           p."applicationEndAt",
+          p."endAt",
           p."description"
         FROM "Program" AS p
         ${sqlWhere}
@@ -102,7 +65,9 @@ export class ProgramsRepository {
             WHEN p."applicationStartAt" <= ${now}
               AND p."applicationEndAt" >= ${now} THEN 0
             WHEN p."applicationStartAt" > ${now} THEN 1
-            ELSE 2
+            WHEN p."applicationEndAt" < ${now}
+              AND (p."endAt" IS NULL OR p."endAt" >= ${now}) THEN 2
+            ELSE 3
           END ASC,
           p."applicationEndAt" ASC,
           p."name" ASC,
@@ -112,6 +77,31 @@ export class ProgramsRepository {
       `),
       this.prisma.program.count({ where }),
     ]);
+  }
+
+  /**
+   * 공개 목록 status 필터와 동일 규칙의 5키 카운트.
+   * 목록 `totalItems` 와 키가 항상 일치해야 사이드바 뱃지가 신뢰된다.
+   */
+  async countProgramsByStatus(now: Date): Promise<ProgramStatusCounts> {
+    const rows = await this.prisma.$queryRaw<
+      readonly {
+        readonly all: number;
+        readonly recruiting: number;
+        readonly in_progress: number;
+        readonly upcoming: number;
+        readonly ended: number;
+      }[]
+    >(programStatusCountsSql(now));
+    const row = rows[0];
+    if (!row) return emptyProgramStatusCounts();
+    return {
+      all: row.all,
+      recruiting: row.recruiting,
+      in_progress: row.in_progress,
+      upcoming: row.upcoming,
+      ended: row.ended,
+    };
   }
 
   findProgramDetail(programId: string) {

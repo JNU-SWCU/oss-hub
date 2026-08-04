@@ -314,6 +314,27 @@ export class CollectionReadService implements CollectionReadPort {
   }
 
   /**
+   * Distinct years with any non-zero public ranking activity (PUBLIC + PRESENT).
+   * Ordered newest first for the ranking shell year list.
+   */
+  async listPublicRankingYears(): Promise<readonly number[]> {
+    const rows = await this.prisma.collectionContributorYearAggregate.findMany({
+      where: {
+        repository: { visibility: 'PUBLIC', presence: 'PRESENT' },
+        OR: [
+          { commitCount: { gt: 0 } },
+          { pullRequestCount: { gt: 0 } },
+          { releaseCount: { gt: 0 } },
+        ],
+      },
+      select: { year: true },
+      distinct: ['year'],
+      orderBy: { year: 'desc' },
+    });
+    return rows.map((row) => row.year);
+  }
+
+  /**
    * todo 16 — `getRepositoryMetrics`와 같은 `CollectionRepositoryYearAggregate`를 읽되 `year`로
    * 필터링하지 않고 저장소별 전체 연도를 합산한다(lifetime 누적). repositoryIds 배열 크기와
    * 무관하게 findMany 질의 1개다 — 공개 프로젝트 상세/프로필 페이지의 배치 지표 조회용.

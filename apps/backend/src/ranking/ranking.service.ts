@@ -5,12 +5,11 @@ import {
 } from '../collection/collection-read.port';
 import { UserDisplayNameRepository } from '../users/user-display-name.repository';
 import {
-  RANKING_PERIODS,
+  RANKING_YEAR_ALL,
   type RankingEntry,
   type RankingPage,
-  type RankingPeriod,
+  type RankingYear,
 } from './domain/ranking';
-import { rankingYearInAsiaSeoul } from './domain/ranking-event';
 
 const RANKING_CACHE_TTL_MS = 60_000;
 
@@ -34,15 +33,14 @@ export class RankingService {
   ) {}
 
   async findPage(
-    period: RankingPeriod,
+    year: RankingYear,
     page: number,
     pageSize: number,
-    now: Date = new Date(),
   ): Promise<RankingPage> {
-    const entries = await this.findEntries(period, now);
+    const entries = await this.findEntries(year);
     const start = (page - 1) * pageSize;
     return {
-      period,
+      year,
       items: entries.slice(start, start + pageSize),
       page,
       pageSize,
@@ -50,20 +48,26 @@ export class RankingService {
     };
   }
 
+  /**
+   * Distinct calendar years that have public ranking activity (desc).
+   * Used by the shell year sidebar — only years with data.
+   */
+  async listYears(): Promise<readonly number[]> {
+    return this.collection.listPublicRankingYears();
+  }
+
   private async findEntries(
-    period: RankingPeriod,
-    now: Date,
+    year: RankingYear,
   ): Promise<readonly RankingEntry[]> {
-    const currentYear = rankingYearInAsiaSeoul(now);
     const cacheKey =
-      period === RANKING_PERIODS.ALL ? period : `${period}:${currentYear}`;
+      year === RANKING_YEAR_ALL ? RANKING_YEAR_ALL : `year:${year}`;
     const cached = this.cache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return cached.entries;
 
     const existingBuild = this.inFlightBuilds.get(cacheKey);
     if (existingBuild) return existingBuild;
 
-    const build = this.buildEntries(period, currentYear)
+    const build = this.buildEntries(year)
       .then((entries) => {
         this.cache.set(cacheKey, {
           entries,
@@ -77,11 +81,10 @@ export class RankingService {
   }
 
   private async buildEntries(
-    period: RankingPeriod,
-    currentYear: number,
+    year: RankingYear,
   ): Promise<readonly RankingEntry[]> {
     const activity = await this.collection.getPublicRankingMetrics(
-      period === RANKING_PERIODS.THIS_YEAR ? { currentYear } : {},
+      year === RANKING_YEAR_ALL ? {} : { currentYear: year },
     );
 
     const candidates = activity

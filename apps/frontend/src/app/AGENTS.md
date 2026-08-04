@@ -5,7 +5,7 @@
 
 ## Purpose
 
-Next.js App Router 라우트. 역할 기반(STUDENT/STAFF/ADMIN) 화면 접근 제어와 좌측 메뉴 패널을 `_shell/` 공용 컴포넌트로 통일해 각 라우트의 `page.tsx`는 대부분 조합만 담당하는 얇은 파일이다.
+Next.js App Router 라우트. 역할 기반(STUDENT/STAFF/ADMIN) 화면 접근 제어와 공통 상단 NavBar + **섹션 컨텍스트 좌측 패널**을 `_shell/`로 통일한다. 각 라우트 `page.tsx`는 조합 위주의 얇은 파일이다.
 
 ## Key Files
 
@@ -39,16 +39,18 @@ Next.js App Router 라우트. 역할 기반(STUDENT/STAFF/ADMIN) 화면 접근 �
   - `role.ts` — `AppRole = 'STUDENT' | 'STAFF' | 'ADMIN'`과 `roleHomePath(role)`(role 불일치 시 되돌아갈 "자기 역할 홈" — STUDENT→`/dashboard`, STAFF→`/staff/dashboard`, ADMIN→`/admin/access`).
   - `use-session-role.ts` — `/auth/me`를 호출해 `{status: 'loading'|'anonymous'|'unassigned'|'assigned', role}`를 반환하는 훅. `features/auth`(owner 전속)가 아직 응답에 `role`을 노출하지 않아 이 훅 안에서만 로컬로 타입을 넓혀 쓴다 — owner 경로는 건드리지 않는다.
   - `role-gate.tsx`(`RoleGate`) — 비로그인은 `/`, 역할 미확정은 `/onboarding/role`, `allow`에 없는 역할은 `roleHomePath()`로 리다이렉트. `auth-gate.tsx`(`AuthGate`)는 로그인 여부만 확인(역할 무관 공용 화면용).
-  - `role-menus.ts` — `STUDENT_MENU`/`STAFF_MENU`/`ADMIN_MENU`(`NavItem[]`). id가 필요한 문맥적 경로(신청·마일스톤 제출·제출물 검토)는 상세 화면에서 진입하는 흐름이라 고정 메뉴에 넣지 않는다. **메뉴 라벨·경로의 단일 원본이다** — 사이드바는 여기에 아이콘만 얹는다.
-  - `public-menus.ts` — `PUBLIC_MENU`(`NavItem[]`). 로그인 없이 볼 수 있는 화면(프로그램·공개 아카이브·랭킹)의 **라벨·경로 단일 원본이다** — 랜딩 헤더(`layout.tsx`)와 업무 사이드바가 이 목록 하나를 함께 읽는다. 두 셸에 손으로 따로 적었다가 라벨이 갈리고 사이드바에서 `/ranking`이 빠졌던 사고(#513)를 막는 자리다. `/`는 여기 없다 — 두 셸 모두 브랜드가 이미 `/` 링크다. 역할 메뉴·계정은 사이드바 전용으로 남긴다(#512의 의도된 구분).
-  - `sidebar-menu.ts` — 역할 메뉴(`role-menus.ts`)와 공개 메뉴(`public-menus.ts`)에 아이콘·묶음을 얹어 사이드바 구성을 만든다(`sidebarGroupsFor`). 공개 화면은 **세 역할 모두**에게 보인다. 상단바 breadcrumb 라벨(`shellPageLabel`)도 여기서 파생된다.
-  - `app-frame.tsx`(`AppFrame`) — 셸 분기. 랜딩(`/`)만 `ShellNav`(우주 위 투명 헤더 → 흰 구간에서 흰 바)를 쓰고, 그 외 라우트는 `ProductShell`을 쓴다.
+  - `role-menus.ts` — 대시보드 섹션 좌측 메뉴 원본(학생: 대시보드·저장소·활동 등). 본문 PageHeader에 같은 링크를 다시 두지 않는다.
+  - `public-menus.ts` — 상단 공개 3종 원본(#513). 4번째 **대시보드**는 `AppFrame`이 가입 완료 시 붙인다.
+  - `app-frame.tsx`(`AppFrame`) — 상단 `ShellNav`. 가입 전 경로는 본문만, 그 외 `ProductShell`.
+  - `shell-nav.tsx`(`ShellNav`) — `NavBar` 래퍼. 랜딩 fixed+표면 전환, 가입 cosmos inverted, 그 외 흰 바.
+  - `sidebar-menu.ts` — `shellSectionFromPathname` + `sidebarGroupsFor(section)` **컨텍스트형**. 프로그램/아카이브/랭킹/대시보드 각 섹션 하위만. 필터는 flat 피어.
+  - `product-shell.tsx`·`app-sidebar.tsx` — ≥900px 세로 패널. &lt;900px 숨김(본문 칩). 섹션 패싯은 `section-facets.ts` 레지스트리 단일 fetch. 접힘 쿠키 `oss-hub-sidebar`(layout `cookies()` → 첫 페인트).
   - `signup-completion.ts`(`isSignupComplete`·`shouldShowAccountSlot`) — **"이 사람이 회원인가"의 단일 판정**. 가입은 약관 → 역할 → 프로필을 다 마쳐야 끝나고, GitHub 로그인만으로는 회원이 아니다. 승인 대기 교직원(`unassigned` + 살아 있는 역할 요청)은 역할이 비어 있어도 회원으로 본다 — 세션의 `isProfileComplete`는 **배정된 역할** 기준이라 그 사람에게는 쓸 수 없다(backend `auth/auth.repository.ts`). 새 화면이 "회원인가"를 물어야 하면 여기서 읽고, 화면마다 판정을 다시 만들지 않는다.
   - `account-slot.tsx`(`AccountSlot`) — 헤더 오른쪽 계정 슬롯. 위 판정으로 `LoginButton`을 낼지만 정한다. 가입을 마치지 않은 사람은 가입 절차 화면(`signup-routes.ts`의 `SIGNUP_FLOW_PATHS`) 안에서만 계정 표식을 본다 — 밖에서는 그 표식이 "회원이다"로 읽힌다. 비로그인은 언제나 낸다(그 슬롯이 곧 로그인 버튼이다).
-  - `product-shell.tsx`·`app-sidebar.tsx`·`app-topbar.tsx` — 업무 화면 셸(사이드바 펼침 248 / 접힘 72, 상단바 64). 접힘 여부는 `localStorage['oss-hub-sidebar']`에 남고 서버 렌더는 항상 펼침이다(hydration 일치). 접힌 상태에서도 아이콘이 그대로 링크다.
-  - `role-panel-shell.tsx`(`RolePanelShell`) — 이제 `RoleGate`만 감싼다. 좌측 메뉴는 셸의 사이드바로 올라갔으므로 여기서 다시 그리지 않는다. 호환용으로 남겨 뒀던 `menu` prop은 읽히지 않는 죽은 prop이라 제거했다 — 라우트는 `role-menus.ts`를 import하지 않는다.
+  - `role-home-link.tsx`(`SessionEntryNavLink`) — actions 가입 재개만. 가입 완료 시 상단 대시보드·좌측 섹션이 담당하므로 null.
+  - `role-panel-shell.tsx`(`RolePanelShell`) — `RoleGate`만 감싼다. 메뉴 prop 없음.
   - `ticket-stub.tsx`(`TicketStub`) — 아직 미구현 화면을 `EmptyState` + 이슈 링크로 채우는 표준 스텁. 화면을 실제로 구현하기 전까지는 이 컴포넌트로 채운다.
-- 새 라우트의 전형적 패턴: `RolePanelShell allow={[...]}` 안에 `TicketStub` 또는 실제 화면 컴포넌트를 넣는다(`dashboard/page.tsx` 참조). 메뉴는 넘기지 않는다 — 사이드바가 `sidebar-menu.ts`에서 알아서 읽는다.
+- 새 라우트의 전형적 패턴: `RolePanelShell allow={[...]}` 안에 화면 컴포넌트. 메뉴는 셸이 조립한다.
 - 서버 사이드 접근 강화(middleware)는 아직 이 라우트 골격 범위 밖이다 — `RoleGate`/`AuthGate`는 클라이언트 사이드 redirect만 수행한다.
 
 ## Dependencies

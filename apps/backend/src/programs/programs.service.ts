@@ -13,6 +13,7 @@ import type { ProgramViewer } from './program-viewer.service';
 import {
   ProgramsRepository,
   type ProgramListRecord,
+  type ProgramStatusCounts,
 } from './programs.repository';
 
 type SubmissionRecord = {
@@ -27,6 +28,8 @@ export interface ProgramListPage {
   readonly totalItems: number;
   readonly totalPages: number;
 }
+
+export type { ProgramStatusCounts };
 
 const EMPTY_SUMMARY = {
   notSubmitted: 0,
@@ -53,6 +56,10 @@ export class ProgramsService {
       totalItems,
       totalPages: Math.ceil(totalItems / query.pageSize),
     };
+  }
+
+  async statusCounts(now = new Date()): Promise<ProgramStatusCounts> {
+    return this.repository.countProgramsByStatus(now);
   }
 
   async detail(
