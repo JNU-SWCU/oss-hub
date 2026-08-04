@@ -3,6 +3,10 @@ import { rankingYearInAsiaSeoul } from './ranking-event';
 /** Preferred filter — calendar year or all-time. */
 export const RANKING_YEAR_ALL = 'all' as const;
 
+/** Inclusive calendar-year bounds for `?year=` (single source for DTO + parse). */
+export const RANKING_YEAR_MIN = 2000;
+export const RANKING_YEAR_MAX = 2100;
+
 export type RankingYear = number | typeof RANKING_YEAR_ALL;
 
 /**
