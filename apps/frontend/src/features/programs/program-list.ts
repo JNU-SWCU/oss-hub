@@ -3,8 +3,9 @@ import type { ProgramListItem, ProgramListStatus } from './types';
 const SEOUL_TIME_ZONE = 'Asia/Seoul';
 
 /**
- * 카드 배지·클라이언트 그룹용 파생 상태.
- * 목록 API 필터 키와 맞춘다 (closed 제거 → in_progress / ended).
+ * 카드 배지·클라이언트 그룹용 기간 해석.
+ * 저장 상태 없음. backend `deriveProgramListStatus` 와 동일 우선순위:
+ * ARCHIVED → endAt < now → upcoming → recruiting → in_progress.
  */
 export const PROGRAM_RECRUITMENT_STATES = [
   'upcoming',
@@ -40,13 +41,18 @@ export function getProgramRecruitmentState(
   program: ProgramListItem,
   now: Date,
 ): ProgramRecruitmentState {
+  if (program.lifecycle === 'ARCHIVED') {
+    return 'ended';
+  }
+
   const nowTime = now.getTime();
   const start = new Date(program.applicationStartAt).getTime();
   const applyEnd = new Date(program.applicationEndAt).getTime();
   const endAt =
     program.endAt === null ? null : new Date(program.endAt).getTime();
 
-  if (endAt !== null && !Number.isNaN(endAt) && nowTime > endAt) {
+  // backend: endAt IS NOT NULL AND endAt < now → ended (strict <)
+  if (endAt !== null && !Number.isNaN(endAt) && endAt < nowTime) {
     return 'ended';
   }
   if (nowTime < start) {

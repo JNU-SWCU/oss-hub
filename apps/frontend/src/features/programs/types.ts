@@ -39,6 +39,8 @@ export interface ProgramListItem {
   readonly name: string;
   readonly organizer: string;
   readonly category: ProgramCategory;
+  /** 게시 축. 모집 기간 파생 상태가 아니다. 없으면 PUBLISHED 로 본다. */
+  readonly lifecycle?: 'PUBLISHED' | 'ARCHIVED';
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
   /** null이면 종료일을 아직 안 닫은 것 — 접수 종료 후 진행중으로 본다. */

@@ -1,6 +1,5 @@
 import { HEADERS_METADATA } from '@nestjs/common/constants';
 import { RANKING_YEAR_ALL } from './domain/ranking';
-import type { RankingQueryRequestDto } from './dto/ranking-query.dto';
 import { RankingController } from './ranking.controller';
 import { RankingService } from './ranking.service';
 
@@ -41,7 +40,7 @@ describe('RankingController', () => {
         year: '2026',
         page: 1,
         pageSize: 20,
-      } as RankingQueryRequestDto),
+      }),
     ).resolves.toEqual({
       year: 2026,
       items: [
@@ -74,7 +73,7 @@ describe('RankingController', () => {
     await controller.findPage({
       page: 1,
       pageSize: 20,
-    } as RankingQueryRequestDto);
+    });
     expect(findPage).toHaveBeenLastCalledWith(RANKING_YEAR_ALL, 1, 20);
 
     findPage.mockResolvedValue({
@@ -92,7 +91,7 @@ describe('RankingController', () => {
         period: 'THIS_YEAR',
         page: 1,
         pageSize: 20,
-      } as RankingQueryRequestDto);
+      });
       expect(findPage).toHaveBeenLastCalledWith(2026, 1, 20);
     } finally {
       jest.useRealTimers();

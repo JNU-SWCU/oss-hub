@@ -15,6 +15,7 @@ import type { ProgramListQuery } from './program-list-query';
 import {
   emptyProgramStatusCounts,
   programListPrismaWhere,
+  programListSortRankSql,
   programListSqlWhere,
   programStatusCountsSql,
   type ProgramStatusCounts,
@@ -28,6 +29,7 @@ export type ProgramListRecord = Pick<
   | 'name'
   | 'organizer'
   | 'category'
+  | 'lifecycle'
   | 'applicationStartAt'
   | 'applicationEndAt'
   | 'endAt'
@@ -54,6 +56,7 @@ export class ProgramsRepository {
           p."name",
           p."organizer",
           p."category",
+          p."lifecycle",
           p."applicationStartAt",
           p."applicationEndAt",
           p."endAt",
@@ -61,14 +64,7 @@ export class ProgramsRepository {
         FROM "Program" AS p
         ${sqlWhere}
         ORDER BY
-          CASE
-            WHEN p."applicationStartAt" <= ${now}
-              AND p."applicationEndAt" >= ${now} THEN 0
-            WHEN p."applicationStartAt" > ${now} THEN 1
-            WHEN p."applicationEndAt" < ${now}
-              AND (p."endAt" IS NULL OR p."endAt" >= ${now}) THEN 2
-            ELSE 3
-          END ASC,
+          ${programListSortRankSql(now)} ASC,
           p."applicationEndAt" ASC,
           p."name" ASC,
           p."id" ASC
