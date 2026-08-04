@@ -145,10 +145,17 @@ export function LoginButtonView({
                   {user.nickname}
                 </p>
               </div>
+              {/*
+                `w-full` 은 로그아웃 줄과 넓이를 맞추려는 것이다. 없으면 이 링크가
+                글자 폭(실측 48px)만 차지해 **줄의 나머지 174px 이 눌리지 않는다** —
+                높이는 두 줄 다 44px 로 같아서 겉보기로는 구분되지 않고, 사용자에게는
+                "설정이 가끔 안 눌린다"로 느껴진다. 메뉴의 두 줄은 같은 목록의 항목이니
+                누를 수 있는 넓이도 같아야 한다.
+              */}
               <a
                 role="menuitem"
                 href="/settings"
-                className="block px-3 py-2 text-sm hover:bg-muted"
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
                 onClick={() => onMenuOpenChange(false)}
               >
                 설정
