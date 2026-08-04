@@ -117,4 +117,37 @@ describe('RepositoryProvisionWorker success', () => {
       state.recordRepository.mock.calls[0]?.[0].metadata.githubRepositoryId,
     ).toBe(PROVISION_REPOSITORY.githubRepositoryId);
   });
+
+  it('레거시 teamId null payload는 백필된 context teamId와 달라도 성공한다', async () => {
+    // Given: 백필 이전 outbox payload는 teamId null이고 context는 백필된 teamId다.
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(
+      provisionContext({
+        teamId: 'synthetic-backfilled-team',
+        eventPayload: {
+          applicationId: 'synthetic-application-id',
+          programId: 'synthetic-program-id',
+          teamId: null,
+          requestedAt: PROVISION_NOW.toISOString(),
+          collaboratorGithubLogins: ['synthetic-leader', 'synthetic-student'],
+        },
+      }),
+    );
+    const github = githubClientMock();
+    const worker = new RepositoryProvisionWorker(jobs, state, github);
+
+    // When: provision job을 실행한다.
+    const result = await worker.runNext(
+      'worker-legacy-null-team',
+      PROVISION_NOW,
+    );
+
+    // Then: 레거시 null payload를 거부하지 않고 완료한다.
+    expect(result).toEqual({
+      kind: 'SUCCEEDED',
+      jobId: 'synthetic-job-id',
+      repositoryId: PROVISION_REPOSITORY.id,
+    });
+  });
 });

@@ -258,26 +258,13 @@ export class RepositoriesRepository {
       where: {
         application: {
           status: ApplicationStatus.APPROVED,
-          OR: [
-            {
-              teamId: null,
-              applicant: { githubId },
-            },
-            {
-              team: {
-                OR: [
-                  { leader: { githubId } },
-                  {
-                    members: {
-                      some: {
-                        user: { githubId },
-                      },
-                    },
-                  },
-                ],
-              },
-            },
-          ],
+          // 모든 신청이 Team을 갖고 개인 참여는 1인 팀이므로(D5) 팀 소속 하나로 판정한다.
+          team: {
+            OR: [
+              { leader: { githubId } },
+              { members: { some: { user: { githubId } } } },
+            ],
+          },
         },
       },
       orderBy: { updatedAt: 'desc' },

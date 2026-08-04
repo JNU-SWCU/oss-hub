@@ -82,6 +82,12 @@ describe('RepositoryProvisionWorker integration', () => {
     await prisma.application.deleteMany({
       where: { id: { in: [...APPLICATION_IDS] } },
     });
+    await prisma.teamMember.deleteMany({
+      where: { id: { in: APPLICATION_IDS.map((id) => `${id}-team-member`) } },
+    });
+    await prisma.team.deleteMany({
+      where: { id: { in: APPLICATION_IDS.map(teamIdFor) } },
+    });
     await prisma.program.deleteMany({
       where: { id: { in: APPLICATION_IDS.map(programId) } },
     });
@@ -267,13 +273,19 @@ function repositoryMetadata(
   };
 }
 
+function teamIdFor(applicationId: string): string {
+  return `${applicationId}-team`;
+}
+
 async function createApplicationAndEvent(
   applicationId: string,
   collaboratorGithubLogins: readonly string[],
 ): Promise<void> {
+  const program = programId(applicationId);
+  const teamId = teamIdFor(applicationId);
   await prisma.program.create({
     data: {
-      id: programId(applicationId),
+      id: program,
       name: 'Synthetic Program',
       organizer: 'synthetic-organizer',
       category: ProgramCategory.BASIC,
@@ -283,15 +295,34 @@ async function createApplicationAndEvent(
       applicationEndAt: new Date('2026-12-31T00:00:00.000Z'),
       description: 'synthetic-description',
       repositoryProvisioningEnabled: true,
-      applications: {
-        create: {
-          id: applicationId,
-          applicantId: APPLICANT_ID,
-          answers: { synthetic: true },
-          applicationTemplateVersion: 1,
-          status: ApplicationStatus.APPROVED,
-        },
-      },
+    },
+  });
+  await prisma.team.create({
+    data: {
+      id: teamId,
+      programId: program,
+      name: `${applicationId}-team`,
+      joinCodeDigest: `${applicationId}-team-digest`,
+      leaderId: APPLICANT_ID,
+    },
+  });
+  await prisma.teamMember.create({
+    data: {
+      id: `${applicationId}-team-member`,
+      teamId,
+      programId: program,
+      userId: APPLICANT_ID,
+    },
+  });
+  await prisma.application.create({
+    data: {
+      id: applicationId,
+      programId: program,
+      applicantId: APPLICANT_ID,
+      teamId,
+      answers: { synthetic: true },
+      applicationTemplateVersion: 1,
+      status: ApplicationStatus.APPROVED,
     },
   });
   await prisma.outboxEvent.create({
@@ -302,7 +333,8 @@ async function createApplicationAndEvent(
       idempotencyKey: `repository-provision:${applicationId}`,
       payload: {
         applicationId,
-        programId: programId(applicationId),
+        programId: program,
+        // legacy outbox payload may still carry null teamId (worker accepts it).
         teamId: null,
         requestedAt: NOW.toISOString(),
         collaboratorGithubLogins,

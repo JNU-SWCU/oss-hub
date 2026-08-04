@@ -73,21 +73,13 @@ export class StudentDashboardService {
     const [applications, projectedRepositories] = await Promise.all([
       this.prisma.application.findMany({
         where: {
-          OR: [
-            { teamId: null, applicant: { githubId: sessionGithubId } },
-            {
-              team: {
-                OR: [
-                  { leader: { githubId: sessionGithubId } },
-                  {
-                    members: {
-                      some: { user: { githubId: sessionGithubId } },
-                    },
-                  },
-                ],
-              },
-            },
-          ],
+          // 모든 신청이 Team을 갖고 개인 참여는 1인 팀이므로(D5) 팀 소속 하나로 판정한다.
+          team: {
+            OR: [
+              { leader: { githubId: sessionGithubId } },
+              { members: { some: { user: { githubId: sessionGithubId } } } },
+            ],
+          },
         },
         orderBy: [{ submittedAt: 'desc' }, { id: 'asc' }],
         select: {

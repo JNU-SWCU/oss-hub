@@ -64,7 +64,12 @@ const programRepository = {
   application: {
     id: 'application-1',
     applicant: { githubId: 11n, name: '학생', nickname: 'student' },
-    team: null,
+    // 1인 팀 — label은 team.name을 우선하므로 기존 기대값 '학생'을 유지한다.
+    team: {
+      name: '학생',
+      leader: { githubId: 11n },
+      members: [{ user: { githubId: 11n } }],
+    },
   },
 };
 

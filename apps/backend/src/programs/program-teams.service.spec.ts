@@ -158,8 +158,8 @@ describe('ProgramTeamsService', () => {
     );
   });
 
-  it('개인형 프로그램은 422 로 팀 API 를 막는다', async () => {
-    const { service } = buildService({
+  it('teamMaxSize 가 null 인 프로그램에서도 1인 팀을 생성한다', async () => {
+    const { service, createTeamWithLeader } = buildService({
       program: {
         ...TEAM_PROGRAM,
         category: ProgramCategory.BASIC,
@@ -168,26 +168,16 @@ describe('ProgramTeamsService', () => {
       },
     });
 
-    try {
-      await service.create(GITHUB_ID, PROGRAM_ID, '팀', NOW);
-      throw new Error('expected throw');
-    } catch (error) {
-      expectCode(error, TeamsErrorCode.TEAM_NOT_ALLOWED);
-      expect((error as DomainException).errorCode.status).toBe(422);
-    }
-  });
+    const result = await service.create(GITHUB_ID, PROGRAM_ID, '1인팀', NOW);
 
-  it('teamMaxSize 가 null 이면 422 misconfigured', async () => {
-    const { service } = buildService({
-      program: { ...TEAM_PROGRAM, teamMaxSize: null },
-    });
-
-    try {
-      await service.create(GITHUB_ID, PROGRAM_ID, '팀', NOW);
-      throw new Error('expected throw');
-    } catch (error) {
-      expectCode(error, TeamsErrorCode.TEAM_SIZE_MISCONFIGURED);
-    }
+    expect(result.id).toBe('synthetic-team');
+    expect(createTeamWithLeader).toHaveBeenCalledWith(
+      expect.objectContaining({
+        programId: PROGRAM_ID,
+        name: '1인팀',
+        leaderId: STUDENT.id,
+      }),
+    );
   });
 
   it('이미 팀에 있으면 생성 409', async () => {
@@ -233,6 +223,54 @@ describe('ProgramTeamsService', () => {
     );
     expect(result.id).toBe('synthetic-team');
     expect(result).not.toHaveProperty('joinCode');
+  });
+
+  it('teamMaxSize 가 null 이면 정원 무제한으로 제3자 합류를 허용한다', async () => {
+    const unlimitedDetail: TeamDetailRecord = {
+      ...DETAIL,
+      teamMinSize: null,
+      teamMaxSize: null,
+      leaderId: 'leader-id',
+      members: [
+        {
+          userId: 'leader-id',
+          nickname: 'leader',
+          name: '리더',
+        },
+        {
+          userId: STUDENT.id,
+          nickname: STUDENT.nickname,
+          name: STUDENT.name,
+        },
+      ],
+    };
+    const { service, addMember, findTeamByJoinCodeDigest } = buildService({
+      program: {
+        ...TEAM_PROGRAM,
+        category: ProgramCategory.BASIC,
+        teamMinSize: null,
+        teamMaxSize: null,
+      },
+      detail: unlimitedDetail,
+    });
+    findTeamByJoinCodeDigest.mockResolvedValue({
+      id: 'synthetic-team',
+      programId: PROGRAM_ID,
+      name: '오픈소스팀',
+      leaderId: 'leader-id',
+      memberCount: 12,
+      hasApplication: false,
+    });
+
+    const result = await service.join(GITHUB_ID, PROGRAM_ID, 'OPENJOIN01', NOW);
+
+    expect(addMember).toHaveBeenCalledWith(
+      'synthetic-team',
+      PROGRAM_ID,
+      STUDENT.id,
+    );
+    expect(result.maxMembers).toBeNull();
+    expect(result.memberCount).toBe(2);
   });
 
   it('최대 인원 초과 합류는 409', async () => {
@@ -338,6 +376,28 @@ describe('ProgramTeamsService', () => {
       ],
     });
     expect(result).not.toHaveProperty('joinCode');
+  });
+
+  it('teamMaxSize 가 null 인 팀 조회는 maxMembers null 로 성공한다', async () => {
+    const { service } = buildService({
+      program: {
+        ...TEAM_PROGRAM,
+        category: ProgramCategory.BASIC,
+        teamMinSize: null,
+        teamMaxSize: null,
+      },
+      detail: {
+        ...DETAIL,
+        teamMinSize: null,
+        teamMaxSize: null,
+      },
+    });
+
+    const result = await service.getMe(GITHUB_ID, PROGRAM_ID);
+
+    expect(result.maxMembers).toBeNull();
+    expect(result.minMembers).toBeNull();
+    expect(result.id).toBe('synthetic-team');
   });
 
   it('비학생은 403', async () => {

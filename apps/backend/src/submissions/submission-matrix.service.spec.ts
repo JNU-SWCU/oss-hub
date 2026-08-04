@@ -284,19 +284,31 @@ describe('submissionMatrixApplicationWhere', () => {
     ).toEqual({ programId: PROGRAM_ID, status: ApplicationStatus.APPROVED });
   });
 
-  it('형태 필터는 teamId 유무로 좁힌다', () => {
+  it('형태 필터(applicationMode)는 D5 이후 teamId 분기를 하지 않는다', () => {
+    // D5: 모든 신청이 Team을 갖고 개인 참여는 1인 팀이다. teamId 유무 필터는 폐지됐고
+    // PERSONAL/TEAM 값은 조용히 무시되어 승인 신청 전수와 같은 where를 쓴다.
+    const base = {
+      programId: PROGRAM_ID,
+      status: ApplicationStatus.APPROVED,
+    };
     expect(
       submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: 'PERSONAL',
       }),
-    ).toMatchObject({ teamId: null });
+    ).toEqual(base);
     expect(
       submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: 'TEAM',
       }),
-    ).toMatchObject({ teamId: { not: null } });
+    ).toEqual(base);
+    expect(
+      submissionMatrixApplicationWhere(PROGRAM_ID, {
+        q: '',
+        applicationMode: null,
+      }),
+    ).toEqual(base);
   });
 
   it('검색어는 신청자 이름·핸들·팀명·팀원 핸들을 대소문자 무시 contains로 찾는다', () => {

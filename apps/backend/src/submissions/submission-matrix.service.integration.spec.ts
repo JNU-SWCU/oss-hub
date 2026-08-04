@@ -138,6 +138,33 @@ describe('SubmissionMatrixService integration', () => {
         status: RoleRequestStatus.PENDING,
       },
     });
+    const unsubmittedTeamId = `${UNSUBMITTED_APPLICATION_ID}-team`;
+    await prisma.team.upsert({
+      where: { id: unsubmittedTeamId },
+      update: {},
+      create: {
+        id: unsubmittedTeamId,
+        programId: PROGRAM_ID,
+        name: `${UNSUBMITTED_APPLICATION_ID}-team`,
+        joinCodeDigest: `${UNSUBMITTED_APPLICATION_ID}-team-digest`,
+        leaderId: ROWHOLDER_ID,
+      },
+    });
+    await prisma.teamMember.upsert({
+      where: {
+        teamId_userId: {
+          teamId: unsubmittedTeamId,
+          userId: ROWHOLDER_ID,
+        },
+      },
+      update: {},
+      create: {
+        id: `${UNSUBMITTED_APPLICATION_ID}-team-member`,
+        teamId: unsubmittedTeamId,
+        programId: PROGRAM_ID,
+        userId: ROWHOLDER_ID,
+      },
+    });
     await prisma.application.upsert({
       where: { id: UNSUBMITTED_APPLICATION_ID },
       update: { status: ApplicationStatus.APPROVED },
@@ -145,6 +172,7 @@ describe('SubmissionMatrixService integration', () => {
         id: UNSUBMITTED_APPLICATION_ID,
         programId: PROGRAM_ID,
         applicantId: ROWHOLDER_ID,
+        teamId: unsubmittedTeamId,
         answers: { synthetic: true },
         applicationTemplateVersion: 1,
         status: ApplicationStatus.APPROVED,
@@ -155,6 +183,12 @@ describe('SubmissionMatrixService integration', () => {
   afterAll(async () => {
     await prisma.application.deleteMany({
       where: { id: UNSUBMITTED_APPLICATION_ID },
+    });
+    await prisma.teamMember.deleteMany({
+      where: { id: `${UNSUBMITTED_APPLICATION_ID}-team-member` },
+    });
+    await prisma.team.deleteMany({
+      where: { id: `${UNSUBMITTED_APPLICATION_ID}-team` },
     });
     await prisma.roleRequest.deleteMany({ where: { id: PENDING_REQUEST_ID } });
     await prisma.user.deleteMany({
