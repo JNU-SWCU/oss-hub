@@ -3,7 +3,7 @@ import { PublicUserProfileController } from './public-user-profile.controller';
 import type { PublicProjectsService } from './public-projects.service';
 
 describe('PublicUserProfileController', () => {
-  it('GET /:userId/profile — 서비스 결과를 프로필 응답 DTO로 매핑하며 userId를 그대로 전달한다', async () => {
+  it('GET /:userId/public-profile — 서비스 결과를 프로필 응답 DTO로 매핑하며 userId를 그대로 전달한다', async () => {
     const project: PublicProjectRow = {
       id: 'synthetic-repository-1',
       projectId: '9001',
