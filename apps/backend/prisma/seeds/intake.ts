@@ -111,7 +111,9 @@ async function upsertApplication(
         id: seedId('intake', params.scenarioId, 'solo-team'),
         programId: params.programId,
         name: `${params.scenarioId} 1인 팀`,
-        joinCode: `SEED${params.scenarioId.slice(0, 6).toUpperCase()}`,
+        // 시나리오 전체를 써야 digest가 시나리오마다 달라진다. joinCodeDigest는
+        // @unique라 앞부분만 자르면 시나리오끼리 충돌한다.
+        joinCode: `SEED-SOLO-${params.scenarioId.toUpperCase()}`,
         leaderId: params.applicantId,
       })
     ).id;

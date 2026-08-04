@@ -43,7 +43,8 @@ function buildService(
     overrides.application === undefined
       ? {
           id: 'application-1',
-          teamId: null,
+          teamId: 'team-solo',
+          teamMemberCount: 1,
           status: ApplicationStatus.APPROVED,
         }
       : overrides.application,
@@ -100,6 +101,7 @@ it('팀형 신청은 applicationMode=TEAM으로 반환한다', async () => {
     application: {
       id: 'application-team',
       teamId: 'team-1',
+      teamMemberCount: 3,
       status: ApplicationStatus.APPROVED,
     },
   });
@@ -241,7 +243,8 @@ it('비학생·비멤버·미승인 신청은 각각의 403으로 끝난다', as
   const unapproved = buildService({
     application: {
       id: 'application-1',
-      teamId: null,
+      teamId: 'team-solo',
+      teamMemberCount: 1,
       status: ApplicationStatus.SUBMITTED,
     },
   });

@@ -124,7 +124,11 @@ export class ShowcaseProjectionService {
       repository.visibility === RepositoryVisibility.PUBLIC &&
       repository.application.status === ApplicationStatus.APPROVED &&
       repository.application.programId === repository.programId &&
-      repository.application.teamId === (repository.team?.id ?? null) &&
+      // 저장소가 팀을 가리키면 신청과 같은 팀이어야 한다. `Repository.teamId`는
+      // 여전히 nullable이고(D5는 `Application.teamId`만 필수로 만들었다) 정합 백필은
+      // 하지 않았으므로, 저장소에 팀이 없는 것 자체는 불일치가 아니다.
+      (repository.team === null ||
+        repository.application.teamId === repository.team.id) &&
       repository.program.endAt !== null &&
       repository.program.endAt <= now &&
       repository.publishedAt !== null &&

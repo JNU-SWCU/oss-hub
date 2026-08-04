@@ -54,6 +54,8 @@ export interface SubmissionApplication {
   readonly id: string;
   readonly programId: string;
   readonly teamId: string | null;
+  /** 개인 참여는 멤버 1명인 팀이다(D5·D6). 표시용 구분에 쓴다. */
+  readonly teamMemberCount: number;
   readonly status: ApplicationStatus;
   readonly repositoryUrl: string | null;
   readonly existingSubmission: {
@@ -71,6 +73,8 @@ export interface CreatedSubmission {
 export interface ChecklistApplication {
   readonly id: string;
   readonly teamId: string | null;
+  /** 개인 참여는 멤버 1명인 팀이다(D5·D6). 표시용 구분에 쓴다. */
+  readonly teamMemberCount: number;
   readonly status: ApplicationStatus;
 }
 
@@ -346,10 +350,26 @@ class PrismaSubmissionsStore implements SubmissionsStore {
     programId: string,
     userId: string,
   ): Promise<ChecklistApplication | null> {
-    return this.database.application.findFirst({
-      where: { programId, ...submissionParticipantWhere(userId) },
-      select: { id: true, teamId: true, status: true },
-    });
+    return this.database.application
+      .findFirst({
+        where: { programId, ...submissionParticipantWhere(userId) },
+        select: {
+          id: true,
+          teamId: true,
+          team: { select: { _count: { select: { members: true } } } },
+          status: true,
+        },
+      })
+      .then((row) =>
+        row === null
+          ? null
+          : {
+              id: row.id,
+              teamId: row.teamId,
+              teamMemberCount: row.team?._count.members ?? 0,
+              status: row.status,
+            },
+      );
   }
 
   async listChecklistMilestones(
