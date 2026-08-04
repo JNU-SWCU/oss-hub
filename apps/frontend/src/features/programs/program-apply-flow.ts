@@ -132,7 +132,30 @@ export function validateApplyForm(
   };
 }
 
-export function mapCreateApplicationError(problem: ProblemDetail): string {
+/** 신청 화면에서 확인 후 실행하는 동작. 실패 안내가 동작별로 갈린다. */
+export type ProgramApplyAction = 'submit' | 'save' | 'cancel';
+
+/**
+ * 실패 안내는 "입력한 내용이 남아 있는지"를 먼저 말한다.
+ * 신청서는 길어서, 다시 쓸지 판단하지 못한 채 새로고침하는 비용이 가장 크다.
+ * submit·save 실패는 화면 상태를 그대로 두므로(program-apply-page의 catch는 values를
+ * 건드리지 않는다) 남아 있다고 단언할 수 있고, cancel은 서버 상태가 갈리므로 확인을 권한다.
+ */
+export function applyActionFailureMessage(action: ProgramApplyAction): string {
+  switch (action) {
+    case 'save':
+      return '신청서를 저장하지 못했습니다. 입력한 내용은 그대로 남아 있으니 잠시 후 다시 저장해 주세요.';
+    case 'cancel':
+      return '신청을 취소하지 못했습니다. 페이지를 새로고침해 현재 신청 상태를 확인한 뒤 다시 시도해 주세요.';
+    case 'submit':
+      return '신청서를 제출하지 못했습니다. 입력한 내용은 그대로 남아 있으니 잠시 후 다시 제출해 주세요.';
+  }
+}
+
+export function mapCreateApplicationError(
+  problem: ProblemDetail,
+  action: ProgramApplyAction = 'submit',
+): string {
   switch (problem.code) {
     case 'APP_010':
       return '신청 기간이 아닙니다.';
@@ -149,7 +172,7 @@ export function mapCreateApplicationError(problem: ProblemDetail): string {
     case 'APP_008':
       return '승인된 학생 계정만 신청할 수 있습니다.';
     default:
-      return problem.detail || '신청을 제출하지 못했습니다.';
+      return problem.detail || applyActionFailureMessage(action);
   }
 }
 

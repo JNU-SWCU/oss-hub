@@ -26,6 +26,7 @@ import {
 import {
   applyHrefWithTeam,
   mapInvitationError,
+  mapTeamActionError,
   mapTeamError,
   type ProgramTeamsPageState,
 } from './program-teams-flow';
@@ -172,7 +173,7 @@ export function ProgramTeamRosterView({
         <CardContent className="flex flex-col gap-6">
           {joinCode ? (
             <div className="rounded-control border border-border bg-muted/40 px-4 py-3 text-small">
-              <span className="text-muted-foreground">참여코드 </span>
+              <span className="text-muted-foreground">참여 코드 </span>
               <span className="font-mono font-semibold tracking-wide">
                 {joinCode}
               </span>
@@ -295,11 +296,11 @@ export function ProgramTeamsSetupView({
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>참여코드로 합류</CardTitle>
+            <CardTitle>참여 코드로 합류</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
             <Field>
-              <FieldLabel htmlFor="join-code">참여코드</FieldLabel>
+              <FieldLabel htmlFor="join-code">참여 코드</FieldLabel>
               <Input
                 id="join-code"
                 name="joinCode"
@@ -530,15 +531,11 @@ export function ProgramTeamsPage({
       void loadDirectory();
       void loadSent(team.id);
     } catch (error: unknown) {
-      if (error instanceof ApiError) {
-        if (error.problem.code === 'TEAM_006') {
-          await load();
-          return;
-        }
-        setServerError(mapTeamError(error.problem));
-      } else {
-        setServerError('팀을 만들지 못했습니다.');
+      if (error instanceof ApiError && error.problem.code === 'TEAM_006') {
+        await load();
+        return;
       }
+      setServerError(mapTeamActionError(error, 'create'));
     } finally {
       setCreating(false);
     }
@@ -562,11 +559,7 @@ export function ProgramTeamsPage({
       setJoinCodeInput('');
       void loadDirectory();
     } catch (error: unknown) {
-      if (error instanceof ApiError) {
-        setServerError(mapTeamError(error.problem));
-      } else {
-        setServerError('팀에 합류하지 못했습니다.');
-      }
+      setServerError(mapTeamActionError(error, 'join'));
     } finally {
       setJoining(false);
     }
