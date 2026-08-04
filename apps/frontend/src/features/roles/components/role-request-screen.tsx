@@ -111,7 +111,7 @@ export function RoleRequestStatusView({
 
             {request.status === 'APPROVED' ? (
               <Button asChild size="lg">
-                <a href="/staff/dashboard">교직원 화면으로 이동</a>
+                <a href="/dashboard">교직원 화면으로 이동</a>
               </Button>
             ) : null}
 
@@ -159,7 +159,8 @@ export function RoleRequestScreen() {
         return;
       }
       if (request.status === 'APPROVED') {
-        router.replace('/staff/dashboard');
+        // 회원 공통 입구. STAFF 본문은 세션 역할로 /dashboard에서 고른다.
+        router.replace('/dashboard');
         router.refresh();
         return;
       }

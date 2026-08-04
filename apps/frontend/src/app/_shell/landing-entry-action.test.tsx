@@ -74,7 +74,7 @@ describe('LandingEntryActionView', () => {
     );
 
     expect(html).toContain('운영 대시보드');
-    expect(html).toContain('href="/staff/dashboard"');
+    expect(html).toContain('href="/dashboard"');
   });
 
   it('offers staff approval to an assigned administrator', () => {
@@ -87,7 +87,7 @@ describe('LandingEntryActionView', () => {
     );
 
     expect(html).toContain('관리 콘솔');
-    expect(html).toContain('href="/admin/access"');
+    expect(html).toContain('href="/dashboard"');
   });
 
   // 학생은 역할을 고르는 즉시 배정되므로, 프로필 단계에서 창을 닫은 사람은 역할만
