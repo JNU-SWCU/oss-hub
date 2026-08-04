@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSession } from '@/features/auth/use-session';
-import { fetchMyRoleRequest } from '@/features/roles/api';
-import type { RoleRequestStatus } from '@/features/roles/types';
+import { fetchMyRoleRequest, fetchMyRoleSelection } from '@/features/roles/api';
+import type { RoleRequestStatus, RoleSelection } from '@/features/roles/types';
 import type { AppRole } from './role';
 
 /**
@@ -17,6 +17,15 @@ export interface SessionRoleState {
   readonly status: SessionStatus;
   readonly role: AppRole | null;
   readonly roleRequestStatus: RoleRequestStatus | null;
+  /**
+   * 가입 절차에서 고른 역할 — 아직 확정되지 않은 선택이다(#569).
+   *
+   * 확정을 `가입 마치기`로 미룬 뒤, 프로필을 입력하는 동안에는 `role`도
+   * `roleRequestStatus`도 비어 있다. 그 구간에서 이 사람이 무엇을 고른 사람인지 아는
+   * 근거가 이 값뿐이다 — 프로필 화면이 무엇을 물을지, 저장 뒤 어디로 갈지가 여기서
+   * 갈린다. 역할이 이미 배정된 사용자(`assigned`)에게는 조회하지 않으므로 `null`이다.
+   */
+  readonly selectedRole: RoleSelection | null;
   /**
    * 배정된 역할 기준 프로필 완료 여부. `status === 'assigned'`에서만 의미가 있다.
    *
@@ -36,24 +45,38 @@ const LOADING: SessionRoleState = {
   status: 'loading',
   role: null,
   roleRequestStatus: null,
+  selectedRole: null,
   isProfileComplete: false,
 };
 const ERROR: SessionRoleState = {
   status: 'error',
   role: null,
   roleRequestStatus: null,
+  selectedRole: null,
   isProfileComplete: false,
 };
 const ANONYMOUS: SessionRoleState = {
   status: 'anonymous',
   role: null,
   roleRequestStatus: null,
+  selectedRole: null,
   isProfileComplete: false,
 };
 
-type RoleRequestFetch =
+/**
+ * 미배정 사용자의 온보딩 상태 — 살아 있는 역할 요청과 고른 역할을 함께 읽는다.
+ *
+ * 둘을 한 번에 담는 이유는 게이트가 둘을 **함께** 봐야 답이 나오기 때문이다. 하나만
+ * 도착한 중간 상태를 흘리면, 요청이 없고 선택도 아직 안 온 순간이 "아무것도 고르지
+ * 않은 사람"으로 읽혀 가입 중인 사용자가 랜딩으로 튕긴다.
+ */
+type OnboardingFetch =
   | { readonly kind: 'idle' }
-  | { readonly kind: 'loaded'; readonly status: RoleRequestStatus | null }
+  | {
+      readonly kind: 'loaded';
+      readonly status: RoleRequestStatus | null;
+      readonly selectedRole: RoleSelection | null;
+    }
   | { readonly kind: 'failed' };
 
 /**
@@ -65,41 +88,46 @@ type RoleRequestFetch =
  */
 export function useSessionRole(): SessionRoleResult {
   const session = useSession();
-  const [roleRequest, setRoleRequest] = useState<RoleRequestFetch>({
+  const [onboarding, setOnboarding] = useState<OnboardingFetch>({
     kind: 'idle',
   });
 
-  const needsRoleRequest =
+  const needsOnboardingState =
     session.status === 'authenticated' && session.user?.role == null;
 
   useEffect(() => {
-    if (!needsRoleRequest) {
-      setRoleRequest({ kind: 'idle' });
+    if (!needsOnboardingState) {
+      setOnboarding({ kind: 'idle' });
       return;
     }
 
     let active = true;
-    fetchMyRoleRequest()
-      .then((request) => {
+    Promise.all([fetchMyRoleRequest(), fetchMyRoleSelection()])
+      .then(([request, selection]) => {
         if (active) {
-          setRoleRequest({ kind: 'loaded', status: request?.status ?? null });
+          setOnboarding({
+            kind: 'loaded',
+            status: request?.status ?? null,
+            selectedRole: selection.selectedRole,
+          });
         }
       })
       .catch(() => {
-        // 역할 요청 조회 실패도 error로 둔다. `unassigned`로 흘리면 이미 승인 대기
-        // 중인 사용자에게 역할 선택 화면을 보여주고 중복 요청을 유도한다.
+        // 조회 실패도 error로 둔다. `unassigned`로 흘리면 이미 승인 대기 중인
+        // 사용자에게 역할 선택 화면을 보여주고 중복 요청을 유도하고, 가입 중인
+        // 사용자는 고른 역할을 잃은 채 랜딩으로 튕긴다.
         if (active) {
-          setRoleRequest({ kind: 'failed' });
+          setOnboarding({ kind: 'failed' });
         }
       });
 
     return () => {
       active = false;
     };
-  }, [needsRoleRequest]);
+  }, [needsOnboardingState]);
 
   const retry = useCallback(() => {
-    setRoleRequest({ kind: 'idle' });
+    setOnboarding({ kind: 'idle' });
     session.retry();
   }, [session]);
 
@@ -118,10 +146,11 @@ export function useSessionRole(): SessionRoleResult {
             status: 'assigned',
             role,
             roleRequestStatus: null,
+            selectedRole: null,
             isProfileComplete: session.user?.isProfileComplete ?? false,
           };
         }
-        switch (roleRequest.kind) {
+        switch (onboarding.kind) {
           case 'idle':
             return LOADING;
           case 'failed':
@@ -130,11 +159,12 @@ export function useSessionRole(): SessionRoleResult {
             return {
               status: 'unassigned',
               role: null,
-              roleRequestStatus: roleRequest.status,
+              roleRequestStatus: onboarding.status,
+              selectedRole: onboarding.selectedRole,
               isProfileComplete: false,
             };
           default: {
-            const exhaustive: never = roleRequest;
+            const exhaustive: never = onboarding;
             return exhaustive;
           }
         }
@@ -144,7 +174,7 @@ export function useSessionRole(): SessionRoleResult {
         return exhaustive;
       }
     }
-  }, [roleRequest, session.status, session.user]);
+  }, [onboarding, session.status, session.user]);
 
   // 게이트가 이 결과를 useEffect 의존성으로 쓰기 때문에 매 렌더 새 객체를 만들면
   // redirect가 무한히 재실행된다.

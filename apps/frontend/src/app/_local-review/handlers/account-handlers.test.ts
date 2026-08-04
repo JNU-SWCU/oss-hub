@@ -3,6 +3,8 @@ import { parsePublicProfile } from '@/features/profile/public-profile-api';
 import { parseMyRepositoriesResponse } from '@/features/repositories/parser';
 import type { RoleRequestStatus } from '@/features/roles/types';
 import { onboardingPathFor } from '../../_shell/onboarding-route';
+import type { AppRole } from '../../_shell/role';
+import { profileOnboardingView } from '../../onboarding/profile/profile-onboarding-route';
 import {
   createLocalReviewActivation,
   type LocalReviewFixtureId,
@@ -328,7 +330,7 @@ describe('account fixture responses', () => {
     });
   });
 
-  it('역할 선택은 고른 역할에 맞는 배정 결과를 준다', () => {
+  it('역할 선택은 고른 사실만 답하고 확정 결과를 싣지 않는다', () => {
     // Given / When
     const student = jsonBody(
       callWithBody('unassigned', 'POST', 'onboarding/role', {
@@ -341,20 +343,45 @@ describe('account fixture responses', () => {
       }),
     );
 
-    // Then: 학생은 즉시 확정되고 교직원은 승인 대기 요청만 생긴다. 다만 이동 경로는
-    // 둘 다 프로필이다 — 아직 프로필이 비어 있고 교직원도 학과가 필수라 남은 단계가
-    // 같다. 백엔드 `roles.service.ts`가 주는 값을 그대로 흉내 낸다.
+    // Then: 두 역할의 답이 완전히 같다. 이 화면은 아무것도 확정하지 않으므로(#569)
+    // 알려 줄 확정 결과가 없다. 백엔드
+    // `roles/dto/role-selection-response.dto.ts`가 싣는 칸과 정확히 같아야 한다 —
+    // 픽스처에만 남은 칸은 실배포에 없는 값을 화면이 읽게 만든다.
     expect(student).toEqual({
       selectedRole: 'STUDENT',
-      role: 'STUDENT',
-      requestStatus: null,
       redirectTo: '/onboarding/profile',
     });
     expect(staff).toEqual({
       selectedRole: 'STAFF',
-      role: null,
-      requestStatus: 'PENDING',
       redirectTo: '/onboarding/profile',
+    });
+  });
+
+  it('지금 고른 역할을 되돌려 준다 — 고르기 전이면 null을 본문에 싣는다', () => {
+    // Given
+    resetLocalReviewFixtureState();
+
+    // Then: 빈 응답이 아니라 `{ selectedRole: null }`이다. 백엔드도 같은 모양을
+    // 주고, 응답 본문이 비면 화면의 파서가 그것을 실패로 읽는다(PR #531).
+    expect(jsonBody(call('unassigned', 'GET', 'onboarding/role'))).toEqual({
+      selectedRole: null,
+    });
+
+    // When
+    callWithBody('unassigned', 'POST', 'onboarding/role', {
+      selectedRole: 'STAFF',
+    });
+
+    // Then
+    expect(jsonBody(call('unassigned', 'GET', 'onboarding/role'))).toEqual({
+      selectedRole: 'STAFF',
+    });
+  });
+
+  it('승인 대기 교직원 페르소나도 고른 역할을 교직원으로 답한다', () => {
+    // 실물은 마이그레이션에서 살아 있는 요청을 보고 STAFF를 backfill한다.
+    expect(jsonBody(call('role-pending', 'GET', 'onboarding/role'))).toEqual({
+      selectedRole: 'STAFF',
     });
   });
 
@@ -371,51 +398,88 @@ describe('account fixture responses', () => {
     });
   });
 
-  // 학생 선택을 기억하지 않으면 세션이 계속 미배정이라, 제출은 되는데 게이트가
-  // 역할 선택 화면으로 되돌려 검토자가 제자리에 갇힌다. 백엔드도 학생은 승인 없이
-  // 즉시 배정하므로(roles.service.ts `selectStudent`) 세션이 함께 바뀌어야 맞다.
-  it('학생 선택은 세션 역할까지 확정해 프로필 단계로 이어 준다', () => {
+  /**
+   * #569 회귀 검사 ① — 픽스처도 고르는 자리에서는 확정하지 않는다.
+   *
+   * 예전에는 학생을 고르는 즉시 세션 역할을 STUDENT로 바꿨다. 실물이 그랬기
+   * 때문이다. 확정이 `가입 마치기`로 옮겨 간 지금 같은 값을 주면, 검토에서는
+   * 프로필을 건너뛰고 대시보드에 들어갈 수 있는데 실배포에서는 막힌다.
+   */
+  it.each(['STUDENT', 'STAFF'] as const)(
+    '%s을 고르기만 해서는 세션 역할도 승인 요청도 생기지 않는다',
+    (selectedRole) => {
+      // Given
+      resetLocalReviewFixtureState();
+
+      // When
+      callWithBody('unassigned', 'POST', 'onboarding/role', { selectedRole });
+
+      // Then
+      expect(jsonBody(call('unassigned', 'GET', 'auth/session'))).toMatchObject(
+        { isAuthenticated: true, user: { role: null } },
+      );
+      expect(
+        jsonBody(call('unassigned', 'GET', 'role-requests/me')),
+      ).toBeNull();
+    },
+  );
+
+  /** #569 회귀 검사 ② — 픽스처도 `가입 마치기`에서 확정한다. */
+  it('학생은 프로필을 마쳐야 세션 역할이 확정된다', () => {
     // Given
     resetLocalReviewFixtureState();
-
-    // When
     callWithBody('unassigned', 'POST', 'onboarding/role', {
       selectedRole: 'STUDENT',
     });
-    const session = jsonBody(call('unassigned', 'GET', 'auth/session'));
 
-    // Then: 프로필은 아직 비어 있어야 RoleGate가 프로필 입력으로 넘긴다.
-    expect(session).toMatchObject({
+    // When
+    callWithBody('unassigned', 'PATCH', 'users/me/profile', {
+      name: '합성 학생 사용자',
+      studentId: '260001',
+      department: '인공지능학부',
+    });
+
+    // Then
+    expect(jsonBody(call('unassigned', 'GET', 'auth/session'))).toMatchObject({
       isAuthenticated: true,
-      user: { role: 'STUDENT', isProfileComplete: false },
+      user: { role: 'STUDENT', isProfileComplete: true },
     });
   });
 
-  it('교직원 선택은 승인 전이라 세션 역할 대신 대기 요청으로 남는다', () => {
+  it('교직원은 프로필을 마쳐야 승인 요청이 생기고, 역할은 승인 전까지 비어 있다', () => {
     // Given
     resetLocalReviewFixtureState();
-
-    // When
     callWithBody('unassigned', 'POST', 'onboarding/role', {
       selectedRole: 'STAFF',
     });
-    const session = jsonBody(call('unassigned', 'GET', 'auth/session'));
-    const roleRequest = jsonBody(call('unassigned', 'GET', 'role-requests/me'));
 
-    // Then
-    expect(session).toMatchObject({ user: { role: null } });
-    expect(roleRequest).toMatchObject({
-      requestedRole: 'STAFF',
-      status: 'PENDING',
+    // When
+    callWithBody('unassigned', 'PATCH', 'users/me/profile', {
+      name: '합성 교직원 사용자',
+      department: '인공지능학부',
     });
+
+    // Then: 세션의 `isProfileComplete`는 **배정된 역할 기준**이라 역할이 없는
+    // 동안에는 학생 기준으로 계산된다 — 학번이 없는 교직원은 여기서 미완료다.
+    // 실물(`auth.repository.ts`)이 그렇게 답하므로 픽스처도 같아야 한다.
+    expect(jsonBody(call('unassigned', 'GET', 'auth/session'))).toMatchObject({
+      user: { role: null, isProfileComplete: false },
+    });
+    expect(
+      jsonBody(call('unassigned', 'GET', 'role-requests/me')),
+    ).toMatchObject({ requestedRole: 'STAFF', status: 'PENDING' });
   });
 
   // 검토판 링크를 다시 누르는 것이 곧 "처음부터 다시"여야 한다. 지우지 않으면 한 번
   // 걸어 본 가입 동선을 서버를 다시 띄우기 전에는 볼 수 없다.
   it('페르소나를 다시 켜면 앞선 검토의 역할 선택이 지워진다', () => {
-    // Given: 교직원까지 골라 둔 상태.
+    // Given: 교직원을 골라 프로필까지 마쳐 둔 상태.
     callWithBody('unassigned', 'POST', 'onboarding/role', {
       selectedRole: 'STAFF',
+    });
+    callWithBody('unassigned', 'PATCH', 'users/me/profile', {
+      name: '합성 교직원 사용자',
+      department: '인공지능학부',
     });
 
     // When: 활성화 경로가 하는 일과 같은 초기화.
@@ -423,6 +487,9 @@ describe('account fixture responses', () => {
 
     // Then: 역할 선택 화면이 다시 첫 화면이 된다.
     expect(jsonBody(call('unassigned', 'GET', 'role-requests/me'))).toBeNull();
+    expect(jsonBody(call('unassigned', 'GET', 'onboarding/role'))).toEqual({
+      selectedRole: null,
+    });
     expect(jsonBody(call('unassigned', 'GET', 'auth/session'))).toMatchObject({
       user: { role: null },
     });
@@ -509,6 +576,33 @@ describe('가입 동선 — 약관 → 교직원 선택 → 프로필 → 승인
     );
   }
 
+  /**
+   * 프로필 화면이 이 검토자에게 무엇을 할지. 그 화면은 `OnboardingGate`가 아니라
+   * `ProfileOnboardingRoute`가 지키므로(#569 이후로는 고른 역할까지 봐야 한다) 판단도
+   * 그 함수에게 그대로 물어본다 — 여기서 같은 판단을 다시 적으면 잠그는 대상이 화면이
+   * 아니라 이 테스트 자신이 된다.
+   */
+  function currentProfileView() {
+    const roleRequest = jsonBody(
+      call('unassigned', 'GET', 'role-requests/me'),
+    ) as { readonly status: RoleRequestStatus } | null;
+    const selection = jsonBody(
+      call('unassigned', 'GET', 'onboarding/role'),
+    ) as {
+      readonly selectedRole: 'STUDENT' | 'STAFF' | null;
+    };
+    const session = jsonBody(call('unassigned', 'GET', 'auth/session')) as {
+      readonly user: { readonly role: AppRole | null };
+    };
+    return profileOnboardingView({
+      status: session.user.role ? 'assigned' : 'unassigned',
+      role: session.user.role,
+      roleRequestStatus: roleRequest?.status ?? null,
+      selectedRole: selection.selectedRole,
+      isProfileComplete: false,
+    });
+  }
+
   it('교직원을 고른 검토자가 프로필을 거쳐 승인 대기 화면까지 도착한다', () => {
     // Given: 검토판 링크(`/local-review/unassigned?to=/consent`)를 막 누른 상태.
     resetLocalReviewFixtureState();
@@ -521,24 +615,36 @@ describe('가입 동선 — 약관 → 교직원 선택 → 프로필 → 승인
       nextUrl: '/onboarding/role',
     });
 
-    // 2 — 교직원 선택. 승인 요청이 생기고, 남은 단계인 프로필로 바로 보낸다.
+    // 2 — 교직원 선택. 고른 사실만 남고, 남은 단계인 프로필로 바로 보낸다.
     const selection = jsonBody(
       callWithBody('unassigned', 'POST', 'onboarding/role', {
         selectedRole: 'STAFF',
       }),
     ) as { readonly redirectTo: string };
     expect(selection).toMatchObject({
-      requestStatus: 'PENDING',
+      selectedRole: 'STAFF',
       redirectTo: '/onboarding/profile',
     });
+    // 2-1 — 관리자 대기줄에 미완성 신청이 올라가지 않는다(#569). 프로필을 한 글자도
+    //       입력하기 전이라 이름·학과가 비어 있다.
+    expect(jsonBody(call('unassigned', 'GET', 'role-requests/me'))).toBeNull();
 
-    // 3 — 왕복이 없어야 한다. 역할 선택이 준 목적지가 곧 게이트가 말하는 다음
-    //     화면이면 도착하자마자 다시 튕겨 나가는 일이 없다. 예전에는 여기서
-    //     `/onboarding/pending`을 주고 그 화면의 게이트가 비어 있는 프로필을 보고
-    //     프로필로 되돌려, 승인 대기 화면이 반 초쯤 떴다 사라졌다.
-    //     여기서 역할 선택이 잊히면 `/onboarding/role`로 되튕겨 제자리를 돈다.
-    expect(currentOnboardingPath()).toBe('/onboarding/profile');
-    expect(selection.redirectTo).toBe(currentOnboardingPath());
+    // 3 — 왕복이 없어야 한다. 역할 선택이 준 목적지에 도착했을 때 그 화면이 폼을
+    //     열어 줘야 제자리를 돌지 않는다. 여기서 고른 역할이 잊히면 그 화면이
+    //     랜딩으로 되돌리고, 검토자는 가입을 마칠 방법이 없다.
+    //
+    //     이 화면의 게이트는 `OnboardingGate`가 아니라 `ProfileOnboardingRoute`다.
+    //     아직 확정된 것이 없어 `onboardingPathFor`는 `/onboarding/role`을 가리키는데
+    //     (되돌아갈 수 있어야 하므로 그것이 맞다) 그 값은 이 화면을 막지 않는다.
+    expect(selection.redirectTo).toBe('/onboarding/profile');
+    expect(currentProfileView()).toMatchObject({
+      kind: 'form',
+      // 교직원이라 학번을 묻지 않는다.
+      role: 'STAFF',
+      nextPath: '/onboarding/pending',
+      // 확정 전이라 역할 선택으로 되돌아갈 수 있다.
+      canChangeRole: true,
+    });
 
     // 4 — 프로필 저장. 교직원이라 학번은 묻지 않는다.
     expect(
@@ -550,12 +656,16 @@ describe('가입 동선 — 약관 → 교직원 선택 → 프로필 → 승인
       ),
     ).toMatchObject({ isComplete: true });
 
-    // 5 — 저장 뒤 다시 게이트. 이번엔 승인 대기 화면이 목적지다. 세션 역할은 승인
-    //     전이라 계속 비어 있어야 온보딩 밖(역할 홈)으로 튕기지 않는다.
+    // 5 — 저장 뒤 다시 게이트. 이번엔 승인 대기 화면이 목적지다. 승인 요청은 바로
+    //     이 저장에서 생긴다(#569). 세션 역할은 승인 전이라 계속 비어 있어야
+    //     온보딩 밖(역할 홈)으로 튕기지 않는다.
+    expect(
+      jsonBody(call('unassigned', 'GET', 'role-requests/me')),
+    ).toMatchObject({ requestedRole: 'STAFF', status: 'PENDING' });
     expect(currentOnboardingPath()).toBe('/onboarding/pending');
     expect(jsonBody(call('unassigned', 'GET', 'auth/session'))).toMatchObject({
       isAuthenticated: true,
-      user: { role: null, isProfileComplete: true },
+      user: { role: null },
     });
   });
 

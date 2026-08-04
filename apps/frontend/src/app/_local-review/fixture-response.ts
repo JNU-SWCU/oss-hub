@@ -33,6 +33,7 @@ import {
   ACCOUNT_HANDLERS,
   myProfileFixtureFor,
   reviewAssignedRole,
+  reviewSessionProfileComplete,
 } from './handlers/account-handlers';
 import { ADMIN_HANDLERS } from './handlers/admin-handlers';
 import { STAFF_HANDLERS } from './handlers/staff-handlers';
@@ -424,17 +425,17 @@ function sessionResponse(
       return authenticatedSession('STAFF');
     case 'admin':
       return authenticatedSession('ADMIN');
-    // 온보딩 중인 페르소나. 학생을 고르면 그 자리에서 역할이 확정되므로(백엔드
-    // `roles.service.ts`의 `selectStudent`도 승인 없이 바로 배정한다) 세션도 함께
-    // 바뀌어야 한다 — 계속 미배정으로 답하면 게이트가 역할 선택 화면으로 되돌려
+    // 온보딩 중인 페르소나. 학생으로 **가입을 마치면** 그 자리에서 역할이 확정되므로
+    // (백엔드는 프로필 완료 저장에서 배정한다 — `users.repository.ts`) 세션도 함께
+    // 바뀌어야 한다. 계속 미배정으로 답하면 게이트가 역할 선택 화면으로 되돌려
     // 검토자는 "제출은 되는데 화면이 그대로"인 상태에 갇힌다.
     //
-    // 프로필 완료 여부는 프로필 응답과 같은 값을 써야 한다. 역할만 확정되고 프로필은
-    // 비어 있는 구간을 완료로 답하면 `RoleGate`가 프로필 단계를 통째로 건너뛴다.
+    // 완료 여부는 실물과 같이 **배정된 역할 기준**으로 계산한다
+    // (`handlers/account-handlers.ts`의 `reviewSessionProfileComplete`).
     case 'unassigned':
       return authenticatedSession(
         reviewAssignedRole(),
-        myProfileFixtureFor('unassigned').isComplete,
+        reviewSessionProfileComplete(),
       );
     // 역할 승인 대기는 승인 전까지 역할이 없는 것이 정상이다. 프로필은 이미 채운
     // 상태라 차이는 role-requests/me 응답뿐이다.
