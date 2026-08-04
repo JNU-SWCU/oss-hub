@@ -17,7 +17,7 @@ import { BoardActorRequest, BoardAccessGuard } from './board-access.guard';
 import { BoardService } from './board.service';
 import { BoardCommentResponseDto } from './dto/board-comment-response.dto';
 import { BoardPostDetailResponseDto } from './dto/board-post-detail-response.dto';
-import { BoardPostListQueryDto } from './dto/board-post-list-query.dto';
+import { BoardPostListRequestDto } from './dto/board-post-list-query.dto';
 import { BoardPostsPageResponseDto } from './dto/board-posts-page-response.dto';
 import { CreateBoardCommentRequestDto } from './dto/create-board-comment-request.dto';
 import { CreateBoardPostRequestDto } from './dto/create-board-post-request.dto';
@@ -41,7 +41,7 @@ export class BoardController {
   @Get()
   async list(
     @Param('programId') programId: string,
-    @Query() query: BoardPostListQueryDto,
+    @Query() query: BoardPostListRequestDto,
   ): Promise<BoardPostsPageResponseDto> {
     const page = await this.service.listPosts(programId, query.toQuery());
     return BoardPostsPageResponseDto.from(page);

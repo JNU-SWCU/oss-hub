@@ -13,6 +13,7 @@ import {
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard';
+import type { MilestoneDocumentsStaffRequest } from './milestone-documents-staff.guard';
 
 let application: INestApplication | undefined;
 let baseUrl = '';
@@ -131,7 +132,9 @@ beforeAll(async () => {
     .overrideGuard(MilestoneDocumentsStaffGuard)
     .useValue({
       canActivate: (context: ExecutionContext): boolean => {
-        const request = context.switchToHttp().getRequest();
+        const request = context
+          .switchToHttp()
+          .getRequest<MilestoneDocumentsStaffRequest>();
         request.milestoneDocumentActorId = 'synthetic-staff';
         return true;
       },

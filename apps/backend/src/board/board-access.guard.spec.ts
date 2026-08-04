@@ -80,10 +80,19 @@ describe('BoardAccessGuard', () => {
       boardActorIsStaff: false,
     });
     expect(findFirstApplication).toHaveBeenCalledWith({
-      where: expect.objectContaining({
+      where: {
         programId: syntheticProgramId,
         status: ApplicationStatus.APPROVED,
-      }),
+        OR: [
+          { applicantId: 'synthetic-student-user' },
+          { team: { leaderId: 'synthetic-student-user' } },
+          {
+            team: {
+              members: { some: { userId: 'synthetic-student-user' } },
+            },
+          },
+        ],
+      },
       select: { id: true },
     });
   });
@@ -105,10 +114,7 @@ describe('BoardAccessGuard', () => {
     await expect(
       guard.canActivate(buildContext(request)),
     ).rejects.toMatchObject({
-      errorCode: expect.objectContaining({
-        code: BoardErrorCode.ACCESS_FORBIDDEN,
-        status: 403,
-      }),
+      errorCode: { code: BoardErrorCode.ACCESS_FORBIDDEN, status: 403 },
     });
   });
 
@@ -124,9 +130,7 @@ describe('BoardAccessGuard', () => {
     await expect(
       guard.canActivate(buildContext(request)),
     ).rejects.toMatchObject({
-      errorCode: expect.objectContaining({
-        code: BoardErrorCode.ACCESS_FORBIDDEN,
-      }),
+      errorCode: { code: BoardErrorCode.ACCESS_FORBIDDEN },
     });
     expect(findFirstApplication).not.toHaveBeenCalled();
   });
@@ -147,9 +151,7 @@ describe('BoardAccessGuard', () => {
     await expect(
       guard.canActivate(buildContext(request)),
     ).rejects.toMatchObject({
-      errorCode: expect.objectContaining({
-        code: BoardErrorCode.ACCESS_FORBIDDEN,
-      }),
+      errorCode: { code: BoardErrorCode.ACCESS_FORBIDDEN },
     });
   });
 });

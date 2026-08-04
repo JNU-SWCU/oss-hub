@@ -1,13 +1,9 @@
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Max, Min } from 'class-validator';
-
-export interface BoardPostListQuery {
-  readonly page: number;
-  readonly limit: number;
-}
+import { BoardPostListQuery } from '../board-post-list-query';
 
 /** `GET /programs/:programId/board/posts` 쿼리 — 미지정 시 1페이지·20건. */
-export class BoardPostListQueryDto {
+export class BoardPostListRequestDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()

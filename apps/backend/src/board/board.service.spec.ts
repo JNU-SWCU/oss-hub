@@ -13,7 +13,7 @@ const syntheticOtherUserId = 'cuid-synthetic-other-user';
 const syntheticStaffId = 'cuid-synthetic-staff';
 
 function buildRepository(overrides: Partial<BoardRepository> = {}) {
-  return {
+  const mocks = {
     findByProgramId: jest.fn(),
     findDetailById: jest.fn(),
     findRefById: jest.fn(),
@@ -25,7 +25,8 @@ function buildRepository(overrides: Partial<BoardRepository> = {}) {
     findCommentRefById: jest.fn(),
     deleteComment: jest.fn(),
     ...overrides,
-  } as unknown as BoardRepository;
+  };
+  return { mocks, repository: mocks as unknown as BoardRepository };
 }
 
 describe('BoardService', () => {
@@ -44,7 +45,7 @@ describe('BoardService', () => {
           commentCount: 2,
         },
       ];
-      const repository = buildRepository({
+      const { mocks, repository } = buildRepository({
         findByProgramId: jest.fn().mockResolvedValue({ items, total: 1 }),
       });
       const service = new BoardService(repository);
@@ -56,7 +57,7 @@ describe('BoardService', () => {
       });
 
       // Then
-      expect(repository.findByProgramId).toHaveBeenCalledWith(
+      expect(mocks.findByProgramId).toHaveBeenCalledWith(
         syntheticProgramId,
         1,
         20,
@@ -68,7 +69,7 @@ describe('BoardService', () => {
   describe('getPostDetail', () => {
     it('글이 없으면 POST_NOT_FOUND를 던진다', async () => {
       // Given
-      const repository = buildRepository({
+      const { repository } = buildRepository({
         findDetailById: jest.fn().mockResolvedValue(null),
       });
       const service = new BoardService(repository);
@@ -77,15 +78,13 @@ describe('BoardService', () => {
       await expect(
         service.getPostDetail(syntheticProgramId, syntheticPostId),
       ).rejects.toMatchObject({
-        errorCode: expect.objectContaining({
-          code: BoardErrorCode.POST_NOT_FOUND,
-        }),
+        errorCode: { code: BoardErrorCode.POST_NOT_FOUND },
       });
     });
 
     it('다른 프로그램 소속 글이면 404로 감춘다', async () => {
       // Given
-      const repository = buildRepository({
+      const { repository } = buildRepository({
         findDetailById: jest.fn().mockResolvedValue({
           id: syntheticPostId,
           programId: 'cuid-synthetic-other-program',
@@ -123,7 +122,7 @@ describe('BoardService', () => {
         commentCount: 0,
         comments: [],
       };
-      const repository = buildRepository({
+      const { repository } = buildRepository({
         findDetailById: jest.fn().mockResolvedValue(post),
       });
       const service = new BoardService(repository);
@@ -142,7 +141,7 @@ describe('BoardService', () => {
   describe('createPost', () => {
     it('교직원이 쓰면 NOTICE로 만든다', async () => {
       // Given
-      const repository = buildRepository({
+      const { mocks, repository } = buildRepository({
         create: jest.fn().mockResolvedValue({}),
       });
       const service = new BoardService(repository);
@@ -154,7 +153,7 @@ describe('BoardService', () => {
       });
 
       // Then
-      expect(repository.create).toHaveBeenCalledWith({
+      expect(mocks.create).toHaveBeenCalledWith({
         programId: syntheticProgramId,
         authorId: syntheticStaffId,
         category: BoardPostCategory.NOTICE,
@@ -165,7 +164,7 @@ describe('BoardService', () => {
 
     it('학생이 쓰면 QNA로 만든다', async () => {
       // Given
-      const repository = buildRepository({
+      const { mocks, repository } = buildRepository({
         create: jest.fn().mockResolvedValue({}),
       });
       const service = new BoardService(repository);
@@ -177,7 +176,7 @@ describe('BoardService', () => {
       });
 
       // Then
-      expect(repository.create).toHaveBeenCalledWith({
+      expect(mocks.create).toHaveBeenCalledWith({
         programId: syntheticProgramId,
         authorId: syntheticAuthorId,
         category: BoardPostCategory.QNA,
@@ -190,7 +189,7 @@ describe('BoardService', () => {
   describe('updatePost', () => {
     it('작성자 본인이면 수정한다', async () => {
       // Given
-      const repository = buildRepository({
+      const { mocks, repository } = buildRepository({
         findRefById: jest.fn().mockResolvedValue({
           id: syntheticPostId,
           programId: syntheticProgramId,
@@ -209,7 +208,7 @@ describe('BoardService', () => {
       );
 
       // Then
-      expect(repository.update).toHaveBeenCalledWith(syntheticPostId, {
+      expect(mocks.update).toHaveBeenCalledWith(syntheticPostId, {
         title: '새 제목',
         body: '새 본문',
       });
@@ -217,7 +216,7 @@ describe('BoardService', () => {
 
     it('작성자가 아니면 교직원이어도 NOT_AUTHOR를 던진다', async () => {
       // Given
-      const repository = buildRepository({
+      const { mocks, repository } = buildRepository({
         findRefById: jest.fn().mockResolvedValue({
           id: syntheticPostId,
           programId: syntheticProgramId,
@@ -235,16 +234,14 @@ describe('BoardService', () => {
           { title: '새 제목', body: '새 본문' },
         ),
       ).rejects.toMatchObject({
-        errorCode: expect.objectContaining({
-          code: BoardErrorCode.NOT_AUTHOR,
-        }),
+        errorCode: { code: BoardErrorCode.NOT_AUTHOR },
       });
-      expect(repository.update).not.toHaveBeenCalled();
+      expect(mocks.update).not.toHaveBeenCalled();
     });
 
     it('다른 프로그램 소속 글이면 POST_NOT_FOUND를 던진다', async () => {
       // Given
-      const repository = buildRepository({
+      const { repository } = buildRepository({
         findRefById: jest.fn().mockResolvedValue(null),
       });
       const service = new BoardService(repository);
@@ -258,9 +255,7 @@ describe('BoardService', () => {
           { title: '새 제목', body: '새 본문' },
         ),
       ).rejects.toMatchObject({
-        errorCode: expect.objectContaining({
-          code: BoardErrorCode.POST_NOT_FOUND,
-        }),
+        errorCode: { code: BoardErrorCode.POST_NOT_FOUND },
       });
     });
   });
@@ -268,7 +263,7 @@ describe('BoardService', () => {
   describe('deletePost', () => {
     it('작성자 본인이면 지운다', async () => {
       // Given
-      const repository = buildRepository({
+      const { mocks, repository } = buildRepository({
         findRefById: jest.fn().mockResolvedValue({
           id: syntheticPostId,
           programId: syntheticProgramId,
@@ -286,14 +281,12 @@ describe('BoardService', () => {
       );
 
       // Then
-      expect(repository.deleteWithComments).toHaveBeenCalledWith(
-        syntheticPostId,
-      );
+      expect(mocks.deleteWithComments).toHaveBeenCalledWith(syntheticPostId);
     });
 
     it('작성자가 아니어도 교직원이면 지운다', async () => {
       // Given
-      const repository = buildRepository({
+      const { mocks, repository } = buildRepository({
         findRefById: jest.fn().mockResolvedValue({
           id: syntheticPostId,
           programId: syntheticProgramId,
@@ -311,14 +304,12 @@ describe('BoardService', () => {
       );
 
       // Then
-      expect(repository.deleteWithComments).toHaveBeenCalledWith(
-        syntheticPostId,
-      );
+      expect(mocks.deleteWithComments).toHaveBeenCalledWith(syntheticPostId);
     });
 
     it('작성자도 교직원도 아니면 NOT_AUTHOR를 던진다', async () => {
       // Given
-      const repository = buildRepository({
+      const { mocks, repository } = buildRepository({
         findRefById: jest.fn().mockResolvedValue({
           id: syntheticPostId,
           programId: syntheticProgramId,
@@ -336,18 +327,16 @@ describe('BoardService', () => {
           false,
         ),
       ).rejects.toMatchObject({
-        errorCode: expect.objectContaining({
-          code: BoardErrorCode.NOT_AUTHOR,
-        }),
+        errorCode: { code: BoardErrorCode.NOT_AUTHOR },
       });
-      expect(repository.deleteWithComments).not.toHaveBeenCalled();
+      expect(mocks.deleteWithComments).not.toHaveBeenCalled();
     });
   });
 
   describe('setPinned', () => {
     it('교직원이면 고정 상태를 바꾼다', async () => {
       // Given
-      const repository = buildRepository({
+      const { mocks, repository } = buildRepository({
         findRefById: jest.fn().mockResolvedValue({
           id: syntheticPostId,
           programId: syntheticProgramId,
@@ -360,31 +349,29 @@ describe('BoardService', () => {
       await service.setPinned(syntheticProgramId, syntheticPostId, true, true);
 
       // Then
-      expect(repository.setPinned).toHaveBeenCalledWith(syntheticPostId, true);
+      expect(mocks.setPinned).toHaveBeenCalledWith(syntheticPostId, true);
     });
 
     it('교직원이 아니면 STAFF_ONLY를 던지고 리포지토리를 건드리지 않는다', async () => {
       // Given
-      const repository = buildRepository();
+      const { mocks, repository } = buildRepository();
       const service = new BoardService(repository);
 
       // When / Then
       await expect(
         service.setPinned(syntheticProgramId, syntheticPostId, false, true),
       ).rejects.toMatchObject({
-        errorCode: expect.objectContaining({
-          code: BoardErrorCode.STAFF_ONLY,
-        }),
+        errorCode: { code: BoardErrorCode.STAFF_ONLY },
       });
-      expect(repository.findRefById).not.toHaveBeenCalled();
-      expect(repository.setPinned).not.toHaveBeenCalled();
+      expect(mocks.findRefById).not.toHaveBeenCalled();
+      expect(mocks.setPinned).not.toHaveBeenCalled();
     });
   });
 
   describe('createComment', () => {
     it('글이 프로그램 소속이면 댓글을 만든다', async () => {
       // Given
-      const repository = buildRepository({
+      const { mocks, repository } = buildRepository({
         findRefById: jest.fn().mockResolvedValue({
           id: syntheticPostId,
           programId: syntheticProgramId,
@@ -403,7 +390,7 @@ describe('BoardService', () => {
       );
 
       // Then
-      expect(repository.createComment).toHaveBeenCalledWith({
+      expect(mocks.createComment).toHaveBeenCalledWith({
         postId: syntheticPostId,
         authorId: syntheticOtherUserId,
         body: '댓글 내용',
@@ -414,7 +401,7 @@ describe('BoardService', () => {
   describe('deleteComment', () => {
     it('작성자 본인이면 지운다', async () => {
       // Given
-      const repository = buildRepository({
+      const { mocks, repository } = buildRepository({
         findCommentRefById: jest.fn().mockResolvedValue({
           id: syntheticCommentId,
           postId: syntheticPostId,
@@ -434,12 +421,12 @@ describe('BoardService', () => {
       );
 
       // Then
-      expect(repository.deleteComment).toHaveBeenCalledWith(syntheticCommentId);
+      expect(mocks.deleteComment).toHaveBeenCalledWith(syntheticCommentId);
     });
 
     it('작성자가 아니어도 교직원이면 지운다', async () => {
       // Given
-      const repository = buildRepository({
+      const { mocks, repository } = buildRepository({
         findCommentRefById: jest.fn().mockResolvedValue({
           id: syntheticCommentId,
           postId: syntheticPostId,
@@ -459,12 +446,12 @@ describe('BoardService', () => {
       );
 
       // Then
-      expect(repository.deleteComment).toHaveBeenCalledWith(syntheticCommentId);
+      expect(mocks.deleteComment).toHaveBeenCalledWith(syntheticCommentId);
     });
 
     it('작성자도 교직원도 아니면 NOT_AUTHOR를 던진다', async () => {
       // Given
-      const repository = buildRepository({
+      const { mocks, repository } = buildRepository({
         findCommentRefById: jest.fn().mockResolvedValue({
           id: syntheticCommentId,
           postId: syntheticPostId,
@@ -484,16 +471,14 @@ describe('BoardService', () => {
           false,
         ),
       ).rejects.toMatchObject({
-        errorCode: expect.objectContaining({
-          code: BoardErrorCode.NOT_AUTHOR,
-        }),
+        errorCode: { code: BoardErrorCode.NOT_AUTHOR },
       });
-      expect(repository.deleteComment).not.toHaveBeenCalled();
+      expect(mocks.deleteComment).not.toHaveBeenCalled();
     });
 
     it('다른 글/프로그램 소속 댓글이면 COMMENT_NOT_FOUND를 던진다', async () => {
       // Given
-      const repository = buildRepository({
+      const { repository } = buildRepository({
         findCommentRefById: jest.fn().mockResolvedValue({
           id: syntheticCommentId,
           postId: 'cuid-synthetic-other-post',
@@ -513,15 +498,13 @@ describe('BoardService', () => {
           false,
         ),
       ).rejects.toMatchObject({
-        errorCode: expect.objectContaining({
-          code: BoardErrorCode.COMMENT_NOT_FOUND,
-        }),
+        errorCode: { code: BoardErrorCode.COMMENT_NOT_FOUND },
       });
     });
 
     it('댓글이 없으면 COMMENT_NOT_FOUND를 던진다', async () => {
       // Given
-      const repository = buildRepository({
+      const { repository } = buildRepository({
         findCommentRefById: jest.fn().mockResolvedValue(null),
       });
       const service = new BoardService(repository);
@@ -536,9 +519,7 @@ describe('BoardService', () => {
           false,
         ),
       ).rejects.toMatchObject({
-        errorCode: expect.objectContaining({
-          code: BoardErrorCode.COMMENT_NOT_FOUND,
-        }),
+        errorCode: { code: BoardErrorCode.COMMENT_NOT_FOUND },
       });
     });
   });

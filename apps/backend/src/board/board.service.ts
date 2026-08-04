@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { BoardPostCategory } from '@prisma/client';
 import { DomainException } from '../common/error-code';
+import type { BoardPostListQuery } from './board-post-list-query';
 import { BOARD_ERROR_CODES, BoardErrorCode } from './board-error-code.enum';
 import {
   BoardCommentRecord,
@@ -13,11 +14,6 @@ import {
 export interface BoardPostsPageResult {
   items: BoardPostSummaryRecord[];
   total: number;
-  page: number;
-  limit: number;
-}
-
-export interface BoardPostListQuery {
   page: number;
   limit: number;
 }

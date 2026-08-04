@@ -26,7 +26,7 @@ const pdfFile: MilestoneDocumentFileUpload = {
 };
 
 function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
-  return {
+  const mocks = {
     findActiveUser: jest
       .fn()
       .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
@@ -59,11 +59,15 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
       sizeBytes: 2048,
     }),
     ...overrides,
-  } as unknown as MilestoneDocumentsRepository;
+  };
+  return {
+    mocks,
+    repository: mocks as unknown as MilestoneDocumentsRepository,
+  };
 }
 
 function buildStorage(overrides: Partial<Record<string, jest.Mock>> = {}) {
-  return {
+  const mocks = {
     put: jest.fn().mockResolvedValue({
       objectKey: 'objects/synthetic',
       originalName: '계획서.pdf',
@@ -73,15 +77,16 @@ function buildStorage(overrides: Partial<Record<string, jest.Mock>> = {}) {
     get: jest.fn().mockResolvedValue(Readable.from(Buffer.from('body'))),
     delete: jest.fn(),
     ...overrides,
-  } as unknown as SubmissionFileStoragePort;
+  };
+  return { mocks, storage: mocks as unknown as SubmissionFileStoragePort };
 }
 
 describe('MilestoneDocumentFilesService.upload (학생)', () => {
   it('유효하지 않은 파일이면 INVALID_FILE_UPLOAD로 거부한다', async () => {
     // Given
     const service = new MilestoneDocumentFilesService(
-      buildRepository(),
-      buildStorage(),
+      buildRepository().repository,
+      buildStorage().storage,
     );
 
     // When / Then
@@ -95,8 +100,8 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
   it('milestoneId/documentId가 opaque id 형태가 아니면 INVALID_FILE_UPLOAD로 거부한다', async () => {
     // Given
     const service = new MilestoneDocumentFilesService(
-      buildRepository(),
-      buildStorage(),
+      buildRepository().repository,
+      buildStorage().storage,
     );
 
     // When / Then
@@ -110,8 +115,8 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
   it('서명이 확장자와 다른 파일은 UNSUPPORTED_FILE_TYPE으로 거부한다', async () => {
     // Given: 확장자는 .pdf지만 매직 바이트가 PDF 서명이 아니다.
     const service = new MilestoneDocumentFilesService(
-      buildRepository(),
-      buildStorage(),
+      buildRepository().repository,
+      buildStorage().storage,
     );
     const forged: MilestoneDocumentFileUpload = {
       ...pdfFile,
@@ -128,14 +133,14 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
 
   it('학생이 아니면 STUDENT_ONLY로 거부한다', async () => {
     // Given
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
         .mockResolvedValue({ id: 'staff-1', role: Role.STAFF }),
     });
     const service = new MilestoneDocumentFilesService(
       repository,
-      buildStorage(),
+      buildStorage().storage,
     );
 
     // When / Then
@@ -148,7 +153,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
 
   it('서류 항목이 이 마일스톤 소속이 아니면 DOCUMENT_NOT_FOUND로 거부한다', async () => {
     // Given
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: 'cuid-other-milestone',
@@ -160,7 +165,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     });
     const service = new MilestoneDocumentFilesService(
       repository,
-      buildStorage(),
+      buildStorage().storage,
     );
 
     // When / Then
@@ -173,7 +178,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
 
   it('서류 항목의 제출 유형이 FILE이 아니면 CONTENT_TYPE_MISMATCH로 거부한다', async () => {
     // Given
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
@@ -185,7 +190,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     });
     const service = new MilestoneDocumentFilesService(
       repository,
-      buildStorage(),
+      buildStorage().storage,
     );
 
     // When / Then
@@ -198,12 +203,12 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
 
   it('이 프로그램 신청이 없으면 NOT_APPLICATION_MEMBER로 거부한다', async () => {
     // Given
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findStudentApplication: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentFilesService(
       repository,
-      buildStorage(),
+      buildStorage().storage,
     );
 
     // When / Then
@@ -216,7 +221,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
 
   it('승인 전 신청이면 APPLICATION_APPROVAL_REQUIRED로 거부한다', async () => {
     // Given
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: false,
@@ -226,7 +231,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     });
     const service = new MilestoneDocumentFilesService(
       repository,
-      buildStorage(),
+      buildStorage().storage,
     );
 
     // When / Then
@@ -241,7 +246,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
 
   it('프로그램 종료일 미설정으로 보관 기한 계산이 불가하면 FILE_RETENTION_UNAVAILABLE로 변환한다', async () => {
     // Given
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       createPendingFile: jest
         .fn()
         .mockRejectedValue(
@@ -250,7 +255,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     });
     const service = new MilestoneDocumentFilesService(
       repository,
-      buildStorage(),
+      buildStorage().storage,
     );
 
     // When / Then
@@ -265,8 +270,8 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
 
   it('통과하면 pending 파일을 만들고 스토리지에 올린 뒤 업로드 응답을 돌려준다', async () => {
     // Given
-    const repository = buildRepository();
-    const storage = buildStorage();
+    const { mocks: repositoryMocks, repository } = buildRepository();
+    const { mocks: storageMocks, storage } = buildStorage();
     const service = new MilestoneDocumentFilesService(repository, storage);
 
     // When
@@ -278,7 +283,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     );
 
     // Then
-    expect(repository.createPendingFile).toHaveBeenCalledWith(
+    expect(repositoryMocks.createPendingFile).toHaveBeenCalledWith(
       expect.objectContaining({
         uploaderId: syntheticUserId,
         applicationId: syntheticApplicationId,
@@ -288,17 +293,17 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         sizeBytes: pdfFile.buffer.byteLength,
       }),
     );
-    expect(storage.put).toHaveBeenCalledTimes(1);
+    expect(storageMocks.put).toHaveBeenCalledTimes(1);
     expect(result.fileId).toBe('cuid-synthetic-pending-file');
   });
 
   it('스토리지 업로드가 실패하면 FILE_STORAGE_UNAVAILABLE로 변환한다', async () => {
     // Given
-    const storage = buildStorage({
+    const { storage } = buildStorage({
       put: jest.fn().mockRejectedValue(new Error('s3 down')),
     });
     const service = new MilestoneDocumentFilesService(
-      buildRepository(),
+      buildRepository().repository,
       storage,
     );
 
@@ -314,12 +319,12 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
 describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올리기"/"양식 교체")', () => {
   it('서류 항목이 이 마일스톤 소속이 아니면 DOCUMENT_NOT_FOUND로 거부한다', async () => {
     // Given
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findDocumentContext: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentFilesService(
       repository,
-      buildStorage(),
+      buildStorage().storage,
     );
 
     // When / Then
@@ -337,8 +342,8 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
 
   it('통과하면 스토리지에 올리고 템플릿 파일을 upsert한다', async () => {
     // Given
-    const repository = buildRepository();
-    const storage = buildStorage();
+    const { mocks: repositoryMocks, repository } = buildRepository();
+    const { mocks: storageMocks, storage } = buildStorage();
     const service = new MilestoneDocumentFilesService(repository, storage);
 
     // When
@@ -350,8 +355,8 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
     );
 
     // Then
-    expect(storage.put).toHaveBeenCalledTimes(1);
-    expect(repository.upsertTemplateFile).toHaveBeenCalledWith(
+    expect(storageMocks.put).toHaveBeenCalledTimes(1);
+    expect(repositoryMocks.upsertTemplateFile).toHaveBeenCalledWith(
       expect.objectContaining({
         milestoneDocumentId: syntheticDocumentId,
         uploadedById: 'staff-1',
@@ -365,12 +370,12 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
 describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)', () => {
   it('세션 계정을 찾지 못하면 NOT_APPLICATION_MEMBER로 거부한다', async () => {
     // Given
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findActiveUser: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentFilesService(
       repository,
-      buildStorage(),
+      buildStorage().storage,
     );
 
     // When / Then
@@ -383,7 +388,7 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
 
   it('교직원은 이 프로그램 신청 여부와 무관하게 다운로드할 수 있다', async () => {
     // Given
-    const repository = buildRepository({
+    const { mocks, repository } = buildRepository({
       findActiveUser: jest
         .fn()
         .mockResolvedValue({ id: 'staff-1', role: Role.STAFF }),
@@ -391,7 +396,7 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
     });
     const service = new MilestoneDocumentFilesService(
       repository,
-      buildStorage(),
+      buildStorage().storage,
     );
 
     // When
@@ -402,17 +407,17 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
     );
 
     // Then
-    expect(repository.findStudentApplication).not.toHaveBeenCalled();
+    expect(mocks.findStudentApplication).not.toHaveBeenCalled();
   });
 
   it('학생인데 이 프로그램 신청이 없으면 NOT_APPLICATION_MEMBER로 거부한다', async () => {
     // Given
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findStudentApplication: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentFilesService(
       repository,
-      buildStorage(),
+      buildStorage().storage,
     );
 
     // When / Then
@@ -425,12 +430,12 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
 
   it('등록된 양식이 없으면 TEMPLATE_NOT_FOUND로 거부한다', async () => {
     // Given
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findTemplateForDownload: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentFilesService(
       repository,
-      buildStorage(),
+      buildStorage().storage,
     );
 
     // When / Then
@@ -443,8 +448,8 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
 
   it('통과하면 스토리지에서 body를 읽어 다운로드 응답을 돌려준다', async () => {
     // Given
-    const repository = buildRepository();
-    const storage = buildStorage();
+    const { repository } = buildRepository();
+    const { mocks, storage } = buildStorage();
     const service = new MilestoneDocumentFilesService(repository, storage);
 
     // When
@@ -455,7 +460,7 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
     );
 
     // Then
-    expect(storage.get).toHaveBeenCalledWith('objects/synthetic-template');
+    expect(mocks.get).toHaveBeenCalledWith('objects/synthetic-template');
     expect(result.fileName).toBe('계획서_양식.pdf');
     expect(result.contentLength).toBe(2048);
   });

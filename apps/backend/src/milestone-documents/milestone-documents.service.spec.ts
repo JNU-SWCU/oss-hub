@@ -32,7 +32,7 @@ function baseDocument(overrides: Partial<Record<string, unknown>> = {}) {
 }
 
 function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
-  return {
+  const mocks = {
     findMilestone: jest.fn().mockResolvedValue({
       id: syntheticMilestoneId,
       programId: syntheticProgramId,
@@ -58,7 +58,11 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
     countSubmissionsForDocument: jest.fn().mockResolvedValue(0),
     upsertSubmission: jest.fn(),
     ...overrides,
-  } as unknown as MilestoneDocumentsRepository;
+  };
+  return {
+    mocks,
+    repository: mocks as unknown as MilestoneDocumentsRepository,
+  };
 }
 
 describe('MilestoneDocumentsService.listByMilestone', () => {
@@ -83,7 +87,7 @@ describe('MilestoneDocumentsService.listByMilestone', () => {
 describe('MilestoneDocumentsService.listForViewer', () => {
   it('마일스톤이 없으면 MILESTONE_NOT_FOUND를 던진다', async () => {
     // Given
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findMilestone: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentsService(repository);
@@ -98,7 +102,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
 
   it('교직원 viewer는 서류별 팀 제출 집계(teamSubmissionCount)를 채운다', async () => {
     // Given: 승인된 신청 8건 중 이 서류를 6건이 제출했다.
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
         .mockResolvedValue({ id: 'staff-1', role: Role.STAFF }),
@@ -125,7 +129,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
   it('학생 viewer는 자기 신청의 제출 여부(viewerSubmission)를 채운다', async () => {
     // Given: 학생이 이 프로그램에 신청했고 서류를 이미 냈다.
     const submittedAt = new Date('2026-09-16T14:22:00.000Z');
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
         .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
@@ -160,7 +164,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
 
   it('학생 viewer가 아직 신청하지 않았으면 미제출(submitted:false)로 채운다', async () => {
     // Given: 학생 계정이지만 이 프로그램에 신청한 이력이 없다.
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
         .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
@@ -181,7 +185,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
 
   it('세션 계정을 찾지 못하면 viewer 필드 없이 기본 목록만 돌려준다', async () => {
     // Given: findActiveUser가 null(비활성/미존재 계정)을 돌려준다.
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findActiveUser: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentsService(repository);
@@ -202,7 +206,7 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
   it('createDocument는 마일스톤 존재를 확인하고 리포지토리 결과를 DTO로 감싼다', async () => {
     // Given
     const created = baseDocument({ id: 'cuid-synthetic-document-new' });
-    const repository = buildRepository({
+    const { mocks, repository } = buildRepository({
       createDocument: jest.fn().mockResolvedValue(created),
     });
     const service = new MilestoneDocumentsService(repository);
@@ -217,7 +221,7 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     const result = await service.createDocument(syntheticMilestoneId, input);
 
     // Then
-    expect(repository.createDocument).toHaveBeenCalledWith(
+    expect(mocks.createDocument).toHaveBeenCalledWith(
       syntheticMilestoneId,
       input,
     );
@@ -226,7 +230,7 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
 
   it('createDocument는 마일스톤이 없으면 MILESTONE_NOT_FOUND를 던진다', async () => {
     // Given
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findMilestone: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentsService(repository);
@@ -246,7 +250,7 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
 
   it('updateDocument는 서류가 그 마일스톤 소속이 아니면 DOCUMENT_NOT_FOUND를 던진다', async () => {
     // Given: 서류의 milestoneId가 요청 경로의 milestoneId와 다르다.
-    const repository = buildRepository({
+    const { mocks, repository } = buildRepository({
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: 'cuid-other-milestone',
@@ -269,12 +273,12 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
     });
-    expect(repository.updateDocument).not.toHaveBeenCalled();
+    expect(mocks.updateDocument).not.toHaveBeenCalled();
   });
 
   it('deleteDocument는 제출이 있으면 DOCUMENT_HAS_SUBMISSIONS로 거부한다', async () => {
     // Given
-    const repository = buildRepository({
+    const { mocks, repository } = buildRepository({
       countSubmissionsForDocument: jest.fn().mockResolvedValue(1),
     });
     const service = new MilestoneDocumentsService(repository);
@@ -285,12 +289,12 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_HAS_SUBMISSIONS },
     });
-    expect(repository.deleteDocument).not.toHaveBeenCalled();
+    expect(mocks.deleteDocument).not.toHaveBeenCalled();
   });
 
   it('deleteDocument는 제출이 없으면 리포지토리 삭제를 호출한다', async () => {
     // Given
-    const repository = buildRepository({
+    const { mocks, repository } = buildRepository({
       countSubmissionsForDocument: jest.fn().mockResolvedValue(0),
     });
     const service = new MilestoneDocumentsService(repository);
@@ -299,7 +303,7 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     await service.deleteDocument(syntheticMilestoneId, syntheticDocumentId);
 
     // Then
-    expect(repository.deleteDocument).toHaveBeenCalledWith(syntheticDocumentId);
+    expect(mocks.deleteDocument).toHaveBeenCalledWith(syntheticDocumentId);
   });
 });
 
@@ -308,7 +312,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
   it('학생이 아니면 STUDENT_ONLY로 거부한다', async () => {
     // Given
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
         .mockResolvedValue({ id: 'staff-1', role: Role.STAFF }),
@@ -331,7 +335,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
   it('서류 제출 유형과 내용 유형이 다르면 CONTENT_TYPE_MISMATCH로 거부한다', async () => {
     // Given: 서류 항목은 FILE 유형인데 TEXT로 제출했다.
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
         .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
@@ -354,7 +358,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
   it('이 프로그램 신청이 없으면 NOT_APPLICATION_MEMBER로 거부한다', async () => {
     // Given
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
         .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
@@ -386,7 +390,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
   it('신청이 아직 승인 전이면 APPLICATION_APPROVAL_REQUIRED로 거부한다', async () => {
     // Given
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
         .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
@@ -425,7 +429,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
   it('TEXT 제출은 content를 JSON으로 저장하고 응답 DTO로 감싼다', async () => {
     // Given
-    const repository = buildRepository({
+    const { mocks, repository } = buildRepository({
       findActiveUser: jest
         .fn()
         .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
@@ -463,7 +467,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     );
 
     // Then
-    expect(repository.upsertSubmission).toHaveBeenCalledWith({
+    expect(mocks.upsertSubmission).toHaveBeenCalledWith({
       milestoneDocumentId: syntheticDocumentId,
       applicationId: syntheticApplicationId,
       submittedById: syntheticUserId,
@@ -477,7 +481,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
   it('FILE 제출은 attachFile을 채우고 content는 Prisma.JsonNull이다', async () => {
     // Given
-    const repository = buildRepository({
+    const { mocks, repository } = buildRepository({
       findActiveUser: jest
         .fn()
         .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
@@ -522,7 +526,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     );
 
     // Then
-    expect(repository.upsertSubmission).toHaveBeenCalledWith({
+    expect(mocks.upsertSubmission).toHaveBeenCalledWith({
       milestoneDocumentId: syntheticDocumentId,
       applicationId: syntheticApplicationId,
       submittedById: syntheticUserId,
@@ -541,7 +545,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
   it('REPOSITORY_RELEASE 제출은 연결된 저장소가 없으면 REPOSITORY_NOT_READY로 거부한다', async () => {
     // Given
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
         .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
@@ -581,7 +585,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
   it('REPOSITORY_RELEASE 제출은 연결된 저장소와 무관한 URL이면 RELEASE_URL_NOT_LINKED_REPOSITORY로 거부한다', async () => {
     // Given
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
         .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
@@ -624,7 +628,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
   it('pending 파일이 만료·소유자 불일치로 붙지 않으면 PENDING_FILE_NOT_FOUND로 변환한다', async () => {
     // Given
-    const repository = buildRepository({
+    const { repository } = buildRepository({
       findActiveUser: jest
         .fn()
         .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),

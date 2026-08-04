@@ -285,10 +285,18 @@ describe('MilestoneDocumentsRepository.createPendingFile', () => {
     // Then
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
+        data: {
+          uploaderId: syntheticUserId,
+          applicationId: syntheticApplicationId,
+          milestoneId: syntheticMilestoneId,
+          storageKey: 'objects/synthetic',
+          originalFileName: '계획서.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 1024,
           lifecycle: SubmissionFileLifecycle.PENDING,
+          pendingExpiresAt: new Date('2026-09-17T14:22:00.000Z'),
           expiresAt: new Date('2027-12-19T00:00:00.000Z'),
-        }),
+        },
       }),
     );
   });
