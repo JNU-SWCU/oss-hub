@@ -13,6 +13,15 @@ import { ApiError } from '@/lib/api-client';
 import { fetchMyRoleRequest, requestStaffRole } from '../api';
 import type { RoleRequest } from '../types';
 
+/**
+ * 재요청 제출이 실패했을 때의 안내.
+ * 무엇이 실패했는지(요청 제출) · 무엇이 남았는지(역할 요청은 반려 상태 그대로) ·
+ * 다음에 무엇을 누르면 되는지(바로 아래 버튼)를 모두 적는다.
+ * 재요청 버튼은 REJECTED에서만 그려지므로 "반려 그대로"는 항상 참이다.
+ */
+export const ROLE_REQUEST_RETRY_FAILURE_MESSAGE =
+  '교직원 승인 요청을 제출하지 못했습니다. 요청 상태는 반려 그대로이니, 잠시 후 아래 ‘다시 승인 요청하기’를 눌러 주세요.';
+
 interface RoleRequestStatusViewProps {
   readonly request: RoleRequest;
   readonly isRetrying: boolean;
@@ -200,7 +209,7 @@ export function RoleRequestScreen() {
       if (error instanceof ApiError) {
         setRetryError(error.message);
       } else {
-        setRetryError('승인 요청을 다시 제출하지 못했습니다.');
+        setRetryError(ROLE_REQUEST_RETRY_FAILURE_MESSAGE);
       }
     } finally {
       setIsRetrying(false);

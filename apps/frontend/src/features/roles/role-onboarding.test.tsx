@@ -2,7 +2,10 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import { RoleSelectionForm } from './components/role-selection-screen';
-import { RoleRequestStatusView } from './components/role-request-screen';
+import {
+  ROLE_REQUEST_RETRY_FAILURE_MESSAGE,
+  RoleRequestStatusView,
+} from './components/role-request-screen';
 import type { RoleRequest } from './types';
 
 const noOp = () => undefined;
@@ -181,5 +184,39 @@ describe('role onboarding views', () => {
     // Then
     expect(html).toContain('data-status="REVOKED"');
     expect(html).toContain('href="/onboarding/role"');
+  });
+
+  /**
+   * 실패 안내는 "못 했다"로 끝나면 안 된다 — 요청이 어떤 상태로 남았는지와
+   * 바로 아래 어떤 버튼을 누르면 되는지가 같은 문장 안에 있어야 한다.
+   */
+  it('재요청 실패 안내는 남은 상태와 다음에 누를 버튼을 함께 알린다', () => {
+    // Given
+    const rejected = roleRequest({
+      status: 'REJECTED',
+      decidedAt: '2026-07-21T01:00:00.000Z',
+      rejectionReason: '합성 반려 사유',
+    });
+
+    // When
+    const html = renderToStaticMarkup(
+      <RoleRequestStatusView
+        request={rejected}
+        isRetrying={false}
+        errorMessage={ROLE_REQUEST_RETRY_FAILURE_MESSAGE}
+        onRefresh={noOp}
+        onRetry={noOp}
+      />,
+    );
+
+    // Then — 안내가 가리키는 버튼이 같은 화면에 실제로 있다
+    expect(html).toContain(ROLE_REQUEST_RETRY_FAILURE_MESSAGE);
+    expect(html).toContain('다시 승인 요청하기');
+    expect(ROLE_REQUEST_RETRY_FAILURE_MESSAGE).toContain(
+      '요청 상태는 반려 그대로이니',
+    );
+    expect(ROLE_REQUEST_RETRY_FAILURE_MESSAGE).toContain(
+      '‘다시 승인 요청하기’를 눌러 주세요',
+    );
   });
 });
