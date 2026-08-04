@@ -9,6 +9,15 @@ interface PageHeaderProps extends Omit<
   title: React.ReactNode;
   description?: React.ReactNode;
   actions?: React.ReactNode;
+  /**
+   * h1 기본 타이포(계단식 text-section/text-page)를 화면별로 덮어써야 할 때
+   * 쓴다 — 선택적이며, 넘기지 않으면 기존 렌더와 동일하다. 화면이 필터에 따라
+   * H1 문구 자체를 바꾸는 것(예: 프로그램 목록의 "모집중인 프로그램")은 이미
+   * `title`이 `ReactNode`라 별도 prop 없이도 된다.
+   */
+  titleClassName?: string;
+  /** description 기본 스타일을 덮어써야 할 때. 선택적. */
+  descriptionClassName?: string;
 }
 
 /**
@@ -19,6 +28,8 @@ function PageHeader({
   description,
   actions,
   className,
+  titleClassName,
+  descriptionClassName,
   ...props
 }: PageHeaderProps) {
   return (
@@ -37,14 +48,20 @@ function PageHeader({
           data-slot="page-header-title"
           // 크기 계단의 맨 위 칸. 좁은 화면에서 40px은 제목 한 줄이 화면을 넘기므로
           // 한 계단 내려 섹션 크기로 쓴다(시안의 900px 미만 규칙과 같은 취지).
-          className="font-heading text-section leading-tight font-bold tracking-tight sm:text-page"
+          className={cn(
+            'font-heading text-section leading-tight font-bold tracking-tight sm:text-page',
+            titleClassName,
+          )}
         >
           {title}
         </h1>
         {description ? (
           <p
             data-slot="page-header-description"
-            className="max-w-[60ch] text-body text-muted-foreground"
+            className={cn(
+              'max-w-[60ch] text-body text-muted-foreground',
+              descriptionClassName,
+            )}
           >
             {description}
           </p>

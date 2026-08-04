@@ -15,13 +15,15 @@ describe('card components', () => {
           title="캡스톤 디자인 경진대회"
           category="캡스톤/산학"
           period="2026.03 - 2026.06"
-          status={<StatusBadge variant="recruiting">모집중</StatusBadge>}
+          status="recruiting"
+          badgeText="모집중"
         />
         <ProgramCard
           title="SW 해커톤"
           category="경진대회/해커톤"
           period="2026.05"
-          status={<StatusBadge variant="closed">마감</StatusBadge>}
+          status="ended"
+          badgeText="마감"
         />
       </CardGrid>,
     );
@@ -55,15 +57,18 @@ describe('card components', () => {
         title="OSS 기여 챌린지"
         category="오픈소스"
         period="2026.08 - 2026.09"
-      >
-        <span>JNU SWCU</span>
-      </ProgramCard>,
+        status="recruiting"
+        badgeText="모집중"
+        note="JNU SWCU"
+        noteIcon="team"
+      />,
     );
 
     expect(html).toContain('<a');
     expect(html).toContain('href="/programs/program%3Aoss"');
     expect(html.match(/<a\b/g)).toHaveLength(1);
-    expect(html).not.toContain('더 보기');
+    expect(html).toContain('JNU SWCU');
+    expect(html).toContain('자세히 ›');
   });
 
   it('renders a large StatusBadge for prominent card status', () => {
@@ -78,42 +83,13 @@ describe('card components', () => {
     expect(html).toContain('text-base');
   });
 
-  it('centers a prominent status within the card body', () => {
-    const html = renderToStaticMarkup(
-      <ProgramCard
-        footer={<button type="button">Details</button>}
-        period="2026.07 - 2026.08"
-        status={<StatusBadge size="lg">Recruiting</StatusBadge>}
-        statusPlacement="body-center"
-        title="Internship"
-      />,
-    );
-
-    expect(html).toContain('data-status-placement="body-center"');
-    expect(html).toContain('items-center');
-  });
-
-  it('stacks a prominent status as its own row until the card is wide enough', () => {
-    const html = renderToStaticMarkup(
-      <ProgramCard
-        period="2026.07 - 2026.08"
-        status={<StatusBadge size="lg">Recruiting</StatusBadge>}
-        statusPlacement="body-center"
-        title="Internship"
-      />,
-    );
-
-    expect(html).toContain('@container/program-card-status');
-    expect(html.indexOf('@container/program-card-status')).toBeLessThan(
-      html.indexOf('@min-[32rem]/program-card-status:grid-cols'),
-    );
-    expect(html).toContain('grid-cols-1');
-    expect(html).toContain(
-      '@min-[32rem]/program-card-status:grid-cols-[minmax(0,1fr)_auto]',
-    );
-    expect(html).toContain('@min-[32rem]/program-card-status:items-center');
-    expect(html).toContain('@min-[32rem]/program-card-status:justify-self-end');
-  });
+  // 이전 ProgramCard는 `statusPlacement="body-center"` + `footer`로 상태를
+  // 카드 본문 중앙에 크게 배치하는 변형을 지원했으나, 재작성된 컴포넌트는
+  // 배지를 항상 카드 우상단에 절대 위치시키는 단일 레이아웃만 지원한다
+  // (program-card.tsx docstring, `statusPlacement`/`footer`/
+  // `@container/program-card-status` 관련 참조가 저장소 전체에서 제거됨).
+  // 대응하는 API가 더 이상 없어 이 두 테스트가 검증하던 동작 자체가
+  // 삭제됐으므로 테스트도 함께 제거한다.
 
   it('renders EmptyState with icon, description, and action slot', () => {
     const html = renderToStaticMarkup(

@@ -247,7 +247,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         ),
         harness.request(
           'GET',
-          `/users/${publicProject.applicantId}/profile`,
+          `/users/${publicProject.applicantId}/public-profile`,
           githubId,
         ),
         harness.request('GET', '/ranking?period=ALL', githubId),
