@@ -233,7 +233,7 @@ describe('loadProgramApplyContext', () => {
       teamMinimum: { memberCount: 2, teamMinSize: 2 },
       team,
       applicationId: null,
-      canCancel: false,
+      canManage: false,
       initialValues: {
         title: '',
         summary: '',
