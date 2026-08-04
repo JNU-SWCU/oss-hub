@@ -23,7 +23,6 @@ assertIsolatedIntegrationDatabase({
 
 const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 const SEED_RUN_TIMEOUT_MS = 60_000;
-const ISSUE99_POLICY_VERSION = '2026-07-21';
 const ISSUE99_OLDER_POLICY_VERSION = '2025-12';
 const consentRequiredUserId = AUTH_SCENARIOS['consent-required'];
 const roleUnselectedUserId = AUTH_SCENARIOS['user-role-unselected'];
@@ -840,7 +839,7 @@ describe('issue-99 auth seed contract', () => {
         where: {
           userId_policyVersion: {
             userId: roleUnselectedUserId,
-            policyVersion: ISSUE99_POLICY_VERSION,
+            policyVersion: CONSENT_POLICY_VERSION,
           },
         },
       });
@@ -873,7 +872,7 @@ describe('issue-99 auth seed contract', () => {
       expect(firstCurrent).not.toBeNull();
       expect(roleUnselectedRows.map((row) => row.policyVersion)).toEqual([
         ISSUE99_OLDER_POLICY_VERSION,
-        ISSUE99_POLICY_VERSION,
+        CONSENT_POLICY_VERSION,
       ]);
       expect(roleUnselectedRows[0]?.consentedAt).toEqual(
         olderConsent.consentedAt,

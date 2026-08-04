@@ -48,7 +48,11 @@ export class CollectionCutoverService {
     const runId = this.createRunId();
     const acquiredAt = this.now();
     const lease = await this.cutoverRepository.acquireLease({
-      ...key,
+      appId: key.appId,
+      // Cutover is the org-sweep atomic conversion procedure — it has no
+      // external-sweep counterpart yet, so it always uses the org scope
+      // convention (see `collection-sync.types.ts`'s `SyncLeaseKey`).
+      scope: `org:${key.organizationLogin}`,
       ownerId,
       runId,
       now: acquiredAt,

@@ -687,30 +687,6 @@ model PublicShowcaseContributor {
   @@index([userId])
 }
 
-enum GithubWebhookObservationOutcome {
-  ACCEPTED
-  DUPLICATE
-  IGNORED
-  FAILED
-}
-
-/// 검증된 webhook delivery의 처리 결과만 보존한다. payload·signature·header는 저장하지 않는다(#215).
-model GithubWebhookObservation {
-  id String @id @default(cuid())
-
-  deliveryId  String
-  eventType   String
-  receivedAt  DateTime
-  processedAt DateTime @default(now())
-
-  outcome   GithubWebhookObservationOutcome
-  errorCode String?
-
-  @@index([deliveryId])
-  @@index([receivedAt])
-  @@index([outcome, receivedAt])
-}
-
 enum RepositoryInvitationStatus {
   PENDING
   SUCCEEDED
@@ -1033,18 +1009,29 @@ enum CollectionRepositoryPresence {
   ABSENT
 }
 
+/// GithubRepository 통합 설계(.omc/plans/github-repository-unification.md §5)의 source 축 —
+/// 별도 테이블이 아니라 이 컬럼으로 수집 방법 차이를 표현한다.
+enum RepositorySource {
+  ORG_PROVISIONED
+  EXTERNAL_PUBLIC
+}
+
 /// ADR-006 조직 전체 누적·증분 수집의 논리 저장소 identity. App installation 교체와 무관하게
-/// (githubOrganizationId, githubRepositoryId)로 유일하다 — installation id는 identity에 포함하지 않는다.
+/// githubRepositoryId(GitHub 전역 고유)로 유일하다 — installation id는 identity에 포함하지 않는다.
 /// visibility/presence는 complete inventory 관찰에서만 갱신된다(DEC-46, fail-closed 공개 회수).
-model CollectionRepository {
+/// 단계 C(github-repository-unification §7) 개명 — 구 CollectionRepository. githubOrganizationId는
+/// EXTERNAL_PUBLIC 저장소가 조직 소속이 아니므로 nullable이다(R4). Repository(#449) 통합은 별도 단계(D)다.
+model GithubRepository {
   id String @id @default(cuid())
 
-  githubOrganizationId BigInt
-  githubRepositoryId   BigInt
+  githubOrganizationId BigInt?
+  githubRepositoryId   BigInt  @unique
 
-  fullName      String
-  defaultBranch String
+  nameWithOwner String
+  defaultBranch String?
   archived      Boolean @default(false)
+
+  source RepositorySource
 
   visibility RepositoryVisibility         @default(PRIVATE)
   presence   CollectionRepositoryPresence @default(PRESENT)
@@ -1061,7 +1048,7 @@ model CollectionRepository {
   yearAggregates   CollectionRepositoryYearAggregate[]
   contributorYears CollectionContributorYearAggregate[]
 
-  @@unique([githubOrganizationId, githubRepositoryId])
+  @@index([source, visibility])
   @@index([visibility, presence])
 }
 
@@ -1084,7 +1071,7 @@ model CollectionRepositoryStream {
   id String @id @default(cuid())
 
   repositoryId String
-  repository   CollectionRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
 
   streamType CollectionStreamType
   status     CollectionStreamStatus @default(PENDING)
@@ -1112,7 +1099,7 @@ model CollectionCommitFact {
   id String @id @default(cuid())
 
   repositoryId String
-  repository   CollectionRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
 
   sha         String
   committedAt DateTime
@@ -1132,7 +1119,7 @@ model CollectionPullRequestFact {
   id String @id @default(cuid())
 
   repositoryId String
-  repository   CollectionRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
 
   githubPullRequestId BigInt
   state               String
@@ -1153,7 +1140,7 @@ model CollectionReleaseFact {
   id String @id @default(cuid())
 
   repositoryId String
-  repository   CollectionRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
 
   githubReleaseId BigInt
   publishedAt     DateTime
@@ -1172,7 +1159,7 @@ model CollectionReleaseFact {
 /// (CanonicalContributorProjection의 단일 컬럼 currentYear 덮어쓰기 anti-pattern을 반복하지 않는다).
 model CollectionRepositoryYearAggregate {
   repositoryId String
-  repository   CollectionRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
 
   year Int
 
@@ -1190,7 +1177,7 @@ model CollectionRepositoryYearAggregate {
 /// 당해 연도 read가 항상 0부터 시작하도록 보장한다.
 model CollectionContributorYearAggregate {
   repositoryId String
-  repository   CollectionRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
 
   githubUserId BigInt
   githubLogin  String
@@ -1209,10 +1196,12 @@ model CollectionContributorYearAggregate {
 }
 
 /// installation 재순회의 fair 연속 커서 — org 전체를 한 번에 처리하지 않고 rate-limit 인지 상태로
-/// 다음 저장소부터 이어간다(ADR-006). appId+organizationLogin은 프로세스 키일 뿐 논리 저장소 identity에는 포함하지 않는다.
+/// 다음 저장소부터 이어간다(ADR-006). appId+scope는 프로세스 키일 뿐 논리 저장소 identity에는 포함하지 않는다.
+/// scope는 단계 C(github-repository-unification §3.1) 일반화 — org sweep은 "org:<login>", 외부 sweep은
+/// "external"을 쓴다. 두 sweep이 서로 다른 리스·커서를 가져 예산을 다투지 않게 하기 위함이다(GR-9).
 model CollectionSyncCursor {
-  appId             BigInt
-  organizationLogin String
+  appId BigInt
+  scope String
 
   lastGithubRepositoryId BigInt?
   cycleStartedAt         DateTime?
@@ -1220,36 +1209,38 @@ model CollectionSyncCursor {
 
   updatedAt DateTime @updatedAt
 
-  @@id([appId, organizationLogin])
+  @@id([appId, scope])
 }
 
 /// todo 10 sync orchestration의 epoch-fenced 상호배제 lease. `CanonicalCollectionLease`와 같은
 /// 패턴(epoch 증가 + expiresAt fencing)을 쓰되, 별도 run 후보 테이블 없이 lease 자체가 "진행 중인
 /// run"을 나타낸다 — 진행 bookkeeping인 `CollectionSyncCursor`와는 별개 관심사로 분리한다(ADR-006).
+/// scope 규약은 `CollectionSyncCursor`와 동일(§3.1) — org sweep과 외부 sweep이 서로 다른 리스를 잡는다.
 model CollectionSyncLease {
-  appId             BigInt
-  organizationLogin String
-  epoch             BigInt   @default(1)
-  ownerId           String
-  runId             String
-  expiresAt         DateTime
-  updatedAt         DateTime @updatedAt
+  appId     BigInt
+  scope     String
+  epoch     BigInt   @default(1)
+  ownerId   String
+  runId     String
+  expiresAt DateTime
+  updatedAt DateTime @updatedAt
 
-  @@id([appId, organizationLogin])
+  @@id([appId, scope])
 }
 
 /// todo 14 원자 전환(atomic reader/writer cutover) 절차 전용 quiesce lease. `CollectionSyncLease`와
 /// 같은 epoch-fenced 패턴이다 — lease 보유 자체가 "cutover 진행 중"을 나타내며, 이 창(window) 동안
 /// 스케줄러/관리자 트리거는 명시적으로 거부된다(silent skip이 아니라 별도 에러 코드로 reject한다).
 /// 절차 완료(성공/abort 무관) 시 항상 해제해 트리거가 재개되도록 한다(ADR-006).
+/// scope 규약은 `CollectionSyncCursor`와 동일(§3.1).
 model CollectionCutoverLease {
-  appId             BigInt
-  organizationLogin String
-  epoch             BigInt   @default(1)
-  ownerId           String
-  runId             String
-  expiresAt         DateTime
-  updatedAt         DateTime @updatedAt
+  appId     BigInt
+  scope     String
+  epoch     BigInt   @default(1)
+  ownerId   String
+  runId     String
+  expiresAt DateTime
+  updatedAt DateTime @updatedAt
 
-  @@id([appId, organizationLogin])
+  @@id([appId, scope])
 }

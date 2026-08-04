@@ -4,6 +4,7 @@ import {
   ProgramCategory,
   Role,
   RepositoryProvisionJobStatus,
+  RepositorySource,
   RepositoryVisibility,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -138,13 +139,14 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       publishedAt: PUBLISHED_AT,
     });
     publicProject = published;
-    await harness.prisma.collectionRepository.create({
+    await harness.prisma.githubRepository.create({
       data: {
         id: `${PREFIX}-published-collection-repository`,
         githubOrganizationId: 8_900_000_000_001n,
         githubRepositoryId: published.githubRepositoryId,
-        fullName: `synthetic-org/${PREFIX}-published`,
+        nameWithOwner: `synthetic-org/${PREFIX}-published`,
         defaultBranch: 'main',
+        source: RepositorySource.ORG_PROVISIONED,
         visibility: RepositoryVisibility.PUBLIC,
         presence: CollectionRepositoryPresence.PRESENT,
         lastCompleteInventoryObservedAt: new Date('2026-06-15T00:00:00.000Z'),
@@ -197,7 +199,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       await harness.prisma.collectionRepositoryYearAggregate.deleteMany({
         where: { repositoryId: { startsWith: `${PREFIX}-` } },
       });
-      await harness.prisma.collectionRepository.deleteMany({
+      await harness.prisma.githubRepository.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
       await harness.prisma.repositoryProvisionJob.deleteMany({

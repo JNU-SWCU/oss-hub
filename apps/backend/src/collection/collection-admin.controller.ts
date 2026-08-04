@@ -1,4 +1,11 @@
-import { Controller, HttpCode, Logger, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  Logger,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 
 import { OriginGuard } from '../auth/origin.guard';
@@ -10,7 +17,10 @@ import {
   COLLECTION_ERROR_CODES,
   CollectionErrorCode,
 } from './collection-error-code.enum';
+import { CollectionExternalDiscoveryService } from './collection-external-discovery.service';
 import { CollectionSyncService } from './collection-sync.service';
+import { CollectionExternalDiscoveryRequestDto } from './dto/collection-external-discovery-request.dto';
+import { CollectionExternalDiscoveryResponseDto } from './dto/collection-external-discovery-response.dto';
 import { CollectionTriggerResponseDto } from './dto/collection-trigger-response.dto';
 
 /**
@@ -25,6 +35,7 @@ export class CollectionAdminController {
   constructor(
     private readonly sync: CollectionSyncService,
     private readonly cutover: CollectionCutoverRepository,
+    private readonly externalDiscovery: CollectionExternalDiscoveryService,
   ) {}
 
   @Post('trigger')
@@ -44,6 +55,39 @@ export class CollectionAdminController {
         errorName: error instanceof Error ? error.name : 'UnknownError',
       });
     });
+    // Independent void promise — E1 external sweep must not block the org
+    // sweep above (separate lease scope, separate failure surface).
+    void this.sync.runExternal(this.ownerId).catch((error: unknown) => {
+      this.logger.error({
+        event: 'collection.admin.external_sync_failed',
+        runId,
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+    });
     return new CollectionTriggerResponseDto(runId);
+  }
+
+  /**
+   * 학생 1명의 조직 밖 public 저장소를 즉시 탐색·적재한다(E4). 전체 조직
+   * 수집(`trigger`)과 달리 GraphQL 호출 1건 규모라 백그라운드로 미루지 않고
+   * 요청 안에서 완료해 결과 집계를 그대로 응답한다. 동의 게이트·private
+   * 필터는 `CollectionExternalDiscoveryService`가 강제한다 — 이 컨트롤러는
+   * 권한(ADMIN 세션)만 확인한다.
+   */
+  @Post('discover-external')
+  @HttpCode(200)
+  @UseGuards(SessionGuard, CollectionAdminGuard, OriginGuard)
+  async discoverExternal(
+    @Body() body: CollectionExternalDiscoveryRequestDto,
+  ): Promise<CollectionExternalDiscoveryResponseDto> {
+    const result = await this.externalDiscovery.discoverForStudent(
+      body.githubLogin,
+    );
+    return new CollectionExternalDiscoveryResponseDto(
+      result.githubLogin,
+      result.discoveredCount,
+      result.upsertedCount,
+      result.skippedOrgProvisionedCount,
+    );
   }
 }
