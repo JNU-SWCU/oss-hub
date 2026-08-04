@@ -101,8 +101,35 @@ describe('SystemStatusView', () => {
       },
     });
     expect(html).toContain('아직 추적 중인 저장소가 없습니다');
-    expect(html).toContain('아직 추적 중인 저장소가 없습니다.');
+    // 빈 화면은 "없다"로 끝나지 않고 운영자가 어디를 봐야 하는지까지 말한다.
+    expect(html).toContain(
+      '사업단 GitHub 조직에 수집 연동 앱이 설치되어 있는지, 조직에 저장소가 등록되어 있는지 확인해 주세요.',
+    );
     expect(html).not.toContain('시스템 상태 요약');
+  });
+
+  it('저장소가 하나도 없으면 GitHub App이 무엇인지 설명한다', () => {
+    const html = render({
+      kind: 'success',
+      status: {
+        ...normal,
+        health: 'EMPTY',
+        trackedRepositoryCount: 0,
+        safeReason: 'NO_TRACKED_REPOSITORIES',
+      },
+    });
+
+    expect(html).toContain('수집 연동 앱(GitHub App)이란');
+    // 개인 계정에 붙이는 앱과의 차이 + 확인할 위치가 문구에 있어야 한다.
+    expect(html).toContain('개인이 자기 GitHub 계정에 설치하는 앱이 아니라');
+    expect(html).toContain('사업단 GitHub 조직에 설치되며');
+    expect(html).toContain('Settings → GitHub Apps');
+  });
+
+  it('수집이 정상이면 GitHub App 설명을 띄우지 않는다', () => {
+    const html = render({ kind: 'success', status: normal });
+
+    expect(html).not.toContain('수집 연동 앱(GitHub App)이란');
   });
 
   it('transport error는 내부 오류를 노출하지 않고 재시도를 표시한다', () => {
@@ -124,28 +151,40 @@ describe('SystemStatusView', () => {
   });
 
   it.each([
-    ['DELAYED', 'STALE_DATA', '지연', '최근 데이터 수집이 지연되고 있습니다.'],
+    [
+      'DELAYED',
+      'STALE_DATA',
+      '지연',
+      '최근 데이터 수집이 지연되고 있습니다.',
+      '아래 ‘데이터 기준 시각’이 얼마나 오래됐는지 먼저 확인하고, 지연이 이어지면 수집 연동 앱의 설치·권한 상태를 점검해 주세요.',
+    ],
     [
       'PARTIAL',
       'RUN_INCOMPLETE',
       '부분 진행',
       '일부 저장소의 수집이 아직 완료되지 않았습니다.',
+      '아래 ‘Stream 진행 상황’에서 ‘부분/대기’ 수가 줄고 있는지 확인하고, 다음 수집 주기 뒤에도 그대로면 사업단 관리자에게 알려 주세요.',
     ],
     [
       'FAILED',
       'UPSTREAM_RATE_LIMITED',
       '실패',
       '재시도 대기 중인 stream이 있습니다.',
+      'GitHub 호출 한도가 풀리면 다음 수집 주기에 자동으로 다시 시도하므로 지금 손댈 것은 없습니다.',
     ],
   ] as const)(
-    '%s 상태는 안전한 사유만 표시한다',
-    (health, safeReason, label, copy) => {
+    '%s 상태는 안전한 사유와 다음 행동을 함께 표시한다',
+    (health, safeReason, label, copy, nextAction) => {
       const html = render({
         kind: 'success',
         status: { ...normal, health, safeReason },
       });
       expect(html).toContain(label);
       expect(html).toContain(copy);
+      // 상태 서술만으로 끝나면 운영자는 다음에 무엇을 할지 알 수 없다.
+      expect(html).toContain(nextAction);
+      // 정상이 아닌 상태에서는 GitHub App 설명이 함께 붙는다.
+      expect(html).toContain('수집 연동 앱(GitHub App)이란');
       expect(html).not.toContain('token');
       expect(html).not.toContain('githubId');
     },

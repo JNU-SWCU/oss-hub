@@ -3,6 +3,8 @@ import { OTHER_DEPARTMENT } from '../departments';
 import {
   createInitialSettingsForm,
   isSettingsFormValid,
+  notificationSaveFailureMessage,
+  notificationUnavailableMessage,
   toSettingsNotificationRequest,
   toSettingsProfileRequest,
   validateSettingsForm,
@@ -140,5 +142,51 @@ describe('settings form state', () => {
     expect(
       toSettingsNotificationRequest(validValues({ notificationEmail: 'bad' })),
     ).toBeNull();
+  });
+
+  // 판정 기준은 존댓말이 아니라 "읽은 사람이 다음에 무엇을 할 수 있는가"다.
+  it.each(['forbidden', 'not-found', 'generic'] as const)(
+    '알림 조회 실패(%s) 안내는 프로필 편집 가능 여부와 다음 행동을 함께 말한다',
+    (kind) => {
+      const message = notificationUnavailableMessage(kind);
+
+      expect(message).toContain('프로필은 그대로 수정·저장할 수 있고');
+      expect(message).toMatch(/다시 불러오기|사업단 관리자에게 문의/);
+    },
+  );
+
+  it('알림 조회 실패 안내는 원인별로 다른 다음 행동을 제시한다', () => {
+    // 권한이 없는 경우 재시도만 반복해도 풀리지 않는다 — 문의처를 준다.
+    expect(notificationUnavailableMessage('forbidden')).toContain(
+      '사업단 관리자에게 문의해 주세요',
+    );
+    // 일시적 실패는 그 자리에서 다시 불러오면 된다.
+    expect(notificationUnavailableMessage('generic')).toContain(
+      '알림 설정만 아래 다시 불러오기로 다시 시도할 수 있습니다',
+    );
+  });
+
+  it.each(['forbidden', 'not-found', 'generic'] as const)(
+    '부분 저장 실패(%s) 안내는 프로필 저장 성공과 알림에 남은 값을 함께 말한다',
+    (kind) => {
+      const message = notificationSaveFailureMessage(kind);
+
+      expect(message).toContain('프로필은 저장했습니다.');
+      // 알림 설정이 "어떤 값으로 남았는지"가 드러나야 한다.
+      expect(message).toContain('이전 값으로');
+    },
+  );
+
+  it('부분 저장 실패 안내는 권한 문제와 일시적 실패의 다음 행동을 구분한다', () => {
+    expect(notificationSaveFailureMessage('forbidden')).toContain(
+      '사업단 관리자에게 문의해 주세요',
+    );
+
+    for (const kind of ['not-found', 'generic'] as const) {
+      const message = notificationSaveFailureMessage(kind);
+      // 입력이 보존된다는 사실과, 그래서 저장만 다시 누르면 된다는 행동.
+      expect(message).toContain('입력한 값은 화면에 그대로 두었으니');
+      expect(message).toContain('저장을 다시 눌러 주세요');
+    }
   });
 });

@@ -27,7 +27,7 @@ describe('PublicProjectsModule', () => {
     );
   });
 
-  it('두 컨트롤러(/projects, /users/:userId/profile)를 모두 등록한다', () => {
+  it('두 컨트롤러(/projects, /users/:userId/public-profile)를 모두 등록한다', () => {
     const controllers = getMetadataArray(MODULE_METADATA.CONTROLLERS);
 
     expect(controllers).toEqual(

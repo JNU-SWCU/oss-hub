@@ -43,11 +43,6 @@ import { UsersModule } from './users/users.module';
     ProgramsModule,
     SubmissionsModule,
     UsersModule,
-    /**
-     * todo 16 — `PublicUserProfileController`(`GET /users/:userId/profile`)가 이 모듈에
-     * 있다. `/users/me/profile`(위 `UsersModule`, `SessionGuard` 보호)보다 반드시 뒤에
-     * import해야 라우트 매칭에서 `me`가 `:userId`로 흡수되지 않는다.
-     */
     PublicProjectsModule,
     RepositoriesModule,
     SubmissionReviewsModule,

@@ -59,12 +59,45 @@ const RUN_STATUS = {
   { label: string; variant: 'closed' | 'recruiting' }
 >;
 
+/**
+ * 운영자에게 보이는 사유 문구.
+ * 각 문구는 "지금 무슨 상태인가" 다음에 반드시 "그래서 무엇을 보면 되는가"를 붙인다 —
+ * 상태만 적힌 경고는 운영자를 화면 앞에 세워 두고 다음 행동을 알려 주지 않는다.
+ * 내부 식별자·토큰·저장소 이름은 넣지 않는다(이 화면의 안전 사유 계약).
+ */
+/** 빈 상태 화면은 제목이 이미 같은 문장을 말하므로 다음 행동만 따로 쓴다. */
+const NO_TRACKED_REPOSITORIES_ACTION =
+  '사업단 GitHub 조직에 수집 연동 앱이 설치되어 있는지, 조직에 저장소가 등록되어 있는지 확인해 주세요.';
+
 const SAFE_REASON_COPY = {
-  NO_TRACKED_REPOSITORIES: '아직 추적 중인 저장소가 없습니다.',
-  UPSTREAM_RATE_LIMITED: '재시도 대기 중인 stream이 있습니다.',
-  RUN_INCOMPLETE: '일부 저장소의 수집이 아직 완료되지 않았습니다.',
-  STALE_DATA: '최근 데이터 수집이 지연되고 있습니다.',
+  NO_TRACKED_REPOSITORIES: `아직 추적 중인 저장소가 없습니다. ${NO_TRACKED_REPOSITORIES_ACTION}`,
+  UPSTREAM_RATE_LIMITED:
+    '재시도 대기 중인 stream이 있습니다. GitHub 호출 한도가 풀리면 다음 수집 주기에 자동으로 다시 시도하므로 지금 손댈 것은 없습니다. 아래 ‘가장 오래된 재시도 대기’ 시각이 하루 넘게 그대로면 사업단 관리자에게 알려 주세요.',
+  RUN_INCOMPLETE:
+    '일부 저장소의 수집이 아직 완료되지 않았습니다. 아래 ‘Stream 진행 상황’에서 ‘부분/대기’ 수가 줄고 있는지 확인하고, 다음 수집 주기 뒤에도 그대로면 사업단 관리자에게 알려 주세요.',
+  STALE_DATA:
+    '최근 데이터 수집이 지연되고 있습니다. 아래 ‘데이터 기준 시각’이 얼마나 오래됐는지 먼저 확인하고, 지연이 이어지면 수집 연동 앱의 설치·권한 상태를 점검해 주세요.',
 } as const satisfies Record<SystemStatusSafeReason, string>;
+
+/**
+ * 이 화면의 ‘수집 연동 앱’이 무엇인지 모르는 운영자를 위한 설명.
+ * 개인이 자기 GitHub 계정에 붙이는 앱과 헷갈리면 엉뚱한 곳(개인 설정)을 뒤지게 되므로
+ * 설치 주체(조직)와 읽는 범위, 확인할 위치를 함께 적는다.
+ */
+const COLLECTION_APP_TITLE = '수집 연동 앱(GitHub App)이란';
+const COLLECTION_APP_DESCRIPTION =
+  'GitHub App은 사업단 저장소의 활동을 대신 읽어 오는 수집 연동 앱입니다. 개인이 자기 GitHub 계정에 설치하는 앱이 아니라 사업단 GitHub 조직에 설치되며, 설치를 승인한 조직 저장소만 읽습니다. 수집이 비어 있거나 지연이 계속되면 조직의 Settings → GitHub Apps에서 이 앱이 설치·승인되어 있고 저장소 접근 범위에 대상 저장소가 들어 있는지 확인해 주세요.';
+
+/** 수집이 정상이 아닐 때만 띄운다 — 평소에는 운영자가 읽어야 할 것이 아니다. */
+function CollectionAppGuide() {
+  return (
+    <Alert>
+      <AlertCircle aria-hidden="true" />
+      <AlertTitle>{COLLECTION_APP_TITLE}</AlertTitle>
+      <AlertDescription>{COLLECTION_APP_DESCRIPTION}</AlertDescription>
+    </Alert>
+  );
+}
 
 const DATE_TIME_FORMAT = new Intl.DateTimeFormat('ko-KR', {
   dateStyle: 'medium',
@@ -288,7 +321,7 @@ export function SystemStatusView({
         <EmptyState
           icon={<Database className="size-8" />}
           title="아직 추적 중인 저장소가 없습니다"
-          description={SAFE_REASON_COPY.NO_TRACKED_REPOSITORIES}
+          description={NO_TRACKED_REPOSITORIES_ACTION}
         />
       ) : (
         <section aria-label="시스템 상태 요약">
@@ -409,6 +442,9 @@ export function SystemStatusView({
           </CardGrid>
         </section>
       )}
+
+      {/* 정상일 때는 붙이지 않는다 — 문제가 없을 때 읽어야 할 안내가 아니다. */}
+      {status.health === 'NORMAL' ? null : <CollectionAppGuide />}
     </main>
   );
 }

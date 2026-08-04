@@ -208,8 +208,10 @@ export async function loadPublicProfile(
   }
 
   try {
+    // 백엔드 공개 read 경로는 `users/:userId/public-profile`이다(#551) — `users/me/profile`
+    // (세션 보호)과 마지막 세그먼트를 다르게 둬서 모듈 등록 순서와 무관하게 매칭된다.
     return parsePublicProfile(
-      await apiClient<unknown>(`users/${userId}/profile`),
+      await apiClient<unknown>(`users/${userId}/public-profile`),
     );
   } catch (error) {
     if (
