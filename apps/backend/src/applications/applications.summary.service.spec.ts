@@ -27,7 +27,7 @@ describe('ApplicationsService.staffSummary', () => {
             approved: 2,
             rejected: 1,
           },
-          applicantsPath: '/staff/programs/program-1/applicants',
+          applicantsPath: '/programs/program-1/applicants',
         },
       ],
     };

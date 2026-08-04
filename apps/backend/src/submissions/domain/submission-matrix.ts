@@ -24,5 +24,5 @@ export function submissionMatrixReviewUrl(
   programId: string,
   submissionId: string,
 ): string {
-  return `/staff/programs/${programId}/submissions/${submissionId}/review`;
+  return `/programs/${programId}/submissions/${submissionId}/review`;
 }

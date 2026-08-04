@@ -30,7 +30,7 @@ function cell(input: {
     revision: input.revision ?? 1,
     status: input.status,
     submittedAt: '2026-08-19T10:00:00+09:00',
-    reviewUrl: `/staff/programs/program-1/submissions/${submissionId}/review`,
+    reviewUrl: `/programs/program-1/submissions/${submissionId}/review`,
   };
 }
 
@@ -161,13 +161,13 @@ describe('SubmissionMatrixView', () => {
 
     // Then — 제출 셀 4개만 #125 검토 링크.
     const reviewLinks =
-      html.match(/href="\/staff\/programs\/program-1\/submissions\//g) ?? [];
+      html.match(/href="\/programs\/program-1\/submissions\//g) ?? [];
     expect(reviewLinks).toHaveLength(4);
     expect(html).toContain(
-      '/staff/programs/program-1/submissions/submission-approved/review',
+      '/programs/program-1/submissions/submission-approved/review',
     );
     expect(html).toContain(
-      '/staff/programs/program-1/submissions/submission-changes-requested/review',
+      '/programs/program-1/submissions/submission-changes-requested/review',
     );
     // Then — 최신 revision 표시.
     expect(html).toContain('v2');
@@ -276,7 +276,7 @@ describe('SubmissionMatrixView', () => {
 
     // Then
     expect(html).toContain('마일스톤이 없습니다');
-    expect(html).toContain('href="/staff/programs/program-1/edit"');
+    expect(html).toContain('href="/programs/program-1/edit"');
   });
 
   it('전체 페이지가 2 이상일 때만 페이지네이션을 표시한다', () => {

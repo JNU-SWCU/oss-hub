@@ -174,7 +174,7 @@ it('STAFF 세션은 매트릭스를 캐시 금지 헤더와 함께 직렬화한�
             revision: 2,
             status: 'SUBMITTED',
             submittedAt: '2026-08-19T01:00:00.000Z',
-            reviewUrl: `/staff/programs/${PROGRAM_ID}/submissions/synthetic-submission/review`,
+            reviewUrl: `/programs/${PROGRAM_ID}/submissions/synthetic-submission/review`,
           },
         ],
       },

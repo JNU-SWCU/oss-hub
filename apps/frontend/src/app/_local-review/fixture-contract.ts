@@ -65,7 +65,6 @@ const LOCAL_REVIEW_TARGET_PATHS = new Set([
 const LOCAL_REVIEW_TARGET_PREFIXES = [
   '/programs/',
   '/archive/',
-  '/staff/programs/',
   '/dashboard/',
   '/onboarding/',
   '/profile/',

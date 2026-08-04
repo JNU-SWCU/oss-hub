@@ -166,7 +166,7 @@ describe('local review activation contract', () => {
     '/programs/program-capstone/teams',
     '/programs/',
     '/archive/repository-1',
-    '/staff/programs/program-capstone/applicants',
+    '/programs/program-capstone/applicants',
     '/dashboard/activity',
     '/onboarding/pending',
     '/profile/synthetic-user-01',

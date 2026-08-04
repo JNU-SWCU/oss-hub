@@ -64,7 +64,7 @@ describe('StaffDashboardController', () => {
             approved: 1,
             rejected: 1,
           },
-          applicantsPath: '/staff/programs/program%3A1/applicants',
+          applicantsPath: '/programs/program%3A1/applicants',
           activity: {
             repositories: 1,
             commits: 2,
@@ -107,7 +107,7 @@ describe('StaffDashboardController', () => {
             approved: 1,
             rejected: 1,
           },
-          applicantsPath: '/staff/programs/program%3A1/applicants',
+          applicantsPath: '/programs/program%3A1/applicants',
           activity: {
             repositories: 1,
             commits: 2,

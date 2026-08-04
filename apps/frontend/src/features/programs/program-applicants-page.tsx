@@ -28,7 +28,10 @@ import {
   type ApplicationDecisionInput,
 } from './api';
 import { ProgramListPagination } from './program-list-pagination';
-import { staffApplicationDetailHref, staffProgramHref } from './program-paths';
+import {
+  programApplicationDetailHref,
+  programEditHref,
+} from '@/lib/program-route';
 import type {
   ApplicationListItem,
   ApplicationListPage,
@@ -461,7 +464,7 @@ export function ProgramApplicantsPage({
               </Button>
             ) : null}
             <Button asChild size="sm" variant="outline">
-              <Link href={staffApplicationDetailHref(programId, row.id)}>
+              <Link href={programApplicationDetailHref(programId, row.id)}>
                 보기
               </Link>
             </Button>
@@ -514,9 +517,7 @@ export function ProgramApplicantsPage({
         description="프로그램 신청을 검색·필터하고 상세로 이동할 수 있습니다."
         actions={
           <Button asChild variant="outline">
-            <Link href={staffProgramHref(program.id, '/edit')}>
-              프로그램 편집
-            </Link>
+            <Link href={programEditHref(program.id)}>프로그램 편집</Link>
           </Button>
         }
       />

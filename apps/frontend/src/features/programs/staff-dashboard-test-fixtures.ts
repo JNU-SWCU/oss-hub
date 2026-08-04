@@ -24,7 +24,7 @@ function program(
       approved: 1,
       rejected: 1,
     },
-    applicantsPath: `/staff/programs/${encodeURIComponent(id)}/applicants`,
+    applicantsPath: `/programs/${encodeURIComponent(id)}/applicants`,
     activity: {
       repositories: 1,
       commits: 2,

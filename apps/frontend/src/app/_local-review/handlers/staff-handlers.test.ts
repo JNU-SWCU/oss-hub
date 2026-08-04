@@ -243,7 +243,7 @@ describe('staff local review handlers', () => {
       submitted.every(
         (cell) =>
           cell.reviewUrl ===
-          `/staff/programs/program-basic-study/submissions/${cell.submissionId}/review`,
+          `/programs/program-basic-study/submissions/${cell.submissionId}/review`,
       ),
     ).toBe(true);
   });
@@ -284,7 +284,7 @@ describe('staff local review handlers', () => {
     );
 
     // Then
-    expect(created.detailUrl).toBe(`/staff/programs/${created.id}/edit`);
+    expect(created.detailUrl).toBe(`/programs/${created.id}/edit`);
     expect(program.id).toBe(created.id);
     // 마일스톤이 없어 제출 현황 화면의 "마일스톤 없음" 상태를 확인할 수 있다.
     expect(program.milestones).toHaveLength(0);

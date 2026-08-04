@@ -98,14 +98,14 @@ describe('StaffDashboardOverview', () => {
     expect(html).toContain('저장소');
     expect(html).toContain('검토 대기');
     expect(html).toContain('/programs/program%3Abasic');
-    expect(html).toContain('href="/staff/programs/program%3Abasic/edit"');
+    expect(html).toContain('href="/programs/program%3Abasic/edit"');
     expect(html).toContain('aria-label="기본 프로그램 편집"');
     expect(html).toContain('after:absolute');
     expect(html).toContain('after:inset-0');
     expect(html).toContain('after:z-[1]');
     expect(html).toContain('/programs/program%3Abasic#activity');
-    expect(html).toContain('/staff/programs/program%3Abasic/applicants');
-    expect(html).toContain('/staff/programs/program%3Abasic/submissions');
+    expect(html).toContain('/programs/program%3Abasic/applicants');
+    expect(html).toContain('/programs/program%3Abasic/status');
   });
 
   it('저장소 없음, 수집 기준 없음, 미제출, 마일스톤 없음 상태를 분리해 표시한다', () => {

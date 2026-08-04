@@ -126,9 +126,11 @@ export function facetSectionFromHrefPath(
  * 실제 프로그램 개요/서류/게시판 데이터 로딩은 이 레인 범위 밖이다.
  */
 export function programDetailIdFromPathname(pathname: string): string | null {
-  if (pathname === '/programs') return null;
+  if (pathname === '/programs' || pathname === '/programs/new') return null;
   const match = /^\/programs\/([^/]+)(?:\/.*)?$/.exec(pathname);
   if (!match) return null;
+  // 정적 세그먼트 `new`는 프로그램 생성 라우트 — 동적 [id] 스코프로 새지 않는다.
+  if (match[1] === 'new') return null;
   try {
     return decodeURIComponent(match[1] as string);
   } catch {

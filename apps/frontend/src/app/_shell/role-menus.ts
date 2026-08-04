@@ -14,7 +14,7 @@ export const STUDENT_MENU: NavItem[] = [
 export const STAFF_MENU: NavItem[] = [
   // 입구 URL은 회원 공통 `/dashboard`. 본문만 세션 역할(STAFF)로 갈린다.
   { label: '운영 대시보드', href: '/dashboard' },
-  { label: '프로그램 등록', href: '/staff/programs/new' },
+  { label: '프로그램 등록', href: '/programs/new' },
 ];
 
 export const ADMIN_MENU: NavItem[] = [

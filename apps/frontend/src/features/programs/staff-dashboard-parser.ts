@@ -102,7 +102,7 @@ function isSubmissions(
 function isProgram(value: unknown): value is StaffDashboardProgramSummary {
   if (!isRecord(value) || !isSafeProgramId(value.id)) return false;
   if (!isRecord(value.applicationPeriod)) return false;
-  const expectedApplicantsPath = `/staff/programs/${encodeURIComponent(value.id)}/applicants`;
+  const expectedApplicantsPath = `/programs/${encodeURIComponent(value.id)}/applicants`;
   return (
     isNonEmptyString(value.name) &&
     isProgramCategory(value.category) &&

@@ -99,7 +99,7 @@ describe('MilestoneRow', () => {
     );
     expect(html).toContain('3/5');
     expect(html).not.toContain('전체 현황');
-    expect(html).not.toContain('/staff/programs/program-1/submissions');
+    expect(html).not.toContain('/programs/program-1/submissions');
   });
 });
 
@@ -223,10 +223,10 @@ describe('ProgramDetailPage states', () => {
     const html = renderToStaticMarkup(
       <ProgramActions program={programWithoutMilestones} />,
     );
-    expect(html).toContain('/staff/programs/program-1/edit');
-    expect(html).toContain('/staff/programs/program-1/applicants');
+    expect(html).toContain('/programs/program-1/edit');
+    expect(html).toContain('/programs/program-1/applicants');
     expect(html).toContain('신청자 목록');
-    expect(html).not.toContain('/staff/programs/program-1/submissions');
+    expect(html).not.toContain('/programs/program-1/submissions');
     expect(html).not.toContain('전체 제출 현황');
   });
 
@@ -252,7 +252,7 @@ describe('ProgramDetailPage states', () => {
       <ProgramMilestones program={programWithoutMilestones} />,
     );
     expect(html).toContain('아직 등록된 마일스톤이 없습니다');
-    expect(html).toContain('/staff/programs/program-1/edit#milestones');
+    expect(html).toContain('/programs/program-1/edit#milestones');
   });
 
   it('404와 일반 실패를 구분하고 일반 실패에는 재시도를 제공한다', () => {

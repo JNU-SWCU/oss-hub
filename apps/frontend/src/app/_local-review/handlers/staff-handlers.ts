@@ -224,7 +224,7 @@ const createProgramHandler: LocalReviewHandler = (context) => {
     category,
     applicationTemplateKey: template.key,
     applicationTemplateVersion: template.version,
-    detailUrl: `/staff/programs/${CREATED_PROGRAM_ID}/edit`,
+    detailUrl: `/programs/${CREATED_PROGRAM_ID}/edit`,
   });
 };
 
