@@ -84,7 +84,10 @@ const RECRUITMENT_BADGES = {
 >;
 
 function parseStatus(value: string | null): ProgramListStatus {
-  if (value !== null && (PROGRAM_LIST_STATUSES as readonly string[]).includes(value)) {
+  if (
+    value !== null &&
+    (PROGRAM_LIST_STATUSES as readonly string[]).includes(value)
+  ) {
     return value as ProgramListStatus;
   }
   return 'all';

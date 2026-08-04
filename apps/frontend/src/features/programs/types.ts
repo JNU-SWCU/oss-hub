@@ -86,9 +86,7 @@ export interface ProgramListPage {
 }
 
 /** GET /programs/status-counts — 사이드바 뱃지. 5키 항상 존재. */
-export type ProgramStatusCounts = Readonly<
-  Record<ProgramListStatus, number>
->;
+export type ProgramStatusCounts = Readonly<Record<ProgramListStatus, number>>;
 
 export const APPLICATION_LIST_STATUSES = [
   'all',

@@ -174,11 +174,11 @@ describe('isCurrentSidebarItem', () => {
     expect(
       isCurrentSidebarItem('/ranking', '/ranking?year=2025', 'year=2025'),
     ).toBe(true);
-    expect(
-      isCurrentSidebarItem('/ranking', '/ranking?year=2025', ''),
-    ).toBe(false);
-    expect(
-      isCurrentSidebarItem('/ranking', '/ranking', 'year=2025'),
-    ).toBe(false);
+    expect(isCurrentSidebarItem('/ranking', '/ranking?year=2025', '')).toBe(
+      false,
+    );
+    expect(isCurrentSidebarItem('/ranking', '/ranking', 'year=2025')).toBe(
+      false,
+    );
   });
 });
