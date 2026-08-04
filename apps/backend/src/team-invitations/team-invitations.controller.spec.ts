@@ -43,7 +43,9 @@ function buildController(overrides: Partial<ServiceMocks> = {}): {
     ...overrides,
   };
   const controller = new TeamInvitationsController(
-    mocks as unknown as ConstructorParameters<typeof TeamInvitationsController>[0],
+    mocks as unknown as ConstructorParameters<
+      typeof TeamInvitationsController
+    >[0],
   );
   return { controller, mocks };
 }
@@ -194,6 +196,9 @@ describe('TeamInvitationsController', () => {
       syntheticGithubId,
       'cuid-invitation',
     );
-    expect(response).toEqual({ teamId: 'cuid-team', programId: 'cuid-program' });
+    expect(response).toEqual({
+      teamId: 'cuid-team',
+      programId: 'cuid-program',
+    });
   });
 });

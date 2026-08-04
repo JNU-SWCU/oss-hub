@@ -231,14 +231,15 @@ export class ProgramOverviewRepository {
     }
 
     const applicationIds = applications.map((application) => application.id);
-    const submissionCounts = await this.prisma.milestoneDocumentSubmission.groupBy({
-      by: ['applicationId'],
-      where: {
-        applicationId: { in: applicationIds },
-        milestoneDocumentId: { in: requiredDocumentIds },
-      },
-      _count: { milestoneDocumentId: true },
-    });
+    const submissionCounts =
+      await this.prisma.milestoneDocumentSubmission.groupBy({
+        by: ['applicationId'],
+        where: {
+          applicationId: { in: applicationIds },
+          milestoneDocumentId: { in: requiredDocumentIds },
+        },
+        _count: { milestoneDocumentId: true },
+      });
     const submittedCountByApplication = new Map(
       submissionCounts.map((row) => [
         row.applicationId,

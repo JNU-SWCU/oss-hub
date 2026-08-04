@@ -118,9 +118,11 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
 
   it('서류별 제출 신청 수를 Map으로 돌려준다', async () => {
     // Given
-    const groupBy = jest.fn().mockResolvedValue([
-      { milestoneDocumentId: syntheticDocumentId, _count: { _all: 6 } },
-    ]);
+    const groupBy = jest
+      .fn()
+      .mockResolvedValue([
+        { milestoneDocumentId: syntheticDocumentId, _count: { _all: 6 } },
+      ]);
     const prisma = {
       milestoneDocumentSubmission: { groupBy },
     } as unknown as PrismaService;
@@ -147,7 +149,9 @@ describe('MilestoneDocumentsRepository 교직원 CRUD', () => {
       sortOrder: 3,
       submissionType: MilestoneSubmissionType.TEXT,
     });
-    const prisma = { milestoneDocument: { create } } as unknown as PrismaService;
+    const prisma = {
+      milestoneDocument: { create },
+    } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
     // When
@@ -177,7 +181,9 @@ describe('MilestoneDocumentsRepository 교직원 CRUD', () => {
     // Given
     const deleteMany = jest.fn();
     const documentDelete = jest.fn();
-    const transaction = jest.fn((operations: unknown[]) => Promise.all(operations));
+    const transaction = jest.fn((operations: unknown[]) =>
+      Promise.all(operations),
+    );
     const prisma = {
       milestoneDocumentTemplateFile: { deleteMany },
       milestoneDocument: { delete: documentDelete },
@@ -207,7 +213,8 @@ describe('MilestoneDocumentsRepository 교직원 CRUD', () => {
     const repository = new MilestoneDocumentsRepository(prisma);
 
     // When
-    const result = await repository.countSubmissionsForDocument(syntheticDocumentId);
+    const result =
+      await repository.countSubmissionsForDocument(syntheticDocumentId);
 
     // Then
     expect(count).toHaveBeenCalledWith({

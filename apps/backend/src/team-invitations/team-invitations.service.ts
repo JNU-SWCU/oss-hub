@@ -100,18 +100,16 @@ export class TeamInvitationsService {
   /** 팀장이 자기 팀이 보낸 대기 중인 초대를 취소한다. */
   async cancel(githubId: bigint, invitationId: string): Promise<void> {
     const actorId = await this.requireUserId(githubId);
-    const invitation = await this.repository.findInvitationForActor(
-      invitationId,
-    );
+    const invitation =
+      await this.repository.findInvitationForActor(invitationId);
     if (!invitation) {
       throw this.error(TeamInvitationErrorCode.INVITATION_NOT_FOUND);
     }
     if (invitation.leaderId !== actorId) {
       throw this.error(TeamInvitationErrorCode.NOT_TEAM_LEADER);
     }
-    const closed = await this.repository.closePendingInvitationAsDeclined(
-      invitationId,
-    );
+    const closed =
+      await this.repository.closePendingInvitationAsDeclined(invitationId);
     if (closed === 0) {
       throw this.error(TeamInvitationErrorCode.INVITATION_NOT_PENDING);
     }
@@ -120,18 +118,16 @@ export class TeamInvitationsService {
   /** 초대받은 본인이 거절한다. */
   async decline(githubId: bigint, invitationId: string): Promise<void> {
     const actorId = await this.requireUserId(githubId);
-    const invitation = await this.repository.findInvitationForActor(
-      invitationId,
-    );
+    const invitation =
+      await this.repository.findInvitationForActor(invitationId);
     if (!invitation) {
       throw this.error(TeamInvitationErrorCode.INVITATION_NOT_FOUND);
     }
     if (invitation.inviteeId !== actorId) {
       throw this.error(TeamInvitationErrorCode.NOT_INVITEE);
     }
-    const closed = await this.repository.closePendingInvitationAsDeclined(
-      invitationId,
-    );
+    const closed =
+      await this.repository.closePendingInvitationAsDeclined(invitationId);
     if (closed === 0) {
       throw this.error(TeamInvitationErrorCode.INVITATION_NOT_PENDING);
     }

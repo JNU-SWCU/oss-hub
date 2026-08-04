@@ -7,8 +7,14 @@ import {
 
 /** MilestoneDocumentSubmission.content(Json)에 저장되는 TEXT/REPOSITORY_RELEASE 응답 shape. */
 export type MilestoneDocumentContentInput =
-  | { readonly type: typeof MilestoneSubmissionType.FILE; readonly fileId: string }
-  | { readonly type: typeof MilestoneSubmissionType.TEXT; readonly text: string }
+  | {
+      readonly type: typeof MilestoneSubmissionType.FILE;
+      readonly fileId: string;
+    }
+  | {
+      readonly type: typeof MilestoneSubmissionType.TEXT;
+      readonly text: string;
+    }
   | {
       readonly type: typeof MilestoneSubmissionType.REPOSITORY_RELEASE;
       readonly releaseUrl: string;
@@ -51,6 +57,8 @@ export function parseMilestoneDocumentContent(input: {
 
 function contentRequired(): DomainException {
   return new DomainException(
-    MILESTONE_DOCUMENTS_ERROR_CODES[MilestoneDocumentsErrorCode.CONTENT_REQUIRED],
+    MILESTONE_DOCUMENTS_ERROR_CODES[
+      MilestoneDocumentsErrorCode.CONTENT_REQUIRED
+    ],
   );
 }

@@ -440,31 +440,29 @@ export class MilestoneDocumentsRepository {
     input: UpsertMilestoneDocumentSubmissionInput,
   ): Promise<MilestoneDocumentSubmissionDetail> {
     return this.prisma.$transaction(async (transaction) => {
-      const submission = await transaction.milestoneDocumentSubmission.upsert(
-        {
-          where: {
-            milestoneDocumentId_applicationId: {
-              milestoneDocumentId: input.milestoneDocumentId,
-              applicationId: input.applicationId,
-            },
-          },
-          update: {
-            status: SubmissionStatus.SUBMITTED,
-            content: input.content,
-            submittedById: input.submittedById,
-            submittedAt: input.submittedAt,
-          },
-          create: {
+      const submission = await transaction.milestoneDocumentSubmission.upsert({
+        where: {
+          milestoneDocumentId_applicationId: {
             milestoneDocumentId: input.milestoneDocumentId,
             applicationId: input.applicationId,
-            status: SubmissionStatus.SUBMITTED,
-            content: input.content,
-            submittedById: input.submittedById,
-            submittedAt: input.submittedAt,
           },
-          select: { id: true, status: true, content: true, submittedAt: true },
         },
-      );
+        update: {
+          status: SubmissionStatus.SUBMITTED,
+          content: input.content,
+          submittedById: input.submittedById,
+          submittedAt: input.submittedAt,
+        },
+        create: {
+          milestoneDocumentId: input.milestoneDocumentId,
+          applicationId: input.applicationId,
+          status: SubmissionStatus.SUBMITTED,
+          content: input.content,
+          submittedById: input.submittedById,
+          submittedAt: input.submittedAt,
+        },
+        select: { id: true, status: true, content: true, submittedAt: true },
+      });
 
       if (input.attachFile !== null) {
         await transaction.submissionFile.updateMany({

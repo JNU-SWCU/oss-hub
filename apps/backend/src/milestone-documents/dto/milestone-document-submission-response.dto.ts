@@ -7,7 +7,12 @@ export class MilestoneDocumentSubmissionFileResponseDto {
   contentType: string;
   size: number;
 
-  private constructor(id: string, fileName: string, contentType: string, size: number) {
+  private constructor(
+    id: string,
+    fileName: string,
+    contentType: string,
+    size: number,
+  ) {
     this.id = id;
     this.fileName = fileName;
     this.contentType = contentType;

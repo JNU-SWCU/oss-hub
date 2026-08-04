@@ -62,7 +62,9 @@ describe('BoardAccessGuard', () => {
       role: Role.STUDENT,
       accountStatus: AccountStatus.ACTIVE,
     });
-    findFirstApplication.mockResolvedValue({ id: 'cuid-synthetic-application' });
+    findFirstApplication.mockResolvedValue({
+      id: 'cuid-synthetic-application',
+    });
     const request = {
       sessionGithubId: syntheticGithubId,
       params: { programId: syntheticProgramId },

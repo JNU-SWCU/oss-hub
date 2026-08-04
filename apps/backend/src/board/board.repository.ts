@@ -222,9 +222,7 @@ export class BoardRepository {
     });
   }
 
-  async findCommentRefById(
-    commentId: string,
-  ): Promise<BoardCommentRef | null> {
+  async findCommentRefById(commentId: string): Promise<BoardCommentRef | null> {
     const comment = await this.prisma.boardComment.findUnique({
       where: { id: commentId },
       select: {

@@ -19,7 +19,10 @@ import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard'
  */
 describe('MilestoneDocumentsModule', () => {
   const getMetadataArray = (key: string): unknown[] => {
-    const metadata = Reflect.getMetadata(key, MilestoneDocumentsModule) as unknown;
+    const metadata = Reflect.getMetadata(
+      key,
+      MilestoneDocumentsModule,
+    ) as unknown;
     expect(Array.isArray(metadata)).toBe(true);
     return Array.isArray(metadata) ? metadata : [];
   };

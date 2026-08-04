@@ -92,11 +92,11 @@ describe('TeamInvitationsService.listReceived', () => {
       findUserIdByGithubId: jest.fn().mockResolvedValue(null),
     });
 
-    await expect(
-      service.listReceived(syntheticGithubId),
-    ).rejects.toMatchObject({
-      errorCode: { code: TeamInvitationErrorCode.UNAUTHENTICATED },
-    });
+    await expect(service.listReceived(syntheticGithubId)).rejects.toMatchObject(
+      {
+        errorCode: { code: TeamInvitationErrorCode.UNAUTHENTICATED },
+      },
+    );
   });
 });
 
@@ -143,7 +143,12 @@ describe('TeamInvitationsService.listSentByTeam', () => {
 describe('TeamInvitationsService.searchCandidates', () => {
   it('팀장이면 programId 기준으로 검색한다', async () => {
     const candidates = [
-      { id: 'cuid-candidate', nickname: 'octocat', name: null, avatarUrl: null },
+      {
+        id: 'cuid-candidate',
+        nickname: 'octocat',
+        name: null,
+        avatarUrl: null,
+      },
     ];
     const { service, repository } = buildService({
       findTeamContext: jest.fn().mockResolvedValue({

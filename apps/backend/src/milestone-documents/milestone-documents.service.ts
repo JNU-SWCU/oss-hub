@@ -93,7 +93,9 @@ export class MilestoneDocumentsService {
       }
     }
 
-    return documents.map((document) => MilestoneDocumentResponseDto.from(document));
+    return documents.map((document) =>
+      MilestoneDocumentResponseDto.from(document),
+    );
   }
 
   /** 교직원 — 서류 항목 추가("낼 서류 항목 ＋ 서류 항목 추가"). */
@@ -121,10 +123,7 @@ export class MilestoneDocumentsService {
   }
 
   /** 교직원 — 서류 항목 삭제. 제출이 하나라도 있으면 거부한다. */
-  async deleteDocument(
-    milestoneId: string,
-    documentId: string,
-  ): Promise<void> {
+  async deleteDocument(milestoneId: string, documentId: string): Promise<void> {
     await this.requireDocumentInMilestone(milestoneId, documentId);
     const submissionCount =
       await this.repository.countSubmissionsForDocument(documentId);
@@ -150,10 +149,12 @@ export class MilestoneDocumentsService {
       throw this.error(MilestoneDocumentsErrorCode.STUDENT_ONLY);
     }
 
-    const documentContext = await this.repository.findDocumentContext(
-      documentId,
-    );
-    if (documentContext === null || documentContext.milestoneId !== milestoneId) {
+    const documentContext =
+      await this.repository.findDocumentContext(documentId);
+    if (
+      documentContext === null ||
+      documentContext.milestoneId !== milestoneId
+    ) {
       throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
     }
     if (content.type !== documentContext.submissionType) {
@@ -168,7 +169,9 @@ export class MilestoneDocumentsService {
       throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
     }
     if (!application.approved) {
-      throw this.error(MilestoneDocumentsErrorCode.APPLICATION_APPROVAL_REQUIRED);
+      throw this.error(
+        MilestoneDocumentsErrorCode.APPLICATION_APPROVAL_REQUIRED,
+      );
     }
 
     let attachFile: UpsertMilestoneDocumentSubmissionInput['attachFile'] = null;

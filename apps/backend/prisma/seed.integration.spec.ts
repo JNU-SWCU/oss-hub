@@ -160,7 +160,9 @@ const SEEDED_MODEL_COUNTERS: ReadonlyArray<
   [
     'MilestoneDocument',
     () =>
-      prisma.milestoneDocument.count({ where: { id: { startsWith: 'seed:' } } }),
+      prisma.milestoneDocument.count({
+        where: { id: { startsWith: 'seed:' } },
+      }),
   ],
   [
     'MilestoneDocumentTemplateFile',

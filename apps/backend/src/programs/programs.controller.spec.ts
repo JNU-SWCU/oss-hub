@@ -74,14 +74,27 @@ describe('ProgramsController read boundaries', () => {
   });
 
   it('세션 쿠키가 없으면 익명 뷰어로 목록을 조회한다', async () => {
-    const page = { items: [], page: 1, pageSize: 20, totalItems: 0, totalPages: 0 };
+    const page = {
+      items: [],
+      page: 1,
+      pageSize: 20,
+      totalItems: 0,
+      totalPages: 0,
+    };
     programs.list.mockResolvedValue(page);
     viewers.fromGithubId.mockResolvedValue({
       githubId: null,
       userId: null,
       role: null,
     });
-    const query = { toQuery: () => ({ page: 1, pageSize: 20, search: '', status: 'all' as const }) };
+    const query = {
+      toQuery: () => ({
+        page: 1,
+        pageSize: 20,
+        search: '',
+        status: 'all' as const,
+      }),
+    };
 
     await controller.list(query as never, requestWithCookie() as never);
 
@@ -93,12 +106,25 @@ describe('ProgramsController read boundaries', () => {
   });
 
   it('유효한 세션 쿠키가 있으면 해석된 뷰어로 목록을 개인화한다', async () => {
-    const page = { items: [], page: 1, pageSize: 20, totalItems: 0, totalPages: 0 };
+    const page = {
+      items: [],
+      page: 1,
+      pageSize: 20,
+      totalItems: 0,
+      totalPages: 0,
+    };
     programs.list.mockResolvedValue(page);
     const viewer = { githubId: 101n, userId: 'student-1', role: 'STUDENT' };
     viewers.fromGithubId.mockResolvedValue(viewer);
     const token = await issueSessionToken(sessionSecret, 101n);
-    const query = { toQuery: () => ({ page: 1, pageSize: 20, search: '', status: 'all' as const }) };
+    const query = {
+      toQuery: () => ({
+        page: 1,
+        pageSize: 20,
+        search: '',
+        status: 'all' as const,
+      }),
+    };
 
     await controller.list(
       query as never,
@@ -113,14 +139,27 @@ describe('ProgramsController read boundaries', () => {
   });
 
   it('형식이 잘못된 세션 쿠키는 익명 뷰어로 수렴한다(목록은 예외를 던지지 않는다)', async () => {
-    const page = { items: [], page: 1, pageSize: 20, totalItems: 0, totalPages: 0 };
+    const page = {
+      items: [],
+      page: 1,
+      pageSize: 20,
+      totalItems: 0,
+      totalPages: 0,
+    };
     programs.list.mockResolvedValue(page);
     viewers.fromGithubId.mockResolvedValue({
       githubId: null,
       userId: null,
       role: null,
     });
-    const query = { toQuery: () => ({ page: 1, pageSize: 20, search: '', status: 'all' as const }) };
+    const query = {
+      toQuery: () => ({
+        page: 1,
+        pageSize: 20,
+        search: '',
+        status: 'all' as const,
+      }),
+    };
 
     await controller.list(
       query as never,

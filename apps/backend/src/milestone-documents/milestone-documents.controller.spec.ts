@@ -28,7 +28,10 @@ const listForViewer = jest.fn().mockResolvedValue([
     sortOrder: 1,
     submissionType: 'FILE',
     hasTemplateFile: true,
-    viewerSubmission: { submitted: true, submittedAt: '2026-09-16T14:22:00.000Z' },
+    viewerSubmission: {
+      submitted: true,
+      submittedAt: '2026-09-16T14:22:00.000Z',
+    },
   },
 ]);
 const createDocument = jest.fn().mockResolvedValue({
@@ -92,7 +95,10 @@ beforeEach(() => {
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
-    controllers: [MilestoneDocumentsController, MilestoneDocumentFilesController],
+    controllers: [
+      MilestoneDocumentsController,
+      MilestoneDocumentFilesController,
+    ],
     providers: [
       {
         provide: MilestoneDocumentsService,

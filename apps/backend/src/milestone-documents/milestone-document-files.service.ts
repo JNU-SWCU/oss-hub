@@ -86,9 +86,8 @@ export class MilestoneDocumentFilesService {
       throw this.error(MilestoneDocumentsErrorCode.STUDENT_ONLY);
     }
 
-    const documentContext = await this.repository.findDocumentContext(
-      normalizedDocumentId,
-    );
+    const documentContext =
+      await this.repository.findDocumentContext(normalizedDocumentId);
     if (
       documentContext === null ||
       documentContext.milestoneId !== normalizedMilestoneId
@@ -107,7 +106,9 @@ export class MilestoneDocumentFilesService {
       throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
     }
     if (!application.approved) {
-      throw this.error(MilestoneDocumentsErrorCode.APPLICATION_APPROVAL_REQUIRED);
+      throw this.error(
+        MilestoneDocumentsErrorCode.APPLICATION_APPROVAL_REQUIRED,
+      );
     }
 
     const now = new Date();
@@ -130,7 +131,9 @@ export class MilestoneDocumentFilesService {
       });
     } catch (error) {
       if (error instanceof MilestoneDocumentFileRetentionUnavailableError) {
-        throw this.error(MilestoneDocumentsErrorCode.FILE_RETENTION_UNAVAILABLE);
+        throw this.error(
+          MilestoneDocumentsErrorCode.FILE_RETENTION_UNAVAILABLE,
+        );
       }
       throw this.error(MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE);
     }
@@ -165,10 +168,12 @@ export class MilestoneDocumentFilesService {
     this.assertValidFile(file);
     const uploadedFile = file as MilestoneDocumentFileUpload;
 
-    const documentContext = await this.repository.findDocumentContext(
-      documentId,
-    );
-    if (documentContext === null || documentContext.milestoneId !== milestoneId) {
+    const documentContext =
+      await this.repository.findDocumentContext(documentId);
+    if (
+      documentContext === null ||
+      documentContext.milestoneId !== milestoneId
+    ) {
       throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
     }
 
@@ -218,10 +223,12 @@ export class MilestoneDocumentFilesService {
       throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
     }
 
-    const documentContext = await this.repository.findDocumentContext(
-      documentId,
-    );
-    if (documentContext === null || documentContext.milestoneId !== milestoneId) {
+    const documentContext =
+      await this.repository.findDocumentContext(documentId);
+    if (
+      documentContext === null ||
+      documentContext.milestoneId !== milestoneId
+    ) {
       throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
     }
 

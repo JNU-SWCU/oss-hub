@@ -126,19 +126,15 @@ export class ProgramsService {
         return {
           ...item,
           viewerApplicationStatus: status,
-          note: noteWithTeamIcon(
-            STUDENT_APPLICATION_STATUS_NOTE[status],
-            item,
-          ),
+          note: noteWithTeamIcon(STUDENT_APPLICATION_STATUS_NOTE[status], item),
         };
       });
     }
 
     if (viewer.role === Role.STAFF || viewer.role === Role.ADMIN) {
       const programIds = items.map((item) => item.id);
-      const counts = await this.repository.countApplicationsByProgram(
-        programIds,
-      );
+      const counts =
+        await this.repository.countApplicationsByProgram(programIds);
       return items.map((item) => {
         const bucket = counts.get(item.id) ?? { total: 0, pending: 0 };
         const text =

@@ -41,9 +41,7 @@ export class ProgramListResponseDto {
     this.pendingApplicationCount = program.pendingApplicationCount;
   }
 
-  static from(
-    program: PersonalizedProgramListItem,
-  ): ProgramListResponseDto {
+  static from(program: PersonalizedProgramListItem): ProgramListResponseDto {
     return new ProgramListResponseDto(program);
   }
 }

@@ -39,25 +39,28 @@ describe('MilestoneDocumentsStaffGuard', () => {
     [null, AccountStatus.ACTIVE],
     [Role.STAFF, AccountStatus.DEACTIVATED],
     [undefined, AccountStatus.ACTIVE],
-  ] as const)('%s/%s 계정은 STAFF_ONLY(403)로 거부한다', async (role, accountStatus) => {
-    // Given: 학생이거나 비활성 계정이다.
-    findUnique.mockResolvedValue(
-      role === undefined && accountStatus === AccountStatus.ACTIVE
-        ? null
-        : { id: 'user-1', role, accountStatus },
-    );
-    const context = new ExecutionContextHost([{ sessionGithubId: 2002n }]);
-    context.setType('http');
+  ] as const)(
+    '%s/%s 계정은 STAFF_ONLY(403)로 거부한다',
+    async (role, accountStatus) => {
+      // Given: 학생이거나 비활성 계정이다.
+      findUnique.mockResolvedValue(
+        role === undefined && accountStatus === AccountStatus.ACTIVE
+          ? null
+          : { id: 'user-1', role, accountStatus },
+      );
+      const context = new ExecutionContextHost([{ sessionGithubId: 2002n }]);
+      context.setType('http');
 
-    // When: 교직원 전용 endpoint 접근을 시도한다.
-    const decision = guard.canActivate(context);
+      // When: 교직원 전용 endpoint 접근을 시도한다.
+      const decision = guard.canActivate(context);
 
-    // Then: 교직원 전용 오류로 거부한다.
-    await expect(decision).rejects.toMatchObject({
-      errorCode: {
-        code: MilestoneDocumentsErrorCode.STAFF_ONLY,
-        status: 403,
-      },
-    });
-  });
+      // Then: 교직원 전용 오류로 거부한다.
+      await expect(decision).rejects.toMatchObject({
+        errorCode: {
+          code: MilestoneDocumentsErrorCode.STAFF_ONLY,
+          status: 403,
+        },
+      });
+    },
+  );
 });

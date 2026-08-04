@@ -1,6 +1,9 @@
 import { ApplicationStatus, ProgramLifecycle } from '@prisma/client';
 import type { PersonalizedProgramListItem } from '../programs.service';
-import { ProgramListPageResponseDto, ProgramListResponseDto } from './program-list-response.dto';
+import {
+  ProgramListPageResponseDto,
+  ProgramListResponseDto,
+} from './program-list-response.dto';
 
 function baseItem(
   overrides: Partial<PersonalizedProgramListItem> = {},

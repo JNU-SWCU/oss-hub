@@ -45,9 +45,7 @@ describe('BoardService', () => {
         },
       ];
       const repository = buildRepository({
-        findByProgramId: jest
-          .fn()
-          .mockResolvedValue({ items, total: 1 }),
+        findByProgramId: jest.fn().mockResolvedValue({ items, total: 1 }),
       });
       const service = new BoardService(repository);
 
@@ -173,12 +171,10 @@ describe('BoardService', () => {
       const service = new BoardService(repository);
 
       // When
-      await service.createPost(
-        syntheticProgramId,
-        syntheticAuthorId,
-        false,
-        { title: '질문 제목', body: '질문 본문' },
-      );
+      await service.createPost(syntheticProgramId, syntheticAuthorId, false, {
+        title: '질문 제목',
+        body: '질문 본문',
+      });
 
       // Then
       expect(repository.create).toHaveBeenCalledWith({
@@ -361,18 +357,10 @@ describe('BoardService', () => {
       const service = new BoardService(repository);
 
       // When
-      await service.setPinned(
-        syntheticProgramId,
-        syntheticPostId,
-        true,
-        true,
-      );
+      await service.setPinned(syntheticProgramId, syntheticPostId, true, true);
 
       // Then
-      expect(repository.setPinned).toHaveBeenCalledWith(
-        syntheticPostId,
-        true,
-      );
+      expect(repository.setPinned).toHaveBeenCalledWith(syntheticPostId, true);
     });
 
     it('교직원이 아니면 STAFF_ONLY를 던지고 리포지토리를 건드리지 않는다', async () => {
@@ -446,9 +434,7 @@ describe('BoardService', () => {
       );
 
       // Then
-      expect(repository.deleteComment).toHaveBeenCalledWith(
-        syntheticCommentId,
-      );
+      expect(repository.deleteComment).toHaveBeenCalledWith(syntheticCommentId);
     });
 
     it('작성자가 아니어도 교직원이면 지운다', async () => {
@@ -473,9 +459,7 @@ describe('BoardService', () => {
       );
 
       // Then
-      expect(repository.deleteComment).toHaveBeenCalledWith(
-        syntheticCommentId,
-      );
+      expect(repository.deleteComment).toHaveBeenCalledWith(syntheticCommentId);
     });
 
     it('작성자도 교직원도 아니면 NOT_AUTHOR를 던진다', async () => {

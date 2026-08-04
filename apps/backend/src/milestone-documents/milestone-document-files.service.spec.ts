@@ -244,7 +244,9 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     const repository = buildRepository({
       createPendingFile: jest
         .fn()
-        .mockRejectedValue(new MilestoneDocumentFileRetentionUnavailableError()),
+        .mockRejectedValue(
+          new MilestoneDocumentFileRetentionUnavailableError(),
+        ),
     });
     const service = new MilestoneDocumentFilesService(
       repository,
@@ -255,7 +257,9 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     await expect(
       service.upload(1n, syntheticMilestoneId, syntheticDocumentId, pdfFile),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.FILE_RETENTION_UNAVAILABLE },
+      errorCode: {
+        code: MilestoneDocumentsErrorCode.FILE_RETENTION_UNAVAILABLE,
+      },
     });
   });
 
@@ -290,8 +294,13 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
 
   it('스토리지 업로드가 실패하면 FILE_STORAGE_UNAVAILABLE로 변환한다', async () => {
     // Given
-    const storage = buildStorage({ put: jest.fn().mockRejectedValue(new Error('s3 down')) });
-    const service = new MilestoneDocumentFilesService(buildRepository(), storage);
+    const storage = buildStorage({
+      put: jest.fn().mockRejectedValue(new Error('s3 down')),
+    });
+    const service = new MilestoneDocumentFilesService(
+      buildRepository(),
+      storage,
+    );
 
     // When / Then
     await expect(
@@ -386,7 +395,11 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
     );
 
     // When
-    await service.downloadTemplate(1n, syntheticMilestoneId, syntheticDocumentId);
+    await service.downloadTemplate(
+      1n,
+      syntheticMilestoneId,
+      syntheticDocumentId,
+    );
 
     // Then
     expect(repository.findStudentApplication).not.toHaveBeenCalled();

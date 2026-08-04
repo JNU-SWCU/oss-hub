@@ -1,4 +1,9 @@
-import { ApplicationStatus, Prisma, ProgramLifecycle, Role } from '@prisma/client';
+import {
+  ApplicationStatus,
+  Prisma,
+  ProgramLifecycle,
+  Role,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PROGRAM_LIST_QUERY_STATUSES } from './program-list-query';
 import {
@@ -344,7 +349,10 @@ describe('ProgramsRepository viewer personalization batch queries', () => {
   });
 
   it('findViewerApplicationStatuses 는 빈 programId 목록에 쿼리를 보내지 않는다', async () => {
-    const statuses = await repository.findViewerApplicationStatuses([], 'student-1');
+    const statuses = await repository.findViewerApplicationStatuses(
+      [],
+      'student-1',
+    );
 
     expect(findMany).not.toHaveBeenCalled();
     expect(statuses.size).toBe(0);
@@ -533,7 +541,9 @@ describe('ProgramsService list', () => {
     ];
     const findViewerApplicationStatuses = jest
       .fn()
-      .mockResolvedValue(new Map([['program-applied', ApplicationStatus.SUBMITTED]]));
+      .mockResolvedValue(
+        new Map([['program-applied', ApplicationStatus.SUBMITTED]]),
+      );
     const repository = {
       listPrograms: jest.fn().mockResolvedValue([items, 2]),
       findViewerApplicationStatuses,
@@ -597,9 +607,11 @@ describe('ProgramsService list', () => {
       listRecord({ id: 'program-with-pending' }),
       listRecord({ id: 'program-none' }),
     ];
-    const countApplicationsByProgram = jest.fn().mockResolvedValue(
-      new Map([['program-with-pending', { total: 3, pending: 1 }]]),
-    );
+    const countApplicationsByProgram = jest
+      .fn()
+      .mockResolvedValue(
+        new Map([['program-with-pending', { total: 3, pending: 1 }]]),
+      );
     const repository = {
       listPrograms: jest.fn().mockResolvedValue([items, 2]),
       countApplicationsByProgram,
@@ -669,7 +681,11 @@ describe('ProgramsService list', () => {
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
     );
-    const viewer = { githubId: 4n, userId: 'pending-1', role: 'PENDING' as const };
+    const viewer = {
+      githubId: 4n,
+      userId: 'pending-1',
+      role: 'PENDING' as const,
+    };
 
     const page = await service.list(
       { page: 1, pageSize: 20, search: '', status: 'all' },

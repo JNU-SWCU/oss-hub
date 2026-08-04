@@ -42,7 +42,11 @@ export type AcceptInvitationOutcome =
   | { readonly kind: 'not-pending' }
   | { readonly kind: 'already-in-team' }
   | { readonly kind: 'team-full' }
-  | { readonly kind: 'ok'; readonly teamId: string; readonly programId: string };
+  | {
+      readonly kind: 'ok';
+      readonly teamId: string;
+      readonly programId: string;
+    };
 
 export class PendingInvitationConflictError extends Error {
   override readonly name = 'PendingInvitationConflictError';
@@ -184,10 +188,7 @@ export class TeamInvitationsRepository {
 
   async findInvitationForActor(
     invitationId: string,
-  ): Promise<
-    | (TeamInvitationRecord & { readonly leaderId: string })
-    | null
-  > {
+  ): Promise<(TeamInvitationRecord & { readonly leaderId: string }) | null> {
     const invitation = await this.prisma.teamInvitation.findUnique({
       where: { id: invitationId },
       include: { team: { select: { leaderId: true } } },
@@ -212,7 +213,9 @@ export class TeamInvitationsRepository {
    * 종결"을 DECLINED 하나로 표현한다(#164 Prisma 스키마 계약). 이미 응답된
    * 초대는 count 0으로 알린다(호출자가 상태 전이 실패로 판단한다).
    */
-  async closePendingInvitationAsDeclined(invitationId: string): Promise<number> {
+  async closePendingInvitationAsDeclined(
+    invitationId: string,
+  ): Promise<number> {
     const result = await this.prisma.teamInvitation.updateMany({
       where: { id: invitationId, status: TeamInvitationStatus.PENDING },
       data: { status: TeamInvitationStatus.DECLINED, respondedAt: new Date() },
@@ -256,7 +259,10 @@ export class TeamInvitationsRepository {
 
       const existingMembership = await tx.teamMember.findUnique({
         where: {
-          programId_userId: { programId: invitation.programId, userId: inviteeId },
+          programId_userId: {
+            programId: invitation.programId,
+            userId: inviteeId,
+          },
         },
         select: { userId: true },
       });

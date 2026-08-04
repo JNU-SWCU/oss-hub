@@ -1,4 +1,9 @@
-import { MilestoneSubmissionType, Prisma, Role, SubmissionStatus } from '@prisma/client';
+import {
+  MilestoneSubmissionType,
+  Prisma,
+  Role,
+  SubmissionStatus,
+} from '@prisma/client';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.enum';
 import {
   MilestoneDocumentPendingFileMissingError,
@@ -61,7 +66,9 @@ describe('MilestoneDocumentsService.listByMilestone', () => {
     // Given
     const documents = [baseDocument()];
     const findByMilestoneId = jest.fn().mockResolvedValue(documents);
-    const repository = { findByMilestoneId } as unknown as MilestoneDocumentsRepository;
+    const repository = {
+      findByMilestoneId,
+    } as unknown as MilestoneDocumentsRepository;
     const service = new MilestoneDocumentsService(repository);
 
     // When
@@ -165,21 +172,27 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     const result = await service.listForViewer(1n, syntheticMilestoneId);
 
     // Then: 에러가 아니라 viewer 필드 없는 기본 목록만 돌려준다.
-    expect(result).toEqual([expect.objectContaining({ id: syntheticDocumentId })]);
+    expect(result).toEqual([
+      expect.objectContaining({ id: syntheticDocumentId }),
+    ]);
     expect(result[0]?.viewerSubmission).toBeUndefined();
     expect(result[0]?.teamSubmissionCount).toBeUndefined();
   });
 
   it('세션 계정을 찾지 못하면 viewer 필드 없이 기본 목록만 돌려준다', async () => {
     // Given: findActiveUser가 null(비활성/미존재 계정)을 돌려준다.
-    const repository = buildRepository({ findActiveUser: jest.fn().mockResolvedValue(null) });
+    const repository = buildRepository({
+      findActiveUser: jest.fn().mockResolvedValue(null),
+    });
     const service = new MilestoneDocumentsService(repository);
 
     // When
     const result = await service.listForViewer(1n, syntheticMilestoneId);
 
     // Then
-    expect(result).toEqual([expect.objectContaining({ id: syntheticDocumentId })]);
+    expect(result).toEqual([
+      expect.objectContaining({ id: syntheticDocumentId }),
+    ]);
     expect(result[0]?.viewerSubmission).toBeUndefined();
     expect(result[0]?.teamSubmissionCount).toBeUndefined();
   });
@@ -404,7 +417,9 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         now,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.APPLICATION_APPROVAL_REQUIRED },
+      errorCode: {
+        code: MilestoneDocumentsErrorCode.APPLICATION_APPROVAL_REQUIRED,
+      },
     });
   });
 
@@ -595,7 +610,8 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         syntheticDocumentId,
         {
           type: MilestoneSubmissionType.REPOSITORY_RELEASE,
-          releaseUrl: 'https://github.invalid/other-team/other-repo/releases/tag/v1',
+          releaseUrl:
+            'https://github.invalid/other-team/other-repo/releases/tag/v1',
         },
         now,
       ),
