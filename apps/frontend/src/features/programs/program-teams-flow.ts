@@ -6,7 +6,6 @@ import { programHref } from './program-paths';
 export type ProgramTeamsPageState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'not-found' }
-  | { readonly kind: 'individual'; readonly program: ProgramDetail }
   | { readonly kind: 'failed'; readonly message: string }
   | {
       readonly kind: 'empty';
