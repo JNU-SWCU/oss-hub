@@ -311,7 +311,9 @@ export function createApplication(
         isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
         repositoryConnectionMode,
         repositoryUrl:
-          repositoryConnectionMode === 'OWN' ? input.repositoryUrl.trim() : null,
+          repositoryConnectionMode === 'OWN'
+            ? input.repositoryUrl.trim()
+            : null,
       }),
     },
   );
