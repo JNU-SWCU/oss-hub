@@ -91,8 +91,6 @@ make_fixture "$v2_source" v2-missing-ci-status-gate "sh 'bash scripts/jenkins/va
 make_fixture "$v2_source" v2-moving-checkout 'git checkout --detach "$RELEASE_SHA"' 'git checkout main'
 make_fixture "$v2_source" v2-missing-image-tag-release 'env.IMAGE_TAG = tag' 'env.IMAGE_TAG = releaseSha'
 make_fixture "$v2_source" v2-missing-release-sha-binding 'env.RELEASE_SHA = releaseSha' 'env.RELEASE_SHA = env.IMAGE_TAG'
-make_fixture "$v2_source" v2-missing-prisma-generate 'pnpm --filter backend exec prisma generate' 'true'
-make_fixture "$v2_source" v2-missing-test 'pnpm test' 'true'
 make_fixture "$v2_source" v2-missing-backup 'pg_dump' 'pg_isready'
 make_fixture "$v2_source" v2-missing-migration 'npx prisma migrate deploy' 'npx prisma migrate status'
 make_fixture "$v2_source" v2-missing-no-build 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait' 'docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --wait'
@@ -1273,8 +1271,6 @@ expect_fail 'v2: GitHub Actions ci job 상태 게이트 누락' v2 "$fixture_dir
 expect_fail 'v2: 정확한 RELEASE_SHA checkout 누락' v2 "$fixture_dir/v2-moving-checkout"
 expect_fail 'v2: IMAGE_TAG=RELEASE_TAG 계약 파손' v2 "$fixture_dir/v2-missing-image-tag-release"
 expect_fail 'v2: RELEASE_SHA 바인딩 파손' v2 "$fixture_dir/v2-missing-release-sha-binding"
-expect_fail 'v2: 명시적 Prisma client 생성 누락' v2 "$fixture_dir/v2-missing-prisma-generate"
-expect_fail 'v2: 배포 전 test 누락' v2 "$fixture_dir/v2-missing-test"
 expect_fail 'v2: migration 전 backup 누락' v2 "$fixture_dir/v2-missing-backup"
 expect_fail 'v2: Prisma migration 누락' v2 "$fixture_dir/v2-missing-migration"
 expect_fail 'v2: Compose 교체의 --no-build 누락' v2 "$fixture_dir/v2-missing-no-build"

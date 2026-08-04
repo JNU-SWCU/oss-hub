@@ -12,29 +12,7 @@ type ProgramLoadState =
   | {
       readonly kind: 'ready';
       readonly programs: readonly LandingProgram[];
-      readonly source: 'public' | 'example';
     };
-
-const LOCAL_PROGRAM_EXAMPLE = [
-  {
-    id: 'program-capstone',
-    name: '캡스톤 2026',
-    organizer: '전남대학교 SW중심대학사업단',
-    category: 'CAPSTONE',
-    applicationEndAt: '2026-08-10T23:59:59.000+09:00',
-  },
-  {
-    id: 'program-oss-contest',
-    name: 'OSS 경진대회',
-    organizer: '전남대학교 SW중심대학사업단',
-    category: 'OSS_CONTEST',
-    applicationEndAt: '2026-08-08T23:59:59.000+09:00',
-  },
-] as const satisfies readonly LandingProgram[];
-
-function isLoopbackHostname(hostname: string): boolean {
-  return hostname === 'localhost' || hostname === '127.0.0.1';
-}
 
 function deadlineLabel(value: string): string {
   return new Intl.DateTimeFormat('ko-KR', {
@@ -42,22 +20,6 @@ function deadlineLabel(value: string): string {
     month: 'long',
     day: 'numeric',
   }).format(new Date(value));
-}
-
-export function resolveProgramLoadFailure({
-  allowLocalExamples,
-  hostname,
-}: {
-  readonly allowLocalExamples: boolean;
-  readonly hostname: string;
-}): ProgramLoadState {
-  return allowLocalExamples && isLoopbackHostname(hostname)
-    ? {
-        kind: 'ready',
-        programs: LOCAL_PROGRAM_EXAMPLE,
-        source: 'example',
-      }
-    : { kind: 'error' };
 }
 
 export function CurrentProgramSectionView({
@@ -84,11 +46,6 @@ export function CurrentProgramSectionView({
             <p className="mt-3 max-w-2xl break-keep text-sm leading-relaxed text-muted-foreground">
               공개 모집의 신청 기간과 주관 기관을 표시합니다.
             </p>
-            {state.kind === 'ready' && state.source === 'example' ? (
-              <span className="mt-3 inline-flex rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
-                로컬 예시 데이터
-              </span>
-            ) : null}
           </div>
           {/* 문장 속 링크가 아니라 섹션 머리에 홀로 선 이동 버튼이다. 글자 높이
               그대로 두면 20px이라 손가락으로 겨냥하기 어렵다 — 생김새는 그대로 두고
@@ -143,7 +100,7 @@ export function CurrentProgramSectionView({
             {state.programs.map((program) => (
               <li key={program.id}>
                 <Link
-                  href={`/programs/${program.id}`}
+                  href={`/programs/${encodeURIComponent(program.id)}`}
                   className="group grid gap-4 py-5 transition-colors motion-reduce:transition-none hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:grid-cols-[1fr_auto] sm:items-center sm:px-3"
                 >
                   <div>
@@ -171,28 +128,23 @@ export function CurrentProgramSectionView({
   );
 }
 
-export function CurrentProgramSection({
-  allowLocalExamples = false,
-}: {
-  readonly allowLocalExamples?: boolean;
-}) {
+/**
+ * 공개 API 결과만 그린다. 실패 시 예시·stub 카드로 채우지 않는다.
+ * 로컬 목록이 필요하면 부팅 시 `pnpm db:seed`로 DB를 채운다.
+ */
+export function CurrentProgramSection() {
   const [state, setState] = useState<ProgramLoadState>({ kind: 'loading' });
 
   useEffect(() => {
     let active = true;
     void loadLandingPrograms()
       .then((programs) => {
-        if (active) setState({ kind: 'ready', programs, source: 'public' });
+        if (active) setState({ kind: 'ready', programs });
       })
       .catch((error: unknown) => {
         if (error instanceof Error) {
           if (!active) return;
-          setState(
-            resolveProgramLoadFailure({
-              allowLocalExamples,
-              hostname: window.location.hostname,
-            }),
-          );
+          setState({ kind: 'error' });
           return;
         }
         throw error;
@@ -200,7 +152,7 @@ export function CurrentProgramSection({
     return () => {
       active = false;
     };
-  }, [allowLocalExamples]);
+  }, []);
 
   return <CurrentProgramSectionView state={state} />;
 }

@@ -84,9 +84,14 @@ function nonEmptyString(value: unknown): string {
   return invalidResponse();
 }
 
+/**
+ * 공개 목록·상세 경로에 쓰는 id.
+ * cuid 기본값과 로컬 seed id(`seed:intake:…`)를 모두 허용한다.
+ * `../`·`/` 같은 경로 탈출 문자는 거부한다 — href는 encodeURIComponent로 붙인다.
+ */
 function publicId(value: unknown): string {
   const parsed = nonEmptyString(value);
-  if (/^[A-Za-z0-9_-]+$/.test(parsed)) return parsed;
+  if (/^[A-Za-z0-9_:-]+$/.test(parsed)) return parsed;
   return invalidResponse();
 }
 

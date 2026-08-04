@@ -9,9 +9,8 @@
 1. GitHub 저장소의 Settings > Branches에서 main 대상 branch protection rule을 만든다.
 2. Pull request를 통한 병합을 필수로 하되 일반 PR의 사람 승인 리뷰는 required로 두지 않는다.
 3. required status checks에 정확히 `ci`와 `public-safe`를 추가하고, 최신 커밋이 두 check를 통과하도록 요구한다.
-4. #226 병합 전에는 ADR-005의 head·base full-SHA `MERGE_READY`와 high-risk 이중 accept를 수동 대조하고 admin bypass를 사용하지 않는다.
-5. #226 병합 뒤 `merge-policy`를 required status check에 추가하고 stale head·base, 잘못된 actor·증거 누락을 fail-closed로 거절하는지 dry-run한다.
-6. 설정 기록과 통과·거절 fixture 결과를 완료 증거로 보관한다.
+4. 병합 게이트는 required status check(`ci`·`public-safe`) 통과와 GitHub mergeable 상태로 고정한다 — 코멘트 기반 `MERGE_READY`·high-risk 이중 accept 수동 대조와 `merge-policy` 판정기는 second source of truth 위험 때문에 폐지했고(ADR-005 2026-08-04 변경), required check에 추가할 계획도 없다.
+5. 설정 기록을 완료 증거로 보관한다.
 
 ## M2. Jenkins Release 트리거 설정
 
@@ -98,8 +97,7 @@ migration은 자동으로 되돌리지 않는다. DB 복구가 필요하면 해�
 
 ## 완료 증거
 
-- main branch protection의 `ci`·`public-safe` 및 #226 이후 `merge-policy` required check 설정 기록
-- 일반 `MERGE_READY`, stale head·base 거절, high-risk 이중 accept 누락 거절 fixture
+- main branch protection의 required status check가 정확히 `ci`·`public-safe`인 설정 기록
 - main 검증 job과 HTTPS GitHub Actions→Jenkins Release 트리거의 분리, latest full Release·full SemVer tag·main ancestry 검증 기록
 - Jenkins pipeline의 전용 `oss-hub-production` executor, `disableConcurrentBuilds()`, 고정 `COMPOSE_PROJECT_NAME`, exact tag SHA·main ancestry 검증 기록
 - 동일·하위 Release 성공 no-op 기록
