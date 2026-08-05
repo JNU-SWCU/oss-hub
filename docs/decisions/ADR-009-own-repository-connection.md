@@ -156,10 +156,14 @@ repository(owner:$owner, name:$name) {
 | 사건 | 동작 |
 | --- | --- |
 | 가입 | 없음 — 저장소 미상 |
-| 팀 합류·신청 승인 | 그 저장소에서 해당 멤버의 **전체 이력**을 1쿼리로 채운다 |
+| 팀 합류·신청 승인 | 다음 sweep에서 그 멤버의 **전체 이력**이 채워진다(별도 트리거 불필요 — 아래) |
 | `OWN` 연결 | 그 저장소에서 본인 **전체 이력**을 1쿼리로 채운다 |
 
 `since`를 붙이지 않으므로 **가입 이후 활동만 쌓이는 것이 아니라 과거까지 한 번에 채워진다.** cost 1점이므로 소급이 저렴하다.
+
+**별도 트리거는 두지 않는다.** `collection-sync.service.ts`가 매 sweep에서 팀원 목록을 다시 읽고 팀원별로 `since` 없는 전체 이력을 받으므로, 새 팀원은 다음 sweep에서 자동으로 채워진다. 중복은 `@@unique([repositoryId, sha])`가 막는다. 증분을 쓰지 않는 이유도 같다 — 전체 이력도 1점이라 증분의 이득이 없고, 상태를 덜 들고 가는 쪽이 버그가 적다.
+
+지연은 sweep 주기와 같다(기본 1시간, `COLLECTION_CRON_EXPRESSION`으로 조정).
 
 #### 이미 있는 자산
 
@@ -204,5 +208,13 @@ Accepted가 되면 구현이 따라온다.
 
 ## Follow-ups
 
-- Accepted 후: 수집 필터 도입, 연결 방식 필드 추가 마이그레이션, `GET /repositories/me` 분기, 되돌리기 잠금 조건 한정.
+`OWN` 연결 경로와 수집 경계는 구현·병합됐다([#669](https://github.com/JNU-SWCU/oss-hub/pull/669) · [#670](https://github.com/JNU-SWCU/oss-hub/pull/670) · [#671](https://github.com/JNU-SWCU/oss-hub/pull/671) · [#674](https://github.com/JNU-SWCU/oss-hub/pull/674)). 합류 시점 백필은 sweep이 이미 처리하므로 별도 작업이 없다.
+
+남은 것:
+
 - ADR-006의 "기술적 owner = Organization" 조항에 `OWN` 예외(read-only 연결)를 명시하는 갱신.
+- 외부 기여자 수치(`전체 − 팀원합`)의 **저장 위치가 미정**이다. 현재는 구해서 로그로만 남긴다. 화면에 노출할 자리가 정해지면 그때 컬럼을 만든다 — 쓰이지 않는 컬럼을 추측으로 먼저 만들지 않는다.
+
+### 구현하며 바뀐 것
+
+**"`Repository`에 연결 방식 필드를 추가한다"는 하지 않았다.** `Application.repositoryConnectionMode`가 이미 있고 `Repository.applicationId`가 `@unique`라 조인 하나로 판정된다. 마이그레이션을 늘리지 않는 쪽이 배포가 단순하다.
