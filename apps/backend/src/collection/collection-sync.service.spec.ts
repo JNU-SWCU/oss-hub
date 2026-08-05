@@ -10,6 +10,8 @@ import { CollectionAppClientError } from './collection-app.client';
 import type {
   CollectionAppClient,
   CollectionCommit,
+  CollectionPullRequest,
+  CollectionRelease,
   CollectionRepository as ProviderRepository,
   CommitHeadProbeResult,
   CommitTraversalResult,
@@ -1235,6 +1237,13 @@ describe('CollectionSyncService — #546 트리거 결과 추적', () => {
     return box.store.streams.get(`${repoId}:${streamType}`) ?? {};
   };
 
+  // 이 describe는 prototype spy를 쓴다. 단언이 실패해 테스트 본문의 `mockRestore()`에
+  // 도달하지 못하면 그 spy가 뒤따르는 모든 테스트로 새어 나가 원인과 무관한 무더기 실패를
+  // 만든다 — 실제로 변이 검증에서 그렇게 됐다. 해제를 본문이 아니라 여기에 둔다.
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('호출자가 넘긴 runId를 그대로 결과와 lease에 쓴다', async () => {
     const { db, box } = createFakeDb();
     const client = createClient([providerRepository()]);
@@ -1279,6 +1288,41 @@ describe('CollectionSyncService — #546 트리거 결과 추적', () => {
     expect(stream.lastErrorAt).toBeInstanceOf(Date);
     // frontier/status는 실패로 되돌리지 않는다 — 다음 run이 전체 이력을 다시 훑지 않도록.
     expect(stream.status).toBe('PENDING');
+  });
+
+  /**
+   * 회귀 가드 — 팀원 목록 조회(`listRepositoryTeamMembers`)는 세 stream이 공유하지만 반드시
+   * COMMIT stream의 `trackStreamOutcome` **안**에서 일어나야 한다. 이 조회를 래퍼 밖으로 빼면
+   * 실패가 상위 catch의 로그로만 남고 stream 행은 깨끗한 채여서, 운영자가 `system-status`로
+   * "수집이 왜 멈췄는지"를 판정할 근거를 잃는다(#546 계약).
+   */
+  it('팀원 목록 조회가 실패해도 그 사실이 COMMIT stream의 lastErrorCode에 남는다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: 11n, nickname: 'alice' },
+    ]);
+    const client = createClient([repository]);
+    quietStreams(client);
+    jest
+      .spyOn(
+        CollectionIncrementalRepository.prototype,
+        'listRepositoryTeamMembers',
+      )
+      .mockRejectedValue(new Error('synthetic team member lookup failure'));
+
+    const result = await createService(db, client).run('owner-1');
+
+    expect(result.status).toBe('COMPLETED');
+    const stream = streamOf(box, 'COMMIT');
+    // provider 오류가 아니므로 종류를 특정하지 않는 고정 코드가 남는다.
+    expect(stream.lastErrorCode).toBe(DEFAULT_STREAM_ERROR_CODE);
+    expect(stream.lastErrorAt).toBeInstanceOf(Date);
+    // 실패한 저장소를 지나쳐 커서를 전진시키지 않는다.
+    expect(
+      box.store.cursors.get('1:org:synthetic-org')?.lastGithubRepositoryId ??
+        null,
+    ).toBeNull();
   });
 
   it('provider 오류 종류를 모르면 고정 코드만 남기고 원문 메시지는 담지 않는다', async () => {
@@ -1350,33 +1394,37 @@ describe('CollectionSyncService — #546 트리거 결과 추적', () => {
 });
 // 팀원 단위 author-scoped 커밋 수집 — 지표 모델의 원자 단위는 "멤버 활동"이므로 팀이 있는
 // 저장소는 저장소 전량 페이징을 쓰지 않는다. 팀을 특정할 수 없는 저장소만 기존 REST 경로다.
-describe('CollectionSyncService — 팀원 단위 author-scoped 커밋 수집', () => {
-  interface SeedMember {
-    githubId: bigint;
-    nickname: string;
-  }
+interface SeedMember {
+  githubId: bigint;
+  nickname: string;
+}
 
-  const seedOwningRepository = (
-    box: { store: Store },
-    githubRepositoryId: bigint,
-    teamId: string | null,
-    members: readonly SeedMember[] = [],
-  ): void => {
-    box.store.owningRepositories.set(repoKey(githubRepositoryId), {
-      githubRepositoryId,
+/**
+ * `Repository`(#449) 소유 행 + 그 팀의 `TeamMember`(join된 `User`) 시드. `teamId`가 null이면
+ * 팀을 특정할 수 없는 저장소가 되어 production이 저장소 전량 경로로 떨어진다.
+ */
+const seedOwningRepository = (
+  box: { store: Store },
+  githubRepositoryId: bigint,
+  teamId: string | null,
+  members: readonly SeedMember[] = [],
+): void => {
+  box.store.owningRepositories.set(repoKey(githubRepositoryId), {
+    githubRepositoryId,
+    teamId,
+  });
+  members.forEach((member, index) => {
+    const id = `${String(githubRepositoryId)}:${index}`;
+    box.store.teamMembers.set(id, {
+      id,
       teamId,
+      createdAt: new Date(Date.UTC(2026, 0, index + 1)),
+      user: { githubId: member.githubId, nickname: member.nickname },
     });
-    members.forEach((member, index) => {
-      const id = `${String(githubRepositoryId)}:${index}`;
-      box.store.teamMembers.set(id, {
-        id,
-        teamId,
-        createdAt: new Date(Date.UTC(2026, 0, index + 1)),
-        user: { githubId: member.githubId, nickname: member.nickname },
-      });
-    });
-  };
+  });
+};
 
+describe('CollectionSyncService — 팀원 단위 author-scoped 커밋 수집', () => {
   const authoredCommit = (sha: string, login: string, githubId: string) =>
     commit({ sha, authorLogin: login, authorGithubId: githubId });
 
@@ -1598,5 +1646,475 @@ describe('CollectionSyncService — 팀원 단위 author-scoped 커밋 수집', 
     expect(externalEvents()).toHaveLength(0);
     expect(box.store.commitFacts.size).toBe(2);
     logged.mockRestore();
+  });
+});
+
+/**
+ * ADR-009 «PR·릴리스는 적재 시 거른다»(#680). 커밋과 달리 PR·릴리스는 provider 쪽에
+ * author 인자가 없어 전량 받은 뒤 적재 직전에 거른다. 그래서 이 suite가 확인해야 하는
+ * 것은 두 가지다 — (1) 비팀원·작성자 불명이 fact와 집계에 남지 않는가, (2) 거르기가
+ * 커서를 망가뜨리지 않는가(다음 run이 같은 것을 다시 받지도, 건너뛰지도 않는가).
+ */
+describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터(ADR-009)', () => {
+  const MEMBER_ID = 11n;
+  const OUTSIDER_ID = '99';
+
+  const pullRequest = (
+    overrides: Partial<CollectionPullRequest> = {},
+  ): CollectionPullRequest => ({
+    id: '400',
+    number: 4,
+    state: 'open',
+    draft: false,
+    mergedAt: null,
+    createdAt: '2026-08-01T00:00:00.000Z',
+    updatedAt: '2026-08-01T00:00:00.000Z',
+    authorLogin: 'alice',
+    authorGithubId: '11',
+    htmlUrl: 'https://example.invalid/pull/4',
+    ...overrides,
+  });
+
+  const release = (
+    overrides: Partial<CollectionRelease> = {},
+  ): CollectionRelease => ({
+    id: '600',
+    tagName: 'v1.0.0',
+    name: 'v1.0.0',
+    publishedAt: '2026-08-01T00:00:00.000Z',
+    authorLogin: 'alice',
+    authorGithubId: '11',
+    htmlUrl: 'https://example.invalid/releases/v1.0.0',
+    ...overrides,
+  });
+
+  /**
+   * 실제 `CollectionAppClient.listNewPullRequests`의 계약을 그대로 흉내 내는 stub —
+   * tie frontier보다 **새로운** PR만 새 것부터 돌려주고, `newFrontier`를 자기가 돌려준
+   * 목록의 첫 항목(작성자 무관)으로 계산한다. 고정 배열을 돌려주는 mock으로는
+   * "다음 run이 같은 것을 다시 받지 않는다"를 검증할 수 없어서 이 형태가 필요하다.
+   */
+  const servePullRequests =
+    (all: readonly CollectionPullRequest[]) =>
+    (...args: unknown[]): Promise<PullRequestIncrementalResult> => {
+      const tie = args[2] as { createdAt: string; id: string } | null;
+      const newestFirst = [...all].sort((a, b) => {
+        const byCreatedAt = Date.parse(b.createdAt) - Date.parse(a.createdAt);
+        return byCreatedAt !== 0
+          ? byCreatedAt
+          : Number(BigInt(b.id) - BigInt(a.id));
+      });
+      const fresh =
+        tie === null
+          ? newestFirst
+          : newestFirst.filter((item) =>
+              Date.parse(item.createdAt) === Date.parse(tie.createdAt)
+                ? BigInt(item.id) > BigInt(tie.id)
+                : Date.parse(item.createdAt) > Date.parse(tie.createdAt),
+            );
+      return Promise.resolve({
+        pullRequests: fresh,
+        newFrontier: fresh[0]
+          ? { createdAt: fresh[0].createdAt, id: fresh[0].id }
+          : tie,
+        fingerprint: fingerprint('/repos/o/r/pulls'),
+      });
+    };
+
+  const storedPullRequestLogins = (box: { store: Store }): unknown[] =>
+    [...box.store.pullRequestFacts.values()].map(
+      (fact) => fact.authorGithubLogin,
+    );
+  const storedReleaseLogins = (box: { store: Store }): unknown[] =>
+    [...box.store.releaseFacts.values()].map((fact) => fact.authorGithubLogin);
+
+  it('팀원이 만든 PR·릴리스만 적재하고 비팀원 것은 fact에도 집계에도 남기지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: MEMBER_ID, nickname: 'alice' },
+    ]);
+    const client = createClient([repository]);
+    client.listNewPullRequests.mockResolvedValue({
+      pullRequests: [
+        pullRequest({
+          id: '401',
+          authorLogin: 'outsider',
+          authorGithubId: OUTSIDER_ID,
+        }),
+        pullRequest({ id: '400' }),
+      ],
+      newFrontier: { createdAt: '2026-08-01T00:00:00.000Z', id: '401' },
+      fingerprint: fingerprint('/repos/o/r/pulls'),
+    });
+    client.probeLatestRelease.mockResolvedValue({
+      changed: true,
+      frontier: { probe: '601:false:2026-08-01T00:00:00.000Z' },
+      fingerprint: fingerprint('/repos/o/r/releases'),
+      etag: 'etag-release-1',
+    });
+    client.listChangedPublishedReleases.mockResolvedValue({
+      releases: [
+        release({
+          id: '601',
+          authorLogin: 'outsider',
+          authorGithubId: OUTSIDER_ID,
+        }),
+        release({ id: '600' }),
+      ],
+      fingerprint: fingerprint('/repos/o/r/releases'),
+    });
+
+    await createService(db, client).run('owner-1');
+
+    expect(storedPullRequestLogins(box)).toEqual(['alice']);
+    expect(storedReleaseLogins(box)).toEqual(['alice']);
+    expect([...box.store.pullRequestFacts.values()][0]?.authorGithubId).toBe(
+      MEMBER_ID,
+    );
+    // 비팀원 식별자가 어떤 fact에도 남지 않는다 — 필드 하나만 보고 넘어가지 않도록
+    // 저장된 행 전체를 문자열로 펴서 확인한다(BigInt가 섞여 있어 JSON 대신 String).
+    const storedFacts = [
+      ...box.store.pullRequestFacts.values(),
+      ...box.store.releaseFacts.values(),
+    ]
+      .flatMap((fact) => Object.values(fact).map((value) => String(value)))
+      .join('|');
+    expect(storedFacts).not.toMatch(/outsider/);
+    expect(storedFacts).not.toMatch(/\b99\b/);
+    // facts에 안 들어갔으므로 집계도 만들어지지 않는다 — 집계 코드를 따로 손대지
+    // 않아도 되는 근거가 이것이다.
+    expect([...box.store.contributorYearAggregates.keys()]).toEqual([
+      'repo-1:11:2026',
+    ]);
+  });
+
+  it('작성자를 특정할 수 없는(authorGithubId null) PR·릴리스는 적재하지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: MEMBER_ID, nickname: 'alice' },
+    ]);
+    const client = createClient([repository]);
+    client.listNewPullRequests.mockResolvedValue({
+      pullRequests: [
+        pullRequest({ id: '402', authorLogin: null, authorGithubId: null }),
+      ],
+      newFrontier: { createdAt: '2026-08-01T00:00:00.000Z', id: '402' },
+      fingerprint: fingerprint('/repos/o/r/pulls'),
+    });
+    client.probeLatestRelease.mockResolvedValue({
+      changed: true,
+      frontier: { probe: '602:false:2026-08-01T00:00:00.000Z' },
+      fingerprint: fingerprint('/repos/o/r/releases'),
+      etag: 'etag-release-1',
+    });
+    client.listChangedPublishedReleases.mockResolvedValue({
+      releases: [
+        release({ id: '602', authorLogin: null, authorGithubId: null }),
+      ],
+      fingerprint: fingerprint('/repos/o/r/releases'),
+    });
+
+    await createService(db, client).run('owner-1');
+
+    expect(box.store.pullRequestFacts.size).toBe(0);
+    expect(box.store.releaseFacts.size).toBe(0);
+    // 그래도 stream은 READY로 전진한다 — 남길 것이 없다는 것과 아직 못 읽었다는 것은 다르다.
+    expect(box.store.streams.get('repo-1:PULL_REQUEST')?.status).toBe('READY');
+    expect(box.store.streams.get('repo-1:RELEASE')?.status).toBe('READY');
+  });
+
+  it('PR 커서는 거른 항목 위로 전진한다 — 다음 run이 같은 PR을 다시 받지 않고 새 PR만 받는다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: MEMBER_ID, nickname: 'alice' },
+    ]);
+    const client = createClient([repository]);
+    const memberOld = pullRequest({
+      id: '400',
+      createdAt: '2026-08-01T00:00:00.000Z',
+    });
+    // 가장 새 PR이 비팀원 것이다 — 거른 뒤 길이로 커서를 정하면 여기서 멈춰 버린다.
+    const outsiderNewest = pullRequest({
+      id: '401',
+      createdAt: '2026-08-02T00:00:00.000Z',
+      authorLogin: 'outsider',
+      authorGithubId: OUTSIDER_ID,
+    });
+    const served = [memberOld, outsiderNewest];
+    client.listNewPullRequests.mockImplementation(servePullRequests(served));
+
+    const service = createService(db, client);
+    await service.run('owner-1');
+
+    expect(storedPullRequestLogins(box)).toEqual(['alice']);
+    const afterFirst = box.store.streams.get('repo-1:PULL_REQUEST');
+    // 커서는 거른 항목(비팀원 최신 PR) 위에 선다.
+    expect(afterFirst?.frontierEntityId).toBe(401n);
+    expect(afterFirst?.frontierCreatedAt).toEqual(
+      new Date('2026-08-02T00:00:00.000Z'),
+    );
+
+    // 두 번째 run: 새 팀원 PR 하나가 추가됐다.
+    served.push(
+      pullRequest({ id: '402', createdAt: '2026-08-03T00:00:00.000Z' }),
+    );
+    await service.run('owner-1');
+
+    // 두 번째 호출이 받은 tie frontier가 첫 run이 세운 값 그대로다.
+    expect(client.listNewPullRequests.mock.calls[1]?.[2]).toEqual({
+      createdAt: '2026-08-02T00:00:00.000Z',
+      id: '401',
+    });
+    // 이미 지난 PR은 다시 오지 않았고(중복 없음), 새 PR은 빠짐없이 들어왔다.
+    expect(
+      [...box.store.pullRequestFacts.values()]
+        .map((fact) => String(fact.githubPullRequestId))
+        .sort(),
+    ).toEqual(['400', '402']);
+    expect(box.store.streams.get('repo-1:PULL_REQUEST')?.frontierEntityId).toBe(
+      402n,
+    );
+  });
+
+  /**
+   * 가장 위험한 경계 — 이미 READY(=`tieFrontier !== null`)인 stream이 받은 페이지가 **전부**
+   * 제3자인 경우. 조기 반환이 거른 **뒤** 길이를 보면 frontier가 제자리에 멈춰 매 run 같은
+   * 페이지를 영원히 다시 받는다. 혼합 페이지 테스트로는 이 결함이 살아남는다(팀원 것이 하나라도
+   * 있으면 거른 뒤 길이가 0이 아니라 조기 반환에 걸리지 않기 때문).
+   */
+  it('READY stream이 받은 페이지가 전부 비팀원이어도 커서가 전진한다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: MEMBER_ID, nickname: 'alice' },
+    ]);
+    const client = createClient([repository]);
+    const memberSeed = pullRequest({
+      id: '400',
+      createdAt: '2026-08-01T00:00:00.000Z',
+    });
+    const served = [memberSeed];
+    client.listNewPullRequests.mockImplementation(servePullRequests(served));
+
+    const service = createService(db, client);
+    // 1회차: 팀원 PR 하나로 stream을 READY + frontier 있는 상태로 만든다.
+    await service.run('owner-1');
+    expect(box.store.streams.get('repo-1:PULL_REQUEST')?.frontierEntityId).toBe(
+      400n,
+    );
+
+    // 2회차: 이번 페이지는 전부 비팀원이다.
+    served.push(
+      pullRequest({
+        id: '401',
+        createdAt: '2026-08-02T00:00:00.000Z',
+        authorLogin: 'outsider',
+        authorGithubId: OUTSIDER_ID,
+      }),
+      pullRequest({
+        id: '402',
+        createdAt: '2026-08-03T00:00:00.000Z',
+        authorLogin: 'outsider2',
+        authorGithubId: '98',
+      }),
+    );
+    await service.run('owner-1');
+
+    // 아무것도 적재되지 않았지만 커서는 그 페이지 너머로 전진한다.
+    expect(storedPullRequestLogins(box)).toEqual(['alice']);
+    expect(box.store.streams.get('repo-1:PULL_REQUEST')?.frontierEntityId).toBe(
+      402n,
+    );
+
+    // 3회차: 전진한 커서 덕에 이미 본 비팀원 PR을 다시 요청하지 않고, 새 팀원 PR만 들어온다.
+    served.push(
+      pullRequest({ id: '403', createdAt: '2026-08-04T00:00:00.000Z' }),
+    );
+    await service.run('owner-1');
+
+    expect(client.listNewPullRequests.mock.calls[2]?.[2]).toEqual({
+      createdAt: '2026-08-03T00:00:00.000Z',
+      id: '402',
+    });
+    expect(
+      [...box.store.pullRequestFacts.values()]
+        .map((fact) => String(fact.githubPullRequestId))
+        .sort(),
+    ).toEqual(['400', '403']);
+  });
+
+  it('릴리스 frontierSha는 목록이 아니라 probe가 준 값이다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: MEMBER_ID, nickname: 'alice' },
+    ]);
+    const client = createClient([repository]);
+    client.probeLatestRelease.mockResolvedValue({
+      changed: true,
+      frontier: { probe: '699:false:2026-08-09T00:00:00.000Z' },
+      fingerprint: fingerprint('/repos/o/r/releases'),
+      etag: 'etag-release-probe',
+    });
+    // 목록에는 probe가 본 릴리스(699)가 아예 없고, 있는 것은 전부 비팀원 것이다.
+    client.listChangedPublishedReleases.mockResolvedValue({
+      releases: [
+        release({
+          id: '601',
+          authorLogin: 'outsider',
+          authorGithubId: OUTSIDER_ID,
+        }),
+      ],
+      fingerprint: fingerprint('/repos/o/r/releases'),
+    });
+
+    await createService(db, client).run('owner-1');
+
+    const stream = box.store.streams.get('repo-1:RELEASE');
+    // 거른 목록이 frontier에 끼어들지 않는다 — 값은 probe 응답 그대로다.
+    expect(stream?.frontierSha).toBe('699:false:2026-08-09T00:00:00.000Z');
+    expect(stream?.etag).toBe('etag-release-probe');
+    expect(box.store.releaseFacts.size).toBe(0);
+  });
+
+  it('릴리스를 전부 걸러도 ETag가 전진해 다음 run이 목록을 다시 받지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: MEMBER_ID, nickname: 'alice' },
+    ]);
+    const client = createClient([repository]);
+    client.probeLatestRelease
+      .mockResolvedValueOnce({
+        changed: true,
+        frontier: { probe: '601:false:2026-08-01T00:00:00.000Z' },
+        fingerprint: fingerprint('/repos/o/r/releases'),
+        etag: 'etag-release-1',
+      })
+      // 두 번째 run은 위 ETag로 조건부 요청해 304를 받는다.
+      .mockResolvedValueOnce({
+        changed: false,
+        fingerprint: fingerprint('/repos/o/r/releases'),
+        etag: 'etag-release-1',
+      });
+    client.listChangedPublishedReleases.mockResolvedValue({
+      releases: [
+        release({
+          id: '601',
+          authorLogin: 'outsider',
+          authorGithubId: OUTSIDER_ID,
+        }),
+      ],
+      fingerprint: fingerprint('/repos/o/r/releases'),
+    });
+
+    const service = createService(db, client);
+    await service.run('owner-1');
+    await service.run('owner-1');
+
+    expect(box.store.releaseFacts.size).toBe(0);
+    expect(box.store.streams.get('repo-1:RELEASE')?.etag).toBe(
+      'etag-release-1',
+    );
+    // 두 번째 probe가 첫 run의 ETag를 그대로 들고 갔고, 목록 호출은 늘지 않았다.
+    expect(client.probeLatestRelease.mock.calls[1]?.[2]).toBe('etag-release-1');
+    expect(client.listChangedPublishedReleases).toHaveBeenCalledTimes(1);
+  });
+
+  it('나중에 합류한 팀원의 과거 릴리스는 다음 변경 sweep에 들어온다(PR은 커서 아래라 들어오지 않는다)', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: MEMBER_ID, nickname: 'alice' },
+    ]);
+    const client = createClient([repository]);
+    const carolPullRequest = pullRequest({
+      id: '410',
+      createdAt: '2026-07-01T00:00:00.000Z',
+      authorLogin: 'carol',
+      authorGithubId: '33',
+    });
+    client.listNewPullRequests.mockImplementation(
+      servePullRequests([carolPullRequest]),
+    );
+    client.probeLatestRelease.mockResolvedValue({
+      changed: true,
+      frontier: { probe: '610:false:2026-07-01T00:00:00.000Z' },
+      fingerprint: fingerprint('/repos/o/r/releases'),
+      etag: null,
+    });
+    client.listChangedPublishedReleases.mockResolvedValue({
+      releases: [
+        release({
+          id: '610',
+          publishedAt: '2026-07-01T00:00:00.000Z',
+          authorLogin: 'carol',
+          authorGithubId: '33',
+        }),
+      ],
+      fingerprint: fingerprint('/repos/o/r/releases'),
+    });
+
+    const service = createService(db, client);
+    await service.run('owner-1');
+    expect(box.store.pullRequestFacts.size).toBe(0);
+    expect(box.store.releaseFacts.size).toBe(0);
+
+    // carol이 팀에 합류한다.
+    box.store.teamMembers.set('later', {
+      id: 'later',
+      teamId: 'team-1',
+      createdAt: new Date(Date.UTC(2026, 6, 15)),
+      user: { githubId: 33n, nickname: 'carol' },
+    });
+    await service.run('owner-1');
+
+    // 릴리스는 매번 전량을 다시 받으므로 합류 후 sweep에서 그대로 채워진다.
+    expect(storedReleaseLogins(box)).toEqual(['carol']);
+    // PR은 커서가 이미 그 위로 지나가 다시 오지 않는다 — 현재 계약을 명시적으로 고정한다.
+    // (커밋 경로가 #678에서 얻은 백필 성질이 PR에는 성립하지 않는다. 후속 과제.)
+    expect(box.store.pullRequestFacts.size).toBe(0);
+  });
+
+  it('팀을 특정할 수 없는 저장소는 종전대로 작성자를 가리지 않고 적재한다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    // 소유 `Repository` 행이 아예 없다 — `listRepositoryTeamMembers`가 null을 준다.
+    const client = createClient([repository]);
+    client.listNewPullRequests.mockResolvedValue({
+      pullRequests: [
+        pullRequest({
+          id: '401',
+          authorLogin: 'outsider',
+          authorGithubId: OUTSIDER_ID,
+        }),
+      ],
+      newFrontier: { createdAt: '2026-08-01T00:00:00.000Z', id: '401' },
+      fingerprint: fingerprint('/repos/o/r/pulls'),
+    });
+    client.probeLatestRelease.mockResolvedValue({
+      changed: true,
+      frontier: { probe: '601:false:2026-08-01T00:00:00.000Z' },
+      fingerprint: fingerprint('/repos/o/r/releases'),
+      etag: 'etag-release-1',
+    });
+    client.listChangedPublishedReleases.mockResolvedValue({
+      releases: [
+        release({
+          id: '601',
+          authorLogin: 'outsider',
+          authorGithubId: OUTSIDER_ID,
+        }),
+      ],
+      fingerprint: fingerprint('/repos/o/r/releases'),
+    });
+
+    await createService(db, client).run('owner-1');
+
+    expect(storedPullRequestLogins(box)).toEqual(['outsider']);
+    expect(storedReleaseLogins(box)).toEqual(['outsider']);
   });
 });
