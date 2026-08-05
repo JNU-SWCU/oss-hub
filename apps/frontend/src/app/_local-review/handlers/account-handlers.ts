@@ -338,6 +338,25 @@ const PENDING_STAFF_ROLE_REQUEST = {
 } as const satisfies RoleRequest;
 
 /**
+ * 반려된 교직원 요청(#673).
+ *
+ * 이 픽스처가 없어서 검토자가 반려 상태에 **서 볼 수 없었다.** 사유를 그리는
+ * 컴포넌트는 단위 테스트가 직접 렌더해 늘 통과했고, 검토판에는 `PENDING` 하나뿐이라
+ * 아무도 "사유가 신청자 눈에 닿는가"를 확인할 자리가 없었다.
+ *
+ * 사유는 **관리자가 실제로 쓸 법한 길이의 여러 줄**로 둔다. 한 단어짜리로 두면
+ * 줄바꿈·줄 간격·상자 폭이 검토되지 않아, 정작 실전에서 처음 깨진다.
+ */
+const REJECTED_STAFF_ROLE_REQUEST = {
+  requestedRole: 'STAFF',
+  status: 'REJECTED',
+  requestedAt: '2026-07-30T02:00:00.000Z',
+  decidedAt: '2026-07-31T05:00:00.000Z',
+  rejectionReason:
+    '합성 반려 사유입니다. 소속 학과와 담당 업무가 확인되지 않았습니다.\n학과 사무실을 통해 소속을 확인한 뒤 다시 신청해 주세요.',
+} as const satisfies RoleRequest;
+
+/**
  * 가입을 마쳤는가 — 고른 역할이 확정될 조건을 갖췄는가.
  *
  * 실물은 프로필이 **완료 저장되는 순간** 확정한다(#569, 백엔드
@@ -444,9 +463,12 @@ function myRepositoriesHandler(
  * 아무도 도달하지 못한다. 동의를 마친 것으로 응답해야 ConsentFlow가 `nextUrl`로
  * 빠져나가고, 프로필이 완성(`isComplete: true`)이라 OnboardingGate가
  * `role-requests/me`의 `PENDING`을 보고 `/onboarding/pending`으로 이어 준다.
+ *
+ * `role-rejected`도 같은 이유로 함께 넣는다. 그쪽은 이미 가입을 마치고 반려까지
+ * 받은 사람이라 약관에서 멈추면 정작 볼 화면(반려 안내가 선 역할 선택)에 닿지 못한다.
  */
 function currentConsentFor(fixture: LocalReviewFixtureId) {
-  return fixture === 'role-pending'
+  return fixture === 'role-pending' || fixture === 'role-rejected'
     ? { ...CURRENT_CONSENT_FIXTURE, consented: true }
     : CURRENT_CONSENT_FIXTURE;
 }
@@ -494,6 +516,11 @@ function reviewProfileRole(fixture: LocalReviewFixtureId): ProfileRole | null {
  * 여기서도 같은 값을 준다 — 역할이 이미 붙은 페르소나는 `roleForFixture`가 답하므로
  * 이 함수가 실제로 답할 것은 승인 대기 교직원뿐이다. 관리자는 역할 선택 화면에 없는
  * 값이라 backfill에서도 빠진다.
+ *
+ * **반려(`role-rejected`)는 `null`이다.** 그 마이그레이션이 반려·회수를 backfill에서
+ * 명시적으로 제외했기 때문이다 — 살아 있지 않은 신청은 "고른 역할"로 세지 않는다.
+ * 그래서 반려된 검토자의 역할 선택 화면은 아무 카드도 고르지 않은 상태로 뜨고,
+ * 위에는 반려 안내가 선다. 실물에서 옛 반려 건이 보이는 모습과 같다.
  */
 function reviewFixedSelectedRole(
   fixture: LocalReviewFixtureId,
@@ -658,14 +685,18 @@ function onboardingRoleHandler(
 
 /**
  * 내 역할 요청 상태. 이 응답이 온보딩의 갈림길을 정한다 —
- * `null`이면 역할 선택 화면으로, `PENDING`이면 승인 대기 화면으로 간다.
- * 그래서 대기 화면을 검토하려면 `role-pending` 페르소나가 필요하다.
+ * `null`이면 역할 선택 화면으로, `PENDING`이면 승인 대기 화면으로,
+ * `REJECTED`면 다시 역할 선택 화면으로 간다(#535). 그래서 대기 화면을 검토하려면
+ * `role-pending`이, 반려 안내를 검토하려면 `role-rejected` 페르소나가 필요하다.
  */
 function myRoleRequestHandler(
   context: LocalReviewContext,
 ): LocalReviewResponsePlan | null {
   if (matchGet(context, 'role-requests/me') === null) return null;
   if (!context.isAuthenticated) return unauthorized(context.path);
+  if (context.fixture === 'role-rejected') {
+    return json(200, REJECTED_STAFF_ROLE_REQUEST);
+  }
   // 교직원을 **골랐다는 것만으로는** 요청이 생기지 않는다 — 프로필을 마쳐야 생긴다
   // (#569). 고르자마자 PENDING을 주면 검토자가 "미완성 신청이 대기줄에 올라오지
   // 않는다"를 확인할 수 없고, 프로필 화면의 되돌아가기 링크도 사라진다.

@@ -449,8 +449,11 @@ function sessionResponse(
         reviewSessionProfileComplete(),
       );
     // 역할 승인 대기는 승인 전까지 역할이 없는 것이 정상이다. 프로필은 이미 채운
-    // 상태라 차이는 role-requests/me 응답뿐이다.
+    // 상태라 차이는 role-requests/me 응답뿐이다. 반려도 같다 — 세션은 구별되지
+    // 않고 역할 요청 응답만 다르므로(`handlers/account-handlers.ts`) 여기서 갈리지
+    // 않는다.
     case 'role-pending':
+    case 'role-rejected':
       return authenticatedSession(null, true);
     case 'loading':
       return { kind: 'delay', milliseconds: 60_000 };
