@@ -33,6 +33,13 @@ export const ADMIN_ACCESS_USER_SELECT = {
   githubId: true,
   nickname: true,
   role: true,
+  /**
+   * 확정 전 프로필 판정의 세 번째 근거 — 관리자 화면도 같은 근거를 봐야 한다(#184).
+   *
+   * 스칼라 컬럼이라 아래 `roleRequests`·`loginHistories`처럼 "첫 행"의 의미를 만드는
+   * 관계 select와 성질이 다르다. 이 값을 더한다고 그 배열들의 내용이 달라지지 않는다.
+   */
+  selectedRole: true,
   accountStatus: true,
   ...COMPATIBLE_PROFILE_SELECT,
   roleRequests: {
@@ -194,6 +201,21 @@ function toAdminAccessUserDetailRecord(
  * 같다 — `roleRequests`를 PENDING만 골라 오고(`ADMIN_ACCESS_USER_SELECT`) 그 존재
  * 여부를 그대로 쓴다. 승인된(APPROVED) 요청은 이미 `role`에 STAFF가 붙으므로 별도
  * 취급이 필요 없다. 판정 규칙 자체(`user-profile-policy.ts`)는 그대로 둔다.
+ *
+ * ## 고른 역할도 함께 넘긴다 (#184)
+ *
+ * 예전에는 근거를 둘만 넘겼다(`role`·`hasPendingStaffRequest`). 확정을 `가입 마치기`로
+ * 미룬 뒤(#569) 셋째 근거가 생겼는데(`selectedRole`) 여기만 그것을 모르고 있었고,
+ * **회수된 교직원이 정확히 그 셋에 하나도 걸리지 않는 사람**이다: `role`은 비었고, 살아
+ * 있는 요청도 없으며, 남은 근거는 고른 역할뿐이다. 넘기지 않으면 학생 기준으로 떨어져
+ * 학번 없는 그의 프로필이 미완료로 뜬다 — 본인 화면(`users.repository.ts`)은 완료로
+ * 보여 주는데 관리자 화면만 미완료다. **같은 사람이 두 화면에서 다르게 보이면 그것은
+ * 계약이 아니다.**
+ *
+ * 승인 게이트가 느슨해지지는 않는다. `requiresCompleteProfile`은 요청을 승인하는 전이
+ * 하나에만 붙고(`admin-access-transition-table.ts`), 그 전이는 PENDING 요청이 있어야
+ * 성립한다 — 그런 사용자는 둘째 근거로 이미 교직원 기준을 받고 있었다. 셋째 근거가
+ * 답을 바꾸는 대상은 **승인 게이트를 지나지 않는 사람들뿐**이다.
  */
 function isCompleteAdminAccessProfile(
   user: PrismaAdminAccessUser,
@@ -204,6 +226,7 @@ function isCompleteAdminAccessProfile(
     ...profile,
     role: user.role,
     hasPendingStaffRequest: user.roleRequests.length > 0,
+    selectedRole: user.selectedRole,
   });
 }
 
