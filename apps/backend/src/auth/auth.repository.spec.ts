@@ -1,4 +1,10 @@
-import { AccountStatus, Role, User as PrismaUser } from '@prisma/client';
+import { Logger } from '@nestjs/common';
+import {
+  AccountStatus,
+  Role,
+  RoleRequestStatus,
+  User as PrismaUser,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { AuthConfig } from './auth.config';
@@ -60,6 +66,7 @@ function buildRepository(
     isNew?: boolean;
     casCount?: number;
     pendingRequest?: { id: string } | null;
+    revokedRequest?: { id: string } | null;
     pendingTransitionCount?: number;
   } = {},
 ) {
@@ -68,10 +75,24 @@ function buildRepository(
     .mockResolvedValue({ count: options.isNew ? 1 : 0 });
   const findUniqueOrThrow = jest.fn().mockResolvedValue(row);
   const update = jest.fn().mockResolvedValue(row);
-  const updateMany = jest
-    .fn()
-    .mockResolvedValue({ count: options.casCount ?? 1 });
-  const findFirst = jest.fn().mockResolvedValue(options.pendingRequest ?? null);
+  const updateMany = jest.fn<
+    Promise<{ count: number }>,
+    [{ where: Record<string, unknown>; data: Record<string, unknown> }]
+  >();
+  updateMany.mockResolvedValue({ count: options.casCount ?? 1 });
+  // 같은 findFirst가 두 가지를 조회한다 — 시드가 전이할 PENDING 신청과,
+  // 시드가 적용되지 않은 이유를 가르는 REVOKED 이력이다. status로 갈라 준다.
+  const findFirst = jest.fn<
+    Promise<{ id: string } | null>,
+    [{ where: { status?: RoleRequestStatus } }]
+  >();
+  findFirst.mockImplementation((args) =>
+    Promise.resolve(
+      args.where.status === RoleRequestStatus.REVOKED
+        ? (options.revokedRequest ?? null)
+        : (options.pendingRequest ?? null),
+    ),
+  );
   const roleRequestUpdate = jest.fn().mockResolvedValue({});
   const roleRequestUpdateMany = jest.fn<
     Promise<{ count: number }>,
@@ -165,10 +186,69 @@ describe('AuthRepository.upsertUser', () => {
         id: 'cuid-synthetic',
         accountStatus: AccountStatus.ACTIVE,
         role: null,
+        roleRequests: { none: { status: RoleRequestStatus.REVOKED } },
       },
       data: { role: Role.ADMIN },
     });
     expect(promoted.role).toBe(Role.ADMIN);
+  });
+
+  it('회수 이력이 있는 계정은 조건부 갱신에서 제외한다', async () => {
+    // 회수는 role을 비우므로 회수된 사람도 `role: null` 조건을 만족한다.
+    // 시드가 그를 다시 승격하지 못하게 막는 것은 이 관계 조건뿐이라,
+    // 조건이 조용히 빠지면 회수가 로그인 한 번으로 되돌아간다.
+    const { repository, updateMany } = buildRepository(buildRow(), Role.STAFF);
+
+    await upsertUser(repository, buildProfile());
+
+    const promoteArgs = updateMany.mock.calls[0]?.[0];
+    expect(promoteArgs?.where).toMatchObject({
+      roleRequests: { none: { status: RoleRequestStatus.REVOKED } },
+    });
+  });
+
+  it('회수된 계정이라 시드가 적용되지 않은 것은 경고가 아니라 debug로 남긴다', async () => {
+    // 회수된 계정은 role이 영구히 null이라 로그인마다 이 경로에 들어온다.
+    // 설계대로 막히는 정상 상태를 warn으로 올리면 로그가 그 한 사람으로 차서
+    // 아래 CAS 경합 경고가 묻힌다.
+    const warn = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
+    const debug = jest
+      .spyOn(Logger.prototype, 'debug')
+      .mockImplementation(() => undefined);
+    const { repository } = buildRepository(buildRow(), Role.STAFF, {
+      casCount: 0,
+      revokedRequest: { id: 'revoked-request' },
+    });
+
+    await upsertUser(repository, buildProfile());
+
+    expect(debug).toHaveBeenCalledWith(expect.stringContaining('회수된 계정'));
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+    debug.mockRestore();
+  });
+
+  it('회수 이력 없이 시드가 적용되지 않은 것은 CAS 경합이라 경고로 남긴다', async () => {
+    const warn = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
+    const debug = jest
+      .spyOn(Logger.prototype, 'debug')
+      .mockImplementation(() => undefined);
+    const { repository } = buildRepository(buildRow(), Role.STAFF, {
+      casCount: 0,
+    });
+
+    await upsertUser(repository, buildProfile());
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('다른 트랜잭션이 먼저 역할을 정했다'),
+    );
+    expect(debug).not.toHaveBeenCalled();
+    warn.mockRestore();
+    debug.mockRestore();
   });
 
   it('CAS 경쟁에서 갱신하지 못하면 역할 요청 부수효과도 만들지 않는다', async () => {
