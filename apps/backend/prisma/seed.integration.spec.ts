@@ -7,11 +7,21 @@ import {
   RepositoryVisibility,
   ReviewDecision,
   Role,
+  RoleRequestStatus,
   SubmissionStatus,
 } from '@prisma/client';
 import { runProfile } from './seed';
 import { AUTH_SCENARIOS } from './seeds/auth';
-import { prisma, seedId, SeedStats, upsertSeedUser } from './seeds/helpers';
+import {
+  prisma,
+  seedGithubId,
+  seedId,
+  SeedStats,
+  upsertSeedUser,
+} from './seeds/helpers';
+import { AuthConfig } from '../src/auth/auth.config';
+import { AuthRepository } from '../src/auth/auth.repository';
+import { PrismaService } from '../src/prisma/prisma.service';
 import { CONSENT_POLICY_VERSION } from '../src/consents/domain/consent-policy';
 import { resolveCompatibleProfile } from '../src/profiles/profile-compatibility';
 import { isCompleteUserProfile } from '../src/users/user-profile-policy';
@@ -30,6 +40,9 @@ const profileCompleteUserId = AUTH_SCENARIOS['profile-complete'];
 const staffPendingUserId = AUTH_SCENARIOS['staff-pending'];
 const staffRejectedUserId = AUTH_SCENARIOS['staff-rejected'];
 const staffRevokedUserId = AUTH_SCENARIOS['staff-revoked'];
+const staffRevocableUserId = AUTH_SCENARIOS['staff-revocable'];
+const adminConfirmedUserId = AUTH_SCENARIOS['admin-confirmed'];
+const adminSecondUserId = AUTH_SCENARIOS['admin-second'];
 // displayName(4번째 세그먼트)은 합성 fixture 이름만 쓴다 — 실명은 절대 넣지 않는다.
 const OSS_HUB_TEAM_ACCOUNTS = [
   '9800000000000001:seed-operator-alpha:ADMIN:시드운영자알파',
@@ -914,6 +927,109 @@ describe('issue-99 auth seed contract', () => {
         role: Role.STAFF,
         accountStatus: AccountStatus.DEACTIVATED,
       });
+    },
+    SEED_RUN_TIMEOUT_MS,
+  );
+});
+
+/**
+ * #184 관리자 승인·거절·회수 e2e가 쓸 페르소나의 계약.
+ *
+ * 판정을 이 파일에서 다시 계산하지 않고 **실제 로그인 경로**(`AuthRepository.findByGithubId`
+ * → `toDomain` → `isCompleteProfileFields`)로 확인한다. 세션이 실어 보내는 그 값이 곧
+ * `role-gate.tsx`가 화면을 열지 말지 정하는 근거라서, 이름이 채워졌는지만 보면 게이트가
+ * 실제로 열리는지는 여전히 모른다.
+ */
+describe('#184 관리자 e2e 페르소나 (integration)', () => {
+  const authPrisma = new PrismaService();
+  // findByGithubId는 초기 역할 시드를 쓰지 않는다(upsertUser 경로 전용).
+  const authRepository = new AuthRepository(authPrisma, {
+    resolveInitialRole: () => null,
+  } as unknown as AuthConfig);
+
+  beforeAll(async () => {
+    await prisma.$connect();
+    await authPrisma.$connect();
+  }, DATABASE_CONNECTION_TIMEOUT_MS);
+
+  afterAll(async () => {
+    await authPrisma.$disconnect();
+    await prisma.$disconnect();
+  });
+
+  it(
+    '관리자 두 명은 실제 로그인 경로에서 프로필 완료로 판정된다',
+    async () => {
+      // Given & When: auth profile을 두 번 실행한다(멱등 무회귀도 같이 본다).
+      await runProfile('auth', new SeedStats());
+      await runProfile('auth', new SeedStats());
+
+      // Then: 세션이 싣는 값 자체가 완료여야 관리자 화면이 열린다.
+      const [admin, adminSecond] = await Promise.all([
+        authRepository.findByGithubId(seedGithubId(adminConfirmedUserId)),
+        authRepository.findByGithubId(seedGithubId(adminSecondUserId)),
+      ]);
+
+      expect(admin?.id).toBe(adminConfirmedUserId);
+      expect(admin?.role).toBe(Role.ADMIN);
+      expect(admin?.accountStatus).toBe(AccountStatus.ACTIVE);
+      expect(admin?.isProfileComplete).toBe(true);
+
+      expect(adminSecond?.id).toBe(adminSecondUserId);
+      expect(adminSecond?.role).toBe(Role.ADMIN);
+      expect(adminSecond?.accountStatus).toBe(AccountStatus.ACTIVE);
+      expect(adminSecond?.isProfileComplete).toBe(true);
+
+      // 결정 이력의 `decidedBy`가 두 사람을 구분하려면 이름이 서로 달라야 한다.
+      const [adminRow, adminSecondRow] = await Promise.all([
+        prisma.user.findUniqueOrThrow({ where: { id: adminConfirmedUserId } }),
+        prisma.user.findUniqueOrThrow({ where: { id: adminSecondUserId } }),
+      ]);
+      expect(adminRow.name).toBe('합성 관리자');
+      expect(adminSecondRow.name).toBe('합성 두 번째 관리자');
+
+      // ADMIN은 학번·학과를 요구하지 않는다 — 학과만 채우면 backfill이 거부한다.
+      expect(adminRow.studentId).toBeNull();
+      expect(adminRow.department).toBeNull();
+      const adminProfileRowCount = await prisma.userProfile.count({
+        where: { userId: { in: [adminConfirmedUserId, adminSecondUserId] } },
+      });
+      expect(adminProfileRowCount).toBe(0);
+    },
+    SEED_RUN_TIMEOUT_MS,
+  );
+
+  it(
+    'staff-revocable은 회수를 누를 수 있는 ACTIVE·STAFF·승인 완료 상태다',
+    async () => {
+      // Given & When
+      await runProfile('auth', new SeedStats());
+
+      // Then: 로그인이 되고(ACTIVE) 화면이 열려야(프로필 완료) 회수 직후 화면을 볼 수 있다.
+      const revocable = await authRepository.findByGithubId(
+        seedGithubId(staffRevocableUserId),
+      );
+      expect(revocable?.id).toBe(staffRevocableUserId);
+      expect(revocable?.role).toBe(Role.STAFF);
+      expect(revocable?.accountStatus).toBe(AccountStatus.ACTIVE);
+      expect(revocable?.isProfileComplete).toBe(true);
+
+      // And: 회수의 출발점인 APPROVED 요청이 정확히 하나 있고 REVOKED 행은 아직 없다.
+      const requests = await prisma.roleRequest.findMany({
+        where: { userId: staffRevocableUserId },
+        orderBy: { createdAt: 'asc' },
+      });
+      expect(requests.length).toBe(1);
+      expect(requests[0]?.status).toBe(RoleRequestStatus.APPROVED);
+      expect(requests[0]?.decidedById).toBe(adminConfirmedUserId);
+
+      // And: 기존 회수 페르소나는 그대로다 — 로그인 자체가 막히는 상태를 쓰는
+      // 다른 시나리오가 그것에 기대고 있다(#187, #188).
+      const revoked = await prisma.user.findUniqueOrThrow({
+        where: { id: staffRevokedUserId },
+      });
+      expect(revoked.accountStatus).toBe(AccountStatus.DEACTIVATED);
+      expect(revoked.role).toBe(Role.STAFF);
     },
     SEED_RUN_TIMEOUT_MS,
   );
