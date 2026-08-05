@@ -186,7 +186,7 @@ stat -c '%a %U %G %n' /var/lib/oss-hub/backups
 
 첫 Release e2e 전에 [pre-deploy-verify](./pre-deploy-verify.md)의 ① 로컬 랩탑 검증과 ② 배포 EC2 서버-로컬 드라이런을 순서대로 통과시킨다. 앞 단계가 통과해야 다음으로 넘어간다.
 
-- 검증: ②에서 배포 EC2 서버-로컬로 이미지 빌드 + `docker compose up` + `http://127.0.0.1:8081/`·`/api/v1/health` 200과 제출 파일 업로드 경로 403 smoke가 1회 성공.
+- 검증: ②에서 배포 EC2 서버-로컬로 이미지 빌드 + `docker compose up` + `http://127.0.0.1:8081/`·`/api/v1/health` 200과 제출 파일 업로드 경로 smoke가 1회 성공. 업로드 기대값은 여기에 복사하지 않는다 — [pre-deploy-verify](./pre-deploy-verify.md) ②의 표가 원본이고 그 표의 원본은 `Jenkinsfile`의 rollout smoke다.
 
 ## M7. 첫 Release 수동 트리거 e2e
 
@@ -194,15 +194,14 @@ stat -c '%a %U %G %n' /var/lib/oss-hub/backups
 2. M4 job을 파라미터 없이 수동 트리거한다.
 3. 파이프라인이 순서대로 수행되는지 콘솔 로그로 확인한다: exact SHA detached checkout → build/test → PostgreSQL 기동 + `pg_dump` 백업 → front/back 이미지 서버 로컬 빌드 → `prisma migrate deploy` → `up -d --no-build --wait` → loopback Compose ingress smoke → 공인 IP TLS smoke.
 
-- 예상 출력: loopback·TLS `/`·`/api/v1/health`가 HTTP 200, 제출 파일 업로드 경로가 HTTP 403이고 frontend·backend 이미지의 OCI version은 Release tag, revision은 exact 40-hex SHA다.
+- 예상 출력: loopback·TLS `/`·`/api/v1/health`가 HTTP 200, 제출 파일 업로드 경로가 [pre-deploy-verify](./pre-deploy-verify.md) ②의 기대값과 같고 frontend·backend 이미지의 OCI version은 Release tag, revision은 exact 40-hex SHA다.
 - 검증:
 
 ```sh
 docker compose --env-file "$OSS_HUB_ENV_FILE" ps
 curl -fsS http://127.0.0.1:8081/            > /dev/null && echo "root OK"
 curl -fsS http://127.0.0.1:8081/api/v1/health > /dev/null && echo "health OK"
-# 업로드 차단은 성공 코드가 아니므로 -f 없이 상태 코드를 직접 읽는다.
-curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8081/api/v1/submission-files  # 403
+# 업로드 경로 5종은 pre-deploy-verify ②의 명령을 그대로 쓴다 — 기대값을 여기 복사하면 갈라진다.
 # 공인 TLS smoke는 host nginx·인증서 계약이 준비된 뒤에 Jenkinsfile과 동일 경로로 확인한다.
 ```
 

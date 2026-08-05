@@ -8,6 +8,9 @@ describe('AdminAccessRepository transaction store', () => {
     const operations: string[] = [];
     const updateUser = jest.fn().mockResolvedValue({ count: 1 });
     const updateRequest = jest.fn().mockResolvedValue({ count: 1 });
+    const createRequest = jest
+      .fn()
+      .mockResolvedValue({ id: 'request-revoked' });
     const transaction = {
       $queryRaw: <T>(query: unknown): Promise<T> => {
         const sql = sqlText(query);
@@ -33,7 +36,10 @@ describe('AdminAccessRepository transaction store', () => {
         }),
         updateMany: updateUser,
       },
-      roleRequest: { updateMany: updateRequest },
+      roleRequest: {
+        updateMany: updateRequest,
+        create: createRequest,
+      },
       auditLog: { create: jest.fn() },
     };
     const repository = new AdminAccessRepository({
@@ -61,6 +67,11 @@ describe('AdminAccessRepository transaction store', () => {
         rejectionReason: null,
         decidedAt,
       }),
+      revokedRequest: await store.insertRevokedRequest({
+        userId: 'target',
+        actorId: 'admin-a',
+        decidedAt,
+      }),
       auditWriter: store.auditLogWriter,
     }));
 
@@ -70,6 +81,7 @@ describe('AdminAccessRepository transaction store', () => {
       target: { id: 'target' },
       userUpdated: true,
       requestUpdated: true,
+      revokedRequest: { id: 'request-revoked' },
       auditWriter: transaction,
     });
     expect(operations[0]).toContain('FROM "User"');
@@ -94,6 +106,17 @@ describe('AdminAccessRepository transaction store', () => {
         decidedAt,
       },
     });
+    // 회수는 기존 행을 건드리지 않는다 — 새 REVOKED 행을 넣는 것이 전부다.
+    expect(createRequest).toHaveBeenCalledWith({
+      data: {
+        userId: 'target',
+        status: RoleRequestStatus.REVOKED,
+        decidedById: 'admin-a',
+        decidedAt,
+      },
+      select: { id: true },
+    });
+    expect(updateRequest).toHaveBeenCalledTimes(1);
   });
 });
 

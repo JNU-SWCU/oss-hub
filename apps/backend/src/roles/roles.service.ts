@@ -95,6 +95,22 @@ export class RolesService {
    *
    * 확정된 역할(`role`)은 여기서 답하지 않는다 — 그쪽은 세션(`auth/me`)이 이미 싣고
    * 있고, 두 곳이 같은 사실을 답하면 어느 쪽이 최신인지 화면이 판단해야 한다.
+   *
+   * ## 회수는 이 값을 비우지 않는다 (#184)
+   *
+   * 회수 경로(`users/admin-access-*`)는 `selectedRole`에 쓰지 않는다 — 바꾸는 것은
+   * `User.role`과 요청 상태뿐이다. 그래서 회수된 교직원이 이 화면으로 돌아오면 교직원이
+   * 골라진 상태로 보이는데, **그게 맞다.**
+   *
+   * 비우는 쪽이 더 깨끗해 보이지만 사실이 아닌 것을 만든다. 프로필 필수 항목 판정은
+   * 확정 역할이 없을 때 이 값을 근거로 삼고(`users/user-profile-policy.ts`의
+   * `effectiveProfileRole`), 근거가 없으면 가장 엄격한 학생 기준으로 되돌아간다.
+   * 교직원은 학번이 필요 없어 이름·학과만 채워 둔 사람이 대부분이므로, 비우는 순간
+   * **한 글자도 바뀌지 않은 프로필이 갑자기 "미완료"로 읽힌다** — 관리자 목록에도 그렇게
+   * 뜬다. 회수가 없앤 것은 권한이지 그 사람이 입력해 둔 값이 아니다.
+   *
+   * 되돌리고 싶은 사용자에게는 길이 열려 있다: 학생을 고르면 이 값이 그 자리에서
+   * 덮어써진다(`selectRole`). 회수가 대신 골라 줄 일이 아니다.
    */
   async getMySelection(githubId: bigint): Promise<RoleSelectionState> {
     const user = await this.repository.findUserByGithubId(githubId);
@@ -139,15 +155,20 @@ export class RolesService {
         );
       }
       switch (latest.status) {
+        // 반려(`REJECTED`)와 회수(`REVOKED`)는 같은 갈래다 (#184).
+        //
+        // 예전에는 회수만 `ROL_008`로 막았고, 그 근거는 "관리자가 떼어낸 권한을 가입
+        // 절차로 되돌리는 길이 된다"였다. 되돌아가지 않는다 — 이 문이 만드는 것은
+        // `PENDING` 한 건뿐이고 STAFF를 붙이는 것은 여전히 관리자의 승인이다. 두 상태가
+        // 뜻하는 사실도 같다: **지금 역할이 없고, 다시 교직원으로 가입하려 한다.**
+        // 같은 사실이면 처리도 같아야 하고, 갈래를 나눠 두면 그 차이가 무엇을 뜻하는지
+        // 아무도 답할 수 없게 된다. 자세한 판단 근거는 `requireSelectable`에 적었다.
         case RoleRequestStatus.REJECTED:
+        case RoleRequestStatus.REVOKED:
           // 다시 요청한다는 것은 여전히 교직원으로 가입한다는 뜻이다. 기록을 함께
           // 맞춰 두지 않으면 프로필 필수 항목 판정이 그 사실을 모른다(#569).
           await store.updateSelectedRole(user.id, Role.STAFF);
           return store.createPendingRequest(user.id);
-        case RoleRequestStatus.REVOKED:
-          throw new DomainException(
-            ROLES_ERROR_CODES[RolesErrorCode.ROLE_STATE_CONFLICT],
-          );
         case RoleRequestStatus.PENDING:
           throw new DomainException(
             ROLES_ERROR_CODES[RolesErrorCode.ACTIVE_REQUEST_EXISTS],
@@ -181,37 +202,51 @@ export class RolesService {
   }
 
   /**
-   * 살아 있는 요청과 이력이 이 선택을 허락하는가 — 예전 `selectStudent`·`selectStaff`가
-   * 나눠 갖고 있던 규칙 두 가지를 그대로 옮겼다. 역할마다 답이 다르다.
+   * 살아 있는 요청이 이 선택을 허락하는가 — 예전 `selectStudent`·`selectStaff`가
+   * 나눠 갖고 있던 규칙을 그대로 옮겼다. 역할마다 답이 다르다.
    *
    * - **학생**: 승인 대기 요청이 있으면 거부한다. 교직원 신청을 남겨 둔 채 학생으로
    *   넘어가면 승인이 났을 때 두 역할이 겹친다.
-   * - **교직원**: 승인 대기 요청이 있으면 그대로 통과시킨다 — 같은 선택을 한 번 더
-   *   누른 것뿐이라 바뀔 것이 없다. 여기서 409를 주면 '선택 완료'를 두 번 누른 사람이
-   *   오류 화면을 본다. 대기 요청이 없고 **회수된** 이력만 있으면 거부한다: 관리자가
-   *   떼어낸 권한을 가입 절차로 되돌리는 길이 되기 때문이다.
+   * - **교직원**: 언제나 통과시킨다. 승인 대기 요청이 있어도 같은 선택을 한 번 더 누른
+   *   것뿐이라 바뀔 것이 없고, 여기서 409를 주면 '선택 완료'를 두 번 누른 사람이 오류
+   *   화면을 본다.
+   *
+   * ## 회수된 이력은 더 이상 교직원 선택을 막지 않는다 (#184)
+   *
+   * 예전에는 대기 요청이 없고 **회수된**(`REVOKED`) 이력만 있으면 `ROL_008`로 막았고,
+   * 그 자리에 이런 근거가 적혀 있었다: *"관리자가 떼어낸 권한을 가입 절차로 되돌리는
+   * 길이 되기 때문이다."* 지우지 않고 남겨 두는 이유는, 근거 없이 지우면 다음 사람이
+   * 같은 논쟁을 처음부터 다시 하기 때문이다.
+   *
+   * 뒤집는 이유는 그 문장이 전제한 **되돌림이 실제로는 일어나지 않기** 때문이다.
+   *
+   * - 이 화면은 고른 역할을 기록만 하고 아무것도 확정하지 않는다(#569). 교직원 재신청도
+   *   `PENDING` 한 건을 만들 뿐이고, STAFF를 붙이는 것은 여전히 관리자의 승인이다 —
+   *   사용자가 자기 손으로 회수된 권한을 되찾는 경로는 이 갈래 어디에도 없다.
+   * - 동시 신청은 `RoleRequest_userId_pending_key`(partial unique)가 1건으로 묶으므로
+   *   대기줄을 밀어 넣는 길도 아니다. 남는 비용은 권한 상승 위험이 아니라 같은 사람이
+   *   반복 신청할 때의 **관리자 피로도**뿐이다.
+   * - 실질 방어선은 `requireUnconfirmed`가 이미 지킨다 — `role`이 붙어 있으면 거부한다.
+   *   회수로 `role`이 비면 열리고, 재승인되면 다시 잠긴다. **"확정된 사람은 못 바꾼다"는
+   *   불변식은 그대로다.**
+   *
+   * 막아 둔 동안 제품은 스스로와 어긋나 있었다: 회수 화면(`role-request-screen.tsx`)이
+   * "학생 또는 교직원 역할을 다시 선택할 수 있습니다"라고 안내하며 `/onboarding/role`로
+   * 보내는데, 거기서 교직원을 누르면 409가 떴다. #184의 인수 조건이 그 안내 쪽을 정답으로
+   * 확정했다.
    */
   private async requireSelectable(
     store: RolesTransactionStore,
     user: RoleUser,
     selectedRole: SelectableRole,
   ): Promise<void> {
+    if (selectedRole === Role.STAFF) {
+      return;
+    }
     const pending = await store.findPendingRequest(user.id);
-    if (selectedRole === Role.STUDENT) {
-      if (pending) {
-        throw new DomainException(
-          ROLES_ERROR_CODES[RolesErrorCode.ACTIVE_REQUEST_EXISTS],
-        );
-      }
-      return;
-    }
     if (pending) {
-      return;
-    }
-    const latest = await store.findLatestRequest(user.id);
-    if (latest?.status === RoleRequestStatus.REVOKED) {
       throw new DomainException(
-        ROLES_ERROR_CODES[RolesErrorCode.ROLE_STATE_CONFLICT],
+        ROLES_ERROR_CODES[RolesErrorCode.ACTIVE_REQUEST_EXISTS],
       );
     }
   }

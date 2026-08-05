@@ -1,6 +1,8 @@
 import type {
   AdminAccessActor,
+  AdminAccessInsertedRequest,
   AdminAccessRepositoryPort,
+  AdminAccessRevokedRequestInsert,
   AdminAccessTransactionStore,
   AdminAccessUserDetailRecord,
   AdminAccessUserPageRecord,
@@ -66,6 +68,12 @@ class BarrierTransactionStore implements AdminAccessTransactionStore {
   ): Promise<boolean> {
     return this.store.decidePendingRequest(input);
   }
+
+  insertRevokedRequest(
+    input: AdminAccessRevokedRequestInsert,
+  ): Promise<AdminAccessInsertedRequest> {
+    return this.store.insertRevokedRequest(input);
+  }
 }
 
 export class BarrierAdminAccessRepository implements AdminAccessRepositoryPort {
@@ -78,6 +86,104 @@ export class BarrierAdminAccessRepository implements AdminAccessRepositoryPort {
   ): Promise<T> {
     return this.repository.withTransaction((store) =>
       operation(new BarrierTransactionStore(store, this.barrier)),
+    );
+  }
+
+  findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
+    return this.repository.findActorByGithubId(githubId);
+  }
+
+  list(query: AdminAccessListQuery): Promise<AdminAccessUserPageRecord> {
+    return this.repository.list(query);
+  }
+
+  facets(query: AdminAccessListQuery): Promise<AdminAccessFacets> {
+    return this.repository.facets(query);
+  }
+
+  findById(userId: string): Promise<AdminAccessUserDetailRecord | null> {
+    return this.repository.findById(userId);
+  }
+
+  listRoleRequestHistory(
+    userId: string,
+    page: { readonly page: number; readonly limit: number },
+  ): Promise<AdminAccessRoleRequestHistoryPage> {
+    return this.repository.listRoleRequestHistory(userId, page);
+  }
+
+  listLoginHistory(
+    userId: string,
+    page: { readonly page: number; readonly limit: number },
+  ): Promise<AdminAccessLoginHistoryPage> {
+    return this.repository.listLoginHistory(userId, page);
+  }
+}
+
+/**
+ * 회수 트랜잭션을 **두 쓰기를 마친 뒤 커밋 직전**에 멈춰 세운다.
+ *
+ * 그 자리가 회수의 유일한 위험 구간이다 — `User.role`은 비었고 `REVOKED` 행도 들어갔지만
+ * 아직 아무도 그 사실을 볼 수 없는 순간이라, 이때 로그인이 끼어들면 어떻게 되는지가
+ * 실제로 확인해야 하는 것이다. 그래서 stub이 아니라 실 DB 잠금 위에서 멈춘다.
+ */
+class RevocationPauseTransactionStore implements AdminAccessTransactionStore {
+  constructor(
+    private readonly store: AdminAccessTransactionStore,
+    private readonly onRevokedRequestWritten: () => Promise<void>,
+  ) {}
+
+  get auditLogWriter() {
+    return this.store.auditLogWriter;
+  }
+
+  findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
+    return this.store.findActorByGithubId(githubId);
+  }
+
+  lockActiveAdmins(): Promise<number> {
+    return this.store.lockActiveAdmins();
+  }
+
+  findUserForUpdate(userId: string): Promise<AdminAccessUserRecord | null> {
+    return this.store.findUserForUpdate(userId);
+  }
+
+  compareAndSwapAccess(input: AdminAccessUserUpdate): Promise<boolean> {
+    return this.store.compareAndSwapAccess(input);
+  }
+
+  decidePendingRequest(
+    input: AdminAccessPendingDecisionUpdate,
+  ): Promise<boolean> {
+    return this.store.decidePendingRequest(input);
+  }
+
+  async insertRevokedRequest(
+    input: AdminAccessRevokedRequestInsert,
+  ): Promise<AdminAccessInsertedRequest> {
+    const inserted = await this.store.insertRevokedRequest(input);
+    await this.onRevokedRequestWritten();
+    return inserted;
+  }
+}
+
+export class PausingRevocationAdminAccessRepository implements AdminAccessRepositoryPort {
+  constructor(
+    private readonly repository: AdminAccessRepositoryPort,
+    private readonly onRevokedRequestWritten: () => Promise<void>,
+  ) {}
+
+  withTransaction<T>(
+    operation: (store: AdminAccessTransactionStore) => Promise<T>,
+  ): Promise<T> {
+    return this.repository.withTransaction((store) =>
+      operation(
+        new RevocationPauseTransactionStore(
+          store,
+          this.onRevokedRequestWritten,
+        ),
+      ),
     );
   }
 
@@ -137,6 +243,12 @@ class DecisionFailureTransactionStore implements AdminAccessTransactionStore {
 
   decidePendingRequest(): Promise<boolean> {
     return Promise.resolve(false);
+  }
+
+  insertRevokedRequest(
+    input: AdminAccessRevokedRequestInsert,
+  ): Promise<AdminAccessInsertedRequest> {
+    return this.store.insertRevokedRequest(input);
   }
 }
 

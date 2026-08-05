@@ -100,6 +100,25 @@ export function createAdminAccessAudit(input: {
         }),
       };
     }
+    case ADMIN_ACCESS_REQUEST_EFFECTS.REVOKED: {
+      // 대상은 방금 삽입한 REVOKED 행이다 — 승인 행(`before.pendingRequest`는 회수 시
+      // 언제나 null이다)을 가리키지 않는다. `before.requestStatus`도 null 그대로 둔다:
+      // APPROVED를 억지로 채우면 신청 없이 직접 STAFF를 받은 사람에게는 거짓이 되고,
+      // 애초에 APPROVED 행이 파괴되지 않는 것이 이 설계의 요지다.
+      const decidedRequest = input.result.decidedRequest;
+      if (decidedRequest?.status !== RoleRequestStatus.REVOKED) {
+        throw new InvalidAdminAccessAuditError();
+      }
+      return {
+        action: ACCESS_AUDIT_ACTIONS.ROLE_REQUEST_REVOKED,
+        targetType: 'ROLE_REQUEST',
+        targetId: decidedRequest.id,
+        metadata: createAccessAuditMetadata({
+          ...common,
+          eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REVOKED,
+        }),
+      };
+    }
     case ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED:
       return createDirectAccessAudit(input, common);
     default:
@@ -132,6 +151,7 @@ function createDirectAccessAudit(
       readonly requestStatus:
         | typeof RoleRequestStatus.APPROVED
         | typeof RoleRequestStatus.REJECTED
+        | typeof RoleRequestStatus.REVOKED
         | null;
     };
   },
