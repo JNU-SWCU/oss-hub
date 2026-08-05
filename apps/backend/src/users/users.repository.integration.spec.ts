@@ -1,4 +1,4 @@
-import { Role } from '@prisma/client';
+import { Role, RoleRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { completeCompatibleProfileIfUnchanged } from '../profiles/profile-compatibility.repository';
@@ -418,5 +418,133 @@ describe('학번 최초 저장의 유일성', () => {
       SELECT "studentId" FROM "UserProfile" WHERE "userId" = ${userId}
     `;
     expect(profileRows).toHaveLength(1);
+  });
+});
+
+/**
+ * 회수된 사용자가 프로필을 마치면 그 저장이 곧 교직원 재신청이다 (#184).
+ *
+ * ## 이 상태가 어떻게 생기나
+ *
+ * 보통 회수된 교직원은 프로필이 **이미 완료**라 `patchMyProfile`이 완료 저장 갈래로
+ * 내려가지 않는다. 예외가 하나 있다: 관리자가 요청 없이 직접 STAFF를 부여하는 전이는
+ * 완료된 프로필을 요구하지 않으므로(`admin-access-transition-table.ts`의
+ * `requiresCompleteProfile`는 요청 승인 전이에만 붙는다), 학과를 비워 둔 채 STAFF가
+ * 된 사람이 존재할 수 있다. 그가 회수되면 `role: null` + `selectedRole: STAFF` +
+ * **미완료**가 된다.
+ *
+ * ## 그래서 무슨 일이 생기나 — 그리고 왜 그대로 두는가
+ *
+ * 그가 학과를 채워 저장하면 `completeProfileIfUnchanged` 안의 `confirmSelectedRole`이
+ * 새 `PENDING` 요청을 만든다. 막지 않는다.
+ *
+ * - **그것이 `가입 마치기`의 정의다.** 미완료 → 완료 저장은 고른 역할을 확정하는
+ *   순간이고(#569, `users.service.ts`), 교직원의 확정은 곧 승인 요청이다. 그가 고른
+ *   역할은 본인이 STAFF로 골라 둔 것이고 화면도 교직원 기준으로 물었다.
+ * - **권한이 돌아오지는 않는다.** 만들어지는 것은 `PENDING` 한 건이고 STAFF를 붙이는
+ *   것은 관리자의 승인이다 — #184가 재신청을 허용하기로 한 그 판단과 같은 결과다.
+ * - **막으면 막다른 길이 된다.** 신청을 만들지 않으면 그의 프로필은 완료가 되는데 확정은
+ *   오지 않고, 프로필 화면은 그 뒤로 "이미 완료"라며 그를 내보낸다. 회수 화면이
+ *   역할 선택으로 보내도 `selectRole`은 완료된 프로필을 보고 같은 신청을 만든다 —
+ *   결국 같은 자리로 돌아온다.
+ *
+ * 이 검사는 그 동작을 승인하는 것이 아니라 **말하지 않던 사실을 말하게 하는 것**이다.
+ * 되돌려 막고 싶어지면 여기가 먼저 빨간불이 된다.
+ */
+describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
+  const revokedUserId = 'test:users:revoked-incomplete';
+  const revokedGithubId = 9_600_000_000_184_001n;
+  const REVOKED_AT = new Date('2026-02-02T00:00:00.000Z');
+
+  beforeEach(async () => {
+    await prisma.roleRequest.deleteMany({ where: { userId: revokedUserId } });
+    await prisma.user.deleteMany({ where: { id: revokedUserId } });
+    await prisma.user.create({
+      data: {
+        id: revokedUserId,
+        githubId: revokedGithubId,
+        nickname: 'synthetic-184-revoked-incomplete',
+        name: '합성 교직원',
+        // 학과가 비어 있어 교직원 기준으로도 미완료다.
+        department: null,
+        role: null,
+        selectedRole: Role.STAFF,
+      },
+    });
+    await prisma.roleRequest.create({
+      data: {
+        userId: revokedUserId,
+        status: RoleRequestStatus.REVOKED,
+        createdAt: REVOKED_AT,
+        decidedAt: REVOKED_AT,
+      },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.roleRequest.deleteMany({ where: { userId: revokedUserId } });
+    await prisma.user.deleteMany({ where: { id: revokedUserId } });
+  });
+
+  it('프로필을 마치면 새 교직원 승인 요청이 만들어지고 권한은 그대로 없다', async () => {
+    // Given
+    const current = await repository.findByGithubId(revokedGithubId);
+    if (!current) {
+      throw new Error('합성 회수 사용자가 존재해야 합니다.');
+    }
+    expect(current.role).toBeNull();
+    expect(current.selectedRole).toBe(Role.STAFF);
+
+    // When: 미완료 → 완료 저장. 이것이 `가입 마치기`다.
+    const completed = await repository.completeProfileIfUnchanged(current, {
+      name: '합성 교직원',
+      studentId: null,
+      department: '인공지능학부',
+    });
+
+    // Then
+    const [stored, requests] = await Promise.all([
+      prisma.user.findUniqueOrThrow({ where: { id: revokedUserId } }),
+      prisma.roleRequest.findMany({
+        where: { userId: revokedUserId },
+        orderBy: [{ createdAt: 'asc' }],
+      }),
+    ]);
+    expect(completed).toBe(true);
+    // 회수 이력은 남고 그 위에 새 신청이 얹힌다 — 덮어쓰지 않는다.
+    expect(requests).toHaveLength(2);
+    expect(requests[0]?.status).toBe(RoleRequestStatus.REVOKED);
+    expect(requests[1]?.status).toBe(RoleRequestStatus.PENDING);
+    // 승인은 여전히 관리자 손에 있다.
+    expect(stored.role).toBeNull();
+  });
+
+  it('학생을 고른 뒤 프로필을 마치면 교직원 신청은 만들어지지 않는다', async () => {
+    // Given: 회수 화면이 역할 선택으로 보냈고 그가 학생을 골랐다.
+    await prisma.user.update({
+      where: { id: revokedUserId },
+      data: { selectedRole: Role.STUDENT },
+    });
+    const current = await repository.findByGithubId(revokedGithubId);
+    if (!current) {
+      throw new Error('합성 회수 사용자가 존재해야 합니다.');
+    }
+
+    // When
+    await repository.completeProfileIfUnchanged(current, {
+      name: '합성 학생',
+      studentId: '184001',
+      department: '인공지능학부',
+    });
+
+    // Then: 고른 역할이 학생이면 확정도 학생이다 — 신청이 생기지 않는다.
+    const [stored, pendingCount] = await Promise.all([
+      prisma.user.findUniqueOrThrow({ where: { id: revokedUserId } }),
+      prisma.roleRequest.count({
+        where: { userId: revokedUserId, status: RoleRequestStatus.PENDING },
+      }),
+    ]);
+    expect(stored.role).toBe(Role.STUDENT);
+    expect(pendingCount).toBe(0);
   });
 });
