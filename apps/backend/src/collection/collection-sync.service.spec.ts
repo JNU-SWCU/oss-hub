@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import {
   CollectionSyncRuntime,
@@ -67,6 +68,10 @@ interface Store {
   streams: Map<string, Row>;
   cursors: Map<string, Row>;
   leases: Map<string, Row>;
+  /** `Repository`(#449) — 수집 저장소를 소유한 신청 산출물. key는 githubRepositoryId. */
+  owningRepositories: Map<string, Row>;
+  /** `TeamMember` + join된 `User` — key는 임의의 행 id. */
+  teamMembers: Map<string, Row>;
 }
 
 const emptyStore = (): Store => ({
@@ -79,6 +84,8 @@ const emptyStore = (): Store => ({
   streams: new Map(),
   cursors: new Map(),
   leases: new Map(),
+  owningRepositories: new Map(),
+  teamMembers: new Map(),
 });
 
 const cloneStore = (store: Store): Store => ({
@@ -91,6 +98,8 @@ const cloneStore = (store: Store): Store => ({
   streams: new Map(store.streams),
   cursors: new Map(store.cursors),
   leases: new Map(store.leases),
+  owningRepositories: new Map(store.owningRepositories),
+  teamMembers: new Map(store.teamMembers),
 });
 
 const applyUpdate = (existing: Row, update: Row): Row => {
@@ -116,6 +125,24 @@ const cursorKey = (appId: bigint, scope: string): string =>
 
 function makeFacade(box: { store: Store }, control: FailureControl): unknown {
   return {
+    // author-scoped 커밋 수집이 팀을 찾는 경로(`Repository` → `teamId` → `TeamMember` →
+    // `User`). 시드하지 않은 저장소는 소유 행이 없어 `null`이 되고, 그래서 기존 테스트는
+    // 전부 종전 REST 경로 그대로 돈다.
+    repository: {
+      findUnique: ({
+        where,
+      }: {
+        where: { githubRepositoryId: bigint };
+      }): Row | null =>
+        box.store.owningRepositories.get(repoKey(where.githubRepositoryId)) ??
+        null,
+    },
+    teamMember: {
+      findMany: ({ where }: { where: { teamId: string } }): Row[] =>
+        [...box.store.teamMembers.values()].filter(
+          (row) => row.teamId === where.teamId,
+        ),
+    },
     githubRepository: {
       upsert: ({
         where,
@@ -580,6 +607,15 @@ interface ClientMock {
     Promise<ReleaseListingResult>,
     unknown[]
   >;
+  resolveUserNodeId: jest.Mock<Promise<string | null>, [string]>;
+  listDefaultBranchCommitsByAuthor: jest.Mock<
+    Promise<CollectionCommit[]>,
+    [string, string, string, string, (string | undefined)?]
+  >;
+  countDefaultBranchCommits: jest.Mock<
+    Promise<number | null>,
+    [string, string, string]
+  >;
 }
 
 function createClient(repositories: ProviderRepository[]): ClientMock {
@@ -621,6 +657,19 @@ function createClient(repositories: ProviderRepository[]): ClientMock {
         releases: [],
         fingerprint: fingerprint('/repos/o/r/releases'),
       } satisfies ReleaseListingResult),
+    // author-scoped 기본값: 모든 login이 `node:<login>`으로 해석되고 커밋은 없다.
+    resolveUserNodeId: jest
+      .fn<Promise<string | null>, [string]>()
+      .mockImplementation((login) => Promise.resolve(`node:${login}`)),
+    listDefaultBranchCommitsByAuthor: jest
+      .fn<
+        Promise<CollectionCommit[]>,
+        [string, string, string, string, (string | undefined)?]
+      >()
+      .mockResolvedValue([]),
+    countDefaultBranchCommits: jest
+      .fn<Promise<number | null>, [string, string, string]>()
+      .mockResolvedValue(null),
   };
 }
 
@@ -1297,5 +1346,257 @@ describe('CollectionSyncService — #546 트리거 결과 추적', () => {
     expect(result.stoppedForBudget).toBe(true);
     expect(streamOf(box, 'RELEASE').lastErrorCode ?? null).toBeNull();
     expect(client.listChangedPublishedReleases).not.toHaveBeenCalled();
+  });
+});
+// 팀원 단위 author-scoped 커밋 수집 — 지표 모델의 원자 단위는 "멤버 활동"이므로 팀이 있는
+// 저장소는 저장소 전량 페이징을 쓰지 않는다. 팀을 특정할 수 없는 저장소만 기존 REST 경로다.
+describe('CollectionSyncService — 팀원 단위 author-scoped 커밋 수집', () => {
+  interface SeedMember {
+    githubId: bigint;
+    nickname: string;
+  }
+
+  const seedOwningRepository = (
+    box: { store: Store },
+    githubRepositoryId: bigint,
+    teamId: string | null,
+    members: readonly SeedMember[] = [],
+  ): void => {
+    box.store.owningRepositories.set(repoKey(githubRepositoryId), {
+      githubRepositoryId,
+      teamId,
+    });
+    members.forEach((member, index) => {
+      const id = `${String(githubRepositoryId)}:${index}`;
+      box.store.teamMembers.set(id, {
+        id,
+        teamId,
+        createdAt: new Date(Date.UTC(2026, 0, index + 1)),
+        user: { githubId: member.githubId, nickname: member.nickname },
+      });
+    });
+  };
+
+  const authoredCommit = (sha: string, login: string, githubId: string) =>
+    commit({ sha, authorLogin: login, authorGithubId: githubId });
+
+  it('팀원 2명 각각에게 author-scoped 호출을 하고 결과를 합쳐 적재한다(저장소 전량 페이징 없음)', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: 11n, nickname: 'alice' },
+      { githubId: 22n, nickname: 'bob' },
+    ]);
+    const client = createClient([repository]);
+    client.listDefaultBranchCommitsByAuthor.mockImplementation(
+      (_owner, _repo, _branch, authorNodeId) =>
+        Promise.resolve(
+          authorNodeId === 'node:alice'
+            ? [authoredCommit('sha-alice', 'alice', '11')]
+            : [authoredCommit('sha-bob', 'bob', '22')],
+        ),
+    );
+
+    const service = createService(db, client);
+    await service.run('owner-1');
+
+    expect(client.resolveUserNodeId.mock.calls.map(([login]) => login)).toEqual(
+      ['alice', 'bob'],
+    );
+    expect(
+      client.listDefaultBranchCommitsByAuthor.mock.calls.map(
+        ([owner, name, branch, nodeId]) => [owner, name, branch, nodeId],
+      ),
+    ).toEqual([
+      ['synthetic-org', 'repo', 'main', 'node:alice'],
+      ['synthetic-org', 'repo', 'main', 'node:bob'],
+    ]);
+    // 저장소 전체를 훑는 REST 경로는 한 번도 쓰이지 않는다.
+    expect(client.listCommitsUntilKnownSha).not.toHaveBeenCalled();
+    expect(client.probeDefaultBranchHead).not.toHaveBeenCalled();
+
+    const facts = [...box.store.commitFacts.values()];
+    expect(facts.map((fact) => fact.sha).sort()).toEqual([
+      'sha-alice',
+      'sha-bob',
+    ]);
+    // frontier는 READY로 승격하되 head SHA/ETag는 남기지 않는다 — 팀원의 최신 커밋은
+    // 브랜치 head가 아니므로, 나중에 REST 경로로 떨어질 때 known SHA로 쓰이면 안 된다.
+    const stream = box.store.streams.get('repo-1:COMMIT');
+    expect(stream?.status).toBe('READY');
+    expect(stream?.frontierSha).toBeNull();
+    expect(stream?.etag).toBeNull();
+  });
+
+  it('팀이 없는 저장소는 기존 저장소 전량 REST 경로로 떨어진다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    // 소유 `Repository` 행은 있지만 teamId가 null인 경우 — 팀을 특정할 수 없다.
+    seedOwningRepository(box, BigInt(repository.id), null);
+    const client = createClient([repository]);
+    client.listCommitsUntilKnownSha.mockResolvedValue({
+      commits: [commit({ sha: 'head-sha' })],
+      disconnectedFullScan: true,
+      fingerprint: fingerprint('/repos/o/r/commits'),
+    });
+
+    const service = createService(db, client);
+    await service.run('owner-1');
+
+    expect(client.listCommitsUntilKnownSha).toHaveBeenCalled();
+    expect(client.listDefaultBranchCommitsByAuthor).not.toHaveBeenCalled();
+    expect(client.resolveUserNodeId).not.toHaveBeenCalled();
+    const stream = box.store.streams.get('repo-1:COMMIT');
+    expect(stream?.status).toBe('READY');
+    expect(stream?.frontierSha).toBe('head-sha');
+  });
+
+  it('나중에 합류한 팀원의 과거 이력이 다음 run에 그대로 들어온다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: 11n, nickname: 'alice' },
+    ]);
+    const client = createClient([repository]);
+    client.listDefaultBranchCommitsByAuthor.mockImplementation(
+      (_owner, _repo, _branch, authorNodeId) =>
+        Promise.resolve(
+          authorNodeId === 'node:alice'
+            ? [authoredCommit('sha-alice', 'alice', '11')]
+            : [
+                // 합류 전에 남긴 오래된 커밋까지 전부 — `since`를 쓰지 않으므로
+                // 별도 백필 코드 없이 첫 run에서 통째로 들어온다.
+                authoredCommit('sha-carol-old', 'carol', '33'),
+                authoredCommit('sha-carol-new', 'carol', '33'),
+              ],
+        ),
+    );
+
+    const service = createService(db, client);
+    await service.run('owner-1');
+    expect([...box.store.commitFacts.values()]).toHaveLength(1);
+
+    // carol이 팀에 합류한다.
+    box.store.teamMembers.set('later', {
+      id: 'later',
+      teamId: 'team-1',
+      createdAt: new Date(Date.UTC(2026, 5, 1)),
+      user: { githubId: 33n, nickname: 'carol' },
+    });
+    await service.run('owner-1');
+
+    expect(
+      [...box.store.commitFacts.values()].map((fact) => fact.sha).sort(),
+    ).toEqual(['sha-alice', 'sha-carol-new', 'sha-carol-old']);
+    // 이미 있던 alice 커밋은 재수집돼도 중복 삽입되지 않는다.
+    expect(box.store.commitFacts.size).toBe(3);
+  });
+
+  it('node id를 못 찾은 팀원만 건너뛰고 나머지 팀원 수집은 계속한다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: 11n, nickname: 'ghost' },
+      { githubId: 22n, nickname: 'bob' },
+    ]);
+    const client = createClient([repository]);
+    client.resolveUserNodeId.mockImplementation((login) =>
+      Promise.resolve(login === 'ghost' ? null : `node:${login}`),
+    );
+    client.listDefaultBranchCommitsByAuthor.mockResolvedValue([
+      authoredCommit('sha-bob', 'bob', '22'),
+    ]);
+
+    const service = createService(db, client);
+    const result = await service.run('owner-1');
+
+    expect(result.status).toBe('COMPLETED');
+    expect(client.listDefaultBranchCommitsByAuthor).toHaveBeenCalledTimes(1);
+    expect(client.listDefaultBranchCommitsByAuthor.mock.calls[0]?.[3]).toEqual(
+      'node:bob',
+    );
+    expect([...box.store.commitFacts.values()].map((f) => f.sha)).toEqual([
+      'sha-bob',
+    ]);
+    // 계정 하나를 못 찾은 것은 stream 실패가 아니다.
+    expect(
+      box.store.streams.get('repo-1:COMMIT')?.lastErrorCode ?? null,
+    ).toBeNull();
+  });
+
+  it('외부 기여자를 `전체 − 팀원합` 수치로만 관측하고 개인 식별자는 남기지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: 11n, nickname: 'alice' },
+    ]);
+    const client = createClient([repository]);
+    client.listDefaultBranchCommitsByAuthor.mockResolvedValue([
+      authoredCommit('sha-a', 'alice', '11'),
+      authoredCommit('sha-b', 'alice', '11'),
+    ]);
+    client.countDefaultBranchCommits.mockResolvedValue(7);
+    const logged = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+
+    const service = createService(db, client);
+    await service.run('owner-1');
+
+    expect(client.countDefaultBranchCommits).toHaveBeenCalledWith(
+      'synthetic-org',
+      'repo',
+      'main',
+    );
+    const observed = logged.mock.calls
+      .map(([payload]) => payload as Record<string, unknown>)
+      .find(
+        (payload) =>
+          payload?.event === 'collection.sync.external_contribution_observed',
+      );
+    expect(observed).toMatchObject({
+      totalCommitCount: 7,
+      teamCommitCount: 2,
+      externalCommitCount: 5,
+    });
+    // 수치만 남는다 — 외부 기여자의 login/githubId는 어디에도 없다.
+    expect(Object.keys(observed ?? {})).not.toContain('authorLogin');
+    // 저장 위치가 정해지지 않았으므로 fact로도 남기지 않는다.
+    expect([...box.store.commitFacts.values()]).toHaveLength(2);
+    logged.mockRestore();
+  });
+
+  it('브랜치가 없거나(전체 null) 팀원합보다 전체가 작으면 외부 수치를 계산하지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: 11n, nickname: 'alice' },
+    ]);
+    const client = createClient([repository]);
+    client.listDefaultBranchCommitsByAuthor.mockResolvedValue([
+      authoredCommit('sha-a', 'alice', '11'),
+      authoredCommit('sha-b', 'alice', '11'),
+    ]);
+    const logged = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+    const externalEvents = (): unknown[] =>
+      logged.mock.calls.filter(
+        ([payload]) =>
+          (payload as Record<string, unknown> | undefined)?.event ===
+          'collection.sync.external_contribution_observed',
+      );
+
+    // 전체 = null(브랜치 없음)
+    client.countDefaultBranchCommits.mockResolvedValue(null);
+    await createService(db, client).run('owner-1');
+    expect(externalEvents()).toHaveLength(0);
+
+    // 전체(1) < 팀원합(2) — 음수를 남기거나 0으로 뭉개지 않고 건너뛴다.
+    client.countDefaultBranchCommits.mockResolvedValue(1);
+    await createService(db, client).run('owner-1');
+    expect(externalEvents()).toHaveLength(0);
+    expect(box.store.commitFacts.size).toBe(2);
+    logged.mockRestore();
   });
 });

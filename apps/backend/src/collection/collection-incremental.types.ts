@@ -68,6 +68,16 @@ export interface CollectionRepositoryRow {
   lastCompleteInventoryObservedAt: Date | null;
 }
 
+/**
+ * 저장소를 소유한 팀의 팀원 GitHub 계정 하나. `TeamMember.userId`가 `User` FK를 강제하므로
+ * 팀원은 정의상 전부 가입자이며, 여기 나오는 두 값은 항상 존재한다(nullable 아님).
+ * 커밋 수집을 author-scoped로 좁히는 데만 쓰인다 — 외부 기여자는 이 목록에 절대 없다.
+ */
+export interface RepositoryTeamMemberAccount {
+  githubId: bigint;
+  nickname: string;
+}
+
 export interface CommitFactInput {
   sha: string;
   committedAt: Date;

@@ -12,6 +12,7 @@ import type {
   RecordRepositoryObservationInput,
   ReleaseFactInput,
   RepositorySource,
+  RepositoryTeamMemberAccount,
   RepositoryYearAggregateRow,
   StreamFrontierInput,
   StreamFrontierRow,
@@ -136,6 +137,35 @@ export class CollectionIncrementalRepository {
     return this.db.githubRepository.findUnique({
       where: { githubRepositoryId },
     });
+  }
+
+  /**
+   * 이 수집 저장소(`GithubRepository`)를 소유한 팀의 팀원 GitHub 계정 목록.
+   * `GithubRepository.githubRepositoryId`(전역 유일) → `Repository`(#449 신청 산출물) →
+   * `Repository.teamId` → `TeamMember` → `User` 경로를 그대로 따른다.
+   *
+   * 팀을 특정할 수 없으면 **`null`**을 돌려준다(`Repository` 행이 없거나 `teamId`가 null).
+   * 빈 배열(팀은 있는데 팀원이 0명)과 구분되는 값이다 — 호출자는 `null`에서만 저장소
+   * 전량 REST 경로로 안전하게 되돌아간다.
+   */
+  async listRepositoryTeamMembers(
+    githubRepositoryId: bigint,
+  ): Promise<RepositoryTeamMemberAccount[] | null> {
+    const owning = await this.db.repository.findUnique({
+      where: { githubRepositoryId },
+      select: { teamId: true },
+    });
+    const teamId = owning?.teamId ?? null;
+    if (teamId === null) return null;
+    const members = await this.db.teamMember.findMany({
+      where: { teamId },
+      orderBy: { createdAt: 'asc' },
+      select: { user: { select: { githubId: true, nickname: true } } },
+    });
+    return members.map((member) => ({
+      githubId: member.user.githubId,
+      nickname: member.user.nickname,
+    }));
   }
 
   /**

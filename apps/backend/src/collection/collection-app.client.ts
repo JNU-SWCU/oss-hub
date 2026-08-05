@@ -54,6 +54,25 @@ const AUTHOR_COMMIT_HISTORY_QUERY = `
     }
   }
 `;
+
+/**
+ * 저장소 default branch의 **전체** 커밋 수. 노드를 하나도 받지 않고 `totalCount`만 읽어
+ * 비용을 최소로 유지한다(작성자 필터 없음 — 팀원·외부 기여자를 모두 포함한 총량).
+ * `외부 기여 = 전체 − 팀원합` 계산의 좌변이며, 개인 식별자는 어떤 필드로도 요청하지 않는다.
+ */
+const DEFAULT_BRANCH_COMMIT_COUNT_QUERY = `
+  query CollectionDefaultBranchCommitCount($owner: String!, $name: String!, $branch: String!) {
+    repository(owner: $owner, name: $name) {
+      ref(qualifiedName: $branch) {
+        target {
+          ... on Commit {
+            history(first: 1) { totalCount }
+          }
+        }
+      }
+    }
+  }
+`;
 type Fetcher = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 /**
@@ -311,6 +330,33 @@ export class CollectionAppClient {
       cursor = this.string(pageInfo.endCursor);
     }
     return dedupeByKey(commits, (commit) => commit.sha);
+  }
+
+  /**
+   * Total default-branch commit count (every author), or `null` when the
+   * branch — or its commit target — does not exist. `null` is deliberately
+   * distinct from `0`: "the branch has no commits" and "there is no branch"
+   * are different facts, and subtracting a team total from the latter would
+   * produce a negative external-contributor figure. Costs one rate-limit
+   * point and transfers no commit nodes at all.
+   */
+  async countDefaultBranchCommits(
+    owner: string,
+    repo: string,
+    defaultBranch: string,
+  ): Promise<number | null> {
+    const body = await this.graphql({
+      query: DEFAULT_BRANCH_COMMIT_COUNT_QUERY,
+      variables: { owner, name: repo, branch: defaultBranch },
+    });
+    const repository = this.record(body.data).repository;
+    if (repository === null || repository === undefined) this.invalid();
+    const ref = this.record(repository).ref;
+    const target =
+      ref === null || ref === undefined ? null : this.record(ref).target;
+    if (target === null || target === undefined) return null;
+    const history = this.record(this.record(target).history);
+    return this.count(history.totalCount);
   }
 
   listPullRequests(
@@ -947,6 +993,11 @@ export class CollectionAppClient {
   }
   private integer(v: unknown): number {
     if (typeof v === 'number' && Number.isSafeInteger(v) && v > 0) return v;
+    return this.invalid();
+  }
+  /** Non-negative counter (`totalCount`) — unlike {@link integer}, 0 is valid. */
+  private count(v: unknown): number {
+    if (typeof v === 'number' && Number.isSafeInteger(v) && v >= 0) return v;
     return this.invalid();
   }
   private string(v: unknown): string {
