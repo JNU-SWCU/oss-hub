@@ -67,6 +67,7 @@ describe('RoleGate 렌더', () => {
       status: 'loading',
       role: null,
       roleRequestStatus: null,
+      roleRequestRejectionReason: null,
       selectedRole: null,
       isProfileComplete: false,
       ...overrides,

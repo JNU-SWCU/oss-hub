@@ -1,6 +1,6 @@
-import { RoleSelectionScreen } from '@/features/roles/components/role-selection-screen';
 import { OnboardingGate } from '../../_shell/onboarding-gate';
 import { SignupStage } from '../../_shell/signup-stage';
+import { RoleSelectionRoute } from './role-selection-route';
 
 // #107 "역할 선택"(URL: /onboarding/role) — 로그인 사용자만, 역할 확정 전 화면.
 //
@@ -15,8 +15,11 @@ import { SignupStage } from '../../_shell/signup-stage';
 export default function OnboardingRolePage() {
   return (
     <OnboardingGate target="role">
+      {/* 화면을 직접 부르지 않고 `RoleSelectionRoute`를 거친다 — 게이트가 판단에 쓴
+          세션 스냅샷을 화면에 내려 주는 자리다(#673). 화면이 그 값을 스스로 다시
+          조회하면 게이트가 연 근거와 화면이 그리는 근거가 갈라진다. */}
       <SignupStage step={2}>
-        <RoleSelectionScreen />
+        <RoleSelectionRoute />
       </SignupStage>
     </OnboardingGate>
   );

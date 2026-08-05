@@ -44,21 +44,8 @@ export async function fetchMyRoleSelection(
   };
 }
 
-/**
- * 내 역할 요청. 요청한 적이 없으면 `null`이다.
- *
- * `signal`을 받는 이유는 화면이 뜨자마자 부르는 자리가 생겼기 때문이다 —
- * 역할 선택 화면이 반려 사유를 읽는다(#673). 그 화면은 사용자가 곧바로 떠날 수
- * 있어(카드를 고르고 제출) 화면이 사라진 뒤 도착한 응답이 이미 없는 컴포넌트의
- * 상태를 건드리는 일을 끊어야 한다. 넘기지 않으면 종전과 같다.
- */
-export function fetchMyRoleRequest(
-  signal?: AbortSignal,
-): Promise<RoleRequest | null> {
-  return apiClient<RoleRequest | null>(
-    'role-requests/me',
-    signal ? { signal } : undefined,
-  );
+export function fetchMyRoleRequest(): Promise<RoleRequest | null> {
+  return apiClient<RoleRequest | null>('role-requests/me');
 }
 
 export function requestStaffRole(): Promise<RoleRequest> {

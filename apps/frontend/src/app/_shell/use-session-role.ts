@@ -18,6 +18,20 @@ export interface SessionRoleState {
   readonly role: AppRole | null;
   readonly roleRequestStatus: RoleRequestStatus | null;
   /**
+   * 관리자가 남긴 반려 사유. `roleRequestStatus === 'REJECTED'`에서만 값이 있다.
+   *
+   * 이 값이 여기 있는 이유는 **그것을 보여 줄 화면이 게이트의 목적지**이기 때문이다.
+   * 반려 사용자는 `/onboarding/role`로 보내지는데(#535), 그 화면이 사유를 직접 다시
+   * 조회하면 게이트가 이미 읽은 답을 한 번 더 묻는 셈이고 — 더 나쁘게는 **그 두 번째
+   * 조회가 실패하면 게이트는 반려로 판단해 화면을 열어 준 채 화면은 사유 없이
+   * 그린다.** 고치려던 결함(#673)이 네트워크가 흔들릴 때마다 되살아나는 것이다.
+   * 판단에 쓴 스냅샷이 표시에 필요한 값까지 들고 있어야 그 틈이 없다.
+   *
+   * 요청이 없거나 반려가 아니면 `null`이다. 회수(`REVOKED`)는 사유를 저장하지 않으므로
+   * (`admin-access.repository.ts`의 `decidePendingRequest`) 언제나 `null`이다.
+   */
+  readonly roleRequestRejectionReason: string | null;
+  /**
    * 가입 절차에서 고른 역할 — 아직 확정되지 않은 선택이다(#569).
    *
    * 확정을 `가입 마치기`로 미룬 뒤, 프로필을 입력하는 동안에는 `role`도
@@ -45,6 +59,7 @@ const LOADING: SessionRoleState = {
   status: 'loading',
   role: null,
   roleRequestStatus: null,
+  roleRequestRejectionReason: null,
   selectedRole: null,
   isProfileComplete: false,
 };
@@ -52,6 +67,7 @@ const ERROR: SessionRoleState = {
   status: 'error',
   role: null,
   roleRequestStatus: null,
+  roleRequestRejectionReason: null,
   selectedRole: null,
   isProfileComplete: false,
 };
@@ -59,6 +75,7 @@ const ANONYMOUS: SessionRoleState = {
   status: 'anonymous',
   role: null,
   roleRequestStatus: null,
+  roleRequestRejectionReason: null,
   selectedRole: null,
   isProfileComplete: false,
 };
@@ -75,6 +92,8 @@ type OnboardingFetch =
   | {
       readonly kind: 'loaded';
       readonly status: RoleRequestStatus | null;
+      /** 반려 사유. 반려가 아니면 `null`이다 — 표시할 화면이 게이트의 목적지라 함께 싣는다. */
+      readonly rejectionReason: string | null;
       readonly selectedRole: RoleSelection | null;
     }
   | { readonly kind: 'failed' };
@@ -108,6 +127,10 @@ export function useSessionRole(): SessionRoleResult {
           setOnboarding({
             kind: 'loaded',
             status: request?.status ?? null,
+            // 예전에는 여기서 `status`만 남기고 사유를 버렸다. 그 값을 보여 줄 화면이
+            // 바로 이 게이트의 목적지인데(#535·#673), 버리면 그 화면이 같은 것을 다시
+            // 물어야 하고 그 두 번째 조회가 실패하면 사유가 사라진다.
+            rejectionReason: request?.rejectionReason ?? null,
             selectedRole: selection.selectedRole,
           });
         }
@@ -146,6 +169,7 @@ export function useSessionRole(): SessionRoleResult {
             status: 'assigned',
             role,
             roleRequestStatus: null,
+            roleRequestRejectionReason: null,
             selectedRole: null,
             isProfileComplete: session.user?.isProfileComplete ?? false,
           };
@@ -160,6 +184,7 @@ export function useSessionRole(): SessionRoleResult {
               status: 'unassigned',
               role: null,
               roleRequestStatus: onboarding.status,
+              roleRequestRejectionReason: onboarding.rejectionReason,
               selectedRole: onboarding.selectedRole,
               isProfileComplete: false,
             };

@@ -674,6 +674,7 @@ describe('가입 동선 — 약관 → 교직원 선택 → 프로필 → 승인
       status: session.user.role ? 'assigned' : 'unassigned',
       role: session.user.role,
       roleRequestStatus: roleRequest?.status ?? null,
+      roleRequestRejectionReason: null,
       selectedRole: selection.selectedRole,
       isProfileComplete: false,
     });

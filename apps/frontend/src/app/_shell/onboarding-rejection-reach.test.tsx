@@ -217,6 +217,14 @@ describe('반려 사유 도달 가능성', () => {
     readonly text: string;
     /** 마운트하는 동안 이 화면이 사용자를 어디로 밀어냈는가. 비어 있어야 "도달"이다. */
     readonly redirects: readonly string[];
+    /**
+     * 마운트하는 동안 나간 `role-requests/me` 조회 수.
+     *
+     * 사유가 **게이트가 읽은 그 답**인지를 이 숫자가 말한다. 화면이 따로 물어서
+     * 얻은 것이면 게이트 몫 위에 하나가 더 붙고, 그 두 번째 조회가 실패하는 순간
+     * 사유가 사라진다 — #673이 되살아나는 통로가 정확히 그것이었다.
+     */
+    readonly roleRequestFetches: number;
   }
 
   /** 세 화면을 차례로 게이트째 마운트해, 각 화면이 그린 본문과 이동을 함께 모은다. */
@@ -229,6 +237,7 @@ describe('반려 사유 도달 가능성', () => {
       // "밀려나면서 스친 것"과 "머물러 읽은 것"을 구분하지 못한다.
       mocks.replace.mockClear();
       mocks.redirect.mockClear();
+      mocks.fetchMyRoleRequest.mockClear();
       await act(async () =>
         root.render(
           <RedirectBoundary>
@@ -242,6 +251,7 @@ describe('반려 사유 도달 가능성', () => {
           ...mocks.replace.mock.calls.map(([target]) => String(target)),
           ...mocks.redirect.mock.calls.map(([target]) => String(target)),
         ],
+        roleRequestFetches: mocks.fetchMyRoleRequest.mock.calls.length,
       });
       await act(async () => root.render(<></>));
     }
@@ -284,6 +294,11 @@ describe('반려 사유 도달 가능성', () => {
     expect(arrived?.redirects).toEqual([]);
     // 그리고 거기서 사유가 실제로 DOM에 있다.
     expect(arrived?.text).toContain(REJECTION_REASON);
+
+    // **그 사유는 게이트가 읽은 바로 그 답이다.** 화면이 따로 물어서 얻은 것이면
+    // 이 목적지에서 조회가 두 번 나간다 — 그리고 그 두 번째가 실패하는 순간 사유가
+    // 사라진다(#673이 되살아나는 통로). 게이트 몫 한 번이 전부여야 한다.
+    expect(arrived?.roleRequestFetches).toBe(1);
   });
 
   /**

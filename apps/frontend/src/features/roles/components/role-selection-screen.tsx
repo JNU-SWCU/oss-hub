@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import {
   BriefcaseBusiness,
   Circle,
@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
-import { fetchMyRoleRequest, fetchMyRoleSelection, selectRole } from '../api';
+import { selectRole } from '../api';
 import type { RoleSelection } from '../types';
 
 /**
@@ -543,76 +543,45 @@ export function RoleSelectionForm({
 }
 
 /**
- * 되돌아온 사람에게 이전 선택을 되살린다(#569).
+ * 이 화면이 그리는 데 필요한 것 전부. **스스로 조회하지 않는다.**
  *
- * 확정을 `가입 마치기`로 미루면서 프로필 화면에서 여기로 되돌아올 수 있게 됐다.
- * 되돌아왔는데 아무것도 골라지지 않은 화면이 뜨면, 사용자는 자기가 무엇을 골랐었는지
- * 화면에서 확인할 수 없어 방금 한 선택이 지워진 것으로 읽는다.
+ * 예전에는 이 컴포넌트가 `fetchMyRoleSelection`·`fetchMyRoleRequest`를 직접 불렀다.
+ * 그런데 이 화면을 여는 `OnboardingGate`는 그 두 값을 **이미 읽어서** 접근을 판단한
+ * 뒤다(`app/_shell/use-session-role.ts`). 같은 것을 두 번 묻는 셈이고, 더 나쁘게는
+ * 두 답이 서로 다른 순간의 값일 수 있다 — 게이트는 반려로 판단해 이 화면을 열어
+ * 줬는데 화면의 두 번째 조회가 실패하면 **사유 없는 역할 선택 화면**이 뜬다. #673이
+ * 고치려는 결함이 네트워크가 흔들릴 때마다 되살아나는 통로였다.
  *
- * **사용자가 이미 카드를 눌렀으면 덮어쓰지 않는다.** 조회는 화면이 뜬 뒤에 끝나므로,
- * 그 사이에 고른 것을 뒤늦게 도착한 응답이 되돌리면 눌렀던 카드가 저절로 바뀐다.
- *
- * 반려 사유도 같은 effect에서 함께 읽는다(#673). 게이트가 이미 읽어 둔 스냅샷을
- * 물려받는 길은 막혀 있다 — 그 값은 `app/_shell`에 있고 `features`는 `app`을
- * import할 수 없다(`eslint.config.mjs`). 그래서 이 화면이 직접 읽는다. 두 조회를
- * 한 자리에 두면 취소(`AbortController`)도 한 번에 걸린다.
- *
- * **반려(`REJECTED`)일 때만 남긴다.** 재요청이 접수돼 `PENDING`이 되면 조건에서
- * 빠지므로 안내는 저절로 사라진다 — 사라지는 것을 따로 처리하지 않는 편이 안전하다.
+ * 그래서 값은 전부 prop으로 받는다. 게이트가 판단에 쓴 스냅샷을 `app` 계층이
+ * (`app/onboarding/role/role-selection-route.tsx`) 풀어서 내려 준다 — `features`는
+ * `app`을 import할 수 없으므로 방향이 이쪽이어야 한다.
  */
-function useRestoredRoleSelection(): {
-  readonly selectedRole: RoleSelection | null;
+interface RoleSelectionScreenProps {
+  /**
+   * 되돌아온 사람에게 되살릴 이전 선택(#569).
+   *
+   * 확정을 `가입 마치기`로 미루면서 프로필 화면에서 여기로 되돌아올 수 있게 됐다.
+   * 되돌아왔는데 아무것도 골라지지 않은 화면이 뜨면, 사용자는 자기가 무엇을
+   * 골랐었는지 화면에서 확인할 수 없어 방금 한 선택이 지워진 것으로 읽는다.
+   *
+   * **이 값은 첫 상태로만 쓰고 이후에는 따라가지 않는다.** #569가 `hasChosen` ref로
+   * 막던 것이 바로 그것이다 — 사용자가 카드를 누른 뒤 뒤늦게 도착한 응답이 선택을
+   * 되돌리면 눌렀던 카드가 저절로 바뀐다. 이제는 ref가 필요 없다: 게이트가 두 조회가
+   * **끝난 뒤에만** 자식을 그리므로(`status === 'unassigned'`는 `loaded`를 전제한다)
+   * 뒤늦게 도착하는 응답 자체가 없고, `useState` 초기값은 이후 prop 변화를 무시한다.
+   */
+  readonly initialSelectedRole: RoleSelection | null;
+  /** 살아 있는 신청이 없어진 사유. 해당하지 않으면 `null`이다. */
   readonly rejection: ClosedRoleRequestNotice | null;
-  readonly select: (role: RoleSelection) => void;
-} {
-  const [selectedRole, setSelectedRole] = useState<RoleSelection | null>(null);
-  const [rejection, setRejection] = useState<ClosedRoleRequestNotice | null>(
-    null,
-  );
-  const hasChosen = useRef(false);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchMyRoleSelection(controller.signal)
-      .then((state) => {
-        if (!controller.signal.aborted && !hasChosen.current) {
-          setSelectedRole(state.selectedRole);
-        }
-      })
-      .catch(() => {
-        // 되살리기에 실패해도 화면은 그대로 쓸 수 있다 — 아무것도 고르지 않은 상태로
-        // 시작할 뿐이다. 여기서 오류를 띄우면 처음 온 사람(고른 것이 없는 것이 정상)
-        // 에게도 실패 화면이 뜬다.
-      });
-    fetchMyRoleRequest(controller.signal)
-      .then((request) => {
-        if (!controller.signal.aborted && request?.status === 'REJECTED') {
-          setRejection({
-            status: 'REJECTED',
-            reason: request.rejectionReason,
-          });
-        }
-      })
-      .catch(() => {
-        // 같은 정책이다 — 사유를 못 읽어도 화면은 그대로 쓸 수 있다. 안내만 없고
-        // 역할은 다시 고를 수 있다. 여기서 실패 화면을 띄우면 반려와 무관한
-        // 사용자(요청이 없는 것이 정상인 첫 가입자)까지 함께 막힌다.
-      });
-    return () => controller.abort();
-  }, []);
-
-  return {
-    selectedRole,
-    rejection,
-    select: (role) => {
-      hasChosen.current = true;
-      setSelectedRole(role);
-    },
-  };
 }
 
-export function RoleSelectionScreen() {
-  const { selectedRole, rejection, select } = useRestoredRoleSelection();
+export function RoleSelectionScreen({
+  initialSelectedRole,
+  rejection,
+}: RoleSelectionScreenProps) {
+  const [selectedRole, setSelectedRole] = useState<RoleSelection | null>(
+    initialSelectedRole,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -643,7 +612,7 @@ export function RoleSelectionScreen() {
       isSubmitting={isSubmitting}
       errorMessage={errorMessage}
       rejection={rejection}
-      onSelect={select}
+      onSelect={setSelectedRole}
       onSubmit={() => void handleSubmit()}
     />
   );

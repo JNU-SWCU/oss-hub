@@ -31,12 +31,18 @@ export function SessionRoleProvider({
   );
 }
 
-/** 게이트가 판단에 쓴 바로 그 스냅샷. 게이트 밖에서 부르면 조합 실수다. */
+/**
+ * 게이트가 판단에 쓴 바로 그 스냅샷. 게이트 밖에서 부르면 조합 실수다.
+ *
+ * 세우는 게이트는 둘이다 — 업무 화면의 `RoleGate`와 온보딩 화면의 `OnboardingGate`.
+ * 후자는 나중에 합류했는데, 그전까지 온보딩 화면들은 필요한 값을 스스로 다시 조회할
+ * 수밖에 없었고 그 재조회가 #673이 되살아나는 통로였다.
+ */
 export function useSharedSessionRole(): SessionRoleResult {
   const value = useContext(SessionRoleContext);
   if (value === null) {
     throw new Error(
-      'useSharedSessionRole는 RoleGate 안에서만 쓸 수 있습니다 — 게이트가 판단한 세션 스냅샷을 물려받는 훅입니다.',
+      'useSharedSessionRole는 RoleGate·OnboardingGate 안에서만 쓸 수 있습니다 — 게이트가 판단한 세션 스냅샷을 물려받는 훅입니다.',
     );
   }
   return value;

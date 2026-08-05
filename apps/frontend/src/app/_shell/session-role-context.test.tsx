@@ -11,6 +11,7 @@ const SNAPSHOT: SessionRoleResult = {
   status: 'unassigned',
   role: null,
   roleRequestStatus: 'PENDING',
+  roleRequestRejectionReason: null,
   selectedRole: 'STAFF',
   isProfileComplete: false,
   retry: () => {},
