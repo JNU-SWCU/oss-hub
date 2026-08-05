@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-07-20 · Updated: 2026-08-01 (todo 14 원자 전환 — writer/reader authority가 증분 저장소로 넘어갔다; todo 16 getRepositoryCumulativeMetrics/getContributorCumulativeMetrics 추가 반영; F3 감사 대응 — rollback은 배포 절차이지 코드 경로가 아니라는 판단과 그 preservation 불변식을 고정한 통합 테스트 반영) -->
+<!-- Generated: 2026-07-20 · Updated: 2026-08-05 (커밋 stream author-scoped 전환 — 팀이 있는 저장소는 팀원 단위 GraphQL `history(author:)`로만 수집하고, 팀 미특정 저장소만 기존 REST 전량 페이징으로 폴백; 외부 기여자는 수치만 관측·저장 위치 미정) -->
 
 # apps/backend/src/collection — GitHub 활동 수집기
 
@@ -14,7 +14,7 @@ Collection GitHub App installation token으로 `JNU-SWCU` 조직 설치 범위�
 | `collection.module.ts` | 모듈 조립 — sync/cutover/reconciliation runtime을 각각 lazy singleton factory로 생성. `CollectionSyncService`가 유일하게 배선된 live writer이고, `CollectionReconciliationService`는 rollback 참조 코드로만 provider에 남는다(어떤 controller/scheduler도 더 이상 주입하지 않는다) |
 | `collection-app.config.ts` | `GITHUB_APP_ORG`/`GITHUB_COLLECTION_APP_ID`/private key fail-closed 설정 |
 | `collection-app.token.ts` | App JWT(PKCS#1/PKCS#8 모두 허용)·installation discovery·token cache/single-flight |
-| `collection-app.client.ts` | REST inventory/commit/PR/release reader — bounded pagination·typed 오류 |
+| `collection-app.client.ts` | REST inventory/commit/PR/release reader — bounded pagination·typed 오류. GraphQL 경로 3개(`resolveUserNodeId`, `listDefaultBranchCommitsByAuthor`, `countDefaultBranchCommits`)는 author-scoped 커밋 수집 전용이다 — `countDefaultBranchCommits`는 커밋 노드를 하나도 받지 않고 `totalCount`만 읽으며(개인 식별자 미전송), 브랜치가 없으면 0이 아니라 `null`을 돌려준다 |
 | `collection-reconciliation.service.ts` | (rollback 참조 전용, live writer 아님) fenced lease 기반 Org-wide atomic generation 수집·발행 — old canonical 테이블 authority |
 | `collection-canonical.repository.ts` | canonical run/lease/generation/공개 contributor projection 영속화(rollback 참조 대상, 신규 런타임 쓰기 없음) |
 | `collection-scheduler.service.ts` | 매시 정각(Asia/Seoul) cron 트리거. todo 14 전환 이후 `CollectionSyncService.run()`을 fire-and-forget으로 감싸 호출한다(즉시 PENDING 응답 계약 유지) — `CollectionCutoverLease`가 걸려 있으면 `COL_008`로 거부한다. #511 이후 성공 tick마다 `collection.scheduler.completed` 구조적 로그 1줄(소요 시간·대상 repo 수·신규 fact 수)을 남긴다 |
@@ -25,7 +25,7 @@ Collection GitHub App installation token으로 `JNU-SWCU` 조직 설치 범위�
 | `collection-live-smoke.service.ts` | E1 live smoke(2-pass 멱등 digest, 공개-safe 출력) |
 | `collection-error-code.enum.ts` | `COL_*` 에러 코드 레지스트리 — `COL_008 COLLECTION_QUIESCED`(409, cutover 절차 진행 중 트리거 거부) 포함 |
 | `collection-generation-import.service.ts` | 최신 성공 활성 canonical generation → ADR-006 안정 ID facts/state/집계 backfill(멱등, ETag·safe frontier 미발명 — stream은 `VERIFYING`으로 남는다). todo 14 cutover 절차가 pin된 generation을 재확인하기 위해 이 backfill을 재실행한다 |
-| `collection-sync.service.ts` | todo 10/14 — repository별 증분 동기화 orchestration이자 유일한 live writer. inventory(complete/partial 구분) → 신규/미검증 저장소 full backfill → READY 저장소 조건부 poll을 fair serial queue·lease-fenced 트랜잭션 위에서 durable cursor로 이어간다. `run`/`runExternal`은 트리거가 만든 runId를 받아 lease에 그대로 쓴다(#546). stream 실패는 `lastErrorCode`(public-safe 분류)로 남기고 성공하면 지운다 — run budget 소진(deadline)은 오류로 세지 않는다 |
+| `collection-sync.service.ts` | todo 10/14 — repository별 증분 동기화 orchestration이자 유일한 live writer. inventory(complete/partial 구분) → 신규/미검증 저장소 full backfill → READY 저장소 조건부 poll을 fair serial queue·lease-fenced 트랜잭션 위에서 durable cursor로 이어간다. `run`/`runExternal`은 트리거가 만든 runId를 받아 lease에 그대로 쓴다(#546). stream 실패는 `lastErrorCode`(public-safe 분류)로 남기고 성공하면 지운다 — run budget 소진(deadline)은 오류로 세지 않는다. **commit stream은 팀이 있는 저장소에서 author-scoped다** — `Repository.githubRepositoryId` → `teamId` → `TeamMember` → `User`로 팀원을 구하고 팀원마다 `resolveUserNodeId`+`listDefaultBranchCommitsByAuthor`를 돌려 결과를 합친다(`TeamMember.userId`가 `User` FK를 강제하므로 팀 활동은 하나도 잃지 않는다). 이 경로는 frontier를 읽지도 쓰지도 않는다(`history(author:)`가 전체 이력을 cost 1점에 주므로 증분 이득이 없고, 중복은 `@@unique([repositoryId, sha])`가 막는다) — 그래서 새 팀원의 과거 이력이 별도 백필 없이 다음 run에 들어온다. checkpoint는 `frontierSha`/`etag`를 null로 남겨, 나중에 팀을 잃어 REST 경로로 떨어져도 이력이 잘리지 않게 한다. 팀을 특정할 수 없는 저장소(`Repository` 행 없음 또는 `teamId` null)만 기존 저장소 전량 REST 경로를 쓴다. 외부(비팀원) 기여는 `전체 − 팀원합` **수치만** 구조적 로그로 관측하고 버린다 — 저장 위치 미정이며 개인 식별자는 저장하지 않는다 |
 | `collection-sync.types.ts` | `CollectionSyncLease` epoch-fenced lease 계약 타입(`SyncLeaseKey`/`SyncLeaseToken`/`AcquireSyncLeaseInput`) |
 | `collection-cutover.types.ts` | todo 14 원자 전환 quiesce lease/결과 계약 타입(`CutoverLeaseKey`/`CutoverLeaseToken`/`CutoverAbortReason`/`CutoverAggregateComparison`/`CutoverResult`) |
 | `collection-cutover.repository.ts` | `CollectionCutoverLease` epoch-fenced quiesce lease(acquire/release/`isQuiesced` 존재 확인) + aggregate 비교용 VERIFYING stream·facts count 조회 |

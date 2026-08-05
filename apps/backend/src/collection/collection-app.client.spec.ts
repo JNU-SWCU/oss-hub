@@ -1054,6 +1054,75 @@ describe('CollectionAppClient author-filtered commit history (GraphQL)', () => {
     ).resolves.toBeNull();
   });
 
+  it('reads the repo-wide default-branch commit total without requesting any commit node', async () => {
+    const fetcher = fetchMock().mockResolvedValue(
+      json({
+        data: {
+          repository: { ref: { target: { history: { totalCount: 42 } } } },
+        },
+      }),
+    );
+    await expect(
+      new CollectionAppClient(
+        graphqlConfig,
+        tokenProvider,
+        fetcher,
+      ).countDefaultBranchCommits('JNU-SWCU', 'oss-hub', 'main'),
+    ).resolves.toEqual(42);
+    const payload = sentPayload(fetcher);
+    expect(payload.variables).toEqual({
+      owner: 'JNU-SWCU',
+      name: 'oss-hub',
+      branch: 'main',
+    });
+    // No author filter (this is the *whole* repository) and — critically —
+    // no `nodes` selection, so no contributor identity is ever transferred.
+    expect(payload.query).toContain('totalCount');
+    expect(payload.query).not.toContain('nodes');
+    expect(payload.query).not.toContain('author');
+  });
+
+  it('reports a zero-commit branch as 0 and a missing branch as null', async () => {
+    await expect(
+      new CollectionAppClient(
+        graphqlConfig,
+        tokenProvider,
+        fetchMock().mockResolvedValue(
+          json({
+            data: {
+              repository: { ref: { target: { history: { totalCount: 0 } } } },
+            },
+          }),
+        ),
+      ).countDefaultBranchCommits('o', 'r', 'main'),
+    ).resolves.toEqual(0);
+    await expect(
+      new CollectionAppClient(
+        graphqlConfig,
+        tokenProvider,
+        fetchMock().mockResolvedValue(
+          json({ data: { repository: { ref: null } } }),
+        ),
+      ).countDefaultBranchCommits('o', 'r', 'missing'),
+    ).resolves.toBeNull();
+  });
+
+  it('rejects a malformed totalCount instead of reporting a bogus total', async () => {
+    await expect(
+      new CollectionAppClient(
+        graphqlConfig,
+        tokenProvider,
+        fetchMock().mockResolvedValue(
+          json({
+            data: {
+              repository: { ref: { target: { history: { totalCount: -1 } } } },
+            },
+          }),
+        ),
+      ).countDefaultBranchCommits('o', 'r', 'main'),
+    ).rejects.toMatchObject({ kind: 'RESPONSE' });
+  });
+
   it('defaults the GraphQL endpoint when no override is configured', async () => {
     const fetcher = fetchMock().mockResolvedValue(
       json({ data: { user: { id: 'NODE' } } }),

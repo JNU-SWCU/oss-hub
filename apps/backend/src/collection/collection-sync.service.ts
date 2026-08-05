@@ -15,12 +15,21 @@ import type {
   CollectionRepositoryRow,
   CollectionStreamType,
   RepositorySource,
+  RepositoryTeamMemberAccount,
 } from './collection-incremental.types';
 import type { SyncLeaseToken } from './collection-sync.types';
 
 const LEASE_MS = 10 * 60_000;
 const HEARTBEAT_MS = 2 * 60_000;
 const RUN_DEADLINE_MS = 45 * 60_000;
+
+/**
+ * author-scoped GraphQL commit 수집이 남기는 request fingerprint 표식. REST fingerprint와
+ * 달리 조건부 요청(ETag)에 쓰이지 않는다 — GraphQL 응답에는 ETag가 없고 이 경로는 매 run
+ * 팀원별 전체 이력을 다시 받는다. 어떤 요청 모양이 이 frontier 행을 세웠는지 사후에
+ * 구분하기 위한 값이다.
+ */
+const TEAM_SCOPED_COMMIT_FINGERPRINT = 'graphql:history(author:)#first=100';
 
 export interface CollectionSyncRuntime {
   appId: string;
@@ -83,6 +92,7 @@ type SyncRepository = Pick<
   | 'markAbsentRepositories'
   | 'listPresentRepositories'
   | 'listExternalRepositories'
+  | 'listRepositoryTeamMembers'
   | 'getSyncCursor'
   | 'upsertSyncCursor'
   | 'acquireSyncLease'
@@ -602,6 +612,26 @@ export class CollectionSyncService {
       return 0;
     }
 
+    // 팀원 단위 author-scoped 수집(멤버 활동 → 팀 활동 → 프로그램 활동). `TeamMember.userId`가
+    // `User` FK를 강제하므로 팀원은 정의상 전부 가입자다 — author로 걸러도 팀 활동은 하나도
+    // 잃지 않는다. 팀을 특정할 수 없는 저장소(`null`)만 아래 저장소 전량 REST 경로로 떨어진다.
+    const teamMembers =
+      await this.incrementalRepository.listRepositoryTeamMembers(
+        repository.githubRepositoryId,
+      );
+    if (teamMembers !== null) {
+      return this.syncTeamScopedCommitStream(
+        runtime,
+        lease,
+        repository,
+        owner,
+        name,
+        defaultBranch,
+        teamMembers,
+        deadline,
+      );
+    }
+
     const existing = await this.incrementalRepository.getStreamFrontier(
       repository.id,
       'COMMIT',
@@ -660,6 +690,117 @@ export class CollectionSyncService {
       requestFingerprintKey(result.fingerprint),
       probe.etag,
     );
+  }
+
+  /**
+   * 팀원 하나하나에 대해 `resolveUserNodeId` → `listDefaultBranchCommitsByAuthor`를 돌리고
+   * 결과를 합쳐 기존 `commitCheckpoint` 경로로 적재한다. 저장소당 팀원은 보통 1~5명이고
+   * `history(author:)`는 전체 이력을 받아도 rate-limit 1점이라, 저장소 전량 페이징(예:
+   * 217 요청)보다 훨씬 싸다.
+   *
+   * **frontier를 읽지도 쓰지도 않는다(옵션 b).** 저장소당 하나뿐인 frontier로는 "기존
+   * 팀원은 증분, 새 팀원은 전체 이력"을 표현할 수 없는데, `since`를 생략해도 비용이 1점이라
+   * 증분의 이득이 사실상 없다. 그래서 매 run 팀원별 전체 이력을 다시 받고 중복은
+   * `@@unique([repositoryId, sha])`(=`createMany` + `skipDuplicates`)가 막는다 — 새 팀원의
+   * 과거 이력이 별도 백필 코드 없이 다음 run에 자동으로 들어온다.
+   *
+   * checkpoint에는 `frontierSha`/`etag`를 **null**로 남긴다. 여기서 본 최신 커밋은 팀원의
+   * 커밋일 뿐 브랜치 head가 아니므로, 나중에 이 저장소가 팀을 잃어 REST 경로로 떨어질 때
+   * 그 값을 known SHA로 쓰면 그 아래 이력이 통째로 잘린다. null이면 REST 경로가 정상적으로
+   * 전체 백필을 다시 수행한다.
+   *
+   * `resolveUserNodeId`가 null(삭제·개명된 GitHub 계정 등)이면 그 팀원만 건너뛰고 나머지
+   * 팀원 수집은 계속한다 — 계정 하나 때문에 저장소 전체 stream을 실패시키지 않는다.
+   */
+  private async syncTeamScopedCommitStream(
+    runtime: CollectionSyncRuntime,
+    lease: SyncLeaseToken,
+    repository: CollectionRepositoryRow,
+    owner: string,
+    name: string,
+    defaultBranch: string,
+    members: readonly RepositoryTeamMemberAccount[],
+    deadline: number,
+  ): Promise<number> {
+    const bySha = new Map<string, CollectionCommit>();
+    for (const member of members) {
+      const authorNodeId = await this.beforeDeadline(
+        runtime.client.resolveUserNodeId(member.nickname),
+        deadline,
+      );
+      if (authorNodeId === null) {
+        this.logger.warn({
+          event: 'collection.sync.team_member_node_id_unresolved',
+          githubRepositoryId: repository.githubRepositoryId.toString(),
+          githubUserId: member.githubId.toString(),
+        });
+        continue;
+      }
+      const authored = await this.beforeDeadline(
+        runtime.client.listDefaultBranchCommitsByAuthor(
+          owner,
+          name,
+          defaultBranch,
+          authorNodeId,
+        ),
+        deadline,
+      );
+      for (const commit of authored) bySha.set(commit.sha, commit);
+    }
+
+    const teamCommits = [...bySha.values()];
+    await this.observeExternalContribution(
+      runtime,
+      repository,
+      owner,
+      name,
+      defaultBranch,
+      teamCommits.length,
+      deadline,
+    );
+
+    return this.commitCheckpoint(
+      lease,
+      repository.id,
+      teamCommits,
+      null,
+      TEAM_SCOPED_COMMIT_FINGERPRINT,
+      null,
+    );
+  }
+
+  /**
+   * 외부(비팀원) 기여 **수치만** 관측한다 — `전체 − 팀원합`. 개인 식별자(login·githubId)는
+   * 요청도 저장도 하지 않는다: `countDefaultBranchCommits`는 커밋 노드를 하나도 받지 않고
+   * `totalCount`만 읽는다.
+   *
+   * 저장 위치는 아직 정하지 않았다. 지금은 관측해 로그로만 남기고 버린다 — 이 값을 담을
+   * 적절한 컬럼이 없으며, 추측으로 스키마를 늘리지 않는다.
+   *
+   * 전체가 `null`(브랜치 없음)이거나 팀원합보다 작으면(관측 시점 차이로 생기는 불일치)
+   * 계산 자체를 건너뛴다. 음수를 남기거나 0으로 뭉개는 것은 조용한 오답이다.
+   */
+  private async observeExternalContribution(
+    runtime: CollectionSyncRuntime,
+    repository: CollectionRepositoryRow,
+    owner: string,
+    name: string,
+    defaultBranch: string,
+    teamCommitCount: number,
+    deadline: number,
+  ): Promise<void> {
+    const totalCommitCount = await this.beforeDeadline(
+      runtime.client.countDefaultBranchCommits(owner, name, defaultBranch),
+      deadline,
+    );
+    if (totalCommitCount === null || totalCommitCount < teamCommitCount) return;
+    this.logger.log({
+      event: 'collection.sync.external_contribution_observed',
+      githubRepositoryId: repository.githubRepositoryId.toString(),
+      totalCommitCount,
+      teamCommitCount,
+      externalCommitCount: totalCommitCount - teamCommitCount,
+    });
   }
 
   private async commitCheckpoint(
