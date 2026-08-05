@@ -243,16 +243,16 @@ jobs:
         if: ${{ steps.scope.outputs.backend == 'true' }}
         run: pnpm --filter backend build
 
-      # #184의 권한 생명주기는 frontend 화면과 backend 권한 경계를 함께 지나므로
-      # 어느 앱이 바뀌어도 실제 브라우저 회귀를 required ci 안에서 실행한다.
+      # #184의 권한 생명주기는 frontend 화면과 backend 권한 경계를 함께 지나지만,
+      # 전체 Playwright 묶음은 PR 반복 시간을 늘리므로 main 반영 뒤에만 실행한다.
       - name: 교직원 접근 권한 브라우저 회귀
-        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' }}
+        if: ${{ github.event_name == 'push' }}
         env:
           E2E_OUTPUT_DIR: ${{ runner.temp }}/oss-hub-playwright
         run: pnpm --filter frontend e2e
 
       - name: 교직원 접근 권한 화면 증적 업로드
-        if: ${{ always() && (steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true') }}
+        if: ${{ always() && github.event_name == 'push' }}
         uses: actions/upload-artifact@v4
         with:
           name: admin-access-lifecycle-${{ github.run_id }}-${{ github.run_attempt }}
