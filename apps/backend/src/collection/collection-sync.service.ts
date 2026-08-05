@@ -119,6 +119,27 @@ const orgScope = (organizationLogin: string): string =>
   `org:${organizationLogin}`;
 const EXTERNAL_SCOPE = 'external';
 
+/**
+ * ADR-009 §4 — 팀원 GitHub 계정 id 집합. `User.githubId`가 `BigInt @unique`(non-null)라
+ * 이 집합에는 null이 절대 들어오지 않는다.
+ */
+const teamMemberGithubIds = (
+  members: readonly RepositoryTeamMemberAccount[],
+): ReadonlySet<bigint> => new Set(members.map((member) => member.githubId));
+
+/**
+ * ADR-009 «PR·릴리스는 적재 시 거른다» — 작성자가 이 저장소를 소유한 팀의 팀원인가.
+ *
+ * `authorGithubId`가 `null`이면 **거른다.** 삭제·이관된 GitHub 계정이나 provider가
+ * author를 못 붙인 항목이 여기 해당하는데, 통과시키면 "누구인지 모르는 사람의 활동"이
+ * fact에 남는다. 팀원임을 증명하지 못한 것은 팀원이 아닌 쪽으로 판정하는 fail-closed가
+ * 이 ADR이 막으려는 실수(제3자 적재)를 되돌릴 수 없게 만들지 않는 유일한 방향이다.
+ */
+const isTeamMemberAuthor = (
+  authorGithubId: string | null,
+  memberIds: ReadonlySet<bigint>,
+): boolean => authorGithubId !== null && memberIds.has(BigInt(authorGithubId));
+
 interface SweepInventory {
   readonly complete: boolean;
   readonly repositories: readonly CollectionRepositoryRow[];
@@ -488,20 +509,51 @@ export class CollectionSyncService {
     deadline: number,
   ): Promise<number> {
     const [owner, name] = splitNameWithOwner(repository.nameWithOwner);
-    const commitCount = await this.trackStreamOutcome(
-      lease,
-      repository.id,
-      'COMMIT',
-      () =>
-        this.syncCommitStream(
-          runtime,
-          lease,
-          repository,
-          owner,
-          name,
-          deadline,
-        ),
-    );
+    // 팀원 목록은 저장소당 한 번만 읽어 세 stream이 공유한다. 커밋은 이 목록으로 **취득
+    // 범위**를 좁히고(author-scoped GraphQL), PR·릴리스는 author 인자가 없어 전량 받은 뒤
+    // 이 목록으로 **적재를** 좁힌다(ADR-009 §4). stream마다 다시 읽으면 한 저장소를 처리하는
+    // 도중에 팀원이 바뀌어 세 stream의 기준이 갈라질 수 있다.
+    //
+    // **조회를 COMMIT stream의 `trackStreamOutcome` 안에 두는 것이 이 배치의 요점이다.**
+    // 이 조회가 실패하면 그 사실이 `CollectionRepositoryStream.lastErrorCode`에 남아야 한다
+    // (#546) — 밖으로 빼면 상위 catch가 로그만 남기고 stream 행은 깨끗한 채로 남아, 운영자가
+    // `system-status`로 "수집이 왜 멈췄는지"를 판정할 근거를 잃는다. 저장소당 1회로 줄이면서
+    // 그 fencing까지 지키는 배치가 이것뿐이다.
+    //
+    // `defaultBranch`가 null인 빈 저장소에서도 조회를 건너뛰지 않는다. 건너뛰면 `teamMembers`가
+    // null이 되어 PR·릴리스가 **거르지 않는** 갈래로 떨어지기 때문이다 — 빈 저장소에 PR·릴리스가
+    // 있을 수 없다는 전제에 fail-open을 매다는 셈이라, 조회 1회를 아끼자고 할 거래가 아니다.
+    //
+    // ⚠ **이 조회가 `null`을 주는 저장소는 아래 어떤 필터도 받지 않는다.** `Repository.applicationId`가
+    // non-null이라 `Repository` 행은 신청 산출물에만 생긴다 — 그래서 학생 기여 발견으로 들어온
+    // `EXTERNAL_PUBLIC` 저장소는 OWN으로 연결한 하나를 빼면 **전부** 팀 미특정이고, `oss-hub`
+    // 저장소 자신처럼 신청을 거치지 않은 org 저장소도 마찬가지다. 그 갈래는 지금도 모든 기여자를
+    // 전량 적재한다. 지금 fail-closed로 막으면 현재 공개 랭킹이 통째로 사라지므로 별도 결정이
+    // 필요하다 — #682.
+    const { teamMembers, insertedCount: commitCount } =
+      await this.trackStreamOutcome(
+        lease,
+        repository.id,
+        'COMMIT',
+        async () => {
+          const members =
+            await this.incrementalRepository.listRepositoryTeamMembers(
+              repository.githubRepositoryId,
+            );
+          return {
+            teamMembers: members,
+            insertedCount: await this.syncCommitStream(
+              runtime,
+              lease,
+              repository,
+              owner,
+              name,
+              members,
+              deadline,
+            ),
+          };
+        },
+      );
     const pullRequestCount = await this.trackStreamOutcome(
       lease,
       repository.id,
@@ -513,6 +565,7 @@ export class CollectionSyncService {
           repository,
           owner,
           name,
+          teamMembers,
           deadline,
         ),
     );
@@ -527,6 +580,7 @@ export class CollectionSyncService {
           repository,
           owner,
           name,
+          teamMembers,
           deadline,
         ),
     );
@@ -544,16 +598,20 @@ export class CollectionSyncService {
    * 내용이 바뀔 때까지 영구히 FAILED로 남는다.
    *
    * `RunDeadlineError`는 오류가 아니라 run budget 소진이므로 기록하지 않는다.
+   *
+   * 반환 타입이 제네릭인 이유: COMMIT stream은 적재 건수뿐 아니라 **팀원 목록**도 함께
+   * 돌려줘야 한다(그 조회가 이 fencing 안에서 일어나야 하므로 — `syncRepository` 참고).
+   * 나머지 두 stream은 종전대로 `number`로 인스턴스화된다.
    */
-  private async trackStreamOutcome(
+  private async trackStreamOutcome<T>(
     lease: SyncLeaseToken,
     repositoryId: string,
     streamType: CollectionStreamType,
-    operation: () => Promise<number>,
-  ): Promise<number> {
-    let insertedCount: number;
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    let outcome: T;
     try {
-      insertedCount = await operation();
+      outcome = await operation();
     } catch (error) {
       if (!(error instanceof RunDeadlineError)) {
         await this.writeStreamErrorState(lease, repositoryId, streamType, {
@@ -567,7 +625,7 @@ export class CollectionSyncService {
       lastErrorAt: null,
       lastErrorCode: null,
     });
-    return insertedCount;
+    return outcome;
   }
 
   /**
@@ -600,6 +658,7 @@ export class CollectionSyncService {
     repository: CollectionRepositoryRow,
     owner: string,
     name: string,
+    teamMembers: readonly RepositoryTeamMemberAccount[] | null,
     deadline: number,
   ): Promise<number> {
     const defaultBranch = repository.defaultBranch;
@@ -615,10 +674,6 @@ export class CollectionSyncService {
     // 팀원 단위 author-scoped 수집(멤버 활동 → 팀 활동 → 프로그램 활동). `TeamMember.userId`가
     // `User` FK를 강제하므로 팀원은 정의상 전부 가입자다 — author로 걸러도 팀 활동은 하나도
     // 잃지 않는다. 팀을 특정할 수 없는 저장소(`null`)만 아래 저장소 전량 REST 경로로 떨어진다.
-    const teamMembers =
-      await this.incrementalRepository.listRepositoryTeamMembers(
-        repository.githubRepositoryId,
-      );
     if (teamMembers !== null) {
       return this.syncTeamScopedCommitStream(
         runtime,
@@ -838,12 +893,32 @@ export class CollectionSyncService {
     });
   }
 
+  /**
+   * PR은 GraphQL에도 `author` 인자가 없어 전량 받은 뒤 적재 직전에 거른다(ADR-009 §4).
+   *
+   * **거르기는 커서 계산에 절대 끼어들지 않는다.** 이 stream의 커서는 두 값이다 —
+   * "이번 페이징을 어디서 멈출까"를 정하는 `tieFrontier`(입력)와 "다음 run이 어디서 멈출까"를
+   * 정하는 `result.newFrontier`(출력). 둘 다 provider가 돌려준 **거르기 전** 목록에서만
+   * 나온다: `tieFrontier`는 저장된 frontier row에서 읽고, `newFrontier`는
+   * `listNewPullRequests`가 자기 `pullRequests[0]`(가장 새 PR, 작성자 무관)로 계산한다.
+   * 아래 조기 반환도 거르기 전 길이를 본다.
+   *
+   * 그래서 한 페이지가 전부 비팀원 PR이어도 frontier는 그 페이지 너머로 전진하고,
+   * 다음 run은 같은 PR을 다시 받지 않는다. 반대로 거른 뒤 길이로 조기 반환했다면 frontier가
+   * 제자리에 남아 매 run 같은 페이지를 영원히 다시 받았을 것이다.
+   *
+   * 대신 한 가지를 잃는다: 이미 frontier 아래로 내려간 PR은 다시 오지 않으므로, **나중에
+   * 합류한 팀원의 과거 PR은 백필되지 않는다.** 커밋 경로가 매 sweep 전체 이력을 다시 받아
+   * 얻는 성질(#678)이 PR에는 성립하지 않는다 — 여기서 고치면 증분 커서를 버려야 해서
+   * 이 변경의 범위 밖이고, 후속에서 다룬다.
+   */
   private async syncPullRequestStream(
     runtime: CollectionSyncRuntime,
     lease: SyncLeaseToken,
     repository: CollectionRepositoryRow,
     owner: string,
     name: string,
+    teamMembers: readonly RepositoryTeamMemberAccount[] | null,
     deadline: number,
   ): Promise<number> {
     const existing = await this.incrementalRepository.getStreamFrontier(
@@ -870,9 +945,37 @@ export class CollectionSyncService {
     return this.pullRequestCheckpoint(
       lease,
       repository.id,
-      result.pullRequests,
+      this.onlyTeamAuthored(result.pullRequests, teamMembers),
       result.newFrontier,
       requestFingerprintKey(result.fingerprint),
+    );
+  }
+
+  /**
+   * ADR-009 «PR·릴리스는 적재 시 거른다»의 실행 지점 하나.
+   *
+   * ⚠ **이 방어는 팀을 특정할 수 있는 저장소(`teamMembers !== null`)에만 걸린다.** 팀을
+   * 특정할 수 없으면 목록을 그대로 돌려주는데, 그 갈래는 작은 예외가 아니다 —
+   * `Repository.applicationId`가 non-null이라 `Repository` 행은 신청 산출물에만 생기므로,
+   * 학생 기여 발견으로 적재된 `EXTERNAL_PUBLIC` 저장소는 OWN 연결분 하나를 빼면 전부, 그리고
+   * `oss-hub` 저장소 자신처럼 신청을 거치지 않은 org 저장소도 여기로 떨어져 **여전히 모든
+   * 기여자를 전량 적재한다.** 오늘 공개 랭킹에 보이는 수치가 실제로 그 경로에서 나온 것이라
+   * 지금 막으면 랭킹이 통째로 사라진다. 처리 방침은 별도 결정이다 — #682.
+   *
+   * 거른 결과는 **fact 적재에만** 넘긴다. 집계는 `recordPullRequestFacts`/
+   * `recordReleaseFacts`가 자기가 받은 fact의 author로만 재계산하므로
+   * (`collection-incremental.repository.ts`의 `rebuildAffectedAggregates`), facts에 안 들어간
+   * 작성자는 `CollectionContributorYearAggregate` 행도 얻지 못한다. 집계 쪽을 따로 손댈
+   * 필요가 없는 이유가 이것이다.
+   */
+  private onlyTeamAuthored<T extends { authorGithubId: string | null }>(
+    items: readonly T[],
+    teamMembers: readonly RepositoryTeamMemberAccount[] | null,
+  ): readonly T[] {
+    if (teamMembers === null) return items;
+    const memberIds = teamMemberGithubIds(teamMembers);
+    return items.filter((item) =>
+      isTeamMemberAuthor(item.authorGithubId, memberIds),
     );
   }
 
@@ -911,12 +1014,26 @@ export class CollectionSyncService {
     });
   }
 
+  /**
+   * 릴리스도 PR과 같은 이유로 전량 받은 뒤 적재 직전에 거른다(ADR-009 §4).
+   *
+   * **커서와 거르기가 아예 다른 요청에서 나온다.** 이 stream의 커서(`frontierSha`에 담기는
+   * `probe.frontier.probe`와 조건부 GET용 `probe.etag`)는 전부 `probeLatestRelease`의
+   * 응답이고, 거르는 대상은 그 뒤 `listChangedPublishedReleases`가 돌려준 목록이다. 목록에서
+   * 무엇을 버리든 probe가 만든 값은 바뀌지 않으므로, 전부 걸러도 etag는 전진하고 다음 run은
+   * 304로 목록 호출 자체를 건너뛴다.
+   *
+   * PR과 달리 이쪽은 백필 성질이 남는다 — `listChangedPublishedReleases`는 매번 발행된
+   * 릴리스 **전량**을 다시 받으므로(증분 커서 없음), 나중에 합류한 팀원의 과거 릴리스는
+   * 그 저장소에 릴리스 변화가 한 번 생겨 probe가 깨지는 시점에 들어온다.
+   */
   private async syncReleaseStream(
     runtime: CollectionSyncRuntime,
     lease: SyncLeaseToken,
     repository: CollectionRepositoryRow,
     owner: string,
     name: string,
+    teamMembers: readonly RepositoryTeamMemberAccount[] | null,
     deadline: number,
   ): Promise<number> {
     const existing = await this.incrementalRepository.getStreamFrontier(
@@ -939,7 +1056,7 @@ export class CollectionSyncService {
     return this.releaseCheckpoint(
       lease,
       repository.id,
-      listing.releases,
+      this.onlyTeamAuthored(listing.releases, teamMembers),
       probe.frontier ? probe.frontier.probe : null,
       requestFingerprintKey(probe.fingerprint),
       probe.etag,
