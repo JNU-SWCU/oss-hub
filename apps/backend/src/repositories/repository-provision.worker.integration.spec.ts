@@ -49,7 +49,10 @@ const APPLICATION_IDS = [
 type ProvisionGithubClient = jest.Mocked<
   Pick<
     GithubAppClient,
-    'findRepository' | 'createRepository' | 'ensureCollaborator'
+    | 'findRepository'
+    | 'createRepository'
+    | 'ensureCollaborator'
+    | 'findPublicRepository'
   >
 >;
 
@@ -257,6 +260,7 @@ function githubClient(): ProvisionGithubClient {
     ensureCollaborator: jest
       .fn()
       .mockResolvedValue(COLLABORATOR_OUTCOMES.SUCCEEDED),
+    findPublicRepository: jest.fn().mockResolvedValue(null),
   };
 }
 

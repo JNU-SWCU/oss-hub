@@ -2,6 +2,9 @@ import { RepositoryInvitationStatus } from '@prisma/client';
 import {
   githubClientMock,
   jobRepositoryMock,
+  OWN_PROVISION_REPOSITORY,
+  OWN_REPOSITORY_URL,
+  ownProvisionContext,
   PROVISION_NOW,
   PROVISION_REPOSITORY,
   provisionContext,
@@ -10,6 +13,7 @@ import {
 import { COLLABORATOR_OUTCOMES } from './github-app.client';
 import { RepositoryProvisionWorker } from './repository-provision.worker';
 import { buildRepositoryOwnershipMarker } from './repository-name';
+import { PROVISION_ERROR_CODES } from './repository-provision.failure';
 
 describe('RepositoryProvisionWorker success', () => {
   it('실행 가능한 job이 없으면 외부 호출을 하지 않는다', async () => {
@@ -149,5 +153,123 @@ describe('RepositoryProvisionWorker success', () => {
       jobId: 'synthetic-job-id',
       repositoryId: PROVISION_REPOSITORY.id,
     });
+  });
+});
+
+describe('RepositoryProvisionWorker OWN connection', () => {
+  it('OWN 승인은 저장소를 만들지 않고 학생 URL을 그대로 기록한다', async () => {
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(ownProvisionContext());
+    state.recordRepository.mockResolvedValue(OWN_PROVISION_REPOSITORY);
+    const github = githubClientMock();
+    github.findPublicRepository.mockResolvedValue({
+      githubRepositoryId: OWN_PROVISION_REPOSITORY.githubRepositoryId,
+      name: OWN_PROVISION_REPOSITORY.name,
+      url: 'https://github.com/Synthetic-Student/synthetic-own-repo',
+      visibility: 'PUBLIC',
+      description: null,
+    });
+    const worker = new RepositoryProvisionWorker(jobs, state, github);
+
+    const result = await worker.runNext('worker-own', PROVISION_NOW);
+
+    expect(result).toEqual({
+      kind: 'SUCCEEDED',
+      jobId: 'synthetic-job-id',
+      repositoryId: OWN_PROVISION_REPOSITORY.id,
+    });
+    expect(github.createRepository.mock.calls).toHaveLength(0);
+    expect(github.findRepository.mock.calls).toHaveLength(0);
+    expect(github.findPublicRepository.mock.calls).toEqual([
+      ['synthetic-student', 'synthetic-own-repo'],
+    ]);
+    expect(state.recordRepository.mock.calls[0]?.[0].metadata).toEqual({
+      githubRepositoryId: OWN_PROVISION_REPOSITORY.githubRepositoryId,
+      name: 'synthetic-own-repo',
+      url: OWN_REPOSITORY_URL,
+      visibility: 'PUBLIC',
+      description: null,
+    });
+  });
+
+  it('OWN 승인은 협업자 초대·공개 전환을 시도하지 않는다', async () => {
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(ownProvisionContext());
+    state.recordRepository.mockResolvedValue(OWN_PROVISION_REPOSITORY);
+    const github = githubClientMock();
+    github.findPublicRepository.mockResolvedValue({
+      githubRepositoryId: OWN_PROVISION_REPOSITORY.githubRepositoryId,
+      name: OWN_PROVISION_REPOSITORY.name,
+      url: OWN_REPOSITORY_URL,
+      visibility: 'PUBLIC',
+      description: null,
+    });
+    const worker = new RepositoryProvisionWorker(jobs, state, github);
+
+    await worker.runNext('worker-own-no-write', PROVISION_NOW);
+
+    expect(github.ensureCollaborator.mock.calls).toHaveLength(0);
+    expect(state.prepareInvitations.mock.calls).toHaveLength(0);
+    expect(state.findInvitationWork.mock.calls).toHaveLength(0);
+    expect(state.completeInvitation.mock.calls).toHaveLength(0);
+    expect(state.completeJob.mock.calls).toEqual([
+      [
+        'synthetic-job-id',
+        'worker-own-no-write',
+        OWN_PROVISION_REPOSITORY.id,
+        PROVISION_NOW,
+      ],
+    ]);
+  });
+
+  it('OWN + 존재하지 않는 저장소는 명확한 최종 실패다', async () => {
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(ownProvisionContext());
+    const github = githubClientMock();
+    github.findPublicRepository.mockResolvedValue(null);
+    const worker = new RepositoryProvisionWorker(jobs, state, github);
+
+    const result = await worker.runNext('worker-own-missing', PROVISION_NOW);
+
+    expect(result).toEqual({
+      kind: 'FAILED_FINAL',
+      jobId: 'synthetic-job-id',
+      errorCode: PROVISION_ERROR_CODES.OWN_REPOSITORY_NOT_FOUND,
+    });
+    expect(github.createRepository.mock.calls).toHaveLength(0);
+    expect(state.recordRepository.mock.calls).toHaveLength(0);
+  });
+
+  it('OWN + 이상한 URL은 거부한다', async () => {
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(
+      ownProvisionContext({
+        eventPayload: {
+          applicationId: 'synthetic-application-id',
+          programId: 'synthetic-program-id',
+          teamId: null,
+          requestedAt: PROVISION_NOW.toISOString(),
+          collaboratorGithubLogins: ['synthetic-leader', 'synthetic-student'],
+          repositoryConnectionMode: 'OWN',
+          repositoryUrl: 'https://gitlab.com/synthetic/repo',
+        },
+      }),
+    );
+    const github = githubClientMock();
+    const worker = new RepositoryProvisionWorker(jobs, state, github);
+
+    const result = await worker.runNext('worker-own-bad-url', PROVISION_NOW);
+
+    expect(result).toEqual({
+      kind: 'FAILED_FINAL',
+      jobId: 'synthetic-job-id',
+      errorCode: PROVISION_ERROR_CODES.OWN_REPOSITORY_URL_INVALID,
+    });
+    expect(github.findPublicRepository.mock.calls).toHaveLength(0);
+    expect(github.createRepository.mock.calls).toHaveLength(0);
   });
 });

@@ -19,6 +19,18 @@ export const PROVISION_REPOSITORY: ProvisionedRepository = {
   visibility: RepositoryVisibility.PRIVATE,
 };
 
+export const OWN_REPOSITORY_URL =
+  'https://github.com/synthetic-student/synthetic-own-repo';
+
+export const OWN_PROVISION_REPOSITORY: ProvisionedRepository = {
+  id: 'synthetic-own-repository-id',
+  applicationId: 'synthetic-application-id',
+  githubRepositoryId: 1_111_222_333n,
+  name: 'synthetic-own-repo',
+  url: OWN_REPOSITORY_URL,
+  visibility: RepositoryVisibility.PUBLIC,
+};
+
 export function provisionContext(
   overrides: Partial<RepositoryProvisionContext> = {},
 ): RepositoryProvisionContext {
@@ -41,6 +53,23 @@ export function provisionContext(
     repository: null,
     ...overrides,
   };
+}
+
+export function ownProvisionContext(
+  overrides: Partial<RepositoryProvisionContext> = {},
+): RepositoryProvisionContext {
+  return provisionContext({
+    eventPayload: {
+      applicationId: 'synthetic-application-id',
+      programId: 'synthetic-program-id',
+      teamId: null,
+      requestedAt: PROVISION_NOW.toISOString(),
+      collaboratorGithubLogins: ['synthetic-leader', 'synthetic-student'],
+      repositoryConnectionMode: 'OWN',
+      repositoryUrl: OWN_REPOSITORY_URL,
+    },
+    ...overrides,
+  });
 }
 
 export function jobRepositoryMock(): jest.Mocked<
@@ -80,7 +109,10 @@ export function provisionStateMock(): jest.Mocked<RepositoryProvisionStateStore>
 export function githubClientMock(): jest.Mocked<
   Pick<
     GithubAppClient,
-    'findRepository' | 'createRepository' | 'ensureCollaborator'
+    | 'findRepository'
+    | 'createRepository'
+    | 'ensureCollaborator'
+    | 'findPublicRepository'
   >
 > {
   return {
@@ -93,5 +125,6 @@ export function githubClientMock(): jest.Mocked<
       description: buildRepositoryOwnershipMarker('synthetic-application-id'),
     }),
     ensureCollaborator: jest.fn().mockResolvedValue('SUCCEEDED'),
+    findPublicRepository: jest.fn().mockResolvedValue(null),
   };
 }

@@ -24,7 +24,10 @@ import {
   provisionRetryAt,
   type RepositoryProvisionWorkerOptions,
 } from './repository-provision.failure';
-import { findOrCreateGithubRepository } from './repository-provision.github';
+import {
+  findOrCreateGithubRepository,
+  resolveOwnGithubRepository,
+} from './repository-provision.github';
 import {
   buildRepositoryNames,
   buildRepositoryOwnershipMarker,
@@ -55,7 +58,10 @@ export class RepositoryProvisionWorker {
     private readonly state: RepositoryProvisionStateStore,
     private readonly github: Pick<
       GithubAppClient,
-      'findRepository' | 'createRepository' | 'ensureCollaborator'
+      | 'findRepository'
+      | 'createRepository'
+      | 'ensureCollaborator'
+      | 'findPublicRepository'
     >,
     private readonly options: RepositoryProvisionWorkerOptions = DEFAULT_PROVISION_OPTIONS,
   ) {}
@@ -79,10 +85,34 @@ export class RepositoryProvisionWorker {
 
     try {
       const context = await this.state.loadContext(job.id, workerId);
-      const logins = this.validateContext(context);
+      const { logins, connectionMode, repositoryUrl } =
+        this.validateContext(context);
       const repository =
         context.repository ??
-        (await this.createAndRecordRepository(context, job.id, workerId, now));
+        (await this.createAndRecordRepository(
+          context,
+          connectionMode,
+          repositoryUrl,
+          job.id,
+          workerId,
+          now,
+        ));
+      // OWN은 조직 밖 저장소라 초대 권한이 없다 — 초대 단계를 통째로 건너뛴다.
+      if (connectionMode === 'OWN') {
+        const completedAt = now();
+        await this.state.completeJob(
+          job.id,
+          workerId,
+          repository.id,
+          completedAt,
+        );
+        this.logResult(context, job.id, job.attemptCount, 'SUCCEEDED');
+        return {
+          kind: 'SUCCEEDED',
+          jobId: job.id,
+          repositoryId: repository.id,
+        };
+      }
       await this.state.prepareInvitations(
         job.id,
         workerId,
@@ -155,9 +185,11 @@ export class RepositoryProvisionWorker {
     }
   }
 
-  private validateContext(
-    context: RepositoryProvisionContext,
-  ): readonly string[] {
+  private validateContext(context: RepositoryProvisionContext): {
+    readonly logins: readonly string[];
+    readonly connectionMode: 'NEW' | 'OWN';
+    readonly repositoryUrl: string | null;
+  } {
     if (context.applicationStatus !== ApplicationStatus.APPROVED) {
       throw finalProvisionFailure(
         PROVISION_ERROR_CODES.APPLICATION_NOT_APPROVED,
@@ -176,7 +208,11 @@ export class RepositoryProvisionWorker {
       ) {
         throw new InvalidRepositoryProvisionEventError();
       }
-      return event.collaboratorGithubLogins;
+      return {
+        logins: event.collaboratorGithubLogins,
+        connectionMode: event.repositoryConnectionMode,
+        repositoryUrl: event.repositoryUrl,
+      };
     } catch (error) {
       if (error instanceof InvalidRepositoryProvisionEventError) {
         throw finalProvisionFailure(PROVISION_ERROR_CODES.INVALID_EVENT);
@@ -187,22 +223,30 @@ export class RepositoryProvisionWorker {
 
   private async createAndRecordRepository(
     context: RepositoryProvisionContext,
+    connectionMode: 'NEW' | 'OWN',
+    repositoryUrl: string | null,
     jobId: string,
     workerId: string,
     now: () => Date,
   ): Promise<ProvisionedRepository> {
-    const names = buildRepositoryNames({
-      programName: context.programName,
-      programId: context.programId,
-      subjectName: context.subjectName,
-      applicationId: context.applicationId,
-    });
     await this.jobs.renewLease(jobId, workerId, now());
-    const metadata = await findOrCreateGithubRepository(
-      this.github,
-      names,
-      buildRepositoryOwnershipMarker(context.applicationId),
-    );
+    const metadata =
+      connectionMode === 'OWN'
+        ? await resolveOwnGithubRepository(
+            this.github,
+            // 레거시/손상 payload 방어: OWN이면 URL 필수.
+            repositoryUrl ?? '',
+          )
+        : await findOrCreateGithubRepository(
+            this.github,
+            buildRepositoryNames({
+              programName: context.programName,
+              programId: context.programId,
+              subjectName: context.subjectName,
+              applicationId: context.applicationId,
+            }),
+            buildRepositoryOwnershipMarker(context.applicationId),
+          );
     return this.state.recordRepository({
       jobId,
       workerId,

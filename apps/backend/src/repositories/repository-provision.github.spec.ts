@@ -6,7 +6,12 @@ import type {
   GithubAppClient,
   GithubRepositoryMetadata,
 } from './github-app.client';
-import { findOrCreateGithubRepository } from './repository-provision.github';
+import {
+  findOrCreateGithubRepository,
+  parseOwnGithubRepositoryUrl,
+  resolveOwnGithubRepository,
+} from './repository-provision.github';
+import { PROVISION_ERROR_CODES } from './repository-provision.failure';
 
 const names = {
   preferred: 'synthetic-program-team',
@@ -28,13 +33,17 @@ function metadata(
 }
 
 function githubMock(): jest.Mocked<
-  Pick<GithubAppClient, 'findRepository' | 'createRepository'>
+  Pick<
+    GithubAppClient,
+    'findRepository' | 'createRepository' | 'findPublicRepository'
+  >
 > {
   return {
     findRepository: jest.fn().mockResolvedValue(null),
     createRepository: jest.fn((name: string, description: string) =>
       Promise.resolve(metadata(name, description)),
     ),
+    findPublicRepository: jest.fn().mockResolvedValue(null),
   };
 }
 
@@ -189,5 +198,80 @@ describe('findOrCreateGithubRepository', () => {
     // Then: 무관한 저장소를 연결하거나 무한 후보를 만들지 않는다.
     await expect(repository).rejects.toEqual(nameCollision());
     expect(github.createRepository).not.toHaveBeenCalled();
+  });
+});
+
+describe('parseOwnGithubRepositoryUrl', () => {
+  it('https://github.com/{owner}/{name} 만 허용한다', () => {
+    expect(
+      parseOwnGithubRepositoryUrl(
+        'https://github.com/synthetic-student/synthetic-repo',
+      ),
+    ).toEqual({ owner: 'synthetic-student', name: 'synthetic-repo' });
+  });
+
+  it.each([
+    'http://github.com/synthetic-student/synthetic-repo',
+    'https://gitlab.com/synthetic-student/synthetic-repo',
+    'https://github.com/synthetic-student/synthetic-repo.git',
+    'https://github.com/synthetic-student/synthetic-repo/issues',
+    'https://github.com/synthetic-student/synthetic-repo?tab=readme',
+    'not-a-url',
+  ])('거부: %s', (url) => {
+    expect(parseOwnGithubRepositoryUrl(url)).toBeNull();
+  });
+});
+
+describe('resolveOwnGithubRepository', () => {
+  it('공개 저장소를 조회하고 학생 URL을 그대로 유지한다', async () => {
+    const github = githubMock();
+    const studentUrl = 'https://github.com/synthetic-student/synthetic-repo';
+    github.findPublicRepository.mockResolvedValue({
+      githubRepositoryId: 42n,
+      name: 'synthetic-repo',
+      url: 'https://github.com/Synthetic-Student/synthetic-repo',
+      visibility: 'PUBLIC',
+      description: null,
+    });
+
+    const repository = await resolveOwnGithubRepository(github, studentUrl);
+
+    expect(github.findPublicRepository.mock.calls).toEqual([
+      ['synthetic-student', 'synthetic-repo'],
+    ]);
+    expect(repository).toEqual({
+      githubRepositoryId: 42n,
+      name: 'synthetic-repo',
+      url: studentUrl,
+      visibility: 'PUBLIC',
+      description: null,
+    });
+  });
+
+  it('존재하지 않으면 OWN_REPOSITORY_NOT_FOUND 최종 실패', async () => {
+    const github = githubMock();
+    github.findPublicRepository.mockResolvedValue(null);
+
+    await expect(
+      resolveOwnGithubRepository(
+        github,
+        'https://github.com/synthetic-student/missing',
+      ),
+    ).rejects.toMatchObject({
+      code: PROVISION_ERROR_CODES.OWN_REPOSITORY_NOT_FOUND,
+      retryable: false,
+    });
+  });
+
+  it('이상한 URL이면 OWN_REPOSITORY_URL_INVALID 최종 실패', async () => {
+    const github = githubMock();
+
+    await expect(
+      resolveOwnGithubRepository(github, 'https://example.com/not-github'),
+    ).rejects.toMatchObject({
+      code: PROVISION_ERROR_CODES.OWN_REPOSITORY_URL_INVALID,
+      retryable: false,
+    });
+    expect(github.findPublicRepository.mock.calls).toHaveLength(0);
   });
 });

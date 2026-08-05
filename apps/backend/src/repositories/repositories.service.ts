@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
+  RepositoryConnectionMode,
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
@@ -70,9 +71,11 @@ export class RepositoriesService {
       if (
         job.status === RepositoryProvisionJobStatus.SUCCEEDED &&
         job.repository !== null &&
-        (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(job.repository.name) ||
-          job.repository.url !==
-            `https://github.com/JNU-SWCU/${job.repository.name}`)
+        !isValidSucceededRepositoryIdentity(
+          job.repository.name,
+          job.repository.url,
+          job.application.repositoryConnectionMode,
+        )
       ) {
         throw new RepositoryProvisionStateError();
       }
@@ -157,4 +160,19 @@ export class RepositoriesService {
       };
     });
   }
+}
+
+function isValidSucceededRepositoryIdentity(
+  name: string,
+  url: string,
+  connectionMode: RepositoryConnectionMode,
+): boolean {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(name)) {
+    return false;
+  }
+  // OWN은 학생이 준 외부 URL을 그대로 쓴다. NEW만 조직 불변식을 강제한다.
+  if (connectionMode === RepositoryConnectionMode.OWN) {
+    return url.length > 0;
+  }
+  return url === `https://github.com/JNU-SWCU/${name}`;
 }

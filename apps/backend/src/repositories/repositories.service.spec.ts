@@ -1,4 +1,5 @@
 import {
+  RepositoryConnectionMode,
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
@@ -72,6 +73,7 @@ function job(overrides: Partial<OwnedProvisionJob> = {}): OwnedProvisionJob {
     application: {
       id: 'synthetic-application',
       teamId: null,
+      repositoryConnectionMode: RepositoryConnectionMode.NEW,
       applicant: { nickname: 'synthetic-applicant' },
       program: { name: 'Synthetic program' },
       team: null,
@@ -103,6 +105,7 @@ describe('RepositoriesService.getMyRepositories', () => {
         application: {
           id: 'synthetic-team-application',
           teamId: 'synthetic-team',
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
           applicant: { nickname: 'other-applicant' },
           program: { name: 'Team program' },
           team: { name: 'Synthetic team' },
@@ -149,6 +152,53 @@ describe('RepositoriesService.getMyRepositories', () => {
         provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
         invitationStatus: RepositoryInvitationStatus.SUCCEEDED,
         visibility: RepositoryVisibility.PRIVATE,
+        lastErrorCode: null,
+        updatedAt: NOW,
+      },
+    ]);
+  });
+
+  it('returns OWN external URLs without throwing on the org identity invariant', async () => {
+    const { repository, github, auditLog } = dependencies();
+    const externalUrl =
+      'https://github.com/synthetic-student/synthetic-own-repo';
+    repository.listOwnedProvisionJobs.mockResolvedValue([
+      job({
+        application: {
+          id: 'synthetic-own-application',
+          teamId: null,
+          repositoryConnectionMode: RepositoryConnectionMode.OWN,
+          applicant: { nickname: 'synthetic-applicant' },
+          program: { name: 'Synthetic program' },
+          team: null,
+        },
+        status: RepositoryProvisionJobStatus.SUCCEEDED,
+        repository: {
+          id: 'synthetic-own-repository',
+          applicationId: 'synthetic-own-application',
+          name: 'synthetic-own-repo',
+          url: externalUrl,
+          visibility: RepositoryVisibility.PUBLIC,
+          invitations: [],
+        },
+      }),
+    ]);
+    const service = new RepositoriesService(repository, github, auditLog);
+
+    const result = await service.getMyRepositories(123n);
+
+    expect(result).toEqual([
+      {
+        repositoryId: 'synthetic-own-repository',
+        applicationId: 'synthetic-own-application',
+        applicationMode: 'PERSONAL',
+        programName: 'Synthetic program',
+        displayName: 'synthetic-applicant',
+        repositoryName: 'synthetic-own-repo',
+        githubUrl: externalUrl,
+        provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
+        invitationStatus: null,
+        visibility: RepositoryVisibility.PUBLIC,
         lastErrorCode: null,
         updatedAt: NOW,
       },

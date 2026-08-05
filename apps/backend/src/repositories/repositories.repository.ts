@@ -3,6 +3,7 @@ import {
   ApplicationStatus,
   OutboxEventStatus,
   Prisma,
+  RepositoryConnectionMode,
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
@@ -30,6 +31,7 @@ export interface OwnedProvisionJob {
   readonly application: {
     readonly id: string;
     readonly teamId: string | null;
+    readonly repositoryConnectionMode: RepositoryConnectionMode;
     readonly applicant: {
       readonly nickname: string;
     };
@@ -276,6 +278,7 @@ export class RepositoriesRepository {
           select: {
             id: true,
             teamId: true,
+            repositoryConnectionMode: true,
             applicant: {
               select: { nickname: true },
             },
