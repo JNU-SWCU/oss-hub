@@ -17,10 +17,10 @@ import {
   ADMIN_ACCESS_MUTATION_ACTIONS,
   ADMIN_ACCESS_MUTATION_ACTION_LABEL,
   adminAccessGrantTargetRole,
-  adminAccessRevokeTargetRole,
   isAdminAccessMutationAvailable,
   type AdminAccessMutationAction,
 } from '../admin-access-mutation-policy';
+import { adminAccessRevocation } from '../admin-access-revocation';
 import {
   Select,
   SelectContent,
@@ -75,8 +75,7 @@ function actionCaption(
     return target ? `${ROLE_LABEL[target]}로 승격` : null;
   }
   if (action === 'REVOKE') {
-    const target = adminAccessRevokeTargetRole(role);
-    return target ? `${ROLE_LABEL[target]}로 강등` : null;
+    return adminAccessRevocation(role)?.actionCaption ?? null;
   }
   return null;
 }

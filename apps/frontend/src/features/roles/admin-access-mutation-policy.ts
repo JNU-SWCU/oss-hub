@@ -7,6 +7,10 @@ import type {
   AdminAccessPatchRequest,
   AdminAccessRole,
 } from './admin-access-api';
+import {
+  adminAccessRevocation,
+  requireAdminAccessRevocation,
+} from './admin-access-revocation';
 
 /**
  * Frontend state machine for the six `/admin/access` write actions (PR04G).
@@ -17,11 +21,10 @@ import type {
  * truth (every write is still validated server-side; this only avoids
  * showing buttons for transitions the backend is guaranteed to reject).
  *
- * Role tiers used by GRANT/REVOKE: `UNASSIGNED`/`STUDENT` (0) < `STAFF` (1)
- * < `ADMIN` (2). Both actions move exactly one tier — this needs no
- * additional client-side target-role picker and stays inside what the
- * transition table allows (role-only change, account status unchanged,
- * never back to `null`).
+ * Role tiers used by GRANT: `UNASSIGNED`/`STUDENT` (0) < `STAFF` (1)
+ * < `ADMIN` (2). REVOKE follows the backend's explicit contract:
+ * ADMIN becomes STAFF, while STAFF is cleared to `null` and gets a
+ * REVOKED request row.
  */
 
 export const ADMIN_ACCESS_MUTATION_ACTIONS = {
@@ -62,10 +65,6 @@ const GRANT_TARGET_BY_RANK: Record<number, AdminAccessRole> = {
   1: 'STAFF',
   2: 'ADMIN',
 };
-const REVOKE_TARGET_BY_RANK: Record<number, AdminAccessRole> = {
-  0: 'STUDENT',
-  1: 'STAFF',
-};
 
 function rankOf(role: AdminAccessRole | null): number {
   return role === null ? 0 : ROLE_RANK[role];
@@ -78,18 +77,11 @@ export function adminAccessGrantTargetRole(
   return GRANT_TARGET_BY_RANK[rankOf(role) + 1] ?? null;
 }
 
-/** One tier below `role`, or `null` if already at the floor (`STUDENT`/미지정). */
-export function adminAccessRevokeTargetRole(
-  role: AdminAccessRole | null,
-): AdminAccessRole | null {
-  return REVOKE_TARGET_BY_RANK[rankOf(role) - 1] ?? null;
-}
-
 /**
  * Whether `action` should be offered for the currently loaded projection.
  * Grounded directly in `ADMIN_ACCESS_TRANSITION_TABLE`'s constraints: a
  * pending request blocks any decision-less role/status change (`ROL_015`),
- * and role can never fall back to `null` (`ROL_014`). Actor-relative guards
+ * and only STAFF revocation can clear a role to `null`. Actor-relative guards
  * (self-deactivation, last-active-admin) are NOT modeled here — the
  * frontend has no way to know the live active-admin count, and
  * self-deactivation is not a state-machine fact, so both surface only via
@@ -111,7 +103,7 @@ export function isAdminAccessMutationAvailable(
     case 'REVOKE':
       return (
         detail.pendingRequest === null &&
-        adminAccessRevokeTargetRole(detail.role) !== null
+        adminAccessRevocation(detail.role) !== null
       );
     case 'DEACTIVATE':
       return (
@@ -175,9 +167,7 @@ export function buildAdminAccessPatchRequest(
     case 'REVOKE':
       return {
         ...base,
-        desiredRole: requireTargetRole(
-          adminAccessRevokeTargetRole(detail.role),
-        ),
+        desiredRole: requireAdminAccessRevocation(detail.role).desiredRole,
         desiredAccountStatus: detail.accountStatus,
       };
     case 'DEACTIVATE':

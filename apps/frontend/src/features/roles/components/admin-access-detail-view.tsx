@@ -41,11 +41,11 @@ import {
   adminAccessGrantTargetRole,
   adminAccessMutationErrorMessage,
   adminAccessMutationSuccessMessage,
-  adminAccessRevokeTargetRole,
   applyAdminAccessConflictProjection,
   buildAdminAccessPatchRequest,
   type AdminAccessMutationAction,
 } from '../admin-access-mutation-policy';
+import { requireAdminAccessRevocation } from '../admin-access-revocation';
 import { AdminAccessMutationActions } from './admin-access-mutation-actions';
 import { AdminAccessMutationConfirmDialog } from './admin-access-mutation-confirm-dialog';
 import { AdminAccessMutationRejectDialog } from './admin-access-mutation-reject-dialog';
@@ -108,12 +108,10 @@ function mutationDialogCopy(
       };
     }
     case 'REVOKE': {
-      const target = adminAccessRevokeTargetRole(detail.role);
+      const revocation = requireAdminAccessRevocation(detail.role);
       return {
         title: '권한 회수',
-        description: `${detail.githubLogin}님의 권한을 회수하고 ${
-          target ? ROLE_LABEL[target] : ''
-        }(으)로 전환합니다.`,
+        description: revocation.dialogDescription(detail.githubLogin),
         confirmLabel: '회수 확정',
         destructive: true,
       };
