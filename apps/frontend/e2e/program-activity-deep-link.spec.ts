@@ -69,6 +69,10 @@ test('모바일에서 비동기 프로그램 상세의 활동 영역으로 이�
       await route.fulfill({ json: [] });
       return;
     }
+    if (path === '/api/v1/milestones/milestone-1/documents') {
+      await route.fulfill({ json: [] });
+      return;
+    }
     await route.fulfill({ json: null });
   });
 

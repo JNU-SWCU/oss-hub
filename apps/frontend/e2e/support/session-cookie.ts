@@ -42,6 +42,11 @@ export function seedId(...parts: readonly string[]): string {
 export const ADMIN_SEED_USER_ID = seedId('auth', 'admin-confirmed');
 export const ADMIN_SEED_GITHUB_ID = seedGithubId(ADMIN_SEED_USER_ID);
 
+/** auth seed profile의 scenario id로 실제 GitHub id를 재계산한다. */
+export function authSeedGithubId(scenarioId: string): bigint {
+  return seedGithubId(seedId('auth', scenarioId));
+}
+
 /**
  * apps/backend/src/auth/session-token.ts의 issueSessionToken과 바이트 단위로
  * 호환되는 HS256 JWT를 서명한다. sub는 반드시 10진 문자열이어야 한다

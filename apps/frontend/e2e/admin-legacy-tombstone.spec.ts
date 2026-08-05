@@ -12,9 +12,11 @@ import { e2eEnvironment } from './environment';
 test.describe('레거시 관리자 화면·API는 전환 이후 tombstone 상태다(PR04H)', () => {
   test('레거시 /admin/users 화면과 목록 API는 리다이렉트 없이 404를 반환한다', async ({
     adminPage,
+    expectAdminResourceStatusError,
   }) => {
     // Given: an injected ADMIN session — 권한은 충분하지만 화면이 사라졌다.
     const requestedUrl = `${e2eEnvironment.baseUrl}/admin/users`;
+    expectAdminResourceStatusError(404);
 
     // When: the real browser opens the removed admin users page.
     const pageResponse = await adminPage.goto('/admin/users');
@@ -35,9 +37,11 @@ test.describe('레거시 관리자 화면·API는 전환 이후 tombstone 상태
 
   test('레거시 /admin/staff-requests 화면과 승인 API는 리다이렉트 없이 404를 반환한다', async ({
     adminPage,
+    expectAdminResourceStatusError,
   }) => {
     // Given: an injected ADMIN session — 권한은 충분하지만 화면이 사라졌다.
     const requestedUrl = `${e2eEnvironment.baseUrl}/admin/staff-requests`;
+    expectAdminResourceStatusError(404);
 
     // When: the real browser opens the removed staff requests page.
     const pageResponse = await adminPage.goto('/admin/staff-requests');

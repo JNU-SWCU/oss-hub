@@ -243,6 +243,24 @@ jobs:
         if: ${{ steps.scope.outputs.backend == 'true' }}
         run: pnpm --filter backend build
 
+      # #184의 권한 생명주기는 frontend 화면과 backend 권한 경계를 함께 지나므로
+      # 어느 앱이 바뀌어도 실제 브라우저 회귀를 required ci 안에서 실행한다.
+      - name: 교직원 접근 권한 브라우저 회귀
+        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' }}
+        env:
+          E2E_OUTPUT_DIR: ${{ runner.temp }}/oss-hub-playwright
+        run: pnpm --filter frontend e2e
+
+      - name: 교직원 접근 권한 화면 증적 업로드
+        if: ${{ always() && (steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-access-lifecycle-${{ github.run_id }}-${{ github.run_attempt }}
+          # 자동 실패 screenshot·video·trace는 마스킹을 거치지 않으므로 공개 artifact에서 제외한다.
+          path: ${{ runner.temp }}/oss-hub-playwright/**/public-evidence-*.png
+          if-no-files-found: warn
+          retention-days: 30
+
   # 1차 도입은 advisory다. drift·unknown은 non-zero로 보고하되 required ci를 차단하지 않는다.
   team-state-drift:
     name: team-state-drift (advisory)

@@ -254,4 +254,15 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
     decidedById: admin.id,
     decidedAt: offsetDays(-1),
   });
+
+  // 관리자 목록의 고정 page size(20)를 실제로 넘겨 #184 E2E가 다음 페이지 이동을
+  // mock 없이 검증한다. 합성 STUDENT는 프로필이 비어 있어 backfill의 정상 미완료
+  // 분류에 들어가며, 역할 요청 수나 승인 시나리오에는 영향을 주지 않는다.
+  for (let index = 1; index <= 10; index += 1) {
+    const ordinal = index.toString().padStart(2, '0');
+    await upsertSeedUser(stats, {
+      id: seedId('auth', 'pagination', ordinal),
+      role: Role.STUDENT,
+    });
+  }
 }

@@ -1,27 +1,76 @@
 import { expect, test as base } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { Browser, BrowserContext, Page } from '@playwright/test';
 
 import { e2eEnvironment } from './environment';
 import {
   ADMIN_SEED_GITHUB_ID,
+  authSeedGithubId,
   forgeSessionToken,
   sessionCookieName,
 } from './support/session-cookie';
 
+type AuthSeedPageFactory = (scenarioId: string) => Promise<Page>;
+
 type AdminFixtures = {
   readonly adminPage: Page;
+  readonly authSeedPage: AuthSeedPageFactory;
+  readonly expectAdminResourceStatusError: (status: number) => void;
 };
 
-// Chrome이 4xx/5xx 응답을 받은 리소스 요청마다 자동으로 남기는 네트워크
-// 계층 정보성 로그다. PR04H tombstone 테스트는 의도적으로 404를 유발하므로
-// 이 메시지까지 "예상치 못한 콘솔 에러"로 오탐하면 안 된다. 애플리케이션
-// 코드가 던지는 실제 에러(pageerror·console.error)는 이 패턴에 걸리지
-// 않으므로 계속 잡아낸다.
-const RESOURCE_STATUS_ERROR_RE =
-  /^Failed to load resource: the server responded with a status of \d+/;
+type InternalFixtures = {
+  readonly adminSession: AuthenticatedPage;
+};
 
-function isExpectedResourceStatusError(text: string): boolean {
-  return RESOURCE_STATUS_ERROR_RE.test(text);
+// Chrome이 실패한 리소스 응답에 자동으로 남기는 정보성 로그다. PR04H
+// tombstone 테스트가 의도적으로 만든 410만 예외로 두고, 일반 세션의 404·500과
+// 애플리케이션 오류(pageerror·console.error)는 계속 잡아낸다.
+const RESOURCE_STATUS_ERROR_RE =
+  /^Failed to load resource: the server responded with a status of (\d+)/;
+
+function isExpectedResourceStatusError(
+  text: string,
+  expectedStatuses: ReadonlySet<number>,
+): boolean {
+  const match = RESOURCE_STATUS_ERROR_RE.exec(text);
+  return match !== null && expectedStatuses.has(Number(match[1]));
+}
+
+interface AuthenticatedPage {
+  readonly context: BrowserContext;
+  readonly page: Page;
+  readonly consoleErrors: string[];
+  readonly expectedResourceStatuses: Set<number>;
+}
+
+async function createAuthenticatedPage(
+  browser: Browser,
+  githubId: bigint,
+  expectedResourceStatuses = new Set<number>(),
+): Promise<AuthenticatedPage> {
+  const context = await browser.newContext();
+  await context.addCookies([
+    {
+      name: sessionCookieName(e2eEnvironment.baseUrl.startsWith('https://')),
+      value: forgeSessionToken(e2eEnvironment.sessionSecret, githubId),
+      url: e2eEnvironment.baseUrl,
+      httpOnly: true,
+      sameSite: 'Lax',
+    },
+  ]);
+  const page = await context.newPage();
+  const consoleErrors: string[] = [];
+  page.on('console', (message) => {
+    if (
+      message.type() === 'error' &&
+      !isExpectedResourceStatusError(message.text(), expectedResourceStatuses)
+    ) {
+      consoleErrors.push(message.text());
+    }
+  });
+  page.on('pageerror', (error) => {
+    consoleErrors.push(error.message);
+  });
+  return { context, page, consoleErrors, expectedResourceStatuses };
 }
 
 function brokenContractPath(): string | null {
@@ -39,23 +88,18 @@ function brokenContractPath(): string | null {
   }
 }
 
-export const test = base.extend<AdminFixtures>({
-  adminPage: async ({ browser }, use) => {
-    const context = await browser.newContext();
-    await context.addCookies([
-      {
-        name: sessionCookieName(e2eEnvironment.baseUrl.startsWith('https://')),
-        value: forgeSessionToken(
-          e2eEnvironment.sessionSecret,
-          ADMIN_SEED_GITHUB_ID,
-        ),
-        url: e2eEnvironment.baseUrl,
-        httpOnly: true,
-        sameSite: 'Lax',
-      },
-    ]);
-
+export const test = base.extend<AdminFixtures & InternalFixtures>({
+  adminSession: async ({ browser }, use) => {
     const path = brokenContractPath();
+    const expectedResourceStatuses = new Set<number>();
+    if (path !== null) expectedResourceStatuses.add(410);
+    const session = await createAuthenticatedPage(
+      browser,
+      ADMIN_SEED_GITHUB_ID,
+      expectedResourceStatuses,
+    );
+    const { context, page, consoleErrors } = session;
+
     if (path !== null) {
       await context.route(`**${path}**`, async (route) => {
         await route.fulfill({
@@ -73,23 +117,32 @@ export const test = base.extend<AdminFixtures>({
       });
     }
 
-    const page = await context.newPage();
-    const consoleErrors: string[] = [];
-    page.on('console', (message) => {
-      if (
-        message.type() === 'error' &&
-        !isExpectedResourceStatusError(message.text())
-      ) {
-        consoleErrors.push(message.text());
-      }
-    });
-    page.on('pageerror', (error) => {
-      consoleErrors.push(error.message);
-    });
-
-    await use(page);
+    await use(session);
     await context.close();
     expect(consoleErrors, 'browser console and page errors').toEqual([]);
+  },
+  adminPage: async ({ adminSession }, use) => {
+    await use(adminSession.page);
+  },
+  expectAdminResourceStatusError: async ({ adminSession }, use) => {
+    await use((status) => adminSession.expectedResourceStatuses.add(status));
+  },
+  authSeedPage: async ({ browser }, use) => {
+    const sessions: AuthenticatedPage[] = [];
+    await use(async (scenarioId) => {
+      const session = await createAuthenticatedPage(
+        browser,
+        authSeedGithubId(scenarioId),
+      );
+      sessions.push(session);
+      return session.page;
+    });
+    for (const session of sessions) {
+      await session.context.close();
+      expect(session.consoleErrors, 'browser console and page errors').toEqual(
+        [],
+      );
+    }
   },
 });
 
