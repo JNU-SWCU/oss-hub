@@ -312,6 +312,53 @@ describe('role onboarding views', () => {
   });
 
   /**
+   * 눈에 보이는 빈 줄과 세는 빈 줄이 같아야 한다.
+   *
+   * 정규식(`/\n{3,}/`)으로 세던 때는 **공백만 있는 줄을 빈 줄로 세지 못했다.**
+   * 붙여넣기로 들어온 사유는 줄마다 공백이 남는 일이 흔한데, 그런 값은 눈에는 빈
+   * 줄인데 규칙에는 내용 있는 줄로 잡혀 접히지 않고 그대로 높이를 먹었다.
+   */
+  it('공백만 있는 줄도 빈 줄로 세어 접는다', () => {
+    // Given / When / Then
+    expect(clampRejectionReason('앞\n   \n   \n뒤')).toBe('앞\n\n뒤');
+    expect(clampRejectionReason('앞\n \n\n \n뒤')).toBe('앞\n\n뒤');
+    // 탭이 공백으로 바뀐 뒤에도 같은 규칙을 탄다.
+    expect(clampRejectionReason('앞\n\t\n\t\n뒤')).toBe('앞\n\n뒤');
+  });
+
+  /**
+   * `U+2028`(줄 구분자)·`U+2029`(문단 구분자)는 **화면에서는 줄을 바꾸는데
+   * `split('\n')`에는 잡히지 않는다.** 그대로 두면 줄 수 상한을 통째로 우회한다 —
+   * 이 둘로만 이루어진 사유는 몇 줄이든 "한 줄"로 세어져 6줄 제한을 지나간다.
+   */
+  it.each([
+    ['U+2028 줄 구분자', '\u2028'],
+    ['U+2029 문단 구분자', '\u2029'],
+  ] as readonly (readonly [string, string])[])(
+    '%s도 줄바꿈으로 세어 상한을 지킨다',
+    (_label, separator) => {
+      // Given: 200줄짜리 폭탄. 평범한 줄바꿈이 하나도 없다.
+      const bomb = Array.from({ length: 200 }, () => 'ㄱ').join(separator);
+
+      // When
+      const clamped = clampRejectionReason(bomb);
+
+      // Then: 평범한 줄바꿈으로 정규화돼 같은 상한에 걸린다.
+      expect(clamped).not.toContain(separator);
+      expect(clamped?.split('\n')).toHaveLength(
+        ROLE_REJECTION_REASON_MAX_LINES,
+      );
+      expect(clamped?.endsWith('\u2026')).toBe(true);
+    },
+  );
+
+  it('유니코드 줄 구분자는 지우지 않고 줄바꿈으로 살린다', () => {
+    // Given / When / Then: 관리자가 의도한 줄 나눔이므로 없애지 않는다.
+    expect(clampRejectionReason('앞\u2028뒤')).toBe('앞\n뒤');
+    expect(clampRejectionReason('앞\u2029뒤')).toBe('앞\n뒤');
+  });
+
+  /**
    * 제어문자·양방향 제어문자를 지운다.
    *
    * 관리자는 사유를 붙여넣기로 들여올 수 있다. Bidi 제어문자는 **뒤에 오는 글자의 표시

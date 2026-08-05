@@ -80,6 +80,9 @@ const CLOSED_REQUEST_NOTICE: Record<
  * XSS는 React가 자동으로 이스케이프하므로 위험이 아니다(저장소 전체
  * `dangerouslySetInnerHTML` 0건) — 실제 위험은 레이아웃 파괴다.
  *
+ * **내용 길이 기준이다** — 잘렸음을 알리는 말줄임표는 이 수에 들어가지 않는다. 그래서
+ * 잘린 문자열의 실제 문자소 수는 301이 된다. 화면 폭 계산에 쓸 때 그 한 글자를 함께 세라.
+ *
  * ⚠ **300이라는 숫자 자체에는 근거가 없다.** 넘치는 것보다 낫다는 것 말고는 잰 것이
  * 없다. 관리자가 실제로 쓰는 사유 길이를 아는 사람이 조정하라 — 늘릴 때는 아래
  * `ClosedRoleRequestAlert` 주석의 실측을 함께 다시 재야 한다.
@@ -122,8 +125,37 @@ const UNRENDERABLE_PATTERN =
   // 편집기에서 깨져 보이고, Bidi 문자는 주변 코드까지 거꾸로 읽히게 만든다.
   /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/g;
 
-/** 세 줄 이상 연속된 줄바꿈 — 빈 줄은 하나까지만 남긴다. */
-const EXCESS_BLANK_LINE_PATTERN = /\n{3,}/g;
+/**
+ * 줄바꿈으로 세어야 하는 유니코드 구분자.
+ *
+ * `U+2028`(줄 구분자)·`U+2029`(문단 구분자)는 **화면에서는 줄을 바꾸는데
+ * `split('\n')`에는 잡히지 않는다.** 지우지도 않고 그냥 두면 줄 수 상한을 통째로
+ * 우회한다 — 이 둘로만 이루어진 사유는 몇 줄이든 "한 줄"로 세어져 상한 6을 지나간다.
+ * 그래서 제거가 아니라 **평범한 줄바꿈으로 정규화**한다. 관리자가 의도한 줄 나눔은
+ * 살리면서 세는 규칙 하나로 모으는 쪽이 맞다.
+ */
+const UNICODE_LINE_SEPARATOR_PATTERN = /[\u2028\u2029]/g;
+
+/**
+ * 빈 줄을 하나까지만 남긴다.
+ *
+ * 정규식(`/\n{3,}/`)으로 세던 때는 **공백만 있는 줄을 빈 줄로 세지 못했다.**
+ * 붙여넣기로 들어온 사유는 `\n \n \n`처럼 줄마다 공백이 남는 일이 흔한데, 그런
+ * 값은 눈에는 빈 줄인데 규칙에는 내용 있는 줄로 잡혀 접히지 않았다. 줄 단위로
+ * 다듬으면 두 경우가 같은 규칙을 탄다.
+ */
+function collapseBlankLines(value: string): string {
+  const collapsed: string[] = [];
+  for (const line of value.split('\n')) {
+    // 공백뿐인 줄은 빈 줄이다 — 눈에 보이는 것과 세는 것을 같게 맞춘다.
+    const normalized = line.trim() === '' ? '' : line;
+    if (normalized === '' && collapsed.at(-1) === '') {
+      continue;
+    }
+    collapsed.push(normalized);
+  }
+  return collapsed.join('\n');
+}
 
 /**
  * 사람이 한 글자로 보는 단위로 쪼갠다.
@@ -156,18 +188,21 @@ function splitGraphemes(value: string): readonly string[] {
  * 공백만 있는 사유도 없는 것으로 본다 — 상자만 뜨고 안이 비면 사용자는 사유가 아직
  * 안 온 줄 알고 기다린다. 반려 **사실**과 다시 신청하라는 안내는 사유가 없어도 남는다.
  *
- * 순서가 규칙이다. 지우기(제어·Bidi) → 줄바꿈 정규화 → 빈 줄 접기 → 양끝 다듬기 →
- * 줄 수 자르기 → 글자 수 자르기. 지우기를 먼저 하지 않으면 지워질 문자가 글자 수에
- * 잡혀 멀쩡한 문장이 대신 잘리고, 줄을 먼저 자르지 않으면 글자 수로는 통과한 값이
- * 세로로 무너뜨린다.
+ * 순서가 규칙이다. 지우기(제어·Bidi) → 탭·줄바꿈 정규화(`\r\n`·`U+2028`·`U+2029`를
+ * 모두 `\n`으로) → 빈 줄 접기 → 양끝 다듬기 → 줄 수 자르기 → 글자 수 자르기.
+ * 지우기를 먼저 하지 않으면 지워질 문자가 글자 수에 잡혀 멀쩡한 문장이 대신 잘리고,
+ * 줄바꿈을 먼저 한 종류로 모으지 않으면 `U+2028`만으로 이루어진 값이 "한 줄"로 세어져
+ * 줄 수 상한을 그냥 지나간다. 줄을 먼저 자르지 않으면 글자 수로는 통과한 값이 세로로
+ * 무너뜨린다.
  */
 export function clampRejectionReason(reason: string | null): string | null {
-  const cleaned = (reason ?? '')
-    .replace(UNRENDERABLE_PATTERN, '')
-    .replace(/\t/g, ' ')
-    .replace(/\r\n?/g, '\n')
-    .replace(EXCESS_BLANK_LINE_PATTERN, '\n\n')
-    .trim();
+  const cleaned = collapseBlankLines(
+    (reason ?? '')
+      .replace(UNRENDERABLE_PATTERN, '')
+      .replace(/\t/g, ' ')
+      .replace(/\r\n?/g, '\n')
+      .replace(UNICODE_LINE_SEPARATOR_PATTERN, '\n'),
+  ).trim();
   if (cleaned.length === 0) {
     return null;
   }
