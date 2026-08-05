@@ -302,6 +302,9 @@ describe('AdminAccessDetailContentForState — 접근 변경 드롭다운 (PR04G
     expect(html).toContain('role="dialog"');
     expect(html).toContain('요청 반려');
     expect(html).toContain('거절 사유');
+    // 관리자가 무엇을 쓰는지 알고 쓰게 한다(#673) — 이 값은 신청자의 역할 선택
+    // 화면에 그대로 뜬다. 표시된다는 사실을 모르면 내부 메모처럼 쓰게 된다.
+    expect(html).toContain('입력한 사유는 신청자에게 그대로 표시됩니다.');
     expect(html).toContain('synthetic-target');
   });
 
