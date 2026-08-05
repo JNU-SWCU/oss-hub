@@ -3,8 +3,10 @@ import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repositor
 import type { AuditLogService } from '../audit-log/audit-log.service';
 import type {
   AdminAccessActor,
+  AdminAccessInsertedRequest,
   AdminAccessPendingDecisionUpdate,
   AdminAccessRepositoryPort,
+  AdminAccessRevokedRequestInsert,
   AdminAccessTransactionStore,
   AdminAccessUserDetailRecord,
   AdminAccessUserPageRecord,
@@ -75,6 +77,7 @@ export class InMemoryAdminAccessRepository
   operations: string[] = [];
   userUpdates: AdminAccessUserUpdate[] = [];
   requestUpdates: AdminAccessPendingDecisionUpdate[] = [];
+  revokedInserts: AdminAccessRevokedRequestInsert[] = [];
 
   withTransaction<T>(
     operation: (store: AdminAccessTransactionStore) => Promise<T>,
@@ -172,7 +175,17 @@ export class InMemoryAdminAccessRepository
     }
     return Promise.resolve(this.requestCasSucceeds);
   }
+
+  insertRevokedRequest(
+    input: AdminAccessRevokedRequestInsert,
+  ): Promise<AdminAccessInsertedRequest> {
+    this.operations.push('insert-revoked-request');
+    this.revokedInserts.push(input);
+    return Promise.resolve({ id: INSERTED_REVOKED_REQUEST_ID });
+  }
 }
+
+export const INSERTED_REVOKED_REQUEST_ID = 'request-revoked';
 
 export const PENDING_REQUEST = {
   id: 'request-pending',

@@ -54,7 +54,7 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
     },
   },
   {
-    name: 'a confirmed role cannot return to unassigned',
+    name: 'a confirmed STUDENT cannot return to unassigned',
     current: {
       role: Role.STUDENT,
       accountStatus: AccountStatus.ACTIVE,
@@ -64,6 +64,122 @@ export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
       role: null,
       accountStatus: AccountStatus.ACTIVE,
       decision: ADMIN_ACCESS_DECISION_KINDS.NONE,
+    },
+    expected: {
+      allowed: false,
+      status: 409,
+      code: RolesErrorCode.ACCESS_TRANSITION_NOT_ALLOWED,
+    },
+  },
+  {
+    name: 'an ADMIN cannot return to unassigned',
+    current: {
+      role: Role.ADMIN,
+      accountStatus: AccountStatus.ACTIVE,
+      pendingState: ADMIN_ACCESS_PENDING_STATES.NONE,
+    },
+    desired: {
+      role: null,
+      accountStatus: AccountStatus.ACTIVE,
+      decision: ADMIN_ACCESS_DECISION_KINDS.NONE,
+    },
+    expected: {
+      allowed: false,
+      status: 409,
+      code: RolesErrorCode.ACCESS_TRANSITION_NOT_ALLOWED,
+    },
+  },
+  {
+    name: 'revoking STAFF clears the role and appends a REVOKED request',
+    current: {
+      role: Role.STAFF,
+      accountStatus: AccountStatus.ACTIVE,
+      pendingState: ADMIN_ACCESS_PENDING_STATES.NONE,
+    },
+    desired: {
+      role: null,
+      accountStatus: AccountStatus.ACTIVE,
+      decision: ADMIN_ACCESS_DECISION_KINDS.NONE,
+    },
+    expected: {
+      allowed: true,
+      status: 200,
+      code: null,
+      requestEffect: ADMIN_ACCESS_REQUEST_EFFECTS.REVOKED,
+      requiresCompleteProfile: false,
+      requiresSelfDeactivationGuard: false,
+      requiresLastActiveAdminGuard: false,
+    },
+  },
+  {
+    name: 'a deactivated STAFF grant can still be revoked',
+    current: {
+      role: Role.STAFF,
+      accountStatus: AccountStatus.DEACTIVATED,
+      pendingState: ADMIN_ACCESS_PENDING_STATES.NONE,
+    },
+    desired: {
+      role: null,
+      accountStatus: AccountStatus.DEACTIVATED,
+      decision: ADMIN_ACCESS_DECISION_KINDS.NONE,
+    },
+    expected: {
+      allowed: true,
+      status: 200,
+      code: null,
+      requestEffect: ADMIN_ACCESS_REQUEST_EFFECTS.REVOKED,
+      requiresCompleteProfile: false,
+      requiresSelfDeactivationGuard: false,
+      requiresLastActiveAdminGuard: false,
+    },
+  },
+  {
+    name: 'revocation cannot be combined with deactivation',
+    current: {
+      role: Role.STAFF,
+      accountStatus: AccountStatus.ACTIVE,
+      pendingState: ADMIN_ACCESS_PENDING_STATES.NONE,
+    },
+    desired: {
+      role: null,
+      accountStatus: AccountStatus.DEACTIVATED,
+      decision: ADMIN_ACCESS_DECISION_KINDS.NONE,
+    },
+    expected: {
+      allowed: false,
+      status: 409,
+      code: RolesErrorCode.ACCESS_TRANSITION_NOT_ALLOWED,
+    },
+  },
+  {
+    name: 'STAFF cannot be revoked while a request is still pending',
+    current: {
+      role: Role.STAFF,
+      accountStatus: AccountStatus.ACTIVE,
+      pendingState: ADMIN_ACCESS_PENDING_STATES.PENDING,
+    },
+    desired: {
+      role: null,
+      accountStatus: AccountStatus.ACTIVE,
+      decision: ADMIN_ACCESS_DECISION_KINDS.NONE,
+    },
+    expected: {
+      allowed: false,
+      status: 409,
+      code: RolesErrorCode.ACCESS_TRANSITION_NOT_ALLOWED,
+    },
+  },
+  {
+    name: 'rejecting a pending request cannot revoke STAFF in the same operation',
+    current: {
+      role: Role.STAFF,
+      accountStatus: AccountStatus.ACTIVE,
+      pendingState: ADMIN_ACCESS_PENDING_STATES.PENDING,
+    },
+    desired: {
+      role: null,
+      accountStatus: AccountStatus.ACTIVE,
+      decision: ADMIN_ACCESS_DECISION_KINDS.REJECT,
     },
     expected: {
       allowed: false,

@@ -54,6 +54,16 @@ export type AdminAccessPendingDecisionUpdate = {
   readonly decidedAt: Date;
 };
 
+export type AdminAccessRevokedRequestInsert = {
+  readonly userId: string;
+  readonly actorId: string;
+  readonly decidedAt: Date;
+};
+
+export type AdminAccessInsertedRequest = {
+  readonly id: string;
+};
+
 export interface AdminAccessTransactionStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null>;
@@ -63,6 +73,17 @@ export interface AdminAccessTransactionStore {
   decidePendingRequest(
     input: AdminAccessPendingDecisionUpdate,
   ): Promise<boolean>;
+  /**
+   * 회수를 요청 이력에 남긴다 — 기존 APPROVED 행을 갱신하지 않고 **새 행을 넣는다**(#184).
+   *
+   * `decidePendingRequest`와 짝이 아니다. 그쪽은 PENDING 행 하나를 노리는 CAS라 경쟁하는
+   * 두 관리자 중 한쪽만 이기게 만드는 것이 목적이지만, 회수의 경쟁 차단은 이미 `User` 행의
+   * compare-and-swap이 맡고 있어 여기서는 삽입만 하면 된다. 승인 이력("누가 언제 승인했는가")은
+   * 장학금 근거로 쓰이므로 덮어쓰지 않는다.
+   */
+  insertRevokedRequest(
+    input: AdminAccessRevokedRequestInsert,
+  ): Promise<AdminAccessInsertedRequest>;
 }
 
 export interface AdminAccessRepositoryPort {

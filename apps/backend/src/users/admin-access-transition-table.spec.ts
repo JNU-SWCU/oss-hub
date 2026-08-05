@@ -68,7 +68,13 @@ function expectedTransitionOutcome(
   current: AdminAccessTableCurrentState,
   desired: AdminAccessTableDesiredState,
 ): AdminAccessTransitionOutcome {
-  if (current.role !== null && desired.role === null) {
+  // 회수(#184)만 확정된 역할을 다시 비운다. 오라클도 같은 규칙을 독립적으로 적는다 —
+  // 확정된 STAFF이고 대기 중 요청이 없을 때만 통과하고, 그 전이는 REVOKED 행을 남긴다.
+  const revokesStaff =
+    current.role === Role.STAFF &&
+    current.pendingState === ADMIN_ACCESS_PENDING_STATES.NONE &&
+    desired.role === null;
+  if (current.role !== null && desired.role === null && !revokesStaff) {
     return denied(RolesErrorCode.ACCESS_TRANSITION_NOT_ALLOWED, 409);
   }
 
@@ -84,7 +90,13 @@ function expectedTransitionOutcome(
       return denied(RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION, 400);
     }
     return changesAccessState
-      ? allowed(current, desired, ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED)
+      ? allowed(
+          current,
+          desired,
+          revokesStaff
+            ? RoleRequestStatus.REVOKED
+            : ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED,
+        )
       : denied(RolesErrorCode.ACCESS_CHANGE_REQUIRED, 400);
   }
 
