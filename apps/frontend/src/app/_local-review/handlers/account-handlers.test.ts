@@ -378,6 +378,82 @@ describe('account fixture responses', () => {
     });
   });
 
+  /**
+   * 반려 상태를 눈으로 볼 수 있는 페르소나(#673).
+   *
+   * 이 픽스처가 없어서 검토자가 반려 상태에 서 볼 수 없었다 — 역할 요청 픽스처가
+   * `PENDING` 하나뿐이었다. 사유가 신청자 눈에 닿는지 확인할 자리가 검토판에도
+   * 없었던 것이 이 결함이 오래 살아남은 이유 중 하나다.
+   */
+  it('반려 페르소나는 사유가 붙은 REJECTED 요청을 답한다', () => {
+    // Given / When
+    const body = jsonBody(call('role-rejected', 'GET', 'role-requests/me')) as {
+      readonly status: string;
+      readonly rejectionReason: string;
+      readonly decidedAt: string;
+    };
+
+    // Then: 상태와 사유가 함께 있어야 화면이 안내를 세운다.
+    expect(body.status).toBe('REJECTED');
+    expect(body.rejectionReason.trim().length).toBeGreaterThan(0);
+    // 판정 시각 없이 반려만 있는 응답은 실물에 없다.
+    expect(Number.isFinite(Date.parse(body.decidedAt))).toBe(true);
+  });
+
+  /**
+   * 도착지를 픽스처 응답에서 직접 파생시킨다 — 여기서 같은 판단을 다시 적으면
+   * 잠그는 대상이 화면이 아니라 이 테스트 자신이 된다.
+   */
+  it('반려 페르소나의 다음 화면은 역할 선택이다', () => {
+    // Given
+    const roleRequest = jsonBody(
+      call('role-rejected', 'GET', 'role-requests/me'),
+    ) as { readonly status: RoleRequestStatus };
+    const profile = jsonBody(
+      call('role-rejected', 'GET', 'users/me/profile'),
+    ) as { readonly isComplete: boolean };
+
+    // When
+    const path = onboardingPathFor(
+      roleRequest.status,
+      profile.isComplete ? 'complete' : 'incomplete',
+    );
+
+    // Then: 그 화면이 반려 안내를 세우는 자리다(#535 · #673).
+    expect(path).toBe('/onboarding/role');
+  });
+
+  it('반려 페르소나는 약관 단계에서 멈추지 않는다', () => {
+    // Given / When: 동의 전으로 답하면 진입 버튼이 1단계에서 멈춰, 정작 볼 화면에
+    // 아무도 도달하지 못한다 — `role-pending`과 같은 이유다.
+    const body = jsonBody(call('role-rejected', 'GET', 'consents/current'));
+
+    // Then
+    expect(body).toMatchObject({ consented: true });
+  });
+
+  /**
+   * 반려는 "고른 역할"로 세지 않는다 — 마이그레이션이 반려·회수를 backfill에서
+   * 명시적으로 제외했다. 실물에서 옛 반려 건이 보이는 모습과 같아야 한다.
+   */
+  it('반려 페르소나는 고른 역할을 남기지 않는다', () => {
+    expect(jsonBody(call('role-rejected', 'GET', 'onboarding/role'))).toEqual({
+      selectedRole: null,
+    });
+  });
+
+  it('승인 대기 페르소나는 반려로 바뀌지 않는다', () => {
+    // Given / When: 두 페르소나가 서로를 덮으면 한쪽 화면을 볼 수 없게 된다.
+    const body = jsonBody(call('role-pending', 'GET', 'role-requests/me')) as {
+      readonly status: string;
+      readonly rejectionReason: string | null;
+    };
+
+    // Then
+    expect(body.status).toBe('PENDING');
+    expect(body.rejectionReason).toBe(null);
+  });
+
   it('승인 대기 교직원 페르소나도 고른 역할을 교직원으로 답한다', () => {
     // 실물은 마이그레이션에서 살아 있는 요청을 보고 STAFF를 backfill한다.
     expect(jsonBody(call('role-pending', 'GET', 'onboarding/role'))).toEqual({
@@ -598,6 +674,7 @@ describe('가입 동선 — 약관 → 교직원 선택 → 프로필 → 승인
       status: session.user.role ? 'assigned' : 'unassigned',
       role: session.user.role,
       roleRequestStatus: roleRequest?.status ?? null,
+      roleRequestRejectionReason: null,
       selectedRole: selection.selectedRole,
       isProfileComplete: false,
     });

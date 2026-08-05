@@ -16,6 +16,11 @@ export const LOCAL_REVIEW_FIXTURE_IDS = [
   'wrong-role',
   // 역할 승인 대기 상태 — 이 페르소나가 없으면 `/onboarding/pending`을 아무도 볼 수 없다.
   'role-pending',
+  // 반려 상태(#673). `role-pending`을 그대로 쓸 수 없다 — 그쪽은 살아 있는 신청이라
+  // 목적지가 `/onboarding/pending`이고, 반려는 `/onboarding/role`이다(#535). 이
+  // 페르소나가 없으면 반려 사유가 신청자에게 실제로 보이는지 아무도 눈으로 확인할 수
+  // 없다. 그 사각지대가 이 결함이 살아남은 이유이기도 하다.
+  'role-rejected',
 ] as const;
 
 export type LocalReviewFixtureId = (typeof LOCAL_REVIEW_FIXTURE_IDS)[number];

@@ -33,6 +33,7 @@ function session(role: 'STUDENT' | 'STAFF' | 'ADMIN'): SessionRoleResult {
     status: 'assigned',
     role,
     roleRequestStatus: null,
+    roleRequestRejectionReason: null,
     selectedRole: null,
     isProfileComplete: true,
     retry: () => {},

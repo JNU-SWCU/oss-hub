@@ -21,6 +21,7 @@ function state(overrides: Partial<SessionRoleState> = {}): SessionRoleState {
     status: 'loading',
     role: null,
     roleRequestStatus: null,
+    roleRequestRejectionReason: null,
     selectedRole: null,
     isProfileComplete: false,
     ...overrides,

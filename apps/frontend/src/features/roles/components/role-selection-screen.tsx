@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import {
   BriefcaseBusiness,
   Circle,
@@ -18,13 +18,213 @@ import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
-import { fetchMyRoleSelection, selectRole } from '../api';
+import { selectRole } from '../api';
 import type { RoleSelection } from '../types';
+
+/**
+ * 살아 있는 신청이 없어진 사람에게 **왜 그렇게 됐는지**를 알리는 안내(#673).
+ *
+ * 이 화면은 반려된 사용자가 실제로 도착하는 자리다(#535 — 회수·반려는 역할부터
+ * 다시 고른다). 사유를 보여 주던 화면(`role-request-screen.tsx`의 `반려 사유`)은
+ * `/onboarding/pending`에 사는데 게이트가 반려 사용자를 그리로 들이지 않으므로,
+ * 그 안내는 아무도 볼 수 없는 죽은 경로가 됐다. 목적지를 옮기면서 목적지에 실어야
+ * 할 정보를 함께 옮기지 않은 것이 이 결함이다.
+ *
+ * **회수(`REVOKED`)가 나중에 같은 자리에 들어온다.** 지금은 회수에 사유를 저장하지
+ * 않아(`admin-access.repository.ts`의 `decidePendingRequest`가 반려에서만
+ * `rejectionReason`을 남긴다) 범위 밖이지만, 붙게 되면 여기 `status`에 `'REVOKED'`를
+ * 더하고 아래 `CLOSED_REQUEST_NOTICE`에 항목 하나만 추가하면 된다 — 표시 코드는
+ * 상태를 직접 묻지 않고 이 표만 읽는다.
+ */
+export type ClosedRoleRequestStatus = 'REJECTED';
+
+export interface ClosedRoleRequestNotice {
+  readonly status: ClosedRoleRequestStatus;
+  /** 관리자가 남긴 사유. 사유 없이 닫힌 과거 건은 `null`이다. */
+  readonly reason: string | null;
+}
+
+interface ClosedRequestPresentation {
+  readonly title: string;
+  readonly description: string;
+  readonly reasonLabel: string;
+}
+
+const CLOSED_REQUEST_NOTICE: Record<
+  ClosedRoleRequestStatus,
+  ClosedRequestPresentation
+> = {
+  REJECTED: {
+    title: '교직원 요청이 반려되었습니다',
+    // 다시 신청할 길을 별도 버튼으로 내지 않는다 — 이 화면의 `선택 완료`가 이미
+    // 그 일을 한다(교직원을 다시 고르면 새 요청이 만들어진다). 버튼을 하나 더
+    // 세우면 같은 일을 하는 조작이 둘이 되어 어느 쪽이 진짜인지 흐려진다.
+    //
+    // **한 문장이어야 한다.** 예전에는 "아래에서 역할을 다시 고르면 새로 신청됩니다.
+    // 교직원을 다시 고르면 승인 요청이 한 번 더 접수됩니다."로 두 문장이었는데, 둘이
+    // 같은 말을 하면서 375px에서 설명만 59px를 먹었다. 고를 카드와 `선택 완료`가
+    // 바로 아래 보이는 화면이라 두 번째 문장은 잉여였다. 이 상자의 높이가 곧
+    // 사용자가 감수할 스크롤이라(아래 `ClosedRoleRequestAlert` 주석의 실측) 문구를
+    // 늘릴 때는 그 숫자를 다시 재라.
+    description: '아래에서 교직원을 다시 고르면 승인 요청이 새로 접수됩니다.',
+    reasonLabel: '반려 사유',
+  },
+};
+
+/**
+ * 화면에 실을 사유의 최대 길이 — **문자소(grapheme) 기준**이다.
+ *
+ * 사유에는 **길이 제한이 어디에도 없다** — 관리자 대화상자의 textarea에 `maxLength`가
+ * 없고(`admin-access-mutation-reject-dialog.tsx`), DTO는 `@IsString()`뿐이며
+ * (`patch-admin-access.dto.ts`) 저장은 `String?`이다. 그러니 표시 쪽이 자른다.
+ * XSS는 React가 자동으로 이스케이프하므로 위험이 아니다(저장소 전체
+ * `dangerouslySetInnerHTML` 0건) — 실제 위험은 레이아웃 파괴다.
+ *
+ * **내용 길이 기준이다** — 잘렸음을 알리는 말줄임표는 이 수에 들어가지 않는다. 그래서
+ * 잘린 문자열의 실제 문자소 수는 301이 된다. 화면 폭 계산에 쓸 때 그 한 글자를 함께 세라.
+ *
+ * ⚠ **300이라는 숫자 자체에는 근거가 없다.** 넘치는 것보다 낫다는 것 말고는 잰 것이
+ * 없다. 관리자가 실제로 쓰는 사유 길이를 아는 사람이 조정하라 — 늘릴 때는 아래
+ * `ClosedRoleRequestAlert` 주석의 실측을 함께 다시 재야 한다.
+ */
+export const ROLE_REJECTION_REASON_MAX_LENGTH = 300;
+
+/**
+ * 화면에 실을 사유의 최대 줄 수.
+ *
+ * 글자 수만 재면 **세로 높이에는 상한이 없다.** `whitespace-pre-wrap`이 관리자가 넣은
+ * 줄바꿈을 그대로 살리므로, 300자 안이어도 줄바꿈만 300개면 화면이 무너진다 — 글자
+ * 수로는 통과하는 값이 레이아웃을 깨는 셈이다. 줄도 함께 잰다.
+ *
+ * 6줄인 이유: 375px에서 한 줄이 약 20px이라 6줄이면 사유 블록이 약 120px이고, 지금
+ * 실측한 사유 블록(101.5px, 아래 `ClosedRoleRequestAlert` 주석의 표)에서 한 줄 남짓만
+ * 더 늘어나는 선이다.
+ */
+export const ROLE_REJECTION_REASON_MAX_LINES = 6;
+
+/**
+ * 화면에 실을 수 없는 문자.
+ *
+ * 관리자는 사유를 **붙여넣기로** 들여올 수 있고, 그때 눈에 보이지 않는 것들이 함께
+ * 따라온다. 두 부류를 지운다.
+ *
+ * 1. **제어문자** — C0(`U+0000`~`U+001F`)와 C1(`U+007F`~`U+009F`). 단 줄바꿈
+ *    (`U+000A`)은 살린다 — 관리자가 의도한 문단 구분이다. 탭(`U+0009`)은 지우지 않고
+ *    공백으로 바꾼다(아래 `clampRejectionReason`) — 지우면 단어가 서로 붙는다.
+ * 2. **양방향(Bidi) 제어문자** — `U+200E`·`U+200F`(방향 표시), `U+202A`~`U+202E`
+ *    (삽입·덮어쓰기), `U+2066`~`U+2069`(격리), `U+061C`(아랍 문자 표시). 이것들은
+ *    **뒤에 오는 글자의 표시 순서를 뒤집는다.** 사유 한 줄이 화면에서 거꾸로 읽히면
+ *    사용자는 관리자가 쓰지 않은 문장을 읽게 된다.
+ *
+ * ⚠ `U+200C`(ZWNJ)·`U+200D`(ZWJ)는 **지우지 않는다.** ZWJ는 가족 이모지처럼 여러 코드
+ * 포인트를 한 글자로 묶는 접착제라, 지우면 가족 이모지가 사람 셋으로 흩어진다. 그래서
+ * 범위를 `U+200B`~`U+200F` 통째로 잡지 않고 Bidi 표시 둘만 집어 낸다.
+ */
+const UNRENDERABLE_PATTERN =
+  // 범위를 이스케이프로만 쓴다 — 소스에 제어문자를 그대로 박으면 이 파일 자체가
+  // 편집기에서 깨져 보이고, Bidi 문자는 주변 코드까지 거꾸로 읽히게 만든다.
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/g;
+
+/**
+ * 줄바꿈으로 세어야 하는 유니코드 구분자.
+ *
+ * `U+2028`(줄 구분자)·`U+2029`(문단 구분자)는 **화면에서는 줄을 바꾸는데
+ * `split('\n')`에는 잡히지 않는다.** 지우지도 않고 그냥 두면 줄 수 상한을 통째로
+ * 우회한다 — 이 둘로만 이루어진 사유는 몇 줄이든 "한 줄"로 세어져 상한 6을 지나간다.
+ * 그래서 제거가 아니라 **평범한 줄바꿈으로 정규화**한다. 관리자가 의도한 줄 나눔은
+ * 살리면서 세는 규칙 하나로 모으는 쪽이 맞다.
+ */
+const UNICODE_LINE_SEPARATOR_PATTERN = /[\u2028\u2029]/g;
+
+/**
+ * 빈 줄을 하나까지만 남긴다.
+ *
+ * 정규식(`/\n{3,}/`)으로 세던 때는 **공백만 있는 줄을 빈 줄로 세지 못했다.**
+ * 붙여넣기로 들어온 사유는 `\n \n \n`처럼 줄마다 공백이 남는 일이 흔한데, 그런
+ * 값은 눈에는 빈 줄인데 규칙에는 내용 있는 줄로 잡혀 접히지 않았다. 줄 단위로
+ * 다듬으면 두 경우가 같은 규칙을 탄다.
+ */
+function collapseBlankLines(value: string): string {
+  const collapsed: string[] = [];
+  for (const line of value.split('\n')) {
+    // 공백뿐인 줄은 빈 줄이다 — 눈에 보이는 것과 세는 것을 같게 맞춘다.
+    const normalized = line.trim() === '' ? '' : line;
+    if (normalized === '' && collapsed.at(-1) === '') {
+      continue;
+    }
+    collapsed.push(normalized);
+  }
+  return collapsed.join('\n');
+}
+
+/**
+ * 사람이 한 글자로 보는 단위로 쪼갠다.
+ *
+ * `slice`로 자르면 **UTF-16 코드 유닛** 기준이라 이모지 한가운데가 잘린다. 웃는 얼굴
+ * 이모지 앞에 `가`를 299개 붙인 값(UTF-16 길이 301)을 300에서 자르면 마지막에 짝 잃은
+ * 상위 서로게이트만 남아 화면에 깨진 문자로 뜬다. 결합 문자·ZWJ 이모지(가족 이모지)도
+ * 같은 방식으로 깨진다.
+ *
+ * `Intl.Segmenter`가 있으면 그것을 쓴다 — 코드 포인트가 아니라 **문자소**를 알아서,
+ * ZWJ로 묶인 가족 이모지나 한글 조합 문자도 한 덩어리로 센다. 없으면 `Array.from`으로
+ * 내려간다: 문자소까지는 못 가도 코드 포인트 단위라 **서로게이트가 갈라지는 일은
+ * 막는다.** 이 앱의 지원 브라우저는 모두 `Segmenter`를 가지므로 폴백은 안전망일 뿐이다.
+ */
+const graphemeSegmenter =
+  typeof Intl !== 'undefined' && 'Segmenter' in Intl
+    ? new Intl.Segmenter('ko', { granularity: 'grapheme' })
+    : null;
+
+function splitGraphemes(value: string): readonly string[] {
+  if (graphemeSegmenter === null) {
+    return Array.from(value);
+  }
+  return [...graphemeSegmenter.segment(value)].map((entry) => entry.segment);
+}
+
+/**
+ * 표시할 사유를 만든다. 보여 줄 것이 없으면 `null`이라, 화면은 빈 상자를 그리지 않는다.
+ *
+ * 공백만 있는 사유도 없는 것으로 본다 — 상자만 뜨고 안이 비면 사용자는 사유가 아직
+ * 안 온 줄 알고 기다린다. 반려 **사실**과 다시 신청하라는 안내는 사유가 없어도 남는다.
+ *
+ * 순서가 규칙이다. 지우기(제어·Bidi) → 탭·줄바꿈 정규화(`\r\n`·`U+2028`·`U+2029`를
+ * 모두 `\n`으로) → 빈 줄 접기 → 양끝 다듬기 → 줄 수 자르기 → 글자 수 자르기.
+ * 지우기를 먼저 하지 않으면 지워질 문자가 글자 수에 잡혀 멀쩡한 문장이 대신 잘리고,
+ * 줄바꿈을 먼저 한 종류로 모으지 않으면 `U+2028`만으로 이루어진 값이 "한 줄"로 세어져
+ * 줄 수 상한을 그냥 지나간다. 줄을 먼저 자르지 않으면 글자 수로는 통과한 값이 세로로
+ * 무너뜨린다.
+ */
+export function clampRejectionReason(reason: string | null): string | null {
+  const cleaned = collapseBlankLines(
+    (reason ?? '')
+      .replace(UNRENDERABLE_PATTERN, '')
+      .replace(/\t/g, ' ')
+      .replace(/\r\n?/g, '\n')
+      .replace(UNICODE_LINE_SEPARATOR_PATTERN, '\n'),
+  ).trim();
+  if (cleaned.length === 0) {
+    return null;
+  }
+
+  const lines = cleaned.split('\n');
+  const lineClamped =
+    lines.length > ROLE_REJECTION_REASON_MAX_LINES
+      ? `${lines.slice(0, ROLE_REJECTION_REASON_MAX_LINES).join('\n')}…`
+      : cleaned;
+
+  const graphemes = splitGraphemes(lineClamped);
+  return graphemes.length > ROLE_REJECTION_REASON_MAX_LENGTH
+    ? `${graphemes.slice(0, ROLE_REJECTION_REASON_MAX_LENGTH).join('')}…`
+    : lineClamped;
+}
 
 interface RoleSelectionFormProps {
   readonly selectedRole: RoleSelection | null;
   readonly isSubmitting: boolean;
   readonly errorMessage: string | null;
+  /** 살아 있는 신청이 없어진 사유. 해당하지 않으면 `null`이라 아무것도 그리지 않는다. */
+  readonly rejection: ClosedRoleRequestNotice | null;
   readonly onSelect: (role: RoleSelection) => void;
   readonly onSubmit: () => void;
 }
@@ -157,6 +357,87 @@ function RoleGuidanceSlot({
 }
 
 /**
+ * 반려 안내 상자.
+ *
+ * ⚠ **이 상자는 `선택 완료` 버튼을 375×812의 접히는 선 아래로 밀어낸다. 알고 한
+ * 일이다 — 회귀가 아니니 되돌리지 마라.**
+ *
+ * 실측(2026-08-05, `role-rejected` 검토 픽스처의 두 줄짜리 사유 기준).
+ *
+ * | 375×812 | 버튼 하단 | 화면 안 | 문서 높이 | 안내 높이 |
+ * |---|---|---|---|---|
+ * | 안내 없음 | 732px | 예 | 812(스크롤 0) | — |
+ * | 안내 있음 | 929px | **아니오** | 993 | 202 |
+ *
+ * 1440×900에서는 739.3px → 819px로 **둘 다 화면 안**이다(문서 900, 스크롤 0, 안내
+ * 143.5px). 대가는 좁은 화면에만 생긴다.
+ *
+ * 안내 202px의 내역(합이 정확히 맞는다): 제목 19.5 · 사유 블록 101.5 · 설명 39 ·
+ * 안쪽 여백 24 · **테두리 2** · 간격 16. 테두리를 빼먹거나 앞의 두 값을 정수로
+ * 올림하면 201이 나온다 — 다시 잴 때 이 함정을 조심하라.
+ *
+ * 아래 카드 배치 주석이 지키는 "고르고 누르기가 한 화면에" 제약을 여기서
+ * **의도적으로 양보한 것**이다.
+ *
+ * 왜 양보하는가. 그 제약은 **읽을 것이 없는 첫 가입 동선**을 전제로 쓰였다. 반려된
+ * 사용자의 첫 할 일은 고르고 누르기가 아니라 **왜인지 읽기**다 — 이유를 모른 채 다시
+ * 고르면 같은 이유로 또 반려된다. 그리고 버튼을 화면 안에 두려면 안내가 85px 이하여야
+ * 하는데 제목(20) + 사유 두 줄(약 40) + 안쪽 여백(24) + 간격(8) = 92px라, 375에서
+ * **사유를 그대로 보여 주면서 버튼을 화면 안에 두는 조합은 존재하지 않는다.** 사유를
+ * 접어 숨기면 가능하지만 그것은 이 화면이 고치려는 결함(사유가 사용자에게 닿지 않는다)을
+ * 절반 되살리는 일이라 택하지 않았다.
+ *
+ * 대신 대가는 줄인다. 설명을 두 문장에서 한 문장으로 묶어 59px→39px, 상자 전체
+ * 222px→202px, 버튼 하단 949px→929px로 낮췄다(위 `CLOSED_REQUEST_NOTICE` 주석).
+ * 사유는 길이를 자른다(`clampRejectionReason`). 문구나 구조를 늘릴 때는 위 표를
+ * 다시 재라 — 지금 상태가 "허용한 최대"이지 "여유"가 아니다.
+ *
+ * shadcn `Alert`를 쓰지 않는다 — 카드와 같은 이유다. `bg-card`·`bg-background`는
+ * 반전 스코프가 덮는 변수 집합에 없어서(globals.css의 `[data-surface='inverted']`)
+ * 어두운 무대 위에 흰 상자로 뜬다. 대비가 검증된 `--cosmos-*` 안에서, 바로 아래
+ * `errorMessage` 상자와 같은 조형(`rounded-card` · `px-4 py-3` · 두 줄 위계)으로
+ * 짓는다 — 같은 화면에서 경고가 두 가지 모양을 하면 위계가 무너진다.
+ *
+ * `RoleGuidanceSlot` 근처가 아니라 카드 **위**에 세운다. 그 슬롯은 높이를 실측해
+ * 고정한 자리라(그 함수의 주석) 곁에 요소가 늘면 `선택 완료` 버튼이 밀린다.
+ *
+ * 사유는 관리자가 자유롭게 쓴 글이라 두 가지를 함께 건다. `whitespace-pre-wrap`은
+ * 관리자가 넣은 줄바꿈을 살리고, `break-words`는 공백이 하나도 없는 긴 문자열이
+ * 와도 상자 밖으로 밀고 나가지 못하게 끊는다(한글 문장은 `break-keep`이 자연스럽지만,
+ * 여기서는 넘치지 않는 쪽이 먼저다). 길이 자체는 `clampRejectionReason`이 자른다.
+ */
+function ClosedRoleRequestAlert({
+  notice,
+}: {
+  readonly notice: ClosedRoleRequestNotice;
+}) {
+  const presentation = CLOSED_REQUEST_NOTICE[notice.status];
+  const reason = clampRejectionReason(notice.reason);
+
+  return (
+    <div
+      role="alert"
+      data-slot="role-request-closed"
+      data-status={notice.status}
+      className="grid gap-2 rounded-card border border-cosmos-danger/40 bg-cosmos-muted/8 px-4 py-3 text-left break-keep"
+    >
+      <p className="text-small font-semibold text-cosmos-danger">
+        {presentation.title}
+      </p>
+      {reason === null ? null : (
+        <p className="text-small text-cosmos-copy">
+          <span className="font-medium">{presentation.reasonLabel}</span>
+          <span className="mt-1 block break-words whitespace-pre-wrap">
+            {reason}
+          </span>
+        </p>
+      )}
+      <p className="text-small text-cosmos-muted">{presentation.description}</p>
+    </div>
+  );
+}
+
+/**
  * 무대(`app/_shell/signup-stage.tsx`) 안에 들어가는 내용만 그린다.
  *
  * 조각들을 Fragment로 내보내는 것은 무대 본문이 세로 flex(`gap-8`)이기 때문이다 —
@@ -167,6 +448,7 @@ export function RoleSelectionForm({
   selectedRole,
   isSubmitting,
   errorMessage,
+  rejection,
   onSelect,
   onSubmit,
 }: RoleSelectionFormProps) {
@@ -194,10 +476,22 @@ export function RoleSelectionForm({
         className="flex flex-col gap-3 text-left sm:gap-4"
         onSubmit={handleSubmit}
       >
+        {/* 리드 아래·카드 위. 왜 여기냐면, 사용자가 이 화면에서 할 일(역할 고르기)을
+            읽기 **전에** 왜 다시 고르게 됐는지를 알아야 하기 때문이다. 카드 아래에
+            두면 이미 고르고 나서야 사유를 만난다. 폼 안에 두는 이유는 무대 본문의
+            간격(`gap-8`)이 아니라 폼의 간격(`gap-3`)을 따라야 카드에 붙어 보이기
+            때문이다 — 무대 간격을 쓰면 안내가 화면 위쪽에 홀로 떨어진다. */}
+        {rejection ? <ClosedRoleRequestAlert notice={rejection} /> : null}
+
         {/* 두 카드는 좁은 화면에서도 나란히 둔다. 세로로 쌓으면 카드 하나 높이(약
             190px)가 통째로 더해져 375×812에서 주 버튼이 접히는 선 아래로 내려갔다 —
             고를 것이 둘뿐인 화면에서 "고르고 누르기"가 한 화면에 안 들어오면 그게 더
-            나쁘다. 둘을 나란히 두면 서로 비교하기도 쉽다. */}
+            나쁘다. 둘을 나란히 두면 서로 비교하기도 쉽다.
+
+            **단 반려 안내가 서 있을 때는 예외다** — 그때는 버튼이 접히는 선 아래로
+            내려가는 것을 알고 허용했다(위 `ClosedRoleRequestAlert` 주석의 실측과 근거).
+            이 가로 배치 자체는 안내와 무관하게 그대로 지킨다: 여기서 세로로 쌓으면
+            안내가 없는 첫 가입자까지 함께 스크롤하게 된다. */}
         <fieldset className="grid grid-cols-2 items-stretch gap-3">
           <legend className="sr-only">사용할 역할</legend>
           {ROLE_OPTIONS.map((option) => {
@@ -284,49 +578,45 @@ export function RoleSelectionForm({
 }
 
 /**
- * 되돌아온 사람에게 이전 선택을 되살린다(#569).
+ * 이 화면이 그리는 데 필요한 것 전부. **스스로 조회하지 않는다.**
  *
- * 확정을 `가입 마치기`로 미루면서 프로필 화면에서 여기로 되돌아올 수 있게 됐다.
- * 되돌아왔는데 아무것도 골라지지 않은 화면이 뜨면, 사용자는 자기가 무엇을 골랐었는지
- * 화면에서 확인할 수 없어 방금 한 선택이 지워진 것으로 읽는다.
+ * 예전에는 이 컴포넌트가 `fetchMyRoleSelection`·`fetchMyRoleRequest`를 직접 불렀다.
+ * 그런데 이 화면을 여는 `OnboardingGate`는 그 두 값을 **이미 읽어서** 접근을 판단한
+ * 뒤다(`app/_shell/use-session-role.ts`). 같은 것을 두 번 묻는 셈이고, 더 나쁘게는
+ * 두 답이 서로 다른 순간의 값일 수 있다 — 게이트는 반려로 판단해 이 화면을 열어
+ * 줬는데 화면의 두 번째 조회가 실패하면 **사유 없는 역할 선택 화면**이 뜬다. #673이
+ * 고치려는 결함이 네트워크가 흔들릴 때마다 되살아나는 통로였다.
  *
- * **사용자가 이미 카드를 눌렀으면 덮어쓰지 않는다.** 조회는 화면이 뜬 뒤에 끝나므로,
- * 그 사이에 고른 것을 뒤늦게 도착한 응답이 되돌리면 눌렀던 카드가 저절로 바뀐다.
+ * 그래서 값은 전부 prop으로 받는다. 게이트가 판단에 쓴 스냅샷을 `app` 계층이
+ * (`app/onboarding/role/role-selection-route.tsx`) 풀어서 내려 준다 — `features`는
+ * `app`을 import할 수 없으므로 방향이 이쪽이어야 한다.
  */
-function useRestoredRoleSelection(): {
-  readonly selectedRole: RoleSelection | null;
-  readonly select: (role: RoleSelection) => void;
-} {
-  const [selectedRole, setSelectedRole] = useState<RoleSelection | null>(null);
-  const hasChosen = useRef(false);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchMyRoleSelection(controller.signal)
-      .then((state) => {
-        if (!controller.signal.aborted && !hasChosen.current) {
-          setSelectedRole(state.selectedRole);
-        }
-      })
-      .catch(() => {
-        // 되살리기에 실패해도 화면은 그대로 쓸 수 있다 — 아무것도 고르지 않은 상태로
-        // 시작할 뿐이다. 여기서 오류를 띄우면 처음 온 사람(고른 것이 없는 것이 정상)
-        // 에게도 실패 화면이 뜬다.
-      });
-    return () => controller.abort();
-  }, []);
-
-  return {
-    selectedRole,
-    select: (role) => {
-      hasChosen.current = true;
-      setSelectedRole(role);
-    },
-  };
+interface RoleSelectionScreenProps {
+  /**
+   * 되돌아온 사람에게 되살릴 이전 선택(#569).
+   *
+   * 확정을 `가입 마치기`로 미루면서 프로필 화면에서 여기로 되돌아올 수 있게 됐다.
+   * 되돌아왔는데 아무것도 골라지지 않은 화면이 뜨면, 사용자는 자기가 무엇을
+   * 골랐었는지 화면에서 확인할 수 없어 방금 한 선택이 지워진 것으로 읽는다.
+   *
+   * **이 값은 첫 상태로만 쓰고 이후에는 따라가지 않는다.** #569가 `hasChosen` ref로
+   * 막던 것이 바로 그것이다 — 사용자가 카드를 누른 뒤 뒤늦게 도착한 응답이 선택을
+   * 되돌리면 눌렀던 카드가 저절로 바뀐다. 이제는 ref가 필요 없다: 게이트가 두 조회가
+   * **끝난 뒤에만** 자식을 그리므로(`status === 'unassigned'`는 `loaded`를 전제한다)
+   * 뒤늦게 도착하는 응답 자체가 없고, `useState` 초기값은 이후 prop 변화를 무시한다.
+   */
+  readonly initialSelectedRole: RoleSelection | null;
+  /** 살아 있는 신청이 없어진 사유. 해당하지 않으면 `null`이다. */
+  readonly rejection: ClosedRoleRequestNotice | null;
 }
 
-export function RoleSelectionScreen() {
-  const { selectedRole, select } = useRestoredRoleSelection();
+export function RoleSelectionScreen({
+  initialSelectedRole,
+  rejection,
+}: RoleSelectionScreenProps) {
+  const [selectedRole, setSelectedRole] = useState<RoleSelection | null>(
+    initialSelectedRole,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -356,7 +646,8 @@ export function RoleSelectionScreen() {
       selectedRole={selectedRole}
       isSubmitting={isSubmitting}
       errorMessage={errorMessage}
-      onSelect={select}
+      rejection={rejection}
+      onSelect={setSelectedRole}
       onSubmit={() => void handleSubmit()}
     />
   );

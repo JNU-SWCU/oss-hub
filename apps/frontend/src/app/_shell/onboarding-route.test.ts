@@ -70,6 +70,16 @@ describe('onboardingPathFor', () => {
     },
   );
 
+  /**
+   * 반려의 목적지는 `/onboarding/role`이다(#535).
+   *
+   * ⚠ **그 목적지에는 반려 사유를 보여 줄 의무가 따라붙는다**(#673). 사유를 그리던
+   * 화면은 `/onboarding/pending`에 있었는데, 이 규칙이 반려 사용자를 그리로 들이지
+   * 않게 되면서 사유가 도달 불가가 됐다 — 관리자에게는 사유 입력이 필수인데
+   * (`patch-admin-access.dto.ts`의 `REJECTION_REASON_REQUIRED`) 아무에게도 보이지
+   * 않는 상태였다. 여기 목적지를 다시 옮기려면, 옮겨 간 화면이 사유를 싣는지
+   * `app/_shell/onboarding-rejection-reach.test.tsx`가 함께 답해야 한다.
+   */
   it.each(['incomplete', 'complete'] as const)(
     '반려된 요청은 프로필이 %s여도 역할 선택으로 보낸다',
     (profileStatus) => {

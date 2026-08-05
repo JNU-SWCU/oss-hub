@@ -13,10 +13,40 @@ import type { AppRole } from './role';
 export type SessionStatus =
   'loading' | 'error' | 'anonymous' | 'unassigned' | 'assigned';
 
+/**
+ * 게이트가 읽고, 게이트 아래 화면이 물려받는 스냅샷.
+ *
+ * **무엇을 여기 실어도 되는가 — 경계를 적어 둔다.** `roleRequestRejectionReason`이
+ * 들어오면서 이 타입은 "접근 판단에 필요한 값"을 넘어 "목적지가 표시할 값"까지 담게
+ * 됐다. 그 문이 열린 이상 규칙이 없으면 다음 사람이 계속 얹는다.
+ *
+ * - **실어도 되는 것**: 서버가 준 **도메인 값**. 역할, 요청 상태, 반려 사유, 고른
+ *   역할처럼 "이 사용자에 대한 사실"이다. 게이트가 이미 그 응답을 읽으므로 여기
+ *   담는 것이 조회를 아끼고, 판단과 표시가 같은 순간의 답을 보게 한다.
+ * - **실으면 안 되는 것**: 화면이 **만들어 내는 것**. 제목·라벨·안내 문구 같은
+ *   표시 문자열, JSX, 번역된 문장, 화면별 파생 상태가 그렇다. 그것들은 화면마다
+ *   다르고 번역·문안 변경이 이 공용 타입을 흔든다 — 게이트를 쓰는 모든 화면이 함께
+ *   끌려온다. 사실만 내려 주고 문장은 화면이 짓는다(`ClosedRoleRequestNotice`가
+ *   그 예다: 사유는 여기서 오고, "교직원 요청이 반려되었습니다"는 화면이 만든다).
+ */
 export interface SessionRoleState {
   readonly status: SessionStatus;
   readonly role: AppRole | null;
   readonly roleRequestStatus: RoleRequestStatus | null;
+  /**
+   * 관리자가 남긴 반려 사유. `roleRequestStatus === 'REJECTED'`에서만 값이 있다.
+   *
+   * 이 값이 여기 있는 이유는 **그것을 보여 줄 화면이 게이트의 목적지**이기 때문이다.
+   * 반려 사용자는 `/onboarding/role`로 보내지는데(#535), 그 화면이 사유를 직접 다시
+   * 조회하면 게이트가 이미 읽은 답을 한 번 더 묻는 셈이고 — 더 나쁘게는 **그 두 번째
+   * 조회가 실패하면 게이트는 반려로 판단해 화면을 열어 준 채 화면은 사유 없이
+   * 그린다.** 고치려던 결함(#673)이 네트워크가 흔들릴 때마다 되살아나는 것이다.
+   * 판단에 쓴 스냅샷이 표시에 필요한 값까지 들고 있어야 그 틈이 없다.
+   *
+   * 요청이 없거나 반려가 아니면 `null`이다. 회수(`REVOKED`)는 사유를 저장하지 않으므로
+   * (`admin-access.repository.ts`의 `decidePendingRequest`) 언제나 `null`이다.
+   */
+  readonly roleRequestRejectionReason: string | null;
   /**
    * 가입 절차에서 고른 역할 — 아직 확정되지 않은 선택이다(#569).
    *
@@ -45,6 +75,7 @@ const LOADING: SessionRoleState = {
   status: 'loading',
   role: null,
   roleRequestStatus: null,
+  roleRequestRejectionReason: null,
   selectedRole: null,
   isProfileComplete: false,
 };
@@ -52,6 +83,7 @@ const ERROR: SessionRoleState = {
   status: 'error',
   role: null,
   roleRequestStatus: null,
+  roleRequestRejectionReason: null,
   selectedRole: null,
   isProfileComplete: false,
 };
@@ -59,6 +91,7 @@ const ANONYMOUS: SessionRoleState = {
   status: 'anonymous',
   role: null,
   roleRequestStatus: null,
+  roleRequestRejectionReason: null,
   selectedRole: null,
   isProfileComplete: false,
 };
@@ -75,6 +108,8 @@ type OnboardingFetch =
   | {
       readonly kind: 'loaded';
       readonly status: RoleRequestStatus | null;
+      /** 반려 사유. 반려가 아니면 `null`이다 — 표시할 화면이 게이트의 목적지라 함께 싣는다. */
+      readonly rejectionReason: string | null;
       readonly selectedRole: RoleSelection | null;
     }
   | { readonly kind: 'failed' };
@@ -108,6 +143,18 @@ export function useSessionRole(): SessionRoleResult {
           setOnboarding({
             kind: 'loaded',
             status: request?.status ?? null,
+            // 예전에는 여기서 `status`만 남기고 사유를 버렸다. 그 값을 보여 줄 화면이
+            // 바로 이 게이트의 목적지인데(#535·#673), 버리면 그 화면이 같은 것을 다시
+            // 물어야 하고 그 두 번째 조회가 실패하면 사유가 사라진다.
+            //
+            // **반려일 때만 싣는다.** 백엔드는 반려에서만 사유를 기록하지만
+            // (`admin-access.repository.ts`), 그 사실에 기대지 않고 여기서 정규화한다 —
+            // 불변식을 문서로만 적어 두면 어긋난 응답이 왔을 때 조용히 통과하고, 다음
+            // 사람은 상태를 확인하지 않고 이 값을 읽어도 된다고 읽는다.
+            rejectionReason:
+              request?.status === 'REJECTED'
+                ? (request.rejectionReason ?? null)
+                : null,
             selectedRole: selection.selectedRole,
           });
         }
@@ -146,6 +193,7 @@ export function useSessionRole(): SessionRoleResult {
             status: 'assigned',
             role,
             roleRequestStatus: null,
+            roleRequestRejectionReason: null,
             selectedRole: null,
             isProfileComplete: session.user?.isProfileComplete ?? false,
           };
@@ -160,6 +208,7 @@ export function useSessionRole(): SessionRoleResult {
               status: 'unassigned',
               role: null,
               roleRequestStatus: onboarding.status,
+              roleRequestRejectionReason: onboarding.rejectionReason,
               selectedRole: onboarding.selectedRole,
               isProfileComplete: false,
             };

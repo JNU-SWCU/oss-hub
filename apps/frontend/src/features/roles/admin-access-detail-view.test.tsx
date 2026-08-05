@@ -302,6 +302,15 @@ describe('AdminAccessDetailContentForState — 접근 변경 드롭다운 (PR04G
     expect(html).toContain('role="dialog"');
     expect(html).toContain('요청 반려');
     expect(html).toContain('거절 사유');
+    // 관리자가 무엇을 쓰는지 알고 쓰게 한다(#673) — 이 값은 신청자의 역할 선택
+    // 화면에 뜬다. 표시된다는 사실을 모르면 내부 메모처럼 쓰게 된다.
+    expect(html).toContain('입력한 사유는 신청자에게 표시됩니다.');
+    // 길면 잘린다는 사실도 함께 알린다.
+    expect(html).toContain('너무 길면 앞부분만 보이니');
+    // ⚠ 안내가 사실보다 세면 안 된다. 표시 쪽이 제어문자를 지우고 줄 수를 줄이고
+    // 길이를 자르므로(`clampRejectionReason`) "그대로"는 거짓이다 — 관리자는 긴
+    // 사유가 끝까지 읽힐 것으로 믿고 쓰는데 신청자는 앞부분만 본다.
+    expect(html).not.toMatch(/그대로 표시됩니다/);
     expect(html).toContain('synthetic-target');
   });
 
