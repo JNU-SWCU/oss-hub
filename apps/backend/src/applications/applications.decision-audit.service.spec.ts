@@ -423,7 +423,7 @@ describe('ApplicationsService.decide — REVERT', () => {
     expect(record).not.toHaveBeenCalled();
   });
 
-  it('되돌리기 후 재승인: 성공하고 저장소 프로비저닝 이벤트를 재생성하지 않는다', async () => {
+  it('되돌리기 후 재승인: 남은 요청을 지우고 이벤트를 새로 발행한다', async () => {
     const {
       service,
       store,
