@@ -2,7 +2,7 @@
 slug: ADR-009-own-repository-connection
 date: 2026-08-05
 author: GoBeromsu
-status: Proposed
+status: Accepted
 references:
   - ADR-006
 refines:
@@ -130,6 +130,24 @@ repository(owner:$owner, name:$name) {
 **PR·릴리스는 적재 시 거른다.** GraphQL에도 `author` 인자가 없다. `search(query:"repo:X is:pr author:Y")`는 **분당 30회**의 별도 한도라 오히려 위험하므로 쓰지 않는다. PR·릴리스는 저장소당 수백 개 규모라 전량 받아도 커밋(수만 개)과 비용 차원이 다르다.
 
 **저장소 전체 지표는 만들지 않는다.** 총계를 노출하려면 제3자 데이터를 보관해야 하는데 그것이 바로 이 조항이 막으려는 것이다. 외부 기여 규모가 필요하면 2번의 수치로 답한다.
+
+#### 추적 범위는 default branch 하나
+
+수집은 `defaultBranch` 하나만 본다(`collection-sync.service.ts`). 제약이 아니라 이 설계를 성립시키는 조건이다.
+
+오픈소스에서 기여의 단위는 **머지된 PR**이고, 머지되면 커밋이 default branch에 올라간다 — squash든 merge commit이든 author가 보존되므로 `history(author:)`가 잡는다. 머지되지 않은 브랜치 작업은 애초에 실적으로 세기 어렵다.
+
+더 중요한 것은 **뺄셈의 기준이 하나라는 점**이다.
+
+```
+전체   = countDefaultBranchCommits(defaultBranch)
+팀원합 = 팀원별 history(author:) on defaultBranch
+외부   = 전체 − 팀원합
+```
+
+총계는 전 브랜치인데 팀원합만 default branch였다면 외부 수치가 부풀려진다. 양쪽에 같은 `defaultBranch`를 넘기므로 그 어긋남이 없다.
+
+`defaultBranch`가 `null`인 빈 저장소는 수집을 건너뛰고 frontier를 건드리지 않아, 첫 커밋이 생긴 뒤 백필된다.
 
 #### 백필 시점
 
