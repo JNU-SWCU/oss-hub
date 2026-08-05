@@ -36,9 +36,9 @@
 기능 코드와 exec-plan은 owner 전속 경로이며 owner가 아닌 사람·에이전트는 직접 수정하지 않고 Issue·PR 코멘트로 제안한다.
 @GoBeromsu와 @Lumiere001은 owner 표와 무관하게 저장소 전체 경로를 사전 허락 없이 수정하는 free-role 예외를 가진다(원본: ADR-005).
 PR 본문에 대상 기능과 owner를 명시해 owner를 리뷰어로 지정하고, 착수 전 Issue로 선점을 선언하며, owner의 사후 확인 코멘트는 병합 조건이 아니다.
-PR은 항상 Ready로 연다 — Draft 단계를 쓰지 않는다.
-Draft는 GitHub에서 병합이 원천 차단되고(`--admin`으로도 우회되지 않는다) required check가 전부 green이어도 아무 신호가 없어 완성된 변경이 조용히 방치되는 주차장으로 쓰였다.
-진행 중 공유가 필요하면 Draft가 아니라 Issue 코멘트나 PR 본문 갱신으로 알린다.
+PR은 항상 Ready로 연다 — 유일한 예외는 스택의 하위 PR이고, base가 아직 병합되지 않은 상위 PR의 브랜치인 동안만 Draft로 두며 상위가 병합되면 즉시 Ready로 전환한다(스택을 쓸 조건은 `docs/rules/pr-scope.md` §4).
+Draft는 GitHub에서 병합이 원천 차단되고(`--admin`으로도 우회되지 않는다) required check가 전부 green이어도 아무 신호가 없어 완성된 변경이 조용히 방치되는 주차장으로 쓰였으므로, 진행 중 공유가 필요하면 Draft가 아니라 Issue 코멘트나 PR 본문 갱신으로 알린다.
+그래서 base가 `main`인 Draft PR은 예외 밖이며 위반으로 본다 — 상위가 병합되면 GitHub이 하위 PR의 base를 자동으로 `main`으로 옮기므로, 전환 의무를 사람의 기억이 아니라 PR의 base와 draft 상태만으로 판정할 수 있다.
 PR을 제출하기 전 `docs/handoff/TEAM-STATE.md`의 해당 기능 행을 이 브랜치에서 갱신한다 — pre-push 훅이 검사하며, 우회는 `TEAM_STATE_SKIP=1` + PR 본문에 사유 명시다(`docs/handoff/team-state-drift-check.md`).
 
 | 기능 | owner | exec-plan 경로 | 코드 경로 |
