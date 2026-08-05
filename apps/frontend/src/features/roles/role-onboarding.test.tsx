@@ -166,11 +166,31 @@ describe('role onboarding views', () => {
 
       // Then
       expect(html).toContain('교직원 요청이 반려되었습니다');
-      expect(html).toContain('아래에서 역할을 다시 고르면 새로 신청됩니다');
+      expect(html).toContain(
+        '아래에서 교직원을 다시 고르면 승인 요청이 새로 접수됩니다.',
+      );
       // 라벨만 뜨고 안이 비면 사용자는 사유가 아직 안 온 줄 알고 기다린다.
       expect(html).not.toContain('반려 사유');
     },
   );
+
+  /**
+   * 안내는 **한 문장**이어야 한다.
+   *
+   * 예전 두 문장은 같은 말을 하면서 375px에서 설명만 59px를 먹었고, 그만큼이 그대로
+   * 사용자가 감수할 스크롤이 됐다. 옛 문구가 다시 들어오는 것을 막는다 — 새 문구가
+   * 옛 문구를 포함하는 형태로 되살아나도 잡히도록 `not.toMatch`로 못박는다.
+   */
+  it('안내 문구는 같은 말을 두 번 하지 않는다', () => {
+    // Given / When
+    const html = renderRoleForm(null, rejectionNotice(null));
+
+    // Then
+    expect(html).not.toMatch(
+      /교직원을 다시 고르면 승인 요청이 한 번 더 접수됩니다/,
+    );
+    expect(html).not.toMatch(/아래에서 역할을 다시 고르면 새로 신청됩니다/);
+  });
 
   /**
    * 길이 제한이 어디에도 없다 — 관리자 대화상자에 `maxLength`가 없고, DTO는
@@ -218,6 +238,32 @@ describe('role onboarding views', () => {
     expect(html).not.toContain('data-slot="role-request-closed"');
     expect(html).not.toContain('교직원 요청이 반려되었습니다');
   });
+
+  /**
+   * 카드 가로 배치는 안내와 **무관하게** 살아 있어야 한다.
+   *
+   * 반려 안내는 375×812에서 `선택 완료`를 접히는 선 아래로 밀어낸다 — 알고 허용한
+   * 대가다(`ClosedRoleRequestAlert` 주석의 실측). 그 예외가 "이 화면은 어차피
+   * 스크롤한다"로 번져 카드까지 세로로 쌓이면, **안내가 없는 첫 가입자까지** 함께
+   * 스크롤하게 된다. 그쪽은 지금 스크롤이 아예 없는 화면이다(버튼 하단 732px).
+   * 두 상태 모두에서 가로 배치를 못박아 그 번짐을 막는다.
+   */
+  it.each([
+    ['안내 없음', null],
+    ['안내 있음', rejectionNotice('학과 소속이 확인되지 않았습니다.')],
+  ] as readonly (readonly [string, ClosedRoleRequestNotice | null])[])(
+    '%s 상태 모두에서 두 역할 카드는 가로로 나란히 선다',
+    (_label, rejection) => {
+      // Given / When
+      const html = renderRoleForm(null, rejection);
+
+      // Then — 한 줄에 둘. `grid-cols-1`이나 `flex-col`로 바뀌면 카드 하나 높이(약
+      // 190px)가 통째로 더해진다.
+      expect(html).toContain('grid grid-cols-2 items-stretch gap-3');
+      expect(html).not.toMatch(/<fieldset[^>]*grid-cols-1/);
+      expect(html).not.toMatch(/<fieldset[^>]*flex-col/);
+    },
+  );
 
   it('반려된 요청은 반려 사유와 재요청 동작을 표시한다', () => {
     // Given
