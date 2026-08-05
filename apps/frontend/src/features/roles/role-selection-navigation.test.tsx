@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
   selectRole: vi.fn(),
   fetchMyRoleSelection: vi.fn(),
+  fetchMyRoleRequest: vi.fn(),
   useState: vi.fn(),
   useEffect: vi.fn(),
 }));
@@ -32,6 +33,9 @@ vi.mock('next/navigation', () => ({
 vi.mock('./api', () => ({
   selectRole: mocks.selectRole,
   fetchMyRoleSelection: mocks.fetchMyRoleSelection,
+  // 반려 사유도 같은 effect에서 함께 읽는다(#673). 여기서는 조회 결과가 아니라
+  // 저장 뒤의 이동을 보므로, 요청이 없는 사람(=대부분의 첫 가입자)으로 둔다.
+  fetchMyRoleRequest: mocks.fetchMyRoleRequest,
 }));
 
 import {
@@ -48,9 +52,12 @@ describe('role selection navigation', () => {
     vi.resetAllMocks();
     vi.stubGlobal('window', { location: { assign: mocks.assign } });
     mocks.fetchMyRoleSelection.mockResolvedValue({ selectedRole: null });
+    mocks.fetchMyRoleRequest.mockResolvedValue(null);
     mocks.useEffect.mockImplementation(() => {});
+    // 호출 순서 = 고른 역할 → 반려 안내 → 저장 중 → 오류 문구.
     mocks.useState
       .mockReturnValueOnce(['STUDENT', vi.fn()])
+      .mockReturnValueOnce([null, vi.fn()])
       .mockReturnValueOnce([false, vi.fn()])
       .mockReturnValueOnce([null, vi.fn()]);
   });
@@ -114,9 +121,11 @@ describe('이전 선택 되살리기', () => {
     const setSelectedRole = vi.fn();
     mocks.useState
       .mockReturnValueOnce([null, setSelectedRole])
+      .mockReturnValueOnce([null, vi.fn()])
       .mockReturnValueOnce([false, vi.fn()])
       .mockReturnValueOnce([null, vi.fn()]);
     mocks.fetchMyRoleSelection.mockResolvedValue({ selectedRole: 'STAFF' });
+    mocks.fetchMyRoleRequest.mockResolvedValue(null);
 
     // When
     RoleSelectionScreen();
@@ -133,9 +142,11 @@ describe('이전 선택 되살리기', () => {
     const setSelectedRole = vi.fn();
     mocks.useState
       .mockReturnValueOnce([null, setSelectedRole])
+      .mockReturnValueOnce([null, vi.fn()])
       .mockReturnValueOnce([false, vi.fn()])
       .mockReturnValueOnce([null, vi.fn()]);
     mocks.fetchMyRoleSelection.mockRejectedValue(new Error('조회 실패'));
+    mocks.fetchMyRoleRequest.mockRejectedValue(new Error('조회 실패'));
 
     // When / Then
     expect(() => RoleSelectionScreen()).not.toThrow();

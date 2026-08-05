@@ -1,7 +1,12 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import { RoleSelectionForm } from './components/role-selection-screen';
+import {
+  clampRejectionReason,
+  ROLE_REJECTION_REASON_MAX_LENGTH,
+  RoleSelectionForm,
+  type ClosedRoleRequestNotice,
+} from './components/role-selection-screen';
 import {
   ROLE_REQUEST_RETRY_FAILURE_MESSAGE,
   RoleRequestStatusView,
@@ -10,16 +15,24 @@ import type { RoleRequest } from './types';
 
 const noOp = () => undefined;
 
-function renderRoleForm(selectedRole: 'STUDENT' | 'STAFF' | null): string {
+function renderRoleForm(
+  selectedRole: 'STUDENT' | 'STAFF' | null,
+  rejection: ClosedRoleRequestNotice | null = null,
+): string {
   return renderToStaticMarkup(
     <RoleSelectionForm
       selectedRole={selectedRole}
       isSubmitting={false}
       errorMessage={null}
+      rejection={rejection}
       onSelect={noOp}
       onSubmit={noOp}
     />,
   );
+}
+
+function rejectionNotice(reason: string | null): ClosedRoleRequestNotice {
+  return { status: 'REJECTED', reason };
 }
 
 function roleRequest(overrides: Partial<RoleRequest> = {}): RoleRequest {
@@ -113,6 +126,97 @@ describe('role onboarding views', () => {
     // Then
     expect(html).toContain('승인 없이 바로 시작합니다');
     expect(html).toContain('관리자 승인이 필요합니다');
+  });
+
+  /**
+   * 반려 안내 표시 규칙(#673).
+   *
+   * 이 검사들만으로는 부족하다는 것을 먼저 적어 둔다 — 바로 아래
+   * `RoleRequestStatusView` 검사가 통과하는 동안에도 사용자는 사유를 볼 수 없었다.
+   * 컴포넌트를 직접 렌더하면 게이트를 지나치기 때문이다. **도달 가능성은
+   * `app/_shell/onboarding-rejection-reach.test.tsx`가 지킨다.** 여기서는 도달한
+   * 화면이 무엇을 어떻게 그리는지만 본다.
+   */
+  it('반려 안내는 반려 사실과 사유 전문을 함께 그린다', () => {
+    // Given / When
+    const html = renderRoleForm(
+      null,
+      rejectionNotice('학과 소속이 확인되지 않았습니다.'),
+    );
+
+    // Then
+    expect(html).toContain('data-slot="role-request-closed"');
+    expect(html).toContain('data-status="REJECTED"');
+    expect(html).toContain('교직원 요청이 반려되었습니다');
+    expect(html).toContain('반려 사유');
+    expect(html).toContain('학과 소속이 확인되지 않았습니다.');
+    // 별도 재신청 버튼을 세우지 않는다 — 이 화면의 `선택 완료`가 그 일을 한다.
+    expect(html).toContain('선택 완료');
+    expect(html).not.toContain('다시 승인 요청하기');
+  });
+
+  it.each([
+    ['null 사유', null],
+    ['공백뿐인 사유', '   \n  '],
+  ] as readonly (readonly [string, string | null])[])(
+    '%s는 사실과 안내만 남기고 빈 사유 상자를 그리지 않는다',
+    (_label, reason) => {
+      // Given / When — 사유 없이 닫힌 과거 반려 건이 실제로 존재한다.
+      const html = renderRoleForm(null, rejectionNotice(reason));
+
+      // Then
+      expect(html).toContain('교직원 요청이 반려되었습니다');
+      expect(html).toContain('아래에서 역할을 다시 고르면 새로 신청됩니다');
+      // 라벨만 뜨고 안이 비면 사용자는 사유가 아직 안 온 줄 알고 기다린다.
+      expect(html).not.toContain('반려 사유');
+    },
+  );
+
+  /**
+   * 길이 제한이 어디에도 없다 — 관리자 대화상자에 `maxLength`가 없고, DTO는
+   * `@IsString()`뿐이며, 저장은 `String?`이다. 그래서 표시 쪽이 자른다.
+   */
+  it('아주 긴 사유는 잘라서 그린다', () => {
+    // Given: 제한을 훌쩍 넘는, 공백이 하나도 없는 문자열.
+    const reason = '반'.repeat(ROLE_REJECTION_REASON_MAX_LENGTH * 3);
+
+    // When
+    const html = renderRoleForm(null, rejectionNotice(reason));
+
+    // Then: 원문 전체는 실리지 않고, 잘렸다는 표시와 줄바꿈 규칙이 함께 붙는다.
+    expect(html).not.toContain(reason);
+    expect(html).toContain('반'.repeat(ROLE_REJECTION_REASON_MAX_LENGTH));
+    expect(html).toContain('…');
+    // 공백 없는 긴 문자열이 상자 밖으로 밀고 나가지 못하게 끊는다.
+    expect(html).toContain('break-words');
+    expect(html).toContain('whitespace-pre-wrap');
+  });
+
+  /**
+   * 자르기 규칙 자체를 값으로 못박는다. `toContain`으로 값을 단언하면 새 문구가
+   * 옛 문구를 포함할 때 그대로 통과한다 — 이 저장소에서 실제로 당한 적이 있다.
+   */
+  it('사유 다듬기는 공백만 있는 값을 없는 것으로 접고 앞뒤 공백을 턴다', () => {
+    expect(clampRejectionReason(null)).toBe(null);
+    expect(clampRejectionReason('')).toBe(null);
+    expect(clampRejectionReason('  \n\t ')).toBe(null);
+    expect(clampRejectionReason('  사유  ')).toBe('사유');
+    expect(
+      clampRejectionReason('가'.repeat(ROLE_REJECTION_REASON_MAX_LENGTH)),
+    ).toBe('가'.repeat(ROLE_REJECTION_REASON_MAX_LENGTH));
+    expect(
+      clampRejectionReason('가'.repeat(ROLE_REJECTION_REASON_MAX_LENGTH + 1)),
+    ).toBe(`${'가'.repeat(ROLE_REJECTION_REASON_MAX_LENGTH)}…`);
+  });
+
+  // 반려가 아닌 사용자의 화면은 지금과 같아야 한다.
+  it('반려가 아닌 사용자의 화면에는 안내 자리가 아예 없다', () => {
+    // Given / When
+    const html = renderRoleForm('STAFF');
+
+    // Then
+    expect(html).not.toContain('data-slot="role-request-closed"');
+    expect(html).not.toContain('교직원 요청이 반려되었습니다');
   });
 
   it('반려된 요청은 반려 사유와 재요청 동작을 표시한다', () => {

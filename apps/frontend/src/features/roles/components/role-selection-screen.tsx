@@ -18,13 +18,87 @@ import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
-import { fetchMyRoleSelection, selectRole } from '../api';
+import { fetchMyRoleRequest, fetchMyRoleSelection, selectRole } from '../api';
 import type { RoleSelection } from '../types';
+
+/**
+ * 살아 있는 신청이 없어진 사람에게 **왜 그렇게 됐는지**를 알리는 안내(#673).
+ *
+ * 이 화면은 반려된 사용자가 실제로 도착하는 자리다(#535 — 회수·반려는 역할부터
+ * 다시 고른다). 사유를 보여 주던 화면(`role-request-screen.tsx`의 `반려 사유`)은
+ * `/onboarding/pending`에 사는데 게이트가 반려 사용자를 그리로 들이지 않으므로,
+ * 그 안내는 아무도 볼 수 없는 죽은 경로가 됐다. 목적지를 옮기면서 목적지에 실어야
+ * 할 정보를 함께 옮기지 않은 것이 이 결함이다.
+ *
+ * **회수(`REVOKED`)가 나중에 같은 자리에 들어온다.** 지금은 회수에 사유를 저장하지
+ * 않아(`admin-access.repository.ts`의 `decidePendingRequest`가 반려에서만
+ * `rejectionReason`을 남긴다) 범위 밖이지만, 붙게 되면 여기 `status`에 `'REVOKED'`를
+ * 더하고 아래 `CLOSED_REQUEST_NOTICE`에 항목 하나만 추가하면 된다 — 표시 코드는
+ * 상태를 직접 묻지 않고 이 표만 읽는다.
+ */
+export type ClosedRoleRequestStatus = 'REJECTED';
+
+export interface ClosedRoleRequestNotice {
+  readonly status: ClosedRoleRequestStatus;
+  /** 관리자가 남긴 사유. 사유 없이 닫힌 과거 건은 `null`이다. */
+  readonly reason: string | null;
+}
+
+interface ClosedRequestPresentation {
+  readonly title: string;
+  readonly description: string;
+  readonly reasonLabel: string;
+}
+
+const CLOSED_REQUEST_NOTICE: Record<
+  ClosedRoleRequestStatus,
+  ClosedRequestPresentation
+> = {
+  REJECTED: {
+    title: '교직원 요청이 반려되었습니다',
+    // 다시 신청할 길을 별도 버튼으로 내지 않는다 — 이 화면의 `선택 완료`가 이미
+    // 그 일을 한다(교직원을 다시 고르면 새 요청이 만들어진다). 버튼을 하나 더
+    // 세우면 같은 일을 하는 조작이 둘이 되어 어느 쪽이 진짜인지 흐려진다.
+    description:
+      '아래에서 역할을 다시 고르면 새로 신청됩니다. 교직원을 다시 고르면 승인 요청이 한 번 더 접수됩니다.',
+    reasonLabel: '반려 사유',
+  },
+};
+
+/**
+ * 화면에 실을 사유의 최대 길이.
+ *
+ * 사유에는 **길이 제한이 어디에도 없다** — 관리자 대화상자의 textarea에 `maxLength`가
+ * 없고(`admin-access-mutation-reject-dialog.tsx`), DTO는 `@IsString()`뿐이며
+ * (`patch-admin-access.dto.ts`) 저장은 `String?`이다. 그러니 표시 쪽이 자른다.
+ * XSS는 React가 자동으로 이스케이프하므로 위험이 아니다(저장소 전체
+ * `dangerouslySetInnerHTML` 0건) — 실제 위험은 화면이 밀려 `선택 완료` 버튼이
+ * 접히는 선 아래로 내려가는 것이다.
+ */
+export const ROLE_REJECTION_REASON_MAX_LENGTH = 300;
+
+/**
+ * 표시할 사유를 만든다. 보여 줄 것이 없으면 `null`이라, 화면은 빈 상자를 그리지 않는다.
+ *
+ * 공백만 있는 사유도 없는 것으로 본다 — 상자만 뜨고 안이 비면 사용자는 사유가 아직
+ * 안 온 줄 알고 기다린다. 반려 **사실**과 다시 신청하라는 안내는 사유가 없어도 남는다.
+ */
+export function clampRejectionReason(reason: string | null): string | null {
+  const trimmed = reason?.trim() ?? '';
+  if (trimmed.length === 0) {
+    return null;
+  }
+  return trimmed.length > ROLE_REJECTION_REASON_MAX_LENGTH
+    ? `${trimmed.slice(0, ROLE_REJECTION_REASON_MAX_LENGTH)}…`
+    : trimmed;
+}
 
 interface RoleSelectionFormProps {
   readonly selectedRole: RoleSelection | null;
   readonly isSubmitting: boolean;
   readonly errorMessage: string | null;
+  /** 살아 있는 신청이 없어진 사유. 해당하지 않으면 `null`이라 아무것도 그리지 않는다. */
+  readonly rejection: ClosedRoleRequestNotice | null;
   readonly onSelect: (role: RoleSelection) => void;
   readonly onSubmit: () => void;
 }
@@ -157,6 +231,54 @@ function RoleGuidanceSlot({
 }
 
 /**
+ * 반려 안내 상자.
+ *
+ * shadcn `Alert`를 쓰지 않는다 — 카드와 같은 이유다. `bg-card`·`bg-background`는
+ * 반전 스코프가 덮는 변수 집합에 없어서(globals.css의 `[data-surface='inverted']`)
+ * 어두운 무대 위에 흰 상자로 뜬다. 대비가 검증된 `--cosmos-*` 안에서, 바로 아래
+ * `errorMessage` 상자와 같은 조형(`rounded-card` · `px-4 py-3` · 두 줄 위계)으로
+ * 짓는다 — 같은 화면에서 경고가 두 가지 모양을 하면 위계가 무너진다.
+ *
+ * `RoleGuidanceSlot` 근처가 아니라 카드 **위**에 세운다. 그 슬롯은 높이를 실측해
+ * 고정한 자리라(그 함수의 주석) 곁에 요소가 늘면 `선택 완료` 버튼이 밀린다.
+ *
+ * 사유는 관리자가 자유롭게 쓴 글이라 두 가지를 함께 건다. `whitespace-pre-wrap`은
+ * 관리자가 넣은 줄바꿈을 살리고, `break-words`는 공백이 하나도 없는 긴 문자열이
+ * 와도 상자 밖으로 밀고 나가지 못하게 끊는다(한글 문장은 `break-keep`이 자연스럽지만,
+ * 여기서는 넘치지 않는 쪽이 먼저다). 길이 자체는 `clampRejectionReason`이 자른다.
+ */
+function ClosedRoleRequestAlert({
+  notice,
+}: {
+  readonly notice: ClosedRoleRequestNotice;
+}) {
+  const presentation = CLOSED_REQUEST_NOTICE[notice.status];
+  const reason = clampRejectionReason(notice.reason);
+
+  return (
+    <div
+      role="alert"
+      data-slot="role-request-closed"
+      data-status={notice.status}
+      className="grid gap-2 rounded-card border border-cosmos-danger/40 bg-cosmos-muted/8 px-4 py-3 text-left break-keep"
+    >
+      <p className="text-small font-semibold text-cosmos-danger">
+        {presentation.title}
+      </p>
+      {reason === null ? null : (
+        <p className="text-small text-cosmos-copy">
+          <span className="font-medium">{presentation.reasonLabel}</span>
+          <span className="mt-1 block break-words whitespace-pre-wrap">
+            {reason}
+          </span>
+        </p>
+      )}
+      <p className="text-small text-cosmos-muted">{presentation.description}</p>
+    </div>
+  );
+}
+
+/**
  * 무대(`app/_shell/signup-stage.tsx`) 안에 들어가는 내용만 그린다.
  *
  * 조각들을 Fragment로 내보내는 것은 무대 본문이 세로 flex(`gap-8`)이기 때문이다 —
@@ -167,6 +289,7 @@ export function RoleSelectionForm({
   selectedRole,
   isSubmitting,
   errorMessage,
+  rejection,
   onSelect,
   onSubmit,
 }: RoleSelectionFormProps) {
@@ -194,6 +317,13 @@ export function RoleSelectionForm({
         className="flex flex-col gap-3 text-left sm:gap-4"
         onSubmit={handleSubmit}
       >
+        {/* 리드 아래·카드 위. 왜 여기냐면, 사용자가 이 화면에서 할 일(역할 고르기)을
+            읽기 **전에** 왜 다시 고르게 됐는지를 알아야 하기 때문이다. 카드 아래에
+            두면 이미 고르고 나서야 사유를 만난다. 폼 안에 두는 이유는 무대 본문의
+            간격(`gap-8`)이 아니라 폼의 간격(`gap-3`)을 따라야 카드에 붙어 보이기
+            때문이다 — 무대 간격을 쓰면 안내가 화면 위쪽에 홀로 떨어진다. */}
+        {rejection ? <ClosedRoleRequestAlert notice={rejection} /> : null}
+
         {/* 두 카드는 좁은 화면에서도 나란히 둔다. 세로로 쌓으면 카드 하나 높이(약
             190px)가 통째로 더해져 375×812에서 주 버튼이 접히는 선 아래로 내려갔다 —
             고를 것이 둘뿐인 화면에서 "고르고 누르기"가 한 화면에 안 들어오면 그게 더
@@ -292,12 +422,24 @@ export function RoleSelectionForm({
  *
  * **사용자가 이미 카드를 눌렀으면 덮어쓰지 않는다.** 조회는 화면이 뜬 뒤에 끝나므로,
  * 그 사이에 고른 것을 뒤늦게 도착한 응답이 되돌리면 눌렀던 카드가 저절로 바뀐다.
+ *
+ * 반려 사유도 같은 effect에서 함께 읽는다(#673). 게이트가 이미 읽어 둔 스냅샷을
+ * 물려받는 길은 막혀 있다 — 그 값은 `app/_shell`에 있고 `features`는 `app`을
+ * import할 수 없다(`eslint.config.mjs`). 그래서 이 화면이 직접 읽는다. 두 조회를
+ * 한 자리에 두면 취소(`AbortController`)도 한 번에 걸린다.
+ *
+ * **반려(`REJECTED`)일 때만 남긴다.** 재요청이 접수돼 `PENDING`이 되면 조건에서
+ * 빠지므로 안내는 저절로 사라진다 — 사라지는 것을 따로 처리하지 않는 편이 안전하다.
  */
 function useRestoredRoleSelection(): {
   readonly selectedRole: RoleSelection | null;
+  readonly rejection: ClosedRoleRequestNotice | null;
   readonly select: (role: RoleSelection) => void;
 } {
   const [selectedRole, setSelectedRole] = useState<RoleSelection | null>(null);
+  const [rejection, setRejection] = useState<ClosedRoleRequestNotice | null>(
+    null,
+  );
   const hasChosen = useRef(false);
 
   useEffect(() => {
@@ -313,11 +455,26 @@ function useRestoredRoleSelection(): {
         // 시작할 뿐이다. 여기서 오류를 띄우면 처음 온 사람(고른 것이 없는 것이 정상)
         // 에게도 실패 화면이 뜬다.
       });
+    fetchMyRoleRequest(controller.signal)
+      .then((request) => {
+        if (!controller.signal.aborted && request?.status === 'REJECTED') {
+          setRejection({
+            status: 'REJECTED',
+            reason: request.rejectionReason,
+          });
+        }
+      })
+      .catch(() => {
+        // 같은 정책이다 — 사유를 못 읽어도 화면은 그대로 쓸 수 있다. 안내만 없고
+        // 역할은 다시 고를 수 있다. 여기서 실패 화면을 띄우면 반려와 무관한
+        // 사용자(요청이 없는 것이 정상인 첫 가입자)까지 함께 막힌다.
+      });
     return () => controller.abort();
   }, []);
 
   return {
     selectedRole,
+    rejection,
     select: (role) => {
       hasChosen.current = true;
       setSelectedRole(role);
@@ -326,7 +483,7 @@ function useRestoredRoleSelection(): {
 }
 
 export function RoleSelectionScreen() {
-  const { selectedRole, select } = useRestoredRoleSelection();
+  const { selectedRole, rejection, select } = useRestoredRoleSelection();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -356,6 +513,7 @@ export function RoleSelectionScreen() {
       selectedRole={selectedRole}
       isSubmitting={isSubmitting}
       errorMessage={errorMessage}
+      rejection={rejection}
       onSelect={select}
       onSubmit={() => void handleSubmit()}
     />
