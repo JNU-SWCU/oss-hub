@@ -110,6 +110,19 @@ class PrismaAuthTransactionStore implements AuthTransactionStore {
           id: user.id,
           accountStatus: AccountStatus.ACTIVE,
           role: null,
+          // 관리자가 한 번이라도 회수한 계정에는 시드를 적용하지 않는다.
+          // 회수는 `User.role`을 비우므로 회수된 사람은 이 블록의 `role: null`
+          // 조건을 그대로 만족한다 — 이 조건이 없으면 그가 다음에 로그인하는
+          // 순간 환경 변수가 권한을 되살리고, STAFF면 `decidedById: null`인
+          // APPROVED 신청까지 새로 만들어 관리자의 결정이 조용히 뒤집힌다.
+          //
+          // "가장 최근 요청이 REVOKED인가"가 아니라 "회수 이력이 있는가"로 본다.
+          // 회수 뒤 다시 승인받은 사람은 `role`이 채워져 있어 애초에 이 블록에
+          // 들어오지 않으므로 더 느슨한 조건에서 얻을 것이 없고, 반대로 회수
+          // 이후에 새 신청 행이 생기는 경로가 나중에 열리면 "최신" 판정은
+          // 그 행에 가려 시드를 다시 허용해 버린다. 회수 구현이 기존 행을
+          // 갱신하는지 새 행을 만드는지에도 좌우되지 않는 조건을 택했다.
+          roleRequests: { none: { status: RoleRequestStatus.REVOKED } },
         },
         data: { role: initialRole },
       });
@@ -157,6 +170,27 @@ class PrismaAuthTransactionStore implements AuthTransactionStore {
           where: { id: user.id },
           select: AUTH_USER_SELECT,
         });
+      } else {
+        // 조건부 갱신이 한 행도 잡지 못한 경우다. 원인은 두 가지인데 성격이
+        // 정반대라 같은 레벨로 묶으면 안 된다.
+        //
+        // 회수된 계정은 `role`이 영구히 null이라 로그인할 때마다 이 분기에
+        // 들어온다 — 설계대로 막히는 정상 상태다. 그것을 warn으로 남기면 로그가
+        // 그 한 사람으로 채워져 정작 드물어야 하는 CAS 경합 신호가 묻힌다.
+        // 그래서 여기서만(드물게 도는 경로다) 이유를 실제로 확인해 레벨을 가른다.
+        const revokedRequest = await this.transaction.roleRequest.findFirst({
+          where: { userId: user.id, status: RoleRequestStatus.REVOKED },
+          select: { id: true },
+        });
+        if (revokedRequest) {
+          this.logger.debug(
+            `초기 역할 시드 미적용: role=${initialRole} — 회수된 계정이다.`,
+          );
+        } else {
+          this.logger.warn(
+            `초기 역할 시드 미적용: role=${initialRole} — 다른 트랜잭션이 먼저 역할을 정했다.`,
+          );
+        }
       }
     }
     return { user: toDomain(user), isNew: created.count === 1 };

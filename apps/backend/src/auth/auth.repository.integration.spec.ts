@@ -12,7 +12,17 @@ assertIsolatedIntegrationDatabase({
 const githubId = 9_600_000_000_009_001n;
 const staffGithubId = 9_600_000_000_009_002n;
 const pendingStaffGithubId = 9_600_000_000_009_003n;
-const githubIds = [githubId, staffGithubId, pendingStaffGithubId];
+const revokedStaffGithubId = 9_600_000_000_009_004n;
+const rejectedStaffGithubId = 9_600_000_000_009_005n;
+const reapprovedStaffGithubId = 9_600_000_000_009_006n;
+const githubIds = [
+  githubId,
+  staffGithubId,
+  pendingStaffGithubId,
+  revokedStaffGithubId,
+  rejectedStaffGithubId,
+  reapprovedStaffGithubId,
+];
 const prisma = new PrismaService();
 
 function repositoryWithInitialRole(initialRole: Role | null): AuthRepository {
@@ -132,6 +142,115 @@ it('STAFF 초기 역할 시드는 APPROVED 역할 요청을 함께 만든다', a
     decidedById: null,
   });
   expect(approvedRequest?.decidedAt).not.toBeNull();
+});
+
+it('회수 이력이 있는 계정은 초기 역할 시드가 다시 승격하지 않는다', async () => {
+  // 회수는 User.role을 비운다. 그래서 회수된 사람은 시드의 `role: null` 조건을
+  // 그대로 만족하고, 막지 않으면 다음 로그인 한 번으로 권한이 되살아난다.
+  const user = await prisma.user.create({
+    data: {
+      githubId: revokedStaffGithubId,
+      nickname: 'synthetic-revoked-staff-user',
+      accountStatus: AccountStatus.ACTIVE,
+      role: null,
+    },
+  });
+  const revoked = await prisma.roleRequest.create({
+    data: { userId: user.id, status: RoleRequestStatus.REVOKED },
+  });
+  const repository = repositoryWithInitialRole(Role.STAFF);
+
+  const result = await upsertUser(repository, {
+    githubId: revokedStaffGithubId,
+    login: 'synthetic-revoked-staff-user',
+    name: null,
+    avatarUrl: null,
+    email: null,
+  });
+
+  expect(result.user.role).toBeNull();
+  const persisted = await prisma.user.findUniqueOrThrow({
+    where: { githubId: revokedStaffGithubId },
+  });
+  expect(persisted.role).toBeNull();
+  // 회수 이력 자체도 그대로여야 한다 — 새 APPROVED 신청이 붙으면 관리자 화면의
+  // 결정 이력이 시드가 만든 decidedById=null 행으로 덮인다.
+  const requests = await prisma.roleRequest.findMany({
+    where: { userId: user.id },
+  });
+  expect(requests).toHaveLength(1);
+  expect(requests[0]).toMatchObject({
+    id: revoked.id,
+    status: RoleRequestStatus.REVOKED,
+  });
+});
+
+it('반려 이력만 있는 계정은 초기 역할 시드를 그대로 받는다', async () => {
+  // 막는 기준은 "이력이 있는가"가 아니라 "회수된 적이 있는가"다.
+  const user = await prisma.user.create({
+    data: {
+      githubId: rejectedStaffGithubId,
+      nickname: 'synthetic-rejected-staff-user',
+      accountStatus: AccountStatus.ACTIVE,
+      role: null,
+    },
+  });
+  await prisma.roleRequest.create({
+    data: { userId: user.id, status: RoleRequestStatus.REJECTED },
+  });
+  const repository = repositoryWithInitialRole(Role.STAFF);
+
+  const result = await upsertUser(repository, {
+    githubId: rejectedStaffGithubId,
+    login: 'synthetic-rejected-staff-user',
+    name: null,
+    avatarUrl: null,
+    email: null,
+  });
+
+  expect(result.user.role).toBe(Role.STAFF);
+  const requests = await prisma.roleRequest.findMany({
+    where: { userId: user.id },
+    orderBy: { status: 'asc' },
+  });
+  expect(requests.map((request) => request.status)).toEqual([
+    RoleRequestStatus.APPROVED,
+    RoleRequestStatus.REJECTED,
+  ]);
+});
+
+it('회수 뒤 다시 승인된 계정은 로그인해도 확정된 역할과 이력이 그대로다', async () => {
+  // 재승인된 사람은 role이 채워져 있어 시드 블록에 들어오지 않는다.
+  // 회수 이력이 남아 있다는 이유로 그의 권한이 흔들리지 않는지 못 박아 둔다.
+  const user = await prisma.user.create({
+    data: {
+      githubId: reapprovedStaffGithubId,
+      nickname: 'synthetic-reapproved-staff-user',
+      accountStatus: AccountStatus.ACTIVE,
+      role: Role.STAFF,
+    },
+  });
+  await prisma.roleRequest.create({
+    data: { userId: user.id, status: RoleRequestStatus.REVOKED },
+  });
+  await prisma.roleRequest.create({
+    data: { userId: user.id, status: RoleRequestStatus.APPROVED },
+  });
+  const repository = repositoryWithInitialRole(Role.STAFF);
+
+  const result = await upsertUser(repository, {
+    githubId: reapprovedStaffGithubId,
+    login: 'synthetic-reapproved-staff-user',
+    name: null,
+    avatarUrl: null,
+    email: null,
+  });
+
+  expect(result.user.role).toBe(Role.STAFF);
+  const requests = await prisma.roleRequest.findMany({
+    where: { userId: user.id },
+  });
+  expect(requests).toHaveLength(2);
 });
 
 it('기존 PENDING 역할 요청은 STAFF 초기 역할 시드에서 새로 만들지 않고 전이한다', async () => {
