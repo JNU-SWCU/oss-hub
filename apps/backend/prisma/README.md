@@ -34,11 +34,16 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `pr
 
 시나리오 id ↔ 실제 레코드 매핑은 각 파일의 export를 참고한다.
 
-- `auth` (10) — `seeds/auth.ts`의 `AUTH_SCENARIOS`: `consent-required`, `user-role-unselected`,
+- `auth` (12) — `seeds/auth.ts`의 `AUTH_SCENARIOS`: `consent-required`, `user-role-unselected`,
   `profile-complete`, `student-confirmed`, `staff-pending`, `staff-pending-second`, `staff-rejected`,
-  `staff-approved`, `staff-revoked`, `admin-confirmed`.
+  `staff-approved`, `staff-revocable`, `staff-revoked`, `admin-confirmed`, `admin-second`.
   `user-role-unselected`는 동의 완료·프로필 미입력, `profile-complete`는 동의 완료·프로필 입력 완료 상태다.
   `staff-revoked`는 역할을 `STAFF`로 보존한 `DEACTIVATED` 계정이다.
+  `staff-revocable`은 그와 달리 `ACTIVE`인 승인 완료 교직원이다 — 관리자가 화면에서 **회수를 누를 대상**이며,
+  `DEACTIVATED` 계정은 로그인 자체가 401이라 회수 직후 화면을 만들 수 없어 따로 둔다.
+  `admin-confirmed`·`admin-second`는 둘 다 이름이 채워진 프로필 완료 `ADMIN`이다 —
+  이름이 비면 관리자 화면 진입이 온보딩으로 되돌려지고, 두 계정이 있어야 결정 이력의
+  `decidedBy`로 "다른 관리자가 먼저 처리했다"를 화면에서 구분할 수 있다.
 - `intake` (15) — `seeds/intake.ts`: `empty-programs`, `program-seven-templates`,
   `program-overdue`, `program-with-applications`, `program-no-repository`, `empty-applications`,
   `application-personal`, `application-pending`, `application-approved`, `application-rejected`,
