@@ -36,6 +36,18 @@ const COMPLETE_PROFILE: CompatibleProfile = {
   department: '인공지능학부',
 };
 
+/**
+ * 교직원 기준으로만 완성된 프로필 — 학번이 없다.
+ *
+ * 회수된 교직원의 실제 모습이다. 교직원은 학번을 요구받지 않으므로
+ * (`users/user-profile-policy.ts`) 대부분 이 상태로 남아 있다.
+ */
+const STAFF_ONLY_PROFILE: CompatibleProfile = {
+  name: '합성 교직원',
+  studentId: null,
+  department: '인공지능학부',
+};
+
 class InMemoryRolesStore implements RolesTransactionStore {
   private user: RoleUser | null;
   private readonly requests: RoleRequestRecord[];
@@ -379,20 +391,116 @@ describe('RolesService', () => {
     expect(store.requestCount()).toBe(1);
   });
 
-  it('권한이 회수된 사용자는 교직원을 다시 고를 수 없다', async () => {
-    // Given
+  /**
+   * **뒤집힌 검사** (#184). 원래 제목은 "권한이 회수된 사용자는 교직원을 다시 고를 수
+   * 없다"였고 `ROL_008`을 기대했다. 그 규칙이 화면과 어긋나 있었다 — 회수 화면이
+   * "학생 또는 교직원 역할을 다시 선택할 수 있습니다"라며 이 화면으로 보내 놓고, 여기서
+   * 교직원을 누르면 409를 줬다. 뒤집는 근거는 `roles.service.ts`의 `requireSelectable`에
+   * 적었다: 고르는 것으로는 아무것도 확정되지 않고 승인은 관리자 손에 남는다.
+   *
+   * 고르는 것만으로 요청이 생기지도 않는다는 사실은 `requestCount`가 그대로인 것으로
+   * 못박는다 — 여기서 요청이 만들어지면 회수 화면이 미완성 신청을 대기줄에 올린다.
+   */
+  it('권한이 회수된 사용자도 교직원을 다시 고를 수 있다', async () => {
+    // Given: 회수된 뒤의 상태 — 확정 역할이 비었고 마지막 요청이 REVOKED다.
     const revoked = roleRequest(RoleRequestStatus.REVOKED);
     const { service, store } = createService(null, [revoked]);
 
     // When
-    const promise = service.selectRole(424242n, Role.STAFF);
+    const result = await service.selectRole(424242n, Role.STAFF);
 
     // Then
-    await expect(promise).rejects.toMatchObject({
-      errorCode: { code: RolesErrorCode.ROLE_STATE_CONFLICT },
-    });
+    expect(result.selectedRole).toBe(Role.STAFF);
+    expect(store.currentSelectedRole()).toBe(Role.STAFF);
+    expect(store.currentRole()).toBeNull();
     expect(store.requestCount()).toBe(1);
   });
+
+  /**
+   * 회수된 교직원의 **실제** 모습으로 같은 길을 한 번 더 간다 — 프로필이 이미 교직원
+   * 기준으로 채워져 있다. 그에게는 남은 단계가 없어서 `selectRole`이 그 자리에서
+   * 확정하고(#569), 교직원의 확정은 곧 승인 대기 요청이다.
+   *
+   * 그래서 #184의 "STAFF 재요청 가능"이 성립하는 자리는 **역할 선택 화면**이다.
+   * 위 검사(빈 프로필)만 두면 이 사실이 어디에도 적히지 않는다.
+   *
+   * 만들어지는 것이 신청뿐이고 `role`은 여전히 비어 있다는 것이 이 PR의 전제다 —
+   * 사용자가 자기 손으로 STAFF를 되찾는 것이 아니다.
+   */
+  it('프로필을 마친 회수 사용자가 교직원을 고르면 승인 대기 요청이 만들어진다', async () => {
+    // Given
+    const revoked = roleRequest(RoleRequestStatus.REVOKED);
+    const { service, store } = createService(
+      null,
+      [revoked],
+      true,
+      AccountStatus.ACTIVE,
+      STAFF_ONLY_PROFILE,
+      Role.STAFF,
+    );
+
+    // When
+    await service.selectRole(424242n, Role.STAFF);
+
+    // Then
+    expect(store.requestCount()).toBe(2);
+    expect(store.currentRole()).toBeNull();
+  });
+
+  /**
+   * 회수된 사용자의 다른 갈래 — 학생으로 내려가는 길도 함께 열려 있어야 인수 조건
+   * ("STUDENT 선택 또는 STAFF 재요청 가능", #184)이 성립한다.
+   *
+   * 프로필은 교직원 기준으로만 채워져 있다(학번 없음). 그래서 학생을 골라도 그 자리에서
+   * 확정되지 않고 프로필로 넘어간다 — 학번을 받아야 학생이 완성되기 때문이다.
+   */
+  it('권한이 회수된 사용자는 학생도 고를 수 있다', async () => {
+    // Given
+    const revoked = roleRequest(RoleRequestStatus.REVOKED);
+    const { service, store } = createService(
+      null,
+      [revoked],
+      true,
+      AccountStatus.ACTIVE,
+      STAFF_ONLY_PROFILE,
+      Role.STAFF,
+    );
+
+    // When
+    const result = await service.selectRole(424242n, Role.STUDENT);
+
+    // Then
+    expect(result.redirectTo).toBe('/onboarding/profile');
+    expect(store.currentSelectedRole()).toBe(Role.STUDENT);
+    expect(store.currentRole()).toBeNull();
+  });
+
+  /**
+   * #184로 회수 이력의 문을 연 것이 **확정된 사람의 문까지 열지는 않았다**는 못.
+   *
+   * 회수 이력이 있다는 사실만으로 통과시키면 재승인으로 다시 STAFF가 된 사람도 이력은
+   * 그대로 REVOKED를 품고 있으므로 함께 열린다. 열리면 안 된다 — 확정된 역할을 바꾸는
+   * 일은 가입 절차가 아니라 회수·해제(`users/`)의 몫이다. 실제 방어선은 `role`이 붙어
+   * 있는지 하나뿐이라는 것을 이 검사가 고정한다.
+   */
+  it.each([Role.STAFF, Role.STUDENT])(
+    '회수 이력이 있어도 %s 역할이 확정된 사용자는 선택을 바꿀 수 없다',
+    async (confirmedRole) => {
+      // Given
+      const revoked = roleRequest(RoleRequestStatus.REVOKED);
+      const { service, store } = createService(confirmedRole, [revoked]);
+
+      // When
+      const promise = service.selectRole(424242n, Role.STAFF);
+
+      // Then
+      await expect(promise).rejects.toMatchObject({
+        errorCode: { code: RolesErrorCode.ROLE_ALREADY_CONFIRMED },
+      });
+      expect(store.currentRole()).toBe(confirmedRole);
+      expect(store.currentSelectedRole()).toBeNull();
+    },
+  );
 
   it.each([Role.STAFF, Role.ADMIN])(
     '%s 역할이 확정된 사용자의 선택 변경을 거부한다',
@@ -444,19 +552,48 @@ describe('RolesService', () => {
     // Then
     expect(result.status).toBe(RoleRequestStatus.PENDING);
     expect(store.requestCount()).toBe(2);
+    expect(store.currentSelectedRole()).toBe(Role.STAFF);
   });
 
-  it('권한 회수 이력은 일반 재요청으로 우회할 수 없다', async () => {
+  /**
+   * **뒤집힌 검사** (#184). 원래 제목은 "권한 회수 이력은 일반 재요청으로 우회할 수
+   * 없다"였고 `ROL_008`을 기대했다. '우회'라는 말이 전제한 것 — 재요청으로 권한이
+   * 돌아온다 — 이 성립하지 않는다: 이 문이 만드는 것은 `PENDING` 한 건뿐이고 STAFF를
+   * 붙이는 것은 관리자의 승인이다. 근거는 `roles.service.ts`에 적었다.
+   *
+   * 위 거절 검사와 기대가 같은 것이 핵심이다 — 두 상태를 한 갈래로 합쳤으므로 결과도
+   * 같아야 한다. 이력을 덮어쓰지 않는 것(요청이 2건으로 늘어난다)도 함께 못박는다:
+   * "누가 언제 승인했는가"는 장학금 근거라 지우지 않는다.
+   */
+  it('권한이 회수된 사용자도 새 PENDING 요청을 만들고 이력을 보존한다', async () => {
     // Given
     const revoked = roleRequest(RoleRequestStatus.REVOKED);
     const { service, store } = createService(null, [revoked]);
+
+    // When
+    const result = await service.retryStaffRequest(424242n);
+
+    // Then
+    expect(result.status).toBe(RoleRequestStatus.PENDING);
+    expect(store.requestCount()).toBe(2);
+    expect(store.currentSelectedRole()).toBe(Role.STAFF);
+  });
+
+  /**
+   * 재요청 쪽에서도 확정된 사람의 문은 닫혀 있다는 못 — 회수 이력을 열어 준 것이
+   * `role`이 붙은 사람까지 열지 않았음을 `selectRole`과 짝으로 고정한다.
+   */
+  it('회수 이력이 있어도 역할이 확정된 사용자는 재요청할 수 없다', async () => {
+    // Given: 회수된 뒤 다시 승인받아 STAFF가 된 사람. 이력에는 REVOKED가 남아 있다.
+    const revoked = roleRequest(RoleRequestStatus.REVOKED);
+    const { service, store } = createService(Role.STAFF, [revoked]);
 
     // When
     const promise = service.retryStaffRequest(424242n);
 
     // Then
     await expect(promise).rejects.toMatchObject({
-      errorCode: { code: RolesErrorCode.ROLE_STATE_CONFLICT },
+      errorCode: { code: RolesErrorCode.ROLE_ALREADY_CONFIRMED },
     });
     expect(store.requestCount()).toBe(1);
   });
