@@ -1,6 +1,7 @@
 import {
   ApplicationStatus,
   ProgramCategory,
+  RepositoryConnectionMode,
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
@@ -192,6 +193,7 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
       application: {
         id: PERSONAL_APPLICATION_ID,
         teamId: PERSONAL_TEAM_ID,
+        repositoryConnectionMode: RepositoryConnectionMode.NEW,
         applicant: { nickname: `${PREFIX}-Current` },
         program: { name: `${PREFIX}-program` },
         team: { name: `${PREFIX}-personal-team` },
@@ -205,6 +207,7 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
       application: {
         id: LEADER_APPLICATION_ID,
         teamId: LEADER_TEAM_ID,
+        repositoryConnectionMode: RepositoryConnectionMode.NEW,
         applicant: { nickname: `${PREFIX}-other` },
         program: { name: `${PREFIX}-program` },
         team: { name: `${PREFIX}-leader-team` },
@@ -225,6 +228,7 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
       application: {
         id: MEMBER_APPLICATION_ID,
         teamId: MEMBER_TEAM_ID,
+        repositoryConnectionMode: RepositoryConnectionMode.NEW,
         applicant: { nickname: `${PREFIX}-other` },
         program: { name: `${PREFIX}-program` },
         team: { name: `${PREFIX}-member-team` },
