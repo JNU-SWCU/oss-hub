@@ -67,39 +67,88 @@ Proposed
 
 세지 않으면 `OWN`을 쓸 이유가 없다. 다만 `Repository.source` 구분은 **유지**해 조직 저장소와 외부 저장소를 데이터에서 구별할 수 있게 둔다.
 
-### 4. 제3자 기여자 — **표시가 아니라 수집에서 자른다**
+### 4. 제3자 기여자 — **쿼리에서 좁힌다**
 
 여기가 이 ADR의 핵심이다.
 
-현재 수집 계층은 저장소의 **모든** 활동을 사람 단위로 적재한다.
+현재 수집은 REST로 저장소를 통째로 훑는다.
 
-- `CollectionCommitFact` / `CollectionPullRequestFact` / `CollectionReleaseFact`가 `authorGithubId`·`authorGithubLogin`을 그대로 저장한다
-- `CollectionContributorYearAggregate`는 그 fact에 나타난 **모든 계정**에 대해 연도별 집계 row를 만든다
-- 랭킹(`collection-read.service.ts`의 공개 랭킹 질의)은 `repository.visibility = PUBLIC`만 걸고 플랫폼 가입 여부를 보지 않는다
+```
+/repos/{owner}/{repo}/commits?sha={branch}&per_page=100   ← author 필터 없음
+/repos/{owner}/{repo}/pulls?state=all&per_page=100
+/repos/{owner}/{repo}/releases?per_page=100
+```
 
-조직 저장소만 붙을 때는 문제가 없었다. 거기 있는 사람은 정의상 전부 참여자다. **외부 저장소를 붙이는 순간 성질이 바뀐다** — 우리 플랫폼의 존재조차 모르는 사람들의 활동 프로필을 우리 DB에 쌓게 된다.
+- `CollectionCommitFact` / `PullRequestFact` / `ReleaseFact`가 `authorGithubId`·`authorGithubLogin`을 그대로 적재한다
+- `CollectionContributorYearAggregate`는 fact에 나타난 **모든 계정**에 연도별 row를 만든다
+- 공개 랭킹 질의는 `repository.visibility = PUBLIC`만 걸고 가입 여부를 보지 않는다
 
-이건 랭킹 표시 필터로 막을 수 없다. 화면에서 감춰도 데이터는 이미 우리 쪽에 있다. `docs/rules/security.md`와 `AGENTS.md`의 개인정보 반입 금지 취지와 어긋난다.
+조직 저장소만 붙을 때는 무해했다 — 거기 사람은 정의상 전부 참여자다. **외부 저장소를 붙이는 순간 성질이 바뀐다.** 우리 플랫폼의 존재조차 모르는 사람들의 활동 프로필을 우리 DB에 쌓게 된다. 랭킹 표시 필터로는 못 막는다. 화면에서 감춰도 데이터는 이미 우리 쪽에 있다.
 
-**따라서 fact 적재 단계에서 자른다. 플랫폼 사용자(`User.githubId`)의 활동만 적재한다.**
+**해법은 필터를 우리가 짜는 게 아니라, GitHub이 애초에 안 보내게 하는 것이다.** GraphQL `history`는 `author` 인자를 받는다.
 
-| | 현재 | 결정 후 |
-| --- | --- | --- |
-| fact 적재 대상 | 저장소의 전 기여자 | `User.githubId`에 있는 계정만 |
-| 연도 집계 | 전원 | 자연히 멤버만 |
-| 공개 랭킹 | 제3자 유입 | 별도 필터 없이 멤버만 |
-| 저장소 카드 지표 | 저장소 전체 합계 | 멤버 기여 합계 |
-| 제3자 데이터 | 쌓임 | **애초에 안 쌓임** |
+```graphql
+repository(owner:$owner, name:$name) {
+  ref(qualifiedName:$branch) {
+    target { ... on Commit {
+      history(author:{id:$authorId}, since:$since, first:100) { ... }
+    }}
+  }
+  pullRequests(states:[OPEN,MERGED,CLOSED], first:100, orderBy:{field:CREATED_AT, direction:DESC}) { ... }
+  releases(first:100, orderBy:{field:CREATED_AT, direction:DESC}) { ... }
+}
+```
 
-**같은 규칙을 조직 저장소에도 적용한다.** 규칙이 하나가 되고, 조직 저장소에서 결과가 달라진다면 그건 "가입하지 않은 사람이 조직 저장소에 커밋했다"는 뜻이라 오히려 드러나야 할 신호다.
+#### 실측 (2026-08-05, 무료 티어 개인 토큰)
 
-**저장소 전체 지표는 만들지 않는다.** 「전체 12,400 커밋 · 내 기여 37」처럼 나란히 보여주는 안을 검토했으나 폐기했다. 이 플랫폼이 재는 것은 학생의 기여이고, 저장소 총계는 의도한 산출물이 아니다. 총계를 노출하려면 제3자 데이터를 보관해야 하는데 그것이 바로 이 조항이 막으려는 것이다.
+| 대상 | 커밋 총수 | author 필터 결과 | GraphQL cost | REST 등가 요청 |
+| --- | --- | --- | --- | --- |
+| `facebook/react` | 21,620 | 0 (미기여) | **1점** | 약 217회 |
+| `JNU-SWCU/oss-hub` | 1,377 | 940 (본인) | **1점** | 약 14회 |
+| 위 + PR 100 + 릴리스 100 동시 | — | — | **1점** | 약 20회 |
+
+- 필터가 실제로 동작한다 — 반환된 노드의 author가 전부 지정 계정이다.
+- GraphQL은 요청 수가 아니라 **노드 수로 과금**한다. 시간당 5,000점이므로 이 형태로는 **시간당 약 5,000 저장소 동기화**가 가능하다.
+- 무료 티어에서 유의미한 여유다. 유료 전환 없이 간다.
+
+#### 축별 결론
+
+**커밋은 쿼리로 좁힌다.** 제3자 커밋이 우리 네트워크에도 들어오지 않는다. "수집에서 자른다"가 코드 없이 달성된다.
+
+**PR·릴리스는 적재 시 거른다.** GraphQL에도 `author` 인자가 없다. `search(query:"repo:X is:pr author:Y")`는 **분당 30회**의 별도 한도라 오히려 위험하므로 쓰지 않는다. PR·릴리스는 저장소당 수백 개 규모라 전량 받아도 커밋(수만 개)과 비용 차원이 다르다. 받은 뒤 `User.githubId`에 없는 작성자의 row는 **적재하지 않는다.**
+
+**규칙은 하나, 취득 경로만 비용으로 고른다.** 적재 규칙("멤버 기여만 저장")은 조직 저장소와 외부 저장소에 동일하게 적용한다. 다만 취득 방식은 싼 쪽을 고른다 — 멤버 N명이면 N쿼리, 저장소 전량이면 `커밋수 ÷ 100`쿼리이므로, 참여자가 많고 커밋이 적은 조직 저장소는 전량이, 참여자가 적고 커밋이 많은 외부 저장소는 per-author가 싸다.
+
+조직 저장소에서 두 경로의 결과가 달라진다면 그것은 "가입하지 않은 사람이 조직 저장소에 커밋했다"는 뜻이며, 감춰야 할 오차가 아니라 **드러나야 할 신호**다.
+
+**저장소 전체 지표는 만들지 않는다.** 「전체 12,400 커밋 · 내 기여 37」처럼 나란히 보여주는 안을 검토했으나 폐기했다. 이 플랫폼이 재는 것은 학생의 기여이고, 총계는 의도한 산출물이 아니다. 총계를 노출하려면 제3자 데이터를 보관해야 하는데 그것이 바로 이 조항이 막으려는 것이다.
+
+#### 이미 있는 자산
+
+`collection-discovery.client.ts`가 user-side `contributionsCollection` GraphQL을 **이미 구현해 뒀다.** 주석에 REST로 왜 안 되는지(`/search/commits`는 기본 브랜치만·분당 30회, `/users/{u}/events/public`은 30일 보존)까지 적혀 있다.
+
+따라서 `OWN` 연결은 새 클라이언트가 필요 없다.
+
+```
+학생이 OWN URL 연결
+  → discovery client로 그 학생이 기여한 저장소 목록 조회
+  → 목록에 있으면 연결 승인            ← 2번의 소유권 검증이 여기서 해결된다
+  → 이후 동기화는 author-scoped 쿼리로 그 학생 활동만
+```
+
+**2번(소유권 검증)이 공짜로 닫힌다.** "이 학생이 실제로 기여한 저장소인가"를 GitHub이 답해 주므로 우리가 owner 일치를 강제할 필요가 없다.
+
+#### 알려진 한계
+
+`history(author:)`는 커밋 author 기준이라 rebase·squash로 committer만 학생인 경우를 놓친다. 그러나 그런 커밋은 GitHub도 그 학생의 기여로 세지 않는다. **GitHub 기준을 그대로 따르는 것이 일관성 있다.**
 
 ## Consequences
 
 Accepted가 되면 구현이 따라온다.
 
-- **수집 필터 도입** — fact 적재 경로에서 `User.githubId` 조회로 걸러낸다. 신규 가입자가 생기면 그 이전 활동은 비어 있으므로, 가입 시점 이후만 잡히는지 소급 재수집이 필요한지 판단해야 한다.
+- **커밋 수집을 GraphQL author-scoped로 전환** — 기존 REST 전량 페이징을 대체한다. `collection-app.client.ts`의 커밋 경로가 대상이며 PR·릴리스 경로는 유지하되 적재 시 멤버 필터를 건다.
+- **취득 경로 선택 로직** — 멤버 수와 커밋 수로 per-author와 전량 중 싼 쪽을 고른다. 판단이 어려우면 외부 저장소는 per-author 고정으로 시작한다.
+- **신규 가입자 소급 수집 여부** — 가입 이전 활동은 비어 있다. 가입 시점 이후만 잡을지 소급 재수집할지 판단해야 한다. author-scoped 쿼리는 `since` 없이 던지면 전체 이력을 1점에 가져올 수 있으므로 소급이 저렴하다.
 - `Repository`에 연결 방식 필드를 추가해 **"생성하지 않고 연결됨"** 상태를 표현해야 한다. 현재 스키마로는 구별할 수 없다.
 - 승인 되돌리기 잠금 조건을 `NEW`로 한정해야 한다. `OWN`은 만들 저장소가 없으므로 프로비저닝 완료 개념이 다르다.
 - `GET /repositories/me`의 `https://github.com/JNU-SWCU/{name}` URL 불변식이 외부 URL에서 목록 전체를 예외로 실패시킨다. 연결 방식 분기가 같은 PR에 들어가야 한다.
