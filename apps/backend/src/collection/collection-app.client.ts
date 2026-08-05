@@ -58,6 +58,8 @@ const AUTHOR_COMMIT_HISTORY_QUERY = `
 /**
  * 저장소 default branch의 **전체** 커밋 수. 노드를 하나도 받지 않고 `totalCount`만 읽어
  * 비용을 최소로 유지한다(작성자 필터 없음 — 팀원·외부 기여자를 모두 포함한 총량).
+ * `first`를 주지 않는다 — `first`는 페이지 크기일 뿐 `totalCount`와 무관하므로
+ * (`first: 1`이어도 총계는 그대로다) 붙이면 "커밋을 받는다"고 오해를 부른다.
  * `외부 기여 = 전체 − 팀원합` 계산의 좌변이며, 개인 식별자는 어떤 필드로도 요청하지 않는다.
  */
 const DEFAULT_BRANCH_COMMIT_COUNT_QUERY = `
@@ -66,7 +68,7 @@ const DEFAULT_BRANCH_COMMIT_COUNT_QUERY = `
       ref(qualifiedName: $branch) {
         target {
           ... on Commit {
-            history(first: 1) { totalCount }
+            history { totalCount }
           }
         }
       }
