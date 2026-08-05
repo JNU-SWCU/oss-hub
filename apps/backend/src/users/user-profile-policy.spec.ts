@@ -212,3 +212,43 @@ it('배정된 역할이 고른 역할을 이긴다', () => {
     }),
   ).toBe('ADMIN');
 });
+
+/**
+ * 회수된 교직원의 프로필은 **그대로 완료다** (#184).
+ *
+ * 회수는 `User.role`과 요청 상태만 바꾸고 `selectedRole`은 건드리지 않는다. 그래서
+ * 확정 역할이 비어도 판정 근거가 남아 있고, 그가 채워 둔 이름·학과는 회수 전과 똑같이
+ * 완료로 읽힌다. 회수가 없앤 것은 권한이지 그 사람이 입력해 둔 값이 아니다.
+ *
+ * 이 한 줄이 두 가지를 동시에 지탱한다.
+ *
+ * 1. **관리자 목록의 표시** — 여기가 거짓이 되면 한 글자도 바뀌지 않은 프로필이 회수된
+ *    순간 "미완료"로 뜬다. 회수 시 `selectedRole`까지 비우자는 안을 받지 않은 이유다.
+ * 2. **프로필 저장이 교직원 신청을 만들지 못한다** — `patchMyProfile`은 프로필이
+ *    **미완료일 때만** `completeProfileIfUnchanged`(그 안에서 `confirmSelectedRole`이
+ *    신청을 만든다)로 내려간다. 회수된 교직원은 이미 완료라 그 갈래에 들어가지 않고,
+ *    프로필을 고쳐도 신청이 생기지 않는다. 재신청은 역할 선택 화면과 재요청 API에서만
+ *    일어난다.
+ */
+it('회수된 교직원의 프로필은 회수 뒤에도 완료로 읽힌다', () => {
+  // Given: 회수 직후의 상태 — 확정 역할은 비었고 고른 역할만 남아 있다. 학번은 교직원
+  // 필수가 아니라 애초에 없다.
+  const revokedStaff = {
+    id: 'synthetic-user',
+    name: '합성 교직원',
+    studentId: null,
+    department: '인공지능학부',
+    role: null,
+    hasPendingStaffRequest: false,
+    selectedRole: 'STAFF' as Role,
+  };
+
+  // Then
+  expect(effectiveProfileRole(revokedStaff)).toBe('STAFF');
+  expect(isCompleteUserProfile(revokedStaff)).toBe(true);
+  // 근거가 사라지면 가장 엄격한 학생 기준으로 되돌아가 같은 프로필이 미완료가 된다 —
+  // 회수가 `selectedRole`을 비우면 벌어지는 일이다.
+  expect(isCompleteUserProfile({ ...revokedStaff, selectedRole: null })).toBe(
+    false,
+  );
+});
