@@ -95,9 +95,8 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
   // 진입을 `/onboarding/profile`로 되돌린다 — 세션을 mock하는 단위 테스트는 이 구멍을
   // 영원히 못 잡는다(#184).
   //
-  // 학번·학과는 ADMIN 요건이 아니라 null로 둔다. 단순한 생략이 아니라 유일하게 가능한
-  // 값이다 — 학번 없이 학과만 채운 행은 `user-profile-backfill.ts`의
-  // `classifyLegacyProfile`이 IMPOSSIBLE_PARTIAL로 거부해 시드 실행 자체가 실패한다.
+  // 학번·학과는 ADMIN 요건이 아니므로 null로 둔다. backfill도 역할 정책상 완료된
+  // 학번 없는 ADMIN 행을 legacy 상태로 보존한다.
   await setProfile(admin.id, {
     name: '합성 관리자',
     studentId: null,
@@ -213,11 +212,9 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
   // 그대로 둔다.
   //
   // 전제는 ACTIVE · STAFF · APPROVED 요청 · 프로필 완료 넷이다. STAFF의 완료 요건은
-  // 이름·학과이고 학번은 선택인데(`user-profile-policy.ts`), 여기서는 학번까지 채운다.
-  // 학번을 비우면 학과만 실린 행이 되어 `user-profile-backfill.ts`가 IMPOSSIBLE_PARTIAL로
-  // 거부하고 시드가 통째로 실패한다. 학번을 채운 프로필은 STAFF 요건의 상위집합이고
-  // (학번이 실제로 있는 조교형 교직원), UserProfile 행까지 만들어 다른 페르소나와 모양이
-  // 같다.
+  // 이름·학과이고 학번은 선택인데(`user-profile-policy.ts`), 이 페르소나는 학번이 실제로
+  // 있는 조교형 교직원으로 두어 UserProfile 행까지 만드는 기존 fixture 모양을 유지한다.
+  // 학번 없는 STAFF도 이제 backfill의 정상 legacy 상태로 별도 회귀 테스트가 고정한다.
   const staffRevocable = await upsertUser(stats, 'staff-revocable', Role.STAFF);
   await upsertConsent(stats, staffRevocable.id);
   await setProfile(staffRevocable.id, {

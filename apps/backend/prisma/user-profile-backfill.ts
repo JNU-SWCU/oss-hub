@@ -1,5 +1,10 @@
 import { Prisma, PrismaClient } from '@prisma/client';
-import { isValidCompleteUserProfileFields } from '../src/users/user-profile-policy';
+import {
+  effectiveProfileRole,
+  isCompleteProfileFields,
+  isValidCompleteUserProfileFields,
+  type UserProfileRecord,
+} from '../src/users/user-profile-policy';
 
 export const USER_PROFILE_BACKFILL_ERROR_KIND = {
   IMPOSSIBLE_PARTIAL: 'IMPOSSIBLE_PARTIAL',
@@ -29,18 +34,24 @@ type CompleteProfileFields = {
 
 type LegacyProfileState =
   | { readonly kind: 'EXPECTED_INCOMPLETE' }
+  | { readonly kind: 'LEGACY_ONLY_COMPLETE' }
   | { readonly kind: 'COMPLETE'; readonly fields: CompleteProfileFields }
   | { readonly kind: 'INVALID_COMPLETE' }
   | { readonly kind: 'IMPOSSIBLE_PARTIAL' };
 
-export function classifyLegacyProfile(row: {
-  readonly name: string | null;
-  readonly studentId: string | null;
-  readonly department: string | null;
-}): LegacyProfileState {
-  if (row.studentId === null && row.department === null) {
-    return { kind: 'EXPECTED_INCOMPLETE' };
-  }
+type LegacyProfileInput = Pick<
+  UserProfileRecord,
+  | 'name'
+  | 'studentId'
+  | 'department'
+  | 'role'
+  | 'selectedRole'
+  | 'hasPendingStaffRequest'
+>;
+
+export function classifyLegacyProfile(
+  row: LegacyProfileInput,
+): LegacyProfileState {
   if (row.name !== null && row.studentId !== null && row.department !== null) {
     const fields = {
       name: row.name,
@@ -54,6 +65,20 @@ export function classifyLegacyProfile(row: {
       kind: 'COMPLETE',
       fields,
     };
+  }
+
+  // STAFF/ADMIN은 학번 없이도 역할 기준으로 완료될 수 있다. 그 정상 상태를
+  // UserProfile로 옮기려 하면 NOT NULL·unique인 studentId를 채울 방법이 없으므로,
+  // legacy User 컬럼에 그대로 둔다. 역할 근거가 없으면 정책의 fail-closed 학생
+  // 기준을 적용하므로 학번 없는 학생/미배정 부분 프로필은 이 분기를 통과하지 않는다.
+  if (
+    row.studentId === null &&
+    isCompleteProfileFields(row, effectiveProfileRole(row))
+  ) {
+    return { kind: 'LEGACY_ONLY_COMPLETE' };
+  }
+  if (row.studentId === null && row.department === null) {
+    return { kind: 'EXPECTED_INCOMPLETE' };
   }
   return { kind: 'IMPOSSIBLE_PARTIAL' };
 }
@@ -69,6 +94,13 @@ export async function backfillUserProfiles(
           name: true,
           studentId: true,
           department: true,
+          role: true,
+          selectedRole: true,
+          roleRequests: {
+            where: { status: 'PENDING' },
+            select: { id: true },
+            take: 1,
+          },
           profile: {
             select: {
               name: true,
@@ -86,7 +118,14 @@ export async function backfillUserProfiles(
       const studentIdOwners = new Map<string, string>();
 
       for (const user of users) {
-        const state = classifyLegacyProfile(user);
+        const state = classifyLegacyProfile({
+          name: user.name,
+          studentId: user.studentId,
+          department: user.department,
+          role: user.role,
+          selectedRole: user.selectedRole,
+          hasPendingStaffRequest: user.roleRequests.length > 0,
+        });
         if (state.kind === 'IMPOSSIBLE_PARTIAL') {
           throw new UserProfileBackfillInvariantError(
             USER_PROFILE_BACKFILL_ERROR_KIND.IMPOSSIBLE_PARTIAL,
@@ -99,7 +138,10 @@ export async function backfillUserProfiles(
             [user.id],
           );
         }
-        if (state.kind === 'EXPECTED_INCOMPLETE') {
+        if (
+          state.kind === 'EXPECTED_INCOMPLETE' ||
+          state.kind === 'LEGACY_ONLY_COMPLETE'
+        ) {
           if (user.profile !== null) {
             throw new UserProfileBackfillInvariantError(
               USER_PROFILE_BACKFILL_ERROR_KIND.PROFILE_MISMATCH,
