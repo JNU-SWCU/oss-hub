@@ -853,3 +853,218 @@ describe('CollectionAppClient incremental contract', () => {
     });
   });
 });
+describe('CollectionAppClient author-filtered commit history (GraphQL)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const graphqlConfig: CollectionAppConfigValues = {
+    ...config,
+    graphqlUrl: 'https://api.github.test/graphql',
+  };
+  const historyNode = (
+    oid: string,
+    user: unknown = { databaseId: 7, login: 'octocat' },
+  ) => ({
+    oid,
+    committedDate: '2026-01-01T00:00:00Z',
+    commitUrl: `https://github.test/${oid}`,
+    author: { user },
+  });
+  const historyBody = (
+    nodes: unknown[],
+    pageInfo: { hasNextPage: boolean; endCursor: string | null } = {
+      hasNextPage: false,
+      endCursor: null,
+    },
+  ) =>
+    json({
+      data: {
+        repository: { ref: { target: { history: { nodes, pageInfo } } } },
+      },
+    });
+  const sentPayload = (
+    fetcher: Fetcher,
+    call = 0,
+  ): { query: string; variables: Record<string, unknown> } => {
+    const body = fetcher.mock.calls[call]?.[1]?.body;
+    if (typeof body !== 'string') throw new Error('expected a JSON body');
+    return JSON.parse(body) as {
+      query: string;
+      variables: Record<string, unknown>;
+    };
+  };
+
+  it('sends the author filter to the configured GraphQL endpoint and maps nodes to CollectionCommit', async () => {
+    const fetcher = fetchMock().mockResolvedValue(
+      historyBody([historyNode('abc')]),
+    );
+    const commits = await new CollectionAppClient(
+      graphqlConfig,
+      tokenProvider,
+      fetcher,
+    ).listDefaultBranchCommitsByAuthor(
+      'JNU-SWCU',
+      'oss-hub',
+      'main',
+      'MDQ6VXNlcjc=',
+      '2026-01-01T00:00:00Z',
+    );
+    expect(commits).toEqual([
+      {
+        sha: 'abc',
+        authorLogin: 'octocat',
+        authorGithubId: '7',
+        committedAt: '2026-01-01T00:00:00Z',
+        htmlUrl: 'https://github.test/abc',
+      },
+    ]);
+    const [url, init] = fetcher.mock.calls[0] ?? [];
+    expect(url).toEqual('https://api.github.test/graphql');
+    expect(init?.method).toEqual('POST');
+    const payload = sentPayload(fetcher);
+    // The whole point of this path: the server-side author filter must be
+    // on the wire, otherwise this degrades into a full-history scan.
+    expect(payload.query).toContain('author: { id: $authorId }');
+    expect(payload.variables).toMatchObject({
+      owner: 'JNU-SWCU',
+      name: 'oss-hub',
+      branch: 'main',
+      authorId: 'MDQ6VXNlcjc=',
+      since: '2026-01-01T00:00:00Z',
+      cursor: null,
+    });
+  });
+
+  it('follows endCursor while hasNextPage is true and dedupes by sha', async () => {
+    const fetcher = fetchMock()
+      .mockResolvedValueOnce(
+        historyBody([historyNode('abc'), historyNode('def')], {
+          hasNextPage: true,
+          endCursor: 'CURSOR-1',
+        }),
+      )
+      .mockResolvedValueOnce(
+        historyBody([historyNode('def'), historyNode('ghi')]),
+      );
+    const commits = await new CollectionAppClient(
+      graphqlConfig,
+      tokenProvider,
+      fetcher,
+    ).listDefaultBranchCommitsByAuthor('o', 'r', 'main', 'NODE');
+    expect(commits.map((c) => c.sha)).toEqual(['abc', 'def', 'ghi']);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(sentPayload(fetcher, 0).variables.cursor).toBeNull();
+    expect(sentPayload(fetcher, 1).variables.cursor).toEqual('CURSOR-1');
+    expect(sentPayload(fetcher, 1).variables.since).toBeNull();
+  });
+
+  it('stops at the configured page cap instead of looping forever', async () => {
+    // A single `Response` body can only be consumed once, so build a fresh
+    // one per call.
+    const fetcher = fetchMock().mockImplementation(() =>
+      Promise.resolve(
+        historyBody([historyNode('abc')], {
+          hasNextPage: true,
+          endCursor: 'CURSOR',
+        }),
+      ),
+    );
+    await expect(
+      new CollectionAppClient(
+        { ...graphqlConfig, maxPages: 3 },
+        tokenProvider,
+        fetcher,
+      ).listDefaultBranchCommitsByAuthor('o', 'r', 'main', 'NODE'),
+    ).rejects.toMatchObject({ kind: 'PAGINATION' });
+    expect(fetcher).toHaveBeenCalledTimes(3);
+  });
+
+  it('returns an empty array when the branch ref does not exist', async () => {
+    const fetcher = fetchMock().mockResolvedValue(
+      json({ data: { repository: { ref: null } } }),
+    );
+    await expect(
+      new CollectionAppClient(
+        graphqlConfig,
+        tokenProvider,
+        fetcher,
+      ).listDefaultBranchCommitsByAuthor('o', 'r', 'missing', 'NODE'),
+    ).resolves.toEqual([]);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('maps a commit with no linked GitHub account to null author identity', async () => {
+    const fetcher = fetchMock().mockResolvedValue(
+      historyBody([historyNode('abc', null)]),
+    );
+    await expect(
+      new CollectionAppClient(
+        graphqlConfig,
+        tokenProvider,
+        fetcher,
+      ).listDefaultBranchCommitsByAuthor('o', 'r', 'main', 'NODE'),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        sha: 'abc',
+        authorLogin: null,
+        authorGithubId: null,
+      }),
+    ]);
+  });
+
+  it.each([
+    [[{ message: 'Something went wrong' }], 'GRAPHQL_ERROR'],
+    [
+      [{ type: 'RATE_LIMITED', message: 'API rate limit exceeded' }],
+      'RATE_LIMITED',
+    ],
+  ])(
+    'throws on a 200 response carrying GraphQL errors',
+    async (errors, kind) => {
+      const fetcher = fetchMock().mockResolvedValue(
+        json({ data: null, errors }),
+      );
+      await expect(
+        new CollectionAppClient(
+          graphqlConfig,
+          tokenProvider,
+          fetcher,
+        ).listDefaultBranchCommitsByAuthor('o', 'r', 'main', 'NODE'),
+      ).rejects.toMatchObject({ kind });
+    },
+  );
+
+  it('resolves a login to its node ID and reports an unknown login as null', async () => {
+    const found = fetchMock().mockResolvedValue(
+      json({ data: { user: { id: 'MDQ6VXNlcjc=' } } }),
+    );
+    await expect(
+      new CollectionAppClient(
+        graphqlConfig,
+        tokenProvider,
+        found,
+      ).resolveUserNodeId('octocat'),
+    ).resolves.toEqual('MDQ6VXNlcjc=');
+    expect(sentPayload(found).variables).toEqual({ login: 'octocat' });
+    await expect(
+      new CollectionAppClient(
+        graphqlConfig,
+        tokenProvider,
+        fetchMock().mockResolvedValue(json({ data: { user: null } })),
+      ).resolveUserNodeId('ghost'),
+    ).resolves.toBeNull();
+  });
+
+  it('defaults the GraphQL endpoint when no override is configured', async () => {
+    const fetcher = fetchMock().mockResolvedValue(
+      json({ data: { user: { id: 'NODE' } } }),
+    );
+    await new CollectionAppClient(
+      config,
+      tokenProvider,
+      fetcher,
+    ).resolveUserNodeId('octocat');
+    expect(fetcher.mock.calls[0]?.[0]).toEqual(
+      'https://api.github.com/graphql',
+    );
+  });
+});

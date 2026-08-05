@@ -7,6 +7,53 @@ import {
 
 const API_VERSION = '2022-11-28';
 const ACCEPT = 'application/vnd.github+json';
+/**
+ * GraphQL endpoint default. Deliberately separate from
+ * `CollectionAppConfigValues.apiBaseUrl` (a REST base): GitHub serves
+ * GraphQL from a single `/graphql` endpoint, not from a path under the
+ * REST base. Overridable via `CollectionAppConfigValues.graphqlUrl`,
+ * mirroring `CollectionDiscoveryClientConfig.apiUrl`.
+ */
+const DEFAULT_GRAPHQL_URL = 'https://api.github.com/graphql';
+const USER_AGENT = 'oss-hub-collection-app';
+
+/** login → GraphQL node ID. `history(author:{id:})` takes a node ID. */
+const USER_NODE_ID_QUERY = `
+  query CollectionUserNodeId($login: String!) {
+    user(login: $login) { id }
+  }
+`;
+
+/**
+ * Author-filtered default-branch history. The `author: { id: $authorId }`
+ * argument is the whole point of this path: REST `/repos/{o}/{r}/commits`
+ * has no server-side author filter that GitHub bills cheaply, so the REST
+ * path must page the entire branch history (e.g. ~217 requests for
+ * `facebook/react`) to find one user's commits, while this returns only
+ * that user's commits — typically a single request costing 1 rate-limit
+ * point.
+ */
+const AUTHOR_COMMIT_HISTORY_QUERY = `
+  query CollectionAuthorCommits($owner: String!, $name: String!, $branch: String!, $authorId: ID!, $since: GitTimestamp, $cursor: String) {
+    repository(owner: $owner, name: $name) {
+      ref(qualifiedName: $branch) {
+        target {
+          ... on Commit {
+            history(first: 100, author: { id: $authorId }, since: $since, after: $cursor) {
+              nodes {
+                oid
+                committedDate
+                commitUrl
+                author { user { databaseId login } }
+              }
+              pageInfo { hasNextPage endCursor }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
 type Fetcher = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 /**
@@ -33,7 +80,8 @@ export type CollectionAppErrorKind =
   | 'DEADLINE'
   | 'RATE_LIMITED'
   | 'AUTH'
-  | 'PERMISSION';
+  | 'PERMISSION'
+  | 'GRAPHQL_ERROR';
 export class CollectionAppClientError extends Error {
   readonly code = 'COLLECTION_APP_CLIENT_ERROR';
   constructor(
@@ -189,6 +237,80 @@ export class CollectionAppClient {
       undefined,
       true,
     );
+  }
+
+  /**
+   * Resolves a GitHub login to its GraphQL node ID, or `null` when no such
+   * user exists. `history(author: { id: })` matches on the node ID, not the
+   * REST `databaseId`, so this is the required first step of
+   * {@link listDefaultBranchCommitsByAuthor}.
+   */
+  async resolveUserNodeId(login: string): Promise<string | null> {
+    const body = await this.graphql({
+      query: USER_NODE_ID_QUERY,
+      variables: { login },
+    });
+    const user = this.record(body.data).user;
+    if (user === null || user === undefined) return null;
+    return this.string(this.record(user).id);
+  }
+
+  /**
+   * Default-branch commits authored by exactly one user, newest-to-oldest,
+   * optionally bounded below by `since` (ISO-8601). Returns the same
+   * `CollectionCommit[]` shape as {@link listDefaultBranchCommits} so the
+   * two are interchangeable at the call site; an unknown branch (`ref`
+   * resolves to `null`) yields an empty array. Paging is capped by
+   * `config.maxPages`, the same bound the REST traversal uses.
+   */
+  async listDefaultBranchCommitsByAuthor(
+    owner: string,
+    repo: string,
+    defaultBranch: string,
+    authorNodeId: string,
+    since?: string,
+  ): Promise<CollectionCommit[]> {
+    const deadline = this.now() + this.config.deadlineMs;
+    const commits: CollectionCommit[] = [];
+    let cursor: string | null = null;
+    for (let page = 0; ; page += 1) {
+      if (page >= this.config.maxPages)
+        throw new CollectionAppClientError('PAGINATION');
+      const body = await this.graphql(
+        {
+          query: AUTHOR_COMMIT_HISTORY_QUERY,
+          variables: {
+            owner,
+            name: repo,
+            branch: defaultBranch,
+            authorId: authorNodeId,
+            since: since ?? null,
+            cursor,
+          },
+        },
+        deadline,
+      );
+      const repository = this.record(body.data).repository;
+      if (repository === null || repository === undefined) this.invalid();
+      const ref = this.record(repository).ref;
+      const target =
+        ref === null || ref === undefined ? null : this.record(ref).target;
+      if (target === null || target === undefined) {
+        // Branch (or its commit target) does not exist. Only meaningful on
+        // the first page — disappearing mid-pagination would silently
+        // truncate history, so treat that as a malformed response.
+        if (page > 0) this.invalid();
+        return [];
+      }
+      const history = this.record(this.record(target).history);
+      const nodes = history.nodes;
+      if (!Array.isArray(nodes)) this.invalid();
+      for (const node of nodes) commits.push(this.historyCommit(node));
+      const pageInfo = this.record(history.pageInfo);
+      if (!this.boolean(pageInfo.hasNextPage)) break;
+      cursor = this.string(pageInfo.endCursor);
+    }
+    return dedupeByKey(commits, (commit) => commit.sha);
   }
 
   listPullRequests(
@@ -530,7 +652,7 @@ export class CollectionAppClient {
           headers: {
             Accept: ACCEPT,
             Authorization: `Bearer ${token}`,
-            'User-Agent': 'oss-hub-collection-app',
+            'User-Agent': USER_AGENT,
             'X-GitHub-Api-Version': API_VERSION,
             ...(ifNoneMatch ? { 'If-None-Match': ifNoneMatch } : {}),
           },
@@ -610,6 +732,93 @@ export class CollectionAppClient {
     throw new CollectionAppClientError('AUTH');
   }
 
+  /**
+   * Single GraphQL POST against `config.graphqlUrl`. Mirrors
+   * `CollectionDiscoveryClient.request` (`collection-discovery.client.ts`):
+   * POST + bearer token, one 401 retry after clearing the token, typed
+   * rate-limit/permission classification, and — critically — treating a
+   * `200 OK` body carrying a non-empty top-level `errors` array as a
+   * failure. GraphQL reports errors that way, so returning such a body
+   * would make a real failure indistinguishable from "no commits".
+   */
+  private async graphql(
+    payload: { query: string; variables: Record<string, unknown> },
+    deadline: number = this.now() + this.config.deadlineMs,
+  ): Promise<Record<string, unknown>> {
+    const url = this.config.graphqlUrl ?? DEFAULT_GRAPHQL_URL;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const remaining = deadline - this.now();
+      if (remaining <= 0) throw new CollectionAppClientError('DEADLINE');
+      const signal = AbortSignal.timeout(Math.max(1, remaining));
+      const token = await this.tokens.getToken(signal);
+      if (deadline - this.now() <= 0)
+        throw new CollectionAppClientError('DEADLINE');
+      let response: Response;
+      try {
+        response = await this.fetcher(url, {
+          method: 'POST',
+          headers: {
+            Accept: ACCEPT,
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'User-Agent': USER_AGENT,
+          },
+          body: JSON.stringify(payload),
+          signal,
+        });
+      } catch {
+        if (this.now() >= deadline)
+          throw new CollectionAppClientError('DEADLINE');
+        throw new CollectionAppClientError('UPSTREAM');
+      }
+      if (response.status === 401) {
+        if (attempt === 0) {
+          this.tokens.clear(token);
+          continue;
+        }
+        throw new CollectionAppClientError('AUTH');
+      }
+      if (!response.ok) {
+        if (
+          response.status === 429 ||
+          (response.status === 403 &&
+            (response.headers.get('x-ratelimit-remaining') === '0' ||
+              response.headers.has('retry-after')))
+        ) {
+          throw new CollectionAppClientError(
+            'RATE_LIMITED',
+            this.retryAfter(response.headers),
+          );
+        }
+        if (response.status === 403) {
+          this.tokens.clear(token);
+          throw new CollectionAppClientError('PERMISSION');
+        }
+        throw new CollectionAppClientError('UPSTREAM');
+      }
+      let json: unknown;
+      try {
+        json = await response.json();
+      } catch {
+        throw new CollectionAppClientError('RESPONSE');
+      }
+      const body = this.record(json);
+      if (Array.isArray(body.errors) && body.errors.length > 0) {
+        const rateLimited = body.errors.some(
+          (e) =>
+            typeof e === 'object' &&
+            e !== null &&
+            (e as Record<string, unknown>).type === 'RATE_LIMITED',
+        );
+        throw new CollectionAppClientError(
+          rateLimited ? 'RATE_LIMITED' : 'GRAPHQL_ERROR',
+        );
+      }
+      return body;
+    }
+    throw new CollectionAppClientError('AUTH');
+  }
+
   private nextLink(link: string | null): string | null {
     if (!link) return null;
     for (const part of link.split(',')) {
@@ -664,6 +873,28 @@ export class CollectionAppClient {
       ...this.actor(r.author),
       committedAt: this.date(committer.date),
       htmlUrl: this.string(r.html_url),
+    };
+  }
+  /**
+   * GraphQL `Commit` history node → the same `CollectionCommit` shape the
+   * REST mapper produces. `author.user` is `null` for commits whose email
+   * is not linked to a GitHub account; `databaseId` is stringified so the
+   * stored identifier stays byte-identical to the REST path's.
+   */
+  private historyCommit(v: unknown): CollectionCommit {
+    const r = this.record(v);
+    const author = r.author;
+    const user =
+      author === null || author === undefined
+        ? null
+        : (this.record(author).user ?? null);
+    return {
+      sha: this.string(r.oid),
+      authorLogin: user === null ? null : this.string(this.record(user).login),
+      authorGithubId:
+        user === null ? null : this.id(this.record(user).databaseId),
+      committedAt: this.date(r.committedDate),
+      htmlUrl: this.string(r.commitUrl),
     };
   }
   private pullRequest(v: unknown): CollectionPullRequest {

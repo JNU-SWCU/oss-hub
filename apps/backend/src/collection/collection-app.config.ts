@@ -31,6 +31,14 @@ export interface CollectionAppConfigValues {
   readonly apiBaseUrl: string;
   readonly maxPages: number;
   readonly deadlineMs: number;
+  /**
+   * GraphQL endpoint used by the author-filtered commit history path
+   * (`CollectionAppClient.listDefaultBranchCommitsByAuthor`). Distinct from
+   * `apiBaseUrl`, which is a REST base. Optional so every existing caller
+   * keeps working; defaults to `https://api.github.com/graphql` inside the
+   * client, mirroring `CollectionDiscoveryClientConfig.apiUrl`.
+   */
+  readonly graphqlUrl?: string;
 }
 
 export class CollectionAppConfig {
