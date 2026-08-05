@@ -11,6 +11,7 @@ export default defineConfig({
     join(tmpdir(), `oss-hub-playwright-${process.pid}`),
   fullyParallel: false,
   forbidOnly: true,
+  preserveOutput: 'always',
   retries: 0,
   workers: 1,
   reporter: [['list']],
