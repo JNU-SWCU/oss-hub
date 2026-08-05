@@ -561,4 +561,30 @@ describe('ApplicationsService.decide — REVERT', () => {
       status: ApplicationStatus.SUBMITTED,
     });
   });
+
+  it('OWN은 프로비저닝 SUCCEEDED여도 되돌리기를 허용한다', async () => {
+    const { service, findRepositoryProvisionJob, store } = createHarness();
+    (store.findApplicationById as jest.Mock).mockResolvedValue(
+      baseApplication({
+        status: ApplicationStatus.APPROVED,
+        repositoryConnectionMode: RepositoryConnectionMode.OWN,
+        repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
+      }),
+    );
+    findRepositoryProvisionJob.mockResolvedValue({
+      status: RepositoryProvisionJobStatus.SUCCEEDED,
+      repositoryId: 'synthetic-repository',
+    });
+
+    await expect(
+      service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+        action: APPLICATION_DECISION_ACTIONS.REVERT,
+      }),
+    ).resolves.toMatchObject({
+      kind: 'REVERTED',
+      status: ApplicationStatus.SUBMITTED,
+    });
+    // NEW 잠금 경로가 타면 job을 조회한다. OWN은 모드 가드로 조회하지 않는다.
+    expect(findRepositoryProvisionJob).not.toHaveBeenCalled();
+  });
 });

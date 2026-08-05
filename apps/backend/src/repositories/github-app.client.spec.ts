@@ -92,6 +92,59 @@ describe('GithubAppClient', () => {
     expect(repository).toBeNull();
   });
 
+  it('공개 저장소는 인증 없이 owner/name으로 조회한다', async () => {
+    const tokens = tokenProvider();
+    const fetcher = jest.fn<
+      ReturnType<GithubAppFetcher>,
+      Parameters<GithubAppFetcher>
+    >();
+    fetcher.mockResolvedValue(
+      jsonResponse(200, {
+        id: 42,
+        name: 'synthetic-repo',
+        html_url: 'https://github.com/synthetic-student/synthetic-repo',
+        visibility: 'public',
+        description: null,
+      }),
+    );
+    const client = new GithubAppClient(tokens, fetcher, () => NOW);
+
+    const repository = await client.findPublicRepository(
+      'synthetic-student',
+      'synthetic-repo',
+    );
+
+    expect(repository).toEqual({
+      githubRepositoryId: 42n,
+      name: 'synthetic-repo',
+      url: 'https://github.com/synthetic-student/synthetic-repo',
+      visibility: 'PUBLIC',
+      description: null,
+    });
+    expect(fetcher).toHaveBeenCalledWith(
+      'https://api.github.com/repos/synthetic-student/synthetic-repo',
+      expect.objectContaining({
+        headers: expect.not.objectContaining({
+          Authorization: expect.anything() as unknown,
+        }) as unknown,
+      }),
+    );
+    expect(tokens.accessToken).not.toHaveBeenCalled();
+  });
+
+  it('공개 저장소 404는 null로 분기한다', async () => {
+    const fetcher = jest.fn<
+      ReturnType<GithubAppFetcher>,
+      Parameters<GithubAppFetcher>
+    >();
+    fetcher.mockResolvedValue(jsonResponse(404, {}));
+    const client = new GithubAppClient(tokenProvider(), fetcher, () => NOW);
+
+    await expect(
+      client.findPublicRepository('missing-owner', 'missing-repo'),
+    ).resolves.toBeNull();
+  });
+
   it('이미 collaborator이면 invitation을 조회하거나 다시 보내지 않는다', async () => {
     // Given: collaborator 확인이 204를 반환한다.
     const fetcher = jest.fn<

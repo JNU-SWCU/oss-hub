@@ -44,6 +44,23 @@ export class GithubAppClient {
     await throwForGithubErrorResponse(response, this.now());
     return parseGithubRepository(await readGithubJson(response));
   }
+  /**
+   * 조직 밖 공개 저장소 조회. installation token은 범위 밖이라 인증 없이
+   * 공개 REST만 쓴다(ADR-009). 비공개·미존재는 404 → null.
+   */
+  async findPublicRepository(
+    owner: string,
+    name: string,
+  ): Promise<GithubRepositoryMetadata | null> {
+    const response = await this.requestPublic(
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`,
+    );
+    if (response.status === 404) {
+      return null;
+    }
+    await throwForGithubErrorResponse(response, this.now());
+    return parseGithubRepository(await readGithubJson(response));
+  }
 
   async createRepository(
     name: string,
@@ -118,6 +135,31 @@ export class GithubAppClient {
     return `/repos/${encodeURIComponent(
       this.tokenProvider.organization,
     )}/${encodeURIComponent(name)}`;
+  }
+  private async requestPublic(
+    path: string,
+    init: RequestInit = {},
+  ): Promise<Response> {
+    try {
+      return await this.fetcher(`${GITHUB_API_BASE_URL}${path}`, {
+        ...init,
+        headers: {
+          Accept: 'application/vnd.github+json',
+          'Content-Type': 'application/json',
+          'User-Agent': USER_AGENT,
+          'X-GitHub-Api-Version': GITHUB_API_VERSION,
+        },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new GithubOperationsError(
+          GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM,
+          true,
+        );
+      }
+      throw error;
+    }
   }
 
   private async request(

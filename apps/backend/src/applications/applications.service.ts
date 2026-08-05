@@ -531,8 +531,12 @@ export class ApplicationsService {
           );
         }
 
-        // D4 가드 ③: 완료된 프로비저닝의 승인 되돌리기 409 + revertBlockedReason.
-        if (application.status === ApplicationStatus.APPROVED) {
+        // D4 가드 ③: NEW 프로비저닝 완료만 되돌리기 잠금.
+        // OWN은 만든 저장소가 없어 완료 잠금을 걸지 않는다(ADR-009).
+        if (
+          application.status === ApplicationStatus.APPROVED &&
+          application.repositoryConnectionMode === RepositoryConnectionMode.NEW
+        ) {
           const job = await input.findProvisionJob(application.id);
           if (isProvisioningCompleted(job?.status)) {
             const extensions: RevertBlockedExtensions = {
