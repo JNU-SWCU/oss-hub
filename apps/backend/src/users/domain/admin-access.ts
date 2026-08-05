@@ -72,10 +72,17 @@ export type AdminAccessCasProjection = {
   readonly pendingRequest: AdminAccessPendingRequest | null;
 };
 
+/**
+ * 이 변경이 요청 이력에 남긴 행. APPROVED·REJECTED는 대기 중이던 행을 결정한 결과이고,
+ * REVOKED는 **새로 삽입한** 행이다(#184) — 회수는 기존 APPROVED 행을 덮어쓰지 않으므로
+ * 여기 실리는 id는 방금 만들어진 행의 id다.
+ */
 export type AdminAccessDecidedRequest = {
   readonly id: string;
   readonly status:
-    typeof RoleRequestStatus.APPROVED | typeof RoleRequestStatus.REJECTED;
+    | typeof RoleRequestStatus.APPROVED
+    | typeof RoleRequestStatus.REJECTED
+    | typeof RoleRequestStatus.REVOKED;
 };
 
 export type AdminAccessMutationResult = AdminAccessCasProjection & {

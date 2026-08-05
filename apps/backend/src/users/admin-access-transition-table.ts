@@ -16,6 +16,10 @@ export const ADMIN_ACCESS_REQUEST_EFFECTS = {
   UNCHANGED: 'UNCHANGED',
   APPROVED: RoleRequestStatus.APPROVED,
   REJECTED: RoleRequestStatus.REJECTED,
+  // 회수는 대기 중 요청을 결정하는 것이 아니라 **새 REVOKED 행을 남긴다**. 그래서
+  // APPROVED·REJECTED와 달리 기존 행 id가 없고, 쓰기 방식도 CAS가 아니라 INSERT다
+  // (`admin-access-mutation-policy.ts`의 요청 쓰기 계획이 그 차이를 담는다).
+  REVOKED: RoleRequestStatus.REVOKED,
 } as const;
 
 export type AdminAccessPendingState =
@@ -97,8 +101,14 @@ const DECISIONS = [
  * | PENDING | REJECT | no contradictory direct STAFF grant | reject atomically |
  * | PENDING | REJECT | direct STAFF grant | ROL_016 / 400 |
  *
- * A non-null role cannot transition back to null (ROL_014 / 409). Contextual
- * self-deactivation and last-active-ADMIN guards are flags on allowed entries.
+ * A non-null role can transition back to null in exactly one case — revoking an
+ * active STAFF grant, which clears `User.role` and appends a `REVOKED` request
+ * row (#184). Every other non-null → null transition stays ROL_014 / 409, and so
+ * does STAFF → null while a request is still PENDING: the request must be decided
+ * first, otherwise the account would end up role-less **without** a REVOKED row
+ * and the login seed guard (`auth.repository.ts`) would grant the role back.
+ * Contextual self-deactivation and last-active-ADMIN guards are flags on allowed
+ * entries.
  */
 export const ADMIN_ACCESS_TRANSITION_TABLE: readonly AdminAccessTransitionTableEntry[] =
   currentStates().flatMap((current) =>
@@ -157,7 +167,7 @@ function classifyTransition(
   current: AdminAccessTableCurrentState,
   desired: AdminAccessTableDesiredState,
 ): AdminAccessTransitionOutcome {
-  if (current.role !== null && desired.role === null) {
+  if (current.role !== null && desired.role === null && !isRevocable(current)) {
     return denied(RolesErrorCode.ACCESS_TRANSITION_NOT_ALLOWED, 409);
   }
   const changesRole = current.role !== desired.role;
@@ -170,7 +180,7 @@ function classifyTransition(
   if (current.pendingState === ADMIN_ACCESS_PENDING_STATES.NONE) {
     return desired.decision === ADMIN_ACCESS_DECISION_KINDS.NONE
       ? changesAccessState
-        ? allowed(current, desired, ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED)
+        ? allowed(current, desired, directRequestEffect(current, desired))
         : denied(RolesErrorCode.ACCESS_CHANGE_REQUIRED, 400)
       : denied(RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION, 400);
   }
@@ -194,6 +204,39 @@ function classifyTransition(
       throw new MissingAdminAccessTransitionError(unsupportedDecision);
     }
   }
+}
+
+/**
+ * 회수할 수 있는 현재 상태인가 — 확정된 STAFF이고 대기 중 요청이 없을 때만이다.
+ *
+ * PENDING을 함께 요구하는 이유는 결과물의 모양 때문이다. 회수는 `User.role`을 비우고
+ * `REVOKED` 행을 남기는 한 쌍인데, 대기 중 요청이 있으면 그 요청의 결정(APPROVED·
+ * REJECTED)이 같은 트랜잭션의 요청 쓰기 자리를 이미 차지한다. 그대로 통과시키면 역할만
+ * 비고 `REVOKED` 행은 없는 계정이 생기고, 그런 계정은 로그인 시드 가드(`auth.repository.ts`의
+ * `roleRequests: { none: { status: REVOKED } }`)가 회수로 알아보지 못해 다음 로그인에
+ * 권한이 되살아난다. 그래서 대기 중 요청은 먼저 결정하게 하고 회수는 그다음이다.
+ */
+function isRevocable(current: AdminAccessTableCurrentState): boolean {
+  return (
+    current.role === Role.STAFF &&
+    current.pendingState === ADMIN_ACCESS_PENDING_STATES.NONE
+  );
+}
+
+/**
+ * 대기 중 요청 없이 접근 상태를 직접 바꾸는 전이가 요청 이력에 남기는 것.
+ *
+ * STAFF를 회수하는 전이만 `REVOKED` 행을 새로 남기고 나머지 직접 변경은 이력을 건드리지
+ * 않는다. 회수 이력은 화면 안내(#184)와 로그인 시드 가드가 모두 읽는 사실이라, 회수라는
+ * 사실이 `User.role`이 비었다는 것만으로 표현되면 신규 가입자와 구분되지 않는다.
+ */
+function directRequestEffect(
+  current: AdminAccessTableCurrentState,
+  desired: AdminAccessTableDesiredState,
+): AdminAccessRequestEffect {
+  return current.role === Role.STAFF && desired.role === null
+    ? ADMIN_ACCESS_REQUEST_EFFECTS.REVOKED
+    : ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED;
 }
 
 function allowed(

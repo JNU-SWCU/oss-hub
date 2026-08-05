@@ -17,7 +17,6 @@ import {
 import {
   ADMIN_ACCESS_REQUEST_DECISIONS,
   type AdminAccessMutationCommand,
-  type AdminAccessMutationResult,
 } from './domain/admin-access';
 
 export function matchesExpectedAccessState(
@@ -94,13 +93,38 @@ export function enforceAdminAccessGuards(
   }
 }
 
-export function toAdminAccessDecidedRequest(
+export const ADMIN_ACCESS_REQUEST_WRITE_KINDS = {
+  NONE: 'NONE',
+  DECIDE_PENDING: 'DECIDE_PENDING',
+  INSERT_REVOKED: 'INSERT_REVOKED',
+} as const;
+
+/**
+ * 이 변경이 `RoleRequest`에 해야 하는 쓰기. 결정과 회수는 **쓰기 방식이 다르다** —
+ * 결정은 대기 중이던 행 하나를 노리는 CAS라 대상 id를 미리 알지만, 회수는 새 행을
+ * 삽입하므로 id가 쓰기 이후에야 생긴다(#184). 그 차이를 타입으로 갈라 두어야 회수를
+ * 결정 경로에 얹으려는 시도가 컴파일에서 막힌다.
+ */
+export type AdminAccessRequestWrite =
+  | { readonly kind: typeof ADMIN_ACCESS_REQUEST_WRITE_KINDS.NONE }
+  | {
+      readonly kind: typeof ADMIN_ACCESS_REQUEST_WRITE_KINDS.DECIDE_PENDING;
+      readonly requestId: string;
+      readonly nextStatus:
+        typeof RoleRequestStatus.APPROVED | typeof RoleRequestStatus.REJECTED;
+    }
+  | { readonly kind: typeof ADMIN_ACCESS_REQUEST_WRITE_KINDS.INSERT_REVOKED };
+
+export function toAdminAccessRequestWrite(
   before: AdminAccessUserRecord,
   effect: AdminAccessRequestEffect,
-): AdminAccessMutationResult['decidedRequest'] {
+): AdminAccessRequestWrite {
   switch (effect) {
     case ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED:
-      return null;
+      return { kind: ADMIN_ACCESS_REQUEST_WRITE_KINDS.NONE };
+    case ADMIN_ACCESS_REQUEST_EFFECTS.REVOKED:
+      // 전이표가 회수를 대기 중 요청이 없을 때만 허용하므로 여기서 결정할 행은 없다.
+      return { kind: ADMIN_ACCESS_REQUEST_WRITE_KINDS.INSERT_REVOKED };
     case ADMIN_ACCESS_REQUEST_EFFECTS.APPROVED:
     case ADMIN_ACCESS_REQUEST_EFFECTS.REJECTED: {
       const pendingRequest = before.pendingRequest;
@@ -108,11 +132,9 @@ export function toAdminAccessDecidedRequest(
         throw staleAccessError(before);
       }
       return {
-        id: pendingRequest.id,
-        status:
-          effect === ADMIN_ACCESS_REQUEST_EFFECTS.APPROVED
-            ? RoleRequestStatus.APPROVED
-            : RoleRequestStatus.REJECTED,
+        kind: ADMIN_ACCESS_REQUEST_WRITE_KINDS.DECIDE_PENDING,
+        requestId: pendingRequest.id,
+        nextStatus: effect,
       };
     }
     default:
