@@ -72,7 +72,7 @@ const CLOSED_REQUEST_NOTICE: Record<
 };
 
 /**
- * 화면에 실을 사유의 최대 길이.
+ * 화면에 실을 사유의 최대 길이 — **문자소(grapheme) 기준**이다.
  *
  * 사유에는 **길이 제한이 어디에도 없다** — 관리자 대화상자의 textarea에 `maxLength`가
  * 없고(`admin-access-mutation-reject-dialog.tsx`), DTO는 `@IsString()`뿐이며
@@ -87,19 +87,101 @@ const CLOSED_REQUEST_NOTICE: Record<
 export const ROLE_REJECTION_REASON_MAX_LENGTH = 300;
 
 /**
+ * 화면에 실을 사유의 최대 줄 수.
+ *
+ * 글자 수만 재면 **세로 높이에는 상한이 없다.** `whitespace-pre-wrap`이 관리자가 넣은
+ * 줄바꿈을 그대로 살리므로, 300자 안이어도 줄바꿈만 300개면 화면이 무너진다 — 글자
+ * 수로는 통과하는 값이 레이아웃을 깨는 셈이다. 줄도 함께 잰다.
+ *
+ * 6줄인 이유: 375px에서 한 줄이 약 20px이라 6줄이면 사유 블록이 약 120px이고, 지금
+ * 실측한 사유 블록(101.5px, 아래 `ClosedRoleRequestAlert` 주석의 표)에서 한 줄 남짓만
+ * 더 늘어나는 선이다.
+ */
+export const ROLE_REJECTION_REASON_MAX_LINES = 6;
+
+/**
+ * 화면에 실을 수 없는 문자.
+ *
+ * 관리자는 사유를 **붙여넣기로** 들여올 수 있고, 그때 눈에 보이지 않는 것들이 함께
+ * 따라온다. 두 부류를 지운다.
+ *
+ * 1. **제어문자** — C0(`U+0000`~`U+001F`)와 C1(`U+007F`~`U+009F`). 단 줄바꿈
+ *    (`U+000A`)은 살린다 — 관리자가 의도한 문단 구분이다. 탭(`U+0009`)은 지우지 않고
+ *    공백으로 바꾼다(아래 `clampRejectionReason`) — 지우면 단어가 서로 붙는다.
+ * 2. **양방향(Bidi) 제어문자** — `U+200E`·`U+200F`(방향 표시), `U+202A`~`U+202E`
+ *    (삽입·덮어쓰기), `U+2066`~`U+2069`(격리), `U+061C`(아랍 문자 표시). 이것들은
+ *    **뒤에 오는 글자의 표시 순서를 뒤집는다.** 사유 한 줄이 화면에서 거꾸로 읽히면
+ *    사용자는 관리자가 쓰지 않은 문장을 읽게 된다.
+ *
+ * ⚠ `U+200C`(ZWNJ)·`U+200D`(ZWJ)는 **지우지 않는다.** ZWJ는 가족 이모지처럼 여러 코드
+ * 포인트를 한 글자로 묶는 접착제라, 지우면 가족 이모지가 사람 셋으로 흩어진다. 그래서
+ * 범위를 `U+200B`~`U+200F` 통째로 잡지 않고 Bidi 표시 둘만 집어 낸다.
+ */
+const UNRENDERABLE_PATTERN =
+  // 범위를 이스케이프로만 쓴다 — 소스에 제어문자를 그대로 박으면 이 파일 자체가
+  // 편집기에서 깨져 보이고, Bidi 문자는 주변 코드까지 거꾸로 읽히게 만든다.
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/g;
+
+/** 세 줄 이상 연속된 줄바꿈 — 빈 줄은 하나까지만 남긴다. */
+const EXCESS_BLANK_LINE_PATTERN = /\n{3,}/g;
+
+/**
+ * 사람이 한 글자로 보는 단위로 쪼갠다.
+ *
+ * `slice`로 자르면 **UTF-16 코드 유닛** 기준이라 이모지 한가운데가 잘린다. 웃는 얼굴
+ * 이모지 앞에 `가`를 299개 붙인 값(UTF-16 길이 301)을 300에서 자르면 마지막에 짝 잃은
+ * 상위 서로게이트만 남아 화면에 깨진 문자로 뜬다. 결합 문자·ZWJ 이모지(가족 이모지)도
+ * 같은 방식으로 깨진다.
+ *
+ * `Intl.Segmenter`가 있으면 그것을 쓴다 — 코드 포인트가 아니라 **문자소**를 알아서,
+ * ZWJ로 묶인 가족 이모지나 한글 조합 문자도 한 덩어리로 센다. 없으면 `Array.from`으로
+ * 내려간다: 문자소까지는 못 가도 코드 포인트 단위라 **서로게이트가 갈라지는 일은
+ * 막는다.** 이 앱의 지원 브라우저는 모두 `Segmenter`를 가지므로 폴백은 안전망일 뿐이다.
+ */
+const graphemeSegmenter =
+  typeof Intl !== 'undefined' && 'Segmenter' in Intl
+    ? new Intl.Segmenter('ko', { granularity: 'grapheme' })
+    : null;
+
+function splitGraphemes(value: string): readonly string[] {
+  if (graphemeSegmenter === null) {
+    return Array.from(value);
+  }
+  return [...graphemeSegmenter.segment(value)].map((entry) => entry.segment);
+}
+
+/**
  * 표시할 사유를 만든다. 보여 줄 것이 없으면 `null`이라, 화면은 빈 상자를 그리지 않는다.
  *
  * 공백만 있는 사유도 없는 것으로 본다 — 상자만 뜨고 안이 비면 사용자는 사유가 아직
  * 안 온 줄 알고 기다린다. 반려 **사실**과 다시 신청하라는 안내는 사유가 없어도 남는다.
+ *
+ * 순서가 규칙이다. 지우기(제어·Bidi) → 줄바꿈 정규화 → 빈 줄 접기 → 양끝 다듬기 →
+ * 줄 수 자르기 → 글자 수 자르기. 지우기를 먼저 하지 않으면 지워질 문자가 글자 수에
+ * 잡혀 멀쩡한 문장이 대신 잘리고, 줄을 먼저 자르지 않으면 글자 수로는 통과한 값이
+ * 세로로 무너뜨린다.
  */
 export function clampRejectionReason(reason: string | null): string | null {
-  const trimmed = reason?.trim() ?? '';
-  if (trimmed.length === 0) {
+  const cleaned = (reason ?? '')
+    .replace(UNRENDERABLE_PATTERN, '')
+    .replace(/\t/g, ' ')
+    .replace(/\r\n?/g, '\n')
+    .replace(EXCESS_BLANK_LINE_PATTERN, '\n\n')
+    .trim();
+  if (cleaned.length === 0) {
     return null;
   }
-  return trimmed.length > ROLE_REJECTION_REASON_MAX_LENGTH
-    ? `${trimmed.slice(0, ROLE_REJECTION_REASON_MAX_LENGTH)}…`
-    : trimmed;
+
+  const lines = cleaned.split('\n');
+  const lineClamped =
+    lines.length > ROLE_REJECTION_REASON_MAX_LINES
+      ? `${lines.slice(0, ROLE_REJECTION_REASON_MAX_LINES).join('\n')}…`
+      : cleaned;
+
+  const graphemes = splitGraphemes(lineClamped);
+  return graphemes.length > ROLE_REJECTION_REASON_MAX_LENGTH
+    ? `${graphemes.slice(0, ROLE_REJECTION_REASON_MAX_LENGTH).join('')}…`
+    : lineClamped;
 }
 
 interface RoleSelectionFormProps {
@@ -252,8 +334,12 @@ function RoleGuidanceSlot({
  * | 안내 없음 | 732px | 예 | 812(스크롤 0) | — |
  * | 안내 있음 | 929px | **아니오** | 993 | 202 |
  *
- * 1280×800에서는 689px → 802px로, 접히는 선을 2px 넘긴다(문서 높이 800 → 866).
- * 안내 202px의 내역은 제목 20 · 사유 블록 102 · 설명 39 · 안쪽 여백 24 · 간격 16이다.
+ * 1440×900에서는 739.3px → 819px로 **둘 다 화면 안**이다(문서 900, 스크롤 0, 안내
+ * 143.5px). 대가는 좁은 화면에만 생긴다.
+ *
+ * 안내 202px의 내역(합이 정확히 맞는다): 제목 19.5 · 사유 블록 101.5 · 설명 39 ·
+ * 안쪽 여백 24 · **테두리 2** · 간격 16. 테두리를 빼먹거나 앞의 두 값을 정수로
+ * 올림하면 201이 나온다 — 다시 잴 때 이 함정을 조심하라.
  *
  * 아래 카드 배치 주석이 지키는 "고르고 누르기가 한 화면에" 제약을 여기서
  * **의도적으로 양보한 것**이다.

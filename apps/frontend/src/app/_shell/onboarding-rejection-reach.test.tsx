@@ -5,6 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { RoleRequest, RoleRequestStatus } from '@/features/roles/types';
+import { onboardingPathFor, type ProfileCheckStatus } from './onboarding-route';
 
 /**
  * 반려 사유가 **사용자 눈에 닿는가**를 라우팅 전체로 확인한다(#673).
@@ -17,11 +18,15 @@ import type { RoleRequest, RoleRequestStatus } from '@/features/roles/types';
  * 테스트가 초록불이었다. 컴포넌트가 옳게 그리는지는 검사했지만 **그 컴포넌트에
  * 사용자가 도달하는지는 아무도 검사하지 않았다.**
  *
- * 그래서 이 파일은 특정 경로를 못박지 않는다. `/onboarding/pending` ·
- * `/onboarding/profile` · `/onboarding/role` 셋을 실제 게이트째 마운트해 놓고,
- * **적어도 한 도달 가능 화면에 사유가 실제로 DOM에 나타난다**만 단언한다. 라우팅이
- * 또 바뀌어도 사유를 잃는 순간에만 빨간불이 되고, 목적지가 어디로 옮겨 가든 옮겨
- * 갔다는 이유만으로는 깨지지 않는다.
+ * 그래서 이 파일은 `/onboarding/pending` · `/onboarding/profile` ·
+ * `/onboarding/role` 셋을 실제 게이트째 마운트한 뒤, **게이트가 그 사용자를 보내는
+ * 목적지에서** 사유가 실제로 DOM에 나타나는지를 단언한다. 목적지는 문자열로 박지
+ * 않고 라우팅 계약(`onboardingPathFor`)에게 물어서 쓴다 — 목적지가 또 옮겨 가도
+ * 테스트가 새 목적지를 따라가고, 사유를 잃는 순간에만 빨간불이 된다.
+ *
+ * "셋 중 아무 데서나 보이면 통과"로 쓰지 않는 이유는 그 형태가 **지금 고치려는 결함
+ * 상태를 통과시키기 때문**이다 — 사유가 도달 불가한 화면에만 남아 있어도 초록불이
+ * 될 수 있다.
  *
  * 가짜는 네트워크 경계에만 세운다 — 게이트·화면·세션 조합(`useSessionRole`)이
  * 전부 진짜로 돌아야 "도달"을 검사한 것이 된다.
@@ -136,6 +141,12 @@ const AUTHENTICATED_SESSION = {
   retry: () => {},
 };
 
+/**
+ * 게이트가 프로필을 어떻게 판정하는가. 아래 `COMPLETE_PROFILE`에서 파생시켜, 픽스처를
+ * 고치면 목적지 계산도 함께 따라가게 한다.
+ */
+const PROFILE_CHECK_STATUS: ProfileCheckStatus = 'complete';
+
 const COMPLETE_PROFILE = {
   name: '합성 교직원 사용자',
   studentId: null,
@@ -149,6 +160,22 @@ const ONBOARDING_SCREENS = [
   ['/onboarding/profile', OnboardingProfilePage],
   ['/onboarding/role', OnboardingRolePage],
 ] as const satisfies readonly (readonly [string, () => ReactNode])[];
+
+/**
+ * 반려 사용자가 도착할 곳 — **라우팅 계약이 답한다.**
+ *
+ * 계약이 판정을 보류하면(`null`) 이 검사는 성립하지 않는다. 조용히 넘기면 "목적지가
+ * 없어서" 통과하는 초록불이 되므로 그 자리에서 실패시킨다.
+ */
+function rejectedDestination(): string {
+  const path = onboardingPathFor('REJECTED', PROFILE_CHECK_STATUS);
+  if (path === null) {
+    throw new Error(
+      '라우팅 계약이 반려 사용자의 목적지를 확정하지 못했다 — 이 검사의 전제가 깨졌다.',
+    );
+  }
+  return path;
+}
 
 function roleRequest(overrides: Partial<RoleRequest> = {}): RoleRequest {
   return {
@@ -224,10 +251,18 @@ describe('반려 사유 도달 가능성', () => {
   /**
    * 이 파일의 핵심 단언.
    *
-   * 목적지를 못박지 않는 이유는 #535 같은 결정이 또 내려질 수 있기 때문이다. 목적지는
-   * 바뀌어도 되지만, **어느 목적지든 사유는 실려 있어야 한다.**
+   * **"아무 화면에서나 보이면 된다"로 쓰면 안 된다.** 그렇게 쓰면 사유가
+   * `/onboarding/pending`에만 남아 있어도 통과한다 — 그것이 바로 지금 고치려는
+   * 결함 상태다(그 화면은 반려 사용자를 들이지 않는다). 그래서 **게이트가 실제로
+   * 보내는 목적지에서 보이는가**를 묻는다.
+   *
+   * 그렇다고 목적지를 문자열로 박지도 않는다. #535 같은 결정이 또 내려질 수 있고,
+   * 목적지는 바뀌어도 된다 — 바뀌면 안 되는 것은 "그 목적지가 사유를 싣는다"는
+   * 쪽이다. 그래서 목적지를 라우팅 계약(`onboardingPathFor`)에게 물어서 쓴다.
+   * 계약이 바뀌면 이 테스트가 자동으로 새 목적지를 검사하고, 새 목적지가 사유를
+   * 안 실으면 그때 빨간불이 된다.
    */
-  it('반려 사용자는 도달 가능한 온보딩 화면에서 반려 사유를 읽는다', async () => {
+  it('게이트가 보내는 목적지에서 반려 사유를 읽는다', async () => {
     // Given: 사유가 붙은 반려 요청.
     mocks.fetchMyRoleRequest.mockResolvedValue(
       roleRequest({
@@ -240,13 +275,15 @@ describe('반려 사유 도달 가능성', () => {
     // When
     const rendered = await mountEveryOnboardingScreen();
 
-    // Then: 셋 중 적어도 하나가, 되돌려 보내지지 않은 채로 사유를 실제로 그렸다.
-    // 밀려나면서 스친 것은 도달이 아니므로 이동이 하나도 없어야 한다.
-    const reached = [...rendered.entries()].filter(
-      ([, screen]) =>
-        screen.text.includes(REJECTION_REASON) && screen.redirects.length === 0,
-    );
-    expect(reached.map(([path]) => path)).not.toHaveLength(0);
+    // Then: 목적지는 계약이 답한다 — 여기서 다시 적으면 잠그는 대상이 라우팅이
+    // 아니라 이 테스트 자신이 된다.
+    const arrived = rendered.get(rejectedDestination());
+
+    expect(arrived).toBeDefined();
+    // 그 화면은 사용자를 되돌려 보내지 않는다 — 밀려나면서 스친 것은 도달이 아니다.
+    expect(arrived?.redirects).toEqual([]);
+    // 그리고 거기서 사유가 실제로 DOM에 있다.
+    expect(arrived?.text).toContain(REJECTION_REASON);
   });
 
   /**
@@ -266,11 +303,12 @@ describe('반려 사유 도달 가능성', () => {
     // When
     const rendered = await mountEveryOnboardingScreen();
 
-    // Then
-    const texts = [...rendered.values()].map((screen) => screen.text);
-    expect(texts.some((text) => text.includes(REJECTION_HEADLINE))).toBe(true);
+    // Then: 같은 이유로 목적지를 계약에서 얻어 그 화면만 본다.
+    const arrived = rendered.get(rejectedDestination());
+    expect(arrived?.redirects).toEqual([]);
+    expect(arrived?.text).toContain(REJECTION_HEADLINE);
     // 빈 사유 상자를 그리지 않는다 — 라벨만 뜨고 안이 비면 아직 안 온 줄 알고 기다린다.
-    expect(texts.some((text) => text.includes('반려 사유'))).toBe(false);
+    expect(arrived?.text).not.toContain('반려 사유');
   });
 
   /**
