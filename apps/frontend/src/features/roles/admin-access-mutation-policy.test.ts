@@ -8,12 +8,12 @@ import {
   adminAccessGrantTargetRole,
   adminAccessMutationErrorMessage,
   adminAccessMutationSuccessMessage,
-  adminAccessRevokeTargetRole,
   applyAdminAccessConflictProjection,
   buildAdminAccessPatchRequest,
   classifyAdminAccessMutationBlock,
   isAdminAccessMutationAvailable,
 } from './admin-access-mutation-policy';
+import { adminAccessRevocation } from './admin-access-revocation';
 
 function detail(overrides: Partial<AdminAccessDetail> = {}): AdminAccessDetail {
   return {
@@ -53,7 +53,7 @@ function apiError(status: number, code: string, detailText: string): ApiError {
   });
 }
 
-describe('adminAccessGrantTargetRole / adminAccessRevokeTargetRole', () => {
+describe('adminAccessGrantTargetRole / adminAccessRevocation', () => {
   it('부여 대상은 한 단계 위 역할이다', () => {
     expect(adminAccessGrantTargetRole(null)).toBe('STAFF');
     expect(adminAccessGrantTargetRole('STUDENT')).toBe('STAFF');
@@ -64,14 +64,14 @@ describe('adminAccessGrantTargetRole / adminAccessRevokeTargetRole', () => {
     expect(adminAccessGrantTargetRole('ADMIN')).toBeNull();
   });
 
-  it('회수 대상은 한 단계 아래 역할이다', () => {
-    expect(adminAccessRevokeTargetRole('ADMIN')).toBe('STAFF');
-    expect(adminAccessRevokeTargetRole('STAFF')).toBe('STUDENT');
+  it('ADMIN 회수는 STAFF 전환이고 STAFF 회수는 역할 제거다', () => {
+    expect(adminAccessRevocation('ADMIN')?.desiredRole).toBe('STAFF');
+    expect(adminAccessRevocation('STAFF')?.desiredRole).toBeNull();
   });
 
   it('이미 최저 등급(STUDENT/미지정)이면 회수 대상이 없다', () => {
-    expect(adminAccessRevokeTargetRole('STUDENT')).toBeNull();
-    expect(adminAccessRevokeTargetRole(null)).toBeNull();
+    expect(adminAccessRevocation('STUDENT')).toBeNull();
+    expect(adminAccessRevocation(null)).toBeNull();
   });
 });
 

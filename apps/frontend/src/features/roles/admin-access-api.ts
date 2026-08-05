@@ -143,7 +143,7 @@ export interface AdminAccessPatchRequest {
 
 export interface AdminAccessDecidedRequest {
   readonly id: string;
-  readonly status: 'APPROVED' | 'REJECTED';
+  readonly status: 'APPROVED' | 'REJECTED' | 'REVOKED';
 }
 
 export interface AdminAccessMutationResponse {
@@ -402,7 +402,9 @@ function isAdminAccessDecidedRequest(
   return (
     isRecord(value) &&
     isNonEmptyString(value.id) &&
-    (value.status === 'APPROVED' || value.status === 'REJECTED')
+    (value.status === 'APPROVED' ||
+      value.status === 'REJECTED' ||
+      value.status === 'REVOKED')
   );
 }
 
