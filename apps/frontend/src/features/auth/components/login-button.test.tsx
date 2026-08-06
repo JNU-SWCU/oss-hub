@@ -144,6 +144,15 @@ describe('LoginButtonView', () => {
     expect(html).not.toContain('Sign out');
     // 반전 표면(랜딩 nav) 안에 중첩돼도 계정 메뉴 패널 자체는 밝은 표면으로 되돌아가야 한다.
     expect(html).toContain('data-surface="default"');
+    // 설정·로그아웃은 같은 왼쪽 정렬 계약이다. ShellNav 자손 선택자가
+    // menuitem을 건드리면 설정만 가운데로 밀리므로, 여기 마크업은 둘 다
+    // text-left·w-full을 유지한다(cascade 제외는 shell-nav 테스트가 지킨다).
+    expect(html).toMatch(
+      /role="menuitem"[^>]*class="(?=[^"]*\bw-full\b)(?=[^"]*\btext-left\b)[^"]*"[^>]*>설정/,
+    );
+    expect(html).toMatch(
+      /role="menuitem"[^>]*class="(?=[^"]*\bw-full\b)(?=[^"]*\btext-left\b)[^"]*"[^>]*>로그아웃/,
+    );
   });
 });
 
