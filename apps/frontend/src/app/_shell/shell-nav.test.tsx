@@ -64,9 +64,14 @@ describe('ShellNav', () => {
     expect(html).toContain('프로그램');
     expect(html).toContain('아카이브');
     expect(html).toContain('href="/archive"');
-    expect(html).toContain('[&amp;_a]:min-h-11');
-    expect(html).toContain('[&amp;_a]:min-w-11');
-    expect(html).toContain('[&amp;_button]:min-h-11');
-    expect(html).toContain('[&amp;_button]:min-w-11');
+    // 계정 메뉴 menuitem(설정·로그아웃)은 제외한다 — 설정 <a>에만
+    // justify-center가 걸리면 로그아웃과 정렬이 갈라진다.
+    expect(html).toContain('[&amp;_a:not([role=menuitem])]:min-h-11');
+    expect(html).toContain('[&amp;_a:not([role=menuitem])]:min-w-11');
+    expect(html).toContain('[&amp;_a:not([role=menuitem])]:justify-center');
+    expect(html).toContain('[&amp;_button:not([role=menuitem])]:min-h-11');
+    expect(html).toContain('[&amp;_button:not([role=menuitem])]:min-w-11');
+    expect(html).not.toContain('[&amp;_a]:min-h-11');
+    expect(html).not.toContain('[&amp;_button]:min-h-11');
   });
 });

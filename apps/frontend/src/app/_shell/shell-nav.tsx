@@ -107,7 +107,10 @@ export function ShellNav({ items, brand, actions }: ShellNavProps) {
         actions={actions}
         // 경로가 바뀌면 접힌 메뉴를 닫는다 — 셸은 유지되므로 스스로 닫히지 않는다.
         menuResetKey={pathname}
-        className={`max-[479px]:px-1 [&_a]:inline-flex [&_a]:min-h-11 [&_a]:min-w-11 [&_a]:items-center [&_a]:justify-center [&_button]:min-h-11 [&_button]:min-w-11${
+        // 터치 타깃은 공개 nav 링크·액션 버튼용이다. 계정 드롭다운의
+        // `role=menuitem`까지 잡으면 설정(<a>)만 justify-center가 걸려
+        // 로그아웃(<button>)과 글자 정렬이 갈라진다.
+        className={`max-[479px]:px-1 [&_a:not([role=menuitem])]:inline-flex [&_a:not([role=menuitem])]:min-h-11 [&_a:not([role=menuitem])]:min-w-11 [&_a:not([role=menuitem])]:items-center [&_a:not([role=menuitem])]:justify-center [&_button:not([role=menuitem])]:min-h-11 [&_button:not([role=menuitem])]:min-w-11${
           inverted ? ' border-transparent' : ''
         }${overlay && onSolid ? ' shadow-sm' : ''}`}
         linkComponent={Link}
