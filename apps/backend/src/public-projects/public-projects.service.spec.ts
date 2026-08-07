@@ -5,13 +5,23 @@ import type {
 } from '../collection/collection-read.port';
 import { DomainException } from '../common/error-code';
 import type { PublicEligibilityService } from '../public-eligibility/public-eligibility.service';
-import { encodePublicProjectCursor } from './public-project-cursor';
+import { loadRuntimeConfig } from '../runtime-config/runtime-config';
+import {
+  decodePublicProjectCursor,
+  encodePublicProjectCursor,
+  resolvePublicProjectCursorKey,
+} from './public-project-cursor';
 import type {
   PublicProjectRow,
   PublicProjectsRepository,
   PublicUserIdentity,
 } from './public-projects.repository';
 import { PublicProjectsService } from './public-projects.service';
+
+const SESSION_SECRET = Buffer.from(
+  'synthetic-public-projects-service-secret-01',
+).toString('base64url');
+const CURSOR_KEY = resolvePublicProjectCursorKey({ SESSION_SECRET });
 
 function githubRepositoryIdFor(id: string): bigint {
   let hash = 9000;
@@ -88,6 +98,7 @@ function serviceWith(overrides: {
     repository,
     eligibility,
     collection,
+    loadRuntimeConfig({ SESSION_SECRET }),
   );
   return { service, repository, eligibility, collection };
 }
@@ -189,12 +200,14 @@ describe('PublicProjectsService', () => {
       const page = await service.findPage(undefined, pageSize);
 
       expect(page.items.map((item) => item.id)).toEqual(['b']);
-      expect(page.nextPageId).toBe(
-        encodePublicProjectCursor({
-          publishedAt: rawRows[1]!.publishedAt,
-          id: rawRows[1]!.id,
-        }),
-      );
+      // QA40 이후 토큰은 서버 키로만 열리는 불투명 값이라 문자열 동등 비교가 성립하지 않는다
+      // (매번 IV가 다르다). 이 테스트가 지키려는 것은 토큰의 표기가 아니라 **경계 규칙**이므로
+      // 서버 키로 복호해 「마지막 raw 행」인지만 확인한다.
+      expect(page.nextPageId).not.toBeNull();
+      expect(decodePublicProjectCursor(page.nextPageId!, CURSOR_KEY)).toEqual({
+        publishedAt: rawRows[1]!.publishedAt,
+        id: rawRows[1]!.id,
+      });
     });
 
     it('pageId가 주어지면 decode한 커서를 repository.listPage에 전달한다', async () => {
@@ -202,7 +215,7 @@ describe('PublicProjectsService', () => {
         publishedAt: new Date('2026-07-20T00:00:00.000Z'),
         id: 'synthetic-repository-1',
       };
-      const pageId = encodePublicProjectCursor(cursor);
+      const pageId = encodePublicProjectCursor(cursor, CURSOR_KEY);
       const listPage = jest.fn().mockResolvedValue([]);
       const { service } = serviceWith({ listPage });
 
@@ -217,6 +230,142 @@ describe('PublicProjectsService', () => {
       await expect(service.findPage('not-a-valid-cursor', 10)).rejects.toThrow(
         DomainException,
       );
+    });
+  });
+
+  /**
+   * QA40 — 「공개 응답으로 숨겨진 저장소의 존재를 유추할 수 있다」의 부작용 두 가지.
+   * ①(커서 복원)은 여기서 막는다. ②(빈 페이지 오라클)는 `findPage = 상수 2 질의` 설계와
+   * 정면으로 부딪혀 막지 못했고, 아래 마지막 두 테스트가 **남아 있는 누출을 명시적으로 고정**한다
+   * — 그린이라고 해서 해결됐다는 뜻이 아니다.
+   */
+  describe('QA40 — 커서를 통한 숨겨진 저장소 노출', () => {
+    const HIDDEN = row({
+      id: 'seed:hidden-repository-internal-cuid',
+      githubRepositoryId: 9401n,
+      publishedAt: new Date('2026-07-21T09:30:00.000Z'),
+    });
+    const VISIBLE = row({
+      id: 'visible-repository-cuid',
+      githubRepositoryId: 9400n,
+      publishedAt: new Date('2026-07-22T00:00:00.000Z'),
+    });
+    const TAIL = row({
+      id: 'tail-repository-cuid',
+      githubRepositoryId: 9402n,
+      publishedAt: new Date('2026-07-20T00:00:00.000Z'),
+    });
+
+    function pageWithHiddenBoundary() {
+      const rawRows = [VISIBLE, HIDDEN, TAIL];
+      const listPage = jest.fn().mockResolvedValue(rawRows);
+      const filterEligibleRepositoryIds = jest
+        .fn()
+        .mockResolvedValue(new Set([VISIBLE.githubRepositoryId]));
+      return serviceWith({ listPage, filterEligibleRepositoryIds });
+    }
+
+    it('①(고침) 페이지 경계가 가려진 저장소여도 커서에서 내부 id·공개 시각을 복원할 수 없다', async () => {
+      const { service } = pageWithHiddenBoundary();
+
+      const page = await service.findPage(undefined, 2);
+
+      expect(page.items.map((item) => item.id)).toEqual([VISIBLE.id]);
+      expect(page.nextPageId).not.toBeNull();
+
+      const token = Buffer.from(page.nextPageId!, 'base64url');
+      expect(token.toString('utf8')).not.toContain(HIDDEN.id);
+      expect(token.toString('latin1')).not.toContain(HIDDEN.id);
+      expect(token.toString('utf8')).not.toContain(
+        HIDDEN.publishedAt.toISOString(),
+      );
+      // 평문 base64url(JSON) 커서였다면 여기서 `{p, i}`가 그대로 나왔다.
+      expect(() => {
+        JSON.parse(token.toString('utf8'));
+      }).toThrow();
+    });
+
+    it('①(고침) 그래도 페이지 경계는 그대로다 — 서버 키로 열면 마지막 raw 행이 나온다', async () => {
+      const { service } = pageWithHiddenBoundary();
+
+      const page = await service.findPage(undefined, 2);
+
+      expect(decodePublicProjectCursor(page.nextPageId!, CURSOR_KEY)).toEqual({
+        publishedAt: HIDDEN.publishedAt,
+        id: HIDDEN.id,
+      });
+    });
+
+    it('①(고침) 다른 서버 키로는 커서를 재사용할 수 없다 — INVALID_PAGE_ID다', async () => {
+      const { service } = pageWithHiddenBoundary();
+      const page = await service.findPage(undefined, 2);
+
+      const foreign = new PublicProjectsService(
+        {
+          listPage: jest.fn().mockResolvedValue([]),
+        } as unknown as PublicProjectsRepository,
+        {
+          filterEligibleRepositoryIds: jest.fn().mockResolvedValue(new Set()),
+        } as unknown as PublicEligibilityService,
+        {} as unknown as CollectionReadPort,
+        loadRuntimeConfig({
+          SESSION_SECRET: Buffer.from(
+            'synthetic-public-projects-other-secret-01',
+          ).toString('base64url'),
+        }),
+      );
+
+      await expect(foreign.findPage(page.nextPageId!, 2)).rejects.toThrow(
+        DomainException,
+      );
+    });
+
+    /**
+     * ② 미해결. `pageSize=1`로 훑으면 「items는 비었는데 nextPageId는 있다」가 그대로
+     * 관측되고, 이는 그 keyset 구간에 가려진 저장소가 정확히 1건 있다는 뜻이다.
+     * 막으려면 페이지가 찰 때까지 재조회해야 하는데 그것은 `public-projects/AGENTS.md`의
+     * 「findPage: 2 쿼리」·「반복문 안 쿼리 금지」와 부딪힌다. 이 테스트는 **현재 동작을
+     * 고정**해, 나중에 누가 페이지 채우기를 도입하면 여기서 걸려 의도적으로 갱신하게 한다.
+     */
+    it('②(미해결) pageSize=1에서 그 행이 fence에 걸리면 items는 비고 nextPageId는 남는다', async () => {
+      const listPage = jest.fn().mockResolvedValue([HIDDEN, TAIL]);
+      const filterEligibleRepositoryIds = jest
+        .fn()
+        .mockResolvedValue(new Set<bigint>());
+      const { service } = serviceWith({
+        listPage,
+        filterEligibleRepositoryIds,
+      });
+
+      const page = await service.findPage(undefined, 1);
+
+      expect(page.items).toHaveLength(0);
+      expect(page.nextPageId).not.toBeNull();
+    });
+
+    /**
+     * ②의 일반형 — `pageSize=1`만의 문제가 아니다. 어떤 pageSize에서도
+     * `items.length < pageSize && nextPageId !== null`이면 그 구간의 가려진 건수가
+     * 정확히 `pageSize - items.length`다. ②를 「빈 페이지」로만 좁혀 보면 안 된다.
+     */
+    it('②(미해결) 일반형 — 꽉 찬 창에서 items가 모자란 만큼이 곧 가려진 건수다', async () => {
+      const listPage = jest
+        .fn()
+        .mockResolvedValue([VISIBLE, HIDDEN, TAIL, row({ id: 'lookahead' })]);
+      const filterEligibleRepositoryIds = jest
+        .fn()
+        .mockResolvedValue(
+          new Set([VISIBLE.githubRepositoryId, TAIL.githubRepositoryId]),
+        );
+      const { service } = serviceWith({
+        listPage,
+        filterEligibleRepositoryIds,
+      });
+
+      const page = await service.findPage(undefined, 3);
+
+      expect(page.nextPageId).not.toBeNull();
+      expect(3 - page.items.length).toBe(1);
     });
   });
 

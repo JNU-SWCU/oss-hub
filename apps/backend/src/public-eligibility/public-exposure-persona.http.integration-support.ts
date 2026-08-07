@@ -13,6 +13,7 @@ import { issueSessionToken } from '../auth/session-token';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import { PrismaService } from '../prisma/prisma.service';
+import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import type { GithubAppClient } from '../repositories/github-app.client';
 import { RepositoriesRepository } from '../repositories/repositories.repository';
 import { RepositoriesService } from '../repositories/repositories.service';
@@ -34,6 +35,12 @@ import {
 import { PublicEligibilityService } from './public-eligibility.service';
 
 const sessionSecret = new Uint8Array(32).fill(23);
+/**
+ * QA40 — 공개 프로젝트 커서 키는 배포에서도 `SESSION_SECRET`에서 파생하므로, harness도
+ * 위 세션 시크릿을 그대로 base64url로 넘겨 실제 배선과 같은 경로를 탄다.
+ */
+const SYNTHETIC_SESSION_SECRET =
+  Buffer.from(sessionSecret).toString('base64url');
 export const PUBLIC_EXPOSURE_PERSONA_ALLOWED_ORIGIN =
   'http://frontend-persona.test';
 
@@ -66,6 +73,7 @@ export class PublicExposurePersonaHttpHarness {
       publicProjectsRepository,
       eligibilityService,
       this.collection,
+      loadRuntimeConfig({ SESSION_SECRET: SYNTHETIC_SESSION_SECRET }),
     );
     const rankingService = new RankingService(
       this.collection,
