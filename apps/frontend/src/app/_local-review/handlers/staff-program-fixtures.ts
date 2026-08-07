@@ -110,6 +110,12 @@ const BASIC_APPLICATIONS = [
     // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
     isRepositoryPublicationPlanned: false,
     repositoryProvisioning: PROVISIONING_SUCCEEDED,
+    // 저장소는 프로비저닝이 성공한 신청에만 있다. 공개 전환은 프로그램 종료·필수
+    // 마일스톤 전원 승인까지 가야 하므로 진행 중에는 대부분 PRIVATE이다.
+    repository: {
+      url: 'https://github.com/JNU-SWCU/synthetic-repo-1',
+      visibility: 'PUBLIC',
+    },
     submittedAt: '2026-04-20T02:15:00.000Z',
     participation: 'INDIVIDUAL',
     applicant: {
@@ -132,6 +138,7 @@ const BASIC_APPLICATIONS = [
     // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
     isRepositoryPublicationPlanned: false,
     repositoryProvisioning: PROVISIONING_NOT_REQUESTED,
+    repository: null,
     submittedAt: '2026-04-27T05:40:00.000Z',
     participation: 'INDIVIDUAL',
     applicant: {
@@ -153,6 +160,7 @@ const BASIC_APPLICATIONS = [
     // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
     isRepositoryPublicationPlanned: false,
     repositoryProvisioning: PROVISIONING_DISABLED,
+    repository: null,
     submittedAt: '2026-04-18T23:05:00.000Z',
     participation: 'INDIVIDUAL',
     applicant: {
@@ -308,6 +316,12 @@ const CONTEST_APPLICATIONS = [
     // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
     isRepositoryPublicationPlanned: false,
     repositoryProvisioning: PROVISIONING_SUCCEEDED,
+    // 저장소는 프로비저닝이 성공한 신청에만 있다. 공개 전환은 프로그램 종료·필수
+    // 마일스톤 전원 승인까지 가야 하므로 진행 중에는 대부분 PRIVATE이다.
+    repository: {
+      url: 'https://github.com/JNU-SWCU/synthetic-repo-2',
+      visibility: 'PRIVATE',
+    },
     submittedAt: '2026-07-16T04:00:00.000Z',
     participation: 'TEAM',
     applicant: {
@@ -316,9 +330,12 @@ const CONTEST_APPLICATIONS = [
       nickname: 'synthetic-student-21',
     },
     team: {
-      id: 'synthetic-team-01',
-      name: '합성 오픈소스팀',
-      memberCount: 3,
+      // 팀 명단(`program-overview-fixtures`의 경진대회 1팀)과 같은 id 여야 한다 —
+      // 교직원 참여 팀 목록이 이 id 로 신청을 붙인다. 어긋나면 그 화면에서 모든 팀이
+      // "신청서 안 냄"으로 보인다.
+      id: 'synthetic-team-contest-1',
+      name: '합성 경진대회 1팀',
+      memberCount: 2,
     },
     answers: {
       applicantName: '합성 학생 21',
@@ -333,6 +350,12 @@ const CONTEST_APPLICATIONS = [
     // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
     isRepositoryPublicationPlanned: false,
     repositoryProvisioning: PROVISIONING_SUCCEEDED,
+    // 저장소는 프로비저닝이 성공한 신청에만 있다. 공개 전환은 프로그램 종료·필수
+    // 마일스톤 전원 승인까지 가야 하므로 진행 중에는 대부분 PRIVATE이다.
+    repository: {
+      url: 'https://github.com/JNU-SWCU/synthetic-repo-3',
+      visibility: 'PRIVATE',
+    },
     submittedAt: '2026-07-17T07:20:00.000Z',
     participation: 'TEAM',
     applicant: {

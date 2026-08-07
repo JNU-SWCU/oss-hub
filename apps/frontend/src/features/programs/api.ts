@@ -14,6 +14,7 @@ import type {
   ProgramListParams,
   ProgramStatusCounts,
   RepositoryProvisioning,
+  StaffProgramTeam,
   ProgramParticipation,
   StaffDashboardSummary,
   SubmissionType,
@@ -398,6 +399,19 @@ export function listProgramApplications(
   });
   return apiClient<ApplicationListPage>(
     `programs/${encodeURIComponent(programId)}/applications?${search.toString()}`,
+  );
+}
+
+/**
+ * 교직원 전용 팀 목록. 학생이 쓰는 공개 로스터(`overview/teams`)와 **다른 경로**다 —
+ * 그쪽은 프로그램 참가자 전원에게 보이는 목록이라 실명을 주지 않는다. 이 경로는
+ * staff 가드 뒤에 있어 실명을 포함한다.
+ */
+export function listStaffProgramTeams(
+  programId: string,
+): Promise<readonly StaffProgramTeam[]> {
+  return apiClient<readonly StaffProgramTeam[]>(
+    `programs/${encodeURIComponent(programId)}/teams`,
   );
 }
 
