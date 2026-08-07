@@ -61,8 +61,20 @@ export function SignupInviteView() {
           </Button>
           {/* 계정이 없는 사람 안내는 카드를 하나 더 쌓지 않고 주 버튼 옆에 둔다.
               카드가 둘이면 무게가 비슷해져 "둘 중 무엇을 눌러야 하나"가 되는데,
-              이 화면의 주 행동은 하나다. */}
-          <Button asChild size="lg" variant="link">
+              이 화면의 주 행동은 하나다.
+
+              `variant="link"`의 `text-primary`(남색)는 이 우주 바탕에서 1.68:1이라
+              읽히지 않는다 — 반전 스코프가 되돌리지 않는 토큰이라 여기서 랜딩의
+              초록 강조색을 지정한다(8.56:1). 토큰 자체를 고치지 않는 이유는 바로
+              옆 주 버튼(`signupPrimaryClassName`)이 흰 바탕 + `--primary` 글자라
+              그쪽이 되레 무너지기 때문이다. 색만으로 링크임을 알리지 않도록
+              밑줄을 항상 켠다. */}
+          <Button
+            asChild
+            className="text-cosmos-repository underline"
+            size="lg"
+            variant="link"
+          >
             <a
               href={GITHUB_SIGNUP_URL}
               rel="noreferrer noopener"
