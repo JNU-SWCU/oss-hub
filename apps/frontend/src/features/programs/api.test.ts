@@ -141,7 +141,6 @@ describe('createApplication', () => {
 
     const result = await createApplication('program-1', {
       answers: { title: '제목', summary: '요약' },
-      teamId: null,
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: true,
       repositoryConnectionMode: 'new',
@@ -154,7 +153,6 @@ describe('createApplication', () => {
         method: 'POST',
         body: JSON.stringify({
           answers: { title: '제목', summary: '요약' },
-          teamId: null,
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: true,
           repositoryConnectionMode: 'NEW',
@@ -178,7 +176,6 @@ describe('createApplication', () => {
 
     const result = await createApplication('program-1', {
       answers: { title: '제목', summary: '요약' },
-      teamId: null,
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: false,
       repositoryConnectionMode: 'new',
@@ -191,7 +188,6 @@ describe('createApplication', () => {
         method: 'POST',
         body: JSON.stringify({
           answers: { title: '제목', summary: '요약' },
-          teamId: null,
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: false,
           repositoryConnectionMode: 'NEW',
@@ -215,7 +211,6 @@ describe('createApplication', () => {
 
     const result = await createApplication('program-1', {
       answers: { title: '제목', summary: '요약' },
-      teamId: null,
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: true,
       repositoryConnectionMode: 'own',
@@ -228,7 +223,6 @@ describe('createApplication', () => {
         method: 'POST',
         body: JSON.stringify({
           answers: { title: '제목', summary: '요약' },
-          teamId: null,
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: true,
           repositoryConnectionMode: 'OWN',
