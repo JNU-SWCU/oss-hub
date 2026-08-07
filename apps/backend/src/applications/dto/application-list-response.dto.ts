@@ -2,6 +2,7 @@ import type { ApplicationStatus } from '@prisma/client';
 import type {
   ApplicationListItem,
   ApplicationListPage,
+  ApplicationListRepository,
   RepositoryProvisioningJobStatus,
   RepositoryProvisioningSafeErrorClass,
 } from '../applications.repository';
@@ -17,6 +18,11 @@ export class ApplicationListItemResponseDto {
     readonly updatedAt: string;
     readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
   };
+  /**
+   * 프로비저닝된 저장소 주소·공개 여부. 화면이 「공개 저장소 열기」/「비공개 저장소 확인」을
+   * 가르는 데 쓴다(submission-reviews 검토 화면과 같은 계약). 아직 없으면 null.
+   */
+  readonly repository: ApplicationListRepository | null;
   readonly isRepositoryPublicationPlanned: boolean;
   readonly participation: 'INDIVIDUAL' | 'TEAM';
   readonly applicant: {
@@ -44,6 +50,7 @@ export class ApplicationListItemResponseDto {
       ...item.repositoryProvisioning,
       updatedAt: item.repositoryProvisioning.updatedAt.toISOString(),
     };
+    this.repository = item.repository;
     this.isRepositoryPublicationPlanned = item.isRepositoryPublicationPlanned;
     this.participation = item.participation;
     this.applicant = item.applicant;

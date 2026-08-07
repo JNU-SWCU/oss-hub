@@ -12,11 +12,16 @@ import {
   ProgramTeamsRepository,
   TeamMembershipConflictError,
   type CreatedTeamRecord,
+  type StaffTeamRecord,
   type TeamDetailRecord,
   type TeamProgramRecord,
 } from './program-teams.repository';
 import { TEAMS_ERROR_CODES, TeamsErrorCode } from './teams-error-code.enum';
-import type { CreatedTeamView, ProgramTeamView } from './program-teams.types';
+import type {
+  CreatedTeamView,
+  ProgramTeamView,
+  StaffTeamView,
+} from './program-teams.types';
 
 const JOIN_CODE_ATTEMPTS = 5;
 
@@ -169,6 +174,38 @@ export class ProgramTeamsService {
       throw this.error(TeamsErrorCode.TEAM_NOT_FOUND);
     }
     return this.toTeamView(detail, student.id);
+  }
+
+  /**
+   * 교직원 전용 팀 목록 — 팀원 전원의 실명을 포함한다(권한 검사는 ProgramTeamsStaffGuard).
+   * 팀은 createdAt 오름차순, 멤버도 createdAt 오름차순이되 팀장만 맨 앞으로 끌어올린다.
+   */
+  async listForStaff(programId: string): Promise<StaffTeamView[]> {
+    const program = await this.repository.findProgramById(programId);
+    if (!program) {
+      throw this.error(TeamsErrorCode.PROGRAM_NOT_FOUND);
+    }
+    const teams = await this.repository.listStaffTeams(programId);
+    return teams.map((team) => this.toStaffTeamView(team));
+  }
+
+  private toStaffTeamView(team: StaffTeamRecord): StaffTeamView {
+    const members = team.members.map((member) => ({
+      userId: member.userId,
+      name: member.name,
+      nickname: member.nickname,
+      isLeader: member.userId === team.leaderId,
+    }));
+    return {
+      teamId: team.id,
+      name: team.name,
+      memberCount: members.length,
+      // createdAt 순서를 유지한 채 팀장만 앞으로 옮긴다(안정 분할).
+      members: [
+        ...members.filter((member) => member.isLeader),
+        ...members.filter((member) => !member.isLeader),
+      ],
+    };
   }
 
   private async requireStudent(githubId: bigint) {

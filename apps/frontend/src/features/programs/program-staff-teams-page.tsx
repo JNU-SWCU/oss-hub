@@ -40,8 +40,40 @@ const STATUS_BADGE: Readonly<
   REJECTED: 'rejected',
 };
 
-/** 신청 목록은 한 번에 받는다 — 팀 수가 프로그램당 수십 규모다. */
-const APPLICATION_FETCH_SIZE = 200;
+/**
+ * 신청 목록 한 페이지 크기. **backend DTO 의 `@Max(100)` 을 넘으면 안 된다** —
+ * 넘기면 `ValidationPipe` 가 요청 전체를 400 SYS_003 으로 거절한다.
+ */
+const APPLICATION_PAGE_SIZE = 100;
+/** 폭주 방지 상한. 100 * 20 = 2,000건이면 한 프로그램 규모를 크게 넘는다. */
+const MAX_APPLICATION_PAGES = 20;
+
+/**
+ * 신청을 끝까지 받아 온다. 팀 목록이 기준 축이라 **일부만 받으면 신청이 있는 팀이
+ * 「신청서 안 냄」으로 잘못 보인다** — 부분 데이터가 조용히 오답이 되는 자리다.
+ */
+async function fetchAllApplications(
+  programId: string,
+): Promise<readonly ApplicationListItem[]> {
+  const first = await listProgramApplications(programId, {
+    page: 1,
+    pageSize: APPLICATION_PAGE_SIZE,
+    search: '',
+    status: 'all',
+  });
+  const items = [...first.items];
+  const lastPage = Math.min(first.totalPages, MAX_APPLICATION_PAGES);
+  for (let page = 2; page <= lastPage; page += 1) {
+    const next = await listProgramApplications(programId, {
+      page,
+      pageSize: APPLICATION_PAGE_SIZE,
+      search: '',
+      status: 'all',
+    });
+    items.push(...next.items);
+  }
+  return items;
+}
 
 type TeamFilter = 'all' | ApplicationStatus | 'no-application';
 
@@ -121,16 +153,11 @@ export function ProgramStaffTeamsPage({
     try {
       const [teams, applications] = await Promise.all([
         listStaffProgramTeams(programId),
-        listProgramApplications(programId, {
-          page: 1,
-          pageSize: APPLICATION_FETCH_SIZE,
-          search: '',
-          status: 'all',
-        }),
+        fetchAllApplications(programId),
       ]);
       setState({
         kind: 'ready',
-        rows: joinTeamsWithApplications(teams, applications.items),
+        rows: joinTeamsWithApplications(teams, applications),
       });
     } catch {
       setState({ kind: 'error' });
