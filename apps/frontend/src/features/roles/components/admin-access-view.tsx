@@ -345,8 +345,13 @@ export function AdminAccessView(props: AdminAccessViewProps) {
           검색
         </Button>
       </form>
-      <div className="overflow-x-auto rounded-lg border border-border">
+      {/* 가로 스크롤은 표 안쪽 컨테이너(초점을 받는 쪽) 하나만 담당한다. 여기서도
+          `overflow-x-auto` 를 주면 스크롤 영역이 두 겹이 되어, 키보드 초점은 안쪽에
+          있는데 바깥이 따로 밀리는 상태가 된다. 이 래퍼는 `rounded-lg` 모서리를
+          클립하는 역할만 남긴다. */}
+      <div className="overflow-hidden rounded-lg border border-border">
         <DataTable
+          scrollRegionLabel="사용자 접근 목록 표"
           columns={columns}
           data={[...props.items]}
           rowKey={(item) => item.id}

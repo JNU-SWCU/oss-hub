@@ -193,6 +193,7 @@ export function AuditLogView(props: AuditLogViewProps) {
       <DataTable
         className="min-w-0 rounded-lg border border-border"
         aria-describedby="audit-table-scroll-hint"
+        scrollRegionLabel="감사 로그 표"
         columns={columns}
         data={[...props.records]}
         rowKey={(record) => record.id}
