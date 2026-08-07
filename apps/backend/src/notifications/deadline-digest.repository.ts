@@ -20,6 +20,11 @@ export interface MissingSubmitter {
   readonly nickname: string;
   readonly notificationEmail: string | null;
   readonly notifyEnabled: boolean;
+  /**
+   * 미제출 집계에는 남기되 본인 발송 대상에서는 빼기 위해 함께 읽는다.
+   * 비활성 계정은 로그인 자체가 막혀(auth.service) 제출할 수 없으므로 리마인더 수신자가 될 수 없다.
+   */
+  readonly accountStatus: AccountStatus;
 }
 export interface DigestRecipient {
   readonly id: string;
@@ -104,6 +109,7 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
             nickname: true,
             notificationEmail: true,
             notifyEnabled: true,
+            accountStatus: true,
           },
         },
         team: {
@@ -116,6 +122,7 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
                     nickname: true,
                     notificationEmail: true,
                     notifyEnabled: true,
+                    accountStatus: true,
                   },
                 },
               },
@@ -160,9 +167,12 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
 
   async findStaffRecipients(): Promise<DigestRecipient[]> {
     // 발송 대상은 STAFF·ADMIN 교직원만. 설정 API 자체는 역할 무관(#156).
+    // 비활성 계정 제외: 이 요약 메일에는 미제출자 GitHub 핸들이 들어간다.
+    // 로그인이 막힌 계정(auth.service.ts)에 그 명단을 계속 보낼 이유가 없다.
     const rows = await this.prisma.user.findMany({
       where: {
         role: { in: [Role.STAFF, Role.ADMIN] },
+        accountStatus: AccountStatus.ACTIVE,
         notifyEnabled: true,
         notificationEmail: { not: null },
       },
