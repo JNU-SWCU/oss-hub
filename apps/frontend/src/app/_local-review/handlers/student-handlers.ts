@@ -5,6 +5,7 @@ import {
   accepted,
   bodyEnum,
   bodyNullableString,
+  bodyRecord,
   bodyString,
   json,
   matchGet,
@@ -243,17 +244,32 @@ function studentMutationHandler(
     context.path,
   );
   if (applicationParams !== null) {
-    // 팀 신청이면 요청 본문의 팀을 그대로 돌려준다(개인 신청은 `teamId: null`).
-    // 저장소 연결 필드도 에코해 브라우저 QA가 제출 payload를 확인할 수 있게 한다.
+    // 저장소 연결 필드를 에코해 브라우저 QA가 제출 payload를 확인할 수 있게 한다.
     // 한계: 신청 내용은 저장되지 않아 다시 열면 픽스처의 신청 전 상태로 돌아온다.
+    //
+    // 팀은 **요청 본문에서 읽지 않는다.** backend 는 신청자의 팀 멤버십으로 팀을 정하고
+    // (`applications.service.ts` 의 `findExistingTeamMembership`) 요청 본문의 `teamId` 는
+    // 미허용 키라 400 SYS_003 이 된다. 예전에는 여기서 `teamId` 를 그대로 에코했고, 그
+    // 바람에 **frontend 가 미허용 키를 보내는 동안에도 로컬 검토는 성공처럼 보였다** —
+    // 2026-08-05 부터 배포 운영에서 모든 신규 신청이 실패한 회귀가 여기서 가려졌다.
+    // 픽스처는 실제 계약보다 너그러우면 안 된다.
     const repositoryConnectionMode =
       bodyEnum(context, 'repositoryConnectionMode', ['NEW', 'OWN'] as const) ??
       'NEW';
+    const applicationBody = bodyRecord(context);
+    if (applicationBody !== null && 'teamId' in applicationBody) {
+      return problem(
+        400,
+        'SYS_003',
+        apiPath(context.path),
+        'property teamId should not exist',
+      );
+    }
     return accepted({
       id: 'synthetic-application-basic',
       programId: applicationParams.id,
       status: 'SUBMITTED',
-      teamId: bodyString(context, 'teamId'),
+      teamId: 'synthetic-team-basic',
       submittedAt: '2026-08-01T00:00:00.000Z',
       repositoryConnectionMode,
       repositoryUrl:

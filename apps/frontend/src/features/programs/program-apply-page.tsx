@@ -121,7 +121,6 @@ export function ProgramApplyPage({
       }
       const created = await createApplication(programId, {
         answers: applicationAnswers(values),
-        teamId: state.teamId,
         applicationTemplateVersion: state.template.version,
         isRepositoryPublicationPlanned: values.isRepositoryPublicationPlanned,
         repositoryConnectionMode: values.repositoryConnectionMode,

@@ -329,7 +329,6 @@ describe('student fixture responses', () => {
         searchParams: new URLSearchParams(),
         body: {
           answers: { title: '합성 제목', summary: '합성 요약' },
-          teamId: 'synthetic-team-created',
           applicationTemplateVersion: 1,
           repositoryConnectionMode: 'OWN',
           repositoryUrl: 'https://github.com/team/repo',
@@ -344,7 +343,6 @@ describe('student fixture responses', () => {
         searchParams: new URLSearchParams(),
         body: {
           answers: { title: '합성 제목', summary: '합성 요약' },
-          teamId: null,
           applicationTemplateVersion: 1,
           repositoryConnectionMode: 'NEW',
           repositoryUrl: null,
@@ -355,7 +353,6 @@ describe('student fixture responses', () => {
     // Then
     expect(team).toMatchObject({ name: '합성 입력 팀' });
     expect(application).toMatchObject({
-      teamId: 'synthetic-team-created',
       repositoryConnectionMode: 'OWN',
       repositoryUrl: 'https://github.com/team/repo',
     });
@@ -363,5 +360,26 @@ describe('student fixture responses', () => {
       repositoryConnectionMode: 'NEW',
       repositoryUrl: null,
     });
+  });
+
+  it('신청 본문에 미허용 키 teamId 가 있으면 실제 backend 처럼 400 SYS_003 을 준다', () => {
+    // 2026-08-05 회귀 재발 방지. 이 픽스처가 예전에는 teamId 를 그대로 에코해서,
+    // frontend 가 미허용 키를 보내는 동안에도 로컬 검토가 성공처럼 보였다.
+    // 픽스처가 실제 계약보다 너그러우면 검토가 결함을 통과시킨다.
+    const plan = resolveLocalReviewResponse({
+      fixture: 'student',
+      method: 'POST',
+      path: 'programs/program-basic-study/applications',
+      searchParams: new URLSearchParams(),
+      body: {
+        answers: { title: '합성 제목', summary: '합성 요약' },
+        teamId: null,
+        applicationTemplateVersion: 1,
+        repositoryConnectionMode: 'NEW',
+        repositoryUrl: null,
+      },
+    });
+
+    expect(jsonBody(plan, 400)).toMatchObject({ code: 'SYS_003' });
   });
 });

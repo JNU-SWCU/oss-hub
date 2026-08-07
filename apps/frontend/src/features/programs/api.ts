@@ -259,12 +259,21 @@ export function deleteMilestone(
 
 export type CreateApplicationRepositoryConnectionMode = 'new' | 'own';
 
+/**
+ * 신청 생성 요청 본문. 키는 backend `CreateApplicationRequestDto`가 whitelist 하는
+ * 것과 정확히 같아야 한다 — 전역 `ValidationPipe`가 `forbidNonWhitelisted: true`라
+ * 모르는 키가 하나라도 있으면 본문 전체가 400 SYS_003으로 거절된다.
+ *
+ * 팀은 여기서 보내지 않는다. #651 이후 backend가 신청자의 팀 멤버십으로 팀을 정한다
+ * — 이미 이 프로그램의 팀에 속해 있으면 그 팀을 재사용하고, 아니면 1인 팀을 만든다
+ * (`applications.service.ts`의 `findExistingTeamMembership`). 팀 id를 실어 보내면
+ * 미허용 키가 되어 신청이 통째로 실패한다.
+ */
 export interface CreateApplicationInput {
   readonly answers: {
     readonly title: string;
     readonly summary: string;
   };
-  readonly teamId: string | null;
   readonly applicationTemplateVersion: number;
   readonly isRepositoryPublicationPlanned: boolean;
   /** 폼 값 — wire 전송 시 `NEW`/`OWN`으로 매핑한다. */
@@ -306,7 +315,6 @@ export function createApplication(
       headers: jsonHeaders,
       body: JSON.stringify({
         answers: input.answers,
-        teamId: input.teamId,
         applicationTemplateVersion: input.applicationTemplateVersion,
         isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
         repositoryConnectionMode,
