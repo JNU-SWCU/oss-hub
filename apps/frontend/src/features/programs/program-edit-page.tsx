@@ -232,8 +232,8 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
         : 'PUBLISHED';
     const message =
       lifecycle === 'ARCHIVED'
-        ? '대회를 내리면 익명 사용자에게 보이지 않고 신청이 차단됩니다. 계속할까요?'
-        : '내린 대회를 다시 발행할까요?';
+        ? '프로그램을 내리면 익명 사용자에게 보이지 않고 신청이 차단됩니다. 계속할까요?'
+        : '내린 프로그램을 다시 발행할까요?';
     if (!window.confirm(message)) return;
     setIsLifecycleBusy(true);
     try {
@@ -270,8 +270,8 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
           onClick={() => void toggleLifecycle()}
         >
           {state.program.lifecycle === 'PUBLISHED'
-            ? '대회 내리기'
-            : '대회 복구하기'}
+            ? '프로그램 내리기'
+            : '프로그램 복구하기'}
         </button>
       </div>
       <ProgramEditView
