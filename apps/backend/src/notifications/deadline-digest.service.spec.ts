@@ -126,9 +126,13 @@ describe('DeadlineDigestService', () => {
         .find((message) => message.to === address)?.body;
 
     // 비활성 학생도 집계에는 남는다 — 명단에서 지우면 교직원이 미제출 건을 놓친다.
+    // 대신 비활성 계정에만 표시를 붙인다. 수신 거부는 계정 상태가 아니므로 표시하지 않고,
+    // 활성 계정에 표시가 붙으면 표시 자체가 뜻을 잃으므로 이 문자열 전체로 고정한다.
     expect(sentTo('staff@example.com')).toContain(
-      '미제출자: 미제출학생, 미제출학생, 수신거부학생, 비활성학생',
+      '미제출자: 미제출학생, 미제출학생, 수신거부학생, 비활성학생 (비활성)',
     );
+    // 수신 거부는 비활성이 아니다 — 둘을 같은 표시로 묶지 않는다.
+    expect(sentTo('staff@example.com')).not.toContain('수신거부학생 (비활성)');
     expect(sentTo('student@example.com')).toContain(
       '2026. 08. 15. 09:00 (Asia/Seoul)',
     );
