@@ -58,16 +58,9 @@ const OUT_OF_SCOPE: ReadonlyMap<string, string> = new Map([
  * 아니다. 조용히 통과시키지 않으려고 목록으로 드러낸다.
  */
 const KNOWN_GAPS: ReadonlyMap<string, string> = new Map([
-  // `admin-handlers.ts` 주석이 이미 자백하고 있다 — 화면이 관리자 접근 한 곳으로
-  // 합쳐지면서 이 세 경로가 필요해졌는데 픽스처를 세우지 않고 후속으로 미뤘다.
-  // 그 결과가 「상세를 직접 열면 사용자 정보를 불러오지 못했다」(QA7)로 올라왔다.
-  [
-    'users/access',
-    'QA7 갈래 — 관리자 접근 화면 픽스처, 별도 브랜치에서 다룬다',
-  ],
-  ['users/access/facets', 'QA7 갈래 — 위와 같다'],
-  ['users/:id/access', 'QA7 갈래 — 위와 같다'],
-  ['users/:id/access/history', 'QA7 갈래 — 위와 같다'],
+  // 관리자 접근 화면 네 경로(`users/access`·`users/access/facets`·
+  // `users/:id/access`·`users/:id/access/history`)는 이 PR 에서 메웠다 —
+  // 그 공백이 QA7 의 원인이었다. 목록에서 뺀다.
   [
     'auth/me',
     '`features/auth` 는 owner 전속 경로다(app/AGENTS.md) — 임의로 픽스처를 세우지 않는다',
