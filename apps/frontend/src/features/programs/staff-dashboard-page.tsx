@@ -9,7 +9,7 @@ import {
   type ReactElement,
 } from 'react';
 import { ApiError } from '@/lib/api-client';
-import { getStaffDashboardSummary } from './api';
+import { getStaffDashboardSummary, sendDeadlineDigest } from './api';
 import {
   buildStaffDashboardPageModel,
   type StaffDashboardPageModel,
@@ -43,6 +43,10 @@ export function StaffDashboardPage(): ReactElement {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<ProgramListStatus>('all');
   const [page, setPage] = useState(1);
+  const [isSendingDeadlineDigest, setIsSendingDeadlineDigest] = useState(false);
+  const [deadlineDigestNotice, setDeadlineDigestNotice] = useState<
+    string | null
+  >(null);
   const latestRequestId = useRef(0);
   const now = useMemo(() => new Date(), []);
 
@@ -112,6 +116,26 @@ export function StaffDashboardPage(): ReactElement {
         setPage(1);
       },
       onPageChange: setPage,
+      onSendDeadlineDigest: () => {
+        void (async () => {
+          setIsSendingDeadlineDigest(true);
+          setDeadlineDigestNotice(null);
+          try {
+            await sendDeadlineDigest();
+            setDeadlineDigestNotice(
+              '마감 알림 발송을 요청했습니다. 수신 동의·미제출 대상에게 메일이 나갑니다.',
+            );
+          } catch {
+            setDeadlineDigestNotice(
+              '마감 알림을 발송하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+            );
+          } finally {
+            setIsSendingDeadlineDigest(false);
+          }
+        })();
+      },
+      isSendingDeadlineDigest,
+      deadlineDigestNotice,
     },
   };
   return <StaffDashboardPageView state={state} />;

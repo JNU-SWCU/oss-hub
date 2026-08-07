@@ -434,3 +434,15 @@ export async function getStaffDashboardSummary(): Promise<StaffDashboardSummary>
     await apiClient<unknown>('dashboard/staff/summary'),
   );
 }
+
+export interface DeadlineDigestSendResult {
+  readonly ok: true;
+}
+
+/** 교직원·관리자가 마감 다이제스트 배치를 즉시 실행한다. */
+export function sendDeadlineDigest(): Promise<DeadlineDigestSendResult> {
+  return apiClient<DeadlineDigestSendResult>(
+    'notifications/deadline-digests/send',
+    { method: 'POST' },
+  );
+}
