@@ -7,6 +7,7 @@ import {
   Prisma,
   RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
+  type RepositoryVisibility,
   Role,
   ProgramLifecycle,
   type ProgramCategory,
@@ -164,12 +165,24 @@ export interface ApplicationRepositoryProvisioning {
   readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
 }
 
+/**
+ * 신청자 목록의 저장소 주소 — 교직원 화면이 「공개 저장소 열기」/「비공개 저장소 확인」을
+ * 가르는 데 쓴다. 출처는 `Application.repository` 1:1 관계다. `Team.repositories` 로 가지
+ * 않는다 — 저장소 식별 단위는 application 이다(`schema.prisma` Repository 주석, #113).
+ * 아직 프로비저닝되지 않았으면 null.
+ */
+export interface ApplicationListRepository {
+  readonly url: string;
+  readonly visibility: RepositoryVisibility;
+}
+
 export interface ApplicationListItem {
   readonly id: string;
   readonly status: ApplicationStatus;
   readonly submittedAt: Date;
   readonly rejectionReason: string | null;
   readonly repositoryProvisioning: ApplicationRepositoryProvisioning;
+  readonly repository: ApplicationListRepository | null;
   readonly isRepositoryPublicationPlanned: boolean;
   readonly participation: 'INDIVIDUAL' | 'TEAM';
   readonly applicant: {
@@ -585,6 +598,10 @@ export class ApplicationsRepository {
                 teamId: true,
                 answers: true,
                 isRepositoryPublicationPlanned: true,
+                // 1:1 Application.repository — 팀의 repositories 로 가지 않는다(#113).
+                repository: {
+                  select: { url: true, visibility: true },
+                },
                 program: {
                   select: { repositoryProvisioningEnabled: true },
                 },
@@ -799,6 +816,10 @@ type ApplicationListRow = {
   readonly teamId: string | null;
   readonly answers: Prisma.JsonValue;
   readonly isRepositoryPublicationPlanned: boolean;
+  readonly repository: {
+    readonly url: string;
+    readonly visibility: RepositoryVisibility;
+  } | null;
   readonly program: {
     readonly repositoryProvisioningEnabled: boolean;
   };
@@ -851,6 +872,9 @@ function toApplicationListItem(
       outbox,
       job,
     ),
+    repository: row.repository
+      ? { url: row.repository.url, visibility: row.repository.visibility }
+      : null,
     isRepositoryPublicationPlanned: row.isRepositoryPublicationPlanned,
     participation: team ? 'TEAM' : 'INDIVIDUAL',
     applicant: {

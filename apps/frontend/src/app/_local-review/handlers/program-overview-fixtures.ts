@@ -175,6 +175,8 @@ export function programOverviewFor(
 export interface ProgramOverviewTeamMemberFixture {
   readonly userId: string;
   readonly displayName: string;
+  /** GitHub 로그인. 공개 로스터는 이것을 표시명으로 쓰고, 교직원 목록은 실명과 함께 쓴다. */
+  readonly nickname: string;
   readonly isLeader: boolean;
 }
 
@@ -206,6 +208,7 @@ function generateSyntheticTeams(
       members: Array.from({ length: memberCount }, (_, memberIndex) => ({
         userId: `synthetic-user-${slug}-${teamNumber}-${memberIndex + 1}`,
         displayName: `합성 참여자 ${teamNumber}-${memberIndex + 1}`,
+        nickname: `${slug}-${teamNumber}-${memberIndex + 1}`,
         isLeader: memberIndex === 0,
       })),
     };
@@ -226,6 +229,7 @@ const CAPSTONE_MY_TEAM_ENTRY: ProgramOverviewTeamFixture = (() => {
     members: myTeam.members.map((member) => ({
       userId: member.userId,
       displayName: member.name ?? member.nickname,
+      nickname: member.nickname,
       isLeader: member.isLeader,
     })),
   };
@@ -243,6 +247,46 @@ const PROGRAM_TEAM_DIRECTORIES: Readonly<
   // 개인형 프로그램이라 팀이 없다.
   'program-basic-study': [],
 };
+
+/** `programs/:programId/teams`(교직원 전용)가 돌려주는 팀 항목 하나. */
+export interface StaffProgramTeamFixture {
+  readonly teamId: string;
+  readonly name: string;
+  readonly memberCount: number;
+  readonly members: readonly {
+    readonly userId: string;
+    readonly name: string | null;
+    readonly nickname: string;
+    readonly isLeader: boolean;
+  }[];
+}
+
+/**
+ * 교직원 팀 목록은 공개 로스터와 **같은 팀 집합**을 실명까지 붙여 돌려준다.
+ * 두 벌로 적으면 한쪽만 고쳐져 사이드바 팀 수와 목록이 어긋나므로 여기서 파생시킨다.
+ *
+ * 마지막 팀의 팀장은 `name: null`로 둔다 — 프로필을 아직 채우지 않은 계정이 섞였을
+ * 때 화면이 GitHub 계정으로 떨어지는지 검토자가 눈으로 볼 수 있어야 한다.
+ */
+export function staffProgramTeamDirectoryFor(
+  programId: PublicProgramId,
+): readonly StaffProgramTeamFixture[] {
+  const teams = PROGRAM_TEAM_DIRECTORIES[programId];
+  return teams.map((team, teamIndex) => ({
+    teamId: team.teamId,
+    name: team.name,
+    memberCount: team.memberCount,
+    members: team.members.map((member, memberIndex) => ({
+      userId: member.userId,
+      name:
+        teamIndex === teams.length - 1 && memberIndex === 0
+          ? null
+          : member.displayName,
+      nickname: member.nickname,
+      isLeader: member.isLeader,
+    })),
+  }));
+}
 
 export function programTeamDirectoryFor(
   programId: PublicProgramId,

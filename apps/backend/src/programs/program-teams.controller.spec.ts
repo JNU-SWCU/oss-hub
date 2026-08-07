@@ -1,14 +1,15 @@
-import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { GUARDS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { CreateTeamRequestDto } from './dto/create-team-request.dto';
 import { JoinTeamRequestDto } from './dto/join-team-request.dto';
 import { ProgramTeamsController } from './program-teams.controller';
+import { ProgramTeamsStaffGuard } from './program-teams-staff.guard';
 import type { ProgramTeamsService } from './program-teams.service';
 
 function readGuards(
   target: object,
-  methodName: 'create' | 'join' | 'me',
+  methodName: 'create' | 'join' | 'me' | 'list',
 ): unknown[] {
   const method: unknown = Object.getOwnPropertyDescriptor(
     target,
@@ -37,6 +38,79 @@ describe('ProgramTeamsController', () => {
     ]);
   });
 
+  it('list(교직원 팀 목록) 에 SessionGuard·ProgramTeamsStaffGuard 를 적용한다', () => {
+    expect(readGuards(ProgramTeamsController.prototype, 'list')).toEqual([
+      SessionGuard,
+      ProgramTeamsStaffGuard,
+    ]);
+  });
+
+  /**
+   * 정적 형제 우선 규칙(`programs.controller.ts`) — `GET me` 가 `GET ''` 보다 먼저
+   * 선언돼 있어야 한다. Nest 는 선언 순서대로 라우트를 등록한다.
+   */
+  it('GET me 를 GET (목록) 보다 먼저 선언한다', () => {
+    const methods = Object.getOwnPropertyNames(
+      ProgramTeamsController.prototype,
+    );
+    expect(methods.indexOf('me')).toBeLessThan(methods.indexOf('list'));
+    const readPath = (name: 'me' | 'list'): unknown =>
+      Reflect.getMetadata(
+        PATH_METADATA,
+        Object.getOwnPropertyDescriptor(ProgramTeamsController.prototype, name)
+          ?.value as object,
+      );
+    expect(readPath('me')).toBe('me');
+    expect(readPath('list')).toBe('/');
+  });
+
+  it('list 는 service 결과를 StaffProgramTeamResponseDto 배열로 반환한다', async () => {
+    const listForStaff = jest.fn().mockResolvedValue([
+      {
+        teamId: 'team-1',
+        name: '오픈소스팀',
+        memberCount: 1,
+        members: [
+          {
+            userId: 'user-a',
+            name: '가나다',
+            nickname: 'login-a',
+            isLeader: true,
+          },
+        ],
+      },
+    ]);
+    const service: Pick<
+      ProgramTeamsService,
+      'create' | 'join' | 'getMe' | 'listForStaff'
+    > = {
+      create: jest.fn(),
+      join: jest.fn(),
+      getMe: jest.fn(),
+      listForStaff,
+    };
+    const controller = new ProgramTeamsController(service);
+
+    const response = await controller.list('program-1');
+
+    expect(listForStaff).toHaveBeenCalledWith('program-1');
+    expect(response).toEqual([
+      {
+        teamId: 'team-1',
+        name: '오픈소스팀',
+        memberCount: 1,
+        members: [
+          {
+            userId: 'user-a',
+            name: '가나다',
+            nickname: 'login-a',
+            isLeader: true,
+          },
+        ],
+      },
+    ]);
+  });
+
   it('create 는 service 결과를 CreateTeamResponseDto 로 반환한다', async () => {
     const create = jest.fn().mockResolvedValue({
       id: 'team-1',
@@ -44,10 +118,14 @@ describe('ProgramTeamsController', () => {
       joinCode: 'ABCD1234XY',
       memberCount: 1,
     });
-    const service: Pick<ProgramTeamsService, 'create' | 'join' | 'getMe'> = {
+    const service: Pick<
+      ProgramTeamsService,
+      'create' | 'join' | 'getMe' | 'listForStaff'
+    > = {
       create,
       join: jest.fn(),
       getMe: jest.fn(),
+      listForStaff: jest.fn(),
     };
     const controller = new ProgramTeamsController(service);
     const body = Object.assign(new CreateTeamRequestDto(), {
@@ -80,10 +158,14 @@ describe('ProgramTeamsController', () => {
       isLeader: false,
       members: [],
     });
-    const service: Pick<ProgramTeamsService, 'create' | 'join' | 'getMe'> = {
+    const service: Pick<
+      ProgramTeamsService,
+      'create' | 'join' | 'getMe' | 'listForStaff'
+    > = {
       create: jest.fn(),
       join,
       getMe: jest.fn(),
+      listForStaff: jest.fn(),
     };
     const controller = new ProgramTeamsController(service);
     const body = Object.assign(new JoinTeamRequestDto(), {
@@ -116,10 +198,14 @@ describe('ProgramTeamsController', () => {
       isLeader: true,
       members: [],
     });
-    const service: Pick<ProgramTeamsService, 'create' | 'join' | 'getMe'> = {
+    const service: Pick<
+      ProgramTeamsService,
+      'create' | 'join' | 'getMe' | 'listForStaff'
+    > = {
       create: jest.fn(),
       join: jest.fn(),
       getMe,
+      listForStaff: jest.fn(),
     };
     const controller = new ProgramTeamsController(service);
 

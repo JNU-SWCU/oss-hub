@@ -26,6 +26,8 @@ import {
   type LocalReviewContext,
   type LocalReviewHandler,
 } from '../handler-kit';
+import { staffProgramTeamDirectoryFor } from './program-overview-fixtures';
+import { isPublicProgramId } from './student-program-fixtures';
 import {
   CREATED_PROGRAM_ID,
   findStaffMilestone,
@@ -150,6 +152,21 @@ const programEditHandler: LocalReviewHandler = (context) => {
   return fixture === null
     ? notFound('PRG_004', context.path)
     : json(200, fixture.program);
+};
+
+/**
+ * 교직원 참여 팀 목록(QA33). 학생이 쓰는 `overview/teams`와 **다른 경로**이고 실명을
+ * 포함한다 — 그쪽은 프로그램 참가자 전원에게 보이는 로스터라 nickname만 준다.
+ * 학생 페르소나로는 여기 닿지 않는다(`staffRole`이 null이면 이 규칙이 응답하지 않고,
+ * 학생 규칙의 `teams/me`가 세그먼트 수가 달라 서로 먹지 않는다).
+ */
+const staffProgramTeamsHandler: LocalReviewHandler = (context) => {
+  const params = matchGet(context, 'programs/:id/teams');
+  if (staffRole(context) === null || params === null) return null;
+  const programId = params.id as string;
+  return isPublicProgramId(programId)
+    ? json(200, staffProgramTeamDirectoryFor(programId))
+    : notFound('PRG_001', context.path);
 };
 
 const programApplicationsHandler: LocalReviewHandler = (context) => {
@@ -418,6 +435,7 @@ const publishRepositoryHandler: LocalReviewHandler = (context) => {
 
 export const STAFF_HANDLERS: readonly LocalReviewHandler[] = [
   programEditHandler,
+  staffProgramTeamsHandler,
   programApplicationsHandler,
   submissionMatrixHandler,
   reviewContextHandler,

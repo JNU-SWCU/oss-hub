@@ -71,6 +71,7 @@ const personal: ApplicationListItem = {
     safeErrorClass: null,
   },
   isRepositoryPublicationPlanned: true,
+  repository: null,
   submittedAt: '2026-07-15T00:00:00.000Z',
   participation: 'INDIVIDUAL',
   applicant: {
@@ -97,6 +98,7 @@ const team: ApplicationListItem = {
     safeErrorClass: null,
   },
   isRepositoryPublicationPlanned: false,
+  repository: null,
   submittedAt: '2026-07-16T00:00:00.000Z',
   participation: 'TEAM',
   applicant: {

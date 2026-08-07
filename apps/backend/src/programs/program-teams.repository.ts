@@ -67,6 +67,22 @@ export interface TeamDetailRecord {
   }[];
 }
 
+/**
+ * 교직원 전용 팀 목록의 한 팀. 멤버 실명(`name`)을 포함하므로 학생도 쓰는 공개 로스터
+ * (`program-overview`의 `listPublicTeams`)와 절대 섞지 않는다 — 그쪽은 nickname 만
+ * 준다는 계약을 그대로 유지한다.
+ */
+export interface StaffTeamRecord {
+  readonly id: string;
+  readonly name: string;
+  readonly leaderId: string;
+  readonly members: readonly {
+    readonly userId: string;
+    readonly nickname: string;
+    readonly name: string | null;
+  }[];
+}
+
 export class TeamMembershipConflictError extends Error {
   override readonly name = 'TeamMembershipConflictError';
 }
@@ -190,6 +206,52 @@ export class ProgramTeamsRepository {
         name: resolveCompatibleProfileName(member.user),
       })),
     };
+  }
+
+  /**
+   * 교직원 전용 팀 목록 — 명시적 select 만 쓰고 팀명·팀장·멤버(실명·nickname)만 읽는다.
+   * 참여코드(`joinCodeDigest`)·저장소(`repositories`)·`TeamMember`의 학과/연락처/이메일·
+   * `User.studentId` 는 이 select 에 절대 포함하지 않는다.
+   *
+   * 실명은 `COMPATIBLE_PROFILE_NAME_SELECT` + `resolveCompatibleProfileName()` 로만 읽는다
+   * (`UserProfile.name` 과 legacy `User.name` 을 합치는 정식 경로). `TeamMember.name` 은
+   * 스키마 주석과 달리 아무 writer 도 채우지 않아 항상 null 이므로 쓰지 않는다.
+   *
+   * 정렬은 팀 `createdAt` 오름차순이고 멤버도 `createdAt` 오름차순이다(팀장을 맨 앞으로
+   * 끌어올리는 것은 service 가 한다).
+   */
+  async listStaffTeams(programId: string): Promise<StaffTeamRecord[]> {
+    const teams = await this.prisma.team.findMany({
+      where: { programId },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        leaderId: true,
+        members: {
+          select: {
+            userId: true,
+            user: {
+              select: {
+                nickname: true,
+                ...COMPATIBLE_PROFILE_NAME_SELECT,
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+    return teams.map((team) => ({
+      id: team.id,
+      name: team.name,
+      leaderId: team.leaderId,
+      members: team.members.map((member) => ({
+        userId: member.userId,
+        nickname: member.user.nickname,
+        name: resolveCompatibleProfileName(member.user),
+      })),
+    }));
   }
 
   withCreateTransaction<T>(

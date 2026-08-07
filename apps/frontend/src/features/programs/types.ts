@@ -170,11 +170,40 @@ export interface ApplicationListItem {
     readonly name: string;
     readonly memberCount: number;
   } | null;
+  /**
+   * 신청 산출물 저장소. `Application.repository` 1:1이 출처다 — 팀으로 찾지 않는다
+   * (`schema.prisma`의 Repository 주석: "저장소 식별 단위는 application이다").
+   * 아직 만들어지지 않았으면 `null`.
+   */
+  readonly repository: {
+    readonly url: string;
+    readonly visibility: 'PUBLIC' | 'PRIVATE';
+  } | null;
   readonly answers: {
     readonly applicantName: string;
     readonly title: string;
     readonly summary: string;
   };
+}
+
+/** 교직원 팀 목록의 팀원 한 명. `name`은 가입 시 입력한 실명(없으면 `null`). */
+export interface StaffProgramTeamMember {
+  readonly userId: string;
+  readonly name: string | null;
+  readonly nickname: string;
+  readonly isLeader: boolean;
+}
+
+/**
+ * `GET /programs/:programId/teams` (교직원 전용) 응답 항목.
+ * 학생이 쓰는 공개 로스터(`overview/teams`)와 달리 실명을 포함한다 —
+ * 그쪽은 프로그램 참가자 전원에게 보이는 목록이라 nickname만 준다.
+ */
+export interface StaffProgramTeam {
+  readonly teamId: string;
+  readonly name: string;
+  readonly memberCount: number;
+  readonly members: readonly StaffProgramTeamMember[];
 }
 
 export interface ApplicationListPage {

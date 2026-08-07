@@ -14,6 +14,7 @@ import { ProgramEditorController } from './program-editor.controller';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramLifecycleService } from './program-lifecycle.service';
+import { ProgramTeamsStaffGuard } from './program-teams-staff.guard';
 import { ProgramTeamsController } from './program-teams.controller';
 import { ProgramTeamsRepository } from './program-teams.repository';
 import { ProgramTeamsService } from './program-teams.service';
@@ -55,6 +56,7 @@ import { StudentDashboardService } from './student-dashboard.service';
     ProgramLifecycleService,
     ProgramTeamsService,
     ProgramTeamsRepository,
+    ProgramTeamsStaffGuard,
   ],
   exports: [PROGRAM_ACTIVITY_SUMMARY_PORT],
 })
