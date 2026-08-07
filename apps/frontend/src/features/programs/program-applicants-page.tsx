@@ -576,6 +576,7 @@ export function ProgramApplicantsPage({
       </p>
       <DataTable
         aria-describedby="applicants-table-scroll-hint"
+        scrollRegionLabel="신청자 목록 표"
         columns={columns}
         data={[...applicationPage.items]}
         rowKey={(row) => row.id}

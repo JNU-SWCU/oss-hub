@@ -76,6 +76,7 @@ export function StaffDashboardOverview({
     <>
       <div className="hidden xl:block">
         <DataTable
+          scrollRegionLabel="프로그램 운영 현황 표"
           columns={columns}
           data={[...programs]}
           rowKey={(program) => program.id}
