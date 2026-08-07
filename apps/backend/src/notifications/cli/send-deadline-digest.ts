@@ -18,6 +18,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../../app.module';
 import { PROCESS_RUNTIME_CONFIG } from '../../runtime-config/runtime-config.instance';
 import { LogMailSender } from '../adapters/log-mail-sender';
+import { buildStudentDeadlineMail } from '../deadline-digest-mail.template';
 import { DeadlineDigestService } from '../deadline-digest.service';
 import { resolveMailSender } from '../mail-sender.provider';
 
@@ -35,15 +36,25 @@ async function main(): Promise<void> {
         'MAIL_MODE=dry-run — dry-run 로그만 남깁니다. 실수신을 원하면 MAIL_MODE=send 와 GMAIL_* 4종을 채우세요.',
       );
     }
-    const subject = '[oss-hub] 로컬 점검 다이제스트 (강제 수신)';
-    const body = [
-      'oss-hub 로컬 점검용 테스트 메일입니다.',
-      '',
-      `at=${new Date().toISOString()}`,
-      '',
-      '실제 마일스톤 배치가 아니라 CLI 강제 발송입니다.',
-    ].join('\n');
-    await mailer.send({ to: forceTo, subject, body });
+    const now = new Date();
+    const sample = buildStudentDeadlineMail({
+      displayName: '점검수신자',
+      milestone: {
+        id: 'local-check',
+        programId: 'local-check',
+        programName: 'oss-hub 로컬 점검',
+        milestoneName: '강제 발송 스모크',
+        dueAt: new Date(now.getTime() + 60 * 60 * 1000),
+      },
+      now,
+      frontendOrigin: runtime.FRONTEND_URL?.trim() || 'http://localhost:3000',
+    });
+    await mailer.send({
+      to: forceTo,
+      subject: sample.subject,
+      body: sample.text,
+      html: sample.html,
+    });
     logger.log(
       usingGmail
         ? '강제 실발송 완료 (수신 주소는 로그에 전체 노출하지 않음)'
