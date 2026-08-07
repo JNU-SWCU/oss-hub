@@ -13,8 +13,16 @@ import type { AuditLogPage, AuditLogRecord } from '@/features/audit-log/types';
 import type {
   ProgramListItem,
   ProgramListPage,
+  ProgramListStatus,
+  ProgramStatusCounts,
   StaffDashboardSummary,
 } from '@/features/programs/types';
+import { RANKING_YEAR_ALL } from '@/features/ranking/types';
+import type {
+  RankingItem,
+  RankingPage,
+  RankingYear,
+} from '@/features/ranking/types';
 import { apiPath } from '@/lib/api-client';
 import type { LocalReviewFixtureId } from './fixture-contract';
 import {
@@ -498,17 +506,158 @@ function auditLogPage(searchParams: URLSearchParams): AuditLogWirePage {
   };
 }
 
-function recruitmentState(
+/**
+ * 공개 목록 기간 필터 — backend `program-list-status-filter.ts`의
+ * `deriveProgramListStatus`를 그대로 옮긴 것이다. 배타 우선순위(첫 매치 승)까지 같다.
+ *
+ * ⚠ 이전 구현은 `scheduled`·`closed`라는 **API에 없는 어휘**를 썼다. 화면이 보내는
+ * `?status=upcoming|in_progress|ended`가 어느 것과도 같지 않아 로컬 검토에서만
+ * 결과가 0건이 됐다(실제 backend는 정상 응답한다). 뱃지(`programs/status-counts`)와
+ * 목록이 같은 판정을 쓰지 않으면 숫자가 어긋나 "화면은 멀쩡한데 답이 틀리는"
+ * 상태가 되므로 둘 다 이 함수를 쓴다.
+ */
+function programListStatus(
   program: ProgramListItem,
   now: Date,
-): 'scheduled' | 'recruiting' | 'closed' {
+): Exclude<ProgramListStatus, 'all'> {
+  if (program.lifecycle === 'ARCHIVED') return 'ended';
   const nowTime = now.getTime();
-  if (nowTime < new Date(program.applicationStartAt).getTime()) {
-    return 'scheduled';
+  if (program.endAt !== null && new Date(program.endAt).getTime() < nowTime) {
+    return 'ended';
   }
-  return nowTime <= new Date(program.applicationEndAt).getTime()
+  if (new Date(program.applicationStartAt).getTime() > nowTime) {
+    return 'upcoming';
+  }
+  return new Date(program.applicationEndAt).getTime() >= nowTime
     ? 'recruiting'
-    : 'closed';
+    : 'in_progress';
+}
+
+/**
+ * 공개 랭킹. 실명·실제 계정을 남기지 않도록 합성 핸들만 쓴다
+ * (`docs/rules/security.md` public-safe 규칙).
+ * 키는 `parseRankingPage`가 `hasExactKeys`로 정확히 검사하므로 더도 덜도 안 된다.
+ */
+const RANKING_YEARS = [2026, 2025] as const;
+
+/**
+ * ⚠ 연도마다 **다른** 사람·다른 숫자를 준다. 모든 연도에 같은 행을 돌려주면
+ * 연도 전환이 화면에서 아무것도 바꾸지 않아, 검토자가 연도 필터가 도는지
+ * 확인할 방법이 없다 — 픽스처가 계약보다 너그러운 바로 그 상태다.
+ * backend `RankingService`는 실제로 연도로 집계를 좁힌다.
+ */
+type RankingActivity = Omit<RankingItem, 'rank' | 'total'>;
+
+const RANKING_ACTIVITY_BY_YEAR: Readonly<
+  Record<number, readonly RankingActivity[]>
+> = {
+  2026: [
+    {
+      displayName: 'synthetic-top',
+      githubLogin: 'synthetic-top',
+      commitCount: 128,
+      prCount: 24,
+      releaseCount: 3,
+    },
+    {
+      displayName: 'synthetic-second',
+      githubLogin: 'synthetic-second',
+      commitCount: 96,
+      prCount: 18,
+      releaseCount: 1,
+    },
+  ],
+  2025: [
+    {
+      displayName: 'synthetic-veteran',
+      githubLogin: 'synthetic-veteran',
+      commitCount: 64,
+      prCount: 11,
+      releaseCount: 2,
+    },
+    {
+      displayName: 'synthetic-top',
+      githubLogin: 'synthetic-top',
+      commitCount: 41,
+      prCount: 7,
+      releaseCount: 0,
+    },
+  ],
+};
+
+/** total 과 rank 는 저장하지 않고 계산한다 — 손으로 적으면 서로 어긋난다. */
+function rankedItems(
+  activities: readonly RankingActivity[],
+): readonly RankingItem[] {
+  return activities
+    .map((activity) => ({
+      ...activity,
+      total: activity.commitCount + activity.prCount + activity.releaseCount,
+    }))
+    .sort((left, right) => right.total - left.total)
+    .map((item, index) => ({ ...item, rank: index + 1 }));
+}
+
+/** `all` 은 연도별 활동을 사람 단위로 합친다 — 같은 사람이 두 해에 걸쳐 있다. */
+function rankingItemsFor(year: RankingYear): readonly RankingItem[] {
+  if (year !== RANKING_YEAR_ALL) {
+    return rankedItems(RANKING_ACTIVITY_BY_YEAR[year] ?? []);
+  }
+  const merged = new Map<string, RankingActivity>();
+  for (const activities of Object.values(RANKING_ACTIVITY_BY_YEAR)) {
+    for (const activity of activities) {
+      const previous = merged.get(activity.githubLogin);
+      merged.set(
+        activity.githubLogin,
+        previous === undefined
+          ? activity
+          : {
+              ...previous,
+              commitCount: previous.commitCount + activity.commitCount,
+              prCount: previous.prCount + activity.prCount,
+              releaseCount: previous.releaseCount + activity.releaseCount,
+            },
+      );
+    }
+  }
+  return rankedItems([...merged.values()]);
+}
+
+function rankingPage(searchParams: URLSearchParams): RankingPage {
+  const page = positiveIntParam(searchParams.get('page'), 1);
+  const pageSize = positiveIntParam(searchParams.get('pageSize'), 20);
+  const rawYear = searchParams.get('year');
+  // `?year=`는 연도 아니면 `all`이다. 파서가 그 둘만 통과시키므로 픽스처도 같게 좁힌다.
+  const parsedYear = Number(rawYear);
+  const year: RankingYear =
+    rawYear !== null && Number.isInteger(parsedYear) && parsedYear >= 2000
+      ? parsedYear
+      : RANKING_YEAR_ALL;
+  const items = rankingItemsFor(year);
+  const offset = (page - 1) * pageSize;
+
+  return {
+    year,
+    items: items.slice(offset, offset + pageSize),
+    page,
+    pageSize,
+    total: items.length,
+  };
+}
+
+/** 사이드바 뱃지. 5키가 항상 있고 `all === 나머지 넷의 합`이다. */
+function programStatusCounts(now: Date): ProgramStatusCounts {
+  const counts: Record<ProgramListStatus, number> = {
+    all: PUBLIC_PROGRAM_FIXTURES.length,
+    recruiting: 0,
+    in_progress: 0,
+    upcoming: 0,
+    ended: 0,
+  };
+  for (const program of PUBLIC_PROGRAM_FIXTURES) {
+    counts[programListStatus(program, now)] += 1;
+  }
+  return counts;
 }
 
 /** `/programs`(status=all)와 랜딩(status=recruiting)이 같은 경로를 쓰므로 질의를 그대로 반영한다 */
@@ -523,7 +672,7 @@ function programListPage(searchParams: URLSearchParams): ProgramListPage {
   const matched = PUBLIC_PROGRAM_FIXTURES.filter(
     (program) =>
       program.name.toLocaleLowerCase('ko').includes(search) &&
-      (status === 'all' || recruitmentState(program, now) === status),
+      (status === 'all' || programListStatus(program, now) === status),
   );
   const offset = (page - 1) * pageSize;
 
@@ -619,6 +768,23 @@ export function resolveLocalReviewResponse({
 
   if (method === 'GET' && path === 'programs') {
     return json(200, programListPage(searchParams));
+  }
+
+  // ⚠ `programs/:id`보다 **먼저** 와야 한다. 뒤에 두면 `status-counts`가 프로그램
+  // id로 먹혀 로컬 검토에서만 404가 난다(QA8). backend 도 같은 이유로
+  // `programs.controller.ts`에서 이 라우트를 `:id` 앞에 두고 주석을 달아 뒀다.
+  if (method === 'GET' && path === 'programs/status-counts') {
+    return json(200, programStatusCounts(new Date()));
+  }
+
+  // 랭킹은 비로그인도 보는 공개 화면인데 픽스처에 규칙이 아예 없어 두 요청 모두
+  // 404로 떨어졌다(QA9). 페르소나를 가리지 않는다.
+  if (method === 'GET' && path === 'ranking') {
+    return json(200, rankingPage(searchParams));
+  }
+
+  if (method === 'GET' && path === 'ranking/years') {
+    return json(200, { years: RANKING_YEARS });
   }
 
   if (method === 'GET' && path === 'projects') {

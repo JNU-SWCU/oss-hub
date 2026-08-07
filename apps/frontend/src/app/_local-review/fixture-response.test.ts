@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseArchiveDetail, parseArchivePage } from '@/features/archive/api';
+import { parseRankingPage, parseRankingYears } from '@/features/ranking/api';
 import { dashboardFixture } from '@/features/dashboard/fixtures';
 import {
   parseLandingArchiveDetail,
@@ -511,6 +512,71 @@ describe('local review fixture responses', () => {
     });
     const all = parseLandingProgramPage(body);
     expect(all.length).toBeGreaterThanOrEqual(recruiting.length);
+  });
+
+  it('상태 뱃지와 목록 필터가 같은 판정을 쓴다', () => {
+    // Given: 사이드바 뱃지가 5키를 읽는다 — QA8 이 404 로 못 받던 그 응답이다.
+    const counts = jsonBody(
+      publicGet('anonymous', 'programs/status-counts'),
+    ) as Record<string, number>;
+
+    // Then: 5키가 모두 있고 all 이 나머지 넷의 합이다(정의상 파티션).
+    const parts = ['recruiting', 'in_progress', 'upcoming', 'ended'] as const;
+    for (const key of ['all', ...parts]) {
+      expect(typeof counts[key]).toBe('number');
+    }
+    expect(parts.reduce((sum, key) => sum + counts[key], 0)).toBe(counts.all);
+
+    // And: 뱃지 숫자와 그 상태로 거른 목록 건수가 일치한다. 어긋나면 화면은
+    // 멀쩡한데 답이 틀리는 상태가 된다 — 빈 화면보다 나쁘다.
+    // 픽스처가 `scheduled`·`closed` 라는 API 에 없는 어휘를 쓰던 동안에는
+    // `upcoming`·`in_progress`·`ended` 가 전부 0건이었다.
+    for (const status of parts) {
+      const page = jsonBody(
+        publicGet(
+          'anonymous',
+          'programs',
+          `page=1&pageSize=50&status=${status}`,
+        ),
+      ) as { totalItems: number };
+      expect(page.totalItems).toBe(counts[status]);
+    }
+  });
+
+  it('랭킹 응답이 랭킹 화면 파서를 통과한다', () => {
+    // QA9 — 픽스처 폴더 전체에 `ranking` 이 한 번도 없어 두 요청 모두 404 였다.
+    const page = parseRankingPage(
+      jsonBody(publicGet('anonymous', 'ranking', 'page=1&pageSize=20')),
+    );
+    expect(page.items.length).toBeGreaterThan(0);
+    expect(page.total).toBe(page.items.length);
+
+    const years = parseRankingYears(
+      jsonBody(publicGet('anonymous', 'ranking/years')),
+    );
+    expect(years.years.length).toBeGreaterThan(0);
+
+    // 연도를 바꾸면 실제로 다른 결과가 나와야 한다. 모든 연도가 같은 행이면
+    // 검토자가 연도 필터가 도는지 확인할 방법이 없다 — 픽스처가 계약보다
+    // 너그러운 상태이고, 이 PR 이 없애려는 것이 바로 그것이다.
+    const perYear = years.years.map((year) =>
+      parseRankingPage(
+        jsonBody(publicGet('anonymous', 'ranking', `year=${year}`)),
+      ),
+    );
+    for (const [index, yearPage] of perYear.entries()) {
+      expect(yearPage.year).toBe(years.years[index]);
+    }
+    const signatures = perYear.map((yearPage) =>
+      yearPage.items.map((item) => `${item.githubLogin}:${item.total}`).join(),
+    );
+    expect(new Set(signatures).size).toBe(signatures.length);
+
+    // 그리고 전체(`all`)는 연도별 합이라 어느 한 해보다 총점이 크다.
+    const top = (rows: readonly { total: number }[]) => rows[0]?.total ?? 0;
+    expect(top(page.items)).toBeGreaterThanOrEqual(
+      Math.max(...perYear.map((yearPage) => top(yearPage.items))),
+    );
   });
 
   it('public archive reads parse with the archive screen parsers', () => {
