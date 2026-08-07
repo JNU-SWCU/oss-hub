@@ -45,16 +45,26 @@ const STATUS_BADGE: Readonly<
  * 넘기면 `ValidationPipe` 가 요청 전체를 400 SYS_003 으로 거절한다.
  */
 const APPLICATION_PAGE_SIZE = 100;
-/** 폭주 방지 상한. 100 * 20 = 2,000건이면 한 프로그램 규모를 크게 넘는다. */
+/**
+ * 폭주 방지 상한. 여기 걸리면 **조용히 자르지 않고 화면에 드러낸다** — 일부만 받은 채
+ * 팀을 붙이면 신청이 있는 팀이 「신청서 안 냄」으로 보이고, 그건 빈 화면보다 나쁘다.
+ * 사용자는 틀린 것을 맞다고 읽는다.
+ */
 const MAX_APPLICATION_PAGES = 20;
 
 /**
  * 신청을 끝까지 받아 온다. 팀 목록이 기준 축이라 **일부만 받으면 신청이 있는 팀이
  * 「신청서 안 냄」으로 잘못 보인다** — 부분 데이터가 조용히 오답이 되는 자리다.
  */
+export interface FetchedApplications {
+  readonly items: readonly ApplicationListItem[];
+  /** 상한에 걸려 일부만 받았는지. `true` 면 화면이 그 사실을 알린다. */
+  readonly truncated: boolean;
+}
+
 async function fetchAllApplications(
   programId: string,
-): Promise<readonly ApplicationListItem[]> {
+): Promise<FetchedApplications> {
   const first = await listProgramApplications(programId, {
     page: 1,
     pageSize: APPLICATION_PAGE_SIZE,
@@ -72,7 +82,7 @@ async function fetchAllApplications(
     });
     items.push(...next.items);
   }
-  return items;
+  return { items, truncated: first.totalPages > MAX_APPLICATION_PAGES };
 }
 
 type TeamFilter = 'all' | ApplicationStatus | 'no-application';
@@ -85,6 +95,7 @@ interface StaffTeamRow {
 interface LoadedState {
   readonly kind: 'ready';
   readonly rows: readonly StaffTeamRow[];
+  readonly truncated: boolean;
 }
 type ScreenState =
   { readonly kind: 'loading' } | { readonly kind: 'error' } | LoadedState;
@@ -157,7 +168,8 @@ export function ProgramStaffTeamsPage({
       ]);
       setState({
         kind: 'ready',
-        rows: joinTeamsWithApplications(teams, applications),
+        rows: joinTeamsWithApplications(teams, applications.items),
+        truncated: applications.truncated,
       });
     } catch {
       setState({ kind: 'error' });
@@ -289,6 +301,17 @@ export function ProgramStaffTeamsPage({
         title="참여 팀"
         description="팀 구성과 신청 현황을 함께 봅니다."
       />
+
+      {state.kind === 'ready' && state.truncated ? (
+        <Alert>
+          <AlertTitle>신청 정보를 일부만 불러왔습니다</AlertTitle>
+          <AlertDescription>
+            신청 건수가 많아 전부 받지 못했습니다. 아래에서 「신청서 안 냄」으로
+            보이는 팀 중 일부는 실제로 신청했을 수 있습니다. 신청자 목록
+            화면에서 확인해 주세요.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <div className="flex flex-wrap gap-2" role="group" aria-label="상태 필터">
         {(

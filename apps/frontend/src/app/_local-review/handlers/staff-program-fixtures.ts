@@ -364,9 +364,11 @@ const CONTEST_APPLICATIONS = [
       nickname: 'synthetic-student-31',
     },
     team: {
-      id: 'synthetic-team-02',
-      name: '합성 챔피언팀',
-      memberCount: 2,
+      // 팀 명단의 경진대회 2팀과 같은 id 여야 한다 — 교직원 참여 팀 목록이 이 id 로
+      // 신청을 붙인다.
+      id: 'synthetic-team-contest-2',
+      name: '합성 경진대회 2팀',
+      memberCount: 3,
     },
     answers: {
       applicantName: '합성 학생 31',

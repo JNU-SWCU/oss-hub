@@ -232,6 +232,32 @@ describe('ProgramStaffTeamsPage', () => {
     expect(container.querySelectorAll('a')).toHaveLength(0);
   });
 
+  it('신청을 전부 받으면 잘림 안내를 띄우지 않는다', async () => {
+    await render(
+      [team('t1', '가팀', [member('a', '김가', true)])],
+      [application('t1', 'APPROVED')],
+    );
+
+    expect(container.textContent).not.toContain('일부만 불러왔습니다');
+  });
+
+  // 조용히 자르면 신청이 있는 팀이 「신청서 안 냄」으로 보인다 — 빈 화면보다 나쁘다.
+  it('신청이 상한을 넘으면 일부만 받았다고 알린다', async () => {
+    listStaffProgramTeamsMock.mockResolvedValue([
+      team('t1', '가팀', [member('a', '김가', true)]),
+    ]);
+    listProgramApplicationsMock.mockResolvedValue({
+      ...page([]),
+      totalPages: 999,
+      totalItems: 99_900,
+    });
+    await act(async () => {
+      root.render(<ProgramStaffTeamsPage programId="program-1" />);
+    });
+
+    expect(container.textContent).toContain('일부만 불러왔습니다');
+  });
+
   it('불러오기에 실패하면 안내를 띄운다', async () => {
     listStaffProgramTeamsMock.mockRejectedValue(new Error('boom'));
     listProgramApplicationsMock.mockResolvedValue(page([]));
