@@ -368,9 +368,10 @@ it('비활성 계정은 교직원 요약과 학생 리마인더 어느 쪽도 �
   ).toBe(0);
 });
 
-it('비활성 학생도 교직원 요약의 미제출자 집계에는 남는다', async () => {
+it('비활성 학생도 교직원 요약의 미제출자 집계에는 남고 비활성 표시가 붙는다', async () => {
   // 의도된 동작이다. 명단에서 지우면 교직원이 미제출 건 자체를 놓친다.
   // opt-out 학생을 남기는 기존 계약과 같은 이유이며, 바꾸려면 정책 결정이 먼저다.
+  // 대신 비활성 계정에는 표시를 붙여, 독촉이 닿지 않는 사람을 교직원이 구분하게 한다.
   const mailSender = new RecordingMailSender();
   const service = new DeadlineDigestService(repository, mailSender);
 
@@ -381,6 +382,17 @@ it('비활성 학생도 교직원 요약의 미제출자 집계에는 남는다'
   );
   expect(staffMail?.body).toContain(
     'synthetic-test:notifications:student-deactivated',
+  );
+  expect(staffMail?.body).toContain(
+    'synthetic-test:notifications:student-deactivated (비활성)',
+  );
+  // 활성 계정에는 표시가 붙지 않는다 — 전원에게 붙으면 표시가 뜻을 잃는다.
+  // student-off 는 수신 거부지만 계정은 활성이다. 수신 거부를 비활성과 섞지 않는다.
+  expect(staffMail?.body).not.toContain(
+    'synthetic-test:notifications:student-missing (비활성)',
+  );
+  expect(staffMail?.body).not.toContain(
+    'synthetic-test:notifications:student-off (비활성)',
   );
 });
 
