@@ -35,10 +35,38 @@ function isExpectedResourceStatusError(
   return match !== null && expectedStatuses.has(Number(match[1]));
 }
 
+// Chrome의 "Failed to load resource" 콘솔 메시지는 본문에 URL을 담지 않는다.
+// 어떤 요청이 실패했는지 알 수 없으면 위 단언이 깨져도 원인을 좁힐 수 없으므로,
+// 응답을 따로 받아 URL과 status를 짝지어 둔다.
+interface FailedResponse {
+  readonly status: number;
+  readonly url: string;
+}
+
+// 진단 정보 전용이다. 이 목록으로 단언하지 않는다 — lifecycle 스펙은 권한 거부(403)와
+// 낙관적 잠금 충돌(409)을 의도적으로 만들어 검증하므로, 정상 통과 실행에도 4xx가 들어 있다.
+// 판정은 콘솔 오류가 계속 맡고, 이 목록은 그 판정이 깨졌을 때 URL을 보여주는 역할만 한다.
+function consoleErrorLabel(failedResponses: readonly FailedResponse[]): string {
+  const label = 'browser console and page errors';
+  if (failedResponses.length === 0) {
+    return `${label} (기록된 4xx·5xx 응답 없음)`;
+  }
+  const occurrences = new Map<string, number>();
+  for (const { status, url } of failedResponses) {
+    const key = `${status} ${url}`;
+    occurrences.set(key, (occurrences.get(key) ?? 0) + 1);
+  }
+  const lines = [...occurrences].map(([key, count]) =>
+    count === 1 ? `  - ${key}` : `  - ${key} (${count}회)`,
+  );
+  return `${label}\n이 세션에서 실패한 응답:\n${lines.join('\n')}`;
+}
+
 interface AuthenticatedPage {
   readonly context: BrowserContext;
   readonly page: Page;
   readonly consoleErrors: string[];
+  readonly failedResponses: FailedResponse[];
   readonly expectedResourceStatuses: Set<number>;
 }
 
@@ -59,6 +87,13 @@ async function createAuthenticatedPage(
   ]);
   const page = await context.newPage();
   const consoleErrors: string[] = [];
+  const failedResponses: FailedResponse[] = [];
+  page.on('response', (response) => {
+    const status = response.status();
+    if (status >= 400) {
+      failedResponses.push({ status, url: response.url() });
+    }
+  });
   page.on('console', (message) => {
     if (
       message.type() === 'error' &&
@@ -70,7 +105,13 @@ async function createAuthenticatedPage(
   page.on('pageerror', (error) => {
     consoleErrors.push(error.message);
   });
-  return { context, page, consoleErrors, expectedResourceStatuses };
+  return {
+    context,
+    page,
+    consoleErrors,
+    failedResponses,
+    expectedResourceStatuses,
+  };
 }
 
 function brokenContractPath(): string | null {
@@ -98,7 +139,7 @@ export const test = base.extend<AdminFixtures & InternalFixtures>({
       ADMIN_SEED_GITHUB_ID,
       expectedResourceStatuses,
     );
-    const { context, page, consoleErrors } = session;
+    const { context, page, consoleErrors, failedResponses } = session;
 
     if (path !== null) {
       await context.route(`**${path}**`, async (route) => {
@@ -119,7 +160,7 @@ export const test = base.extend<AdminFixtures & InternalFixtures>({
 
     await use(session);
     await context.close();
-    expect(consoleErrors, 'browser console and page errors').toEqual([]);
+    expect(consoleErrors, consoleErrorLabel(failedResponses)).toEqual([]);
   },
   adminPage: async ({ adminSession }, use) => {
     await use(adminSession.page);
@@ -139,9 +180,10 @@ export const test = base.extend<AdminFixtures & InternalFixtures>({
     });
     for (const session of sessions) {
       await session.context.close();
-      expect(session.consoleErrors, 'browser console and page errors').toEqual(
-        [],
-      );
+      expect(
+        session.consoleErrors,
+        consoleErrorLabel(session.failedResponses),
+      ).toEqual([]);
     }
   },
 });
