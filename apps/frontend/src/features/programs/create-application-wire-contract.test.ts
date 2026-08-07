@@ -29,14 +29,33 @@ const DTO_PATH = fileURLToPath(
   ),
 );
 
-/** DTO 클래스의 `declare readonly <name>` 선언에서 whitelist 키를 뽑는다. */
-function backendWhitelistedKeys(): readonly string[] {
+/**
+ * DTO 가 whitelist 하는 키의 **현재 계약**. DTO 를 바꾸면 이 목록도 바꿔야 하고,
+ * 그 순간 «보내는 쪽도 같이 봤는가»를 묻게 된다 — 그게 이 상수의 존재 이유다.
+ * 부분집합 검사만으로는 **새 필수 필드가 DTO 에 생겨도 조용히 통과**한다.
+ */
+const EXPECTED_DTO_KEYS = [
+  'answers',
+  'applicationTemplateVersion',
+  'isRepositoryPublicationPlanned',
+  'repositoryConnectionMode',
+  'repositoryUrl',
+  'teamName',
+] as const;
+
+interface DtoKey {
+  readonly name: string;
+  readonly optional: boolean;
+}
+
+/** DTO 클래스의 `declare readonly <name>[?]:` 선언에서 키와 선택 여부를 뽑는다. */
+function backendDtoKeys(): readonly DtoKey[] {
   const source = readFileSync(DTO_PATH, 'utf8');
-  const keys = [...source.matchAll(/declare\s+readonly\s+(\w+)\??\s*:/g)].map(
-    (match) => match[1],
+  const keys = [...source.matchAll(/declare\s+readonly\s+(\w+)(\?)?\s*:/g)].map(
+    (match) => ({ name: match[1], optional: match[2] === '?' }),
   );
-  // 파싱이 깨졌는데 조용히 통과하는 일을 막는다 — DTO 는 최소 5개 필드를 갖는다.
-  expect(keys.length).toBeGreaterThanOrEqual(5);
+  // 파싱이 깨졌는데 조용히 통과하는 일을 막는다.
+  expect(keys.length).toBeGreaterThanOrEqual(EXPECTED_DTO_KEYS.length);
   return keys;
 }
 
@@ -59,8 +78,8 @@ describe('createApplication wire 계약', () => {
     vi.mocked(apiClient).mockReset();
   });
 
-  it('보내는 키가 backend DTO whitelist 의 부분집합이다', async () => {
-    const allowed = backendWhitelistedKeys();
+  it('보내는 키가 전부 backend DTO 의 whitelist 안에 있다', async () => {
+    const allowed = backendDtoKeys().map((key) => key.name);
     const sent = await sentBodyKeys();
 
     const notAllowed = sent.filter((key) => !allowed.includes(key));
@@ -68,10 +87,23 @@ describe('createApplication wire 계약', () => {
   });
 
   it('DTO 가 요구하는 필수 키를 빠짐없이 보낸다', async () => {
+    const required = backendDtoKeys()
+      .filter((key) => !key.optional)
+      .map((key) => key.name);
     const sent = await sentBodyKeys();
 
-    // `teamName`·`isRepositoryPublicationPlanned` 등은 @IsOptional 이라 제외한다.
-    expect(sent).toContain('answers');
-    expect(sent).toContain('applicationTemplateVersion');
+    const missing = required.filter((key) => !sent.includes(key));
+    expect(missing).toEqual([]);
+  });
+
+  it('DTO 의 키 집합이 이 테스트가 아는 계약과 같다', async () => {
+    // 위 두 검사만으로는 DTO 에 **새 필수 필드가 생겨도** 조용히 통과한다
+    // (보내는 쪽은 그대로여도 «부분집합»과 «필수 포함»이 함께 깨지지 않는 조합이 있다).
+    // DTO 가 바뀌면 여기서 먼저 멈춰 세워 보내는 쪽을 함께 보게 한다.
+    expect(
+      backendDtoKeys()
+        .map((key) => key.name)
+        .sort(),
+    ).toEqual([...EXPECTED_DTO_KEYS].sort());
   });
 });
