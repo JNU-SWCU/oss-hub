@@ -12,6 +12,17 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: true,
   preserveOutput: 'always',
+  // ⚠ 여기를 올리기 전에 읽을 것. lifecycle 스펙의 flake 대응으로 retries: 1을 시도했다가
+  // 실측으로 되돌렸다(2026-08-07). Playwright는 재시도 때 webServer를 재기동하지 않아
+  // DB가 앞 시도의 변경을 그대로 안고 간다. describe.serial 그룹은 1번부터 다시 도는데,
+  // 1번은 `요청함 (2)` 개수를 단언하고 그 PENDING 중 하나를 승인해 버리므로 재시도는
+  // 남은 1건에서 45초를 timeout으로 태우고 죽는다. 결과는 세 가지로 전부 나빴다:
+  //   - 실패는 그대로다 — 재시도해도 `1 failed`, 그리고 나머지 4개는 여전히 "did not run"이다.
+  //     (재시도를 넣는 명분이 "죽으면 나머지가 안 돈다"였는데 그게 해결되지 않는다)
+  //   - 로그 맨 아래에 남는 마지막 오류가 `요청함 (2)` 타임아웃으로 바뀌어, 진짜 원인인
+  //     404를 덮는다. 다음 조사자를 엉뚱한 곳으로 보낸다.
+  //   - CI 시간만 45초 늘어난다.
+  // 재시도가 의미를 가지려면 시도 사이에 시드를 되돌리는 설계가 먼저다.
   retries: 0,
   workers: 1,
   reporter: [['list']],
@@ -37,6 +48,9 @@ export default defineConfig({
   webServer: {
     command: 'bash e2e/run-stack.sh',
     url: e2eEnvironment.baseUrl,
+    // 기본값 'ignore'는 next dev의 `GET ... 404` 요청 로그를 통째로 버린다.
+    // 브라우저가 URL 없이 남기는 콘솔 오류를 서버 쪽에서 맞춰 볼 유일한 창구다.
+    stdout: 'pipe',
     timeout: 180_000,
     reuseExistingServer: false,
     gracefulShutdown: {
