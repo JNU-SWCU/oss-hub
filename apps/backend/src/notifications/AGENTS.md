@@ -5,26 +5,28 @@
 
 ## Purpose
 
-사용자 본인 알림 이메일 설정과 교직원 대상 마감 다이제스트를 담는다.
+사용자 본인 알림 이메일 설정과 마감 다이제스트(교직원·미제출 학생, DAKER HTML)를 담는다.
 메일 발송은 `MailSender` 포트 뒤에 두어 나머지 코드가 Gmail SDK를 알지 못한다.
 
 ## Key Files
 
-| 파일 | 역할 |
-| --- | --- |
-| `notification-settings.service.ts` | `getMyNotificationSettings`/`updateMyNotificationEmail` — 로그인 사용자 본인의 알림 이메일·수신 여부 |
-| `deadline-digest.service.ts` | `sendDeadlineDigests` — D-1(`DEADLINE_LEAD_TIME_MS`) 이내 마감 마일스톤을 조회해 수신 동의 교직원에게 발송, 대상 없으면 발송 생략 |
-| `deadline-digest.scheduler.ts` | `@Cron(EVERY_DAY_AT_9AM, { timeZone: 'Asia/Seoul' })` |
-| `mail-sender.port.ts` | `MailSender` 인터페이스·`MAIL_SENDER` DI 토큰 |
-| `mail-sender.provider.ts` | 런타임 설정으로 `GmailMailSender` vs `LogMailSender`(dry-run) 중 선택하는 factory |
+| 파일                                 | 역할                                                                                                          |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `notification-settings.service.ts`   | `getMyNotificationSettings`/`updateMyNotificationEmail` — 로그인 사용자 본인의 알림 이메일·수신 여부          |
+| `deadline-digest.service.ts`         | `sendDeadlineDigests` — D-1 이내 마감 마일스톤을 조회해 수신 동의 교직원·미제출 학생에게 DAKER HTML 메일 발송 |
+| `deadline-digest-mail.template.ts`   | 학생/교직원 DAKER 스타일 HTML·text 템플릿                                                                     |
+| `deadline-digest-trigger.service.ts` | `POST .../send` — 활성 STAFF·ADMIN 수동 배치 트리거                                                           |
+| `deadline-digest.scheduler.ts`       | `@Cron(EVERY_DAY_AT_9AM, { timeZone: 'Asia/Seoul' })`                                                         |
+| `mail-sender.port.ts`                | `MailSender` 인터페이스·`html?` 포함·`MAIL_SENDER` DI 토큰                                                    |
+| `mail-sender.provider.ts`            | 런타임 설정으로 `GmailMailSender` vs `LogMailSender`(dry-run) 중 선택하는 factory                             |
 
 ## Subdirectories
 
-| 경로 | 내용 |
-| --- | --- |
+| 경로        | 내용                                                                                                                   |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `adapters/` | `gmail-mail-sender.ts`(OAuth 리프레시 토큰 기반 발송) · `log-mail-sender.ts`(명시적 dry-run에서만 발송 없이 로그 기록) |
-| `dto/` | 알림 설정 요청/응답 DTO |
-| `cli/` | `send-deadline-digest.ts` — 로컬/실증용 1회 실행, `MAIL_MODE=send\|dry-run` 필수 |
+| `dto/`      | 알림 설정 요청/응답 DTO                                                                                                |
+| `cli/`      | `send-deadline-digest.ts` — 로컬/실증용 1회 실행, `MAIL_MODE=send\|dry-run` 필수                                       |
 
 ## For AI Agents
 

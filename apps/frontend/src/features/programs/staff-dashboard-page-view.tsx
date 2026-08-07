@@ -15,6 +15,9 @@ interface ReadyActions {
   readonly onSubmit: () => void;
   readonly onResetFilters: () => void;
   readonly onPageChange: (page: number) => void;
+  readonly onSendDeadlineDigest: () => void;
+  readonly isSendingDeadlineDigest: boolean;
+  readonly deadlineDigestNotice: string | null;
 }
 
 export type StaffDashboardPageViewState =
@@ -100,11 +103,31 @@ function StaffDashboardReadyState({
         title="운영 대시보드"
         description="프로그램 행에서 바로 편집하거나 운영 현황을 확인합니다."
         actions={
-          <Button asChild>
-            <Link href={programNewHref()}>프로그램 만들기</Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={actions.isSendingDeadlineDigest}
+              onClick={actions.onSendDeadlineDigest}
+            >
+              {actions.isSendingDeadlineDigest
+                ? '마감 알림 발송 중…'
+                : '마감 알림 지금 발송'}
+            </Button>
+            <Button asChild>
+              <Link href={programNewHref()}>프로그램 만들기</Link>
+            </Button>
+          </div>
         }
       />
+      {actions.deadlineDigestNotice ? (
+        <div
+          role="status"
+          className="rounded-card border border-status-approved-bg bg-status-approved-bg px-6 py-4 text-small font-semibold text-status-approved-fg"
+        >
+          {actions.deadlineDigestNotice}
+        </div>
+      ) : null}
       <StaffDashboardControls
         search={state.search}
         status={state.status}

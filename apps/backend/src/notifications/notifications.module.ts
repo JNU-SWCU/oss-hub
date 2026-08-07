@@ -5,6 +5,7 @@ import { DeadlineDigestFailuresService } from './deadline-digest-failures.servic
 import { DeadlineDigestRepository } from './deadline-digest.repository';
 import { DeadlineDigestScheduler } from './deadline-digest.scheduler';
 import { DeadlineDigestService } from './deadline-digest.service';
+import { DeadlineDigestTriggerService } from './deadline-digest-trigger.service';
 import { mailSenderProvider } from './mail-sender.provider';
 import { NotificationSettingsController } from './notification-settings.controller';
 import { NotificationSettingsRepository } from './notification-settings.repository';
@@ -26,6 +27,7 @@ import { NotificationSettingsService } from './notification-settings.service';
     DeadlineDigestRepository,
     DeadlineDigestService,
     DeadlineDigestFailuresService,
+    DeadlineDigestTriggerService,
     DeadlineDigestScheduler,
     mailSenderProvider,
   ],

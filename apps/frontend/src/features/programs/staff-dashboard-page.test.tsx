@@ -127,6 +127,9 @@ describe('StaffDashboardPageView', () => {
       onSubmit: vi.fn(),
       onResetFilters: vi.fn(),
       onPageChange: vi.fn(),
+      onSendDeadlineDigest: vi.fn(),
+      isSendingDeadlineDigest: false,
+      deadlineDigestNotice: null,
     };
     const emptyHtml = renderToStaticMarkup(
       <StaffDashboardPageView

@@ -1,14 +1,18 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import type { RuntimeConfig } from '../runtime-config/runtime-config';
+import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
+import {
+  buildStaffDeadlineMail,
+  buildStudentDeadlineMail,
+} from './deadline-digest-mail.template';
 import { DeadlineDigestRepository } from './deadline-digest.repository';
 import type {
   DeadlineDigestRepositoryPort,
-  MissingSubmitter,
   UpcomingMilestone,
 } from './deadline-digest.repository';
 import { MAIL_SENDER } from './mail-sender.port';
 import type { MailSender } from './mail-sender.port';
 
-/** 마감 임박 판정 리드타임(코드 상수, 손쉬운 조정) — 기본 D-1. */
 export const DEADLINE_LEAD_TIME_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
@@ -20,6 +24,8 @@ export class DeadlineDigestService {
     private readonly repository: DeadlineDigestRepositoryPort,
     @Inject(MAIL_SENDER)
     private readonly mailSender: MailSender,
+    @Inject(RUNTIME_CONFIG)
+    private readonly runtimeConfig: Pick<RuntimeConfig, 'FRONTEND_URL'>,
   ) {}
 
   async sendDeadlineDigests(now: Date = new Date()): Promise<void> {
@@ -33,17 +39,28 @@ export class DeadlineDigestService {
       return;
     }
 
+    const frontendOrigin = this.requireFrontendOrigin();
     const missingByMilestone =
       await this.repository.findMissingSubmitters(milestones);
-    const subject = `[oss-hub] 마감 임박 마일스톤 ${milestones.length}건`;
-    const staffBody = this.buildStaffBody(milestones, missingByMilestone);
+
+    const staffMail = buildStaffDeadlineMail({
+      milestones: milestones.map((milestone) => ({
+        ...milestone,
+        missingNicknames: (missingByMilestone.get(milestone.id) ?? []).map(
+          (submitter) => submitter.nickname,
+        ),
+      })),
+      now,
+      frontendOrigin,
+    });
 
     await Promise.all(
       (await this.repository.findStaffRecipients()).map((recipient) =>
         this.sendAndRecord(
           recipient,
-          subject,
-          staffBody,
+          staffMail.subject,
+          staffMail.text,
+          staffMail.html,
           milestones.length,
           now,
         ),
@@ -53,7 +70,11 @@ export class DeadlineDigestService {
     const reminders = new Map<
       string,
       {
-        recipient: { id: string; notificationEmail: string };
+        recipient: {
+          id: string;
+          notificationEmail: string;
+          nickname: string;
+        };
         milestones: UpcomingMilestone[];
       }
     >();
@@ -71,6 +92,7 @@ export class DeadlineDigestService {
           recipient: {
             id: submitter.id,
             notificationEmail: submitter.notificationEmail,
+            nickname: submitter.nickname,
           },
           milestones: [milestone],
         });
@@ -79,22 +101,60 @@ export class DeadlineDigestService {
 
     await Promise.all(
       [...reminders.values()].map(
-        ({ recipient, milestones: reminderMilestones }) =>
-          this.sendAndRecord(
+        ({ recipient, milestones: reminderMilestones }) => {
+          const primary = [...reminderMilestones].sort(
+            (left, right) => left.dueAt.getTime() - right.dueAt.getTime(),
+          )[0];
+          if (!primary) {
+            return Promise.resolve();
+          }
+          const studentMail = buildStudentDeadlineMail({
+            displayName: recipient.nickname,
+            milestone: primary,
+            now,
+            frontendOrigin,
+          });
+          if (reminderMilestones.length > 1) {
+            const extra = reminderMilestones
+              .slice(1)
+              .map((item) => `- ${item.programName} / ${item.milestoneName}`)
+              .join('\n');
+            const text = `${studentMail.text}\n\n추가 미제출 마일스톤:\n${extra}`;
+            return this.sendAndRecord(
+              recipient,
+              studentMail.subject,
+              text,
+              studentMail.html,
+              reminderMilestones.length,
+              now,
+            );
+          }
+          return this.sendAndRecord(
             recipient,
-            '[oss-hub] 마감 임박 제출 리마인더',
-            this.buildStudentBody(reminderMilestones),
+            studentMail.subject,
+            studentMail.text,
+            studentMail.html,
             reminderMilestones.length,
             now,
-          ),
+          );
+        },
       ),
     );
+  }
+
+  private requireFrontendOrigin(): string {
+    const raw = this.runtimeConfig.FRONTEND_URL?.trim();
+    if (!raw) {
+      throw new Error('FRONTEND_URL is required to build deadline mail links.');
+    }
+    return raw.replace(/\/$/, '');
   }
 
   private async sendAndRecord(
     recipient: { readonly id: string; readonly notificationEmail: string },
     subject: string,
     body: string,
+    html: string,
     milestoneCount: number,
     now: Date,
   ): Promise<void> {
@@ -116,6 +176,7 @@ export class DeadlineDigestService {
         to: recipient.notificationEmail,
         subject,
         body,
+        html,
       });
       await this.repository.completeNotification(
         idempotencyKey,
@@ -142,41 +203,5 @@ export class DeadlineDigestService {
     const value = (type: Intl.DateTimeFormatPartTypes): string =>
       parts.find((part) => part.type === type)?.value ?? '';
     return `${value('year')}-${value('month')}-${value('day')}`;
-  }
-
-  private buildStaffBody(
-    milestones: readonly UpcomingMilestone[],
-    missingByMilestone: ReadonlyMap<string, readonly MissingSubmitter[]>,
-  ): string {
-    const lines = milestones.flatMap((milestone) => [
-      `- ${milestone.programName} / ${milestone.milestoneName} (마감 ${this.formatDueAt(milestone.dueAt)})`,
-      `  미제출자: ${
-        (missingByMilestone.get(milestone.id) ?? [])
-          .map((submitter) => submitter.nickname)
-          .join(', ') || '없음'
-      }`,
-    ]);
-    return ['마감이 임박한 마일스톤입니다.', '', ...lines].join('\n');
-  }
-
-  private buildStudentBody(milestones: readonly UpcomingMilestone[]): string {
-    const lines = milestones.map(
-      (milestone) =>
-        `- ${milestone.programName} / ${milestone.milestoneName} (마감 ${this.formatDueAt(milestone.dueAt)})`,
-    );
-    return ['제출하지 않은 마감 임박 마일스톤입니다.', '', ...lines].join('\n');
-  }
-
-  private formatDueAt(dueAt: Date): string {
-    const date = new Intl.DateTimeFormat('ko-KR', {
-      timeZone: 'Asia/Seoul',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hourCycle: 'h23',
-    }).format(dueAt);
-    return `${date} (Asia/Seoul)`;
   }
 }

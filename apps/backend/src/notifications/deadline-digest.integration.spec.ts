@@ -9,6 +9,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../prisma/prisma.service';
 import { DeadlineDigestRepository } from './deadline-digest.repository';
 import { DeadlineDigestService } from './deadline-digest.service';
+import { DeadlineDigestTriggerService } from './deadline-digest-trigger.service';
 import type { DeadlineDigestMail, MailSender } from './mail-sender.port';
 import { NotificationSettingsRepository } from './notification-settings.repository';
 
@@ -294,7 +295,9 @@ it('notifyOnDeadline 프로그램의 마감 임박 마일스톤만 포함한다'
 
 it('교직원과 미제출 동의 학생에게만 발송하고 SENT를 기록한다(제출자·opt-out 제외)', async () => {
   const mailSender = new RecordingMailSender();
-  const service = new DeadlineDigestService(repository, mailSender);
+  const service = new DeadlineDigestService(repository, mailSender, {
+    FRONTEND_URL: 'https://oss.example',
+  });
 
   await service.sendDeadlineDigests(now);
 
@@ -311,7 +314,22 @@ it('교직원과 미제출 동의 학생에게만 발송하고 SENT를 기록한
     'synthetic-test:notifications:student-missing',
   );
   expect(staffMail?.body).toContain('synthetic-test:notifications:student-off');
-  expect(staffMail?.body).toContain('2026. 08. 14. 21:00 (Asia/Seoul)');
+  expect(staffMail?.html).toContain('마감 정보');
+  expect(staffMail?.html).toContain('대시보드 열기');
+  expect(staffMail?.html).toContain('https://oss.example/staff/dashboard');
+  expect(staffMail?.html).toContain('21:00');
+
+  const studentMail = mailSender.sent.find(
+    (mail) => mail.to === 'student-missing@example.com',
+  );
+  expect(studentMail?.html).toContain('제출하러 가기');
+  expect(studentMail?.html).toContain(
+    `https://oss.example/programs/${NOTIFY_PROGRAM}/submissions?milestoneId=${NOTIFY_MILESTONE}`,
+  );
+  expect(studentMail?.html).toContain(
+    '안녕하세요, synthetic-test:notifications:student-missing님!',
+  );
+  expect(studentMail?.subject).toContain('최종 제출');
   const notifications = await prisma.notification.findMany({
     where: {
       userId: {
@@ -355,7 +373,9 @@ it('수신 이메일을 변경하면 다음 발송 대상 주소가 새 값이 �
     notifyEnabled: true,
   });
   const mailSender = new RecordingMailSender();
-  const service = new DeadlineDigestService(repository, mailSender);
+  const service = new DeadlineDigestService(repository, mailSender, {
+    FRONTEND_URL: 'https://oss.example',
+  });
 
   await service.sendDeadlineDigests(now);
 
@@ -364,4 +384,40 @@ it('수신 이메일을 변경하면 다음 발송 대상 주소가 새 값이 �
     'changed@example.com',
     'student-missing@example.com',
   ]);
+});
+
+it('교직원 수동 트리거가 같은 배치를 실행하고 학생 HTML을 남긴다', async () => {
+  const mailSender = new RecordingMailSender();
+  const digestService = new DeadlineDigestService(repository, mailSender, {
+    FRONTEND_URL: 'https://oss.example',
+  });
+  const trigger = new DeadlineDigestTriggerService(repository, digestService);
+
+  await trigger.triggerSend(STAFF_ON_GITHUB, now);
+
+  expect(mailSender.sent.map((mail) => mail.to).sort()).toEqual([
+    'admin-on@example.com',
+    'staff-on@example.com',
+    'student-missing@example.com',
+  ]);
+  const studentMail = mailSender.sent.find(
+    (mail) => mail.to === 'student-missing@example.com',
+  );
+  expect(studentMail?.html).toContain('제출 마감');
+  expect(studentMail?.html).toContain('마감 정보');
+});
+
+it('학생이 수동 트리거를 호출하면 STAFF_ONLY로 거부되고 메일을 보내지 않는다', async () => {
+  const mailSender = new RecordingMailSender();
+  const digestService = new DeadlineDigestService(repository, mailSender, {
+    FRONTEND_URL: 'https://oss.example',
+  });
+  const trigger = new DeadlineDigestTriggerService(repository, digestService);
+
+  await expect(
+    trigger.triggerSend(STUDENT_MISSING_GITHUB, now),
+  ).rejects.toMatchObject({
+    errorCode: { code: 'NOT_001', status: 403 },
+  });
+  expect(mailSender.sent).toHaveLength(0);
 });

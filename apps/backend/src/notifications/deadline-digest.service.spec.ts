@@ -17,7 +17,9 @@ describe('DeadlineDigestService', () => {
     completeNotification,
   } as unknown as DeadlineDigestRepositoryPort;
   const mailSender: MailSender = { send };
-  const service = new DeadlineDigestService(repository, mailSender);
+  const service = new DeadlineDigestService(repository, mailSender, {
+    FRONTEND_URL: 'https://oss.example',
+  });
 
   const milestone = {
     id: 'm1',
@@ -47,7 +49,7 @@ describe('DeadlineDigestService', () => {
     expect(claimNotification).not.toHaveBeenCalled();
   });
 
-  it('마감 임박 마일스톤이 있으면 각 교직원 수신자에게 발송하고 SENT를 기록한다', async () => {
+  it('마감 임박 마일스톤이 있으면 각 교직원 수신자에게 HTML 포함 발송하고 SENT를 기록한다', async () => {
     findUpcomingDeadlineMilestones.mockResolvedValue([milestone]);
     findStaffRecipients.mockResolvedValue([
       { id: 's1', notificationEmail: 'a@example.com' },
@@ -58,7 +60,11 @@ describe('DeadlineDigestService', () => {
 
     expect(send).toHaveBeenCalledTimes(2);
     expect(send).toHaveBeenCalledWith(
-      expect.objectContaining({ to: 'a@example.com' }),
+      expect.objectContaining({
+        to: 'a@example.com',
+        html: expect.stringContaining('마감 정보'),
+        body: expect.stringContaining('미제출자'),
+      }),
     );
     expect(completeNotification).toHaveBeenCalledWith(
       'deadline-digest:2026-08-14:s1',
@@ -71,7 +77,8 @@ describe('DeadlineDigestService', () => {
       expect.any(Object),
     );
   });
-  it('미제출 동의 학생에게 마일스톤별 중복 없이 한 번만 발송하고 현지 시각을 표기한다', async () => {
+
+  it('미제출 동의 학생에게 DAKER HTML 리마인더를 한 번만 발송한다', async () => {
     findUpcomingDeadlineMilestones.mockResolvedValue([milestone]);
     findStaffRecipients.mockResolvedValue([
       { id: 's1', notificationEmail: 'staff@example.com' },
@@ -108,18 +115,26 @@ describe('DeadlineDigestService', () => {
 
     expect(send).toHaveBeenCalledTimes(2);
 
-    const sentTo = (address: string): string | undefined =>
+    const messageTo = (address: string) =>
       send.mock.calls
         .map(([message]) => message)
-        .find((message) => message.to === address)?.body;
+        .find((message) => message.to === address);
 
-    expect(sentTo('staff@example.com')).toContain(
+    const staffMail = messageTo('staff@example.com');
+    expect(staffMail?.body).toContain(
       '미제출자: 미제출학생, 미제출학생, 수신거부학생',
     );
-    expect(sentTo('student@example.com')).toContain(
-      '2026. 08. 15. 09:00 (Asia/Seoul)',
+    expect(staffMail?.html).toContain('미제출학생');
+
+    const studentMail = messageTo('student@example.com');
+    expect(studentMail?.html).toContain('제출하러 가기');
+    expect(studentMail?.html).toContain(
+      'https://oss.example/programs/p1/submissions?milestoneId=m1',
     );
-    expect(sentTo('opt-out@example.com')).toBeUndefined();
+    expect(studentMail?.html).toContain('안녕하세요, 미제출학생님!');
+    expect(studentMail?.body).toContain('미제출학생');
+    expect(studentMail?.subject).toContain('최종 제출');
+    expect(messageTo('opt-out@example.com')).toBeUndefined();
   });
 
   it('발송이 실패하면 FAILED를 기록하고 다음 수신자로 계속한다', async () => {
@@ -143,6 +158,7 @@ describe('DeadlineDigestService', () => {
       expect.any(Object),
     );
   });
+
   it('same-day claimed digest is not sent again', async () => {
     findUpcomingDeadlineMilestones.mockResolvedValue([milestone]);
     findStaffRecipients.mockResolvedValue([
