@@ -12,7 +12,7 @@ export const NOTIFICATIONS_ERROR_CODES: Record<
   [NotificationsErrorCode.STAFF_ONLY]: {
     code: NotificationsErrorCode.STAFF_ONLY,
     status: 403,
-    message: '교직원만 알림 설정을 변경할 수 있습니다.',
+    message: '교직원만 이 작업을 수행할 수 있습니다.',
   },
   [NotificationsErrorCode.USER_NOT_FOUND]: {
     code: NotificationsErrorCode.USER_NOT_FOUND,
