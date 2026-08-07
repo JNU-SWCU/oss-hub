@@ -16,6 +16,7 @@ import {
   type CollectionReadPort,
 } from '../collection/collection-read.port';
 import { PrismaService } from '../prisma/prisma.service';
+import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import type { GithubAppClient } from '../repositories/github-app.client';
 import { RepositoriesRepository } from '../repositories/repositories.repository';
 import { RepositoriesService } from '../repositories/repositories.service';
@@ -46,6 +47,11 @@ assertIsolatedIntegrationDatabase({
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 
+/** QA40 — 커서 암호화 키 파생용 합성 값. 실 배포 시크릿과 무관하다. */
+const SYNTHETIC_SESSION_SECRET = Buffer.from(
+  'synthetic-public-projects-integration-secret',
+).toString('base64url');
+
 const prisma = new PrismaService();
 const collection: CollectionReadPort =
   createCollectionReadPortForIntegrationTest(prisma);
@@ -55,6 +61,7 @@ const publicProjectsService = new PublicProjectsService(
   publicProjectsRepository,
   eligibilityService,
   collection,
+  loadRuntimeConfig({ SESSION_SECRET: SYNTHETIC_SESSION_SECRET }),
 );
 const rankingService = new RankingService(
   collection,
