@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { AccountStatus } from '@prisma/client';
 import { DeadlineDigestRepository } from './deadline-digest.repository';
 import type {
   DeadlineDigestRepositoryPort,
@@ -59,7 +60,13 @@ export class DeadlineDigestService {
     >();
     for (const milestone of milestones) {
       for (const submitter of missingByMilestone.get(milestone.id) ?? []) {
-        if (!submitter.notifyEnabled || !submitter.notificationEmail) {
+        // 비활성 계정은 로그인이 막혀 제출 자체가 불가능하다 — 제출 독촉을 보내지 않는다.
+        // 교직원 요약의 미제출자 집계에는 그대로 남는다(운영상 미제출 건을 놓치지 않기 위해).
+        if (
+          submitter.accountStatus !== AccountStatus.ACTIVE ||
+          !submitter.notifyEnabled ||
+          !submitter.notificationEmail
+        ) {
           continue;
         }
         const reminder = reminders.get(submitter.id);
