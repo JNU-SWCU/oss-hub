@@ -95,6 +95,11 @@ done
     "$database_url" \
     SEED_PROFILE=auth \
     ./node_modules/.bin/prisma db seed
+  e2e_backend_tool_env \
+    "$tool_path" \
+    "$sanitized_home" \
+    "$database_url" \
+    node "$script_directory/support/seed-deadline-digest.mjs"
 )
 
 (
