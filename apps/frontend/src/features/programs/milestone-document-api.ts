@@ -62,6 +62,59 @@ export function listMilestoneDocuments(
   return apiClient<readonly MilestoneDocument[]>(documentsPath(milestoneId));
 }
 
+/** 교직원 서류 항목 생성/수정 요청 본문 — 두 endpoint가 같은 shape을 공유한다(전체 교체). */
+export interface UpsertMilestoneDocumentInput {
+  readonly name: string;
+  readonly required: boolean;
+  readonly sortOrder: number;
+  readonly submissionType: SubmissionType;
+}
+
+function documentPath(milestoneId: string, documentId: string): string {
+  return `${documentsPath(milestoneId)}/${encodeURIComponent(documentId)}`;
+}
+
+function jsonRequest(method: 'POST' | 'PATCH', input: unknown): RequestInit {
+  return {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  };
+}
+
+/** 교직원 — 서류 항목을 새로 만든다. */
+export function createMilestoneDocument(
+  milestoneId: string,
+  input: UpsertMilestoneDocumentInput,
+): Promise<MilestoneDocument> {
+  return apiClient<MilestoneDocument>(
+    documentsPath(milestoneId),
+    jsonRequest('POST', input),
+  );
+}
+
+/** 교직원 — 서류 항목을 고친다. 일부가 아니라 전체를 보낸다(백엔드가 전체 교체다). */
+export function updateMilestoneDocument(
+  milestoneId: string,
+  documentId: string,
+  input: UpsertMilestoneDocumentInput,
+): Promise<MilestoneDocument> {
+  return apiClient<MilestoneDocument>(
+    documentPath(milestoneId, documentId),
+    jsonRequest('PATCH', input),
+  );
+}
+
+/** 교직원 — 서류 항목을 지운다. 204라 본문이 없다. */
+export async function deleteMilestoneDocument(
+  milestoneId: string,
+  documentId: string,
+): Promise<void> {
+  await apiClient<null>(documentPath(milestoneId, documentId), {
+    method: 'DELETE',
+  });
+}
+
 /** 학생 — 제출용 파일을 먼저 올려 fileId를 받는다(제출 자체는 submitMilestoneDocument가 한다). */
 export function uploadMilestoneDocumentFile(
   milestoneId: string,

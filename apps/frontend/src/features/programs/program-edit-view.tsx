@@ -27,6 +27,8 @@ interface ProgramEditViewProps {
   readonly isSaving: boolean;
   readonly milestoneEditor: ProgramMilestoneEditor;
   readonly deleteTarget: EditableMilestone | null;
+  /** 방금 만든 마일스톤 — 저장 직후 그 카드의 「받을 서류」가 펼쳐진 채로 뜬다. */
+  readonly expandedDocumentsMilestoneId: string | null;
   readonly isMilestoneBusy: boolean;
   readonly onFieldChange: (
     field: ProgramEditableField,
@@ -87,6 +89,7 @@ export function ProgramEditView({
   isSaving,
   milestoneEditor,
   deleteTarget,
+  expandedDocumentsMilestoneId,
   isMilestoneBusy,
   onFieldChange,
   onSubmit,
@@ -152,6 +155,7 @@ export function ProgramEditView({
               milestones={program.milestones}
               editor={milestoneEditor}
               deleteTarget={deleteTarget}
+              expandedDocumentsMilestoneId={expandedDocumentsMilestoneId}
               isBusy={isMilestoneBusy}
               onAdd={onAddMilestone}
               onEdit={onEditMilestone}

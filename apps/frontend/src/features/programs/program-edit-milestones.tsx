@@ -5,12 +5,15 @@ import {
   type ProgramMilestoneEditor,
   type ProgramMilestoneField,
 } from './program-edit-flow';
+import { MilestoneDocumentEditorSection } from './milestone-document-editor';
 import { formatSeoulDate } from './program-detail-format';
 import { ProgramEditMilestoneForm } from './program-edit-milestone-form';
 interface ProgramEditMilestonesProps {
   readonly milestones: readonly EditableMilestone[];
   readonly editor: ProgramMilestoneEditor;
   readonly deleteTarget: EditableMilestone | null;
+  /** 방금 만든 마일스톤 — 그 카드만 「받을 서류」를 펼친 채로 시작한다. */
+  readonly expandedDocumentsMilestoneId: string | null;
   readonly isBusy: boolean;
   readonly onAdd: () => void;
   readonly onEdit: (milestone: EditableMilestone) => void;
@@ -26,6 +29,7 @@ export function ProgramEditMilestones({
   milestones,
   editor,
   deleteTarget,
+  expandedDocumentsMilestoneId,
   isBusy,
   onAdd,
   onEdit,
@@ -102,10 +106,16 @@ export function ProgramEditMilestones({
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="grid gap-3">
                 <p className="text-small whitespace-pre-wrap text-muted-foreground">
                   {milestone.instructions ?? '제출 안내가 없습니다.'}
                 </p>
+                <MilestoneDocumentEditorSection
+                  milestoneId={milestone.id}
+                  defaultExpanded={
+                    expandedDocumentsMilestoneId === milestone.id
+                  }
+                />
               </CardContent>
             </Card>
           ))
