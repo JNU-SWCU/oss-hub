@@ -32,6 +32,7 @@ import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
 import type { ApplicationListQuery } from './application-list-query';
 import type {
   ApplicationDecisionTarget,
+  ApplicationDecisionNotificationInput,
   ApplicationTransition,
   RepositoryProvisionEvent,
   RepositoryProvisionEventInput,
@@ -40,12 +41,16 @@ import type {
 
 type ApplicationWithProgram = PrismaTypes.ApplicationGetPayload<{
   include: {
-    program: { select: { repositoryProvisioningEnabled: true } };
-    applicant: { select: { nickname: true } };
+    program: {
+      select: { repositoryProvisioningEnabled: true; name: true };
+    };
+    applicant: { select: { id: true; nickname: true } };
     team: {
       select: {
-        leader: { select: { nickname: true } };
-        members: { select: { user: { select: { nickname: true } } } };
+        leader: { select: { id: true; nickname: true } };
+        members: {
+          select: { user: { select: { id: true; nickname: true } } };
+        };
       };
     };
   };
@@ -77,6 +82,9 @@ export interface ApplicationsTransactionStore {
    */
   discardRepositoryProvisionRequest(applicationId: string): Promise<void>;
   transitionApplication(input: ApplicationTransition): Promise<boolean>;
+  createApplicationDecisionNotifications(
+    input: ApplicationDecisionNotificationInput,
+  ): Promise<void>;
   createRepositoryProvisionEvent(
     input: RepositoryProvisionEventInput,
   ): Promise<RepositoryProvisionEvent>;
@@ -272,12 +280,16 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
     const application = await this.transaction.application.findUnique({
       where: { id: applicationId },
       include: {
-        program: { select: { repositoryProvisioningEnabled: true } },
-        applicant: { select: { nickname: true } },
+        program: {
+          select: { repositoryProvisioningEnabled: true, name: true },
+        },
+        applicant: { select: { id: true, nickname: true } },
         team: {
           select: {
-            leader: { select: { nickname: true } },
-            members: { select: { user: { select: { nickname: true } } } },
+            leader: { select: { id: true, nickname: true } },
+            members: {
+              select: { user: { select: { id: true, nickname: true } } },
+            },
           },
         },
       },
@@ -340,6 +352,36 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
       data,
     });
     return result.count === 1;
+  }
+
+  async createApplicationDecisionNotifications(
+    input: ApplicationDecisionNotificationInput,
+  ): Promise<void> {
+    if (input.recipientUserIds.length === 0) return;
+    const decidedAt = input.decidedAt.toISOString();
+    await this.transaction.notification.createMany({
+      data: input.recipientUserIds.map((userId) => ({
+        userId,
+        type: 'APPLICATION_DECISION',
+        channel: 'IN_APP',
+        status: 'UNREAD',
+        idempotencyKey: [
+          'application-decision',
+          input.applicationId,
+          input.decision,
+          decidedAt,
+          userId,
+        ].join(':'),
+        payload: {
+          schemaVersion: 1,
+          applicationId: input.applicationId,
+          programId: input.programId,
+          programName: input.programName,
+          decision: input.decision,
+          decidedAt,
+        },
+      })),
+    });
   }
 
   async createRepositoryProvisionEvent(
@@ -1035,12 +1077,23 @@ function toApplicationDecisionTarget(
   return {
     id: application.id,
     programId: application.programId,
+    programName: application.program.name,
     teamId: application.teamId,
     status: application.status,
     repositoryProvisioningEnabled:
       application.program.repositoryProvisioningEnabled,
     collaboratorGithubLogins: [
       ...new Set(githubLogins.map((login) => login.toLowerCase())),
+    ].sort(),
+    notificationRecipientIds: [
+      ...new Set(
+        application.team
+          ? [
+              application.team.leader.id,
+              ...application.team.members.map((member) => member.user.id),
+            ]
+          : [application.applicant.id],
+      ),
     ].sort(),
     repositoryConnectionMode: application.repositoryConnectionMode,
     repositoryUrl: application.repositoryUrl,
