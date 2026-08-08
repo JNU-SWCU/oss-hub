@@ -1728,6 +1728,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           isSubmitted: false,
           submittedAt: null,
           file: null,
+          content: null,
           status: null,
           review: null,
         },
@@ -1736,6 +1737,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           isSubmitted: false,
           submittedAt: null,
           file: null,
+          content: null,
           status: null,
           review: null,
         },
@@ -1752,6 +1754,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           applicationId: syntheticApplicationId,
           submittedAt: new Date('2026-09-16T14:22:00.000Z'),
           status: SubmissionStatus.SUBMITTED,
+          content: null,
           file: { originalFileName: '최종_진짜최종.hwp', sizeBytes: 2048 },
           review: null,
         },
@@ -1760,6 +1763,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           applicationId: syntheticApplicationId,
           submittedAt: new Date('2026-09-17T10:00:00.000Z'),
           status: SubmissionStatus.SUBMITTED,
+          content: { type: 'TEXT', text: '3주차까지 인터뷰 8건을 마쳤습니다.' },
           file: null,
           review: null,
         },
@@ -1781,6 +1785,8 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         isSubmitted: true,
         submittedAt: '2026-09-16T14:22:00.000Z',
         file: { name: '최종_진짜최종.hwp', sizeBytes: 2048 },
+        // FILE 제출은 본문이 없다 — 내용은 위 file이 가리킨다.
+        content: null,
         status: SubmissionStatus.SUBMITTED,
         review: null,
       },
@@ -1789,6 +1795,11 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         isSubmitted: true,
         submittedAt: '2026-09-17T10:00:00.000Z',
         file: null,
+        // 글 제출은 본문을 그대로 싣는다 — 이게 없으면 교직원이 내용을 못 보고 판정한다.
+        content: {
+          type: MilestoneSubmissionType.TEXT,
+          text: '3주차까지 인터뷰 8건을 마쳤습니다.',
+        },
         status: SubmissionStatus.SUBMITTED,
         review: null,
       },
@@ -1806,6 +1817,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           applicationId: syntheticApplicationId,
           submittedAt: new Date('2026-09-16T14:22:00.000Z'),
           status: SubmissionStatus.SUBMITTED,
+          content: null,
           file: null,
           review: null,
         },
@@ -1830,9 +1842,108 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       isSubmitted: true,
       submittedAt: '2026-09-16T14:22:00.000Z',
       file: null,
+      content: null,
       status: SubmissionStatus.SUBMITTED,
       review: null,
     });
+  });
+
+  it('릴리스 제출은 URL을 칸에 그대로 싣는다', async () => {
+    // Given: 파일이 아닌 제출도 교직원이 **무엇을 보고** 승인·반려하는지가 있어야 한다.
+    const { repository } = collectionRepository({
+      findSubmissionsForCollection: jest.fn().mockResolvedValue([
+        {
+          milestoneDocumentId: secondDocumentId,
+          applicationId: syntheticApplicationId,
+          submittedAt: new Date('2026-09-17T10:00:00.000Z'),
+          status: SubmissionStatus.SUBMITTED,
+          content: {
+            type: 'REPOSITORY_RELEASE',
+            releaseUrl:
+              'https://github.com/synthetic-org/synthetic-repo/releases/tag/v1.0.0',
+          },
+          file: null,
+          review: null,
+        },
+      ]),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    const result = await service.collectForStaff(
+      syntheticMilestoneId,
+      collectionQuery(),
+      now,
+    );
+
+    // Then
+    expect(result.rows[0]?.cells[1]?.content).toEqual({
+      type: MilestoneSubmissionType.REPOSITORY_RELEASE,
+      releaseUrl:
+        'https://github.com/synthetic-org/synthetic-repo/releases/tag/v1.0.0',
+    });
+  });
+
+  it('본문이 길어도 자르지 않는다 — 일부만 보고 판정하는 것은 못 보고 판정하는 것과 같다', async () => {
+    // Given: 제출 요청이 이미 10,000자로 막고 있어 칸 하나의 크기는 유계다. 여기서 다시
+    // 잘라 버리면 잘린 뒤를 읽을 방법이 없다(교직원용 단건 조회 endpoint가 없다).
+    const longText = '가'.repeat(10_000);
+    const { repository } = collectionRepository({
+      findSubmissionsForCollection: jest.fn().mockResolvedValue([
+        {
+          milestoneDocumentId: secondDocumentId,
+          applicationId: syntheticApplicationId,
+          submittedAt: new Date('2026-09-17T10:00:00.000Z'),
+          status: SubmissionStatus.SUBMITTED,
+          content: { type: 'TEXT', text: longText },
+          file: null,
+          review: null,
+        },
+      ]),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    const result = await service.collectForStaff(
+      syntheticMilestoneId,
+      collectionQuery(),
+      now,
+    );
+
+    // Then
+    expect(result.rows[0]?.cells[1]?.content).toEqual({
+      type: MilestoneSubmissionType.TEXT,
+      text: longText,
+    });
+  });
+
+  it('저장된 본문 모양이 깨져 있으면 content만 null이 된다 — 표 전체를 500으로 만들지 않는다', async () => {
+    // Given: 한 팀의 Json 하나 때문에 수합 표 전체가 떨어지면 안 된다.
+    const { repository } = collectionRepository({
+      findSubmissionsForCollection: jest.fn().mockResolvedValue([
+        {
+          milestoneDocumentId: secondDocumentId,
+          applicationId: syntheticApplicationId,
+          submittedAt: new Date('2026-09-17T10:00:00.000Z'),
+          status: SubmissionStatus.SUBMITTED,
+          content: { type: 'TEXT' },
+          file: null,
+          review: null,
+        },
+      ]),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    const result = await service.collectForStaff(
+      syntheticMilestoneId,
+      collectionQuery(),
+      now,
+    );
+
+    // Then: 칸은 제출로 남되 본문만 비운다.
+    expect(result.rows[0]?.cells[1]?.isSubmitted).toBe(true);
+    expect(result.rows[0]?.cells[1]?.content).toBeNull();
   });
 
   it('재제출로 되돌아온 칸은 status가 SUBMITTED이고 최신 판정은 그대로 남는다', async () => {
@@ -1847,8 +1958,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           applicationId: syntheticApplicationId,
           submittedAt: new Date('2026-09-19T08:00:00.000Z'),
           status: SubmissionStatus.SUBMITTED,
+          content: null,
           file: null,
           review: {
+            id: 'cuid-synthetic-review',
             decision: ReviewDecision.CHANGES_REQUESTED,
             comment: '2쪽 서명이 빠졌습니다.',
             reviewedAt,
@@ -1871,8 +1984,12 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       isSubmitted: true,
       submittedAt: '2026-09-19T08:00:00.000Z',
       file: null,
+      content: null,
       status: SubmissionStatus.SUBMITTED,
       review: {
+        // 프런트가 판정 요청에 되돌려 보낼 기대 버전이다 — 빠지면 「남의 판정을 덮었다」를
+        // 서버가 알아챌 근거가 사라진다.
+        id: 'cuid-synthetic-review',
         decision: ReviewDecision.CHANGES_REQUESTED,
         comment: '2쪽 서명이 빠졌습니다.',
         reviewedAt: reviewedAt.toISOString(),
@@ -1890,8 +2007,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           applicationId: syntheticApplicationId,
           submittedAt: new Date('2026-09-16T14:22:00.000Z'),
           status: SubmissionStatus.APPROVED,
+          content: null,
           file: null,
           review: {
+            id: 'cuid-synthetic-review-1',
             decision: ReviewDecision.APPROVED,
             comment: null,
             reviewedAt,
@@ -1902,8 +2021,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           applicationId: syntheticApplicationId,
           submittedAt: new Date('2026-09-16T14:22:00.000Z'),
           status: SubmissionStatus.REJECTED,
+          content: null,
           file: null,
           review: {
+            id: 'cuid-synthetic-review-2',
             decision: ReviewDecision.REJECTED,
             comment: '양식이 다릅니다.',
             reviewedAt,
@@ -1964,6 +2085,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       applicationId,
       submittedAt,
       status,
+      content: null,
       file: null,
       review: null,
     };

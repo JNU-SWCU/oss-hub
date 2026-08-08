@@ -100,6 +100,15 @@ export interface MilestoneDocumentCollectionSubmission {
     readonly sizeBytes: number;
   } | null;
   /**
+   * 학생이 낸 응답 본문 그대로(`MilestoneDocumentSubmission.content`). FILE 제출이면 저장 자체가
+   * `JsonNull`이라 여기도 null이다 — 파일은 위 `file`이 담당한다.
+   *
+   * 왜 싣는가: 이 값이 없으면 TEXT·REPOSITORY_RELEASE 서류는 교직원이 **내용을 한 글자도 보지
+   * 못한 채** 승인·반려하게 된다(3가지 제출 방식 중 2가지가 깜깜이였다). 해석은 도메인
+   * (`domain/milestone-document-content.ts`)이 하고 여기서는 저장된 모양을 그대로 나른다.
+   */
+  readonly content: Prisma.JsonValue | null;
+  /**
    * 최신 판정 한 건 — 표시값이다. 「미제출」 판정 기준은 여전히 「제출 행이 없다」이고
    * 필터·집계는 이 값을 보지 않는다(domain/milestone-document-collection-page.ts가 소유한다).
    */
@@ -343,11 +352,23 @@ export interface MilestoneDocumentWriteStore {
    *
    * **잠금 뒤에** 부른다. 밖에서 미리 읽어 두면 그 사이 학생이 재제출해 다른 제출 행을 판정하게
    * 된다(서류 제출은 upsert라 행이 새로 생길 수 있다).
+   *
+   * `submittedAt`을 함께 싣는 이유: 잠금은 순서를 세울 뿐 「검토자가 본 그 버전인가」를 답하지
+   * 못한다. 서비스가 이 값을 요청이 들고 온 기대 버전과 맞춰 본다.
    */
   findSubmissionForReview(
     milestoneDocumentId: string,
     applicationId: string,
-  ): Promise<{ readonly id: string } | null>;
+  ): Promise<{ readonly id: string; readonly submittedAt: Date } | null>;
+  /**
+   * 이 제출의 최신 판정 id. 아직 판정이 없으면 null.
+   *
+   * **잠금 뒤에** 부른다 — 잠금 전에 읽으면 「표를 그린 뒤 다른 교직원이 먼저 판정했다」를 다시
+   * 놓친다(그것이 이 검사를 넣는 이유다). 정렬은 `latestReviewQuery`와 같은
+   * `reviewedAt DESC, id DESC`여야 한다: 두 벌이 갈라지면 화면이 본 「최신 판정」과 서버가
+   * 비교하는 「최신 판정」이 서로 다른 행을 가리킨다.
+   */
+  findLatestReviewIdForSubmission(submissionId: string): Promise<string | null>;
   /**
    * 판정을 **새 행으로 쌓는다**(갱신하지 않는다). 판정이 덮어써지면 「보완 요청 때 무엇을
    * 지적받았는가」가 사라지고, 담당 교직원이 바뀌면 지난 지적이 통째로 없어진다.
@@ -439,8 +460,9 @@ const collectionApplicationSelect = {
 const latestReviewQuery = {
   orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
   take: 1,
-  select: { decision: true, comment: true, reviewedAt: true },
-} satisfies Prisma.MilestoneDocumentSubmission$reviewsArgs;
+  // `id`는 수합 표 칸이 판정 요청에 되돌려 줄 기대 버전이다(학생 뷰는 싣지 않는다).
+  select: { id: true, decision: true, comment: true, reviewedAt: true },
+} satisfies Prisma.MilestoneDocumentSubmission$reviewHistoriesArgs;
 
 function unexpiredAttachedFileWhere(now: Date) {
   return {
@@ -580,7 +602,7 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
   findSubmissionForReview(
     milestoneDocumentId: string,
     applicationId: string,
-  ): Promise<{ readonly id: string } | null> {
+  ): Promise<{ readonly id: string; readonly submittedAt: Date } | null> {
     return this.transaction.milestoneDocumentSubmission.findUnique({
       where: {
         milestoneDocumentId_applicationId: {
@@ -588,30 +610,44 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
           applicationId,
         },
       },
-      select: { id: true },
+      select: { id: true, submittedAt: true },
     });
+  }
+
+  /** 정렬은 `latestReviewQuery`와 한 벌이어야 한다 — 화면이 본 「최신」과 같은 행을 골라야 한다. */
+  async findLatestReviewIdForSubmission(
+    submissionId: string,
+  ): Promise<string | null> {
+    const review =
+      await this.transaction.milestoneDocumentReviewHistory.findFirst({
+        where: { milestoneDocumentSubmissionId: submissionId },
+        orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
+        select: { id: true },
+      });
+    return review?.id ?? null;
   }
 
   /** `create`다 — `upsert`가 아니다. 판정은 쌓여야 하므로 기존 행을 찾아 고치지 않는다. */
   async createReview(
     input: CreateMilestoneDocumentReviewInput,
   ): Promise<CreatedMilestoneDocumentReview> {
-    const created = await this.transaction.milestoneDocumentReview.create({
-      data: {
-        milestoneDocumentSubmissionId: input.milestoneDocumentSubmissionId,
-        reviewerId: input.reviewerId,
-        decision: input.decision,
-        comment: input.comment,
-        reviewedAt: input.reviewedAt,
-      },
-      select: {
-        id: true,
-        decision: true,
-        comment: true,
-        reviewedAt: true,
-        reviewer: { select: { nickname: true } },
-      },
-    });
+    const created =
+      await this.transaction.milestoneDocumentReviewHistory.create({
+        data: {
+          milestoneDocumentSubmissionId: input.milestoneDocumentSubmissionId,
+          reviewerId: input.reviewerId,
+          decision: input.decision,
+          comment: input.comment,
+          reviewedAt: input.reviewedAt,
+        },
+        select: {
+          id: true,
+          decision: true,
+          comment: true,
+          reviewedAt: true,
+          reviewer: { select: { nickname: true } },
+        },
+      });
     return {
       id: created.id,
       decision: created.decision,
@@ -748,14 +784,14 @@ export class MilestoneDocumentsRepository {
         milestoneDocumentId: true,
         submittedAt: true,
         status: true,
-        reviews: latestReviewQuery,
+        reviewHistories: latestReviewQuery,
       },
     });
     return submissions.map((submission) => ({
       milestoneDocumentId: submission.milestoneDocumentId,
       submittedAt: submission.submittedAt,
       status: submission.status,
-      review: submission.reviews[0] ?? null,
+      review: submission.reviewHistories[0] ?? null,
     }));
   }
 
@@ -769,7 +805,7 @@ export class MilestoneDocumentsRepository {
     milestoneDocumentId: string,
     applicationId: string,
   ): Promise<LatestMilestoneDocumentReview | null> {
-    const review = await this.prisma.milestoneDocumentReview.findFirst({
+    const review = await this.prisma.milestoneDocumentReviewHistory.findFirst({
       where: {
         milestoneDocumentSubmission: { milestoneDocumentId, applicationId },
       },
@@ -851,13 +887,14 @@ export class MilestoneDocumentsRepository {
         applicationId: true,
         submittedAt: true,
         status: true,
+        content: true,
         files: {
           where: unexpiredAttachedFileWhere(now),
           orderBy: { createdAt: 'desc' },
           take: 1,
           select: { originalFileName: true, sizeBytes: true },
         },
-        reviews: latestReviewQuery,
+        reviewHistories: latestReviewQuery,
       },
     });
     return submissions.map((submission) => ({
@@ -865,8 +902,9 @@ export class MilestoneDocumentsRepository {
       applicationId: submission.applicationId,
       submittedAt: submission.submittedAt,
       status: submission.status,
+      content: submission.content,
       file: submission.files[0] ?? null,
-      review: submission.reviews[0] ?? null,
+      review: submission.reviewHistories[0] ?? null,
     }));
   }
 
@@ -1046,16 +1084,17 @@ export class MilestoneDocumentsRepository {
       // 잡는다. 위 `FOR SHARE`와 충돌하므로 둘 중 하나는 반드시 기다린다 — 그래서 이 재확인은
       // 「판정이 커밋되는 중」이 아니라 커밋이 끝난 뒤의 값을 본다. 서비스가 재제출 가부를
       // 판단할 때 본 판정과 다르면 그 사이에 교직원이 판정한 것이므로 이번 제출은 쓰지 않는다.
-      const latestReview = await transaction.milestoneDocumentReview.findFirst({
-        where: {
-          milestoneDocumentSubmission: {
-            milestoneDocumentId: input.milestoneDocumentId,
-            applicationId: input.applicationId,
+      const latestReview =
+        await transaction.milestoneDocumentReviewHistory.findFirst({
+          where: {
+            milestoneDocumentSubmission: {
+              milestoneDocumentId: input.milestoneDocumentId,
+              applicationId: input.applicationId,
+            },
           },
-        },
-        orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
-        select: { id: true },
-      });
+          orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
+          select: { id: true },
+        });
       if ((latestReview?.id ?? null) !== input.expectedLatestReviewId) {
         throw new MilestoneDocumentReviewChangedError();
       }

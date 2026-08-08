@@ -10,6 +10,7 @@ import {
   MILESTONE_DOCUMENT_COLLECTION_PAGE_SIZE,
   type MilestoneDocumentCollection,
   type MilestoneDocumentCollectionCell,
+  type MilestoneDocumentCollectionContent,
   type MilestoneDocumentCollectionDocument,
   type MilestoneDocumentCollectionFilter,
   type MilestoneDocumentCollectionReview,
@@ -243,6 +244,25 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
        */
       teamSubmissionCount: { submitted: 2, total: 3 },
     },
+    {
+      id: 'synthetic-document-orientation-release',
+      milestoneId: 'milestone-basic-orientation',
+      name: '합성 사전 릴리스',
+      required: false,
+      sortOrder: 4,
+      submissionType: 'REPOSITORY_RELEASE',
+      viewerSubmission: NOT_SUBMITTED_VIEWER,
+      /*
+       * 이 열이 있어야 **제출 방식 세 가지가 한 표에 다 선다**(파일 · 글 · 릴리스).
+       * 판정 패널이 파일만 보여 주던 결함은 나머지 둘이 화면에 없으면 로컬 검토로
+       * 확인할 길이 없다 — 검토자가 세 방식의 패널을 나란히 열어 봐야 한다.
+       *
+       * 선택 서류에 위 회고 메모와 같은 제출 팀 수를 둔 것은 필터 두 개의 수를
+       * 건드리지 않기 위해서다: 「필수 서류 미제출」은 여전히 2팀(필수는 계획서·서약서
+       * 둘뿐), 「한 장도 안 낸 팀」도 여전히 3팀만 비어 1팀이다.
+       */
+      teamSubmissionCount: { submitted: 2, total: 3 },
+    },
   ],
   'milestone-basic-final': [
     {
@@ -448,16 +468,72 @@ function submittedCellOrdinal(
 function collectionReviewFor(
   state: CollectionCellStateSeed,
   submittedAt: string,
+  /**
+   * 판정 요청의 `expectedLatestReviewId`로 되돌아오는 값이다. 칸마다 달라야 뜻이 있다 —
+   * 모든 칸에 같은 id를 주면 남의 칸 판정을 들고 와도 대조를 통과한다.
+   */
+  id: string,
 ): MilestoneDocumentCollectionReview | null {
   if (state.decision === null) return null;
   const resubmitted = state.status === 'SUBMITTED';
   return {
+    id,
     decision: state.decision,
     comment: COLLECTION_REVIEW_COMMENTS[state.decision],
     reviewedAt: new Date(
       Date.parse(submittedAt) + (resubmitted ? -26 : 26) * 3_600_000,
     ).toISOString(),
   };
+}
+
+/**
+ * 학생이 낸 **본문**. 파일 제출에는 없다(`null`) — 파일은 칸의 `file`이 담당한다.
+ *
+ * 이 값이 없으면 로컬 검토에서 판정 패널이 언제나 파일만 보여 주고, 「글·릴리스는
+ * 내용을 못 보고 판정한다」는 결함이 화면에 재현되지 않는다.
+ *
+ * 글은 **여러 줄로** 적는다. 줄바꿈을 보존하는지, 길어졌을 때 패널 안에서 스크롤되는지가
+ * 눈으로 확인할 자리이고, 한 줄짜리 시드로는 둘 다 확인되지 않는다.
+ */
+function collectionContentFor(
+  seed: MilestoneDocumentSeed,
+  teamNumber: number,
+): MilestoneDocumentCollectionContent | null {
+  switch (seed.submissionType) {
+    case 'FILE':
+      return null;
+    case 'TEXT':
+      return {
+        type: 'TEXT',
+        text: [
+          `[합성 ${teamNumber}팀 회고 메모]`,
+          '',
+          '1. 이번 주에 한 일',
+          '- 오리엔테이션 자료를 읽고 개발 환경을 맞췄습니다.',
+          '- 저장소를 만들고 첫 이슈 세 건을 등록했습니다.',
+          '',
+          '2. 막힌 곳',
+          '- 빌드가 로컬에서만 실패해 원인을 아직 찾지 못했습니다.',
+          '  같은 설정을 쓰는 팀원 화면에서는 그대로 통과합니다.',
+          '',
+          '3. 다음 주 계획',
+          '- 실패하는 빌드부터 재현 순서를 정리해 공유하겠습니다.',
+          '- 남은 이슈를 팀원과 나눠 맡겠습니다.',
+          '',
+          '(이 아래는 긴 글이 패널 안에서 스크롤되는지 확인하려고 늘려 둔 부분입니다.)',
+          ...Array.from(
+            { length: 12 },
+            (_, line) =>
+              `${line + 1}. 합성 회고 문장입니다. 판정 화면이 원문을 자르지 않고 그대로 보여 주는지 확인합니다.`,
+          ),
+        ].join('\n'),
+      };
+    case 'REPOSITORY_RELEASE':
+      return {
+        type: 'REPOSITORY_RELEASE',
+        releaseUrl: `https://github.com/JNU-SWCU/synthetic-basic-study-0${teamNumber}/releases/tag/v0.${teamNumber}.0`,
+      };
+  }
 }
 
 /**
@@ -529,6 +605,8 @@ function collectionRowFor(
           status: null,
           submittedAt: null,
           file: null,
+          // 본문도 제출에 붙는다 — 미제출 칸에는 보여 줄 내용이 없다(백엔드 계약).
+          content: null,
           review: null,
         };
       }
@@ -555,7 +633,12 @@ function collectionRowFor(
                 sizeBytes: 245_760 + index * 1024,
               }
             : null,
-        review: collectionReviewFor(state, submittedAt),
+        content: collectionContentFor(seed, teamNumber),
+        review: collectionReviewFor(
+          state,
+          submittedAt,
+          `synthetic-review-${seed.id}-${teamNumber}`,
+        ),
       };
     }),
   };

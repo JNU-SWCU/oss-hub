@@ -10,10 +10,35 @@ import { ReviewDecision, SubmissionStatus } from '@prisma/client';
 export interface CreateMilestoneDocumentReviewInput {
   readonly decision: ReviewDecision;
   readonly comment: string | null;
+  /**
+   * 검토자가 **실제로 본** 제출물의 버전 — 수합 표 칸의 `submittedAt`을 그대로 되돌려 받는다.
+   *
+   * 이것이 없으면 판정은 「지금 있는 행」에 붙는다. 표가 그려진 뒤 학생이 다시 내면 제출 행은
+   * 같은 id를 유지한 채 내용만 바뀌므로(`upsertSubmission`은 upsert다), 잠금은 순서만 세울 뿐
+   * 「이게 내가 본 그 버전인가」를 증명하지 못한다 — **교직원이 보지 못한 내용이 승인된다.**
+   * `submittedAt`은 재제출마다 새로 찍히므로 그 버전을 가리키는 값이 된다.
+   */
+  readonly expectedSubmittedAt: Date;
+  /**
+   * 검토자가 표에서 본 최신 판정의 id(판정이 없었으면 null) — 칸의 `review.id`를 되돌려 받는다.
+   *
+   * `expectedSubmittedAt`만으로는 **다른 교직원의 더 최신 판정**을 못 잡는다(판정은 제출을
+   * 건드리지 않으므로 `submittedAt`이 그대로다). 그대로 두면 나중 판정이 앞선 판정을 조용히
+   * 덮는다 — 이력에는 둘 다 남지만 제출 `status`와 「최신 판정」은 늦게 커밋한 쪽이 가져간다.
+   *
+   * 학생 제출 경로의 `expectedLatestReviewId`와 **같은 이름·같은 뜻**이다(그쪽은 서비스가
+   * 스스로 읽어 넘기고, 이쪽은 화면이 본 값을 받는다는 것만 다르다).
+   */
+  readonly expectedLatestReviewId: string | null;
 }
 
 /** 제출에 붙은 판정 한 건 — 수합 표의 칸과 학생 목록이 「최신 한 건」으로 읽는다. */
 export interface MilestoneDocumentReviewRecord {
+  /**
+   * 수합 표 칸이 이 값을 그대로 실어 보내야 프런트가 판정 요청의 `expectedLatestReviewId`로
+   * 되돌려 줄 수 있다. 학생 뷰는 이 값을 응답에 싣지 않는다(내부 id를 학생에게 줄 이유가 없다).
+   */
+  readonly id: string;
   readonly decision: ReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: Date;

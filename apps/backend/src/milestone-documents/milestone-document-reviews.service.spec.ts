@@ -11,6 +11,9 @@ const syntheticApplicationId = 'cuid-synthetic-application';
 const syntheticSubmissionId = 'cuid-synthetic-submission';
 const syntheticStaffId = 'cuid-synthetic-staff';
 const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
+/** 교직원이 수합 표에서 **본** 제출 버전. 요청이 이 값을 그대로 들고 온다. */
+const seenSubmittedAt = new Date('2026-09-16T14:22:00.000Z');
+const seenLatestReviewId = 'cuid-synthetic-review-seen';
 
 function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
   const mocks = {
@@ -29,9 +32,13 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
       milestoneId: syntheticMilestoneId,
       submissionType: 'FILE',
     }),
-    findSubmissionForReview: jest
+    findSubmissionForReview: jest.fn().mockResolvedValue({
+      id: syntheticSubmissionId,
+      submittedAt: seenSubmittedAt,
+    }),
+    findLatestReviewIdForSubmission: jest
       .fn()
-      .mockResolvedValue({ id: syntheticSubmissionId }),
+      .mockResolvedValue(seenLatestReviewId),
     createReview: jest.fn().mockResolvedValue({
       id: 'cuid-synthetic-review',
       decision: ReviewDecision.CHANGES_REQUESTED,
@@ -74,6 +81,14 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
             applicationId,
           ) as Promise<unknown>;
         },
+        findLatestReviewIdForSubmission: (
+          submissionId: string,
+        ): Promise<unknown> => {
+          transactionCalls.push('findLatestReviewIdForSubmission');
+          return mocks.findLatestReviewIdForSubmission(
+            submissionId,
+          ) as Promise<unknown>;
+        },
         createReview: (input: unknown): Promise<unknown> => {
           transactionCalls.push('createReview');
           return mocks.createReview(input) as Promise<unknown>;
@@ -108,13 +123,25 @@ function review(
   clock: () => Date,
   decision: ReviewDecision = ReviewDecision.CHANGES_REQUESTED,
   comment: string | null = '2쪽 서명이 빠졌습니다.',
+  version: {
+    expectedSubmittedAt?: Date;
+    expectedLatestReviewId?: string | null;
+  } = {},
 ) {
   return service.review(
     syntheticStaffId,
     syntheticMilestoneId,
     syntheticDocumentId,
     syntheticApplicationId,
-    { decision, comment },
+    {
+      decision,
+      comment,
+      expectedSubmittedAt: version.expectedSubmittedAt ?? seenSubmittedAt,
+      expectedLatestReviewId:
+        version.expectedLatestReviewId === undefined
+          ? seenLatestReviewId
+          : version.expectedLatestReviewId,
+    },
     clock,
   );
 }
@@ -236,6 +263,113 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
   });
 });
 
+describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () => {
+  it('표를 그린 뒤 학생이 다시 냈으면 REVIEW_TARGET_CHANGED로 막는다 — 못 본 내용이 승인되지 않는다', async () => {
+    // Given: 잠금 아래에서 읽은 제출의 submittedAt이 교직원이 본 값과 다르다. 잠금만으로는
+    // 이것을 알 수 없다 — 잠금은 순서를 세울 뿐 「내가 본 그 버전인가」에 답하지 못한다.
+    // 이 대조가 없으면 교직원이 읽어 보지도 못한 제출이 승인된다.
+    const { mocks, clock, repository } = buildRepository({
+      findSubmissionForReview: jest.fn().mockResolvedValue({
+        id: syntheticSubmissionId,
+        submittedAt: new Date('2026-09-17T08:00:00.000Z'),
+      }),
+    });
+    const service = new MilestoneDocumentReviewsService(repository);
+
+    // When / Then
+    await expect(review(service, clock)).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED },
+    });
+    expect(mocks.createReview).not.toHaveBeenCalled();
+    expect(mocks.updateSubmissionStatus).not.toHaveBeenCalled();
+  });
+
+  it('다른 교직원이 먼저 판정했으면 REVIEW_TARGET_CHANGED로 막는다 — 더 최신 판정을 덮지 않는다', async () => {
+    // Given: 제출은 그대로인데(재제출이 없었다) 판정 이력에만 새 행이 붙었다. submittedAt만
+    // 보면 이 사건은 그대로 통과한다 — 그래서 두 값을 함께 본다.
+    const { mocks, clock, repository } = buildRepository({
+      findLatestReviewIdForSubmission: jest
+        .fn()
+        .mockResolvedValue('cuid-synthetic-review-newer'),
+    });
+    const service = new MilestoneDocumentReviewsService(repository);
+
+    // When / Then
+    await expect(review(service, clock)).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED },
+    });
+    expect(mocks.createReview).not.toHaveBeenCalled();
+  });
+
+  it('아직 판정이 없던 칸은 기대값 null로 통과한다', async () => {
+    // Given: 첫 판정이다. 「판정 없음」을 null로 명시해 보내고 서버도 null을 읽는다.
+    const { mocks, clock, repository } = buildRepository({
+      findLatestReviewIdForSubmission: jest.fn().mockResolvedValue(null),
+    });
+    const service = new MilestoneDocumentReviewsService(repository);
+
+    // When
+    await review(service, clock, ReviewDecision.APPROVED, null, {
+      expectedLatestReviewId: null,
+    });
+
+    // Then
+    expect(mocks.createReview).toHaveBeenCalledTimes(1);
+  });
+
+  it('판정이 없는데 기대값이 어떤 id를 가리키면 막는다 — 그 판정은 이 제출의 것이 아니다', async () => {
+    // Given: 화면이 다른 칸의 판정 id를 실어 보냈거나 표가 어긋났다.
+    const { mocks, clock, repository } = buildRepository({
+      findLatestReviewIdForSubmission: jest.fn().mockResolvedValue(null),
+    });
+    const service = new MilestoneDocumentReviewsService(repository);
+
+    // When / Then
+    await expect(review(service, clock)).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED },
+    });
+    expect(mocks.createReview).not.toHaveBeenCalled();
+  });
+
+  it('최신 판정은 잠금 아래에서 그 제출 id로 다시 읽는다', async () => {
+    // Given: 트랜잭션 밖에서 읽으면 읽은 뒤에 커밋되는 판정을 그대로 놓친다 — 지금 고치려는
+    // 문제가 검사만 붙인 채 그대로 남는다.
+    const { mocks, transactionCalls, clock, repository } = buildRepository();
+    const service = new MilestoneDocumentReviewsService(repository);
+
+    // When
+    await review(service, clock);
+
+    // Then
+    expect(mocks.findLatestReviewIdForSubmission).toHaveBeenCalledWith(
+      syntheticSubmissionId,
+    );
+    expect(
+      transactionCalls.indexOf('findLatestReviewIdForSubmission'),
+    ).toBeGreaterThan(transactionCalls.indexOf('lockDocument'));
+    expect(
+      transactionCalls.indexOf('findLatestReviewIdForSubmission'),
+    ).toBeLessThan(transactionCalls.indexOf('createReview'));
+  });
+
+  it('제출 버전이 어긋나면 최신 판정은 읽어 보지도 않는다 — 첫 어긋남에서 멈춘다', async () => {
+    // Given
+    const { mocks, clock, repository } = buildRepository({
+      findSubmissionForReview: jest.fn().mockResolvedValue({
+        id: syntheticSubmissionId,
+        submittedAt: new Date('2026-09-17T08:00:00.000Z'),
+      }),
+    });
+    const service = new MilestoneDocumentReviewsService(repository);
+
+    // When / Then
+    await expect(review(service, clock)).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED },
+    });
+    expect(mocks.findLatestReviewIdForSubmission).not.toHaveBeenCalled();
+  });
+});
+
 describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', () => {
   it('서류 행을 잠근 뒤에야 제출을 찾고 판정을 쌓고 상태를 옮긴다 — 한 트랜잭션 안이다', async () => {
     // Given: 잠금이 없으면 방금 교체된 제출에 판정이 붙고, 학생 쪽은 그 판정을 못 본 채
@@ -253,6 +387,7 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
       'lockDocument',
       'now',
       'findSubmissionForReview',
+      'findLatestReviewIdForSubmission',
       'createReview',
       'updateSubmissionStatus',
     ]);

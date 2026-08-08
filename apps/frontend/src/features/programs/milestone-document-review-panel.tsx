@@ -4,7 +4,10 @@ import { StatusBadge } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
-import type { MilestoneDocumentCollectionCell } from './milestone-document-collection-api';
+import type {
+  MilestoneDocumentCollectionCell,
+  MilestoneDocumentCollectionContent,
+} from './milestone-document-collection-api';
 import {
   formatSeoulDate,
   formatSeoulShortDateTime,
@@ -32,6 +35,8 @@ import {
 const DECISION_BUTTON_BASE =
   'h-control rounded-control px-4 text-small font-semibold transition-colors';
 
+const CONTENT_HEADING = 'text-small font-semibold';
+
 export interface MilestoneDocumentReviewPanelProps {
   readonly teamName: string;
   readonly documentName: string;
@@ -48,6 +53,117 @@ export interface MilestoneDocumentReviewPanelProps {
   readonly onCommentChange: (comment: string) => void;
   readonly onSubmit: () => void;
   readonly onClose: () => void;
+}
+
+/**
+ * 학생이 낸 **글 전문**.
+ *
+ * 잘라 보여 주지 않는다 — 서버가 자르지 않고 싣는 이유와 같다(잘린 뒤를 읽을 단건 조회가
+ * 없어서, 「일부만 보고 승인」이 「못 보고 승인」과 같아진다). 대신 높이를 묶고 그 안에서
+ * 스크롤해 10,000자짜리 제출이 판정 버튼을 화면 밖으로 밀어내지 않게 한다.
+ *
+ * 줄바꿈은 보존한다(`whitespace-pre-wrap`). 학생이 항목을 줄로 나눠 적은 글을 한 덩이로
+ * 이어 붙이면 읽는 사람이 원문과 다른 것을 본다.
+ *
+ * 스크롤 영역은 `tabIndex`로 키보드에서 닿게 한다 — 마우스로만 읽을 수 있는 본문은
+ * 그만큼 못 보는 사람이 생긴다는 뜻이다(`components/ui/table.tsx`의 가로 스크롤과 같은 이유).
+ */
+function SubmittedText({ text }: { readonly text: string }): ReactElement {
+  return (
+    <div className="grid gap-1">
+      <h4 className={CONTENT_HEADING}>제출한 글</h4>
+      <div
+        data-testid="milestone-document-submitted-text"
+        tabIndex={0}
+        role="region"
+        aria-label="제출한 글"
+        className="max-h-80 overflow-y-auto rounded-card border border-border bg-card p-card text-small leading-6 break-words whitespace-pre-wrap outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        {text}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 저장소 릴리스 주소. 눌러서 바로 확인할 수 있어야 판정에 뜻이 있다.
+ *
+ * 새 탭으로 여는 것은 **판정하던 자리를 잃지 않기 위해서**다 — 같은 탭에서 나가면 표와
+ * 적어 두던 사유가 함께 사라진다. `rel`은 그 새 탭이 이 화면을 되짚지 못하게 막는다.
+ * 주소는 자르지 않고 그대로 적는다: 어느 저장소의 어느 태그인지가 판정의 근거다.
+ */
+function SubmittedRelease({
+  releaseUrl,
+}: {
+  readonly releaseUrl: string;
+}): ReactElement {
+  return (
+    <div className="grid gap-1">
+      <h4 className={CONTENT_HEADING}>제출한 릴리스 주소</h4>
+      <a
+        data-testid="milestone-document-submitted-release"
+        href={releaseUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-small break-all text-primary underline underline-offset-4"
+      >
+        {releaseUrl}
+      </a>
+      <p className="text-small text-muted-foreground">새 탭에서 열립니다.</p>
+    </div>
+  );
+}
+
+/**
+ * 제출은 있는데 **보여 줄 것이 하나도 없는** 칸. 파일도 본문도 없을 때다 —
+ * 첨부의 보존 기한이 지났거나(FILE 유형인데 `file`이 비어 온다) 저장된 본문을 읽지
+ * 못한 경우다.
+ *
+ * 아무 말 없이 판정 버튼만 열어 두면 교직원은 **볼 것이 없다는 사실 자체를 모른 채**
+ * 승인·반려를 누른다. 그래서 버튼을 잠그는 대신 사실을 적는다: 보존 기한이 지난 첨부에
+ * 「다시 내라」고 보완 요청하는 것은 정당한 판정이라, 잠그면 그 길이 막힌다.
+ */
+function NothingToShow(): ReactElement {
+  return (
+    <Alert data-testid="milestone-document-no-content">
+      <AlertDescription className="break-keep">
+        제출은 있지만 보여 줄 파일도 내용도 없습니다. 첨부의 보존 기한이
+        지났거나 제출 내용을 읽지 못한 경우입니다. 내용을 확인하지 않은 채
+        승인하지 말고, 학생에게 다시 받아 주세요.
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+/**
+ * 판정하기 전에 **무엇을 판정하는지** 보여 주는 자리. 제출 방식 세 가지가 여기서 갈린다.
+ *
+ * ⚠ 이 부분을 지우면 파일 제출만 눈에 보이고 **글·릴리스 제출은 통째로 안 보인다** —
+ * 교직원이 내용을 한 글자도 못 본 채 승인·반려를 누르게 된다. 그것이 이 화면의 원래
+ * 결함이었다.
+ */
+function SubmittedContent({
+  cell,
+  fileHref,
+}: {
+  readonly cell: MilestoneDocumentCollectionCell;
+  readonly fileHref: string | null;
+}): ReactElement | null {
+  if (!cell.isSubmitted) return null;
+  const content: MilestoneDocumentCollectionContent | null = cell.content;
+  // 첨부는 링크를 걸 수 있을 때만 「보여 준 것」으로 친다 — 파일명만 적고 열 길이 없으면
+  // 내용을 본 것이 아니다.
+  const hasFile = cell.file !== null && fileHref !== null;
+
+  if (content !== null) {
+    return content.type === 'TEXT' ? (
+      <SubmittedText text={content.text} />
+    ) : (
+      <SubmittedRelease releaseUrl={content.releaseUrl} />
+    );
+  }
+  if (hasFile) return null;
+  return <NothingToShow />;
 }
 
 /**
@@ -131,6 +247,8 @@ export function MilestoneDocumentReviewPanel(
           </Button>
         </div>
       )}
+
+      <SubmittedContent cell={cell} fileHref={props.fileHref} />
 
       {cell.review === null ? null : <PreviousReview review={cell.review} />}
 

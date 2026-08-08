@@ -205,15 +205,35 @@ const reorderDocumentsHandler: LocalReviewHandler = (context) => {
 };
 
 /**
- * 서류 제출물 판정. 실제 백엔드와 **같은 순서로** 갈린다: 교직원 가드 → 사유 필수(422).
+ * 기대 버전 두 값이 요청 본문에 **제대로 실려 있는가**.
+ *
+ * `expectedSubmittedAt`은 문자열이어야 하고, `expectedLatestReviewId`는 문자열이거나
+ * **명시된 `null`**이어야 한다. 키를 아예 빼먹은 요청은 통과시키지 않는다 — 백엔드가
+ * `@IsOptional`이 아니라 `@ValidateIf`로 받아 누락을 400으로 막기 때문이고, 여기서
+ * 느슨하게 받으면 옛 본문을 보내는 화면이 로컬 검토에서만 멀쩡히 저장되는 것처럼 보인다.
+ */
+function hasReviewTargetVersion(context: LocalReviewContext): boolean {
+  const record = bodyRecord(context);
+  if (record === null) return false;
+  if (typeof record.expectedSubmittedAt !== 'string') return false;
+  if (!('expectedLatestReviewId' in record)) return false;
+  const reviewId = record.expectedLatestReviewId;
+  return reviewId === null || typeof reviewId === 'string';
+}
+
+/**
+ * 서류 제출물 판정. 실제 백엔드와 **같은 순서로** 갈린다: 교직원 가드 →
+ * 요청 값 검사(400) → 사유 필수(422).
  *
  * 사유 필수를 여기서도 보는 것이 요점이다. 화면이 먼저 막지만, 그 검증이 사라져도
  * 로컬 검토가 조용히 성공을 돌려주면 **검증이 없어진 것을 아무도 못 본다** — 실제
  * 백엔드에 붙였을 때에야 422가 드러난다. 공백만 적은 사유를 함께 거절하는 것도 서버와
- * 같다(`trim()` 후 빈 문자열은 `null`로 접힌다).
+ * 같다(`trim()` 후 빈 문자열은 `null`로 접힌다). 기대 버전 두 값을 400으로 막는 것도
+ * 같은 이유다 — 그 값을 빼먹은 화면은 실제 백엔드에서 **판정이 통째로 실패한다**.
  *
  * 한계: 판정이 저장되지 않아 표를 다시 불러도 칸은 그대로다
- * (`createdMilestoneDocumentReviewFor` 주석 참고).
+ * (`createdMilestoneDocumentReviewFor` 주석 참고). 같은 이유로 「내가 본 그 제출물이
+ * 아니다」(409 MSD_025)도 여기서는 재현되지 않는다 — 그 갈래는 화면 쪽 테스트가 덮는다.
  */
 const reviewSubmissionHandler: LocalReviewHandler = (context) => {
   const params = matchMethod(
@@ -229,7 +249,7 @@ const reviewSubmissionHandler: LocalReviewHandler = (context) => {
     'decision',
     MILESTONE_DOCUMENT_REVIEW_DECISIONS,
   );
-  if (decision === null) {
+  if (decision === null || !hasReviewTargetVersion(context)) {
     return problem(
       400,
       INVALID_REQUEST_CODE,

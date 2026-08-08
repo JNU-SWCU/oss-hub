@@ -37,6 +37,7 @@ function cell(
     status: 'SUBMITTED',
     submittedAt: '2026-07-14T00:00:00.000Z',
     file: null,
+    content: null,
     review: null,
     ...overrides,
   };
@@ -124,6 +125,7 @@ function render(
       isLoading={false}
       errorMessage={null}
       review={null}
+      reviewNotice={null}
       onFilterChange={() => {}}
       onPageChange={() => {}}
       onRetry={() => {}}
@@ -322,6 +324,7 @@ describe('MilestoneDocumentCollectionView 표', () => {
             cell('d1', {
               status: 'CHANGES_REQUESTED',
               review: {
+                id: 'review-1',
                 decision: 'CHANGES_REQUESTED',
                 comment: '표지를 고쳐 주세요.',
                 reviewedAt: '2026-07-15T00:00:00.000Z',
@@ -331,6 +334,7 @@ describe('MilestoneDocumentCollectionView 표', () => {
               status: 'APPROVED',
               submittedAt: '2026-07-14T01:00:00.000Z',
               review: {
+                id: 'review-2',
                 decision: 'APPROVED',
                 comment: null,
                 reviewedAt: '2026-07-15T00:00:00.000Z',
@@ -363,6 +367,7 @@ describe('MilestoneDocumentCollectionView 표', () => {
               status: 'SUBMITTED',
               submittedAt: '2026-07-20T00:00:00.000Z',
               review: {
+                id: 'review-3',
                 decision: 'CHANGES_REQUESTED',
                 comment: '표지를 고쳐 주세요.',
                 reviewedAt: '2026-07-15T00:00:00.000Z',
@@ -401,6 +406,7 @@ describe('MilestoneDocumentCollectionView 표', () => {
             ? {
                 ...current,
                 review: {
+                  id: 'review-4',
                   decision: 'REJECTED' as const,
                   comment: '기한을 넘겼습니다.',
                   reviewedAt: '2026-07-15T00:00:00.000Z',

@@ -14,7 +14,7 @@ import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 /**
  * 교직원 서류 제출물 판정(승인 · 보완 요청 · 반려).
  *
- * 판정은 `MilestoneDocumentReview`에 **쌓이고**, 그 최신 결과를
+ * 판정은 `MilestoneDocumentReviewHistory`에 **쌓이고**, 그 최신 결과를
  * `MilestoneDocumentSubmission.status`가 반영한다. 이력을 쌓는 이유는 스키마 주석에 있다 —
  * 담당 교직원이 바뀌어도 지난 지적이 남아야 한다.
  */
@@ -32,6 +32,10 @@ export class MilestoneDocumentReviewsService {
    * 3. 신청이 이 마일스톤의 프로그램 소속인가 — 가드가 역할만 보므로(프로그램 단위 소유권
    *    컬럼이 스키마에 없다) 경로를 위조해 다른 프로그램의 제출을 판정하는 것을 여기서 막는다.
    * 4. 그 (서류, 신청) 제출이 실제로 있는가.
+   *
+   * 인가가 끝난 뒤 **5단계로 기대 버전 대조**가 붙는다 — 「판정해도 되는 사람인가」와 「이게
+   * 그가 본 그 제출물인가」는 다른 질문이다. 뒤쪽은 잠금 아래에서만 답할 수 있어 트랜잭션
+   * 안에 있다(그 자리의 주석에 근거를 적었다).
    *
    * **잠금**: 판정은 `MilestoneDocumentSubmission`을 바꾸므로 학생 재제출과 경합한다. 학생 제출
    * 경로(`upsertSubmission`)가 `MilestoneDocument` 행을 `FOR SHARE`로 잡으므로, 이쪽이 같은 행을
@@ -114,6 +118,36 @@ export class MilestoneDocumentReviewsService {
       );
       if (submission === null) {
         throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND);
+      }
+
+      /*
+       * 5. 이게 **검토자가 본 그 버전**인가 — 두 값을 잠금 아래에서 맞춰 본다.
+       *
+       * 잠금은 「누가 먼저인가」만 정한다. 표가 그려진 뒤 학생이 다시 냈다면 제출 행은 같은
+       * id를 유지한 채 내용만 바뀌어 있고(제출은 upsert다), 다른 교직원이 먼저 판정했다면
+       * 이력에 새 행이 붙어 있다. 어느 쪽이든 잠금은 아무 말도 하지 않으므로, 요청이 들고 온
+       * 기대 버전과 실제를 여기서 대조해야 한다. 대조가 없으면 **교직원이 보지 못한 내용이
+       * 승인되거나** 더 최신 판정이 조용히 덮인다.
+       *
+       * 두 값을 **둘 다** 보는 이유는 서로 다른 사건을 잡기 때문이다 — 재제출은 `submittedAt`만
+       * 움직이고(판정 이력은 그대로), 남의 판정은 최신 판정 id만 움직인다(제출은 그대로).
+       * 하나만 보면 나머지 한 사건이 그대로 통과한다.
+       *
+       * 검사가 **잠금 아래**여야 하는 이유: 잠금 전에 읽으면 읽은 뒤 커밋되는 재제출·판정을
+       * 그대로 놓쳐 지금 고치려는 문제가 그대로 반복된다. 학생 제출 경로가 같은
+       * `MilestoneDocument` 행을 `FOR SHARE`로 잡으므로, 이 지점에서 읽는 값은 「경합하던
+       * 트랜잭션이 커밋을 끝낸 뒤」의 값이다.
+       */
+      if (
+        submission.submittedAt.getTime() !== input.expectedSubmittedAt.getTime()
+      ) {
+        throw this.error(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
+      }
+      const latestReviewId = await store.findLatestReviewIdForSubmission(
+        submission.id,
+      );
+      if (latestReviewId !== input.expectedLatestReviewId) {
+        throw this.error(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
       }
 
       const review = await store.createReview({

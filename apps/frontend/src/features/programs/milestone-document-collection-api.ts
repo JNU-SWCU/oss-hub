@@ -60,10 +60,33 @@ export interface MilestoneDocumentCollectionFile {
  * 그리고 싶어도 여기서 만들어 낼 수 없다.
  */
 export interface MilestoneDocumentCollectionReview {
+  /**
+   * 판정 요청의 `expectedLatestReviewId`로 **그대로 되돌려 보내는** 값이다(칸의
+   * `submittedAt`이 `expectedSubmittedAt`이 되는 것과 짝이다). 표를 그린 뒤 다른 교직원이
+   * 먼저 판정하면 서버가 이 값으로 알아채고 409(MSD_025)로 막는다 — 화면이 이 id를
+   * 흘리면 그 검사가 통째로 무력해진다.
+   */
+  readonly id: string;
   readonly decision: MilestoneDocumentReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: string;
 }
+
+/**
+ * 학생이 낸 **본문** — 파일이 아닌 두 제출 방식이 여기 실린다. 백엔드
+ * `milestone-documents/domain/milestone-document-content.ts`의
+ * `MilestoneDocumentSubmittedContent`와 같은 모양이다.
+ *
+ * ⚠ FILE 제출에는 이 값이 없다(`null`) — 파일은 옆의 `file`이 담당한다. 저장 시점에
+ * `JsonNull`로 접히기 때문이라, 「파일 제출인데 본문이 있다」는 상태는 계약에 없다.
+ *
+ * ⚠ **잘려 오지 않는다.** 글은 최대 10,000자까지 그대로 실린다 — 「일부만 보고 승인」은
+ * 「못 보고 승인」과 같은 사고라서 서버가 자르지 않기로 한 것이고, 잘린 뒤를 읽을 단건
+ * 조회도 없다. 화면은 그 전문을 담을 자리를 마련해야 한다(패널의 스크롤 영역).
+ */
+export type MilestoneDocumentCollectionContent =
+  | { readonly type: 'TEXT'; readonly text: string }
+  | { readonly type: 'REPOSITORY_RELEASE'; readonly releaseUrl: string };
 
 /**
  * 표의 칸 — 미제출도 칸이 비지 않고 `isSubmitted: false`로 채워져 온다.
@@ -90,6 +113,14 @@ export interface MilestoneDocumentCollectionCell {
   readonly status: MilestoneDocumentSubmissionStatus | null;
   readonly submittedAt: string | null;
   readonly file: MilestoneDocumentCollectionFile | null;
+  /**
+   * 글·저장소 릴리스로 낸 제출의 본문. FILE 제출이거나 미제출이면 `null`이다.
+   *
+   * ⚠ **판정 화면은 이 값을 반드시 그려야 한다.** 이것을 그리지 않으면 제출 방식 세 가지
+   * 중 둘(글·릴리스)이 교직원에게 통째로 안 보이고, 그는 내용을 한 글자도 못 본 채
+   * 승인·반려를 누른다.
+   */
+  readonly content: MilestoneDocumentCollectionContent | null;
   readonly review: MilestoneDocumentCollectionReview | null;
 }
 

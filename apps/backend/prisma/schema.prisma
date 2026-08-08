@@ -60,7 +60,7 @@ model User {
   reviews                                Review[]
   uploadedMilestoneDocumentTemplateFiles MilestoneDocumentTemplateFile[]
   milestoneDocumentSubmissions           MilestoneDocumentSubmission[]
-  milestoneDocumentReviews               MilestoneDocumentReview[]
+  milestoneDocumentReviewHistories       MilestoneDocumentReviewHistory[]
   boardPosts                             BoardPost[]
   boardComments                          BoardComment[]
   notifications                          Notification[]
@@ -596,8 +596,10 @@ model MilestoneDocumentSubmission {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  files   SubmissionFile[]
-  reviews MilestoneDocumentReview[]
+  files SubmissionFile[]
+  /// 판정 이력 — 제출 하나에 여러 건이 쌓인다(모델 주석 참고). 이름이 복수 목록인 것은
+  /// 「지금의 판정」이 아니라 **이력 전체**가 여기 달리기 때문이다.
+  reviewHistories MilestoneDocumentReviewHistory[]
 
   @@unique([milestoneDocumentId, applicationId])
   @@index([applicationId])
@@ -605,6 +607,11 @@ model MilestoneDocumentSubmission {
 }
 
 /// 서류 제출물에 대한 교직원 판정(승인 · 보완 요청 · 반려). 제출 하나에 판정이 **여러 건 쌓인다**.
+///
+/// 이름이 `…History`로 끝나는 것은 그 모양 때문이다 — 시간 축(`reviewedAt`)이 전진할수록 행이
+/// 늘고 지난 행을 지우지 않는다(docs/rules/data-modeling.md §4). 바로 위
+/// `MilestoneDocumentTemplateFile`이 `History`를 **쓰지 않는** 것과 짝을 이룬다: 그쪽은 항목당
+/// 한 행을 덮어쓰는 upsert 모양이다.
 ///
 /// ⚠ 옛 `Review`는 `submissionRevisionId @unique`라 제출 revision 하나에 판정이 하나뿐이다
 /// (재제출하면 revision이 새로 생겨 그쪽에 새 판정이 붙는다). 이 모델은 그 unique를 **일부러
@@ -617,7 +624,7 @@ model MilestoneDocumentSubmission {
 ///
 /// `@@index([milestoneDocumentSubmissionId, reviewedAt])`가 그 「최신 한 건」 조회를 받친다
 /// (수합 표는 제출마다 최신 판정을 한 건씩 끌어온다).
-model MilestoneDocumentReview {
+model MilestoneDocumentReviewHistory {
   id String @id @default(cuid())
 
   milestoneDocumentSubmissionId String

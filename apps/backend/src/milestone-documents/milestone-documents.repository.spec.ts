@@ -399,7 +399,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     const tx = {
       $queryRaw: queryRaw,
       milestoneDocumentSubmission: { upsert: submissionUpsert },
-      milestoneDocumentReview: { findFirst: reviewFindFirst },
+      milestoneDocumentReviewHistory: { findFirst: reviewFindFirst },
       submissionFile: { updateMany: fileUpdateMany, findMany: fileFindMany },
       ...overrides,
     };
@@ -679,7 +679,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     });
     const { prisma } = transactionPrisma({
       $queryRaw: queryRaw,
-      milestoneDocumentReview: { findFirst: reviewFindFirst },
+      milestoneDocumentReviewHistory: { findFirst: reviewFindFirst },
     });
     const repository = new MilestoneDocumentsRepository(prisma);
 
@@ -702,10 +702,20 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
 describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
   /** 판정 경로도 트랜잭션 밖 클라이언트를 따로 세어, 잠금 없는 단발 경로로 새면 잡는다. */
-  function buildReviewStorePrisma() {
-    const submissionFindUnique = jest
+  function buildReviewStorePrisma(
+    options: { latestReview?: { id: string } | null } = {},
+  ) {
+    const submissionFindUnique = jest.fn().mockResolvedValue({
+      id: 'cuid-synthetic-submission',
+      submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+    });
+    const reviewFindFirst = jest
       .fn()
-      .mockResolvedValue({ id: 'cuid-synthetic-submission' });
+      .mockResolvedValue(
+        options.latestReview === undefined
+          ? { id: 'cuid-synthetic-review' }
+          : options.latestReview,
+      );
     const submissionUpdate = jest.fn().mockResolvedValue({
       id: 'cuid-synthetic-submission',
     });
@@ -718,7 +728,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
     });
     const direct = { create: jest.fn(), update: jest.fn() };
     const prisma = {
-      milestoneDocumentReview: { create: direct.create },
+      milestoneDocumentReviewHistory: { create: direct.create },
       milestoneDocumentSubmission: { update: direct.update },
       $transaction: jest.fn((callback: (transaction: unknown) => unknown) =>
         callback({
@@ -726,7 +736,10 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
             findUnique: submissionFindUnique,
             update: submissionUpdate,
           },
-          milestoneDocumentReview: { create: reviewCreate },
+          milestoneDocumentReviewHistory: {
+            create: reviewCreate,
+            findFirst: reviewFindFirst,
+          },
         }),
       ),
     } as unknown as PrismaService;
@@ -735,6 +748,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       submissionFindUnique,
       submissionUpdate,
       reviewCreate,
+      reviewFindFirst,
       direct,
     };
   }
@@ -760,9 +774,49 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
           applicationId: syntheticApplicationId,
         },
       },
+      // submittedAt까지 읽는 것이 요점이다 — 서비스가 「검토자가 본 그 버전인가」를 이 값으로
+      // 대조한다. id만 읽으면 재제출로 내용이 바뀐 제출에 그대로 판정이 붙는다.
+      select: { id: true, submittedAt: true },
+    });
+    expect(result).toEqual({
+      id: 'cuid-synthetic-submission',
+      submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+    });
+  });
+
+  it('findLatestReviewIdForSubmission은 수합 표와 같은 정렬로 최신 한 건의 id만 읽는다', async () => {
+    // Given: 정렬이 갈라지면 화면이 본 「최신 판정」과 서버가 비교하는 「최신 판정」이 서로
+    // 다른 행을 가리켜, 대조가 통과해도 덮어쓰기가 그대로 일어난다.
+    const { prisma, reviewFindFirst } = buildReviewStorePrisma();
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const result = await repository.withTransaction((store) =>
+      store.findLatestReviewIdForSubmission('cuid-synthetic-submission'),
+    );
+
+    // Then
+    expect(reviewFindFirst).toHaveBeenCalledWith({
+      where: { milestoneDocumentSubmissionId: 'cuid-synthetic-submission' },
+      orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
       select: { id: true },
     });
-    expect(result).toEqual({ id: 'cuid-synthetic-submission' });
+    expect(result).toBe('cuid-synthetic-review');
+  });
+
+  it('판정이 없으면 findLatestReviewIdForSubmission은 null이다', async () => {
+    // Given: 「아직 아무도 보지 않았다」를 요청의 기대값 null과 맞출 수 있어야 한다.
+    //  undefined가 새어 나가면 null 기대값과 어긋나 첫 판정이 전부 409가 된다.
+    const { prisma } = buildReviewStorePrisma({ latestReview: null });
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const result = await repository.withTransaction((store) =>
+      store.findLatestReviewIdForSubmission('cuid-synthetic-submission'),
+    );
+
+    // Then
+    expect(result).toBeNull();
   });
 
   it('createReview는 create로 판정을 쌓는다 — upsert/update로 덮어쓰지 않는다', async () => {
@@ -1141,7 +1195,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         status: SubmissionStatus.SUBMITTED,
         files: [{ originalFileName: '최종_진짜최종.hwp', sizeBytes: 2048 }],
-        reviews: [],
+        reviewHistories: [],
       },
     ]);
     const prisma = {
@@ -1179,7 +1233,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         status: SubmissionStatus.SUBMITTED,
         files: [],
-        reviews: [],
+        reviewHistories: [],
       },
     ]);
     const prisma = {
@@ -1209,7 +1263,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         submittedAt: new Date('2026-09-19T08:00:00.000Z'),
         status: SubmissionStatus.SUBMITTED,
         files: [],
-        reviews: [
+        reviewHistories: [
           {
             decision: ReviewDecision.CHANGES_REQUESTED,
             comment: '2쪽 서명이 빠졌습니다.',
@@ -1247,8 +1301,9 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         status: SubmissionStatus.CHANGES_REQUESTED,
         files: [],
-        reviews: [
+        reviewHistories: [
           {
+            id: 'cuid-synthetic-review',
             decision: ReviewDecision.CHANGES_REQUESTED,
             comment: '2쪽 서명이 빠졌습니다.',
             reviewedAt,
@@ -1269,17 +1324,61 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
 
     // Then: 같은 밀리초에 두 건이 들어와도 순서가 정해지도록 id로 한 번 더 가른다.
     const call = firstCallArgument<{
-      select: { reviews: { orderBy: unknown; take: number } };
+      select: {
+        reviewHistories: { orderBy: unknown; take: number; select: unknown };
+      };
     }>(findMany);
-    expect(call.select.reviews.orderBy).toEqual([
+    expect(call.select.reviewHistories.orderBy).toEqual([
       { reviewedAt: 'desc' },
       { id: 'desc' },
     ]);
-    expect(call.select.reviews.take).toBe(1);
+    expect(call.select.reviewHistories.take).toBe(1);
+    // id를 함께 뽑는다 — 칸이 이 값을 실어야 프런트가 판정 요청의 기대 버전으로 되돌려 준다.
+    expect(call.select.reviewHistories.select).toEqual({
+      id: true,
+      decision: true,
+      comment: true,
+      reviewedAt: true,
+    });
     expect(result[0]?.review).toEqual({
+      id: 'cuid-synthetic-review',
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt,
+    });
+  });
+
+  it('글·릴리스 제출의 본문을 칸 재료에 함께 싣는다 — 파일만 주면 2가지 방식이 깜깜이가 된다', async () => {
+    // Given: TEXT·REPOSITORY_RELEASE 서류는 첨부가 없다. content를 읽지 않으면 교직원이
+    // 제출 내용을 한 글자도 보지 못한 채 승인·반려하게 된다.
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        milestoneDocumentId: syntheticDocumentId,
+        applicationId: syntheticApplicationId,
+        submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+        status: SubmissionStatus.SUBMITTED,
+        content: { type: 'TEXT', text: '3주차까지 인터뷰 8건을 마쳤습니다.' },
+        files: [],
+        reviewHistories: [],
+      },
+    ]);
+    const prisma = {
+      milestoneDocumentSubmission: { findMany },
+    } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const result = await repository.findSubmissionsForCollection(
+      [syntheticDocumentId],
+      now,
+    );
+
+    // Then
+    const call = firstCallArgument<{ select: { content?: boolean } }>(findMany);
+    expect(call.select.content).toBe(true);
+    expect(result[0]?.content).toEqual({
+      type: 'TEXT',
+      text: '3주차까지 인터뷰 8건을 마쳤습니다.',
     });
   });
 });
@@ -1294,8 +1393,9 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
         milestoneDocumentId: syntheticDocumentId,
         submittedAt,
         status: SubmissionStatus.CHANGES_REQUESTED,
-        reviews: [
+        reviewHistories: [
           {
+            id: 'cuid-synthetic-review',
             decision: ReviewDecision.CHANGES_REQUESTED,
             comment: '2쪽 서명이 빠졌습니다.',
             reviewedAt,
@@ -1321,6 +1421,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
       submittedAt,
       status: SubmissionStatus.CHANGES_REQUESTED,
       review: {
+        id: 'cuid-synthetic-review',
         decision: ReviewDecision.CHANGES_REQUESTED,
         comment: '2쪽 서명이 빠졌습니다.',
         reviewedAt,
@@ -1335,7 +1436,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
         milestoneDocumentId: syntheticDocumentId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         status: SubmissionStatus.SUBMITTED,
-        reviews: [],
+        reviewHistories: [],
       },
     ]);
     const prisma = {
@@ -1381,7 +1482,7 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
       decision: ReviewDecision.APPROVED,
     });
     const prisma = {
-      milestoneDocumentReview: { findFirst },
+      milestoneDocumentReviewHistory: { findFirst },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
@@ -1412,7 +1513,7 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
     // Given
     const findFirst = jest.fn().mockResolvedValue(null);
     const prisma = {
-      milestoneDocumentReview: { findFirst },
+      milestoneDocumentReviewHistory: { findFirst },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 

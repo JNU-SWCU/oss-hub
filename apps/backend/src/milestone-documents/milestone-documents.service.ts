@@ -304,7 +304,7 @@ export class MilestoneDocumentsService {
   /**
    * 학생 — 서류 제출/재제출("올리기"/"수정"). 제출 자체는 upsert 방식이라 기존 제출을 덮어쓴다
    * (Submission/SubmissionRevision 계열과 달리 제출 이력은 남기지 않는다). **판정 이력은 다르다**
-   * — `MilestoneDocumentReview`에 쌓이고 재제출해도 지워지지 않는다.
+   * — `MilestoneDocumentReviewHistory`에 쌓이고 재제출해도 지워지지 않는다.
    *
    * 재제출 가부는 그 최신 판정이 정한다: 승인·반려면 거부하고, 보완 요청이면 허용하고, 판정이
    * 없으면 그대로 허용한다. 규칙의 뜻은 옛 제출물 재제출

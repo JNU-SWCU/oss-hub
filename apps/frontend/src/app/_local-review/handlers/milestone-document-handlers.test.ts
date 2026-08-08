@@ -10,12 +10,13 @@ import {
 } from '../handler-kit';
 import { MILESTONE_DOCUMENT_HANDLERS } from './milestone-document-handlers';
 
-/** 서류 3장·팀 3개짜리 교직원 마일스톤(milestone-document-fixtures.ts). */
+/** 서류 4장·팀 3개짜리 교직원 마일스톤(milestone-document-fixtures.ts). */
 const MILESTONE_ID = 'milestone-basic-orientation';
 const DOCUMENT_IDS = [
   'synthetic-document-orientation-plan',
   'synthetic-document-orientation-pledge',
   'synthetic-document-orientation-note',
+  'synthetic-document-orientation-release',
 ];
 
 function resolve(
@@ -82,7 +83,7 @@ describe('PATCH .../documents/order', () => {
     ) as readonly MilestoneDocument[];
 
     expect(body.map((item) => item.id)).toEqual(reversed);
-    expect(body.map((item) => item.sortOrder)).toEqual([1, 2, 3]);
+    expect(body.map((item) => item.sortOrder)).toEqual([1, 2, 3, 4]);
   });
 
   // 부분 목록을 조용히 받아 주면, 화면이 실제 백엔드에서만 실패하는 요청을 만들어도
@@ -181,7 +182,7 @@ describe('GET .../documents/collection', () => {
   it('열의 필수 여부는 isRequired로 싣는다 — 옛 required가 아니다', () => {
     const { documents } = collection('');
 
-    expect(documents).toHaveLength(3);
+    expect(documents).toHaveLength(4);
     for (const item of documents) {
       expect(Object.hasOwn(item, 'isRequired')).toBe(true);
       expect(Object.hasOwn(item, 'required')).toBe(false);
@@ -191,6 +192,7 @@ describe('GET .../documents/collection', () => {
     expect(documents.map((item) => item.isRequired)).toEqual([
       true,
       true,
+      false,
       false,
     ]);
   });
@@ -207,7 +209,7 @@ describe('GET .../documents/collection', () => {
     const all = collection('page=1&pageSize=20&filter=ALL');
     const hasMissing = collection('page=1&pageSize=20&filter=HAS_MISSING');
 
-    // 3팀 중 첫 팀만 세 장을 다 냈다 — 나머지 두 팀은 필수 서류가 빈다.
+    // 3팀 중 첫 팀만 네 장을 다 냈다 — 나머지 두 팀은 필수 서류가 빈다.
     expect(all.filterCounts.all).toBe(3);
     expect(all.filterCounts.hasMissing).toBe(2);
     expect(hasMissing.total).toBe(2);
@@ -263,16 +265,35 @@ describe('GET .../documents/collection', () => {
 /**
  * 판정 POST. 로컬 검토가 무조건 성공을 돌려주면 **화면의 사유 필수 검증이 사라져도
  * 아무도 못 본다** — 실제 백엔드에 붙였을 때에야 422가 드러난다. 그래서 여기서도
- * 서버와 같은 순서로(교직원 가드 → 사유 필수) 가른다.
+ * 서버와 같은 순서로(교직원 가드 → 요청 값 → 사유 필수) 가른다.
  */
 describe('POST .../applications/:applicationId/reviews', () => {
   const REVIEW_PATH = `milestones/${MILESTONE_ID}/documents/${DOCUMENT_IDS[0]}/applications/synthetic-application-${MILESTONE_ID}-1/reviews`;
 
+  /**
+   * 기대 버전 두 값은 화면이 언제나 싣는다 — 여기서도 기본으로 얹어, 각 테스트가 자기가
+   * 묻는 갈래(사유 필수·권한)만 다루게 한다. 두 값 자체를 묻는 테스트는 `body`로 덮어쓴다.
+   */
+  const REVIEW_VERSION = {
+    expectedSubmittedAt: '2026-07-28T00:00:00.000Z',
+    expectedLatestReviewId: null,
+  };
+
   function review(
-    body: unknown,
+    body: Record<string, unknown>,
     fixture: LocalReviewFixtureId = 'staff',
   ): LocalReviewResponsePlan | null {
-    return resolve('POST', REVIEW_PATH, { body, fixture });
+    return resolve('POST', REVIEW_PATH, {
+      body: { ...REVIEW_VERSION, ...body },
+      fixture,
+    });
+  }
+
+  /** 기대 버전을 **빼고** 보낸다 — 옛 본문을 그대로 흉내 낸다. */
+  function reviewWithoutVersion(
+    body: Record<string, unknown>,
+  ): LocalReviewResponsePlan | null {
+    return resolve('POST', REVIEW_PATH, { body, fixture: 'staff' });
   }
 
   it('사유를 적은 보완 요청은 201로 판정 한 건을 돌려준다', () => {
@@ -320,6 +341,34 @@ describe('POST .../applications/:applicationId/reviews', () => {
 
     expect(statusOf(plan)).toBe(403);
     expect(jsonBody(plan)).toMatchObject({ code: 'MSD_001' });
+  });
+
+  /**
+   * 기대 버전을 빼먹은 옛 본문. 여기서 통과시키면 그 화면은 로컬 검토에서만 멀쩡히
+   * 저장되고, 실제 백엔드에서는 **판정 저장이 통째로 400으로 실패한다**.
+   */
+  it('기대 버전 두 값이 없으면 400 MSD_019로 거절한다', () => {
+    for (const body of [
+      { decision: 'APPROVED' },
+      { decision: 'APPROVED', expectedSubmittedAt: '2026-07-28T00:00:00.000Z' },
+      { decision: 'APPROVED', expectedLatestReviewId: null },
+    ]) {
+      const plan = reviewWithoutVersion(body);
+      expect(statusOf(plan)).toBe(400);
+      expect(jsonBody(plan)).toMatchObject({ code: 'MSD_019' });
+    }
+  });
+
+  // 아직 판정이 없던 칸은 **명시된 `null`**로 온다 — 서버가 그것만 허용한다.
+  it('expectedLatestReviewId는 문자열도 명시된 null도 받는다', () => {
+    expect(
+      statusOf(review({ decision: 'APPROVED', expectedLatestReviewId: null })),
+    ).toBe(201);
+    expect(
+      statusOf(
+        review({ decision: 'APPROVED', expectedLatestReviewId: 'review-1' }),
+      ),
+    ).toBe(201);
   });
 
   it('계약에 없는 판정 값은 400으로 거절한다', () => {

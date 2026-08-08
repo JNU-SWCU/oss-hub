@@ -17,7 +17,7 @@ import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard'
 
 /**
  * #619 마일스톤별 서류 항목(MilestoneDocument/MilestoneDocumentTemplateFile/
- * MilestoneDocumentSubmission/MilestoneDocumentReview) 모듈. 목록 조회(viewer 역할별 분기) ·
+ * MilestoneDocumentSubmission/MilestoneDocumentReviewHistory) 모듈. 목록 조회(viewer 역할별 분기) ·
  * 학생 제출/재제출 · 교직원 CRUD · 양식 업로드/다운로드 · 교직원 판정까지 갖춘다.
  */
 @Module({

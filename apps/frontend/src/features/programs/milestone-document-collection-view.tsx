@@ -38,8 +38,10 @@ import {
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS,
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_VARIANTS,
   milestoneDocumentCellDisplay,
+  milestoneDocumentReviewVersionOf,
   type MilestoneDocumentReviewFormState,
   type MilestoneDocumentReviewTarget,
+  type MilestoneDocumentReviewVersion,
 } from './milestone-document-review';
 import type { MilestoneDocumentReviewDecision } from './milestone-document-review-api';
 import { MilestoneDocumentReviewPanel } from './milestone-document-review-panel';
@@ -70,10 +72,18 @@ export interface MilestoneDocumentCollectionViewProps {
   readonly errorMessage: string | null;
   /** 지금 열려 있는 판정 패널. 닫혀 있으면 `null`. */
   readonly review: MilestoneDocumentReviewFormState | null;
+  /**
+   * 판정이 저장되지 않고 버려졌음을 알리는 문구. 패널을 닫아 버린 뒤에도 **무슨 일이
+   * 났는지** 말할 자리가 필요해서 표 쪽에 둔다(패널 안 오류 문구와 다른 자리다).
+   */
+  readonly reviewNotice: string | null;
   readonly onFilterChange: (filter: MilestoneDocumentCollectionFilter) => void;
   readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
-  readonly onReviewOpen: (target: MilestoneDocumentReviewTarget) => void;
+  readonly onReviewOpen: (
+    target: MilestoneDocumentReviewTarget,
+    version: MilestoneDocumentReviewVersion | null,
+  ) => void;
   readonly onReviewClose: () => void;
   readonly onReviewDecisionChange: (
     decision: MilestoneDocumentReviewDecision,
@@ -145,7 +155,10 @@ function CollectionCellContent({
   readonly teamName: string;
   readonly documentName: string;
   readonly isReviewOpen: boolean;
-  readonly onReviewOpen: (target: MilestoneDocumentReviewTarget) => void;
+  readonly onReviewOpen: (
+    target: MilestoneDocumentReviewTarget,
+    version: MilestoneDocumentReviewVersion | null,
+  ) => void;
 }): ReactElement {
   const display = milestoneDocumentCellDisplay(cell);
   const badge = (
@@ -162,7 +175,17 @@ function CollectionCellContent({
           aria-expanded={isReviewOpen}
           aria-label={`${teamName} ${documentName} 판정`}
           className="flex flex-col items-start gap-0.5 rounded-control text-left hover:opacity-80"
-          onClick={() => onReviewOpen({ applicationId, documentId })}
+          /*
+           * 판정을 묶어 둘 버전을 **이 순간의 칸에서** 떠 온다. 저장할 때 다시 읽으면
+           * 그때의 최신값이 실려 서버의 대조가 언제나 통과하고, 그 사이 학생이 다시 낸
+           * 내용이 못 본 채로 승인된다.
+           */
+          onClick={() =>
+            onReviewOpen(
+              { applicationId, documentId },
+              milestoneDocumentReviewVersionOf(cell),
+            )
+          }
         >
           {badge}
           <SubmittedAt submittedAt={cell.submittedAt} />
@@ -353,7 +376,10 @@ function CollectionTable({
 }: {
   readonly data: MilestoneDocumentCollection;
   readonly review: MilestoneDocumentReviewFormState | null;
-  readonly onReviewOpen: (target: MilestoneDocumentReviewTarget) => void;
+  readonly onReviewOpen: (
+    target: MilestoneDocumentReviewTarget,
+    version: MilestoneDocumentReviewVersion | null,
+  ) => void;
   readonly onReviewClose: () => void;
   readonly onReviewDecisionChange: (
     decision: MilestoneDocumentReviewDecision,
@@ -677,6 +703,18 @@ export function MilestoneDocumentCollectionView(
             </AlertDescription>
           </Alert>
         ) : null}
+        {/*
+         * 저장되지 않고 버려진 판정을 알리는 자리. 패널을 닫은 뒤에 띄우므로 패널 안
+         * 오류 문구와 자리를 나눠 가진다 — 같은 자리에 두면 패널이 닫히는 순간 문구도
+         * 함께 사라져, 교직원은 판정이 저장된 줄 안다.
+         */}
+        {props.reviewNotice === null ? null : (
+          <Alert data-testid="milestone-document-review-notice">
+            <AlertDescription className="break-keep">
+              {props.reviewNotice}
+            </AlertDescription>
+          </Alert>
+        )}
         <CollectionBody {...props} />
       </div>
     </PageBody>

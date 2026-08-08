@@ -27,6 +27,20 @@ export interface MilestoneDocumentReviewInput {
    * 화면은 애초에 공백만 남은 사유를 보내지 않는다.
    */
   readonly comment?: string;
+  /**
+   * 판정을 붙일 제출물의 시각 — **내가 본 그 칸의 `submittedAt`을 그대로** 되돌려 보낸다.
+   *
+   * ⚠ 선택이 아니다. 빼먹으면 400이다(백엔드 DTO의 `@IsDateString`). 「보내면 검사하고
+   * 안 보내면 넘어간다」로 두면 검사를 우회하는 길이 되어, 이 두 필드가 막으려던
+   * 「보지 못한 내용을 승인한다」가 요청 하나로 되살아난다.
+   */
+  readonly expectedSubmittedAt: string;
+  /**
+   * 내가 본 칸의 `review.id`. 아직 판정이 없던 칸은 **`null`을 명시해서** 보낸다 —
+   * 키를 빼면 400이다(백엔드가 `@IsOptional`이 아니라 `@ValidateIf`로 받는다:
+   * `null`(판정이 없었다)만 허용하고 누락은 막는다).
+   */
+  readonly expectedLatestReviewId: string | null;
 }
 
 /** 201 응답 — 방금 만든 판정 한 건. */
@@ -46,11 +60,18 @@ export interface CreatedMilestoneDocumentReview {
  *   검증이 새어 나간 것이다.
  * - `MSD_022` 404 — 그 팀의 제출이 없다. 표를 열어 둔 사이 제출이 사라졌다는 뜻이다.
  * - `MSD_024` 409 — 그 사이 다른 판정이 등록됐다. 손에 든 「지난 판정」이 이미 낡았다.
+ *   **학생 제출 경로**에서 나는 갈래다.
+ * - `MSD_025` 409 — 내가 **본 그 제출물**이 아닌 것에 판정이 붙으려 했다. 표를 그린 뒤
+ *   학생이 다시 냈거나 다른 교직원이 먼저 판정한 것이다. 024와 갈라 둔 이유는 **말 거는
+ *   상대와 바뀐 것이 다르기** 때문이다 — 여기서 막히는 사람은 교직원이고, 바뀐 것은
+ *   판정만이 아니라 제출물 자체일 수 있다. 두 코드에 같은 문구를 쓰면 「무엇이 바뀌었는지」가
+ *   사라진다.
  */
 export const MILESTONE_DOCUMENT_REVIEW_ERROR_CODES = {
   COMMENT_REQUIRED: 'MSD_021',
   SUBMISSION_NOT_FOUND: 'MSD_022',
   REVIEW_CHANGED: 'MSD_024',
+  REVIEW_TARGET_CHANGED: 'MSD_025',
 } as const;
 
 function reviewsPath(
@@ -67,6 +88,10 @@ function reviewsPath(
  * ⚠ 이 호출은 **덮어쓰지 않고 쌓는다**(그래서 POST다). 같은 제출을 두 번 판정하면 판정이
  * 두 건 남고, 응답·수합 표는 그중 최신 한 건만 보여 준다. 「고치기」로 읽고 PATCH 같은
  * 것을 찾지 마라 — 지난 지적이 남는 것이 이 기능의 요구다.
+ *
+ * ⚠ `input`의 기대 버전 두 값은 **패널을 열 때 화면에 있던 칸**에서 떠 온 것이어야 한다.
+ * 보내는 순간에 표를 다시 읽어 채우면 언제나 최신값이 실려 검사가 통과하고, 그러면 이
+ * 검사가 막으려던 「그 사이 바뀐 제출물에 판정이 붙는다」가 그대로 일어난다.
  */
 export function createMilestoneDocumentReview(
   milestoneId: string,

@@ -16,9 +16,11 @@ import { MilestoneDocumentCollectionView } from './milestone-document-collection
 import {
   milestoneDocumentReviewCommentPayload,
   milestoneDocumentReviewFormError,
+  milestoneDocumentReviewVersionError,
   nextMilestoneDocumentReviewState,
   type MilestoneDocumentReviewFormState,
   type MilestoneDocumentReviewTarget,
+  type MilestoneDocumentReviewVersion,
 } from './milestone-document-review';
 import {
   createMilestoneDocumentReview,
@@ -50,6 +52,32 @@ function shouldReloadAfterReviewError(error: unknown): boolean {
 }
 
 /**
+ * 「내가 본 그 제출물이 아니다」(409 MSD_025)인가 — 다른 실패와 다루는 방식이 다르다.
+ *
+ * 이건 입력이 틀린 것도, 잠깐의 장애도 아니다. **판정의 근거가 이미 사라졌다**는 뜻이라
+ * 같은 판정을 다시 눌러 통과시켜서는 안 된다. 그래서 패널 안에 문구만 남기지 않고
+ * 적어 둔 판정을 버리고 표부터 최신으로 되돌린다.
+ */
+function isReviewTargetChanged(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    error.problem.code ===
+      MILESTONE_DOCUMENT_REVIEW_ERROR_CODES.REVIEW_TARGET_CHANGED
+  );
+}
+
+/**
+ * MSD_025를 받았을 때 교직원에게 하는 말.
+ *
+ * MSD_024(「제출하는 사이에 판정이 등록되었습니다」)와 **겹치지 않게** 쓴다. 024는 학생
+ * 제출 경로의 문구이고 여기서 막힌 사람은 교직원이다 — 두 자리에 같은 말을 띄우면
+ * 「무엇이 바뀌었는지」가 사라진다. 이 문구는 세 가지를 다 말해야 한다: 저장되지 않았다,
+ * 표는 최신으로 되돌렸다, 다시 **보고** 판정하라.
+ */
+const REVIEW_TARGET_CHANGED_NOTICE =
+  '검토하는 사이에 이 서류의 제출물 또는 판정이 바뀌어, 방금 고른 판정은 저장하지 않았습니다. 표를 최신 내용으로 다시 불러왔습니다 — 제출 내용을 다시 확인한 뒤 판정해 주세요.';
+
+/**
  * 교직원 서류 수합 표의 컨테이너 — 조회 조건(페이지·필터), 재시도, 그리고 판정 패널의
  * 상태를 갖는다. 표를 어떻게 그릴지는 `milestone-document-collection-view.tsx`가 정한다
  * (`features/submissions/components/submission-matrix-screen.tsx`와 같은 분리).
@@ -79,7 +107,18 @@ export function MilestoneDocumentCollectionScreen({
   const [review, setReview] = useState<MilestoneDocumentReviewFormState | null>(
     null,
   );
+  /** 저장되지 않고 버려진 판정을 알리는 문구 — 패널을 닫은 뒤에도 남아야 한다. */
+  const [reviewNotice, setReviewNotice] = useState<string | null>(null);
   const requestIdRef = useRef(0);
+  /**
+   * 지금 화면의 조회 조건. 표를 다시 부르는 쪽이 **호출 시점의 조건**을 쓰게 하려는 것이다.
+   *
+   * 판정 전송처럼 오래 매달려 있는 일은 시작할 때의 `query`를 손에 쥔 채로 끝난다. 그
+   * 조건으로 표를 다시 부르면, 그 사이 필터를 바꾼 화면에 **옛 조건의 답**이 도착한다 —
+   * `milestoneDocumentCollectionDataFor`가 조건이 어긋난 응답을 버리므로 표가 통째로 빈다.
+   */
+  const queryRef = useRef(query);
+  queryRef.current = query;
   /**
    * 판정 전송에도 표 조회와 **같은 결**의 경합 방지를 건다. 교직원은 여러 건을 연달아
    * 처리하므로 앞 전송의 응답이 뒤에 도착할 수 있고, 그때 「저장 중…」이 풀리거나 오류
@@ -127,10 +166,11 @@ export function MilestoneDocumentCollectionScreen({
     [milestoneId],
   );
 
+  /** 언제 불려도 **지금** 화면의 조건으로 다시 부른다(위 `queryRef` 주석 참고). */
   const reload = useCallback(() => {
     requestIdRef.current += 1;
-    void load(query, requestIdRef.current);
-  }, [load, query]);
+    void load(queryRef.current, requestIdRef.current);
+  }, [load]);
 
   useEffect(() => {
     requestIdRef.current += 1;
@@ -139,10 +179,14 @@ export function MilestoneDocumentCollectionScreen({
 
   const submitReview = useCallback(async () => {
     if (review === null) return;
-    const { decision, comment, target } = review;
-    const formError = milestoneDocumentReviewFormError(decision, comment);
-    // `decision === null`은 formError가 이미 잡지만, 그 사실은 타입에 남지 않는다.
-    if (formError !== null || decision === null) {
+    const { decision, comment, target, version } = review;
+    // 입력이 먼저다 — 교직원이 고칠 수 있는 것을 먼저 말한다. 기대 버전을 못 떠 온 것은
+    // 그가 고칠 수 있는 일이 아니라 표를 다시 부르라는 안내가 된다.
+    const formError =
+      milestoneDocumentReviewFormError(decision, comment) ??
+      milestoneDocumentReviewVersionError(version);
+    // `decision`·`version`의 null은 formError가 이미 잡지만, 그 사실은 타입에 남지 않는다.
+    if (formError !== null || decision === null || version === null) {
       setReview((previous) =>
         previous === null
           ? previous
@@ -166,15 +210,44 @@ export function MilestoneDocumentCollectionScreen({
         {
           decision,
           comment: milestoneDocumentReviewCommentPayload(comment),
+          // 패널을 열 때 떠 온 값 그대로다 — 지금 표를 다시 읽어 채우면 대조가 언제나
+          // 통과해 검사가 없는 것과 같아진다.
+          expectedSubmittedAt: version.expectedSubmittedAt,
+          expectedLatestReviewId: version.expectedLatestReviewId,
         },
       );
-      if (requestId !== reviewRequestIdRef.current) return;
+      if (requestId !== reviewRequestIdRef.current) {
+        /*
+         * 이 응답은 버려진 것이다(그 사이 칸을 옮겼거나 패널을 닫았다). 그래도 **서버에는
+         * 저장됐다** — 그냥 지나가면 표에는 옛 배지가 그대로 남아, 교직원이 이미 판정한
+         * 건을 다시 판정한다(판정은 쌓이므로 학생 화면에 지적이 두 번 남는다).
+         *
+         * 그래서 표만 지금 조건으로 다시 부른다. 폼 상태(`review`)는 건드리지 않는다 —
+         * 방금 연 다른 칸의 패널과 적어 둔 사유가 여기서 닫히면 안 된다.
+         */
+        reload();
+        return;
+      }
       // 저장한 판정은 곧바로 칸의 배지와 「지난 판정」이 되어야 한다 — 그 값은 서버가
       // 소유하므로 응답을 손으로 표에 꽂지 않고 표를 다시 부른다.
+      setReviewNotice(null);
       setReview(null);
       reload();
     } catch (error) {
+      // 실패한 뒤의 버려진 응답은 조용히 지나간다 — 서버에 남은 것이 없다.
       if (requestId !== reviewRequestIdRef.current) return;
+      /*
+       * 「내가 본 그 제출물이 아니다」는 판정의 근거가 사라졌다는 뜻이다. 패널에 문구만
+       * 띄우고 열어 두면 교직원은 같은 판정을 다시 누르고, 그때는 통과할 수도 있다 —
+       * 바뀐 내용을 여전히 못 본 채로. 그래서 고른 판정을 버리고 표부터 되돌린 뒤,
+       * 무슨 일이 났는지 표 쪽 문구로 말한다.
+       */
+      if (isReviewTargetChanged(error)) {
+        setReview(null);
+        setReviewNotice(REVIEW_TARGET_CHANGED_NOTICE);
+        reload();
+        return;
+      }
       setReview((previous) =>
         previous === null
           ? previous
@@ -199,12 +272,15 @@ export function MilestoneDocumentCollectionScreen({
       isLoading={isLoading}
       errorMessage={errorMessage}
       review={review}
+      reviewNotice={reviewNotice}
       onFilterChange={(filter: MilestoneDocumentCollectionFilter) => {
         // 조회 조건이 바뀌면 열어 둔 판정은 닫는다 — 그 팀이 다음 페이지에 없을 수 있고,
         // 적어 둔 사유가 남으면 엉뚱한 팀 칸에 그대로 저장된다. 보내는 중이던 판정도
         // 함께 버린다(옛 조건으로 표를 다시 부르는 것을 막는다).
         discardPendingReview();
         setReview(null);
+        // 다른 표로 넘어가면 앞 판정에 대한 안내는 가리키는 자리를 잃는다.
+        setReviewNotice(null);
         // 필터를 바꾸면 1페이지로 되돌린다 — 걸리는 팀 수가 줄어 3페이지가 사라진
         // 뒤에도 page=3을 그대로 물고 가면 빈 표만 남는다.
         setQuery((previous) => ({ ...previous, filter, page: 1 }));
@@ -212,15 +288,21 @@ export function MilestoneDocumentCollectionScreen({
       onPageChange={(page: number) => {
         discardPendingReview();
         setReview(null);
+        setReviewNotice(null);
         setQuery((previous) => ({ ...previous, page }));
       }}
       onRetry={reload}
-      onReviewOpen={(target: MilestoneDocumentReviewTarget) => {
+      onReviewOpen={(
+        target: MilestoneDocumentReviewTarget,
+        version: MilestoneDocumentReviewVersion | null,
+      ) => {
         // 다른 칸을 열면 앞 칸의 전송은 남의 일이 된다 — 그 응답이 방금 연 폼을 닫게
         // 두지 않는다.
         discardPendingReview();
+        // 새 칸을 열었으면 앞 판정에 대한 안내는 할 일을 마쳤다.
+        setReviewNotice(null);
         setReview((previous) =>
-          nextMilestoneDocumentReviewState(previous, target),
+          nextMilestoneDocumentReviewState(previous, target, version),
         );
       }}
       onReviewClose={() => {

@@ -18,6 +18,7 @@ function cell(
     status: 'SUBMITTED',
     submittedAt: '2026-07-28T00:00:00.000Z',
     file: null,
+    content: null,
     review: null,
     ...overrides,
   };
@@ -41,6 +42,18 @@ function badgeTexts(html: string): readonly string[] {
   return [...html.matchAll(/data-slot="status-badge"[^>]*>([^<]*)</g)].map(
     (match) => match[1] ?? '',
   );
+}
+
+/**
+ * `data-testid`가 붙은 요소의 **여는 태그**. 속성(target·rel·클래스)은 문서 전체가 아니라
+ * 그 태그에서 읽어야 한다 — 문서를 통째로 훑으면 남의 요소에 붙은 속성이 통과시킨다.
+ */
+function tagWithTestId(html: string, testId: string): string {
+  const marker = `data-testid="${testId}"`;
+  const markerIndex = html.indexOf(marker);
+  if (markerIndex < 0) throw new Error(`요소를 찾지 못했습니다: ${testId}`);
+  const open = html.lastIndexOf('<', markerIndex);
+  return html.slice(open, html.indexOf('>', markerIndex) + 1);
 }
 
 function textareaTag(html: string): string {
@@ -85,6 +98,7 @@ describe('판정 패널 머리', () => {
       cell: cell({
         status: 'REJECTED',
         review: {
+          id: 'review-1',
           decision: 'REJECTED',
           comment: '기한을 넘겼습니다.',
           reviewedAt: '2026-07-30T00:00:00.000Z',
@@ -108,6 +122,7 @@ describe('판정 패널 머리', () => {
         status: 'SUBMITTED',
         submittedAt: '2026-08-02T00:00:00.000Z',
         review: {
+          id: 'review-1',
           decision: 'CHANGES_REQUESTED',
           comment: '표지의 이름이 신청서와 다릅니다.',
           reviewedAt: '2026-07-30T00:00:00.000Z',
@@ -143,6 +158,128 @@ describe('판정 패널의 파일', () => {
 });
 
 /**
+ * 제출 방식 세 가지 중 **둘**(글·저장소 릴리스)이 이 패널에 통째로 없던 것이 원래 결함이다.
+ * 교직원은 내용을 한 글자도 못 본 채 승인·반려를 눌렀다. 아래 셋은 그 세 방식이 각각
+ * 무엇으로 보이는지를 고정한다.
+ */
+describe('판정 패널의 제출 내용', () => {
+  const longText = ['첫 줄입니다.', '', '  들여쓴 둘째 줄.', '마지막 줄.'].join(
+    '\n',
+  );
+
+  it('글 제출은 원문을 줄바꿈까지 그대로 보여 준다', () => {
+    const html = render({
+      cell: cell({ content: { type: 'TEXT', text: longText } }),
+    });
+
+    expect(html).toContain('제출한 글');
+    // 첫 줄만 보고 승인하지 않도록 **전문**이 있어야 한다.
+    expect(html).toContain('첫 줄입니다.');
+    expect(html).toContain('들여쓴 둘째 줄.');
+    expect(html).toContain('마지막 줄.');
+    // 원문의 줄바꿈이 문서에 그대로 남아 있다(한 덩이로 이어 붙이지 않았다).
+    expect(html).toContain('첫 줄입니다.\n\n  들여쓴 둘째 줄.\n마지막 줄.');
+  });
+
+  /**
+   * 10,000자까지 올 수 있는 글이다. 높이를 묶고 그 안에서 스크롤하지 않으면 판정 버튼이
+   * 화면 밖으로 밀려나고, 스크롤 영역에 초점이 닿지 않으면 마우스 없이는 아래를 못 읽는다.
+   */
+  it('긴 글은 초점이 닿는 스크롤 영역에 담는다', () => {
+    const tag = tagWithTestId(
+      render({ cell: cell({ content: { type: 'TEXT', text: longText } }) }),
+      'milestone-document-submitted-text',
+    );
+
+    expect(tag).toContain('overflow-y-auto');
+    expect(tag).toContain('max-h-80');
+    expect(tag).toContain('whitespace-pre-wrap');
+    expect(tag).toContain('tabindex="0"');
+  });
+
+  it('릴리스 제출은 주소를 새 탭 링크로 준다', () => {
+    const releaseUrl =
+      'https://github.com/JNU-SWCU/synthetic-basic-study-01/releases/tag/v1.0.0';
+    const html = render({
+      cell: cell({ content: { type: 'REPOSITORY_RELEASE', releaseUrl } }),
+    });
+    const tag = tagWithTestId(html, 'milestone-document-submitted-release');
+
+    expect(html).toContain('제출한 릴리스 주소');
+    // 주소를 그대로 적는다 — 어느 저장소의 어느 태그인지가 판정의 근거다.
+    expect(html).toContain(releaseUrl);
+    expect(tag).toContain(`href="${releaseUrl}"`);
+    // 같은 탭에서 나가면 표와 적어 두던 사유가 함께 사라진다.
+    expect(tag).toContain('target="_blank"');
+    expect(tag).toContain('rel="noopener noreferrer"');
+  });
+
+  it('파일 제출에는 글도 링크도 만들지 않는다', () => {
+    const html = render({
+      cell: cell({ file: { name: '기획서-가팀.pdf', sizeBytes: 2048 } }),
+      fileHref: milestoneDocumentSubmissionFileHref('m1', 'd1', 'a1'),
+    });
+
+    expect(html).not.toContain('제출한 글');
+    expect(html).not.toContain('제출한 릴리스 주소');
+    expect(html).toContain('기획서-가팀.pdf');
+  });
+});
+
+/**
+ * 제출은 있는데 볼 것이 하나도 없는 칸(보존 기한이 지난 첨부 등). 아무 말 없이 판정
+ * 버튼만 열어 두면 교직원은 **볼 것이 없다는 사실 자체를 모른 채** 승인을 누른다.
+ */
+describe('보여 줄 내용이 없는 제출', () => {
+  const noContentNotice = '제출은 있지만 보여 줄 파일도 내용도 없습니다.';
+
+  it('파일도 본문도 없으면 그 사실을 적는다', () => {
+    const html = render();
+
+    expect(html).toContain(noContentNotice);
+    expect(html).toContain('학생에게 다시 받아 주세요.');
+  });
+
+  /**
+   * 버튼까지 잠그지는 않는다 — 보존 기한이 지난 첨부에 「다시 내라」고 보완 요청하는 것은
+   * 정당한 판정이라, 잠그면 그 길이 막힌다. 알리되 막지 않는다.
+   */
+  it('그래도 판정 버튼은 잠그지 않는다', () => {
+    const html = render();
+
+    for (const label of ['승인', '보완 요청', '반려', '판정 저장']) {
+      expect(tagOf(html, label)).not.toContain('disabled=""');
+    }
+  });
+
+  it('내려받을 첨부가 있으면 그 문구를 띄우지 않는다', () => {
+    const html = render({
+      cell: cell({ file: { name: '기획서-가팀.pdf', sizeBytes: 2048 } }),
+      fileHref: milestoneDocumentSubmissionFileHref('m1', 'd1', 'a1'),
+    });
+
+    expect(html).not.toContain(noContentNotice);
+  });
+
+  it('보여 줄 글이 있으면 그 문구를 띄우지 않는다', () => {
+    const html = render({
+      cell: cell({ content: { type: 'TEXT', text: '냈습니다.' } }),
+    });
+
+    expect(html).not.toContain(noContentNotice);
+  });
+
+  // 미제출 칸은 볼 것이 없는 게 당연하다 — 여기까지 경고하면 문구가 뜻을 잃는다.
+  it('미제출 칸에는 띄우지 않는다', () => {
+    const html = render({
+      cell: cell({ isSubmitted: false, status: null, submittedAt: null }),
+    });
+
+    expect(html).not.toContain(noContentNotice);
+  });
+});
+
+/**
  * 판정은 덮어쓰지 않고 쌓인다 — 교직원이 바뀌어도 지난 지적이 남아야 한다는 것이
  * 이 기능의 요구다. 지난 판정을 감추면 새 교직원은 같은 것을 두 번 지적하거나,
  * 이미 지적한 것을 못 보고 승인한다.
@@ -152,6 +289,7 @@ describe('지난 판정', () => {
     const html = render({
       cell: cell({
         review: {
+          id: 'review-1',
           decision: 'CHANGES_REQUESTED',
           comment: '표지의 이름이 신청서와 다릅니다.',
           reviewedAt: '2026-07-30T01:20:00.000Z',
@@ -170,6 +308,7 @@ describe('지난 판정', () => {
     const html = render({
       cell: cell({
         review: {
+          id: 'review-1',
           decision: 'APPROVED',
           comment: null,
           reviewedAt: '2026-07-30T01:20:00.000Z',

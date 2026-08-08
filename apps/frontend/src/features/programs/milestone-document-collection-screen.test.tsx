@@ -54,6 +54,7 @@ function row(
         status: null,
         submittedAt: null,
         file: null,
+        content: null,
         review: null,
       },
     ],

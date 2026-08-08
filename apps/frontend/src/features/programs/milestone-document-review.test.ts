@@ -16,6 +16,8 @@ import {
   milestoneDocumentCellDisplay,
   milestoneDocumentReviewCommentPayload,
   milestoneDocumentReviewFormError,
+  milestoneDocumentReviewVersionError,
+  milestoneDocumentReviewVersionOf,
   milestoneDocumentViewerDisplay,
   nextMilestoneDocumentReviewState,
   shouldHighlightMilestoneDocumentReview,
@@ -90,7 +92,9 @@ describe('milestoneDocumentCellDisplay', () => {
       status: 'SUBMITTED',
       submittedAt: '2026-08-03T00:00:00.000Z',
       file: null,
+      content: null,
       review: {
+        id: 'review-1',
         decision: 'CHANGES_REQUESTED',
         comment: '표지를 고쳐 주세요.',
         reviewedAt: '2026-08-01T00:00:00.000Z',
@@ -333,12 +337,83 @@ describe('milestoneDocumentReviewCommentPayload', () => {
   });
 });
 
+/**
+ * 판정을 「내가 본 그 제출물」에 묶는 값. 이것이 틀리면 서버의 대조가 뜻을 잃고,
+ * 표를 그린 뒤 바뀐 제출물에 판정이 조용히 얹힌다.
+ */
+describe('milestoneDocumentReviewVersionOf', () => {
+  it('칸의 제출 시각과 최신 판정 id를 그대로 뜬다', () => {
+    expect(
+      milestoneDocumentReviewVersionOf({
+        submittedAt: '2026-07-28T00:00:00.000Z',
+        review: {
+          id: 'review-7',
+          decision: 'CHANGES_REQUESTED',
+          comment: '표지를 고쳐 주세요.',
+          reviewedAt: '2026-07-29T00:00:00.000Z',
+        },
+      }),
+    ).toEqual({
+      expectedSubmittedAt: '2026-07-28T00:00:00.000Z',
+      expectedLatestReviewId: 'review-7',
+    });
+  });
+
+  /**
+   * 아직 아무도 판정하지 않은 칸은 **`null`을 명시해서** 보낸다. `undefined`가 되면
+   * `JSON.stringify`가 키를 통째로 지워 서버가 400으로 막는다 — 승인 한 번이 통째로
+   * 실패하는데 화면은 「요청 값을 확인해 주세요」만 말한다.
+   */
+  it('판정이 없던 칸은 undefined가 아니라 null을 싣는다', () => {
+    const version = milestoneDocumentReviewVersionOf({
+      submittedAt: '2026-07-28T00:00:00.000Z',
+      review: null,
+    });
+
+    expect(version?.expectedLatestReviewId).toBeNull();
+    // 키가 살아 있어야 한다 — `undefined`면 본문에서 사라진다.
+    expect(JSON.parse(JSON.stringify(version))).toEqual({
+      expectedSubmittedAt: '2026-07-28T00:00:00.000Z',
+      expectedLatestReviewId: null,
+    });
+  });
+
+  // 지어낸 값은 대조를 통과하고, 그 통과는 거짓이다.
+  it('제출 시각이 없는 칸에서는 아무 값도 지어내지 않는다', () => {
+    expect(
+      milestoneDocumentReviewVersionOf({ submittedAt: null, review: null }),
+    ).toBeNull();
+  });
+});
+
+describe('milestoneDocumentReviewVersionError', () => {
+  it('버전을 떠 왔으면 막지 않는다', () => {
+    expect(
+      milestoneDocumentReviewVersionError({
+        expectedSubmittedAt: '2026-07-28T00:00:00.000Z',
+        expectedLatestReviewId: null,
+      }),
+    ).toBeNull();
+  });
+
+  it('버전이 없으면 표를 다시 부르라고 말한다', () => {
+    expect(milestoneDocumentReviewVersionError(null)).toBe(
+      '이 칸의 제출 정보를 읽지 못해 판정할 수 없습니다. 표를 다시 불러 주세요.',
+    );
+  });
+});
+
 describe('nextMilestoneDocumentReviewState', () => {
   const target = { applicationId: 'a1', documentId: 'd1' };
+  const version = {
+    expectedSubmittedAt: '2026-07-28T00:00:00.000Z',
+    expectedLatestReviewId: null,
+  };
 
   it('닫혀 있으면 그 칸을 연다', () => {
-    expect(nextMilestoneDocumentReviewState(null, target)).toEqual({
+    expect(nextMilestoneDocumentReviewState(null, target, version)).toEqual({
       target,
+      version,
       decision: null,
       comment: '',
       isSubmitting: false,
@@ -347,8 +422,8 @@ describe('nextMilestoneDocumentReviewState', () => {
   });
 
   it('같은 칸을 다시 누르면 닫는다', () => {
-    const open = createMilestoneDocumentReviewFormState(target);
-    expect(nextMilestoneDocumentReviewState(open, target)).toBeNull();
+    const open = createMilestoneDocumentReviewFormState(target, version);
+    expect(nextMilestoneDocumentReviewState(open, target, version)).toBeNull();
   });
 
   /**
@@ -357,19 +432,29 @@ describe('nextMilestoneDocumentReviewState', () => {
    */
   it('다른 칸으로 옮기면 적어 둔 사유와 판정을 가져가지 않는다', () => {
     const open = {
-      ...createMilestoneDocumentReviewFormState(target),
+      ...createMilestoneDocumentReviewFormState(target, version),
       decision: 'REJECTED' as const,
       comment: '가팀에 적던 지적',
     };
-    const next = nextMilestoneDocumentReviewState(open, {
-      applicationId: 'a2',
-      documentId: 'd1',
-    });
+    const next = nextMilestoneDocumentReviewState(
+      open,
+      { applicationId: 'a2', documentId: 'd1' },
+      {
+        expectedSubmittedAt: '2026-07-29T00:00:00.000Z',
+        expectedLatestReviewId: 'review-2',
+      },
+    );
 
     expect(next).not.toBeNull();
     expect(next?.target).toEqual({ applicationId: 'a2', documentId: 'd1' });
     expect(next?.comment).toBe('');
     expect(next?.decision).toBeNull();
+    // 버전도 옮겨 간 칸의 것이어야 한다 — 앞 칸의 것을 물고 가면 남의 제출물에 대고
+    // 대조하게 되어 언제나 409다.
+    expect(next?.version).toEqual({
+      expectedSubmittedAt: '2026-07-29T00:00:00.000Z',
+      expectedLatestReviewId: 'review-2',
+    });
   });
 });
 

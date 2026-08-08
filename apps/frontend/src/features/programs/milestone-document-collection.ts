@@ -46,6 +46,8 @@ export function collectionCellFor(
       status: null,
       submittedAt: null,
       file: null,
+      // 본문도 제출에 붙는다 — 메워 넣은 미제출 칸에는 보여 줄 내용이 있을 수 없다.
+      content: null,
       review: null,
     }
   );

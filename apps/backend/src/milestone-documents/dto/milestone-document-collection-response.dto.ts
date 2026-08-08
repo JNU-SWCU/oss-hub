@@ -1,6 +1,10 @@
 import type { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { MilestoneSubmissionType } from '@prisma/client';
 import type { MilestoneDocumentCollectionPage } from '../domain/milestone-document-collection-page';
+import {
+  type MilestoneDocumentSubmittedContent,
+  readMilestoneDocumentSubmittedContent,
+} from '../domain/milestone-document-content';
 import type {
   MilestoneContext,
   MilestoneDocumentCollectionApplication,
@@ -57,6 +61,15 @@ export interface MilestoneDocumentCollectionCellResponseDto {
   readonly submittedAt: string | null;
   readonly file: MilestoneDocumentCollectionFileResponseDto | null;
   /**
+   * 학생이 낸 **본문** — TEXT·REPOSITORY_RELEASE 제출일 때만 채워진다. FILE 제출이거나
+   * 미제출이면 null이다(파일은 위 `file`이 담당한다).
+   *
+   * 이게 없으면 교직원은 3가지 제출 방식 중 2가지를 **내용을 한 글자도 보지 못한 채**
+   * 승인·반려한다. 자르지 않고 그대로 싣는 근거는
+   * `domain/milestone-document-content.ts`의 `readMilestoneDocumentSubmittedContent` 주석에 있다.
+   */
+  readonly content: MilestoneDocumentSubmittedContent | null;
+  /**
    * 지금 제출의 상태 — 미제출이면 null.
    *
    * **배지는 이 값으로 그린다.** 학생이 보완 요청에 응해 다시 내면 제출 행의 status만
@@ -80,6 +93,13 @@ export interface MilestoneDocumentCollectionCellResponseDto {
 
 /** 칸에 붙는 최신 판정 — 교직원 표는 결과(`decision`)를 함께 보여 준다. */
 export interface MilestoneDocumentCollectionReviewResponseDto {
+  /**
+   * 판정 요청의 `expectedLatestReviewId`로 **그대로 되돌려 보내는** 값이다. 표를 그린 뒤 다른
+   * 교직원이 먼저 판정하면 서버가 이 값으로 그것을 알아채고 409로 막는다(칸의 `submittedAt`이
+   * 같은 요청의 `expectedSubmittedAt`이 되는 것과 짝이다). 판정이 없는 칸은 `review` 자체가
+   * null이고, 그때 프런트는 `expectedLatestReviewId: null`을 보낸다.
+   */
+  readonly id: string;
   readonly decision: ReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: string;
@@ -193,6 +213,7 @@ function toCell(
       isSubmitted: false,
       submittedAt: null,
       file: null,
+      content: null,
       status: null,
       review: null,
     };
@@ -211,11 +232,14 @@ function toCell(
     isSubmitted: true,
     submittedAt: submission.submittedAt.toISOString(),
     file,
+    // 저장된 Json을 해석하는 규칙은 도메인이 소유한다 — DTO는 그 결과를 나르기만 한다.
+    content: readMilestoneDocumentSubmittedContent(submission.content),
     status: submission.status,
     review:
       submission.review === null
         ? null
         : {
+            id: submission.review.id,
             decision: submission.review.decision,
             comment: submission.review.comment,
             reviewedAt: submission.review.reviewedAt.toISOString(),

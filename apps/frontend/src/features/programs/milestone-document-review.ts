@@ -212,6 +212,50 @@ export interface MilestoneDocumentReviewTarget {
   readonly documentId: string;
 }
 
+/**
+ * 「내가 본 그 제출물」의 표시. 판정 요청에 그대로 실려 나가 서버가 대조한다
+ * (`MilestoneDocumentReviewInput`의 같은 이름 두 필드).
+ */
+export interface MilestoneDocumentReviewVersion {
+  readonly expectedSubmittedAt: string;
+  readonly expectedLatestReviewId: string | null;
+}
+
+/**
+ * 패널을 **열 때** 칸에서 떠 오는 버전. 전송하는 순간에 표를 다시 읽어 채우면 언제나
+ * 최신값이 실려 서버의 대조가 늘 통과한다 — 그러면 표를 그린 뒤 학생이 다시 낸 내용이나
+ * 다른 교직원이 먼저 붙인 판정을 **못 본 채로** 판정이 얹힌다. 검사가 뜻을 가지려면
+ * 교직원이 실제로 눈으로 본 그 값이어야 한다.
+ *
+ * 제출 시각이 없는 칸은 `null`을 돌려준다. 계약상 제출된 칸에는 늘 시각이 있고 패널도
+ * 제출된 칸에만 열리지만, 어긋난 응답 하나로 **아무 값이나 지어내 보내는** 일이
+ * 없어야 한다 — 지어낸 값은 대조를 통과하고, 그 통과는 거짓이다.
+ */
+export function milestoneDocumentReviewVersionOf(
+  cell: Pick<MilestoneDocumentCollectionCell, 'submittedAt' | 'review'>,
+): MilestoneDocumentReviewVersion | null {
+  if (cell.submittedAt === null) return null;
+  return {
+    expectedSubmittedAt: cell.submittedAt,
+    // 판정이 아직 없던 칸은 `null`을 **명시해서** 보낸다 — 키를 빼면 400이다.
+    expectedLatestReviewId: cell.review?.id ?? null,
+  };
+}
+
+/**
+ * 기대 버전을 못 떠 온 채로 저장하려 할 때 교직원에게 보일 문구. 보낼 수 있으면 `null`.
+ *
+ * 이 자리에서 막는 대신 「검사 없이 보내기」로 물러나면, 응답 하나가 어긋난 날 그 칸만
+ * 조용히 무검사 판정 경로가 된다.
+ */
+export function milestoneDocumentReviewVersionError(
+  version: MilestoneDocumentReviewVersion | null,
+): string | null {
+  return version === null
+    ? '이 칸의 제출 정보를 읽지 못해 판정할 수 없습니다. 표를 다시 불러 주세요.'
+    : null;
+}
+
 export function isSameMilestoneDocumentReviewTarget(
   a: MilestoneDocumentReviewTarget,
   b: MilestoneDocumentReviewTarget,
@@ -222,6 +266,12 @@ export function isSameMilestoneDocumentReviewTarget(
 /** 열려 있는 판정 패널의 상태 전부. 컨테이너가 갖고 화면은 그리기만 한다. */
 export interface MilestoneDocumentReviewFormState {
   readonly target: MilestoneDocumentReviewTarget;
+  /**
+   * 이 패널을 **열던 순간** 칸에 있던 제출물의 표시. 표가 그 뒤에 바뀌어도 이 값은 따라
+   * 바뀌지 않는다 — 판정은 교직원이 눈으로 본 그 제출물에 묶여야 하고, 그것이 이미
+   * 바뀌었다면 저장이 아니라 409로 막히는 편이 맞다.
+   */
+  readonly version: MilestoneDocumentReviewVersion | null;
   readonly decision: MilestoneDocumentReviewDecision | null;
   readonly comment: string;
   readonly isSubmitting: boolean;
@@ -230,9 +280,11 @@ export interface MilestoneDocumentReviewFormState {
 
 export function createMilestoneDocumentReviewFormState(
   target: MilestoneDocumentReviewTarget,
+  version: MilestoneDocumentReviewVersion | null,
 ): MilestoneDocumentReviewFormState {
   return {
     target,
+    version,
     decision: null,
     comment: '',
     isSubmitting: false,
@@ -250,6 +302,7 @@ export function createMilestoneDocumentReviewFormState(
 export function nextMilestoneDocumentReviewState(
   current: MilestoneDocumentReviewFormState | null,
   target: MilestoneDocumentReviewTarget,
+  version: MilestoneDocumentReviewVersion | null,
 ): MilestoneDocumentReviewFormState | null {
   if (
     current !== null &&
@@ -257,5 +310,5 @@ export function nextMilestoneDocumentReviewState(
   ) {
     return null;
   }
-  return createMilestoneDocumentReviewFormState(target);
+  return createMilestoneDocumentReviewFormState(target, version);
 }
