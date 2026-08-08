@@ -231,6 +231,18 @@ it('마감 전 SUBMITTED 제출물은 새 revision으로 교체한다', async ()
   );
 });
 
+it('마감 시각과 정확히 같은 SUBMITTED 제출물은 새 revision으로 교체한다', async () => {
+  const dueAt = new Date('2026-08-08T12:00:00.000Z');
+  const { service, createSubmissionRevision } = buildService({
+    target: target({ status: SubmissionStatus.SUBMITTED, dueAt }),
+  });
+
+  await expect(
+    service.resubmit(githubId, submissionId, textInput, dueAt),
+  ).resolves.toMatchObject({ revision: 2, status: SubmissionStatus.SUBMITTED });
+  expect(createSubmissionRevision).toHaveBeenCalled();
+});
+
 it('REJECTED 제출물은 마감 전에도 교체할 수 없다', async () => {
   const { service, createSubmissionRevision } = buildService({
     target: target({ status: SubmissionStatus.REJECTED }),

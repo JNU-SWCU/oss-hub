@@ -6,7 +6,10 @@ import {
 } from '@prisma/client';
 import { addOneCalendarYear } from '../common/add-one-calendar-year';
 import { DomainException } from '../common/error-code';
-import { programDeadline } from '../programs/program-deadline';
+import {
+  hasProgramDeadlinePassed,
+  programDeadline,
+} from '../programs/program-deadline';
 import type {
   CreateSubmissionInput,
   ResubmitSubmissionInput,
@@ -276,7 +279,7 @@ export class SubmissionsService {
               milestone.submission.status ===
                 SubmissionStatus.CHANGES_REQUESTED ||
               (milestone.submission.status === SubmissionStatus.SUBMITTED &&
-                now <= milestone.dueAt),
+                !hasProgramDeadlinePassed(milestone.dueAt, now)),
             file: milestone.submission.file
               ? {
                   ...milestone.submission.file,
@@ -306,7 +309,7 @@ export class SubmissionsService {
       throw this.error(SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED);
     if (
       target.status !== SubmissionStatus.CHANGES_REQUESTED &&
-      now > target.dueAt
+      hasProgramDeadlinePassed(target.dueAt, now)
     ) {
       throw this.error(SubmissionsErrorCode.SUBMISSION_REPLACEMENT_CLOSED);
     }
@@ -353,7 +356,8 @@ export class SubmissionsService {
     now: Date,
   ): SubmissionBlockedReasonResponseDto | null {
     if (application.existingSubmission) return 'SUBMISSION_ALREADY_EXISTS';
-    if (now > milestone.dueAt) return 'MILESTONE_CLOSED';
+    if (hasProgramDeadlinePassed(milestone.dueAt, now))
+      return 'MILESTONE_CLOSED';
     if (
       milestone.submissionType === MilestoneSubmissionType.FILE &&
       milestone.programEndAt === null
@@ -376,7 +380,7 @@ export class SubmissionsService {
   ): void {
     if (application.existingSubmission)
       throw this.error(SubmissionsErrorCode.SUBMISSION_ALREADY_EXISTS);
-    if (now > milestone.dueAt)
+    if (hasProgramDeadlinePassed(milestone.dueAt, now))
       throw this.error(SubmissionsErrorCode.MILESTONE_CLOSED);
     if (input.content.type !== milestone.submissionType)
       throw this.error(SubmissionsErrorCode.CONTENT_TYPE_MISMATCH);

@@ -74,12 +74,21 @@ describe('validateSubmissionFile', () => {
   it.each([
     ['document.PDF', 'application/pdf'],
     ['document.hwp', 'application/x-hwp'],
+    ['document.hwp', 'application/haansofthwp'],
+    ['document.hwp', 'application/vnd.hancom.hwp'],
+    ['document.hwp', 'application/x-hwp-v5'],
+    ['document.hwp', 'application/octet-stream'],
+    ['document.hwp', ''],
     ['photo.jpg', 'image/jpeg'],
     ['photo.JPEG', 'image/jpeg'],
     ['image.png', 'image/png'],
     ['archive.zip', 'application/zip'],
   ])('%s와 %s 쌍을 허용한다', (name, type) => {
-    expect(validateSubmissionFile(new File(['x'], name, { type }))).toEqual({
+    // Given: 브라우저가 제공한 파일 이름과 MIME.
+    const file = new File(['x'], name, { type });
+
+    // When / Then: 사용자가 선택할 수 있다고 안내한 형식은 통과한다.
+    expect(validateSubmissionFile(file)).toEqual({
       ok: true,
     });
   });

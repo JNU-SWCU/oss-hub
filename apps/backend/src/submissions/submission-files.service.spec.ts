@@ -139,6 +139,10 @@ describe('SubmissionFilesService', () => {
   it.each([
     ['document.pdf', 'application/pdf'],
     ['document.hwp', 'application/x-hwp'],
+    ['document.hwp', 'application/haansofthwp'],
+    ['document.hwp', 'application/vnd.hancom.hwp'],
+    ['document.hwp', 'application/x-hwp-v5'],
+    ['document.hwp', 'application/octet-stream'],
     ['photo.jpg', 'image/jpeg'],
     ['photo.jpeg', 'image/jpeg'],
     ['image.png', 'image/png'],
@@ -154,6 +158,20 @@ describe('SubmissionFilesService', () => {
       contentType: type,
     });
     expect(storage.put).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows an initial upload at the exact milestone deadline', async () => {
+    const { service, repository, storage } = setup();
+    repository.findUploadAuthorization.mockResolvedValue(
+      authorization({ dueAt: NOW }),
+    );
+
+    await expect(
+      service.upload(1n, 'app', 'milestone', file()),
+    ).resolves.toMatchObject({ fileId: 'file-opaque' });
+
+    expect(repository.createPending).toHaveBeenCalled();
+    expect(storage.put).toHaveBeenCalled();
   });
 
   it.each([

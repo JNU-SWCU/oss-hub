@@ -21,6 +21,7 @@ import {
   type MilestoneDocument,
   type MilestoneDocumentSubmissionContent,
 } from './milestone-document-api';
+import { requireMilestoneDocumentList } from './milestone-document-list-response';
 import { formatSeoulShortDateTime } from './program-detail-format';
 import type { ViewerRole } from './types';
 
@@ -126,7 +127,9 @@ export function MilestoneDocumentSection({
     try {
       setState({
         kind: 'ready',
-        documents: await listMilestoneDocuments(milestoneId),
+        documents: requireMilestoneDocumentList(
+          await listMilestoneDocuments(milestoneId),
+        ),
       });
     } catch {
       setState({ kind: 'failed' });
