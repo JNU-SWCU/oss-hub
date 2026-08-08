@@ -4,7 +4,7 @@ import { createContext, useContext, type ReactNode } from 'react';
 import type { SessionRoleResult } from './use-session-role';
 
 /**
- * 게이트가 이미 읽은 세션·역할 스냅샷을 그 아래 화면이 그대로 물려받는 자리.
+ * 공통 셸이 이미 읽은 세션·역할 스냅샷을 그 아래 화면이 그대로 물려받는 자리.
  *
  * `useSessionRole()`을 화면에서 한 번 더 부르면 역할 요청 조회(`fetchMyRoleRequest`
  * ·`fetchMyRoleSelection`)가 두 번 나가고, 더 나쁘게는 **서로 다른 순간의 답**을
@@ -32,18 +32,29 @@ export function SessionRoleProvider({
 }
 
 /**
- * 게이트가 판단에 쓴 바로 그 스냅샷. 게이트 밖에서 부르면 조합 실수다.
+ * 공통 셸과 게이트가 판단에 쓴 바로 그 스냅샷. Provider 밖에서 부르면 조합 실수다.
  *
- * 세우는 게이트는 둘이다 — 업무 화면의 `RoleGate`와 온보딩 화면의 `OnboardingGate`.
- * 후자는 나중에 합류했는데, 그전까지 온보딩 화면들은 필요한 값을 스스로 다시 조회할
- * 수밖에 없었고 그 재조회가 #673이 되살아나는 통로였다.
+ * `AppFrame`이 전체 셸에 먼저 세우고, 업무 화면의 `RoleGate`와 온보딩 화면의
+ * `OnboardingGate`도 독립 렌더에서 같은 계약을 지킨다. 온보딩 화면이 필요한 값을
+ * 스스로 다시 조회하던 길이 #673이 되살아나는 통로였다.
  */
 export function useSharedSessionRole(): SessionRoleResult {
-  const value = useContext(SessionRoleContext);
+  const value = useOptionalSharedSessionRole();
   if (value === null) {
     throw new Error(
-      'useSharedSessionRole는 RoleGate·OnboardingGate 안에서만 쓸 수 있습니다 — 게이트가 판단한 세션 스냅샷을 물려받는 훅입니다.',
+      'useSharedSessionRole는 AppFrame·RoleGate·OnboardingGate의 SessionRoleProvider 안에서만 쓸 수 있습니다 — 공통 셸이 판단한 세션 스냅샷을 물려받는 훅입니다.',
     );
   }
   return value;
+}
+
+/**
+ * 공통 셸 아래인지 확인하는 내부용 훅.
+ *
+ * 일반 화면은 `useSharedSessionRole`을 써서 잘못된 조합을 즉시 드러낸다. 다만
+ * `useSessionRole` 자체는 공통 셸 안팎에서 모두 쓰이는 오래된 진입점이라, 셸 아래면
+ * 이미 받은 스냅샷을 재사용하고 셸 밖의 독립 렌더에서만 직접 조회해야 한다.
+ */
+export function useOptionalSharedSessionRole(): SessionRoleResult | null {
+  return useContext(SessionRoleContext);
 }

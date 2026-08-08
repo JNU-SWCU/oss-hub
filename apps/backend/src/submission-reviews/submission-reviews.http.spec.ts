@@ -206,6 +206,7 @@ it('비로그인 review-context 요청은 401 AUT_003 ProblemDetail을 반환하
   expect(response.headers.get('content-type')).toContain(
     'application/problem+json',
   );
+  expect(response.headers.get('cache-control')).toBe('private, no-store');
   await expect(response.json()).resolves.toMatchObject({
     type: 'about:blank',
     status: 401,

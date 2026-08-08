@@ -7,6 +7,7 @@ import { PUBLIC_MENU } from './public-menus';
 import { ProductShell } from './product-shell';
 import { ShellNav } from './shell-nav';
 import { COSMOS_GROUND_PATHS, PRE_MEMBER_PATHS } from './signup-routes';
+import { SessionRoleProvider } from './session-role-context';
 import { useSessionRole } from './use-session-role';
 
 /**
@@ -39,7 +40,8 @@ export function AppFrame({
   readonly initialSidebarCollapsed?: boolean;
 }) {
   const pathname = usePathname();
-  const { status, isProfileComplete } = useSessionRole();
+  const session = useSessionRole();
+  const { status, isProfileComplete } = session;
   const onCosmosGround = COSMOS_GROUND_PATHS.has(pathname);
   const preMember = PRE_MEMBER_PATHS.has(pathname);
 
@@ -55,31 +57,37 @@ export function AppFrame({
 
   if (preMember) {
     return (
-      <div
-        className={
-          onCosmosGround ? 'flex min-h-dvh flex-col bg-cosmos-void' : undefined
-        }
-      >
-        <ShellNav brand={brand} items={navItems} actions={actions} />
+      <SessionRoleProvider value={session}>
         <div
           className={
-            onCosmosGround ? 'flex min-h-0 flex-1 flex-col' : undefined
+            onCosmosGround
+              ? 'flex min-h-dvh flex-col bg-cosmos-void'
+              : undefined
           }
-          id="main-content"
-          tabIndex={-1}
         >
-          {children}
+          <ShellNav brand={brand} items={navItems} actions={actions} />
+          <div
+            className={
+              onCosmosGround ? 'flex min-h-0 flex-1 flex-col' : undefined
+            }
+            id="main-content"
+            tabIndex={-1}
+          >
+            {children}
+          </div>
         </div>
-      </div>
+      </SessionRoleProvider>
     );
   }
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <ShellNav brand={brand} items={navItems} actions={actions} />
-      <ProductShell initialCollapsed={initialSidebarCollapsed}>
-        {children}
-      </ProductShell>
-    </div>
+    <SessionRoleProvider value={session}>
+      <div className="flex min-h-dvh flex-col">
+        <ShellNav brand={brand} items={navItems} actions={actions} />
+        <ProductShell initialCollapsed={initialSidebarCollapsed}>
+          {children}
+        </ProductShell>
+      </div>
+    </SessionRoleProvider>
   );
 }
