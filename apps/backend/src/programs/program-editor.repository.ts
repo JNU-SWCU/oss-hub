@@ -194,18 +194,43 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
       },
     });
     if (milestone === null || milestone.programId !== programId) return null;
+    // 서류 항목의 제출은 Milestone에서 한 단계 더 들어간 테이블이라 _count로 세지 못한다.
+    // 같은 트랜잭션(= 위에서 마일스톤을 FOR UPDATE로 잠근 뒤)에서 따로 센다.
+    const documentSubmissionCount =
+      await this.transaction.milestoneDocumentSubmission.count({
+        where: { milestoneDocument: { milestoneId } },
+      });
     return {
       id: milestone.id,
       programId: milestone.programId,
       submissionCount:
         milestone._count.submissions + milestone._count.submissionFiles,
+      documentSubmissionCount,
       programMilestoneCount: milestone.program._count.milestones,
       programRepositoryProvisioningEnabled:
         milestone.program.repositoryProvisioningEnabled,
     };
   }
 
+  /**
+   * 서류 항목은 마일스톤 없이는 뜻이 없는 설정이라 마일스톤과 함께 지운다. FK가 모두
+   * ON DELETE RESTRICT(Prisma 기본)라 순서도 강제된다: 양식 파일 행 → 서류 항목 행 →
+   * 마일스톤. 이 순서를 지키지 않으면 P2003이 발생해 타입 없는 500이 된다.
+   *
+   * ⚠ 지우는 것은 DB 행뿐이다 — 양식 파일의 스토리지 객체(MilestoneDocumentTemplateFile.
+   * storageKey가 가리키는 객체)는 스토리지에 그대로 남는다. 고아 객체 회수는 이 경로의
+   * 책임이 아니라 별도 이슈에서 다룬다(milestone-documents의 deleteDocument도 같은 상태다).
+   *
+   * 제출물이 하나라도 있으면 서비스 계층이 MILESTONE_HAS_SUBMISSIONS로 먼저 막으므로,
+   * 여기까지 온 마일스톤에는 MilestoneDocumentSubmission이 없다.
+   */
   async deleteMilestone(milestoneId: string): Promise<void> {
+    await this.transaction.milestoneDocumentTemplateFile.deleteMany({
+      where: { milestoneDocument: { milestoneId } },
+    });
+    await this.transaction.milestoneDocument.deleteMany({
+      where: { milestoneId },
+    });
     await this.transaction.milestone.delete({ where: { id: milestoneId } });
   }
 

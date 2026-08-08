@@ -265,7 +265,12 @@ export class ProgramEditorService {
       await this.requireEditor(store, githubId);
       const milestone = await store.findMilestoneForDelete(milestoneId);
       if (milestone === null) this.fail(ProgramErrorCode.MILESTONE_NOT_FOUND);
-      if (milestone.submissionCount > 0) {
+      // 제출물이 있으면 지우지 않는다 — 옛 Submission/SubmissionFile 경로든 서류 항목
+      // (MilestoneDocumentSubmission) 경로든 「제출물이 있다」는 뜻이 같아 같은 코드로 거부한다.
+      if (
+        milestone.submissionCount > 0 ||
+        milestone.documentSubmissionCount > 0
+      ) {
         this.fail(ProgramErrorCode.MILESTONE_HAS_SUBMISSIONS);
       }
       if (
