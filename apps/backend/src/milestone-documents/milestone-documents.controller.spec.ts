@@ -1,4 +1,5 @@
 import { ValidationPipe } from '@nestjs/common';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
 import type { ExecutionContext, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Readable } from 'node:stream';
@@ -54,6 +55,38 @@ const updateDocument = jest.fn().mockResolvedValue({
   hasTemplateFile: true,
 });
 const deleteDocument = jest.fn().mockResolvedValue(undefined);
+const collectForStaff = jest.fn().mockResolvedValue({
+  milestone: {
+    id: 'synthetic-milestone',
+    name: '프로젝트 계획서 제출',
+    dueAt: '2026-09-19T09:00:00.000Z',
+  },
+  documents: [
+    {
+      id: 'synthetic-document',
+      name: '개인정보 수집·이용 동의서',
+      required: true,
+      sortOrder: 1,
+      submissionType: 'FILE',
+    },
+  ],
+  rows: [
+    {
+      applicationId: 'synthetic-application',
+      teamName: '가나다팀',
+      applicantName: '합성 신청자',
+      memberNicknames: ['synthetic-leader'],
+      cells: [
+        {
+          documentId: 'synthetic-document',
+          submitted: true,
+          submittedAt: '2026-09-16T14:22:00.000Z',
+          file: { name: '최종_진짜최종.hwp', sizeBytes: 2048 },
+        },
+      ],
+    },
+  ],
+});
 const submit = jest.fn().mockResolvedValue({
   id: 'synthetic-submission',
   status: 'SUBMITTED',
@@ -75,6 +108,12 @@ const downloadTemplate = jest.fn().mockResolvedValue({
   contentType: 'application/pdf',
   contentLength: 13,
 });
+const downloadSubmissionFile = jest.fn().mockResolvedValue({
+  body: Readable.from(Buffer.from('submission-body')),
+  fileName: '가나다팀_개인정보 수집·이용 동의서.hwp',
+  contentType: 'application/x-hwp',
+  contentLength: 15,
+});
 const upload = jest.fn().mockResolvedValue({
   fileId: 'synthetic-file',
   fileName: 'synthetic.pdf',
@@ -88,9 +127,11 @@ beforeEach(() => {
   createDocument.mockClear();
   updateDocument.mockClear();
   deleteDocument.mockClear();
+  collectForStaff.mockClear();
   submit.mockClear();
   uploadTemplate.mockClear();
   downloadTemplate.mockClear();
+  downloadSubmissionFile.mockClear();
   upload.mockClear();
 });
 
@@ -108,12 +149,18 @@ beforeAll(async () => {
           createDocument,
           updateDocument,
           deleteDocument,
+          collectForStaff,
           submit,
         },
       },
       {
         provide: MilestoneDocumentFilesService,
-        useValue: { uploadTemplate, downloadTemplate, upload },
+        useValue: {
+          uploadTemplate,
+          downloadTemplate,
+          downloadSubmissionFile,
+          upload,
+        },
       },
     ],
   })
@@ -393,4 +440,88 @@ it('/milestone-document-files는 201로 끝나고 milestoneId/documentId를 함�
     'synthetic-document',
     expect.objectContaining({ originalname: 'synthetic.pdf' }),
   );
+});
+
+it('서류 수합 조회는 교직원 가드를 거치고 private no-store로 응답한다', async () => {
+  // Given / When
+  const response = await fetch(
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/collection`,
+  );
+
+  // Then
+  expect(response.status).toBe(200);
+  expect(response.headers.get('cache-control')).toBe('private, no-store');
+  await expect(response.json()).resolves.toMatchObject({
+    milestone: { id: 'synthetic-milestone', name: '프로젝트 계획서 제출' },
+    documents: [{ id: 'synthetic-document', sortOrder: 1 }],
+    rows: [
+      {
+        teamName: '가나다팀',
+        cells: [{ documentId: 'synthetic-document', submitted: true }],
+      },
+    ],
+  });
+  expect(collectForStaff).toHaveBeenCalledWith('synthetic-milestone');
+});
+
+it('서류 수합 조회 경로(collection)는 :documentId 경로로 잘못 잡히지 않는다', async () => {
+  // Given / When
+  await fetch(
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/collection`,
+  );
+
+  // Then: 서류 항목 상세 계열 핸들러가 아니라 수합 핸들러가 탄다.
+  expect(collectForStaff).toHaveBeenCalledTimes(1);
+  expect(downloadTemplate).not.toHaveBeenCalled();
+});
+
+it('제출 파일 다운로드는 다시 붙인 이름으로 attachment 스트림을 반환한다', async () => {
+  // Given / When
+  const response = await fetch(
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/file`,
+  );
+
+  // Then
+  expect(response.status).toBe(200);
+  expect(response.headers.get('cache-control')).toBe('private, no-store');
+  expect(response.headers.get('content-type')).toBe('application/x-hwp');
+  expect(response.headers.get('content-length')).toBe('15');
+  const disposition = response.headers.get('content-disposition') ?? '';
+  expect(disposition).toContain('attachment');
+  expect(disposition).toContain(
+    `filename*=UTF-8''${encodeURIComponent('가나다팀_개인정보 수집·이용 동의서.hwp')}`,
+  );
+  await expect(response.text()).resolves.toBe('submission-body');
+  expect(downloadSubmissionFile).toHaveBeenCalledWith(
+    'synthetic-milestone',
+    'synthetic-document',
+    'synthetic-application',
+  );
+});
+
+function readHandlerGuards(propertyKey: string): unknown {
+  const handler: unknown = Object.getOwnPropertyDescriptor(
+    MilestoneDocumentsController.prototype,
+    propertyKey,
+  )?.value;
+  expect(typeof handler).toBe('function');
+  return Reflect.getMetadata(GUARDS_METADATA, handler as object);
+}
+
+describe('교직원 전용 endpoint의 가드 구성', () => {
+  it('서류 수합 조회는 SessionGuard + MilestoneDocumentsStaffGuard를 붙인다', () => {
+    // Given / When
+    const guards = readHandlerGuards('collection');
+
+    // Then
+    expect(guards).toEqual([SessionGuard, MilestoneDocumentsStaffGuard]);
+  });
+
+  it('제출 파일 다운로드는 SessionGuard + MilestoneDocumentsStaffGuard를 붙인다', () => {
+    // Given / When
+    const guards = readHandlerGuards('downloadSubmissionFile');
+
+    // Then: 인가 사슬 1번(ACTIVE + STAFF/ADMIN)은 이 가드가 담당한다.
+    expect(guards).toEqual([SessionGuard, MilestoneDocumentsStaffGuard]);
+  });
 });

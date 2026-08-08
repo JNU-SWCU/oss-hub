@@ -21,6 +21,7 @@ export const MilestoneDocumentsErrorCode = {
   RELEASE_URL_NOT_LINKED_REPOSITORY: 'MSD_017',
   REPOSITORY_NOT_READY: 'MSD_018',
   INVALID_REQUEST: 'MSD_019',
+  SUBMISSION_FILE_NOT_FOUND: 'MSD_020',
 } as const;
 
 export type MilestoneDocumentsErrorCode =
@@ -123,5 +124,10 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     code: MilestoneDocumentsErrorCode.INVALID_REQUEST,
     status: 400,
     message: '요청 값을 확인해 주세요.',
+  },
+  [MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND]: {
+    code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND,
+    status: 404,
+    message: '제출된 파일을 찾을 수 없습니다.',
   },
 };

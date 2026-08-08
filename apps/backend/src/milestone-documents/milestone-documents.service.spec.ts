@@ -36,6 +36,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
     findMilestone: jest.fn().mockResolvedValue({
       id: syntheticMilestoneId,
       programId: syntheticProgramId,
+      name: '프로젝트 계획서 제출',
       dueAt: new Date('2026-09-19T09:00:00.000Z'),
     }),
     findByMilestoneId: jest.fn().mockResolvedValue([baseDocument()]),
@@ -48,6 +49,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
       id: syntheticDocumentId,
       milestoneId: syntheticMilestoneId,
       programId: syntheticProgramId,
+      name: '개인정보 수집·이용 동의서',
       dueAt: new Date('2026-09-19T09:00:00.000Z'),
       required: true,
       submissionType: MilestoneSubmissionType.FILE,
@@ -57,6 +59,8 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
     deleteDocument: jest.fn(),
     countSubmissionsForDocument: jest.fn().mockResolvedValue(0),
     upsertSubmission: jest.fn(),
+    findApprovedApplicationsForCollection: jest.fn().mockResolvedValue([]),
+    findSubmissionsForCollection: jest.fn().mockResolvedValue([]),
     ...overrides,
   };
   return {
@@ -664,5 +668,228 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.PENDING_FILE_NOT_FOUND },
     });
+  });
+});
+
+describe('MilestoneDocumentsService.collectForStaff', () => {
+  const now = new Date('2026-09-20T00:00:00.000Z');
+  const secondDocumentId = 'cuid-synthetic-document-2';
+  const secondApplicationId = 'cuid-synthetic-application-2';
+
+  function collectionRepository(
+    overrides: Partial<Record<string, jest.Mock>> = {},
+  ) {
+    return buildRepository({
+      findByMilestoneId: jest.fn().mockResolvedValue([
+        baseDocument(),
+        baseDocument({
+          id: secondDocumentId,
+          name: '팀 활동 보고',
+          required: false,
+          sortOrder: 2,
+          submissionType: MilestoneSubmissionType.TEXT,
+        }),
+      ]),
+      findApprovedApplicationsForCollection: jest.fn().mockResolvedValue([
+        {
+          applicationId: syntheticApplicationId,
+          teamName: '가나다팀',
+          applicantName: '합성 신청자',
+          memberNicknames: ['synthetic-leader', 'synthetic-member'],
+        },
+        {
+          applicationId: secondApplicationId,
+          teamName: '라마바팀',
+          applicantName: null,
+          memberNicknames: ['synthetic-solo'],
+        },
+      ]),
+      ...overrides,
+    });
+  }
+
+  it('마일스톤이 없으면 MILESTONE_NOT_FOUND를 던진다', async () => {
+    // Given
+    const { repository } = buildRepository({
+      findMilestone: jest.fn().mockResolvedValue(null),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When / Then
+    await expect(
+      service.collectForStaff(syntheticMilestoneId, now),
+    ).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND },
+    });
+  });
+
+  it('마일스톤 요약과 서류 목록을 sortOrder 순 그대로 싣는다', async () => {
+    // Given
+    const { repository } = collectionRepository();
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    const result = await service.collectForStaff(syntheticMilestoneId, now);
+
+    // Then
+    expect(result.milestone).toEqual({
+      id: syntheticMilestoneId,
+      name: '프로젝트 계획서 제출',
+      dueAt: '2026-09-19T09:00:00.000Z',
+    });
+    expect(result.documents).toEqual([
+      {
+        id: syntheticDocumentId,
+        name: '개인정보 수집·이용 동의서',
+        required: true,
+        sortOrder: 1,
+        submissionType: MilestoneSubmissionType.FILE,
+      },
+      {
+        id: secondDocumentId,
+        name: '팀 활동 보고',
+        required: false,
+        sortOrder: 2,
+        submissionType: MilestoneSubmissionType.TEXT,
+      },
+    ]);
+  });
+
+  it('행은 승인된 신청 목록 순서(팀 이름 오름차순) 그대로다', async () => {
+    // Given
+    const { mocks, repository } = collectionRepository();
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    const result = await service.collectForStaff(syntheticMilestoneId, now);
+
+    // Then
+    expect(mocks.findApprovedApplicationsForCollection).toHaveBeenCalledWith(
+      syntheticProgramId,
+    );
+    expect(result.rows.map((row) => row.teamName)).toEqual([
+      '가나다팀',
+      '라마바팀',
+    ]);
+    expect(result.rows[0]?.applicantName).toBe('합성 신청자');
+    expect(result.rows[0]?.memberNicknames).toEqual([
+      'synthetic-leader',
+      'synthetic-member',
+    ]);
+  });
+
+  it('제출이 없는 서류도 칸을 비우지 않고 submitted:false로 채운다', async () => {
+    // Given: 제출이 하나도 없다.
+    const { repository } = collectionRepository();
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    const result = await service.collectForStaff(syntheticMilestoneId, now);
+
+    // Then: 프런트가 빈칸을 추측하지 않도록 모든 서류에 한 칸씩 채운다.
+    for (const row of result.rows) {
+      expect(row.cells).toEqual([
+        {
+          documentId: syntheticDocumentId,
+          submitted: false,
+          submittedAt: null,
+          file: null,
+        },
+        {
+          documentId: secondDocumentId,
+          submitted: false,
+          submittedAt: null,
+          file: null,
+        },
+      ]);
+    }
+  });
+
+  it('제출한 칸만 submitted:true가 되고 FILE 유형이면 파일 정보를 싣는다', async () => {
+    // Given
+    const { repository } = collectionRepository({
+      findSubmissionsForCollection: jest.fn().mockResolvedValue([
+        {
+          milestoneDocumentId: syntheticDocumentId,
+          applicationId: syntheticApplicationId,
+          submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+          file: { originalFileName: '최종_진짜최종.hwp', sizeBytes: 2048 },
+        },
+        {
+          milestoneDocumentId: secondDocumentId,
+          applicationId: syntheticApplicationId,
+          submittedAt: new Date('2026-09-17T10:00:00.000Z'),
+          file: null,
+        },
+      ]),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    const result = await service.collectForStaff(syntheticMilestoneId, now);
+
+    // Then
+    expect(result.rows[0]?.cells).toEqual([
+      {
+        documentId: syntheticDocumentId,
+        submitted: true,
+        submittedAt: '2026-09-16T14:22:00.000Z',
+        file: { name: '최종_진짜최종.hwp', sizeBytes: 2048 },
+      },
+      {
+        documentId: secondDocumentId,
+        submitted: true,
+        submittedAt: '2026-09-17T10:00:00.000Z',
+        file: null,
+      },
+    ]);
+    // 다른 팀의 칸이 섞이지 않는다.
+    expect(result.rows[1]?.cells.every((cell) => !cell.submitted)).toBe(true);
+  });
+
+  it('첨부가 만료돼 리포지토리가 file:null을 주면 목록에도 파일을 싣지 않는다', async () => {
+    // Given: 만료 필터가 걸러 낸 상태다 — 「목록엔 보이는데 받으면 실패」를 만들지 않는다.
+    const { mocks, repository } = collectionRepository({
+      findSubmissionsForCollection: jest.fn().mockResolvedValue([
+        {
+          milestoneDocumentId: syntheticDocumentId,
+          applicationId: syntheticApplicationId,
+          submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+          file: null,
+        },
+      ]),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    const result = await service.collectForStaff(syntheticMilestoneId, now);
+
+    // Then
+    expect(mocks.findSubmissionsForCollection).toHaveBeenCalledWith(
+      [syntheticDocumentId, secondDocumentId],
+      now,
+    );
+    expect(result.rows[0]?.cells[0]).toEqual({
+      documentId: syntheticDocumentId,
+      submitted: true,
+      submittedAt: '2026-09-16T14:22:00.000Z',
+      file: null,
+    });
+  });
+
+  it('N+1을 만들지 않는다 — 서류·신청·제출을 각각 한 번씩만 조회한다', async () => {
+    // Given
+    const { mocks, repository } = collectionRepository();
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    await service.collectForStaff(syntheticMilestoneId, now);
+
+    // Then
+    expect(mocks.findByMilestoneId).toHaveBeenCalledTimes(1);
+    expect(mocks.findApprovedApplicationsForCollection).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(mocks.findSubmissionsForCollection).toHaveBeenCalledTimes(1);
   });
 });

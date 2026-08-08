@@ -25,6 +25,7 @@ import { OriginGuard } from '../auth/origin.guard';
 import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
 import { DomainException } from '../common/error-code';
 import { CreateMilestoneDocumentSubmissionRequestDto } from './dto/create-milestone-document-submission-request.dto';
+import { MilestoneDocumentCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
 import { MilestoneDocumentResponseDto } from './dto/milestone-document-response.dto';
 import { MilestoneDocumentSubmissionResponseDto } from './dto/milestone-document-submission-response.dto';
 import { UpsertMilestoneDocumentRequestDto } from './dto/upsert-milestone-document-request.dto';
@@ -115,6 +116,16 @@ export class MilestoneDocumentsController {
     return this.service.listForViewer(request.sessionGithubId, milestoneId);
   }
 
+  /** 교직원 서류 수합 표. `collection`은 고정 세그먼트라 `:documentId` 경로들과 겹치지 않는다. */
+  @Get('collection')
+  @Header('Cache-Control', 'private, no-store')
+  @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard)
+  collection(
+    @Param('milestoneId') milestoneId: string,
+  ): Promise<MilestoneDocumentCollectionResponseDto> {
+    return this.service.collectForStaff(milestoneId);
+  }
+
   @Post()
   @HttpCode(201)
   @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard, OriginGuard)
@@ -176,6 +187,33 @@ export class MilestoneDocumentsController {
       request.sessionGithubId,
       milestoneId,
       documentId,
+    );
+    response.setHeader('Content-Type', file.contentType);
+    response.setHeader('Content-Length', String(file.contentLength));
+    response.setHeader(
+      'Content-Disposition',
+      attachmentDisposition(file.fileName),
+    );
+    return new StreamableFile(file.body);
+  }
+
+  /**
+   * 교직원 — 한 팀이 낸 서류 제출 파일 다운로드. 내려받는 이름은 학생이 올린 원본이 아니라
+   * `팀명_서류명.확장자`로 다시 붙인다(서비스가 결정한다).
+   */
+  @Get(':documentId/applications/:applicationId/file')
+  @Header('Cache-Control', 'private, no-store')
+  @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard)
+  async downloadSubmissionFile(
+    @Param('milestoneId') milestoneId: string,
+    @Param('documentId') documentId: string,
+    @Param('applicationId') applicationId: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    const file = await this.filesService.downloadSubmissionFile(
+      milestoneId,
+      documentId,
+      applicationId,
     );
     response.setHeader('Content-Type', file.contentType);
     response.setHeader('Content-Length', String(file.contentLength));

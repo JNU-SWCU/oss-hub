@@ -14,6 +14,7 @@ import {
   SUBMISSION_FILE_STORAGE,
   type SubmissionFileStoragePort,
 } from '../submissions/submission-file-storage.port';
+import { milestoneDocumentDownloadFileName } from './milestone-document-download-file-name';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
@@ -49,6 +50,14 @@ export interface UploadedMilestoneDocumentTemplateResponse {
 }
 
 export interface DownloadedMilestoneDocumentTemplate {
+  readonly body: Readable;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly contentLength: number;
+}
+
+/** 교직원 다운로드 — fileName은 학생이 올린 원본이 아니라 `팀명_서류명.확장자`로 다시 붙인 이름이다. */
+export interface DownloadedMilestoneDocumentSubmissionFile {
   readonly body: Readable;
   readonly fileName: string;
   readonly contentType: string;
@@ -262,6 +271,76 @@ export class MilestoneDocumentFilesService {
         template.mimeType,
       ),
       contentLength: template.sizeBytes,
+    };
+  }
+
+  /**
+   * 교직원 — 한 팀이 낸 서류 제출 파일을 내려받는다
+   * (`GET /milestones/:milestoneId/documents/:documentId/applications/:applicationId/file`).
+   *
+   * 기존 `GET /submission-files/:fileId`는 `submissionRevisionId: { not: null }`을 요구해
+   * 마일스톤 서류 파일을 구조적으로 거부하므로 이 모듈에 별도 endpoint를 둔다.
+   *
+   * 인가는 순서대로 전부 검사한다.
+   * 1. ACTIVE + STAFF/ADMIN — MilestoneDocumentsStaffGuard가 endpoint 앞단에서 본다.
+   * 2. 서류 항목이 이 마일스톤 소속인가.
+   * 3. 신청이 이 마일스톤의 프로그램 소속인가 — 가드가 역할만 보므로(프로그램 단위 소유권 컬럼이
+   *    스키마에 없다) 경로를 위조해 다른 프로그램 데이터를 끌어오는 것을 여기서 막는다.
+   * 4. 그 (서류, 신청) 제출에 ATTACHED이고 아직 만료되지 않은 첨부가 있는가.
+   */
+  async downloadSubmissionFile(
+    milestoneId: string,
+    documentId: string,
+    applicationId: string,
+    now: Date = new Date(),
+  ): Promise<DownloadedMilestoneDocumentSubmissionFile> {
+    // 2. 서류 항목이 이 마일스톤 소속인가.
+    const documentContext =
+      await this.repository.findDocumentContext(documentId);
+    if (
+      documentContext === null ||
+      documentContext.milestoneId !== milestoneId
+    ) {
+      throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+    }
+
+    // 3. 신청이 이 마일스톤의 프로그램 소속인가.
+    const applicationProgramId =
+      await this.repository.findApplicationProgramId(applicationId);
+    if (applicationProgramId !== documentContext.programId) {
+      throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND);
+    }
+
+    // 4. ATTACHED이고 만료되지 않은 첨부가 있는가.
+    const file = await this.repository.findSubmissionFileForStaffDownload(
+      documentId,
+      applicationId,
+      now,
+    );
+    if (file === null) {
+      throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND);
+    }
+
+    let body: Readable;
+    try {
+      body = await this.storage.get(file.storageKey);
+    } catch {
+      throw this.error(MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE);
+    }
+
+    return {
+      body,
+      fileName: milestoneDocumentDownloadFileName({
+        teamName: file.teamName,
+        documentName: documentContext.name,
+        originalFileName: file.originalFileName,
+      }),
+      // DB의 mimeType을 그대로 내보내지 않는다 — 허용 목록을 통과한 값만 쓴다.
+      contentType: safeSubmissionFileContentType(
+        file.originalFileName,
+        file.mimeType,
+      ),
+      contentLength: file.sizeBytes,
     };
   }
 

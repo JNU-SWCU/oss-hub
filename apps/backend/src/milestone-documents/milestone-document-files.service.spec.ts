@@ -34,6 +34,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
       id: syntheticDocumentId,
       milestoneId: syntheticMilestoneId,
       programId: syntheticProgramId,
+      name: '개인정보 수집·이용 동의서',
       dueAt: new Date('2026-09-19T09:00:00.000Z'),
       required: true,
       submissionType: 'FILE',
@@ -57,6 +58,14 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
       originalFileName: '계획서_양식.pdf',
       mimeType: 'application/pdf',
       sizeBytes: 2048,
+    }),
+    findApplicationProgramId: jest.fn().mockResolvedValue(syntheticProgramId),
+    findSubmissionFileForStaffDownload: jest.fn().mockResolvedValue({
+      storageKey: 'objects/synthetic-submission',
+      originalFileName: '최종_진짜최종.hwp',
+      mimeType: 'application/x-hwp',
+      sizeBytes: 2048,
+      teamName: '가나다팀',
     }),
     ...overrides,
   };
@@ -463,5 +472,295 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
     expect(mocks.get).toHaveBeenCalledWith('objects/synthetic-template');
     expect(result.fileName).toBe('계획서_양식.pdf');
     expect(result.contentLength).toBe(2048);
+  });
+});
+
+describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () => {
+  const now = new Date('2026-09-20T00:00:00.000Z');
+
+  it('서류 항목이 이 마일스톤 소속이 아니면 DOCUMENT_NOT_FOUND로 거부한다', async () => {
+    // Given: 인가 사슬 2번.
+    const { mocks, repository } = buildRepository({
+      findDocumentContext: jest.fn().mockResolvedValue({
+        id: syntheticDocumentId,
+        milestoneId: 'cuid-synthetic-other-milestone',
+        programId: syntheticProgramId,
+        name: '개인정보 수집·이용 동의서',
+        dueAt: new Date('2026-09-19T09:00:00.000Z'),
+        required: true,
+        submissionType: 'FILE',
+      }),
+    });
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      buildStorage().storage,
+    );
+
+    // When / Then
+    await expect(
+      service.downloadSubmissionFile(
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        syntheticApplicationId,
+        now,
+      ),
+    ).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+    });
+    expect(mocks.findSubmissionFileForStaffDownload).not.toHaveBeenCalled();
+  });
+
+  it('서류 항목이 없으면 DOCUMENT_NOT_FOUND로 거부한다', async () => {
+    // Given
+    const { repository } = buildRepository({
+      findDocumentContext: jest.fn().mockResolvedValue(null),
+    });
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      buildStorage().storage,
+    );
+
+    // When / Then
+    await expect(
+      service.downloadSubmissionFile(
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        syntheticApplicationId,
+        now,
+      ),
+    ).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+    });
+  });
+
+  it('신청이 이 마일스톤의 프로그램 소속이 아니면 SUBMISSION_FILE_NOT_FOUND로 거부한다', async () => {
+    // Given: 인가 사슬 3번 — 가드가 역할만 보므로 경로를 위조한 교직원이
+    // 다른 프로그램의 파일을 끌어오려는 상황이다.
+    const { mocks, repository } = buildRepository({
+      findApplicationProgramId: jest
+        .fn()
+        .mockResolvedValue('cuid-synthetic-other-program'),
+    });
+    const { mocks: storageMocks, storage } = buildStorage();
+    const service = new MilestoneDocumentFilesService(repository, storage);
+
+    // When / Then
+    await expect(
+      service.downloadSubmissionFile(
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        syntheticApplicationId,
+        now,
+      ),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND,
+      },
+    });
+    expect(mocks.findSubmissionFileForStaffDownload).not.toHaveBeenCalled();
+    expect(storageMocks.get).not.toHaveBeenCalled();
+  });
+
+  it('신청 자체가 없으면 SUBMISSION_FILE_NOT_FOUND로 거부한다', async () => {
+    // Given: 인가 사슬 3번 — programId가 null이면 어떤 프로그램과도 일치하지 않는다.
+    const { mocks, repository } = buildRepository({
+      findApplicationProgramId: jest.fn().mockResolvedValue(null),
+    });
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      buildStorage().storage,
+    );
+
+    // When / Then
+    await expect(
+      service.downloadSubmissionFile(
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        syntheticApplicationId,
+        now,
+      ),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND,
+      },
+    });
+    expect(mocks.findSubmissionFileForStaffDownload).not.toHaveBeenCalled();
+  });
+
+  it('살아 있는 첨부가 없으면(미제출·만료·삭제 예정) SUBMISSION_FILE_NOT_FOUND로 거부한다', async () => {
+    // Given: 인가 사슬 4번.
+    const { repository } = buildRepository({
+      findSubmissionFileForStaffDownload: jest.fn().mockResolvedValue(null),
+    });
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      buildStorage().storage,
+    );
+
+    // When / Then
+    await expect(
+      service.downloadSubmissionFile(
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        syntheticApplicationId,
+        now,
+      ),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND,
+      },
+    });
+  });
+
+  it('첨부 조회에 현재 시각을 넘겨 만료된 파일이 걸러지게 한다', async () => {
+    // Given
+    const { mocks, repository } = buildRepository();
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      buildStorage().storage,
+    );
+
+    // When
+    await service.downloadSubmissionFile(
+      syntheticMilestoneId,
+      syntheticDocumentId,
+      syntheticApplicationId,
+      now,
+    );
+
+    // Then
+    expect(mocks.findSubmissionFileForStaffDownload).toHaveBeenCalledWith(
+      syntheticDocumentId,
+      syntheticApplicationId,
+      now,
+    );
+  });
+
+  it('내려받는 이름을 `팀명_서류명.확장자`로 다시 붙인다', async () => {
+    // Given: 학생은 구분되지 않는 이름(`최종_진짜최종.hwp`)으로 올렸다.
+    const { repository } = buildRepository();
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      buildStorage().storage,
+    );
+
+    // When
+    const result = await service.downloadSubmissionFile(
+      syntheticMilestoneId,
+      syntheticDocumentId,
+      syntheticApplicationId,
+      now,
+    );
+
+    // Then: 원본 이름이 그대로 새어 나오면 안 된다.
+    expect(result.fileName).toBe('가나다팀_개인정보 수집·이용 동의서.hwp');
+    expect(result.fileName).not.toBe('최종_진짜최종.hwp');
+  });
+
+  it('Content-Type은 DB mimeType이 아니라 허용 목록을 통과한 값을 쓴다', async () => {
+    // Given: DB에 저장된 mimeType이 확장자와 맞지 않는다.
+    const { repository } = buildRepository({
+      findSubmissionFileForStaffDownload: jest.fn().mockResolvedValue({
+        storageKey: 'objects/synthetic-submission',
+        originalFileName: '보고서.pdf',
+        mimeType: 'text/html',
+        sizeBytes: 512,
+        teamName: '가나다팀',
+      }),
+    });
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      buildStorage().storage,
+    );
+
+    // When
+    const result = await service.downloadSubmissionFile(
+      syntheticMilestoneId,
+      syntheticDocumentId,
+      syntheticApplicationId,
+      now,
+    );
+
+    // Then
+    expect(result.contentType).toBe('application/octet-stream');
+  });
+
+  it('통과하면 스토리지에서 body를 읽어 다운로드 응답을 돌려준다', async () => {
+    // Given
+    const { repository } = buildRepository();
+    const { mocks, storage } = buildStorage();
+    const service = new MilestoneDocumentFilesService(repository, storage);
+
+    // When
+    const result = await service.downloadSubmissionFile(
+      syntheticMilestoneId,
+      syntheticDocumentId,
+      syntheticApplicationId,
+      now,
+    );
+
+    // Then
+    expect(mocks.get).toHaveBeenCalledWith('objects/synthetic-submission');
+    expect(result.contentType).toBe('application/x-hwp');
+    expect(result.contentLength).toBe(2048);
+    expect(result.fileName).toBe('가나다팀_개인정보 수집·이용 동의서.hwp');
+  });
+
+  it('이름은 서류 항목의 이름과 제출 팀의 이름으로 만든다(순서가 뒤바뀌지 않는다)', async () => {
+    // Given: 팀명과 서류명이 서로 확실히 다르다.
+    const { repository } = buildRepository({
+      findDocumentContext: jest.fn().mockResolvedValue({
+        id: syntheticDocumentId,
+        milestoneId: syntheticMilestoneId,
+        programId: syntheticProgramId,
+        name: '팀 구성 확인서',
+        dueAt: new Date('2026-09-19T09:00:00.000Z'),
+        required: true,
+        submissionType: 'FILE',
+      }),
+      findSubmissionFileForStaffDownload: jest.fn().mockResolvedValue({
+        storageKey: 'objects/synthetic-submission',
+        originalFileName: 'a.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 10,
+        teamName: '라마바팀',
+      }),
+    });
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      buildStorage().storage,
+    );
+
+    // When
+    const result = await service.downloadSubmissionFile(
+      syntheticMilestoneId,
+      syntheticDocumentId,
+      syntheticApplicationId,
+      now,
+    );
+
+    // Then
+    expect(result.fileName).toBe('라마바팀_팀 구성 확인서.pdf');
+  });
+
+  it('스토리지 읽기가 실패하면 FILE_STORAGE_UNAVAILABLE로 감싼다', async () => {
+    // Given
+    const { repository } = buildRepository();
+    const { storage } = buildStorage({
+      get: jest.fn().mockRejectedValue(new Error('synthetic storage down')),
+    });
+    const service = new MilestoneDocumentFilesService(repository, storage);
+
+    // When / Then
+    await expect(
+      service.downloadSubmissionFile(
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        syntheticApplicationId,
+        now,
+      ),
+    ).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE },
+    });
   });
 });

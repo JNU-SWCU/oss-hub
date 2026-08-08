@@ -3,6 +3,7 @@ import { MilestoneSubmissionType, Prisma, Role } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { isLinkedRepositoryReleaseUrl } from '../submissions/submission-release-url';
 import type { MilestoneDocumentContentInput } from './domain/milestone-document-content';
+import { MilestoneDocumentCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
 import { MilestoneDocumentResponseDto } from './dto/milestone-document-response.dto';
 import { MilestoneDocumentSubmissionResponseDto } from './dto/milestone-document-submission-response.dto';
 import {
@@ -95,6 +96,41 @@ export class MilestoneDocumentsService {
 
     return documents.map((document) =>
       MilestoneDocumentResponseDto.from(document),
+    );
+  }
+
+  /**
+   * `GET /milestones/:milestoneId/documents/collection` — 교직원 서류 수합 표.
+   * 행은 승인된 신청만(팀 이름 오름차순), 칸은 모든 서류 항목에 대해 한 칸씩 채운다.
+   *
+   * N+1 금지: 서류 목록·신청 목록·제출 목록을 각각 한 번씩만 조회하고 결합은 DTO가 메모리에서
+   * 한다(submissions/submission-matrix.service.ts의 cellIndex와 같은 방식).
+   */
+  async collectForStaff(
+    milestoneId: string,
+    now: Date = new Date(),
+  ): Promise<MilestoneDocumentCollectionResponseDto> {
+    const milestone = await this.repository.findMilestone(milestoneId);
+    if (milestone === null) {
+      throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
+    }
+
+    const [documents, applications] = await Promise.all([
+      this.repository.findByMilestoneId(milestoneId),
+      this.repository.findApprovedApplicationsForCollection(
+        milestone.programId,
+      ),
+    ]);
+    const submissions = await this.repository.findSubmissionsForCollection(
+      documents.map((document) => document.id),
+      now,
+    );
+
+    return MilestoneDocumentCollectionResponseDto.from(
+      milestone,
+      documents,
+      applications,
+      submissions,
     );
   }
 

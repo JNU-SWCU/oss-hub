@@ -423,3 +423,303 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     ).rejects.toBeInstanceOf(MilestoneDocumentPendingFileMissingError);
   });
 });
+
+/** jest 목의 첫 호출 인자를 명시 타입으로 읽는다 — `any` 전파 없이 select/where를 검사하려는 것이다. */
+function firstCallArgument<T>(mock: jest.Mock): T {
+  const calls = mock.mock.calls as readonly (readonly unknown[])[];
+  return calls[0]?.[0] as T;
+}
+
+describe('MilestoneDocumentsRepository.findApprovedApplicationsForCollection', () => {
+  it('승인된 신청만 팀 이름 오름차순으로 조회하고 표시 이름 관례를 그대로 쓴다', async () => {
+    // Given
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        id: syntheticApplicationId,
+        applicant: { name: '합성 신청자', profile: null },
+        team: {
+          name: '가나다팀',
+          members: [
+            { user: { nickname: 'synthetic-leader' } },
+            { user: { nickname: 'synthetic-member' } },
+          ],
+        },
+      },
+    ]);
+    const prisma = { application: { findMany } } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const result =
+      await repository.findApprovedApplicationsForCollection('cuid-program');
+
+    // Then
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          programId: 'cuid-program',
+          status: ApplicationStatus.APPROVED,
+        },
+        orderBy: [{ team: { name: 'asc' } }, { id: 'asc' }],
+      }),
+    );
+    expect(result).toEqual([
+      {
+        applicationId: syntheticApplicationId,
+        teamName: '가나다팀',
+        applicantName: '합성 신청자',
+        memberNicknames: ['synthetic-leader', 'synthetic-member'],
+      },
+    ]);
+  });
+
+  it('팀원은 TeamMember createdAt 오름차순으로 조회한다', async () => {
+    // Given
+    const findMany = jest.fn().mockResolvedValue([]);
+    const prisma = { application: { findMany } } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    await repository.findApprovedApplicationsForCollection('cuid-program');
+
+    // Then
+    const call = firstCallArgument<{
+      select: { team: { select: { members: { orderBy: unknown } } } };
+    }>(findMany);
+    expect(call.select.team.select.members.orderBy).toEqual({
+      createdAt: 'asc',
+    });
+  });
+
+  it('프로필이 있으면 프로필 이름을 신청자 이름으로 쓴다', async () => {
+    // Given: User.name과 Profile.name이 다르다.
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        id: syntheticApplicationId,
+        applicant: { name: '옛 이름', profile: { name: '프로필 이름' } },
+        team: { name: '가나다팀', members: [] },
+      },
+    ]);
+    const prisma = { application: { findMany } } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const result =
+      await repository.findApprovedApplicationsForCollection('cuid-program');
+
+    // Then
+    expect(result[0]?.applicantName).toBe('프로필 이름');
+  });
+});
+
+describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
+  const now = new Date('2026-09-20T00:00:00.000Z');
+
+  it('documentIds가 비어 있으면 조회하지 않는다', async () => {
+    // Given
+    const findMany = jest.fn();
+    const prisma = {
+      milestoneDocumentSubmission: { findMany },
+    } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const result = await repository.findSubmissionsForCollection([], now);
+
+    // Then
+    expect(findMany).not.toHaveBeenCalled();
+    expect(result).toEqual([]);
+  });
+
+  it('ATTACHED이고 아직 만료되지 않은 첨부만 붙인다', async () => {
+    // Given
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        milestoneDocumentId: syntheticDocumentId,
+        applicationId: syntheticApplicationId,
+        submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+        files: [{ originalFileName: '최종_진짜최종.hwp', sizeBytes: 2048 }],
+      },
+    ]);
+    const prisma = {
+      milestoneDocumentSubmission: { findMany },
+    } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const result = await repository.findSubmissionsForCollection(
+      [syntheticDocumentId],
+      now,
+    );
+
+    // Then: 만료 필터가 빠지면 「목록엔 보이는데 받으면 실패」가 생긴다.
+    const call = firstCallArgument<{
+      select: { files: { where: unknown; take: number } };
+    }>(findMany);
+    expect(call.select.files.where).toEqual({
+      lifecycle: SubmissionFileLifecycle.ATTACHED,
+      expiresAt: { gt: now },
+    });
+    expect(call.select.files.take).toBe(1);
+    expect(result[0]?.file).toEqual({
+      originalFileName: '최종_진짜최종.hwp',
+      sizeBytes: 2048,
+    });
+  });
+
+  it('붙은 첨부가 없으면 file은 null이다', async () => {
+    // Given
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        milestoneDocumentId: syntheticDocumentId,
+        applicationId: syntheticApplicationId,
+        submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+        files: [],
+      },
+    ]);
+    const prisma = {
+      milestoneDocumentSubmission: { findMany },
+    } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const result = await repository.findSubmissionsForCollection(
+      [syntheticDocumentId],
+      now,
+    );
+
+    // Then
+    expect(result[0]?.file).toBeNull();
+  });
+});
+
+describe('MilestoneDocumentsRepository.findApplicationProgramId', () => {
+  it('신청의 programId만 select해 돌려준다', async () => {
+    // Given
+    const findUnique = jest
+      .fn()
+      .mockResolvedValue({ programId: 'cuid-program' });
+    const prisma = { application: { findUnique } } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const result = await repository.findApplicationProgramId(
+      syntheticApplicationId,
+    );
+
+    // Then
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { id: syntheticApplicationId },
+      select: { programId: true },
+    });
+    expect(result).toBe('cuid-program');
+  });
+
+  it('신청이 없으면 null이다', async () => {
+    // Given
+    const findUnique = jest.fn().mockResolvedValue(null);
+    const prisma = { application: { findUnique } } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const result = await repository.findApplicationProgramId('cuid-none');
+
+    // Then
+    expect(result).toBeNull();
+  });
+});
+
+describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () => {
+  const now = new Date('2026-09-20T00:00:00.000Z');
+
+  it('ATTACHED이고 만료되지 않은 첨부 1개를 팀 이름과 함께 돌려준다', async () => {
+    // Given
+    const findUnique = jest.fn().mockResolvedValue({
+      application: { team: { name: '가나다팀' } },
+      files: [
+        {
+          storageKey: 'objects/synthetic',
+          originalFileName: '최종_진짜최종.hwp',
+          mimeType: 'application/x-hwp',
+          sizeBytes: 2048,
+        },
+      ],
+    });
+    const prisma = {
+      milestoneDocumentSubmission: { findUnique },
+    } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const result = await repository.findSubmissionFileForStaffDownload(
+      syntheticDocumentId,
+      syntheticApplicationId,
+      now,
+    );
+
+    // Then: 만료 필터가 빠지면 이미 만료된 파일까지 내려받힌다.
+    const call = firstCallArgument<{
+      where: unknown;
+      select: { files: { where: unknown; take: number } };
+    }>(findUnique);
+    expect(call.where).toEqual({
+      milestoneDocumentId_applicationId: {
+        milestoneDocumentId: syntheticDocumentId,
+        applicationId: syntheticApplicationId,
+      },
+    });
+    expect(call.select.files.where).toEqual({
+      lifecycle: SubmissionFileLifecycle.ATTACHED,
+      expiresAt: { gt: now },
+    });
+    expect(call.select.files.take).toBe(1);
+    expect(result).toEqual({
+      storageKey: 'objects/synthetic',
+      originalFileName: '최종_진짜최종.hwp',
+      mimeType: 'application/x-hwp',
+      sizeBytes: 2048,
+      teamName: '가나다팀',
+    });
+  });
+
+  it('제출은 있으나 살아 있는 첨부가 없으면 null이다', async () => {
+    // Given: 만료됐거나 DELETE_PENDING으로 내려간 첨부뿐이다.
+    const findUnique = jest.fn().mockResolvedValue({
+      application: { team: { name: '가나다팀' } },
+      files: [],
+    });
+    const prisma = {
+      milestoneDocumentSubmission: { findUnique },
+    } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const result = await repository.findSubmissionFileForStaffDownload(
+      syntheticDocumentId,
+      syntheticApplicationId,
+      now,
+    );
+
+    // Then
+    expect(result).toBeNull();
+  });
+
+  it('제출 자체가 없으면 null이다', async () => {
+    // Given
+    const findUnique = jest.fn().mockResolvedValue(null);
+    const prisma = {
+      milestoneDocumentSubmission: { findUnique },
+    } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const result = await repository.findSubmissionFileForStaffDownload(
+      syntheticDocumentId,
+      syntheticApplicationId,
+      now,
+    );
+
+    // Then
+    expect(result).toBeNull();
+  });
+});
