@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { MilestoneSubmissionType, Prisma, Role } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { isLinkedRepositoryReleaseUrl } from '../submissions/submission-release-url';
+import { buildMilestoneDocumentCollectionPage } from './domain/milestone-document-collection-page';
 import type { MilestoneDocumentCollectionQuery } from './domain/milestone-document-collection-query';
 import type { MilestoneDocumentContentInput } from './domain/milestone-document-content';
 import { MilestoneDocumentCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
@@ -106,8 +107,12 @@ export class MilestoneDocumentsService {
    * `GET /milestones/:milestoneId/documents/collection` — 교직원 서류 수합 표.
    * 행은 승인된 신청만(팀 이름 오름차순 → id 오름차순), 칸은 모든 서류 항목에 대해 한 칸씩 채운다.
    *
-   * N+1 금지: 서류 목록·신청 목록·제출 목록을 각각 한 번씩만 조회하고 결합은 DTO가 메모리에서
-   * 한다(submissions/submission-matrix.service.ts의 cellIndex와 같은 방식).
+   * N+1 금지: 서류 목록·신청 목록·제출 목록을 각각 한 번씩만 조회하고 결합은
+   * `buildMilestoneDocumentCollectionPage`가 메모리에서 한다
+   * (submissions/submission-matrix.service.ts의 cellIndex와 같은 방식).
+   *
+   * 필터 판정·집계·페이지 자르기는 그 도메인 함수가 소유한다 — DTO는 결과를 직렬화만 한다
+   * (ADR-003: 업무 규칙은 DTO가 아니라 service/도메인에 둔다).
    *
    * 페이지네이션(ADR-004 §「모든 목록 조회는 페이지네이션을 제공한다」)도 SQL이 아니라 그 메모리
    * 단계에서 한다 — 필터가 「필수 서류 중 미제출」처럼 서류·제출을 함께 봐야 정해지는 파생
@@ -135,12 +140,16 @@ export class MilestoneDocumentsService {
       now,
     );
 
-    return MilestoneDocumentCollectionResponseDto.from(
-      milestone,
+    const collection = buildMilestoneDocumentCollectionPage(
       documents,
       applications,
       submissions,
       query,
+    );
+    return MilestoneDocumentCollectionResponseDto.from(
+      milestone,
+      documents,
+      collection,
     );
   }
 

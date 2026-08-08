@@ -1,5 +1,5 @@
 import { MilestoneSubmissionType } from '@prisma/client';
-import type { MilestoneDocumentCollectionQuery } from '../domain/milestone-document-collection-query';
+import type { MilestoneDocumentCollectionPage } from '../domain/milestone-document-collection-page';
 import type {
   MilestoneContext,
   MilestoneDocumentCollectionApplication,
@@ -85,10 +85,10 @@ export interface MilestoneDocumentCollectionDocumentTotalResponseDto {
  * cells는 documents 전부에 대해 한 칸씩 채운다: 프런트가 빈칸을 추측해 표를 그리지 않게 하려는
  * 의도적인 계약이다.
  *
- * ⚠ 집계 두 필드(filterCounts·documentTotals)는 **필터·페이지와 무관하게 전체 승인 신청 기준**이다.
- * 화면의 합계 행이 「지금 걸러 놓은 것」이 아니라 「이 마일스톤 전체 진척」을 말해야 하기 때문이다.
- * 필터를 따라가게 만들면 ZERO_SUBMISSION에서 모든 열이 「제출 0」이 되어 뜻이 없어진다.
- * 반대로 `total`은 **필터 적용 후** 행 수다(페이지 이동에 쓰는 값이라 그래야 한다).
+ * 이 클래스는 **전송 매핑만** 한다 — 필터 판정·집계·페이지 자르기는
+ * `domain/milestone-document-collection-page.ts`가 이미 끝낸 뒤 넘어온다(ADR-003: 업무 규칙은
+ * DTO가 아니라 service/도메인이 소유한다). 필드가 무엇을 세는지(집계는 전체 기준, `total`은
+ * 필터 적용 후 행 수)의 근거도 그 파일에 있다.
  */
 export class MilestoneDocumentCollectionResponseDto {
   milestone: MilestoneDocumentCollectionMilestoneResponseDto;
@@ -104,9 +104,10 @@ export class MilestoneDocumentCollectionResponseDto {
   private constructor(
     milestone: MilestoneContext,
     documents: readonly MilestoneDocumentRecord[],
-    applications: readonly MilestoneDocumentCollectionApplication[],
-    submissions: readonly MilestoneDocumentCollectionSubmission[],
-    query: MilestoneDocumentCollectionQuery,
+    collection: MilestoneDocumentCollectionPage<
+      MilestoneDocumentCollectionApplication,
+      MilestoneDocumentCollectionSubmission
+    >,
   ) {
     this.milestone = {
       id: milestone.id,
@@ -121,118 +122,36 @@ export class MilestoneDocumentCollectionResponseDto {
       sortOrder: document.sortOrder,
       submissionType: document.submissionType,
     }));
-
-    // N+1 금지: 제출 목록을 한 번만 순회해 (신청, 서류) 키로 색인한 뒤 메모리에서 결합한다
-    // (submissions/submission-matrix.service.ts의 cellIndex와 같은 방식).
-    const cellIndex = new Map<string, MilestoneDocumentCollectionSubmission>();
-    for (const submission of submissions) {
-      cellIndex.set(
-        cellKey(submission.applicationId, submission.milestoneDocumentId),
-        submission,
-      );
-    }
-
-    // 승인 신청 전부로 행을 먼저 만든다 — 집계(filterCounts·documentTotals)가 필터·페이지
-    // 이전의 전체를 봐야 하기 때문이다. 필터·slice는 그 다음이다.
-    const allRows: MilestoneDocumentCollectionRowResponseDto[] =
-      applications.map((application) => ({
-        applicationId: application.applicationId,
-        teamName: application.teamName,
-        applicantName: application.applicantName,
-        memberNicknames: application.memberNicknames,
-        cells: documents.map((document) =>
-          toCell(
-            document,
-            cellIndex.get(cellKey(application.applicationId, document.id)) ??
-              null,
-          ),
-        ),
-      }));
-
-    this.documentTotals = documents.map((document, index) => ({
-      documentId: document.id,
-      submitted: allRows.filter((row) => row.cells[index]?.isSubmitted === true)
-        .length,
-      total: allRows.length,
+    this.documentTotals = collection.documentTotals;
+    this.filterCounts = collection.filterCounts;
+    this.page = collection.page;
+    this.pageSize = collection.pageSize;
+    this.total = collection.total;
+    // cells는 documents와 같은 순서다 — 도메인이 열 순서를 그렇게 세워 넘긴다.
+    this.rows = collection.rows.map((row) => ({
+      applicationId: row.application.applicationId,
+      teamName: row.application.teamName,
+      applicantName: row.application.applicantName,
+      memberNicknames: row.application.memberNicknames,
+      cells: documents.map((document, index) =>
+        toCell(document, row.cells[index] ?? null),
+      ),
     }));
-    this.filterCounts = {
-      all: allRows.length,
-      hasMissing: allRows.filter((row) => hasMissingRequired(row, documents))
-        .length,
-      zeroSubmission: allRows.filter((row) => hasZeroSubmission(row, documents))
-        .length,
-    };
-
-    const filtered = allRows.filter((row) =>
-      matchesFilter(row, documents, query.filter),
-    );
-    this.page = query.page;
-    this.pageSize = query.pageSize;
-    this.total = filtered.length;
-    // 정렬은 리포지토리가 팀 이름 asc → id asc로 이미 확정했다. 여기서 다시 정렬하지 않아야
-    // 페이지 경계가 흔들리지 않는다.
-    const offset = (query.page - 1) * query.pageSize;
-    this.rows = filtered.slice(offset, offset + query.pageSize);
   }
 
   static from(
     milestone: MilestoneContext,
     documents: readonly MilestoneDocumentRecord[],
-    applications: readonly MilestoneDocumentCollectionApplication[],
-    submissions: readonly MilestoneDocumentCollectionSubmission[],
-    query: MilestoneDocumentCollectionQuery,
+    collection: MilestoneDocumentCollectionPage<
+      MilestoneDocumentCollectionApplication,
+      MilestoneDocumentCollectionSubmission
+    >,
   ): MilestoneDocumentCollectionResponseDto {
     return new MilestoneDocumentCollectionResponseDto(
       milestone,
       documents,
-      applications,
-      submissions,
-      query,
+      collection,
     );
-  }
-}
-
-function cellKey(applicationId: string, documentId: string): string {
-  return `${applicationId}::${documentId}`;
-}
-
-/**
- * 독촉 대상 — 필수 서류 중 하나라도 미제출. 선택 서류는 세지 않는다.
- * 필수 서류가 하나도 없으면 아무 팀도 걸리지 않는다.
- */
-function hasMissingRequired(
-  row: MilestoneDocumentCollectionRowResponseDto,
-  documents: readonly MilestoneDocumentRecord[],
-): boolean {
-  return documents.some(
-    (document, index) =>
-      document.required && row.cells[index]?.isSubmitted !== true,
-  );
-}
-
-/**
- * 한 장도 안 낸 팀 — 필수·선택을 가리지 않는다. 서류 항목이 0개면 아무 팀도 걸리지 않는다
- * (「낼 것이 없다」를 「0건 제출」로 셈하지 않는다).
- */
-function hasZeroSubmission(
-  row: MilestoneDocumentCollectionRowResponseDto,
-  documents: readonly MilestoneDocumentRecord[],
-): boolean {
-  return documents.length > 0 && row.cells.every((cell) => !cell.isSubmitted);
-}
-
-function matchesFilter(
-  row: MilestoneDocumentCollectionRowResponseDto,
-  documents: readonly MilestoneDocumentRecord[],
-  filter: MilestoneDocumentCollectionQuery['filter'],
-): boolean {
-  switch (filter) {
-    case 'HAS_MISSING':
-      return hasMissingRequired(row, documents);
-    case 'ZERO_SUBMISSION':
-      return hasZeroSubmission(row, documents);
-    case 'ALL':
-      return true;
   }
 }
 

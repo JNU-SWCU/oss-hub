@@ -5,9 +5,9 @@ import {
   SubmissionFileLifecycle,
 } from '@prisma/client';
 import type { Prisma as PrismaTypes } from '@prisma/client';
-// 읽기 전용 import — 서류 항목 행 잠금 문장은 milestone-documents가 소유한다. 삭제 경로와
-// 학생 제출 경로가 **같은 행**을 잠가야 직렬화되므로 문장을 여기서 다시 쓰지 않는다.
-import { lockMilestoneDocumentsOfMilestone } from '../milestone-documents/milestone-document-locks';
+// 공용 영속성 도구 — 서류 항목 행 잠금 문장과 전역 잠금 순서 규칙은 common이 한 벌만 갖는다.
+// 마일스톤 삭제 경로와 학생 제출 경로가 **같은 행**을 잠가야 직렬화되므로 여기서 다시 쓰지 않는다.
+import { lockMilestoneDocumentsOfMilestone } from '../common/milestone-document-locks';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
   EditableProgramView,

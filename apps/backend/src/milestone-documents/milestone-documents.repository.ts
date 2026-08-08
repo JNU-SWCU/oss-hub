@@ -9,6 +9,12 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { addOneCalendarYear } from '../common/add-one-calendar-year';
+// 공용 영속성 도구 — 잠금 문장과 전역 잠금 순서 규칙은 common이 한 벌만 갖는다
+// (programs의 마일스톤 삭제 경로가 같은 문장을 쓴다).
+import {
+  lockMilestone,
+  lockMilestoneDocumentsOfMilestone,
+} from '../common/milestone-document-locks';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   COMPATIBLE_PROFILE_NAME_SELECT,
@@ -17,10 +23,6 @@ import {
 // 재사용: 신청 참여자(개인 신청자 본인 또는 팀장/팀원) where 절 — submissions 모듈이 이미
 // 검증한 계약을 그대로 쓴다. 이 파일은 읽기 전용 import만 한다(submissions/**는 수정하지 않는다).
 import { submissionParticipantWhere } from '../submissions/submission-application.record';
-import {
-  lockMilestone,
-  lockMilestoneDocumentsOfMilestone,
-} from './milestone-document-locks';
 
 /** #619 마일스톤 서류 항목 하나. templateFileId는 교직원이 등록한 양식 파일이 있을 때만 채워진다. */
 export interface MilestoneDocumentRecord {
@@ -231,7 +233,7 @@ export interface MilestoneDocumentWriteStore {
    * 마일스톤 행을 `FOR UPDATE`로 잠그고 존재를 확인한다. 없으면 null.
    *
    * 서류 항목의 **집합**을 바꾸는 세 경로(추가·삭제·순서 재부여)가 전부 이 한 줄을 먼저 지난다.
-   * 이유는 `milestone-document-locks.ts`에 있다 — `FOR UPDATE`는 존재하는 행만 잠그므로, 삽입을
+   * 이유는 `common/milestone-document-locks.ts`에 있다 — `FOR UPDATE`는 존재하는 행만 잠그므로, 삽입을
    * 막으려면 삽입하는 쪽도 반드시 잠그는 부모 행을 관문으로 삼아야 한다.
    */
   lockMilestone(milestoneId: string): Promise<LockedMilestone | null>;
