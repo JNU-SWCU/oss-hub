@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { ListRow, StatusBadge } from '@/components';
 import { Button } from '@/components/ui/button';
-import { studentProgramSubmissionHref } from '@/lib/program-route';
+import {
+  programMilestoneDocumentsHref,
+  studentProgramSubmissionHref,
+} from '@/lib/program-route';
 import {
   formatSeoulDate,
   submissionLabel,
@@ -94,14 +97,30 @@ export function MilestoneRow({
             {milestone.description}
           </p>
         ) : null}
-        {(viewerRole === 'STAFF' || viewerRole === 'ADMIN') && summary ? (
-          <p className="text-small">
-            <strong>
-              {submitted}/{summary.total}
-            </strong>{' '}
-            신청 제출 · 미제출 {summary.notSubmitted} · 승인 {summary.approved}{' '}
-            · 보완 {summary.changesRequested} · 반려 {summary.rejected}
-          </p>
+        {viewerRole === 'STAFF' || viewerRole === 'ADMIN' ? (
+          <>
+            {summary ? (
+              <p className="text-small">
+                <strong>
+                  {submitted}/{summary.total}
+                </strong>{' '}
+                신청 제출 · 미제출 {summary.notSubmitted} · 승인{' '}
+                {summary.approved} · 보완 {summary.changesRequested} · 반려{' '}
+                {summary.rejected}
+              </p>
+            ) : null}
+            {/*
+              서류 수합 표로 들어가는 유일한 입구다 — 좌측 패널이 아니라 이 줄에
+              둔다. 그 표는 마일스톤 하나를 놓고 보는 화면이라, 어느 마일스톤인지
+              고르는 자리가 곧 진입 지점이다.
+            */}
+            <Link
+              href={programMilestoneDocumentsHref(programId, milestone.id)}
+              className="text-small w-fit font-semibold underline underline-offset-2 hover:opacity-80"
+            >
+              서류 수합
+            </Link>
+          </>
         ) : null}
       </div>
       <div className="flex flex-wrap items-center gap-3">

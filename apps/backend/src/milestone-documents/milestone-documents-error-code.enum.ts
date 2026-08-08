@@ -21,6 +21,7 @@ export const MilestoneDocumentsErrorCode = {
   RELEASE_URL_NOT_LINKED_REPOSITORY: 'MSD_017',
   REPOSITORY_NOT_READY: 'MSD_018',
   INVALID_REQUEST: 'MSD_019',
+  SUBMISSION_FILE_NOT_FOUND: 'MSD_020',
 } as const;
 
 export type MilestoneDocumentsErrorCode =
@@ -107,7 +108,8 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
   [MilestoneDocumentsErrorCode.DOCUMENT_HAS_SUBMISSIONS]: {
     code: MilestoneDocumentsErrorCode.DOCUMENT_HAS_SUBMISSIONS,
     status: 409,
-    message: '제출된 서류가 있는 항목은 삭제할 수 없습니다.',
+    message:
+      '제출된 서류가 있는 항목은 삭제하거나 제출 방식을 바꿀 수 없습니다.',
   },
   [MilestoneDocumentsErrorCode.RELEASE_URL_NOT_LINKED_REPOSITORY]: {
     code: MilestoneDocumentsErrorCode.RELEASE_URL_NOT_LINKED_REPOSITORY,
@@ -123,5 +125,10 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     code: MilestoneDocumentsErrorCode.INVALID_REQUEST,
     status: 400,
     message: '요청 값을 확인해 주세요.',
+  },
+  [MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND]: {
+    code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND,
+    status: 404,
+    message: '제출된 파일을 찾을 수 없습니다.',
   },
 };

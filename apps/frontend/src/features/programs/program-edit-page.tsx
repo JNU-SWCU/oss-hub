@@ -64,6 +64,13 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
   const [deleteTarget, setDeleteTarget] = useState<EditableMilestone | null>(
     null,
   );
+  /**
+   * 방금 만든 마일스톤. 저장하면 편집기가 닫히므로, 그 카드의 「받을 서류」를
+   * 펼친 채로 띄워 "저장 → 서류 등록"을 한 동선으로 잇는다.
+   */
+  const [createdMilestoneId, setCreatedMilestoneId] = useState<string | null>(
+    null,
+  );
   const [isMilestoneBusy, setIsMilestoneBusy] = useState(false);
   const [isLifecycleBusy, setIsLifecycleBusy] = useState(false);
 
@@ -190,6 +197,7 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
         milestoneEditor.form,
         milestoneDirtyFields,
       );
+      const isCreate = milestoneEditor.form.id === null;
       const saved = milestoneEditor.form.id
         ? await updateMilestone(milestoneEditor.form.id, input)
         : await createMilestone(programId, input);
@@ -198,6 +206,7 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
           upsertMilestone(program, saved),
         ),
       );
+      if (isCreate) setCreatedMilestoneId(saved.id);
       setMilestoneEditor({ mode: 'closed' });
       setMilestoneDirtyFields([]);
     } catch (error: unknown) {
@@ -283,6 +292,7 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
         isSaving={isSaving}
         milestoneEditor={milestoneEditor}
         deleteTarget={deleteTarget}
+        expandedDocumentsMilestoneId={createdMilestoneId}
         isMilestoneBusy={isMilestoneBusy}
         onFieldChange={updateField}
         onSubmit={(event) => void submit(event)}

@@ -62,6 +62,86 @@ export function listMilestoneDocuments(
   return apiClient<readonly MilestoneDocument[]>(documentsPath(milestoneId));
 }
 
+/** 교직원 서류 항목 생성/수정 요청 본문 — 두 endpoint가 같은 shape을 공유한다(전체 교체). */
+export interface UpsertMilestoneDocumentInput {
+  readonly name: string;
+  readonly required: boolean;
+  readonly sortOrder: number;
+  readonly submissionType: SubmissionType;
+}
+
+function documentPath(milestoneId: string, documentId: string): string {
+  return `${documentsPath(milestoneId)}/${encodeURIComponent(documentId)}`;
+}
+
+function jsonRequest(method: 'POST' | 'PATCH', input: unknown): RequestInit {
+  return {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  };
+}
+
+/** 교직원 — 서류 항목을 새로 만든다. */
+export function createMilestoneDocument(
+  milestoneId: string,
+  input: UpsertMilestoneDocumentInput,
+): Promise<MilestoneDocument> {
+  return apiClient<MilestoneDocument>(
+    documentsPath(milestoneId),
+    jsonRequest('POST', input),
+  );
+}
+
+/**
+ * 교직원 — 서류 항목을 고친다. 일부가 아니라 전체를 보낸다(백엔드가 전체 교체다).
+ *
+ * ⚠ `sortOrder`는 본문 shape을 맞추려고 함께 싣지만 **서버가 무시한다** — 순서는
+ * `reorderMilestoneDocuments`(`PATCH .../documents/order`)가 소유한다. 이 요청으로
+ * 자리를 옮기려 들면 응답은 성공인데 순서는 그대로다.
+ */
+export function updateMilestoneDocument(
+  milestoneId: string,
+  documentId: string,
+  input: UpsertMilestoneDocumentInput,
+): Promise<MilestoneDocument> {
+  return apiClient<MilestoneDocument>(
+    documentPath(milestoneId, documentId),
+    jsonRequest('PATCH', input),
+  );
+}
+
+/**
+ * 교직원 — 이 마일스톤의 서류 **전체**를 원하는 순서로 다시 매긴다.
+ *
+ * 부분이 아니라 전체를 보내는 것이 이 endpoint의 핵심이다. 두 항목을 각각 PATCH하다
+ * 한쪽만 성공하면 sortOrder가 같은 두 항목이 남고, 그 뒤로는 「위로」가 조용히 아무
+ * 일도 하지 않는다(같은 값끼리 맞바꿔도 순서가 그대로다). 누락·중복·타 마일스톤 id가
+ * 섞이면 서버가 400(MSD_019)으로 거절한다.
+ *
+ * 응답은 sortOrder를 1부터 다시 매긴 목록 전체다 — 호출부는 낙관적 갱신 대신 이 값을
+ * 그대로 화면 상태로 삼는다.
+ */
+export function reorderMilestoneDocuments(
+  milestoneId: string,
+  documentIds: readonly string[],
+): Promise<readonly MilestoneDocument[]> {
+  return apiClient<readonly MilestoneDocument[]>(
+    `${documentsPath(milestoneId)}/order`,
+    jsonRequest('PATCH', { documentIds }),
+  );
+}
+
+/** 교직원 — 서류 항목을 지운다. 204라 본문이 없다. */
+export async function deleteMilestoneDocument(
+  milestoneId: string,
+  documentId: string,
+): Promise<void> {
+  await apiClient<null>(documentPath(milestoneId, documentId), {
+    method: 'DELETE',
+  });
+}
+
 /** 학생 — 제출용 파일을 먼저 올려 fileId를 받는다(제출 자체는 submitMilestoneDocument가 한다). */
 export function uploadMilestoneDocumentFile(
   milestoneId: string,

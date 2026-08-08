@@ -524,11 +524,26 @@ export function findStaffProgram(
 export function findStaffMilestone(
   milestoneId: string,
 ): EditableMilestone | null {
+  return findStaffMilestoneContext(milestoneId)?.milestone ?? null;
+}
+
+/**
+ * 마일스톤과 **그것을 소유한 프로그램**을 함께 돌려준다. 서류 수합 응답이
+ * `milestone.programId`를 싣게 되면서 필요해졌다 — 마일스톤만 찾아 오면 픽스처가
+ * 소유 프로그램을 지어내야 하고, 그러면 화면의 「경로 프로그램과 대조」가 로컬 검토에서
+ * 언제나 통과해 버린다.
+ */
+export function findStaffMilestoneContext(milestoneId: string): {
+  readonly programId: string;
+  readonly milestone: EditableMilestone;
+} | null {
   for (const fixture of STAFF_PROGRAM_FIXTURES) {
     const milestone = fixture.program.milestones.find(
       (candidate) => candidate.id === milestoneId,
     );
-    if (milestone !== undefined) return milestone;
+    if (milestone !== undefined) {
+      return { programId: fixture.program.id, milestone };
+    }
   }
   return null;
 }
