@@ -4,6 +4,7 @@ import {
   ApplicationStatus,
   MilestoneSubmissionType,
   Prisma,
+  type ReviewDecision,
   Role,
   SubmissionFileLifecycle,
   SubmissionStatus,
@@ -23,6 +24,7 @@ import {
 // 재사용: 신청 참여자(개인 신청자 본인 또는 팀장/팀원) where 절 — submissions 모듈이 이미
 // 검증한 계약을 그대로 쓴다. 이 파일은 읽기 전용 import만 한다(submissions/**는 수정하지 않는다).
 import { submissionParticipantWhere } from '../submissions/submission-application.record';
+import type { MilestoneDocumentReviewRecord } from './domain/milestone-document-review';
 
 /** #619 마일스톤 서류 항목 하나. templateFileId는 교직원이 등록한 양식 파일이 있을 때만 채워진다. */
 export interface MilestoneDocumentRecord {
@@ -67,6 +69,9 @@ export interface StudentApplicationContext {
 export interface MilestoneDocumentSubmissionSummary {
   readonly milestoneDocumentId: string;
   readonly submittedAt: Date;
+  readonly status: SubmissionStatus;
+  /** 최신 판정 한 건. 아직 아무도 보지 않았으면 null. */
+  readonly review: MilestoneDocumentReviewRecord | null;
 }
 
 /** 교직원 서류 수합 표의 행 하나 — 승인된 신청(= 팀) 한 건. */
@@ -88,6 +93,37 @@ export interface MilestoneDocumentCollectionSubmission {
     readonly originalFileName: string;
     readonly sizeBytes: number;
   } | null;
+  /**
+   * 최신 판정 한 건 — 표시값이다. 「미제출」 판정 기준은 여전히 「제출 행이 없다」이고
+   * 필터·집계는 이 값을 보지 않는다(domain/milestone-document-collection-page.ts가 소유한다).
+   */
+  readonly review: MilestoneDocumentReviewRecord | null;
+}
+
+/** 방금 만든 판정 — 201 응답이 그대로 쓴다. */
+export interface CreatedMilestoneDocumentReview {
+  readonly id: string;
+  readonly decision: ReviewDecision;
+  readonly comment: string | null;
+  readonly reviewedAt: Date;
+  readonly reviewerNickname: string;
+}
+
+export interface CreateMilestoneDocumentReviewInput {
+  readonly milestoneDocumentSubmissionId: string;
+  readonly reviewerId: string;
+  readonly decision: ReviewDecision;
+  readonly comment: string | null;
+  readonly reviewedAt: Date;
+}
+
+/**
+ * 재제출 판단에 쓰는 최신 판정. `id`를 함께 싣는 이유는 잠금 아래 재확인 때문이다 —
+ * `upsertSubmission`이 같은 값을 다시 읽어 그 사이 새 판정이 끼어들었는지 본다.
+ */
+export interface LatestMilestoneDocumentReview {
+  readonly id: string;
+  readonly decision: ReviewDecision;
 }
 
 /** 교직원 제출 파일 다운로드 재료 — 다시 붙일 이름을 만들기 위해 팀명을 함께 싣는다. */
@@ -138,6 +174,19 @@ export class MilestoneDocumentSubmissionTypeChangedError extends Error {
   override readonly name = 'MilestoneDocumentSubmissionTypeChangedError';
 }
 
+/**
+ * 제출을 쓰려는 순간 최신 판정이 이미 바뀌어 있었다 — 서비스가 재제출 가부를 판단할 때 본
+ * 판정과, 행 잠금을 잡고 다시 읽은 최신 판정이 다르다.
+ *
+ * 「승인/반려면 재제출 금지」 규칙 자체는 서비스가 트랜잭션 밖에서 이미 적용했다. 그 읽기와
+ * 쓰기 사이에 교직원의 판정이 커밋될 수 있어서, 기대값을 함께 넘겨 잠금 아래에서 다시 본다
+ * (`expectedSubmissionType`과 같은 모양). 어긋나면 새 판정이 무엇이든 이번 제출은 쓰지 않고
+ * 학생에게 다시 확인하게 한다 — 서비스가 REVIEW_CHANGED로 옮긴다.
+ */
+export class MilestoneDocumentReviewChangedError extends Error {
+  override readonly name = 'MilestoneDocumentReviewChangedError';
+}
+
 export interface UpsertMilestoneDocumentSubmissionInput {
   readonly milestoneDocumentId: string;
   readonly applicationId: string;
@@ -149,6 +198,12 @@ export interface UpsertMilestoneDocumentSubmissionInput {
    * 여기서는 넘겨받은 기대값을 잠금 아래에서 재확인만 한다(attachFile 검증과 같은 모양).
    */
   readonly expectedSubmissionType: MilestoneSubmissionType;
+  /**
+   * 서비스가 재제출 가부를 판단할 때 본 최신 판정의 id(판정이 없었으면 null). 잠금 아래에서
+   * 다시 읽어 이 값과 같은지 확인한다 — 다르면 그 사이에 판정이 들어온 것이므로 쓰지 않는다.
+   * 규칙(어떤 판정이면 막는가)은 서비스가 들고 있고 여기서는 기대값 재확인만 한다.
+   */
+  readonly expectedLatestReviewId: string | null;
   /** FILE 유형이면 Prisma.JsonNull(파일은 files 관계로 붙는다), TEXT/REPOSITORY_RELEASE면 응답 본문. */
   readonly content: Prisma.InputJsonValue | typeof Prisma.JsonNull;
   /** FILE 유형 제출일 때만 채운다 — pending 상태로 업로드해 둔 파일을 이 제출에 붙인다. */
@@ -277,6 +332,28 @@ export interface MilestoneDocumentWriteStore {
     documentIds: readonly string[],
   ): Promise<MilestoneDocumentRecord[]>;
   deleteDocument(documentId: string): Promise<void>;
+  /**
+   * 인가 4단계 — (서류, 신청) 제출이 실제로 있는가. 없으면 null.
+   *
+   * **잠금 뒤에** 부른다. 밖에서 미리 읽어 두면 그 사이 학생이 재제출해 다른 제출 행을 판정하게
+   * 된다(서류 제출은 upsert라 행이 새로 생길 수 있다).
+   */
+  findSubmissionForReview(
+    milestoneDocumentId: string,
+    applicationId: string,
+  ): Promise<{ readonly id: string } | null>;
+  /**
+   * 판정을 **새 행으로 쌓는다**(갱신하지 않는다). 판정이 덮어써지면 「보완 요청 때 무엇을
+   * 지적받았는가」가 사라지고, 담당 교직원이 바뀌면 지난 지적이 통째로 없어진다.
+   */
+  createReview(
+    input: CreateMilestoneDocumentReviewInput,
+  ): Promise<CreatedMilestoneDocumentReview>;
+  /** 최신 판정 결과를 제출 상태에 반영한다. 매핑은 domain/milestone-document-review.ts가 소유한다. */
+  updateSubmissionStatus(
+    submissionId: string,
+    status: SubmissionStatus,
+  ): Promise<void>;
 }
 
 const attachedFileSelect = {
@@ -340,6 +417,19 @@ const collectionApplicationSelect = {
  * 아직 만료되지 않은 ATTACHED 첨부만 고른다. `expiresAt` 필터가 빠지면 목록에는 보이는데
  * 실제로 받으면 실패하는 불일치가 생기므로 조회·다운로드가 이 조건을 함께 쓴다.
  */
+/**
+ * 「최신 판정 한 건」을 뽑는 공통 조각. 판정은 쌓이므로 **매번 정렬해서 하나만** 가져와야 한다.
+ *
+ * `reviewedAt` 다음에 `id`로 한 번 더 정렬하는 이유: 같은 밀리초에 두 판정이 들어오면
+ * `reviewedAt`만으로는 순서가 정해지지 않아 조회할 때마다 다른 판정이 「최신」으로 뽑힌다.
+ * cuid는 시간 접두사를 갖고 단조 증가하므로 동률을 가르는 데 쓸 수 있다.
+ */
+const latestReviewQuery = {
+  orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
+  take: 1,
+  select: { decision: true, comment: true, reviewedAt: true },
+} satisfies Prisma.MilestoneDocumentSubmission$reviewsArgs;
+
 function unexpiredAttachedFileWhere(now: Date) {
   return {
     lifecycle: SubmissionFileLifecycle.ATTACHED,
@@ -474,6 +564,61 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
       where: { id: documentId },
     });
   }
+
+  findSubmissionForReview(
+    milestoneDocumentId: string,
+    applicationId: string,
+  ): Promise<{ readonly id: string } | null> {
+    return this.transaction.milestoneDocumentSubmission.findUnique({
+      where: {
+        milestoneDocumentId_applicationId: {
+          milestoneDocumentId,
+          applicationId,
+        },
+      },
+      select: { id: true },
+    });
+  }
+
+  /** `create`다 — `upsert`가 아니다. 판정은 쌓여야 하므로 기존 행을 찾아 고치지 않는다. */
+  async createReview(
+    input: CreateMilestoneDocumentReviewInput,
+  ): Promise<CreatedMilestoneDocumentReview> {
+    const created = await this.transaction.milestoneDocumentReview.create({
+      data: {
+        milestoneDocumentSubmissionId: input.milestoneDocumentSubmissionId,
+        reviewerId: input.reviewerId,
+        decision: input.decision,
+        comment: input.comment,
+        reviewedAt: input.reviewedAt,
+      },
+      select: {
+        id: true,
+        decision: true,
+        comment: true,
+        reviewedAt: true,
+        reviewer: { select: { nickname: true } },
+      },
+    });
+    return {
+      id: created.id,
+      decision: created.decision,
+      comment: created.comment,
+      reviewedAt: created.reviewedAt,
+      reviewerNickname: created.reviewer.nickname,
+    };
+  }
+
+  async updateSubmissionStatus(
+    submissionId: string,
+    status: SubmissionStatus,
+  ): Promise<void> {
+    await this.transaction.milestoneDocumentSubmission.update({
+      where: { id: submissionId },
+      data: { status },
+      select: { id: true },
+    });
+  }
 }
 
 @Injectable()
@@ -571,19 +716,55 @@ export class MilestoneDocumentsRepository {
     };
   }
 
-  /** 학생 뷰 — 주어진 서류 항목들 중 이 신청이 이미 제출한 것만 {id, submittedAt}으로 돌려준다. */
+  /**
+   * 학생 뷰 — 주어진 서류 항목들 중 이 신청이 이미 제출한 것만 돌려준다.
+   *
+   * 최신 판정을 함께 싣는다(N+1 금지: 중첩 select 한 번으로 끝낸다). 학생이 「왜 되돌아왔는지」를
+   * 목록에서 바로 알아야 하기 때문이다 — 상태만으로는 무엇을 고쳐야 하는지 알 수 없다.
+   */
   async findSubmittedSummaries(
     applicationId: string,
     documentIds: readonly string[],
   ): Promise<readonly MilestoneDocumentSubmissionSummary[]> {
     if (documentIds.length === 0) return [];
-    return this.prisma.milestoneDocumentSubmission.findMany({
+    const submissions = await this.prisma.milestoneDocumentSubmission.findMany({
       where: {
         applicationId,
         milestoneDocumentId: { in: [...documentIds] },
       },
-      select: { milestoneDocumentId: true, submittedAt: true },
+      select: {
+        milestoneDocumentId: true,
+        submittedAt: true,
+        status: true,
+        reviews: latestReviewQuery,
+      },
     });
+    return submissions.map((submission) => ({
+      milestoneDocumentId: submission.milestoneDocumentId,
+      submittedAt: submission.submittedAt,
+      status: submission.status,
+      review: submission.reviews[0] ?? null,
+    }));
+  }
+
+  /**
+   * 재제출 가부 판단 재료 — (서류, 신청) 제출의 최신 판정. 제출이 없거나 판정이 없으면 null.
+   *
+   * 이 읽기는 트랜잭션 밖이라 판단과 쓰기 사이가 열려 있다. 그래서 서비스가 이 값의 `id`를
+   * `upsertSubmission`에 기대값으로 넘겨 잠금 아래에서 다시 확인한다.
+   */
+  async findLatestReview(
+    milestoneDocumentId: string,
+    applicationId: string,
+  ): Promise<LatestMilestoneDocumentReview | null> {
+    const review = await this.prisma.milestoneDocumentReview.findFirst({
+      where: {
+        milestoneDocumentSubmission: { milestoneDocumentId, applicationId },
+      },
+      orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
+      select: { id: true, decision: true },
+    });
+    return review;
   }
 
   /** 교직원 뷰 분모 — 프로그램의 승인된 신청 수(팀 단위 프로그램에서는 사실상 팀 수). */
@@ -644,6 +825,7 @@ export class MilestoneDocumentsRepository {
   /**
    * 수합 표의 칸 재료 — 주어진 서류 항목들의 제출을 한 번에 가져온다(N+1 금지).
    * 첨부는 ATTACHED이면서 아직 만료되지 않은 것만, 제출당 최대 1개다.
+   * 최신 판정도 같은 조회에 중첩해 싣는다(칸마다 따로 물으면 그게 N+1이다).
    */
   async findSubmissionsForCollection(
     documentIds: readonly string[],
@@ -662,6 +844,7 @@ export class MilestoneDocumentsRepository {
           take: 1,
           select: { originalFileName: true, sizeBytes: true },
         },
+        reviews: latestReviewQuery,
       },
     });
     return submissions.map((submission) => ({
@@ -669,6 +852,7 @@ export class MilestoneDocumentsRepository {
       applicationId: submission.applicationId,
       submittedAt: submission.submittedAt,
       file: submission.files[0] ?? null,
+      review: submission.reviews[0] ?? null,
     }));
   }
 
@@ -842,6 +1026,24 @@ export class MilestoneDocumentsRepository {
       `);
       if (locked[0]?.submissionType !== input.expectedSubmissionType) {
         throw new MilestoneDocumentSubmissionTypeChangedError();
+      }
+
+      // 판정 경로(MilestoneDocumentReviewsService)는 같은 MilestoneDocument 행을 `FOR UPDATE`로
+      // 잡는다. 위 `FOR SHARE`와 충돌하므로 둘 중 하나는 반드시 기다린다 — 그래서 이 재확인은
+      // 「판정이 커밋되는 중」이 아니라 커밋이 끝난 뒤의 값을 본다. 서비스가 재제출 가부를
+      // 판단할 때 본 판정과 다르면 그 사이에 교직원이 판정한 것이므로 이번 제출은 쓰지 않는다.
+      const latestReview = await transaction.milestoneDocumentReview.findFirst({
+        where: {
+          milestoneDocumentSubmission: {
+            milestoneDocumentId: input.milestoneDocumentId,
+            applicationId: input.applicationId,
+          },
+        },
+        orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
+        select: { id: true },
+      });
+      if ((latestReview?.id ?? null) !== input.expectedLatestReviewId) {
+        throw new MilestoneDocumentReviewChangedError();
       }
 
       const submission = await transaction.milestoneDocumentSubmission.upsert({

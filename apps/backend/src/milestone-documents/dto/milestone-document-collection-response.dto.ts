@@ -1,3 +1,4 @@
+import type { ReviewDecision } from '@prisma/client';
 import { MilestoneSubmissionType } from '@prisma/client';
 import type { MilestoneDocumentCollectionPage } from '../domain/milestone-document-collection-page';
 import type {
@@ -55,6 +56,22 @@ export interface MilestoneDocumentCollectionCellResponseDto {
   readonly isSubmitted: boolean;
   readonly submittedAt: string | null;
   readonly file: MilestoneDocumentCollectionFileResponseDto | null;
+  /**
+   * 최신 판정. 아직 판정하지 않았거나 미제출이면 null.
+   *
+   * ⚠ 이건 **표시값이지 업무 규칙이 아니다**. 「미제출」 판정 기준은 여전히 「제출 행이 없다」
+   * (`isSubmitted`)이고, 필터·집계는 이 값을 보지 않는다 —
+   * `domain/milestone-document-collection-page.ts`가 그 규칙을 소유한다. 반려된 서류를 「미제출」로
+   * 세기 시작하면 독촉 대상 집계가 조용히 뜻을 바꾼다.
+   */
+  readonly review: MilestoneDocumentCollectionReviewResponseDto | null;
+}
+
+/** 칸에 붙는 최신 판정 — 교직원 표는 결과(`decision`)를 함께 보여 준다. */
+export interface MilestoneDocumentCollectionReviewResponseDto {
+  readonly decision: ReviewDecision;
+  readonly comment: string | null;
+  readonly reviewedAt: string;
 }
 
 /** 표의 행 — 승인된 신청(= 팀) 하나. */
@@ -165,6 +182,7 @@ function toCell(
       isSubmitted: false,
       submittedAt: null,
       file: null,
+      review: null,
     };
   }
   // file은 FILE 유형에만 붙는다 — TEXT/REPOSITORY_RELEASE 제출은 첨부 없이 content만 갖는다.
@@ -181,5 +199,13 @@ function toCell(
     isSubmitted: true,
     submittedAt: submission.submittedAt.toISOString(),
     file,
+    review:
+      submission.review === null
+        ? null
+        : {
+            decision: submission.review.decision,
+            comment: submission.review.comment,
+            reviewedAt: submission.review.reviewedAt.toISOString(),
+          },
   };
 }

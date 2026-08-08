@@ -22,6 +22,10 @@ export const MilestoneDocumentsErrorCode = {
   REPOSITORY_NOT_READY: 'MSD_018',
   INVALID_REQUEST: 'MSD_019',
   SUBMISSION_FILE_NOT_FOUND: 'MSD_020',
+  REVIEW_COMMENT_REQUIRED: 'MSD_021',
+  SUBMISSION_NOT_FOUND: 'MSD_022',
+  RESUBMISSION_NOT_ALLOWED: 'MSD_023',
+  REVIEW_CHANGED: 'MSD_024',
 } as const;
 
 export type MilestoneDocumentsErrorCode =
@@ -130,5 +134,26 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND,
     status: 404,
     message: '제출된 파일을 찾을 수 없습니다.',
+  },
+  [MilestoneDocumentsErrorCode.REVIEW_COMMENT_REQUIRED]: {
+    code: MilestoneDocumentsErrorCode.REVIEW_COMMENT_REQUIRED,
+    status: 422,
+    message: '보완 요청과 반려는 사유를 입력해 주세요.',
+  },
+  [MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND]: {
+    code: MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND,
+    status: 404,
+    message: '제출된 서류를 찾을 수 없습니다.',
+  },
+  [MilestoneDocumentsErrorCode.RESUBMISSION_NOT_ALLOWED]: {
+    code: MilestoneDocumentsErrorCode.RESUBMISSION_NOT_ALLOWED,
+    status: 409,
+    message: '승인 또는 반려된 서류는 다시 제출할 수 없습니다.',
+  },
+  [MilestoneDocumentsErrorCode.REVIEW_CHANGED]: {
+    code: MilestoneDocumentsErrorCode.REVIEW_CHANGED,
+    status: 409,
+    message:
+      '제출하는 사이에 판정이 등록되었습니다. 새로고침 후 다시 확인해 주세요.',
   },
 };

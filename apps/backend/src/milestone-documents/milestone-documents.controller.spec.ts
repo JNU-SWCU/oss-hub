@@ -12,6 +12,7 @@ import {
   MilestoneDocumentsController,
 } from './milestone-documents.controller';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
+import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard';
 import type { MilestoneDocumentsStaffRequest } from './milestone-documents-staff.guard';
@@ -150,6 +151,15 @@ const upload = jest.fn().mockResolvedValue({
   expiresAt: '2028-01-01T00:00:00.000Z',
 });
 
+// MilestoneDocumentReviewsService 목
+const review = jest.fn().mockResolvedValue({
+  id: 'synthetic-review',
+  decision: 'CHANGES_REQUESTED',
+  comment: '2쪽 서명이 빠졌습니다.',
+  reviewedAt: '2026-09-18T09:00:00.000Z',
+  reviewerNickname: 'synthetic-staff',
+});
+
 beforeEach(() => {
   listForViewer.mockClear();
   createDocument.mockClear();
@@ -162,6 +172,7 @@ beforeEach(() => {
   downloadTemplate.mockClear();
   downloadSubmissionFile.mockClear();
   upload.mockClear();
+  review.mockClear();
 });
 
 beforeAll(async () => {
@@ -191,6 +202,10 @@ beforeAll(async () => {
           downloadSubmissionFile,
           upload,
         },
+      },
+      {
+        provide: MilestoneDocumentReviewsService,
+        useValue: { review },
       },
     ],
   })
@@ -645,6 +660,128 @@ it('제출 파일 다운로드는 다시 붙인 이름으로 attachment 스트�
   );
 });
 
+describe('교직원 서류 제출물 판정', () => {
+  it('판정은 201로 끝나고 판정자 nickname까지 실어 돌려준다', async () => {
+    // Given
+    const body = {
+      decision: 'CHANGES_REQUESTED',
+      comment: '2쪽 서명이 빠졌습니다.',
+    };
+
+    // When
+    const response = await fetch(
+      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+    );
+
+    // Then
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toEqual({
+      id: 'synthetic-review',
+      decision: 'CHANGES_REQUESTED',
+      comment: '2쪽 서명이 빠졌습니다.',
+      reviewedAt: '2026-09-18T09:00:00.000Z',
+      reviewerNickname: 'synthetic-staff',
+    });
+    // 판정자는 세션이 아니라 가드가 확정한 교직원 id다.
+    expect(review).toHaveBeenCalledWith(
+      'synthetic-staff',
+      'synthetic-milestone',
+      'synthetic-document',
+      'synthetic-application',
+      { decision: 'CHANGES_REQUESTED', comment: '2쪽 서명이 빠졌습니다.' },
+    );
+  });
+
+  it('승인은 사유 없이도 통과하고 comment는 null로 정규화된다', async () => {
+    // Given
+    const body = { decision: 'APPROVED' };
+
+    // When
+    const response = await fetch(
+      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+    );
+
+    // Then
+    expect(response.status).toBe(201);
+    expect(review).toHaveBeenCalledWith(
+      'synthetic-staff',
+      'synthetic-milestone',
+      'synthetic-document',
+      'synthetic-application',
+      { decision: 'APPROVED', comment: null },
+    );
+  });
+
+  it('보완 요청에 사유가 없으면 서비스 호출 전에 422로 거절한다', async () => {
+    // Given
+    const body = { decision: 'CHANGES_REQUESTED' };
+
+    // When
+    const response = await fetch(
+      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+    );
+
+    // Then
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({ code: 'MSD_021' });
+    expect(review).not.toHaveBeenCalled();
+  });
+
+  it('반려 사유가 공백뿐이면 422로 거절한다 — 학생 화면에 빈 사유가 남지 않게 한다', async () => {
+    // Given
+    const body = { decision: 'REJECTED', comment: '   ' };
+
+    // When
+    const response = await fetch(
+      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+    );
+
+    // Then
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({ code: 'MSD_021' });
+    expect(review).not.toHaveBeenCalled();
+  });
+
+  it('알 수 없는 decision은 400으로 거절한다', async () => {
+    // Given
+    const body = { decision: 'MAYBE', comment: '음' };
+
+    // When
+    const response = await fetch(
+      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+    );
+
+    // Then
+    expect(response.status).toBe(400);
+    expect(review).not.toHaveBeenCalled();
+  });
+});
+
 function readHandlerGuards(propertyKey: string): unknown {
   const handler: unknown = Object.getOwnPropertyDescriptor(
     MilestoneDocumentsController.prototype,
@@ -681,5 +818,17 @@ describe('교직원 전용 endpoint의 가드 구성', () => {
 
     // Then: 인가 사슬 1번(ACTIVE + STAFF/ADMIN)은 이 가드가 담당한다.
     expect(guards).toEqual([SessionGuard, MilestoneDocumentsStaffGuard]);
+  });
+
+  it('제출물 판정은 SessionGuard + MilestoneDocumentsStaffGuard + OriginGuard를 붙인다', () => {
+    // Given / When
+    const guards = readHandlerGuards('review');
+
+    // Then: 상태를 바꾸는 요청이라 CSRF 방어(OriginGuard)까지 붙는다.
+    expect(guards).toEqual([
+      SessionGuard,
+      MilestoneDocumentsStaffGuard,
+      OriginGuard,
+    ]);
   });
 });

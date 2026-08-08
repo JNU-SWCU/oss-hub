@@ -60,6 +60,7 @@ model User {
   reviews                                Review[]
   uploadedMilestoneDocumentTemplateFiles MilestoneDocumentTemplateFile[]
   milestoneDocumentSubmissions           MilestoneDocumentSubmission[]
+  milestoneDocumentReviews               MilestoneDocumentReview[]
   boardPosts                             BoardPost[]
   boardComments                          BoardComment[]
   notifications                          Notification[]
@@ -595,11 +596,43 @@ model MilestoneDocumentSubmission {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  files SubmissionFile[]
+  files   SubmissionFile[]
+  reviews MilestoneDocumentReview[]
 
   @@unique([milestoneDocumentId, applicationId])
   @@index([applicationId])
   @@index([submittedById])
+}
+
+/// 서류 제출물에 대한 교직원 판정(승인 · 보완 요청 · 반려). 제출 하나에 판정이 **여러 건 쌓인다**.
+///
+/// ⚠ 옛 `Review`는 `submissionRevisionId @unique`라 제출 revision 하나에 판정이 하나뿐이다
+/// (재제출하면 revision이 새로 생겨 그쪽에 새 판정이 붙는다). 이 모델은 그 unique를 **일부러
+/// 걸지 않는다** — 서류 제출은 revision을 쌓지 않고 `MilestoneDocumentSubmission` 한 행을
+/// 덮어쓰는 upsert 모양이라, 판정에 unique를 걸면 재판정이 지난 판정을 **덮어쓴다**.
+/// 그러면 「보완 요청 때 무엇을 지적받았는가」가 사라진다. 담당 교직원이 바뀌어도 지난 지적이
+/// 남아 있어야 한다는 것이 이 기능의 요구라서, 판정은 갱신하지 않고 매번 새 행으로 append한다.
+/// 「지금의 판정」은 이 이력의 최신 한 건이고, 그 결과를 `MilestoneDocumentSubmission.status`가
+/// 반영한다.
+///
+/// `@@index([milestoneDocumentSubmissionId, reviewedAt])`가 그 「최신 한 건」 조회를 받친다
+/// (수합 표는 제출마다 최신 판정을 한 건씩 끌어온다).
+model MilestoneDocumentReview {
+  id String @id @default(cuid())
+
+  milestoneDocumentSubmissionId String
+  milestoneDocumentSubmission   MilestoneDocumentSubmission @relation(fields: [milestoneDocumentSubmissionId], references: [id])
+
+  reviewerId String
+  reviewer   User   @relation(fields: [reviewerId], references: [id])
+
+  /// 기존 enum을 재사용한다 — 판정의 뜻이 제출물 검토와 같아서 새 enum을 만들지 않는다.
+  decision   ReviewDecision
+  comment    String?
+  reviewedAt DateTime       @default(now())
+
+  @@index([milestoneDocumentSubmissionId, reviewedAt])
+  @@index([reviewerId])
 }
 
 /// 판정: APPROVED/REJECTED/CHANGES_REQUESTED. 제출 판정과 저장소 공개 전환 상태를 같은 필드로 합치지 않는다(#113).
