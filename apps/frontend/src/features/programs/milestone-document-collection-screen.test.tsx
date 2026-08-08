@@ -47,7 +47,17 @@ function row(
     applicantName: '김철수',
     memberNicknames: ['chulsoo'],
     cells: [
-      { documentId: 'd1', isSubmitted: false, submittedAt: null, file: null },
+      {
+        documentId: 'd1',
+        isSubmitted: false,
+        // 상태도 판정도 제출에 붙는다 — 안 낸 칸에는 셋 다 없다.
+        status: null,
+        revision: null,
+        submittedAt: null,
+        file: null,
+        content: null,
+        review: null,
+      },
     ],
   };
 }

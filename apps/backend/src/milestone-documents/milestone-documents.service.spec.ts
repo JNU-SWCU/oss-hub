@@ -1,6 +1,7 @@
 import {
   MilestoneSubmissionType,
   Prisma,
+  ReviewDecision,
   Role,
   SubmissionStatus,
 } from '@prisma/client';
@@ -8,6 +9,7 @@ import type { MilestoneDocumentCollectionQuery } from './domain/milestone-docume
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.enum';
 import {
   MilestoneDocumentPendingFileMissingError,
+  MilestoneDocumentReviewChangedError,
   MilestoneDocumentsRepository,
   MilestoneDocumentSubmissionTypeChangedError,
 } from './milestone-documents.repository';
@@ -54,6 +56,8 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
     countSubmissionsByDocument: jest.fn().mockResolvedValue(new Map()),
     findStudentApplication: jest.fn().mockResolvedValue(null),
     findSubmittedSummaries: jest.fn().mockResolvedValue([]),
+    // 기본은 「아직 아무도 판정하지 않았다」 — 그러면 재제출은 지금처럼 허용된다.
+    findLatestReview: jest.fn().mockResolvedValue(null),
     findDocumentContext: jest.fn().mockResolvedValue({
       id: syntheticDocumentId,
       milestoneId: syntheticMilestoneId,
@@ -230,11 +234,14 @@ describe('MilestoneDocumentsService.listForViewer', () => {
         programEndAt: null,
         repositoryUrl: null,
       }),
-      findSubmittedSummaries: jest
-        .fn()
-        .mockResolvedValue([
-          { milestoneDocumentId: syntheticDocumentId, submittedAt },
-        ]),
+      findSubmittedSummaries: jest.fn().mockResolvedValue([
+        {
+          milestoneDocumentId: syntheticDocumentId,
+          submittedAt,
+          status: SubmissionStatus.SUBMITTED,
+          review: null,
+        },
+      ]),
     });
     const service = new MilestoneDocumentsService(repository);
 
@@ -248,9 +255,55 @@ describe('MilestoneDocumentsService.listForViewer', () => {
         viewerSubmission: {
           submitted: true,
           submittedAt: submittedAt.toISOString(),
+          status: SubmissionStatus.SUBMITTED,
+          review: null,
         },
       }),
     ]);
+  });
+
+  it('학생 viewer는 되돌아온 이유를 알도록 최신 판정의 사유·시각을 함께 받는다', async () => {
+    // Given: 보완 요청을 받아 상태가 CHANGES_REQUESTED로 돌아온 서류.
+    const submittedAt = new Date('2026-09-16T14:22:00.000Z');
+    const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
+    const { repository } = buildRepository({
+      findActiveUser: jest
+        .fn()
+        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+      findStudentApplication: jest.fn().mockResolvedValue({
+        applicationId: syntheticApplicationId,
+        approved: true,
+        programEndAt: null,
+        repositoryUrl: null,
+      }),
+      findSubmittedSummaries: jest.fn().mockResolvedValue([
+        {
+          milestoneDocumentId: syntheticDocumentId,
+          submittedAt,
+          status: SubmissionStatus.CHANGES_REQUESTED,
+          review: {
+            decision: ReviewDecision.CHANGES_REQUESTED,
+            comment: '2쪽 서명이 빠졌습니다.',
+            reviewedAt,
+          },
+        },
+      ]),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    const result = await service.listForViewer(1n, syntheticMilestoneId);
+
+    // Then: 상태만으로는 무엇을 고쳐야 하는지 알 수 없다.
+    expect(result[0]?.viewerSubmission).toEqual({
+      submitted: true,
+      submittedAt: submittedAt.toISOString(),
+      status: SubmissionStatus.CHANGES_REQUESTED,
+      review: {
+        comment: '2쪽 서명이 빠졌습니다.',
+        reviewedAt: reviewedAt.toISOString(),
+      },
+    });
   });
 
   it('학생 viewer가 아직 신청하지 않았으면 미제출(submitted:false)로 채운다', async () => {
@@ -1156,6 +1209,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       content: { type: MilestoneSubmissionType.TEXT, text: '본문' },
       attachFile: null,
       expectedSubmissionType: MilestoneSubmissionType.TEXT,
+      expectedLatestReviewId: null,
     });
     expect(result.id).toBe('cuid-synthetic-submission');
     expect(result.submittedAt).toBe(now.toISOString());
@@ -1220,6 +1274,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         milestoneId: syntheticMilestoneId,
       },
       expectedSubmissionType: MilestoneSubmissionType.FILE,
+      expectedLatestReviewId: null,
     });
     expect(result.files).toEqual([
       expect.objectContaining({ id: 'cuid-synthetic-file' }),
@@ -1391,6 +1446,148 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
   });
 });
 
+describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
+  const now = new Date('2026-09-16T14:22:00.000Z');
+
+  /** 승인된 신청의 학생이 TEXT 서류를 다시 내는 상황. 최신 판정만 갈아 끼운다. */
+  function resubmitRepository(
+    latestReview: { id: string; decision: ReviewDecision } | null,
+  ) {
+    return buildRepository({
+      findActiveUser: jest
+        .fn()
+        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+      findDocumentContext: jest.fn().mockResolvedValue({
+        id: syntheticDocumentId,
+        milestoneId: syntheticMilestoneId,
+        programId: syntheticProgramId,
+        dueAt: now,
+        required: true,
+        submissionType: MilestoneSubmissionType.TEXT,
+      }),
+      findStudentApplication: jest.fn().mockResolvedValue({
+        applicationId: syntheticApplicationId,
+        approved: true,
+        programEndAt: null,
+        repositoryUrl: null,
+      }),
+      findLatestReview: jest.fn().mockResolvedValue(latestReview),
+      upsertSubmission: jest.fn().mockResolvedValue({
+        id: 'cuid-synthetic-submission',
+        status: SubmissionStatus.SUBMITTED,
+        content: { type: MilestoneSubmissionType.TEXT, text: '고친 본문' },
+        submittedAt: now,
+        files: [],
+      }),
+    });
+  }
+
+  function resubmit(service: MilestoneDocumentsService) {
+    return service.submit(
+      1n,
+      syntheticMilestoneId,
+      syntheticDocumentId,
+      { type: MilestoneSubmissionType.TEXT, text: '고친 본문' },
+      now,
+    );
+  }
+
+  it('승인된 서류는 다시 낼 수 없다 — RESUBMISSION_NOT_ALLOWED로 막는다', async () => {
+    // Given: 막지 않으면 교직원이 승인한 내용이 조용히 다른 내용으로 바뀐다.
+    const { mocks, repository } = resubmitRepository({
+      id: 'cuid-synthetic-review',
+      decision: ReviewDecision.APPROVED,
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When / Then
+    await expect(resubmit(service)).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.RESUBMISSION_NOT_ALLOWED },
+    });
+    expect(mocks.upsertSubmission).not.toHaveBeenCalled();
+  });
+
+  it('반려된 서류는 다시 낼 수 없다 — 끝난 판정이다', async () => {
+    // Given
+    const { mocks, repository } = resubmitRepository({
+      id: 'cuid-synthetic-review',
+      decision: ReviewDecision.REJECTED,
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When / Then
+    await expect(resubmit(service)).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.RESUBMISSION_NOT_ALLOWED },
+    });
+    expect(mocks.upsertSubmission).not.toHaveBeenCalled();
+  });
+
+  it('보완 요청을 받은 서류는 다시 낼 수 있다 — 그것이 보완 요청의 뜻이다', async () => {
+    // Given
+    const { mocks, repository } = resubmitRepository({
+      id: 'cuid-synthetic-review',
+      decision: ReviewDecision.CHANGES_REQUESTED,
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    await resubmit(service);
+
+    // Then: 판단 근거였던 판정 id를 기대값으로 함께 넘긴다.
+    expect(mocks.upsertSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedLatestReviewId: 'cuid-synthetic-review',
+      }),
+    );
+  });
+
+  it('아직 판정이 없으면 지금처럼 허용한다', async () => {
+    // Given
+    const { mocks, repository } = resubmitRepository(null);
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    await resubmit(service);
+
+    // Then
+    expect(mocks.upsertSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedLatestReviewId: null }),
+    );
+  });
+
+  it('최신 판정은 (서류, 신청) 짝으로 찾는다', async () => {
+    // Given
+    const { mocks, repository } = resubmitRepository(null);
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    await resubmit(service);
+
+    // Then
+    expect(mocks.findLatestReview).toHaveBeenCalledWith(
+      syntheticDocumentId,
+      syntheticApplicationId,
+    );
+  });
+
+  it('제출을 쓰는 사이에 판정이 들어왔으면 REVIEW_CHANGED로 변환한다', async () => {
+    // Given: 서비스는 「판정 없음」을 보고 허용했지만, 잠금 아래 재확인에서 어긋났다.
+    const { repository } = resubmitRepository(null);
+    (
+      repository as unknown as { upsertSubmission: jest.Mock }
+    ).upsertSubmission = jest
+      .fn()
+      .mockRejectedValue(new MilestoneDocumentReviewChangedError());
+    const service = new MilestoneDocumentsService(repository);
+
+    // When / Then: 「막혔다」가 아니라 「다시 확인하라」로 알린다 — 새 판정이 보완 요청이면
+    // 다시 시도했을 때 통과해야 하기 때문이다.
+    await expect(resubmit(service)).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.REVIEW_CHANGED },
+    });
+  });
+});
+
 describe('MilestoneDocumentsService.collectForStaff', () => {
   const now = new Date('2026-09-20T00:00:00.000Z');
   const secondDocumentId = 'cuid-synthetic-document-2';
@@ -1523,19 +1720,29 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     );
 
     // Then: 프런트가 빈칸을 추측하지 않도록 모든 서류에 한 칸씩 채운다.
+    // 제출이 없으면 상태도 없다 — status는 「제출 행의 상태」이지 판정 결과가 아니다.
     for (const row of result.rows) {
       expect(row.cells).toEqual([
         {
           documentId: syntheticDocumentId,
           isSubmitted: false,
           submittedAt: null,
+          // 제출이 없으면 되돌려 보낼 버전도 없다 — 판정 자체가 SUBMISSION_NOT_FOUND로 막힌다.
+          revision: null,
           file: null,
+          content: null,
+          status: null,
+          review: null,
         },
         {
           documentId: secondDocumentId,
           isSubmitted: false,
           submittedAt: null,
+          revision: null,
           file: null,
+          content: null,
+          status: null,
+          review: null,
         },
       ]);
     }
@@ -1549,13 +1756,22 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           milestoneDocumentId: syntheticDocumentId,
           applicationId: syntheticApplicationId,
           submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+          revision: 1,
+          status: SubmissionStatus.SUBMITTED,
+          content: null,
           file: { originalFileName: '최종_진짜최종.hwp', sizeBytes: 2048 },
+          review: null,
         },
         {
           milestoneDocumentId: secondDocumentId,
           applicationId: syntheticApplicationId,
           submittedAt: new Date('2026-09-17T10:00:00.000Z'),
+          // 두 번 낸 칸 — 프런트는 이 값을 판정 요청의 expectedRevision으로 되돌려 보낸다.
+          revision: 2,
+          status: SubmissionStatus.SUBMITTED,
+          content: { type: 'TEXT', text: '3주차까지 인터뷰 8건을 마쳤습니다.' },
           file: null,
+          review: null,
         },
       ]),
     });
@@ -1574,13 +1790,27 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         documentId: syntheticDocumentId,
         isSubmitted: true,
         submittedAt: '2026-09-16T14:22:00.000Z',
+        // 칸이 리비전을 싣지 않으면 프런트가 되돌려 보낼 값이 없어 판정 자체가 불가능하다.
+        revision: 1,
         file: { name: '최종_진짜최종.hwp', sizeBytes: 2048 },
+        // FILE 제출은 본문이 없다 — 내용은 위 file이 가리킨다.
+        content: null,
+        status: SubmissionStatus.SUBMITTED,
+        review: null,
       },
       {
         documentId: secondDocumentId,
         isSubmitted: true,
         submittedAt: '2026-09-17T10:00:00.000Z',
+        revision: 2,
         file: null,
+        // 글 제출은 본문을 그대로 싣는다 — 이게 없으면 교직원이 내용을 못 보고 판정한다.
+        content: {
+          type: MilestoneSubmissionType.TEXT,
+          text: '3주차까지 인터뷰 8건을 마쳤습니다.',
+        },
+        status: SubmissionStatus.SUBMITTED,
+        review: null,
       },
     ]);
     // 다른 팀의 칸이 섞이지 않는다.
@@ -1595,7 +1825,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           milestoneDocumentId: syntheticDocumentId,
           applicationId: syntheticApplicationId,
           submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+          status: SubmissionStatus.SUBMITTED,
+          content: null,
           file: null,
+          review: null,
         },
       ]),
     });
@@ -1618,7 +1851,210 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       isSubmitted: true,
       submittedAt: '2026-09-16T14:22:00.000Z',
       file: null,
+      content: null,
+      status: SubmissionStatus.SUBMITTED,
+      review: null,
     });
+  });
+
+  it('릴리스 제출은 URL을 칸에 그대로 싣는다', async () => {
+    // Given: 파일이 아닌 제출도 교직원이 **무엇을 보고** 승인·반려하는지가 있어야 한다.
+    const { repository } = collectionRepository({
+      findSubmissionsForCollection: jest.fn().mockResolvedValue([
+        {
+          milestoneDocumentId: secondDocumentId,
+          applicationId: syntheticApplicationId,
+          submittedAt: new Date('2026-09-17T10:00:00.000Z'),
+          status: SubmissionStatus.SUBMITTED,
+          content: {
+            type: 'REPOSITORY_RELEASE',
+            releaseUrl:
+              'https://github.com/synthetic-org/synthetic-repo/releases/tag/v1.0.0',
+          },
+          file: null,
+          review: null,
+        },
+      ]),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    const result = await service.collectForStaff(
+      syntheticMilestoneId,
+      collectionQuery(),
+      now,
+    );
+
+    // Then
+    expect(result.rows[0]?.cells[1]?.content).toEqual({
+      type: MilestoneSubmissionType.REPOSITORY_RELEASE,
+      releaseUrl:
+        'https://github.com/synthetic-org/synthetic-repo/releases/tag/v1.0.0',
+    });
+  });
+
+  it('본문이 길어도 자르지 않는다 — 일부만 보고 판정하는 것은 못 보고 판정하는 것과 같다', async () => {
+    // Given: 제출 요청이 이미 10,000자로 막고 있어 칸 하나의 크기는 유계다. 여기서 다시
+    // 잘라 버리면 잘린 뒤를 읽을 방법이 없다(교직원용 단건 조회 endpoint가 없다).
+    const longText = '가'.repeat(10_000);
+    const { repository } = collectionRepository({
+      findSubmissionsForCollection: jest.fn().mockResolvedValue([
+        {
+          milestoneDocumentId: secondDocumentId,
+          applicationId: syntheticApplicationId,
+          submittedAt: new Date('2026-09-17T10:00:00.000Z'),
+          status: SubmissionStatus.SUBMITTED,
+          content: { type: 'TEXT', text: longText },
+          file: null,
+          review: null,
+        },
+      ]),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    const result = await service.collectForStaff(
+      syntheticMilestoneId,
+      collectionQuery(),
+      now,
+    );
+
+    // Then
+    expect(result.rows[0]?.cells[1]?.content).toEqual({
+      type: MilestoneSubmissionType.TEXT,
+      text: longText,
+    });
+  });
+
+  it('저장된 본문 모양이 깨져 있으면 content만 null이 된다 — 표 전체를 500으로 만들지 않는다', async () => {
+    // Given: 한 팀의 Json 하나 때문에 수합 표 전체가 떨어지면 안 된다.
+    const { repository } = collectionRepository({
+      findSubmissionsForCollection: jest.fn().mockResolvedValue([
+        {
+          milestoneDocumentId: secondDocumentId,
+          applicationId: syntheticApplicationId,
+          submittedAt: new Date('2026-09-17T10:00:00.000Z'),
+          status: SubmissionStatus.SUBMITTED,
+          content: { type: 'TEXT' },
+          file: null,
+          review: null,
+        },
+      ]),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    const result = await service.collectForStaff(
+      syntheticMilestoneId,
+      collectionQuery(),
+      now,
+    );
+
+    // Then: 칸은 제출로 남되 본문만 비운다.
+    expect(result.rows[0]?.cells[1]?.isSubmitted).toBe(true);
+    expect(result.rows[0]?.cells[1]?.content).toBeNull();
+  });
+
+  it('재제출로 되돌아온 칸은 status가 SUBMITTED이고 최신 판정은 그대로 남는다', async () => {
+    // Given: 학생이 보완 요청에 응해 다시 냈다. 제출 상태는 SUBMITTED로 되돌아왔지만 판정
+    // 이력은 되돌아가지 않는다. status를 싣지 않으면 화면이 옛 「보완 요청」 배지를 계속
+    // 보여 주고, 교직원이 다시 검토해야 할 건을 놓친다.
+    const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
+    const { repository } = collectionRepository({
+      findSubmissionsForCollection: jest.fn().mockResolvedValue([
+        {
+          milestoneDocumentId: syntheticDocumentId,
+          applicationId: syntheticApplicationId,
+          submittedAt: new Date('2026-09-19T08:00:00.000Z'),
+          status: SubmissionStatus.SUBMITTED,
+          content: null,
+          file: null,
+          review: {
+            id: 'cuid-synthetic-review',
+            decision: ReviewDecision.CHANGES_REQUESTED,
+            comment: '2쪽 서명이 빠졌습니다.',
+            reviewedAt,
+          },
+        },
+      ]),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    const result = await service.collectForStaff(
+      syntheticMilestoneId,
+      collectionQuery(),
+      now,
+    );
+
+    // Then: 배지는 status로, 지난 지적은 review로 갈린다 — 둘을 한 값으로 합치지 않는다.
+    expect(result.rows[0]?.cells[0]).toEqual({
+      documentId: syntheticDocumentId,
+      isSubmitted: true,
+      submittedAt: '2026-09-19T08:00:00.000Z',
+      file: null,
+      content: null,
+      status: SubmissionStatus.SUBMITTED,
+      review: {
+        // 프런트가 판정 요청에 되돌려 보낼 기대 버전이다 — 빠지면 「남의 판정을 덮었다」를
+        // 서버가 알아챌 근거가 사라진다.
+        id: 'cuid-synthetic-review',
+        decision: ReviewDecision.CHANGES_REQUESTED,
+        comment: '2쪽 서명이 빠졌습니다.',
+        reviewedAt: reviewedAt.toISOString(),
+      },
+    });
+  });
+
+  it('판정이 끝난 칸은 그 판정 상태를 그대로 싣는다', async () => {
+    // Given: 승인·반려·보완 요청이 각각 제출 상태로 옮겨져 있다.
+    const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
+    const { repository } = collectionRepository({
+      findSubmissionsForCollection: jest.fn().mockResolvedValue([
+        {
+          milestoneDocumentId: syntheticDocumentId,
+          applicationId: syntheticApplicationId,
+          submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+          status: SubmissionStatus.APPROVED,
+          content: null,
+          file: null,
+          review: {
+            id: 'cuid-synthetic-review-1',
+            decision: ReviewDecision.APPROVED,
+            comment: null,
+            reviewedAt,
+          },
+        },
+        {
+          milestoneDocumentId: secondDocumentId,
+          applicationId: syntheticApplicationId,
+          submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+          status: SubmissionStatus.REJECTED,
+          content: null,
+          file: null,
+          review: {
+            id: 'cuid-synthetic-review-2',
+            decision: ReviewDecision.REJECTED,
+            comment: '양식이 다릅니다.',
+            reviewedAt,
+          },
+        },
+      ]),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    const result = await service.collectForStaff(
+      syntheticMilestoneId,
+      collectionQuery(),
+      now,
+    );
+
+    // Then
+    expect(result.rows[0]?.cells.map((cell) => cell.status)).toEqual([
+      SubmissionStatus.APPROVED,
+      SubmissionStatus.REJECTED,
+    ]);
   });
 
   it('N+1을 만들지 않는다 — 서류·신청·제출을 각각 한 번씩만 조회한다', async () => {
@@ -1648,8 +2084,20 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
   const noneApplicationId = 'cuid-synthetic-application-d';
   const submittedAt = new Date('2026-09-16T14:22:00.000Z');
 
-  function submission(applicationId: string, milestoneDocumentId: string) {
-    return { milestoneDocumentId, applicationId, submittedAt, file: null };
+  function submission(
+    applicationId: string,
+    milestoneDocumentId: string,
+    status: SubmissionStatus = SubmissionStatus.SUBMITTED,
+  ) {
+    return {
+      milestoneDocumentId,
+      applicationId,
+      submittedAt,
+      status,
+      content: null,
+      file: null,
+      review: null,
+    };
   }
 
   /**
@@ -1879,6 +2327,68 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       hasMissing: 2,
       zeroSubmission: 1,
     });
+  });
+
+  it('반려·보완 요청된 제출도 「제출했다」로 센다 — 필터·집계는 판정 상태를 보지 않는다', async () => {
+    // Given: 같은 배치인데 판정만 갈렸다. 라마바팀의 필수 서류는 반려, 사아자팀의 선택 서류는
+    // 보완 요청 상태다. 「미제출」 기준이 「제출 행이 없다」에서 「판정이 통과하지 않았다」로
+    // 조용히 바뀌면 독촉 대상 집계가 뜻을 잃는다 — 칸에 status를 실은 뒤에도 그 기준은 그대로다.
+    const { repository } = filterRepository({
+      findSubmissionsForCollection: jest
+        .fn()
+        .mockResolvedValue([
+          submission(bothApplicationId, requiredDocumentId),
+          submission(bothApplicationId, optionalDocumentId),
+          submission(
+            requiredOnlyApplicationId,
+            requiredDocumentId,
+            SubmissionStatus.REJECTED,
+          ),
+          submission(
+            optionalOnlyApplicationId,
+            optionalDocumentId,
+            SubmissionStatus.CHANGES_REQUESTED,
+          ),
+        ]),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    const result = await service.collectForStaff(
+      syntheticMilestoneId,
+      collectionQuery(),
+      now,
+    );
+
+    // Then: 판정이 갈리기 전(위 다른 테스트들)과 같은 수를 센다.
+    expect(result.filterCounts).toEqual({
+      all: 4,
+      hasMissing: 2,
+      zeroSubmission: 1,
+    });
+    expect(result.documentTotals).toEqual([
+      { documentId: requiredDocumentId, submitted: 2, total: 4 },
+      { documentId: optionalDocumentId, submitted: 2, total: 4 },
+    ]);
+    // 반려된 필수 서류를 낸 라마바팀은 여전히 독촉 대상이 아니다.
+    const hasMissing = await service.collectForStaff(
+      syntheticMilestoneId,
+      collectionQuery({ filter: 'HAS_MISSING' }),
+      now,
+    );
+    expect(hasMissing.rows.map((row) => row.teamName)).toEqual([
+      '사아자팀',
+      '차카타팀',
+    ]);
+    // 보완 요청 상태의 선택 서류 한 장을 낸 사아자팀도 「한 장도 안 낸 팀」이 아니다.
+    const zeroSubmission = await service.collectForStaff(
+      syntheticMilestoneId,
+      collectionQuery({ filter: 'ZERO_SUBMISSION' }),
+      now,
+    );
+    expect(zeroSubmission.rows.map((row) => row.teamName)).toEqual([
+      '차카타팀',
+    ]);
   });
 
   it('documentTotals는 필터·페이지가 아니라 전체 승인 신청 기준이다', async () => {

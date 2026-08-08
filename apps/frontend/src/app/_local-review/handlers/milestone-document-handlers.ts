@@ -1,4 +1,8 @@
 import type { MilestoneDocumentCollectionFilter } from '@/features/programs/milestone-document-collection-api';
+import {
+  MILESTONE_DOCUMENT_REVIEW_DECISIONS,
+  type MilestoneDocumentReviewDecision,
+} from '@/features/programs/milestone-document-review-api';
 import type { SubmissionType } from '@/features/programs/types';
 import { apiPath } from '@/lib/api-client';
 import {
@@ -19,6 +23,7 @@ import {
   type LocalReviewResponsePlan,
 } from '../handler-kit';
 import {
+  createdMilestoneDocumentReviewFor,
   isKnownMilestoneId,
   MILESTONE_DOCUMENT_COLLECTION_FIXTURE_DEFAULT_QUERY,
   milestoneDocumentCollectionFor,
@@ -36,6 +41,7 @@ import {
  * `.../documents/:documentId`(PATCH/DELETE),
  * `.../documents/:documentId/template`(GET/POST),
  * `.../documents/:documentId/applications/:applicationId/file`(GET),
+ * `.../documents/:documentId/applications/:applicationId/reviews`(POST),
  * `.../documents/:documentId/submissions`(POST), `milestone-document-files`(POST).
  *
  * 실제 백엔드는 조회는 SessionGuard만, 등록·수정·삭제·양식 업로드·수합 표는
@@ -48,6 +54,7 @@ const STAFF_ONLY_CODE = 'MSD_001';
 const TEMPLATE_NOT_FOUND_CODE = 'MSD_015';
 const SUBMISSION_FILE_NOT_FOUND_CODE = 'MSD_020';
 const INVALID_REQUEST_CODE = 'MSD_019';
+const REVIEW_COMMENT_REQUIRED_CODE = 'MSD_021';
 
 const SUBMISSION_TYPES: readonly SubmissionType[] = [
   'FILE',
@@ -195,6 +202,86 @@ const reorderDocumentsHandler: LocalReviewHandler = (context) => {
         '요청 값을 확인해 주세요.',
       )
     : accepted(reordered);
+};
+
+/**
+ * 기대 버전 두 값이 요청 본문에 **제대로 실려 있는가**.
+ *
+ * `expectedRevision`은 **1 이상의 정수**여야 하고(백엔드 DTO의 `@IsInt() @Min(1)`),
+ * `expectedLatestReviewId`는 문자열이거나 **명시된 `null`**이어야 한다. 키를 아예 빼먹은
+ * 요청은 통과시키지 않는다 — 백엔드가 `@IsOptional`이 아니라 `@ValidateIf`로 받아 누락을
+ * 400으로 막기 때문이고, 여기서 느슨하게 받으면 옛 본문을 보내는 화면이 로컬 검토에서만
+ * 멀쩡히 저장되는 것처럼 보인다.
+ *
+ * ⚠ 숫자를 **문자열로 보낸 요청**(`'2'`)도, 0·음수·소수도 막는다. 첫 제출이 1이라 그
+ * 범위 밖의 값은 어떤 제출도 가리키지 않는다 — 여기서 받아 주면 그런 값을 싣는 화면이
+ * 실제 백엔드에 붙어서야 400으로 드러난다.
+ */
+function hasReviewTargetVersion(context: LocalReviewContext): boolean {
+  const record = bodyRecord(context);
+  if (record === null) return false;
+  const revision = record.expectedRevision;
+  if (typeof revision !== 'number') return false;
+  if (!Number.isInteger(revision) || revision < 1) return false;
+  if (!('expectedLatestReviewId' in record)) return false;
+  const reviewId = record.expectedLatestReviewId;
+  return reviewId === null || typeof reviewId === 'string';
+}
+
+/**
+ * 서류 제출물 판정. 실제 백엔드와 **같은 순서로** 갈린다: 교직원 가드 →
+ * 요청 값 검사(400) → 사유 필수(422).
+ *
+ * 사유 필수를 여기서도 보는 것이 요점이다. 화면이 먼저 막지만, 그 검증이 사라져도
+ * 로컬 검토가 조용히 성공을 돌려주면 **검증이 없어진 것을 아무도 못 본다** — 실제
+ * 백엔드에 붙였을 때에야 422가 드러난다. 공백만 적은 사유를 함께 거절하는 것도 서버와
+ * 같다(`trim()` 후 빈 문자열은 `null`로 접힌다). 기대 버전 두 값을 400으로 막는 것도
+ * 같은 이유다 — 그 값을 빼먹은 화면은 실제 백엔드에서 **판정이 통째로 실패한다**.
+ *
+ * 한계: 판정이 저장되지 않아 표를 다시 불러도 칸은 그대로다
+ * (`createdMilestoneDocumentReviewFor` 주석 참고). 같은 이유로 「내가 본 그 제출물이
+ * 아니다」(409 MSD_025)도 여기서는 재현되지 않는다 — 그 갈래는 화면 쪽 테스트가 덮는다.
+ */
+const reviewSubmissionHandler: LocalReviewHandler = (context) => {
+  const params = matchMethod(
+    context,
+    'POST',
+    'milestones/:milestoneId/documents/:documentId/applications/:applicationId/reviews',
+  );
+  if (params === null) return null;
+  const guard = staffGuardResponse(context);
+  if (guard !== null) return guard;
+  const decision = bodyEnum<MilestoneDocumentReviewDecision>(
+    context,
+    'decision',
+    MILESTONE_DOCUMENT_REVIEW_DECISIONS,
+  );
+  if (decision === null || !hasReviewTargetVersion(context)) {
+    return problem(
+      400,
+      INVALID_REQUEST_CODE,
+      apiPath(context.path),
+      '요청 값을 확인해 주세요.',
+    );
+  }
+  const comment = bodyString(context, 'comment')?.trim() || null;
+  if (comment === null && decision !== 'APPROVED') {
+    return problem(
+      422,
+      REVIEW_COMMENT_REQUIRED_CODE,
+      apiPath(context.path),
+      '보완 요청과 반려는 사유를 입력해 주세요.',
+    );
+  }
+  return json(
+    201,
+    createdMilestoneDocumentReviewFor(
+      params.documentId ?? '',
+      params.applicationId ?? '',
+      decision,
+      comment,
+    ),
+  );
 };
 
 /**
@@ -359,6 +446,7 @@ const uploadDocumentFileHandler: LocalReviewHandler = (context) => {
 export const MILESTONE_DOCUMENT_HANDLERS: readonly LocalReviewHandler[] = [
   listDocumentsHandler,
   collectionHandler,
+  reviewSubmissionHandler,
   downloadSubmissionFileHandler,
   createDocumentHandler,
   // ⚠ `updateDocumentHandler`보다 위여야 한다 — 위 주석 참고. 순서를 바꾸면

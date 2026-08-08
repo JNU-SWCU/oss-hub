@@ -25,10 +25,12 @@ import type { Response } from 'express';
 import { OriginGuard } from '../auth/origin.guard';
 import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
 import { DomainException } from '../common/error-code';
+import { CreateMilestoneDocumentReviewRequestDto } from './dto/create-milestone-document-review-request.dto';
 import { CreateMilestoneDocumentSubmissionRequestDto } from './dto/create-milestone-document-submission-request.dto';
 import { MilestoneDocumentCollectionQueryRequestDto } from './dto/milestone-document-collection-query.dto';
 import { MilestoneDocumentCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
 import { MilestoneDocumentResponseDto } from './dto/milestone-document-response.dto';
+import { MilestoneDocumentReviewResponseDto } from './dto/milestone-document-review-response.dto';
 import { MilestoneDocumentSubmissionResponseDto } from './dto/milestone-document-submission-response.dto';
 import { ReorderMilestoneDocumentsRequestDto } from './dto/reorder-milestone-documents-request.dto';
 import { UpsertMilestoneDocumentRequestDto } from './dto/upsert-milestone-document-request.dto';
@@ -42,6 +44,7 @@ import {
   type UploadedMilestoneDocumentFileResponse,
   type UploadedMilestoneDocumentTemplateResponse,
 } from './milestone-document-files.service';
+import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import {
   MilestoneDocumentsStaffGuard,
   type MilestoneDocumentsStaffRequest,
@@ -107,6 +110,7 @@ export class MilestoneDocumentsController {
   constructor(
     private readonly service: MilestoneDocumentsService,
     private readonly filesService: MilestoneDocumentFilesService,
+    private readonly reviewsService: MilestoneDocumentReviewsService,
   ) {}
 
   @Get()
@@ -240,6 +244,31 @@ export class MilestoneDocumentsController {
       attachmentDisposition(file.fileName),
     );
     return new StreamableFile(file.body);
+  }
+
+  /**
+   * 교직원 — 한 팀이 낸 서류 제출물 판정(승인 · 보완 요청 · 반려).
+   *
+   * 판정은 쌓인다(덮어쓰지 않는다) — 그래서 `POST`이고 매 호출이 새 판정 한 건을 만든다.
+   * 인가 사슬 1단계는 여기 가드가, 나머지 3단계는 서비스가 본다(제출 파일 다운로드와 같다).
+   */
+  @Post(':documentId/applications/:applicationId/reviews')
+  @HttpCode(201)
+  @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard, OriginGuard)
+  review(
+    @Req() request: MilestoneDocumentsStaffRequest,
+    @Param('milestoneId') milestoneId: string,
+    @Param('documentId') documentId: string,
+    @Param('applicationId') applicationId: string,
+    @Body() body: CreateMilestoneDocumentReviewRequestDto,
+  ): Promise<MilestoneDocumentReviewResponseDto> {
+    return this.reviewsService.review(
+      request.milestoneDocumentActorId,
+      milestoneId,
+      documentId,
+      applicationId,
+      body.toInput(),
+    );
   }
 
   @Post(':documentId/submissions')

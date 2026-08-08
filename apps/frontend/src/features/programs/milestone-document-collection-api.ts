@@ -1,4 +1,6 @@
 import { apiClient, apiPath } from '@/lib/api-client';
+import type { MilestoneDocumentSubmissionStatus } from './milestone-document-api';
+import type { MilestoneDocumentReviewDecision } from './milestone-document-review-api';
 import type { SubmissionType } from './types';
 
 /**
@@ -43,6 +45,50 @@ export interface MilestoneDocumentCollectionFile {
 }
 
 /**
+ * 칸에 붙는 **최신 판정 한 건**. 아직 판정하지 않았거나 미제출이면 `null`이다.
+ *
+ * ⚠ 이건 **지난 지적을 보여 주는 값이지 지금 상태가 아니다**. 칸의 배지는 옆의
+ * `status`로 정한다 — 판정 이력은 재제출로 되돌아가지 않으므로, 이 값으로 배지를
+ * 정하면 보완 요청에 응해 **다시 낸 칸이 계속 「보완 요청」으로 남아** 교직원이 다시
+ * 검토해야 할 건을 놓친다.
+ *
+ * ⚠ 표시값이지 업무 규칙도 아니다(백엔드 DTO의 같은 자리 주석과 같은 말이다).
+ * 「미제출」 기준은 여전히 `isSubmitted`이고 필터·합계는 이 값을 보지 않는다 — 반려된
+ * 서류를 미제출로 세기 시작하면 독촉 대상 집계가 조용히 뜻을 바꾼다.
+ *
+ * ⚠ 응답은 최신 한 건만 준다. 이력 전체를 주는 조회는 **없다** — 화면이 「지난 판정 목록」을
+ * 그리고 싶어도 여기서 만들어 낼 수 없다.
+ */
+export interface MilestoneDocumentCollectionReview {
+  /**
+   * 판정 요청의 `expectedLatestReviewId`로 **그대로 되돌려 보내는** 값이다(칸의
+   * `revision`이 `expectedRevision`이 되는 것과 짝이다). 표를 그린 뒤 다른 교직원이
+   * 먼저 판정하면 서버가 이 값으로 알아채고 409(MSD_025)로 막는다 — 화면이 이 id를
+   * 흘리면 그 검사가 통째로 무력해진다.
+   */
+  readonly id: string;
+  readonly decision: MilestoneDocumentReviewDecision;
+  readonly comment: string | null;
+  readonly reviewedAt: string;
+}
+
+/**
+ * 학생이 낸 **본문** — 파일이 아닌 두 제출 방식이 여기 실린다. 백엔드
+ * `milestone-documents/domain/milestone-document-content.ts`의
+ * `MilestoneDocumentSubmittedContent`와 같은 모양이다.
+ *
+ * ⚠ FILE 제출에는 이 값이 없다(`null`) — 파일은 옆의 `file`이 담당한다. 저장 시점에
+ * `JsonNull`로 접히기 때문이라, 「파일 제출인데 본문이 있다」는 상태는 계약에 없다.
+ *
+ * ⚠ **잘려 오지 않는다.** 글은 최대 10,000자까지 그대로 실린다 — 「일부만 보고 승인」은
+ * 「못 보고 승인」과 같은 사고라서 서버가 자르지 않기로 한 것이고, 잘린 뒤를 읽을 단건
+ * 조회도 없다. 화면은 그 전문을 담을 자리를 마련해야 한다(패널의 스크롤 영역).
+ */
+export type MilestoneDocumentCollectionContent =
+  | { readonly type: 'TEXT'; readonly text: string }
+  | { readonly type: 'REPOSITORY_RELEASE'; readonly releaseUrl: string };
+
+/**
  * 표의 칸 — 미제출도 칸이 비지 않고 `isSubmitted: false`로 채워져 온다.
  *
  * ⚠ 이 칸만 `isSubmitted`다(ADR-004의 boolean `is`/`has`/`can` 접두사). 학생 화면이
@@ -52,8 +98,43 @@ export interface MilestoneDocumentCollectionFile {
 export interface MilestoneDocumentCollectionCell {
   readonly documentId: string;
   readonly isSubmitted: boolean;
+  /**
+   * 이 제출이 지금 어떤 상태인가 — **칸의 배지는 이 값으로 정한다**. 제출이 없으면 `null`.
+   *
+   * 값 집합은 학생 뷰 계약(`milestone-document-api.ts`의
+   * `MilestoneDocumentSubmissionStatus`)과 같다. 같은 제출 행의 같은 상태라 이름만 다른
+   * 두 벌을 만들지 않는다 — 이름이 갈린 `isSubmitted`/`submitted`와 달리 여기는 뜻도
+   * 값도 하나다.
+   *
+   * ⚠ `SUBMITTED`는 「아직 아무도 안 봤다」와 「보완 요청을 받고 **다시 냈다**」 둘 다를
+   * 뜻한다 — 재제출이 같은 제출 행을 덮어쓰며 상태를 되돌리기 때문이다. 그래서 「지난
+   * 지적이 있었는가」는 이 값이 아니라 `review`로 본다.
+   */
+  readonly status: MilestoneDocumentSubmissionStatus | null;
+  /**
+   * 이 제출이 **몇 번째 제출본인가**. 제출이 없으면 `null`이고, 다시 낼 때마다 서버가
+   * 올린다(`features/submissions`의 `MatrixCell.revision`과 같은 뜻·같은 이름이다).
+   *
+   * ⚠ 판정 요청의 `expectedRevision`으로 **그대로 되돌려 보내는** 값이다. 예전에는 이
+   * 자리를 `submittedAt`이 맡았는데, 같은 초 안에 두 번 낸 재제출은 시각이 같아
+   * 「바뀌지 않았다」로 통과했다 — 그때 교직원은 **자기가 읽은 것이 아닌 제출본**에
+   * 판정을 붙인다. 번호는 다시 낼 때마다 반드시 달라지므로 그 구멍이 없다.
+   *
+   * ⚠ 화면에 숫자로 적지 마라. 학생·교직원에게 「제출본 3」은 아무 뜻이 없고,
+   * `features/submissions`도 같은 이유로 내부 값으로만 쓴다(재제출 토스트 문구 참고).
+   */
+  readonly revision: number | null;
   readonly submittedAt: string | null;
   readonly file: MilestoneDocumentCollectionFile | null;
+  /**
+   * 글·저장소 릴리스로 낸 제출의 본문. FILE 제출이거나 미제출이면 `null`이다.
+   *
+   * ⚠ **판정 화면은 이 값을 반드시 그려야 한다.** 이것을 그리지 않으면 제출 방식 세 가지
+   * 중 둘(글·릴리스)이 교직원에게 통째로 안 보이고, 그는 내용을 한 글자도 못 본 채
+   * 승인·반려를 누른다.
+   */
+  readonly content: MilestoneDocumentCollectionContent | null;
+  readonly review: MilestoneDocumentCollectionReview | null;
 }
 
 /** 표의 행 — 승인된 신청(= 팀) 하나. */

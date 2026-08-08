@@ -1,9 +1,44 @@
 import { apiClient, apiPath } from '@/lib/api-client';
 import type { SubmissionType } from './types';
 
+/**
+ * 학생 뷰의 제출 상태. ⚠ `types.ts`의 `SubmissionStatus`와 **다른 집합**이다 — 그쪽에는
+ * `NOT_SUBMITTED`가 있지만 이 계약은 미제출을 `null`로 말한다(제출 행이 없으면 상태도 없다).
+ * 같은 이름으로 묶으면 화면이 있지도 않은 `NOT_SUBMITTED`를 분기하게 된다.
+ */
+export type MilestoneDocumentSubmissionStatus =
+  'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
+
+/**
+ * 학생 뷰 — 이 서류에 붙은 **최신 판정 한 건**. 아직 아무도 판정하지 않았으면 `null`이다.
+ *
+ * ⚠ `decision`이 없는 것은 빠뜨린 것이 아니다. 같은 뜻이 옆의
+ * `MilestoneDocumentViewerSubmission.status`에 이미 있다(판정 → 상태가 1:1이다).
+ * 여기 있는 것은 화면이 「왜 되돌아왔는가」를 말하는 데 필요한 사유와 시각뿐이다.
+ */
+export interface MilestoneDocumentViewerReview {
+  readonly comment: string | null;
+  readonly reviewedAt: string;
+}
+
 export interface MilestoneDocumentViewerSubmission {
+  /**
+   * ⚠ 이름은 예전 그대로다(`isSubmitted`가 아니다). 이미 발행돼 학생 화면이 쓰는 계약이라
+   * 바꾸면 화면이 조용히 「전부 미제출」로 보인다 — 수합 표 계약의 `isSubmitted`와 다른
+   * 것은 의도된 비대칭이다(백엔드 `milestone-document-response.dto.ts` 주석과 같은 근거).
+   */
   readonly submitted: boolean;
   readonly submittedAt: string | null;
+  /**
+   * 최신 판정이 옮겨 놓은 제출 상태. 미제출이면 `null`.
+   *
+   * ⚠ `SUBMITTED`는 「아직 아무도 안 봤다」와 「보완 요청을 받고 다시 냈다」 **둘 다**를
+   * 뜻한다 — 재제출이 같은 행을 덮어써 상태를 `SUBMITTED`로 되돌리기 때문이다. 그래서
+   * 「지난 지적이 있었는가」는 `status`가 아니라 `review`로 봐야 한다.
+   */
+  readonly status: MilestoneDocumentSubmissionStatus | null;
+  /** 아직 아무도 판정하지 않았으면 `null`. */
+  readonly review: MilestoneDocumentViewerReview | null;
 }
 
 export interface MilestoneDocumentTeamSubmissionCount {

@@ -5,6 +5,7 @@ import { isLinkedRepositoryReleaseUrl } from '../submissions/submission-release-
 import { buildMilestoneDocumentCollectionPage } from './domain/milestone-document-collection-page';
 import type { MilestoneDocumentCollectionQuery } from './domain/milestone-document-collection-query';
 import type { MilestoneDocumentContentInput } from './domain/milestone-document-content';
+import { isResubmissionAllowedAfter } from './domain/milestone-document-review';
 import { MilestoneDocumentCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
 import { MilestoneDocumentResponseDto } from './dto/milestone-document-response.dto';
 import { MilestoneDocumentSubmissionResponseDto } from './dto/milestone-document-submission-response.dto';
@@ -15,6 +16,7 @@ import {
 import {
   MilestoneDocumentPendingFileMissingError,
   type MilestoneDocumentRecord,
+  MilestoneDocumentReviewChangedError,
   MilestoneDocumentsRepository,
   MilestoneDocumentSubmissionTypeChangedError,
   type UpdateMilestoneDocumentInput,
@@ -80,18 +82,24 @@ export class MilestoneDocumentsService {
           application.applicationId,
           documentIds,
         );
-        const submittedAtByDocument = new Map(
-          summaries.map((summary) => [
-            summary.milestoneDocumentId,
-            summary.submittedAt,
-          ]),
+        const summaryByDocument = new Map(
+          summaries.map((summary) => [summary.milestoneDocumentId, summary]),
         );
         return documents.map((document) => {
-          const submittedAt = submittedAtByDocument.get(document.id) ?? null;
+          // 제출 행이 없으면 미제출이다 — 판정은 제출에 붙으므로 함께 null이 된다.
+          const summary = summaryByDocument.get(document.id) ?? null;
           return MilestoneDocumentResponseDto.from(document, {
             viewerSubmission: {
-              submitted: submittedAt !== null,
-              submittedAt: submittedAt?.toISOString() ?? null,
+              submitted: summary !== null,
+              submittedAt: summary?.submittedAt.toISOString() ?? null,
+              status: summary?.status ?? null,
+              review:
+                summary?.review == null
+                  ? null
+                  : {
+                      comment: summary.review.comment,
+                      reviewedAt: summary.review.reviewedAt.toISOString(),
+                    },
             },
           });
         });
@@ -294,8 +302,14 @@ export class MilestoneDocumentsService {
   }
 
   /**
-   * 학생 — 서류 제출/재제출("올리기"/"수정"). upsert 방식이라 기존 제출을 덮어쓴다
-   * (Submission/SubmissionRevision 계열과 달리 판정·이력 없이 최신 제출만 유지한다).
+   * 학생 — 서류 제출/재제출("올리기"/"수정"). 제출 자체는 upsert 방식이라 기존 제출을 덮어쓴다
+   * (Submission/SubmissionRevision 계열과 달리 제출 이력은 남기지 않는다). **판정 이력은 다르다**
+   * — `MilestoneDocumentReviewHistory`에 쌓이고 재제출해도 지워지지 않는다.
+   *
+   * 재제출 가부는 그 최신 판정이 정한다: 승인·반려면 거부하고, 보완 요청이면 허용하고, 판정이
+   * 없으면 그대로 허용한다. 규칙의 뜻은 옛 제출물 재제출
+   * (`submissions/submissions.service.ts`의 `assertResubmittable`)과 같다 — 왜 상태가 아니라
+   * 판정을 보는지는 `domain/milestone-document-review.ts`의 `isResubmissionAllowedAfter`에 있다.
    */
   async submit(
     sessionGithubId: bigint,
@@ -332,6 +346,14 @@ export class MilestoneDocumentsService {
       throw this.error(
         MilestoneDocumentsErrorCode.APPLICATION_APPROVAL_REQUIRED,
       );
+    }
+
+    const latestReview = await this.repository.findLatestReview(
+      documentId,
+      application.applicationId,
+    );
+    if (!isResubmissionAllowedAfter(latestReview?.decision ?? null)) {
+      throw this.error(MilestoneDocumentsErrorCode.RESUBMISSION_NOT_ALLOWED);
     }
 
     let attachFile: UpsertMilestoneDocumentSubmissionInput['attachFile'] = null;
@@ -381,6 +403,9 @@ export class MilestoneDocumentsService {
         // 위의 CONTENT_TYPE_MISMATCH 검증은 트랜잭션 밖의 읽기라서, 그 사이 교직원이 제출 방식을
         // 바꿔 버릴 수 있다. 기대값을 함께 넘겨 트랜잭션 안에서 잠금과 함께 다시 확인한다.
         expectedSubmissionType: content.type,
+        // 재제출 가부 판단도 같은 이유로 트랜잭션 밖의 읽기다 — 그 사이 교직원이 판정할 수 있다.
+        // 판단의 근거였던 판정 id를 넘겨 잠금 아래에서 최신 판정이 아직 그것인지 확인한다.
+        expectedLatestReviewId: latestReview?.id ?? null,
       });
       return MilestoneDocumentSubmissionResponseDto.from(detail);
     } catch (error) {
@@ -389,6 +414,9 @@ export class MilestoneDocumentsService {
       }
       if (error instanceof MilestoneDocumentSubmissionTypeChangedError) {
         throw this.error(MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH);
+      }
+      if (error instanceof MilestoneDocumentReviewChangedError) {
+        throw this.error(MilestoneDocumentsErrorCode.REVIEW_CHANGED);
       }
       throw error;
     }

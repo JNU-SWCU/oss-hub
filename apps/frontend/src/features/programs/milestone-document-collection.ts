@@ -42,8 +42,16 @@ export function collectionCellFor(
     row.cells.find((cell) => cell.documentId === documentId) ?? {
       documentId,
       isSubmitted: false,
+      // 상태도 판정도 제출에 붙는다 — 메워 넣은 미제출 칸에는 둘 다 있을 수 없다.
+      status: null,
+      // 제출본 번호도 마찬가지다. 여기에 숫자를 지어 넣으면 판정 패널이 열리고,
+      // 그 판정은 있지도 않은 제출본을 가리킨다.
+      revision: null,
       submittedAt: null,
       file: null,
+      // 본문도 제출에 붙는다 — 메워 넣은 미제출 칸에는 보여 줄 내용이 있을 수 없다.
+      content: null,
+      review: null,
     }
   );
 }
@@ -163,6 +171,35 @@ export function milestoneDocumentCollectionDataFor(
   return isSameMilestoneDocumentCollectionQuery(loaded.query, query)
     ? loaded.data
     : null;
+}
+
+/**
+ * 다시 부르는 동안 화면이 무엇을 그리는가.
+ *
+ * - `idle` — 부르는 중이 아니다.
+ * - `skeleton` — **그릴 표가 아직 없다.** 첫 조회이거나, 조건을 바꿔 손에 든 응답이
+ *   지금 조건의 답이 아니게 된 경우다.
+ * - `refreshing` — 표는 그대로 두고 뒤에서 갱신 중이다.
+ *
+ * 이 갈래가 이 화면의 요구 그 자체다. 판정 하나를 저장할 때마다 표를 뼈대로 갈아 끼우면
+ * 가로 스크롤이 처음으로 돌아가고 보던 행이 흔들린다 — 여러 건을 연달아 판정하는
+ * 교직원은 **한 건 처리할 때마다 보던 자리를 잃는다**. 판정 패널을 표 안에 둔 이유가
+ * 「표를 떠나지 않는 것」이었으니, 갱신이 표를 걷어 가면 그 이유가 통째로 무너진다.
+ *
+ * ⚠ `data`에는 **`milestoneDocumentCollectionDataFor`가 걸러 준 값**만 넣어라. 손에 든
+ * 응답을 그대로 넣으면 조건을 바꾼 조회 중에도 옛 표가 남아, 새 필터 이름 아래에 옛
+ * 행이 그려진다. 「같은 조건의 재조회」일 때만 유지하는 것이 이 규칙의 전부다.
+ */
+export type MilestoneDocumentCollectionLoadPhase =
+  'idle' | 'skeleton' | 'refreshing';
+
+export function milestoneDocumentCollectionLoadPhase(input: {
+  /** 지금 조건으로 그려도 되는 응답(`milestoneDocumentCollectionDataFor`의 결과). */
+  readonly data: MilestoneDocumentCollection | null;
+  readonly isLoading: boolean;
+}): MilestoneDocumentCollectionLoadPhase {
+  if (!input.isLoading) return 'idle';
+  return input.data === null ? 'skeleton' : 'refreshing';
 }
 
 /**

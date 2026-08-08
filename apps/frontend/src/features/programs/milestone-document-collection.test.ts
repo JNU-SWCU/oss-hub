@@ -8,6 +8,7 @@ import {
   isCollectionProgramMismatch,
   MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS,
   milestoneDocumentCollectionDataFor,
+  milestoneDocumentCollectionLoadPhase,
   milestoneDocumentCollectionPageState,
   milestoneDocumentCollectionTotalPages,
 } from './milestone-document-collection';
@@ -39,8 +40,12 @@ function row(
     cells: submitted.map((isSubmitted, index) => ({
       documentId: `d${index + 1}`,
       isSubmitted,
+      status: isSubmitted ? ('SUBMITTED' as const) : null,
+      revision: isSubmitted ? 1 : null,
       submittedAt: isSubmitted ? '2026-07-28T00:00:00.000Z' : null,
       file: null,
+      content: null,
+      review: null,
     })),
     ...overrides,
   };
@@ -218,6 +223,54 @@ describe('milestoneDocumentCollectionDataFor', () => {
   it('아직 아무것도 못 받았으면 그릴 것이 없다', () => {
     expect(milestoneDocumentCollectionDataFor(null, query)).toBeNull();
   });
+
+  /**
+   * 「다시 부르는 동안 표를 유지한다」와 「조건이 바뀌면 유지하지 않는다」가 한 함수에서
+   * 갈린다.
+   *
+   * 판정 하나를 저장할 때마다 표가 뼈대로 갈리면 가로 스크롤이 처음으로 돌아가고 보던
+   * 행이 흔들린다 — 판정 패널을 표 안에 둔 이유가 통째로 무너진다. 반대로 조건이 바뀐
+   * 뒤에도 유지하면 새 필터 이름 아래에 옛 팀이 앉는다. 유지의 근거는 **조건과 짝이 맞는
+   * 응답이 손에 있다**는 것 하나뿐이다.
+   */
+  describe('milestoneDocumentCollectionLoadPhase', () => {
+    it('부르는 중이 아니면 idle이다', () => {
+      expect(
+        milestoneDocumentCollectionLoadPhase({ data, isLoading: false }),
+      ).toBe('idle');
+      expect(
+        milestoneDocumentCollectionLoadPhase({ data: null, isLoading: false }),
+      ).toBe('idle');
+    });
+
+    // 첫 조회다 — 유지할 표가 없으니 뼈대가 맞다.
+    it('그릴 표가 없는 채로 부르는 중이면 뼈대다', () => {
+      expect(
+        milestoneDocumentCollectionLoadPhase({ data: null, isLoading: true }),
+      ).toBe('skeleton');
+    });
+
+    it('같은 조건의 재조회는 표를 두고 뒤에서 갱신한다', () => {
+      expect(
+        milestoneDocumentCollectionLoadPhase({ data, isLoading: true }),
+      ).toBe('refreshing');
+    });
+
+    /**
+     * 조건이 바뀌면 `milestoneDocumentCollectionDataFor`가 이미 `null`을 내주므로 여기도
+     * 뼈대가 된다 — 두 규칙이 한 값에서 나오는지 확인하는 자리다. 손에 든 응답을 거르지
+     * 않고 그대로 넣기 시작하면 이 연결이 끊긴다.
+     */
+    it('조건이 바뀐 조회는 옛 표를 유지하지 않는다', () => {
+      const changed = { ...query, filter: 'HAS_MISSING' as const };
+      expect(
+        milestoneDocumentCollectionLoadPhase({
+          data: milestoneDocumentCollectionDataFor({ query, data }, changed),
+          isLoading: true,
+        }),
+      ).toBe('skeleton');
+    });
+  });
 });
 
 describe('collectionCellFor', () => {
@@ -234,12 +287,18 @@ describe('collectionCellFor', () => {
     });
   });
 
-  it('빠진 칸은 미제출로 메운다', () => {
+  // 메워 넣은 칸에 상태·판정·본문이 실리면 「안 낸 팀이 승인됨」이 된다 — 전부 제출에 붙는다.
+  it('빠진 칸은 상태도 번호도 판정도 본문도 없는 미제출로 메운다', () => {
     expect(collectionCellFor(row('a', [true]), 'd9')).toEqual({
       documentId: 'd9',
       isSubmitted: false,
+      status: null,
+      // 제출본 번호를 지어 넣으면 미제출 칸에서도 판정 요청이 만들어진다.
+      revision: null,
       submittedAt: null,
       file: null,
+      content: null,
+      review: null,
     });
   });
 });

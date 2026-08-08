@@ -1,5 +1,10 @@
+import type { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { MilestoneSubmissionType } from '@prisma/client';
 import type { MilestoneDocumentCollectionPage } from '../domain/milestone-document-collection-page';
+import {
+  type MilestoneDocumentSubmittedContent,
+  readMilestoneDocumentSubmittedContent,
+} from '../domain/milestone-document-content';
 import type {
   MilestoneContext,
   MilestoneDocumentCollectionApplication,
@@ -54,7 +59,62 @@ export interface MilestoneDocumentCollectionCellResponseDto {
   readonly documentId: string;
   readonly isSubmitted: boolean;
   readonly submittedAt: string | null;
+  /**
+   * 이 칸이 보여 주는 제출물이 몇 번째로 쓰인 것인가 — 미제출이면 null.
+   *
+   * 프런트는 이 값을 판정 요청의 `expectedRevision`으로 **그대로 되돌려 보낸다**(칸의
+   * `review.id`가 `expectedLatestReviewId`가 되는 것과 짝이다). 그 사이 학생이 다시 냈으면
+   * 서버가 이 값으로 알아채고 409(MSD_025)로 막는다.
+   *
+   * ⚠ 되돌려 보낼 값으로 `submittedAt`을 쓰면 안 된다. 그 값은 `TIMESTAMP(3)`이라 같은 밀리초
+   * 안에 겹친 재제출이 같은 값을 갖고, 제출은 upsert라 행 id도 그대로다 — 대조가 통과하는데
+   * 내용은 바뀌어 있다. `submittedAt`은 **화면에 보여 주는 값으로만** 남는다.
+   */
+  readonly revision: number | null;
   readonly file: MilestoneDocumentCollectionFileResponseDto | null;
+  /**
+   * 학생이 낸 **본문** — TEXT·REPOSITORY_RELEASE 제출일 때만 채워진다. FILE 제출이거나
+   * 미제출이면 null이다(파일은 위 `file`이 담당한다).
+   *
+   * 이게 없으면 교직원은 3가지 제출 방식 중 2가지를 **내용을 한 글자도 보지 못한 채**
+   * 승인·반려한다. 자르지 않고 그대로 싣는 근거는
+   * `domain/milestone-document-content.ts`의 `readMilestoneDocumentSubmittedContent` 주석에 있다.
+   */
+  readonly content: MilestoneDocumentSubmittedContent | null;
+  /**
+   * 지금 제출의 상태 — 미제출이면 null.
+   *
+   * **배지는 이 값으로 그린다.** 학생이 보완 요청에 응해 다시 내면 제출 행의 status만
+   * SUBMITTED로 되돌아오고 최신 판정(`review`)은 그대로 남는다. 판정으로 배지를 그리면 이미
+   * 응답이 온 건에 「보완 요청」이 계속 붙어 교직원이 다시 볼 건을 놓친다.
+   *
+   * ⚠ 표시값이다 — 필터·집계는 이 값을 보지 않는다(아래 `review` 주석과 같은 이유).
+   */
+  readonly status: SubmissionStatus | null;
+  /**
+   * 최신 판정. 아직 판정하지 않았거나 미제출이면 null. **이력**을 보여 주는 값이라 재제출로
+   * 되돌아가지 않는다 — 지난 지적이 무엇이었는지는 여기서 읽는다(배지는 `status`가 그린다).
+   *
+   * ⚠ 이건 **표시값이지 업무 규칙이 아니다**. 「미제출」 판정 기준은 여전히 「제출 행이 없다」
+   * (`isSubmitted`)이고, 필터·집계는 이 값을 보지 않는다 —
+   * `domain/milestone-document-collection-page.ts`가 그 규칙을 소유한다. 반려된 서류를 「미제출」로
+   * 세기 시작하면 독촉 대상 집계가 조용히 뜻을 바꾼다.
+   */
+  readonly review: MilestoneDocumentCollectionReviewResponseDto | null;
+}
+
+/** 칸에 붙는 최신 판정 — 교직원 표는 결과(`decision`)를 함께 보여 준다. */
+export interface MilestoneDocumentCollectionReviewResponseDto {
+  /**
+   * 판정 요청의 `expectedLatestReviewId`로 **그대로 되돌려 보내는** 값이다. 표를 그린 뒤 다른
+   * 교직원이 먼저 판정하면 서버가 이 값으로 그것을 알아채고 409로 막는다(칸의 `revision`이
+   * 같은 요청의 `expectedRevision`이 되는 것과 짝이다). 판정이 없는 칸은 `review` 자체가
+   * null이고, 그때 프런트는 `expectedLatestReviewId: null`을 보낸다.
+   */
+  readonly id: string;
+  readonly decision: ReviewDecision;
+  readonly comment: string | null;
+  readonly reviewedAt: string;
 }
 
 /** 표의 행 — 승인된 신청(= 팀) 하나. */
@@ -164,7 +224,11 @@ function toCell(
       documentId: document.id,
       isSubmitted: false,
       submittedAt: null,
+      revision: null,
       file: null,
+      content: null,
+      status: null,
+      review: null,
     };
   }
   // file은 FILE 유형에만 붙는다 — TEXT/REPOSITORY_RELEASE 제출은 첨부 없이 content만 갖는다.
@@ -180,6 +244,19 @@ function toCell(
     documentId: document.id,
     isSubmitted: true,
     submittedAt: submission.submittedAt.toISOString(),
+    revision: submission.revision,
     file,
+    // 저장된 Json을 해석하는 규칙은 도메인이 소유한다 — DTO는 그 결과를 나르기만 한다.
+    content: readMilestoneDocumentSubmittedContent(submission.content),
+    status: submission.status,
+    review:
+      submission.review === null
+        ? null
+        : {
+            id: submission.review.id,
+            decision: submission.review.decision,
+            comment: submission.review.comment,
+            reviewedAt: submission.review.reviewedAt.toISOString(),
+          },
   };
 }
