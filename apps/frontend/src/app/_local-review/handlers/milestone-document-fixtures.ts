@@ -6,9 +6,12 @@ import type {
   UploadedMilestoneDocumentFile,
   UploadedMilestoneDocumentTemplate,
 } from '@/features/programs/milestone-document-api';
-import type {
-  MilestoneDocumentCollection,
-  MilestoneDocumentCollectionRow,
+import {
+  MILESTONE_DOCUMENT_COLLECTION_PAGE_SIZE,
+  type MilestoneDocumentCollection,
+  type MilestoneDocumentCollectionDocument,
+  type MilestoneDocumentCollectionFilter,
+  type MilestoneDocumentCollectionRow,
 } from '@/features/programs/milestone-document-collection-api';
 import type { SubmissionType } from '@/features/programs/types';
 import { findStaffMilestone } from './staff-program-fixtures';
@@ -364,29 +367,127 @@ function collectionRowFor(
   };
 }
 
-/** `milestoneId`가 픽스처에 없으면 `null` — 호출부가 404(MSD_003)로 갈리게 한다. */
+/**
+ * 필터 판정 — 백엔드 `milestone-document-collection-response.dto.ts`의
+ * `hasMissingRequired`·`hasZeroSubmission`과 같은 규칙이다.
+ *
+ * ⚠ `HAS_MISSING`은 **필수 서류만** 센다. 선택 서류를 안 낸 팀은 걸리지 않는다 —
+ * 여기서 규칙을 느슨하게 두면 화면이 서버와 다른 수를 보여 주고, 그 차이는 실제
+ * 백엔드에 붙였을 때에야 드러난다.
+ */
+function collectionRowMatchesFilter(
+  row: MilestoneDocumentCollectionRow,
+  documents: readonly MilestoneDocumentCollectionDocument[],
+  filter: MilestoneDocumentCollectionFilter,
+): boolean {
+  switch (filter) {
+    case 'HAS_MISSING':
+      return documents.some(
+        (document, index) =>
+          document.required && row.cells[index]?.submitted !== true,
+      );
+    case 'ZERO_SUBMISSION':
+      return documents.length > 0 && row.cells.every((cell) => !cell.submitted);
+    case 'ALL':
+      return true;
+  }
+}
+
+export interface MilestoneDocumentCollectionFixtureQuery {
+  readonly page: number;
+  readonly pageSize: number;
+  readonly filter: MilestoneDocumentCollectionFilter;
+}
+
+export const MILESTONE_DOCUMENT_COLLECTION_FIXTURE_DEFAULT_QUERY: MilestoneDocumentCollectionFixtureQuery =
+  {
+    page: 1,
+    pageSize: MILESTONE_DOCUMENT_COLLECTION_PAGE_SIZE,
+    filter: 'ALL',
+  };
+
+/**
+ * `milestoneId`가 픽스처에 없으면 `null` — 호출부가 404(MSD_003)로 갈리게 한다.
+ *
+ * 집계 두 필드(`filterCounts`·`documentTotals`)는 **필터·페이지 이전의 전체 행**으로
+ * 낸다. `total`만 필터 적용 후 행 수다. 백엔드 DTO가 그렇게 갈라 두었고, 여기서 다르게
+ * 세면 로컬 검토에서만 맞는 화면이 만들어진다.
+ */
 export function milestoneDocumentCollectionFor(
   milestoneId: string,
+  query: MilestoneDocumentCollectionFixtureQuery = MILESTONE_DOCUMENT_COLLECTION_FIXTURE_DEFAULT_QUERY,
 ): MilestoneDocumentCollection | null {
   const seeds = MILESTONE_DOCUMENT_FIXTURES[milestoneId];
   const context = collectionMilestoneContext(milestoneId);
   if (seeds === undefined || context === null) return null;
   const teamCount = seeds[0]?.teamSubmissionCount.total ?? 0;
+  const documents: readonly MilestoneDocumentCollectionDocument[] = seeds.map(
+    (seed) => ({
+      id: seed.id,
+      name: seed.name,
+      required: seed.required,
+      sortOrder: seed.sortOrder,
+      submissionType: seed.submissionType,
+    }),
+  );
+  const allRows = Array.from({ length: teamCount }, (_, index) =>
+    collectionRowFor(seeds, index),
+  );
+  const filtered = allRows.filter((row) =>
+    collectionRowMatchesFilter(row, documents, query.filter),
+  );
+  const offset = (query.page - 1) * query.pageSize;
+
   return {
     milestone: {
       id: milestoneId,
       name: context.name,
       dueAt: new Date(context.dueAt).toISOString(),
     },
-    documents: seeds.map((seed) => ({
-      id: seed.id,
-      name: seed.name,
-      required: seed.required,
-      sortOrder: seed.sortOrder,
-      submissionType: seed.submissionType,
+    documents,
+    rows: filtered.slice(offset, offset + query.pageSize),
+    page: query.page,
+    pageSize: query.pageSize,
+    total: filtered.length,
+    filterCounts: {
+      all: allRows.length,
+      hasMissing: allRows.filter((row) =>
+        collectionRowMatchesFilter(row, documents, 'HAS_MISSING'),
+      ).length,
+      zeroSubmission: allRows.filter((row) =>
+        collectionRowMatchesFilter(row, documents, 'ZERO_SUBMISSION'),
+      ).length,
+    },
+    documentTotals: documents.map((document, index) => ({
+      documentId: document.id,
+      submitted: allRows.filter((row) => row.cells[index]?.submitted === true)
+        .length,
+      total: allRows.length,
     })),
-    rows: Array.from({ length: teamCount }, (_, index) =>
-      collectionRowFor(seeds, index),
-    ),
   };
+}
+
+/**
+ * `PATCH .../documents/order` 응답 — 받은 순서 그대로 sortOrder를 1부터 다시 매긴다.
+ * 한계: 저장되지 않아 화면을 다시 열면 원래 순서로 돌아온다(다른 조작 핸들러와 같다).
+ * 픽스처에 없는 id가 섞여 오면 `null`을 돌려 호출부가 400(MSD_019)으로 갈리게 한다.
+ */
+export function reorderedMilestoneDocumentsFor(
+  milestoneId: string,
+  documentIds: readonly string[],
+): readonly MilestoneDocument[] | null {
+  const documents = milestoneDocumentsFor(milestoneId, 'STAFF');
+  if (documents === null) return null;
+  const byId = new Map(documents.map((document) => [document.id, document]));
+  if (
+    documentIds.length !== documents.length ||
+    new Set(documentIds).size !== documentIds.length ||
+    documentIds.some((id) => !byId.has(id))
+  ) {
+    return null;
+  }
+  return documentIds.map((id, index) => ({
+    ...(byId.get(id) as MilestoneDocument),
+    sortOrder: index + 1,
+  }));
 }

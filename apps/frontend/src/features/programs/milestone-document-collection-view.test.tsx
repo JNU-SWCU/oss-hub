@@ -37,9 +37,15 @@ function row(
   };
 }
 
+/**
+ * 계약 변경(2026-08): 응답이 페이지 한 장 + 서버 집계로 바뀌었다. 픽스처도 그대로
+ * 따른다 — 집계 두 필드는 **필터·페이지 이전의 전체 기준**이라 `rows`에서 파생하지
+ * 않는다. 여기서 rows로부터 세어 채우면 「화면이 서버 값을 쓰는가」를 물을 수 없게 된다.
+ */
 function collection(
   documents: readonly MilestoneDocumentCollectionDocument[],
   rows: readonly MilestoneDocumentCollectionRow[],
+  overrides: Partial<MilestoneDocumentCollection> = {},
 ): MilestoneDocumentCollection {
   return {
     milestone: {
@@ -49,6 +55,20 @@ function collection(
     },
     documents,
     rows,
+    page: 1,
+    pageSize: 20,
+    total: rows.length,
+    filterCounts: {
+      all: rows.length,
+      hasMissing: rows.length,
+      zeroSubmission: rows.length,
+    },
+    documentTotals: documents.map((item) => ({
+      documentId: item.id,
+      submitted: 0,
+      total: rows.length,
+    })),
+    ...overrides,
   };
 }
 
@@ -63,6 +83,7 @@ function render(
       isLoading={false}
       errorMessage={null}
       onFilterChange={() => {}}
+      onPageChange={() => {}}
       onRetry={() => {}}
       {...overrides}
     />,
@@ -217,8 +238,21 @@ describe('MilestoneDocumentCollectionView 표', () => {
     expect(html).toContain('sticky left-0 z-10');
   });
 
-  it('표 아래 합계 행에 서류별 제출 수와 전체 팀 수를 적는다', () => {
-    const html = render({ data: collection(documents, rows) });
+  /**
+   * 합계는 **서버가 준 `documentTotals`** 그대로다. 화면에 있는 것은 페이지 한 장뿐이라
+   * 여기서 세면 「제출 2 / 전체 3」처럼 페이지 크기가 그대로 분모가 된다. 그래서 이
+   * 픽스처의 합계는 rows(3팀)에서 절대 파생될 수 없는 값(47팀)으로 둔다 — 클라이언트
+   * 계산으로 되돌리면 이 단언이 곧바로 깨진다.
+   */
+  it('표 아래 합계 행은 서버가 준 전체 기준 합계를 적는다', () => {
+    const html = render({
+      data: collection(documents, rows, {
+        documentTotals: [
+          { documentId: 'd1', submitted: 30, total: 47 },
+          { documentId: 'd2', submitted: 12, total: 47 },
+        ],
+      }),
+    });
 
     // 열 순서까지 본다 — 두 수가 화면 어딘가에 있기만 하면 통과하는 단언은 합계가
     // 열을 바꿔 앉아도 그대로 지나간다.
@@ -226,36 +260,81 @@ describe('MilestoneDocumentCollectionView 표', () => {
 
     expect(footer).toContain('합계');
     expect(footer).toMatch(
-      /합계[\s\S]*제출 2 \/ 전체 3[\s\S]*제출 1 \/ 전체 3/,
+      /합계[\s\S]*제출 30 \/ 전체 47[\s\S]*제출 12 \/ 전체 47/,
     );
   });
 
-  it('빠른 필터 버튼마다 해당 팀 수를 함께 적는다', () => {
-    const html = render({ data: collection(documents, rows) });
+  it('합계가 빠진 서류도 열을 밀지 않고 0 / 0으로 남는다', () => {
+    const html = render({
+      data: collection(documents, rows, {
+        documentTotals: [{ documentId: 'd2', submitted: 12, total: 47 }],
+      }),
+    });
+    const footer = html.slice(html.indexOf('<tfoot'));
 
-    expect(html).toContain('전체 3팀');
-    expect(html).toContain('미제출 있는 팀 2팀');
-    expect(html).toContain('한 장도 안 낸 팀 1팀');
+    // d1 자리가 사라져 d2의 합계가 앞으로 당겨 앉으면 안 된다.
+    expect(footer).toMatch(
+      /합계[\s\S]*제출 0 \/ 전체 0[\s\S]*제출 12 \/ 전체 47/,
+    );
   });
 
-  it('필터가 걸리면 남은 팀만 그린다', () => {
+  /**
+   * 필터 칩의 수도 서버 값(`filterCounts`)이다. 세 값을 서로 다르게, 그리고 페이지
+   * 행 수(3)와도 다르게 둬 클라이언트 계산으로 되돌리면 반드시 어긋나게 한다.
+   */
+  it('빠른 필터 버튼마다 서버가 준 전체 기준 팀 수를 적는다', () => {
     const html = render({
-      data: collection(documents, rows),
+      data: collection(documents, rows, {
+        filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
+      }),
+    });
+
+    expect(html).toContain('전체 47팀');
+    expect(html).toContain('필수 서류 미제출 12팀');
+    expect(html).toContain('한 장도 안 낸 팀 5팀');
+  });
+
+  // 예전 문구는 선택 서류를 안 낸 팀까지 세는 것으로 읽혔다 — 이 필터는 필수 서류만 센다.
+  it('필수 기준임이 드러나지 않는 옛 문구를 쓰지 않는다', () => {
+    const html = render({ data: collection(documents, rows) });
+
+    expect(html).not.toContain('미제출 있는 팀');
+  });
+
+  /**
+   * 필터는 서버가 건다. 화면이 받은 행을 한 번 더 거르면, 서버가 이미 걸러 보낸 페이지를
+   * 두 번 거르는 셈이라 필터에 맞는 팀이 조용히 사라진다.
+   */
+  it('받은 행을 화면에서 다시 거르지 않는다', () => {
+    const html = render({
+      data: collection(documents, rows, {
+        total: 3,
+        filterCounts: { all: 3, hasMissing: 3, zeroSubmission: 3 },
+      }),
       filter: 'ZERO_SUBMISSION',
     });
 
+    // 「가팀」은 두 장을 다 낸 팀이라 클라이언트 판정으로는 걸러진다. 서버가 보냈으니 그린다.
+    expect(html).toContain('가팀');
     expect(html).toContain('나팀');
-    expect(html).not.toContain('>가팀<');
+    expect(html).toContain('다팀');
   });
 
-  it('필터 결과가 비면 전체 보기로 되돌릴 길을 준다', () => {
+  it('필터에 아무도 안 걸리면 전체 보기로 되돌릴 길을 준다', () => {
     const html = render({
-      data: collection(documents, [rows[0] as MilestoneDocumentCollectionRow]),
+      data: collection(documents, [], {
+        total: 0,
+        filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 0 },
+      }),
       filter: 'ZERO_SUBMISSION',
     });
 
     expect(html).toContain('조건에 맞는 팀이 없습니다');
     expect(html).toContain('전체 보기');
+    // 신청이 47팀 있는데 「승인된 신청이 없습니다」로 말하면 안 된다.
+    expect(html).not.toContain('아직 승인된 신청이 없습니다');
+    // 필터 칩은 남는다 — 되돌아갈 곳이 보여야 한다.
+    expect(html).toContain('전체 47팀');
   });
 
   // 「전체 내려받기(ZIP)」는 다음 묶음이다 — 자리도 두지 않는다.
@@ -264,5 +343,63 @@ describe('MilestoneDocumentCollectionView 표', () => {
 
     expect(html).not.toContain('ZIP');
     expect(html).not.toContain('전체 내려받기');
+  });
+});
+
+/**
+ * 응답이 페이지 한 장이 되면서 붙은 조작. 모양·문구는 제출 현황 표
+ * (`features/submissions/components/submission-matrix-view.tsx`의 `MatrixPagination`)를
+ * 그대로 따른다 — 같은 종류의 표를 두 벌의 조작으로 만들지 않는다.
+ */
+describe('MilestoneDocumentCollectionView 페이지 이동', () => {
+  const documents = [document('d1')];
+  const rows = [
+    row('a', [
+      { documentId: 'd1', submitted: false, submittedAt: null, file: null },
+    ]),
+  ];
+
+  function paged(page: number, total: number): MilestoneDocumentCollection {
+    return collection(documents, rows, {
+      page,
+      pageSize: 20,
+      total,
+      filterCounts: { all: total, hasMissing: total, zeroSubmission: 0 },
+    });
+  }
+
+  it('한 페이지에 다 들어가면 이동 UI를 그리지 않는다', () => {
+    const html = render({ data: paged(1, 12) });
+
+    expect(html).not.toContain('서류 수합 페이지');
+  });
+
+  it('여러 페이지면 이전·다음과 현재 위치를 적는다', () => {
+    const html = render({ data: paged(2, 47) });
+
+    expect(html).toContain('aria-label="서류 수합 페이지"');
+    expect(html).toContain('이전');
+    expect(html).toContain('다음');
+    expect(html).toContain('2 / 3');
+  });
+
+  it('첫 페이지에서 이전은, 마지막 페이지에서 다음은 잠긴다', () => {
+    const first = render({ data: paged(1, 47) });
+    const last = render({ data: paged(3, 47) });
+
+    expect(
+      first.slice(first.indexOf('이전') - 200, first.indexOf('이전')),
+    ).toContain('disabled');
+    expect(
+      last.slice(last.indexOf('다음') - 200, last.indexOf('다음')),
+    ).toContain('disabled');
+  });
+
+  // 표에 보이는 것이 전부가 아님을 먼저 말한다 — 페이지 행 수를 전체로 읽으면
+  // 「47팀 중 1팀만 냈다」 같은 오독이 생긴다.
+  it('이 페이지 행 수와 조건에 맞는 전체 행 수를 함께 적는다', () => {
+    const html = render({ data: paged(2, 47) });
+
+    expect(html).toContain('이 페이지 1팀(조건에 맞는 전체 47팀)');
   });
 });

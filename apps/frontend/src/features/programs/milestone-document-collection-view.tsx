@@ -14,21 +14,22 @@ import {
 } from '@/components/ui/table';
 import { programEditHref } from '@/lib/program-route';
 import {
-  applyCollectionFilter,
   collectionCellFor,
+  collectionDocumentTotalFor,
   collectionEmptyKind,
-  collectionFilterCount,
+  collectionFilterCountFor,
   collectionRowMemberSummary,
-  documentSubmissionTotals,
-  MILESTONE_DOCUMENT_COLLECTION_FILTERS,
   MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS,
-  type MilestoneDocumentCollectionFilter,
+  milestoneDocumentCollectionTotalPages,
 } from './milestone-document-collection';
 import {
+  MILESTONE_DOCUMENT_COLLECTION_FILTERS,
   milestoneDocumentSubmissionFileHref,
   type MilestoneDocumentCollection,
   type MilestoneDocumentCollectionCell,
   type MilestoneDocumentCollectionDocument,
+  type MilestoneDocumentCollectionFilter,
+  type MilestoneDocumentCollectionFilterCounts,
   type MilestoneDocumentCollectionRow,
 } from './milestone-document-collection-api';
 import {
@@ -56,6 +57,7 @@ export interface MilestoneDocumentCollectionViewProps {
   readonly isLoading: boolean;
   readonly errorMessage: string | null;
   readonly onFilterChange: (filter: MilestoneDocumentCollectionFilter) => void;
+  readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
 }
 
@@ -152,12 +154,16 @@ function TeamCellContent({
   );
 }
 
+/**
+ * 필터 칩. 붙는 팀 수는 서버가 준 `filterCounts` 그대로다 — 화면에 있는 것은 한
+ * 페이지뿐이라 여기서 세면 「전체 20팀」 같은 페이지 크기가 그대로 튀어나온다.
+ */
 function CollectionFilterButtons({
-  rows,
+  filterCounts,
   filter,
   onFilterChange,
 }: {
-  readonly rows: readonly MilestoneDocumentCollectionRow[];
+  readonly filterCounts: MilestoneDocumentCollectionFilterCounts;
   readonly filter: MilestoneDocumentCollectionFilter;
   readonly onFilterChange: (filter: MilestoneDocumentCollectionFilter) => void;
 }): ReactElement {
@@ -176,23 +182,60 @@ function CollectionFilterButtons({
           onClick={() => onFilterChange(option)}
         >
           {MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS[option]}{' '}
-          {collectionFilterCount(rows, option)}팀
+          {collectionFilterCountFor(filterCounts, option)}팀
         </button>
       ))}
     </div>
   );
 }
 
+/**
+ * 페이지 이동. 제출 현황 표(`features/submissions/components/submission-matrix-view.tsx`의
+ * `MatrixPagination`)와 같은 모양·같은 문구를 쓴다 — 같은 종류의 표를 두 벌의 조작으로
+ * 만들지 않는다. 한 페이지에 다 들어가면 그리지 않는다.
+ */
+function CollectionPagination({
+  page,
+  totalPages,
+  onPageChange,
+}: {
+  readonly page: number;
+  readonly totalPages: number;
+  readonly onPageChange: (page: number) => void;
+}): ReactElement | null {
+  if (totalPages <= 1) return null;
+  return (
+    <nav
+      aria-label="서류 수합 페이지"
+      className="flex items-center justify-center gap-3"
+    >
+      <Button
+        disabled={page <= 1}
+        onClick={() => onPageChange(page - 1)}
+        variant="outline"
+      >
+        이전
+      </Button>
+      <span className="text-small text-muted-foreground">
+        {page} / {totalPages}
+      </span>
+      <Button
+        disabled={page >= totalPages}
+        onClick={() => onPageChange(page + 1)}
+        variant="outline"
+      >
+        다음
+      </Button>
+    </nav>
+  );
+}
+
 function CollectionTable({
   data,
-  filter,
 }: {
   readonly data: MilestoneDocumentCollection;
-  readonly filter: MilestoneDocumentCollectionFilter;
 }): ReactElement {
-  const { milestone, documents, rows } = data;
-  const visibleRows = applyCollectionFilter(rows, filter);
-  const totals = documentSubmissionTotals(documents, rows);
+  const { milestone, documents, rows, documentTotals } = data;
 
   return (
     <div className={TABLE_CARD}>
@@ -211,7 +254,7 @@ function CollectionTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {visibleRows.map((row) => (
+          {rows.map((row) => (
             <TableRow key={row.applicationId}>
               <TableCell className={STICKY_TEAM_CELL}>
                 <TeamCellContent row={row} />
@@ -229,14 +272,25 @@ function CollectionTable({
             </TableRow>
           ))}
         </TableBody>
+        {/*
+         * 합계는 열(documents)을 따라 그린다 — `documentTotals` 순서를 그대로 믿고
+         * 그리면 두 배열의 순서가 어긋났을 때 합계가 남의 열에 가서 앉는다.
+         * 분모는 이 페이지가 아니라 마일스톤 전체 팀 수다(서버가 그렇게 낸다).
+         */}
         <TableFooter>
           <TableRow>
             <TableCell className={STICKY_TEAM_CELL}>합계</TableCell>
-            {totals.map((total) => (
-              <TableCell key={total.documentId} className="min-w-40">
-                제출 {total.submitted} / 전체 {total.total}
-              </TableCell>
-            ))}
+            {documents.map((document) => {
+              const total = collectionDocumentTotalFor(
+                documentTotals,
+                document.id,
+              );
+              return (
+                <TableCell key={document.id} className="min-w-40">
+                  제출 {total.submitted} / 전체 {total.total}
+                </TableCell>
+              );
+            })}
           </TableRow>
         </TableFooter>
       </Table>
@@ -266,10 +320,11 @@ function CollectionBody(
   }
   if (props.data === null) return null;
 
-  const { documents, rows } = props.data;
+  const { documents, rows, page, pageSize, total, filterCounts } = props.data;
   const empty = collectionEmptyKind({
     documentCount: documents.length,
-    rowCount: rows.length,
+    applicationCount: filterCounts.all,
+    filteredCount: total,
   });
 
   if (empty === 'no-documents') {
@@ -296,20 +351,20 @@ function CollectionBody(
     );
   }
 
-  const visibleCount = applyCollectionFilter(rows, props.filter).length;
+  const filterButtons = (
+    <CollectionFilterButtons
+      filterCounts={filterCounts}
+      filter={props.filter}
+      onFilterChange={props.onFilterChange}
+    />
+  );
 
-  return (
-    <>
-      <CollectionFilterButtons
-        rows={rows}
-        filter={props.filter}
-        onFilterChange={props.onFilterChange}
-      />
-      <p id={SCROLL_HINT_ID} className="text-small text-muted-foreground">
-        전체 {rows.length}팀 중 {visibleCount}팀 표시 · 표를 좌우로 스크롤할 수
-        있습니다.
-      </p>
-      {visibleCount === 0 ? (
+  // 필터에 아무도 안 걸린 경우 — 「승인된 신청이 없다」와 다른 상황이라 필터 칩은
+  // 그대로 두고 되돌릴 길만 준다.
+  if (empty === 'no-filter-results') {
+    return (
+      <>
+        {filterButtons}
         <EmptyState
           title="조건에 맞는 팀이 없습니다"
           description="빠른 필터를 바꿔 다시 확인해 보세요."
@@ -323,9 +378,27 @@ function CollectionBody(
             </Button>
           }
         />
-      ) : (
-        <CollectionTable data={props.data} filter={props.filter} />
-      )}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {filterButtons}
+      {/*
+       * 「이 페이지 N팀(조건에 맞는 전체 M팀)」 — 표에 보이는 것이 전부가 아님을
+       * 먼저 말한다(제출 현황 표의 같은 자리와 같은 문장 틀).
+       */}
+      <p id={SCROLL_HINT_ID} className="text-small text-muted-foreground">
+        이 페이지 {rows.length}팀(조건에 맞는 전체 {total}팀) · 표를 좌우로
+        스크롤할 수 있습니다.
+      </p>
+      <CollectionTable data={props.data} />
+      <CollectionPagination
+        page={page}
+        totalPages={milestoneDocumentCollectionTotalPages(total, pageSize)}
+        onPageChange={props.onPageChange}
+      />
     </>
   );
 }

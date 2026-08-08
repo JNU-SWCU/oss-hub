@@ -21,12 +21,14 @@ const {
   createMilestoneDocumentMock,
   deleteMilestoneDocumentMock,
   listMilestoneDocumentsMock,
+  reorderMilestoneDocumentsMock,
   updateMilestoneDocumentMock,
   uploadMilestoneDocumentTemplateMock,
 } = vi.hoisted(() => ({
   createMilestoneDocumentMock: vi.fn(),
   deleteMilestoneDocumentMock: vi.fn(),
   listMilestoneDocumentsMock: vi.fn(),
+  reorderMilestoneDocumentsMock: vi.fn(),
   updateMilestoneDocumentMock: vi.fn(),
   uploadMilestoneDocumentTemplateMock: vi.fn(),
 }));
@@ -35,6 +37,7 @@ vi.mock('./milestone-document-api', () => ({
   createMilestoneDocument: createMilestoneDocumentMock,
   deleteMilestoneDocument: deleteMilestoneDocumentMock,
   listMilestoneDocuments: listMilestoneDocumentsMock,
+  reorderMilestoneDocuments: reorderMilestoneDocumentsMock,
   updateMilestoneDocument: updateMilestoneDocumentMock,
   uploadMilestoneDocumentTemplate: uploadMilestoneDocumentTemplateMock,
 }));
@@ -69,6 +72,23 @@ const pledge = documentFixture('c', 3, {
 });
 
 const noOp = () => undefined;
+
+/**
+ * 제출 방식 `<select>`의 **여는 태그만** 잘라 낸다.
+ *
+ * ⚠ `html.includes('disabled')`로 보면 안 된다 — 이 select의 Tailwind 클래스 목록에
+ * `disabled:cursor-not-allowed` 같은 이름이 들어 있어, 잠금을 통째로 지워도 그 단언은
+ * 그대로 통과한다. 실제로 렌더된 boolean 속성(`disabled=""`)을 태그 안에서 찾는다.
+ */
+function submissionTypeSelectTag(html: string): string {
+  // `Select` 래퍼가 data-slot·class를 먼저 붙이므로 id가 태그 첫 속성이 아니다.
+  const idAt = html.indexOf(
+    'id="milestone-milestone-1-document-submission-type"',
+  );
+  if (idAt < 0) throw new Error('제출 방식 select를 찾지 못했습니다.');
+  const start = html.lastIndexOf('<select', idAt);
+  return html.slice(start, html.indexOf('>', idAt) + 1);
+}
 
 function renderBody(
   overrides: Partial<Parameters<typeof MilestoneDocumentEditorBody>[0]> = {},
@@ -193,6 +213,7 @@ describe('받을 서류 섹션의 렌더 계약', () => {
         mode: 'create',
         form: toMilestoneDocumentForm(planner),
         errors: { name: '서류명을 입력해 주세요.' },
+        submissionTypeLocked: false,
       },
     });
 
@@ -202,6 +223,30 @@ describe('받을 서류 섹션의 렌더 계약', () => {
     expect(html).toContain('제출 방식');
     expect(html).toContain('for="milestone-milestone-1-document-name"');
     expect(html).toContain('서류명을 입력해 주세요.');
+    // 제출이 없는 항목은 선택이 열려 있어야 한다 — 잠금이 기본이 되면 아무도 못 고친다.
+    expect(html).not.toContain('제출 방식은 바꿀 수 없습니다');
+    expect(submissionTypeSelectTag(html)).not.toContain('disabled=""');
+  });
+
+  // 백엔드가 409(MSD_016)로 막는 조건을 화면이 미리 알린다. 눌러 본 뒤 실패로 알게
+  // 하면 「왜 안 되는지」가 남지 않는다.
+  it('제출이 있는 항목의 수정 폼은 제출 방식 선택을 잠그고 이유를 적는다', () => {
+    const html = renderBody({
+      editor: {
+        mode: 'edit',
+        form: toMilestoneDocumentForm(planner),
+        errors: {},
+        submissionTypeLocked: true,
+      },
+    });
+
+    expect(html).toContain(
+      '이미 제출된 서류가 있어 제출 방식은 바꿀 수 없습니다',
+    );
+    expect(submissionTypeSelectTag(html)).toContain('disabled=""');
+    // 이름·필수 여부는 제출이 있어도 고칠 수 있다(백엔드가 그 요청은 통과시킨다).
+    expect(html).toContain('서류명 *');
+    expect(html).toContain('필수 제출');
   });
 });
 
@@ -216,6 +261,7 @@ describe('받을 서류 섹션의 동작', () => {
     createMilestoneDocumentMock.mockReset();
     deleteMilestoneDocumentMock.mockReset();
     listMilestoneDocumentsMock.mockReset();
+    reorderMilestoneDocumentsMock.mockReset();
     updateMilestoneDocumentMock.mockReset();
     uploadMilestoneDocumentTemplateMock.mockReset();
   });
@@ -314,29 +360,111 @@ describe('받을 서류 섹션의 동작', () => {
     expect(rowNames()).toEqual(['계획서', '예산서', '서약서']);
   });
 
-  it('「아래로」는 맞바꾼 두 항목을 모두 PATCH하고 순서를 바꾼다', async () => {
+  /**
+   * 계약 변경(2026-08). 예전에는 맞바꾼 두 항목을 각각 PATCH했는데, 한쪽만 성공하면
+   * sortOrder가 같아져 그 뒤로 「위로」가 영영 먹지 않는 덫이 됐다. 이제 전체 순서를
+   * 한 번에 보낸다 — 항목별 PATCH가 한 건이라도 나가면 그 회귀다.
+   */
+  it('「아래로」는 전체 순서를 한 번의 요청으로 보낸다 — 항목별 PATCH를 쓰지 않는다', async () => {
     listMilestoneDocumentsMock.mockResolvedValue([planner, budget, pledge]);
-    updateMilestoneDocumentMock.mockImplementation(
-      (_milestoneId: string, documentId: string, input: unknown) => ({
-        ...documentFixture(documentId, 0),
-        ...(input as object),
-        id: documentId,
-      }),
-    );
+    reorderMilestoneDocumentsMock.mockResolvedValue([
+      { ...budget, sortOrder: 1 },
+      { ...planner, sortOrder: 2 },
+      { ...pledge, sortOrder: 3 },
+    ]);
 
     await render(true);
     await click('계획서 아래로');
 
-    expect(updateMilestoneDocumentMock).toHaveBeenCalledTimes(2);
-    expect(
-      updateMilestoneDocumentMock.mock.calls.map((call) => call[1]),
-    ).toEqual(['a', 'b']);
-    expect(
-      updateMilestoneDocumentMock.mock.calls.map(
-        (call) => (call[2] as { sortOrder: number }).sortOrder,
-      ),
-    ).toEqual([2, 1]);
+    expect(reorderMilestoneDocumentsMock).toHaveBeenCalledTimes(1);
+    expect(reorderMilestoneDocumentsMock).toHaveBeenCalledWith('milestone-1', [
+      'b',
+      'a',
+      'c',
+    ]);
+    expect(updateMilestoneDocumentMock).not.toHaveBeenCalled();
     expect(rowNames()).toEqual(['예산서', '계획서', '서약서']);
+  });
+
+  /**
+   * 서버가 sortOrder를 1부터 다시 매기므로 응답이 진실이다. 낙관적 갱신으로 되돌리면
+   * 화면의 sortOrder가 서버와 조용히 어긋나고, 그 어긋남은 다음 이동에서야 드러난다.
+   * 그래서 응답에만 있는 값(이름 변경)을 넣어 화면이 무엇을 그렸는지로 판정한다.
+   */
+  it('순서 바꾼 뒤 목록은 서버 응답 그대로다 — 낙관적 갱신이 아니다', async () => {
+    listMilestoneDocumentsMock.mockResolvedValue([planner, budget]);
+    reorderMilestoneDocumentsMock.mockResolvedValue([
+      { ...budget, name: '예산서(서버 확정)', sortOrder: 1 },
+      { ...planner, name: '계획서(서버 확정)', sortOrder: 2 },
+    ]);
+
+    await render(true);
+    await click('계획서 아래로');
+
+    expect(rowNames()).toEqual(['예산서(서버 확정)', '계획서(서버 확정)']);
+  });
+
+  /**
+   * 옛 구현은 두 항목의 sortOrder가 같으면 아무것도 하지 않았다. 그 상태가 바로
+   * 「한쪽 PATCH만 성공」이 남긴 자리라, 한 번 어긋나면 되돌릴 길이 없었다.
+   */
+  it('sortOrder가 겹쳐 굳은 목록도 순서를 바꿀 수 있다', async () => {
+    listMilestoneDocumentsMock.mockResolvedValue([
+      documentFixture('a', 7, { name: '계획서' }),
+      documentFixture('b', 7, { name: '예산서' }),
+    ]);
+    reorderMilestoneDocumentsMock.mockResolvedValue([
+      documentFixture('b', 1, { name: '예산서' }),
+      documentFixture('a', 2, { name: '계획서' }),
+    ]);
+
+    await render(true);
+    await click('계획서 아래로');
+
+    expect(reorderMilestoneDocumentsMock).toHaveBeenCalledWith('milestone-1', [
+      'b',
+      'a',
+    ]);
+    expect(rowNames()).toEqual(['예산서', '계획서']);
+  });
+
+  it('제출이 있는 항목을 수정하면 제출 방식 선택이 잠긴 채로 열린다', async () => {
+    listMilestoneDocumentsMock.mockResolvedValue([
+      documentFixture('a', 1, {
+        name: '계획서',
+        teamSubmissionCount: { submitted: 3, total: 8 },
+      }),
+    ]);
+
+    await render(true);
+    await click('수정');
+
+    const select = container.querySelector(
+      '#milestone-milestone-1-document-submission-type',
+    );
+    expect(select).toBeInstanceOf(HTMLSelectElement);
+    expect((select as HTMLSelectElement).disabled).toBe(true);
+    expect(container.textContent).toContain(
+      '이미 제출된 서류가 있어 제출 방식은 바꿀 수 없습니다',
+    );
+  });
+
+  it('아직 아무도 안 낸 항목은 제출 방식을 바꿀 수 있다', async () => {
+    listMilestoneDocumentsMock.mockResolvedValue([
+      documentFixture('a', 1, {
+        name: '계획서',
+        teamSubmissionCount: { submitted: 0, total: 8 },
+      }),
+    ]);
+
+    await render(true);
+    await click('수정');
+
+    const select = container.querySelector(
+      '#milestone-milestone-1-document-submission-type',
+    );
+    expect((select as HTMLSelectElement).disabled).toBe(false);
+    expect(container.textContent).not.toContain('제출 방식은 바꿀 수 없습니다');
   });
 
   it('첫 항목의 「위로」와 마지막 항목의 「아래로」는 잠겨 있다', async () => {
@@ -351,14 +479,14 @@ describe('받을 서류 섹션의 동작', () => {
 
   it('순서 바꾸기가 실패하면 그 행에 서버 문구를 보여 준다', async () => {
     listMilestoneDocumentsMock.mockResolvedValue([planner, budget]);
-    updateMilestoneDocumentMock.mockRejectedValue(
+    reorderMilestoneDocumentsMock.mockRejectedValue(
       new ApiError({
         type: 'about:blank',
-        title: 'Conflict',
-        status: 409,
+        title: 'Bad Request',
+        status: 400,
         detail: '이미 다른 사람이 순서를 바꿨습니다.',
-        instance: '/milestones/milestone-1/documents/a',
-        code: 'MSD_020',
+        instance: '/milestones/milestone-1/documents/order',
+        code: 'MSD_019',
       }),
     );
 

@@ -1,3 +1,4 @@
+import type { MilestoneDocumentCollectionFilter } from '@/features/programs/milestone-document-collection-api';
 import type { SubmissionType } from '@/features/programs/types';
 import { apiPath } from '@/lib/api-client';
 import {
@@ -10,6 +11,7 @@ import {
   matchGet,
   matchPath,
   notFound,
+  positiveIntParam,
   problem,
   unauthenticated,
   type LocalReviewContext,
@@ -18,9 +20,11 @@ import {
 } from '../handler-kit';
 import {
   isKnownMilestoneId,
+  MILESTONE_DOCUMENT_COLLECTION_FIXTURE_DEFAULT_QUERY,
   milestoneDocumentCollectionFor,
   milestoneDocumentSubmissionFor,
   milestoneDocumentsFor,
+  reorderedMilestoneDocumentsFor,
   UPLOADED_MILESTONE_DOCUMENT_FILE_FIXTURE,
   uploadedMilestoneDocumentTemplateFor,
 } from './milestone-document-fixtures';
@@ -28,7 +32,8 @@ import {
 /**
  * 마일스톤 서류 화면의 로컬 검토 응답.
  * 담당 경로: `milestones/:milestoneId/documents`(GET/POST),
- * `.../documents/collection`(GET), `.../documents/:documentId`(PATCH/DELETE),
+ * `.../documents/collection`(GET), `.../documents/order`(PATCH),
+ * `.../documents/:documentId`(PATCH/DELETE),
  * `.../documents/:documentId/template`(GET/POST),
  * `.../documents/:documentId/applications/:applicationId/file`(GET),
  * `.../documents/:documentId/submissions`(POST), `milestone-document-files`(POST).
@@ -42,11 +47,18 @@ const MILESTONE_NOT_FOUND_CODE = 'MSD_003';
 const STAFF_ONLY_CODE = 'MSD_001';
 const TEMPLATE_NOT_FOUND_CODE = 'MSD_015';
 const SUBMISSION_FILE_NOT_FOUND_CODE = 'MSD_020';
+const INVALID_REQUEST_CODE = 'MSD_019';
 
 const SUBMISSION_TYPES: readonly SubmissionType[] = [
   'FILE',
   'TEXT',
   'REPOSITORY_RELEASE',
+];
+
+const COLLECTION_FILTERS: readonly MilestoneDocumentCollectionFilter[] = [
+  'ALL',
+  'HAS_MISSING',
+  'ZERO_SUBMISSION',
 ];
 
 /** 조작(POST/PATCH/DELETE)은 method까지 일치해야 한다 — GET 전용 matchGet의 짝(staff-handlers.ts와 동일 패턴). */
@@ -107,10 +119,74 @@ const collectionHandler: LocalReviewHandler = (context) => {
   if (params === null) return null;
   const guard = staffGuardResponse(context);
   if (guard !== null) return guard;
-  const collection = milestoneDocumentCollectionFor(params.milestoneId ?? '');
+  // 모르는 filter 값은 기본값(ALL)으로 떨어뜨린다 — 실제 백엔드는 422로 거절하지만,
+  // 검토 화면이 보내는 값은 계약 안의 3종뿐이라 여기서 갈래를 늘리지 않는다.
+  const filter = context.searchParams.get('filter');
+  const collection = milestoneDocumentCollectionFor(params.milestoneId ?? '', {
+    page: positiveIntParam(
+      context.searchParams.get('page'),
+      MILESTONE_DOCUMENT_COLLECTION_FIXTURE_DEFAULT_QUERY.page,
+    ),
+    pageSize: positiveIntParam(
+      context.searchParams.get('pageSize'),
+      MILESTONE_DOCUMENT_COLLECTION_FIXTURE_DEFAULT_QUERY.pageSize,
+    ),
+    filter: COLLECTION_FILTERS.includes(
+      filter as MilestoneDocumentCollectionFilter,
+    )
+      ? (filter as MilestoneDocumentCollectionFilter)
+      : MILESTONE_DOCUMENT_COLLECTION_FIXTURE_DEFAULT_QUERY.filter,
+  });
   return collection === null
     ? notFound(MILESTONE_NOT_FOUND_CODE, context.path)
     : json(200, collection);
+};
+
+/**
+ * 서류 순서 재부여. `order`는 고정 세그먼트라 아래 `updateDocumentHandler`(`:documentId`)
+ * **보다 먼저 등록해야 한다** — 이 파일의 핸들러는 배열 순서대로 물어보므로, 뒤에 두면
+ * `:documentId`가 먼저 잡아 `order`라는 id를 수정하려 든다(백엔드 컨트롤러가 `@Patch('order')`를
+ * `@Patch(':documentId')` 위에 두는 것과 같은 이유다).
+ */
+const reorderDocumentsHandler: LocalReviewHandler = (context) => {
+  const params = matchMethod(
+    context,
+    'PATCH',
+    'milestones/:milestoneId/documents/order',
+  );
+  if (params === null) return null;
+  const guard = staffGuardResponse(context);
+  if (guard !== null) return guard;
+  const milestoneId = params.milestoneId ?? '';
+  if (!isKnownMilestoneId(milestoneId)) {
+    return notFound(MILESTONE_NOT_FOUND_CODE, context.path);
+  }
+  const documentIds = bodyRecord(context)?.documentIds;
+  if (
+    !Array.isArray(documentIds) ||
+    documentIds.some((id) => typeof id !== 'string')
+  ) {
+    return problem(
+      400,
+      INVALID_REQUEST_CODE,
+      apiPath(context.path),
+      '요청 값을 확인해 주세요.',
+    );
+  }
+  const reordered = reorderedMilestoneDocumentsFor(
+    milestoneId,
+    documentIds as readonly string[],
+  );
+  // 전체 집합이 아니면 400 — 부분 목록을 조용히 받아 주면 화면이 실제 백엔드에서만
+  // 실패하는 요청을 만들어도 로컬 검토에서는 성공으로 보인다.
+  return reordered === null
+    ? problem(
+        400,
+        INVALID_REQUEST_CODE,
+        apiPath(context.path),
+        '요청 값을 확인해 주세요.',
+      )
+    : accepted(reordered);
 };
 
 /**
@@ -268,6 +344,9 @@ export const MILESTONE_DOCUMENT_HANDLERS: readonly LocalReviewHandler[] = [
   collectionHandler,
   downloadSubmissionFileHandler,
   createDocumentHandler,
+  // ⚠ `updateDocumentHandler`보다 위여야 한다 — 위 주석 참고. 순서를 바꾸면
+  //   순서 바꾸기 요청이 「`order`라는 서류를 수정」으로 잘못 처리된다.
+  reorderDocumentsHandler,
   updateDocumentHandler,
   deleteDocumentHandler,
   uploadTemplateHandler,

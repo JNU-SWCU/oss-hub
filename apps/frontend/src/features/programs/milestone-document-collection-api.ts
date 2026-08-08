@@ -46,22 +46,96 @@ export interface MilestoneDocumentCollectionRow {
   readonly cells: readonly MilestoneDocumentCollectionCell[];
 }
 
+/**
+ * 행 필터. 값은 그대로 `filter` 쿼리로 나가고 **거르는 일은 서버가 한다**
+ * (백엔드 `milestone-documents/domain/milestone-document-collection-query.ts`).
+ *
+ * - `ALL` — 승인된 신청 전부.
+ * - `HAS_MISSING` — **필수(required) 서류** 중 하나라도 미제출인 팀. 선택 서류만
+ *   빠뜨린 팀은 걸리지 않는다. 독촉 대상을 고르는 기준이라 그렇다.
+ * - `ZERO_SUBMISSION` — 한 장도 내지 않은 팀. 필수·선택을 가리지 않는다.
+ */
+export type MilestoneDocumentCollectionFilter =
+  'ALL' | 'HAS_MISSING' | 'ZERO_SUBMISSION';
+
+export const MILESTONE_DOCUMENT_COLLECTION_FILTERS: readonly MilestoneDocumentCollectionFilter[] =
+  ['ALL', 'HAS_MISSING', 'ZERO_SUBMISSION'];
+
+/** 백엔드 기본값과 같은 값(`MILESTONE_DOCUMENT_COLLECTION_DEFAULT_PAGE_SIZE`). */
+export const MILESTONE_DOCUMENT_COLLECTION_PAGE_SIZE = 20;
+
+export interface MilestoneDocumentCollectionQueryInput {
+  readonly page: number;
+  readonly pageSize: number;
+  readonly filter: MilestoneDocumentCollectionFilter;
+}
+
+/**
+ * 필터 칩에 붙는 팀 수.
+ *
+ * ⚠ 이 값은 **필터·페이지와 무관하게 전체 승인 신청 기준**이다 — 필터를 바꾸기 전에
+ * 몇 팀이 걸리는지 미리 보여 주려는 값이라 그래야 한다.
+ */
+export interface MilestoneDocumentCollectionFilterCounts {
+  readonly all: number;
+  readonly hasMissing: number;
+  readonly zeroSubmission: number;
+}
+
+/**
+ * 합계 행 한 칸 — 서류(열) 하나의 진척.
+ *
+ * ⚠ 여기도 **필터·페이지 이전의 전체 기준**이다. 마감을 판단하는 사람이 알고 싶은 것은
+ * 지금 걸러 놓은 팀이 아니라 이 마일스톤 전체의 진척이며, 필터를 따라가게 만들면
+ * `ZERO_SUBMISSION`에서 모든 열이 「제출 0」이 되어 뜻이 없어진다.
+ */
+export interface MilestoneDocumentCollectionDocumentTotal {
+  readonly documentId: string;
+  readonly submitted: number;
+  readonly total: number;
+}
+
 export interface MilestoneDocumentCollection {
   readonly milestone: MilestoneDocumentCollectionMilestone;
   readonly documents: readonly MilestoneDocumentCollectionDocument[];
+  /** ⚠ **페이지 한 장 분량**이다(기본 20건). 전체를 손에 쥔 것처럼 세면 틀린다. */
   readonly rows: readonly MilestoneDocumentCollectionRow[];
+  readonly page: number;
+  readonly pageSize: number;
+  /** 필터 적용 후 행 수(페이지 자르기 전) — 페이지 수 계산은 이 값으로 한다. */
+  readonly total: number;
+  readonly filterCounts: MilestoneDocumentCollectionFilterCounts;
+  readonly documentTotals: readonly MilestoneDocumentCollectionDocumentTotal[];
 }
 
 function documentsPath(milestoneId: string): string {
   return `milestones/${encodeURIComponent(milestoneId)}/documents`;
 }
 
-/** 교직원 전용 — 마일스톤 하나의 팀×서류 수합 표를 통째로 받는다(페이지네이션 없음). */
+/** `page`·`pageSize`·`filter`는 언제나 함께 보낸다 — 서버 기본값에 기대지 않는다. */
+export function buildMilestoneDocumentCollectionSearchParams(
+  query: MilestoneDocumentCollectionQueryInput,
+): URLSearchParams {
+  const params = new URLSearchParams();
+  params.set('page', String(query.page));
+  params.set('pageSize', String(query.pageSize));
+  params.set('filter', query.filter);
+  return params;
+}
+
+/**
+ * 교직원 전용 — 마일스톤 하나의 팀×서류 수합 표 **한 페이지**.
+ *
+ * 필터·집계는 전부 서버가 낸다. 응답의 `rows`만 보고 필터를 다시 걸거나 합계를 다시
+ * 세면 안 된다 — 손에 있는 것은 한 페이지뿐이라 조용히 틀린 수가 나온다.
+ */
 export function getMilestoneDocumentCollection(
   milestoneId: string,
+  query: MilestoneDocumentCollectionQueryInput,
 ): Promise<MilestoneDocumentCollection> {
+  const params = buildMilestoneDocumentCollectionSearchParams(query);
   return apiClient<MilestoneDocumentCollection>(
-    `${documentsPath(milestoneId)}/collection`,
+    `${documentsPath(milestoneId)}/collection?${params.toString()}`,
   );
 }
 

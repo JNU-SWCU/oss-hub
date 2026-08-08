@@ -74,7 +74,31 @@ export type MilestoneDocumentEditor =
       readonly mode: 'create' | 'edit';
       readonly form: MilestoneDocumentForm;
       readonly errors: MilestoneDocumentFormErrors;
+      /**
+       * 제출이 이미 들어온 항목인가. 참이면 제출 방식 선택을 잠근다.
+       * 아직 만들지 않은 항목에는 제출이 있을 수 없으므로 create는 언제나 거짓이다.
+       */
+      readonly submissionTypeLocked: boolean;
     };
+
+export const SUBMISSION_TYPE_LOCKED_MESSAGE =
+  '이미 제출된 서류가 있어 제출 방식은 바꿀 수 없습니다.';
+
+/**
+ * 이 항목의 제출 방식을 잠가야 하는가 — 팀 제출이 한 건이라도 있으면 잠근다.
+ * 백엔드도 같은 조건을 409(MSD_016)로 막는다. 화면이 미리 막는 것은 안내이고,
+ * 실제 방어는 서버다 — 둘 다 필요하다.
+ *
+ * `teamSubmissionCount`는 **교직원 뷰에서만** 채워진다(`GET .../documents` 계약).
+ * 값이 없으면 잠그지 않는다: 이 편집 화면은 교직원 전용이라 값이 없다는 것은
+ * 「제출이 없다」가 아니라 「모른다」이고, 모를 때 화면이 먼저 막으면 멀쩡한 항목까지
+ * 고칠 수 없게 된다.
+ */
+export function milestoneDocumentSubmissionTypeLocked(
+  document: MilestoneDocument,
+): boolean {
+  return (document.teamSubmissionCount?.submitted ?? 0) > 0;
+}
 
 export function emptyMilestoneDocumentForm(): MilestoneDocumentForm {
   return {
@@ -102,6 +126,9 @@ export function updateMilestoneDocumentEditor(
   value: string | boolean,
 ): MilestoneDocumentEditor {
   if (editor.mode === 'closed') return editor;
+  // 잠긴 항목은 폼 상태에서도 제출 방식이 움직이지 않는다. `disabled`는 화면의 안내일
+  // 뿐이라 프로그램적으로 값이 들어오면 그대로 통과해 409를 부르는 요청이 만들어진다.
+  if (field === 'submissionType' && editor.submissionTypeLocked) return editor;
   return {
     ...editor,
     errors: {},
@@ -204,61 +231,35 @@ export function removeMilestoneDocumentFromList(
   return documents.filter((document) => document.id !== documentId);
 }
 
-export interface MilestoneDocumentMoveRequest {
-  readonly documentId: string;
-  readonly input: UpsertMilestoneDocumentInput;
-}
-
-export interface MilestoneDocumentMovePlan {
-  /** 이웃과 sortOrder를 맞바꾸므로 두 항목 모두 PATCH 대상이다. */
-  readonly requests: readonly MilestoneDocumentMoveRequest[];
-  /** 요청이 모두 성공했을 때의 목록 — 화면은 이 값으로 갈아 끼운다. */
-  readonly documents: readonly MilestoneDocument[];
-}
-
 /**
- * 「위로」·「아래로」의 계산. 이웃과 sortOrder를 맞바꾼 결과와 두 건의 PATCH 본문을 함께 돌려준다.
+ * 「위로」·「아래로」의 계산 — 바뀐 순서대로 나열한 **이 마일스톤 서류 전체**의 id 배열.
  *
- * 끝(맨 위에서 위로, 맨 아래에서 아래로)이거나 두 항목의 sortOrder가 같아
- * 맞바꿔도 순서가 그대로면 `null` — 보낼 요청이 없다는 뜻이다.
+ * 부분이 아니라 전체를 돌려주는 이유는 재정렬 endpoint가 전체 집합을 요구하기 때문이다
+ * (`reorderMilestoneDocuments`, 불일치는 400 MSD_019). 끝(맨 위에서 위로, 맨 아래에서
+ * 아래로)이거나 목록에 없는 id면 `null` — 보낼 요청이 없다는 뜻이다.
+ *
+ * ⚠ sortOrder가 이웃과 **같아도** 자리를 바꾼다. 옛 구현은 그때 `null`을 돌려 아무 일도
+ * 하지 않았는데, 두 항목을 각각 PATCH하다 한쪽만 성공해 sortOrder가 겹친 목록이 정확히
+ * 그 상태였다 — 한 번 어긋나면 「위로」가 영영 먹지 않는 덫이었다. 이제는 순서를 통째로
+ * 보내고 서버가 1부터 다시 매기므로, 같은 값이야말로 빠져나올 수 있어야 하는 상태다.
  */
-export function planMilestoneDocumentMove(
+export function planMilestoneDocumentOrder(
   documents: readonly MilestoneDocument[],
   documentId: string,
   direction: 'up' | 'down',
-): MilestoneDocumentMovePlan | null {
+): readonly string[] | null {
   const sorted = sortMilestoneDocuments(documents);
   const index = sorted.findIndex((document) => document.id === documentId);
   if (index < 0) return null;
 
   const neighborIndex = direction === 'up' ? index - 1 : index + 1;
-  const moved = sorted[index];
-  const neighbor = sorted[neighborIndex];
-  if (moved === undefined || neighbor === undefined) return null;
-  if (moved.sortOrder === neighbor.sortOrder) return null;
+  if (neighborIndex < 0 || neighborIndex >= sorted.length) return null;
 
-  const swapped = new Map<string, MilestoneDocument>([
-    [moved.id, { ...moved, sortOrder: neighbor.sortOrder }],
-    [neighbor.id, { ...neighbor, sortOrder: moved.sortOrder }],
-  ]);
-
-  return {
-    requests: [moved.id, neighbor.id].map((id) => {
-      const document = swapped.get(id) as MilestoneDocument;
-      return {
-        documentId: id,
-        input: {
-          name: document.name,
-          required: document.required,
-          sortOrder: document.sortOrder,
-          submissionType: document.submissionType,
-        },
-      };
-    }),
-    documents: sortMilestoneDocuments(
-      sorted.map((document) => swapped.get(document.id) ?? document),
-    ),
-  };
+  const documentIds = sorted.map((document) => document.id);
+  const moved = documentIds[index] as string;
+  documentIds[index] = documentIds[neighborIndex] as string;
+  documentIds[neighborIndex] = moved;
+  return documentIds;
 }
 
 /** 실패 문구는 서버가 준 detail을 그대로 보여 주고, 없으면 화면 기본 문구로 떨어진다. */

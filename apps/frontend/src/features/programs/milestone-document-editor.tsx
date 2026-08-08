@@ -10,13 +10,19 @@ import {
 } from 'react';
 import { StatusBadge } from '@/components';
 import { Button } from '@/components/ui/button';
-import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import {
   createMilestoneDocument,
   deleteMilestoneDocument,
   listMilestoneDocuments,
+  reorderMilestoneDocuments,
   updateMilestoneDocument,
   uploadMilestoneDocumentTemplate,
   type MilestoneDocument,
@@ -26,10 +32,12 @@ import {
   emptyMilestoneDocumentForm,
   milestoneDocumentErrorMessage,
   milestoneDocumentSaveSortOrder,
-  planMilestoneDocumentMove,
+  milestoneDocumentSubmissionTypeLocked,
+  planMilestoneDocumentOrder,
   removeMilestoneDocumentFromList,
   sortMilestoneDocuments,
   SUBMISSION_TYPE_CHOICES,
+  SUBMISSION_TYPE_LOCKED_MESSAGE,
   submissionTypeLabel,
   toMilestoneDocumentForm,
   updateMilestoneDocumentEditor,
@@ -318,22 +326,26 @@ export function MilestoneDocumentEditorSection({
   };
 
   const move = async (documentId: string, direction: 'up' | 'down') => {
-    const plan = planMilestoneDocumentMove(documents, documentId, direction);
-    if (plan === null) return;
+    const documentIds = planMilestoneDocumentOrder(
+      documents,
+      documentId,
+      direction,
+    );
+    if (documentIds === null) return;
     setIsBusy(true);
     setRowError(null);
     try {
-      // 맞바꾼 두 항목 모두 PATCH한다 — 한쪽만 보내면 두 항목의 sortOrder가 같아져 순서가 무너진다.
-      await Promise.all(
-        plan.requests.map((request) =>
-          updateMilestoneDocument(
-            milestoneId,
-            request.documentId,
-            request.input,
-          ),
+      // 전체 순서를 **한 번의 요청으로** 보낸다. 두 항목을 각각 PATCH하면 한쪽만
+      // 성공했을 때 sortOrder가 같아지고, 그 뒤로 「위로」가 영영 먹지 않는다.
+      //
+      // 응답을 그대로 목록으로 삼는다(낙관적 갱신 X) — sortOrder는 서버가 1부터 다시
+      // 매기므로, 우리가 계산한 값으로 화면을 갱신하면 다음 이동의 기준이 서버와
+      // 조용히 어긋난다.
+      applyDocuments(
+        sortMilestoneDocuments(
+          await reorderMilestoneDocuments(milestoneId, documentIds),
         ),
       );
-      applyDocuments(plan.documents);
     } catch (error: unknown) {
       setRowError({
         documentId,
@@ -381,6 +393,8 @@ export function MilestoneDocumentEditorSection({
           mode: 'create',
           form: emptyMilestoneDocumentForm(),
           errors: {},
+          // 아직 없는 항목에 제출이 있을 수 없다.
+          submissionTypeLocked: false,
         });
         setDeleteTargetId(null);
       }}
@@ -389,6 +403,7 @@ export function MilestoneDocumentEditorSection({
           mode: 'edit',
           form: toMilestoneDocumentForm(document),
           errors: {},
+          submissionTypeLocked: milestoneDocumentSubmissionTypeLocked(document),
         });
         setDeleteTargetId(null);
       }}
@@ -580,6 +595,7 @@ function MilestoneDocumentForm({
   const nameId = `milestone-${milestoneId}-document-name`;
   const requiredId = `milestone-${milestoneId}-document-required`;
   const typeId = `milestone-${milestoneId}-document-submission-type`;
+  const typeLockId = `${typeId}-locked`;
 
   return (
     <form
@@ -611,9 +627,18 @@ function MilestoneDocumentForm({
       </Field>
       <Field>
         <FieldLabel htmlFor={typeId}>제출 방식</FieldLabel>
+        {/*
+         * 제출이 이미 들어온 항목은 선택을 잠근다 — 서버도 409(MSD_016)로 막지만,
+         * 눌러 본 뒤에 실패로 알게 하면 왜 안 되는지가 남지 않는다. 이름·필수 여부는
+         * 제출이 있어도 고칠 수 있으므로 이 필드만 잠근다.
+         */}
         <Select
           id={typeId}
           value={editor.form.submissionType}
+          disabled={editor.submissionTypeLocked}
+          aria-describedby={
+            editor.submissionTypeLocked ? typeLockId : undefined
+          }
           onChange={(event) =>
             onFieldChange('submissionType', event.target.value)
           }
@@ -624,6 +649,11 @@ function MilestoneDocumentForm({
             </option>
           ))}
         </Select>
+        {editor.submissionTypeLocked ? (
+          <FieldDescription id={typeLockId}>
+            {SUBMISSION_TYPE_LOCKED_MESSAGE}
+          </FieldDescription>
+        ) : null}
       </Field>
       <FieldError>{editor.errors.general}</FieldError>
       <div className="flex justify-end gap-2">

@@ -1,32 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import {
-  applyCollectionFilter,
   collectionCellFor,
+  collectionDocumentTotalFor,
   collectionEmptyKind,
-  collectionFilterCount,
+  collectionFilterCountFor,
   collectionRowMemberSummary,
-  documentSubmissionTotals,
-  rowHasMissingDocument,
-  rowSubmittedNothing,
+  MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS,
+  milestoneDocumentCollectionTotalPages,
 } from './milestone-document-collection';
-import type {
-  MilestoneDocumentCollectionDocument,
-  MilestoneDocumentCollectionRow,
-} from './milestone-document-collection-api';
+import type { MilestoneDocumentCollectionRow } from './milestone-document-collection-api';
 
-function document(
-  id: string,
-  overrides: Partial<MilestoneDocumentCollectionDocument> = {},
-): MilestoneDocumentCollectionDocument {
-  return {
-    id,
-    name: `서류 ${id}`,
-    required: true,
-    sortOrder: 1,
-    submissionType: 'FILE',
-    ...overrides,
-  };
-}
+/**
+ * 계약 변경(2026-08): 필터 판정과 합계 셈이 서버로 넘어갔다. 그래서 예전에 여기 있던
+ * `applyCollectionFilter`·`collectionFilterCount`·`documentSubmissionTotals`와
+ * `rowHasMissingDocument`·`rowSubmittedNothing`의 테스트는 지웠다 — 함수 자체가 없다.
+ * 그 자리에 서버가 준 값을 **골라 오기만 하는지** 보는 테스트를 둔다. 클라이언트가
+ * 다시 세면 손에 있는 것이 한 페이지뿐이라 반드시 틀린 수가 나온다.
+ */
 
 /** `submitted[i]`가 i번째 서류의 제출 여부다 — 계약대로 미제출 칸도 채워 넣는다. */
 function row(
@@ -49,102 +39,71 @@ function row(
   };
 }
 
-describe('rowHasMissingDocument / rowSubmittedNothing', () => {
-  it('한 장이라도 빠지면 미제출 있는 팀이다', () => {
-    expect(rowHasMissingDocument(row('a', [true, false]))).toBe(true);
-  });
-
-  it('전부 냈으면 미제출 있는 팀이 아니다', () => {
-    expect(rowHasMissingDocument(row('a', [true, true]))).toBe(false);
-  });
-
-  // 두 필터가 갈리는 지점 — 한 장이라도 낸 팀은 「한 장도 안 낸 팀」이 아니다.
-  it('일부만 낸 팀은 미제출 있는 팀이지만 한 장도 안 낸 팀은 아니다', () => {
-    const partial = row('a', [true, false]);
-
-    expect(rowHasMissingDocument(partial)).toBe(true);
-    expect(rowSubmittedNothing(partial)).toBe(false);
-  });
-
-  it('전부 안 냈으면 한 장도 안 낸 팀이다', () => {
-    expect(rowSubmittedNothing(row('a', [false, false]))).toBe(true);
-  });
-
-  // 칸이 없으면 "안 냈다"고 말할 근거가 없다 — 서류 0개 마일스톤에서 모든 팀이
-  // 이 필터에 걸리면 화면이 없는 문제를 만들어 낸다.
-  it('칸이 하나도 없는 행은 한 장도 안 낸 팀으로 세지 않는다', () => {
-    expect(rowSubmittedNothing(row('a', []))).toBe(false);
+describe('MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS', () => {
+  // 이 필터는 필수 서류만 센다. 「미제출 있는 팀」은 선택 서류까지 세는 것처럼 읽혀
+  // 독촉 대상을 과하게 잡은 것으로 오해를 부른다 — 문구가 기준을 드러내야 한다.
+  it('필수 기준임이 문구에 드러난다', () => {
+    expect(MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS.HAS_MISSING).toContain(
+      '필수',
+    );
+    expect(MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS.HAS_MISSING).not.toBe(
+      '미제출 있는 팀',
+    );
   });
 });
 
-describe('applyCollectionFilter / collectionFilterCount', () => {
-  const rows = [
-    row('all', [true, true]),
-    row('partial', [true, false]),
-    row('none', [false, false]),
+describe('collectionFilterCountFor', () => {
+  const counts = { all: 47, hasMissing: 12, zeroSubmission: 5 };
+
+  it('필터마다 서버가 준 수를 그대로 고른다', () => {
+    expect(collectionFilterCountFor(counts, 'ALL')).toBe(47);
+    expect(collectionFilterCountFor(counts, 'HAS_MISSING')).toBe(12);
+    expect(collectionFilterCountFor(counts, 'ZERO_SUBMISSION')).toBe(5);
+  });
+
+  // 필터 칩의 수는 이 마일스톤 전체 기준이다. 페이지에 있는 행으로 세면 페이지
+  // 크기(20)를 넘는 순간 「전체 20팀」으로 굳는다.
+  it('페이지 크기와 무관하게 전체 기준 수를 낸다', () => {
+    expect(collectionFilterCountFor(counts, 'ALL')).toBeGreaterThan(20);
+  });
+});
+
+describe('collectionDocumentTotalFor', () => {
+  const totals = [
+    { documentId: 'd1', submitted: 30, total: 47 },
+    { documentId: 'd2', submitted: 12, total: 47 },
   ];
 
-  it('전체는 행을 그대로 둔다', () => {
-    expect(applyCollectionFilter(rows, 'ALL')).toEqual(rows);
+  it('서류마다 서버가 준 합계를 고른다', () => {
+    expect(collectionDocumentTotalFor(totals, 'd2')).toEqual({
+      documentId: 'd2',
+      submitted: 12,
+      total: 47,
+    });
   });
 
-  it('미제출 있는 팀은 일부만 낸 팀과 아무것도 안 낸 팀을 함께 남긴다', () => {
-    expect(
-      applyCollectionFilter(rows, 'HAS_MISSING').map(
-        (item) => item.applicationId,
-      ),
-    ).toEqual(['partial', 'none']);
-  });
-
-  it('한 장도 안 낸 팀은 아무것도 안 낸 팀만 남긴다', () => {
-    expect(
-      applyCollectionFilter(rows, 'ZERO_SUBMISSION').map(
-        (item) => item.applicationId,
-      ),
-    ).toEqual(['none']);
-  });
-
-  it('버튼에 붙는 수는 필터를 적용한 행 수와 같다', () => {
-    expect(collectionFilterCount(rows, 'ALL')).toBe(3);
-    expect(collectionFilterCount(rows, 'HAS_MISSING')).toBe(2);
-    expect(collectionFilterCount(rows, 'ZERO_SUBMISSION')).toBe(1);
+  // 열과 합계의 수가 어긋나도 표가 칸을 밀어 그리면 남의 열에 남의 합계가 앉는다.
+  it('합계가 없는 서류는 0/0으로 메운다', () => {
+    expect(collectionDocumentTotalFor(totals, 'd9')).toEqual({
+      documentId: 'd9',
+      submitted: 0,
+      total: 0,
+    });
   });
 });
 
-describe('documentSubmissionTotals', () => {
-  it('서류마다 제출 팀 수와 전체 팀 수를 센다', () => {
-    const totals = documentSubmissionTotals(
-      [document('d1'), document('d2')],
-      [
-        row('a', [true, true]),
-        row('b', [true, false]),
-        row('c', [false, false]),
-      ],
-    );
-
-    expect(totals).toEqual([
-      { documentId: 'd1', submitted: 2, total: 3 },
-      { documentId: 'd2', submitted: 1, total: 3 },
-    ]);
+describe('milestoneDocumentCollectionTotalPages', () => {
+  it('나머지가 있으면 한 페이지를 더 센다', () => {
+    expect(milestoneDocumentCollectionTotalPages(47, 20)).toBe(3);
+    expect(milestoneDocumentCollectionTotalPages(40, 20)).toBe(2);
   });
 
-  it('행이 없으면 분모도 0이다', () => {
-    expect(documentSubmissionTotals([document('d1')], [])).toEqual([
-      { documentId: 'd1', submitted: 0, total: 0 },
-    ]);
+  it('행이 없으면 페이지도 없다', () => {
+    expect(milestoneDocumentCollectionTotalPages(0, 20)).toBe(0);
   });
 
-  // 계약상 칸은 다 채워져 오지만, 빠진 칸을 제출로 세면 합계가 조용히 부풀어 오른다.
-  it('칸이 빠진 행은 그 서류를 미제출로 센다', () => {
-    const totals = documentSubmissionTotals(
-      [document('d1'), document('d2')],
-      [row('a', [true])],
-    );
-
-    expect(totals).toEqual([
-      { documentId: 'd1', submitted: 1, total: 1 },
-      { documentId: 'd2', submitted: 0, total: 1 },
-    ]);
+  it('pageSize가 0이면 나누지 않는다', () => {
+    expect(milestoneDocumentCollectionTotalPages(10, 0)).toBe(0);
   });
 });
 
@@ -204,18 +163,48 @@ describe('collectionRowMemberSummary', () => {
 
 describe('collectionEmptyKind', () => {
   it('서류 항목이 없으면 그것을 먼저 알린다', () => {
-    expect(collectionEmptyKind({ documentCount: 0, rowCount: 0 })).toBe(
-      'no-documents',
-    );
+    expect(
+      collectionEmptyKind({
+        documentCount: 0,
+        applicationCount: 0,
+        filteredCount: 0,
+      }),
+    ).toBe('no-documents');
   });
 
   it('서류는 있는데 승인된 신청이 없으면 신청 없음이다', () => {
-    expect(collectionEmptyKind({ documentCount: 2, rowCount: 0 })).toBe(
-      'no-applications',
-    );
+    expect(
+      collectionEmptyKind({
+        documentCount: 2,
+        applicationCount: 0,
+        filteredCount: 0,
+      }),
+    ).toBe('no-applications');
   });
 
-  it('둘 다 있으면 빈 화면이 아니다', () => {
-    expect(collectionEmptyKind({ documentCount: 2, rowCount: 3 })).toBeNull();
+  /**
+   * 계약 변경으로 갈래가 하나 늘었다. `rows.length`로 판정하던 예전 방식은 이제
+   * 「필터에 아무도 안 걸렸다」를 「승인된 신청이 없다」로 잘못 말한다 — 신청이 47팀
+   * 있어도 ZERO_SUBMISSION에 0팀이면 rows가 비기 때문이다. 그래서 신청 유무는
+   * 필터 이전의 전체로, 필터 결과 유무는 total로 나눠 본다.
+   */
+  it('신청은 있는데 필터에 아무도 안 걸리면 신청 없음이 아니다', () => {
+    expect(
+      collectionEmptyKind({
+        documentCount: 2,
+        applicationCount: 47,
+        filteredCount: 0,
+      }),
+    ).toBe('no-filter-results');
+  });
+
+  it('걸린 팀이 있으면 빈 화면이 아니다', () => {
+    expect(
+      collectionEmptyKind({
+        documentCount: 2,
+        applicationCount: 47,
+        filteredCount: 3,
+      }),
+    ).toBeNull();
   });
 });

@@ -105,6 +105,27 @@ export function updateMilestoneDocument(
   );
 }
 
+/**
+ * 교직원 — 이 마일스톤의 서류 **전체**를 원하는 순서로 다시 매긴다.
+ *
+ * 부분이 아니라 전체를 보내는 것이 이 endpoint의 핵심이다. 두 항목을 각각 PATCH하다
+ * 한쪽만 성공하면 sortOrder가 같은 두 항목이 남고, 그 뒤로는 「위로」가 조용히 아무
+ * 일도 하지 않는다(같은 값끼리 맞바꿔도 순서가 그대로다). 누락·중복·타 마일스톤 id가
+ * 섞이면 서버가 400(MSD_019)으로 거절한다.
+ *
+ * 응답은 sortOrder를 1부터 다시 매긴 목록 전체다 — 호출부는 낙관적 갱신 대신 이 값을
+ * 그대로 화면 상태로 삼는다.
+ */
+export function reorderMilestoneDocuments(
+  milestoneId: string,
+  documentIds: readonly string[],
+): Promise<readonly MilestoneDocument[]> {
+  return apiClient<readonly MilestoneDocument[]>(
+    `${documentsPath(milestoneId)}/order`,
+    jsonRequest('PATCH', { documentIds }),
+  );
+}
+
 /** 교직원 — 서류 항목을 지운다. 204라 본문이 없다. */
 export async function deleteMilestoneDocument(
   milestoneId: string,

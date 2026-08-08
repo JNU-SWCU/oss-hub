@@ -6,8 +6,9 @@ import {
   emptyMilestoneDocumentForm,
   milestoneDocumentErrorMessage,
   milestoneDocumentSaveSortOrder,
+  milestoneDocumentSubmissionTypeLocked,
   nextMilestoneDocumentSortOrder,
-  planMilestoneDocumentMove,
+  planMilestoneDocumentOrder,
   removeMilestoneDocumentFromList,
   sortMilestoneDocuments,
   SUBMISSION_TYPE_CHOICES,
@@ -98,83 +99,90 @@ describe('milestoneDocumentSaveSortOrder', () => {
   });
 });
 
-describe('planMilestoneDocumentMove', () => {
+// 계약 변경(2026-08): 순서 바꾸기는 두 항목을 각각 PATCH하는 대신 전체 순서를 한 번에
+// 보낸다. 그래서 이 함수가 돌려주는 것도 「PATCH 본문 두 개」가 아니라 **마일스톤 서류
+// 전체를 바뀐 순서로 나열한 id 배열**이다. 아래 테스트는 그 계약으로 갱신했다.
+describe('planMilestoneDocumentOrder', () => {
   const documents = [planner, budget, pledge];
 
-  it('아래로는 이웃과 sortOrder를 맞바꾸고 두 항목 모두 PATCH한다', () => {
-    const plan = planMilestoneDocumentMove(documents, 'a', 'down');
-
-    expect(plan).not.toBeNull();
-    expect(plan?.requests).toHaveLength(2);
-    expect(
-      plan?.requests.map((request) => [
-        request.documentId,
-        request.input.sortOrder,
-      ]),
-    ).toEqual([
-      ['a', 2],
-      ['b', 1],
+  it('아래로는 이웃과 자리를 맞바꾼 전체 순서를 만든다', () => {
+    expect(planMilestoneDocumentOrder(documents, 'a', 'down')).toEqual([
+      'b',
+      'a',
+      'c',
     ]);
-    expect(plan?.documents.map((item) => item.id)).toEqual(['b', 'a', 'c']);
   });
 
-  it('위로도 같은 방식으로 두 건을 만든다', () => {
-    const plan = planMilestoneDocumentMove(documents, 'c', 'up');
-
-    expect(plan?.requests.map((request) => request.documentId)).toEqual([
+  it('위로도 같은 방식이다', () => {
+    expect(planMilestoneDocumentOrder(documents, 'c', 'up')).toEqual([
+      'a',
       'c',
       'b',
     ]);
-    expect(plan?.documents.map((item) => item.id)).toEqual(['a', 'c', 'b']);
   });
 
-  it('PATCH 본문은 sortOrder만이 아니라 항목 전체를 담는다', () => {
-    const plan = planMilestoneDocumentMove(documents, 'b', 'down');
+  // 부분 목록을 보내면 서버가 400(MSD_019)으로 거절한다 — 움직인 두 항목만 담아
+  // 보내는 옛 방식으로 되돌아가지 않도록 길이를 못 박는다.
+  it('움직인 두 항목만이 아니라 마일스톤 서류 전체를 담는다', () => {
+    const documentIds = planMilestoneDocumentOrder(documents, 'a', 'down');
 
-    expect(plan?.requests[0]?.input).toEqual({
-      name: '예산서',
-      required: true,
-      sortOrder: 3,
-      submissionType: 'TEXT',
-    });
-    expect(plan?.requests[1]?.input).toEqual({
-      name: '서약서',
-      required: false,
-      sortOrder: 2,
-      submissionType: 'REPOSITORY_RELEASE',
-    });
+    expect(documentIds).toHaveLength(documents.length);
+    expect([...(documentIds ?? [])].sort()).toEqual(['a', 'b', 'c']);
   });
 
   it('맨 위에서 위로, 맨 아래에서 아래로는 보낼 요청이 없다', () => {
-    expect(planMilestoneDocumentMove(documents, 'a', 'up')).toBeNull();
-    expect(planMilestoneDocumentMove(documents, 'c', 'down')).toBeNull();
+    expect(planMilestoneDocumentOrder(documents, 'a', 'up')).toBeNull();
+    expect(planMilestoneDocumentOrder(documents, 'c', 'down')).toBeNull();
   });
 
   it('모르는 id는 계획을 만들지 않는다', () => {
-    expect(planMilestoneDocumentMove(documents, 'gone', 'up')).toBeNull();
+    expect(planMilestoneDocumentOrder(documents, 'gone', 'up')).toBeNull();
   });
 
-  it('sortOrder가 같아 맞바꿔도 순서가 그대로면 요청을 만들지 않는다', () => {
+  /**
+   * 계약 변경 전에는 여기서 `null`을 돌려줬다. sortOrder가 겹친 목록은 두 항목을 각각
+   * PATCH하다 한쪽만 성공했을 때 생기는 바로 그 상태였고, 그때 아무 일도 하지 않으면
+   * 「위로」가 영영 먹지 않는 덫이 된다. 이제는 순서를 통째로 보내 서버가 1부터 다시
+   * 매기므로, 같은 값이야말로 빠져나올 수 있어야 한다.
+   */
+  it('sortOrder가 같아 굳어 버린 목록에서도 자리를 바꾼다', () => {
     expect(
-      planMilestoneDocumentMove(
+      planMilestoneDocumentOrder(
         [document('a', 7), document('b', 7)],
         'a',
         'down',
       ),
-    ).toBeNull();
+    ).toEqual(['b', 'a']);
   });
 
   it('정렬되지 않은 입력에서도 화면에 보이는 이웃과 맞바꾼다', () => {
-    const plan = planMilestoneDocumentMove(
-      [pledge, planner, budget],
-      'c',
-      'up',
-    );
+    expect(
+      planMilestoneDocumentOrder([pledge, planner, budget], 'c', 'up'),
+    ).toEqual(['a', 'c', 'b']);
+  });
+});
 
-    expect(plan?.requests.map((request) => request.documentId)).toEqual([
-      'c',
-      'b',
-    ]);
+describe('milestoneDocumentSubmissionTypeLocked', () => {
+  it('제출이 한 건이라도 있으면 제출 방식을 잠근다', () => {
+    expect(
+      milestoneDocumentSubmissionTypeLocked(
+        document('a', 1, { teamSubmissionCount: { submitted: 1, total: 8 } }),
+      ),
+    ).toBe(true);
+  });
+
+  it('아직 아무도 안 냈으면 잠그지 않는다', () => {
+    expect(
+      milestoneDocumentSubmissionTypeLocked(
+        document('a', 1, { teamSubmissionCount: { submitted: 0, total: 8 } }),
+      ),
+    ).toBe(false);
+  });
+
+  // 학생 응답에는 이 필드가 아예 없다. 없음은 「제출 0」이 아니라 「모른다」이고,
+  // 모를 때 화면이 먼저 막으면 멀쩡한 항목까지 고칠 수 없게 된다. 서버가 막는다.
+  it('집계가 없으면 잠그지 않는다', () => {
+    expect(milestoneDocumentSubmissionTypeLocked(document('a', 1))).toBe(false);
   });
 });
 
@@ -244,6 +252,7 @@ describe('updateMilestoneDocumentEditor', () => {
     mode: 'edit',
     form: toMilestoneDocumentForm(planner),
     errors: { name: '서류명을 입력해 주세요.' },
+    submissionTypeLocked: false,
   };
 
   it('입력이 바뀌면 이전 오류를 지운다', () => {
@@ -273,6 +282,35 @@ describe('updateMilestoneDocumentEditor', () => {
     expect(updateMilestoneDocumentEditor(closed, 'name', '계획서')).toBe(
       closed,
     );
+  });
+
+  describe('제출이 있는 항목의 제출 방식 잠금', () => {
+    const locked: MilestoneDocumentEditor = {
+      mode: 'edit',
+      form: toMilestoneDocumentForm(planner),
+      errors: {},
+      submissionTypeLocked: true,
+    };
+
+    // `disabled`는 화면의 안내일 뿐이라 값이 프로그램적으로 들어오면 그대로 통과해
+    // 409(MSD_016)를 부르는 요청이 만들어진다. 폼 상태에서도 막는다.
+    it('잠긴 항목의 제출 방식은 폼 상태에서도 바뀌지 않는다', () => {
+      expect(
+        updateMilestoneDocumentEditor(locked, 'submissionType', 'TEXT'),
+      ).toBe(locked);
+    });
+
+    // 백엔드는 name·required·sortOrder만 바꾸는 요청은 제출이 있어도 통과시킨다.
+    it('이름과 필수 여부는 잠긴 항목에서도 고칠 수 있다', () => {
+      const renamed = updateMilestoneDocumentEditor(locked, 'name', '수정본');
+
+      expect(renamed.mode === 'closed' ? null : renamed.form.name).toBe(
+        '수정본',
+      );
+      expect(
+        updateMilestoneDocumentEditor(locked, 'required', false),
+      ).toMatchObject({ form: { required: false } });
+    });
   });
 });
 
