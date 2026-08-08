@@ -1720,6 +1720,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     );
 
     // Then: 프런트가 빈칸을 추측하지 않도록 모든 서류에 한 칸씩 채운다.
+    // 제출이 없으면 상태도 없다 — status는 「제출 행의 상태」이지 판정 결과가 아니다.
     for (const row of result.rows) {
       expect(row.cells).toEqual([
         {
@@ -1727,6 +1728,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           isSubmitted: false,
           submittedAt: null,
           file: null,
+          status: null,
           review: null,
         },
         {
@@ -1734,6 +1736,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           isSubmitted: false,
           submittedAt: null,
           file: null,
+          status: null,
           review: null,
         },
       ]);
@@ -1748,6 +1751,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           milestoneDocumentId: syntheticDocumentId,
           applicationId: syntheticApplicationId,
           submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+          status: SubmissionStatus.SUBMITTED,
           file: { originalFileName: '최종_진짜최종.hwp', sizeBytes: 2048 },
           review: null,
         },
@@ -1755,6 +1759,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           milestoneDocumentId: secondDocumentId,
           applicationId: syntheticApplicationId,
           submittedAt: new Date('2026-09-17T10:00:00.000Z'),
+          status: SubmissionStatus.SUBMITTED,
           file: null,
           review: null,
         },
@@ -1776,6 +1781,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         isSubmitted: true,
         submittedAt: '2026-09-16T14:22:00.000Z',
         file: { name: '최종_진짜최종.hwp', sizeBytes: 2048 },
+        status: SubmissionStatus.SUBMITTED,
         review: null,
       },
       {
@@ -1783,6 +1789,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         isSubmitted: true,
         submittedAt: '2026-09-17T10:00:00.000Z',
         file: null,
+        status: SubmissionStatus.SUBMITTED,
         review: null,
       },
     ]);
@@ -1798,6 +1805,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           milestoneDocumentId: syntheticDocumentId,
           applicationId: syntheticApplicationId,
           submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+          status: SubmissionStatus.SUBMITTED,
           file: null,
           review: null,
         },
@@ -1822,8 +1830,101 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       isSubmitted: true,
       submittedAt: '2026-09-16T14:22:00.000Z',
       file: null,
+      status: SubmissionStatus.SUBMITTED,
       review: null,
     });
+  });
+
+  it('재제출로 되돌아온 칸은 status가 SUBMITTED이고 최신 판정은 그대로 남는다', async () => {
+    // Given: 학생이 보완 요청에 응해 다시 냈다. 제출 상태는 SUBMITTED로 되돌아왔지만 판정
+    // 이력은 되돌아가지 않는다. status를 싣지 않으면 화면이 옛 「보완 요청」 배지를 계속
+    // 보여 주고, 교직원이 다시 검토해야 할 건을 놓친다.
+    const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
+    const { repository } = collectionRepository({
+      findSubmissionsForCollection: jest.fn().mockResolvedValue([
+        {
+          milestoneDocumentId: syntheticDocumentId,
+          applicationId: syntheticApplicationId,
+          submittedAt: new Date('2026-09-19T08:00:00.000Z'),
+          status: SubmissionStatus.SUBMITTED,
+          file: null,
+          review: {
+            decision: ReviewDecision.CHANGES_REQUESTED,
+            comment: '2쪽 서명이 빠졌습니다.',
+            reviewedAt,
+          },
+        },
+      ]),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    const result = await service.collectForStaff(
+      syntheticMilestoneId,
+      collectionQuery(),
+      now,
+    );
+
+    // Then: 배지는 status로, 지난 지적은 review로 갈린다 — 둘을 한 값으로 합치지 않는다.
+    expect(result.rows[0]?.cells[0]).toEqual({
+      documentId: syntheticDocumentId,
+      isSubmitted: true,
+      submittedAt: '2026-09-19T08:00:00.000Z',
+      file: null,
+      status: SubmissionStatus.SUBMITTED,
+      review: {
+        decision: ReviewDecision.CHANGES_REQUESTED,
+        comment: '2쪽 서명이 빠졌습니다.',
+        reviewedAt: reviewedAt.toISOString(),
+      },
+    });
+  });
+
+  it('판정이 끝난 칸은 그 판정 상태를 그대로 싣는다', async () => {
+    // Given: 승인·반려·보완 요청이 각각 제출 상태로 옮겨져 있다.
+    const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
+    const { repository } = collectionRepository({
+      findSubmissionsForCollection: jest.fn().mockResolvedValue([
+        {
+          milestoneDocumentId: syntheticDocumentId,
+          applicationId: syntheticApplicationId,
+          submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+          status: SubmissionStatus.APPROVED,
+          file: null,
+          review: {
+            decision: ReviewDecision.APPROVED,
+            comment: null,
+            reviewedAt,
+          },
+        },
+        {
+          milestoneDocumentId: secondDocumentId,
+          applicationId: syntheticApplicationId,
+          submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+          status: SubmissionStatus.REJECTED,
+          file: null,
+          review: {
+            decision: ReviewDecision.REJECTED,
+            comment: '양식이 다릅니다.',
+            reviewedAt,
+          },
+        },
+      ]),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    const result = await service.collectForStaff(
+      syntheticMilestoneId,
+      collectionQuery(),
+      now,
+    );
+
+    // Then
+    expect(result.rows[0]?.cells.map((cell) => cell.status)).toEqual([
+      SubmissionStatus.APPROVED,
+      SubmissionStatus.REJECTED,
+    ]);
   });
 
   it('N+1을 만들지 않는다 — 서류·신청·제출을 각각 한 번씩만 조회한다', async () => {
@@ -1853,11 +1954,16 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
   const noneApplicationId = 'cuid-synthetic-application-d';
   const submittedAt = new Date('2026-09-16T14:22:00.000Z');
 
-  function submission(applicationId: string, milestoneDocumentId: string) {
+  function submission(
+    applicationId: string,
+    milestoneDocumentId: string,
+    status: SubmissionStatus = SubmissionStatus.SUBMITTED,
+  ) {
     return {
       milestoneDocumentId,
       applicationId,
       submittedAt,
+      status,
       file: null,
       review: null,
     };
@@ -2090,6 +2196,68 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       hasMissing: 2,
       zeroSubmission: 1,
     });
+  });
+
+  it('반려·보완 요청된 제출도 「제출했다」로 센다 — 필터·집계는 판정 상태를 보지 않는다', async () => {
+    // Given: 같은 배치인데 판정만 갈렸다. 라마바팀의 필수 서류는 반려, 사아자팀의 선택 서류는
+    // 보완 요청 상태다. 「미제출」 기준이 「제출 행이 없다」에서 「판정이 통과하지 않았다」로
+    // 조용히 바뀌면 독촉 대상 집계가 뜻을 잃는다 — 칸에 status를 실은 뒤에도 그 기준은 그대로다.
+    const { repository } = filterRepository({
+      findSubmissionsForCollection: jest
+        .fn()
+        .mockResolvedValue([
+          submission(bothApplicationId, requiredDocumentId),
+          submission(bothApplicationId, optionalDocumentId),
+          submission(
+            requiredOnlyApplicationId,
+            requiredDocumentId,
+            SubmissionStatus.REJECTED,
+          ),
+          submission(
+            optionalOnlyApplicationId,
+            optionalDocumentId,
+            SubmissionStatus.CHANGES_REQUESTED,
+          ),
+        ]),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    const result = await service.collectForStaff(
+      syntheticMilestoneId,
+      collectionQuery(),
+      now,
+    );
+
+    // Then: 판정이 갈리기 전(위 다른 테스트들)과 같은 수를 센다.
+    expect(result.filterCounts).toEqual({
+      all: 4,
+      hasMissing: 2,
+      zeroSubmission: 1,
+    });
+    expect(result.documentTotals).toEqual([
+      { documentId: requiredDocumentId, submitted: 2, total: 4 },
+      { documentId: optionalDocumentId, submitted: 2, total: 4 },
+    ]);
+    // 반려된 필수 서류를 낸 라마바팀은 여전히 독촉 대상이 아니다.
+    const hasMissing = await service.collectForStaff(
+      syntheticMilestoneId,
+      collectionQuery({ filter: 'HAS_MISSING' }),
+      now,
+    );
+    expect(hasMissing.rows.map((row) => row.teamName)).toEqual([
+      '사아자팀',
+      '차카타팀',
+    ]);
+    // 보완 요청 상태의 선택 서류 한 장을 낸 사아자팀도 「한 장도 안 낸 팀」이 아니다.
+    const zeroSubmission = await service.collectForStaff(
+      syntheticMilestoneId,
+      collectionQuery({ filter: 'ZERO_SUBMISSION' }),
+      now,
+    );
+    expect(zeroSubmission.rows.map((row) => row.teamName)).toEqual([
+      '차카타팀',
+    ]);
   });
 
   it('documentTotals는 필터·페이지가 아니라 전체 승인 신청 기준이다', async () => {

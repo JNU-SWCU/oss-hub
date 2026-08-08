@@ -122,6 +122,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
   async function renderRow(
     viewerSubmission: MilestoneDocumentViewerSubmission,
     submissionType: MilestoneDocument['submissionType'] = 'FILE',
+    closed = false,
   ) {
     await act(async () => {
       root.render(
@@ -133,7 +134,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
             ],
           }}
           viewerRole="STUDENT"
-          closed={false}
+          closed={closed}
           onRetry={() => {}}
           onDocumentChange={() => {}}
         />,
@@ -145,6 +146,17 @@ describe('학생 행이 판정을 읽는 방식', () => {
     return Array.from(container.querySelectorAll('button')).map(
       (button) => button.textContent?.trim() ?? '',
     );
+  }
+
+  /** 잠김은 문자열이 아니라 **그 버튼의 DOM boolean**으로 본다. */
+  function actionButton(text: string): HTMLButtonElement {
+    const found = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === text,
+    );
+    if (!(found instanceof HTMLButtonElement)) {
+      throw new TypeError(`버튼을 찾지 못했습니다: ${text}`);
+    }
+    return found;
   }
 
   function notice(): HTMLElement | null {
@@ -274,6 +286,50 @@ describe('학생 행이 판정을 읽는 방식', () => {
       viewer({ submitted: false, submittedAt: null, status: null }),
     );
     expect(buttonTexts()).toContain('올리기');
+  });
+
+  /**
+   * 마감이 지난 마일스톤. 교직원이 마감 **뒤에** 「고쳐서 다시 내세요」라고 하는 것은 흔한
+   * 일이라, 화면이 그 항목까지 잠그면 학생은 요청받은 재제출을 낼 방법이 없다 — 서버는
+   * 받아 주는데 화면만 막는 상태가 된다.
+   */
+  it('마감이 지나도 보완 요청은 다시 낼 수 있다', async () => {
+    await renderRow(viewer({ status: 'CHANGES_REQUESTED' }), 'FILE', true);
+    expect(actionButton('수정').disabled).toBe(false);
+
+    await renderRow(viewer({ status: 'CHANGES_REQUESTED' }), 'TEXT', true);
+    const editButton = actionButton('수정');
+    expect(editButton.disabled).toBe(false);
+    await act(async () => editButton.click());
+    expect(
+      container.querySelector('input[placeholder="제출 내용"]'),
+    ).not.toBeNull();
+  });
+
+  /**
+   * 마감이 푸는 것은 보완 요청 하나뿐이다. 미제출·검토 대기까지 열면 마감이 아무것도
+   * 막지 않는 표시가 된다 — 마감 전 교체와 마감 뒤 재제출은 다른 일이다.
+   */
+  it('마감 뒤 미제출·검토 대기는 그대로 잠근다', async () => {
+    await renderRow(
+      viewer({ submitted: false, submittedAt: null, status: null }),
+      'FILE',
+      true,
+    );
+    expect(actionButton('올리기').disabled).toBe(true);
+
+    await renderRow(viewer({ status: 'SUBMITTED' }), 'FILE', true);
+    expect(actionButton('수정').disabled).toBe(true);
+
+    await renderRow(viewer({ status: 'SUBMITTED' }), 'TEXT', true);
+    expect(actionButton('수정').disabled).toBe(true);
+  });
+
+  // 마감 전에는 예전 그대로다 — 마감 규칙을 고치면서 평상시를 함께 흔들지 않는다.
+  it('마감 전에는 검토 대기도 잠기지 않는다', async () => {
+    await renderRow(viewer({ status: 'SUBMITTED' }));
+
+    expect(actionButton('수정').disabled).toBe(false);
   });
 
   // TEXT 제출도 같은 규칙을 따라야 한다 — 유형마다 다르면 학생이 규칙을 못 읽는다.

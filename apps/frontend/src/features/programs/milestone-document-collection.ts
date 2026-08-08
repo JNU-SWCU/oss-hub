@@ -42,9 +42,10 @@ export function collectionCellFor(
     row.cells.find((cell) => cell.documentId === documentId) ?? {
       documentId,
       isSubmitted: false,
+      // 상태도 판정도 제출에 붙는다 — 메워 넣은 미제출 칸에는 둘 다 있을 수 없다.
+      status: null,
       submittedAt: null,
       file: null,
-      // 판정은 제출에 붙는다 — 메워 넣은 미제출 칸에 판정이 있을 수 없다.
       review: null,
     }
   );

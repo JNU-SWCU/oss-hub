@@ -1,4 +1,4 @@
-import type { ReviewDecision } from '@prisma/client';
+import type { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { MilestoneSubmissionType } from '@prisma/client';
 import type { MilestoneDocumentCollectionPage } from '../domain/milestone-document-collection-page';
 import type {
@@ -57,7 +57,18 @@ export interface MilestoneDocumentCollectionCellResponseDto {
   readonly submittedAt: string | null;
   readonly file: MilestoneDocumentCollectionFileResponseDto | null;
   /**
-   * 최신 판정. 아직 판정하지 않았거나 미제출이면 null.
+   * 지금 제출의 상태 — 미제출이면 null.
+   *
+   * **배지는 이 값으로 그린다.** 학생이 보완 요청에 응해 다시 내면 제출 행의 status만
+   * SUBMITTED로 되돌아오고 최신 판정(`review`)은 그대로 남는다. 판정으로 배지를 그리면 이미
+   * 응답이 온 건에 「보완 요청」이 계속 붙어 교직원이 다시 볼 건을 놓친다.
+   *
+   * ⚠ 표시값이다 — 필터·집계는 이 값을 보지 않는다(아래 `review` 주석과 같은 이유).
+   */
+  readonly status: SubmissionStatus | null;
+  /**
+   * 최신 판정. 아직 판정하지 않았거나 미제출이면 null. **이력**을 보여 주는 값이라 재제출로
+   * 되돌아가지 않는다 — 지난 지적이 무엇이었는지는 여기서 읽는다(배지는 `status`가 그린다).
    *
    * ⚠ 이건 **표시값이지 업무 규칙이 아니다**. 「미제출」 판정 기준은 여전히 「제출 행이 없다」
    * (`isSubmitted`)이고, 필터·집계는 이 값을 보지 않는다 —
@@ -182,6 +193,7 @@ function toCell(
       isSubmitted: false,
       submittedAt: null,
       file: null,
+      status: null,
       review: null,
     };
   }
@@ -199,6 +211,7 @@ function toCell(
     isSubmitted: true,
     submittedAt: submission.submittedAt.toISOString(),
     file,
+    status: submission.status,
     review:
       submission.review === null
         ? null

@@ -1139,6 +1139,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         milestoneDocumentId: syntheticDocumentId,
         applicationId: syntheticApplicationId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+        status: SubmissionStatus.SUBMITTED,
         files: [{ originalFileName: '최종_진짜최종.hwp', sizeBytes: 2048 }],
         reviews: [],
       },
@@ -1176,6 +1177,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         milestoneDocumentId: syntheticDocumentId,
         applicationId: syntheticApplicationId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+        status: SubmissionStatus.SUBMITTED,
         files: [],
         reviews: [],
       },
@@ -1196,6 +1198,45 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     expect(result[0]?.review).toBeNull();
   });
 
+  it('제출 상태를 판정과 함께 싣는다 — 재제출로 되돌아온 칸을 표가 알아야 한다', async () => {
+    // Given: 보완 요청에 응해 다시 낸 제출이다. 상태는 SUBMITTED로 되돌아왔지만 최신 판정은
+    // CHANGES_REQUESTED로 남아 있다. 상태를 싣지 않으면 표가 옛 판정으로만 칸을 그린다.
+    const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        milestoneDocumentId: syntheticDocumentId,
+        applicationId: syntheticApplicationId,
+        submittedAt: new Date('2026-09-19T08:00:00.000Z'),
+        status: SubmissionStatus.SUBMITTED,
+        files: [],
+        reviews: [
+          {
+            decision: ReviewDecision.CHANGES_REQUESTED,
+            comment: '2쪽 서명이 빠졌습니다.',
+            reviewedAt,
+          },
+        ],
+      },
+    ]);
+    const prisma = {
+      milestoneDocumentSubmission: { findMany },
+    } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const result = await repository.findSubmissionsForCollection(
+      [syntheticDocumentId],
+      now,
+    );
+
+    // Then: 같은 조회에서 함께 읽는다(칸마다 다시 묻지 않는다).
+    const call = firstCallArgument<{ select: { status: unknown } }>(findMany);
+    expect(call.select.status).toBe(true);
+    expect(findMany).toHaveBeenCalledTimes(1);
+    expect(result[0]?.status).toBe(SubmissionStatus.SUBMITTED);
+    expect(result[0]?.review?.decision).toBe(ReviewDecision.CHANGES_REQUESTED);
+  });
+
   it('판정이 여러 건이어도 최신 한 건만 칸에 붙인다 — reviewedAt 내림차순 + take 1', async () => {
     // Given: 판정은 쌓이므로 정렬 없이 읽으면 어느 판정이 「지금 판정」인지 정해지지 않는다.
     const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
@@ -1204,6 +1245,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         milestoneDocumentId: syntheticDocumentId,
         applicationId: syntheticApplicationId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+        status: SubmissionStatus.CHANGES_REQUESTED,
         files: [],
         reviews: [
           {

@@ -86,6 +86,21 @@ export function MilestoneDocumentCollectionScreen({
    * 문구가 지금 열어 둔 다른 칸에 가서 앉으면 남의 칸이 실패한 것처럼 보인다.
    */
   const reviewRequestIdRef = useRef(0);
+  /**
+   * 진행 중인 판정 전송을 **버린다**(응답이 와도 아무것도 하지 않는다).
+   *
+   * 전송이 날아가 있는 동안에도 페이지·필터·다른 칸은 그대로 눌린다. 그때 늦게 온 옛
+   * 응답이 성공 처리를 그대로 밟으면 **방금 연 판정 폼을 닫고**, 자기가 들고 있던 **옛
+   * 조회 조건으로 표를 다시 불러** 화면의 조건과 데이터가 어긋난다(조건이 어긋난 응답은
+   * `milestoneDocumentCollectionDataFor`가 버리므로 표는 그대로 빈다). 실패 쪽도 같다 —
+   * 남의 칸에 오류 문구가 가서 앉는다.
+   *
+   * 조작을 막는 대신 버리는 쪽을 고른 이유: 판정은 이미 서버로 갔고 그 결과는 다음 조회가
+   * 가져온다. 전송이 끝날 때까지 표를 얼려 두면 교직원은 이유를 알 수 없는 벽을 만난다.
+   */
+  const discardPendingReview = useCallback(() => {
+    reviewRequestIdRef.current += 1;
+  }, []);
 
   const load = useCallback(
     async (input: MilestoneDocumentCollectionQueryInput, requestId: number) => {
@@ -186,23 +201,32 @@ export function MilestoneDocumentCollectionScreen({
       review={review}
       onFilterChange={(filter: MilestoneDocumentCollectionFilter) => {
         // 조회 조건이 바뀌면 열어 둔 판정은 닫는다 — 그 팀이 다음 페이지에 없을 수 있고,
-        // 적어 둔 사유가 남으면 엉뚱한 팀 칸에 그대로 저장된다.
+        // 적어 둔 사유가 남으면 엉뚱한 팀 칸에 그대로 저장된다. 보내는 중이던 판정도
+        // 함께 버린다(옛 조건으로 표를 다시 부르는 것을 막는다).
+        discardPendingReview();
         setReview(null);
         // 필터를 바꾸면 1페이지로 되돌린다 — 걸리는 팀 수가 줄어 3페이지가 사라진
         // 뒤에도 page=3을 그대로 물고 가면 빈 표만 남는다.
         setQuery((previous) => ({ ...previous, filter, page: 1 }));
       }}
       onPageChange={(page: number) => {
+        discardPendingReview();
         setReview(null);
         setQuery((previous) => ({ ...previous, page }));
       }}
       onRetry={reload}
-      onReviewOpen={(target: MilestoneDocumentReviewTarget) =>
+      onReviewOpen={(target: MilestoneDocumentReviewTarget) => {
+        // 다른 칸을 열면 앞 칸의 전송은 남의 일이 된다 — 그 응답이 방금 연 폼을 닫게
+        // 두지 않는다.
+        discardPendingReview();
         setReview((previous) =>
           nextMilestoneDocumentReviewState(previous, target),
-        )
-      }
-      onReviewClose={() => setReview(null)}
+        );
+      }}
+      onReviewClose={() => {
+        discardPendingReview();
+        setReview(null);
+      }}
       onReviewDecisionChange={(decision: MilestoneDocumentReviewDecision) =>
         setReview((previous) =>
           previous === null

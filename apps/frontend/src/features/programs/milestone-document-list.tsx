@@ -24,6 +24,7 @@ import {
 } from './milestone-document-api';
 import { requireMilestoneDocumentList } from './milestone-document-list-response';
 import {
+  isMilestoneDocumentDeadlineLocked,
   isMilestoneDocumentResubmittable,
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS,
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_VARIANTS,
@@ -317,6 +318,15 @@ function StudentDocumentRow({
    * 열어 두면 눌러 본 학생에게 오류만 돌아간다 — 낼 수 없는 것은 낼 수 없게 보여야 한다.
    */
   const canSubmit = isMilestoneDocumentResubmittable(viewerSubmission);
+  /**
+   * 마감이 지난 마일스톤은 제출 입력을 잠근다 — **보완 요청만 빼고**. 교직원이 마감 뒤에
+   * 「고쳐서 다시 내세요」라고 하는 것은 흔한 일이라, 여기서 함께 잠그면 그 요청을 받은
+   * 학생이 낼 방법이 없어진다(서버는 받아 준다).
+   */
+  const deadlineLocked = isMilestoneDocumentDeadlineLocked(
+    closed,
+    viewerSubmission,
+  );
 
   const finish = useCallback(
     async (content: MilestoneDocumentSubmissionContent) => {
@@ -420,7 +430,7 @@ function StudentDocumentRow({
               type="button"
               size="sm"
               variant={submitted ? 'ghost' : 'default'}
-              disabled={closed || submitting}
+              disabled={deadlineLocked || submitting}
               onClick={() => fileInputRef.current?.click()}
             >
               {actionIcon} {actionLabel}
@@ -438,7 +448,7 @@ function StudentDocumentRow({
             type="button"
             size="sm"
             variant={submitted ? 'ghost' : 'default'}
-            disabled={closed}
+            disabled={deadlineLocked}
             onClick={() => setEditing((value) => !value)}
           >
             {actionIcon} {actionLabel}

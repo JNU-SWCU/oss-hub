@@ -9,6 +9,7 @@ import type {
 import {
   MILESTONE_DOCUMENT_COLLECTION_PAGE_SIZE,
   type MilestoneDocumentCollection,
+  type MilestoneDocumentCollectionCell,
   type MilestoneDocumentCollectionDocument,
   type MilestoneDocumentCollectionFilter,
   type MilestoneDocumentCollectionReview,
@@ -231,7 +232,16 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       sortOrder: 3,
       submissionType: 'TEXT',
       viewerSubmission: NOT_SUBMITTED_VIEWER,
-      teamSubmissionCount: { submitted: 1, total: 3 },
+      /*
+       * 두 팀이 낸 것으로 둔다. 이 표의 제출된 칸이 다섯이 되어야 아래
+       * `COLLECTION_CELL_STATE_CYCLE`의 다섯 갈래가 한 표에 다 나온다 — 넷이면
+       * 「다시 낸 뒤 검토 대기」가 어디에도 보이지 않는다.
+       *
+       * 선택 서류라 이 수를 올려도 「필수 서류 미제출」은 그대로 2팀이다(둘째 팀은
+       * 여전히 필수인 참여 서약서가 빈다) — 두 필터가 갈리는 성질을 지키려고 필수가
+       * 아닌 쪽을 골랐다.
+       */
+      teamSubmissionCount: { submitted: 2, total: 3 },
     },
   ],
   'milestone-basic-final': [
@@ -361,18 +371,34 @@ const COLLECTION_SUBMITTED_AT_BASE = Date.parse(
 );
 
 /**
- * 제출된 칸에 붙일 판정을 도는 순서. **`null`이 먼저인 것이 요점이다** — 검토 대기(아직
- * 아무도 안 본 칸)도 네 갈래 중 하나이고, 그것이 없으면 검토자가 「판정 전」 배지를 한 번도
- * 보지 못한다.
+ * 제출된 칸 하나의 시드 — 지금 상태와 거기 남은 지난 판정.
  *
- * 도는 자리를 `행 × 열` 통번호로 잡는 이유: 행마다만 돌리면 서류가 여러 장인 마일스톤에서
- * 한 팀의 칸이 전부 같은 판정이 되고, 제출한 팀이 둘뿐인 표(합성 학습 계획서 등)에서는
- * 네 갈래 중 둘밖에 나오지 않는다. 통번호로 돌리면 `milestone-basic-orientation`의 제출된
- * 칸 네 개가 정확히 네 갈래로 갈린다 — 검토자가 한 표에서 다 볼 수 있어야 한다는 것이
- * 이 시드의 목적이다.
+ * 둘을 따로 두는 것이 이 시드의 요점이다. 칸의 배지는 `status`가 정하고 `review`는 지난
+ * 지적일 뿐이라, **둘이 갈리는 칸**이 없으면 배지를 다시 `review.decision` 기준으로
+ * 되돌려도 로컬 검토에서는 아무 차이가 보이지 않는다.
  */
-const COLLECTION_REVIEW_CYCLE: readonly (MilestoneDocumentReviewDecision | null)[] =
-  [null, 'APPROVED', 'CHANGES_REQUESTED', 'REJECTED'];
+interface CollectionCellStateSeed {
+  readonly status: NonNullable<MilestoneDocumentCollectionCell['status']>;
+  /** 이 칸에 남은 최신 판정. 아직 아무도 안 봤으면 `null`. */
+  readonly decision: MilestoneDocumentReviewDecision | null;
+}
+
+/**
+ * 제출된 칸이 도는 다섯 갈래. **검토 대기가 먼저이고, 다시 낸 칸이 마지막이다.**
+ *
+ * - 앞의 넷은 화면의 네 배지다(검토 대기 · 승인 · 보완 요청 · 반려). 검토 대기가 없으면
+ *   검토자가 「아직 아무도 안 본 칸」의 배지를 한 번도 보지 못한다.
+ * - 마지막은 **보완 요청을 받고 다시 낸 칸**이다. 서버가 제출 상태만 `SUBMITTED`로
+ *   되돌리고 판정 기록은 그대로 두므로, 배지는 「검토 대기」이고 패널을 열면 지난
+ *   「보완 요청」 사유가 남아 있다 — 교직원이 다시 볼 건이 어떻게 보이는지가 이 자리다.
+ */
+const COLLECTION_CELL_STATE_CYCLE: readonly CollectionCellStateSeed[] = [
+  { status: 'SUBMITTED', decision: null },
+  { status: 'APPROVED', decision: 'APPROVED' },
+  { status: 'CHANGES_REQUESTED', decision: 'CHANGES_REQUESTED' },
+  { status: 'REJECTED', decision: 'REJECTED' },
+  { status: 'SUBMITTED', decision: 'CHANGES_REQUESTED' },
+];
 
 const COLLECTION_REVIEW_COMMENTS: Readonly<
   Record<MilestoneDocumentReviewDecision, string | null>
@@ -386,22 +412,50 @@ const COLLECTION_REVIEW_COMMENTS: Readonly<
 };
 
 /**
+ * 이 칸이 표 전체에서 **몇 번째 제출인가**. 미제출 칸은 세지 않는다.
+ *
+ * 갈래를 이 번호로 돌리는 이유: `행 × 열` 통번호로 돌리면 중간에 미제출 칸이 끼는 만큼
+ * 번호가 건너뛰어, 표 모양에 따라 같은 갈래가 두 번 나오고 어떤 갈래는 한 번도 안 나온다
+ * (`milestone-basic-orientation`이 정확히 그 모양이다). 제출된 칸만 세면 **표에 제출이
+ * 다섯 칸만 있어도 다섯 갈래가 다 나온다** — 검토자가 한 표에서 다 볼 수 있어야 한다는
+ * 것이 이 시드의 목적이다.
+ */
+function submittedCellOrdinal(
+  seeds: readonly MilestoneDocumentSeed[],
+  rowIndex: number,
+  documentIndex: number,
+): number {
+  // 앞선 행들에서 제출된 칸 수 — 열마다 「이 행보다 앞에서 낸 팀 수」를 더한다.
+  const beforeRows = seeds.reduce(
+    (sum, seed) => sum + Math.min(rowIndex, seed.teamSubmissionCount.submitted),
+    0,
+  );
+  const beforeCells = seeds
+    .slice(0, documentIndex)
+    .filter((seed) => rowIndex < seed.teamSubmissionCount.submitted).length;
+  return beforeRows + beforeCells;
+}
+
+/**
  * 칸에 붙는 최신 판정. 판정 시각은 제출 시각보다 뒤여야 한다 — 앞서면 「내기 전에
  * 판정했다」로 읽혀 검토자가 화면 결함으로 오해한다.
+ *
+ * ⚠ **다시 낸 칸만 반대다.** 상태가 `SUBMITTED`로 돌아왔는데 판정이 남아 있다는 것은
+ * 학생이 그 지적을 받고 **그 뒤에** 다시 냈다는 뜻이라, 지난 판정은 지금 제출보다
+ * 앞선다. 여기서도 뒤로 적으면 「낸 뒤에 판정했는데 아직 검토 대기」라는, 있을 수 없는
+ * 칸이 된다.
  */
 function collectionReviewFor(
-  cellNumber: number,
+  state: CollectionCellStateSeed,
   submittedAt: string,
 ): MilestoneDocumentCollectionReview | null {
-  const decision = COLLECTION_REVIEW_CYCLE[
-    cellNumber % COLLECTION_REVIEW_CYCLE.length
-  ] as MilestoneDocumentReviewDecision | null;
-  if (decision === null) return null;
+  if (state.decision === null) return null;
+  const resubmitted = state.status === 'SUBMITTED';
   return {
-    decision,
-    comment: COLLECTION_REVIEW_COMMENTS[decision],
+    decision: state.decision,
+    comment: COLLECTION_REVIEW_COMMENTS[state.decision],
     reviewedAt: new Date(
-      Date.parse(submittedAt) + 26 * 3_600_000,
+      Date.parse(submittedAt) + (resubmitted ? -26 : 26) * 3_600_000,
     ).toISOString(),
   };
 }
@@ -471,18 +525,24 @@ function collectionRowFor(
         return {
           documentId: seed.id,
           isSubmitted: false,
+          // 상태도 판정도 제출에 붙는다 — 미제출 칸에는 둘 다 실리지 않는다(백엔드 계약).
+          status: null,
           submittedAt: null,
           file: null,
-          // 판정은 제출에 붙는다 — 미제출 칸에는 판정이 실리지 않는다(백엔드 계약).
           review: null,
         };
       }
+      const state = COLLECTION_CELL_STATE_CYCLE[
+        submittedCellOrdinal(seeds, index, documentIndex) %
+          COLLECTION_CELL_STATE_CYCLE.length
+      ] as CollectionCellStateSeed;
       // FILE 유형이어도 보존 기한이 지난 첨부는 `file`이 비어 온다(백엔드 계약).
       // 첫 팀을 그 갈래로 둬 "제출됨(링크 없음)" 표시가 검토 화면에 실제로 뜨게 한다.
       const expired = index === 0;
       return {
         documentId: seed.id,
         isSubmitted: true,
+        status: state.status,
         submittedAt,
         file:
           seed.submissionType === 'FILE' && !expired
@@ -495,10 +555,7 @@ function collectionRowFor(
                 sizeBytes: 245_760 + index * 1024,
               }
             : null,
-        review: collectionReviewFor(
-          index * seeds.length + documentIndex,
-          submittedAt,
-        ),
+        review: collectionReviewFor(state, submittedAt),
       };
     }),
   };

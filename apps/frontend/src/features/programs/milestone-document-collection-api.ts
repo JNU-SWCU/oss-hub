@@ -1,4 +1,5 @@
 import { apiClient, apiPath } from '@/lib/api-client';
+import type { MilestoneDocumentSubmissionStatus } from './milestone-document-api';
 import type { MilestoneDocumentReviewDecision } from './milestone-document-review-api';
 import type { SubmissionType } from './types';
 
@@ -46,7 +47,12 @@ export interface MilestoneDocumentCollectionFile {
 /**
  * 칸에 붙는 **최신 판정 한 건**. 아직 판정하지 않았거나 미제출이면 `null`이다.
  *
- * ⚠ 이건 **표시값이지 업무 규칙이 아니다**(백엔드 DTO의 같은 자리 주석과 같은 말이다).
+ * ⚠ 이건 **지난 지적을 보여 주는 값이지 지금 상태가 아니다**. 칸의 배지는 옆의
+ * `status`로 정한다 — 판정 이력은 재제출로 되돌아가지 않으므로, 이 값으로 배지를
+ * 정하면 보완 요청에 응해 **다시 낸 칸이 계속 「보완 요청」으로 남아** 교직원이 다시
+ * 검토해야 할 건을 놓친다.
+ *
+ * ⚠ 표시값이지 업무 규칙도 아니다(백엔드 DTO의 같은 자리 주석과 같은 말이다).
  * 「미제출」 기준은 여전히 `isSubmitted`이고 필터·합계는 이 값을 보지 않는다 — 반려된
  * 서류를 미제출로 세기 시작하면 독촉 대상 집계가 조용히 뜻을 바꾼다.
  *
@@ -69,6 +75,19 @@ export interface MilestoneDocumentCollectionReview {
 export interface MilestoneDocumentCollectionCell {
   readonly documentId: string;
   readonly isSubmitted: boolean;
+  /**
+   * 이 제출이 지금 어떤 상태인가 — **칸의 배지는 이 값으로 정한다**. 제출이 없으면 `null`.
+   *
+   * 값 집합은 학생 뷰 계약(`milestone-document-api.ts`의
+   * `MilestoneDocumentSubmissionStatus`)과 같다. 같은 제출 행의 같은 상태라 이름만 다른
+   * 두 벌을 만들지 않는다 — 이름이 갈린 `isSubmitted`/`submitted`와 달리 여기는 뜻도
+   * 값도 하나다.
+   *
+   * ⚠ `SUBMITTED`는 「아직 아무도 안 봤다」와 「보완 요청을 받고 **다시 냈다**」 둘 다를
+   * 뜻한다 — 재제출이 같은 제출 행을 덮어쓰며 상태를 되돌리기 때문이다. 그래서 「지난
+   * 지적이 있었는가」는 이 값이 아니라 `review`로 본다.
+   */
+  readonly status: MilestoneDocumentSubmissionStatus | null;
   readonly submittedAt: string | null;
   readonly file: MilestoneDocumentCollectionFile | null;
   readonly review: MilestoneDocumentCollectionReview | null;

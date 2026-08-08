@@ -88,6 +88,12 @@ export interface MilestoneDocumentCollectionSubmission {
   readonly milestoneDocumentId: string;
   readonly applicationId: string;
   readonly submittedAt: Date;
+  /**
+   * 지금 제출의 상태 — 학생이 보완 요청에 응해 다시 내면 SUBMITTED로 되돌아온다. 판정 이력
+   * (`review`)은 되돌아가지 않으므로 **배지는 이 값으로** 그려야 「이미 응답한 보완 요청」이
+   * 화면에 남지 않는다.
+   */
+  readonly status: SubmissionStatus;
   /** ATTACHED이고 아직 만료되지 않은 첨부만 채운다. 제출당 최대 1개다. */
   readonly file: {
     readonly originalFileName: string;
@@ -423,6 +429,12 @@ const collectionApplicationSelect = {
  * `reviewedAt` 다음에 `id`로 한 번 더 정렬하는 이유: 같은 밀리초에 두 판정이 들어오면
  * `reviewedAt`만으로는 순서가 정해지지 않아 조회할 때마다 다른 판정이 「최신」으로 뽑힌다.
  * cuid는 시간 접두사를 갖고 단조 증가하므로 동률을 가르는 데 쓸 수 있다.
+ *
+ * 이 정렬이 **실제 커밋 순서**와 같은 근거는 쓰는 쪽에 있다 —
+ * `milestone-document-reviews.service.ts`가 `MilestoneDocument` 행 잠금을 얻은 **뒤에**
+ * `reviewedAt`을 찍으므로, 뒤에 커밋한 판정이 언제나 같거나 더 큰 시각을 갖는다. 같은
+ * 밀리초로 겹치는 구간에서만 `id`가 답을 결정적으로 고정할 뿐(커밋 순서와 같다는 보장까지는
+ * 아니다) — 그 한계도 같은 주석에 적어 두었다.
  */
 const latestReviewQuery = {
   orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
@@ -838,6 +850,7 @@ export class MilestoneDocumentsRepository {
         milestoneDocumentId: true,
         applicationId: true,
         submittedAt: true,
+        status: true,
         files: {
           where: unexpiredAttachedFileWhere(now),
           orderBy: { createdAt: 'desc' },
@@ -851,6 +864,7 @@ export class MilestoneDocumentsRepository {
       milestoneDocumentId: submission.milestoneDocumentId,
       applicationId: submission.applicationId,
       submittedAt: submission.submittedAt,
+      status: submission.status,
       file: submission.files[0] ?? null,
       review: submission.reviews[0] ?? null,
     }));

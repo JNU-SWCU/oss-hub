@@ -53,6 +53,7 @@ function cell(
   return {
     documentId,
     isSubmitted: true,
+    status: 'SUBMITTED',
     submittedAt: '2026-07-28T00:00:00.000Z',
     file: null,
     review: null,
@@ -234,7 +235,7 @@ describe('수합 표에서 판정하기', () => {
     getMilestoneDocumentCollectionMock.mockResolvedValue(
       collection([
         row('a', '가팀', [
-          cell('d1', { isSubmitted: false, submittedAt: null }),
+          cell('d1', { isSubmitted: false, status: null, submittedAt: null }),
           cell('d2'),
         ]),
       ]),
@@ -450,18 +451,106 @@ describe('수합 표에서 판정하기', () => {
     expect(panel()).toBeNull();
   });
 
-  it('칸의 배지는 판정을 그대로 말한다', async () => {
+  /**
+   * 판정 POST가 날아가 있는 동안에도 페이지·필터·다른 칸은 그대로 눌린다. 그때 늦게 온
+   * 옛 응답이 성공 처리를 그대로 밟으면 **자기가 들고 있던 옛 조건으로 표를 다시 부른다** —
+   * 화면은 새 필터 이름 아래에 그 조건의 답을 기다리게 되고, 조건이 어긋난 응답은 버려지니
+   * 표가 통째로 빈다.
+   */
+  it('보내는 중에 필터를 바꾸면 늦게 온 응답이 옛 조건으로 표를 다시 부르지 않는다', async () => {
+    await openPanelForGaTeam();
+    let release: (() => void) | null = null;
+    createMilestoneDocumentReviewMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = () =>
+            resolve({
+              id: 'r1',
+              decision: 'APPROVED',
+              comment: null,
+              reviewedAt: '2026-08-01T00:00:00.000Z',
+              reviewerNickname: '교직원',
+            });
+        }),
+    );
+
+    await click(byText('승인'));
+    await click(byText('판정 저장'));
+    await click(byText('필수 서류 미제출 12팀'));
+    const loadsAfterFilter =
+      getMilestoneDocumentCollectionMock.mock.calls.length;
+
+    await act(async () => {
+      release?.();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // 늦게 온 응답은 아무것도 하지 않는다 — 조회 수도, 마지막 조건도 그대로다.
+    expect(getMilestoneDocumentCollectionMock.mock.calls.length).toBe(
+      loadsAfterFilter,
+    );
+    expect(getMilestoneDocumentCollectionMock).toHaveBeenLastCalledWith(
+      'milestone-1',
+      { page: 1, pageSize: 20, filter: 'HAS_MISSING' },
+    );
+  });
+
+  /**
+   * 같은 경합의 다른 얼굴 — 늦게 온 응답의 성공 처리는 판정 폼을 닫는다. 그 사이 교직원이
+   * 다른 칸을 열어 두었으면 **방금 연 폼이 눈앞에서 닫힌다**(적어 둔 사유와 함께).
+   */
+  it('보내는 중에 다른 칸을 열면 늦게 온 응답이 그 폼을 닫지 않는다', async () => {
+    await openPanelForGaTeam();
+    let release: (() => void) | null = null;
+    createMilestoneDocumentReviewMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = () =>
+            resolve({
+              id: 'r1',
+              decision: 'APPROVED',
+              comment: null,
+              reviewedAt: '2026-08-01T00:00:00.000Z',
+              reviewerNickname: '교직원',
+            });
+        }),
+    );
+
+    await click(byText('승인'));
+    await click(byText('판정 저장'));
+    await click(byLabel('가팀 중간 보고 판정'));
+    expect(panel()?.textContent).toContain('가팀 — 중간 보고');
+
+    await act(async () => {
+      release?.();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(panel()).not.toBeNull();
+    expect(panel()?.textContent).toContain('가팀 — 중간 보고');
+  });
+
+  it('칸의 배지는 지금 상태를 그대로 말한다', async () => {
     getMilestoneDocumentCollectionMock.mockResolvedValue(
       collection([
         row('a', '가팀', [
           cell('d1', {
+            status: 'REJECTED',
             review: {
               decision: 'REJECTED',
               comment: '기한을 넘겼습니다.',
               reviewedAt: '2026-07-30T00:00:00.000Z',
             },
           }),
-          cell('d2', { isSubmitted: false, submittedAt: null }),
+          cell('d2', {
+            isSubmitted: false,
+            status: null,
+            submittedAt: null,
+          }),
         ]),
       ]),
     );
@@ -470,5 +559,40 @@ describe('수합 표에서 판정하기', () => {
     const cells = Array.from(container.querySelectorAll('tbody td'));
     expect(cells[1]?.textContent).toContain('반려');
     expect(cells[2]?.textContent).toContain('미제출');
+  });
+
+  /**
+   * 보완 요청에 응해 **다시 낸** 칸. 서버는 제출 상태만 되돌리고 판정 기록은 남기므로,
+   * 배지를 판정으로 정하면 이 칸이 계속 「보완 요청」으로 보인다 — 교직원은 다시 봐야 할
+   * 건을 처리 끝난 것으로 읽고 넘어간다. 칸에는 「검토 대기」, 패널에는 지난 지적이다.
+   */
+  it('다시 낸 칸은 검토 대기로 돌아오고, 패널에 지난 보완 요청이 남는다', async () => {
+    getMilestoneDocumentCollectionMock.mockResolvedValue(
+      collection([
+        row('a', '가팀', [
+          cell('d1', {
+            status: 'SUBMITTED',
+            submittedAt: '2026-08-02T00:00:00.000Z',
+            review: {
+              decision: 'CHANGES_REQUESTED',
+              comment: '표지의 이름이 신청서와 다릅니다.',
+              reviewedAt: '2026-07-30T00:00:00.000Z',
+            },
+          }),
+          cell('d2', { isSubmitted: false, status: null, submittedAt: null }),
+        ]),
+      ]),
+    );
+    await render();
+
+    const cells = Array.from(container.querySelectorAll('tbody td'));
+    expect(cells[1]?.textContent).toContain('검토 대기');
+    expect(cells[1]?.textContent).not.toContain('보완 요청');
+
+    await click(byLabel('가팀 기획서 판정'));
+
+    // 지난 지적은 사라지지 않는다 — 다시 보는 교직원이 무엇을 지적했는지 알아야 한다.
+    expect(panel()?.textContent).toContain('지난 판정');
+    expect(panel()?.textContent).toContain('표지의 이름이 신청서와 다릅니다.');
   });
 });

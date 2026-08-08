@@ -15,6 +15,7 @@ function cell(
   return {
     documentId: 'd1',
     isSubmitted: true,
+    status: 'SUBMITTED',
     submittedAt: '2026-07-28T00:00:00.000Z',
     file: null,
     review: null,
@@ -30,6 +31,16 @@ function tagOf(html: string, label: string): string {
   const textIndex = html.indexOf(`>${label}<`);
   if (textIndex < 0) throw new Error(`문구를 찾지 못했습니다: ${label}`);
   return html.slice(html.lastIndexOf('<', textIndex), textIndex + 1);
+}
+
+/**
+ * 배지 문구만 그린 순서대로. 머리의 「지금 상태」와 「지난 판정」의 배지가 서로 다른 말을
+ * 할 수 있으므로, 문서 전체를 `toContain`으로 훑는 대신 **어느 배지가 무엇을 말하는지**를 본다.
+ */
+function badgeTexts(html: string): readonly string[] {
+  return [...html.matchAll(/data-slot="status-badge"[^>]*>([^<]*)</g)].map(
+    (match) => match[1] ?? '',
+  );
 }
 
 function textareaTag(html: string): string {
@@ -69,9 +80,10 @@ describe('판정 패널 머리', () => {
     expect(html).toContain('07.28 09:00 제출');
   });
 
-  it('이미 판정된 칸이면 머리의 배지도 그 판정을 말한다', () => {
+  it('이미 판정된 칸이면 머리의 배지도 그 상태를 말한다', () => {
     const html = render({
       cell: cell({
+        status: 'REJECTED',
         review: {
           decision: 'REJECTED',
           comment: '기한을 넘겼습니다.',
@@ -80,8 +92,33 @@ describe('판정 패널 머리', () => {
       }),
     });
 
-    expect(html).toContain('반려');
+    // 머리 배지와 「지난 판정」 배지가 둘 다 반려다.
+    expect(badgeTexts(html)).toEqual(['반려', '반려']);
     expect(html).not.toContain('검토 대기');
+  });
+
+  /**
+   * 다시 낸 칸 — 머리의 배지는 **지금 상태**(검토 대기)를, 아래 「지난 판정」은 **왜
+   * 되돌아갔었는지**(보완 요청)를 말한다. 머리까지 보완 요청이면 교직원은 이 건을 이미
+   * 처리한 것으로 읽고 지나간다.
+   */
+  it('다시 낸 칸은 머리가 검토 대기, 아래에 지난 보완 요청이 남는다', () => {
+    const html = render({
+      cell: cell({
+        status: 'SUBMITTED',
+        submittedAt: '2026-08-02T00:00:00.000Z',
+        review: {
+          decision: 'CHANGES_REQUESTED',
+          comment: '표지의 이름이 신청서와 다릅니다.',
+          reviewedAt: '2026-07-30T00:00:00.000Z',
+        },
+      }),
+    });
+
+    // 머리는 지금 상태, 그 아래는 지난 지적 — 두 배지가 서로 다른 말을 한다.
+    expect(badgeTexts(html)).toEqual(['검토 대기', '보완 요청']);
+    expect(html).toContain('지난 판정');
+    expect(html).toContain('표지의 이름이 신청서와 다릅니다.');
   });
 });
 

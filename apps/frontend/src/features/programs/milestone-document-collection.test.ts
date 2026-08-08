@@ -39,6 +39,7 @@ function row(
     cells: submitted.map((isSubmitted, index) => ({
       documentId: `d${index + 1}`,
       isSubmitted,
+      status: isSubmitted ? ('SUBMITTED' as const) : null,
       submittedAt: isSubmitted ? '2026-07-28T00:00:00.000Z' : null,
       file: null,
       review: null,
@@ -235,11 +236,12 @@ describe('collectionCellFor', () => {
     });
   });
 
-  // 메워 넣은 칸에 판정이 실리면 「안 낸 팀이 승인됨」이 된다 — 판정은 제출에 붙는다.
-  it('빠진 칸은 판정 없는 미제출로 메운다', () => {
+  // 메워 넣은 칸에 상태·판정이 실리면 「안 낸 팀이 승인됨」이 된다 — 둘 다 제출에 붙는다.
+  it('빠진 칸은 상태도 판정도 없는 미제출로 메운다', () => {
     expect(collectionCellFor(row('a', [true]), 'd9')).toEqual({
       documentId: 'd9',
       isSubmitted: false,
+      status: null,
       submittedAt: null,
       file: null,
       review: null,

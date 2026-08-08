@@ -4,6 +4,7 @@ import { MilestoneDocumentCollectionView } from './milestone-document-collection
 import type { MilestoneDocumentCollectionViewProps } from './milestone-document-collection-view';
 import type {
   MilestoneDocumentCollection,
+  MilestoneDocumentCollectionCell,
   MilestoneDocumentCollectionDocument,
   MilestoneDocumentCollectionRow,
 } from './milestone-document-collection-api';
@@ -20,6 +21,44 @@ function document(
     submissionType: 'FILE',
     ...overrides,
   };
+}
+
+/**
+ * 낸 칸. 기본은 「아직 아무도 안 본 제출」이다 — 배지는 `status`가 정하고 `review`는
+ * 지난 지적일 뿐이라, 둘을 따로 넘길 수 있어야 「다시 낸 칸」을 세울 수 있다.
+ */
+function cell(
+  documentId: string,
+  overrides: Partial<MilestoneDocumentCollectionCell> = {},
+): MilestoneDocumentCollectionCell {
+  return {
+    documentId,
+    isSubmitted: true,
+    status: 'SUBMITTED',
+    submittedAt: '2026-07-14T00:00:00.000Z',
+    file: null,
+    review: null,
+    ...overrides,
+  };
+}
+
+/**
+ * 그린 순서대로의 배지 문구. 문서 전체를 `toContain`으로 훑으면 「보완 요청」이 판정
+ * 버튼·안내 문구에도 있어 배지가 무엇을 말하는지 물을 수 없다.
+ */
+function badgeTexts(html: string): readonly string[] {
+  return [...html.matchAll(/data-slot="status-badge"[^>]*>([^<]*)</g)].map(
+    (match) => match[1] ?? '',
+  );
+}
+
+/** 안 낸 칸 — 상태도 판정도 제출에 붙으므로 둘 다 없다. */
+function missingCell(documentId: string): MilestoneDocumentCollectionCell {
+  return cell(documentId, {
+    isSubmitted: false,
+    status: null,
+    submittedAt: null,
+  });
 }
 
 function row(
@@ -101,20 +140,7 @@ function render(
 describe('MilestoneDocumentCollectionView 머리말', () => {
   it('제목에 마일스톤 이름을, 부제에 마감 시각을 적는다', () => {
     const html = render({
-      data: collection(
-        [document('d1')],
-        [
-          row('a', [
-            {
-              documentId: 'd1',
-              isSubmitted: false,
-              submittedAt: null,
-              file: null,
-              review: null,
-            },
-          ]),
-        ],
-      ),
+      data: collection([document('d1')], [row('a', [missingCell('d1')])]),
     });
 
     expect(html).toContain('서류 수합 — 기획서 제출');
@@ -148,21 +174,7 @@ describe('MilestoneDocumentCollectionView 빈 상태', () => {
       programId: 'program-capstone',
       data: collection(
         [document('d1', { name: '기획서' })],
-        [
-          row(
-            'a',
-            [
-              {
-                documentId: 'd1',
-                isSubmitted: true,
-                submittedAt: '2026-07-14T00:00:00.000Z',
-                file: null,
-                review: null,
-              },
-            ],
-            { teamName: '남의프로그램팀' },
-          ),
-        ],
+        [row('a', [cell('d1')], { teamName: '남의프로그램팀' })],
         {
           milestone: {
             id: 'milestone-9',
@@ -193,21 +205,7 @@ describe('MilestoneDocumentCollectionView 빈 상태', () => {
       programId: 'program-capstone',
       data: collection(
         [document('d1', { name: '기획서' })],
-        [
-          row(
-            'a',
-            [
-              {
-                documentId: 'd1',
-                isSubmitted: false,
-                submittedAt: null,
-                file: null,
-                review: null,
-              },
-            ],
-            { teamName: '우리팀' },
-          ),
-        ],
+        [row('a', [missingCell('d1')], { teamName: '우리팀' })],
       ),
     });
 
@@ -239,64 +237,27 @@ describe('MilestoneDocumentCollectionView 표', () => {
     row(
       'a',
       [
-        {
-          documentId: 'd1',
-          isSubmitted: true,
-          submittedAt: '2026-07-14T00:00:00.000Z',
+        cell('d1', {
           file: {
             name: '아주-긴-파일-이름-확인용-기획서-최종본-v3.pdf',
             sizeBytes: 2048,
           },
-          review: null,
-        },
-        {
-          documentId: 'd2',
-          isSubmitted: true,
-          submittedAt: '2026-07-14T01:00:00.000Z',
-          file: null,
-          review: null,
-        },
+        }),
+        cell('d2', { submittedAt: '2026-07-14T01:00:00.000Z' }),
       ],
       { teamName: '가팀' },
     ),
-    row(
-      'b',
-      [
-        {
-          documentId: 'd1',
-          isSubmitted: false,
-          submittedAt: null,
-          file: null,
-          review: null,
-        },
-        {
-          documentId: 'd2',
-          isSubmitted: false,
-          submittedAt: null,
-          file: null,
-          review: null,
-        },
-      ],
-      { teamName: '나팀', applicantName: null, memberNicknames: ['nameless'] },
-    ),
+    row('b', [missingCell('d1'), missingCell('d2')], {
+      teamName: '나팀',
+      applicantName: null,
+      memberNicknames: ['nameless'],
+    }),
     // 한 장만 낸 팀. 서류마다 제출 수가 달라야 합계 행이 열을 섞어도 티가 난다.
     row(
       'c',
       [
-        {
-          documentId: 'd1',
-          isSubmitted: true,
-          submittedAt: '2026-07-14T02:00:00.000Z',
-          file: null,
-          review: null,
-        },
-        {
-          documentId: 'd2',
-          isSubmitted: false,
-          submittedAt: null,
-          file: null,
-          review: null,
-        },
+        cell('d1', { submittedAt: '2026-07-14T02:00:00.000Z' }),
+        missingCell('d2'),
       ],
       { teamName: '다팀' },
     ),
@@ -352,34 +313,29 @@ describe('MilestoneDocumentCollectionView 표', () => {
    * 뭉치면 이미 반려한 서류와 아직 안 본 서류가 표에서 구분되지 않아, 교직원이 같은 칸을
    * 두 번 열어 본다.
    */
-  it('칸 배지가 판정을 그대로 말한다', () => {
+  it('칸 배지가 지금 상태를 그대로 말한다', () => {
     const html = render({
       data: collection(documents, [
         row(
           'a',
           [
-            {
-              documentId: 'd1',
-              isSubmitted: true,
-              submittedAt: '2026-07-14T00:00:00.000Z',
-              file: null,
+            cell('d1', {
+              status: 'CHANGES_REQUESTED',
               review: {
                 decision: 'CHANGES_REQUESTED',
                 comment: '표지를 고쳐 주세요.',
                 reviewedAt: '2026-07-15T00:00:00.000Z',
               },
-            },
-            {
-              documentId: 'd2',
-              isSubmitted: true,
+            }),
+            cell('d2', {
+              status: 'APPROVED',
               submittedAt: '2026-07-14T01:00:00.000Z',
-              file: null,
               review: {
                 decision: 'APPROVED',
                 comment: null,
                 reviewedAt: '2026-07-15T00:00:00.000Z',
               },
-            },
+            }),
           ],
           { teamName: '가팀' },
         ),
@@ -390,6 +346,37 @@ describe('MilestoneDocumentCollectionView 표', () => {
     expect(html).toContain('승인');
     // 사유는 표에 펴 놓지 않는다 — 칸이 좁아 표가 읽히지 않게 된다.
     expect(html).not.toContain('표지를 고쳐 주세요.');
+  });
+
+  /**
+   * 보완 요청에 응해 **다시 낸** 칸. 서버는 제출 상태만 `SUBMITTED`로 되돌리고 판정
+   * 기록은 그대로 두므로, 배지를 `review.decision`으로 정하면 이 칸이 계속 「보완 요청」
+   * 으로 남는다 — 교직원은 다시 검토해야 할 건을 이미 처리한 것으로 읽고 지나간다.
+   */
+  it('다시 낸 칸은 지난 보완 요청이 남아 있어도 검토 대기로 돌아온다', () => {
+    const html = render({
+      data: collection(documents, [
+        row(
+          'a',
+          [
+            cell('d1', {
+              status: 'SUBMITTED',
+              submittedAt: '2026-07-20T00:00:00.000Z',
+              review: {
+                decision: 'CHANGES_REQUESTED',
+                comment: '표지를 고쳐 주세요.',
+                reviewedAt: '2026-07-15T00:00:00.000Z',
+              },
+            }),
+            missingCell('d2'),
+          ],
+          { teamName: '가팀' },
+        ),
+      ]),
+    });
+
+    // 이 표의 배지는 「검토 대기」와 「미제출」 둘뿐이다 — 보완 요청이 남아 있으면 걸린다.
+    expect(badgeTexts(html)).toEqual(['검토 대기', '미제출']);
   });
 
   /**
@@ -556,17 +543,7 @@ describe('MilestoneDocumentCollectionView 표', () => {
  */
 describe('MilestoneDocumentCollectionView 페이지 이동', () => {
   const documents = [document('d1')];
-  const rows = [
-    row('a', [
-      {
-        documentId: 'd1',
-        isSubmitted: false,
-        submittedAt: null,
-        file: null,
-        review: null,
-      },
-    ]),
-  ];
+  const rows = [row('a', [missingCell('d1')])];
 
   function paged(page: number, total: number): MilestoneDocumentCollection {
     return collection(documents, rows, {

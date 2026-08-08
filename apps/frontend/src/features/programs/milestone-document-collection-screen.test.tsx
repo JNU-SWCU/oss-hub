@@ -50,6 +50,8 @@ function row(
       {
         documentId: 'd1',
         isSubmitted: false,
+        // 상태도 판정도 제출에 붙는다 — 안 낸 칸에는 둘 다 없다.
+        status: null,
         submittedAt: null,
         file: null,
         review: null,

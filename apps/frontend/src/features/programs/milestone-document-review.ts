@@ -1,4 +1,7 @@
-import type { MilestoneDocumentViewerSubmission } from './milestone-document-api';
+import type {
+  MilestoneDocumentSubmissionStatus,
+  MilestoneDocumentViewerSubmission,
+} from './milestone-document-api';
 import type { MilestoneDocumentCollectionCell } from './milestone-document-collection-api';
 import {
   MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH,
@@ -58,23 +61,40 @@ export const MILESTONE_DOCUMENT_REVIEW_DECISION_ORDER: readonly MilestoneDocumen
   ['APPROVED', 'CHANGES_REQUESTED', 'REJECTED'];
 
 /**
- * 교직원 표의 칸 하나. 판정은 **제출에 붙으므로** 미제출이 가장 먼저다 — 미제출 칸에
- * 판정이 실려 오는 일은 계약상 없지만, 그 순서를 뒤집으면 어긋난 응답 한 건이
- * 「안 낸 팀이 승인됨」으로 보인다.
+ * 제출이 있는 자리의 상태 → 배지. 교직원 칸과 학생 줄이 **같은 함수**를 지난다 —
+ * 두 화면이 같은 제출을 다른 말로 부르면 안 되기 때문이다.
+ *
+ * `SUBMITTED`가 「검토 대기」인 것은 재제출이 상태를 그리로 되돌리기 때문이다: 보완
+ * 요청에 응해 다시 낸 제출은 아직 아무도 안 본 제출과 같은 자리에 선다. 상태가 비어
+ * 오는 것(`null`)도 검토 대기로 읽는다 — 제출은 있는데 상태만 어긋난 응답에서 「미제출」
+ * 이라고 말하면 교직원이 그 건을 아예 못 본다.
  */
-export function milestoneDocumentCellDisplay(
-  cell: Pick<MilestoneDocumentCollectionCell, 'isSubmitted' | 'review'>,
+function submittedDisplay(
+  status: MilestoneDocumentSubmissionStatus | null,
 ): MilestoneDocumentReviewDisplay {
-  if (!cell.isSubmitted) return 'NOT_SUBMITTED';
-  if (cell.review === null) return 'PENDING';
-  return cell.review.decision;
+  if (status === null || status === 'SUBMITTED') return 'PENDING';
+  return status;
 }
 
 /**
- * 학생 목록의 한 줄. 상태(`status`)가 판정 결과를 1:1로 담으므로 그것만 보면 된다.
+ * 교직원 표의 칸 하나. 미제출이 가장 먼저다 — 미제출 칸에 상태·판정이 실려 오는 일은
+ * 계약상 없지만, 그 순서를 뒤집으면 어긋난 응답 한 건이 「안 낸 팀이 승인됨」으로 보인다.
  *
- * `SUBMITTED`가 「검토 대기」인 것은 재제출이 상태를 그리로 되돌리기 때문이다 — 보완
- * 요청을 받아 다시 낸 학생에게 계속 「보완 요청」이라고 말하면 안 낸 것처럼 읽힌다.
+ * ⚠ 배지는 `status`로 정한다. **`review.decision`으로 되돌리지 마라** — 판정 이력은
+ * 재제출로 되돌아가지 않으므로, 보완 요청을 받아 **다시 낸 칸이 계속 「보완 요청」**으로
+ * 남는다. 교직원은 그 칸을 이미 처리한 것으로 읽고 다시 검토해야 할 건을 놓친다.
+ * `review`는 패널에서 「지난 판정」을 보여 주는 데만 쓴다.
+ */
+export function milestoneDocumentCellDisplay(
+  cell: Pick<MilestoneDocumentCollectionCell, 'isSubmitted' | 'status'>,
+): MilestoneDocumentReviewDisplay {
+  if (!cell.isSubmitted) return 'NOT_SUBMITTED';
+  return submittedDisplay(cell.status);
+}
+
+/**
+ * 학생 목록의 한 줄. 교직원 칸과 같은 규칙이다 — 보완 요청을 받아 다시 낸 학생에게
+ * 계속 「보완 요청」이라고 말하면 안 낸 것처럼 읽힌다.
  */
 export function milestoneDocumentViewerDisplay(
   viewerSubmission: MilestoneDocumentViewerSubmission | undefined,
@@ -82,9 +102,7 @@ export function milestoneDocumentViewerDisplay(
   if (viewerSubmission === undefined || !viewerSubmission.submitted) {
     return 'NOT_SUBMITTED';
   }
-  const { status } = viewerSubmission;
-  if (status === null || status === 'SUBMITTED') return 'PENDING';
-  return status;
+  return submittedDisplay(viewerSubmission.status);
 }
 
 /**
@@ -112,6 +130,28 @@ export function isMilestoneDocumentResubmittable(
     case 'CHANGES_REQUESTED':
       return true;
   }
+}
+
+/**
+ * 마감이 지난 마일스톤에서 제출 입력을 **잠가야** 하는가.
+ *
+ * 마감(`closed`)은 기본적으로 잠근다. 지나가는 것은 **보완 요청 하나뿐**이다:
+ * 교직원이 마감 뒤에 서류를 보고 「고쳐서 다시 내세요」라고 하는 것은 흔한 일이고,
+ * 그때 화면이 잠그면 **교직원이 요청한 재제출을 학생이 낼 수 없다** — 그 요청 자체가
+ * 뜻을 잃는다. 서버는 이 재제출을 받는다(마감은 첫 제출을 닫을 뿐이다).
+ *
+ * ⚠ 다른 상태를 함께 풀지 마라.
+ * - 승인·반려는 마감과 무관하게 재제출 자체가 금지다 —
+ *   `isMilestoneDocumentResubmittable`이 이미 막고, 서버도 409(MSD_023)로 막는다.
+ * - 미제출·검토 대기는 마감으로 닫히는 것이 **의도된 마감**이다. 여기까지 풀면
+ *   마감이 아무것도 막지 않는 표시가 된다.
+ */
+export function isMilestoneDocumentDeadlineLocked(
+  closed: boolean,
+  viewerSubmission: MilestoneDocumentViewerSubmission | undefined,
+): boolean {
+  if (!closed) return false;
+  return viewerSubmission?.status !== 'CHANGES_REQUESTED';
 }
 
 /**

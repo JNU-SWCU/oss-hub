@@ -344,51 +344,76 @@ describe('POST .../applications/:applicationId/reviews', () => {
 });
 
 /**
- * 수합 표의 칸에 붙는 판정. 검토자가 네 갈래(검토 대기·승인·보완 요청·반려)를 **한
- * 표에서** 다 볼 수 있어야 한다 — 하나라도 빠지면 그 배지가 어떻게 보이는지 아무도
- * 확인하지 못한 채 넘어간다.
+ * 수합 표의 칸에 붙는 상태와 판정. 검토자가 네 배지(검토 대기·승인·보완 요청·반려)와
+ * **다시 낸 뒤 검토 대기**까지 한 표에서 다 볼 수 있어야 한다 — 하나라도 빠지면 그 칸이
+ * 어떻게 보이는지 아무도 확인하지 못한 채 넘어간다.
  */
-describe('수합 표 픽스처의 판정 시드', () => {
+describe('수합 표 픽스처의 상태·판정 시드', () => {
   function orientationCollection(): MilestoneDocumentCollection {
     return jsonBody(
       resolve('GET', `milestones/${MILESTONE_ID}/documents/collection`),
     ) as MilestoneDocumentCollection;
   }
 
-  it('한 표에서 네 갈래가 모두 보인다', () => {
-    const cells = orientationCollection().rows.flatMap((row) => row.cells);
-    const displays = cells
-      .filter((cell) => cell.isSubmitted)
-      .map((cell) => cell.review?.decision ?? 'PENDING');
+  function submittedCells() {
+    return orientationCollection()
+      .rows.flatMap((row) => row.cells)
+      .filter((cell) => cell.isSubmitted);
+  }
 
-    expect(new Set(displays)).toEqual(
-      new Set(['PENDING', 'APPROVED', 'CHANGES_REQUESTED', 'REJECTED']),
+  /**
+   * 상태와 판정을 **짝으로** 본다. 상태만 세면 「다시 낸 칸」이 평범한 검토 대기와
+   * 구분되지 않아, 배지를 다시 판정 기준으로 되돌려도 이 시드로는 아무것도 드러나지 않는다.
+   */
+  it('한 표에서 다섯 갈래가 모두 보인다 — 네 배지와 「다시 낸 뒤 검토 대기」', () => {
+    const shapes = submittedCells().map(
+      (cell) => `${cell.status}+${cell.review?.decision ?? 'none'}`,
+    );
+
+    expect(new Set(shapes)).toEqual(
+      new Set([
+        'SUBMITTED+none',
+        'APPROVED+APPROVED',
+        'CHANGES_REQUESTED+CHANGES_REQUESTED',
+        'REJECTED+REJECTED',
+        'SUBMITTED+CHANGES_REQUESTED',
+      ]),
     );
   });
 
-  // 판정은 제출에 붙는다 — 미제출 칸에 판정이 실리면 「안 낸 팀이 승인됨」이 된다.
-  it('미제출 칸에는 판정을 싣지 않는다', () => {
+  // 상태도 판정도 제출에 붙는다 — 미제출 칸에 실리면 「안 낸 팀이 승인됨」이 된다.
+  it('미제출 칸에는 상태도 판정도 싣지 않는다', () => {
     const cells = orientationCollection().rows.flatMap((row) => row.cells);
 
     expect(
       cells
         .filter((cell) => !cell.isSubmitted)
-        .every((cell) => cell.review === null),
+        .every((cell) => cell.status === null && cell.review === null),
     ).toBe(true);
   });
 
-  // 판정 시각이 제출 시각보다 앞서면 「내기 전에 판정했다」로 읽힌다.
-  it('판정 시각은 제출 시각보다 뒤다', () => {
-    const cells = orientationCollection().rows.flatMap((row) => row.cells);
-    const reviewed = cells.filter(
+  /**
+   * 판정 시각이 제출 시각보다 앞서면 「내기 전에 판정했다」로 읽힌다.
+   *
+   * ⚠ **다시 낸 칸만 반대다.** 상태가 `SUBMITTED`로 돌아왔는데 판정이 남아 있다는 것은
+   * 그 지적을 받고 다시 냈다는 뜻이라, 지난 판정이 지금 제출보다 앞서야 앞뒤가 맞는다.
+   */
+  it('판정 시각은 제출 시각보다 뒤다 — 다시 낸 칸만 앞선다', () => {
+    const reviewed = submittedCells().filter(
       (cell) => cell.review !== null && cell.submittedAt !== null,
     );
+    const resubmitted = reviewed.filter((cell) => cell.status === 'SUBMITTED');
 
     expect(reviewed.length).toBeGreaterThan(0);
+    expect(resubmitted).toHaveLength(1);
     for (const cell of reviewed) {
-      expect(Date.parse(cell.review?.reviewedAt ?? '')).toBeGreaterThan(
-        Date.parse(cell.submittedAt ?? ''),
-      );
+      const reviewedAt = Date.parse(cell.review?.reviewedAt ?? '');
+      const submittedAt = Date.parse(cell.submittedAt ?? '');
+      if (cell.status === 'SUBMITTED') {
+        expect(reviewedAt).toBeLessThan(submittedAt);
+      } else {
+        expect(reviewedAt).toBeGreaterThan(submittedAt);
+      }
     }
   });
 
