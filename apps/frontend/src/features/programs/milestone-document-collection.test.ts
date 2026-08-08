@@ -5,6 +5,7 @@ import {
   collectionEmptyKind,
   collectionFilterCountFor,
   collectionRowMemberSummary,
+  isCollectionProgramMismatch,
   MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS,
   milestoneDocumentCollectionDataFor,
   milestoneDocumentCollectionPageState,
@@ -37,7 +38,7 @@ function row(
     memberNicknames: ['chulsoo'],
     cells: submitted.map((isSubmitted, index) => ({
       documentId: `d${index + 1}`,
-      submitted: isSubmitted,
+      isSubmitted,
       submittedAt: isSubmitted ? '2026-07-28T00:00:00.000Z' : null,
       file: null,
     })),
@@ -171,7 +172,12 @@ describe('milestoneDocumentCollectionDataFor', () => {
     filter: 'ALL',
   } satisfies MilestoneDocumentCollectionQueryInput;
   const data = {
-    milestone: { id: 'm1', name: '기획서 제출', dueAt: '2026-07-15T14:59:59Z' },
+    milestone: {
+      id: 'm1',
+      programId: 'program-capstone',
+      name: '기획서 제출',
+      dueAt: '2026-07-15T14:59:59Z',
+    },
     documents: [],
     rows: [],
     page: 1,
@@ -215,10 +221,23 @@ describe('milestoneDocumentCollectionDataFor', () => {
 });
 
 describe('collectionCellFor', () => {
+  // 계약이 `isSubmitted`로 바뀌었다. 메우는 칸만 새 이름을 쓰고 읽는 쪽이 옛 이름에
+  // 남으면 모든 칸이 `undefined` → 미제출로 보인다.
+  it('있는 칸은 그 칸의 제출 여부를 그대로 준다', () => {
+    expect(collectionCellFor(row('a', [true, false]), 'd1')).toMatchObject({
+      documentId: 'd1',
+      isSubmitted: true,
+    });
+    expect(collectionCellFor(row('a', [true, false]), 'd2')).toMatchObject({
+      documentId: 'd2',
+      isSubmitted: false,
+    });
+  });
+
   it('빠진 칸은 미제출로 메운다', () => {
     expect(collectionCellFor(row('a', [true]), 'd9')).toEqual({
       documentId: 'd9',
-      submitted: false,
+      isSubmitted: false,
       submittedAt: null,
       file: null,
     });
@@ -268,10 +287,72 @@ describe('collectionRowMemberSummary', () => {
   });
 });
 
+/**
+ * 화면 경로는 `/programs/{programId}/milestones/{milestoneId}/documents`인데 조회는
+ * `milestoneId`만 보낸다 — 그래서 프로그램 A의 경로에 B의 마일스톤 id를 끼워 넣으면
+ * 서버는 B의 표를 순순히 돌려준다. 대조하지 않으면 그 표가 A의 껍데기 아래 앉는다.
+ */
+describe('isCollectionProgramMismatch', () => {
+  it('경로의 프로그램과 응답의 프로그램이 같으면 어긋난 것이 아니다', () => {
+    expect(
+      isCollectionProgramMismatch({
+        programId: 'program-capstone',
+        milestoneProgramId: 'program-capstone',
+      }),
+    ).toBe(false);
+  });
+
+  it('다른 프로그램의 마일스톤이면 어긋난 것으로 본다', () => {
+    expect(
+      isCollectionProgramMismatch({
+        programId: 'program-capstone',
+        milestoneProgramId: 'program-basic-study',
+      }),
+    ).toBe(true);
+  });
+});
+
 describe('collectionEmptyKind', () => {
+  /** 프로그램이 맞는 경우의 기본 입력 — 어긋남 판정만 따로 보는 테스트에 쓴다. */
+  const sameProgram = {
+    programId: 'program-capstone',
+    milestoneProgramId: 'program-capstone',
+  };
+
+  /**
+   * 표가 서고 안 서고보다 먼저다. 서류도 신청도 멀쩡히 있는 B의 표여도 A의 경로로
+   * 들어왔다면 그려선 안 된다 — 그리면 교직원이 B의 팀 목록을 A의 것으로 읽는다.
+   */
+  it('경로의 프로그램과 응답의 프로그램이 다르면 표를 그리지 않는다', () => {
+    expect(
+      collectionEmptyKind({
+        programId: 'program-capstone',
+        milestoneProgramId: 'program-basic-study',
+        documentCount: 3,
+        applicationCount: 47,
+        filteredCount: 47,
+      }),
+    ).toBe('wrong-program');
+  });
+
+  // 다른 빈 상태보다 앞선다 — 남의 프로그램 표에 「서류 항목이 없다」고 답하면
+  // 교직원은 이 프로그램에 항목을 더 만들러 간다.
+  it('프로그램이 어긋나면 다른 빈 상태보다 먼저 걸린다', () => {
+    expect(
+      collectionEmptyKind({
+        programId: 'program-capstone',
+        milestoneProgramId: 'program-basic-study',
+        documentCount: 0,
+        applicationCount: 0,
+        filteredCount: 0,
+      }),
+    ).toBe('wrong-program');
+  });
+
   it('서류 항목이 없으면 그것을 먼저 알린다', () => {
     expect(
       collectionEmptyKind({
+        ...sameProgram,
         documentCount: 0,
         applicationCount: 0,
         filteredCount: 0,
@@ -282,6 +363,7 @@ describe('collectionEmptyKind', () => {
   it('서류는 있는데 승인된 신청이 없으면 신청 없음이다', () => {
     expect(
       collectionEmptyKind({
+        ...sameProgram,
         documentCount: 2,
         applicationCount: 0,
         filteredCount: 0,
@@ -298,6 +380,7 @@ describe('collectionEmptyKind', () => {
   it('신청은 있는데 필터에 아무도 안 걸리면 신청 없음이 아니다', () => {
     expect(
       collectionEmptyKind({
+        ...sameProgram,
         documentCount: 2,
         applicationCount: 47,
         filteredCount: 0,
@@ -308,6 +391,7 @@ describe('collectionEmptyKind', () => {
   it('걸린 팀이 있으면 빈 화면이 아니다', () => {
     expect(
       collectionEmptyKind({
+        ...sameProgram,
         documentCount: 2,
         applicationCount: 47,
         filteredCount: 3,

@@ -1269,6 +1269,8 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     // Then
     expect(result.milestone).toEqual({
       id: syntheticMilestoneId,
+      // 경로의 programId와 대조할 근거 — 이 값이 빠지면 다른 프로그램의 표인지 알 수 없다.
+      programId: syntheticProgramId,
       name: '프로젝트 계획서 제출',
       dueAt: '2026-09-19T09:00:00.000Z',
     });
@@ -1317,7 +1319,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     ]);
   });
 
-  it('제출이 없는 서류도 칸을 비우지 않고 submitted:false로 채운다', async () => {
+  it('제출이 없는 서류도 칸을 비우지 않고 isSubmitted:false로 채운다', async () => {
     // Given: 제출이 하나도 없다.
     const { repository } = collectionRepository();
     const service = new MilestoneDocumentsService(repository);
@@ -1334,13 +1336,13 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       expect(row.cells).toEqual([
         {
           documentId: syntheticDocumentId,
-          submitted: false,
+          isSubmitted: false,
           submittedAt: null,
           file: null,
         },
         {
           documentId: secondDocumentId,
-          submitted: false,
+          isSubmitted: false,
           submittedAt: null,
           file: null,
         },
@@ -1348,7 +1350,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     }
   });
 
-  it('제출한 칸만 submitted:true가 되고 FILE 유형이면 파일 정보를 싣는다', async () => {
+  it('제출한 칸만 isSubmitted:true가 되고 FILE 유형이면 파일 정보를 싣는다', async () => {
     // Given
     const { repository } = collectionRepository({
       findSubmissionsForCollection: jest.fn().mockResolvedValue([
@@ -1379,19 +1381,19 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     expect(result.rows[0]?.cells).toEqual([
       {
         documentId: syntheticDocumentId,
-        submitted: true,
+        isSubmitted: true,
         submittedAt: '2026-09-16T14:22:00.000Z',
         file: { name: '최종_진짜최종.hwp', sizeBytes: 2048 },
       },
       {
         documentId: secondDocumentId,
-        submitted: true,
+        isSubmitted: true,
         submittedAt: '2026-09-17T10:00:00.000Z',
         file: null,
       },
     ]);
     // 다른 팀의 칸이 섞이지 않는다.
-    expect(result.rows[1]?.cells.every((cell) => !cell.submitted)).toBe(true);
+    expect(result.rows[1]?.cells.every((cell) => !cell.isSubmitted)).toBe(true);
   });
 
   it('첨부가 만료돼 리포지토리가 file:null을 주면 목록에도 파일을 싣지 않는다', async () => {
@@ -1422,7 +1424,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     );
     expect(result.rows[0]?.cells[0]).toEqual({
       documentId: syntheticDocumentId,
-      submitted: true,
+      isSubmitted: true,
       submittedAt: '2026-09-16T14:22:00.000Z',
       file: null,
     });

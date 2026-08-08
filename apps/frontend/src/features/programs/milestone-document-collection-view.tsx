@@ -19,6 +19,7 @@ import {
   collectionEmptyKind,
   collectionFilterCountFor,
   collectionRowMemberSummary,
+  isCollectionProgramMismatch,
   MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS,
   milestoneDocumentCollectionPageState,
 } from './milestone-document-collection';
@@ -36,6 +37,7 @@ import {
   formatSeoulDate,
   formatSeoulShortDateTime,
 } from './program-detail-format';
+import { programHref } from './program-paths';
 
 const SECTION_BODY = 'flex min-w-0 flex-col gap-8';
 const TABLE_CARD = 'min-w-0 overflow-hidden rounded-card border border-border';
@@ -108,7 +110,7 @@ function CollectionCellContent({
   readonly documentId: string;
   readonly applicationId: string;
 }): ReactElement {
-  if (!cell.submitted) {
+  if (!cell.isSubmitted) {
     return <span className="text-small text-muted-foreground">미제출</span>;
   }
   if (cell.file === null) {
@@ -320,12 +322,38 @@ function CollectionBody(
   }
   if (props.data === null) return null;
 
-  const { documents, rows, page, pageSize, total, filterCounts } = props.data;
+  const { milestone, documents, rows, page, pageSize, total, filterCounts } =
+    props.data;
   const empty = collectionEmptyKind({
+    programId: props.programId,
+    milestoneProgramId: milestone.programId,
     documentCount: documents.length,
     applicationCount: filterCounts.all,
     filteredCount: total,
   });
+
+  /*
+   * 경로의 프로그램과 응답의 프로그램이 다른 경우 — 조회는 `milestoneId`만 보내므로
+   * 서버는 남의 프로그램 마일스톤이어도 순순히 표를 돌려준다. 그대로 그리면 B의 팀
+   * 목록이 A의 화면 껍데기(좌측 패널·「프로그램 편집」 링크) 아래에 앉아 교직원이 남의
+   * 프로그램 현황을 A의 것으로 읽는다. 표는 물론 필터 칩도 그리지 않는다 — 조작할 표가
+   * 없는데 「전체 47팀」 같은 수가 남으면 그 수마저 A의 것으로 읽힌다.
+   */
+  if (empty === 'wrong-program') {
+    return (
+      <EmptyState
+        title="이 프로그램에서 찾을 수 없는 마일스톤입니다"
+        description="주소의 프로그램과 마일스톤이 서로 다릅니다. 프로그램 상세에서 마일스톤을 다시 골라 주세요."
+        action={
+          <Button asChild variant="outline">
+            <Link href={programHref(props.programId)}>
+              프로그램 상세로 이동
+            </Link>
+          </Button>
+        }
+      />
+    );
+  }
 
   if (empty === 'no-documents') {
     return (
@@ -440,7 +468,19 @@ function CollectionBody(
 export function MilestoneDocumentCollectionView(
   props: MilestoneDocumentCollectionViewProps,
 ) {
-  const milestone = props.data?.milestone ?? null;
+  /*
+   * 다른 프로그램의 마일스톤이면 머리말에서도 이름·마감을 지운다. 본문만 막고 제목을
+   * 그대로 두면 A의 화면이 「서류 수합 — B의 마일스톤」을 달게 되는데, 그것이 바로
+   * 이 화면이 사람을 속이던 지점이다.
+   */
+  const milestone =
+    props.data !== null &&
+    !isCollectionProgramMismatch({
+      programId: props.programId,
+      milestoneProgramId: props.data.milestone.programId,
+    })
+      ? props.data.milestone
+      : null;
   return (
     <PageBody>
       <PageHeader

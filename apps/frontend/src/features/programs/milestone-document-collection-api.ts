@@ -8,6 +8,12 @@ import type { SubmissionType } from './types';
  */
 export interface MilestoneDocumentCollectionMilestone {
   readonly id: string;
+  /**
+   * 이 마일스톤을 소유한 프로그램. 조회는 `milestoneId`만 보내므로 화면 경로의
+   * 프로그램과 응답의 프로그램이 어긋날 수 있다 — 그 판정에 쓰는 값이다
+   * (`collectionEmptyKind`의 `wrong-program`).
+   */
+  readonly programId: string;
   readonly name: string;
   /** ISO 8601. 화면은 `program-detail-format.ts`의 서울 시각 포매터로만 표시한다. */
   readonly dueAt: string;
@@ -28,10 +34,16 @@ export interface MilestoneDocumentCollectionFile {
   readonly sizeBytes: number;
 }
 
-/** 표의 칸 — 미제출도 칸이 비지 않고 `submitted: false`로 채워져 온다. */
+/**
+ * 표의 칸 — 미제출도 칸이 비지 않고 `isSubmitted: false`로 채워져 온다.
+ *
+ * ⚠ 이 칸만 `isSubmitted`다(ADR-004의 boolean `is`/`has`/`can` 접두사). 학생 화면이
+ * 쓰는 `milestone-document-api.ts`의 `viewerSubmission.submitted`는 다른 계약이라
+ * 그대로다 — 이름이 비슷하다고 함께 바꾸면 학생 화면이 조용히 깨진다.
+ */
 export interface MilestoneDocumentCollectionCell {
   readonly documentId: string;
-  readonly submitted: boolean;
+  readonly isSubmitted: boolean;
   readonly submittedAt: string | null;
   readonly file: MilestoneDocumentCollectionFile | null;
 }

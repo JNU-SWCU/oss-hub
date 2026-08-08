@@ -41,7 +41,7 @@ export function collectionCellFor(
   return (
     row.cells.find((cell) => cell.documentId === documentId) ?? {
       documentId,
-      submitted: false,
+      isSubmitted: false,
       submittedAt: null,
       file: null,
     }
@@ -182,11 +182,36 @@ export function collectionRowMemberSummary(
 }
 
 export type MilestoneDocumentCollectionEmptyKind =
-  'no-documents' | 'no-applications' | 'no-filter-results' | null;
+  | 'wrong-program'
+  | 'no-documents'
+  | 'no-applications'
+  | 'no-filter-results'
+  | null;
 
 /**
- * 빈 화면 구분. 서류 항목 없음이 먼저다 — 신청이 없더라도 교직원이 할 일은
- * "서류 항목부터 등록"이고, 항목이 없으면 표의 열 자체가 서지 않는다.
+ * 화면 경로의 프로그램과 응답이 말하는 프로그램이 어긋났는가.
+ *
+ * 이 화면의 경로는 `/programs/{programId}/milestones/{milestoneId}/documents`인데
+ * 조회는 `milestoneId`만 보낸다. 그래서 프로그램 A의 경로에 프로그램 B의 마일스톤 id를
+ * 끼워 넣으면 서버는 순순히 B의 표를 돌려주고, 화면은 그것을 A의 껍데기(좌측 패널·
+ * 「프로그램 편집」 링크) 아래에 그린다 — 교직원은 B의 팀 목록을 A의 것으로 읽는다.
+ * 사람이 주소를 손으로 고쳤을 때만 나는 일이 아니다: 마일스톤을 다른 프로그램으로
+ * 옮기면 예전 링크가 그대로 이 모양이 된다.
+ */
+export function isCollectionProgramMismatch(input: {
+  /** 화면 경로의 프로그램 id. */
+  readonly programId: string;
+  /** 응답의 `milestone.programId` — 서버가 말하는 이 마일스톤의 소유 프로그램. */
+  readonly milestoneProgramId: string;
+}): boolean {
+  return input.programId !== input.milestoneProgramId;
+}
+
+/**
+ * 빈 화면 구분. 프로그램이 어긋난 경우가 가장 먼저다 — 표가 서고 안 서고를 따지기 전에
+ * **이 표가 이 프로그램의 것이 맞는가**를 봐야 한다. 그다음이 서류 항목 없음이다:
+ * 신청이 없더라도 교직원이 할 일은 "서류 항목부터 등록"이고, 항목이 없으면 표의 열
+ * 자체가 서지 않는다.
  *
  * ⚠ 세는 대상이 바뀌었다. 예전에는 `rows.length`로 「신청 없음」을 판정했는데, 이제
  * `rows`는 필터를 지나 잘린 한 페이지라 **필터에 아무도 안 걸린 것**과 **승인된 신청이
@@ -194,12 +219,17 @@ export type MilestoneDocumentCollectionEmptyKind =
  * 필터 결과 유무는 `total`로 본다.
  */
 export function collectionEmptyKind(input: {
+  /** 화면 경로의 프로그램 id. */
+  readonly programId: string;
+  /** 응답의 `milestone.programId`. */
+  readonly milestoneProgramId: string;
   readonly documentCount: number;
   /** 필터·페이지 이전의 전체 승인 신청 수 = 응답의 `filterCounts.all`. */
   readonly applicationCount: number;
   /** 필터 적용 후 행 수 = 응답의 `total`. */
   readonly filteredCount: number;
 }): MilestoneDocumentCollectionEmptyKind {
+  if (isCollectionProgramMismatch(input)) return 'wrong-program';
   if (input.documentCount === 0) return 'no-documents';
   if (input.applicationCount === 0) return 'no-applications';
   if (input.filteredCount === 0) return 'no-filter-results';

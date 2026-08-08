@@ -78,6 +78,7 @@ const reorderDocuments = jest.fn().mockResolvedValue([
 const collectForStaff = jest.fn().mockResolvedValue({
   milestone: {
     id: 'synthetic-milestone',
+    programId: 'cuid-synthetic-program',
     name: '프로젝트 계획서 제출',
     dueAt: '2026-09-19T09:00:00.000Z',
   },
@@ -99,7 +100,7 @@ const collectForStaff = jest.fn().mockResolvedValue({
       cells: [
         {
           documentId: 'synthetic-document',
-          submitted: true,
+          isSubmitted: true,
           submittedAt: '2026-09-16T14:22:00.000Z',
           file: { name: '최종_진짜최종.hwp', sizeBytes: 2048 },
         },
@@ -544,12 +545,16 @@ it('서류 수합 조회는 교직원 가드를 거치고 private no-store로 �
   expect(response.status).toBe(200);
   expect(response.headers.get('cache-control')).toBe('private, no-store');
   await expect(response.json()).resolves.toMatchObject({
-    milestone: { id: 'synthetic-milestone', name: '프로젝트 계획서 제출' },
+    milestone: {
+      id: 'synthetic-milestone',
+      programId: 'cuid-synthetic-program',
+      name: '프로젝트 계획서 제출',
+    },
     documents: [{ id: 'synthetic-document', sortOrder: 1 }],
     rows: [
       {
         teamName: '가나다팀',
-        cells: [{ documentId: 'synthetic-document', submitted: true }],
+        cells: [{ documentId: 'synthetic-document', isSubmitted: true }],
       },
     ],
     page: 1,

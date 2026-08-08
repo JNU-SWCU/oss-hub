@@ -9,6 +9,12 @@ import type {
 
 export interface MilestoneDocumentCollectionMilestoneResponseDto {
   readonly id: string;
+  /**
+   * 화면 경로가 `/programs/{programId}/milestones/{milestoneId}/documents`인데 이 요청은
+   * milestoneId만 보낸다. 경로의 programId와 대조할 근거를 프런트에 주려고 싣는다 —
+   * 이 값이 다르면 다른 프로그램의 수합 표라는 뜻이다.
+   */
+  readonly programId: string;
   readonly name: string;
   readonly dueAt: string;
 }
@@ -27,10 +33,17 @@ export interface MilestoneDocumentCollectionFileResponseDto {
   readonly sizeBytes: number;
 }
 
-/** 표의 칸 — 미제출이어도 칸을 비우지 않고 submitted:false로 채운다. */
+/**
+ * 표의 칸 — 미제출이어도 칸을 비우지 않고 isSubmitted:false로 채운다.
+ *
+ * boolean 필드가 `is` 접두사를 쓰는 것은 ADR-004 규칙이다. 같은 모듈의
+ * `MilestoneDocumentViewerSubmissionResponseDto.submitted`가 접두사 없이 남아 있는 것은
+ * 그쪽이 이미 발행돼 학생 화면이 쓰는 계약이기 때문이다 — 이 수합 표 계약은 아직 발행 전이라
+ * 지금 규칙에 맞춘다(뒤에 깨는 변경을 만들지 않으려는 의도적인 비대칭이다).
+ */
 export interface MilestoneDocumentCollectionCellResponseDto {
   readonly documentId: string;
-  readonly submitted: boolean;
+  readonly isSubmitted: boolean;
   readonly submittedAt: string | null;
   readonly file: MilestoneDocumentCollectionFileResponseDto | null;
 }
@@ -88,6 +101,7 @@ export class MilestoneDocumentCollectionResponseDto {
   ) {
     this.milestone = {
       id: milestone.id,
+      programId: milestone.programId,
       name: milestone.name,
       dueAt: milestone.dueAt.toISOString(),
     };
@@ -128,7 +142,7 @@ export class MilestoneDocumentCollectionResponseDto {
 
     this.documentTotals = documents.map((document, index) => ({
       documentId: document.id,
-      submitted: allRows.filter((row) => row.cells[index]?.submitted === true)
+      submitted: allRows.filter((row) => row.cells[index]?.isSubmitted === true)
         .length,
       total: allRows.length,
     }));
@@ -183,7 +197,7 @@ function hasMissingRequired(
 ): boolean {
   return documents.some(
     (document, index) =>
-      document.required && row.cells[index]?.submitted !== true,
+      document.required && row.cells[index]?.isSubmitted !== true,
   );
 }
 
@@ -195,7 +209,7 @@ function hasZeroSubmission(
   row: MilestoneDocumentCollectionRowResponseDto,
   documents: readonly MilestoneDocumentRecord[],
 ): boolean {
-  return documents.length > 0 && row.cells.every((cell) => !cell.submitted);
+  return documents.length > 0 && row.cells.every((cell) => !cell.isSubmitted);
 }
 
 function matchesFilter(
@@ -220,7 +234,7 @@ function toCell(
   if (submission === null) {
     return {
       documentId: document.id,
-      submitted: false,
+      isSubmitted: false,
       submittedAt: null,
       file: null,
     };
@@ -236,7 +250,7 @@ function toCell(
       : null;
   return {
     documentId: document.id,
-    submitted: true,
+    isSubmitted: true,
     submittedAt: submission.submittedAt.toISOString(),
     file,
   };

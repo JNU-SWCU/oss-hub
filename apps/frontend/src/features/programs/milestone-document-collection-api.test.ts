@@ -42,6 +42,7 @@ describe('getMilestoneDocumentCollection', () => {
     const body = {
       milestone: {
         id: 'milestone-1',
+        programId: 'program-capstone',
         name: '기획서 제출',
         dueAt: '2026-07-15',
       },

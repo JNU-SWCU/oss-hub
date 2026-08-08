@@ -50,6 +50,8 @@ function collection(
   return {
     milestone: {
       id: 'milestone-1',
+      // `render`가 넘기는 경로 programId와 같은 값 — 화면이 둘을 대조한다.
+      programId: 'program-capstone',
       name: '기획서 제출',
       dueAt: '2026-07-15T14:59:59.000Z',
     },
@@ -99,7 +101,7 @@ describe('MilestoneDocumentCollectionView 머리말', () => {
           row('a', [
             {
               documentId: 'd1',
-              submitted: false,
+              isSubmitted: false,
               submittedAt: null,
               file: null,
             },
@@ -129,6 +131,81 @@ describe('MilestoneDocumentCollectionView 빈 상태', () => {
     expect(html).not.toContain('등록된 서류 항목이 없습니다');
   });
 
+  /**
+   * 조회는 `milestoneId`만 보내므로 프로그램 A의 경로에 B의 마일스톤 id를 끼우면
+   * 서버는 B의 표를 순순히 돌려준다. 대조하지 않으면 그 표가 A의 껍데기(좌측 패널·
+   * 「프로그램 편집」 링크) 아래에 앉아, 교직원이 B의 팀 목록을 A의 것으로 읽는다.
+   */
+  it('다른 프로그램의 마일스톤이면 표 대신 찾을 수 없다고 알린다', () => {
+    const html = render({
+      programId: 'program-capstone',
+      data: collection(
+        [document('d1', { name: '기획서' })],
+        [
+          row(
+            'a',
+            [
+              {
+                documentId: 'd1',
+                isSubmitted: true,
+                submittedAt: '2026-07-14T00:00:00.000Z',
+                file: null,
+              },
+            ],
+            { teamName: '남의프로그램팀' },
+          ),
+        ],
+        {
+          milestone: {
+            id: 'milestone-9',
+            programId: 'program-basic-study',
+            name: '남의 마일스톤',
+            dueAt: '2026-07-15T14:59:59.000Z',
+          },
+          total: 47,
+          filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
+        },
+      ),
+    });
+
+    expect(html).toContain('찾을 수 없는 마일스톤입니다');
+    // 표도 합계도 필터 칩도 없다 — 남는 것이 있으면 그것마저 A의 것으로 읽힌다.
+    expect(html).not.toContain('남의프로그램팀');
+    expect(html).not.toContain('합계');
+    expect(html).not.toContain('전체 47팀');
+    // 머리말도 B의 마일스톤 이름을 달지 않는다.
+    expect(html).not.toContain('남의 마일스톤');
+    expect(html).toContain('href="/programs/program-capstone"');
+  });
+
+  // 같은 프로그램의 마일스톤이면 아무 일도 없어야 한다 — 대조가 과하게 걸려 멀쩡한
+  // 표까지 막으면 화면이 통째로 쓸모없어진다.
+  it('경로와 같은 프로그램의 마일스톤은 그대로 그린다', () => {
+    const html = render({
+      programId: 'program-capstone',
+      data: collection(
+        [document('d1', { name: '기획서' })],
+        [
+          row(
+            'a',
+            [
+              {
+                documentId: 'd1',
+                isSubmitted: false,
+                submittedAt: null,
+                file: null,
+              },
+            ],
+            { teamName: '우리팀' },
+          ),
+        ],
+      ),
+    });
+
+    expect(html).toContain('우리팀');
+    expect(html).not.toContain('찾을 수 없는 마일스톤입니다');
+  });
+
   it('불러오기에 실패하면 오류 문구와 다시 시도를 함께 낸다', () => {
     const html = render({
       data: null,
@@ -155,7 +232,7 @@ describe('MilestoneDocumentCollectionView 표', () => {
       [
         {
           documentId: 'd1',
-          submitted: true,
+          isSubmitted: true,
           submittedAt: '2026-07-14T00:00:00.000Z',
           file: {
             name: '아주-긴-파일-이름-확인용-기획서-최종본-v3.pdf',
@@ -164,7 +241,7 @@ describe('MilestoneDocumentCollectionView 표', () => {
         },
         {
           documentId: 'd2',
-          submitted: true,
+          isSubmitted: true,
           submittedAt: '2026-07-14T01:00:00.000Z',
           file: null,
         },
@@ -174,8 +251,8 @@ describe('MilestoneDocumentCollectionView 표', () => {
     row(
       'b',
       [
-        { documentId: 'd1', submitted: false, submittedAt: null, file: null },
-        { documentId: 'd2', submitted: false, submittedAt: null, file: null },
+        { documentId: 'd1', isSubmitted: false, submittedAt: null, file: null },
+        { documentId: 'd2', isSubmitted: false, submittedAt: null, file: null },
       ],
       { teamName: '나팀', applicantName: null, memberNicknames: ['nameless'] },
     ),
@@ -185,11 +262,11 @@ describe('MilestoneDocumentCollectionView 표', () => {
       [
         {
           documentId: 'd1',
-          submitted: true,
+          isSubmitted: true,
           submittedAt: '2026-07-14T02:00:00.000Z',
           file: null,
         },
-        { documentId: 'd2', submitted: false, submittedAt: null, file: null },
+        { documentId: 'd2', isSubmitted: false, submittedAt: null, file: null },
       ],
       { teamName: '다팀' },
     ),
@@ -355,7 +432,7 @@ describe('MilestoneDocumentCollectionView 페이지 이동', () => {
   const documents = [document('d1')];
   const rows = [
     row('a', [
-      { documentId: 'd1', submitted: false, submittedAt: null, file: null },
+      { documentId: 'd1', isSubmitted: false, submittedAt: null, file: null },
     ]),
   ];
 

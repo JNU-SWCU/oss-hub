@@ -141,7 +141,7 @@ describe('GET .../documents/collection', () => {
 
     expect(zero.total).toBe(zero.rows.length);
     expect(
-      zero.rows.every((row) => row.cells.every((cell) => !cell.submitted)),
+      zero.rows.every((row) => row.cells.every((cell) => !cell.isSubmitted)),
     ).toBe(true);
   });
 
@@ -168,6 +168,15 @@ describe('GET .../documents/collection', () => {
     expect(filtered.filterCounts).toEqual(all.filterCounts);
     expect(filtered.documentTotals).toEqual(all.documentTotals);
     expect(all.documentTotals.every((total) => total.total === 3)).toBe(true);
+  });
+
+  /**
+   * 화면은 이 값을 경로의 programId와 대조해 어긋난 주소를 잡는다. 픽스처가 소유
+   * 프로그램을 지어내거나 경로에서 되받아 오면 그 대조가 로컬 검토에서 언제나 통과해
+   * 아무것도 검증하지 못한다 — 여기 마일스톤은 기초 스터디 프로그램의 것이다.
+   */
+  it('마일스톤을 소유한 프로그램 id를 함께 싣는다', () => {
+    expect(collection('').milestone.programId).toBe('program-basic-study');
   });
 
   it('쿼리가 없으면 기본값(1·20·ALL)으로 답한다', () => {

@@ -14,7 +14,7 @@ import {
   type MilestoneDocumentCollectionRow,
 } from '@/features/programs/milestone-document-collection-api';
 import type { SubmissionType } from '@/features/programs/types';
-import { findStaffMilestone } from './staff-program-fixtures';
+import { findStaffMilestoneContext } from './staff-program-fixtures';
 import {
   PUBLIC_PROGRAM_IDS,
   programDetailFor,
@@ -288,21 +288,27 @@ const COLLECTION_SUBMITTED_AT_BASE = Date.parse(
  * 마일스톤. 뒤쪽만 빠뜨리면 편집 화면에서 방금 서류를 등록한 마일스톤의 수합 표가
  * 조회 실패로만 보인다.
  */
-function collectionMilestoneContext(
-  milestoneId: string,
-): { readonly name: string; readonly dueAt: string } | null {
+function collectionMilestoneContext(milestoneId: string): {
+  readonly programId: string;
+  readonly name: string;
+  readonly dueAt: string;
+} | null {
   for (const programId of PUBLIC_PROGRAM_IDS) {
     const found = programDetailFor(programId, 'STAFF').milestones.find(
       (milestone) => milestone.id === milestoneId,
     );
     if (found !== undefined) {
-      return { name: found.name, dueAt: found.dueAt };
+      return { programId, name: found.name, dueAt: found.dueAt };
     }
   }
-  const staffMilestone = findStaffMilestone(milestoneId);
+  const staffMilestone = findStaffMilestoneContext(milestoneId);
   return staffMilestone === null
     ? null
-    : { name: staffMilestone.name, dueAt: staffMilestone.dueAt };
+    : {
+        programId: staffMilestone.programId,
+        name: staffMilestone.milestone.name,
+        dueAt: staffMilestone.milestone.dueAt,
+      };
 }
 
 function collectionRowFor(
@@ -335,11 +341,11 @@ function collectionRowFor(
     applicantName: profileless || nameless ? null : `합성 참여자 ${teamNumber}`,
     memberNicknames,
     cells: seeds.map((seed) => {
-      const submitted = index < seed.teamSubmissionCount.submitted;
-      if (!submitted) {
+      const isSubmitted = index < seed.teamSubmissionCount.submitted;
+      if (!isSubmitted) {
         return {
           documentId: seed.id,
-          submitted: false,
+          isSubmitted: false,
           submittedAt: null,
           file: null,
         };
@@ -349,7 +355,7 @@ function collectionRowFor(
       const expired = index === 0;
       return {
         documentId: seed.id,
-        submitted: true,
+        isSubmitted: true,
         submittedAt,
         file:
           seed.submissionType === 'FILE' && !expired
@@ -384,10 +390,12 @@ function collectionRowMatchesFilter(
     case 'HAS_MISSING':
       return documents.some(
         (document, index) =>
-          document.required && row.cells[index]?.submitted !== true,
+          document.required && row.cells[index]?.isSubmitted !== true,
       );
     case 'ZERO_SUBMISSION':
-      return documents.length > 0 && row.cells.every((cell) => !cell.submitted);
+      return (
+        documents.length > 0 && row.cells.every((cell) => !cell.isSubmitted)
+      );
     case 'ALL':
       return true;
   }
@@ -441,6 +449,9 @@ export function milestoneDocumentCollectionFor(
   return {
     milestone: {
       id: milestoneId,
+      // 소유 프로그램을 그대로 싣는다 — 화면이 경로의 programId와 대조하므로 여기서
+      // 지어내면 로컬 검토에서 어긋난 주소가 걸리지 않는다.
+      programId: context.programId,
       name: context.name,
       dueAt: new Date(context.dueAt).toISOString(),
     },
@@ -460,7 +471,7 @@ export function milestoneDocumentCollectionFor(
     },
     documentTotals: documents.map((document, index) => ({
       documentId: document.id,
-      submitted: allRows.filter((row) => row.cells[index]?.submitted === true)
+      submitted: allRows.filter((row) => row.cells[index]?.isSubmitted === true)
         .length,
       total: allRows.length,
     })),

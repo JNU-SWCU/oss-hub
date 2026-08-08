@@ -47,7 +47,7 @@ function row(
     applicantName: '김철수',
     memberNicknames: ['chulsoo'],
     cells: [
-      { documentId: 'd1', submitted: false, submittedAt: null, file: null },
+      { documentId: 'd1', isSubmitted: false, submittedAt: null, file: null },
     ],
   };
 }
@@ -59,6 +59,7 @@ function collection(
   return {
     milestone: {
       id: 'milestone-1',
+      programId: 'program-capstone',
       name: '기획서 제출',
       dueAt: '2026-07-15T14:59:59.000Z',
     },
