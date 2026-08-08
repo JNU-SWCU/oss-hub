@@ -29,9 +29,9 @@ describe('program-route href helpers', () => {
     );
   });
 
-  it('legacy submission href는 유지한다', () => {
+  it('학생 제출 href는 선택 마일스톤을 유지해 My Docs로 보낸다', () => {
     expect(studentProgramSubmissionHref('program:basic', 'final/report')).toBe(
-      '/programs/program%3Abasic?submission=final%2Freport',
+      '/programs/program%3Abasic/mydocs?milestoneId=final%2Freport',
     );
   });
 

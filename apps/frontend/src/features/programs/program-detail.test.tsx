@@ -74,7 +74,9 @@ describe('MilestoneRow', () => {
       />,
     );
     expect(html).toContain('다시 제출');
-    expect(html).toContain('/programs/program-1?submission=milestone-1');
+    expect(html).toContain(
+      '/programs/program-1/mydocs?milestoneId=milestone-1',
+    );
     expect(html).not.toContain('/milestones/milestone-1/submit');
   });
   it('교직원에게 제출 요약은 표시하되 미구현 #124 경로는 노출하지 않는다', () => {

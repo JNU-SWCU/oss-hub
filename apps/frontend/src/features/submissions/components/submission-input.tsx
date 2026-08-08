@@ -1,4 +1,5 @@
-import { Check, FileText, Upload } from 'lucide-react';
+import { FileText, Upload } from 'lucide-react';
+import { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Field,
@@ -31,15 +32,12 @@ export interface SubmissionInputProps {
 
 interface FileSelectionControl {
   readonly files: { item(index: number): File | null } | null;
-  value: string;
 }
 
-export function consumeSelectedFile(
+export function selectedFileFromControl(
   control: FileSelectionControl,
 ): File | null {
-  const selectedFile = control.files?.item(0) ?? null;
-  control.value = '';
-  return selectedFile;
+  return control.files?.item(0) ?? null;
 }
 
 /**
@@ -58,6 +56,8 @@ export function SubmissionInput({
   onReleaseUrlChange,
   onFileChange,
 }: SubmissionInputProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   switch (submissionType) {
     case 'TEXT':
       return (
@@ -125,6 +125,7 @@ export function SubmissionInput({
               <FieldLabel htmlFor="submission-file">1. 파일 선택 *</FieldLabel>
               <Input
                 id="submission-file"
+                ref={fileInputRef}
                 type="file"
                 disabled={disabled}
                 aria-required="true"
@@ -132,7 +133,7 @@ export function SubmissionInput({
                 aria-describedby="submission-file-description submission-file-error"
                 accept={SUBMISSION_FILE_ACCEPT}
                 onChange={(event) =>
-                  onFileChange(consumeSelectedFile(event.currentTarget))
+                  onFileChange(selectedFileFromControl(event.currentTarget))
                 }
               />
               <span className="inline-flex items-center gap-2 text-sm font-medium">
@@ -172,7 +173,10 @@ export function SubmissionInput({
                     size="sm"
                     variant="outline"
                     disabled={disabled}
-                    onClick={() => onFileChange(null)}
+                    onClick={() => {
+                      if (fileInputRef.current) fileInputRef.current.value = '';
+                      onFileChange(null);
+                    }}
                   >
                     선택 취소
                   </Button>
@@ -190,7 +194,7 @@ export function SubmissionInput({
               className="grid size-8 place-items-center rounded-full border border-primary/30 bg-background text-sm font-semibold text-primary"
               aria-hidden="true"
             >
-              <Check className="size-4" />
+              3
             </span>
             <div className="grid min-w-0 gap-1">
               <p className="text-sm font-medium">3. 제출</p>

@@ -48,8 +48,8 @@ describe('교직원 재요청 실패 안내', () => {
 
   let container: HTMLDivElement;
   let root: Root;
-  /** GET /role-requests/me 호출 횟수 — 새로고침이 실제로 막혔는지 동작으로 본다. */
-  let statusReads: number;
+  /** 화면 일부가 아니라 공통 세션·역할 스냅샷을 다시 읽는 동작. */
+  let refreshShared: ReturnType<typeof vi.fn>;
   /** POST /role-requests 응답을 시험마다 바꿔 실패 경로를 갈아 끼운다. */
   let retryResponder: () => Response | Promise<Response>;
 
@@ -74,7 +74,7 @@ describe('교직원 재요청 실패 안내', () => {
   beforeEach(() => {
     mocks.replace.mockReset();
     mocks.refresh.mockReset();
-    statusReads = 0;
+    refreshShared = vi.fn();
     retryResponder = () =>
       problemResponse(500, 'API_000', '예기치 못한 서버 오류가 발생했습니다.');
     vi.stubGlobal(
@@ -82,13 +82,6 @@ describe('교직원 재요청 실패 안내', () => {
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
         const method = init?.method ?? 'GET';
-        if (method === 'GET' && url.endsWith('/role-requests/me')) {
-          statusReads += 1;
-          return new Response(JSON.stringify(REJECTED_REQUEST), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          });
-        }
         if (method === 'POST' && url.endsWith('/role-requests')) {
           return retryResponder();
         }
@@ -107,7 +100,15 @@ describe('교직원 재요청 실패 안내', () => {
   });
 
   async function renderRejectedScreen(): Promise<void> {
-    await act(async () => root.render(<RoleRequestScreen />));
+    await act(async () =>
+      root.render(
+        <RoleRequestScreen
+          roleRequestStatus="REJECTED"
+          roleRequestRejectionReason="합성 반려 사유"
+          onRefresh={refreshShared}
+        />,
+      ),
+    );
     expect(container.querySelector('[data-status="REJECTED"]')).not.toBeNull();
   }
 
@@ -213,6 +214,7 @@ describe('교직원 재요청 실패 안내', () => {
     );
     // 화면 자체는 살아 있어야 한다 — 경고만 사라지고 상태는 다시 그려진다.
     expect(container.querySelector('[data-status="REJECTED"]')).not.toBeNull();
+    expect(refreshShared).toHaveBeenCalledOnce();
   });
 
   /**
@@ -248,7 +250,7 @@ describe('교직원 재요청 실패 안내', () => {
     }
 
     expect(refresh().disabled).toBe(false);
-    const readsBeforeRetry = statusReads;
+    const refreshesBeforeRetry = refreshShared.mock.calls.length;
 
     // 응답을 게이트로 붙잡아 둔 채 재요청을 띄운다. act 안에서 클릭까지만 흘려보내고
     // 응답은 기다리지 않는다 — 요청이 떠 있는 동안의 화면을 봐야 하기 때문이다.
@@ -264,7 +266,7 @@ describe('교직원 재요청 실패 안내', () => {
       refresh().click();
       await Promise.resolve();
     });
-    expect(statusReads).toBe(readsBeforeRetry);
+    expect(refreshShared).toHaveBeenCalledTimes(refreshesBeforeRetry);
 
     // 응답을 풀면 잠금이 해제되고, 그때는 눌러서 실제로 다시 읽힌다.
     releaseRetry?.();
@@ -278,6 +280,24 @@ describe('교직원 재요청 실패 안내', () => {
       refresh().click();
       await Promise.resolve();
     });
-    expect(statusReads).toBeGreaterThan(readsBeforeRetry);
+    expect(refreshShared).toHaveBeenCalledTimes(refreshesBeforeRetry + 1);
+  });
+
+  it('재요청 성공도 로컬 값만 바꾸지 않고 공통 스냅샷을 갱신한다', async () => {
+    retryResponder = () =>
+      new Response(
+        JSON.stringify({
+          ...REJECTED_REQUEST,
+          status: 'PENDING',
+          decidedAt: null,
+          rejectionReason: null,
+        }),
+        { status: 201, headers: { 'Content-Type': 'application/json' } },
+      );
+    await renderRejectedScreen();
+
+    await clickRetry();
+
+    expect(refreshShared).toHaveBeenCalledOnce();
   });
 });

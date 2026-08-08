@@ -70,7 +70,7 @@ function checklistProps(): SubmissionChecklistPageProps {
   return captured.checklistProps;
 }
 
-describe('ProgramDetailScreen submission dialog history', () => {
+describe('ProgramDetailScreen submission navigation', () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -90,50 +90,24 @@ describe('ProgramDetailScreen submission dialog history', () => {
     container.remove();
   });
 
-  it('closes a direct deep-linked submission by replacing the query', async () => {
+  it('redirects a legacy submission deep link to the canonical mydocs screen', async () => {
     setSearchParams('submission=milestone-1&tab=overview');
     await renderScreen(root);
 
-    checklistProps().onCloseSelected?.();
-
     expect(navigation.router.replace).toHaveBeenCalledWith(
-      '/programs/program%3Abasic?tab=overview',
-      { scroll: false },
+      '/programs/program%3Abasic/mydocs?milestoneId=milestone-1',
     );
-    expect(navigation.router.back).not.toHaveBeenCalled();
+    expect(checklistProps().milestoneId).toBeNull();
   });
 
-  it('closes an in-page opened submission with browser back', async () => {
+  it('opens a checklist item on the canonical mydocs screen', async () => {
     await renderScreen(root);
     checklistProps().onSelectMilestone?.('milestone-1');
-    setSearchParams('submission=milestone-1');
-    await renderScreen(root);
-
-    checklistProps().onCloseSelected?.();
 
     expect(navigation.router.push).toHaveBeenCalledWith(
-      '/programs/program%3Abasic?submission=milestone-1',
+      '/programs/program%3Abasic/mydocs?milestoneId=milestone-1',
       { scroll: false },
     );
-    expect(navigation.router.back).toHaveBeenCalledTimes(1);
-    expect(navigation.router.replace).not.toHaveBeenCalled();
-  });
-
-  it('preserves in-page provenance after browser back and forward restore the submission query', async () => {
-    await renderScreen(root);
-    checklistProps().onSelectMilestone?.('milestone-1');
-    setSearchParams('submission=milestone-1');
-    await renderScreen(root);
-    setSearchParams('');
-    await renderScreen(root);
-    expect(checklistProps().milestoneId).toBeNull();
-    setSearchParams('submission=milestone-1');
-    await renderScreen(root);
-    expect(checklistProps().milestoneId).toBe('milestone-1');
-
-    checklistProps().onCloseSelected?.();
-
-    expect(navigation.router.back).toHaveBeenCalledTimes(1);
     expect(navigation.router.replace).not.toHaveBeenCalled();
   });
 });

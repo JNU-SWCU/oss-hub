@@ -1,0 +1,28 @@
+import { describe, expect, it } from 'vitest';
+import type { MilestoneDocument } from './milestone-document-api';
+import { requireMilestoneDocumentList } from './milestone-document-list-response';
+
+const document: MilestoneDocument = {
+  id: 'document-1',
+  milestoneId: 'milestone-1',
+  name: '기획서',
+  required: true,
+  sortOrder: 0,
+  submissionType: 'FILE',
+  hasTemplateFile: false,
+};
+
+describe('requireMilestoneDocumentList', () => {
+  it('서류 배열은 그대로 반환한다', () => {
+    expect(requireMilestoneDocumentList([document])).toEqual([document]);
+  });
+
+  it.each([null, {}, 'documents'])(
+    '성공 응답의 비배열 본문 %p를 복구 가능한 오류로 거절한다',
+    (value) => {
+      expect(() => requireMilestoneDocumentList(value)).toThrow(
+        'Invalid milestone document list response',
+      );
+    },
+  );
+});

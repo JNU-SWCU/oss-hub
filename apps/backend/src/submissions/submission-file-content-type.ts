@@ -1,6 +1,12 @@
 const ALLOWED_FILE_TYPES: Readonly<Record<string, readonly string[]>> = {
   '.pdf': ['application/pdf'],
-  '.hwp': ['application/x-hwp'],
+  '.hwp': [
+    'application/x-hwp',
+    'application/haansofthwp',
+    'application/vnd.hancom.hwp',
+    'application/x-hwp-v5',
+    'application/octet-stream',
+  ],
   '.jpg': ['image/jpeg'],
   '.jpeg': ['image/jpeg'],
   '.png': ['image/png'],

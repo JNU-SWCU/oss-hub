@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   CircleCheck,
   Clock3,
@@ -17,8 +17,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
 
-import { fetchMyRoleRequest, requestStaffRole } from '../api';
-import type { RoleRequest } from '../types';
+import { requestStaffRole } from '../api';
+import type { RoleRequest, RoleRequestStatus } from '../types';
 
 /**
  * 재요청 제출이 실패했는데 **원인을 알 수 없을** 때의 안내.
@@ -85,8 +85,10 @@ export function roleRequestRetryFailureMessage(error: unknown): string {
  */
 export const PENDING_PROFILE_EDIT_PATH = '/settings';
 
+type RoleRequestView = Pick<RoleRequest, 'status' | 'rejectionReason'>;
+
 interface RoleRequestStatusViewProps {
-  readonly request: RoleRequest;
+  readonly request: RoleRequestView;
   readonly isRetrying: boolean;
   readonly errorMessage: string | null;
   readonly onRefresh: () => void;
@@ -100,7 +102,7 @@ interface StatusPresentation {
   readonly badge: ReactNode;
 }
 
-function statusPresentation(request: RoleRequest): StatusPresentation {
+function statusPresentation(request: RoleRequestView): StatusPresentation {
   switch (request.status) {
     case 'PENDING':
       return {
@@ -238,59 +240,64 @@ export function RoleRequestStatusView({
 
 type RequestViewState =
   | { readonly kind: 'loading' }
-  | { readonly kind: 'ready'; readonly request: RoleRequest }
-  | { readonly kind: 'error'; readonly message: string };
+  | { readonly kind: 'ready'; readonly request: RoleRequestView };
 
 function unreachable(value: never): never {
   throw new TypeError(`처리하지 않은 역할 요청 화면 상태: ${String(value)}`);
 }
 
-export function RoleRequestScreen() {
+export function RoleRequestScreen({
+  roleRequestStatus,
+  roleRequestRejectionReason,
+  onRefresh,
+}: {
+  readonly roleRequestStatus: RoleRequestStatus | null;
+  readonly roleRequestRejectionReason: string | null;
+  /** 공통 셸의 세션·역할 요청 스냅샷을 함께 다시 읽는다. */
+  readonly onRefresh: () => void;
+}) {
   const router = useRouter();
-  const [state, setState] = useState<RequestViewState>({ kind: 'loading' });
+  const [state, setState] = useState<RequestViewState>(() => {
+    if (roleRequestStatus === 'PENDING' || roleRequestStatus === 'REJECTED') {
+      return {
+        kind: 'ready',
+        request: {
+          status: roleRequestStatus,
+          rejectionReason: roleRequestRejectionReason,
+        },
+      };
+    }
+    return { kind: 'loading' };
+  });
   const [isRetrying, setIsRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
 
-  const loadRequest = useCallback(async (): Promise<void> => {
-    setState({ kind: 'loading' });
-    // 재요청 실패 안내는 그때의 서버 상태를 말한다. 상태를 다시 불러오면 그 말은
-    // 더 이상 지금을 설명하지 않으므로 함께 지운다. 특히 그 안내가 '상태 새로고침'을
-    // 눌러 확인하라고 직접 가리키므로, 눌러도 같은 경고가 남아 있으면 사용자는
-    // 안내를 따랐는데 아무 일도 일어나지 않은 것으로 읽는다.
-    setRetryError(null);
-
-    try {
-      const request = await fetchMyRoleRequest();
-      if (request === null) {
-        router.replace('/onboarding/role');
+  useEffect(() => {
+    switch (roleRequestStatus) {
+      case 'PENDING':
+      case 'REJECTED':
+        setState({
+          kind: 'ready',
+          request: {
+            status: roleRequestStatus,
+            rejectionReason: roleRequestRejectionReason,
+          },
+        });
         return;
-      }
-      if (request.status === 'APPROVED') {
-        // 회원 공통 입구. STAFF 본문은 세션 역할로 /dashboard에서 고른다.
+      case 'APPROVED':
         router.replace('/dashboard');
         router.refresh();
         return;
-      }
-      if (request.status === 'REVOKED') {
+      case 'REVOKED':
+      case null:
         router.replace('/onboarding/role');
         return;
-      }
-      setState({ kind: 'ready', request });
-    } catch (error) {
-      if (error instanceof ApiError) {
-        setState({ kind: 'error', message: error.message });
-      } else {
-        setState({
-          kind: 'error',
-          message: '승인 상태를 불러오지 못했습니다.',
-        });
+      default: {
+        const exhaustive: never = roleRequestStatus;
+        unreachable(exhaustive);
       }
     }
-  }, [router]);
-
-  useEffect(() => {
-    void loadRequest();
-  }, [loadRequest]);
+  }, [roleRequestRejectionReason, roleRequestStatus, router]);
 
   async function handleRetry(): Promise<void> {
     if (isRetrying) {
@@ -301,8 +308,10 @@ export function RoleRequestScreen() {
     setRetryError(null);
 
     try {
-      const request = await requestStaffRole();
-      setState({ kind: 'ready', request });
+      await requestStaffRole();
+      // POST 응답만 로컬 화면에 얹으면 게이트·설정·헤더는 이전 상태를 계속 본다.
+      // 공통 owner를 갱신해 한 번의 새 스냅샷으로 모두 함께 전환한다.
+      onRefresh();
     } catch (error) {
       setRetryError(roleRequestRetryFailureMessage(error));
     } finally {
@@ -325,21 +334,13 @@ export function RoleRequestScreen() {
           request={state.request}
           isRetrying={isRetrying}
           errorMessage={retryError}
-          onRefresh={() => void loadRequest()}
+          onRefresh={() => {
+            // 재요청 실패 안내는 그때의 서버 상태를 말한다. 공통 스냅샷을 다시
+            // 읽기 시작하면 더 이상 지금을 설명하지 않으므로 함께 지운다.
+            setRetryError(null);
+            onRefresh();
+          }}
           onRetry={() => void handleRetry()}
-        />
-      );
-    case 'error':
-      return (
-        <StatusMessagePage
-          icon={<TriangleAlert className="size-8" />}
-          title="승인 상태를 불러오지 못했습니다"
-          description={state.message}
-          action={
-            <Button type="button" onClick={() => void loadRequest()}>
-              다시 시도
-            </Button>
-          }
         />
       );
     default:

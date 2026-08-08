@@ -2,7 +2,7 @@ export function studentProgramSubmissionHref(
   programId: string,
   milestoneId: string,
 ): string {
-  return `/programs/${encodeURIComponent(programId)}?submission=${encodeURIComponent(milestoneId)}`;
+  return programMyDocsHref(programId, milestoneId);
 }
 
 export function programStatusHref(

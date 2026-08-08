@@ -57,14 +57,14 @@ describe('milestone timeline parser', () => {
     expect(
       timeline.items.find((item) => item.milestoneId === 'text'),
     ).toMatchObject({
-      submitHref: '/programs/program-1?submission=text',
+      submitHref: '/programs/program-1/mydocs?milestoneId=text',
       submitLabel: '다시 제출',
       submitDisabledLabel: null,
     });
     expect(
       timeline.items.find((item) => item.milestoneId === 'text-missing'),
     ).toMatchObject({
-      submitHref: '/programs/program-1?submission=text-missing',
+      submitHref: '/programs/program-1/mydocs?milestoneId=text-missing',
       submitLabel: '제출하기',
       submitDisabledLabel: null,
     });
