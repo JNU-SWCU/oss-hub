@@ -16,6 +16,7 @@ import {
   MilestoneDocumentPendingFileMissingError,
   type MilestoneDocumentRecord,
   MilestoneDocumentsRepository,
+  MilestoneDocumentSubmissionTypeChangedError,
   type UpsertMilestoneDocumentInput,
   type UpsertMilestoneDocumentSubmissionInput,
 } from './milestone-documents.repository';
@@ -164,24 +165,35 @@ export class MilestoneDocumentsService {
    * 사라지기 때문이다(칸의 file은 submissionType === FILE일 때만 붙는다). 데이터가 지워지는 건
    * 아니라 되돌리면 다시 보이지만, 교직원이 그 사이 「안 냈네」로 읽는 것이 실제 피해다.
    * 이름·필수여부·순서 변경은 해롭지 않으므로 제출이 있어도 계속 허용한다.
+   *
+   * 「잠근다 → 센다 → 판단한다 → 갱신한다」가 **한 트랜잭션**이어야 한다(ADR-003 — 트랜잭션
+   * 경계는 service가 소유한다). 세기와 갱신이 갈라져 있으면 그 사이에 들어온 제출이 카운트에
+   * 잡히지 않고, 가드를 통과한 갱신이 커밋되어 「TEXT인데 FILE 제출이 들어 있는」 상태 — 이
+   * 가드가 막으려던 바로 그 상태 — 가 남는다. 잠금의 상대편은 `upsertSubmission`의 `FOR SHARE`다.
    */
   async updateDocument(
     milestoneId: string,
     documentId: string,
     input: UpsertMilestoneDocumentInput,
   ): Promise<MilestoneDocumentResponseDto> {
-    const context = await this.requireDocumentInMilestone(
-      milestoneId,
-      documentId,
-    );
-    if (context.submissionType !== input.submissionType) {
-      const submissionCount =
-        await this.repository.countSubmissionsForDocument(documentId);
-      if (submissionCount > 0) {
-        throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_HAS_SUBMISSIONS);
+    const record = await this.repository.withTransaction(async (store) => {
+      // 마일스톤 소속 확인도 잠금 뒤의 값으로 한다 — 트랜잭션 밖에서 미리 읽어 두면 그 값이
+      // 판단 시점에 이미 낡아 있을 수 있다.
+      const locked = await store.lockDocument(documentId);
+      if (locked === null || locked.milestoneId !== milestoneId) {
+        throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
       }
-    }
-    const record = await this.repository.updateDocument(documentId, input);
+      if (locked.submissionType !== input.submissionType) {
+        const submissionCount =
+          await store.countSubmissionsForDocument(documentId);
+        if (submissionCount > 0) {
+          throw this.error(
+            MilestoneDocumentsErrorCode.DOCUMENT_HAS_SUBMISSIONS,
+          );
+        }
+      }
+      return store.updateDocument(documentId, input);
+    });
     return MilestoneDocumentResponseDto.from(record);
   }
 
@@ -307,11 +319,17 @@ export class MilestoneDocumentsService {
         submittedAt: now,
         content: submissionContent,
         attachFile,
+        // 위의 CONTENT_TYPE_MISMATCH 검증은 트랜잭션 밖의 읽기라서, 그 사이 교직원이 제출 방식을
+        // 바꿔 버릴 수 있다. 기대값을 함께 넘겨 트랜잭션 안에서 잠금과 함께 다시 확인한다.
+        expectedSubmissionType: content.type,
       });
       return MilestoneDocumentSubmissionResponseDto.from(detail);
     } catch (error) {
       if (error instanceof MilestoneDocumentPendingFileMissingError) {
         throw this.error(MilestoneDocumentsErrorCode.PENDING_FILE_NOT_FOUND);
+      }
+      if (error instanceof MilestoneDocumentSubmissionTypeChangedError) {
+        throw this.error(MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH);
       }
       throw error;
     }

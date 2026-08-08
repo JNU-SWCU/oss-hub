@@ -9,6 +9,7 @@ import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.en
 import {
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentsRepository,
+  MilestoneDocumentSubmissionTypeChangedError,
 } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 
@@ -64,6 +65,11 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
     }),
     createDocument: jest.fn(),
     updateDocument: jest.fn(),
+    lockDocument: jest.fn().mockResolvedValue({
+      id: syntheticDocumentId,
+      milestoneId: syntheticMilestoneId,
+      submissionType: MilestoneSubmissionType.FILE,
+    }),
     reorderDocuments: jest.fn(),
     deleteDocument: jest.fn(),
     countSubmissionsForDocument: jest.fn().mockResolvedValue(0),
@@ -72,9 +78,44 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
     findSubmissionsForCollection: jest.fn().mockResolvedValue([]),
     ...overrides,
   };
+
+  /**
+   * store를 거쳐 나간 문장만 순서대로 쌓는다. 같은 jest 목을 리포지토리 직접 호출 경로와
+   * 공유하므로, 「트랜잭션 밖에서 세고 안에서 갱신」 같은 변형은 호출 횟수가 아니라 이 순서
+   * 기록이 비어 있는 것으로 드러난다.
+   */
+  const transactionCalls: string[] = [];
+  const withTransaction = jest.fn(
+    (operation: (store: unknown) => Promise<unknown>) =>
+      operation({
+        lockDocument: (documentId: string): Promise<unknown> => {
+          transactionCalls.push('lockDocument');
+          return mocks.lockDocument(documentId) as Promise<unknown>;
+        },
+        countSubmissionsForDocument: (documentId: string): Promise<number> => {
+          transactionCalls.push('countSubmissionsForDocument');
+          return mocks.countSubmissionsForDocument(
+            documentId,
+          ) as Promise<number>;
+        },
+        updateDocument: (
+          documentId: string,
+          input: unknown,
+        ): Promise<unknown> => {
+          transactionCalls.push('updateDocument');
+          return mocks.updateDocument(documentId, input) as Promise<unknown>;
+        },
+      }),
+  );
+
   return {
     mocks,
-    repository: mocks as unknown as MilestoneDocumentsRepository,
+    transactionCalls,
+    withTransaction,
+    repository: {
+      ...mocks,
+      withTransaction,
+    } as unknown as MilestoneDocumentsRepository,
   };
 }
 
@@ -262,16 +303,34 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
   });
 
   it('updateDocument는 서류가 그 마일스톤 소속이 아니면 DOCUMENT_NOT_FOUND를 던진다', async () => {
-    // Given: 서류의 milestoneId가 요청 경로의 milestoneId와 다르다.
+    // Given: 잠그고 다시 읽은 행의 milestoneId가 요청 경로의 milestoneId와 다르다.
     const { mocks, repository } = buildRepository({
-      findDocumentContext: jest.fn().mockResolvedValue({
+      lockDocument: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: 'cuid-other-milestone',
-        programId: syntheticProgramId,
-        dueAt: new Date(),
-        required: true,
         submissionType: MilestoneSubmissionType.FILE,
       }),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When / Then
+    await expect(
+      service.updateDocument(syntheticMilestoneId, syntheticDocumentId, {
+        name: '수정된 이름',
+        required: false,
+        sortOrder: 1,
+        submissionType: MilestoneSubmissionType.FILE,
+      }),
+    ).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+    });
+    expect(mocks.updateDocument).not.toHaveBeenCalled();
+  });
+
+  it('updateDocument는 서류 행이 사라졌으면 DOCUMENT_NOT_FOUND를 던진다', async () => {
+    // Given: 잠금 조회가 아무 행도 못 잡았다.
+    const { mocks, repository } = buildRepository({
+      lockDocument: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentsService(repository);
 
@@ -309,6 +368,73 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_HAS_SUBMISSIONS },
     });
     expect(mocks.updateDocument).not.toHaveBeenCalled();
+  });
+
+  it('updateDocument는 잠금·세기·갱신을 한 트랜잭션 안에서 이 순서로 한다', async () => {
+    // Given: 세기와 갱신이 갈라져 있으면 그 사이 제출이 카운트를 피해 들어온다.
+    // 판단의 근거가 되는 읽기(잠금)와 그 판단으로 하는 쓰기가 같은 트랜잭션에 있어야 한다.
+    const { transactionCalls, withTransaction, repository } = buildRepository({
+      countSubmissionsForDocument: jest.fn().mockResolvedValue(0),
+      updateDocument: jest
+        .fn()
+        .mockResolvedValue(
+          baseDocument({ submissionType: MilestoneSubmissionType.TEXT }),
+        ),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    await service.updateDocument(syntheticMilestoneId, syntheticDocumentId, {
+      name: '개인정보 수집·이용 동의서',
+      required: true,
+      sortOrder: 1,
+      submissionType: MilestoneSubmissionType.TEXT,
+    });
+
+    // Then
+    expect(withTransaction).toHaveBeenCalledTimes(1);
+    expect(transactionCalls).toEqual([
+      'lockDocument',
+      'countSubmissionsForDocument',
+      'updateDocument',
+    ]);
+  });
+
+  it('updateDocument는 트랜잭션 밖에서 읽어 둔 값이 아니라 잠근 뒤 다시 읽은 제출 방식으로 판단한다', async () => {
+    // Given: 트랜잭션 밖 조회(findDocumentContext)는 아직 TEXT라고 말하지만, 잠금을 기다리는
+    // 사이 다른 교직원이 이미 FILE로 바꿔 놨다. 요청도 FILE이므로 방식 변경이 아니다 —
+    // 낡은 값으로 판단하면 「변경이다」로 잘못 읽어 제출 수를 세고 막아 버린다.
+    const { mocks, repository } = buildRepository({
+      findDocumentContext: jest.fn().mockResolvedValue({
+        id: syntheticDocumentId,
+        milestoneId: syntheticMilestoneId,
+        programId: syntheticProgramId,
+        name: '개인정보 수집·이용 동의서',
+        dueAt: new Date('2026-09-19T09:00:00.000Z'),
+        required: true,
+        submissionType: MilestoneSubmissionType.TEXT,
+      }),
+      lockDocument: jest.fn().mockResolvedValue({
+        id: syntheticDocumentId,
+        milestoneId: syntheticMilestoneId,
+        submissionType: MilestoneSubmissionType.FILE,
+      }),
+      countSubmissionsForDocument: jest.fn().mockResolvedValue(3),
+      updateDocument: jest.fn().mockResolvedValue(baseDocument()),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    await service.updateDocument(syntheticMilestoneId, syntheticDocumentId, {
+      name: '개인정보 수집·이용 동의서',
+      required: true,
+      sortOrder: 1,
+      submissionType: MilestoneSubmissionType.FILE,
+    });
+
+    // Then: 방식이 그대로이므로 세지도 막지도 않는다.
+    expect(mocks.countSubmissionsForDocument).not.toHaveBeenCalled();
+    expect(mocks.updateDocument).toHaveBeenCalled();
   });
 
   it('updateDocument는 제출이 있어도 이름·필수여부·순서 변경은 그대로 허용한다', async () => {
@@ -409,6 +535,137 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
 
     // Then
     expect(mocks.deleteDocument).toHaveBeenCalledWith(syntheticDocumentId);
+  });
+});
+
+describe('MilestoneDocumentsService.updateDocument — 제출과의 경쟁', () => {
+  /**
+   * 「제출 방식 변경」과 「학생 제출」의 경쟁을 행 잠금 수준에서 흉내 내는 가짜 저장소.
+   *
+   * Postgres 규칙 중 이 결함에 필요한 둘만 옮겼다.
+   * 1. 교직원이 서류 행을 잠그고 있는 동안 학생 제출은 커밋하지 못하고 기다린다.
+   * 2. 기다렸다 깨어난 제출은 제출 방식을 **다시 읽어** 자기 유형과 다르면 쓰지 않는다
+   *    (실제로는 `upsertSubmission`의 `FOR SHARE` + 재확인이 하는 일이다).
+   *
+   * 잠그지 않으면 기다림도 재확인도 없이 곧바로 커밋된다 — 그게 원래 결함이다.
+   */
+  function buildRaceWorld() {
+    const row: {
+      id: string;
+      milestoneId: string;
+      submissionType: MilestoneSubmissionType;
+    } = {
+      id: syntheticDocumentId,
+      milestoneId: syntheticMilestoneId,
+      submissionType: MilestoneSubmissionType.FILE,
+    };
+    let locked = false;
+    let waitingFileSubmissions = 0;
+    let submissionCount = 0;
+
+    function commitFileSubmission() {
+      if (row.submissionType !== MilestoneSubmissionType.FILE) return;
+      submissionCount += 1;
+    }
+
+    /** 학생이 FILE 제출을 보낸다 — 서비스가 유형을 검증하던 시점에는 FILE이었다. */
+    function studentSubmitsFile() {
+      if (locked) {
+        waitingFileSubmissions += 1;
+        return;
+      }
+      commitFileSubmission();
+    }
+
+    function releaseLock() {
+      locked = false;
+      for (let index = 0; index < waitingFileSubmissions; index += 1) {
+        commitFileSubmission();
+      }
+      waitingFileSubmissions = 0;
+    }
+
+    /** 제출은 언제나 「제출 수를 센 직후」에 도착한다 — 가드가 가장 취약한 순간이다. */
+    function countThenStudentSubmits() {
+      const seen = submissionCount;
+      studentSubmitsFile();
+      return Promise.resolve(seen);
+    }
+
+    const repository = {
+      findMilestone: jest.fn().mockResolvedValue({
+        id: syntheticMilestoneId,
+        programId: syntheticProgramId,
+        name: '프로젝트 계획서 제출',
+        dueAt: new Date('2026-09-19T09:00:00.000Z'),
+      }),
+      findDocumentContext: jest
+        .fn()
+        .mockImplementation(() => Promise.resolve({ ...row })),
+      // 트랜잭션 밖 단발 세기 — 잠금이 없으므로 제출을 막지 못한다.
+      countSubmissionsForDocument: jest
+        .fn()
+        .mockImplementation(countThenStudentSubmits),
+      updateDocument: jest
+        .fn()
+        .mockImplementation(
+          (_id: string, input: { submissionType: MilestoneSubmissionType }) => {
+            row.submissionType = input.submissionType;
+            return Promise.resolve({ ...baseDocument(), ...input });
+          },
+        ),
+      withTransaction: jest.fn(
+        async (operation: (store: unknown) => Promise<unknown>) => {
+          try {
+            return await operation({
+              lockDocument: () => {
+                locked = true;
+                return Promise.resolve({ ...row });
+              },
+              countSubmissionsForDocument: countThenStudentSubmits,
+              updateDocument: (
+                _id: string,
+                input: { submissionType: MilestoneSubmissionType },
+              ) => {
+                row.submissionType = input.submissionType;
+                return Promise.resolve({ ...baseDocument(), ...input });
+              },
+            });
+          } finally {
+            releaseLock();
+          }
+        },
+      ),
+    };
+
+    return {
+      repository: repository as unknown as MilestoneDocumentsRepository,
+      state: () => ({
+        submissionType: row.submissionType,
+        submissionCount,
+      }),
+    };
+  }
+
+  it('제출 수를 센 직후 제출이 도착해도 「TEXT인데 FILE 제출이 들어 있는」 상태를 남기지 않는다', async () => {
+    // Given: 아직 아무도 내지 않은 FILE 항목을 TEXT로 바꾸는 중에 FILE 제출 하나가 도착한다.
+    const { repository, state } = buildRaceWorld();
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    await service.updateDocument(syntheticMilestoneId, syntheticDocumentId, {
+      name: '개인정보 수집·이용 동의서',
+      required: true,
+      sortOrder: 1,
+      submissionType: MilestoneSubmissionType.TEXT,
+    });
+
+    // Then: 둘 중 하나만 통과해야 한다. 방식이 TEXT로 바뀌었다면 그 제출은 남아 있으면 안 된다.
+    const final = state();
+    expect(
+      final.submissionType === MilestoneSubmissionType.TEXT &&
+        final.submissionCount > 0,
+    ).toBe(false);
   });
 });
 
@@ -709,6 +966,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       submittedAt: now,
       content: { type: MilestoneSubmissionType.TEXT, text: '본문' },
       attachFile: null,
+      expectedSubmissionType: MilestoneSubmissionType.TEXT,
     });
     expect(result.id).toBe('cuid-synthetic-submission');
     expect(result.submittedAt).toBe(now.toISOString());
@@ -772,6 +1030,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         uploaderId: syntheticUserId,
         milestoneId: syntheticMilestoneId,
       },
+      expectedSubmissionType: MilestoneSubmissionType.FILE,
     });
     expect(result.files).toEqual([
       expect.objectContaining({ id: 'cuid-synthetic-file' }),
@@ -898,6 +1157,47 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       ),
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.PENDING_FILE_NOT_FOUND },
+    });
+  });
+
+  it('제출 방식이 검증 뒤 바뀌어 있었으면 CONTENT_TYPE_MISMATCH로 변환한다', async () => {
+    // Given: 트랜잭션 밖 검증은 FILE로 통과했지만, 잠금 아래에서 다시 읽으니 이미 TEXT였다.
+    // 이 제출이 그대로 커밋되면 「TEXT인데 FILE 제출이 들어 있는」 상태가 남는다.
+    const { repository } = buildRepository({
+      findActiveUser: jest
+        .fn()
+        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
+      findDocumentContext: jest.fn().mockResolvedValue({
+        id: syntheticDocumentId,
+        milestoneId: syntheticMilestoneId,
+        programId: syntheticProgramId,
+        dueAt: now,
+        required: true,
+        submissionType: MilestoneSubmissionType.FILE,
+      }),
+      findStudentApplication: jest.fn().mockResolvedValue({
+        applicationId: syntheticApplicationId,
+        approved: true,
+        programEndAt: null,
+        repositoryUrl: null,
+      }),
+      upsertSubmission: jest
+        .fn()
+        .mockRejectedValue(new MilestoneDocumentSubmissionTypeChangedError()),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When / Then
+    await expect(
+      service.submit(
+        1n,
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        { type: MilestoneSubmissionType.FILE, fileId: 'cuid-synthetic-file' },
+        now,
+      ),
+    ).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH },
     });
   });
 });

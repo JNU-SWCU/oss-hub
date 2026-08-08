@@ -120,11 +120,29 @@ export class MilestoneDocumentPendingFileMissingError extends Error {
   override readonly name = 'MilestoneDocumentPendingFileMissingError';
 }
 
+/**
+ * 제출을 쓰려는 순간 서류 항목의 제출 방식이 이미 바뀌어 있었다 — 행 잠금을 잡고 다시 읽은
+ * `submissionType`이 서비스가 검증한 값과 다르다. 서비스가 CONTENT_TYPE_MISMATCH로 옮긴다.
+ *
+ * 서류 항목이 그 사이 삭제돼 행 자체가 없어진 경우도 여기로 접는다 — 학생에게는 「이 서류는
+ * 지금 이 방식으로 받지 않는다」로 읽히므로 메시지가 정확하지는 않다. 그 경로는 어차피
+ * 뒤따르는 FK 위반으로도 실패하므로 별도 코드를 새로 만들지 않았다.
+ */
+export class MilestoneDocumentSubmissionTypeChangedError extends Error {
+  override readonly name = 'MilestoneDocumentSubmissionTypeChangedError';
+}
+
 export interface UpsertMilestoneDocumentSubmissionInput {
   readonly milestoneDocumentId: string;
   readonly applicationId: string;
   readonly submittedById: string;
   readonly submittedAt: Date;
+  /**
+   * 서비스가 `content.type`과 맞다고 검증한 서류의 제출 방식. 트랜잭션 안에서 행을 잠그고
+   * 다시 읽어 이 값과 같은지 확인한다 — 규칙(어떤 방식이어야 하는가)은 서비스가 들고 있고,
+   * 여기서는 넘겨받은 기대값을 잠금 아래에서 재확인만 한다(attachFile 검증과 같은 모양).
+   */
+  readonly expectedSubmissionType: MilestoneSubmissionType;
   /** FILE 유형이면 Prisma.JsonNull(파일은 files 관계로 붙는다), TEXT/REPOSITORY_RELEASE면 응답 본문. */
   readonly content: Prisma.InputJsonValue | typeof Prisma.JsonNull;
   /** FILE 유형 제출일 때만 채운다 — pending 상태로 업로드해 둔 파일을 이 제출에 붙인다. */
@@ -172,6 +190,36 @@ export interface UpsertMilestoneDocumentInput {
   readonly required: boolean;
   readonly sortOrder: number;
   readonly submissionType: MilestoneSubmissionType;
+}
+
+/** `FOR UPDATE`로 잠근 뒤 다시 읽은 서류 항목 — 잠금을 잡은 시점의 최신 값이다. */
+export interface LockedMilestoneDocument {
+  readonly id: string;
+  readonly milestoneId: string;
+  readonly submissionType: MilestoneSubmissionType;
+}
+
+/**
+ * 서류 항목 수정 usecase의 트랜잭션 store — ADR-003의 「모든 데이터 변경 usecase의 트랜잭션
+ * 시작·완료·실패 처리는 service 계층에서 소유한다」를 위한 seam이다. 「제출 수를 센다 → 제출
+ * 방식 변경을 판단한다 → 갱신한다」가 한 트랜잭션 안에서 일어나야 하고, 그 판단은 업무 규칙이라
+ * 서비스가 들고 있어야 하기 때문에 트랜잭션 클라이언트를 이 좁은 문으로만 내놓는다.
+ */
+export interface MilestoneDocumentUpdateStore {
+  /**
+   * 대상 행을 `FOR UPDATE`로 잠그고 다시 읽는다. 없으면 null.
+   *
+   * 잠금이 실제로 하는 일: 학생 제출 경로(`upsertSubmission`)가 같은 행을 `FOR SHARE`로 먼저
+   * 잡으므로 둘 중 하나는 반드시 기다린다. 그래서 「셀 때는 0이었는데 갱신 직전에 제출이
+   * 끼어드는」 창이 닫힌다. 값을 다시 읽는 것도 잠금의 일부다 — 잠금을 기다리는 동안 다른
+   * 교직원이 제출 방식을 이미 바꿨을 수 있어, 트랜잭션 밖에서 읽은 값으로 판단하면 안 된다.
+   */
+  lockDocument(documentId: string): Promise<LockedMilestoneDocument | null>;
+  countSubmissionsForDocument(documentId: string): Promise<number>;
+  updateDocument(
+    documentId: string,
+    input: UpsertMilestoneDocumentInput,
+  ): Promise<MilestoneDocumentRecord>;
 }
 
 const attachedFileSelect = {
@@ -242,9 +290,77 @@ function unexpiredAttachedFileWhere(now: Date) {
   } as const;
 }
 
+/**
+ * 트랜잭션 클라이언트로도, 트랜잭션 밖 PrismaService로도 같은 문장을 쓰기 위한 공용 구현.
+ * store와 repository가 서로 다른 두 벌을 들고 어긋나는 것을 막는다.
+ */
+function countSubmissionsForDocumentWith(
+  client: Prisma.TransactionClient,
+  documentId: string,
+): Promise<number> {
+  return client.milestoneDocumentSubmission.count({
+    where: { milestoneDocumentId: documentId },
+  });
+}
+
+async function updateDocumentWith(
+  client: Prisma.TransactionClient,
+  documentId: string,
+  input: UpsertMilestoneDocumentInput,
+): Promise<MilestoneDocumentRecord> {
+  const updated = await client.milestoneDocument.update({
+    where: { id: documentId },
+    data: input,
+    select: documentRecordSelect,
+  });
+  return toDocumentRecord(updated);
+}
+
+class PrismaMilestoneDocumentUpdateStore implements MilestoneDocumentUpdateStore {
+  constructor(private readonly transaction: Prisma.TransactionClient) {}
+
+  async lockDocument(
+    documentId: string,
+  ): Promise<LockedMilestoneDocument | null> {
+    const rows = await this.transaction.$queryRaw<
+      readonly LockedMilestoneDocument[]
+    >(Prisma.sql`
+      SELECT "id", "milestoneId", "submissionType"
+      FROM "MilestoneDocument"
+      WHERE "id" = ${documentId}
+      FOR UPDATE
+    `);
+    return rows[0] ?? null;
+  }
+
+  countSubmissionsForDocument(documentId: string): Promise<number> {
+    return countSubmissionsForDocumentWith(this.transaction, documentId);
+  }
+
+  updateDocument(
+    documentId: string,
+    input: UpsertMilestoneDocumentInput,
+  ): Promise<MilestoneDocumentRecord> {
+    return updateDocumentWith(this.transaction, documentId, input);
+  }
+}
+
 @Injectable()
 export class MilestoneDocumentsRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * 서류 항목 수정 usecase의 트랜잭션 경계 — 여는 쪽은 repository지만 **언제 시작하고 무엇을
+   * 담을지는 서비스가 정한다**(ADR-003). roles·submissions·program-editor 등이 쓰는
+   * `withTransaction(store => …)` 관례를 그대로 따른다.
+   */
+  withTransaction<T>(
+    operation: (store: MilestoneDocumentUpdateStore) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction((transaction) =>
+      operation(new PrismaMilestoneDocumentUpdateStore(transaction)),
+    );
+  }
 
   /** sortOrder 오름차순 — 프로토타입 목록 화면이 그대로 쓰는 순서다. */
   async findByMilestoneId(
@@ -493,18 +609,6 @@ export class MilestoneDocumentsRepository {
     return { ...created, templateFileId: null };
   }
 
-  async updateDocument(
-    documentId: string,
-    input: UpsertMilestoneDocumentInput,
-  ): Promise<MilestoneDocumentRecord> {
-    const updated = await this.prisma.milestoneDocument.update({
-      where: { id: documentId },
-      data: input,
-      select: documentRecordSelect,
-    });
-    return toDocumentRecord(updated);
-  }
-
   /**
    * 서류 항목 순서 재부여 — 주어진 배열 순서대로 sortOrder를 1부터 다시 매긴다(구멍·중복 없음).
    *
@@ -536,10 +640,13 @@ export class MilestoneDocumentsRepository {
     });
   }
 
-  async countSubmissionsForDocument(documentId: string): Promise<number> {
-    return this.prisma.milestoneDocumentSubmission.count({
-      where: { milestoneDocumentId: documentId },
-    });
+  /**
+   * 트랜잭션 밖 단발 조회 — `deleteDocument` 사전 검증이 쓴다. 「세고 나서 쓰는」 판단에는
+   * 그냥 쓰면 안 된다(그 창이 이번에 고친 결함이다). 그 경우는 `withTransaction`의
+   * `lockDocument` → `countSubmissionsForDocument` 순서를 쓴다.
+   */
+  countSubmissionsForDocument(documentId: string): Promise<number> {
+    return countSubmissionsForDocumentWith(this.prisma, documentId);
   }
 
   async deleteDocument(documentId: string): Promise<void> {
@@ -645,11 +752,32 @@ export class MilestoneDocumentsRepository {
    * pending 파일을 이 제출에 붙이고, 이 제출에 이미 붙어 있던 이전 ATTACHED 파일은
    * DELETE_PENDING으로 넘겨 기존 SubmissionFileCleanupService가 그대로 정리하게 한다
    * (새 삭제 스택을 만들지 않는다).
+   *
+   * 트랜잭션이 repository에 남아 있는 이유: 여기에는 업무 판단이 없다. 서비스가 이미 정한
+   * 기대값(`expectedSubmissionType`)과 pending 파일 조건을 잠금 아래에서 확인만 하고, 어긋나면
+   * 타입 있는 오류로 되던져 서비스가 오류 코드로 옮긴다. 반대로 `updateDocument`는 트랜잭션 안에서
+   * 「막을지 말지」를 판단하므로 경계를 서비스가 소유한다(`withTransaction`).
    */
   async upsertSubmission(
     input: UpsertMilestoneDocumentSubmissionInput,
   ): Promise<MilestoneDocumentSubmissionDetail> {
     return this.prisma.$transaction(async (transaction) => {
+      // 교직원의 제출 방식 변경과 이 제출을 실제로 직렬화하는 지점이다. 교직원 쪽이 같은 행을
+      // `FOR UPDATE`로 잠그므로 둘 중 하나는 반드시 기다린다. 기다린 뒤 다시 읽은 값이 서비스가
+      // 검증했던 방식과 다르면, 그 사이에 바뀐 것이므로 제출을 쓰지 않는다. 잠금이 공유(`FOR
+      // SHARE`)라서 학생들끼리는 서로 막지 않는다.
+      const locked = await transaction.$queryRaw<
+        readonly { submissionType: MilestoneSubmissionType }[]
+      >(Prisma.sql`
+        SELECT "submissionType"
+        FROM "MilestoneDocument"
+        WHERE "id" = ${input.milestoneDocumentId}
+        FOR SHARE
+      `);
+      if (locked[0]?.submissionType !== input.expectedSubmissionType) {
+        throw new MilestoneDocumentSubmissionTypeChangedError();
+      }
+
       const submission = await transaction.milestoneDocumentSubmission.upsert({
         where: {
           milestoneDocumentId_applicationId: {

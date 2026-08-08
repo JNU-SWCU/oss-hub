@@ -12,6 +12,7 @@ import {
   MilestoneDocumentFileRetentionUnavailableError,
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentsRepository,
+  MilestoneDocumentSubmissionTypeChangedError,
 } from './milestone-documents.repository';
 
 // 합성 데이터만 사용한다 (docs/rules/security.md)
@@ -303,7 +304,10 @@ describe('MilestoneDocumentsRepository.createPendingFile', () => {
 });
 
 describe('MilestoneDocumentsRepository.upsertSubmission', () => {
-  function transactionPrisma(overrides: Record<string, unknown>) {
+  function transactionPrisma(
+    overrides: Record<string, unknown>,
+    lockedSubmissionType: MilestoneSubmissionType | null = MilestoneSubmissionType.TEXT,
+  ) {
     const submissionUpsert = jest.fn().mockResolvedValue({
       id: 'cuid-synthetic-submission',
       status: SubmissionStatus.SUBMITTED,
@@ -312,7 +316,16 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     });
     const fileUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
     const fileFindMany = jest.fn().mockResolvedValue([]);
+    // 잠금 조회 결과 — null이면 그 사이 서류 항목이 사라진 경우다.
+    const queryRaw = jest
+      .fn()
+      .mockResolvedValue(
+        lockedSubmissionType === null
+          ? []
+          : [{ submissionType: lockedSubmissionType }],
+      );
     const tx = {
+      $queryRaw: queryRaw,
       milestoneDocumentSubmission: { upsert: submissionUpsert },
       submissionFile: { updateMany: fileUpdateMany, findMany: fileFindMany },
       ...overrides,
@@ -322,7 +335,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         callback(tx),
       ),
     } as unknown as PrismaService;
-    return { prisma, submissionUpsert, fileUpdateMany, fileFindMany };
+    return { prisma, submissionUpsert, fileUpdateMany, fileFindMany, queryRaw };
   }
 
   it('attachFile이 없으면(TEXT/REPOSITORY_RELEASE) 파일 붙이기를 건너뛴다', async () => {
@@ -338,10 +351,96 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       submittedAt: new Date('2026-09-16T14:22:00.000Z'),
       content: { type: 'TEXT', text: '본문' },
       attachFile: null,
+      expectedSubmissionType: MilestoneSubmissionType.TEXT,
     });
 
     // Then
     expect(fileUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it('서류 행을 FOR SHARE로 잠근 다음에야 제출을 쓴다 — 잠금이 upsert보다 먼저다', async () => {
+    // Given: 잠금 없이 쓰면 교직원의 제출 방식 변경과 이 제출이 서로를 못 보고 지나간다.
+    const order: string[] = [];
+    const queryRaw = jest.fn(() => {
+      order.push('lock');
+      return Promise.resolve([
+        { submissionType: MilestoneSubmissionType.TEXT },
+      ]);
+    });
+    const submissionUpsert = jest.fn(() => {
+      order.push('upsert');
+      return Promise.resolve({
+        id: 'cuid-synthetic-submission',
+        status: SubmissionStatus.SUBMITTED,
+        content: Prisma.JsonNull,
+        submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+      });
+    });
+    const { prisma } = transactionPrisma({
+      $queryRaw: queryRaw,
+      milestoneDocumentSubmission: { upsert: submissionUpsert },
+    });
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    await repository.upsertSubmission({
+      milestoneDocumentId: syntheticDocumentId,
+      applicationId: syntheticApplicationId,
+      submittedById: syntheticUserId,
+      submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+      content: { type: 'TEXT', text: '본문' },
+      attachFile: null,
+      expectedSubmissionType: MilestoneSubmissionType.TEXT,
+    });
+
+    // Then
+    expect(order).toEqual(['lock', 'upsert']);
+    expect(
+      String(firstCallArgument<{ strings: string[] }>(queryRaw).strings),
+    ).toContain('FOR SHARE');
+  });
+
+  it('잠근 뒤 다시 읽은 제출 방식이 기대와 다르면 제출을 쓰지 않고 오류를 던진다', async () => {
+    // Given: 서비스가 TEXT로 검증했는데 그 사이 교직원이 FILE로 바꿔 놨다.
+    const { prisma, submissionUpsert } = transactionPrisma(
+      {},
+      MilestoneSubmissionType.FILE,
+    );
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When / Then
+    await expect(
+      repository.upsertSubmission({
+        milestoneDocumentId: syntheticDocumentId,
+        applicationId: syntheticApplicationId,
+        submittedById: syntheticUserId,
+        submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+        content: { type: 'TEXT', text: '본문' },
+        attachFile: null,
+        expectedSubmissionType: MilestoneSubmissionType.TEXT,
+      }),
+    ).rejects.toBeInstanceOf(MilestoneDocumentSubmissionTypeChangedError);
+    expect(submissionUpsert).not.toHaveBeenCalled();
+  });
+
+  it('잠금 조회에 행이 없으면(그 사이 삭제) 같은 오류로 막는다', async () => {
+    // Given
+    const { prisma, submissionUpsert } = transactionPrisma({}, null);
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When / Then
+    await expect(
+      repository.upsertSubmission({
+        milestoneDocumentId: syntheticDocumentId,
+        applicationId: syntheticApplicationId,
+        submittedById: syntheticUserId,
+        submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+        content: { type: 'TEXT', text: '본문' },
+        attachFile: null,
+        expectedSubmissionType: MilestoneSubmissionType.TEXT,
+      }),
+    ).rejects.toBeInstanceOf(MilestoneDocumentSubmissionTypeChangedError);
+    expect(submissionUpsert).not.toHaveBeenCalled();
   });
 
   it('attachFile이 있으면 이전 ATTACHED 파일을 DELETE_PENDING으로 넘기고 pending 파일을 붙인다', async () => {
@@ -350,19 +449,22 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       .fn()
       .mockResolvedValueOnce({ count: 1 }) // 이전 ATTACHED → DELETE_PENDING
       .mockResolvedValueOnce({ count: 1 }); // pending → ATTACHED
-    const { prisma } = transactionPrisma({
-      submissionFile: {
-        updateMany: fileUpdateMany,
-        findMany: jest.fn().mockResolvedValue([
-          {
-            id: 'cuid-synthetic-file',
-            originalFileName: '계획서.pdf',
-            mimeType: 'application/pdf',
-            sizeBytes: 1024,
-          },
-        ]),
+    const { prisma } = transactionPrisma(
+      {
+        submissionFile: {
+          updateMany: fileUpdateMany,
+          findMany: jest.fn().mockResolvedValue([
+            {
+              id: 'cuid-synthetic-file',
+              originalFileName: '계획서.pdf',
+              mimeType: 'application/pdf',
+              sizeBytes: 1024,
+            },
+          ]),
+        },
       },
-    });
+      MilestoneSubmissionType.FILE,
+    );
     const repository = new MilestoneDocumentsRepository(prisma);
     const submittedAt = new Date('2026-09-16T14:22:00.000Z');
 
@@ -378,6 +480,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         uploaderId: syntheticUserId,
         milestoneId: syntheticMilestoneId,
       },
+      expectedSubmissionType: MilestoneSubmissionType.FILE,
     });
 
     // Then
@@ -401,9 +504,10 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       .fn()
       .mockResolvedValueOnce({ count: 0 })
       .mockResolvedValueOnce({ count: 0 });
-    const { prisma } = transactionPrisma({
-      submissionFile: { updateMany: fileUpdateMany, findMany: jest.fn() },
-    });
+    const { prisma } = transactionPrisma(
+      { submissionFile: { updateMany: fileUpdateMany, findMany: jest.fn() } },
+      MilestoneSubmissionType.FILE,
+    );
     const repository = new MilestoneDocumentsRepository(prisma);
 
     // When / Then
@@ -419,8 +523,122 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
           uploaderId: syntheticUserId,
           milestoneId: syntheticMilestoneId,
         },
+        expectedSubmissionType: MilestoneSubmissionType.FILE,
       }),
     ).rejects.toBeInstanceOf(MilestoneDocumentPendingFileMissingError);
+  });
+});
+
+describe('MilestoneDocumentsRepository.withTransaction', () => {
+  /**
+   * 트랜잭션 클라이언트와 트랜잭션 밖 클라이언트를 따로 세는 가짜 Prisma. store의 문장이
+   * 트랜잭션 밖으로 새면(= 개별 연산으로 되돌아가면) direct 쪽이 호출된다.
+   */
+  function buildTransactionPrisma() {
+    const transactionQueryRaw = jest.fn().mockResolvedValue([
+      {
+        id: syntheticDocumentId,
+        milestoneId: syntheticMilestoneId,
+        submissionType: MilestoneSubmissionType.FILE,
+      },
+    ]);
+    const transactionCount = jest.fn().mockResolvedValue(0);
+    const transactionUpdate = jest.fn().mockResolvedValue({
+      id: syntheticDocumentId,
+      milestoneId: syntheticMilestoneId,
+      name: '개인정보 수집·이용 동의서',
+      required: true,
+      sortOrder: 1,
+      submissionType: MilestoneSubmissionType.TEXT,
+      templateFile: null,
+    });
+    const directCount = jest.fn().mockResolvedValue(0);
+    const directUpdate = jest.fn();
+    const prisma = {
+      milestoneDocument: { update: directUpdate },
+      milestoneDocumentSubmission: { count: directCount },
+      $transaction: jest.fn((callback: (transaction: unknown) => unknown) =>
+        callback({
+          $queryRaw: transactionQueryRaw,
+          milestoneDocument: { update: transactionUpdate },
+          milestoneDocumentSubmission: { count: transactionCount },
+        }),
+      ),
+    } as unknown as PrismaService;
+    return {
+      prisma,
+      transactionQueryRaw,
+      transactionCount,
+      transactionUpdate,
+      directCount,
+      directUpdate,
+    };
+  }
+
+  it('store의 잠금·세기·갱신이 모두 같은 트랜잭션 클라이언트로 나간다', async () => {
+    // Given
+    const {
+      prisma,
+      transactionQueryRaw,
+      transactionCount,
+      transactionUpdate,
+      directCount,
+      directUpdate,
+    } = buildTransactionPrisma();
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    await repository.withTransaction(async (store) => {
+      await store.lockDocument(syntheticDocumentId);
+      await store.countSubmissionsForDocument(syntheticDocumentId);
+      return store.updateDocument(syntheticDocumentId, {
+        name: '개인정보 수집·이용 동의서',
+        required: true,
+        sortOrder: 1,
+        submissionType: MilestoneSubmissionType.TEXT,
+      });
+    });
+
+    // Then: 트랜잭션 밖 경로로는 한 문장도 나가지 않는다.
+    expect(transactionQueryRaw).toHaveBeenCalledTimes(1);
+    expect(transactionCount).toHaveBeenCalledTimes(1);
+    expect(transactionUpdate).toHaveBeenCalledTimes(1);
+    expect(directCount).not.toHaveBeenCalled();
+    expect(directUpdate).not.toHaveBeenCalled();
+  });
+
+  it('lockDocument는 대상 행을 FOR UPDATE로 잠그고 다시 읽는다', async () => {
+    // Given
+    const { prisma, transactionQueryRaw } = buildTransactionPrisma();
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const locked = await repository.withTransaction((store) =>
+      store.lockDocument(syntheticDocumentId),
+    );
+
+    // Then
+    const sql = firstCallArgument<{ strings: string[]; values: unknown[] }>(
+      transactionQueryRaw,
+    );
+    expect(String(sql.strings)).toContain('FOR UPDATE');
+    expect(sql.values).toEqual([syntheticDocumentId]);
+    expect(locked?.submissionType).toBe(MilestoneSubmissionType.FILE);
+  });
+
+  it('lockDocument는 행이 없으면 null을 돌려준다', async () => {
+    // Given
+    const { prisma, transactionQueryRaw } = buildTransactionPrisma();
+    transactionQueryRaw.mockResolvedValue([]);
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const locked = await repository.withTransaction((store) =>
+      store.lockDocument(syntheticDocumentId),
+    );
+
+    // Then
+    expect(locked).toBeNull();
   });
 });
 
