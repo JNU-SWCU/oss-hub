@@ -18,6 +18,7 @@ import {
 } from '../handler-kit';
 import {
   isKnownMilestoneId,
+  milestoneDocumentCollectionFor,
   milestoneDocumentSubmissionFor,
   milestoneDocumentsFor,
   UPLOADED_MILESTONE_DOCUMENT_FILE_FIXTURE,
@@ -27,10 +28,12 @@ import {
 /**
  * 마일스톤 서류 화면의 로컬 검토 응답.
  * 담당 경로: `milestones/:milestoneId/documents`(GET/POST),
- * `.../documents/:documentId`(PATCH/DELETE), `.../documents/:documentId/template`
- * (GET/POST), `.../documents/:documentId/submissions`(POST), `milestone-document-files`(POST).
+ * `.../documents/collection`(GET), `.../documents/:documentId`(PATCH/DELETE),
+ * `.../documents/:documentId/template`(GET/POST),
+ * `.../documents/:documentId/applications/:applicationId/file`(GET),
+ * `.../documents/:documentId/submissions`(POST), `milestone-document-files`(POST).
  *
- * 실제 백엔드는 조회는 SessionGuard만, 등록·수정·삭제·양식 업로드는
+ * 실제 백엔드는 조회는 SessionGuard만, 등록·수정·삭제·양식 업로드·수합 표는
  * `MilestoneDocumentsStaffGuard`(STAFF·ADMIN만 통과, 학생은 403 MSD_001)를 추가로
  * 두므로(`milestone-documents.controller.ts`) 여기서도 같은 순서로 가른다.
  */
@@ -38,6 +41,7 @@ import {
 const MILESTONE_NOT_FOUND_CODE = 'MSD_003';
 const STAFF_ONLY_CODE = 'MSD_001';
 const TEMPLATE_NOT_FOUND_CODE = 'MSD_015';
+const SUBMISSION_FILE_NOT_FOUND_CODE = 'MSD_020';
 
 const SUBMISSION_TYPES: readonly SubmissionType[] = [
   'FILE',
@@ -88,6 +92,45 @@ const listDocumentsHandler: LocalReviewHandler = (context) => {
   return documents === null
     ? notFound(MILESTONE_NOT_FOUND_CODE, context.path)
     : json(200, documents);
+};
+
+/**
+ * 교직원 서류 수합 표. `collection`은 고정 세그먼트라 `:documentId` 경로들과 겹치지
+ * 않지만(백엔드 컨트롤러도 같은 이유로 `collection`을 위에 둔다), 이 파일에서도
+ * 목록 바로 아래에 둬 읽는 순서가 컨트롤러와 같게 한다.
+ */
+const collectionHandler: LocalReviewHandler = (context) => {
+  const params = matchGet(
+    context,
+    'milestones/:milestoneId/documents/collection',
+  );
+  if (params === null) return null;
+  const guard = staffGuardResponse(context);
+  if (guard !== null) return guard;
+  const collection = milestoneDocumentCollectionFor(params.milestoneId ?? '');
+  return collection === null
+    ? notFound(MILESTONE_NOT_FOUND_CODE, context.path)
+    : json(200, collection);
+};
+
+/**
+ * 제출 파일 다운로드. 실제 백엔드는 `StreamableFile`(바이너리)을 주지만 로컬 검토
+ * 응답 계약(`LocalReviewResponsePlan`)은 json/delay/redirect만 표현할 수 있어
+ * 다운로드 자체를 흉내 낼 수 없다 — 아래 `downloadTemplateHandler`와 같은 방식으로
+ * 언제나 도메인 404(MSD_020)를 준다. 검토자가 수합 표의 파일명을 눌러 보면 파일
+ * 대신 "제출된 파일을 찾을 수 없습니다"가 나오는데, 그것이 이 어댑터의 한계다.
+ * 링크가 붙는지·주소가 맞는지는 그래도 확인할 수 있고, 도메인 404는 "경로는 안다"는
+ * 뜻이라 fixture-route-coverage.test.ts의 커버리지 판정도 통과한다.
+ */
+const downloadSubmissionFileHandler: LocalReviewHandler = (context) => {
+  const params = matchGet(
+    context,
+    'milestones/:milestoneId/documents/:documentId/applications/:applicationId/file',
+  );
+  if (params === null) return null;
+  const guard = staffGuardResponse(context);
+  if (guard !== null) return guard;
+  return notFound(SUBMISSION_FILE_NOT_FOUND_CODE, context.path);
 };
 
 /** 한계: 저장되지 않아 화면을 다시 열면 추가한 서류는 사라진다(staff-handlers.ts의 마일스톤 생성과 같은 한계). */
@@ -222,6 +265,8 @@ const uploadDocumentFileHandler: LocalReviewHandler = (context) => {
 
 export const MILESTONE_DOCUMENT_HANDLERS: readonly LocalReviewHandler[] = [
   listDocumentsHandler,
+  collectionHandler,
+  downloadSubmissionFileHandler,
   createDocumentHandler,
   updateDocumentHandler,
   deleteDocumentHandler,

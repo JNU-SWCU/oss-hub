@@ -1,0 +1,377 @@
+import Link from 'next/link';
+import type { ReactElement, ReactNode } from 'react';
+import { EmptyState, PageBody, PageHeader } from '@/components';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { programEditHref } from '@/lib/program-route';
+import {
+  applyCollectionFilter,
+  collectionCellFor,
+  collectionEmptyKind,
+  collectionFilterCount,
+  collectionRowMemberSummary,
+  documentSubmissionTotals,
+  MILESTONE_DOCUMENT_COLLECTION_FILTERS,
+  MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS,
+  type MilestoneDocumentCollectionFilter,
+} from './milestone-document-collection';
+import {
+  milestoneDocumentSubmissionFileHref,
+  type MilestoneDocumentCollection,
+  type MilestoneDocumentCollectionCell,
+  type MilestoneDocumentCollectionDocument,
+  type MilestoneDocumentCollectionRow,
+} from './milestone-document-collection-api';
+import {
+  formatSeoulDate,
+  formatSeoulShortDateTime,
+} from './program-detail-format';
+
+const SECTION_BODY = 'flex min-w-0 flex-col gap-8';
+const TABLE_CARD = 'min-w-0 overflow-hidden rounded-card border border-border';
+/**
+ * 첫 열(팀)은 가로로 스크롤해도 남는다 — 열이 밀려 나가면 어느 팀의 칸을 보고
+ * 있는지 알 수 없다. 배경색을 함께 주지 않으면 밑을 지나가는 칸이 비쳐 보인다
+ * (`features/submissions/components/submission-matrix-view.tsx`와 같은 방식).
+ */
+const STICKY_TEAM_CELL = 'sticky left-0 z-10 min-w-48 bg-background';
+const SCROLL_HINT_ID = 'milestone-document-collection-scroll-hint';
+
+const FILTER_BUTTON_BASE =
+  'h-control rounded-control px-4 text-small font-semibold transition-colors';
+
+export interface MilestoneDocumentCollectionViewProps {
+  readonly programId: string;
+  readonly data: MilestoneDocumentCollection | null;
+  readonly filter: MilestoneDocumentCollectionFilter;
+  readonly isLoading: boolean;
+  readonly errorMessage: string | null;
+  readonly onFilterChange: (filter: MilestoneDocumentCollectionFilter) => void;
+  readonly onRetry: () => void;
+}
+
+/** 열 머리글 — 서류명 + 필수 표시(`milestone-document-list.tsx`의 `DocumentName`과 같은 표기). */
+function DocumentHeader({
+  document,
+}: {
+  readonly document: MilestoneDocumentCollectionDocument;
+}): ReactElement {
+  return (
+    <span>
+      {document.name}
+      {document.required ? (
+        <span aria-label="필수" className="ml-0.5 text-destructive">
+          *
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function SubmittedAt({
+  submittedAt,
+}: {
+  readonly submittedAt: string | null;
+}): ReactElement | null {
+  if (submittedAt === null) return null;
+  return (
+    <span className="text-small text-muted-foreground">
+      {formatSeoulShortDateTime(submittedAt)}
+    </span>
+  );
+}
+
+/**
+ * 제출 칸. FILE 유형이고 첨부가 살아 있을 때만 파일명이 다운로드 링크가 된다 —
+ * TEXT·저장소 릴리스 제출은 내려받을 것이 없고, FILE이어도 보존 기한이 지난
+ * 첨부는 `file`이 비어 온다(백엔드 계약).
+ */
+function CollectionCellContent({
+  cell,
+  milestoneId,
+  documentId,
+  applicationId,
+}: {
+  readonly cell: MilestoneDocumentCollectionCell;
+  readonly milestoneId: string;
+  readonly documentId: string;
+  readonly applicationId: string;
+}): ReactElement {
+  if (!cell.submitted) {
+    return <span className="text-small text-muted-foreground">미제출</span>;
+  }
+  if (cell.file === null) {
+    return (
+      <span className="flex flex-col items-start gap-0.5">
+        <span className="text-small">제출됨</span>
+        <SubmittedAt submittedAt={cell.submittedAt} />
+      </span>
+    );
+  }
+  return (
+    <span className="flex flex-col items-start gap-0.5">
+      {/* 파일명은 길어도 열 폭을 밀지 않게 자르고, 전체 이름은 title로 남긴다. */}
+      <a
+        href={milestoneDocumentSubmissionFileHref(
+          milestoneId,
+          documentId,
+          applicationId,
+        )}
+        title={cell.file.name}
+        className="block max-w-56 truncate text-small font-medium underline underline-offset-2 hover:opacity-80"
+      >
+        {cell.file.name}
+      </a>
+      <SubmittedAt submittedAt={cell.submittedAt} />
+    </span>
+  );
+}
+
+function TeamCellContent({
+  row,
+}: {
+  readonly row: MilestoneDocumentCollectionRow;
+}): ReactElement {
+  const members = collectionRowMemberSummary(row);
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span className="font-semibold">{row.teamName}</span>
+      {members === null ? null : (
+        <span className="text-small text-muted-foreground">{members}</span>
+      )}
+    </span>
+  );
+}
+
+function CollectionFilterButtons({
+  rows,
+  filter,
+  onFilterChange,
+}: {
+  readonly rows: readonly MilestoneDocumentCollectionRow[];
+  readonly filter: MilestoneDocumentCollectionFilter;
+  readonly onFilterChange: (filter: MilestoneDocumentCollectionFilter) => void;
+}): ReactElement {
+  return (
+    <div role="group" aria-label="빠른 필터" className="flex flex-wrap gap-2">
+      {MILESTONE_DOCUMENT_COLLECTION_FILTERS.map((option) => (
+        <button
+          key={option}
+          type="button"
+          aria-pressed={filter === option}
+          className={
+            filter === option
+              ? `${FILTER_BUTTON_BASE} bg-secondary text-foreground`
+              : `${FILTER_BUTTON_BASE} bg-card text-muted-foreground border border-border`
+          }
+          onClick={() => onFilterChange(option)}
+        >
+          {MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS[option]}{' '}
+          {collectionFilterCount(rows, option)}팀
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function CollectionTable({
+  data,
+  filter,
+}: {
+  readonly data: MilestoneDocumentCollection;
+  readonly filter: MilestoneDocumentCollectionFilter;
+}): ReactElement {
+  const { milestone, documents, rows } = data;
+  const visibleRows = applyCollectionFilter(rows, filter);
+  const totals = documentSubmissionTotals(documents, rows);
+
+  return (
+    <div className={TABLE_CARD}>
+      <Table
+        scrollRegionLabel="팀별 서류 수합 표"
+        scrollRegionDescribedBy={SCROLL_HINT_ID}
+      >
+        <TableHeader>
+          <TableRow>
+            <TableHead className={STICKY_TEAM_CELL}>팀</TableHead>
+            {documents.map((document) => (
+              <TableHead key={document.id} className="min-w-40">
+                <DocumentHeader document={document} />
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {visibleRows.map((row) => (
+            <TableRow key={row.applicationId}>
+              <TableCell className={STICKY_TEAM_CELL}>
+                <TeamCellContent row={row} />
+              </TableCell>
+              {documents.map((document) => (
+                <TableCell key={document.id} className="min-w-40">
+                  <CollectionCellContent
+                    cell={collectionCellFor(row, document.id)}
+                    milestoneId={milestone.id}
+                    documentId={document.id}
+                    applicationId={row.applicationId}
+                  />
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+        <TableFooter>
+          <TableRow>
+            <TableCell className={STICKY_TEAM_CELL}>합계</TableCell>
+            {totals.map((total) => (
+              <TableCell key={total.documentId} className="min-w-40">
+                제출 {total.submitted} / 전체 {total.total}
+              </TableCell>
+            ))}
+          </TableRow>
+        </TableFooter>
+      </Table>
+    </div>
+  );
+}
+
+function CollectionBody(
+  props: MilestoneDocumentCollectionViewProps,
+): ReactNode {
+  if (props.isLoading) {
+    return (
+      <div
+        aria-busy="true"
+        aria-label="서류 수합 표를 불러오는 중"
+        className="flex flex-col gap-3 rounded-card border border-border p-card"
+      >
+        <span className="bg-muted h-4 w-1/3 animate-pulse rounded" />
+        {[0, 1, 2, 3].map((row) => (
+          <span
+            key={row}
+            className="bg-muted h-3 w-full animate-pulse rounded"
+          />
+        ))}
+      </div>
+    );
+  }
+  if (props.data === null) return null;
+
+  const { documents, rows } = props.data;
+  const empty = collectionEmptyKind({
+    documentCount: documents.length,
+    rowCount: rows.length,
+  });
+
+  if (empty === 'no-documents') {
+    return (
+      <EmptyState
+        title="이 마일스톤에는 등록된 서류 항목이 없습니다"
+        description="프로그램 편집에서 서류 항목을 추가하면 팀별 제출 현황을 모아 볼 수 있습니다."
+        action={
+          <Button asChild variant="outline">
+            <Link href={programEditHref(props.programId)}>
+              프로그램 편집에서 서류 항목 추가
+            </Link>
+          </Button>
+        }
+      />
+    );
+  }
+  if (empty === 'no-applications') {
+    return (
+      <EmptyState
+        title="아직 승인된 신청이 없습니다"
+        description="신청이 승인되면 팀이 이 표에 나타납니다."
+      />
+    );
+  }
+
+  const visibleCount = applyCollectionFilter(rows, props.filter).length;
+
+  return (
+    <>
+      <CollectionFilterButtons
+        rows={rows}
+        filter={props.filter}
+        onFilterChange={props.onFilterChange}
+      />
+      <p id={SCROLL_HINT_ID} className="text-small text-muted-foreground">
+        전체 {rows.length}팀 중 {visibleCount}팀 표시 · 표를 좌우로 스크롤할 수
+        있습니다.
+      </p>
+      {visibleCount === 0 ? (
+        <EmptyState
+          title="조건에 맞는 팀이 없습니다"
+          description="빠른 필터를 바꿔 다시 확인해 보세요."
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => props.onFilterChange('ALL')}
+            >
+              전체 보기
+            </Button>
+          }
+        />
+      ) : (
+        <CollectionTable data={props.data} filter={props.filter} />
+      )}
+    </>
+  );
+}
+
+/**
+ * 서류 수합 화면의 표시 전담부. 조회·상태는 컨테이너
+ * (`milestone-document-collection-screen.tsx`)가 갖고 여기는 props만 그린다 —
+ * 정적 렌더로 문구·링크를 검증할 수 있게 하려는 분리다.
+ */
+export function MilestoneDocumentCollectionView(
+  props: MilestoneDocumentCollectionViewProps,
+) {
+  const milestone = props.data?.milestone ?? null;
+  return (
+    <PageBody>
+      <PageHeader
+        title={
+          milestone === null ? '서류 수합' : `서류 수합 — ${milestone.name}`
+        }
+        description={
+          milestone === null ? undefined : (
+            <span className="break-keep">
+              {formatSeoulDate(milestone.dueAt)} 마감 · 팀별 제출 여부와 제출
+              시각을 확인합니다.
+            </span>
+          )
+        }
+      />
+      <div className={SECTION_BODY}>
+        {props.errorMessage !== null ? (
+          <Alert variant="destructive">
+            <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span>{props.errorMessage}</span>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-control"
+                onClick={props.onRetry}
+              >
+                다시 시도
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        <CollectionBody {...props} />
+      </div>
+    </PageBody>
+  );
+}
