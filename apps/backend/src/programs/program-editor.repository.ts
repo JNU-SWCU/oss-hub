@@ -5,6 +5,9 @@ import {
   SubmissionFileLifecycle,
 } from '@prisma/client';
 import type { Prisma as PrismaTypes } from '@prisma/client';
+// 읽기 전용 import — 서류 항목 행 잠금 문장은 milestone-documents가 소유한다. 삭제 경로와
+// 학생 제출 경로가 **같은 행**을 잠가야 직렬화되므로 문장을 여기서 다시 쓰지 않는다.
+import { lockMilestoneDocumentsOfMilestone } from '../milestone-documents/milestone-document-locks';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
   EditableProgramView,
@@ -171,6 +174,12 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     if (lockedMilestone === null || lockedMilestone.programId !== programId) {
       return null;
     }
+    // 마일스톤 행만 잠그면 학생 제출과 직렬화되지 않는다 — 학생 제출 경로는 마일스톤이 아니라
+    // `MilestoneDocument` 행을 잠근다. 서로 다른 행이라 삭제 쪽이 제출 수 0을 본 뒤 학생 제출이
+    // 커밋되고, 이어지는 서류 항목 삭제가 FK(P2003)로 터져 타입 없는 500이 된다. 그래서 **세기
+    // 전에** 학생 제출 경로가 잡는 바로 그 행들을 잠근다. 부모 먼저(Program → Milestone →
+    // MilestoneDocument) 순서는 그대로 유지한다.
+    await lockMilestoneDocumentsOfMilestone(this.transaction, milestoneId);
     const milestone = await this.transaction.milestone.findUnique({
       where: { id: milestoneId },
       include: {
@@ -195,7 +204,7 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     });
     if (milestone === null || milestone.programId !== programId) return null;
     // 서류 항목의 제출은 Milestone에서 한 단계 더 들어간 테이블이라 _count로 세지 못한다.
-    // 같은 트랜잭션(= 위에서 마일스톤을 FOR UPDATE로 잠근 뒤)에서 따로 센다.
+    // 같은 트랜잭션에서, 위 서류 항목 행 잠금 뒤에 센다 — 이 순서가 뒤집히면 세는 값이 낡는다.
     const documentSubmissionCount =
       await this.transaction.milestoneDocumentSubmission.count({
         where: { milestoneDocument: { milestoneId } },

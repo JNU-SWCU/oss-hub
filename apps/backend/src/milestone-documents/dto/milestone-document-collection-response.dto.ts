@@ -19,11 +19,20 @@ export interface MilestoneDocumentCollectionMilestoneResponseDto {
   readonly dueAt: string;
 }
 
-/** 표의 열 — 이 마일스톤이 요구하는 서류 항목. sortOrder 오름차순. */
+/**
+ * 표의 열 — 이 마일스톤이 요구하는 서류 항목. sortOrder 오름차순.
+ *
+ * `isRequired`는 ADR-004의 boolean `is`/`has`/`can` 접두사 규칙이다. 같은 뜻을 담은
+ * `MilestoneDocumentResponseDto.required`(기존 목록 조회 응답)가 접두사 없이 남아 있는 것은
+ * 그쪽이 **이미 발행돼 학생·편집 화면이 쓰는 계약**이기 때문이다 — 이 수합 표 응답은 아직
+ * 발행 전이라 지금 규칙에 맞춘다. 셀의 `submitted` → `isSubmitted`를 가른 것과 같은 기준이다
+ * (발행된 계약은 그대로 두고 신규 응답만 규칙을 따른다). 이름이 비슷하다고 함께 바꾸면
+ * 학생·편집 화면이 조용히 깨진다.
+ */
 export interface MilestoneDocumentCollectionDocumentResponseDto {
   readonly id: string;
   readonly name: string;
-  readonly required: boolean;
+  readonly isRequired: boolean;
   readonly sortOrder: number;
   readonly submissionType: MilestoneSubmissionType;
 }
@@ -108,7 +117,7 @@ export class MilestoneDocumentCollectionResponseDto {
     this.documents = documents.map((document) => ({
       id: document.id,
       name: document.name,
-      required: document.required,
+      isRequired: document.required,
       sortOrder: document.sortOrder,
       submissionType: document.submissionType,
     }));

@@ -15,7 +15,7 @@ function document(
   return {
     id,
     name: `서류 ${id}`,
-    required: true,
+    isRequired: true,
     sortOrder: 1,
     submissionType: 'FILE',
     ...overrides,
@@ -219,10 +219,10 @@ describe('MilestoneDocumentCollectionView 빈 상태', () => {
 
 describe('MilestoneDocumentCollectionView 표', () => {
   const documents = [
-    document('d1', { name: '기획서', required: true }),
+    document('d1', { name: '기획서', isRequired: true }),
     document('d2', {
       name: '중간 보고',
-      required: false,
+      isRequired: false,
       submissionType: 'TEXT',
     }),
   ];

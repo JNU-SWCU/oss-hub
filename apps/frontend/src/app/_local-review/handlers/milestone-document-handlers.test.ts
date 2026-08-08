@@ -146,15 +146,59 @@ describe('GET .../documents/collection', () => {
   });
 
   /**
-   * 이 픽스처의 세 번째 서류는 **선택**(required: false)이다. 필수만 세는 규칙이
-   * 느슨해지면 선택 서류만 빠뜨린 팀까지 걸려 hasMissing이 부풀어 오른다.
+   * 수합 표의 열은 `isRequired`로 온다 — 목록 조회(`GET .../documents`)가 쓰는
+   * `required`와 **다른 계약**이다. 픽스처가 옛 이름으로 실으면 값이 `undefined`가 되어
+   * 화면의 필수 별표도, 아래 「필수 서류 미제출」 필터도 오류 하나 없이 조용히 꺼진다.
    */
-  it('HAS_MISSING은 필수 서류만 센다', () => {
+  it('열의 필수 여부는 isRequired로 싣는다 — 옛 required가 아니다', () => {
+    const { documents } = collection('');
+
+    expect(documents).toHaveLength(3);
+    for (const item of documents) {
+      expect(Object.hasOwn(item, 'isRequired')).toBe(true);
+      expect(Object.hasOwn(item, 'required')).toBe(false);
+      expect(typeof item.isRequired).toBe('boolean');
+    }
+    // 필수·선택이 섞여 있어야 아래 HAS_MISSING 검사가 뜻을 갖는다.
+    expect(documents.map((item) => item.isRequired)).toEqual([
+      true,
+      true,
+      false,
+    ]);
+  });
+
+  /**
+   * 이 픽스처의 세 번째 서류는 **선택**(`isRequired: false`)이다. 필수만 세는 규칙이
+   * 느슨해지면 선택 서류만 빠뜨린 팀까지 걸려 hasMissing이 부풀어 오른다.
+   *
+   * ⚠ 수를 못 박아 둔다. 「전체보다 적다」 정도의 헐거운 단언만 두면 필수 판정이 아예
+   * 무너져 **0팀**이 되는 경우도 그대로 통과한다 — 필터가 조용히 텅 비는 쪽이 부풀어
+   * 오르는 쪽보다 흔한 실패다(옛 이름 `required`를 보면 `undefined`가 되어 그렇게 된다).
+   */
+  it('HAS_MISSING은 필수 서류를 안 낸 팀만, 그러나 빠짐없이 센다', () => {
     const all = collection('page=1&pageSize=20&filter=ALL');
     const hasMissing = collection('page=1&pageSize=20&filter=HAS_MISSING');
 
-    expect(hasMissing.total).toBe(all.filterCounts.hasMissing);
-    expect(hasMissing.total).toBeLessThan(all.filterCounts.all);
+    // 3팀 중 첫 팀만 세 장을 다 냈다 — 나머지 두 팀은 필수 서류가 빈다.
+    expect(all.filterCounts.all).toBe(3);
+    expect(all.filterCounts.hasMissing).toBe(2);
+    expect(hasMissing.total).toBe(2);
+    expect(hasMissing.rows).toHaveLength(2);
+    // 「한 장도 안 낸 팀」(1팀)보다 많다 — 두 필터가 같은 수를 내면 필수 판정이 죽어도 모른다.
+    expect(all.filterCounts.hasMissing).toBeGreaterThan(
+      all.filterCounts.zeroSubmission,
+    );
+
+    // 걸린 팀은 정말로 **필수** 서류가 비어 있다.
+    const requiredIndexes = all.documents
+      .map((item, index) => (item.isRequired ? index : -1))
+      .filter((index) => index >= 0);
+    expect(requiredIndexes).toEqual([0, 1]);
+    for (const row of hasMissing.rows) {
+      expect(
+        requiredIndexes.some((index) => row.cells[index]?.isSubmitted !== true),
+      ).toBe(true);
+    }
   });
 
   /**

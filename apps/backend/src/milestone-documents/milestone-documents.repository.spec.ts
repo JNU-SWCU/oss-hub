@@ -1013,14 +1013,28 @@ describe('MilestoneDocumentsRepository.reorderDocuments', () => {
       Promise.resolve(applyUpdate(committed, args)),
     );
     const directFindMany = jest.fn(() => Promise.resolve(readAll(committed)));
+    // 잠금과 갱신이 **어느 순서로** 일어났는지 보려고 한 배열에 함께 기록한다.
+    const operations: string[] = [];
+    const lockQueries: { strings: string[]; values: unknown[] }[] = [];
     const $transaction = jest.fn(
       async (
         callback: (client: unknown) => Promise<unknown>,
       ): Promise<unknown> => {
         const staged = new Map(committed);
         const result = await callback({
+          $queryRaw: (query: { strings: string[]; values: unknown[] }) => {
+            operations.push('lock');
+            lockQueries.push(query);
+            // 잠금 조회는 id 오름차순으로 행을 돌려준다.
+            return Promise.resolve(
+              [...rows]
+                .map((row) => ({ id: row.id }))
+                .sort((left, right) => left.id.localeCompare(right.id)),
+            );
+          },
           milestoneDocument: {
             update: (args: UpdateArgs) => {
+              operations.push(`update:${args.where.id}`);
               transactionUpdateArgs.push(args);
               return Promise.resolve(applyUpdate(staged, args));
             },
@@ -1041,6 +1055,8 @@ describe('MilestoneDocumentsRepository.reorderDocuments', () => {
       committed,
       directUpdate,
       transactionUpdateArgs,
+      operations,
+      lockQueries,
       $transaction,
     };
   }
@@ -1125,5 +1141,34 @@ describe('MilestoneDocumentsRepository.reorderDocuments', () => {
         select: { id: true },
       },
     ]);
+  });
+
+  it('요청 순서를 적용하기 전에 이 마일스톤의 서류 행 전체를 정해진 순서로 한 번에 잠근다', async () => {
+    // Given: 같은 목록을 서로 반대 방향으로 재정렬하는 두 교직원이 A→B와 B→A로 엇갈려
+    // 잠그면 PostgreSQL이 한쪽을 교착으로 중단시킨다. 요청은 역순으로 보낸다.
+    const { prisma, operations, lockQueries } = buildReorderPrisma();
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    await repository.reorderDocuments(syntheticMilestoneId, [
+      thirdId,
+      secondId,
+      firstId,
+    ]);
+
+    // Then: 갱신은 전부 잠금 뒤에 온다 — 요청 순서로 잠기는 행이 하나도 없어야 한다.
+    expect(operations).toEqual([
+      'lock',
+      `update:${thirdId}`,
+      `update:${secondId}`,
+      `update:${firstId}`,
+    ]);
+    // Then: 잠금은 요청 순서가 아니라 id 오름차순으로, 이 마일스톤의 행 전체를 한 번에 잡는다.
+    expect(lockQueries).toHaveLength(1);
+    const lockSql = String(lockQueries[0]?.strings);
+    expect(lockSql).toContain('FROM "MilestoneDocument"');
+    expect(lockSql).toContain('ORDER BY "id"');
+    expect(lockSql).toContain('FOR UPDATE');
+    expect(lockQueries[0]?.values).toEqual([syntheticMilestoneId]);
   });
 });

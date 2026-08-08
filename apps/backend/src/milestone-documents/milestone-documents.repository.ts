@@ -17,6 +17,7 @@ import {
 // 재사용: 신청 참여자(개인 신청자 본인 또는 팀장/팀원) where 절 — submissions 모듈이 이미
 // 검증한 계약을 그대로 쓴다. 이 파일은 읽기 전용 import만 한다(submissions/**는 수정하지 않는다).
 import { submissionParticipantWhere } from '../submissions/submission-application.record';
+import { lockMilestoneDocumentsOfMilestone } from './milestone-document-locks';
 
 /** #619 마일스톤 서류 항목 하나. templateFileId는 교직원이 등록한 양식 파일이 있을 때만 채워진다. */
 export interface MilestoneDocumentRecord {
@@ -618,12 +619,18 @@ export class MilestoneDocumentsRepository {
    *
    * documentIds가 이 마일스톤의 전체 집합인지는 서비스가 이미 검증했지만, where에 milestoneId를
    * 함께 걸어 다른 마일스톤 항목이 섞여 들어오는 경로를 한 겹 더 막는다.
+   *
+   * 갱신을 시작하기 전에 이 마일스톤의 서류 항목 행 전체를 **id 오름차순으로 한 번에** 잠근다.
+   * 요청받은 순서대로 갱신하며 잠그면, 같은 목록을 서로 반대 방향으로 재정렬하는 두 교직원이
+   * A→B와 B→A로 엇갈려 서로를 기다리다 PostgreSQL에 교착으로 중단당한다(정상 동작인데 500).
+   * 잠금 순서 규칙은 milestone-document-locks.ts가 소유한다.
    */
   async reorderDocuments(
     milestoneId: string,
     documentIds: readonly string[],
   ): Promise<MilestoneDocumentRecord[]> {
     return this.prisma.$transaction(async (transaction) => {
+      await lockMilestoneDocumentsOfMilestone(transaction, milestoneId);
       for (const [index, documentId] of documentIds.entries()) {
         await transaction.milestoneDocument.update({
           where: { id: documentId, milestoneId },

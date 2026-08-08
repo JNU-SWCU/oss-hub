@@ -19,11 +19,19 @@ export interface MilestoneDocumentCollectionMilestone {
   readonly dueAt: string;
 }
 
-/** 표의 열 — 이 마일스톤이 요구하는 서류 항목. `sortOrder` 오름차순으로 온다. */
+/**
+ * 표의 열 — 이 마일스톤이 요구하는 서류 항목. `sortOrder` 오름차순으로 온다.
+ *
+ * ⚠ 이 열만 `isRequired`다(ADR-004의 boolean `is`/`has`/`can` 접두사). 교직원·학생
+ * 화면이 쓰는 `milestone-document-api.ts`의 `MilestoneDocument.required`는 **이미 발행된
+ * 계약**이라 접두사 없이 그대로다 — 이 수합 표 응답만 발행 전이라 규칙에 맞춘다. 칸의
+ * `submitted` → `isSubmitted`를 가른 것과 같은 기준이고, 이름이 비슷하다고 함께 바꾸면
+ * 학생 화면과 「받을 서류」 편집이 조용히 깨진다.
+ */
 export interface MilestoneDocumentCollectionDocument {
   readonly id: string;
   readonly name: string;
-  readonly required: boolean;
+  readonly isRequired: boolean;
   readonly sortOrder: number;
   readonly submissionType: SubmissionType;
 }
@@ -63,7 +71,7 @@ export interface MilestoneDocumentCollectionRow {
  * (백엔드 `milestone-documents/domain/milestone-document-collection-query.ts`).
  *
  * - `ALL` — 승인된 신청 전부.
- * - `HAS_MISSING` — **필수(required) 서류** 중 하나라도 미제출인 팀. 선택 서류만
+ * - `HAS_MISSING` — **필수(`isRequired`) 서류** 중 하나라도 미제출인 팀. 선택 서류만
  *   빠뜨린 팀은 걸리지 않는다. 독촉 대상을 고르는 기준이라 그렇다.
  * - `ZERO_SUBMISSION` — 한 장도 내지 않은 팀. 필수·선택을 가리지 않는다.
  */

@@ -67,7 +67,7 @@ function collection(
       {
         id: 'd1',
         name: '기획서',
-        required: true,
+        isRequired: true,
         sortOrder: 1,
         submissionType: 'FILE',
       },

@@ -646,4 +646,86 @@ describe('받을 서류 섹션의 동작', () => {
     await click('다시 시도');
     expect(rowNames()).toEqual(['계획서']);
   });
+
+  /**
+   * 겹친 조회. 첫 요청이 끝나기 전에 패널을 접었다 다시 펴면 목록 조회가 둘 겹치고,
+   * 응답이 보낸 순서대로 돌아온다는 보장은 없다. 늦게 도착한 옛 응답을 그대로 받으면
+   * 화면에는 이미 사라진 행이 남고, 그 목록으로 순서를 바꾸면 전체 집합이 서버와 달라
+   * 400(MSD_019)으로 떨어진다.
+   */
+  describe('겹친 목록 조회', () => {
+    /** 응답 도착 순서를 손으로 정하려고 promise를 밖에서 붙잡는다. */
+    function deferred<T>(): {
+      readonly promise: Promise<T>;
+      readonly resolve: (value: T) => void;
+      readonly reject: (reason: unknown) => void;
+    } {
+      let resolve!: (value: T) => void;
+      let reject!: (reason: unknown) => void;
+      const promise = new Promise<T>((res, rej) => {
+        resolve = res;
+        reject = rej;
+      });
+      return { promise, resolve, reject };
+    }
+
+    /** 접었다 다시 펴 두 번째 조회를 띄운다 — 첫 조회는 아직 답하지 않은 채다. */
+    async function collapseAndExpand() {
+      await click('받을 서류');
+      await click('받을 서류');
+    }
+
+    async function settle() {
+      await act(async () => {
+        await Promise.resolve();
+      });
+    }
+
+    it('늦게 온 옛 성공 응답이 최신 목록을 덮지 않는다', async () => {
+      const stale = deferred<readonly MilestoneDocument[]>();
+      const fresh = deferred<readonly MilestoneDocument[]>();
+      listMilestoneDocumentsMock.mockReturnValueOnce(stale.promise);
+      listMilestoneDocumentsMock.mockReturnValueOnce(fresh.promise);
+
+      await render(true);
+      await collapseAndExpand();
+      expect(listMilestoneDocumentsMock).toHaveBeenCalledTimes(2);
+
+      // 최신 요청이 먼저 답하고, 옛 요청이 그 뒤에 답한다.
+      await act(async () => fresh.resolve([budget]));
+      await settle();
+      expect(rowNames()).toEqual(['예산서']);
+
+      await act(async () => stale.resolve([planner, pledge]));
+      await settle();
+
+      expect(rowNames()).toEqual(['예산서']);
+    });
+
+    /**
+     * 실패도 같은 규칙을 받는다. 옛 요청의 실패가 늦게 도착해 그대로 반영되면, 멀쩡히
+     * 서 있는 목록이 「불러오지 못했습니다」로 덮이고 「다시 시도」밖에 남지 않는다.
+     */
+    it('늦게 온 옛 실패가 최신 성공을 오류 화면으로 덮지 않는다', async () => {
+      const stale = deferred<readonly MilestoneDocument[]>();
+      const fresh = deferred<readonly MilestoneDocument[]>();
+      listMilestoneDocumentsMock.mockReturnValueOnce(stale.promise);
+      listMilestoneDocumentsMock.mockReturnValueOnce(fresh.promise);
+
+      await render(true);
+      await collapseAndExpand();
+
+      await act(async () => fresh.resolve([planner]));
+      await settle();
+      expect(rowNames()).toEqual(['계획서']);
+
+      await act(async () => stale.reject(new TypeError('network')));
+      await settle();
+
+      expect(rowNames()).toEqual(['계획서']);
+      expect(container.textContent).not.toContain(
+        '제출 서류를 불러오지 못했습니다.',
+      );
+    });
+  });
 });

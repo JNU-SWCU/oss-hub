@@ -1274,18 +1274,20 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       name: '프로젝트 계획서 제출',
       dueAt: '2026-09-19T09:00:00.000Z',
     });
+    // 열의 필수 여부는 isRequired다 — ADR-004의 boolean `is` 접두사. 이미 발행된 목록 조회
+    // 응답(MilestoneDocumentResponseDto.required)은 그대로 두고 이 신규 응답만 규칙을 따른다.
     expect(result.documents).toEqual([
       {
         id: syntheticDocumentId,
         name: '개인정보 수집·이용 동의서',
-        required: true,
+        isRequired: true,
         sortOrder: 1,
         submissionType: MilestoneSubmissionType.FILE,
       },
       {
         id: secondDocumentId,
         name: '팀 활동 보고',
-        required: false,
+        isRequired: false,
         sortOrder: 2,
         submissionType: MilestoneSubmissionType.TEXT,
       },

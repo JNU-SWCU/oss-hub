@@ -239,17 +239,26 @@ export function MilestoneDocumentEditorSection({
     readonly documentId: string;
     readonly message: string;
   } | null>(null);
+  /**
+   * 목록 조회는 겹칠 수 있다 — 첫 요청이 끝나기 전에 패널을 접었다 다시 펴면 두 번
+   * 나가고, 늦게 도착한 **옛 응답이 최신 상태를 덮는다.** 그러면 화면에 이미 사라진
+   * 행이 남고, 그 목록으로 순서를 바꾸면 전체 집합이 서버와 달라 400(MSD_019)이 난다.
+   * 마지막으로 보낸 요청의 번호만 기억해 두고 그 답만 받는다
+   * (`milestone-document-collection-screen.tsx`의 `requestIdRef`와 같은 방식).
+   */
+  const requestIdRef = useRef(0);
 
   const load = useCallback(async () => {
+    const requestId = (requestIdRef.current += 1);
     setState({ kind: 'loading' });
     try {
-      setState({
-        kind: 'ready',
-        documents: sortMilestoneDocuments(
-          await listMilestoneDocuments(milestoneId),
-        ),
-      });
+      const documents = await listMilestoneDocuments(milestoneId);
+      if (requestId !== requestIdRef.current) return;
+      setState({ kind: 'ready', documents: sortMilestoneDocuments(documents) });
     } catch {
+      // 실패도 똑같이 막는다 — 늦게 온 옛 실패가 최신 성공을 오류 화면으로 덮으면
+      // 교직원은 멀쩡히 있는 서류 목록을 「불러오지 못했습니다」로 본다.
+      if (requestId !== requestIdRef.current) return;
       setState({ kind: 'failed' });
     }
   }, [milestoneId]);

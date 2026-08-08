@@ -72,7 +72,7 @@ function DocumentHeader({
   return (
     <span>
       {document.name}
-      {document.required ? (
+      {document.isRequired ? (
         <span aria-label="필수" className="ml-0.5 text-destructive">
           *
         </span>

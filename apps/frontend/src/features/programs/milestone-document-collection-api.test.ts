@@ -6,6 +6,7 @@ import {
   milestoneDocumentSubmissionFileHref,
   MILESTONE_DOCUMENT_COLLECTION_FILTERS,
   MILESTONE_DOCUMENT_COLLECTION_PAGE_SIZE,
+  type MilestoneDocumentCollection,
 } from './milestone-document-collection-api';
 
 afterEach(() => {
@@ -39,14 +40,24 @@ describe('buildMilestoneDocumentCollectionSearchParams', () => {
 
 describe('getMilestoneDocumentCollection', () => {
   it('조회 조건을 쿼리로 붙여 collection 경로를 부른다', async () => {
-    const body = {
+    // 계약 타입을 붙여 둔다 — 응답 필드 이름이 바뀌면 여기서 먼저 걸린다.
+    const body: MilestoneDocumentCollection = {
       milestone: {
         id: 'milestone-1',
         programId: 'program-capstone',
         name: '기획서 제출',
         dueAt: '2026-07-15',
       },
-      documents: [],
+      // 필수 여부는 이 응답에서 `isRequired`다(목록 조회의 `required`와 다른 계약).
+      documents: [
+        {
+          id: 'd1',
+          name: '기획서',
+          isRequired: true,
+          sortOrder: 1,
+          submissionType: 'FILE',
+        },
+      ],
       rows: [],
       page: 3,
       pageSize: 20,

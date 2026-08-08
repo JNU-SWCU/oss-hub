@@ -380,6 +380,9 @@ function collectionRowFor(
  * ⚠ `HAS_MISSING`은 **필수 서류만** 센다. 선택 서류를 안 낸 팀은 걸리지 않는다 —
  * 여기서 규칙을 느슨하게 두면 화면이 서버와 다른 수를 보여 주고, 그 차이는 실제
  * 백엔드에 붙였을 때에야 드러난다.
+ *
+ * ⚠ 필수 여부를 보는 필드는 수합 표 계약의 `isRequired`다. 시드의 `required`(목록 조회
+ * 계약)를 그대로 보면 `undefined`가 되어 **아무 팀도 안 걸리는데 오류는 나지 않는다**.
  */
 function collectionRowMatchesFilter(
   row: MilestoneDocumentCollectionRow,
@@ -390,7 +393,7 @@ function collectionRowMatchesFilter(
     case 'HAS_MISSING':
       return documents.some(
         (document, index) =>
-          document.required && row.cells[index]?.isSubmitted !== true,
+          document.isRequired && row.cells[index]?.isSubmitted !== true,
       );
     case 'ZERO_SUBMISSION':
       return (
@@ -433,7 +436,9 @@ export function milestoneDocumentCollectionFor(
     (seed) => ({
       id: seed.id,
       name: seed.name,
-      required: seed.required,
+      // 시드의 `required`는 목록 조회 계약(`MilestoneDocument`)의 이름이고, 수합 표
+      // 응답은 `isRequired`다 — 한 시드에서 두 계약으로 갈라져 나가는 자리다.
+      isRequired: seed.required,
       sortOrder: seed.sortOrder,
       submissionType: seed.submissionType,
     }),
