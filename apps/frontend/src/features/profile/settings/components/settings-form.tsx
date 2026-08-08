@@ -26,6 +26,7 @@ import type {
   SettingsFormValues,
   SettingsNotificationLoadState,
 } from '../types';
+import { AccountDeactivationSection } from './account-deactivation-section';
 
 interface SettingsFormProps {
   /** 세션 역할. 학번·학과 표시 여부와 필수 여부를 결정한다. */
@@ -287,6 +288,8 @@ export function SettingsForm({
             </>
           )}
         </FormSection>
+
+        <AccountDeactivationSection role={role} />
 
         {submitError ? (
           <Alert variant="destructive">

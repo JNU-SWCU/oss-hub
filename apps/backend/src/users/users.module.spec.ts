@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { MODULE_METADATA } from '@nestjs/common/constants';
+import { AccountDeactivationController } from './account-deactivation.controller';
 import { AdminAccessController } from './admin-access.controller';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
@@ -34,9 +35,13 @@ describe('UsersModule admin access wiring', () => {
       UsersModule,
     );
 
-    // When / Then — /admin/access(AdminAccessController)와 /users(UsersController)
-    // 둘뿐이며, 원자적 전환으로 제거된 레거시 /users(list)·/users/:id/role
-    // 쓰기 컨트롤러는 더 이상 없다.
-    expect(controllers).toEqual([AdminAccessController, UsersController]);
+    // When / Then — 자기 계정 비활성화, /admin/access, /users 조회 경로만 남고
+    // 원자적 전환으로 제거된 레거시 /users(list)·/users/:id/role 쓰기
+    // 컨트롤러는 다시 등록되지 않는다.
+    expect(controllers).toEqual([
+      AccountDeactivationController,
+      AdminAccessController,
+      UsersController,
+    ]);
   });
 });
