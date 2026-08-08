@@ -163,7 +163,12 @@ export function validateMilestoneDocumentForm(
     : {};
 }
 
-/** 생성·수정 두 endpoint가 같은 본문을 받는다(전체 교체) — sortOrder는 호출부가 정한다. */
+/**
+ * 생성·수정 두 endpoint가 같은 본문을 받는다(전체 교체) — sortOrder는 호출부가 정한다.
+ *
+ * ⚠ 다만 그 값이 자리를 정하는 것은 **생성뿐**이다. 수정 요청의 sortOrder는 서버가
+ * 무시하고, 순서는 `PATCH .../documents/order`가 소유한다. 본문 shape이 같아 함께 실을 뿐이다.
+ */
 export function buildMilestoneDocumentInput(
   form: MilestoneDocumentForm,
   sortOrder: number,
@@ -198,8 +203,12 @@ export function nextMilestoneDocumentSortOrder(
 }
 
 /**
- * 저장에 실을 sortOrder. 새 항목은 맨 뒤에 붙이고, 수정은 원래 자리를 지킨다 —
- * 수정 endpoint가 전체 교체라 sortOrder를 빠뜨리면 순서가 통째로 흐트러진다.
+ * 저장에 실을 sortOrder. 새 항목은 맨 뒤에 붙고, 수정은 원래 값을 그대로 다시 싣는다.
+ *
+ * **수정으로는 순서가 움직이지 않는다** — 서버가 수정 요청의 sortOrder를 무시하기
+ * 때문이다(순서는 `PATCH .../documents/order`가 소유한다). 원래 값을 싣는 것은 본문
+ * shape을 맞추기 위해서다. 다른 값을 실어 자리를 옮기려 들면 응답은 성공인데 순서는
+ * 그대로인 자리가 된다.
  */
 export function milestoneDocumentSaveSortOrder(
   documents: readonly MilestoneDocument[],

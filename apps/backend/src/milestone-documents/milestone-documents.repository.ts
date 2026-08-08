@@ -17,7 +17,10 @@ import {
 // 재사용: 신청 참여자(개인 신청자 본인 또는 팀장/팀원) where 절 — submissions 모듈이 이미
 // 검증한 계약을 그대로 쓴다. 이 파일은 읽기 전용 import만 한다(submissions/**는 수정하지 않는다).
 import { submissionParticipantWhere } from '../submissions/submission-application.record';
-import { lockMilestoneDocumentsOfMilestone } from './milestone-document-locks';
+import {
+  lockMilestone,
+  lockMilestoneDocumentsOfMilestone,
+} from './milestone-document-locks';
 
 /** #619 마일스톤 서류 항목 하나. templateFileId는 교직원이 등록한 양식 파일이 있을 때만 채워진다. */
 export interface MilestoneDocumentRecord {
@@ -193,6 +196,22 @@ export interface UpsertMilestoneDocumentInput {
   readonly submissionType: MilestoneSubmissionType;
 }
 
+/**
+ * 서류 항목 **수정**이 실제로 쓰는 필드 — `sortOrder`가 없다. 순서는 `PATCH .../documents/order`가
+ * 소유하므로 수정 경로가 그 값을 들고 있으면 안 된다(들고 있으면 언젠가 쓴다). 요청 본문
+ * (`UpsertMilestoneDocumentRequestDto`)은 생성과 공유해 그대로 두고, **여기서 타입으로 잘라낸다**
+ * — 프런트가 무엇을 보내든 수정 경로에는 순서가 도달하지 않는다.
+ */
+export type UpdateMilestoneDocumentInput = Omit<
+  UpsertMilestoneDocumentInput,
+  'sortOrder'
+>;
+
+/** `FOR UPDATE`로 잠근 마일스톤 — 서류 항목 집합을 바꾸는 경로의 공통 관문이다. */
+export interface LockedMilestone {
+  readonly id: string;
+}
+
 /** `FOR UPDATE`로 잠근 뒤 다시 읽은 서류 항목 — 잠금을 잡은 시점의 최신 값이다. */
 export interface LockedMilestoneDocument {
   readonly id: string;
@@ -201,12 +220,21 @@ export interface LockedMilestoneDocument {
 }
 
 /**
- * 서류 항목 수정 usecase의 트랜잭션 store — ADR-003의 「모든 데이터 변경 usecase의 트랜잭션
- * 시작·완료·실패 처리는 service 계층에서 소유한다」를 위한 seam이다. 「제출 수를 센다 → 제출
- * 방식 변경을 판단한다 → 갱신한다」가 한 트랜잭션 안에서 일어나야 하고, 그 판단은 업무 규칙이라
- * 서비스가 들고 있어야 하기 때문에 트랜잭션 클라이언트를 이 좁은 문으로만 내놓는다.
+ * 교직원 서류 항목 쓰기 usecase(추가·수정·순서 재부여·삭제)의 트랜잭션 store — ADR-003의
+ * 「모든 데이터 변경 usecase의 트랜잭션 시작·완료·실패 처리는 service 계층에서 소유한다」를 위한
+ * seam이다. 「잠근다 → 다시 읽는다 → 판단한다 → 쓴다」가 한 트랜잭션 안에서 일어나야 하고, 그
+ * 판단(제출이 있는데 방식을 바꾸려는가 · 넘어온 id 집합이 지금의 전체 집합과 같은가)은 업무
+ * 규칙이라 서비스가 들고 있어야 하기 때문에, 트랜잭션 클라이언트를 이 좁은 문으로만 내놓는다.
  */
-export interface MilestoneDocumentUpdateStore {
+export interface MilestoneDocumentWriteStore {
+  /**
+   * 마일스톤 행을 `FOR UPDATE`로 잠그고 존재를 확인한다. 없으면 null.
+   *
+   * 서류 항목의 **집합**을 바꾸는 세 경로(추가·삭제·순서 재부여)가 전부 이 한 줄을 먼저 지난다.
+   * 이유는 `milestone-document-locks.ts`에 있다 — `FOR UPDATE`는 존재하는 행만 잠그므로, 삽입을
+   * 막으려면 삽입하는 쪽도 반드시 잠그는 부모 행을 관문으로 삼아야 한다.
+   */
+  lockMilestone(milestoneId: string): Promise<LockedMilestone | null>;
   /**
    * 대상 행을 `FOR UPDATE`로 잠그고 다시 읽는다. 없으면 null.
    *
@@ -216,11 +244,37 @@ export interface MilestoneDocumentUpdateStore {
    * 교직원이 제출 방식을 이미 바꿨을 수 있어, 트랜잭션 밖에서 읽은 값으로 판단하면 안 된다.
    */
   lockDocument(documentId: string): Promise<LockedMilestoneDocument | null>;
+  /**
+   * 이 마일스톤의 서류 항목 행 전부를 id 오름차순으로 잠그고 **그 id 집합을 돌려준다**.
+   * 돌려주는 값이 핵심이다 — 순서 재부여는 트랜잭션 밖에서 읽어 둔 집합이 아니라 잠근 뒤
+   * 다시 읽은 이 집합과 요청을 대조해야 한다.
+   */
+  lockDocumentIdsOfMilestone(milestoneId: string): Promise<readonly string[]>;
   countSubmissionsForDocument(documentId: string): Promise<number>;
+  /**
+   * 순서는 **서버가 정한다** — 요청의 `sortOrder`는 쓰지 않고 마일스톤 잠금 아래에서
+   * `max + 1`을 계산해 맨 뒤에 붙인다. 클라이언트 값을 그대로 믿으면 두 교직원이 동시에
+   * 「항목 추가」를 눌렀을 때 둘 다 낡은 목록에서 같은 값을 계산해 보내 sortOrder가 겹친다.
+   * 겹치면 순서 바꾸기가 조용히 아무 일도 안 하는 상태로 굳는다(그래서 update도 순서를 받지 않는다).
+   */
+  createDocument(
+    milestoneId: string,
+    input: UpdateMilestoneDocumentInput,
+  ): Promise<MilestoneDocumentRecord>;
+  /** 순서는 받지 않는다 — 타입이 `UpdateMilestoneDocumentInput`인 이유가 그것이다. */
   updateDocument(
     documentId: string,
-    input: UpsertMilestoneDocumentInput,
+    input: UpdateMilestoneDocumentInput,
   ): Promise<MilestoneDocumentRecord>;
+  /**
+   * 넘어온 순서대로 sortOrder를 1부터 다시 매기고, 같은 트랜잭션에서 새 목록을 읽어 돌려준다.
+   * 잠금과 집합 검증은 **호출 전에** 끝나 있어야 한다(서비스가 한다).
+   */
+  applyDocumentOrder(
+    milestoneId: string,
+    documentIds: readonly string[],
+  ): Promise<MilestoneDocumentRecord[]>;
+  deleteDocument(documentId: string): Promise<void>;
 }
 
 const attachedFileSelect = {
@@ -304,21 +358,12 @@ function countSubmissionsForDocumentWith(
   });
 }
 
-async function updateDocumentWith(
-  client: Prisma.TransactionClient,
-  documentId: string,
-  input: UpsertMilestoneDocumentInput,
-): Promise<MilestoneDocumentRecord> {
-  const updated = await client.milestoneDocument.update({
-    where: { id: documentId },
-    data: input,
-    select: documentRecordSelect,
-  });
-  return toDocumentRecord(updated);
-}
-
-class PrismaMilestoneDocumentUpdateStore implements MilestoneDocumentUpdateStore {
+class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
+
+  lockMilestone(milestoneId: string): Promise<LockedMilestone | null> {
+    return lockMilestone(this.transaction, milestoneId);
+  }
 
   async lockDocument(
     documentId: string,
@@ -334,15 +379,98 @@ class PrismaMilestoneDocumentUpdateStore implements MilestoneDocumentUpdateStore
     return rows[0] ?? null;
   }
 
+  async lockDocumentIdsOfMilestone(
+    milestoneId: string,
+  ): Promise<readonly string[]> {
+    const rows = await lockMilestoneDocumentsOfMilestone(
+      this.transaction,
+      milestoneId,
+    );
+    return rows.map((row) => row.id);
+  }
+
   countSubmissionsForDocument(documentId: string): Promise<number> {
     return countSubmissionsForDocumentWith(this.transaction, documentId);
   }
 
-  updateDocument(
-    documentId: string,
-    input: UpsertMilestoneDocumentInput,
+  async createDocument(
+    milestoneId: string,
+    input: UpdateMilestoneDocumentInput,
   ): Promise<MilestoneDocumentRecord> {
-    return updateDocumentWith(this.transaction, documentId, input);
+    // 마일스톤 행을 잡은 뒤라 이 집계와 create 사이에 다른 추가가 끼어들 수 없다.
+    const last = await this.transaction.milestoneDocument.aggregate({
+      where: { milestoneId },
+      _max: { sortOrder: true },
+    });
+    const sortOrder = (last._max.sortOrder ?? 0) + 1;
+    const created = await this.transaction.milestoneDocument.create({
+      data: { milestoneId, ...input, sortOrder },
+      select: {
+        id: true,
+        milestoneId: true,
+        name: true,
+        required: true,
+        sortOrder: true,
+        submissionType: true,
+      },
+    });
+    return { ...created, templateFileId: null };
+  }
+
+  /**
+   * `data`에 `sortOrder`가 없다 — 넘어오는 타입에 그 필드가 아예 없기 때문이다. 수정이 순서를
+   * 건드리지 않는 것은 이 문장이 조심해서가 아니라 값이 여기까지 오지 못해서다.
+   */
+  async updateDocument(
+    documentId: string,
+    input: UpdateMilestoneDocumentInput,
+  ): Promise<MilestoneDocumentRecord> {
+    const updated = await this.transaction.milestoneDocument.update({
+      where: { id: documentId },
+      data: input,
+      select: documentRecordSelect,
+    });
+    return toDocumentRecord(updated);
+  }
+
+  /**
+   * 순서 재부여 — 주어진 배열 순서대로 sortOrder를 1부터 다시 매긴다(구멍·중복 없음).
+   *
+   * 항목을 하나씩 따로 갱신하면(= 트랜잭션 밖) 중간에 실패했을 때 sortOrder가 같은 두 항목이
+   * 남고, 그 상태에서는 다음 「위로」가 조용히 아무 일도 하지 않는다(같은 값끼리 맞바꿔도 순서가
+   * 그대로다). 갱신 후 목록 조회까지 같은 트랜잭션 안이라 응답이 방금 쓴 순서를 본다.
+   *
+   * documentIds가 이 마일스톤의 전체 집합인지는 서비스가 **잠금 뒤에** 확인했지만, where에
+   * milestoneId를 함께 걸어 다른 마일스톤 항목이 섞여 들어오는 경로를 한 겹 더 막는다.
+   */
+  async applyDocumentOrder(
+    milestoneId: string,
+    documentIds: readonly string[],
+  ): Promise<MilestoneDocumentRecord[]> {
+    for (const [index, documentId] of documentIds.entries()) {
+      await this.transaction.milestoneDocument.update({
+        where: { id: documentId, milestoneId },
+        data: { sortOrder: index + 1 },
+        select: { id: true },
+      });
+    }
+    const documents = await this.transaction.milestoneDocument.findMany({
+      where: { milestoneId },
+      orderBy: { sortOrder: 'asc' },
+      select: documentRecordSelect,
+    });
+    return documents.map(toDocumentRecord);
+  }
+
+  async deleteDocument(documentId: string): Promise<void> {
+    // 양식 파일이 있으면 FK(ON DELETE RESTRICT)가 먼저 막으니 명시적으로 함께 지운다 —
+    // MilestoneDocument 삭제 자체는 제출이 없을 때만(서비스가 잠금 아래에서 확인) 허용한다.
+    await this.transaction.milestoneDocumentTemplateFile.deleteMany({
+      where: { milestoneDocumentId: documentId },
+    });
+    await this.transaction.milestoneDocument.delete({
+      where: { id: documentId },
+    });
   }
 }
 
@@ -351,15 +479,15 @@ export class MilestoneDocumentsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * 서류 항목 수정 usecase의 트랜잭션 경계 — 여는 쪽은 repository지만 **언제 시작하고 무엇을
-   * 담을지는 서비스가 정한다**(ADR-003). roles·submissions·program-editor 등이 쓰는
+   * 교직원 서류 항목 쓰기 usecase의 트랜잭션 경계 — 여는 쪽은 repository지만 **언제 시작하고
+   * 무엇을 담을지는 서비스가 정한다**(ADR-003). roles·submissions·program-editor 등이 쓰는
    * `withTransaction(store => …)` 관례를 그대로 따른다.
    */
   withTransaction<T>(
-    operation: (store: MilestoneDocumentUpdateStore) => Promise<T>,
+    operation: (store: MilestoneDocumentWriteStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaMilestoneDocumentUpdateStore(transaction)),
+      operation(new PrismaMilestoneDocumentWriteStore(transaction)),
     );
   }
 
@@ -591,81 +719,10 @@ export class MilestoneDocumentsRepository {
   }
 
   // ---- 교직원 CRUD ----
-
-  async createDocument(
-    milestoneId: string,
-    input: UpsertMilestoneDocumentInput,
-  ): Promise<MilestoneDocumentRecord> {
-    const created = await this.prisma.milestoneDocument.create({
-      data: { milestoneId, ...input },
-      select: {
-        id: true,
-        milestoneId: true,
-        name: true,
-        required: true,
-        sortOrder: true,
-        submissionType: true,
-      },
-    });
-    return { ...created, templateFileId: null };
-  }
-
-  /**
-   * 서류 항목 순서 재부여 — 주어진 배열 순서대로 sortOrder를 1부터 다시 매긴다(구멍·중복 없음).
-   *
-   * **한 트랜잭션**이어야 한다. 항목을 하나씩 갱신하면 중간에 실패했을 때 sortOrder가 같은 두
-   * 항목이 남고, 그 상태에서는 다음 「위로」가 조용히 아무 일도 하지 않는다(같은 값끼리 맞바꿔도
-   * 순서가 그대로다). 갱신 후 목록 조회까지 같은 트랜잭션 안에서 해 응답이 방금 쓴 순서를 본다.
-   *
-   * documentIds가 이 마일스톤의 전체 집합인지는 서비스가 이미 검증했지만, where에 milestoneId를
-   * 함께 걸어 다른 마일스톤 항목이 섞여 들어오는 경로를 한 겹 더 막는다.
-   *
-   * 갱신을 시작하기 전에 이 마일스톤의 서류 항목 행 전체를 **id 오름차순으로 한 번에** 잠근다.
-   * 요청받은 순서대로 갱신하며 잠그면, 같은 목록을 서로 반대 방향으로 재정렬하는 두 교직원이
-   * A→B와 B→A로 엇갈려 서로를 기다리다 PostgreSQL에 교착으로 중단당한다(정상 동작인데 500).
-   * 잠금 순서 규칙은 milestone-document-locks.ts가 소유한다.
-   */
-  async reorderDocuments(
-    milestoneId: string,
-    documentIds: readonly string[],
-  ): Promise<MilestoneDocumentRecord[]> {
-    return this.prisma.$transaction(async (transaction) => {
-      await lockMilestoneDocumentsOfMilestone(transaction, milestoneId);
-      for (const [index, documentId] of documentIds.entries()) {
-        await transaction.milestoneDocument.update({
-          where: { id: documentId, milestoneId },
-          data: { sortOrder: index + 1 },
-          select: { id: true },
-        });
-      }
-      const documents = await transaction.milestoneDocument.findMany({
-        where: { milestoneId },
-        orderBy: { sortOrder: 'asc' },
-        select: documentRecordSelect,
-      });
-      return documents.map(toDocumentRecord);
-    });
-  }
-
-  /**
-   * 트랜잭션 밖 단발 조회 — `deleteDocument` 사전 검증이 쓴다. 「세고 나서 쓰는」 판단에는
-   * 그냥 쓰면 안 된다(그 창이 이번에 고친 결함이다). 그 경우는 `withTransaction`의
-   * `lockDocument` → `countSubmissionsForDocument` 순서를 쓴다.
-   */
-  countSubmissionsForDocument(documentId: string): Promise<number> {
-    return countSubmissionsForDocumentWith(this.prisma, documentId);
-  }
-
-  async deleteDocument(documentId: string): Promise<void> {
-    // 양식 파일이 있으면 FK(ON DELETE RESTRICT)가 먼저 막으니 명시적으로 함께 지운다 —
-    // MilestoneDocument 삭제 자체는 제출이 없을 때만(서비스 계층 사전 검증) 허용한다.
-    await this.prisma.$transaction([
-      this.prisma.milestoneDocumentTemplateFile.deleteMany({
-        where: { milestoneDocumentId: documentId },
-      }),
-      this.prisma.milestoneDocument.delete({ where: { id: documentId } }),
-    ]);
-  }
+  //
+  // 추가·수정·순서 재부여·삭제는 여기 메서드가 아니라 `withTransaction`의 store에 있다.
+  // 넷 다 「잠근다 → 다시 읽는다 → 판단한다 → 쓴다」라서 트랜잭션 밖 단발 메서드를 남겨 두면
+  // 그쪽이 다시 쓰이는 순간 잠금이 없는 경로가 되살아난다. 그래서 문 자체를 하나만 둔다.
 
   // ---- 양식 파일 ----
 

@@ -12,11 +12,11 @@ import {
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.enum';
 import {
-  type MilestoneDocumentContext,
   MilestoneDocumentPendingFileMissingError,
   type MilestoneDocumentRecord,
   MilestoneDocumentsRepository,
   MilestoneDocumentSubmissionTypeChangedError,
+  type UpdateMilestoneDocumentInput,
   type UpsertMilestoneDocumentInput,
   type UpsertMilestoneDocumentSubmissionInput,
 } from './milestone-documents.repository';
@@ -144,32 +144,58 @@ export class MilestoneDocumentsService {
     );
   }
 
-  /** 교직원 — 서류 항목 추가("낼 서류 항목 ＋ 서류 항목 추가"). */
+  /**
+   * 교직원 — 서류 항목 추가("낼 서류 항목 ＋ 서류 항목 추가"). 생성은 요청의 `sortOrder`를
+   * 그대로 쓴다(새 항목은 목록 끝에 붙는다). 순서를 **처음 정하는** 쪽이라 수정과 다르다.
+   *
+   * 마일스톤 존재 확인을 트랜잭션 밖 조회가 아니라 **잠금**으로 한다. 존재 확인만이라면 잠금이
+   * 필요 없지만 이 잠금은 다른 일을 한다 — 순서 재부여가 행 전부를 잠그고 1..N을 다시 매기는
+   * 사이에 새 항목이 커밋되면 그 항목만 재번호에서 빠져 sortOrder가 겹친다. `FOR UPDATE`는
+   * **존재하는 행만** 잠그므로 삽입은 자식 행 잠금으로 막을 수 없다. 삽입하는 이쪽이 부모
+   * (마일스톤)를 함께 잡아야 비로소 두 경로가 한 줄로 선다.
+   */
   async createDocument(
     milestoneId: string,
     input: UpsertMilestoneDocumentInput,
   ): Promise<MilestoneDocumentResponseDto> {
-    const milestone = await this.repository.findMilestone(milestoneId);
-    if (milestone === null) {
-      throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
-    }
-    const record = await this.repository.createDocument(milestoneId, input);
+    const record = await this.repository.withTransaction(async (store) => {
+      const milestone = await store.lockMilestone(milestoneId);
+      if (milestone === null) {
+        throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
+      }
+      return store.createDocument(milestoneId, input);
+    });
     return MilestoneDocumentResponseDto.from(record);
   }
 
   /**
-   * 교직원 — 서류 항목 수정(전체 교체: 이름/필수여부/순서/제출유형).
+   * 교직원 — 서류 항목 수정(이름/필수여부/제출유형). **`sortOrder`는 요청에 있어도 무시한다.**
+   *
+   * 순서의 소유자는 `PATCH .../documents/order` 하나다. 수정이 요청받은 순서를 함께 저장하면
+   * 소유자가 둘이 되고, 그러면 경합이랄 것도 없이 깨진다 — 교직원 A가 편집 화면을 열어 둔 사이
+   * B가 순서를 바꾸고, A가 **이름만** 고쳐 저장하면 A 화면에 박혀 있던 낡은 sortOrder가 B의 새
+   * 순서를 덮어 sortOrder가 겹친다. 겹치면 다음 「위로」가 조용히 아무 일도 하지 않는다(같은
+   * 값끼리 맞바꿔도 순서가 그대로다) — 앞서 없앤 그 덫이 그대로 다시 열린다.
+   *
+   * 요청 본문 계약(`UpsertMilestoneDocumentRequestDto`)은 생성과 공유하므로 그대로 두고, 대신
+   * store로 넘기는 타입(`UpdateMilestoneDocumentInput`)에서 잘라낸다. 「조심해서 안 쓴다」가
+   * 아니라 **쓸 수 없게** 만드는 쪽이다.
    *
    * 제출이 하나라도 있으면 **제출 방식(submissionType) 변경만** 막는다(deleteDocument와 같은
    * DOCUMENT_HAS_SUBMISSIONS). FILE→TEXT로 바꾸면 이미 올라온 파일이 수합 표에서 조용히
    * 사라지기 때문이다(칸의 file은 submissionType === FILE일 때만 붙는다). 데이터가 지워지는 건
    * 아니라 되돌리면 다시 보이지만, 교직원이 그 사이 「안 냈네」로 읽는 것이 실제 피해다.
-   * 이름·필수여부·순서 변경은 해롭지 않으므로 제출이 있어도 계속 허용한다.
+   * 이름·필수여부 변경은 해롭지 않으므로 제출이 있어도 계속 허용한다.
    *
    * 「잠근다 → 센다 → 판단한다 → 갱신한다」가 **한 트랜잭션**이어야 한다(ADR-003 — 트랜잭션
    * 경계는 service가 소유한다). 세기와 갱신이 갈라져 있으면 그 사이에 들어온 제출이 카운트에
    * 잡히지 않고, 가드를 통과한 갱신이 커밋되어 「TEXT인데 FILE 제출이 들어 있는」 상태 — 이
    * 가드가 막으려던 바로 그 상태 — 가 남는다. 잠금의 상대편은 `upsertSubmission`의 `FOR SHARE`다.
+   *
+   * 여기서는 마일스톤 행을 잡지 않는다 — 이 경로는 서류 항목을 만들지도 지우지도 않아 **집합을
+   * 바꾸지 않기** 때문이다. 이미 있는 한 행만 만지므로 그 행의 `FOR UPDATE`로 충분하고, 순서
+   * 재부여도 같은 행을 `FOR UPDATE`로 잡으므로 둘은 그 지점에서 직렬화된다. 잠금 순서
+   * (`Milestone` → `MilestoneDocument`)의 부분집합만 잡는 것이라 교착도 만들지 않는다.
    */
   async updateDocument(
     milestoneId: string,
@@ -192,7 +218,7 @@ export class MilestoneDocumentsService {
           );
         }
       }
-      return store.updateDocument(documentId, input);
+      return store.updateDocument(documentId, toUpdateInput(input));
     });
     return MilestoneDocumentResponseDto.from(record);
   }
@@ -203,35 +229,59 @@ export class MilestoneDocumentsService {
    * documentIds는 이 마일스톤의 서류 **전체 집합과 정확히 일치**해야 한다(누락·중복·다른
    * 마일스톤 id 섞임 전부 거부). 이걸 강제하면 부분 갱신 자체가 불가능해지고, 그래야 sortOrder가
    * 같은 두 항목이 남는 상태(다음 「위로」가 조용히 아무 일도 안 하는 덫)를 만들 수 없다.
+   *
+   * **그 대조를 트랜잭션 안, 잠금 뒤에 한다.** 밖에서 읽은 목록으로 판단하면 대조와 갱신 사이가
+   * 열려 있다. 그 사이에 다른 교직원의 추가·삭제가 커밋되면 두 가지가 각각 벌어진다 —
+   * 요청에 있던 id가 삭제됐으면 이어지는 update가 행을 못 찾아 Prisma P2025로 터지고(500), 새로
+   * 생긴 항목은 재번호에서 빠져 sortOrder가 겹친다. 잠근 뒤 집합을 **다시 읽어** 대조하면 둘 다
+   * 「그 사이 목록이 바뀌었다」는 뜻이 있는 거절(INVALID_REQUEST)이 된다.
+   *
+   * 잠금 순서는 `Milestone` → `MilestoneDocument`(id asc) — locks 파일의 전역 규칙 그대로다.
    */
   async reorderDocuments(
     milestoneId: string,
     documentIds: readonly string[],
   ): Promise<MilestoneDocumentResponseDto[]> {
-    const milestone = await this.repository.findMilestone(milestoneId);
-    if (milestone === null) {
-      throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
-    }
-    const documents = await this.repository.findByMilestoneId(milestoneId);
-    if (!isExactDocumentIdSet(documents, documentIds)) {
-      throw this.error(MilestoneDocumentsErrorCode.INVALID_REQUEST);
-    }
-    const records = await this.repository.reorderDocuments(
-      milestoneId,
-      documentIds,
-    );
+    const records = await this.repository.withTransaction(async (store) => {
+      const milestone = await store.lockMilestone(milestoneId);
+      if (milestone === null) {
+        throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
+      }
+      const lockedIds = await store.lockDocumentIdsOfMilestone(milestoneId);
+      if (!isExactDocumentIdSet(lockedIds, documentIds)) {
+        throw this.error(MilestoneDocumentsErrorCode.INVALID_REQUEST);
+      }
+      return store.applyDocumentOrder(milestoneId, documentIds);
+    });
     return records.map((record) => MilestoneDocumentResponseDto.from(record));
   }
 
-  /** 교직원 — 서류 항목 삭제. 제출이 하나라도 있으면 거부한다. */
+  /**
+   * 교직원 — 서류 항목 삭제. 제출이 하나라도 있으면 거부한다.
+   *
+   * 추가와 같은 관문(마일스톤 행 잠금)을 먼저 지난다 — 순서 재부여가 잠근 집합에서 행이 사라지면
+   * 그 update가 P2025로 떨어지기 때문이다. 그다음 서류 행을 잠그고, 「소속 확인 → 제출 수 세기 →
+   * 삭제」를 그 잠금 아래에서 한다. 세기와 삭제가 갈라져 있으면 그 사이에 도착한 제출이 카운트를
+   * 피해 들어오고, 제출이 딸린 항목이 지워진다.
+   */
   async deleteDocument(milestoneId: string, documentId: string): Promise<void> {
-    await this.requireDocumentInMilestone(milestoneId, documentId);
-    const submissionCount =
-      await this.repository.countSubmissionsForDocument(documentId);
-    if (submissionCount > 0) {
-      throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_HAS_SUBMISSIONS);
-    }
-    await this.repository.deleteDocument(documentId);
+    await this.repository.withTransaction(async (store) => {
+      const milestone = await store.lockMilestone(milestoneId);
+      // 마일스톤이 없으면 그 안의 서류도 없다 — 호출자에게는 「서류를 못 찾았다」가 맞다.
+      if (milestone === null) {
+        throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+      }
+      const locked = await store.lockDocument(documentId);
+      if (locked === null || locked.milestoneId !== milestoneId) {
+        throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+      }
+      const submissionCount =
+        await store.countSubmissionsForDocument(documentId);
+      if (submissionCount > 0) {
+        throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_HAS_SUBMISSIONS);
+      }
+      await store.deleteDocument(documentId);
+    });
   }
 
   /**
@@ -335,34 +385,38 @@ export class MilestoneDocumentsService {
     }
   }
 
-  private async requireDocumentInMilestone(
-    milestoneId: string,
-    documentId: string,
-  ): Promise<MilestoneDocumentContext> {
-    const context = await this.repository.findDocumentContext(documentId);
-    if (context === null || context.milestoneId !== milestoneId) {
-      throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
-    }
-    return context;
-  }
-
   private error(code: MilestoneDocumentsErrorCode): DomainException {
     return new DomainException(MILESTONE_DOCUMENTS_ERROR_CODES[code]);
   }
 }
 
 /**
- * 요청한 id 나열이 이 마일스톤 서류의 전체 집합과 정확히 같은지 — 누락·중복·외부 id를 모두 잡는다.
+ * 수정이 실제로 저장할 필드만 남긴다 — `sortOrder`를 여기서 떨어뜨린다. 필드를 하나씩 적는 것은
+ * 실수가 아니라 의도다: 나중에 순서 관련 필드가 늘어도 이 함수를 고치지 않는 한 수정 경로로
+ * 새어 나가지 않는다. 순서의 소유자는 `PATCH .../documents/order`다.
+ */
+function toUpdateInput(
+  input: UpsertMilestoneDocumentInput,
+): UpdateMilestoneDocumentInput {
+  return {
+    name: input.name,
+    required: input.required,
+    submissionType: input.submissionType,
+  };
+}
+
+/**
+ * 요청한 id 나열이 지금 잠근 서류 집합과 정확히 같은지 — 누락·중복·외부 id를 모두 잡는다.
  * 길이 비교만으로는 「하나 빠지고 하나 중복」이 통과하므로 Set 크기까지 함께 본다.
  */
 function isExactDocumentIdSet(
-  documents: readonly MilestoneDocumentRecord[],
+  existingIds: readonly string[],
   documentIds: readonly string[],
 ): boolean {
-  const existing = new Set(documents.map((document) => document.id));
+  const existing = new Set(existingIds);
   const requested = new Set(documentIds);
   return (
-    documentIds.length === documents.length &&
+    documentIds.length === existingIds.length &&
     requested.size === documentIds.length &&
     [...requested].every((documentId) => existing.has(documentId))
   );

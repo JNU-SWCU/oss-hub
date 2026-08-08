@@ -245,6 +245,9 @@ export function MilestoneDocumentEditorSection({
    * 행이 남고, 그 목록으로 순서를 바꾸면 전체 집합이 서버와 달라 400(MSD_019)이 난다.
    * 마지막으로 보낸 요청의 번호만 기억해 두고 그 답만 받는다
    * (`milestone-document-collection-screen.tsx`의 `requestIdRef`와 같은 방식).
+   *
+   * 번호를 올리는 것은 조회만이 아니다 — 변경이 끝나는 자리(`settleMutation`)에서도
+   * 올린다. 조회끼리만 막으면 변경 도중에 나간 조회가 그 변경을 덮어 버린다.
    */
   const requestIdRef = useRef(0);
 
@@ -272,6 +275,29 @@ export function MilestoneDocumentEditorSection({
 
   const applyDocuments = (next: readonly MilestoneDocument[]) => {
     setState({ kind: 'ready', documents: next });
+  };
+
+  /**
+   * 변경(저장·삭제·순서 바꾸기·양식 올리기)이 끝나는 자리 — 그때 날아가 있던 목록
+   * 조회를 전부 낡은 것으로 만든다.
+   *
+   * 조회끼리만 막아서는 부족했다. 변경이 진행되는 동안 패널을 접었다 다시 펴면 그
+   * 조회는 **변경 이전** 목록을 읽어 오고, 늦게 도착해 「최신 요청」의 자격으로 방금의
+   * 결과를 덮는다 — 방금 만든 항목이나 방금 고친 이름이 다시 불러오기 전까지 화면에서
+   * 사라진다. 그 목록으로 순서를 바꾸면 전체 집합이 서버와 달라 400(MSD_019)까지 간다.
+   *
+   * **성공·실패를 가리지 않는다**(`finally`에서 부른다). 변경이 끝나기 전에 나간 조회는
+   * 어느 쪽이든 「변경을 반영한 답인지 알 수 없는 사진」이고, 우리 손에는 방금 서버가
+   * 준 목록(성공)이거나 변경이 없었다는 사실(실패)이 있다.
+   */
+  const settleMutation = () => {
+    requestIdRef.current += 1;
+    // 방금 무효로 만든 조회가 켜 둔 「불러오는 중…」은 여기서 끈다 — 그 답을 받지 않기로
+    // 했으므로 그대로 두면 패널이 영영 「불러오는 중…」에 멈춘다. 성공 경로는 이미
+    // `applyDocuments`로 목록을 써 뒀으므로 이 되돌림은 실패 경로에만 걸린다.
+    setState((current) =>
+      current.kind === 'loading' ? { kind: 'ready', documents } : current,
+    );
   };
 
   const save = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -312,6 +338,7 @@ export function MilestoneDocumentEditorSection({
       );
     } finally {
       setIsBusy(false);
+      settleMutation();
     }
   };
 
@@ -332,6 +359,7 @@ export function MilestoneDocumentEditorSection({
       });
     } finally {
       setIsBusy(false);
+      settleMutation();
     }
   };
 
@@ -370,6 +398,7 @@ export function MilestoneDocumentEditorSection({
       });
     } finally {
       setIsBusy(false);
+      settleMutation();
     }
   };
 
@@ -391,6 +420,7 @@ export function MilestoneDocumentEditorSection({
       });
     } finally {
       setIsBusy(false);
+      settleMutation();
     }
   };
 

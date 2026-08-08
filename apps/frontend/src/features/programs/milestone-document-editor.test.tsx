@@ -73,6 +73,21 @@ const pledge = documentFixture('c', 3, {
 
 const noOp = () => undefined;
 
+/** 응답 도착 순서를 손으로 정하려고 promise를 밖에서 붙잡는다. */
+function deferred<T>(): {
+  readonly promise: Promise<T>;
+  readonly resolve: (value: T) => void;
+  readonly reject: (reason: unknown) => void;
+} {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 /**
  * 제출 방식 `<select>`의 **여는 태그만** 잘라 낸다.
  *
@@ -327,6 +342,35 @@ describe('받을 서류 섹션의 동작', () => {
     await act(async () => {
       button(name).click();
     });
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
+
+  /**
+   * 「받을 서류」 토글 — 펼쳐서 목록을 가진 동안에는 이름에 개수가 붙어(「받을 서류 2개」)
+   * 이름으로는 못 찾는다. 이 화면에서 `aria-expanded`를 가진 버튼은 이것 하나다.
+   */
+  async function toggleDocuments() {
+    const toggle = container.querySelector('button[aria-expanded]');
+    if (!(toggle instanceof HTMLButtonElement)) {
+      throw new TypeError('「받을 서류」 토글을 찾지 못했습니다.');
+    }
+    await act(async () => {
+      toggle.click();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
+
+  /** 접었다 다시 펴 두 번째 조회를 띄운다 — 앞의 요청은 아직 답하지 않은 채다. */
+  async function collapseAndExpand() {
+    await toggleDocuments();
+    await toggleDocuments();
+  }
+
+  async function settle() {
     await act(async () => {
       await Promise.resolve();
     });
@@ -654,33 +698,6 @@ describe('받을 서류 섹션의 동작', () => {
    * 400(MSD_019)으로 떨어진다.
    */
   describe('겹친 목록 조회', () => {
-    /** 응답 도착 순서를 손으로 정하려고 promise를 밖에서 붙잡는다. */
-    function deferred<T>(): {
-      readonly promise: Promise<T>;
-      readonly resolve: (value: T) => void;
-      readonly reject: (reason: unknown) => void;
-    } {
-      let resolve!: (value: T) => void;
-      let reject!: (reason: unknown) => void;
-      const promise = new Promise<T>((res, rej) => {
-        resolve = res;
-        reject = rej;
-      });
-      return { promise, resolve, reject };
-    }
-
-    /** 접었다 다시 펴 두 번째 조회를 띄운다 — 첫 조회는 아직 답하지 않은 채다. */
-    async function collapseAndExpand() {
-      await click('받을 서류');
-      await click('받을 서류');
-    }
-
-    async function settle() {
-      await act(async () => {
-        await Promise.resolve();
-      });
-    }
-
     it('늦게 온 옛 성공 응답이 최신 목록을 덮지 않는다', async () => {
       const stale = deferred<readonly MilestoneDocument[]>();
       const fresh = deferred<readonly MilestoneDocument[]>();
@@ -726,6 +743,110 @@ describe('받을 서류 섹션의 동작', () => {
       expect(container.textContent).not.toContain(
         '제출 서류를 불러오지 못했습니다.',
       );
+    });
+  });
+
+  /**
+   * 변경과 겹친 조회. 조회끼리만 막으면 저장·삭제·순서 바꾸기가 **진행 중일 때** 나간
+   * 조회가 변경 이전 목록을 읽고, 늦게 도착해 「최신 요청」의 자격으로 방금의 변경을
+   * 덮는다 — 방금 만든 항목이 다시 불러오기 전까지 사라진다. 변경이 끝나는 자리에서도
+   * 요청 번호를 올려, 그때 날아가 있던 조회를 전부 낡은 것으로 만든다.
+   */
+  describe('변경과 겹친 목록 조회', () => {
+    it('저장이 끝난 뒤 도착한 옛 조회가 방금 만든 항목을 지우지 않는다', async () => {
+      const created = deferred<MilestoneDocument>();
+      const stale = deferred<readonly MilestoneDocument[]>();
+      listMilestoneDocumentsMock.mockResolvedValueOnce([planner]);
+      listMilestoneDocumentsMock.mockReturnValueOnce(stale.promise);
+      createMilestoneDocumentMock.mockReturnValueOnce(created.promise);
+
+      await render(true);
+      await click('항목 추가');
+      await type('#milestone-milestone-1-document-name', '서약서');
+      await click('저장');
+      // 저장이 도는 사이에 접었다 편다 — 이 조회는 새 항목이 없던 목록을 읽는다.
+      await collapseAndExpand();
+      expect(listMilestoneDocumentsMock).toHaveBeenCalledTimes(2);
+
+      await act(async () =>
+        created.resolve(documentFixture('d', 2, { name: '서약서' })),
+      );
+      await settle();
+      expect(rowNames()).toEqual(['계획서', '서약서']);
+
+      await act(async () => stale.resolve([planner]));
+      await settle();
+
+      expect(rowNames()).toEqual(['계획서', '서약서']);
+    });
+
+    it('순서를 바꾼 뒤 도착한 옛 조회가 옛 순서로 되돌리지 않는다', async () => {
+      const reordered = deferred<readonly MilestoneDocument[]>();
+      const stale = deferred<readonly MilestoneDocument[]>();
+      listMilestoneDocumentsMock.mockResolvedValueOnce([planner, budget]);
+      listMilestoneDocumentsMock.mockReturnValueOnce(stale.promise);
+      reorderMilestoneDocumentsMock.mockReturnValueOnce(reordered.promise);
+
+      await render(true);
+      await click('계획서 아래로');
+      await collapseAndExpand();
+
+      await act(async () =>
+        reordered.resolve([
+          { ...budget, sortOrder: 1 },
+          { ...planner, sortOrder: 2 },
+        ]),
+      );
+      await settle();
+      expect(rowNames()).toEqual(['예산서', '계획서']);
+
+      await act(async () => stale.resolve([planner, budget]));
+      await settle();
+
+      expect(rowNames()).toEqual(['예산서', '계획서']);
+    });
+
+    /**
+     * 실패도 같은 규칙을 받는다 — 변경이 끝나기 전에 나간 조회는 성공·실패 어느 쪽으로
+     * 끝났든 「변경을 반영한 답인지 알 수 없는」 목록이다. 실패 뒤에 화면이 서 있어야 할
+     * 자리는 변경 이전 목록 + 그 행의 실패 문구이고, 무효로 만든 조회가 켜 둔
+     * 「불러오는 중…」에 멈춰서도 안 된다.
+     */
+    it('삭제가 실패한 뒤 도착한 옛 조회도 목록을 덮지 않는다', async () => {
+      const deletion = deferred<void>();
+      const stale = deferred<readonly MilestoneDocument[]>();
+      listMilestoneDocumentsMock.mockResolvedValueOnce([planner, budget]);
+      listMilestoneDocumentsMock.mockReturnValueOnce(stale.promise);
+      deleteMilestoneDocumentMock.mockReturnValueOnce(deletion.promise);
+
+      await render(true);
+      await click('삭제');
+      await click('삭제 확정');
+      await collapseAndExpand();
+
+      await act(async () =>
+        deletion.reject(
+          new ApiError({
+            type: 'about:blank',
+            title: 'Conflict',
+            status: 409,
+            detail: '이미 제출된 서류가 있어 삭제할 수 없습니다.',
+            instance: '/milestones/milestone-1/documents/a',
+            code: 'MSD_016',
+          }),
+        ),
+      );
+      await settle();
+      expect(rowNames()).toEqual(['계획서', '예산서']);
+      expect(container.textContent).toContain(
+        '이미 제출된 서류가 있어 삭제할 수 없습니다.',
+      );
+
+      await act(async () => stale.resolve([pledge]));
+      await settle();
+
+      expect(rowNames()).toEqual(['계획서', '예산서']);
+      expect(container.textContent).not.toContain('서약서');
     });
   });
 });

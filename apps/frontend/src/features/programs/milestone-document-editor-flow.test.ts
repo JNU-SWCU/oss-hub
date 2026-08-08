@@ -302,7 +302,7 @@ describe('updateMilestoneDocumentEditor', () => {
       ).toBe(locked);
     });
 
-    // 백엔드는 name·required·sortOrder만 바꾸는 요청은 제출이 있어도 통과시킨다.
+    // 백엔드는 name·required만 바꾸는 요청은 제출이 있어도 통과시킨다.
     it('이름과 필수 여부는 잠긴 항목에서도 고칠 수 있다', () => {
       const renamed = updateMilestoneDocumentEditor(locked, 'name', '수정본');
 

@@ -116,6 +116,34 @@ describe('PATCH .../documents/order', () => {
   });
 });
 
+describe('PATCH .../documents/:documentId', () => {
+  /**
+   * 순서는 order endpoint가 소유한다 — 실제 백엔드는 수정 요청의 sortOrder를 무시한다.
+   * 이 어댑터가 본문 값을 되받아 주면 로컬 검토에서만 「고치면 순서가 바뀐다」로 보여,
+   * 화면이 그 전제 위에 얹혀도 여기서는 드러나지 않는다.
+   */
+  it('본문의 sortOrder를 따르지 않고 시드가 가진 자리를 그대로 준다', () => {
+    const body = jsonBody(
+      resolve(
+        'PATCH',
+        `milestones/${MILESTONE_ID}/documents/${DOCUMENT_IDS[1]}`,
+        {
+          body: {
+            name: '합성 참여 서약서(수정)',
+            required: true,
+            sortOrder: 99,
+            submissionType: 'FILE',
+          },
+        },
+      ),
+    ) as MilestoneDocument;
+
+    expect(body.name).toBe('합성 참여 서약서(수정)');
+    // 시드에서 이 서류는 두 번째다(milestone-document-fixtures.ts).
+    expect(body.sortOrder).toBe(2);
+  });
+});
+
 describe('GET .../documents/collection', () => {
   function collection(search: string): MilestoneDocumentCollection {
     return jsonBody(

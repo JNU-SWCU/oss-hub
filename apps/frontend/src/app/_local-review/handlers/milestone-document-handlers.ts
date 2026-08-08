@@ -75,6 +75,14 @@ function bodyNumber(context: LocalReviewContext, key: string): number | null {
   return typeof value === 'number' ? value : null;
 }
 
+/** 시드가 가진 자리. 모르는 서류면 1 — 수정 응답은 순서를 만들어 내지 않는다. */
+function storedSortOrder(milestoneId: string, documentId: string): number {
+  const documents = milestoneDocumentsFor(milestoneId, 'STAFF') ?? [];
+  return (
+    documents.find((document) => document.id === documentId)?.sortOrder ?? 1
+  );
+}
+
 /** 로그인은 됐지만 학생이면 403, 비로그인이면 401 — 통과하면 `null`. */
 function staffGuardResponse(
   context: LocalReviewContext,
@@ -235,7 +243,13 @@ const createDocumentHandler: LocalReviewHandler = (context) => {
   });
 };
 
-/** 한계: 저장되지 않아 화면을 다시 열면 수정 전 값으로 돌아온다. */
+/**
+ * 한계: 저장되지 않아 화면을 다시 열면 수정 전 값으로 돌아온다.
+ *
+ * ⚠ 본문의 `sortOrder`는 **읽지 않는다** — 실제 백엔드도 수정 요청의 sortOrder를 무시하고
+ * 순서는 `PATCH .../documents/order`가 소유한다. 되받아 주면 로컬 검토에서만 「고치면
+ * 순서가 바뀐다」로 보여, 화면이 그 전제 위에 얹혀도 여기서는 드러나지 않는다.
+ */
 const updateDocumentHandler: LocalReviewHandler = (context) => {
   const params = matchMethod(
     context,
@@ -250,7 +264,10 @@ const updateDocumentHandler: LocalReviewHandler = (context) => {
     milestoneId: params.milestoneId,
     name: bodyString(context, 'name') ?? '합성 서류',
     required: bodyBoolean(context, 'required') ?? true,
-    sortOrder: bodyNumber(context, 'sortOrder') ?? 1,
+    sortOrder: storedSortOrder(
+      params.milestoneId ?? '',
+      params.documentId ?? '',
+    ),
     submissionType:
       bodyEnum<SubmissionType>(context, 'submissionType', SUBMISSION_TYPES) ??
       'FILE',

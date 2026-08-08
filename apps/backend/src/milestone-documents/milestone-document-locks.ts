@@ -5,6 +5,34 @@ export interface LockedMilestoneDocumentRow {
   readonly id: string;
 }
 
+/** 잠근 마일스톤 행 — 목적이 잠금이라 id만 읽는다. */
+export interface LockedMilestoneRow {
+  readonly id: string;
+}
+
+/**
+ * 마일스톤 한 행을 `FOR UPDATE`로 잠근다 — **서류 항목의 집합을 바꾸는 모든 경로가 지나는
+ * 공통 관문**이다(추가·삭제·순서 재부여). 없는 마일스톤이면 null.
+ *
+ * **왜 자식이 아니라 부모를 잠그나**: `FOR UPDATE`는 그 시점에 **존재하는 행만** 잠근다. 그래서
+ * 서류 항목 행을 전부 잠가도 그 사이에 새 항목이 **삽입**되는 것은 막지 못한다. 순서를 1..N으로
+ * 다시 매기는 도중 새 항목이 커밋되면 그 항목만 재번호에서 빠져 sortOrder가 겹친다. 삽입을
+ * 막으려면 삽입하는 쪽도 반드시 잠그는 행 — 부모인 마일스톤 — 을 관문으로 써야 한다.
+ *
+ * **잠금 순서**: 아래 `lockMilestoneDocumentsOfMilestone`의 전체 규칙(`Program` → `Milestone` →
+ * `MilestoneDocument` id asc)에서 두 번째 자리다. 마일스톤을 잠근 뒤 서류 항목을 잠그는 것은
+ * 규칙대로이고, 반대 방향(서류 항목을 먼저 잡고 마일스톤을 나중에)은 만들면 안 된다.
+ */
+export async function lockMilestone(
+  client: Prisma.TransactionClient,
+  milestoneId: string,
+): Promise<LockedMilestoneRow | null> {
+  const rows = await client.$queryRaw<readonly LockedMilestoneRow[]>(
+    Prisma.sql`SELECT "id" FROM "Milestone" WHERE "id" = ${milestoneId} FOR UPDATE`,
+  );
+  return rows[0] ?? null;
+}
+
 /**
  * 한 마일스톤의 서류 항목(`MilestoneDocument`) 행 **전부**를 `id` 오름차순으로 `FOR UPDATE` 잠근다.
  * 두 경로가 같은 문장을 쓰도록 여기 한 벌만 둔다 — 잠금 순서 규칙이 두 벌로 갈라지면 그 자체가
@@ -20,8 +48,10 @@ export interface LockedMilestoneDocumentRow {
  * — 이것이 「제출 수를 셌더니 0이었다」와 「학생이 제출을 커밋했다」를 실제로 직렬화하는 지점이다.
  *
  * **전체 잠금 순서 규칙**: `Program` → `Milestone` → `MilestoneDocument`(id asc). 마일스톤 삭제
- * 경로는 셋을 이 순서로 모두 잡고, 순서 재부여 경로는 마지막 하나만 잡는다. 부분집합을 같은
- * 순서로 잡는 것이므로 두 경로 사이에 순환이 생기지 않는다.
+ * 경로는 셋을 이 순서로 모두 잡고, 서류 항목 추가·삭제·순서 재부여 경로는 `Milestone` →
+ * `MilestoneDocument` 둘을, 서류 항목 수정(`updateDocument`)과 학생 제출(`upsertSubmission`)은
+ * 마지막 하나만 잡는다. 어느 경로도 이 순서를 거스르지 않는다 — 모두 같은 순서의 **부분집합**만
+ * 잡으므로 「A가 가진 것을 B가 기다리는데 B가 가진 것을 A가 기다리는」 순환이 생길 수 없다.
  *
  * `ORDER BY` + `FOR UPDATE`는 PostgreSQL에서 정렬 뒤에 잠금이 걸린다(LockRows가 Sort 위 노드).
  * 즉 실제로 정렬된 순서대로 잠긴다.

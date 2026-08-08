@@ -65,12 +65,16 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
     }),
     createDocument: jest.fn(),
     updateDocument: jest.fn(),
+    lockMilestone: jest.fn().mockResolvedValue({ id: syntheticMilestoneId }),
     lockDocument: jest.fn().mockResolvedValue({
       id: syntheticDocumentId,
       milestoneId: syntheticMilestoneId,
       submissionType: MilestoneSubmissionType.FILE,
     }),
-    reorderDocuments: jest.fn(),
+    lockDocumentIdsOfMilestone: jest
+      .fn()
+      .mockResolvedValue([syntheticDocumentId]),
+    applyDocumentOrder: jest.fn(),
     deleteDocument: jest.fn(),
     countSubmissionsForDocument: jest.fn().mockResolvedValue(0),
     upsertSubmission: jest.fn(),
@@ -88,9 +92,21 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
   const withTransaction = jest.fn(
     (operation: (store: unknown) => Promise<unknown>) =>
       operation({
+        lockMilestone: (milestoneId: string): Promise<unknown> => {
+          transactionCalls.push('lockMilestone');
+          return mocks.lockMilestone(milestoneId) as Promise<unknown>;
+        },
         lockDocument: (documentId: string): Promise<unknown> => {
           transactionCalls.push('lockDocument');
           return mocks.lockDocument(documentId) as Promise<unknown>;
+        },
+        lockDocumentIdsOfMilestone: (
+          milestoneId: string,
+        ): Promise<readonly string[]> => {
+          transactionCalls.push('lockDocumentIdsOfMilestone');
+          return mocks.lockDocumentIdsOfMilestone(milestoneId) as Promise<
+            readonly string[]
+          >;
         },
         countSubmissionsForDocument: (documentId: string): Promise<number> => {
           transactionCalls.push('countSubmissionsForDocument');
@@ -98,12 +114,33 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
             documentId,
           ) as Promise<number>;
         },
+        createDocument: (
+          milestoneId: string,
+          input: unknown,
+        ): Promise<unknown> => {
+          transactionCalls.push('createDocument');
+          return mocks.createDocument(milestoneId, input) as Promise<unknown>;
+        },
         updateDocument: (
           documentId: string,
           input: unknown,
         ): Promise<unknown> => {
           transactionCalls.push('updateDocument');
           return mocks.updateDocument(documentId, input) as Promise<unknown>;
+        },
+        applyDocumentOrder: (
+          milestoneId: string,
+          documentIds: readonly string[],
+        ): Promise<unknown> => {
+          transactionCalls.push('applyDocumentOrder');
+          return mocks.applyDocumentOrder(
+            milestoneId,
+            documentIds,
+          ) as Promise<unknown>;
+        },
+        deleteDocument: (documentId: string): Promise<unknown> => {
+          transactionCalls.push('deleteDocument');
+          return mocks.deleteDocument(documentId) as Promise<unknown>;
         },
       }),
   );
@@ -257,10 +294,10 @@ describe('MilestoneDocumentsService.listForViewer', () => {
 });
 
 describe('MilestoneDocumentsService CRUD (교직원)', () => {
-  it('createDocument는 마일스톤 존재를 확인하고 리포지토리 결과를 DTO로 감싼다', async () => {
-    // Given
+  it('createDocument는 마일스톤을 잠근 뒤 추가하고 sortOrder를 그대로 넘긴다', async () => {
+    // Given: 생성은 순서를 처음 정하는 쪽이라 요청 값을 그대로 쓴다.
     const created = baseDocument({ id: 'cuid-synthetic-document-new' });
-    const { mocks, repository } = buildRepository({
+    const { mocks, transactionCalls, repository } = buildRepository({
       createDocument: jest.fn().mockResolvedValue(created),
     });
     const service = new MilestoneDocumentsService(repository);
@@ -274,7 +311,9 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     // When
     const result = await service.createDocument(syntheticMilestoneId, input);
 
-    // Then
+    // Then: 삽입은 부모 잠금 뒤에만 일어난다 — 순서 재부여가 재번호를 매기는 사이에
+    // 새 항목이 끼어들면 그 항목만 빠져 sortOrder가 겹친다.
+    expect(transactionCalls).toEqual(['lockMilestone', 'createDocument']);
     expect(mocks.createDocument).toHaveBeenCalledWith(
       syntheticMilestoneId,
       input,
@@ -283,9 +322,9 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
   });
 
   it('createDocument는 마일스톤이 없으면 MILESTONE_NOT_FOUND를 던진다', async () => {
-    // Given
+    // Given: 잠금 조회가 아무 행도 못 잡았다.
     const { repository } = buildRepository({
-      findMilestone: jest.fn().mockResolvedValue(null),
+      lockMilestone: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentsService(repository);
 
@@ -437,38 +476,77 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     expect(mocks.updateDocument).toHaveBeenCalled();
   });
 
-  it('updateDocument는 제출이 있어도 이름·필수여부·순서 변경은 그대로 허용한다', async () => {
+  it('updateDocument는 제출이 있어도 이름·필수여부 변경은 그대로 허용한다', async () => {
     // Given: 제출이 2건 있지만 제출 방식(FILE)은 그대로다.
     const { mocks, repository } = buildRepository({
       countSubmissionsForDocument: jest.fn().mockResolvedValue(2),
       updateDocument: jest
         .fn()
         .mockResolvedValue(
-          baseDocument({ name: '수정된 이름', required: false, sortOrder: 3 }),
+          baseDocument({ name: '수정된 이름', required: false }),
         ),
     });
     const service = new MilestoneDocumentsService(repository);
-    const input = {
-      name: '수정된 이름',
-      required: false,
-      sortOrder: 3,
-      submissionType: MilestoneSubmissionType.FILE,
-    };
 
     // When
     const result = await service.updateDocument(
       syntheticMilestoneId,
       syntheticDocumentId,
-      input,
+      {
+        name: '수정된 이름',
+        required: false,
+        sortOrder: 3,
+        submissionType: MilestoneSubmissionType.FILE,
+      },
     );
 
     // Then: 제출 방식이 그대로면 제출 수를 셀 필요조차 없다.
     expect(mocks.countSubmissionsForDocument).not.toHaveBeenCalled();
-    expect(mocks.updateDocument).toHaveBeenCalledWith(
-      syntheticDocumentId,
-      input,
-    );
+    expect(mocks.updateDocument).toHaveBeenCalledWith(syntheticDocumentId, {
+      name: '수정된 이름',
+      required: false,
+      submissionType: MilestoneSubmissionType.FILE,
+    });
     expect(result.name).toBe('수정된 이름');
+  });
+
+  it('updateDocument는 요청에 실려 온 sortOrder를 저장하지 않는다 — 순서는 order endpoint가 소유한다', async () => {
+    // Given: 교직원 A가 편집 화면을 열어 둔 사이 B가 순서를 바꿨다. A는 화면에 박혀 있던
+    // 낡은 sortOrder(1)를 그대로 실어 보내지만 지금 그 항목의 실제 순서는 3이다.
+    // 이 값을 저장하면 B의 새 순서를 덮어 sortOrder가 겹치고, 겹치면 다음 「위로」가
+    // 조용히 아무 일도 하지 않는다.
+    const { mocks, repository } = buildRepository({
+      updateDocument: jest
+        .fn()
+        .mockResolvedValue(baseDocument({ name: '수정된 이름', sortOrder: 3 })),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    const result = await service.updateDocument(
+      syntheticMilestoneId,
+      syntheticDocumentId,
+      {
+        name: '수정된 이름',
+        required: true,
+        sortOrder: 1,
+        submissionType: MilestoneSubmissionType.FILE,
+      },
+    );
+
+    // Then: 저장 대상에 sortOrder가 아예 없다.
+    const [, savedInput] = mocks.updateDocument.mock.calls[0] as [
+      string,
+      Record<string, unknown>,
+    ];
+    expect(savedInput).not.toHaveProperty('sortOrder');
+    expect(savedInput).toEqual({
+      name: '수정된 이름',
+      required: true,
+      submissionType: MilestoneSubmissionType.FILE,
+    });
+    // Then: 응답도 기존 행의 순서를 그대로 되돌려준다(요청 값 1이 아니다).
+    expect(result.sortOrder).toBe(3);
   });
 
   it('updateDocument는 제출이 없으면 제출 방식 변경도 허용한다', async () => {
@@ -482,28 +560,28 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       ),
     });
     const service = new MilestoneDocumentsService(repository);
-    const input = {
-      name: '개인정보 수집·이용 동의서',
-      required: true,
-      sortOrder: 1,
-      submissionType: MilestoneSubmissionType.TEXT,
-    };
 
     // When
     const result = await service.updateDocument(
       syntheticMilestoneId,
       syntheticDocumentId,
-      input,
+      {
+        name: '개인정보 수집·이용 동의서',
+        required: true,
+        sortOrder: 1,
+        submissionType: MilestoneSubmissionType.TEXT,
+      },
     );
 
     // Then
     expect(mocks.countSubmissionsForDocument).toHaveBeenCalledWith(
       syntheticDocumentId,
     );
-    expect(mocks.updateDocument).toHaveBeenCalledWith(
-      syntheticDocumentId,
-      input,
-    );
+    expect(mocks.updateDocument).toHaveBeenCalledWith(syntheticDocumentId, {
+      name: '개인정보 수집·이용 동의서',
+      required: true,
+      submissionType: MilestoneSubmissionType.TEXT,
+    });
     expect(result.submissionType).toBe(MilestoneSubmissionType.TEXT);
   });
 
@@ -523,9 +601,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     expect(mocks.deleteDocument).not.toHaveBeenCalled();
   });
 
-  it('deleteDocument는 제출이 없으면 리포지토리 삭제를 호출한다', async () => {
-    // Given
-    const { mocks, repository } = buildRepository({
+  it('deleteDocument는 마일스톤·서류를 이 순서로 잠근 뒤 세고 지운다', async () => {
+    // Given: 삭제도 추가와 같은 관문(마일스톤 행)을 먼저 지나야 순서 재부여가 잠근 집합에서
+    // 행이 사라지는 일을 막는다. 잠금 순서는 Milestone → MilestoneDocument 고정이다.
+    const { mocks, transactionCalls, repository } = buildRepository({
       countSubmissionsForDocument: jest.fn().mockResolvedValue(0),
     });
     const service = new MilestoneDocumentsService(repository);
@@ -534,7 +613,50 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     await service.deleteDocument(syntheticMilestoneId, syntheticDocumentId);
 
     // Then
+    expect(transactionCalls).toEqual([
+      'lockMilestone',
+      'lockDocument',
+      'countSubmissionsForDocument',
+      'deleteDocument',
+    ]);
     expect(mocks.deleteDocument).toHaveBeenCalledWith(syntheticDocumentId);
+  });
+
+  it('deleteDocument는 서류가 그 마일스톤 소속이 아니면 잠금 뒤에 DOCUMENT_NOT_FOUND로 막는다', async () => {
+    // Given: 잠그고 다시 읽은 행의 milestoneId가 요청 경로와 다르다.
+    const { mocks, repository } = buildRepository({
+      lockDocument: jest.fn().mockResolvedValue({
+        id: syntheticDocumentId,
+        milestoneId: 'cuid-other-milestone',
+        submissionType: MilestoneSubmissionType.FILE,
+      }),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When / Then
+    await expect(
+      service.deleteDocument(syntheticMilestoneId, syntheticDocumentId),
+    ).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+    });
+    expect(mocks.deleteDocument).not.toHaveBeenCalled();
+  });
+
+  it('deleteDocument는 마일스톤이 사라졌으면 DOCUMENT_NOT_FOUND를 던진다', async () => {
+    // Given: 마일스톤이 없으면 그 안의 서류도 없다 — 호출자에게는 그것이 사실이다.
+    const { mocks, repository } = buildRepository({
+      lockMilestone: jest.fn().mockResolvedValue(null),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When / Then
+    await expect(
+      service.deleteDocument(syntheticMilestoneId, syntheticDocumentId),
+    ).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+    });
+    expect(mocks.lockDocument).not.toHaveBeenCalled();
+    expect(mocks.deleteDocument).not.toHaveBeenCalled();
   });
 });
 
@@ -673,10 +795,16 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
   const secondDocumentId = 'cuid-synthetic-document-2';
   const thirdDocumentId = 'cuid-synthetic-document-3';
 
+  /** 잠금 뒤 다시 읽은 집합 — 순서 재부여의 판단 근거는 오직 이 값이다. */
+  const lockedIds = [syntheticDocumentId, secondDocumentId, thirdDocumentId];
+
   function reorderRepository(
     overrides: Partial<Record<string, jest.Mock>> = {},
   ) {
     return buildRepository({
+      lockDocumentIdsOfMilestone: jest.fn().mockResolvedValue(lockedIds),
+      // 트랜잭션 밖 목록 조회는 같은 집합을 돌려준다 — 두 값이 갈리는 상황은 아래 전용
+      // 테스트에서만 만든다.
       findByMilestoneId: jest.fn().mockResolvedValue([
         baseDocument({ sortOrder: 1 }),
         baseDocument({
@@ -695,9 +823,9 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
   }
 
   it('마일스톤이 없으면 MILESTONE_NOT_FOUND를 던진다', async () => {
-    // Given
+    // Given: 잠금 조회가 아무 행도 못 잡았다.
     const { mocks, repository } = reorderRepository({
-      findMilestone: jest.fn().mockResolvedValue(null),
+      lockMilestone: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentsService(repository);
 
@@ -707,14 +835,14 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND },
     });
-    expect(mocks.reorderDocuments).not.toHaveBeenCalled();
+    expect(mocks.applyDocumentOrder).not.toHaveBeenCalled();
   });
 
   it('전체 집합이 일치하면 요청 순서 그대로 리포지토리에 넘기고 새 순서를 돌려준다', async () => {
     // Given: 3개를 역순으로 보낸다.
     const requested = [thirdDocumentId, secondDocumentId, syntheticDocumentId];
     const { mocks, repository } = reorderRepository({
-      reorderDocuments: jest.fn().mockResolvedValue([
+      applyDocumentOrder: jest.fn().mockResolvedValue([
         baseDocument({
           id: thirdDocumentId,
           name: '결과 보고서',
@@ -737,12 +865,73 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     );
 
     // Then: sortOrder는 1부터 구멍 없이 다시 매겨진다.
-    expect(mocks.reorderDocuments).toHaveBeenCalledWith(
+    expect(mocks.applyDocumentOrder).toHaveBeenCalledWith(
       syntheticMilestoneId,
       requested,
     );
     expect(result.map((document) => document.id)).toEqual(requested);
     expect(result.map((document) => document.sortOrder)).toEqual([1, 2, 3]);
+  });
+
+  it('마일스톤·서류 행을 이 순서로 잠근 뒤에 집합을 대조하고 갱신한다', async () => {
+    // Given: 대조가 잠금보다 먼저면 대조와 갱신 사이가 열려 있다 — 그 틈에 삭제가 커밋되면
+    // 이어지는 update가 행을 못 찾아 500이 되고, 추가가 커밋되면 그 항목만 재번호에서 빠진다.
+    const { transactionCalls, withTransaction, repository } = reorderRepository(
+      {
+        applyDocumentOrder: jest.fn().mockResolvedValue([]),
+      },
+    );
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    await service.reorderDocuments(syntheticMilestoneId, lockedIds);
+
+    // Then
+    expect(withTransaction).toHaveBeenCalledTimes(1);
+    expect(transactionCalls).toEqual([
+      'lockMilestone',
+      'lockDocumentIdsOfMilestone',
+      'applyDocumentOrder',
+    ]);
+  });
+
+  it('잠그기 전 목록과 요청이 같아도, 잠근 뒤 집합이 달라졌으면 INVALID_REQUEST로 거절한다', async () => {
+    // Given: 요청은 트랜잭션 밖 목록(3개)과 정확히 일치한다. 그런데 잠금을 기다리는 사이
+    // 다른 교직원이 항목 하나를 더 추가해 실제 집합은 4개가 됐다. 낡은 목록으로 판단하면
+    // 그대로 통과해 새 항목만 재번호에서 빠지고 sortOrder가 겹친다.
+    const { mocks, repository } = reorderRepository({
+      lockDocumentIdsOfMilestone: jest
+        .fn()
+        .mockResolvedValue([...lockedIds, 'cuid-synthetic-document-4']),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When / Then
+    await expect(
+      service.reorderDocuments(syntheticMilestoneId, lockedIds),
+    ).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.INVALID_REQUEST },
+    });
+    expect(mocks.applyDocumentOrder).not.toHaveBeenCalled();
+  });
+
+  it('요청에 있던 항목이 잠근 뒤 집합에서 사라졌으면 500이 아니라 INVALID_REQUEST가 된다', async () => {
+    // Given: 그 사이 다른 교직원이 항목 하나를 지웠다. 그대로 진행하면 그 id의 update가
+    // Prisma P2025로 터져 교직원 화면에는 아무 뜻 없는 500이 뜬다.
+    const { mocks, repository } = reorderRepository({
+      lockDocumentIdsOfMilestone: jest
+        .fn()
+        .mockResolvedValue([syntheticDocumentId, secondDocumentId]),
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When / Then
+    await expect(
+      service.reorderDocuments(syntheticMilestoneId, lockedIds),
+    ).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.INVALID_REQUEST },
+    });
+    expect(mocks.applyDocumentOrder).not.toHaveBeenCalled();
   });
 
   it('일부만 나열하면 INVALID_REQUEST로 거부한다 — 부분 갱신 자체를 불가능하게 만든다', async () => {
@@ -759,7 +948,7 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.INVALID_REQUEST },
     });
-    expect(mocks.reorderDocuments).not.toHaveBeenCalled();
+    expect(mocks.applyDocumentOrder).not.toHaveBeenCalled();
   });
 
   it('개수는 맞아도 중복이 섞이면 INVALID_REQUEST로 거부한다', async () => {
@@ -777,7 +966,7 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.INVALID_REQUEST },
     });
-    expect(mocks.reorderDocuments).not.toHaveBeenCalled();
+    expect(mocks.applyDocumentOrder).not.toHaveBeenCalled();
   });
 
   it('다른 마일스톤의 서류 id가 섞이면 INVALID_REQUEST로 거부한다', async () => {
@@ -795,7 +984,7 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.INVALID_REQUEST },
     });
-    expect(mocks.reorderDocuments).not.toHaveBeenCalled();
+    expect(mocks.applyDocumentOrder).not.toHaveBeenCalled();
   });
 });
 

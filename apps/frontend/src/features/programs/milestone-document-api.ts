@@ -93,7 +93,13 @@ export function createMilestoneDocument(
   );
 }
 
-/** 교직원 — 서류 항목을 고친다. 일부가 아니라 전체를 보낸다(백엔드가 전체 교체다). */
+/**
+ * 교직원 — 서류 항목을 고친다. 일부가 아니라 전체를 보낸다(백엔드가 전체 교체다).
+ *
+ * ⚠ `sortOrder`는 본문 shape을 맞추려고 함께 싣지만 **서버가 무시한다** — 순서는
+ * `reorderMilestoneDocuments`(`PATCH .../documents/order`)가 소유한다. 이 요청으로
+ * 자리를 옮기려 들면 응답은 성공인데 순서는 그대로다.
+ */
 export function updateMilestoneDocument(
   milestoneId: string,
   documentId: string,

@@ -139,9 +139,13 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
   });
 });
 
-describe('MilestoneDocumentsRepository 교직원 CRUD', () => {
-  it('createDocument는 templateFileId를 null로 채워 돌려준다(새 항목엔 양식이 없다)', async () => {
-    // Given
+describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
+  /**
+   * 교직원 쓰기 경로는 전부 `withTransaction`의 store를 지난다. 트랜잭션 밖 클라이언트에도 같은
+   * 이름의 메서드를 달아 두고 **그쪽이 호출되면 실패**하게 한다 — 잠금 없는 단발 경로가
+   * 되살아나는 것을 이 목이 잡는다.
+   */
+  function buildStorePrisma() {
     const create = jest.fn().mockResolvedValue({
       id: syntheticDocumentId,
       milestoneId: syntheticMilestoneId,
@@ -150,20 +154,59 @@ describe('MilestoneDocumentsRepository 교직원 CRUD', () => {
       sortOrder: 3,
       submissionType: MilestoneSubmissionType.TEXT,
     });
+    const templateDeleteMany = jest.fn();
+    const documentDelete = jest.fn();
+    const count = jest.fn().mockResolvedValue(2);
+    // 생성은 잠금 아래에서 max+1을 계산한다 — 지금 마지막 항목이 2번이라는 뜻.
+    const aggregate = jest.fn().mockResolvedValue({ _max: { sortOrder: 2 } });
+    const direct = {
+      create: jest.fn(),
+      delete: jest.fn(),
+      deleteMany: jest.fn(),
+      count: jest.fn(),
+    };
     const prisma = {
-      milestoneDocument: { create },
+      milestoneDocument: { create: direct.create, delete: direct.delete },
+      milestoneDocumentTemplateFile: { deleteMany: direct.deleteMany },
+      milestoneDocumentSubmission: { count: direct.count },
+      $transaction: jest.fn((callback: (transaction: unknown) => unknown) =>
+        callback({
+          milestoneDocument: { create, delete: documentDelete, aggregate },
+          milestoneDocumentTemplateFile: { deleteMany: templateDeleteMany },
+          milestoneDocumentSubmission: { count },
+        }),
+      ),
     } as unknown as PrismaService;
+    return {
+      prisma,
+      create,
+      aggregate,
+      templateDeleteMany,
+      documentDelete,
+      count,
+      direct,
+    };
+  }
+
+  it('createDocument는 sortOrder를 잠금 아래에서 max+1로 정해 맨 뒤에 붙인다', async () => {
+    // Given: 순서는 서버가 정한다 — 요청 값을 믿으면 두 교직원이 동시에 추가할 때 겹친다.
+    const { prisma, create, aggregate, direct } = buildStorePrisma();
     const repository = new MilestoneDocumentsRepository(prisma);
 
     // When
-    const result = await repository.createDocument(syntheticMilestoneId, {
-      name: '새 서류',
-      required: true,
-      sortOrder: 3,
-      submissionType: MilestoneSubmissionType.TEXT,
-    });
+    const result = await repository.withTransaction((store) =>
+      store.createDocument(syntheticMilestoneId, {
+        name: '새 서류',
+        required: true,
+        submissionType: MilestoneSubmissionType.TEXT,
+      }),
+    );
 
     // Then
+    expect(aggregate).toHaveBeenCalledWith({
+      where: { milestoneId: syntheticMilestoneId },
+      _max: { sortOrder: true },
+    });
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: {
@@ -175,52 +218,76 @@ describe('MilestoneDocumentsRepository 교직원 CRUD', () => {
         },
       }),
     );
+    expect(direct.create).not.toHaveBeenCalled();
     expect(result.templateFileId).toBeNull();
   });
 
-  it('deleteDocument는 양식 파일을 먼저 지우고 트랜잭션으로 서류 항목을 삭제한다', async () => {
-    // Given
-    const deleteMany = jest.fn();
-    const documentDelete = jest.fn();
-    const transaction = jest.fn((operations: unknown[]) =>
-      Promise.all(operations),
-    );
-    const prisma = {
-      milestoneDocumentTemplateFile: { deleteMany },
-      milestoneDocument: { delete: documentDelete },
-      $transaction: transaction,
-    } as unknown as PrismaService;
+  it('createDocument는 첫 항목이면 sortOrder를 1로 정한다', async () => {
+    // Given: 아직 아무 항목도 없어 max가 null이다.
+    const { prisma, create, aggregate } = buildStorePrisma();
+    aggregate.mockResolvedValue({ _max: { sortOrder: null } });
     const repository = new MilestoneDocumentsRepository(prisma);
 
     // When
-    await repository.deleteDocument(syntheticDocumentId);
+    await repository.withTransaction((store) =>
+      store.createDocument(syntheticMilestoneId, {
+        name: '첫 서류',
+        required: false,
+        submissionType: MilestoneSubmissionType.FILE,
+      }),
+    );
 
     // Then
-    expect(transaction).toHaveBeenCalledTimes(1);
-    expect(deleteMany).toHaveBeenCalledWith({
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          milestoneId: syntheticMilestoneId,
+          name: '첫 서류',
+          required: false,
+          sortOrder: 1,
+          submissionType: MilestoneSubmissionType.FILE,
+        },
+      }),
+    );
+  });
+
+  it('deleteDocument는 같은 트랜잭션에서 양식 파일을 먼저 지우고 서류 항목을 지운다', async () => {
+    // Given
+    const { prisma, templateDeleteMany, documentDelete, direct } =
+      buildStorePrisma();
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    await repository.withTransaction((store) =>
+      store.deleteDocument(syntheticDocumentId),
+    );
+
+    // Then
+    expect(templateDeleteMany).toHaveBeenCalledWith({
       where: { milestoneDocumentId: syntheticDocumentId },
     });
     expect(documentDelete).toHaveBeenCalledWith({
       where: { id: syntheticDocumentId },
     });
+    expect(direct.deleteMany).not.toHaveBeenCalled();
+    expect(direct.delete).not.toHaveBeenCalled();
   });
 
-  it('countSubmissionsForDocument는 해당 서류의 제출 수를 센다', async () => {
+  it('countSubmissionsForDocument는 해당 서류의 제출 수를 트랜잭션 안에서 센다', async () => {
     // Given
-    const count = jest.fn().mockResolvedValue(2);
-    const prisma = {
-      milestoneDocumentSubmission: { count },
-    } as unknown as PrismaService;
+    const { prisma, count, direct } = buildStorePrisma();
     const repository = new MilestoneDocumentsRepository(prisma);
 
     // When
-    const result =
-      await repository.countSubmissionsForDocument(syntheticDocumentId);
+    const result = await repository.withTransaction((store) =>
+      store.countSubmissionsForDocument(syntheticDocumentId),
+    );
 
     // Then
     expect(count).toHaveBeenCalledWith({
       where: { milestoneDocumentId: syntheticDocumentId },
     });
+    expect(direct.count).not.toHaveBeenCalled();
     expect(result).toBe(2);
   });
 });
@@ -594,7 +661,6 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
       return store.updateDocument(syntheticDocumentId, {
         name: '개인정보 수집·이용 동의서',
         required: true,
-        sortOrder: 1,
         submissionType: MilestoneSubmissionType.TEXT,
       });
     });
@@ -639,6 +705,91 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
 
     // Then
     expect(locked).toBeNull();
+  });
+
+  it('updateDocument가 쓰는 data에는 sortOrder가 없다 — 순서는 order endpoint가 소유한다', async () => {
+    // Given: 수정이 순서를 함께 저장하면 편집 화면에 박혀 있던 낡은 sortOrder가 그 사이 바뀐
+    // 순서를 덮어 sortOrder가 겹친다.
+    const { prisma, transactionUpdate } = buildTransactionPrisma();
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    await repository.withTransaction((store) =>
+      store.updateDocument(syntheticDocumentId, {
+        name: '개인정보 수집·이용 동의서',
+        required: true,
+        submissionType: MilestoneSubmissionType.TEXT,
+      }),
+    );
+
+    // Then
+    const args = firstCallArgument<{ data: Record<string, unknown> }>(
+      transactionUpdate,
+    );
+    expect(args.data).toEqual({
+      name: '개인정보 수집·이용 동의서',
+      required: true,
+      submissionType: MilestoneSubmissionType.TEXT,
+    });
+    expect(args.data).not.toHaveProperty('sortOrder');
+  });
+
+  it('lockMilestone은 마일스톤 행을 FOR UPDATE로 잠그고, 없으면 null을 돌려준다', async () => {
+    // Given: 서류 항목 집합을 바꾸는 경로(추가·삭제·순서 재부여)의 공통 관문이다.
+    const { prisma, transactionQueryRaw } = buildTransactionPrisma();
+    transactionQueryRaw.mockResolvedValueOnce([{ id: syntheticMilestoneId }]);
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const locked = await repository.withTransaction((store) =>
+      store.lockMilestone(syntheticMilestoneId),
+    );
+
+    // Then
+    const sql = firstCallArgument<{ strings: string[]; values: unknown[] }>(
+      transactionQueryRaw,
+    );
+    expect(String(sql.strings)).toContain('FROM "Milestone"');
+    expect(String(sql.strings)).toContain('FOR UPDATE');
+    expect(sql.values).toEqual([syntheticMilestoneId]);
+    expect(locked?.id).toBe(syntheticMilestoneId);
+
+    // Given / When: 행이 없으면
+    transactionQueryRaw.mockResolvedValueOnce([]);
+    const missing = await repository.withTransaction((store) =>
+      store.lockMilestone(syntheticMilestoneId),
+    );
+
+    // Then
+    expect(missing).toBeNull();
+  });
+
+  it('lockDocumentIdsOfMilestone은 이 마일스톤의 서류 행 전체를 id 오름차순으로 잠그고 그 id를 돌려준다', async () => {
+    // Given: 순서 재부여는 트랜잭션 밖에서 읽어 둔 집합이 아니라 **이 값**과 요청을 대조한다.
+    const { prisma, transactionQueryRaw } = buildTransactionPrisma();
+    transactionQueryRaw.mockResolvedValueOnce([
+      { id: 'cuid-synthetic-document-1' },
+      { id: 'cuid-synthetic-document-2' },
+    ]);
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const ids = await repository.withTransaction((store) =>
+      store.lockDocumentIdsOfMilestone(syntheticMilestoneId),
+    );
+
+    // Then
+    const sql = firstCallArgument<{ strings: string[]; values: unknown[] }>(
+      transactionQueryRaw,
+    );
+    expect(String(sql.strings)).toContain('FROM "MilestoneDocument"');
+    expect(String(sql.strings)).toContain('ORDER BY "id"');
+    expect(String(sql.strings)).toContain('FOR UPDATE');
+    expect(sql.values).toEqual([syntheticMilestoneId]);
+    expect(ids).toEqual([
+      'cuid-synthetic-document-1',
+      'cuid-synthetic-document-2',
+    ]);
   });
 });
 
@@ -942,7 +1093,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
   });
 });
 
-describe('MilestoneDocumentsRepository.reorderDocuments', () => {
+describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
   const firstId = 'cuid-synthetic-document-1';
   const secondId = 'cuid-synthetic-document-2';
   const thirdId = 'cuid-synthetic-document-3';
@@ -1068,11 +1219,13 @@ describe('MilestoneDocumentsRepository.reorderDocuments', () => {
     const repository = new MilestoneDocumentsRepository(prisma);
 
     // When
-    const result = await repository.reorderDocuments(syntheticMilestoneId, [
-      thirdId,
-      secondId,
-      firstId,
-    ]);
+    const result = await repository.withTransaction((store) =>
+      store.applyDocumentOrder(syntheticMilestoneId, [
+        thirdId,
+        secondId,
+        firstId,
+      ]),
+    );
 
     // Then: 구멍·중복 없이 1..N으로 정규화된다.
     expect($transaction).toHaveBeenCalledTimes(1);
@@ -1098,11 +1251,13 @@ describe('MilestoneDocumentsRepository.reorderDocuments', () => {
 
     // When / Then
     await expect(
-      repository.reorderDocuments(syntheticMilestoneId, [
-        thirdId,
-        secondId,
-        firstId,
-      ]),
+      repository.withTransaction((store) =>
+        store.applyDocumentOrder(syntheticMilestoneId, [
+          thirdId,
+          secondId,
+          firstId,
+        ]),
+      ),
     ).rejects.toThrow('synthetic-update-failure');
     expect([...committed.entries()].sort()).toEqual([
       [firstId, 1],
@@ -1117,11 +1272,13 @@ describe('MilestoneDocumentsRepository.reorderDocuments', () => {
     const repository = new MilestoneDocumentsRepository(prisma);
 
     // When
-    await repository.reorderDocuments(syntheticMilestoneId, [
-      firstId,
-      secondId,
-      thirdId,
-    ]);
+    await repository.withTransaction((store) =>
+      store.applyDocumentOrder(syntheticMilestoneId, [
+        firstId,
+        secondId,
+        thirdId,
+      ]),
+    );
 
     // Then
     expect(transactionUpdateArgs).toEqual([
@@ -1143,18 +1300,22 @@ describe('MilestoneDocumentsRepository.reorderDocuments', () => {
     ]);
   });
 
-  it('요청 순서를 적용하기 전에 이 마일스톤의 서류 행 전체를 정해진 순서로 한 번에 잠근다', async () => {
+  it('잠금과 갱신이 한 트랜잭션 안에서 이 순서로 나간다 — 잠근 뒤에만 갱신한다', async () => {
     // Given: 같은 목록을 서로 반대 방향으로 재정렬하는 두 교직원이 A→B와 B→A로 엇갈려
     // 잠그면 PostgreSQL이 한쪽을 교착으로 중단시킨다. 요청은 역순으로 보낸다.
+    // (서비스가 실제로 이 순서로 부른다는 것은 service.spec의 호출 순서 테스트가 지킨다.)
     const { prisma, operations, lockQueries } = buildReorderPrisma();
     const repository = new MilestoneDocumentsRepository(prisma);
 
     // When
-    await repository.reorderDocuments(syntheticMilestoneId, [
-      thirdId,
-      secondId,
-      firstId,
-    ]);
+    await repository.withTransaction(async (store) => {
+      await store.lockDocumentIdsOfMilestone(syntheticMilestoneId);
+      return store.applyDocumentOrder(syntheticMilestoneId, [
+        thirdId,
+        secondId,
+        firstId,
+      ]);
+    });
 
     // Then: 갱신은 전부 잠금 뒤에 온다 — 요청 순서로 잠기는 행이 하나도 없어야 한다.
     expect(operations).toEqual([
