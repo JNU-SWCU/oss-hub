@@ -22,6 +22,7 @@ import {
   isCollectionProgramMismatch,
   MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS,
   milestoneDocumentCollectionPageState,
+  type MilestoneDocumentCollectionLoadPhase,
 } from './milestone-document-collection';
 import {
   MILESTONE_DOCUMENT_COLLECTION_FILTERS,
@@ -68,7 +69,11 @@ export interface MilestoneDocumentCollectionViewProps {
   readonly programId: string;
   readonly data: MilestoneDocumentCollection | null;
   readonly filter: MilestoneDocumentCollectionFilter;
-  readonly isLoading: boolean;
+  /**
+   * 뼈대를 그릴지, 있는 표를 그대로 두고 뒤에서 갱신할지
+   * (`milestoneDocumentCollectionLoadPhase`가 정한다 — 그 판정을 여기서 다시 하지 않는다).
+   */
+  readonly loadPhase: MilestoneDocumentCollectionLoadPhase;
   readonly errorMessage: string | null;
   /** 지금 열려 있는 판정 패널. 닫혀 있으면 `null`. */
   readonly review: MilestoneDocumentReviewFormState | null;
@@ -367,6 +372,7 @@ function ReviewPanelRow({
 
 function CollectionTable({
   data,
+  loadPhase,
   review,
   onReviewOpen,
   onReviewClose,
@@ -375,6 +381,7 @@ function CollectionTable({
   onReviewSubmit,
 }: {
   readonly data: MilestoneDocumentCollection;
+  readonly loadPhase: MilestoneDocumentCollectionLoadPhase;
   readonly review: MilestoneDocumentReviewFormState | null;
   readonly onReviewOpen: (
     target: MilestoneDocumentReviewTarget,
@@ -390,7 +397,12 @@ function CollectionTable({
   const { milestone, documents, rows, documentTotals } = data;
 
   return (
-    <div className={TABLE_CARD}>
+    /*
+     * 갱신 중임을 `aria-busy`로만 말한다. 표는 자리를 지키고 새 값이 도착하면 조용히
+     * 바뀌어 끼워진다 — 여기서 눈에 보이는 것을 더하거나 빼면 그것이 곧 layout 변화라,
+     * 판정할 때마다 표가 흔들리지 않게 하려던 일을 스스로 되돌린다.
+     */
+    <div className={TABLE_CARD} aria-busy={loadPhase === 'refreshing'}>
       <Table
         scrollRegionLabel="팀별 서류 수합 표"
         scrollRegionDescribedBy={SCROLL_HINT_ID}
@@ -486,7 +498,12 @@ function CollectionTable({
 function CollectionBody(
   props: MilestoneDocumentCollectionViewProps,
 ): ReactNode {
-  if (props.isLoading) {
+  /*
+   * 뼈대는 **그릴 표가 없을 때만** 그린다. 갱신 중(`refreshing`)에 여기로 들어오면
+   * 판정 한 건마다 표가 통째로 사라졌다 다시 서고, 그때 가로 스크롤은 처음으로,
+   * 세로 위치는 표 높이를 따라 흔들린다 — 교직원은 보던 행과 열을 잃는다.
+   */
+  if (props.loadPhase === 'skeleton') {
     return (
       <div
         aria-busy="true"
@@ -635,6 +652,7 @@ function CollectionBody(
       </p>
       <CollectionTable
         data={props.data}
+        loadPhase={props.loadPhase}
         review={props.review}
         onReviewOpen={props.onReviewOpen}
         onReviewClose={props.onReviewClose}

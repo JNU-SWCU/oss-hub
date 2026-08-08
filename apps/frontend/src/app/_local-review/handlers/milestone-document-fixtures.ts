@@ -79,12 +79,25 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       required: true,
       sortOrder: 1,
       submissionType: 'FILE',
-      // student-program-fixtures.ts의 `viewerSubmissionStatus: 'APPROVED'`와 같은 값.
-      // 사유를 비워 둔 판정이다 — 승인은 사유가 선택이라 그 갈래도 화면에 나와야 한다.
+      /*
+       * student-program-fixtures.ts의 `viewerSubmissionStatus: 'APPROVED'`와 같은 값.
+       *
+       * **사유를 적은 승인**이다. 학생 화면은 승인 사유를 중립 톤 상자로 보여 주는데,
+       * 여기가 학생 동선에서 유일한 승인 자리라 사유를 비워 두면 그 상자를 로컬 검토에서
+       * 아무도 볼 수 없다(사유 없는 승인은 상자를 아예 세우지 않는 것이 규칙이다).
+       * 승인에 붙은 사유가 반려처럼 빨갛게 보이지 않는지가 눈으로 확인할 자리다.
+       *
+       * 「사유 없이 저장된 판정입니다」 문구는 교직원 패널 쪽에 남아 있다 —
+       * 아래 `COLLECTION_REVIEW_COMMENTS.APPROVED`가 `null`이다.
+       */
       viewerSubmission: submittedViewer(
         '2026-07-14T09:00:00.000Z',
         'APPROVED',
-        { comment: null, reviewedAt: '2026-07-15T01:10:00.000Z' },
+        {
+          comment:
+            '잘 받았습니다. 기획 범위가 명확해서 그대로 진행하셔도 됩니다. 다음 단계는 팀별로 안내드릴게요.',
+          reviewedAt: '2026-07-15T01:10:00.000Z',
+        },
       ),
       // program-overview-fixtures.ts의 teamCount(47)를 기준으로 삼는다.
       teamSubmissionCount: { submitted: 44, total: 47 },
@@ -487,6 +500,17 @@ function collectionReviewFor(
 }
 
 /**
+ * 이 칸이 몇 번째 제출본인가. 판정 요청의 `expectedRevision`으로 되돌아오는 값이다.
+ *
+ * 지난 판정이 남아 있는데 상태가 `SUBMITTED`로 돌아온 칸은 **다시 낸 칸**이라 제출이
+ * 두 번 있었다(`collectionReviewFor`가 판정 시각을 제출보다 앞으로 적는 것과 같은 근거).
+ * 나머지는 첫 제출 그대로다.
+ */
+function collectionRevisionFor(state: CollectionCellStateSeed): number {
+  return state.status === 'SUBMITTED' && state.decision !== null ? 2 : 1;
+}
+
+/**
  * 학생이 낸 **본문**. 파일 제출에는 없다(`null`) — 파일은 칸의 `file`이 담당한다.
  *
  * 이 값이 없으면 로컬 검토에서 판정 패널이 언제나 파일만 보여 주고, 「글·릴리스는
@@ -603,6 +627,9 @@ function collectionRowFor(
           isSubmitted: false,
           // 상태도 판정도 제출에 붙는다 — 미제출 칸에는 둘 다 실리지 않는다(백엔드 계약).
           status: null,
+          // 제출본 번호도 제출에 붙는다. 여기에 숫자를 넣으면 미제출 칸에서도 판정
+          // 요청이 만들어져, 실제 백엔드에서만 실패하는 화면이 로컬에서 멀쩡해 보인다.
+          revision: null,
           submittedAt: null,
           file: null,
           // 본문도 제출에 붙는다 — 미제출 칸에는 보여 줄 내용이 없다(백엔드 계약).
@@ -621,6 +648,13 @@ function collectionRowFor(
         documentId: seed.id,
         isSubmitted: true,
         status: state.status,
+        /*
+         * 제출본 번호. **다시 낸 칸만 2**다 — 지난 판정이 남아 있는데 상태가
+         * `SUBMITTED`로 돌아온 칸이 곧 「보완 요청을 받고 다시 냈다」이고, 그 칸만
+         * 제출이 두 번 있었다. 전부 1로 두면 판정 요청에 실리는 값이 칸마다 같아져,
+         * 남의 칸 값을 들고 와도 대조를 통과한다(칸마다 다른 `review.id`를 준 것과 같은 이유).
+         */
+        revision: collectionRevisionFor(state),
         submittedAt,
         file:
           seed.submissionType === 'FILE' && !expired

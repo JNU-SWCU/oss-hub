@@ -62,7 +62,7 @@ export interface MilestoneDocumentCollectionFile {
 export interface MilestoneDocumentCollectionReview {
   /**
    * 판정 요청의 `expectedLatestReviewId`로 **그대로 되돌려 보내는** 값이다(칸의
-   * `submittedAt`이 `expectedSubmittedAt`이 되는 것과 짝이다). 표를 그린 뒤 다른 교직원이
+   * `revision`이 `expectedRevision`이 되는 것과 짝이다). 표를 그린 뒤 다른 교직원이
    * 먼저 판정하면 서버가 이 값으로 알아채고 409(MSD_025)로 막는다 — 화면이 이 id를
    * 흘리면 그 검사가 통째로 무력해진다.
    */
@@ -111,6 +111,19 @@ export interface MilestoneDocumentCollectionCell {
    * 지적이 있었는가」는 이 값이 아니라 `review`로 본다.
    */
   readonly status: MilestoneDocumentSubmissionStatus | null;
+  /**
+   * 이 제출이 **몇 번째 제출본인가**. 제출이 없으면 `null`이고, 다시 낼 때마다 서버가
+   * 올린다(`features/submissions`의 `MatrixCell.revision`과 같은 뜻·같은 이름이다).
+   *
+   * ⚠ 판정 요청의 `expectedRevision`으로 **그대로 되돌려 보내는** 값이다. 예전에는 이
+   * 자리를 `submittedAt`이 맡았는데, 같은 초 안에 두 번 낸 재제출은 시각이 같아
+   * 「바뀌지 않았다」로 통과했다 — 그때 교직원은 **자기가 읽은 것이 아닌 제출본**에
+   * 판정을 붙인다. 번호는 다시 낼 때마다 반드시 달라지므로 그 구멍이 없다.
+   *
+   * ⚠ 화면에 숫자로 적지 마라. 학생·교직원에게 「제출본 3」은 아무 뜻이 없고,
+   * `features/submissions`도 같은 이유로 내부 값으로만 쓴다(재제출 토스트 문구 참고).
+   */
+  readonly revision: number | null;
   readonly submittedAt: string | null;
   readonly file: MilestoneDocumentCollectionFile | null;
   /**

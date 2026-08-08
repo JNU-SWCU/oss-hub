@@ -35,6 +35,7 @@ function cell(
     documentId,
     isSubmitted: true,
     status: 'SUBMITTED',
+    revision: 1,
     submittedAt: '2026-07-14T00:00:00.000Z',
     file: null,
     content: null,
@@ -122,7 +123,7 @@ function render(
       programId="program-capstone"
       data={collection([document('d1')], [])}
       filter="ALL"
-      isLoading={false}
+      loadPhase="idle"
       errorMessage={null}
       review={null}
       reviewNotice={null}
@@ -264,6 +265,45 @@ describe('MilestoneDocumentCollectionView 표', () => {
       { teamName: '다팀' },
     ),
   ];
+
+  /**
+   * 갱신 중에 뼈대로 갈아 끼우면 여기가 깨진다.
+   *
+   * 판정 하나를 저장할 때마다 표가 사라졌다 다시 서면 가로 스크롤은 처음으로, 세로
+   * 위치는 표 높이를 따라 흔들린다. 여러 건을 연달아 판정하는 교직원은 한 건 처리할
+   * 때마다 보던 행과 열을 잃는다 — 패널을 표 안에 둔 이유가 통째로 무너진다.
+   */
+  it('갱신 중에도 표를 걷지 않는다', () => {
+    const html = render({
+      data: collection(documents, rows),
+      loadPhase: 'refreshing',
+    });
+
+    expect(html).toContain('가팀');
+    expect(html).toContain('합계');
+    expect(html).not.toContain('서류 수합 표를 불러오는 중');
+    // 갱신 중임은 말한다 — 눈에 보이는 것을 더하거나 빼지 않으면서.
+    expect(html).toContain('aria-busy="true"');
+  });
+
+  // 갱신이 끝나면 그 표시도 걷힌다 — 남으면 화면이 영영 「불러오는 중」이라고 말한다.
+  it('갱신이 끝나면 표는 더 이상 바쁘다고 말하지 않는다', () => {
+    const html = render({
+      data: collection(documents, rows),
+      loadPhase: 'idle',
+    });
+
+    expect(html).toContain('가팀');
+    expect(html).not.toContain('aria-busy="true"');
+  });
+
+  // 유지할 표가 아직 없는 첫 조회다 — 이때는 뼈대가 맞다.
+  it('그릴 표가 없으면 뼈대를 그린다', () => {
+    const html = render({ data: null, loadPhase: 'skeleton' });
+
+    expect(html).toContain('서류 수합 표를 불러오는 중');
+    expect(html).not.toContain('합계');
+  });
 
   it('필수 서류에만 별표를 붙인다', () => {
     const html = render({ data: collection(documents, rows) });

@@ -59,6 +59,18 @@ export interface MilestoneDocumentCollectionCellResponseDto {
   readonly documentId: string;
   readonly isSubmitted: boolean;
   readonly submittedAt: string | null;
+  /**
+   * 이 칸이 보여 주는 제출물이 몇 번째로 쓰인 것인가 — 미제출이면 null.
+   *
+   * 프런트는 이 값을 판정 요청의 `expectedRevision`으로 **그대로 되돌려 보낸다**(칸의
+   * `review.id`가 `expectedLatestReviewId`가 되는 것과 짝이다). 그 사이 학생이 다시 냈으면
+   * 서버가 이 값으로 알아채고 409(MSD_025)로 막는다.
+   *
+   * ⚠ 되돌려 보낼 값으로 `submittedAt`을 쓰면 안 된다. 그 값은 `TIMESTAMP(3)`이라 같은 밀리초
+   * 안에 겹친 재제출이 같은 값을 갖고, 제출은 upsert라 행 id도 그대로다 — 대조가 통과하는데
+   * 내용은 바뀌어 있다. `submittedAt`은 **화면에 보여 주는 값으로만** 남는다.
+   */
+  readonly revision: number | null;
   readonly file: MilestoneDocumentCollectionFileResponseDto | null;
   /**
    * 학생이 낸 **본문** — TEXT·REPOSITORY_RELEASE 제출일 때만 채워진다. FILE 제출이거나
@@ -95,8 +107,8 @@ export interface MilestoneDocumentCollectionCellResponseDto {
 export interface MilestoneDocumentCollectionReviewResponseDto {
   /**
    * 판정 요청의 `expectedLatestReviewId`로 **그대로 되돌려 보내는** 값이다. 표를 그린 뒤 다른
-   * 교직원이 먼저 판정하면 서버가 이 값으로 그것을 알아채고 409로 막는다(칸의 `submittedAt`이
-   * 같은 요청의 `expectedSubmittedAt`이 되는 것과 짝이다). 판정이 없는 칸은 `review` 자체가
+   * 교직원이 먼저 판정하면 서버가 이 값으로 그것을 알아채고 409로 막는다(칸의 `revision`이
+   * 같은 요청의 `expectedRevision`이 되는 것과 짝이다). 판정이 없는 칸은 `review` 자체가
    * null이고, 그때 프런트는 `expectedLatestReviewId: null`을 보낸다.
    */
   readonly id: string;
@@ -212,6 +224,7 @@ function toCell(
       documentId: document.id,
       isSubmitted: false,
       submittedAt: null,
+      revision: null,
       file: null,
       content: null,
       status: null,
@@ -231,6 +244,7 @@ function toCell(
     documentId: document.id,
     isSubmitted: true,
     submittedAt: submission.submittedAt.toISOString(),
+    revision: submission.revision,
     file,
     // 저장된 Json을 해석하는 규칙은 도메인이 소유한다 — DTO는 그 결과를 나르기만 한다.
     content: readMilestoneDocumentSubmittedContent(submission.content),

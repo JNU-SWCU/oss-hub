@@ -28,13 +28,13 @@ export interface MilestoneDocumentReviewInput {
    */
   readonly comment?: string;
   /**
-   * 판정을 붙일 제출물의 시각 — **내가 본 그 칸의 `submittedAt`을 그대로** 되돌려 보낸다.
+   * 판정을 붙일 제출물의 번호 — **내가 본 그 칸의 `revision`을 그대로** 되돌려 보낸다.
    *
-   * ⚠ 선택이 아니다. 빼먹으면 400이다(백엔드 DTO의 `@IsDateString`). 「보내면 검사하고
-   * 안 보내면 넘어간다」로 두면 검사를 우회하는 길이 되어, 이 두 필드가 막으려던
-   * 「보지 못한 내용을 승인한다」가 요청 하나로 되살아난다.
+   * ⚠ 선택이 아니다. 빼먹으면 400이다. 「보내면 검사하고 안 보내면 넘어간다」로 두면
+   * 검사를 우회하는 길이 되어, 이 두 필드가 막으려던 「보지 못한 내용을 승인한다」가
+   * 요청 하나로 되살아난다.
    */
-  readonly expectedSubmittedAt: string;
+  readonly expectedRevision: number;
   /**
    * 내가 본 칸의 `review.id`. 아직 판정이 없던 칸은 **`null`을 명시해서** 보낸다 —
    * 키를 빼면 400이다(백엔드가 `@IsOptional`이 아니라 `@ValidateIf`로 받는다:

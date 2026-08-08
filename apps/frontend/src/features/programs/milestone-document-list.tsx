@@ -28,9 +28,10 @@ import {
   isMilestoneDocumentResubmittable,
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS,
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_VARIANTS,
+  milestoneDocumentReviewNoticeTone,
   milestoneDocumentViewerDisplay,
-  shouldHighlightMilestoneDocumentReview,
   type MilestoneDocumentReviewDisplay,
+  type MilestoneDocumentReviewNoticeTone,
 } from './milestone-document-review';
 import {
   formatSeoulDate,
@@ -260,30 +261,48 @@ function StaffDocumentRow({
 }
 
 /**
- * 되돌아온 서류의 사유 — 학생이 **무엇을 고쳐야 하는지**가 이 상자에 있다.
+ * 교직원이 판정에 적은 말 — 학생이 실제로 읽는 자리다.
  *
- * 경고 톤으로 키우는 것은 보완 요청·반려뿐이다(`shouldHighlightMilestoneDocumentReview`).
- * 사유를 작게 적어 두면 학생은 배지만 보고 「안 됐구나」까지만 읽고 닫는다 — 그러면
- * 같은 서류가 같은 이유로 또 되돌아온다. 날짜를 함께 적는 것은 지난 지적과 방금 지적을
- * 구분하기 위해서다.
+ * 판정 폼은 사유 칸 아래에 「학생에게 그대로 보입니다」라고 적어 두고 **승인에도** 사유를
+ * 받는다. 그런데 이 상자를 보완 요청·반려에만 그리면 승인에 적은 말은 어디에도 나오지
+ * 않는다 — 「잘 받았습니다, 다음 단계 안내드릴게요」라고 적은 교직원은 학생이 그것을
+ * 읽었다고 믿고, 학생은 본 적이 없다. 화면이 약속한 것을 안 지키는 상태다.
+ *
+ * 톤은 판정에 따라 갈린다(`milestoneDocumentReviewNoticeTone`):
+ * - 보완 요청·반려는 **경고 톤**이다. 고쳐야 할 일이라 눈에 띄어야 하고, 사유를 작게
+ *   적어 두면 학생은 배지만 보고 「안 됐구나」까지만 읽고 닫는다 — 그러면 같은 서류가
+ *   같은 이유로 또 되돌아온다.
+ * - 승인은 **중립 톤**이다. 같은 빨간 상자에 담으면 승인인데 문제가 있는 것처럼 읽힌다.
+ *
+ * 날짜를 함께 적는 것은 지난 지적과 방금 지적을 구분하기 위해서다.
  */
 function StudentReviewNotice({
   display,
+  tone,
   review,
 }: {
   readonly display: MilestoneDocumentReviewDisplay;
+  readonly tone: MilestoneDocumentReviewNoticeTone;
   readonly review: NonNullable<
     NonNullable<MilestoneDocument['viewerSubmission']>['review']
   >;
 }) {
   return (
-    <Alert variant="destructive" data-testid="milestone-document-review-notice">
+    <Alert
+      variant={tone === 'warning' ? 'destructive' : 'default'}
+      data-testid="milestone-document-review-notice"
+    >
       <AlertDescription className="grid gap-1">
         <span className="font-semibold">
           {MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS[display]} ·{' '}
           {formatSeoulDate(review.reviewedAt)}
         </span>
         <span className="break-keep whitespace-pre-wrap">
+          {/*
+           * 사유 없는 승인은 애초에 이 상자를 세우지 않는다(위 톤 판정) — 이 대체 문구가
+           * 닿는 것은 사유가 필수인데도 비어 온 보완 요청·반려뿐이다. 그 자리에서 상자를
+           * 통째로 지우면 학생은 서류가 되돌아온 사실조차 모른다.
+           */}
           {review.comment ?? '사유 없이 저장된 판정입니다.'}
         </span>
       </AlertDescription>
@@ -313,6 +332,11 @@ function StudentDocumentRow({
   const submittedAt = viewerSubmission?.submittedAt ?? null;
   const display = milestoneDocumentViewerDisplay(viewerSubmission);
   const review = viewerSubmission?.review ?? null;
+  /** 사유 상자를 그릴지·어떤 톤으로 그릴지. 안 그릴 자리는 `null`이다. */
+  const reviewNoticeTone =
+    review === null
+      ? null
+      : milestoneDocumentReviewNoticeTone(display, review.comment);
   /**
    * 승인·반려된 서류에는 제출 입력을 아예 열지 않는다. 서버도 409(MSD_023)로 막으므로
    * 열어 두면 눌러 본 학생에게 오류만 돌아간다 — 낼 수 없는 것은 낼 수 없게 보여야 한다.
@@ -455,9 +479,13 @@ function StudentDocumentRow({
           </Button>
         )}
       </div>
-      {review !== null && shouldHighlightMilestoneDocumentReview(display) ? (
-        <StudentReviewNotice display={display} review={review} />
-      ) : null}
+      {review === null || reviewNoticeTone === null ? null : (
+        <StudentReviewNotice
+          display={display}
+          tone={reviewNoticeTone}
+          review={review}
+        />
+      )}
       {canSubmit && editing && document.submissionType === 'TEXT' ? (
         <form
           className="flex flex-wrap items-center gap-2"

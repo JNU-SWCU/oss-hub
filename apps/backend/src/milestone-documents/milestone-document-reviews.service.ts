@@ -129,18 +129,21 @@ export class MilestoneDocumentReviewsService {
        * 기대 버전과 실제를 여기서 대조해야 한다. 대조가 없으면 **교직원이 보지 못한 내용이
        * 승인되거나** 더 최신 판정이 조용히 덮인다.
        *
-       * 두 값을 **둘 다** 보는 이유는 서로 다른 사건을 잡기 때문이다 — 재제출은 `submittedAt`만
+       * 두 값을 **둘 다** 보는 이유는 서로 다른 사건을 잡기 때문이다 — 재제출은 `revision`만
        * 움직이고(판정 이력은 그대로), 남의 판정은 최신 판정 id만 움직인다(제출은 그대로).
        * 하나만 보면 나머지 한 사건이 그대로 통과한다.
+       *
+       * 재제출 쪽 축이 `submittedAt`이 아니라 `revision`인 이유: `submittedAt`은 `TIMESTAMP(3)`
+       * 이라 같은 팀의 두 사람이(또는 재시도가) 같은 밀리초 안에 다시 내면 값이 같고, upsert라
+       * 행 id도 그대로다 — 대조가 통과하는데 내용은 바뀌어 있다. 리비전은 시계가 아니라 이 행에
+       * 도달한 **쓰기 횟수**를 세므로 그 창이 없다(`upsertSubmission`이 잠금 아래에서 올린다).
        *
        * 검사가 **잠금 아래**여야 하는 이유: 잠금 전에 읽으면 읽은 뒤 커밋되는 재제출·판정을
        * 그대로 놓쳐 지금 고치려는 문제가 그대로 반복된다. 학생 제출 경로가 같은
        * `MilestoneDocument` 행을 `FOR SHARE`로 잡으므로, 이 지점에서 읽는 값은 「경합하던
        * 트랜잭션이 커밋을 끝낸 뒤」의 값이다.
        */
-      if (
-        submission.submittedAt.getTime() !== input.expectedSubmittedAt.getTime()
-      ) {
+      if (submission.revision !== input.expectedRevision) {
         throw this.error(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
       }
       const latestReviewId = await store.findLatestReviewIdForSubmission(

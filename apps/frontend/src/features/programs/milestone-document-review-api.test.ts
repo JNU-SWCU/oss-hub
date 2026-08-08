@@ -29,7 +29,7 @@ function jsonResponse(body: unknown, status = 201): Response {
 
 /** 판정을 「내가 본 그 제출물」에 묶는 두 값 — 본문에 늘 실린다. */
 const version = {
-  expectedSubmittedAt: '2026-07-28T00:00:00.000Z',
+  expectedRevision: 2,
   expectedLatestReviewId: 'review-0',
 } as const;
 
@@ -56,7 +56,7 @@ describe('createMilestoneDocumentReview', () => {
         body: JSON.stringify({
           decision: 'CHANGES_REQUESTED',
           comment: '표지의 이름이 다릅니다.',
-          expectedSubmittedAt: '2026-07-28T00:00:00.000Z',
+          expectedRevision: 2,
           expectedLatestReviewId: 'review-0',
         }),
       },
@@ -103,7 +103,7 @@ describe('createMilestoneDocumentReview', () => {
     expect(JSON.parse(body)).toEqual({
       decision: 'REJECTED',
       comment: '기한을 넘겼습니다.',
-      expectedSubmittedAt: '2026-07-28T00:00:00.000Z',
+      expectedRevision: 2,
       expectedLatestReviewId: 'review-0',
     });
   });
@@ -119,7 +119,7 @@ describe('createMilestoneDocumentReview', () => {
 
     await createMilestoneDocumentReview('milestone-1', 'document-1', 'app-1', {
       decision: 'APPROVED',
-      expectedSubmittedAt: '2026-07-28T00:00:00.000Z',
+      expectedRevision: 1,
       expectedLatestReviewId: null,
     });
 

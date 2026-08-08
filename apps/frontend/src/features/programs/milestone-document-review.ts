@@ -164,6 +164,34 @@ export function shouldHighlightMilestoneDocumentReview(
   return display === 'CHANGES_REQUESTED' || display === 'REJECTED';
 }
 
+/**
+ * 학생 줄에 사유 상자를 어떤 톤으로 그릴 것인가. 그리지 않을 자리는 `null`이다.
+ *
+ * - `warning` — 보완 요청·반려. **고쳐야 할 일**이라 눈에 띄어야 한다.
+ * - `neutral` — 승인. 판정 폼은 사유를 두고 「학생에게 그대로 보입니다」라고 적어 두므로
+ *   승인에 적은 말도 학생에게 닿아야 한다. 다만 같은 경고 상자에 담으면 **승인인데
+ *   문제가 있는 것처럼** 읽혀, 「잘 받았습니다」가 반려처럼 보인다.
+ *
+ * ⚠ 톤만 다른 것이 아니라 **빈 사유를 다루는 법도 다르다.**
+ * - 승인은 사유가 선택이라 비어 오는 것이 정상이다. 그때 상자를 그리면 배지가 이미
+ *   말한 「승인」 아래에 빈 상자만 남는다 — 그래서 그리지 않는다.
+ * - 보완 요청·반려는 사유가 필수라(서버 422 MSD_021) 비어 오는 것이 계약에 없다. 그래도
+ *   상자는 그린다: 사유를 못 읽었다고 **되돌아왔다는 사실과 그 날짜까지** 지우면, 학생은
+ *   서류가 되돌아온 줄도 모른다. 그 자리는 화면이 「사유 없이 저장된 판정」이라고 적는다.
+ */
+export type MilestoneDocumentReviewNoticeTone = 'warning' | 'neutral';
+
+export function milestoneDocumentReviewNoticeTone(
+  display: MilestoneDocumentReviewDisplay,
+  comment: string | null,
+): MilestoneDocumentReviewNoticeTone | null {
+  if (shouldHighlightMilestoneDocumentReview(display)) return 'warning';
+  if (display !== 'APPROVED') return null;
+  // 공백만 적힌 사유는 서버가 `null`로 접어 저장하지만, 화면이 그것에 기대지 않는다 —
+  // 여기서 보지 않으면 공백 한 칸이 빈 상자를 하나 세운다.
+  return comment !== null && comment.trim() !== '' ? 'neutral' : null;
+}
+
 /** 이 판정으로 저장하려면 사유가 있어야 하는가. */
 export function isMilestoneDocumentReviewCommentRequired(
   decision: MilestoneDocumentReviewDecision,
@@ -217,7 +245,11 @@ export interface MilestoneDocumentReviewTarget {
  * (`MilestoneDocumentReviewInput`의 같은 이름 두 필드).
  */
 export interface MilestoneDocumentReviewVersion {
-  readonly expectedSubmittedAt: string;
+  /**
+   * 칸의 `revision` — 그 제출물이 **몇 번째 제출본인가**. 제출 시각이 아니라 번호로
+   * 대조한다: 같은 초에 두 번 낸 재제출은 시각이 같아 「바뀌지 않았다」로 통과했다.
+   */
+  readonly expectedRevision: number;
   readonly expectedLatestReviewId: string | null;
 }
 
@@ -227,16 +259,23 @@ export interface MilestoneDocumentReviewVersion {
  * 다른 교직원이 먼저 붙인 판정을 **못 본 채로** 판정이 얹힌다. 검사가 뜻을 가지려면
  * 교직원이 실제로 눈으로 본 그 값이어야 한다.
  *
- * 제출 시각이 없는 칸은 `null`을 돌려준다. 계약상 제출된 칸에는 늘 시각이 있고 패널도
+ * 제출본 번호가 없는 칸은 `null`을 돌려준다. 계약상 제출된 칸에는 늘 번호가 있고 패널도
  * 제출된 칸에만 열리지만, 어긋난 응답 하나로 **아무 값이나 지어내 보내는** 일이
- * 없어야 한다 — 지어낸 값은 대조를 통과하고, 그 통과는 거짓이다.
+ * 없어야 한다 — 지어낸 값은 대조를 통과하고, 그 통과는 거짓이다. 특히 `?? 0`이나
+ * `?? 1` 같은 기본값은 절대 두지 마라: 그것은 「못 읽었다」를 「1번 제출본을 봤다」로
+ * 바꿔 말하는 것이다.
+ *
+ * 1보다 작은 번호도 같이 버린다. 첫 제출이 1이라 0·음수는 **어떤 제출도 가리키지 않고**,
+ * 서버도 그렇게 본다(요청 DTO의 `@Min(1)`). 그대로 실어 보내면 교직원은 「요청 값을
+ * 확인해 주세요」라는 400을 받는데 그가 고칠 수 있는 것이 아무것도 없다 — 여기서 버리면
+ * 대신 「표를 다시 불러 주세요」라고 말할 수 있다(`milestoneDocumentReviewVersionError`).
  */
 export function milestoneDocumentReviewVersionOf(
-  cell: Pick<MilestoneDocumentCollectionCell, 'submittedAt' | 'review'>,
+  cell: Pick<MilestoneDocumentCollectionCell, 'revision' | 'review'>,
 ): MilestoneDocumentReviewVersion | null {
-  if (cell.submittedAt === null) return null;
+  if (cell.revision === null || cell.revision < 1) return null;
   return {
-    expectedSubmittedAt: cell.submittedAt,
+    expectedRevision: cell.revision,
     // 판정이 아직 없던 칸은 `null`을 **명시해서** 보낸다 — 키를 빼면 400이다.
     expectedLatestReviewId: cell.review?.id ?? null,
   };

@@ -207,15 +207,22 @@ const reorderDocumentsHandler: LocalReviewHandler = (context) => {
 /**
  * 기대 버전 두 값이 요청 본문에 **제대로 실려 있는가**.
  *
- * `expectedSubmittedAt`은 문자열이어야 하고, `expectedLatestReviewId`는 문자열이거나
- * **명시된 `null`**이어야 한다. 키를 아예 빼먹은 요청은 통과시키지 않는다 — 백엔드가
- * `@IsOptional`이 아니라 `@ValidateIf`로 받아 누락을 400으로 막기 때문이고, 여기서
- * 느슨하게 받으면 옛 본문을 보내는 화면이 로컬 검토에서만 멀쩡히 저장되는 것처럼 보인다.
+ * `expectedRevision`은 **1 이상의 정수**여야 하고(백엔드 DTO의 `@IsInt() @Min(1)`),
+ * `expectedLatestReviewId`는 문자열이거나 **명시된 `null`**이어야 한다. 키를 아예 빼먹은
+ * 요청은 통과시키지 않는다 — 백엔드가 `@IsOptional`이 아니라 `@ValidateIf`로 받아 누락을
+ * 400으로 막기 때문이고, 여기서 느슨하게 받으면 옛 본문을 보내는 화면이 로컬 검토에서만
+ * 멀쩡히 저장되는 것처럼 보인다.
+ *
+ * ⚠ 숫자를 **문자열로 보낸 요청**(`'2'`)도, 0·음수·소수도 막는다. 첫 제출이 1이라 그
+ * 범위 밖의 값은 어떤 제출도 가리키지 않는다 — 여기서 받아 주면 그런 값을 싣는 화면이
+ * 실제 백엔드에 붙어서야 400으로 드러난다.
  */
 function hasReviewTargetVersion(context: LocalReviewContext): boolean {
   const record = bodyRecord(context);
   if (record === null) return false;
-  if (typeof record.expectedSubmittedAt !== 'string') return false;
+  const revision = record.expectedRevision;
+  if (typeof revision !== 'number') return false;
+  if (!Number.isInteger(revision) || revision < 1) return false;
   if (!('expectedLatestReviewId' in record)) return false;
   const reviewId = record.expectedLatestReviewId;
   return reviewId === null || typeof reviewId === 'string';

@@ -16,6 +16,7 @@ import {
   milestoneDocumentCellDisplay,
   milestoneDocumentReviewCommentPayload,
   milestoneDocumentReviewFormError,
+  milestoneDocumentReviewNoticeTone,
   milestoneDocumentReviewVersionError,
   milestoneDocumentReviewVersionOf,
   milestoneDocumentViewerDisplay,
@@ -90,6 +91,7 @@ describe('milestoneDocumentCellDisplay', () => {
       documentId: 'd1',
       isSubmitted: true,
       status: 'SUBMITTED',
+      revision: 2,
       submittedAt: '2026-08-03T00:00:00.000Z',
       file: null,
       content: null,
@@ -258,6 +260,61 @@ describe('shouldHighlightMilestoneDocumentReview', () => {
   });
 });
 
+/**
+ * 변이 검증 대상 — 승인 사유를 학생에게 보여 주는 규칙이 여기 있다.
+ *
+ * 판정 폼은 사유 칸에 「학생에게 그대로 보입니다」라고 적어 두고 승인에도 사유를 받는다.
+ * 승인만 상자를 안 그리면 교직원이 적은 말이 어디에도 나오지 않아, **화면이 약속한 것을
+ * 안 지키는 상태**가 된다.
+ */
+describe('milestoneDocumentReviewNoticeTone', () => {
+  it('보완 요청·반려는 사유 유무와 무관하게 경고 톤이다', () => {
+    expect(
+      milestoneDocumentReviewNoticeTone(
+        'CHANGES_REQUESTED',
+        '표지를 고쳐 주세요.',
+      ),
+    ).toBe('warning');
+    expect(
+      milestoneDocumentReviewNoticeTone('REJECTED', '기한을 넘겼습니다.'),
+    ).toBe('warning');
+    /*
+     * 사유가 필수인데도 비어 온 경우다(계약상 없지만 응답 하나가 어긋나면 난다).
+     * 여기서 상자를 지우면 학생은 **서류가 되돌아온 사실 자체**를 모른다.
+     */
+    expect(milestoneDocumentReviewNoticeTone('CHANGES_REQUESTED', null)).toBe(
+      'warning',
+    );
+    expect(milestoneDocumentReviewNoticeTone('REJECTED', null)).toBe('warning');
+  });
+
+  // 같은 빨간 상자에 담으면 승인인데 문제가 있는 것처럼 읽힌다.
+  it('사유를 적은 승인은 중립 톤으로 보여 준다', () => {
+    expect(
+      milestoneDocumentReviewNoticeTone(
+        'APPROVED',
+        '잘 받았습니다. 다음 단계를 안내드릴게요.',
+      ),
+    ).toBe('neutral');
+  });
+
+  // 승인은 사유가 선택이다 — 비어 있으면 배지가 이미 말한 「승인」 아래 빈 상자만 남는다.
+  it('사유 없는 승인에는 상자를 세우지 않는다', () => {
+    expect(milestoneDocumentReviewNoticeTone('APPROVED', null)).toBeNull();
+    expect(milestoneDocumentReviewNoticeTone('APPROVED', '   ')).toBeNull();
+  });
+
+  // 아직 판정이 없거나 다시 낸 뒤로 돌아온 자리에는 지난 지적을 다시 펴지 않는다.
+  it('검토 대기·미제출에는 그리지 않는다', () => {
+    expect(
+      milestoneDocumentReviewNoticeTone('PENDING', '지난 지적'),
+    ).toBeNull();
+    expect(
+      milestoneDocumentReviewNoticeTone('NOT_SUBMITTED', '지난 지적'),
+    ).toBeNull();
+  });
+});
+
 describe('isMilestoneDocumentReviewCommentRequired', () => {
   it('보완 요청·반려만 사유가 필요하다', () => {
     expect(isMilestoneDocumentReviewCommentRequired('CHANGES_REQUESTED')).toBe(
@@ -342,10 +399,10 @@ describe('milestoneDocumentReviewCommentPayload', () => {
  * 표를 그린 뒤 바뀐 제출물에 판정이 조용히 얹힌다.
  */
 describe('milestoneDocumentReviewVersionOf', () => {
-  it('칸의 제출 시각과 최신 판정 id를 그대로 뜬다', () => {
+  it('칸의 제출본 번호와 최신 판정 id를 그대로 뜬다', () => {
     expect(
       milestoneDocumentReviewVersionOf({
-        submittedAt: '2026-07-28T00:00:00.000Z',
+        revision: 3,
         review: {
           id: 'review-7',
           decision: 'CHANGES_REQUESTED',
@@ -354,7 +411,7 @@ describe('milestoneDocumentReviewVersionOf', () => {
         },
       }),
     ).toEqual({
-      expectedSubmittedAt: '2026-07-28T00:00:00.000Z',
+      expectedRevision: 3,
       expectedLatestReviewId: 'review-7',
     });
   });
@@ -366,23 +423,49 @@ describe('milestoneDocumentReviewVersionOf', () => {
    */
   it('판정이 없던 칸은 undefined가 아니라 null을 싣는다', () => {
     const version = milestoneDocumentReviewVersionOf({
-      submittedAt: '2026-07-28T00:00:00.000Z',
+      revision: 1,
       review: null,
     });
 
     expect(version?.expectedLatestReviewId).toBeNull();
     // 키가 살아 있어야 한다 — `undefined`면 본문에서 사라진다.
     expect(JSON.parse(JSON.stringify(version))).toEqual({
-      expectedSubmittedAt: '2026-07-28T00:00:00.000Z',
+      expectedRevision: 1,
       expectedLatestReviewId: null,
     });
   });
 
-  // 지어낸 값은 대조를 통과하고, 그 통과는 거짓이다.
-  it('제출 시각이 없는 칸에서는 아무 값도 지어내지 않는다', () => {
+  /**
+   * 지어낸 값은 대조를 통과하고, 그 통과는 거짓이다. 특히 `?? 1` 같은 기본값을 두면
+   * 「번호를 못 읽었다」가 「1번 제출본을 봤다」로 바뀌어 나간다 — 그 칸이 실제로 1번
+   * 제출본이면 서버는 순순히 통과시킨다.
+   */
+  it('제출본 번호가 없는 칸에서는 아무 값도 지어내지 않는다', () => {
     expect(
-      milestoneDocumentReviewVersionOf({ submittedAt: null, review: null }),
+      milestoneDocumentReviewVersionOf({ revision: null, review: null }),
     ).toBeNull();
+  });
+
+  /**
+   * 첫 제출이 1이라 0·음수는 **어떤 제출도 가리키지 않는다**. 서버도 그렇게 보고 400으로
+   * 막는데(`@Min(1)`), 그 400은 교직원이 고칠 수 있는 것이 아니다 — 여기서 버려야
+   * 「표를 다시 불러 주세요」라고 말할 수 있다.
+   */
+  it('1보다 작은 번호는 실어 보내지 않는다', () => {
+    expect(
+      milestoneDocumentReviewVersionOf({ revision: 0, review: null }),
+    ).toBeNull();
+    expect(
+      milestoneDocumentReviewVersionOf({ revision: -1, review: null }),
+    ).toBeNull();
+  });
+
+  // 정상 범위는 그대로 지나간다 — 위 방어가 1번 제출까지 삼키면 첫 판정이 통째로 막힌다.
+  it('첫 제출(1)은 그대로 실어 보낸다', () => {
+    expect(
+      milestoneDocumentReviewVersionOf({ revision: 1, review: null })
+        ?.expectedRevision,
+    ).toBe(1);
   });
 });
 
@@ -390,7 +473,7 @@ describe('milestoneDocumentReviewVersionError', () => {
   it('버전을 떠 왔으면 막지 않는다', () => {
     expect(
       milestoneDocumentReviewVersionError({
-        expectedSubmittedAt: '2026-07-28T00:00:00.000Z',
+        expectedRevision: 1,
         expectedLatestReviewId: null,
       }),
     ).toBeNull();
@@ -406,7 +489,7 @@ describe('milestoneDocumentReviewVersionError', () => {
 describe('nextMilestoneDocumentReviewState', () => {
   const target = { applicationId: 'a1', documentId: 'd1' };
   const version = {
-    expectedSubmittedAt: '2026-07-28T00:00:00.000Z',
+    expectedRevision: 1,
     expectedLatestReviewId: null,
   };
 
@@ -440,7 +523,7 @@ describe('nextMilestoneDocumentReviewState', () => {
       open,
       { applicationId: 'a2', documentId: 'd1' },
       {
-        expectedSubmittedAt: '2026-07-29T00:00:00.000Z',
+        expectedRevision: 3,
         expectedLatestReviewId: 'review-2',
       },
     );
@@ -452,7 +535,7 @@ describe('nextMilestoneDocumentReviewState', () => {
     // 버전도 옮겨 간 칸의 것이어야 한다 — 앞 칸의 것을 물고 가면 남의 제출물에 대고
     // 대조하게 되어 언제나 409다.
     expect(next?.version).toEqual({
-      expectedSubmittedAt: '2026-07-29T00:00:00.000Z',
+      expectedRevision: 3,
       expectedLatestReviewId: 'review-2',
     });
   });

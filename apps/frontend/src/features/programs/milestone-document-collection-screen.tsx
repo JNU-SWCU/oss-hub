@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '@/lib/api-client';
 import {
   milestoneDocumentCollectionDataFor,
+  milestoneDocumentCollectionLoadPhase,
   type LoadedMilestoneDocumentCollection,
 } from './milestone-document-collection';
 import {
@@ -212,7 +213,7 @@ export function MilestoneDocumentCollectionScreen({
           comment: milestoneDocumentReviewCommentPayload(comment),
           // 패널을 열 때 떠 온 값 그대로다 — 지금 표를 다시 읽어 채우면 대조가 언제나
           // 통과해 검사가 없는 것과 같아진다.
-          expectedSubmittedAt: version.expectedSubmittedAt,
+          expectedRevision: version.expectedRevision,
           expectedLatestReviewId: version.expectedLatestReviewId,
         },
       );
@@ -264,12 +265,20 @@ export function MilestoneDocumentCollectionScreen({
     }
   }, [milestoneId, reload, review]);
 
+  /*
+   * 조건과 짝이 맞는 응답만 화면으로 내려보낸다. 그 값이 그대로 「다시 부르는 동안 표를
+   * 유지할 수 있는가」의 근거가 된다 — 조건이 바뀌어 짝이 어긋나면 `null`이 되고, 화면은
+   * 유지할 것이 없어 뼈대를 그린다. 두 규칙을 한 값에서 끌어내야 「같은 조건의 재조회일
+   * 때만 유지한다」가 두 곳에서 어긋나지 않는다.
+   */
+  const data = milestoneDocumentCollectionDataFor(loaded, query);
+
   return (
     <MilestoneDocumentCollectionView
       programId={programId}
-      data={milestoneDocumentCollectionDataFor(loaded, query)}
+      data={data}
       filter={query.filter}
-      isLoading={isLoading}
+      loadPhase={milestoneDocumentCollectionLoadPhase({ data, isLoading })}
       errorMessage={errorMessage}
       review={review}
       reviewNotice={reviewNotice}

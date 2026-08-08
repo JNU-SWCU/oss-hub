@@ -11,18 +11,22 @@ export interface CreateMilestoneDocumentReviewInput {
   readonly decision: ReviewDecision;
   readonly comment: string | null;
   /**
-   * 검토자가 **실제로 본** 제출물의 버전 — 수합 표 칸의 `submittedAt`을 그대로 되돌려 받는다.
+   * 검토자가 **실제로 본** 제출물의 리비전 — 수합 표 칸의 `revision`을 그대로 되돌려 받는다.
    *
    * 이것이 없으면 판정은 「지금 있는 행」에 붙는다. 표가 그려진 뒤 학생이 다시 내면 제출 행은
    * 같은 id를 유지한 채 내용만 바뀌므로(`upsertSubmission`은 upsert다), 잠금은 순서만 세울 뿐
    * 「이게 내가 본 그 버전인가」를 증명하지 못한다 — **교직원이 보지 못한 내용이 승인된다.**
-   * `submittedAt`은 재제출마다 새로 찍히므로 그 버전을 가리키는 값이 된다.
+   *
+   * 여기에 `submittedAt`을 쓰지 않는 이유: 그 컬럼은 `TIMESTAMP(3)`이라 같은 팀의 두 사람이
+   * (또는 한 사람의 재시도가) 같은 밀리초 안에 다시 내면 값이 같아지고, upsert라 행 id도 그대로다
+   * — 대조가 통과하는데 내용은 바뀌어 있다. 리비전은 시계가 아니라 **쓰기 횟수**를 세므로 그
+   * 창이 없다.
    */
-  readonly expectedSubmittedAt: Date;
+  readonly expectedRevision: number;
   /**
    * 검토자가 표에서 본 최신 판정의 id(판정이 없었으면 null) — 칸의 `review.id`를 되돌려 받는다.
    *
-   * `expectedSubmittedAt`만으로는 **다른 교직원의 더 최신 판정**을 못 잡는다(판정은 제출을
+   * `expectedRevision`만으로는 **다른 교직원의 더 최신 판정**을 못 잡는다(판정은 제출을
    * 건드리지 않으므로 `submittedAt`이 그대로다). 그대로 두면 나중 판정이 앞선 판정을 조용히
    * 덮는다 — 이력에는 둘 다 남지만 제출 `status`와 「최신 판정」은 늦게 커밋한 쪽이 가져간다.
    *

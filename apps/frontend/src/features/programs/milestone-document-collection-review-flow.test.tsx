@@ -54,6 +54,7 @@ function cell(
     documentId,
     isSubmitted: true,
     status: 'SUBMITTED',
+    revision: 1,
     submittedAt: '2026-07-28T00:00:00.000Z',
     file: null,
     content: null,
@@ -304,7 +305,7 @@ describe('수합 표에서 판정하기', () => {
         comment: undefined,
         // 판정은 「내가 본 그 제출물」에 묶인다 — 이 두 값이 빠지면 서버가 400으로 막아
         // 판정 저장이 통째로 실패한다.
-        expectedSubmittedAt: '2026-07-28T00:00:00.000Z',
+        expectedRevision: 1,
         expectedLatestReviewId: null,
       },
     );
@@ -351,7 +352,7 @@ describe('수합 표에서 판정하기', () => {
       {
         decision: 'APPROVED',
         comment: undefined,
-        expectedSubmittedAt: '2026-07-28T00:00:00.000Z',
+        expectedRevision: 1,
         expectedLatestReviewId: 'review-42',
       },
     );
@@ -380,7 +381,7 @@ describe('수합 표에서 판정하기', () => {
       {
         decision: 'CHANGES_REQUESTED',
         comment: '표지를 고쳐 주세요.',
-        expectedSubmittedAt: '2026-07-28T00:00:00.000Z',
+        expectedRevision: 1,
         expectedLatestReviewId: null,
       },
     );
@@ -641,6 +642,171 @@ describe('수합 표에서 판정하기', () => {
     expect(panel()?.textContent).toContain('가팀 — 중간 보고');
   });
 
+  /* ── 판정 뒤에도 표가 자리를 지키는가 ────────────────────────────────────── */
+
+  /** 뼈대(스켈레톤)가 서 있는가 — 표를 걷어 갔다는 뜻이다. */
+  function skeleton(): Element | null {
+    return container.querySelector('[aria-label="서류 수합 표를 불러오는 중"]');
+  }
+
+  /** 표를 감싼 상자가 「갱신 중」이라고 말하는가. 표 자체가 없으면 `null`. */
+  function tableBusy(): string | null {
+    const busyBox = container.querySelector('table')?.closest('[aria-busy]');
+    return busyBox?.getAttribute('aria-busy') ?? null;
+  }
+
+  /** 재조회를 손에 쥔 채로 둔다 — 갱신 **중간**을 들여다보려면 멈춰 세워야 한다. */
+  function holdNextLoad(next: MilestoneDocumentCollection): () => void {
+    let release: (() => void) | null = null;
+    getMilestoneDocumentCollectionMock.mockImplementation(
+      () =>
+        new Promise<MilestoneDocumentCollection>((resolve) => {
+          release = () => resolve(next);
+        }),
+    );
+    return () => release?.();
+  }
+
+  async function settle() {
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
+
+  /**
+   * 이 기능의 설계 의도가 「표를 떠나지 않는 것」이었다. 저장할 때마다 표가 뼈대로
+   * 갈리면 가로 스크롤이 처음으로 돌아가고 세로 위치도 흔들린다 — 여러 건을 연달아
+   * 판정하는 교직원은 **한 건 처리할 때마다 보던 행과 열을 잃는다**. 패널을 표 안에
+   * 둔 이유가 통째로 무너지는 자리라 여기서 지킨다.
+   */
+  it('판정을 저장한 뒤 표를 다시 부르는 동안에도 표는 자리를 지킨다', async () => {
+    await openPanelForGaTeam();
+    createMilestoneDocumentReviewMock.mockResolvedValue({
+      id: 'r1',
+      decision: 'APPROVED',
+      comment: null,
+      reviewedAt: '2026-08-01T00:00:00.000Z',
+      reviewerNickname: '교직원',
+    });
+    const release = holdNextLoad(
+      collection([
+        row('a', '가팀', [cell('d1', { status: 'APPROVED' }), cell('d2')]),
+      ]),
+    );
+
+    await click(byText('승인'));
+    await click(byText('판정 저장'));
+
+    // 갱신 중 — 표는 그대로 서 있고 뼈대는 서지 않는다.
+    expect(skeleton()).toBeNull();
+    expect(container.querySelector('table')).not.toBeNull();
+    expect(container.textContent).toContain('가팀');
+    expect(container.textContent).toContain('합계');
+    // 그래도 갱신 중임은 말한다.
+    expect(tableBusy()).toBe('true');
+
+    await act(async () => release());
+    await settle();
+
+    // 갱신이 끝나면 조용히 바뀌어 끼워진다 — 표는 한 번도 사라지지 않았다.
+    expect(skeleton()).toBeNull();
+    expect(tableBusy()).toBe('false');
+  });
+
+  /**
+   * MSD_024(그 사이 판정이 바뀜)·MSD_025(내가 본 그 제출물이 아님) 뒤에도 표를 다시
+   * 부른다. 그 재조회에도 같은 규칙이 적용되어야 한다 — 오류 문구를 띄우면서 표까지
+   * 걷어 가면, 무슨 일이 났는지 읽는 동안 보던 자리가 사라진다.
+   */
+  async function expectTableSurvivesConflict(code: string) {
+    await openPanelForGaTeam();
+    createMilestoneDocumentReviewMock.mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: 'Conflict',
+        status: 409,
+        detail: '검토하는 사이에 제출물 또는 판정이 바뀌었습니다.',
+        instance: '/x',
+        code,
+      }),
+    );
+    const release = holdNextLoad(
+      collection([row('a', '가팀', [cell('d1'), cell('d2')])]),
+    );
+
+    await click(byText('승인'));
+    await click(byText('판정 저장'));
+
+    expect(skeleton()).toBeNull();
+    expect(container.textContent).toContain('가팀');
+    expect(tableBusy()).toBe('true');
+
+    await act(async () => release());
+    await settle();
+
+    expect(skeleton()).toBeNull();
+    expect(tableBusy()).toBe('false');
+  }
+
+  it('MSD_024 뒤의 재조회에도 표는 남는다', async () => {
+    await expectTableSurvivesConflict('MSD_024');
+  });
+
+  it('MSD_025 뒤의 재조회에도 표는 남는다', async () => {
+    await expectTableSurvivesConflict('MSD_025');
+  });
+
+  /**
+   * 반대쪽 방어 — **과하게 유지하면 안 된다.**
+   *
+   * 조건이 바뀐 조회 중에 옛 행을 그대로 두면 화면은 새 필터 이름 아래에 **다른 조건의
+   * 답**을 그린다. 「필수 서류 미제출 12팀」이라고 적힌 표에 전부 제출한 팀이 앉는 것이라,
+   * 독촉 대상을 눈으로 고르는 교직원이 그대로 속는다. 유지는 「같은 조건의 재조회」일
+   * 때뿐이다.
+   */
+  it('필터를 바꾼 조회 중에는 옛 표를 그대로 두지 않는다', async () => {
+    await openPanelForGaTeam();
+    const release = holdNextLoad(
+      collection([row('b', '나팀', [cell('d1'), cell('d2')])]),
+    );
+
+    await click(byText('필수 서류 미제출 12팀'));
+
+    expect(container.querySelector('table')).toBeNull();
+    expect(container.textContent).not.toContain('가팀');
+    expect(skeleton()).not.toBeNull();
+
+    await act(async () => release());
+    await settle();
+
+    expect(container.textContent).toContain('나팀');
+  });
+
+  // 페이지 이동도 같은 조건 변경이다 — 2페이지를 부르는 동안 1페이지 행을 두면 안 된다.
+  it('페이지를 넘기는 동안에도 옛 표를 그대로 두지 않는다', async () => {
+    getMilestoneDocumentCollectionMock.mockResolvedValue(
+      collection([row('a', '가팀', [cell('d1'), cell('d2')])], { total: 40 }),
+    );
+    await render();
+    const release = holdNextLoad(
+      collection([row('b', '나팀', [cell('d1'), cell('d2')])], {
+        page: 2,
+        total: 40,
+      }),
+    );
+
+    await click(byText('다음'));
+
+    expect(container.querySelector('table')).toBeNull();
+    expect(container.textContent).not.toContain('가팀');
+    expect(skeleton()).not.toBeNull();
+
+    await act(async () => release());
+    await settle();
+
+    expect(container.textContent).toContain('나팀');
+  });
+
   it('칸의 배지는 지금 상태를 그대로 말한다', async () => {
     getMilestoneDocumentCollectionMock.mockResolvedValue(
       collection([
@@ -812,6 +978,7 @@ describe('수합 표에서 판정하기', () => {
       collection([
         row('a', '가팀', [
           cell('d1', {
+            revision: 2,
             submittedAt: '2026-08-05T00:00:00.000Z',
             review: {
               id: 'review-99',
@@ -862,7 +1029,7 @@ describe('수합 표에서 판정하기', () => {
       {
         decision: 'APPROVED',
         comment: undefined,
-        expectedSubmittedAt: '2026-07-28T00:00:00.000Z',
+        expectedRevision: 1,
         expectedLatestReviewId: null,
       },
     );

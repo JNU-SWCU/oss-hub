@@ -662,11 +662,11 @@ it('제출 파일 다운로드는 다시 붙인 이름으로 attachment 스트�
 
 describe('교직원 서류 제출물 판정', () => {
   /**
-   * 수합 표 칸이 준 「본 그 버전」 — 프런트는 칸의 `submittedAt`과 `review.id`를 그대로
+   * 수합 표 칸이 준 「본 그 버전」 — 프런트는 칸의 `revision`과 `review.id`를 그대로
    * 되돌려 보낸다. 판정이 없던 칸은 `expectedLatestReviewId: null`이다.
    */
   const seenVersion = {
-    expectedSubmittedAt: '2026-09-16T14:22:00.000Z',
+    expectedRevision: 3,
     expectedLatestReviewId: null,
   };
 
@@ -706,8 +706,8 @@ describe('교직원 서류 제출물 판정', () => {
       {
         decision: 'CHANGES_REQUESTED',
         comment: '2쪽 서명이 빠졌습니다.',
-        // 문자열이 아니라 Date로 넘어간다 — 비교는 시각 값으로 한다.
-        expectedSubmittedAt: new Date('2026-09-16T14:22:00.000Z'),
+        // 본문의 정수가 그대로 넘어간다 — 비교는 리비전 값으로 한다.
+        expectedRevision: 3,
         expectedLatestReviewId: null,
       },
     );
@@ -737,7 +737,7 @@ describe('교직원 서류 제출물 판정', () => {
       {
         decision: 'APPROVED',
         comment: null,
-        expectedSubmittedAt: new Date('2026-09-16T14:22:00.000Z'),
+        expectedRevision: 3,
         expectedLatestReviewId: null,
       },
     );
@@ -803,11 +803,8 @@ describe('교직원 서류 제출물 판정', () => {
   });
 
   it.each([
-    ['expectedSubmittedAt', { expectedLatestReviewId: null }],
-    [
-      'expectedLatestReviewId',
-      { expectedSubmittedAt: '2026-09-16T14:22:00.000Z' },
-    ],
+    ['expectedRevision', { expectedLatestReviewId: null }],
+    ['expectedLatestReviewId', { expectedRevision: 3 }],
   ])(
     '%s를 빼먹은 요청은 400으로 막는다 — 기대 버전 없이 판정이 통과하면 검사가 없는 것과 같다',
     async (_field, partialVersion) => {
@@ -815,6 +812,38 @@ describe('교직원 서류 제출물 판정', () => {
       const body = {
         decision: 'APPROVED',
         ...partialVersion,
+      };
+
+      // When
+      const response = await fetch(
+        `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+      );
+
+      // Then
+      expect(response.status).toBe(400);
+      expect(review).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ['문자열', '3'],
+    ['소수', 1.5],
+    ['0', 0],
+  ])(
+    'expectedRevision이 %s이면 400으로 막는다 — 어떤 제출도 가리키지 못하는 값이다',
+    async (_shape, expectedRevision) => {
+      // Given: 리비전은 1부터 시작하는 정수다. 느슨하게 받으면 대조가 언제나 어긋나 판정이
+      // 전부 409가 되고, 교직원에게는 「새로고침하라」만 반복된다 — 원인은 요청 값인데
+      // 화면은 경합이 일어났다고 말한다.
+      const body = {
+        decision: 'APPROVED',
+        expectedRevision,
+        expectedLatestReviewId: null,
       };
 
       // When

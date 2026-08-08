@@ -89,6 +89,12 @@ export interface MilestoneDocumentCollectionSubmission {
   readonly applicationId: string;
   readonly submittedAt: Date;
   /**
+   * 이 제출이 몇 번째로 쓰인 것인가 — 판정 요청이 `expectedRevision`으로 되돌려 보낸다.
+   * `submittedAt`을 그 자리에 쓰지 않는 이유는 스키마 주석에 있다(같은 밀리초의 재제출이
+   * 같은 값을 갖는다). `submittedAt`은 여전히 표에 **보여 주는** 값이라 함께 싣는다.
+   */
+  readonly revision: number;
+  /**
    * 지금 제출의 상태 — 학생이 보완 요청에 응해 다시 내면 SUBMITTED로 되돌아온다. 판정 이력
    * (`review`)은 되돌아가지 않으므로 **배지는 이 값으로** 그려야 「이미 응답한 보완 요청」이
    * 화면에 남지 않는다.
@@ -353,13 +359,15 @@ export interface MilestoneDocumentWriteStore {
    * **잠금 뒤에** 부른다. 밖에서 미리 읽어 두면 그 사이 학생이 재제출해 다른 제출 행을 판정하게
    * 된다(서류 제출은 upsert라 행이 새로 생길 수 있다).
    *
-   * `submittedAt`을 함께 싣는 이유: 잠금은 순서를 세울 뿐 「검토자가 본 그 버전인가」를 답하지
-   * 못한다. 서비스가 이 값을 요청이 들고 온 기대 버전과 맞춰 본다.
+   * `revision`을 함께 싣는 이유: 잠금은 순서를 세울 뿐 「검토자가 본 그 버전인가」를 답하지
+   * 못한다. 서비스가 이 값을 요청이 들고 온 기대 버전(`expectedRevision`)과 맞춰 본다.
+   * `submittedAt`이 아니라 `revision`인 근거는 스키마 주석에 있다 — 같은 밀리초에 겹친 재제출은
+   * `submittedAt`이 같아서 대조를 그대로 통과한다.
    */
   findSubmissionForReview(
     milestoneDocumentId: string,
     applicationId: string,
-  ): Promise<{ readonly id: string; readonly submittedAt: Date } | null>;
+  ): Promise<{ readonly id: string; readonly revision: number } | null>;
   /**
    * 이 제출의 최신 판정 id. 아직 판정이 없으면 null.
    *
@@ -602,7 +610,7 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
   findSubmissionForReview(
     milestoneDocumentId: string,
     applicationId: string,
-  ): Promise<{ readonly id: string; readonly submittedAt: Date } | null> {
+  ): Promise<{ readonly id: string; readonly revision: number } | null> {
     return this.transaction.milestoneDocumentSubmission.findUnique({
       where: {
         milestoneDocumentId_applicationId: {
@@ -610,7 +618,7 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
           applicationId,
         },
       },
-      select: { id: true, submittedAt: true },
+      select: { id: true, revision: true },
     });
   }
 
@@ -886,6 +894,8 @@ export class MilestoneDocumentsRepository {
         milestoneDocumentId: true,
         applicationId: true,
         submittedAt: true,
+        // 칸이 그대로 되돌려 보낼 기대 버전 — 응답에 없으면 프런트가 보낼 값이 없다.
+        revision: true,
         status: true,
         content: true,
         files: {
@@ -901,6 +911,7 @@ export class MilestoneDocumentsRepository {
       milestoneDocumentId: submission.milestoneDocumentId,
       applicationId: submission.applicationId,
       submittedAt: submission.submittedAt,
+      revision: submission.revision,
       status: submission.status,
       content: submission.content,
       file: submission.files[0] ?? null,
@@ -1111,6 +1122,19 @@ export class MilestoneDocumentsRepository {
           content: input.content,
           submittedById: input.submittedById,
           submittedAt: input.submittedAt,
+          /*
+           * 재제출마다 리비전을 **한 칸 올린다** — 판정 요청이 되묻는 「내가 본 그 제출물인가」의
+           * 답이 이 값이다. 올리지 않으면 같은 밀리초에 겹친 재제출이 `submittedAt`도 리비전도
+           * 그대로라, 교직원이 보지 못한 내용에 판정이 붙는다.
+           *
+           * `{ increment: 1 }`이라 값을 읽어 와 더한 뒤 쓰지 않는다 — 읽고 쓰는 사이가 벌어지면
+           * 두 재제출이 같은 값을 읽어 같은 값을 쓴다. DB가 한 문장 안에서 더하므로 이 행에
+           * 도달한 쓰기 횟수와 언제나 같다. 이 문장은 위 `FOR SHARE`로 서류 항목 행을 잡은
+           * 트랜잭션 안이라 판정 경로(`FOR UPDATE`)와도 한 줄로 선다.
+           *
+           * `create` 쪽에는 이 필드가 없다 — 첫 제출의 1은 스키마의 `@default(1)`이 준다.
+           */
+          revision: { increment: 1 },
         },
         create: {
           milestoneDocumentId: input.milestoneDocumentId,

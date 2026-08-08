@@ -664,6 +664,57 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     expect(submissionUpsert).toHaveBeenCalled();
   });
 
+  it('재제출은 리비전을 DB에서 1 올린다 — 교직원이 본 버전과 갈라지는 유일한 표식이다', async () => {
+    // Given: 리비전을 올리지 않으면 같은 밀리초에 겹친 재제출이 submittedAt·행 id·리비전
+    // 어느 것도 바꾸지 않아, 판정 요청의 기대 버전 대조가 그대로 통과한다 — 교직원이 본 적
+    // 없는 내용이 승인된다.
+    const { prisma, submissionUpsert } = transactionPrisma({});
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    await repository.upsertSubmission({
+      milestoneDocumentId: syntheticDocumentId,
+      applicationId: syntheticApplicationId,
+      submittedById: syntheticUserId,
+      submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+      content: { type: 'TEXT', text: '본문' },
+      attachFile: null,
+      expectedSubmissionType: MilestoneSubmissionType.TEXT,
+      expectedLatestReviewId: null,
+    });
+
+    // Then: `{ increment: 1 }`이어야 한다. 값을 읽어 와 더한 뒤 쓰면(예: `revision: 4`)
+    // 두 재제출이 같은 값을 읽어 같은 값을 써서 리비전이 한 번만 올라간다.
+    const { update } = firstCallArgument<{
+      update: Record<string, unknown>;
+    }>(submissionUpsert);
+    expect(update.revision).toEqual({ increment: 1 });
+  });
+
+  it('첫 제출은 리비전을 직접 쓰지 않는다 — 시작값 1은 스키마 기본값이 준다', async () => {
+    // Given: create가 값을 들고 있으면 시작값이 스키마와 코드 두 곳에 생겨 언젠가 갈린다.
+    const { prisma, submissionUpsert } = transactionPrisma({});
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    await repository.upsertSubmission({
+      milestoneDocumentId: syntheticDocumentId,
+      applicationId: syntheticApplicationId,
+      submittedById: syntheticUserId,
+      submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+      content: { type: 'TEXT', text: '본문' },
+      attachFile: null,
+      expectedSubmissionType: MilestoneSubmissionType.TEXT,
+      expectedLatestReviewId: null,
+    });
+
+    // Then
+    const { create } = firstCallArgument<{
+      create: Record<string, unknown>;
+    }>(submissionUpsert);
+    expect(create).not.toHaveProperty('revision');
+  });
+
   it('판정 재확인은 서류 행을 FOR SHARE로 잠근 뒤에 한다 — 잠금 전에 읽으면 재확인이 아니다', async () => {
     // Given
     const order: string[] = [];
@@ -707,7 +758,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
   ) {
     const submissionFindUnique = jest.fn().mockResolvedValue({
       id: 'cuid-synthetic-submission',
-      submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+      revision: 3,
     });
     const reviewFindFirst = jest
       .fn()
@@ -774,13 +825,14 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
           applicationId: syntheticApplicationId,
         },
       },
-      // submittedAt까지 읽는 것이 요점이다 — 서비스가 「검토자가 본 그 버전인가」를 이 값으로
+      // revision까지 읽는 것이 요점이다 — 서비스가 「검토자가 본 그 버전인가」를 이 값으로
       // 대조한다. id만 읽으면 재제출로 내용이 바뀐 제출에 그대로 판정이 붙는다.
-      select: { id: true, submittedAt: true },
+      // submittedAt이 아닌 이유는 같은 밀리초의 재제출이 같은 시각을 갖기 때문이다.
+      select: { id: true, revision: true },
     });
     expect(result).toEqual({
       id: 'cuid-synthetic-submission',
-      submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+      revision: 3,
     });
   });
 
@@ -1250,6 +1302,38 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     // Then
     expect(result[0]?.file).toBeNull();
     expect(result[0]?.review).toBeNull();
+  });
+
+  it('칸에 리비전을 함께 싣는다 — 프런트가 판정 요청에 되돌려 보낼 값이다', async () => {
+    // Given: 이 값이 응답에 없으면 교직원 화면은 expectedRevision에 보낼 것이 없어 판정을
+    // 아예 못 하거나, 추측한 값으로 보내 늘 409를 받는다.
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        milestoneDocumentId: syntheticDocumentId,
+        applicationId: syntheticApplicationId,
+        submittedAt: new Date('2026-09-19T08:00:00.000Z'),
+        revision: 2,
+        status: SubmissionStatus.SUBMITTED,
+        content: null,
+        files: [],
+        reviewHistories: [],
+      },
+    ]);
+    const prisma = {
+      milestoneDocumentSubmission: { findMany },
+    } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const result = await repository.findSubmissionsForCollection(
+      [syntheticDocumentId],
+      now,
+    );
+
+    // Then
+    const call = firstCallArgument<{ select: { revision: unknown } }>(findMany);
+    expect(call.select.revision).toBe(true);
+    expect(result[0]?.revision).toBe(2);
   });
 
   it('제출 상태를 판정과 함께 싣는다 — 재제출로 되돌아온 칸을 표가 알아야 한다', async () => {

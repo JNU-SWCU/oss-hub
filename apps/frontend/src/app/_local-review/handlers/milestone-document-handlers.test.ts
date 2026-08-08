@@ -275,7 +275,7 @@ describe('POST .../applications/:applicationId/reviews', () => {
    * 묻는 갈래(사유 필수·권한)만 다루게 한다. 두 값 자체를 묻는 테스트는 `body`로 덮어쓴다.
    */
   const REVIEW_VERSION = {
-    expectedSubmittedAt: '2026-07-28T00:00:00.000Z',
+    expectedRevision: 1,
     expectedLatestReviewId: null,
   };
 
@@ -350,8 +350,34 @@ describe('POST .../applications/:applicationId/reviews', () => {
   it('기대 버전 두 값이 없으면 400 MSD_019로 거절한다', () => {
     for (const body of [
       { decision: 'APPROVED' },
-      { decision: 'APPROVED', expectedSubmittedAt: '2026-07-28T00:00:00.000Z' },
+      { decision: 'APPROVED', expectedRevision: 1 },
       { decision: 'APPROVED', expectedLatestReviewId: null },
+      // 번호를 **문자열로** 실은 본문. 느슨하게 받으면 실제 백엔드에서만 400이 난다.
+      {
+        decision: 'APPROVED',
+        expectedRevision: '1',
+        expectedLatestReviewId: null,
+      },
+      /*
+       * 백엔드는 `@IsInt() @Min(1)`로 받는다 — 첫 제출이 1이라 0·음수·소수는 어떤
+       * 제출도 가리키지 않는다. 여기서 받아 주면 그런 값을 싣는 화면이 로컬 검토에서만
+       * 멀쩡해 보이고, 실제 백엔드에 붙어서야 판정 저장이 통째로 실패한다.
+       */
+      {
+        decision: 'APPROVED',
+        expectedRevision: 0,
+        expectedLatestReviewId: null,
+      },
+      {
+        decision: 'APPROVED',
+        expectedRevision: -1,
+        expectedLatestReviewId: null,
+      },
+      {
+        decision: 'APPROVED',
+        expectedRevision: 1.5,
+        expectedLatestReviewId: null,
+      },
     ]) {
       const plan = reviewWithoutVersion(body);
       expect(statusOf(plan)).toBe(400);

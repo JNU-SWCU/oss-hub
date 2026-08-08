@@ -589,6 +589,21 @@ model MilestoneDocumentSubmission {
   status  SubmissionStatus @default(SUBMITTED)
   content Json?
 
+  /// 이 행이 몇 번째 제출인가 — 첫 제출이 1이고 재제출마다 `upsertSubmission`이 트랜잭션 안에서
+  /// 1씩 올린다. 「교직원이 본 그 제출물인가」를 판정 요청이 이 값으로 되묻는다
+  /// (`expectedRevision`).
+  ///
+  /// `submittedAt`으로는 그 질문에 답할 수 없다. 이 컬럼은 PostgreSQL `TIMESTAMP(3)`이라 같은
+  /// 팀의 두 사람이(또는 한 사람의 재시도가) **같은 밀리초 안에** 다시 내면 값이 같아진다. 제출은
+  /// upsert라 행 id도 그대로다. 그러면 기대값 대조가 통과하는데 내용은 바뀌어 있다 — 교직원이
+  /// 보지 못한 내용이 승인된다. 리비전은 시계가 아니라 **쓰기 횟수**를 세므로 같은 밀리초의
+  /// 재제출도 반드시 다른 값이 된다.
+  ///
+  /// `@default(1)`이 요점이다. Nullable이면 대조가 `null !== number`로 언제나 어긋나 판정이
+  /// 전부 409가 되고, 기본값이 없으면 새 행의 시작값을 애플리케이션이 정하게 되어 경로마다
+  /// 갈린다. 기존 행은 없으므로 백필이 필요 없다.
+  revision Int @default(1)
+
   submittedById String
   submittedBy   User     @relation(fields: [submittedById], references: [id])
   submittedAt   DateTime @default(now())

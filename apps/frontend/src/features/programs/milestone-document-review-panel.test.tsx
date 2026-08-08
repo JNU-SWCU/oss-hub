@@ -16,6 +16,7 @@ function cell(
     documentId: 'd1',
     isSubmitted: true,
     status: 'SUBMITTED',
+    revision: 1,
     submittedAt: '2026-07-28T00:00:00.000Z',
     file: null,
     content: null,

@@ -1727,6 +1727,8 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           documentId: syntheticDocumentId,
           isSubmitted: false,
           submittedAt: null,
+          // 제출이 없으면 되돌려 보낼 버전도 없다 — 판정 자체가 SUBMISSION_NOT_FOUND로 막힌다.
+          revision: null,
           file: null,
           content: null,
           status: null,
@@ -1736,6 +1738,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           documentId: secondDocumentId,
           isSubmitted: false,
           submittedAt: null,
+          revision: null,
           file: null,
           content: null,
           status: null,
@@ -1753,6 +1756,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           milestoneDocumentId: syntheticDocumentId,
           applicationId: syntheticApplicationId,
           submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+          revision: 1,
           status: SubmissionStatus.SUBMITTED,
           content: null,
           file: { originalFileName: '최종_진짜최종.hwp', sizeBytes: 2048 },
@@ -1762,6 +1766,8 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           milestoneDocumentId: secondDocumentId,
           applicationId: syntheticApplicationId,
           submittedAt: new Date('2026-09-17T10:00:00.000Z'),
+          // 두 번 낸 칸 — 프런트는 이 값을 판정 요청의 expectedRevision으로 되돌려 보낸다.
+          revision: 2,
           status: SubmissionStatus.SUBMITTED,
           content: { type: 'TEXT', text: '3주차까지 인터뷰 8건을 마쳤습니다.' },
           file: null,
@@ -1784,6 +1790,8 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         documentId: syntheticDocumentId,
         isSubmitted: true,
         submittedAt: '2026-09-16T14:22:00.000Z',
+        // 칸이 리비전을 싣지 않으면 프런트가 되돌려 보낼 값이 없어 판정 자체가 불가능하다.
+        revision: 1,
         file: { name: '최종_진짜최종.hwp', sizeBytes: 2048 },
         // FILE 제출은 본문이 없다 — 내용은 위 file이 가리킨다.
         content: null,
@@ -1794,6 +1802,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         documentId: secondDocumentId,
         isSubmitted: true,
         submittedAt: '2026-09-17T10:00:00.000Z',
+        revision: 2,
         file: null,
         // 글 제출은 본문을 그대로 싣는다 — 이게 없으면 교직원이 내용을 못 보고 판정한다.
         content: {

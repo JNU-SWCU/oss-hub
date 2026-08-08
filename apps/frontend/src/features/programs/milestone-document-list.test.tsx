@@ -239,8 +239,35 @@ describe('학생 행이 판정을 읽는 방식', () => {
     expect(notice()?.textContent).toContain('제출 기한을 두 주 넘겼습니다.');
   });
 
-  // 승인에 붙은 사유는 되돌려 보내는 말이 아니다 — 경고 상자로 키우면 승인이 반려처럼 읽힌다.
-  it('승인은 사유가 있어도 경고 상자를 띄우지 않는다', async () => {
+  /**
+   * 변이 검증 대상 1 — 승인 사유 표시가 사라지면 여기가 깨진다.
+   *
+   * 판정 폼은 사유 칸에 「학생에게 그대로 보입니다」라고 적어 두고 **승인에도** 사유를
+   * 받는다. 그런데 승인만 상자를 안 그리면 교직원이 적은 「잘 받았습니다, 다음 단계
+   * 안내드릴게요」는 학생에게 닿지 않는다 — 화면이 약속한 것을 안 지키는 상태다.
+   */
+  it('승인에 적은 사유도 날짜와 함께 학생에게 보인다', async () => {
+    await renderRow(
+      viewer({
+        status: 'APPROVED',
+        review: {
+          comment: '잘 받았습니다. 다음 단계는 개별로 안내드릴게요.',
+          reviewedAt: '2026-08-02T01:20:00.000Z',
+        },
+      }),
+    );
+
+    const box = notice();
+    expect(box).not.toBeNull();
+    expect(box?.textContent).toContain(
+      '잘 받았습니다. 다음 단계는 개별로 안내드릴게요.',
+    );
+    expect(box?.textContent).toContain('승인');
+    expect(box?.textContent).toContain('2026년 8월 2일');
+  });
+
+  // 되돌려 보내는 말이 아니다 — 같은 빨간 상자에 담으면 승인인데 문제가 있는 것처럼 읽힌다.
+  it('승인 사유는 경고 톤으로 키우지 않는다', async () => {
     await renderRow(
       viewer({
         status: 'APPROVED',
@@ -248,6 +275,20 @@ describe('학생 행이 판정을 읽는 방식', () => {
           comment: '수고했습니다.',
           reviewedAt: '2026-08-02T01:20:00.000Z',
         },
+      }),
+    );
+
+    expect(notice()?.closest('[data-slot="alert"]')?.className).not.toContain(
+      'text-destructive',
+    );
+  });
+
+  // 승인은 사유가 선택이다 — 비면 배지가 이미 말한 「승인」 아래 빈 상자만 남는다.
+  it('사유 없는 승인에는 상자를 세우지 않는다', async () => {
+    await renderRow(
+      viewer({
+        status: 'APPROVED',
+        review: { comment: null, reviewedAt: '2026-08-02T01:20:00.000Z' },
       }),
     );
 
