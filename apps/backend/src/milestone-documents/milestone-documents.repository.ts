@@ -181,6 +181,37 @@ const attachedFileSelect = {
   sizeBytes: true,
 } as const;
 
+/** MilestoneDocumentRecord를 만드는 select — 목록·수정·순서 재부여가 같은 shape을 돌려준다. */
+const documentRecordSelect = {
+  id: true,
+  milestoneId: true,
+  name: true,
+  required: true,
+  sortOrder: true,
+  submissionType: true,
+  templateFile: { select: { id: true } },
+} as const;
+
+function toDocumentRecord(row: {
+  id: string;
+  milestoneId: string;
+  name: string;
+  required: boolean;
+  sortOrder: number;
+  submissionType: MilestoneSubmissionType;
+  templateFile: { id: string } | null;
+}): MilestoneDocumentRecord {
+  return {
+    id: row.id,
+    milestoneId: row.milestoneId,
+    name: row.name,
+    required: row.required,
+    sortOrder: row.sortOrder,
+    submissionType: row.submissionType,
+    templateFileId: row.templateFile?.id ?? null,
+  };
+}
+
 /**
  * 교직원 수합 표의 신청 행 select — submissions/submission-matrix.repository.ts의
  * matrixApplicationSelect와 같은 shape을 쓴다(표시 이름 관례를 두 벌로 만들지 않는다).
@@ -222,25 +253,9 @@ export class MilestoneDocumentsRepository {
     const documents = await this.prisma.milestoneDocument.findMany({
       where: { milestoneId },
       orderBy: { sortOrder: 'asc' },
-      select: {
-        id: true,
-        milestoneId: true,
-        name: true,
-        required: true,
-        sortOrder: true,
-        submissionType: true,
-        templateFile: { select: { id: true } },
-      },
+      select: documentRecordSelect,
     });
-    return documents.map((document) => ({
-      id: document.id,
-      milestoneId: document.milestoneId,
-      name: document.name,
-      required: document.required,
-      sortOrder: document.sortOrder,
-      submissionType: document.submissionType,
-      templateFileId: document.templateFile?.id ?? null,
-    }));
+    return documents.map(toDocumentRecord);
   }
 
   async findActiveUser(
@@ -349,10 +364,16 @@ export class MilestoneDocumentsRepository {
   // ---- 교직원 서류 수합 조회 ----
 
   /**
-   * 수합 표의 행 — 이 프로그램의 승인된 신청 전부를 팀 이름 오름차순으로 돌려준다.
-   * 페이지네이션을 두지 않는다: 한 마일스톤의 승인 신청은 수십 규모라 한 번에 실어도 된다.
-   * 규모가 커지면(수백 행 이상) 페이지네이션이 필요하다 — 그때는 rows와 count가 같은 where를
-   * 공유하도록 submissions/submission-matrix.repository.ts의 방식을 따른다.
+   * 수합 표의 행 — 이 프로그램의 승인된 신청 **전부**를 팀 이름 오름차순으로 돌려준다.
+   *
+   * 페이지네이션은 SQL이 아니라 응답 DTO가 메모리에서 한다(필터·집계·slice). 그래서 이 조회는
+   * 여전히 전체를 싣는다 — 응답 크기는 pageSize로 유계가 되지만 **서버 메모리는 승인 신청 수에
+   * 비례**한다. 수백 행을 넘어가면 필터·정렬·페이지를 SQL로 내려야 한다. 그때는 rows와 count가
+   * 같은 where를 공유하도록 submissions/submission-matrix.repository.ts의 방식을 따른다.
+   *
+   * 지금 메모리로 두는 이유: 「필수 서류 중 하나라도 미제출」·「한 장도 안 냄」은 서류 항목과
+   * 제출을 함께 봐야 정해지는 파생 조건이라 SQL로 내리면 조회가 세 갈래로 갈라진다. 규모가
+   * 수십인 동안에는 한 벌의 메모리 계산이 더 안전하다.
    */
   async findApprovedApplicationsForCollection(
     programId: string,
@@ -479,25 +500,40 @@ export class MilestoneDocumentsRepository {
     const updated = await this.prisma.milestoneDocument.update({
       where: { id: documentId },
       data: input,
-      select: {
-        id: true,
-        milestoneId: true,
-        name: true,
-        required: true,
-        sortOrder: true,
-        submissionType: true,
-        templateFile: { select: { id: true } },
-      },
+      select: documentRecordSelect,
     });
-    return {
-      id: updated.id,
-      milestoneId: updated.milestoneId,
-      name: updated.name,
-      required: updated.required,
-      sortOrder: updated.sortOrder,
-      submissionType: updated.submissionType,
-      templateFileId: updated.templateFile?.id ?? null,
-    };
+    return toDocumentRecord(updated);
+  }
+
+  /**
+   * 서류 항목 순서 재부여 — 주어진 배열 순서대로 sortOrder를 1부터 다시 매긴다(구멍·중복 없음).
+   *
+   * **한 트랜잭션**이어야 한다. 항목을 하나씩 갱신하면 중간에 실패했을 때 sortOrder가 같은 두
+   * 항목이 남고, 그 상태에서는 다음 「위로」가 조용히 아무 일도 하지 않는다(같은 값끼리 맞바꿔도
+   * 순서가 그대로다). 갱신 후 목록 조회까지 같은 트랜잭션 안에서 해 응답이 방금 쓴 순서를 본다.
+   *
+   * documentIds가 이 마일스톤의 전체 집합인지는 서비스가 이미 검증했지만, where에 milestoneId를
+   * 함께 걸어 다른 마일스톤 항목이 섞여 들어오는 경로를 한 겹 더 막는다.
+   */
+  async reorderDocuments(
+    milestoneId: string,
+    documentIds: readonly string[],
+  ): Promise<MilestoneDocumentRecord[]> {
+    return this.prisma.$transaction(async (transaction) => {
+      for (const [index, documentId] of documentIds.entries()) {
+        await transaction.milestoneDocument.update({
+          where: { id: documentId, milestoneId },
+          data: { sortOrder: index + 1 },
+          select: { id: true },
+        });
+      }
+      const documents = await transaction.milestoneDocument.findMany({
+        where: { milestoneId },
+        orderBy: { sortOrder: 'asc' },
+        select: documentRecordSelect,
+      });
+      return documents.map(toDocumentRecord);
+    });
   }
 
   async countSubmissionsForDocument(documentId: string): Promise<number> {

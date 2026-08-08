@@ -55,6 +55,26 @@ const updateDocument = jest.fn().mockResolvedValue({
   hasTemplateFile: true,
 });
 const deleteDocument = jest.fn().mockResolvedValue(undefined);
+const reorderDocuments = jest.fn().mockResolvedValue([
+  {
+    id: 'synthetic-document-2',
+    milestoneId: 'synthetic-milestone',
+    name: '팀 활동 보고',
+    required: false,
+    sortOrder: 1,
+    submissionType: 'TEXT',
+    hasTemplateFile: false,
+  },
+  {
+    id: 'synthetic-document',
+    milestoneId: 'synthetic-milestone',
+    name: '개인정보 수집·이용 동의서',
+    required: true,
+    sortOrder: 2,
+    submissionType: 'FILE',
+    hasTemplateFile: true,
+  },
+]);
 const collectForStaff = jest.fn().mockResolvedValue({
   milestone: {
     id: 'synthetic-milestone',
@@ -85,6 +105,13 @@ const collectForStaff = jest.fn().mockResolvedValue({
         },
       ],
     },
+  ],
+  page: 1,
+  pageSize: 20,
+  total: 1,
+  filterCounts: { all: 1, hasMissing: 0, zeroSubmission: 0 },
+  documentTotals: [
+    { documentId: 'synthetic-document', submitted: 1, total: 1 },
   ],
 });
 const submit = jest.fn().mockResolvedValue({
@@ -127,6 +154,7 @@ beforeEach(() => {
   createDocument.mockClear();
   updateDocument.mockClear();
   deleteDocument.mockClear();
+  reorderDocuments.mockClear();
   collectForStaff.mockClear();
   submit.mockClear();
   uploadTemplate.mockClear();
@@ -149,6 +177,7 @@ beforeAll(async () => {
           createDocument,
           updateDocument,
           deleteDocument,
+          reorderDocuments,
           collectForStaff,
           submit,
         },
@@ -318,6 +347,69 @@ it('교직원 서류 항목 삭제는 204로 끝난다', async () => {
   );
 });
 
+it('서류 순서 재부여는 200으로 끝나고 새 순서 목록을 돌려준다', async () => {
+  // Given: 두 번째 항목을 맨 위로 올린 전체 나열이다.
+  const body = {
+    documentIds: ['synthetic-document-2', 'synthetic-document'],
+  };
+
+  // When
+  const response = await fetch(
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/order`,
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+
+  // Then: 응답은 목록 조회와 같은 shape이다(프런트가 그대로 갈아 끼운다).
+  expect(response.status).toBe(200);
+  await expect(response.json()).resolves.toMatchObject([
+    { id: 'synthetic-document-2', sortOrder: 1 },
+    { id: 'synthetic-document', sortOrder: 2 },
+  ]);
+  expect(reorderDocuments).toHaveBeenCalledWith('synthetic-milestone', [
+    'synthetic-document-2',
+    'synthetic-document',
+  ]);
+});
+
+it('서류 순서 재부여 경로(order)는 :documentId 수정 경로로 잘못 잡히지 않는다', async () => {
+  // Given / When
+  await fetch(
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/order`,
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ documentIds: ['synthetic-document'] }),
+    },
+  );
+
+  // Then: `order`를 id로 착각해 서류 항목 수정 핸들러가 타면 안 된다.
+  expect(reorderDocuments).toHaveBeenCalledTimes(1);
+  expect(updateDocument).not.toHaveBeenCalled();
+});
+
+it('documentIds가 문자열 배열이 아니면 서비스 호출 전에 400으로 거절한다', async () => {
+  // Given
+  const body = { documentIds: [1, 2] };
+
+  // When
+  const response = await fetch(
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/order`,
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+
+  // Then
+  expect(response.status).toBe(400);
+  expect(reorderDocuments).not.toHaveBeenCalled();
+});
+
 it('학생 서류 제출은 201로 끝나고 content를 서비스에 전달한다', async () => {
   // Given
   const body = { content: { type: 'TEXT', text: '본문' } };
@@ -460,8 +552,57 @@ it('서류 수합 조회는 교직원 가드를 거치고 private no-store로 �
         cells: [{ documentId: 'synthetic-document', submitted: true }],
       },
     ],
+    page: 1,
+    pageSize: 20,
+    total: 1,
+    filterCounts: { all: 1, hasMissing: 0, zeroSubmission: 0 },
+    documentTotals: [
+      { documentId: 'synthetic-document', submitted: 1, total: 1 },
+    ],
   });
-  expect(collectForStaff).toHaveBeenCalledWith('synthetic-milestone');
+  // 쿼리를 안 주면 1페이지 20건 · 전체 필터가 기본값이다(ADR-004 페이지네이션 계약).
+  expect(collectForStaff).toHaveBeenCalledWith('synthetic-milestone', {
+    page: 1,
+    pageSize: 20,
+    filter: 'ALL',
+  });
+});
+
+it('서류 수합 조회는 page·pageSize·filter를 숫자·enum으로 바꿔 서비스에 전달한다', async () => {
+  // Given / When
+  const response = await fetch(
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/collection?page=2&pageSize=5&filter=HAS_MISSING`,
+  );
+
+  // Then
+  expect(response.status).toBe(200);
+  expect(collectForStaff).toHaveBeenCalledWith('synthetic-milestone', {
+    page: 2,
+    pageSize: 5,
+    filter: 'HAS_MISSING',
+  });
+});
+
+it('범위를 벗어난 pageSize는 서비스 호출 전에 400으로 거절한다', async () => {
+  // Given: 최대 100을 넘겼다.
+  const response = await fetch(
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/collection?pageSize=101`,
+  );
+
+  // Then
+  expect(response.status).toBe(400);
+  expect(collectForStaff).not.toHaveBeenCalled();
+});
+
+it('모르는 filter 값은 서비스 호출 전에 400으로 거절한다', async () => {
+  // Given / When
+  const response = await fetch(
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/collection?filter=SOMETHING_ELSE`,
+  );
+
+  // Then
+  expect(response.status).toBe(400);
+  expect(collectForStaff).not.toHaveBeenCalled();
 });
 
 it('서류 수합 조회 경로(collection)는 :documentId 경로로 잘못 잡히지 않는다', async () => {
@@ -515,6 +656,18 @@ describe('교직원 전용 endpoint의 가드 구성', () => {
 
     // Then
     expect(guards).toEqual([SessionGuard, MilestoneDocumentsStaffGuard]);
+  });
+
+  it('서류 순서 재부여는 SessionGuard + MilestoneDocumentsStaffGuard + OriginGuard를 붙인다', () => {
+    // Given / When
+    const guards = readHandlerGuards('reorder');
+
+    // Then: 상태를 바꾸는 요청이라 CSRF 방어(OriginGuard)까지 붙는다.
+    expect(guards).toEqual([
+      SessionGuard,
+      MilestoneDocumentsStaffGuard,
+      OriginGuard,
+    ]);
   });
 
   it('제출 파일 다운로드는 SessionGuard + MilestoneDocumentsStaffGuard를 붙인다', () => {

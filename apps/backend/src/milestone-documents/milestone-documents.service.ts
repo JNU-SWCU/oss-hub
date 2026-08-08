@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { MilestoneSubmissionType, Prisma, Role } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { isLinkedRepositoryReleaseUrl } from '../submissions/submission-release-url';
+import type { MilestoneDocumentCollectionQuery } from './domain/milestone-document-collection-query';
 import type { MilestoneDocumentContentInput } from './domain/milestone-document-content';
 import { MilestoneDocumentCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
 import { MilestoneDocumentResponseDto } from './dto/milestone-document-response.dto';
@@ -11,6 +12,7 @@ import {
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.enum';
 import {
+  type MilestoneDocumentContext,
   MilestoneDocumentPendingFileMissingError,
   type MilestoneDocumentRecord,
   MilestoneDocumentsRepository,
@@ -101,13 +103,19 @@ export class MilestoneDocumentsService {
 
   /**
    * `GET /milestones/:milestoneId/documents/collection` — 교직원 서류 수합 표.
-   * 행은 승인된 신청만(팀 이름 오름차순), 칸은 모든 서류 항목에 대해 한 칸씩 채운다.
+   * 행은 승인된 신청만(팀 이름 오름차순 → id 오름차순), 칸은 모든 서류 항목에 대해 한 칸씩 채운다.
    *
    * N+1 금지: 서류 목록·신청 목록·제출 목록을 각각 한 번씩만 조회하고 결합은 DTO가 메모리에서
    * 한다(submissions/submission-matrix.service.ts의 cellIndex와 같은 방식).
+   *
+   * 페이지네이션(ADR-004 §「모든 목록 조회는 페이지네이션을 제공한다」)도 SQL이 아니라 그 메모리
+   * 단계에서 한다 — 필터가 「필수 서류 중 미제출」처럼 서류·제출을 함께 봐야 정해지는 파생
+   * 조건이라 SQL로 내리면 조회가 갈라지기 때문이다. 한계: 응답 크기는 pageSize로 유계가 되지만
+   * 서버 메모리는 여전히 전체 승인 신청 수에 비례한다. 수백 행을 넘어가면 SQL 쪽으로 내려야 한다.
    */
   async collectForStaff(
     milestoneId: string,
+    query: MilestoneDocumentCollectionQuery,
     now: Date = new Date(),
   ): Promise<MilestoneDocumentCollectionResponseDto> {
     const milestone = await this.repository.findMilestone(milestoneId);
@@ -131,6 +139,7 @@ export class MilestoneDocumentsService {
       documents,
       applications,
       submissions,
+      query,
     );
   }
 
@@ -147,15 +156,59 @@ export class MilestoneDocumentsService {
     return MilestoneDocumentResponseDto.from(record);
   }
 
-  /** 교직원 — 서류 항목 수정(전체 교체: 이름/필수여부/순서/제출유형). */
+  /**
+   * 교직원 — 서류 항목 수정(전체 교체: 이름/필수여부/순서/제출유형).
+   *
+   * 제출이 하나라도 있으면 **제출 방식(submissionType) 변경만** 막는다(deleteDocument와 같은
+   * DOCUMENT_HAS_SUBMISSIONS). FILE→TEXT로 바꾸면 이미 올라온 파일이 수합 표에서 조용히
+   * 사라지기 때문이다(칸의 file은 submissionType === FILE일 때만 붙는다). 데이터가 지워지는 건
+   * 아니라 되돌리면 다시 보이지만, 교직원이 그 사이 「안 냈네」로 읽는 것이 실제 피해다.
+   * 이름·필수여부·순서 변경은 해롭지 않으므로 제출이 있어도 계속 허용한다.
+   */
   async updateDocument(
     milestoneId: string,
     documentId: string,
     input: UpsertMilestoneDocumentInput,
   ): Promise<MilestoneDocumentResponseDto> {
-    await this.requireDocumentInMilestone(milestoneId, documentId);
+    const context = await this.requireDocumentInMilestone(
+      milestoneId,
+      documentId,
+    );
+    if (context.submissionType !== input.submissionType) {
+      const submissionCount =
+        await this.repository.countSubmissionsForDocument(documentId);
+      if (submissionCount > 0) {
+        throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_HAS_SUBMISSIONS);
+      }
+    }
     const record = await this.repository.updateDocument(documentId, input);
     return MilestoneDocumentResponseDto.from(record);
+  }
+
+  /**
+   * 교직원 — 서류 항목 순서 재부여(`PATCH .../documents/order`).
+   *
+   * documentIds는 이 마일스톤의 서류 **전체 집합과 정확히 일치**해야 한다(누락·중복·다른
+   * 마일스톤 id 섞임 전부 거부). 이걸 강제하면 부분 갱신 자체가 불가능해지고, 그래야 sortOrder가
+   * 같은 두 항목이 남는 상태(다음 「위로」가 조용히 아무 일도 안 하는 덫)를 만들 수 없다.
+   */
+  async reorderDocuments(
+    milestoneId: string,
+    documentIds: readonly string[],
+  ): Promise<MilestoneDocumentResponseDto[]> {
+    const milestone = await this.repository.findMilestone(milestoneId);
+    if (milestone === null) {
+      throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
+    }
+    const documents = await this.repository.findByMilestoneId(milestoneId);
+    if (!isExactDocumentIdSet(documents, documentIds)) {
+      throw this.error(MilestoneDocumentsErrorCode.INVALID_REQUEST);
+    }
+    const records = await this.repository.reorderDocuments(
+      milestoneId,
+      documentIds,
+    );
+    return records.map((record) => MilestoneDocumentResponseDto.from(record));
   }
 
   /** 교직원 — 서류 항목 삭제. 제출이 하나라도 있으면 거부한다. */
@@ -267,14 +320,32 @@ export class MilestoneDocumentsService {
   private async requireDocumentInMilestone(
     milestoneId: string,
     documentId: string,
-  ): Promise<void> {
+  ): Promise<MilestoneDocumentContext> {
     const context = await this.repository.findDocumentContext(documentId);
     if (context === null || context.milestoneId !== milestoneId) {
       throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
     }
+    return context;
   }
 
   private error(code: MilestoneDocumentsErrorCode): DomainException {
     return new DomainException(MILESTONE_DOCUMENTS_ERROR_CODES[code]);
   }
+}
+
+/**
+ * 요청한 id 나열이 이 마일스톤 서류의 전체 집합과 정확히 같은지 — 누락·중복·외부 id를 모두 잡는다.
+ * 길이 비교만으로는 「하나 빠지고 하나 중복」이 통과하므로 Set 크기까지 함께 본다.
+ */
+function isExactDocumentIdSet(
+  documents: readonly MilestoneDocumentRecord[],
+  documentIds: readonly string[],
+): boolean {
+  const existing = new Set(documents.map((document) => document.id));
+  const requested = new Set(documentIds);
+  return (
+    documentIds.length === documents.length &&
+    requested.size === documentIds.length &&
+    [...requested].every((documentId) => existing.has(documentId))
+  );
 }

@@ -12,6 +12,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   Res,
   StreamableFile,
@@ -25,9 +26,11 @@ import { OriginGuard } from '../auth/origin.guard';
 import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
 import { DomainException } from '../common/error-code';
 import { CreateMilestoneDocumentSubmissionRequestDto } from './dto/create-milestone-document-submission-request.dto';
+import { MilestoneDocumentCollectionQueryRequestDto } from './dto/milestone-document-collection-query.dto';
 import { MilestoneDocumentCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
 import { MilestoneDocumentResponseDto } from './dto/milestone-document-response.dto';
 import { MilestoneDocumentSubmissionResponseDto } from './dto/milestone-document-submission-response.dto';
+import { ReorderMilestoneDocumentsRequestDto } from './dto/reorder-milestone-documents-request.dto';
 import { UpsertMilestoneDocumentRequestDto } from './dto/upsert-milestone-document-request.dto';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
@@ -122,8 +125,23 @@ export class MilestoneDocumentsController {
   @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard)
   collection(
     @Param('milestoneId') milestoneId: string,
+    @Query() query: MilestoneDocumentCollectionQueryRequestDto,
   ): Promise<MilestoneDocumentCollectionResponseDto> {
-    return this.service.collectForStaff(milestoneId);
+    return this.service.collectForStaff(milestoneId, query.toQuery());
+  }
+
+  /**
+   * 교직원 서류 항목 순서 재부여. `order`도 고정 세그먼트라 아래 `@Patch(':documentId')`보다
+   * **먼저 선언해야** 한다 — Nest는 선언 순서대로 매칭하므로 뒤에 두면 `:documentId`가 먼저
+   * 잡아 `order`라는 id를 수정하려 든다(`collection`이 위에 있는 것과 같은 이유다).
+   */
+  @Patch('order')
+  @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard, OriginGuard)
+  reorder(
+    @Param('milestoneId') milestoneId: string,
+    @Body() body: ReorderMilestoneDocumentsRequestDto,
+  ): Promise<MilestoneDocumentResponseDto[]> {
+    return this.service.reorderDocuments(milestoneId, body.documentIds);
   }
 
   @Post()

@@ -723,3 +723,189 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
     expect(result).toBeNull();
   });
 });
+
+describe('MilestoneDocumentsRepository.reorderDocuments', () => {
+  const firstId = 'cuid-synthetic-document-1';
+  const secondId = 'cuid-synthetic-document-2';
+  const thirdId = 'cuid-synthetic-document-3';
+
+  interface UpdateArgs {
+    where: { id: string; milestoneId: string };
+    data: { sortOrder: number };
+    select?: { id: true };
+  }
+
+  /**
+   * 트랜잭션을 흉내 내는 가짜 Prisma. 트랜잭션 클라이언트로 온 쓰기는 staged에 모았다가
+   * 콜백이 끝날 때만 committed에 반영하고, 트랜잭션 밖(this.prisma) 쓰기는 곧바로 committed에
+   * 반영한다 — 「한 트랜잭션인가」와 「중간 실패 시 부분 반영이 남는가」를 구분하기 위해서다.
+   */
+  function buildReorderPrisma(options: { failOnUpdateCall?: number } = {}) {
+    const rows = [
+      {
+        id: firstId,
+        milestoneId: syntheticMilestoneId,
+        name: '개인정보 수집·이용 동의서',
+        required: true,
+        submissionType: MilestoneSubmissionType.FILE,
+        templateFile: null,
+      },
+      {
+        id: secondId,
+        milestoneId: syntheticMilestoneId,
+        name: '팀 활동 보고',
+        required: false,
+        submissionType: MilestoneSubmissionType.TEXT,
+        templateFile: null,
+      },
+      {
+        id: thirdId,
+        milestoneId: syntheticMilestoneId,
+        name: '결과 보고서',
+        required: true,
+        submissionType: MilestoneSubmissionType.FILE,
+        templateFile: null,
+      },
+    ];
+    const committed = new Map<string, number>([
+      [firstId, 1],
+      [secondId, 2],
+      [thirdId, 3],
+    ]);
+    let updateCalls = 0;
+    const transactionUpdateArgs: UpdateArgs[] = [];
+
+    function applyUpdate(store: Map<string, number>, args: UpdateArgs) {
+      updateCalls += 1;
+      if (options.failOnUpdateCall === updateCalls) {
+        throw new Error('synthetic-update-failure');
+      }
+      store.set(args.where.id, args.data.sortOrder);
+      return { id: args.where.id };
+    }
+
+    function readAll(store: Map<string, number>) {
+      return rows
+        .map((row) => ({ ...row, sortOrder: store.get(row.id) ?? 0 }))
+        .sort((left, right) => left.sortOrder - right.sortOrder);
+    }
+
+    // 트랜잭션 밖 경로 — 여기로 쓰이면 곧바로 커밋된다(= 롤백이 없다).
+    const directUpdate = jest.fn((args: UpdateArgs) =>
+      Promise.resolve(applyUpdate(committed, args)),
+    );
+    const directFindMany = jest.fn(() => Promise.resolve(readAll(committed)));
+    const $transaction = jest.fn(
+      async (
+        callback: (client: unknown) => Promise<unknown>,
+      ): Promise<unknown> => {
+        const staged = new Map(committed);
+        const result = await callback({
+          milestoneDocument: {
+            update: (args: UpdateArgs) => {
+              transactionUpdateArgs.push(args);
+              return Promise.resolve(applyUpdate(staged, args));
+            },
+            findMany: () => Promise.resolve(readAll(staged)),
+          },
+        });
+        for (const [id, sortOrder] of staged) committed.set(id, sortOrder);
+        return result;
+      },
+    );
+
+    const prisma = {
+      milestoneDocument: { update: directUpdate, findMany: directFindMany },
+      $transaction,
+    } as unknown as PrismaService;
+    return {
+      prisma,
+      committed,
+      directUpdate,
+      transactionUpdateArgs,
+      $transaction,
+    };
+  }
+
+  it('요청 순서대로 sortOrder를 1부터 다시 매기고 같은 트랜잭션 안에서 새 목록을 읽는다', async () => {
+    // Given: 3개를 역순으로 보낸다.
+    const { prisma, committed, directUpdate, $transaction } =
+      buildReorderPrisma();
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const result = await repository.reorderDocuments(syntheticMilestoneId, [
+      thirdId,
+      secondId,
+      firstId,
+    ]);
+
+    // Then: 구멍·중복 없이 1..N으로 정규화된다.
+    expect($transaction).toHaveBeenCalledTimes(1);
+    expect(directUpdate).not.toHaveBeenCalled();
+    expect(result.map((document) => document.id)).toEqual([
+      thirdId,
+      secondId,
+      firstId,
+    ]);
+    expect(result.map((document) => document.sortOrder)).toEqual([1, 2, 3]);
+    expect([...committed.entries()].sort()).toEqual([
+      [firstId, 3],
+      [secondId, 2],
+      [thirdId, 1],
+    ]);
+  });
+
+  it('중간 갱신이 실패하면 아무 항목의 순서도 바뀌지 않는다 — 부분 반영을 남기지 않는다', async () => {
+    // Given: 두 번째 갱신에서 실패한다. 항목을 하나씩 따로 갱신하면 첫 항목만 바뀐 채로 남고,
+    // 그러면 sortOrder가 같은 두 항목이 생겨 다음 「위로」가 조용히 아무 일도 안 하게 된다.
+    const { prisma, committed } = buildReorderPrisma({ failOnUpdateCall: 2 });
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When / Then
+    await expect(
+      repository.reorderDocuments(syntheticMilestoneId, [
+        thirdId,
+        secondId,
+        firstId,
+      ]),
+    ).rejects.toThrow('synthetic-update-failure');
+    expect([...committed.entries()].sort()).toEqual([
+      [firstId, 1],
+      [secondId, 2],
+      [thirdId, 3],
+    ]);
+  });
+
+  it('갱신 where에 milestoneId를 함께 걸어 다른 마일스톤 항목이 섞이는 경로를 막는다', async () => {
+    // Given
+    const { prisma, transactionUpdateArgs } = buildReorderPrisma();
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    await repository.reorderDocuments(syntheticMilestoneId, [
+      firstId,
+      secondId,
+      thirdId,
+    ]);
+
+    // Then
+    expect(transactionUpdateArgs).toEqual([
+      {
+        where: { id: firstId, milestoneId: syntheticMilestoneId },
+        data: { sortOrder: 1 },
+        select: { id: true },
+      },
+      {
+        where: { id: secondId, milestoneId: syntheticMilestoneId },
+        data: { sortOrder: 2 },
+        select: { id: true },
+      },
+      {
+        where: { id: thirdId, milestoneId: syntheticMilestoneId },
+        data: { sortOrder: 3 },
+        select: { id: true },
+      },
+    ]);
+  });
+});
