@@ -88,11 +88,29 @@ describe('ProgramTypeModal accessibility', () => {
     expect(dialog?.className).toContain('overflow-y-auto');
   });
 
+  it('좁은 화면에서는 창 내용이 가로로 넘치지 않고 닫기를 아이콘 버튼으로 제공한다', async () => {
+    await act(async () => root.render(<Harness onCancel={vi.fn()} />));
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    expect(dialog?.className).toContain('w-[calc(100%_-_2rem)]');
+    expect(dialog?.className).toContain('min-w-0');
+    expect(dialog?.className).toContain('overflow-x-hidden');
+    expect(dialog?.className).toContain('*:min-w-0');
+
+    const close = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="프로그램 유형 창 닫기"]',
+    );
+    expect(close).not.toBeNull();
+    expect(close?.textContent).toBe('');
+  });
+
   it('마지막 동작에서 Tab을 누르면 첫 동작으로, Shift+Tab은 다시 마지막으로 순환한다', async () => {
     await act(async () => root.render(<Harness onCancel={vi.fn()} />));
 
     const buttons = [...document.querySelectorAll('button')];
-    const close = buttons.find((button) => button.textContent === '닫기');
+    const close = buttons.find(
+      (button) => button.getAttribute('aria-label') === '프로그램 유형 창 닫기',
+    );
     const continueButton = buttons.find(
       (button) => button.textContent === '이 유형으로 계속',
     );
