@@ -3,9 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '@/lib/api-client';
 import {
+  milestoneDocumentCollectionDataFor,
+  type LoadedMilestoneDocumentCollection,
+} from './milestone-document-collection';
+import {
   getMilestoneDocumentCollection,
   MILESTONE_DOCUMENT_COLLECTION_PAGE_SIZE,
-  type MilestoneDocumentCollection,
   type MilestoneDocumentCollectionFilter,
   type MilestoneDocumentCollectionQueryInput,
 } from './milestone-document-collection-api';
@@ -32,7 +35,14 @@ export function MilestoneDocumentCollectionScreen({
   readonly programId: string;
   readonly milestoneId: string;
 }) {
-  const [data, setData] = useState<MilestoneDocumentCollection | null>(null);
+  /**
+   * 응답은 **그것을 불러온 조회 조건과 함께** 들고 있는다. 조건만 바뀌고 요청이 실패하면
+   * 이전 응답이 손에 남는데, 짝을 지어 두지 않으면 새 필터 이름 아래에 옛 행과 옛 합계가
+   * 오류 문구와 나란히 그려진다. 늦게 온 응답을 막는 `requestIdRef`가 「누가 이겼는가」를
+   * 본다면, 이 짝짓기는 「지금 조건의 답이 맞는가」를 본다 — 실패 뒤에는 뒤엣것만 남는다.
+   */
+  const [loaded, setLoaded] =
+    useState<LoadedMilestoneDocumentCollection | null>(null);
   const [query, setQuery] =
     useState<MilestoneDocumentCollectionQueryInput>(INITIAL_QUERY);
   const [isLoading, setIsLoading] = useState(true);
@@ -47,7 +57,7 @@ export function MilestoneDocumentCollectionScreen({
         const next = await getMilestoneDocumentCollection(milestoneId, input);
         // 조건을 바꿔 다시 부른 뒤 이전 응답이 늦게 오면 옛 표가 덮어쓴다.
         if (requestId !== requestIdRef.current) return;
-        setData(next);
+        setLoaded({ query: input, data: next });
       } catch (error) {
         if (requestId !== requestIdRef.current) return;
         setErrorMessage(
@@ -72,7 +82,7 @@ export function MilestoneDocumentCollectionScreen({
   return (
     <MilestoneDocumentCollectionView
       programId={programId}
-      data={data}
+      data={milestoneDocumentCollectionDataFor(loaded, query)}
       filter={query.filter}
       isLoading={isLoading}
       errorMessage={errorMessage}

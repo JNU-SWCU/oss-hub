@@ -402,4 +402,44 @@ describe('MilestoneDocumentCollectionView 페이지 이동', () => {
 
     expect(html).toContain('이 페이지 1팀(조건에 맞는 전체 47팀)');
   });
+
+  /**
+   * 「필수 서류 미제출」 2페이지를 보는 동안 팀들이 제출을 마치면 걸리는 팀이 줄어
+   * 페이지 수도 줄어든다 — 응답은 빈 2페이지 + 전체 1페이지로 온다. 페이지 이동 UI는
+   * 한 페이지짜리 결과에서 그리지 않으므로, 여기서 길을 주지 않으면 교직원은 빈 표를
+   * 앞에 두고 필터를 손으로 되돌리기 전까지 빠져나갈 수 없다.
+   */
+  it('결과가 줄어 지금 페이지가 사라지면 되돌아갈 버튼을 준다', () => {
+    const html = render({
+      data: collection(documents, [], {
+        page: 2,
+        pageSize: 20,
+        total: 5,
+        filterCounts: { all: 47, hasMissing: 5, zeroSubmission: 0 },
+      }),
+      filter: 'HAS_MISSING',
+    });
+
+    expect(html).toContain('이 페이지에는 더 이상 팀이 없습니다');
+    expect(html).toContain('1페이지로 이동');
+    // 필터 칩은 남는다 — 지금 무엇을 보고 있었는지가 사라지면 안 된다.
+    expect(html).toContain('필수 서류 미제출 5팀');
+    // 빈 표를 그대로 그려 두면 「0팀이 걸렸다」로 읽힌다.
+    expect(html).not.toContain('이 페이지 0팀');
+  });
+
+  // 30페이지가 29페이지로 줄었을 때 1페이지로 튕기면 보고 있던 자리를 잃는다.
+  it('여러 페이지가 남아 있으면 마지막 페이지로 내려앉힌다', () => {
+    const html = render({
+      data: collection(documents, [], {
+        page: 4,
+        pageSize: 20,
+        total: 47,
+        filterCounts: { all: 47, hasMissing: 47, zeroSubmission: 0 },
+      }),
+    });
+
+    expect(html).toContain('3페이지로 이동');
+    expect(html).not.toContain('1페이지로 이동');
+  });
 });

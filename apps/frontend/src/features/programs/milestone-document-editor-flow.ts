@@ -210,6 +210,28 @@ export function milestoneDocumentSaveSortOrder(
   return existing?.sortOrder ?? nextMilestoneDocumentSortOrder(documents);
 }
 
+/**
+ * 갱신 응답 하나를 기존 항목 위에 겹친다 — **응답에 없는 `teamSubmissionCount`는 지우지 않는다.**
+ *
+ * 이 값은 목록 조회(`GET .../documents`)에서만 채워지고 생성·수정·재정렬 응답에는 아예
+ * 없다. 응답을 그대로 갈아 끼우면 값이 `undefined`가 되고,
+ * `milestoneDocumentSubmissionTypeLocked`는 「모른다」를 「제출 없음」과 구분하지 못해
+ * 잠금이 풀린다 — 이름만 바꾼 뒤 다시 「수정」을 열면 제출 방식이 열려 있고, 바꿔서
+ * 저장해야 그제서야 서버 409(MSD_016)로 막히는 자리였다.
+ *
+ * 제출 수는 서류를 고치거나 순서를 바꾼다고 달라지지 않으므로 손에 있던 값이 그대로
+ * 진실이다. 응답이 값을 **주었다면** 그 값이 이긴다(서버가 더 최신이다).
+ */
+export function mergeMilestoneDocument(
+  previous: MilestoneDocument | undefined,
+  saved: MilestoneDocument,
+): MilestoneDocument {
+  if (previous === undefined) return saved;
+  if (saved.teamSubmissionCount !== undefined) return saved;
+  if (previous.teamSubmissionCount === undefined) return saved;
+  return { ...saved, teamSubmissionCount: previous.teamSubmissionCount };
+}
+
 export function upsertMilestoneDocumentInList(
   documents: readonly MilestoneDocument[],
   saved: MilestoneDocument,
@@ -218,9 +240,30 @@ export function upsertMilestoneDocumentInList(
   return sortMilestoneDocuments(
     exists
       ? documents.map((document) =>
-          document.id === saved.id ? saved : document,
+          document.id === saved.id
+            ? mergeMilestoneDocument(document, saved)
+            : document,
         )
       : [...documents, saved],
+  );
+}
+
+/**
+ * 목록을 통째로 갈아 끼우는 응답(재정렬)을 기존 목록 위에 겹친다.
+ *
+ * sortOrder·이름 등 응답이 준 값은 그대로 진실로 삼되(서버가 1부터 다시 매긴다),
+ * 응답에 실리지 않는 `teamSubmissionCount`만 id로 짝지어 지켜 낸다 —
+ * `mergeMilestoneDocument`와 같은 이유다.
+ */
+export function mergeMilestoneDocumentList(
+  previous: readonly MilestoneDocument[],
+  saved: readonly MilestoneDocument[],
+): readonly MilestoneDocument[] {
+  return saved.map((document) =>
+    mergeMilestoneDocument(
+      previous.find((candidate) => candidate.id === document.id),
+      document,
+    ),
   );
 }
 

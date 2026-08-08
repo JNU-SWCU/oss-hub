@@ -30,6 +30,7 @@ import {
 import {
   buildMilestoneDocumentInput,
   emptyMilestoneDocumentForm,
+  mergeMilestoneDocumentList,
   milestoneDocumentErrorMessage,
   milestoneDocumentSaveSortOrder,
   milestoneDocumentSubmissionTypeLocked,
@@ -341,9 +342,16 @@ export function MilestoneDocumentEditorSection({
       // 응답을 그대로 목록으로 삼는다(낙관적 갱신 X) — sortOrder는 서버가 1부터 다시
       // 매기므로, 우리가 계산한 값으로 화면을 갱신하면 다음 이동의 기준이 서버와
       // 조용히 어긋난다.
+      //
+      // 다만 재정렬 응답에는 `teamSubmissionCount`가 실리지 않는다(목록 조회에서만
+      // 채워진다). 그대로 덮으면 모든 행의 제출 수가 사라져 제출 방식 잠금이 통째로
+      // 풀리므로, 그 값만 id로 짝지어 지킨다.
       applyDocuments(
         sortMilestoneDocuments(
-          await reorderMilestoneDocuments(milestoneId, documentIds),
+          mergeMilestoneDocumentList(
+            documents,
+            await reorderMilestoneDocuments(milestoneId, documentIds),
+          ),
         ),
       );
     } catch (error: unknown) {

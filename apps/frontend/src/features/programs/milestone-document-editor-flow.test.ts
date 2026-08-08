@@ -4,6 +4,8 @@ import type { MilestoneDocument } from './milestone-document-api';
 import {
   buildMilestoneDocumentInput,
   emptyMilestoneDocumentForm,
+  mergeMilestoneDocument,
+  mergeMilestoneDocumentList,
   milestoneDocumentErrorMessage,
   milestoneDocumentSaveSortOrder,
   milestoneDocumentSubmissionTypeLocked,
@@ -332,6 +334,70 @@ describe('목록 갱신', () => {
 
     expect(updated).toHaveLength(2);
     expect(updated[0]?.name).toBe('수정된 계획서');
+  });
+
+  /**
+   * 수정(PATCH)·재정렬 응답에는 `teamSubmissionCount`가 없다 — 그 값은 목록 조회에서만
+   * 채워진다. 응답으로 통째로 갈아 끼우면 제출 수가 사라지고, 그러면 화면은 「제출이
+   * 있는지 모른다」를 「제출이 없다」로 읽어 제출 방식 잠금을 풀어 버린다.
+   */
+  it('수정 응답이 제출 수를 안 실어 와도 손에 있던 값을 지킨다', () => {
+    const withCount = document('a', 1, {
+      name: '계획서',
+      teamSubmissionCount: { submitted: 3, total: 8 },
+    });
+    const patched = document('a', 1, { name: '이름만 바꾼 계획서' });
+
+    const updated = upsertMilestoneDocumentInList([withCount, budget], patched);
+    const merged = updated[0] as MilestoneDocument;
+
+    expect(merged.name).toBe('이름만 바꾼 계획서');
+    expect(merged.teamSubmissionCount).toEqual({ submitted: 3, total: 8 });
+    expect(milestoneDocumentSubmissionTypeLocked(merged)).toBe(true);
+  });
+
+  it('응답이 제출 수를 실어 오면 서버 값이 이긴다', () => {
+    const withCount = document('a', 1, {
+      teamSubmissionCount: { submitted: 3, total: 8 },
+    });
+    const patched = document('a', 1, {
+      teamSubmissionCount: { submitted: 5, total: 8 },
+    });
+
+    expect(
+      upsertMilestoneDocumentInList([withCount], patched)[0]
+        ?.teamSubmissionCount,
+    ).toEqual({ submitted: 5, total: 8 });
+  });
+
+  it('새로 만든 항목에는 지킬 제출 수가 없다', () => {
+    expect(mergeMilestoneDocument(undefined, planner)).toBe(planner);
+  });
+
+  it('재정렬 응답은 순서를 그대로 받되 모든 행의 제출 수를 지킨다', () => {
+    const previous = [
+      document('a', 1, {
+        name: '계획서',
+        teamSubmissionCount: { submitted: 3, total: 8 },
+      }),
+      document('b', 2, {
+        name: '예산서',
+        teamSubmissionCount: { submitted: 1, total: 8 },
+      }),
+    ];
+    // 서버가 sortOrder를 1부터 다시 매겨 돌려주는 응답 — 제출 수는 실리지 않는다.
+    const reordered = [
+      document('b', 1, { name: '예산서' }),
+      document('a', 2, { name: '계획서' }),
+    ];
+
+    const merged = mergeMilestoneDocumentList(previous, reordered);
+
+    expect(merged.map((item) => item.id)).toEqual(['b', 'a']);
+    expect(merged.map((item) => item.sortOrder)).toEqual([1, 2]);
+    expect(merged.map((item) => item.teamSubmissionCount?.submitted)).toEqual([
+      1, 3,
+    ]);
   });
 
   it('삭제는 해당 id만 빼낸다', () => {

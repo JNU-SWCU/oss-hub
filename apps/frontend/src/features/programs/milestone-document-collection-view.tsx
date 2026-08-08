@@ -20,7 +20,7 @@ import {
   collectionFilterCountFor,
   collectionRowMemberSummary,
   MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS,
-  milestoneDocumentCollectionTotalPages,
+  milestoneDocumentCollectionPageState,
 } from './milestone-document-collection';
 import {
   MILESTONE_DOCUMENT_COLLECTION_FILTERS,
@@ -382,6 +382,35 @@ function CollectionBody(
     );
   }
 
+  const { totalPages, lastPage, outOfRange } =
+    milestoneDocumentCollectionPageState({ page, total, pageSize });
+
+  /*
+   * 보고 있던 페이지가 결과 밖으로 밀려난 경우 — 팀들이 제출을 마쳐 「필수 서류 미제출」이
+   * 2페이지에서 1페이지로 줄면 응답은 빈 2페이지로 온다. 페이지 이동 UI는 한 페이지짜리
+   * 결과에서 그리지 않으므로, 여기서 내려앉을 길을 주지 않으면 빈 표에 갇힌다.
+   */
+  if (outOfRange) {
+    return (
+      <>
+        {filterButtons}
+        <EmptyState
+          title="이 페이지에는 더 이상 팀이 없습니다"
+          description={`조건에 맞는 팀이 ${total}팀으로 줄어 이 페이지가 사라졌습니다.`}
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => props.onPageChange(lastPage)}
+            >
+              {lastPage}페이지로 이동
+            </Button>
+          }
+        />
+      </>
+    );
+  }
+
   return (
     <>
       {filterButtons}
@@ -396,7 +425,7 @@ function CollectionBody(
       <CollectionTable data={props.data} />
       <CollectionPagination
         page={page}
-        totalPages={milestoneDocumentCollectionTotalPages(total, pageSize)}
+        totalPages={totalPages}
         onPageChange={props.onPageChange}
       />
     </>

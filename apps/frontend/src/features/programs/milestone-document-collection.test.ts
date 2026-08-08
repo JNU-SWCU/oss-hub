@@ -6,9 +6,15 @@ import {
   collectionFilterCountFor,
   collectionRowMemberSummary,
   MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS,
+  milestoneDocumentCollectionDataFor,
+  milestoneDocumentCollectionPageState,
   milestoneDocumentCollectionTotalPages,
 } from './milestone-document-collection';
-import type { MilestoneDocumentCollectionRow } from './milestone-document-collection-api';
+import type {
+  MilestoneDocumentCollection,
+  MilestoneDocumentCollectionQueryInput,
+  MilestoneDocumentCollectionRow,
+} from './milestone-document-collection-api';
 
 /**
  * 계약 변경(2026-08): 필터 판정과 합계 셈이 서버로 넘어갔다. 그래서 예전에 여기 있던
@@ -104,6 +110,107 @@ describe('milestoneDocumentCollectionTotalPages', () => {
 
   it('pageSize가 0이면 나누지 않는다', () => {
     expect(milestoneDocumentCollectionTotalPages(10, 0)).toBe(0);
+  });
+});
+
+/**
+ * 필터 결과가 줄면 보고 있던 페이지가 사라진다 — 「필수 서류 미제출」 2페이지를 보는
+ * 동안 팀들이 제출을 마치면 응답은 빈 2페이지 + totalPages 1로 온다. 페이지 이동 UI는
+ * 한 페이지짜리 결과에서 그리지 않으니, 여기서 잡아 내리지 않으면 빈 표에 갇힌다.
+ */
+describe('milestoneDocumentCollectionPageState', () => {
+  it('페이지가 결과 안에 있으면 아무 일도 하지 않는다', () => {
+    expect(
+      milestoneDocumentCollectionPageState({
+        page: 2,
+        total: 47,
+        pageSize: 20,
+      }),
+    ).toEqual({ totalPages: 3, lastPage: 3, outOfRange: false });
+  });
+
+  it('마지막 페이지에 딱 걸치면 밖으로 밀려난 것이 아니다', () => {
+    expect(
+      milestoneDocumentCollectionPageState({
+        page: 3,
+        total: 47,
+        pageSize: 20,
+      }),
+    ).toMatchObject({ outOfRange: false });
+  });
+
+  it('결과가 줄어 페이지가 사라지면 남은 마지막 페이지를 가리킨다', () => {
+    expect(
+      milestoneDocumentCollectionPageState({ page: 2, total: 5, pageSize: 20 }),
+    ).toEqual({ totalPages: 1, lastPage: 1, outOfRange: true });
+  });
+
+  // 30페이지에서 29페이지로 줄었을 때 1페이지로 튕기면 보고 있던 자리를 잃는다.
+  it('여러 페이지가 남아 있으면 1페이지가 아니라 마지막 페이지로 내려앉는다', () => {
+    expect(
+      milestoneDocumentCollectionPageState({
+        page: 30,
+        total: 570,
+        pageSize: 20,
+      }),
+    ).toEqual({ totalPages: 29, lastPage: 29, outOfRange: true });
+  });
+
+  // 조건에 아무도 안 걸린 경우는 「조건에 맞는 팀이 없습니다」가 이미 되돌릴 길을 준다.
+  it('결과가 아예 없으면 밀려난 페이지로 보지 않는다', () => {
+    expect(
+      milestoneDocumentCollectionPageState({ page: 2, total: 0, pageSize: 20 }),
+    ).toEqual({ totalPages: 0, lastPage: 1, outOfRange: false });
+  });
+});
+
+describe('milestoneDocumentCollectionDataFor', () => {
+  const query = {
+    page: 1,
+    pageSize: 20,
+    filter: 'ALL',
+  } satisfies MilestoneDocumentCollectionQueryInput;
+  const data = {
+    milestone: { id: 'm1', name: '기획서 제출', dueAt: '2026-07-15T14:59:59Z' },
+    documents: [],
+    rows: [],
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    filterCounts: { all: 0, hasMissing: 0, zeroSubmission: 0 },
+    documentTotals: [],
+  } satisfies MilestoneDocumentCollection;
+
+  it('조건이 같으면 그대로 그린다', () => {
+    expect(
+      milestoneDocumentCollectionDataFor({ query, data }, { ...query }),
+    ).toBe(data);
+  });
+
+  /**
+   * 필터를 바꾼 요청이 실패하면 이전 응답이 손에 남는다. 그대로 그리면 새 필터 이름
+   * 아래에 옛 행과 옛 합계가 오류 문구와 나란히 앉는다 — 운영 표에서 그것은 사람을 속인다.
+   */
+  it('필터가 바뀌면 옛 응답을 내주지 않는다', () => {
+    expect(
+      milestoneDocumentCollectionDataFor(
+        { query, data },
+        { ...query, filter: 'HAS_MISSING' },
+      ),
+    ).toBeNull();
+  });
+
+  it('페이지가 바뀌어도 마찬가지다', () => {
+    expect(
+      milestoneDocumentCollectionDataFor(
+        { query, data },
+        { ...query, page: 2 },
+      ),
+    ).toBeNull();
+  });
+
+  it('아직 아무것도 못 받았으면 그릴 것이 없다', () => {
+    expect(milestoneDocumentCollectionDataFor(null, query)).toBeNull();
   });
 });
 

@@ -1,8 +1,10 @@
 import type {
+  MilestoneDocumentCollection,
   MilestoneDocumentCollectionCell,
   MilestoneDocumentCollectionDocumentTotal,
   MilestoneDocumentCollectionFilter,
   MilestoneDocumentCollectionFilterCounts,
+  MilestoneDocumentCollectionQueryInput,
   MilestoneDocumentCollectionRow,
 } from './milestone-document-collection-api';
 
@@ -90,6 +92,77 @@ export function milestoneDocumentCollectionTotalPages(
 ): number {
   if (total <= 0 || pageSize <= 0) return 0;
   return Math.ceil(total / pageSize);
+}
+
+/**
+ * 지금 보고 있는 페이지가 결과 밖으로 밀려났는가, 그리고 어디로 내려앉아야 하는가.
+ *
+ * 「필수 서류 미제출」 2페이지를 보는 동안 팀들이 제출을 마치면 조건에 맞는 팀이 줄어
+ * 페이지 수도 줄어든다. 그때 응답은 **빈 2페이지 + totalPages 1**로 온다. 페이지 이동
+ * UI는 한 페이지짜리 결과에서 그리지 않으므로, 잡아 내리지 않으면 교직원은 빈 표만 보고
+ * 필터를 손으로 되돌리기 전까지 빠져나갈 길이 없다.
+ *
+ * `lastPage`는 1페이지가 아니라 **남은 마지막 페이지**다 — 30페이지에서 29페이지로 줄었을
+ * 때 1페이지로 튕기면 보고 있던 자리를 잃는다.
+ */
+export function milestoneDocumentCollectionPageState(input: {
+  /** 응답이 돌려준 페이지 번호. */
+  readonly page: number;
+  /** 필터 적용 후 전체 행 수 = 응답의 `total`. */
+  readonly total: number;
+  readonly pageSize: number;
+}): {
+  readonly totalPages: number;
+  readonly lastPage: number;
+  readonly outOfRange: boolean;
+} {
+  const totalPages = milestoneDocumentCollectionTotalPages(
+    input.total,
+    input.pageSize,
+  );
+  const lastPage = Math.max(totalPages, 1);
+  return {
+    totalPages,
+    lastPage,
+    // 결과가 아예 없는 경우(totalPages 0)는 「조건에 맞는 팀이 없습니다」가 이미 받는다.
+    outOfRange: totalPages > 0 && input.page > totalPages,
+  };
+}
+
+/**
+ * 조회 조건 두 개가 같은 표를 가리키는가 — 응답을 화면에 그려도 되는지 판정하는 기준.
+ */
+export function isSameMilestoneDocumentCollectionQuery(
+  a: MilestoneDocumentCollectionQueryInput,
+  b: MilestoneDocumentCollectionQueryInput,
+): boolean {
+  return (
+    a.page === b.page && a.pageSize === b.pageSize && a.filter === b.filter
+  );
+}
+
+/** 손에 든 응답과 그것을 불러온 조회 조건 — 둘을 떼어 놓고 보관하지 않는다. */
+export interface LoadedMilestoneDocumentCollection {
+  readonly query: MilestoneDocumentCollectionQueryInput;
+  readonly data: MilestoneDocumentCollection;
+}
+
+/**
+ * 지금 조건으로 그려도 되는 응답만 골라 준다.
+ *
+ * 필터·페이지를 바꾼 요청이 **실패**하면 이전 응답이 손에 그대로 남는다. 조건과 짝지어
+ * 두지 않으면 화면은 새로 고른 필터 이름 아래에 옛 행과 옛 합계를 오류 문구와 함께
+ * 그린다 — 운영 표에서 그것은 사람을 속인다. 조건이 어긋나면 아무것도 그리지 않는 편이
+ * 낫다(오류 문구와 「다시 시도」는 남는다).
+ */
+export function milestoneDocumentCollectionDataFor(
+  loaded: LoadedMilestoneDocumentCollection | null,
+  query: MilestoneDocumentCollectionQueryInput,
+): MilestoneDocumentCollection | null {
+  if (loaded === null) return null;
+  return isSameMilestoneDocumentCollectionQuery(loaded.query, query)
+    ? loaded.data
+    : null;
 }
 
 /**

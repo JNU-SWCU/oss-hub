@@ -332,6 +332,37 @@ describe('받을 서류 섹션의 동작', () => {
     });
   }
 
+  /** 행마다 같은 이름의 「수정」이 있어 순서로 고른다. */
+  async function clickEditAt(index: number) {
+    const found = Array.from(container.querySelectorAll('button')).filter(
+      (candidate) => candidate.textContent?.trim() === '수정',
+    )[index];
+    if (!(found instanceof HTMLButtonElement)) {
+      throw new TypeError(`${index}번째 「수정」 버튼이 없습니다.`);
+    }
+    await act(async () => {
+      found.click();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
+
+  /**
+   * ⚠ `container.textContent`나 class 문자열로 잠금을 보지 않는다 — 이 select의 Tailwind
+   * 클래스에 `disabled:cursor-not-allowed`가 들어 있어, 잠금을 지워도 「disabled가 있다」는
+   * 단언은 그대로 통과한다. 실제 DOM 속성을 본다.
+   */
+  function submissionTypeSelect(): HTMLSelectElement {
+    const select = container.querySelector(
+      '#milestone-milestone-1-document-submission-type',
+    );
+    if (!(select instanceof HTMLSelectElement)) {
+      throw new TypeError('제출 방식 select를 찾지 못했습니다.');
+    }
+    return select;
+  }
+
   it('접힌 카드는 목록을 불러오지 않고, 펼칠 때 한 번 불러온다', async () => {
     listMilestoneDocumentsMock.mockResolvedValue([planner]);
 
@@ -465,6 +496,65 @@ describe('받을 서류 섹션의 동작', () => {
     );
     expect((select as HTMLSelectElement).disabled).toBe(false);
     expect(container.textContent).not.toContain('제출 방식은 바꿀 수 없습니다');
+  });
+
+  /**
+   * 수정(PATCH) 응답에는 `teamSubmissionCount`가 없다 — 그 값은 목록 조회에서만 채워진다.
+   * 응답을 그대로 갈아 끼우던 시절에는 이름만 바꿔도 제출 수가 사라져, 다시 연 수정
+   * 폼에서 제출 방식이 열려 있었다. 교직원이 바꿔 저장해야 그제서야 409가 떴다.
+   */
+  it('이름만 바꿔 저장한 뒤 다시 열어도 제출 방식은 잠긴 채다', async () => {
+    listMilestoneDocumentsMock.mockResolvedValue([
+      documentFixture('a', 1, {
+        name: '계획서',
+        teamSubmissionCount: { submitted: 3, total: 8 },
+      }),
+    ]);
+    updateMilestoneDocumentMock.mockResolvedValue(
+      documentFixture('a', 1, { name: '계획서(수정)' }),
+    );
+
+    await render(true);
+    await click('수정');
+    await type('#milestone-milestone-1-document-name', '계획서(수정)');
+    await click('저장');
+
+    expect(updateMilestoneDocumentMock).toHaveBeenCalledTimes(1);
+    expect(rowNames()).toEqual(['계획서(수정)']);
+
+    await click('수정');
+
+    expect(submissionTypeSelect().disabled).toBe(true);
+    expect(container.textContent).toContain(
+      '이미 제출된 서류가 있어 제출 방식은 바꿀 수 없습니다',
+    );
+  });
+
+  it('순서를 바꾼 뒤에도 제출이 있는 항목은 잠긴 채다', async () => {
+    listMilestoneDocumentsMock.mockResolvedValue([
+      documentFixture('a', 1, {
+        name: '계획서',
+        teamSubmissionCount: { submitted: 3, total: 8 },
+      }),
+      documentFixture('b', 2, {
+        name: '예산서',
+        teamSubmissionCount: { submitted: 0, total: 8 },
+      }),
+    ]);
+    // 재정렬 응답도 제출 수를 싣지 않는다 — 그대로 덮으면 모든 행의 잠금이 풀린다.
+    reorderMilestoneDocumentsMock.mockResolvedValue([
+      documentFixture('b', 1, { name: '예산서' }),
+      documentFixture('a', 2, { name: '계획서' }),
+    ]);
+
+    await render(true);
+    await click('계획서 아래로');
+    expect(rowNames()).toEqual(['예산서', '계획서']);
+
+    // 두 번째 행(계획서)의 「수정」 — 첫 행은 제출이 없어 잠기지 않는 항목이다.
+    await clickEditAt(1);
+
+    expect(submissionTypeSelect().disabled).toBe(true);
   });
 
   it('첫 항목의 「위로」와 마지막 항목의 「아래로」는 잠겨 있다', async () => {
