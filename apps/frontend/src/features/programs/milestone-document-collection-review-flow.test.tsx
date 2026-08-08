@@ -655,6 +655,13 @@ describe('수합 표에서 판정하기', () => {
     return busyBox?.getAttribute('aria-busy') ?? null;
   }
 
+  /** 저장되지 않은 판정을 알리는 표 쪽 문구. 없으면 `null`. */
+  function reviewNotice(): HTMLElement | null {
+    return container.querySelector(
+      '[data-testid="milestone-document-review-notice"]',
+    );
+  }
+
   /** 재조회를 손에 쥔 채로 둔다 — 갱신 **중간**을 들여다보려면 멈춰 세워야 한다. */
   function holdNextLoad(next: MilestoneDocumentCollection): () => void {
     let release: (() => void) | null = null;
@@ -915,6 +922,117 @@ describe('수합 표에서 판정하기', () => {
     expect(notice?.textContent).not.toContain(
       '제출하는 사이에 판정이 등록되었습니다',
     );
+  });
+
+  /** 판정 실패를 띄운 채로 재조회를 손에 쥔다 — 「부르는 중」을 들여다보기 위한 준비. */
+  async function holdReloadAfterConflict(code: string): Promise<() => void> {
+    await openPanelForGaTeam();
+    createMilestoneDocumentReviewMock.mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: 'Conflict',
+        status: 409,
+        detail: '검토하는 사이에 제출물 또는 판정이 바뀌었습니다.',
+        instance: '/x',
+        code,
+      }),
+    );
+    const release = holdNextLoad(
+      collection([row('a', '가팀', [cell('d1'), cell('d2')])]),
+    );
+    await click(byText('승인'));
+    await click(byText('판정 저장'));
+    return release;
+  }
+
+  /** 재조회가 **실패**하도록 두고 판정을 저장한다. */
+  async function failReloadAfterConflict(code: string) {
+    await openPanelForGaTeam();
+    createMilestoneDocumentReviewMock.mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: 'Conflict',
+        status: 409,
+        detail: '검토하는 사이에 제출물 또는 판정이 바뀌었습니다.',
+        instance: '/x',
+        code,
+      }),
+    );
+    getMilestoneDocumentCollectionMock.mockRejectedValue(
+      new Error('네트워크가 끊겼습니다.'),
+    );
+    await click(byText('승인'));
+    await click(byText('판정 저장'));
+    await settle();
+  }
+
+  /**
+   * 「표를 최신 내용으로 다시 불러왔습니다」는 **불러온 뒤에만** 할 수 있는 말이다.
+   *
+   * 판정을 저장하지 못한 순간에 미리 띄우면, 조회가 느린 화면에는 그 문구 아래에 옛 표가
+   * 그대로 살아서 조작까지 된다 — 교직원은 이미 지나간 칸을 최신인 줄 알고 다시 누른다.
+   */
+  it('재조회가 끝나기 전에는 다시 불러왔다고 말하지 않는다', async () => {
+    const release = await holdReloadAfterConflict('MSD_025');
+
+    // 부르는 중 — 아직 아무 말도 하지 않는다. 표는 자리를 지키고 갱신 중임만 말한다.
+    expect(reviewNotice()).toBeNull();
+    expect(container.textContent).toContain('가팀');
+    expect(tableBusy()).toBe('true');
+
+    await act(async () => release());
+    await settle();
+
+    // 다 부른 뒤에야 「다시 불러왔습니다」가 나온다 — 그때는 사실이다.
+    expect(reviewNotice()?.textContent).toContain('다시 불러왔습니다');
+    expect(tableBusy()).toBe('false');
+  });
+
+  /**
+   * 재조회가 실패한 경우. 낡은 표를 그대로 두면 교직원은 서버가 방금 「그 표는 낡았다」고
+   * 말한 칸을 계속 조작하고, 누를 때마다 같은 409를 다시 받는다. 그래서 표를 걷고 못
+   * 불러왔다고 말한다 — 「다시 불러왔습니다」는 여기서 거짓이다.
+   */
+  it('재조회가 실패하면 낡은 표를 걷고 못 불러왔다고 말한다', async () => {
+    await failReloadAfterConflict('MSD_025');
+
+    expect(container.querySelector('table')).toBeNull();
+    expect(container.textContent).not.toContain('가팀');
+    // 낡은 칸이 남아 조작되는 일이 없어야 한다 — 문자열이 아니라 버튼 자체로 본다.
+    expect(
+      buttons().some(
+        (button) => button.getAttribute('aria-label') === '가팀 기획서 판정',
+      ),
+    ).toBe(false);
+    // 다시 부르는 중도 아니다 — 뼈대를 세워 두면 영원히 부르는 것처럼 보인다.
+    expect(skeleton()).toBeNull();
+
+    const notice = reviewNotice();
+    expect(notice?.textContent).toContain('저장하지 않았습니다');
+    expect(notice?.textContent).toContain('다시 불러오지 못했습니다');
+    expect(notice?.textContent).not.toContain('다시 불러왔습니다');
+    // 되돌릴 길은 남는다.
+    expect(container.textContent).toContain(
+      '서류 수합 표를 불러오지 못했습니다',
+    );
+    expect(byText('다시 시도')).toBeInstanceOf(HTMLButtonElement);
+  });
+
+  /**
+   * MSD_024 뒤의 재조회에도 같은 규칙이다. 이쪽은 판정 패널이 열린 채로 남아 서버 문구를
+   * 보여 주는데, 표를 걷으면 패널도 함께 사라진다 — 그때 「저장되지 않았다」는 사실을
+   * 표 쪽 문구가 이어받지 않으면 교직원은 판정이 저장된 줄 안다.
+   */
+  it('MSD_024 재조회가 실패해도 저장되지 않았다는 사실은 남는다', async () => {
+    await failReloadAfterConflict('MSD_024');
+
+    expect(container.querySelector('table')).toBeNull();
+    expect(panel()).toBeNull();
+
+    const notice = reviewNotice();
+    expect(notice?.textContent).toContain('다른 판정이 먼저 등록되어');
+    expect(notice?.textContent).toContain('저장하지 않았습니다');
+    expect(notice?.textContent).toContain('다시 불러오지 못했습니다');
   });
 
   // 새 칸을 열었으면 앞 판정에 대한 안내는 할 일을 마쳤다 — 남겨 두면 지금 칸의 말로 읽힌다.

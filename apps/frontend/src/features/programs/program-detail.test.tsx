@@ -372,8 +372,10 @@ describe('MilestoneDocumentSectionBody', () => {
         state={{ kind: 'loading' }}
         viewerRole="STUDENT"
         closed={false}
+        conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
+        onSubmitConflict={vi.fn()}
       />,
     );
     expect(html).toBe('');
@@ -385,8 +387,10 @@ describe('MilestoneDocumentSectionBody', () => {
         state={{ kind: 'failed' }}
         viewerRole="STUDENT"
         closed={false}
+        conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
+        onSubmitConflict={vi.fn()}
       />,
     );
     expect(html).toContain('제출 서류를 불러오지 못했습니다');
@@ -399,8 +403,10 @@ describe('MilestoneDocumentSectionBody', () => {
         state={{ kind: 'ready', documents: [] }}
         viewerRole="STUDENT"
         closed={false}
+        conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
+        onSubmitConflict={vi.fn()}
       />,
     );
     expect(html).toBe('');
@@ -420,8 +426,10 @@ describe('MilestoneDocumentSectionBody', () => {
         }}
         viewerRole="STAFF"
         closed={false}
+        conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
+        onSubmitConflict={vi.fn()}
       />,
     );
     expect(html).toContain('2 / 4팀 제출');
@@ -452,8 +460,10 @@ describe('MilestoneDocumentSectionBody', () => {
         }}
         viewerRole="STUDENT"
         closed={false}
+        conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
+        onSubmitConflict={vi.fn()}
       />,
     );
     expect(html).toContain('검토 대기');
@@ -468,8 +478,10 @@ describe('MilestoneDocumentSectionBody', () => {
         state={{ kind: 'ready', documents: [buildDocument()] }}
         viewerRole="STUDENT"
         closed={false}
+        conflictNotice={null}
         onRetry={vi.fn()}
         onDocumentChange={vi.fn()}
+        onSubmitConflict={vi.fn()}
       />,
     );
     expect(html).toContain('미제출');

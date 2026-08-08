@@ -88,6 +88,236 @@ describe('MilestoneDocumentSection response recovery', () => {
 });
 
 /**
+ * 학생이 다시 내는 사이에 교직원 판정이 먼저 커밋된 경우 — 백엔드가 409(MSD_024)를 준다.
+ *
+ * 실제 fetch를 태워 보는 이유는 **화면이 다시 부르는지**가 이 갈래의 전부이기 때문이다.
+ * 오류 문구만 갈아 끼우면 화면은 여전히 「보완 요청」으로 알아 제출 입력을 열어 두고,
+ * 그 판정이 승인이었다면 학생은 이미 금지된 조작을 계속 보며 누를 때마다 409를 다시 받는다.
+ */
+describe('제출과 판정이 부딪혔을 때', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+    vi.unstubAllGlobals();
+  });
+
+  function problemResponse(
+    status: number,
+    code: string,
+    detail: string,
+  ): Response {
+    return new Response(
+      JSON.stringify({
+        type: 'about:blank',
+        title: 'Conflict',
+        status,
+        detail,
+        instance: '/x',
+        code,
+      }),
+      { status, headers: { 'Content-Type': 'application/problem+json' } },
+    );
+  }
+
+  function textDocument(
+    viewerSubmission: MilestoneDocumentViewerSubmission,
+  ): MilestoneDocument {
+    return { ...milestoneDocument, submissionType: 'TEXT', viewerSubmission };
+  }
+
+  const CHANGES_REQUESTED = textDocument({
+    submitted: true,
+    submittedAt: '2026-08-01T05:22:00.000Z',
+    status: 'CHANGES_REQUESTED',
+    review: {
+      comment: '표지를 고쳐 주세요.',
+      reviewedAt: '2026-08-02T00:00:00.000Z',
+    },
+  });
+  const APPROVED = textDocument({
+    submitted: true,
+    submittedAt: '2026-08-01T05:22:00.000Z',
+    status: 'APPROVED',
+    review: {
+      comment: '잘 받았습니다.',
+      reviewedAt: '2026-08-03T00:00:00.000Z',
+    },
+  });
+
+  function submitNotice(): HTMLElement | null {
+    return container.querySelector(
+      '[data-testid="milestone-document-submit-notice"]',
+    );
+  }
+
+  function button(text: string): HTMLButtonElement | null {
+    return (
+      Array.from(container.querySelectorAll('button')).find(
+        (candidate) => candidate.textContent?.trim() === text,
+      ) ?? null
+    );
+  }
+
+  function submissionInput(): HTMLInputElement | null {
+    const found = container.querySelector('input[placeholder="제출 내용"]');
+    return found instanceof HTMLInputElement ? found : null;
+  }
+
+  /** 보완 요청을 받은 서류를 다시 낸다 — 두 번째 fetch가 그 제출이다. */
+  async function resubmit() {
+    await act(async () => {
+      root.render(
+        <MilestoneDocumentSection
+          milestoneId="milestone-1"
+          viewerRole="STUDENT"
+          closed={false}
+        />,
+      );
+    });
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('기획서');
+    });
+
+    const edit = button('수정');
+    if (edit === null) throw new TypeError('수정 버튼을 찾지 못했습니다.');
+    await act(async () => edit.click());
+
+    const input = submissionInput();
+    if (input === null) throw new TypeError('제출 입력 칸을 찾지 못했습니다.');
+    // React가 값 변경을 감지하도록 네이티브 setter로 넣고 input 이벤트를 올린다.
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value',
+    )?.set;
+    await act(async () => {
+      setter?.call(input, '고쳐서 다시 냅니다.');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      container
+        .querySelector('form')
+        ?.dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true }),
+        );
+    });
+  }
+
+  /**
+   * 변이 검증 대상 — MSD_024 뒤의 재조회가 사라지면 여기가 깨진다. 화면은 「보완 요청」인
+   * 채로 남아 승인된 서류에 제출 입력을 계속 열어 둔다.
+   */
+  it('409(MSD_024)를 받으면 상태를 다시 불러와 금지된 조작을 걷는다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse([CHANGES_REQUESTED]))
+      .mockResolvedValueOnce(
+        problemResponse(
+          409,
+          'MSD_024',
+          '제출하는 사이에 판정이 등록되었습니다. 새로고침 후 다시 확인해 주세요.',
+        ),
+      )
+      .mockResolvedValueOnce(jsonResponse([APPROVED]));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await resubmit();
+    await vi.waitFor(() => {
+      // 승인된 서류에는 제출 입력이 남지 않는다 — 다시 부르지 않으면 그대로 열려 있다.
+      expect(button('수정')).toBeNull();
+    });
+
+    // 목록을 실제로 다시 불렀다 — 조회 · 제출 · 재조회.
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(submissionInput()).toBeNull();
+    expect(container.textContent).toContain(
+      '승인된 서류는 다시 제출할 수 없습니다.',
+    );
+    expect(
+      container.querySelector('[data-slot="status-badge"]')?.textContent,
+    ).toBe('승인');
+
+    const notice = submitNotice();
+    expect(notice?.textContent).toContain('「기획서」');
+    expect(notice?.textContent).toContain('저장되지 않았습니다');
+    expect(notice?.textContent).toContain('다시 불러왔습니다');
+  });
+
+  /**
+   * 다시 부르는 것까지 실패한 경우. 「다시 불러왔습니다」라고 적어 두면 학생은 지금 화면이
+   * 최신이라고 믿는다 — 못 불러왔다고 말하고 되돌릴 길을 준다.
+   */
+  it('다시 부르는 것도 실패하면 못 불러왔다고 말한다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse([CHANGES_REQUESTED]))
+      .mockResolvedValueOnce(
+        problemResponse(
+          409,
+          'MSD_024',
+          '제출하는 사이에 판정이 등록되었습니다.',
+        ),
+      )
+      .mockResolvedValueOnce(
+        problemResponse(503, 'COM_002', '잠시 후 다시 시도해 주세요.'),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await resubmit();
+    await vi.waitFor(() => {
+      // 못 불러온 목록은 그대로 두지 않는다 — 되돌릴 길만 남는다.
+      expect(container.textContent).toContain(
+        '제출 서류를 불러오지 못했습니다.',
+      );
+    });
+
+    const notice = submitNotice();
+    expect(notice?.textContent).toContain('저장되지 않았습니다');
+    expect(notice?.textContent).toContain('다시 불러오지 못했습니다');
+    expect(notice?.textContent).not.toContain('다시 불러왔습니다');
+    expect(button('다시 시도')).not.toBeNull();
+  });
+
+  /**
+   * 마감·권한처럼 상태가 낡아서 나는 것이 아닌 실패는 지금처럼 문구만 보여 준다. 여기까지
+   * 다시 부르면 학생이 적어 둔 내용이 이유 없이 사라진다.
+   */
+  it('다른 오류는 문구만 보여 주고 다시 부르지 않는다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse([CHANGES_REQUESTED]))
+      .mockResolvedValueOnce(
+        problemResponse(
+          409,
+          'MSD_023',
+          '승인 또는 반려된 서류는 다시 제출할 수 없습니다.',
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await resubmit();
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain(
+        '승인 또는 반려된 서류는 다시 제출할 수 없습니다.',
+      );
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(submitNotice()).toBeNull();
+    // 적어 둔 내용은 그대로 남는다.
+    expect(submissionInput()?.value).toBe('고쳐서 다시 냅니다.');
+  });
+});
+
+/**
  * 학생 행의 판정 표시. 실제 DOM에서 확인하는 이유는 **없어야 할 것이 없는지**를 묻기
  * 때문이다 — 마크업 문자열을 `not.toContain('수정')`으로 훑으면 다른 자리의 같은 글자에
  * 걸려 조용히 통과하거나, 반대로 버튼이 남아 있어도 못 잡는다.
@@ -135,8 +365,10 @@ describe('학생 행이 판정을 읽는 방식', () => {
           }}
           viewerRole="STUDENT"
           closed={closed}
+          conflictNotice={null}
           onRetry={() => {}}
           onDocumentChange={() => {}}
+          onSubmitConflict={() => {}}
         />,
       );
     });
