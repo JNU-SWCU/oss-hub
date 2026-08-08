@@ -100,8 +100,17 @@ describe('ProgramTypeModal accessibility', () => {
     const close = document.querySelector<HTMLButtonElement>(
       'button[aria-label="프로그램 유형 창 닫기"]',
     );
+    const continueButton = [...document.querySelectorAll('button')].find(
+      (button) => button.textContent === '이 유형으로 계속',
+    );
+    const actions = continueButton?.parentElement;
+
     expect(close).not.toBeNull();
     expect(close?.textContent).toBe('');
+    expect(actions?.className).toContain('flex-col');
+    expect(actions?.className).toContain('sm:flex-row');
+    expect(continueButton?.className).toContain('w-full');
+    expect(continueButton?.className).toContain('sm:w-auto');
   });
 
   it('마지막 동작에서 Tab을 누르면 첫 동작으로, Shift+Tab은 다시 마지막으로 순환한다', async () => {
