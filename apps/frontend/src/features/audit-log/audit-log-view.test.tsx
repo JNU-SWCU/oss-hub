@@ -101,7 +101,10 @@ describe('AuditLogView', () => {
     );
 
     expect(html).toContain('synthetic-admin');
+    expect(html).toContain('data-variant="approved"');
+    expect(html).toContain('승인');
     expect(html).toContain('STAFF_ROLE_REQUEST_APPROVED');
+    expect(html).toContain('break-all');
     expect(html).toContain('synthetic-target');
     expect(html).toContain('ROLE_REQUEST');
     expect(html).toContain('request-1');
