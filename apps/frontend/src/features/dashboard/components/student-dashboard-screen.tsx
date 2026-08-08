@@ -4,7 +4,15 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { consumeSignupCompletionNotice } from '@/lib/signup-completion-notice';
 import { loadStudentDashboard } from '../load-student-dashboard';
-import type { StudentDashboard, StudentDashboardStatus } from '../types';
+import {
+  fetchUnreadApplicationDecisionNotices,
+  markApplicationDecisionNoticeRead,
+} from '../api';
+import type {
+  ApplicationDecisionNotice,
+  StudentDashboard,
+  StudentDashboardStatus,
+} from '../types';
 import { StudentDashboardView } from './student-dashboard-view';
 
 export function StudentDashboardScreen() {
@@ -12,6 +20,9 @@ export function StudentDashboardScreen() {
   const [status, setStatus] = useState<StudentDashboardStatus>('loading');
   const [requestKey, setRequestKey] = useState(0);
   const [signupCompleted, setSignupCompleted] = useState(false);
+  const [applicationDecisionNotices, setApplicationDecisionNotices] = useState<
+    readonly ApplicationDecisionNotice[]
+  >([]);
 
   const retry = useCallback(() => setRequestKey((key) => key + 1), []);
 
@@ -24,6 +35,33 @@ export function StudentDashboardScreen() {
       setSignupCompleted(true);
     }
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    void fetchUnreadApplicationDecisionNotices()
+      .then((notices) => {
+        if (!active) return;
+        setApplicationDecisionNotices(notices);
+      })
+      .catch(() => {
+        // 부가 알림 실패가 대시보드 본문까지 막아서는 안 된다.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (applicationDecisionNotices.length === 0) return;
+    // 이 effect는 배너가 DOM에 커밋된 뒤에만 돈다. 조회 Promise 안에서 곧바로
+    // 읽음 처리하면 렌더 전에 이동·오류가 생겼을 때 보지 못한 알림을 잃는다.
+    // 실패하면 다음 방문에서 다시 보여 주므로 네트워크 단절도 알림을 삼키지 않는다.
+    void Promise.allSettled(
+      applicationDecisionNotices.map((notice) =>
+        markApplicationDecisionNoticeRead(notice.id),
+      ),
+    );
+  }, [applicationDecisionNotices]);
 
   useEffect(() => {
     let active = true;
@@ -50,6 +88,7 @@ export function StudentDashboardScreen() {
       data={data}
       status={status}
       showSignupCompleteNotice={signupCompleted}
+      applicationDecisionNotices={applicationDecisionNotices}
       onRetry={retry}
     />
   );

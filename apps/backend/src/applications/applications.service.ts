@@ -337,6 +337,20 @@ export class ApplicationsService {
           store.auditLogWriter,
         );
 
+        if (
+          plan.nextStatus === ApplicationStatus.APPROVED ||
+          plan.nextStatus === ApplicationStatus.REJECTED
+        ) {
+          await store.createApplicationDecisionNotifications({
+            applicationId,
+            programId: application.programId,
+            programName: application.programName,
+            recipientUserIds: application.notificationRecipientIds,
+            decision: plan.nextStatus,
+            decidedAt: processedAt,
+          });
+        }
+
         switch (plan.kind) {
           case 'REJECT':
             return {

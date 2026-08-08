@@ -41,4 +41,13 @@ export interface StudentDashboard {
   readonly items: readonly DashboardItem[];
 }
 
+export interface ApplicationDecisionNotice {
+  readonly id: string;
+  readonly applicationId: string;
+  readonly programId: string;
+  readonly programName: string;
+  readonly decision: 'APPROVED' | 'REJECTED';
+  readonly decidedAt: string;
+}
+
 export type StudentDashboardStatus = 'loading' | 'success' | 'error';

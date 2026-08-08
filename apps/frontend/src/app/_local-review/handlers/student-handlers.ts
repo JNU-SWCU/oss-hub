@@ -131,6 +131,42 @@ function activityTimelineHandler(
   });
 }
 
+function applicationDecisionNotificationsHandler(
+  context: LocalReviewContext,
+): LocalReviewResponsePlan | null {
+  if (
+    matchGet(context, 'users/me/notifications/application-decisions') !== null
+  ) {
+    if (!context.isAuthenticated) return unauthorized(context.path);
+    return json(
+      200,
+      context.role === 'STUDENT'
+        ? [
+            {
+              id: 'synthetic-application-decision-notice',
+              applicationId: 'synthetic-application-basic',
+              programId: 'program-capstone',
+              programName: '합성 캡스톤 2026',
+              decision: 'APPROVED',
+              decidedAt: '2026-08-08T23:00:00.000Z',
+            },
+          ]
+        : [],
+    );
+  }
+
+  if (
+    context.method === 'PATCH' &&
+    matchPath(
+      'users/me/notifications/application-decisions/:notificationId/read',
+      context.path,
+    ) !== null
+  ) {
+    return json(200, null);
+  }
+  return null;
+}
+
 /**
  * 로그인 사용자의 프로그램 상세. 비로그인은 **401**이어야 한다 —
  * `features/programs/api.ts`의 `getProgramDetail`이 401일 때만 공개 상세로 폴백하고,
@@ -333,6 +369,7 @@ export const STUDENT_HANDLERS: readonly LocalReviewHandler[] = [
   studentJourneyFallbackHandler,
   applicationTemplatesHandler,
   activityTimelineHandler,
+  applicationDecisionNotificationsHandler,
   programViewerHandler,
   programActivityHandler,
   submissionChecklistHandler,
