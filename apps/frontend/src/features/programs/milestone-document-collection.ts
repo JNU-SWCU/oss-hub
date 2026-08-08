@@ -44,6 +44,8 @@ export function collectionCellFor(
       isSubmitted: false,
       submittedAt: null,
       file: null,
+      // 판정은 제출에 붙는다 — 메워 넣은 미제출 칸에 판정이 있을 수 없다.
+      review: null,
     }
   );
 }

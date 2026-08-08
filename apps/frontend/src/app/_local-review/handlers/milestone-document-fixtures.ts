@@ -11,8 +11,13 @@ import {
   type MilestoneDocumentCollection,
   type MilestoneDocumentCollectionDocument,
   type MilestoneDocumentCollectionFilter,
+  type MilestoneDocumentCollectionReview,
   type MilestoneDocumentCollectionRow,
 } from '@/features/programs/milestone-document-collection-api';
+import type {
+  CreatedMilestoneDocumentReview,
+  MilestoneDocumentReviewDecision,
+} from '@/features/programs/milestone-document-review-api';
 import type { SubmissionType } from '@/features/programs/types';
 import { findStaffMilestoneContext } from './staff-program-fixtures';
 import {
@@ -40,6 +45,27 @@ interface MilestoneDocumentSeed {
   readonly teamSubmissionCount: MilestoneDocumentTeamSubmissionCount;
 }
 
+/** 미제출 — 판정은 제출에 붙으므로 상태도 판정도 없다. */
+const NOT_SUBMITTED_VIEWER: MilestoneDocumentViewerSubmission = {
+  submitted: false,
+  submittedAt: null,
+  status: null,
+  review: null,
+};
+
+/**
+ * 제출한 학생이 보는 값. `status`는 student-program-fixtures.ts의
+ * `viewerSubmissionStatus`와 **같은 값이어야 한다** — 프로그램 상세의 마일스톤 배지와
+ * 그 아래 「제출 서류」 줄이 서로 다른 말을 하면 검토자가 화면 결함으로 읽는다.
+ */
+function submittedViewer(
+  submittedAt: string,
+  status: NonNullable<MilestoneDocumentViewerSubmission['status']>,
+  review: MilestoneDocumentViewerSubmission['review'] = null,
+): MilestoneDocumentViewerSubmission {
+  return { submitted: true, submittedAt, status, review };
+}
+
 const MILESTONE_DOCUMENT_FIXTURES: Readonly<
   Record<string, readonly MilestoneDocumentSeed[]>
 > = {
@@ -51,10 +77,13 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       required: true,
       sortOrder: 1,
       submissionType: 'FILE',
-      viewerSubmission: {
-        submitted: true,
-        submittedAt: '2026-07-14T09:00:00.000Z',
-      },
+      // student-program-fixtures.ts의 `viewerSubmissionStatus: 'APPROVED'`와 같은 값.
+      // 사유를 비워 둔 판정이다 — 승인은 사유가 선택이라 그 갈래도 화면에 나와야 한다.
+      viewerSubmission: submittedViewer(
+        '2026-07-14T09:00:00.000Z',
+        'APPROVED',
+        { comment: null, reviewedAt: '2026-07-15T01:10:00.000Z' },
+      ),
       // program-overview-fixtures.ts의 teamCount(47)를 기준으로 삼는다.
       teamSubmissionCount: { submitted: 44, total: 47 },
     },
@@ -67,7 +96,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       required: true,
       sortOrder: 1,
       submissionType: 'TEXT',
-      viewerSubmission: { submitted: false, submittedAt: null },
+      viewerSubmission: NOT_SUBMITTED_VIEWER,
       teamSubmissionCount: { submitted: 18, total: 47 },
     },
   ],
@@ -79,10 +108,17 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       required: true,
       sortOrder: 1,
       submissionType: 'REPOSITORY_RELEASE',
-      viewerSubmission: {
-        submitted: true,
-        submittedAt: '2026-07-30T16:20:00.000Z',
-      },
+      // `viewerSubmissionStatus: 'CHANGES_REQUESTED'`와 같은 값 — 학생 화면의 경고 톤
+      // 사유 상자와 「다시 낼 수 있다」가 함께 보이는 자리다.
+      viewerSubmission: submittedViewer(
+        '2026-07-30T16:20:00.000Z',
+        'CHANGES_REQUESTED',
+        {
+          comment:
+            '릴리스 태그가 v0.9.0-rc로 되어 있습니다. 정식 태그를 붙인 뒤 주소를 다시 올려 주세요.',
+          reviewedAt: '2026-07-31T02:40:00.000Z',
+        },
+      ),
       teamSubmissionCount: { submitted: 30, total: 47 },
     },
   ],
@@ -94,10 +130,15 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       required: true,
       sortOrder: 1,
       submissionType: 'REPOSITORY_RELEASE',
-      viewerSubmission: {
-        submitted: true,
-        submittedAt: '2026-07-29T14:10:00.000Z',
-      },
+      viewerSubmission: submittedViewer(
+        '2026-07-29T14:10:00.000Z',
+        'CHANGES_REQUESTED',
+        {
+          comment:
+            '제출한 주소가 저장소 목록에 없는 저장소를 가리킵니다. 연결된 저장소의 릴리스로 다시 올려 주세요.',
+          reviewedAt: '2026-07-30T05:05:00.000Z',
+        },
+      ),
       teamSubmissionCount: { submitted: 6, total: 8 },
     },
   ],
@@ -109,7 +150,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       required: true,
       sortOrder: 1,
       submissionType: 'FILE',
-      viewerSubmission: { submitted: false, submittedAt: null },
+      viewerSubmission: NOT_SUBMITTED_VIEWER,
       teamSubmissionCount: { submitted: 2, total: 8 },
     },
   ],
@@ -121,7 +162,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       required: true,
       sortOrder: 1,
       submissionType: 'TEXT',
-      viewerSubmission: { submitted: false, submittedAt: null },
+      viewerSubmission: NOT_SUBMITTED_VIEWER,
       teamSubmissionCount: { submitted: 1, total: 3 },
     },
   ],
@@ -133,7 +174,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       required: true,
       sortOrder: 1,
       submissionType: 'FILE',
-      viewerSubmission: { submitted: false, submittedAt: null },
+      viewerSubmission: NOT_SUBMITTED_VIEWER,
       teamSubmissionCount: { submitted: 0, total: 3 },
     },
   ],
@@ -151,10 +192,25 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       required: true,
       sortOrder: 1,
       submissionType: 'FILE',
-      viewerSubmission: {
-        submitted: true,
-        submittedAt: '2026-05-10T02:20:00.000Z',
-      },
+      /*
+       * 반려 갈래. 이 마일스톤은 staff-program-fixtures.ts 소유라 학생 동선의
+       * `viewerSubmissionStatus`와 대조할 짝이 없다 — 그래서 학생 화면의 「반려 →
+       * 제출 입력을 열지 않는다」를 여기서 세운다.
+       *
+       * 한계: 로컬 검토의 학생 페르소나는 이 프로그램에 들어갈 길이 없어 화면으로는
+       * 잘 보이지 않는다. 학생 화면에서 눈으로 볼 수 있는 것은 승인(캡스톤 기획서)과
+       * 보완 요청(최종 릴리스·예선 결과물)이고, 검토 대기는 보완 요청 항목을 다시
+       * 제출해 보면 그 자리에서 바뀐다.
+       */
+      viewerSubmission: submittedViewer(
+        '2026-05-10T02:20:00.000Z',
+        'REJECTED',
+        {
+          comment:
+            '학습 계획서 양식이 지난 학기 것입니다. 이번 학기 양식으로는 다시 받지 않습니다.',
+          reviewedAt: '2026-05-12T00:30:00.000Z',
+        },
+      ),
       teamSubmissionCount: { submitted: 2, total: 3 },
     },
     {
@@ -164,7 +220,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       required: true,
       sortOrder: 2,
       submissionType: 'FILE',
-      viewerSubmission: { submitted: false, submittedAt: null },
+      viewerSubmission: NOT_SUBMITTED_VIEWER,
       teamSubmissionCount: { submitted: 1, total: 3 },
     },
     {
@@ -174,7 +230,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       required: false,
       sortOrder: 3,
       submissionType: 'TEXT',
-      viewerSubmission: { submitted: false, submittedAt: null },
+      viewerSubmission: NOT_SUBMITTED_VIEWER,
       teamSubmissionCount: { submitted: 1, total: 3 },
     },
   ],
@@ -186,7 +242,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       required: true,
       sortOrder: 1,
       submissionType: 'FILE',
-      viewerSubmission: { submitted: false, submittedAt: null },
+      viewerSubmission: NOT_SUBMITTED_VIEWER,
       teamSubmissionCount: { submitted: 1, total: 3 },
     },
     {
@@ -196,7 +252,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       required: false,
       sortOrder: 2,
       submissionType: 'REPOSITORY_RELEASE',
-      viewerSubmission: { submitted: false, submittedAt: null },
+      viewerSubmission: NOT_SUBMITTED_VIEWER,
       teamSubmissionCount: { submitted: 0, total: 3 },
     },
   ],
@@ -261,6 +317,29 @@ export function milestoneDocumentSubmissionFor(
 }
 
 /**
+ * `POST .../applications/:applicationId/reviews` 201 응답 — 방금 저장한 판정 한 건.
+ *
+ * 한계: 저장되지 않는다. 화면은 저장 뒤 표를 다시 부르는데 그 표는 위 시드 그대로라
+ * **방금 누른 판정이 칸에 반영되지 않는다**. 로컬 검토에서 확인할 수 있는 것은 「보냈다,
+ * 패널이 닫혔다, 표를 다시 불렀다」까지이고, 칸의 배지가 바뀌는지는 실제 백엔드에서 본다.
+ * 다른 조작 핸들러(서류 생성·순서 바꾸기)와 같은 한계다.
+ */
+export function createdMilestoneDocumentReviewFor(
+  documentId: string,
+  applicationId: string,
+  decision: MilestoneDocumentReviewDecision,
+  comment: string | null,
+): CreatedMilestoneDocumentReview {
+  return {
+    id: `synthetic-review-${documentId}-${applicationId}`,
+    decision,
+    comment,
+    reviewedAt: '2026-08-01T02:00:00.000Z',
+    reviewerNickname: '합성 교직원',
+  };
+}
+
+/**
  * `milestones/:milestoneId/documents/collection` 픽스처 — 교직원 서류 수합 표.
  *
  * **새 수치를 만들지 않는다.** 열(서류)은 위 `MILESTONE_DOCUMENT_FIXTURES`를 그대로
@@ -280,6 +359,52 @@ const COLLECTION_MEMBER_SIZE_CYCLE = [1, 2, 3] as const;
 const COLLECTION_SUBMITTED_AT_BASE = Date.parse(
   '2026-07-28T09:00:00.000+09:00',
 );
+
+/**
+ * 제출된 칸에 붙일 판정을 도는 순서. **`null`이 먼저인 것이 요점이다** — 검토 대기(아직
+ * 아무도 안 본 칸)도 네 갈래 중 하나이고, 그것이 없으면 검토자가 「판정 전」 배지를 한 번도
+ * 보지 못한다.
+ *
+ * 도는 자리를 `행 × 열` 통번호로 잡는 이유: 행마다만 돌리면 서류가 여러 장인 마일스톤에서
+ * 한 팀의 칸이 전부 같은 판정이 되고, 제출한 팀이 둘뿐인 표(합성 학습 계획서 등)에서는
+ * 네 갈래 중 둘밖에 나오지 않는다. 통번호로 돌리면 `milestone-basic-orientation`의 제출된
+ * 칸 네 개가 정확히 네 갈래로 갈린다 — 검토자가 한 표에서 다 볼 수 있어야 한다는 것이
+ * 이 시드의 목적이다.
+ */
+const COLLECTION_REVIEW_CYCLE: readonly (MilestoneDocumentReviewDecision | null)[] =
+  [null, 'APPROVED', 'CHANGES_REQUESTED', 'REJECTED'];
+
+const COLLECTION_REVIEW_COMMENTS: Readonly<
+  Record<MilestoneDocumentReviewDecision, string | null>
+> = {
+  // 승인은 사유가 선택이다 — 비운 판정도 화면에 나와야 「사유 없이 저장된 판정입니다」가
+  // 눈으로 확인된다.
+  APPROVED: null,
+  CHANGES_REQUESTED:
+    '표지의 제출자 이름과 신청서의 팀원 명단이 다릅니다. 맞춰서 다시 올려 주세요.',
+  REJECTED: '제출 기한을 두 주 넘겼고 연장 신청도 없었습니다.',
+};
+
+/**
+ * 칸에 붙는 최신 판정. 판정 시각은 제출 시각보다 뒤여야 한다 — 앞서면 「내기 전에
+ * 판정했다」로 읽혀 검토자가 화면 결함으로 오해한다.
+ */
+function collectionReviewFor(
+  cellNumber: number,
+  submittedAt: string,
+): MilestoneDocumentCollectionReview | null {
+  const decision = COLLECTION_REVIEW_CYCLE[
+    cellNumber % COLLECTION_REVIEW_CYCLE.length
+  ] as MilestoneDocumentReviewDecision | null;
+  if (decision === null) return null;
+  return {
+    decision,
+    comment: COLLECTION_REVIEW_COMMENTS[decision],
+    reviewedAt: new Date(
+      Date.parse(submittedAt) + 26 * 3_600_000,
+    ).toISOString(),
+  };
+}
 
 /**
  * 마일스톤 이름·마감은 student-program-fixtures.ts와 staff-program-fixtures.ts가 원본이다
@@ -340,7 +465,7 @@ function collectionRowFor(
     teamName: `합성 ${teamNumber}팀`,
     applicantName: profileless || nameless ? null : `합성 참여자 ${teamNumber}`,
     memberNicknames,
-    cells: seeds.map((seed) => {
+    cells: seeds.map((seed, documentIndex) => {
       const isSubmitted = index < seed.teamSubmissionCount.submitted;
       if (!isSubmitted) {
         return {
@@ -348,6 +473,8 @@ function collectionRowFor(
           isSubmitted: false,
           submittedAt: null,
           file: null,
+          // 판정은 제출에 붙는다 — 미제출 칸에는 판정이 실리지 않는다(백엔드 계약).
+          review: null,
         };
       }
       // FILE 유형이어도 보존 기한이 지난 첨부는 `file`이 비어 온다(백엔드 계약).
@@ -368,6 +495,10 @@ function collectionRowFor(
                 sizeBytes: 245_760 + index * 1024,
               }
             : null,
+        review: collectionReviewFor(
+          index * seeds.length + documentIndex,
+          submittedAt,
+        ),
       };
     }),
   };

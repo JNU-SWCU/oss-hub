@@ -429,7 +429,12 @@ describe('MilestoneDocumentSectionBody', () => {
     expect(html).not.toContain('양식 올리기');
   });
 
-  it('학생에게는 제출 상태와 제출/재제출 버튼을 보여준다', () => {
+  /**
+   * 배지 문구가 「제출함」에서 판정 기준 라벨로 바뀌었다(2026-08 서류 판정). 아직 아무도
+   * 보지 않은 제출은 「검토 대기」다 — 낸 것과 승인된 것을 같은 말로 부르지 않는다.
+   * 제출 시각은 배지에서 떼어 옆에 남는다.
+   */
+  it('학생에게는 검토 대기 배지와 제출 시각, 재제출 버튼을 보여준다', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentSectionBody
         state={{
@@ -439,6 +444,8 @@ describe('MilestoneDocumentSectionBody', () => {
               viewerSubmission: {
                 submitted: true,
                 submittedAt: '2026-08-01T05:22:00.000Z',
+                status: 'SUBMITTED',
+                review: null,
               },
             }),
           ],
@@ -449,7 +456,8 @@ describe('MilestoneDocumentSectionBody', () => {
         onDocumentChange={vi.fn()}
       />,
     );
-    expect(html).toContain('제출함');
+    expect(html).toContain('검토 대기');
+    expect(html).toContain('08.01 14:22 제출');
     expect(html).toContain('수정');
     expect(html).toContain('제출 1/1 완료');
   });

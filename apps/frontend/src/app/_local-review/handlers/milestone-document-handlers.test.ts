@@ -259,3 +259,151 @@ describe('GET .../documents/collection', () => {
     expect(fallback.total).toBe(fallback.filterCounts.all);
   });
 });
+
+/**
+ * 판정 POST. 로컬 검토가 무조건 성공을 돌려주면 **화면의 사유 필수 검증이 사라져도
+ * 아무도 못 본다** — 실제 백엔드에 붙였을 때에야 422가 드러난다. 그래서 여기서도
+ * 서버와 같은 순서로(교직원 가드 → 사유 필수) 가른다.
+ */
+describe('POST .../applications/:applicationId/reviews', () => {
+  const REVIEW_PATH = `milestones/${MILESTONE_ID}/documents/${DOCUMENT_IDS[0]}/applications/synthetic-application-${MILESTONE_ID}-1/reviews`;
+
+  function review(
+    body: unknown,
+    fixture: LocalReviewFixtureId = 'staff',
+  ): LocalReviewResponsePlan | null {
+    return resolve('POST', REVIEW_PATH, { body, fixture });
+  }
+
+  it('사유를 적은 보완 요청은 201로 판정 한 건을 돌려준다', () => {
+    const plan = review({
+      decision: 'CHANGES_REQUESTED',
+      comment: '표지를 고쳐 주세요.',
+    });
+
+    expect(statusOf(plan)).toBe(201);
+    expect(jsonBody(plan)).toMatchObject({
+      decision: 'CHANGES_REQUESTED',
+      comment: '표지를 고쳐 주세요.',
+      reviewerNickname: '합성 교직원',
+    });
+  });
+
+  it('승인은 사유 없이 통과한다', () => {
+    const plan = review({ decision: 'APPROVED' });
+
+    expect(statusOf(plan)).toBe(201);
+    expect(jsonBody(plan)).toMatchObject({
+      decision: 'APPROVED',
+      comment: null,
+    });
+  });
+
+  it('사유 없는 보완 요청·반려는 422 MSD_021로 거절한다', () => {
+    for (const decision of ['CHANGES_REQUESTED', 'REJECTED']) {
+      const plan = review({ decision });
+      expect(statusOf(plan)).toBe(422);
+      expect(jsonBody(plan)).toMatchObject({ code: 'MSD_021' });
+    }
+  });
+
+  // 서버도 `trim()` 후 빈 문자열을 null로 접어 거절한다.
+  it('공백만 적은 사유도 같이 거절한다', () => {
+    const plan = review({ decision: 'REJECTED', comment: '   ' });
+
+    expect(statusOf(plan)).toBe(422);
+    expect(jsonBody(plan)).toMatchObject({ code: 'MSD_021' });
+  });
+
+  it('학생은 403 MSD_001로 막는다', () => {
+    const plan = review({ decision: 'APPROVED' }, 'student');
+
+    expect(statusOf(plan)).toBe(403);
+    expect(jsonBody(plan)).toMatchObject({ code: 'MSD_001' });
+  });
+
+  it('계약에 없는 판정 값은 400으로 거절한다', () => {
+    const plan = review({ decision: 'MAYBE' });
+
+    expect(statusOf(plan)).toBe(400);
+    expect(jsonBody(plan)).toMatchObject({ code: 'MSD_019' });
+  });
+
+  /**
+   * 이 경로는 제출 파일 다운로드(`.../applications/:applicationId/file`)와 세그먼트 수가
+   * 같다. 두 핸들러가 서로의 요청을 집으면 판정이 「파일 없음」 404로 조용히 죽는다.
+   */
+  it('같은 모양의 파일 다운로드 경로를 가로채지 않는다', () => {
+    const filePath = REVIEW_PATH.replace(/reviews$/, 'file');
+
+    expect(statusOf(resolve('GET', filePath))).toBe(404);
+    expect(jsonBody(resolve('GET', filePath))).toMatchObject({
+      code: 'MSD_020',
+    });
+  });
+});
+
+/**
+ * 수합 표의 칸에 붙는 판정. 검토자가 네 갈래(검토 대기·승인·보완 요청·반려)를 **한
+ * 표에서** 다 볼 수 있어야 한다 — 하나라도 빠지면 그 배지가 어떻게 보이는지 아무도
+ * 확인하지 못한 채 넘어간다.
+ */
+describe('수합 표 픽스처의 판정 시드', () => {
+  function orientationCollection(): MilestoneDocumentCollection {
+    return jsonBody(
+      resolve('GET', `milestones/${MILESTONE_ID}/documents/collection`),
+    ) as MilestoneDocumentCollection;
+  }
+
+  it('한 표에서 네 갈래가 모두 보인다', () => {
+    const cells = orientationCollection().rows.flatMap((row) => row.cells);
+    const displays = cells
+      .filter((cell) => cell.isSubmitted)
+      .map((cell) => cell.review?.decision ?? 'PENDING');
+
+    expect(new Set(displays)).toEqual(
+      new Set(['PENDING', 'APPROVED', 'CHANGES_REQUESTED', 'REJECTED']),
+    );
+  });
+
+  // 판정은 제출에 붙는다 — 미제출 칸에 판정이 실리면 「안 낸 팀이 승인됨」이 된다.
+  it('미제출 칸에는 판정을 싣지 않는다', () => {
+    const cells = orientationCollection().rows.flatMap((row) => row.cells);
+
+    expect(
+      cells
+        .filter((cell) => !cell.isSubmitted)
+        .every((cell) => cell.review === null),
+    ).toBe(true);
+  });
+
+  // 판정 시각이 제출 시각보다 앞서면 「내기 전에 판정했다」로 읽힌다.
+  it('판정 시각은 제출 시각보다 뒤다', () => {
+    const cells = orientationCollection().rows.flatMap((row) => row.cells);
+    const reviewed = cells.filter(
+      (cell) => cell.review !== null && cell.submittedAt !== null,
+    );
+
+    expect(reviewed.length).toBeGreaterThan(0);
+    for (const cell of reviewed) {
+      expect(Date.parse(cell.review?.reviewedAt ?? '')).toBeGreaterThan(
+        Date.parse(cell.submittedAt ?? ''),
+      );
+    }
+  });
+
+  /**
+   * 판정은 표시값이지 업무 규칙이 아니다. 판정을 붙이면서 제출 여부가 흔들리면 필터·
+   * 합계가 조용히 뜻을 바꾼다 — 「미제출」 기준은 여전히 「제출 행이 없다」이다.
+   */
+  it('판정을 붙여도 합계는 제출 여부만 센다', () => {
+    const data = orientationCollection();
+
+    for (const [index, total] of data.documentTotals.entries()) {
+      const submitted = data.rows.filter(
+        (row) => row.cells[index]?.isSubmitted === true,
+      ).length;
+      expect(total.submitted).toBe(submitted);
+    }
+  });
+});

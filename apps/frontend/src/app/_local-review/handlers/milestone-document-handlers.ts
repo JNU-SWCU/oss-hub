@@ -1,4 +1,8 @@
 import type { MilestoneDocumentCollectionFilter } from '@/features/programs/milestone-document-collection-api';
+import {
+  MILESTONE_DOCUMENT_REVIEW_DECISIONS,
+  type MilestoneDocumentReviewDecision,
+} from '@/features/programs/milestone-document-review-api';
 import type { SubmissionType } from '@/features/programs/types';
 import { apiPath } from '@/lib/api-client';
 import {
@@ -19,6 +23,7 @@ import {
   type LocalReviewResponsePlan,
 } from '../handler-kit';
 import {
+  createdMilestoneDocumentReviewFor,
   isKnownMilestoneId,
   MILESTONE_DOCUMENT_COLLECTION_FIXTURE_DEFAULT_QUERY,
   milestoneDocumentCollectionFor,
@@ -36,6 +41,7 @@ import {
  * `.../documents/:documentId`(PATCH/DELETE),
  * `.../documents/:documentId/template`(GET/POST),
  * `.../documents/:documentId/applications/:applicationId/file`(GET),
+ * `.../documents/:documentId/applications/:applicationId/reviews`(POST),
  * `.../documents/:documentId/submissions`(POST), `milestone-document-files`(POST).
  *
  * 실제 백엔드는 조회는 SessionGuard만, 등록·수정·삭제·양식 업로드·수합 표는
@@ -48,6 +54,7 @@ const STAFF_ONLY_CODE = 'MSD_001';
 const TEMPLATE_NOT_FOUND_CODE = 'MSD_015';
 const SUBMISSION_FILE_NOT_FOUND_CODE = 'MSD_020';
 const INVALID_REQUEST_CODE = 'MSD_019';
+const REVIEW_COMMENT_REQUIRED_CODE = 'MSD_021';
 
 const SUBMISSION_TYPES: readonly SubmissionType[] = [
   'FILE',
@@ -195,6 +202,59 @@ const reorderDocumentsHandler: LocalReviewHandler = (context) => {
         '요청 값을 확인해 주세요.',
       )
     : accepted(reordered);
+};
+
+/**
+ * 서류 제출물 판정. 실제 백엔드와 **같은 순서로** 갈린다: 교직원 가드 → 사유 필수(422).
+ *
+ * 사유 필수를 여기서도 보는 것이 요점이다. 화면이 먼저 막지만, 그 검증이 사라져도
+ * 로컬 검토가 조용히 성공을 돌려주면 **검증이 없어진 것을 아무도 못 본다** — 실제
+ * 백엔드에 붙였을 때에야 422가 드러난다. 공백만 적은 사유를 함께 거절하는 것도 서버와
+ * 같다(`trim()` 후 빈 문자열은 `null`로 접힌다).
+ *
+ * 한계: 판정이 저장되지 않아 표를 다시 불러도 칸은 그대로다
+ * (`createdMilestoneDocumentReviewFor` 주석 참고).
+ */
+const reviewSubmissionHandler: LocalReviewHandler = (context) => {
+  const params = matchMethod(
+    context,
+    'POST',
+    'milestones/:milestoneId/documents/:documentId/applications/:applicationId/reviews',
+  );
+  if (params === null) return null;
+  const guard = staffGuardResponse(context);
+  if (guard !== null) return guard;
+  const decision = bodyEnum<MilestoneDocumentReviewDecision>(
+    context,
+    'decision',
+    MILESTONE_DOCUMENT_REVIEW_DECISIONS,
+  );
+  if (decision === null) {
+    return problem(
+      400,
+      INVALID_REQUEST_CODE,
+      apiPath(context.path),
+      '요청 값을 확인해 주세요.',
+    );
+  }
+  const comment = bodyString(context, 'comment')?.trim() || null;
+  if (comment === null && decision !== 'APPROVED') {
+    return problem(
+      422,
+      REVIEW_COMMENT_REQUIRED_CODE,
+      apiPath(context.path),
+      '보완 요청과 반려는 사유를 입력해 주세요.',
+    );
+  }
+  return json(
+    201,
+    createdMilestoneDocumentReviewFor(
+      params.documentId ?? '',
+      params.applicationId ?? '',
+      decision,
+      comment,
+    ),
+  );
 };
 
 /**
@@ -359,6 +419,7 @@ const uploadDocumentFileHandler: LocalReviewHandler = (context) => {
 export const MILESTONE_DOCUMENT_HANDLERS: readonly LocalReviewHandler[] = [
   listDocumentsHandler,
   collectionHandler,
+  reviewSubmissionHandler,
   downloadSubmissionFileHandler,
   createDocumentHandler,
   // ⚠ `updateDocumentHandler`보다 위여야 한다 — 위 주석 참고. 순서를 바꾸면

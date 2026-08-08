@@ -47,7 +47,13 @@ function row(
     applicantName: '김철수',
     memberNicknames: ['chulsoo'],
     cells: [
-      { documentId: 'd1', isSubmitted: false, submittedAt: null, file: null },
+      {
+        documentId: 'd1',
+        isSubmitted: false,
+        submittedAt: null,
+        file: null,
+        review: null,
+      },
     ],
   };
 }

@@ -1,4 +1,5 @@
 import { apiClient, apiPath } from '@/lib/api-client';
+import type { MilestoneDocumentReviewDecision } from './milestone-document-review-api';
 import type { SubmissionType } from './types';
 
 /**
@@ -43,6 +44,22 @@ export interface MilestoneDocumentCollectionFile {
 }
 
 /**
+ * 칸에 붙는 **최신 판정 한 건**. 아직 판정하지 않았거나 미제출이면 `null`이다.
+ *
+ * ⚠ 이건 **표시값이지 업무 규칙이 아니다**(백엔드 DTO의 같은 자리 주석과 같은 말이다).
+ * 「미제출」 기준은 여전히 `isSubmitted`이고 필터·합계는 이 값을 보지 않는다 — 반려된
+ * 서류를 미제출로 세기 시작하면 독촉 대상 집계가 조용히 뜻을 바꾼다.
+ *
+ * ⚠ 응답은 최신 한 건만 준다. 이력 전체를 주는 조회는 **없다** — 화면이 「지난 판정 목록」을
+ * 그리고 싶어도 여기서 만들어 낼 수 없다.
+ */
+export interface MilestoneDocumentCollectionReview {
+  readonly decision: MilestoneDocumentReviewDecision;
+  readonly comment: string | null;
+  readonly reviewedAt: string;
+}
+
+/**
  * 표의 칸 — 미제출도 칸이 비지 않고 `isSubmitted: false`로 채워져 온다.
  *
  * ⚠ 이 칸만 `isSubmitted`다(ADR-004의 boolean `is`/`has`/`can` 접두사). 학생 화면이
@@ -54,6 +71,7 @@ export interface MilestoneDocumentCollectionCell {
   readonly isSubmitted: boolean;
   readonly submittedAt: string | null;
   readonly file: MilestoneDocumentCollectionFile | null;
+  readonly review: MilestoneDocumentCollectionReview | null;
 }
 
 /** 표의 행 — 승인된 신청(= 팀) 하나. */

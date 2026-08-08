@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import type { ReactElement, ReactNode } from 'react';
-import { EmptyState, PageBody, PageHeader } from '@/components';
+import { Fragment, type ReactElement, type ReactNode } from 'react';
+import { EmptyState, PageBody, PageHeader, StatusBadge } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -34,6 +34,16 @@ import {
   type MilestoneDocumentCollectionRow,
 } from './milestone-document-collection-api';
 import {
+  isSameMilestoneDocumentReviewTarget,
+  MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS,
+  MILESTONE_DOCUMENT_REVIEW_DISPLAY_VARIANTS,
+  milestoneDocumentCellDisplay,
+  type MilestoneDocumentReviewFormState,
+  type MilestoneDocumentReviewTarget,
+} from './milestone-document-review';
+import type { MilestoneDocumentReviewDecision } from './milestone-document-review-api';
+import { MilestoneDocumentReviewPanel } from './milestone-document-review-panel';
+import {
   formatSeoulDate,
   formatSeoulShortDateTime,
 } from './program-detail-format';
@@ -58,9 +68,18 @@ export interface MilestoneDocumentCollectionViewProps {
   readonly filter: MilestoneDocumentCollectionFilter;
   readonly isLoading: boolean;
   readonly errorMessage: string | null;
+  /** 지금 열려 있는 판정 패널. 닫혀 있으면 `null`. */
+  readonly review: MilestoneDocumentReviewFormState | null;
   readonly onFilterChange: (filter: MilestoneDocumentCollectionFilter) => void;
   readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
+  readonly onReviewOpen: (target: MilestoneDocumentReviewTarget) => void;
+  readonly onReviewClose: () => void;
+  readonly onReviewDecisionChange: (
+    decision: MilestoneDocumentReviewDecision,
+  ) => void;
+  readonly onReviewCommentChange: (comment: string) => void;
+  readonly onReviewSubmit: () => void;
 }
 
 /** 열 머리글 — 서류명 + 필수 표시(`milestone-document-list.tsx`의 `DocumentName`과 같은 표기). */
@@ -95,47 +114,76 @@ function SubmittedAt({
 }
 
 /**
- * 제출 칸. FILE 유형이고 첨부가 살아 있을 때만 파일명이 다운로드 링크가 된다 —
- * TEXT·저장소 릴리스 제출은 내려받을 것이 없고, FILE이어도 보존 기한이 지난
- * 첨부는 `file`이 비어 온다(백엔드 계약).
+ * 제출 칸. 배지는 제출 여부가 아니라 **판정까지 접은 다섯 갈래**를 말한다
+ * (미제출 · 검토 대기 · 승인 · 보완 요청 · 반려). 색은 전부 기존 `StatusBadge` 변형이다.
+ *
+ * ⚠ 배지가 바뀌어도 **필터·합계는 그대로다**. 「미제출」 기준은 여전히 「제출 행이 없다」이고
+ * 그 셈은 서버가 한다 — 반려된 칸을 미제출로 세기 시작하면 독촉 대상이 조용히 달라진다.
+ *
+ * 제출된 칸만 눌러 판정을 연다. 미제출 칸을 눌러 봐야 서버는 404(MSD_022)만 돌려주므로
+ * 누를 수 있는 것처럼 보이게 하지 않는다.
+ *
+ * 파일명 링크는 버튼 **밖**에 둔다 — `<button>` 안의 `<a>`는 유효하지 않은 마크업이고,
+ * 실제로도 내려받기와 판정 열기는 서로 다른 행동이다. FILE 유형이고 첨부가 살아 있을
+ * 때만 링크가 붙는다(TEXT·저장소 릴리스는 내려받을 것이 없고, 보존 기한이 지난 첨부는
+ * `file`이 비어 온다 — 백엔드 계약).
  */
 function CollectionCellContent({
   cell,
   milestoneId,
   documentId,
   applicationId,
+  teamName,
+  documentName,
+  isReviewOpen,
+  onReviewOpen,
 }: {
   readonly cell: MilestoneDocumentCollectionCell;
   readonly milestoneId: string;
   readonly documentId: string;
   readonly applicationId: string;
+  readonly teamName: string;
+  readonly documentName: string;
+  readonly isReviewOpen: boolean;
+  readonly onReviewOpen: (target: MilestoneDocumentReviewTarget) => void;
 }): ReactElement {
-  if (!cell.isSubmitted) {
-    return <span className="text-small text-muted-foreground">미제출</span>;
-  }
-  if (cell.file === null) {
-    return (
-      <span className="flex flex-col items-start gap-0.5">
-        <span className="text-small">제출됨</span>
-        <SubmittedAt submittedAt={cell.submittedAt} />
-      </span>
-    );
-  }
+  const display = milestoneDocumentCellDisplay(cell);
+  const badge = (
+    <StatusBadge variant={MILESTONE_DOCUMENT_REVIEW_DISPLAY_VARIANTS[display]}>
+      {MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS[display]}
+    </StatusBadge>
+  );
+
   return (
     <span className="flex flex-col items-start gap-0.5">
-      {/* 파일명은 길어도 열 폭을 밀지 않게 자르고, 전체 이름은 title로 남긴다. */}
-      <a
-        href={milestoneDocumentSubmissionFileHref(
-          milestoneId,
-          documentId,
-          applicationId,
-        )}
-        title={cell.file.name}
-        className="block max-w-56 truncate text-small font-medium underline underline-offset-2 hover:opacity-80"
-      >
-        {cell.file.name}
-      </a>
-      <SubmittedAt submittedAt={cell.submittedAt} />
+      {cell.isSubmitted ? (
+        <button
+          type="button"
+          aria-expanded={isReviewOpen}
+          aria-label={`${teamName} ${documentName} 판정`}
+          className="flex flex-col items-start gap-0.5 rounded-control text-left hover:opacity-80"
+          onClick={() => onReviewOpen({ applicationId, documentId })}
+        >
+          {badge}
+          <SubmittedAt submittedAt={cell.submittedAt} />
+        </button>
+      ) : (
+        badge
+      )}
+      {cell.file === null ? null : (
+        // 파일명은 길어도 열 폭을 밀지 않게 자르고, 전체 이름은 title로 남긴다.
+        <a
+          href={milestoneDocumentSubmissionFileHref(
+            milestoneId,
+            documentId,
+            applicationId,
+          )}
+          title={cell.file.name}
+          className="block max-w-56 truncate text-small font-medium underline underline-offset-2 hover:opacity-80"
+        >
+          {cell.file.name}
+        </a>
+      )}
     </span>
   );
 }
@@ -232,10 +280,86 @@ function CollectionPagination({
   );
 }
 
-function CollectionTable({
+/**
+ * 판정 패널을 **표 안에**, 방금 누른 팀의 행 바로 아래에 편다. 다른 화면으로 넘기지
+ * 않는 것이 이 기능의 요구다 — 교직원은 여러 건을 연달아 처리하는데, 표를 떠나면
+ * 어디까지 봤는지 잃는다. `colSpan`으로 열 전체를 덮어 판정 칸이 남의 열에 앉지 않게 한다.
+ */
+function ReviewPanelRow({
   data,
+  row,
+  review,
+  onReviewClose,
+  onReviewDecisionChange,
+  onReviewCommentChange,
+  onReviewSubmit,
 }: {
   readonly data: MilestoneDocumentCollection;
+  readonly row: MilestoneDocumentCollectionRow;
+  readonly review: MilestoneDocumentReviewFormState;
+  readonly onReviewClose: () => void;
+  readonly onReviewDecisionChange: (
+    decision: MilestoneDocumentReviewDecision,
+  ) => void;
+  readonly onReviewCommentChange: (comment: string) => void;
+  readonly onReviewSubmit: () => void;
+}): ReactElement | null {
+  const { milestone, documents } = data;
+  const document = documents.find(
+    (candidate) => candidate.id === review.target.documentId,
+  );
+  // 열이 사라진 뒤(서류 항목 삭제·필터 재조회) 남은 선택은 그릴 자리가 없다.
+  if (document === undefined) return null;
+  const cell = collectionCellFor(row, document.id);
+
+  return (
+    <TableRow>
+      <TableCell colSpan={documents.length + 1}>
+        <MilestoneDocumentReviewPanel
+          teamName={row.teamName}
+          documentName={document.name}
+          cell={cell}
+          fileHref={
+            cell.file === null
+              ? null
+              : milestoneDocumentSubmissionFileHref(
+                  milestone.id,
+                  document.id,
+                  row.applicationId,
+                )
+          }
+          decision={review.decision}
+          comment={review.comment}
+          isSubmitting={review.isSubmitting}
+          errorMessage={review.errorMessage}
+          onDecisionChange={onReviewDecisionChange}
+          onCommentChange={onReviewCommentChange}
+          onSubmit={onReviewSubmit}
+          onClose={onReviewClose}
+        />
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function CollectionTable({
+  data,
+  review,
+  onReviewOpen,
+  onReviewClose,
+  onReviewDecisionChange,
+  onReviewCommentChange,
+  onReviewSubmit,
+}: {
+  readonly data: MilestoneDocumentCollection;
+  readonly review: MilestoneDocumentReviewFormState | null;
+  readonly onReviewOpen: (target: MilestoneDocumentReviewTarget) => void;
+  readonly onReviewClose: () => void;
+  readonly onReviewDecisionChange: (
+    decision: MilestoneDocumentReviewDecision,
+  ) => void;
+  readonly onReviewCommentChange: (comment: string) => void;
+  readonly onReviewSubmit: () => void;
 }): ReactElement {
   const { milestone, documents, rows, documentTotals } = data;
 
@@ -256,23 +380,56 @@ function CollectionTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((row) => (
-            <TableRow key={row.applicationId}>
-              <TableCell className={STICKY_TEAM_CELL}>
-                <TeamCellContent row={row} />
-              </TableCell>
-              {documents.map((document) => (
-                <TableCell key={document.id} className="min-w-40">
-                  <CollectionCellContent
-                    cell={collectionCellFor(row, document.id)}
-                    milestoneId={milestone.id}
-                    documentId={document.id}
-                    applicationId={row.applicationId}
+          {rows.map((row) => {
+            const openReview =
+              review !== null &&
+              review.target.applicationId === row.applicationId
+                ? review
+                : null;
+            return (
+              <Fragment key={row.applicationId}>
+                <TableRow>
+                  <TableCell className={STICKY_TEAM_CELL}>
+                    <TeamCellContent row={row} />
+                  </TableCell>
+                  {documents.map((document) => (
+                    <TableCell key={document.id} className="min-w-40">
+                      <CollectionCellContent
+                        cell={collectionCellFor(row, document.id)}
+                        milestoneId={milestone.id}
+                        documentId={document.id}
+                        applicationId={row.applicationId}
+                        teamName={row.teamName}
+                        documentName={document.name}
+                        isReviewOpen={
+                          openReview !== null &&
+                          isSameMilestoneDocumentReviewTarget(
+                            openReview.target,
+                            {
+                              applicationId: row.applicationId,
+                              documentId: document.id,
+                            },
+                          )
+                        }
+                        onReviewOpen={onReviewOpen}
+                      />
+                    </TableCell>
+                  ))}
+                </TableRow>
+                {openReview === null ? null : (
+                  <ReviewPanelRow
+                    data={data}
+                    row={row}
+                    review={openReview}
+                    onReviewClose={onReviewClose}
+                    onReviewDecisionChange={onReviewDecisionChange}
+                    onReviewCommentChange={onReviewCommentChange}
+                    onReviewSubmit={onReviewSubmit}
                   />
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
+                )}
+              </Fragment>
+            );
+          })}
         </TableBody>
         {/*
          * 합계는 열(documents)을 따라 그린다 — `documentTotals` 순서를 그대로 믿고
@@ -450,7 +607,15 @@ function CollectionBody(
         이 페이지 {rows.length}팀(조건에 맞는 전체 {total}팀) · 표를 좌우로
         스크롤할 수 있습니다.
       </p>
-      <CollectionTable data={props.data} />
+      <CollectionTable
+        data={props.data}
+        review={props.review}
+        onReviewOpen={props.onReviewOpen}
+        onReviewClose={props.onReviewClose}
+        onReviewDecisionChange={props.onReviewDecisionChange}
+        onReviewCommentChange={props.onReviewCommentChange}
+        onReviewSubmit={props.onReviewSubmit}
+      />
       <CollectionPagination
         page={page}
         totalPages={totalPages}

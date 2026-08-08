@@ -84,9 +84,15 @@ function render(
       filter="ALL"
       isLoading={false}
       errorMessage={null}
+      review={null}
       onFilterChange={() => {}}
       onPageChange={() => {}}
       onRetry={() => {}}
+      onReviewOpen={() => {}}
+      onReviewClose={() => {}}
+      onReviewDecisionChange={() => {}}
+      onReviewCommentChange={() => {}}
+      onReviewSubmit={() => {}}
       {...overrides}
     />,
   );
@@ -104,6 +110,7 @@ describe('MilestoneDocumentCollectionView 머리말', () => {
               isSubmitted: false,
               submittedAt: null,
               file: null,
+              review: null,
             },
           ]),
         ],
@@ -150,6 +157,7 @@ describe('MilestoneDocumentCollectionView 빈 상태', () => {
                 isSubmitted: true,
                 submittedAt: '2026-07-14T00:00:00.000Z',
                 file: null,
+                review: null,
               },
             ],
             { teamName: '남의프로그램팀' },
@@ -194,6 +202,7 @@ describe('MilestoneDocumentCollectionView 빈 상태', () => {
                 isSubmitted: false,
                 submittedAt: null,
                 file: null,
+                review: null,
               },
             ],
             { teamName: '우리팀' },
@@ -238,12 +247,14 @@ describe('MilestoneDocumentCollectionView 표', () => {
             name: '아주-긴-파일-이름-확인용-기획서-최종본-v3.pdf',
             sizeBytes: 2048,
           },
+          review: null,
         },
         {
           documentId: 'd2',
           isSubmitted: true,
           submittedAt: '2026-07-14T01:00:00.000Z',
           file: null,
+          review: null,
         },
       ],
       { teamName: '가팀' },
@@ -251,8 +262,20 @@ describe('MilestoneDocumentCollectionView 표', () => {
     row(
       'b',
       [
-        { documentId: 'd1', isSubmitted: false, submittedAt: null, file: null },
-        { documentId: 'd2', isSubmitted: false, submittedAt: null, file: null },
+        {
+          documentId: 'd1',
+          isSubmitted: false,
+          submittedAt: null,
+          file: null,
+          review: null,
+        },
+        {
+          documentId: 'd2',
+          isSubmitted: false,
+          submittedAt: null,
+          file: null,
+          review: null,
+        },
       ],
       { teamName: '나팀', applicantName: null, memberNicknames: ['nameless'] },
     ),
@@ -265,8 +288,15 @@ describe('MilestoneDocumentCollectionView 표', () => {
           isSubmitted: true,
           submittedAt: '2026-07-14T02:00:00.000Z',
           file: null,
+          review: null,
         },
-        { documentId: 'd2', isSubmitted: false, submittedAt: null, file: null },
+        {
+          documentId: 'd2',
+          isSubmitted: false,
+          submittedAt: null,
+          file: null,
+          review: null,
+        },
       ],
       { teamName: '다팀' },
     ),
@@ -291,10 +321,12 @@ describe('MilestoneDocumentCollectionView 표', () => {
     expect(html).toContain('truncate');
   });
 
-  it('첨부가 없는 제출은 링크 없이 제출됨으로만 적는다', () => {
+  // 배지 문구가 「제출됨」에서 판정 기준 라벨로 바뀌었다(2026-08 서류 판정).
+  // 아직 아무도 보지 않은 제출은 「검토 대기」다.
+  it('첨부가 없는 제출은 링크 없이 상태 배지만 적는다', () => {
     const html = render({ data: collection(documents, rows) });
 
-    expect(html).toContain('제출됨');
+    expect(html).toContain('검토 대기');
     // d2는 TEXT 제출이라 내려받을 것이 없다 — 그 서류로 가는 링크는 없어야 한다.
     expect(html).not.toContain('documents/d2/applications');
   });
@@ -313,6 +345,100 @@ describe('MilestoneDocumentCollectionView 표', () => {
     const html = render({ data: collection(documents, rows) });
 
     expect(html).toContain('sticky left-0 z-10');
+  });
+
+  /**
+   * 칸 배지는 제출 여부가 아니라 **판정까지 접은 다섯 갈래**를 말한다. 「제출됨」 하나로
+   * 뭉치면 이미 반려한 서류와 아직 안 본 서류가 표에서 구분되지 않아, 교직원이 같은 칸을
+   * 두 번 열어 본다.
+   */
+  it('칸 배지가 판정을 그대로 말한다', () => {
+    const html = render({
+      data: collection(documents, [
+        row(
+          'a',
+          [
+            {
+              documentId: 'd1',
+              isSubmitted: true,
+              submittedAt: '2026-07-14T00:00:00.000Z',
+              file: null,
+              review: {
+                decision: 'CHANGES_REQUESTED',
+                comment: '표지를 고쳐 주세요.',
+                reviewedAt: '2026-07-15T00:00:00.000Z',
+              },
+            },
+            {
+              documentId: 'd2',
+              isSubmitted: true,
+              submittedAt: '2026-07-14T01:00:00.000Z',
+              file: null,
+              review: {
+                decision: 'APPROVED',
+                comment: null,
+                reviewedAt: '2026-07-15T00:00:00.000Z',
+              },
+            },
+          ],
+          { teamName: '가팀' },
+        ),
+      ]),
+    });
+
+    expect(html).toContain('보완 요청');
+    expect(html).toContain('승인');
+    // 사유는 표에 펴 놓지 않는다 — 칸이 좁아 표가 읽히지 않게 된다.
+    expect(html).not.toContain('표지를 고쳐 주세요.');
+  });
+
+  /**
+   * ⚠ 판정은 **표시값이지 업무 규칙이 아니다**. 반려·보완 요청이 붙어도 필터 칩과 합계
+   * 행은 그대로여야 한다 — 그 셈은 서버가 하고, 「미제출」 기준은 여전히 「제출 행이 없다」다.
+   * 반려된 칸을 미제출로 세기 시작하면 독촉 대상 집계가 조용히 뜻을 바꾼다.
+   */
+  it('판정이 붙어도 필터 칩과 합계는 서버가 준 값 그대로다', () => {
+    const withReviews = collection(documents, rows, {
+      filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
+      documentTotals: [
+        { documentId: 'd1', submitted: 30, total: 47 },
+        { documentId: 'd2', submitted: 12, total: 47 },
+      ],
+    });
+    const reviewed: MilestoneDocumentCollection = {
+      ...withReviews,
+      rows: withReviews.rows.map((item) => ({
+        ...item,
+        cells: item.cells.map((current) =>
+          current.isSubmitted
+            ? {
+                ...current,
+                review: {
+                  decision: 'REJECTED' as const,
+                  comment: '기한을 넘겼습니다.',
+                  reviewedAt: '2026-07-15T00:00:00.000Z',
+                },
+              }
+            : current,
+        ),
+      })),
+    };
+
+    const html = render({ data: reviewed });
+
+    expect(html).toContain('전체 47팀');
+    expect(html).toContain('필수 서류 미제출 12팀');
+    expect(html).toContain('한 장도 안 낸 팀 5팀');
+    expect(html).toContain('제출 30 / 전체 47');
+    expect(html).toContain('제출 12 / 전체 47');
+  });
+
+  // 판정할 제출이 없는 칸을 눌러 봐야 서버는 404(MSD_022)만 돌려준다.
+  it('제출된 칸에만 판정을 여는 버튼을 단다', () => {
+    const html = render({ data: collection(documents, rows) });
+
+    expect(html).toContain('aria-label="가팀 기획서 판정"');
+    expect(html).not.toContain('aria-label="나팀 기획서 판정"');
   });
 
   /**
@@ -432,7 +558,13 @@ describe('MilestoneDocumentCollectionView 페이지 이동', () => {
   const documents = [document('d1')];
   const rows = [
     row('a', [
-      { documentId: 'd1', isSubmitted: false, submittedAt: null, file: null },
+      {
+        documentId: 'd1',
+        isSubmitted: false,
+        submittedAt: null,
+        file: null,
+        review: null,
+      },
     ]),
   ];
 
