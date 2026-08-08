@@ -79,4 +79,17 @@ describe('SubmissionInput native file selection', () => {
     expect(input.value).toBe('');
     expect(container.textContent).not.toContain('final-report.hwp');
   });
+
+  it('좁은 화면에서 제출 안내의 한글 어절을 중간에 나누지 않는다', async () => {
+    await act(async () => root.render(<FileInputHarness />));
+
+    const steps = container.querySelector<HTMLElement>(
+      '[data-testid="file-submission-steps"]',
+    );
+    const instruction = steps?.querySelector<HTMLElement>(
+      ':scope > div:last-child p:last-child',
+    );
+
+    expect(instruction?.classList.contains('break-keep')).toBe(true);
+  });
 });

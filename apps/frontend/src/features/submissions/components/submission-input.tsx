@@ -198,7 +198,7 @@ export function SubmissionInput({
             </span>
             <div className="grid min-w-0 gap-1">
               <p className="text-sm font-medium">3. 제출</p>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm break-keep text-muted-foreground">
                 파일과 코멘트를 확인한 뒤 아래 제출하기 버튼을 누르세요.
               </p>
             </div>
