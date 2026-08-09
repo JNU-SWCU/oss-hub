@@ -1,7 +1,8 @@
 <!-- Parent: ../AGENTS.md -->
+<!-- 2026-08-09: `collection/`과 `repositories/`를 `github/` 하나로 합쳤다(ADR-010 §8). 아래 §프로비저닝은 옛 `repositories/AGENTS.md` 내용이다. -->
 <!-- Generated: 2026-07-20 · Updated: 2026-08-05 (커밋 stream author-scoped 전환 — 팀이 있는 저장소는 팀원 단위 GraphQL `history(author:)`로만 수집하고, 팀 미특정 저장소만 기존 REST 전량 페이징으로 폴백; 외부 기여자는 수치만 관측·저장 위치 미정) -->
 
-# apps/backend/src/collection — GitHub 활동 수집기
+# apps/backend/src/github — GitHub 연동 (프로비저닝 · 수집)
 
 ## Purpose
 
@@ -31,7 +32,7 @@ Collection GitHub App installation token으로 `JNU-SWCU` 조직 설치 범위�
 | `collection-cutover.repository.ts` | `CollectionCutoverLease` epoch-fenced quiesce lease(acquire/release/`isQuiesced` 존재 확인) + aggregate 비교용 VERIFYING stream·facts count 조회 |
 | `collection-cutover.service.ts` | ADR-006 "누적 저장소로의 1회 전환" orchestration. `CollectionCutoverLease` 아래에서 마지막 성공 generation을 pin → backfill 재실행 → 포인터 불변 확인 → provider 재순회로 VERIFYING 검증 → 원장/facts 개수 비교. 다섯 단계 중 하나라도 실패하면 명시적 `CutoverAbortReason`과 함께 ABORTED를 반환한다(예외를 던지지 않는다). CLI에서만 실행되며 scheduler/admin 배선에는 없다 |
 | `collection-provider-queue.ts` | `ProviderRequestQueue` — 모든 provider 요청이 통과하는 fair serial fetcher wrapper(최소 250ms 페이싱, `x-ratelimit-*` 관찰, ADR-006 동적 정지 `remaining <= max(100, limit의 20%)`) |
-| `collection-read.port.ts` | `COLLECTION_READ_PORT` DIP 경계 — ranking·programs·system-status·public-projects가 이 8개 메서드/DTO로만 collection을 소비한다. todo 14 전환 이후 `findRepositoryActivity`(유일한 활성 운영 호출자, `program-activity.service.ts`)는 증분 저장소를 직접 읽는다. `findRankingActivity`/`getStatusSnapshot`은 운영 호출자가 없어 old canonical 테이블 배선 그대로 남아 ADR-006이 요구하는 "1개 릴리스 동안 rollback 참조용 old reader" 역할을 자연히 겸한다. todo 11이 `getRepositoryMetrics`/`getContributorMetrics`를 추가만 했다(배치 `repositoryIds[]` 조회, `dataAsOf`, `visibility`/`presence`/`visibilityObservedAt` eligibility-safe 방문성 DTO 포함 — 실명·studentId·raw payload·collection lease/frontier 등 control 필드 없음). todo 12가 `getIncrementalStatusSnapshot`을 추가만 했다(system-status source — 조직 전체 stream count·checkpoint 시각만 노출, repository 이름/visibility 없음. health(empty/normal/delayed/partial/failed) 해석은 이 포트가 아니라 system-status 모듈 책임). todo 16이 `getRepositoryCumulativeMetrics`/`getContributorCumulativeMetrics`를 추가만 했다(`year` 필터 없이 전체 연도를 합산하는 lifetime 누적 — 공개 프로젝트 상세/프로필이 페이지당 상수 개수의 질의로 배치 조회한다. 기여자 지표는 githubLogin만 노출하고 platform User join이 없다) |
+| `collection-read.port.ts` | `COLLECTION_READ_PORT` DIP 경계 — ranking·programs·system-status·public-projects가 이 10개 메서드/DTO로만 collection을 소비한다(실측 `collection-read.port.ts:175-212`). todo 14 전환 이후 `findRepositoryActivity`(유일한 활성 운영 호출자, `program-activity.service.ts`)는 증분 저장소를 직접 읽는다. `findRankingActivity`/`getStatusSnapshot`은 운영 호출자가 없어 old canonical 테이블 배선 그대로 남아 ADR-006이 요구하는 "1개 릴리스 동안 rollback 참조용 old reader" 역할을 자연히 겸한다. todo 11이 `getRepositoryMetrics`/`getContributorMetrics`를 추가만 했다(배치 `repositoryIds[]` 조회, `dataAsOf`, `visibility`/`presence`/`visibilityObservedAt` eligibility-safe 방문성 DTO 포함 — 실명·studentId·raw payload·collection lease/frontier 등 control 필드 없음). todo 12가 `getIncrementalStatusSnapshot`을 추가만 했다(system-status source — 조직 전체 stream count·checkpoint 시각만 노출, repository 이름/visibility 없음. health(empty/normal/delayed/partial/failed) 해석은 이 포트가 아니라 system-status 모듈 책임). todo 16이 `getRepositoryCumulativeMetrics`/`getContributorCumulativeMetrics`를 추가만 했다(`year` 필터 없이 전체 연도를 합산하는 lifetime 누적 — 공개 프로젝트 상세/프로필이 페이지당 상수 개수의 질의로 배치 조회한다. 기여자 지표는 githubLogin만 노출하고 platform User join이 없다) |
 | `collection-read.service.ts` | `CollectionReadPort` 구현체. `findRepositoryActivity`는 todo 14 전환으로 `CollectionRepository`/commit·PR·release facts를 직접 읽는다(old canonical generation 테이블 아님). todo 11의 2개 메서드도 todo 8/10이 채운 증분 facts/aggregate 테이블을 직접 읽는다 — private facts도 내부적으로는 그대로 읽히며, 공개 안전 필터링은 이 서비스가 아니라 이를 소비하는 todo 15(eligibility fence)/todo 19(ranking source)의 책임이다. todo 12의 `getIncrementalStatusSnapshot`은 `CollectionRepositoryStream`/`CollectionSyncCursor`를 집계만 하고 repository 식별자를 select하지 않는다. todo 16의 2개 메서드는 `getRepositoryMetrics`/`getContributorMetrics`와 같은 aggregate 테이블을 `year` 없이 읽어 findMany 질의 1개로 합산한다(repositoryIds 배열 크기와 무관) |
 
 ## Subdirectories
@@ -60,3 +61,70 @@ Collection GitHub App installation token으로 `JNU-SWCU` 조직 설치 범위�
 - `auth/`(`AuthModule` — ADMIN 세션만 수집 트리거 허용).
 - `common/`(에러 코드 규약 원본).
 - [docs/decisions/ADR-006-github-app-integration.md](../../../../docs/decisions/ADR-006-github-app-integration.md) — REST-only authority·권한 allowlist·조직 전체 누적·증분 수집 계약(safe frontier·ETag·저장 field·공개 노출 revocation·세대 전환)·E1/C1/C2 계약 원본.
+
+---
+
+## 프로비저닝 (옛 `repositories/`)
+
+`collection/`과 `repositories/`는 같은 GitHub App 자격증명·같은 rate limit 예산을 쓰면서
+클라이언트가 2벌, 토큰 provider 가 3벌이었다. 한도가 계정 단위인데 사용량을 각자만 알면
+페이싱이 성립하지 않으므로 한 폴더로 합쳤다(ADR-010 §8).
+
+두 관심사는 답하는 질문이 다르다.
+- **프로비저닝**: "내 저장소 준비됐나" — 신청 직후 몇 분, 학생 본인이 본다
+- **수집**: "얼마나 기여했나" — 매시, 모두가 본다
+
+그래서 port 도 갈라져 있다 — 기여 추적 3개(기여 집계·공개 자격·건강)와
+프로비저닝 1개(`REPOSITORIES_READ_PORT`)를 별도로 등재한다(ADR-003 DEC-42 개정).
+
+### 옛 문서 본문
+## Purpose
+
+승인된 신청의 GitHub 저장소 생성, 협업자 초대, 공개 전환을 담는다.
+`applications/`의 outbox 이벤트를 consumer와 worker가 비동기로 처리한다.
+
+## Key Files
+
+| 파일 | 역할 |
+| --- | --- |
+| `repository-outbox.consumer.ts` | `OutboxEvent` 테이블에서 lease 기반으로 이벤트를 클레임(`SKIP LOCKED`) |
+| `repository-provision.worker.ts` | GitHub 저장소 생성·협업자 초대 실행, 실패 시 재시도(`nextAttemptAt`, 최대 5회) |
+| `repository-provision.scheduler.ts` | 5초 간격 polling(`@Interval`)으로 outbox→worker 배치 처리 |
+| `repository-provision.github.ts` | 저장소 이름 충돌 시 fallback 이름으로 재시도하는 find-or-create 로직 |
+| `repository-name.ts` | 결정적 저장소 이름 생성(`buildRepositoryNames`) — ASCII slug + stable id prefix |
+| `github-app.client.ts` | GitHub App 설치 토큰으로 저장소 생성/조회/공개전환/협업자 초대 REST 호출 |
+| `github-app.token.ts` | GitHub App 설치 토큰 발급·캐시 |
+| `github-app.error.ts` | GitHub App REST 호출 에러 타입 |
+| `github-app.response.ts` | GitHub App REST 응답 타입 |
+| `github-operations.config.ts` | GitHub 저장소 조작 관련 설정 |
+| `repository-provision-job.repository.ts` | provision job Prisma 접근 |
+| `repository-provision-state.repository.ts`, `.helpers.ts` | provision 상태 전이 Prisma 접근·헬퍼 |
+| `repository-provision.contract.ts` | provision 단계 타입 계약 |
+| `repository-provision.failure.ts` | provision 실패 분류 |
+| `repository-provision-event.ts` | provision 이벤트 타입 |
+| `repositories.repository.ts` | `publishRepositoryIfPrivate` — CAS(compare-and-swap) 전환 구현 |
+| `repositories.service.ts` | `getMyRepositories`(내 저장소 목록) · `publish`(비공개→공개 전환, CAS + 트랜잭션 내 typed audit) |
+| `repositories.controller.ts` | `GET /repositories/me` |
+
+## Subdirectories
+
+| 경로 | 내용 |
+| --- | --- |
+| `dto/` | `my-repositories-response.dto.ts` |
+
+## For AI Agents
+
+- 이 모듈은 전용 error-code enum 대신 `GithubOperationsError`와 일반 `Error` 서브클래스를 쓴다.
+- 호출 모듈이 필요한 경우 이를 자기 도메인 `DomainException`으로 변환한다.
+- `publish`는 `RepositoriesController`를 통해 직접 호출되지 않는다 — 현재 유일한 호출자는 `submission-reviews/submission-reviews.service.ts`이며, `RepositoriesModule`을 import해 `RepositoriesService`의 `publish`만 `Pick`으로 노출받는다(ADR-003 공개 표면 원칙). 호출 전 다섯 게이트(수동 확정 포함)는 `submission-reviews/`가 원본이다.
+- `publish`의 실제 전환은 `repositories.repository.ts`의 `publishRepositoryIfPrivate` — `WHERE {id, githubRepositoryId, visibility: PRIVATE}` 조건의 Prisma `updateMany` CAS이며 갱신 행이 0이면 "이미 전환됨"으로 보고 boolean으로 승패(`won`)를 반환한다.
+- CAS에서 이긴 호출만 같은 트랜잭션 안에서 `REPOSITORY_PUBLISHED` typed audit(`audit-log/`)을 쓴다 — 진 호출은 audit을 쓰지 않는다.
+- `showcase/`로의 프로젝션 트리거는 제거됐다 — 이 모듈은 더 이상 `ShowcaseProjectionService`를 호출하지 않는다(`showcase/` 테이블은 read-only, 물리 삭제는 Issue #463).
+- `buildRepositoryNames`는 프로그램·대상의 정규화 slug로 preferred 이름을 만들고, 빈 slug에는 stable ID prefix를 쓰며 collision fallback에는 신청 ID의 8자 prefix를 붙인다.
+- `buildRepositoryOwnershipMarker`는 신청 ID의 SHA-256으로 소유권 marker를 만든다.
+
+## Dependencies
+
+- [apps/backend/src/AGENTS.md](../AGENTS.md) — 모듈 경계·에러 코드 규약.
+- `auth/`(`AuthModule`), `audit-log/`(`publish` CAS 승자만 쓰는 typed audit).
+- `submission-reviews/` — `publish`의 유일한 호출자, 다섯 게이트를 소유.
