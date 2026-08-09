@@ -184,6 +184,20 @@ export class MilestoneDocumentArchiveService {
           this.storage.get(entry.storageKey).then(
             (body) => {
               /*
+               * ⚠ **여기서 한 번 더 본다.** 위의 검사는 `get()`을 *부르기 전*의 상태이고, 그
+               * 사이에 교직원이 취소했으면 출력의 `close`는 **붙들고 있는 스트림이 없는 채로**
+               * 이미 지나갔다. 그때 도착한 이 스트림을 그대로 yazl에 넘기면 닫힌 압축으로 들어가
+               * 아무도 안 끊는다 — 느린 스토리지 + 성급한 취소가 반복되면 연결 풀이 마른다.
+               */
+              if (output.destroyed) {
+                body.destroy();
+                openStream(
+                  new Error('archive stream closed'),
+                  undefined as never,
+                );
+                return;
+              }
+              /*
                * ⚠ **여는 데 성공한 것과 끝까지 읽는 데 성공한 것은 다르다.** S3 연결이 읽는
                * 중에 끊기면 이 스트림이 `error`를 내는데, yazl은 `pipe`로만 이어 붙이므로
                * 그 오류를 **자기 것으로 옮기지 않는다**(`zip.on('error')`가 아예 안 불린다).

@@ -223,29 +223,48 @@ describe('이름 한 칸의 길이 자르기', () => {
     expect([...result]).toHaveLength(100);
   });
 
-  it('100자 경계에 서러게이트 쌍(이모지)이 걸려도 반쪽 글자를 남기지 않는다', () => {
-    // Given: 99번째까지 한글, 100번째가 이모지다. UTF-16 단위로 자르면 이모지의 앞쪽 절반만
-    // 남아 깨진 글자(�)가 된다 — 코드포인트 단위로 잘라야 통째로 살거나 통째로 없어진다.
-    const value = `${'가'.repeat(99)}😀${'나'.repeat(10)}`;
+  it('경계에 서러게이트 쌍(이모지)이 걸려도 반쪽 글자를 남기지 않는다', () => {
+    /*
+     * Given: 98까지 한글(98단위), 다음이 이모지(2단위) — 딱 100에 맞는다. 이모지는 통째로 산다.
+     * UTF-16 단위로 뚝 자르면 앞쪽 절반만 남아 깨진 글자(�)가 되므로 글자 경계를 지켜야 한다.
+     */
+    const value = `${'가'.repeat(98)}😀${'나'.repeat(10)}`;
 
     // When
     const result = milestoneDocumentArchiveFolderName(value);
 
     // Then
-    expect(result).toBe(`${'가'.repeat(99)}😀`);
-    expect([...result]).toHaveLength(100);
+    expect(result).toBe(`${'가'.repeat(98)}😀`);
+    expect(result.length).toBe(100);
     expect(hasLoneSurrogate(result)).toBe(false);
   });
 
+  it('세는 단위가 글자 수가 아니라 UTF-16 코드 단위다 — 이모지는 둘을 먹는다', () => {
+    /*
+     * ⚠ 파일 시스템이 세는 단위가 그것이다. 글자 수로 세면 이모지 100개짜리 이름이 200단위가
+     * 되어 `팀명_서류명`이 상한(255)을 넘는다 — 자르고도 안 풀리는 ZIP이 나온다.
+     */
+    const result = milestoneDocumentDownloadFileName({
+      teamName: '😀'.repeat(50),
+      documentName: '😀'.repeat(100),
+      originalFileName: 'a.pdf',
+    });
+
+    expect(result.length).toBeLessThanOrEqual(MAX_FILE_SYSTEM_NAME_LENGTH);
+    expect(hasLoneSurrogate(result)).toBe(false);
+    // 각 칸은 이모지 50개(=100단위)까지만 들어간다.
+    expect(result).toBe(`${'😀'.repeat(50)}_${'😀'.repeat(50)}.pdf`);
+  });
+
   it('자른 자리에 이모지 시작이 걸리면 그 이모지는 통째로 빠진다', () => {
-    // Given: 100번째까지 한글이고 101번째가 이모지다.
-    const value = `${'가'.repeat(100)}😀나`;
+    // Given: 99까지 한글(99단위)이고 다음이 이모지(2단위)라 100을 넘는다 — 들어올 자리가 없다.
+    const value = `${'가'.repeat(99)}😀나`;
 
     // When
     const result = milestoneDocumentArchiveFolderName(value);
 
     // Then: 반쪽이 남는 대신 아예 들어오지 않는다.
-    expect(result).toBe('가'.repeat(100));
+    expect(result).toBe('가'.repeat(99));
     expect(hasLoneSurrogate(result)).toBe(false);
   });
 
@@ -272,6 +291,21 @@ describe('이름 한 칸의 길이 자르기', () => {
     // Then
     expect(result).toBe('가'.repeat(99));
     expect(result.endsWith(' ')).toBe(false);
+  });
+
+  it('위첨자 숫자로 적은 장치 이름도 비켜 간다', () => {
+    /*
+     * Windows 의 장치 이름 판정은 `COM1` 뿐 아니라 위첨자 `¹`·`²`·`³`도 같은 장치 번호로 읽는다.
+     * ⚠ 이것도 Win32 규칙을 옮긴 것이고 실제 Windows 에서 확인한 것은 아니다 — 틀렸을 때 잃는
+     * 것이 `_` 하나뿐이라 건다.
+     */
+    expect(milestoneDocumentArchiveFolderName('COM¹')).toBe('COM¹_');
+    expect(milestoneDocumentArchiveFolderName('lpt²')).toBe('lpt²_');
+    expect(milestoneDocumentArchiveFolderName('COM³.txt')).toBe('COM³.txt_');
+    // 이름 자체는 학생이 적은 그대로 남는다 — 판정에만 쓴 정규화다.
+    expect(milestoneDocumentArchiveFolderName('COM¹')).toContain('¹');
+    // 장치 번호가 아닌 위첨자는 건드리지 않는다.
+    expect(milestoneDocumentArchiveFolderName('가¹팀')).toBe('가¹팀');
   });
 
   it('100자 이하는 그대로 둔다 — 필요 없는 자르기는 하지 않는다', () => {
