@@ -23,7 +23,6 @@ set -euo pipefail
 readonly STALE_THRESHOLD_HOURS=${STALE_THRESHOLD_HOURS:-2}
 readonly INVENTORY_STALE_HOURS=${INVENTORY_STALE_HOURS:-24}
 readonly RANKING_URL=${RANKING_URL:-}
-readonly RANKING_CACHE_TTL_SECONDS=${RANKING_CACHE_TTL_SECONDS:-60}
 
 if [[ -z ${DATABASE_URL:-} ]]; then
   echo "diagnose-collection: DATABASE_URL 이 없다 — 서버 안에서 실행한다(server-runbook.md M1)" >&2
@@ -35,12 +34,18 @@ if ! command -v psql >/dev/null 2>&1; then
   exit 1
 fi
 
-# psql 을 read-only 트랜잭션으로 고정한다. 실수로 쓰기 구문이 들어가도 서버가 거부한다.
+# psql 을 read-only 로 고정한다. 실수로 쓰기 구문이 들어가도 서버가 거부한다.
+#
+# 명시적 `BEGIN ... COMMIT` 을 쓰지 않는다 — `--tuples-only` 로도 psql 은 그 둘의
+# 명령 태그를 stdout 에 찍고, 그 줄이 값으로 읽혀 `EXTERNAL_PUBLIC=BEGIN` 같은
+# 거짓 관측을 만든다. 진단 도구가 틀린 값을 내면 없느니만 못하다.
+# 대신 세션 기본값을 서버측에서 read-only 로 잠근다.
 run_sql() {
-  psql "$DATABASE_URL" \
-    --no-psqlrc --tuples-only --no-align --field-separator='|' \
-    --set=ON_ERROR_STOP=1 \
-    --command="BEGIN TRANSACTION READ ONLY; $1 ; COMMIT;"
+  PGOPTIONS='-c default_transaction_read_only=on' \
+    psql "$DATABASE_URL" \
+      --no-psqlrc --tuples-only --no-align --field-separator='|' \
+      --set=ON_ERROR_STOP=1 \
+      --command="$1"
 }
 
 section() {
@@ -174,21 +179,34 @@ SELECT
 done
 
 # ── O3 표면축 ────────────────────────────────────────────────────────────────
-# DB 가 최신인데 화면만 옛것이면 캐시나 배포본 문제다.
+# DB 가 최신인데 화면만 옛것이면 배포본이 옛것이다.
+#
+# 두 번 호출해 해시를 비교하지 않는다 — 랭킹 응답은 `Cache-Control: no-store` 이고
+# TTL 캐시가 없다(동시 요청 single-flight 만 남았다, ADR-010). 캐시가 없으면
+# "불변" 은 데이터가 그대로라는 뜻일 뿐인데, 옛 로직은 그걸 C8(배포본 옛것)로
+# 읽었다. 진단이 없는 원인을 가리키면 사람을 헛곳으로 보낸다.
+#
+# 대신 응답의 `dataAsOf` 를 본다. 이 값은 마지막 성공 수집 시각이므로
+# O1 의 마지막 스윕 시각과 맞춰 보면 표면이 DB 를 따라오는지 바로 갈린다.
 section "O3 표면축 — 공개 랭킹 응답"
 if [[ -z $RANKING_URL ]]; then
   echo "  RANKING_URL 미지정 — 표면 확인을 건너뛴다"
+elif ! command -v curl >/dev/null 2>&1; then
+  # psql 과 curl 이 같은 컨테이너에 함께 있으리라는 보장이 없다 — 프로덕션에서
+  # postgres 이미지에는 curl 이 없다. 여기서 raw 셸 오류로 죽으면 앞의 O0~O2
+  # 관측까지 같이 버려진다. 진단 도구는 한 층을 못 봐도 나머지를 내놓아야 한다.
+  echo "  curl 이 없어 표면 확인을 건너뛴다 — O0~O2 관측은 위 결과가 유효하다"
+  echo "  표면은 HTTP 가 되는 곳에서 직접 본다:"
+  echo "    curl -fsS <ranking-url>   # 응답의 dataAsOf 를 위 스윕 시각과 비교"
 else
-  first=$(curl -fsS --max-time 20 "$RANKING_URL" | sha256sum | cut -d' ' -f1)
-  echo "  1차 응답 해시 ${first:0:12}"
-  echo "  캐시 TTL(${RANKING_CACHE_TTL_SECONDS}s) 초과 대기 후 재조회"
-  sleep "$((RANKING_CACHE_TTL_SECONDS + 5))"
-  second=$(curl -fsS --max-time 20 "$RANKING_URL" | sha256sum | cut -d' ' -f1)
-  echo "  2차 응답 해시 ${second:0:12}"
-  if [[ $first == "$second" ]]; then
-    echo "  캐시 만료 후에도 응답 불변 — DB 가 최신이면 C8(배포본 옛것) 후보. IMAGE_TAG 확인"
+  response=$(curl -fsS --max-time 20 "$RANKING_URL")
+  surface_as_of=$(printf '%s' "$response" |
+    sed -n 's/.*"dataAsOf":"\([^"]*\)".*/\1/p')
+  if [[ -z $surface_as_of ]]; then
+    echo "  응답에 dataAsOf 가 없다 — C8(배포본 옛것) 후보. IMAGE_TAG 확인"
   else
-    echo "  응답이 바뀌었다 — 표면은 DB 를 따라온다"
+    echo "  표면 dataAsOf   $surface_as_of"
+    echo "  위 마지막 스윕 시각보다 뒤처지면 C8(배포본 옛것) 후보"
   fi
 fi
 
