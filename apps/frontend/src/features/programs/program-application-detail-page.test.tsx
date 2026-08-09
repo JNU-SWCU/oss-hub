@@ -200,6 +200,25 @@ describe('ProgramApplicationDetailPage', () => {
     expect(container.textContent).toContain('동기제어문자');
   });
 
+  it('신청자 줄의 프로필 이름·핸들도 걷어낸다', async () => {
+    // 프로필 이름은 학생 본인이 쓰고 문자 종류 검증이 없다 — 신청서 입력만 막고
+    // 여기를 열어 두면 같은 문자가 그대로 교직원 화면에 닿는다.
+    getApplicationDetailMock.mockResolvedValue({
+      ...submitted,
+      applicant: {
+        id: 'student-1',
+        name: '계정\u202E이름',
+        nickname: 'login\u202E1',
+      },
+    });
+
+    await mount();
+
+    expect(container.textContent).not.toContain('\u202E');
+    expect(container.textContent).toContain('계정이름');
+    expect(container.textContent).toContain('@login1');
+  });
+
   it('제출 시각을 서울 시각으로 적는다', async () => {
     getApplicationDetailMock.mockResolvedValue(submitted);
 

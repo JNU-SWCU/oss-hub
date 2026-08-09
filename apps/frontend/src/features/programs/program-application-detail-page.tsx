@@ -367,7 +367,7 @@ export function ProgramApplicationDetailPage({
           <Row label="팀" value={application.team?.name ?? '없음(개인 신청)'} />
           <Row
             label="신청자"
-            value={`${application.applicant.name ?? application.applicant.nickname} (@${application.applicant.nickname})`}
+            value={`${displayAnswerText(application.applicant.name ?? '') || displayAnswerText(application.applicant.nickname)} (@${displayAnswerText(application.applicant.nickname)})`}
           />
           <Row
             label="신청서에 적은 이름"

@@ -167,6 +167,29 @@ describe('displayApplicantName', () => {
     ).toBe('학생이름');
   });
 
+  it('계정 이름 fallback 도 위생 처리를 지난다', () => {
+    // ⚠ 프로필 이름은 학생 본인이 쓴다. 그 검증이 문자 종류를 안 가리고
+    // (`update-my-profile-request.dto.ts`), 신청 생성이 그 값을 그대로
+    // `applicantName` 으로 복사한다 — 앞만 막으면 같은 문자가 여기로 되돌아온다.
+    expect(
+      displayApplicantName({
+        ...item,
+        answers: { ...item.answers, applicantName: '' },
+        applicant: { ...item.applicant, name: '계정\u202E이름' },
+      }),
+    ).toBe('계정이름');
+  });
+
+  it('GitHub 핸들 fallback 도 위생 처리를 지난다', () => {
+    expect(
+      displayApplicantName({
+        ...item,
+        answers: { ...item.answers, applicantName: '' },
+        applicant: { ...item.applicant, name: null, nickname: 'login\u202E1' },
+      }),
+    ).toBe('login1');
+  });
+
   it('위생 처리 후 비면 계정 이름으로 내려간다', () => {
     // 제어문자만 적어 낸 이름은 지우고 나면 빈 값이다 — 빈 제목이 뜨면 안 된다.
     expect(

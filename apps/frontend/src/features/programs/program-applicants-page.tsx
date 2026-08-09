@@ -301,7 +301,7 @@ export function ProgramApplicantsPage({
           <div className="grid gap-0.5">
             <span className="font-medium">{displayApplicantName(row)}</span>
             <span className="text-xs text-muted-foreground">
-              @{row.applicant.nickname}
+              @{displayAnswerText(row.applicant.nickname)}
             </span>
           </div>
         ),

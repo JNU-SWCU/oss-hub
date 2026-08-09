@@ -454,4 +454,32 @@ describe('program applicants revert action', () => {
     expect(container.textContent).not.toContain('\u202E');
     expect(container.textContent).toContain('제목뒤집기');
   });
+
+  it('목록의 신청자·핸들 칸도 Bidi 를 흘리지 않는다', async () => {
+    // 프로필 이름과 GitHub 핸들 둘 다 표시되는 칸이다.
+    listProgramApplicationsMock.mockResolvedValue(
+      applicationPage([
+        {
+          ...personal,
+          answers: { ...personal.answers, applicantName: '' },
+          applicant: {
+            id: 'student-1',
+            name: '계정\u202E이름',
+            nickname: 'login\u202E1',
+          },
+        },
+      ]),
+    );
+
+    await act(async () => {
+      root.render(<ProgramApplicantsPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).not.toContain('\u202E');
+    expect(container.textContent).toContain('계정이름');
+    expect(container.textContent).toContain('@login1');
+  });
 });

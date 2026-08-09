@@ -67,11 +67,19 @@ export function displayAnswerText(value: string): string {
   return sanitizeDisplayText(value) ?? '';
 }
 
+/**
+ * ⚠ **세 갈래 모두 학생이 쓴 값이다.** `answers.applicantName` 은 신청서 입력이고,
+ * `applicant.name` 은 학생 본인 프로필 이름인데 그 검증이 `@IsString @IsNotEmpty
+ * @MaxLength` 뿐이라 문자 종류를 안 가린다(`update-my-profile-request.dto.ts`).
+ * 신청 생성이 프로필 이름을 그대로 `applicantName` 으로 복사하므로
+ * (`applications.service.ts`), 앞을 막고 뒤를 열어 두면 같은 문자가 fallback 으로
+ * 되돌아온다. 그래서 셋 다 지나가게 한다.
+ */
 export function displayApplicantName(item: ApplicationListItem): string {
   return (
     displayAnswerText(item.answers.applicantName) ||
-    item.applicant.name ||
-    item.applicant.nickname
+    displayAnswerText(item.applicant.name ?? '') ||
+    displayAnswerText(item.applicant.nickname)
   );
 }
 
