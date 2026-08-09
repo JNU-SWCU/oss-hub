@@ -19,15 +19,18 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
  * 서버 계약을 여기 독립적으로 적어 둔다 — 화면 쪽 상수를 그대로 읽으면 계약이 아니라 제 글씨를 검사하게 된다.
  * `anchor`가 있어야 **문구를 서로 맞바꾼 변이**를 잡는다. 서로 다르기만 검사하면 맞바꿔도 통과한다.
  */
-const SERVER_BLOCKED_REASONS = [
-  { reason: 'REPOSITORY_NOT_READY', anchor: '저장소 생성' },
-  { reason: 'REPOSITORY_PUBLICATION_NOT_PLANNED', anchor: '공개 예정' },
-  { reason: 'PROGRAM_NOT_ENDED', anchor: '종료일' },
-  { reason: 'REQUIRED_MILESTONES_NOT_APPROVED', anchor: '마일스톤' },
-] as const satisfies readonly {
-  readonly reason: PublishBlockedReason;
-  readonly anchor: string;
-}[];
+const REASON_ANCHORS = {
+  REPOSITORY_NOT_READY: '저장소 생성',
+  REPOSITORY_PUBLICATION_NOT_PLANNED: '공개 예정',
+  PROGRAM_NOT_ENDED: '종료일',
+  REQUIRED_MILESTONES_NOT_APPROVED: '마일스톤',
+} as const satisfies Readonly<Record<PublishBlockedReason, string>>;
+
+// `Record` 라야 완전성이 강제된다 — 배열의 `satisfies` 는 원소마다 타입만 볼 뿐
+// 사유 하나를 빼면 그 사유만 조용히 안 돌고 통과한다.
+const SERVER_BLOCKED_REASONS = Object.entries(REASON_ANCHORS).map(
+  ([reason, anchor]) => ({ reason: reason as PublishBlockedReason, anchor }),
+);
 
 const ALL_REASONS = SERVER_BLOCKED_REASONS.map((entry) => entry.reason);
 
@@ -149,13 +152,20 @@ describe('RepositoryPublishCard — 서버가 거절하는 조건을 교직원�
     expect([...(description?.querySelectorAll('li') ?? [])]).toHaveLength(2);
   });
 
-  it('공개 조건을 충족하면 버튼을 열고 특정 게이트만 언급하지 않는다', () => {
+  it('공개 조건을 충족하면 버튼을 열고 네 게이트 중 하나만 내세우지 않는다', () => {
     // Given: 서버 게이트를 전부 통과했다.
     render(repository({ publishEligible: true, blockedReasons: [] }));
 
     // When: 교직원이 저장소 공개 카드를 본다.
+    const affirmation = container.textContent ?? '';
+
     // Then: 차단 사유 목록이 없고 버튼이 눌린다.
     expect(blockedReasonTexts()).toHaveLength(0);
     expect(publishButton().disabled).toBe(false);
+    // 그리고 옛 문구처럼 게이트 하나만 근거로 대지 않는다 —
+    // 「모든 필수 마일스톤 승인이 완료되어 공개할 수 있습니다」가 이 결함의 얼굴이었다.
+    for (const anchor of Object.values(REASON_ANCHORS)) {
+      expect(affirmation).not.toContain(anchor);
+    }
   });
 });
