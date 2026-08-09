@@ -521,6 +521,22 @@ export function findStaffProgram(
   );
 }
 
+/**
+ * #722 신청 상세는 프로그램을 모른 채 신청 id 하나로 온다(백엔드 `GET applications/:id`
+ * 계약과 같다). 그래서 프로그램을 가로질러 찾는다.
+ */
+export function findStaffApplication(
+  applicationId: string,
+): ApplicationListItem | null {
+  for (const fixture of STAFF_PROGRAM_FIXTURES) {
+    const application = fixture.applications.find(
+      (item) => item.id === applicationId,
+    );
+    if (application !== undefined) return application;
+  }
+  return null;
+}
+
 export function findStaffMilestone(
   milestoneId: string,
 ): EditableMilestone | null {

@@ -31,6 +31,7 @@ import { isPublicProgramId } from './student-program-fixtures';
 import {
   CREATED_PROGRAM_ID,
   findStaffMilestone,
+  findStaffApplication,
   findStaffProgram,
   STAFF_REVIEW_CONTEXTS,
   type StaffProgramFixture,
@@ -179,6 +180,19 @@ const programApplicationsHandler: LocalReviewHandler = (context) => {
         200,
         applicationListPage(fixture.applications, context.searchParams),
       );
+};
+
+/**
+ * #722 신청 상세. 없는 신청은 `APP_001` 404 다 — 픽스처가 "이 경로를 모른다"(`LFX_404`)와
+ * 도메인 404 를 갈라야 검토자가 없는 결함을 만들어 읽지 않는다.
+ */
+const applicationDetailHandler: LocalReviewHandler = (context) => {
+  const params = matchGet(context, 'applications/:id');
+  if (staffRole(context) === null || params === null) return null;
+  const application = findStaffApplication(params.id as string);
+  return application === null
+    ? notFound('APP_001', context.path)
+    : json(200, application);
 };
 
 const submissionMatrixHandler: LocalReviewHandler = (context) => {
@@ -437,6 +451,7 @@ export const STAFF_HANDLERS: readonly LocalReviewHandler[] = [
   programEditHandler,
   staffProgramTeamsHandler,
   programApplicationsHandler,
+  applicationDetailHandler,
   submissionMatrixHandler,
   reviewContextHandler,
   createProgramHandler,

@@ -6,6 +6,7 @@ import type {
   ApplicationFormFieldKey,
   ApplicationFormFieldType,
   ApplicationFormTemplate,
+  ApplicationListItem,
   ApplicationListPage,
   ApplicationListParams,
   ProgramActivity,
@@ -399,6 +400,18 @@ export function listProgramApplications(
   });
   return apiClient<ApplicationListPage>(
     `programs/${encodeURIComponent(programId)}/applications?${search.toString()}`,
+  );
+}
+
+/**
+ * #722 교직원 신청 상세. 목록 항목과 **같은 모양**이 온다 — 백엔드가 두 조회에 같은
+ * select 를 쓰므로 화면끼리 필드가 어긋나지 않는다.
+ */
+export function getApplicationDetail(
+  applicationId: string,
+): Promise<ApplicationListItem> {
+  return apiClient<ApplicationListItem>(
+    `applications/${encodeURIComponent(applicationId)}`,
   );
 }
 
