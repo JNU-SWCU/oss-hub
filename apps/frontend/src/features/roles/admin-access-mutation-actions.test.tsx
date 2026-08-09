@@ -285,9 +285,9 @@ describe('AdminAccessPendingRequestCard — 대기 요청 결정 카드', () => 
       );
     });
 
-    const approveButton = Array.from(
-      container.querySelectorAll('button'),
-    ).find((button) => button.textContent === '승인');
+    const approveButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === '승인',
+    );
     expect(approveButton).toBeDefined();
     act(() => {
       approveButton?.dispatchEvent(

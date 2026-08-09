@@ -1,10 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import type {
-  AdminAccessDetail,
-  AdminAccessHistory,
-} from './admin-access-api';
+import type { AdminAccessDetail, AdminAccessHistory } from './admin-access-api';
 import { parseAdminAccessMutationResponse } from './admin-access-api';
 import type { AdminAccessMutationAction } from './admin-access-mutation-policy';
 import {
@@ -149,7 +146,11 @@ describe('상세 화면의 역할 변경 확인 다이얼로그 — SET_ROLE_* �
   it('STAFF → SET_ROLE_STUDENT는 강등 다이얼로그(회수 확정, destructive)를 띄운다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
-        state={{ kind: 'ready', detail: detail({ role: 'STAFF' }), history: history() }}
+        state={{
+          kind: 'ready',
+          detail: detail({ role: 'STAFF' }),
+          history: history(),
+        }}
         onRetry={() => {}}
         mutation={mutation('SET_ROLE_STUDENT')}
       />,

@@ -1,5 +1,8 @@
 import type { AdminAccessRole } from './admin-access-api';
-import { ROLE_LABEL, rankOfAdminAccessRole } from './admin-access-mutation-policy';
+import {
+  ROLE_LABEL,
+  rankOfAdminAccessRole,
+} from './admin-access-mutation-policy';
 
 /**
  * 역할 세그먼트 컨트롤(직접 선택 방식, PR04G 재설계)이 확인 다이얼로그

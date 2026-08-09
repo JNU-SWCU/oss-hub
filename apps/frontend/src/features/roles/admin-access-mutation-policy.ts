@@ -84,7 +84,9 @@ export function actionForRole(role: AdminAccessRole): AdminAccessSetRoleAction {
   }
 }
 
-export function roleForAction(action: AdminAccessSetRoleAction): AdminAccessRole {
+export function roleForAction(
+  action: AdminAccessSetRoleAction,
+): AdminAccessRole {
   switch (action) {
     case 'SET_ROLE_STUDENT':
       return 'STUDENT';
@@ -148,15 +150,35 @@ export function buildAdminAccessPatchRequest(
         requestDecision: { decision: 'REJECT', reason: extra.reason ?? '' },
       };
     case 'SET_ROLE_STUDENT':
-      return { ...base, desiredRole: 'STUDENT', desiredAccountStatus: detail.accountStatus };
+      return {
+        ...base,
+        desiredRole: 'STUDENT',
+        desiredAccountStatus: detail.accountStatus,
+      };
     case 'SET_ROLE_STAFF':
-      return { ...base, desiredRole: 'STAFF', desiredAccountStatus: detail.accountStatus };
+      return {
+        ...base,
+        desiredRole: 'STAFF',
+        desiredAccountStatus: detail.accountStatus,
+      };
     case 'SET_ROLE_ADMIN':
-      return { ...base, desiredRole: 'ADMIN', desiredAccountStatus: detail.accountStatus };
+      return {
+        ...base,
+        desiredRole: 'ADMIN',
+        desiredAccountStatus: detail.accountStatus,
+      };
     case 'SET_STATUS_ACTIVE':
-      return { ...base, desiredRole: detail.role, desiredAccountStatus: 'ACTIVE' };
+      return {
+        ...base,
+        desiredRole: detail.role,
+        desiredAccountStatus: 'ACTIVE',
+      };
     case 'SET_STATUS_DEACTIVATED':
-      return { ...base, desiredRole: detail.role, desiredAccountStatus: 'DEACTIVATED' };
+      return {
+        ...base,
+        desiredRole: detail.role,
+        desiredAccountStatus: 'DEACTIVATED',
+      };
     default:
       return assertNever(action);
   }

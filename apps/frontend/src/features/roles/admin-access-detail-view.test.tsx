@@ -57,17 +57,19 @@ function detail(overrides: Partial<AdminAccessDetail> = {}): AdminAccessDetail {
   };
 }
 
-function historyPage<T>(overrides: {
-  items?: readonly T[];
-  page?: number;
-  limit?: number;
-  total?: number;
-} = {}) {
+function historyPage<T>(
+  overrides: {
+    items?: readonly T[];
+    page?: number;
+    limit?: number;
+    total?: number;
+  } = {},
+) {
   return {
     items: overrides.items ?? [],
     page: overrides.page ?? 1,
     limit: overrides.limit ?? 20,
-    total: overrides.total ?? (overrides.items?.length ?? 0),
+    total: overrides.total ?? overrides.items?.length ?? 0,
   };
 }
 
@@ -405,10 +407,7 @@ describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이
       />,
     );
     const prevIndex = html.indexOf('이전');
-    const disabledBefore = html.slice(
-      Math.max(0, prevIndex - 60),
-      prevIndex,
-    );
+    const disabledBefore = html.slice(Math.max(0, prevIndex - 60), prevIndex);
     expect(disabledBefore).toContain('disabled');
   });
 
@@ -428,10 +427,7 @@ describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이
     );
     expect(html).toContain('2 / 2 페이지');
     const nextIndex = html.indexOf('다음');
-    const disabledBefore = html.slice(
-      Math.max(0, nextIndex - 60),
-      nextIndex,
-    );
+    const disabledBefore = html.slice(Math.max(0, nextIndex - 60), nextIndex);
     expect(disabledBefore).toContain('disabled');
   });
 
@@ -478,9 +474,9 @@ describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이
       );
     });
 
-    const nextButtons = Array.from(
-      container.querySelectorAll('button'),
-    ).filter((button) => button.textContent === '다음');
+    const nextButtons = Array.from(container.querySelectorAll('button')).filter(
+      (button) => button.textContent === '다음',
+    );
     expect(nextButtons).toHaveLength(2);
 
     act(() => {
@@ -560,9 +556,9 @@ describe('대기 중인 요청 결정 카드 — 접근 변경 카드 위에 조
       );
     });
 
-    const approveButton = Array.from(
-      container.querySelectorAll('button'),
-    ).find((button) => button.textContent === '승인');
+    const approveButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === '승인',
+    );
     act(() => {
       approveButton?.dispatchEvent(
         new MouseEvent('click', { bubbles: true, cancelable: true }),
@@ -672,7 +668,8 @@ describe('역할/계정 상태 확인 다이얼로그 — 새 액션 이름(SET_
           state={{ kind: 'ready', detail: detail(), history: history() }}
           onRetry={() => {}}
           mutation={mutation({
-            confirmAction: 'SET_STATUS_DEACTIVATED' as AdminAccessMutationAction,
+            confirmAction:
+              'SET_STATUS_DEACTIVATED' as AdminAccessMutationAction,
             onCancel,
             onConfirm,
           })}
@@ -680,12 +677,12 @@ describe('역할/계정 상태 확인 다이얼로그 — 새 액션 이름(SET_
       );
     });
 
-    const cancelButton = Array.from(
-      container.querySelectorAll('button'),
-    ).find((button) => button.textContent === '취소');
-    const confirmButton = Array.from(
-      container.querySelectorAll('button'),
-    ).find((button) => button.textContent === '비활성화 확정');
+    const cancelButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === '취소',
+    );
+    const confirmButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === '비활성화 확정',
+    );
     act(() => {
       cancelButton?.dispatchEvent(
         new MouseEvent('click', { bubbles: true, cancelable: true }),

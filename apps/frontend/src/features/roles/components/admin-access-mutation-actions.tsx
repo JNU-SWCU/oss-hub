@@ -208,9 +208,7 @@ export function AdminAccessPendingRequestCard({
           type="button"
           className="h-11"
           disabled={isProcessing}
-          onClick={() =>
-            onRequestAction(ADMIN_ACCESS_MUTATION_ACTIONS.APPROVE)
-          }
+          onClick={() => onRequestAction(ADMIN_ACCESS_MUTATION_ACTIONS.APPROVE)}
         >
           승인
         </Button>
