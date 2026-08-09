@@ -426,6 +426,21 @@ export class CollectionSyncService {
           stoppedForBudget = true;
           break;
         }
+        if (
+          repository.source === 'EXTERNAL_PUBLIC' &&
+          error instanceof CollectionAppClientError &&
+          (error.kind === 'NOT_FOUND' || error.kind === 'PERMISSION')
+        ) {
+          const observedAt = this.now();
+          await this.incrementalRepository.runInTransaction(async (repo) => {
+            await repo.assertSyncLeaseValid(lease, observedAt);
+            await repo.markExternalRepositoryUnavailable(
+              repository.githubRepositoryId,
+              error.kind === 'NOT_FOUND' ? 'ABSENT' : 'PRIVATE',
+              observedAt,
+            );
+          });
+        }
         lastError = error instanceof Error ? error.name : 'UnknownError';
         failedRepositoryCount += 1;
         this.logger.warn({
@@ -626,9 +641,9 @@ export class CollectionSyncService {
           continue;
         }
         complete = false;
-        if (current.visibility === 'PUBLIC' && current.presence === 'PRESENT') {
-          repositories.push(current);
-        }
+        // 부분 관찰은 마지막 complete visibility를 덮어쓰지 않는다. 다만 현재
+        // 공개 여부를 다시 증명하지 못한 run에서는 stream을 실행하지 않아,
+        // 비공개 전환 직후의 새 fact를 stale PUBLIC 상태에 더하지 않는다.
         continue;
       }
 

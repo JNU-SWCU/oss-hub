@@ -18,7 +18,7 @@ export type GithubRepositoryMetadata = {
 
 export type GithubPublicRepositoryMetadata = GithubRepositoryMetadata & {
   readonly nameWithOwner: string;
-  readonly defaultBranch: string;
+  readonly defaultBranch: string | null;
   readonly archived: boolean;
 };
 
@@ -108,8 +108,8 @@ export function parseGithubPublicRepository(
   if (
     typeof nameWithOwner !== 'string' ||
     !isGithubNameWithOwner(nameWithOwner) ||
-    typeof defaultBranch !== 'string' ||
-    defaultBranch.length === 0 ||
+    (defaultBranch !== null &&
+      (typeof defaultBranch !== 'string' || defaultBranch.length === 0)) ||
     typeof archived !== 'boolean'
   ) {
     throw invalidGithubResponseError();

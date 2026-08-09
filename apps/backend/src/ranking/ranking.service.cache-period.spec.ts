@@ -8,7 +8,7 @@ describe('RankingService cache and year scope', () => {
     harness = setupRankingService();
   });
 
-  it('동시·반복 요청은 같은 집계를 공유하고 연도 스코프를 저장소에 전달한다', async () => {
+  it('동시 요청만 같은 집계를 공유하고 다음 요청은 공개 상태를 다시 읽는다', async () => {
     harness.getPublicRankingMetrics.mockResolvedValue([
       activity(1n, 'mina', 2, 0, 0),
     ]);
@@ -19,8 +19,11 @@ describe('RankingService cache and year scope', () => {
     ]);
     await harness.service.findPage(2026, 1, 20);
 
-    expect(harness.getPublicRankingMetrics).toHaveBeenCalledTimes(1);
-    expect(harness.getPublicRankingMetrics).toHaveBeenCalledWith({
+    expect(harness.getPublicRankingMetrics).toHaveBeenCalledTimes(2);
+    expect(harness.getPublicRankingMetrics).toHaveBeenNthCalledWith(1, {
+      currentYear: 2026,
+    });
+    expect(harness.getPublicRankingMetrics).toHaveBeenNthCalledWith(2, {
       currentYear: 2026,
     });
   });

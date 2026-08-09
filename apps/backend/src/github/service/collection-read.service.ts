@@ -464,6 +464,8 @@ export class CollectionReadService implements CollectionReadPort {
     const repositories = await this.prisma.githubRepository.findMany({
       where: {
         githubRepositoryId: { in: [...query.repositoryIds] },
+        visibility: 'PUBLIC',
+        presence: 'PRESENT',
         ...(await this.linkedRepositoryFilter(query.repositoryIds)),
       },
       select: {
@@ -527,6 +529,8 @@ export class CollectionReadService implements CollectionReadPort {
       where: {
         repository: {
           githubRepositoryId: { in: [...query.repositoryIds] },
+          visibility: 'PUBLIC',
+          presence: 'PRESENT',
           ...(await this.linkedRepositoryFilter(query.repositoryIds)),
         },
       },

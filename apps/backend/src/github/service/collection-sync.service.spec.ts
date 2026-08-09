@@ -982,6 +982,45 @@ describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
     expect(client.probeDefaultBranchHead).not.toHaveBeenCalled();
   });
 
+  it('metadata 확인 뒤 stream이 권한 거부되면 외부 저장소를 즉시 PRIVATE로 회수한다', async () => {
+    const { db, box } = createFakeDb();
+    box.store.repositories.set(repoKey(555n), {
+      id: 'repo-external-stream-revoked',
+      githubOrganizationId: null,
+      githubRepositoryId: 555n,
+      nameWithOwner: 'student/revoked-repo',
+      defaultBranch: 'main',
+      archived: false,
+      visibility: 'PUBLIC',
+      presence: 'PRESENT',
+      source: 'EXTERNAL_PUBLIC',
+      lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+    const client = createClient([]);
+    quietStreams(client);
+    client.getRepository.mockResolvedValue(
+      providerRepository({
+        id: '555',
+        name: 'revoked-repo',
+        fullName: 'student/revoked-repo',
+        ownerLogin: 'student',
+        private: false,
+      }),
+    );
+    client.listCommitsUntilKnownSha.mockRejectedValue(
+      new CollectionAppClientError('PERMISSION'),
+    );
+
+    await createServiceWithExternal(db, client).runExternal('owner-1');
+
+    expect(box.store.repositories.get(repoKey(555n))).toMatchObject({
+      visibility: 'PRIVATE',
+      presence: 'PRESENT',
+    });
+    expect(client.listNewPullRequests).not.toHaveBeenCalled();
+    expect(client.probeLatestRelease).not.toHaveBeenCalled();
+  });
+
   it('외부 metadata 일시 실패는 기존 PUBLIC/PRESENT 관찰을 회수하지 않는다', async () => {
     const { db, box } = createFakeDb();
     box.store.repositories.set(repoKey(555n), {
@@ -1012,7 +1051,7 @@ describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
       presence: 'PRESENT',
       lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
     });
-    expect(client.listCommitsUntilKnownSha).toHaveBeenCalled();
+    expect(client.listCommitsUntilKnownSha).not.toHaveBeenCalled();
   });
 
   it('externalRuntimeFactory가 배선되지 않으면 명시적으로 실패한다', async () => {

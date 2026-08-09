@@ -151,6 +151,30 @@ describe('GithubAppClient', () => {
     ).resolves.toBeNull();
   });
 
+  it('아직 커밋이 없는 공개 저장소의 null 기본 브랜치를 보존한다', async () => {
+    const fetcher = jest.fn<
+      ReturnType<GithubAppFetcher>,
+      Parameters<GithubAppFetcher>
+    >();
+    fetcher.mockResolvedValue(
+      jsonResponse(200, {
+        id: 43,
+        name: 'synthetic-empty-repo',
+        full_name: 'synthetic-student/synthetic-empty-repo',
+        html_url: 'https://github.com/synthetic-student/synthetic-empty-repo',
+        visibility: 'public',
+        archived: false,
+        default_branch: null,
+        description: null,
+      }),
+    );
+    const client = new GithubAppClient(tokenProvider(), fetcher, () => NOW);
+
+    await expect(
+      client.findPublicRepository('synthetic-student', 'synthetic-empty-repo'),
+    ).resolves.toMatchObject({ defaultBranch: null });
+  });
+
   it('이미 collaborator이면 invitation을 조회하거나 다시 보내지 않는다', async () => {
     // Given: collaborator 확인이 204를 반환한다.
     const fetcher = jest.fn<

@@ -1,4 +1,4 @@
-import { Controller, Get, Header, Query } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import {
   RankingQueryRequestDto,
   resolveRankingQueryYear,
@@ -28,7 +28,6 @@ export class RankingController {
 
   /** Distinct years that have public ranking data (desc). Sidebar year list. */
   @Get('years')
-  @Header('Cache-Control', 'public, max-age=60')
   async listYears(): Promise<RankingYearsResponseDto> {
     return RankingYearsResponseDto.from(await this.rankingService.listYears());
   }

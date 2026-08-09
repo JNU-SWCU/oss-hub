@@ -344,10 +344,22 @@ export class CollectionIncrementalRepository {
   async enrollExternalRepository(input: {
     readonly githubRepositoryId: bigint;
     readonly nameWithOwner: string;
-    readonly defaultBranch: string;
+    readonly defaultBranch: string | null;
     readonly archived: boolean;
     readonly observedAt: Date;
-  }): Promise<void> {
+  }): Promise<boolean> {
+    return this.runInTransaction((repo) =>
+      repo.enrollExternalRepositoryInTransaction(input),
+    );
+  }
+
+  private async enrollExternalRepositoryInTransaction(input: {
+    readonly githubRepositoryId: bigint;
+    readonly nameWithOwner: string;
+    readonly defaultBranch: string | null;
+    readonly archived: boolean;
+    readonly observedAt: Date;
+  }): Promise<boolean> {
     const currentObservation = {
       nameWithOwner: input.nameWithOwner,
       defaultBranch: input.defaultBranch,
@@ -367,7 +379,7 @@ export class CollectionIncrementalRepository {
       ],
       skipDuplicates: true,
     });
-    await this.db.githubRepository.updateMany({
+    const updated = await this.db.githubRepository.updateMany({
       where: {
         githubRepositoryId: input.githubRepositoryId,
         source: 'EXTERNAL_PUBLIC',
@@ -378,7 +390,9 @@ export class CollectionIncrementalRepository {
         failureCount: 0,
       },
     });
+    if (updated.count === 0) return false;
     await this.purgeUnregisteredExternalFacts(input.githubRepositoryId);
+    return true;
   }
 
   private async purgeUnregisteredExternalFacts(
@@ -390,7 +404,6 @@ export class CollectionIncrementalRepository {
       WHERE r."id" = f."repositoryId"
         AND r."githubRepositoryId" = ${githubRepositoryId}
         AND r."source" = 'EXTERNAL_PUBLIC'::"RepositorySource"
-        AND f."authorGithubId" IS NOT NULL
         AND NOT EXISTS (
           SELECT 1 FROM "User" u WHERE u."githubId" = f."authorGithubId"
         )
@@ -401,7 +414,6 @@ export class CollectionIncrementalRepository {
       WHERE r."id" = f."repositoryId"
         AND r."githubRepositoryId" = ${githubRepositoryId}
         AND r."source" = 'EXTERNAL_PUBLIC'::"RepositorySource"
-        AND f."authorGithubId" IS NOT NULL
         AND NOT EXISTS (
           SELECT 1 FROM "User" u WHERE u."githubId" = f."authorGithubId"
         )
@@ -412,7 +424,6 @@ export class CollectionIncrementalRepository {
       WHERE r."id" = f."repositoryId"
         AND r."githubRepositoryId" = ${githubRepositoryId}
         AND r."source" = 'EXTERNAL_PUBLIC'::"RepositorySource"
-        AND f."authorGithubId" IS NOT NULL
         AND NOT EXISTS (
           SELECT 1 FROM "User" u WHERE u."githubId" = f."authorGithubId"
         )
@@ -472,6 +483,7 @@ export class CollectionIncrementalRepository {
         lastCompleteInventoryObservedAt: observedAt,
       },
     });
+    await this.purgeUnregisteredExternalFacts(githubRepositoryId);
   }
 
   /**

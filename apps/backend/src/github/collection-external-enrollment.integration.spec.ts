@@ -108,6 +108,13 @@ describe('external repository enrollment integration', () => {
           authorGithubId: OUTSIDER_GITHUB_ID,
           authorGithubLogin: 'synthetic-outsider',
         },
+        {
+          repositoryId: repository.id,
+          sha: 'synthetic-unresolved-commit',
+          committedAt: OBSERVED_AT,
+          authorGithubId: null,
+          authorGithubLogin: 'synthetic-unresolved-outsider',
+        },
       ],
     });
     await prisma.collectionPullRequestFact.createMany({
@@ -128,6 +135,14 @@ describe('external repository enrollment integration', () => {
           authorGithubId: OUTSIDER_GITHUB_ID,
           authorGithubLogin: 'synthetic-outsider',
         },
+        {
+          repositoryId: repository.id,
+          githubPullRequestId: 9_000_000_730_303n,
+          state: 'MERGED',
+          createdAt: OBSERVED_AT,
+          authorGithubId: null,
+          authorGithubLogin: 'synthetic-unresolved-outsider',
+        },
       ],
     });
     await prisma.collectionReleaseFact.createMany({
@@ -145,6 +160,13 @@ describe('external repository enrollment integration', () => {
           publishedAt: OBSERVED_AT,
           authorGithubId: OUTSIDER_GITHUB_ID,
           authorGithubLogin: 'synthetic-outsider',
+        },
+        {
+          repositoryId: repository.id,
+          githubReleaseId: 9_000_000_730_403n,
+          publishedAt: OBSERVED_AT,
+          authorGithubId: null,
+          authorGithubLogin: 'synthetic-unresolved-outsider',
         },
       ],
     });
@@ -276,7 +298,7 @@ describe('external repository enrollment integration', () => {
         enrollment.enrollExternalRepository(input),
         enrollment.enrollExternalRepository(input),
       ]),
-    ).resolves.toEqual([undefined, undefined]);
+    ).resolves.toEqual([true, true]);
     await expect(
       prisma.githubRepository.count({
         where: { githubRepositoryId: REPOSITORY_IDS[3] },

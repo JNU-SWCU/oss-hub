@@ -6,7 +6,7 @@ export interface OwnRepositoryEnrollmentInput {
   readonly applicantGithubId: bigint;
   readonly githubRepositoryId: bigint;
   readonly nameWithOwner: string;
-  readonly defaultBranch: string;
+  readonly defaultBranch: string | null;
   readonly archived: boolean;
   readonly observedAt: Date;
 }

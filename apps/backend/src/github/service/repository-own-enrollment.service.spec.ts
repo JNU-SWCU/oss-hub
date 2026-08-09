@@ -26,7 +26,7 @@ describe('RepositoryOwnEnrollmentService', () => {
     > = {
       enrollExternalRepository: jest.fn(() => {
         order.push('enrollment');
-        return Promise.resolve();
+        return Promise.resolve(true);
       }),
     };
     const service = new RepositoryOwnEnrollmentService(consents, enrollment);

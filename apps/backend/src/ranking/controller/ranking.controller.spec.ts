@@ -112,7 +112,7 @@ describe('RankingController', () => {
     expect(listYears).toHaveBeenCalledTimes(1);
   });
 
-  it('GET /ranking/years 는 public short-cache 헤더를 붙인다', () => {
+  it('GET /ranking/years 는 공개 상태 회수를 늦추는 cache 헤더를 붙이지 않는다', () => {
     const handler: unknown = Object.getOwnPropertyDescriptor(
       RankingController.prototype,
       'listYears',
@@ -121,9 +121,6 @@ describe('RankingController', () => {
       throw new TypeError('RankingController.listYears is missing');
     }
 
-    expect(Reflect.getMetadata(HEADERS_METADATA, handler)).toContainEqual({
-      name: 'Cache-Control',
-      value: 'public, max-age=60',
-    });
+    expect(Reflect.getMetadata(HEADERS_METADATA, handler)).toBeUndefined();
   });
 });
