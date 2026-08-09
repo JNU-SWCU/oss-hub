@@ -30,10 +30,10 @@ const UNSAFE_CHARACTERS = new Set([
 const FALLBACK_SEGMENT = 'file';
 
 /**
- * 이름 한 칸(팀명·서류명)의 최대 길이. 둘을 `_`로 이어도 201자라 NTFS의 이름 한 칸 상한
- * (255)에 확장자까지 넣고도 남는다.
+ * 이름 한 칸(팀명·서류명)의 최대 길이, **UTF-16 코드 단위**. 둘을 `_`로 이어도 201이라
+ * NTFS의 이름 한 칸 상한(255)에 확장자까지 넣고도 남는다.
  */
-const MAX_SEGMENT_CHARACTERS = 100;
+const MAX_SEGMENT_UNITS = 100;
 
 /**
  * Windows가 이름으로 쓸 수 없는 예약 장치 이름(대소문자 무관). 규격은 Win32 파일 이름 규칙이고
@@ -95,9 +95,24 @@ export function milestoneDocumentArchiveFolderName(value: string): string {
    * 그대로 통과해 폴더가 안 풀린다.
    */
   const stem = segment.split('.')[0] ?? segment;
-  return WINDOWS_RESERVED_NAMES.has(stem.toUpperCase())
+  return WINDOWS_RESERVED_NAMES.has(normalizeDeviceDigits(stem).toUpperCase())
     ? `${segment}_`
     : segment;
+}
+
+/**
+ * 예약 이름 판정 **직전에만** 쓰는 정규화 — `COM¹`·`LPT²` 같은 위첨자 숫자를 보통 숫자로 편다.
+ *
+ * Windows의 장치 이름 판정은 `COM1` 뿐 아니라 위첨자 `¹`·`²`·`³`도 같은 장치 번호로 읽는다.
+ * 그래서 `COM¹` 폴더는 만들어지지 않는데 우리 목록에는 안 걸린다. ⚠ 이것도 Win32 규칙을 옮긴
+ * 것이고 실제 Windows에서 확인한 것은 아니다 — 다만 틀렸을 때 잃는 것이 `_` 하나뿐이라 건다.
+ *
+ * 판정에만 쓰고 **실제 이름은 바꾸지 않는다.** 교직원이 보는 이름은 학생이 적은 그대로여야 한다.
+ */
+function normalizeDeviceDigits(value: string): string {
+  return value.replace(/[¹²³]/g, (character) =>
+    String({ '¹': 1, '²': 2, '³': 3 }[character] ?? character),
+  );
 }
 
 function baseName(
@@ -152,18 +167,25 @@ function safeSegment(value: string): string {
 /**
  * 이름 한 칸의 길이를 자른다.
  *
- * 자르지 않으면 **정상 입력만으로 풀리지 않는 ZIP이 나온다** — 팀 이름은 100자,
- * 서류 이름은 200자까지 허용되므로 `팀명_서류명`이 301자가 될 수 있는데 NTFS의 이름 한 칸
- * 상한은 255다. 잘라서 생기는 이름 충돌은 뒤따르는 중복 회피(` (2)`)가 받아 준다.
+ * 자르지 않으면 **정상 입력만으로 풀리지 않는 ZIP이 나온다** — 팀 이름은 100, 서류 이름은
+ * 200까지 허용되므로 `팀명_서류명`이 301이 될 수 있는데 NTFS의 이름 한 칸 상한은 255다.
+ * 잘라서 생기는 이름 충돌은 뒤따르는 중복 회피(` (2)`)가 받아 준다.
  *
- * 코드포인트 단위로 자른다 — UTF-16 단위로 자르면 이모지 같은 서러게이트 쌍이 반쪽만 남아
- * 깨진 글자가 된다. 전체 이름은 동봉 `제출현황.csv`에 그대로 남으므로 정보는 잃지 않는다.
+ * ⚠ **세는 단위가 UTF-16 코드 단위**여야 한다. 파일 시스템이 그 단위로 세기 때문이다 —
+ * 글자 수로 세면 이모지 하나가 2를 먹으므로 「100자」가 200이 되어 상한 보장이 깨진다.
+ * 그렇다고 UTF-16 단위로 뚝 자르면 서러게이트 쌍이 반쪽만 남아 깨진 글자가 되므로,
+ * **글자 경계를 지키면서 단위로 센다.** 전체 이름은 동봉 `제출현황.csv`에 그대로 남는다.
  */
 function truncate(value: string): string {
-  const characters = [...value];
-  return characters.length <= MAX_SEGMENT_CHARACTERS
-    ? value
-    : characters.slice(0, MAX_SEGMENT_CHARACTERS).join('').trim();
+  if (value.length <= MAX_SEGMENT_UNITS) return value;
+  let units = 0;
+  let cut = '';
+  for (const character of value) {
+    if (units + character.length > MAX_SEGMENT_UNITS) break;
+    units += character.length;
+    cut += character;
+  }
+  return cut.trim();
 }
 
 /** 원본 파일명의 확장자(선행 `.` 포함). 확장자가 없으면 빈 문자열. */

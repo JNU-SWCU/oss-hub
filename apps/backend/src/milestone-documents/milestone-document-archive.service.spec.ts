@@ -671,6 +671,41 @@ describe('MilestoneDocumentArchiveService', () => {
     expect(opened[0]?.destroyed).toBe(true);
   });
 
+  it('스토리지가 늦게 응답하는 사이에 끊겨도 그 스트림을 붙들지 않는다', async () => {
+    /*
+     * ⚠ 취소가 **`storage.get()`이 응답하기 전에** 오는 경합이다. 그때는 아직 붙들고 있는
+     * 스트림이 없어서 출력의 `close`가 끊을 것이 없고, 뒤늦게 도착한 스트림은 이미 닫힌
+     * 압축으로 넘어가 **아무도 안 끊는다.** 느린 S3 응답 + 성급한 취소는 드문 조합이 아니고,
+     * 반복되면 연결 풀이 마른다.
+     */
+    const opened: Readable[] = [];
+    let resolveGet!: (body: Readable) => void;
+    const pendingGet = new Promise<Readable>((resolve) => {
+      resolveGet = resolve;
+    });
+    const { service } = buildService({}, { get: jest.fn(() => pendingGet) });
+
+    const archive = await service.archiveForStaff(
+      syntheticMilestoneId,
+      'TEAM',
+      now,
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+
+    // 아직 응답이 안 온 상태에서 취소한다.
+    archive.body.destroy();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    // 그 뒤에 스토리지가 응답한다.
+    const late = new Readable({ read() {} });
+    opened.push(late);
+    resolveGet(late);
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(opened[0]?.destroyed).toBe(true);
+  });
+
   it('스토리지가 끊기면 내려받기를 오류로 끊는다', async () => {
     const { service } = buildService(
       {},
