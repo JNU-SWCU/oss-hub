@@ -55,9 +55,9 @@ export function ApplicationDecisionDialog({
    */
   readonly errorMessage: string | null;
   /**
-   * 창을 연 버튼의 id. 닫힐 때 그리로 포커스를 돌려준다.
-   * 그 버튼이 사라졌으면(목록에서 판정에 성공해 「승인」이 「되돌리기」로 바뀐 경우)
-   * 손대지 않고 Radix 기본 복귀에 맡긴다 — `submission-dialog.tsx`와 같은 규칙.
+   * 창을 연 버튼의 id. 닫힐 때 그리로 포커스를 돌려준다(`submission-dialog.tsx`와 같은 규칙).
+   * ⚠ 판정에 **성공**하면 그 버튼이 사라진다(「승인」이 「되돌리기」로 바뀐다).
+   *   그때는 Radix 기본 복귀도 같은 버튼을 향하므로 포커스가 `<body>` 로 떨어진다 — 남은 문제다.
    */
   readonly returnFocusId: string;
   readonly onReasonChange: (value: string) => void;
@@ -65,6 +65,11 @@ export function ApplicationDecisionDialog({
   readonly onConfirm: () => void;
 }) {
   const isReject = action === 'REJECT';
+  /*
+   * 반려 창은 설명 문단 대신 입력 폼이라 가리킬 설명이 없다. 키를 **아예 넘기지 않아야**
+   * 나머지 두 창에서 Radix 가 붙이는 설명 id 가 살아남는다(`undefined` 를 넘기면 그것까지 지운다).
+   */
+  const describedBy = isReject ? { 'aria-describedby': undefined } : {};
   return (
     <AlertDialog.Root
       open
@@ -81,10 +86,13 @@ export function ApplicationDecisionDialog({
     >
       <AlertDialog.Overlay className="fixed inset-0 z-50 bg-foreground/40" />
       <AlertDialog.Content
-        // 반려 창은 설명 문단 대신 입력 폼이라 가리킬 설명이 없다.
-        // 비워 두지 않고 명시적으로 undefined 를 줘야 Radix 가 경고하지 않는다.
-        aria-describedby={isReject ? undefined : 'decision-description'}
-        className="fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-background p-6 shadow-lg outline-none"
+        {...describedBy}
+        /*
+         * ⚠ 창이 스스로 스크롤되어야 한다 — 뒤 화면 스크롤은 잠기므로, 창이 화면보다
+         *   길어지면 버튼에 닿을 방법이 없다(반려 + 입력 오류 + 저장 실패가 겹친 상태가
+         *   제일 길다). 형제 창들과 같은 규칙(`submission-dialog`·`program-type-modal`).
+         */
+        className="fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl bg-background p-6 shadow-lg outline-none *:min-w-0"
         onCloseAutoFocus={(event) => {
           const returnTarget = document.getElementById(returnFocusId);
           if (!(returnTarget instanceof HTMLElement)) return;
@@ -93,7 +101,7 @@ export function ApplicationDecisionDialog({
         }}
       >
         <AlertDialog.Title asChild>
-          <h2 id="decision-title" className="text-lg font-semibold">
+          <h2 className="text-lg font-semibold">
             {action === 'APPROVE'
               ? '신청 승인'
               : isReject
@@ -103,7 +111,7 @@ export function ApplicationDecisionDialog({
         </AlertDialog.Title>
         {action === 'APPROVE' ? (
           <AlertDialog.Description asChild>
-            <p id="decision-description" className="break-keep">
+            <p className="break-keep">
               {repositoryConnectionMode === 'OWN'
                 ? '승인하면 신청자가 낸 저장소를 연결합니다. 새 저장소를 만들지 않습니다.'
                 : repositoryProvisioningEnabled
@@ -132,7 +140,7 @@ export function ApplicationDecisionDialog({
               }
             />
             {reasonError ? (
-              <span id="reason-error" className="text-destructive">
+              <span id="reason-error" role="alert" className="text-destructive">
                 반려 사유를 입력해 주세요.
               </span>
             ) : null}
@@ -146,7 +154,7 @@ export function ApplicationDecisionDialog({
           </div>
         ) : (
           <AlertDialog.Description asChild>
-            <p id="decision-description">
+            <p className="break-keep">
               판정을 취소하고 신청을 다시 제출됨 상태로 되돌립니다. 이후
               승인·반려를 다시 할 수 있습니다.
             </p>
@@ -161,8 +169,13 @@ export function ApplicationDecisionDialog({
           </Alert>
         ) : null}
         <div className="flex justify-end gap-2">
+          {/*
+           * ⚠ 저장 중에도 `disabled` 로 막지 않는다 — 창 안의 조작이 전부 disabled 가 되면
+           *   포커스를 둘 곳이 없어져 포커스가 창 **밖으로** 새고, 그때부터 읽어 주는 도구는
+           *   아무것도 못 읽는다. 실제로 닫는 것은 `onOpenChange` 의 `busy` 가드가 막는다.
+           */}
           <AlertDialog.Cancel asChild>
-            <Button variant="outline" disabled={busy}>
+            <Button variant="outline" aria-disabled={busy || undefined}>
               취소
             </Button>
           </AlertDialog.Cancel>

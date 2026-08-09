@@ -379,6 +379,41 @@ describe('program applicants revert action', () => {
     expect(dialog?.textContent).toContain('입력과 현재 상태를 유지했습니다');
   });
 
+  it('낡은 상태 재조회까지 실패해도 안내가 확인창 뒤에 가리지 않는다', async () => {
+    // Given: 409(낡은 상태)로 실패하고, 최신 상태를 다시 읽는 것마저 실패한다.
+    // ⚠ 이때 확인창을 안 닫고 화면 위쪽에 안내를 그리면 창 뒤에 가려 아무도 못 본다.
+    listProgramApplicationsMock
+      .mockResolvedValueOnce(applicationPage([personal]))
+      .mockRejectedValueOnce(new Error('synthetic reload failure'));
+    decideApplicationMock.mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: 'conflict',
+        status: 409,
+        detail: 'stale',
+        instance: 'urn:test:applications:app-personal',
+        code: 'APP_021',
+      }),
+    );
+    await act(async () => {
+      root.render(<ProgramApplicantsPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => getButton('승인').click());
+
+    // When: 승인을 확정한다.
+    await act(async () => getButton('승인 확정').click());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Then: 확인창이 닫혀 있어 안내가 가리지 않는다.
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(container.textContent).toContain('최신 상태 확인 실패');
+  });
+
   it('확인창을 Escape 로 닫으면 그 행의 판정 버튼으로 포커스가 돌아온다', async () => {
     // Given: 목록은 행마다 판정 버튼이 있어서, 창을 연 **그 행**으로 돌아가야 한다.
     listProgramApplicationsMock.mockResolvedValue(applicationPage([personal]));

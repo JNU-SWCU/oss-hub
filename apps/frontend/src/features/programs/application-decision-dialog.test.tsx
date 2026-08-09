@@ -27,10 +27,12 @@ function Harness({
   action = 'APPROVE',
   errorMessage = null,
   busyAfterConfirm = false,
+  reasonError = false,
 }: {
   readonly action?: ApplicationDecisionAction;
   readonly errorMessage?: string | null;
   readonly busyAfterConfirm?: boolean;
+  readonly reasonError?: boolean;
 }) {
   const [open, setOpen] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -47,7 +49,7 @@ function Harness({
           repositoryProvisioningEnabled={false}
           repositoryConnectionMode="NEW"
           reason=""
-          reasonError={false}
+          reasonError={reasonError}
           busy={busy}
           errorMessage={errorMessage}
           returnFocusId={triggerId}
@@ -105,8 +107,75 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     await act(async () => root.unmount());
     container.remove();
     vi.restoreAllMocks();
-    // Radix 는 Title·Description 이 빠지면 console 로 경고한다. 경고도 회귀 신호다.
+    // React 의 act·상태 갱신 경고를 회귀 신호로 취급한다(형제 창 테스트와 같은 규칙).
+    // ⚠ Radix 의 Title·Description 누락 경고는 여기서 안 잡힌다 — 이 버전의
+    //   `WarningProvider` 는 아무것도 안 한다. 그래서 이름·설명은 위에서 직접 단언한다.
     expect(consoleErrors).toEqual([]);
+  });
+
+  it.each(['APPROVE', 'REJECT', 'REVERT'] as const)(
+    '%s 창의 이름이 실제로 있는 제목을 가리킨다',
+    async (action) => {
+      // Given: 확인창이 열렸다.
+      // ⚠ `aria-labelledby` 가 **없는 id** 를 가리키면 읽어 주는 도구는 이름 없는 창을
+      //   말한다. 속성이 붙어 있다는 것만으로는 이름이 있다는 뜻이 아니다.
+      await act(async () => root.render(<Harness action={action} />));
+
+      // When: 창이 가리키는 이름을 따라간다.
+      const labelledBy = dialog()?.getAttribute('aria-labelledby');
+      const title =
+        labelledBy === null ? null : document.getElementById(labelledBy ?? '');
+
+      // Then: 가리키는 요소가 실제로 있고 제목 글자를 담고 있다.
+      expect(labelledBy).toBeTruthy();
+      expect(title).not.toBeNull();
+      expect(title?.textContent?.trim()).not.toBe('');
+    },
+  );
+
+  it.each(['APPROVE', 'REVERT'] as const)(
+    '%s 창의 설명도 실제로 있는 문단을 가리킨다',
+    async (action) => {
+      await act(async () => root.render(<Harness action={action} />));
+
+      const describedBy = dialog()?.getAttribute('aria-describedby');
+      expect(describedBy).toBeTruthy();
+      expect(document.getElementById(describedBy ?? '')).not.toBeNull();
+    },
+  );
+
+  it('반려 창은 설명 문단이 없으므로 없는 설명을 가리키지 않는다', async () => {
+    // Given: 반려 창은 설명 대신 입력 폼이다.
+    await act(async () => root.render(<Harness action="REJECT" />));
+
+    // Then: 가리키는 설명이 아예 없다(있는 척하지 않는다).
+    expect(dialog()?.getAttribute('aria-describedby')).toBeNull();
+  });
+
+  it('사유를 비운 채 확정하면 오류를 읽어 주는 도구가 알아챈다', async () => {
+    // Given: 반려 사유 검증에 걸린 상태다.
+    // 포커스는 입력칸으로 가지 않으므로, 라이브 영역이 아니면 아무도 못 듣는다.
+    await act(async () => root.render(<Harness action="REJECT" reasonError />));
+
+    // Then
+    const error = dialog()?.querySelector('#reason-error');
+    expect(error?.getAttribute('role')).toBe('alert');
+    expect(error?.textContent).toContain('반려 사유를 입력해 주세요.');
+  });
+
+  it('저장하는 중에도 포커스가 창 밖으로 새지 않는다', async () => {
+    // Given: 확정을 눌러 저장이 날아가는 중이다.
+    // ⚠ 창 안의 조작을 전부 disabled 로 만들면 포커스를 둘 곳이 없어져 브라우저가
+    //   포커스를 창 밖으로 내보낸다 — 그때부터 읽어 주는 도구는 아무것도 못 읽는다.
+    await act(async () => root.render(<Harness busyAfterConfirm />));
+    await act(async () => getButton('승인 확정').click());
+    expect(getButton('처리 중…').disabled).toBe(true);
+
+    // Then: 창 안에 포커스를 받을 수 있는 곳이 남아 있다.
+    const focusable = dialog()?.querySelectorAll(
+      'button:not([disabled]), textarea:not([disabled]), [href], input:not([disabled])',
+    );
+    expect(focusable?.length ?? 0).toBeGreaterThan(0);
   });
 
   it('열리면 포커스가 창 안으로 들어간다', async () => {

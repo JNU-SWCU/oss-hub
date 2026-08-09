@@ -272,9 +272,10 @@ export function ProgramApplicantsPage({
     } catch (error: unknown) {
       const staleTitle = staleApplicationDecisionTitle(error);
       if (staleTitle !== null) {
+        // ⚠ 재조회보다 **먼저** 닫는다 — 재조회가 실패하면 아래 안내가 확인창 뒤에 그려진다.
+        setDialog(null);
         try {
           await reloadApplications();
-          setDialog(null);
           setNotice({
             kind: 'error',
             title: staleTitle,
