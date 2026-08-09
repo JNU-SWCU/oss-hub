@@ -179,6 +179,46 @@ describe('ProgramApplicationDetailPage', () => {
     expect(wraps(applicantValue)).toBe(true);
   });
 
+  it('학생이 넣은 Bidi·제어문자를 화면에 그대로 흘리지 않는다', async () => {
+    // `U+202E` 하나면 뒤 문장이 거꾸로 표시된다 — 교직원이 학생이 제출하지 않은
+    // 문장을 읽은 채 승인·반려를 누른다(#735). 제목·지원 동기·신청서 이름 셋 다.
+    getApplicationDetailMock.mockResolvedValue({
+      ...submitted,
+      answers: {
+        applicantName: '이름\u202E뒤집기',
+        title: '제목\u202E뒤집기',
+        summary: '동기\u0007제어문자',
+      },
+    });
+
+    await mount();
+
+    expect(container.textContent).not.toContain('\u202E');
+    expect(container.textContent).not.toContain('\u0007');
+    expect(container.textContent).toContain('이름뒤집기');
+    expect(container.textContent).toContain('제목뒤집기');
+    expect(container.textContent).toContain('동기제어문자');
+  });
+
+  it('신청자 줄의 프로필 이름·핸들도 걷어낸다', async () => {
+    // 프로필 이름은 학생 본인이 쓰고 문자 종류 검증이 없다 — 신청서 입력만 막고
+    // 여기를 열어 두면 같은 문자가 그대로 교직원 화면에 닿는다.
+    getApplicationDetailMock.mockResolvedValue({
+      ...submitted,
+      applicant: {
+        id: 'student-1',
+        name: '계정\u202E이름',
+        nickname: 'login\u202E1',
+      },
+    });
+
+    await mount();
+
+    expect(container.textContent).not.toContain('\u202E');
+    expect(container.textContent).toContain('계정이름');
+    expect(container.textContent).toContain('@login1');
+  });
+
   it('제출 시각을 서울 시각으로 적는다', async () => {
     getApplicationDetailMock.mockResolvedValue(submitted);
 

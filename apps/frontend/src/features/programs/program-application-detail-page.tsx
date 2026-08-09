@@ -23,6 +23,7 @@ import {
   APPLICATION_STATUS_BADGE,
   APPLICATION_STATUS_LABELS,
   PROVISIONING_LABELS,
+  displayAnswerText,
   displayApplicantName,
   formatSubmittedAt,
   participationLabel,
@@ -342,13 +343,16 @@ export function ProgramApplicationDetailPage({
 
       <Section title="지원 내용">
         <dl className="grid gap-4">
-          <Row label="제목" value={application.answers.title} />
+          <Row
+            label="제목"
+            value={displayAnswerText(application.answers.title)}
+          />
           <div className="grid gap-1">
             <dt className="text-small text-muted-foreground">
               지원 동기 · 계획
             </dt>
             <dd className="rounded-card bg-muted p-4 break-keep whitespace-pre-wrap [overflow-wrap:anywhere]">
-              {application.answers.summary}
+              {displayAnswerText(application.answers.summary)}
             </dd>
           </div>
         </dl>
@@ -363,11 +367,11 @@ export function ProgramApplicationDetailPage({
           <Row label="팀" value={application.team?.name ?? '없음(개인 신청)'} />
           <Row
             label="신청자"
-            value={`${application.applicant.name ?? application.applicant.nickname} (@${application.applicant.nickname})`}
+            value={`${displayAnswerText(application.applicant.name ?? '') || displayAnswerText(application.applicant.nickname)} (@${displayAnswerText(application.applicant.nickname)})`}
           />
           <Row
             label="신청서에 적은 이름"
-            value={application.answers.applicantName}
+            value={displayAnswerText(application.answers.applicantName)}
           />
           <Row
             label="저장소 공개 예정"

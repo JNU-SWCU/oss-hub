@@ -1,4 +1,5 @@
 import { ApiError } from '@/lib/api-client';
+import { sanitizeDisplayText } from '@/lib/display-text';
 import type {
   ApplicationListItem,
   ApplicationStatus,
@@ -51,9 +52,34 @@ export function formatSubmittedAt(value: string): string {
   }).format(new Date(value));
 }
 
+/**
+ * 학생이 신청서에 쓴 글을 화면에 그리기 전에 지나는 자리(#735).
+ *
+ * `answers.*` 는 학생 자유 입력인데 쓰기 쪽에 위생 처리도 길이 상한도 없다. 그대로
+ * 그리면 `U+202E`(RTL override) 하나로 **뒤 문장이 거꾸로 표시**되고, 교직원은 학생이
+ * 제출하지 않은 문장을 읽은 채 승인·반려를 누른다.
+ *
+ * ⚠ **자르지 않는다.** 잘린 지원 동기로 판정하게 만드는 것이 더 나쁘다 —
+ * 그래서 `clampRejectionReason` 이 아니라 `sanitizeDisplayText` 쪽이다.
+ * 세로로 길어지는 문제의 근본 처방은 쓰기 쪽 길이 상한이고, 그건 별건이다.
+ */
+export function displayAnswerText(value: string): string {
+  return sanitizeDisplayText(value) ?? '';
+}
+
+/**
+ * ⚠ **세 갈래 모두 학생이 쓴 값이다.** `answers.applicantName` 은 신청서 입력이고,
+ * `applicant.name` 은 학생 본인 프로필 이름인데 그 검증이 `@IsString @IsNotEmpty
+ * @MaxLength` 뿐이라 문자 종류를 안 가린다(`update-my-profile-request.dto.ts`).
+ * 신청 생성이 프로필 이름을 그대로 `applicantName` 으로 복사하므로
+ * (`applications.service.ts`), 앞을 막고 뒤를 열어 두면 같은 문자가 fallback 으로
+ * 되돌아온다. 그래서 셋 다 지나가게 한다.
+ */
 export function displayApplicantName(item: ApplicationListItem): string {
   return (
-    item.answers.applicantName || item.applicant.name || item.applicant.nickname
+    displayAnswerText(item.answers.applicantName) ||
+    displayAnswerText(item.applicant.name ?? '') ||
+    displayAnswerText(item.applicant.nickname)
   );
 }
 

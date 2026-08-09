@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import { REJECTION_REASON_MAX_LENGTH } from '@/lib/rejection-reason';
+import { REJECTION_REASON_MAX_LENGTH } from '@/lib/display-text';
 import {
   RoleSelectionForm,
   type ClosedRoleRequestNotice,

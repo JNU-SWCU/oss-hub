@@ -16,7 +16,7 @@ import {
 } from '@/components';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
-import { clampRejectionReason } from '@/lib/rejection-reason';
+import { clampRejectionReason } from '@/lib/display-text';
 import { cn } from '@/lib/utils';
 
 import { selectRole } from '../api';

@@ -134,7 +134,13 @@ function splitGraphemes(value: string): readonly string[] {
  * 무너뜨린다.
  */
 /**
- * 화면을 깨뜨리는 문자만 걷어내고 **길이는 건드리지 않는다.**
+ * 사람이 쓴 자유 서술을 화면에 안전하게 그린다 — 화면을 깨뜨리는 문자만 걷어내고
+ * **길이는 건드리지 않는다.**
+ *
+ * 이름에 「반려 사유」가 없는 이유 — 위험은 글의 용도가 아니라 **출처**에서 온다.
+ * 교직원이 쓴 반려 사유든 학생이 쓴 지원 동기든, 사람이 자유롭게 친 글이 그대로
+ * 남의 화면에 그려진다는 점은 같다. 쓰는 곳이 늘 때마다 이름을 고치지 않아도 되게
+ * 중립적으로 둔다.
  *
  * 자르기와 갈라 둔 이유 — 두 화면이 같은 위험(제어문자·Bidi)을 지지만 길이 규칙은
  * 정반대다. 역할 요청 반려는 대개 한 줄이라 상한이 화면을 지키지만, 프로그램 신청
@@ -146,7 +152,7 @@ function splitGraphemes(value: string): readonly string[] {
  *
  * 세로로 길어지는 것은 자르기가 아니라 화면 쪽에서 감당한다.
  */
-export function sanitizeRejectionReason(reason: string | null): string | null {
+export function sanitizeDisplayText(reason: string | null): string | null {
   const cleaned = collapseBlankLines(
     (reason ?? '')
       .replace(UNRENDERABLE_PATTERN, '')
@@ -158,7 +164,7 @@ export function sanitizeRejectionReason(reason: string | null): string | null {
 }
 
 export function clampRejectionReason(reason: string | null): string | null {
-  const cleaned = sanitizeRejectionReason(reason);
+  const cleaned = sanitizeDisplayText(reason);
   if (cleaned === null) {
     return null;
   }

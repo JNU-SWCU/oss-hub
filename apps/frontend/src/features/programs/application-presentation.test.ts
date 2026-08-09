@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
+import { REJECTION_REASON_MAX_LENGTH } from '@/lib/display-text';
 import {
+  displayAnswerText,
   displayApplicantName,
   formatSubmittedAt,
   participationLabel,
@@ -117,5 +119,84 @@ describe('staleApplicationDecisionTitle', () => {
     expect(
       staleApplicationDecisionTitle(new ApiError(problem(409, 'APP_023'))),
     ).toBe('저장소가 이미 만들어진 승인은 되돌릴 수 없습니다');
+  });
+});
+
+/**
+ * 학생 자유 입력이 교직원 화면에 그대로 그려지는 자리(#735).
+ *
+ * 쓰기 쪽에 위생 처리도 길이 상한도 없어서, 읽는 쪽이 마지막 방어선이다.
+ */
+describe('displayAnswerText', () => {
+  it('문장 순서를 뒤집는 Bidi 표시를 걷어낸다', () => {
+    // U+202E 하나면 뒤 문장이 거꾸로 표시된다 — 교직원이 학생이 제출하지 않은
+    // 문장을 읽은 채 판정을 누른다.
+    expect(displayAnswerText('앞\u202E뒤')).toBe('앞뒤');
+  });
+
+  it('제어문자를 걷어낸다', () => {
+    expect(displayAnswerText('정상\u0007내용')).toBe('정상내용');
+  });
+
+  it('길이는 자르지 않는다', () => {
+    // 잘린 지원 동기로 판정하게 만드는 것이 더 나쁘다.
+    const long = '가'.repeat(REJECTION_REASON_MAX_LENGTH * 2);
+
+    expect(displayAnswerText(long)).toBe(long);
+    expect(displayAnswerText(long)).not.toContain('…');
+  });
+
+  it('줄바꿈은 살린다', () => {
+    expect(displayAnswerText('첫 줄\n둘째 줄')).toBe('첫 줄\n둘째 줄');
+  });
+
+  it('빈 값은 빈 문자열이다', () => {
+    // `null` 을 그대로 흘리면 화면에 "null" 이 찍힌다.
+    expect(displayAnswerText('')).toBe('');
+    expect(displayAnswerText('   ')).toBe('');
+  });
+});
+
+describe('displayApplicantName', () => {
+  it('신청서에 적은 이름도 위생 처리를 지난다', () => {
+    expect(
+      displayApplicantName({
+        ...item,
+        answers: { ...item.answers, applicantName: '학생\u202E이름' },
+      }),
+    ).toBe('학생이름');
+  });
+
+  it('계정 이름 fallback 도 위생 처리를 지난다', () => {
+    // ⚠ 프로필 이름은 학생 본인이 쓴다. 그 검증이 문자 종류를 안 가리고
+    // (`update-my-profile-request.dto.ts`), 신청 생성이 그 값을 그대로
+    // `applicantName` 으로 복사한다 — 앞만 막으면 같은 문자가 여기로 되돌아온다.
+    expect(
+      displayApplicantName({
+        ...item,
+        answers: { ...item.answers, applicantName: '' },
+        applicant: { ...item.applicant, name: '계정\u202E이름' },
+      }),
+    ).toBe('계정이름');
+  });
+
+  it('GitHub 핸들 fallback 도 위생 처리를 지난다', () => {
+    expect(
+      displayApplicantName({
+        ...item,
+        answers: { ...item.answers, applicantName: '' },
+        applicant: { ...item.applicant, name: null, nickname: 'login\u202E1' },
+      }),
+    ).toBe('login1');
+  });
+
+  it('위생 처리 후 비면 계정 이름으로 내려간다', () => {
+    // 제어문자만 적어 낸 이름은 지우고 나면 빈 값이다 — 빈 제목이 뜨면 안 된다.
+    expect(
+      displayApplicantName({
+        ...item,
+        answers: { ...item.answers, applicantName: '\u202E\u0007' },
+      }),
+    ).toBe('계정 이름');
   });
 });

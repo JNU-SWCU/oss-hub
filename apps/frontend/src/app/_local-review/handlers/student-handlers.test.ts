@@ -5,9 +5,9 @@ import { PROGRAM_TEMPLATE_DEFINITIONS } from '@/features/programs/program-templa
 import type { StudentApplication } from '@/features/programs/student-application-api';
 import type { SubmissionFormData } from '@/features/submissions/types';
 import {
-  sanitizeRejectionReason,
+  sanitizeDisplayText,
   REJECTION_REASON_MAX_LINES,
-} from '@/lib/rejection-reason';
+} from '@/lib/display-text';
 import type { LocalReviewFixtureId } from '../fixture-contract';
 import { resolveLocalReviewResponse } from '../fixture-response';
 import { PUBLIC_PROGRAM_IDS } from './student-program-fixtures';
@@ -310,7 +310,7 @@ describe('student fixture responses', () => {
 
     // And: 정제기를 통과하고도 사유가 남아야 상자가 그려진다. 공백뿐이면 `null`이 되어
     // 화면이 아무것도 그리지 않고, 검토자는 여전히 사유를 볼 수 없다.
-    const rendered = sanitizeRejectionReason(application.rejectionReason);
+    const rendered = sanitizeDisplayText(application.rejectionReason);
     expect(rendered).not.toBeNull();
 
     // And: 여러 줄이어야 `whitespace-pre-wrap`이 도는지 눈으로 확인할 수 있다.

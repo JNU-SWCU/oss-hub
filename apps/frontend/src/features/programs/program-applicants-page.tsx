@@ -32,6 +32,7 @@ import {
   APPLICATION_STATUS_BADGE,
   APPLICATION_STATUS_LABELS,
   PROVISIONING_LABELS,
+  displayAnswerText,
   displayApplicantName,
   formatSubmittedAt,
   participationLabel,
@@ -300,7 +301,7 @@ export function ProgramApplicantsPage({
           <div className="grid gap-0.5">
             <span className="font-medium">{displayApplicantName(row)}</span>
             <span className="text-xs text-muted-foreground">
-              @{row.applicant.nickname}
+              @{displayAnswerText(row.applicant.nickname)}
             </span>
           </div>
         ),
@@ -310,7 +311,9 @@ export function ProgramApplicantsPage({
         id: 'title',
         header: '제목',
         cell: (row) => (
-          <span className="line-clamp-2 break-keep">{row.answers.title}</span>
+          <span className="line-clamp-2 break-keep">
+            {displayAnswerText(row.answers.title)}
+          </span>
         ),
       },
       {
