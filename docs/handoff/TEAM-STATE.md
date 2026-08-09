@@ -22,7 +22,7 @@
 | 기능 | 기여 추적 재설계 (랭킹 · 프로그램 기여도) |
 | owner | @GoBeromsu |
 | 원본 | [ADR-010](../decisions/ADR-010-contribution-tracking-context.md) |
-| 상태 | **v0.6.45 배포 완료**. PR #729 병합, `OWN` 편입은 PR #730 |
+| 상태 | **v0.6.47 배포 완료**. PR #729 병합, `OWN` 편입은 #730, 편입 결함 수정은 #750 |
 
 **진단 결과.** 착수 가설("랭킹이 멈췄다")은 프로덕션 진단으로 뒤집혔다. 스윕은 매시 정상이고 오류가 없으며 공개 API가 DB와 일치한다.
 실제 문제는 **커버리지 공백**이다 — 추적 저장소 3개(조직 것만), `EXTERNAL_PUBLIC` 0개, `OWN` 신청 0건.
@@ -38,7 +38,33 @@
 읽기 전환 직후 `Contribution`이 비어 랭킹이 잠시 비었고, 같은 집합 SQL로 74행을 백필해 복구했다 —
 `확장 → 재수집 → 읽기 전환` 중 재수집을 건너뛰면 화면이 빈다는 것을 실측했다.
 
-**남은 것.** ① `contributionsCollection` 배선 · fact 층 force-push 조정 · 옛 연도 집계 물리 드롭(`chore/drop-legacy-aggregates`, 아직 열지 않음).
+**`OWN` 편입 결함과 수정(v0.6.47).** #730의 편입이 `nameWithOwner`로 bare repo name을 넘겼다.
+수집은 그 값을 `/`로 쪼개고 없으면 `throw`하므로, **편입은 되는데 스윕이 그 행에서 죽는** 조용히 실패하는 경로였다.
+프로덕션에 `OWN` 신청이 0건이라 드러나지 않았을 뿐이다. #750이 GitHub API가 준 `nameWithOwner`를 그대로 쓰고
+`defaultBranch`·`archived`도 함께 담으며, 편입 전 현재 동의를 확인하도록 고쳤다.
+못 잡은 이유는 워커 스펙이 편입 호출을 단언하지 않아서였고, 지금은 인자까지 단언한다.
+
+**`OWN` 사슬 실측(2026-08-10, v0.6.47).** 표본 학생이 없어 ADR-010 §11의 대체 acceptance를 실행했다.
+통제된 공개 저장소 1개를 편입 → external 스윕(fact 604건, 실패 0) → 가입자 필터(604 → `Contribution` 61행, 비가입자 0) →
+랭킹(올해 총합 상승, 과거 연도에 처음으로 값이 생김, `dataAsOf`가 새 `lastSuccessAt`과 일치) → 화면 렌더까지 통과했다.
+org 스윕과 external 스윕은 별개 진입점이라 `runExternal`을 따로 돌려야 한다(`GR-9`).
+검증 후 프로덕션은 원상복구했다 — 승인된 신청이 없는 저장소가 공개 랭킹에 남으면 안 되기 때문이다.
+
+**진단 스크립트를 프로덕션에서 처음 끝까지 돌렸다.** 세 가지가 깨져 있었다.
+① `BEGIN ... COMMIT` 을 한 `--command` 로 보내 psql 명령 태그가 관측값에 섞였다 — `EXTERNAL_PUBLIC=BEGIN` 같은 거짓 값이 나왔다.
+서버측 `default_transaction_read_only` 로 바꿨다. ② `curl` 이 없으면 raw 셸 오류로 죽어 앞선 O0~O2 관측까지 버려졌다.
+③ O3 가 60초 TTL 캐시를 전제로 "응답 불변 → C8(배포본 옛것)" 을 추론했는데 그 캐시는 이미 제거됐다(`no-store`) —
+데이터가 안 변한 정상 상태를 배포 사고로 오진한다. `dataAsOf` 를 마지막 스윕 시각과 비교하는 방식으로 바꿨다.
+계약 검사도 `BEGIN TRANSACTION READ ONLY` 를 **요구하고** 있어 결함을 강제했고, `refute_grep` 의 패턴이 `--` 로 시작하면
+grep 이 옵션으로 먹어 조용히 통과했다. 둘 다 고치고 실 psql 동작을 흉내내는 stub 회귀를 넣었다.
+
+**O0~O3 4층 관측 결과(v0.6.47).** O0 연결 OK · O1 스윕 fresh(마지막 16:16:17, 오류 없음) ·
+O2 `ORG_PROVISIONED` 3개(PRIVATE 1 · PUBLIC 2), `EXTERNAL_PUBLIC` 0, `OWN` 신청 0, githubId 보유 사용자 7 ·
+O3 표면 `dataAsOf` 16:16:16 으로 마지막 스윕을 1.8초 차로 따라온다.
+**원인은 `C10` 커버리지 공백** — 수집이 멈춘 게 아니라 볼 대상이 조직 저장소 3개뿐이다.
+
+**남은 것.** ① `contributionsCollection` 배선 · fact 층 force-push 조정 · 옛 연도 집계 물리 드롭(`chore/drop-legacy-aggregates`, 아직 열지 않음) ·
+랭킹 읽기의 연결 심층 방어(랭킹 술어는 `visibility`·`presence`만 보고 신청 연결을 보지 않는다).
 
 ## 지난 회차 이후 바뀐 결정
 
