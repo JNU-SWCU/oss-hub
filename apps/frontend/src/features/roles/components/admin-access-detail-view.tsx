@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, RotateCcw, UserRound } from 'lucide-react';
+import { AlertCircle, ExternalLink, RotateCcw, UserRound } from 'lucide-react';
 
 import {
   DetailPanelLayout,
@@ -13,15 +13,9 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 
 import {
+  fetchAdminAccessHistory,
   parseAdminAccessConflictProjection,
   patchAdminAccess,
 } from '../admin-access-api';
@@ -32,22 +26,32 @@ import type {
   AdminAccessRoleRequestHistoryItem,
 } from '../admin-access-api';
 import {
+  ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
   AdminAccessDetailNotFoundError,
-  deriveAdminAccessEligibility,
-  isAdminAccessHistoryTruncated,
+  adminAccessHistoryPageCount,
+  formatAdminAccessDateTime,
   loadAdminAccessDetail,
   type AdminAccessDetailData,
 } from '../admin-access-detail-api';
 import {
-  adminAccessGrantTargetRole,
+  ACCOUNT_STATUS_LABEL,
+  ROLE_LABEL,
   adminAccessMutationErrorMessage,
   adminAccessMutationSuccessMessage,
   applyAdminAccessConflictProjection,
   buildAdminAccessPatchRequest,
+  roleForAction,
   type AdminAccessMutationAction,
+  type AdminAccessSetRoleAction,
 } from '../admin-access-mutation-policy';
-import { requireAdminAccessRevocation } from '../admin-access-revocation';
-import { AdminAccessMutationActions } from './admin-access-mutation-actions';
+import {
+  adminAccessRoleChangeDialogDescription,
+  isAdminAccessRoleDowngrade,
+} from '../admin-access-revocation';
+import {
+  AdminAccessMutationActions,
+  AdminAccessPendingRequestCard,
+} from './admin-access-mutation-actions';
 import { AdminAccessMutationConfirmDialog } from './admin-access-mutation-confirm-dialog';
 import { AdminAccessMutationRejectDialog } from './admin-access-mutation-reject-dialog';
 
@@ -134,6 +138,16 @@ export interface AdminAccessDetailMutationController {
   readonly onReasonChange: (reason: string) => void;
 }
 
+function isSetRoleAction(
+  action: AdminAccessMutationAction,
+): action is AdminAccessSetRoleAction {
+  return (
+    action === 'SET_ROLE_STUDENT' ||
+    action === 'SET_ROLE_STAFF' ||
+    action === 'SET_ROLE_ADMIN'
+  );
+}
+
 function mutationDialogCopy(
   action: Exclude<AdminAccessMutationAction, 'REJECT'>,
   detail: AdminAccessDetail,
@@ -143,51 +157,45 @@ function mutationDialogCopy(
   readonly confirmLabel: string;
   readonly destructive: boolean;
 } {
-  switch (action) {
-    case 'APPROVE':
-      return {
-        title: '요청 승인',
-        description: `${detail.githubLogin}님의 교직원 권한 요청을 승인하면 즉시 교직원 권한이 부여됩니다.`,
-        confirmLabel: '승인 확정',
-        destructive: false,
-      };
-    case 'GRANT': {
-      const target = adminAccessGrantTargetRole(detail.role);
-      return {
-        title: '권한 직접 부여',
-        description: `${detail.githubLogin}님에게 ${
-          target ? ROLE_LABEL[target] : ''
-        } 권한을 직접 부여합니다.`,
-        confirmLabel: '부여 확정',
-        destructive: false,
-      };
-    }
-    case 'REVOKE': {
-      const revocation = requireAdminAccessRevocation(detail.role);
-      return {
-        title: '권한 회수',
-        description: revocation.dialogDescription(detail.githubLogin),
-        confirmLabel: '회수 확정',
-        destructive: true,
-      };
-    }
-    case 'DEACTIVATE':
-      return {
-        title: '계정 비활성화',
-        description: `${detail.githubLogin}님의 계정을 비활성화합니다. 비활성화되면 로그인할 수 없습니다.`,
-        confirmLabel: '비활성화 확정',
-        destructive: true,
-      };
-    case 'REACTIVATE':
-      return {
-        title: '계정 재활성화',
-        description: `${detail.githubLogin}님의 계정을 다시 활성화합니다.`,
-        confirmLabel: '재활성화 확정',
-        destructive: false,
-      };
-    default:
-      return assertNeverMutationAction(action);
+  if (action === 'APPROVE') {
+    return {
+      title: '요청 승인',
+      description: `${detail.githubLogin}님의 교직원 권한 요청을 승인하면 즉시 교직원 권한이 부여됩니다.`,
+      confirmLabel: '승인 확정',
+      destructive: false,
+    };
   }
+  if (isSetRoleAction(action)) {
+    const target = roleForAction(action);
+    const destructive = isAdminAccessRoleDowngrade(detail.role, target);
+    return {
+      title: destructive ? '권한 회수' : '권한 변경',
+      description: adminAccessRoleChangeDialogDescription(
+        detail.role,
+        target,
+        detail.githubLogin,
+      ),
+      confirmLabel: destructive ? '회수 확정' : '변경 확정',
+      destructive,
+    };
+  }
+  if (action === 'SET_STATUS_ACTIVE') {
+    return {
+      title: '계정 재활성화',
+      description: `${detail.githubLogin}님의 계정을 다시 활성화합니다.`,
+      confirmLabel: '재활성화 확정',
+      destructive: false,
+    };
+  }
+  if (action === 'SET_STATUS_DEACTIVATED') {
+    return {
+      title: '계정 비활성화',
+      description: `${detail.githubLogin}님의 계정을 비활성화합니다. 비활성화되면 로그인할 수 없습니다.`,
+      confirmLabel: '비활성화 확정',
+      destructive: true,
+    };
+  }
+  return assertNeverMutationAction(action);
 }
 
 function assertNeverMutationAction(value: never): never {
@@ -195,18 +203,6 @@ function assertNeverMutationAction(value: never): never {
     `Unsupported admin access mutation action: ${String(value)}`,
   );
 }
-
-const ROLE_LABEL: Record<AdminAccessRole, string> = {
-  STUDENT: '학생',
-  STAFF: '교직원',
-  ADMIN: '관리자',
-};
-
-const ACCOUNT_STATUS_LABEL: Record<AdminAccessDetail['accountStatus'], string> =
-  {
-    ACTIVE: '활성',
-    DEACTIVATED: '비활성',
-  };
 
 const ROLE_REQUEST_STATUS: Record<
   AdminAccessRoleRequestHistoryItem['status'],
@@ -220,13 +216,6 @@ const ROLE_REQUEST_STATUS: Record<
   REJECTED: { label: '반려', variant: 'rejected' },
   REVOKED: { label: '회수', variant: 'closed' },
 };
-
-function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat('ko-KR', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
-}
 
 function LoadingState({
   layoutContext,
@@ -311,13 +300,56 @@ function NotFoundState({
   );
 }
 
+/** 목록 화면(`admin-access-view.tsx`)의 "이전/다음 + n / m 페이지" 패턴을 이력 섹션에 맞춰 재사용한다. */
+function HistoryPaginationControls({
+  page,
+  totalPages,
+  isLoading,
+  onPageChange,
+}: {
+  readonly page: number;
+  readonly totalPages: number;
+  readonly isLoading: boolean;
+  readonly onPageChange: (page: number) => void;
+}) {
+  return (
+    <div className="flex items-center justify-end gap-3 text-sm">
+      <span>
+        {page} / {totalPages} 페이지
+      </span>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={page <= 1 || isLoading}
+        onClick={() => onPageChange(page - 1)}
+      >
+        이전
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={page >= totalPages || isLoading}
+        onClick={() => onPageChange(page + 1)}
+      >
+        다음
+      </Button>
+    </div>
+  );
+}
+
 function RoleRequestHistorySection({
   items,
-  truncated,
+  page,
+  totalPages,
+  isLoading,
+  onPageChange,
   headingTag: HeadingTag,
 }: {
   readonly items: readonly AdminAccessRoleRequestHistoryItem[];
-  readonly truncated: boolean;
+  readonly page: number;
+  readonly totalPages: number;
+  readonly isLoading: boolean;
+  readonly onPageChange: (page: number) => void;
   readonly headingTag: DetailHeadingTag;
 }) {
   return (
@@ -349,12 +381,12 @@ function RoleRequestHistorySection({
                     {status.label}
                   </StatusBadge>
                   <span className="text-muted-foreground">
-                    신청 {formatDateTime(request.createdAt)}
+                    신청 {formatAdminAccessDateTime(request.createdAt)}
                   </span>
                 </div>
                 {request.decidedAt ? (
                   <span className="text-muted-foreground">
-                    처리 {formatDateTime(request.decidedAt)}
+                    처리 {formatAdminAccessDateTime(request.decidedAt)}
                     {request.decidedBy ? ` · ${request.decidedBy}` : ''}
                   </span>
                 ) : null}
@@ -366,22 +398,31 @@ function RoleRequestHistorySection({
           })}
         </ul>
       )}
-      {truncated ? (
-        <p className="text-xs text-muted-foreground">
-          최근 {items.length}건만 표시합니다.
-        </p>
-      ) : null}
+      <HistoryPaginationControls
+        page={page}
+        totalPages={totalPages}
+        isLoading={isLoading}
+        onPageChange={onPageChange}
+      />
     </section>
   );
 }
 
 function LoginHistorySection({
   items,
-  truncated,
+  page,
+  totalPages,
+  isLoading,
+  onPageChange,
+  lastLoginAt,
   headingTag: HeadingTag,
 }: {
   readonly items: readonly AdminAccessLoginHistoryItem[];
-  readonly truncated: boolean;
+  readonly page: number;
+  readonly totalPages: number;
+  readonly isLoading: boolean;
+  readonly onPageChange: (page: number) => void;
+  readonly lastLoginAt: string | null;
   readonly headingTag: DetailHeadingTag;
 }) {
   return (
@@ -389,12 +430,18 @@ function LoginHistorySection({
       aria-labelledby="admin-access-login-history"
       className="grid gap-3"
     >
-      <HeadingTag
-        id="admin-access-login-history"
-        className="font-heading text-lg font-semibold"
-      >
-        로그인 이력
-      </HeadingTag>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <HeadingTag
+          id="admin-access-login-history"
+          className="font-heading text-lg font-semibold"
+        >
+          로그인 이력
+        </HeadingTag>
+        <span className="text-sm text-muted-foreground">
+          마지막 로그인{' '}
+          {lastLoginAt ? formatAdminAccessDateTime(lastLoginAt) : '기록 없음'}
+        </span>
+      </div>
       {items.length === 0 ? (
         <p className="text-sm text-muted-foreground">로그인 이력이 없습니다.</p>
       ) : (
@@ -409,17 +456,18 @@ function LoginHistorySection({
                 {event.success ? '' : ' 실패'}
               </StatusBadge>
               <span className="text-muted-foreground">
-                {formatDateTime(event.loginAt)}
+                {formatAdminAccessDateTime(event.loginAt)}
               </span>
             </li>
           ))}
         </ul>
       )}
-      {truncated ? (
-        <p className="text-xs text-muted-foreground">
-          최근 {items.length}건만 표시합니다.
-        </p>
-      ) : null}
+      <HistoryPaginationControls
+        page={page}
+        totalPages={totalPages}
+        isLoading={isLoading}
+        onPageChange={onPageChange}
+      />
     </section>
   );
 }
@@ -429,21 +477,20 @@ function AdminAccessDetailContent({
   history,
   mutation,
   layoutContext,
+  historyLoading,
+  onRoleRequestPageChange,
+  onLoginHistoryPageChange,
 }: AdminAccessDetailData & {
   readonly mutation: AdminAccessDetailMutationController;
   readonly layoutContext: AdminAccessDetailLayoutContext;
+  readonly historyLoading: boolean;
+  readonly onRoleRequestPageChange: (page: number) => void;
+  readonly onLoginHistoryPageChange: (page: number) => void;
 }) {
   const Root = detailRootTag(layoutContext);
   const isOverlay = layoutContext === 'overlay';
   const heading = detailHeadingTags(layoutContext);
   const SectionHeading = heading.section;
-  const eligibility = deriveAdminAccessEligibility(detail);
-  const roleRequestsTruncated = isAdminAccessHistoryTruncated(
-    history.roleRequests,
-  );
-  const loginHistoryTruncated = isAdminAccessHistoryTruncated(
-    history.loginHistory,
-  );
   const confirmDialog =
     mutation.confirmAction && mutation.confirmAction !== 'REJECT'
       ? {
@@ -483,7 +530,20 @@ function AdminAccessDetailContent({
         className={isOverlay ? 'sm:flex-col sm:justify-start' : undefined}
         titleClassName={isOverlay ? 'sm:text-section' : undefined}
         title={detail.name ?? '이름 미등록'}
-        description={`@${detail.githubLogin}`}
+        description={
+          <span className="flex flex-wrap items-center gap-1.5">
+            @{detail.githubLogin}
+            <a
+              href={`https://github.com/${detail.githubLogin}`}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={`${detail.githubLogin}의 GitHub 프로필 (새 탭에서 열림)`}
+              className="inline-flex items-center text-muted-foreground hover:text-foreground"
+            >
+              <ExternalLink className="size-4" aria-hidden="true" />
+            </a>
+          </span>
+        }
         actions={
           <div className="flex flex-wrap gap-2">
             <StatusBadge
@@ -521,6 +581,11 @@ function AdminAccessDetailContent({
               >
                 프로필
               </SectionHeading>
+              {!detail.profile.isComplete ? (
+                <p className="text-sm text-destructive">
+                  프로필 미완성 — 교직원 승인·부여 불가
+                </p>
+              ) : null}
               {/*
                 오버레이에서는 2열로 쪼개지 않는다 — `sm:`은 뷰포트 기준이라
                 768px·1280px에서도 켜지는데, 실제 렌더 폭은 400px 남짓이라
@@ -544,74 +609,39 @@ function AdminAccessDetailContent({
                   <dt className="text-muted-foreground">학과</dt>
                   <dd>{detail.profile.department ?? '미등록'}</dd>
                 </div>
-                <div>
-                  <dt className="text-muted-foreground">기본 정보 입력</dt>
-                  <dd>{detail.profile.isComplete ? '완료' : '미완료'}</dd>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    이름·학번·학과 입력 여부이며, 요청 승인의 전제 조건입니다.
-                  </p>
-                </div>
               </dl>
             </section>
             <RoleRequestHistorySection
               items={history.roleRequests.items}
-              truncated={roleRequestsTruncated}
+              page={history.roleRequests.page}
+              totalPages={adminAccessHistoryPageCount(history.roleRequests)}
+              isLoading={historyLoading}
+              onPageChange={onRoleRequestPageChange}
               headingTag={heading.section}
             />
             <LoginHistorySection
               items={history.loginHistory.items}
-              truncated={loginHistoryTruncated}
+              page={history.loginHistory.page}
+              totalPages={adminAccessHistoryPageCount(history.loginHistory)}
+              isLoading={historyLoading}
+              onPageChange={onLoginHistoryPageChange}
+              lastLoginAt={detail.lastLoginAt}
               headingTag={heading.section}
             />
           </div>
         }
         secondary={
           <div className="grid gap-4">
+            <AdminAccessPendingRequestCard
+              detail={detail}
+              processingAction={mutation.processingAction}
+              onRequestAction={mutation.onRequestAction}
+            />
             <AdminAccessMutationActions
               detail={detail}
               processingAction={mutation.processingAction}
               onRequestAction={mutation.onRequestAction}
             />
-            <Card>
-              <CardHeader>
-                <CardTitle>자격 상태</CardTitle>
-                <CardDescription>
-                  역할 변경 가능 여부의 참고 정보입니다.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-2 text-sm">
-                <StatusBadge
-                  variant={eligibility.eligible ? 'approved' : 'rejected'}
-                >
-                  {eligibility.eligible ? '자격 있음' : '자격 없음'}
-                </StatusBadge>
-                {eligibility.blockedReason ? (
-                  <p className="text-muted-foreground">
-                    {eligibility.blockedReason}
-                  </p>
-                ) : null}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>마지막 로그인</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm">
-                {detail.lastLoginAt
-                  ? formatDateTime(detail.lastLoginAt)
-                  : '기록 없음'}
-              </CardContent>
-            </Card>
-            {detail.pendingRequest ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>대기 중인 요청</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm text-muted-foreground">
-                  {formatDateTime(detail.pendingRequest.createdAt)}에 신청됨
-                </CardContent>
-              </Card>
-            ) : null}
           </div>
         }
       />
@@ -648,11 +678,17 @@ export function AdminAccessDetailContentForState({
   onRetry,
   mutation,
   layoutContext = 'standalone',
+  historyLoading = false,
+  onRoleRequestPageChange = () => {},
+  onLoginHistoryPageChange = () => {},
 }: {
   readonly state: AdminAccessDetailState;
   readonly onRetry: () => void;
   readonly mutation: AdminAccessDetailMutationController;
   readonly layoutContext?: AdminAccessDetailLayoutContext;
+  readonly historyLoading?: boolean;
+  readonly onRoleRequestPageChange?: (page: number) => void;
+  readonly onLoginHistoryPageChange?: (page: number) => void;
 }) {
   if (state.kind === 'loading') {
     return <LoadingState layoutContext={layoutContext} />;
@@ -669,6 +705,9 @@ export function AdminAccessDetailContentForState({
       history={state.history}
       mutation={mutation}
       layoutContext={layoutContext}
+      historyLoading={historyLoading}
+      onRoleRequestPageChange={onRoleRequestPageChange}
+      onLoginHistoryPageChange={onLoginHistoryPageChange}
     />
   );
 }
@@ -682,11 +721,18 @@ export function AdminAccessDetailContentForState({
  * 구현하면 두 진입점 모두에 자동으로 적용된다.
  *
  * 쓰기 흐름: 성공 시 `retry()`로 전체 재조회해 프로필·이력·CAS 필드를 모두
- * 최신화한다(기존 로딩 패턴 재사용). 409 CAS 충돌(`ROL_013`)은 재조회 대신
- * 에러 응답에 실린 authoritative projection으로 `state.detail`만 직접
- * 교체한다 — 이렇게 하면 그 자리에서 바로 "다른 관리자가 먼저 변경했다"는
- * 사실이 반영되고, 방금 실패한 쓰기가 새 상태에 대해 자동으로 재시도되는
- * 일이 없다(사용자가 다이얼로그를 다시 열어야만 재시도된다).
+ * 최신화한다(기존 로딩 패턴 재사용, 이력 페이지도 1페이지로 되돌아간다).
+ * 409 CAS 충돌(`ROL_013`)은 재조회 대신 에러 응답에 실린 authoritative
+ * projection으로 `state.detail`만 직접 교체한다 — 이렇게 하면 그 자리에서
+ * 바로 "다른 관리자가 먼저 변경했다"는 사실이 반영되고, 방금 실패한 쓰기가
+ * 새 상태에 대해 자동으로 재시도되는 일이 없다(사용자가 다이얼로그를 다시
+ * 열어야만 재시도된다).
+ *
+ * 이력 페이지 이동: 요청 이력·로그인 이력은 독립적으로 페이지가 넘어간다
+ * (`total` 기반 페이지 수는 `adminAccessHistoryPageCount`). 페이지를 옮길 때는
+ * 상세 전체를 다시 불러오지 않고 `fetchAdminAccessHistory`만 다시 호출해
+ * `state.history`만 교체한다 — 실패하면 조용히 이전 페이지 그대로 둔다(버튼을
+ * 다시 누르면 재시도된다).
  */
 export function AdminAccessDetailView({
   userId,
@@ -699,6 +745,7 @@ export function AdminAccessDetailView({
   const [state, setState] = useState<AdminAccessDetailState>({
     kind: 'loading',
   });
+  const [historyLoading, setHistoryLoading] = useState(false);
   const retry = useCallback(() => setAttempt((current) => current + 1), []);
 
   useEffect(() => {
@@ -722,6 +769,46 @@ export function AdminAccessDetailView({
       controller.abort();
     };
   }, [attempt, userId]);
+
+  const changeRoleRequestPage = async (nextPage: number) => {
+    if (state.kind !== 'ready') return;
+    setHistoryLoading(true);
+    try {
+      const history = await fetchAdminAccessHistory(userId, {
+        roleRequestPage: nextPage,
+        roleRequestLimit: ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
+        loginPage: state.history.loginHistory.page,
+        loginLimit: ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
+      });
+      setState((current) =>
+        current.kind === 'ready' ? { ...current, history } : current,
+      );
+    } catch {
+      // 조용히 실패 — 이전 페이지를 그대로 보여주고, 버튼을 다시 누르면 재시도된다.
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const changeLoginHistoryPage = async (nextPage: number) => {
+    if (state.kind !== 'ready') return;
+    setHistoryLoading(true);
+    try {
+      const history = await fetchAdminAccessHistory(userId, {
+        roleRequestPage: state.history.roleRequests.page,
+        roleRequestLimit: ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
+        loginPage: nextPage,
+        loginLimit: ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
+      });
+      setState((current) =>
+        current.kind === 'ready' ? { ...current, history } : current,
+      );
+    } catch {
+      // 조용히 실패 — 이전 페이지를 그대로 보여주고, 버튼을 다시 누르면 재시도된다.
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   const [confirmAction, setConfirmAction] =
     useState<AdminAccessMutationAction | null>(null);
@@ -812,6 +899,9 @@ export function AdminAccessDetailView({
       onRetry={retry}
       mutation={mutation}
       layoutContext={layoutContext}
+      historyLoading={historyLoading}
+      onRoleRequestPageChange={(page) => void changeRoleRequestPage(page)}
+      onLoginHistoryPageChange={(page) => void changeLoginHistoryPage(page)}
     />
   );
 }
