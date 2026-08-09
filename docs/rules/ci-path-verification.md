@@ -19,6 +19,7 @@
 | `scripts/check-public-safe*.sh` | shell 문법 검사 + `public-safe` job의 regex 회귀 테스트 | PR-controlled 코드에 secret 미주입 |
 | `scripts/team-state-check*.mjs` | Node 문법 검사 + TEAM-STATE 합성 fixture 단위테스트 | GitHub 조회 실패를 성공으로 추정하지 않음 |
 | `scripts/check-host-db-url*.sh` | shell 문법 검사 + `bash scripts/check-host-db-url.test.sh` 회귀. 호스트 lane `DATABASE_URL`이 로컬을 가리키는지, `POSTGRES_PORT`·`POSTGRES_DB` override와 일치하는지, 실패 경로에서 자격증명을 출력하지 않는지 검증한다 | 실제 DB 연결·마이그레이션 실행 없음. 가드는 파괴적 명령(`prisma migrate reset --force`)의 대상만 검증하고 prisma를 호출하지 않는다 |
+| `scripts/diagnose-collection*.sh` | shell 문법 검사 + `bash scripts/diagnose-collection.test.sh` 계약 회귀. 진단이 read-only인지(`BEGIN TRANSACTION READ ONLY`·쓰기 구문 부재·`ON_ERROR_STOP`), 자격증명 부재 시 fail-closed인지, 저장소 이름·학생 식별자·`DATABASE_URL` 값을 출력하지 않는지, 4층(O0~O3)과 후보 판정(C1~C10)이 남아 있는지 검사한다 | 실제 DB 연결·운영 자격증명·외부 서비스 사용 없음. 스크립트 본문은 서버 안에서만 실행하며 CI는 계약만 본다 |
 | 그 밖의 `scripts/*.sh`, `scripts/*.mjs` | 각 런타임의 문법 검사 | 외부 서비스·실데이터 사용 없음 |
 
 `public-safe`는 경로와 무관하게 모든 PR에서 실행한다.
