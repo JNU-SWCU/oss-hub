@@ -1,42 +1,68 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import type {
   CollectionRepositoryRow,
   CollectionSyncRunRow,
   CollectionSyncRunTrigger,
   CollectionSyncStreamSummary,
   CommitFactInput,
-  ContributorYearAggregateRow,
   PullRequestFactInput,
   RecordFactsResult,
   RecordRepositoryObservationInput,
   ReleaseFactInput,
   RepositorySource,
   RepositoryTeamMemberAccount,
-  RepositoryYearAggregateRow,
   StreamFrontierInput,
   StreamFrontierRow,
   SyncCursorInput,
   SyncCursorRow,
-} from './collection-incremental.types';
-import { zeroRepositoryYearAggregate } from './collection-incremental.types';
+} from '../collection-incremental.types';
 import type {
   AcquireSyncLeaseInput,
   SyncLeaseToken,
-} from './collection-sync.types';
+} from '../collection-sync.types';
 
 /** Asia/Seoul(UTC+9, DST 없음) 기준 연도. */
 export const asiaSeoulYear = (at: Date): number =>
   new Date(at.getTime() + 9 * 60 * 60 * 1000).getUTCFullYear();
 
 /**
- * 주어진 Asia/Seoul 달력 연도의 `[start, end)` UTC 경계. `asiaSeoulYear`의 역함수 —
- * 이 구간에 속하는 시각은 전부 그 해로 계산된다(1/1 00:00:00 KST = 전년도 12/31 15:00:00 UTC).
+ * Asia/Seoul 기준 날짜(자정)를 UTC `Date`로. `Contribution.date`(@db.Date)의 키다.
+ *
+ * 날짜 경계 해석을 이 함수 하나에 가둔다 — 쓰기 지점마다 각자 자르면
+ * 같은 커밋이 호출자에 따라 다른 날에 붙는다.
  */
-const seoulYearBoundsUtc = (year: number): readonly [Date, Date] => [
-  new Date(Date.UTC(year, 0, 1) - 9 * 60 * 60 * 1000),
-  new Date(Date.UTC(year + 1, 0, 1) - 9 * 60 * 60 * 1000),
+export const asiaSeoulDate = (at: Date): Date => {
+  const shifted = new Date(at.getTime() + 9 * 60 * 60 * 1000);
+  return new Date(
+    Date.UTC(
+      shifted.getUTCFullYear(),
+      shifted.getUTCMonth(),
+      shifted.getUTCDate(),
+    ),
+  );
+};
+
+/** 주어진 Asia/Seoul 날짜의 `[start, end)` UTC 경계. `asiaSeoulDate`의 역함수. */
+const seoulDayBoundsUtc = (date: Date): readonly [Date, Date] => [
+  new Date(date.getTime() - 9 * 60 * 60 * 1000),
+  new Date(date.getTime() + 24 * 60 * 60 * 1000 - 9 * 60 * 60 * 1000),
 ];
+
+/** 정기 수집 주기 — 매시 1회(ADR-010 §10). */
+const REGULAR_INTERVAL_MS = 60 * 60 * 1000;
+
+/**
+ * 연속 실패에 대한 지수 백오프. 상한 6시간.
+ *
+ * 상한이 없으면 오래 실패한 저장소가 사실상 영구 제외되는데, 그건 이 변경이
+ * 없애려던 상태(하나가 막히면 영영 안 돌아온다)와 결과가 같다.
+ */
+const backoffMs = (failureCount: number): number =>
+  Math.min(
+    REGULAR_INTERVAL_MS * 2 ** Math.min(failureCount - 1, 6),
+    6 * 60 * 60 * 1000,
+  );
 
 /** external sweep이 쓰는 고정 scope — `collection-sync.service.ts`의 `EXTERNAL_SCOPE`와 한 벌이다. */
 const EXTERNAL_SCOPE = 'external';
@@ -68,10 +94,15 @@ const emptyStreamSummary = (): CollectionSyncStreamSummary => ({
   failedCount: 0,
 });
 
-/** rebuild 대상 (year, githubUserId) 쌍 — githubUserId는 repository 전체 집계에는 쓰이지 않는다. */
-interface AffectedYear {
-  year: number;
-  githubUserId: bigint | null;
+/**
+ * rebuild 대상 (date, githubId) 쌍 — `Contribution`(ADR-010 §4)의 입자.
+ *
+ * `AffectedYear`와 달리 `githubId`가 없는 항목은 대상 자체가 아니다.
+ * 귀속을 모르는 기여는 누구의 것도 아니므로 사람 축 테이블에 자리가 없다.
+ */
+interface AffectedDay {
+  date: Date;
+  githubId: bigint | null;
 }
 
 @Injectable()
@@ -192,11 +223,13 @@ export class CollectionIncrementalRepository {
         })),
         skipDuplicates: true,
       });
-    await this.rebuildAffectedAggregates(
+    // 읽기가 전부 `Contribution` 으로 옮겨진 뒤라 옛 연도 집계 writer 는 제거했다.
+    // 이 시점부터 사실의 원본은 fact 테이블과 `Contribution` 뿐이다.
+    await this.rebuildAffectedContributions(
       repositoryId,
       facts.map((fact) => ({
-        year: asiaSeoulYear(fact.committedAt),
-        githubUserId: fact.authorGithubId ?? null,
+        date: asiaSeoulDate(fact.committedAt),
+        githubId: fact.authorGithubId ?? null,
       })),
     );
     return { insertedCount };
@@ -219,11 +252,13 @@ export class CollectionIncrementalRepository {
         })),
         skipDuplicates: true,
       });
-    await this.rebuildAffectedAggregates(
+    // 읽기가 전부 `Contribution` 으로 옮겨진 뒤라 옛 연도 집계 writer 는 제거했다.
+    // 이 시점부터 사실의 원본은 fact 테이블과 `Contribution` 뿐이다.
+    await this.rebuildAffectedContributions(
       repositoryId,
       facts.map((fact) => ({
-        year: asiaSeoulYear(fact.createdAt),
-        githubUserId: fact.authorGithubId ?? null,
+        date: asiaSeoulDate(fact.createdAt),
+        githubId: fact.authorGithubId ?? null,
       })),
     );
     return { insertedCount };
@@ -245,128 +280,168 @@ export class CollectionIncrementalRepository {
         })),
         skipDuplicates: true,
       });
-    await this.rebuildAffectedAggregates(
+    // 읽기가 전부 `Contribution` 으로 옮겨진 뒤라 옛 연도 집계 writer 는 제거했다.
+    // 이 시점부터 사실의 원본은 fact 테이블과 `Contribution` 뿐이다.
+    await this.rebuildAffectedContributions(
       repositoryId,
       facts.map((fact) => ({
-        year: asiaSeoulYear(fact.publishedAt),
-        githubUserId: fact.authorGithubId ?? null,
+        date: asiaSeoulDate(fact.publishedAt),
+        githubId: fact.authorGithubId ?? null,
       })),
     );
     return { insertedCount };
   }
 
-  /**
-   * 이번 배치가 건드린 (repositoryId, year) 전체와 (repositoryId, githubUserId, year)
-   * 전체를 facts 테이블 COUNT로부터 다시 계산해 덮어쓴다. null author는 repository
-   * 총계에는 포함되지만(위 3-way COUNT가 author 조건 없이 전체를 센다) contributor
-   * 집계 행에서는 제외된다.
-   */
-  private async rebuildAffectedAggregates(
-    repositoryId: string,
-    affected: readonly AffectedYear[],
-  ): Promise<void> {
-    const years = new Set(affected.map((entry) => entry.year));
-    for (const year of years) {
-      await this.rebuildRepositoryYearAggregate(repositoryId, year);
-    }
 
-    const contributors = new Map<
-      string,
-      { githubUserId: bigint; year: number }
-    >();
+  /**
+   * `Contribution`(ADR-010 §4) 재계산 — 옛 연도 집계 **옆에** 더한다.
+   *
+   * 옛 writer 를 제거하지 않는다. 읽기가 아직 옛 집계를 보고 있으므로,
+   * 확장 → 재수집 → 읽기 전환 → 드롭 순서에서 이 단계는 "확장"이다.
+   * 여기서 옛 writer 를 지우면 읽기 전환 전에 화면이 죽는다.
+   *
+   * 두 가지가 옛 경로와 다르다.
+   *
+   * 1. **입자가 날짜다.** 연도로 접지 않으므로 프로그램 기간처럼 달력 연도가
+   *    아닌 축으로도 자를 수 있고, 새해 롤오버 특수 처리가 필요 없다.
+   * 2. **가입자만 적재한다.** `githubId ∈ User` 를 만족하는 사람만 행을 만든다.
+   *    옛 경로는 fact 에 나타난 모든 계정에 집계 행을 만들었고, 그래서 조직 밖
+   *    저장소가 들어오는 순간 우리 플랫폼을 모르는 제3자의 활동 프로필이 쌓였다(#682).
+   *    표시에서 거르는 게 아니라 **적재에서 자른다** — 표시 규칙은 언제든 바뀌지만
+   *    쌓인 데이터는 되돌릴 수 없기 때문이다.
+   */
+  /**
+   * 저장소 수집 실패를 기록하고 다음 시도 시각을 미룬다 (ADR-010 §6, DD1).
+   *
+   * 실패를 기록하는 것만으로는 부족하다 — 언제 다시 시도할지가 있어야
+   * 커서를 전진시켜도 그 저장소가 버려지지 않는다. `nextRunAt` 이 그 약속이다.
+   *
+   * 백오프는 지수적이되 상한이 있다. 상한이 없으면 오래 실패한 저장소가
+   * 사실상 영구 제외되고, 그건 우리가 없애려던 상태와 같아진다.
+   */
+  async recordRepositoryFailure(
+    githubRepositoryId: bigint,
+    now: Date,
+  ): Promise<void> {
+    const current = await this.db.githubRepository.findUnique({
+      where: { githubRepositoryId },
+      select: { failureCount: true },
+    });
+    const failureCount = (current?.failureCount ?? 0) + 1;
+    await this.db.githubRepository.updateMany({
+      where: { githubRepositoryId },
+      data: {
+        failureCount,
+        nextRunAt: new Date(now.getTime() + backoffMs(failureCount)),
+      },
+    });
+  }
+
+  /** 성공하면 실패 이력을 지우고 다음 정기 차례로 되돌린다. */
+  async recordRepositorySuccess(
+    githubRepositoryId: bigint,
+    now: Date,
+  ): Promise<void> {
+    await this.db.githubRepository.updateMany({
+      where: { githubRepositoryId },
+      data: {
+        failureCount: 0,
+        lastSuccessAt: now,
+        nextRunAt: new Date(now.getTime() + REGULAR_INTERVAL_MS),
+      },
+    });
+  }
+
+  private async rebuildAffectedContributions(
+    repositoryId: string,
+    affected: readonly AffectedDay[],
+  ): Promise<void> {
+    const targets = new Map<string, { githubId: bigint; date: Date }>();
     for (const entry of affected) {
-      if (entry.githubUserId === null) continue;
-      contributors.set(`${entry.githubUserId}:${entry.year}`, {
-        githubUserId: entry.githubUserId,
-        year: entry.year,
+      // 귀속을 특정할 수 없는 기여는 애초에 대상이 아니다.
+      if (entry.githubId === null) continue;
+      targets.set(`${entry.githubId}:${entry.date.getTime()}`, {
+        githubId: entry.githubId,
+        date: entry.date,
       });
     }
-    for (const { githubUserId, year } of contributors.values()) {
-      await this.rebuildContributorYearAggregate(
-        repositoryId,
-        githubUserId,
-        year,
-      );
+    if (targets.size === 0) return;
+
+    // 가입자 집합을 한 번에 확인한다. 행마다 물으면 N+1 이 된다.
+    const candidateIds = [
+      ...new Set([...targets.values()].map((target) => target.githubId)),
+    ];
+    const members = await this.db.user.findMany({
+      where: { githubId: { in: candidateIds } },
+      select: { githubId: true },
+    });
+    const enrolled = new Set(members.map((member) => member.githubId));
+
+    for (const { githubId, date } of targets.values()) {
+      if (!enrolled.has(githubId)) {
+        // 미가입자 행은 만들지 않는다. 이미 있던 행이라면 지워 fail-open 을 닫는다.
+        await this.db.contribution.deleteMany({
+          where: { repositoryId, githubId, date },
+        });
+        continue;
+      }
+      await this.rebuildContribution(repositoryId, githubId, date);
     }
   }
 
-  /** repository 단위 연도 집계를 facts 테이블 COUNT로 재계산해 그대로 덮어쓴다(증가 아님). */
-  private async rebuildRepositoryYearAggregate(
+  /** (저장소, 사람, 날짜) 한 칸을 fact 테이블 COUNT 로 재계산해 덮어쓴다(증가 아님). */
+  private async rebuildContribution(
     repositoryId: string,
-    year: number,
+    githubId: bigint,
+    date: Date,
   ): Promise<void> {
-    const [start, end] = seoulYearBoundsUtc(year);
+    const [start, end] = seoulDayBoundsUtc(date);
     const [commitCount, pullRequestCount, releaseCount] = await Promise.all([
       this.db.collectionCommitFact.count({
-        where: { repositoryId, committedAt: { gte: start, lt: end } },
+        where: {
+          repositoryId,
+          authorGithubId: githubId,
+          committedAt: { gte: start, lt: end },
+        },
       }),
       this.db.collectionPullRequestFact.count({
-        where: { repositoryId, createdAt: { gte: start, lt: end } },
+        where: {
+          repositoryId,
+          authorGithubId: githubId,
+          createdAt: { gte: start, lt: end },
+        },
       }),
       this.db.collectionReleaseFact.count({
-        where: { repositoryId, publishedAt: { gte: start, lt: end } },
+        where: {
+          repositoryId,
+          authorGithubId: githubId,
+          publishedAt: { gte: start, lt: end },
+        },
       }),
     ]);
-    await this.db.collectionRepositoryYearAggregate.upsert({
-      where: { repositoryId_year: { repositoryId, year } },
+
+    if (commitCount === 0 && pullRequestCount === 0 && releaseCount === 0) {
+      // 상류에서 사라진 기여(force-push·PR 삭제)는 행도 사라져야 한다.
+      // 0 인 행을 남기면 "활동 없음"과 "활동이 0건으로 관측됨"이 구분되지 않는다.
+      await this.db.contribution.deleteMany({
+        where: { repositoryId, githubId, date },
+      });
+      return;
+    }
+
+    await this.db.contribution.upsert({
+      where: {
+        repositoryId_githubId_date: { repositoryId, githubId, date },
+      },
       create: {
         repositoryId,
-        year,
+        githubId,
+        date,
         commitCount,
         pullRequestCount,
         releaseCount,
       },
       update: { commitCount, pullRequestCount, releaseCount },
-    });
-  }
-
-  /** contributor 단위 연도 집계를 facts 테이블 COUNT로 재계산해 그대로 덮어쓴다(증가 아님). */
-  private async rebuildContributorYearAggregate(
-    repositoryId: string,
-    githubUserId: bigint,
-    year: number,
-  ): Promise<void> {
-    const [start, end] = seoulYearBoundsUtc(year);
-    const [commitCount, pullRequestCount, releaseCount, latestLogin] =
-      await Promise.all([
-        this.db.collectionCommitFact.count({
-          where: {
-            repositoryId,
-            authorGithubId: githubUserId,
-            committedAt: { gte: start, lt: end },
-          },
-        }),
-        this.db.collectionPullRequestFact.count({
-          where: {
-            repositoryId,
-            authorGithubId: githubUserId,
-            createdAt: { gte: start, lt: end },
-          },
-        }),
-        this.db.collectionReleaseFact.count({
-          where: {
-            repositoryId,
-            authorGithubId: githubUserId,
-            publishedAt: { gte: start, lt: end },
-          },
-        }),
-        this.findLatestGithubLogin(repositoryId, githubUserId, start, end),
-      ]);
-    const githubLogin = latestLogin ?? '';
-    await this.db.collectionContributorYearAggregate.upsert({
-      where: {
-        repositoryId_githubUserId_year: { repositoryId, githubUserId, year },
-      },
-      create: {
-        repositoryId,
-        githubUserId,
-        githubLogin,
-        year,
-        commitCount,
-        pullRequestCount,
-        releaseCount,
-      },
-      update: { githubLogin, commitCount, pullRequestCount, releaseCount },
     });
   }
 
@@ -431,29 +506,6 @@ export class CollectionIncrementalRepository {
     candidates.sort((left, right) => right.at.getTime() - left.at.getTime());
     const [latest] = candidates;
     return latest ? latest.login : null;
-  }
-
-  /** 존재하지 않는 연도는 0으로 채워 반환한다 — 매년 1/1 read가 안전하다. */
-  async getRepositoryYearAggregate(
-    repositoryId: string,
-    year: number,
-  ): Promise<RepositoryYearAggregateRow> {
-    const row = await this.db.collectionRepositoryYearAggregate.findUnique({
-      where: { repositoryId_year: { repositoryId, year } },
-    });
-    return row ?? zeroRepositoryYearAggregate(repositoryId, year);
-  }
-
-  async getContributorYearAggregate(
-    repositoryId: string,
-    githubUserId: bigint,
-    year: number,
-  ): Promise<ContributorYearAggregateRow | null> {
-    return this.db.collectionContributorYearAggregate.findUnique({
-      where: {
-        repositoryId_githubUserId_year: { repositoryId, githubUserId, year },
-      },
-    });
   }
 
   async upsertStreamFrontier(

@@ -2,7 +2,7 @@ import {
   asiaSeoulYear,
   CollectionIncrementalRepository,
 } from './collection-incremental.repository';
-import type { PrismaService } from '../prisma/prisma.service';
+import type { PrismaService } from '../../prisma/prisma.service';
 
 interface MockDb {
   githubRepository: {
@@ -26,11 +26,8 @@ interface MockDb {
     count: jest.Mock;
     findFirst: jest.Mock;
   };
-  collectionRepositoryYearAggregate: {
-    upsert: jest.Mock;
-    findUnique: jest.Mock;
-  };
-  collectionContributorYearAggregate: { upsert: jest.Mock };
+  contribution: { upsert: jest.Mock; deleteMany: jest.Mock };
+  user: { findMany: jest.Mock };
   collectionRepositoryStream: {
     upsert: jest.Mock;
     findUnique: jest.Mock;
@@ -72,12 +69,20 @@ const createDb = (): MockDb => {
       count: jest.fn().mockResolvedValue(0),
       findFirst: jest.fn().mockResolvedValue(null),
     },
-    collectionRepositoryYearAggregate: {
+    // ADR-010 §4 — 날짜 축 사실 테이블. 옛 연도 집계는 드롭됐다.
+    contribution: {
       upsert: jest.fn().mockResolvedValue({}),
-      findUnique: jest.fn(),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
-    collectionContributorYearAggregate: {
-      upsert: jest.fn().mockResolvedValue({}),
+    // 기본은 "요청된 사람은 모두 가입자". 각 테스트의 주제는 rebuild 결정성이므로
+    // 가입자 필터는 아래 전용 describe 가 따로 증명한다.
+    user: {
+      findMany: jest.fn(
+        ({ where }: { where: { githubId: { in: readonly bigint[] } } }) =>
+          Promise.resolve(
+            where.githubId.in.map((githubId) => ({ githubId })),
+          ),
+      ),
     },
     collectionRepositoryStream: {
       upsert: jest.fn().mockResolvedValue({}),
@@ -262,12 +267,17 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
     db.collectionCommitFact.count.mockResolvedValue(5);
 
     await repositoryFor(db).recordCommitFacts('repo-1', [
-      { sha: 'retry', committedAt: new Date('2026-03-01T00:00:00.000Z') },
+      {
+        sha: 'retry',
+        committedAt: new Date('2026-03-01T00:00:00.000Z'),
+        authorGithubId: 1n,
+      },
     ]);
 
-    expect(db.collectionRepositoryYearAggregate.upsert).toHaveBeenCalledWith(
+    // 삽입 개수(1)가 아니라 fact 테이블 실제 COUNT(5)로 덮어쓴다 —
+    // 중복 재시도에도 값이 불변인 이유다.
+    expect(db.contribution.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { repositoryId_year: { repositoryId: 'repo-1', year: 2026 } },
         update: { commitCount: 5, pullRequestCount: 0, releaseCount: 0 },
       }),
     );
@@ -307,34 +317,33 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
       },
     ]);
 
-    expect(db.collectionContributorYearAggregate.upsert).toHaveBeenCalledTimes(
-      2,
-    );
-    expect(db.collectionContributorYearAggregate.upsert).toHaveBeenCalledWith(
+    // 날짜 입자라 (사람, 날짜) 조합마다 한 칸씩 — 두 사람이 서로 다른 날에 하나씩.
+    expect(db.contribution.upsert).toHaveBeenCalledTimes(2);
+    expect(db.contribution.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          repositoryId_githubUserId_year: {
+          repositoryId_githubId_date: {
             repositoryId: 'repo-1',
-            githubUserId: 1n,
-            year: 2026,
+            githubId: 1n,
+            date: new Date(Date.UTC(2026, 2, 1)),
           },
         },
       }),
     );
-    expect(db.collectionContributorYearAggregate.upsert).toHaveBeenCalledWith(
+    expect(db.contribution.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          repositoryId_githubUserId_year: {
+          repositoryId_githubId_date: {
             repositoryId: 'repo-1',
-            githubUserId: 2n,
-            year: 2026,
+            githubId: 2n,
+            date: new Date(Date.UTC(2026, 2, 2)),
           },
         },
       }),
     );
   });
 
-  it('author가 null인 fact는 repository 총계에는 포함되지만 contributor 집계는 만들지 않는다', async () => {
+  it('author가 null인 fact 는 어떤 행도 만들지 않는다 — 귀속을 모르는 기여는 적재하지 않는다(ADR-010 §5)', async () => {
     const db = createDb();
     db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
     db.collectionCommitFact.count.mockResolvedValue(1);
@@ -343,36 +352,55 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
       { sha: 'anon', committedAt: new Date('2026-03-01T00:00:00.000Z') },
     ]);
 
-    expect(db.collectionRepositoryYearAggregate.upsert).toHaveBeenCalledTimes(
-      1,
-    );
-    expect(db.collectionContributorYearAggregate.upsert).not.toHaveBeenCalled();
+    expect(db.contribution.upsert).not.toHaveBeenCalled();
   });
 
-  it('연도 경계를 넘나드는 배치는 두 연도 각각의 집계를 재계산한다(Asia/Seoul 기준)', async () => {
+  it('날짜 경계를 넘나드는 배치는 각 날짜의 칸을 따로 재계산한다(Asia/Seoul 기준)', async () => {
     const db = createDb();
     db.collectionCommitFact.createMany.mockResolvedValue({ count: 2 });
+    // 각 날짜 칸에 1건씩 있다고 본다 — 0이면 그 칸은 삭제 경로로 간다.
+    db.collectionCommitFact.count.mockResolvedValue(1);
 
     await repositoryFor(db).recordCommitFacts('repo-1', [
-      // KST 2025-12-31 23:30 -> 2025년
-      { sha: 'y2025', committedAt: new Date('2025-12-31T14:30:00.000Z') },
-      // KST 2026-01-01 00:30 -> 2026년
-      { sha: 'y2026', committedAt: new Date('2025-12-31T15:30:00.000Z') },
+      // KST 2025-12-31 23:30 -> 2025-12-31
+      {
+        sha: 'y2025',
+        committedAt: new Date('2025-12-31T14:30:00.000Z'),
+        authorGithubId: 1n,
+      },
+      // KST 2026-01-01 00:30 -> 2026-01-01
+      {
+        sha: 'y2026',
+        committedAt: new Date('2025-12-31T15:30:00.000Z'),
+        authorGithubId: 1n,
+      },
     ]);
 
-    expect(db.collectionRepositoryYearAggregate.upsert).toHaveBeenCalledWith(
+    // UTC 로는 같은 날이지만 KST 로는 해가 갈린다. 경계 해석이 한 곳에 있으므로
+    // 두 칸이 각각 만들어진다.
+    expect(db.contribution.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { repositoryId_year: { repositoryId: 'repo-1', year: 2025 } },
+        where: {
+          repositoryId_githubId_date: {
+            repositoryId: 'repo-1',
+            githubId: 1n,
+            date: new Date(Date.UTC(2025, 11, 31)),
+          },
+        },
       }),
     );
-    expect(db.collectionRepositoryYearAggregate.upsert).toHaveBeenCalledWith(
+    expect(db.contribution.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { repositoryId_year: { repositoryId: 'repo-1', year: 2026 } },
+        where: {
+          repositoryId_githubId_date: {
+            repositoryId: 'repo-1',
+            githubId: 1n,
+            date: new Date(Date.UTC(2026, 0, 1)),
+          },
+        },
       }),
     );
-    expect(db.collectionRepositoryYearAggregate.upsert).toHaveBeenCalledTimes(
-      2,
-    );
+    expect(db.contribution.upsert).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -406,7 +434,7 @@ describe('CollectionIncrementalRepository — pull request facts (parity)', () =
       ],
       skipDuplicates: true,
     });
-    expect(db.collectionRepositoryYearAggregate.upsert).toHaveBeenCalledWith(
+    expect(db.contribution.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         update: { commitCount: 0, pullRequestCount: 3, releaseCount: 0 },
       }),
@@ -451,7 +479,7 @@ describe('CollectionIncrementalRepository — release facts (parity)', () => {
       ],
       skipDuplicates: true,
     });
-    expect(db.collectionRepositoryYearAggregate.upsert).toHaveBeenCalledWith(
+    expect(db.contribution.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         update: { commitCount: 0, pullRequestCount: 0, releaseCount: 2 },
       }),
@@ -515,23 +543,22 @@ describe('CollectionIncrementalRepository — transactional scope (todo 8 import
   });
 });
 
-describe('CollectionIncrementalRepository — Jan-1 empty current-year read', () => {
-  it('해당 연도 집계 행이 없으면 0으로 채운 기본값을 반환한다', async () => {
-    const db = createDb();
-    db.collectionRepositoryYearAggregate.findUnique.mockResolvedValue(null);
+describe('CollectionIncrementalRepository — 새해 특수 처리가 사라졌다', () => {
+  it('연도 집계 reader 가 더 이상 존재하지 않는다', () => {
+    // 옛 설계는 연도 집계 행이 grain 이라, 1월 1일에 당해 연도 행이 아직 없으면
+    // "0으로 채운 기본값"을 만들어 주는 특수 처리가 필요했다.
+    //
+    // `Contribution` 은 저장에 연도 개념이 없다(ADR-010 §4). 읽을 때 `date` 범위로만
+    // 자르므로 행이 없으면 자연히 결과가 비고, 새해 롤오버도 0-채움도 필요 없다.
+    // 그 특수 처리가 되살아나면 grain 이 다시 연도로 굳었다는 신호다.
+    const repository = repositoryFor(createDb()) as unknown as Record<
+      string,
+      unknown
+    >;
 
-    const result = await repositoryFor(db).getRepositoryYearAggregate(
-      'repo-1',
-      2027,
-    );
-
-    expect(result).toEqual({
-      repositoryId: 'repo-1',
-      year: 2027,
-      commitCount: 0,
-      pullRequestCount: 0,
-      releaseCount: 0,
-    });
+    expect(repository.getRepositoryYearAggregate).toBeUndefined();
+    expect(repository.getContributorYearAggregate).toBeUndefined();
+    expect(repository.rebuildAffectedAggregates).toBeUndefined();
   });
 });
 
@@ -1015,5 +1042,94 @@ describe('CollectionIncrementalRepository — #546 stream 오류 표시', () => 
       },
       data: { lastErrorAt: null, lastErrorCode: null },
     });
+  });
+});
+
+/**
+ * 가입자 필터 (ADR-010 §5 · #682).
+ *
+ * 옛 경로는 fact 에 나타난 모든 계정에 집계 행을 만들었다. 조직 저장소만 볼 때는
+ * 그게 곧 "우리 학생"이었지만, 조직 밖 공개 저장소가 들어오는 순간 우리 플랫폼을
+ * 모르는 제3자의 활동 프로필이 쌓인다.
+ *
+ * 표시에서 거르는 것으로는 부족하다 — 표시 규칙은 언제든 바뀌지만 쌓인 데이터는
+ * 되돌릴 수 없기 때문이다. 그래서 **적재에서 자른다.**
+ */
+describe('CollectionIncrementalRepository — 가입자만 적재한다', () => {
+  it('가입하지 않은 계정의 기여는 행을 만들지 않는다', async () => {
+    const db = createDb();
+    db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
+    db.collectionCommitFact.count.mockResolvedValue(1);
+    // 1n 만 가입자다.
+    db.user.findMany.mockResolvedValue([{ githubId: 1n }]);
+
+    await repositoryFor(db).recordCommitFacts('repo-1', [
+      {
+        sha: 'by-member',
+        committedAt: new Date('2026-03-01T00:00:00.000Z'),
+        authorGithubId: 1n,
+      },
+      {
+        sha: 'by-stranger',
+        committedAt: new Date('2026-03-01T00:00:00.000Z'),
+        authorGithubId: 999n,
+      },
+    ]);
+
+    expect(db.contribution.upsert).toHaveBeenCalledTimes(1);
+    expect(db.contribution.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          repositoryId_githubId_date: {
+            repositoryId: 'repo-1',
+            githubId: 1n,
+            date: new Date(Date.UTC(2026, 2, 1)),
+          },
+        },
+      }),
+    );
+  });
+
+  it('이미 쌓여 있던 미가입자 행은 지운다 — fail-open 을 닫는다', async () => {
+    const db = createDb();
+    db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
+    db.collectionCommitFact.count.mockResolvedValue(1);
+    db.user.findMany.mockResolvedValue([]);
+
+    await repositoryFor(db).recordCommitFacts('repo-1', [
+      {
+        sha: 'by-stranger',
+        committedAt: new Date('2026-03-01T00:00:00.000Z'),
+        authorGithubId: 999n,
+      },
+    ]);
+
+    expect(db.contribution.upsert).not.toHaveBeenCalled();
+    expect(db.contribution.deleteMany).toHaveBeenCalledWith({
+      where: {
+        repositoryId: 'repo-1',
+        githubId: 999n,
+        date: new Date(Date.UTC(2026, 2, 1)),
+      },
+    });
+  });
+
+  it('상류에서 사라진 기여는 행도 사라진다 — 0 인 행을 남기지 않는다', async () => {
+    const db = createDb();
+    db.collectionCommitFact.createMany.mockResolvedValue({ count: 0 });
+    // force-push 로 커밋이 사라져 COUNT 가 0이 됐다.
+    db.collectionCommitFact.count.mockResolvedValue(0);
+
+    await repositoryFor(db).recordCommitFacts('repo-1', [
+      {
+        sha: 'gone',
+        committedAt: new Date('2026-03-01T00:00:00.000Z'),
+        authorGithubId: 1n,
+      },
+    ]);
+
+    // 0 인 행을 남기면 "활동 없음"과 "0건으로 관측됨"이 구분되지 않는다.
+    expect(db.contribution.upsert).not.toHaveBeenCalled();
+    expect(db.contribution.deleteMany).toHaveBeenCalled();
   });
 });
