@@ -266,7 +266,7 @@ model Application {
   /// 저장소 연결 방식 — 제출 시 1회 결정, 이후 수정 endpoint는 두지 않는다.
   repositoryConnectionMode RepositoryConnectionMode @default(NEW)
   /// OWN일 때 연결할 기존 저장소 URL. NEW면 null.
-  repositoryUrl String?
+  repositoryUrl            String?
 
   status          ApplicationStatus @default(SUBMITTED)
   rejectionReason String?
@@ -286,10 +286,10 @@ model Application {
   submissionFiles              SubmissionFile[]              @relation("SubmissionFileApplication")
   milestoneDocumentSubmissions MilestoneDocumentSubmission[]
 
+  @@unique([programId, teamId])
   @@index([programId])
   @@index([applicantId])
   @@index([teamId])
-  @@unique([programId, teamId])
 }
 
 model Team {
@@ -1051,18 +1051,67 @@ model GithubRepository {
 
   lastCompleteInventoryObservedAt DateTime?
 
+  /// 수집 편입 큐. 행이 존재한다는 것이 곧 "이 저장소는 수집 대상"이라는 뜻이며,
+  /// 별도의 편입 단계나 조건절을 두지 않는다(ADR-010 §6). 프로비저닝이 `NEW` 생성이든
+  /// `OWN` 연결이든 행을 만드는 순간 `nextRunAt` 기본값 `now()`로 큐에 들어간다.
+  nextRunAt     DateTime  @default(now())
+  /// 마지막으로 이 저장소 수집이 끝까지 성공한 시각. 건강 지표의 신선도 축이다.
+  lastSuccessAt DateTime?
+  /// 연속 실패 횟수. 백오프와 격리 판정의 입력이며 성공 시 0으로 되돌린다.
+  failureCount  Int       @default(0)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  streams          CollectionRepositoryStream[]
-  commits          CollectionCommitFact[]
-  pullRequests     CollectionPullRequestFact[]
-  releases         CollectionReleaseFact[]
-  yearAggregates   CollectionRepositoryYearAggregate[]
-  contributorYears CollectionContributorYearAggregate[]
+  streams       CollectionRepositoryStream[]
+  commits       CollectionCommitFact[]
+  pullRequests  CollectionPullRequestFact[]
+  releases      CollectionReleaseFact[]
+  contributions Contribution[]
 
   @@index([source, visibility])
   @@index([visibility, presence])
+  /// 큐에서 "가장 오래 굶은 것부터" 꺼내는 정렬을 인덱스가 받친다.
+  @@index([nextRunAt])
+}
+
+/// 기여 추적의 유일한 사실 테이블 (ADR-010 §4).
+///
+/// 한 행 = "이 저장소에서 이 사람이 이 날 남긴 기여".
+/// grain 을 이름에 넣지 않는다 — grain 이 바뀌면 이름이 거짓말이 되기 때문이며,
+/// 앞선 `*YearAggregate` 가 정확히 그 실패를 겪었다.
+///
+/// **저장에 연도 개념이 없다.** 읽을 때 `WHERE date` 범위로만 자르므로 새해에
+/// 롤오버 작업도, 당해 연도를 0으로 초기화하는 특수 처리도 필요 없다.
+/// 연도로 접으면 랭킹이, 저장소로 접으면 팀 기여도가 같은 바닥에서 나온다.
+///
+/// 집계 수치만 담는다. 커밋 메시지·PR 제목/본문·릴리스 본문은 저장하지 않으며,
+/// 개별 식별자(`sha`·PR id·릴리스 id)도 보존하지 않는다 —
+/// "무엇을 했는지"가 아니라 "얼마나 했는지"만 남는다(ADR-006 저장 field inventory).
+model Contribution {
+  repositoryId String
+  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  /// 학생의 GitHub 숫자 id. `User.githubId` 와 같은 값이며 NOT NULL 이다 —
+  /// 귀속을 특정할 수 없는 기여는 애초에 적재하지 않는다(ADR-010 §5).
+  githubId BigInt
+
+  /// Asia/Seoul 기준 날짜. 날짜 경계 해석은 쓰기 시점이 아니라 이 칸의 정의에만 있다.
+  date DateTime @db.Date
+
+  commitCount      Int @default(0)
+  pullRequestCount Int @default(0)
+  releaseCount     Int @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  /// grain 은 이름이 아니라 기본키가 정의한다.
+  @@id([repositoryId, githubId, date])
+  /// 두 축을 각각 받친다.
+  /// 저장소 축(② 팀 기여도)은 기본키 선두가 커버하고,
+  /// 사람 축(랭킹·프로필 등 `githubId` 시작 조회)은 아래 인덱스가 받는다.
+  @@index([githubId, date])
+  @@index([date])
 }
 
 enum CollectionStreamType {
@@ -1166,46 +1215,6 @@ model CollectionReleaseFact {
   @@unique([repositoryId, githubReleaseId])
   @@index([repositoryId, publishedAt])
   @@index([authorGithubId])
-}
-
-/// year를 별도 row로 키잉해 매년 1/1에 당해 연도 값을 0으로 안전하게 읽는다
-/// (CanonicalContributorProjection의 단일 컬럼 currentYear 덮어쓰기 anti-pattern을 반복하지 않는다).
-model CollectionRepositoryYearAggregate {
-  repositoryId String
-  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-
-  year Int
-
-  commitCount      Int @default(0)
-  pullRequestCount Int @default(0)
-  releaseCount     Int @default(0)
-
-  updatedAt DateTime @updatedAt
-
-  @@id([repositoryId, year])
-  @@index([year])
-}
-
-/// 기여자별 연도 누적 — repositoryId+githubUserId+year로 키잉해 Asia/Seoul 연 경계에서
-/// 당해 연도 read가 항상 0부터 시작하도록 보장한다.
-model CollectionContributorYearAggregate {
-  repositoryId String
-  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-
-  githubUserId BigInt
-  githubLogin  String
-
-  year Int
-
-  commitCount      Int @default(0)
-  pullRequestCount Int @default(0)
-  releaseCount     Int @default(0)
-
-  updatedAt DateTime @updatedAt
-
-  @@id([repositoryId, githubUserId, year])
-  @@index([repositoryId, year])
-  @@index([githubUserId, year])
 }
 
 /// installation 재순회의 fair 연속 커서 — org 전체를 한 번에 처리하지 않고 rate-limit 인지 상태로
