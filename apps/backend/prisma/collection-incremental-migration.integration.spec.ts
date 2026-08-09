@@ -102,9 +102,13 @@ describe('collection incremental migration — DB invariants', () => {
       true,
     );
     await expect(indexExists('Contribution_date_idx')).resolves.toBe(true);
-    // 드롭이 실제로 적용됐는지도 같이 본다 — 안 되면 옛 writer 가 되살아난다.
+    // 이 브랜치가 물리 삭제를 담당한다 — 드롭이 실제로 적용됐는지 본다.
+    // 테이블이 남아 있으면 옛 writer 가 되살아날 여지가 생긴다.
     await expect(
       indexExists('CollectionRepositoryYearAggregate_year_idx'),
+    ).resolves.toBe(false);
+    await expect(
+      indexExists('CollectionContributorYearAggregate_repositoryId_year_idx'),
     ).resolves.toBe(false);
   });
 
