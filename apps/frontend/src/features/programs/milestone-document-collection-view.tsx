@@ -145,7 +145,7 @@ function DocumentArchiveIcon(): ReactElement {
       strokeWidth={1.7}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="size-4"
+      className="size-5"
     >
       <path d="M12 4v10" />
       <path d="M8 10.5 12 14l4-3.5" />
@@ -198,18 +198,31 @@ function DocumentHeader({
        * 필터·페이지를 따라가지 않고 전 팀을 담으므로 그 한 줄이 그대로 맞는 말이다.
        * 표가 서는 화면에는 그 문단이 언제나 함께 있다(둘 다 같은 갈래에서 그려진다).
        */}
-      <a
-        href={milestoneDocumentCollectionDocumentArchiveHref(
-          milestoneId,
-          document.id,
-        )}
-        aria-label={`${document.name} 전체 내려받기(ZIP)`}
-        title={`${document.name} 전체 내려받기(ZIP)`}
-        aria-describedby={ARCHIVE_HINT_ID}
-        className="text-muted-foreground hover:text-foreground inline-flex size-6 shrink-0 items-center justify-center rounded-control transition-colors"
-      >
-        <DocumentArchiveIcon />
-      </a>
+      {/*
+       * ⚠ 공용 `Button`을 지나야 한다 — 직접 그린 24px 링크로 뒀더니 **터치 타깃이 24×24**가
+       * 되고 초점 표시도 이 저장소의 것과 달랐다. `button.tsx`가 「조작 가능한 사각형은 전부
+       * 44px이고 그 아래로 내려가면 터치 타깃 최소치가 깨진다」를 못박고 있고, 액션 트리거는
+       * 전부 이 프리미티브를 기반으로 한다(`docs/design.md`의 Button 절).
+       *
+       * `icon-xs`는 **누를 수 있는 자리만 44px**로 넓히고 배경이 없어(`ghost`) 머리글에서 서류
+       * 이름을 밀어내지 않는다. 보이는 아이콘은 `size-5`(20px)로 따로 잡았다 — 이 변형의
+       * 기본값 16px 은 서류 이름에 딸린 장식처럼 읽혀 있는 줄 모르고 지나치고, 24px 은 열이
+       * 여러 개일 때 서류 이름보다 아이콘이 먼저 눈에 들어온다. 세 크기를 실제 화면으로 놓고
+       * 고른 값이다.
+       */}
+      <Button asChild variant="ghost" size="icon-xs">
+        <a
+          href={milestoneDocumentCollectionDocumentArchiveHref(
+            milestoneId,
+            document.id,
+          )}
+          aria-label={`${document.name} 전체 내려받기(ZIP)`}
+          title={`${document.name} 전체 내려받기(ZIP)`}
+          aria-describedby={ARCHIVE_HINT_ID}
+        >
+          <DocumentArchiveIcon />
+        </a>
+      </Button>
     </span>
   );
 }
