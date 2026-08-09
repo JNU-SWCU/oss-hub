@@ -68,7 +68,9 @@ Accepted
 
 `D7`을 유지한다. 가중치는 없으므로 이름은 점수가 아니라 활동 횟수다.
 
-`contributionsCollection`은 release를 세지 않는다 — GitHub의 기여 타입은 commit·issue·PR·PR review·저장소 생성 5종이고 release는 그중에 없다. 따라서 ①은 commit·PR만 GraphQL로 받고 **release는 ② 수집값을 얹되 없으면 0**으로 둔다. sweep이 멈춰도 commit·PR은 계속 갱신되므로 정지는 부분으로 격하된다.
+`contributionsCollection`은 release를 세지 않는다 — GitHub의 기여 타입은 commit·issue·PR·PR review·저장소 생성 5종이고 release는 그중에 없다. 따라서 ①을 GraphQL로 옮길 때는 commit·PR만 그쪽에서 받고 **release는 ② 수집값을 얹되 없으면 0**으로 둔다.
+
+**현재는 그 이전 단계다.** ①도 ②와 같은 `Contribution`을 읽으므로 세 값이 모두 sweep 에서 온다.
 
 `issue`·`PR review`는 세지 않는다. 그 결과 **우리 숫자는 학생의 GitHub 프로필 그래프와 다를 수 있다** — GitHub은 issue·review를 세고 우리는 release를 센다. 화면 설명 문구가 이 차이를 밝힌다.
 
@@ -154,7 +156,12 @@ webhook 기반 실시간을 만들지 않는다(`ADR-006` 이벤트 최소주의
 
 "학생이 자기 화면을 보고 맞다고 하는가"가 판정이다. 표본 학생 3~5명의 두 화면을 열어 그 사람 GitHub 원본과 대조한다. 기간 제한은 없다.
 
-옛 DB 수치와 대조하지 않는다 — 규칙이 바뀌었으므로 비교 대상이 아니다. 대신 불변식 넷이 기계로 전수 검사한다: `(repositoryId, githubId, date)` 중복 0 / 모든 `githubId`가 가입자 집합 / 저장소별 내부 합계 정합 / **재실행 멱등성**.
+옛 DB 수치와 대조하지 않는다 — 규칙이 바뀌었으므로 비교 대상이 아니다. 대신 불변식 넷을 기계로 전수 검사한다.
+
+1. `(repositoryId, githubId, date)` 중복 0
+2. 모든 `githubId`가 가입자 집합에 속한다
+3. 집계 합계가 fact 건수를 넘지 않는다
+4. 음수 없음 — **재실행 멱등성의 대리 지표다.** 전량 재계산이 COUNT 로만 값을 만들므로 음수는 원리상 나올 수 없고, 나왔다면 증분 누적 경로가 되살아났다는 뜻이다. 같은 입력으로 두 번 돌려 같은 값이 나오는지는 실 Postgres 통합 스펙이 직접 본다 — 전수로 두 번 돌리는 비용이 크기 때문이다.
 
 ## Consequences
 

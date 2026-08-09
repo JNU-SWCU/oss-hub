@@ -5,6 +5,7 @@ import {
   RankingResponseError,
 } from './api';
 import {
+  currentRankingYear,
   RANKING_YEAR_ALL,
   parseRankingYearSearchParam,
   rankingListHref,
@@ -107,11 +108,17 @@ test('연도 목록 응답을 파싱한다', () => {
 });
 
 test('URL year 파싱과 href 생성', () => {
-  expect(parseRankingYearSearchParam(null)).toBe(RANKING_YEAR_ALL);
-  expect(parseRankingYearSearchParam('all')).toBe(RANKING_YEAR_ALL);
   expect(parseRankingYearSearchParam('2025')).toBe(2025);
-  expect(parseRankingYearSearchParam('nope')).toBe(RANKING_YEAR_ALL);
-  expect(rankingListHref(RANKING_YEAR_ALL)).toBe('/ranking');
+  // 값이 없으면 올해다 — 백엔드 기본과 같은 규칙이라야 링크 없이 연 화면과
+  // 서버가 같은 것을 본다(ADR-010 §1).
+  expect(parseRankingYearSearchParam(null)).toBe(currentRankingYear());
+  expect(parseRankingYearSearchParam('')).toBe(currentRankingYear());
+  // 전체 누적은 명시했을 때만이다.
+  expect(parseRankingYearSearchParam('all')).toBe(RANKING_YEAR_ALL);
+  // 알 수 없는 값도 전체가 아니라 올해로 떨어뜨린다 — 기본이 바뀌었으므로
+  // 실수한 링크가 조용히 전체 누적을 여는 일이 없어야 한다.
+  expect(parseRankingYearSearchParam('nope')).toBe(currentRankingYear());
+  expect(rankingListHref(RANKING_YEAR_ALL)).toBe('/ranking?year=all');
   expect(rankingListHref(2025)).toBe('/ranking?year=2025');
 });
 

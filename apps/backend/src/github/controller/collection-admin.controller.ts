@@ -21,6 +21,8 @@ import {
 } from '../../audit-log/audit-log-metadata';
 import { AuditLogService } from '../../audit-log/audit-log.service';
 import { DomainException } from '../../common/error-code';
+import { ContributionInvariants } from '../contribution-invariants';
+import type { ContributionInvariantReport } from '../contribution-invariants';
 import { CollectionAdminGuard } from '../collection-admin.guard';
 import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
 import {
@@ -56,7 +58,23 @@ export class CollectionAdminController {
     private readonly externalDiscovery: CollectionExternalDiscoveryService,
     private readonly incrementalRepository: CollectionIncrementalRepository,
     private readonly auditLog: AuditLogService,
+    private readonly invariants: ContributionInvariants,
   ) {}
+
+  /**
+   * 기여 데이터 불변식 전수 검사 (ADR-010 §11).
+   *
+   * read-only 다 — 어긋난 것을 고치지 않고 보고만 한다. 자동 교정은 원인을 덮고,
+   * 이 검사의 목적은 원인을 드러내는 것이다.
+   *
+   * 응답에 학생 식별자와 저장소 이름을 담지 않는다. ADMIN 전용이라도
+   * 조직 내부 정보이며, 이 값이 로그·이슈로 옮겨질 수 있다.
+   */
+  @Get('invariants')
+  @UseGuards(SessionGuard, CollectionAdminGuard)
+  async checkInvariants(): Promise<ContributionInvariantReport> {
+    return this.invariants.check();
+  }
 
   @Post('trigger')
   @HttpCode(202)

@@ -6,6 +6,7 @@ import { AuditLogService } from '../../audit-log/audit-log.service';
 import type { AuditLogRecord } from '../../audit-log/audit-log.repository';
 import { OriginGuard } from '../../auth/origin.guard';
 import { SessionGuard } from '../../auth/session.guard';
+import { ContributionInvariants } from '../contribution-invariants';
 import { CollectionAdminController } from './collection-admin.controller';
 import { CollectionAdminGuard } from '../collection-admin.guard';
 import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
@@ -13,6 +14,8 @@ import { CollectionExternalDiscoveryService } from '../service/collection-extern
 import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import type { CollectionSyncRunRow } from '../collection-incremental.types';
 import { CollectionSyncService } from '../service/collection-sync.service';
+
+const check = jest.fn();
 
 describe('CollectionAdminController', () => {
   const run = jest.fn<
@@ -61,6 +64,7 @@ describe('CollectionAdminController', () => {
       controllers: [CollectionAdminController],
       providers: [
         { provide: CollectionSyncService, useValue: { run, runExternal } },
+        { provide: ContributionInvariants, useValue: { check } },
         { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
         {
           provide: CollectionExternalDiscoveryService,
@@ -100,6 +104,7 @@ describe('CollectionAdminController', () => {
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
+      { check } as unknown as ContributionInvariants,
     );
 
     await controller.trigger(sessionRequest);
@@ -118,6 +123,7 @@ describe('CollectionAdminController', () => {
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
+      { check } as unknown as ContributionInvariants,
     );
 
     await expect(controller.trigger(sessionRequest)).rejects.toMatchObject({
@@ -139,6 +145,7 @@ describe('CollectionAdminController', () => {
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
+      { check } as unknown as ContributionInvariants,
     );
 
     const result = await controller.trigger(sessionRequest);
@@ -188,6 +195,7 @@ describe('CollectionAdminController', () => {
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
+      { check } as unknown as ContributionInvariants,
     );
 
     const result = await controller.discoverExternal({
@@ -230,6 +238,7 @@ describe('CollectionAdminController', () => {
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
+      { check } as unknown as ContributionInvariants,
     );
 
     const response = await controller.trigger(sessionRequest);
@@ -247,6 +256,7 @@ describe('CollectionAdminController', () => {
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
+      { check } as unknown as ContributionInvariants,
     );
 
     const response = await controller.trigger(sessionRequest);
@@ -269,6 +279,7 @@ describe('CollectionAdminController', () => {
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
+      { check } as unknown as ContributionInvariants,
     );
 
     await expect(controller.trigger(sessionRequest)).rejects.toBeDefined();
@@ -303,6 +314,7 @@ describe('CollectionAdminController', () => {
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
+      { check } as unknown as ContributionInvariants,
     );
 
     const result = await controller.listRuns();
@@ -355,6 +367,7 @@ describe('CollectionAdminController', () => {
       { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
+      { check } as unknown as ContributionInvariants,
     );
 
     const serialized = JSON.stringify(await controller.listRuns());
@@ -376,5 +389,68 @@ describe('CollectionAdminController', () => {
     const guards: unknown = Reflect.getMetadata(GUARDS_METADATA, handler);
 
     expect(guards).toEqual([SessionGuard, CollectionAdminGuard, OriginGuard]);
+  });
+});
+
+/**
+ * 불변식 전수 검사 endpoint (ADR-010 §11).
+ *
+ * ADR이 "기계로 전수 검사한다"고 약속했는데 호출자가 없으면 그 약속은 죽은 코드다.
+ * 이 endpoint가 그 실행 경로이며, 여기서 보는 것은 두 가지다 —
+ * read-only 인가, 그리고 응답이 식별자를 흘리지 않는가.
+ */
+describe('CollectionAdminController — 기여 불변식 검사', () => {
+  it('검사 결과를 그대로 돌려준다 — 고치지 않는다', async () => {
+    const report = {
+      checkedAt: new Date('2026-08-09T00:00:00.000Z'),
+      ok: false,
+      results: [
+        {
+          name: '가입자만 적재',
+          ok: false,
+          violationCount: 2,
+          detail: '가입자 아닌 기여자 2명 — 적재 필터가 열려 있다',
+        },
+      ],
+    };
+    const checkInvariants = jest.fn().mockResolvedValue(report);
+    const controller = new CollectionAdminController(
+      {} as unknown as CollectionSyncService,
+      {} as unknown as CollectionCutoverRepository,
+      {} as unknown as CollectionExternalDiscoveryService,
+      {} as unknown as CollectionIncrementalRepository,
+      {} as unknown as AuditLogService,
+      { check: checkInvariants } as unknown as ContributionInvariants,
+    );
+
+    await expect(controller.checkInvariants()).resolves.toEqual(report);
+    expect(checkInvariants).toHaveBeenCalledTimes(1);
+  });
+
+  it('응답에 학생 식별자나 저장소 이름이 없다', async () => {
+    const checkInvariants = jest.fn().mockResolvedValue({
+      checkedAt: new Date('2026-08-09T00:00:00.000Z'),
+      ok: false,
+      results: [
+        {
+          name: '가입자만 적재',
+          ok: false,
+          violationCount: 1,
+          detail: '가입자 아닌 기여자 1명 — 적재 필터가 열려 있다',
+        },
+      ],
+    });
+    const controller = new CollectionAdminController(
+      {} as unknown as CollectionSyncService,
+      {} as unknown as CollectionCutoverRepository,
+      {} as unknown as CollectionExternalDiscoveryService,
+      {} as unknown as CollectionIncrementalRepository,
+      {} as unknown as AuditLogService,
+      { check: checkInvariants } as unknown as ContributionInvariants,
+    );
+
+    const serialized = JSON.stringify(await controller.checkInvariants());
+    // ADMIN 전용이라도 조직 내부 정보다. 이 값이 로그·이슈로 옮겨질 수 있다.
+    expect(serialized).not.toMatch(/githubId|githubLogin|nameWithOwner/u);
   });
 });

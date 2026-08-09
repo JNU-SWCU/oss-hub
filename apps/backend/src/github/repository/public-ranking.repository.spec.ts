@@ -17,10 +17,10 @@ interface FindManyArgs {
 }
 
 interface MockPrisma {
-  contribution: {
-    findMany: jest.Mock<Promise<unknown[]>, [FindManyArgs]>;
+  contribution: { findMany: jest.Mock<Promise<unknown[]>, [FindManyArgs]> };
+  githubRepository: {
     aggregate: jest.Mock<
-      Promise<{ _max: { updatedAt: Date | null } }>,
+      Promise<{ _max: { lastSuccessAt: Date | null } }>,
       [FindManyArgs]
     >;
   };
@@ -40,14 +40,15 @@ const createDb = (): MockPrisma => {
   const findMany = jest.fn<Promise<unknown[]>, [FindManyArgs]>();
   findMany.mockResolvedValue([]);
   const aggregate = jest.fn<
-    Promise<{ _max: { updatedAt: Date | null } }>,
+    Promise<{ _max: { lastSuccessAt: Date | null } }>,
     [FindManyArgs]
   >();
-  aggregate.mockResolvedValue({ _max: { updatedAt: null } });
+  aggregate.mockResolvedValue({ _max: { lastSuccessAt: null } });
   const userFindMany = jest.fn<Promise<unknown[]>, [FindManyArgs]>();
   userFindMany.mockResolvedValue([]);
   return {
-    contribution: { findMany, aggregate },
+    contribution: { findMany },
+    githubRepository: { aggregate },
     user: { findMany: userFindMany },
   };
 };
@@ -68,21 +69,22 @@ describe('PublicRankingRepository — 공개 strict-read 계약', () => {
       });
     });
 
-    it('연도 목록과 갱신 시각도 같은 필터를 쓴다', async () => {
+    it('연도 목록과 갱신 시각이 같은 공개 저장소 필터를 쓴다', async () => {
       const db = createDb();
 
       await repositoryFor(db).listYears();
       await repositoryFor(db).findDataAsOf();
 
-      for (const args of [
-        argsOf(db.contribution.findMany),
-        argsOf(db.contribution.aggregate),
-      ]) {
-        expect(args.where?.repository).toEqual({
-          visibility: 'PUBLIC',
-          presence: 'PRESENT',
-        });
-      }
+      // 연도 목록은 기여를 통해, 갱신 시각은 저장소를 통해 같은 조건을 건다.
+      expect(argsOf(db.contribution.findMany).where?.repository).toEqual({
+        visibility: 'PUBLIC',
+        presence: 'PRESENT',
+      });
+      // 갱신 시각은 "마지막 수집 성공"이라 저장소 행을 본다(ADR-010 §10).
+      expect(argsOf(db.githubRepository.aggregate).where).toEqual({
+        visibility: 'PUBLIC',
+        presence: 'PRESENT',
+      });
     });
   });
 

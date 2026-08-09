@@ -136,15 +136,20 @@ export class PublicRankingRepository {
   /**
    * 공개 랭킹 수치의 기준 시각 (ADR-010 §10).
    *
+   * **마지막 수집 성공 시각**이다. "마지막 데이터 변경 시각"이 아니다 —
+   * 활동이 조용한 기간에는 값이 안 바뀌는 게 정상인데, 변경 시각을 보이면
+   * 정상을 정지로 오인하게 만든다. 이 화면의 목적이 "멈추면 보인다"이므로
+   * 멈춤 여부를 말해 주는 쪽을 쓴다.
+   *
    * 목록과 따로 묻는다 — 목록은 60초 캐시를 타는데 시각까지 캐시되면
    * 수집이 멈춰도 화면은 계속 최신인 것처럼 보인다.
    */
   async findDataAsOf(): Promise<Date | null> {
-    const latest = await this.prisma.contribution.aggregate({
-      where: { repository: PublicRankingRepository.PUBLIC_REPOSITORY },
-      _max: { updatedAt: true },
+    const latest = await this.prisma.githubRepository.aggregate({
+      where: PublicRankingRepository.PUBLIC_REPOSITORY,
+      _max: { lastSuccessAt: true },
     });
-    return latest._max.updatedAt ?? null;
+    return latest._max.lastSuccessAt ?? null;
   }
 
   /**
