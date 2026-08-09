@@ -26,6 +26,7 @@ import {
   ApplicationJoinCodeDigestConflictError,
   ApplicationTeamMembershipConflictError,
   ApplicationsRepository,
+  type ApplicationListItem,
   type ApplicationListPage,
   type CreatedApplication,
   type StaffDashboardSummary,
@@ -255,6 +256,20 @@ export class ApplicationsService {
       throw this.error(ApplicationsErrorCode.PROGRAM_NOT_FOUND);
     }
     return this.repository.listApplicationsForProgram(programId, query);
+  }
+
+  /**
+   * #722 교직원 신청 상세. 목록과 달리 programId 를 받지 않는다 — 판정(`decide`)이
+   * 이미 신청 id 하나로 도달하는 계약이라, 조회만 프로그램을 요구하면 같은 자원에
+   * 주소 규칙이 둘 생긴다.
+   */
+  async getForStaff(applicationId: string): Promise<ApplicationListItem> {
+    const application =
+      await this.repository.findApplicationForStaff(applicationId);
+    if (!application) {
+      throw this.error(ApplicationsErrorCode.APPLICATION_NOT_FOUND);
+    }
+    return application;
   }
 
   /** #117 교직원 운영 대시보드 요약 — Application 단위 집계. */

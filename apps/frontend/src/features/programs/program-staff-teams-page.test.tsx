@@ -55,6 +55,9 @@ function application(
 ): ApplicationListItem {
   return {
     id: `app-${teamId ?? 'none'}`,
+    programId: 'program-1',
+    repositoryConnectionMode: 'NEW',
+    repositoryUrl: null,
     status,
     rejectionReason: null,
     repositoryProvisioning: {
