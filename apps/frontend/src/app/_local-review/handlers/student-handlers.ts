@@ -152,6 +152,19 @@ function applicationDecisionNotificationsHandler(
               decision: 'APPROVED',
               decidedAt: '2026-08-08T23:00:00.000Z',
             },
+            // 반려 알림. 이 안내의 링크가 `/programs/{id}/apply`로 가고 그 화면이
+            // 반려 사유를 그린다 — 승인 알림만 두면 검토자가 그 왕복을 눌러 볼 수
+            // 없다. `programId`는 반려 신청 픽스처가 있는 프로그램이어야 한다
+            // (`student-program-fixtures.ts`의 `MY_APPLICATION_FIXTURES`).
+            // 사유 원문은 여기 담지 않는다 — 실제 알림 payload에도 없다.
+            {
+              id: 'synthetic-application-rejection-notice',
+              applicationId: 'synthetic-application-sw-value',
+              programId: 'program-sw-value',
+              programName: '합성 SW가치확산 프로그램',
+              decision: 'REJECTED',
+              decidedAt: '2026-06-28T23:00:00.000Z',
+            },
           ]
         : [],
     );
