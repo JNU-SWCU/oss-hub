@@ -94,14 +94,22 @@ export class RankingService {
     );
 
     const candidates = activity
-      .map(({ githubId, githubLogin, commitCount, pullRequestCount, releaseCount }) => ({
-        githubId,
-        githubLogin,
-        commitCount,
-        pullRequestCount,
-        releaseCount,
-        total: commitCount + pullRequestCount + releaseCount,
-      }))
+      .map(
+        ({
+          githubId,
+          githubLogin,
+          commitCount,
+          pullRequestCount,
+          releaseCount,
+        }) => ({
+          githubId,
+          githubLogin,
+          commitCount,
+          pullRequestCount,
+          releaseCount,
+          total: commitCount + pullRequestCount + releaseCount,
+        }),
+      )
       .filter((entry) => entry.total > 0);
 
     // 정책 결정 D3(.omc/plans/student-repo-ranking-tracking.md §1 "확정된 정책" 표,

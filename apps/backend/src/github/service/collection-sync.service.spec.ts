@@ -2143,7 +2143,10 @@ describe('CollectionSyncService — 실패 저장소 격리 (DD1)', () => {
     const { db, box } = createFakeDb();
     const repositories = [
       providerRepository({ id: '1001', fullName: 'synthetic-org/repo-broken' }),
-      providerRepository({ id: '1002', fullName: 'synthetic-org/repo-healthy' }),
+      providerRepository({
+        id: '1002',
+        fullName: 'synthetic-org/repo-healthy',
+      }),
     ];
     const service = createService(db, failingFirstClient(repositories));
 
@@ -2162,15 +2165,22 @@ describe('CollectionSyncService — 실패 저장소 격리 (DD1)', () => {
     const { db, box } = createFakeDb();
     const repositories = [
       providerRepository({ id: '1001', fullName: 'synthetic-org/repo-broken' }),
-      providerRepository({ id: '1002', fullName: 'synthetic-org/repo-healthy' }),
+      providerRepository({
+        id: '1002',
+        fullName: 'synthetic-org/repo-healthy',
+      }),
     ];
     const service = createService(db, failingFirstClient(repositories));
 
     await service.run('synthetic-org');
 
     const rows = [...box.store.repositories.values()];
-    const broken = rows.find((row) => row.nameWithOwner === 'synthetic-org/repo-broken');
-    const healthy = rows.find((row) => row.nameWithOwner === 'synthetic-org/repo-healthy');
+    const broken = rows.find(
+      (row) => row.nameWithOwner === 'synthetic-org/repo-broken',
+    );
+    const healthy = rows.find(
+      (row) => row.nameWithOwner === 'synthetic-org/repo-healthy',
+    );
 
     // 실패: 횟수가 오르고 다음 차례가 미뤄진다. 버려지는 게 아니라 미뤄지는 것이다.
     expect(broken?.failureCount).toBe(1);
@@ -2188,7 +2198,10 @@ describe('CollectionSyncService — 실패 저장소 격리 (DD1)', () => {
     const { db, box } = createFakeDb();
     const repositories = [
       providerRepository({ id: '1001', fullName: 'synthetic-org/repo-broken' }),
-      providerRepository({ id: '1002', fullName: 'synthetic-org/repo-healthy' }),
+      providerRepository({
+        id: '1002',
+        fullName: 'synthetic-org/repo-healthy',
+      }),
     ];
     const service = createService(db, failingFirstClient(repositories));
 

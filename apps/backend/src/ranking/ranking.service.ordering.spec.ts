@@ -87,9 +87,9 @@ describe('RankingService deterministic ordering', () => {
           oldestRetryPendingAt: null,
           lastCycleStartedAt: null,
           lastCycleCompletedAt: null,
-        dueRepositoryCount: 0,
-        failingRepositoryCount: 0,
-        lastRepositorySuccessAt: null,
+          dueRepositoryCount: 0,
+          failingRepositoryCount: 0,
+          lastRepositorySuccessAt: null,
         }),
     } satisfies CollectionReadPort;
     const displayNameRepository = {

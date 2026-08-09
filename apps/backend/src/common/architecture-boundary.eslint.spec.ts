@@ -304,8 +304,7 @@ export async function useFixture(prisma: PrismaService): Promise<unknown> {
 
     it('GREEN: collection 구현 내부에서는 canonical* delegate 접근이 허용된다', () => {
       // Given: collection 폴더 안(구현부)에 동일한 delegate 접근을 둔다.
-      const insidePath =
-        'src/github/__lint_fixture_green_delegate_inside.ts';
+      const insidePath = 'src/github/__lint_fixture_green_delegate_inside.ts';
       writeFixture(
         insidePath,
         `import { PrismaService } from '../prisma/prisma.service';

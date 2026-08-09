@@ -46,7 +46,13 @@ describe('수집 편입 큐 계약 (ADR-010 §6)', () => {
 
     it('nextRunAt 인덱스가 있다 — 가장 오래 굶은 것부터 꺼낼 수 있어야 한다', () => {
       // 인덱스가 없으면 큐 정렬이 전체 스캔이 되고, 저장소가 늘수록 스윕이 느려진다.
-      const schemaPath = path.join(__dirname, '..', '..', 'prisma', 'schema.prisma');
+      const schemaPath = path.join(
+        __dirname,
+        '..',
+        '..',
+        'prisma',
+        'schema.prisma',
+      );
       const schema = fs.readFileSync(schemaPath, 'utf8');
       const modelBlock = schema.slice(
         schema.indexOf('model GithubRepository {'),
@@ -82,7 +88,11 @@ describe('수집 편입 큐 계약 (ADR-010 §6)', () => {
       // 코드가 `nextRunAt` 을 써 넣기 시작하면 "언제 편입되는가"가 다시
       // 호출 지점마다 흩어진다. 기본값 하나로 고정돼 있어야 한다.
       const source = fs.readFileSync(
-        path.join(__dirname, 'repository', 'collection-incremental.repository.ts'),
+        path.join(
+          __dirname,
+          'repository',
+          'collection-incremental.repository.ts',
+        ),
         'utf8',
       );
       const start = source.indexOf('async recordRepositoryObservation');
@@ -174,7 +184,13 @@ describe('Contribution 입자 계약 (ADR-010 §4)', () => {
 
   it('두 축을 인덱스가 각각 받친다', () => {
     // 저장소 축은 PK 선두, 사람 축은 복합 인덱스. 한쪽이 없으면 그 화면이 전체 스캔이 된다.
-    const schemaPath = path.join(__dirname, '..', '..', 'prisma', 'schema.prisma');
+    const schemaPath = path.join(
+      __dirname,
+      '..',
+      '..',
+      'prisma',
+      'schema.prisma',
+    );
     const schema = fs.readFileSync(schemaPath, 'utf8');
     const block = schema.slice(schema.indexOf('model Contribution {'));
     const body = block.slice(0, block.indexOf('\n}'));

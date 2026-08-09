@@ -166,7 +166,9 @@ export class ProgramActivityService {
       };
       for (const repository of canonicalByRepository.values()) {
         repository.commitDates.forEach((date) => add(date, 'commitCount'));
-        repository.pullRequestDates.forEach((date) => add(date, 'pullRequestCount'));
+        repository.pullRequestDates.forEach((date) =>
+          add(date, 'pullRequestCount'),
+        );
         repository.releaseDates.forEach((date) => add(date, 'releaseCount'));
       }
 

@@ -292,7 +292,6 @@ export class CollectionIncrementalRepository {
     return { insertedCount };
   }
 
-
   /**
    * `Contribution`(ADR-010 §4) 재계산 — 옛 연도 집계 **옆에** 더한다.
    *

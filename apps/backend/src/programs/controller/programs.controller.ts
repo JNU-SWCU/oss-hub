@@ -15,7 +15,10 @@ import type { Request } from 'express';
 import { AuthConfig } from '../../auth/auth.config';
 import { OriginGuard } from '../../auth/origin.guard';
 import { resolveSession } from '../../auth/session-resolution';
-import { type AuthenticatedRequest, SessionGuard } from '../../auth/session.guard';
+import {
+  type AuthenticatedRequest,
+  SessionGuard,
+} from '../../auth/session.guard';
 import { CreateProgramRequestDto } from '../dto/create-program-request.dto';
 import { CreateProgramResponseDto } from '../dto/create-program-response.dto';
 import {

@@ -10,7 +10,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { OriginGuard } from '../../auth/origin.guard';
-import { type AuthenticatedRequest, SessionGuard } from '../../auth/session.guard';
+import {
+  type AuthenticatedRequest,
+  SessionGuard,
+} from '../../auth/session.guard';
 import { CreateTeamRequestDto } from '../dto/create-team-request.dto';
 import { JoinTeamRequestDto } from '../dto/join-team-request.dto';
 import {

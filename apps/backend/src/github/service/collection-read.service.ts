@@ -286,11 +286,11 @@ export class CollectionReadService implements CollectionReadPort {
       const folded = repository.contributions.reduce(
         (accumulator, row) => ({
           commitCount: accumulator.commitCount + row.commitCount,
-          pullRequestCount:
-            accumulator.pullRequestCount + row.pullRequestCount,
+          pullRequestCount: accumulator.pullRequestCount + row.pullRequestCount,
           releaseCount: accumulator.releaseCount + row.releaseCount,
           dataAsOf:
-            accumulator.dataAsOf === null || row.updatedAt > accumulator.dataAsOf
+            accumulator.dataAsOf === null ||
+            row.updatedAt > accumulator.dataAsOf
               ? row.updatedAt
               : accumulator.dataAsOf,
         }),

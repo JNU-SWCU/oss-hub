@@ -98,9 +98,9 @@ describe('collection incremental migration — DB invariants', () => {
     ).resolves.toBe(true);
     // 옛 연도 집계는 드롭됐다(20260809140000). 지금 사실 테이블은 `Contribution`
     // 하나이며 두 축을 각각 인덱스가 받친다(ADR-010 §4).
-    await expect(
-      indexExists('Contribution_githubId_date_idx'),
-    ).resolves.toBe(true);
+    await expect(indexExists('Contribution_githubId_date_idx')).resolves.toBe(
+      true,
+    );
     await expect(indexExists('Contribution_date_idx')).resolves.toBe(true);
     // 드롭이 실제로 적용됐는지도 같이 본다 — 안 되면 옛 writer 가 되살아난다.
     await expect(

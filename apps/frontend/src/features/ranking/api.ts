@@ -103,7 +103,14 @@ function parseRankingItem(value: unknown): RankingItem | null {
   if (
     !hasAllowedKeys(
       value,
-      ['rank', 'displayName', 'githubLogin', 'commitCount', 'releaseCount', 'total'],
+      [
+        'rank',
+        'displayName',
+        'githubLogin',
+        'commitCount',
+        'releaseCount',
+        'total',
+      ],
       [...PULL_REQUEST_COUNT_KEYS],
     )
   ) {

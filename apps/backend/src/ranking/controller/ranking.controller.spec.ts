@@ -78,11 +78,7 @@ describe('RankingController', () => {
       pageSize: 20,
     });
     // 기본은 올해다(ADR-010 §1) — 명시적 ALL 만 전체 누적으로 간다.
-    expect(findPage).toHaveBeenLastCalledWith(
-      new Date().getFullYear(),
-      1,
-      20,
-    );
+    expect(findPage).toHaveBeenLastCalledWith(new Date().getFullYear(), 1, 20);
 
     findPage.mockResolvedValue({
       year: 2026,

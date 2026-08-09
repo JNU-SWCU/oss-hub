@@ -16,7 +16,11 @@ import type { PrismaService } from '../../prisma/prisma.service';
  * 지우면 실제로 실패한다(단순 `where` 인자 스냅샷 비교가 아니다).
  */
 interface MockPrisma {
-  githubRepository: { findMany: jest.Mock; count: jest.Mock; aggregate: jest.Mock };
+  githubRepository: {
+    findMany: jest.Mock;
+    count: jest.Mock;
+    aggregate: jest.Mock;
+  };
   contribution: { findMany: jest.Mock };
   user: { findMany: jest.Mock };
   collectionRepositoryStream: {
@@ -344,9 +348,7 @@ describe('CollectionReadService — getContributorMetrics', () => {
     });
 
     expect(result).toEqual([]);
-    expect(
-      db.contribution.findMany,
-    ).not.toHaveBeenCalled();
+    expect(db.contribution.findMany).not.toHaveBeenCalled();
   });
 
   it('maps two distinct contributors of the same repository/year to separate rows', async () => {
@@ -441,25 +443,24 @@ describe('CollectionReadService — getContributorMetrics', () => {
       { githubId: 1n, nickname: 'alice' },
       { githubId: 2n, nickname: 'bob' },
     ]);
-    db.contribution.findMany =
-      findManyContributorYearAggregate([
-        {
-          githubId: 1n,
-          commitCount: 4,
-          pullRequestCount: 1,
-          releaseCount: 0,
-          updatedAt: asOf,
-          repository: { githubRepositoryId: ORG_REPOSITORY_ID },
-        },
-        {
-          githubId: 2n,
-          commitCount: 9,
-          pullRequestCount: 9,
-          releaseCount: 9,
-          updatedAt: asOf,
-          repository: { githubRepositoryId: EXTERNAL_REPOSITORY_ID },
-        },
-      ]);
+    db.contribution.findMany = findManyContributorYearAggregate([
+      {
+        githubId: 1n,
+        commitCount: 4,
+        pullRequestCount: 1,
+        releaseCount: 0,
+        updatedAt: asOf,
+        repository: { githubRepositoryId: ORG_REPOSITORY_ID },
+      },
+      {
+        githubId: 2n,
+        commitCount: 9,
+        pullRequestCount: 9,
+        releaseCount: 9,
+        updatedAt: asOf,
+        repository: { githubRepositoryId: EXTERNAL_REPOSITORY_ID },
+      },
+    ]);
 
     const result = await serviceFor(db).getContributorMetrics({
       repositoryIds: [ORG_REPOSITORY_ID, EXTERNAL_REPOSITORY_ID],
@@ -766,9 +767,7 @@ describe('CollectionReadService — getContributorCumulativeMetrics', () => {
     });
 
     expect(result).toEqual([]);
-    expect(
-      db.contribution.findMany,
-    ).not.toHaveBeenCalled();
+    expect(db.contribution.findMany).not.toHaveBeenCalled();
   });
 
   it('sums a contributor across years without a year filter and keeps distinct contributors separate', async () => {
@@ -862,25 +861,24 @@ describe('CollectionReadService — getContributorCumulativeMetrics', () => {
       { githubId: 1n, nickname: 'alice' },
       { githubId: 2n, nickname: 'bob' },
     ]);
-    db.contribution.findMany =
-      findManyContributorYearAggregate([
-        {
-          githubId: 1n,
-          commitCount: 4,
-          pullRequestCount: 1,
-          releaseCount: 0,
-          updatedAt: asOf,
-          repository: { githubRepositoryId: ORG_REPOSITORY_ID },
-        },
-        {
-          githubId: 2n,
-          commitCount: 9,
-          pullRequestCount: 9,
-          releaseCount: 9,
-          updatedAt: asOf,
-          repository: { githubRepositoryId: EXTERNAL_REPOSITORY_ID },
-        },
-      ]);
+    db.contribution.findMany = findManyContributorYearAggregate([
+      {
+        githubId: 1n,
+        commitCount: 4,
+        pullRequestCount: 1,
+        releaseCount: 0,
+        updatedAt: asOf,
+        repository: { githubRepositoryId: ORG_REPOSITORY_ID },
+      },
+      {
+        githubId: 2n,
+        commitCount: 9,
+        pullRequestCount: 9,
+        releaseCount: 9,
+        updatedAt: asOf,
+        repository: { githubRepositoryId: EXTERNAL_REPOSITORY_ID },
+      },
+    ]);
 
     const result = await serviceFor(db).getContributorCumulativeMetrics({
       repositoryIds: [ORG_REPOSITORY_ID, EXTERNAL_REPOSITORY_ID],
@@ -912,9 +910,9 @@ describe('CollectionReadService — getIncrementalStatusSnapshot', () => {
       oldestRetryPendingAt: null,
       lastCycleStartedAt: null,
       lastCycleCompletedAt: null,
-        dueRepositoryCount: 0,
-        failingRepositoryCount: 0,
-        lastRepositorySuccessAt: null,
+      dueRepositoryCount: 0,
+      failingRepositoryCount: 0,
+      lastRepositorySuccessAt: null,
     });
     expect(db.githubRepository.count).toHaveBeenCalledWith({
       where: { presence: 'PRESENT', source: 'ORG_PROVISIONED' },

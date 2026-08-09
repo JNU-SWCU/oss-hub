@@ -324,20 +324,14 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       );
       expect(detailBody).toMatchObject({
         projectId: publicProject.githubRepositoryId.toString(),
-        contributors: [
-          expect.objectContaining({
-          }),
-        ],
+        contributors: [expect.objectContaining({})],
       });
       expect(profileBody).toMatchObject({
         userId: publicProject.applicantId,
         projects: [expect.objectContaining({ observed: true })],
       });
       expect(rankingBody.items).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-          }),
-        ]),
+        expect.arrayContaining([expect.objectContaining({})]),
       );
     }
 

@@ -79,9 +79,7 @@ const createDb = (): MockDb => {
     user: {
       findMany: jest.fn(
         ({ where }: { where: { githubId: { in: readonly bigint[] } } }) =>
-          Promise.resolve(
-            where.githubId.in.map((githubId) => ({ githubId })),
-          ),
+          Promise.resolve(where.githubId.in.map((githubId) => ({ githubId }))),
       ),
     },
     collectionRepositoryStream: {

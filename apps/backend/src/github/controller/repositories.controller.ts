@@ -6,7 +6,10 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { type AuthenticatedRequest, SessionGuard } from '../../auth/session.guard';
+import {
+  type AuthenticatedRequest,
+  SessionGuard,
+} from '../../auth/session.guard';
 import { MyRepositoriesResponseDto } from '../dto/my-repositories-response.dto';
 import { RepositoriesService } from '../service/repositories.service';
 

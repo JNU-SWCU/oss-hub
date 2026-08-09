@@ -19,7 +19,10 @@ interface FindManyArgs {
 interface MockPrisma {
   contribution: {
     findMany: jest.Mock<Promise<unknown[]>, [FindManyArgs]>;
-    aggregate: jest.Mock<Promise<{ _max: { updatedAt: Date | null } }>, [FindManyArgs]>;
+    aggregate: jest.Mock<
+      Promise<{ _max: { updatedAt: Date | null } }>,
+      [FindManyArgs]
+    >;
   };
   user: { findMany: jest.Mock<Promise<unknown[]>, [FindManyArgs]> };
 }
@@ -180,7 +183,9 @@ describe('PublicRankingRepository — 공개 strict-read 계약', () => {
         { date: new Date(Date.UTC(2026, 6, 1)) },
       ]);
 
-      await expect(repositoryFor(db).listYears()).resolves.toEqual([2026, 2025]);
+      await expect(repositoryFor(db).listYears()).resolves.toEqual([
+        2026, 2025,
+      ]);
     });
   });
 });

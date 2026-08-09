@@ -11,7 +11,10 @@ import {
 import { randomUUID } from 'node:crypto';
 
 import { OriginGuard } from '../../auth/origin.guard';
-import { SessionGuard, type AuthenticatedRequest } from '../../auth/session.guard';
+import {
+  SessionGuard,
+  type AuthenticatedRequest,
+} from '../../auth/session.guard';
 import {
   COLLECTION_TRIGGER_AUDIT_ACTIONS,
   createCollectionTriggerAuditMetadata,

@@ -21,7 +21,11 @@ import path from 'node:path';
  */
 function toZone(absPath, srcRoot) {
   const relative = path.relative(srcRoot, absPath);
-  if (relative === '' || relative.startsWith('..') || path.isAbsolute(relative)) {
+  if (
+    relative === '' ||
+    relative.startsWith('..') ||
+    path.isAbsolute(relative)
+  ) {
     return null;
   }
   const segments = relative.split(path.sep).filter(Boolean);
@@ -166,7 +170,9 @@ const rule = {
           context.report({
             node,
             messageId: 'rolePath',
-            data: { message: deny.message ?? '이 역할은 이 경로를 참조하지 않는다.' },
+            data: {
+              message: deny.message ?? '이 역할은 이 경로를 참조하지 않는다.',
+            },
           });
           return;
         }

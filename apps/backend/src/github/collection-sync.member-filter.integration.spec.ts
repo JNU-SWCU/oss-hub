@@ -319,16 +319,14 @@ describe('CollectionSyncService — PR·릴리스 멤버 필터 (실 DB)', () =>
     ).resolves.toBe(0);
 
     // facts에 없으니 집계 행도 팀원 하나뿐이다.
-    const aggregates = await prisma.contribution.findMany(
-      {
-        where: { repositoryId: collected.id },
-        select: {
-          githubId: true,
-          pullRequestCount: true,
-          releaseCount: true,
-        },
+    const aggregates = await prisma.contribution.findMany({
+      where: { repositoryId: collected.id },
+      select: {
+        githubId: true,
+        pullRequestCount: true,
+        releaseCount: true,
       },
-    );
+    });
     expect(aggregates).toHaveLength(1);
     expect(aggregates[0]?.githubId).toBe(MEMBER_GITHUB_ID);
     expect(aggregates[0]?.pullRequestCount).toBe(1);

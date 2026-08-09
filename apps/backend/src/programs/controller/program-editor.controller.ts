@@ -9,7 +9,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { OriginGuard } from '../../auth/origin.guard';
-import { type AuthenticatedRequest, SessionGuard } from '../../auth/session.guard';
+import {
+  type AuthenticatedRequest,
+  SessionGuard,
+} from '../../auth/session.guard';
 import {
   EditableProgramResponseDto,
   ProgramMilestoneResponseDto,
