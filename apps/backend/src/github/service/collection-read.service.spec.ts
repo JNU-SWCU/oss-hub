@@ -22,6 +22,7 @@ interface MockPrisma {
     aggregate: jest.Mock;
   };
   contribution: { findMany: jest.Mock };
+  repository: { findMany: jest.Mock };
   user: { findMany: jest.Mock };
   collectionRepositoryStream: {
     groupBy: jest.Mock;
@@ -40,6 +41,9 @@ const createDb = (): MockPrisma => ({
   contribution: {
     findMany: jest.fn().mockResolvedValue([]),
   },
+  // 프로비저닝 테이블 — 조직 밖 저장소의 "신청에 연결됨" 증명원.
+  // 기본은 "연결된 것 없음"이라 EXTERNAL_PUBLIC 은 걸러진다.
+  repository: { findMany: jest.fn().mockResolvedValue([]) },
   // 표시명 원본. 기본값은 빈 목록이며 각 테스트가 필요한 만큼 채운다.
   user: {
     findMany: jest.fn().mockResolvedValue([]),
@@ -56,6 +60,16 @@ const createDb = (): MockPrisma => ({
     findFirst: jest.fn().mockResolvedValue(null),
   },
 });
+
+/** `githubRepository.findMany` 의 첫 호출 where 를 구조로 본다. */
+function argsOfGithubRepository(db: MockPrisma): {
+  OR?: readonly Record<string, unknown>[];
+} {
+  const call = db.githubRepository.findMany.mock.calls[0] as
+    [{ where: { OR?: readonly Record<string, unknown>[] } }] | undefined;
+  if (call === undefined) throw new Error('호출되지 않았다');
+  return call[0].where;
+}
 
 const serviceFor = (db: MockPrisma): CollectionReadService =>
   new CollectionReadService(
@@ -84,16 +98,42 @@ function findManyGithubRepository<Row extends { githubRepositoryId: bigint }>(
 ): jest.Mock {
   return jest.fn(
     (args: {
-      where: { githubRepositoryId: { in: readonly bigint[] }; source?: string };
+      where: {
+        githubRepositoryId: { in: readonly bigint[] };
+        source?: string;
+        OR?: readonly {
+          source?: string;
+          githubRepositoryId?: { in: readonly bigint[] };
+        }[];
+      };
     }) => {
       const { in: ids } = args.where.githubRepositoryId;
-      const { source } = args.where;
+      const { source, OR } = args.where;
+      // 서비스는 이제 `OR` 로 "조직 저장소이거나, 신청에 연결된 조직 밖 저장소"를
+      // 표현한다. 실제 Prisma 처럼 절 하나라도 맞으면 통과시킨다 —
+      // 여기서 흉내내지 않으면 GR-13 가드가 코드에서 사라져도 테스트가 통과한다.
+      const matchesOr = (row: Row): boolean =>
+        OR === undefined ||
+        OR.some((clause) => {
+          const rowSource = REPOSITORY_SOURCE_BY_ID.get(row.githubRepositoryId);
+          if (clause.source !== undefined && clause.source !== rowSource) {
+            return false;
+          }
+          if (
+            clause.githubRepositoryId !== undefined &&
+            !clause.githubRepositoryId.in.includes(row.githubRepositoryId)
+          ) {
+            return false;
+          }
+          return true;
+        });
       return Promise.resolve(
         rows.filter(
           (row) =>
             ids.includes(row.githubRepositoryId) &&
             (source === undefined ||
-              REPOSITORY_SOURCE_BY_ID.get(row.githubRepositoryId) === source),
+              REPOSITORY_SOURCE_BY_ID.get(row.githubRepositoryId) === source) &&
+            matchesOr(row),
         ),
       );
     },
@@ -113,18 +153,39 @@ function findManyContributorYearAggregate<
         repository: {
           githubRepositoryId: { in: readonly bigint[] };
           source?: string;
+          OR?: readonly {
+            source?: string;
+            githubRepositoryId?: { in: readonly bigint[] };
+          }[];
         };
       };
     }) => {
       const { in: ids } = args.where.repository.githubRepositoryId;
-      const { source } = args.where.repository;
+      const { source, OR } = args.where.repository;
+      // 위 저장소 필터와 같은 이유로 `OR` 를 흉내낸다.
+      const matchesOr = (id: bigint): boolean =>
+        OR === undefined ||
+        OR.some((clause) => {
+          const rowSource = REPOSITORY_SOURCE_BY_ID.get(id);
+          if (clause.source !== undefined && clause.source !== rowSource) {
+            return false;
+          }
+          if (
+            clause.githubRepositoryId !== undefined &&
+            !clause.githubRepositoryId.in.includes(id)
+          ) {
+            return false;
+          }
+          return true;
+        });
       return Promise.resolve(
         rows.filter(
           (row) =>
             ids.includes(row.repository.githubRepositoryId) &&
             (source === undefined ||
               REPOSITORY_SOURCE_BY_ID.get(row.repository.githubRepositoryId) ===
-                source),
+                source) &&
+            matchesOr(row.repository.githubRepositoryId),
         ),
       );
     },
@@ -182,7 +243,11 @@ describe('CollectionReadService — findRepositoryActivity', () => {
       expect.objectContaining({
         where: {
           githubRepositoryId: { in: [101n] },
-          source: 'ORG_PROVISIONED',
+          // 조직 저장소이거나, 신청에 연결된 조직 밖 저장소만 통과한다.
+          OR: [
+            { source: 'ORG_PROVISIONED' },
+            { source: 'EXTERNAL_PUBLIC', githubRepositoryId: { in: [] } },
+          ],
         },
       }),
     );
@@ -271,7 +336,11 @@ describe('CollectionReadService — getRepositoryMetrics', () => {
       expect.objectContaining({
         where: {
           githubRepositoryId: { in: [101n] },
-          source: 'ORG_PROVISIONED',
+          // 조직 저장소이거나, 신청에 연결된 조직 밖 저장소만 통과한다.
+          OR: [
+            { source: 'ORG_PROVISIONED' },
+            { source: 'EXTERNAL_PUBLIC', githubRepositoryId: { in: [] } },
+          ],
         },
       }),
     );
@@ -413,7 +482,10 @@ describe('CollectionReadService — getContributorMetrics', () => {
           },
           repository: {
             githubRepositoryId: { in: [101n] },
-            source: 'ORG_PROVISIONED',
+            OR: [
+              { source: 'ORG_PROVISIONED' },
+              { source: 'EXTERNAL_PUBLIC', githubRepositoryId: { in: [] } },
+            ],
           },
         },
       }),
@@ -697,7 +769,11 @@ describe('CollectionReadService — getRepositoryCumulativeMetrics', () => {
       expect.objectContaining({
         where: {
           githubRepositoryId: { in: [101n] },
-          source: 'ORG_PROVISIONED',
+          // 조직 저장소이거나, 신청에 연결된 조직 밖 저장소만 통과한다.
+          OR: [
+            { source: 'ORG_PROVISIONED' },
+            { source: 'EXTERNAL_PUBLIC', githubRepositoryId: { in: [] } },
+          ],
         },
       }),
     );
@@ -832,7 +908,10 @@ describe('CollectionReadService — getContributorCumulativeMetrics', () => {
         where: {
           repository: {
             githubRepositoryId: { in: [101n] },
-            source: 'ORG_PROVISIONED',
+            OR: [
+              { source: 'ORG_PROVISIONED' },
+              { source: 'EXTERNAL_PUBLIC', githubRepositoryId: { in: [] } },
+            ],
           },
         },
       }),
@@ -1063,5 +1142,58 @@ describe('CollectionReadService — 큐가 막히면 지표가 말한다', () =>
     expect(serialized).not.toContain('nameWithOwner');
     expect(serialized).not.toContain('githubLogin');
     expect(serialized).not.toContain('githubId');
+  });
+});
+
+/**
+ * 프로그램 표면의 조직 밖 저장소 포함 조건 (ADR-009 §3 · ADR-010 §5).
+ *
+ * 예전에는 `source: 'ORG_PROVISIONED'`로 통째 막았다. 그러면 학생의 무관한 개인
+ * 저장소가 조직 실적으로 새는 것은 막히지만, `OWN`으로 **연결한** 저장소까지
+ * 함께 막혀 원래 목적("내 팀 저장소 기여를 본다")이 성립하지 않았다.
+ *
+ * 이제 판정을 호출자가 아니라 DB가 한다 — 프로비저닝 테이블에 같은
+ * `githubRepositoryId` 행이 있어야 조직 밖 저장소가 통과한다.
+ */
+describe('CollectionReadService — 조직 밖 저장소는 연결이 증명될 때만 포함한다', () => {
+  it('신청에 연결된 EXTERNAL_PUBLIC 저장소는 통과한다', async () => {
+    const db = createDb();
+    // 프로비저닝 테이블이 연결을 증명한다.
+    db.repository.findMany.mockResolvedValue([{ githubRepositoryId: 202n }]);
+
+    await serviceFor(db).findRepositoryActivity({ repositoryIds: [202n] });
+
+    const where = argsOfGithubRepository(db);
+    expect(where.OR).toEqual([
+      { source: 'ORG_PROVISIONED' },
+      { source: 'EXTERNAL_PUBLIC', githubRepositoryId: { in: [202n] } },
+    ]);
+  });
+
+  it('연결되지 않은 EXTERNAL_PUBLIC 저장소는 통과하지 못한다', async () => {
+    const db = createDb();
+    // 연결 증명이 없다 — 학생의 무관한 개인 저장소가 이 경우다.
+    db.repository.findMany.mockResolvedValue([]);
+
+    await serviceFor(db).findRepositoryActivity({ repositoryIds: [999n] });
+
+    const where = argsOfGithubRepository(db);
+    // 빈 목록이므로 EXTERNAL_PUBLIC 절이 아무것도 매치하지 않는다.
+    expect(where.OR).toEqual([
+      { source: 'ORG_PROVISIONED' },
+      { source: 'EXTERNAL_PUBLIC', githubRepositoryId: { in: [] } },
+    ]);
+  });
+
+  it('연결 판정은 호출자가 넘긴 id 범위 안에서만 조회한다', async () => {
+    const db = createDb();
+    db.repository.findMany.mockResolvedValue([]);
+
+    await serviceFor(db).findRepositoryActivity({ repositoryIds: [1n, 2n] });
+
+    // 전체 스캔이 아니라 요청된 id 로만 묻는다.
+    const call = db.repository.findMany.mock.calls[0] as
+      [{ where: { githubRepositoryId: { in: bigint[] } } }] | undefined;
+    expect(call?.[0].where.githubRepositoryId.in).toEqual([1n, 2n]);
   });
 });
