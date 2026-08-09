@@ -1,9 +1,12 @@
 import { apiClient } from '@/lib/api-client';
-import type { SystemStatus, SystemStatusResponse } from './types';
+import type { SystemStatusData, SystemStatusResponse } from './types';
 
-export async function fetchSystemStatus(): Promise<SystemStatus> {
+export async function fetchSystemStatus(): Promise<SystemStatusData> {
   const response = await apiClient<SystemStatusResponse>('system-status');
-  return response.collection;
+  return {
+    status: response.collection,
+    collectionStreams: response.collectionStreams,
+  };
 }
 
 export interface CollectionTriggerResult {

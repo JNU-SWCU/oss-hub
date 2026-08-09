@@ -18,18 +18,50 @@ describe('system status api', () => {
       oldestRetryPendingAt: null,
       lastCycleStartedAt: '2026-07-25T09:55:00.000Z',
       lastCycleCompletedAt: '2026-07-25T10:01:00.000Z',
+      nextCycleAt: '2026-07-25T11:00:00.000Z',
       currentRunStatus: 'PROCESSING',
       safeReason: 'STALE_DATA',
     };
+    const collectionStreams = [
+      {
+        repositoryName: 'jnu-oss/repo-a',
+        streams: [
+          {
+            streamType: 'COMMIT',
+            bucket: 'READY',
+            lastSuccessAt: '2026-07-25T10:00:00.000Z',
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+          {
+            streamType: 'PULL_REQUEST',
+            bucket: 'RETRY_PENDING',
+            lastSuccessAt: '2026-07-24T10:00:00.000Z',
+            lastErrorCode: 'PROVIDER_RATE_LIMITED',
+            lastErrorAt: '2026-07-25T09:00:00.000Z',
+          },
+          {
+            streamType: 'RELEASE',
+            bucket: 'READY',
+            lastSuccessAt: '2026-07-25T10:00:00.000Z',
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+        ],
+      },
+    ];
     const request = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ collection: dto }), {
+      new Response(JSON.stringify({ collection: dto, collectionStreams }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }),
     );
     vi.stubGlobal('fetch', request);
 
-    await expect(fetchSystemStatus()).resolves.toEqual(dto);
+    await expect(fetchSystemStatus()).resolves.toEqual({
+      status: dto,
+      collectionStreams,
+    });
     expect(request).toHaveBeenCalledWith(apiPath('system-status'), undefined);
   });
 
