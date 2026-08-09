@@ -48,6 +48,34 @@ export type RepositoryProvisionResult =
       readonly errorCode: string;
     };
 
+/**
+ * `owner/repo` 를 GitHub 저장소 URL 에서 뽑는다.
+ *
+ * 수집은 `nameWithOwner` 를 `/` 로 쪼개 owner 와 repo 를 구한다
+ * (`collection-sync.service.ts` 의 `splitNameWithOwner`). `/` 가 없으면 **throw** 한다.
+ *
+ * 그런데 GitHub API 의 `name` 은 bare repo name(`obsidian-ai-summarizer`)이고
+ * `owner/repo` 는 `full_name` 이다. 프로비저닝 metadata 는 `full_name` 을 담지 않으므로
+ * `html_url`(`https://github.com/owner/repo`)에서 뽑는다.
+ *
+ * 이 값이 틀리면 편입은 되는데 스윕이 그 행에서 죽는다 — 조용히 실패하는 경로다.
+ */
+export function nameWithOwnerFromUrl(
+  url: string,
+  fallbackName: string,
+): string {
+  try {
+    const segments = new URL(url).pathname.split('/').filter(Boolean);
+    if (segments.length >= 2) {
+      return `${segments[0]}/${segments[1]}`;
+    }
+  } catch {
+    // URL 파싱 실패는 아래 fallback 으로 넘긴다.
+  }
+  // owner 를 알 수 없다. 호출자가 이 값을 보고 편입을 건너뛴다.
+  return fallbackName;
+}
+
 export class RepositoryProvisionWorker {
   private readonly logger = new Logger(RepositoryProvisionWorker.name);
 
@@ -112,11 +140,25 @@ export class RepositoryProvisionWorker {
         // 조직 인벤토리는 이 저장소를 못 본다. 여기서 수집 큐에 넣지 않으면
         // 학생이 자기 저장소에서 아무리 활동해도 화면에 영영 안 나온다
         // (ADR-009 §3, ADR-010 §5·§6).
-        await this.collectionEnrollment.enrollExternalRepository({
-          githubRepositoryId: repository.githubRepositoryId,
-          nameWithOwner: repository.name,
-          observedAt: completedAt,
-        });
+        const nameWithOwner = nameWithOwnerFromUrl(
+          repository.url,
+          repository.name,
+        );
+        if (nameWithOwner.includes('/')) {
+          await this.collectionEnrollment.enrollExternalRepository({
+            githubRepositoryId: repository.githubRepositoryId,
+            nameWithOwner,
+            observedAt: completedAt,
+          });
+        } else {
+          // owner 를 못 구했다. 그대로 넣으면 스윕이 그 행에서 throw 하므로
+          // 편입하지 않고 남긴다 — 프로비저닝 자체는 성공으로 끝낸다.
+          this.logger.warn({
+            event: 'collection.enrollment.skipped_invalid_name',
+            jobId: job.id,
+            githubRepositoryId: repository.githubRepositoryId.toString(),
+          });
+        }
         await this.state.completeJob(
           job.id,
           workerId,

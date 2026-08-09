@@ -291,3 +291,76 @@ describe('RepositoryProvisionWorker OWN connection', () => {
     expect(github.createRepository.mock.calls).toHaveLength(0);
   });
 });
+
+/**
+ * OWN 저장소의 수집 큐 편입 (ADR-010 §6).
+ *
+ * 이 경로에 단언이 없어서 실제 결함을 놓쳤다 — 워커가 `nameWithOwner` 로
+ * bare repo name 을 넘기고 있었는데, 수집은 그 값을 `/` 로 쪼개므로
+ * 편입은 되고 스윕이 그 행에서 throw 하는 **조용히 죽는 경로**가 됐다.
+ * 그래서 호출 여부만이 아니라 **인자 모양까지** 본다.
+ */
+describe('RepositoryProvisionWorker — OWN 저장소 수집 편입', () => {
+  it('owner/repo 형태로 편입한다 — bare repo name 을 넘기면 수집이 죽는다', async () => {
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(ownProvisionContext());
+    state.recordRepository.mockResolvedValue(OWN_PROVISION_REPOSITORY);
+    const github = githubClientMock();
+    github.findPublicRepository.mockResolvedValue({
+      githubRepositoryId: OWN_PROVISION_REPOSITORY.githubRepositoryId,
+      name: OWN_PROVISION_REPOSITORY.name,
+      url: OWN_PROVISION_REPOSITORY.url,
+      visibility: 'PUBLIC',
+      description: null,
+    });
+    const enrollExternalRepository = jest.fn();
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository,
+    });
+
+    await worker.runNext('worker-own-enroll', PROVISION_NOW);
+
+    expect(enrollExternalRepository).toHaveBeenCalledTimes(1);
+    const calls = enrollExternalRepository.mock.calls as [
+      { githubRepositoryId: bigint; nameWithOwner: string; observedAt: Date },
+    ][];
+    const first = calls[0];
+    if (first === undefined) throw new Error('편입이 호출되지 않았다');
+    const arg = first[0];
+    expect(arg.githubRepositoryId).toBe(
+      OWN_PROVISION_REPOSITORY.githubRepositoryId,
+    );
+    // 수집이 `/` 로 쪼개므로 owner 가 반드시 있어야 한다.
+    expect(arg.nameWithOwner).toBe('synthetic-student/synthetic-own-repo');
+    expect(arg.observedAt).toBeInstanceOf(Date);
+  });
+
+  it('owner 를 못 구하면 편입하지 않는다 — 그대로 넣으면 스윕이 그 행에서 죽는다', async () => {
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(ownProvisionContext());
+    const brokenUrl = 'https://github.com/';
+    state.recordRepository.mockResolvedValue({
+      ...OWN_PROVISION_REPOSITORY,
+      url: brokenUrl,
+    });
+    const github = githubClientMock();
+    github.findPublicRepository.mockResolvedValue({
+      githubRepositoryId: OWN_PROVISION_REPOSITORY.githubRepositoryId,
+      name: OWN_PROVISION_REPOSITORY.name,
+      url: brokenUrl,
+      visibility: 'PUBLIC',
+      description: null,
+    });
+    const enrollExternalRepository = jest.fn();
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository,
+    });
+
+    await worker.runNext('worker-own-enroll-broken', PROVISION_NOW);
+
+    // 편입을 건너뛴다. 프로비저닝 자체는 실패시키지 않는다.
+    expect(enrollExternalRepository).not.toHaveBeenCalled();
+  });
+});
