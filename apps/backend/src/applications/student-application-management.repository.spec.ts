@@ -27,6 +27,7 @@ const APPLICATION = {
   submittedAt: NOW,
   updatedAt: NOW,
   isRepositoryPublicationPlanned: true,
+  rejectionReason: null,
 };
 
 describe('StudentApplicationManagementRepository', () => {
@@ -51,6 +52,47 @@ describe('StudentApplicationManagementRepository', () => {
         },
       }),
     );
+  });
+
+  /**
+   * 사유는 `Application.rejectionReason`에만 있고 알림·감사 로그에는 담지 않는다
+   * (`audit-log/audit-log-metadata.ts`). select가 빠뜨리면 학생에게 닿을 길이 없다(#722).
+   */
+  it('selects the rejection reason on the owner read path', async () => {
+    const findFirst = jest.fn().mockResolvedValue(APPLICATION);
+    const repository = new StudentApplicationManagementRepository(
+      createPrisma({ application: { findFirst } }),
+      () => NOW,
+    );
+
+    const result = await repository.findOwnedApplication(
+      'program-1',
+      'student-1',
+    );
+
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ rejectionReason: true }) as unknown,
+      }),
+    );
+    expect(result).toHaveProperty('rejectionReason', null);
+  });
+
+  it('carries a stored rejection reason out of the owner read path', async () => {
+    const findFirst = jest
+      .fn()
+      .mockResolvedValue({ ...APPLICATION, rejectionReason: '합성 반려 사유' });
+    const repository = new StudentApplicationManagementRepository(
+      createPrisma({ application: { findFirst } }),
+      () => NOW,
+    );
+
+    const result = await repository.findOwnedApplication(
+      'program-1',
+      'student-1',
+    );
+
+    expect(result?.rejectionReason).toBe('합성 반려 사유');
   });
 
   it('locks and revalidates the program and owned application before updating', async () => {
