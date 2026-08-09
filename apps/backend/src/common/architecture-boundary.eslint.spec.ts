@@ -54,6 +54,7 @@ function boundaryMessages(
 ): Linter.LintMessage[] {
   return messages.filter(
     (message) =>
+      message.ruleId === 'boundary/module-zone' ||
       message.ruleId === 'no-restricted-imports' ||
       message.ruleId === 'no-restricted-syntax',
   );
@@ -79,9 +80,9 @@ export class LintFixtureRedControllerPrismaController {
       // When: 실제 eslint.config.mjs로 lint한다.
       const messages = boundaryMessages(lintFixture(redPath));
 
-      // Then: no-restricted-imports가 PrismaService import 줄(2행)에서 발화한다.
+      // Then: boundary/module-zone이 PrismaService import 줄(2행)에서 발화한다.
       expect(messages).toHaveLength(1);
-      expect(messages[0]?.ruleId).toBe('no-restricted-imports');
+      expect(messages[0]?.ruleId).toBe('boundary/module-zone');
       expect(messages[0]?.line).toBe(2);
       expect(messages[0]?.message).toContain(
         'controller는 Prisma에 직접 접근하지 않는다',
@@ -91,7 +92,7 @@ export class LintFixtureRedControllerPrismaController {
     it('mutation: 같은 import를 .service.ts로 옮기면(controller가 아니면) 위반이 사라진다', () => {
       // Given: 정확히 같은 PrismaService import를 service 파일로만 옮긴다.
       const mutatedPath =
-        'src/programs/__lint_fixture_red_controller_prisma.mutated.service.ts';
+        'src/github/__lint_fixture_red_controller_prisma.mutated.service.ts';
       const mutatedContent = redContent
         .replace("import { Controller } from '@nestjs/common';\n", '')
         .replace("@Controller('fixture')\n", '')
@@ -106,6 +107,10 @@ export class LintFixtureRedControllerPrismaController {
 
       // Then: 규칙이 "PrismaService import" 자체가 아니라 "controller 파일"이라는
       // 정확한 노드/파일 컨텍스트에서만 발화함을 증명한다.
+      //
+      // fixture 를 `github` zone 에 두는 이유: service 계층의 Prisma 직접 사용은
+      // `programs`·`ranking` 에서 별도로 금지된다(ADR-010 §8). `github` 은 아직
+      // 그 이관이 끝나지 않아 규칙 대상이 아니므로, 여기서는 controller 규칙만 남는다.
       expect(messages).toHaveLength(0);
     });
 
@@ -149,7 +154,7 @@ export class LintFixtureGreenControllerServiceController {
 
   describe('규칙 2 — collection concrete 구현의 모듈 외부 import 금지', () => {
     const redPath = 'src/ranking/__lint_fixture_red_collection_internal.ts';
-    const redContent = `import { CollectionReadService } from '../collection/collection-read.service';
+    const redContent = `import { CollectionReadService } from '../github/service/collection-read.service';
 
 export function useFixture(service: CollectionReadService): CollectionReadService {
   return service;
@@ -163,9 +168,9 @@ export function useFixture(service: CollectionReadService): CollectionReadServic
       // When: lint한다.
       const messages = boundaryMessages(lintFixture(redPath));
 
-      // Then: no-restricted-imports가 1행(import 선언)에서 발화한다.
+      // Then: boundary/module-zone이 1행(import 선언)에서 발화한다.
       expect(messages).toHaveLength(1);
-      expect(messages[0]?.ruleId).toBe('no-restricted-imports');
+      expect(messages[0]?.ruleId).toBe('boundary/module-zone');
       expect(messages[0]?.line).toBe(1);
       expect(messages[0]?.message).toContain('COLLECTION_READ_PORT');
     });
@@ -174,7 +179,7 @@ export function useFixture(service: CollectionReadService): CollectionReadServic
       // Given: 동일 파일에서 import 대상만 concrete → port로 바꾼다.
       const mutatedPath =
         'src/ranking/__lint_fixture_red_collection_internal.mutated.ts';
-      const mutatedContent = `import type { CollectionReadPort } from '../collection/collection-read.port';
+      const mutatedContent = `import type { CollectionReadPort } from '../github/collection-read.port';
 
 export function useFixture(service: CollectionReadPort): CollectionReadPort {
   return service;
@@ -237,7 +242,7 @@ export class LintFixtureGreenServiceRepositoryConsumer {
 import {
   COLLECTION_READ_PORT,
   type CollectionReadPort,
-} from '../collection/collection-read.port';
+} from '../github/collection-read.port';
 
 @Injectable()
 export class LintFixtureGreenPortInjectionService {
@@ -300,7 +305,7 @@ export async function useFixture(prisma: PrismaService): Promise<unknown> {
     it('GREEN: collection 구현 내부에서는 canonical* delegate 접근이 허용된다', () => {
       // Given: collection 폴더 안(구현부)에 동일한 delegate 접근을 둔다.
       const insidePath =
-        'src/collection/__lint_fixture_green_delegate_inside.ts';
+        'src/github/__lint_fixture_green_delegate_inside.ts';
       writeFixture(
         insidePath,
         `import { PrismaService } from '../prisma/prisma.service';
@@ -320,8 +325,8 @@ export async function useFixture(prisma: PrismaService): Promise<unknown> {
   });
 
   describe('규칙 4 — collection → consumer(programs/ranking/system-status) 역방향 import 금지', () => {
-    const redPath = 'src/collection/__lint_fixture_red_reverse_import.ts';
-    const redContent = `import { ProgramsService } from '../programs/programs.service';
+    const redPath = 'src/github/__lint_fixture_red_reverse_import.ts';
+    const redContent = `import { ProgramsService } from '../programs/service/programs.service';
 
 export function useFixture(service: ProgramsService): ProgramsService {
   return service;
@@ -335,9 +340,9 @@ export function useFixture(service: ProgramsService): ProgramsService {
       // When: lint한다.
       const messages = boundaryMessages(lintFixture(redPath));
 
-      // Then: no-restricted-imports가 1행에서 발화한다.
+      // Then: boundary/module-zone이 1행에서 발화한다.
       expect(messages).toHaveLength(1);
-      expect(messages[0]?.ruleId).toBe('no-restricted-imports');
+      expect(messages[0]?.ruleId).toBe('boundary/module-zone');
       expect(messages[0]?.line).toBe(1);
       expect(messages[0]?.message).toContain('소비자 모듈');
     });
@@ -345,7 +350,7 @@ export function useFixture(service: ProgramsService): ProgramsService {
     it('mutation: 같은 collection 파일에서 실제로 의존하는 auth 모듈을 import하면 위반이 사라진다', () => {
       // Given: collection이 실제로 의존하는 공유 모듈(auth)을 import하도록 바꾼다.
       const mutatedPath =
-        'src/collection/__lint_fixture_red_reverse_import.mutated.ts';
+        'src/github/__lint_fixture_red_reverse_import.mutated.ts';
       const mutatedContent = `import { AuthModule } from '../auth/auth.module';
 
 export function useFixture(): typeof AuthModule {
@@ -361,5 +366,83 @@ export function useFixture(): typeof AuthModule {
       // 정확한 소비자 모듈 목록에서만 발화함을 증명한다.
       expect(messages).toHaveLength(0);
     });
+  });
+
+  // 이 저장소가 실제로 겪은 실패 모드를 고정한다.
+  //
+  // 예전 경계는 `../other/domain/*`·`../../other/domain/*` 같은 상대경로 문자열이었다.
+  // 그래서 깊이 3 이상(`src/a/b/c/file.ts`)에서는 `../../../other/...`가 패턴에
+  // 매치되지 않아 **규칙이 조용히 통과했다.** 회귀 fixture도 깊이 1에 고정돼
+  // 있었으므로 테스트는 GREEN인 채로 경계만 사라지는 상태였다.
+  //
+  // 계층 폴더 도입(`controller/`·`service/`·`repository/`)은 파일을 정확히 그
+  // 깊이로 밀어넣는 작업이므로, 이 커버리지가 없으면 이동과 동시에 경계가 증발한다.
+  describe('규칙 5 — 경계는 상대경로 깊이에 의존하지 않는다', () => {
+    const cases = [
+      { depth: 1, dir: 'src/ranking', up: '..' },
+      { depth: 2, dir: 'src/ranking/service', up: '../..' },
+      { depth: 3, dir: 'src/ranking/service/internal', up: '../../..' },
+    ] as const;
+
+    for (const { depth, dir, up } of cases) {
+      it(`RED: 깊이 ${depth}에서 다른 모듈의 domain을 참조하면 실패한다`, () => {
+        // Given: 같은 위반을 서로 다른 중첩 깊이에 놓는다.
+        const relPath = `${dir}/__lint_fixture_depth${depth}_domain.ts`;
+        writeFixture(
+          relPath,
+          `import type { ProgramStatus } from '${up}/programs/domain/program-status';
+
+export type Fixture = ProgramStatus;
+`,
+        );
+
+        // When: lint한다.
+        const messages = boundaryMessages(lintFixture(relPath));
+
+        // Then: 깊이와 무관하게 같은 규칙이 같은 자리에서 발화한다.
+        expect(messages).toHaveLength(1);
+        expect(messages[0]?.ruleId).toBe('boundary/module-zone');
+        expect(messages[0]?.line).toBe(1);
+        expect(messages[0]?.message).toContain('domain');
+      });
+
+      it(`RED: 깊이 ${depth}에서 collection concrete 구현을 참조하면 실패한다`, () => {
+        // Given: 캡슐화 위반도 같은 깊이 축으로 검사한다.
+        const relPath = `${dir}/__lint_fixture_depth${depth}_collection.ts`;
+        writeFixture(
+          relPath,
+          `import type { CollectionReadService } from '${up}/github/collection-read.service';
+
+export type Fixture = CollectionReadService;
+`,
+        );
+
+        // When: lint한다.
+        const messages = boundaryMessages(lintFixture(relPath));
+
+        // Then: 공개 surface allowlist 밖이므로 깊이와 무관하게 막힌다.
+        expect(messages).toHaveLength(1);
+        expect(messages[0]?.ruleId).toBe('boundary/module-zone');
+        expect(messages[0]?.message).toContain('COLLECTION_READ_PORT');
+      });
+
+      it(`mutation: 깊이 ${depth}에서 port로 바꾸면 위반이 사라진다`, () => {
+        // Given: 같은 자리에서 대상만 concrete → port로 바꾼다.
+        const relPath = `${dir}/__lint_fixture_depth${depth}_collection.mutated.ts`;
+        writeFixture(
+          relPath,
+          `import type { CollectionReadPort } from '${up}/github/collection-read.port';
+
+export type Fixture = CollectionReadPort;
+`,
+        );
+
+        // When: lint한다.
+        const messages = boundaryMessages(lintFixture(relPath));
+
+        // Then: 규칙이 "깊은 경로 전부"가 아니라 캡슐화 경계에서만 발화함을 증명한다.
+        expect(messages).toHaveLength(0);
+      });
+    }
   });
 });
