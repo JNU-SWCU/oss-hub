@@ -201,16 +201,8 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         },
       ],
     });
-    await harness.prisma.contribution.create({
-      data: {
-        repositoryId: `${PREFIX}-published-collection-repository`,
-        githubId: 8_950_000_000_001n,
-        date: new Date(Date.UTC(2026, 0, 2)),
-        commitCount: 5,
-        pullRequestCount: 2,
-        releaseCount: 1,
-      },
-    });
+    // 옛 저장소 총계 행은 넣지 않는다 — `Contribution` 은 사람 축 하나이고
+    // 키가 (repositoryId, githubId, date) 라 위 행과 PK 가 충돌한다(ADR-010 §4).
 
     // 4중 게이트를 전부 통과하는 PRIVATE 저장소 2개 — 하나는 STAFF가, 하나는 ADMIN이
     // 실제 HTTP POST로 확정한다(둘 다 SubmissionReviewsStaffGuard를 통과해야 하는

@@ -281,17 +281,10 @@ async function seedContributors(
       },
     ],
   });
-  await prisma.contribution.create({
-    data: {
-      repositoryId: collectionRepositoryId,
-      // 저장소 총계 개념이 사라졌으므로(ADR-010 §4) 귀속을 명시한다.
-      githubId: ownerGithubId,
-      date: new Date(Date.UTC(2026, 0, 2)),
-      commitCount: 8,
-      pullRequestCount: 3,
-      releaseCount: 1,
-    },
-  });
+  // 옛 스키마는 기여자 집계와 저장소 총계가 다른 테이블이라 같은 (저장소, 날짜)에
+  // 두 행이 공존했다. `Contribution` 은 사람 축 하나뿐이고 키가
+  // (repositoryId, githubId, date) 이므로 저장소 총계 행을 따로 넣지 않는다 —
+  // 넣으면 소유자 행과 PK 가 충돌한다. 총계가 필요하면 읽을 때 합친다.
 }
 
 const PUBLISHED_AT = new Date('2026-06-01T00:00:00.000Z');
