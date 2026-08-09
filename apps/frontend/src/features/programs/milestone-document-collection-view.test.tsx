@@ -127,6 +127,8 @@ function render(
       errorMessage={null}
       review={null}
       reviewNotice={null}
+      archiveGrouping="TEAM"
+      onArchiveGroupingChange={() => {}}
       onFilterChange={() => {}}
       onPageChange={() => {}}
       onRetry={() => {}}
@@ -572,13 +574,159 @@ describe('MilestoneDocumentCollectionView 표', () => {
     // 필터 칩은 남는다 — 되돌아갈 곳이 보여야 한다.
     expect(html).toContain('전체 47팀');
   });
+});
 
-  // 「전체 내려받기(ZIP)」는 다음 묶음이다 — 자리도 두지 않는다.
-  it('아직 없는 일괄 내려받기 버튼을 미리 만들지 않는다', () => {
+/**
+ * 전체 제출물 ZIP. 링크 하나와 폴더 구조 토글 하나뿐이지만, 이 화면에서 **혼자만 표를
+ * 따라가지 않는** 조작이라 그 사실이 화면에 남아 있는지까지 본다.
+ */
+describe('MilestoneDocumentCollectionView 전체 내려받기(ZIP)', () => {
+  const documents = [document('d1', { name: '기획서' })];
+  const rows = [row('a', [missingCell('d1')], { teamName: '가팀' })];
+
+  const TEAM_HREF =
+    'href="/api/v1/milestones/milestone-1/documents/collection/archive?groupBy=TEAM"';
+  const DOCUMENT_HREF =
+    'href="/api/v1/milestones/milestone-1/documents/collection/archive?groupBy=DOCUMENT"';
+
+  it('기본은 팀 기준으로 묶은 ZIP 링크를 건다', () => {
     const html = render({ data: collection(documents, rows) });
 
-    expect(html).not.toContain('ZIP');
-    expect(html).not.toContain('전체 내려받기');
+    expect(html).toContain('전체 내려받기(ZIP)');
+    expect(html).toContain(TEAM_HREF);
+    // 앱 안의 이동이 아니라 파일을 받는 링크다.
+    expect(html).toContain('download');
+  });
+
+  /**
+   * 토글은 **링크의 href만** 바꾼다. 두 href가 한 화면에 함께 있으면 안 된다 —
+   * 켠 사람은 「서류 종류별」을 눌렀다고 믿는데 팀 기준 ZIP이 떨어질 수 있다.
+   */
+  it('서류 종류별로 묶기를 켜면 같은 링크가 DOCUMENT로 바뀐다', () => {
+    const off = render({ data: collection(documents, rows) });
+    const on = render({
+      data: collection(documents, rows),
+      archiveGrouping: 'DOCUMENT',
+    });
+
+    expect(off).toContain(TEAM_HREF);
+    expect(off).not.toContain(DOCUMENT_HREF);
+    expect(on).toContain(DOCUMENT_HREF);
+    expect(on).not.toContain(TEAM_HREF);
+  });
+
+  it('토글은 지금 구조를 체크 상태로 말하고 라벨과 묶인다', () => {
+    const off = render({ data: collection(documents, rows) });
+    const on = render({
+      data: collection(documents, rows),
+      archiveGrouping: 'DOCUMENT',
+    });
+
+    // 라벨이 입력과 묶여 있어야 스크린리더가 「무엇을 켜는가」를 읽는다.
+    expect(on).toContain('id="milestone-document-collection-archive-grouping"');
+    expect(on).toContain(
+      'for="milestone-document-collection-archive-grouping"',
+    );
+    expect(on).toContain('서류 종류별로 묶기');
+    expect(on).toContain('checked');
+    expect(off).not.toContain('checked');
+  });
+
+  /**
+   * ⚠ 이 한 줄이 이 묶음의 핵심이다. 「필수 서류 미제출」로 걸러 놓은 교직원은 눈앞의
+   * 표가 곧 받을 것이라고 읽으므로, 밝히지 않으면 전체가 담긴 ZIP을 독촉 대상 명단으로
+   * 오해한 채 배포한다.
+   */
+  it('ZIP이 필터·페이지와 무관하게 전체 팀을 담음을 밝힌다', () => {
+    const html = render({ data: collection(documents, rows) });
+
+    expect(html).toContain(
+      '빠른 필터·페이지와 무관하게 이 마일스톤의 전체 팀을 담습니다.',
+    );
+    // 링크가 그 문단을 가리켜, 버튼만 읽고 지나가는 사람에게도 함께 읽힌다.
+    expect(html).toContain(
+      'aria-describedby="milestone-document-collection-archive-hint"',
+    );
+    // 표 위 안내문과 다른 문단이다 — 한 문단에 섞이면 정반대의 두 사실이 뭉개진다.
+    expect(html).toContain('id="milestone-document-collection-scroll-hint"');
+  });
+
+  /**
+   * 표가 아예 서지 않는 세 빈 상태 — 담을 제출물이 없다. 눌러 봐야 빈 ZIP이거나
+   * (`wrong-program`) 남의 프로그램 것이라, 자리를 두지 않는다.
+   */
+  it('표를 그리지 않는 빈 상태에서는 ZIP 조작도 그리지 않는다', () => {
+    const noDocuments = render({ data: collection([], []) });
+    const noApplications = render({ data: collection(documents, []) });
+    const wrongProgram = render({
+      programId: 'program-capstone',
+      data: collection(documents, rows, {
+        milestone: {
+          id: 'milestone-9',
+          programId: 'program-basic-study',
+          name: '남의 마일스톤',
+          dueAt: '2026-07-15T14:59:59.000Z',
+        },
+        total: 47,
+        filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
+      }),
+    });
+
+    // ZIP 쪽을 먼저 묻는다 — 빈 상태 문구를 앞에 두면 그쪽이 먼저 깨지면서 「ZIP이
+    // 남았는가」는 물어보지도 못한 채 통과·실패가 갈린다.
+    expect(noDocuments).not.toContain('전체 내려받기');
+    expect(noApplications).not.toContain('전체 내려받기');
+    expect(wrongProgram).not.toContain('전체 내려받기');
+    // 남의 마일스톤 id로 가는 경로가 남으면 그것만으로 남의 제출물을 받는 길이 된다.
+    expect(wrongProgram).not.toContain('milestone-9');
+    // 셋이 정말 그 빈 상태였는지도 확인한다 — 아니면 위 단언은 아무것도 묻지 않는다.
+    expect(noDocuments).toContain('등록된 서류 항목이 없습니다');
+    expect(noApplications).toContain('아직 승인된 신청이 없습니다');
+    expect(wrongProgram).toContain('찾을 수 없는 마일스톤입니다');
+  });
+
+  /**
+   * 반대로 **필터 결과만 비고 표 자체는 있는** 두 경우에는 남긴다. ZIP은 필터를 따라가지
+   * 않으므로 여전히 온전하고, 오히려 「지금 조건에는 아무도 없다」를 본 사람이 전체를
+   * 받아 보려는 자리다.
+   */
+  it('필터에 아무도 안 걸려도 ZIP 조작은 남는다', () => {
+    const html = render({
+      data: collection(documents, [], {
+        total: 0,
+        filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 0 },
+      }),
+      filter: 'ZERO_SUBMISSION',
+    });
+
+    expect(html).toContain('조건에 맞는 팀이 없습니다');
+    expect(html).toContain('전체 내려받기(ZIP)');
+    expect(html).toContain(TEAM_HREF);
+  });
+
+  it('지금 페이지가 사라진 경우에도 ZIP 조작은 남는다', () => {
+    const html = render({
+      data: collection(documents, [], {
+        page: 2,
+        pageSize: 20,
+        total: 5,
+        filterCounts: { all: 47, hasMissing: 5, zeroSubmission: 0 },
+      }),
+      filter: 'HAS_MISSING',
+    });
+
+    expect(html).toContain('이 페이지에는 더 이상 팀이 없습니다');
+    expect(html).toContain('전체 내려받기(ZIP)');
+  });
+
+  /**
+   * 좁은 화면에서 필터 칩 줄과 ZIP 조작이 한 줄에 붙들려 있으면, 표가 아니라 조작 줄
+   * 때문에 화면 전체가 좌우로 흔들린다(320px QA).
+   */
+  it('좁은 화면에서는 필터 칩 줄과 ZIP 조작이 세로로 쌓인다', () => {
+    const html = render({ data: collection(documents, rows) });
+
+    expect(html).toContain('flex min-w-0 flex-col gap-4 sm:flex-row');
   });
 });
 

@@ -3,10 +3,11 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError } from '@/lib/api-client';
+import { ApiError, apiPath } from '@/lib/api-client';
 import { MilestoneDocumentCollectionScreen } from './milestone-document-collection-screen';
 import type {
   MilestoneDocumentCollection,
+  MilestoneDocumentCollectionArchiveGrouping,
   MilestoneDocumentCollectionRow,
 } from './milestone-document-collection-api';
 
@@ -90,6 +91,19 @@ function collection(
     documentTotals: [{ documentId: 'd1', submitted: 30, total: 47 }],
     ...overrides,
   };
+}
+
+/**
+ * 기대하는 전체 ZIP 링크. `/api/v1`은 `apiPath`만 소유하므로 그것으로 시작하되, 그 뒤의
+ * 경로와 쿼리는 손으로 적는다 — 화면이 쓰는 생성 함수를 그대로 불러 견주면 그 함수가
+ * 무슨 경로를 만들든 이 단언은 언제나 통과한다(경로 자체는 api 테스트가 본다).
+ */
+function archiveHrefOf(
+  grouping: MilestoneDocumentCollectionArchiveGrouping,
+): string {
+  return apiPath(
+    `milestones/milestone-1/documents/collection/archive?groupBy=${grouping}`,
+  );
 }
 
 function loadFailure(): ApiError {
@@ -204,6 +218,70 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
       { page: 2, pageSize: 20, filter: 'ALL' },
     );
     expect(container.textContent).not.toContain('가팀');
+  });
+
+  /** 지금 화면에 걸린 전체 ZIP 링크. 없으면 그 자체가 실패다. */
+  function archiveHref(): string {
+    const found = Array.from(container.querySelectorAll('a')).find(
+      (candidate) => candidate.textContent?.includes('전체 내려받기'),
+    );
+    if (!(found instanceof HTMLAnchorElement)) {
+      throw new TypeError('전체 내려받기(ZIP) 링크를 찾지 못했습니다.');
+    }
+    return found.getAttribute('href') ?? '';
+  }
+
+  async function toggleArchiveGrouping() {
+    const found = container.querySelector('input[type="checkbox"]');
+    if (!(found instanceof HTMLInputElement)) {
+      throw new TypeError('서류 종류별로 묶기 토글을 찾지 못했습니다.');
+    }
+    await act(async () => {
+      found.click();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
+
+  /**
+   * 폴더 구조는 **표시 전용 상태**다. 토글이 링크에 닿지 않으면 교직원은 「서류 종류별」을
+   * 켠 채 팀 기준 ZIP을 받고, 무엇을 받았는지 열어 보기 전까지 알 수 없다.
+   */
+  it('서류 종류별로 묶기를 켜면 ZIP 링크가 그 자리에서 바뀐다', async () => {
+    getMilestoneDocumentCollectionMock.mockResolvedValue(
+      collection([row('a', '가팀')]),
+    );
+
+    await render();
+    expect(archiveHref()).toBe(archiveHrefOf('TEAM'));
+
+    await toggleArchiveGrouping();
+
+    expect(archiveHref()).toBe(archiveHrefOf('DOCUMENT'));
+
+    // 다시 끄면 팀 기준으로 되돌아온다 — 한 방향으로만 걸리면 절반만 작동한다.
+    await toggleArchiveGrouping();
+
+    expect(archiveHref()).toBe(archiveHrefOf('TEAM'));
+  });
+
+  /**
+   * 담기는 파일은 그대로고 ZIP 안의 경로만 뒤집힌다 — 다시 부를 것이 없다. 조회 조건에
+   * 섞어 두면 토글 한 번마다 표가 통째로 다시 서고 열어 둔 판정 패널까지 닫힌다.
+   */
+  it('폴더 구조를 바꿔도 표를 다시 부르지 않는다', async () => {
+    getMilestoneDocumentCollectionMock.mockResolvedValue(
+      collection([row('a', '가팀')]),
+    );
+
+    await render();
+    expect(getMilestoneDocumentCollectionMock).toHaveBeenCalledTimes(1);
+
+    await toggleArchiveGrouping();
+
+    expect(getMilestoneDocumentCollectionMock).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toContain('가팀');
   });
 
   it('실패한 조건을 다시 시도해 성공하면 그 조건의 표가 선다', async () => {
