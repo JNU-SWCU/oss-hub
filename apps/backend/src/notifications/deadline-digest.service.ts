@@ -1,5 +1,14 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
+import type { RuntimeConfig } from '../runtime-config/runtime-config';
+import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
+import {
+  buildStaffDeadlineMail,
+  buildStudentDeadlineMail,
+  parseFrontendOrigin,
+} from './deadline-digest-mail.template';
+import type { BuiltDeadlineMail } from './deadline-digest-mail.template';
+import { DEADLINE_DIGEST_DELIVERY_FAILURE } from './deadline-digest-failure';
 import { DeadlineDigestRepository } from './deadline-digest.repository';
 import type {
   DeadlineDigestRepositoryPort,
@@ -9,8 +18,17 @@ import type {
 import { MAIL_SENDER } from './mail-sender.port';
 import type { MailSender } from './mail-sender.port';
 
-/** 마감 임박 판정 리드타임(코드 상수, 손쉬운 조정) — 기본 D-1. */
 export const DEADLINE_LEAD_TIME_MS = 24 * 60 * 60 * 1000;
+
+interface DigestDispatch {
+  readonly recipient: {
+    readonly id: string;
+    readonly notificationEmail: string;
+  };
+  readonly mail: BuiltDeadlineMail;
+  readonly milestoneCount: number;
+  readonly now: Date;
+}
 
 @Injectable()
 export class DeadlineDigestService {
@@ -21,47 +39,58 @@ export class DeadlineDigestService {
     private readonly repository: DeadlineDigestRepositoryPort,
     @Inject(MAIL_SENDER)
     private readonly mailSender: MailSender,
+    @Inject(RUNTIME_CONFIG)
+    private readonly runtimeConfig: Pick<RuntimeConfig, 'FRONTEND_URL'>,
   ) {}
 
   async sendDeadlineDigests(now: Date = new Date()): Promise<void> {
-    const windowEnd = new Date(now.getTime() + DEADLINE_LEAD_TIME_MS);
     const milestones = await this.repository.findUpcomingDeadlineMilestones(
       now,
-      windowEnd,
+      new Date(now.getTime() + DEADLINE_LEAD_TIME_MS),
     );
     if (milestones.length === 0) {
       this.logger.log('마감 임박 마일스톤 없음 — 발송 생략');
       return;
     }
 
+    const frontendOrigin = parseFrontendOrigin(this.runtimeConfig.FRONTEND_URL);
     const missingByMilestone =
       await this.repository.findMissingSubmitters(milestones);
-    const subject = `[oss-hub] 마감 임박 마일스톤 ${milestones.length}건`;
-    const staffBody = this.buildStaffBody(milestones, missingByMilestone);
+    const staffMail = buildStaffDeadlineMail({
+      milestones: milestones.map((milestone) => ({
+        ...milestone,
+        missingNicknames: (missingByMilestone.get(milestone.id) ?? []).map(
+          (submitter) => this.formatMissingSubmitter(submitter),
+        ),
+      })),
+      now,
+      frontendOrigin,
+    });
 
     await Promise.all(
       (await this.repository.findStaffRecipients()).map((recipient) =>
-        this.sendAndRecord(
+        this.sendAndRecord({
           recipient,
-          subject,
-          staffBody,
-          milestones.length,
+          mail: staffMail,
+          milestoneCount: milestones.length,
           now,
-        ),
+        }),
       ),
     );
 
     const reminders = new Map<
       string,
       {
-        recipient: { id: string; notificationEmail: string };
+        recipient: {
+          id: string;
+          notificationEmail: string;
+          nickname: string;
+        };
         milestones: UpcomingMilestone[];
       }
     >();
     for (const milestone of milestones) {
       for (const submitter of missingByMilestone.get(milestone.id) ?? []) {
-        // 비활성 계정은 로그인이 막혀 제출 자체가 불가능하다 — 제출 독촉을 보내지 않는다.
-        // 교직원 요약의 미제출자 집계에는 그대로 남는다(운영상 미제출 건을 놓치지 않기 위해).
         if (
           submitter.accountStatus !== AccountStatus.ACTIVE ||
           !submitter.notifyEnabled ||
@@ -78,6 +107,7 @@ export class DeadlineDigestService {
           recipient: {
             id: submitter.id,
             notificationEmail: submitter.notificationEmail,
+            nickname: submitter.nickname,
           },
           milestones: [milestone],
         });
@@ -86,25 +116,30 @@ export class DeadlineDigestService {
 
     await Promise.all(
       [...reminders.values()].map(
-        ({ recipient, milestones: reminderMilestones }) =>
-          this.sendAndRecord(
+        ({ recipient, milestones: reminderMilestones }) => {
+          const sortedMilestones = [...reminderMilestones].sort(
+            (left, right) => left.dueAt.getTime() - right.dueAt.getTime(),
+          );
+          const first = sortedMilestones[0];
+          if (!first) return Promise.resolve();
+          return this.sendAndRecord({
             recipient,
-            '[oss-hub] 마감 임박 제출 리마인더',
-            this.buildStudentBody(reminderMilestones),
-            reminderMilestones.length,
+            mail: buildStudentDeadlineMail({
+              displayName: recipient.nickname,
+              milestones: [first, ...sortedMilestones.slice(1)],
+              now,
+              frontendOrigin,
+            }),
+            milestoneCount: reminderMilestones.length,
             now,
-          ),
+          });
+        },
       ),
     );
   }
 
-  private async sendAndRecord(
-    recipient: { readonly id: string; readonly notificationEmail: string },
-    subject: string,
-    body: string,
-    milestoneCount: number,
-    now: Date,
-  ): Promise<void> {
+  private async sendAndRecord(dispatch: DigestDispatch): Promise<void> {
+    const { recipient, mail, milestoneCount, now } = dispatch;
     const idempotencyKey = `deadline-digest:${this.digestDate(now)}:${recipient.id}`;
     const payload = { milestoneCount };
     if (
@@ -114,28 +149,29 @@ export class DeadlineDigestService {
         payload,
       ))
     ) {
-      this.logger.log(`마감 알림 중복 발송 생략 userId=${recipient.id}`);
+      this.logger.log('마감 알림 중복 발송 생략');
       return;
     }
 
     try {
       await this.mailSender.send({
         to: recipient.notificationEmail,
-        subject,
-        body,
+        subject: mail.subject,
+        body: mail.text,
+        html: mail.html,
       });
       await this.repository.completeNotification(
         idempotencyKey,
         'SENT',
         payload,
       );
-      this.logger.log(`마감 알림 발송 성공 userId=${recipient.id}`);
-    } catch (error) {
+      this.logger.log('마감 알림 발송 성공');
+    } catch {
       await this.repository.completeNotification(idempotencyKey, 'FAILED', {
         ...payload,
-        error: error instanceof Error ? error.message : 'unknown',
+        ...DEADLINE_DIGEST_DELIVERY_FAILURE,
       });
-      this.logger.error(`마감 알림 발송 실패 userId=${recipient.id}`);
+      this.logger.error('마감 알림 발송 실패');
     }
   }
 
@@ -151,53 +187,9 @@ export class DeadlineDigestService {
     return `${value('year')}-${value('month')}-${value('day')}`;
   }
 
-  private buildStaffBody(
-    milestones: readonly UpcomingMilestone[],
-    missingByMilestone: ReadonlyMap<string, readonly MissingSubmitter[]>,
-  ): string {
-    const lines = milestones.flatMap((milestone) => [
-      `- ${milestone.programName} / ${milestone.milestoneName} (마감 ${this.formatDueAt(milestone.dueAt)})`,
-      `  미제출자: ${
-        (missingByMilestone.get(milestone.id) ?? [])
-          .map((submitter) => this.formatMissingSubmitter(submitter))
-          .join(', ') || '없음'
-      }`,
-    ]);
-    return ['마감이 임박한 마일스톤입니다.', '', ...lines].join('\n');
-  }
-
-  /**
-   * 미제출자는 아무도 명단에서 빼지 않고, 비활성 계정에만 표시를 붙인다.
-   * 교직원이 「독촉해도 소용없는 사람」을 명단에서 바로 구분하기 위한 표시다.
-   * 라벨은 관리자 접근 화면의 DEACTIVATED 표기(「비활성」)와 같은 말을 쓴다.
-   * 리마인더 게이트는 안전을 위해 ACTIVE 가 아니면 모두 막지만, 이 표시는
-   * 문구가 곧 뜻이므로 DEACTIVATED 에만 붙인다. 수신 거부(notifyEnabled)는
-   * 계정 상태가 아니므로 표시 대상이 아니다.
-   */
   private formatMissingSubmitter(submitter: MissingSubmitter): string {
     return submitter.accountStatus === AccountStatus.DEACTIVATED
       ? `${submitter.nickname} (비활성)`
       : submitter.nickname;
-  }
-
-  private buildStudentBody(milestones: readonly UpcomingMilestone[]): string {
-    const lines = milestones.map(
-      (milestone) =>
-        `- ${milestone.programName} / ${milestone.milestoneName} (마감 ${this.formatDueAt(milestone.dueAt)})`,
-    );
-    return ['제출하지 않은 마감 임박 마일스톤입니다.', '', ...lines].join('\n');
-  }
-
-  private formatDueAt(dueAt: Date): string {
-    const date = new Intl.DateTimeFormat('ko-KR', {
-      timeZone: 'Asia/Seoul',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hourCycle: 'h23',
-    }).format(dueAt);
-    return `${date} (Asia/Seoul)`;
   }
 }
