@@ -24,7 +24,7 @@ NestJS 모듈별 소스이며 모듈마다 폴더 하나를 쓴다.
 | 경로 | 내용 | 문서 |
 | --- | --- | --- |
 | `auth/` | GitHub OAuth 로그인·세션 | **경계 참조** — 아래 For AI Agents |
-| `github/` | GitHub 활동 수집기 | [collection/AGENTS.md](collection/AGENTS.md) |
+| `github/` | GitHub 연동 — 저장소 프로비저닝·공개 전환과 활동 수집을 한 폴더에서 다룬다(ADR-010 §8) | [github/AGENTS.md](github/AGENTS.md) |
 | `common/` | 전 모듈 공유 에러·필터 | [common/AGENTS.md](common/AGENTS.md) |
 | `applications/` | 프로그램 신청·판정 | [applications/AGENTS.md](applications/AGENTS.md) |
 | `audit-log/` | 불변 감사 원장(schemaVersion 1/2/legacy) | [audit-log/AGENTS.md](audit-log/AGENTS.md) |
@@ -33,7 +33,6 @@ NestJS 모듈별 소스이며 모듈마다 폴더 하나를 쓴다.
 | `programs/` | 프로그램·마일스톤·팀 | [programs/AGENTS.md](programs/AGENTS.md) |
 | `submissions/` | 제출물·파일 라이프사이클 | [submissions/AGENTS.md](submissions/AGENTS.md) |
 | `submission-reviews/` | 제출 검토 + 저장소 수동 공개 확정(다섯 게이트 CAS+typed audit, `github/`의 `publish`를 소비) | [submission-reviews/AGENTS.md](submission-reviews/AGENTS.md) |
-| `github/` | GitHub 저장소 프로비저닝·공개 전환(CAS `publishRepositoryIfPrivate` + 트랜잭션 내 typed audit) | [repositories/AGENTS.md](repositories/AGENTS.md) |
 | `programs/archive/public-projects/` | 공개 프로젝트 목록(keyset cursor)·상세·공개 프로필 read API — 구 `showcase`/`profiles` 공개 read 라우트를 대체(404화) | — |
 | `programs/archive/public-eligibility/` | todo 15 — platform 발행 + Collection freshness fence를 합치는 단일 public eligibility 정책(`PublicEligibilityService`). `programs/archive/public-projects/`(todo 16)가 유일한 소비자다 | — 이 문서가 다룸 |
 | `notifications/` | 알림 설정·마감 다이제스트 메일 | [notifications/AGENTS.md](notifications/AGENTS.md) |
