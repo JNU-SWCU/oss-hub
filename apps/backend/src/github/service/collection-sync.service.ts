@@ -365,11 +365,17 @@ export class CollectionSyncService {
           startAfter === null ||
           compareBigint(repository.githubRepositoryId, startAfter) > 0,
       )
-      // 백오프가 아직 안 지난 저장소는 이번 사이클에서 건너뛴다(ADR-010 §6).
+      // 백오프가 아직 안 지난 **실패 저장소**는 이번 사이클에서 건너뛴다(ADR-010 §6).
       // 이게 없으면 `nextRunAt` 은 기록만 되고 스케줄을 바꾸지 않아,
       // 연속 실패 저장소가 매 사이클 같은 비용을 다시 쓴다.
+      //
+      // `failureCount > 0` 인 행에만 건다. 한 번도 실패하지 않은 행의 `nextRunAt` 은
+      // **DB 기본값**(`now()`)이라 이 서비스에 주입된 시계와 다른 원본에서 온다 —
+      // 두 시간 원본을 비교하면 시계가 과거로 고정된 경로에서 모든 저장소가
+      // 통째로 걸러진다. 백오프 값은 실패 기록이 같은 시계로 쓰므로 비교가 성립한다.
       .filter(
         (repository) =>
+          (repository.failureCount ?? 0) === 0 ||
           repository.nextRunAt === null ||
           repository.nextRunAt === undefined ||
           repository.nextRunAt <= sweepStartedAt,

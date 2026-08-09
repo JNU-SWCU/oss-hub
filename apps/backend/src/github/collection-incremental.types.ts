@@ -73,6 +73,8 @@ export interface CollectionRepositoryRow {
    * 연속 실패는 이 값을 뒤로 밀어 같은 저장소가 매 사이클 비용을 다시 쓰지 않게 한다.
    */
   nextRunAt?: Date | null;
+  /** 연속 실패 횟수. 0이면 백오프 대상이 아니다. */
+  failureCount?: number;
 }
 
 /**
