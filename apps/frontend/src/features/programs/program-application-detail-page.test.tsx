@@ -270,7 +270,7 @@ describe('ProgramApplicationDetailPage', () => {
     });
 
     expect(decideApplicationMock).not.toHaveBeenCalled();
-    expect(container.textContent).toContain('반려 사유를 입력해 주세요.');
+    expect(document.body.textContent).toContain('반려 사유를 입력해 주세요.');
   });
 
   it('반려 확인창은 사유가 학생에게 간다는 것을 누르기 전에 알린다', async () => {
@@ -282,7 +282,7 @@ describe('ProgramApplicationDetailPage', () => {
       getButton('반려').click();
     });
 
-    expect(container.textContent).toContain(
+    expect(document.body.textContent).toContain(
       '적은 사유는 학생에게 그대로 보입니다.',
     );
   });
@@ -300,7 +300,7 @@ describe('ProgramApplicationDetailPage', () => {
     await act(async () => {
       getButton('반려').click();
     });
-    const textarea = container.querySelector('textarea');
+    const textarea = document.querySelector('textarea');
     if (!(textarea instanceof HTMLTextAreaElement)) {
       throw new TypeError('반려 사유 입력칸이 없다');
     }
@@ -421,7 +421,9 @@ describe('ProgramApplicationDetailPage', () => {
 
     await mount();
 
-    expect(container.textContent).toContain('신청자가 낸 저장소를 잇습니다');
+    expect(document.body.textContent).toContain(
+      '신청자가 낸 저장소를 잇습니다',
+    );
     expect(container.textContent).toContain(
       'https://github.com/synthetic-org/own-repo',
     );
@@ -429,7 +431,7 @@ describe('ProgramApplicationDetailPage', () => {
     await act(async () => {
       getButton('승인').click();
     });
-    expect(container.textContent).toContain('새 저장소를 만들지 않습니다');
+    expect(document.body.textContent).toContain('새 저장소를 만들지 않습니다');
   });
 
   it('반려 확인창의 안내가 입력칸 이름을 오염시키지 않는다', async () => {
@@ -442,9 +444,9 @@ describe('ProgramApplicationDetailPage', () => {
       getButton('반려').click();
     });
 
-    const label = container.querySelector('label[for="rejection-reason"]');
+    const label = document.querySelector('label[for="rejection-reason"]');
     expect(label?.textContent?.trim()).toBe('반려 사유');
-    expect(container.querySelector('label textarea')).toBeNull();
+    expect(document.querySelector('label textarea')).toBeNull();
   });
 
   it('없는 신청은 목록으로 돌아갈 길을 준다', async () => {

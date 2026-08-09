@@ -243,8 +243,12 @@ export function ProgramApplicantsPage({
         : dialog.action === 'REJECT'
           ? { action: 'REJECT', reason }
           : { action: 'REVERT' };
-    setBusyApplicationId(dialog.applicationId);
+    const decidingId = dialog.applicationId;
+    setBusyApplicationId(decidingId);
     setNotice(null);
+    // FN4: 재시도할 때 이전 실패 안내를 먼저 지운다 — 안 지우면 「처리 중…」과
+    // 이전 실패가 같이 보이고, 같은 문구로 또 실패하면 다시 발표되지도 않는다.
+    setDecisionError(null);
     try {
       const result = await decideApplication(dialog.applicationId, input);
       pollAttempts.current = 0;
@@ -294,7 +298,11 @@ export function ProgramApplicantsPage({
           '입력과 현재 상태를 유지했습니다. 다시 시도해 주세요.',
         );
     } finally {
-      setBusyApplicationId(null);
+      // ⚠ 자기 요청일 때만 푼다 — 낡은 상태 재조회를 기다리는 사이 교직원이 **다른 행**을
+      //   판정하면, 늦게 끝난 이 요청이 그 행의 「처리 중」을 지워 확정 버튼이 다시 열린다.
+      setBusyApplicationId((current) =>
+        current === decidingId ? null : current,
+      );
     }
   }, [dialog, rejectionReason, reloadApplications]);
 

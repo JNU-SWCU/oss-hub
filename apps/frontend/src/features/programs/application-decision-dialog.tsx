@@ -56,8 +56,12 @@ export function ApplicationDecisionDialog({
   readonly errorMessage: string | null;
   /**
    * 창을 연 버튼의 id. 닫힐 때 그리로 포커스를 돌려준다(`submission-dialog.tsx`와 같은 규칙).
-   * ⚠ 판정에 **성공**하면 그 버튼이 사라진다(「승인」이 「되돌리기」로 바뀐다).
-   *   그때는 Radix 기본 복귀도 같은 버튼을 향하므로 포커스가 `<body>` 로 떨어진다 — 남은 문제다.
+   *
+   * ⚠ **취소·Escape 로 닫을 때만 실제로 돌아간다.** 판정에 성공하거나 낡은 상태로
+   *   실패해 화면이 창을 **스스로** 닫는 경우에는 그 순간 버튼이 아직 `disabled` 이거나
+   *   (성공 뒤에는) 아예 다른 버튼으로 바뀌어 있어서 포커스가 `<body>` 로 떨어진다.
+   *   Radix 기본 복귀도 같은 버튼을 향하므로 결과가 같다. 어디로 보낼지는 결정이 필요해
+   *   따로 뗐다([#767](https://github.com/JNU-SWCU/oss-hub/issues/767)).
    */
   readonly returnFocusId: string;
   readonly onReasonChange: (value: string) => void;
@@ -84,116 +88,130 @@ export function ApplicationDecisionDialog({
         if (!open && !busy) onCancel();
       }}
     >
-      <AlertDialog.Overlay className="fixed inset-0 z-50 bg-foreground/40" />
-      <AlertDialog.Content
-        {...describedBy}
-        /*
-         * ⚠ 창이 스스로 스크롤되어야 한다 — 뒤 화면 스크롤은 잠기므로, 창이 화면보다
-         *   길어지면 버튼에 닿을 방법이 없다(반려 + 입력 오류 + 저장 실패가 겹친 상태가
-         *   제일 길다). 형제 창들과 같은 규칙(`submission-dialog`·`program-type-modal`).
-         */
-        className="fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl bg-background p-6 shadow-lg outline-none *:min-w-0"
-        onCloseAutoFocus={(event) => {
-          const returnTarget = document.getElementById(returnFocusId);
-          if (!(returnTarget instanceof HTMLElement)) return;
-          event.preventDefault();
-          returnTarget.focus();
-        }}
-      >
-        <AlertDialog.Title asChild>
-          <h2 className="text-lg font-semibold">
-            {action === 'APPROVE'
-              ? '신청 승인'
-              : isReject
-                ? '신청 반려'
-                : '판정 되돌리기'}
-          </h2>
-        </AlertDialog.Title>
-        {action === 'APPROVE' ? (
-          <AlertDialog.Description asChild>
-            <p className="break-keep">
-              {repositoryConnectionMode === 'OWN'
-                ? '승인하면 신청자가 낸 저장소를 연결합니다. 새 저장소를 만들지 않습니다.'
-                : repositoryProvisioningEnabled
-                  ? '승인하면 저장소 자동 생성이 활성화되어 저장소 작업을 시작합니다.'
-                  : '승인하면 저장소 자동 생성이 비활성화되어 저장소를 생성하지 않습니다.'}
-            </p>
-          </AlertDialog.Description>
-        ) : isReject ? (
+      {/*
+       * ⚠ `Portal` 을 쓴다 — 창이 페이지 DOM 안에 있으면, **창이 열린 뒤에** 삽입되는
+       *   형제(예: 화면 위쪽 알림)가 Radix 가 걸어 둔 `aria-hidden` 밖에 남는다.
+       *   그러면 읽어 주는 도구가 창 뒤 경고를 함께 훑는다. 형제 창들과 같은 규칙.
+       */}
+      <AlertDialog.Portal>
+        <AlertDialog.Overlay className="fixed inset-0 z-50 bg-foreground/40" />
+        <AlertDialog.Content
+          {...describedBy}
           /*
-           * 라벨·오류·안내를 `<label>` **바깥**에 둔다. `<label>`이 감싸면 그 안의
-           * 글자가 전부 입력칸의 이름이 되어, 스크린리더가 "반려 사유 반려 사유를
-           * 입력해 주세요 적은 사유는 학생에게…"를 이름으로 읽는다. 오류가 이름
-           * 안에 묻히면 무엇이 라벨이고 무엇이 오류인지 갈리지 않는다.
+           * ⚠ 창이 스스로 스크롤되어야 한다 — 뒤 화면 스크롤은 잠기므로, 창이 화면보다
+           *   길어지면 버튼에 닿을 방법이 없다(반려 + 입력 오류 + 저장 실패가 겹친 상태가
+           *   제일 길다). 형제 창들과 같은 규칙(`submission-dialog`·`program-type-modal`).
            */
-          <div className="grid gap-2 text-sm">
-            <label htmlFor="rejection-reason">반려 사유</label>
-            <textarea
-              id="rejection-reason"
-              className="min-h-28 rounded-md border border-input bg-background p-3"
-              value={reason}
-              disabled={busy}
-              onChange={(event) => onReasonChange(event.target.value)}
-              aria-invalid={reasonError}
-              aria-describedby={
-                reasonError ? 'reason-error reason-hint' : 'reason-hint'
-              }
-            />
-            {reasonError ? (
-              <span id="reason-error" role="alert" className="text-destructive">
-                반려 사유를 입력해 주세요.
-              </span>
-            ) : null}
-            {/*
-             * 사유가 학생에게 간다는 사실을 **누르기 전에** 말한다(서류 판정 패널과
-             * 같은 규칙). 이 고지가 없으면 교직원은 내부 메모처럼 적는다.
-             */}
-            <span id="reason-hint" className="text-muted-foreground break-keep">
-              적은 사유는 학생에게 그대로 보입니다.
-            </span>
-          </div>
-        ) : (
-          <AlertDialog.Description asChild>
-            <p className="break-keep">
-              판정을 취소하고 신청을 다시 제출됨 상태로 되돌립니다. 이후
-              승인·반려를 다시 할 수 있습니다.
-            </p>
-          </AlertDialog.Description>
-        )}
-        {errorMessage !== null ? (
-          <Alert variant="destructive">
-            <AlertTitle>판정을 저장하지 못했습니다</AlertTitle>
-            <AlertDescription className="[word-break:keep-all]">
-              {errorMessage}
-            </AlertDescription>
-          </Alert>
-        ) : null}
-        <div className="flex justify-end gap-2">
-          {/*
-           * ⚠ 저장 중에도 `disabled` 로 막지 않는다 — 창 안의 조작이 전부 disabled 가 되면
-           *   포커스를 둘 곳이 없어져 포커스가 창 **밖으로** 새고, 그때부터 읽어 주는 도구는
-           *   아무것도 못 읽는다. 실제로 닫는 것은 `onOpenChange` 의 `busy` 가드가 막는다.
-           */}
-          <AlertDialog.Cancel asChild>
-            <Button variant="outline" aria-disabled={busy || undefined}>
-              취소
-            </Button>
-          </AlertDialog.Cancel>
-          {/*
-           * `AlertDialog.Action`을 쓰지 않는다 — 누르는 순간 창을 닫아 버려서,
-           * 저장이 실패했을 때 적어 둔 사유가 함께 사라진다.
-           */}
-          <Button disabled={busy} onClick={onConfirm}>
-            {busy
-              ? '처리 중…'
-              : action === 'APPROVE'
-                ? '승인 확정'
+          className="fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl bg-background p-6 shadow-lg outline-none *:min-w-0"
+          onCloseAutoFocus={(event) => {
+            const returnTarget = document.getElementById(returnFocusId);
+            if (!(returnTarget instanceof HTMLElement)) return;
+            event.preventDefault();
+            returnTarget.focus();
+          }}
+        >
+          <AlertDialog.Title asChild>
+            <h2 className="text-lg font-semibold">
+              {action === 'APPROVE'
+                ? '신청 승인'
                 : isReject
-                  ? '반려 확정'
-                  : '되돌리기 확정'}
-          </Button>
-        </div>
-      </AlertDialog.Content>
+                  ? '신청 반려'
+                  : '판정 되돌리기'}
+            </h2>
+          </AlertDialog.Title>
+          {action === 'APPROVE' ? (
+            <AlertDialog.Description asChild>
+              <p className="break-keep">
+                {repositoryConnectionMode === 'OWN'
+                  ? '승인하면 신청자가 낸 저장소를 연결합니다. 새 저장소를 만들지 않습니다.'
+                  : repositoryProvisioningEnabled
+                    ? '승인하면 저장소 자동 생성이 활성화되어 저장소 작업을 시작합니다.'
+                    : '승인하면 저장소 자동 생성이 비활성화되어 저장소를 생성하지 않습니다.'}
+              </p>
+            </AlertDialog.Description>
+          ) : isReject ? (
+            /*
+             * 라벨·오류·안내를 `<label>` **바깥**에 둔다. `<label>`이 감싸면 그 안의
+             * 글자가 전부 입력칸의 이름이 되어, 스크린리더가 "반려 사유 반려 사유를
+             * 입력해 주세요 적은 사유는 학생에게…"를 이름으로 읽는다. 오류가 이름
+             * 안에 묻히면 무엇이 라벨이고 무엇이 오류인지 갈리지 않는다.
+             */
+            <div className="grid gap-2 text-sm">
+              <label htmlFor="rejection-reason">반려 사유</label>
+              <textarea
+                id="rejection-reason"
+                className="min-h-28 rounded-md border border-input bg-background p-3"
+                value={reason}
+                disabled={busy}
+                onChange={(event) => onReasonChange(event.target.value)}
+                aria-invalid={reasonError}
+                aria-describedby={
+                  reasonError ? 'reason-error reason-hint' : 'reason-hint'
+                }
+              />
+              {reasonError ? (
+                <span
+                  id="reason-error"
+                  role="alert"
+                  className="text-destructive"
+                >
+                  반려 사유를 입력해 주세요.
+                </span>
+              ) : null}
+              {/*
+               * 사유가 학생에게 간다는 사실을 **누르기 전에** 말한다(서류 판정 패널과
+               * 같은 규칙). 이 고지가 없으면 교직원은 내부 메모처럼 적는다.
+               */}
+              <span
+                id="reason-hint"
+                className="text-muted-foreground break-keep"
+              >
+                적은 사유는 학생에게 그대로 보입니다.
+              </span>
+            </div>
+          ) : (
+            <AlertDialog.Description asChild>
+              <p className="break-keep">
+                판정을 취소하고 신청을 다시 제출됨 상태로 되돌립니다. 이후
+                승인·반려를 다시 할 수 있습니다.
+              </p>
+            </AlertDialog.Description>
+          )}
+          {errorMessage !== null ? (
+            <Alert variant="destructive">
+              <AlertTitle>판정을 저장하지 못했습니다</AlertTitle>
+              <AlertDescription className="[word-break:keep-all]">
+                {errorMessage}
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          <div className="flex justify-end gap-2">
+            {/*
+             * ⚠ 저장 중에도 `disabled` 로 막지 않는다 — 창 안의 조작이 전부 disabled 가 되면
+             *   포커스를 둘 곳이 없어져 포커스가 창 **밖으로** 새고, 그때부터 읽어 주는 도구는
+             *   아무것도 못 읽는다. 실제로 닫는 것은 `onOpenChange` 의 `busy` 가드가 막는다.
+             */}
+            <AlertDialog.Cancel asChild>
+              <Button variant="outline" aria-disabled={busy || undefined}>
+                취소
+              </Button>
+            </AlertDialog.Cancel>
+            {/*
+             * `AlertDialog.Action`을 쓰지 않는다 — 누르는 순간 창을 닫아 버려서,
+             * 저장이 실패했을 때 적어 둔 사유가 함께 사라진다.
+             */}
+            <Button disabled={busy} onClick={onConfirm}>
+              {busy
+                ? '처리 중…'
+                : action === 'APPROVE'
+                  ? '승인 확정'
+                  : isReject
+                    ? '반려 확정'
+                    : '되돌리기 확정'}
+            </Button>
+          </div>
+        </AlertDialog.Content>
+      </AlertDialog.Portal>
     </AlertDialog.Root>
   );
 }

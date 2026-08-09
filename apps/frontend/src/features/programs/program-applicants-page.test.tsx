@@ -354,6 +354,100 @@ describe('program applicants revert action', () => {
     expect(getButton('반려')).toBeTruthy();
   });
 
+  it('낡은 상태 재조회를 기다리는 사이 다른 행을 판정해도 그 행의 처리 중이 안 풀린다', async () => {
+    // Given: A 행이 409 로 실패해 창을 먼저 닫고 **느린 재조회**를 기다린다.
+    // ⚠ 늦게 끝난 A 요청이 B 행의 「처리 중」을 지우면 확정 버튼이 다시 열려 중복 호출된다.
+    const second: ApplicationListItem = {
+      ...personal,
+      id: 'app-personal-2',
+      applicant: {
+        ...personal.applicant,
+        id: 'student-2',
+        nickname: 'login-2',
+      },
+    };
+    const slowReload = deferred<ApplicationListPage>();
+    listProgramApplicationsMock
+      .mockResolvedValueOnce(applicationPage([personal, second]))
+      .mockReturnValueOnce(slowReload.promise);
+    const pendingB = deferred<{ applicationId: string; status: string }>();
+    decideApplicationMock
+      .mockRejectedValueOnce(
+        new ApiError({
+          type: 'about:blank',
+          title: 'conflict',
+          status: 409,
+          detail: 'stale',
+          instance: 'urn:test:applications:app-personal',
+          code: 'APP_021',
+        }),
+      )
+      .mockReturnValueOnce(pendingB.promise);
+
+    await act(async () => {
+      root.render(<ProgramApplicantsPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const approveButtons = () =>
+      Array.from(document.querySelectorAll('button')).filter(
+        (button) => button.textContent?.trim() === '승인',
+      );
+
+    // A 행 판정 → 409 → 창 닫힘, 재조회는 아직 안 끝났다.
+    await act(async () => approveButtons()[0]!.click());
+    await act(async () => getButton('승인 확정').click());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+
+    // When: 그 사이 B 행을 판정하고, 그 뒤에 A 의 재조회가 끝난다.
+    await act(async () => approveButtons()[1]!.click());
+    await act(async () => getButton('승인 확정').click());
+    await act(async () => {
+      slowReload.resolve(applicationPage([personal, second]));
+      await Promise.resolve();
+    });
+
+    // Then: B 는 아직 처리 중이므로 확정 버튼이 다시 열리지 않는다.
+    expect(getButton('처리 중…').disabled).toBe(true);
+  });
+
+  it('실패한 뒤 다시 확정하면 이전 실패 안내가 먼저 사라진다', async () => {
+    // Given: 한 번 실패해 확인창 안에 안내가 떠 있다.
+    // ⚠ 안 지우면 「처리 중…」과 이전 실패가 같이 보이고, 같은 문구로 또 실패하면
+    //   DOM 이 그대로라 읽어 주는 도구가 다시 발표하지 않는다.
+    listProgramApplicationsMock.mockResolvedValue(applicationPage([personal]));
+    const pending = deferred<{ applicationId: string; status: string }>();
+    decideApplicationMock
+      .mockRejectedValueOnce(new Error('synthetic failure'))
+      .mockReturnValueOnce(pending.promise);
+    await act(async () => {
+      root.render(<ProgramApplicantsPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => getButton('승인').click());
+    await act(async () => getButton('승인 확정').click());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(
+      document.querySelector('[role="alertdialog"]')?.textContent,
+    ).toContain('판정을 저장하지 못했습니다');
+
+    // When: 다시 확정한다(두 번째 요청은 아직 안 끝났다).
+    await act(async () => getButton('승인 확정').click());
+
+    // Then: 이전 실패 안내가 사라진 채로 처리 중이다.
+    const dialog = document.querySelector('[role="alertdialog"]');
+    expect(dialog?.textContent).not.toContain('판정을 저장하지 못했습니다');
+    expect(getButton('처리 중…').disabled).toBe(true);
+  });
+
   it('판정 저장이 실패하면 확인창 안에서 말한다 — 창 뒤에 그리면 못 본다', async () => {
     // Given: 확인창을 열고 저장이 일반 오류로 실패한다.
     listProgramApplicationsMock.mockResolvedValue(applicationPage([personal]));
@@ -415,15 +509,31 @@ describe('program applicants revert action', () => {
   });
 
   it('확인창을 Escape 로 닫으면 그 행의 판정 버튼으로 포커스가 돌아온다', async () => {
-    // Given: 목록은 행마다 판정 버튼이 있어서, 창을 연 **그 행**으로 돌아가야 한다.
-    listProgramApplicationsMock.mockResolvedValue(applicationPage([personal]));
+    // Given: 제출됨 행이 **둘** 있다. 창을 연 그 행으로 돌아가야 한다.
+    // ⚠ 행이 하나뿐이면 모든 행이 같은 id 를 써도 통과한다 — 그래서 둘째 행으로 연다.
+    const second: ApplicationListItem = {
+      ...personal,
+      id: 'app-personal-2',
+      applicant: {
+        ...personal.applicant,
+        id: 'student-2',
+        nickname: 'login-2',
+      },
+    };
+    listProgramApplicationsMock.mockResolvedValue(
+      applicationPage([personal, second]),
+    );
     await act(async () => {
       root.render(<ProgramApplicantsPage programId="program-1" />);
     });
     await act(async () => {
       await Promise.resolve();
     });
-    const trigger = getButton('승인');
+    const approveButtons = Array.from(
+      document.querySelectorAll('button'),
+    ).filter((button) => button.textContent?.trim() === '승인');
+    expect(approveButtons).toHaveLength(2);
+    const trigger = approveButtons[1]!;
     await act(async () => trigger.click());
     expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
 

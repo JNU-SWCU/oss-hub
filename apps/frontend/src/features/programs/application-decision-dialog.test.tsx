@@ -113,36 +113,80 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     expect(consoleErrors).toEqual([]);
   });
 
-  it.each(['APPROVE', 'REJECT', 'REVERT'] as const)(
-    '%s 창의 이름이 실제로 있는 제목을 가리킨다',
-    async (action) => {
+  it.each([
+    ['APPROVE', '신청 승인'],
+    ['REJECT', '신청 반려'],
+    ['REVERT', '판정 되돌리기'],
+  ] as const)(
+    '%s 창의 이름이 창 안의 제목을 가리킨다',
+    async (action, heading) => {
       // Given: 확인창이 열렸다.
-      // ⚠ `aria-labelledby` 가 **없는 id** 를 가리키면 읽어 주는 도구는 이름 없는 창을
-      //   말한다. 속성이 붙어 있다는 것만으로는 이름이 있다는 뜻이 아니다.
+      // ⚠ 「가리키는 요소가 있고 글자가 있다」만 보면 부족하다 — 창 **바깥**의 버튼을
+      //   가리켜도 그 조건은 만족한다. 창 안의 제목인지와 무슨 제목인지까지 봐야 한다.
       await act(async () => root.render(<Harness action={action} />));
 
       // When: 창이 가리키는 이름을 따라간다.
-      const labelledBy = dialog()?.getAttribute('aria-labelledby');
-      const title =
-        labelledBy === null ? null : document.getElementById(labelledBy ?? '');
+      const opened = dialog();
+      const labelledBy = opened?.getAttribute('aria-labelledby');
+      const title = document.getElementById(labelledBy ?? '');
 
-      // Then: 가리키는 요소가 실제로 있고 제목 글자를 담고 있다.
-      expect(labelledBy).toBeTruthy();
+      // Then: 창 안의 h2 이고, 그 판정의 제목이다.
       expect(title).not.toBeNull();
-      expect(title?.textContent?.trim()).not.toBe('');
+      expect(opened?.contains(title)).toBe(true);
+      expect(title?.tagName).toBe('H2');
+      expect(title?.textContent?.trim()).toBe(heading);
     },
   );
 
   it.each(['APPROVE', 'REVERT'] as const)(
-    '%s 창의 설명도 실제로 있는 문단을 가리킨다',
+    '%s 창의 설명도 창 안의 문단을 가리킨다',
     async (action) => {
       await act(async () => root.render(<Harness action={action} />));
 
-      const describedBy = dialog()?.getAttribute('aria-describedby');
-      expect(describedBy).toBeTruthy();
-      expect(document.getElementById(describedBy ?? '')).not.toBeNull();
+      const opened = dialog();
+      const describedBy = opened?.getAttribute('aria-describedby');
+      const description = document.getElementById(describedBy ?? '');
+
+      expect(description).not.toBeNull();
+      expect(opened?.contains(description)).toBe(true);
+      expect(description?.tagName).toBe('P');
+      expect(description?.textContent?.trim()).not.toBe('');
     },
   );
+
+  it('저장 중에는 취소를 눌러도(클릭·Enter·Space) 창이 닫히지 않는다', async () => {
+    // Given: 확정을 눌러 저장이 날아가는 중이다.
+    // 취소는 포커스를 잃지 않으려고 `disabled` 대신 `aria-disabled` 다 — 그래서
+    // 실제로 닫히지 않는지는 입력 방식마다 따로 확인해야 한다.
+    await act(async () => root.render(<Harness busyAfterConfirm />));
+    await act(async () => getButton('승인 확정').click());
+    const cancel = getButton('취소');
+
+    for (const press of [
+      () => cancel.click(),
+      () =>
+        cancel.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            key: 'Enter',
+            bubbles: true,
+            cancelable: true,
+          }),
+        ),
+      () =>
+        cancel.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            key: ' ',
+            bubbles: true,
+            cancelable: true,
+          }),
+        ),
+    ]) {
+      await act(async () => {
+        press();
+      });
+      expect(dialog()).not.toBeNull();
+    }
+  });
 
   it('반려 창은 설명 문단이 없으므로 없는 설명을 가리키지 않는다', async () => {
     // Given: 반려 창은 설명 대신 입력 폼이다.
