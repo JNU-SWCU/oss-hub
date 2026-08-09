@@ -1,10 +1,12 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
+import { DEADLINE_DIGEST_DELIVERY_FAILURE } from './deadline-digest-failure';
 import { DeadlineDigestRepository } from './deadline-digest.repository';
 
 export interface DeadlineDigestFailure {
   readonly id: string;
   readonly createdAt: string;
-  readonly error: string | null;
+  readonly code: typeof DEADLINE_DIGEST_DELIVERY_FAILURE.code;
+  readonly message: typeof DEADLINE_DIGEST_DELIVERY_FAILURE.message;
 }
 
 @Injectable()
@@ -20,19 +22,7 @@ export class DeadlineDigestFailuresService {
     return failures.map((failure) => ({
       id: failure.id,
       createdAt: failure.createdAt.toISOString(),
-      error: this.errorFromPayload(failure.payload),
+      ...DEADLINE_DIGEST_DELIVERY_FAILURE,
     }));
-  }
-
-  private errorFromPayload(payload: unknown): string | null {
-    if (
-      typeof payload === 'object' &&
-      payload !== null &&
-      'error' in payload &&
-      typeof payload.error === 'string'
-    ) {
-      return payload.error;
-    }
-    return null;
   }
 }
