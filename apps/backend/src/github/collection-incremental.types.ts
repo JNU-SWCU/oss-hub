@@ -66,6 +66,13 @@ export interface CollectionRepositoryRow {
   presence: CollectionRepositoryPresence;
   source: RepositorySource;
   lastCompleteInventoryObservedAt: Date | null;
+  /**
+   * 다음 수집 차례 (ADR-010 §6).
+   *
+   * 행이 존재한다는 것이 곧 수집 대상이라는 뜻이고, 이 값이 "언제"를 정한다.
+   * 연속 실패는 이 값을 뒤로 밀어 같은 저장소가 매 사이클 비용을 다시 쓰지 않게 한다.
+   */
+  nextRunAt?: Date | null;
 }
 
 /**

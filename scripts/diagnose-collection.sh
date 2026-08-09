@@ -65,7 +65,7 @@ UNION ALL SELECT 'stream.lastErrorAt',      max(\"lastErrorAt\")            FROM
 UNION ALL SELECT 'commit.observedAt',       max(\"observedAt\")             FROM \"CollectionCommitFact\"
 UNION ALL SELECT 'pr.observedAt',           max(\"observedAt\")             FROM \"CollectionPullRequestFact\"
 UNION ALL SELECT 'release.observedAt',      max(\"observedAt\")             FROM \"CollectionReleaseFact\"
-UNION ALL SELECT 'aggregate.updatedAt',     max(\"updatedAt\")              FROM \"CollectionContributorYearAggregate\"
+UNION ALL SELECT 'contribution.updatedAt',  max(\"updatedAt\")              FROM \"Contribution\"
 UNION ALL SELECT 'repo.updatedAt',          max(\"updatedAt\")              FROM \"GithubRepository\"
 UNION ALL SELECT 'inventory.lastComplete',  max(\"lastCompleteInventoryObservedAt\") FROM \"GithubRepository\"
 ")
@@ -76,7 +76,7 @@ done
 
 stream_last_run=$(printf '%s\n' "$o1" | awk -F'|' '$1=="stream.lastRunAt"{print $2}')
 commit_observed=$(printf '%s\n' "$o1" | awk -F'|' '$1=="commit.observedAt"{print $2}')
-aggregate_updated=$(printf '%s\n' "$o1" | awk -F'|' '$1=="aggregate.updatedAt"{print $2}')
+aggregate_updated=$(printf '%s\n' "$o1" | awk -F'|' '$1=="contribution.updatedAt"{print $2}')
 
 # 스윕이 최근에 돌았는지로 후보군이 갈린다.
 sweep_fresh=$(run_sql "
@@ -104,7 +104,7 @@ esac
 # C7 — fact 는 늘어나는데 집계만 안 따라오는 경우.
 c7_lag=$(run_sql "
 SELECT count(*) FROM \"CollectionCommitFact\"
-WHERE \"observedAt\" > COALESCE((SELECT max(\"updatedAt\") FROM \"CollectionContributorYearAggregate\"), 'epoch')
+WHERE \"observedAt\" > COALESCE((SELECT max(\"updatedAt\") FROM \"Contribution\"), 'epoch')
 ")
 if [[ ${c7_lag:-0} -gt 0 ]]; then
   echo "  집계보다 나중에 들어온 커밋 fact ${c7_lag}건 → C7(aggregate 만 고장) 유력"

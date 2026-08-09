@@ -51,7 +51,7 @@ Accepted
 
 1. 랭킹 화면이 이미 *"OSS Hub에 연결된 **공개** GitHub 활동을 기준으로 집계합니다"*를 배포된 상태로 선언하고 있다. 공개 활동 기준은 새 정책이 아니라 이미 사용자에게 약속한 것이다
 2. `contributionsCollection`이 정확히 "이 학생의 올해 활동"을 답하는 API다. 저장소를 훑지 않고 학생당 1콜로 끝난다
-3. ①이 sweep·lease·cursor·인벤토리·installation token에서 독립한다. 수집이 멈춰도 랭킹은 산다 — 이번 사고가 다시 나도 학생 화면은 서지 않는다
+3. ①을 `contributionsCollection`으로 옮기면 sweep·lease·cursor·인벤토리·installation token에서 독립한다. **다만 아직 옮기지 않았다** — 현재 ①은 ②와 같은 `Contribution`을 읽으므로 수집이 멈추면 랭킹도 멈춘다. 이 근거는 목표이지 현재 성질이 아니다(Follow-ups)
 4. 공개 랭킹에 조직 private 기여를 합산하면 저장소를 밝히지 않아도 *"이 사람이 비공개로 많이 했다"*가 드러난다. 공개 표면에서 빼는 쪽이 누출 경계와 화면 문구를 동시에 맞춘다
 
 **대안(단일 데이터원 유지)을 기각한 이유.** 그 장점(release 포함·조직 private 포함)은 아래 3·5로 대체 가능하지만, 단점(랭킹이 sweep 건강에 계속 종속·누출을 정책으로 공식화)은 대체 불가능하다.
@@ -129,7 +129,18 @@ Repository가 비즈니스 의사결정을 하는가?  → X
 
 수집은 **전량 재계산**이다. 증분 누적은 force-push·PR 삭제 뒤 영구히 부풀고 자가교정이 없다.
 
-Phase 1은 `deleteMany({ where: { repositoryId } })` + `createMany({ data })`다. 트랜잭션 경계는 유스케이스이며 **I/O는 트랜잭션 밖, 쓰기만 안**이다 — fetch가 실패하면 트랜잭션이 시작조차 하지 않으므로 기존 행이 그대로 남는다.
+Phase 1은 **이번 배치가 건드린 칸만** 비우고(`deleteMany`) 집합 SQL 한 문으로 다시 채운다
+(`INSERT … SELECT … GROUP BY … ON CONFLICT DO UPDATE`). 저장소 전체를 비우지 않는 이유는
+한 배치가 만지는 범위가 그보다 훨씬 좁고, 전체를 비우면 그 사이 읽기가 빈 값을 본다.
+
+**셀 단위 루프를 쓰지 않는다.** 입자가 날짜라 한 배치가 건드리는 칸이 (활동일 × 기여자)로
+늘어나는데 재계산은 checkpoint 트랜잭션 안에서 돈다. 칸마다 질의를 하면 Prisma interactive
+트랜잭션 기본 5초를 넘겨 fact 적재까지 함께 롤백되고, 활동이 많은 저장소가 매 사이클 같은
+자리에서 영구 실패한다.
+
+**force-push 자가교정의 범위.** 재계산은 fact 테이블 COUNT 에서 값을 다시 만들므로,
+fact 가 줄면 집계도 준다. 그러나 **fact 자체를 지우는 경로는 아직 없다** — 상류에서 사라진
+커밋이 fact 에 남으면 그 값이 유지된다. fact 층 조정은 후속이다. 트랜잭션 경계는 유스케이스이며 **I/O는 트랜잭션 밖, 쓰기만 안**이다 — fetch가 실패하면 트랜잭션이 시작조차 하지 않으므로 기존 행이 그대로 남는다.
 
 함께 관측 지표를 남긴다: `pg_stat_user_tables`의 `n_dead_tup`/`n_live_tup` 비율, `autovacuum_count`, 델타 발생 횟수.
 
@@ -165,6 +176,11 @@ webhook 기반 실시간을 만들지 않는다(`ADR-006` 이벤트 최소주의
 **`Repository`·`programId` 공존 4단계로 전환한다.** 데이터 폐기가 불필요해지면서 전제가 사라졌다.
 
 ## Follow-ups
+
+- **① 랭킹을 `contributionsCollection`으로 옮긴다.** 이것이 §1 근거 3의 실제 이행이며, 그 전까지 랭킹은 수집이 멈추면 같이 멈춘다. 프로덕션 실측으로 학생당 연도당 rate limit `cost=1`, 시간당 한도 5000 임을 확인했다 — 200명 매시 조회가 예산의 4%다
+- **fact 층 force-push 조정.** 상류에서 사라진 커밋을 fact 에서 지우는 경로가 없다. 지금은 집계가 fact 를 따라가므로 fact 가 부풀면 집계도 부푼다
+- **`nextRunAt` 큐 소비.** 실패 백오프를 기록하지만 sweep 대상 선택이 아직 커서 기반이라 백오프가 스케줄을 바꾸지 않는다
+- **불변식 실행 경로.** `ContributionInvariants` 는 등록만 돼 있고 호출자가 없다 — 주기 실행 또는 admin endpoint 배선이 필요하다
 
 - `Program.startAt` 신설 — ② 화면의 "프로그램 기간"을 `applicationStartAt` ~ `COALESCE(endAt, now())`로 잠정 정의했다. 정확한 활동 시작일 컬럼은 별건으로 다룬다
 - 랭킹 60초 인메모리 캐시 제거 — 갱신 시각을 캐시 밖 값으로 정의해 상호작용을 끊었으므로 급하지 않다

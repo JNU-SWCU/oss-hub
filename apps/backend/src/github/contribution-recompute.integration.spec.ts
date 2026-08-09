@@ -231,3 +231,88 @@ describe('Contribution 재계산 (실 Postgres)', () => {
     expect(dataQueries.length).toBeLessThan(15);
   });
 });
+
+/**
+ * 실패 백오프가 **실제로 스케줄을 바꾸는지** 실 Postgres 로 본다 (ADR-010 §6).
+ *
+ * 단위 스펙의 fake 는 DB 기본값 `now()` 를 흉내내지 못해 "아직 차례가 안 온 행"을
+ * 만들 수 없다. 기록만 하고 쓰이지 않는 칸은 있으나 마나이므로 여기서 확인한다.
+ */
+describe('수집 편입 큐 백오프 (실 Postgres)', () => {
+  const prisma = new PrismaClient();
+  const repository = new CollectionIncrementalRepository(
+    prisma as unknown as PrismaService,
+  );
+
+  const QUEUE_REPO_ID = 'queue-backoff-repo';
+  const QUEUE_GITHUB_ID = 9_930_000_001n;
+
+  beforeAll(async () => {
+    await prisma.$connect();
+  });
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  beforeEach(async () => {
+    await prisma.githubRepository.deleteMany({
+      where: { githubRepositoryId: QUEUE_GITHUB_ID },
+    });
+    await prisma.githubRepository.create({
+      data: {
+        id: QUEUE_REPO_ID,
+        githubRepositoryId: QUEUE_GITHUB_ID,
+        nameWithOwner: 'queue-backoff/synthetic',
+        source: 'ORG_PROVISIONED',
+        visibility: 'PUBLIC',
+        presence: 'PRESENT',
+      },
+    });
+  });
+
+  it('새 행은 기본값으로 즉시 수집 대상이다 — 행의 존재가 곧 멤버십이다', async () => {
+    const row = await prisma.githubRepository.findUniqueOrThrow({
+      where: { githubRepositoryId: QUEUE_GITHUB_ID },
+      select: { nextRunAt: true, failureCount: true, lastSuccessAt: true },
+    });
+
+    expect(row.failureCount).toBe(0);
+    expect(row.lastSuccessAt).toBeNull();
+    // 별도 편입 단계 없이 곧바로 차례가 지난 상태여야 한다.
+    expect(row.nextRunAt.getTime()).toBeLessThanOrEqual(Date.now());
+  });
+
+  it('실패는 차례를 뒤로 밀고 성공은 즉시 되돌린다', async () => {
+    const at = new Date('2026-05-01T00:00:00.000Z');
+
+    await repository.recordRepositoryFailure(QUEUE_GITHUB_ID, at);
+    const failed = await prisma.githubRepository.findUniqueOrThrow({
+      where: { githubRepositoryId: QUEUE_GITHUB_ID },
+      select: { nextRunAt: true, failureCount: true },
+    });
+    expect(failed.failureCount).toBe(1);
+    // 밀리지 않으면 같은 저장소가 매 사이클 같은 비용을 다시 쓴다.
+    expect(failed.nextRunAt.getTime()).toBeGreaterThan(at.getTime());
+
+    await repository.recordRepositoryFailure(QUEUE_GITHUB_ID, at);
+    const twice = await prisma.githubRepository.findUniqueOrThrow({
+      where: { githubRepositoryId: QUEUE_GITHUB_ID },
+      select: { nextRunAt: true, failureCount: true },
+    });
+    // 연속 실패는 더 뒤로 민다. 상한이 있어 영구 제외되지는 않는다.
+    expect(twice.failureCount).toBe(2);
+    expect(twice.nextRunAt.getTime()).toBeGreaterThan(
+      failed.nextRunAt.getTime(),
+    );
+
+    await repository.recordRepositorySuccess(QUEUE_GITHUB_ID, at);
+    const healed = await prisma.githubRepository.findUniqueOrThrow({
+      where: { githubRepositoryId: QUEUE_GITHUB_ID },
+      select: { nextRunAt: true, failureCount: true, lastSuccessAt: true },
+    });
+    // 성공하면 즉시 다시 대상이 된다 — 주기는 스케줄러가 소유한다.
+    expect(healed.failureCount).toBe(0);
+    expect(healed.lastSuccessAt?.getTime()).toBe(at.getTime());
+    expect(healed.nextRunAt.getTime()).toBe(at.getTime());
+  });
+});

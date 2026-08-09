@@ -330,18 +330,20 @@ export class CollectionIncrementalRepository {
     });
   }
 
-  /** 성공하면 실패 이력을 지우고 다음 정기 차례로 되돌린다. */
+  /**
+   * 성공하면 실패 이력을 지우고 즉시 다시 대상이 되게 한다.
+   *
+   * `nextRunAt` 을 앞으로 밀지 않는 이유: 수집 주기는 스케줄러가 소유한다.
+   * 여기서도 주기를 정하면 소유자가 둘이 되고, 둘이 어긋나면 저장소가
+   * 조용히 한 사이클씩 건너뛴다. 이 칸은 **실패 백오프 전용**이다.
+   */
   async recordRepositorySuccess(
     githubRepositoryId: bigint,
     now: Date,
   ): Promise<void> {
     await this.db.githubRepository.updateMany({
       where: { githubRepositoryId },
-      data: {
-        failureCount: 0,
-        lastSuccessAt: now,
-        nextRunAt: new Date(now.getTime() + REGULAR_INTERVAL_MS),
-      },
+      data: { failureCount: 0, lastSuccessAt: now, nextRunAt: now },
     });
   }
 

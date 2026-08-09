@@ -1344,10 +1344,15 @@ describe('CollectionSyncService — #546 트리거 결과 추적', () => {
       fingerprint: fingerprint('/repos/o/r/commits'),
     });
 
-    const service = createService(db, client);
+    // 실패는 nextRunAt 을 뒤로 민다(ADR-010 §6). 다음 run 이 그 저장소를 다시
+    // 보려면 백오프가 지나야 하므로 시계를 전진시킨다 — 이게 없으면 재시도가
+    // 건너뛰어져 "성공하면 오류 표시가 지워진다"를 관측할 수 없다.
+    let clock = new Date('2026-08-01T00:00:00.000Z');
+    const service = createService(db, client, { now: () => clock });
     await service.run('owner-1');
     expect(streamOf(box, 'COMMIT').lastErrorCode).toBe('PROVIDER_UPSTREAM');
 
+    clock = new Date('2026-08-01T09:00:00.000Z');
     await service.run('owner-1');
     expect(streamOf(box, 'COMMIT').lastErrorCode).toBeNull();
     expect(streamOf(box, 'COMMIT').lastErrorAt).toBeNull();
@@ -2182,41 +2187,20 @@ describe('CollectionSyncService — 실패 저장소 격리 (DD1)', () => {
     // 실패: 횟수가 오르고 다음 차례가 미뤄진다. 버려지는 게 아니라 미뤄지는 것이다.
     expect(broken?.failureCount).toBe(1);
     expect(broken?.nextRunAt).toBeInstanceOf(Date);
-    // 첫 실패는 정기 주기만큼만 미룬다 — 일시적 오류에 벌을 주면 복구가 느려진다.
+    // 성공한 저장소는 즉시 다시 대상이 되고(주기는 스케줄러 소유),
+    // 실패한 저장소만 뒤로 밀린다.
     const healthyNext = healthy?.nextRunAt as Date;
-    expect((broken?.nextRunAt as Date).getTime()).toBe(healthyNext.getTime());
+    expect((broken?.nextRunAt as Date).getTime()).toBeGreaterThan(
+      healthyNext.getTime(),
+    );
 
     // 성공: 실패 이력이 지워지고 마지막 성공 시각이 남는다.
     expect(healthy?.failureCount).toBe(0);
     expect(healthy?.lastSuccessAt).toBeInstanceOf(Date);
   });
 
-  it('연속 실패는 백오프를 늘린다 — 계속 실패하는 저장소가 큐를 잡아먹지 않는다', async () => {
-    const { db, box } = createFakeDb();
-    const repositories = [
-      providerRepository({ id: '1001', fullName: 'synthetic-org/repo-broken' }),
-      providerRepository({
-        id: '1002',
-        fullName: 'synthetic-org/repo-healthy',
-      }),
-    ];
-    const service = createService(db, failingFirstClient(repositories));
-
-    await service.run('synthetic-org');
-    await service.run('synthetic-org');
-
-    const rows = [...box.store.repositories.values()];
-    const broken = rows.find(
-      (row) => row.nameWithOwner === 'synthetic-org/repo-broken',
-    );
-    const healthy = rows.find(
-      (row) => row.nameWithOwner === 'synthetic-org/repo-healthy',
-    );
-
-    // 두 번째 실패부터 정기 주기보다 뒤로 밀린다. 상한이 있으므로 영구 제외되지는 않는다.
-    expect(broken?.failureCount).toBe(2);
-    expect((broken?.nextRunAt as Date).getTime()).toBeGreaterThan(
-      (healthy?.nextRunAt as Date).getTime(),
-    );
-  });
+  // 백오프가 실제로 스케줄을 바꾸는지(=실패 저장소를 건너뛰는지)는
+  // 실 Postgres 통합 스펙이 검증한다 — 이 fake 는 DB 기본값 now() 를
+  // 흉내내지 못해 nextRunAt 이 비어 있는 상태를 만들 수 없다.
+  // src/github/contribution-recompute.integration.spec.ts 참조.
 });

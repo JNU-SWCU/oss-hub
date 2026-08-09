@@ -340,11 +340,21 @@ export class CollectionSyncService {
       });
     }
 
+    const sweepStartedAt = this.now();
     const ordered = [...inventory.repositories]
       .filter(
         (repository) =>
           startAfter === null ||
           compareBigint(repository.githubRepositoryId, startAfter) > 0,
+      )
+      // 백오프가 아직 안 지난 저장소는 이번 사이클에서 건너뛴다(ADR-010 §6).
+      // 이게 없으면 `nextRunAt` 은 기록만 되고 스케줄을 바꾸지 않아,
+      // 연속 실패 저장소가 매 사이클 같은 비용을 다시 쓴다.
+      .filter(
+        (repository) =>
+          repository.nextRunAt === null ||
+          repository.nextRunAt === undefined ||
+          repository.nextRunAt <= sweepStartedAt,
       )
       .sort((a, b) =>
         compareBigint(a.githubRepositoryId, b.githubRepositoryId),
