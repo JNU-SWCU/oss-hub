@@ -4,6 +4,7 @@ import {
   buildMilestoneDocumentCollectionSearchParams,
   getMilestoneDocumentCollection,
   milestoneDocumentCollectionArchiveHref,
+  milestoneDocumentCollectionDocumentArchiveHref,
   milestoneDocumentSubmissionFileHref,
   MILESTONE_DOCUMENT_COLLECTION_FILTERS,
   MILESTONE_DOCUMENT_COLLECTION_PAGE_SIZE,
@@ -154,5 +155,73 @@ describe('milestoneDocumentCollectionArchiveHref', () => {
         'milestones/%EA%B8%B0%ED%9A%8D%2F%EC%84%9C%20%231%26x/documents/collection/archive?groupBy=DOCUMENT',
       ),
     );
+  });
+});
+
+describe('milestoneDocumentCollectionDocumentArchiveHref', () => {
+  it('apiPath를 통해 서류 하나짜리 ZIP 경로를 만든다', () => {
+    expect(
+      milestoneDocumentCollectionDocumentArchiveHref('milestone-1', 'd1'),
+    ).toBe(
+      apiPath(
+        'milestones/milestone-1/documents/collection/archive?documentId=d1',
+      ),
+    );
+  });
+
+  /**
+   * ⚠ 이 묶음의 핵심. 서버는 `documentId`와 `groupBy`가 **함께 오면 400**으로 막는다 —
+   * 서류가 하나뿐인 ZIP에는 묶는 방식이 없는데, 조용히 무시하면 「서류 종류별로 묶어
+   * 받았다」고 믿은 사람의 오해가 확인되지 않은 채 남기 때문이다. 전체 ZIP 쪽은 정반대로
+   * `groupBy`를 **언제나** 싣기 때문에, 두 함수를 나란히 두면 실수로 옮겨 붙기 쉽다.
+   */
+  it('groupBy를 싣지 않는다 — 함께 보내면 서버가 400으로 막는다', () => {
+    const url = new URL(
+      milestoneDocumentCollectionDocumentArchiveHref('milestone-1', 'd1'),
+      'https://example.test',
+    );
+
+    expect(url.searchParams.get('documentId')).toBe('d1');
+    expect(url.searchParams.get('groupBy')).toBeNull();
+    expect([...url.searchParams.keys()]).toEqual(['documentId']);
+  });
+
+  // 좁힌 ZIP도 전체 ZIP과 같은 endpoint다 — 경로가 갈리면 가드·감사 로그도 갈린다.
+  it('전체 ZIP과 같은 endpoint를 가리킨다', () => {
+    const all = new URL(
+      milestoneDocumentCollectionArchiveHref('milestone-1', 'TEAM'),
+      'https://example.test',
+    );
+    const one = new URL(
+      milestoneDocumentCollectionDocumentArchiveHref('milestone-1', 'd1'),
+      'https://example.test',
+    );
+
+    expect(one.pathname).toBe(all.pathname);
+  });
+
+  /**
+   * 마일스톤 id는 **경로**라 `encodeURIComponent`가, 서류 id는 **쿼리 값**이라
+   * `URLSearchParams`가 맡는다. 손으로 이으면 서류 id의 `&`가 새 쿼리 하나로 갈라져
+   * 서버는 짧아진 id로 404를 내거나 엉뚱한 값을 `groupBy`로 받는다.
+   */
+  it('한글·특수문자 id를 인코딩해 경로와 쿼리를 깨뜨리지 않는다', () => {
+    const href = milestoneDocumentCollectionDocumentArchiveHref(
+      '기획/서 #1&x',
+      '사업/계획서 #2&groupBy=DOCUMENT',
+    );
+    const url = new URL(href, 'https://example.test');
+
+    expect(url.pathname).toBe(
+      apiPath(
+        'milestones/%EA%B8%B0%ED%9A%8D%2F%EC%84%9C%20%231%26x/documents/collection/archive',
+      ),
+    );
+    // 쿼리가 늘어나지 않는다 — 값 안의 `&`·`=`가 새 키를 만들지 못한다.
+    expect([...url.searchParams.keys()]).toEqual(['documentId']);
+    expect(url.searchParams.get('documentId')).toBe(
+      '사업/계획서 #2&groupBy=DOCUMENT',
+    );
+    expect(url.searchParams.get('groupBy')).toBeNull();
   });
 });
