@@ -166,9 +166,13 @@ export function CollectionStreamsTable({
   // (audit-log-view.tsx와 같은 원칙).
   const now = new Date();
 
+  // `fetchSystemStatus`가 이미 구계약 응답을 빈 배열로 정규화하지만, 이 컴포넌트를
+  // 직접 부르는 다른 경로(로컬 검토 픽스처 오타 등)에도 안전하도록 한 번 더
+  // 가드한다 — `undefined`가 새어 들어오면 `[...undefined]`가 던진다.
+  const safeRepositories = repositories ?? [];
   const sorted = useMemo(
-    () => sortedByProblemFirst(repositories),
-    [repositories],
+    () => sortedByProblemFirst(safeRepositories),
+    [safeRepositories],
   );
   const problemCount = useMemo(
     () => sorted.filter(repositoryHasProblem).length,

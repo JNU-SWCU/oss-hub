@@ -65,6 +65,38 @@ describe('system status api', () => {
     expect(request).toHaveBeenCalledWith(apiPath('system-status'), undefined);
   });
 
+  it('collectionStreams가 없는 구계약 응답은 빈 배열로 정규화한다(배포 window 혼재 대비)', async () => {
+    const dto = {
+      health: 'NORMAL',
+      dataAsOf: '2026-07-25T10:01:00.000Z',
+      trackedRepositoryCount: 2,
+      readyStreamCount: 6,
+      backfillingStreamCount: 0,
+      partialStreamCount: 0,
+      retryPendingStreamCount: 0,
+      oldestReadyCheckpointAt: '2026-07-25T09:00:00.000Z',
+      oldestRetryPendingAt: null,
+      lastCycleStartedAt: '2026-07-25T09:55:00.000Z',
+      lastCycleCompletedAt: '2026-07-25T10:01:00.000Z',
+      nextCycleAt: null,
+      currentRunStatus: 'IDLE',
+      safeReason: null,
+    };
+    const request = vi.fn().mockResolvedValue(
+      // 구버전 백엔드 응답 그대로 — collectionStreams 필드 자체가 없다.
+      new Response(JSON.stringify({ collection: dto }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    vi.stubGlobal('fetch', request);
+
+    await expect(fetchSystemStatus()).resolves.toEqual({
+      status: dto,
+      collectionStreams: [],
+    });
+  });
+
   it('전송 오류를 성공 상태로 위장하지 않고 전파한다', async () => {
     const failure = new TypeError('synthetic transport failure');
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(failure));
