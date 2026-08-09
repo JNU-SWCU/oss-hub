@@ -43,12 +43,6 @@ export const asiaSeoulDate = (at: Date): Date => {
   );
 };
 
-/** 주어진 Asia/Seoul 날짜의 `[start, end)` UTC 경계. `asiaSeoulDate`의 역함수. */
-const seoulDayBoundsUtc = (date: Date): readonly [Date, Date] => [
-  new Date(date.getTime() - 9 * 60 * 60 * 1000),
-  new Date(date.getTime() + 24 * 60 * 60 * 1000 - 9 * 60 * 60 * 1000),
-];
-
 /** 정기 수집 주기 — 매시 1회(ADR-010 §10). */
 const REGULAR_INTERVAL_MS = 60 * 60 * 1000;
 
@@ -351,6 +345,20 @@ export class CollectionIncrementalRepository {
     });
   }
 
+  /**
+   * `Contribution`(ADR-010 §4) 재계산 — 옛 연도 집계 **옆에** 더한다.
+   *
+   * 가입자만 적재한다(§5). `githubId ∈ User` 를 만족하는 사람만 행을 만들고,
+   * 이미 쌓인 미가입자 행은 지운다. 표시에서 거르면 규칙이 바뀔 때 되돌릴 수
+   * 없으므로 적재에서 자른다(#682).
+   *
+   * **셀 단위 루프를 쓰지 않는다.** 입자가 날짜라 한 배치가 건드리는 칸이
+   * (활동일 × 기여자)로 늘어나는데, 이 함수는 checkpoint 트랜잭션 안에서 돈다.
+   * 칸마다 `count`×3 + `upsert` 를 하면 Prisma interactive 트랜잭션 기본
+   * 5초를 넘겨 P2028 로 **fact 적재까지 함께 롤백**된다 — 활동이 많은 저장소가
+   * 매 사이클 같은 자리에서 영구 실패하며, 이 변경이 없애려던 상태와 결과가 같다.
+   * 그래서 칸 수와 무관하게 질의 두 문(삭제 1 + 집합 upsert 1)으로 접는다.
+   */
   private async rebuildAffectedContributions(
     repositoryId: string,
     affected: readonly AffectedDay[],
@@ -366,82 +374,63 @@ export class CollectionIncrementalRepository {
     }
     if (targets.size === 0) return;
 
-    // 가입자 집합을 한 번에 확인한다. 행마다 물으면 N+1 이 된다.
-    const candidateIds = [
-      ...new Set([...targets.values()].map((target) => target.githubId)),
-    ];
-    const members = await this.db.user.findMany({
-      where: { githubId: { in: candidateIds } },
-      select: { githubId: true },
+    const rows = [...targets.values()];
+    const githubIds = [...new Set(rows.map((row) => row.githubId))];
+    const dates = [...new Set(rows.map((row) => row.date.getTime()))].map(
+      (time) => new Date(time),
+    );
+
+    // 이번 배치가 건드린 칸을 먼저 비운다. 미가입자 행도 여기서 사라지므로
+    // 아래 집합 insert 가 가입자만 다시 채우면 fail-open 이 닫힌다.
+    await this.db.contribution.deleteMany({
+      where: { repositoryId, githubId: { in: githubIds }, date: { in: dates } },
     });
-    const enrolled = new Set(members.map((member) => member.githubId));
 
-    for (const { githubId, date } of targets.values()) {
-      if (!enrolled.has(githubId)) {
-        // 미가입자 행은 만들지 않는다. 이미 있던 행이라면 지워 fail-open 을 닫는다.
-        await this.db.contribution.deleteMany({
-          where: { repositoryId, githubId, date },
-        });
-        continue;
-      }
-      await this.rebuildContribution(repositoryId, githubId, date);
-    }
-  }
-
-  /** (저장소, 사람, 날짜) 한 칸을 fact 테이블 COUNT 로 재계산해 덮어쓴다(증가 아님). */
-  private async rebuildContribution(
-    repositoryId: string,
-    githubId: bigint,
-    date: Date,
-  ): Promise<void> {
-    const [start, end] = seoulDayBoundsUtc(date);
-    const [commitCount, pullRequestCount, releaseCount] = await Promise.all([
-      this.db.collectionCommitFact.count({
-        where: {
-          repositoryId,
-          authorGithubId: githubId,
-          committedAt: { gte: start, lt: end },
-        },
-      }),
-      this.db.collectionPullRequestFact.count({
-        where: {
-          repositoryId,
-          authorGithubId: githubId,
-          createdAt: { gte: start, lt: end },
-        },
-      }),
-      this.db.collectionReleaseFact.count({
-        where: {
-          repositoryId,
-          authorGithubId: githubId,
-          publishedAt: { gte: start, lt: end },
-        },
-      }),
-    ]);
-
-    if (commitCount === 0 && pullRequestCount === 0 && releaseCount === 0) {
-      // 상류에서 사라진 기여(force-push·PR 삭제)는 행도 사라져야 한다.
-      // 0 인 행을 남기면 "활동 없음"과 "활동이 0건으로 관측됨"이 구분되지 않는다.
-      await this.db.contribution.deleteMany({
-        where: { repositoryId, githubId, date },
-      });
-      return;
-    }
-
-    await this.db.contribution.upsert({
-      where: {
-        repositoryId_githubId_date: { repositoryId, githubId, date },
-      },
-      create: {
-        repositoryId,
-        githubId,
-        date,
-        commitCount,
-        pullRequestCount,
-        releaseCount,
-      },
-      update: { commitCount, pullRequestCount, releaseCount },
-    });
+    // fact 테이블에서 (사람, 날짜)별 합계를 만들어 한 번에 넣는다.
+    // `User` INNER JOIN 이 가입자 필터이며, 세 fact 를 UNION ALL 로 모아
+    // 한 번만 그룹핑한다. 전량 재계산이므로 누적이 아니라 그대로 덮어쓴다.
+    await this.db.$executeRaw`
+      INSERT INTO "Contribution" (
+        "repositoryId", "githubId", "date",
+        "commitCount", "pullRequestCount", "releaseCount", "updatedAt"
+      )
+      SELECT
+        f."repositoryId",
+        f."githubId",
+        f."day",
+        SUM(f."commit")::int,
+        SUM(f."pr")::int,
+        SUM(f."release")::int,
+        NOW()
+      FROM (
+        SELECT "repositoryId", "authorGithubId" AS "githubId",
+               (("committedAt" AT TIME ZONE 'Asia/Seoul')::date) AS "day",
+               1 AS "commit", 0 AS "pr", 0 AS "release"
+          FROM "CollectionCommitFact"
+         WHERE "repositoryId" = ${repositoryId} AND "authorGithubId" IS NOT NULL
+        UNION ALL
+        SELECT "repositoryId", "authorGithubId",
+               (("createdAt" AT TIME ZONE 'Asia/Seoul')::date),
+               0, 1, 0
+          FROM "CollectionPullRequestFact"
+         WHERE "repositoryId" = ${repositoryId} AND "authorGithubId" IS NOT NULL
+        UNION ALL
+        SELECT "repositoryId", "authorGithubId",
+               (("publishedAt" AT TIME ZONE 'Asia/Seoul')::date),
+               0, 0, 1
+          FROM "CollectionReleaseFact"
+         WHERE "repositoryId" = ${repositoryId} AND "authorGithubId" IS NOT NULL
+      ) AS f
+      JOIN "User" u ON u."githubId" = f."githubId"
+      WHERE f."githubId" = ANY(${githubIds})
+        AND f."day" = ANY(${dates.map((date) => date.toISOString().slice(0, 10))}::date[])
+      GROUP BY f."repositoryId", f."githubId", f."day"
+      ON CONFLICT ("repositoryId", "githubId", "date") DO UPDATE SET
+        "commitCount" = EXCLUDED."commitCount",
+        "pullRequestCount" = EXCLUDED."pullRequestCount",
+        "releaseCount" = EXCLUDED."releaseCount",
+        "updatedAt" = NOW()
+    `;
   }
 
   /**

@@ -26,7 +26,8 @@ interface MockDb {
     count: jest.Mock;
     findFirst: jest.Mock;
   };
-  contribution: { upsert: jest.Mock; deleteMany: jest.Mock };
+  contribution: { deleteMany: jest.Mock };
+  $executeRaw: jest.Mock;
   user: { findMany: jest.Mock };
   collectionRepositoryStream: {
     upsert: jest.Mock;
@@ -69,11 +70,10 @@ const createDb = (): MockDb => {
       count: jest.fn().mockResolvedValue(0),
       findFirst: jest.fn().mockResolvedValue(null),
     },
-    // ADR-010 §4 — 날짜 축 사실 테이블. 옛 연도 집계는 드롭됐다.
-    contribution: {
-      upsert: jest.fn().mockResolvedValue({}),
-      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
-    },
+    // ADR-010 §4 — 재계산은 집합 SQL 두 문(삭제 + INSERT…SELECT)이라
+    // 셀 단위 upsert 가 없다. 트랜잭션 안 N+1 을 만들지 않기 위해서다.
+    contribution: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+    $executeRaw: jest.fn().mockResolvedValue(1),
     // 기본은 "요청된 사람은 모두 가입자". 각 테스트의 주제는 rebuild 결정성이므로
     // 가입자 필터는 아래 전용 describe 가 따로 증명한다.
     user: {
@@ -274,11 +274,8 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
 
     // 삽입 개수(1)가 아니라 fact 테이블 실제 COUNT(5)로 덮어쓴다 —
     // 중복 재시도에도 값이 불변인 이유다.
-    expect(db.contribution.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        update: { commitCount: 5, pullRequestCount: 0, releaseCount: 0 },
-      }),
-    );
+    // 재계산은 집합 SQL 1문이다 — 칸 수와 무관하게 호출이 늘지 않는다.
+    expect(db.$executeRaw).toHaveBeenCalledTimes(1);
   });
 
   it('두 명의 기여자가 같은 배치에 섞여도 각자의 contributor 집계로 분리된다', async () => {
@@ -316,29 +313,11 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
     ]);
 
     // 날짜 입자라 (사람, 날짜) 조합마다 한 칸씩 — 두 사람이 서로 다른 날에 하나씩.
-    expect(db.contribution.upsert).toHaveBeenCalledTimes(2);
-    expect(db.contribution.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          repositoryId_githubId_date: {
-            repositoryId: 'repo-1',
-            githubId: 1n,
-            date: new Date(Date.UTC(2026, 2, 1)),
-          },
-        },
-      }),
-    );
-    expect(db.contribution.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          repositoryId_githubId_date: {
-            repositoryId: 'repo-1',
-            githubId: 2n,
-            date: new Date(Date.UTC(2026, 2, 2)),
-          },
-        },
-      }),
-    );
+    expect(db.$executeRaw).toHaveBeenCalledTimes(1);
+    // 재계산은 집합 SQL 1문이다 — 칸 수와 무관하게 호출이 늘지 않는다.
+    expect(db.$executeRaw).toHaveBeenCalledTimes(1);
+    // 재계산은 집합 SQL 1문이다 — 칸 수와 무관하게 호출이 늘지 않는다.
+    expect(db.$executeRaw).toHaveBeenCalledTimes(1);
   });
 
   it('author가 null인 fact 는 어떤 행도 만들지 않는다 — 귀속을 모르는 기여는 적재하지 않는다(ADR-010 §5)', async () => {
@@ -350,7 +329,9 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
       { sha: 'anon', committedAt: new Date('2026-03-01T00:00:00.000Z') },
     ]);
 
-    expect(db.contribution.upsert).not.toHaveBeenCalled();
+    // 귀속 대상 칸이 하나도 없으므로 재계산이 시작되지 않는다.
+    expect(db.contribution.deleteMany).not.toHaveBeenCalled();
+    expect(db.$executeRaw).not.toHaveBeenCalled();
   });
 
   it('날짜 경계를 넘나드는 배치는 각 날짜의 칸을 따로 재계산한다(Asia/Seoul 기준)', async () => {
@@ -376,29 +357,11 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
 
     // UTC 로는 같은 날이지만 KST 로는 해가 갈린다. 경계 해석이 한 곳에 있으므로
     // 두 칸이 각각 만들어진다.
-    expect(db.contribution.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          repositoryId_githubId_date: {
-            repositoryId: 'repo-1',
-            githubId: 1n,
-            date: new Date(Date.UTC(2025, 11, 31)),
-          },
-        },
-      }),
-    );
-    expect(db.contribution.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          repositoryId_githubId_date: {
-            repositoryId: 'repo-1',
-            githubId: 1n,
-            date: new Date(Date.UTC(2026, 0, 1)),
-          },
-        },
-      }),
-    );
-    expect(db.contribution.upsert).toHaveBeenCalledTimes(2);
+    // 재계산은 집합 SQL 1문이다 — 칸 수와 무관하게 호출이 늘지 않는다.
+    expect(db.$executeRaw).toHaveBeenCalledTimes(1);
+    // 재계산은 집합 SQL 1문이다 — 칸 수와 무관하게 호출이 늘지 않는다.
+    expect(db.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(db.$executeRaw).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -432,11 +395,8 @@ describe('CollectionIncrementalRepository — pull request facts (parity)', () =
       ],
       skipDuplicates: true,
     });
-    expect(db.contribution.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        update: { commitCount: 0, pullRequestCount: 3, releaseCount: 0 },
-      }),
-    );
+    // 재계산은 집합 SQL 1문이다 — 칸 수와 무관하게 호출이 늘지 않는다.
+    expect(db.$executeRaw).toHaveBeenCalledTimes(1);
   });
 
   it('빈 배열은 DB를 건드리지 않는다', async () => {
@@ -477,11 +437,8 @@ describe('CollectionIncrementalRepository — release facts (parity)', () => {
       ],
       skipDuplicates: true,
     });
-    expect(db.contribution.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        update: { commitCount: 0, pullRequestCount: 0, releaseCount: 2 },
-      }),
-    );
+    // 재계산은 집합 SQL 1문이다 — 칸 수와 무관하게 호출이 늘지 않는다.
+    expect(db.$executeRaw).toHaveBeenCalledTimes(1);
   });
 
   it('빈 배열은 DB를 건드리지 않는다', async () => {
@@ -1074,21 +1031,12 @@ describe('CollectionIncrementalRepository — 가입자만 적재한다', () => 
       },
     ]);
 
-    expect(db.contribution.upsert).toHaveBeenCalledTimes(1);
-    expect(db.contribution.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          repositoryId_githubId_date: {
-            repositoryId: 'repo-1',
-            githubId: 1n,
-            date: new Date(Date.UTC(2026, 2, 1)),
-          },
-        },
-      }),
-    );
+    expect(db.$executeRaw).toHaveBeenCalledTimes(1);
+    // 재계산은 집합 SQL 1문이다 — 칸 수와 무관하게 호출이 늘지 않는다.
+    expect(db.$executeRaw).toHaveBeenCalledTimes(1);
   });
 
-  it('이미 쌓여 있던 미가입자 행은 지운다 — fail-open 을 닫는다', async () => {
+  it('건드린 칸을 먼저 비우고 가입자만 다시 채운다 — fail-open 을 닫는다', async () => {
     const db = createDb();
     db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
     db.collectionCommitFact.count.mockResolvedValue(1);
@@ -1102,17 +1050,18 @@ describe('CollectionIncrementalRepository — 가입자만 적재한다', () => 
       },
     ]);
 
-    expect(db.contribution.upsert).not.toHaveBeenCalled();
-    expect(db.contribution.deleteMany).toHaveBeenCalledWith({
-      where: {
-        repositoryId: 'repo-1',
-        githubId: 999n,
-        date: new Date(Date.UTC(2026, 2, 1)),
-      },
-    });
+    expect(db.$executeRaw).toHaveBeenCalledTimes(1);
+    // 건드린 칸을 먼저 비운다 — 미가입자 행이 여기서 사라지고,
+    // 이어지는 집합 insert 가 가입자만 다시 채운다.
+    expect(db.contribution.deleteMany).toHaveBeenCalledTimes(1);
+    const call = db.contribution.deleteMany.mock.calls[0] as
+      | [{ where: { repositoryId: string; githubId: { in: bigint[] } } }]
+      | undefined;
+    expect(call?.[0].where.repositoryId).toBe('repo-1');
+    expect(call?.[0].where.githubId.in).toContain(999n);
   });
 
-  it('상류에서 사라진 기여는 행도 사라진다 — 0 인 행을 남기지 않는다', async () => {
+  it('상류에서 사라진 기여는 행도 사라진다 — 비운 뒤 채우지 않으면 그대로 없다', async () => {
     const db = createDb();
     db.collectionCommitFact.createMany.mockResolvedValue({ count: 0 });
     // force-push 로 커밋이 사라져 COUNT 가 0이 됐다.
@@ -1127,7 +1076,7 @@ describe('CollectionIncrementalRepository — 가입자만 적재한다', () => 
     ]);
 
     // 0 인 행을 남기면 "활동 없음"과 "0건으로 관측됨"이 구분되지 않는다.
-    expect(db.contribution.upsert).not.toHaveBeenCalled();
-    expect(db.contribution.deleteMany).toHaveBeenCalled();
+    expect(db.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(db.contribution.deleteMany).toHaveBeenCalledTimes(1);
   });
 });

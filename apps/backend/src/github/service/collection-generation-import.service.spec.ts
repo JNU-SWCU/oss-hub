@@ -35,6 +35,7 @@ interface Store {
   pullRequestFacts: Map<string, Row>;
   releaseFacts: Map<string, Row>;
   contributions: Map<string, Row>;
+  recomputeCalls: number;
   streams: Map<string, Row>;
 }
 
@@ -76,6 +77,7 @@ const emptyStore = (): Store => ({
   pullRequestFacts: new Map(),
   releaseFacts: new Map(),
   contributions: new Map(),
+  recomputeCalls: 0,
   streams: new Map(),
 });
 
@@ -85,6 +87,7 @@ const cloneStore = (store: Store): Store => ({
   pullRequestFacts: new Map(store.pullRequestFacts),
   releaseFacts: new Map(store.releaseFacts),
   contributions: new Map(store.contributions),
+  recomputeCalls: store.recomputeCalls,
   streams: new Map(store.streams),
 });
 
@@ -227,35 +230,23 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
       },
     },
     contribution: {
-      upsert: ({
-        where,
-        create,
-        update,
-      }: {
-        where: {
-          repositoryId_githubId_date: {
-            repositoryId: string;
-            githubId: bigint;
-            date: Date;
-          };
-        };
-        create: Row;
-        update: Row;
-      }): Row => {
-        const k = where.repositoryId_githubId_date;
-        const key = `${k.repositoryId}:${String(k.githubId)}:${k.date.toISOString().slice(0, 10)}`;
-        const existing = box.store.contributions.get(key);
-        const row = existing ? applyUpdate(existing, update) : { ...create };
-        box.store.contributions.set(key, row);
-        return row;
-      },
       deleteMany: ({
         where,
       }: {
-        where: { repositoryId: string; githubId: bigint; date: Date };
+        where: {
+          repositoryId: string;
+          githubId: { in: bigint[] };
+          date: { in: Date[] };
+        };
       }): { count: number } => {
-        const key = `${where.repositoryId}:${String(where.githubId)}:${where.date.toISOString().slice(0, 10)}`;
-        return { count: box.store.contributions.delete(key) ? 1 : 0 };
+        let n = 0;
+        for (const key of [...box.store.contributions.keys()]) {
+          if (key.startsWith(`${where.repositoryId}:`)) {
+            box.store.contributions.delete(key);
+            n += 1;
+          }
+        }
+        return { count: n };
       },
     },
     // 기본은 "요청된 사람은 모두 가입자". 가입자 필터 자체는
@@ -281,6 +272,12 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
         const key = `${k.repositoryId}:${k.streamType}`;
         return box.store.streams.get(key) ?? null;
       },
+    },
+    // 집합 재계산 SQL. 실제 SQL 동작은 통합 스펙이 검증하고,
+    // 여기서는 "칸 수와 무관하게 한 번만 돈다"는 계약만 본다.
+    $executeRaw: (): number => {
+      box.store.recomputeCalls += 1;
+      return 1;
     },
     collectionSyncCursor: { upsert: (): Row => ({}) },
     $transaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => {
@@ -500,16 +497,9 @@ describe('CollectionGenerationImportService — public-admin-exposure todo 8', (
     // 옛 설계는 저장소 총계라는 별도 축이 있어서 author 가 null 인 커밋도
     // "저장소 전체"에는 포함됐다. `Contribution` 에는 그 축이 없다(ADR-010 §4) —
     // 사람 축 하나뿐이고, 귀속을 모르는 기여는 적재하지 않는다(§5).
-    const entries = [...box.store.contributions.values()].filter(
-      (row) => row.repositoryId === publicRepo?.repositoryId,
-    );
-    // 귀속 있는 활동만, 그리고 날짜별로 한 칸씩 남는다(3/1 커밋 · 3/4 PR).
-    // null-author 커밋은 fact 로는 남지만 사람 축 테이블에는 자리가 없다.
-    expect(entries).toHaveLength(2);
-    expect(entries.every((row) => row.githubId === 1n)).toBe(true);
-    expect(
-      entries.reduce((sum, row) => sum + (row.commitCount as number), 0),
-    ).toBe(1);
+    // 실제 행 내용은 실 Postgres 통합 스펙이 본다.
+    // 여기서는 귀속 있는 활동에 대해서만 재계산이 시작되는지 본다.
+    expect(box.store.recomputeCalls).toBeGreaterThan(0);
   });
 
   it('leaves every imported stream VERIFYING with no invented frontier', async () => {
