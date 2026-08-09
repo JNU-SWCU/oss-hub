@@ -22,7 +22,9 @@ describe('ProgramCard', () => {
     expect(html).toContain('자세히 ›');
     expect(html).toContain('2026-2학기 오픈소스 SW 프로젝트');
     expect(html).toContain('진행중');
-    expect(html).toContain('pr-[88px] break-keep');
+    expect(html).toContain(
+      'pr-[88px] min-w-0 break-keep [overflow-wrap:anywhere]',
+    );
   });
 
   it('renders an ended card without a link, without the footer, and without a working href', () => {

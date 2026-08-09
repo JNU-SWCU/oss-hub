@@ -121,7 +121,7 @@ function ProgramCard({
         {badgeText}
       </StatusBadge>
       {category ? (
-        <div className="pr-[88px] break-keep text-[12px] text-muted-foreground">
+        <div className="pr-[88px] min-w-0 break-keep [overflow-wrap:anywhere] text-[12px] text-muted-foreground">
           {category}
         </div>
       ) : null}
