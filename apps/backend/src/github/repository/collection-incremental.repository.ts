@@ -206,9 +206,11 @@ export class CollectionIncrementalRepository {
     repositoryId: string,
     facts: readonly CommitFactInput[],
   ): Promise<RecordFactsResult> {
-    if (facts.length === 0) return { insertedCount: 0 };
+    if (facts.length === 0) return { acceptedCount: 0, insertedCount: 0 };
     const acceptedFacts = await this.onlyRegisteredFacts(facts);
-    if (acceptedFacts.length === 0) return { insertedCount: 0 };
+    if (acceptedFacts.length === 0) {
+      return { acceptedCount: 0, insertedCount: 0 };
+    }
     const { count: insertedCount } =
       await this.db.collectionCommitFact.createMany({
         data: acceptedFacts.map((fact) => ({
@@ -229,16 +231,18 @@ export class CollectionIncrementalRepository {
         githubId: fact.authorGithubId ?? null,
       })),
     );
-    return { insertedCount };
+    return { acceptedCount: acceptedFacts.length, insertedCount };
   }
 
   async recordPullRequestFacts(
     repositoryId: string,
     facts: readonly PullRequestFactInput[],
   ): Promise<RecordFactsResult> {
-    if (facts.length === 0) return { insertedCount: 0 };
+    if (facts.length === 0) return { acceptedCount: 0, insertedCount: 0 };
     const acceptedFacts = await this.onlyRegisteredFacts(facts);
-    if (acceptedFacts.length === 0) return { insertedCount: 0 };
+    if (acceptedFacts.length === 0) {
+      return { acceptedCount: 0, insertedCount: 0 };
+    }
     const { count: insertedCount } =
       await this.db.collectionPullRequestFact.createMany({
         data: acceptedFacts.map((fact) => ({
@@ -260,16 +264,18 @@ export class CollectionIncrementalRepository {
         githubId: fact.authorGithubId ?? null,
       })),
     );
-    return { insertedCount };
+    return { acceptedCount: acceptedFacts.length, insertedCount };
   }
 
   async recordReleaseFacts(
     repositoryId: string,
     facts: readonly ReleaseFactInput[],
   ): Promise<RecordFactsResult> {
-    if (facts.length === 0) return { insertedCount: 0 };
+    if (facts.length === 0) return { acceptedCount: 0, insertedCount: 0 };
     const acceptedFacts = await this.onlyRegisteredFacts(facts);
-    if (acceptedFacts.length === 0) return { insertedCount: 0 };
+    if (acceptedFacts.length === 0) {
+      return { acceptedCount: 0, insertedCount: 0 };
+    }
     const { count: insertedCount } =
       await this.db.collectionReleaseFact.createMany({
         data: acceptedFacts.map((fact) => ({
@@ -290,7 +296,7 @@ export class CollectionIncrementalRepository {
         githubId: fact.authorGithubId ?? null,
       })),
     );
-    return { insertedCount };
+    return { acceptedCount: acceptedFacts.length, insertedCount };
   }
 
   private async onlyRegisteredFacts<
@@ -377,23 +383,27 @@ export class CollectionIncrementalRepository {
       },
     });
     if (updated.count === 0) return false;
-    await this.purgeUnregisteredFactsInTransaction(input.githubRepositoryId);
+    await this.purgeUnregisteredExternalFactsInTransaction(
+      input.githubRepositoryId,
+    );
     return true;
   }
 
   /**
-   * 저장소에 남은 비가입자 원본 fact를 독립 트랜잭션으로 정리한다.
+   * 외부 저장소에 남은 비가입자 원본 fact를 독립 트랜잭션으로 정리한다.
    *
    * PRIVATE/ABSENT 공개 회수는 이 정리보다 먼저 별도 커밋되어야 한다. 정리 SQL이
    * 실패해도 공개 상태가 되살아나지 않도록 수집 서비스가 회수 뒤 best-effort로 호출한다.
    */
-  async purgeUnregisteredFacts(githubRepositoryId: bigint): Promise<void> {
+  async purgeUnregisteredExternalFacts(
+    githubRepositoryId: bigint,
+  ): Promise<void> {
     await this.runInTransaction((repo) =>
-      repo.purgeUnregisteredFactsInTransaction(githubRepositoryId),
+      repo.purgeUnregisteredExternalFactsInTransaction(githubRepositoryId),
     );
   }
 
-  private async purgeUnregisteredFactsInTransaction(
+  private async purgeUnregisteredExternalFactsInTransaction(
     githubRepositoryId: bigint,
   ): Promise<void> {
     await this.db.$executeRaw`
@@ -401,6 +411,7 @@ export class CollectionIncrementalRepository {
       USING "GithubRepository" r
       WHERE r."id" = f."repositoryId"
         AND r."githubRepositoryId" = ${githubRepositoryId}
+        AND r."source" = 'EXTERNAL_PUBLIC'::"RepositorySource"
         AND NOT EXISTS (
           SELECT 1 FROM "User" u WHERE u."githubId" = f."authorGithubId"
         )
@@ -410,6 +421,7 @@ export class CollectionIncrementalRepository {
       USING "GithubRepository" r
       WHERE r."id" = f."repositoryId"
         AND r."githubRepositoryId" = ${githubRepositoryId}
+        AND r."source" = 'EXTERNAL_PUBLIC'::"RepositorySource"
         AND NOT EXISTS (
           SELECT 1 FROM "User" u WHERE u."githubId" = f."authorGithubId"
         )
@@ -419,6 +431,7 @@ export class CollectionIncrementalRepository {
       USING "GithubRepository" r
       WHERE r."id" = f."repositoryId"
         AND r."githubRepositoryId" = ${githubRepositoryId}
+        AND r."source" = 'EXTERNAL_PUBLIC'::"RepositorySource"
         AND NOT EXISTS (
           SELECT 1 FROM "User" u WHERE u."githubId" = f."authorGithubId"
         )
@@ -428,6 +441,7 @@ export class CollectionIncrementalRepository {
       USING "GithubRepository" r
       WHERE r."id" = c."repositoryId"
         AND r."githubRepositoryId" = ${githubRepositoryId}
+        AND r."source" = 'EXTERNAL_PUBLIC'::"RepositorySource"
         AND NOT EXISTS (
           SELECT 1 FROM "User" u WHERE u."githubId" = c."githubId"
         )
@@ -463,7 +477,9 @@ export class CollectionIncrementalRepository {
       current?.source === 'EXTERNAL_PUBLIC' &&
       current.visibility === 'PUBLIC'
     ) {
-      await this.purgeUnregisteredFactsInTransaction(input.githubRepositoryId);
+      await this.purgeUnregisteredExternalFactsInTransaction(
+        input.githubRepositoryId,
+      );
     }
     return current?.source === 'EXTERNAL_PUBLIC' ? current : null;
   }

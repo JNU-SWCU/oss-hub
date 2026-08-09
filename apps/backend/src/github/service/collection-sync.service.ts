@@ -92,7 +92,7 @@ type SyncRepository = Pick<
   | 'recordRepositoryObservation'
   | 'refreshExternalRepositoryObservation'
   | 'markExternalRepositoryUnavailable'
-  | 'purgeUnregisteredFacts'
+  | 'purgeUnregisteredExternalFacts'
   | 'recordRepositoryFailure'
   | 'recordRepositorySuccess'
   | 'markAbsentRepositories'
@@ -745,7 +745,7 @@ export class CollectionSyncService {
     githubRepositoryId: bigint,
   ): Promise<void> {
     try {
-      await this.incrementalRepository.purgeUnregisteredFacts(
+      await this.incrementalRepository.purgeUnregisteredExternalFacts(
         githubRepositoryId,
       );
     } catch (error) {

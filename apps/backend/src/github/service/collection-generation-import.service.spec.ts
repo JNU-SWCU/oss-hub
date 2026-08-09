@@ -448,6 +448,12 @@ describe('CollectionGenerationImportService — public-admin-exposure todo 8', (
     expect(box.store.commitFacts.size).toBe(commitFactCountAfterFirst);
     // 작성자를 모르는 커밋은 source와 무관하게 적재 경계에서 빠진다.
     expect(box.store.commitFacts.size).toBe(2);
+    expect(
+      second.repositories.reduce(
+        (sum, repository) => sum + repository.commitsAccepted,
+        0,
+      ),
+    ).toBe(2);
   });
 
   it('produces the same digest regardless of the source snapshot row order', async () => {

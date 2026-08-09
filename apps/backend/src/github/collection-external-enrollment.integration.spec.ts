@@ -284,6 +284,84 @@ describe('external repository enrollment integration', () => {
     });
   });
 
+  it('external snapshot 뒤 org로 승격된 저장소의 기존 fact를 정리하지 않는다', async () => {
+    const repository = await prisma.githubRepository.create({
+      data: {
+        githubRepositoryId: REPOSITORY_IDS[2],
+        nameWithOwner: 'synthetic-student/promoted-repo',
+        defaultBranch: 'main',
+        archived: false,
+        source: 'EXTERNAL_PUBLIC',
+        visibility: 'PUBLIC',
+        presence: 'PRESENT',
+      },
+    });
+    await prisma.collectionCommitFact.create({
+      data: {
+        repositoryId: repository.id,
+        sha: 'synthetic-promoted-commit',
+        committedAt: OBSERVED_AT,
+        authorGithubId: OUTSIDER_GITHUB_ID,
+        authorGithubLogin: 'synthetic-outsider',
+      },
+    });
+    await prisma.collectionPullRequestFact.create({
+      data: {
+        repositoryId: repository.id,
+        githubPullRequestId: 9_000_000_730_501n,
+        state: 'MERGED',
+        createdAt: OBSERVED_AT,
+        authorGithubId: OUTSIDER_GITHUB_ID,
+        authorGithubLogin: 'synthetic-outsider',
+      },
+    });
+    await prisma.collectionReleaseFact.create({
+      data: {
+        repositoryId: repository.id,
+        githubReleaseId: 9_000_000_730_502n,
+        publishedAt: OBSERVED_AT,
+        authorGithubId: OUTSIDER_GITHUB_ID,
+        authorGithubLogin: 'synthetic-outsider',
+      },
+    });
+    await prisma.contribution.create({
+      data: {
+        repositoryId: repository.id,
+        githubId: OUTSIDER_GITHUB_ID,
+        date: OBSERVED_AT,
+        commitCount: 1,
+        pullRequestCount: 1,
+        releaseCount: 1,
+      },
+    });
+
+    await prisma.githubRepository.update({
+      where: { id: repository.id },
+      data: {
+        githubOrganizationId: 9_000_000_730_099n,
+        source: 'ORG_PROVISIONED',
+      },
+    });
+    await enrollment.purgeUnregisteredExternalFacts(REPOSITORY_IDS[2]);
+
+    await expect(
+      Promise.all([
+        prisma.collectionCommitFact.count({
+          where: { repositoryId: repository.id },
+        }),
+        prisma.collectionPullRequestFact.count({
+          where: { repositoryId: repository.id },
+        }),
+        prisma.collectionReleaseFact.count({
+          where: { repositoryId: repository.id },
+        }),
+        prisma.contribution.count({
+          where: { repositoryId: repository.id },
+        }),
+      ]),
+    ).resolves.toEqual([1, 1, 1, 1]);
+  });
+
   it('동일 id 동시 편입이 unique 오류 없이 한 행으로 수렴한다', async () => {
     const input = {
       githubRepositoryId: REPOSITORY_IDS[3],

@@ -37,8 +37,11 @@ const COLLECTION_STREAM_TYPES_TO_VERIFY: readonly CollectionStreamType[] = [
 export interface GenerationImportRepositoryResult {
   readonly githubRepositoryId: string;
   readonly repositoryId: string;
+  readonly commitsAccepted: number;
   readonly commitsInserted: number;
+  readonly pullRequestsAccepted: number;
   readonly pullRequestsInserted: number;
+  readonly releasesAccepted: number;
   readonly releasesInserted: number;
 }
 
@@ -242,8 +245,11 @@ export class CollectionGenerationImportService {
           return {
             githubRepositoryId: group.repository.githubRepositoryId.toString(),
             repositoryId: row.id,
+            commitsAccepted: commits.acceptedCount,
             commitsInserted: commits.insertedCount,
+            pullRequestsAccepted: pullRequests.acceptedCount,
             pullRequestsInserted: pullRequests.insertedCount,
+            releasesAccepted: releases.acceptedCount,
             releasesInserted: releases.insertedCount,
           };
         },

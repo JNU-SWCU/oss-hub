@@ -109,9 +109,15 @@ export interface ReleaseFactInput {
   authorGithubLogin?: string | null;
 }
 
-/** 새로 기록된 fact 수 — 중복(이미 존재하는 unique key)은 집계되지 않는다. */
+/**
+ * fact writer 결과.
+ *
+ * `acceptedCount`는 가입자 경계를 통과한 입력 수라 재실행에도 불변이고,
+ * `insertedCount`는 unique 중복을 제외한 이번 실행의 실제 신규 삽입 수다.
+ */
 export interface RecordFactsResult {
-  insertedCount: number;
+  readonly acceptedCount: number;
+  readonly insertedCount: number;
 }
 
 export interface StreamFrontierInput {

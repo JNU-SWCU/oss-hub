@@ -20,7 +20,7 @@ const MAX_SYNC_PASSES = 20;
  * (2) todo 8 backfill(`CollectionGenerationImportService`)을 재실행해 idempotent하게
  * 다시 채우고, (3) pin된 포인터가 그 사이 바뀌지 않았는지 확인하고, (4) todo 10 provider
  * traversal(`CollectionSyncService`)로 VERIFYING stream을 모두 검증하고, (5) pin된 generation
- * 원장 개수와 새 facts 개수를 비교한다. 다섯 단계 중 어느 하나라도 실패하면 명시적
+ * 중 가입자 경계를 통과한 원장 개수와 새 facts 개수를 비교한다. 다섯 단계 중 어느 하나라도 실패하면 명시적
  * `CutoverAbortReason`과 함께 ABORTED를 반환한다 — 예외를 던지거나 조용히 넘어가지 않는다.
  * 성공/실패 무관하게 quiesce lease는 항상 해제한다(스케줄러/관리자 트리거가 다시 열리도록).
  */
@@ -127,7 +127,7 @@ export class CollectionCutoverService {
       };
     }
 
-    const comparison = await this.compareAggregates(after, importResult);
+    const comparison = await this.compareAggregates(importResult);
     if (!aggregatesMatch(comparison)) {
       return {
         status: 'ABORTED',
@@ -167,10 +167,14 @@ export class CollectionCutoverService {
     return passes;
   }
 
-  private async compareAggregates(
-    after: { commits: unknown[]; pullRequests: unknown[]; releases: unknown[] },
-    importResult: { repositories: readonly { repositoryId: string }[] },
-  ): Promise<CutoverAggregateComparison> {
+  private async compareAggregates(importResult: {
+    repositories: readonly {
+      repositoryId: string;
+      commitsAccepted: number;
+      pullRequestsAccepted: number;
+      releasesAccepted: number;
+    }[];
+  }): Promise<CutoverAggregateComparison> {
     const repositoryIds = importResult.repositories.map(
       (repository) => repository.repositoryId,
     );
@@ -183,11 +187,20 @@ export class CollectionCutoverService {
         this.cutoverRepository.countReleaseFactsForRepositories(repositoryIds),
       ]);
     return {
-      oldCommitCount: after.commits.length,
+      oldCommitCount: importResult.repositories.reduce(
+        (sum, repository) => sum + repository.commitsAccepted,
+        0,
+      ),
       newCommitCount,
-      oldPullRequestCount: after.pullRequests.length,
+      oldPullRequestCount: importResult.repositories.reduce(
+        (sum, repository) => sum + repository.pullRequestsAccepted,
+        0,
+      ),
       newPullRequestCount,
-      oldReleaseCount: after.releases.length,
+      oldReleaseCount: importResult.repositories.reduce(
+        (sum, repository) => sum + repository.releasesAccepted,
+        0,
+      ),
       newReleaseCount,
     };
   }

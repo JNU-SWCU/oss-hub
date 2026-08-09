@@ -325,7 +325,7 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
 
     const result = await repositoryFor(db).recordCommitFacts('repo-1', []);
 
-    expect(result).toEqual({ insertedCount: 0 });
+    expect(result).toEqual({ acceptedCount: 0, insertedCount: 0 });
     expect(db.collectionCommitFact.createMany).not.toHaveBeenCalled();
   });
 
@@ -476,7 +476,7 @@ describe('CollectionIncrementalRepository — pull request facts (parity)', () =
 
     const result = await repositoryFor(db).recordPullRequestFacts('repo-1', []);
 
-    expect(result).toEqual({ insertedCount: 0 });
+    expect(result).toEqual({ acceptedCount: 0, insertedCount: 0 });
     expect(db.collectionPullRequestFact.createMany).not.toHaveBeenCalled();
   });
 });
@@ -518,7 +518,7 @@ describe('CollectionIncrementalRepository — release facts (parity)', () => {
 
     const result = await repositoryFor(db).recordReleaseFacts('repo-1', []);
 
-    expect(result).toEqual({ insertedCount: 0 });
+    expect(result).toEqual({ acceptedCount: 0, insertedCount: 0 });
     expect(db.collectionReleaseFact.createMany).not.toHaveBeenCalled();
   });
 });

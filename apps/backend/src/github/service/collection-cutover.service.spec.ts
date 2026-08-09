@@ -52,8 +52,8 @@ const snapshot = (
       githubRepositoryId: 101n,
       sha: 'a'.repeat(40),
       committedAt: new Date('2026-07-30T00:00:00.000Z'),
-      authorGithubId: null,
-      authorGithubLogin: null,
+      authorGithubId: 1n,
+      authorGithubLogin: 'synthetic-registered',
     },
   ],
   pullRequests: [],
@@ -71,8 +71,11 @@ const importResult = (
     {
       githubRepositoryId: '101',
       repositoryId: 'repo-1',
+      commitsAccepted: 1,
       commitsInserted: 1,
+      pullRequestsAccepted: 0,
       pullRequestsInserted: 0,
+      releasesAccepted: 0,
       releasesInserted: 0,
     },
   ],
@@ -256,6 +259,52 @@ describe('CollectionCutoverService — runCutover', () => {
       status: 'ABORTED',
       reason: 'AGGREGATE_MISMATCH',
       generationId: 'generation-1',
+    });
+  });
+
+  it('COMPLETED: 작성자 귀속이 없는 canonical fact는 신규 fact parity에서 제외한다', async () => {
+    const collaborators = createCollaborators();
+    collaborators.canonicalRepository.getActiveGenerationSnapshot.mockResolvedValue(
+      snapshot({
+        commits: [
+          {
+            githubRepositoryId: 101n,
+            sha: 'anonymous'.padEnd(40, '0'),
+            committedAt: new Date('2026-07-30T00:00:00.000Z'),
+            authorGithubId: null,
+            authorGithubLogin: null,
+          },
+        ],
+      }),
+    );
+    collaborators.cutoverRepository.countCommitFactsForRepositories.mockResolvedValue(
+      0,
+    );
+    collaborators.generationImportService.importActiveGeneration.mockResolvedValue(
+      importResult({
+        repositories: [
+          {
+            githubRepositoryId: '101',
+            repositoryId: 'repo-1',
+            commitsAccepted: 0,
+            commitsInserted: 0,
+            pullRequestsAccepted: 0,
+            pullRequestsInserted: 0,
+            releasesAccepted: 0,
+            releasesInserted: 0,
+          },
+        ],
+      }),
+    );
+
+    await expect(
+      serviceFor(collaborators).runCutover('cli:owner-1'),
+    ).resolves.toMatchObject({
+      status: 'COMPLETED',
+      comparison: {
+        oldCommitCount: 0,
+        newCommitCount: 0,
+      },
     });
   });
 
