@@ -78,6 +78,36 @@ describe('StudentApplicationManagementRepository', () => {
     expect(result).toHaveProperty('rejectionReason', null);
   });
 
+  /**
+   * ⚠ 사유를 읽는 사람은 본인만이 아니다 — 팀 신청이면 리더·팀원 전원이 읽는다.
+   * 의도된 범위지만(#570 판정 알림 수신자와 같은 집합) 이걸 고정하는 테스트가 없어서,
+   * where 를 `applicantId` 만으로 좁혀도 아무도 울지 않았다.
+   */
+  it('scopes the owner read path to the applicant, the team leader, and team members', async () => {
+    const findFirst = jest.fn().mockResolvedValue(APPLICATION);
+    const repository = new StudentApplicationManagementRepository(
+      createPrisma({ application: { findFirst } }),
+      () => NOW,
+    );
+
+    await repository.findOwnedApplication('program-1', 'student-1');
+
+    const calls = findFirst.mock.calls as unknown as readonly (readonly {
+      readonly where: { readonly OR: readonly unknown[] };
+    }[])[];
+    const args = calls[0]?.[0];
+    if (args === undefined) {
+      throw new Error('application.findFirst 가 호출되지 않았다');
+    }
+    expect(args.where.OR).toEqual(
+      expect.arrayContaining([
+        { applicantId: 'student-1' },
+        { team: { leaderId: 'student-1' } },
+        { team: { members: { some: { userId: 'student-1' } } } },
+      ]),
+    );
+  });
+
   it('carries a stored rejection reason out of the owner read path', async () => {
     const findFirst = jest
       .fn()

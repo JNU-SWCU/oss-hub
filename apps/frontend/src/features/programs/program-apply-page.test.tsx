@@ -339,6 +339,35 @@ describe('ProgramApply views', () => {
     // 교직원이 넣은 줄바꿈을 살리고 한글 문장이 어색하게 갈리지 않게 한다.
     expect(html).toContain('whitespace-pre-wrap');
     expect(html).toContain('break-keep');
+    // `break-keep`(=word-break:keep-all)만으로는 공백 없는 긴 주소·핸들이 안 끊겨
+    // 좁은 화면에서 상자와 페이지가 가로로 늘어난다. 자르지 않기로 한 뒤로는
+    // 사유가 길어질 수 있어 이 비상 줄바꿈이 유일한 방어다.
+    expect(html).toContain('[overflow-wrap:anywhere]');
+  });
+
+  it('자르지 않으므로 역할 요청 상한을 넘긴 사유도 끝까지 그린다', () => {
+    // 번호 매긴 보완 목록은 신청 반려에서 흔한 형식이라 6줄을 예사로 넘는다.
+    // 뒤를 자르면 마지막 줄(재신청 마감 같은 실행 정보)이 통째로 사라진다.
+    const long = [
+      '제출하신 요약이 프로그램 주제와 맞지 않습니다.',
+      '보완할 점',
+      '1. 해결하려는 문제를 한 문장으로 정리해 주세요.',
+      '2. 기여할 오픈소스 저장소와 예상 작업 범위를 적어 주세요.',
+      '3. 팀원 역할 분담을 적어 주세요.',
+      '4. 일정 계획을 적어 주세요.',
+      '재신청 마감은 8월 20일입니다.',
+    ].join('\n');
+
+    const html = renderToStaticMarkup(
+      <BlockedView
+        reason="already-applied"
+        program={program}
+        application={rejectedApplication(long)}
+      />,
+    );
+
+    expect(html).toContain('재신청 마감은 8월 20일입니다.');
+    expect(html).not.toContain('…');
   });
 
   /**

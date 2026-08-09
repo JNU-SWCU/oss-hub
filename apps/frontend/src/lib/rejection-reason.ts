@@ -133,7 +133,20 @@ function splitGraphemes(value: string): readonly string[] {
  * 줄 수 상한을 그냥 지나간다. 줄을 먼저 자르지 않으면 글자 수로는 통과한 값이 세로로
  * 무너뜨린다.
  */
-export function clampRejectionReason(reason: string | null): string | null {
+/**
+ * 화면을 깨뜨리는 문자만 걷어내고 **길이는 건드리지 않는다.**
+ *
+ * 자르기와 갈라 둔 이유 — 두 화면이 같은 위험(제어문자·Bidi)을 지지만 길이 규칙은
+ * 정반대다. 역할 요청 반려는 대개 한 줄이라 상한이 화면을 지키지만, 프로그램 신청
+ * 반려는 「1. …  2. …」로 이어지는 보완 목록이 자연스러운 형식이라 6줄을 예사로 넘는다.
+ * 거기서 뒤를 자르면 학생은 **다음에 무엇을 해야 하는지를 잃는다** — 재신청 마감일이
+ * 마지막 줄에 있으면 통째로 사라지고, 잘렸다는 사실조차 모른다(붙는 `…`는 「뒤에 더
+ * 있다」가 아니라 오타처럼 읽힌다). 사유를 학생에게 전달하려고 만든 경로가 전달을
+ * 막는 셈이라, 이 갈래는 자르지 않는다.
+ *
+ * 세로로 길어지는 것은 자르기가 아니라 화면 쪽에서 감당한다.
+ */
+export function sanitizeRejectionReason(reason: string | null): string | null {
   const cleaned = collapseBlankLines(
     (reason ?? '')
       .replace(UNRENDERABLE_PATTERN, '')
@@ -141,7 +154,12 @@ export function clampRejectionReason(reason: string | null): string | null {
       .replace(/\r\n?/g, '\n')
       .replace(UNICODE_LINE_SEPARATOR_PATTERN, '\n'),
   ).trim();
-  if (cleaned.length === 0) {
+  return cleaned.length === 0 ? null : cleaned;
+}
+
+export function clampRejectionReason(reason: string | null): string | null {
+  const cleaned = sanitizeRejectionReason(reason);
+  if (cleaned === null) {
     return null;
   }
 

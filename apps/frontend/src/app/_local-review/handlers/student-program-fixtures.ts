@@ -355,8 +355,12 @@ const PROGRAM_FIXTURES: Readonly<Record<PublicProgramId, ProgramFixture>> = {
  *
  * `rejectionReason`을 **여러 줄**로 둔다. 화면이 `whitespace-pre-wrap`으로 줄바꿈을
  * 살리는데, 한 줄짜리 사유만 있으면 그 규칙이 도는지 눈으로 확인할 수 없다. 빈 줄을
- * 하나 끼워 문단 구분까지 함께 보이게 하고, 줄 수는 6줄 상한
- * (`lib/rejection-reason.ts`) 안에 둔다 — 넘기면 말줄임표가 붙어 잘림이 결함처럼 보인다.
+ * 하나 끼워 문단 구분까지 함께 보이게 한다.
+ *
+ * 줄 수를 **일부러 역할 요청 쪽 상한(6줄)보다 길게** 잡았다. 이 화면은 자르지 않으므로
+ * (`sanitizeRejectionReason`) 마지막 줄까지 그대로 보여야 하고, 그 사실을 검토자가
+ * 눈으로 확인할 수 있어야 한다 — 재신청 마감일처럼 **끝에 오는 정보가 살아 있는지**가
+ * 이 갈래에서 가장 중요한 확인이다.
  */
 export const MY_APPLICATION_FIXTURES: Readonly<
   Record<string, StudentApplication>
@@ -376,7 +380,7 @@ export const MY_APPLICATION_FIXTURES: Readonly<
     updatedAt: '2026-06-28T00:00:00.000Z',
     isRepositoryPublicationPlanned: true,
     rejectionReason:
-      '제출하신 요약이 프로그램 주제와 맞지 않습니다.\n\n보완할 점\n1. 해결하려는 문제를 한 문장으로 정리해 주세요.\n2. 기여할 오픈소스 저장소와 예상 작업 범위를 적어 주세요.',
+      '제출하신 요약이 프로그램 주제와 맞지 않습니다.\n\n보완할 점\n1. 해결하려는 문제를 한 문장으로 정리해 주세요.\n2. 기여할 오픈소스 저장소와 예상 작업 범위를 적어 주세요.\n3. 팀원 역할 분담을 적어 주세요.\n4. 일정 계획을 적어 주세요.\n\n재신청 마감은 8월 20일입니다.',
     // 판정이 끝난 신청은 수정도 취소도 할 수 없다 — 세 값이 함께 false여야 화면이
     // 수정 버튼을 그리지 않는다.
     canManage: false,

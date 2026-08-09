@@ -5,7 +5,7 @@ import { PROGRAM_TEMPLATE_DEFINITIONS } from '@/features/programs/program-templa
 import type { StudentApplication } from '@/features/programs/student-application-api';
 import type { SubmissionFormData } from '@/features/submissions/types';
 import {
-  clampRejectionReason,
+  sanitizeRejectionReason,
   REJECTION_REASON_MAX_LINES,
 } from '@/lib/rejection-reason';
 import type { LocalReviewFixtureId } from '../fixture-contract';
@@ -310,15 +310,20 @@ describe('student fixture responses', () => {
 
     // And: 정제기를 통과하고도 사유가 남아야 상자가 그려진다. 공백뿐이면 `null`이 되어
     // 화면이 아무것도 그리지 않고, 검토자는 여전히 사유를 볼 수 없다.
-    const rendered = clampRejectionReason(application.rejectionReason);
+    const rendered = sanitizeRejectionReason(application.rejectionReason);
     expect(rendered).not.toBeNull();
 
     // And: 여러 줄이어야 `whitespace-pre-wrap`이 도는지 눈으로 확인할 수 있다.
     const lines = rendered?.split('\n') ?? [];
     expect(lines.length).toBeGreaterThan(1);
-    // 상한에 걸려 잘리면 말줄임표가 붙어 검토자가 잘림을 결함으로 읽는다.
+    // 이 화면은 자르지 않는다. 아무 데도 잘리지 않았음을 말줄임표 부재로 고정한다.
     expect(rendered).not.toContain('…');
-    expect(lines.length).toBeLessThanOrEqual(REJECTION_REASON_MAX_LINES);
+    // 그리고 **역할 요청 쪽 상한을 일부러 넘긴다** — 넘겨도 끝까지 남는 것이 이
+    // 갈래의 계약이다. 상한 안으로 줄어들면 그 계약을 더는 확인하지 못한다.
+    expect(lines.length).toBeGreaterThan(REJECTION_REASON_MAX_LINES);
+    // 마지막 줄(재신청 마감 같은 실행 정보)이 살아 있어야 한다.
+    expect(rendered?.endsWith(lines[lines.length - 1] ?? '')).toBe(true);
+    expect(rendered).toContain('재신청 마감');
   });
 
   /**
@@ -330,6 +335,15 @@ describe('student fixture responses', () => {
     ['신청이 없는 프로그램', 'student', 'program-basic-study', 404, 'APP_001'],
     ['없는 프로그램', 'student', 'synthetic-missing', 404, 'APP_009'],
     ['학생이 아닌 역할', 'staff', 'program-sw-value', 403, 'APP_008'],
+    // 역할 검사가 프로그램 검사보다 **먼저**라는 것을 이 한 줄이 고정한다.
+    // 둘을 뒤집으면 여기서만 404 APP_009 가 나와 실제 backend 와 갈린다.
+    [
+      '학생이 아닌 역할 + 없는 프로그램',
+      'staff',
+      'synthetic-missing',
+      403,
+      'APP_008',
+    ],
     ['비로그인', 'anonymous', 'program-sw-value', 401, 'AUT_003'],
   ] as readonly (readonly [
     string,

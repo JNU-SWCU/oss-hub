@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { clampRejectionReason } from '@/lib/rejection-reason';
+import { sanitizeRejectionReason } from '@/lib/rejection-reason';
 import type { ProgramTeam } from './api';
 import { ApplicationConfirmationDialog } from './application-confirmation-dialog';
 import { FormRenderer } from './form-renderer';
@@ -55,7 +55,10 @@ export function ApplySkeleton() {
  * 줄바꿈 방지)을 더 건다 — 그쪽은 한 줄짜리 사유를 전제한 자리다.
  *
  * 사유가 비었거나 공백뿐이면 **아무것도 그리지 않는다.** 라벨만 뜨고 안이 비면 사용자는
- * 사유가 아직 안 온 줄 알고 기다린다(`clampRejectionReason`이 `null`을 돌려준다).
+ * 사유가 아직 안 온 줄 알고 기다린다(`sanitizeRejectionReason`이 `null`을 돌려준다).
+ *
+ * ⚠ 길이는 **자르지 않는다.** 역할 요청 반려와 달리 신청 반려는 번호 매긴 보완 목록이
+ * 자연스러운 형식이라, 뒤를 자르면 재신청 마감일 같은 마지막 줄이 통째로 사라진다.
  */
 function RejectionReasonAlert({
   application,
@@ -63,14 +66,14 @@ function RejectionReasonAlert({
   readonly application: StudentApplication | null;
 }) {
   if (application === null || application.status !== 'REJECTED') return null;
-  const reason = clampRejectionReason(application.rejectionReason);
+  const reason = sanitizeRejectionReason(application.rejectionReason);
   if (reason === null) return null;
 
   return (
     <Alert variant="destructive" className="mb-6 text-left">
       <AlertCircle aria-hidden="true" />
       <AlertTitle>반려 사유</AlertTitle>
-      <AlertDescription className="break-keep whitespace-pre-wrap">
+      <AlertDescription className="break-keep whitespace-pre-wrap [overflow-wrap:anywhere]">
         {reason}
       </AlertDescription>
     </Alert>

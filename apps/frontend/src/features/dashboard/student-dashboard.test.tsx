@@ -263,8 +263,17 @@ describe('StudentDashboardView', () => {
     // 옛 문구가 되살아나는 것을 막는다 — 그 화면은 상태만 말하던 시절의 말이다.
     expect(html).not.toContain('신청 상세에서 상태를 확인해 주세요');
     // 사유 원문은 대시보드까지 오지 않는다 — 알림 payload에 그런 필드가 없다.
-    expect(Object.keys(notice)).not.toContain('rejectionReason');
-    expect(Object.keys(notice)).not.toContain('reason');
+    //
+    // ⚠ 이 단언은 **렌더된 html**을 본다. `notice` 리터럴의 키를 세면 이 테스트가
+    // 자기가 방금 쓴 값을 자기가 검사하는 항진명제가 된다 — 실제로 payload에 사유를
+    // 얹어 화면에 그리게 만들어도 통과했다.
+    const secret = '대시보드에 오면 안 되는 사유 원문';
+    const htmlWithReason = renderView({
+      applicationDecisionNotices: [
+        { ...notice, rejectionReason: secret } as unknown as typeof notice,
+      ],
+    });
+    expect(htmlWithReason).not.toContain(secret);
   });
 });
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   clampRejectionReason,
+  sanitizeRejectionReason,
   REJECTION_REASON_MAX_LENGTH,
   REJECTION_REASON_MAX_LINES,
 } from './rejection-reason';
@@ -168,5 +169,59 @@ describe('clampRejectionReason', () => {
     expect(clampRejectionReason('\u061C아랍 표시')).toBe('아랍 표시');
     // 탭은 지우지 않고 공백으로 바꾼다 — 지우면 단어가 서로 붙는다.
     expect(clampRejectionReason('학과\t미확인')).toBe('학과 미확인');
+  });
+});
+
+/**
+ * 자르지 않는 갈래. 프로그램 신청 반려가 이걸 쓴다 — 보완 목록이 길어져도 학생이
+ * 마지막 줄(재신청 마감 같은 실행 정보)을 잃으면 안 되기 때문이다.
+ */
+describe('sanitizeRejectionReason', () => {
+  it('역할 요청 상한을 넘겨도 자르지 않는다', () => {
+    const long = Array.from(
+      { length: REJECTION_REASON_MAX_LINES + 4 },
+      (_, index) => `${index + 1}번 줄`,
+    ).join('\n');
+
+    const sanitized = sanitizeRejectionReason(long);
+
+    expect(sanitized).toBe(long);
+    expect(sanitized).not.toContain('…');
+  });
+
+  it('글자 수 상한을 넘겨도 자르지 않는다', () => {
+    const long = '가'.repeat(REJECTION_REASON_MAX_LENGTH * 2);
+
+    expect(sanitizeRejectionReason(long)).toBe(long);
+  });
+
+  it('같은 입력을 clamp 는 자르고 sanitize 는 남긴다', () => {
+    // 두 갈래가 실제로 갈린다는 것을 한 자리에서 고정한다. 신청 화면이 실수로
+    // clamp 를 쓰면 학생이 뒷부분을 잃는다.
+    const long = Array.from(
+      { length: REJECTION_REASON_MAX_LINES + 1 },
+      (_, index) => `${index + 1}번 줄`,
+    ).join('\n');
+
+    expect(clampRejectionReason(long)).toContain('…');
+    expect(sanitizeRejectionReason(long)).not.toContain('…');
+  });
+
+  it('화면을 깨뜨리는 문자는 그대로 걷어낸다', () => {
+    // 자르지 않는다고 해서 위생 처리까지 놓으면, 학생 화면에서 문장 순서가 뒤집힌다.
+    const attacked = '앞\u202E뒤\u0007';
+
+    expect(sanitizeRejectionReason(attacked)).toBe('앞뒤');
+  });
+
+  it('줄 구분자만으로 이루어진 값도 줄바꿈으로 모은다', () => {
+    expect(sanitizeRejectionReason('가\u2028나\u2029다')).toBe('가\n나\n다');
+  });
+
+  it('빈 값·공백뿐인 값은 null 이다', () => {
+    // 라벨만 뜨고 안이 비면 학생은 사유가 아직 안 온 줄 알고 기다린다.
+    expect(sanitizeRejectionReason(null)).toBeNull();
+    expect(sanitizeRejectionReason('')).toBeNull();
+    expect(sanitizeRejectionReason('   \n\t  ')).toBeNull();
   });
 });
