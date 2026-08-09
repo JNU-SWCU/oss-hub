@@ -1,5 +1,7 @@
 'use client';
 
+import { AlertDialog } from 'radix-ui';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import type {
   ApplicationDecisionAction,
@@ -14,6 +16,14 @@ import type {
  * 상태는 갖지 않는다. 사유 입력값과 진행 중 여부는 부르는 화면이 들고 있다 —
  * 목록은 판정 뒤 페이지를 다시 읽고 상세는 그 한 건을 다시 읽어야 해서, 성공 후에
  * 할 일이 서로 다르기 때문이다.
+ *
+ * `AlertDialog`를 쓴다(`Dialog`가 아니다) — 되돌릴 수 없는 판정이고 사유를 쳐 넣은
+ * 상태라, 바깥을 잘못 눌러 창이 닫히면 적던 글이 사라진다. 손으로 만들었던 옛 창도
+ * 바깥 클릭으로 닫히지 않았으므로 동작이 바뀌지 않는다([#734]).
+ *
+ * ⚠ `Portal`을 쓰지 않는다 — 두 화면의 기존 테스트가 렌더 컨테이너 안에서 이 창의
+ * 내용을 찾는다. 위치 지정은 어차피 `fixed`라 Portal 유무로 달라지지 않고,
+ * 포커스 가둠·`aria-hidden`·스크롤 잠금은 Portal 없이도 그대로 걸린다.
  */
 export function ApplicationDecisionDialog({
   action,
@@ -22,6 +32,8 @@ export function ApplicationDecisionDialog({
   reason,
   reasonError,
   busy,
+  errorMessage,
+  returnFocusId,
   onReasonChange,
   onCancel,
   onConfirm,
@@ -36,34 +48,70 @@ export function ApplicationDecisionDialog({
   readonly reason: string;
   readonly reasonError: boolean;
   readonly busy: boolean;
+  /**
+   * 판정 저장이 실패했는데 창은 열려 있는 경우의 안내.
+   * ⚠ 화면 위쪽 알림에 그리면 **이 창 뒤에 가려** 교직원이 못 본다 — 실패했는데
+   * 아무 일도 안 일어난 것처럼 보인다. 그래서 창 안에서 말한다([#734]).
+   */
+  readonly errorMessage: string | null;
+  /**
+   * 창을 연 버튼의 id. 닫힐 때 그리로 포커스를 돌려준다.
+   * 그 버튼이 사라졌으면(목록에서 판정에 성공해 「승인」이 「되돌리기」로 바뀐 경우)
+   * 손대지 않고 Radix 기본 복귀에 맡긴다 — `submission-dialog.tsx`와 같은 규칙.
+   */
+  readonly returnFocusId: string;
   readonly onReasonChange: (value: string) => void;
   readonly onCancel: () => void;
   readonly onConfirm: () => void;
 }) {
+  const isReject = action === 'REJECT';
   return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-foreground/40 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="decision-title"
+    <AlertDialog.Root
+      open
+      /*
+       * 닫힘을 여기 한 곳에서만 판정한다 — Escape·취소 버튼이 모두 이리로 온다.
+       * ⚠ 저장이 날아가는 중(`busy`)에는 닫지 않는다. 닫히면 적어 둔 사유를 잃고
+       *   무엇이 저장됐는지도 알 수 없다.
+       * `onEscapeKeyDown`으로 한 번 더 막지 않는다 — 창이 열려 있는지를 부르는 화면이
+       *   쥐고 있어서 이 가드만으로 충분하고, 변이로 확인했다(빼도 동작이 같았다).
+       */
+      onOpenChange={(open) => {
+        if (!open && !busy) onCancel();
+      }}
     >
-      <div className="grid w-full max-w-md gap-4 rounded-xl bg-background p-6 shadow-lg">
-        <h2 id="decision-title" className="text-lg font-semibold">
-          {action === 'APPROVE'
-            ? '신청 승인'
-            : action === 'REJECT'
-              ? '신청 반려'
-              : '판정 되돌리기'}
-        </h2>
+      <AlertDialog.Overlay className="fixed inset-0 z-50 bg-foreground/40" />
+      <AlertDialog.Content
+        // 반려 창은 설명 문단 대신 입력 폼이라 가리킬 설명이 없다.
+        // 비워 두지 않고 명시적으로 undefined 를 줘야 Radix 가 경고하지 않는다.
+        aria-describedby={isReject ? undefined : 'decision-description'}
+        className="fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-background p-6 shadow-lg outline-none"
+        onCloseAutoFocus={(event) => {
+          const returnTarget = document.getElementById(returnFocusId);
+          if (!(returnTarget instanceof HTMLElement)) return;
+          event.preventDefault();
+          returnTarget.focus();
+        }}
+      >
+        <AlertDialog.Title asChild>
+          <h2 id="decision-title" className="text-lg font-semibold">
+            {action === 'APPROVE'
+              ? '신청 승인'
+              : isReject
+                ? '신청 반려'
+                : '판정 되돌리기'}
+          </h2>
+        </AlertDialog.Title>
         {action === 'APPROVE' ? (
-          <p className="break-keep">
-            {repositoryConnectionMode === 'OWN'
-              ? '승인하면 신청자가 낸 저장소를 연결합니다. 새 저장소를 만들지 않습니다.'
-              : repositoryProvisioningEnabled
-                ? '승인하면 저장소 자동 생성이 활성화되어 저장소 작업을 시작합니다.'
-                : '승인하면 저장소 자동 생성이 비활성화되어 저장소를 생성하지 않습니다.'}
-          </p>
-        ) : action === 'REJECT' ? (
+          <AlertDialog.Description asChild>
+            <p id="decision-description" className="break-keep">
+              {repositoryConnectionMode === 'OWN'
+                ? '승인하면 신청자가 낸 저장소를 연결합니다. 새 저장소를 만들지 않습니다.'
+                : repositoryProvisioningEnabled
+                  ? '승인하면 저장소 자동 생성이 활성화되어 저장소 작업을 시작합니다.'
+                  : '승인하면 저장소 자동 생성이 비활성화되어 저장소를 생성하지 않습니다.'}
+            </p>
+          </AlertDialog.Description>
+        ) : isReject ? (
           /*
            * 라벨·오류·안내를 `<label>` **바깥**에 둔다. `<label>`이 감싸면 그 안의
            * 글자가 전부 입력칸의 이름이 되어, 스크린리더가 "반려 사유 반려 사유를
@@ -97,26 +145,42 @@ export function ApplicationDecisionDialog({
             </span>
           </div>
         ) : (
-          <p>
-            판정을 취소하고 신청을 다시 제출됨 상태로 되돌립니다. 이후
-            승인·반려를 다시 할 수 있습니다.
-          </p>
+          <AlertDialog.Description asChild>
+            <p id="decision-description">
+              판정을 취소하고 신청을 다시 제출됨 상태로 되돌립니다. 이후
+              승인·반려를 다시 할 수 있습니다.
+            </p>
+          </AlertDialog.Description>
         )}
+        {errorMessage !== null ? (
+          <Alert variant="destructive">
+            <AlertTitle>판정을 저장하지 못했습니다</AlertTitle>
+            <AlertDescription className="[word-break:keep-all]">
+              {errorMessage}
+            </AlertDescription>
+          </Alert>
+        ) : null}
         <div className="flex justify-end gap-2">
-          <Button variant="outline" disabled={busy} onClick={onCancel}>
-            취소
-          </Button>
+          <AlertDialog.Cancel asChild>
+            <Button variant="outline" disabled={busy}>
+              취소
+            </Button>
+          </AlertDialog.Cancel>
+          {/*
+           * `AlertDialog.Action`을 쓰지 않는다 — 누르는 순간 창을 닫아 버려서,
+           * 저장이 실패했을 때 적어 둔 사유가 함께 사라진다.
+           */}
           <Button disabled={busy} onClick={onConfirm}>
             {busy
               ? '처리 중…'
               : action === 'APPROVE'
                 ? '승인 확정'
-                : action === 'REJECT'
+                : isReject
                   ? '반려 확정'
                   : '되돌리기 확정'}
           </Button>
         </div>
-      </div>
-    </div>
+      </AlertDialog.Content>
+    </AlertDialog.Root>
   );
 }

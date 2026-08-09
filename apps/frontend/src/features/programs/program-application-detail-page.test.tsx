@@ -492,6 +492,52 @@ describe('ProgramApplicationDetailPage', () => {
     );
   });
 
+  it('판정 저장이 실패하면 확인창 안에서 말한다 — 창 뒤에 그리면 못 본다', async () => {
+    // Given: 확인창을 열고 저장이 일반 오류로 실패한다.
+    getApplicationDetailMock.mockResolvedValue(submitted);
+    decideApplicationMock.mockRejectedValue(new Error('synthetic failure'));
+    await mount();
+    await act(async () => getButton('승인').click());
+
+    // When: 승인을 확정한다.
+    await act(async () => getButton('승인 확정').click());
+
+    // Then: 창은 열린 채이고, 실패 안내가 그 **창 안에** 있다.
+    const dialog = document.querySelector('[role="alertdialog"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog?.textContent).toContain('판정을 저장하지 못했습니다');
+    expect(dialog?.textContent).toContain('입력과 현재 상태를 유지했습니다');
+  });
+
+  it('확인창을 Escape 로 닫으면 창을 연 판정 버튼으로 포커스가 돌아온다', async () => {
+    // Given: 승인 확인창이 열려 있다.
+    getApplicationDetailMock.mockResolvedValue(submitted);
+    await mount();
+    const trigger = getButton('승인');
+    await act(async () => trigger.click());
+    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+
+    const focusReturned = new Promise<void>((resolve) => {
+      trigger.addEventListener('focus', () => resolve(), { once: true });
+    });
+
+    // When: 키보드로 Escape 를 누른다.
+    await act(async () => {
+      getButton('취소').dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Escape',
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    await focusReturned;
+
+    // Then: 문서 맨 앞이 아니라 그 버튼으로 돌아온다.
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
   it('자동 생성이 꺼져 있어도 저장소 작업 상태를 목록과 같이 말한다', async () => {
     // 교직원이 나중에 스위치를 끄면 이미 만들어진 저장소의 상태가 남는다.
     // 「꺼짐」으로 덮으면 목록이 "확인 필요"로 경고하는 신청이 상세에서 조용해진다.

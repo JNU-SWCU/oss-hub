@@ -32,6 +32,7 @@ import {
   APPLICATION_STATUS_BADGE,
   APPLICATION_STATUS_LABELS,
   PROVISIONING_LABELS,
+  applicationDecisionTriggerId,
   displayAnswerText,
   displayApplicantName,
   formatSubmittedAt,
@@ -132,6 +133,11 @@ export function ProgramApplicantsPage({
     null,
   );
   const [notice, setNotice] = useState<Notice>(null);
+  /**
+   * 판정 저장이 실패했는데 확인창은 열려 있는 경우의 안내.
+   * ⚠ 화면 위쪽 `notice` 에 그리면 **확인창 뒤에 가려** 교직원이 못 본다([#734]).
+   */
+  const [decisionError, setDecisionError] = useState<string | null>(null);
   const requestEpoch = useRef(new ApplicationListRequestEpoch());
   const pollAttempts = useRef(0);
 
@@ -282,11 +288,10 @@ export function ProgramApplicantsPage({
           });
         }
       } else
-        setNotice({
-          kind: 'error',
-          title: '판정을 저장하지 못했습니다',
-          message: '입력과 현재 상태를 유지했습니다. 다시 시도해 주세요.',
-        });
+        // 확인창은 열린 채로 둔다(적어 둔 사유를 잃지 않게) — 그래서 안내도 창 안에 그린다.
+        setDecisionError(
+          '입력과 현재 상태를 유지했습니다. 다시 시도해 주세요.',
+        );
     } finally {
       setBusyApplicationId(null);
     }
@@ -362,20 +367,24 @@ export function ProgramApplicantsPage({
               <>
                 <Button
                   size="sm"
+                  id={applicationDecisionTriggerId('APPROVE', row.id)}
                   disabled={busyApplicationId === row.id}
-                  onClick={() =>
-                    setDialog({ applicationId: row.id, action: 'APPROVE' })
-                  }
+                  onClick={() => {
+                    setDecisionError(null);
+                    setDialog({ applicationId: row.id, action: 'APPROVE' });
+                  }}
                 >
                   승인
                 </Button>
                 <Button
                   size="sm"
+                  id={applicationDecisionTriggerId('REJECT', row.id)}
                   variant="outline"
                   disabled={busyApplicationId === row.id}
                   onClick={() => {
                     setReasonError(false);
                     setRejectionReason('');
+                    setDecisionError(null);
                     setDialog({ applicationId: row.id, action: 'REJECT' });
                   }}
                 >
@@ -386,11 +395,13 @@ export function ProgramApplicantsPage({
             {row.status === 'APPROVED' || row.status === 'REJECTED' ? (
               <Button
                 size="sm"
+                id={applicationDecisionTriggerId('REVERT', row.id)}
                 variant="ghost"
                 disabled={busyApplicationId === row.id}
-                onClick={() =>
-                  setDialog({ applicationId: row.id, action: 'REVERT' })
-                }
+                onClick={() => {
+                  setDecisionError(null);
+                  setDialog({ applicationId: row.id, action: 'REVERT' });
+                }}
               >
                 되돌리기
               </Button>
@@ -534,6 +545,11 @@ export function ProgramApplicantsPage({
           reason={rejectionReason}
           reasonError={reasonError}
           busy={busyApplicationId === selected.id}
+          errorMessage={decisionError}
+          returnFocusId={applicationDecisionTriggerId(
+            dialog.action,
+            dialog.applicationId,
+          )}
           onReasonChange={(value) => {
             setRejectionReason(value);
             setReasonError(false);
