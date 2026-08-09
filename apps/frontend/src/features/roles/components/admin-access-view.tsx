@@ -1,5 +1,11 @@
 import type { SubmitEvent } from 'react';
 import Link from 'next/link';
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  ExternalLink,
+} from 'lucide-react';
 
 import {
   DataTable,
@@ -41,20 +47,8 @@ const ACCOUNT_STATUS_LABEL: Record<AdminAccessAccountStatus, string> = {
   DEACTIVATED: '비활성',
 };
 
-const PENDING_FILTER_LABEL: Record<AdminAccessPendingFilter, string> = {
-  NONE: '요청 없음',
-  PENDING: '대기 중',
-};
-
-const SORT_FIELD_LABEL: Record<AdminAccessSortField, string> = {
-  name: '이름',
-  createdAt: '가입일',
-  lastLoginAt: '마지막 로그인',
-};
-
 const ALL_ROLES = 'ALL_ROLES';
 const ALL_ACCOUNT_STATUSES = 'ALL_ACCOUNT_STATUSES';
-const ALL_PENDING = 'ALL_PENDING';
 
 export interface AdminAccessViewProps {
   readonly items: readonly AdminAccessListItem[];
@@ -79,11 +73,11 @@ export interface AdminAccessViewProps {
   readonly onPendingRequestChange: (
     pendingRequest: AdminAccessPendingFilter | '',
   ) => void;
-  readonly onSortChange: (sort: AdminAccessSortField) => void;
-  readonly onDirectionToggle: () => void;
+  readonly onSortToggle: (field: AdminAccessSortField) => void;
   readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
   readonly onResetFilters: () => void;
+  readonly onRowClick: (item: AdminAccessListItem) => void;
 }
 
 function formatLastLoginAt(value: string | null): string {
@@ -121,13 +115,64 @@ function AccountStatusBadge({
   );
 }
 
+function sortAriaValue(
+  active: boolean,
+  direction: AdminAccessSortDirection,
+): 'ascending' | 'descending' | undefined {
+  if (!active) return undefined;
+  return direction === 'asc' ? 'ascending' : 'descending';
+}
+
+function SortableColumnHeader({
+  label,
+  field,
+  sort,
+  direction,
+  onSortToggle,
+}: {
+  readonly label: string;
+  readonly field: AdminAccessSortField;
+  readonly sort: AdminAccessSortField;
+  readonly direction: AdminAccessSortDirection;
+  readonly onSortToggle: (field: AdminAccessSortField) => void;
+}) {
+  const active = sort === field;
+  return (
+    <button
+      type="button"
+      className="inline-flex items-center gap-1 hover:text-foreground"
+      onClick={() => onSortToggle(field)}
+    >
+      {label}
+      {active ? (
+        direction === 'asc' ? (
+          <ChevronUp aria-hidden="true" className="size-4" />
+        ) : (
+          <ChevronDown aria-hidden="true" className="size-4" />
+        )
+      ) : null}
+    </button>
+  );
+}
+
 export function AdminAccessView(props: AdminAccessViewProps) {
   const lastPage = Math.max(1, Math.ceil(props.total / props.limit));
 
   const columns: DataTableColumn<AdminAccessListItem>[] = [
     {
       id: 'user',
-      header: '사용자',
+      header: (
+        <SortableColumnHeader
+          label="사용자"
+          field="name"
+          sort={props.sort}
+          direction={props.direction}
+          onSortToggle={props.onSortToggle}
+        />
+      ),
+      headProps: {
+        'aria-sort': sortAriaValue(props.sort === 'name', props.direction),
+      },
       cellClassName: 'whitespace-normal',
       cell: (item) => (
         <div className="flex min-w-0 flex-col gap-2 lg:min-w-48 lg:gap-1">
@@ -142,7 +187,21 @@ export function AdminAccessView(props: AdminAccessViewProps) {
           >
             {item.name ?? '이름 미등록'}
           </Link>
-          <span className="text-muted-foreground">@{item.githubLogin}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">
+              @{item.githubLogin}
+            </span>
+            <a
+              href={`https://github.com/${item.githubLogin}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="GitHub 프로필 열기"
+              className="text-muted-foreground hover:text-foreground focus-visible:text-foreground"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <ExternalLink aria-hidden="true" className="size-4" />
+            </a>
+          </div>
           <div className="flex flex-wrap items-center gap-2 pt-1">
             {item.isProfileComplete ? null : (
               <StatusBadge variant="rejected">프로필 미완료</StatusBadge>
@@ -174,10 +233,33 @@ export function AdminAccessView(props: AdminAccessViewProps) {
     },
     {
       id: 'lastLoginAt',
-      header: '마지막 로그인',
+      header: (
+        <SortableColumnHeader
+          label="마지막 로그인"
+          field="lastLoginAt"
+          sort={props.sort}
+          direction={props.direction}
+          onSortToggle={props.onSortToggle}
+        />
+      ),
+      headProps: {
+        'aria-sort': sortAriaValue(
+          props.sort === 'lastLoginAt',
+          props.direction,
+        ),
+      },
       headClassName: 'hidden lg:table-cell',
       cellClassName: 'hidden lg:table-cell text-muted-foreground',
       cell: (item) => formatLastLoginAt(item.lastLoginAt),
+    },
+    {
+      id: 'chevron',
+      header: <span className="sr-only">상세</span>,
+      headClassName: 'w-8',
+      cellClassName: 'w-8 text-right',
+      cell: () => (
+        <ChevronRight aria-hidden="true" className="size-4 text-muted-foreground" />
+      ),
     },
   ];
 
@@ -227,7 +309,7 @@ export function AdminAccessView(props: AdminAccessViewProps) {
         </Button>
       </div>
       <form
-        className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_9rem_9rem_9rem_9rem_auto_auto]"
+        className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_9rem_9rem_auto]"
         onSubmit={submitSearch}
       >
         <Input
@@ -285,62 +367,6 @@ export function AdminAccessView(props: AdminAccessViewProps) {
             ))}
           </SelectContent>
         </Select>
-        <label className="sr-only" htmlFor="admin-access-pending-filter">
-          요청 대기 필터
-        </label>
-        <Select
-          value={props.pendingRequest || ALL_PENDING}
-          onValueChange={(pendingRequest) =>
-            props.onPendingRequestChange(
-              pendingRequest === ALL_PENDING
-                ? ''
-                : (pendingRequest as AdminAccessPendingFilter),
-            )
-          }
-        >
-          <SelectTrigger id="admin-access-pending-filter" className="h-11">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_PENDING}>전체 요청</SelectItem>
-            {Object.entries(PENDING_FILTER_LABEL).map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <label className="sr-only" htmlFor="admin-access-sort-field">
-          정렬 기준
-        </label>
-        <Select
-          value={props.sort}
-          onValueChange={(sort) =>
-            props.onSortChange(sort as AdminAccessSortField)
-          }
-        >
-          <SelectTrigger id="admin-access-sort-field" className="h-11">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(SORT_FIELD_LABEL).map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          className="h-11"
-          type="button"
-          variant="outline"
-          aria-label={
-            props.direction === 'asc' ? '오름차순 정렬됨' : '내림차순 정렬됨'
-          }
-          onClick={props.onDirectionToggle}
-        >
-          {props.direction === 'asc' ? '오름차순' : '내림차순'}
-        </Button>
         <Button className="h-11" type="submit" variant="outline">
           검색
         </Button>
@@ -355,6 +381,7 @@ export function AdminAccessView(props: AdminAccessViewProps) {
           columns={columns}
           data={[...props.items]}
           rowKey={(item) => item.id}
+          onRowClick={(item) => props.onRowClick(item)}
           isLoading={props.isLoading}
           loadingSlot="접근 목록을 불러오는 중…"
           emptyState={
