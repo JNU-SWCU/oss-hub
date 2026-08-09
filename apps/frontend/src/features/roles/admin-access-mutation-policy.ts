@@ -7,115 +7,104 @@ import type {
   AdminAccessPatchRequest,
   AdminAccessRole,
 } from './admin-access-api';
-import {
-  adminAccessRevocation,
-  requireAdminAccessRevocation,
-} from './admin-access-revocation';
 
 /**
- * Frontend state machine for the six `/admin/access` write actions (PR04G).
- * Mirrors the *shape* of `apps/backend/src/users/admin-access-transition-table.ts`
- * and `admin-access-mutation-policy.ts` closely enough to decide which
- * actions to offer and how to build a CAS body, but does not duplicate the
- * backend's exhaustive matrix — the backend remains the sole source of
- * truth (every write is still validated server-side; this only avoids
- * showing buttons for transitions the backend is guaranteed to reject).
- *
- * Role tiers used by GRANT: `UNASSIGNED`/`STUDENT` (0) < `STAFF` (1)
- * < `ADMIN` (2). REVOKE follows the backend's explicit contract:
- * ADMIN becomes STAFF, while STAFF is cleared to `null` and gets a
- * REVOKED request row.
+ * Frontend policy for the `/admin/access` write surface. 이전에는 GRANT/REVOKE
+ * 두 액션이 `admin-access-transition-table.ts`의 사다리(한 단계씩만 이동)를
+ * 흉내 냈지만, 백엔드는 사실 `null` 대상만 제외하면 임의의 역할 점프를
+ * 허용한다(`apps/backend/src/users/admin-access-transition-table.ts`의
+ * `classifyTransition` — role과 accountStatus를 동시에 바꾸는 요청만 막고,
+ * 역할 단독 변경은 사다리 제약이 없다). 그래서 이 파일은 역할을 직접
+ * 선택하는 세 액션(SET_ROLE_*)과 계정 상태를 직접 선택하는 두 액션
+ * (SET_STATUS_*)으로 재구성한다. 모든 쓰기는 여전히 서버에서 검증된다 —
+ * 이 파일은 버튼을 무엇으로 보여줄지만 결정한다.
  */
 
 export const ADMIN_ACCESS_MUTATION_ACTIONS = {
   APPROVE: 'APPROVE',
   REJECT: 'REJECT',
-  GRANT: 'GRANT',
-  REVOKE: 'REVOKE',
-  DEACTIVATE: 'DEACTIVATE',
-  REACTIVATE: 'REACTIVATE',
+  SET_ROLE_STUDENT: 'SET_ROLE_STUDENT',
+  SET_ROLE_STAFF: 'SET_ROLE_STAFF',
+  SET_ROLE_ADMIN: 'SET_ROLE_ADMIN',
+  SET_STATUS_ACTIVE: 'SET_STATUS_ACTIVE',
+  SET_STATUS_DEACTIVATED: 'SET_STATUS_DEACTIVATED',
 } as const;
 
 export type AdminAccessMutationAction =
   (typeof ADMIN_ACCESS_MUTATION_ACTIONS)[keyof typeof ADMIN_ACCESS_MUTATION_ACTIONS];
 
-export const ADMIN_ACCESS_MUTATION_ACTION_LABEL: Record<
-  AdminAccessMutationAction,
-  string
-> = {
-  APPROVE: '요청 승인',
-  REJECT: '요청 반려',
-  GRANT: '권한 직접 부여',
-  REVOKE: '권한 회수',
-  DEACTIVATE: '계정 비활성화',
-  REACTIVATE: '계정 재활성화',
+export type AdminAccessSetRoleAction =
+  | typeof ADMIN_ACCESS_MUTATION_ACTIONS.SET_ROLE_STUDENT
+  | typeof ADMIN_ACCESS_MUTATION_ACTIONS.SET_ROLE_STAFF
+  | typeof ADMIN_ACCESS_MUTATION_ACTIONS.SET_ROLE_ADMIN;
+
+export type AdminAccessSetStatusAction =
+  | typeof ADMIN_ACCESS_MUTATION_ACTIONS.SET_STATUS_ACTIVE
+  | typeof ADMIN_ACCESS_MUTATION_ACTIONS.SET_STATUS_DEACTIVATED;
+
+export const ROLE_LABEL: Record<AdminAccessRole, string> = {
+  STUDENT: '학생',
+  STAFF: '교직원',
+  ADMIN: '관리자',
 };
 
-type MutationAvailabilityInput = Pick<
-  AdminAccessDetail,
-  'role' | 'accountStatus' | 'pendingRequest'
->;
+export const ACCOUNT_STATUS_LABEL: Record<AdminAccessAccountStatus, string> = {
+  ACTIVE: '활성',
+  DEACTIVATED: '비활성',
+};
+
+/** 역할 선택 컨트롤이 버튼을 그리는 순서 — 낮은 권한에서 높은 권한 순. */
+export const ROLE_ORDER: readonly AdminAccessRole[] = [
+  'STUDENT',
+  'STAFF',
+  'ADMIN',
+];
 
 const ROLE_RANK: Record<AdminAccessRole, number> = {
   STUDENT: 0,
   STAFF: 1,
   ADMIN: 2,
 };
-const GRANT_TARGET_BY_RANK: Record<number, AdminAccessRole> = {
-  1: 'STAFF',
-  2: 'ADMIN',
-};
 
-function rankOf(role: AdminAccessRole | null): number {
+/** 미지정(`null`)은 `STUDENT`와 같은 순위로 취급한다 — 첫 역할 배정은 강등이 아니다. */
+export function rankOfAdminAccessRole(role: AdminAccessRole | null): number {
   return role === null ? 0 : ROLE_RANK[role];
 }
 
-/** One tier above `role`, or `null` if already at the top (`ADMIN`). */
-export function adminAccessGrantTargetRole(
-  role: AdminAccessRole | null,
-): AdminAccessRole | null {
-  return GRANT_TARGET_BY_RANK[rankOf(role) + 1] ?? null;
+export function actionForRole(role: AdminAccessRole): AdminAccessSetRoleAction {
+  switch (role) {
+    case 'STUDENT':
+      return ADMIN_ACCESS_MUTATION_ACTIONS.SET_ROLE_STUDENT;
+    case 'STAFF':
+      return ADMIN_ACCESS_MUTATION_ACTIONS.SET_ROLE_STAFF;
+    case 'ADMIN':
+      return ADMIN_ACCESS_MUTATION_ACTIONS.SET_ROLE_ADMIN;
+    default:
+      return assertNever(role);
+  }
 }
 
-/**
- * Whether `action` should be offered for the currently loaded projection.
- * Grounded directly in `ADMIN_ACCESS_TRANSITION_TABLE`'s constraints: a
- * pending request blocks any decision-less role/status change (`ROL_015`),
- * and only STAFF revocation can clear a role to `null`. Actor-relative guards
- * (self-deactivation, last-active-admin) are NOT modeled here — the
- * frontend has no way to know the live active-admin count, and
- * self-deactivation is not a state-machine fact, so both surface only via
- * the real backend error after a confirmed attempt.
- */
-export function isAdminAccessMutationAvailable(
-  action: AdminAccessMutationAction,
-  detail: MutationAvailabilityInput,
-): boolean {
+export function roleForAction(
+  action: AdminAccessSetRoleAction,
+): AdminAccessRole {
   switch (action) {
-    case 'APPROVE':
-    case 'REJECT':
-      return detail.pendingRequest !== null;
-    case 'GRANT':
-      return (
-        detail.pendingRequest === null &&
-        adminAccessGrantTargetRole(detail.role) !== null
-      );
-    case 'REVOKE':
-      return (
-        detail.pendingRequest === null &&
-        adminAccessRevocation(detail.role) !== null
-      );
-    case 'DEACTIVATE':
-      return (
-        detail.pendingRequest === null && detail.accountStatus === 'ACTIVE'
-      );
-    case 'REACTIVATE':
-      return (
-        detail.pendingRequest === null && detail.accountStatus === 'DEACTIVATED'
-      );
+    case 'SET_ROLE_STUDENT':
+      return 'STUDENT';
+    case 'SET_ROLE_STAFF':
+      return 'STAFF';
+    case 'SET_ROLE_ADMIN':
+      return 'ADMIN';
     default:
       return assertNever(action);
   }
+}
+
+export function actionForAccountStatus(
+  status: AdminAccessAccountStatus,
+): AdminAccessSetStatusAction {
+  return status === 'ACTIVE'
+    ? ADMIN_ACCESS_MUTATION_ACTIONS.SET_STATUS_ACTIVE
+    : ADMIN_ACCESS_MUTATION_ACTIONS.SET_STATUS_DEACTIVATED;
 }
 
 export interface AdminAccessMutationExtra {
@@ -127,7 +116,9 @@ export interface AdminAccessMutationExtra {
  * screen (`detail`) — never from a cached/stale copy. `expected*` fields
  * pin the caller's last-known state; the backend rejects with `ROL_013`
  * (`ACCESS_STATE_MISMATCH`) and returns the authoritative projection if
- * they no longer match.
+ * they no longer match. 역할 변경 액션은 accountStatus를, 계정 상태 변경
+ * 액션은 role을 현재 값 그대로 보내 — 백엔드가 둘의 동시 변경을 거부하므로
+ * (`classifyTransition`) 한 번에 하나만 바뀐다.
  */
 export function buildAdminAccessPatchRequest(
   action: AdminAccessMutationAction,
@@ -158,42 +149,39 @@ export function buildAdminAccessPatchRequest(
         desiredAccountStatus: detail.accountStatus,
         requestDecision: { decision: 'REJECT', reason: extra.reason ?? '' },
       };
-    case 'GRANT':
+    case 'SET_ROLE_STUDENT':
       return {
         ...base,
-        desiredRole: requireTargetRole(adminAccessGrantTargetRole(detail.role)),
+        desiredRole: 'STUDENT',
         desiredAccountStatus: detail.accountStatus,
       };
-    case 'REVOKE':
+    case 'SET_ROLE_STAFF':
       return {
         ...base,
-        desiredRole: requireAdminAccessRevocation(detail.role).desiredRole,
+        desiredRole: 'STAFF',
         desiredAccountStatus: detail.accountStatus,
       };
-    case 'DEACTIVATE':
+    case 'SET_ROLE_ADMIN':
+      return {
+        ...base,
+        desiredRole: 'ADMIN',
+        desiredAccountStatus: detail.accountStatus,
+      };
+    case 'SET_STATUS_ACTIVE':
       return {
         ...base,
         desiredRole: detail.role,
-        desiredAccountStatus: 'DEACTIVATED' as AdminAccessAccountStatus,
+        desiredAccountStatus: 'ACTIVE',
       };
-    case 'REACTIVATE':
+    case 'SET_STATUS_DEACTIVATED':
       return {
         ...base,
         desiredRole: detail.role,
-        desiredAccountStatus: 'ACTIVE' as AdminAccessAccountStatus,
+        desiredAccountStatus: 'DEACTIVATED',
       };
     default:
       return assertNever(action);
   }
-}
-
-function requireTargetRole(role: AdminAccessRole | null): AdminAccessRole {
-  if (role === null) {
-    throw new Error(
-      '이 작업은 현재 상태에서 사용할 수 없습니다 (대상 역할 없음).',
-    );
-  }
-  return role;
 }
 
 /**
@@ -245,20 +233,30 @@ export function classifyAdminAccessMutationBlock(
 /**
  * User-facing message for any failed mutation — sourced from the real
  * backend `ProblemDetail.detail` (already the correct Korean copy for
- * every `RolesErrorCode`, including the two block codes above), falling
- * back to a generic message only for non-`ApiError` failures (network
- * errors, aborted requests, etc.).
+ * every `RolesErrorCode`, including the two block codes above, and the
+ * last-active-admin guard), falling back to a generic message only for
+ * non-`ApiError` failures (network errors, aborted requests, etc.).
  */
 export function adminAccessMutationErrorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.problem.detail;
   return '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.';
 }
 
+const ACTION_SUCCESS_LABEL: Record<AdminAccessMutationAction, string> = {
+  APPROVE: '요청 승인',
+  REJECT: '요청 반려',
+  SET_ROLE_STUDENT: '학생으로 역할 변경',
+  SET_ROLE_STAFF: '교직원으로 역할 변경',
+  SET_ROLE_ADMIN: '관리자로 역할 변경',
+  SET_STATUS_ACTIVE: '계정 재활성화',
+  SET_STATUS_DEACTIVATED: '계정 비활성화',
+};
+
 export function adminAccessMutationSuccessMessage(
   action: AdminAccessMutationAction,
   githubLogin: string,
 ): string {
-  return `${githubLogin}님에 대한 ${ADMIN_ACCESS_MUTATION_ACTION_LABEL[action]} 처리를 완료했습니다.`;
+  return `${githubLogin}님에 대한 ${ACTION_SUCCESS_LABEL[action]} 처리를 완료했습니다.`;
 }
 
 function assertNever(value: never): never {
