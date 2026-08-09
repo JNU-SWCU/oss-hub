@@ -50,6 +50,19 @@
 org 스윕과 external 스윕은 별개 진입점이라 `runExternal`을 따로 돌려야 한다(`GR-9`).
 검증 후 프로덕션은 원상복구했다 — 승인된 신청이 없는 저장소가 공개 랭킹에 남으면 안 되기 때문이다.
 
+**진단 스크립트를 프로덕션에서 처음 끝까지 돌렸다.** 세 가지가 깨져 있었다.
+① `BEGIN ... COMMIT` 을 한 `--command` 로 보내 psql 명령 태그가 관측값에 섞였다 — `EXTERNAL_PUBLIC=BEGIN` 같은 거짓 값이 나왔다.
+서버측 `default_transaction_read_only` 로 바꿨다. ② `curl` 이 없으면 raw 셸 오류로 죽어 앞선 O0~O2 관측까지 버려졌다.
+③ O3 가 60초 TTL 캐시를 전제로 "응답 불변 → C8(배포본 옛것)" 을 추론했는데 그 캐시는 이미 제거됐다(`no-store`) —
+데이터가 안 변한 정상 상태를 배포 사고로 오진한다. `dataAsOf` 를 마지막 스윕 시각과 비교하는 방식으로 바꿨다.
+계약 검사도 `BEGIN TRANSACTION READ ONLY` 를 **요구하고** 있어 결함을 강제했고, `refute_grep` 의 패턴이 `--` 로 시작하면
+grep 이 옵션으로 먹어 조용히 통과했다. 둘 다 고치고 실 psql 동작을 흉내내는 stub 회귀를 넣었다.
+
+**O0~O3 4층 관측 결과(v0.6.47).** O0 연결 OK · O1 스윕 fresh(마지막 16:16:17, 오류 없음) ·
+O2 `ORG_PROVISIONED` 3개(PRIVATE 1 · PUBLIC 2), `EXTERNAL_PUBLIC` 0, `OWN` 신청 0, githubId 보유 사용자 7 ·
+O3 표면 `dataAsOf` 16:16:16 으로 마지막 스윕을 1.8초 차로 따라온다.
+**원인은 `C10` 커버리지 공백** — 수집이 멈춘 게 아니라 볼 대상이 조직 저장소 3개뿐이다.
+
 **남은 것.** ① `contributionsCollection` 배선 · fact 층 force-push 조정 · 옛 연도 집계 물리 드롭(`chore/drop-legacy-aggregates`, 아직 열지 않음) ·
 랭킹 읽기의 연결 심층 방어(랭킹 술어는 `visibility`·`presence`만 보고 신청 연결을 보지 않는다).
 
