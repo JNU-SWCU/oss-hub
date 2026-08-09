@@ -148,6 +148,22 @@ describe('ProgramApplicationDetailPage', () => {
     expect(summary?.className).toContain('whitespace-pre-wrap');
   });
 
+  it('띄어쓰기 없는 장문을 좁은 화면에서 끊어 넘긴다', async () => {
+    // `break-keep`만으로는 공백 없는 긴 주소·핸들이 안 끊겨 가로로 삐져나간다.
+    // 320px에서 실제로 터지는 자리라 클래스 자체를 고정한다.
+    getApplicationDetailMock.mockResolvedValue(rejected);
+
+    await mount();
+
+    const wrapped = Array.from(
+      container.querySelectorAll('dd, [class]'),
+    ).filter((node) =>
+      node.className.toString().includes('[overflow-wrap:anywhere]'),
+    );
+    // 값 줄 · 지원 동기 · 반려 사유 셋 다 걸려 있어야 한다.
+    expect(wrapped.length).toBeGreaterThanOrEqual(3);
+  });
+
   it('제출 시각을 서울 시각으로 적는다', async () => {
     getApplicationDetailMock.mockResolvedValue(submitted);
 

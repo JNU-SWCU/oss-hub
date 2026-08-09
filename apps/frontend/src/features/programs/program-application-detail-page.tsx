@@ -80,7 +80,7 @@ function Row({
   return (
     <div className="grid gap-1">
       <dt className="text-small text-muted-foreground">{label}</dt>
-      <dd className="break-keep">{value}</dd>
+      <dd className="break-keep [overflow-wrap:anywhere]">{value}</dd>
     </div>
   );
 }
@@ -288,7 +288,7 @@ export function ProgramApplicationDetailPage({
       {application.status === 'REJECTED' && application.rejectionReason ? (
         <Alert variant="destructive">
           <AlertTitle>반려 사유</AlertTitle>
-          <AlertDescription className="break-keep whitespace-pre-wrap">
+          <AlertDescription className="break-keep whitespace-pre-wrap [overflow-wrap:anywhere]">
             {application.rejectionReason}
           </AlertDescription>
         </Alert>
@@ -301,7 +301,7 @@ export function ProgramApplicationDetailPage({
             <dt className="text-small text-muted-foreground">
               지원 동기 · 계획
             </dt>
-            <dd className="rounded-card bg-muted p-4 break-keep whitespace-pre-wrap">
+            <dd className="rounded-card bg-muted p-4 break-keep whitespace-pre-wrap [overflow-wrap:anywhere]">
               {application.answers.summary}
             </dd>
           </div>
@@ -340,7 +340,7 @@ export function ProgramApplicationDetailPage({
           <p className="text-small">
             저장소{' '}
             <a
-              className="font-semibold underline underline-offset-4"
+              className="font-semibold break-all underline underline-offset-4"
               href={application.repository.url}
               rel="noreferrer noopener"
               target="_blank"
