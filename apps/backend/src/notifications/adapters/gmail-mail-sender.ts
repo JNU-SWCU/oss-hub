@@ -34,6 +34,7 @@ export class GmailMailSender implements MailSender {
       to: mail.to,
       subject: mail.subject,
       text: mail.body,
+      html: mail.html,
     });
   }
 }

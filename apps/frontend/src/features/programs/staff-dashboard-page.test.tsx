@@ -120,6 +120,36 @@ describe('StaffDashboardOverview', () => {
 });
 
 describe('StaffDashboardPageView', () => {
+  it('전역 마감 알림 즉시 발송 액션을 렌더하지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <StaffDashboardPageView
+        state={{
+          kind: 'ready',
+          model: buildStaffDashboardPageModel({
+            programs: summary.programs,
+            search: '',
+            status: 'all',
+            page: 1,
+            now,
+          }),
+          search: '',
+          status: 'all',
+          now,
+          actions: {
+            onSearchChange: vi.fn(),
+            onStatusChange: vi.fn(),
+            onSubmit: vi.fn(),
+            onResetFilters: vi.fn(),
+            onPageChange: vi.fn(),
+          },
+        }}
+      />,
+    );
+
+    expect(html).not.toContain('마감 알림 지금 발송');
+    expect(html).not.toContain('deadline-digests/send');
+  });
+
   it('검색 결과 없음과 빈 프로그램 목록 상태를 별도로 렌더한다', () => {
     const actions = {
       onSearchChange: vi.fn(),

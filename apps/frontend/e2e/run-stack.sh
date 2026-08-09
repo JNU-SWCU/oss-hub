@@ -95,6 +95,19 @@ done
     "$database_url" \
     SEED_PROFILE=auth \
     ./node_modules/.bin/prisma db seed
+  e2e_backend_tool_env \
+    "$tool_path" \
+    "$sanitized_home" \
+    "$database_url" \
+    node "$script_directory/support/seed-deadline-digest.mjs"
+  e2e_backend_server_env \
+    "$tool_path" \
+    "$sanitized_home" \
+    "$database_url" \
+    "$session_secret" \
+    "$frontend_origin" \
+    "$backend_port" \
+    ./node_modules/.bin/ts-node src/notifications/cli/send-deadline-digest.ts
 )
 
 (

@@ -39,12 +39,10 @@ export function resolveMailSender(runtimeConfig: RuntimeConfig): MailSender {
   }
   if (mode !== 'send' && mode !== 'dry-run') {
     throw new Error(
-      `MAIL_MODE must be "send" or "dry-run" (received ${mode === undefined || mode === '' ? 'missing/blank' : JSON.stringify(mode)}).`,
+      `MAIL_MODE must be "send" or "dry-run" (received ${mode === undefined || mode.trim() === '' ? 'missing/blank' : JSON.stringify(mode)}).`,
     );
   }
-  if (mode === 'dry-run') {
-    return new LogMailSender();
-  }
+  if (mode === 'dry-run') return new LogMailSender();
   const config = gmailConfigFromRuntime(runtimeConfig);
   if (!config) {
     throw new Error(

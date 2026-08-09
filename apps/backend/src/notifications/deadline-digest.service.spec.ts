@@ -18,7 +18,9 @@ describe('DeadlineDigestService', () => {
     completeNotification,
   } as unknown as DeadlineDigestRepositoryPort;
   const mailSender: MailSender = { send };
-  const service = new DeadlineDigestService(repository, mailSender);
+  const service = new DeadlineDigestService(repository, mailSender, {
+    FRONTEND_URL: 'https://oss.example',
+  });
 
   const milestone = {
     id: 'm1',
@@ -48,6 +50,20 @@ describe('DeadlineDigestService', () => {
     expect(claimNotification).not.toHaveBeenCalled();
   });
 
+  it('잘못된 FRONTEND_URL이면 claim이나 발송 전에 실패한다', async () => {
+    findUpcomingDeadlineMilestones.mockResolvedValue([milestone]);
+    const malformedService = new DeadlineDigestService(repository, mailSender, {
+      FRONTEND_URL: 'javascript:alert(1)',
+    });
+
+    await expect(malformedService.sendDeadlineDigests(now)).rejects.toThrow(
+      'FRONTEND_URL must be an HTTP(S) origin.',
+    );
+
+    expect(claimNotification).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it('마감 임박 마일스톤이 있으면 각 교직원 수신자에게 발송하고 SENT를 기록한다', async () => {
     findUpcomingDeadlineMilestones.mockResolvedValue([milestone]);
     findStaffRecipients.mockResolvedValue([
@@ -66,6 +82,10 @@ describe('DeadlineDigestService', () => {
       'SENT',
       expect.any(Object),
     );
+    const firstMessage = send.mock.calls[0]?.[0];
+    expect(firstMessage).toBeDefined();
+    expect(firstMessage).toHaveProperty('html');
+    expect(firstMessage?.body).toContain('전국 디지털 경진대회');
     expect(completeNotification).toHaveBeenCalledWith(
       'deadline-digest:2026-08-14:s2',
       'SENT',
@@ -111,6 +131,13 @@ describe('DeadlineDigestService', () => {
               notifyEnabled: true,
               accountStatus: AccountStatus.DEACTIVATED,
             },
+            {
+              id: 'student-4',
+              nickname: '이메일없는학생',
+              notificationEmail: null,
+              notifyEnabled: true,
+              accountStatus: AccountStatus.ACTIVE,
+            },
           ],
         ],
       ]),
@@ -141,25 +168,92 @@ describe('DeadlineDigestService', () => {
     expect(sentTo('deactivated@example.com')).toBeUndefined();
   });
 
+  it('한 학생의 마감 임박 마일스톤을 정렬해 한 통의 multipart digest에 모두 담는다', async () => {
+    const laterMilestone = {
+      id: 'm2',
+      programId: 'p2',
+      programName: '두 번째 합성 프로그램',
+      milestoneName: '두 번째 중간 제출',
+      dueAt: new Date('2026-08-15T06:00:00.000Z'),
+    };
+    const student = {
+      id: 'student-1',
+      nickname: '미제출학생',
+      notificationEmail: 'student@example.com',
+      notifyEnabled: true,
+      accountStatus: AccountStatus.ACTIVE,
+    };
+    findUpcomingDeadlineMilestones.mockResolvedValue([
+      laterMilestone,
+      milestone,
+    ]);
+    findStaffRecipients.mockResolvedValue([]);
+    findMissingSubmitters.mockResolvedValue(
+      new Map([
+        ['m1', [student]],
+        ['m2', [student]],
+      ]),
+    );
+
+    await service.sendDeadlineDigests(now);
+
+    expect(send).toHaveBeenCalledTimes(1);
+    const message = send.mock.calls[0]?.[0];
+    expect(message).toBeDefined();
+    for (const content of [message?.body, message?.html]) {
+      expect(content).toContain('전국 디지털 경진대회');
+      expect(content).toContain('최종 제출');
+      expect(content).toContain('2026. 08. 15. 09:00 (Asia/Seoul)');
+      expect(content).toContain('두 번째 합성 프로그램');
+      expect(content).toContain('두 번째 중간 제출');
+      expect(content).toContain('2026. 08. 15. 15:00 (Asia/Seoul)');
+      expect(content).toContain(
+        'https://oss.example/programs/p1/submissions?milestoneId=m1',
+      );
+      expect(content).toContain(
+        'https://oss.example/programs/p2/submissions?milestoneId=m2',
+      );
+      expect(content?.indexOf('전국 디지털 경진대회')).toBeLessThan(
+        content?.indexOf('두 번째 합성 프로그램') ?? -1,
+      );
+    }
+    expect(message?.subject).toContain('마감 임박 제출 2건');
+    expect(claimNotification).toHaveBeenCalledTimes(1);
+    expect(completeNotification).toHaveBeenCalledWith(
+      'deadline-digest:2026-08-14:student-1',
+      'SENT',
+      { milestoneCount: 2 },
+    );
+  });
+
   it('발송이 실패하면 FAILED를 기록하고 다음 수신자로 계속한다', async () => {
+    const providerDetail =
+      'SMTP rejected leaked-recipient@example.test token=synthetic-provider-token';
     findUpcomingDeadlineMilestones.mockResolvedValue([milestone]);
     findStaffRecipients.mockResolvedValue([
       { id: 's1', notificationEmail: 'a@example.com' },
       { id: 's2', notificationEmail: 'b@example.com' },
     ]);
-    send.mockRejectedValueOnce(new Error('smtp down'));
+    send.mockRejectedValueOnce(new Error(providerDetail));
 
     await service.sendDeadlineDigests(now);
 
     expect(completeNotification).toHaveBeenCalledWith(
       'deadline-digest:2026-08-14:s1',
       'FAILED',
-      expect.objectContaining({ error: 'smtp down' }),
+      {
+        milestoneCount: 1,
+        code: 'MAIL_DELIVERY_FAILED',
+        message: '메일 발송에 실패했습니다.',
+      },
     );
     expect(completeNotification).toHaveBeenCalledWith(
       'deadline-digest:2026-08-14:s2',
       'SENT',
       expect.any(Object),
+    );
+    expect(JSON.stringify(completeNotification.mock.calls)).not.toContain(
+      providerDetail,
     );
   });
   it('same-day claimed digest is not sent again', async () => {

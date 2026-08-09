@@ -50,9 +50,9 @@ describe('resolveMailSender / mailSenderProvider', () => {
   });
 
   it('blank MAIL_MODE throws', () => {
-    expect(() => resolveMailSender(frozenSnapshot({ MAIL_MODE: '' }))).toThrow(
-      /MAIL_MODE/,
-    );
+    expect(() =>
+      resolveMailSender(frozenSnapshot({ MAIL_MODE: '   ' })),
+    ).toThrow(/MAIL_MODE/);
   });
 
   it('invalid MAIL_MODE throws', () => {
