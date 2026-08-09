@@ -548,8 +548,8 @@ export class CollectionIncrementalRepository {
    * `Contribution`(ADR-010 §4) 재계산 — 옛 연도 집계 **옆에** 더한다.
    *
    * 가입자만 적재한다(§5). `githubId ∈ User` 를 만족하는 사람만 행을 만들고,
-   * 이미 쌓인 미가입자 행은 지운다. 표시에서 거르면 규칙이 바뀔 때 되돌릴 수
-   * 없으므로 적재에서 자른다(#682).
+   * 이번 배치가 건드린 가입자 칸만 다시 계산한다. 기존 미가입자 행의 일괄 정리는
+   * 운영 데이터 보존 결정에 따라 이 경로에서 수행하지 않는다(#682).
    *
    * **셀 단위 루프를 쓰지 않는다.** 입자가 날짜라 한 배치가 건드리는 칸이
    * (활동일 × 기여자)로 늘어나는데, 이 함수는 checkpoint 트랜잭션 안에서 돈다.
@@ -579,8 +579,8 @@ export class CollectionIncrementalRepository {
       (time) => new Date(time),
     );
 
-    // 이번 배치가 건드린 칸을 먼저 비운다. 미가입자 행도 여기서 사라지므로
-    // 아래 집합 insert 가 가입자만 다시 채우면 fail-open 이 닫힌다.
+    // 이번 배치가 건드린 가입자 칸만 먼저 비운다. 아래 집합 insert 가 같은 가입자
+    // 경계를 통과한 결과를 다시 채우므로 신규 적재의 fail-open 이 닫힌다.
     await this.db.contribution.deleteMany({
       where: { repositoryId, githubId: { in: githubIds }, date: { in: dates } },
     });

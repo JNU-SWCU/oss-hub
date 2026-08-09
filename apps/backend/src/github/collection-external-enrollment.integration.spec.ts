@@ -2,6 +2,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { ConsentsRepository } from '../consents/consents.repository';
 import { ConsentsService } from '../consents/consents.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { CollectionCutoverRepository } from './repository/collection-cutover.repository';
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
 import { RepositoryOwnEnrollmentService } from './service/repository-own-enrollment.service';
 
@@ -12,6 +13,7 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const enrollment = new CollectionIncrementalRepository(prisma);
+const cutover = new CollectionCutoverRepository(prisma);
 const REPOSITORY_IDS = [
   9_000_000_730_001n,
   9_000_000_730_002n,
@@ -360,6 +362,13 @@ describe('external repository enrollment integration', () => {
         }),
       ]),
     ).resolves.toEqual([1, 1, 1, 1]);
+    await expect(
+      Promise.all([
+        cutover.countCommitFactsForRepositories([repository.id]),
+        cutover.countPullRequestFactsForRepositories([repository.id]),
+        cutover.countReleaseFactsForRepositories([repository.id]),
+      ]),
+    ).resolves.toEqual([0, 0, 0]);
   });
 
   it('동일 id 동시 편입이 unique 오류 없이 한 행으로 수렴한다', async () => {

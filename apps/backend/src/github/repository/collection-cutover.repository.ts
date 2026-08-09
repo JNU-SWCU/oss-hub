@@ -73,26 +73,38 @@ export class CollectionCutoverRepository {
     repositoryIds: readonly string[],
   ): Promise<number> {
     if (repositoryIds.length === 0) return 0;
-    return this.db.collectionCommitFact.count({
-      where: { repositoryId: { in: [...repositoryIds] } },
-    });
+    const rows = await this.db.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint AS "count"
+      FROM "CollectionCommitFact" f
+      JOIN "User" u ON u."githubId" = f."authorGithubId"
+      WHERE f."repositoryId" = ANY(${[...repositoryIds]})
+    `;
+    return Number(rows[0]?.count ?? 0n);
   }
 
   async countPullRequestFactsForRepositories(
     repositoryIds: readonly string[],
   ): Promise<number> {
     if (repositoryIds.length === 0) return 0;
-    return this.db.collectionPullRequestFact.count({
-      where: { repositoryId: { in: [...repositoryIds] } },
-    });
+    const rows = await this.db.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint AS "count"
+      FROM "CollectionPullRequestFact" f
+      JOIN "User" u ON u."githubId" = f."authorGithubId"
+      WHERE f."repositoryId" = ANY(${[...repositoryIds]})
+    `;
+    return Number(rows[0]?.count ?? 0n);
   }
 
   async countReleaseFactsForRepositories(
     repositoryIds: readonly string[],
   ): Promise<number> {
     if (repositoryIds.length === 0) return 0;
-    return this.db.collectionReleaseFact.count({
-      where: { repositoryId: { in: [...repositoryIds] } },
-    });
+    const rows = await this.db.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint AS "count"
+      FROM "CollectionReleaseFact" f
+      JOIN "User" u ON u."githubId" = f."authorGithubId"
+      WHERE f."repositoryId" = ANY(${[...repositoryIds]})
+    `;
+    return Number(rows[0]?.count ?? 0n);
   }
 }

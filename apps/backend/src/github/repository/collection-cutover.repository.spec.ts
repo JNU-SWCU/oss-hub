@@ -6,6 +6,7 @@ interface MockDb {
   collectionCommitFact: { count: jest.Mock };
   collectionPullRequestFact: { count: jest.Mock };
   collectionReleaseFact: { count: jest.Mock };
+  $queryRaw: jest.Mock;
   $queryRawUnsafe: jest.Mock;
   $executeRawUnsafe: jest.Mock;
 }
@@ -15,6 +16,7 @@ const createDb = (): MockDb => ({
   collectionCommitFact: { count: jest.fn().mockResolvedValue(0) },
   collectionPullRequestFact: { count: jest.fn().mockResolvedValue(0) },
   collectionReleaseFact: { count: jest.fn().mockResolvedValue(0) },
+  $queryRaw: jest.fn().mockResolvedValue([{ count: 0n }]),
   $queryRawUnsafe: jest.fn(),
   $executeRawUnsafe: jest.fn(),
 });
@@ -139,19 +141,24 @@ describe('CollectionCutoverRepository — aggregate 비교 보조 조회', () =>
     await expect(
       repositoryFor(db).countCommitFactsForRepositories([]),
     ).resolves.toBe(0);
-    expect(db.collectionCommitFact.count).not.toHaveBeenCalled();
+    expect(db.$queryRaw).not.toHaveBeenCalled();
   });
 
-  it('countCommitFactsForRepositories는 주어진 repository id로 필터링한다', async () => {
+  it('countCommitFactsForRepositories는 주어진 repository의 가입자 fact만 센다', async () => {
     const db = createDb();
-    db.collectionCommitFact.count.mockResolvedValue(5);
+    db.$queryRaw.mockResolvedValue([{ count: 5n }]);
 
     await expect(
       repositoryFor(db).countCommitFactsForRepositories(['repo-1', 'repo-2']),
     ).resolves.toBe(5);
-    expect(db.collectionCommitFact.count).toHaveBeenCalledWith({
-      where: { repositoryId: { in: ['repo-1', 'repo-2'] } },
-    });
+    const [sql, repositoryIds] = db.$queryRaw.mock.calls[0] as [
+      readonly string[],
+      readonly string[],
+    ];
+    expect(sql.join('')).toContain(
+      'JOIN "User" u ON u."githubId" = f."authorGithubId"',
+    );
+    expect(repositoryIds).toEqual(['repo-1', 'repo-2']);
   });
 
   it('countPullRequestFactsForRepositories는 빈 배열이면 DB를 건드리지 않고 0을 반환한다', async () => {
@@ -160,7 +167,7 @@ describe('CollectionCutoverRepository — aggregate 비교 보조 조회', () =>
     await expect(
       repositoryFor(db).countPullRequestFactsForRepositories([]),
     ).resolves.toBe(0);
-    expect(db.collectionPullRequestFact.count).not.toHaveBeenCalled();
+    expect(db.$queryRaw).not.toHaveBeenCalled();
   });
 
   it('countReleaseFactsForRepositories는 빈 배열이면 DB를 건드리지 않고 0을 반환한다', async () => {
@@ -169,6 +176,6 @@ describe('CollectionCutoverRepository — aggregate 비교 보조 조회', () =>
     await expect(
       repositoryFor(db).countReleaseFactsForRepositories([]),
     ).resolves.toBe(0);
-    expect(db.collectionReleaseFact.count).not.toHaveBeenCalled();
+    expect(db.$queryRaw).not.toHaveBeenCalled();
   });
 });
