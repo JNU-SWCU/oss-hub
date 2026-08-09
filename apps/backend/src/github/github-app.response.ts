@@ -16,6 +16,12 @@ export type GithubRepositoryMetadata = {
   readonly description: string | null;
 };
 
+export type GithubPublicRepositoryMetadata = GithubRepositoryMetadata & {
+  readonly nameWithOwner: string;
+  readonly defaultBranch: string;
+  readonly archived: boolean;
+};
+
 export async function throwForGithubErrorResponse(
   response: Response,
   now: Date,
@@ -86,6 +92,33 @@ export function parseGithubRepository(
     url,
     visibility: visibility === 'private' ? 'PRIVATE' : 'PUBLIC',
     description,
+  };
+}
+
+export function parseGithubPublicRepository(
+  value: unknown,
+): GithubPublicRepositoryMetadata {
+  const repository = parseGithubRepository(value);
+  if (!isRecord(value)) {
+    throw invalidGithubResponseError();
+  }
+  const nameWithOwner = value.full_name;
+  const defaultBranch = value.default_branch;
+  const archived = value.archived;
+  if (
+    typeof nameWithOwner !== 'string' ||
+    !isGithubNameWithOwner(nameWithOwner) ||
+    typeof defaultBranch !== 'string' ||
+    defaultBranch.length === 0 ||
+    typeof archived !== 'boolean'
+  ) {
+    throw invalidGithubResponseError();
+  }
+  return {
+    ...repository,
+    nameWithOwner,
+    defaultBranch,
+    archived,
   };
 }
 
@@ -172,4 +205,10 @@ function notBeforeMinimum(candidate: Date, minimum: Date): Date {
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isGithubNameWithOwner(value: string): boolean {
+  return /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?\/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(
+    value,
+  );
 }

@@ -102,8 +102,11 @@ describe('GithubAppClient', () => {
       jsonResponse(200, {
         id: 42,
         name: 'synthetic-repo',
+        full_name: 'synthetic-student/synthetic-repo',
         html_url: 'https://github.com/synthetic-student/synthetic-repo',
         visibility: 'public',
+        archived: false,
+        default_branch: 'main',
         description: null,
       }),
     );
@@ -117,8 +120,11 @@ describe('GithubAppClient', () => {
     expect(repository).toEqual({
       githubRepositoryId: 42n,
       name: 'synthetic-repo',
+      nameWithOwner: 'synthetic-student/synthetic-repo',
       url: 'https://github.com/synthetic-student/synthetic-repo',
       visibility: 'PUBLIC',
+      archived: false,
+      defaultBranch: 'main',
       description: null,
     });
     expect(fetcher).toHaveBeenCalledWith(

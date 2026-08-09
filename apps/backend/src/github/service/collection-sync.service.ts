@@ -89,6 +89,8 @@ type SyncRepository = Pick<
   | 'recordPullRequestFacts'
   | 'recordReleaseFacts'
   | 'recordRepositoryObservation'
+  | 'refreshExternalRepositoryObservation'
+  | 'markExternalRepositoryUnavailable'
   | 'recordRepositoryFailure'
   | 'recordRepositorySuccess'
   | 'markAbsentRepositories'
@@ -252,7 +254,8 @@ export class CollectionSyncService {
       ownerId,
       runId,
       runtime,
-      discoverInventory: () => this.syncExternalInventory(),
+      discoverInventory: (lease, deadline) =>
+        this.syncExternalInventory(runtime, lease, deadline),
     });
   }
 
@@ -568,15 +571,98 @@ export class CollectionSyncService {
   }
 
   /**
-   * E1 external-side discovery — 학생이 이미 등록해 `EXTERNAL_PUBLIC` source로 저장된
-   * 행을 그대로 읽는다. org discovery와 달리 provider 목록 호출이 없으므로 항상
-   * complete다(자동 GraphQL 발견은 별도 과제이며 이 메서드의 범위가 아니다) — DB 조회
-   * 자체가 실패하면 예외가 그대로 전파되어 상위 `run` 경로에서 FAILED로 처리된다.
+   * E1 external-side inventory — 등록된 각 저장소를 공개 자격으로 다시 조회한다.
+   * 404/비공개는 그 저장소에 대한 완전 관찰이므로 즉시 공개 상태를 회수하고,
+   * rate limit·5xx 같은 부분 실패는 기존 관찰을 유지한다(ADR-006 fail-closed).
    */
-  private async syncExternalInventory(): Promise<SweepInventory> {
-    const repositories =
-      await this.incrementalRepository.listExternalRepositories();
-    return { complete: true, repositories };
+  private async syncExternalInventory(
+    runtime: CollectionSyncRuntime,
+    lease: SyncLeaseToken,
+    deadline: number,
+  ): Promise<SweepInventory> {
+    const tracked = await this.incrementalRepository.listExternalRepositories();
+    const repositories: CollectionRepositoryRow[] = [];
+    let complete = true;
+
+    for (let index = 0; index < tracked.length; index += 1) {
+      const current = tracked[index];
+      if (current === undefined) continue;
+      if (runtime.queue.shouldStop()) {
+        complete = false;
+        repositories.push(
+          ...tracked
+            .slice(index)
+            .filter(
+              (repository) =>
+                repository.visibility === 'PUBLIC' &&
+                repository.presence === 'PRESENT',
+            ),
+        );
+        break;
+      }
+
+      const [owner, name] = splitNameWithOwner(current.nameWithOwner);
+      const observedAt = this.now();
+      let metadata;
+      try {
+        metadata = await this.beforeDeadline(
+          runtime.client.getRepository(owner, name),
+          deadline,
+        );
+      } catch (error) {
+        if (error instanceof RunDeadlineError) throw error;
+        if (
+          error instanceof CollectionAppClientError &&
+          (error.kind === 'NOT_FOUND' || error.kind === 'PERMISSION')
+        ) {
+          await this.incrementalRepository.runInTransaction(async (repo) => {
+            await repo.assertSyncLeaseValid(lease, observedAt);
+            await repo.markExternalRepositoryUnavailable(
+              current.githubRepositoryId,
+              error.kind === 'NOT_FOUND' ? 'ABSENT' : 'PRIVATE',
+              observedAt,
+            );
+          });
+          continue;
+        }
+        complete = false;
+        if (current.visibility === 'PUBLIC' && current.presence === 'PRESENT') {
+          repositories.push(current);
+        }
+        continue;
+      }
+
+      if (BigInt(metadata.id) !== current.githubRepositoryId) {
+        await this.incrementalRepository.runInTransaction(async (repo) => {
+          await repo.assertSyncLeaseValid(lease, observedAt);
+          await repo.markExternalRepositoryUnavailable(
+            current.githubRepositoryId,
+            'ABSENT',
+            observedAt,
+          );
+        });
+        continue;
+      }
+
+      const refreshed = await this.incrementalRepository.runInTransaction(
+        async (repo) => {
+          await repo.assertSyncLeaseValid(lease, observedAt);
+          return repo.refreshExternalRepositoryObservation({
+            githubRepositoryId: current.githubRepositoryId,
+            nameWithOwner: metadata.fullName,
+            defaultBranch: metadata.defaultBranch,
+            archived: metadata.archived,
+            visibility: metadata.private ? 'PRIVATE' : 'PUBLIC',
+            observedAt,
+          });
+        },
+      );
+      if (refreshed?.visibility === 'PUBLIC') {
+        repositories.push(refreshed);
+      }
+    }
+
+    return { complete, repositories };
   }
 
   /** 저장소 하나가 이번 run에서 새로 적재한 fact 수를 반환한다(#511 성공 로그 집계용). */
@@ -602,12 +688,9 @@ export class CollectionSyncService {
     // null이 되어 PR·릴리스가 **거르지 않는** 갈래로 떨어지기 때문이다 — 빈 저장소에 PR·릴리스가
     // 있을 수 없다는 전제에 fail-open을 매다는 셈이라, 조회 1회를 아끼자고 할 거래가 아니다.
     //
-    // ⚠ **이 조회가 `null`을 주는 저장소는 아래 어떤 필터도 받지 않는다.** `Repository.applicationId`가
-    // non-null이라 `Repository` 행은 신청 산출물에만 생긴다 — 그래서 학생 기여 발견으로 들어온
-    // `EXTERNAL_PUBLIC` 저장소는 OWN으로 연결한 하나를 빼면 **전부** 팀 미특정이고, `oss-hub`
-    // 저장소 자신처럼 신청을 거치지 않은 org 저장소도 마찬가지다. 그 갈래는 지금도 모든 기여자를
-    // 전량 적재한다. 지금 fail-closed로 막으면 현재 공개 랭킹이 통째로 사라지므로 별도 결정이
-    // 필요하다 — #682.
+    // 팀을 특정할 수 없는 저장소는 provider 조회 범위를 줄일 수 없어서 전량을 받는다.
+    // 다만 EXTERNAL_PUBLIC의 최종 fact writer는 `githubId ∈ User`를 다시 강제하므로
+    // 가입하지 않은 제3자 신원은 저장하지 않는다. ORG_PROVISIONED의 기존 fallback은 유지한다.
     const { teamMembers, insertedCount: commitCount } =
       await this.trackStreamOutcome(
         lease,
@@ -1042,17 +1125,13 @@ export class CollectionSyncService {
   /**
    * ADR-009 «PR·릴리스는 적재 시 거른다»의 실행 지점 하나.
    *
-   * ⚠ **이 방어는 팀을 특정할 수 있는 저장소(`teamMembers !== null`)에만 걸린다.** 팀을
-   * 특정할 수 없으면 목록을 그대로 돌려주는데, 그 갈래는 작은 예외가 아니다 —
-   * `Repository.applicationId`가 non-null이라 `Repository` 행은 신청 산출물에만 생기므로,
-   * 학생 기여 발견으로 적재된 `EXTERNAL_PUBLIC` 저장소는 OWN 연결분 하나를 빼면 전부, 그리고
-   * `oss-hub` 저장소 자신처럼 신청을 거치지 않은 org 저장소도 여기로 떨어져 **여전히 모든
-   * 기여자를 전량 적재한다.** 오늘 공개 랭킹에 보이는 수치가 실제로 그 경로에서 나온 것이라
-   * 지금 막으면 랭킹이 통째로 사라진다. 처리 방침은 별도 결정이다 — #682.
+   * 팀을 특정할 수 없으면 provider 결과를 그대로 다음 단계에 넘긴다. 이후 중앙 fact writer가
+   * EXTERNAL_PUBLIC에는 `githubId ∈ User`를 적용하므로 제3자 신원은 저장되지 않고,
+   * ORG_PROVISIONED의 기존 팀 미특정 fallback만 변하지 않는다.
    *
    * 거른 결과는 **fact 적재에만** 넘긴다. 집계는 `recordPullRequestFacts`/
    * `recordReleaseFacts`가 자기가 받은 fact의 author로만 재계산하므로
-   * (`collection-incremental.repository.ts`의 `rebuildAffectedAggregates`), facts에 안 들어간
+   * (`collection-incremental.repository.ts`의 `rebuildAffectedContributions`), facts에 안 들어간
    * 작성자는 `Contribution` 행도 얻지 못한다. 집계 쪽을 따로 손댈
    * 필요가 없는 이유가 이것이다.
    */

@@ -36,21 +36,6 @@ const PRESENT_REPOSITORY = {
 } as const;
 
 /**
- * GR-13(`.omc/plans/github-repository-unification.md:496`) — `findRepositoryActivity`·
- * `getRepositoryMetrics`·`getContributorMetrics`·`getRepositoryCumulativeMetrics`·
- * `getContributorCumulativeMetrics` 다섯 메서드는 모두 호출자가 넘긴 `repositoryIds`를
- * 그대로 쓴다. 오늘은 그 id가 전부 프로그램 신청에 연결된 저장소(구 `Repository` 모델 또는
- * `PublicShowcaseRepository` 파생 후보 — 둘 다 조직이 신청 건에 대해 만들어준 저장소만
- * 가리킨다)에서만 나와 안전하지만, `Repository`→`GithubRepository` 통합(단계 D) 이후에는
- * 같은 `repositoryIds` 배열에 학생이 등록한 `EXTERNAL_PUBLIC` 저장소 id가 섞여 들어올 수
- * 있다 — 그러면 `program-activity.service.ts`(관리자 프로그램 대시보드) 같은 호출자가
- * 학생의 무관한 개인 저장소를 조직 실적으로 조용히 집계한다. 이 다섯 메서드의 의미 자체가
- * "이 신청/프로그램에 연결된 저장소의 활동"이므로 `source: 'ORG_PROVISIONED'`로 고정하는
- * 것이 그 의미를 그대로 지키는 방향이다 — ranking 전용 경로(`getPublicRankingMetrics`·
- * `listPublicRankingYears`)는 학생 개인 이력을 의도적으로 포함해야 하므로 이 가드를 쓰지
- * 않는다(별도로 유지).
- */
-/**
  * Asia/Seoul 달력 연도의 `[start, end)` UTC 경계.
  *
  * `Contribution` 에는 `year` 칸이 없다(ADR-010 §4) — 저장에 연도 개념을 두지 않고
@@ -70,15 +55,6 @@ export class CollectionReadService implements CollectionReadPort {
     private readonly publicRanking: PublicRankingRepository,
   ) {}
 
-  /**
-   * `githubId` → GitHub login 해석.
-   *
-   * `Contribution` 은 집계 수치만 담고 표시명을 들지 않는다(ADR-010 §4).
-   * 가입자만 적재하므로(§5) 모든 `githubId` 가 `User` 에 있고, 표시명은 거기서 온다.
-   *
-   * **`name`(실명) 은 select 하지 않는다.** 공개 표기는 `githubLogin` 단일이며
-   * 동의 철회 endpoint 가 없는 상태에서 실명 노출은 되돌릴 수 없다(D15).
-   */
   /**
    * 프로그램 표면이 읽을 수 있는 저장소 조건을 만든다.
    *
@@ -111,6 +87,15 @@ export class CollectionReadService implements CollectionReadPort {
     };
   }
 
+  /**
+   * `githubId` → GitHub login 해석.
+   *
+   * `Contribution` 은 집계 수치만 담고 표시명을 들지 않는다(ADR-010 §4).
+   * 가입자만 적재하므로(§5) 모든 `githubId` 가 `User` 에 있고, 표시명은 거기서 온다.
+   *
+   * **`name`(실명) 은 select 하지 않는다.** 공개 표기는 `githubLogin` 단일이며
+   * 동의 철회 endpoint 가 없는 상태에서 실명 노출은 되돌릴 수 없다(D15).
+   */
   private async resolveGithubLogins(
     githubIds: readonly bigint[],
   ): Promise<ReadonlyMap<bigint, string>> {

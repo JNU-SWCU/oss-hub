@@ -102,6 +102,7 @@ export type CollectionAppErrorKind =
   | 'RATE_LIMITED'
   | 'AUTH'
   | 'PERMISSION'
+  | 'NOT_FOUND'
   | 'GRAPHQL_ERROR';
 export class CollectionAppClientError extends Error {
   readonly code = 'COLLECTION_APP_CLIENT_ERROR';
@@ -763,6 +764,9 @@ export class CollectionAppClient {
         if (response.status === 403) {
           this.tokens.clear(token);
           throw new CollectionAppClientError('PERMISSION');
+        }
+        if (response.status === 404) {
+          throw new CollectionAppClientError('NOT_FOUND');
         }
         throw new CollectionAppClientError('UPSTREAM');
       }

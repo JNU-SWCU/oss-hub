@@ -508,6 +508,18 @@ describe('CollectionAppClient', () => {
     });
   });
 
+  it('classifies a missing repository separately from a transient upstream failure', async () => {
+    const client = new CollectionAppClient(
+      config,
+      tokenProvider,
+      fetchMock().mockResolvedValue(new Response('', { status: 404 })),
+    );
+
+    await expect(client.getRepository('o', 'missing')).rejects.toMatchObject({
+      kind: 'NOT_FOUND',
+    });
+  });
+
   it.each([
     [429, {}, 'RATE_LIMITED'],
     [403, { 'x-ratelimit-remaining': '0', 'retry-after': '5' }, 'RATE_LIMITED'],

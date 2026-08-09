@@ -587,6 +587,7 @@ const commit = (
 
 interface ClientMock {
   listInstallationRepositories: jest.Mock<Promise<ProviderRepository[]>, []>;
+  getRepository: jest.Mock<Promise<ProviderRepository>, [string, string]>;
   probeDefaultBranchHead: jest.Mock<
     Promise<CommitHeadProbeResult>,
     [string, string, string, string | null]
@@ -620,6 +621,18 @@ function createClient(repositories: ProviderRepository[]): ClientMock {
     listInstallationRepositories: jest
       .fn<Promise<ProviderRepository[]>, []>()
       .mockResolvedValue(repositories),
+    getRepository: jest
+      .fn<Promise<ProviderRepository>, [string, string]>()
+      .mockImplementation((owner, name) =>
+        Promise.resolve(
+          providerRepository({
+            id: '555',
+            name,
+            fullName: `${owner}/${name}`,
+            ownerLogin: owner,
+          }),
+        ),
+      ),
     probeDefaultBranchHead: jest.fn<
       Promise<CommitHeadProbeResult>,
       [string, string, string, string | null]
@@ -895,6 +908,111 @@ describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
     // 실제 행 내용은 실 Postgres 통합 스펙이 본다. 여기서는 재계산이
     // 시작됐는지(=대상 칸이 잡혔는지)만 확인한다.
     expect(box.store.recomputeCalls).toBeGreaterThan(0);
+  });
+
+  it('외부 저장소 404를 완전 관찰해 ABSENT로 회수하고 stream을 실행하지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    box.store.repositories.set(repoKey(555n), {
+      id: 'repo-external-missing',
+      githubOrganizationId: null,
+      githubRepositoryId: 555n,
+      nameWithOwner: 'student/missing-repo',
+      defaultBranch: 'main',
+      archived: false,
+      visibility: 'PUBLIC',
+      presence: 'PRESENT',
+      source: 'EXTERNAL_PUBLIC',
+      lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+    const client = createClient([]);
+    client.getRepository.mockRejectedValue(
+      new CollectionAppClientError('NOT_FOUND'),
+    );
+    quietStreams(client);
+
+    const result = await createServiceWithExternal(db, client).runExternal(
+      'owner-1',
+    );
+
+    expect(result.inventoryComplete).toBe(true);
+    expect(box.store.repositories.get(repoKey(555n))).toMatchObject({
+      visibility: 'PUBLIC',
+      presence: 'ABSENT',
+    });
+    expect(client.probeDefaultBranchHead).not.toHaveBeenCalled();
+    expect(client.listNewPullRequests).not.toHaveBeenCalled();
+    expect(client.probeLatestRelease).not.toHaveBeenCalled();
+  });
+
+  it('외부 저장소가 private이면 공개 상태를 즉시 회수하고 stream에서 제외한다', async () => {
+    const { db, box } = createFakeDb();
+    box.store.repositories.set(repoKey(555n), {
+      id: 'repo-external-private',
+      githubOrganizationId: null,
+      githubRepositoryId: 555n,
+      nameWithOwner: 'student/private-repo',
+      defaultBranch: 'main',
+      archived: false,
+      visibility: 'PUBLIC',
+      presence: 'PRESENT',
+      source: 'EXTERNAL_PUBLIC',
+      lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+    const client = createClient([]);
+    client.getRepository.mockResolvedValue(
+      providerRepository({
+        id: '555',
+        name: 'private-repo',
+        fullName: 'student/private-repo',
+        ownerLogin: 'student',
+        private: true,
+      }),
+    );
+    quietStreams(client);
+
+    const result = await createServiceWithExternal(db, client).runExternal(
+      'owner-1',
+    );
+
+    expect(result.inventoryComplete).toBe(true);
+    expect(box.store.repositories.get(repoKey(555n))).toMatchObject({
+      visibility: 'PRIVATE',
+      presence: 'PRESENT',
+    });
+    expect(client.probeDefaultBranchHead).not.toHaveBeenCalled();
+  });
+
+  it('외부 metadata 일시 실패는 기존 PUBLIC/PRESENT 관찰을 회수하지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    box.store.repositories.set(repoKey(555n), {
+      id: 'repo-external-transient',
+      githubOrganizationId: null,
+      githubRepositoryId: 555n,
+      nameWithOwner: 'student/transient-repo',
+      defaultBranch: 'main',
+      archived: false,
+      visibility: 'PUBLIC',
+      presence: 'PRESENT',
+      source: 'EXTERNAL_PUBLIC',
+      lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+    const client = createClient([]);
+    client.getRepository.mockRejectedValue(
+      new CollectionAppClientError('UPSTREAM'),
+    );
+    quietStreams(client);
+
+    const result = await createServiceWithExternal(db, client).runExternal(
+      'owner-1',
+    );
+
+    expect(result.inventoryComplete).toBe(false);
+    expect(box.store.repositories.get(repoKey(555n))).toMatchObject({
+      visibility: 'PUBLIC',
+      presence: 'PRESENT',
+      lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+    expect(client.listCommitsUntilKnownSha).toHaveBeenCalled();
   });
 
   it('externalRuntimeFactory가 배선되지 않으면 명시적으로 실패한다', async () => {

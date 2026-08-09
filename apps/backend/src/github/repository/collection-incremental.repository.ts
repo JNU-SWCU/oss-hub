@@ -206,9 +206,14 @@ export class CollectionIncrementalRepository {
     facts: readonly CommitFactInput[],
   ): Promise<RecordFactsResult> {
     if (facts.length === 0) return { insertedCount: 0 };
+    const acceptedFacts = await this.onlyRegisteredExternalFacts(
+      repositoryId,
+      facts,
+    );
+    if (acceptedFacts.length === 0) return { insertedCount: 0 };
     const { count: insertedCount } =
       await this.db.collectionCommitFact.createMany({
-        data: facts.map((fact) => ({
+        data: acceptedFacts.map((fact) => ({
           repositoryId,
           sha: fact.sha,
           committedAt: fact.committedAt,
@@ -221,7 +226,7 @@ export class CollectionIncrementalRepository {
     // 이 시점부터 사실의 원본은 fact 테이블과 `Contribution` 뿐이다.
     await this.rebuildAffectedContributions(
       repositoryId,
-      facts.map((fact) => ({
+      acceptedFacts.map((fact) => ({
         date: asiaSeoulDate(fact.committedAt),
         githubId: fact.authorGithubId ?? null,
       })),
@@ -234,9 +239,14 @@ export class CollectionIncrementalRepository {
     facts: readonly PullRequestFactInput[],
   ): Promise<RecordFactsResult> {
     if (facts.length === 0) return { insertedCount: 0 };
+    const acceptedFacts = await this.onlyRegisteredExternalFacts(
+      repositoryId,
+      facts,
+    );
+    if (acceptedFacts.length === 0) return { insertedCount: 0 };
     const { count: insertedCount } =
       await this.db.collectionPullRequestFact.createMany({
-        data: facts.map((fact) => ({
+        data: acceptedFacts.map((fact) => ({
           repositoryId,
           githubPullRequestId: fact.githubPullRequestId,
           state: fact.state,
@@ -250,7 +260,7 @@ export class CollectionIncrementalRepository {
     // 이 시점부터 사실의 원본은 fact 테이블과 `Contribution` 뿐이다.
     await this.rebuildAffectedContributions(
       repositoryId,
-      facts.map((fact) => ({
+      acceptedFacts.map((fact) => ({
         date: asiaSeoulDate(fact.createdAt),
         githubId: fact.authorGithubId ?? null,
       })),
@@ -263,9 +273,14 @@ export class CollectionIncrementalRepository {
     facts: readonly ReleaseFactInput[],
   ): Promise<RecordFactsResult> {
     if (facts.length === 0) return { insertedCount: 0 };
+    const acceptedFacts = await this.onlyRegisteredExternalFacts(
+      repositoryId,
+      facts,
+    );
+    if (acceptedFacts.length === 0) return { insertedCount: 0 };
     const { count: insertedCount } =
       await this.db.collectionReleaseFact.createMany({
-        data: facts.map((fact) => ({
+        data: acceptedFacts.map((fact) => ({
           repositoryId,
           githubReleaseId: fact.githubReleaseId,
           publishedAt: fact.publishedAt,
@@ -278,7 +293,7 @@ export class CollectionIncrementalRepository {
     // 이 시점부터 사실의 원본은 fact 테이블과 `Contribution` 뿐이다.
     await this.rebuildAffectedContributions(
       repositoryId,
-      facts.map((fact) => ({
+      acceptedFacts.map((fact) => ({
         date: asiaSeoulDate(fact.publishedAt),
         githubId: fact.authorGithubId ?? null,
       })),
@@ -286,23 +301,35 @@ export class CollectionIncrementalRepository {
     return { insertedCount };
   }
 
-  /**
-   * `Contribution`(ADR-010 §4) 재계산 — 옛 연도 집계 **옆에** 더한다.
-   *
-   * 옛 writer 를 제거하지 않는다. 읽기가 아직 옛 집계를 보고 있으므로,
-   * 확장 → 재수집 → 읽기 전환 → 드롭 순서에서 이 단계는 "확장"이다.
-   * 여기서 옛 writer 를 지우면 읽기 전환 전에 화면이 죽는다.
-   *
-   * 두 가지가 옛 경로와 다르다.
-   *
-   * 1. **입자가 날짜다.** 연도로 접지 않으므로 프로그램 기간처럼 달력 연도가
-   *    아닌 축으로도 자를 수 있고, 새해 롤오버 특수 처리가 필요 없다.
-   * 2. **가입자만 적재한다.** `githubId ∈ User` 를 만족하는 사람만 행을 만든다.
-   *    옛 경로는 fact 에 나타난 모든 계정에 집계 행을 만들었고, 그래서 조직 밖
-   *    저장소가 들어오는 순간 우리 플랫폼을 모르는 제3자의 활동 프로필이 쌓였다(#682).
-   *    표시에서 거르는 게 아니라 **적재에서 자른다** — 표시 규칙은 언제든 바뀌지만
-   *    쌓인 데이터는 되돌릴 수 없기 때문이다.
-   */
+  private async onlyRegisteredExternalFacts<
+    T extends { readonly authorGithubId?: bigint | null },
+  >(repositoryId: string, facts: readonly T[]): Promise<readonly T[]> {
+    const repository = await this.db.githubRepository.findUnique({
+      where: { id: repositoryId },
+      select: { source: true },
+    });
+    if (repository?.source !== 'EXTERNAL_PUBLIC') return facts;
+
+    const candidateIds = [
+      ...new Set(
+        facts.flatMap((fact) =>
+          typeof fact.authorGithubId === 'bigint' ? [fact.authorGithubId] : [],
+        ),
+      ),
+    ];
+    if (candidateIds.length === 0) return [];
+    const registered = await this.db.user.findMany({
+      where: { githubId: { in: candidateIds } },
+      select: { githubId: true },
+    });
+    const allowed = new Set(registered.map((user) => user.githubId));
+    return facts.filter(
+      (fact) =>
+        typeof fact.authorGithubId === 'bigint' &&
+        allowed.has(fact.authorGithubId),
+    );
+  }
+
   /**
    * 조직 밖 저장소를 수집 큐에 편입한다 (ADR-010 §5·§6, ADR-009 §3).
    *
@@ -317,24 +344,132 @@ export class CollectionIncrementalRepository {
   async enrollExternalRepository(input: {
     readonly githubRepositoryId: bigint;
     readonly nameWithOwner: string;
+    readonly defaultBranch: string;
+    readonly archived: boolean;
     readonly observedAt: Date;
   }): Promise<void> {
-    const existing = await this.db.githubRepository.findUnique({
-      where: { githubRepositoryId: input.githubRepositoryId },
-      select: { id: true },
+    const currentObservation = {
+      nameWithOwner: input.nameWithOwner,
+      defaultBranch: input.defaultBranch,
+      archived: input.archived,
+      visibility: 'PUBLIC' as const,
+      presence: 'PRESENT' as const,
+      lastCompleteInventoryObservedAt: input.observedAt,
+    };
+    await this.db.githubRepository.createMany({
+      data: [
+        {
+          githubRepositoryId: input.githubRepositoryId,
+          source: 'EXTERNAL_PUBLIC',
+          nextRunAt: input.observedAt,
+          ...currentObservation,
+        },
+      ],
+      skipDuplicates: true,
     });
-    if (existing !== null) {
-      // 이미 추적 중이다. source 도 큐 상태도 건드리지 않는다.
-      return;
-    }
-    await this.db.githubRepository.create({
-      data: {
+    await this.db.githubRepository.updateMany({
+      where: {
         githubRepositoryId: input.githubRepositoryId,
-        nameWithOwner: input.nameWithOwner,
         source: 'EXTERNAL_PUBLIC',
-        visibility: 'PUBLIC',
+      },
+      data: {
+        ...currentObservation,
+        nextRunAt: input.observedAt,
+        failureCount: 0,
+      },
+    });
+    await this.purgeUnregisteredExternalFacts(input.githubRepositoryId);
+  }
+
+  private async purgeUnregisteredExternalFacts(
+    githubRepositoryId: bigint,
+  ): Promise<void> {
+    await this.db.$executeRaw`
+      DELETE FROM "CollectionCommitFact" f
+      USING "GithubRepository" r
+      WHERE r."id" = f."repositoryId"
+        AND r."githubRepositoryId" = ${githubRepositoryId}
+        AND r."source" = 'EXTERNAL_PUBLIC'::"RepositorySource"
+        AND f."authorGithubId" IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM "User" u WHERE u."githubId" = f."authorGithubId"
+        )
+    `;
+    await this.db.$executeRaw`
+      DELETE FROM "CollectionPullRequestFact" f
+      USING "GithubRepository" r
+      WHERE r."id" = f."repositoryId"
+        AND r."githubRepositoryId" = ${githubRepositoryId}
+        AND r."source" = 'EXTERNAL_PUBLIC'::"RepositorySource"
+        AND f."authorGithubId" IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM "User" u WHERE u."githubId" = f."authorGithubId"
+        )
+    `;
+    await this.db.$executeRaw`
+      DELETE FROM "CollectionReleaseFact" f
+      USING "GithubRepository" r
+      WHERE r."id" = f."repositoryId"
+        AND r."githubRepositoryId" = ${githubRepositoryId}
+        AND r."source" = 'EXTERNAL_PUBLIC'::"RepositorySource"
+        AND f."authorGithubId" IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM "User" u WHERE u."githubId" = f."authorGithubId"
+        )
+    `;
+    await this.db.$executeRaw`
+      DELETE FROM "Contribution" c
+      USING "GithubRepository" r
+      WHERE r."id" = c."repositoryId"
+        AND r."githubRepositoryId" = ${githubRepositoryId}
+        AND r."source" = 'EXTERNAL_PUBLIC'::"RepositorySource"
+        AND NOT EXISTS (
+          SELECT 1 FROM "User" u WHERE u."githubId" = c."githubId"
+        )
+    `;
+  }
+
+  async refreshExternalRepositoryObservation(input: {
+    readonly githubRepositoryId: bigint;
+    readonly nameWithOwner: string;
+    readonly defaultBranch: string;
+    readonly archived: boolean;
+    readonly visibility: 'PRIVATE' | 'PUBLIC';
+    readonly observedAt: Date;
+  }): Promise<CollectionRepositoryRow | null> {
+    await this.db.githubRepository.updateMany({
+      where: {
+        githubRepositoryId: input.githubRepositoryId,
+        source: 'EXTERNAL_PUBLIC',
+      },
+      data: {
+        nameWithOwner: input.nameWithOwner,
+        defaultBranch: input.defaultBranch,
+        archived: input.archived,
+        visibility: input.visibility,
         presence: 'PRESENT',
         lastCompleteInventoryObservedAt: input.observedAt,
+      },
+    });
+    const current = await this.db.githubRepository.findUnique({
+      where: { githubRepositoryId: input.githubRepositoryId },
+    });
+    await this.purgeUnregisteredExternalFacts(input.githubRepositoryId);
+    return current?.source === 'EXTERNAL_PUBLIC' ? current : null;
+  }
+
+  async markExternalRepositoryUnavailable(
+    githubRepositoryId: bigint,
+    unavailable: 'ABSENT' | 'PRIVATE',
+    observedAt: Date,
+  ): Promise<void> {
+    await this.db.githubRepository.updateMany({
+      where: { githubRepositoryId, source: 'EXTERNAL_PUBLIC' },
+      data: {
+        ...(unavailable === 'ABSENT'
+          ? { presence: 'ABSENT' as const }
+          : { visibility: 'PRIVATE' as const }),
+        lastCompleteInventoryObservedAt: observedAt,
       },
     });
   }
@@ -833,14 +968,12 @@ export class CollectionIncrementalRepository {
   }
 
   /**
-   * E1 — external sweep의 discovery. 자동 GraphQL 발견(추후 과제)이 아니라, 학생이 이미
-   * 등록해 `EXTERNAL_PUBLIC` source로 저장된 행을 그대로 읽는다. org sweep의
-   * `syncInventory`(provider listing → observation 기록)와 달리 이 메서드는 관찰을 쓰지
-   * 않는다 — 단순 조회다.
+   * E1 — external sweep가 현재 가시성을 다시 확인할 추적 대상 전체를 읽는다.
+   * ABSENT/PRIVATE도 재확인해야 다시 공개된 저장소가 자동 복구될 수 있다.
    */
   async listExternalRepositories(): Promise<CollectionRepositoryRow[]> {
     return this.db.githubRepository.findMany({
-      where: { source: 'EXTERNAL_PUBLIC', presence: 'PRESENT' },
+      where: { source: 'EXTERNAL_PUBLIC' },
     });
   }
 

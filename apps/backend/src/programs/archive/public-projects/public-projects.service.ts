@@ -130,8 +130,8 @@ export class PublicProjectsService {
   }
 
   /**
-   * 페이지당 질의: 원본 조회 1개 + eligibility의 배치 조회 1개 + 지표 배치 조회 1개 +
-   * 기여자 배치 조회 1개 = 4개, 상수다. private/미존재 저장소는 항상 같은 404다.
+   * 페이지당 질의: 원본 1 + eligibility 1 + 지표별 연결 증명·조회 4 + 기여자 login 1,
+   * 최대 7개로 상수다. private/미존재 저장소는 항상 같은 404다.
    */
   async findDetail(projectId: string): Promise<PublicProjectDetailResult> {
     const row = await this.repository.findById(projectId);
@@ -181,9 +181,8 @@ export class PublicProjectsService {
 
   /**
    * 존재하지 않는 사용자와 공개 가능한 프로젝트가 하나도 없는 사용자를 항상 동일한 404로
-   * 응답한다. 페이지당 질의: 신원 조회 1개 + 후보 조회 1개(병렬) + eligibility 배치 조회 1개
-   * + 저장소 지표 배치 조회 1개 + 기여자 지표 배치 조회 1개(병렬) = 5개, 사용자가 참여한
-   * 저장소 개수와 무관하다.
+   * 응답한다. 페이지당 질의: 신원·후보 2 + eligibility 1 + 지표별 연결 증명·조회 4 +
+   * 기여자 login 1, 최대 8개로 사용자가 참여한 저장소 개수와 무관하다.
    */
   async findProfile(userId: string): Promise<PublicUserProfileResult> {
     const [identity, rows] = await Promise.all([
