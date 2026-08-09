@@ -2,6 +2,8 @@ import type { ProgramCategory } from './program-templates';
 
 export type ViewerRole = 'STUDENT' | 'STAFF' | 'ADMIN' | 'PENDING' | null;
 export type ApplicationStatus = 'SUBMITTED' | 'APPROVED' | 'REJECTED';
+/** 교직원이 신청에 할 수 있는 판정. 목록·상세 두 화면이 같은 집합을 쓴다. */
+export type ApplicationDecisionAction = 'APPROVE' | 'REJECT' | 'REVERT';
 export type SubmissionStatus =
   'NOT_SUBMITTED' | 'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
 export type SubmissionType = 'FILE' | 'TEXT' | 'REPOSITORY_RELEASE';

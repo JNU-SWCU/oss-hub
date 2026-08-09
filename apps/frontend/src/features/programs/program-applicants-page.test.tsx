@@ -9,8 +9,8 @@ import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import {
   ApplicationListRequestEpoch,
   ProgramApplicantsPage,
-  staleApplicationDecisionTitle,
 } from './program-applicants-page';
+import { staleApplicationDecisionTitle } from './application-presentation';
 import { programApplicationDetailHref } from '@/lib/program-route';
 import type {
   ApplicationListItem,
