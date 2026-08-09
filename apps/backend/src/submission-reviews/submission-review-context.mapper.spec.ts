@@ -12,6 +12,8 @@ import {
 } from './submission-review-context.mapper';
 
 const submittedAt = new Date('2026-07-22T00:00:00.000Z');
+/** 공개 게이트가 통과하도록 이미 지난 종료일을 기준값으로 쓴다. */
+const programEndedAt = new Date('2026-07-01T00:00:00.000Z');
 
 type ReviewContextInput = Parameters<typeof toReviewContext>[0];
 
@@ -24,7 +26,11 @@ function contextRow(): ReviewContextInput {
       teamId: 'team-1',
       applicant: { name: 'Applicant', nickname: 'applicant', profile: null },
       team: { name: 'Synthetic Team' },
-      program: { milestones: [{ id: 'milestone-1' }] },
+      isRepositoryPublicationPlanned: true,
+      program: {
+        endAt: programEndedAt,
+        milestones: [{ id: 'milestone-1' }],
+      },
       submissions: [
         { milestoneId: 'milestone-1', status: SubmissionStatus.APPROVED },
       ],

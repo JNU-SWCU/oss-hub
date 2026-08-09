@@ -73,32 +73,19 @@ export class CollectionExternalDiscoveryService {
     let skippedOrgProvisionedCount = 0;
     for (const repository of result.repositories) {
       const githubRepositoryId = BigInt(repository.databaseId);
-      // org sweep이 이미 이 저장소를 ORG_PROVISIONED로 관찰했다면 external
-      // 경로가 덮어쓰지 않는다 — `githubRepositoryId` 단독 unique key라
-      // 덮어쓰면 org 소속 저장소가 external로 강등된다(collection-incremental.
-      // repository.ts:65-67의 "서로소인 저장소 집합" 불변식을 이 서비스가
-      // 지킨다).
-      const existing =
-        await this.incrementalRepository.findRepositoryByLogicalKey(
+      // ORG 우선순위 판정과 external 갱신을 같은 DB transaction 안에서
+      // 처리한다. 조회 후 별도 upsert를 하면 그 사이 org sweep이 들어와도
+      // EXTERNAL_PUBLIC으로 다시 덮어쓰는 TOCTOU가 생긴다.
+      const enrolled =
+        await this.incrementalRepository.enrollExternalRepository({
           githubRepositoryId,
-        );
-      if (existing?.source === 'ORG_PROVISIONED') {
-        skippedOrgProvisionedCount += 1;
-        continue;
-      }
-
-      await this.incrementalRepository.recordRepositoryObservation({
-        githubOrganizationId: null,
-        githubRepositoryId,
-        nameWithOwner: repository.nameWithOwner,
-        defaultBranch: repository.defaultBranch,
-        archived: repository.archived,
-        visibility: 'PUBLIC',
-        presence: 'PRESENT',
-        source: 'EXTERNAL_PUBLIC',
-        observedAt,
-      });
-      upsertedCount += 1;
+          nameWithOwner: repository.nameWithOwner,
+          defaultBranch: repository.defaultBranch,
+          archived: repository.archived,
+          observedAt,
+        });
+      if (enrolled) upsertedCount += 1;
+      else skippedOrgProvisionedCount += 1;
     }
 
     this.logger.log({

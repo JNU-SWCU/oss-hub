@@ -176,12 +176,16 @@ describe('RepositoryProvisionWorker OWN connection', () => {
     github.findPublicRepository.mockResolvedValue({
       githubRepositoryId: OWN_PROVISION_REPOSITORY.githubRepositoryId,
       name: OWN_PROVISION_REPOSITORY.name,
+      nameWithOwner: 'synthetic-student/synthetic-own-repo',
       url: 'https://github.com/Synthetic-Student/synthetic-own-repo',
       visibility: 'PUBLIC',
+      archived: false,
+      defaultBranch: 'main',
       description: null,
     });
+    const enrollExternalRepository = jest.fn().mockResolvedValue(undefined);
     const worker = new RepositoryProvisionWorker(jobs, state, github, {
-      enrollExternalRepository: jest.fn(),
+      enrollExternalRepository,
     });
 
     const result = await worker.runNext('worker-own', PROVISION_NOW);
@@ -199,10 +203,25 @@ describe('RepositoryProvisionWorker OWN connection', () => {
     expect(state.recordRepository.mock.calls[0]?.[0].metadata).toEqual({
       githubRepositoryId: OWN_PROVISION_REPOSITORY.githubRepositoryId,
       name: 'synthetic-own-repo',
+      nameWithOwner: 'synthetic-student/synthetic-own-repo',
       url: OWN_REPOSITORY_URL,
       visibility: 'PUBLIC',
+      archived: false,
+      defaultBranch: 'main',
       description: null,
     });
+    expect(enrollExternalRepository.mock.calls).toEqual([
+      [
+        {
+          applicantGithubId: 9_000_000_730_101n,
+          githubRepositoryId: OWN_PROVISION_REPOSITORY.githubRepositoryId,
+          nameWithOwner: 'synthetic-student/synthetic-own-repo',
+          defaultBranch: 'main',
+          archived: false,
+          observedAt: PROVISION_NOW,
+        },
+      ],
+    ]);
   });
 
   it('OWN 승인은 협업자 초대·공개 전환을 시도하지 않는다', async () => {
@@ -214,8 +233,11 @@ describe('RepositoryProvisionWorker OWN connection', () => {
     github.findPublicRepository.mockResolvedValue({
       githubRepositoryId: OWN_PROVISION_REPOSITORY.githubRepositoryId,
       name: OWN_PROVISION_REPOSITORY.name,
+      nameWithOwner: 'synthetic-student/synthetic-own-repo',
       url: OWN_REPOSITORY_URL,
       visibility: 'PUBLIC',
+      archived: false,
+      defaultBranch: 'main',
       description: null,
     });
     const worker = new RepositoryProvisionWorker(jobs, state, github, {
@@ -236,6 +258,86 @@ describe('RepositoryProvisionWorker OWN connection', () => {
         PROVISION_NOW,
       ],
     ]);
+  });
+
+  it('편입 뒤 job 완료가 실패해도 재시도에서 같은 저장소로 수렴한다', async () => {
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext
+      .mockResolvedValueOnce(ownProvisionContext())
+      .mockResolvedValueOnce(
+        ownProvisionContext({ repository: OWN_PROVISION_REPOSITORY }),
+      );
+    state.recordRepository.mockResolvedValue(OWN_PROVISION_REPOSITORY);
+    state.completeJob
+      .mockRejectedValueOnce(new Error('synthetic completion failure'))
+      .mockResolvedValueOnce(undefined);
+    const github = githubClientMock();
+    github.findPublicRepository.mockResolvedValue({
+      githubRepositoryId: OWN_PROVISION_REPOSITORY.githubRepositoryId,
+      name: OWN_PROVISION_REPOSITORY.name,
+      nameWithOwner: 'synthetic-student/synthetic-own-repo',
+      url: OWN_REPOSITORY_URL,
+      visibility: 'PUBLIC',
+      archived: false,
+      defaultBranch: 'main',
+      description: null,
+    });
+    const enrollExternalRepository = jest.fn().mockResolvedValue(undefined);
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository,
+    });
+
+    await expect(
+      worker.runNext('worker-own-first', PROVISION_NOW),
+    ).resolves.toMatchObject({
+      kind: 'FAILED_RETRYABLE',
+    });
+    await expect(
+      worker.runNext('worker-own-retry', PROVISION_NOW),
+    ).resolves.toEqual({
+      kind: 'SUCCEEDED',
+      jobId: 'synthetic-job-id',
+      repositoryId: OWN_PROVISION_REPOSITORY.id,
+    });
+
+    expect(state.recordRepository.mock.calls).toHaveLength(1);
+    expect(github.findPublicRepository.mock.calls).toHaveLength(2);
+    expect(enrollExternalRepository).toHaveBeenCalledTimes(2);
+    expect(state.failJob.mock.calls).toHaveLength(1);
+  });
+
+  it('재시도 중 URL이 다른 GitHub 저장소 id로 바뀌면 편입하지 않는다', async () => {
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(
+      ownProvisionContext({ repository: OWN_PROVISION_REPOSITORY }),
+    );
+    const github = githubClientMock();
+    github.findPublicRepository.mockResolvedValue({
+      githubRepositoryId: OWN_PROVISION_REPOSITORY.githubRepositoryId + 1n,
+      name: OWN_PROVISION_REPOSITORY.name,
+      nameWithOwner: 'synthetic-student/synthetic-own-repo',
+      url: OWN_REPOSITORY_URL,
+      visibility: 'PUBLIC',
+      archived: false,
+      defaultBranch: 'main',
+      description: null,
+    });
+    const enrollExternalRepository = jest.fn();
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository,
+    });
+
+    await expect(
+      worker.runNext('worker-own-mismatch', PROVISION_NOW),
+    ).resolves.toEqual({
+      kind: 'FAILED_FINAL',
+      jobId: 'synthetic-job-id',
+      errorCode: PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
+    });
+    expect(enrollExternalRepository).not.toHaveBeenCalled();
+    expect(state.completeJob.mock.calls).toHaveLength(0);
   });
 
   it('OWN + 존재하지 않는 저장소는 명확한 최종 실패다', async () => {

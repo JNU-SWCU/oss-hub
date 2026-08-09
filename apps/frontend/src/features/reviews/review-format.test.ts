@@ -17,8 +17,11 @@ describe('blockedReasonLabel', () => {
   it('알 수 없는 사유의 기본 안내도 확인할 조건을 구체적으로 알려준다', () => {
     const label = blockedReasonLabel('UNKNOWN_REASON');
 
-    expect(label).toContain('모든 필수 마일스톤을 승인');
-    expect(label).toContain('저장소 생성 상태를 확인');
+    // 서버 게이트 네 개를 모두 짚어 준다 — 둘만 적으면 나머지 둘로 막힌 교직원이 헤맨다.
+    expect(label).toContain('저장소 생성 상태');
+    expect(label).toContain('저장소 공개 예정');
+    expect(label).toContain('프로그램 종료일');
+    expect(label).toContain('필수 마일스톤 승인');
     // 옛 문구는 "조건이 아직 충족되지 않았습니다."뿐이라 조건을 알 수 없었다.
     expect(label).not.toContain('저장소 공개 조건이 아직 충족되지 않았습니다');
   });

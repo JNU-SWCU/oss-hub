@@ -43,9 +43,9 @@ offset 페이지네이션이 아니므로 페이지가 깊어져도 스캔 비�
 
 `PublicProjectsService`의 세 메서드는 페이지 크기·프로젝트 수와 무관하게 고정된 쿼리 수만 실행한다.
 
-- `findPage`: 2 쿼리 (목록 + 다음 페이지 존재 여부)
-- `findDetail`: 4 쿼리
-- `findProfile`: 5 쿼리
+- `findPage`: 최대 3 쿼리 (목록 1 + eligibility의 연결 증명·관찰 2)
+- `findDetail`: 최대 8 쿼리
+- `findProfile`: 최대 9 쿼리
 
 N+1을 만드는 변경(반복문 안 쿼리, 관련 엔티티별 추가 조회)은 이 설계를 깨므로 리뷰에서 반려한다.
 

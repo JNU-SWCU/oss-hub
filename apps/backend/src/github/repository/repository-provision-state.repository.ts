@@ -48,7 +48,7 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
             status: true,
             programId: true,
             teamId: true,
-            applicant: { select: { nickname: true } },
+            applicant: { select: { githubId: true, nickname: true } },
             program: {
               select: {
                 name: true,
@@ -82,6 +82,7 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
       eventId: event.id,
       eventPayload: event.payload,
       applicationId: application.id,
+      applicantGithubId: application.applicant.githubId,
       applicationStatus: application.status,
       programId: application.programId,
       programName: application.program.name,
