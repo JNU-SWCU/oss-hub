@@ -134,8 +134,11 @@ describe('AuditLogView', () => {
     );
 
     expect(html).toContain('<code');
-    expect(html).toContain('ROLE_REQUEST / request-legacy');
-    expect(html).not.toContain('@ROLE_REQUEST / request-legacy');
+    expect(html).toContain('권한 요청');
+    expect(html).toContain('request-legacy');
+    expect(html).not.toContain('@request-legacy');
+    // '님' 존칭이 코드체 폴백 값 뒤에 붙지 않는다(리뷰 지적 수정).
+    expect(html).not.toContain('request-legacy님');
   });
 
   it('REPOSITORY_PUBLISHED 행도 서술문과 targetType 한국어 라벨로 표시한다', () => {
@@ -160,7 +163,6 @@ describe('AuditLogView', () => {
 
     expect(html).toContain('저장소');
     expect(html).toContain('공개로 전환했습니다');
-    expect(html).toContain('REPOSITORY / repository-synthetic-1');
     expect(html).toContain('repository-synthetic-1');
   });
 

@@ -39,7 +39,7 @@ describe('describeAuditLog', () => {
     });
   });
 
-  it('target이 legacy 폴백(`targetType / targetId`)이면 isHandle=false로 표시한다', () => {
+  it('target이 legacy 폴백(`targetType / targetId`)이면 isHandle=false, value는 targetId만 담는다', () => {
     const legacyRecord: AuditLogRecord = {
       ...BASE_RECORD,
       id: 'audit-legacy',
@@ -51,9 +51,13 @@ describe('describeAuditLog', () => {
     const targetSegment = sentence.find((segment) => segment.kind === 'target');
     expect(targetSegment).toMatchObject({
       kind: 'target',
-      value: 'ROLE_REQUEST / request-legacy',
+      value: 'request-legacy',
       isHandle: false,
     });
+    // '님' 존칭이 코드체 폴백 값 뒤에 붙지 않고, targetType 한국어 라벨로 서술한다.
+    expect(sentenceText(legacyRecord)).toBe(
+      'synthetic-admin님이 권한 요청 request-legacy을(를) 승인했습니다',
+    );
   });
 
   it('REPOSITORY_PUBLISHED는 target을 사람이 아닌 저장소로 서술한다(폴백만 가능)', () => {
@@ -68,7 +72,7 @@ describe('describeAuditLog', () => {
     };
 
     expect(sentenceText(record)).toBe(
-      'synthetic-staff님이 저장소 REPOSITORY / repository-synthetic-1을(를) 공개로 전환했습니다',
+      'synthetic-staff님이 저장소 repository-synthetic-1을(를) 공개로 전환했습니다',
     );
   });
 
@@ -90,7 +94,7 @@ describe('describeAuditLog', () => {
     );
   });
 
-  it('APPLICATION_APPROVED를 신청 승인 문장으로 만든다', () => {
+  it('APPLICATION_APPROVED 폴백 target은 존칭 없이 "신청 {id}을(를) 승인했습니다"로 서술한다', () => {
     const record: AuditLogRecord = {
       id: 'audit-application-approved',
       actor: 'synthetic-staff',
@@ -102,7 +106,23 @@ describe('describeAuditLog', () => {
     };
 
     expect(sentenceText(record)).toBe(
-      'synthetic-staff님이 APPLICATION / application-synthetic-1님의 프로그램 신청을 승인했습니다',
+      'synthetic-staff님이 신청 application-synthetic-1을(를) 승인했습니다',
+    );
+  });
+
+  it('APPLICATION_APPROVED가 (이론상) 핸들 target을 받으면 기존 "{target}님의 프로그램 신청을 승인했습니다" 문형을 유지한다', () => {
+    const record: AuditLogRecord = {
+      id: 'audit-application-approved-handle',
+      actor: 'synthetic-staff',
+      action: 'APPLICATION_APPROVED',
+      targetType: 'APPLICATION',
+      targetId: 'application-synthetic-2',
+      target: 'synthetic-applicant-login',
+      occurredAt: '2026-07-24T06:05:00.000Z',
+    };
+
+    expect(sentenceText(record)).toBe(
+      'synthetic-staff님이 synthetic-applicant-login님의 프로그램 신청을 승인했습니다',
     );
   });
 

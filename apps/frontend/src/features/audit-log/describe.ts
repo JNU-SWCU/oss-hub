@@ -69,6 +69,21 @@ function targetSegment(record: AuditLogRecord): AuditLogSentenceSegment {
   };
 }
 
+// 폴백일 때 문장에 넣을 조각. `record.target`(= `${targetType} / ${targetId}` 전체
+// 문자열)을 그대로 쓰면 "APPLICATION / cm...님의"처럼 코드체 뒤에 '님'이 붙어
+// 어색해진다(리뷰 지적). 대신 targetId만 코드체로 보여주고, 사람이 읽는 타입
+// 이름은 이미 있는 targetType 라벨 맵(AUDIT_LOG_TARGET_TYPE_LABELS)에서 문장
+// 본문의 일반 텍스트로 넣는다.
+function fallbackTargetSegment(
+  record: AuditLogRecord,
+): AuditLogSentenceSegment {
+  return { kind: 'target', value: record.targetId, isHandle: false };
+}
+
+function targetTypeLabel(record: AuditLogRecord): string {
+  return describeTargetType(record.targetType);
+}
+
 function text(value: string): AuditLogSentenceSegment {
   return { kind: 'text', value };
 }
@@ -78,58 +93,114 @@ type SentenceTemplate = (
 ) => readonly AuditLogSentenceSegment[];
 
 const SENTENCE_TEMPLATES: Readonly<Record<AuditLogAction, SentenceTemplate>> = {
-  STAFF_ROLE_REQUEST_APPROVED: (record) => [
-    actorSegment(record),
-    text('님이 '),
-    targetSegment(record),
-    text('님의 교직원 권한 요청을 승인했습니다'),
-  ],
-  STAFF_ROLE_REQUEST_REJECTED: (record) => [
-    actorSegment(record),
-    text('님이 '),
-    targetSegment(record),
-    text('님의 교직원 권한 요청을 반려했습니다'),
-  ],
-  STAFF_ROLE_REQUEST_REVOKED: (record) => [
-    actorSegment(record),
-    text('님이 '),
-    targetSegment(record),
-    text('님의 권한을 회수했습니다'),
-  ],
-  STAFF_ROLE_REQUEST_RESTORED: (record) => [
-    actorSegment(record),
-    text('님이 '),
-    targetSegment(record),
-    text('님의 권한을 복구했습니다'),
-  ],
-  USER_ROLE_CHANGED: (record) => [
-    actorSegment(record),
-    text('님이 '),
-    targetSegment(record),
-    text('님의 역할을 변경했습니다'),
-  ],
-  USER_ACCOUNT_STATUS_CHANGED: (record) => [
-    actorSegment(record),
-    text('님이 '),
-    targetSegment(record),
-    text('님의 계정 상태를 변경했습니다'),
-  ],
+  // target이 사람 스냅샷(핸들)일 때는 "{target}님의 ...했습니다" 문형을 그대로
+  // 쓴다. target이 폴백(`${targetType} / ${targetId}`)이면 '님' 존칭을 뺴고
+  // "{targetType 라벨} {targetId}을(를) ...했습니다"로 서술한다 — 코드체
+  // targetId 뒤에 '님'이 붙는 어색함을 없애면서도(리뷰 지적) 어떤 대상인지는
+  // 여전히 밝힌다.
+  STAFF_ROLE_REQUEST_APPROVED: (record) =>
+    isFallbackTarget(record)
+      ? [
+          actorSegment(record),
+          text(`님이 ${targetTypeLabel(record)} `),
+          fallbackTargetSegment(record),
+          text('을(를) 승인했습니다'),
+        ]
+      : [
+          actorSegment(record),
+          text('님이 '),
+          targetSegment(record),
+          text('님의 교직원 권한 요청을 승인했습니다'),
+        ],
+  STAFF_ROLE_REQUEST_REJECTED: (record) =>
+    isFallbackTarget(record)
+      ? [
+          actorSegment(record),
+          text(`님이 ${targetTypeLabel(record)} `),
+          fallbackTargetSegment(record),
+          text('을(를) 반려했습니다'),
+        ]
+      : [
+          actorSegment(record),
+          text('님이 '),
+          targetSegment(record),
+          text('님의 교직원 권한 요청을 반려했습니다'),
+        ],
+  STAFF_ROLE_REQUEST_REVOKED: (record) =>
+    isFallbackTarget(record)
+      ? [
+          actorSegment(record),
+          text(`님이 ${targetTypeLabel(record)} `),
+          fallbackTargetSegment(record),
+          text('을(를) 회수했습니다'),
+        ]
+      : [
+          actorSegment(record),
+          text('님이 '),
+          targetSegment(record),
+          text('님의 권한을 회수했습니다'),
+        ],
+  STAFF_ROLE_REQUEST_RESTORED: (record) =>
+    isFallbackTarget(record)
+      ? [
+          actorSegment(record),
+          text(`님이 ${targetTypeLabel(record)} `),
+          fallbackTargetSegment(record),
+          text('을(를) 복구했습니다'),
+        ]
+      : [
+          actorSegment(record),
+          text('님이 '),
+          targetSegment(record),
+          text('님의 권한을 복구했습니다'),
+        ],
+  USER_ROLE_CHANGED: (record) =>
+    isFallbackTarget(record)
+      ? [
+          actorSegment(record),
+          text(`님이 ${targetTypeLabel(record)} `),
+          fallbackTargetSegment(record),
+          text('의 역할을 변경했습니다'),
+        ]
+      : [
+          actorSegment(record),
+          text('님이 '),
+          targetSegment(record),
+          text('님의 역할을 변경했습니다'),
+        ],
+  USER_ACCOUNT_STATUS_CHANGED: (record) =>
+    isFallbackTarget(record)
+      ? [
+          actorSegment(record),
+          text(`님이 ${targetTypeLabel(record)} `),
+          fallbackTargetSegment(record),
+          text('의 계정 상태를 변경했습니다'),
+        ]
+      : [
+          actorSegment(record),
+          text('님이 '),
+          targetSegment(record),
+          text('님의 계정 상태를 변경했습니다'),
+        ],
+  // REPOSITORY_PUBLISHED/PROGRAM_ARCHIVED/PROGRAM_RESTORED는 각자의 메타데이터
+  // 스키마에 사람 스냅샷이 없어 target이 항상 폴백이다(핸들 분기가 존재할 수
+  // 없다) — 그래서 두 문형을 나누지 않고 항상 targetId만 코드체로 보여준다.
   REPOSITORY_PUBLISHED: (record) => [
     actorSegment(record),
     text('님이 저장소 '),
-    targetSegment(record),
+    fallbackTargetSegment(record),
     text('을(를) 공개로 전환했습니다'),
   ],
   PROGRAM_ARCHIVED: (record) => [
     actorSegment(record),
     text('님이 프로그램 '),
-    targetSegment(record),
+    fallbackTargetSegment(record),
     text('을(를) 보관했습니다'),
   ],
   PROGRAM_RESTORED: (record) => [
     actorSegment(record),
     text('님이 프로그램 '),
-    targetSegment(record),
+    fallbackTargetSegment(record),
     text('을(를) 복구했습니다'),
   ],
   COLLECTION_SYNC_TRIGGERED: (record) => [
@@ -140,24 +211,48 @@ const SENTENCE_TEMPLATES: Readonly<Record<AuditLogAction, SentenceTemplate>> = {
     actorSegment(record),
     text('님이 제출 파일 정리 재시도를 초기화했습니다'),
   ],
-  APPLICATION_APPROVED: (record) => [
-    actorSegment(record),
-    text('님이 '),
-    targetSegment(record),
-    text('님의 프로그램 신청을 승인했습니다'),
-  ],
-  APPLICATION_REJECTED: (record) => [
-    actorSegment(record),
-    text('님이 '),
-    targetSegment(record),
-    text('님의 프로그램 신청을 반려했습니다'),
-  ],
-  APPLICATION_REVERTED: (record) => [
-    actorSegment(record),
-    text('님이 '),
-    targetSegment(record),
-    text('님의 신청 판정을 취소했습니다'),
-  ],
+  APPLICATION_APPROVED: (record) =>
+    isFallbackTarget(record)
+      ? [
+          actorSegment(record),
+          text(`님이 ${targetTypeLabel(record)} `),
+          fallbackTargetSegment(record),
+          text('을(를) 승인했습니다'),
+        ]
+      : [
+          actorSegment(record),
+          text('님이 '),
+          targetSegment(record),
+          text('님의 프로그램 신청을 승인했습니다'),
+        ],
+  APPLICATION_REJECTED: (record) =>
+    isFallbackTarget(record)
+      ? [
+          actorSegment(record),
+          text(`님이 ${targetTypeLabel(record)} `),
+          fallbackTargetSegment(record),
+          text('을(를) 반려했습니다'),
+        ]
+      : [
+          actorSegment(record),
+          text('님이 '),
+          targetSegment(record),
+          text('님의 프로그램 신청을 반려했습니다'),
+        ],
+  APPLICATION_REVERTED: (record) =>
+    isFallbackTarget(record)
+      ? [
+          actorSegment(record),
+          text(`님이 ${targetTypeLabel(record)} `),
+          fallbackTargetSegment(record),
+          text('의 판정을 취소했습니다'),
+        ]
+      : [
+          actorSegment(record),
+          text('님이 '),
+          targetSegment(record),
+          text('님의 신청 판정을 취소했습니다'),
+        ],
 };
 
 function isKnownAction(action: string): action is AuditLogAction {
