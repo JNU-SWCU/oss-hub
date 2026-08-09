@@ -181,7 +181,13 @@ export function ProgramApplyPage({
         </main>
       );
     case 'blocked':
-      return <BlockedView reason={state.reason} program={state.program} />;
+      return (
+        <BlockedView
+          reason={state.reason}
+          program={state.program}
+          application={state.application}
+        />
+      );
     case 'success':
       return (
         <ProgramApplySuccessView
