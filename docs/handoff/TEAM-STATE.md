@@ -69,6 +69,12 @@ O3 표면 `dataAsOf` 16:16:16 으로 마지막 스윕을 1.8초 차로 따라온
 단위 테스트가 통과한 이유는 픽스처가 내부 이름(`prCount`)을 쓰면서 선 위의 몸통 역할까지 겸했기 때문이다.
 선 위 형태와 내부 형태를 갈라 두고, 목 서버도 백엔드 DTO 이름을 내도록 맞췄다.
 
+**배포가 막혀 있다 — 내 변경 때문이 아니다.** `main` CI 가 `d5c8371f`(#759 병합)부터 연속 빨간불이고
+릴리스 게이트(`validate-ci-status.sh`)가 fail-closed 로 배포를 막는다. 그래서 활동 타임라인 수정(#763)이
+병합됐지만 아직 프로덕션에 없다. 원인은 #759 가 UI 에서 `STAFF → null` 회수 컨트롤을 없앤 것이고,
+백엔드는 그 전이에서만 `REVOKED` 이력을 남긴다 — 화면은 회수라고 말하는데 시스템은 회수로 기록하지 않는다.
+상세와 선택지는 [#765](https://github.com/JNU-SWCU/oss-hub/issues/765).
+
 **남은 것.** ① `contributionsCollection` 배선 · fact 층 force-push 조정 · 옛 연도 집계 물리 드롭(`chore/drop-legacy-aggregates`, 아직 열지 않음) ·
 랭킹 읽기의 연결 심층 방어(랭킹 술어는 `visibility`·`presence`만 보고 신청 연결을 보지 않는다).
 
