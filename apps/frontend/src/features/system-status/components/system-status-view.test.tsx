@@ -137,8 +137,6 @@ describe('SystemStatusView', () => {
     expect(html).toContain('이번 사이클 시작');
     expect(html).toContain('최근 사이클 완료');
     expect(html).toContain('2026');
-    expect(html).toContain('추적 저장소');
-    expect(html).toContain('완료(READY)');
   });
 
   it('IDLE일 때는 run 상태 배지("수집 중")를 표시하지 않는다', () => {
@@ -296,5 +294,60 @@ describe('SystemStatusView', () => {
     expect(html).not.toContain('discover-external-github-login');
     expect(html).not.toContain('학생 GitHub 로그인');
     expect(html).not.toContain('지금 탐색 실행');
+  });
+
+  describe('Stream 진행 상황 진행률', () => {
+    it('완료율 0%: 모든 stream이 대기/backfill 상태면 0%로 표시하고 세그먼트 바를 채운다', () => {
+      const html = render({
+        kind: 'success',
+        status: {
+          ...normal,
+          readyStreamCount: 0,
+          backfillingStreamCount: 3,
+          partialStreamCount: 2,
+          retryPendingStreamCount: 1,
+        },
+      });
+      expect(html).toContain('완료 0 / 6 stream (0%)');
+      expect(html).toContain('추적 저장소 2개 × commit·PR·release 3종 stream');
+    });
+
+    it('완료율 100%: 모든 stream이 완료면 100%로 표시한다', () => {
+      const html = render({
+        kind: 'success',
+        status: {
+          ...normal,
+          readyStreamCount: 6,
+          backfillingStreamCount: 0,
+          partialStreamCount: 0,
+          retryPendingStreamCount: 0,
+        },
+      });
+      expect(html).toContain('완료 6 / 6 stream (100%)');
+    });
+
+    it('혼합 진행률: 4구간이 섞여 있으면 반올림한 비율과 role="img" aria-label을 함께 표시한다', () => {
+      const html = render({
+        kind: 'success',
+        status: {
+          ...normal,
+          readyStreamCount: 3,
+          backfillingStreamCount: 2,
+          partialStreamCount: 1,
+          retryPendingStreamCount: 2,
+        },
+      });
+      // 3 / 8 = 37.5% → round(37.5) = 38%
+      expect(html).toContain('완료 3 / 8 stream (38%)');
+      expect(html).toContain('role="img"');
+      expect(html).toContain(
+        'aria-label="전체 8개 stream 중 완료(READY) 3개, Backfill 중 2개, 부분·대기 1개, 재시도 대기 2개입니다."',
+      );
+      // 범례는 0인 구간도 표시한다.
+      expect(html).toContain('완료(READY)');
+      expect(html).toContain('Backfill 중');
+      expect(html).toContain('부분·대기');
+      expect(html).toContain('재시도 대기');
+    });
   });
 });

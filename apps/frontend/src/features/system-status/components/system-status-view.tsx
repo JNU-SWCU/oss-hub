@@ -12,6 +12,7 @@ import { CardGrid, EmptyState, PageHeader, StatusBadge } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import type {
   CollectionHealth,
   CurrentRunStatus,
@@ -137,6 +138,87 @@ function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
   );
 }
 
+/**
+ * Stream 진행 상황의 4구간(완료/Backfill 중/부분·대기/재시도 대기) — 세그먼트 바와
+ * 범례가 같은 순서·같은 색을 공유하도록 한 곳에 정의한다. 프로젝트 디자인 토큰만
+ * 사용한다(하드코딩 색상 금지, `status-badge.tsx`와 동일한 원칙).
+ */
+const STREAM_SEGMENTS = [
+  { key: 'ready', label: '완료(READY)', colorClass: 'bg-primary' },
+  { key: 'backfilling', label: 'Backfill 중', colorClass: 'bg-primary/60' },
+  {
+    key: 'partial',
+    label: '부분·대기',
+    colorClass: 'bg-muted-foreground/40',
+  },
+  {
+    key: 'retryPending',
+    label: '재시도 대기',
+    colorClass: 'bg-destructive/70',
+  },
+] as const;
+
+interface StreamProgressBarProps {
+  readonly ready: number;
+  readonly backfilling: number;
+  readonly partial: number;
+  readonly retryPending: number;
+  readonly total: number;
+}
+
+function StreamProgressBar({
+  ready,
+  backfilling,
+  partial,
+  retryPending,
+  total,
+}: StreamProgressBarProps) {
+  const counts = {
+    ready,
+    backfilling,
+    partial,
+    retryPending,
+  } satisfies Record<(typeof STREAM_SEGMENTS)[number]['key'], number>;
+
+  const summary = `전체 ${total}개 stream 중 ${STREAM_SEGMENTS.map(
+    (segment) => `${segment.label} ${counts[segment.key]}개`,
+  ).join(', ')}입니다.`;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div
+        role="img"
+        aria-label={summary}
+        className="flex h-3 w-full overflow-hidden rounded-full bg-muted"
+      >
+        {STREAM_SEGMENTS.filter((segment) => counts[segment.key] > 0).map(
+          (segment) => (
+            <div
+              key={segment.key}
+              className={cn('h-full', segment.colorClass)}
+              style={{ width: `${(counts[segment.key] / total) * 100}%` }}
+            />
+          ),
+        )}
+      </div>
+      <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+        {STREAM_SEGMENTS.map((segment) => (
+          <li key={segment.key} className="flex items-center gap-1.5">
+            <span
+              aria-hidden="true"
+              className={cn('size-2.5 rounded-full', segment.colorClass)}
+            />
+            <span className="text-muted-foreground">{segment.label}</span>
+            <span className="font-medium text-foreground">
+              {counts[segment.key]}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function CollectionStatusCard({ status }: { readonly status: SystemStatus }) {
   const health = HEALTH[status.health];
   const run = RUN_STATUS[status.currentRunStatus];
@@ -182,6 +264,44 @@ function CollectionStatusCard({ status }: { readonly status: SystemStatus }) {
             </dd>
           </div>
         </dl>
+      </CardContent>
+    </Card>
+  );
+}
+
+function StreamProgressCard({ status }: { readonly status: SystemStatus }) {
+  const total =
+    status.readyStreamCount +
+    status.backfillingStreamCount +
+    status.partialStreamCount +
+    status.retryPendingStreamCount;
+  const pct = total > 0 ? Math.round((status.readyStreamCount / total) * 100) : 0;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <GitBranch aria-hidden="true" className="size-5" />
+          Stream 진행 상황
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div>
+          <p className="text-sm font-medium text-foreground">
+            완료 {status.readyStreamCount} / {total} stream ({pct}%)
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            추적 저장소 {status.trackedRepositoryCount}개 × commit·PR·release
+            3종 stream
+          </p>
+        </div>
+        <StreamProgressBar
+          ready={status.readyStreamCount}
+          backfilling={status.backfillingStreamCount}
+          partial={status.partialStreamCount}
+          retryPending={status.retryPendingStreamCount}
+          total={total}
+        />
       </CardContent>
     </Card>
   );
@@ -283,50 +403,7 @@ export function SystemStatusView({
         <section aria-label="시스템 상태 요약">
           <CardGrid>
             <CollectionStatusCard status={status} />
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <GitBranch aria-hidden="true" className="size-5" />
-                  Stream 진행 상황
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <dl className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <dt className="text-muted-foreground">추적 저장소</dt>
-                    <dd className="mt-1 font-medium">
-                      {status.trackedRepositoryCount}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">완료(READY)</dt>
-                    <dd className="mt-1 font-medium">
-                      {status.readyStreamCount}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Backfill 중</dt>
-                    <dd className="mt-1 font-medium">
-                      {status.backfillingStreamCount}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">부분/대기</dt>
-                    <dd className="mt-1 font-medium">
-                      {status.partialStreamCount}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">재시도 대기</dt>
-                    <dd className="mt-1 font-medium">
-                      {status.retryPendingStreamCount}
-                    </dd>
-                  </div>
-                </dl>
-              </CardContent>
-            </Card>
-
+            <StreamProgressCard status={status} />
             <DataFreshnessCard status={status} />
           </CardGrid>
         </section>
