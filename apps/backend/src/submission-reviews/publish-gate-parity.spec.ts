@@ -9,7 +9,11 @@ import {
   type PublishBlockedReason,
   type RepositoryPublishEligibility,
 } from './domain/submission-review';
-import type { SubmissionReviewsRepositoryPort } from './submission-reviews.repository';
+import type { PrismaService } from '../prisma/prisma.service';
+import {
+  SubmissionReviewsRepository,
+  type SubmissionReviewsRepositoryPort,
+} from './submission-reviews.repository';
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.enum';
 import { SubmissionReviewsService } from './submission-reviews.service';
 import { toReviewContext } from './submission-review-context.mapper';
@@ -296,6 +300,72 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
       errorCode: { code: SubmissionReviewsErrorCode.REPOSITORY_NOT_READY },
     });
     expect(repositories.publish).not.toHaveBeenCalled();
+  });
+
+  it('저장소 조회가 게이트 재료를 DB 값 그대로 옮긴다', async () => {
+    // Given: 네 게이트가 저마다 다른 값을 갖는 저장소 행.
+    // (여기서 한 칸이라도 상수로 굳으면 서버가 아무 신청이나 공개해 버린다 —
+    //  Prisma 를 흉내 내는 것이 아니라 "행 → 게이트 재료" 옮김만 붙잡는 테스트다.)
+    const findUnique = jest.fn().mockResolvedValue({
+      id: 'repository-1',
+      visibility: RepositoryVisibility.PRIVATE,
+      application: {
+        isRepositoryPublicationPlanned: false,
+        provisionJob: {
+          status: RepositoryProvisionJobStatus.PROCESSING,
+          repositoryId: 'repository-1',
+        },
+        program: {
+          endAt: PROGRAM_ENDED_AT,
+          milestones: [{ id: 'milestone-1' }],
+        },
+        submissions: [
+          { milestoneId: 'milestone-1', status: SubmissionStatus.SUBMITTED },
+        ],
+      },
+    });
+    const repository = new SubmissionReviewsRepository({
+      repository: { findUnique },
+    } as unknown as PrismaService);
+
+    // When: 공개 게이트 재료를 조회한다.
+    const eligibility = await repository.findPublishEligibility('repository-1');
+
+    // Then: 네 칸이 모두 행의 값에서 왔다.
+    expect(eligibility).toEqual({
+      repositoryId: 'repository-1',
+      visibility: RepositoryVisibility.PRIVATE,
+      provisionStatus: RepositoryProvisionJobStatus.PROCESSING,
+      requiredMilestonesApproved: false,
+      isRepositoryPublicationPlanned: false,
+      programEndAt: PROGRAM_ENDED_AT,
+    });
+  });
+
+  it('다른 저장소의 프로비저닝 작업은 준비 상태로 세지 않는다', async () => {
+    // Given: 신청에 달린 job 이 이 저장소가 아닌 다른 저장소를 가리킨다.
+    const findUnique = jest.fn().mockResolvedValue({
+      id: 'repository-1',
+      visibility: RepositoryVisibility.PRIVATE,
+      application: {
+        isRepositoryPublicationPlanned: true,
+        provisionJob: {
+          status: RepositoryProvisionJobStatus.SUCCEEDED,
+          repositoryId: 'repository-2',
+        },
+        program: { endAt: PROGRAM_ENDED_AT, milestones: [] },
+        submissions: [],
+      },
+    });
+    const repository = new SubmissionReviewsRepository({
+      repository: { findUnique },
+    } as unknown as PrismaService);
+
+    // When: 공개 게이트 재료를 조회한다.
+    const eligibility = await repository.findPublishEligibility('repository-1');
+
+    // Then: 남의 SUCCEEDED 를 빌려 오지 않는다.
+    expect(eligibility?.provisionStatus).toBeNull();
   });
 
   it('저장소를 찾지 못하면 준비되지 않은 것으로 거절한다', async () => {
