@@ -102,10 +102,10 @@ describe('collection incremental migration — DB invariants', () => {
       true,
     );
     await expect(indexExists('Contribution_date_idx')).resolves.toBe(true);
-    // 드롭이 실제로 적용됐는지도 같이 본다 — 안 되면 옛 writer 가 되살아난다.
-    await expect(
-      indexExists('CollectionRepositoryYearAggregate_year_idx'),
-    ).resolves.toBe(false);
+    // 옛 연도 집계의 물리 삭제는 `chore/drop-legacy-aggregates` 가 담당한다.
+    // 이 브랜치는 코드 레벨 참조만 걷어냈으므로 테이블은 아직 남아 있고,
+    // 여기서 부재를 단언하면 전환 순서(확장 → 재수집 → 읽기 전환 → 드롭)를
+    // 앞질러 검사하는 셈이 된다.
   });
 
   it('App installation 교체를 흉내내도 논리 저장소는 org+repo id 기준 한 행만 유지한다', async () => {
