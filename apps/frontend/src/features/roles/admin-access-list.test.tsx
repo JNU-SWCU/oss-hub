@@ -187,7 +187,9 @@ describe('AdminAccessView — 읽기 전용 접근 목록 화면', () => {
     );
 
     expect(html).toContain('data-slot="select-trigger"');
-    expect(html).toMatch(/<th[^>]*aria-sort="descending"[^>]*>[\s\S]*?마지막 로그인/);
+    expect(html).toMatch(
+      /<th[^>]*aria-sort="descending"[^>]*>[\s\S]*?마지막 로그인/,
+    );
   });
 
   it('오름차순 상태에서는 정렬 중인 컬럼의 th에 aria-sort="ascending"을 표시한다', () => {

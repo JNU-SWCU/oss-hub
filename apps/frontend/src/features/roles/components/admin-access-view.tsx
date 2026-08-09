@@ -188,9 +188,7 @@ export function AdminAccessView(props: AdminAccessViewProps) {
             {item.name ?? '이름 미등록'}
           </Link>
           <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground">
-              @{item.githubLogin}
-            </span>
+            <span className="text-muted-foreground">@{item.githubLogin}</span>
             <a
               href={`https://github.com/${item.githubLogin}`}
               target="_blank"
@@ -258,7 +256,10 @@ export function AdminAccessView(props: AdminAccessViewProps) {
       headClassName: 'w-8',
       cellClassName: 'w-8 text-right',
       cell: () => (
-        <ChevronRight aria-hidden="true" className="size-4 text-muted-foreground" />
+        <ChevronRight
+          aria-hidden="true"
+          className="size-4 text-muted-foreground"
+        />
       ),
     },
   ];

@@ -173,9 +173,7 @@ describe('AdminAccessView — 헤더 클릭 정렬 토글', () => {
       th.textContent?.includes('마지막 로그인'),
     );
     expect(userHeader?.getAttribute('aria-sort')).toBe('ascending');
-    expect(
-      lastLoginHeader?.getAttribute('aria-sort'),
-    ).not.toBe('ascending');
+    expect(lastLoginHeader?.getAttribute('aria-sort')).not.toBe('ascending');
 
     act(() => {
       root.render(
@@ -195,8 +193,6 @@ describe('AdminAccessView — 헤더 클릭 정렬 토글', () => {
       th.textContent?.includes('마지막 로그인'),
     );
     expect(userHeaderAfter?.getAttribute('aria-sort')).not.toBe('descending');
-    expect(lastLoginHeaderAfter?.getAttribute('aria-sort')).toBe(
-      'descending',
-    );
+    expect(lastLoginHeaderAfter?.getAttribute('aria-sort')).toBe('descending');
   });
 });
