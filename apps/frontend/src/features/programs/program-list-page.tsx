@@ -223,6 +223,7 @@ function ProgramListPage({
       <PageHeader
         title={getProgramListHeading(status)}
         description={getProgramListSubtitle(viewerRole)}
+        descriptionClassName="break-keep"
         actions={
           canCreateProgram ? (
             <Button asChild>

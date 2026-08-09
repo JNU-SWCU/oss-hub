@@ -83,9 +83,13 @@ describe('ProgramListPage 등록 동선', () => {
   it('교직원은 프로그램이 있어도 목록 머리말에서 새 프로그램을 만들 수 있다', async () => {
     await renderPage(true);
 
+    const description = container.querySelector(
+      '[data-slot="page-header-description"]',
+    );
     const createLinks = Array.from(
       container.querySelectorAll<HTMLAnchorElement>('a[href="/programs/new"]'),
     );
+    expect(description?.classList.contains('break-keep')).toBe(true);
     expect(createLinks).toHaveLength(1);
     expect(createLinks[0]?.textContent).toBe('프로그램 만들기');
   });
