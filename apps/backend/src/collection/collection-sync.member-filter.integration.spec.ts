@@ -38,12 +38,14 @@ const GITHUB_REPOSITORY_ID = 9_000_000_680_003n;
 const OWNER_ID = 'synthetic-member-filter-suite';
 
 const MEMBER_GITHUB_ID = 9_000_000_680_101n;
+const LATE_MEMBER_GITHUB_ID = 9_000_000_680_103n;
 const OUTSIDER_GITHUB_ID = '9000000680102';
 
 const SEED_PREFIX = 'synthetic-member-filter';
 const PROGRAM_ID = `${SEED_PREFIX}-program`;
 const TEAM_ID = `${SEED_PREFIX}-team`;
 const MEMBER_USER_ID = `${SEED_PREFIX}-user`;
+const LATE_MEMBER_USER_ID = `${SEED_PREFIX}-late-user`;
 const APPLICATION_ID = `${SEED_PREFIX}-application`;
 const REPOSITORY_ID = `${SEED_PREFIX}-repository`;
 
@@ -248,7 +250,9 @@ describe('CollectionSyncService — PR·릴리스 멤버 필터 (실 DB)', () =>
     await prisma.application.deleteMany({ where: { id: APPLICATION_ID } });
     await prisma.teamMember.deleteMany({ where: { teamId: TEAM_ID } });
     await prisma.team.deleteMany({ where: { id: TEAM_ID } });
-    await prisma.user.deleteMany({ where: { id: MEMBER_USER_ID } });
+    await prisma.user.deleteMany({
+      where: { id: { in: [MEMBER_USER_ID, LATE_MEMBER_USER_ID] } },
+    });
     await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
   });
 
@@ -394,5 +398,98 @@ describe('CollectionSyncService — PR·릴리스 멤버 필터 (실 DB)', () =>
         },
       }),
     ).resolves.toBe(1);
+  });
+
+  it('팀원 합류를 감지하면 과거 PR을 한 번 백필하고 다음 sweep은 증분 frontier를 재사용한다', async () => {
+    await seed();
+    const latePullRequest = pullRequest({
+      id: '9000000680205',
+      createdAt: '2026-07-01T00:00:00.000Z',
+      authorLogin: 'synthetic-late-member',
+      authorGithubId: LATE_MEMBER_GITHUB_ID.toString(),
+    });
+    const listNewPullRequests = jest.fn(
+      (
+        _owner: string,
+        _name: string,
+        tie: { createdAt: string; id: string } | null,
+      ) => {
+        const pullRequests = tie === null ? [latePullRequest] : [];
+        return Promise.resolve({
+          pullRequests,
+          newFrontier: pullRequests[0]
+            ? {
+                createdAt: pullRequests[0].createdAt,
+                id: pullRequests[0].id,
+              }
+            : tie,
+          fingerprint: fingerprint('/repos/o/r/pulls'),
+        });
+      },
+    );
+    const client = createClient([], []);
+    (
+      client as unknown as {
+        listNewPullRequests: typeof listNewPullRequests;
+      }
+    ).listNewPullRequests = listNewPullRequests;
+    const service = createService(client);
+
+    await service.run(OWNER_ID);
+    expect(listNewPullRequests.mock.calls[0]?.[2]).toBeNull();
+    await expect(
+      prisma.collectionPullRequestFact.count({
+        where: { authorGithubId: LATE_MEMBER_GITHUB_ID },
+      }),
+    ).resolves.toBe(0);
+
+    await prisma.user.create({
+      data: {
+        id: LATE_MEMBER_USER_ID,
+        githubId: LATE_MEMBER_GITHUB_ID,
+        nickname: 'synthetic-late-member',
+      },
+    });
+    await prisma.teamMember.create({
+      data: {
+        teamId: TEAM_ID,
+        programId: PROGRAM_ID,
+        userId: LATE_MEMBER_USER_ID,
+      },
+    });
+
+    await service.run(OWNER_ID);
+    expect(listNewPullRequests.mock.calls[1]?.[2]).toBeNull();
+    await expect(
+      prisma.collectionPullRequestFact.count({
+        where: { authorGithubId: LATE_MEMBER_GITHUB_ID },
+      }),
+    ).resolves.toBe(1);
+
+    await service.run(OWNER_ID);
+    expect(listNewPullRequests.mock.calls[2]?.[2]).toEqual({
+      createdAt: '2026-07-01T00:00:00.000Z',
+      id: '9000000680205',
+    });
+    await expect(
+      prisma.collectionPullRequestFact.count({
+        where: { authorGithubId: LATE_MEMBER_GITHUB_ID },
+      }),
+    ).resolves.toBe(1);
+
+    const collected = await prisma.githubRepository.findUniqueOrThrow({
+      where: { githubRepositoryId: GITHUB_REPOSITORY_ID },
+      select: { id: true },
+    });
+    const stream = await prisma.collectionRepositoryStream.findUniqueOrThrow({
+      where: {
+        repositoryId_streamType: {
+          repositoryId: collected.id,
+          streamType: 'PULL_REQUEST',
+        },
+      },
+      select: { frontierSha: true },
+    });
+    expect(stream.frontierSha).toMatch(/^team-members:v1:[0-9a-f]{64}$/);
   });
 });
