@@ -22,7 +22,7 @@
 | 기능 | 기여 추적 재설계 (랭킹 · 프로그램 기여도) |
 | owner | @GoBeromsu |
 | 원본 | [ADR-010](../decisions/ADR-010-contribution-tracking-context.md) |
-| 상태 | 구현 진행 중 (미커밋 작업 트리) |
+| 상태 | PR #729 main 병합 완료. `OWN` 저장소 편입은 후속 PR |
 
 **요지.** 랭킹은 비어 있던 게 아니라 **멈춰 있었다.** 두 읽기 표면의 데이터원을 갈랐다 —
 ① 랭킹은 학생 축(공개 활동), ② 프로그램은 팀 저장소 축이다.
@@ -32,7 +32,11 @@
 옛 연도 집계 writer·테이블 드롭 · `prCount`→`pullRequestCount` 개명 · 랭킹 기본 연도를 올해로 ·
 `dataAsOf` 봉투와 화면 표시 · 불변식 4개 · 폴더 재편(`github`/`programs`/`ranking` + 계층 폴더, `showcase` 드롭).
 
-**막힌 것.** 프로덕션 진단(SSM/Tailscale 접속 필요)과 `contributionsCollection` rate limit 실측(GitHub 토큰 필요).
+**프로덕션 진단 결과.** 파이프라인은 건강하다 — 스윕 매시 정상, 오류 0, 공개 API가 DB와 일치.
+실제 문제는 커버리지 공백이다: 추적 저장소 3개(조직 것만), `EXTERNAL_PUBLIC` 0개, `OWN` 신청 0건.
+`contributionsCollection` rate limit도 실측했다 — 학생당 연도당 `cost=1`, 200명 매시가 예산의 4%.
+
+**남은 것.** ① `contributionsCollection` 배선, fact 층 force-push 조정.
 
 ## 지난 회차 이후 바뀐 결정
 
