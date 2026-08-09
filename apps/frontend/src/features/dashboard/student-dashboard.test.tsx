@@ -236,24 +236,35 @@ describe('StudentDashboardView', () => {
     expect(html).toContain('2026. 8. 9.');
   });
 
-  it('반려 알림은 사유를 노출하지 않고 신청 확인 행동을 제공한다', () => {
-    const html = renderView({
-      applicationDecisionNotices: [
-        {
-          id: 'notification-2',
-          applicationId: 'application-2',
-          programId: 'program-2',
-          programName: '합성 경진대회',
-          decision: 'REJECTED',
-          decidedAt: '2026-08-09T00:00:00.000Z',
-        },
-      ],
-    });
+  /**
+   * 반려 알림은 **사유 원문을 싣지 않고**, 사유가 실제로 있는 곳을 가리킨다(#722).
+   *
+   * 예전 문구는 "신청 상세에서 상태를 확인해 주세요"였는데, 눌러 가면 도착하는
+   * `/programs/{id}/apply`가 "수정하거나 취소할 수 없습니다"만 말하고 이유는 어디에도
+   * 없었다. 그 화면이 이제 사유를 그리므로(`programs/program-apply-views.tsx`의
+   * `BlockedView`) 문구도 그 사실을 가리킨다.
+   */
+  it('반려 알림은 사유 원문 대신 사유가 있는 화면을 가리킨다', () => {
+    const notice = {
+      id: 'notification-2',
+      applicationId: 'application-2',
+      programId: 'program-2',
+      programName: '합성 경진대회',
+      decision: 'REJECTED',
+      decidedAt: '2026-08-09T00:00:00.000Z',
+    } as const;
+    const html = renderView({ applicationDecisionNotices: [notice] });
 
     expect(html).toContain('합성 경진대회 신청이 반려되었습니다');
-    expect(html).toContain('신청 상세에서 상태를 확인해 주세요');
+    expect(html).toContain('신청 상세에서 반려 사유를 확인해 주세요');
+    // 안내가 가리키는 목적지가 실제로 사유를 그리는 화면이어야 한다.
     expect(html).toContain('href="/programs/program-2/apply"');
-    expect(html).not.toContain('반려 사유');
+    expect(html).toContain('반려 사유 확인');
+    // 옛 문구가 되살아나는 것을 막는다 — 그 화면은 상태만 말하던 시절의 말이다.
+    expect(html).not.toContain('신청 상세에서 상태를 확인해 주세요');
+    // 사유 원문은 대시보드까지 오지 않는다 — 알림 payload에 그런 필드가 없다.
+    expect(Object.keys(notice)).not.toContain('rejectionReason');
+    expect(Object.keys(notice)).not.toContain('reason');
   });
 });
 
