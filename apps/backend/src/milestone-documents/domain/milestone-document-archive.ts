@@ -77,16 +77,15 @@ export type MilestoneDocumentArchiveEntry =
        * 정렬하는 것이 마감 정리의 실제 동선이라, 여기에 내려받은 시각을 쓰면 모든 파일이
        * 같은 시각이 되어 그 정렬이 통째로 뜻을 잃는다.
        *
-       * ⚠ **압축 해제기에 따라 이 시각이 9시간 이르게 보인다.** ZIP은 시각을 두 벌 적는다 —
-       * 옛 DOS 필드는 「만든 쪽의 로컬 시각」이라 타임존을 안 담고, Info-ZIP 확장 필드는 참
-       * UTC를 담는다. 운영 컨테이너에 `TZ`가 없어 프로세스가 UTC로 돌기 때문에 DOS 필드가
-       * KST보다 9시간 이르게 찍힌다. 확장 필드를 읽는 도구(7-Zip·unzip·macOS)는 맞게 보여
-       * 주지만 **Windows 탐색기는 DOS 필드만 본다.**
+       * ⚠ **이 시각이 KST로 보이는 것은 컨테이너의 `TZ` 덕이다.** ZIP은 시각을 두 벌 적는데
+       * 옛 DOS 필드는 「만든 쪽의 로컬 시각」이라 타임존을 안 담는다(Info-ZIP 확장 필드만 참
+       * UTC를 담는다). Windows 탐색기는 **DOS 필드만 보므로**, 프로세스가 UTC로 돌면 제출
+       * 시각이 9시간 이르게 보이고 마감 직후 제출이 전날 제출로 읽힌다.
        *
-       * 여기서 시각을 밀어 맞추지 않는 이유: 그러면 DOS 필드가 맞는 대신 확장 필드가 틀려
-       * 한쪽 도구를 고치고 다른 쪽을 깨뜨린다. 옳은 자리는 **컨테이너의 `TZ`** 이고 그건
-       * 공용 설정이라 별도 PR이다. 정렬 순서는 어느 쪽이든 그대로고(전부 같은 만큼 밀린다)
-       * 어긋나는 것은 절대 시각 표시뿐이며, 판단의 근거인 동봉 `제출현황.csv`는 KST로 적는다.
+       * 그래서 여기서 시각을 밀어 맞추지 **않는다** — 그러면 DOS 필드가 맞는 대신 확장 필드가
+       * 틀려 7-Zip·unzip·macOS 쪽이 깨진다. 지킬 자리는 `apps/backend/Dockerfile`의
+       * `ENV TZ=Asia/Seoul` 하나이고, 그 값을 지우면
+       * `milestone-document-archive-timezone.spec.ts`가 깨진다.
        */
       readonly modifiedAt: Date;
       readonly storageKey: string;
