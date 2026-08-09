@@ -17,7 +17,7 @@ export class PublicUserProfileController {
   constructor(private readonly publicProjectsService: PublicProjectsService) {}
 
   @Get(':userId/public-profile')
-  @Header('Cache-Control', 'public, max-age=60')
+  @Header('Cache-Control', 'no-store')
   async findProfile(
     @Param('userId') userId: string,
   ): Promise<PublicUserProfileResponseDto> {

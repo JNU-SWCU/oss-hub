@@ -339,6 +339,22 @@ describe('CollectionAppClient', () => {
     expect(requestInit?.headers).toBeDefined();
   });
 
+  it('커밋이 없는 저장소의 null 기본 브랜치를 정상 metadata로 보존한다', async () => {
+    const fetcher = fetchMock().mockResolvedValue(
+      json({ repositories: [{ ...repository, default_branch: null }] }),
+    );
+
+    await expect(
+      new CollectionAppClient(
+        config,
+        tokenProvider,
+        fetcher,
+      ).listInstallationRepositories(),
+    ).resolves.toEqual([
+      expect.objectContaining({ id: '42', defaultBranch: null }),
+    ]);
+  });
+
   it('uses metadata, default-branch commit, all-state PR, and release REST endpoints', async () => {
     const responses = [
       repository,
@@ -505,6 +521,18 @@ describe('CollectionAppClient', () => {
     );
     await expect(client.getRepository('o', 'r')).rejects.toMatchObject({
       kind: 'PERMISSION',
+    });
+  });
+
+  it('classifies a missing repository separately from a transient upstream failure', async () => {
+    const client = new CollectionAppClient(
+      config,
+      tokenProvider,
+      fetchMock().mockResolvedValue(new Response('', { status: 404 })),
+    );
+
+    await expect(client.getRepository('o', 'missing')).rejects.toMatchObject({
+      kind: 'NOT_FOUND',
     });
   });
 

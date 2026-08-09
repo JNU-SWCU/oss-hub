@@ -14,6 +14,13 @@ import {
 import { blockedReasonLabel } from '../review-format';
 import type { ReviewRepository } from '../types';
 
+/**
+ * 공개가 막힌 사유를 버튼의 설명으로 잇는다 — 비활성 버튼만으로는
+ * 화면을 읽어 주는 도구가 "왜 못 누르는지"를 말해 줄 수 없다.
+ * (같은 기법: `milestone-document-collection-view.tsx`의 `ARCHIVE_HINT_ID`)
+ */
+const PUBLISH_BLOCKED_REASONS_ID = 'repository-publish-blocked-reasons';
+
 export interface RepositoryPublishCardProps {
   readonly repository: ReviewRepository | null;
   readonly isPublishing: boolean;
@@ -50,7 +57,7 @@ export function RepositoryPublishCard({
             {repository.visibility}
           </StatusBadge>
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="[word-break:keep-all]">
           판정 저장과 별도로 GitHub 저장소를 공개 전환합니다.
         </CardDescription>
       </CardHeader>
@@ -76,13 +83,18 @@ export function RepositoryPublishCard({
               </a>
             </Button>
             {repository.publishEligible ? (
-              <p className="text-sm text-muted-foreground">
-                모든 필수 마일스톤 승인이 완료되어 공개할 수 있습니다.
+              <p className="text-sm text-muted-foreground [word-break:keep-all]">
+                공개 조건을 모두 충족해 공개할 수 있습니다.
               </p>
             ) : (
-              <ul className="grid gap-1 text-sm text-muted-foreground">
+              <ul
+                id={PUBLISH_BLOCKED_REASONS_ID}
+                className="grid gap-1 text-sm text-muted-foreground"
+              >
                 {repository.blockedReasons.map((reason) => (
-                  <li key={reason}>{blockedReasonLabel(reason)}</li>
+                  <li key={reason} className="[word-break:keep-all]">
+                    {blockedReasonLabel(reason)}
+                  </li>
                 ))}
               </ul>
             )}
@@ -90,6 +102,11 @@ export function RepositoryPublishCard({
               type="button"
               className="w-fit"
               disabled={!repository.publishEligible || isPublishing}
+              aria-describedby={
+                repository.publishEligible
+                  ? undefined
+                  : PUBLISH_BLOCKED_REASONS_ID
+              }
               onClick={onPublish}
             >
               {isPublishing ? '공개 전환 중' : 'GitHub 저장소 공개 전환'}

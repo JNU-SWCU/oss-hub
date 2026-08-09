@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthModule } from '../auth/auth.module';
+import { ConsentsModule } from '../consents/consents.module';
+import { ConsentsService } from '../consents/consents.service';
 import { RepositoriesController } from './controller/repositories.controller';
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
 import { GithubAppClient } from './github-app.client';
@@ -15,13 +17,23 @@ import { RepositoryProvisionJobRepository } from './repository/repository-provis
 import { RepositoryProvisionScheduler } from './repository-provision.scheduler';
 import { RepositoryProvisionStateRepository } from './repository/repository-provision-state.repository';
 import { RepositoryProvisionWorker } from './repository-provision.worker';
+import { RepositoryOwnEnrollmentService } from './service/repository-own-enrollment.service';
 
 @Module({
-  imports: [AuthModule, AuditLogModule],
+  imports: [AuthModule, AuditLogModule, ConsentsModule],
   controllers: [RepositoriesController],
   providers: [
     // OWN 저장소를 수집 큐에 편입하기 위해 필요하다(ADR-010 §6).
     CollectionIncrementalRepository,
+    {
+      provide: RepositoryOwnEnrollmentService,
+      inject: [ConsentsService, CollectionIncrementalRepository],
+      useFactory: (
+        consents: ConsentsService,
+        enrollment: CollectionIncrementalRepository,
+      ): RepositoryOwnEnrollmentService =>
+        new RepositoryOwnEnrollmentService(consents, enrollment),
+    },
     GithubOperationsConfig,
     RepositoriesRepository,
     RepositoryOutboxConsumer,
@@ -45,13 +57,13 @@ import { RepositoryProvisionWorker } from './repository-provision.worker';
         RepositoryProvisionJobRepository,
         RepositoryProvisionStateRepository,
         GithubAppClient,
-        CollectionIncrementalRepository,
+        RepositoryOwnEnrollmentService,
       ],
       useFactory: (
         jobs: RepositoryProvisionJobRepository,
         state: RepositoryProvisionStateRepository,
         github: GithubAppClient,
-        enrollment: CollectionIncrementalRepository,
+        enrollment: RepositoryOwnEnrollmentService,
       ): RepositoryProvisionWorker =>
         new RepositoryProvisionWorker(jobs, state, github, enrollment),
     },

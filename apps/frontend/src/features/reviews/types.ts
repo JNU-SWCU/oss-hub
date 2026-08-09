@@ -28,12 +28,22 @@ export interface SubmissionRevision {
   readonly review: ReviewRecord | null;
 }
 
+/**
+ * 공개 확정 게이트 2~5의 실패 사유.
+ * 백엔드 `PUBLISH_BLOCKED_REASONS`(domain/submission-review.ts)와 한 벌이며 서버가 거절하는 조건과 같다.
+ */
+export type PublishBlockedReason =
+  | 'REPOSITORY_NOT_READY'
+  | 'REPOSITORY_PUBLICATION_NOT_PLANNED'
+  | 'PROGRAM_NOT_ENDED'
+  | 'REQUIRED_MILESTONES_NOT_APPROVED';
+
 export interface ReviewRepository {
   readonly id: string;
   readonly url: string;
   readonly visibility: RepositoryVisibility;
   readonly publishEligible: boolean;
-  readonly blockedReasons: readonly string[];
+  readonly blockedReasons: readonly PublishBlockedReason[];
 }
 
 export interface ReviewContext {

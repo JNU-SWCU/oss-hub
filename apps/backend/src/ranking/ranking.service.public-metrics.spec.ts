@@ -46,14 +46,14 @@ describe('RankingService public metrics', () => {
 });
 
 /**
- * 갱신 시각은 목록 캐시 밖에 있어야 한다 (ADR-010 §10).
+ * 공개 목록과 갱신 시각은 요청마다 현재 DB 상태를 읽어야 한다 (ADR-010 §10).
  *
  * 이번 사고의 본질은 "멈췄는데 아무도 몰랐다"였다. 갱신 시각이 목록과 함께
- * 60초 캐시를 타면, 수집이 멈춰도 시각이 계속 새로워지는 것처럼 보여
- * 정확히 감추려던 것을 감춘다.
+ * 저장소 공개 상태가 회수된 뒤 이전 목록을 재사용하면 이미 비공개인 기여가
+ * 남으므로, 완료된 목록 결과는 캐시하지 않는다.
  */
-describe('RankingService — 갱신 시각은 목록 캐시 밖에서 온다', () => {
-  it('같은 연도를 두 번 조회하면 목록은 캐시되지만 갱신 시각은 매번 다시 묻는다', async () => {
+describe('RankingService — 수치와 갱신 시각은 모두 현재 상태에서 온다', () => {
+  it('같은 연도를 두 번 조회해도 목록과 갱신 시각을 모두 다시 묻는다', async () => {
     const harness = setupRankingService();
     harness.getPublicRankingMetrics.mockResolvedValue([
       activity(1n, 'mina', 2, 1, 3),
@@ -65,9 +65,7 @@ describe('RankingService — 갱신 시각은 목록 캐시 밖에서 온다', (
     await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
     await harness.service.findPage(RANKING_YEAR_ALL, 1, 20);
 
-    // 목록은 캐시 적중이라 한 번만 조회한다.
-    expect(harness.getPublicRankingMetrics).toHaveBeenCalledTimes(1);
-    // 갱신 시각은 캐시 밖이라 매번 묻는다 — 멈추면 시각이 그대로 멈춰 보인다.
+    expect(harness.getPublicRankingMetrics).toHaveBeenCalledTimes(2);
     expect(harness.getPublicRankingDataAsOf).toHaveBeenCalledTimes(2);
   });
 

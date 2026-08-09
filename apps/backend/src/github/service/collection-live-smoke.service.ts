@@ -102,6 +102,9 @@ export class CollectionLiveSmokeService {
         alias.repository,
       );
       this.assertSameRepository(selected, metadata);
+      if (metadata.defaultBranch === null) {
+        throw new Error('Live smoke repository must have a default branch');
+      }
       const commits = await this.client.listDefaultBranchCommits(
         this.owner,
         alias.repository,
