@@ -176,13 +176,6 @@ function ProgramListPage({
               ? '검색어나 프로그램 상태를 바꿔 다시 찾아보세요.'
               : '새 프로그램이 등록되면 이곳에서 확인할 수 있습니다.'
           }
-          action={
-            canCreateProgram && !hasFilters ? (
-              <Button asChild>
-                <Link href={programNewHref()}>프로그램 만들기</Link>
-              </Button>
-            ) : undefined
-          }
         />
       );
     }
@@ -230,6 +223,13 @@ function ProgramListPage({
       <PageHeader
         title={getProgramListHeading(status)}
         description={getProgramListSubtitle(viewerRole)}
+        actions={
+          canCreateProgram ? (
+            <Button asChild>
+              <Link href={programNewHref()}>프로그램 만들기</Link>
+            </Button>
+          ) : undefined
+        }
       />
       {/* 좁은 폭: 전역 사이드가 가로 띠라 상태 칩을 본문에 한 번 더 둔다 */}
       <ProgramListStatusChips
