@@ -60,6 +60,7 @@ function collectionReadPort(
         failingRepositoryCount: 0,
         lastRepositorySuccessAt: null,
       }),
+    getIncrementalStatusStreams: () => Promise.resolve([]),
   };
 }
 

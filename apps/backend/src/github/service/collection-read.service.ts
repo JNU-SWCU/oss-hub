@@ -4,6 +4,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CollectionCanonicalRepository } from '../repository/collection-canonical.repository';
 import { PublicRankingRepository } from '../repository/public-ranking.repository';
 import { asiaSeoulYear } from '../repository/collection-incremental.repository';
+import {
+  COLLECTION_STREAM_TYPES,
+  type CollectionStreamStatus,
+} from '../collection-incremental.types';
 import type {
   CollectionContributorCumulativeMetricsDto,
   CollectionContributorCumulativeMetricsQueryDto,
@@ -21,7 +25,10 @@ import type {
   CollectionRepositoryCumulativeMetricsQueryDto,
   CollectionRepositoryMetricsDto,
   CollectionRepositoryMetricsQueryDto,
+  CollectionRepositoryStreamDetailDto,
+  CollectionRepositoryStreamsDto,
   CollectionStatusSnapshotDto,
+  CollectionStreamDetailBucketDto,
 } from '../collection-read.port';
 
 /**
@@ -34,6 +41,26 @@ const PRESENT_REPOSITORY = {
   presence: 'PRESENT',
   source: 'ORG_PROVISIONED',
 } as const;
+
+/**
+ * 2026-08 owner 결정 — `getIncrementalStatusStreams`가 stream 하나를 4개 bucket 중
+ * 하나로 접는다. `getIncrementalStatusSnapshot`이 쓰는 우선순위와 같다: `lastErrorCode`가
+ * 있으면(재시도 대기 중) status를 무시하고 `RETRY_PENDING`이 최우선이다 —
+ * `SystemStatusService.decide()`가 `retryPendingStreamCount`를 partial/backfilling보다
+ * 먼저 보는 것과 같은 이유로, 한 번 READY에 도달한 뒤 poll이 실패해 status는 그대로 READY로
+ * 남아 있어도(ADR-006 — 실패가 확립된 frontier를 되돌리지 않는다) 이 stream은 지금 재시도를
+ * 기다리는 중이라는 신호를 우선 보여준다. status가 없으면(stream row 자체가 아직 생성되지
+ * 않은 조합) `PARTIAL`이다.
+ */
+function classifyStreamBucket(
+  status: CollectionStreamStatus | null,
+  lastErrorCode: string | null,
+): CollectionStreamDetailBucketDto {
+  if (lastErrorCode !== null) return 'RETRY_PENDING';
+  if (status === 'READY') return 'READY';
+  if (status === 'BACKFILLING') return 'BACKFILLING';
+  return 'PARTIAL';
+}
 
 /**
  * Asia/Seoul 달력 연도의 `[start, end)` UTC 경계.
@@ -676,5 +703,54 @@ export class CollectionReadService implements CollectionReadPort {
       failingRepositoryCount,
       lastRepositorySuccessAt: lastSuccess._max.lastSuccessAt ?? null,
     };
+  }
+
+  /**
+   * 2026-08 owner 결정 — ADMIN 전용 system-status 화면의 저장소·stream 상세(위
+   * `collection-read.port.ts`의 `CollectionRepositoryStreamsDto` 참고). `getIncrementalStatusSnapshot`과
+   * 같은 `PRESENT_REPOSITORY` 조건으로 추적 대상을 고르고, 각 저장소의 stream 3개를
+   * `nameWithOwner` 관계 join 1개(N+1 없음)로 가져온다. `classifyStreamBucket`이
+   * 집계 쪽 우선순위(재시도 대기 > backfilling/ready > partial)를 stream 단위로 반복한다.
+   */
+  async getIncrementalStatusStreams(): Promise<
+    readonly CollectionRepositoryStreamsDto[]
+  > {
+    const repositories = await this.prisma.githubRepository.findMany({
+      where: PRESENT_REPOSITORY,
+      orderBy: { nameWithOwner: 'asc' },
+      select: {
+        nameWithOwner: true,
+        streams: {
+          select: {
+            streamType: true,
+            status: true,
+            lastRunAt: true,
+            lastErrorCode: true,
+            lastErrorAt: true,
+          },
+        },
+      },
+    });
+
+    return repositories.map((repository) => {
+      const byType = new Map(
+        repository.streams.map((stream) => [stream.streamType, stream]),
+      );
+      const streams: CollectionRepositoryStreamDetailDto[] =
+        COLLECTION_STREAM_TYPES.map((streamType) => {
+          const row = byType.get(streamType);
+          return {
+            streamType,
+            bucket: classifyStreamBucket(
+              row?.status ?? null,
+              row?.lastErrorCode ?? null,
+            ),
+            lastSuccessAt: row?.lastRunAt ?? null,
+            lastErrorCode: row?.lastErrorCode ?? null,
+            lastErrorAt: row?.lastErrorAt ?? null,
+          };
+        });
+      return { repositoryName: repository.nameWithOwner, streams };
+    });
   }
 }
