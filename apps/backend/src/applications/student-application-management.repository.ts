@@ -27,6 +27,18 @@ export interface OwnedStudentApplication {
   readonly submittedAt: Date;
   readonly updatedAt: Date;
   readonly isRepositoryPublicationPlanned: boolean;
+  /**
+   * 교직원이 반려하며 남긴 사유. 반려가 아닌 신청은 `null`이다.
+   *
+   * ⚠ 읽는 사람은 **본인만이 아니다.** `programApplicationParticipantWhere`가
+   * `applicantId | team.leaderId | team.members`로 좁히므로, 팀 신청이면 팀 리더와
+   * 팀원 전원이 이 사유를 읽는다. 의도된 범위다 — 판정 알림도 같은 집합에게
+   * 나가고(#570), 같은 경로의 `answers`도 원래 팀원에게 열려 있다. 「본인만」으로
+   * 좁히려면 알림 수신자와 함께 바꿔야 한다.
+   * 감사 로그·알림·메일에는 담지 않는다(`audit-log/audit-log-metadata.ts`의
+   * `APPLICATION_DECISION_AUDIT_*` 주석이 그 결정의 원본).
+   */
+  readonly rejectionReason: string | null;
 }
 
 export interface UpdatePendingApplicationRecord {
@@ -67,6 +79,7 @@ const APPLICATION_SELECT = {
   submittedAt: true,
   updatedAt: true,
   isRepositoryPublicationPlanned: true,
+  rejectionReason: true,
 } as const satisfies Prisma.ApplicationSelect;
 
 type ApplicationRow = Prisma.ApplicationGetPayload<{

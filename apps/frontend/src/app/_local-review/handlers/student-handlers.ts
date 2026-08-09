@@ -12,6 +12,7 @@ import {
   matchPath,
   notFound,
   problem,
+  unauthenticated,
   unauthorized,
   type LocalReviewContext,
   type LocalReviewHandler,
@@ -20,6 +21,7 @@ import {
 import { STUDENT_JOURNEY_RESPONSES } from '../student-journey-fixtures';
 import {
   JOINED_TEAM_FIXTURE,
+  MY_APPLICATION_FIXTURES,
   MY_TEAM_FIXTURES,
   PROGRAM_CHECKLISTS,
   SUBMISSION_FORMS,
@@ -150,6 +152,19 @@ function applicationDecisionNotificationsHandler(
               decision: 'APPROVED',
               decidedAt: '2026-08-08T23:00:00.000Z',
             },
+            // 반려 알림. 이 안내의 링크가 `/programs/{id}/apply`로 가고 그 화면이
+            // 반려 사유를 그린다 — 승인 알림만 두면 검토자가 그 왕복을 눌러 볼 수
+            // 없다. `programId`는 반려 신청 픽스처가 있는 프로그램이어야 한다
+            // (`student-program-fixtures.ts`의 `MY_APPLICATION_FIXTURES`).
+            // 사유 원문은 여기 담지 않는다 — 실제 알림 payload에도 없다.
+            {
+              id: 'synthetic-application-rejection-notice',
+              applicationId: 'synthetic-application-sw-value',
+              programId: 'program-sw-value',
+              programName: '합성 SW가치확산 프로그램',
+              decision: 'REJECTED',
+              decidedAt: '2026-06-28T23:00:00.000Z',
+            },
           ]
         : [],
     );
@@ -249,6 +264,55 @@ function submissionFormHandler(
         '해당 마일스톤의 제출 양식을 찾을 수 없습니다.',
       )
     : json(200, form);
+}
+
+/**
+ * 내 신청서. **반려 사유가 학생에게 닿는 유일한 경로다** — 알림 payload·감사 로그·
+ * 메일 어디에도 사유가 없으므로, 이 규칙이 없으면 `/programs/{id}/apply`가 사유를
+ * 그릴 재료를 못 받고 검토자는 빈 안내만 보게 된다(그동안 커버리지 목록의
+ * `KNOWN_GAPS`에 있던 항목이다).
+ *
+ * 실패는 backend `StudentApplicationManagementService.requireContext`의 **순서까지**
+ * 따라간다 — 학생 아님(403 `APP_008`) → 프로그램 없음(404 `APP_009`) → 신청 없음
+ * (404 `APP_001`). 픽스처가 순서를 바꾸면 없는 프로그램을 열었을 때 화면이 "신청이
+ * 사라졌습니다"로 갈려, 실제 배포에서는 나지 않는 갈래가 검토에서만 보인다.
+ *
+ * 401은 `unauthenticated()`를 쓴다 — 이 컨트롤러의 `SessionGuard`가 실제로 주는
+ * 코드(`AUT_003`)다.
+ */
+function myApplicationHandler(
+  context: LocalReviewContext,
+): LocalReviewResponsePlan | null {
+  const params = matchGet(context, 'programs/:programId/applications/me');
+  if (params === null) return null;
+  if (!context.isAuthenticated) return unauthenticated(context.path);
+  if (context.role !== 'STUDENT') {
+    return problem(
+      403,
+      'APP_008',
+      apiPath(context.path),
+      '승인된 학생 계정만 신청할 수 있습니다.',
+    );
+  }
+
+  const programId = params.programId ?? '';
+  // 위쪽 `PROGRAM_NOT_FOUND_CODE`를 쓰지 않는다 — 그 문자열은 programs 모듈 규칙들이
+  // 쓰는 값이고, 이 엔드포인트의 "프로그램 없음"은 applications 모듈이
+  // `APP_009`로 낸다(`applications-error-code.enum.ts`).
+  if (!isPublicProgramId(programId)) {
+    return problem(
+      404,
+      'APP_009',
+      apiPath(context.path),
+      '프로그램을 찾을 수 없습니다.',
+    );
+  }
+
+  const application = MY_APPLICATION_FIXTURES[programId];
+  // 신청 전이거나 이 페르소나의 신청이 없는 프로그램 — 화면은 이때 신청 양식으로 간다.
+  return application === undefined
+    ? problem(404, 'APP_001', apiPath(context.path), '신청을 찾을 수 없습니다.')
+    : json(200, application);
 }
 
 function myTeamHandler(
@@ -374,6 +438,7 @@ export const STUDENT_HANDLERS: readonly LocalReviewHandler[] = [
   programActivityHandler,
   submissionChecklistHandler,
   submissionFormHandler,
+  myApplicationHandler,
   myTeamHandler,
   studentMutationHandler,
   // 2 세그먼트 `programs/{id}`는 다른 규칙을 가리기 쉬우므로 마지막에 둔다.

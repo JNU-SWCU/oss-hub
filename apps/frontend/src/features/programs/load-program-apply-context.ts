@@ -13,7 +13,10 @@ import {
   type TeamMinimum,
 } from './program-apply-flow';
 import { resolveProgramApplicationTemplate } from './program-templates';
-import { getMyApplication } from './student-application-api';
+import {
+  getMyApplication,
+  type StudentApplication,
+} from './student-application-api';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
 
 type SessionSnapshot =
@@ -33,6 +36,14 @@ export type ProgramApplyContext =
       readonly kind: 'blocked';
       readonly reason: ProgramApplyBlockedReason;
       readonly program: ProgramDetail;
+      /**
+       * 막힘을 판정하는 데 쓴 내 신청서. 조회하지 않고 막은 갈래(팀 미구성 등)는 `null`.
+       *
+       * 예전에는 `already-applied` 판정 직후 이 객체를 버렸는데, 반려 사유가 **여기에만**
+       * 실려 오므로 버리는 순간 화면이 "승인 또는 반려된 신청서는 수정할 수 없습니다"라고만
+       * 말하고 왜 반려됐는지는 어디에서도 알 수 없게 된다(#722).
+       */
+      readonly application: StudentApplication | null;
     }
   | {
       readonly kind: 'ready';
@@ -119,10 +130,20 @@ export async function loadProgramApplyContext(
         };
       }
       if (application.status !== 'SUBMITTED') {
-        return { kind: 'blocked', reason: 'already-applied', program };
+        return {
+          kind: 'blocked',
+          reason: 'already-applied',
+          program,
+          application,
+        };
       }
       if (!application.canManage) {
-        return { kind: 'blocked', reason: 'period-closed', program };
+        return {
+          kind: 'blocked',
+          reason: 'period-closed',
+          program,
+          application,
+        };
       }
       const editTeam = await resolveTeam(
         programId,
@@ -163,7 +184,10 @@ export async function loadProgramApplyContext(
       session.isAuthenticated,
     );
     const blocked = resolveApplyBlockedReason(program, template, team.teamId);
-    if (blocked) return { kind: 'blocked', reason: blocked, program };
+    if (blocked) {
+      // 이 갈래는 신청서를 조회하지 않는다 — 아직 신청이 없거나 팀이 없어 막힌다.
+      return { kind: 'blocked', reason: blocked, program, application: null };
+    }
     return {
       kind: 'ready',
       mode: 'create',

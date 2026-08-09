@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { ProgramActivity, ProgramDetail } from '@/features/programs/types';
 import { resolveApplyBlockedReason } from '@/features/programs/program-apply-flow';
 import { PROGRAM_TEMPLATE_DEFINITIONS } from '@/features/programs/program-templates';
+import type { StudentApplication } from '@/features/programs/student-application-api';
 import type { SubmissionFormData } from '@/features/submissions/types';
+import {
+  sanitizeRejectionReason,
+  REJECTION_REASON_MAX_LINES,
+} from '@/lib/rejection-reason';
 import type { LocalReviewFixtureId } from '../fixture-contract';
 import { resolveLocalReviewResponse } from '../fixture-response';
 import { PUBLIC_PROGRAM_IDS } from './student-program-fixtures';
@@ -259,6 +264,107 @@ describe('student fixture responses', () => {
     });
     expect(missing).toMatchObject({ kind: 'json', status: 404 });
   });
+
+  /**
+   * 반려 사유가 로컬 검토에서 **실제로 보이는가**(#722).
+   *
+   * 이 경로는 커버리지 목록의 `KNOWN_GAPS`에 있던 항목이라, 규칙이 없는 동안
+   * `/programs/{id}/apply`는 내 신청서를 아예 못 읽었다. 사유가 실려 오는 곳은 이
+   * 응답 하나뿐이라(알림·감사 로그·메일에는 없다) 여기가 비면 화면도 빈다.
+   */
+  it('반려된 신청은 사유를 실어 돌려준다', () => {
+    // Given / When
+    const application = jsonBody(
+      call('student', 'GET', 'programs/program-sw-value/applications/me'),
+    ) as StudentApplication;
+
+    // Then
+    expect(application.status).toBe('REJECTED');
+    expect(application.rejectionReason).toContain(
+      '제출하신 요약이 프로그램 주제와 맞지 않습니다.',
+    );
+  });
+
+  /**
+   * 픽스처가 **화면이 사유를 그리는 조건 두 가지**를 실제로 만족하는가.
+   *
+   * `loadProgramApplyContext`는 ① `viewer.applicationStatus !== null`일 때만 내
+   * 신청서를 조회하고 ② 그 신청이 `SUBMITTED`가 아닐 때만 `already-applied`로 막아
+   * `BlockedView`에 신청서를 넘긴다. 둘 중 하나라도 어긋나면 화면은 신청 양식이나
+   * 수정 화면으로 갈려 사유 상자에 도달하지 못한다 — 픽스처만 고치고 이 조건을
+   * 확인하지 않으면 200 응답은 멀쩡한데 화면은 그대로인 상태가 된다.
+   */
+  it('반려 픽스처는 신청 상세가 사유 화면으로 갈리는 조건을 만족한다', () => {
+    // Given / When
+    const detail = jsonBody(
+      call('student', 'GET', 'programs/program-sw-value/viewer'),
+    ) as ProgramDetail;
+    const application = jsonBody(
+      call('student', 'GET', 'programs/program-sw-value/applications/me'),
+    ) as StudentApplication;
+
+    // Then ① 신청서를 조회하는 갈래로 들어간다
+    expect(detail.viewer.applicationStatus).not.toBeNull();
+    // Then ② `already-applied`로 막혀 BlockedView가 신청서를 받는다
+    expect(application.status).not.toBe('SUBMITTED');
+
+    // And: 정제기를 통과하고도 사유가 남아야 상자가 그려진다. 공백뿐이면 `null`이 되어
+    // 화면이 아무것도 그리지 않고, 검토자는 여전히 사유를 볼 수 없다.
+    const rendered = sanitizeRejectionReason(application.rejectionReason);
+    expect(rendered).not.toBeNull();
+
+    // And: 여러 줄이어야 `whitespace-pre-wrap`이 도는지 눈으로 확인할 수 있다.
+    const lines = rendered?.split('\n') ?? [];
+    expect(lines.length).toBeGreaterThan(1);
+    // 이 화면은 자르지 않는다. 아무 데도 잘리지 않았음을 말줄임표 부재로 고정한다.
+    expect(rendered).not.toContain('…');
+    // 그리고 **역할 요청 쪽 상한을 일부러 넘긴다** — 넘겨도 끝까지 남는 것이 이
+    // 갈래의 계약이다. 상한 안으로 줄어들면 그 계약을 더는 확인하지 못한다.
+    expect(lines.length).toBeGreaterThan(REJECTION_REASON_MAX_LINES);
+    // 마지막 줄(재신청 마감 같은 실행 정보)이 살아 있어야 한다.
+    expect(rendered?.endsWith(lines[lines.length - 1] ?? '')).toBe(true);
+    expect(rendered).toContain('재신청 마감');
+  });
+
+  /**
+   * 실패는 backend `StudentApplicationManagementService.requireContext`의 순서를
+   * 그대로 따른다. 픽스처가 실제 계약보다 너그럽거나 다른 코드를 주면, 배포에서는
+   * 나지 않는 갈래가 검토에서만 보인다.
+   */
+  it.each([
+    ['신청이 없는 프로그램', 'student', 'program-basic-study', 404, 'APP_001'],
+    ['없는 프로그램', 'student', 'synthetic-missing', 404, 'APP_009'],
+    ['학생이 아닌 역할', 'staff', 'program-sw-value', 403, 'APP_008'],
+    // 역할 검사가 프로그램 검사보다 **먼저**라는 것을 이 한 줄이 고정한다.
+    // 둘을 뒤집으면 여기서만 404 APP_009 가 나와 실제 backend 와 갈린다.
+    [
+      '학생이 아닌 역할 + 없는 프로그램',
+      'staff',
+      'synthetic-missing',
+      403,
+      'APP_008',
+    ],
+    ['비로그인', 'anonymous', 'program-sw-value', 401, 'AUT_003'],
+  ] as readonly (readonly [
+    string,
+    LocalReviewFixtureId,
+    string,
+    number,
+    string,
+  ])[])(
+    '%s은 실제 도메인 코드로 답한다',
+    (_label, fixture, programId, status, code) => {
+      // Given / When
+      const plan = call(
+        fixture,
+        'GET',
+        `programs/${programId}/applications/me`,
+      );
+
+      // Then — 경로를 모른다는 뜻의 `LFX_404`가 아니라 도메인 응답이어야 한다.
+      expect(plan).toMatchObject({ kind: 'json', status, body: { code } });
+    },
+  );
 
   it('splits the two team states so both team screens are reviewable', () => {
     // Given / When
