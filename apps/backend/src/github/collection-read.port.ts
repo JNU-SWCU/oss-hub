@@ -3,8 +3,9 @@ import type {
   CollectionRepositoryVisibility,
 } from './collection-incremental.types';
 import type { PrismaService } from '../prisma/prisma.service';
-import { CollectionCanonicalRepository } from './collection-canonical.repository';
-import { CollectionReadService } from './collection-read.service';
+import { PublicRankingRepository } from './repository/public-ranking.repository';
+import { CollectionCanonicalRepository } from './repository/collection-canonical.repository';
+import { CollectionReadService } from './service/collection-read.service';
 
 export const COLLECTION_READ_PORT = Symbol('COLLECTION_READ_PORT');
 
@@ -40,7 +41,7 @@ export type CollectionRankingActivityDto = {
   readonly githubId: bigint;
   readonly githubLogin: string;
   readonly commitCount: number;
-  readonly prCount: number;
+  readonly pullRequestCount: number;
   readonly releaseCount: number;
 };
 
@@ -53,7 +54,7 @@ export type CollectionStatusSnapshotDto = {
 };
 
 /**
- * todo 11 — 신규 증분 aggregate 소스(`CollectionRepositoryYearAggregate`)를 읽는 배치 질의.
+ * todo 11 — `Contribution`(ADR-010 §4)을 읽는 배치 질의.
  * `repositoryIds`는 기존 `CollectionRepositoryActivityQueryDto`와 동일하게 GitHub 저장소
  * ID(`githubRepositoryId`)다. `year`를 생략하면 Asia/Seoul 기준 현재 연도로 조회한다 —
  * 그 해 fact가 아직 하나도 없어도(1/1 rollover) 신규 fact write 없이 0값 결과를 반환한다.
@@ -100,7 +101,7 @@ export type CollectionContributorMetricsDto = {
 };
 
 /**
- * todo 16 — `getRepositoryMetrics`(연도 한정)와 달리 `CollectionRepositoryYearAggregate`의
+ * todo 16 — `getRepositoryMetrics`(연도 한정)와 달리 `Contribution`의
  * 모든 연도를 합산한 lifetime 누적이다. 공개 프로젝트 상세/프로필 라우트가 페이지당 상수
  * 개수의 질의로 지표를 배치 조회할 때 쓴다 — repositoryIds 배열 크기와 무관하게 쿼리 1개다.
  */
@@ -117,7 +118,7 @@ export type CollectionRepositoryCumulativeMetricsDto = {
 };
 
 /**
- * todo 16 — `getContributorMetrics`(연도 한정)와 달리 `CollectionContributorYearAggregate`의
+ * todo 16 — `getContributorMetrics`(연도 한정)와 달리 `Contribution`의
  * 모든 연도를 저장소·기여자별로 합산한 lifetime 누적이다. 공개 프로젝트 상세 라우트의 기여자
  * 목록에 쓰며, githubLogin만 노출한다(platform User join 없음, raw GitHub payload 없음).
  */
@@ -143,7 +144,7 @@ export type CollectionPublicRankingMetricsDto = {
   readonly githubId: bigint;
   readonly githubLogin: string;
   readonly commitCount: number;
-  readonly prCount: number;
+  readonly pullRequestCount: number;
   readonly releaseCount: number;
 };
 
@@ -169,6 +170,20 @@ export type CollectionIncrementalStatusSnapshotDto = {
   readonly oldestRetryPendingAt: Date | null;
   readonly lastCycleStartedAt: Date | null;
   readonly lastCycleCompletedAt: Date | null;
+
+  /**
+   * 큐 건강 (ADR-010 §6·§10).
+   *
+   * 이번 사고는 "멈췄는데 아무도 몰랐다"였다. 스트림 상태만 보면 저장소 하나가
+   * 계속 실패하며 큐를 붙잡고 있어도 전체 수치는 정상으로 보인다.
+   * 아래 셋이 그 상황을 드러낸다.
+   */
+  /** 지금 수집 차례가 지난 저장소 수. 계속 늘면 스윕이 못 따라잡고 있다. */
+  readonly dueRepositoryCount: number;
+  /** 연속 실패 중인 저장소 수. 저장소 이름은 노출하지 않는다. */
+  readonly failingRepositoryCount: number;
+  /** 마지막으로 어떤 저장소든 수집에 성공한 시각. 이게 멈추면 전체가 멈춘 것이다. */
+  readonly lastRepositorySuccessAt: Date | null;
 };
 
 export interface CollectionReadPort {
@@ -189,7 +204,7 @@ export interface CollectionReadPort {
   ): Promise<readonly CollectionContributorMetricsDto[]>;
   /**
    * todo 19 — ranking 공개 페이지 전용 질의. `getContributorMetrics`와 같은 증분 소스
-   * (`CollectionContributorYearAggregate`)를 읽되, PUBLIC + PRESENT 저장소만 port 경계에서
+   * (`Contribution`)을 읽되, PUBLIC + PRESENT 저장소만 port 경계에서
    * 필터링하고 githubId(githubUserId) 단위로 저장소·연도를 넘어 합산해 이미 병합된 행을
    * 반환한다 — private facts·platform User join·실명 없이 githubLogin만 노출한다.
    * `currentYear`를 생략하면 전체 기간 누적, 지정하면 해당 연도만 반환한다.
@@ -202,6 +217,17 @@ export interface CollectionReadPort {
    * repositories (desc). Empty years are omitted — shell year sidebar only.
    */
   listPublicRankingYears(): Promise<readonly number[]>;
+
+  /**
+   * 공개 랭킹 수치가 언제 기준인지 (ADR-010 §10).
+   *
+   * 랭킹 목록과 **따로** 묻는다. 목록은 60초 캐시를 타는데 갱신 시각까지 같이
+   * 캐시되면, 수집이 멈춰도 시각이 60초마다 갱신되는 것처럼 보여 정확히
+   * 감추려던 것을 감춘다.
+   *
+   * 관측된 공개 기여가 하나도 없으면 `null`.
+   */
+  getPublicRankingDataAsOf(): Promise<Date | null>;
   /** todo 12 — 조직 전체 증분 collection의 per-repo/stream 진행 상황 집계(system-status source). */
   getIncrementalStatusSnapshot(): Promise<CollectionIncrementalStatusSnapshotDto>;
   /** todo 16 — 공개 프로젝트 상세/프로필 배치 지표(연도 무관 lifetime 누적). */
@@ -227,5 +253,6 @@ export function createCollectionReadPortForIntegrationTest(
   return new CollectionReadService(
     prisma,
     new CollectionCanonicalRepository(prisma),
+    new PublicRankingRepository(prisma),
   );
 }

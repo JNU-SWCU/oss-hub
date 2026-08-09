@@ -10,30 +10,32 @@ import type { RuntimeConfig } from '../runtime-config/runtime-config';
 import { CollectionAppClient } from './collection-app.client';
 import { CollectionAppConfig } from './collection-app.config';
 import { CollectionAppTokenProvider } from './collection-app.token';
-import { CollectionCanonicalRepository } from './collection-canonical.repository';
-import { CollectionCutoverRepository } from './collection-cutover.repository';
-import { CollectionCutoverService } from './collection-cutover.service';
+import { CollectionCanonicalRepository } from './repository/collection-canonical.repository';
+import { CollectionCutoverRepository } from './repository/collection-cutover.repository';
+import { CollectionCutoverService } from './service/collection-cutover.service';
 import { CollectionDiscoveryClient } from './collection-discovery.client';
-import { CollectionExternalDiscoveryService } from './collection-external-discovery.service';
-import { CollectionGenerationImportService } from './collection-generation-import.service';
-import { CollectionIncrementalRepository } from './collection-incremental.repository';
-import { CollectionAdminController } from './collection-admin.controller';
+import { CollectionExternalDiscoveryService } from './service/collection-external-discovery.service';
+import { CollectionGenerationImportService } from './service/collection-generation-import.service';
+import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
+import { CollectionAdminController } from './controller/collection-admin.controller';
+import { ContributionInvariants } from './contribution-invariants';
+import { PublicRankingRepository } from './repository/public-ranking.repository';
 import { CollectionAdminGuard } from './collection-admin.guard';
 import { CollectionPublicTokenProvider } from './collection-public.token';
 import { COLLECTION_READ_PORT } from './collection-read.port';
-import { CollectionReadService } from './collection-read.service';
+import { CollectionReadService } from './service/collection-read.service';
 import {
   CollectionReconciliationRuntimeFactory,
   CollectionReconciliationRuntime,
   CollectionReconciliationService,
-} from './collection-reconciliation.service';
-import { CollectionSchedulerService } from './collection-scheduler.service';
+} from './service/collection-reconciliation.service';
+import { CollectionSchedulerService } from './service/collection-scheduler.service';
 import { ProviderRequestQueue } from './collection-provider-queue';
 import {
   CollectionSyncRuntime,
   CollectionSyncRuntimeFactory,
   CollectionSyncService,
-} from './collection-sync.service';
+} from './service/collection-sync.service';
 
 /**
  * todo 14 원자 전환(ADR-006): 유일하게 배선된 live writer trigger가 old(`CollectionReconciliationService`)
@@ -51,6 +53,8 @@ import {
   controllers: [CollectionAdminController],
   providers: [
     CollectionAdminGuard,
+    ContributionInvariants,
+    PublicRankingRepository,
     CollectionSchedulerService,
     CollectionCanonicalRepository,
     CollectionIncrementalRepository,

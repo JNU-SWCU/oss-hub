@@ -1,6 +1,7 @@
 import { CollectionReadService } from './collection-read.service';
-import type { CollectionCanonicalRepository } from './collection-canonical.repository';
-import type { PrismaService } from '../prisma/prisma.service';
+import { PublicRankingRepository } from '../repository/public-ranking.repository';
+import type { CollectionCanonicalRepository } from '../repository/collection-canonical.repository';
+import type { PrismaService } from '../../prisma/prisma.service';
 
 /**
  * todo 11 — `getRepositoryMetrics`/`getContributorMetrics`만 다룬다. `findRankingActivity`/
@@ -15,8 +16,9 @@ import type { PrismaService } from '../prisma/prisma.service';
  * 지우면 실제로 실패한다(단순 `where` 인자 스냅샷 비교가 아니다).
  */
 interface MockPrisma {
-  githubRepository: { findMany: jest.Mock; count: jest.Mock };
-  collectionContributorYearAggregate: { findMany: jest.Mock };
+  githubRepository: { findMany: jest.Mock; count: jest.Mock; aggregate: jest.Mock };
+  contribution: { findMany: jest.Mock };
+  user: { findMany: jest.Mock };
   collectionRepositoryStream: {
     groupBy: jest.Mock;
     count: jest.Mock;
@@ -29,8 +31,13 @@ const createDb = (): MockPrisma => ({
   githubRepository: {
     findMany: jest.fn().mockResolvedValue([]),
     count: jest.fn().mockResolvedValue(0),
+    aggregate: jest.fn().mockResolvedValue({ _max: { lastSuccessAt: null } }),
   },
-  collectionContributorYearAggregate: {
+  contribution: {
+    findMany: jest.fn().mockResolvedValue([]),
+  },
+  // 표시명 원본. 기본값은 빈 목록이며 각 테스트가 필요한 만큼 채운다.
+  user: {
     findMany: jest.fn().mockResolvedValue([]),
   },
   collectionRepositoryStream: {
@@ -50,6 +57,7 @@ const serviceFor = (db: MockPrisma): CollectionReadService =>
   new CollectionReadService(
     db as unknown as PrismaService,
     {} as CollectionCanonicalRepository,
+    new PublicRankingRepository(db as unknown as PrismaService),
   );
 
 /**
@@ -89,7 +97,7 @@ function findManyGithubRepository<Row extends { githubRepositoryId: bigint }>(
 }
 
 /**
- * `collectionContributorYearAggregate.findMany` 호출을
+ * `contribution.findMany` 호출을
  * `where.repository.githubRepositoryId.in`/`where.repository.source`로 필터링한다.
  */
 function findManyContributorYearAggregate<
@@ -227,7 +235,7 @@ describe('CollectionReadService — getRepositoryMetrics', () => {
         visibility: 'PUBLIC',
         presence: 'PRESENT',
         lastCompleteInventoryObservedAt: observedAt,
-        yearAggregates: [
+        contributions: [
           {
             commitCount: 3,
             pullRequestCount: 2,
@@ -274,7 +282,7 @@ describe('CollectionReadService — getRepositoryMetrics', () => {
         visibility: 'PRIVATE',
         presence: 'PRESENT',
         lastCompleteInventoryObservedAt: observedAt,
-        yearAggregates: [],
+        contributions: [],
       },
     ]);
 
@@ -307,14 +315,14 @@ describe('CollectionReadService — getRepositoryMetrics', () => {
         visibility: 'PUBLIC',
         presence: 'PRESENT',
         lastCompleteInventoryObservedAt: asOf,
-        yearAggregates: [],
+        contributions: [],
       },
       {
         githubRepositoryId: EXTERNAL_REPOSITORY_ID,
         visibility: 'PUBLIC',
         presence: 'PRESENT',
         lastCompleteInventoryObservedAt: asOf,
-        yearAggregates: [],
+        contributions: [],
       },
     ]);
 
@@ -337,16 +345,19 @@ describe('CollectionReadService — getContributorMetrics', () => {
 
     expect(result).toEqual([]);
     expect(
-      db.collectionContributorYearAggregate.findMany,
+      db.contribution.findMany,
     ).not.toHaveBeenCalled();
   });
 
   it('maps two distinct contributors of the same repository/year to separate rows', async () => {
     const db = createDb();
-    db.collectionContributorYearAggregate.findMany.mockResolvedValue([
+    db.user.findMany.mockResolvedValue([
+      { githubId: 1n, nickname: 'alice' },
+      { githubId: 2n, nickname: 'bob' },
+    ]);
+    db.contribution.findMany.mockResolvedValue([
       {
-        githubUserId: 1n,
-        githubLogin: 'alice',
+        githubId: 1n,
         commitCount: 4,
         pullRequestCount: 1,
         releaseCount: 0,
@@ -354,8 +365,7 @@ describe('CollectionReadService — getContributorMetrics', () => {
         repository: { githubRepositoryId: 101n },
       },
       {
-        githubUserId: 2n,
-        githubLogin: 'bob',
+        githubId: 2n,
         commitCount: 1,
         pullRequestCount: 0,
         releaseCount: 1,
@@ -391,10 +401,14 @@ describe('CollectionReadService — getContributorMetrics', () => {
         releaseCount: 1,
       },
     ]);
-    expect(db.collectionContributorYearAggregate.findMany).toHaveBeenCalledWith(
+    expect(db.contribution.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          year: 2026,
+          // 연 경계를 date 범위로 건다(ADR-010 §4 — 저장에 연도 칸이 없다).
+          date: {
+            gte: new Date(Date.UTC(2026, 0, 1) - 9 * 60 * 60 * 1000),
+            lt: new Date(Date.UTC(2027, 0, 1) - 9 * 60 * 60 * 1000),
+          },
           repository: {
             githubRepositoryId: { in: [101n] },
             source: 'ORG_PROVISIONED',
@@ -406,7 +420,11 @@ describe('CollectionReadService — getContributorMetrics', () => {
 
   it('omits contributors with no fact in the requested year rather than defaulting to zero', async () => {
     const db = createDb();
-    db.collectionContributorYearAggregate.findMany.mockResolvedValue([]);
+    db.user.findMany.mockResolvedValue([
+      { githubId: 1n, nickname: 'alice' },
+      { githubId: 2n, nickname: 'bob' },
+    ]);
+    db.contribution.findMany.mockResolvedValue([]);
 
     const result = await serviceFor(db).getContributorMetrics({
       repositoryIds: [101n],
@@ -419,11 +437,14 @@ describe('CollectionReadService — getContributorMetrics', () => {
   it('GR-13: excludes a contributor row belonging to an EXTERNAL_PUBLIC repository even when its id is explicitly requested alongside an ORG_PROVISIONED one', async () => {
     const db = createDb();
     const asOf = new Date('2026-07-31T00:00:00.000Z');
-    db.collectionContributorYearAggregate.findMany =
+    db.user.findMany.mockResolvedValue([
+      { githubId: 1n, nickname: 'alice' },
+      { githubId: 2n, nickname: 'bob' },
+    ]);
+    db.contribution.findMany =
       findManyContributorYearAggregate([
         {
-          githubUserId: 1n,
-          githubLogin: 'alice',
+          githubId: 1n,
           commitCount: 4,
           pullRequestCount: 1,
           releaseCount: 0,
@@ -431,8 +452,7 @@ describe('CollectionReadService — getContributorMetrics', () => {
           repository: { githubRepositoryId: ORG_REPOSITORY_ID },
         },
         {
-          githubUserId: 2n,
-          githubLogin: 'bob',
+          githubId: 2n,
           commitCount: 9,
           pullRequestCount: 9,
           releaseCount: 9,
@@ -453,11 +473,15 @@ describe('CollectionReadService — getContributorMetrics', () => {
 describe('CollectionReadService — getPublicRankingMetrics', () => {
   it('filters to PUBLIC + PRESENT repositories at the query boundary', async () => {
     const db = createDb();
-    db.collectionContributorYearAggregate.findMany.mockResolvedValue([]);
+    db.user.findMany.mockResolvedValue([
+      { githubId: 1n, nickname: 'alice' },
+      { githubId: 2n, nickname: 'bob' },
+    ]);
+    db.contribution.findMany.mockResolvedValue([]);
 
     await serviceFor(db).getPublicRankingMetrics({});
 
-    expect(db.collectionContributorYearAggregate.findMany).toHaveBeenCalledWith(
+    expect(db.contribution.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { repository: { visibility: 'PUBLIC', presence: 'PRESENT' } },
       }),
@@ -466,15 +490,23 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
 
   it('adds a year filter only when currentYear is provided (THIS_YEAR vs ALL)', async () => {
     const db = createDb();
-    db.collectionContributorYearAggregate.findMany.mockResolvedValue([]);
+    db.user.findMany.mockResolvedValue([
+      { githubId: 1n, nickname: 'alice' },
+      { githubId: 2n, nickname: 'bob' },
+    ]);
+    db.contribution.findMany.mockResolvedValue([]);
 
     await serviceFor(db).getPublicRankingMetrics({ currentYear: 2026 });
 
-    expect(db.collectionContributorYearAggregate.findMany).toHaveBeenCalledWith(
+    expect(db.contribution.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           repository: { visibility: 'PUBLIC', presence: 'PRESENT' },
-          year: 2026,
+          // 저장에 연도 칸이 없으므로 Asia/Seoul 연 경계로 자른다(ADR-010 §4).
+          date: {
+            gte: new Date(Date.UTC(2026, 0, 1) - 9 * 60 * 60 * 1000),
+            lt: new Date(Date.UTC(2027, 0, 1) - 9 * 60 * 60 * 1000),
+          },
         },
       }),
     );
@@ -482,17 +514,19 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
 
   it('merges repository/year rows into one entry per githubUserId', async () => {
     const db = createDb();
-    db.collectionContributorYearAggregate.findMany.mockResolvedValue([
+    db.user.findMany.mockResolvedValue([
+      { githubId: 1n, nickname: 'alice' },
+      { githubId: 2n, nickname: 'bob' },
+    ]);
+    db.contribution.findMany.mockResolvedValue([
       {
-        githubUserId: 1n,
-        githubLogin: 'alice',
+        githubId: 1n,
         commitCount: 2,
         pullRequestCount: 1,
         releaseCount: 0,
       },
       {
-        githubUserId: 1n,
-        githubLogin: 'alice',
+        githubId: 1n,
         commitCount: 3,
         pullRequestCount: 0,
         releaseCount: 1,
@@ -506,25 +540,31 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
         githubId: 1n,
         githubLogin: 'alice',
         commitCount: 5,
-        prCount: 1,
+        pullRequestCount: 1,
         releaseCount: 1,
       },
     ]);
   });
 
-  it('picks the lexicographically smallest normalized login as canonical when a login diverges across rows', async () => {
+  // 옛 집계는 `githubLogin` 을 비정규화해 들고 있어서 같은 사람의 login 이 행마다
+  // 갈릴 수 있었고, 그래서 정규화 소문자 기준 tie-break 가 필요했다.
+  // 이제 표시명 원본이 `User` 하나이므로(ADR-010 §4) 갈릴 수가 없다 —
+  // 검증할 것은 tie-break 가 아니라 "여러 행이 한 사람으로 접히는가"다.
+  it('같은 사람의 여러 행이 하나로 접히고 표시명은 User 에서 온다', async () => {
     const db = createDb();
-    db.collectionContributorYearAggregate.findMany.mockResolvedValue([
+    db.user.findMany.mockResolvedValue([
+      { githubId: 1n, nickname: 'alice' },
+      { githubId: 2n, nickname: 'bob' },
+    ]);
+    db.contribution.findMany.mockResolvedValue([
       {
-        githubUserId: 1n,
-        githubLogin: 'Zed',
+        githubId: 1n,
         commitCount: 1,
         pullRequestCount: 0,
         releaseCount: 0,
       },
       {
-        githubUserId: 1n,
-        githubLogin: 'alice',
+        githubId: 1n,
         commitCount: 1,
         pullRequestCount: 0,
         releaseCount: 0,
@@ -538,7 +578,7 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
         githubId: 1n,
         githubLogin: 'alice',
         commitCount: 2,
-        prCount: 0,
+        pullRequestCount: 0,
         releaseCount: 0,
       },
     ]);
@@ -546,15 +586,18 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
 
   it('does not select repositoryId, year, dataAsOf, or any private/platform field', async () => {
     const db = createDb();
-    db.collectionContributorYearAggregate.findMany.mockResolvedValue([]);
+    db.user.findMany.mockResolvedValue([
+      { githubId: 1n, nickname: 'alice' },
+      { githubId: 2n, nickname: 'bob' },
+    ]);
+    db.contribution.findMany.mockResolvedValue([]);
 
     await serviceFor(db).getPublicRankingMetrics({});
 
-    expect(db.collectionContributorYearAggregate.findMany).toHaveBeenCalledWith(
+    expect(db.contribution.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         select: {
-          githubUserId: true,
-          githubLogin: true,
+          githubId: true,
           commitCount: true,
           pullRequestCount: true,
           releaseCount: true,
@@ -567,16 +610,21 @@ describe('CollectionReadService — getPublicRankingMetrics', () => {
 describe('CollectionReadService — listPublicRankingYears', () => {
   it('lists distinct years with public non-zero activity newest first', async () => {
     const db = createDb();
-    db.collectionContributorYearAggregate.findMany.mockResolvedValue([
-      { year: 2026 },
-      { year: 2025 },
+    db.user.findMany.mockResolvedValue([
+      { githubId: 1n, nickname: 'alice' },
+      { githubId: 2n, nickname: 'bob' },
+    ]);
+    db.contribution.findMany.mockResolvedValue([
+      // Asia/Seoul 자정을 UTC 로 담은 날짜 — 코드가 여기서 연도를 뽑는다.
+      { date: new Date(Date.UTC(2026, 4, 1)) },
+      { date: new Date(Date.UTC(2025, 10, 20)) },
     ]);
 
     await expect(serviceFor(db).listPublicRankingYears()).resolves.toEqual([
       2026, 2025,
     ]);
 
-    expect(db.collectionContributorYearAggregate.findMany).toHaveBeenCalledWith(
+    expect(db.contribution.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           repository: { visibility: 'PUBLIC', presence: 'PRESENT' },
@@ -586,9 +634,7 @@ describe('CollectionReadService — listPublicRankingYears', () => {
             { releaseCount: { gt: 0 } },
           ],
         },
-        select: { year: true },
-        distinct: ['year'],
-        orderBy: { year: 'desc' },
+        select: { date: true },
       }),
     );
   });
@@ -616,7 +662,7 @@ describe('CollectionReadService — getRepositoryCumulativeMetrics', () => {
       {
         githubRepositoryId: 101n,
         lastCompleteInventoryObservedAt: new Date('2025-01-01T00:00:00.000Z'),
-        yearAggregates: [
+        contributions: [
           {
             commitCount: 3,
             pullRequestCount: 2,
@@ -656,9 +702,9 @@ describe('CollectionReadService — getRepositoryCumulativeMetrics', () => {
     );
     const calls = db.githubRepository.findMany.mock.calls as unknown[][];
     const call = calls[0]?.[0] as {
-      select: { yearAggregates: { where?: unknown } };
+      select: { contributions: { where?: unknown } };
     };
-    expect(call.select.yearAggregates.where).toBeUndefined();
+    expect(call.select.contributions.where).toBeUndefined();
   });
 
   it('returns a zero-value row and falls back to the last inventory observation for dataAsOf when there is no aggregate yet', async () => {
@@ -668,7 +714,7 @@ describe('CollectionReadService — getRepositoryCumulativeMetrics', () => {
       {
         githubRepositoryId: 202n,
         lastCompleteInventoryObservedAt: observedAt,
-        yearAggregates: [],
+        contributions: [],
       },
     ]);
 
@@ -694,12 +740,12 @@ describe('CollectionReadService — getRepositoryCumulativeMetrics', () => {
       {
         githubRepositoryId: ORG_REPOSITORY_ID,
         lastCompleteInventoryObservedAt: asOf,
-        yearAggregates: [],
+        contributions: [],
       },
       {
         githubRepositoryId: EXTERNAL_REPOSITORY_ID,
         lastCompleteInventoryObservedAt: asOf,
-        yearAggregates: [],
+        contributions: [],
       },
     ]);
 
@@ -721,16 +767,19 @@ describe('CollectionReadService — getContributorCumulativeMetrics', () => {
 
     expect(result).toEqual([]);
     expect(
-      db.collectionContributorYearAggregate.findMany,
+      db.contribution.findMany,
     ).not.toHaveBeenCalled();
   });
 
   it('sums a contributor across years without a year filter and keeps distinct contributors separate', async () => {
     const db = createDb();
-    db.collectionContributorYearAggregate.findMany.mockResolvedValue([
+    db.user.findMany.mockResolvedValue([
+      { githubId: 1n, nickname: 'alice' },
+      { githubId: 2n, nickname: 'bob' },
+    ]);
+    db.contribution.findMany.mockResolvedValue([
       {
-        githubUserId: 1n,
-        githubLogin: 'alice',
+        githubId: 1n,
         commitCount: 4,
         pullRequestCount: 1,
         releaseCount: 0,
@@ -738,8 +787,7 @@ describe('CollectionReadService — getContributorCumulativeMetrics', () => {
         repository: { githubRepositoryId: 101n },
       },
       {
-        githubUserId: 1n,
-        githubLogin: 'alice',
+        githubId: 1n,
         commitCount: 2,
         pullRequestCount: 0,
         releaseCount: 1,
@@ -747,8 +795,7 @@ describe('CollectionReadService — getContributorCumulativeMetrics', () => {
         repository: { githubRepositoryId: 101n },
       },
       {
-        githubUserId: 2n,
-        githubLogin: 'bob',
+        githubId: 2n,
         commitCount: 1,
         pullRequestCount: 0,
         releaseCount: 0,
@@ -781,7 +828,7 @@ describe('CollectionReadService — getContributorCumulativeMetrics', () => {
         releaseCount: 0,
       },
     ]);
-    expect(db.collectionContributorYearAggregate.findMany).toHaveBeenCalledWith(
+    expect(db.contribution.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           repository: {
@@ -795,7 +842,11 @@ describe('CollectionReadService — getContributorCumulativeMetrics', () => {
 
   it('returns an empty array when no contributor fact exists for the repositories', async () => {
     const db = createDb();
-    db.collectionContributorYearAggregate.findMany.mockResolvedValue([]);
+    db.user.findMany.mockResolvedValue([
+      { githubId: 1n, nickname: 'alice' },
+      { githubId: 2n, nickname: 'bob' },
+    ]);
+    db.contribution.findMany.mockResolvedValue([]);
 
     const result = await serviceFor(db).getContributorCumulativeMetrics({
       repositoryIds: [101n],
@@ -807,11 +858,14 @@ describe('CollectionReadService — getContributorCumulativeMetrics', () => {
   it('GR-13: excludes a contributor row belonging to an EXTERNAL_PUBLIC repository even when its id is explicitly requested alongside an ORG_PROVISIONED one', async () => {
     const db = createDb();
     const asOf = new Date('2026-07-31T00:00:00.000Z');
-    db.collectionContributorYearAggregate.findMany =
+    db.user.findMany.mockResolvedValue([
+      { githubId: 1n, nickname: 'alice' },
+      { githubId: 2n, nickname: 'bob' },
+    ]);
+    db.contribution.findMany =
       findManyContributorYearAggregate([
         {
-          githubUserId: 1n,
-          githubLogin: 'alice',
+          githubId: 1n,
           commitCount: 4,
           pullRequestCount: 1,
           releaseCount: 0,
@@ -819,8 +873,7 @@ describe('CollectionReadService — getContributorCumulativeMetrics', () => {
           repository: { githubRepositoryId: ORG_REPOSITORY_ID },
         },
         {
-          githubUserId: 2n,
-          githubLogin: 'bob',
+          githubId: 2n,
           commitCount: 9,
           pullRequestCount: 9,
           releaseCount: 9,
@@ -859,6 +912,9 @@ describe('CollectionReadService — getIncrementalStatusSnapshot', () => {
       oldestRetryPendingAt: null,
       lastCycleStartedAt: null,
       lastCycleCompletedAt: null,
+        dueRepositoryCount: 0,
+        failingRepositoryCount: 0,
+        lastRepositorySuccessAt: null,
     });
     expect(db.githubRepository.count).toHaveBeenCalledWith({
       where: { presence: 'PRESENT', source: 'ORG_PROVISIONED' },
@@ -904,6 +960,9 @@ describe('CollectionReadService — getIncrementalStatusSnapshot', () => {
       oldestRetryPendingAt: null,
       lastCycleStartedAt: cycleStartedAt,
       lastCycleCompletedAt: cycleCompletedAt,
+      dueRepositoryCount: 2,
+      failingRepositoryCount: 2,
+      lastRepositorySuccessAt: null,
     });
   });
 
@@ -960,5 +1019,51 @@ describe('CollectionReadService — getIncrementalStatusSnapshot', () => {
         repository: { presence: 'PRESENT', source: 'ORG_PROVISIONED' },
       },
     });
+  });
+});
+
+/**
+ * 큐 건강 지표 (ADR-010 §6·§10).
+ *
+ * 이번 사고는 "멈췄는데 아무도 몰랐다"였다. 스트림 상태만 보면 저장소 하나가
+ * 계속 실패하며 큐를 붙잡고 있어도 전체는 정상으로 보인다.
+ */
+describe('CollectionReadService — 큐가 막히면 지표가 말한다', () => {
+  it('차례 지난 저장소와 연속 실패 저장소를 센다', async () => {
+    const db = createDb();
+    db.githubRepository.count.mockImplementation(
+      ({
+        where,
+      }: {
+        where: { nextRunAt?: unknown; failureCount?: unknown };
+      }) => {
+        if (where.nextRunAt !== undefined) return Promise.resolve(7);
+        if (where.failureCount !== undefined) return Promise.resolve(3);
+        return Promise.resolve(10);
+      },
+    );
+    db.githubRepository.aggregate.mockResolvedValue({
+      _max: { lastSuccessAt: new Date('2026-08-09T00:00:00.000Z') },
+    });
+
+    const snapshot = await serviceFor(db).getIncrementalStatusSnapshot();
+
+    expect(snapshot.dueRepositoryCount).toBe(7);
+    expect(snapshot.failingRepositoryCount).toBe(3);
+    expect(snapshot.lastRepositorySuccessAt).toEqual(
+      new Date('2026-08-09T00:00:00.000Z'),
+    );
+  });
+
+  it('저장소 이름이나 학생 식별자를 담지 않는다', async () => {
+    const db = createDb();
+
+    const snapshot = await serviceFor(db).getIncrementalStatusSnapshot();
+
+    // admin 전용 화면이라도 조직 내부 정보다(AGENTS.md §6).
+    const serialized = JSON.stringify(snapshot);
+    expect(serialized).not.toContain('nameWithOwner');
+    expect(serialized).not.toContain('githubLogin');
+    expect(serialized).not.toContain('githubId');
   });
 });

@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CollectionCanonicalRepository } from './collection-canonical.repository';
-import { asiaSeoulYear } from './collection-incremental.repository';
+import { PrismaService } from '../../prisma/prisma.service';
+import { CollectionCanonicalRepository } from '../repository/collection-canonical.repository';
+import { PublicRankingRepository } from '../repository/public-ranking.repository';
+import { asiaSeoulYear } from '../repository/collection-incremental.repository';
 import type {
   CollectionContributorCumulativeMetricsDto,
   CollectionContributorCumulativeMetricsQueryDto,
@@ -20,7 +21,7 @@ import type {
   CollectionRepositoryMetricsDto,
   CollectionRepositoryMetricsQueryDto,
   CollectionStatusSnapshotDto,
-} from './collection-read.port';
+} from '../collection-read.port';
 
 /**
  * GR-8 — `getIncrementalStatusSnapshot`은 문서상 "조직 전체 증분 collection 진행 상황"
@@ -52,12 +53,46 @@ const ORG_PROVISIONED_REPOSITORY = {
   source: 'ORG_PROVISIONED',
 } as const;
 
+/**
+ * Asia/Seoul 달력 연도의 `[start, end)` UTC 경계.
+ *
+ * `Contribution` 에는 `year` 칸이 없다(ADR-010 §4) — 저장에 연도 개념을 두지 않고
+ * 읽을 때 범위로만 자르기 때문이다. 그래서 새해에 롤오버 작업이 없고,
+ * 같은 테이블을 프로그램 기간처럼 달력 연도가 아닌 축으로도 자를 수 있다.
+ */
+const seoulYearBoundsUtcForRead = (year: number): readonly [Date, Date] => [
+  new Date(Date.UTC(year, 0, 1) - 9 * 60 * 60 * 1000),
+  new Date(Date.UTC(year + 1, 0, 1) - 9 * 60 * 60 * 1000),
+];
+
 @Injectable()
 export class CollectionReadService implements CollectionReadPort {
   constructor(
     private readonly prisma: PrismaService,
     private readonly canonicalRepository: CollectionCanonicalRepository,
+    private readonly publicRanking: PublicRankingRepository,
   ) {}
+
+  /**
+   * `githubId` → GitHub login 해석.
+   *
+   * `Contribution` 은 집계 수치만 담고 표시명을 들지 않는다(ADR-010 §4).
+   * 가입자만 적재하므로(§5) 모든 `githubId` 가 `User` 에 있고, 표시명은 거기서 온다.
+   *
+   * **`name`(실명) 은 select 하지 않는다.** 공개 표기는 `githubLogin` 단일이며
+   * 동의 철회 endpoint 가 없는 상태에서 실명 노출은 되돌릴 수 없다(D15).
+   */
+  private async resolveGithubLogins(
+    githubIds: readonly bigint[],
+  ): Promise<ReadonlyMap<bigint, string>> {
+    const unique = [...new Set(githubIds)];
+    if (unique.length === 0) return new Map();
+    const users = await this.prisma.user.findMany({
+      where: { githubId: { in: unique } },
+      select: { githubId: true, nickname: true },
+    });
+    return new Map(users.map((user) => [user.githubId, user.nickname]));
+  }
 
   /**
    * todo 14 원자 전환 — 증분 저장소(`CollectionRepository`/facts)를 직접 읽는다. 이 포트의 유일한
@@ -149,7 +184,7 @@ export class CollectionReadService implements CollectionReadPort {
         query.currentYear === undefined
           ? row.commitCount
           : row.currentYearCommitCount;
-      const prCount =
+      const pullRequestCount =
         query.currentYear === undefined
           ? row.pullRequestCount
           : row.currentYearPullRequestCount;
@@ -161,7 +196,7 @@ export class CollectionReadService implements CollectionReadPort {
         githubId: row.githubUserId,
         githubLogin,
         commitCount: (current?.commitCount ?? 0) + commitCount,
-        prCount: (current?.prCount ?? 0) + prCount,
+        pullRequestCount: (current?.pullRequestCount ?? 0) + pullRequestCount,
         releaseCount: (current?.releaseCount ?? 0) + releaseCount,
       });
     }
@@ -209,7 +244,7 @@ export class CollectionReadService implements CollectionReadPort {
   }
 
   /**
-   * todo 11 — 신규 증분 aggregate 소스(`CollectionRepositoryYearAggregate`)를 직접 읽는다.
+   * todo 11 — `Contribution`(ADR-010 §4)를 직접 읽는다.
    * `year`를 생략하면 Asia/Seoul 기준 현재 연도를 쓴다. 해당 연도 집계 행이 아직 없어도(1/1
    * rollover) 저장소 자체가 관측되어 있으면 0값 행을 반환한다 — 신규 fact write를 요구하지 않는다.
    * private/public 저장소를 가리지 않고 그대로 반환한다(private facts internally readable) —
@@ -221,6 +256,7 @@ export class CollectionReadService implements CollectionReadPort {
   ): Promise<readonly CollectionRepositoryMetricsDto[]> {
     if (query.repositoryIds.length === 0) return [];
     const year = query.year ?? asiaSeoulYear(new Date());
+    const [yearStart, yearEnd] = seoulYearBoundsUtcForRead(year);
 
     const repositories = await this.prisma.githubRepository.findMany({
       where: {
@@ -232,8 +268,9 @@ export class CollectionReadService implements CollectionReadPort {
         visibility: true,
         presence: true,
         lastCompleteInventoryObservedAt: true,
-        yearAggregates: {
-          where: { year },
+        // ADR-010 §4 재소스 — 연도 필터를 `date` 범위로 건다.
+        contributions: {
+          where: { date: { gte: yearStart, lt: yearEnd } },
           select: {
             commitCount: true,
             pullRequestCount: true,
@@ -245,17 +282,35 @@ export class CollectionReadService implements CollectionReadPort {
     });
 
     return repositories.map((repository) => {
-      const aggregate = repository.yearAggregates[0];
+      // 날짜 입자를 저장소 단위로 접는다.
+      const folded = repository.contributions.reduce(
+        (accumulator, row) => ({
+          commitCount: accumulator.commitCount + row.commitCount,
+          pullRequestCount:
+            accumulator.pullRequestCount + row.pullRequestCount,
+          releaseCount: accumulator.releaseCount + row.releaseCount,
+          dataAsOf:
+            accumulator.dataAsOf === null || row.updatedAt > accumulator.dataAsOf
+              ? row.updatedAt
+              : accumulator.dataAsOf,
+        }),
+        {
+          commitCount: 0,
+          pullRequestCount: 0,
+          releaseCount: 0,
+          dataAsOf: null as Date | null,
+        },
+      );
       return {
         repositoryId: repository.githubRepositoryId,
         year,
         dataAsOf:
-          aggregate?.updatedAt ??
+          folded.dataAsOf ??
           repository.lastCompleteInventoryObservedAt ??
           new Date(),
-        commitCount: aggregate?.commitCount ?? 0,
-        pullRequestCount: aggregate?.pullRequestCount ?? 0,
-        releaseCount: aggregate?.releaseCount ?? 0,
+        commitCount: folded.commitCount,
+        pullRequestCount: folded.pullRequestCount,
+        releaseCount: folded.releaseCount,
         visibility: repository.visibility,
         presence: repository.presence,
         visibilityObservedAt: repository.lastCompleteInventoryObservedAt,
@@ -264,7 +319,7 @@ export class CollectionReadService implements CollectionReadPort {
   }
 
   /**
-   * todo 11 — 신규 증분 aggregate 소스(`CollectionContributorYearAggregate`)를 직접 읽는다
+   * todo 11 — `Contribution`(ADR-010 §4)를 직접 읽는다
    * (ranking source). repository 집계와 달리 0값 기본 행을 만들지 않는다 — 해당 연도에 실제
    * fact가 있는 (repository, contributor) 조합만 존재한다(기존 `getContributorYearAggregate`와
    * 동일한 규약).
@@ -280,17 +335,23 @@ export class CollectionReadService implements CollectionReadPort {
     if (query.repositoryIds.length === 0) return [];
     const year = query.year ?? asiaSeoulYear(new Date());
 
-    const rows = await this.prisma.collectionContributorYearAggregate.findMany({
+    // ADR-010 §4 재소스 — 옛 연도 집계 대신 `Contribution` 을 읽는다.
+    //
+    // 연도 필터는 저장이 아니라 조회에서 한다. `Contribution` 에는 `year` 칸이
+    // 없으므로 Asia/Seoul 연 경계로 `date` 범위를 잡는다 — 그래서 새해에
+    // 롤오버 작업이 필요 없다.
+    const [yearStart, yearEnd] = seoulYearBoundsUtcForRead(year);
+
+    const rows = await this.prisma.contribution.findMany({
       where: {
-        year,
+        date: { gte: yearStart, lt: yearEnd },
         repository: {
           githubRepositoryId: { in: [...query.repositoryIds] },
           ...ORG_PROVISIONED_REPOSITORY,
         },
       },
       select: {
-        githubUserId: true,
-        githubLogin: true,
+        githubId: true,
         commitCount: true,
         pullRequestCount: true,
         releaseCount: true,
@@ -299,86 +360,82 @@ export class CollectionReadService implements CollectionReadPort {
       },
     });
 
-    return rows.map((row) => ({
-      repositoryId: row.repository.githubRepositoryId,
-      githubUserId: row.githubUserId,
-      githubLogin: row.githubLogin,
+    // 날짜 입자를 (저장소, 사람) 단위로 접는다.
+    const folded = new Map<
+      string,
+      {
+        repositoryId: bigint;
+        githubId: bigint;
+        dataAsOf: Date;
+        commitCount: number;
+        pullRequestCount: number;
+        releaseCount: number;
+      }
+    >();
+    for (const row of rows) {
+      const key = `${row.repository.githubRepositoryId}:${row.githubId}`;
+      const current = folded.get(key);
+      if (current === undefined) {
+        folded.set(key, {
+          repositoryId: row.repository.githubRepositoryId,
+          githubId: row.githubId,
+          dataAsOf: row.updatedAt,
+          commitCount: row.commitCount,
+          pullRequestCount: row.pullRequestCount,
+          releaseCount: row.releaseCount,
+        });
+        continue;
+      }
+      current.commitCount += row.commitCount;
+      current.pullRequestCount += row.pullRequestCount;
+      current.releaseCount += row.releaseCount;
+      if (row.updatedAt > current.dataAsOf) current.dataAsOf = row.updatedAt;
+    }
+
+    // `githubLogin` 은 `Contribution` 이 들지 않는다(ADR-010 §4 — 집계 수치만 보관).
+    // 가입자만 적재하므로(§5) 모든 `githubId` 는 `User` 에 있고, 표시명은 거기서 온다.
+    // **`name`(실명) 은 select 하지 않는다** — 공개 표기는 `githubLogin` 단일이다(D3).
+    const logins = await this.resolveGithubLogins(
+      [...folded.values()].map((entry) => entry.githubId),
+    );
+
+    return [...folded.values()].map((entry) => ({
+      repositoryId: entry.repositoryId,
+      githubUserId: entry.githubId,
+      githubLogin: logins.get(entry.githubId) ?? '',
       year,
-      dataAsOf: row.updatedAt,
-      commitCount: row.commitCount,
-      pullRequestCount: row.pullRequestCount,
-      releaseCount: row.releaseCount,
+      dataAsOf: entry.dataAsOf,
+      commitCount: entry.commitCount,
+      pullRequestCount: entry.pullRequestCount,
+      releaseCount: entry.releaseCount,
     }));
   }
 
   /**
-   * todo 19 — ranking 공개 페이지 소스. `getContributorMetrics`와 같은 증분 aggregate
-   * 테이블(`CollectionContributorYearAggregate`)을 읽되, PUBLIC + PRESENT 저장소로 port
-   * 경계에서 필터링한 뒤 githubUserId 단위로 저장소·연도를 넘어 합산한다. login이 갈리면
-   * 정규화된 소문자 기준으로 가장 앞선 login을 canonical로 고른다(기존 `findRankingActivity`와
-   * 동일한 tie-break) — private facts나 platform User join 없이 githubLogin만 노출한다.
+   * ranking 공개 페이지 소스 — 전용 public query repository 로 위임한다.
+   *
+   * 랭킹 endpoint 에는 가드가 없고 읽는 대상은 private 테이블이다.
+   * 그 조합은 owner-approved dedicated public query repository 안에서만
+   * 허용되므로(`AGENTS.md` §4), 이 서비스는 질의를 직접 쓰지 않는다.
    */
   async getPublicRankingMetrics(
     query: CollectionPublicRankingMetricsQueryDto,
   ): Promise<readonly CollectionPublicRankingMetricsDto[]> {
-    const rows = await this.prisma.collectionContributorYearAggregate.findMany({
-      where: {
-        repository: { visibility: 'PUBLIC', presence: 'PRESENT' },
-        ...(query.currentYear === undefined ? {} : { year: query.currentYear }),
-      },
-      select: {
-        githubUserId: true,
-        githubLogin: true,
-        commitCount: true,
-        pullRequestCount: true,
-        releaseCount: true,
-      },
-    });
-
-    const activity = new Map<string, CollectionPublicRankingMetricsDto>();
-    for (const row of rows) {
-      const key = row.githubUserId.toString();
-      const current = activity.get(key);
-      const githubLogin =
-        !current ||
-        row.githubLogin.normalize().toLocaleLowerCase('en-US') <
-          current.githubLogin.normalize().toLocaleLowerCase('en-US')
-          ? row.githubLogin
-          : current.githubLogin;
-      activity.set(key, {
-        githubId: row.githubUserId,
-        githubLogin,
-        commitCount: (current?.commitCount ?? 0) + row.commitCount,
-        prCount: (current?.prCount ?? 0) + row.pullRequestCount,
-        releaseCount: (current?.releaseCount ?? 0) + row.releaseCount,
-      });
-    }
-    return [...activity.values()];
+    return this.publicRanking.findMetrics(query);
   }
 
-  /**
-   * Distinct years with any non-zero public ranking activity (PUBLIC + PRESENT).
-   * Ordered newest first for the ranking shell year list.
-   */
+  /** 공개 랭킹 수치의 기준 시각 — 목록 캐시 밖(ADR-010 §10). */
+  async getPublicRankingDataAsOf(): Promise<Date | null> {
+    return this.publicRanking.findDataAsOf();
+  }
+
+  /** 공개 랭킹 활동이 있는 연도 목록, 최신 순. */
   async listPublicRankingYears(): Promise<readonly number[]> {
-    const rows = await this.prisma.collectionContributorYearAggregate.findMany({
-      where: {
-        repository: { visibility: 'PUBLIC', presence: 'PRESENT' },
-        OR: [
-          { commitCount: { gt: 0 } },
-          { pullRequestCount: { gt: 0 } },
-          { releaseCount: { gt: 0 } },
-        ],
-      },
-      select: { year: true },
-      distinct: ['year'],
-      orderBy: { year: 'desc' },
-    });
-    return rows.map((row) => row.year);
+    return this.publicRanking.listYears();
   }
 
   /**
-   * todo 16 — `getRepositoryMetrics`와 같은 `CollectionRepositoryYearAggregate`를 읽되 `year`로
+   * todo 16 — `getRepositoryMetrics`와 같은 `Contribution`을 읽되 `year`로
    * 필터링하지 않고 저장소별 전체 연도를 합산한다(lifetime 누적). repositoryIds 배열 크기와
    * 무관하게 findMany 질의 1개다 — 공개 프로젝트 상세/프로필 페이지의 배치 지표 조회용.
    * GR-13 — 호출자(`public-projects.service.ts`)가 넘기는 id는 프로그램 신청에 연결된 저장소
@@ -398,7 +455,9 @@ export class CollectionReadService implements CollectionReadPort {
       select: {
         githubRepositoryId: true,
         lastCompleteInventoryObservedAt: true,
-        yearAggregates: {
+        // ADR-010 §4 재소스 — 옛 연도 집계 대신 `Contribution` 을 합산한다.
+        // 누적이므로 기간 필터가 없다.
+        contributions: {
           select: {
             commitCount: true,
             pullRequestCount: true,
@@ -410,7 +469,7 @@ export class CollectionReadService implements CollectionReadPort {
     });
 
     return repositories.map((repository) => {
-      const dataAsOf = repository.yearAggregates.reduce<Date | null>(
+      const dataAsOf = repository.contributions.reduce<Date | null>(
         (latest, aggregate) =>
           latest === null || aggregate.updatedAt > latest
             ? aggregate.updatedAt
@@ -421,15 +480,15 @@ export class CollectionReadService implements CollectionReadPort {
         repositoryId: repository.githubRepositoryId,
         dataAsOf:
           dataAsOf ?? repository.lastCompleteInventoryObservedAt ?? new Date(),
-        commitCount: repository.yearAggregates.reduce(
+        commitCount: repository.contributions.reduce(
           (sum, aggregate) => sum + aggregate.commitCount,
           0,
         ),
-        pullRequestCount: repository.yearAggregates.reduce(
+        pullRequestCount: repository.contributions.reduce(
           (sum, aggregate) => sum + aggregate.pullRequestCount,
           0,
         ),
-        releaseCount: repository.yearAggregates.reduce(
+        releaseCount: repository.contributions.reduce(
           (sum, aggregate) => sum + aggregate.releaseCount,
           0,
         ),
@@ -438,7 +497,7 @@ export class CollectionReadService implements CollectionReadPort {
   }
 
   /**
-   * todo 16 — `getContributorMetrics`와 같은 `CollectionContributorYearAggregate`를 읽되
+   * todo 16 — `getContributorMetrics`와 같은 `Contribution`을 읽되
    * `year`로 필터링하지 않고 (저장소, 기여자) 조합별 전체 연도를 합산한다(lifetime 누적).
    * repositoryIds 배열 크기와 무관하게 findMany 질의 1개다 — 공개 프로젝트 상세 페이지의
    * 기여자 목록용이며 githubLogin만 노출한다(platform User join 없음).
@@ -449,7 +508,8 @@ export class CollectionReadService implements CollectionReadPort {
   ): Promise<readonly CollectionContributorCumulativeMetricsDto[]> {
     if (query.repositoryIds.length === 0) return [];
 
-    const rows = await this.prisma.collectionContributorYearAggregate.findMany({
+    // ADR-010 §4 재소스 — 누적이므로 기간 필터가 없다.
+    const rows = await this.prisma.contribution.findMany({
       where: {
         repository: {
           githubRepositoryId: { in: [...query.repositoryIds] },
@@ -457,8 +517,7 @@ export class CollectionReadService implements CollectionReadPort {
         },
       },
       select: {
-        githubUserId: true,
-        githubLogin: true,
+        githubId: true,
         commitCount: true,
         pullRequestCount: true,
         releaseCount: true,
@@ -480,12 +539,12 @@ export class CollectionReadService implements CollectionReadPort {
       }
     >();
     for (const row of rows) {
-      const key = `${row.repository.githubRepositoryId.toString()}:${row.githubUserId.toString()}`;
+      const key = `${row.repository.githubRepositoryId.toString()}:${row.githubId.toString()}`;
       const current = byContributor.get(key);
       byContributor.set(key, {
         repositoryId: row.repository.githubRepositoryId,
-        githubUserId: row.githubUserId,
-        githubLogin: row.githubLogin,
+        githubUserId: row.githubId,
+        githubLogin: '',
         dataAsOf:
           current === undefined || row.updatedAt > current.dataAsOf
             ? row.updatedAt
@@ -496,7 +555,15 @@ export class CollectionReadService implements CollectionReadPort {
         releaseCount: (current?.releaseCount ?? 0) + row.releaseCount,
       });
     }
-    return [...byContributor.values()];
+
+    // 표시명은 `User` 가 단일 원본이다(ADR-010 §4 — Contribution 은 수치만 담는다).
+    const logins = await this.resolveGithubLogins(
+      [...byContributor.values()].map((entry) => entry.githubUserId),
+    );
+    return [...byContributor.values()].map((entry) => ({
+      ...entry,
+      githubLogin: logins.get(entry.githubUserId) ?? '',
+    }));
   }
 
   /**
@@ -509,6 +576,22 @@ export class CollectionReadService implements CollectionReadPort {
     const trackedRepositoryCount = await this.prisma.githubRepository.count({
       where: PRESENT_REPOSITORY,
     });
+
+    // 큐 건강 (ADR-010 §6·§10) — 저장소 이름·식별자를 담지 않는다.
+    const now = new Date();
+    const [dueRepositoryCount, failingRepositoryCount, lastSuccess] =
+      await Promise.all([
+        this.prisma.githubRepository.count({
+          where: { ...PRESENT_REPOSITORY, nextRunAt: { lte: now } },
+        }),
+        this.prisma.githubRepository.count({
+          where: { ...PRESENT_REPOSITORY, failureCount: { gt: 0 } },
+        }),
+        this.prisma.githubRepository.aggregate({
+          where: PRESENT_REPOSITORY,
+          _max: { lastSuccessAt: true },
+        }),
+      ]);
 
     const streamGroups = await this.prisma.collectionRepositoryStream.groupBy({
       by: ['status'],
@@ -571,6 +654,9 @@ export class CollectionReadService implements CollectionReadPort {
       oldestRetryPendingAt: oldestRetryPending._min.lastErrorAt ?? null,
       lastCycleStartedAt: cursor?.cycleStartedAt ?? null,
       lastCycleCompletedAt: cursor?.cycleCompletedAt ?? null,
+      dueRepositoryCount,
+      failingRepositoryCount,
+      lastRepositorySuccessAt: lastSuccess._max.lastSuccessAt ?? null,
     };
   }
 }
