@@ -293,3 +293,35 @@ export function milestoneDocumentCollectionArchiveHref(
     `${documentsPath(milestoneId)}/collection/archive?${params.toString()}`,
   );
 }
+
+/**
+ * `<a href>`로 바로 거는 **서류 한 종류 ZIP** 경로 — 그 서류만, 전 팀 것. 위의 전체
+ * ZIP과 같은 endpoint이고 좁히는 것은 `documentId` 쿼리 하나다(ADR-004의 「리소스
+ * 부분집합은 query parameter로」). 경로는 `apiPath`가, 쿼리는 `URLSearchParams`가
+ * 만든다 — 여기서 `/api/v1`도 쿼리 문자열도 손으로 잇지 않는다.
+ *
+ * ⚠ **`groupBy`를 함께 싣지 않는다.** 전체 ZIP과 정반대의 규칙이라 눈에 띄어야 한다.
+ * 서버는 둘이 함께 오면 400으로 막는다(무시하지 않는다) — 서류가 하나뿐인 ZIP에는
+ * 묶는 방식이 없는데, 조용히 무시하면 「서류 종류별로 묶어 받았다」고 믿은 사람의
+ * 오해가 응답으로 확인되지 않은 채 남기 때문이다. 그래서 이 함수는 폴더 구조를
+ * 인자로 아예 받지 않는다 — 받을 수 있게 열어 두면 언젠가 실려 나간다.
+ *
+ * 담기는 파일은 ZIP **뿌리에 평평하게** 놓인다(서류가 하나라 폴더가 뜻이 없다).
+ *
+ * ⚠ 이 ZIP도 **필터·페이지를 따라가지 않고 전 팀**을 담는다 —
+ * `milestoneDocumentCollectionArchiveHref`와 같다. 이 링크를 그리는 쪽은 전체 ZIP과
+ * 같은 안내를 사람에게 붙여야 한다.
+ *
+ * 그 마일스톤에 없는 `documentId`면 404다. 화면은 표의 열(= 그 마일스톤의 서류)에서만
+ * 이 링크를 만들므로 정상 동선에서는 나지 않는다.
+ */
+export function milestoneDocumentCollectionDocumentArchiveHref(
+  milestoneId: string,
+  documentId: string,
+): string {
+  const params = new URLSearchParams();
+  params.set('documentId', documentId);
+  return apiPath(
+    `${documentsPath(milestoneId)}/collection/archive?${params.toString()}`,
+  );
+}

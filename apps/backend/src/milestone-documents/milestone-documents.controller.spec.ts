@@ -698,7 +698,10 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
     // Then: 기본값은 DTO(toGrouping)가 정한다 — 서비스는 언제나 확정된 값을 받는다.
     expect(response.status).toBe(200);
     await expect(response.text()).resolves.toBe(ARCHIVE_BODY);
-    expect(archiveForStaff).toHaveBeenCalledWith('synthetic-milestone', 'TEAM');
+    expect(archiveForStaff).toHaveBeenCalledWith('synthetic-milestone', {
+      kind: 'ALL',
+      grouping: 'TEAM',
+    });
   });
 
   it('groupBy=DOCUMENT는 그대로 서비스에 전달한다', async () => {
@@ -707,10 +710,10 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
 
     // Then
     expect(response.status).toBe(200);
-    expect(archiveForStaff).toHaveBeenCalledWith(
-      'synthetic-milestone',
-      'DOCUMENT',
-    );
+    expect(archiveForStaff).toHaveBeenCalledWith('synthetic-milestone', {
+      kind: 'ALL',
+      grouping: 'DOCUMENT',
+    });
   });
 
   it('ZIP 응답은 application/zip · attachment · private no-store로 나간다', async () => {
@@ -783,6 +786,36 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
       expect(archiveForStaff).not.toHaveBeenCalled();
     },
   );
+
+  it('documentId를 주면 그 서류로 좁힌 범위로 서비스를 부른다', async () => {
+    const response = await fetch(archiveUrl('?documentId=doc-plan'));
+
+    expect(response.status).toBe(200);
+    expect(archiveForStaff).toHaveBeenCalledWith('synthetic-milestone', {
+      kind: 'DOCUMENT',
+      documentId: 'doc-plan',
+    });
+  });
+
+  it('documentId와 groupBy를 함께 주면 400으로 거절한다', async () => {
+    /*
+     * 서류 하나짜리 ZIP에는 묶는 방식이 없다. 조용히 한쪽을 무시하면 `groupBy=DOCUMENT`를
+     * 보낸 사람은 「서류별로 묶어 받았다」고 믿은 채 남는다 — 되돌려 주는 편이 정직하다.
+     */
+    const response = await fetch(
+      archiveUrl('?documentId=doc-plan&groupBy=TEAM'),
+    );
+
+    expect(response.status).toBe(400);
+    expect(archiveForStaff).not.toHaveBeenCalled();
+  });
+
+  it('빈 documentId는 400으로 거절한다', async () => {
+    const response = await fetch(archiveUrl('?documentId='));
+
+    expect(response.status).toBe(400);
+    expect(archiveForStaff).not.toHaveBeenCalled();
+  });
 
   it('groupBy를 배열로 보내면 400으로 거절한다', async () => {
     // Given: `?groupBy=TEAM&groupBy=DOCUMENT`는 express가 배열로 파싱한다.

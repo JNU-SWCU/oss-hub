@@ -2,7 +2,7 @@ import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 import {
   buildMilestoneDocumentArchivePlan,
   type MilestoneDocumentArchiveDocument,
-  type MilestoneDocumentArchiveGrouping,
+  type MilestoneDocumentArchiveLayout,
   type MilestoneDocumentArchiveSubmission,
   type MilestoneDocumentArchiveTeam,
 } from './milestone-document-archive';
@@ -56,13 +56,13 @@ function plan(input: {
   documents?: readonly MilestoneDocumentArchiveDocument[];
   teams?: readonly MilestoneDocumentArchiveTeam[];
   submissions?: readonly MilestoneDocumentArchiveSubmission[];
-  grouping?: MilestoneDocumentArchiveGrouping;
+  layout?: MilestoneDocumentArchiveLayout;
 }) {
   return buildMilestoneDocumentArchivePlan({
     documents: input.documents ?? [document()],
     teams: input.teams ?? [team()],
     submissions: input.submissions ?? [],
-    grouping: input.grouping ?? 'TEAM',
+    layout: input.layout ?? 'TEAM',
   });
 }
 
@@ -82,10 +82,10 @@ describe('buildMilestoneDocumentArchivePlan', () => {
   });
 
   it('서류 종류별 묶기는 담는 파일은 그대로 두고 폴더만 뒤집는다', () => {
-    const byTeam = plan({ submissions: [fileSubmission()], grouping: 'TEAM' });
+    const byTeam = plan({ submissions: [fileSubmission()], layout: 'TEAM' });
     const byDocument = plan({
       submissions: [fileSubmission()],
-      grouping: 'DOCUMENT',
+      layout: 'DOCUMENT',
     });
 
     expect(byDocument.entries[0]?.path).toBe(

@@ -27,6 +27,7 @@ import {
 import {
   MILESTONE_DOCUMENT_COLLECTION_FILTERS,
   milestoneDocumentCollectionArchiveHref,
+  milestoneDocumentCollectionDocumentArchiveHref,
   milestoneDocumentSubmissionFileHref,
   type MilestoneDocumentCollection,
   type MilestoneDocumentCollectionArchiveGrouping,
@@ -67,6 +68,13 @@ const SCROLL_HINT_ID = 'milestone-document-collection-scroll-hint';
  * ZIP 링크가 가리키는 설명. 표 위 안내문(`SCROLL_HINT_ID`)과 **다른 문단**이다 —
  * 그쪽은 「지금 보고 있는 표」가 페이지 한 장임을 말하고, 이쪽은 「받는 ZIP」이 그
  * 표와 무관하다는 정반대의 사실을 말한다. 한 문단에 붙이면 둘이 섞여 읽힌다.
+ *
+ * ⚠ 이 화면의 **두 내려받기가 함께** 가리킨다 — 조작 줄의 전체 ZIP과 표 열 머리글의
+ * 서류별 ZIP(`DocumentHeader`). 서류별 버튼이 생겼을 때 문구를 손대지 않은 이유는,
+ * 이 한 줄이 말하는 사실(「빠른 필터·페이지를 따라가지 않고 전 팀을 담는다」)이 **둘
+ * 모두에 그대로 맞는 말**이기 때문이다. 좁아지는 것은 담는 팀이 아니라 서류 종류이고,
+ * 그건 버튼 자신이 서류 이름으로 말한다. 여기에 「전체 ZIP은…, 서류별은…」을 덧붙이면
+ * 정작 이 문단이 막으려던 오해(걸러 놓은 팀만 담긴다는 오독)가 긴 문장에 묻힌다.
  */
 const ARCHIVE_HINT_ID = 'milestone-document-collection-archive-hint';
 const ARCHIVE_GROUPING_ID = 'milestone-document-collection-archive-grouping';
@@ -114,20 +122,107 @@ export interface MilestoneDocumentCollectionViewProps {
   readonly onReviewSubmit: () => void;
 }
 
-/** 열 머리글 — 서류명 + 필수 표시(`milestone-document-list.tsx`의 `DocumentName`과 같은 표기). */
+/**
+ * 서류 한 종류 ZIP 버튼의 아이콘 — 「받침으로 내려오는 화살표」.
+ *
+ * 인라인으로 그린다. 이 저장소에 있는 아이콘 묶음(`app/_shell/shell-icons.tsx`)은
+ * 셸 전용이고 features는 app을 import할 수 없으며(`eslint.config.mjs`의 단방향 의존
+ * 규칙), 거기에 받침 화살표도 없다. 아이콘 하나를 위해 라이브러리를 새로 들이지
+ * 않는다 — 대신 그 묶음과 같은 표기(viewBox 24·stroke 1.7·round)를 써서 나중에
+ * 공용으로 올릴 때 모양이 어긋나지 않게 한다.
+ *
+ * `aria-hidden`이다. 무엇을 받는지는 감싸는 `<a>`의 `aria-label`이 말한다 —
+ * 아이콘까지 읽히면 같은 말이 두 번 들린다.
+ */
+function DocumentArchiveIcon(): ReactElement {
+  return (
+    <svg
+      aria-hidden
+      focusable="false"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-5"
+    >
+      <path d="M12 4v10" />
+      <path d="M8 10.5 12 14l4-3.5" />
+      <path d="M5 18h14" />
+    </svg>
+  );
+}
+
+/**
+ * 열 머리글 — 서류명 + 필수 표시(`milestone-document-list.tsx`의 `DocumentName`과 같은
+ * 표기) + **그 서류만 받는 ZIP 버튼**.
+ *
+ * 왜 열 머리글인가 — 「사업계획서만 전 팀 것을 모아 심사위원에게」가 실제 동선인데,
+ * 그 전에는 47팀의 칸을 하나씩 눌러야 했다. 열 머리글은 「이 열 = 이 서류」가 이미
+ * 서 있는 자리라 무엇을 받는지 따로 설명할 필요가 없다.
+ *
+ * ⚠ **호버로 나타내지 않는다.** 항상 보이되 작게(24px 안팎) 둔다 — 호버로 숨기면
+ * 키보드·터치 사용자에게는 없는 기능이 되고, 그런 지적이 이 저장소의 접근성 QA에
+ * 이미 여러 번 올라왔다.
+ */
 function DocumentHeader({
   document,
+  milestoneId,
 }: {
   readonly document: MilestoneDocumentCollectionDocument;
+  readonly milestoneId: string;
 }): ReactElement {
   return (
-    <span>
-      {document.name}
-      {document.isRequired ? (
-        <span aria-label="필수" className="ml-0.5 text-destructive">
-          *
-        </span>
-      ) : null}
+    <span className="flex items-center gap-1">
+      <span>
+        {document.name}
+        {document.isRequired ? (
+          <span aria-label="필수" className="ml-0.5 text-destructive">
+            *
+          </span>
+        ) : null}
+      </span>
+      {/*
+       * 전체 ZIP 링크와 **같은 이유로 `download` 속성을 쓰지 않는다** — 붙이면
+       * 브라우저가 응답 본문을 상태 코드와 무관하게 파일로 저장해, 401·403·404가
+       * 나도 교직원은 오류 대신 오류 JSON이 담긴 파일을 받는다(위
+       * `CollectionArchiveControls`의 같은 주석 참고). 성공 응답은 서버의
+       * `Content-Disposition: attachment`가 그대로 내려받게 한다.
+       *
+       * 아이콘만 있는 버튼이라 `aria-label`에 **서류 이름을 넣는다**. 열이 여러 개고
+       * 머리글마다 같은 버튼이 서므로, 「내려받기」만 있으면 스크린리더에서 47개의
+       * 같은 이름이 늘어서 어느 서류인지 고를 수 없다.
+       *
+       * 설명은 전체 ZIP과 같은 문단(`ARCHIVE_HINT_ID`)을 가리킨다 — 이 ZIP도 빠른
+       * 필터·페이지를 따라가지 않고 전 팀을 담으므로 그 한 줄이 그대로 맞는 말이다.
+       * 표가 서는 화면에는 그 문단이 언제나 함께 있다(둘 다 같은 갈래에서 그려진다).
+       */}
+      {/*
+       * ⚠ 공용 `Button`을 지나야 한다 — 직접 그린 24px 링크로 뒀더니 **터치 타깃이 24×24**가
+       * 되고 초점 표시도 이 저장소의 것과 달랐다. `button.tsx`가 「조작 가능한 사각형은 전부
+       * 44px이고 그 아래로 내려가면 터치 타깃 최소치가 깨진다」를 못박고 있고, 액션 트리거는
+       * 전부 이 프리미티브를 기반으로 한다(`docs/design.md`의 Button 절).
+       *
+       * `icon-xs`는 **누를 수 있는 자리만 44px**로 넓히고 배경이 없어(`ghost`) 머리글에서 서류
+       * 이름을 밀어내지 않는다. 보이는 아이콘은 `size-5`(20px)로 따로 잡았다 — 이 변형의
+       * 기본값 16px 은 서류 이름에 딸린 장식처럼 읽혀 있는 줄 모르고 지나치고, 24px 은 열이
+       * 여러 개일 때 서류 이름보다 아이콘이 먼저 눈에 들어온다. 세 크기를 실제 화면으로 놓고
+       * 고른 값이다.
+       */}
+      <Button asChild variant="ghost" size="icon-xs">
+        <a
+          href={milestoneDocumentCollectionDocumentArchiveHref(
+            milestoneId,
+            document.id,
+          )}
+          aria-label={`${document.name} 전체 내려받기(ZIP)`}
+          title={`${document.name} 전체 내려받기(ZIP)`}
+          aria-describedby={ARCHIVE_HINT_ID}
+        >
+          <DocumentArchiveIcon />
+        </a>
+      </Button>
     </span>
   );
 }
@@ -512,7 +607,10 @@ function CollectionTable({
             <TableHead className={STICKY_TEAM_CELL}>팀</TableHead>
             {documents.map((document) => (
               <TableHead key={document.id} className="min-w-40">
-                <DocumentHeader document={document} />
+                <DocumentHeader
+                  document={document}
+                  milestoneId={milestone.id}
+                />
               </TableHead>
             ))}
           </TableRow>

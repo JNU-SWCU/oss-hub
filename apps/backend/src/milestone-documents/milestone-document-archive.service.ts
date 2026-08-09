@@ -10,6 +10,7 @@ import {
   buildMilestoneDocumentArchivePlan,
   MILESTONE_DOCUMENT_ARCHIVE_MANIFEST_FILE_NAME,
   type MilestoneDocumentArchiveGrouping,
+  type MilestoneDocumentArchiveLayout,
 } from './domain/milestone-document-archive';
 import { milestoneDocumentArchiveManifestCsv } from './domain/milestone-document-archive-manifest-csv';
 import { milestoneDocumentArchiveFolderName } from './milestone-document-download-file-name';
@@ -37,6 +38,20 @@ interface ZipFileFinalSize {
     onFinalSize: (finalSize: number) => void,
   ): void;
 }
+
+/**
+ * 무엇을 담을 것인가.
+ *
+ * `ALL` 은 마일스톤 전체이고 `groupBy` 로 폴더를 뒤집는다. `DOCUMENT` 는 **서류 한 종류만**
+ * 전 팀 것으로 좁힌 것이다 — 「사업계획서만 모아 심사위원에게」가 실제 동선인데, 좁히는 길이
+ * 없으면 교직원이 47팀을 한 칸씩 눌러야 한다. 좁힌 ZIP 은 폴더 없이 평평하다(`FLAT`).
+ */
+export type MilestoneDocumentArchiveScope =
+  | {
+      readonly kind: 'ALL';
+      readonly grouping: MilestoneDocumentArchiveGrouping;
+    }
+  | { readonly kind: 'DOCUMENT'; readonly documentId: string };
 
 export interface MilestoneDocumentArchive {
   readonly body: Readable;
@@ -73,7 +88,7 @@ export class MilestoneDocumentArchiveService {
 
   async archiveForStaff(
     milestoneId: string,
-    grouping: MilestoneDocumentArchiveGrouping,
+    scope: MilestoneDocumentArchiveScope,
     now: Date = new Date(),
   ): Promise<MilestoneDocumentArchive> {
     const milestone = await this.repository.findMilestone(milestoneId);
@@ -81,12 +96,26 @@ export class MilestoneDocumentArchiveService {
       throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
     }
 
-    const [documents, teams] = await Promise.all([
+    const [allDocuments, teams] = await Promise.all([
       this.repository.findByMilestoneId(milestoneId),
       this.repository.findApprovedApplicationsForCollection(
         milestone.programId,
       ),
     ]);
+
+    /*
+     * 좁히기는 **이 마일스톤이 요구하는 서류 목록 안에서만** 한다. 경로로 남의 마일스톤 서류
+     * id 를 넣어도 여기서 못 찾아 404 로 끝난다 — 조용히 빈 ZIP 을 주면 교직원은 「아무도 안
+     * 냈구나」로 읽는다. 없는 것과 안 낸 것은 다른 사실이다.
+     */
+    const documents =
+      scope.kind === 'DOCUMENT'
+        ? allDocuments.filter((document) => document.id === scope.documentId)
+        : allDocuments;
+    if (scope.kind === 'DOCUMENT' && documents.length === 0) {
+      throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+    }
+
     const submissions = await this.repository.findSubmissionsForArchive(
       documents.map((document) => document.id),
       now,
@@ -96,7 +125,7 @@ export class MilestoneDocumentArchiveService {
       documents,
       teams,
       submissions,
-      grouping,
+      layout: layoutOf(scope),
     });
     // 파일과 글 본문을 **함께** 센다 — 파일만 세면 글로만 이루어진 마일스톤은 상한이 없다.
     if (plan.storedBytes + plan.inlineBytes > MAX_ARCHIVE_BYTES) {
@@ -243,7 +272,14 @@ export class MilestoneDocumentArchiveService {
 
     return {
       body: output,
-      fileName: archiveFileName(milestone.name, milestone.dueAt),
+      fileName: archiveFileName(
+        // 서류 하나만 받을 때는 그 서류 이름을 단다 — 「1차 중간 산출물」이라는 같은 이름이
+        // 폴더에 여러 벌 쌓이면 어느 것이 무엇인지 알 수 없다.
+        scope.kind === 'DOCUMENT'
+          ? (documents[0]?.name ?? milestone.name)
+          : milestone.name,
+        milestone.dueAt,
+      ),
       contentType: 'application/zip',
       contentLength,
     };
@@ -252,6 +288,13 @@ export class MilestoneDocumentArchiveService {
   private error(code: MilestoneDocumentsErrorCode): DomainException {
     return new DomainException(MILESTONE_DOCUMENTS_ERROR_CODES[code]);
   }
+}
+
+/** 좁힌 ZIP 은 폴더가 뜻이 없어 평평하게 놓는다. 자세한 근거는 `…ArchiveLayout` 주석에 있다. */
+function layoutOf(
+  scope: MilestoneDocumentArchiveScope,
+): MilestoneDocumentArchiveLayout {
+  return scope.kind === 'DOCUMENT' ? 'FLAT' : scope.grouping;
 }
 
 /**
@@ -281,18 +324,19 @@ function needsZip64Eocd(paths: readonly string[]): boolean {
 }
 
 /**
- * `1차중간산출물_2026-08-20.zip` — 마일스톤 이름과 **마감일**을 붙인다.
+ * `1차중간산출물_2026-08-20.zip` — 담은 것의 이름과 **마감일**을 붙인다.
+ * 전체를 받으면 마일스톤 이름, 서류 하나만 받으면 그 서류 이름이 앞에 온다.
  *
  * 내려받은 날이 아니라 마감일인 이유: 같은 마일스톤을 마감 전후로 여러 번 받는 것이 정상
  * 동선이고, 그때 이름이 매번 달라지면 폴더에 같은 것이 여러 벌 쌓여 어느 것이 무엇인지
  * 알 수 없다. 이름 치환 규칙은 안에 담기는 파일과 같은 것을 쓴다.
  */
-function archiveFileName(milestoneName: string, dueAt: Date): string {
+function archiveFileName(name: string, dueAt: Date): string {
   const due = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Seoul',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
   }).format(dueAt);
-  return `${milestoneDocumentArchiveFolderName(milestoneName)}_${due}.zip`;
+  return `${milestoneDocumentArchiveFolderName(name)}_${due}.zip`;
 }

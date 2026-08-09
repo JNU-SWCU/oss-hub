@@ -250,7 +250,11 @@ describe('MilestoneDocumentArchiveService', () => {
     });
 
     await expect(
-      service.archiveForStaff(syntheticMilestoneId, 'TEAM', now),
+      service.archiveForStaff(
+        syntheticMilestoneId,
+        { kind: 'ALL', grouping: 'TEAM' },
+        now,
+      ),
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND },
     });
@@ -261,7 +265,7 @@ describe('MilestoneDocumentArchiveService', () => {
 
     const archive = await service.archiveForStaff(
       syntheticMilestoneId,
-      'TEAM',
+      { kind: 'ALL', grouping: 'TEAM' },
       now,
     );
     await collect(archive.body);
@@ -277,7 +281,7 @@ describe('MilestoneDocumentArchiveService', () => {
 
     const archive = await service.archiveForStaff(
       syntheticMilestoneId,
-      'TEAM',
+      { kind: 'ALL', grouping: 'TEAM' },
       now,
     );
     await collect(archive.body);
@@ -293,7 +297,7 @@ describe('MilestoneDocumentArchiveService', () => {
 
       const archive = await service.archiveForStaff(
         syntheticMilestoneId,
-        'TEAM',
+        { kind: 'ALL', grouping: 'TEAM' },
         now,
       );
       const entries = parseZip(await collect(archive.body));
@@ -311,7 +315,7 @@ describe('MilestoneDocumentArchiveService', () => {
 
       const archive = await service.archiveForStaff(
         syntheticMilestoneId,
-        'DOCUMENT',
+        { kind: 'ALL', grouping: 'DOCUMENT' },
         now,
       );
       const entries = parseZip(await collect(archive.body));
@@ -329,7 +333,7 @@ describe('MilestoneDocumentArchiveService', () => {
 
       const archive = await service.archiveForStaff(
         syntheticMilestoneId,
-        'TEAM',
+        { kind: 'ALL', grouping: 'TEAM' },
         now,
       );
       const entries = parseZip(await collect(archive.body));
@@ -347,7 +351,7 @@ describe('MilestoneDocumentArchiveService', () => {
 
       const archive = await service.archiveForStaff(
         syntheticMilestoneId,
-        'TEAM',
+        { kind: 'ALL', grouping: 'TEAM' },
         now,
       );
       const entries = parseZip(await collect(archive.body));
@@ -363,7 +367,7 @@ describe('MilestoneDocumentArchiveService', () => {
 
       const archive = await service.archiveForStaff(
         syntheticMilestoneId,
-        'TEAM',
+        { kind: 'ALL', grouping: 'TEAM' },
         now,
       );
       const entries = parseZip(await collect(archive.body));
@@ -380,7 +384,7 @@ describe('MilestoneDocumentArchiveService', () => {
 
       const archive = await service.archiveForStaff(
         syntheticMilestoneId,
-        'TEAM',
+        { kind: 'ALL', grouping: 'TEAM' },
         now,
       );
       const entries = parseZip(await collect(archive.body));
@@ -395,13 +399,98 @@ describe('MilestoneDocumentArchiveService', () => {
     });
   });
 
+  describe('서류 한 종류만 좁혀 받을 때', () => {
+    it('폴더 없이 뿌리에 놓고 그 서류 이름을 파일명에 단다', async () => {
+      const { service } = buildService();
+
+      const archive = await service.archiveForStaff(
+        syntheticMilestoneId,
+        { kind: 'DOCUMENT', documentId: 'doc-plan' },
+        now,
+      );
+      const entries = parseZip(await collect(archive.body));
+
+      /*
+       * 폴더가 없는 이유: 팀별로 묶으면 폴더 하나에 파일 하나씩 47개가 서고, 서류별로 묶으면
+       * 뿌리에 폴더 하나가 서서 전부를 안는다 — 둘 다 한 겹이 헛돈다.
+       */
+      expect(entries.map((entry) => entry.name)).toEqual([
+        '제출현황.csv',
+        '코드나무_사업계획서.pdf',
+        '오픈테이블_사업계획서.pdf',
+      ]);
+      // 「1차 중간 산출물」이 여러 벌 쌓이면 어느 것이 무엇인지 알 수 없다.
+      expect(archive.fileName).toBe('사업계획서_2026-08-20.zip');
+    });
+
+    it('좁힌 서류의 제출만 담고 다른 서류는 조회하지도 않는다', async () => {
+      const { service, repositoryMocks } = buildService();
+
+      const archive = await service.archiveForStaff(
+        syntheticMilestoneId,
+        { kind: 'DOCUMENT', documentId: 'doc-summary' },
+        now,
+      );
+      const entries = parseZip(await collect(archive.body));
+
+      expect(entries.map((entry) => entry.name)).toEqual([
+        '제출현황.csv',
+        '코드나무_활동요약.txt',
+      ]);
+      // 담지 않을 서류의 제출을 끌어오지 않는다 — 조회 자체를 좁힌다.
+      expect(repositoryMocks.findSubmissionsForArchive).toHaveBeenCalledWith(
+        ['doc-summary'],
+        now,
+      );
+    });
+
+    it('동봉 현황표도 그 서류 칸만 담는다', async () => {
+      const { service } = buildService();
+
+      const archive = await service.archiveForStaff(
+        syntheticMilestoneId,
+        { kind: 'DOCUMENT', documentId: 'doc-plan' },
+        now,
+      );
+      const entries = parseZip(await collect(archive.body));
+      const manifest = entries
+        .find((entry) => entry.name === '제출현황.csv')
+        ?.body.toString('utf8');
+
+      expect(manifest).toContain('사업계획서 상태');
+      // 좁힌 ZIP 의 현황표에 안 담은 서류 열이 남으면 「이것도 받았다」로 읽힌다.
+      expect(manifest).not.toContain('활동요약');
+      // 그 서류를 한 장도 안 낸 팀은 여전히 미제출로 남는다.
+      expect(manifest).toContain('오픈테이블');
+    });
+
+    it('이 마일스톤에 없는 서류 id 면 빈 ZIP 이 아니라 404 다', async () => {
+      const { service, storageMocks } = buildService();
+
+      await expect(
+        service.archiveForStaff(
+          syntheticMilestoneId,
+          { kind: 'DOCUMENT', documentId: 'doc-of-another-milestone' },
+          now,
+        ),
+      ).rejects.toMatchObject({
+        errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+      });
+      /*
+       * ⚠ 조용히 빈 ZIP 을 주면 교직원은 「아무도 안 냈구나」로 읽는다. 없는 것과 안 낸 것은
+       * 다른 사실이고, 경로를 위조해 남의 마일스톤 서류를 넣어 보는 것도 여기서 걸린다.
+       */
+      expect(storageMocks.get).not.toHaveBeenCalled();
+    });
+  });
+
   describe('미리 알려 주는 길이', () => {
     it('압축을 시작하기 전에 정확한 바이트 수를 확정한다', async () => {
       const { service } = buildService();
 
       const archive = await service.archiveForStaff(
         syntheticMilestoneId,
-        'TEAM',
+        { kind: 'ALL', grouping: 'TEAM' },
         now,
       );
       const bytes = await collect(archive.body);
@@ -433,7 +522,7 @@ describe('MilestoneDocumentArchiveService', () => {
 
         const archive = await service.archiveForStaff(
           syntheticMilestoneId,
-          'TEAM',
+          { kind: 'ALL', grouping: 'TEAM' },
           now,
         );
         const bytes = await collect(archive.body);
@@ -452,7 +541,7 @@ describe('MilestoneDocumentArchiveService', () => {
 
       const archive = await service.archiveForStaff(
         syntheticMilestoneId,
-        'TEAM',
+        { kind: 'ALL', grouping: 'TEAM' },
         now,
       );
       const bytes = await collect(archive.body);
@@ -466,7 +555,7 @@ describe('MilestoneDocumentArchiveService', () => {
 
     const archive = await service.archiveForStaff(
       syntheticMilestoneId,
-      'TEAM',
+      { kind: 'ALL', grouping: 'TEAM' },
       now,
     );
     await collect(archive.body);
@@ -498,7 +587,11 @@ describe('MilestoneDocumentArchiveService', () => {
     });
 
     await expect(
-      service.archiveForStaff(syntheticMilestoneId, 'TEAM', now),
+      service.archiveForStaff(
+        syntheticMilestoneId,
+        { kind: 'ALL', grouping: 'TEAM' },
+        now,
+      ),
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.ARCHIVE_TOO_LARGE },
     });
@@ -527,7 +620,7 @@ describe('MilestoneDocumentArchiveService', () => {
 
     const archive = await service.archiveForStaff(
       syntheticMilestoneId,
-      'TEAM',
+      { kind: 'ALL', grouping: 'TEAM' },
       now,
     );
 
@@ -561,7 +654,7 @@ describe('MilestoneDocumentArchiveService', () => {
 
     const archive = await service.archiveForStaff(
       syntheticMilestoneId,
-      'TEAM',
+      { kind: 'ALL', grouping: 'TEAM' },
       now,
     );
     /*
@@ -601,7 +694,7 @@ describe('MilestoneDocumentArchiveService', () => {
 
     const archive = await service.archiveForStaff(
       syntheticMilestoneId,
-      'TEAM',
+      { kind: 'ALL', grouping: 'TEAM' },
       now,
     );
 
@@ -622,7 +715,7 @@ describe('MilestoneDocumentArchiveService', () => {
 
     const archive = await service.archiveForStaff(
       syntheticMilestoneId,
-      'TEAM',
+      { kind: 'ALL', grouping: 'TEAM' },
       now,
     );
     /*
@@ -653,7 +746,7 @@ describe('MilestoneDocumentArchiveService', () => {
 
     const archive = await service.archiveForStaff(
       syntheticMilestoneId,
-      'TEAM',
+      { kind: 'ALL', grouping: 'TEAM' },
       now,
     );
     await new Promise((resolve) => setImmediate(resolve));
@@ -687,7 +780,7 @@ describe('MilestoneDocumentArchiveService', () => {
 
     const archive = await service.archiveForStaff(
       syntheticMilestoneId,
-      'TEAM',
+      { kind: 'ALL', grouping: 'TEAM' },
       now,
     );
     await new Promise((resolve) => setImmediate(resolve));
@@ -714,7 +807,7 @@ describe('MilestoneDocumentArchiveService', () => {
 
     const archive = await service.archiveForStaff(
       syntheticMilestoneId,
-      'TEAM',
+      { kind: 'ALL', grouping: 'TEAM' },
       now,
     );
 

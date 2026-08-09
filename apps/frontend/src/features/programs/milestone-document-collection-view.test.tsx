@@ -736,6 +736,162 @@ describe('MilestoneDocumentCollectionView 전체 내려받기(ZIP)', () => {
 });
 
 /**
+ * 서류 한 종류만 받는 ZIP — 열 머리글마다 하나씩. 「사업계획서만 전 팀 것을 모아
+ * 심사위원에게」가 실제 동선이고, 그 전에는 47팀의 칸을 하나씩 눌러야 했다.
+ */
+describe('MilestoneDocumentCollectionView 서류별 내려받기(ZIP)', () => {
+  const documents = [
+    document('d1', { name: '기획서' }),
+    document('d2', { name: '사업계획서', isRequired: false }),
+  ];
+  const rows = [row('a', [missingCell('d1'), missingCell('d2')])];
+
+  function occurrences(html: string, needle: string): number {
+    return html.split(needle).length - 1;
+  }
+
+  it('서류마다 그 서류만 담는 링크를 하나씩 건다', () => {
+    const html = render({ data: collection(documents, rows) });
+
+    expect(
+      occurrences(
+        html,
+        'href="/api/v1/milestones/milestone-1/documents/collection/archive?documentId=d1"',
+      ),
+    ).toBe(1);
+    expect(
+      occurrences(
+        html,
+        'href="/api/v1/milestones/milestone-1/documents/collection/archive?documentId=d2"',
+      ),
+    ).toBe(1);
+  });
+
+  /**
+   * ⚠ `documentId`와 `groupBy`를 **함께 보내면 서버가 400**으로 막는다. 전체 ZIP 링크는
+   * 정반대로 `groupBy`를 언제나 싣기 때문에, 한 화면에 둘이 나란히 있는 이 자리에서
+   * 실수로 옮겨 붙기 쉽다 — 그러면 열 머리글의 버튼이 전부 오류만 낸다.
+   */
+  it('서류별 링크에는 groupBy가 붙지 않는다', () => {
+    const html = render({ data: collection(documents, rows) });
+
+    for (const href of [
+      ...html.matchAll(/href="([^"]*collection\/archive[^"]*)"/g),
+    ]
+      .map((match) => match[1] ?? '')
+      .filter((href) => href.includes('documentId='))) {
+      expect(href).not.toContain('groupBy');
+    }
+    // 위 반복이 정말 링크를 훑었는지 — 0건이면 아무것도 묻지 않은 채 통과한다.
+    expect(html).toContain('archive?documentId=d1');
+  });
+
+  /**
+   * ⚠ 아이콘만 있는 버튼이라 `aria-label`이 유일한 이름이고, **어느 서류인지**가
+   * 그 안에 있어야 한다. 열이 여러 개라 「내려받기」만 있으면 스크린리더에는 같은 이름의
+   * 버튼이 열 수만큼 늘어서 무엇을 고르는지 알 수 없다.
+   */
+  it('aria-label에 서류 이름이 들어간다', () => {
+    const html = render({ data: collection(documents, rows) });
+
+    expect(html).toContain('aria-label="기획서 전체 내려받기(ZIP)"');
+    expect(html).toContain('aria-label="사업계획서 전체 내려받기(ZIP)"');
+  });
+
+  /**
+   * ⚠ `download` 속성이 **없어야** 한다 — 전체 ZIP 링크와 같은 이유다. 붙으면 브라우저가
+   * 응답 본문을 상태 코드와 무관하게 파일로 저장해, 401·403·404가 나도 교직원은 오류
+   * 대신 오류 JSON이 담긴 파일을 받고 무엇이 잘못됐는지 영영 모른다.
+   */
+  it('download 속성을 쓰지 않는다', () => {
+    const html = render({ data: collection(documents, rows) });
+
+    expect(html).not.toContain('download');
+    // 표와 열 머리글이 정말 그려졌는지 — 아니면 위 단언은 아무것도 묻지 않는다.
+    expect(html).toContain('archive?documentId=d1');
+  });
+
+  /**
+   * 호버로 나타내지 않는다. 호버로만 보이면 키보드·터치 사용자에게는 없는 기능이 된다 —
+   * 이 저장소의 접근성 QA가 반복해 지적한 자리다.
+   */
+  it('호버해야 보이는 버튼이 아니다', () => {
+    const html = render({ data: collection(documents, rows) });
+    const [linkTag] = /<a[^>]*archive\?documentId=d1[^>]*>/.exec(html) ?? [];
+
+    expect(linkTag).toBeDefined();
+    // `hover:text-foreground`처럼 색만 바뀌는 것은 괜찮고, 보임 자체를 호버에 거는 것은 안 된다.
+    expect(linkTag).not.toMatch(/(group-)?hover:(opacity|flex|inline|block)/);
+    expect(linkTag).not.toContain('opacity-0');
+    expect(linkTag).not.toContain('sr-only');
+  });
+
+  /** 설명은 전체 ZIP과 같은 문단을 가리킨다 — 이 ZIP도 필터·페이지를 따라가지 않는다. */
+  it('전체 팀을 담는다는 같은 안내 문단을 가리킨다', () => {
+    const html = render({ data: collection(documents, rows) });
+    const [linkTag] = /<a[^>]*archive\?documentId=d1[^>]*>/.exec(html) ?? [];
+
+    expect(linkTag).toContain(
+      'aria-describedby="milestone-document-collection-archive-hint"',
+    );
+    expect(html).toContain(
+      '빠른 필터·페이지와 무관하게 이 마일스톤의 전체 팀을 담습니다.',
+    );
+  });
+
+  /** 표가 서지 않으면 열 머리글도 없다 — 받을 것이 없는데 길만 남으면 안 된다. */
+  it('표를 그리지 않는 빈 상태에서는 나오지 않는다', () => {
+    const noDocuments = render({ data: collection([], []) });
+    const noApplications = render({ data: collection(documents, []) });
+    const noFilterResults = render({
+      data: collection(documents, [], {
+        total: 0,
+        filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 0 },
+      }),
+      filter: 'ZERO_SUBMISSION',
+    });
+
+    expect(noDocuments).not.toContain('documentId=');
+    expect(noApplications).not.toContain('documentId=');
+    expect(noFilterResults).not.toContain('documentId=');
+    // 셋이 정말 그 빈 상태였는지도 확인한다.
+    expect(noDocuments).toContain('등록된 서류 항목이 없습니다');
+    expect(noApplications).toContain('아직 승인된 신청이 없습니다');
+    expect(noFilterResults).toContain('조건에 맞는 팀이 없습니다');
+  });
+
+  /** 남의 프로그램 마일스톤이면 그 id로 가는 길이 하나도 남으면 안 된다. */
+  it('다른 프로그램의 마일스톤이면 서류별 링크도 남기지 않는다', () => {
+    const html = render({
+      programId: 'program-capstone',
+      data: collection(documents, rows, {
+        milestone: {
+          id: 'milestone-9',
+          programId: 'program-basic-study',
+          name: '남의 마일스톤',
+          dueAt: '2026-07-15T14:59:59.000Z',
+        },
+        total: 47,
+        filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
+      }),
+    });
+
+    expect(html).not.toContain('documentId=');
+    expect(html).not.toContain('milestone-9');
+    expect(html).toContain('찾을 수 없는 마일스톤입니다');
+  });
+
+  // 필수 표시(*)와 나란히 서도 서류명이 그대로 읽혀야 한다 — 머리글이 한 덩어리로 뭉치면
+  // 「기획서*」가 아니라 「기획서*기획서 전체 내려받기」처럼 붙어 읽힌다.
+  it('필수 표시와 서류명을 그대로 두고 옆에 붙는다', () => {
+    const html = render({ data: collection(documents, rows) });
+
+    expect(html).toContain('기획서');
+    expect(html).toContain('aria-label="필수"');
+  });
+});
+
+/**
  * 응답이 페이지 한 장이 되면서 붙은 조작. 모양·문구는 제출 현황 표
  * (`features/submissions/components/submission-matrix-view.tsx`의 `MatrixPagination`)를
  * 그대로 따른다 — 같은 종류의 표를 두 벌의 조작으로 만들지 않는다.
