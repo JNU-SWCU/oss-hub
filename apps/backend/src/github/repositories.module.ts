@@ -3,6 +3,7 @@ import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthModule } from '../auth/auth.module';
 import { RepositoriesController } from './controller/repositories.controller';
+import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
 import { GithubAppClient } from './github-app.client';
 import { GithubAppTokenProvider } from './github-app.token';
 import { GithubOperationsConfig } from './github-operations.config';
@@ -19,6 +20,8 @@ import { RepositoryProvisionWorker } from './repository-provision.worker';
   imports: [AuthModule, AuditLogModule],
   controllers: [RepositoriesController],
   providers: [
+    // OWN 저장소를 수집 큐에 편입하기 위해 필요하다(ADR-010 §6).
+    CollectionIncrementalRepository,
     GithubOperationsConfig,
     RepositoriesRepository,
     RepositoryOutboxConsumer,
@@ -42,13 +45,15 @@ import { RepositoryProvisionWorker } from './repository-provision.worker';
         RepositoryProvisionJobRepository,
         RepositoryProvisionStateRepository,
         GithubAppClient,
+        CollectionIncrementalRepository,
       ],
       useFactory: (
         jobs: RepositoryProvisionJobRepository,
         state: RepositoryProvisionStateRepository,
         github: GithubAppClient,
+        enrollment: CollectionIncrementalRepository,
       ): RepositoryProvisionWorker =>
-        new RepositoryProvisionWorker(jobs, state, github),
+        new RepositoryProvisionWorker(jobs, state, github, enrollment),
     },
     {
       provide: RepositoriesService,

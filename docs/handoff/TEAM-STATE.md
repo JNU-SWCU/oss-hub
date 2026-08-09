@@ -15,24 +15,30 @@
 | 조회 성공 소스 | issues, prs, ci, decisions, exec-plan, branch-protection, project-board |
 | 조회 실패 소스 | 없음 |
 
-## 진행 중 — 기여 추적 재설계 (ADR-010)
+## 배포 완료 — 기여 추적 재설계 (ADR-010)
 
 | 항목 | 값 |
 | --- | --- |
 | 기능 | 기여 추적 재설계 (랭킹 · 프로그램 기여도) |
 | owner | @GoBeromsu |
 | 원본 | [ADR-010](../decisions/ADR-010-contribution-tracking-context.md) |
-| 상태 | 구현 진행 중 (미커밋 작업 트리) |
+| 상태 | **v0.6.45 배포 완료**. PR #729 병합, `OWN` 편입은 PR #730 |
 
-**요지.** 랭킹은 비어 있던 게 아니라 **멈춰 있었다.** 두 읽기 표면의 데이터원을 갈랐다 —
-① 랭킹은 학생 축(공개 활동), ② 프로그램은 팀 저장소 축이다.
+**진단 결과.** 착수 가설("랭킹이 멈췄다")은 프로덕션 진단으로 뒤집혔다. 스윕은 매시 정상이고 오류가 없으며 공개 API가 DB와 일치한다.
+실제 문제는 **커버리지 공백**이다 — 추적 저장소 3개(조직 것만), `EXTERNAL_PUBLIC` 0개, `OWN` 신청 0건.
+`contributionsCollection` rate limit도 실측했다: 학생당 연도당 `cost=1`, 200명 매시가 예산의 4%.
 
-**끝난 것.** 진단 스크립트(`scripts/diagnose-collection.sh`) · 경계 lint 깊이 비의존 재작성 ·
-`Contribution` 테이블 도입과 writer(가입자 필터로 #682 폐쇄) · 읽기 5곳 재소스 ·
-옛 연도 집계 writer·테이블 드롭 · `prCount`→`pullRequestCount` 개명 · 랭킹 기본 연도를 올해로 ·
-`dataAsOf` 봉투와 화면 표시 · 불변식 4개 · 폴더 재편(`github`/`programs`/`ranking` + 계층 폴더, `showcase` 드롭).
+**배포된 것.** `Contribution` 테이블과 수집 편입 큐 · 사람 축 가입자 필터(#682 폐쇄) · 저장소 실패 격리(백오프) ·
+읽기 재소스 · 공개 strict-read 전용 repository · 불변식 4개와 ADMIN 검사 endpoint ·
+랭킹 기본 연도를 올해로 · `dataAsOf` 봉투와 화면 표시 · `prCount`→`pullRequestCount` ·
+폴더 재편(`github`/`programs`/`ranking` + 계층 폴더, `showcase` 드롭) · 경계 lint 깊이 비의존 재작성.
 
-**막힌 것.** 프로덕션 진단(SSM/Tailscale 접속 필요)과 `contributionsCollection` rate limit 실측(GitHub 토큰 필요).
+**배포 후 확인.** 랭킹 API가 `year=2026`(올해 기본)·`pullRequestCount`·`dataAsOf`를 반환하고 화면에 갱신 시각이 뜬다.
+큐 3칸이 스윕으로 채워지는 것도 확인했다.
+읽기 전환 직후 `Contribution`이 비어 랭킹이 잠시 비었고, 같은 집합 SQL로 74행을 백필해 복구했다 —
+`확장 → 재수집 → 읽기 전환` 중 재수집을 건너뛰면 화면이 빈다는 것을 실측했다.
+
+**남은 것.** ① `contributionsCollection` 배선 · fact 층 force-push 조정 · 옛 연도 집계 물리 드롭(`chore/drop-legacy-aggregates`, 아직 열지 않음).
 
 ## 지난 회차 이후 바뀐 결정
 

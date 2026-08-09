@@ -25,7 +25,13 @@ describe('RepositoryProvisionWorker failure', () => {
     jobs.renewLease.mockRejectedValue(new RepositoryProvisionLeaseLostError());
     const state = provisionStateMock();
     const github = githubClientMock();
-    const worker = new RepositoryProvisionWorker(jobs, state, github, OPTIONS);
+    const worker = new RepositoryProvisionWorker(
+      jobs,
+      state,
+      github,
+      { enrollExternalRepository: jest.fn() },
+      OPTIONS,
+    );
 
     // When: 저장소 생성 직전 lease 갱신을 시도한다.
     const result = worker.runNext('worker-stale', PROVISION_NOW);
@@ -47,7 +53,13 @@ describe('RepositoryProvisionWorker failure', () => {
       provisionContext({ applicationStatus: ApplicationStatus.SUBMITTED }),
     );
     const github = githubClientMock();
-    const worker = new RepositoryProvisionWorker(jobs, state, github, OPTIONS);
+    const worker = new RepositoryProvisionWorker(
+      jobs,
+      state,
+      github,
+      { enrollExternalRepository: jest.fn() },
+      OPTIONS,
+    );
 
     // When: job을 실행한다.
     const result = await worker.runNext('worker-a', PROVISION_NOW);
@@ -79,7 +91,13 @@ describe('RepositoryProvisionWorker failure', () => {
       }),
     );
     const github = githubClientMock();
-    const worker = new RepositoryProvisionWorker(jobs, state, github, OPTIONS);
+    const worker = new RepositoryProvisionWorker(
+      jobs,
+      state,
+      github,
+      { enrollExternalRepository: jest.fn() },
+      OPTIONS,
+    );
 
     // When: provision job을 실행한다.
     const result = await worker.runNext(
@@ -113,7 +131,13 @@ describe('RepositoryProvisionWorker failure', () => {
       }),
     );
     const github = githubClientMock();
-    const worker = new RepositoryProvisionWorker(jobs, state, github, OPTIONS);
+    const worker = new RepositoryProvisionWorker(
+      jobs,
+      state,
+      github,
+      { enrollExternalRepository: jest.fn() },
+      OPTIONS,
+    );
 
     // When: job을 실행한다.
     const result = await worker.runNext('worker-team-mismatch', PROVISION_NOW);
@@ -142,7 +166,13 @@ describe('RepositoryProvisionWorker failure', () => {
     github.findRepository.mockRejectedValue(
       new GithubOperationsError(GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM, true),
     );
-    const worker = new RepositoryProvisionWorker(jobs, state, github, OPTIONS);
+    const worker = new RepositoryProvisionWorker(
+      jobs,
+      state,
+      github,
+      { enrollExternalRepository: jest.fn() },
+      OPTIONS,
+    );
 
     // When: job을 실행한다.
     const result = await worker.runNext('worker-b', PROVISION_NOW);
@@ -167,7 +197,13 @@ describe('RepositoryProvisionWorker failure', () => {
       visibility: 'PUBLIC',
       description: buildRepositoryOwnershipMarker('synthetic-application-id'),
     });
-    const worker = new RepositoryProvisionWorker(jobs, state, github, OPTIONS);
+    const worker = new RepositoryProvisionWorker(
+      jobs,
+      state,
+      github,
+      { enrollExternalRepository: jest.fn() },
+      OPTIONS,
+    );
 
     // When: provision job을 실행한다.
     const result = await worker.runNext('worker-public-create', PROVISION_NOW);
@@ -195,7 +231,13 @@ describe('RepositoryProvisionWorker failure', () => {
       visibility: 'PUBLIC',
       description: buildRepositoryOwnershipMarker('synthetic-application-id'),
     });
-    const worker = new RepositoryProvisionWorker(jobs, state, github, OPTIONS);
+    const worker = new RepositoryProvisionWorker(
+      jobs,
+      state,
+      github,
+      { enrollExternalRepository: jest.fn() },
+      OPTIONS,
+    );
 
     // When: 중단된 provision job을 재시도한다.
     const result = await worker.runNext(
@@ -227,7 +269,13 @@ describe('RepositoryProvisionWorker failure', () => {
         new Date('2026-07-22T00:10:00.000Z'),
       ),
     );
-    const worker = new RepositoryProvisionWorker(jobs, state, github, OPTIONS);
+    const worker = new RepositoryProvisionWorker(
+      jobs,
+      state,
+      github,
+      { enrollExternalRepository: jest.fn() },
+      OPTIONS,
+    );
 
     // When: job을 실행한다.
     await worker.runNext('worker-c', PROVISION_NOW);
@@ -252,7 +300,13 @@ describe('RepositoryProvisionWorker failure', () => {
     github.findRepository.mockRejectedValue(
       new GithubOperationsError(GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM, true),
     );
-    const worker = new RepositoryProvisionWorker(jobs, state, github, OPTIONS);
+    const worker = new RepositoryProvisionWorker(
+      jobs,
+      state,
+      github,
+      { enrollExternalRepository: jest.fn() },
+      OPTIONS,
+    );
 
     // When: job을 실행한다.
     const result = await worker.runNext('worker-d', PROVISION_NOW);
@@ -276,7 +330,13 @@ describe('RepositoryProvisionWorker failure', () => {
     github.ensureCollaborator.mockRejectedValue(
       new GithubOperationsError(GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM, true),
     );
-    const worker = new RepositoryProvisionWorker(jobs, state, github, OPTIONS);
+    const worker = new RepositoryProvisionWorker(
+      jobs,
+      state,
+      github,
+      { enrollExternalRepository: jest.fn() },
+      OPTIONS,
+    );
 
     // When: job을 실행한다.
     const result = await worker.runNext('worker-e', PROVISION_NOW);

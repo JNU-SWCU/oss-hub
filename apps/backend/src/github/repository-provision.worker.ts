@@ -4,6 +4,7 @@ import {
   COLLABORATOR_OUTCOMES,
   type GithubAppClient,
 } from './github-app.client';
+import type { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
 import type { RepositoryProvisionJobRepository } from './repository/repository-provision-job.repository';
 import {
   InvalidRepositoryProvisionEventError,
@@ -63,6 +64,14 @@ export class RepositoryProvisionWorker {
       | 'ensureCollaborator'
       | 'findPublicRepository'
     >,
+    /**
+     * OWN 저장소를 수집 큐에 편입한다. 프로비저닝과 수집은 별개 모델(`Repository`
+     * vs `GithubRepository`)이라 여기서 잇지 않으면 연결이 끊긴다(ADR-010 §6).
+     */
+    private readonly collectionEnrollment: Pick<
+      CollectionIncrementalRepository,
+      'enrollExternalRepository'
+    >,
     private readonly options: RepositoryProvisionWorkerOptions = DEFAULT_PROVISION_OPTIONS,
   ) {}
 
@@ -100,6 +109,14 @@ export class RepositoryProvisionWorker {
       // OWN은 조직 밖 저장소라 초대 권한이 없다 — 초대 단계를 통째로 건너뛴다.
       if (connectionMode === 'OWN') {
         const completedAt = now();
+        // 조직 인벤토리는 이 저장소를 못 본다. 여기서 수집 큐에 넣지 않으면
+        // 학생이 자기 저장소에서 아무리 활동해도 화면에 영영 안 나온다
+        // (ADR-009 §3, ADR-010 §5·§6).
+        await this.collectionEnrollment.enrollExternalRepository({
+          githubRepositoryId: repository.githubRepositoryId,
+          nameWithOwner: repository.name,
+          observedAt: completedAt,
+        });
         await this.state.completeJob(
           job.id,
           workerId,
