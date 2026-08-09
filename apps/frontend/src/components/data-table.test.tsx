@@ -78,4 +78,49 @@ describe('DataTable', () => {
     expect(html).not.toMatch(/<t[rd][^>]*tabindex=/i);
     expect(html).not.toContain('aria-label="홍길동 열기"');
   });
+
+  it('onRowClick이 없으면 행에 cursor-pointer 클래스를 주지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <DataTable columns={columns} data={rows} rowKey={(row) => row.id} />,
+    );
+
+    expect(html).not.toContain('cursor-pointer');
+  });
+
+  it('onRowClick이 있으면 행에 cursor-pointer/hover 클래스를 준다', () => {
+    const html = renderToStaticMarkup(
+      <DataTable
+        columns={columns}
+        data={rows}
+        rowKey={(row) => row.id}
+        onRowClick={() => undefined}
+      />,
+    );
+
+    expect(html).toMatch(
+      /<tr[^>]*class="[^"]*cursor-pointer[^"]*hover:bg-muted\/50[^"]*"/,
+    );
+  });
+
+  it('headProps로 넘긴 aria-sort가 해당 컬럼의 th에 그대로 전달된다', () => {
+    const sortableColumns: DataTableColumn<Applicant>[] = [
+      {
+        id: 'name',
+        header: '이름',
+        cell: (row) => row.name,
+        headProps: { 'aria-sort': 'ascending' },
+      },
+      { id: 'status', header: '상태', cell: (row) => row.status },
+    ];
+    const html = renderToStaticMarkup(
+      <DataTable
+        columns={sortableColumns}
+        data={rows}
+        rowKey={(row) => row.id}
+      />,
+    );
+
+    expect(html).toMatch(/<th[^>]*aria-sort="ascending"[^>]*>\s*이름/);
+    expect(html).not.toMatch(/<th[^>]*aria-sort="ascending"[^>]*>\s*상태/);
+  });
 });
