@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { useEffect, useRef } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertCircle, AlertTriangle } from 'lucide-react';
 import { EmptyState, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { sanitizeRejectionReason } from '@/lib/rejection-reason';
 import type { ProgramTeam } from './api';
 import { ApplicationConfirmationDialog } from './application-confirmation-dialog';
 import { FormRenderer } from './form-renderer';
@@ -21,6 +22,7 @@ import {
   type TeamMinimum,
 } from './program-apply-flow';
 import { programHref } from './program-paths';
+import type { StudentApplication } from './student-application-api';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
 
 export type ApplicationFormMode = 'create' | 'edit';
@@ -38,12 +40,61 @@ export function ApplySkeleton() {
   );
 }
 
+/**
+ * 반려 사유 상자 — 이 화면이 이미 약속한 것을 실제로 보여 주는 자리(#722).
+ *
+ * 대시보드의 반려 알림이 "신청 상세에서 반려 사유를 확인해 주세요"라며 여기로 보내는데,
+ * 정작 이 화면은 "승인 또는 반려된 신청서는 수정하거나 취소할 수 없습니다"만 말하고
+ * 사유는 어디에도 없었다. 사유가 실려 오는 곳은 `GET .../applications/me` 하나뿐이고
+ * (알림 payload·감사 로그·메일에는 담기지 않는다), `loadProgramApplyContext`가 그
+ * 응답을 이미 받아 두므로 여기서 꺼내 쓰기만 하면 된다.
+ *
+ * 조형은 `features/roles/components/role-request-screen.tsx`의 반려 블록과 맞춘다 —
+ * 같은 성격의 알림이 화면마다 다른 모양이면 위계가 무너진다. 다만 본문에는
+ * `whitespace-pre-wrap`(교직원이 넣은 줄바꿈 보존)과 `break-keep`(한글 문장의 어색한
+ * 줄바꿈 방지)을 더 건다 — 그쪽은 한 줄짜리 사유를 전제한 자리다.
+ *
+ * 사유가 비었거나 공백뿐이면 **아무것도 그리지 않는다.** 라벨만 뜨고 안이 비면 사용자는
+ * 사유가 아직 안 온 줄 알고 기다린다(`sanitizeRejectionReason`이 `null`을 돌려준다).
+ *
+ * ⚠ 길이는 **자르지 않는다.** 역할 요청 반려와 달리 신청 반려는 번호 매긴 보완 목록이
+ * 자연스러운 형식이라, 뒤를 자르면 재신청 마감일 같은 마지막 줄이 통째로 사라진다.
+ */
+function RejectionReasonAlert({
+  application,
+}: {
+  readonly application: StudentApplication | null;
+}) {
+  if (application === null || application.status !== 'REJECTED') return null;
+  const reason = sanitizeRejectionReason(application.rejectionReason);
+  if (reason === null) return null;
+
+  return (
+    <Alert variant="destructive" className="mb-6 text-left">
+      <AlertCircle aria-hidden="true" />
+      <AlertTitle>반려 사유</AlertTitle>
+      <AlertDescription className="break-keep whitespace-pre-wrap [overflow-wrap:anywhere]">
+        {reason}
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 export function BlockedView({
   reason,
   program,
+  application,
 }: {
   readonly reason: 'period-closed' | 'already-applied' | 'team-required';
   readonly program: ProgramDetail;
+  /**
+   * 막힘을 판정하는 데 쓴 내 신청서. 반려 사유는 **여기에만** 실려 온다.
+   *
+   * 선택 prop으로 두지 않는다 — 기본값 `null`을 주면 호출부가 넘기는 것을 잊어도
+   * 조용히 컴파일되고, 사유가 사라진 화면이 다시 만들어진다. 조회하지 않은 갈래는
+   * 호출부가 `null`을 **명시**해서 "없다"와 "잊었다"를 구분한다.
+   */
+  readonly application: StudentApplication | null;
 }) {
   const content =
     reason === 'period-closed'
@@ -65,6 +116,9 @@ export function BlockedView({
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-12">
+      {/* 안내 상자보다 **위**에 세운다 — 반려된 사람의 첫 할 일은 "수정할 수 없다"를
+          읽는 것이 아니라 왜 반려됐는지 읽는 것이다. */}
+      <RejectionReasonAlert application={application} />
       <EmptyState
         title={content.title}
         description={content.description}

@@ -30,6 +30,12 @@ export interface StudentApplicationView {
   readonly submittedAt: Date;
   readonly updatedAt: Date;
   readonly isRepositoryPublicationPlanned: boolean;
+  /**
+   * 반려 사유. 상태와 무관하게 **항상 키가 있고**, 반려가 아니면 `null`이다.
+   * 반려일 때만 키를 실으면 클라이언트에서 "없는 키"와 "null"이 다르게 읽혀,
+   * 사유가 아직 안 온 것인지 애초에 없는 것인지 구분할 수 없다.
+   */
+  readonly rejectionReason: string | null;
   readonly canManage: boolean;
 }
 
@@ -184,6 +190,7 @@ export class StudentApplicationManagementService {
       updatedAt: application.updatedAt,
       isRepositoryPublicationPlanned:
         application.isRepositoryPublicationPlanned,
+      rejectionReason: application.rejectionReason,
       canManage: editable,
     };
   }

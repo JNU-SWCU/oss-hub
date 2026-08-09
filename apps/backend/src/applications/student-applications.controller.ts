@@ -29,6 +29,8 @@ interface StudentApplicationResponse {
   readonly submittedAt: string;
   readonly updatedAt: string;
   readonly isRepositoryPublicationPlanned: boolean;
+  /** 반려 사유. 반려가 아니면 `null`이며 키 자체는 항상 있다. */
+  readonly rejectionReason: string | null;
   readonly canManage: boolean;
   /** @deprecated Use canManage. */
   readonly canEdit: boolean;

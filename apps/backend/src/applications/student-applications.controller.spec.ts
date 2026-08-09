@@ -33,6 +33,7 @@ const APPLICATION = {
   },
   submittedAt: new Date('2026-07-10T00:00:00.000Z'),
   updatedAt: new Date('2026-07-11T00:00:00.000Z'),
+  rejectionReason: null,
   canManage: true,
 } as const;
 
@@ -78,6 +79,47 @@ describe('StudentApplicationsController', () => {
       canEdit: true,
       canCancel: true,
     });
+  });
+
+  /**
+   * 반려 사유는 응답 계약의 일부다(#722). 상태와 무관하게 키가 있어야 클라이언트가
+   * "아직 안 왔다"와 "없다"를 구분하지 않고 값 하나만 본다.
+   */
+  it('반려 사유를 응답에 그대로 싣는다', async () => {
+    // Given
+    const service = createService();
+    service.getMine.mockResolvedValue({
+      ...APPLICATION,
+      status: ApplicationStatus.REJECTED,
+      rejectionReason: '합성 반려 사유',
+      canManage: false,
+    });
+    const controller = new StudentApplicationsController(service);
+
+    // When
+    const result = await controller.getMine(
+      { sessionGithubId: 4242n },
+      'program-1',
+    );
+
+    // Then
+    expect(result.rejectionReason).toBe('합성 반려 사유');
+  });
+
+  it('반려가 아닌 신청도 사유 키를 null로 남긴다', async () => {
+    // Given
+    const service = createService();
+    const controller = new StudentApplicationsController(service);
+
+    // When
+    const result = await controller.getMine(
+      { sessionGithubId: 4242n },
+      'program-1',
+    );
+
+    // Then
+    expect(result).toHaveProperty('rejectionReason');
+    expect(result.rejectionReason).toBeNull();
   });
 
   it('수정 본문을 서비스에 전달한다', async () => {
