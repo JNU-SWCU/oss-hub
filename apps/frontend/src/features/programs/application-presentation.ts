@@ -1,4 +1,5 @@
 import { ApiError } from '@/lib/api-client';
+import { sanitizeDisplayText } from '@/lib/display-text';
 import type {
   ApplicationListItem,
   ApplicationStatus,
@@ -51,9 +52,26 @@ export function formatSubmittedAt(value: string): string {
   }).format(new Date(value));
 }
 
+/**
+ * 학생이 신청서에 쓴 글을 화면에 그리기 전에 지나는 자리(#735).
+ *
+ * `answers.*` 는 학생 자유 입력인데 쓰기 쪽에 위생 처리도 길이 상한도 없다. 그대로
+ * 그리면 `U+202E`(RTL override) 하나로 **뒤 문장이 거꾸로 표시**되고, 교직원은 학생이
+ * 제출하지 않은 문장을 읽은 채 승인·반려를 누른다.
+ *
+ * ⚠ **자르지 않는다.** 잘린 지원 동기로 판정하게 만드는 것이 더 나쁘다 —
+ * 그래서 `clampRejectionReason` 이 아니라 `sanitizeDisplayText` 쪽이다.
+ * 세로로 길어지는 문제의 근본 처방은 쓰기 쪽 길이 상한이고, 그건 별건이다.
+ */
+export function displayAnswerText(value: string): string {
+  return sanitizeDisplayText(value) ?? '';
+}
+
 export function displayApplicantName(item: ApplicationListItem): string {
   return (
-    item.answers.applicantName || item.applicant.name || item.applicant.nickname
+    displayAnswerText(item.answers.applicantName) ||
+    item.applicant.name ||
+    item.applicant.nickname
   );
 }
 

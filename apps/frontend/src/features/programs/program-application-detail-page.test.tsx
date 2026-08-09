@@ -179,6 +179,27 @@ describe('ProgramApplicationDetailPage', () => {
     expect(wraps(applicantValue)).toBe(true);
   });
 
+  it('학생이 넣은 Bidi·제어문자를 화면에 그대로 흘리지 않는다', async () => {
+    // `U+202E` 하나면 뒤 문장이 거꾸로 표시된다 — 교직원이 학생이 제출하지 않은
+    // 문장을 읽은 채 승인·반려를 누른다(#735). 제목·지원 동기·신청서 이름 셋 다.
+    getApplicationDetailMock.mockResolvedValue({
+      ...submitted,
+      answers: {
+        applicantName: '이름\u202E뒤집기',
+        title: '제목\u202E뒤집기',
+        summary: '동기\u0007제어문자',
+      },
+    });
+
+    await mount();
+
+    expect(container.textContent).not.toContain('\u202E');
+    expect(container.textContent).not.toContain('\u0007');
+    expect(container.textContent).toContain('이름뒤집기');
+    expect(container.textContent).toContain('제목뒤집기');
+    expect(container.textContent).toContain('동기제어문자');
+  });
+
   it('제출 시각을 서울 시각으로 적는다', async () => {
     getApplicationDetailMock.mockResolvedValue(submitted);
 

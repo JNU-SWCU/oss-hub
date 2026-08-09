@@ -432,4 +432,26 @@ describe('program applicants revert action', () => {
       'repository provision already succeeded',
     );
   });
+
+  it('목록 제목 칸도 학생이 넣은 Bidi 를 흘리지 않는다', async () => {
+    // 목록은 `line-clamp-2` 로 잘라 그리지만 잘라도 방향은 뒤집힌다(#735).
+    listProgramApplicationsMock.mockResolvedValue(
+      applicationPage([
+        {
+          ...personal,
+          answers: { ...personal.answers, title: '제목\u202E뒤집기' },
+        },
+      ]),
+    );
+
+    await act(async () => {
+      root.render(<ProgramApplicantsPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).not.toContain('\u202E');
+    expect(container.textContent).toContain('제목뒤집기');
+  });
 });
