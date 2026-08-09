@@ -631,37 +631,7 @@ export class ApplicationsRepository {
               orderBy: [{ submittedAt: 'desc' }, { id: 'asc' }],
               skip: (query.page - 1) * query.pageSize,
               take: query.pageSize,
-              select: {
-                id: true,
-                status: true,
-                submittedAt: true,
-                updatedAt: true,
-                rejectionReason: true,
-                teamId: true,
-                answers: true,
-                isRepositoryPublicationPlanned: true,
-                // 1:1 Application.repository — 팀의 repositories 로 가지 않는다(#113).
-                repository: {
-                  select: { url: true, visibility: true },
-                },
-                program: {
-                  select: { repositoryProvisioningEnabled: true },
-                },
-                applicant: {
-                  select: {
-                    id: true,
-                    nickname: true,
-                    ...COMPATIBLE_PROFILE_NAME_SELECT,
-                  },
-                },
-                team: {
-                  select: {
-                    id: true,
-                    name: true,
-                    _count: { select: { members: true } },
-                  },
-                },
-              },
+              select: APPLICATION_LIST_SELECT,
             }),
             transaction.application.count({ where }),
           ]);
@@ -719,6 +689,43 @@ export class ApplicationsRepository {
       totalItems,
       totalPages: Math.ceil(totalItems / query.pageSize),
     };
+  }
+
+  /**
+   * 교직원 신청 상세(#722). 목록과 같은 `RepeatableRead` 트랜잭션 안에서 신청·outbox·
+   * provision job 을 함께 읽는다 — 셋을 따로 읽으면 그 사이에 판정이 끼어들어 「반려인데
+   * 저장소 작업이 진행 중」 같은 있을 수 없는 조합이 화면에 그려진다.
+   */
+  async findApplicationForStaff(
+    applicationId: string,
+  ): Promise<ApplicationListItem | null> {
+    const [row, outbox, job] = await this.prisma.$transaction(
+      async (transaction) => {
+        const applicationRow = await transaction.application.findUnique({
+          where: { id: applicationId },
+          select: APPLICATION_LIST_SELECT,
+        });
+        if (applicationRow === null) {
+          return [null, null, null] as const;
+        }
+        const [event, provisionJob] = await Promise.all([
+          transaction.outboxEvent.findUnique({
+            where: {
+              idempotencyKey: `repository-provision:${applicationId}`,
+            },
+            select: { status: true, createdAt: true },
+          }),
+          transaction.repositoryProvisionJob.findUnique({
+            where: { applicationId },
+            select: { status: true, updatedAt: true, lastErrorCode: true },
+          }),
+        ]);
+        return [applicationRow, event, provisionJob] as const;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
+    if (row === null) return null;
+    return toApplicationListItem(row, outbox ?? undefined, job ?? undefined);
   }
 
   async listStaffDashboardSummary(): Promise<StaffDashboardSummary> {
@@ -848,6 +855,42 @@ function buildApplicationListWhere(
     ...searchWhere,
   };
 }
+
+/**
+ * 목록과 단건 조회가 **같은 select**를 쓴다. 화면이 둘이라도 교직원이 보는 신청 한 건의
+ * 모양은 하나여야 한다 — 한쪽만 필드를 늘리면 목록에서 보이던 값이 상세에서 사라진다.
+ */
+const APPLICATION_LIST_SELECT = {
+  id: true,
+  status: true,
+  submittedAt: true,
+  updatedAt: true,
+  rejectionReason: true,
+  teamId: true,
+  answers: true,
+  isRepositoryPublicationPlanned: true,
+  // 1:1 Application.repository — 팀의 repositories 로 가지 않는다(#113).
+  repository: {
+    select: { url: true, visibility: true },
+  },
+  program: {
+    select: { repositoryProvisioningEnabled: true },
+  },
+  applicant: {
+    select: {
+      id: true,
+      nickname: true,
+      ...COMPATIBLE_PROFILE_NAME_SELECT,
+    },
+  },
+  team: {
+    select: {
+      id: true,
+      name: true,
+      _count: { select: { members: true } },
+    },
+  },
+} as const satisfies Prisma.ApplicationSelect;
 
 type ApplicationListRow = {
   readonly id: string;
