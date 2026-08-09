@@ -103,9 +103,86 @@ const SYSTEM_STATUS_FIXTURE = {
     oldestRetryPendingAt: '2026-07-29T09:00:00.000Z',
     lastCycleStartedAt: '2026-07-31T00:00:00.000Z',
     lastCycleCompletedAt: '2026-07-30T18:00:00.000Z',
+    nextCycleAt: '2026-07-31T01:00:00.000Z',
     currentRunStatus: 'PROCESSING',
     safeReason: 'STALE_DATA',
   },
+  // 저장소×stream 상세 — 정상 3종, backfill 중, 부분, 재시도 대기(오류 있음)를
+  // 하나씩 섞어 「수집 대상 상세」 표의 배지·정렬·문제 열을 로컬 검토에서 눈으로
+  // 확인할 수 있게 한다.
+  collectionStreams: [
+    {
+      repositoryName: 'jnu-oss/broken-stream-repo',
+      streams: [
+        {
+          streamType: 'COMMIT',
+          bucket: 'RETRY_PENDING',
+          lastSuccessAt: '2026-07-29T09:00:00.000Z',
+          lastErrorCode: 'PROVIDER_RATE_LIMITED',
+          lastErrorAt: '2026-07-31T00:05:00.000Z',
+        },
+        {
+          streamType: 'PULL_REQUEST',
+          bucket: 'PARTIAL',
+          lastSuccessAt: '2026-07-30T20:00:00.000Z',
+          lastErrorCode: null,
+          lastErrorAt: null,
+        },
+        {
+          streamType: 'RELEASE',
+          bucket: 'READY',
+          lastSuccessAt: '2026-07-30T18:00:00.000Z',
+          lastErrorCode: null,
+          lastErrorAt: null,
+        },
+      ],
+    },
+    {
+      repositoryName: 'jnu-oss/healthy-repo',
+      streams: [
+        {
+          streamType: 'COMMIT',
+          bucket: 'READY',
+          lastSuccessAt: '2026-07-31T00:00:00.000Z',
+          lastErrorCode: null,
+          lastErrorAt: null,
+        },
+        {
+          streamType: 'PULL_REQUEST',
+          bucket: 'READY',
+          lastSuccessAt: '2026-07-31T00:00:00.000Z',
+          lastErrorCode: null,
+          lastErrorAt: null,
+        },
+        {
+          streamType: 'RELEASE',
+          bucket: 'READY',
+          lastSuccessAt: '2026-07-30T12:00:00.000Z',
+          lastErrorCode: null,
+          lastErrorAt: null,
+        },
+      ],
+    },
+    {
+      repositoryName: 'jnu-oss/new-repo-backfilling',
+      streams: [
+        {
+          streamType: 'COMMIT',
+          bucket: 'BACKFILLING',
+          lastSuccessAt: null,
+          lastErrorCode: null,
+          lastErrorAt: null,
+        },
+        {
+          streamType: 'PULL_REQUEST',
+          bucket: 'BACKFILLING',
+          lastSuccessAt: null,
+          lastErrorCode: null,
+          lastErrorAt: null,
+        },
+      ],
+    },
+  ],
 } as const satisfies SystemStatusResponse;
 
 /** 기간 필터는 한국 날짜 선택기의 `YYYY-MM-DD`라 ISO 앞 10자리와 비교한다. */

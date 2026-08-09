@@ -2,8 +2,8 @@ import type { ReactElement, ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type {
+  CollectionStreamRepository,
   SystemStatus,
-  SystemStatusViewState,
   TriggerNotice,
 } from '../types';
 import { SystemStatusView } from './system-status-view';
@@ -20,20 +20,40 @@ const normal: SystemStatus = {
   oldestRetryPendingAt: null,
   lastCycleStartedAt: '2026-07-25T10:55:00.000Z',
   lastCycleCompletedAt: '2026-07-25T11:00:00.000Z',
+  nextCycleAt: null,
   currentRunStatus: 'IDLE',
   safeReason: null,
 };
 
+/**
+ * 이 파일의 `render` 두 번째 인자는 실제 컴포넌트 prop 타입(`SystemStatusViewState`)이
+ * 아니라 테스트 편의용 느슨한 타입이다 — success 상태에 `collectionStreams`를 매번
+ * 적지 않아도 되도록 기본값([])을 채워 넣는다. 표를 직접 검증하는 테스트만
+ * `collectionStreams`를 명시적으로 준다.
+ */
+type LooseViewState =
+  | { readonly kind: 'loading' }
+  | { readonly kind: 'error' }
+  | {
+      readonly kind: 'success';
+      readonly status: SystemStatus;
+      readonly collectionStreams?: readonly CollectionStreamRepository[];
+    };
+
 function render(
-  state: SystemStatusViewState,
+  state: LooseViewState,
   overrides: {
     readonly isTriggering?: boolean;
     readonly triggerNotice?: TriggerNotice | null;
   } = {},
 ): string {
+  const resolvedState =
+    state.kind === 'success'
+      ? { ...state, collectionStreams: state.collectionStreams ?? [] }
+      : state;
   return renderToStaticMarkup(
     <SystemStatusView
-      state={state}
+      state={resolvedState}
       onRetry={() => undefined}
       onTrigger={() => undefined}
       isTriggering={overrides.isTriggering ?? false}
@@ -209,6 +229,41 @@ describe('SystemStatusView', () => {
 
     const withoutRetry = render({ kind: 'success', status: normal });
     expect(withoutRetry).not.toContain('가장 오래된 재시도 대기');
+  });
+
+  it('다음 주기 예상 시각이 있으면 상대·절대 시각을 함께 표시하고, 없으면 생략한다', () => {
+    const withNextCycle = render({
+      kind: 'success',
+      status: { ...normal, nextCycleAt: '2026-07-25T12:00:00.000Z' },
+    });
+    expect(withNextCycle).toContain('다음 주기 예상');
+    expect(withNextCycle).toContain('2026');
+
+    const withoutNextCycle = render({ kind: 'success', status: normal });
+    expect(withoutNextCycle).not.toContain('다음 주기 예상');
+  });
+
+  it('요약 카드 아래에 「수집 대상 상세」 표 section을 렌더링한다', () => {
+    const html = render({
+      kind: 'success',
+      status: normal,
+      collectionStreams: [
+        {
+          repositoryName: 'jnu-oss/example',
+          streams: [
+            {
+              streamType: 'COMMIT',
+              bucket: 'READY',
+              lastSuccessAt: '2026-07-25T10:59:00.000Z',
+              lastErrorCode: null,
+              lastErrorAt: null,
+            },
+          ],
+        },
+      ],
+    });
+    expect(html).toContain('aria-label="수집 대상 상세"');
+    expect(html).toContain('jnu-oss/example');
   });
 
   it('error 상태의 재시도 버튼이 전달된 handler를 호출한다', () => {
