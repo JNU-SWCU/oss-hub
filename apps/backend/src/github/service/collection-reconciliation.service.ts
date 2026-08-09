@@ -200,6 +200,12 @@ export class CollectionReconciliationService {
       ) {
         throw new CollectionAppClientError('RESPONSE');
       }
+      // rollback용 canonical generation은 legacy non-null branch schema다.
+      // 활성 증분 수집은 빈 저장소를 정상 처리하지만, 이 구세대 경로는 빈
+      // 문자열 sentinel을 쓰지 않고 명시적으로 실패해 잘못된 branch를 남기지 않는다.
+      if (repository.defaultBranch === null) {
+        throw new CollectionAppClientError('RESPONSE');
+      }
       const repositoryId = BigInt(repository.id);
       inventory.repositories.push({
         githubRepositoryId: repositoryId,

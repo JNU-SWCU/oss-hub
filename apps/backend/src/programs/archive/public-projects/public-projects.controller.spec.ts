@@ -1,4 +1,4 @@
-import { PATH_METADATA } from '@nestjs/common/constants';
+import { HEADERS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import type { PublicProjectRow } from './public-projects.repository';
 import { PublicProjectsController } from './public-projects.controller';
 import type { PublicProjectsService } from './public-projects.service';
@@ -23,6 +23,19 @@ function row(
 }
 
 describe('PublicProjectsController', () => {
+  it('공개 목록·상세는 저장소 공개 회수 뒤 이전 응답을 저장하지 않는다', () => {
+    for (const methodName of ['findPage', 'findDetail'] as const) {
+      const handler: unknown = Object.getOwnPropertyDescriptor(
+        PublicProjectsController.prototype,
+        methodName,
+      )?.value;
+      expect(typeof handler).toBe('function');
+      expect(Reflect.getMetadata(HEADERS_METADATA, handler as object)).toEqual([
+        { name: 'Cache-Control', value: 'no-store' },
+      ]);
+    }
+  });
+
   it('GET / — 서비스 결과를 페이지 응답 DTO로 매핑하고, 서비스가 결정한 raw 커서를 그대로 전달한다', async () => {
     const found = row({ id: 'synthetic-repository-1' });
     const findPage = jest.fn().mockResolvedValue({

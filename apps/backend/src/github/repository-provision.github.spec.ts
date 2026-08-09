@@ -229,8 +229,11 @@ describe('resolveOwnGithubRepository', () => {
     github.findPublicRepository.mockResolvedValue({
       githubRepositoryId: 42n,
       name: 'synthetic-repo',
+      nameWithOwner: 'synthetic-student/synthetic-repo',
       url: 'https://github.com/Synthetic-Student/synthetic-repo',
       visibility: 'PUBLIC',
+      archived: false,
+      defaultBranch: 'main',
       description: null,
     });
 
@@ -242,8 +245,11 @@ describe('resolveOwnGithubRepository', () => {
     expect(repository).toEqual({
       githubRepositoryId: 42n,
       name: 'synthetic-repo',
+      nameWithOwner: 'synthetic-student/synthetic-repo',
       url: studentUrl,
       visibility: 'PUBLIC',
+      archived: false,
+      defaultBranch: 'main',
       description: null,
     });
   });

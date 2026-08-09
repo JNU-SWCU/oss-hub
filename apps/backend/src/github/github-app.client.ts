@@ -8,18 +8,25 @@ import type {
 } from './github-app.token';
 import {
   invalidGithubResponseError,
+  parseGithubPublicRepository,
   parseGithubRepository,
   parseInvitationLogins,
   readGithubJson,
   throwForGithubErrorResponse,
 } from './github-app.response';
-import type { GithubRepositoryMetadata } from './github-app.response';
+import type {
+  GithubPublicRepositoryMetadata,
+  GithubRepositoryMetadata,
+} from './github-app.response';
 
 const GITHUB_API_BASE_URL = 'https://api.github.com';
 const GITHUB_API_VERSION = '2022-11-28';
 const USER_AGENT = 'oss-hub-backend';
 const REQUEST_TIMEOUT_MS = 10_000;
-export type { GithubRepositoryMetadata } from './github-app.response';
+export type {
+  GithubPublicRepositoryMetadata,
+  GithubRepositoryMetadata,
+} from './github-app.response';
 
 export const COLLABORATOR_OUTCOMES = {
   PENDING: 'PENDING',
@@ -51,7 +58,7 @@ export class GithubAppClient {
   async findPublicRepository(
     owner: string,
     name: string,
-  ): Promise<GithubRepositoryMetadata | null> {
+  ): Promise<GithubPublicRepositoryMetadata | null> {
     const response = await this.requestPublic(
       `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`,
     );
@@ -59,7 +66,7 @@ export class GithubAppClient {
       return null;
     }
     await throwForGithubErrorResponse(response, this.now());
-    return parseGithubRepository(await readGithubJson(response));
+    return parseGithubPublicRepository(await readGithubJson(response));
   }
 
   async createRepository(
