@@ -1,0 +1,117 @@
+import { AccountStatus, Role } from '@prisma/client';
+
+export const DIGEST_FIXTURE = {
+  notifyProgram: 'test:notifications:program:notify',
+  silentProgram: 'test:notifications:program:silent',
+  notifyMilestone: 'test:notifications:milestone:notify',
+  silentMilestone: 'test:notifications:milestone:silent',
+  staffOn: 'test:notifications:staff-on',
+  staffOff: 'test:notifications:staff-off',
+  adminOn: 'test:notifications:admin-on',
+  studentMissing: 'test:notifications:student-missing',
+  studentSubmitted: 'test:notifications:student-submitted',
+  studentOff: 'test:notifications:student-off',
+  staffDeactivated: 'test:notifications:staff-deactivated',
+  studentDeactivated: 'test:notifications:student-deactivated',
+  missingApplication: 'test:notifications:application:missing',
+  submittedApplication: 'test:notifications:application:submitted',
+  offApplication: 'test:notifications:application:off',
+  deactivatedApplication: 'test:notifications:application:deactivated',
+  submission: 'test:notifications:submission',
+  staffOnGithub: 9_600_000_000_127_001n,
+  now: new Date('2026-08-14T00:00:00.000Z'),
+  windowEnd: new Date('2026-08-15T00:00:00.000Z'),
+  dueSoon: new Date('2026-08-14T12:00:00.000Z'),
+} as const;
+
+export const DIGEST_USER_IDS: string[] = [
+  DIGEST_FIXTURE.staffOn,
+  DIGEST_FIXTURE.staffOff,
+  DIGEST_FIXTURE.adminOn,
+  DIGEST_FIXTURE.studentMissing,
+  DIGEST_FIXTURE.studentSubmitted,
+  DIGEST_FIXTURE.studentOff,
+  DIGEST_FIXTURE.staffDeactivated,
+  DIGEST_FIXTURE.studentDeactivated,
+];
+
+export const DIGEST_APPLICATION_FIXTURES = [
+  [DIGEST_FIXTURE.missingApplication, DIGEST_FIXTURE.studentMissing],
+  [DIGEST_FIXTURE.submittedApplication, DIGEST_FIXTURE.studentSubmitted],
+  [DIGEST_FIXTURE.offApplication, DIGEST_FIXTURE.studentOff],
+  [DIGEST_FIXTURE.deactivatedApplication, DIGEST_FIXTURE.studentDeactivated],
+] as const;
+
+export const DIGEST_USER_FIXTURES = [
+  [
+    DIGEST_FIXTURE.staffOn,
+    DIGEST_FIXTURE.staffOnGithub,
+    Role.STAFF,
+    true,
+    'staff-on@example.com',
+    AccountStatus.ACTIVE,
+  ],
+  [
+    DIGEST_FIXTURE.staffOff,
+    9_600_000_000_127_002n,
+    Role.STAFF,
+    false,
+    'staff-off@example.com',
+    AccountStatus.ACTIVE,
+  ],
+  [
+    DIGEST_FIXTURE.adminOn,
+    9_600_000_000_127_004n,
+    Role.ADMIN,
+    true,
+    'admin-on@example.com',
+    AccountStatus.ACTIVE,
+  ],
+  [
+    DIGEST_FIXTURE.studentMissing,
+    9_600_000_000_127_003n,
+    Role.STUDENT,
+    true,
+    'student-missing@example.com',
+    AccountStatus.ACTIVE,
+  ],
+  [
+    DIGEST_FIXTURE.studentSubmitted,
+    9_600_000_000_127_005n,
+    Role.STUDENT,
+    true,
+    'student-submitted@example.com',
+    AccountStatus.ACTIVE,
+  ],
+  [
+    DIGEST_FIXTURE.studentOff,
+    9_600_000_000_127_006n,
+    Role.STUDENT,
+    false,
+    'student-off@example.com',
+    AccountStatus.ACTIVE,
+  ],
+  [
+    DIGEST_FIXTURE.staffDeactivated,
+    9_600_000_000_127_007n,
+    Role.STAFF,
+    true,
+    'staff-deactivated@example.com',
+    AccountStatus.DEACTIVATED,
+  ],
+  [
+    DIGEST_FIXTURE.studentDeactivated,
+    9_600_000_000_127_008n,
+    Role.STUDENT,
+    true,
+    'student-deactivated@example.com',
+    AccountStatus.DEACTIVATED,
+  ],
+] satisfies readonly (readonly [
+  string,
+  bigint,
+  Role,
+  boolean,
+  string,
+  AccountStatus,
+])[];
