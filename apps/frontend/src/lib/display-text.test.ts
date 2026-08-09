@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   clampRejectionReason,
-  sanitizeRejectionReason,
+  sanitizeDisplayText,
   REJECTION_REASON_MAX_LENGTH,
   REJECTION_REASON_MAX_LINES,
-} from './rejection-reason';
+} from './display-text';
 
 describe('clampRejectionReason', () => {
   /**
@@ -176,14 +176,14 @@ describe('clampRejectionReason', () => {
  * 자르지 않는 갈래. 프로그램 신청 반려가 이걸 쓴다 — 보완 목록이 길어져도 학생이
  * 마지막 줄(재신청 마감 같은 실행 정보)을 잃으면 안 되기 때문이다.
  */
-describe('sanitizeRejectionReason', () => {
+describe('sanitizeDisplayText', () => {
   it('역할 요청 상한을 넘겨도 자르지 않는다', () => {
     const long = Array.from(
       { length: REJECTION_REASON_MAX_LINES + 4 },
       (_, index) => `${index + 1}번 줄`,
     ).join('\n');
 
-    const sanitized = sanitizeRejectionReason(long);
+    const sanitized = sanitizeDisplayText(long);
 
     expect(sanitized).toBe(long);
     expect(sanitized).not.toContain('…');
@@ -192,7 +192,7 @@ describe('sanitizeRejectionReason', () => {
   it('글자 수 상한을 넘겨도 자르지 않는다', () => {
     const long = '가'.repeat(REJECTION_REASON_MAX_LENGTH * 2);
 
-    expect(sanitizeRejectionReason(long)).toBe(long);
+    expect(sanitizeDisplayText(long)).toBe(long);
   });
 
   it('같은 입력을 clamp 는 자르고 sanitize 는 남긴다', () => {
@@ -204,24 +204,24 @@ describe('sanitizeRejectionReason', () => {
     ).join('\n');
 
     expect(clampRejectionReason(long)).toContain('…');
-    expect(sanitizeRejectionReason(long)).not.toContain('…');
+    expect(sanitizeDisplayText(long)).not.toContain('…');
   });
 
   it('화면을 깨뜨리는 문자는 그대로 걷어낸다', () => {
     // 자르지 않는다고 해서 위생 처리까지 놓으면, 학생 화면에서 문장 순서가 뒤집힌다.
     const attacked = '앞\u202E뒤\u0007';
 
-    expect(sanitizeRejectionReason(attacked)).toBe('앞뒤');
+    expect(sanitizeDisplayText(attacked)).toBe('앞뒤');
   });
 
   it('줄 구분자만으로 이루어진 값도 줄바꿈으로 모은다', () => {
-    expect(sanitizeRejectionReason('가\u2028나\u2029다')).toBe('가\n나\n다');
+    expect(sanitizeDisplayText('가\u2028나\u2029다')).toBe('가\n나\n다');
   });
 
   it('빈 값·공백뿐인 값은 null 이다', () => {
     // 라벨만 뜨고 안이 비면 학생은 사유가 아직 안 온 줄 알고 기다린다.
-    expect(sanitizeRejectionReason(null)).toBeNull();
-    expect(sanitizeRejectionReason('')).toBeNull();
-    expect(sanitizeRejectionReason('   \n\t  ')).toBeNull();
+    expect(sanitizeDisplayText(null)).toBeNull();
+    expect(sanitizeDisplayText('')).toBeNull();
+    expect(sanitizeDisplayText('   \n\t  ')).toBeNull();
   });
 });

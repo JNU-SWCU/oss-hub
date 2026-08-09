@@ -358,7 +358,7 @@ const PROGRAM_FIXTURES: Readonly<Record<PublicProgramId, ProgramFixture>> = {
  * 하나 끼워 문단 구분까지 함께 보이게 한다.
  *
  * 줄 수를 **일부러 역할 요청 쪽 상한(6줄)보다 길게** 잡았다. 이 화면은 자르지 않으므로
- * (`sanitizeRejectionReason`) 마지막 줄까지 그대로 보여야 하고, 그 사실을 검토자가
+ * (`sanitizeDisplayText`) 마지막 줄까지 그대로 보여야 하고, 그 사실을 검토자가
  * 눈으로 확인할 수 있어야 한다 — 재신청 마감일처럼 **끝에 오는 정보가 살아 있는지**가
  * 이 갈래에서 가장 중요한 확인이다.
  */
