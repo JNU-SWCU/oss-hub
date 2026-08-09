@@ -38,6 +38,11 @@
 읽기 전환 직후 `Contribution`이 비어 랭킹이 잠시 비었고, 같은 집합 SQL로 74행을 백필해 복구했다 —
 `확장 → 재수집 → 읽기 전환` 중 재수집을 건너뛰면 화면이 빈다는 것을 실측했다.
 
+**배포 후 발견한 결함(수정 중).** `OWN` 저장소 편입이 `nameWithOwner`로 bare repo name을 넘겨,
+편입은 되는데 스윕이 그 행에서 `throw`하는 조용히 죽는 경로가 있었다. `html_url`에서 `owner/repo`를 뽑도록 고쳤다.
+못 잡은 이유는 워커 스펙이 편입 호출을 단언하지 않아서다 — 인자 모양까지 보는 테스트를 추가했다.
+프로덕션에 `OWN` 신청이 0건이라 아직 드러나지 않았다.
+
 **남은 것.** ① `contributionsCollection` 배선 · fact 층 force-push 조정 · 옛 연도 집계 물리 드롭(`chore/drop-legacy-aggregates`, 아직 열지 않음).
 
 ## 지난 회차 이후 바뀐 결정
