@@ -80,7 +80,7 @@ describe('AuditLogView', () => {
     expect(html).toContain('다시 시도');
   });
 
-  it('행위자·액션·대상·발생 일시와 모바일 가로 스크롤 안내를 표시한다', () => {
+  it('행마다 서술문·발생 일시·상대 시각을 표시한다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView
         {...baseProps}
@@ -100,31 +100,24 @@ describe('AuditLogView', () => {
       />,
     );
 
+    // 서술문: 행위자·대상이 강조되고, target이 GitHub 로그인 형태라 '@' 접두가 붙는다.
     expect(html).toContain('synthetic-admin');
+    expect(html).toContain('@synthetic-target');
+    expect(html).toContain('님의 교직원 권한 요청을 승인했습니다');
+    // 2행: action 배지 + 한국어 targetType + targetId(코드체).
     expect(html).toContain('data-variant="approved"');
     expect(html).toContain('승인');
-    expect(html).toContain('STAFF_ROLE_REQUEST_APPROVED');
-    expect(html).toContain('break-all');
-    expect(html).toContain('synthetic-target');
-    expect(html).toContain('ROLE_REQUEST');
+    expect(html).toContain('권한 요청');
     expect(html).toContain('request-1');
-    expect(html).toContain('표를 좌우로 스크롤할 수 있습니다');
+    // 발생 일시: 절대 시각은 항상 표시하고 <time dateTime>을 유지한다.
+    expect(html).toContain('<time dateTime="2026-07-24T03:00:00.000Z"');
   });
 
-  it('대상 열에 사람이 읽을 수 있는 라벨과 targetType/targetId를 함께 표시한다', () => {
+  it('target이 legacy 폴백 라벨이면 서술문에서 코드체로 표시하고 @를 붙이지 않는다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView
         {...baseProps}
         records={[
-          {
-            id: 'audit-v2',
-            actor: 'synthetic-admin',
-            action: 'USER_ROLE_CHANGED',
-            targetType: 'USER',
-            targetId: 'cms8fwpv0000synthetic',
-            target: 'synthetic-target-login',
-            occurredAt: '2026-07-24T03:00:00.000Z',
-          },
           {
             id: 'audit-legacy',
             actor: 'synthetic-admin',
@@ -140,14 +133,15 @@ describe('AuditLogView', () => {
       />,
     );
 
-    // schemaVersion 2 행: 대상의 GitHub 로그인을 주 라벨로, type/id를 보조로 표시한다.
-    expect(html).toContain('synthetic-target-login');
-    expect(html).toContain('USER / cms8fwpv0000synthetic');
-    // v1/legacy 행: 폴백 라벨(targetType / targetId)이 그대로 주 라벨이 된다.
-    expect(html).toContain('ROLE_REQUEST / request-legacy');
+    expect(html).toContain('<code');
+    expect(html).toContain('권한 요청');
+    expect(html).toContain('request-legacy');
+    expect(html).not.toContain('@request-legacy');
+    // '님' 존칭이 코드체 폴백 값 뒤에 붙지 않는다(리뷰 지적 수정).
+    expect(html).not.toContain('request-legacy님');
   });
 
-  it('REPOSITORY_PUBLISHED(schemaVersion 2 target 스냅샷과 별개의 독립 sibling 타입) 행도 targetType/targetId 폴백 라벨로 표시한다', () => {
+  it('REPOSITORY_PUBLISHED 행도 서술문과 targetType 한국어 라벨로 표시한다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView
         {...baseProps}
@@ -167,8 +161,34 @@ describe('AuditLogView', () => {
       />,
     );
 
-    expect(html).toContain('REPOSITORY_PUBLISHED');
-    expect(html).toContain('REPOSITORY / repository-synthetic-1');
+    expect(html).toContain('저장소');
+    expect(html).toContain('공개로 전환했습니다');
+    expect(html).toContain('repository-synthetic-1');
+  });
+
+  it('알 수 없는 action도 원본 값을 담은 폴백 문장으로 숨기지 않고 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[
+          {
+            id: 'audit-unknown',
+            actor: 'synthetic-admin',
+            action: 'LEGACY_SYNTHETIC_ACTION',
+            targetType: 'ROLE_REQUEST',
+            targetId: 'request-1',
+            target: 'synthetic-target',
+            occurredAt: '2026-07-24T03:00:00.000Z',
+          },
+        ]}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+
+    expect(html).toContain('기타 작업');
+    expect(html).toContain('LEGACY_SYNTHETIC_ACTION');
+    expect(html).toContain('작업을 수행했습니다');
   });
 
   it('필터 이름을 각 컨트롤과 연결한다', () => {
@@ -308,7 +328,7 @@ describe('AuditLogView', () => {
     expect(html).toContain('request-1');
   });
 
-  it('표를 가로 스크롤 안내와 연결한다', () => {
+  it('표 스크롤 영역에 접근성 이름을 부여한다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView
         {...baseProps}
@@ -318,8 +338,6 @@ describe('AuditLogView', () => {
       />,
     );
 
-    expect(html).toContain('id="audit-table-scroll-hint"');
-    expect(html).toContain('aria-describedby="audit-table-scroll-hint"');
-    expect(html).toContain('표를 좌우로 스크롤할 수 있습니다');
+    expect(html).toContain('감사 로그 표');
   });
 });
