@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ARCHIVE_CATEGORIES } from '@/features/archive/types';
 import { PROGRAM_LIST_STATUS_LABELS } from '@/features/programs/types';
 import { programDetailIdFromPathname, SECTION_FACETS } from './section-facets';
-import { STUDENT_MENU } from './role-menus';
+import { STAFF_MENU, STUDENT_MENU } from './role-menus';
 import {
   archiveSidebarGroup,
   isCurrentSidebarItem,
@@ -69,6 +69,13 @@ describe('sidebarGroupsFor (context)', () => {
     expect(groups[0]?.items.map((i) => i.href)).toContain(
       '/dashboard/activity',
     );
+  });
+
+  it('교직원 대시보드 메뉴는 현재 영역의 홈만 보여 준다', () => {
+    expect(STAFF_MENU).toEqual([
+      { label: '운영 대시보드', href: '/dashboard' },
+    ]);
+    expect(sidebarGroupsFor('dashboard', 'STAFF')[0]?.items).toHaveLength(1);
   });
 
   it('dashboard without role is empty', () => {
