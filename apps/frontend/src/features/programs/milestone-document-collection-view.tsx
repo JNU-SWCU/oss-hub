@@ -309,15 +309,20 @@ function CollectionArchiveControls({
           {/*
            * 앱 안의 이동이 아니라 **파일을 받는 링크**라 `next/link`가 아니라 평범한
            * `<a>`다. 라우터가 가로채면 이 경로를 화면 전환으로 다루려 들어 응답이
-           * 파일로 떨어지지 않는다. `download`는 브라우저가 새 화면을 여는 대신 받게
-           * 한다(파일 이름은 서버의 `Content-Disposition`이 정한다).
+           * 파일로 떨어지지 않는다.
+           *
+           * ⚠ **`download` 속성을 일부러 안 쓴다.** 그 속성이 붙으면 브라우저가 응답
+           * 본문을 **상태 코드와 무관하게** 파일로 저장한다 — 세션이 만료되거나(401)
+           * 권한이 사라지거나(403) 마일스톤이 없어지면(404) 교직원은 오류 대신
+           * **오류 JSON이 담긴 파일**을 받고 무엇이 잘못됐는지 영영 모른다. 속성이
+           * 없어도 성공 응답은 서버의 `Content-Disposition: attachment`가 그대로
+           * 내려받게 하므로 정상 동선은 똑같다. 같은 화면의 제출 파일 링크도 같은 방식이다.
            */}
           <a
             href={milestoneDocumentCollectionArchiveHref(
               milestoneId,
               archiveGrouping,
             )}
-            download
             aria-describedby={ARCHIVE_HINT_ID}
           >
             전체 내려받기(ZIP)
@@ -680,8 +685,9 @@ function CollectionBody(
    * 때문에 화면 전체가 좌우로 흔들린다.
    *
    * ⚠ 여기가 ZIP 조작의 **시작점이자 경계**다. 위에서 이미 돌아간 세 빈 상태
-   * (`wrong-program`·`no-documents`·`no-applications`)에는 이 줄이 아예 그려지지 않는데,
-   * 그 셋은 담을 제출물 자체가 없어 눌러 봐야 빈 ZIP이거나 남의 프로그램 것이기 때문이다.
+   * (`wrong-program`·`no-documents`·`no-applications`)에는 이 줄이 아예 그려지지 않는다 —
+   * `wrong-program`은 남의 프로그램 것이고, 나머지 둘은 받아 봐야 **현황표 한 장뿐인 ZIP**
+   * (서류 항목이 없거나 팀이 없다)이라 교직원이 기대한 것과 다르다.
    * 반대로 아래의 `no-filter-results`·`outOfRange`는 **필터 결과만 비었을 뿐 표는 있는**
    * 경우라 이 줄을 그대로 남긴다 — ZIP은 필터를 따라가지 않으므로 여전히 온전하고,
    * 오히려 「지금 조건에는 아무도 없다」를 본 사람이 전체를 받아 보려는 자리다.

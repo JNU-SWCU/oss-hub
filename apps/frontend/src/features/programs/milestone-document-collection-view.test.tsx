@@ -594,8 +594,13 @@ describe('MilestoneDocumentCollectionView 전체 내려받기(ZIP)', () => {
 
     expect(html).toContain('전체 내려받기(ZIP)');
     expect(html).toContain(TEAM_HREF);
-    // 앱 안의 이동이 아니라 파일을 받는 링크다.
-    expect(html).toContain('download');
+    /*
+     * ⚠ `download` 속성이 **없어야** 한다. 붙으면 브라우저가 응답 본문을 상태 코드와
+     * 무관하게 파일로 저장해, 401·403·404·413이 나도 교직원은 오류 대신 **오류 JSON이
+     * 담긴 파일**을 받는다. 성공 응답은 서버의 `Content-Disposition: attachment`가
+     * 그대로 내려받게 하므로 속성 없이도 정상 동선은 똑같다.
+     */
+    expect(html).not.toContain('download');
   });
 
   /**
