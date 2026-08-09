@@ -68,7 +68,14 @@ describe('DataTable', () => {
       /<div[^>]*data-slot="data-table"[^>]*class="[^"]*min-w-0[^"]*\[&amp;_tbody_tr\]:relative[^"]*"/,
     );
     expect(html).not.toMatch(/<tr[^>]*class="[^"]*relative[^"]*"/);
-    expect(html).not.toContain('tabindex=');
+    // 행·칸은 컨트롤이 아니다 — 초점을 받아서는 안 된다.
+    //
+    // 종전에는 문서 전체에 `tabindex` 가 하나도 없는지 봤는데, 그 단언이
+    // **가로 스크롤 영역의 키보드 접근까지 막고 있었다**(QA14·QA15). 넘치는 표의
+    // 스크롤 영역은 초점을 받아야 하고(WCAG 2.1.1) 그건 이 테스트가 막으려던 것이
+    // 아니다. 검사 범위를 이 테스트가 실제로 말하는 대상(행·칸)으로 좁힌다.
+    // 스크롤 영역 쪽 계약은 `table-scroll-region.test.tsx` 가 따로 고정한다.
+    expect(html).not.toMatch(/<t[rd][^>]*tabindex=/i);
     expect(html).not.toContain('aria-label="홍길동 열기"');
   });
 });

@@ -1,5 +1,5 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
-import { Request } from 'express';
+import { Request, type Response } from 'express';
 import { DomainException } from '../common/error-code';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.enum';
 import { AuthConfig } from './auth.config';
@@ -19,7 +19,11 @@ export class SessionGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<Request>();
+    const http = context.switchToHttp();
+    const request = http.getRequest<Request>();
+    http
+      .getResponse<Response | undefined>()
+      ?.setHeader('Cache-Control', 'private, no-store');
     const { githubId } = await resolveSession(
       this.config,
       request.headers.cookie,

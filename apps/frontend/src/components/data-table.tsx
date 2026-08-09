@@ -27,6 +27,11 @@ interface DataTableProps<TRow> extends Omit<
   data: TRow[];
   rowKey: (row: TRow, rowIndex: number) => React.Key;
   caption?: React.ReactNode;
+  /**
+   * 가로 스크롤 영역의 이름. 표가 넘칠 때 키보드 사용자가 초점을 옮겨 왔을 때
+   * 무슨 표인지 들리게 한다. 화면마다 다르므로 호출부가 준다.
+   */
+  scrollRegionLabel?: string;
   isLoading?: boolean;
   loadingSlot?: React.ReactNode;
   emptyState?: React.ReactNode;
@@ -39,10 +44,15 @@ function DataTable<TRow>({
   data,
   rowKey,
   caption,
+  scrollRegionLabel,
   isLoading = false,
   loadingSlot,
   emptyState,
   className,
+  // 스크롤 안내는 **초점을 받는 요소**에 붙어야 읽힌다. 종전에는 호출부가 준
+  // `aria-describedby` 가 바깥 래퍼에 실렸는데 그 래퍼는 초점을 못 받아,
+  // 안내를 하고도 그대로 할 방법이 없었다.
+  'aria-describedby': describedBy,
   ...props
 }: DataTableProps<TRow>) {
   const colSpan = columns.length || 1;
@@ -53,7 +63,10 @@ function DataTable<TRow>({
       className={cn('min-w-0 w-full', className)}
       {...props}
     >
-      <Table>
+      <Table
+        scrollRegionLabel={scrollRegionLabel}
+        scrollRegionDescribedBy={describedBy}
+      >
         {caption ? <TableCaption>{caption}</TableCaption> : null}
         <TableHeader>
           <TableRow>

@@ -6,7 +6,7 @@ vi.mock('next/navigation', () => ({ redirect }));
 import MilestoneSubmitPage from './page';
 
 describe('legacy milestone submit route', () => {
-  it('프로그램 상세 제출 팝업으로 보낸다', async () => {
+  it('My Docs의 선택 마일스톤 제출 창으로 보낸다', async () => {
     await MilestoneSubmitPage({
       params: Promise.resolve({
         id: 'program%3Abasic',
@@ -15,7 +15,7 @@ describe('legacy milestone submit route', () => {
     });
 
     expect(redirect).toHaveBeenCalledWith(
-      '/programs/program%3Abasic?submission=final%2Freport',
+      '/programs/program%3Abasic/mydocs?milestoneId=final%2Freport',
     );
   });
 });

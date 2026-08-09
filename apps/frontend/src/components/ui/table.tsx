@@ -4,11 +4,41 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
-function Table({ className, ...props }: React.ComponentProps<'table'>) {
+interface TableProps extends React.ComponentProps<'table'> {
+  /**
+   * 가로 스크롤 영역의 이름. 주면 그 영역이 `role="region"` 으로 이름을 갖는다.
+   * 이름 없는 region 은 화면 읽기 도구에 "영역" 이라고만 들려 없느니만 못하므로
+   * 이름이 있을 때만 붙인다.
+   */
+  readonly scrollRegionLabel?: string;
+  /** 스크롤 안내 문구의 id. 초점을 **받는** 요소에 붙어야 읽힌다. */
+  readonly scrollRegionDescribedBy?: string;
+}
+
+/**
+ * 가로로 넘치는 표는 스크롤 영역이 **키보드로 도달 가능**해야 한다(WCAG 2.1.1).
+ * 종전에는 이 컨테이너에 `tabIndex` 가 없어 마우스·터치로만 숨은 열을 볼 수 있었다.
+ * 더 나빴던 것은 화면들이 「표를 좌우로 스크롤할 수 있습니다」 안내를 스크린리더에
+ * 붙여 놓고 **그렇게 할 방법을 주지 않았다**는 점이다(QA14·QA15).
+ *
+ * `tabIndex` 는 이름 유무와 무관하게 붙인다 — 스크롤 가능성은 이름이 아니라 내용이
+ * 정하고, 이름이 있을 때만 초점을 주면 이름을 빠뜨린 새 표가 조용히 접근 불가로
+ * 돌아간다. 원래 결함이 정확히 그런 식으로 생겼다.
+ */
+function Table({
+  className,
+  scrollRegionLabel,
+  scrollRegionDescribedBy,
+  ...props
+}: TableProps) {
   return (
     <div
       data-slot="table-container"
       className="relative w-full overflow-x-auto"
+      tabIndex={0}
+      role={scrollRegionLabel === undefined ? undefined : 'region'}
+      aria-label={scrollRegionLabel}
+      aria-describedby={scrollRegionDescribedBy}
     >
       <table
         data-slot="table"

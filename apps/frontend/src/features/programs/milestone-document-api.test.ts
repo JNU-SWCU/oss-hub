@@ -3,6 +3,7 @@ import { apiPath } from '@/lib/api-client';
 import {
   listMilestoneDocuments,
   milestoneDocumentTemplateHref,
+  reorderMilestoneDocuments,
   submitMilestoneDocument,
   uploadMilestoneDocumentFile,
   uploadMilestoneDocumentTemplate,
@@ -41,6 +42,36 @@ describe('listMilestoneDocuments', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       apiPath('milestones/milestone-1/documents'),
       undefined,
+    );
+  });
+});
+
+/**
+ * 순서 바꾸기는 항목별 PATCH가 아니라 고정 세그먼트 `order`로 **한 번** 나간다.
+ * 항목별 PATCH 두 건으로 되돌리면 한쪽만 성공했을 때 sortOrder가 같아져 그 뒤로
+ * 순서를 못 바꾸는 상태가 된다(백엔드 `reorder-milestone-documents-request.dto.ts`).
+ */
+describe('reorderMilestoneDocuments', () => {
+  it('전체 id 목록을 order 경로에 한 번 PATCH한다', async () => {
+    const reordered = [
+      { ...document, id: 'document-2', sortOrder: 1 },
+      { ...document, sortOrder: 2 },
+    ];
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(reordered));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      reorderMilestoneDocuments('milestone-1', ['document-2', 'document-1']),
+    ).resolves.toEqual(reordered);
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledWith(
+      apiPath('milestones/milestone-1/documents/order'),
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentIds: ['document-2', 'document-1'] }),
+      },
     );
   });
 });

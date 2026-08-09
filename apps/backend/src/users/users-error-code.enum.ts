@@ -6,6 +6,8 @@ export enum UsersErrorCode {
   STUDENT_ID_IMMUTABLE = 'USR_003',
   STUDENT_ID_TAKEN = 'USR_004',
   STUDENT_ID_NEEDS_DEPARTMENT = 'USR_005',
+  ACCOUNT_ALREADY_DEACTIVATED = 'USR_006',
+  LAST_ACTIVE_ADMIN = 'USR_007',
 }
 
 export const USERS_ERROR_CODES: Record<UsersErrorCode, ErrorCode> = {
@@ -36,5 +38,15 @@ export const USERS_ERROR_CODES: Record<UsersErrorCode, ErrorCode> = {
     code: UsersErrorCode.STUDENT_ID_NEEDS_DEPARTMENT,
     status: 400,
     message: '학번을 저장하려면 학과도 함께 입력해 주세요.',
+  },
+  [UsersErrorCode.ACCOUNT_ALREADY_DEACTIVATED]: {
+    code: UsersErrorCode.ACCOUNT_ALREADY_DEACTIVATED,
+    status: 409,
+    message: '이미 비활성화된 계정입니다.',
+  },
+  [UsersErrorCode.LAST_ACTIVE_ADMIN]: {
+    code: UsersErrorCode.LAST_ACTIVE_ADMIN,
+    status: 409,
+    message: '마지막 활성 관리자는 계정을 비활성화할 수 없습니다.',
   },
 };

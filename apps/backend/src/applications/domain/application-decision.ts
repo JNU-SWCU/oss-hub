@@ -21,14 +21,26 @@ export type ApplicationDecisionAction =
 export interface ApplicationDecisionTarget {
   readonly id: string;
   readonly programId: string;
+  readonly programName: string;
   readonly teamId: string | null;
   readonly status: ApplicationStatus;
   readonly repositoryProvisioningEnabled: boolean;
   readonly collaboratorGithubLogins: readonly string[];
+  readonly notificationRecipientIds: readonly string[];
   readonly repositoryConnectionMode: RepositoryConnectionMode;
   readonly repositoryUrl: string | null;
   readonly processedById: string | null;
   readonly processedAt: Date | null;
+}
+
+export interface ApplicationDecisionNotificationInput {
+  readonly applicationId: string;
+  readonly programId: string;
+  readonly programName: string;
+  readonly recipientUserIds: readonly string[];
+  readonly decision:
+    typeof ApplicationStatus.APPROVED | typeof ApplicationStatus.REJECTED;
+  readonly decidedAt: Date;
 }
 
 export interface ApplicationTransition {

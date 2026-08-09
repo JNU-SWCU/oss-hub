@@ -27,17 +27,22 @@ const ADMIN_ON = 'test:notifications:admin-on';
 const STUDENT_MISSING = 'test:notifications:student-missing';
 const STUDENT_SUBMITTED = 'test:notifications:student-submitted';
 const STUDENT_OFF = 'test:notifications:student-off';
+const STAFF_DEACTIVATED = 'test:notifications:staff-deactivated';
+const STUDENT_DEACTIVATED = 'test:notifications:student-deactivated';
 
 const STAFF_ON_GITHUB = 9_600_000_000_127_001n;
 const STUDENT_MISSING_GITHUB = 9_600_000_000_127_003n;
 const STUDENT_SUBMITTED_GITHUB = 9_600_000_000_127_005n;
 const STUDENT_OFF_GITHUB = 9_600_000_000_127_006n;
+const STAFF_DEACTIVATED_GITHUB = 9_600_000_000_127_007n;
+const STUDENT_DEACTIVATED_GITHUB = 9_600_000_000_127_008n;
 const now = new Date('2026-08-14T00:00:00.000Z');
 const windowEnd = new Date('2026-08-15T00:00:00.000Z');
 const dueSoon = new Date('2026-08-14T12:00:00.000Z');
 const MISSING_APPLICATION = 'test:notifications:application:missing';
 const SUBMITTED_APPLICATION = 'test:notifications:application:submitted';
 const OFF_APPLICATION = 'test:notifications:application:off';
+const DEACTIVATED_APPLICATION = 'test:notifications:application:deactivated';
 const SUBMISSION = 'test:notifications:submission';
 
 const prisma = new PrismaService();
@@ -77,13 +82,14 @@ function staffData(
   notifyEnabled: boolean,
   notificationEmail: string | null,
   role: Role = Role.STAFF,
+  accountStatus: AccountStatus = AccountStatus.ACTIVE,
 ) {
   return {
     id,
     githubId,
     nickname: `synthetic-${id}`,
     role,
-    accountStatus: AccountStatus.ACTIVE,
+    accountStatus,
     notifyEnabled,
     notificationEmail,
   };
@@ -100,6 +106,8 @@ async function cleanup(): Promise<void> {
           STUDENT_MISSING,
           STUDENT_SUBMITTED,
           STUDENT_OFF,
+          STAFF_DEACTIVATED,
+          STUDENT_DEACTIVATED,
         ],
       },
     },
@@ -107,7 +115,14 @@ async function cleanup(): Promise<void> {
   await prisma.submission.deleteMany({ where: { id: SUBMISSION } });
   await prisma.application.deleteMany({
     where: {
-      id: { in: [MISSING_APPLICATION, SUBMITTED_APPLICATION, OFF_APPLICATION] },
+      id: {
+        in: [
+          MISSING_APPLICATION,
+          SUBMITTED_APPLICATION,
+          OFF_APPLICATION,
+          DEACTIVATED_APPLICATION,
+        ],
+      },
     },
   });
   await prisma.teamMember.deleteMany({
@@ -117,6 +132,7 @@ async function cleanup(): Promise<void> {
           `${MISSING_APPLICATION}-team`,
           `${SUBMITTED_APPLICATION}-team`,
           `${OFF_APPLICATION}-team`,
+          `${DEACTIVATED_APPLICATION}-team`,
         ],
       },
     },
@@ -128,6 +144,7 @@ async function cleanup(): Promise<void> {
           `${MISSING_APPLICATION}-team`,
           `${SUBMITTED_APPLICATION}-team`,
           `${OFF_APPLICATION}-team`,
+          `${DEACTIVATED_APPLICATION}-team`,
         ],
       },
     },
@@ -148,6 +165,8 @@ async function cleanup(): Promise<void> {
           STUDENT_MISSING,
           STUDENT_SUBMITTED,
           STUDENT_OFF,
+          STAFF_DEACTIVATED,
+          STUDENT_DEACTIVATED,
         ],
       },
     },
@@ -227,6 +246,28 @@ beforeEach(async () => {
       Role.STUDENT,
     ),
   });
+  // QA41 회귀용: 알림 설정은 켜져 있으나 계정이 비활성인 교직원·학생.
+  // 비활성화는 알림 설정을 지우지 않으므로 설정만 보면 수신 대상으로 보인다.
+  await prisma.user.create({
+    data: staffData(
+      STAFF_DEACTIVATED,
+      STAFF_DEACTIVATED_GITHUB,
+      true,
+      'staff-deactivated@example.com',
+      Role.STAFF,
+      AccountStatus.DEACTIVATED,
+    ),
+  });
+  await prisma.user.create({
+    data: staffData(
+      STUDENT_DEACTIVATED,
+      STUDENT_DEACTIVATED_GITHUB,
+      true,
+      'student-deactivated@example.com',
+      Role.STUDENT,
+      AccountStatus.DEACTIVATED,
+    ),
+  });
   const applicationTeamFixtures = [
     {
       applicationId: MISSING_APPLICATION,
@@ -239,6 +280,10 @@ beforeEach(async () => {
     {
       applicationId: OFF_APPLICATION,
       applicantId: STUDENT_OFF,
+    },
+    {
+      applicationId: DEACTIVATED_APPLICATION,
+      applicantId: STUDENT_DEACTIVATED,
     },
   ] as const;
   await prisma.team.createMany({
@@ -292,6 +337,65 @@ it('notifyOnDeadline 프로그램의 마감 임박 마일스톤만 포함한다'
   expect(milestones[0]?.milestoneName).toBe('최종 제출');
 });
 
+it('비활성 계정은 교직원 요약과 학생 리마인더 어느 쪽도 받지 않는다', async () => {
+  const mailSender = new RecordingMailSender();
+  const service = new DeadlineDigestService(repository, mailSender);
+
+  await service.sendDeadlineDigests(now);
+
+  const recipients = mailSender.sent.map((mail) => mail.to);
+  expect(recipients).not.toContain('staff-deactivated@example.com');
+  expect(recipients).not.toContain('student-deactivated@example.com');
+  // 알림 설정만 보면 수신 대상으로 보이는 계정이다 — 걸러진 근거가 accountStatus 임을 고정한다.
+  const deactivated = await prisma.user.findMany({
+    where: { id: { in: [STAFF_DEACTIVATED, STUDENT_DEACTIVATED] } },
+    select: {
+      accountStatus: true,
+      notifyEnabled: true,
+      notificationEmail: true,
+    },
+  });
+  expect(deactivated).toHaveLength(2);
+  for (const row of deactivated) {
+    expect(row.accountStatus).toBe(AccountStatus.DEACTIVATED);
+    expect(row.notifyEnabled).toBe(true);
+    expect(row.notificationEmail).not.toBeNull();
+  }
+  expect(
+    await prisma.notification.count({
+      where: { userId: { in: [STAFF_DEACTIVATED, STUDENT_DEACTIVATED] } },
+    }),
+  ).toBe(0);
+});
+
+it('비활성 학생도 교직원 요약의 미제출자 집계에는 남고 비활성 표시가 붙는다', async () => {
+  // 의도된 동작이다. 명단에서 지우면 교직원이 미제출 건 자체를 놓친다.
+  // opt-out 학생을 남기는 기존 계약과 같은 이유이며, 바꾸려면 정책 결정이 먼저다.
+  // 대신 비활성 계정에는 표시를 붙여, 독촉이 닿지 않는 사람을 교직원이 구분하게 한다.
+  const mailSender = new RecordingMailSender();
+  const service = new DeadlineDigestService(repository, mailSender);
+
+  await service.sendDeadlineDigests(now);
+
+  const staffMail = mailSender.sent.find(
+    (mail) => mail.to === 'staff-on@example.com',
+  );
+  expect(staffMail?.body).toContain(
+    'synthetic-test:notifications:student-deactivated',
+  );
+  expect(staffMail?.body).toContain(
+    'synthetic-test:notifications:student-deactivated (비활성)',
+  );
+  // 활성 계정에는 표시가 붙지 않는다 — 전원에게 붙으면 표시가 뜻을 잃는다.
+  // student-off 는 수신 거부지만 계정은 활성이다. 수신 거부를 비활성과 섞지 않는다.
+  expect(staffMail?.body).not.toContain(
+    'synthetic-test:notifications:student-missing (비활성)',
+  );
+  expect(staffMail?.body).not.toContain(
+    'synthetic-test:notifications:student-off (비활성)',
+  );
+});
+
 it('교직원과 미제출 동의 학생에게만 발송하고 SENT를 기록한다(제출자·opt-out 제외)', async () => {
   const mailSender = new RecordingMailSender();
   const service = new DeadlineDigestService(repository, mailSender);
@@ -322,6 +426,8 @@ it('교직원과 미제출 동의 학생에게만 발송하고 SENT를 기록한
           STUDENT_MISSING,
           STUDENT_SUBMITTED,
           STUDENT_OFF,
+          STAFF_DEACTIVATED,
+          STUDENT_DEACTIVATED,
         ],
       },
     },

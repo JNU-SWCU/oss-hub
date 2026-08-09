@@ -215,6 +215,46 @@ describe('StudentDashboardView', () => {
     expect(arrived).toContain('내 대시보드');
     expect(arrived).toContain('신청한 프로그램과 다음 제출 일정을 확인합니다');
   });
+
+  it('승인 알림은 판정 시각과 다음 제출 행동을 한 번의 배너로 안내한다', () => {
+    const html = renderView({
+      applicationDecisionNotices: [
+        {
+          id: 'notification-1',
+          applicationId: 'application-1',
+          programId: 'program-1',
+          programName: '합성 프로그램',
+          decision: 'APPROVED',
+          decidedAt: '2026-08-08T23:00:00.000Z',
+        },
+      ],
+    });
+
+    expect(html).toContain('합성 프로그램 신청이 승인되었습니다');
+    expect(html).toContain('다음 제출 일정과 준비할 내용을 확인해 주세요');
+    expect(html).toContain('href="/programs/program-1/submissions"');
+    expect(html).toContain('2026. 8. 9.');
+  });
+
+  it('반려 알림은 사유를 노출하지 않고 신청 확인 행동을 제공한다', () => {
+    const html = renderView({
+      applicationDecisionNotices: [
+        {
+          id: 'notification-2',
+          applicationId: 'application-2',
+          programId: 'program-2',
+          programName: '합성 경진대회',
+          decision: 'REJECTED',
+          decidedAt: '2026-08-09T00:00:00.000Z',
+        },
+      ],
+    });
+
+    expect(html).toContain('합성 경진대회 신청이 반려되었습니다');
+    expect(html).toContain('신청 상세에서 상태를 확인해 주세요');
+    expect(html).toContain('href="/programs/program-2/apply"');
+    expect(html).not.toContain('반려 사유');
+  });
 });
 
 describe('loadStudentDashboard', () => {

@@ -8,6 +8,7 @@ import type {
   DashboardRepositoryProvisionStatus,
   DashboardSubmissionStatus,
   StudentDashboard,
+  ApplicationDecisionNotice,
 } from './types';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -181,4 +182,44 @@ function parseStudentDashboard(value: unknown): StudentDashboard {
 export async function fetchStudentDashboard(): Promise<StudentDashboard> {
   const response = await apiClient<unknown>('dashboard/student');
   return parseStudentDashboard(response);
+}
+
+function isApplicationDecisionNotice(
+  value: unknown,
+): value is ApplicationDecisionNotice {
+  if (!isRecord(value)) return false;
+  return (
+    isNonEmptyString(value.id) &&
+    isNonEmptyString(value.applicationId) &&
+    isNonEmptyString(value.programId) &&
+    isSafePathSegment(value.programId) &&
+    isNonEmptyString(value.programName) &&
+    (value.decision === 'APPROVED' || value.decision === 'REJECTED') &&
+    isNonEmptyString(value.decidedAt) &&
+    !Number.isNaN(Date.parse(value.decidedAt))
+  );
+}
+
+export async function fetchUnreadApplicationDecisionNotices(): Promise<
+  readonly ApplicationDecisionNotice[]
+> {
+  const response = await apiClient<unknown>(
+    'users/me/notifications/application-decisions',
+  );
+  if (
+    !Array.isArray(response) ||
+    !response.every(isApplicationDecisionNotice)
+  ) {
+    throw new Error('신청 판정 알림 응답 형식이 올바르지 않습니다.');
+  }
+  return response;
+}
+
+export async function markApplicationDecisionNoticeRead(
+  notificationId: string,
+): Promise<void> {
+  await apiClient<unknown>(
+    `users/me/notifications/application-decisions/${encodeURIComponent(notificationId)}/read`,
+    { method: 'PATCH' },
+  );
 }

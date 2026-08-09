@@ -5,7 +5,7 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service';
-import { programDeadline } from '../program-deadline';
+import { hasProgramDeadlinePassed, programDeadline } from '../program-deadline';
 import type { ProgramViewer } from './program-viewer.service';
 import { ProgramsRepository } from '../repository/programs.repository';
 import { ProgramsService } from './programs.service';
@@ -211,5 +211,14 @@ describe('programDeadline', () => {
         new Date('2026-07-21T23:59:00+09:00'),
       ),
     ).toEqual({ dDay: 1, label: 'D-1' });
+  });
+
+  it('마감 시각과 정확히 같을 때는 아직 마감 후가 아니다', () => {
+    const dueAt = new Date('2026-07-21T14:59:59.000Z');
+
+    expect(hasProgramDeadlinePassed(dueAt, dueAt)).toBe(false);
+    expect(
+      hasProgramDeadlinePassed(dueAt, new Date('2026-07-21T14:59:59.001Z')),
+    ).toBe(true);
   });
 });

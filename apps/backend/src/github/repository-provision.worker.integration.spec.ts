@@ -27,6 +27,7 @@ import { RepositoryProvisionWorker } from './repository-provision.worker';
 import {
   DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
   DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS,
+  PROVISION_ERROR_CODES,
 } from './repository-provision.failure';
 
 assertIsolatedIntegrationDatabase({
@@ -44,6 +45,7 @@ const APPLICATION_IDS = [
   'synthetic-worker-success',
   'synthetic-worker-partial',
   'synthetic-worker-reconciliation-cap',
+  'synthetic-worker-reconciliation-exhausted',
 ] as const;
 
 type ProvisionGithubClient = jest.Mocked<
@@ -244,6 +246,46 @@ describe('RepositoryProvisionWorker integration', () => {
     // Then: 상한 invitation은 다시 확인하지 않고 worker가 비어 있다.
     expect(result).toEqual({ kind: 'EMPTY' });
     expect(github.ensureCollaborator).toHaveBeenCalledTimes(1);
+  });
+  it('마지막 확인에서도 수락되지 않으면 invitation을 최종 실패로 종료한다', async () => {
+    // Given: 확인 예산을 한 번 남긴 PENDING invitation이 있다.
+    const applicationId = APPLICATION_IDS[3];
+    await createApplicationAndEvent(applicationId, ['synthetic-student']);
+    await outbox.consumeNext('outbox-worker-exhaust', NOW);
+    const github = githubClient();
+    github.ensureCollaborator.mockResolvedValue(COLLABORATOR_OUTCOMES.PENDING);
+    const worker = new RepositoryProvisionWorker(jobs, state, github);
+    await worker.runNext('provision-worker-exhaust-initial', NOW);
+    const repository = await prisma.repository.findUniqueOrThrow({
+      where: { applicationId },
+    });
+    await prisma.repositoryInvitation.updateMany({
+      where: { repositoryId: repository.id },
+      data: {
+        reconciliationCount:
+          DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS - 1,
+      },
+    });
+
+    // When: 마지막 확인을 수행한다(여전히 수락되지 않은 상태).
+    await worker.runNext(
+      'provision-worker-exhaust-reconcile',
+      new Date(
+        NOW.getTime() + DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
+      ),
+    );
+
+    // Then: PENDING 으로 남지 않고 최종 실패로 종료한다.
+    // 종료하지 않으면 학생 화면이 「초대 수락 대기」를 영구히 보여 준다.
+    await expect(
+      prisma.repositoryInvitation.findFirstOrThrow({
+        where: { repositoryId: repository.id },
+      }),
+    ).resolves.toMatchObject({
+      status: RepositoryInvitationStatus.FAILED_FINAL,
+      reconciliationCount: DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS,
+      lastErrorCode: PROVISION_ERROR_CODES.INVITATION_RECONCILIATION_EXHAUSTED,
+    });
   });
 });
 

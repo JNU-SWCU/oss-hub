@@ -119,6 +119,7 @@ const applyUpdate = (existing: Row, update: Row): Row => {
 
 interface FailureControl {
   failCommitShas: Set<string>;
+  failPullRequestIds: Set<bigint>;
 }
 
 const repoKey = (repoId: bigint): string => String(repoId);
@@ -242,6 +243,14 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
           Row & { repositoryId: string; githubPullRequestId: bigint }
         >;
       }): { count: number } => {
+        const failing = data.find((item) =>
+          control.failPullRequestIds.has(item.githubPullRequestId),
+        );
+        if (failing) {
+          throw new Error(
+            `synthetic pull request fact failure: ${String(failing.githubPullRequestId)}`,
+          );
+        }
         let count = 0;
         for (const item of data) {
           const key = `${item.repositoryId}:${String(item.githubPullRequestId)}`;
@@ -529,7 +538,10 @@ function createFakeDb(): {
   box: { store: Store };
   control: FailureControl;
 } {
-  const control: FailureControl = { failCommitShas: new Set() };
+  const control: FailureControl = {
+    failCommitShas: new Set(),
+    failPullRequestIds: new Set(),
+  };
   const box = { store: emptyStore() };
   const db = makeFacade(box, control) as PrismaService;
   return { db, box, control };
@@ -2017,7 +2029,7 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터(ADR-00
     expect(client.listChangedPublishedReleases).toHaveBeenCalledTimes(1);
   });
 
-  it('나중에 합류한 팀원의 과거 릴리스는 다음 변경 sweep에 들어온다(PR은 커서 아래라 들어오지 않는다)', async () => {
+  it('나중에 합류한 팀원의 과거 PR·릴리스를 다음 sweep에 한 번만 백필한다', async () => {
     const { db, box } = createFakeDb();
     const repository = providerRepository();
     seedOwningRepository(box, BigInt(repository.id), 'team-1', [
@@ -2055,6 +2067,7 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터(ADR-00
     await service.run('owner-1');
     expect(box.store.pullRequestFacts.size).toBe(0);
     expect(box.store.releaseFacts.size).toBe(0);
+    expect(client.listNewPullRequests.mock.calls[0]?.[2]).toBeNull();
 
     // carol이 팀에 합류한다.
     box.store.teamMembers.set('later', {
@@ -2065,11 +2078,165 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터(ADR-00
     });
     await service.run('owner-1');
 
-    // 릴리스는 매번 전량을 다시 받으므로 합류 후 sweep에서 그대로 채워진다.
+    // 팀원 집합이 달라졌으므로 저장된 PR 커서를 한 번 무시하고 전체 목록을 다시 훑는다.
+    expect(client.listNewPullRequests.mock.calls[1]?.[2]).toBeNull();
+    expect(storedPullRequestLogins(box)).toEqual(['carol']);
+    // 릴리스는 매번 전량을 다시 받으므로 합류 후 sweep에서 종전대로 채워진다.
     expect(storedReleaseLogins(box)).toEqual(['carol']);
-    // PR은 커서가 이미 그 위로 지나가 다시 오지 않는다 — 현재 계약을 명시적으로 고정한다.
-    // (커밋 경로가 #678에서 얻은 백필 성질이 PR에는 성립하지 않는다. 후속 과제.)
-    expect(box.store.pullRequestFacts.size).toBe(0);
+
+    await service.run('owner-1');
+
+    // 팀원 집합이 그대로인 다음 sweep은 다시 증분 커서를 사용한다. 과거 전체 이력 백필은
+    // 합류 직후 한 번뿐이고, fact unique key도 같은 PR의 중복 삽입을 막는다.
+    expect(client.listNewPullRequests.mock.calls[2]?.[2]).toEqual({
+      createdAt: '2026-07-01T00:00:00.000Z',
+      id: '410',
+    });
+    expect(box.store.pullRequestFacts.size).toBe(1);
+  });
+
+  it('기존 READY PR stream의 null 팀원 표식을 한 번 repair하고 다음 sweep은 증분으로 돌아간다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: MEMBER_ID, nickname: 'alice' },
+    ]);
+    const client = createClient([repository]);
+    const served = [
+      pullRequest({ id: '400' }),
+      pullRequest({
+        id: '401',
+        createdAt: '2026-08-02T00:00:00.000Z',
+        authorLogin: 'outsider',
+        authorGithubId: OUTSIDER_ID,
+      }),
+    ];
+    client.listNewPullRequests.mockImplementation(servePullRequests(served));
+    const service = createService(db, client);
+
+    await service.run('owner-1');
+    const streamKey = 'repo-1:PULL_REQUEST';
+    const current = box.store.streams.get(streamKey);
+    expect(current?.frontierSha).toMatch(/^team-members:v1:[0-9a-f]{64}$/);
+
+    // 배포 전 READY 행을 재현한다: tie frontier는 있지만 팀원 fingerprint는 없고,
+    // 과거 팀원 PR fact도 누락된 상태다.
+    box.store.streams.set(streamKey, { ...current, frontierSha: null });
+    box.store.pullRequestFacts.clear();
+    box.store.contributions.clear();
+
+    await service.run('owner-1');
+    expect(client.listNewPullRequests.mock.calls[1]?.[2]).toBeNull();
+    expect(storedPullRequestLogins(box)).toEqual(['alice']);
+    expect(box.store.streams.get(streamKey)?.frontierSha).toMatch(
+      /^team-members:v1:[0-9a-f]{64}$/,
+    );
+
+    await service.run('owner-1');
+    expect(client.listNewPullRequests.mock.calls[2]?.[2]).toEqual({
+      createdAt: '2026-08-02T00:00:00.000Z',
+      id: '401',
+    });
+  });
+
+  it('팀원 fingerprint는 조회 순서에는 불변이고 같은 인원수의 계정 교체에는 변한다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: MEMBER_ID, nickname: 'alice' },
+      { githubId: 22n, nickname: 'bob' },
+    ]);
+    const client = createClient([repository]);
+    client.listNewPullRequests.mockImplementation(
+      servePullRequests([pullRequest({ id: '400' })]),
+    );
+    const service = createService(db, client);
+
+    await service.run('owner-1');
+    const initialMarker = box.store.streams.get(
+      'repo-1:PULL_REQUEST',
+    )?.frontierSha;
+
+    // fake repository가 insertion order를 그대로 반환하므로 재삽입으로 조회 순서를 뒤집는다.
+    const reversed = [...box.store.teamMembers.entries()].reverse();
+    box.store.teamMembers.clear();
+    for (const [id, member] of reversed) box.store.teamMembers.set(id, member);
+    await service.run('owner-1');
+    expect(client.listNewPullRequests.mock.calls[1]?.[2]).toEqual({
+      createdAt: '2026-08-01T00:00:00.000Z',
+      id: '400',
+    });
+    expect(box.store.streams.get('repo-1:PULL_REQUEST')?.frontierSha).toBe(
+      initialMarker,
+    );
+
+    // 인원수는 2명 그대로지만 bob이 carol로 교체되면 집합은 달라진다.
+    box.store.teamMembers.delete(`${String(repository.id)}:1`);
+    box.store.teamMembers.set('same-count-replacement', {
+      id: 'same-count-replacement',
+      teamId: 'team-1',
+      createdAt: new Date(Date.UTC(2026, 6, 15)),
+      user: { githubId: 33n, nickname: 'carol' },
+    });
+    await service.run('owner-1');
+    expect(client.listNewPullRequests.mock.calls[2]?.[2]).toBeNull();
+    expect(box.store.streams.get('repo-1:PULL_REQUEST')?.frontierSha).not.toBe(
+      initialMarker,
+    );
+  });
+
+  it('팀원 변화 repair 중 PR fact 저장이 실패하면 marker와 tie를 함께 롤백하고 재시도한다', async () => {
+    const { db, box, control } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: MEMBER_ID, nickname: 'alice' },
+    ]);
+    const client = createClient([repository]);
+    const served = [pullRequest({ id: '400' })];
+    client.listNewPullRequests.mockImplementation(servePullRequests(served));
+    // 실패는 nextRunAt 을 뒤로 민다(ADR-010 §6). 재시도 run 이 그 저장소를 다시
+    // 보려면 백오프가 지나야 하므로 시계를 전진시킨다.
+    let clock = new Date('2026-08-01T00:00:00.000Z');
+    const service = createService(db, client, { now: () => clock });
+
+    await service.run('owner-1');
+    const streamKey = 'repo-1:PULL_REQUEST';
+    const before = box.store.streams.get(streamKey);
+    box.store.teamMembers.set('later', {
+      id: 'later',
+      teamId: 'team-1',
+      createdAt: new Date(Date.UTC(2026, 6, 15)),
+      user: { githubId: 33n, nickname: 'carol' },
+    });
+    served.push(
+      pullRequest({
+        id: '410',
+        createdAt: '2026-07-01T00:00:00.000Z',
+        authorLogin: 'carol',
+        authorGithubId: '33',
+      }),
+    );
+    control.failPullRequestIds.add(410n);
+
+    clock = new Date('2026-08-03T09:00:00.000Z');
+    await service.run('owner-1');
+    expect(client.listNewPullRequests.mock.calls[1]?.[2]).toBeNull();
+    expect(box.store.streams.get(streamKey)?.frontierSha).toBe(
+      before?.frontierSha,
+    );
+    expect(box.store.streams.get(streamKey)?.frontierEntityId).toBe(
+      before?.frontierEntityId,
+    );
+    expect(storedPullRequestLogins(box)).toEqual(['alice']);
+
+    control.failPullRequestIds.delete(410n);
+    clock = new Date('2026-08-04T09:00:00.000Z');
+    await service.run('owner-1');
+    expect(client.listNewPullRequests.mock.calls[2]?.[2]).toBeNull();
+    expect(storedPullRequestLogins(box).sort()).toEqual(['alice', 'carol']);
+    expect(box.store.streams.get(streamKey)?.frontierSha).not.toBe(
+      before?.frontierSha,
+    );
   });
 
   it('팀을 특정할 수 없는 저장소는 종전대로 작성자를 가리지 않고 적재한다', async () => {

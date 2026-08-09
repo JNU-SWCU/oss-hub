@@ -66,6 +66,12 @@ export type ProgramMilestoneDeleteTarget = {
   readonly id: string;
   readonly programId: string;
   readonly submissionCount: number;
+  /**
+   * 이 마일스톤의 서류 항목(MilestoneDocument)들에 달린 제출 수. 기존 submissionCount와
+   * 따로 세는 이유는 두 제출 경로가 다른 테이블이기 때문이다 — 거부 여부는 같은 뜻이라
+   * 서비스 계층이 둘 다 MILESTONE_HAS_SUBMISSIONS로 묶는다.
+   */
+  readonly documentSubmissionCount: number;
   readonly programMilestoneCount: number;
   readonly programRepositoryProvisioningEnabled: boolean;
 };

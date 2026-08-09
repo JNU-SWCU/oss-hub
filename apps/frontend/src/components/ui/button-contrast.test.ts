@@ -1,4 +1,5 @@
-// destructive Button의 **소비자 표면 대비**를 계산으로 지킨다.
+// Button의 **소비자 표면 대비**를 계산으로 지킨다 — destructive variant(아래 앞
+// 절반)와 가입 무대의 반전 표면(뒤 절반).
 //
 // 이 vitest 설정은 `environment: 'node'`라 CSS를 평가하지 않으므로, 토큰 값만
 // 검사하면 실제 렌더 결과를 놓친다. 그리고 이 variant는 배경을 텍스트와 같은
@@ -232,5 +233,165 @@ describe('destructive Button focus indicator', () => {
     expect(variant).not.toMatch(
       /\b(?:dark:)?focus-visible:(?:border|ring)-[^\s']+/,
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 가입 무대(`data-surface="inverted"`) 위 Button 대비.
+//
+// 여기서 대비가 무너지는 방식은 destructive와 다르다. 반전 스코프는 `--primary`를
+// **덮지 않으므로**, 그 안의 `variant="link"`는 :root의 남색(#003399)을 그대로
+// 입은 채 우주 바탕(#00133a) 위에 놓인다 — 1.68:1이다(QA43).
+//
+// 그런데 같은 `--primary`가 바로 옆 주 버튼에서는 **흰 바탕 글자색**이라
+// (`signupPrimaryClassName = 'bg-cosmos-copy text-primary …'`) 토큰을 밝게 바꾸면
+// 이쪽이 무너진다. 그래서 처방은 호출부 한 곳이고, 이 테스트는 두 방향을 함께
+// 잰다 — 링크가 바탕에서 읽히는지, 그리고 그 대가로 주 버튼이 무너지지 않았는지.
+// ---------------------------------------------------------------------------
+
+const signupEntrySource = readFileSync(
+  path.resolve(__dirname, '../../app/signup/signup-entry-screen.tsx'),
+  'utf-8',
+);
+const signupTypographySource = readFileSync(
+  path.resolve(__dirname, '../signup-typography.tsx'),
+  'utf-8',
+);
+const appFrameSource = readFileSync(
+  path.resolve(__dirname, '../../app/_shell/app-frame.tsx'),
+  'utf-8',
+);
+
+/** 반전 스코프가 이기고, 덮지 않은 토큰은 :root로 떨어진다 — 캐스케이드 순서대로. */
+const INVERTED_SCOPES = ["[data-surface='inverted'] {", ':root {'] as const;
+
+/** 셀렉터 블록에서 토큰의 **원본 값 문자열**을 찾는다(hex든 `var(...)`든). */
+function findDeclaration(selector: string, token: string): string | null {
+  const clean = stripComments(css);
+  const declaration = new RegExp(`${token}:\\s*([^;]+);`);
+
+  let searchFrom = 0;
+  while (searchFrom < clean.length) {
+    const blockStart = clean.indexOf(selector, searchFrom);
+    if (blockStart === -1) {
+      break;
+    }
+    const blockEnd = clean.indexOf('}', blockStart);
+    const match = declaration.exec(
+      clean.slice(blockStart, blockEnd === -1 ? undefined : blockEnd),
+    );
+    if (match) {
+      return match[1].trim();
+    }
+    searchFrom = blockEnd === -1 ? clean.length : blockEnd + 1;
+  }
+  return null;
+}
+
+/**
+ * 반전 스코프 안에서 토큰이 실제로 갖는 hex.
+ *
+ * `--cosmos-void`처럼 ramp 사이에 없어 리터럴로 적힌 값과 palette를 가리키는 값을
+ * 모두 받는다. 스코프 목록을 순서대로 훑으므로, 반전 스코프에 `--primary`가
+ * 새로 추가되면 이 함수가 그 값을 집어 아래 주 버튼 단언이 곧바로 깨진다.
+ */
+function resolveInvertedHex(token: string): string {
+  for (const selector of INVERTED_SCOPES) {
+    const value = findDeclaration(selector, token);
+    if (value === null) {
+      continue;
+    }
+    if (/^#[0-9a-fA-F]{6}$/.test(value)) {
+      return value;
+    }
+    const reference = /^var\((--palette-[\w-]+)\)$/.exec(value);
+    const hex = reference ? palette.get(reference[1]) : undefined;
+    if (!hex) {
+      throw new Error(`${token}의 값 "${value}"을 hex로 풀지 못했습니다`);
+    }
+    return hex;
+  }
+  throw new Error(`반전 스코프에서 ${token} 선언을 찾지 못했습니다`);
+}
+
+/** `text-primary` · `bg-cosmos-copy` 같은 유틸리티를 CSS 토큰 이름으로 되돌린다. */
+function tokenOfUtility(utility: string): string {
+  return `--${utility.replace(/^(?:bg|text)-/, '')}`;
+}
+
+/**
+ * 「GitHub 계정 만들기」 Button이 **실제로 입는** 글자 색 유틸리티.
+ *
+ * 호출부에 `text-*` 덮어쓰기가 없으면 variant 기본값(`link`의 `text-primary`)으로
+ * 떨어진다 — 고친 클래스를 지웠을 때 이 테스트가 조용히 통과하지 않도록,
+ * 되돌아갈 그 색을 그대로 재현한다.
+ */
+function readSignupExternalLinkTextUtility(): string {
+  const opening = /<Button\b[^>]*variant="link"[^>]*>/.exec(signupEntrySource);
+  if (!opening) {
+    throw new Error(
+      'signup-entry-screen.tsx에서 variant="link" Button을 찾지 못했습니다',
+    );
+  }
+  const override = /\btext-([\w-]+)/.exec(opening[0]);
+  if (override) {
+    return `text-${override[1]}`;
+  }
+
+  const linkVariant = /\blink:\s*'([^']+)'/.exec(buttonSource)?.[1] ?? '';
+  const fallback = /\btext-([\w-]+)/.exec(linkVariant);
+  if (!fallback) {
+    throw new Error('button.tsx의 link variant에서 글자 색을 찾지 못했습니다');
+  }
+  return `text-${fallback[1]}`;
+}
+
+describe('가입 무대 반전 표면 Button 대비', () => {
+  // 무대의 바탕은 AppFrame이 칠한다. 여기 hex를 적어 두면 그쪽이 바뀔 때
+  // 테스트만 옛 색으로 통과하므로, 그 소스에서 유틸리티를 읽어 온다.
+  const groundUtility = /\bbg-(cosmos-[\w-]+)/.exec(appFrameSource)?.[1];
+  if (!groundUtility) {
+    throw new Error('app-frame.tsx에서 우주 바탕 유틸리티를 찾지 못했습니다');
+  }
+  const ground = resolveInvertedHex(`--${groundUtility}`);
+
+  it('「GitHub 계정 만들기」 링크가 우주 바탕에서 AA를 만족한다', () => {
+    const text = resolveInvertedHex(
+      tokenOfUtility(readSignupExternalLinkTextUtility()),
+    );
+
+    expect(contrast(text, ground)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+  });
+
+  it('링크임을 색만으로 알리지 않는다', () => {
+    const opening = /<Button\b[^>]*variant="link"[^>]*>/.exec(
+      signupEntrySource,
+    )?.[0];
+
+    // variant 기본값은 `hover:underline`이라 hover 전에는 밑줄이 없다.
+    expect(opening).toMatch(/\bunderline\b/);
+  });
+
+  it('주 버튼이 흰 바탕에서 AA를 만족한다 — 토큰을 밝게 바꾸면 여기서 깨진다', () => {
+    const primaryClasses =
+      /signupPrimaryClassName\s*=\s*'([^']+)'/.exec(
+        signupTypographySource,
+      )?.[1] ?? '';
+    const background = /\bbg-([\w-]+?)(?:\/\d+)?(?:\s|$)/.exec(
+      primaryClasses,
+    )?.[1];
+    const text = /\btext-([\w-]+)/.exec(primaryClasses)?.[1];
+    if (!background || !text) {
+      throw new Error(
+        `signupPrimaryClassName("${primaryClasses}")에서 배경·글자 색을 찾지 못했습니다`,
+      );
+    }
+
+    const ratio = contrast(
+      resolveInvertedHex(`--${text}`),
+      resolveInvertedHex(`--${background}`),
+    );
+
+    expect(ratio).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
   });
 });

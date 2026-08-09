@@ -403,6 +403,7 @@ function MatrixBody(props: SubmissionMatrixViewProps): ReactNode {
         <DataTable
           className={TABLE_CARD}
           aria-describedby="matrix-scroll-hint"
+          scrollRegionLabel="마일스톤 제출 현황 표"
           columns={columns}
           data={[...quickFiltered]}
           rowKey={(row) => row.applicationId}

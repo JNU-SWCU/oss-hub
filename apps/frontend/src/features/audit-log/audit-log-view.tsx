@@ -14,6 +14,7 @@ import {
   type AuditLogFilters,
   type AuditLogRecord,
 } from './types';
+import { AuditLogActionValue } from './audit-log-action';
 
 export interface AuditLogViewProps {
   readonly records: readonly AuditLogRecord[];
@@ -50,11 +51,9 @@ export function AuditLogView(props: AuditLogViewProps) {
     {
       id: 'action',
       header: '액션',
-      headClassName: 'min-w-64 whitespace-nowrap',
-      cellClassName: 'min-w-64 whitespace-nowrap',
-      cell: (record) => (
-        <span className="break-keep font-mono text-xs">{record.action}</span>
-      ),
+      headClassName: 'min-w-56 whitespace-nowrap',
+      cellClassName: 'min-w-56 align-top',
+      cell: (record) => <AuditLogActionValue action={record.action} />,
     },
     {
       id: 'target',
@@ -193,6 +192,7 @@ export function AuditLogView(props: AuditLogViewProps) {
       <DataTable
         className="min-w-0 rounded-lg border border-border"
         aria-describedby="audit-table-scroll-hint"
+        scrollRegionLabel="감사 로그 표"
         columns={columns}
         data={[...props.records]}
         rowKey={(record) => record.id}

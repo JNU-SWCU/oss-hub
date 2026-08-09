@@ -112,13 +112,15 @@ describe('ProgramEditorRepository locking', () => {
           .mockResolvedValueOnce({
             id: 'milestone-1',
             programId: 'program-1',
-            _count: { submissions: 0 },
+            _count: { submissions: 0, submissionFiles: 0 },
             program: {
               repositoryProvisioningEnabled: false,
               _count: { milestones: 2 },
             },
           }),
       },
+      // 서류 항목의 제출은 Milestone에서 한 단계 더 들어간 테이블이라 _count로 세지 못한다.
+      milestoneDocumentSubmission: { count: jest.fn().mockResolvedValue(0) },
     };
     const prisma = {
       $transaction: <T>(operation: (store: typeof transaction) => Promise<T>) =>

@@ -1,9 +1,44 @@
 import { apiClient, apiPath } from '@/lib/api-client';
 import type { SubmissionType } from './types';
 
+/**
+ * 학생 뷰의 제출 상태. ⚠ `types.ts`의 `SubmissionStatus`와 **다른 집합**이다 — 그쪽에는
+ * `NOT_SUBMITTED`가 있지만 이 계약은 미제출을 `null`로 말한다(제출 행이 없으면 상태도 없다).
+ * 같은 이름으로 묶으면 화면이 있지도 않은 `NOT_SUBMITTED`를 분기하게 된다.
+ */
+export type MilestoneDocumentSubmissionStatus =
+  'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
+
+/**
+ * 학생 뷰 — 이 서류에 붙은 **최신 판정 한 건**. 아직 아무도 판정하지 않았으면 `null`이다.
+ *
+ * ⚠ `decision`이 없는 것은 빠뜨린 것이 아니다. 같은 뜻이 옆의
+ * `MilestoneDocumentViewerSubmission.status`에 이미 있다(판정 → 상태가 1:1이다).
+ * 여기 있는 것은 화면이 「왜 되돌아왔는가」를 말하는 데 필요한 사유와 시각뿐이다.
+ */
+export interface MilestoneDocumentViewerReview {
+  readonly comment: string | null;
+  readonly reviewedAt: string;
+}
+
 export interface MilestoneDocumentViewerSubmission {
+  /**
+   * ⚠ 이름은 예전 그대로다(`isSubmitted`가 아니다). 이미 발행돼 학생 화면이 쓰는 계약이라
+   * 바꾸면 화면이 조용히 「전부 미제출」로 보인다 — 수합 표 계약의 `isSubmitted`와 다른
+   * 것은 의도된 비대칭이다(백엔드 `milestone-document-response.dto.ts` 주석과 같은 근거).
+   */
   readonly submitted: boolean;
   readonly submittedAt: string | null;
+  /**
+   * 최신 판정이 옮겨 놓은 제출 상태. 미제출이면 `null`.
+   *
+   * ⚠ `SUBMITTED`는 「아직 아무도 안 봤다」와 「보완 요청을 받고 다시 냈다」 **둘 다**를
+   * 뜻한다 — 재제출이 같은 행을 덮어써 상태를 `SUBMITTED`로 되돌리기 때문이다. 그래서
+   * 「지난 지적이 있었는가」는 `status`가 아니라 `review`로 봐야 한다.
+   */
+  readonly status: MilestoneDocumentSubmissionStatus | null;
+  /** 아직 아무도 판정하지 않았으면 `null`. */
+  readonly review: MilestoneDocumentViewerReview | null;
 }
 
 export interface MilestoneDocumentTeamSubmissionCount {
@@ -60,6 +95,86 @@ export function listMilestoneDocuments(
   milestoneId: string,
 ): Promise<readonly MilestoneDocument[]> {
   return apiClient<readonly MilestoneDocument[]>(documentsPath(milestoneId));
+}
+
+/** 교직원 서류 항목 생성/수정 요청 본문 — 두 endpoint가 같은 shape을 공유한다(전체 교체). */
+export interface UpsertMilestoneDocumentInput {
+  readonly name: string;
+  readonly required: boolean;
+  readonly sortOrder: number;
+  readonly submissionType: SubmissionType;
+}
+
+function documentPath(milestoneId: string, documentId: string): string {
+  return `${documentsPath(milestoneId)}/${encodeURIComponent(documentId)}`;
+}
+
+function jsonRequest(method: 'POST' | 'PATCH', input: unknown): RequestInit {
+  return {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  };
+}
+
+/** 교직원 — 서류 항목을 새로 만든다. */
+export function createMilestoneDocument(
+  milestoneId: string,
+  input: UpsertMilestoneDocumentInput,
+): Promise<MilestoneDocument> {
+  return apiClient<MilestoneDocument>(
+    documentsPath(milestoneId),
+    jsonRequest('POST', input),
+  );
+}
+
+/**
+ * 교직원 — 서류 항목을 고친다. 일부가 아니라 전체를 보낸다(백엔드가 전체 교체다).
+ *
+ * ⚠ `sortOrder`는 본문 shape을 맞추려고 함께 싣지만 **서버가 무시한다** — 순서는
+ * `reorderMilestoneDocuments`(`PATCH .../documents/order`)가 소유한다. 이 요청으로
+ * 자리를 옮기려 들면 응답은 성공인데 순서는 그대로다.
+ */
+export function updateMilestoneDocument(
+  milestoneId: string,
+  documentId: string,
+  input: UpsertMilestoneDocumentInput,
+): Promise<MilestoneDocument> {
+  return apiClient<MilestoneDocument>(
+    documentPath(milestoneId, documentId),
+    jsonRequest('PATCH', input),
+  );
+}
+
+/**
+ * 교직원 — 이 마일스톤의 서류 **전체**를 원하는 순서로 다시 매긴다.
+ *
+ * 부분이 아니라 전체를 보내는 것이 이 endpoint의 핵심이다. 두 항목을 각각 PATCH하다
+ * 한쪽만 성공하면 sortOrder가 같은 두 항목이 남고, 그 뒤로는 「위로」가 조용히 아무
+ * 일도 하지 않는다(같은 값끼리 맞바꿔도 순서가 그대로다). 누락·중복·타 마일스톤 id가
+ * 섞이면 서버가 400(MSD_019)으로 거절한다.
+ *
+ * 응답은 sortOrder를 1부터 다시 매긴 목록 전체다 — 호출부는 낙관적 갱신 대신 이 값을
+ * 그대로 화면 상태로 삼는다.
+ */
+export function reorderMilestoneDocuments(
+  milestoneId: string,
+  documentIds: readonly string[],
+): Promise<readonly MilestoneDocument[]> {
+  return apiClient<readonly MilestoneDocument[]>(
+    `${documentsPath(milestoneId)}/order`,
+    jsonRequest('PATCH', { documentIds }),
+  );
+}
+
+/** 교직원 — 서류 항목을 지운다. 204라 본문이 없다. */
+export async function deleteMilestoneDocument(
+  milestoneId: string,
+  documentId: string,
+): Promise<void> {
+  await apiClient<null>(documentPath(milestoneId, documentId), {
+    method: 'DELETE',
+  });
 }
 
 /** 학생 — 제출용 파일을 먼저 올려 fileId를 받는다(제출 자체는 submitMilestoneDocument가 한다). */

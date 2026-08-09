@@ -64,6 +64,13 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
   const [deleteTarget, setDeleteTarget] = useState<EditableMilestone | null>(
     null,
   );
+  /**
+   * 방금 만든 마일스톤. 저장하면 편집기가 닫히므로, 그 카드의 「받을 서류」를
+   * 펼친 채로 띄워 "저장 → 서류 등록"을 한 동선으로 잇는다.
+   */
+  const [createdMilestoneId, setCreatedMilestoneId] = useState<string | null>(
+    null,
+  );
   const [isMilestoneBusy, setIsMilestoneBusy] = useState(false);
   const [isLifecycleBusy, setIsLifecycleBusy] = useState(false);
 
@@ -190,6 +197,7 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
         milestoneEditor.form,
         milestoneDirtyFields,
       );
+      const isCreate = milestoneEditor.form.id === null;
       const saved = milestoneEditor.form.id
         ? await updateMilestone(milestoneEditor.form.id, input)
         : await createMilestone(programId, input);
@@ -198,6 +206,7 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
           upsertMilestone(program, saved),
         ),
       );
+      if (isCreate) setCreatedMilestoneId(saved.id);
       setMilestoneEditor({ mode: 'closed' });
       setMilestoneDirtyFields([]);
     } catch (error: unknown) {
@@ -232,8 +241,8 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
         : 'PUBLISHED';
     const message =
       lifecycle === 'ARCHIVED'
-        ? '대회를 내리면 익명 사용자에게 보이지 않고 신청이 차단됩니다. 계속할까요?'
-        : '내린 대회를 다시 발행할까요?';
+        ? '프로그램을 내리면 익명 사용자에게 보이지 않고 신청이 차단됩니다. 계속할까요?'
+        : '내린 프로그램을 다시 발행할까요?';
     if (!window.confirm(message)) return;
     setIsLifecycleBusy(true);
     try {
@@ -270,8 +279,8 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
           onClick={() => void toggleLifecycle()}
         >
           {state.program.lifecycle === 'PUBLISHED'
-            ? '대회 내리기'
-            : '대회 복구하기'}
+            ? '프로그램 내리기'
+            : '프로그램 복구하기'}
         </button>
       </div>
       <ProgramEditView
@@ -283,6 +292,7 @@ export function ProgramEditPage({ programId }: { readonly programId: string }) {
         isSaving={isSaving}
         milestoneEditor={milestoneEditor}
         deleteTarget={deleteTarget}
+        expandedDocumentsMilestoneId={createdMilestoneId}
         isMilestoneBusy={isMilestoneBusy}
         onFieldChange={updateField}
         onSubmit={(event) => void submit(event)}

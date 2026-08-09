@@ -79,6 +79,8 @@ export function ProgramCreationPage() {
   const [errors, setErrors] = useState<ProgramFormErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const typeSelectionButtonRef = useRef<HTMLButtonElement>(null);
+  const shouldReturnTypeSelectionFocus = useRef(false);
   const submissionLock = useRef<ProgramSubmissionLock>({ current: false });
   const hasUnsavedInput = hasProgramFormInput(form);
   const { leavePage, completeAndNavigate } =
@@ -100,6 +102,12 @@ export function ProgramCreationPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (modalOpen || !shouldReturnTypeSelectionFocus.current) return;
+    shouldReturnTypeSelectionFocus.current = false;
+    typeSelectionButtonRef.current?.focus();
+  }, [modalOpen]);
 
   const update = (key: keyof ProgramForm, value: string) =>
     setForm((previous) => ({ ...previous, [key]: value }));
@@ -133,7 +141,7 @@ export function ProgramCreationPage() {
       setSubmitting(false);
     }
   };
-  if (!selected || modalOpen)
+  if (!selected)
     return (
       <ProgramTypeModal
         definitions={definitions}
@@ -141,6 +149,7 @@ export function ProgramCreationPage() {
         onSelect={setSelected}
         onContinue={() => setModalOpen(false)}
         onCancel={() => (selected ? setModalOpen(false) : leavePage())}
+        returnFocusRef={typeSelectionButtonRef}
       />
     );
   const isTeam = selected.template.participation === 'team';
@@ -160,9 +169,13 @@ export function ProgramCreationPage() {
         </div>
         <div>
           <Button
+            ref={typeSelectionButtonRef}
             type="button"
             variant="outline"
-            onClick={() => setModalOpen(true)}
+            onClick={() => {
+              shouldReturnTypeSelectionFocus.current = true;
+              setModalOpen(true);
+            }}
           >
             유형 다시 선택
           </Button>
@@ -300,6 +313,16 @@ export function ProgramCreationPage() {
           </Button>
         </div>
       </div>
+      {modalOpen ? (
+        <ProgramTypeModal
+          definitions={definitions}
+          selected={selected}
+          onSelect={setSelected}
+          onContinue={() => setModalOpen(false)}
+          onCancel={() => setModalOpen(false)}
+          returnFocusRef={typeSelectionButtonRef}
+        />
+      ) : null}
     </PageBody>
   );
 }

@@ -9,7 +9,8 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../../../test/integration-database.guard';
 import { createCollectionReadPortForIntegrationTest } from '../../../github/collection-read.port';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { PublicEligibilityService } from '../../../programs/archive/public-eligibility/public-eligibility.service';
+import { loadRuntimeConfig } from '../../../runtime-config/runtime-config';
+import { PublicEligibilityService } from '../public-eligibility/public-eligibility.service';
 import { PublicUserProfileResponseDto } from './dto/public-user-profile-response.dto';
 import { PublicProjectsRepository } from './public-projects.repository';
 import { PublicProjectsService } from './public-projects.service';
@@ -18,6 +19,11 @@ assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
+
+/** QA40 — 커서 암호화 키 파생용 합성 값. 실 배포 시크릿과 무관하다. */
+const SYNTHETIC_SESSION_SECRET = Buffer.from(
+  'synthetic-public-projects-integration-secret',
+).toString('base64url');
 
 const prisma = new PrismaService();
 const collectionReadService =
@@ -28,6 +34,7 @@ const service = new PublicProjectsService(
   publicProjectsRepository,
   eligibilityService,
   collectionReadService,
+  loadRuntimeConfig({ SESSION_SECRET: SYNTHETIC_SESSION_SECRET }),
 );
 
 const PREFIX = 'synthetic-public-profile';

@@ -343,6 +343,7 @@ export function ProgramStaffTeamsPage({
       />
 
       <DataTable
+        scrollRegionLabel="참여 팀 목록 표"
         columns={columns}
         data={[...visible]}
         rowKey={(row) => row.team.teamId}

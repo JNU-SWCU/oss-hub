@@ -12,6 +12,7 @@ import {
 } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
   Card,
   CardContent,
@@ -64,6 +65,60 @@ type AdminAccessDetailState =
  * 막는다. 기본값 `standalone`은 기존 동작과 완전히 동일하다.
  */
 export type AdminAccessDetailLayoutContext = 'standalone' | 'overlay';
+
+/**
+ * 상세 본문을 감싸는 바깥 요소.
+ *
+ * `standalone`은 라우트가 통째로 이 화면이라 `<main>` landmark가 맞다. 반면
+ * `overlay`는 Radix `Dialog.Content`(`role="dialog" aria-modal="true"`) **안에**
+ * 그려지므로 같은 `<main>`을 쓰면 landmark가 다이얼로그 안에 갇힌다 — 그러면
+ * 문서에 최상위 `main`이 하나도 남지 않고(모달이 열린 동안 목록 쪽은
+ * `aria-hidden` 처리된다), landmark 검사에도 걸린다. 오버레이에서는 landmark가
+ * 아닌 `<div>`로 낮춘다.
+ */
+function detailRootTag(
+  layoutContext: AdminAccessDetailLayoutContext,
+): 'main' | 'div' {
+  return layoutContext === 'overlay' ? 'div' : 'main';
+}
+
+export type DetailHeadingTag = 'h2' | 'h3';
+
+/**
+ * 상세 본문의 제목 레벨 한 쌍.
+ *
+ * `standalone`은 페이지의 최상위 제목이 사용자 이름(`h1`)이고 그 아래 섹션이
+ * `h2`다. `overlay`는 Radix `Dialog.Title`이 이미 `h2`를 차지하므로 한 단계씩
+ * 내려 `h2`/`h3`로 쓴다 — 그대로 두면 다이얼로그 안에서 `h2` 다음에 `h1`이
+ * 나와 제목 레벨이 역행한다.
+ */
+function detailHeadingTags(layoutContext: AdminAccessDetailLayoutContext): {
+  readonly title: 'h1' | 'h2';
+  readonly section: DetailHeadingTag;
+} {
+  return layoutContext === 'overlay'
+    ? { title: 'h2', section: 'h3' }
+    : { title: 'h1', section: 'h2' };
+}
+
+/**
+ * 상세 본문 바깥 요소의 공통 클래스.
+ *
+ * `standalone`은 페이지 폭 전체를 쓰므로 가운데 정렬 + 뷰포트 계단 여백
+ * (`p-5 sm:p-8`)이 맞다. `overlay`는 **뷰포트가 아무리 넓어도** 렌더 폭이
+ * `max-w-md`(448px)로 고정된 패널 안이라, 뷰포트 기준 `sm:` 계단을 그대로 쓰면
+ * 768px·1280px에서 다이얼로그 자체 여백(`p-5`/`p-6`)에 32px이 겹쳐 얹혀
+ * 실제 내용 폭이 336px까지 줄어든다. 오버레이는 여백을 다이얼로그에 맡기고
+ * 최대 폭 제한도 걸지 않는다.
+ */
+function detailRootClassName(
+  layoutContext: AdminAccessDetailLayoutContext,
+  standaloneClassName: string,
+): string {
+  return layoutContext === 'overlay'
+    ? 'flex w-full min-w-0 flex-col gap-6'
+    : standaloneClassName;
+}
 
 /** 상세/오버레이가 공유하는 접근 변경 다이얼로그·패널 제어권(PR04G). */
 export interface AdminAccessDetailMutationController {
@@ -173,21 +228,47 @@ function formatDateTime(value: string): string {
   }).format(new Date(value));
 }
 
-function LoadingState() {
+function LoadingState({
+  layoutContext,
+}: {
+  readonly layoutContext: AdminAccessDetailLayoutContext;
+}) {
+  const Root = detailRootTag(layoutContext);
   return (
-    <main
-      aria-label="관리자 접근 상세를 불러오는 중"
-      className="mx-auto grid w-full max-w-6xl gap-6 p-5 sm:p-8"
+    <Root
+      // 이름은 landmark일 때만 붙인다 — 오버레이의 `<div>`는 role이 없어
+      // 접근 가능한 이름을 가질 자리가 아니고, 다이얼로그 제목이 그 역할을 한다.
+      aria-label={
+        layoutContext === 'overlay'
+          ? undefined
+          : '관리자 접근 상세를 불러오는 중'
+      }
+      className={detailRootClassName(
+        layoutContext,
+        'mx-auto grid w-full max-w-6xl gap-6 p-5 sm:p-8',
+      )}
     >
       <div className="h-24 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
       <div className="h-64 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
-    </main>
+    </Root>
   );
 }
 
-function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
+function ErrorState({
+  onRetry,
+  layoutContext,
+}: {
+  readonly onRetry: () => void;
+  readonly layoutContext: AdminAccessDetailLayoutContext;
+}) {
+  const Root = detailRootTag(layoutContext);
   return (
-    <main className="mx-auto grid w-full max-w-3xl gap-6 p-5 sm:p-8">
+    <Root
+      className={detailRootClassName(
+        layoutContext,
+        'mx-auto grid w-full max-w-3xl gap-6 p-5 sm:p-8',
+      )}
+    >
       <Alert variant="destructive">
         <AlertCircle aria-hidden="true" />
         <AlertTitle>관리자 접근 상세를 불러오지 못했습니다</AlertTitle>
@@ -199,13 +280,23 @@ function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
           </Button>
         </AlertDescription>
       </Alert>
-    </main>
+    </Root>
   );
 }
 
-function NotFoundState() {
+function NotFoundState({
+  layoutContext,
+}: {
+  readonly layoutContext: AdminAccessDetailLayoutContext;
+}) {
+  const Root = detailRootTag(layoutContext);
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-5 sm:p-8">
+    <Root
+      className={detailRootClassName(
+        layoutContext,
+        'mx-auto flex w-full max-w-3xl flex-col gap-6 p-5 sm:p-8',
+      )}
+    >
       <EmptyState
         icon={<UserRound className="size-8" />}
         title="사용자를 찾을 수 없습니다"
@@ -216,28 +307,30 @@ function NotFoundState() {
           </Button>
         }
       />
-    </main>
+    </Root>
   );
 }
 
 function RoleRequestHistorySection({
   items,
   truncated,
+  headingTag: HeadingTag,
 }: {
   readonly items: readonly AdminAccessRoleRequestHistoryItem[];
   readonly truncated: boolean;
+  readonly headingTag: DetailHeadingTag;
 }) {
   return (
     <section
       aria-labelledby="admin-access-role-request-history"
       className="grid gap-3"
     >
-      <h2
+      <HeadingTag
         id="admin-access-role-request-history"
         className="font-heading text-lg font-semibold"
       >
         요청 이력
-      </h2>
+      </HeadingTag>
       {items.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           역할 요청 이력이 없습니다.
@@ -285,21 +378,23 @@ function RoleRequestHistorySection({
 function LoginHistorySection({
   items,
   truncated,
+  headingTag: HeadingTag,
 }: {
   readonly items: readonly AdminAccessLoginHistoryItem[];
   readonly truncated: boolean;
+  readonly headingTag: DetailHeadingTag;
 }) {
   return (
     <section
       aria-labelledby="admin-access-login-history"
       className="grid gap-3"
     >
-      <h2
+      <HeadingTag
         id="admin-access-login-history"
         className="font-heading text-lg font-semibold"
       >
         로그인 이력
-      </h2>
+      </HeadingTag>
       {items.length === 0 ? (
         <p className="text-sm text-muted-foreground">로그인 이력이 없습니다.</p>
       ) : (
@@ -338,6 +433,10 @@ function AdminAccessDetailContent({
   readonly mutation: AdminAccessDetailMutationController;
   readonly layoutContext: AdminAccessDetailLayoutContext;
 }) {
+  const Root = detailRootTag(layoutContext);
+  const isOverlay = layoutContext === 'overlay';
+  const heading = detailHeadingTags(layoutContext);
+  const SectionHeading = heading.section;
   const eligibility = deriveAdminAccessEligibility(detail);
   const roleRequestsTruncated = isAdminAccessHistoryTruncated(
     history.roleRequests,
@@ -354,7 +453,12 @@ function AdminAccessDetailContent({
       : null;
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-5 sm:p-8">
+    <Root
+      className={detailRootClassName(
+        layoutContext,
+        'mx-auto flex w-full max-w-6xl flex-col gap-8 p-5 sm:p-8',
+      )}
+    >
       {mutation.conflictNotice ? (
         <Alert variant="destructive">
           <AlertCircle aria-hidden="true" />
@@ -371,6 +475,13 @@ function AdminAccessDetailContent({
         </div>
       ) : null}
       <PageHeader
+        titleAs={heading.title}
+        // 오버레이는 뷰포트가 넓어도 448px 고정 폭 패널 안이라 뷰포트 기준 `sm:`
+        // 계단을 그대로 쓰면 안 된다 — 768px·1280px에서 머리말이 가로 배치로
+        // 바뀌면서 오른쪽 배지가 밀리고 제목이 40px로 커진다. 두 계단 모두
+        // 좁은 화면 값으로 고정한다.
+        className={isOverlay ? 'sm:flex-col sm:justify-start' : undefined}
+        titleClassName={isOverlay ? 'sm:text-section' : undefined}
         title={detail.name ?? '이름 미등록'}
         description={`@${detail.githubLogin}`}
         actions={
@@ -404,13 +515,23 @@ function AdminAccessDetailContent({
               aria-labelledby="admin-access-profile"
               className="grid gap-3"
             >
-              <h2
+              <SectionHeading
                 id="admin-access-profile"
                 className="font-heading text-lg font-semibold"
               >
                 프로필
-              </h2>
-              <dl className="grid gap-2 text-sm sm:grid-cols-2">
+              </SectionHeading>
+              {/*
+                오버레이에서는 2열로 쪼개지 않는다 — `sm:`은 뷰포트 기준이라
+                768px·1280px에서도 켜지는데, 실제 렌더 폭은 400px 남짓이라
+                한 열이 200px 아래로 눌린다.
+              */}
+              <dl
+                className={cn(
+                  'grid gap-2 text-sm sm:grid-cols-2',
+                  isOverlay && 'sm:grid-cols-1',
+                )}
+              >
                 <div>
                   <dt className="text-muted-foreground">이름</dt>
                   <dd>{detail.profile.name ?? '미등록'}</dd>
@@ -435,10 +556,12 @@ function AdminAccessDetailContent({
             <RoleRequestHistorySection
               items={history.roleRequests.items}
               truncated={roleRequestsTruncated}
+              headingTag={heading.section}
             />
             <LoginHistorySection
               items={history.loginHistory.items}
               truncated={loginHistoryTruncated}
+              headingTag={heading.section}
             />
           </div>
         }
@@ -516,7 +639,7 @@ function AdminAccessDetailContent({
           onConfirm={mutation.onConfirm}
         />
       ) : null}
-    </main>
+    </Root>
   );
 }
 
@@ -531,9 +654,15 @@ export function AdminAccessDetailContentForState({
   readonly mutation: AdminAccessDetailMutationController;
   readonly layoutContext?: AdminAccessDetailLayoutContext;
 }) {
-  if (state.kind === 'loading') return <LoadingState />;
-  if (state.kind === 'error') return <ErrorState onRetry={onRetry} />;
-  if (state.kind === 'not-found') return <NotFoundState />;
+  if (state.kind === 'loading') {
+    return <LoadingState layoutContext={layoutContext} />;
+  }
+  if (state.kind === 'error') {
+    return <ErrorState onRetry={onRetry} layoutContext={layoutContext} />;
+  }
+  if (state.kind === 'not-found') {
+    return <NotFoundState layoutContext={layoutContext} />;
+  }
   return (
     <AdminAccessDetailContent
       detail={state.detail}

@@ -16,14 +16,15 @@ import {
   type CollectionReadPort,
 } from '../../../github/collection-read.port';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { loadRuntimeConfig } from '../../../runtime-config/runtime-config';
 import type { GithubAppClient } from '../../../github/github-app.client';
 import { RepositoriesRepository } from '../../../github/repository/repositories.repository';
 import { RepositoriesService } from '../../../github/service/repositories.service';
 import { RankingService } from '../../../ranking/service/ranking.service';
 import { UserDisplayNameRepository } from '../../../users/user-display-name.repository';
-import { PublicProjectsErrorCode } from '../../../programs/archive/public-projects/public-projects-error-code.enum';
-import { PublicProjectsRepository } from '../../../programs/archive/public-projects/public-projects.repository';
-import { PublicProjectsService } from '../../../programs/archive/public-projects/public-projects.service';
+import { PublicProjectsErrorCode } from '../public-projects/public-projects-error-code.enum';
+import { PublicProjectsRepository } from '../public-projects/public-projects.repository';
+import { PublicProjectsService } from '../public-projects/public-projects.service';
 import { SubmissionReviewsErrorCode } from '../../../submission-reviews/submission-reviews-error-code.enum';
 import { SubmissionReviewsRepository } from '../../../submission-reviews/submission-reviews.repository';
 import { SubmissionReviewsService } from '../../../submission-reviews/submission-reviews.service';
@@ -46,6 +47,11 @@ assertIsolatedIntegrationDatabase({
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 
+/** QA40 — 커서 암호화 키 파생용 합성 값. 실 배포 시크릿과 무관하다. */
+const SYNTHETIC_SESSION_SECRET = Buffer.from(
+  'synthetic-public-projects-integration-secret',
+).toString('base64url');
+
 const prisma = new PrismaService();
 const collection: CollectionReadPort =
   createCollectionReadPortForIntegrationTest(prisma);
@@ -55,6 +61,7 @@ const publicProjectsService = new PublicProjectsService(
   publicProjectsRepository,
   eligibilityService,
   collection,
+  loadRuntimeConfig({ SESSION_SECRET: SYNTHETIC_SESSION_SECRET }),
 );
 const rankingService = new RankingService(
   collection,

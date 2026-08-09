@@ -18,6 +18,15 @@ interface PageHeaderProps extends Omit<
   titleClassName?: string;
   /** description 기본 스타일을 덮어써야 할 때. 선택적. */
   descriptionClassName?: string;
+  /**
+   * 제목을 그릴 heading 요소. 기본값 `h1`이라 넘기지 않으면 기존 렌더와 동일하다.
+   *
+   * `h2`가 필요한 자리는 이 머리말이 **문서의 최상위 제목이 아닐 때**다 — 예를
+   * 들어 `role="dialog"` 안에 그려질 때. 다이얼로그는 이미 자기 제목을 갖고
+   * 있고(Radix `Dialog.Title`은 `h2`로 렌더된다), 그 뒤에 `h1`이 오면 제목
+   * 레벨이 h2 → h1으로 역행해 heading-order 검사에 걸린다.
+   */
+  titleAs?: 'h1' | 'h2';
 }
 
 /**
@@ -30,6 +39,7 @@ function PageHeader({
   className,
   titleClassName,
   descriptionClassName,
+  titleAs: TitleTag = 'h1',
   ...props
 }: PageHeaderProps) {
   return (
@@ -44,7 +54,7 @@ function PageHeader({
       {...props}
     >
       <div className="flex min-w-0 flex-col gap-3">
-        <h1
+        <TitleTag
           data-slot="page-header-title"
           // 크기 계단의 맨 위 칸. 좁은 화면에서 40px은 제목 한 줄이 화면을 넘기므로
           // 한 계단 내려 섹션 크기로 쓴다(시안의 900px 미만 규칙과 같은 취지).
@@ -54,7 +64,7 @@ function PageHeader({
           )}
         >
           {title}
-        </h1>
+        </TitleTag>
         {description ? (
           <p
             data-slot="page-header-description"

@@ -13,16 +13,17 @@ import { issueSessionToken } from '../../../auth/session-token';
 import { SessionGuard } from '../../../auth/session.guard';
 import { ProblemDetailFilter } from '../../../common/problem-detail.filter';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { loadRuntimeConfig } from '../../../runtime-config/runtime-config';
 import type { GithubAppClient } from '../../../github/github-app.client';
 import { RepositoriesRepository } from '../../../github/repository/repositories.repository';
 import { RepositoriesService } from '../../../github/service/repositories.service';
 import { RankingController } from '../../../ranking/controller/ranking.controller';
 import { RankingService } from '../../../ranking/service/ranking.service';
 import { UserDisplayNameRepository } from '../../../users/user-display-name.repository';
-import { PublicProjectsController } from '../../../programs/archive/public-projects/public-projects.controller';
-import { PublicProjectsRepository } from '../../../programs/archive/public-projects/public-projects.repository';
-import { PublicProjectsService } from '../../../programs/archive/public-projects/public-projects.service';
-import { PublicUserProfileController } from '../../../programs/archive/public-projects/public-user-profile.controller';
+import { PublicProjectsController } from '../public-projects/public-projects.controller';
+import { PublicProjectsRepository } from '../public-projects/public-projects.repository';
+import { PublicProjectsService } from '../public-projects/public-projects.service';
+import { PublicUserProfileController } from '../public-projects/public-user-profile.controller';
 import { SubmissionRepositoryPublishingController } from '../../../submission-reviews/submission-reviews.controller';
 import { SubmissionReviewsRepository } from '../../../submission-reviews/submission-reviews.repository';
 import { SubmissionReviewsService } from '../../../submission-reviews/submission-reviews.service';
@@ -34,6 +35,12 @@ import {
 import { PublicEligibilityService } from './public-eligibility.service';
 
 const sessionSecret = new Uint8Array(32).fill(23);
+/**
+ * QA40 — 공개 프로젝트 커서 키는 배포에서도 `SESSION_SECRET`에서 파생하므로, harness도
+ * 위 세션 시크릿을 그대로 base64url로 넘겨 실제 배선과 같은 경로를 탄다.
+ */
+const SYNTHETIC_SESSION_SECRET =
+  Buffer.from(sessionSecret).toString('base64url');
 export const PUBLIC_EXPOSURE_PERSONA_ALLOWED_ORIGIN =
   'http://frontend-persona.test';
 
@@ -66,6 +73,7 @@ export class PublicExposurePersonaHttpHarness {
       publicProjectsRepository,
       eligibilityService,
       this.collection,
+      loadRuntimeConfig({ SESSION_SECRET: SYNTHETIC_SESSION_SECRET }),
     );
     const rankingService = new RankingService(
       this.collection,

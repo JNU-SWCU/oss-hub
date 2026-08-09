@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { AccountStatus } from '@prisma/client';
 import { DeadlineDigestRepository } from './deadline-digest.repository';
 import type {
   DeadlineDigestRepositoryPort,
@@ -59,7 +60,13 @@ export class DeadlineDigestService {
     >();
     for (const milestone of milestones) {
       for (const submitter of missingByMilestone.get(milestone.id) ?? []) {
-        if (!submitter.notifyEnabled || !submitter.notificationEmail) {
+        // 비활성 계정은 로그인이 막혀 제출 자체가 불가능하다 — 제출 독촉을 보내지 않는다.
+        // 교직원 요약의 미제출자 집계에는 그대로 남는다(운영상 미제출 건을 놓치지 않기 위해).
+        if (
+          submitter.accountStatus !== AccountStatus.ACTIVE ||
+          !submitter.notifyEnabled ||
+          !submitter.notificationEmail
+        ) {
           continue;
         }
         const reminder = reminders.get(submitter.id);
@@ -152,11 +159,25 @@ export class DeadlineDigestService {
       `- ${milestone.programName} / ${milestone.milestoneName} (마감 ${this.formatDueAt(milestone.dueAt)})`,
       `  미제출자: ${
         (missingByMilestone.get(milestone.id) ?? [])
-          .map((submitter) => submitter.nickname)
+          .map((submitter) => this.formatMissingSubmitter(submitter))
           .join(', ') || '없음'
       }`,
     ]);
     return ['마감이 임박한 마일스톤입니다.', '', ...lines].join('\n');
+  }
+
+  /**
+   * 미제출자는 아무도 명단에서 빼지 않고, 비활성 계정에만 표시를 붙인다.
+   * 교직원이 「독촉해도 소용없는 사람」을 명단에서 바로 구분하기 위한 표시다.
+   * 라벨은 관리자 접근 화면의 DEACTIVATED 표기(「비활성」)와 같은 말을 쓴다.
+   * 리마인더 게이트는 안전을 위해 ACTIVE 가 아니면 모두 막지만, 이 표시는
+   * 문구가 곧 뜻이므로 DEACTIVATED 에만 붙인다. 수신 거부(notifyEnabled)는
+   * 계정 상태가 아니므로 표시 대상이 아니다.
+   */
+  private formatMissingSubmitter(submitter: MissingSubmitter): string {
+    return submitter.accountStatus === AccountStatus.DEACTIVATED
+      ? `${submitter.nickname} (비활성)`
+      : submitter.nickname;
   }
 
   private buildStudentBody(milestones: readonly UpcomingMilestone[]): string {

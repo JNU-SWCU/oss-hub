@@ -1,3 +1,4 @@
+import { AccountStatus } from '@prisma/client';
 import { DeadlineDigestService } from './deadline-digest.service';
 import type { DeadlineDigestRepositoryPort } from './deadline-digest.repository';
 import type { MailSender } from './mail-sender.port';
@@ -86,18 +87,29 @@ describe('DeadlineDigestService', () => {
               nickname: '미제출학생',
               notificationEmail: 'student@example.com',
               notifyEnabled: true,
+              accountStatus: AccountStatus.ACTIVE,
             },
             {
               id: 'student-1',
               nickname: '미제출학생',
               notificationEmail: 'student@example.com',
               notifyEnabled: true,
+              accountStatus: AccountStatus.ACTIVE,
             },
             {
               id: 'student-2',
               nickname: '수신거부학생',
               notificationEmail: 'opt-out@example.com',
               notifyEnabled: false,
+              accountStatus: AccountStatus.ACTIVE,
+            },
+            {
+              // 알림을 켜 두었지만 계정이 비활성 — 리마인더 대상이 아니다(QA41).
+              id: 'student-3',
+              nickname: '비활성학생',
+              notificationEmail: 'deactivated@example.com',
+              notifyEnabled: true,
+              accountStatus: AccountStatus.DEACTIVATED,
             },
           ],
         ],
@@ -113,13 +125,20 @@ describe('DeadlineDigestService', () => {
         .map(([message]) => message)
         .find((message) => message.to === address)?.body;
 
+    // 비활성 학생도 집계에는 남는다 — 명단에서 지우면 교직원이 미제출 건을 놓친다.
+    // 대신 비활성 계정에만 표시를 붙인다. 수신 거부는 계정 상태가 아니므로 표시하지 않고,
+    // 활성 계정에 표시가 붙으면 표시 자체가 뜻을 잃으므로 이 문자열 전체로 고정한다.
     expect(sentTo('staff@example.com')).toContain(
-      '미제출자: 미제출학생, 미제출학생, 수신거부학생',
+      '미제출자: 미제출학생, 미제출학생, 수신거부학생, 비활성학생 (비활성)',
     );
+    // 수신 거부는 비활성이 아니다 — 둘을 같은 표시로 묶지 않는다.
+    expect(sentTo('staff@example.com')).not.toContain('수신거부학생 (비활성)');
     expect(sentTo('student@example.com')).toContain(
       '2026. 08. 15. 09:00 (Asia/Seoul)',
     );
     expect(sentTo('opt-out@example.com')).toBeUndefined();
+    // 그러나 본인에게는 보내지 않는다 — 로그인이 막혀 제출할 수 없는 계정이다(QA41).
+    expect(sentTo('deactivated@example.com')).toBeUndefined();
   });
 
   it('발송이 실패하면 FAILED를 기록하고 다음 수신자로 계속한다', async () => {

@@ -1,0 +1,21 @@
+-- 서류 제출물의 단조 증가 리비전 — "교직원이 본 그 제출물인가"를 판정 요청이 되묻는 값.
+--
+-- 왜 "submittedAt"으로는 안 되는가: 그 컬럼은 TIMESTAMP(3)이라 같은 팀의 두 사람이(또는 한
+-- 사람의 재시도가) 같은 밀리초 안에 다시 내면 값이 같아진다. 서류 제출은 upsert라 행 id도
+-- 그대로다. 그러면 기대값 대조가 통과하는데 내용은 바뀌어 있다 — 교직원이 보지 못한 내용이
+-- 승인된다. 리비전은 시계가 아니라 쓰기 횟수를 세므로 같은 밀리초의 재제출도 반드시 다른
+-- 값이 된다. 값을 올리는 것은 "upsertSubmission"이며, 이미 잡고 있는 행 잠금 아래 같은
+-- 트랜잭션에서 1씩 올린다.
+--
+-- 이 마이그레이션을 바로 앞의 "20260809000000_add_milestone_document_review_history"에 합치지
+-- 않은 이유: 그 이름은 "판정 이력 테이블을 만든다"에 답하는데 여기서 바꾸는 것은
+-- "MilestoneDocumentSubmission"이다(docs/rules/data-modeling.md 4절 — 이름은 무엇을 하는가에
+-- 답해야 한다). 또한 이미 적용해 둔 개발 DB가 있으면 적용된 마이그레이션의 본문을 고치는 순간
+-- checksum이 어긋나 그 DB에서 마이그레이션이 멈춘다. 새 디렉터리는 그 위험이 없고, 두 파일은
+-- 타임스탬프 순서대로 한 번의 "migrate deploy"에 함께 적용된다.
+--
+-- 백필하지 않는다 — 이 컬럼이 붙는 시점에 "MilestoneDocumentSubmission" 행이 없다. 행이
+-- 있더라도 DEFAULT 1이 NOT NULL을 채우므로 별도 UPDATE가 필요 없다.
+
+-- AlterTable
+ALTER TABLE "MilestoneDocumentSubmission" ADD COLUMN     "revision" INTEGER NOT NULL DEFAULT 1;

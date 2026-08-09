@@ -13,7 +13,7 @@ refines:
 
 ## Status
 
-Proposed
+Accepted
 
 ## Date
 
@@ -129,6 +129,8 @@ repository(owner:$owner, name:$name) {
 
 **PR·릴리스는 적재 시 거른다.** GraphQL에도 `author` 인자가 없다. `search(query:"repo:X is:pr author:Y")`는 **분당 30회**의 별도 한도라 오히려 위험하므로 쓰지 않는다. PR·릴리스는 저장소당 수백 개 규모라 전량 받아도 커밋(수만 개)과 비용 차원이 다르다.
 
+PR의 평시 수집은 `(createdAt, id)` tie frontier를 유지한다. 다만 팀원 GitHub id 집합의 versioned SHA-256 fingerprint를 같은 PR stream의 `frontierSha`에 보존하고, fingerprint가 달라진 sweep에는 tie frontier를 한 번만 무시해 전체 PR을 다시 받는다. 새 팀원이 합류하기 전에 만든 PR도 이 한 번의 repair backfill에서 적재되고, fingerprint와 facts·새 PR frontier가 같은 fenced transaction에 기록된 다음 sweep부터는 다시 증분 요청만 한다. 기존 READY 행은 fingerprint가 없으므로 배포 직후 현재 팀원 기준 repair backfill을 한 번 수행한다. 팀원 id 원문은 이 control marker에 저장하지 않는다.
+
 **저장소 전체 지표는 만들지 않는다.** 총계를 노출하려면 제3자 데이터를 보관해야 하는데 그것이 바로 이 조항이 막으려는 것이다. 외부 기여 규모가 필요하면 2번의 수치로 답한다.
 
 #### 추적 범위는 default branch 하나
@@ -208,7 +210,7 @@ Accepted가 되면 구현이 따라온다.
 
 ## Follow-ups
 
-`OWN` 연결 경로와 수집 경계는 구현·병합됐다([#669](https://github.com/JNU-SWCU/oss-hub/pull/669) · [#670](https://github.com/JNU-SWCU/oss-hub/pull/670) · [#671](https://github.com/JNU-SWCU/oss-hub/pull/671) · [#674](https://github.com/JNU-SWCU/oss-hub/pull/674)). 합류 시점 백필은 sweep이 이미 처리하므로 별도 작업이 없다.
+`OWN` 연결 경로와 수집 경계는 구현·병합됐다([#669](https://github.com/JNU-SWCU/oss-hub/pull/669) · [#670](https://github.com/JNU-SWCU/oss-hub/pull/670) · [#671](https://github.com/JNU-SWCU/oss-hub/pull/671) · [#674](https://github.com/JNU-SWCU/oss-hub/pull/674)). 커밋은 author-scoped 전체 이력, 릴리스는 변경 시 전체 목록, PR은 팀원 fingerprint 변화 시 1회 repair backfill로 합류 이전 활동까지 채운다.
 
 남은 것:
 
@@ -218,3 +220,7 @@ Accepted가 되면 구현이 따라온다.
 ### 구현하며 바뀐 것
 
 **"`Repository`에 연결 방식 필드를 추가한다"는 하지 않았다.** `Application.repositoryConnectionMode`가 이미 있고 `Repository.applicationId`가 `@unique`라 조인 하나로 판정된다. 마이그레이션을 늘리지 않는 쪽이 배포가 단순하다.
+
+## Changelog
+
+- 2026-08-09: #683/QA28의 늦게 합류한 팀원 과거 PR 누락을 해결하기 위해 PR stream에 팀원 집합 fingerprint를 보존하고, 집합이 달라진 sweep만 한 번 repair backfill한 뒤 증분 frontier를 재사용하는 계약을 추가했다.

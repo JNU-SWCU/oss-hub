@@ -6,10 +6,12 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import type {
   DashboardItem,
+  ApplicationDecisionNotice,
   StudentDashboard,
   StudentDashboardStatus,
 } from '../types';
 import { StudentDashboardCard } from './student-dashboard-card';
+import { ApplicationDecisionNotices } from './application-decision-notices';
 
 /**
  * 채운 남색은 화면당 주 행동 하나에만 쓴다. 카드마다 "제출 체크리스트"를 채운
@@ -54,6 +56,7 @@ interface StudentDashboardViewProps {
    * 여기서는 받은 값만 그린다 — 브라우저 저장소를 보는 쪽과 그리는 쪽을 섞지 않는다.
    */
   showSignupCompleteNotice?: boolean;
+  applicationDecisionNotices?: readonly ApplicationDecisionNotice[];
   onRetry: () => void;
 }
 
@@ -75,6 +78,7 @@ export function StudentDashboardView({
   status,
   now = new Date(),
   showSignupCompleteNotice = false,
+  applicationDecisionNotices = [],
   onRetry,
 }: StudentDashboardViewProps) {
   const primaryApplicationId = data
@@ -103,6 +107,8 @@ export function StudentDashboardView({
           </AlertDescription>
         </Alert>
       ) : null}
+
+      <ApplicationDecisionNotices notices={applicationDecisionNotices} />
 
       {status === 'loading' ? (
         <DashboardSkeleton />

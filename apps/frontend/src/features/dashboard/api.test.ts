@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { apiPath } from '@/lib/api-client';
-import { fetchStudentDashboard } from './api';
+import {
+  fetchStudentDashboard,
+  fetchUnreadApplicationDecisionNotices,
+  markApplicationDecisionNoticeRead,
+} from './api';
 import { dashboardFixture } from './fixtures';
 
 afterEach(() => {
@@ -207,6 +211,65 @@ describe('fetchStudentDashboard', () => {
 
     await expect(fetchStudentDashboard()).rejects.toThrow(
       '학생 대시보드 응답 형식이 올바르지 않습니다.',
+    );
+  });
+});
+
+describe('application decision notices', () => {
+  const notice = {
+    id: 'notification-1',
+    applicationId: 'application-1',
+    programId: 'program-1',
+    programName: '합성 프로그램',
+    decision: 'APPROVED',
+    decidedAt: '2026-08-09T00:00:00.000Z',
+  } as const;
+
+  it('loads unread notices and marks each one read through a scoped endpoint', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify([notice]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchUnreadApplicationDecisionNotices()).resolves.toEqual([
+      notice,
+    ]);
+    await expect(
+      markApplicationDecisionNoticeRead(notice.id),
+    ).resolves.toBeUndefined();
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      apiPath('users/me/notifications/application-decisions'),
+      undefined,
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      apiPath(
+        'users/me/notifications/application-decisions/notification-1/read',
+      ),
+      { method: 'PATCH' },
+    );
+  });
+
+  it('rejects malformed and unsafe notice payloads', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify([{ ...notice, programId: '../admin' }]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+
+    await expect(fetchUnreadApplicationDecisionNotices()).rejects.toThrow(
+      '신청 판정 알림 응답 형식이 올바르지 않습니다.',
     );
   });
 });

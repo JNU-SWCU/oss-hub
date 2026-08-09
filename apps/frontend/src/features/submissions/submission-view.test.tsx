@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { SubmissionFormView } from './components/submission-form-view';
-import { consumeSelectedFile } from './components/submission-input';
+import { selectedFileFromControl } from './components/submission-input';
 import {
   SubmissionLoadFailure,
   SubmissionSuccess,
@@ -127,9 +127,11 @@ describe('SubmissionFormView', () => {
     expect(html).toContain('final-report.pdf');
     expect(html).toContain('파일 바꾸기');
     expect(html).toContain('선택 취소');
+    expect(html).not.toContain('lucide-check');
   });
 
-  it('선택을 취소한 뒤 같은 FILE을 다시 선택할 수 있도록 네이티브 값을 비운다', () => {
+  it('FILE을 선택하면 네이티브 선택값과 React에 전달할 파일이 일치한다', () => {
+    // Given
     const file = new File(['report'], 'final-report.pdf', {
       type: 'application/pdf',
     });
@@ -138,14 +140,23 @@ describe('SubmissionFormView', () => {
       value: 'C:\\fakepath\\final-report.pdf',
     };
 
-    const firstSelection = consumeSelectedFile(control);
-    expect(firstSelection).toBe(file);
-    expect(control.value).toBe('');
+    // When
+    const selected = selectedFileFromControl(control);
 
-    control.value = 'C:\\fakepath\\final-report.pdf';
-    const repeatedSelection = consumeSelectedFile(control);
-    expect(repeatedSelection).toBe(file);
-    expect(control.value).toBe('');
+    // Then
+    expect(selected).toBe(file);
+    expect(control.value).toBe('C:\\fakepath\\final-report.pdf');
+  });
+
+  it('FILE을 선택하기 전에는 제출 단계를 완료로 표시하지 않는다', () => {
+    // Given / When
+    const html = render({
+      ...baseData,
+      milestone: { ...baseData.milestone, submissionType: 'FILE' },
+    });
+
+    // Then
+    expect(html).not.toContain('lucide-check');
   });
 
   it('기존 제출은 최초 FILE 제출과 무관하게 fail-closed한다', () => {

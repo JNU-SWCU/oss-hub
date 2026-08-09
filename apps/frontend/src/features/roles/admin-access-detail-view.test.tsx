@@ -426,3 +426,105 @@ describe('AdminAccessDetailContentForState — layoutContext (PR04F follow-up: I
     expect(layoutClass(html)).not.toMatch(/md:grid-cols-/);
   });
 });
+
+describe('AdminAccessDetailContentForState — 오버레이 정보 구조 (QA16)', () => {
+  function renderForContext(
+    layoutContext: 'standalone' | 'overlay',
+    state: Parameters<typeof AdminAccessDetailContentForState>[0]['state'] = {
+      kind: 'ready',
+      detail: detail(),
+      history: history(),
+    },
+  ): string {
+    return renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={state}
+        onRetry={noOp}
+        mutation={mutation()}
+        layoutContext={layoutContext}
+      />,
+    );
+  }
+
+  it('표준 페이지는 main landmark와 h1 제목을 그대로 쓴다', () => {
+    const html = renderForContext('standalone');
+
+    expect(html).toContain('<main');
+    expect(html).toMatch(/<h1[^>]*data-slot="page-header-title"/);
+    expect(html).toMatch(/<h2[^>]*id="admin-access-profile"/);
+  });
+
+  // 다이얼로그 안에 landmark를 두면 landmark가 모달 안에 갇힌다. 모달이 열린
+  // 동안 바깥은 aria-hidden 처리되므로, 문서에 최상위 main이 하나도 남지 않는다.
+  it('오버레이에서는 main landmark를 그리지 않는다', () => {
+    expect(renderForContext('overlay')).not.toContain('<main');
+  });
+
+  it.each([
+    ['loading', { kind: 'loading' } as const],
+    ['error', { kind: 'error' } as const],
+    ['not-found', { kind: 'not-found' } as const],
+  ])('오버레이의 %s 상태도 main landmark를 그리지 않는다', (_label, state) => {
+    expect(renderForContext('overlay', state)).not.toContain('<main');
+  });
+
+  // Radix Dialog.Title이 h2로 렌더되므로, 본문이 h1로 시작하면 제목 레벨이
+  // h2 → h1로 역행한다. 오버레이에서는 한 단계씩 내려 h2/h3로 쓴다.
+  it('오버레이 제목은 h2, 하위 섹션은 h3로 한 단계씩 내려간다', () => {
+    const html = renderForContext('overlay');
+
+    expect(html).not.toContain('<h1');
+    expect(html).toMatch(/<h2[^>]*data-slot="page-header-title"/);
+    expect(html).toMatch(/<h3[^>]*id="admin-access-profile"/);
+    expect(html).toMatch(/<h3[^>]*id="admin-access-role-request-history"/);
+    expect(html).toMatch(/<h3[^>]*id="admin-access-login-history"/);
+  });
+});
+
+describe('AdminAccessDetailContentForState — 오버레이 폭 (QA16 768/1280 잘림)', () => {
+  function renderOverlay(): string {
+    return renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{ kind: 'ready', detail: detail(), history: history() }}
+        onRetry={noOp}
+        mutation={mutation()}
+        layoutContext="overlay"
+      />,
+    );
+  }
+
+  function headerClass(html: string): string | undefined {
+    return html.match(/data-slot="page-header"[^>]*class="([^"]*)"/)?.[1];
+  }
+
+  function titleClass(html: string): string | undefined {
+    return html.match(/data-slot="page-header-title"[^>]*class="([^"]*)"/)?.[1];
+  }
+
+  // 오버레이는 뷰포트가 아무리 넓어도 max-w-md(448px) 패널 안이다. 뷰포트 기준
+  // sm: 계단을 그대로 쓰면 768px·1280px에서 다이얼로그 자체 여백 위에 32px이
+  // 겹쳐 얹혀 실제 내용 폭이 336px까지 줄어든다.
+  it('바깥 요소에 뷰포트 기준 여백·최대 폭을 걸지 않는다', () => {
+    const html = renderOverlay();
+    const root = html.match(/^<div class="([^"]*)"/)?.[1];
+
+    expect(root).toBeDefined();
+    expect(root).not.toMatch(/\bsm:p-8\b/);
+    expect(root).not.toMatch(/\bmax-w-6xl\b/);
+  });
+
+  it('머리말이 768px 이상에서도 가로로 눕지 않는다', () => {
+    expect(headerClass(renderOverlay())).toMatch(/\bsm:flex-col\b/);
+  });
+
+  it('제목이 768px 이상에서도 40px 계단으로 올라가지 않는다', () => {
+    const title = titleClass(renderOverlay());
+
+    expect(title).toMatch(/\bsm:text-section\b/);
+    expect(title).not.toMatch(/\bsm:text-page\b/);
+  });
+
+  it('프로필 목록이 768px 이상에서도 2열로 쪼개지지 않는다', () => {
+    expect(renderOverlay()).toMatch(/class="[^"]*\bsm:grid-cols-1\b[^"]*"/);
+  });
+});

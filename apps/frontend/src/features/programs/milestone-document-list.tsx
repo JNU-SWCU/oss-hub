@@ -7,8 +7,10 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type ReactElement,
 } from 'react';
 import { StatusBadge } from '@/components';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
@@ -21,7 +23,26 @@ import {
   type MilestoneDocument,
   type MilestoneDocumentSubmissionContent,
 } from './milestone-document-api';
-import { formatSeoulShortDateTime } from './program-detail-format';
+import {
+  isMilestoneDocumentSubmitReviewChanged,
+  milestoneDocumentSubmitConflictNotice,
+  type MilestoneDocumentReloadResult,
+} from './milestone-document-conflict';
+import { requireMilestoneDocumentList } from './milestone-document-list-response';
+import {
+  isMilestoneDocumentDeadlineLocked,
+  isMilestoneDocumentResubmittable,
+  MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS,
+  MILESTONE_DOCUMENT_REVIEW_DISPLAY_VARIANTS,
+  milestoneDocumentReviewNoticeTone,
+  milestoneDocumentViewerDisplay,
+  type MilestoneDocumentReviewDisplay,
+  type MilestoneDocumentReviewNoticeTone,
+} from './milestone-document-review';
+import {
+  formatSeoulDate,
+  formatSeoulShortDateTime,
+} from './program-detail-format';
 import type { ViewerRole } from './types';
 
 export type MilestoneDocumentSectionState =
@@ -36,24 +57,52 @@ function isStaffRole(role: ViewerRole): role is 'STAFF' | 'ADMIN' {
   return role === 'STAFF' || role === 'ADMIN';
 }
 
+/**
+ * 제출이 판정과 부딪혀 저장되지 않았음을 알리는 자리.
+ *
+ * 줄(행) 안이 아니라 **목록 쪽**에 두는 이유: 이 문구를 띄우는 순간 목록을 다시 부르므로,
+ * 줄 안에 두면 다시 부르는 사이에 줄이 통째로 갈리면서 문구도 함께 사라진다 — 학생은
+ * 제출이 저장된 줄 안다(교직원 표의 `reviewNotice`를 표 쪽에 둔 것과 같은 이유).
+ */
+function ConflictNotice({
+  notice,
+}: {
+  readonly notice: string | null;
+}): ReactElement | null {
+  if (notice === null) return null;
+  return (
+    <Alert data-testid="milestone-document-submit-notice">
+      <AlertDescription className="break-keep">{notice}</AlertDescription>
+    </Alert>
+  );
+}
+
 /** 순수 렌더 본문 — 컨테이너의 fetch/상태 관리와 분리해 정적 렌더로 테스트한다. */
 export function MilestoneDocumentSectionBody({
   state,
   viewerRole,
   closed,
+  conflictNotice,
   onRetry,
   onDocumentChange,
+  onSubmitConflict,
 }: {
   readonly state: MilestoneDocumentSectionState;
   readonly viewerRole: 'STUDENT' | 'STAFF' | 'ADMIN';
   readonly closed: boolean;
+  /** 저장되지 않은 제출을 알리는 문구. 없으면 `null`. */
+  readonly conflictNotice: string | null;
   readonly onRetry: () => void;
   readonly onDocumentChange: (document: MilestoneDocument) => void;
+  /** 제출 도중 교직원 판정이 먼저 커밋됐다(409 MSD_024) — 목록을 다시 불러야 한다. */
+  readonly onSubmitConflict: (document: MilestoneDocument) => void;
 }) {
   if (state.kind === 'loading') return null;
   if (state.kind === 'failed') {
     return (
       <div className="grid gap-2 border-t border-border/50 pt-3 text-small text-muted-foreground">
+        {/* 못 불러온 자리에서도 「방금 제출이 저장되지 않았다」는 사실은 남아야 한다. */}
+        <ConflictNotice notice={conflictNotice} />
         <p>제출 서류를 불러오지 못했습니다.</p>
         <Button
           type="button"
@@ -86,6 +135,7 @@ export function MilestoneDocumentSectionBody({
         </h3>
         <span className="text-small text-muted-foreground">{headerLabel}</span>
       </div>
+      <ConflictNotice notice={conflictNotice} />
       <ul className="grid gap-3" data-testid="milestone-document-rows">
         {state.documents.map((document) =>
           staff ? (
@@ -100,6 +150,7 @@ export function MilestoneDocumentSectionBody({
               document={document}
               closed={closed}
               onChange={onDocumentChange}
+              onSubmitConflict={onSubmitConflict}
             />
           ),
         )}
@@ -121,15 +172,25 @@ export function MilestoneDocumentSection({
   const [state, setState] = useState<MilestoneDocumentSectionState>({
     kind: 'loading',
   });
-  const load = useCallback(async () => {
+  /**
+   * 저장되지 않은 제출을 알리는 문구 — 목록을 다시 부르는 동안 줄이 통째로 갈리므로
+   * 줄이 아니라 여기(컨테이너)가 들고 있어야 살아남는다.
+   */
+  const [conflictNotice, setConflictNotice] = useState<string | null>(null);
+  /** 조회 한 번. **불러왔는지**를 돌려준다 — 그 결과가 곧 학생에게 할 말을 정한다. */
+  const load = useCallback(async (): Promise<MilestoneDocumentReloadResult> => {
     setState({ kind: 'loading' });
     try {
       setState({
         kind: 'ready',
-        documents: await listMilestoneDocuments(milestoneId),
+        documents: requireMilestoneDocumentList(
+          await listMilestoneDocuments(milestoneId),
+        ),
       });
+      return 'reloaded';
     } catch {
       setState({ kind: 'failed' });
+      return 'failed';
     }
   }, [milestoneId]);
   useEffect(() => {
@@ -144,8 +205,15 @@ export function MilestoneDocumentSection({
       state={state}
       viewerRole={viewerRole}
       closed={closed}
-      onRetry={() => void load()}
+      conflictNotice={conflictNotice}
+      onRetry={() => {
+        // 손으로 다시 부르는 것은 앞 제출과 다른 일이다 — 앞 안내를 여기 남기면 방금
+        // 불러온 목록의 말로 읽힌다.
+        setConflictNotice(null);
+        void load();
+      }}
       onDocumentChange={(updated) => {
+        setConflictNotice(null);
         setState((previous) =>
           previous.kind === 'ready'
             ? {
@@ -156,6 +224,22 @@ export function MilestoneDocumentSection({
               }
             : previous,
         );
+      }}
+      onSubmitConflict={(document) => {
+        /*
+         * 제출하는 사이에 교직원 판정이 먼저 커밋됐다(409 MSD_024). 화면이 아는 상태가
+         * 이미 낡았으므로 문구만 띄우면 안 된다 — 그 판정이 승인·반려였다면 화면은
+         * 여전히 「보완 요청」으로 알아 제출 입력을 열어 두고, 학생은 이미 금지된 조작을
+         * 계속 보며 누를 때마다 409를 다시 받는다.
+         *
+         * 말은 **다시 부른 뒤에** 한다. 「다시 불러왔습니다」를 먼저 띄우면 조회가
+         * 느리거나 실패한 화면에 그 문구만 남는다.
+         */
+        void load().then((result) => {
+          setConflictNotice(
+            milestoneDocumentSubmitConflictNotice(document.name, result),
+          );
+        });
       }}
     />
   );
@@ -243,15 +327,67 @@ function StaffDocumentRow({
   );
 }
 
+/**
+ * 교직원이 판정에 적은 말 — 학생이 실제로 읽는 자리다.
+ *
+ * 판정 폼은 사유 칸 아래에 「학생에게 그대로 보입니다」라고 적어 두고 **승인에도** 사유를
+ * 받는다. 그런데 이 상자를 보완 요청·반려에만 그리면 승인에 적은 말은 어디에도 나오지
+ * 않는다 — 「잘 받았습니다, 다음 단계 안내드릴게요」라고 적은 교직원은 학생이 그것을
+ * 읽었다고 믿고, 학생은 본 적이 없다. 화면이 약속한 것을 안 지키는 상태다.
+ *
+ * 톤은 판정에 따라 갈린다(`milestoneDocumentReviewNoticeTone`):
+ * - 보완 요청·반려는 **경고 톤**이다. 고쳐야 할 일이라 눈에 띄어야 하고, 사유를 작게
+ *   적어 두면 학생은 배지만 보고 「안 됐구나」까지만 읽고 닫는다 — 그러면 같은 서류가
+ *   같은 이유로 또 되돌아온다.
+ * - 승인은 **중립 톤**이다. 같은 빨간 상자에 담으면 승인인데 문제가 있는 것처럼 읽힌다.
+ *
+ * 날짜를 함께 적는 것은 지난 지적과 방금 지적을 구분하기 위해서다.
+ */
+function StudentReviewNotice({
+  display,
+  tone,
+  review,
+}: {
+  readonly display: MilestoneDocumentReviewDisplay;
+  readonly tone: MilestoneDocumentReviewNoticeTone;
+  readonly review: NonNullable<
+    NonNullable<MilestoneDocument['viewerSubmission']>['review']
+  >;
+}) {
+  return (
+    <Alert
+      variant={tone === 'warning' ? 'destructive' : 'default'}
+      data-testid="milestone-document-review-notice"
+    >
+      <AlertDescription className="grid gap-1">
+        <span className="font-semibold">
+          {MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS[display]} ·{' '}
+          {formatSeoulDate(review.reviewedAt)}
+        </span>
+        <span className="break-keep whitespace-pre-wrap">
+          {/*
+           * 사유 없는 승인은 애초에 이 상자를 세우지 않는다(위 톤 판정) — 이 대체 문구가
+           * 닿는 것은 사유가 필수인데도 비어 온 보완 요청·반려뿐이다. 그 자리에서 상자를
+           * 통째로 지우면 학생은 서류가 되돌아온 사실조차 모른다.
+           */}
+          {review.comment ?? '사유 없이 저장된 판정입니다.'}
+        </span>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 /** 학생 행 — 상태 표시 + 양식 다운로드 + 제출/재제출. */
 function StudentDocumentRow({
   document,
   closed,
   onChange,
+  onSubmitConflict,
 }: {
   readonly document: MilestoneDocument;
   readonly closed: boolean;
   readonly onChange: (document: MilestoneDocument) => void;
+  readonly onSubmitConflict: (document: MilestoneDocument) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -260,8 +396,30 @@ function StudentDocumentRow({
   const [releaseUrl, setReleaseUrl] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const submitted = document.viewerSubmission?.submitted ?? false;
-  const submittedAt = document.viewerSubmission?.submittedAt ?? null;
+  const viewerSubmission = document.viewerSubmission;
+  const submitted = viewerSubmission?.submitted ?? false;
+  const submittedAt = viewerSubmission?.submittedAt ?? null;
+  const display = milestoneDocumentViewerDisplay(viewerSubmission);
+  const review = viewerSubmission?.review ?? null;
+  /** 사유 상자를 그릴지·어떤 톤으로 그릴지. 안 그릴 자리는 `null`이다. */
+  const reviewNoticeTone =
+    review === null
+      ? null
+      : milestoneDocumentReviewNoticeTone(display, review.comment);
+  /**
+   * 승인·반려된 서류에는 제출 입력을 아예 열지 않는다. 서버도 409(MSD_023)로 막으므로
+   * 열어 두면 눌러 본 학생에게 오류만 돌아간다 — 낼 수 없는 것은 낼 수 없게 보여야 한다.
+   */
+  const canSubmit = isMilestoneDocumentResubmittable(viewerSubmission);
+  /**
+   * 마감이 지난 마일스톤은 제출 입력을 잠근다 — **보완 요청만 빼고**. 교직원이 마감 뒤에
+   * 「고쳐서 다시 내세요」라고 하는 것은 흔한 일이라, 여기서 함께 잠그면 그 요청을 받은
+   * 학생이 낼 방법이 없어진다(서버는 받아 준다).
+   */
+  const deadlineLocked = isMilestoneDocumentDeadlineLocked(
+    closed,
+    viewerSubmission,
+  );
 
   const finish = useCallback(
     async (content: MilestoneDocumentSubmissionContent) => {
@@ -278,18 +436,35 @@ function StudentDocumentRow({
           viewerSubmission: {
             submitted: true,
             submittedAt: result.submittedAt,
+            /*
+             * 다시 낸 서류는 「검토 대기」로 돌아간다 — 서버도 재제출이 같은 행을 덮어쓰며
+             * 상태를 SUBMITTED로 되돌린다. 판정 이력은 되돌아가지 않으므로 `review`는
+             * 그대로 들고 있는다(다음 조회에서 서버가 같은 값을 다시 준다).
+             */
+            status: 'SUBMITTED',
+            review: document.viewerSubmission?.review ?? null,
           },
         });
         setEditing(false);
         setText('');
         setReleaseUrl('');
       } catch (submitError: unknown) {
+        /*
+         * 내는 사이에 교직원 판정이 먼저 커밋된 경우(409 MSD_024)만 목록을 다시 부른다.
+         * 이 줄에 문구만 남기면 화면은 여전히 옛 상태를 알고 있어 제출 입력이 계속
+         * 열려 있고, 그 판정이 승인·반려였다면 학생은 금지된 조작을 계속 보게 된다.
+         * 마감·권한처럼 상태가 낡아서 나는 것이 아닌 실패는 지금처럼 문구만 보여 준다.
+         */
+        if (isMilestoneDocumentSubmitReviewChanged(submitError)) {
+          onSubmitConflict(document);
+          return;
+        }
         setError(submitErrorMessage(submitError, '제출에 실패했습니다.'));
       } finally {
         setSubmitting(false);
       }
     },
-    [document, onChange],
+    [document, onChange, onSubmitConflict],
   );
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
@@ -322,11 +497,16 @@ function StudentDocumentRow({
     <li className="grid gap-2" data-testid="milestone-document-row">
       <div className="flex flex-wrap items-center gap-3">
         <DocumentName document={document} />
-        <StatusBadge variant={submitted ? 'approved' : 'closed'}>
-          {submitted && submittedAt
-            ? `제출함 · ${formatSeoulShortDateTime(submittedAt)}`
-            : '미제출'}
+        <StatusBadge
+          variant={MILESTONE_DOCUMENT_REVIEW_DISPLAY_VARIANTS[display]}
+        >
+          {MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS[display]}
         </StatusBadge>
+        {submitted && submittedAt ? (
+          <span className="text-small text-muted-foreground">
+            {formatSeoulShortDateTime(submittedAt)} 제출
+          </span>
+        ) : null}
         {document.hasTemplateFile ? (
           <Button asChild size="sm" variant="ghost">
             <a
@@ -341,13 +521,19 @@ function StudentDocumentRow({
             </a>
           </Button>
         ) : null}
-        {document.submissionType === 'FILE' ? (
+        {!canSubmit ? (
+          <span className="text-small text-muted-foreground break-keep">
+            {display === 'APPROVED'
+              ? '승인된 서류는 다시 제출할 수 없습니다.'
+              : '반려된 서류는 다시 제출할 수 없습니다.'}
+          </span>
+        ) : document.submissionType === 'FILE' ? (
           <>
             <Button
               type="button"
               size="sm"
               variant={submitted ? 'ghost' : 'default'}
-              disabled={closed || submitting}
+              disabled={deadlineLocked || submitting}
               onClick={() => fileInputRef.current?.click()}
             >
               {actionIcon} {actionLabel}
@@ -365,14 +551,21 @@ function StudentDocumentRow({
             type="button"
             size="sm"
             variant={submitted ? 'ghost' : 'default'}
-            disabled={closed}
+            disabled={deadlineLocked}
             onClick={() => setEditing((value) => !value)}
           >
             {actionIcon} {actionLabel}
           </Button>
         )}
       </div>
-      {editing && document.submissionType === 'TEXT' ? (
+      {review === null || reviewNoticeTone === null ? null : (
+        <StudentReviewNotice
+          display={display}
+          tone={reviewNoticeTone}
+          review={review}
+        />
+      )}
+      {canSubmit && editing && document.submissionType === 'TEXT' ? (
         <form
           className="flex flex-wrap items-center gap-2"
           onSubmit={(event) => {
@@ -393,7 +586,9 @@ function StudentDocumentRow({
           </Button>
         </form>
       ) : null}
-      {editing && document.submissionType === 'REPOSITORY_RELEASE' ? (
+      {canSubmit &&
+      editing &&
+      document.submissionType === 'REPOSITORY_RELEASE' ? (
         <form
           className="flex flex-wrap items-center gap-2"
           onSubmit={(event) => {

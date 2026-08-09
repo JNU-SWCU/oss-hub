@@ -88,7 +88,7 @@ export function ActivityChart({
         </ResponsiveContainer>
       </div>
       <div className="rounded-md border border-border">
-        <Table>
+        <Table scrollRegionLabel="기간별 활동량 표">
           <TableCaption className="sr-only">기간별 활동량</TableCaption>
           <TableHeader>
             <TableRow>

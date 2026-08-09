@@ -17,12 +17,16 @@ import type {
 import {
   decodePublicProjectCursor,
   encodePublicProjectCursor,
+  resolvePublicProjectCursorKey,
+  type PublicProjectCursorKey,
 } from './public-project-cursor';
 import {
   PUBLIC_PROJECTS_ERROR_CODES,
   PublicProjectsErrorCode,
 } from './public-projects-error-code.enum';
 import { PublicProjectsRepository } from './public-projects.repository';
+import type { RuntimeConfig } from '../../../runtime-config/runtime-config';
+import { RUNTIME_CONFIG } from '../../../runtime-config/runtime-config.module';
 
 /**
  * todo 16 — list/detail/profile 행 선택이 todo 15의 `PublicEligibilityService` 하나를
@@ -32,18 +36,34 @@ import { PublicProjectsRepository } from './public-projects.repository';
  */
 @Injectable()
 export class PublicProjectsService {
+  /**
+   * QA40 — 커서 암복호 키. `SESSION_SECRET`에서 파생하며 부팅(=DI 인스턴스화) 시점에 한 번만
+   * 만든다. 비었거나 짧으면 여기서 즉시 실패한다(fail-closed) — 평문 커서로 되돌아가는
+   * 폴백은 두지 않는다. `AuthConfig`가 같은 env를 이미 필수로 강제하므로 앱이 뜨는 환경에서는
+   * 이 실패가 나올 수 없다.
+   */
+  private readonly cursorKey: PublicProjectCursorKey;
+
   constructor(
     private readonly repository: PublicProjectsRepository,
     private readonly eligibility: PublicEligibilityService,
     @Inject(COLLECTION_READ_PORT)
     private readonly collection: CollectionReadPort,
-  ) {}
+    @Inject(RUNTIME_CONFIG)
+    runtimeConfig: Pick<RuntimeConfig, 'SESSION_SECRET'>,
+  ) {
+    this.cursorKey = resolvePublicProjectCursorKey(runtimeConfig);
+  }
 
   /**
    * 페이지 경계는 원본 keyset 조회(`pageSize + 1` lookahead)만으로 결정되고, eligibility
    * 필터링은 그 경계 안에서 항목을 지울 뿐 다음 페이지로 밀어내지 않는다 — freshness fence가
    * 드물게 저장소를 회수하면 그 페이지가 `pageSize`보다 적게 보일 수 있다(의도된 trade-off).
    * 페이지당 질의: 원본 조회 1개 + eligibility의 배치 조회 1개 = 2개, pageSize와 무관하다.
+   *
+   * QA40 — 커서는 여전히 **필터 전 마지막 raw 행**으로 만든다(경계를 밀지 않는다는 위 규칙을
+   * 그대로 둔다). 대신 그 페이로드를 서버 키로 인증 암호화해서, 그 raw 행이 fence에 가려진
+   * 저장소일 때 내부 `Repository.id`·공개 시각이 토큰에서 복원되지 않게 한다.
    */
   async findPage(
     pageId: string | undefined,
@@ -51,7 +71,9 @@ export class PublicProjectsService {
     category?: ProgramCategory,
   ): Promise<PublicProjectPageResult> {
     const cursor =
-      pageId === undefined ? null : decodePublicProjectCursor(pageId);
+      pageId === undefined
+        ? null
+        : decodePublicProjectCursor(pageId, this.cursorKey);
     const rows = await this.repository.listPage(cursor, pageSize + 1, category);
     const hasMore = rows.length > pageSize;
     const pageRows = rows.slice(0, pageSize);
@@ -69,10 +91,13 @@ export class PublicProjectsService {
     const lastRawRow = pageRows[pageRows.length - 1];
     const nextPageId =
       hasMore && lastRawRow !== undefined
-        ? encodePublicProjectCursor({
-            publishedAt: lastRawRow.publishedAt,
-            id: lastRawRow.id,
-          })
+        ? encodePublicProjectCursor(
+            {
+              publishedAt: lastRawRow.publishedAt,
+              id: lastRawRow.id,
+            },
+            this.cursorKey,
+          )
         : null;
 
     return { items, pageSize, nextPageId };

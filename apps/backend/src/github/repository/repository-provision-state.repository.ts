@@ -195,6 +195,28 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
         },
       });
       assertSingleProvisionUpdate(updated.count);
+      if (input.status !== RepositoryInvitationStatus.PENDING) {
+        return;
+      }
+      // 확인 예산(15분 × 96회 = 24시간)을 다 쓴 PENDING 은 최종 실패로 종료한다.
+      // 종료하지 않으면 findInvitationWork 의 조회 조건에서만 빠지고 상태는 PENDING 으로
+      // 영구 잔류해, 학생 화면이 「초대 수락 대기」를 계속 보여 준다 —
+      // 시스템이 확인을 포기한 것과 아직 처리 중인 것을 구분할 수 없다.
+      await transaction.repositoryInvitation.updateMany({
+        where: {
+          id: input.invitationId,
+          status: RepositoryInvitationStatus.PENDING,
+          reconciliationCount: {
+            gte: DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS,
+          },
+        },
+        data: {
+          status: RepositoryInvitationStatus.FAILED_FINAL,
+          lastErrorCode:
+            PROVISION_ERROR_CODES.INVITATION_RECONCILIATION_EXHAUSTED,
+          processedAt: input.now,
+        },
+      });
     });
   }
 

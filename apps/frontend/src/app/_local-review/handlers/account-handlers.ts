@@ -645,6 +645,13 @@ function accountMutationHandler(
 
   if (
     context.method === 'PATCH' &&
+    context.path === 'users/me/account/deactivate'
+  ) {
+    return json(200, { accountStatus: 'DEACTIVATED' });
+  }
+
+  if (
+    context.method === 'PATCH' &&
     context.path === 'users/me/notification-email'
   ) {
     // 마찬가지로 입력한 주소·수신 여부를 되돌려준다(저장은 되지 않는다).

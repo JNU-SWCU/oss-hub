@@ -3,7 +3,7 @@
 import { act, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApplicationConfirmationDialog } from './application-confirmation-dialog';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -12,7 +12,6 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 });
 
 function ApplicationConfirmationDialogHarness() {
-  const [open, setOpen] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const returnFocusRef = useRef<HTMLButtonElement>(null);
 
@@ -21,15 +20,13 @@ function ApplicationConfirmationDialogHarness() {
       <button ref={returnFocusRef} type="button" disabled={submitting}>
         수정 내용 저장
       </button>
-      {open ? (
-        <ApplicationConfirmationDialog
-          kind="save"
-          submitting={submitting}
-          onClose={() => setOpen(false)}
-          onConfirm={() => setSubmitting(true)}
-          returnFocusRef={returnFocusRef}
-        />
-      ) : null}
+      <ApplicationConfirmationDialog
+        kind="save"
+        submitting={submitting}
+        onClose={() => {}}
+        onConfirm={() => setSubmitting(true)}
+        returnFocusRef={returnFocusRef}
+      />
     </>
   );
 }
@@ -47,8 +44,13 @@ function getButton(name: string): HTMLButtonElement {
 describe('ApplicationConfirmationDialog', () => {
   let container: HTMLDivElement;
   let root: Root;
+  let consoleErrors: unknown[][];
 
   beforeEach(() => {
+    consoleErrors = [];
+    vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      consoleErrors.push(args);
+    });
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -57,6 +59,10 @@ describe('ApplicationConfirmationDialog', () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     container.remove();
+    vi.restoreAllMocks();
+    // 이 파일은 테스트가 통과해도 act 경고를 남긴 적이 있다(QA27). 경고 자체도
+    // 회귀 신호로 취급해야 같은 비동기 경계가 다시 흐려지지 않는다.
+    expect(consoleErrors).toEqual([]);
   });
 
   it('Escape로 닫으면 실제 Radix AlertDialog가 원래 저장 버튼에 포커스를 돌려준다', async () => {

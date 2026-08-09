@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import {
   CollectionAppClient,
@@ -105,6 +105,24 @@ type SyncRepository = Pick<
 
 const compareBigint = (a: bigint, b: bigint): number =>
   a < b ? -1 : a > b ? 1 : 0;
+
+/**
+ * PR stream에는 SHA frontier가 없으므로 `frontierSha`를 팀원 집합의 로컬 frontier로 쓴다.
+ * digest는 별도 control field에 팀원 id 원문을 남기지 않으면서 같은 집합에 같은 표식을 만든다.
+ * version prefix가 없는 기존 READY 행(`frontierSha = null`)은 배포 후 한 번 repair backfill하고,
+ * 그 뒤 팀원 집합이 그대로인 sweep은 다시 증분 경로를 탄다.
+ */
+const pullRequestTeamMembershipFrontier = (
+  members: readonly RepositoryTeamMemberAccount[],
+): string => {
+  const memberIds = members
+    .map((member) => member.githubId)
+    .sort(compareBigint)
+    .map(String)
+    .join('\n');
+  const digest = createHash('sha256').update(memberIds).digest('hex');
+  return `team-members:v1:${digest}`;
+};
 
 const splitNameWithOwner = (nameWithOwner: string): [string, string] => {
   const index = nameWithOwner.indexOf('/');
@@ -961,10 +979,11 @@ export class CollectionSyncService {
    * 다음 run은 같은 PR을 다시 받지 않는다. 반대로 거른 뒤 길이로 조기 반환했다면 frontier가
    * 제자리에 남아 매 run 같은 페이지를 영원히 다시 받았을 것이다.
    *
-   * 대신 한 가지를 잃는다: 이미 frontier 아래로 내려간 PR은 다시 오지 않으므로, **나중에
-   * 합류한 팀원의 과거 PR은 백필되지 않는다.** 커밋 경로가 매 sweep 전체 이력을 다시 받아
-   * 얻는 성질(#678)이 PR에는 성립하지 않는다 — 여기서 고치면 증분 커서를 버려야 해서
-   * 이 변경의 범위 밖이고, 후속에서 다룬다.
+   * 팀을 특정할 수 있는 저장소는 현재 팀원 id 집합의 fingerprint도 stream의 `frontierSha`에
+   * 함께 checkpoint한다. 기존 값과 달라진 sweep(신규 합류 포함)에만 `tieFrontier`를 null로
+   * 만들어 전체 PR을 한 번 다시 받고, 같은 fingerprint가 저장된 다음 sweep부터는 곧바로
+   * 증분 커서를 재사용한다. fingerprint와 fact·PR frontier가 같은 fenced transaction에서
+   * 저장되므로 중간 실패 뒤에도 백필 완료를 잘못 표시하지 않는다.
    */
   private async syncPullRequestStream(
     runtime: CollectionSyncRuntime,
@@ -979,9 +998,17 @@ export class CollectionSyncService {
       repository.id,
       'PULL_REQUEST',
     );
+    const teamMembershipFrontier =
+      teamMembers === null
+        ? null
+        : pullRequestTeamMembershipFrontier(teamMembers);
+    const membershipUnchanged =
+      teamMembershipFrontier === null ||
+      existing?.frontierSha === teamMembershipFrontier;
     const tieFrontier =
       existing &&
       existing.status === 'READY' &&
+      membershipUnchanged &&
       existing.frontierCreatedAt &&
       existing.frontierEntityId !== null
         ? {
@@ -1002,6 +1029,7 @@ export class CollectionSyncService {
       this.onlyTeamAuthored(result.pullRequests, teamMembers),
       result.newFrontier,
       requestFingerprintKey(result.fingerprint),
+      teamMembershipFrontier,
     );
   }
 
@@ -1039,6 +1067,7 @@ export class CollectionSyncService {
     pullRequests: readonly CollectionPullRequest[],
     newFrontier: { createdAt: string; id: string } | null,
     requestFingerprint: string,
+    teamMembershipFrontier: string | null,
   ): Promise<number> {
     return this.incrementalRepository.runInTransaction(async (repo) => {
       await repo.assertSyncLeaseValid(lease, this.now());
@@ -1059,6 +1088,7 @@ export class CollectionSyncService {
         repositoryId,
         streamType: 'PULL_REQUEST',
         status: 'READY',
+        frontierSha: teamMembershipFrontier,
         frontierCreatedAt: newFrontier ? new Date(newFrontier.createdAt) : null,
         frontierEntityId: newFrontier ? BigInt(newFrontier.id) : null,
         requestFingerprint,

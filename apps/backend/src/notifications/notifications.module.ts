@@ -9,6 +9,9 @@ import { mailSenderProvider } from './mail-sender.provider';
 import { NotificationSettingsController } from './notification-settings.controller';
 import { NotificationSettingsRepository } from './notification-settings.repository';
 import { NotificationSettingsService } from './notification-settings.service';
+import { ApplicationDecisionNotificationsController } from './application-decision-notifications.controller';
+import { ApplicationDecisionNotificationsRepository } from './application-decision-notifications.repository';
+import { ApplicationDecisionNotificationsService } from './application-decision-notifications.service';
 
 /**
  * ScheduleModule.forRoot()는 CollectionModule이 담당한다 — 여기서 재등록하지 않는다.
@@ -17,10 +20,13 @@ import { NotificationSettingsService } from './notification-settings.service';
 @Module({
   imports: [AuthModule],
   controllers: [
+    ApplicationDecisionNotificationsController,
     NotificationSettingsController,
     DeadlineDigestFailuresController,
   ],
   providers: [
+    ApplicationDecisionNotificationsRepository,
+    ApplicationDecisionNotificationsService,
     NotificationSettingsRepository,
     NotificationSettingsService,
     DeadlineDigestRepository,

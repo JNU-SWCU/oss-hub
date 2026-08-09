@@ -3,6 +3,7 @@ import {
   programApplicantsHref,
   programApplicationDetailHref,
   programEditHref,
+  programMilestoneDocumentsHref,
   programMyDocsHref,
   programNewHref,
   programStatusHref,
@@ -29,9 +30,9 @@ describe('program-route href helpers', () => {
     );
   });
 
-  it('legacy submission href는 유지한다', () => {
+  it('학생 제출 href는 선택 마일스톤을 유지해 My Docs로 보낸다', () => {
     expect(studentProgramSubmissionHref('program:basic', 'final/report')).toBe(
-      '/programs/program%3Abasic?submission=final%2Freport',
+      '/programs/program%3Abasic/mydocs?milestoneId=final%2Freport',
     );
   });
 
@@ -52,5 +53,11 @@ describe('program-route href helpers', () => {
     expect(
       programSubmissionReviewHref('program:basic', 'sub:final/report'),
     ).toBe('/programs/program%3Abasic/submissions/sub%3Afinal%2Freport/review');
+  });
+
+  it('서류 수합 경로는 두 세그먼트를 모두 인코딩한다', () => {
+    expect(programMilestoneDocumentsHref('program:basic', 'final/report')).toBe(
+      '/programs/program%3Abasic/milestones/final%2Freport/documents',
+    );
   });
 });
