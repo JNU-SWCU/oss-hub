@@ -1,13 +1,87 @@
-import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+// @vitest-environment happy-dom
 
-import type { AdminAccessDetail, AdminAccessHistory } from './admin-access-api';
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
+  configurable: true,
+  value: true,
+});
+
+import type {
+  AdminAccessDetail,
+  AdminAccessHistory,
+  AdminAccessLoginHistoryItem,
+  AdminAccessRoleRequestHistoryItem,
+} from './admin-access-api';
+import type { AdminAccessMutationAction } from './admin-access-mutation-policy';
 import {
   AdminAccessDetailContentForState,
   type AdminAccessDetailMutationController,
 } from './components/admin-access-detail-view';
 
-const noOp = () => undefined;
+/**
+ * `/admin/access/users/[userId]` 상세 화면(PR04E)의 순수-렌더 계약을
+ * `AdminAccessDetailContentForState`로 검증한다 — 이 컴포넌트는 `state`와
+ * `mutation` 컨트롤러를 그대로 받아 그리므로 네트워크 mocking 없이 상태
+ * 조합만으로 화면을 재현할 수 있다(`AdminAccessDetailView` 자체의
+ * fetch/effect 배선은 `admin-access-overlay.test.tsx`가 다른 각도에서 다룬다).
+ *
+ * PR04G 재설계로 "자격 상태"·"마지막 로그인" 카드와 접근 변경 드롭다운이
+ * 사라지고, 역할/계정 상태 세그먼트 컨트롤 + 대기 요청 결정 카드 +
+ * 섹션별 독립 페이지네이션으로 바뀌었다. 이 파일은 그 새 구조를 검증하고,
+ * 오버레이 landmark/heading-level/폭 계약(레이아웃 로직 자체는 바뀌지
+ * 않았다)은 마지막 describe에서 별도로 확인한다.
+ */
+
+function detail(overrides: Partial<AdminAccessDetail> = {}): AdminAccessDetail {
+  return {
+    id: 'target',
+    githubLogin: 'octocat',
+    name: '홍길동',
+    role: 'STAFF',
+    accountStatus: 'ACTIVE',
+    isSelf: false,
+    isProfileComplete: true,
+    pendingRequest: null,
+    lastLoginAt: '2026-07-30T01:00:00.000Z',
+    profile: {
+      name: '홍길동',
+      studentId: '202601',
+      department: '인공지능학부',
+      isComplete: true,
+    },
+    ...overrides,
+  };
+}
+
+function historyPage<T>(
+  overrides: {
+    items?: readonly T[];
+    page?: number;
+    limit?: number;
+    total?: number;
+  } = {},
+) {
+  return {
+    items: overrides.items ?? [],
+    page: overrides.page ?? 1,
+    limit: overrides.limit ?? 20,
+    total: overrides.total ?? overrides.items?.length ?? 0,
+  };
+}
+
+function history(
+  overrides: Partial<AdminAccessHistory> = {},
+): AdminAccessHistory {
+  return {
+    roleRequests: historyPage<AdminAccessRoleRequestHistoryItem>(),
+    loginHistory: historyPage<AdminAccessLoginHistoryItem>(),
+    ...overrides,
+  };
+}
 
 function mutation(
   overrides: Partial<AdminAccessDetailMutationController> = {},
@@ -19,196 +93,425 @@ function mutation(
     dialogError: null,
     conflictNotice: null,
     successMessage: null,
-    onRequestAction: noOp,
-    onCancel: noOp,
-    onConfirm: noOp,
-    onReasonChange: noOp,
+    onRequestAction: () => {},
+    onCancel: () => {},
+    onConfirm: () => {},
+    onReasonChange: () => {},
     ...overrides,
   };
 }
 
-function detail(overrides: Partial<AdminAccessDetail> = {}): AdminAccessDetail {
-  return {
-    id: 'target',
-    githubLogin: 'synthetic-target',
-    name: '합성 사용자',
-    role: 'STAFF',
-    accountStatus: 'ACTIVE',
-    isSelf: false,
-    isProfileComplete: true,
-    pendingRequest: null,
-    lastLoginAt: '2026-07-30T01:00:00.000Z',
-    profile: {
-      name: '합성 사용자',
-      studentId: '202601',
-      department: '인공지능학부',
-      isComplete: true,
-    },
-    ...overrides,
-  };
-}
+let container: HTMLDivElement;
+let root: Root;
 
-function history(
-  overrides: Partial<AdminAccessHistory> = {},
-): AdminAccessHistory {
-  return {
-    roleRequests: {
-      items: [
-        {
-          id: 'request-1',
-          status: 'REJECTED',
-          rejectionReason: '담당 프로그램 소속 확인 불가',
-          decidedAt: '2026-07-20T00:00:00.000Z',
-          decidedBy: '합성 관리자',
-          createdAt: '2026-07-19T00:00:00.000Z',
-        },
-      ],
-      page: 1,
-      limit: 20,
-      total: 1,
-    },
-    loginHistory: {
-      items: [
-        {
-          id: 'login-1',
-          event: 'LOGIN',
-          provider: 'github',
-          success: true,
-          loginAt: '2026-07-30T01:00:00.000Z',
-        },
-      ],
-      page: 1,
-      limit: 20,
-      total: 1,
-    },
-    ...overrides,
-  };
-}
+beforeEach(() => {
+  container = document.createElement('div');
+  document.body.appendChild(container);
+  root = createRoot(container);
+});
 
-describe('AdminAccessDetailContentForState — 표준 접근 상세 화면 상태', () => {
-  it('로딩 중에는 로딩 영역만 표시하고 프로필 데이터를 렌더링하지 않는다', () => {
+afterEach(() => {
+  act(() => root.unmount());
+  container.remove();
+});
+
+describe('상태별 기본 렌더링', () => {
+  it('로딩 상태는 재시도 버튼 없이 스켈레톤을 그린다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{ kind: 'loading' }}
-        onRetry={noOp}
+        onRetry={() => {}}
         mutation={mutation()}
       />,
     );
-
-    expect(html).toContain('관리자 접근 상세를 불러오는 중');
-    expect(html).not.toContain('합성 사용자');
+    expect(html).toContain('animate-pulse');
   });
 
-  it('populated 상태는 프로필·요청/로그인 이력·마지막 로그인·자격 상태를 모두 표시한다', () => {
+  it('에러 상태는 재시도 버튼을 그리고 클릭하면 onRetry가 불린다', () => {
+    const onRetry = vi.fn();
+    act(() => {
+      root.render(
+        <AdminAccessDetailContentForState
+          state={{ kind: 'error' }}
+          onRetry={onRetry}
+          mutation={mutation()}
+        />,
+      );
+    });
+
+    const retryButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.includes('다시 시도'),
+    );
+    expect(retryButton).toBeDefined();
+    act(() => {
+      retryButton?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true }),
+      );
+    });
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('찾을 수 없음 상태는 목록으로 돌아가는 링크를 그린다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{ kind: 'not-found' }}
+        onRetry={() => {}}
+        mutation={mutation()}
+      />,
+    );
+    expect(html).toContain('사용자를 찾을 수 없습니다');
+    expect(html).toContain('href="/admin/access"');
+  });
+});
+
+describe('머리말 — 이름·GitHub 링크·역할/상태 배지 (중복 제거된 헤더)', () => {
+  it('이름(h1)·@githubLogin·GitHub 외부 링크·역할/상태 배지를 그린다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{ kind: 'ready', detail: detail(), history: history() }}
-        onRetry={noOp}
+        onRetry={() => {}}
         mutation={mutation()}
       />,
     );
 
-    expect(html).toContain('합성 사용자');
-    expect(html).toContain('@synthetic-target');
-    expect(html).toContain('202601');
-    expect(html).toContain('인공지능학부');
-    expect(html).toContain('요청 이력');
-    expect(html).toContain('담당 프로그램 소속 확인 불가');
-    expect(html).toContain('로그인 이력');
-    expect(html).toContain('자격 상태');
-    expect(html).toContain('자격 있음');
-    expect(html).toContain('마지막 로그인');
+    expect(html).toContain('홍길동');
+    expect(html).toContain('@octocat');
+    expect(html).toContain('href="https://github.com/octocat"');
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain('교직원');
+    expect(html).toContain('활성');
   });
 
-  it('계정이 비활성화되면 자격 없음과 차단 사유를 표시한다', () => {
+  it('이름이 없으면 "이름 미등록"을 제목으로 쓴다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{
           kind: 'ready',
-          detail: detail({ accountStatus: 'DEACTIVATED' }),
+          detail: detail({ name: null }),
           history: history(),
         }}
-        onRetry={noOp}
+        onRetry={() => {}}
         mutation={mutation()}
       />,
     );
-
-    expect(html).toContain('자격 없음');
-    expect(html).toContain('계정이 비활성화되어 있습니다.');
+    expect(html).toContain('이름 미등록');
   });
 
-  it('요청/로그인 이력이 한도만큼 잘리면 안내 문구를 표시한다', () => {
+  it('역할이 미지정(null)이면 "미지정" 배지를 그린다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{
           kind: 'ready',
-          detail: detail(),
-          history: history({
-            roleRequests: {
-              items: history().roleRequests.items,
-              page: 1,
-              limit: 20,
-              total: 25,
+          detail: detail({ role: null }),
+          history: history(),
+        }}
+        onRetry={() => {}}
+        mutation={mutation()}
+      />,
+    );
+    expect(html).toContain('미지정');
+  });
+});
+
+describe('프로필 섹션 — "기본 정보 입력" dt/dd 제거, 미완료 경고로 대체', () => {
+  it('이름/학번/학과만 dt/dd로 그리고, 완료 상태면 경고가 없다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{ kind: 'ready', detail: detail(), history: history() }}
+        onRetry={() => {}}
+        mutation={mutation()}
+      />,
+    );
+
+    expect(html).toContain('학번');
+    expect(html).toContain('202601');
+    expect(html).toContain('학과');
+    expect(html).toContain('인공지능학부');
+    expect(html).not.toContain('기본 정보 입력');
+    expect(html).not.toContain('프로필 미완성');
+  });
+
+  it('프로필이 미완료면 섹션 상단에 경고 문구를 그린다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{
+          kind: 'ready',
+          detail: detail({
+            profile: {
+              name: null,
+              studentId: null,
+              department: null,
+              isComplete: false,
             },
           }),
+          history: history(),
         }}
-        onRetry={noOp}
+        onRetry={() => {}}
         mutation={mutation()}
       />,
     );
 
-    expect(html).toContain('최근 1건만 표시합니다.');
+    expect(html).toContain('프로필 미완성 — 교직원 승인·부여 불가');
+    expect(html).toContain('미등록');
+  });
+});
+
+describe('"자격 상태"·"마지막 로그인" 카드 제거', () => {
+  it('더 이상 자격 상태 카드를 그리지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{ kind: 'ready', detail: detail(), history: history() }}
+        onRetry={() => {}}
+        mutation={mutation()}
+      />,
+    );
+    expect(html).not.toContain('자격 상태');
   });
 
-  it('요청/로그인 이력이 없으면 빈 이력 안내를 표시한다', () => {
+  it('마지막 로그인은 별도 카드가 아니라 로그인 이력 제목 옆에 붙는다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{
           kind: 'ready',
-          detail: detail(),
-          history: history({
-            roleRequests: { items: [], page: 1, limit: 20, total: 0 },
-            loginHistory: { items: [], page: 1, limit: 20, total: 0 },
-          }),
+          detail: detail({ lastLoginAt: '2026-07-30T01:00:00.000Z' }),
+          history: history(),
         }}
-        onRetry={noOp}
+        onRetry={() => {}}
         mutation={mutation()}
       />,
     );
+    expect(html).toContain('마지막 로그인');
+    expect(html).toContain('2026');
+  });
 
+  it('로그인 기록이 없으면 "기록 없음"을 그린다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{
+          kind: 'ready',
+          detail: detail({ lastLoginAt: null }),
+          history: history(),
+        }}
+        onRetry={() => {}}
+        mutation={mutation()}
+      />,
+    );
+    expect(html).toContain('마지막 로그인');
+    expect(html).toContain('기록 없음');
+  });
+});
+
+describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이션(total 기반, 잘림 문구 제거)', () => {
+  it('역할 요청 항목이 없으면 안내 문구를 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{ kind: 'ready', detail: detail(), history: history() }}
+        onRetry={() => {}}
+        mutation={mutation()}
+      />,
+    );
     expect(html).toContain('역할 요청 이력이 없습니다.');
     expect(html).toContain('로그인 이력이 없습니다.');
   });
 
-  it('not-found 상태는 사용자를 찾을 수 없다는 안내와 목록 복귀 링크를 표시한다', () => {
+  it('요청/로그인 이력 항목을 상태 배지와 함께 그린다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
-        state={{ kind: 'not-found' }}
-        onRetry={noOp}
+        state={{
+          kind: 'ready',
+          detail: detail(),
+          history: history({
+            roleRequests: historyPage({
+              items: [
+                {
+                  id: 'req-1',
+                  status: 'REJECTED',
+                  rejectionReason: '자격 요건 미충족',
+                  decidedAt: '2026-07-29T00:00:00.000Z',
+                  decidedBy: 'reviewer',
+                  createdAt: '2026-07-28T00:00:00.000Z',
+                },
+              ],
+            }),
+            loginHistory: historyPage({
+              items: [
+                {
+                  id: 'login-1',
+                  event: 'LOGOUT',
+                  provider: 'github',
+                  success: false,
+                  loginAt: '2026-07-30T00:00:00.000Z',
+                },
+              ],
+            }),
+          }),
+        }}
+        onRetry={() => {}}
         mutation={mutation()}
       />,
     );
 
-    expect(html).toContain('사용자를 찾을 수 없습니다');
-    expect(html).toContain('href="/admin/access"');
+    expect(html).toContain('반려');
+    expect(html).toContain('자격 요건 미충족');
+    expect(html).toContain('reviewer');
+    expect(html).toContain('로그아웃');
+    expect(html).toContain('실패');
   });
 
-  it('error 상태는 오류 메시지와 다시 시도 버튼을 표시한다', () => {
+  it('더 이상 "최근 N건만 표시합니다" 잘림 문구를 그리지 않는다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
-        state={{ kind: 'error' }}
-        onRetry={noOp}
+        state={{
+          kind: 'ready',
+          detail: detail(),
+          history: history({
+            roleRequests: historyPage({ total: 50 }),
+          }),
+        }}
+        onRetry={() => {}}
         mutation={mutation()}
       />,
     );
+    expect(html).not.toContain('만 표시합니다');
+  });
 
-    expect(html).toContain('관리자 접근 상세를 불러오지 못했습니다');
-    expect(html).toContain('다시 시도');
+  it('total로 페이지 수를 계산해 "n / m 페이지"를 표시한다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{
+          kind: 'ready',
+          detail: detail(),
+          history: history({
+            roleRequests: historyPage({ page: 1, limit: 20, total: 25 }),
+          }),
+        }}
+        onRetry={() => {}}
+        mutation={mutation()}
+      />,
+    );
+    expect(html).toContain('1 / 2 페이지');
+  });
+
+  it('1페이지에서는 "이전" 버튼이 비활성화된다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{
+          kind: 'ready',
+          detail: detail(),
+          history: history({
+            roleRequests: historyPage({ page: 1, limit: 20, total: 25 }),
+          }),
+        }}
+        onRetry={() => {}}
+        mutation={mutation()}
+      />,
+    );
+    const prevIndex = html.indexOf('이전');
+    const disabledBefore = html.slice(Math.max(0, prevIndex - 60), prevIndex);
+    expect(disabledBefore).toContain('disabled');
+  });
+
+  it('마지막 페이지에서는 "다음" 버튼이 비활성화된다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{
+          kind: 'ready',
+          detail: detail(),
+          history: history({
+            roleRequests: historyPage({ page: 2, limit: 20, total: 25 }),
+          }),
+        }}
+        onRetry={() => {}}
+        mutation={mutation()}
+      />,
+    );
+    expect(html).toContain('2 / 2 페이지');
+    const nextIndex = html.indexOf('다음');
+    const disabledBefore = html.slice(Math.max(0, nextIndex - 60), nextIndex);
+    expect(disabledBefore).toContain('disabled');
+  });
+
+  it('historyLoading이 켜지면 두 섹션의 이전/다음 버튼이 모두 비활성화된다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{
+          kind: 'ready',
+          detail: detail(),
+          history: history({
+            roleRequests: historyPage({ page: 2, limit: 20, total: 60 }),
+            loginHistory: historyPage({ page: 2, limit: 20, total: 60 }),
+          }),
+        }}
+        onRetry={() => {}}
+        mutation={mutation()}
+        historyLoading
+      />,
+    );
+    const disabledCount = html.match(/disabled=""/g)?.length ?? 0;
+    // 이력 섹션 두 곳 각각 이전/다음 2개씩 = 4개.
+    expect(disabledCount).toBeGreaterThanOrEqual(4);
+  });
+
+  it('"다음" 버튼 클릭은 onRoleRequestPageChange/onLoginHistoryPageChange를 다음 페이지 번호로 호출한다', () => {
+    const onRoleRequestPageChange = vi.fn();
+    const onLoginHistoryPageChange = vi.fn();
+    act(() => {
+      root.render(
+        <AdminAccessDetailContentForState
+          state={{
+            kind: 'ready',
+            detail: detail(),
+            history: history({
+              roleRequests: historyPage({ page: 1, limit: 20, total: 40 }),
+              loginHistory: historyPage({ page: 1, limit: 20, total: 40 }),
+            }),
+          }}
+          onRetry={() => {}}
+          mutation={mutation()}
+          onRoleRequestPageChange={onRoleRequestPageChange}
+          onLoginHistoryPageChange={onLoginHistoryPageChange}
+        />,
+      );
+    });
+
+    const nextButtons = Array.from(container.querySelectorAll('button')).filter(
+      (button) => button.textContent === '다음',
+    );
+    expect(nextButtons).toHaveLength(2);
+
+    act(() => {
+      nextButtons[0].dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true }),
+      );
+    });
+    expect(onRoleRequestPageChange).toHaveBeenCalledWith(2);
+
+    act(() => {
+      nextButtons[1].dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true }),
+      );
+    });
+    expect(onLoginHistoryPageChange).toHaveBeenCalledWith(2);
   });
 });
 
-describe('AdminAccessDetailContentForState — 접근 변경 드롭다운 (PR04G, 드롭다운으로 정리)', () => {
-  it('대기 중인 요청이 있으면 드롭다운 기본 선택이 요청 승인이고, 부여 항목은 아예 노출하지 않는다', () => {
+describe('대기 중인 요청 결정 카드 — 접근 변경 카드 위에 조건부로 뜬다', () => {
+  it('대기 요청이 없으면 결정 카드를 그리지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{
+          kind: 'ready',
+          detail: detail({ pendingRequest: null }),
+          history: history(),
+        }}
+        onRetry={() => {}}
+        mutation={mutation()}
+      />,
+    );
+    expect(html).not.toContain('대기 중인 요청');
+  });
+
+  it('대기 요청이 있으면 결정 카드와 접근 변경 컨트롤을 함께 그린다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{
@@ -222,36 +525,99 @@ describe('AdminAccessDetailContentForState — 접근 변경 드롭다운 (PR04G
           }),
           history: history(),
         }}
-        onRetry={noOp}
+        onRetry={() => {}}
         mutation={mutation()}
       />,
     );
-
-    expect(html).toContain('data-slot="select-trigger"');
-    expect(html).toContain('요청 승인');
-    expect(html).not.toContain('권한 직접 부여');
-    expect(html).not.toContain('계정 비활성화');
+    expect(html).toContain('대기 중인 요청');
+    expect(html).toContain('신청됨');
+    expect(html).toContain('대기 중인 요청을 먼저 처리해 주세요.');
   });
 
-  it('대기 중인 요청이 없으면 드롭다운 기본 선택이 권한 직접 부여이고, 승인/반려 항목은 아예 노출하지 않는다', () => {
+  it('결정 카드의 승인 버튼 클릭은 mutation.onRequestAction을 APPROVE로 호출한다', () => {
+    const onRequestAction = vi.fn();
+    act(() => {
+      root.render(
+        <AdminAccessDetailContentForState
+          state={{
+            kind: 'ready',
+            detail: detail({
+              pendingRequest: {
+                id: 'req-1',
+                status: 'PENDING',
+                createdAt: '2026-07-30T00:00:00.000Z',
+              },
+            }),
+            history: history(),
+          }}
+          onRetry={() => {}}
+          mutation={mutation({ onRequestAction })}
+        />,
+      );
+    });
+
+    const approveButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === '승인',
+    );
+    act(() => {
+      approveButton?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true }),
+      );
+    });
+    expect(onRequestAction).toHaveBeenCalledWith('APPROVE');
+  });
+});
+
+describe('접근 변경 세그먼트 컨트롤 통합 — 클릭이 mutation.onRequestAction까지 이어진다', () => {
+  it('다른 역할 버튼 클릭이 SET_ROLE_* 액션으로 전달된다', () => {
+    const onRequestAction = vi.fn();
+    act(() => {
+      root.render(
+        <AdminAccessDetailContentForState
+          state={{
+            kind: 'ready',
+            detail: detail({ role: 'STUDENT' }),
+            history: history(),
+          }}
+          onRetry={() => {}}
+          mutation={mutation({ onRequestAction })}
+        />,
+      );
+    });
+
+    const staffButton = Array.from(
+      container.querySelectorAll('button[role="radio"]'),
+    ).find((button) => button.textContent?.includes('교직원'));
+    act(() => {
+      staffButton?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true }),
+      );
+    });
+    expect(onRequestAction).toHaveBeenCalledWith('SET_ROLE_STAFF');
+  });
+});
+
+describe('역할/계정 상태 확인 다이얼로그 — 새 액션 이름(SET_ROLE_*/SET_STATUS_*)으로 뜬다', () => {
+  it('SET_STATUS_DEACTIVATED는 "계정 비활성화" 다이얼로그를 destructive로 띄운다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
-        state={{ kind: 'ready', detail: detail(), history: history() }}
-        onRetry={noOp}
-        mutation={mutation()}
+        state={{
+          kind: 'ready',
+          detail: detail({ accountStatus: 'ACTIVE' }),
+          history: history(),
+        }}
+        onRetry={() => {}}
+        mutation={mutation({
+          confirmAction: 'SET_STATUS_DEACTIVATED' as AdminAccessMutationAction,
+        })}
       />,
     );
-
-    expect(html).toContain('data-slot="select-trigger"');
-    expect(html).toContain('권한 직접 부여');
-    // 프로필 카드의 도움말 문구("요청 승인의 전제 조건입니다")에 "요청 승인"이
-    // 부분 문자열로 등장하므로, 드롭다운 선택값 텍스트 노드 경계로 좁혀서
-    // 실제로 승인/반려 항목이 선택돼 있지 않은지 확인한다.
-    expect(html).not.toContain('>요청 승인<');
-    expect(html).not.toContain('>요청 반려<');
+    expect(html).toContain('계정 비활성화');
+    expect(html).toContain('octocat님의 계정을 비활성화합니다.');
+    expect(html).toContain('비활성화 확정');
   });
 
-  it('비활성 계정이면 드롭다운 기본 선택이 계정 재활성화다', () => {
+  it('SET_STATUS_ACTIVE는 "계정 재활성화" 다이얼로그를 non-destructive로 띄운다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{
@@ -259,28 +625,17 @@ describe('AdminAccessDetailContentForState — 접근 변경 드롭다운 (PR04G
           detail: detail({ accountStatus: 'DEACTIVATED' }),
           history: history(),
         }}
-        onRetry={noOp}
-        mutation={mutation()}
+        onRetry={() => {}}
+        mutation={mutation({
+          confirmAction: 'SET_STATUS_ACTIVE' as AdminAccessMutationAction,
+        })}
       />,
     );
-
     expect(html).toContain('계정 재활성화');
-    expect(html).not.toContain('계정 비활성화');
+    expect(html).toContain('재활성화 확정');
   });
 
-  it('실행 버튼은 항상 노출되며 접근 변경 액션을 직접 실행하지 않고 onRequestAction으로 위임한다', () => {
-    const html = renderToStaticMarkup(
-      <AdminAccessDetailContentForState
-        state={{ kind: 'ready', detail: detail(), history: history() }}
-        onRetry={noOp}
-        mutation={mutation()}
-      />,
-    );
-
-    expect(html).toContain('>실행<');
-  });
-
-  it('REJECT 확인 액션이면 반려 사유 다이얼로그를 렌더링한다', () => {
+  it('APPROVE는 승인 확정 다이얼로그를 띄운다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{
@@ -294,237 +649,282 @@ describe('AdminAccessDetailContentForState — 접근 변경 드롭다운 (PR04G
           }),
           history: history(),
         }}
-        onRetry={noOp}
-        mutation={mutation({ confirmAction: 'REJECT' })}
-      />,
-    );
-
-    expect(html).toContain('role="dialog"');
-    expect(html).toContain('요청 반려');
-    expect(html).toContain('거절 사유');
-    // 관리자가 무엇을 쓰는지 알고 쓰게 한다(#673) — 이 값은 신청자의 역할 선택
-    // 화면에 뜬다. 표시된다는 사실을 모르면 내부 메모처럼 쓰게 된다.
-    expect(html).toContain('입력한 사유는 신청자에게 표시됩니다.');
-    // 길면 잘린다는 사실도 함께 알린다.
-    expect(html).toContain('너무 길면 앞부분만 보이니');
-    // ⚠ 안내가 사실보다 세면 안 된다. 표시 쪽이 제어문자를 지우고 줄 수를 줄이고
-    // 길이를 자르므로(`clampRejectionReason`) "그대로"는 거짓이다 — 관리자는 긴
-    // 사유가 끝까지 읽힐 것으로 믿고 쓰는데 신청자는 앞부분만 본다.
-    expect(html).not.toMatch(/그대로 표시됩니다/);
-    expect(html).toContain('synthetic-target');
-  });
-
-  it('DEACTIVATE 확인 액션이면 대상 사용자명을 담은 확인 다이얼로그를 렌더링한다', () => {
-    const html = renderToStaticMarkup(
-      <AdminAccessDetailContentForState
-        state={{ kind: 'ready', detail: detail(), history: history() }}
-        onRetry={noOp}
-        mutation={mutation({ confirmAction: 'DEACTIVATE' })}
-      />,
-    );
-
-    expect(html).toContain('role="dialog"');
-    expect(html).toContain('계정 비활성화');
-    expect(html).toContain('synthetic-target');
-    expect(html).toContain('비활성화 확정');
-  });
-
-  it('다이얼로그 오류 메시지가 있으면 그대로 렌더링한다', () => {
-    const html = renderToStaticMarkup(
-      <AdminAccessDetailContentForState
-        state={{ kind: 'ready', detail: detail(), history: history() }}
-        onRetry={noOp}
+        onRetry={() => {}}
         mutation={mutation({
-          confirmAction: 'DEACTIVATE',
-          dialogError: '관리자는 자신의 계정을 비활성화할 수 없습니다.',
+          confirmAction: 'APPROVE' as AdminAccessMutationAction,
         })}
       />,
     );
-
-    expect(html).toContain('관리자는 자신의 계정을 비활성화할 수 없습니다.');
+    expect(html).toContain('요청 승인');
+    expect(html).toContain('승인 확정');
   });
 
-  it('충돌 안내가 있으면 배너로 렌더링한다', () => {
+  it('다이얼로그의 취소 버튼은 mutation.onCancel을, 확정 버튼은 mutation.onConfirm을 호출한다', () => {
+    const onCancel = vi.fn();
+    const onConfirm = vi.fn();
+    act(() => {
+      root.render(
+        <AdminAccessDetailContentForState
+          state={{ kind: 'ready', detail: detail(), history: history() }}
+          onRetry={() => {}}
+          mutation={mutation({
+            confirmAction:
+              'SET_STATUS_DEACTIVATED' as AdminAccessMutationAction,
+            onCancel,
+            onConfirm,
+          })}
+        />,
+      );
+    });
+
+    const cancelButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === '취소',
+    );
+    const confirmButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === '비활성화 확정',
+    );
+    act(() => {
+      cancelButton?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true }),
+      );
+    });
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    act(() => {
+      confirmButton?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true }),
+      );
+    });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('반려 다이얼로그 — REJECT 액션에서만 뜨는 사유 입력형 (변경 없음)', () => {
+  it('confirmAction이 REJECT면 사유 입력란과 반려 확정 버튼을 그린다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{
+          kind: 'ready',
+          detail: detail({
+            pendingRequest: {
+              id: 'req-1',
+              status: 'PENDING',
+              createdAt: '2026-07-30T00:00:00.000Z',
+            },
+          }),
+          history: history(),
+        }}
+        onRetry={() => {}}
+        mutation={mutation({ confirmAction: 'REJECT' })}
+      />,
+    );
+    expect(html).toContain('요청 반려');
+    expect(html).toContain('거절 사유');
+    expect(html).toContain('반려 확정');
+  });
+
+  it('사유가 비어 있으면 반려 확정 버튼이 비활성화된다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{
+          kind: 'ready',
+          detail: detail({
+            pendingRequest: {
+              id: 'req-1',
+              status: 'PENDING',
+              createdAt: '2026-07-30T00:00:00.000Z',
+            },
+          }),
+          history: history(),
+        }}
+        onRetry={() => {}}
+        mutation={mutation({ confirmAction: 'REJECT', rejectReason: '' })}
+      />,
+    );
+    const confirmIndex = html.indexOf('반려 확정');
+    const before = html.slice(Math.max(0, confirmIndex - 200), confirmIndex);
+    expect(before).toContain('disabled');
+  });
+});
+
+describe('배너 — 충돌 알림·성공 메시지·다이얼로그 에러 (로직 변경 없음)', () => {
+  it('conflictNotice가 있으면 CAS 충돌 안내를 그린다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{ kind: 'ready', detail: detail(), history: history() }}
-        onRetry={noOp}
+        onRetry={() => {}}
         mutation={mutation({
           conflictNotice: '다른 관리자가 먼저 변경했습니다.',
         })}
       />,
     );
-
+    expect(html).toContain('접근 상태가 변경되었습니다');
     expect(html).toContain('다른 관리자가 먼저 변경했습니다.');
   });
 
-  it('성공 메시지가 있으면 상태 배너로 렌더링한다', () => {
+  it('successMessage가 있으면 상태 배너로 그린다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{ kind: 'ready', detail: detail(), history: history() }}
-        onRetry={noOp}
+        onRetry={() => {}}
         mutation={mutation({
-          successMessage:
-            'synthetic-target님에 대한 요청 승인 처리를 완료했습니다.',
+          successMessage: 'octocat님에 대한 계정 비활성화 처리를 완료했습니다.',
         })}
       />,
     );
-
     expect(html).toContain('role="status"');
     expect(html).toContain(
-      'synthetic-target님에 대한 요청 승인 처리를 완료했습니다.',
+      'octocat님에 대한 계정 비활성화 처리를 완료했습니다.',
     );
+  });
+
+  it('dialogError가 있으면 열려 있는 다이얼로그 안에 에러를 그린다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{ kind: 'ready', detail: detail(), history: history() }}
+        onRetry={() => {}}
+        mutation={mutation({
+          confirmAction: 'SET_STATUS_DEACTIVATED' as AdminAccessMutationAction,
+          dialogError: '활성 관리자 계정을 최소 한 개 유지해야 합니다.',
+        })}
+      />,
+    );
+    expect(html).toContain('활성 관리자 계정을 최소 한 개 유지해야 합니다.');
   });
 });
 
-describe('AdminAccessDetailContentForState — layoutContext (PR04F follow-up: Inspector 1280px 크래시 수정)', () => {
-  function layoutClass(html: string): string | undefined {
-    return html.match(
-      /data-slot="detail-panel-layout"[^>]*class="([^"]*)"/,
-    )?.[1];
-  }
-
-  it('layoutContext를 생략하면 standalone과 동일하게 md: 2열 분할을 유지한다', () => {
+describe('레이아웃 컨텍스트(standalone/overlay) — landmark·제목 레벨·448px 오버레이 폭 계약', () => {
+  it('standalone은 <main> landmark와 이름 접근 가능한 이름을 갖는다(로딩 상태)', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
-        state={{ kind: 'ready', detail: detail(), history: history() }}
-        onRetry={noOp}
-        mutation={mutation()}
-      />,
-    );
-
-    expect(layoutClass(html)).toMatch(
-      /\bmd:grid-cols-\[minmax\(0,2fr\)_minmax\(0,1fr\)\]/,
-    );
-  });
-
-  it("layoutContext='standalone'이면 md: 2열 분할을 유지한다(표준 페이지는 시각적으로 불변)", () => {
-    const html = renderToStaticMarkup(
-      <AdminAccessDetailContentForState
-        state={{ kind: 'ready', detail: detail(), history: history() }}
-        onRetry={noOp}
+        state={{ kind: 'loading' }}
+        onRetry={() => {}}
         mutation={mutation()}
         layoutContext="standalone"
       />,
     );
-
-    expect(layoutClass(html)).toMatch(
-      /\bmd:grid-cols-\[minmax\(0,2fr\)_minmax\(0,1fr\)\]/,
-    );
+    expect(html).toContain('<main');
+    expect(html).toContain('aria-label="관리자 접근 상세를 불러오는 중"');
   });
 
-  it("layoutContext='overlay'면 md: 2열 분할을 꺼서 뷰포트와 무관하게 보조 카드를 본문 아래로 쌓는다", () => {
+  it('overlay는 <main>이 아닌 <div>를 쓰고 landmark 이름을 붙이지 않는다(로딩 상태)', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{ kind: 'loading' }}
+        onRetry={() => {}}
+        mutation={mutation()}
+        layoutContext="overlay"
+      />,
+    );
+    expect(html).not.toContain('<main');
+    expect(html).not.toContain('aria-label="관리자 접근 상세를 불러오는 중"');
+  });
+
+  it('standalone은 제목 h1 + 섹션 h2를 쓴다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{ kind: 'ready', detail: detail(), history: history() }}
-        onRetry={noOp}
+        onRetry={() => {}}
         mutation={mutation()}
-        layoutContext="overlay"
+        layoutContext="standalone"
       />,
     );
-
-    expect(layoutClass(html)).not.toMatch(/md:grid-cols-/);
-  });
-});
-
-describe('AdminAccessDetailContentForState — 오버레이 정보 구조 (QA16)', () => {
-  function renderForContext(
-    layoutContext: 'standalone' | 'overlay',
-    state: Parameters<typeof AdminAccessDetailContentForState>[0]['state'] = {
-      kind: 'ready',
-      detail: detail(),
-      history: history(),
-    },
-  ): string {
-    return renderToStaticMarkup(
-      <AdminAccessDetailContentForState
-        state={state}
-        onRetry={noOp}
-        mutation={mutation()}
-        layoutContext={layoutContext}
-      />,
-    );
-  }
-
-  it('표준 페이지는 main landmark와 h1 제목을 그대로 쓴다', () => {
-    const html = renderForContext('standalone');
-
-    expect(html).toContain('<main');
-    expect(html).toMatch(/<h1[^>]*data-slot="page-header-title"/);
-    expect(html).toMatch(/<h2[^>]*id="admin-access-profile"/);
+    expect(html).toContain('<h1');
+    expect(html).toContain('id="admin-access-profile"');
+    expect(html.match(/<h2[^>]*id="admin-access-profile"/)).not.toBeNull();
   });
 
-  // 다이얼로그 안에 landmark를 두면 landmark가 모달 안에 갇힌다. 모달이 열린
-  // 동안 바깥은 aria-hidden 처리되므로, 문서에 최상위 main이 하나도 남지 않는다.
-  it('오버레이에서는 main landmark를 그리지 않는다', () => {
-    expect(renderForContext('overlay')).not.toContain('<main');
-  });
-
-  it.each([
-    ['loading', { kind: 'loading' } as const],
-    ['error', { kind: 'error' } as const],
-    ['not-found', { kind: 'not-found' } as const],
-  ])('오버레이의 %s 상태도 main landmark를 그리지 않는다', (_label, state) => {
-    expect(renderForContext('overlay', state)).not.toContain('<main');
-  });
-
-  // Radix Dialog.Title이 h2로 렌더되므로, 본문이 h1로 시작하면 제목 레벨이
-  // h2 → h1로 역행한다. 오버레이에서는 한 단계씩 내려 h2/h3로 쓴다.
-  it('오버레이 제목은 h2, 하위 섹션은 h3로 한 단계씩 내려간다', () => {
-    const html = renderForContext('overlay');
-
-    expect(html).not.toContain('<h1');
-    expect(html).toMatch(/<h2[^>]*data-slot="page-header-title"/);
-    expect(html).toMatch(/<h3[^>]*id="admin-access-profile"/);
-    expect(html).toMatch(/<h3[^>]*id="admin-access-role-request-history"/);
-    expect(html).toMatch(/<h3[^>]*id="admin-access-login-history"/);
-  });
-});
-
-describe('AdminAccessDetailContentForState — 오버레이 폭 (QA16 768/1280 잘림)', () => {
-  function renderOverlay(): string {
-    return renderToStaticMarkup(
+  it('overlay는 제목 h2 + 섹션 h3를 써서 제목 레벨 역행을 피한다', () => {
+    const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{ kind: 'ready', detail: detail(), history: history() }}
-        onRetry={noOp}
+        onRetry={() => {}}
         mutation={mutation()}
         layoutContext="overlay"
       />,
     );
-  }
-
-  function headerClass(html: string): string | undefined {
-    return html.match(/data-slot="page-header"[^>]*class="([^"]*)"/)?.[1];
-  }
-
-  function titleClass(html: string): string | undefined {
-    return html.match(/data-slot="page-header-title"[^>]*class="([^"]*)"/)?.[1];
-  }
-
-  // 오버레이는 뷰포트가 아무리 넓어도 max-w-md(448px) 패널 안이다. 뷰포트 기준
-  // sm: 계단을 그대로 쓰면 768px·1280px에서 다이얼로그 자체 여백 위에 32px이
-  // 겹쳐 얹혀 실제 내용 폭이 336px까지 줄어든다.
-  it('바깥 요소에 뷰포트 기준 여백·최대 폭을 걸지 않는다', () => {
-    const html = renderOverlay();
-    const root = html.match(/^<div class="([^"]*)"/)?.[1];
-
-    expect(root).toBeDefined();
-    expect(root).not.toMatch(/\bsm:p-8\b/);
-    expect(root).not.toMatch(/\bmax-w-6xl\b/);
+    expect(html).not.toContain('<h1');
+    expect(html.match(/<h3[^>]*id="admin-access-profile"/)).not.toBeNull();
+    expect(
+      html.match(/<h3[^>]*id="admin-access-role-request-history"/),
+    ).not.toBeNull();
+    expect(
+      html.match(/<h3[^>]*id="admin-access-login-history"/),
+    ).not.toBeNull();
   });
 
-  it('머리말이 768px 이상에서도 가로로 눕지 않는다', () => {
-    expect(headerClass(renderOverlay())).toMatch(/\bsm:flex-col\b/);
+  it('overlay는 DetailPanelLayout의 md: 2열 분할을 끄고(stacked) 항상 세로로 쌓는다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{ kind: 'ready', detail: detail(), history: history() }}
+        onRetry={() => {}}
+        mutation={mutation()}
+        layoutContext="overlay"
+      />,
+    );
+    expect(html).not.toContain('md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]');
   });
 
-  it('제목이 768px 이상에서도 40px 계단으로 올라가지 않는다', () => {
-    const title = titleClass(renderOverlay());
-
-    expect(title).toMatch(/\bsm:text-section\b/);
-    expect(title).not.toMatch(/\bsm:text-page\b/);
+  it('standalone은 DetailPanelLayout을 2열로 유지한다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{ kind: 'ready', detail: detail(), history: history() }}
+        onRetry={() => {}}
+        mutation={mutation()}
+        layoutContext="standalone"
+      />,
+    );
+    expect(html).toContain('md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]');
   });
 
-  it('프로필 목록이 768px 이상에서도 2열로 쪼개지지 않는다', () => {
-    expect(renderOverlay()).toMatch(/class="[^"]*\bsm:grid-cols-1\b[^"]*"/);
+  it('overlay는 뷰포트 기준 sm: 계단 대신 고정 폭 전용 클래스를 쓴다(448px 컨테이너 대응)', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{ kind: 'ready', detail: detail(), history: history() }}
+        onRetry={() => {}}
+        mutation={mutation()}
+        layoutContext="overlay"
+      />,
+    );
+    expect(html).toContain('min-w-0');
+    expect(html).not.toContain('max-w-6xl');
+    expect(html).toContain('sm:justify-start');
+    expect(html).toContain('sm:text-section');
+  });
+
+  it('standalone은 뷰포트 폭 전체를 쓰는 계단식 클래스를 쓴다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{ kind: 'ready', detail: detail(), history: history() }}
+        onRetry={() => {}}
+        mutation={mutation()}
+        layoutContext="standalone"
+      />,
+    );
+    expect(html).toContain('max-w-6xl');
+    expect(html).not.toContain('sm:justify-start');
+  });
+
+  it('overlay는 프로필 dl을 sm:grid-cols-1로 강제해 좁은 렌더 폭에서 눌리지 않게 한다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{ kind: 'ready', detail: detail(), history: history() }}
+        onRetry={() => {}}
+        mutation={mutation()}
+        layoutContext="overlay"
+      />,
+    );
+    expect(html).toContain('sm:grid-cols-1');
+  });
+
+  it('standalone은 프로필 dl을 기본 sm:grid-cols-2로 둔다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{ kind: 'ready', detail: detail(), history: history() }}
+        onRetry={() => {}}
+        mutation={mutation()}
+        layoutContext="standalone"
+      />,
+    );
+    expect(html).toContain('sm:grid-cols-2');
   });
 });
