@@ -30,6 +30,12 @@ const UNSAFE_CHARACTERS = new Set([
 const FALLBACK_SEGMENT = 'file';
 
 /**
+ * 이름 한 칸(팀명·서류명)의 최대 길이. 둘을 `_`로 이어도 201자라 NTFS의 이름 한 칸 상한
+ * (255)에 확장자까지 넣고도 남는다.
+ */
+const MAX_SEGMENT_CHARACTERS = 100;
+
+/**
  * Windows가 이름으로 쓸 수 없는 예약 장치 이름(대소문자 무관). 규격은 Win32 파일 이름 규칙이고
  * 이 목록이 전부다 — 실제 Windows에서 확인한 것이 아니라 규칙을 옮긴 것이라는 점을 밝혀 둔다.
  */
@@ -72,14 +78,24 @@ export function milestoneDocumentTextEntryFileName(
  * Windows 예약 장치 이름을 한 겹 더 피한다 — 폴더만 규칙이 다르면 `/`가 살아남아 의도하지
  * 않은 하위 경로가 생긴다(zip slip).
  *
- * ⚠ 예약 이름 회피가 **파일명이 아니라 폴더에만** 필요한 이유: 파일 이름은 언제나
- * `팀명_서류명` 꼴이라 `CON`·`NUL` 같은 한 낱말과 같아질 수 없지만, 폴더는 팀 이름(또는 서류
- * 이름) 그 자체다. 팀 이름은 학생이 정하므로 `CON`인 팀이 하나 있으면 **Windows에서 그 팀
- * 폴더만 통째로 풀리지 않는다.** 압축을 푸는 사람 쪽에서 조용히 일어나는 실패라 우리는 모른다.
+ * ⚠ 예약 이름 회피가 **`팀명_서류명` 파일명에는 필요 없는** 이유: 그 이름은 언제나 `_`로 이어져
+ * `CON`·`NUL` 같은 한 낱말과 같아질 수 없다. 반면 폴더는 팀 이름(또는 서류 이름) **그 자체**이고
+ * 팀 이름은 학생이 정하므로, `CON`인 팀이 하나 있으면 **Windows에서 그 팀 폴더만 통째로 풀리지
+ * 않는다.** 압축을 푸는 사람 쪽에서 조용히 일어나는 실패라 우리는 모른다.
+ *
+ * ⚠ 이름이 「한 낱말」인 자리가 하나 더 있다 — **내려받는 ZIP 파일 이름의 마일스톤 부분**
+ * (`milestone-document-archive.service.ts`의 `archiveFileName`)이 이 함수를 쓴다. 그래서 함수
+ * 이름이 `Folder`지만 폴더 전용이 아니다.
  */
 export function milestoneDocumentArchiveFolderName(value: string): string {
   const segment = safeSegment(value);
-  return WINDOWS_RESERVED_NAMES.has(segment.toUpperCase())
+  /*
+   * 예약 여부는 **첫 `.` 앞부분**으로 판정한다. Windows에서 장치 이름은 확장자가 붙어도
+   * 그대로 예약이라 `CON.txt`·`NUL.pdf`도 만들 수 없다 — 전체 문자열만 비교하면 그 이름들이
+   * 그대로 통과해 폴더가 안 풀린다.
+   */
+  const stem = segment.split('.')[0] ?? segment;
+  return WINDOWS_RESERVED_NAMES.has(stem.toUpperCase())
     ? `${segment}_`
     : segment;
 }
@@ -96,17 +112,34 @@ function replaceUnsafe(value: string): string {
       const code = character.codePointAt(0) ?? 0;
       // 제어문자(C0 + DEL)는 헤더를 쪼갤 수 있으므로 항상 치환한다.
       if (code < 0x20 || code === 0x7f) return '_';
+      if (isInvisibleFormatting(code)) return '_';
       return UNSAFE_CHARACTERS.has(character) ? '_' : character;
     })
     .join('');
 }
 
+/**
+ * 눈에 안 보이면서 **이름이 다르게 보이게 만드는** 글자 — 폭 없는 공백과 양방향 재정의다.
+ *
+ * 왜 막는가: `계획서‮gpj.exe` 같은 이름은 탐색기에서 `계획서exe.jpg`로 **뒤집혀 보인다.**
+ * 실제 확장자는 원본 파일명에서만 오고 업로드가 허용 목록으로 막혀 있어 진짜 실행 파일을 심을
+ * 수는 없지만, 「보이는 이름」과 「실제 이름」이 갈리는 것 자체가 이 모듈이 없애려는 상태다.
+ * 폭 없는 공백은 서로 다른 두 팀 이름을 육안으로 같아 보이게 만든다.
+ */
+function isInvisibleFormatting(code: number): boolean {
+  return (
+    (code >= 0x200b && code <= 0x200f) || // ZWSP·ZWNJ·ZWJ·LRM·RLM
+    (code >= 0x202a && code <= 0x202e) || // 양방향 embedding·override
+    (code >= 0x2066 && code <= 0x2069) || // 양방향 isolate
+    code === 0xfeff // BOM(폭 없는 비분리 공백)
+  );
+}
+
 function safeSegment(value: string): string {
-  const normalized = replaceUnsafe(value)
-    .replace(/\s+/g, ' ')
-    .trim()
+  const normalized = truncate(replaceUnsafe(value).replace(/\s+/g, ' ').trim())
     // 끝의 `.`은 Windows가 이름에 담지 못한다 — `코드나무.`은 파일도 폴더도 만들 수 없어
     // 압축을 푸는 쪽에서 실패하거나 말없이 다른 이름이 된다. 여기서 미리 떼어 낸다.
+    // **자른 뒤에** 떼어야 자르다가 끝에 걸린 `.`도 함께 없어진다.
     .replace(/\.+$/, '')
     .trim();
   // 점만 남은 이름(`.`·`..`)은 경로로 읽힐 수 있어 폴백으로 바꾼다(위에서 빈 값이 된다).
@@ -114,6 +147,23 @@ function safeSegment(value: string): string {
     return FALLBACK_SEGMENT;
   }
   return normalized;
+}
+
+/**
+ * 이름 한 칸의 길이를 자른다.
+ *
+ * 자르지 않으면 **정상 입력만으로 풀리지 않는 ZIP이 나온다** — 팀 이름은 100자,
+ * 서류 이름은 200자까지 허용되므로 `팀명_서류명`이 301자가 될 수 있는데 NTFS의 이름 한 칸
+ * 상한은 255다. 잘라서 생기는 이름 충돌은 뒤따르는 중복 회피(` (2)`)가 받아 준다.
+ *
+ * 코드포인트 단위로 자른다 — UTF-16 단위로 자르면 이모지 같은 서러게이트 쌍이 반쪽만 남아
+ * 깨진 글자가 된다. 전체 이름은 동봉 `제출현황.csv`에 그대로 남으므로 정보는 잃지 않는다.
+ */
+function truncate(value: string): string {
+  const characters = [...value];
+  return characters.length <= MAX_SEGMENT_CHARACTERS
+    ? value
+    : characters.slice(0, MAX_SEGMENT_CHARACTERS).join('').trim();
 }
 
 /** 원본 파일명의 확장자(선행 `.` 포함). 확장자가 없으면 빈 문자열. */

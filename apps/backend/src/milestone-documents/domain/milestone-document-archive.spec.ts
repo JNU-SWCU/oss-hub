@@ -152,7 +152,10 @@ describe('buildMilestoneDocumentArchivePlan', () => {
 
   it('한 장도 안 낸 팀은 폴더를 만들지 않지만 현황표에는 미제출로 남는다', () => {
     const result = plan({
-      teams: [team(), team({ applicationId: 'cuid-b', teamName: '오픈테이블' })],
+      teams: [
+        team(),
+        team({ applicationId: 'cuid-b', teamName: '오픈테이블' }),
+      ],
       submissions: [fileSubmission()],
     });
 
@@ -287,6 +290,48 @@ describe('buildMilestoneDocumentArchivePlan', () => {
       expect(result.entries[1]?.path).toBe('코드나무/코드나무_사업계획서 (2)');
     });
 
+    it('대소문자만 다른 팀 이름도 같은 자리로 친다', () => {
+      const result = plan({
+        teams: [
+          team({ teamName: 'Alpha' }),
+          team({ applicationId: 'cuid-b', teamName: 'alpha' }),
+        ],
+        submissions: [
+          fileSubmission(),
+          fileSubmission({ applicationId: 'cuid-b' }),
+        ],
+      });
+
+      /*
+       * ⚠ 바이트로만 비교하면 두 경로가 「다르다」로 통과하는데, 압축을 푸는 쪽의 파일 시스템은
+       * 대체로 대소문자를 안 가린다(Windows·기본 macOS). 그러면 한 팀의 제출물이 조용히 사라진다.
+       * 보이는 이름은 학생이 적은 그대로 둔다 — 접는 것은 겹침 판정뿐이다.
+       */
+      expect(result.entries.map((entry) => entry.path)).toEqual([
+        'Alpha/Alpha_사업계획서.hwp',
+        'alpha/alpha_사업계획서 (2).hwp',
+      ]);
+    });
+
+    it('같은 글자를 다른 방식으로 적은 이름도 같은 자리로 친다', () => {
+      const composed = '가팀'.normalize('NFC');
+      const decomposed = '가팀'.normalize('NFD');
+      expect(composed).not.toBe(decomposed); // 바이트는 다르다
+
+      const result = plan({
+        teams: [
+          team({ teamName: composed }),
+          team({ applicationId: 'cuid-b', teamName: decomposed }),
+        ],
+        submissions: [
+          fileSubmission(),
+          fileSubmission({ applicationId: 'cuid-b' }),
+        ],
+      });
+
+      expect(result.entries[1]?.path.endsWith(' (2).hwp')).toBe(true);
+    });
+
     it('팀 이름이 동봉 현황표와 같아도 폴더가 그 자리를 뺏지 않는다', () => {
       const result = plan({
         teams: [team({ teamName: '제출현황.csv' })],
@@ -350,6 +395,32 @@ describe('buildMilestoneDocumentArchivePlan', () => {
     });
 
     // 글 제출은 스토리지에서 흘려 보내는 것이 아니라 그 자리에서 만든다.
+    expect(result.storedBytes).toBe(2048);
+    /*
+     * ⚠ 글 본문도 **따로 센다**. 크기 상한이 파일만 보면, 글로만 이루어진 마일스톤은 상한이
+     * 아예 없는 것과 같다 — 한 건이 10,000자라도 (팀 수 × 서류 수)만큼 쌓이면 수백 MB다.
+     */
+    expect(result.inlineBytes).toBe(Buffer.byteLength('글', 'utf8'));
+  });
+
+  it('승인 목록에 없는 신청의 제출은 담지도 세지도 않는다', () => {
+    const result = plan({
+      teams: [team()],
+      submissions: [
+        fileSubmission(),
+        // 조회는 서류 id로만 걸러 오므로 승인되지 않은 신청의 제출도 함께 실려 온다.
+        fileSubmission({ applicationId: 'cuid-not-approved' }),
+      ],
+    });
+
+    /*
+     * ⚠ **이것이 이 경로의 인가다.** ZIP은 `applicationId`를 입력으로 받지 않고 승인된 신청
+     * 목록으로만 칸을 찾으므로, 조회가 남의 제출을 실어 와도 담기지 않는다. 그 보장을 여기서
+     * 못 박아 둔다 — 나중에 「조회 결과를 그대로 순회」하도록 고치면 승인 안 된 팀의 제출물이
+     * 교직원 ZIP에 섞인다.
+     */
+    expect(result.entries).toHaveLength(1);
+    expect(result.manifest).toHaveLength(1);
     expect(result.storedBytes).toBe(2048);
   });
 

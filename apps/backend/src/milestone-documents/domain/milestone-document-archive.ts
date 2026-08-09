@@ -76,6 +76,17 @@ export type MilestoneDocumentArchiveEntry =
        * 압축 안에 기록할 수정 시각 — **학생이 낸 시각**을 쓴다. 압축을 푼 폴더를 시각순으로
        * 정렬하는 것이 마감 정리의 실제 동선이라, 여기에 내려받은 시각을 쓰면 모든 파일이
        * 같은 시각이 되어 그 정렬이 통째로 뜻을 잃는다.
+       *
+       * ⚠ **압축 해제기에 따라 이 시각이 9시간 이르게 보인다.** ZIP은 시각을 두 벌 적는다 —
+       * 옛 DOS 필드는 「만든 쪽의 로컬 시각」이라 타임존을 안 담고, Info-ZIP 확장 필드는 참
+       * UTC를 담는다. 운영 컨테이너에 `TZ`가 없어 프로세스가 UTC로 돌기 때문에 DOS 필드가
+       * KST보다 9시간 이르게 찍힌다. 확장 필드를 읽는 도구(7-Zip·unzip·macOS)는 맞게 보여
+       * 주지만 **Windows 탐색기는 DOS 필드만 본다.**
+       *
+       * 여기서 시각을 밀어 맞추지 않는 이유: 그러면 DOS 필드가 맞는 대신 확장 필드가 틀려
+       * 한쪽 도구를 고치고 다른 쪽을 깨뜨린다. 옳은 자리는 **컨테이너의 `TZ`** 이고 그건
+       * 공용 설정이라 별도 PR이다. 정렬 순서는 어느 쪽이든 그대로고(전부 같은 만큼 밀린다)
+       * 어긋나는 것은 절대 시각 표시뿐이며, 판단의 근거인 동봉 `제출현황.csv`는 KST로 적는다.
        */
       readonly modifiedAt: Date;
       readonly storageKey: string;
@@ -90,11 +101,7 @@ export type MilestoneDocumentArchiveEntry =
 
 /** 표의 다섯 갈래. 프런트 `milestone-document-review.ts`의 같은 이름·같은 규칙이다. */
 export type MilestoneDocumentArchiveCellState =
-  | 'NOT_SUBMITTED'
-  | 'PENDING'
-  | 'APPROVED'
-  | 'CHANGES_REQUESTED'
-  | 'REJECTED';
+  'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
 
 /**
  * 제출은 있는데 ZIP에 담기지 않은 이유. 담겼거나 미제출이면 `null`이다.
@@ -103,7 +110,14 @@ export type MilestoneDocumentArchiveCellState =
  * 파일이 없고, 받은 사람은 압축이 깨진 것으로 읽는다.
  */
 export type MilestoneDocumentArchiveOmission =
-  /** 파일 제출인데 첨부가 보존 기한을 넘겼거나 지워졌다. */
+  /**
+   * 파일 제출인데 담을 첨부가 없다.
+   *
+   * ⚠ **왜 그런지까지는 모른다.** 첨부가 안 실려 오는 조건은 「ATTACHED이고 만료 전」 하나이고,
+   * 거기 걸리지 않는 이유는 보존 기한 만료 · 삭제 대기 · 삭제 완료 여러 가지다. 이 값을 「만료」로
+   * 읽어 문구를 붙이면 교직원이 **되살릴 수 있는 건을 포기한다** — 실제 원인이 정리 작업이면
+   * 학생에게 다시 올리라고 하면 되는 건이다.
+   */
   | 'FILE_UNAVAILABLE'
   /** 글·저장소 릴리스 제출인데 본문을 읽을 수 없다(계약상 없어야 하는 상태). */
   | 'CONTENT_UNAVAILABLE';
@@ -128,8 +142,16 @@ export interface MilestoneDocumentArchivePlan {
   /** 동봉 CSV를 제외한, 담을 것 전부. 넣는 순서가 곧 ZIP 안 순서다. */
   readonly entries: readonly MilestoneDocumentArchiveEntry[];
   readonly manifest: readonly MilestoneDocumentArchiveManifestRow[];
-  /** 스토리지에서 흘려 보낼 바이트 합계 — 크기 상한 판단에 쓴다. */
+  /** 스토리지에서 흘려 보낼 바이트 합계. */
   readonly storedBytes: number;
+  /**
+   * 그 자리에서 만들어 담는 바이트 합계(글·저장소 릴리스 본문).
+   *
+   * 파일과 갈라 세지만 **상한 판단에는 둘을 더한다** — 글 제출은 한 건이 최대 10,000자라
+   * 작아 보여도 (팀 수 × 서류 수)만큼 쌓이면 수백 MB가 된다. 파일만 세면 글로만 이루어진
+   * 마일스톤은 상한이 아예 없는 것과 같다.
+   */
+  readonly inlineBytes: number;
 }
 
 export interface BuildMilestoneDocumentArchivePlanInput {
@@ -165,10 +187,11 @@ export function buildMilestoneDocumentArchivePlan(
   }
 
   const takenPaths = new Set<string>([
-    MILESTONE_DOCUMENT_ARCHIVE_MANIFEST_FILE_NAME,
+    collisionKey(MILESTONE_DOCUMENT_ARCHIVE_MANIFEST_FILE_NAME),
   ]);
   const entries: MilestoneDocumentArchiveEntry[] = [];
   let storedBytes = 0;
+  let inlineBytes = 0;
 
   const manifest = teams.map((team) => ({
     team,
@@ -204,6 +227,7 @@ export function buildMilestoneDocumentArchivePlan(
       const placed = { ...entry, path };
       entries.push(placed);
       if (placed.kind === 'STORED_FILE') storedBytes += placed.sizeBytes;
+      else inlineBytes += Buffer.byteLength(placed.body, 'utf8');
       return {
         documentId: document.id,
         state,
@@ -214,7 +238,7 @@ export function buildMilestoneDocumentArchivePlan(
     }),
   }));
 
-  return { entries, manifest, storedBytes };
+  return { entries, manifest, storedBytes, inlineBytes };
 }
 
 function cellKey(applicationId: string, documentId: string): string {
@@ -289,7 +313,9 @@ function buildEntry(input: {
  */
 function archiveFolderPath(name: string): string {
   const folder = milestoneDocumentArchiveFolderName(name);
-  return folder === MILESTONE_DOCUMENT_ARCHIVE_MANIFEST_FILE_NAME
+  // 대소문자를 접어 비교한다 — `제출현황.CSV` 폴더도 Windows·macOS에서는 동봉 CSV와 같은 자리다.
+  return collisionKey(folder) ===
+    collisionKey(MILESTONE_DOCUMENT_ARCHIVE_MANIFEST_FILE_NAME)
     ? `${folder} (2)`
     : folder;
 }
@@ -303,8 +329,8 @@ function archiveFolderPath(name: string): string {
  * 사람은 파일이 하나 사라진 것을 영영 모른다.
  */
 function uniquePath(path: string, taken: Set<string>): string {
-  if (!taken.has(path)) {
-    taken.add(path);
+  if (!taken.has(collisionKey(path))) {
+    taken.add(collisionKey(path));
     return path;
   }
   const dot = path.lastIndexOf('.');
@@ -315,9 +341,24 @@ function uniquePath(path: string, taken: Set<string>): string {
   const extension = hasExtension ? path.slice(dot) : '';
   for (let ordinal = 2; ; ordinal += 1) {
     const candidate = `${stem} (${ordinal})${extension}`;
-    if (!taken.has(candidate)) {
-      taken.add(candidate);
+    if (!taken.has(collisionKey(candidate))) {
+      taken.add(collisionKey(candidate));
       return candidate;
     }
   }
+}
+
+/**
+ * 겹침을 판정할 때 쓰는 열쇠 — 글자가 **같아 보이면** 같은 것으로 친다.
+ *
+ * 바이트가 같은지로만 보면 이 함수가 막으려던 덮어쓰기가 그대로 일어난다. 압축을 푸는 쪽의
+ * 파일 시스템은 대체로 대소문자를 안 가리고(Windows·기본 macOS), 한글은 같은 글자를 두 가지
+ * 방식(NFC·NFD)으로 적을 수 있어 **바이트가 다른데 같은 자리에 떨어진다.** 팀 이름은 학생이
+ * 정하므로 `Alpha`/`alpha`나 NFC/NFD 짝은 만들려면 만들 수 있고, 그때 한 팀의 제출물이
+ * 조용히 사라진다.
+ *
+ * ⚠ 열쇠만 접는다 — **실제 경로는 접지 않는다.** 교직원이 보는 이름은 학생이 적은 그대로여야 한다.
+ */
+function collisionKey(path: string): string {
+  return path.normalize('NFC').toLowerCase();
 }

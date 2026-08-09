@@ -344,7 +344,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       expect(plainFields(csv, 1).slice(3)).toEqual([
         '승인',
         '2026-08-09 14:30',
-        '(첨부 보존 기한 만료)',
+        '(첨부를 가져올 수 없음)',
       ]);
       expect(plainFields(csv, 2).slice(3)).toEqual(['미제출', '', '']);
     });
@@ -400,7 +400,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
     });
 
     const formulaCases: [string, string][] = [
-      ['=cmd|\'/c calc\'!A1', '외부 명령을 부르는 고전적인 값'],
+      ["=cmd|'/c calc'!A1", '외부 명령을 부르는 고전적인 값'],
       ['+1+1', '더하기로 시작하는 값'],
       ['@SUM(A1)', '함수 참조로 시작하는 값'],
       ['\t합성팀', '눈에 보이지 않는 탭'],

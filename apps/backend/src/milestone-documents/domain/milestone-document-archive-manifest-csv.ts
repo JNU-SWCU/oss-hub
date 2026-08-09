@@ -29,11 +29,17 @@ const CELL_STATE_LABELS: Readonly<
   REJECTED: '반려',
 };
 
-/** 담기지 않은 칸의 「ZIP 파일」 자리에 적는 말 — 빈 칸으로 두면 미제출과 구별되지 않는다. */
+/**
+ * 담기지 않은 칸의 「ZIP 파일」 자리에 적는 말 — 빈 칸으로 두면 미제출과 구별되지 않는다.
+ *
+ * ⚠ **원인을 단정하지 않는다.** 첨부가 안 실려 오는 이유는 보존 기한 만료 · 삭제 대기 · 삭제
+ * 완료 여러 가지인데 우리는 어느 쪽인지 모른다. 「보존 기한이 지났다」로 적으면 교직원이
+ * **되살릴 수 있는 건을 포기한다** — 정리 작업 때문이라면 학생에게 다시 올리라고 하면 되는 건이다.
+ */
 const OMISSION_LABELS: Readonly<
   Record<MilestoneDocumentArchiveOmission, string>
 > = {
-  FILE_UNAVAILABLE: '(첨부 보존 기한 만료)',
+  FILE_UNAVAILABLE: '(첨부를 가져올 수 없음)',
   CONTENT_UNAVAILABLE: '(내용 없음)',
 };
 
@@ -54,9 +60,12 @@ export interface MilestoneDocumentArchiveManifestCsvInput {
 
 /**
  * 열 구성: 팀 · 신청자 · 팀원, 그리고 서류마다 **세 칸**(상태 · 제출시각 · ZIP 파일).
- * 표의 한 칸이 화면에서 말하는 것이 정확히 그 셋이라서 그대로 옮긴다(배지 · 제출 시각 ·
- * 파일 링크). 「ZIP 파일」은 압축 안 경로를 그대로 적어, 현황표의 한 줄에서 실제 파일로
- * 바로 찾아갈 수 있게 한다.
+ * 화면의 한 칸이 말하는 것도 셋이라 그 구성을 따랐다(배지 · 제출 시각 · 파일).
+ *
+ * ⚠ 다만 셋째 칸은 화면과 **다른 값**이다. 표는 학생이 올린 원본 이름(`최종_진짜최종.hwp`)을
+ * 보여 주고, 여기는 **압축 안 경로**(`팀/팀_계획서.hwp`)를 적는다 — 현황표 한 줄에서 실제
+ * 파일로 바로 찾아가는 것이 이 칸의 쓸모라서다. 표에서 본 이름으로 ZIP을 뒤지면 없다.
+ * 글 제출도 마찬가지로 표에는 파일이 없지만 여기에는 `.txt` 경로가 있다.
  */
 export function milestoneDocumentArchiveManifestCsv(
   input: MilestoneDocumentArchiveManifestCsvInput,
@@ -109,7 +118,12 @@ function cellColumns(cell: MilestoneDocumentArchiveCell | null): string[] {
   ];
 }
 
-/** `2026-08-09 14:30` — 서울 시각. 표가 보여 주는 것과 같은 자리까지만 적는다. */
+/**
+ * `2026-08-09 14:30` — 서울 시각, 분 단위까지.
+ *
+ * 화면은 연도를 떼고 `08.09 14:30`으로 보여 주지만 여기는 연도를 적는다 — 받아서 보관하는
+ * 파일이라 몇 해 뒤에 열어도 스스로 말이 되어야 한다.
+ */
 function formatSeoulDateTime(value: Date): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Seoul',
@@ -131,10 +145,14 @@ function formatSeoulDateTime(value: Date): string {
  * 한 칸을 CSV 값으로. 수식 무력화가 **따옴표보다 먼저**다 — 따옴표로 감싸도 Excel은 안쪽
  * 값을 그대로 수식으로 읽으므로, 감싸는 것만으로는 아무것도 막지 못한다.
  *
- * 앞에 붙이는 작은따옴표는 Excel에서 「이건 글자다」 표시라 화면에 보이지 않는다. 다른
- * 프로그램에서는 보이지만, 보이는 따옴표 하나가 남의 컴퓨터에서 수식이 도는 것보다 낫다.
+ * ⚠ 앞에 붙는 작은따옴표는 **보일 수 있다.** 셀에 직접 입력할 때는 Excel이 「이건 글자다」
+ * 표시로 삼아 감추지만, CSV 파일을 열 때는 그냥 한 글자로 읽는 프로그램이 많다. 그래서
+ * `-1팀` 같은 멀쩡한 이름이 `'-1팀`으로 보인다 — 보이는 따옴표 하나가 남의 컴퓨터에서
+ * 수식이 도는 것보다 낫다고 판단했다.
  */
 function csvField(value: string): string {
   const guarded = FORMULA_TRIGGERS.has(value.charAt(0)) ? `'${value}` : value;
-  return /[",\r\n]/.test(guarded) ? `"${guarded.replace(/"/g, '""')}"` : guarded;
+  return /[",\r\n]/.test(guarded)
+    ? `"${guarded.replace(/"/g, '""')}"`
+    : guarded;
 }
