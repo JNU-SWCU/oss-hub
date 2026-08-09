@@ -22,7 +22,6 @@ import {
 import type {
   AdminAccessDetail,
   AdminAccessLoginHistoryItem,
-  AdminAccessRole,
   AdminAccessRoleRequestHistoryItem,
 } from '../admin-access-api';
 import {
