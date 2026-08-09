@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   clampRejectionReason,
-  ROLE_REJECTION_REASON_MAX_LENGTH,
-  ROLE_REJECTION_REASON_MAX_LINES,
+  REJECTION_REASON_MAX_LENGTH,
+  REJECTION_REASON_MAX_LINES,
 } from './rejection-reason';
 
 describe('clampRejectionReason', () => {
@@ -16,17 +16,17 @@ describe('clampRejectionReason', () => {
     expect(clampRejectionReason('')).toBe(null);
     expect(clampRejectionReason('  \n\t ')).toBe(null);
     expect(clampRejectionReason('  사유  ')).toBe('사유');
+    expect(clampRejectionReason('가'.repeat(REJECTION_REASON_MAX_LENGTH))).toBe(
+      '가'.repeat(REJECTION_REASON_MAX_LENGTH),
+    );
     expect(
-      clampRejectionReason('가'.repeat(ROLE_REJECTION_REASON_MAX_LENGTH)),
-    ).toBe('가'.repeat(ROLE_REJECTION_REASON_MAX_LENGTH));
-    expect(
-      clampRejectionReason('가'.repeat(ROLE_REJECTION_REASON_MAX_LENGTH + 1)),
-    ).toBe(`${'가'.repeat(ROLE_REJECTION_REASON_MAX_LENGTH)}…`);
+      clampRejectionReason('가'.repeat(REJECTION_REASON_MAX_LENGTH + 1)),
+    ).toBe(`${'가'.repeat(REJECTION_REASON_MAX_LENGTH)}…`);
   });
 
   /** 짝을 잃은 상위 서로게이트 — 화면에는 깨진 문자로 뜬다. */
   const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])/;
-  const FILLER = '가'.repeat(ROLE_REJECTION_REASON_MAX_LENGTH);
+  const FILLER = '가'.repeat(REJECTION_REASON_MAX_LENGTH);
   /** 가족 이모지 — 사람 셋을 ZWJ(`U+200D`)가 한 글자로 묶는다. */
   const FAMILY = '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}';
 
@@ -42,13 +42,11 @@ describe('clampRejectionReason', () => {
     // Given: 코드 유닛으로는 넘치지만 문자소로는 딱 맞는 값.
     const grinning = '\u{1F600}';
     const exactlyFull = `${'가'.repeat(
-      ROLE_REJECTION_REASON_MAX_LENGTH - 1,
+      REJECTION_REASON_MAX_LENGTH - 1,
     )}${grinning}`;
 
     // When / Then: 자를 필요가 없으므로 원문 그대로다.
-    expect(exactlyFull.length).toBeGreaterThan(
-      ROLE_REJECTION_REASON_MAX_LENGTH,
-    );
+    expect(exactlyFull.length).toBeGreaterThan(REJECTION_REASON_MAX_LENGTH);
     expect(clampRejectionReason(exactlyFull)).toBe(exactlyFull);
 
     // Given / When: 한 글자 넘치면 이모지가 통째로 빠진다 — 반쪽만 남지 않는다.
@@ -93,7 +91,7 @@ describe('clampRejectionReason', () => {
     const clamped = clampRejectionReason(bomb);
 
     // Then
-    expect(clamped?.split('\n')).toHaveLength(ROLE_REJECTION_REASON_MAX_LINES);
+    expect(clamped?.split('\n')).toHaveLength(REJECTION_REASON_MAX_LINES);
     expect(clamped?.endsWith('\u2026')).toBe(true);
   });
 
@@ -139,9 +137,7 @@ describe('clampRejectionReason', () => {
 
       // Then: 평범한 줄바꿈으로 정규화돼 같은 상한에 걸린다.
       expect(clamped).not.toContain(separator);
-      expect(clamped?.split('\n')).toHaveLength(
-        ROLE_REJECTION_REASON_MAX_LINES,
-      );
+      expect(clamped?.split('\n')).toHaveLength(REJECTION_REASON_MAX_LINES);
       expect(clamped?.endsWith('\u2026')).toBe(true);
     },
   );

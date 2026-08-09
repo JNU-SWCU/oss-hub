@@ -25,7 +25,7 @@
  * `role-selection-screen.tsx`의 `ClosedRoleRequestAlert` 주석에 있는 실측을 함께 다시
  * 재야 한다.
  */
-export const ROLE_REJECTION_REASON_MAX_LENGTH = 300;
+export const REJECTION_REASON_MAX_LENGTH = 300;
 
 /**
  * 화면에 실을 사유의 최대 줄 수.
@@ -38,7 +38,7 @@ export const ROLE_REJECTION_REASON_MAX_LENGTH = 300;
  * 실측한 사유 블록(101.5px, `role-selection-screen.tsx`의 `ClosedRoleRequestAlert`
  * 주석의 표)에서 한 줄 남짓만 더 늘어나는 선이다.
  */
-export const ROLE_REJECTION_REASON_MAX_LINES = 6;
+export const REJECTION_REASON_MAX_LINES = 6;
 
 /**
  * 화면에 실을 수 없는 문자.
@@ -147,12 +147,12 @@ export function clampRejectionReason(reason: string | null): string | null {
 
   const lines = cleaned.split('\n');
   const lineClamped =
-    lines.length > ROLE_REJECTION_REASON_MAX_LINES
-      ? `${lines.slice(0, ROLE_REJECTION_REASON_MAX_LINES).join('\n')}…`
+    lines.length > REJECTION_REASON_MAX_LINES
+      ? `${lines.slice(0, REJECTION_REASON_MAX_LINES).join('\n')}…`
       : cleaned;
 
   const graphemes = splitGraphemes(lineClamped);
-  return graphemes.length > ROLE_REJECTION_REASON_MAX_LENGTH
-    ? `${graphemes.slice(0, ROLE_REJECTION_REASON_MAX_LENGTH).join('')}…`
+  return graphemes.length > REJECTION_REASON_MAX_LENGTH
+    ? `${graphemes.slice(0, REJECTION_REASON_MAX_LENGTH).join('')}…`
     : lineClamped;
 }

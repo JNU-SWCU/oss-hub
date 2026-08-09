@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import { ROLE_REJECTION_REASON_MAX_LENGTH } from '@/lib/rejection-reason';
+import { REJECTION_REASON_MAX_LENGTH } from '@/lib/rejection-reason';
 import {
   RoleSelectionForm,
   type ClosedRoleRequestNotice,
@@ -197,14 +197,14 @@ describe('role onboarding views', () => {
    */
   it('아주 긴 사유는 잘라서 그린다', () => {
     // Given: 제한을 훌쩍 넘는, 공백이 하나도 없는 문자열.
-    const reason = '반'.repeat(ROLE_REJECTION_REASON_MAX_LENGTH * 3);
+    const reason = '반'.repeat(REJECTION_REASON_MAX_LENGTH * 3);
 
     // When
     const html = renderRoleForm(null, rejectionNotice(reason));
 
     // Then: 원문 전체는 실리지 않고, 잘렸다는 표시와 줄바꿈 규칙이 함께 붙는다.
     expect(html).not.toContain(reason);
-    expect(html).toContain('반'.repeat(ROLE_REJECTION_REASON_MAX_LENGTH));
+    expect(html).toContain('반'.repeat(REJECTION_REASON_MAX_LENGTH));
     expect(html).toContain('…');
     // 공백 없는 긴 문자열이 상자 밖으로 밀고 나가지 못하게 끊는다.
     expect(html).toContain('break-words');
