@@ -29,7 +29,7 @@ export type RankingPeriod = LegacyRankingPeriod;
 
 export interface RankingMetrics {
   readonly commitCount: number;
-  readonly prCount: number;
+  readonly pullRequestCount: number;
   readonly releaseCount: number;
 }
 
@@ -46,6 +46,16 @@ export interface RankingPage {
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
+  /**
+   * 이 수치가 언제 기준인지 (ADR-010 §10).
+   *
+   * 이번 사고의 본질은 "멈췄는데 아무도 몰랐다"였다. 화면에 숫자만 있으면
+   * 오늘 값인지 석 달 전 값인지 구분할 방법이 없다 — 그래서 갱신 시각을
+   * 봉투에 실어 화면이 먼저 말하게 한다.
+   *
+   * 관측된 기여가 하나도 없으면 `null` 이다.
+   */
+  readonly dataAsOf: Date | null;
 }
 
 /**
@@ -62,5 +72,11 @@ export function resolveRankingYearFromQuery(
     return rankingYearInAsiaSeoul(now);
   }
   if (period === LEGACY_RANKING_PERIODS.ALL) return RANKING_YEAR_ALL;
-  return RANKING_YEAR_ALL;
+  // 아무 것도 지정하지 않으면 **올해**다(ADR-010 §1).
+  //
+  // 예전 기본값은 전체 누적이었다. 그러면 먼저 들어온 학생이 영구히 위에 남아
+  // 신입생이 아무리 활동해도 화면에서 보이지 않는다 — 랭킹이 재학 기간 순서를
+  // 보여주는 셈이다. 학생이 묻는 것은 "올해 내가 얼마나 했나"이므로
+  // 기본을 올해로 두고 과거 연도는 선택으로 남긴다.
+  return rankingYearInAsiaSeoul(now);
 }

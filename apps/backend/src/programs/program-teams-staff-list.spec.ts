@@ -5,8 +5,8 @@ import {
   ProgramTeamsRepository,
   type StaffTeamRecord,
   type TeamProgramRecord,
-} from './program-teams.repository';
-import { ProgramTeamsService } from './program-teams.service';
+} from './repository/program-teams.repository';
+import { ProgramTeamsService } from './service/program-teams.service';
 import { TeamsErrorCode } from './teams-error-code.enum';
 
 /**

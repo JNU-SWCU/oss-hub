@@ -15,6 +15,25 @@
 | 조회 성공 소스 | issues, prs, ci, decisions, exec-plan, branch-protection, project-board |
 | 조회 실패 소스 | 없음 |
 
+## 진행 중 — 기여 추적 재설계 (ADR-010)
+
+| 항목 | 값 |
+| --- | --- |
+| 기능 | 기여 추적 재설계 (랭킹 · 프로그램 기여도) |
+| owner | @GoBeromsu |
+| 원본 | [ADR-010](../decisions/ADR-010-contribution-tracking-context.md) |
+| 상태 | 구현 진행 중 (미커밋 작업 트리) |
+
+**요지.** 랭킹은 비어 있던 게 아니라 **멈춰 있었다.** 두 읽기 표면의 데이터원을 갈랐다 —
+① 랭킹은 학생 축(공개 활동), ② 프로그램은 팀 저장소 축이다.
+
+**끝난 것.** 진단 스크립트(`scripts/diagnose-collection.sh`) · 경계 lint 깊이 비의존 재작성 ·
+`Contribution` 테이블 도입과 writer(가입자 필터로 #682 폐쇄) · 읽기 5곳 재소스 ·
+옛 연도 집계 writer·테이블 드롭 · `prCount`→`pullRequestCount` 개명 · 랭킹 기본 연도를 올해로 ·
+`dataAsOf` 봉투와 화면 표시 · 불변식 4개 · 폴더 재편(`github`/`programs`/`ranking` + 계층 폴더, `showcase` 드롭).
+
+**막힌 것.** 프로덕션 진단(SSM/Tailscale 접속 필요)과 `contributionsCollection` rate limit 실측(GitHub 토큰 필요).
+
 ## 지난 회차 이후 바뀐 결정
 
 지난 스냅샷(2026-07-17T12:47, b85f021) 이후 merge된 결정·계약 변경. 커밋 130여 개가

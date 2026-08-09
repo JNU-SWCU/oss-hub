@@ -26,11 +26,11 @@ import {
 import { seedRepositories } from '../../prisma/seeds/repositories';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import type { GithubAppClient } from '../repositories/github-app.client';
-import { BarrierRepositoriesRepository } from '../repositories/repositories.integration-support';
-import { RepositoriesRepository } from '../repositories/repositories.repository';
-import { RepositoriesService } from '../repositories/repositories.service';
-import { PublicProjectsRepository } from '../public-projects/public-projects.repository';
+import type { GithubAppClient } from '../github/github-app.client';
+import { BarrierRepositoriesRepository } from '../github/repositories.integration-support';
+import { RepositoriesRepository } from '../github/repository/repositories.repository';
+import { RepositoriesService } from '../github/service/repositories.service';
+import { PublicProjectsRepository } from '../programs/archive/public-projects/public-projects.repository';
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.enum';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from './submission-reviews.service';

@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { CollectionModule } from '../collection/collection.module';
+import { CollectionModule } from '../github/collection.module';
 import { UsersModule } from '../users/users.module';
-import { RankingController } from './ranking.controller';
-import { RankingService } from './ranking.service';
+import { RankingController } from './controller/ranking.controller';
+import { RankingService } from './service/ranking.service';
 
 @Module({
   imports: [CollectionModule, UsersModule],
