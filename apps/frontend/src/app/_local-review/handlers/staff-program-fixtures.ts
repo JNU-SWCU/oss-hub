@@ -113,8 +113,8 @@ const BASIC_APPLICATIONS = [
     // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
     isRepositoryPublicationPlanned: false,
     repositoryProvisioning: PROVISIONING_SUCCEEDED,
-    // 저장소는 프로비저닝이 성공한 신청에만 있다. 공개 전환은 프로그램 종료·필수
-    // 마일스톤 전원 승인까지 가야 하므로 진행 중에는 대부분 PRIVATE이다.
+    // 저장소는 프로비저닝이 성공한 신청에만 있다. 공개 전환은 네 게이트를 전부 지나야
+    // 하므로(저장소 준비·공개 예정·프로그램 종료·필수 마일스톤 승인) 진행 중에는 대부분 PRIVATE이다.
     repository: {
       url: 'https://github.com/JNU-SWCU/synthetic-repo-1',
       visibility: 'PUBLIC',
@@ -328,8 +328,8 @@ const CONTEST_APPLICATIONS = [
     // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
     isRepositoryPublicationPlanned: false,
     repositoryProvisioning: PROVISIONING_SUCCEEDED,
-    // 저장소는 프로비저닝이 성공한 신청에만 있다. 공개 전환은 프로그램 종료·필수
-    // 마일스톤 전원 승인까지 가야 하므로 진행 중에는 대부분 PRIVATE이다.
+    // 저장소는 프로비저닝이 성공한 신청에만 있다. 공개 전환은 네 게이트를 전부 지나야
+    // 하므로(저장소 준비·공개 예정·프로그램 종료·필수 마일스톤 승인) 진행 중에는 대부분 PRIVATE이다.
     repository: {
       url: 'https://github.com/JNU-SWCU/synthetic-repo-2',
       visibility: 'PRIVATE',
@@ -365,8 +365,8 @@ const CONTEST_APPLICATIONS = [
     // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
     isRepositoryPublicationPlanned: false,
     repositoryProvisioning: PROVISIONING_SUCCEEDED,
-    // 저장소는 프로비저닝이 성공한 신청에만 있다. 공개 전환은 프로그램 종료·필수
-    // 마일스톤 전원 승인까지 가야 하므로 진행 중에는 대부분 PRIVATE이다.
+    // 저장소는 프로비저닝이 성공한 신청에만 있다. 공개 전환은 네 게이트를 전부 지나야
+    // 하므로(저장소 준비·공개 예정·프로그램 종료·필수 마일스톤 승인) 진행 중에는 대부분 PRIVATE이다.
     repository: {
       url: 'https://github.com/JNU-SWCU/synthetic-repo-3',
       visibility: 'PRIVATE',
@@ -634,7 +634,10 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
       url: 'https://github.com/JNU-SWCU/synthetic-basic-study-01',
       visibility: 'PRIVATE',
       publishEligible: false,
-      blockedReasons: ['REQUIRED_MILESTONES_NOT_APPROVED'],
+      blockedReasons: [
+        'REPOSITORY_PUBLICATION_NOT_PLANNED',
+        'REQUIRED_MILESTONES_NOT_APPROVED',
+      ],
     },
   },
   'submission-basic-final': {
@@ -663,12 +666,16 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
       review: null,
     },
     history: [],
+    // `application-basic-approved` 는 저장소 공개 예정이 "아니요"라 그 사유도 함께 막는다.
     repository: {
       id: 'synthetic-repo-basic-01',
       url: 'https://github.com/JNU-SWCU/synthetic-basic-study-01',
       visibility: 'PRIVATE',
       publishEligible: false,
-      blockedReasons: ['REQUIRED_MILESTONES_NOT_APPROVED'],
+      blockedReasons: [
+        'REPOSITORY_PUBLICATION_NOT_PLANNED',
+        'REQUIRED_MILESTONES_NOT_APPROVED',
+      ],
     },
   },
   'submission-contest-revision': {
@@ -717,12 +724,18 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
         },
       },
     ],
+    // `application-team` 은 저장소 공개 예정이 "아니요"이고 `program-oss-contest` 는
+    // endAt(2026-12-31)이 아직 안 지났다 — 서버는 세 사유를 모두 낸다.
     repository: {
       id: 'synthetic-repo-contest-01',
       url: 'https://github.com/JNU-SWCU/synthetic-contest-01',
       visibility: 'PRIVATE',
       publishEligible: false,
-      blockedReasons: ['REQUIRED_MILESTONES_NOT_APPROVED'],
+      blockedReasons: [
+        'REPOSITORY_PUBLICATION_NOT_PLANNED',
+        'PROGRAM_NOT_ENDED',
+        'REQUIRED_MILESTONES_NOT_APPROVED',
+      ],
     },
   },
   'submission-contest-champion-preliminary': {
@@ -752,13 +765,17 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
       },
     },
     history: [],
-    // 모든 마일스톤이 승인돼 공개 전환 버튼을 실제로 눌러 볼 수 있다.
+    // 마일스톤은 전원 승인이지만 `application-contest-champion`이 저장소 공개 예정 "아니요"이고
+    // `program-oss-contest`의 endAt(2026-12-31)이 아직 안 지나 서버가 거절한다.
     repository: {
       id: 'synthetic-repo-contest-02',
       url: 'https://github.com/JNU-SWCU/synthetic-contest-02',
       visibility: 'PRIVATE',
-      publishEligible: true,
-      blockedReasons: [],
+      publishEligible: false,
+      blockedReasons: [
+        'REPOSITORY_PUBLICATION_NOT_PLANNED',
+        'PROGRAM_NOT_ENDED',
+      ],
     },
   },
   'submission-contest-champion-final': {
@@ -784,12 +801,16 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
       },
     },
     history: [],
+    // 같은 저장소이므로 예선 제출과 같은 판정이어야 한다.
     repository: {
       id: 'synthetic-repo-contest-02',
       url: 'https://github.com/JNU-SWCU/synthetic-contest-02',
       visibility: 'PRIVATE',
-      publishEligible: true,
-      blockedReasons: [],
+      publishEligible: false,
+      blockedReasons: [
+        'REPOSITORY_PUBLICATION_NOT_PLANNED',
+        'PROGRAM_NOT_ENDED',
+      ],
     },
   },
 };
