@@ -22,7 +22,9 @@ describe('RepositoryProvisionWorker success', () => {
     jobs.claimNext.mockResolvedValue(null);
     const state = provisionStateMock();
     const github = githubClientMock();
-    const worker = new RepositoryProvisionWorker(jobs, state, github);
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
 
     // When: worker를 한 번 실행한다.
     const result = await worker.runNext('worker-a', PROVISION_NOW);
@@ -41,7 +43,9 @@ describe('RepositoryProvisionWorker success', () => {
     github.ensureCollaborator
       .mockResolvedValueOnce(COLLABORATOR_OUTCOMES.PENDING)
       .mockResolvedValueOnce(COLLABORATOR_OUTCOMES.SUCCEEDED);
-    const worker = new RepositoryProvisionWorker(jobs, state, github);
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
 
     // When: provision job을 실행한다.
     const result = await worker.runNext('worker-a', PROVISION_NOW);
@@ -85,7 +89,9 @@ describe('RepositoryProvisionWorker success', () => {
       { id: 'synthetic-failed-invitation', githubLogin: 'synthetic-student' },
     ]);
     const github = githubClientMock();
-    const worker = new RepositoryProvisionWorker(jobs, state, github);
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
 
     // When: job을 재시도한다.
     await worker.runNext('worker-b', PROVISION_NOW);
@@ -110,7 +116,9 @@ describe('RepositoryProvisionWorker success', () => {
       visibility: PROVISION_REPOSITORY.visibility,
       description: buildRepositoryOwnershipMarker('synthetic-application-id'),
     });
-    const worker = new RepositoryProvisionWorker(jobs, state, github);
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
 
     // When: job을 다시 실행한다.
     await worker.runNext('worker-c', PROVISION_NOW);
@@ -139,7 +147,9 @@ describe('RepositoryProvisionWorker success', () => {
       }),
     );
     const github = githubClientMock();
-    const worker = new RepositoryProvisionWorker(jobs, state, github);
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
 
     // When: provision job을 실행한다.
     const result = await worker.runNext(
@@ -170,7 +180,9 @@ describe('RepositoryProvisionWorker OWN connection', () => {
       visibility: 'PUBLIC',
       description: null,
     });
-    const worker = new RepositoryProvisionWorker(jobs, state, github);
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
 
     const result = await worker.runNext('worker-own', PROVISION_NOW);
 
@@ -206,7 +218,9 @@ describe('RepositoryProvisionWorker OWN connection', () => {
       visibility: 'PUBLIC',
       description: null,
     });
-    const worker = new RepositoryProvisionWorker(jobs, state, github);
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
 
     await worker.runNext('worker-own-no-write', PROVISION_NOW);
 
@@ -230,7 +244,9 @@ describe('RepositoryProvisionWorker OWN connection', () => {
     state.loadContext.mockResolvedValue(ownProvisionContext());
     const github = githubClientMock();
     github.findPublicRepository.mockResolvedValue(null);
-    const worker = new RepositoryProvisionWorker(jobs, state, github);
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
 
     const result = await worker.runNext('worker-own-missing', PROVISION_NOW);
 
@@ -260,7 +276,9 @@ describe('RepositoryProvisionWorker OWN connection', () => {
       }),
     );
     const github = githubClientMock();
-    const worker = new RepositoryProvisionWorker(jobs, state, github);
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
 
     const result = await worker.runNext('worker-own-bad-url', PROVISION_NOW);
 
