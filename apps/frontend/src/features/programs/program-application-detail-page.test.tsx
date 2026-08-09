@@ -270,7 +270,7 @@ describe('ProgramApplicationDetailPage', () => {
     });
 
     expect(decideApplicationMock).not.toHaveBeenCalled();
-    expect(container.textContent).toContain('반려 사유를 입력해 주세요.');
+    expect(document.body.textContent).toContain('반려 사유를 입력해 주세요.');
   });
 
   it('반려 확인창은 사유가 학생에게 간다는 것을 누르기 전에 알린다', async () => {
@@ -282,7 +282,7 @@ describe('ProgramApplicationDetailPage', () => {
       getButton('반려').click();
     });
 
-    expect(container.textContent).toContain(
+    expect(document.body.textContent).toContain(
       '적은 사유는 학생에게 그대로 보입니다.',
     );
   });
@@ -300,7 +300,7 @@ describe('ProgramApplicationDetailPage', () => {
     await act(async () => {
       getButton('반려').click();
     });
-    const textarea = container.querySelector('textarea');
+    const textarea = document.querySelector('textarea');
     if (!(textarea instanceof HTMLTextAreaElement)) {
       throw new TypeError('반려 사유 입력칸이 없다');
     }
@@ -421,7 +421,9 @@ describe('ProgramApplicationDetailPage', () => {
 
     await mount();
 
-    expect(container.textContent).toContain('신청자가 낸 저장소를 잇습니다');
+    expect(document.body.textContent).toContain(
+      '신청자가 낸 저장소를 잇습니다',
+    );
     expect(container.textContent).toContain(
       'https://github.com/synthetic-org/own-repo',
     );
@@ -429,7 +431,7 @@ describe('ProgramApplicationDetailPage', () => {
     await act(async () => {
       getButton('승인').click();
     });
-    expect(container.textContent).toContain('새 저장소를 만들지 않습니다');
+    expect(document.body.textContent).toContain('새 저장소를 만들지 않습니다');
   });
 
   it('반려 확인창의 안내가 입력칸 이름을 오염시키지 않는다', async () => {
@@ -442,9 +444,9 @@ describe('ProgramApplicationDetailPage', () => {
       getButton('반려').click();
     });
 
-    const label = container.querySelector('label[for="rejection-reason"]');
+    const label = document.querySelector('label[for="rejection-reason"]');
     expect(label?.textContent?.trim()).toBe('반려 사유');
-    expect(container.querySelector('label textarea')).toBeNull();
+    expect(document.querySelector('label textarea')).toBeNull();
   });
 
   it('없는 신청은 목록으로 돌아갈 길을 준다', async () => {
@@ -490,6 +492,52 @@ describe('ProgramApplicationDetailPage', () => {
     expect(container.textContent).toContain(
       '승인된 교직원 또는 관리자만 조회할 수 있습니다.',
     );
+  });
+
+  it('판정 저장이 실패하면 확인창 안에서 말한다 — 창 뒤에 그리면 못 본다', async () => {
+    // Given: 확인창을 열고 저장이 일반 오류로 실패한다.
+    getApplicationDetailMock.mockResolvedValue(submitted);
+    decideApplicationMock.mockRejectedValue(new Error('synthetic failure'));
+    await mount();
+    await act(async () => getButton('승인').click());
+
+    // When: 승인을 확정한다.
+    await act(async () => getButton('승인 확정').click());
+
+    // Then: 창은 열린 채이고, 실패 안내가 그 **창 안에** 있다.
+    const dialog = document.querySelector('[role="alertdialog"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog?.textContent).toContain('판정을 저장하지 못했습니다');
+    expect(dialog?.textContent).toContain('입력과 현재 상태를 유지했습니다');
+  });
+
+  it('확인창을 Escape 로 닫으면 창을 연 판정 버튼으로 포커스가 돌아온다', async () => {
+    // Given: 승인 확인창이 열려 있다.
+    getApplicationDetailMock.mockResolvedValue(submitted);
+    await mount();
+    const trigger = getButton('승인');
+    await act(async () => trigger.click());
+    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+
+    const focusReturned = new Promise<void>((resolve) => {
+      trigger.addEventListener('focus', () => resolve(), { once: true });
+    });
+
+    // When: 키보드로 Escape 를 누른다.
+    await act(async () => {
+      getButton('취소').dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Escape',
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    await focusReturned;
+
+    // Then: 문서 맨 앞이 아니라 그 버튼으로 돌아온다.
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
   });
 
   it('자동 생성이 꺼져 있어도 저장소 작업 상태를 목록과 같이 말한다', async () => {

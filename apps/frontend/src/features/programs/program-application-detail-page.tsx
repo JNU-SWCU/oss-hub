@@ -23,6 +23,7 @@ import {
   APPLICATION_STATUS_BADGE,
   APPLICATION_STATUS_LABELS,
   PROVISIONING_LABELS,
+  applicationDecisionTriggerId,
   displayAnswerText,
   displayApplicantName,
   formatSubmittedAt,
@@ -138,7 +139,20 @@ export function ProgramApplicationDetailPage({
   const [reasonError, setReasonError] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
+  /**
+   * 판정 저장이 실패했는데 확인창은 열려 있는 경우의 안내.
+   * ⚠ 화면 위쪽 `notice` 에 그리면 **확인창 뒤에 가려** 교직원이 못 본다([#734]).
+   */
+  const [decisionError, setDecisionError] = useState<string | null>(null);
   const cancelled = useRef(false);
+
+  const openDecisionDialog = useCallback(
+    (action: ApplicationDecisionAction): void => {
+      setDecisionError(null);
+      setDialogAction(action);
+    },
+    [],
+  );
 
   const reload = useCallback(async (): Promise<void> => {
     const application = await getApplicationDetail(applicationId);
@@ -198,6 +212,7 @@ export function ProgramApplicationDetailPage({
           : { action: 'REVERT' };
     setBusy(true);
     setNotice(null);
+    setDecisionError(null);
     try {
       const result = await decideApplication(applicationId, input);
       setDialogAction(null);
@@ -252,11 +267,10 @@ export function ProgramApplicationDetailPage({
           }
         }
       } else
-        setNotice({
-          kind: 'error',
-          title: '판정을 저장하지 못했습니다',
-          message: '입력과 현재 상태를 유지했습니다. 다시 시도해 주세요.',
-        });
+        // 확인창은 열린 채로 둔다(적어 둔 사유를 잃지 않게) — 그래서 안내도 창 안에 그린다.
+        setDecisionError(
+          '입력과 현재 상태를 유지했습니다. 다시 시도해 주세요.',
+        );
     } finally {
       setBusy(false);
     }
@@ -429,19 +443,28 @@ export function ProgramApplicationDetailPage({
         ) : null}
       </Section>
 
+      {/*
+       * 판정 버튼마다 고정 id 를 준다 — 확인창이 닫힐 때 이 id 로 포커스를 돌려준다.
+       * 없으면 키보드로 판정하던 사람이 창을 닫는 순간 문서 맨 앞으로 튕긴다.
+       */}
       <div className="flex flex-wrap gap-2">
         {decidable ? (
           <>
-            <Button disabled={busy} onClick={() => setDialogAction('APPROVE')}>
+            <Button
+              id={applicationDecisionTriggerId('APPROVE')}
+              disabled={busy}
+              onClick={() => openDecisionDialog('APPROVE')}
+            >
               승인
             </Button>
             <Button
+              id={applicationDecisionTriggerId('REJECT')}
               variant="outline"
               disabled={busy}
               onClick={() => {
                 setReasonError(false);
                 setRejectionReason('');
-                setDialogAction('REJECT');
+                openDecisionDialog('REJECT');
               }}
             >
               반려
@@ -450,9 +473,10 @@ export function ProgramApplicationDetailPage({
         ) : null}
         {revertable ? (
           <Button
+            id={applicationDecisionTriggerId('REVERT')}
             variant="ghost"
             disabled={busy}
-            onClick={() => setDialogAction('REVERT')}
+            onClick={() => openDecisionDialog('REVERT')}
           >
             되돌리기
           </Button>
@@ -469,6 +493,8 @@ export function ProgramApplicationDetailPage({
           reason={rejectionReason}
           reasonError={reasonError}
           busy={busy}
+          errorMessage={decisionError}
+          returnFocusId={applicationDecisionTriggerId(dialogAction)}
           onReasonChange={(value) => {
             setRejectionReason(value);
             setReasonError(false);

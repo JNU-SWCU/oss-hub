@@ -1,6 +1,7 @@
 import { ApiError } from '@/lib/api-client';
 import { sanitizeDisplayText } from '@/lib/display-text';
 import type {
+  ApplicationDecisionAction,
   ApplicationListItem,
   ApplicationStatus,
   RepositoryProvisioningJobStatus,
@@ -123,4 +124,20 @@ function isRevertBlockedDecisionError(problem: {
     typeof (problem as { readonly revertBlockedReason?: unknown })
       .revertBlockedReason === 'string'
   );
+}
+
+/**
+ * 판정 확인창을 연 버튼의 id. 창이 닫힐 때 이 id 로 포커스를 되돌린다.
+ *
+ * 두 화면이 규칙을 공유한다 — 상세 화면은 신청이 하나뿐이라 `applicationId` 가 없고,
+ * 목록 화면은 한 화면에 여러 행이 있어 행마다 갈라야 한다.
+ * ⚠ 목록에서 판정에 **성공**하면 그 버튼이 사라진다(「승인」이 「되돌리기」로 바뀐다).
+ * 그때는 돌려줄 대상이 없으므로 확인창이 Radix 기본 복귀에 맡긴다.
+ */
+export function applicationDecisionTriggerId(
+  action: ApplicationDecisionAction,
+  applicationId?: string,
+): string {
+  const scope = applicationId === undefined ? '' : `-${applicationId}`;
+  return `application-decision-${action.toLowerCase()}${scope}`;
 }
