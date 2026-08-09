@@ -403,9 +403,9 @@ export class CollectionIncrementalRepository {
         SUM(f."release")::int,
         NOW()
       FROM (
-        -- `committedAt` 등은 timestamp WITHOUT time zone 이라 저장값이 UTC 다.
-        -- 바로 `AT TIME ZONE 'Asia/Seoul'` 을 걸면 저장값을 **서울시각으로 해석**해
-        -- 정반대로 움직인다. UTC 로 한 번 붙인 뒤 서울로 옮겨야 KST 자정에서 날짜가 갈린다.
+        -- fact 시각 칸은 timestamp WITHOUT time zone 이라 저장값이 UTC 다.
+        -- 바로 서울 시간대를 걸면 저장값을 서울시각으로 해석해 정반대로 움직인다.
+        -- UTC 로 한 번 붙인 뒤 서울로 옮겨야 KST 자정에서 날짜가 갈린다.
         SELECT "repositoryId", "authorGithubId" AS "githubId",
                ((("committedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul')::date) AS "day",
                1 AS "commit", 0 AS "pr", 0 AS "release"
