@@ -275,7 +275,8 @@ function StreamProgressCard({ status }: { readonly status: SystemStatus }) {
     status.backfillingStreamCount +
     status.partialStreamCount +
     status.retryPendingStreamCount;
-  const pct = total > 0 ? Math.round((status.readyStreamCount / total) * 100) : 0;
+  const pct =
+    total > 0 ? Math.round((status.readyStreamCount / total) * 100) : 0;
 
   return (
     <Card>
@@ -325,7 +326,9 @@ function DataFreshnessCard({ status }: { readonly status: SystemStatus }) {
             </dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">가장 오래된 완료 checkpoint</dt>
+            <dt className="text-muted-foreground">
+              가장 오래된 완료 checkpoint
+            </dt>
             <dd className="mt-1 font-medium">
               {formatTimestamp(status.oldestReadyCheckpointAt)}
             </dd>
