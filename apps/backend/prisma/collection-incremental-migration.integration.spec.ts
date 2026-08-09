@@ -17,10 +17,10 @@ async function cleanFixtures(): Promise<void> {
   await prisma.collectionCommitFact.deleteMany({
     where: { repository: { githubOrganizationId: ORG_ID } },
   });
-  await prisma.collectionRepositoryYearAggregate.deleteMany({
+  await prisma.contribution.deleteMany({
     where: { repository: { githubOrganizationId: ORG_ID } },
   });
-  await prisma.collectionContributorYearAggregate.deleteMany({
+  await prisma.contribution.deleteMany({
     where: { repository: { githubOrganizationId: ORG_ID } },
   });
   await prisma.collectionRepositoryStream.deleteMany({
@@ -96,12 +96,16 @@ describe('collection incremental migration — DB invariants', () => {
     await expect(
       indexExists('CollectionReleaseFact_authorGithubId_idx'),
     ).resolves.toBe(true);
+    // 옛 연도 집계는 드롭됐다(20260809140000). 지금 사실 테이블은 `Contribution`
+    // 하나이며 두 축을 각각 인덱스가 받친다(ADR-010 §4).
+    await expect(
+      indexExists('Contribution_githubId_date_idx'),
+    ).resolves.toBe(true);
+    await expect(indexExists('Contribution_date_idx')).resolves.toBe(true);
+    // 드롭이 실제로 적용됐는지도 같이 본다 — 안 되면 옛 writer 가 되살아난다.
     await expect(
       indexExists('CollectionRepositoryYearAggregate_year_idx'),
-    ).resolves.toBe(true);
-    await expect(
-      indexExists('CollectionContributorYearAggregate_repositoryId_year_idx'),
-    ).resolves.toBe(true);
+    ).resolves.toBe(false);
   });
 
   it('App installation 교체를 흉내내도 논리 저장소는 org+repo id 기준 한 행만 유지한다', async () => {
@@ -175,8 +179,15 @@ describe('collection incremental migration — DB invariants', () => {
       },
     });
 
-    const rows = await prisma.collectionRepositoryYearAggregate.findMany({
-      where: { repositoryId: repository.id, year: 2099 },
+    const rows = await prisma.contribution.findMany({
+      // 저장에 연도 칸이 없으므로 날짜 범위로 묻는다(ADR-010 §4).
+      where: {
+        repositoryId: repository.id,
+        date: {
+          gte: new Date(Date.UTC(2099, 0, 1)),
+          lt: new Date(Date.UTC(2100, 0, 1)),
+        },
+      },
     });
     expect(rows).toEqual([]);
   });

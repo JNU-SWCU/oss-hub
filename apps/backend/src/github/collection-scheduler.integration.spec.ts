@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { CollectionCutoverRepository } from './collection-cutover.repository';
-import { CollectionSchedulerService } from './collection-scheduler.service';
-import { CollectionSyncService } from './collection-sync.service';
+import { CollectionCutoverRepository } from './repository/collection-cutover.repository';
+import { CollectionSchedulerService } from './service/collection-scheduler.service';
+import { CollectionSyncService } from './service/collection-sync.service';
 
 describe('CollectionScheduler integration', () => {
   let testingModule: TestingModule;

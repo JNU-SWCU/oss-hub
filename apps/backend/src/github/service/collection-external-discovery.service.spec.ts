@@ -1,14 +1,14 @@
 import { AccountStatus } from '@prisma/client';
 
-import { DomainException } from '../common/error-code';
-import { ConsentsService } from '../consents/consents.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { DomainException } from '../../common/error-code';
+import { ConsentsService } from '../../consents/consents.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import {
   CollectionDiscoveryClient,
   CollectionDiscoveryClientError,
-} from './collection-discovery.client';
+} from '../collection-discovery.client';
 import { CollectionExternalDiscoveryService } from './collection-external-discovery.service';
-import { CollectionIncrementalRepository } from './collection-incremental.repository';
+import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 
 describe('CollectionExternalDiscoveryService', () => {
   const findFirst = jest.fn();

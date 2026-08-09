@@ -1,9 +1,10 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import { CollectionCanonicalRepository } from './collection-canonical.repository';
+import { PublicRankingRepository } from './repository/public-ranking.repository';
+import { CollectionCanonicalRepository } from './repository/collection-canonical.repository';
 import type { CanonicalGenerationInventory } from './collection-canonical.types';
-import { CollectionIncrementalRepository } from './collection-incremental.repository';
-import { CollectionReadService } from './collection-read.service';
+import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
+import { CollectionReadService } from './service/collection-read.service';
 
 /**
  * F3 감사 갭 대응 — ADR-006 "누적 저장소로의 1회 전환과 이전 세대 보존" §4의 rollback 계약은
@@ -105,7 +106,11 @@ describe('Collection cutover rollback data-preservation contract (ADR-006, F3 au
   const prisma = new PrismaService();
   const canonicalRepository = new CollectionCanonicalRepository(prisma);
   const incrementalRepository = new CollectionIncrementalRepository(prisma);
-  const readService = new CollectionReadService(prisma, canonicalRepository);
+  const readService = new CollectionReadService(
+    prisma,
+    canonicalRepository,
+    new PublicRankingRepository(prisma),
+  );
 
   let beforeCanonicalRepositoryRows = '';
   let beforeCanonicalCommitRows = '';
@@ -266,14 +271,6 @@ describe('Collection cutover rollback data-preservation contract (ADR-006, F3 au
       newGithubOrganizationId,
     );
     await prisma.$executeRawUnsafe(
-      'DELETE FROM "CollectionRepositoryYearAggregate" WHERE "repositoryId" IN (SELECT id FROM "GithubRepository" WHERE "githubOrganizationId" = $1)',
-      newGithubOrganizationId,
-    );
-    await prisma.$executeRawUnsafe(
-      'DELETE FROM "CollectionContributorYearAggregate" WHERE "repositoryId" IN (SELECT id FROM "GithubRepository" WHERE "githubOrganizationId" = $1)',
-      newGithubOrganizationId,
-    );
-    await prisma.$executeRawUnsafe(
       'DELETE FROM "CollectionSyncCursor" WHERE "appId" = $1',
       newGithubOrganizationId,
     );
@@ -368,7 +365,7 @@ describe('Collection cutover rollback data-preservation contract (ADR-006, F3 au
         githubId: oldContributorId,
         githubLogin: 'synthetic-pre-cutover-contributor',
         commitCount: 1,
-        prCount: 1,
+        pullRequestCount: 1,
         releaseCount: 1,
       }),
     ]);

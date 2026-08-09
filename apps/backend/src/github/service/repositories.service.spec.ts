@@ -4,13 +4,13 @@ import {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
 } from '@prisma/client';
-import type { AuditLogService } from '../audit-log/audit-log.service';
-import type { GithubAppClient } from './github-app.client';
+import type { AuditLogService } from '../../audit-log/audit-log.service';
+import type { GithubAppClient } from '../github-app.client';
 import type {
   OwnedProvisionJob,
   RepositoriesRepository,
   RepositoriesTransactionStore,
-} from './repositories.repository';
+} from '../repository/repositories.repository';
 import {
   RepositoriesService,
   RepositoryNotFoundError,

@@ -1,29 +1,29 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
-import { DomainException } from '../common/error-code';
+import { DomainException } from '../../common/error-code';
 import {
   COLLECTION_ERROR_CODES,
   CollectionErrorCode,
-} from './collection-error-code.enum';
+} from '../collection-error-code.enum';
 import {
   CollectionAppClient,
   CollectionAppClientError,
   CollectionCommit,
   CollectionPullRequest,
   CollectionRelease,
-} from './collection-app.client';
-import { CollectionAppConfigError } from './collection-app.config';
+} from '../collection-app.client';
+import { CollectionAppConfigError } from '../collection-app.config';
 import {
   CollectionAppTokenError,
   CollectionAppTokenProvider,
-} from './collection-app.token';
-import { CollectionCanonicalRepository } from './collection-canonical.repository';
+} from '../collection-app.token';
+import { CollectionCanonicalRepository } from '../repository/collection-canonical.repository';
 import type {
   CanonicalContributorRow,
   CanonicalFailureStatus,
   CanonicalGenerationInventory,
   CanonicalLeaseToken,
-} from './collection-canonical.types';
+} from '../collection-canonical.types';
 
 const LEASE_MS = 10 * 60_000;
 const HEARTBEAT_MS = 2 * 60_000;

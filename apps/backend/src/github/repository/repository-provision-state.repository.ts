@@ -4,8 +4,8 @@ import {
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event';
+import { PrismaService } from '../../prisma/prisma.service';
+import { REPOSITORY_PROVISION_EVENT_TYPE } from '../repository-provision-event';
 import type {
   CompleteRepositoryInvitationInput,
   FailRepositoryInvitationInput,
@@ -15,12 +15,12 @@ import type {
   RepositoryInvitationWork,
   RepositoryProvisionContext,
   RepositoryProvisionStateStore,
-} from './repository-provision.contract';
+} from '../repository-provision.contract';
 import {
   finalProvisionFailure,
   PROVISION_ERROR_CODES,
-} from './repository-provision.failure';
-import { DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS } from './repository-provision.failure';
+} from '../repository-provision.failure';
+import { DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS } from '../repository-provision.failure';
 import {
   assertProvisionLease,
   assertSingleProvisionUpdate,
@@ -29,7 +29,7 @@ import {
   matchesProvisionedMetadata,
   repositorySelection,
   RepositoryProvisionLeaseLostError,
-} from './repository-provision-state.helpers';
+} from '../repository-provision-state.helpers';
 
 @Injectable()
 export class RepositoryProvisionStateRepository implements RepositoryProvisionStateStore {

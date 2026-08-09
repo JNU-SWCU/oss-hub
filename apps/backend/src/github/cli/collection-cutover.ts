@@ -5,16 +5,16 @@ import type { PrismaService } from '../../prisma/prisma.service';
 import { CollectionAppClient } from '../collection-app.client';
 import { CollectionAppConfig } from '../collection-app.config';
 import { CollectionAppTokenProvider } from '../collection-app.token';
-import { CollectionCanonicalRepository } from '../collection-canonical.repository';
-import { CollectionCutoverRepository } from '../collection-cutover.repository';
-import { CollectionCutoverService } from '../collection-cutover.service';
-import { CollectionGenerationImportService } from '../collection-generation-import.service';
-import { CollectionIncrementalRepository } from '../collection-incremental.repository';
+import { CollectionCanonicalRepository } from '../repository/collection-canonical.repository';
+import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
+import { CollectionCutoverService } from '../service/collection-cutover.service';
+import { CollectionGenerationImportService } from '../service/collection-generation-import.service';
+import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import { ProviderRequestQueue } from '../collection-provider-queue';
 import {
   CollectionSyncRuntime,
   CollectionSyncService,
-} from '../collection-sync.service';
+} from '../service/collection-sync.service';
 
 /**
  * public-admin-exposure todo 14 — ADR-006 "누적 저장소로의 1회 전환" 원자 절차를 사람이

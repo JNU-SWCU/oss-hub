@@ -1,11 +1,11 @@
 import { CollectionCutoverService } from './collection-cutover.service';
-import type { CollectionCanonicalRepository } from './collection-canonical.repository';
+import type { CollectionCanonicalRepository } from '../repository/collection-canonical.repository';
 import type {
   CanonicalGenerationSnapshot,
   CanonicalLeaseKey,
-} from './collection-canonical.types';
-import type { CollectionCutoverRepository } from './collection-cutover.repository';
-import type { CutoverLeaseToken } from './collection-cutover.types';
+} from '../collection-canonical.types';
+import type { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
+import type { CutoverLeaseToken } from '../collection-cutover.types';
 import type {
   CollectionGenerationImportService,
   GenerationImportResult,

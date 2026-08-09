@@ -3,7 +3,7 @@ import type {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
 } from '@prisma/client';
-import type { MyRepository } from '../repositories.service';
+import type { MyRepository } from '../service/repositories.service';
 
 export interface MyRepositoryItemResponseDto {
   readonly repositoryId: string | null;

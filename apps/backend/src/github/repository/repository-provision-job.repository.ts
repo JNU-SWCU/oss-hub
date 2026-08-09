@@ -4,9 +4,9 @@ import {
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { assertSingleProvisionUpdate } from './repository-provision-state.helpers';
-import { DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS } from './repository-provision.failure';
+import { PrismaService } from '../../prisma/prisma.service';
+import { assertSingleProvisionUpdate } from '../repository-provision-state.helpers';
+import { DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS } from '../repository-provision.failure';
 
 export interface ClaimRepositoryProvisionJobInput {
   readonly workerId: string;

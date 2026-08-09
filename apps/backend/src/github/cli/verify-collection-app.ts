@@ -11,7 +11,7 @@ import {
   COLLECTION_LIVE_SMOKE_SCHEMA_VERSION,
   CollectionLiveSmokeAlias,
   CollectionLiveSmokeService,
-} from '../collection-live-smoke.service';
+} from '../service/collection-live-smoke.service';
 
 function parseAlias(
   value: string,

@@ -1,7 +1,7 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import { CollectionIncrementalRepository } from './collection-incremental.repository';
-import { CollectionSyncService } from './collection-sync.service';
+import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
+import { CollectionSyncService } from './service/collection-sync.service';
 import { ProviderRequestQueue } from './collection-provider-queue';
 import type {
   CollectionAppClient,
@@ -21,7 +21,7 @@ import type { RequestFingerprint } from './collection-app.frontier';
  *      (`GithubRepository.githubRepositoryId` → `Repository.teamId` → `TeamMember` → `User`)으로
  *      제대로 풀리는가,
  *   2. 거른 항목이 진짜로 `CollectionPullRequestFact`/`CollectionReleaseFact` **테이블에** 없는가,
- *   3. 그 결과 `CollectionContributorYearAggregate`에 비팀원 행이 생기지 않는가.
+ *   3. 그 결과 `Contribution`에 비팀원 행이 생기지 않는가.
  *
  * provider는 stub이다 — 이 suite가 재는 것은 HTTP 계층이 아니라 적재 경계다.
  */
@@ -319,20 +319,18 @@ describe('CollectionSyncService — PR·릴리스 멤버 필터 (실 DB)', () =>
     ).resolves.toBe(0);
 
     // facts에 없으니 집계 행도 팀원 하나뿐이다.
-    const aggregates = await prisma.collectionContributorYearAggregate.findMany(
+    const aggregates = await prisma.contribution.findMany(
       {
         where: { repositoryId: collected.id },
         select: {
-          githubUserId: true,
-          githubLogin: true,
+          githubId: true,
           pullRequestCount: true,
           releaseCount: true,
         },
       },
     );
     expect(aggregates).toHaveLength(1);
-    expect(aggregates[0]?.githubUserId).toBe(MEMBER_GITHUB_ID);
-    expect(aggregates[0]?.githubLogin).toBe('synthetic-member');
+    expect(aggregates[0]?.githubId).toBe(MEMBER_GITHUB_ID);
     expect(aggregates[0]?.pullRequestCount).toBe(1);
     expect(aggregates[0]?.releaseCount).toBe(1);
 

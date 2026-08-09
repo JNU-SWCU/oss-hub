@@ -1,19 +1,19 @@
 import {
   CollectionAppClient,
   CollectionAppClientError,
-} from './collection-app.client';
-import { CollectionAppConfigError } from './collection-app.config';
+} from '../collection-app.client';
+import { CollectionAppConfigError } from '../collection-app.config';
 import {
   CollectionAppTokenError,
   CollectionAppTokenProvider,
-} from './collection-app.token';
-import { CollectionCanonicalRepository } from './collection-canonical.repository';
+} from '../collection-app.token';
+import { CollectionCanonicalRepository } from '../repository/collection-canonical.repository';
 import {
   CollectionReconciliationRuntime,
   CollectionReconciliationService,
 } from './collection-reconciliation.service';
-import { CollectionErrorCode } from './collection-error-code.enum';
-import { DomainException } from '../common/error-code';
+import { CollectionErrorCode } from '../collection-error-code.enum';
+import { DomainException } from '../../common/error-code';
 
 const flush = async () => {
   await new Promise((resolve) => setImmediate(resolve));

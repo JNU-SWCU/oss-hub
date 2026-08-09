@@ -1,7 +1,7 @@
-import { CollectionIncrementalRepository } from './collection-incremental.repository';
+import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import { CollectionGenerationImportService } from './collection-generation-import.service';
-import type { CanonicalGenerationSnapshot } from './collection-canonical.types';
-import type { PrismaService } from '../prisma/prisma.service';
+import type { CanonicalGenerationSnapshot } from '../collection-canonical.types';
+import type { PrismaService } from '../../prisma/prisma.service';
 
 /**
  * In-memory Prisma double for `CollectionIncrementalRepository`. Mirrors the
@@ -34,8 +34,7 @@ interface Store {
   commitFacts: Map<string, Row>;
   pullRequestFacts: Map<string, Row>;
   releaseFacts: Map<string, Row>;
-  yearAggregates: Map<string, Row>;
-  contributorYearAggregates: Map<string, Row>;
+  contributions: Map<string, Row>;
   streams: Map<string, Row>;
 }
 
@@ -59,28 +58,6 @@ interface ReleaseFactData {
   repositoryId: string;
   githubReleaseId: bigint;
 }
-interface YearAggregateKey {
-  repositoryId: string;
-  year: number;
-}
-interface YearAggregateUpsertArgs {
-  where: { repositoryId_year: YearAggregateKey };
-  create: Row;
-  update: Row;
-}
-interface YearAggregateFindUniqueArgs {
-  where: { repositoryId_year: YearAggregateKey };
-}
-interface ContributorAggregateKey {
-  repositoryId: string;
-  githubUserId: bigint;
-  year: number;
-}
-interface ContributorAggregateUpsertArgs {
-  where: { repositoryId_githubUserId_year: ContributorAggregateKey };
-  create: Row;
-  update: Row;
-}
 interface StreamKey {
   repositoryId: string;
   streamType: string;
@@ -93,14 +70,12 @@ interface StreamUpsertArgs {
 interface StreamFindUniqueArgs {
   where: { repositoryId_streamType: StreamKey };
 }
-
 const emptyStore = (): Store => ({
   repositories: new Map(),
   commitFacts: new Map(),
   pullRequestFacts: new Map(),
   releaseFacts: new Map(),
-  yearAggregates: new Map(),
-  contributorYearAggregates: new Map(),
+  contributions: new Map(),
   streams: new Map(),
 });
 
@@ -109,8 +84,7 @@ const cloneStore = (store: Store): Store => ({
   commitFacts: new Map(store.commitFacts),
   pullRequestFacts: new Map(store.pullRequestFacts),
   releaseFacts: new Map(store.releaseFacts),
-  yearAggregates: new Map(store.yearAggregates),
-  contributorYearAggregates: new Map(store.contributorYearAggregates),
+  contributions: new Map(store.contributions),
   streams: new Map(store.streams),
 });
 
@@ -252,34 +226,46 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
         return rows[0] ?? null;
       },
     },
-    collectionRepositoryYearAggregate: {
-      upsert: ({ where, create, update }: YearAggregateUpsertArgs): Row => {
-        const k = where.repositoryId_year;
-        const key = `${k.repositoryId}:${k.year}`;
-        const existing = box.store.yearAggregates.get(key);
-        const row = existing ? applyUpdate(existing, update) : { ...create };
-        box.store.yearAggregates.set(key, row);
-        return row;
-      },
-      findUnique: ({ where }: YearAggregateFindUniqueArgs): Row | null => {
-        const k = where.repositoryId_year;
-        const key = `${k.repositoryId}:${k.year}`;
-        return box.store.yearAggregates.get(key) ?? null;
-      },
-    },
-    collectionContributorYearAggregate: {
+    contribution: {
       upsert: ({
         where,
         create,
         update,
-      }: ContributorAggregateUpsertArgs): Row => {
-        const k = where.repositoryId_githubUserId_year;
-        const key = `${k.repositoryId}:${String(k.githubUserId)}:${k.year}`;
-        const existing = box.store.contributorYearAggregates.get(key);
+      }: {
+        where: {
+          repositoryId_githubId_date: {
+            repositoryId: string;
+            githubId: bigint;
+            date: Date;
+          };
+        };
+        create: Row;
+        update: Row;
+      }): Row => {
+        const k = where.repositoryId_githubId_date;
+        const key = `${k.repositoryId}:${String(k.githubId)}:${k.date.toISOString().slice(0, 10)}`;
+        const existing = box.store.contributions.get(key);
         const row = existing ? applyUpdate(existing, update) : { ...create };
-        box.store.contributorYearAggregates.set(key, row);
+        box.store.contributions.set(key, row);
         return row;
       },
+      deleteMany: ({
+        where,
+      }: {
+        where: { repositoryId: string; githubId: bigint; date: Date };
+      }): { count: number } => {
+        const key = `${where.repositoryId}:${String(where.githubId)}:${where.date.toISOString().slice(0, 10)}`;
+        return { count: box.store.contributions.delete(key) ? 1 : 0 };
+      },
+    },
+    // 기본은 "요청된 사람은 모두 가입자". 가입자 필터 자체는
+    // collection-incremental.repository.spec.ts 의 전용 describe 가 검증한다.
+    user: {
+      findMany: ({
+        where,
+      }: {
+        where: { githubId: { in: readonly bigint[] } };
+      }) => where.githubId.in.map((githubId) => ({ githubId })),
     },
     collectionRepositoryStream: {
       upsert: ({ where, create, update }: StreamUpsertArgs): Row => {
@@ -489,7 +475,7 @@ describe('CollectionGenerationImportService — public-admin-exposure todo 8', (
     expect(forward.digest).toBe(reversed.digest);
   });
 
-  it('imports both public and private repositories, preserving null-author commits in repository totals but excluding them from contributor aggregates', async () => {
+  it('공개·비공개 저장소를 모두 들여오되 귀속 없는 커밋은 사람 축 테이블에 남기지 않는다', async () => {
     const { db, box } = createFakeDb();
     const service = new CollectionGenerationImportService(
       canonicalRepositoryStub(generationSnapshot('forward')),
@@ -511,18 +497,19 @@ describe('CollectionGenerationImportService — public-admin-exposure todo 8', (
     expect(publicRepo).toBeDefined();
     expect(privateRepo).toBeDefined();
 
-    const publicYearAggregate = box.store.yearAggregates.get(
-      `${publicRepo?.repositoryId}:2026`,
+    // 옛 설계는 저장소 총계라는 별도 축이 있어서 author 가 null 인 커밋도
+    // "저장소 전체"에는 포함됐다. `Contribution` 에는 그 축이 없다(ADR-010 §4) —
+    // 사람 축 하나뿐이고, 귀속을 모르는 기여는 적재하지 않는다(§5).
+    const entries = [...box.store.contributions.values()].filter(
+      (row) => row.repositoryId === publicRepo?.repositoryId,
     );
-    // both commits count toward the repository total, including the null-author one.
-    expect(publicYearAggregate?.commitCount).toBe(2);
-
-    const contributorEntries = [
-      ...box.store.contributorYearAggregates.values(),
-    ].filter((row) => row.repositoryId === publicRepo?.repositoryId);
-    // only alice (the non-null author) gets a contributor aggregate row.
-    expect(contributorEntries).toHaveLength(1);
-    expect(contributorEntries[0]?.githubLogin).toBe('alice');
+    // 귀속 있는 활동만, 그리고 날짜별로 한 칸씩 남는다(3/1 커밋 · 3/4 PR).
+    // null-author 커밋은 fact 로는 남지만 사람 축 테이블에는 자리가 없다.
+    expect(entries).toHaveLength(2);
+    expect(entries.every((row) => row.githubId === 1n)).toBe(true);
+    expect(
+      entries.reduce((sum, row) => sum + (row.commitCount as number), 0),
+    ).toBe(1);
   });
 
   it('leaves every imported stream VERIFYING with no invented frontier', async () => {

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import type {
   AcquireCanonicalLeaseInput,
   CanonicalCommitSnapshotRow,
@@ -12,7 +12,7 @@ import type {
   CanonicalReleaseRow,
   CanonicalRepositoryRow,
   CanonicalStatusSnapshot,
-} from './collection-canonical.types';
+} from '../collection-canonical.types';
 
 type SqlValue = string | number | bigint | boolean | Date | null;
 interface RawClient {

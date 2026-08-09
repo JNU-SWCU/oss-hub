@@ -6,7 +6,7 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
+import { RepositoryProvisionJobRepository } from './repository/repository-provision-job.repository';
 import { RepositoryProvisionLeaseLostError } from './repository-provision-state.helpers';
 
 assertIsolatedIntegrationDatabase({

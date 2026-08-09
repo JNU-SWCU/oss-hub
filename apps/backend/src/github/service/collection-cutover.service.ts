@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { Logger } from '@nestjs/common';
-import type { CollectionCanonicalRepository } from './collection-canonical.repository';
-import type { CanonicalLeaseKey } from './collection-canonical.types';
-import type { CollectionCutoverRepository } from './collection-cutover.repository';
+import type { CollectionCanonicalRepository } from '../repository/collection-canonical.repository';
+import type { CanonicalLeaseKey } from '../collection-canonical.types';
+import type { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
 import type {
   CutoverAggregateComparison,
   CutoverLeaseToken,
   CutoverResult,
-} from './collection-cutover.types';
+} from '../collection-cutover.types';
 import type { CollectionGenerationImportService } from './collection-generation-import.service';
 import type { CollectionSyncService } from './collection-sync.service';
 

@@ -18,11 +18,11 @@ import {
   type GithubAppClient,
   type GithubRepositoryMetadata,
 } from './github-app.client';
-import { RepositoriesRepository } from './repositories.repository';
+import { RepositoriesRepository } from './repository/repositories.repository';
 import { RepositoryOutboxConsumer } from './repository-outbox.consumer';
 import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event';
-import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
-import { RepositoryProvisionStateRepository } from './repository-provision-state.repository';
+import { RepositoryProvisionJobRepository } from './repository/repository-provision-job.repository';
+import { RepositoryProvisionStateRepository } from './repository/repository-provision-state.repository';
 import { RepositoryProvisionWorker } from './repository-provision.worker';
 import {
   DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,

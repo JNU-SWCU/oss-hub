@@ -4,7 +4,7 @@ import {
   COLLABORATOR_OUTCOMES,
   type GithubAppClient,
 } from './github-app.client';
-import type { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
+import type { RepositoryProvisionJobRepository } from './repository/repository-provision-job.repository';
 import {
   InvalidRepositoryProvisionEventError,
   parseRepositoryProvisionEvent,

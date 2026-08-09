@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { CollectionCutoverRepository } from './collection-cutover.repository';
+import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
 import {
   COLLECTION_CRON_JOB_NAME,
   CollectionSchedulerService,

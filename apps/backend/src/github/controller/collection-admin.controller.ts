@@ -10,30 +10,30 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard, type AuthenticatedRequest } from '../auth/session.guard';
+import { OriginGuard } from '../../auth/origin.guard';
+import { SessionGuard, type AuthenticatedRequest } from '../../auth/session.guard';
 import {
   COLLECTION_TRIGGER_AUDIT_ACTIONS,
   createCollectionTriggerAuditMetadata,
-} from '../audit-log/audit-log-metadata';
-import { AuditLogService } from '../audit-log/audit-log.service';
-import { DomainException } from '../common/error-code';
-import { CollectionAdminGuard } from './collection-admin.guard';
-import { CollectionCutoverRepository } from './collection-cutover.repository';
+} from '../../audit-log/audit-log-metadata';
+import { AuditLogService } from '../../audit-log/audit-log.service';
+import { DomainException } from '../../common/error-code';
+import { CollectionAdminGuard } from '../collection-admin.guard';
+import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
 import {
   COLLECTION_ERROR_CODES,
   CollectionErrorCode,
-} from './collection-error-code.enum';
-import { CollectionExternalDiscoveryService } from './collection-external-discovery.service';
-import { CollectionIncrementalRepository } from './collection-incremental.repository';
+} from '../collection-error-code.enum';
+import { CollectionExternalDiscoveryService } from '../service/collection-external-discovery.service';
+import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import {
   CollectionSyncService,
   type CollectionSyncRunResult,
-} from './collection-sync.service';
-import { CollectionExternalDiscoveryRequestDto } from './dto/collection-external-discovery-request.dto';
-import { CollectionExternalDiscoveryResponseDto } from './dto/collection-external-discovery-response.dto';
-import { CollectionRunListResponseDto } from './dto/collection-run-list-response.dto';
-import { CollectionTriggerResponseDto } from './dto/collection-trigger-response.dto';
+} from '../service/collection-sync.service';
+import { CollectionExternalDiscoveryRequestDto } from '../dto/collection-external-discovery-request.dto';
+import { CollectionExternalDiscoveryResponseDto } from '../dto/collection-external-discovery-response.dto';
+import { CollectionRunListResponseDto } from '../dto/collection-run-list-response.dto';
+import { CollectionTriggerResponseDto } from '../dto/collection-trigger-response.dto';
 
 /** 한 번에 돌려줄 실행 이력 최대 건수 — lease 행이 scope당 1건이라 사실상의 상한이다. */
 export const COLLECTION_RUN_LIST_LIMIT = 20;

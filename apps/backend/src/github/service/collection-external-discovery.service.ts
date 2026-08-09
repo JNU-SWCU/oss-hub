@@ -1,18 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 
-import { DomainException } from '../common/error-code';
-import { ConsentsService } from '../consents/consents.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { DomainException } from '../../common/error-code';
+import { ConsentsService } from '../../consents/consents.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import {
   CollectionDiscoveryClient,
   CollectionDiscoveryClientError,
-} from './collection-discovery.client';
+} from '../collection-discovery.client';
 import {
   COLLECTION_ERROR_CODES,
   CollectionErrorCode,
-} from './collection-error-code.enum';
-import { CollectionIncrementalRepository } from './collection-incremental.repository';
+} from '../collection-error-code.enum';
+import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 
 /**
  * GitHub GraphQL `contributionsCollection`의 하드 상한(1년)과 같은 폭으로 기본

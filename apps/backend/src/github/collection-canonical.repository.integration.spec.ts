@@ -1,6 +1,6 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import { CollectionCanonicalRepository } from './collection-canonical.repository';
+import { CollectionCanonicalRepository } from './repository/collection-canonical.repository';
 import type {
   CanonicalGenerationInventory,
   CanonicalLeaseToken,

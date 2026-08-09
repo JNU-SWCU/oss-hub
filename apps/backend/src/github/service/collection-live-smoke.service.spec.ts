@@ -1,8 +1,8 @@
 import {
   CollectionAppClient,
   CollectionRepository,
-} from './collection-app.client';
-import { CollectionAppTokenProvider } from './collection-app.token';
+} from '../collection-app.client';
+import { CollectionAppTokenProvider } from '../collection-app.token';
 import { CollectionLiveSmokeService } from './collection-live-smoke.service';
 
 const PUBLIC_NAME = 'synthetic-public-repository';

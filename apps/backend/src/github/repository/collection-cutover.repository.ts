@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import type {
   AcquireCutoverLeaseInput,
   CutoverLeaseToken,
-} from './collection-cutover.types';
+} from '../collection-cutover.types';
 
 /**
  * todo 14 원자 전환 quiesce lease + 검증 보조 조회. lease 획득/해제는 `CollectionSyncLease`와

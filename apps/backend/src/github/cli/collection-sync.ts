@@ -5,12 +5,12 @@ import type { PrismaService } from '../../prisma/prisma.service';
 import { CollectionAppClient } from '../collection-app.client';
 import { CollectionAppConfig } from '../collection-app.config';
 import { CollectionAppTokenProvider } from '../collection-app.token';
-import { CollectionIncrementalRepository } from '../collection-incremental.repository';
+import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import { ProviderRequestQueue } from '../collection-provider-queue';
 import {
   CollectionSyncRuntime,
   CollectionSyncService,
-} from '../collection-sync.service';
+} from '../service/collection-sync.service';
 
 /**
  * public-admin-exposure todo 10 — repository별 증분 동기화 CLI. inventory 관찰,

@@ -5,21 +5,21 @@ import { ConsentsService } from '../consents/consents.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
-import { CollectionAdminController } from './collection-admin.controller';
-import { CollectionCanonicalRepository } from './collection-canonical.repository';
+import { CollectionAdminController } from './controller/collection-admin.controller';
+import { CollectionCanonicalRepository } from './repository/collection-canonical.repository';
 import { CollectionDiscoveryClient } from './collection-discovery.client';
-import { CollectionExternalDiscoveryService } from './collection-external-discovery.service';
-import { CollectionIncrementalRepository } from './collection-incremental.repository';
+import { CollectionExternalDiscoveryService } from './service/collection-external-discovery.service';
+import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
 import { ProviderRequestQueue } from './collection-provider-queue';
 import { CollectionPublicTokenProvider } from './collection-public.token';
 import { COLLECTION_READ_PORT } from './collection-read.port';
-import { CollectionReadService } from './collection-read.service';
-import { CollectionReconciliationService } from './collection-reconciliation.service';
-import { CollectionSchedulerService } from './collection-scheduler.service';
+import { CollectionReadService } from './service/collection-read.service';
+import { CollectionReconciliationService } from './service/collection-reconciliation.service';
+import { CollectionSchedulerService } from './service/collection-scheduler.service';
 import {
   CollectionSyncRuntime,
   CollectionSyncService,
-} from './collection-sync.service';
+} from './service/collection-sync.service';
 
 import { CollectionModule } from './collection.module';
 const getMetadataArray = (key: string): unknown[] => {

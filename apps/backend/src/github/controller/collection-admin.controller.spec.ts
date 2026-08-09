@@ -2,17 +2,17 @@ import { Logger } from '@nestjs/common';
 import { GUARDS_METADATA, HTTP_CODE_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 
-import { AuditLogService } from '../audit-log/audit-log.service';
-import type { AuditLogRecord } from '../audit-log/audit-log.repository';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { AuditLogService } from '../../audit-log/audit-log.service';
+import type { AuditLogRecord } from '../../audit-log/audit-log.repository';
+import { OriginGuard } from '../../auth/origin.guard';
+import { SessionGuard } from '../../auth/session.guard';
 import { CollectionAdminController } from './collection-admin.controller';
-import { CollectionAdminGuard } from './collection-admin.guard';
-import { CollectionCutoverRepository } from './collection-cutover.repository';
-import { CollectionExternalDiscoveryService } from './collection-external-discovery.service';
-import { CollectionIncrementalRepository } from './collection-incremental.repository';
-import type { CollectionSyncRunRow } from './collection-incremental.types';
-import { CollectionSyncService } from './collection-sync.service';
+import { CollectionAdminGuard } from '../collection-admin.guard';
+import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
+import { CollectionExternalDiscoveryService } from '../service/collection-external-discovery.service';
+import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
+import type { CollectionSyncRunRow } from '../collection-incremental.types';
+import { CollectionSyncService } from '../service/collection-sync.service';
 
 describe('CollectionAdminController', () => {
   const run = jest.fn<

@@ -1,12 +1,12 @@
 import { ApplicationStatus, RepositoryVisibility } from '@prisma/client';
-import type { GithubAppClient } from '../src/repositories/github-app.client';
-import type { RepositoryProvisionJobRepository } from '../src/repositories/repository-provision-job.repository';
+import type { GithubAppClient } from '../src/github/github-app.client';
+import type { RepositoryProvisionJobRepository } from '../src/github/repository/repository-provision-job.repository';
 import type {
   ProvisionedRepository,
   RepositoryProvisionContext,
   RepositoryProvisionStateStore,
-} from '../src/repositories/repository-provision.contract';
-import { buildRepositoryOwnershipMarker } from '../src/repositories/repository-name';
+} from '../src/github/repository-provision.contract';
+import { buildRepositoryOwnershipMarker } from '../src/github/repository-name';
 
 export const PROVISION_NOW = new Date('2026-07-22T00:00:00.000Z');
 

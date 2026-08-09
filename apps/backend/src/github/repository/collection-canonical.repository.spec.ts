@@ -1,6 +1,6 @@
 import { CollectionCanonicalRepository } from './collection-canonical.repository';
-import type { CanonicalLeaseToken } from './collection-canonical.types';
-import type { PrismaService } from '../prisma/prisma.service';
+import type { CanonicalLeaseToken } from '../collection-canonical.types';
+import type { PrismaService } from '../../prisma/prisma.service';
 
 const NOW = new Date('2026-07-25T12:00:00.000Z');
 const TOKEN: CanonicalLeaseToken = {

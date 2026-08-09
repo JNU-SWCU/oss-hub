@@ -5,7 +5,7 @@ import type {
   RepositoriesRepository,
   RepositoriesTransactionStore,
   RepositoryPublishTarget,
-} from './repositories.repository';
+} from './repository/repositories.repository';
 
 /**
  * todo 20 — admin-access.integration-support.ts의 barrier 패턴을 repository 수동 공개

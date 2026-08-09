@@ -3,9 +3,9 @@ import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import type { PrismaService } from '../../prisma/prisma.service';
 import { CollectionAppConfig } from '../collection-app.config';
 import { CollectionAppTokenProvider } from '../collection-app.token';
-import { CollectionCanonicalRepository } from '../collection-canonical.repository';
-import { CollectionIncrementalRepository } from '../collection-incremental.repository';
-import { CollectionGenerationImportService } from '../collection-generation-import.service';
+import { CollectionCanonicalRepository } from '../repository/collection-canonical.repository';
+import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
+import { CollectionGenerationImportService } from '../service/collection-generation-import.service';
 
 /**
  * public-admin-exposure todo 8 — one-shot backfill CLI. Converts the latest

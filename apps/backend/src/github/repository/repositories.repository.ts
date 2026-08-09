@@ -8,9 +8,9 @@ import {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
-import { PrismaService } from '../prisma/prisma.service';
-import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event';
+import type { AuditLogTransactionWriter } from '../../audit-log/audit-log.repository';
+import { PrismaService } from '../../prisma/prisma.service';
+import { REPOSITORY_PROVISION_EVENT_TYPE } from '../repository-provision-event';
 
 export interface ClaimProvisionEventInput {
   readonly workerId: string;

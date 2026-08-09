@@ -6,10 +6,10 @@ import type {
   CanonicalPullRequestRow,
   CanonicalReleaseRow,
   CanonicalRepositoryRow,
-} from './collection-canonical.types';
-import type { CollectionCanonicalRepository } from './collection-canonical.repository';
-import type { CollectionIncrementalRepository } from './collection-incremental.repository';
-import type { CollectionStreamType } from './collection-incremental.types';
+} from '../collection-canonical.types';
+import type { CollectionCanonicalRepository } from '../repository/collection-canonical.repository';
+import type { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
+import type { CollectionStreamType } from '../collection-incremental.types';
 
 /**
  * ADR-006 조직 전체 누적·증분 수집 계약의 backfill entry point (public-admin-exposure

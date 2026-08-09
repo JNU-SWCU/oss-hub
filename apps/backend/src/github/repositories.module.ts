@@ -2,17 +2,17 @@ import { Module } from '@nestjs/common';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthModule } from '../auth/auth.module';
-import { RepositoriesController } from './repositories.controller';
+import { RepositoriesController } from './controller/repositories.controller';
 import { GithubAppClient } from './github-app.client';
 import { GithubAppTokenProvider } from './github-app.token';
 import { GithubOperationsConfig } from './github-operations.config';
-import { RepositoriesRepository } from './repositories.repository';
-import { RepositoriesService } from './repositories.service';
+import { RepositoriesRepository } from './repository/repositories.repository';
+import { RepositoriesService } from './service/repositories.service';
 import { REPOSITORIES_READ_PORT } from './repositories-read.port';
 import { RepositoryOutboxConsumer } from './repository-outbox.consumer';
-import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
+import { RepositoryProvisionJobRepository } from './repository/repository-provision-job.repository';
 import { RepositoryProvisionScheduler } from './repository-provision.scheduler';
-import { RepositoryProvisionStateRepository } from './repository-provision-state.repository';
+import { RepositoryProvisionStateRepository } from './repository/repository-provision-state.repository';
 import { RepositoryProvisionWorker } from './repository-provision.worker';
 
 @Module({

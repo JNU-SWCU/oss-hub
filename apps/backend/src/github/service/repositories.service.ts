@@ -5,17 +5,17 @@ import {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
 } from '@prisma/client';
-import type { AuditLogService } from '../audit-log/audit-log.service';
+import type { AuditLogService } from '../../audit-log/audit-log.service';
 import {
   REPOSITORY_PUBLISH_AUDIT_ACTIONS,
   createRepositoryPublishAuditMetadata,
-} from '../audit-log/audit-log-metadata';
-import type { GithubAppClient } from './github-app.client';
+} from '../../audit-log/audit-log-metadata';
+import type { GithubAppClient } from '../github-app.client';
 import {
   RepositoriesRepository,
   RepositoryPublishStateError,
   type RepositoryPublishTarget,
-} from './repositories.repository';
+} from '../repository/repositories.repository';
 
 export class RepositoryNotFoundError extends Error {
   override readonly name = 'RepositoryNotFoundError';

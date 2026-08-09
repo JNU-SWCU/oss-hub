@@ -1,5 +1,5 @@
 import { CollectionCutoverRepository } from './collection-cutover.repository';
-import type { PrismaService } from '../prisma/prisma.service';
+import type { PrismaService } from '../../prisma/prisma.service';
 
 interface MockDb {
   collectionRepositoryStream: { count: jest.Mock };

@@ -1,7 +1,7 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { REPOSITORIES_READ_PORT } from './repositories-read.port';
 import { RepositoriesModule } from './repositories.module';
-import { RepositoriesService } from './repositories.service';
+import { RepositoriesService } from './service/repositories.service';
 
 const getMetadataArray = (key: string): unknown[] => {
   const metadata = Reflect.getMetadata(key, RepositoriesModule) as unknown;

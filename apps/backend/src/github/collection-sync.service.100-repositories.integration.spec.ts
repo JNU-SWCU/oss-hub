@@ -11,11 +11,11 @@ import {
   type SyntheticRepositorySeed,
 } from '../../test/collection-app.synthetic-provider';
 import { PrismaService } from '../prisma/prisma.service';
-import { CollectionIncrementalRepository } from './collection-incremental.repository';
+import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
 import {
   CollectionSyncService,
   type CollectionSyncRunResult,
-} from './collection-sync.service';
+} from './service/collection-sync.service';
 import { ProviderRequestQueue } from './collection-provider-queue';
 
 /**

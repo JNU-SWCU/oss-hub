@@ -2,13 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { randomUUID } from 'node:crypto';
 
-import { DomainException } from '../common/error-code';
-import { PROCESS_RUNTIME_CONFIG } from '../runtime-config/runtime-config.instance';
-import { CollectionCutoverRepository } from './collection-cutover.repository';
+import { DomainException } from '../../common/error-code';
+import { PROCESS_RUNTIME_CONFIG } from '../../runtime-config/runtime-config.instance';
+import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
 import {
   COLLECTION_ERROR_CODES,
   CollectionErrorCode,
-} from './collection-error-code.enum';
+} from '../collection-error-code.enum';
 import {
   CollectionSyncService,
   type CollectionSyncRunResult,

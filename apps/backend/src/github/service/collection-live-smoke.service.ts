@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto';
 import {
   CollectionAppClient,
   CollectionRepository,
-} from './collection-app.client';
-import { CollectionAppTokenProvider } from './collection-app.token';
+} from '../collection-app.client';
+import { CollectionAppTokenProvider } from '../collection-app.token';
 
 export const COLLECTION_LIVE_SMOKE_SCHEMA_VERSION = '1';
 export const COLLECTION_LIVE_SMOKE_ENDPOINTS = [

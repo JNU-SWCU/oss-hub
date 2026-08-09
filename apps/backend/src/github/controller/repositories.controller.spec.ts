@@ -3,9 +3,9 @@ import {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
 } from '@prisma/client';
-import { SessionGuard } from '../auth/session.guard';
+import { SessionGuard } from '../../auth/session.guard';
 import { RepositoriesController } from './repositories.controller';
-import type { RepositoriesService } from './repositories.service';
+import type { RepositoriesService } from '../service/repositories.service';
 
 const UPDATED_AT = new Date('2026-07-22T00:00:00.000Z');
 

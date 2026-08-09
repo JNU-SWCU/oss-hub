@@ -7,7 +7,7 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import { RepositoriesRepository } from './repositories.repository';
+import { RepositoriesRepository } from './repository/repositories.repository';
 import { RepositoryOutboxConsumer } from './repository-outbox.consumer';
 import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event';
 

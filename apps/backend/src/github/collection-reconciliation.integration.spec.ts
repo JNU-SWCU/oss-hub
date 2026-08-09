@@ -5,8 +5,8 @@ import {
   syntheticRepository,
 } from '../../test/collection-app.fixture';
 import { PrismaService } from '../prisma/prisma.service';
-import { CollectionCanonicalRepository } from './collection-canonical.repository';
-import { CollectionReconciliationService } from './collection-reconciliation.service';
+import { CollectionCanonicalRepository } from './repository/collection-canonical.repository';
+import { CollectionReconciliationService } from './service/collection-reconciliation.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
