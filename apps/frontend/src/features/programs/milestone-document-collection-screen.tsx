@@ -10,6 +10,7 @@ import {
 import {
   getMilestoneDocumentCollection,
   MILESTONE_DOCUMENT_COLLECTION_PAGE_SIZE,
+  type MilestoneDocumentCollectionArchiveGrouping,
   type MilestoneDocumentCollectionFilter,
   type MilestoneDocumentCollectionQueryInput,
 } from './milestone-document-collection-api';
@@ -73,6 +74,18 @@ export function MilestoneDocumentCollectionScreen({
   );
   /** 저장되지 않고 버려진 판정을 알리는 문구 — 패널을 닫은 뒤에도 남아야 한다. */
   const [reviewNotice, setReviewNotice] = useState<string | null>(null);
+  /**
+   * 전체 제출물 ZIP의 폴더 구조. **조회 조건이 아니라 표시 전용 상태**라 `query`와 따로
+   * 둔다 — 이 값을 `query`에 섞으면 토글을 켤 때마다 표를 통째로 다시 부르고, 그동안
+   * 열어 둔 판정 패널까지 닫힌다(필터·페이지 핸들러가 하는 일이 그것이다).
+   *
+   * 같은 이유로 URL 쿼리로도 올리지 않는다. 주소에 남길 만한 것은 「무엇을 보고 있는가」
+   * 이고, 이 값은 아직 누르지도 않은 내려받기의 옵션일 뿐이라 되돌아올 자리를 만들지
+   * 않는다. 기본값 `TEAM`은 서버 쪽 기본과 같지만 링크에는 언제나 명시해 보낸다
+   * (`milestoneDocumentCollectionArchiveHref`).
+   */
+  const [archiveGrouping, setArchiveGrouping] =
+    useState<MilestoneDocumentCollectionArchiveGrouping>('TEAM');
   const requestIdRef = useRef(0);
   /**
    * 지금 화면의 조회 조건. 표를 다시 부르는 쪽이 **호출 시점의 조건**을 쓰게 하려는 것이다.
@@ -301,6 +314,12 @@ export function MilestoneDocumentCollectionScreen({
       errorMessage={errorMessage}
       review={review}
       reviewNotice={reviewNotice}
+      archiveGrouping={archiveGrouping}
+      /*
+       * 표시만 바꾼다 — 조회도, 열어 둔 판정 패널도 건드리지 않는다. 담기는 파일은 그대로고
+       * ZIP 안의 경로만 뒤집히므로 다시 부를 것이 없다.
+       */
+      onArchiveGroupingChange={setArchiveGrouping}
       onFilterChange={(filter: MilestoneDocumentCollectionFilter) => {
         // 조회 조건이 바뀌면 열어 둔 판정은 닫는다 — 그 팀이 다음 페이지에 없을 수 있고,
         // 적어 둔 사유가 남으면 엉뚱한 팀 칸에 그대로 저장된다. 보내는 중이던 판정도

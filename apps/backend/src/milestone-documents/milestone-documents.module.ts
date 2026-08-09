@@ -9,6 +9,7 @@ import {
   MilestoneDocumentFilesController,
   MilestoneDocumentsController,
 } from './milestone-documents.controller';
+import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
@@ -28,6 +29,7 @@ import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard'
     MilestoneDocumentsRepository,
     MilestoneDocumentFilesService,
     MilestoneDocumentReviewsService,
+    MilestoneDocumentArchiveService,
     MilestoneDocumentsStaffGuard,
     SubmissionFileStorageConfig,
     S3SubmissionFileStorage,

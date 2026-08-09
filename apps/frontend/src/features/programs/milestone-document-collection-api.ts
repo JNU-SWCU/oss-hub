@@ -254,3 +254,42 @@ export function milestoneDocumentSubmissionFileHref(
     `${documentsPath(milestoneId)}/${encodeURIComponent(documentId)}/applications/${encodeURIComponent(applicationId)}/file`,
   );
 }
+
+/**
+ * 전체 제출물 ZIP 안에서 **폴더를 무엇으로 가를지**.
+ *
+ * - `TEAM` — `팀/서류.pdf`. 한 팀의 서류가 한 자리에 모인다(팀 단위로 훑을 때).
+ * - `DOCUMENT` — `서류/팀.pdf`. 같은 서류가 한 자리에 모인다(같은 항목을 연달아 볼 때).
+ *
+ * ⚠ **담는 파일은 둘이 똑같다** — 뒤집히는 것은 ZIP 안의 경로뿐이다. 이 값으로 무엇이
+ * 들어가고 빠지는지가 달라진다고 읽히면, 교직원은 「서류 종류별」로 받은 ZIP을 일부만
+ * 담긴 것으로 여긴다.
+ */
+export type MilestoneDocumentCollectionArchiveGrouping = 'TEAM' | 'DOCUMENT';
+
+/**
+ * `<a href>`로 바로 거는 **전체 제출물 ZIP** 경로. 교직원 전용이고, 브라우저가 세션
+ * 쿠키를 실어 그대로 받는다(`milestoneDocumentSubmissionFileHref`와 같은 방식).
+ *
+ * `apiPath`가 `/api/v1`의 유일한 소유자다 — 여기서 경로를 손으로 잇지 않고, 쿼리도
+ * 문자열을 붙이지 않고 `URLSearchParams`로 만든다(값에 든 특수문자를 흘리지 않는다).
+ *
+ * `groupBy`는 **언제나 싣는다**. 서버 기본값에 기대면 그 기본값이 바뀌는 날 화면은
+ * 아무것도 고치지 않았는데 다른 구조의 ZIP을 내려준다 — 조회 쿼리에서
+ * `page`·`pageSize`·`filter`를 늘 함께 싣는 것과 같은 규칙이다
+ * (`buildMilestoneDocumentCollectionSearchParams`).
+ *
+ * ⚠ 이 ZIP은 **필터·페이지와 무관하게 마일스톤 전체 팀**을 담는다. 화면의 빠른 필터나
+ * 지금 페이지를 따라가지 않으므로, 이 링크를 그리는 쪽은 그 사실을 사람에게 말해야
+ * 한다 — 「필수 서류 미제출」로 걸러 놓고 받은 교직원은 그 팀들만 담겼다고 읽는다.
+ */
+export function milestoneDocumentCollectionArchiveHref(
+  milestoneId: string,
+  grouping: MilestoneDocumentCollectionArchiveGrouping,
+): string {
+  const params = new URLSearchParams();
+  params.set('groupBy', grouping);
+  return apiPath(
+    `${documentsPath(milestoneId)}/collection/archive?${params.toString()}`,
+  );
+}

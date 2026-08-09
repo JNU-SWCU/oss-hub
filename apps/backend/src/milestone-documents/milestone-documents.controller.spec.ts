@@ -1,7 +1,12 @@
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
-import type { ExecutionContext, INestApplication } from '@nestjs/common';
+import type {
+  ExecutionContext,
+  INestApplication,
+  StreamableFile,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import type { Response } from 'express';
 import { Readable } from 'node:stream';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/session.guard';
@@ -11,6 +16,9 @@ import {
   MilestoneDocumentFilesController,
   MilestoneDocumentsController,
 } from './milestone-documents.controller';
+import { MilestoneDocumentArchiveQueryRequestDto } from './dto/milestone-document-archive-query.dto';
+import type { MilestoneDocumentArchive } from './milestone-document-archive.service';
+import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsService } from './milestone-documents.service';
@@ -151,6 +159,20 @@ const upload = jest.fn().mockResolvedValue({
   expiresAt: '2028-01-01T00:00:00.000Z',
 });
 
+// MilestoneDocumentArchiveService 목
+// 마일스톤 이름과 마감일이 붙은 한글 ZIP 이름 — RFC 5987 인코딩이 실제로 걸리는지 본다.
+const ARCHIVE_FILE_NAME = '1차 중간산출물_2026-08-20.zip';
+const ARCHIVE_BODY = 'zip-body';
+// 호출마다 새 스트림을 만든다 — 하나를 돌려쓰면 두 번째 요청이 이미 소진된 스트림을 받는다.
+const archiveForStaff = jest.fn((): Promise<MilestoneDocumentArchive> =>
+  Promise.resolve({
+    body: Readable.from(Buffer.from(ARCHIVE_BODY)),
+    fileName: ARCHIVE_FILE_NAME,
+    contentType: 'application/zip',
+    contentLength: ARCHIVE_BODY.length,
+  }),
+);
+
 // MilestoneDocumentReviewsService 목
 const review = jest.fn().mockResolvedValue({
   id: 'synthetic-review',
@@ -167,6 +189,7 @@ beforeEach(() => {
   deleteDocument.mockClear();
   reorderDocuments.mockClear();
   collectForStaff.mockClear();
+  archiveForStaff.mockClear();
   submit.mockClear();
   uploadTemplate.mockClear();
   downloadTemplate.mockClear();
@@ -206,6 +229,10 @@ beforeAll(async () => {
       {
         provide: MilestoneDocumentReviewsService,
         useValue: { review },
+      },
+      {
+        provide: MilestoneDocumentArchiveService,
+        useValue: { archiveForStaff },
       },
     ],
   })
@@ -660,6 +687,401 @@ it('제출 파일 다운로드는 다시 붙인 이름으로 attachment 스트�
   );
 });
 
+describe('교직원 서류 일괄 내려받기(ZIP)', () => {
+  const archiveUrl = (query = ''): string =>
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/collection/archive${query}`;
+
+  it('groupBy를 안 주면 팀별 묶기(TEAM)로 서비스를 부른다', async () => {
+    // Given / When
+    const response = await fetch(archiveUrl());
+
+    // Then: 기본값은 DTO(toGrouping)가 정한다 — 서비스는 언제나 확정된 값을 받는다.
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe(ARCHIVE_BODY);
+    expect(archiveForStaff).toHaveBeenCalledWith('synthetic-milestone', 'TEAM');
+  });
+
+  it('groupBy=DOCUMENT는 그대로 서비스에 전달한다', async () => {
+    // Given / When
+    const response = await fetch(archiveUrl('?groupBy=DOCUMENT'));
+
+    // Then
+    expect(response.status).toBe(200);
+    expect(archiveForStaff).toHaveBeenCalledWith(
+      'synthetic-milestone',
+      'DOCUMENT',
+    );
+  });
+
+  it('ZIP 응답은 application/zip · attachment · private no-store로 나간다', async () => {
+    // Given / When
+    const response = await fetch(archiveUrl());
+
+    // Then
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('application/zip');
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    const disposition = response.headers.get('content-disposition') ?? '';
+    expect(disposition).toContain('attachment');
+    // 한글 이름은 RFC 5987로 실어야 브라우저가 `_____.zip`이 아닌 제 이름으로 저장한다.
+    expect(disposition).toContain(
+      `filename*=UTF-8''${encodeURIComponent(ARCHIVE_FILE_NAME)}`,
+    );
+    expect(disposition).toContain('.zip');
+  });
+
+  it('길이를 아는 ZIP은 Content-Length를 실어 보낸다', async () => {
+    // Given / When
+    const response = await fetch(archiveUrl());
+
+    // Then: 이 값이 있어야 브라우저가 중간에 끊긴 내려받기를 실패로 판정한다.
+    expect(response.headers.get('content-length')).toBe(
+      String(ARCHIVE_BODY.length),
+    );
+  });
+
+  it('길이를 모르는 ZIP은 Content-Length를 아예 붙이지 않는다 — 청크 전송이다', async () => {
+    // Given: 크기를 미리 셀 수 없었던 압축(contentLength === null).
+    archiveForStaff.mockResolvedValueOnce({
+      body: Readable.from(Buffer.from(ARCHIVE_BODY)),
+      fileName: ARCHIVE_FILE_NAME,
+      contentType: 'application/zip',
+      contentLength: null,
+    });
+
+    // When
+    const response = await fetch(archiveUrl());
+
+    // Then: `String(null)`이 헤더로 나가면 받는 쪽이 길이를 0이나 오류로 읽는다.
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-length')).toBeNull();
+    expect(response.headers.get('content-type')).toBe('application/zip');
+    await expect(response.text()).resolves.toBe(ARCHIVE_BODY);
+  });
+
+  it('일괄 내려받기 경로(collection/archive)는 :documentId 경로로 잘못 잡히지 않는다', async () => {
+    // Given / When
+    await fetch(archiveUrl());
+
+    // Then: 수합 표도, 서류 항목 상세 계열 핸들러도 아니라 일괄 내려받기 핸들러가 탄다.
+    expect(archiveForStaff).toHaveBeenCalledTimes(1);
+    expect(collectForStaff).not.toHaveBeenCalled();
+    expect(downloadTemplate).not.toHaveBeenCalled();
+  });
+
+  it.each([['TEAMS'], ['team'], ['']])(
+    'groupBy가 %p이면 서비스 호출 전에 400으로 거절한다',
+    async (groupBy) => {
+      // Given: 오타·소문자·빈 값을 조용히 기본값으로 접으면 교직원은 팀별로 묶었다고 믿고
+      // 서류별로 묶인 ZIP을 받는다.
+      const response = await fetch(
+        archiveUrl(`?groupBy=${encodeURIComponent(groupBy)}`),
+      );
+
+      // Then
+      expect(response.status).toBe(400);
+      expect(archiveForStaff).not.toHaveBeenCalled();
+    },
+  );
+
+  it('groupBy를 배열로 보내면 400으로 거절한다', async () => {
+    // Given: `?groupBy=TEAM&groupBy=DOCUMENT`는 express가 배열로 파싱한다.
+    const response = await fetch(archiveUrl('?groupBy=TEAM&groupBy=DOCUMENT'));
+
+    // Then
+    expect(response.status).toBe(400);
+    expect(archiveForStaff).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['page', 'page=2'],
+    ['filter', 'filter=HAS_MISSING'],
+  ])(
+    '이 경로가 받지 않는 쿼리(%s)는 400으로 거절한다 — 필터·페이지는 계약에 없다',
+    async (_name, query) => {
+      // Given: 「필수 서류 미제출」로 걸러 놓고 받은 ZIP을 그 팀들만 담긴 것으로 읽으면
+      // 안 되므로, 표의 쿼리가 이 경로에서 조용히 무시되는 대신 드러나게 막힌다.
+      const response = await fetch(archiveUrl(`?${query}`));
+
+      // Then
+      expect(response.status).toBe(400);
+      expect(archiveForStaff).not.toHaveBeenCalled();
+    },
+  );
+
+  /**
+   * 압축을 흘려 보내다 실패했을 때.
+   *
+   * ⚠ 이 갈래를 덮지 않으면 Nest의 **기본 errorHandler**로 조용히 되돌아간다. 기본 구현은
+   * `res.statusCode = 400; res.send(err.message)`라서 이 저장소의 ProblemDetailFilter를 거치지
+   * 않은 **오류 원문**이 그대로 본문이 되고, 헤더에는 이미 `application/zip`과 첨부 파일명이
+   * 붙어 있어 받는 쪽은 ZIP인 줄 알고 저장한다.
+   *
+   * 오류는 스트림이 흐르는 도중에 나야 재현되므로 HTTP 요청으로는 시점을 고정할 수 없다.
+   * 대신 핸들러가 돌려준 StreamableFile에서 `errorHandler`를 꺼내 세 갈래(헤더 전·헤더 후·
+   * 파괴됨)를 그대로 부른다.
+   */
+  describe('압축 도중 실패', () => {
+    const ARCHIVE_REQUEST_PATH =
+      '/api/v1/milestones/synthetic-milestone/documents/collection/archive';
+    const STORAGE_ERROR_MESSAGE =
+      'synthetic-bucket 연결이 끊겼다 (secret-token-would-leak-here)';
+
+    /** 컨트롤러가 실제로 손대는 express Response의 부분집합. */
+    interface ArchiveResponseStub {
+      headersSent: boolean;
+      destroyed: boolean;
+      req: { path: string };
+      setHeader(name: string, value: string): ArchiveResponseStub;
+      removeHeader(name: string): void;
+      once(event: string, listener: () => void): ArchiveResponseStub;
+      status(code: number): ArchiveResponseStub;
+      contentType(type: string): ArchiveResponseStub;
+      json(body: unknown): ArchiveResponseStub;
+      end(): ArchiveResponseStub;
+    }
+
+    interface ArchiveResponseProbe {
+      readonly response: Response;
+      /** 지금 응답에 실려 있는 헤더(소문자 이름 → 값). removeHeader가 실제로 지운다. */
+      readonly headers: Map<string, string>;
+      readonly closeListeners: (() => void)[];
+      readonly written: {
+        status?: number;
+        contentType?: string;
+        body?: unknown;
+        ended: boolean;
+      };
+    }
+
+    const createArchiveResponseProbe = (
+      state: { headersSent?: boolean; destroyed?: boolean } = {},
+    ): ArchiveResponseProbe => {
+      const headers = new Map<string, string>();
+      const closeListeners: (() => void)[] = [];
+      const written: ArchiveResponseProbe['written'] = { ended: false };
+      const stub: ArchiveResponseStub = {
+        headersSent: state.headersSent ?? false,
+        destroyed: state.destroyed ?? false,
+        req: { path: ARCHIVE_REQUEST_PATH },
+        setHeader(name, value) {
+          headers.set(name.toLowerCase(), value);
+          return stub;
+        },
+        removeHeader(name) {
+          headers.delete(name.toLowerCase());
+        },
+        once(event, listener) {
+          if (event === 'close') closeListeners.push(listener);
+          return stub;
+        },
+        status(code) {
+          written.status = code;
+          return stub;
+        },
+        contentType(type) {
+          written.contentType = type;
+          return stub;
+        },
+        json(body) {
+          written.body = body;
+          return stub;
+        },
+        end() {
+          written.ended = true;
+          return stub;
+        },
+      };
+      return {
+        response: stub as unknown as Response,
+        headers,
+        closeListeners,
+        written,
+      };
+    };
+
+    /**
+     * Nest가 errorHandler에 함께 넘기는 좁은 응답 객체. 컨트롤러의 핸들러는 이것을 **쓰지
+     * 않지만**, 기본 errorHandler는 여기에 400과 오류 원문을 쓴다 — 그래서 이 객체가
+     * 그대로인지가 「기본 동작으로 되돌아가지 않았다」의 증거가 된다.
+     */
+    type NestStreamableResponse = Parameters<StreamableFile['errorHandler']>[1];
+
+    const createNestStreamableProbe = (): {
+      response: NestStreamableResponse;
+      sent: string[];
+    } => {
+      const sent: string[] = [];
+      return {
+        response: {
+          destroyed: false,
+          headersSent: false,
+          statusCode: 200,
+          send: (body) => {
+            sent.push(body);
+          },
+          end: () => undefined,
+        },
+        sent,
+      };
+    };
+
+    const streamArchive = (
+      probe: ArchiveResponseProbe,
+    ): Promise<StreamableFile> => {
+      if (application === undefined) {
+        throw new Error('테스트 애플리케이션이 아직 뜨지 않았다');
+      }
+      return application
+        .get(MilestoneDocumentsController)
+        .archive(
+          'synthetic-milestone',
+          new MilestoneDocumentArchiveQueryRequestDto(),
+          probe.response,
+        );
+    };
+
+    let loggedErrors: unknown[];
+
+    beforeEach(() => {
+      loggedErrors = [];
+      jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation((message: unknown) => {
+          loggedErrors.push(message);
+        });
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('헤더가 나가기 전에 실패하면 503 problem+json으로 바꾸고 ZIP 헤더를 걷어 낸다', async () => {
+      // Given: 성공을 전제로 Content-Length·Content-Disposition이 이미 붙어 있다.
+      const probe = createArchiveResponseProbe();
+      const streamable = await streamArchive(probe);
+      expect(probe.headers.get('content-length')).toBe(
+        String(ARCHIVE_BODY.length),
+      );
+      expect(probe.headers.has('content-disposition')).toBe(true);
+      const nest = createNestStreamableProbe();
+
+      // When
+      streamable.errorHandler(new Error(STORAGE_ERROR_MESSAGE), nest.response);
+
+      // Then: ZIP이 아닌 것을 ZIP이라고 말하지 않는다.
+      expect(probe.headers.has('content-length')).toBe(false);
+      expect(probe.headers.has('content-disposition')).toBe(false);
+      expect(probe.written.status).toBe(503);
+      expect(probe.written.contentType).toBe('application/problem+json');
+      expect(probe.written.body).toEqual({
+        type: 'about:blank',
+        title: 'Service Unavailable',
+        status: 503,
+        // 오류 원문이 아니라 사람에게 보여 줄 문구가 나간다.
+        detail: '파일 저장소를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
+        instance: ARCHIVE_REQUEST_PATH,
+        code: 'MSD_012',
+      });
+    });
+
+    it('오류 원문을 본문으로 내보내지 않는다 — Nest 기본 errorHandler로 되돌아가면 샌다', async () => {
+      // Given
+      const probe = createArchiveResponseProbe();
+      const streamable = await streamArchive(probe);
+      const nest = createNestStreamableProbe();
+
+      // When
+      streamable.errorHandler(new Error(STORAGE_ERROR_MESSAGE), nest.response);
+
+      // Then: 기본 구현이었다면 statusCode가 400이 되고 send()로 원문이 나갔을 자리다.
+      expect(nest.sent).toEqual([]);
+      expect(nest.response.statusCode).toBe(200);
+      expect(JSON.stringify(probe.written.body)).not.toContain(
+        STORAGE_ERROR_MESSAGE,
+      );
+      expect(probe.written.status).not.toBe(400);
+    });
+
+    it('헤더가 이미 나갔으면 본문을 새로 쓰지 않고 끊는다', async () => {
+      // Given: 한 바이트라도 나갔으면 되돌릴 것이 없다 — 미리 실어 둔 Content-Length가
+      // 브라우저에게 「덜 받았다」를 말해 준다.
+      const probe = createArchiveResponseProbe({ headersSent: true });
+      const streamable = await streamArchive(probe);
+      const nest = createNestStreamableProbe();
+
+      // When
+      streamable.errorHandler(new Error(STORAGE_ERROR_MESSAGE), nest.response);
+
+      // Then
+      expect(probe.written.ended).toBe(true);
+      expect(probe.written.status).toBeUndefined();
+      expect(probe.written.body).toBeUndefined();
+      // 이미 나간 헤더를 걷으려 들지 않는다(걷어도 소용없고 오류만 난다).
+      expect(probe.headers.has('content-disposition')).toBe(true);
+    });
+
+    it('응답이 이미 파괴됐으면 아무것도 하지 않는다', async () => {
+      // Given: 교직원이 내려받기를 취소해 소켓이 이미 닫힌 뒤다.
+      const probe = createArchiveResponseProbe({
+        destroyed: true,
+        headersSent: true,
+      });
+      const streamable = await streamArchive(probe);
+      const nest = createNestStreamableProbe();
+
+      // When
+      streamable.errorHandler(new Error(STORAGE_ERROR_MESSAGE), nest.response);
+
+      // Then: 닫힌 소켓에 쓰면 잡을 곳 없는 예외가 된다.
+      expect(probe.written.ended).toBe(false);
+      expect(probe.written.status).toBeUndefined();
+      expect(probe.written.body).toBeUndefined();
+    });
+
+    it('실패는 서버 로그에 남긴다 — 「받다가 멈췄다」 신고에 맞댈 근거가 된다', async () => {
+      // Given
+      const probe = createArchiveResponseProbe({ destroyed: true });
+      const streamable = await streamArchive(probe);
+      const nest = createNestStreamableProbe();
+
+      // When
+      streamable.errorHandler(new Error(STORAGE_ERROR_MESSAGE), nest.response);
+
+      // Then: 응답을 못 쓰는 갈래에서도 로그는 남는다.
+      expect(loggedErrors).toHaveLength(1);
+      expect(String(loggedErrors[0])).toContain(STORAGE_ERROR_MESSAGE);
+    });
+
+    it('응답이 close를 내면 압축 스트림을 파괴한다 — 취소해도 서버가 계속 끌어오면 안 된다', async () => {
+      // Given: Nest의 Express 어댑터는 `stream.pipe(response)`만 하고, pipe는 받는 쪽이 닫혀도
+      // 주는 쪽을 파괴하지 않는다(unpipe만 한다).
+      const body = Readable.from(Buffer.from(ARCHIVE_BODY));
+      const destroy = jest.spyOn(body, 'destroy');
+      archiveForStaff.mockResolvedValueOnce({
+        body,
+        fileName: ARCHIVE_FILE_NAME,
+        contentType: 'application/zip',
+        contentLength: ARCHIVE_BODY.length,
+      });
+      const probe = createArchiveResponseProbe();
+
+      // When
+      await streamArchive(probe);
+
+      // Then
+      expect(probe.closeListeners).toHaveLength(1);
+      expect(destroy).not.toHaveBeenCalled();
+
+      // When: 교직원이 내려받기를 취소했다.
+      for (const listener of probe.closeListeners) listener();
+
+      // Then
+      expect(destroy).toHaveBeenCalledTimes(1);
+    });
+  });
+});
+
 describe('교직원 서류 제출물 판정', () => {
   /**
    * 수합 표 칸이 준 「본 그 버전」 — 프런트는 칸의 `revision`과 `review.id`를 그대로
@@ -878,6 +1300,15 @@ describe('교직원 전용 endpoint의 가드 구성', () => {
     const guards = readHandlerGuards('collection');
 
     // Then
+    expect(guards).toEqual([SessionGuard, MilestoneDocumentsStaffGuard]);
+  });
+
+  it('서류 일괄 내려받기는 SessionGuard + MilestoneDocumentsStaffGuard를 붙인다', () => {
+    // Given / When
+    const guards = readHandlerGuards('archive');
+
+    // Then: 마일스톤의 모든 제출물을 한 번에 내보내는 경로다 — 교직원 가드가 빠지면
+    // 학생 세션 하나로 전체 산출물을 통째로 가져갈 수 있다.
     expect(guards).toEqual([SessionGuard, MilestoneDocumentsStaffGuard]);
   });
 

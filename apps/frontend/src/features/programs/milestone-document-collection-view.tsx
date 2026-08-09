@@ -26,8 +26,10 @@ import {
 } from './milestone-document-collection';
 import {
   MILESTONE_DOCUMENT_COLLECTION_FILTERS,
+  milestoneDocumentCollectionArchiveHref,
   milestoneDocumentSubmissionFileHref,
   type MilestoneDocumentCollection,
+  type MilestoneDocumentCollectionArchiveGrouping,
   type MilestoneDocumentCollectionCell,
   type MilestoneDocumentCollectionDocument,
   type MilestoneDocumentCollectionFilter,
@@ -61,6 +63,13 @@ const TABLE_CARD = 'min-w-0 overflow-hidden rounded-card border border-border';
  */
 const STICKY_TEAM_CELL = 'sticky left-0 z-10 min-w-48 bg-background';
 const SCROLL_HINT_ID = 'milestone-document-collection-scroll-hint';
+/**
+ * ZIP 링크가 가리키는 설명. 표 위 안내문(`SCROLL_HINT_ID`)과 **다른 문단**이다 —
+ * 그쪽은 「지금 보고 있는 표」가 페이지 한 장임을 말하고, 이쪽은 「받는 ZIP」이 그
+ * 표와 무관하다는 정반대의 사실을 말한다. 한 문단에 붙이면 둘이 섞여 읽힌다.
+ */
+const ARCHIVE_HINT_ID = 'milestone-document-collection-archive-hint';
+const ARCHIVE_GROUPING_ID = 'milestone-document-collection-archive-grouping';
 
 const FILTER_BUTTON_BASE =
   'h-control rounded-control px-4 text-small font-semibold transition-colors';
@@ -82,6 +91,14 @@ export interface MilestoneDocumentCollectionViewProps {
    * 났는지** 말할 자리가 필요해서 표 쪽에 둔다(패널 안 오류 문구와 다른 자리다).
    */
   readonly reviewNotice: string | null;
+  /**
+   * 전체 제출물 ZIP의 폴더 구조. **조회 조건이 아니다** — 이 값이 바뀌어도 표는 그대로고
+   * 내려받기 링크의 `groupBy`만 바뀐다(컨테이너가 `useState`로만 들고 있는 이유다).
+   */
+  readonly archiveGrouping: MilestoneDocumentCollectionArchiveGrouping;
+  readonly onArchiveGroupingChange: (
+    grouping: MilestoneDocumentCollectionArchiveGrouping,
+  ) => void;
   readonly onFilterChange: (filter: MilestoneDocumentCollectionFilter) => void;
   readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
@@ -263,6 +280,89 @@ function CollectionFilterButtons({
           {collectionFilterCountFor(filterCounts, option)}팀
         </button>
       ))}
+    </div>
+  );
+}
+
+/**
+ * 전체 제출물 ZIP 조작 — 내려받기 링크 하나와 폴더 구조 토글 하나.
+ *
+ * 토글을 바꾸면 링크의 `href`가 그 자리에서 바뀐다. **담기는 파일은 같고 ZIP 안의 경로만
+ * 뒤집힌다** — 조회를 다시 부르지 않는 이유이자, 이 토글을 조회 조건 옆에 두면서도
+ * 필터 칩과 다른 무리로 묶어 그리는 이유다.
+ */
+function CollectionArchiveControls({
+  milestoneId,
+  archiveGrouping,
+  onArchiveGroupingChange,
+}: {
+  readonly milestoneId: string;
+  readonly archiveGrouping: MilestoneDocumentCollectionArchiveGrouping;
+  readonly onArchiveGroupingChange: (
+    grouping: MilestoneDocumentCollectionArchiveGrouping,
+  ) => void;
+}): ReactElement {
+  return (
+    <div className="flex min-w-0 flex-col items-start gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+        <Button asChild variant="outline">
+          {/*
+           * 앱 안의 이동이 아니라 **파일을 받는 링크**라 `next/link`가 아니라 평범한
+           * `<a>`다. 라우터가 가로채면 이 경로를 화면 전환으로 다루려 들어 응답이
+           * 파일로 떨어지지 않는다.
+           *
+           * ⚠ **`download` 속성을 일부러 안 쓴다.** 그 속성이 붙으면 브라우저가 응답
+           * 본문을 **상태 코드와 무관하게** 파일로 저장한다 — 세션이 만료되거나(401)
+           * 권한이 사라지거나(403) 마일스톤이 없어지면(404) 교직원은 오류 대신
+           * **오류 JSON이 담긴 파일**을 받고 무엇이 잘못됐는지 영영 모른다. 속성이
+           * 없어도 성공 응답은 서버의 `Content-Disposition: attachment`가 그대로
+           * 내려받게 하므로 정상 동선은 똑같다. 같은 화면의 제출 파일 링크도 같은 방식이다.
+           */}
+          <a
+            href={milestoneDocumentCollectionArchiveHref(
+              milestoneId,
+              archiveGrouping,
+            )}
+            aria-describedby={ARCHIVE_HINT_ID}
+          >
+            전체 내려받기(ZIP)
+          </a>
+        </Button>
+        {/*
+         * 라벨을 `htmlFor`로 묶어 스크린리더가 「무엇을 켜는가」를 읽게 한다 — 체크박스만
+         * 두면 「선택 안 함」만 들린다. 표기는 이 저장소의 다른 체크박스와 같은 모양이다
+         * (`milestone-document-editor.tsx`의 「필수 제출」).
+         */}
+        <span className="flex min-w-0 items-center gap-2">
+          <input
+            id={ARCHIVE_GROUPING_ID}
+            type="checkbox"
+            checked={archiveGrouping === 'DOCUMENT'}
+            onChange={(event) =>
+              onArchiveGroupingChange(
+                event.target.checked ? 'DOCUMENT' : 'TEAM',
+              )
+            }
+          />
+          <label
+            htmlFor={ARCHIVE_GROUPING_ID}
+            className="text-small font-semibold break-keep"
+          >
+            서류 종류별로 묶기
+          </label>
+        </span>
+      </div>
+      {/*
+       * ZIP이 화면과 다른 것을 담는다는 사실은 **받기 전에** 말해야 한다. 「필수 서류
+       * 미제출」로 걸러 놓은 교직원은 눈앞의 표가 곧 받을 것이라고 읽으므로, 이 한 줄이
+       * 없으면 전체가 담긴 ZIP을 독촉 대상 명단으로 오해한 채 배포한다.
+       */}
+      <p
+        id={ARCHIVE_HINT_ID}
+        className="text-small text-muted-foreground break-keep"
+      >
+        빠른 필터·페이지와 무관하게 이 마일스톤의 전체 팀을 담습니다.
+      </p>
     </div>
   );
 }
@@ -579,12 +679,32 @@ function CollectionBody(
     );
   }
 
-  const filterButtons = (
-    <CollectionFilterButtons
-      filterCounts={filterCounts}
-      filter={props.filter}
-      onFilterChange={props.onFilterChange}
-    />
+  /*
+   * 빠른 필터와 ZIP 조작은 같은 줄에 선다. 좁은 화면(375·320px)에서는 `flex-col`로
+   * 쌓아 가로로 넘치지 않게 한다 — 두 무리를 한 줄에 붙들어 두면 표가 아니라 조작 줄
+   * 때문에 화면 전체가 좌우로 흔들린다.
+   *
+   * ⚠ 여기가 ZIP 조작의 **시작점이자 경계**다. 위에서 이미 돌아간 세 빈 상태
+   * (`wrong-program`·`no-documents`·`no-applications`)에는 이 줄이 아예 그려지지 않는다 —
+   * `wrong-program`은 남의 프로그램 것이고, 나머지 둘은 받아 봐야 **현황표 한 장뿐인 ZIP**
+   * (서류 항목이 없거나 팀이 없다)이라 교직원이 기대한 것과 다르다.
+   * 반대로 아래의 `no-filter-results`·`outOfRange`는 **필터 결과만 비었을 뿐 표는 있는**
+   * 경우라 이 줄을 그대로 남긴다 — ZIP은 필터를 따라가지 않으므로 여전히 온전하고,
+   * 오히려 「지금 조건에는 아무도 없다」를 본 사람이 전체를 받아 보려는 자리다.
+   */
+  const collectionToolbar = (
+    <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <CollectionFilterButtons
+        filterCounts={filterCounts}
+        filter={props.filter}
+        onFilterChange={props.onFilterChange}
+      />
+      <CollectionArchiveControls
+        milestoneId={milestone.id}
+        archiveGrouping={props.archiveGrouping}
+        onArchiveGroupingChange={props.onArchiveGroupingChange}
+      />
+    </div>
   );
 
   // 필터에 아무도 안 걸린 경우 — 「승인된 신청이 없다」와 다른 상황이라 필터 칩은
@@ -592,7 +712,7 @@ function CollectionBody(
   if (empty === 'no-filter-results') {
     return (
       <>
-        {filterButtons}
+        {collectionToolbar}
         <EmptyState
           title="조건에 맞는 팀이 없습니다"
           description="빠른 필터를 바꿔 다시 확인해 보세요."
@@ -621,7 +741,7 @@ function CollectionBody(
   if (outOfRange) {
     return (
       <>
-        {filterButtons}
+        {collectionToolbar}
         <EmptyState
           title="이 페이지에는 더 이상 팀이 없습니다"
           description={`조건에 맞는 팀이 ${total}팀으로 줄어 이 페이지가 사라졌습니다.`}
@@ -641,7 +761,7 @@ function CollectionBody(
 
   return (
     <>
-      {filterButtons}
+      {collectionToolbar}
       {/*
        * 「이 페이지 N팀(조건에 맞는 전체 M팀)」 — 표에 보이는 것이 전부가 아님을
        * 먼저 말한다(제출 현황 표의 같은 자리와 같은 문장 틀).

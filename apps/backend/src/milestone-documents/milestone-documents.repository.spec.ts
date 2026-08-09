@@ -1465,6 +1465,179 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       text: '3주차까지 인터뷰 8건을 마쳤습니다.',
     });
   });
+
+  it('표 조회의 select에는 storageKey가 없다 — 스토리지 열쇠가 응답 DTO로 샐 길을 구조적으로 막는다', async () => {
+    // Given: 이 조회의 결과는 브라우저로 나가는 응답 본문이 된다. 여기에 열쇠가 실려 있으면
+    // 매핑을 한 번만 잘못해도 객체 키가 그대로 화면에 노출된다. ZIP 조회
+    // (findSubmissionsForArchive)를 따로 둔 이유가 그것이다.
+    const findMany = jest.fn().mockResolvedValue([]);
+    const prisma = {
+      milestoneDocumentSubmission: { findMany },
+    } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    await repository.findSubmissionsForCollection([syntheticDocumentId], now);
+
+    // Then
+    const call = firstCallArgument<{
+      select: { files: { select: Record<string, unknown> } };
+    }>(findMany);
+    expect(call.select.files.select).toEqual({
+      originalFileName: true,
+      sizeBytes: true,
+    });
+    expect(call.select.files.select).not.toHaveProperty('storageKey');
+  });
+});
+
+describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
+  const now = new Date('2026-09-20T00:00:00.000Z');
+
+  it('documentIds가 비어 있으면 조회하지 않는다', async () => {
+    // Given
+    const findMany = jest.fn();
+    const prisma = {
+      milestoneDocumentSubmission: { findMany },
+    } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const result = await repository.findSubmissionsForArchive([], now);
+
+    // Then: 서류 항목이 하나도 없는 마일스톤도 ZIP을 만들 수 있어야 한다(현황표만 담긴다).
+    expect(findMany).not.toHaveBeenCalled();
+    expect(result).toEqual([]);
+  });
+
+  it('첨부의 storageKey를 함께 뽑는다 — 표 조회와 갈라 둔 이유가 이 열쇠다', async () => {
+    // Given
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        milestoneDocumentId: syntheticDocumentId,
+        applicationId: syntheticApplicationId,
+        submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+        status: SubmissionStatus.SUBMITTED,
+        content: null,
+        files: [
+          {
+            storageKey: 'synthetic/milestone-documents/synthetic-object',
+            originalFileName: '최종_진짜최종.hwp',
+            sizeBytes: 2048,
+          },
+        ],
+      },
+    ]);
+    const prisma = {
+      milestoneDocumentSubmission: { findMany },
+    } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const result = await repository.findSubmissionsForArchive(
+      [syntheticDocumentId],
+      now,
+    );
+
+    // Then: 열쇠가 없으면 압축이 스토리지에서 파일을 꺼내 올 방법이 없다.
+    const call = firstCallArgument<{
+      select: { files: { select: Record<string, unknown> } };
+    }>(findMany);
+    expect(call.select.files.select).toEqual({
+      storageKey: true,
+      originalFileName: true,
+      sizeBytes: true,
+    });
+    expect(result[0]?.file).toEqual({
+      storageKey: 'synthetic/milestone-documents/synthetic-object',
+      originalFileName: '최종_진짜최종.hwp',
+      sizeBytes: 2048,
+    });
+  });
+
+  it('ATTACHED이고 아직 만료되지 않은 첨부만, createdAt 내림차순으로 1건만 붙인다', async () => {
+    // Given
+    const findMany = jest.fn().mockResolvedValue([]);
+    const prisma = {
+      milestoneDocumentSubmission: { findMany },
+    } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    await repository.findSubmissionsForArchive([syntheticDocumentId], now);
+
+    // Then: 조건이 빠지면 이미 지워졌거나 아직 붙지 않은 파일을 열러 가 압축이 통째로 끊긴다.
+    const call = firstCallArgument<{
+      where: unknown;
+      select: { files: { where: unknown; orderBy: unknown; take: number } };
+    }>(findMany);
+    expect(call.where).toEqual({
+      milestoneDocumentId: { in: [syntheticDocumentId] },
+    });
+    expect(call.select.files.where).toEqual({
+      lifecycle: SubmissionFileLifecycle.ATTACHED,
+      expiresAt: { gt: now },
+    });
+    expect(call.select.files.orderBy).toEqual({ createdAt: 'desc' });
+    expect(call.select.files.take).toBe(1);
+  });
+
+  it('붙은 첨부가 없으면 file은 null이다 — 글·릴리스 제출은 본문으로 담는다', async () => {
+    // Given: TEXT·REPOSITORY_RELEASE 제출은 첨부가 없고 content만 있다.
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        milestoneDocumentId: syntheticDocumentId,
+        applicationId: syntheticApplicationId,
+        submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+        status: SubmissionStatus.SUBMITTED,
+        content: { type: 'TEXT', text: '3주차까지 인터뷰 8건을 마쳤습니다.' },
+        files: [],
+      },
+    ]);
+    const prisma = {
+      milestoneDocumentSubmission: { findMany },
+    } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    const result = await repository.findSubmissionsForArchive(
+      [syntheticDocumentId],
+      now,
+    );
+
+    // Then
+    expect(result[0]?.file).toBeNull();
+    expect(result[0]?.content).toEqual({
+      type: 'TEXT',
+      text: '3주차까지 인터뷰 8건을 마쳤습니다.',
+    });
+  });
+
+  it('ZIP이 쓰지 않는 판정 이력·revision은 뽑지 않는다', async () => {
+    // Given: 압축 스트림은 그 값을 한 번도 쓰지 않는다. 조회에 남겨 두면 언젠가 쓰인다.
+    const findMany = jest.fn().mockResolvedValue([]);
+    const prisma = {
+      milestoneDocumentSubmission: { findMany },
+    } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When
+    await repository.findSubmissionsForArchive([syntheticDocumentId], now);
+
+    // Then
+    const call = firstCallArgument<{ select: Record<string, unknown> }>(
+      findMany,
+    );
+    expect(call.select).not.toHaveProperty('reviewHistories');
+    expect(call.select).not.toHaveProperty('revision');
+    expect(call.select).toMatchObject({
+      milestoneDocumentId: true,
+      applicationId: true,
+      submittedAt: true,
+      status: true,
+      content: true,
+    });
+  });
 });
 
 describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {

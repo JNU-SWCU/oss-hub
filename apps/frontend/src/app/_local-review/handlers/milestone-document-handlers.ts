@@ -37,7 +37,8 @@ import {
 /**
  * 마일스톤 서류 화면의 로컬 검토 응답.
  * 담당 경로: `milestones/:milestoneId/documents`(GET/POST),
- * `.../documents/collection`(GET), `.../documents/order`(PATCH),
+ * `.../documents/collection`(GET), `.../documents/collection/archive`(GET),
+ * `.../documents/order`(PATCH),
  * `.../documents/:documentId`(PATCH/DELETE),
  * `.../documents/:documentId/template`(GET/POST),
  * `.../documents/:documentId/applications/:applicationId/file`(GET),
@@ -285,6 +286,30 @@ const reviewSubmissionHandler: LocalReviewHandler = (context) => {
 };
 
 /**
+ * 전체 제출물 ZIP 일괄 내려받기. 실제 백엔드는 압축 스트림을 주는데 로컬 검토 응답
+ * 계약(`LocalReviewResponsePlan`)은 json/delay/redirect만 표현할 수 있어 압축 파일을
+ * 흉내 낼 수 없다 — 아래 `downloadSubmissionFileHandler`와 **같은 한계, 같은 처방**이다.
+ *
+ * ⚠ 그래서 검토자가 「전체 내려받기(ZIP)」를 누르면 실제 마일스톤인데도 "마일스톤을 찾을 수
+ * 없습니다"가 나온다. **이 한 줄이 없으면** 그 자리에서 「경로를 모른다」(LFX_404)가 나와
+ * 커버리지 판정이 「픽스처가 이 경로 모양을 아예 모른다」로 읽는다 — 그것과 「알지만 못 만든다」는
+ * 다른 상태이고, 후자만 이 어댑터의 정직한 한계다.
+ *
+ * `collection/archive`는 고정 세그먼트 두 칸이라 `:documentId/template` 같은 규칙과 겹치지
+ * 않지만, 읽는 순서를 컨트롤러와 같게 하려고 수합 표 바로 아래에 둔다.
+ */
+const collectionArchiveHandler: LocalReviewHandler = (context) => {
+  const params = matchGet(
+    context,
+    'milestones/:milestoneId/documents/collection/archive',
+  );
+  if (params === null) return null;
+  const guard = staffGuardResponse(context);
+  if (guard !== null) return guard;
+  return notFound(MILESTONE_NOT_FOUND_CODE, context.path);
+};
+
+/**
  * 제출 파일 다운로드. 실제 백엔드는 `StreamableFile`(바이너리)을 주지만 로컬 검토
  * 응답 계약(`LocalReviewResponsePlan`)은 json/delay/redirect만 표현할 수 있어
  * 다운로드 자체를 흉내 낼 수 없다 — 아래 `downloadTemplateHandler`와 같은 방식으로
@@ -446,6 +471,7 @@ const uploadDocumentFileHandler: LocalReviewHandler = (context) => {
 export const MILESTONE_DOCUMENT_HANDLERS: readonly LocalReviewHandler[] = [
   listDocumentsHandler,
   collectionHandler,
+  collectionArchiveHandler,
   reviewSubmissionHandler,
   downloadSubmissionFileHandler,
   createDocumentHandler,
