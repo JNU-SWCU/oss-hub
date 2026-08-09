@@ -38,6 +38,7 @@ const oldContributorId = 9_000_000_000_005_201n;
 const newGithubOrganizationId = 9_000_000_000_005_301n;
 const newGithubRepositoryId = 9_000_000_000_005_401n;
 const newContributorId = 9_000_000_000_005_501n;
+const newContributorUserId = 'synthetic-rollback-post-cutover-contributor';
 
 const publishedAt = new Date('2026-01-01T00:00:00.000Z');
 
@@ -211,6 +212,13 @@ describe('Collection cutover rollback data-preservation contract (ADR-006, F3 au
     // disjoint synthetic repository/org, simulating real post-cutover
     // collection cycles happening after the pre-cutover generation above
     // was published.
+    await prisma.user.create({
+      data: {
+        id: newContributorUserId,
+        githubId: newContributorId,
+        nickname: 'synthetic-post-cutover-contributor',
+      },
+    });
     const newRepository =
       await incrementalRepository.recordRepositoryObservation({
         githubOrganizationId: newGithubOrganizationId,
@@ -278,6 +286,7 @@ describe('Collection cutover rollback data-preservation contract (ADR-006, F3 au
       'DELETE FROM "GithubRepository" WHERE "githubOrganizationId" = $1',
       newGithubOrganizationId,
     );
+    await prisma.user.deleteMany({ where: { id: newContributorUserId } });
     await prisma.$executeRawUnsafe(
       'DELETE FROM "CanonicalCollectionLease" WHERE "appId" = $1',
       oldAppId,

@@ -92,7 +92,7 @@ type SyncRepository = Pick<
   | 'recordRepositoryObservation'
   | 'refreshExternalRepositoryObservation'
   | 'markExternalRepositoryUnavailable'
-  | 'purgeUnregisteredExternalFacts'
+  | 'purgeUnregisteredFacts'
   | 'recordRepositoryFailure'
   | 'recordRepositorySuccess'
   | 'markAbsentRepositories'
@@ -745,7 +745,7 @@ export class CollectionSyncService {
     githubRepositoryId: bigint,
   ): Promise<void> {
     try {
-      await this.incrementalRepository.purgeUnregisteredExternalFacts(
+      await this.incrementalRepository.purgeUnregisteredFacts(
         githubRepositoryId,
       );
     } catch (error) {
@@ -788,8 +788,8 @@ export class CollectionSyncService {
     // 있을 수 없다는 전제에 fail-open을 매다는 셈이라, 조회 1회를 아끼자고 할 거래가 아니다.
     //
     // 팀을 특정할 수 없는 저장소는 provider 조회 범위를 줄일 수 없어서 전량을 받는다.
-    // 다만 EXTERNAL_PUBLIC의 최종 fact writer는 `githubId ∈ User`를 다시 강제하므로
-    // 가입하지 않은 제3자 신원은 저장하지 않는다. ORG_PROVISIONED의 기존 fallback은 유지한다.
+    // 최종 fact writer는 source와 무관하게 `githubId ∈ User`를 다시 강제하므로
+    // 가입하지 않은 제3자 신원은 저장하지 않는다.
     const { teamMembers, insertedCount: commitCount } =
       await this.trackStreamOutcome(
         lease,
@@ -1225,8 +1225,7 @@ export class CollectionSyncService {
    * ADR-009 «PR·릴리스는 적재 시 거른다»의 실행 지점 하나.
    *
    * 팀을 특정할 수 없으면 provider 결과를 그대로 다음 단계에 넘긴다. 이후 중앙 fact writer가
-   * EXTERNAL_PUBLIC에는 `githubId ∈ User`를 적용하므로 제3자 신원은 저장되지 않고,
-   * ORG_PROVISIONED의 기존 팀 미특정 fallback만 변하지 않는다.
+   * source와 무관하게 `githubId ∈ User`를 적용하므로 제3자 신원은 저장되지 않는다.
    *
    * 거른 결과는 **fact 적재에만** 넘긴다. 집계는 `recordPullRequestFacts`/
    * `recordReleaseFacts`가 자기가 받은 fact의 author로만 재계산하므로

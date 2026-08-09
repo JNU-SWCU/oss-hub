@@ -361,8 +361,8 @@ function generationSnapshot(
       githubRepositoryId: 100n,
       githubReleaseId: 400n,
       publishedAt: new Date('2026-03-05T00:00:00.000Z'),
-      authorGithubId: null,
-      authorGithubLogin: null,
+      authorGithubId: 1n,
+      authorGithubLogin: 'alice',
     },
   ];
   if (order === 'forward') {
@@ -446,7 +446,8 @@ describe('CollectionGenerationImportService — public-admin-exposure todo 8', (
       ),
     ).toBe(true);
     expect(box.store.commitFacts.size).toBe(commitFactCountAfterFirst);
-    expect(box.store.commitFacts.size).toBe(3);
+    // 작성자를 모르는 커밋은 source와 무관하게 적재 경계에서 빠진다.
+    expect(box.store.commitFacts.size).toBe(2);
   });
 
   it('produces the same digest regardless of the source snapshot row order', async () => {

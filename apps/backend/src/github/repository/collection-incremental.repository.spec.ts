@@ -1119,10 +1119,10 @@ describe('CollectionIncrementalRepository — #546 stream 오류 표시', () => 
  * 되돌릴 수 없기 때문이다. 그래서 **적재에서 자른다.**
  */
 describe('CollectionIncrementalRepository — 가입자만 적재한다', () => {
-  it('가입하지 않은 계정의 기여는 행을 만들지 않는다', async () => {
+  it('ORG 저장소도 가입하지 않았거나 작성자를 모르는 기여는 행을 만들지 않는다', async () => {
     const db = createDb();
     db.githubRepository.findUnique.mockResolvedValue({
-      source: 'EXTERNAL_PUBLIC',
+      source: 'ORG_PROVISIONED',
     });
     db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
     db.collectionCommitFact.count.mockResolvedValue(1);
@@ -1139,6 +1139,11 @@ describe('CollectionIncrementalRepository — 가입자만 적재한다', () => 
         sha: 'by-stranger',
         committedAt: new Date('2026-03-01T00:00:00.000Z'),
         authorGithubId: 999n,
+      },
+      {
+        sha: 'by-unknown',
+        committedAt: new Date('2026-03-01T00:00:00.000Z'),
+        authorGithubId: null,
       },
     ]);
 
@@ -1200,7 +1205,7 @@ describe('CollectionIncrementalRepository — 가입자만 적재한다', () => 
     });
   });
 
-  it('건드린 칸을 먼저 비우고 가입자만 다시 채운다 — fail-open 을 닫는다', async () => {
+  it('미가입자만 있는 배치는 fact와 집계를 모두 건드리지 않는다', async () => {
     const db = createDb();
     db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
     db.collectionCommitFact.count.mockResolvedValue(1);
@@ -1214,15 +1219,9 @@ describe('CollectionIncrementalRepository — 가입자만 적재한다', () => 
       },
     ]);
 
-    expect(db.$executeRaw).toHaveBeenCalledTimes(1);
-    // 건드린 칸을 먼저 비운다 — 미가입자 행이 여기서 사라지고,
-    // 이어지는 집합 insert 가 가입자만 다시 채운다.
-    expect(db.contribution.deleteMany).toHaveBeenCalledTimes(1);
-    const call = db.contribution.deleteMany.mock.calls[0] as
-      | [{ where: { repositoryId: string; githubId: { in: bigint[] } } }]
-      | undefined;
-    expect(call?.[0].where.repositoryId).toBe('repo-1');
-    expect(call?.[0].where.githubId.in).toContain(999n);
+    expect(db.collectionCommitFact.createMany).not.toHaveBeenCalled();
+    expect(db.$executeRaw).not.toHaveBeenCalled();
+    expect(db.contribution.deleteMany).not.toHaveBeenCalled();
   });
 
   it('상류에서 사라진 기여는 행도 사라진다 — 비운 뒤 채우지 않으면 그대로 없다', async () => {

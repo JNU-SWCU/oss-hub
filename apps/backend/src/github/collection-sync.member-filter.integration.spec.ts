@@ -5,6 +5,7 @@ import { CollectionSyncService } from './service/collection-sync.service';
 import { ProviderRequestQueue } from './collection-provider-queue';
 import type {
   CollectionAppClient,
+  CollectionCommit,
   CollectionPullRequest,
   CollectionRelease,
   CollectionRepository as ProviderRepository,
@@ -13,14 +14,14 @@ import type { CollectionAppTokenProvider } from './collection-app.token';
 import type { RequestFingerprint } from './collection-app.frontier';
 
 /**
- * ADR-009 «PR·릴리스는 적재 시 거른다»(#680)를 **실 Postgres**에 대해 확인한다.
+ * ADR-010 §2·§5 «가입한 학생의 활동만 적재한다»(#682)를 **실 Postgres**에 대해 확인한다.
  *
  * 단위 테스트(`collection-sync.service.spec.ts`)는 in-memory Prisma double 위에서 돈다.
  * 여기서만 확인할 수 있는 것은 세 가지다 —
  *   1. 필터의 기준이 되는 팀원 목록이 실제 스키마의 조인
  *      (`GithubRepository.githubRepositoryId` → `Repository.teamId` → `TeamMember` → `User`)으로
  *      제대로 풀리는가,
- *   2. 거른 항목이 진짜로 `CollectionPullRequestFact`/`CollectionReleaseFact` **테이블에** 없는가,
+ *   2. 거른 항목이 세 원본 fact **테이블에** 진짜로 없는가,
  *   3. 그 결과 `Contribution`에 비팀원 행이 생기지 않는가.
  *
  * provider는 stub이다 — 이 suite가 재는 것은 HTTP 계층이 아니라 적재 경계다.
@@ -98,14 +99,23 @@ const release = (overrides: Partial<CollectionRelease>): CollectionRelease => ({
   ...overrides,
 });
 
+const commit = (overrides: Partial<CollectionCommit>): CollectionCommit => ({
+  sha: 'synthetic-member-commit',
+  authorLogin: 'synthetic-member',
+  authorGithubId: MEMBER_GITHUB_ID.toString(),
+  committedAt: '2026-08-01T00:00:00.000Z',
+  htmlUrl: 'https://example.invalid/commit/synthetic-member-commit',
+  ...overrides,
+});
+
 /**
- * 실제 GraphQL/REST 호출 없이 세 stream의 provider 응답만 고정한다. 커밋 축은 어느 경로로
- * 가든 0건으로 두어(팀이 있으면 author-scoped, 없으면 저장소 전량 REST) 이 suite가 PR·릴리스
- * 축만 재게 한다.
+ * 실제 GraphQL/REST 호출 없이 세 stream의 provider 응답만 고정한다. 팀이 있으면 커밋은
+ * author-scoped GraphQL을 쓰고, 팀이 없으면 이 fixture의 저장소 전량 REST 응답을 쓴다.
  */
 const createClient = (
   pullRequests: readonly CollectionPullRequest[],
   releases: readonly CollectionRelease[],
+  commits: readonly CollectionCommit[] = [],
 ): CollectionAppClient =>
   ({
     listInstallationRepositories: () => Promise.resolve([providerRepository()]),
@@ -121,7 +131,7 @@ const createClient = (
       }),
     listCommitsUntilKnownSha: () =>
       Promise.resolve({
-        commits: [],
+        commits: [...commits],
         disconnectedFullScan: true,
         fingerprint: fingerprint('/repos/o/r/commits'),
       }),
@@ -147,7 +157,7 @@ const createClient = (
       }),
   }) as unknown as CollectionAppClient;
 
-describe('CollectionSyncService — PR·릴리스 멤버 필터 (실 DB)', () => {
+describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
   const prisma = new PrismaService();
 
   const createService = (client: CollectionAppClient): CollectionSyncService =>
@@ -353,10 +363,18 @@ describe('CollectionSyncService — PR·릴리스 멤버 필터 (실 DB)', () =>
     );
   });
 
-  it('`Repository` 행이 없어 팀을 특정할 수 없으면 종전대로 작성자를 가리지 않는다', async () => {
-    // seed()를 부르지 않는다 — 수집 저장소만 있고 신청 산출물 `Repository`가 없는 상태.
+  it('`Repository` 행이 없어 팀을 특정할 수 없어도 가입하지 않은 작성자는 적재하지 않는다', async () => {
+    // seed()를 부르지 않는다 — 수집 저장소와 가입자만 있고 신청 산출물 `Repository`가 없는 상태.
+    await prisma.user.create({
+      data: {
+        id: MEMBER_USER_ID,
+        githubId: MEMBER_GITHUB_ID,
+        nickname: 'synthetic-member',
+      },
+    });
     const client = createClient(
       [
+        pullRequest({ id: '9000000680206' }),
         pullRequest({
           id: '9000000680204',
           authorLogin: 'synthetic-outsider',
@@ -364,10 +382,24 @@ describe('CollectionSyncService — PR·릴리스 멤버 필터 (실 DB)', () =>
         }),
       ],
       [
+        release({ id: '9000000680306' }),
         release({
           id: '9000000680304',
           authorLogin: 'synthetic-outsider',
           authorGithubId: OUTSIDER_GITHUB_ID,
+        }),
+      ],
+      [
+        commit({}),
+        commit({
+          sha: 'synthetic-outsider-commit',
+          authorLogin: 'synthetic-outsider',
+          authorGithubId: OUTSIDER_GITHUB_ID,
+        }),
+        commit({
+          sha: 'synthetic-unknown-commit',
+          authorLogin: null,
+          authorGithubId: null,
         }),
       ],
     );
@@ -378,6 +410,36 @@ describe('CollectionSyncService — PR·릴리스 멤버 필터 (실 DB)', () =>
       where: { githubRepositoryId: GITHUB_REPOSITORY_ID },
       select: { id: true },
     });
+    const commitFacts = await prisma.collectionCommitFact.findMany({
+      where: { repositoryId: collected.id },
+      select: { sha: true, authorGithubId: true },
+    });
+    expect(commitFacts).toEqual([
+      {
+        sha: 'synthetic-member-commit',
+        authorGithubId: MEMBER_GITHUB_ID,
+      },
+    ]);
+    const pullRequestFacts = await prisma.collectionPullRequestFact.findMany({
+      where: { repositoryId: collected.id },
+      select: { githubPullRequestId: true, authorGithubId: true },
+    });
+    expect(pullRequestFacts).toEqual([
+      {
+        githubPullRequestId: 9_000_000_680_206n,
+        authorGithubId: MEMBER_GITHUB_ID,
+      },
+    ]);
+    const releaseFacts = await prisma.collectionReleaseFact.findMany({
+      where: { repositoryId: collected.id },
+      select: { githubReleaseId: true, authorGithubId: true },
+    });
+    expect(releaseFacts).toEqual([
+      {
+        githubReleaseId: 9_000_000_680_306n,
+        authorGithubId: MEMBER_GITHUB_ID,
+      },
+    ]);
     await expect(
       prisma.collectionPullRequestFact.count({
         where: {
@@ -385,7 +447,7 @@ describe('CollectionSyncService — PR·릴리스 멤버 필터 (실 DB)', () =>
           authorGithubId: BigInt(OUTSIDER_GITHUB_ID),
         },
       }),
-    ).resolves.toBe(1);
+    ).resolves.toBe(0);
     await expect(
       prisma.collectionReleaseFact.count({
         where: {
@@ -393,7 +455,15 @@ describe('CollectionSyncService — PR·릴리스 멤버 필터 (실 DB)', () =>
           authorGithubId: BigInt(OUTSIDER_GITHUB_ID),
         },
       }),
-    ).resolves.toBe(1);
+    ).resolves.toBe(0);
+    await expect(
+      prisma.contribution.count({
+        where: {
+          repositoryId: collected.id,
+          githubId: BigInt(OUTSIDER_GITHUB_ID),
+        },
+      }),
+    ).resolves.toBe(0);
   });
 
   it('팀원 합류를 감지하면 과거 PR을 한 번 백필하고 다음 sweep은 증분 frontier를 재사용한다', async () => {
