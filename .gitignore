@@ -72,3 +72,7 @@ ds-bundle/
 apps/frontend/.ds-css/
 apps/frontend/ds-types/
 apps/frontend/index.d.ts
+
+# 검증 산출물 — 학생별 원시 수치(비공개 기여량 포함)가 들어가므로 공개 저장소에 넣지 않는다.
+# PR 본문에도 집계 판정만 남긴다(ADR-010 §5).
+/artifacts/
