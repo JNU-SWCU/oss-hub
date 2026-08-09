@@ -8,8 +8,39 @@ import { ActivityChart } from './components/activity-chart';
 import { ActivityTimelineView } from './components/activity-timeline-view';
 import type { ActivityTimeline } from './types';
 
-const timeline: ActivityTimeline = {
+/**
+ * 선 위의 몸통과 내부 표현을 갈라 둔다.
+ *
+ * 하나로 뭉쳐 두면 픽스처가 내부 이름을 쓰는 순간 파서가 선 위의 이름을
+ * 안 읽어도 테스트가 통과한다 — #729 의 회귀가 정확히 그 통로로 새어나갔다.
+ */
+const wireTimeline = {
   dataAsOf: '2026-08-01T00:00:00.000Z',
+  programs: [
+    {
+      programId: 'program-1',
+      programName: '캡스톤 2026',
+      year: 2026,
+      applicationMode: 'PERSONAL',
+    },
+  ],
+  series: {
+    granularity: 'MONTH',
+    points: [
+      {
+        period: '2026-01',
+        commitCount: 12,
+        // 백엔드 DTO 의 이름이다(`ActivityPointResponseDto`).
+        pullRequestCount: 3,
+        releaseCount: 1,
+        total: 16,
+      },
+    ],
+  },
+};
+
+const timeline: ActivityTimeline = {
+  dataAsOf: wireTimeline.dataAsOf,
   programs: [
     {
       programId: 'program-1',
@@ -76,11 +107,12 @@ describe('activity timeline', () => {
   });
 
   it('granularity를 current-user API query로 전달한다', async () => {
-    const yearlyTimeline: ActivityTimeline = {
-      ...timeline,
+    // 응답 몸통이므로 선 위의 형태여야 한다.
+    const yearlyTimeline = {
+      ...wireTimeline,
       series: {
         granularity: 'YEAR',
-        points: [{ ...timeline.series.points[0], period: '2026' }],
+        points: [{ ...wireTimeline.series.points[0], period: '2026' }],
       },
     };
     const fetchMock = vi.fn().mockResolvedValue(
@@ -186,8 +218,11 @@ describe('activity timeline', () => {
     expect(html).not.toContain('참여한 프로그램이 없습니다');
   });
 
-  it('성공 응답 본문을 활동 타임라인 계약으로 해석한다', async () => {
-    stubTimelineResponse(timeline);
+  it('선 위의 pullRequestCount 를 내부 prCount 로 옮긴다', async () => {
+    // 백엔드 DTO 는 `pullRequestCount` 를 낸다. 픽스처가 내부 이름을 쓰고 있으면
+    // 파서가 선 위의 이름을 안 읽어도 테스트가 통과한다 — #729 의 회귀가
+    // 정확히 그렇게 통과했고 프로덕션에서만 화면이 통째로 에러였다.
+    stubTimelineResponse(wireTimeline);
 
     await expect(fetchActivityTimeline('MONTH')).resolves.toEqual(timeline);
   });
@@ -195,50 +230,53 @@ describe('activity timeline', () => {
   it.each([
     [
       'invalid granularity',
-      { ...timeline, series: { ...timeline.series, granularity: 'WEEK' } },
+      {
+        ...wireTimeline,
+        series: { ...wireTimeline.series, granularity: 'WEEK' },
+      },
     ],
-    ['non-array programs', { ...timeline, programs: {} }],
+    ['non-array programs', { ...wireTimeline, programs: {} }],
     [
       'invalid month period',
       {
-        ...timeline,
+        ...wireTimeline,
         series: {
-          ...timeline.series,
-          points: [{ ...timeline.series.points[0], period: '2026' }],
+          ...wireTimeline.series,
+          points: [{ ...wireTimeline.series.points[0], period: '2026' }],
         },
       },
     ],
     [
       'negative metric',
       {
-        ...timeline,
+        ...wireTimeline,
         series: {
-          ...timeline.series,
-          points: [{ ...timeline.series.points[0], commitCount: -1 }],
+          ...wireTimeline.series,
+          points: [{ ...wireTimeline.series.points[0], commitCount: -1 }],
         },
       },
     ],
     [
       'fractional metric',
       {
-        ...timeline,
+        ...wireTimeline,
         series: {
-          ...timeline.series,
-          points: [{ ...timeline.series.points[0], prCount: 1.5 }],
+          ...wireTimeline.series,
+          points: [{ ...wireTimeline.series.points[0], pullRequestCount: 1.5 }],
         },
       },
     ],
     [
       'legacy star metric',
       {
-        ...timeline,
+        ...wireTimeline,
         series: {
-          ...timeline.series,
+          ...wireTimeline.series,
           points: [
             {
               period: '2026-01',
               commitCount: 12,
-              prCount: 3,
+              pullRequestCount: 3,
               starCount: 1,
               total: 16,
             },
@@ -249,21 +287,21 @@ describe('activity timeline', () => {
     [
       'inconsistent total',
       {
-        ...timeline,
+        ...wireTimeline,
         series: {
-          ...timeline.series,
-          points: [{ ...timeline.series.points[0], total: 0 }],
+          ...wireTimeline.series,
+          points: [{ ...wireTimeline.series.points[0], total: 0 }],
         },
       },
     ],
     [
       'unknown applicationMode',
       {
-        ...timeline,
-        programs: [{ ...timeline.programs[0], applicationMode: 'GROUP' }],
+        ...wireTimeline,
+        programs: [{ ...wireTimeline.programs[0], applicationMode: 'GROUP' }],
       },
     ],
-    ['invalid dataAsOf', { ...timeline, dataAsOf: 'not-a-date' }],
+    ['invalid dataAsOf', { ...wireTimeline, dataAsOf: 'not-a-date' }],
   ])('성공 응답 본문이 malformed이면 거부한다: %s', async (_label, body) => {
     stubTimelineResponse(body);
 
@@ -290,8 +328,8 @@ describe('activity timeline', () => {
 
   it('연도별 응답에서 월 형식 period를 거부한다', async () => {
     stubTimelineResponse({
-      ...timeline,
-      series: { ...timeline.series, granularity: 'YEAR' },
+      ...wireTimeline,
+      series: { ...wireTimeline.series, granularity: 'YEAR' },
     });
 
     await expect(fetchActivityTimeline('YEAR')).rejects.toThrow(
@@ -304,10 +342,10 @@ describe('activity timeline', () => {
     [
       'MONTH',
       {
-        ...timeline,
+        ...wireTimeline,
         series: {
           granularity: 'YEAR',
-          points: [{ ...timeline.series.points[0], period: '2026' }],
+          points: [{ ...wireTimeline.series.points[0], period: '2026' }],
         },
       },
     ],

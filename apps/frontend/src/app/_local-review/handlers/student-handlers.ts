@@ -75,16 +75,16 @@ function applicationTemplatesHandler(
 }
 
 const MONTH_ACTIVITY_POINTS = [
-  { period: '2026-03', commitCount: 4, prCount: 1, releaseCount: 0 },
-  { period: '2026-04', commitCount: 9, prCount: 2, releaseCount: 1 },
-  { period: '2026-05', commitCount: 6, prCount: 1, releaseCount: 0 },
-  { period: '2026-06', commitCount: 14, prCount: 3, releaseCount: 1 },
-  { period: '2026-07', commitCount: 21, prCount: 5, releaseCount: 2 },
+  { period: '2026-03', commitCount: 4, pullRequestCount: 1, releaseCount: 0 },
+  { period: '2026-04', commitCount: 9, pullRequestCount: 2, releaseCount: 1 },
+  { period: '2026-05', commitCount: 6, pullRequestCount: 1, releaseCount: 0 },
+  { period: '2026-06', commitCount: 14, pullRequestCount: 3, releaseCount: 1 },
+  { period: '2026-07', commitCount: 21, pullRequestCount: 5, releaseCount: 2 },
 ] as const;
 
 const YEAR_ACTIVITY_POINTS = [
-  { period: '2025', commitCount: 12, prCount: 3, releaseCount: 1 },
-  { period: '2026', commitCount: 54, prCount: 12, releaseCount: 4 },
+  { period: '2025', commitCount: 12, pullRequestCount: 3, releaseCount: 1 },
+  { period: '2026', commitCount: 54, pullRequestCount: 12, releaseCount: 4 },
 ] as const;
 
 /** 파서가 `total === commit + pr + release`를 검사하므로 합계를 계산해서 준다. */
@@ -93,7 +93,7 @@ function activityPoints(granularity: ActivityGranularity) {
     granularity === 'YEAR' ? YEAR_ACTIVITY_POINTS : MONTH_ACTIVITY_POINTS;
   return points.map((point) => ({
     ...point,
-    total: point.commitCount + point.prCount + point.releaseCount,
+    total: point.commitCount + point.pullRequestCount + point.releaseCount,
   }));
 }
 

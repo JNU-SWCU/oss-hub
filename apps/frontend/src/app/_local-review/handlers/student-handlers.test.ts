@@ -170,7 +170,7 @@ describe('student fixture responses', () => {
           readonly points: readonly {
             readonly period: string;
             readonly commitCount: number;
-            readonly prCount: number;
+            readonly pullRequestCount: number;
             readonly releaseCount: number;
             readonly total: number;
           }[];
@@ -182,7 +182,7 @@ describe('student fixture responses', () => {
       expect(new Date(body.dataAsOf).toISOString()).toBe(body.dataAsOf);
       for (const point of body.series.points) {
         expect(point.total).toBe(
-          point.commitCount + point.prCount + point.releaseCount,
+          point.commitCount + point.pullRequestCount + point.releaseCount,
         );
         expect(point.period).toMatch(
           granularity === 'MONTH' ? /^\d{4}-\d{2}$/ : /^\d{4}$/,
