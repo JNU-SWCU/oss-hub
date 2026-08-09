@@ -30,6 +30,11 @@ import {
   PROVISION_ERROR_CODES,
 } from './repository-provision.failure';
 
+import { ConsentsRepository } from '../consents/consents.repository';
+import { ConsentsService } from '../consents/consents.service';
+import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
+import { RepositoryOwnEnrollmentService } from './service/repository-own-enrollment.service';
+
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -41,12 +46,17 @@ const jobs = new RepositoryProvisionJobRepository(prisma);
 const state = new RepositoryProvisionStateRepository(prisma);
 const NOW = new Date('2026-07-22T00:00:00.000Z');
 const APPLICANT_ID = 'synthetic-worker-applicant-id';
+const APPLICANT_GITHUB_ID = 8_300_000_000_001n;
 const APPLICATION_IDS = [
   'synthetic-worker-success',
   'synthetic-worker-partial',
   'synthetic-worker-reconciliation-cap',
   'synthetic-worker-reconciliation-exhausted',
+  'synthetic-worker-own-enrollment',
 ] as const;
+const OWN_GITHUB_REPOSITORY_ID = 8_520_000_001n;
+const OWN_NAME_WITH_OWNER = 'synthetic-student/synthetic-own-repo';
+const OWN_REPOSITORY_URL = `https://github.com/${OWN_NAME_WITH_OWNER}`;
 
 type ProvisionGithubClient = jest.Mocked<
   Pick<
@@ -64,9 +74,21 @@ describe('RepositoryProvisionWorker integration', () => {
     await prisma.user.create({
       data: {
         id: APPLICANT_ID,
-        githubId: 8_300_000_000_001n,
+        githubId: APPLICANT_GITHUB_ID,
         nickname: 'synthetic-worker-applicant',
         role: Role.STUDENT,
+      },
+    });
+    // OWN 편입은 현재 동의를 요구한다 — 동의 없이 수집 행을 만들지 않는다.
+    // 버전은 서비스가 알려주는 값을 쓴다. 상수를 복사하면 정책이 올라갈 때
+    // 이 스펙만 조용히 옛 버전을 붙들고 통과한다.
+    const { policy } = await new ConsentsService(
+      new ConsentsRepository(prisma),
+    ).getCurrent(APPLICANT_GITHUB_ID);
+    await prisma.consent.create({
+      data: {
+        userId: APPLICANT_ID,
+        policyVersion: policy.policyVersion,
       },
     });
   });
@@ -84,6 +106,9 @@ describe('RepositoryProvisionWorker integration', () => {
     await prisma.outboxEvent.deleteMany({
       where: { aggregateId: { in: [...APPLICATION_IDS] } },
     });
+    await prisma.githubRepository.deleteMany({
+      where: { githubRepositoryId: OWN_GITHUB_REPOSITORY_ID },
+    });
     await prisma.application.deleteMany({
       where: { id: { in: [...APPLICATION_IDS] } },
     });
@@ -99,6 +124,7 @@ describe('RepositoryProvisionWorker integration', () => {
   });
 
   afterAll(async () => {
+    await prisma.consent.deleteMany({ where: { userId: APPLICANT_ID } });
     await prisma.user.delete({ where: { id: APPLICANT_ID } });
     await prisma.$disconnect();
   });
@@ -295,10 +321,87 @@ describe('RepositoryProvisionWorker integration', () => {
       lastErrorCode: PROVISION_ERROR_CODES.INVITATION_RECONCILIATION_EXHAUSTED,
     });
   });
+
+  /**
+   * OWN 편입은 프로덕션 표본이 0건이라 화면 대조로 잡히지 않는다 — 그래서
+   * `nameWithOwner` 에 bare repo name 이 들어가도 배포까지 갔다. 편입은 되는데
+   * external 스윕이 그 행에서 `throw` 하는 조용히 실패하는 경로였다.
+   *
+   * mock 이 아니라 실제 편입 서비스와 실 Postgres 로 값의 모양까지 고정한다
+   * (ADR-010 §11 대체 acceptance).
+   */
+  it('OWN 승인이 owner/repo 와 실제 defaultBranch 로 수집 행을 만든다', async () => {
+    // Given: OWN 으로 승인된 신청과 현재 동의가 있다.
+    const applicationId = APPLICATION_IDS[4];
+    await createApplicationAndEvent(applicationId, ['synthetic-student'], {
+      connectionMode: 'OWN',
+      repositoryUrl: OWN_REPOSITORY_URL,
+    });
+    // 소비 결과를 단언한다 — 여기서 조용히 EMPTY 가 나면 아래 실패의 원인이 안 보인다.
+    await expect(
+      outbox.consumeNext('outbox-worker-own', NOW),
+    ).resolves.toMatchObject({ kind: 'CONSUMED' });
+    const github = githubClient();
+    github.findPublicRepository.mockResolvedValue({
+      githubRepositoryId: OWN_GITHUB_REPOSITORY_ID,
+      nameWithOwner: OWN_NAME_WITH_OWNER,
+      defaultBranch: 'trunk',
+      archived: false,
+      // `name` 은 owner 없는 bare 이름이다 — 이 칸을 `nameWithOwner` 로 착각한
+      // 것이 원래 결함이었으므로 값을 일부러 다르게 둔다.
+      name: 'synthetic-own-repo',
+      url: OWN_REPOSITORY_URL,
+      visibility: RepositoryVisibility.PUBLIC,
+      description: 'synthetic-own-description',
+    });
+    const worker = new RepositoryProvisionWorker(
+      jobs,
+      state,
+      github,
+      ownEnrollment(),
+    );
+
+    // When: worker 가 OWN job 을 처리한다.
+    const result = await worker.runNext('provision-worker-own', NOW);
+
+    // Then: 수집 행이 external 스윕 계약을 만족하는 모양으로 남는다.
+    expect(result.kind).toBe('SUCCEEDED');
+    const enrolled = await prisma.githubRepository.findFirstOrThrow({
+      where: { githubRepositoryId: OWN_GITHUB_REPOSITORY_ID },
+    });
+    expect(enrolled).toMatchObject({
+      source: 'EXTERNAL_PUBLIC',
+      nameWithOwner: OWN_NAME_WITH_OWNER,
+      defaultBranch: 'trunk',
+      presence: 'PRESENT',
+      visibility: 'PUBLIC',
+    });
+    // `/` 가 없으면 스윕이 죽는다 — 값의 존재가 아니라 모양이 계약이다.
+    expect(enrolled.nameWithOwner).toContain('/');
+    // 신청 연결도 DB 로 증명된다 — 프로그램 화면의 노출 조건이다.
+    await expect(
+      prisma.repository.findUniqueOrThrow({ where: { applicationId } }),
+    ).resolves.toMatchObject({
+      githubRepositoryId: OWN_GITHUB_REPOSITORY_ID,
+    });
+  });
 });
 
 function programId(applicationId: string): string {
   return `${applicationId}-program`;
+}
+
+/**
+ * 실제 편입 서비스를 실 Postgres 에 물린다.
+ *
+ * mock 을 주입하면 호출 여부만 볼 수 있고 저장된 값의 모양은 못 본다 —
+ * 이 결함이 배포까지 간 이유가 정확히 그것이다.
+ */
+function ownEnrollment(): RepositoryOwnEnrollmentService {
+  return new RepositoryOwnEnrollmentService(
+    new ConsentsService(new ConsentsRepository(prisma)),
+    new CollectionIncrementalRepository(prisma),
+  );
 }
 
 function githubClient(): ProvisionGithubClient {
@@ -334,6 +437,7 @@ function teamIdFor(applicationId: string): string {
 async function createApplicationAndEvent(
   applicationId: string,
   collaboratorGithubLogins: readonly string[],
+  own?: { readonly connectionMode: 'OWN'; readonly repositoryUrl: string },
 ): Promise<void> {
   const program = programId(applicationId);
   const teamId = teamIdFor(applicationId);
@@ -377,6 +481,12 @@ async function createApplicationAndEvent(
       answers: { synthetic: true },
       applicationTemplateVersion: 1,
       status: ApplicationStatus.APPROVED,
+      ...(own === undefined
+        ? {}
+        : {
+            repositoryConnectionMode: own.connectionMode,
+            repositoryUrl: own.repositoryUrl,
+          }),
     },
   });
   await prisma.outboxEvent.create({
@@ -392,6 +502,14 @@ async function createApplicationAndEvent(
         teamId: null,
         requestedAt: NOW.toISOString(),
         collaboratorGithubLogins,
+        // OWN 여부는 outbox payload 가 원본이다 — Application 칸만 바꾸면
+        // worker 는 여전히 NEW 로 처리한다.
+        ...(own === undefined
+          ? {}
+          : {
+              repositoryConnectionMode: own.connectionMode,
+              repositoryUrl: own.repositoryUrl,
+            }),
       },
       status: OutboxEventStatus.PENDING,
       availableAt: NOW,
