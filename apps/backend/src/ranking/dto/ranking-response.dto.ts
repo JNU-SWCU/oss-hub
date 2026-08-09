@@ -9,7 +9,7 @@ class RankingEntryResponseDto {
   readonly displayName: string;
   readonly githubLogin: string;
   readonly commitCount: number;
-  readonly prCount: number;
+  readonly pullRequestCount: number;
   readonly releaseCount: number;
   readonly total: number;
 
@@ -18,7 +18,7 @@ class RankingEntryResponseDto {
     this.displayName = entry.displayName;
     this.githubLogin = entry.githubLogin;
     this.commitCount = entry.commitCount;
-    this.prCount = entry.prCount;
+    this.pullRequestCount = entry.pullRequestCount;
     this.releaseCount = entry.releaseCount;
     this.total = entry.total;
   }
@@ -34,6 +34,8 @@ export class RankingPageResponseDto {
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
+  /** 이 수치의 기준 시각. 관측이 없으면 null (ADR-010 §10). */
+  readonly dataAsOf: string | null;
 
   private constructor(page: RankingPage) {
     this.year = page.year;
@@ -41,6 +43,7 @@ export class RankingPageResponseDto {
     this.page = page.page;
     this.pageSize = page.pageSize;
     this.total = page.total;
+    this.dataAsOf = page.dataAsOf === null ? null : page.dataAsOf.toISOString();
   }
 
   static from(page: RankingPage): RankingPageResponseDto {

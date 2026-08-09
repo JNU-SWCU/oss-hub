@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { type ProgramCategory } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 
 /**
  * todo 16 — ADR-003 공개 strict-read 예외를 쓰는 전용 repository. `Repository`(원본) 및

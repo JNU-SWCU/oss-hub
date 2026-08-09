@@ -1,13 +1,13 @@
 import { MilestoneSubmissionType } from '@prisma/client';
-import { DomainException } from '../common/error-code';
+import { DomainException } from '../../common/error-code';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
-} from './program-error-code.enum';
+} from '../program-error-code.enum';
 import {
   createProgramEditorServiceHarness,
   milestoneInput,
-} from '../../test/program-editor-service-fixtures';
+} from '../../../test/program-editor-service-fixtures';
 
 describe('ProgramEditorService milestones', () => {
   it('updates the selected milestone by canonical id when names are duplicated', async () => {

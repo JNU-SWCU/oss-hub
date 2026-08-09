@@ -1,15 +1,15 @@
 import { ProgramCategory } from '@prisma/client';
-import { DomainException } from '../common/error-code';
+import { DomainException } from '../../common/error-code';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
-} from './program-error-code.enum';
+} from '../program-error-code.enum';
 import {
   createProgramEditorServiceHarness,
   editableProgram,
   teamInputFor,
   updateInput,
-} from '../../test/program-editor-service-fixtures';
+} from '../../../test/program-editor-service-fixtures';
 
 describe('ProgramEditorService update validation', () => {
   it('rejects changing to a team template without a complete team range', async () => {

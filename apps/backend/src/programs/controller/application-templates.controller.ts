@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
-import { ApplicationTemplateListResponseDto } from './dto/application-template-response.dto';
-import { listProgramTemplates } from './program-template.registry';
+import { ApplicationTemplateListResponseDto } from '../dto/application-template-response.dto';
+import { listProgramTemplates } from '../program-template.registry';
 
 /**
  * 신청 템플릿 목록 — ProgramsController의 `:id` 캡처와 분리된 sibling controller.

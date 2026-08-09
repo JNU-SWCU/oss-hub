@@ -12,29 +12,29 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import { AuthConfig } from '../auth/auth.config';
-import { OriginGuard } from '../auth/origin.guard';
-import { resolveSession } from '../auth/session-resolution';
-import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
-import { CreateProgramRequestDto } from './dto/create-program-request.dto';
-import { CreateProgramResponseDto } from './dto/create-program-response.dto';
+import { AuthConfig } from '../../auth/auth.config';
+import { OriginGuard } from '../../auth/origin.guard';
+import { resolveSession } from '../../auth/session-resolution';
+import { type AuthenticatedRequest, SessionGuard } from '../../auth/session.guard';
+import { CreateProgramRequestDto } from '../dto/create-program-request.dto';
+import { CreateProgramResponseDto } from '../dto/create-program-response.dto';
 import {
   ActivityTimelineQueryRequestDto,
   type ActivityTimelineResponseDto,
-} from './dto/activity-timeline.dto';
+} from '../dto/activity-timeline.dto';
 import type {
   ProgramActivityResponseDto,
   ProgramDetailResponseDto,
-} from './dto/program-detail.dto';
-import { ProgramListQueryRequestDto } from './dto/program-list-query.dto';
-import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
-import { ProgramStatusCountsResponseDto } from './dto/program-status-counts-response.dto';
-import { StudentDashboardResponseDto } from './dto/student-dashboard-response.dto';
-import { ProgramActivityService } from './program-activity.service';
-import { ProgramCreationService } from './program-creation.service';
-import { ProgramViewerService } from './program-viewer.service';
-import { ProgramsService } from './programs.service';
-import { StudentDashboardService } from './student-dashboard.service';
+} from '../dto/program-detail.dto';
+import { ProgramListQueryRequestDto } from '../dto/program-list-query.dto';
+import { ProgramListPageResponseDto } from '../dto/program-list-response.dto';
+import { ProgramStatusCountsResponseDto } from '../dto/program-status-counts-response.dto';
+import { StudentDashboardResponseDto } from '../dto/student-dashboard-response.dto';
+import { ProgramActivityService } from '../service/program-activity.service';
+import { ProgramCreationService } from '../service/program-creation.service';
+import { ProgramViewerService } from '../service/program-viewer.service';
+import { ProgramsService } from '../service/programs.service';
+import { StudentDashboardService } from '../service/student-dashboard.service';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   COLLECTION_READ_PORT,
   type CollectionReadPort,
-} from '../collection/collection-read.port';
+} from '../../../github/collection-read.port';
 import { isPublicEligible } from './domain/public-eligibility';
 
 /**

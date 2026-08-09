@@ -1,26 +1,26 @@
 import { AccountStatus, Role } from '@prisma/client';
 import { Inject, Injectable } from '@nestjs/common';
-import { addOneCalendarYear } from '../common/add-one-calendar-year';
-import type { ProblemDetailExtensions } from '../common/error-code';
-import { DomainException } from '../common/error-code';
-import type { UpdateProgramRequestDto } from './dto/update-program-request.dto';
-import type { UpsertMilestoneRequestDto } from './dto/upsert-milestone-request.dto';
-import { ProgramEditorRepository } from './program-editor.repository';
+import { addOneCalendarYear } from '../../common/add-one-calendar-year';
+import type { ProblemDetailExtensions } from '../../common/error-code';
+import { DomainException } from '../../common/error-code';
+import type { UpdateProgramRequestDto } from '../dto/update-program-request.dto';
+import type { UpsertMilestoneRequestDto } from '../dto/upsert-milestone-request.dto';
+import { ProgramEditorRepository } from '../repository/program-editor.repository';
 import type {
   ProgramAuthority,
   ProgramEditorRepositoryPort,
   ProgramEditorTransactionStore,
   ProgramEditorTransactionStore as ReexportedProgramEditorTransactionStore,
   ProgramMilestoneInput,
-} from './program-editor.types';
+} from '../program-editor.types';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
-} from './program-error-code.enum';
+} from '../program-error-code.enum';
 import {
   getProgramTemplate,
   PROGRAM_PARTICIPATION,
-} from './program-template.registry';
+} from '../program-template.registry';
 
 export type {
   ProgramEditorRepositoryPort,

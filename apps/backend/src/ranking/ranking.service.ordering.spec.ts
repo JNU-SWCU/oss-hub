@@ -2,10 +2,10 @@ import type {
   CollectionPublicRankingMetricsDto,
   CollectionPublicRankingMetricsQueryDto,
   CollectionReadPort,
-} from '../collection/collection-read.port';
+} from '../github/collection-read.port';
 import type { UserDisplayNameRepository } from '../users/user-display-name.repository';
 import { RANKING_YEAR_ALL } from './domain/ranking';
-import { RankingService } from './ranking.service';
+import { RankingService } from './service/ranking.service';
 
 describe('RankingService deterministic ordering', () => {
   it('orders every tie level and uses normalized login then numeric GitHub id', async () => {
@@ -18,49 +18,49 @@ describe('RankingService deterministic ordering', () => {
         githubId: 20n,
         githubLogin: 'z',
         commitCount: 2,
-        prCount: 1,
+        pullRequestCount: 1,
         releaseCount: 1,
       },
       {
         githubId: 21n,
         githubLogin: 'a',
         commitCount: 3,
-        prCount: 0,
+        pullRequestCount: 0,
         releaseCount: 1,
       },
       {
         githubId: 22n,
         githubLogin: 'b',
         commitCount: 3,
-        prCount: 1,
+        pullRequestCount: 1,
         releaseCount: 0,
       },
       {
         githubId: 23n,
         githubLogin: 'c',
         commitCount: 3,
-        prCount: 1,
+        pullRequestCount: 1,
         releaseCount: 1,
       },
       {
         githubId: 10n,
         githubLogin: 'Same',
         commitCount: 3,
-        prCount: 1,
+        pullRequestCount: 1,
         releaseCount: 1,
       },
       {
         githubId: 2n,
         githubLogin: 'same',
         commitCount: 3,
-        prCount: 1,
+        pullRequestCount: 1,
         releaseCount: 1,
       },
       {
         githubId: 30n,
         githubLogin: 'top',
         commitCount: 6,
-        prCount: 0,
+        pullRequestCount: 0,
         releaseCount: 0,
       },
     ]);
@@ -72,6 +72,7 @@ describe('RankingService deterministic ordering', () => {
       getContributorMetrics: () => Promise.resolve([]),
       getPublicRankingMetrics,
       listPublicRankingYears: () => Promise.resolve([]),
+      getPublicRankingDataAsOf: () => Promise.resolve(null),
       getRepositoryCumulativeMetrics: () => Promise.resolve([]),
       getContributorCumulativeMetrics: () => Promise.resolve([]),
       getIncrementalStatusSnapshot: () =>
@@ -86,6 +87,9 @@ describe('RankingService deterministic ordering', () => {
           oldestRetryPendingAt: null,
           lastCycleStartedAt: null,
           lastCycleCompletedAt: null,
+        dueRepositoryCount: 0,
+        failingRepositoryCount: 0,
+        lastRepositorySuccessAt: null,
         }),
     } satisfies CollectionReadPort;
     const displayNameRepository = {

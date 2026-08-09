@@ -3,12 +3,12 @@ import {
   COLLECTION_READ_PORT,
   type CollectionReadPort,
   type CollectionRepositoryActivityDto,
-} from '../collection/collection-read.port';
+} from '../../github/collection-read.port';
 import type {
   ProgramActivitySummary,
   ProgramActivitySummaryPort,
-} from './program-activity-summary.port';
-import { ProgramActivitySummaryRepository } from './program-activity-summary.repository';
+} from '../program-activity-summary.port';
+import { ProgramActivitySummaryRepository } from '../repository/program-activity-summary.repository';
 
 @Injectable()
 export class ProgramActivitySummaryService implements ProgramActivitySummaryPort {

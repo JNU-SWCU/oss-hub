@@ -6,12 +6,12 @@ import {
   ProgramCategory,
   RoleRequestStatus,
 } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import {
   COMPATIBLE_PROFILE_NAME_SELECT,
   resolveCompatibleProfileName,
-} from '../profiles/profile-compatibility';
-import type { ProgramListQuery } from './program-list-query';
+} from '../../profiles/profile-compatibility';
+import type { ProgramListQuery } from '../program-list-query';
 import {
   emptyProgramStatusCounts,
   programListPrismaWhere,
@@ -19,8 +19,8 @@ import {
   programListSqlWhere,
   programStatusCountsSql,
   type ProgramStatusCounts,
-} from './program-list-status-filter';
-import { programApplicationParticipantWhere } from './program-participant';
+} from '../program-list-status-filter';
+import { programApplicationParticipantWhere } from '../program-participant';
 
 export type { ProgramStatusCounts };
 export type ProgramListRecord = Pick<

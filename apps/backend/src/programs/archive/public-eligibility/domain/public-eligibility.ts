@@ -1,4 +1,4 @@
-import type { CollectionRepositoryMetricsDto } from '../../collection/collection-read.port';
+import type { CollectionRepositoryMetricsDto } from '../../../../github/collection-read.port';
 
 type CollectionRepositoryVisibility =
   CollectionRepositoryMetricsDto['visibility'];

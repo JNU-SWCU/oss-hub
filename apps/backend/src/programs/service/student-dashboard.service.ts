@@ -5,15 +5,15 @@ import {
   RepositoryProvisionJobStatus,
   SubmissionStatus,
 } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import {
   COMPATIBLE_PROFILE_NAME_SELECT,
   resolveCompatibleProfileName,
-} from '../profiles/profile-compatibility';
+} from '../../profiles/profile-compatibility';
 import {
   REPOSITORIES_READ_PORT,
   type RepositoriesReadPort,
-} from '../repositories/repositories-read.port';
+} from '../../github/repositories-read.port';
 
 export interface StudentDashboardMilestone {
   readonly id: string;

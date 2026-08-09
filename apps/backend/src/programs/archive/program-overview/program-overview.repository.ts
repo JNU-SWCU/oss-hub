@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, Role } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 
 /** 프로그램 상세 화면 상단 요약 — 팩트 바가 쓰는 공개 집계값만 담는다. */
 export interface ProgramOverviewRecord {

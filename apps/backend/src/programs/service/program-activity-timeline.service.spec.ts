@@ -1,16 +1,16 @@
 import { Role } from '@prisma/client';
 import { GUARDS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
-import { SessionGuard } from '../auth/session.guard';
+import { SessionGuard } from '../../auth/session.guard';
 import type {
   CollectionReadPort,
   CollectionRepositoryActivityDto,
-} from '../collection/collection-read.port';
+} from '../../github/collection-read.port';
 import {
   ProgramActivityService,
   type ProgramActivityRepository,
 } from './program-activity.service';
 import type { ProgramViewer } from './program-viewer.service';
-import { StudentDashboardController } from './programs.controller';
+import { StudentDashboardController } from '../controller/programs.controller';
 
 const student: ProgramViewer = {
   githubId: 11n,
@@ -58,6 +58,7 @@ function collectionReadPort(
     getContributorMetrics: () => Promise.resolve([]),
     getPublicRankingMetrics: () => Promise.resolve([]),
     listPublicRankingYears: () => Promise.resolve([]),
+    getPublicRankingDataAsOf: () => Promise.resolve(null),
     getRepositoryCumulativeMetrics: () => Promise.resolve([]),
     getContributorCumulativeMetrics: () => Promise.resolve([]),
     getIncrementalStatusSnapshot: () =>
@@ -72,6 +73,9 @@ function collectionReadPort(
         oldestRetryPendingAt: null,
         lastCycleStartedAt: null,
         lastCycleCompletedAt: null,
+        dueRepositoryCount: 0,
+        failingRepositoryCount: 0,
+        lastRepositorySuccessAt: null,
       }),
   };
 }
@@ -127,7 +131,7 @@ describe('ProgramActivityService canonical activity', () => {
       {
         period: '2026-08',
         commitCount: 2,
-        prCount: 1,
+        pullRequestCount: 1,
         releaseCount: 1,
         total: 4,
       },
@@ -165,7 +169,7 @@ describe('ProgramActivityService canonical activity', () => {
       {
         period: '2026-08',
         commitCount: 1,
-        prCount: 0,
+        pullRequestCount: 0,
         releaseCount: 0,
         total: 1,
       },

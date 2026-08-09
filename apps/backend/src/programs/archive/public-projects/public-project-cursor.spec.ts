@@ -1,4 +1,4 @@
-import { DomainException } from '../common/error-code';
+import { DomainException } from '../../../common/error-code';
 import {
   decodePublicProjectCursor,
   encodePublicProjectCursor,

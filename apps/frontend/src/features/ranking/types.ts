@@ -32,6 +32,13 @@ export interface RankingPage {
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
+  /**
+   * 이 수치가 언제 기준인지.
+   *
+   * 숫자만 있으면 오늘 값인지 석 달 전 값인지 알 수 없다 — 수집이 멈춘 것을
+   * 화면이 먼저 말해야 한다. 아직 관측이 없거나 백엔드가 이 칸을 보내기 전이면 null.
+   */
+  readonly dataAsOf: Date | null;
 }
 
 export interface RankingYears {

@@ -3,9 +3,9 @@ import { ProgramCategory } from '@prisma/client';
 import {
   COLLECTION_READ_PORT,
   type CollectionReadPort,
-} from '../collection/collection-read.port';
-import { DomainException } from '../common/error-code';
-import { PublicEligibilityService } from '../public-eligibility/public-eligibility.service';
+} from '../../../github/collection-read.port';
+import { DomainException } from '../../../common/error-code';
+import { PublicEligibilityService } from '../../../programs/archive/public-eligibility/public-eligibility.service';
 import type {
   PublicProjectCategoryCountsResult,
   PublicProjectDetailResult,

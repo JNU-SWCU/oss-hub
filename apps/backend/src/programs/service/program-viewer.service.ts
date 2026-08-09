@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import type { Role } from '@prisma/client';
-import type { ProgramViewerRoleResponseDto } from './dto/program-detail.dto';
-import { ProgramsRepository } from './programs.repository';
+import type { ProgramViewerRoleResponseDto } from '../dto/program-detail.dto';
+import { ProgramsRepository } from '../repository/programs.repository';
 
 export interface ProgramViewer {
   readonly githubId: bigint | null;

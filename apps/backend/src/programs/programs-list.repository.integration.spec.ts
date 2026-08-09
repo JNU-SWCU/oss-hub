@@ -1,6 +1,6 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import { ProgramsRepository } from './programs.repository';
+import { ProgramsRepository } from './repository/programs.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

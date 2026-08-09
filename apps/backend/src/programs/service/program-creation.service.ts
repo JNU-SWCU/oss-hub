@@ -1,16 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, Role } from '@prisma/client';
-import { DomainException } from '../common/error-code';
-import type { CreateProgramRequestDto } from './dto/create-program-request.dto';
-import { ProgramsRepository } from './programs.repository';
+import { DomainException } from '../../common/error-code';
+import type { CreateProgramRequestDto } from '../dto/create-program-request.dto';
+import { ProgramsRepository } from '../repository/programs.repository';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
-} from './program-error-code.enum';
+} from '../program-error-code.enum';
 import {
   getProgramTemplate,
   PROGRAM_PARTICIPATION,
-} from './program-template.registry';
+} from '../program-template.registry';
 
 const INVALID_END_AT_FIELD_ERROR = {
   field: 'endAt',

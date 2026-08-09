@@ -1,7 +1,7 @@
 import { ProgramCategory } from '@prisma/client';
-import { DomainException } from '../common/error-code';
-import { computeJoinCodeDigest } from '../common/join-code-digest';
-import { loadRuntimeConfig } from '../runtime-config/runtime-config';
+import { DomainException } from '../../common/error-code';
+import { computeJoinCodeDigest } from '../../common/join-code-digest';
+import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import {
   type ProgramTeamsCreateStore,
   type ProgramTeamsJoinStore,
@@ -9,9 +9,9 @@ import {
   type TeamDetailRecord,
   type TeamProgramRecord,
   type TeamStudentActor,
-} from './program-teams.repository';
+} from '../repository/program-teams.repository';
 import { ProgramTeamsService } from './program-teams.service';
-import { TeamsErrorCode } from './teams-error-code.enum';
+import { TeamsErrorCode } from '../teams-error-code.enum';
 
 const NOW = new Date('2026-07-15T00:00:00.000Z');
 const GITHUB_ID = 4_242n;

@@ -1,24 +1,24 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Role } from '@prisma/client';
-import { DomainException } from '../common/error-code';
+import { DomainException } from '../../common/error-code';
 import {
   COLLECTION_READ_PORT,
   type CollectionReadPort,
   type CollectionRepositoryActivityDto,
-} from '../collection/collection-read.port';
-import type { ProgramActivityResponseDto } from './dto/program-detail.dto';
+} from '../../github/collection-read.port';
+import type { ProgramActivityResponseDto } from '../dto/program-detail.dto';
 import type {
   ActivityPointResponseDto,
   ActivityTimelineResponseDto,
-} from './dto/activity-timeline.dto';
-import type { ActivityGranularity } from './program-activity-granularity';
-import { PROGRAM_ERROR_CODES } from './program-error-code';
+} from '../dto/activity-timeline.dto';
+import type { ActivityGranularity } from '../program-activity-granularity';
+import { PROGRAM_ERROR_CODES } from '../program-error-code';
 import {
   ProgramErrorCode,
   PROGRAM_ERROR_CODES as CREATION_ERROR_CODES,
-} from './program-error-code.enum';
+} from '../program-error-code.enum';
 import type { ProgramViewer } from './program-viewer.service';
-import { ProgramsRepository } from './programs.repository';
+import { ProgramsRepository } from '../repository/programs.repository';
 
 export type ProgramActivityRepository = Pick<
   ProgramsRepository,
@@ -148,13 +148,13 @@ export class ProgramActivityService {
       const points = new Map<string, ActivityPointResponseDto>();
       const add = (
         date: Date,
-        metric: 'commitCount' | 'prCount' | 'releaseCount',
+        metric: 'commitCount' | 'pullRequestCount' | 'releaseCount',
       ) => {
         const period = seoulPeriod(date, granularity);
         const current = points.get(period) ?? {
           period,
           commitCount: 0,
-          prCount: 0,
+          pullRequestCount: 0,
           releaseCount: 0,
           total: 0,
         };
@@ -166,7 +166,7 @@ export class ProgramActivityService {
       };
       for (const repository of canonicalByRepository.values()) {
         repository.commitDates.forEach((date) => add(date, 'commitCount'));
-        repository.pullRequestDates.forEach((date) => add(date, 'prCount'));
+        repository.pullRequestDates.forEach((date) => add(date, 'pullRequestCount'));
         repository.releaseDates.forEach((date) => add(date, 'releaseCount'));
       }
 

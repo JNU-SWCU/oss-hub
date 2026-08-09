@@ -1,9 +1,9 @@
-import type { CollectionReadPort } from '../collection/collection-read.port';
-import type { ProgramActivitySummaryPort } from './program-activity-summary.port';
+import type { CollectionReadPort } from '../../github/collection-read.port';
+import type { ProgramActivitySummaryPort } from '../program-activity-summary.port';
 import type {
   ProgramActivitySummaryRepository,
   ProgramRepositoryLink,
-} from './program-activity-summary.repository';
+} from '../repository/program-activity-summary.repository';
 import { ProgramActivitySummaryService } from './program-activity-summary.service';
 
 describe('ProgramActivitySummaryService', () => {

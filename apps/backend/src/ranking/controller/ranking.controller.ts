@@ -2,12 +2,12 @@ import { Controller, Get, Header, Query } from '@nestjs/common';
 import {
   RankingQueryRequestDto,
   resolveRankingQueryYear,
-} from './dto/ranking-query.dto';
+} from '../dto/ranking-query.dto';
 import {
   RankingPageResponseDto,
   RankingYearsResponseDto,
-} from './dto/ranking-response.dto';
-import { RankingService } from './ranking.service';
+} from '../dto/ranking-response.dto';
+import { RankingService } from '../service/ranking.service';
 
 @Controller('ranking')
 export class RankingController {

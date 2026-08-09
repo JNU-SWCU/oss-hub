@@ -1,17 +1,17 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
-import { OriginGuard } from '../auth/origin.guard';
-import { PrismaModule } from '../prisma/prisma.module';
-import { SessionGuard } from '../auth/session.guard';
-import { loadRuntimeConfig } from '../runtime-config/runtime-config';
+import { OriginGuard } from '../../auth/origin.guard';
+import { PrismaModule } from '../../prisma/prisma.module';
+import { SessionGuard } from '../../auth/session.guard';
+import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import {
   RUNTIME_CONFIG,
   RuntimeConfigModule,
-} from '../runtime-config/runtime-config.module';
+} from '../../runtime-config/runtime-config.module';
 import { ProgramEditorController } from './program-editor.controller';
-import { ProgramEditorService } from './program-editor.service';
-import { ProgramLifecycleService } from './program-lifecycle.service';
-import { ProgramsModule } from './programs.module';
+import { ProgramEditorService } from '../service/program-editor.service';
+import { ProgramLifecycleService } from '../service/program-lifecycle.service';
+import { ProgramsModule } from '../programs.module';
 
 const controllerMethod = (name: keyof ProgramEditorController): object => {
   const method: unknown = Object.getOwnPropertyDescriptor(

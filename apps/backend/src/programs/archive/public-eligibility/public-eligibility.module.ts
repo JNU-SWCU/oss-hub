@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { CollectionModule } from '../collection/collection.module';
+import { CollectionModule } from '../../../github/collection.module';
 import { PublicEligibilityService } from './public-eligibility.service';
 
 /**

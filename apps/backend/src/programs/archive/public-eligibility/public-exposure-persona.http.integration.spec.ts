@@ -9,12 +9,12 @@ import {
   RepositoryVisibility,
   RoleRequestStatus,
 } from '@prisma/client';
-import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { assertIsolatedIntegrationDatabase } from '../../../../test/integration-database.guard';
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
   createAccessAuditMetadata,
-} from '../audit-log/audit-log-metadata';
+} from '../../../audit-log/audit-log-metadata';
 import { PublicExposurePersonaHttpHarness } from './public-exposure-persona.http.integration-support';
 
 /**
@@ -189,23 +189,23 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         lastCompleteInventoryObservedAt: new Date('2026-06-15T00:00:00.000Z'),
       },
     });
-    await harness.prisma.collectionContributorYearAggregate.createMany({
+    await harness.prisma.contribution.createMany({
       data: [
         {
           repositoryId: `${PREFIX}-published-collection-repository`,
-          githubUserId: 8_950_000_000_001n,
-          githubLogin: `${PREFIX}-published-owner-login`,
-          year: 2026,
+          githubId: 8_950_000_000_001n,
+          date: new Date(Date.UTC(2026, 0, 2)),
           commitCount: 5,
           pullRequestCount: 2,
           releaseCount: 1,
         },
       ],
     });
-    await harness.prisma.collectionRepositoryYearAggregate.create({
+    await harness.prisma.contribution.create({
       data: {
         repositoryId: `${PREFIX}-published-collection-repository`,
-        year: 2026,
+        githubId: 8_950_000_000_001n,
+        date: new Date(Date.UTC(2026, 0, 2)),
         commitCount: 5,
         pullRequestCount: 2,
         releaseCount: 1,
@@ -230,10 +230,10 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
 
   afterAll(async () => {
     try {
-      await harness.prisma.collectionContributorYearAggregate.deleteMany({
+      await harness.prisma.contribution.deleteMany({
         where: { repositoryId: { startsWith: `${PREFIX}-` } },
       });
-      await harness.prisma.collectionRepositoryYearAggregate.deleteMany({
+      await harness.prisma.contribution.deleteMany({
         where: { repositoryId: { startsWith: `${PREFIX}-` } },
       });
       await harness.prisma.githubRepository.deleteMany({
@@ -326,7 +326,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         projectId: publicProject.githubRepositoryId.toString(),
         contributors: [
           expect.objectContaining({
-            githubLogin: `${PREFIX}-published-owner-login`,
           }),
         ],
       });
@@ -337,7 +336,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       expect(rankingBody.items).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            githubLogin: `${PREFIX}-published-owner-login`,
           }),
         ]),
       );
@@ -499,12 +497,12 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
           eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REJECTED,
           rejectionReason: 'synthetic-foreign-suite-rejection-reason',
           actor: {
-            displayName: null,
             githubLogin: `${FOREIGN_SUITE_ACTOR_ID}-login`,
+            displayName: null,
           },
           target: {
-            displayName: null,
             githubLogin: `${FOREIGN_SUITE_ROLE_REQUEST_ID}-login`,
+            displayName: null,
           },
           before: {
             role: null,

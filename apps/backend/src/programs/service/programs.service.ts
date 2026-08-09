@@ -1,20 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { ApplicationStatus, Role, SubmissionStatus } from '@prisma/client';
-import { DomainException } from '../common/error-code';
+import { DomainException } from '../../common/error-code';
 import type {
   ApplicationSubmissionSummaryResponseDto,
   ProgramDetailResponseDto,
   ViewerSubmissionStatusResponseDto,
-} from './dto/program-detail.dto';
-import { programDeadline } from './program-deadline';
-import type { ProgramListQuery } from './program-list-query';
-import { PROGRAM_ERROR_CODES } from './program-error-code';
+} from '../dto/program-detail.dto';
+import { programDeadline } from '../program-deadline';
+import type { ProgramListQuery } from '../program-list-query';
+import { PROGRAM_ERROR_CODES } from '../program-error-code';
 import type { ProgramViewer } from './program-viewer.service';
 import {
   ProgramsRepository,
   type ProgramListRecord,
   type ProgramStatusCounts,
-} from './programs.repository';
+} from '../repository/programs.repository';
 
 type SubmissionRecord = {
   readonly milestoneId: string;

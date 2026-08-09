@@ -1,7 +1,7 @@
 import { AccountStatus, Role } from '@prisma/client';
-import type { PrismaService } from '../prisma/prisma.service';
+import type { PrismaService } from '../../prisma/prisma.service';
 import { ProgramViewerService } from './program-viewer.service';
-import { ProgramsRepository } from './programs.repository';
+import { ProgramsRepository } from '../repository/programs.repository';
 
 const githubId = 424242n;
 

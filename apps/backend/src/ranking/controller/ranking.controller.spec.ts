@@ -1,7 +1,7 @@
 import { HEADERS_METADATA } from '@nestjs/common/constants';
-import { RANKING_YEAR_ALL } from './domain/ranking';
+import { RANKING_YEAR_ALL } from '../domain/ranking';
 import { RankingController } from './ranking.controller';
-import { RankingService } from './ranking.service';
+import { RankingService } from '../service/ranking.service';
 
 describe('RankingController', () => {
   const findPage = jest.fn();
@@ -25,7 +25,7 @@ describe('RankingController', () => {
           displayName: 'mina',
           githubLogin: 'mina',
           commitCount: 2,
-          prCount: 1,
+          pullRequestCount: 1,
           releaseCount: 0,
           total: 3,
         },
@@ -33,6 +33,7 @@ describe('RankingController', () => {
       page: 1,
       pageSize: 20,
       total: 1,
+      dataAsOf: null,
     });
 
     await expect(
@@ -49,7 +50,7 @@ describe('RankingController', () => {
           displayName: 'mina',
           githubLogin: 'mina',
           commitCount: 2,
-          prCount: 1,
+          pullRequestCount: 1,
           releaseCount: 0,
           total: 3,
         },
@@ -57,24 +58,31 @@ describe('RankingController', () => {
       page: 1,
       pageSize: 20,
       total: 1,
+      dataAsOf: null,
     });
     expect(findPage).toHaveBeenCalledWith(2026, 1, 20);
   });
 
-  it('year 기본은 all 이고 legacy period=THIS_YEAR는 현재 연도로 매핑한다', async () => {
+  it('year 기본은 올해이고 legacy period=ALL 은 전체로 남는다', async () => {
     findPage.mockResolvedValue({
       year: RANKING_YEAR_ALL,
       items: [],
       page: 1,
       pageSize: 20,
       total: 0,
+      dataAsOf: null,
     });
 
     await controller.findPage({
       page: 1,
       pageSize: 20,
     });
-    expect(findPage).toHaveBeenLastCalledWith(RANKING_YEAR_ALL, 1, 20);
+    // 기본은 올해다(ADR-010 §1) — 명시적 ALL 만 전체 누적으로 간다.
+    expect(findPage).toHaveBeenLastCalledWith(
+      new Date().getFullYear(),
+      1,
+      20,
+    );
 
     findPage.mockResolvedValue({
       year: 2026,
@@ -82,6 +90,7 @@ describe('RankingController', () => {
       page: 1,
       pageSize: 20,
       total: 0,
+      dataAsOf: null,
     });
     const now = new Date('2026-07-21T00:00:00.000Z');
     jest.useFakeTimers();

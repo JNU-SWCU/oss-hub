@@ -7,11 +7,11 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { OriginGuard } from '../auth/origin.guard';
-import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
-import { ProgramMilestoneResponseDto } from './dto/editable-program-response.dto';
-import { UpsertMilestoneRequestDto } from './dto/upsert-milestone-request.dto';
-import { ProgramEditorService } from './program-editor.service';
+import { OriginGuard } from '../../auth/origin.guard';
+import { type AuthenticatedRequest, SessionGuard } from '../../auth/session.guard';
+import { ProgramMilestoneResponseDto } from '../dto/editable-program-response.dto';
+import { UpsertMilestoneRequestDto } from '../dto/upsert-milestone-request.dto';
+import { ProgramEditorService } from '../service/program-editor.service';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

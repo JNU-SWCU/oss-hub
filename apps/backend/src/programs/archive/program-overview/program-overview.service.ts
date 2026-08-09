@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Role } from '@prisma/client';
-import { DomainException } from '../common/error-code';
+import { DomainException } from '../../../common/error-code';
 import {
   PROGRAM_OVERVIEW_ERROR_CODES,
   ProgramOverviewErrorCode,

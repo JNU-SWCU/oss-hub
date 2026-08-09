@@ -6,10 +6,10 @@ import {
   RepositoryVisibility,
   Role,
 } from '@prisma/client';
-import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { createCollectionReadPortForIntegrationTest } from '../collection/collection-read.port';
-import { PrismaService } from '../prisma/prisma.service';
-import { PublicEligibilityService } from '../public-eligibility/public-eligibility.service';
+import { assertIsolatedIntegrationDatabase } from '../../../../test/integration-database.guard';
+import { createCollectionReadPortForIntegrationTest } from '../../../github/collection-read.port';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { PublicEligibilityService } from '../../../programs/archive/public-eligibility/public-eligibility.service';
 import { PublicUserProfileResponseDto } from './dto/public-user-profile-response.dto';
 import { PublicProjectsRepository } from './public-projects.repository';
 import { PublicProjectsService } from './public-projects.service';
@@ -170,22 +170,20 @@ describe('PublicProjectsService.findProfile integration', () => {
     }
 
     // repo-a: 소유자 기여(3/1/0) + 다른 기여자(999/999/999, 반드시 배제되어야 한다).
-    await prisma.collectionContributorYearAggregate.createMany({
+    await prisma.contribution.createMany({
       data: [
         {
           repositoryId: `${PREFIX}-collection-repository-a`,
-          githubUserId: OWNER_GITHUB_ID,
-          githubLogin: `${PREFIX}-owner-login`,
-          year: 2026,
+          githubId: OWNER_GITHUB_ID,
+          date: new Date(Date.UTC(2026, 0, 2)),
           commitCount: 3,
           pullRequestCount: 1,
           releaseCount: 0,
         },
         {
           repositoryId: `${PREFIX}-collection-repository-a`,
-          githubUserId: OTHER_CONTRIBUTOR_GITHUB_ID,
-          githubLogin: `${PREFIX}-other-login`,
-          year: 2026,
+          githubId: OTHER_CONTRIBUTOR_GITHUB_ID,
+          date: new Date(Date.UTC(2026, 0, 2)),
           commitCount: 999,
           pullRequestCount: 999,
           releaseCount: 999,
@@ -193,22 +191,22 @@ describe('PublicProjectsService.findProfile integration', () => {
       ],
     });
     // repo-b: 소유자 기여(4/0/2) — 두 저장소 합산 정확성 검증용.
-    await prisma.collectionContributorYearAggregate.create({
+    await prisma.contribution.create({
       data: {
         repositoryId: `${PREFIX}-collection-repository-b`,
-        githubUserId: OWNER_GITHUB_ID,
-        githubLogin: `${PREFIX}-owner-login`,
-        year: 2026,
+        githubId: OWNER_GITHUB_ID,
+        date: new Date(Date.UTC(2026, 0, 2)),
         commitCount: 4,
         pullRequestCount: 0,
         releaseCount: 2,
       },
     });
     // repo-d: 관측은 됐지만(연간 집계 행은 있으나) 소유자의 기여 행은 없다 — observed-zero.
-    await prisma.collectionRepositoryYearAggregate.create({
+    await prisma.contribution.create({
       data: {
         repositoryId: `${PREFIX}-collection-repository-d`,
-        year: 2026,
+        githubId: OTHER_CONTRIBUTOR_GITHUB_ID,
+        date: new Date(Date.UTC(2026, 0, 2)),
         commitCount: 10,
         pullRequestCount: 2,
         releaseCount: 1,
@@ -218,12 +216,12 @@ describe('PublicProjectsService.findProfile integration', () => {
 
   afterAll(async () => {
     try {
-      await prisma.collectionContributorYearAggregate.deleteMany({
+      await prisma.contribution.deleteMany({
         where: {
           repositoryId: { startsWith: `${PREFIX}-collection-repository` },
         },
       });
-      await prisma.collectionRepositoryYearAggregate.deleteMany({
+      await prisma.contribution.deleteMany({
         where: {
           repositoryId: { startsWith: `${PREFIX}-collection-repository` },
         },

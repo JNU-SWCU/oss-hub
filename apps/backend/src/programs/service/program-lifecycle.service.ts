@@ -3,14 +3,14 @@ import { AccountStatus, ProgramLifecycle, Role } from '@prisma/client';
 import {
   createProgramLifecycleAuditMetadata,
   PROGRAM_LIFECYCLE_AUDIT_ACTIONS,
-} from '../audit-log/audit-log-metadata';
-import { AuditLogService } from '../audit-log/audit-log.service';
-import { DomainException } from '../common/error-code';
-import { PrismaService } from '../prisma/prisma.service';
+} from '../../audit-log/audit-log-metadata';
+import { AuditLogService } from '../../audit-log/audit-log.service';
+import { DomainException } from '../../common/error-code';
+import { PrismaService } from '../../prisma/prisma.service';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
-} from './program-error-code.enum';
+} from '../program-error-code.enum';
 
 @Injectable()
 export class ProgramLifecycleService {

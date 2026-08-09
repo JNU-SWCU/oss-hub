@@ -2,14 +2,14 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   COLLECTION_READ_PORT,
   type CollectionReadPort,
-} from '../collection/collection-read.port';
-import { UserDisplayNameRepository } from '../users/user-display-name.repository';
+} from '../../github/collection-read.port';
+import { UserDisplayNameRepository } from '../../users/user-display-name.repository';
 import {
   RANKING_YEAR_ALL,
   type RankingEntry,
   type RankingPage,
   type RankingYear,
-} from './domain/ranking';
+} from '../domain/ranking';
 
 const RANKING_CACHE_TTL_MS = 60_000;
 
@@ -37,7 +37,12 @@ export class RankingService {
     page: number,
     pageSize: number,
   ): Promise<RankingPage> {
-    const entries = await this.findEntries(year);
+    // 갱신 시각은 목록 캐시 **밖에서** 따로 묻는다(ADR-010 §10).
+    // 같이 캐시되면 수집이 멈춰도 시각이 60초마다 새로워지는 것처럼 보인다.
+    const [entries, dataAsOf] = await Promise.all([
+      this.findEntries(year),
+      this.collection.getPublicRankingDataAsOf(),
+    ]);
     const start = (page - 1) * pageSize;
     return {
       year,
@@ -45,6 +50,7 @@ export class RankingService {
       page,
       pageSize,
       total: entries.length,
+      dataAsOf,
     };
   }
 
@@ -88,13 +94,13 @@ export class RankingService {
     );
 
     const candidates = activity
-      .map(({ githubId, githubLogin, commitCount, prCount, releaseCount }) => ({
+      .map(({ githubId, githubLogin, commitCount, pullRequestCount, releaseCount }) => ({
         githubId,
         githubLogin,
         commitCount,
-        prCount,
+        pullRequestCount,
         releaseCount,
-        total: commitCount + prCount + releaseCount,
+        total: commitCount + pullRequestCount + releaseCount,
       }))
       .filter((entry) => entry.total > 0);
 
@@ -121,7 +127,7 @@ export class RankingService {
         return (
           right.total - left.total ||
           right.commitCount - left.commitCount ||
-          right.prCount - left.prCount ||
+          right.pullRequestCount - left.pullRequestCount ||
           right.releaseCount - left.releaseCount ||
           normalizedLoginOrder ||
           (left.githubId < right.githubId
@@ -136,7 +142,7 @@ export class RankingService {
         displayName: entry.displayName,
         githubLogin: entry.githubLogin,
         commitCount: entry.commitCount,
-        prCount: entry.prCount,
+        pullRequestCount: entry.pullRequestCount,
         releaseCount: entry.releaseCount,
         total: entry.total,
       }));

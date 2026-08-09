@@ -2,9 +2,9 @@ import type {
   CollectionContributorCumulativeMetricsDto,
   CollectionReadPort,
   CollectionRepositoryCumulativeMetricsDto,
-} from '../collection/collection-read.port';
-import { DomainException } from '../common/error-code';
-import type { PublicEligibilityService } from '../public-eligibility/public-eligibility.service';
+} from '../../../github/collection-read.port';
+import { DomainException } from '../../../common/error-code';
+import type { PublicEligibilityService } from '../../../programs/archive/public-eligibility/public-eligibility.service';
 import { encodePublicProjectCursor } from './public-project-cursor';
 import type {
   PublicProjectRow,
@@ -76,6 +76,7 @@ function serviceWith(overrides: {
     getContributorMetrics: jest.fn(),
     getPublicRankingMetrics: jest.fn(),
     listPublicRankingYears: jest.fn(),
+    getPublicRankingDataAsOf: () => Promise.resolve(null),
     getIncrementalStatusSnapshot: jest.fn(),
     getRepositoryCumulativeMetrics:
       overrides.getRepositoryCumulativeMetrics ??

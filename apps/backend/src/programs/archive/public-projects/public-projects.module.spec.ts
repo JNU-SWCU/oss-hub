@@ -1,7 +1,7 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
-import { CollectionModule } from '../collection/collection.module';
-import { PrismaModule } from '../prisma/prisma.module';
-import { PublicEligibilityModule } from '../public-eligibility/public-eligibility.module';
+import { CollectionModule } from '../../../github/collection.module';
+import { PrismaModule } from '../../../prisma/prisma.module';
+import { PublicEligibilityModule } from '../../../programs/archive/public-eligibility/public-eligibility.module';
 import { PublicProjectsController } from './public-projects.controller';
 import { PublicProjectsModule } from './public-projects.module';
 import { PublicProjectsRepository } from './public-projects.repository';

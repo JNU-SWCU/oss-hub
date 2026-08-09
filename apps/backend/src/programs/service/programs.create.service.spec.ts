@@ -1,13 +1,13 @@
 import { AccountStatus, ProgramCategory, Role } from '@prisma/client';
-import { DomainException } from '../common/error-code';
-import { PrismaService } from '../prisma/prisma.service';
-import type { CreateProgramRequestDto } from './dto/create-program-request.dto';
+import { DomainException } from '../../common/error-code';
+import { PrismaService } from '../../prisma/prisma.service';
+import type { CreateProgramRequestDto } from '../dto/create-program-request.dto';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
-} from './program-error-code.enum';
+} from '../program-error-code.enum';
 import { ProgramCreationService } from './program-creation.service';
-import { ProgramsRepository } from './programs.repository';
+import { ProgramsRepository } from '../repository/programs.repository';
 
 const input: CreateProgramRequestDto = {
   name: '  2026 OSS Contest  ',

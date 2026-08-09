@@ -1,16 +1,16 @@
 import { randomBytes } from 'node:crypto';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
-import { AuthConfig } from '../auth/auth.config';
-import { OriginGuard } from '../auth/origin.guard';
-import { sessionCookieName } from '../auth/cookies';
-import { issueSessionToken } from '../auth/session-token';
-import { SessionGuard } from '../auth/session.guard';
-import { ProgramActivityService } from './program-activity.service';
-import { ProgramCreationService } from './program-creation.service';
-import { ProgramViewerService } from './program-viewer.service';
+import { AuthConfig } from '../../auth/auth.config';
+import { OriginGuard } from '../../auth/origin.guard';
+import { sessionCookieName } from '../../auth/cookies';
+import { issueSessionToken } from '../../auth/session-token';
+import { SessionGuard } from '../../auth/session.guard';
+import { ProgramActivityService } from '../service/program-activity.service';
+import { ProgramCreationService } from '../service/program-creation.service';
+import { ProgramViewerService } from '../service/program-viewer.service';
 import { ProgramsController } from './programs.controller';
-import { ProgramsService } from './programs.service';
+import { ProgramsService } from '../service/programs.service';
 
 const sessionSecret = new Uint8Array(randomBytes(32));
 const authConfig = { sessionSecret, useSecureCookies: true } as AuthConfig;

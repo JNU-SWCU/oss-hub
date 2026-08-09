@@ -1,13 +1,13 @@
 import { AccountStatus, RoleRequestStatus, Role } from '@prisma/client';
-import { DomainException } from '../common/error-code';
+import { DomainException } from '../../common/error-code';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
-} from './program-error-code.enum';
+} from '../program-error-code.enum';
 import {
   createProgramEditorServiceHarness,
   editableProgram,
-} from '../../test/program-editor-service-fixtures';
+} from '../../../test/program-editor-service-fixtures';
 
 describe('ProgramEditorService authority', () => {
   it('loads edit data by canonical program id inside one repository transaction', async () => {

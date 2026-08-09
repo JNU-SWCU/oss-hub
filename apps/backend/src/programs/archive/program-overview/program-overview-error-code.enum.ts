@@ -1,4 +1,4 @@
-import { ErrorCode } from '../common/error-code';
+import { ErrorCode } from '../../../common/error-code';
 
 export enum ProgramOverviewErrorCode {
   PROGRAM_NOT_FOUND = 'POV_001',

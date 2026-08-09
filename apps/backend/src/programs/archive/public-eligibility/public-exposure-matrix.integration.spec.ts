@@ -7,26 +7,26 @@ import {
   RepositoryVisibility,
   Role,
 } from '@prisma/client';
-import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../audit-log/audit-log.repository';
-import { AuditLogService } from '../audit-log/audit-log.service';
-import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../audit-log/audit-log-metadata';
+import { assertIsolatedIntegrationDatabase } from '../../../../test/integration-database.guard';
+import { AuditLogRepository } from '../../../audit-log/audit-log.repository';
+import { AuditLogService } from '../../../audit-log/audit-log.service';
+import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../../../audit-log/audit-log-metadata';
 import {
   createCollectionReadPortForIntegrationTest,
   type CollectionReadPort,
-} from '../collection/collection-read.port';
-import { PrismaService } from '../prisma/prisma.service';
-import type { GithubAppClient } from '../repositories/github-app.client';
-import { RepositoriesRepository } from '../repositories/repositories.repository';
-import { RepositoriesService } from '../repositories/repositories.service';
-import { RankingService } from '../ranking/ranking.service';
-import { UserDisplayNameRepository } from '../users/user-display-name.repository';
-import { PublicProjectsErrorCode } from '../public-projects/public-projects-error-code.enum';
-import { PublicProjectsRepository } from '../public-projects/public-projects.repository';
-import { PublicProjectsService } from '../public-projects/public-projects.service';
-import { SubmissionReviewsErrorCode } from '../submission-reviews/submission-reviews-error-code.enum';
-import { SubmissionReviewsRepository } from '../submission-reviews/submission-reviews.repository';
-import { SubmissionReviewsService } from '../submission-reviews/submission-reviews.service';
+} from '../../../github/collection-read.port';
+import { PrismaService } from '../../../prisma/prisma.service';
+import type { GithubAppClient } from '../../../github/github-app.client';
+import { RepositoriesRepository } from '../../../github/repository/repositories.repository';
+import { RepositoriesService } from '../../../github/service/repositories.service';
+import { RankingService } from '../../../ranking/service/ranking.service';
+import { UserDisplayNameRepository } from '../../../users/user-display-name.repository';
+import { PublicProjectsErrorCode } from '../../../programs/archive/public-projects/public-projects-error-code.enum';
+import { PublicProjectsRepository } from '../../../programs/archive/public-projects/public-projects.repository';
+import { PublicProjectsService } from '../../../programs/archive/public-projects/public-projects.service';
+import { SubmissionReviewsErrorCode } from '../../../submission-reviews/submission-reviews-error-code.enum';
+import { SubmissionReviewsRepository } from '../../../submission-reviews/submission-reviews.repository';
+import { SubmissionReviewsService } from '../../../submission-reviews/submission-reviews.service';
 import { PublicEligibilityService } from './public-eligibility.service';
 
 /**
@@ -224,7 +224,13 @@ async function observeCollection(params: {
   return collectionRepositoryId;
 }
 
-/** 기여자 2명(소유자 + 다른 기여자)을 저장소 하나에 심는다. */
+/**
+ * 기여자 2명(소유자 + 다른 기여자)을 저장소 하나에 심는다.
+ *
+ * 표시명 원본이 `User` 로 바뀌었으므로(ADR-010 §4) 기여 행만 심으면
+ * `githubLogin` 이 빈 문자열로 나온다. 가입자만 적재한다는 불변식(§5)상
+ * 모든 `Contribution.githubId` 는 `User` 에 있어야 하므로, fixture 도 그렇게 심는다.
+ */
 async function seedContributors(
   collectionRepositoryId: string,
   ownerGithubId: bigint,
@@ -232,32 +238,48 @@ async function seedContributors(
   otherGithubId: bigint,
   otherLogin: string,
 ): Promise<void> {
-  await prisma.collectionContributorYearAggregate.createMany({
+  for (const [githubId, nickname] of [
+    [ownerGithubId, ownerLogin],
+    [otherGithubId, otherLogin],
+  ] as const) {
+    await prisma.user.upsert({
+      where: { githubId },
+      update: { nickname },
+      create: {
+        id: `${PREFIX}-contributor-${githubId.toString()}`,
+        githubId,
+        nickname,
+        role: Role.STUDENT,
+      },
+    });
+  }
+
+  await prisma.contribution.createMany({
     data: [
       {
         repositoryId: collectionRepositoryId,
-        githubUserId: ownerGithubId,
-        githubLogin: ownerLogin,
-        year: 2026,
+        githubId: ownerGithubId,
+        date: new Date(Date.UTC(2026, 0, 2)),
         commitCount: 5,
         pullRequestCount: 2,
         releaseCount: 1,
       },
       {
         repositoryId: collectionRepositoryId,
-        githubUserId: otherGithubId,
-        githubLogin: otherLogin,
-        year: 2026,
+        githubId: otherGithubId,
+        date: new Date(Date.UTC(2026, 0, 2)),
         commitCount: 3,
         pullRequestCount: 1,
         releaseCount: 0,
       },
     ],
   });
-  await prisma.collectionRepositoryYearAggregate.create({
+  await prisma.contribution.create({
     data: {
       repositoryId: collectionRepositoryId,
-      year: 2026,
+      // 저장소 총계 개념이 사라졌으므로(ADR-010 §4) 귀속을 명시한다.
+      githubId: ownerGithubId,
+      date: new Date(Date.UTC(2026, 0, 2)),
       commitCount: 8,
       pullRequestCount: 3,
       releaseCount: 1,
@@ -490,10 +512,10 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
 
   afterAll(async () => {
     try {
-      await prisma.collectionContributorYearAggregate.deleteMany({
+      await prisma.contribution.deleteMany({
         where: { repositoryId: { startsWith: `${PREFIX}-` } },
       });
-      await prisma.collectionRepositoryYearAggregate.deleteMany({
+      await prisma.contribution.deleteMany({
         where: { repositoryId: { startsWith: `${PREFIX}-` } },
       });
       await prisma.githubRepository.deleteMany({

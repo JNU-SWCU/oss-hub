@@ -2,7 +2,7 @@ import type {
   CollectionReadPort,
   CollectionRepositoryMetricsDto,
   CollectionRepositoryMetricsQueryDto,
-} from '../collection/collection-read.port';
+} from '../../../github/collection-read.port';
 import {
   PublicEligibilityService,
   type PublicEligibilityCandidate,
@@ -41,6 +41,7 @@ function serviceWith(
     getContributorMetrics: () => Promise.resolve([]),
     getPublicRankingMetrics: () => Promise.resolve([]),
     listPublicRankingYears: () => Promise.resolve([]),
+    getPublicRankingDataAsOf: () => Promise.resolve(null),
     getRepositoryCumulativeMetrics: () => Promise.resolve([]),
     getContributorCumulativeMetrics: () => Promise.resolve([]),
     getIncrementalStatusSnapshot: () =>
@@ -55,6 +56,9 @@ function serviceWith(
         oldestRetryPendingAt: null,
         lastCycleStartedAt: null,
         lastCycleCompletedAt: null,
+        dueRepositoryCount: 0,
+        failingRepositoryCount: 0,
+        lastRepositorySuccessAt: null,
       }),
   };
   return new PublicEligibilityService(collection);

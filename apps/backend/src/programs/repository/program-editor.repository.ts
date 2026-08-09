@@ -5,7 +5,7 @@ import {
   SubmissionFileLifecycle,
 } from '@prisma/client';
 import type { Prisma as PrismaTypes } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import type {
   EditableProgramView,
   ProgramCategoryLockState,
@@ -18,7 +18,7 @@ import type {
   ProgramMilestoneView,
   ProgramSchedule,
   ProgramUpdateInput,
-} from './program-editor.types';
+} from '../program-editor.types';
 
 type ProgramRecord = PrismaTypes.ProgramGetPayload<{
   include: typeof editableProgramInclude;

@@ -9,17 +9,17 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { OriginGuard } from '../auth/origin.guard';
-import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
-import { CreateTeamRequestDto } from './dto/create-team-request.dto';
-import { JoinTeamRequestDto } from './dto/join-team-request.dto';
+import { OriginGuard } from '../../auth/origin.guard';
+import { type AuthenticatedRequest, SessionGuard } from '../../auth/session.guard';
+import { CreateTeamRequestDto } from '../dto/create-team-request.dto';
+import { JoinTeamRequestDto } from '../dto/join-team-request.dto';
 import {
   CreateTeamResponseDto,
   ProgramTeamResponseDto,
   StaffProgramTeamResponseDto,
-} from './dto/team-response.dto';
-import { ProgramTeamsStaffGuard } from './program-teams-staff.guard';
-import { ProgramTeamsService } from './program-teams.service';
+} from '../dto/team-response.dto';
+import { ProgramTeamsStaffGuard } from '../program-teams-staff.guard';
+import { ProgramTeamsService } from '../service/program-teams.service';
 
 type TeamSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

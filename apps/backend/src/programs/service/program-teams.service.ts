@@ -1,12 +1,12 @@
 import { randomBytes } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
-import { DomainException } from '../common/error-code';
+import { DomainException } from '../../common/error-code';
 import {
   computeJoinCodeDigest,
   resolveJoinCodeSecretFromConfig,
-} from '../common/join-code-digest';
-import type { RuntimeConfig } from '../runtime-config/runtime-config';
-import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
+} from '../../common/join-code-digest';
+import type { RuntimeConfig } from '../../runtime-config/runtime-config';
+import { RUNTIME_CONFIG } from '../../runtime-config/runtime-config.module';
 import {
   JoinCodeDigestConflictError,
   ProgramTeamsRepository,
@@ -15,13 +15,13 @@ import {
   type StaffTeamRecord,
   type TeamDetailRecord,
   type TeamProgramRecord,
-} from './program-teams.repository';
-import { TEAMS_ERROR_CODES, TeamsErrorCode } from './teams-error-code.enum';
+} from '../repository/program-teams.repository';
+import { TEAMS_ERROR_CODES, TeamsErrorCode } from '../teams-error-code.enum';
 import type {
   CreatedTeamView,
   ProgramTeamView,
   StaffTeamView,
-} from './program-teams.types';
+} from '../program-teams.types';
 
 const JOIN_CODE_ATTEMPTS = 5;
 

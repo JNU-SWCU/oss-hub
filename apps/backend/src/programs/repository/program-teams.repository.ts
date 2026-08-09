@@ -5,11 +5,11 @@ import {
   Role,
   type ProgramCategory,
 } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import {
   COMPATIBLE_PROFILE_NAME_SELECT,
   resolveCompatibleProfileName,
-} from '../profiles/profile-compatibility';
+} from '../../profiles/profile-compatibility';
 
 export interface TeamStudentActor {
   readonly id: string;

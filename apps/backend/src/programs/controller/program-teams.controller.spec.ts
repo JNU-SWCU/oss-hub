@@ -1,11 +1,11 @@
 import { GUARDS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
-import { CreateTeamRequestDto } from './dto/create-team-request.dto';
-import { JoinTeamRequestDto } from './dto/join-team-request.dto';
+import { OriginGuard } from '../../auth/origin.guard';
+import { SessionGuard } from '../../auth/session.guard';
+import { CreateTeamRequestDto } from '../dto/create-team-request.dto';
+import { JoinTeamRequestDto } from '../dto/join-team-request.dto';
 import { ProgramTeamsController } from './program-teams.controller';
-import { ProgramTeamsStaffGuard } from './program-teams-staff.guard';
-import type { ProgramTeamsService } from './program-teams.service';
+import { ProgramTeamsStaffGuard } from '../program-teams-staff.guard';
+import type { ProgramTeamsService } from '../service/program-teams.service';
 
 function readGuards(
   target: object,

@@ -4,10 +4,10 @@ import {
   Role,
   SubmissionStatus,
 } from '@prisma/client';
-import type { PrismaService } from '../prisma/prisma.service';
-import { programDeadline } from './program-deadline';
+import type { PrismaService } from '../../prisma/prisma.service';
+import { programDeadline } from '../program-deadline';
 import type { ProgramViewer } from './program-viewer.service';
-import { ProgramsRepository } from './programs.repository';
+import { ProgramsRepository } from '../repository/programs.repository';
 import { ProgramsService } from './programs.service';
 
 const publicProgram = {

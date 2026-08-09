@@ -1,5 +1,5 @@
 import { ProgramCategory, RoleRequestStatus } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 
 describe('ProgramEditorRepository authority', () => {

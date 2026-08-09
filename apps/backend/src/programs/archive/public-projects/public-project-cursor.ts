@@ -1,4 +1,4 @@
-import { DomainException } from '../common/error-code';
+import { DomainException } from '../../../common/error-code';
 import {
   PUBLIC_PROJECTS_ERROR_CODES,
   PublicProjectsErrorCode,

@@ -5,11 +5,11 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { Test } from '@nestjs/testing';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import {
   REPOSITORIES_READ_PORT,
   type RepositoriesReadPort,
-} from '../repositories/repositories-read.port';
+} from '../../github/repositories-read.port';
 import { StudentDashboardService } from './student-dashboard.service';
 
 const DUE_AT = new Date('2026-08-01T00:00:00.000Z');
