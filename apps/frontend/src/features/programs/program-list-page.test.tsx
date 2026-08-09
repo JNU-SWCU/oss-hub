@@ -68,12 +68,15 @@ describe('ProgramListPage 등록 동선', () => {
     vi.clearAllMocks();
   });
 
-  async function renderPage(canCreateProgram: boolean): Promise<void> {
+  async function renderPage(
+    canCreateProgram: boolean,
+    viewerRole: 'STUDENT' | 'STAFF' | 'ADMIN' = 'STAFF',
+  ): Promise<void> {
     await act(async () => {
       root.render(
         <ProgramListPage
           canCreateProgram={canCreateProgram}
-          viewerRole="STAFF"
+          viewerRole={viewerRole}
         />,
       );
       await Promise.resolve();
@@ -94,8 +97,25 @@ describe('ProgramListPage 등록 동선', () => {
     expect(createLinks[0]?.textContent).toBe('프로그램 만들기');
   });
 
+  it('교직원은 프로그램이 없어도 목록 머리말의 만들기 동선을 한 번만 본다', async () => {
+    listProgramsMock.mockResolvedValueOnce({
+      items: [],
+      page: 1,
+      pageSize: 20,
+      totalItems: 0,
+      totalPages: 0,
+    });
+
+    await renderPage(true);
+
+    expect(container.querySelectorAll('a[href="/programs/new"]')).toHaveLength(
+      1,
+    );
+    expect(container.textContent).toContain('등록된 프로그램이 없습니다');
+  });
+
   it('학생에게는 프로그램 만들기 동선을 노출하지 않는다', async () => {
-    await renderPage(false);
+    await renderPage(false, 'STUDENT');
 
     expect(container.querySelector('a[href="/programs/new"]')).toBeNull();
   });
