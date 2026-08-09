@@ -4,7 +4,7 @@ import {
   COLLECTION_READ_PORT,
   type CollectionIncrementalStatusSnapshotDto,
   type CollectionReadPort,
-} from '../collection/collection-read.port';
+} from '../github/collection-read.port';
 import { SystemStatusRepository } from './system-status.repository';
 import {
   CollectionSystemStatusResponseDto,

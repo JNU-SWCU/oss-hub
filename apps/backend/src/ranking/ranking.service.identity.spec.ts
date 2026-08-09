@@ -17,7 +17,12 @@ describe('RankingService identity and privacy', () => {
       harness.service.findPage(RANKING_YEAR_ALL, 1, 20),
     ).resolves.toMatchObject({
       items: [
-        { githubLogin: 'new-login', commitCount: 2, prCount: 1, total: 3 },
+        {
+          githubLogin: 'new-login',
+          commitCount: 2,
+          pullRequestCount: 1,
+          total: 3,
+        },
       ],
       total: 1,
     });
@@ -32,7 +37,12 @@ describe('RankingService identity and privacy', () => {
       harness.service.findPage(RANKING_YEAR_ALL, 1, 20),
     ).resolves.toMatchObject({
       items: [
-        { githubLogin: 'old-login', commitCount: 2, prCount: 0, total: 2 },
+        {
+          githubLogin: 'old-login',
+          commitCount: 2,
+          pullRequestCount: 0,
+          total: 2,
+        },
       ],
       total: 1,
     });

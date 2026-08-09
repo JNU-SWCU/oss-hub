@@ -3,7 +3,7 @@ import type {
   PersonalizedProgramListItem,
   ProgramListItemNote,
   ProgramListPage,
-} from '../programs.service';
+} from '../service/programs.service';
 
 export class ProgramListResponseDto {
   readonly id: string;

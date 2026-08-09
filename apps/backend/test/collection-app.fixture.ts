@@ -4,9 +4,9 @@ import type {
   CollectionPullRequest,
   CollectionRelease,
   CollectionRepository,
-} from '../src/collection/collection-app.client';
-import type { CollectionAppTokenProvider } from '../src/collection/collection-app.token';
-import type { CollectionReconciliationRuntime } from '../src/collection/collection-reconciliation.service';
+} from '../src/github/collection-app.client';
+import type { CollectionAppTokenProvider } from '../src/github/collection-app.token';
+import type { CollectionReconciliationRuntime } from '../src/github/service/collection-reconciliation.service';
 
 export const SYNTHETIC_APP_ID = '9000000000001001';
 export const SYNTHETIC_ORGANIZATION_ID = '9000000000001002';

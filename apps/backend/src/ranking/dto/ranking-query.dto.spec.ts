@@ -77,7 +77,8 @@ describe('resolveRankingQueryYear (Q5)', () => {
     ).toBe(RANKING_YEAR_ALL);
   });
 
-  it('defaults to all when year and period are absent', () => {
-    expect(resolveRankingQueryYear({}, fixedNow)).toBe(RANKING_YEAR_ALL);
+  it('year·period 가 모두 없으면 올해로 본다', () => {
+    // 학생이 처음 여는 화면은 "올해 내 활동"이다(ADR-010 §1).
+    expect(resolveRankingQueryYear({}, fixedNow)).toBe(2026);
   });
 });

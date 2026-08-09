@@ -11,9 +11,9 @@ import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamsErrorCode } from './teams-error-code.enum';
-import { ProgramTeamsController } from './program-teams.controller';
+import { ProgramTeamsController } from './controller/program-teams.controller';
 import { ProgramTeamsStaffGuard } from './program-teams-staff.guard';
-import { ProgramTeamsService } from './program-teams.service';
+import { ProgramTeamsService } from './service/program-teams.service';
 
 /**
  * 교직원 전용 팀 목록(GET /api/v1/programs/:programId/teams)을 실제 HTTP 파이프라인
