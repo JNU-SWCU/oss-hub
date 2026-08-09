@@ -1,0 +1,177 @@
+---
+slug: ADR-010-contribution-tracking-context
+date: 2026-08-09
+author: GoBeromsu
+status: Accepted
+references:
+  - ADR-003
+  - ADR-006
+  - ADR-009
+refines:
+  - ADR-006
+  - ADR-009
+---
+
+# ADR-010: 기여 추적 컨텍스트 — 두 읽기 표면과 그 데이터원
+
+## Status
+
+Accepted
+
+## Date
+
+2026-08-09
+
+## Context
+
+플랫폼이 학생에게 보여줘야 하는 것은 둘이다.
+
+1. **랭킹** — 이 학생이 **올해** 얼마나 활동했는가. 과거 연도도 선택해서 볼 수 있다
+2. **프로그램** — 이 학생이 **자기 팀 저장소**에 얼마나 기여했는가
+
+두 화면은 같은 사실을 다르게 접은 것이므로 오래 하나의 데이터원을 공유해 왔다. 그런데 운영에서 드러난 사실이 그 전제를 흔들었다.
+
+**랭킹은 비어 있지 않았다. 멈춰 있었다.** 공개 API가 4명분 2026년 수치를 반환하고 있었고 숫자는 존재했으나 갱신이 서지 않았다. 원인 진단은 별건이지만, 이 사고가 드러낸 구조적 사실은 하나다 — **랭킹이 조직 저장소 sweep의 건강에 종속돼 있어 sweep이 멈추면 학생이 보는 화면이 같이 멈춘다.**
+
+동시에 `ADR-009`가 이미 확정한 것이 있다. 학생이 신청 폼에서 `OWN`으로 연결한 조직 밖 저장소의 활동을 **프로그램 실적으로 센다.** 그리고 현재 수집은 조직 밖 공개 저장소 기여를 이미 랭킹에 섞고 있다(`collection-read.service.ts`의 `getPublicRankingMetrics` 주석: *"학생 개인 이력을 의도적으로 섞는다(org 밖 저장소도 포함)"*).
+
+기존 수집 구조는 세 곳에 흩어져 있었다. GitHub App 클라이언트가 2벌(`repositories/github-app.client.ts` 205줄, `collection/collection-app.client.ts` 1030줄), 토큰 provider가 3벌, octokit을 만지는 모듈이 3곳(`auth`·`collection`·`repositories`)이다. rate limit 한도는 계정 단위인데 클라이언트가 둘이라 각자 자기 사용량만 알고, 페이싱 큐가 둘이면 페이싱이 성립하지 않는다.
+
+## Decision
+
+### 1. 두 화면의 데이터원을 가른다
+
+```
+① 랭킹     내 올해 활동      commit·PR ← contributionsCollection (GraphQL, 학생당 1콜)
+                            release   ← ② 수집값을 얹는다. 없으면 0
+② 프로그램  내 팀 repo 기여   Contribution (repositoryId, githubId, date) ← 조직 App sweep
+```
+
+**근거 넷.**
+
+1. 랭킹 화면이 이미 *"OSS Hub에 연결된 **공개** GitHub 활동을 기준으로 집계합니다"*를 배포된 상태로 선언하고 있다. 공개 활동 기준은 새 정책이 아니라 이미 사용자에게 약속한 것이다
+2. `contributionsCollection`이 정확히 "이 학생의 올해 활동"을 답하는 API다. 저장소를 훑지 않고 학생당 1콜로 끝난다
+3. ①이 sweep·lease·cursor·인벤토리·installation token에서 독립한다. 수집이 멈춰도 랭킹은 산다 — 이번 사고가 다시 나도 학생 화면은 서지 않는다
+4. 공개 랭킹에 조직 private 기여를 합산하면 저장소를 밝히지 않아도 *"이 사람이 비공개로 많이 했다"*가 드러난다. 공개 표면에서 빼는 쪽이 누출 경계와 화면 문구를 동시에 맞춘다
+
+**대안(단일 데이터원 유지)을 기각한 이유.** 그 장점(release 포함·조직 private 포함)은 아래 3·5로 대체 가능하지만, 단점(랭킹이 sweep 건강에 계속 종속·누출을 정책으로 공식화)은 대체 불가능하다.
+
+### 2. 랭킹 필터는 사람 축이다
+
+가입한 학생의 활동을 센다. 저장소 축(`Application` 연결 여부)으로 거르지 않는다.
+
+저장소 축으로 fail-closed 하면 현재 랭킹이 통째로 사라진다 — 지금 수치의 지배적 원천이 `Application` 없는 조직 저장소(`oss-hub` 자신 포함)이기 때문이다(`collection-sync.service.ts`의 `#682` 경고 주석). 사람 축(`githubId ∈ User`)으로 거르면 제3자만 빠지고 가입 학생의 활동은 남는다.
+
+프로그램 범위(`Application`·`Team` 연결)는 ② 화면에서만 적용한다.
+
+### 3. 합계 정의는 commit + PR + release 3종이다
+
+`D7`을 유지한다. 가중치는 없으므로 이름은 점수가 아니라 활동 횟수다.
+
+`contributionsCollection`은 release를 세지 않는다 — GitHub의 기여 타입은 commit·issue·PR·PR review·저장소 생성 5종이고 release는 그중에 없다. 따라서 ①은 commit·PR만 GraphQL로 받고 **release는 ② 수집값을 얹되 없으면 0**으로 둔다. sweep이 멈춰도 commit·PR은 계속 갱신되므로 정지는 부분으로 격하된다.
+
+`issue`·`PR review`는 세지 않는다. 그 결과 **우리 숫자는 학생의 GitHub 프로필 그래프와 다를 수 있다** — GitHub은 issue·review를 세고 우리는 release를 센다. 화면 설명 문구가 이 차이를 밝힌다.
+
+`D7b`가 요구한 `total` → `activityCount` 개명은 **채택하지 않는다.** 봉투 이름은 `total`로 둔다.
+
+### 4. 수집 입자는 `(repositoryId, githubId, date)`다
+
+② 데이터는 `Contribution` 한 장에 담는다. `@@id([repositoryId, githubId, date])`이며 칸은 `commitCount`·`pullRequestCount`·`releaseCount`다.
+
+- 저장에 연도 개념이 없다. 읽을 때 `WHERE date` 범위로만 자르므로 **새해에 롤오버 작업이 없다.** 기존 `*YearAggregate`는 매년 1/1에 당해 연도 값을 0으로 안전하게 읽는 특수 처리를 요구했다
+- **랭킹 숫자를 저장하지 않는다.** 미리 계산한 랭킹 테이블을 두면 갱신 누락으로 화면이 옛 숫자를 보인다
+- 사람 식별자는 `githubId` 하나로 통일하고 NOT NULL이다. 저장소는 `githubRepositoryId`로 남겨 접두사가 사람/저장소를 구분한다
+- **개별 식별자(`sha`·PR id·릴리스 id)는 보존하지 않는다.** 집계 수치만 남는다 — "무엇을 했는지"가 아니라 "얼마나 했는지"다. 목록 화면이 필요해지면 author-scoped GraphQL이 전체 이력을 1포인트에 주므로 소급 백필할 수 있다
+
+### 5. 조직 안은 private까지, 조직 밖은 public만 수집한다
+
+수집 규칙은 한 줄이다 — **가입한 학생이 조직 안팎에서 한 기여를 센다.**
+
+- 조직 안: private·public 상관없이 추적
+- 조직 밖: public만 추적
+- 가입하지 않은 사람: 추적하지 않는다
+- 누가 했는지 모르는 기록: 적재하지 않는다
+
+조직 private 기여는 계속 수집하고 ② 프로그램 화면에서 보인다. **공개 랭킹에만 들어가지 않는다.** `ADR-009` §3("외부 활동을 프로그램 실적으로 센다")은 유지되며, 이 ADR은 그 표시 경계를 공개/인증 표면으로 나눌 뿐이다.
+
+`Repository.source`(`ORG_PROVISIONED` | `EXTERNAL_PUBLIC`) 구분은 스키마에 유지한다. 다만 **랭킹 필터로 쓰지 않는다**(위 2).
+
+### 6. 저장소를 만들거나 연결하는 순간이 곧 추적 시작이다
+
+프로비저닝(`NEW` 생성 / `OWN` 연결)이 이미 저장소 행을 만든다. 그 행에 큐 칸(`nextRunAt` 기본 `now()`·`lastSuccessAt`·`failureCount`)이 붙으면 생성 즉시 수집 대상이 된다. 별도 편입 단계도 조건절도 없다 — **행의 존재가 곧 멤버십이다.**
+
+### 7. `github/`가 밖으로 여는 기여 추적 port는 3개다
+
+기여 집계 / 공개 자격 / 건강. 질문의 종류도, 변하는 주기도, 보는 사람도 셋이다.
+
+**프로비저닝 port(`REPOSITORIES_READ_PORT`)는 별도 등재한다.** 답하는 질문이 "내 저장소 준비됐나"이고 신청 직후 몇 분 동안만 바뀌며 학생 본인만 본다 — 기여 추적 셋과 다른 종류다. `ADR-003` DEC-42의 "새 Port를 만들지 않는다"는 이 ADR로 개정된다.
+
+port는 entity가 아니라 결과 타입을 돌려준다. `nextRunAt`·`failureCount`가 밖으로 새지 않는다.
+
+### 8. 폴더는 Domain-first + Layered다
+
+최상위는 업무 도메인이고 그 안에 `controller/ service/ repository/ domain/ dto/` 계층을 둔다. 의존은 `Controller → Service → Repository → Prisma` 단방향이다.
+
+리뷰에서 확인하는 것은 넷이다.
+
+```
+Controller가 Prisma를 직접 부르는가?      → X
+Controller에 비즈니스 로직이 있는가?      → X
+Service에 Prisma query가 직접 들어가는가? → X
+Repository가 비즈니스 의사결정을 하는가?  → X
+```
+
+**빈 폴더를 강제하지 않는다.** 규칙은 "존재하는 폴더는 허용된 이름만"이며 필요해질 때 세분화한다. `entities/`·`aggregates/`·`value-objects/`·`ports/`·`adapters/`를 처음부터 만들지 않는다.
+
+이번 적용 범위는 `github`·`ranking`·`programs` 세 도메인이다. 나머지는 규약 문서화로 유도한다.
+
+### 9. 쓰기는 Prisma 네이티브로 시작한다
+
+수집은 **전량 재계산**이다. 증분 누적은 force-push·PR 삭제 뒤 영구히 부풀고 자가교정이 없다.
+
+Phase 1은 `deleteMany({ where: { repositoryId } })` + `createMany({ data })`다. 트랜잭션 경계는 유스케이스이며 **I/O는 트랜잭션 밖, 쓰기만 안**이다 — fetch가 실패하면 트랜잭션이 시작조차 하지 않으므로 기존 행이 그대로 남는다.
+
+함께 관측 지표를 남긴다: `pg_stat_user_tables`의 `n_dead_tup`/`n_live_tup` 비율, `autovacuum_count`, 델타 발생 횟수.
+
+**Phase 2는 조건부다.** 관측이 dead tuple 누적을 실제로 보이면 `$executeRaw` diff-apply(`ON CONFLICT DO UPDATE ... WHERE IS DISTINCT FROM`)로 교체하고, 델타 빈도가 충분히 높으면 변경 이력 테이블로 승격한다. **지금 만들지 않는다** — 증거 없이 raw SQL을 도입하면 타입 안전성 상실·두 어휘·리뷰 비용이 확실한데 이득은 불확실하고, 진짜 병목은 GitHub API다.
+
+### 10. 갱신은 매시 1회이고 화면이 갱신 시각을 말한다
+
+webhook 기반 실시간을 만들지 않는다(`ADR-006` 이벤트 최소주의 유지). 대신 **두 화면 모두 마지막 갱신 시각을 표시한다.** 이번 사고의 본질이 "멈췄는데 아무도 몰랐다"였으므로, 다시 멈추면 화면이 먼저 말해야 한다.
+
+### 11. 검증은 화면 기준이다
+
+"학생이 자기 화면을 보고 맞다고 하는가"가 판정이다. 표본 학생 3~5명의 두 화면을 열어 그 사람 GitHub 원본과 대조한다. 기간 제한은 없다.
+
+옛 DB 수치와 대조하지 않는다 — 규칙이 바뀌었으므로 비교 대상이 아니다. 대신 불변식 넷이 기계로 전수 검사한다: `(repositoryId, githubId, date)` 중복 0 / 모든 `githubId`가 가입자 집합 / 저장소별 내부 합계 정합 / **재실행 멱등성**.
+
+## Consequences
+
+- **private 비중이 큰 학생은 랭킹 수치가 지금보다 낮아진다.** private 자체는 ② 화면에서 보이고 플랫폼은 계속 수집한다. 전환 전후 순위 변동을 배포 전에 측정하고 표본 학생에게 고지한다. 공개 PR 본문에는 집계 판정만 남기고 학생별 원시 수치는 남기지 않는다
+- **우리 숫자와 GitHub 프로필 그래프가 다르다.** 기여 타입(우리는 release, GitHub은 issue·review)·기간(연도 vs rolling 365일)·시간대가 각각 어긋난다. 화면 문구가 이 차이를 밝힌다
+- 개별 식별자가 사라지므로 "무엇을 기여했는지" 목록 화면은 불가능해진다. 필요해지면 소급 백필로 되살릴 수 있다
+- 연도 목록을 `contributionYears`가 직접 주므로 집계 테이블에서 만들 필요가 없다
+- `contributionsCollection`의 저장소별 분해는 상한이 있으나(기본 25) ①은 `total*`을 쓰므로 무관하다
+- 조직 밖 저장소는 sweep이 재발견하지 않는다 — 그 행을 지우면 영구 소실이며 수동 재등록만이 복구다. 데이터 초기화를 하지 않고 `확장 → 재수집 → 읽기 전환 → 드롭` 순서로 간다
+
+## Alternatives considered
+
+**데이터를 밀고 재수집한다.** 조직 저장소는 매 sweep이 `listInstallationRepositories()`로 재발견하지만 조직 밖 저장소는 DB 행이 유일한 기록이라 영구 소실된다. 그리고 전량 재계산이 자가교정이므로 애초에 밀 필요가 없다.
+
+**랭킹 필터를 `Application` 연결 여부로 건다.** 현재 랭킹 수치의 지배적 원천이 `Application` 없는 조직 저장소라 랭킹이 0이 된다. 갈라야 할 축은 "조직 안인가"도 "프로그램에 연결됐는가"도 아닌 **"가입한 학생인가"**였다.
+
+**합계를 commit + PR + issue + review 4종으로 바꾼다.** GitHub의 기여 정의를 그대로 따르면 프로필과 숫자가 맞아떨어지지만, release를 세지 않게 되어 릴리스로 성과를 내는 팀의 기여가 사라진다. 3종 유지를 택했다.
+
+**`Repository`·`programId` 공존 4단계로 전환한다.** 데이터 폐기가 불필요해지면서 전제가 사라졌다.
+
+## Follow-ups
+
+- `Program.startAt` 신설 — ② 화면의 "프로그램 기간"을 `applicationStartAt` ~ `COALESCE(endAt, now())`로 잠정 정의했다. 정확한 활동 시작일 컬럼은 별건으로 다룬다
+- 랭킹 60초 인메모리 캐시 제거 — 갱신 시각을 캐시 밖 값으로 정의해 상호작용을 끊었으므로 급하지 않다
+- Phase 2 쓰기 전략 판단 — 관측 지표 한 달치
+- 학생 개인의 대학생활 전체 기록 표면 — 조직 밖 수집 기반은 남기되 화면은 보류한다
+- `contributionsCollection` rate limit 실측 — 학생 N명 × 매시 1콜이 시간당 API 예산의 절반 안에 드는지
+
+## Changelog
+
+- 2026-08-09: 신규. 두 읽기 표면의 데이터원 분리, 사람 축 랭킹 필터, `(repositoryId, githubId, date)` 입자, port 3개 + 프로비저닝 별도, Domain-first + Layered 폴더, Prisma 네이티브 쓰기와 Phase 2 조건을 확정. `ADR-003` DEC-42의 Port 제약과 `ADR-006`·`ADR-009`의 수집·표시 경계를 개정한다.
