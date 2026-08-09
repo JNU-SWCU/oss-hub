@@ -21,7 +21,7 @@ describe('RankingService canonical actor attribution', () => {
         displayName: 'release-author',
         githubLogin: 'release-author',
         commitCount: 0,
-        prCount: 0,
+        pullRequestCount: 0,
         releaseCount: 1,
         total: 1,
       },

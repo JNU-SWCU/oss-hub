@@ -1,6 +1,6 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { PROGRAM_ACTIVITY_SUMMARY_PORT } from './program-activity-summary.port';
-import { ProgramActivitySummaryService } from './program-activity-summary.service';
+import { ProgramActivitySummaryService } from './service/program-activity-summary.service';
 import { ProgramsModule } from './programs.module';
 
 const getMetadataArray = (key: string): unknown[] => {

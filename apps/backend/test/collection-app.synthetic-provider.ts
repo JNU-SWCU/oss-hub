@@ -4,11 +4,11 @@ import {
   type CollectionPullRequest,
   type CollectionRelease,
   type CollectionRepository,
-} from '../src/collection/collection-app.client';
-import { CollectionAppConfigValues } from '../src/collection/collection-app.config';
-import { CollectionAppTokenProvider } from '../src/collection/collection-app.token';
-import { ProviderRequestQueue } from '../src/collection/collection-provider-queue';
-import type { CollectionSyncRuntime } from '../src/collection/collection-sync.service';
+} from '../src/github/collection-app.client';
+import { CollectionAppConfigValues } from '../src/github/collection-app.config';
+import { CollectionAppTokenProvider } from '../src/github/collection-app.token';
+import { ProviderRequestQueue } from '../src/github/collection-provider-queue';
+import type { CollectionSyncRuntime } from '../src/github/service/collection-sync.service';
 
 /**
  * Fetcher-level synthetic GitHub REST provider for the public-admin-exposure

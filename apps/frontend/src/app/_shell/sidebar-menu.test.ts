@@ -133,7 +133,7 @@ describe('sidebarGroupsFor (context)', () => {
         depth: i.depth,
       })),
     ).toEqual([
-      { label: '전체', href: '/ranking', depth: 0 },
+      { label: '전체', href: '/ranking?year=all', depth: 0 },
       { label: '2026', href: '/ranking?year=2026', depth: 0 },
       { label: '2025', href: '/ranking?year=2025', depth: 0 },
     ]);
@@ -222,7 +222,7 @@ describe('SECTION_FACETS registry (U4)', () => {
     const items = SECTION_FACETS.ranking?.items(undefined) ?? [];
     expect(items).toHaveLength(1);
     expect(items[0]?.label).toBe('전체');
-    expect(items[0]?.href).toBe('/ranking');
+    expect(items[0]?.href).toBe('/ranking?year=all');
   });
 
   it('registry params match peer-filter keys', () => {

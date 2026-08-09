@@ -1,10 +1,10 @@
 import { MilestoneSubmissionType, ProgramCategory, Role } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
-import { ProgramEditorRepository } from './program-editor.repository';
-import { ProgramEditorService } from './program-editor.service';
-import { ProgramsRepository } from './programs.repository';
-import { ProgramsService } from './programs.service';
+import { ProgramEditorRepository } from './repository/program-editor.repository';
+import { ProgramEditorService } from './service/program-editor.service';
+import { ProgramsRepository } from './repository/programs.repository';
+import { ProgramsService } from './service/programs.service';
 
 export const TEST_PREFIX = 'test:101:program-editor:concurrency:';
 export const STAFF_GITHUB_ID = 9_101_000_001n;

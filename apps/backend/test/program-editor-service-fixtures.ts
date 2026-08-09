@@ -10,7 +10,7 @@ import {
   ProgramEditorService,
   type ProgramEditorRepositoryPort,
   type ProgramEditorTransactionStore,
-} from '../src/programs/program-editor.service';
+} from '../src/programs/service/program-editor.service';
 
 export const updateInput: UpdateProgramRequestDto = {
   name: '  Updated OSS  ',

@@ -6,12 +6,12 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { DomainException } from '../common/error-code';
-import { GithubOperationsError } from '../repositories/github-app.error';
-import { RepositoryPublishStateError } from '../repositories/repositories.repository';
+import { GithubOperationsError } from '../github/github-app.error';
+import { RepositoryPublishStateError } from '../github/repository/repositories.repository';
 import {
   RepositoriesService,
   RepositoryNotFoundError,
-} from '../repositories/repositories.service';
+} from '../github/service/repositories.service';
 import type {
   CreateSubmissionReviewInput,
   RepositoryPublishResult,

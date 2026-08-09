@@ -32,6 +32,8 @@ NestJS 전역 예외 필터가 예외를 API 오류 응답으로 변환한다. �
 
 collection 모듈의 cross-module 공개 surface는 `COLLECTION_READ_PORT` 토큰과 `CollectionReadPort`뿐이며(DEC-42), consumer 모듈(`programs`/`ranking`/`system-status` 등)은 concrete 구현이나 Prisma delegate를 직접 참조하지 않는다. collection의 수집원은 `ORG_PROVISIONED`(조직 소속 저장소)와 `EXTERNAL_PUBLIC`(학생이 등록한 조직 밖 public 저장소) 두 가지이며, 이 둘은 자격증명과 저장소 목록 discovery만 다르고 저장소 메타·commit·PR·release 수집, 커서·frontier, fact 적재, 연도 집계, 리스·전송 큐는 source와 무관하게 공유한다. 어느 source에 어떤 수집 전략을 쓸지 고르는 분기는 collection 서비스 계층의 책임이며, 이 분기가 `COLLECTION_READ_PORT`에 새 포트를 추가하거나 consumer에게 노출되는 테이블을 늘리지 않는다 — Port 경계 자체와 그 뒤의 단일 delegate 접근 규칙(DEC-42)은 이 확장으로 변하지 않는다.
 
+DEC-42의 "새 Port를 만들지 않는다"는 제약은 [ADR-010](ADR-010-contribution-tracking-context.md) §7로 개정됐다. 기여 추적 컨텍스트는 밖으로 여는 port를 **기여 집계 · 공개 자격 · 건강 셋**으로 두고, 프로비저닝 port(`REPOSITORIES_READ_PORT`)를 별도 등재한다 — 답하는 질문의 종류도, 변하는 주기도, 보는 사람도 넷이 서로 다르기 때문이다. Port 경계 자체와 그 뒤의 단일 delegate 접근 규칙은 그대로이며, 바뀐 것은 "port는 하나여야 한다"는 개수 제약뿐이다.
+
 ## Alternatives considered
 
 ### 최상위 계층 폴더
@@ -68,12 +70,14 @@ collection 모듈의 cross-module 공개 surface는 `COLLECTION_READ_PORT` 토�
 - service가 트랜잭션 경계를 소유하며 전역 예외 필터를 우회하는 개별 응답 형식을 만들지 않는다.
 - NestJS는 `setGlobalPrefix('api/v1')`로 API 접두사를 설정한다.
 - collection 수집원이 여러 개(`ORG_PROVISIONED`/`EXTERNAL_PUBLIC`)여도 그중 무엇을 쓸지 고르는 분기는 collection 서비스 계층에 두며 새 Port나 새 consumer-facing 테이블을 만들지 않는다(DEC-42).
+- 기여 추적 컨텍스트의 port 개수 제약은 [ADR-010](ADR-010-contribution-tracking-context.md) §7이 개정한다 — 기여 집계·공개 자격·건강 셋 + 프로비저닝 별도. delegate 직접 접근 금지는 유지된다.
 
 ## Changelog
 
 - 2026-07-11: initial decision
 - 2026-07-31: 공개 strict-read를 dedicated allowlist repository로 한정하고 Controller→Service→Repository DTO 및 cross-module/external behavioral dependency의 Port-only 규칙을 명문화했다.
 - 2026-08-04: DEC-42(collection 모듈의 `COLLECTION_READ_PORT` 전용 소비 경계)를 개정해, collection 수집원이 `ORG_PROVISIONED`/`EXTERNAL_PUBLIC` 두 가지로 늘어나도 그 차이(자격증명·discovery)를 흡수하는 지점은 collection 서비스 계층이며 Port 경계·delegate 접근 규칙 자체는 바뀌지 않음을 명시했다. 이 문서 본문에 `DEC-42` 식별자가 명시된 것은 이번이 처음이다 — 이전까지는 `eslint.config.mjs`·테스트·`AGENTS.md`가 이 결정을 "(ADR-003 DEC-42)"로 인용해 왔으나 ADR 본문에는 그 식별자가 없어 추적이 간접적이었다.
+- 2026-08-09: DEC-42의 "새 Port를 만들지 않는다" 제약을 [ADR-010](ADR-010-contribution-tracking-context.md) §7로 개정했다. 기여 추적 port 3개 + 프로비저닝 port 별도 등재가 허용되며, Port 경계와 delegate 직접 접근 금지 규칙 자체는 변하지 않는다.
 
 ## References
 

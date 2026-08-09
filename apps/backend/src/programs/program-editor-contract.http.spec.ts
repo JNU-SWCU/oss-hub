@@ -5,14 +5,14 @@ import { Test } from '@nestjs/testing';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
-import { ProgramEditorController } from './program-editor.controller';
-import { ProgramEditorRepository } from './program-editor.repository';
-import { ProgramEditorService } from './program-editor.service';
-import { ProgramLifecycleService } from './program-lifecycle.service';
+import { ProgramEditorController } from './controller/program-editor.controller';
+import { ProgramEditorRepository } from './repository/program-editor.repository';
+import { ProgramEditorService } from './service/program-editor.service';
+import { ProgramLifecycleService } from './service/program-lifecycle.service';
 import type {
   ProgramEditorRepositoryPort,
   ProgramEditorTransactionStore,
-} from './program-editor.service';
+} from './service/program-editor.service';
 import {
   editableProgram,
   updateInput,

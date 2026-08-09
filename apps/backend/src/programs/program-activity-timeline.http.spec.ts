@@ -8,17 +8,17 @@ import { OriginGuard } from '../auth/origin.guard';
 import {
   COLLECTION_READ_PORT,
   type CollectionReadPort,
-} from '../collection/collection-read.port';
-import { ProgramActivityService } from './program-activity.service';
-import { ProgramCreationService } from './program-creation.service';
+} from '../github/collection-read.port';
+import { ProgramActivityService } from './service/program-activity.service';
+import { ProgramCreationService } from './service/program-creation.service';
 import {
   ProgramsController,
   StudentDashboardController,
-} from './programs.controller';
-import { ProgramsRepository } from './programs.repository';
-import { ProgramsService } from './programs.service';
-import { ProgramViewerService } from './program-viewer.service';
-import { StudentDashboardService } from './student-dashboard.service';
+} from './controller/programs.controller';
+import { ProgramsRepository } from './repository/programs.repository';
+import { ProgramsService } from './service/programs.service';
+import { ProgramViewerService } from './service/program-viewer.service';
+import { StudentDashboardService } from './service/student-dashboard.service';
 
 let application: INestApplication | undefined;
 let baseUrl = '';
@@ -128,7 +128,7 @@ it.each([
           {
             period,
             commitCount: 2,
-            prCount: 1,
+            pullRequestCount: 1,
             releaseCount: 1,
             total: 4,
           },

@@ -2,17 +2,16 @@ import { MODULE_METADATA } from '@nestjs/common/constants';
 
 import { AppModule } from './app.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
-import { CollectionModule } from './collection/collection.module';
+import { CollectionModule } from './github/collection.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { RankingModule } from './ranking/ranking.module';
-import { RepositoriesModule } from './repositories/repositories.module';
-import { RepositoriesService } from './repositories/repositories.service';
-import { ShowcaseModule } from './showcase/showcase.module';
+import { RepositoriesModule } from './github/repositories.module';
+import { RepositoriesService } from './github/service/repositories.service';
 import { SubmissionReviewsModule } from './submission-reviews/submission-reviews.module';
 import { SubmissionsModule } from './submissions/submissions.module';
 import { SystemStatusModule } from './system-status/system-status.module';
 import { UsersModule } from './users/users.module';
-import { PublicProjectsModule } from './public-projects/public-projects.module';
+import { PublicProjectsModule } from './programs/archive/public-projects/public-projects.module';
 
 describe('AppModule module exposure', () => {
   const getImports = (): unknown[] => {
@@ -46,7 +45,6 @@ describe('AppModule module exposure', () => {
       UsersModule,
       RepositoriesModule,
       SubmissionReviewsModule,
-      ShowcaseModule,
     ]) {
       expect(imports.filter((entry) => entry === module)).toHaveLength(1);
     }

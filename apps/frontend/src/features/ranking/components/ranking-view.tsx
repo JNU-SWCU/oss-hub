@@ -73,6 +73,20 @@ const columns: DataTableColumn<RankingItem>[] = [
   },
 ];
 
+/**
+ * 갱신 시각 표기 (ADR-010 §10).
+ *
+ * "언제 기준인지"만 알면 되므로 분 단위까지만 보인다. 이게 화면에 없으면
+ * 수집이 멈춰도 학생은 숫자가 오늘 값인 줄 안다 — 이번 사고의 본질이 그거였다.
+ */
+function formatDataAsOf(at: Date): string {
+  return new Intl.DateTimeFormat('ko-KR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Asia/Seoul',
+  }).format(at);
+}
+
 export function RankingView({
   page,
   state,
@@ -91,6 +105,17 @@ export function RankingView({
         description={
           <span className="break-keep">
             OSS Hub에 연결된 공개 GitHub 활동을 기준으로 집계합니다.
+            {state.kind === 'ready' && state.ranking.dataAsOf !== null ? (
+              <>
+                {' '}
+                <span
+                  className="text-muted-foreground"
+                  data-ranking-as-of={state.ranking.dataAsOf.toISOString()}
+                >
+                  {formatDataAsOf(state.ranking.dataAsOf)} 기준
+                </span>
+              </>
+            ) : null}
           </span>
         }
       />

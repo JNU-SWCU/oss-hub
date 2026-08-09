@@ -1,0 +1,396 @@
+import { AccountStatus, Role } from '@prisma/client';
+import { Inject, Injectable } from '@nestjs/common';
+import { addOneCalendarYear } from '../../common/add-one-calendar-year';
+import type { ProblemDetailExtensions } from '../../common/error-code';
+import { DomainException } from '../../common/error-code';
+import type { UpdateProgramRequestDto } from '../dto/update-program-request.dto';
+import type { UpsertMilestoneRequestDto } from '../dto/upsert-milestone-request.dto';
+import { ProgramEditorRepository } from '../repository/program-editor.repository';
+import type {
+  ProgramAuthority,
+  ProgramEditorRepositoryPort,
+  ProgramEditorTransactionStore,
+  ProgramEditorTransactionStore as ReexportedProgramEditorTransactionStore,
+  ProgramMilestoneInput,
+} from '../program-editor.types';
+import {
+  PROGRAM_ERROR_CODES,
+  ProgramErrorCode,
+} from '../program-error-code.enum';
+import {
+  getProgramTemplate,
+  PROGRAM_PARTICIPATION,
+} from '../program-template.registry';
+
+export type {
+  ProgramEditorRepositoryPort,
+  ReexportedProgramEditorTransactionStore as ProgramEditorTransactionStore,
+};
+
+const INVALID_APPLICATION_PERIOD_FIELD_ERRORS = [
+  {
+    field: 'applicationStartAt',
+    code: 'INVALID_APPLICATION_PERIOD',
+    message: 'Application period must start before it ends.',
+  },
+  {
+    field: 'applicationEndAt',
+    code: 'INVALID_APPLICATION_PERIOD',
+    message: 'Application period must end after it starts.',
+  },
+] as const;
+
+const INVALID_TEAM_RANGE_FIELD_ERRORS = [
+  {
+    field: 'teamMinSize',
+    code: 'INVALID_TEAM_RANGE',
+    message: 'Team minimum size is required for this category.',
+  },
+  {
+    field: 'teamMaxSize',
+    code: 'INVALID_TEAM_RANGE',
+    message: 'Team maximum size must be greater than or equal to minimum size.',
+  },
+] as const;
+
+const INVALID_PROGRAM_END_FIELD_ERROR = {
+  field: 'endAt',
+  code: 'INVALID_PROGRAM_END',
+  message:
+    'Program end must be after the application period and every milestone.',
+} as const;
+
+const PROGRAM_END_REQUIRED_FIELD_ERROR = {
+  field: 'endAt',
+  code: 'REQUIRED',
+  message: 'Program end is required before milestones can be edited.',
+} as const;
+
+const MILESTONE_AFTER_PROGRAM_END_FIELD_ERROR = {
+  field: 'dueAt',
+  code: 'INVALID_MILESTONE_PERIOD',
+  message: 'Milestone due date must be before program end.',
+} as const;
+
+@Injectable()
+export class ProgramEditorService {
+  constructor(
+    @Inject(ProgramEditorRepository)
+    private readonly repository: ProgramEditorRepositoryPort,
+  ) {}
+
+  getProgram(githubId: bigint, programId: string) {
+    return this.repository.withTransaction(async (store) => {
+      await this.requireEditor(store, githubId);
+      const program = await store.findEditableProgramById(programId);
+      if (program === null) this.fail(ProgramErrorCode.PROGRAM_NOT_FOUND);
+      return program;
+    });
+  }
+
+  updateProgram(
+    githubId: bigint,
+    programId: string,
+    input: UpdateProgramRequestDto,
+  ) {
+    return this.repository.withTransaction(async (store) => {
+      await this.requireEditor(store, githubId);
+      const existing = await store.findEditableProgramForUpdate(programId);
+      if (existing === null) this.fail(ProgramErrorCode.PROGRAM_NOT_FOUND);
+      const name = input.name.trim();
+      const organizer = input.organizer.trim();
+      const description = input.description.trim();
+      const applicationStartAt = new Date(input.applicationStartAt);
+      const applicationEndAt = new Date(input.applicationEndAt);
+      const requestedEndAt =
+        input.endAt === undefined ? (existing.endAt ?? null) : input.endAt;
+      const endAt = requestedEndAt === null ? null : new Date(requestedEndAt);
+      const liveFileExpiresAt =
+        endAt !== null &&
+        (existing.endAt === null ||
+          existing.endAt === undefined ||
+          endAt.getTime() !== new Date(existing.endAt).getTime())
+          ? addOneCalendarYear(endAt)
+          : null;
+      const categoryChanged = existing.category !== input.category;
+      const template = getProgramTemplate(input.category);
+      const teamSize = teamSizeForTemplate(input, template.participation);
+      // Preserve template binding when category is unchanged so past Application.answers
+      // keep a stable validation baseline (even if the registry later bumps versions).
+      const applicationTemplateKey = categoryChanged
+        ? template.key
+        : existing.applicationTemplateKey;
+      const applicationTemplateVersion = categoryChanged
+        ? template.version
+        : existing.applicationTemplateVersion;
+
+      const emptyFieldErrors: {
+        field: string;
+        code: string;
+        message: string;
+      }[] = [];
+      if (!name) {
+        emptyFieldErrors.push({
+          field: 'name',
+          code: 'REQUIRED',
+          message: '프로그램 이름을 입력해 주세요.',
+        });
+      }
+      if (!organizer) {
+        emptyFieldErrors.push({
+          field: 'organizer',
+          code: 'REQUIRED',
+          message: '주최를 입력해 주세요.',
+        });
+      }
+      if (!description) {
+        emptyFieldErrors.push({
+          field: 'description',
+          code: 'REQUIRED',
+          message: '프로그램 설명을 입력해 주세요.',
+        });
+      }
+      if (emptyFieldErrors.length > 0) {
+        this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+          fieldErrors: emptyFieldErrors,
+        });
+      }
+      if (teamSize === null) {
+        this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+          fieldErrors: INVALID_TEAM_RANGE_FIELD_ERRORS,
+        });
+      }
+      if (!validPeriod(applicationStartAt, applicationEndAt)) {
+        this.fail(ProgramErrorCode.INVALID_APPLICATION_PERIOD, {
+          fieldErrors: INVALID_APPLICATION_PERIOD_FIELD_ERRORS,
+        });
+      }
+      if (existing.endAt !== null && endAt === null) {
+        this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+          fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
+        });
+      }
+      if (
+        endAt !== null &&
+        (!Number.isFinite(endAt.getTime()) ||
+          endAt <= applicationEndAt ||
+          existing.milestones.some((milestone) => milestone.dueAt >= endAt))
+      ) {
+        this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+          fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
+        });
+      }
+      if (
+        (existing.applicationCount > 0 || existing.teamCount > 0) &&
+        categoryChanged
+      ) {
+        this.fail(ProgramErrorCode.CATEGORY_LOCKED_BY_APPLICATIONS);
+      }
+      if (
+        input.repositoryProvisioningEnabled &&
+        existing.milestones.length === 0
+      ) {
+        this.fail(ProgramErrorCode.MILESTONE_REQUIRED);
+      }
+      if (
+        existing.milestones.some(
+          (milestone) => milestone.dueAt <= applicationEndAt,
+        )
+      ) {
+        this.fail(ProgramErrorCode.MILESTONE_BEFORE_APPLICATION_END);
+      }
+
+      return store.updateProgram({
+        programId,
+        name,
+        organizer,
+        category: input.category,
+        applicationTemplateKey,
+        applicationTemplateVersion,
+        applicationStartAt,
+        applicationEndAt,
+        endAt,
+        liveFileExpiresAt,
+        teamMinSize: teamSize.teamMinSize,
+        teamMaxSize: teamSize.teamMaxSize,
+        repositoryProvisioningEnabled: input.repositoryProvisioningEnabled,
+        description,
+      });
+    });
+  }
+
+  createMilestone(
+    githubId: bigint,
+    programId: string,
+    input: UpsertMilestoneRequestDto,
+  ) {
+    return this.repository.withTransaction(async (store) => {
+      await this.requireEditor(store, githubId);
+      const program =
+        await store.findProgramScheduleForMilestoneCreate(programId);
+      if (program === null) this.fail(ProgramErrorCode.PROGRAM_NOT_FOUND);
+      return store.createMilestone({
+        programId,
+        ...this.milestoneData(
+          input,
+          program.applicationEndAt,
+          program.endAt ?? null,
+        ),
+      });
+    });
+  }
+
+  updateMilestone(
+    githubId: bigint,
+    milestoneId: string,
+    input: UpsertMilestoneRequestDto,
+  ) {
+    return this.repository.withTransaction(async (store) => {
+      await this.requireEditor(store, githubId);
+      const milestone = await store.findMilestoneForUpdate(milestoneId);
+      if (milestone === null) this.fail(ProgramErrorCode.MILESTONE_NOT_FOUND);
+      return store.updateMilestone({
+        milestoneId,
+        ...this.milestoneData(
+          input,
+          milestone.applicationEndAt,
+          milestone.endAt ?? null,
+        ),
+      });
+    });
+  }
+
+  deleteMilestone(githubId: bigint, milestoneId: string): Promise<void> {
+    return this.repository.withTransaction(async (store) => {
+      await this.requireEditor(store, githubId);
+      const milestone = await store.findMilestoneForDelete(milestoneId);
+      if (milestone === null) this.fail(ProgramErrorCode.MILESTONE_NOT_FOUND);
+      // 제출물이 있으면 지우지 않는다 — 옛 Submission/SubmissionFile 경로든 서류 항목
+      // (MilestoneDocumentSubmission) 경로든 「제출물이 있다」는 뜻이 같아 같은 코드로 거부한다.
+      if (
+        milestone.submissionCount > 0 ||
+        milestone.documentSubmissionCount > 0
+      ) {
+        this.fail(ProgramErrorCode.MILESTONE_HAS_SUBMISSIONS);
+      }
+      if (
+        milestone.programRepositoryProvisioningEnabled &&
+        milestone.programMilestoneCount === 1
+      ) {
+        this.fail(ProgramErrorCode.MILESTONE_REQUIRED);
+      }
+      await store.deleteMilestone(milestoneId);
+    });
+  }
+
+  private async requireEditor(
+    store: ProgramEditorTransactionStore,
+    githubId: bigint,
+  ): Promise<void> {
+    const authority = await store.findUserAuthorityByGithubId(githubId);
+    const errorCode = editorPermissionError(authority);
+    if (errorCode !== null) this.fail(errorCode);
+  }
+
+  private milestoneData(
+    input: UpsertMilestoneRequestDto,
+    applicationEndAt: Date,
+    endAt: Date | null,
+  ): ProgramMilestoneInput {
+    const name = input.name.trim();
+    const dueAt = new Date(input.dueAt);
+    const milestoneFieldErrors: {
+      field: string;
+      code: string;
+      message: string;
+    }[] = [];
+    if (!name) {
+      milestoneFieldErrors.push({
+        field: 'name',
+        code: 'REQUIRED',
+        message: '마일스톤 이름을 입력해 주세요.',
+      });
+    }
+    if (Number.isNaN(dueAt.getTime())) {
+      milestoneFieldErrors.push({
+        field: 'dueAt',
+        code: 'REQUIRED',
+        message: '유효한 마감일을 입력해 주세요.',
+      });
+    }
+    if (milestoneFieldErrors.length > 0) {
+      this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+        fieldErrors: milestoneFieldErrors,
+      });
+    }
+    if (dueAt <= applicationEndAt) {
+      this.fail(ProgramErrorCode.MILESTONE_BEFORE_APPLICATION_END);
+    }
+    if (endAt === null) {
+      this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+        fieldErrors: [PROGRAM_END_REQUIRED_FIELD_ERROR],
+      });
+    }
+    if (dueAt >= endAt) {
+      this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+        fieldErrors: [MILESTONE_AFTER_PROGRAM_END_FIELD_ERROR],
+      });
+    }
+    const instructions = input.instructions?.trim() || null;
+    return {
+      name,
+      dueAt,
+      submissionType: input.submissionType,
+      instructions,
+    };
+  }
+
+  private fail(
+    code: ProgramErrorCode,
+    extensions: ProblemDetailExtensions = {},
+  ): never {
+    throw new DomainException(PROGRAM_ERROR_CODES[code], extensions);
+  }
+}
+
+function editorPermissionError(
+  authority: ProgramAuthority | null,
+): ProgramErrorCode | null {
+  if (authority?.accountStatus !== AccountStatus.ACTIVE) {
+    return ProgramErrorCode.FORBIDDEN;
+  }
+  if (authority.role === Role.STAFF || authority.role === Role.ADMIN) {
+    return null;
+  }
+  if (authority.role === null && authority.roleRequests.length > 0) {
+    return ProgramErrorCode.STAFF_APPROVAL_REQUIRED;
+  }
+  return ProgramErrorCode.FORBIDDEN;
+}
+
+function validPeriod(startAt: Date, endAt: Date): boolean {
+  return (
+    !Number.isNaN(startAt.getTime()) &&
+    !Number.isNaN(endAt.getTime()) &&
+    endAt > startAt
+  );
+}
+
+function teamSizeForTemplate(
+  input: Pick<UpdateProgramRequestDto, 'teamMinSize' | 'teamMaxSize'>,
+  participation: string,
+): {
+  readonly teamMinSize: number | null;
+  readonly teamMaxSize: number | null;
+} | null {
+  if (participation === PROGRAM_PARTICIPATION.INDIVIDUAL) {
+    return { teamMinSize: null, teamMaxSize: null };
+  }
+  const min = input.teamMinSize;
+  const max = input.teamMaxSize;
+  if (min === null || min === undefined || max === null || max === undefined) {
+    return null;
+  }
+  if (min < 1 || min > max) return null;
+  return { teamMinSize: min, teamMaxSize: max };
+}

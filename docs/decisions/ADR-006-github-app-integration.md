@@ -211,7 +211,7 @@ fine-grained PAT는 repository selection이나 permission 설정과 무관하게
 
 **미결(open question) — 이 ADR은 결정하지 않는다.** 외부 수집을 기존 `GITHUB_ACTIVITY` 동의 항목의 문구 개정으로 흡수할지, 별도 동의 항목(예: 조직 밖 public repository 전용 opt-in)으로 분리할지는 이 ADR이 고르지 않는다. 이는 프로그램 운영 정책 판단이며 PM/운영이 결정할 몫이다.
 
-**별건 — 정책 결정 D3(공개 표기를 GitHub nickname으로 단일화) 미구현.** `.omc/plans/github-repository-unification.md` §11 미결 항목이 "D3(공개 표기 = GitHub nickname 단일화)"로 지칭하는 결정이다(같은 문서 §7 단계 D 작업표의 "D3 | `Repository` 삭제"와는 다른 항목이며 식별자가 중복되어 있으니 혼동하지 않는다). 이 결정이 구현되면 `RankingService.buildEntries`(위 `ranking.service.ts:110-111`)의 실명 우선 표기가 `githubLogin` 단일 표기로 바뀌어, 위 실명 노출 위험이 동의 문서 개정과 별개의 경로로 줄어든다. **D3는 아직 구현되지 않았고, 이 ADR 개정도 D3를 구현하지 않는다** — 미구현 사실과 구현 시 효과만 기록해 둔다.
+**별건 — 정책 결정 D3(공개 표기를 GitHub nickname으로 단일화) 구현됨.** `.omc/plans/github-repository-unification.md` §11 미결 항목이 "D3(공개 표기 = GitHub nickname 단일화)"로 지칭하는 결정이다(같은 문서 §7 단계 D 작업표의 "D3 | `Repository` 삭제"와는 다른 항목이며 식별자가 중복되어 있으니 혼동하지 않는다). **이 결정은 이제 코드에 반영돼 있다** — `RankingService.buildEntries`(`ranking.service.ts:111`)가 `displayName: entry.githubLogin`으로 고정하며, `:104` 주석이 "displayName은 항상 githubLogin이다"를 명시한다. 따라서 공개 랭킹에 실명이 나가는 경로는 닫혔다. `UserDisplayNameRepository`(`:32`, `:145-151`)는 표시명 결정에 더 이상 관여하지 않으며 제거는 별건으로 다룬다. 표시 경계의 현재 원본은 [ADR-010](ADR-010-contribution-tracking-context.md) §5다 — 조직 private 기여는 계속 수집하되 공개 랭킹에는 넣지 않고 프로그램 화면(인증 뒤)에서만 보인다.
 
 ### 저장·폐기 field inventory
 

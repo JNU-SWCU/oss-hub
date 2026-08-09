@@ -655,6 +655,8 @@ function rankingPage(searchParams: URLSearchParams): RankingPage {
     page,
     pageSize,
     total: items.length,
+    // 로컬 리뷰 픽스처는 수집이 없으므로 갱신 시각이 없다.
+    dataAsOf: null,
   };
 }
 

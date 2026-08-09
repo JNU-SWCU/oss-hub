@@ -40,9 +40,13 @@ const OUT_OF_SCOPE: ReadonlyMap<string, string> = new Map([
     'submission-files/:fileId',
     '파일 바이너리 다운로드 — 응답이 JSON 이 아니다',
   ],
-  // 아래 넷은 프론트 소스 전체에 호출부가 0건이다(운영·CLI 용). 화면이 부르지
+  // 아래 다섯은 프론트 소스 전체에 호출부가 0건이다(운영·CLI 용). 화면이 부르지
   // 않는 경로는 로컬 검토에서 404 가 나도 아무도 보지 못하므로 픽스처가 필요 없다.
   ['admin/collection/runs', '화면 호출부 0건 — 운영 조회용'],
+  [
+    'admin/collection/invariants',
+    '화면 호출부 0건 — 기여 데이터 불변식 전수 검사(ADR-010 §11) 운영 조회용',
+  ],
   ['notifications/deadline-digests/failures', '화면 호출부 0건 — 운영 조회용'],
   ['submission-files/cleanup/failures', '화면 호출부 0건 — 운영 조회용'],
   [

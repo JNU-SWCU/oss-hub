@@ -19,7 +19,7 @@ export interface ActivityProgramResponseDto {
 export interface ActivityPointResponseDto {
   readonly period: string;
   readonly commitCount: number;
-  readonly prCount: number;
+  readonly pullRequestCount: number;
   readonly releaseCount: number;
   readonly total: number;
 }

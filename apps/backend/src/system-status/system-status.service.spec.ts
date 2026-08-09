@@ -3,7 +3,7 @@ import { AccountStatus, Role } from '@prisma/client';
 import type {
   CollectionIncrementalStatusSnapshotDto,
   CollectionReadPort,
-} from '../collection/collection-read.port';
+} from '../github/collection-read.port';
 import { SystemStatusRepository } from './system-status.repository';
 import { SystemStatusService } from './system-status.service';
 
@@ -24,6 +24,9 @@ function snapshot(
     oldestRetryPendingAt: null,
     lastCycleStartedAt: new Date('2026-07-25T10:55:00.000Z'),
     lastCycleCompletedAt: new Date('2026-07-25T11:00:00.000Z'),
+    dueRepositoryCount: 0,
+    failingRepositoryCount: 0,
+    lastRepositorySuccessAt: new Date('2026-07-25T11:00:00.000Z'),
     ...overrides,
   };
 }
@@ -101,6 +104,9 @@ describe('SystemStatusService', () => {
         latestCheckpointAt: null,
         lastCycleStartedAt: null,
         lastCycleCompletedAt: null,
+        dueRepositoryCount: 0,
+        failingRepositoryCount: 0,
+        lastRepositorySuccessAt: null,
       }),
     );
     await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
