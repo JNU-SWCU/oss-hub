@@ -181,7 +181,6 @@ describe('isCurrentSidebarItem', () => {
   });
 
   it('ranking year query', () => {
-    expect(isCurrentSidebarItem('/ranking', '/ranking', '')).toBe(true);
     expect(
       isCurrentSidebarItem('/ranking', '/ranking?year=2025', 'year=2025'),
     ).toBe(true);
@@ -191,6 +190,29 @@ describe('isCurrentSidebarItem', () => {
     expect(isCurrentSidebarItem('/ranking', '/ranking', 'year=2025')).toBe(
       false,
     );
+  });
+
+  /**
+   * `/ranking` 은 `year` 가 없어도 **올해**를 보여 준다
+   * (ADR-010 §1, `parseRankingYearSearchParam`).
+   *
+   * 강조가 「전체」로 가면 사이드바는 전체라고 말하는데 표는 올해 수치를 낸다.
+   * 게다가 그 「전체」 링크(`?year=all`)를 실제로 누르면 다른 표가 나온다 —
+   * 같은 메뉴가 어디서 왔느냐에 따라 다른 결과를 보이는 셈이다.
+   */
+  it('/ranking 은 전체가 아니라 올해 항목을 강조한다', () => {
+    const thisYear = String(new Date().getFullYear());
+
+    expect(isCurrentSidebarItem('/ranking', '/ranking?year=all', '')).toBe(
+      false,
+    );
+    expect(
+      isCurrentSidebarItem('/ranking', `/ranking?year=${thisYear}`, ''),
+    ).toBe(true);
+    // 명시적 전체는 그대로 전체를 강조한다.
+    expect(
+      isCurrentSidebarItem('/ranking', '/ranking?year=all', 'year=all'),
+    ).toBe(true);
   });
 
   it('archive detail does not highlight 전체; category peers highlight', () => {
