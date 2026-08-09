@@ -257,6 +257,19 @@ const PUBLIC_PROGRAM_FIXTURES = [
     endAt: null,
     description: '신청 전 상태를 확인하기 위한 합성 프로그램입니다.',
   },
+  {
+    id: 'program-sw-value',
+    name: '합성 SW가치확산 프로그램',
+    organizer: '합성 SW중심대학사업단',
+    category: 'SW_VALUE_SPREAD',
+    // 학생 동선에서 이 프로그램은 "반려됨" 상태다 — 판정이 끝난 뒤라 모집도 닫혀
+    // 있어야 목록과 상세가 어긋나 보이지 않는다
+    // (`handlers/student-program-fixtures.ts`의 `SW_VALUE_BASE`와 같은 기간).
+    applicationStartAt: '2025-12-31T15:00:00.000Z',
+    applicationEndAt: '2026-06-30T14:59:59.000Z',
+    endAt: null,
+    description: '반려된 신청 상태를 확인하기 위한 합성 프로그램입니다.',
+  },
 ] as const satisfies readonly ProgramListItem[];
 
 type PublicArchiveApiItem = {

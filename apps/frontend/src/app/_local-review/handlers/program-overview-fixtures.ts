@@ -137,6 +137,23 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
     ],
     fullySubmittedParticipantCount: 1,
   },
+  // 신청이 반려된 프로그램. 이 학생은 참여자가 아니므로 참여·팀·저장소가 모두 0이고
+  // 서류도 생기지 않는다 — 승인되지 않은 신청에는 제출 대상이 없다.
+  'program-sw-value': {
+    name: '합성 SW가치확산 프로그램',
+    category: 'SW_VALUE_SPREAD',
+    lifecycle: 'PUBLISHED',
+    milestoneCount: 1,
+    boardPostCount: 0,
+    participantCount: 0,
+    teamCount: 0,
+    connectedRepositoryCount: 0,
+    studentDocumentsCompleted: 0,
+    studentDocumentsTotal: 0,
+    nextMilestone: null,
+    milestoneDocuments: [],
+    fullySubmittedParticipantCount: 0,
+  },
 };
 
 export function programOverviewFor(
@@ -246,6 +263,7 @@ const PROGRAM_TEAM_DIRECTORIES: Readonly<
   'program-oss-contest': generateSyntheticTeams('contest', '경진대회', 1, 8),
   // 개인형 프로그램이라 팀이 없다.
   'program-basic-study': [],
+  'program-sw-value': [],
 };
 
 /** `programs/:programId/teams`(교직원 전용)가 돌려주는 팀 항목 하나. */

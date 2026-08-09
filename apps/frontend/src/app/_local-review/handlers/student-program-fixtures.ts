@@ -1,4 +1,5 @@
 import type { ProgramTeam } from '@/features/programs/api';
+import type { StudentApplication } from '@/features/programs/student-application-api';
 import type {
   ApplicationStatus,
   ProgramActivity,
@@ -23,6 +24,7 @@ export const PUBLIC_PROGRAM_IDS = [
   'program-capstone',
   'program-oss-contest',
   'program-basic-study',
+  'program-sw-value',
 ] as const;
 
 export type PublicProgramId = (typeof PUBLIC_PROGRAM_IDS)[number];
@@ -75,6 +77,30 @@ const BASIC_BASE = {
   applicationPeriod: {
     startsAt: '2026-01-01T00:00:00.000+09:00',
     endsAt: '2026-12-31T23:59:59.000+09:00',
+  },
+} as const satisfies ProgramBase;
+
+/**
+ * **반려된 신청** 상태(`viewer.applicationStatus === 'REJECTED'`)를 검토하기 위한
+ * 프로그램이다. 이 상태가 없으면 `/programs/[id]/apply`의 반려 사유 상자에 아무도
+ * 도달하지 못한다 — 나머지 셋은 승인 둘·신청 전 하나라 그 화면을 지나가지 않는다.
+ *
+ * 개인형(`SW_VALUE_SPREAD`)으로 둔다. 팀형이면 검토자가 팀부터 만들어야 하는데,
+ * 반려 화면은 팀 구성과 아무 상관이 없어 도달 경로만 길어진다.
+ *
+ * 신청 기간은 이미 닫아 둔다 — 반려된 신청은 판정이 끝난 뒤의 상태라 모집이 열려
+ * 있으면 목록과 상세가 서로 어긋나 보인다.
+ */
+const SW_VALUE_BASE = {
+  id: 'program-sw-value',
+  name: '합성 SW가치확산 프로그램',
+  organizer: '합성 SW중심대학사업단',
+  category: 'SW_VALUE_SPREAD',
+  description:
+    '반려된 신청 상태를 검토하기 위한 합성 개인형 프로그램입니다. 신청 상세에서 반려 사유가 어떻게 보이는지 확인할 수 있습니다.',
+  applicationPeriod: {
+    startsAt: '2026-01-01T00:00:00.000+09:00',
+    endsAt: '2026-06-30T23:59:59.000+09:00',
   },
 } as const satisfies ProgramBase;
 
@@ -169,6 +195,24 @@ const BASIC_MILESTONES = [
   },
 ] as const satisfies readonly ProgramMilestone[];
 
+/**
+ * 반려된 신청이라 제출 상태가 없다 — 승인되지 않았으므로 이 학생에게는 제출 대상이
+ * 애초에 생기지 않는다(`viewerSubmissionStatus: null`).
+ */
+const SW_VALUE_MILESTONES = [
+  {
+    id: 'milestones-sw-value-plan',
+    name: '확산 계획서 제출',
+    dueAt: '2026-07-31T23:59:59.000+09:00',
+    dDay: -1,
+    deadlineLabel: '마감 지남',
+    description: '오픈소스 가치 확산 활동 계획과 대상을 정리해 제출합니다.',
+    submissionType: 'TEXT',
+    viewerSubmissionStatus: null,
+    applicationSubmissionSummary: null,
+  },
+] as const satisfies readonly ProgramMilestone[];
+
 /** 교직원·관리자 시야의 마일스톤 집계. 학생 제출 상태 대신 신청 단위 합계를 보여준다. */
 const STAFF_MILESTONE_SUMMARIES: Readonly<Record<string, SubmissionSummary>> = {
   'milestones-approved': {
@@ -227,6 +271,15 @@ const STAFF_MILESTONE_SUMMARIES: Readonly<Record<string, SubmissionSummary>> = {
     rejected: 0,
     total: 4,
   },
+  // 승인된 신청이 하나도 없는 프로그램이라 제출 대상도 0이다 — 반려만 있다.
+  'milestones-sw-value-plan': {
+    notSubmitted: 0,
+    submitted: 0,
+    approved: 0,
+    changesRequested: 0,
+    rejected: 0,
+    total: 0,
+  },
 };
 
 type ProgramFixture = {
@@ -277,6 +330,58 @@ const PROGRAM_FIXTURES: Readonly<Record<PublicProgramId, ProgramFixture>> = {
     studentApplicationStatus: null,
     // 아직 연결된 저장소가 없다 — 활동 패널의 빈 상태를 검토할 수 있다.
     activity: [],
+  },
+  'program-sw-value': {
+    base: SW_VALUE_BASE,
+    milestones: SW_VALUE_MILESTONES,
+    // 반려 상태 — `/programs/program-sw-value/apply`의 반려 사유 상자를 검토하려면
+    // 필요하다. 이 값이 `null`이면 화면이 신청 양식으로 갈려 사유에 닿지 못하고,
+    // `APPROVED`면 사유 없는 `already-applied` 안내만 뜬다.
+    studentApplicationStatus: 'REJECTED',
+    // 반려라 저장소가 만들어지지 않았다.
+    activity: [],
+  },
+};
+
+/**
+ * `GET programs/{id}/applications/me` 응답. 백엔드
+ * `StudentApplicationResponse`(`student-applications.controller.ts`)와 같은 모양이며,
+ * 화면 타입을 그대로 빌려 키가 어긋나면 컴파일에서 걸리게 한다.
+ *
+ * **반려 사유가 학생에게 닿는 경로는 이 응답 하나뿐이다** — 알림 payload에도, 감사
+ * 로그에도, 메일에도 담기지 않는다. 그래서 이 픽스처가 없으면 로컬 검토에서
+ * `/programs/{id}/apply`가 사유를 그릴 수 없고, 검토자는 화면이 비어 있는 것을
+ * 제품 결함으로 읽는다.
+ *
+ * `rejectionReason`을 **여러 줄**로 둔다. 화면이 `whitespace-pre-wrap`으로 줄바꿈을
+ * 살리는데, 한 줄짜리 사유만 있으면 그 규칙이 도는지 눈으로 확인할 수 없다. 빈 줄을
+ * 하나 끼워 문단 구분까지 함께 보이게 하고, 줄 수는 6줄 상한
+ * (`lib/rejection-reason.ts`) 안에 둔다 — 넘기면 말줄임표가 붙어 잘림이 결함처럼 보인다.
+ */
+export const MY_APPLICATION_FIXTURES: Readonly<
+  Record<string, StudentApplication>
+> = {
+  'program-sw-value': {
+    id: 'synthetic-application-sw-value',
+    programId: 'program-sw-value',
+    status: 'REJECTED',
+    teamId: null,
+    answers: {
+      applicantName: '합성 student 사용자',
+      title: '학내 오픈소스 입문 워크숍 운영',
+      summary:
+        '오픈소스 기여 경험이 없는 학생을 대상으로 첫 PR까지 따라 할 수 있는 워크숍을 열고, 실습 자료를 저장소로 공개하려 합니다.',
+    },
+    submittedAt: '2026-06-20T00:00:00.000Z',
+    updatedAt: '2026-06-28T00:00:00.000Z',
+    isRepositoryPublicationPlanned: true,
+    rejectionReason:
+      '제출하신 요약이 프로그램 주제와 맞지 않습니다.\n\n보완할 점\n1. 해결하려는 문제를 한 문장으로 정리해 주세요.\n2. 기여할 오픈소스 저장소와 예상 작업 범위를 적어 주세요.',
+    // 판정이 끝난 신청은 수정도 취소도 할 수 없다 — 세 값이 함께 false여야 화면이
+    // 수정 버튼을 그리지 않는다.
+    canManage: false,
+    canEdit: false,
+    canCancel: false,
   },
 };
 

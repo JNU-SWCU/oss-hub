@@ -65,10 +65,6 @@ const KNOWN_GAPS: ReadonlyMap<string, string> = new Map([
     'auth/me',
     '`features/auth` 는 owner 전속 경로다(app/AGENTS.md) — 임의로 픽스처를 세우지 않는다',
   ],
-  [
-    'programs/:programId/applications/me',
-    '학생 신청 상태 — 파서가 엄격해 별도 픽스처가 필요하다. 후속',
-  ],
 ]);
 
 function collectControllerFiles(directory: string): readonly string[] {
