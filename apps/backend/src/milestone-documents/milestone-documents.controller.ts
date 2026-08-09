@@ -26,6 +26,7 @@ import { OriginGuard } from '../auth/origin.guard';
 import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
 import { DomainException } from '../common/error-code';
 import { CreateMilestoneDocumentReviewRequestDto } from './dto/create-milestone-document-review-request.dto';
+import { MilestoneDocumentArchiveQueryRequestDto } from './dto/milestone-document-archive-query.dto';
 import { CreateMilestoneDocumentSubmissionRequestDto } from './dto/create-milestone-document-submission-request.dto';
 import { MilestoneDocumentCollectionQueryRequestDto } from './dto/milestone-document-collection-query.dto';
 import { MilestoneDocumentCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
@@ -38,6 +39,7 @@ import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.enum';
+import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import {
   type MilestoneDocumentFileUpload,
   MilestoneDocumentFilesService,
@@ -111,6 +113,7 @@ export class MilestoneDocumentsController {
     private readonly service: MilestoneDocumentsService,
     private readonly filesService: MilestoneDocumentFilesService,
     private readonly reviewsService: MilestoneDocumentReviewsService,
+    private readonly archiveService: MilestoneDocumentArchiveService,
   ) {}
 
   @Get()
@@ -132,6 +135,39 @@ export class MilestoneDocumentsController {
     @Query() query: MilestoneDocumentCollectionQueryRequestDto,
   ): Promise<MilestoneDocumentCollectionResponseDto> {
     return this.service.collectForStaff(milestoneId, query.toQuery());
+  }
+
+  /**
+   * 교직원 — 마일스톤 **전체** 제출물을 ZIP 하나로 내려받는다. `collection/archive`도 고정
+   * 세그먼트라 `:documentId` 경로들과 겹치지 않는다.
+   *
+   * ⚠ 이 경로는 표와 달리 **필터·페이지를 받지 않는다**(`MilestoneDocumentArchiveQueryRequestDto`).
+   *
+   * 본문 길이를 아는 경우에만 `Content-Length`를 붙인다. 압축을 흘려 보내는 중에 스토리지가
+   * 끊기면 이미 200이 나간 뒤라 오류로 바꿀 수 없고, 그때 길이가 실려 있어야 브라우저가 잘린
+   * 내려받기를 실패로 판정한다.
+   */
+  @Get('collection/archive')
+  @Header('Cache-Control', 'private, no-store')
+  @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard)
+  async archive(
+    @Param('milestoneId') milestoneId: string,
+    @Query() query: MilestoneDocumentArchiveQueryRequestDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    const archive = await this.archiveService.archiveForStaff(
+      milestoneId,
+      query.toGrouping(),
+    );
+    response.setHeader('Content-Type', archive.contentType);
+    if (archive.contentLength !== null) {
+      response.setHeader('Content-Length', String(archive.contentLength));
+    }
+    response.setHeader(
+      'Content-Disposition',
+      attachmentDisposition(archive.fileName),
+    );
+    return new StreamableFile(archive.body);
   }
 
   /**

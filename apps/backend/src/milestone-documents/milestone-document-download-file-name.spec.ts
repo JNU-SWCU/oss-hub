@@ -1,5 +1,9 @@
 // 합성 데이터만 사용한다 (docs/rules/security.md)
-import { milestoneDocumentDownloadFileName } from './milestone-document-download-file-name';
+import {
+  milestoneDocumentArchiveFolderName,
+  milestoneDocumentDownloadFileName,
+  milestoneDocumentTextEntryFileName,
+} from './milestone-document-download-file-name';
 
 describe('milestoneDocumentDownloadFileName', () => {
   it('학생이 올린 원본 이름과 무관하게 `팀명_서류명.확장자`로 다시 붙인다', () => {
@@ -156,5 +160,77 @@ describe('milestoneDocumentDownloadFileName', () => {
 
     // Then
     expect(result).toBe('합성팀_계획서.pd_f');
+  });
+});
+
+describe('milestoneDocumentTextEntryFileName', () => {
+  it.each<[string, string, string]>([
+    // [팀명, 서류명, ZIP에 담길 이름]
+    ['합성팀', '팀 활동 보고', '합성팀_팀 활동 보고.txt'],
+    // 경로 구분자·헤더 구분자는 파일 제출과 같은 규칙으로 `_`가 된다.
+    ['a/b\\c', 'x:y', 'a_b_c_x_y.txt'],
+    ['합성\r\n팀', '보고"; x=1', '합성__팀_보고__ x=1.txt'],
+    // 빈 이름·점뿐인 이름은 폴백으로 접는다(경로로 읽히면 안 된다).
+    ['   ', '..', 'file_file.txt'],
+  ])(
+    '팀명 %p · 서류명 %p은 `%s`로 담는다 — 원본 파일이 없으므로 확장자는 .txt로 고정한다',
+    (teamName, documentName, expected) => {
+      // Given / When
+      const result = milestoneDocumentTextEntryFileName({
+        teamName,
+        documentName,
+      });
+
+      // Then
+      expect(result).toBe(expected);
+    },
+  );
+
+  it('파일 제출과 `팀명_서류명` 부분을 그대로 공유한다', () => {
+    // Given: 같은 마일스톤의 산출물이 제출 방식에 따라 다른 이름 규칙으로 섞이면 사업단이
+    // 모아 놓고 정렬할 수 없다.
+    const names = { teamName: '가나다팀', documentName: '계획서' };
+
+    // When
+    const textEntry = milestoneDocumentTextEntryFileName(names);
+    const fileEntry = milestoneDocumentDownloadFileName({
+      ...names,
+      originalFileName: 'plan.pdf',
+    });
+
+    // Then
+    expect(textEntry).toBe('가나다팀_계획서.txt');
+    expect(fileEntry).toBe('가나다팀_계획서.pdf');
+  });
+});
+
+describe('milestoneDocumentArchiveFolderName', () => {
+  it.each<[string, string]>([
+    // [폴더로 쓸 원본 이름, ZIP 안 폴더 한 칸의 이름]
+    // 경로 구분자가 살아남으면 의도하지 않은 하위 경로가 생긴다(zip slip).
+    ['a/b', 'a_b'],
+    ['a\\b', 'a_b'],
+    ['../../etc', '.._.._etc'],
+    // 점만 남은 이름은 상위 폴더로 읽히므로 폴백으로 바꾼다.
+    ['..', 'file'],
+    ['.', 'file'],
+    ['...', 'file'],
+    ['', 'file'],
+    ['   ', 'file'],
+    // 한글은 살아남는다 — 폴더 이름이 통째로 `_`가 되면 팀을 구분할 수 없다.
+    ['가나다팀', '가나다팀'],
+    ['개인정보 수집·이용 동의서', '개인정보 수집·이용 동의서'],
+    // 제어문자는 항상 치환하고 연속 공백은 한 칸으로 접는다.
+    ['합성\r\n팀', '합성__팀'],
+    ['팀  이름', '팀 이름'],
+  ])('폴더 이름 %p은 `%s`가 된다', (value, expected) => {
+    // Given / When
+    const result = milestoneDocumentArchiveFolderName(value);
+
+    // Then
+    expect(result).toBe(expected);
+    expect(result).not.toContain('/');
+    expect(result).not.toContain('\\');
+    expect(result).not.toBe('..');
   });
 });

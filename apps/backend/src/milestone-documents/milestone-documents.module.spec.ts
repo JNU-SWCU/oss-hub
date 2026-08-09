@@ -6,6 +6,7 @@ import {
   MilestoneDocumentFilesController,
   MilestoneDocumentsController,
 } from './milestone-documents.controller';
+import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsModule } from './milestone-documents.module';
@@ -49,6 +50,9 @@ describe('MilestoneDocumentsModule', () => {
         MilestoneDocumentsRepository,
         MilestoneDocumentFilesService,
         MilestoneDocumentReviewsService,
+        // 일괄 내려받기(ZIP)도 같은 컨트롤러가 생성자에서 요구한다 — 빠지면 부트스트랩 DI가
+        // 실패한다(이 spec이 고정하는 회귀와 같은 모양이다).
+        MilestoneDocumentArchiveService,
         MilestoneDocumentsStaffGuard,
         SubmissionFileStorageConfig,
         S3SubmissionFileStorage,

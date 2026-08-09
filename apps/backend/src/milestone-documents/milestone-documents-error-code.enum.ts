@@ -27,6 +27,7 @@ export const MilestoneDocumentsErrorCode = {
   RESUBMISSION_NOT_ALLOWED: 'MSD_023',
   REVIEW_CHANGED: 'MSD_024',
   REVIEW_TARGET_CHANGED: 'MSD_025',
+  ARCHIVE_TOO_LARGE: 'MSD_026',
 } as const;
 
 export type MilestoneDocumentsErrorCode =
@@ -171,5 +172,18 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     status: 409,
     message:
       '검토하는 사이에 제출물 또는 판정이 바뀌었습니다. 새로고침 후 다시 확인해 주세요.',
+  },
+  /**
+   * 일괄 내려받기가 한 번에 흘려 보낼 수 있는 크기를 넘겼다.
+   *
+   * 413을 쓰는 이유: 요청 자체는 올바르고(404·422가 아니다) 서버도 멀쩡한데(5xx가 아니다)
+   * **만들어질 응답 본문이 너무 크다**. 지금은 나눠 받을 길이 없어 문구로 안내만 한다 —
+   * 실제로 이 값에 닿는 마일스톤이 생기면 서류 항목별 내려받기를 여는 것이 다음 수순이다.
+   */
+  [MilestoneDocumentsErrorCode.ARCHIVE_TOO_LARGE]: {
+    code: MilestoneDocumentsErrorCode.ARCHIVE_TOO_LARGE,
+    status: 413,
+    message:
+      '한 번에 내려받기에는 제출 파일이 너무 많습니다. 담당자에게 문의해 주세요.',
   },
 };

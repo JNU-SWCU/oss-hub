@@ -11,6 +11,8 @@ import {
   MilestoneDocumentFilesController,
   MilestoneDocumentsController,
 } from './milestone-documents.controller';
+import type { MilestoneDocumentArchive } from './milestone-document-archive.service';
+import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsService } from './milestone-documents.service';
@@ -151,6 +153,21 @@ const upload = jest.fn().mockResolvedValue({
   expiresAt: '2028-01-01T00:00:00.000Z',
 });
 
+// MilestoneDocumentArchiveService 목
+// 마일스톤 이름과 마감일이 붙은 한글 ZIP 이름 — RFC 5987 인코딩이 실제로 걸리는지 본다.
+const ARCHIVE_FILE_NAME = '1차 중간산출물_2026-08-20.zip';
+const ARCHIVE_BODY = 'zip-body';
+// 호출마다 새 스트림을 만든다 — 하나를 돌려쓰면 두 번째 요청이 이미 소진된 스트림을 받는다.
+const archiveForStaff = jest.fn(
+  (): Promise<MilestoneDocumentArchive> =>
+    Promise.resolve({
+      body: Readable.from(Buffer.from(ARCHIVE_BODY)),
+      fileName: ARCHIVE_FILE_NAME,
+      contentType: 'application/zip',
+      contentLength: ARCHIVE_BODY.length,
+    }),
+);
+
 // MilestoneDocumentReviewsService 목
 const review = jest.fn().mockResolvedValue({
   id: 'synthetic-review',
@@ -167,6 +184,7 @@ beforeEach(() => {
   deleteDocument.mockClear();
   reorderDocuments.mockClear();
   collectForStaff.mockClear();
+  archiveForStaff.mockClear();
   submit.mockClear();
   uploadTemplate.mockClear();
   downloadTemplate.mockClear();
@@ -206,6 +224,10 @@ beforeAll(async () => {
       {
         provide: MilestoneDocumentReviewsService,
         useValue: { review },
+      },
+      {
+        provide: MilestoneDocumentArchiveService,
+        useValue: { archiveForStaff },
       },
     ],
   })
@@ -660,6 +682,126 @@ it('제출 파일 다운로드는 다시 붙인 이름으로 attachment 스트�
   );
 });
 
+describe('교직원 서류 일괄 내려받기(ZIP)', () => {
+  const archiveUrl = (query = ''): string =>
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/collection/archive${query}`;
+
+  it('groupBy를 안 주면 팀별 묶기(TEAM)로 서비스를 부른다', async () => {
+    // Given / When
+    const response = await fetch(archiveUrl());
+
+    // Then: 기본값은 DTO(toGrouping)가 정한다 — 서비스는 언제나 확정된 값을 받는다.
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe(ARCHIVE_BODY);
+    expect(archiveForStaff).toHaveBeenCalledWith('synthetic-milestone', 'TEAM');
+  });
+
+  it('groupBy=DOCUMENT는 그대로 서비스에 전달한다', async () => {
+    // Given / When
+    const response = await fetch(archiveUrl('?groupBy=DOCUMENT'));
+
+    // Then
+    expect(response.status).toBe(200);
+    expect(archiveForStaff).toHaveBeenCalledWith(
+      'synthetic-milestone',
+      'DOCUMENT',
+    );
+  });
+
+  it('ZIP 응답은 application/zip · attachment · private no-store로 나간다', async () => {
+    // Given / When
+    const response = await fetch(archiveUrl());
+
+    // Then
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('application/zip');
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    const disposition = response.headers.get('content-disposition') ?? '';
+    expect(disposition).toContain('attachment');
+    // 한글 이름은 RFC 5987로 실어야 브라우저가 `_____.zip`이 아닌 제 이름으로 저장한다.
+    expect(disposition).toContain(
+      `filename*=UTF-8''${encodeURIComponent(ARCHIVE_FILE_NAME)}`,
+    );
+    expect(disposition).toContain('.zip');
+  });
+
+  it('길이를 아는 ZIP은 Content-Length를 실어 보낸다', async () => {
+    // Given / When
+    const response = await fetch(archiveUrl());
+
+    // Then: 이 값이 있어야 브라우저가 중간에 끊긴 내려받기를 실패로 판정한다.
+    expect(response.headers.get('content-length')).toBe(
+      String(ARCHIVE_BODY.length),
+    );
+  });
+
+  it('길이를 모르는 ZIP은 Content-Length를 아예 붙이지 않는다 — 청크 전송이다', async () => {
+    // Given: 크기를 미리 셀 수 없었던 압축(contentLength === null).
+    archiveForStaff.mockResolvedValueOnce({
+      body: Readable.from(Buffer.from(ARCHIVE_BODY)),
+      fileName: ARCHIVE_FILE_NAME,
+      contentType: 'application/zip',
+      contentLength: null,
+    });
+
+    // When
+    const response = await fetch(archiveUrl());
+
+    // Then: `String(null)`이 헤더로 나가면 받는 쪽이 길이를 0이나 오류로 읽는다.
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-length')).toBeNull();
+    expect(response.headers.get('content-type')).toBe('application/zip');
+    await expect(response.text()).resolves.toBe(ARCHIVE_BODY);
+  });
+
+  it('일괄 내려받기 경로(collection/archive)는 :documentId 경로로 잘못 잡히지 않는다', async () => {
+    // Given / When
+    await fetch(archiveUrl());
+
+    // Then: 수합 표도, 서류 항목 상세 계열 핸들러도 아니라 일괄 내려받기 핸들러가 탄다.
+    expect(archiveForStaff).toHaveBeenCalledTimes(1);
+    expect(collectForStaff).not.toHaveBeenCalled();
+    expect(downloadTemplate).not.toHaveBeenCalled();
+  });
+
+  it.each([['TEAMS'], ['team'], ['']])(
+    'groupBy가 %p이면 서비스 호출 전에 400으로 거절한다',
+    async (groupBy) => {
+      // Given: 오타·소문자·빈 값을 조용히 기본값으로 접으면 교직원은 팀별로 묶었다고 믿고
+      // 서류별로 묶인 ZIP을 받는다.
+      const response = await fetch(
+        archiveUrl(`?groupBy=${encodeURIComponent(groupBy)}`),
+      );
+
+      // Then
+      expect(response.status).toBe(400);
+      expect(archiveForStaff).not.toHaveBeenCalled();
+    },
+  );
+
+  it('groupBy를 배열로 보내면 400으로 거절한다', async () => {
+    // Given: `?groupBy=TEAM&groupBy=DOCUMENT`는 express가 배열로 파싱한다.
+    const response = await fetch(archiveUrl('?groupBy=TEAM&groupBy=DOCUMENT'));
+
+    // Then
+    expect(response.status).toBe(400);
+    expect(archiveForStaff).not.toHaveBeenCalled();
+  });
+
+  it.each([['page', 'page=2'], ['filter', 'filter=HAS_MISSING']])(
+    '이 경로가 받지 않는 쿼리(%s)는 400으로 거절한다 — 필터·페이지는 계약에 없다',
+    async (_name, query) => {
+      // Given: 「필수 서류 미제출」로 걸러 놓고 받은 ZIP을 그 팀들만 담긴 것으로 읽으면
+      // 안 되므로, 표의 쿼리가 이 경로에서 조용히 무시되는 대신 드러나게 막힌다.
+      const response = await fetch(archiveUrl(`?${query}`));
+
+      // Then
+      expect(response.status).toBe(400);
+      expect(archiveForStaff).not.toHaveBeenCalled();
+    },
+  );
+});
+
 describe('교직원 서류 제출물 판정', () => {
   /**
    * 수합 표 칸이 준 「본 그 버전」 — 프런트는 칸의 `revision`과 `review.id`를 그대로
@@ -878,6 +1020,15 @@ describe('교직원 전용 endpoint의 가드 구성', () => {
     const guards = readHandlerGuards('collection');
 
     // Then
+    expect(guards).toEqual([SessionGuard, MilestoneDocumentsStaffGuard]);
+  });
+
+  it('서류 일괄 내려받기는 SessionGuard + MilestoneDocumentsStaffGuard를 붙인다', () => {
+    // Given / When
+    const guards = readHandlerGuards('archive');
+
+    // Then: 마일스톤의 모든 제출물을 한 번에 내보내는 경로다 — 교직원 가드가 빠지면
+    // 학생 세션 하나로 전체 산출물을 통째로 가져갈 수 있다.
     expect(guards).toEqual([SessionGuard, MilestoneDocumentsStaffGuard]);
   });
 

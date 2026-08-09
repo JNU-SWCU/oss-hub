@@ -121,6 +121,24 @@ export interface MilestoneDocumentCollectionSubmission {
   readonly review: MilestoneDocumentReviewRecord | null;
 }
 
+/**
+ * ZIP 일괄 내려받기가 쓰는 제출 한 건. 표 쪽(`MilestoneDocumentCollectionSubmission`)과 달리
+ * **`storageKey`를 싣고 판정·revision은 싣지 않는다** — 이 조회의 결과는 응답 본문이 아니라
+ * 압축 스트림으로만 나간다.
+ */
+export interface MilestoneDocumentArchiveSubmissionRecord {
+  readonly milestoneDocumentId: string;
+  readonly applicationId: string;
+  readonly submittedAt: Date;
+  readonly status: SubmissionStatus;
+  readonly content: Prisma.JsonValue | null;
+  readonly file: {
+    readonly storageKey: string;
+    readonly originalFileName: string;
+    readonly sizeBytes: number;
+  } | null;
+}
+
 /** 방금 만든 판정 — 201 응답이 그대로 쓴다. */
 export interface CreatedMilestoneDocumentReview {
   readonly id: string;
@@ -916,6 +934,51 @@ export class MilestoneDocumentsRepository {
       content: submission.content,
       file: submission.files[0] ?? null,
       review: submission.reviewHistories[0] ?? null,
+    }));
+  }
+
+  /**
+   * ZIP 일괄 내려받기의 재료 — 주어진 서류 항목들의 제출을 한 번에 가져온다.
+   *
+   * `findSubmissionsForCollection`과 **일부러 갈라 둔다.** 수합 표는 화면에 그릴 값만 싣고
+   * 여기는 `storageKey`가 필요한데, 그 열쇠를 표 쪽 조회에 더하면 응답 DTO를 한 번만 잘못
+   * 매핑해도 **스토리지 객체 키가 브라우저로 새어 나간다.** 조회를 나누면 그 실수가
+   * 구조적으로 불가능하다.
+   *
+   * 같은 이유로 표 쪽이 싣는 판정 이력·revision은 여기서 빼 둔다 — ZIP은 그 값을 쓰지 않는다.
+   */
+  async findSubmissionsForArchive(
+    documentIds: readonly string[],
+    now: Date,
+  ): Promise<readonly MilestoneDocumentArchiveSubmissionRecord[]> {
+    if (documentIds.length === 0) return [];
+    const submissions = await this.prisma.milestoneDocumentSubmission.findMany({
+      where: { milestoneDocumentId: { in: [...documentIds] } },
+      select: {
+        milestoneDocumentId: true,
+        applicationId: true,
+        submittedAt: true,
+        status: true,
+        content: true,
+        files: {
+          where: unexpiredAttachedFileWhere(now),
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: {
+            storageKey: true,
+            originalFileName: true,
+            sizeBytes: true,
+          },
+        },
+      },
+    });
+    return submissions.map((submission) => ({
+      milestoneDocumentId: submission.milestoneDocumentId,
+      applicationId: submission.applicationId,
+      submittedAt: submission.submittedAt,
+      status: submission.status,
+      content: submission.content,
+      file: submission.files[0] ?? null,
     }));
   }
 
