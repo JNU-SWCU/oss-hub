@@ -3,6 +3,7 @@ import {
   OutboxEventStatus,
   Prisma,
   ProgramCategory,
+  RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
 } from '@prisma/client';
@@ -66,6 +67,9 @@ describe('ApplicationsService.listForProgram', () => {
       items: [
         {
           id: 'app-1',
+          programId: PROGRAM_ID,
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          repositoryUrl: null,
           status: ApplicationStatus.SUBMITTED,
           submittedAt: new Date('2026-07-15T00:00:00.000Z'),
           rejectionReason: null,
@@ -92,6 +96,9 @@ describe('ApplicationsService.listForProgram', () => {
         },
         {
           id: 'app-2',
+          programId: PROGRAM_ID,
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          repositoryUrl: null,
           status: ApplicationStatus.APPROVED,
           submittedAt: new Date('2026-07-16T00:00:00.000Z'),
           rejectionReason: null,

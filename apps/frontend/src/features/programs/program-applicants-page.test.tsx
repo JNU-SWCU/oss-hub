@@ -9,8 +9,8 @@ import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import {
   ApplicationListRequestEpoch,
   ProgramApplicantsPage,
-  staleApplicationDecisionTitle,
 } from './program-applicants-page';
+import { staleApplicationDecisionTitle } from './application-presentation';
 import { programApplicationDetailHref } from '@/lib/program-route';
 import type {
   ApplicationListItem,
@@ -62,6 +62,9 @@ function participationLabel(item: ApplicationListItem): string {
 
 const personal: ApplicationListItem = {
   id: 'app-personal',
+  programId: 'program-1',
+  repositoryConnectionMode: 'NEW',
+  repositoryUrl: null,
   status: 'SUBMITTED',
   rejectionReason: null,
   repositoryProvisioning: {
@@ -89,6 +92,9 @@ const personal: ApplicationListItem = {
 
 const team: ApplicationListItem = {
   id: 'app-team',
+  programId: 'program-1',
+  repositoryConnectionMode: 'NEW',
+  repositoryUrl: null,
   status: 'APPROVED',
   rejectionReason: null,
   repositoryProvisioning: {
@@ -117,6 +123,9 @@ const team: ApplicationListItem = {
 const rejected: ApplicationListItem = {
   ...team,
   id: 'app-rejected',
+  programId: 'program-1',
+  repositoryConnectionMode: 'NEW',
+  repositoryUrl: null,
   status: 'REJECTED',
   rejectionReason: '합성 반려 사유',
   repositoryProvisioning: {

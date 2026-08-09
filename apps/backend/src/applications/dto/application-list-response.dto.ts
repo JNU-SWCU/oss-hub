@@ -1,4 +1,7 @@
-import type { ApplicationStatus } from '@prisma/client';
+import type {
+  ApplicationStatus,
+  RepositoryConnectionMode,
+} from '@prisma/client';
 import type {
   ApplicationListItem,
   ApplicationListPage,
@@ -9,9 +12,15 @@ import type {
 
 export class ApplicationListItemResponseDto {
   readonly id: string;
+  /** 상세 화면이 주소의 프로그램과 대조하는 데 쓴다(#722). */
+  readonly programId: string;
   readonly status: ApplicationStatus;
   readonly submittedAt: string;
   readonly rejectionReason: string | null;
+  /** 승인이 저장소를 새로 만드는지(`NEW`) 낸 것을 잇는지(`OWN`). */
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  /** `OWN`일 때 이을 저장소 주소. */
+  readonly repositoryUrl: string | null;
   readonly repositoryProvisioning: {
     readonly enabled: boolean;
     readonly jobStatus: RepositoryProvisioningJobStatus;
@@ -43,9 +52,12 @@ export class ApplicationListItemResponseDto {
 
   private constructor(item: ApplicationListItem) {
     this.id = item.id;
+    this.programId = item.programId;
     this.status = item.status;
     this.submittedAt = item.submittedAt.toISOString();
     this.rejectionReason = item.rejectionReason;
+    this.repositoryConnectionMode = item.repositoryConnectionMode;
+    this.repositoryUrl = item.repositoryUrl;
     this.repositoryProvisioning = {
       ...item.repositoryProvisioning,
       updatedAt: item.repositoryProvisioning.updatedAt.toISOString(),
