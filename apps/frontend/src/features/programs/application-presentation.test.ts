@@ -45,7 +45,10 @@ describe('formatSubmittedAt', () => {
   });
 
   afterAll(() => {
-    process.env.TZ = original;
+    // 원래 미설정이었으면 `process.env.TZ = undefined` 가 문자열 "undefined" 를
+    // 넣어 기본 시간대가 UTC 로 떨어진다. 지워야 원래대로 돌아온다.
+    if (original === undefined) delete process.env.TZ;
+    else process.env.TZ = original;
   });
 
   it('기계 시간대가 UTC 여도 서울 시각으로 적는다', () => {

@@ -3,6 +3,7 @@ import { apiClient } from '@/lib/api-client';
 import {
   createApplication,
   decideApplication,
+  getApplicationDetail,
   getProgramStatusCounts,
   listPrograms,
 } from './api';
@@ -296,5 +297,30 @@ describe('decideApplication', () => {
         body: JSON.stringify({ action: 'REVERT' }),
       }),
     );
+  });
+});
+
+describe('getApplicationDetail', () => {
+  beforeEach(() => {
+    vi.mocked(apiClient).mockReset();
+  });
+
+  it('신청 상세를 판정과 같은 자원 경로로 읽는다', async () => {
+    // 상세 화면 테스트는 `./api` 를 통째로 mock 하므로, 경로가 바뀌어도 그쪽은
+    // 전부 초록이다. 경로를 못박는 자리는 여기뿐이다.
+    vi.mocked(apiClient).mockResolvedValue({ id: 'app-1' });
+
+    await getApplicationDetail('app-1');
+
+    expect(apiClient).toHaveBeenCalledWith('applications/app-1');
+  });
+
+  it('신청 id 를 URL 로 인코딩해 보낸다', async () => {
+    vi.mocked(apiClient).mockResolvedValue({ id: 'app/1' });
+
+    await getApplicationDetail('app/1');
+
+    // 인코딩하지 않으면 `applications/app/1` 이 되어 다른 경로를 두드린다.
+    expect(apiClient).toHaveBeenCalledWith('applications/app%2F1');
   });
 });

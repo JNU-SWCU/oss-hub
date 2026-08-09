@@ -153,18 +153,30 @@ describe('ProgramApplicationDetailPage', () => {
 
   it('띄어쓰기 없는 장문을 좁은 화면에서 끊어 넘긴다', async () => {
     // `break-keep`만으로는 공백 없는 긴 주소·핸들이 안 끊겨 가로로 삐져나간다.
-    // 320px에서 실제로 터지는 자리라 클래스 자체를 고정한다.
+    // 320px에서 실제로 터지는 자리라 **자리마다** 짚는다 — 「이 클래스를 쓰는
+    // 요소가 N개 이상」으로 세면 값 줄 하나만 남아도 통과한다.
     getApplicationDetailMock.mockResolvedValue(rejected);
 
     await mount();
 
-    const wrapped = Array.from(
-      container.querySelectorAll('dd, [class]'),
-    ).filter((node) =>
-      node.className.toString().includes('[overflow-wrap:anywhere]'),
+    const wraps = (node: Element | null | undefined): boolean =>
+      node?.className.toString().includes('[overflow-wrap:anywhere]') ?? false;
+
+    const summary = Array.from(container.querySelectorAll('dd')).find((node) =>
+      node.textContent?.includes('첫 줄 지원 동기'),
     );
-    // 값 줄 · 지원 동기 · 반려 사유 셋 다 걸려 있어야 한다.
-    expect(wrapped.length).toBeGreaterThanOrEqual(3);
+    const reason = Array.from(container.querySelectorAll('*')).find(
+      (node) =>
+        node.textContent?.trim() === '예산 항목이 비어 있습니다' &&
+        node.children.length === 0,
+    );
+    const applicantValue = Array.from(container.querySelectorAll('dd')).find(
+      (node) => node.textContent?.includes('@login-1'),
+    );
+
+    expect(wraps(summary)).toBe(true);
+    expect(wraps(reason)).toBe(true);
+    expect(wraps(applicantValue)).toBe(true);
   });
 
   it('제출 시각을 서울 시각으로 적는다', async () => {
@@ -408,11 +420,29 @@ describe('ProgramApplicationDetailPage', () => {
   });
 
   it('권한이 없으면 백엔드 문구를 그대로 보여준다', async () => {
+    // 합성 문구를 넣는다 — 백엔드 `APP_018` 원문과 같은 말을 넣으면 fallback 과
+    // 구분되지 않아, `problem.detail` 을 안 읽어도 테스트가 통과한다.
     getApplicationDetailMock.mockRejectedValue(
       new ApiError({
         ...problem(403, 'APP_018'),
-        detail: '승인된 교직원 또는 관리자만 조회할 수 있습니다.',
+        detail: '합성 권한 안내 문구입니다.',
       }),
+    );
+
+    await mount();
+
+    expect(container.textContent).toContain('합성 권한 안내 문구입니다.');
+  });
+
+  it('403 인데 문구가 없으면 기본 안내로 덮는다', async () => {
+    // 프런트의 `ProblemDetail` 은 backend DTO 를 손으로 옮겨 적은 사본이라
+    // `detail` 을 필수로 적어 두었지만, 실제 응답이 그걸 지킨다는 보장은 없다.
+    // 코드의 `?? fallback` 이 지키려는 것이 이 경우다.
+    getApplicationDetailMock.mockRejectedValue(
+      new ApiError({
+        ...problem(403, 'APP_018'),
+        detail: undefined,
+      } as unknown as ProblemDetail),
     );
 
     await mount();
@@ -420,5 +450,23 @@ describe('ProgramApplicationDetailPage', () => {
     expect(container.textContent).toContain(
       '승인된 교직원 또는 관리자만 조회할 수 있습니다.',
     );
+  });
+
+  it('자동 생성이 꺼져 있어도 저장소 작업 상태를 목록과 같이 말한다', async () => {
+    // 교직원이 나중에 스위치를 끄면 이미 만들어진 저장소의 상태가 남는다.
+    // 「꺼짐」으로 덮으면 목록이 "확인 필요"로 경고하는 신청이 상세에서 조용해진다.
+    getApplicationDetailMock.mockResolvedValue({
+      ...submitted,
+      repositoryProvisioning: {
+        enabled: false,
+        jobStatus: 'ANOMALOUS',
+        updatedAt: '2026-08-06T01:00:00.000Z',
+        safeErrorClass: 'UNKNOWN',
+      },
+    });
+
+    await mount();
+
+    expect(container.textContent).toContain('확인 필요');
   });
 });

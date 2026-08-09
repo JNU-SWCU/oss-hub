@@ -47,7 +47,6 @@ import type {
   ApplicationListItem,
   ApplicationListPage,
   ApplicationListStatus,
-  ApplicationStatus,
   ProgramDetail,
   RepositoryProvisioningJobStatus,
 } from './types';

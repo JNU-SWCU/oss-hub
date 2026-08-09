@@ -384,8 +384,20 @@ export function ProgramApplicationDetailPage({
               application.repositoryConnectionMode === 'OWN'
                 ? '신청자가 낸 저장소를 잇습니다'
                 : application.repositoryProvisioning.enabled
-                  ? `자동 생성 — ${PROVISIONING_LABELS[application.repositoryProvisioning.jobStatus]}`
+                  ? '자동 생성 켜짐'
                   : '자동 생성 꺼짐'
+            }
+          />
+          {/*
+           * 작업 상태는 **자동 생성이 꺼져 있어도** 말한다. 교직원이 나중에 스위치를
+           * 끄면 이미 만들어진 저장소의 `SUCCEEDED`·`FAILED`·`ANOMALOUS` 가 남는데,
+           * 「꺼짐」으로 덮으면 목록이 "확인 필요"라고 경고하는 신청을 상세에서는
+           * 아무 일 없는 것으로 읽는다.
+           */}
+          <Row
+            label="저장소 작업"
+            value={
+              PROVISIONING_LABELS[application.repositoryProvisioning.jobStatus]
             }
           />
           {application.repositoryConnectionMode === 'OWN' ? (
