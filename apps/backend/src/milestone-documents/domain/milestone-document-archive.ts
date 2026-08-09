@@ -22,11 +22,27 @@ import { readMilestoneDocumentSubmittedContent } from './milestone-document-cont
  * ZIP 안 폴더를 무엇으로 묶는가. 담는 파일은 **완전히 같고 경로만 뒤집힌다** —
  * 「팀별로 한 팀이 낸 것을 다 본다」와 「서류별로 같은 서류를 나란히 본다」는 마감 때
  * 둘 다 필요한 작업이라 한쪽만 내면 나머지 한쪽은 손으로 폴더를 다시 짠다.
+ *
+ * ⚠ 이건 **바깥으로 열어 둔 값**이다(`groupBy` 쿼리). 안쪽 배치는 `…ArchiveLayout` 이 정하며
+ * 거기에는 `FLAT` 이 하나 더 있다 — 서류 하나만 받을 때는 폴더 자체가 뜻이 없어서다.
  */
 export type MilestoneDocumentArchiveGrouping = 'TEAM' | 'DOCUMENT';
 
 export const MILESTONE_DOCUMENT_ARCHIVE_GROUPINGS: readonly MilestoneDocumentArchiveGrouping[] =
   ['TEAM', 'DOCUMENT'];
+
+/**
+ * ZIP 안 배치. `FLAT` 은 **폴더 없이 뿌리에** 늘어놓는다.
+ *
+ * 서류 한 종류만 받을 때 쓴다 — 팀별로 묶으면 폴더 47개가 각각 파일 하나씩 안고 있고,
+ * 서류별로 묶으면 뿌리에 폴더 하나가 서서 전부를 안는다. 둘 다 한 겹이 헛돈다.
+ *
+ * 바깥 계약(`groupBy`)에 `FLAT` 을 넣지 않는 이유: 「전체를 평평하게」는 팀·서류가 뒤섞여
+ * 이름만으로 구분해야 하는 상태라 아무도 원하지 않는다. 서류가 하나로 좁혀졌을 때만 뜻이 있다.
+ */
+export type MilestoneDocumentArchiveLayout =
+  | MilestoneDocumentArchiveGrouping
+  | 'FLAT';
 
 /** 동봉하는 현황표의 이름. ZIP 뿌리에 놓는다. */
 export const MILESTONE_DOCUMENT_ARCHIVE_MANIFEST_FILE_NAME = '제출현황.csv';
@@ -157,7 +173,7 @@ export interface BuildMilestoneDocumentArchivePlanInput {
   readonly documents: readonly MilestoneDocumentArchiveDocument[];
   readonly teams: readonly MilestoneDocumentArchiveTeam[];
   readonly submissions: readonly MilestoneDocumentArchiveSubmission[];
-  readonly grouping: MilestoneDocumentArchiveGrouping;
+  readonly layout: MilestoneDocumentArchiveLayout;
 }
 
 /**
@@ -174,7 +190,7 @@ export interface BuildMilestoneDocumentArchivePlanInput {
 export function buildMilestoneDocumentArchivePlan(
   input: BuildMilestoneDocumentArchivePlanInput,
 ): MilestoneDocumentArchivePlan {
-  const { documents, teams, submissions, grouping } = input;
+  const { documents, teams, submissions, layout } = input;
 
   // N+1 금지 — 수합 표(`buildMilestoneDocumentCollectionPage`)와 같은 (신청, 서류) 색인이다.
   const cellIndex = new Map<string, MilestoneDocumentArchiveSubmission>();
@@ -208,7 +224,7 @@ export function buildMilestoneDocumentArchivePlan(
       }
 
       const state = submittedState(submission.status);
-      const entry = buildEntry({ team, document, submission, grouping });
+      const entry = buildEntry({ team, document, submission, layout });
       if (entry === null) {
         return {
           documentId: document.id,
@@ -267,12 +283,14 @@ function buildEntry(input: {
   readonly team: MilestoneDocumentArchiveTeam;
   readonly document: MilestoneDocumentArchiveDocument;
   readonly submission: MilestoneDocumentArchiveSubmission;
-  readonly grouping: MilestoneDocumentArchiveGrouping;
+  readonly layout: MilestoneDocumentArchiveLayout;
 }): MilestoneDocumentArchiveEntry | null {
-  const { team, document, submission, grouping } = input;
-  const folder = archiveFolderPath(
-    grouping === 'TEAM' ? team.teamName : document.name,
-  );
+  const { team, document, submission, layout } = input;
+  // `FLAT` 은 폴더가 없다 — 앞에 붙일 것이 없으니 빈 접두사가 된다.
+  const prefix =
+    layout === 'FLAT'
+      ? ''
+      : `${archiveFolderPath(layout === 'TEAM' ? team.teamName : document.name)}/`;
 
   if (submission.file !== null) {
     const fileName = milestoneDocumentDownloadFileName({
@@ -282,7 +300,7 @@ function buildEntry(input: {
     });
     return {
       kind: 'STORED_FILE',
-      path: `${folder}/${fileName}`,
+      path: `${prefix}${fileName}`,
       modifiedAt: submission.submittedAt,
       storageKey: submission.file.storageKey,
       sizeBytes: submission.file.sizeBytes,
@@ -293,7 +311,7 @@ function buildEntry(input: {
   if (content === null) return null;
   return {
     kind: 'INLINE_TEXT',
-    path: `${folder}/${milestoneDocumentTextEntryFileName({
+    path: `${prefix}${milestoneDocumentTextEntryFileName({
       teamName: team.teamName,
       documentName: document.name,
     })}`,

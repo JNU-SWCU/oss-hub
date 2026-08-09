@@ -164,7 +164,7 @@ export class MilestoneDocumentsController {
   ): Promise<StreamableFile> {
     const archive = await this.archiveService.archiveForStaff(
       milestoneId,
-      query.toGrouping(),
+      query.toScope(),
     );
     response.setHeader('Content-Type', archive.contentType);
     if (archive.contentLength !== null) {
