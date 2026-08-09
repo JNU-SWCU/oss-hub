@@ -2,6 +2,7 @@ export interface DeadlineDigestMail {
   readonly to: string;
   readonly subject: string;
   readonly body: string;
+  readonly html?: string;
 }
 
 export interface MailSender {

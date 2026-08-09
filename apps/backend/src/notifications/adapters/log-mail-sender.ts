@@ -9,9 +9,8 @@ export class LogMailSender implements MailSender {
   private readonly logger = new Logger('LogMailSender');
 
   send(mail: DeadlineDigestMail): Promise<void> {
-    // 수신 주소 원문은 로그에 남기지 않는다(public-safe).
     this.logger.log(
-      `[dry-run] 마감 알림 메일 subject=${mail.subject} bodyChars=${mail.body.length}`,
+      `[dry-run] deadline digest prepared bodyChars=${mail.body.length} htmlChars=${mail.html?.length ?? 0}`,
     );
     return Promise.resolve();
   }
