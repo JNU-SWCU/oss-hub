@@ -7,6 +7,8 @@ import type { PrismaService } from '../../prisma/prisma.service';
 interface MockDb {
   githubRepository: {
     upsert: jest.Mock;
+    create: jest.Mock;
+    createMany: jest.Mock;
     findUnique: jest.Mock;
     updateMany: jest.Mock;
     findMany: jest.Mock;
@@ -51,6 +53,8 @@ const createDb = (): MockDb => {
   const db: MockDb = {
     githubRepository: {
       upsert: jest.fn(),
+      create: jest.fn(),
+      createMany: jest.fn().mockResolvedValue({ count: 0 }),
       findUnique: jest.fn(),
       updateMany: jest.fn(),
       findMany: jest.fn(),
@@ -215,6 +219,72 @@ describe('CollectionIncrementalRepository — repository identity', () => {
     expect(call?.update).toMatchObject({
       source: 'ORG_PROVISIONED',
       githubOrganizationId: 10n,
+    });
+  });
+
+  it('OWN 저장소를 경쟁 안전하게 편입하고 기존 external 상태도 현재 관찰로 복구한다', async () => {
+    const db = createDb();
+    db.githubRepository.createMany.mockResolvedValue({ count: 1 });
+    db.githubRepository.updateMany.mockResolvedValue({ count: 1 });
+    const observedAt = new Date('2026-08-09T14:00:00.000Z');
+
+    await repositoryFor(db).enrollExternalRepository({
+      githubRepositoryId: 42n,
+      nameWithOwner: 'synthetic-student/synthetic-own-repo',
+      defaultBranch: 'main',
+      archived: false,
+      observedAt,
+    });
+
+    const createCalls = db.githubRepository.createMany.mock
+      .calls as unknown as ReadonlyArray<
+      readonly [
+        {
+          readonly data: ReadonlyArray<Record<string, unknown>>;
+          readonly skipDuplicates: boolean;
+        },
+      ]
+    >;
+    expect(createCalls[0]?.[0]).toEqual({
+      data: [
+        {
+          githubRepositoryId: 42n,
+          nameWithOwner: 'synthetic-student/synthetic-own-repo',
+          defaultBranch: 'main',
+          archived: false,
+          source: 'EXTERNAL_PUBLIC',
+          visibility: 'PUBLIC',
+          presence: 'PRESENT',
+          lastCompleteInventoryObservedAt: observedAt,
+          nextRunAt: observedAt,
+        },
+      ],
+      skipDuplicates: true,
+    });
+    const updateCalls = db.githubRepository.updateMany.mock
+      .calls as unknown as ReadonlyArray<
+      readonly [
+        {
+          readonly where: Record<string, unknown>;
+          readonly data: Record<string, unknown>;
+        },
+      ]
+    >;
+    expect(updateCalls[0]?.[0]).toEqual({
+      where: {
+        githubRepositoryId: 42n,
+        source: 'EXTERNAL_PUBLIC',
+      },
+      data: {
+        nameWithOwner: 'synthetic-student/synthetic-own-repo',
+        defaultBranch: 'main',
+        archived: false,
+        visibility: 'PUBLIC',
+        presence: 'PRESENT',
+        lastCompleteInventoryObservedAt: observedAt,
+        nextRunAt: observedAt,
+        failureCount: 0,
+      },
     });
   });
 });
@@ -572,14 +642,14 @@ describe('CollectionIncrementalRepository — todo 10 sync cursor/inventory', ()
     expect(result).toEqual([{ id: 'repo-1' }]);
   });
 
-  it('listExternalRepositories는 EXTERNAL_PUBLIC이면서 PRESENT인 저장소만 읽는다', async () => {
+  it('listExternalRepositories는 가시성 재확인을 위해 모든 EXTERNAL_PUBLIC 저장소를 읽는다', async () => {
     const db = createDb();
     db.githubRepository.findMany.mockResolvedValue([{ id: 'ext-1' }]);
 
     const result = await repositoryFor(db).listExternalRepositories();
 
     expect(db.githubRepository.findMany).toHaveBeenCalledWith({
-      where: { source: 'EXTERNAL_PUBLIC', presence: 'PRESENT' },
+      where: { source: 'EXTERNAL_PUBLIC' },
     });
     expect(result).toEqual([{ id: 'ext-1' }]);
   });
@@ -1013,6 +1083,9 @@ describe('CollectionIncrementalRepository — #546 stream 오류 표시', () => 
 describe('CollectionIncrementalRepository — 가입자만 적재한다', () => {
   it('가입하지 않은 계정의 기여는 행을 만들지 않는다', async () => {
     const db = createDb();
+    db.githubRepository.findUnique.mockResolvedValue({
+      source: 'EXTERNAL_PUBLIC',
+    });
     db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
     db.collectionCommitFact.count.mockResolvedValue(1);
     // 1n 만 가입자다.
@@ -1032,8 +1105,61 @@ describe('CollectionIncrementalRepository — 가입자만 적재한다', () => 
     ]);
 
     expect(db.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(db.collectionCommitFact.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          sha: 'by-member',
+          authorGithubId: 1n,
+        }),
+      ],
+      skipDuplicates: true,
+    });
     // 재계산은 집합 SQL 1문이다 — 칸 수와 무관하게 호출이 늘지 않는다.
     expect(db.$executeRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it('external PR·release 원본도 가입자 작성분만 적재한다', async () => {
+    const db = createDb();
+    db.githubRepository.findUnique.mockResolvedValue({
+      source: 'EXTERNAL_PUBLIC',
+    });
+    db.user.findMany.mockResolvedValue([{ githubId: 1n }]);
+
+    await repositoryFor(db).recordPullRequestFacts('repo-1', [
+      {
+        githubPullRequestId: 10n,
+        state: 'OPEN',
+        createdAt: new Date('2026-03-01T00:00:00.000Z'),
+        authorGithubId: 1n,
+      },
+      {
+        githubPullRequestId: 11n,
+        state: 'OPEN',
+        createdAt: new Date('2026-03-01T00:00:00.000Z'),
+        authorGithubId: 999n,
+      },
+    ]);
+    await repositoryFor(db).recordReleaseFacts('repo-1', [
+      {
+        githubReleaseId: 20n,
+        publishedAt: new Date('2026-03-01T00:00:00.000Z'),
+        authorGithubId: 1n,
+      },
+      {
+        githubReleaseId: 21n,
+        publishedAt: new Date('2026-03-01T00:00:00.000Z'),
+        authorGithubId: 999n,
+      },
+    ]);
+
+    expect(db.collectionPullRequestFact.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ githubPullRequestId: 10n })],
+      skipDuplicates: true,
+    });
+    expect(db.collectionReleaseFact.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ githubReleaseId: 20n })],
+      skipDuplicates: true,
+    });
   });
 
   it('건드린 칸을 먼저 비우고 가입자만 다시 채운다 — fail-open 을 닫는다', async () => {

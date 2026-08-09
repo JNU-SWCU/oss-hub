@@ -4,6 +4,7 @@ import {
 } from './github-app.error';
 import type {
   GithubAppClient,
+  GithubPublicRepositoryMetadata,
   GithubRepositoryMetadata,
 } from './github-app.client';
 import type { RepositoryNameCandidates } from './repository-name';
@@ -59,7 +60,7 @@ export function parseOwnGithubRepositoryUrl(
 export async function resolveOwnGithubRepository(
   github: Pick<GithubAppClient, 'findPublicRepository'>,
   repositoryUrl: string,
-): Promise<GithubRepositoryMetadata> {
+): Promise<GithubPublicRepositoryMetadata> {
   const parsed = parseOwnGithubRepositoryUrl(repositoryUrl);
   if (parsed === null) {
     throw finalProvisionFailure(

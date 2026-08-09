@@ -6,7 +6,10 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ApiError } from '@/lib/api-client';
 
 import { fetchAdminAccessList } from '../admin-access-api';
-import type { AdminAccessListItem } from '../admin-access-api';
+import type {
+  AdminAccessListItem,
+  AdminAccessSortField,
+} from '../admin-access-api';
 import {
   ADMIN_ACCESS_DEFAULT_FILTER_STATE,
   ADMIN_ACCESS_LIST_LIMIT,
@@ -130,19 +133,19 @@ export function AdminAccessScreen() {
       onPendingRequestChange={(nextPendingRequest) => {
         navigate({ ...state, pendingRequest: nextPendingRequest, page: 1 });
       }}
-      onSortChange={(nextSort) => {
-        navigate({ ...state, sort: nextSort, page: 1 });
-      }}
-      onDirectionToggle={() => {
-        navigate({
-          ...state,
-          direction: state.direction === 'asc' ? 'desc' : 'asc',
-          page: 1,
-        });
+      onSortToggle={(field: AdminAccessSortField) => {
+        const direction =
+          state.sort === field && state.direction === 'asc' ? 'desc' : 'asc';
+        navigate({ ...state, sort: field, direction, page: 1 });
       }}
       onPageChange={(nextPage) => navigate({ ...state, page: nextPage })}
       onRetry={() => void load()}
       onResetFilters={resetFilters}
+      onRowClick={(item) =>
+        router.push(`/admin/access/users/${encodeURIComponent(item.id)}`, {
+          scroll: false,
+        })
+      }
     />
   );
 }

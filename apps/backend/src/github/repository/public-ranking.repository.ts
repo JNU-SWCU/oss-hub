@@ -141,8 +141,8 @@ export class PublicRankingRepository {
    * 정상을 정지로 오인하게 만든다. 이 화면의 목적이 "멈추면 보인다"이므로
    * 멈춤 여부를 말해 주는 쪽을 쓴다.
    *
-   * 목록과 따로 묻는다 — 목록은 60초 캐시를 타는데 시각까지 캐시되면
-   * 수집이 멈춰도 화면은 계속 최신인 것처럼 보인다.
+   * 목록과 따로 묻는다 — 목록 수치와 수집 성공 시각은 서로 다른 의미이며,
+   * 둘 다 요청 시점의 현재 공개 상태를 읽는다.
    */
   async findDataAsOf(): Promise<Date | null> {
     const latest = await this.prisma.githubRepository.aggregate({

@@ -44,6 +44,7 @@ export function provisionContext(
       collaboratorGithubLogins: ['synthetic-leader', 'synthetic-student'],
     },
     applicationId: 'synthetic-application-id',
+    applicantGithubId: 9_000_000_730_101n,
     applicationStatus: ApplicationStatus.APPROVED,
     programId: 'synthetic-program-id',
     programName: 'Synthetic Program',

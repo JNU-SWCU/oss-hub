@@ -17,6 +17,8 @@ interface DataTableColumn<TRow> {
   cell: (row: TRow, rowIndex: number) => React.ReactNode;
   headClassName?: string;
   cellClassName?: string;
+  /** 헤더 `<th>`에 그대로 전달되는 속성. 정렬 가능한 컬럼의 `aria-sort` 등에 쓴다. */
+  headProps?: Pick<React.ComponentProps<'th'>, 'aria-sort'>;
 }
 
 interface DataTableProps<TRow> extends Omit<
@@ -35,6 +37,12 @@ interface DataTableProps<TRow> extends Omit<
   isLoading?: boolean;
   loadingSlot?: React.ReactNode;
   emptyState?: React.ReactNode;
+  /**
+   * 주어지면 각 행 전체가 클릭 대상이 된다(마우스 보조 동선). 키보드 접근은
+   * 여전히 셀 안의 기존 링크/버튼이 담당하므로 행 자체에는 `tabIndex`를
+   * 주지 않는다.
+   */
+  onRowClick?: (row: TRow, rowIndex: number) => void;
 }
 
 // 소비 화면이 컬럼·행 데이터를 주입하는 운영 데이터 테이블. 역할별 컬럼·액션 노출
@@ -48,6 +56,7 @@ function DataTable<TRow>({
   isLoading = false,
   loadingSlot,
   emptyState,
+  onRowClick,
   className,
   // 스크롤 안내는 **초점을 받는 요소**에 붙어야 읽힌다. 종전에는 호출부가 준
   // `aria-describedby` 가 바깥 래퍼에 실렸는데 그 래퍼는 초점을 못 받아,
@@ -71,7 +80,11 @@ function DataTable<TRow>({
         <TableHeader>
           <TableRow>
             {columns.map((column) => (
-              <TableHead key={column.id} className={column.headClassName}>
+              <TableHead
+                key={column.id}
+                className={column.headClassName}
+                {...column.headProps}
+              >
                 {column.header}
               </TableHead>
             ))}
@@ -98,7 +111,17 @@ function DataTable<TRow>({
             </TableRow>
           ) : (
             data.map((row, rowIndex) => (
-              <TableRow key={rowKey(row, rowIndex)}>
+              <TableRow
+                key={rowKey(row, rowIndex)}
+                className={
+                  onRowClick
+                    ? 'cursor-pointer hover:bg-muted/50 transition-colors'
+                    : undefined
+                }
+                onClick={
+                  onRowClick ? () => onRowClick(row, rowIndex) : undefined
+                }
+              >
                 {columns.map((column) => (
                   <TableCell key={column.id} className={column.cellClassName}>
                     {column.cell(row, rowIndex)}

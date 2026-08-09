@@ -1,26 +1,22 @@
 'use client';
 
-import { useState } from 'react';
 import {
   Activity,
   AlertCircle,
-  Clock3,
   Database,
   GitBranch,
   PlayCircle,
   RotateCcw,
-  Search,
 } from 'lucide-react';
 import { CardGrid, EmptyState, PageHeader, StatusBadge } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 import type {
   CollectionHealth,
   CurrentRunStatus,
-  DiscoveryNotice,
+  SystemStatus,
   SystemStatusSafeReason,
   SystemStatusViewState,
   TriggerNotice,
@@ -32,9 +28,6 @@ interface SystemStatusViewProps {
   readonly onTrigger: () => void;
   readonly isTriggering: boolean;
   readonly triggerNotice: TriggerNotice | null;
-  readonly onDiscover: (githubLogin: string) => void;
-  readonly isDiscovering: boolean;
-  readonly discoveryNotice: DiscoveryNotice | null;
 }
 
 const HEALTH = {
@@ -145,113 +138,210 @@ function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
   );
 }
 
-interface DiscoverExternalPanelProps {
-  readonly onDiscover: (githubLogin: string) => void;
-  readonly isDiscovering: boolean;
-  readonly discoveryNotice: DiscoveryNotice | null;
+/**
+ * Stream 진행 상황의 4구간(완료/Backfill 중/부분·대기/재시도 대기) — 세그먼트 바와
+ * 범례가 같은 순서·같은 색을 공유하도록 한 곳에 정의한다. 프로젝트 디자인 토큰만
+ * 사용한다(하드코딩 색상 금지, `status-badge.tsx`와 동일한 원칙).
+ */
+const STREAM_SEGMENTS = [
+  { key: 'ready', label: '완료(READY)', colorClass: 'bg-primary' },
+  { key: 'backfilling', label: 'Backfill 중', colorClass: 'bg-primary/60' },
+  {
+    key: 'partial',
+    label: '부분·대기',
+    colorClass: 'bg-muted-foreground/40',
+  },
+  {
+    key: 'retryPending',
+    label: '재시도 대기',
+    colorClass: 'bg-destructive/70',
+  },
+] as const;
+
+interface StreamProgressBarProps {
+  readonly ready: number;
+  readonly backfilling: number;
+  readonly partial: number;
+  readonly retryPending: number;
+  readonly total: number;
 }
 
-function DiscoverExternalPanel({
-  onDiscover,
-  isDiscovering,
-  discoveryNotice,
-}: DiscoverExternalPanelProps) {
-  const [githubLogin, setGithubLogin] = useState('');
-  const trimmedLogin = githubLogin.trim();
-  const submitDisabled = isDiscovering || trimmedLogin.length === 0;
+function StreamProgressBar({
+  ready,
+  backfilling,
+  partial,
+  retryPending,
+  total,
+}: StreamProgressBarProps) {
+  const counts = {
+    ready,
+    backfilling,
+    partial,
+    retryPending,
+  } satisfies Record<(typeof STREAM_SEGMENTS)[number]['key'], number>;
+
+  const summary = `전체 ${total}개 stream 중 ${STREAM_SEGMENTS.map(
+    (segment) => `${segment.label} ${counts[segment.key]}개`,
+  ).join(', ')}입니다.`;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div
+        role="img"
+        aria-label={summary}
+        className="flex h-3 w-full overflow-hidden rounded-full bg-muted"
+      >
+        {STREAM_SEGMENTS.filter((segment) => counts[segment.key] > 0).map(
+          (segment) => (
+            <div
+              key={segment.key}
+              className={cn('h-full', segment.colorClass)}
+              style={{ width: `${(counts[segment.key] / total) * 100}%` }}
+            />
+          ),
+        )}
+      </div>
+      <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+        {STREAM_SEGMENTS.map((segment) => (
+          <li key={segment.key} className="flex items-center gap-1.5">
+            <span
+              aria-hidden="true"
+              className={cn('size-2.5 rounded-full', segment.colorClass)}
+            />
+            <span className="text-muted-foreground">{segment.label}</span>
+            <span className="font-medium text-foreground">
+              {counts[segment.key]}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function CollectionStatusCard({ status }: { readonly status: SystemStatus }) {
+  const health = HEALTH[status.health];
+  const run = RUN_STATUS[status.currentRunStatus];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-3">
+          <span className="flex items-center gap-2">
+            <Activity aria-hidden="true" className="size-5" />
+            수집 상태
+          </span>
+          <span className="flex items-center gap-2">
+            <StatusBadge variant={health.variant}>{health.label}</StatusBadge>
+            {status.currentRunStatus === 'PROCESSING' ? (
+              <StatusBadge
+                variant={run.variant}
+                className="before:animate-pulse motion-reduce:before:animate-none"
+              >
+                {run.label}
+              </StatusBadge>
+            ) : null}
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <p className="text-sm text-muted-foreground">
+          {status.safeReason
+            ? SAFE_REASON_COPY[status.safeReason]
+            : '데이터 수집이 정상적으로 운영되고 있습니다.'}
+        </p>
+        <dl className="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <dt className="text-muted-foreground">이번 사이클 시작</dt>
+            <dd className="mt-1 font-medium">
+              {formatTimestamp(status.lastCycleStartedAt)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">최근 사이클 완료</dt>
+            <dd className="mt-1 font-medium">
+              {formatTimestamp(status.lastCycleCompletedAt)}
+            </dd>
+          </div>
+        </dl>
+      </CardContent>
+    </Card>
+  );
+}
+
+function StreamProgressCard({ status }: { readonly status: SystemStatus }) {
+  const total =
+    status.readyStreamCount +
+    status.backfillingStreamCount +
+    status.partialStreamCount +
+    status.retryPendingStreamCount;
+  const pct =
+    total > 0 ? Math.round((status.readyStreamCount / total) * 100) : 0;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Search aria-hidden="true" className="size-5" />
-          조직 밖 public 저장소 탐색
+          <GitBranch aria-hidden="true" className="size-5" />
+          Stream 진행 상황
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <p className="text-sm text-muted-foreground">
-          학생 1명의 GitHub 계정으로 조직 밖 public 저장소를 찾아 추적 목록에
-          등록합니다. 여기서는 목록만 채워질 뿐, commit·PR·release 같은 실제
-          수집 데이터는 채워지지 않습니다 — 다음 예약 수집이나 &quot;지금 수집
-          실행&quot; 버튼을 실행해야 반영됩니다.
-        </p>
+        <div>
+          <p className="text-sm font-medium text-foreground">
+            완료 {status.readyStreamCount} / {total} stream ({pct}%)
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            추적 저장소 {status.trackedRepositoryCount}개 × commit·PR·release
+            3종 stream
+          </p>
+        </div>
+        <StreamProgressBar
+          ready={status.readyStreamCount}
+          backfilling={status.backfillingStreamCount}
+          partial={status.partialStreamCount}
+          retryPending={status.retryPendingStreamCount}
+          total={total}
+        />
+      </CardContent>
+    </Card>
+  );
+}
 
-        <form
-          className="flex flex-col gap-3 sm:flex-row sm:items-end"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (submitDisabled) return;
-            onDiscover(trimmedLogin);
-          }}
-        >
-          <div className="flex flex-1 flex-col gap-2">
-            <Label htmlFor="discover-external-github-login">
-              학생 GitHub 로그인
-            </Label>
-            <Input
-              id="discover-external-github-login"
-              name="githubLogin"
-              placeholder="예: octocat"
-              autoComplete="off"
-              disabled={isDiscovering}
-              value={githubLogin}
-              onChange={(event) => setGithubLogin(event.target.value)}
-            />
+function DataFreshnessCard({ status }: { readonly status: SystemStatus }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Database aria-hidden="true" className="size-5" />
+          데이터 최신성
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <dl className="grid gap-3 text-sm">
+          <div>
+            <dt className="text-muted-foreground">데이터 기준 시각</dt>
+            <dd className="mt-1 font-medium">
+              {formatTimestamp(status.dataAsOf)}
+            </dd>
           </div>
-          <Button type="submit" variant="outline" disabled={submitDisabled}>
-            <Search aria-hidden="true" />
-            {isDiscovering ? '탐색 중…' : '지금 탐색 실행'}
-          </Button>
-        </form>
-
-        {/* 탐색 결과 알림 — Alert의 role="alert"가 등장 즉시 스크린 리더에 통지한다. */}
-        {discoveryNotice ? (
-          <Alert
-            variant={
-              discoveryNotice.kind === 'error' ? 'destructive' : 'default'
-            }
-          >
-            <AlertTitle>
-              {discoveryNotice.kind === 'error'
-                ? '저장소 탐색에 실패했습니다'
-                : '저장소 탐색을 완료했습니다'}
-            </AlertTitle>
-            <AlertDescription>
-              {discoveryNotice.kind === 'error' ? (
-                discoveryNotice.message
-              ) : (
-                <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <div>
-                    <dt className="text-muted-foreground">대상 계정</dt>
-                    <dd className="mt-1 font-medium">
-                      {discoveryNotice.githubLogin}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">발견</dt>
-                    <dd className="mt-1 font-medium">
-                      {discoveryNotice.discoveredCount}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">신규 등록</dt>
-                    <dd className="mt-1 font-medium">
-                      {discoveryNotice.upsertedCount}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">
-                      조직 소속으로 제외
-                    </dt>
-                    <dd className="mt-1 font-medium">
-                      {discoveryNotice.skippedOrgProvisionedCount}
-                    </dd>
-                  </div>
-                </dl>
-              )}
-            </AlertDescription>
-          </Alert>
-        ) : null}
+          <div>
+            <dt className="text-muted-foreground">
+              가장 오래된 완료 checkpoint
+            </dt>
+            <dd className="mt-1 font-medium">
+              {formatTimestamp(status.oldestReadyCheckpointAt)}
+            </dd>
+          </div>
+          {status.oldestRetryPendingAt ? (
+            <div>
+              <dt className="text-muted-foreground">가장 오래된 재시도 대기</dt>
+              <dd className="mt-1 font-medium">
+                {formatTimestamp(status.oldestRetryPendingAt)}
+              </dd>
+            </div>
+          ) : null}
+        </dl>
       </CardContent>
     </Card>
   );
@@ -263,16 +353,11 @@ export function SystemStatusView({
   onTrigger,
   isTriggering,
   triggerNotice,
-  onDiscover,
-  isDiscovering,
-  discoveryNotice,
 }: SystemStatusViewProps) {
   if (state.kind === 'loading') return <LoadingState />;
   if (state.kind === 'error') return <ErrorState onRetry={onRetry} />;
 
   const { status } = state;
-  const health = HEALTH[status.health];
-  const run = RUN_STATUS[status.currentRunStatus];
   const isEmpty = status.health === 'EMPTY';
   // 이미 실행 중인 사이클에 두 번째 트리거를 보내 봐야 lease가 거절한다 — 요청을
   // 보내기 전에 막아 관리자가 실패 응답을 받고서야 알게 되는 상황을 없앤다.
@@ -311,12 +396,6 @@ export function SystemStatusView({
         </Alert>
       ) : null}
 
-      <DiscoverExternalPanel
-        onDiscover={onDiscover}
-        isDiscovering={isDiscovering}
-        discoveryNotice={discoveryNotice}
-      />
-
       {isEmpty ? (
         <EmptyState
           icon={<Database className="size-8" />}
@@ -326,119 +405,9 @@ export function SystemStatusView({
       ) : (
         <section aria-label="시스템 상태 요약">
           <CardGrid>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-2">
-                    <Activity aria-hidden="true" className="size-5" />
-                    수집 상태
-                  </span>
-                  <StatusBadge variant={health.variant}>
-                    {health.label}
-                  </StatusBadge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground">
-                {status.safeReason
-                  ? SAFE_REASON_COPY[status.safeReason]
-                  : '데이터 수집이 정상적으로 운영되고 있습니다.'}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-2">
-                    <Clock3 aria-hidden="true" className="size-5" />
-                    현재 작업
-                  </span>
-                  <StatusBadge variant={run.variant}>{run.label}</StatusBadge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground">
-                현재 수집 사이클의 실행 상태입니다.
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database aria-hidden="true" className="size-5" />
-                  데이터 최신성
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <dl className="grid gap-3 text-sm">
-                  <div>
-                    <dt className="text-muted-foreground">데이터 기준 시각</dt>
-                    <dd className="mt-1 font-medium">
-                      {formatTimestamp(status.dataAsOf)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">
-                      가장 오래된 완료 checkpoint
-                    </dt>
-                    <dd className="mt-1 font-medium">
-                      {formatTimestamp(status.oldestReadyCheckpointAt)}
-                    </dd>
-                  </div>
-                  {status.oldestRetryPendingAt ? (
-                    <div>
-                      <dt className="text-muted-foreground">
-                        가장 오래된 재시도 대기
-                      </dt>
-                      <dd className="mt-1 font-medium">
-                        {formatTimestamp(status.oldestRetryPendingAt)}
-                      </dd>
-                    </div>
-                  ) : null}
-                </dl>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <GitBranch aria-hidden="true" className="size-5" />
-                  Stream 진행 상황
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <dl className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <dt className="text-muted-foreground">추적 저장소</dt>
-                    <dd className="mt-1 font-medium">
-                      {status.trackedRepositoryCount}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">완료(READY)</dt>
-                    <dd className="mt-1 font-medium">
-                      {status.readyStreamCount}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Backfill 중</dt>
-                    <dd className="mt-1 font-medium">
-                      {status.backfillingStreamCount}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">부분/대기</dt>
-                    <dd className="mt-1 font-medium">
-                      {status.partialStreamCount}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">재시도 대기</dt>
-                    <dd className="mt-1 font-medium">
-                      {status.retryPendingStreamCount}
-                    </dd>
-                  </div>
-                </dl>
-              </CardContent>
-            </Card>
+            <CollectionStatusCard status={status} />
+            <StreamProgressCard status={status} />
+            <DataFreshnessCard status={status} />
           </CardGrid>
         </section>
       )}
