@@ -1,4 +1,10 @@
-import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsIn,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { DomainException } from '../../common/error-code';
 import {
   MILESTONE_DOCUMENT_ARCHIVE_GROUPINGS,

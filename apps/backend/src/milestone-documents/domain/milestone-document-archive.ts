@@ -41,8 +41,7 @@ export const MILESTONE_DOCUMENT_ARCHIVE_GROUPINGS: readonly MilestoneDocumentArc
  * 이름만으로 구분해야 하는 상태라 아무도 원하지 않는다. 서류가 하나로 좁혀졌을 때만 뜻이 있다.
  */
 export type MilestoneDocumentArchiveLayout =
-  | MilestoneDocumentArchiveGrouping
-  | 'FLAT';
+  MilestoneDocumentArchiveGrouping | 'FLAT';
 
 /** 동봉하는 현황표의 이름. ZIP 뿌리에 놓는다. */
 export const MILESTONE_DOCUMENT_ARCHIVE_MANIFEST_FILE_NAME = '제출현황.csv';

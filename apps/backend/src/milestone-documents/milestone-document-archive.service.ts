@@ -47,7 +47,10 @@ interface ZipFileFinalSize {
  * 없으면 교직원이 47팀을 한 칸씩 눌러야 한다. 좁힌 ZIP 은 폴더 없이 평평하다(`FLAT`).
  */
 export type MilestoneDocumentArchiveScope =
-  | { readonly kind: 'ALL'; readonly grouping: MilestoneDocumentArchiveGrouping }
+  | {
+      readonly kind: 'ALL';
+      readonly grouping: MilestoneDocumentArchiveGrouping;
+    }
   | { readonly kind: 'DOCUMENT'; readonly documentId: string };
 
 export interface MilestoneDocumentArchive {
