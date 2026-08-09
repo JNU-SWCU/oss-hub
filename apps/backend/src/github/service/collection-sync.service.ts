@@ -7,17 +7,17 @@ import {
   CollectionCommit,
   CollectionPullRequest,
   CollectionRelease,
-} from './collection-app.client';
-import { requestFingerprintKey } from './collection-app.frontier';
-import { ProviderRequestQueue } from './collection-provider-queue';
-import type { CollectionIncrementalRepository } from './collection-incremental.repository';
+} from '../collection-app.client';
+import { requestFingerprintKey } from '../collection-app.frontier';
+import { ProviderRequestQueue } from '../collection-provider-queue';
+import type { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import type {
   CollectionRepositoryRow,
   CollectionStreamType,
   RepositorySource,
   RepositoryTeamMemberAccount,
-} from './collection-incremental.types';
-import type { SyncLeaseToken } from './collection-sync.types';
+} from '../collection-incremental.types';
+import type { SyncLeaseToken } from '../collection-sync.types';
 
 const LEASE_MS = 10 * 60_000;
 const HEARTBEAT_MS = 2 * 60_000;
@@ -89,6 +89,8 @@ type SyncRepository = Pick<
   | 'recordPullRequestFacts'
   | 'recordReleaseFacts'
   | 'recordRepositoryObservation'
+  | 'recordRepositoryFailure'
+  | 'recordRepositorySuccess'
   | 'markAbsentRepositories'
   | 'listPresentRepositories'
   | 'listExternalRepositories'
@@ -352,6 +354,8 @@ export class CollectionSyncService {
     let insertedFactCount = 0;
     let stoppedForBudget = false;
     let lastError: string | null = null;
+    let failedRepositoryCount = 0;
+    let attemptedRepositoryCount = 0;
 
     for (const repository of ordered) {
       if (this.now().getTime() >= deadline) {
@@ -363,12 +367,21 @@ export class CollectionSyncService {
         break;
       }
       try {
+        attemptedRepositoryCount += 1;
         insertedFactCount += await this.syncRepository(
           runtime,
           lease,
           repository,
           deadline,
         );
+        // 성공하면 실패 이력을 지우고 다음 정기 차례로 되돌린다.
+        await this.incrementalRepository.recordRepositorySuccess(
+          repository.githubRepositoryId,
+          this.now(),
+        );
+        // 성공한 저장소만 센다. 실패해도 커서는 아래에서 전진하지만
+        // "처리했다"고 말하지는 않는다.
+        processedRepositoryCount += 1;
       } catch (error) {
         if (error instanceof RunDeadlineError) {
           // 예산 소진은 실패가 아니다(#546) — stream에 오류 코드를 남기면
@@ -377,15 +390,29 @@ export class CollectionSyncService {
           break;
         }
         lastError = error instanceof Error ? error.name : 'UnknownError';
+        failedRepositoryCount += 1;
         this.logger.warn({
           event: 'collection.sync.repository_failed',
           runId,
           githubRepositoryId: repository.githubRepositoryId.toString(),
           errorName: lastError,
         });
-        // Do not advance the cursor past a repository whose stream sync
-        // failed — the next run retries it first rather than skipping it.
-        break;
+        // 실패해도 커서를 전진시킨다(DD1).
+        //
+        // 예전에는 여기서 break 해 커서를 세웠다. 그러면 영구 실패 저장소 하나가
+        // 뒤의 모든 저장소를 굶긴다 — 다음 run 도 같은 자리에서 멈추기 때문이다.
+        //
+        // 단순히 전진시키기만 하면 반대 문제가 생긴다. 사이클이 닫혀야 커서가
+        // 리셋되는데 실패가 있으면 안 닫히던 시절에는, 전진 = 그 저장소를
+        // 영영 버리는 것이었다. 그래서 둘을 같이 바꾼다:
+        //   (1) 실패를 `failureCount` + `nextRunAt` 백오프로 기록해 되돌아올
+        //       약속을 남기고
+        //   (2) 아래 `cycleCompleted` 에서 실패를 사이클 완료의 방해로 보지 않는다.
+        // 실패 저장소는 백오프가 지나면 다음 사이클에서 다시 시도된다.
+        await this.incrementalRepository.recordRepositoryFailure(
+          repository.githubRepositoryId,
+          this.now(),
+        );
       }
       await this.incrementalRepository.runInTransaction(async (repo) => {
         await repo.assertSyncLeaseValid(lease, this.now());
@@ -395,13 +422,30 @@ export class CollectionSyncService {
           lastGithubRepositoryId: repository.githubRepositoryId,
         });
       });
-      processedRepositoryCount += 1;
     }
 
+    if (failedRepositoryCount > 0) {
+      // 사이클 단위 요약. 저장소별 실패는 각 stream 의 `lastErrorCode` 와
+      // `failureCount` 에 남고, 여기서는 "이번 스윕에서 몇 개가 실패했는가" 만
+      // 남긴다 — 저장소 식별자를 담지 않으므로 공개 로그 경계를 넘지 않는다.
+      this.logger.warn({
+        event: 'collection.sync.repositories_failed',
+        runId,
+        failedRepositoryCount,
+        attemptedRepositoryCount,
+        totalRepositoryCount: ordered.length,
+        lastErrorName: lastError,
+      });
+    }
+
+    // 사이클 완료 판정에서 실패를 빼는 것이 이 변경의 핵심 절반이다.
+    //
+    // 실패가 사이클을 막으면 커서가 리셋되지 않고, 그러면 커서를 전진시킨
+    // 저장소로 되돌아갈 길이 사라진다. 실패는 `failureCount`·`nextRunAt` 과
+    // stream 의 `lastErrorCode` 가 이미 기록하므로, 사이클은 "전부 시도했는가"
+    // 만 본다. 예산 소진으로 중간에 멈춘 것은 여전히 미완이다.
     const cycleCompleted =
-      !stoppedForBudget &&
-      lastError === null &&
-      processedRepositoryCount === ordered.length;
+      !stoppedForBudget && attemptedRepositoryCount === ordered.length;
     if (cycleCompleted) {
       await this.incrementalRepository.runInTransaction(async (repo) => {
         await repo.assertSyncLeaseValid(lease, this.now());
@@ -965,7 +1009,7 @@ export class CollectionSyncService {
    * 거른 결과는 **fact 적재에만** 넘긴다. 집계는 `recordPullRequestFacts`/
    * `recordReleaseFacts`가 자기가 받은 fact의 author로만 재계산하므로
    * (`collection-incremental.repository.ts`의 `rebuildAffectedAggregates`), facts에 안 들어간
-   * 작성자는 `CollectionContributorYearAggregate` 행도 얻지 못한다. 집계 쪽을 따로 손댈
+   * 작성자는 `Contribution` 행도 얻지 못한다. 집계 쪽을 따로 손댈
    * 필요가 없는 이유가 이것이다.
    */
   private onlyTeamAuthored<T extends { authorGithubId: string | null }>(

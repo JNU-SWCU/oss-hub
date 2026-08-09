@@ -1,12 +1,12 @@
 import { Logger } from '@nestjs/common';
-import { CollectionIncrementalRepository } from './collection-incremental.repository';
+import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import {
   CollectionSyncRuntime,
   CollectionSyncService,
   DEFAULT_STREAM_ERROR_CODE,
 } from './collection-sync.service';
-import type { PrismaService } from '../prisma/prisma.service';
-import { CollectionAppClientError } from './collection-app.client';
+import type { PrismaService } from '../../prisma/prisma.service';
+import { CollectionAppClientError } from '../collection-app.client';
 import type {
   CollectionAppClient,
   CollectionCommit,
@@ -18,10 +18,10 @@ import type {
   PullRequestIncrementalResult,
   ReleaseListingResult,
   ReleaseProbeResult,
-} from './collection-app.client';
-import type { CollectionAppTokenProvider } from './collection-app.token';
-import type { RequestFingerprint } from './collection-app.frontier';
-import { ProviderRequestQueue } from './collection-provider-queue';
+} from '../collection-app.client';
+import type { CollectionAppTokenProvider } from '../collection-app.token';
+import type { RequestFingerprint } from '../collection-app.frontier';
+import { ProviderRequestQueue } from '../collection-provider-queue';
 
 /**
  * In-memory Prisma double for `CollectionIncrementalRepository`, extending
@@ -65,8 +65,7 @@ interface Store {
   commitFacts: Map<string, Row>;
   pullRequestFacts: Map<string, Row>;
   releaseFacts: Map<string, Row>;
-  yearAggregates: Map<string, Row>;
-  contributorYearAggregates: Map<string, Row>;
+  contributions: Map<string, Row>;
   streams: Map<string, Row>;
   cursors: Map<string, Row>;
   leases: Map<string, Row>;
@@ -81,8 +80,7 @@ const emptyStore = (): Store => ({
   commitFacts: new Map(),
   pullRequestFacts: new Map(),
   releaseFacts: new Map(),
-  yearAggregates: new Map(),
-  contributorYearAggregates: new Map(),
+  contributions: new Map(),
   streams: new Map(),
   cursors: new Map(),
   leases: new Map(),
@@ -95,8 +93,7 @@ const cloneStore = (store: Store): Store => ({
   commitFacts: new Map(store.commitFacts),
   pullRequestFacts: new Map(store.pullRequestFacts),
   releaseFacts: new Map(store.releaseFacts),
-  yearAggregates: new Map(store.yearAggregates),
-  contributorYearAggregates: new Map(store.contributorYearAggregates),
+  contributions: new Map(store.contributions),
   streams: new Map(store.streams),
   cursors: new Map(store.cursors),
   leases: new Map(store.leases),
@@ -303,57 +300,46 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
         return rows[0] ?? null;
       },
     },
-    collectionRepositoryYearAggregate: {
-      upsert: ({
-        where,
-        create,
-        update,
-      }: {
-        where: { repositoryId_year: { repositoryId: string; year: number } };
-        create: Row;
-        update: Row;
-      }): Row => {
-        const k = where.repositoryId_year;
-        const key = `${k.repositoryId}:${k.year}`;
-        const existing = box.store.yearAggregates.get(key);
-        const row = existing ? applyUpdate(existing, update) : { ...create };
-        box.store.yearAggregates.set(key, row);
-        return row;
-      },
-      findUnique: ({
-        where,
-      }: {
-        where: { repositoryId_year: { repositoryId: string; year: number } };
-      }): Row | null => {
-        const k = where.repositoryId_year;
-        return (
-          box.store.yearAggregates.get(`${k.repositoryId}:${k.year}`) ?? null
-        );
-      },
-    },
-    collectionContributorYearAggregate: {
+    contribution: {
       upsert: ({
         where,
         create,
         update,
       }: {
         where: {
-          repositoryId_githubUserId_year: {
+          repositoryId_githubId_date: {
             repositoryId: string;
-            githubUserId: bigint;
-            year: number;
+            githubId: bigint;
+            date: Date;
           };
         };
         create: Row;
         update: Row;
       }): Row => {
-        const k = where.repositoryId_githubUserId_year;
-        const key = `${k.repositoryId}:${String(k.githubUserId)}:${k.year}`;
-        const existing = box.store.contributorYearAggregates.get(key);
+        const k = where.repositoryId_githubId_date;
+        const key = `${k.repositoryId}:${String(k.githubId)}:${k.date.toISOString().slice(0, 10)}`;
+        const existing = box.store.contributions.get(key);
         const row = existing ? applyUpdate(existing, update) : { ...create };
-        box.store.contributorYearAggregates.set(key, row);
+        box.store.contributions.set(key, row);
         return row;
       },
+      deleteMany: ({
+        where,
+      }: {
+        where: { repositoryId: string; githubId: bigint; date: Date };
+      }): { count: number } => {
+        const key = `${where.repositoryId}:${String(where.githubId)}:${where.date.toISOString().slice(0, 10)}`;
+        return { count: box.store.contributions.delete(key) ? 1 : 0 };
+      },
+    },
+    // 기본은 "요청된 사람은 모두 가입자". 가입자 필터 자체는
+    // collection-incremental.repository.spec.ts 의 전용 describe 가 검증한다.
+    user: {
+      findMany: ({
+        where,
+      }: {
+        where: { githubId: { in: readonly bigint[] } };
+      }) => where.githubId.in.map((githubId) => ({ githubId })),
     },
     collectionRepositoryStream: {
       upsert: ({
@@ -897,8 +883,7 @@ describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
     expect(fact?.repositoryId).toBe('repo-external');
 
     // Recording facts rebuilds the repository/contributor year aggregates.
-    expect(box.store.yearAggregates.size).toBeGreaterThan(0);
-    expect(box.store.contributorYearAggregates.size).toBeGreaterThan(0);
+    expect(box.store.contributions.size).toBeGreaterThan(0);
   });
 
   it('externalRuntimeFactory가 배선되지 않으면 명시적으로 실패한다', async () => {
@@ -1035,7 +1020,7 @@ describe('CollectionSyncService — READY repository conditional polling', () =>
 });
 
 describe('CollectionSyncService — fenced transactions and lease safety', () => {
-  it('advances the checkpoint only after its facts commit — a mid-stream failure leaves the frontier untouched and does not advance the durable cursor past that repo', async () => {
+  it('중간 실패는 frontier 를 건드리지 않지만 스윕을 세우지도 않는다 — 실패는 백오프로 되돌아온다', async () => {
     const { db, box, control } = createFakeDb();
     const client = createClient([providerRepository()]);
     control.failCommitShas.add('sha-1');
@@ -1053,7 +1038,11 @@ describe('CollectionSyncService — fenced transactions and lease safety', () =>
     // its cycle did not complete and the durable cursor was not advanced
     // past it, so the very next run retries it rather than skipping it.
     expect(result.status).toBe('COMPLETED');
-    expect(result.cycleCompleted).toBe(false);
+    // 실패해도 사이클은 닫힌다(DD1) — 닫히지 않으면 커서가 리셋되지 않아
+    // 커서를 전진시킨 저장소로 되돌아갈 길이 사라진다. 실패는 사이클을 막는
+    // 대신 `failureCount`·`nextRunAt` 백오프와 stream 오류 코드로 남는다.
+    expect(result.cycleCompleted).toBe(true);
+    // 성공한 저장소가 없으므로 처리 수는 0이다 — 시도와 처리는 다르다.
     expect(result.processedRepositoryCount).toBe(0);
     // #546 이후 실패한 stream에는 오류 표시 행이 생긴다 — 다만 frontier/status는
     // 여전히 전진하지 않는다(오류 표시만 담긴 PENDING 행).
@@ -1064,6 +1053,8 @@ describe('CollectionSyncService — fenced transactions and lease safety', () =>
     expect(failedStream?.lastErrorCode).toBe(DEFAULT_STREAM_ERROR_CODE);
     expect(box.store.commitFacts.size).toBe(0);
     expect(box.store.cursors.size).toBe(1);
+    // 사이클이 닫히면서 커서가 리셋된다. 실패 저장소는 백오프가 지나면
+    // 다음 사이클에서 다시 시도되므로 버려지지 않는다.
     const cursor = [...box.store.cursors.values()][0];
     expect(cursor?.lastGithubRepositoryId).toBeNull();
   });
@@ -1784,8 +1775,8 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터(ADR-00
     expect(storedFacts).not.toMatch(/\b99\b/);
     // facts에 안 들어갔으므로 집계도 만들어지지 않는다 — 집계 코드를 따로 손대지
     // 않아도 되는 근거가 이것이다.
-    expect([...box.store.contributorYearAggregates.keys()]).toEqual([
-      'repo-1:11:2026',
+    expect([...box.store.contributions.keys()]).toEqual([
+      'repo-1:11:2026-08-01',
     ]);
   });
 
@@ -2116,5 +2107,106 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터(ADR-00
 
     expect(storedPullRequestLogins(box)).toEqual(['outsider']);
     expect(storedReleaseLogins(box)).toEqual(['outsider']);
+  });
+});
+
+/**
+ * DD1 — 저장소 하나의 실패가 나머지를 굶기지 않는다.
+ *
+ * 이 저장소가 실제로 겪은 실패 모드다. 예전 코드는 실패한 저장소에서 `break` 해
+ * 커서를 세웠고, 그 저장소가 영구 실패면 뒤의 모든 저장소가 영영 수집되지 않았다.
+ *
+ * 반대로 커서만 전진시키면 실패 저장소를 버리게 된다 — 사이클이 닫혀야 커서가
+ * 리셋되는데 실패가 사이클을 막으면 되돌아갈 길이 없기 때문이다.
+ * 그래서 둘을 같이 바꿨고, 아래가 그 두 성질을 각각 고정한다.
+ */
+describe('CollectionSyncService — 실패 저장소 격리 (DD1)', () => {
+  /** `repo-broken` 만 상류에서 실패하는 클라이언트. 신규 저장소는 backfill 경로를 탄다. */
+  function failingFirstClient(
+    repositories: ReturnType<typeof providerRepository>[],
+  ): ClientMock {
+    const client = createClient(repositories);
+    client.listCommitsUntilKnownSha.mockImplementation(
+      (_owner: string, repo: string) =>
+        repo === 'repo-broken'
+          ? Promise.reject(new Error('upstream is broken'))
+          : Promise.resolve({
+              commits: [],
+              disconnectedFullScan: false,
+              fingerprint: fingerprint('/repos/o/r/commits'),
+            }),
+    );
+    return client;
+  }
+
+  it('앞선 저장소가 실패해도 뒤의 저장소를 계속 처리한다', async () => {
+    const { db, box } = createFakeDb();
+    const repositories = [
+      providerRepository({ id: '1001', fullName: 'synthetic-org/repo-broken' }),
+      providerRepository({ id: '1002', fullName: 'synthetic-org/repo-healthy' }),
+    ];
+    const service = createService(db, failingFirstClient(repositories));
+
+    const result = await service.run('synthetic-org');
+
+    // 실패한 하나 때문에 멈추지 않는다 — 뒤의 저장소가 실제로 처리됐다.
+    expect(result.processedRepositoryCount).toBe(1);
+    // 전부 시도했으므로 사이클은 닫힌다. 닫혀야 커서가 리셋되고,
+    // 리셋돼야 실패 저장소로 되돌아갈 수 있다.
+    expect(result.cycleCompleted).toBe(true);
+    const cursor = [...box.store.cursors.values()][0];
+    expect(cursor?.lastGithubRepositoryId).toBeNull();
+  });
+
+  it('실패 저장소는 failureCount 와 nextRunAt 백오프로 되돌아올 약속을 남긴다', async () => {
+    const { db, box } = createFakeDb();
+    const repositories = [
+      providerRepository({ id: '1001', fullName: 'synthetic-org/repo-broken' }),
+      providerRepository({ id: '1002', fullName: 'synthetic-org/repo-healthy' }),
+    ];
+    const service = createService(db, failingFirstClient(repositories));
+
+    await service.run('synthetic-org');
+
+    const rows = [...box.store.repositories.values()];
+    const broken = rows.find((row) => row.nameWithOwner === 'synthetic-org/repo-broken');
+    const healthy = rows.find((row) => row.nameWithOwner === 'synthetic-org/repo-healthy');
+
+    // 실패: 횟수가 오르고 다음 차례가 미뤄진다. 버려지는 게 아니라 미뤄지는 것이다.
+    expect(broken?.failureCount).toBe(1);
+    expect(broken?.nextRunAt).toBeInstanceOf(Date);
+    // 첫 실패는 정기 주기만큼만 미룬다 — 일시적 오류에 벌을 주면 복구가 느려진다.
+    const healthyNext = healthy?.nextRunAt as Date;
+    expect((broken?.nextRunAt as Date).getTime()).toBe(healthyNext.getTime());
+
+    // 성공: 실패 이력이 지워지고 마지막 성공 시각이 남는다.
+    expect(healthy?.failureCount).toBe(0);
+    expect(healthy?.lastSuccessAt).toBeInstanceOf(Date);
+  });
+
+  it('연속 실패는 백오프를 늘린다 — 계속 실패하는 저장소가 큐를 잡아먹지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    const repositories = [
+      providerRepository({ id: '1001', fullName: 'synthetic-org/repo-broken' }),
+      providerRepository({ id: '1002', fullName: 'synthetic-org/repo-healthy' }),
+    ];
+    const service = createService(db, failingFirstClient(repositories));
+
+    await service.run('synthetic-org');
+    await service.run('synthetic-org');
+
+    const rows = [...box.store.repositories.values()];
+    const broken = rows.find(
+      (row) => row.nameWithOwner === 'synthetic-org/repo-broken',
+    );
+    const healthy = rows.find(
+      (row) => row.nameWithOwner === 'synthetic-org/repo-healthy',
+    );
+
+    // 두 번째 실패부터 정기 주기보다 뒤로 밀린다. 상한이 있으므로 영구 제외되지는 않는다.
+    expect(broken?.failureCount).toBe(2);
+    expect((broken?.nextRunAt as Date).getTime()).toBeGreaterThan(
+      (healthy?.nextRunAt as Date).getTime(),
+    );
   });
 });
