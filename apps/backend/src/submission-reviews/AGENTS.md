@@ -46,7 +46,9 @@ GitHub API를 호출하기 전에 아래 다섯 조건을 전부 통과해야 �
 게이트 2~5의 판정 원본은 `domain/submission-review.ts`의 `publishBlockedReasons()` 하나다.
 공개 확정은 그 결과의 **첫 사유**로 거절하고, 검토 화면(`toReviewContext`)은 **전부** 나열해 버튼을 닫는다 — 그래서 조건을 늘릴 때 고칠 곳은 그 함수 하나다.
 두 표면 중 한쪽에만 조건을 더하면 화면은 버튼을 열어 주는데 서버는 409로 거절하는 상태가 된다([#752](https://github.com/JNU-SWCU/oss-hub/issues/752)가 그 사고다).
-사유를 추가하면 service의 `PUBLISH_BLOCKED_ERROR_CODES`와 프런트의 `BLOCKED_REASON_LABELS`가 `satisfies`로 완전성을 강제하므로, 오류 코드와 화면 문구를 주기 전까지 컴파일되지 않는다.
+사유를 추가하면 service의 `PUBLISH_BLOCKED_ERROR_CODES`가 `satisfies`로 완전성을 강제하므로 오류 코드를 주기 전까지 백엔드가 컴파일되지 않는다.
+⚠ **그 강제는 언어 경계를 넘지 않는다** — 프런트 `PublishBlockedReason`(`features/reviews/types.ts`)은 손으로 옮겨 적은 사본이라 여기에 사유를 더해도 프런트는 그대로 빌드된다.
+프런트는 문구를 모르는 사유에 fallback을 주고 버튼은 서버의 `publishEligible`을 따르므로 화면이 깨지지는 않지만, **정확한 안내 대신 일반 안내가 나간다.** 사유를 추가하는 사람이 프런트 union과 `BLOCKED_REASON_LABELS`를 함께 고쳐야 한다.
 
 ## 의존성
 
