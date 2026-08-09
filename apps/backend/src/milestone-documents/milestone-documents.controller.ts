@@ -8,6 +8,7 @@ import {
   Header,
   HttpCode,
   Injectable,
+  Logger,
   type NestInterceptor,
   Param,
   Patch,
@@ -54,6 +55,12 @@ import {
 import { MilestoneDocumentsService } from './milestone-documents.service';
 
 type ViewerRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
+
+/**
+ * 압축을 흘려 보내다 실패한 것을 남기는 자리. 이 endpoint는 분 단위로 도는 유일한 경로라
+ * **실패가 통째로 안 보이면** 「받다가 멈췄다」는 신고를 받고도 서버 쪽에 근거가 없다.
+ */
+const archiveLogger = new Logger('MilestoneDocumentArchive');
 
 const MilestoneDocumentFileUploadOptions = {
   limits: {
@@ -167,7 +174,27 @@ export class MilestoneDocumentsController {
       'Content-Disposition',
       attachmentDisposition(archive.fileName),
     );
-    return new StreamableFile(archive.body);
+    /*
+     * 응답이 끊기면 압축도 끊는다. Nest의 Express 어댑터는 `stream.pipe(response)`만 하고,
+     * `pipe`는 받는 쪽이 닫혀도 **주는 쪽을 파괴하지 않는다**(unpipe만 한다). 그래서 여기서
+     * 이어 주지 않으면 교직원이 내려받기를 취소해도 서버는 남은 파일을 스토리지에서 끝까지
+     * 끌어온다. 정상 종료 때도 발화하지만 이미 끝난 스트림을 파괴하는 것은 아무 일도 아니다.
+     */
+    response.once('close', () => archive.body.destroy());
+    /*
+     * ⚠ Nest의 기본 errorHandler를 **반드시** 덮는다. 기본 구현은
+     * `res.statusCode = 400; res.send(err.message)` 라서 이 저장소의 `ProblemDetailFilter`를
+     * 통과하지 않은 **오류 원문**이 그대로 본문이 된다. 게다가 헤더에는 이미 `application/zip`과
+     * 첨부 파일명이 붙어 있어 받는 쪽은 ZIP인 줄 알고 저장한다. 지금은 스토리지 어댑터가
+     * 오류를 자체 코드로 감싸 실제 비밀이 새지 않지만, 어댑터가 언젠가 SDK 오류를 그대로
+     * 올리면 그날 바로 본문으로 나간다 — 새는 길 자체를 막아 둔다.
+     *
+     * 인자로 받는 좁은 타입 대신 `@Res()`로 받은 express `Response`를 그대로 쓴다(같은 객체다).
+     * 헤더를 되돌리려면 좁은 타입에 없는 `removeHeader`가 필요하기 때문이다.
+     */
+    return new StreamableFile(archive.body).setErrorHandler((error) =>
+      respondWithArchiveFailure(error, response),
+    );
   }
 
   /**
@@ -346,6 +373,41 @@ export class MilestoneDocumentFilesController {
       file,
     );
   }
+}
+
+/**
+ * 압축을 흘려 보내다 실패했을 때의 응답.
+ *
+ * 이미 한 바이트라도 나갔으면 되돌릴 것이 없다. 그때는 **끊는 것이 유일하게 정직한 답**이다 —
+ * 미리 실어 둔 `Content-Length`가 브라우저에게 「덜 받았다」를 말해 준다.
+ */
+function respondWithArchiveFailure(error: Error, response: Response): void {
+  archiveLogger.error(
+    `서류 일괄 내려받기가 압축 도중 실패했다: ${error.message}`,
+  );
+  if (response.destroyed) return;
+  if (response.headersSent) {
+    response.end();
+    return;
+  }
+  // 성공을 전제로 미리 붙여 둔 헤더를 걷어낸다 — ZIP이 아닌 것을 ZIP이라고 말하지 않는다.
+  response.removeHeader('Content-Length');
+  response.removeHeader('Content-Disposition');
+  const errorCode =
+    MILESTONE_DOCUMENTS_ERROR_CODES[
+      MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE
+    ];
+  response
+    .status(errorCode.status)
+    .contentType('application/problem+json')
+    .json({
+      type: 'about:blank',
+      title: 'Service Unavailable',
+      status: errorCode.status,
+      detail: errorCode.message,
+      instance: response.req.path,
+      code: errorCode.code,
+    });
 }
 
 function attachmentDisposition(fileName: string): string {

@@ -181,6 +181,49 @@ function buildStorage(overrides: Partial<Record<string, jest.Mock>> = {}) {
   };
 }
 
+/**
+ * 팀 `teams`개 × 서류 1장짜리 마일스톤. 중앙 디렉터리 크기가 임계를 넘는지 보려는 것이라
+ * 파일 본문은 최소로 두고 **경로 길이만** 실제와 비슷하게(한글 팀명) 맞춘다.
+ */
+function manyTeams(teams: number): Record<string, jest.Mock> {
+  const applications = Array.from({ length: teams }, (_unused, index) => ({
+    applicationId: `app-${index}`,
+    teamName: `합성 참여 팀 ${index}`,
+    applicantName: null,
+    memberNicknames: [],
+  }));
+  return {
+    findByMilestoneId: jest.fn().mockResolvedValue([
+      {
+        id: 'doc-plan',
+        milestoneId: syntheticMilestoneId,
+        name: '사업계획서',
+        required: true,
+        sortOrder: 1,
+        submissionType: MilestoneSubmissionType.FILE,
+        templateFileId: null,
+      },
+    ]),
+    findApprovedApplicationsForCollection: jest
+      .fn()
+      .mockResolvedValue(applications),
+    findSubmissionsForArchive: jest.fn().mockResolvedValue(
+      applications.map((application) => ({
+        applicationId: application.applicationId,
+        milestoneDocumentId: 'doc-plan',
+        submittedAt,
+        status: SubmissionStatus.SUBMITTED,
+        content: null,
+        file: {
+          storageKey: 'objects/plan',
+          originalFileName: '계획서.pdf',
+          sizeBytes: planFileBody.byteLength,
+        },
+      })),
+    ),
+  };
+}
+
 function buildService(
   repositoryOverrides: Record<string, jest.Mock> = {},
   storageOverrides: Partial<Record<string, jest.Mock>> = {},
@@ -370,6 +413,38 @@ describe('MilestoneDocumentArchiveService', () => {
       expect(archive.contentLength).toBe(bytes.byteLength);
     });
 
+    /*
+     * ⚠ **정상 규모에서 터지던 자리다.** yazl 3.3.1은 크기를 미리 셀 때 중앙 디렉터리가
+     * 64KiB를 넘으면 zip64 꼬리표(76바이트)를 더하는데, 실제로 쓸 때는 4GiB를 넘어야 더한다.
+     * 그 사이 구간에서는 **미리 말한 길이가 실제보다 정확히 76바이트 크고**, 그러면 응답이
+     * 약속한 길이를 못 채워 브라우저가 **매번 「다운로드 실패」로 버린다** — 본문은 멀쩡한
+     * ZIP인데 교직원은 몇 번을 눌러도 못 받는다.
+     *
+     * 한글 경로는 한 항목이 100바이트 안팎이라 팀 100여 개 × 서류 4장이면 닿는다. 그래서
+     * 2항목짜리 테스트만으로는 절대 안 보인다 — 임계를 **실제로 넘겨서** 확인한다.
+     */
+    it.each([
+      ['임계 아래', 100],
+      ['임계 위', 900],
+    ])(
+      '%s 항목 수에서도 미리 말한 길이가 실제와 같다',
+      async (_label, teams) => {
+        const { service } = buildService(manyTeams(teams));
+
+        const archive = await service.archiveForStaff(
+          syntheticMilestoneId,
+          'TEAM',
+          now,
+        );
+        const bytes = await collect(archive.body);
+
+        expect(archive.contentLength).toBe(bytes.byteLength);
+        // 항목이 실제로 다 담겼는지도 함께 본다(현황표 1개 + 팀마다 1개).
+        expect(parseZip(bytes)).toHaveLength(teams + 1);
+      },
+      60_000,
+    );
+
     it('담을 것이 현황표뿐이어도 길이를 안다', async () => {
       const { service } = buildService({
         findSubmissionsForArchive: jest.fn().mockResolvedValue([]),
@@ -499,6 +574,101 @@ describe('MilestoneDocumentArchiveService', () => {
 
     expect(archive.body.destroyed).toBe(true);
     expect(archive.body.errored).toBeInstanceOf(Error);
+  });
+
+  it('스토리지 스트림이 읽는 중에 끊겨도 압축이 멈춰 서지 않는다', async () => {
+    const { service } = buildService(
+      {},
+      {
+        get: jest.fn(() => {
+          // 여는 데는 성공하고 **읽다가** 끊긴다 — S3 연결이 죽으면 실제로 이 모양이다.
+          let sent = false;
+          return Promise.resolve(
+            new Readable({
+              read() {
+                if (sent) return;
+                sent = true;
+                this.push(planFileBody.subarray(0, 3));
+                setImmediate(() =>
+                  this.destroy(new Error('storage connection reset')),
+                );
+              },
+            }),
+          );
+        }),
+      },
+    );
+
+    const archive = await service.archiveForStaff(
+      syntheticMilestoneId,
+      'TEAM',
+      now,
+    );
+
+    /*
+     * ⚠ 이 오류는 `zip.on('error')`로 오지 **않는다**. yazl은 넘겨받은 스트림을 `pipe`로만
+     * 이어 붙여서 그 스트림의 `error`를 자기 것으로 옮기지 않는다. 잡지 않으면 두 가지가
+     * 난다 — 듣는 사람 없는 `error`로 프로세스가 죽거나, 더 흔하게는 **압축이 영원히 끝나지
+     * 않아** 교직원의 내려받기가 멈춘 채로 남는다(실측으로 후자를 확인했다).
+     * 그래서 이 테스트의 요점은 「오류가 난다」가 아니라 **「끝나기는 한다」**이다.
+     */
+    await expect(collect(archive.body)).rejects.toThrow(
+      'storage connection reset',
+    );
+  }, 10_000);
+
+  it('응답이 끊기면 남은 파일을 스토리지에서 더 끌어오지 않는다', async () => {
+    const { service, storageMocks } = buildService();
+
+    const archive = await service.archiveForStaff(
+      syntheticMilestoneId,
+      'TEAM',
+      now,
+    );
+    /*
+     * 컨트롤러가 `response.on('close')`에서 하는 일과 같다. 이것이 없으면 교직원이 취소해도
+     * 서버는 남은 파일을 끝까지 끌어와 스토리지 연결을 붙들고 있는다.
+     */
+    archive.body.destroy();
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
+
+    // 취소 시점에 이미 열려 있던 첫 파일 하나까지가 한계다 — 두 번째는 열리지 않는다.
+    expect(storageMocks.get.mock.calls.length).toBeLessThan(2);
+  });
+
+  it('응답이 끊기면 읽고 있던 스토리지 스트림도 함께 끊는다', async () => {
+    // 아무것도 흘려보내지 않는 = 계속 열려 있는 스트림. 실제 S3 응답이 느릴 때의 모양이다.
+    const opened: Readable[] = [];
+    const { service } = buildService(
+      {},
+      {
+        get: jest.fn(() => {
+          const body = new Readable({ read() {} });
+          opened.push(body);
+          return Promise.resolve(body);
+        }),
+      },
+    );
+
+    const archive = await service.archiveForStaff(
+      syntheticMilestoneId,
+      'TEAM',
+      now,
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(opened).toHaveLength(1);
+
+    archive.body.destroy();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    /*
+     * ⚠ 여기서 안 끊으면 **S3 커넥션이 영구히 샌다.** 소비자가 사라진 스트림은 역압력에 걸려
+     * 그 자리에 멈춘 채 남고 아무도 정리하지 않는다. 스토리지 클라이언트의 소켓 풀은 기본
+     * 50개라, 큰 ZIP을 눌렀다 취소하기를 반복하면 풀이 말라 **제출 파일 업·다운로드 전체가
+     * 멈춘다.** 마감일에 흔한 동선이라 이론적인 이야기가 아니다.
+     */
+    expect(opened[0]?.destroyed).toBe(true);
   });
 
   it('스토리지가 끊기면 내려받기를 오류로 끊는다', async () => {
