@@ -412,7 +412,13 @@ export function isCurrentSidebarItem(
       hrefQuery === ''
         ? 'all'
         : (new URLSearchParams(hrefQuery).get(spec.param) ?? 'all');
-    const have = new URLSearchParams(search).get(spec.param) ?? 'all';
+    // 랭킹은 `year` 부재를 **올해**로 읽는다(ADR-010 §1, `parseRankingYearSearchParam`).
+    // 여기서만 `all` 로 읽으면 `/ranking` 에서 「전체」가 강조된 채 올해 수치가 뜬다 —
+    // 같은 「전체」 링크가 어디서 왔느냐에 따라 다른 표를 보이게 된다.
+    const missingYearFallback =
+      facetSection === 'ranking' ? String(new Date().getFullYear()) : 'all';
+    const have =
+      new URLSearchParams(search).get(spec.param) ?? missingYearFallback;
     // 아카이브 목록: category 키 부재를 all 과 동일 취급 (기존 계약)
     if (facetSection === 'archive') {
       return want === have || (want === 'all' && !search.includes('category='));
