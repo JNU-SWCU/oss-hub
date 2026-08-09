@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CollectionCanonicalRepository } from '../repository/collection-canonical.repository';
@@ -49,10 +50,6 @@ const PRESENT_REPOSITORY = {
  * `listPublicRankingYears`)는 학생 개인 이력을 의도적으로 포함해야 하므로 이 가드를 쓰지
  * 않는다(별도로 유지).
  */
-const ORG_PROVISIONED_REPOSITORY = {
-  source: 'ORG_PROVISIONED',
-} as const;
-
 /**
  * Asia/Seoul 달력 연도의 `[start, end)` UTC 경계.
  *
@@ -82,6 +79,38 @@ export class CollectionReadService implements CollectionReadPort {
    * **`name`(실명) 은 select 하지 않는다.** 공개 표기는 `githubLogin` 단일이며
    * 동의 철회 endpoint 가 없는 상태에서 실명 노출은 되돌릴 수 없다(D15).
    */
+  /**
+   * 프로그램 표면이 읽을 수 있는 저장소 조건을 만든다.
+   *
+   * 조직 저장소는 그대로 허용한다. 조직 밖 저장소(`EXTERNAL_PUBLIC`)는 **신청에
+   * 연결됐다는 것이 DB 로 증명될 때만** 허용한다 — 프로비저닝 테이블(`Repository`)에
+   * 같은 `githubRepositoryId` 행이 있어야 한다.
+   *
+   * 이렇게 가르는 이유. `ADR-009` §3과 `ADR-010` §5는 학생이 `OWN` 으로 연결한 조직 밖
+   * 저장소의 활동을 프로그램 실적으로 세라고 한다. 그런데 호출자가 넘기는 id 배열에
+   * 학생의 **무관한** 개인 저장소가 섞이면 그것까지 조직 실적으로 조용히 집계된다.
+   * `source` 로 통째 막으면 후자는 막히지만 전자도 함께 막힌다.
+   *
+   * 연결 증명을 조건에 넣으면 둘을 동시에 만족한다 — 연결된 것만 들어오고,
+   * 그 판정을 호출자가 아니라 DB 가 한다. `Repository.githubRepositoryId` 가
+   * 유니크이므로 행의 존재 자체가 증명이다.
+   */
+  private async linkedRepositoryFilter(
+    requestedIds: readonly bigint[],
+  ): Promise<Prisma.GithubRepositoryWhereInput> {
+    const linked = await this.prisma.repository.findMany({
+      where: { githubRepositoryId: { in: [...requestedIds] } },
+      select: { githubRepositoryId: true },
+    });
+    const linkedIds = linked.map((row) => row.githubRepositoryId);
+    return {
+      OR: [
+        { source: 'ORG_PROVISIONED' },
+        { source: 'EXTERNAL_PUBLIC', githubRepositoryId: { in: linkedIds } },
+      ],
+    };
+  }
+
   private async resolveGithubLogins(
     githubIds: readonly bigint[],
   ): Promise<ReadonlyMap<bigint, string>> {
@@ -100,7 +129,7 @@ export class CollectionReadService implements CollectionReadPort {
    * 다른 두 legacy 메서드(`findRankingActivity`/`getStatusSnapshot`)는 실제 운영 호출자가 없어
    * ADR-006의 "old generation 테이블 rollback 참조" 용도로만 old Canonical 테이블을 그대로 읽는다.
    * GR-13 — `repositoryIds`는 이 저장소가 연결된 프로그램/신청 활동을 조회하는 것이라는 의미를
-   * 그대로 지키기 위해 `ORG_PROVISIONED_REPOSITORY`로 고정한다(위 상수 정의 참고).
+   * 그대로 지키기 위해 `linkedRepositoryFilter`로 거른다(아래 메서드 참고).
    */
   async findRepositoryActivity(
     query: CollectionRepositoryActivityQueryDto,
@@ -114,7 +143,7 @@ export class CollectionReadService implements CollectionReadPort {
     const repositories = await this.prisma.githubRepository.findMany({
       where: {
         githubRepositoryId: { in: [...query.repositoryIds] },
-        ...ORG_PROVISIONED_REPOSITORY,
+        ...(await this.linkedRepositoryFilter(query.repositoryIds)),
       },
       select: {
         githubRepositoryId: true,
@@ -249,7 +278,7 @@ export class CollectionReadService implements CollectionReadPort {
    * rollover) 저장소 자체가 관측되어 있으면 0값 행을 반환한다 — 신규 fact write를 요구하지 않는다.
    * private/public 저장소를 가리지 않고 그대로 반환한다(private facts internally readable) —
    * eligibility 필터링은 이 포트를 호출하는 쪽(todo 15/19)의 책임이다.
-   * GR-13 — `repositoryIds`는 `ORG_PROVISIONED_REPOSITORY`로 고정한다(위 상수 정의 참고).
+   * GR-13 — `repositoryIds`는 `linkedRepositoryFilter`가 거른다: 조직 저장소이거나, 신청에 연결됐음이 DB로 증명된 조직 밖 저장소만 통과한다.
    */
   async getRepositoryMetrics(
     query: CollectionRepositoryMetricsQueryDto,
@@ -261,7 +290,7 @@ export class CollectionReadService implements CollectionReadPort {
     const repositories = await this.prisma.githubRepository.findMany({
       where: {
         githubRepositoryId: { in: [...query.repositoryIds] },
-        ...ORG_PROVISIONED_REPOSITORY,
+        ...(await this.linkedRepositoryFilter(query.repositoryIds)),
       },
       select: {
         githubRepositoryId: true,
@@ -323,7 +352,7 @@ export class CollectionReadService implements CollectionReadPort {
    * (ranking source). repository 집계와 달리 0값 기본 행을 만들지 않는다 — 해당 연도에 실제
    * fact가 있는 (repository, contributor) 조합만 존재한다(기존 `getContributorYearAggregate`와
    * 동일한 규약).
-   * GR-13 — `repositoryIds`는 `ORG_PROVISIONED_REPOSITORY`로 고정한다(위 상수 정의 참고).
+   * GR-13 — `repositoryIds`는 `linkedRepositoryFilter`가 거른다: 조직 저장소이거나, 신청에 연결됐음이 DB로 증명된 조직 밖 저장소만 통과한다.
    * "ranking source"라는 위 표현은 `getRepositoryMetrics`와 같은 batch-by-id aggregate라는
    * 뜻이며, 학생 개인 이력을 의도적으로 섞는 `getPublicRankingMetrics`(org 밖 저장소도 포함)와는
    * 다르다 — 이 메서드는 현재 실운영 호출자가 없다. 나중에 이 메서드를 개인 랭킹 용도로 새로
@@ -347,7 +376,7 @@ export class CollectionReadService implements CollectionReadPort {
         date: { gte: yearStart, lt: yearEnd },
         repository: {
           githubRepositoryId: { in: [...query.repositoryIds] },
-          ...ORG_PROVISIONED_REPOSITORY,
+          ...(await this.linkedRepositoryFilter(query.repositoryIds)),
         },
       },
       select: {
@@ -440,7 +469,7 @@ export class CollectionReadService implements CollectionReadPort {
    * 무관하게 findMany 질의 1개다 — 공개 프로젝트 상세/프로필 페이지의 배치 지표 조회용.
    * GR-13 — 호출자(`public-projects.service.ts`)가 넘기는 id는 프로그램 신청에 연결된 저장소
    * (`PublicShowcaseRepository`/구 `Repository` 파생)뿐이므로 `repositoryIds`는
-   * `ORG_PROVISIONED_REPOSITORY`로 고정한다(위 상수 정의 참고).
+   * `linkedRepositoryFilter`로 거른다(아래 메서드 참고).
    */
   async getRepositoryCumulativeMetrics(
     query: CollectionRepositoryCumulativeMetricsQueryDto,
@@ -450,7 +479,7 @@ export class CollectionReadService implements CollectionReadPort {
     const repositories = await this.prisma.githubRepository.findMany({
       where: {
         githubRepositoryId: { in: [...query.repositoryIds] },
-        ...ORG_PROVISIONED_REPOSITORY,
+        ...(await this.linkedRepositoryFilter(query.repositoryIds)),
       },
       select: {
         githubRepositoryId: true,
@@ -501,7 +530,7 @@ export class CollectionReadService implements CollectionReadPort {
    * `year`로 필터링하지 않고 (저장소, 기여자) 조합별 전체 연도를 합산한다(lifetime 누적).
    * repositoryIds 배열 크기와 무관하게 findMany 질의 1개다 — 공개 프로젝트 상세 페이지의
    * 기여자 목록용이며 githubLogin만 노출한다(platform User join 없음).
-   * GR-13 — `repositoryIds`는 `ORG_PROVISIONED_REPOSITORY`로 고정한다(위 상수 정의 참고).
+   * GR-13 — `repositoryIds`는 `linkedRepositoryFilter`가 거른다: 조직 저장소이거나, 신청에 연결됐음이 DB로 증명된 조직 밖 저장소만 통과한다.
    */
   async getContributorCumulativeMetrics(
     query: CollectionContributorCumulativeMetricsQueryDto,
@@ -513,7 +542,7 @@ export class CollectionReadService implements CollectionReadPort {
       where: {
         repository: {
           githubRepositoryId: { in: [...query.repositoryIds] },
-          ...ORG_PROVISIONED_REPOSITORY,
+          ...(await this.linkedRepositoryFilter(query.repositoryIds)),
         },
       },
       select: {

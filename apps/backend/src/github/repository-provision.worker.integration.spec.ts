@@ -115,7 +115,9 @@ describe('RepositoryProvisionWorker integration', () => {
     github.ensureCollaborator
       .mockResolvedValueOnce(COLLABORATOR_OUTCOMES.PENDING)
       .mockResolvedValueOnce(COLLABORATOR_OUTCOMES.SUCCEEDED);
-    const worker = new RepositoryProvisionWorker(jobs, state, github);
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
 
     // When: provision worker가 job을 처리한다.
     const result = await worker.runNext('provision-worker-a', NOW);
@@ -186,7 +188,9 @@ describe('RepositoryProvisionWorker integration', () => {
       .mockRejectedValueOnce(
         new GithubOperationsError(GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM, true),
       );
-    const worker = new RepositoryProvisionWorker(jobs, state, github);
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
     await worker.runNext('provision-worker-b', NOW);
 
     // When: backoff 뒤 같은 job을 재시도한다.
@@ -223,7 +227,9 @@ describe('RepositoryProvisionWorker integration', () => {
     await outbox.consumeNext('outbox-worker-cap', NOW);
     const github = githubClient();
     github.ensureCollaborator.mockResolvedValue(COLLABORATOR_OUTCOMES.PENDING);
-    const worker = new RepositoryProvisionWorker(jobs, state, github);
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
     await worker.runNext('provision-worker-cap-initial', NOW);
     const repository = await prisma.repository.findUniqueOrThrow({
       where: { applicationId },
@@ -254,7 +260,9 @@ describe('RepositoryProvisionWorker integration', () => {
     await outbox.consumeNext('outbox-worker-exhaust', NOW);
     const github = githubClient();
     github.ensureCollaborator.mockResolvedValue(COLLABORATOR_OUTCOMES.PENDING);
-    const worker = new RepositoryProvisionWorker(jobs, state, github);
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
     await worker.runNext('provision-worker-exhaust-initial', NOW);
     const repository = await prisma.repository.findUniqueOrThrow({
       where: { applicationId },

@@ -304,6 +304,42 @@ export class CollectionIncrementalRepository {
    *    쌓인 데이터는 되돌릴 수 없기 때문이다.
    */
   /**
+   * 조직 밖 저장소를 수집 큐에 편입한다 (ADR-010 §5·§6, ADR-009 §3).
+   *
+   * `OWN` 으로 연결한 저장소는 조직 인벤토리에 잡히지 않는다 — 그래서 여기서
+   * 넣지 않으면 학생이 자기 저장소에서 아무리 활동해도 화면에 영영 안 나온다.
+   * 현재 프로덕션의 `EXTERNAL_PUBLIC` 이 0개인 이유가 이것이다.
+   *
+   * **이미 있는 행의 `source` 를 덮어쓰지 않는다.** org sweep 이 같은 저장소를
+   * `ORG_PROVISIONED` 로 관찰했다면 external 로 강등되면 안 된다 —
+   * `githubRepositoryId` 가 단독 unique key 라 덮어쓰기가 그런 사고를 만든다.
+   */
+  async enrollExternalRepository(input: {
+    readonly githubRepositoryId: bigint;
+    readonly nameWithOwner: string;
+    readonly observedAt: Date;
+  }): Promise<void> {
+    const existing = await this.db.githubRepository.findUnique({
+      where: { githubRepositoryId: input.githubRepositoryId },
+      select: { id: true },
+    });
+    if (existing !== null) {
+      // 이미 추적 중이다. source 도 큐 상태도 건드리지 않는다.
+      return;
+    }
+    await this.db.githubRepository.create({
+      data: {
+        githubRepositoryId: input.githubRepositoryId,
+        nameWithOwner: input.nameWithOwner,
+        source: 'EXTERNAL_PUBLIC',
+        visibility: 'PUBLIC',
+        presence: 'PRESENT',
+        lastCompleteInventoryObservedAt: input.observedAt,
+      },
+    });
+  }
+
+  /**
    * 저장소 수집 실패를 기록하고 다음 시도 시각을 미룬다 (ADR-010 §6, DD1).
    *
    * 실패를 기록하는 것만으로는 부족하다 — 언제 다시 시도할지가 있어야
