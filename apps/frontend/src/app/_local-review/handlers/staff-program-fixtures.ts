@@ -105,6 +105,9 @@ const BASIC_PROGRAM = {
 const BASIC_APPLICATIONS = [
   {
     id: 'application-basic-approved',
+    programId: 'program-basic-study',
+    repositoryConnectionMode: 'NEW',
+    repositoryUrl: null,
     status: 'APPROVED',
     rejectionReason: null,
     // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
@@ -133,6 +136,9 @@ const BASIC_APPLICATIONS = [
   },
   {
     id: 'application-basic-submitted',
+    programId: 'program-basic-study',
+    repositoryConnectionMode: 'NEW',
+    repositoryUrl: null,
     status: 'SUBMITTED',
     rejectionReason: null,
     // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
@@ -155,6 +161,9 @@ const BASIC_APPLICATIONS = [
   },
   {
     id: 'application-basic-rejected',
+    programId: 'program-basic-study',
+    repositoryConnectionMode: 'NEW',
+    repositoryUrl: null,
     status: 'REJECTED',
     rejectionReason: '합성 반려 사유입니다. 실제 판정이 아닙니다.',
     // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
@@ -311,6 +320,9 @@ const CONTEST_PROGRAM = {
 const CONTEST_APPLICATIONS = [
   {
     id: 'application-team',
+    programId: 'program-oss-contest',
+    repositoryConnectionMode: 'NEW',
+    repositoryUrl: null,
     status: 'APPROVED',
     rejectionReason: null,
     // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.
@@ -345,6 +357,9 @@ const CONTEST_APPLICATIONS = [
   },
   {
     id: 'application-contest-champion',
+    programId: 'program-oss-contest',
+    repositoryConnectionMode: 'NEW',
+    repositoryUrl: null,
     status: 'APPROVED',
     rejectionReason: null,
     // 승인 후 저장소를 공개로 돌릴 예정인지. 신청자 목록의 상태 칸이 읽는다.

@@ -133,6 +133,9 @@ describe('ApplicationsController', () => {
     // Given
     const item: ApplicationListItem = {
       id: 'synthetic-application',
+      programId: 'synthetic-program',
+      repositoryConnectionMode: 'NEW',
+      repositoryUrl: null,
       status: ApplicationStatus.REJECTED,
       submittedAt: new Date('2026-08-05T05:32:00.000Z'),
       rejectionReason: '예산 항목이 비어 있습니다',

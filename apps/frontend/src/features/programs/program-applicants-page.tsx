@@ -528,6 +528,7 @@ export function ProgramApplicantsPage({
           repositoryProvisioningEnabled={
             selected.repositoryProvisioning.enabled
           }
+          repositoryConnectionMode={selected.repositoryConnectionMode}
           reason={rejectionReason}
           reasonError={reasonError}
           busy={busyApplicationId === selected.id}

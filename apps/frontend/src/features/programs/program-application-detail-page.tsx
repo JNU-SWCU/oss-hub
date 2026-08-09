@@ -33,8 +33,37 @@ import type { ApplicationDecisionAction, ApplicationListItem } from './types';
 type LoadState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'ready'; readonly application: ApplicationListItem }
-  | { readonly kind: 'not-found' }
+  | { readonly kind: 'not-found'; readonly reason: NotFoundReason }
   | { readonly kind: 'error'; readonly message: string };
+
+/**
+ * 「없다」의 이유를 갈라 둔다. 학생이 먼저 취소한 것과 주소가 틀린 것은 교직원이
+ * 다음에 할 일이 다른데, 하나로 뭉치면 「주소가 잘못되었습니다」가 멀쩡한 주소를
+ * 쓴 사람에게도 나간다.
+ */
+type NotFoundReason = 'missing' | 'other-program' | 'cancelled-while-deciding';
+
+const NOT_FOUND_COPY: Readonly<
+  Record<
+    NotFoundReason,
+    { readonly title: string; readonly description: string }
+  >
+> = {
+  missing: {
+    title: '신청을 찾을 수 없습니다',
+    description: '이미 취소되었거나 주소가 잘못되었습니다.',
+  },
+  'other-program': {
+    title: '이 프로그램의 신청이 아닙니다',
+    description:
+      '주소의 프로그램과 신청이 서로 다릅니다. 신청자 목록에서 다시 열어 주세요.',
+  },
+  'cancelled-while-deciding': {
+    title: '신청이 이미 취소되었습니다',
+    description:
+      '판정하려는 사이에 학생이 신청을 취소했습니다. 판정은 저장되지 않았습니다.',
+  },
+};
 
 type Notice = {
   readonly kind: 'success' | 'error';
@@ -113,8 +142,14 @@ export function ProgramApplicationDetailPage({
   const reload = useCallback(async (): Promise<void> => {
     const application = await getApplicationDetail(applicationId);
     if (cancelled.current) return;
+    // 조회는 신청 id 하나로 도달한다 — 주소의 프로그램과 다르면 사이드바·뒤로가기는
+    // A 를 가리키는데 판정 버튼은 B 를 바꾸게 된다. 그리지 않고 막는다.
+    if (application.programId !== programId) {
+      setLoadState({ kind: 'not-found', reason: 'other-program' });
+      return;
+    }
     setLoadState({ kind: 'ready', application });
-  }, [applicationId]);
+  }, [applicationId, programId]);
 
   const load = useCallback(async (): Promise<void> => {
     setLoadState({ kind: 'loading' });
@@ -123,7 +158,7 @@ export function ProgramApplicationDetailPage({
     } catch (error: unknown) {
       if (cancelled.current) return;
       if (error instanceof ApiError && error.problem.status === 404)
-        setLoadState({ kind: 'not-found' });
+        setLoadState({ kind: 'not-found', reason: 'missing' });
       else if (error instanceof ApiError && error.problem.status === 403)
         setLoadState({
           kind: 'error',
@@ -203,7 +238,10 @@ export function ProgramApplicationDetailPage({
             reloadError instanceof ApiError &&
             reloadError.problem.status === 404
           ) {
-            setLoadState({ kind: 'not-found' });
+            setLoadState({
+              kind: 'not-found',
+              reason: 'cancelled-while-deciding',
+            });
           } else {
             setNotice({
               kind: 'error',
@@ -226,26 +264,34 @@ export function ProgramApplicationDetailPage({
   if (loadState.kind === 'loading') return <DetailSkeleton />;
 
   if (loadState.kind === 'not-found' || loadState.kind === 'error') {
+    const copy =
+      loadState.kind === 'not-found'
+        ? NOT_FOUND_COPY[loadState.reason]
+        : {
+            title: '신청 상세를 열 수 없습니다',
+            description: loadState.message,
+          };
     return (
       <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
         <PageHeader title="신청 상세" />
         <EmptyState
-          title={
-            loadState.kind === 'not-found'
-              ? '신청을 찾을 수 없습니다'
-              : '신청 상세를 열 수 없습니다'
-          }
-          description={
-            loadState.kind === 'not-found'
-              ? '이미 취소되었거나 주소가 잘못되었습니다.'
-              : loadState.message
-          }
+          title={copy.title}
+          description={copy.description}
           action={
-            <Button asChild variant="outline">
-              <Link href={programApplicantsHref(programId)}>
-                신청자 목록으로
-              </Link>
-            </Button>
+            <div className="flex flex-wrap justify-center gap-2">
+              {/*
+               * 일시적 실패에 다시 시도가 없으면 교직원은 목록으로 돌아가 「보기」를
+               * 다시 누르거나 브라우저를 새로고침해야 한다(목록 화면은 이미 준다).
+               */}
+              {loadState.kind === 'error' ? (
+                <Button onClick={() => void load()}>다시 시도</Button>
+              ) : null}
+              <Button asChild variant="outline">
+                <Link href={programApplicantsHref(programId)}>
+                  신청자 목록으로
+                </Link>
+              </Button>
+            </div>
           }
         />
       </main>
@@ -327,14 +373,27 @@ export function ProgramApplicationDetailPage({
             label="저장소 공개 예정"
             value={application.isRepositoryPublicationPlanned ? '예' : '아니요'}
           />
+          {/*
+           * 승인이 무엇을 하는지는 프로그램 스위치 하나로 정해지지 않는다 —
+           * 신청자가 `OWN`을 골랐으면 새로 만드는 게 아니라 낸 저장소를 잇는다.
+           * 그것을 보지 못한 채 승인하면 교직원은 자기가 무엇을 승인했는지 모른다.
+           */}
           <Row
-            label="저장소 자동 생성"
+            label="저장소"
             value={
-              application.repositoryProvisioning.enabled
-                ? `켜짐 — ${PROVISIONING_LABELS[application.repositoryProvisioning.jobStatus]}`
-                : '꺼짐'
+              application.repositoryConnectionMode === 'OWN'
+                ? '신청자가 낸 저장소를 잇습니다'
+                : application.repositoryProvisioning.enabled
+                  ? `자동 생성 — ${PROVISIONING_LABELS[application.repositoryProvisioning.jobStatus]}`
+                  : '자동 생성 꺼짐'
             }
           />
+          {application.repositoryConnectionMode === 'OWN' ? (
+            <Row
+              label="이을 저장소 주소"
+              value={application.repositoryUrl ?? '아직 없음'}
+            />
+          ) : null}
         </dl>
         {application.repository ? (
           <p className="text-small">
@@ -390,6 +449,7 @@ export function ProgramApplicationDetailPage({
           repositoryProvisioningEnabled={
             application.repositoryProvisioning.enabled
           }
+          repositoryConnectionMode={application.repositoryConnectionMode}
           reason={rejectionReason}
           reasonError={reasonError}
           busy={busy}

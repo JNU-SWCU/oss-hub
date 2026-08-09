@@ -154,8 +154,20 @@ export interface RepositoryProvisioning {
   readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
 }
 
+/** 승인이 저장소를 새로 만드는가(`NEW`), 신청자가 낸 저장소를 잇는가(`OWN`). */
+export type RepositoryConnectionMode = 'NEW' | 'OWN';
+
 export interface ApplicationListItem {
   readonly id: string;
+  /**
+   * 어느 프로그램의 신청인가. 상세 화면이 주소의 프로그램과 대조하는 데 쓴다 —
+   * 백엔드 조회가 신청 id 하나로 도달하므로, 주소를 손으로 고치면 프로그램 A의
+   * 화면에서 프로그램 B의 신청을 판정하게 된다.
+   */
+  readonly programId: string;
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  /** `OWN`일 때 이을 저장소 주소. `NEW`면 null. */
+  readonly repositoryUrl: string | null;
   readonly status: ApplicationStatus;
   readonly rejectionReason: string | null;
   readonly repositoryProvisioning: RepositoryProvisioning;

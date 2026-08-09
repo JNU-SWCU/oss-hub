@@ -35,6 +35,9 @@ vi.mock('./api', () => ({
 
 const submitted: ApplicationListItem = {
   id: 'app-1',
+  programId: 'program-1',
+  repositoryConnectionMode: 'NEW',
+  repositoryUrl: null,
   status: 'SUBMITTED',
   rejectionReason: null,
   repositoryProvisioning: {
@@ -317,7 +320,79 @@ describe('ProgramApplicationDetailPage', () => {
     });
 
     // 없는 신청을 계속 그리면 교직원이 같은 404 를 반복해 만난다.
-    expect(container.textContent).toContain('신청을 찾을 수 없습니다');
+    expect(container.textContent).toContain('신청이 이미 취소되었습니다');
+    // 「주소가 잘못되었습니다」는 여기서 틀린 안내다 — 주소는 멀쩡했고 학생이 취소했다.
+    expect(container.textContent).not.toContain('주소가 잘못되었습니다');
+    expect(container.textContent).toContain('판정은 저장되지 않았습니다');
+  });
+
+  it('주소의 프로그램과 다른 신청은 그리지 않는다', async () => {
+    // 조회는 신청 id 하나로 도달한다. 그리면 뒤로가기·사이드바는 A 를 가리키는데
+    // 판정 버튼은 B 를 바꾼다.
+    getApplicationDetailMock.mockResolvedValue({
+      ...submitted,
+      programId: 'other-program',
+    });
+
+    await mount();
+
+    expect(container.textContent).toContain('이 프로그램의 신청이 아닙니다');
+    expect(queryButton('승인')).toBeUndefined();
+    expect(queryButton('반려')).toBeUndefined();
+  });
+
+  it('일시적 실패에는 다시 시도를 준다', async () => {
+    // 없으면 교직원은 목록으로 되돌아가 「보기」를 다시 누르거나 새로고침해야 한다.
+    getApplicationDetailMock.mockRejectedValueOnce(new Error('network'));
+    await mount();
+    expect(container.textContent).toContain('신청 상세를 열 수 없습니다');
+
+    getApplicationDetailMock.mockResolvedValueOnce(submitted);
+    await act(async () => {
+      getButton('다시 시도').click();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain('합성 신청 제목');
+  });
+
+  it('신청자가 낸 저장소를 잇는 신청은 새로 만든다고 말하지 않는다', async () => {
+    // `repositoryProvisioning.enabled` 는 프로그램 스위치일 뿐이라 OWN 신청에도
+    // 켜져 있다. 그것만 보고 「자동 생성」이라 적으면 사실과 다르다.
+    getApplicationDetailMock.mockResolvedValue({
+      ...submitted,
+      repositoryConnectionMode: 'OWN',
+      repositoryUrl: 'https://github.com/synthetic-org/own-repo',
+    });
+
+    await mount();
+
+    expect(container.textContent).toContain('신청자가 낸 저장소를 잇습니다');
+    expect(container.textContent).toContain(
+      'https://github.com/synthetic-org/own-repo',
+    );
+
+    await act(async () => {
+      getButton('승인').click();
+    });
+    expect(container.textContent).toContain('새 저장소를 만들지 않습니다');
+  });
+
+  it('반려 확인창의 안내가 입력칸 이름을 오염시키지 않는다', async () => {
+    // `<label>` 이 감싸면 그 안의 글자가 전부 입력칸 이름이 되어, 스크린리더가
+    // 라벨·오류·안내를 한 덩어리로 읽는다.
+    getApplicationDetailMock.mockResolvedValue(submitted);
+    await mount();
+
+    await act(async () => {
+      getButton('반려').click();
+    });
+
+    const label = container.querySelector('label[for="rejection-reason"]');
+    expect(label?.textContent?.trim()).toBe('반려 사유');
+    expect(container.querySelector('label textarea')).toBeNull();
   });
 
   it('없는 신청은 목록으로 돌아갈 길을 준다', async () => {

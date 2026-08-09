@@ -186,10 +186,20 @@ export interface ApplicationListRepository {
 
 export interface ApplicationListItem {
   readonly id: string;
+  /**
+   * 어느 프로그램의 신청인가. 상세 화면이 주소의 프로그램과 대조하는 데 쓴다 —
+   * `GET applications/:id`는 신청 id 하나로 도달하므로, 주소를 손으로 고치면
+   * 프로그램 A의 화면에서 프로그램 B의 신청을 판정하게 된다.
+   */
+  readonly programId: string;
   readonly status: ApplicationStatus;
   readonly submittedAt: Date;
   readonly rejectionReason: string | null;
   readonly repositoryProvisioning: ApplicationRepositoryProvisioning;
+  /** 승인 시 저장소를 새로 만드는가(`NEW`), 낸 저장소를 잇는가(`OWN`). */
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  /** `OWN`일 때 이을 저장소 주소. `NEW`면 null. */
+  readonly repositoryUrl: string | null;
   readonly repository: ApplicationListRepository | null;
   readonly isRepositoryPublicationPlanned: boolean;
   readonly participation: 'INDIVIDUAL' | 'TEAM';
@@ -862,6 +872,7 @@ function buildApplicationListWhere(
  */
 const APPLICATION_LIST_SELECT = {
   id: true,
+  programId: true,
   status: true,
   submittedAt: true,
   updatedAt: true,
@@ -869,6 +880,10 @@ const APPLICATION_LIST_SELECT = {
   teamId: true,
   answers: true,
   isRepositoryPublicationPlanned: true,
+  // 승인이 무엇을 하는지는 프로그램의 자동 생성 스위치 하나로 정해지지 않는다 —
+  // 신청자가 `OWN`을 골랐으면 새로 만드는 게 아니라 낸 저장소를 잇는다.
+  repositoryConnectionMode: true,
+  repositoryUrl: true,
   // 1:1 Application.repository — 팀의 repositories 로 가지 않는다(#113).
   repository: {
     select: { url: true, visibility: true },
@@ -894,6 +909,7 @@ const APPLICATION_LIST_SELECT = {
 
 type ApplicationListRow = {
   readonly id: string;
+  readonly programId: string;
   readonly status: ApplicationStatus;
   readonly submittedAt: Date;
   readonly updatedAt: Date;
@@ -901,6 +917,8 @@ type ApplicationListRow = {
   readonly teamId: string | null;
   readonly answers: Prisma.JsonValue;
   readonly isRepositoryPublicationPlanned: boolean;
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  readonly repositoryUrl: string | null;
   readonly repository: {
     readonly url: string;
     readonly visibility: RepositoryVisibility;
@@ -947,9 +965,12 @@ function toApplicationListItem(
       : null;
   return {
     id: row.id,
+    programId: row.programId,
     status: row.status,
     submittedAt: row.submittedAt,
     rejectionReason: row.rejectionReason,
+    repositoryConnectionMode: row.repositoryConnectionMode,
+    repositoryUrl: row.repositoryUrl,
     repositoryProvisioning: resolveRepositoryProvisioning(
       row.status,
       row.program.repositoryProvisioningEnabled,

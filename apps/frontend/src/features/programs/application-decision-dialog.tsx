@@ -1,7 +1,10 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import type { ApplicationDecisionAction } from './types';
+import type {
+  ApplicationDecisionAction,
+  RepositoryConnectionMode,
+} from './types';
 
 /**
  * 신청 판정 확인창. 목록(`program-applicants-page`)과 상세
@@ -15,6 +18,7 @@ import type { ApplicationDecisionAction } from './types';
 export function ApplicationDecisionDialog({
   action,
   repositoryProvisioningEnabled,
+  repositoryConnectionMode,
   reason,
   reasonError,
   busy,
@@ -24,6 +28,11 @@ export function ApplicationDecisionDialog({
 }: {
   readonly action: ApplicationDecisionAction;
   readonly repositoryProvisioningEnabled: boolean;
+  /**
+   * `OWN`이면 승인이 저장소를 **새로 만들지 않는다** — 신청자가 낸 저장소를 잇는다.
+   * 프로그램의 자동 생성 스위치만 보고 「생성합니다」라고 말하면 사실과 다르다.
+   */
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
   readonly reason: string;
   readonly reasonError: boolean;
   readonly busy: boolean;
@@ -47,18 +56,27 @@ export function ApplicationDecisionDialog({
               : '판정 되돌리기'}
         </h2>
         {action === 'APPROVE' ? (
-          <p>
-            승인하면 저장소 자동 생성이{' '}
-            {repositoryProvisioningEnabled
-              ? '활성화되어 저장소 작업을 시작합니다.'
-              : '비활성화되어 저장소를 생성하지 않습니다.'}
+          <p className="break-keep">
+            {repositoryConnectionMode === 'OWN'
+              ? '승인하면 신청자가 낸 저장소를 연결합니다. 새 저장소를 만들지 않습니다.'
+              : repositoryProvisioningEnabled
+                ? '승인하면 저장소 자동 생성이 활성화되어 저장소 작업을 시작합니다.'
+                : '승인하면 저장소 자동 생성이 비활성화되어 저장소를 생성하지 않습니다.'}
           </p>
         ) : action === 'REJECT' ? (
-          <label className="grid gap-2 text-sm">
-            <span>반려 사유</span>
+          /*
+           * 라벨·오류·안내를 `<label>` **바깥**에 둔다. `<label>`이 감싸면 그 안의
+           * 글자가 전부 입력칸의 이름이 되어, 스크린리더가 "반려 사유 반려 사유를
+           * 입력해 주세요 적은 사유는 학생에게…"를 이름으로 읽는다. 오류가 이름
+           * 안에 묻히면 무엇이 라벨이고 무엇이 오류인지 갈리지 않는다.
+           */
+          <div className="grid gap-2 text-sm">
+            <label htmlFor="rejection-reason">반려 사유</label>
             <textarea
+              id="rejection-reason"
               className="min-h-28 rounded-md border border-input bg-background p-3"
               value={reason}
+              disabled={busy}
               onChange={(event) => onReasonChange(event.target.value)}
               aria-invalid={reasonError}
               aria-describedby={
@@ -77,7 +95,7 @@ export function ApplicationDecisionDialog({
             <span id="reason-hint" className="text-muted-foreground break-keep">
               적은 사유는 학생에게 그대로 보입니다.
             </span>
-          </label>
+          </div>
         ) : (
           <p>
             판정을 취소하고 신청을 다시 제출됨 상태로 되돌립니다. 이후
