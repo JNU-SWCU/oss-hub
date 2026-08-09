@@ -6,8 +6,9 @@ import {
   ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
   AdminAccessDetailLoadError,
   AdminAccessDetailNotFoundError,
-  deriveAdminAccessEligibility,
-  isAdminAccessHistoryTruncated,
+  adminAccessHistoryPageCount,
+  deriveAdminAccessGuards,
+  formatAdminAccessDateTime,
   loadAdminAccessDetail,
 } from './admin-access-detail-api';
 
@@ -44,55 +45,104 @@ function historyPage() {
   return { items: [], page: 1, limit: 20, total: 0 };
 }
 
-describe('deriveAdminAccessEligibility — 계정 상태·프로필 완료 여부에서 자격/차단 사유를 계산한다', () => {
-  it('활성 계정이고 프로필이 완료되면 자격이 있다', () => {
-    expect(deriveAdminAccessEligibility(detail())).toEqual({
-      eligible: true,
-      blockedReason: null,
+describe('deriveAdminAccessGuards — 대기 요청·본인 여부·프로필 완료에서 읽기 전용으로 가드를 계산한다', () => {
+  it('아무 조건도 걸리지 않으면 세 가드 모두 null이다', () => {
+    expect(deriveAdminAccessGuards(detail())).toEqual({
+      controlBlockedReason: null,
+      deactivationBlockedReason: null,
+      elevatedRoleBlockedReason: null,
     });
   });
 
-  it('계정이 비활성화되면 프로필 완료 여부와 무관하게 차단하고 사유를 우선한다', () => {
-    expect(
-      deriveAdminAccessEligibility(
-        detail({ accountStatus: 'DEACTIVATED', isProfileComplete: false }),
-      ),
-    ).toEqual({
-      eligible: false,
-      blockedReason: '계정이 비활성화되어 있습니다.',
-    });
+  it('대기 중인 요청이 있으면 전체 컨트롤이 막힌다', () => {
+    const guards = deriveAdminAccessGuards(
+      detail({
+        pendingRequest: {
+          id: 'req-1',
+          status: 'PENDING',
+          createdAt: '2026-07-30T00:00:00.000Z',
+        },
+      }),
+    );
+    expect(guards.controlBlockedReason).toBe(
+      '대기 중인 요청을 먼저 처리해 주세요.',
+    );
   });
 
-  it('활성 계정이지만 프로필이 미완료면 프로필 사유로 차단한다', () => {
-    expect(
-      deriveAdminAccessEligibility(
-        detail({
-          profile: {
-            name: null,
-            studentId: null,
-            department: null,
-            isComplete: false,
-          },
-        }),
-      ),
-    ).toEqual({
-      eligible: false,
-      blockedReason: '프로필이 완료되지 않았습니다.',
-    });
+  it('본인 계정이면 비활성화만 막힌다', () => {
+    const guards = deriveAdminAccessGuards(detail({ isSelf: true }));
+    expect(guards.deactivationBlockedReason).toBe(
+      '자기 계정은 비활성화할 수 없습니다.',
+    );
+    expect(guards.controlBlockedReason).toBeNull();
+    expect(guards.elevatedRoleBlockedReason).toBeNull();
+  });
+
+  it('프로필이 미완료면 교직원·관리자 부여만 막힌다', () => {
+    const guards = deriveAdminAccessGuards(
+      detail({
+        profile: {
+          name: null,
+          studentId: null,
+          department: null,
+          isComplete: false,
+        },
+      }),
+    );
+    expect(guards.elevatedRoleBlockedReason).toBe(
+      '프로필(이름·학번·학과) 완성 전에는 부여할 수 없습니다.',
+    );
+    expect(guards.controlBlockedReason).toBeNull();
+    expect(guards.deactivationBlockedReason).toBeNull();
+  });
+
+  it('세 조건이 동시에 성립하면 세 가드 모두 함께 켜진다', () => {
+    const guards = deriveAdminAccessGuards(
+      detail({
+        isSelf: true,
+        pendingRequest: {
+          id: 'req-1',
+          status: 'PENDING',
+          createdAt: '2026-07-30T00:00:00.000Z',
+        },
+        profile: {
+          name: null,
+          studentId: null,
+          department: null,
+          isComplete: false,
+        },
+      }),
+    );
+    expect(guards.controlBlockedReason).not.toBeNull();
+    expect(guards.deactivationBlockedReason).not.toBeNull();
+    expect(guards.elevatedRoleBlockedReason).not.toBeNull();
   });
 });
 
-describe('isAdminAccessHistoryTruncated — total이 표시된 items보다 많으면 잘린 것으로 본다', () => {
-  it('total과 items 길이가 같으면 잘리지 않았다', () => {
-    expect(isAdminAccessHistoryTruncated({ items: [1, 2], total: 2 })).toBe(
-      false,
-    );
+describe('adminAccessHistoryPageCount — total/limit에서 페이지 수를 계산한다', () => {
+  it('total이 limit으로 나누어떨어지면 그 몫이 페이지 수다', () => {
+    expect(adminAccessHistoryPageCount({ limit: 20, total: 40 })).toBe(2);
   });
 
-  it('total이 items 길이보다 크면 잘렸다', () => {
-    expect(isAdminAccessHistoryTruncated({ items: [1, 2], total: 5 })).toBe(
-      true,
-    );
+  it('나누어떨어지지 않으면 올림한다', () => {
+    expect(adminAccessHistoryPageCount({ limit: 20, total: 25 })).toBe(2);
+    expect(adminAccessHistoryPageCount({ limit: 20, total: 21 })).toBe(2);
+  });
+
+  it('total이 0이어도 최소 1페이지로 본다', () => {
+    expect(adminAccessHistoryPageCount({ limit: 20, total: 0 })).toBe(1);
+  });
+
+  it('total이 limit보다 작으면 1페이지다', () => {
+    expect(adminAccessHistoryPageCount({ limit: 20, total: 5 })).toBe(1);
+  });
+});
+
+describe('formatAdminAccessDateTime — ko-KR 날짜·시간 형식으로 표시한다', () => {
+  it('ISO 문자열을 로케일 형식 문자열로 바꾼다(연·월 정보 보존)', () => {
+    const formatted = formatAdminAccessDateTime('2026-07-30T01:00:00.000Z');
+    expect(formatted).toContain('2026');
+    expect(formatted).toContain('7');
   });
 });
 
