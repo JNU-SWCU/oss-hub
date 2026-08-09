@@ -141,7 +141,7 @@ describe.each(controllerOrders)(
       );
 
       expect(response.status).toBe(200);
-      expect(response.headers.get('cache-control')).toBe('public, max-age=60');
+      expect(response.headers.get('cache-control')).toBeNull();
       expect(publicProjectsService.findProfile).toHaveBeenCalledWith(
         'synthetic-user-1',
       );

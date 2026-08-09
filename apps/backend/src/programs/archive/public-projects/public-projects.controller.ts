@@ -12,7 +12,6 @@ export class PublicProjectsController {
   constructor(private readonly publicProjectsService: PublicProjectsService) {}
 
   @Get()
-  @Header('Cache-Control', 'public, max-age=60')
   async findPage(
     @Query() query: PublicProjectQueryRequestDto,
   ): Promise<PublicProjectPageResponseDto> {
@@ -37,7 +36,6 @@ export class PublicProjectsController {
   }
 
   @Get(':projectId')
-  @Header('Cache-Control', 'public, max-age=60')
   async findDetail(
     @Param('projectId') projectId: string,
   ): Promise<PublicProjectDetailResponseDto> {
