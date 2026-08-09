@@ -130,14 +130,30 @@ describe('SystemStatusView', () => {
     expect(html).not.toContain('synthetic transport failure');
   });
 
-  it('NORMAL 응답의 상태, 현재 작업, 시각, stream count를 표시한다', () => {
+  it('NORMAL 응답은 통합된 수집 상태 카드에 health, 사유, 사이클 시각을 표시한다', () => {
     const html = render({ kind: 'success', status: normal });
     expect(html).toContain('정상');
-    expect(html).toContain('대기 중');
     expect(html).toContain('데이터 수집이 정상적으로 운영되고 있습니다.');
+    expect(html).toContain('이번 사이클 시작');
+    expect(html).toContain('최근 사이클 완료');
     expect(html).toContain('2026');
     expect(html).toContain('추적 저장소');
     expect(html).toContain('완료(READY)');
+  });
+
+  it('IDLE일 때는 run 상태 배지("수집 중")를 표시하지 않는다', () => {
+    const html = render({ kind: 'success', status: normal });
+    expect(html).not.toContain('수집 중');
+  });
+
+  it('PROCESSING일 때는 애니메이션 점과 함께 "수집 중" 배지를 표시한다', () => {
+    const html = render({
+      kind: 'success',
+      status: { ...normal, currentRunStatus: 'PROCESSING' },
+    });
+    expect(html).toContain('수집 중');
+    expect(html).toContain('before:animate-pulse');
+    expect(html).toContain('motion-reduce:before:animate-none');
   });
 
   it.each([

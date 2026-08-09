@@ -3,7 +3,6 @@
 import {
   Activity,
   AlertCircle,
-  Clock3,
   Database,
   GitBranch,
   PlayCircle,
@@ -16,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type {
   CollectionHealth,
   CurrentRunStatus,
+  SystemStatus,
   SystemStatusSafeReason,
   SystemStatusViewState,
   TriggerNotice,
@@ -137,6 +137,93 @@ function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
   );
 }
 
+function CollectionStatusCard({ status }: { readonly status: SystemStatus }) {
+  const health = HEALTH[status.health];
+  const run = RUN_STATUS[status.currentRunStatus];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-3">
+          <span className="flex items-center gap-2">
+            <Activity aria-hidden="true" className="size-5" />
+            수집 상태
+          </span>
+          <span className="flex items-center gap-2">
+            <StatusBadge variant={health.variant}>{health.label}</StatusBadge>
+            {status.currentRunStatus === 'PROCESSING' ? (
+              <StatusBadge
+                variant={run.variant}
+                className="before:animate-pulse motion-reduce:before:animate-none"
+              >
+                {run.label}
+              </StatusBadge>
+            ) : null}
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <p className="text-sm text-muted-foreground">
+          {status.safeReason
+            ? SAFE_REASON_COPY[status.safeReason]
+            : '데이터 수집이 정상적으로 운영되고 있습니다.'}
+        </p>
+        <dl className="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <dt className="text-muted-foreground">이번 사이클 시작</dt>
+            <dd className="mt-1 font-medium">
+              {formatTimestamp(status.lastCycleStartedAt)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">최근 사이클 완료</dt>
+            <dd className="mt-1 font-medium">
+              {formatTimestamp(status.lastCycleCompletedAt)}
+            </dd>
+          </div>
+        </dl>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DataFreshnessCard({ status }: { readonly status: SystemStatus }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Database aria-hidden="true" className="size-5" />
+          데이터 최신성
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <dl className="grid gap-3 text-sm">
+          <div>
+            <dt className="text-muted-foreground">데이터 기준 시각</dt>
+            <dd className="mt-1 font-medium">
+              {formatTimestamp(status.dataAsOf)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">가장 오래된 완료 checkpoint</dt>
+            <dd className="mt-1 font-medium">
+              {formatTimestamp(status.oldestReadyCheckpointAt)}
+            </dd>
+          </div>
+          {status.oldestRetryPendingAt ? (
+            <div>
+              <dt className="text-muted-foreground">가장 오래된 재시도 대기</dt>
+              <dd className="mt-1 font-medium">
+                {formatTimestamp(status.oldestRetryPendingAt)}
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function SystemStatusView({
   state,
   onRetry,
@@ -148,8 +235,6 @@ export function SystemStatusView({
   if (state.kind === 'error') return <ErrorState onRetry={onRetry} />;
 
   const { status } = state;
-  const health = HEALTH[status.health];
-  const run = RUN_STATUS[status.currentRunStatus];
   const isEmpty = status.health === 'EMPTY';
   // 이미 실행 중인 사이클에 두 번째 트리거를 보내 봐야 lease가 거절한다 — 요청을
   // 보내기 전에 막아 관리자가 실패 응답을 받고서야 알게 되는 상황을 없앤다.
@@ -197,76 +282,7 @@ export function SystemStatusView({
       ) : (
         <section aria-label="시스템 상태 요약">
           <CardGrid>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-2">
-                    <Activity aria-hidden="true" className="size-5" />
-                    수집 상태
-                  </span>
-                  <StatusBadge variant={health.variant}>
-                    {health.label}
-                  </StatusBadge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground">
-                {status.safeReason
-                  ? SAFE_REASON_COPY[status.safeReason]
-                  : '데이터 수집이 정상적으로 운영되고 있습니다.'}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-2">
-                    <Clock3 aria-hidden="true" className="size-5" />
-                    현재 작업
-                  </span>
-                  <StatusBadge variant={run.variant}>{run.label}</StatusBadge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground">
-                현재 수집 사이클의 실행 상태입니다.
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database aria-hidden="true" className="size-5" />
-                  데이터 최신성
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <dl className="grid gap-3 text-sm">
-                  <div>
-                    <dt className="text-muted-foreground">데이터 기준 시각</dt>
-                    <dd className="mt-1 font-medium">
-                      {formatTimestamp(status.dataAsOf)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">
-                      가장 오래된 완료 checkpoint
-                    </dt>
-                    <dd className="mt-1 font-medium">
-                      {formatTimestamp(status.oldestReadyCheckpointAt)}
-                    </dd>
-                  </div>
-                  {status.oldestRetryPendingAt ? (
-                    <div>
-                      <dt className="text-muted-foreground">
-                        가장 오래된 재시도 대기
-                      </dt>
-                      <dd className="mt-1 font-medium">
-                        {formatTimestamp(status.oldestRetryPendingAt)}
-                      </dd>
-                    </div>
-                  ) : null}
-                </dl>
-              </CardContent>
-            </Card>
+            <CollectionStatusCard status={status} />
 
             <Card>
               <CardHeader>
@@ -310,6 +326,8 @@ export function SystemStatusView({
                 </dl>
               </CardContent>
             </Card>
+
+            <DataFreshnessCard status={status} />
           </CardGrid>
         </section>
       )}
