@@ -102,6 +102,7 @@ export type CollectionAppErrorKind =
   | 'RATE_LIMITED'
   | 'AUTH'
   | 'PERMISSION'
+  | 'NOT_FOUND'
   | 'GRAPHQL_ERROR';
 export class CollectionAppClientError extends Error {
   readonly code = 'COLLECTION_APP_CLIENT_ERROR';
@@ -120,7 +121,7 @@ export interface CollectionRepository {
   fullName: string;
   private: boolean;
   archived: boolean;
-  defaultBranch: string;
+  defaultBranch: string | null;
   ownerLogin: string;
   htmlUrl: string;
   updatedAt: string;
@@ -764,6 +765,9 @@ export class CollectionAppClient {
           this.tokens.clear(token);
           throw new CollectionAppClientError('PERMISSION');
         }
+        if (response.status === 404) {
+          throw new CollectionAppClientError('NOT_FOUND');
+        }
         throw new CollectionAppClientError('UPSTREAM');
       }
       try {
@@ -906,7 +910,8 @@ export class CollectionAppClient {
       fullName: this.string(r.full_name),
       private: this.boolean(r.private),
       archived: this.boolean(r.archived),
-      defaultBranch: this.string(r.default_branch),
+      defaultBranch:
+        r.default_branch === null ? null : this.string(r.default_branch),
       ownerLogin: this.string(owner.login),
       htmlUrl: this.string(r.html_url),
       updatedAt: this.date(r.updated_at),

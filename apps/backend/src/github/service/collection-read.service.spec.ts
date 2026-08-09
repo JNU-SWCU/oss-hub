@@ -769,6 +769,8 @@ describe('CollectionReadService — getRepositoryCumulativeMetrics', () => {
       expect.objectContaining({
         where: {
           githubRepositoryId: { in: [101n] },
+          visibility: 'PUBLIC',
+          presence: 'PRESENT',
           // 조직 저장소이거나, 신청에 연결된 조직 밖 저장소만 통과한다.
           OR: [
             { source: 'ORG_PROVISIONED' },
@@ -908,6 +910,8 @@ describe('CollectionReadService — getContributorCumulativeMetrics', () => {
         where: {
           repository: {
             githubRepositoryId: { in: [101n] },
+            visibility: 'PUBLIC',
+            presence: 'PRESENT',
             OR: [
               { source: 'ORG_PROVISIONED' },
               { source: 'EXTERNAL_PUBLIC', githubRepositoryId: { in: [] } },

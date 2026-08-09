@@ -11,16 +11,8 @@ import {
   type RankingYear,
 } from '../domain/ranking';
 
-const RANKING_CACHE_TTL_MS = 60_000;
-
-interface CachedRanking {
-  readonly entries: readonly RankingEntry[];
-  readonly expiresAt: number;
-}
-
 @Injectable()
 export class RankingService {
-  private readonly cache = new Map<string, CachedRanking>();
   private readonly inFlightBuilds = new Map<
     string,
     Promise<readonly RankingEntry[]>
@@ -37,8 +29,7 @@ export class RankingService {
     page: number,
     pageSize: number,
   ): Promise<RankingPage> {
-    // 갱신 시각은 목록 캐시 **밖에서** 따로 묻는다(ADR-010 §10).
-    // 같이 캐시되면 수집이 멈춰도 시각이 60초마다 새로워지는 것처럼 보인다.
+    // 수치와 수집 성공 시각은 서로 다른 의미라 각각 현재 DB 상태에서 읽는다.
     const [entries, dataAsOf] = await Promise.all([
       this.findEntries(year),
       this.collection.getPublicRankingDataAsOf(),
@@ -67,21 +58,14 @@ export class RankingService {
   ): Promise<readonly RankingEntry[]> {
     const cacheKey =
       year === RANKING_YEAR_ALL ? RANKING_YEAR_ALL : `year:${year}`;
-    const cached = this.cache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) return cached.entries;
-
     const existingBuild = this.inFlightBuilds.get(cacheKey);
     if (existingBuild) return existingBuild;
 
-    const build = this.buildEntries(year)
-      .then((entries) => {
-        this.cache.set(cacheKey, {
-          entries,
-          expiresAt: Date.now() + RANKING_CACHE_TTL_MS,
-        });
-        return entries;
-      })
-      .finally(() => this.inFlightBuilds.delete(cacheKey));
+    // 동시 요청만 한 번으로 합친다. 완료된 공개 결과는 보관하지 않아,
+    // 외부 저장소가 PRIVATE/ABSENT로 회수된 다음 요청부터 즉시 제외된다.
+    const build = this.buildEntries(year).finally(() =>
+      this.inFlightBuilds.delete(cacheKey),
+    );
     this.inFlightBuilds.set(cacheKey, build);
     return build;
   }

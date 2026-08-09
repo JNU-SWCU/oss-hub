@@ -13,8 +13,7 @@ import { CollectionIncrementalRepository } from '../repository/collection-increm
 describe('CollectionExternalDiscoveryService', () => {
   const findFirst = jest.fn();
   const requireCurrent = jest.fn();
-  const findRepositoryByLogicalKey = jest.fn();
-  const recordRepositoryObservation = jest.fn();
+  const enrollExternalRepository = jest.fn();
   const discoverContributedRepositories = jest.fn();
 
   const now = () => new Date('2026-08-04T00:00:00.000Z');
@@ -24,8 +23,7 @@ describe('CollectionExternalDiscoveryService', () => {
       { user: { findFirst } } as unknown as PrismaService,
       { requireCurrent } as unknown as ConsentsService,
       {
-        findRepositoryByLogicalKey,
-        recordRepositoryObservation,
+        enrollExternalRepository,
       } as unknown as CollectionIncrementalRepository,
       {
         discoverContributedRepositories,
@@ -36,8 +34,7 @@ describe('CollectionExternalDiscoveryService', () => {
   beforeEach(() => {
     findFirst.mockReset();
     requireCurrent.mockReset();
-    findRepositoryByLogicalKey.mockReset();
-    recordRepositoryObservation.mockReset();
+    enrollExternalRepository.mockReset();
     discoverContributedRepositories.mockReset();
   });
 
@@ -57,8 +54,7 @@ describe('CollectionExternalDiscoveryService', () => {
       ],
       restrictedContributionsCount: 0,
     });
-    findRepositoryByLogicalKey.mockResolvedValue(null);
-    recordRepositoryObservation.mockResolvedValue(undefined);
+    enrollExternalRepository.mockResolvedValue(true);
     const service = buildService();
 
     // When
@@ -79,15 +75,11 @@ describe('CollectionExternalDiscoveryService', () => {
     );
     // 저장 필드는 저장소 식별자·가시성·활동 메타뿐이다(ADR-006 field
     // inventory) — raw response/commit message/author email 등은 여기 없다.
-    expect(recordRepositoryObservation).toHaveBeenCalledWith({
-      githubOrganizationId: null,
+    expect(enrollExternalRepository).toHaveBeenCalledWith({
       githubRepositoryId: 900001n,
       nameWithOwner: 'octocat/hello-world',
       defaultBranch: 'main',
       archived: false,
-      visibility: 'PUBLIC',
-      presence: 'PRESENT',
-      source: 'EXTERNAL_PUBLIC',
       observedAt: now(),
     });
     expect(result).toEqual({
@@ -116,25 +108,14 @@ describe('CollectionExternalDiscoveryService', () => {
       ],
       restrictedContributionsCount: 0,
     });
-    findRepositoryByLogicalKey.mockResolvedValue({
-      id: 'row-1',
-      githubOrganizationId: 1n,
-      githubRepositoryId: 900002n,
-      nameWithOwner: 'JNU-SWCU/already-org-repo',
-      defaultBranch: 'main',
-      archived: false,
-      visibility: 'PUBLIC',
-      presence: 'PRESENT',
-      source: 'ORG_PROVISIONED',
-      lastCompleteInventoryObservedAt: new Date('2026-08-01T00:00:00.000Z'),
-    });
+    enrollExternalRepository.mockResolvedValue(false);
     const service = buildService();
 
     // When
     const result = await service.discoverForStudent('octocat');
 
     // Then
-    expect(recordRepositoryObservation).not.toHaveBeenCalled();
+    expect(enrollExternalRepository).toHaveBeenCalledTimes(1);
     expect(result).toEqual({
       githubLogin: 'octocat',
       discoveredCount: 1,
@@ -192,7 +173,7 @@ describe('CollectionExternalDiscoveryService', () => {
     await expect(service.discoverForStudent('octocat')).rejects.toMatchObject({
       errorCode: { code: 'COL_010', status: 502 },
     });
-    expect(recordRepositoryObservation).not.toHaveBeenCalled();
+    expect(enrollExternalRepository).not.toHaveBeenCalled();
   });
 
   it('discovery 결과가 비어 있으면 upsert 없이 0건 결과를 반환한다', async () => {
@@ -209,7 +190,7 @@ describe('CollectionExternalDiscoveryService', () => {
     const result = await service.discoverForStudent('octocat');
 
     // Then
-    expect(recordRepositoryObservation).not.toHaveBeenCalled();
+    expect(enrollExternalRepository).not.toHaveBeenCalled();
     expect(result).toEqual({
       githubLogin: 'octocat',
       discoveredCount: 0,

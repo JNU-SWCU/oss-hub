@@ -16,6 +16,21 @@ describe('RankingController', () => {
     listYears.mockReset();
   });
 
+  it('공개 랭킹과 연도 목록은 공개 회수 전 응답을 저장하지 않는다', () => {
+    for (const methodName of ['findPage', 'listYears'] as const) {
+      const handler: unknown = Object.getOwnPropertyDescriptor(
+        RankingController.prototype,
+        methodName,
+      )?.value;
+      if (typeof handler !== 'function') {
+        throw new TypeError(`RankingController.${methodName} is missing`);
+      }
+      expect(Reflect.getMetadata(HEADERS_METADATA, handler)).toEqual([
+        { name: 'Cache-Control', value: 'no-store' },
+      ]);
+    }
+  });
+
   it('공개 API 계약 형태로 서비스 결과를 전달한다', async () => {
     findPage.mockResolvedValue({
       year: 2026,
@@ -110,20 +125,5 @@ describe('RankingController', () => {
       years: [2026, 2025],
     });
     expect(listYears).toHaveBeenCalledTimes(1);
-  });
-
-  it('GET /ranking/years 는 public short-cache 헤더를 붙인다', () => {
-    const handler: unknown = Object.getOwnPropertyDescriptor(
-      RankingController.prototype,
-      'listYears',
-    )?.value;
-    if (typeof handler !== 'function') {
-      throw new TypeError('RankingController.listYears is missing');
-    }
-
-    expect(Reflect.getMetadata(HEADERS_METADATA, handler)).toContainEqual({
-      name: 'Cache-Control',
-      value: 'public, max-age=60',
-    });
   });
 });

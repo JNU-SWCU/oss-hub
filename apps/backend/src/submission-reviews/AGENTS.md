@@ -43,6 +43,11 @@ GitHub API를 호출하기 전에 아래 다섯 조건을 전부 통과해야 �
 2~5는 `SubmissionReviewsService.publishRepository()`(service 계층)에서 검사한다.
 다섯 게이트를 모두 통과한 뒤에만 `repositories/`의 `RepositoriesService.publish`를 호출하며, 실제 CAS·audit 로직은 그쪽이 원본이다.
 
+게이트 2~5의 판정 원본은 `domain/submission-review.ts`의 `publishBlockedReasons()` 하나다.
+공개 확정은 그 결과의 **첫 사유**로 거절하고, 검토 화면(`toReviewContext`)은 **전부** 나열해 버튼을 닫는다 — 그래서 조건을 늘릴 때 고칠 곳은 그 함수 하나다.
+두 표면 중 한쪽에만 조건을 더하면 화면은 버튼을 열어 주는데 서버는 409로 거절하는 상태가 된다([#752](https://github.com/JNU-SWCU/oss-hub/issues/752)가 그 사고다).
+사유를 추가하면 service의 `PUBLISH_BLOCKED_ERROR_CODES`와 프런트의 `BLOCKED_REASON_LABELS`가 `satisfies`로 완전성을 강제하므로, 오류 코드와 화면 문구를 주기 전까지 컴파일되지 않는다.
+
 ## 의존성
 
 - `repositories/` (`RepositoriesService.publish`) — 실제 공개 전환(CAS `publishRepositoryIfPrivate` + 트랜잭션 내 typed audit)의 유일한 실행자.
@@ -52,5 +57,6 @@ GitHub API를 호출하기 전에 아래 다섯 조건을 전부 통과해야 �
 ## For AI Agents
 
 - 다섯 게이트 순서를 바꾸거나 일부를 생략하지 않는다 — GitHub 호출 전 인간 확인(`isConfirmed`)이 항상 선행 조건이다.
+- 게이트 2~5의 조건은 `publishBlockedReasons()`에서만 늘린다. service나 mapper 안에 조건을 따로 적지 않는다.
 - 이 모듈에서 GitHub API를 직접 호출하지 않는다. 공개 전환은 항상 `repositories/`를 통한다.
 - `submissions/`와 이 모듈은 독립 enum이면서 동일 `SUB_*` prefix를 쓰므로 새 코드 값을 추가할 때 문자열 중복을 확인한다.

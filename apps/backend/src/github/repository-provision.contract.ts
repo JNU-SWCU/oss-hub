@@ -19,6 +19,7 @@ export interface RepositoryProvisionContext {
   readonly eventId: string;
   readonly eventPayload: Prisma.JsonValue;
   readonly applicationId: string;
+  readonly applicantGithubId: bigint;
   readonly applicationStatus: ApplicationStatus;
   readonly programId: string;
   readonly programName: string;

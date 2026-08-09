@@ -3,8 +3,9 @@ import { ApplicationStatus, RepositoryInvitationStatus } from '@prisma/client';
 import {
   COLLABORATOR_OUTCOMES,
   type GithubAppClient,
+  type GithubPublicRepositoryMetadata,
 } from './github-app.client';
-import type { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
+import type { RepositoryOwnEnrollmentService } from './service/repository-own-enrollment.service';
 import type { RepositoryProvisionJobRepository } from './repository/repository-provision-job.repository';
 import {
   InvalidRepositoryProvisionEventError,
@@ -48,6 +49,11 @@ export type RepositoryProvisionResult =
       readonly errorCode: string;
     };
 
+interface PreparedRepository {
+  readonly repository: ProvisionedRepository;
+  readonly ownMetadata: GithubPublicRepositoryMetadata | null;
+}
+
 export class RepositoryProvisionWorker {
   private readonly logger = new Logger(RepositoryProvisionWorker.name);
 
@@ -69,7 +75,7 @@ export class RepositoryProvisionWorker {
      * vs `GithubRepository`)이라 여기서 잇지 않으면 연결이 끊긴다(ADR-010 §6).
      */
     private readonly collectionEnrollment: Pick<
-      CollectionIncrementalRepository,
+      RepositoryOwnEnrollmentService,
       'enrollExternalRepository'
     >,
     private readonly options: RepositoryProvisionWorkerOptions = DEFAULT_PROVISION_OPTIONS,
@@ -96,25 +102,38 @@ export class RepositoryProvisionWorker {
       const context = await this.state.loadContext(job.id, workerId);
       const { logins, connectionMode, repositoryUrl } =
         this.validateContext(context);
-      const repository =
-        context.repository ??
-        (await this.createAndRecordRepository(
-          context,
-          connectionMode,
-          repositoryUrl,
-          job.id,
-          workerId,
-          now,
-        ));
+      const prepared: PreparedRepository =
+        context.repository === null
+          ? await this.createAndRecordRepository(
+              context,
+              connectionMode,
+              repositoryUrl,
+              job.id,
+              workerId,
+              now,
+            )
+          : { repository: context.repository, ownMetadata: null };
+      const repository = prepared.repository;
       // OWN은 조직 밖 저장소라 초대 권한이 없다 — 초대 단계를 통째로 건너뛴다.
       if (connectionMode === 'OWN') {
         const completedAt = now();
+        const metadata =
+          prepared.ownMetadata ??
+          (await resolveOwnGithubRepository(this.github, repositoryUrl ?? ''));
+        if (metadata.githubRepositoryId !== repository.githubRepositoryId) {
+          throw finalProvisionFailure(
+            PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
+          );
+        }
         // 조직 인벤토리는 이 저장소를 못 본다. 여기서 수집 큐에 넣지 않으면
         // 학생이 자기 저장소에서 아무리 활동해도 화면에 영영 안 나온다
         // (ADR-009 §3, ADR-010 §5·§6).
         await this.collectionEnrollment.enrollExternalRepository({
+          applicantGithubId: context.applicantGithubId,
           githubRepositoryId: repository.githubRepositoryId,
-          nameWithOwner: repository.name,
+          nameWithOwner: metadata.nameWithOwner,
+          defaultBranch: metadata.defaultBranch,
+          archived: metadata.archived,
           observedAt: completedAt,
         });
         await this.state.completeJob(
@@ -245,26 +264,29 @@ export class RepositoryProvisionWorker {
     jobId: string,
     workerId: string,
     now: () => Date,
-  ): Promise<ProvisionedRepository> {
+  ): Promise<PreparedRepository> {
     await this.jobs.renewLease(jobId, workerId, now());
-    const metadata =
+    const ownMetadata =
       connectionMode === 'OWN'
         ? await resolveOwnGithubRepository(
             this.github,
             // 레거시/손상 payload 방어: OWN이면 URL 필수.
             repositoryUrl ?? '',
           )
-        : await findOrCreateGithubRepository(
-            this.github,
-            buildRepositoryNames({
-              programName: context.programName,
-              programId: context.programId,
-              subjectName: context.subjectName,
-              applicationId: context.applicationId,
-            }),
-            buildRepositoryOwnershipMarker(context.applicationId),
-          );
-    return this.state.recordRepository({
+        : null;
+    const metadata =
+      ownMetadata ??
+      (await findOrCreateGithubRepository(
+        this.github,
+        buildRepositoryNames({
+          programName: context.programName,
+          programId: context.programId,
+          subjectName: context.subjectName,
+          applicationId: context.applicationId,
+        }),
+        buildRepositoryOwnershipMarker(context.applicationId),
+      ));
+    const repository = await this.state.recordRepository({
       jobId,
       workerId,
       applicationId: context.applicationId,
@@ -272,6 +294,7 @@ export class RepositoryProvisionWorker {
       teamId: context.teamId,
       metadata,
     });
+    return { repository, ownMetadata };
   }
 
   private async processInvitations(

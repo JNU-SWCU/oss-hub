@@ -102,8 +102,11 @@ describe('GithubAppClient', () => {
       jsonResponse(200, {
         id: 42,
         name: 'synthetic-repo',
+        full_name: 'synthetic-student/synthetic-repo',
         html_url: 'https://github.com/synthetic-student/synthetic-repo',
         visibility: 'public',
+        archived: false,
+        default_branch: 'main',
         description: null,
       }),
     );
@@ -117,8 +120,11 @@ describe('GithubAppClient', () => {
     expect(repository).toEqual({
       githubRepositoryId: 42n,
       name: 'synthetic-repo',
+      nameWithOwner: 'synthetic-student/synthetic-repo',
       url: 'https://github.com/synthetic-student/synthetic-repo',
       visibility: 'PUBLIC',
+      archived: false,
+      defaultBranch: 'main',
       description: null,
     });
     expect(fetcher).toHaveBeenCalledWith(
@@ -143,6 +149,30 @@ describe('GithubAppClient', () => {
     await expect(
       client.findPublicRepository('missing-owner', 'missing-repo'),
     ).resolves.toBeNull();
+  });
+
+  it('아직 커밋이 없는 공개 저장소의 null 기본 브랜치를 보존한다', async () => {
+    const fetcher = jest.fn<
+      ReturnType<GithubAppFetcher>,
+      Parameters<GithubAppFetcher>
+    >();
+    fetcher.mockResolvedValue(
+      jsonResponse(200, {
+        id: 43,
+        name: 'synthetic-empty-repo',
+        full_name: 'synthetic-student/synthetic-empty-repo',
+        html_url: 'https://github.com/synthetic-student/synthetic-empty-repo',
+        visibility: 'public',
+        archived: false,
+        default_branch: null,
+        description: null,
+      }),
+    );
+    const client = new GithubAppClient(tokenProvider(), fetcher, () => NOW);
+
+    await expect(
+      client.findPublicRepository('synthetic-student', 'synthetic-empty-repo'),
+    ).resolves.toMatchObject({ defaultBranch: null });
   });
 
   it('이미 collaborator이면 invitation을 조회하거나 다시 보내지 않는다', async () => {
