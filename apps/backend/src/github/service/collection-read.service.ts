@@ -438,7 +438,7 @@ export class CollectionReadService implements CollectionReadPort {
     return this.publicRanking.findMetrics(query);
   }
 
-  /** 공개 랭킹 수치의 기준 시각 — 목록 캐시 밖(ADR-010 §10). */
+  /** 공개 랭킹 수치와 별도로 읽는 마지막 수집 성공 시각(ADR-010 §10). */
   async getPublicRankingDataAsOf(): Promise<Date | null> {
     return this.publicRanking.findDataAsOf();
   }

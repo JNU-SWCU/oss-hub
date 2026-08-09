@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Header, Param } from '@nestjs/common';
 import { PublicUserProfileResponseDto } from './dto/public-user-profile-response.dto';
 import { PublicProjectsService } from './public-projects.service';
 
@@ -17,6 +17,7 @@ export class PublicUserProfileController {
   constructor(private readonly publicProjectsService: PublicProjectsService) {}
 
   @Get(':userId/public-profile')
+  @Header('Cache-Control', 'no-store')
   async findProfile(
     @Param('userId') userId: string,
   ): Promise<PublicUserProfileResponseDto> {

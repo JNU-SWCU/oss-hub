@@ -391,11 +391,27 @@ export class CollectionIncrementalRepository {
       },
     });
     if (updated.count === 0) return false;
-    await this.purgeUnregisteredExternalFacts(input.githubRepositoryId);
+    await this.purgeUnregisteredExternalFactsInTransaction(
+      input.githubRepositoryId,
+    );
     return true;
   }
 
-  private async purgeUnregisteredExternalFacts(
+  /**
+   * 외부 저장소에 남은 비가입자 원본 fact를 독립 트랜잭션으로 정리한다.
+   *
+   * PRIVATE/ABSENT 공개 회수는 이 정리보다 먼저 별도 커밋되어야 한다. 정리 SQL이
+   * 실패해도 공개 상태가 되살아나지 않도록 수집 서비스가 회수 뒤 best-effort로 호출한다.
+   */
+  async purgeUnregisteredExternalFacts(
+    githubRepositoryId: bigint,
+  ): Promise<void> {
+    await this.runInTransaction((repo) =>
+      repo.purgeUnregisteredExternalFactsInTransaction(githubRepositoryId),
+    );
+  }
+
+  private async purgeUnregisteredExternalFactsInTransaction(
     githubRepositoryId: bigint,
   ): Promise<void> {
     await this.db.$executeRaw`
@@ -443,7 +459,7 @@ export class CollectionIncrementalRepository {
   async refreshExternalRepositoryObservation(input: {
     readonly githubRepositoryId: bigint;
     readonly nameWithOwner: string;
-    readonly defaultBranch: string;
+    readonly defaultBranch: string | null;
     readonly archived: boolean;
     readonly visibility: 'PRIVATE' | 'PUBLIC';
     readonly observedAt: Date;
@@ -465,7 +481,14 @@ export class CollectionIncrementalRepository {
     const current = await this.db.githubRepository.findUnique({
       where: { githubRepositoryId: input.githubRepositoryId },
     });
-    await this.purgeUnregisteredExternalFacts(input.githubRepositoryId);
+    if (
+      current?.source === 'EXTERNAL_PUBLIC' &&
+      current.visibility === 'PUBLIC'
+    ) {
+      await this.purgeUnregisteredExternalFactsInTransaction(
+        input.githubRepositoryId,
+      );
+    }
     return current?.source === 'EXTERNAL_PUBLIC' ? current : null;
   }
 
@@ -483,7 +506,6 @@ export class CollectionIncrementalRepository {
         lastCompleteInventoryObservedAt: observedAt,
       },
     });
-    await this.purgeUnregisteredExternalFacts(githubRepositoryId);
   }
 
   /**

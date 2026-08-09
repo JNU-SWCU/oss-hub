@@ -52,7 +52,7 @@ describe('RankingService public metrics', () => {
  * 저장소 공개 상태가 회수된 뒤 이전 목록을 재사용하면 이미 비공개인 기여가
  * 남으므로, 완료된 목록 결과는 캐시하지 않는다.
  */
-describe('RankingService — 갱신 시각은 목록 캐시 밖에서 온다', () => {
+describe('RankingService — 수치와 갱신 시각은 모두 현재 상태에서 온다', () => {
   it('같은 연도를 두 번 조회해도 목록과 갱신 시각을 모두 다시 묻는다', async () => {
     const harness = setupRankingService();
     harness.getPublicRankingMetrics.mockResolvedValue([

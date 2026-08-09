@@ -121,7 +121,7 @@ export interface CollectionRepository {
   fullName: string;
   private: boolean;
   archived: boolean;
-  defaultBranch: string;
+  defaultBranch: string | null;
   ownerLogin: string;
   htmlUrl: string;
   updatedAt: string;
@@ -910,7 +910,8 @@ export class CollectionAppClient {
       fullName: this.string(r.full_name),
       private: this.boolean(r.private),
       archived: this.boolean(r.archived),
-      defaultBranch: this.string(r.default_branch),
+      defaultBranch:
+        r.default_branch === null ? null : this.string(r.default_branch),
       ownerLogin: this.string(owner.login),
       htmlUrl: this.string(r.html_url),
       updatedAt: this.date(r.updated_at),

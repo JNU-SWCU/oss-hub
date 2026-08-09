@@ -29,8 +29,7 @@ export class RankingService {
     page: number,
     pageSize: number,
   ): Promise<RankingPage> {
-    // 갱신 시각은 목록 캐시 **밖에서** 따로 묻는다(ADR-010 §10).
-    // 같이 캐시되면 수집이 멈춰도 시각이 60초마다 새로워지는 것처럼 보인다.
+    // 수치와 수집 성공 시각은 서로 다른 의미라 각각 현재 DB 상태에서 읽는다.
     const [entries, dataAsOf] = await Promise.all([
       this.findEntries(year),
       this.collection.getPublicRankingDataAsOf(),

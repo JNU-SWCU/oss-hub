@@ -91,6 +91,7 @@ type SyncRepository = Pick<
   | 'recordRepositoryObservation'
   | 'refreshExternalRepositoryObservation'
   | 'markExternalRepositoryUnavailable'
+  | 'purgeUnregisteredExternalFacts'
   | 'recordRepositoryFailure'
   | 'recordRepositorySuccess'
   | 'markAbsentRepositories'
@@ -440,6 +441,9 @@ export class CollectionSyncService {
               observedAt,
             );
           });
+          await this.purgeExternalFactsBestEffort(
+            repository.githubRepositoryId,
+          );
         }
         lastError = error instanceof Error ? error.name : 'UnknownError';
         failedRepositoryCount += 1;
@@ -638,6 +642,7 @@ export class CollectionSyncService {
               observedAt,
             );
           });
+          await this.purgeExternalFactsBestEffort(current.githubRepositoryId);
           continue;
         }
         complete = false;
@@ -656,6 +661,7 @@ export class CollectionSyncService {
             observedAt,
           );
         });
+        await this.purgeExternalFactsBestEffort(current.githubRepositoryId);
         continue;
       }
 
@@ -674,10 +680,34 @@ export class CollectionSyncService {
       );
       if (refreshed?.visibility === 'PUBLIC') {
         repositories.push(refreshed);
+      } else if (refreshed?.visibility === 'PRIVATE') {
+        await this.purgeExternalFactsBestEffort(current.githubRepositoryId);
       }
     }
 
     return { complete, repositories };
+  }
+
+  /**
+   * 공개 회수 뒤의 레거시 원본 정리는 best-effort다.
+   *
+   * PRIVATE/ABSENT 관찰과 같은 트랜잭션에 두면 정리 SQL 한 건의 실패가 공개 회수까지
+   * rollback하는 fail-open이 된다. 회수는 먼저 확정하고, 정리 실패는 다음 sweep에서
+   * 재시도할 수 있도록 기록만 남긴다.
+   */
+  private async purgeExternalFactsBestEffort(
+    githubRepositoryId: bigint,
+  ): Promise<void> {
+    try {
+      await this.incrementalRepository.purgeUnregisteredExternalFacts(
+        githubRepositoryId,
+      );
+    } catch (error) {
+      this.logger.warn({
+        event: 'collection.sync.external_fact_cleanup_failed',
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+    }
   }
 
   /** 저장소 하나가 이번 run에서 새로 적재한 fact 수를 반환한다(#511 성공 로그 집계용). */

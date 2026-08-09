@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Header, Query } from '@nestjs/common';
 import {
   RankingQueryRequestDto,
   resolveRankingQueryYear,
@@ -14,6 +14,7 @@ export class RankingController {
   constructor(private readonly rankingService: RankingService) {}
 
   @Get()
+  @Header('Cache-Control', 'no-store')
   async findPage(
     @Query() query: RankingQueryRequestDto,
   ): Promise<RankingPageResponseDto> {
@@ -28,6 +29,7 @@ export class RankingController {
 
   /** Distinct years that have public ranking data (desc). Sidebar year list. */
   @Get('years')
+  @Header('Cache-Control', 'no-store')
   async listYears(): Promise<RankingYearsResponseDto> {
     return RankingYearsResponseDto.from(await this.rankingService.listYears());
   }

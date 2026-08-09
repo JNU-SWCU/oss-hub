@@ -23,16 +23,16 @@ function row(
 }
 
 describe('PublicProjectsController', () => {
-  it('공개 목록·상세는 저장소 공개 회수 뒤 이전 응답을 cache하지 않는다', () => {
+  it('공개 목록·상세는 저장소 공개 회수 뒤 이전 응답을 저장하지 않는다', () => {
     for (const methodName of ['findPage', 'findDetail'] as const) {
       const handler: unknown = Object.getOwnPropertyDescriptor(
         PublicProjectsController.prototype,
         methodName,
       )?.value;
       expect(typeof handler).toBe('function');
-      expect(Reflect.getMetadata(HEADERS_METADATA, handler as object)).toBe(
-        undefined,
-      );
+      expect(Reflect.getMetadata(HEADERS_METADATA, handler as object)).toEqual([
+        { name: 'Cache-Control', value: 'no-store' },
+      ]);
     }
   });
 

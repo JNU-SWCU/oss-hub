@@ -28,7 +28,7 @@ describe('RankingService cache and year scope', () => {
     });
   });
 
-  it('연도별로 별도 cache key와 metric 기간을 사용한다', async () => {
+  it('연도별로 별도 요청 key와 metric 기간을 사용한다', async () => {
     harness.getPublicRankingMetrics
       .mockResolvedValueOnce([activity(1n, 'mina', 2, 0, 0)])
       .mockResolvedValueOnce([activity(1n, 'mina', 3, 0, 0)]);
@@ -51,7 +51,7 @@ describe('RankingService cache and year scope', () => {
     });
   });
 
-  it('특정 연도와 전체는 별도 cache key와 metric 기간을 사용한다', async () => {
+  it('특정 연도와 전체는 별도 요청 key와 metric 기간을 사용한다', async () => {
     harness.getPublicRankingMetrics
       .mockResolvedValueOnce([activity(1n, 'mina', 2, 0, 0)])
       .mockResolvedValueOnce([

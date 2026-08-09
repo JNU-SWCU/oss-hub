@@ -59,7 +59,8 @@ export class PublicProjectsService {
    * 페이지 경계는 원본 keyset 조회(`pageSize + 1` lookahead)만으로 결정되고, eligibility
    * 필터링은 그 경계 안에서 항목을 지울 뿐 다음 페이지로 밀어내지 않는다 — freshness fence가
    * 드물게 저장소를 회수하면 그 페이지가 `pageSize`보다 적게 보일 수 있다(의도된 trade-off).
-   * 페이지당 질의: 원본 조회 1개 + eligibility의 배치 조회 1개 = 2개, pageSize와 무관하다.
+   * 페이지당 질의: 원본 조회 1개 + eligibility의 연결 증명·관찰 2개 = 최대 3개,
+   * pageSize와 무관하다.
    *
    * QA40 — 커서는 여전히 **필터 전 마지막 raw 행**으로 만든다(경계를 밀지 않는다는 위 규칙을
    * 그대로 둔다). 대신 그 페이로드를 서버 키로 인증 암호화해서, 그 raw 행이 fence에 가려진
@@ -130,8 +131,8 @@ export class PublicProjectsService {
   }
 
   /**
-   * 페이지당 질의: 원본 1 + eligibility 1 + 지표별 연결 증명·조회 4 + 기여자 login 1,
-   * 최대 7개로 상수다. private/미존재 저장소는 항상 같은 404다.
+   * 페이지당 질의: 원본 1 + eligibility의 연결 증명·관찰 2 + 지표별 연결 증명·조회 4 +
+   * 기여자 login 1, 최대 8개로 상수다. private/미존재 저장소는 항상 같은 404다.
    */
   async findDetail(projectId: string): Promise<PublicProjectDetailResult> {
     const row = await this.repository.findById(projectId);
@@ -181,8 +182,8 @@ export class PublicProjectsService {
 
   /**
    * 존재하지 않는 사용자와 공개 가능한 프로젝트가 하나도 없는 사용자를 항상 동일한 404로
-   * 응답한다. 페이지당 질의: 신원·후보 2 + eligibility 1 + 지표별 연결 증명·조회 4 +
-   * 기여자 login 1, 최대 8개로 사용자가 참여한 저장소 개수와 무관하다.
+   * 응답한다. 페이지당 질의: 신원·후보 2 + eligibility의 연결 증명·관찰 2 + 지표별
+   * 연결 증명·조회 4 + 기여자 login 1, 최대 9개로 사용자가 참여한 저장소 개수와 무관하다.
    */
   async findProfile(userId: string): Promise<PublicUserProfileResult> {
     const [identity, rows] = await Promise.all([

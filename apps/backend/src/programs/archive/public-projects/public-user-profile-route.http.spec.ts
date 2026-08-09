@@ -141,7 +141,7 @@ describe.each(controllerOrders)(
       );
 
       expect(response.status).toBe(200);
-      expect(response.headers.get('cache-control')).toBeNull();
+      expect(response.headers.get('cache-control')).toBe('no-store');
       expect(publicProjectsService.findProfile).toHaveBeenCalledWith(
         'synthetic-user-1',
       );

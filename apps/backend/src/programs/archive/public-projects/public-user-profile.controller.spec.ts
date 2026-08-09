@@ -4,15 +4,15 @@ import { PublicUserProfileController } from './public-user-profile.controller';
 import type { PublicProjectsService } from './public-projects.service';
 
 describe('PublicUserProfileController', () => {
-  it('공개 프로필은 저장소 공개 회수 뒤 이전 응답을 cache하지 않는다', () => {
+  it('공개 프로필은 저장소 공개 회수 뒤 이전 응답을 저장하지 않는다', () => {
     const handler: unknown = Object.getOwnPropertyDescriptor(
       PublicUserProfileController.prototype,
       'findProfile',
     )?.value;
     expect(typeof handler).toBe('function');
-    expect(Reflect.getMetadata(HEADERS_METADATA, handler as object)).toBe(
-      undefined,
-    );
+    expect(Reflect.getMetadata(HEADERS_METADATA, handler as object)).toEqual([
+      { name: 'Cache-Control', value: 'no-store' },
+    ]);
   });
 
   it('GET /:userId/public-profile — 서비스 결과를 프로필 응답 DTO로 매핑하며 userId를 그대로 전달한다', async () => {

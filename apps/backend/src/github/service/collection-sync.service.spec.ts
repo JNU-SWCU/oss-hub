@@ -120,6 +120,7 @@ const applyUpdate = (existing: Row, update: Row): Row => {
 interface FailureControl {
   failCommitShas: Set<string>;
   failPullRequestIds: Set<bigint>;
+  failExternalFactCleanup: boolean;
 }
 
 const repoKey = (repoId: bigint): string => String(repoId);
@@ -400,7 +401,13 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
     },
     // 집합 재계산 SQL. 실제 SQL 동작은 통합 스펙이 검증하고,
     // 여기서는 "칸 수와 무관하게 한 번만 돈다"는 계약만 본다.
-    $executeRaw: (): number => {
+    $executeRaw: (query: TemplateStringsArray): number => {
+      if (
+        control.failExternalFactCleanup &&
+        query.join('').includes('DELETE FROM "CollectionCommitFact"')
+      ) {
+        throw new Error('synthetic external fact cleanup failure');
+      }
       box.store.recomputeCalls += 1;
       return 1;
     },
@@ -541,6 +548,7 @@ function createFakeDb(): {
   const control: FailureControl = {
     failCommitShas: new Set(),
     failPullRequestIds: new Set(),
+    failExternalFactCleanup: false,
   };
   const box = { store: emptyStore() };
   const db = makeFacade(box, control) as PrismaService;
@@ -910,8 +918,8 @@ describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
     expect(box.store.recomputeCalls).toBeGreaterThan(0);
   });
 
-  it('외부 저장소 404를 완전 관찰해 ABSENT로 회수하고 stream을 실행하지 않는다', async () => {
-    const { db, box } = createFakeDb();
+  it('외부 저장소 404를 완전 관찰해 정리 실패와 무관하게 ABSENT로 회수하고 stream을 실행하지 않는다', async () => {
+    const { db, box, control } = createFakeDb();
     box.store.repositories.set(repoKey(555n), {
       id: 'repo-external-missing',
       githubOrganizationId: null,
@@ -929,6 +937,7 @@ describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
       new CollectionAppClientError('NOT_FOUND'),
     );
     quietStreams(client);
+    control.failExternalFactCleanup = true;
 
     const result = await createServiceWithExternal(db, client).runExternal(
       'owner-1',
@@ -966,6 +975,7 @@ describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
         fullName: 'student/private-repo',
         ownerLogin: 'student',
         private: true,
+        defaultBranch: null,
       }),
     );
     quietStreams(client);
