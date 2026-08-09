@@ -63,6 +63,12 @@ O2 `ORG_PROVISIONED` 3개(PRIVATE 1 · PUBLIC 2), `EXTERNAL_PUBLIC` 0, `OWN` 신
 O3 표면 `dataAsOf` 16:16:16 으로 마지막 스윕을 1.8초 차로 따라온다.
 **원인은 `C10` 커버리지 공백** — 수집이 멈춘 게 아니라 볼 대상이 조직 저장소 3개뿐이다.
 
+**#729 가 만든 회귀를 하나 더 찾아 고쳤다.** `prCount` → `pullRequestCount` 개명이 백엔드 DTO 와 랭킹 파서에만 반영되고
+**활동 타임라인 파서에는 안 반영됐다.** 그 파서는 `prCount` 를 required 로 요구하고 없으면 점을 버리는데,
+점이 하나라도 null 이면 응답 전체를 던진다 — 활동이 있는 학생에게 **② 프로그램 화면의 타임라인이 통째로 에러**였다.
+단위 테스트가 통과한 이유는 픽스처가 내부 이름(`prCount`)을 쓰면서 선 위의 몸통 역할까지 겸했기 때문이다.
+선 위 형태와 내부 형태를 갈라 두고, 목 서버도 백엔드 DTO 이름을 내도록 맞췄다.
+
 **남은 것.** ① `contributionsCollection` 배선 · fact 층 force-push 조정 · 옛 연도 집계 물리 드롭(`chore/drop-legacy-aggregates`, 아직 열지 않음) ·
 랭킹 읽기의 연결 심층 방어(랭킹 술어는 `visibility`·`presence`만 보고 신청 연결을 보지 않는다).
 
