@@ -61,13 +61,22 @@ export function ApplicationDecisionDialog({
               value={reason}
               onChange={(event) => onReasonChange(event.target.value)}
               aria-invalid={reasonError}
-              aria-describedby={reasonError ? 'reason-error' : undefined}
+              aria-describedby={
+                reasonError ? 'reason-error reason-hint' : 'reason-hint'
+              }
             />
             {reasonError ? (
               <span id="reason-error" className="text-destructive">
                 반려 사유를 입력해 주세요.
               </span>
             ) : null}
+            {/*
+             * 사유가 학생에게 간다는 사실을 **누르기 전에** 말한다(서류 판정 패널과
+             * 같은 규칙). 이 고지가 없으면 교직원은 내부 메모처럼 적는다.
+             */}
+            <span id="reason-hint" className="text-muted-foreground break-keep">
+              적은 사유는 학생에게 그대로 보입니다.
+            </span>
           </label>
         ) : (
           <p>

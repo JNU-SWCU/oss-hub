@@ -218,6 +218,20 @@ describe('ProgramApplicationDetailPage', () => {
     expect(container.textContent).toContain('반려 사유를 입력해 주세요.');
   });
 
+  it('반려 확인창은 사유가 학생에게 간다는 것을 누르기 전에 알린다', async () => {
+    // 이 고지가 없으면 교직원은 내부 메모처럼 적는다. 사유는 학생 화면에 그대로 실린다.
+    getApplicationDetailMock.mockResolvedValue(submitted);
+    await mount();
+
+    await act(async () => {
+      getButton('반려').click();
+    });
+
+    expect(container.textContent).toContain(
+      '적은 사유는 학생에게 그대로 보입니다.',
+    );
+  });
+
   it('반려 사유를 적으면 그 사유로 판정을 저장하고 다시 읽는다', async () => {
     getApplicationDetailMock.mockResolvedValueOnce(submitted);
     decideApplicationMock.mockResolvedValue({
