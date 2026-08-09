@@ -82,7 +82,7 @@ export function AdminAccessMutationActions({
           <div
             role="radiogroup"
             aria-labelledby="admin-access-role-control-label"
-            className="flex flex-col gap-2 sm:flex-row"
+            className="grid grid-cols-3 gap-2"
           >
             {ROLE_ORDER.map((role) => {
               const isCurrent = detail.role === role;
@@ -99,13 +99,14 @@ export function AdminAccessMutationActions({
                   role="radio"
                   aria-checked={isCurrent}
                   variant={isCurrent ? 'default' : 'outline'}
-                  className="h-11 flex-1"
+                  size="sm"
+                  className="h-auto min-h-10 w-full flex-col gap-0.5 px-2 py-1.5"
                   disabled={disabled}
                   onClick={() => onRequestAction(actionForRole(role))}
                 >
-                  {ROLE_LABEL[role]}
+                  <span>{ROLE_LABEL[role]}</span>
                   {isCurrent ? (
-                    <span className="ml-1 text-xs">(현재)</span>
+                    <span className="text-xs leading-none">(현재)</span>
                   ) : null}
                 </Button>
               );
@@ -127,7 +128,7 @@ export function AdminAccessMutationActions({
           <div
             role="radiogroup"
             aria-labelledby="admin-access-status-control-label"
-            className="flex flex-col gap-2 sm:flex-row"
+            className="grid grid-cols-2 gap-2"
           >
             {ACCOUNT_STATUS_ORDER.map((status) => {
               const isCurrent = detail.accountStatus === status;
@@ -150,15 +151,16 @@ export function AdminAccessMutationActions({
                         ? 'destructive'
                         : 'outline'
                   }
-                  className="h-11 flex-1"
+                  size="sm"
+                  className="h-auto min-h-10 w-full flex-col gap-0.5 px-2 py-1.5"
                   disabled={disabled}
                   onClick={() =>
                     onRequestAction(actionForAccountStatus(status))
                   }
                 >
-                  {ACCOUNT_STATUS_LABEL[status]}
+                  <span>{ACCOUNT_STATUS_LABEL[status]}</span>
                   {isCurrent ? (
-                    <span className="ml-1 text-xs">(현재)</span>
+                    <span className="text-xs leading-none">(현재)</span>
                   ) : null}
                 </Button>
               );
