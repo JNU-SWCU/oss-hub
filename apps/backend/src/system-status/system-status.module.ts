@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
-import { CollectionModule } from '../collection/collection.module';
+import { CollectionModule } from '../github/collection.module';
 import { SystemStatusController } from './system-status.controller';
 import { SystemStatusRepository } from './system-status.repository';
 import {
