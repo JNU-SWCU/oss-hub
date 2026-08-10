@@ -14,8 +14,12 @@ import type { AdminAccessActor } from './admin-access.repository.types';
  * 고쳐진 채로 #687의 TOCTOU 창이 다시 열린다.
  *
  * **잠금 순서**: 활성 ADMIN 집합(id 오름차순) → 개별 대상 행. actor 행을 먼저 잠그면
- * 이 순서가 뒤집혀, 두 관리자가 서로를 동시에 정리할 때 교착한다
- * (`account-deactivation.service.ts`가 같은 순서를 지킨다).
+ * 이 순서가 뒤집혀, 두 관리자가 서로를 동시에 정리할 때 교착한다.
+ *
+ * 본인 계정 비활성화(`account-deactivation.service.ts`)는 actor를 재검증하지 않지만
+ * 마지막 활성 ADMIN 불변식 때문에 **같은 집합을 같은 순서로** 잠근다 — 그래서 그 경로도
+ * SQL을 따로 쓰지 않고 `lockActiveAdminRows`를 부른다. 잠금 순서 규칙이 두 벌로 갈라지는
+ * 것 자체가 교착의 원인이다(`common/AGENTS.md`의 `milestone-document-locks.ts` 항목과 같은 이유).
  */
 export const ADMIN_ACTOR_SELECT = {
   id: true,
