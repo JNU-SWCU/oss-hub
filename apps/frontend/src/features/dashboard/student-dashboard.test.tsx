@@ -166,7 +166,39 @@ describe('StudentDashboardView', () => {
     expect(html).toContain('신청이 반려되었습니다.');
     expect(html).toContain('신청 상세');
     expect(html).not.toContain('제출 체크리스트');
+    // 카드가 약속하는 것과 목적지가 같아야 한다. 예전 문구는 "프로그램 상세에서 신청
+    // 상태를"이었는데 그 화면에는 신청 상태도 사유도 없었다(#733).
+    expect(html).toContain('신청 상세에서 반려 사유를 확인해 주세요.');
+    expect(html).not.toContain('프로그램 상세에서 신청 상태를 확인해 주세요.');
   });
+
+  /**
+   * 카드의 「신청 상세」 버튼이 **어디로 가는지**. 이 값을 확인하는 테스트가 하나도 없어,
+   * 반려 카드가 사유 없는 프로그램 상세를 가리키는 동안에도 전부 초록불이었다(#733).
+   *
+   * href는 응답이 준 `detailUrl`을 **그대로** 써야 한다. 화면이 자기 규칙으로 주소를 다시
+   * 만들면 서버는 계속 틀린 값을 내보내고, 같은 값을 읽는 알림·다른 화면이 똑같이 어긋난다.
+   * 그래서 문자열을 박지 않고 픽스처가 실은 값과 대조한다 — 다만 그 값 자체가 신청서
+   * 화면인지도 함께 고정해야, 픽스처가 옛 주소로 돌아가면 여기서 걸린다.
+   */
+  it.each([
+    ['승인 대기', pendingDashboardFixture],
+    ['반려', rejectedDashboardFixture],
+  ] as const)(
+    '%s 카드의 신청 상세는 응답이 준 신청서 화면으로 간다',
+    (_label, data) => {
+      const item = data.items[0];
+      if (item === undefined) {
+        throw new Error('카드가 하나 이상인 fixture가 필요합니다.');
+      }
+
+      const html = renderView({ data });
+
+      expect(item.detailUrl).toBe(`/programs/${item.programId}/apply`);
+      expect(html).toContain(`href="${item.detailUrl}"`);
+      expect(html).not.toContain(`href="/programs/${item.programId}"`);
+    },
+  );
 
   it('신청이 없으면 프로그램 목록 이동을 제공한다', () => {
     const html = renderView({ data: { items: [] } });
