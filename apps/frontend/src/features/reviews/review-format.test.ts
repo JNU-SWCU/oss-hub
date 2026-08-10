@@ -52,7 +52,9 @@ describe('blockedReasonLabel', () => {
 describe('revisionContent', () => {
   it('TEXT 유형은 본문 텍스트를 그대로 보여준다', () => {
     const value = revisionContent(
-      revision({ content: { type: 'TEXT', text: '이번 마일스톤 보고서입니다.' } }),
+      revision({
+        content: { type: 'TEXT', text: '이번 마일스톤 보고서입니다.' },
+      }),
     );
 
     expect(value).toBe('이번 마일스톤 보고서입니다.');

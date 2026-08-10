@@ -55,7 +55,9 @@ export function RevisionCard({
   // FILE 유형인데 첨부가 비어 있으면(보존 기한 만료 등) 보여 줄 본문 텍스트가 없다 —
   // 빈 <pre>를 그리는 대신 제출 자체는 있었다는 사실을 짧게 알린다.
   const showFileOnlyNotice =
-    contentText === '' && isFileOnlyRevision(revision) && revision.files.length === 0;
+    contentText === '' &&
+    isFileOnlyRevision(revision) &&
+    revision.files.length === 0;
   return (
     <Card size={current ? 'default' : 'sm'}>
       <CardHeader className="border-b border-border">

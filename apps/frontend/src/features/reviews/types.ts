@@ -34,8 +34,7 @@ export interface SubmissionFileContent {
 }
 
 export type SubmissionRevisionContent =
-  | SubmissionTextContent
-  | SubmissionFileContent;
+  SubmissionTextContent | SubmissionFileContent;
 
 export interface SubmissionRevision {
   readonly number: number;

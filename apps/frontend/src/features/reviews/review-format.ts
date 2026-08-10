@@ -96,7 +96,10 @@ function isTextContent(
 
 function isFileContent(value: unknown): value is { readonly type: 'FILE' } {
   return (
-    !!value && typeof value === 'object' && 'type' in value && value.type === 'FILE'
+    !!value &&
+    typeof value === 'object' &&
+    'type' in value &&
+    value.type === 'FILE'
   );
 }
 
