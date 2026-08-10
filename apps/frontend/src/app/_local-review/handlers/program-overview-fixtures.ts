@@ -55,7 +55,10 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
     // viewerSubmissionStatus와 앞뒤가 맞아야 한다.
     studentDocumentsCompleted: 2,
     studentDocumentsTotal: 3,
-    nextMilestone: { label: '최종 결과 요약', dueAt: '2026-09-12T09:00:00.000Z' },
+    nextMilestone: {
+      label: '최종 결과 요약',
+      dueAt: '2026-09-12T09:00:00.000Z',
+    },
     milestoneDocuments: [
       {
         milestoneId: 'milestones-approved',

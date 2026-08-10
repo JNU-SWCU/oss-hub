@@ -294,10 +294,7 @@ const updateProgramHandler: LocalReviewHandler = (context) => {
   });
 };
 
-const SUBMISSION_TYPES: readonly SubmissionType[] = [
-  'FILE',
-  'TEXT',
-];
+const SUBMISSION_TYPES: readonly SubmissionType[] = ['FILE', 'TEXT'];
 
 /**
  * 마일스톤 저장 응답. 화면은 이 결과를 목록에 그대로 끼워 넣으므로 입력한

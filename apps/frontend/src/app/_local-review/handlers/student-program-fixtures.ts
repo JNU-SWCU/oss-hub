@@ -489,8 +489,7 @@ export const PROGRAM_CHECKLISTS: Readonly<Record<string, SubmissionChecklist>> =
             decision: 'CHANGES_REQUESTED' as const,
             currentRevision: 1,
             lastReviewedAt: '2026-07-30T16:20:00.000+09:00',
-            reviewComment:
-              '실행 환경과 변경 내역을 추가해 주세요.',
+            reviewComment: '실행 환경과 변경 내역을 추가해 주세요.',
             canResubmit: true,
             // 본문만 낸 제출이라 첨부는 없다.
             file: null,
@@ -513,8 +512,7 @@ export const PROGRAM_CHECKLISTS: Readonly<Record<string, SubmissionChecklist>> =
             decision: 'CHANGES_REQUESTED' as const,
             currentRevision: 2,
             lastReviewedAt: '2026-07-29T14:10:00.000+09:00',
-            reviewComment:
-              '재현 순서와 테스트 결과를 보완해 주세요.',
+            reviewComment: '재현 순서와 테스트 결과를 보완해 주세요.',
             canResubmit: true,
             // 본문만 낸 제출이라 첨부는 없다.
             file: null,
