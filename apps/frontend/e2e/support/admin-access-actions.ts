@@ -34,11 +34,13 @@ export async function openDetail(
 }
 
 /**
- * 접근 변경을 시작한다 — 확인 다이얼로그가 뜨는 지점까지만 진행한다.
+ * 대기 중인 요청 카드의 「승인」/「반려」를 눌러 확인 다이얼로그가 뜨는
+ * 지점까지만 진행한다.
  *
  * 예전에는 `접근 변경 작업 선택` 셀렉트 하나에서 작업을 고르고 `실행` 을 눌렀다.
  * #759 가 그 셀렉트를 없애고 `역할`·`계정 상태` 라디오그룹과 승인/반려 버튼으로
- * 쪼갰는데 이 헬퍼가 따라가지 않아 main 의 e2e 가 계속 빨간불이었다.
+ * 쪼갰다. 역할 변경은 이제 이 헬퍼가 아니라 `changeRole` 이 맡는다 — 라디오
+ * 버튼 직접 선택 방식이라 "작업 이름 고르기" 추상화에 맞지 않는다.
  */
 export async function chooseMutation(
   page: Page,
@@ -52,18 +54,22 @@ export async function chooseMutation(
     await page.getByRole('button', { name: '반려', exact: true }).click();
     return;
   }
-  if (optionName.startsWith('권한 회수')) {
-    // 새 UI 에는 `STAFF → null` 로 가는 컨트롤이 없다(`ROLE_ORDER` 는
-    // STUDENT·STAFF·ADMIN 뿐이고 `actionForRole` 에 null 갈래가 없다).
-    // 백엔드는 그 전이에서만 `REVOKED` 이력을 남기므로(`admin-access-transition-table`),
-    // `학생` 을 고르는 것으로 대신하면 회수라는 사실이 기록되지 않는다.
-    // 그 이력은 #184 안내와 로그인 시드 가드가 읽는 값이라 대체가 성립하지 않는다.
-    throw new Error(
-      '권한 회수 경로가 UI 에 없다 — #759 가 STAFF → null 컨트롤을 제거했다. ' +
-        '학생 전환으로 대체하면 REVOKED 이력이 남지 않아 같은 시나리오가 아니다.',
-    );
-  }
   throw new Error(`알 수 없는 접근 변경 작업: ${optionName}`);
+}
+
+/**
+ * 접근 변경 카드의 역할 세그먼트 컨트롤에서 `roleLabel`(학생/교직원/관리자)을
+ * 고르고 확인 다이얼로그까지 진행한다.
+ *
+ * #765 결정 이후 강등·승격 모두 같은 「권한 변경」/「변경 확정」 문구를 쓴다
+ * (파괴적 스타일만 다르다) — 직접 강등은 REVOKED 이력을 남기지 않으므로
+ * 회수를 자칭하는 별도 문구를 두지 않는다(`admin-access-revocation.ts`).
+ * null 로 비우는 진짜 회수(REVOKED 이력 포함)는 이 컨트롤로 갈 수 없고
+ * `requestStaffRoleRevocation` 을 통해 API 로만 도달한다.
+ */
+export async function changeRole(page: Page, roleLabel: string): Promise<void> {
+  await page.getByRole('radio', { name: roleLabel, exact: true }).click();
+  await page.getByRole('button', { name: '변경 확정', exact: true }).click();
 }
 
 export async function chooseStaffRole(page: Page): Promise<void> {
