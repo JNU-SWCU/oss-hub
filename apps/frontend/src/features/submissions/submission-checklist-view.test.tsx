@@ -69,7 +69,7 @@ const ITEMS: readonly SubmissionChecklistItem[] = [
     milestoneId: 'milestone-demo',
     name: '시연 영상',
     dueAt: '2026-07-30T14:59:59.000Z',
-    submissionType: 'REPOSITORY_RELEASE',
+    submissionType: 'TEXT',
     submission: submission({ id: 'submission-demo', status: 'SUBMITTED' }),
   },
   {
@@ -102,7 +102,6 @@ const CHECKLIST: SubmissionChecklist = {
 
 const handlers = {
   onTextChange: vi.fn(),
-  onReleaseUrlChange: vi.fn(),
   onFileChange: vi.fn(),
   onCommentChange: vi.fn(),
   onResubmit: vi.fn(),
@@ -115,7 +114,7 @@ function render(overrides: Partial<SubmissionChecklistViewProps> = {}): string {
       checklist={CHECKLIST}
       selectedMilestoneId={null}
       now={NOW}
-      input={{ file: null, text: '', releaseUrl: '' }}
+      input={{ file: null, text: '' }}
       comment=""
       errors={{}}
       fileError={null}
