@@ -338,9 +338,10 @@ describe('program applicants revert action', () => {
   let root: Root;
 
   beforeEach(() => {
-    // ⚠ 포커스가 문서 맨 앞인 상태에서 시작한다 — 앞 테스트가 남긴 (이미 문서에서
-    //   떨어져 나간) 노드가 `activeElement` 로 남아 있으면 Radix 의 기본 복귀가 그 죽은
-    //   노드를 향해 **아무 일도 안 하고**, 그러면 복귀 규칙을 검사한 것이 아니게 된다.
+    // ⚠ 포커스가 문서 맨 앞인 상태에서 시작한다 — 앞 테스트가 문서에 **붙인 채로** 남긴
+    //   요소가 포커스를 쥐고 있으면, 「비어 있을 때만 옮긴다」 가드가 그 요소 때문에 갈려
+    //   복귀 규칙을 검사한 것이 아니게 된다. (떨어져 나간 노드는 happy-dom 이 스스로
+    //   `body` 로 되돌리므로 그쪽은 걱정할 것이 없다 — 실측으로 확인했다.)
     (document.activeElement as HTMLElement | null)?.blur();
     container = document.createElement('div');
     document.body.append(container);
@@ -743,6 +744,55 @@ describe('program applicants revert action', () => {
     expect((document.activeElement as HTMLElement | null)?.id).toBe(
       applicationDecisionTriggerId('REVERT', second.id),
     );
+  });
+
+  it('재조회를 기다리는 사이 사용자가 다른 곳을 잡았으면 포커스를 뺏지 않는다', async () => {
+    // ⚠ 확인창은 재조회를 **기다리기 전에** 닫힌다 — 그 사이 화면은 이미 조작할 수 있다.
+    // 재조회가 느리면 사용자는 그동안 다른 칸으로 옮겨 간다. 늦게 도착한 예약이 그걸
+    // 뺏으면 이 PR 이 고치려는 것과 **같은 고장을 반대 방향으로** 만든다.
+    const second: ApplicationListItem = { ...personal, id: 'app-personal-2' };
+    const reload = deferred<ApplicationListPage>();
+    listProgramApplicationsMock
+      .mockResolvedValueOnce(applicationPage([personal, second]))
+      .mockReturnValueOnce(reload.promise);
+    decideApplicationMock.mockResolvedValue({
+      applicationId: second.id,
+      status: 'APPROVED',
+    });
+    await act(async () => {
+      root.render(<ProgramApplicantsPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const approveButtons = Array.from(
+      document.querySelectorAll('button'),
+    ).filter((button) => button.textContent?.trim() === '승인');
+
+    // When: 둘째 행을 승인하고, 재조회가 아직 안 끝난 사이에 다른 칸을 잡는다.
+    await act(async () => approveButtons[1]!.click());
+    await act(async () => getButton('승인 확정').click());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+
+    const elsewhere = document.createElement('input');
+    document.body.append(elsewhere);
+    elsewhere.focus();
+    expect(document.activeElement).toBe(elsewhere);
+
+    await act(async () => {
+      reload.resolve(
+        applicationPage([personal, { ...second, status: 'APPROVED' }]),
+      );
+      await Promise.resolve();
+    });
+    await flushCloseAutoFocus();
+
+    // Then: 사용자가 잡은 자리가 그대로다.
+    expect(document.activeElement).toBe(elsewhere);
+    elsewhere.remove();
   });
 
   it('되돌리기에 성공하면 그 행에 다시 생긴 승인 버튼으로 포커스가 간다', async () => {

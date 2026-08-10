@@ -59,10 +59,27 @@ export function focusApplicationDecisionTrigger(
 }
 
 /**
+ * 포커스를 아직 아무도 가져가지 않았는지. `<body>` 에 있거나 없으면 「비어 있다」로 본다.
+ *
+ * 확인창은 재조회를 **기다리기 전에** 닫히므로(`program-applicants-page` 의 판정 처리),
+ * 그 사이 화면은 이미 조작할 수 있다. 재조회가 오래 걸리는 동안 사용자가 검색칸으로
+ * 옮겨 갔다면 그 자리가 사용자의 의사다 — 늦게 도착한 예약이 그걸 뺏으면 이 PR 이
+ * 고치려는 것과 같은 고장을 반대 방향으로 만든다.
+ */
+function focusIsUnclaimed(): boolean {
+  const active = document.activeElement;
+  return active === null || active === document.body;
+}
+
+/**
  * 재조회까지 끝난 뒤 판정 버튼으로 포커스를 돌려 달라고 예약한다.
  *
  * ⚠ 재조회 직후 그 자리에서 `focus()` 를 부르면 안 된다 — 그 시점의 DOM 은 아직 옛
  *   버튼이다. 상태로 예약하고 effect 에서 옮겨야 새 버튼이 그려진 뒤에 닿는다.
+ *
+ * ⚠ 그리고 **비어 있을 때만** 옮긴다. 사용자가 이미 어딘가를 잡고 있으면 아무것도 하지
+ *   않는다. Radix 의 늦은 복귀가 먼저 성공한 경우도 여기서 걸러진다 — 그때 잡혀 있는
+ *   버튼은 후보 첫째와 같은 버튼이라 다시 옮길 이유가 없다.
  *
  * 예약을 다시 비우지 않는다 — 후보 목록은 부를 때마다 새 배열이라 같은 판정을 두 번
  * 부탁해도 effect 가 다시 돈다. 비우는 코드는 변이로 죽은 코드임을 확인했다.
@@ -75,6 +92,7 @@ export function useApplicationDecisionFocusReturn(): (
 
   useEffect(() => {
     if (pending === null) return;
+    if (!focusIsUnclaimed()) return;
     focusApplicationDecisionTrigger(pending);
   }, [pending]);
 
