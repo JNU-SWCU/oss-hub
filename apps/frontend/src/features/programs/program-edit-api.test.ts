@@ -124,7 +124,7 @@ describe('program edit API', () => {
     const input = {
       name: 'Final',
       dueAt: '2026-08-20T00:00:00.000Z',
-      submissionType: 'REPOSITORY_RELEASE' as const,
+      submissionType: 'TEXT' as const,
       instructions: 'tag',
     };
 

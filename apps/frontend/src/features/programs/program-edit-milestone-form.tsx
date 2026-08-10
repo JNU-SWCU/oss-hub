@@ -16,7 +16,6 @@ import type { SubmissionType } from './types';
 const SUBMISSION_TYPES = [
   'FILE',
   'TEXT',
-  'REPOSITORY_RELEASE',
 ] as const satisfies readonly SubmissionType[];
 
 interface ProgramEditMilestoneFormProps {
@@ -126,8 +125,6 @@ function toSubmissionType(value: string): SubmissionType {
       return 'FILE';
     case 'TEXT':
       return 'TEXT';
-    case 'REPOSITORY_RELEASE':
-      return 'REPOSITORY_RELEASE';
     default:
       return DEFAULT_SUBMISSION_TYPE;
   }
