@@ -155,15 +155,16 @@ describe('RoleGate 렌더', () => {
     expect(text).toContain(CHILD);
   });
 
-  it('안내가 있어도 비로그인은 랜딩으로 보내고 아무것도 열지 않는다', async () => {
+  it('비로그인은 리다이렉트하지 않고 로그인 안내를 그 자리에 보여준다(QA46)', async () => {
     const text = await render(
       { status: 'anonymous' },
       { unassignedAccess: OPEN, unassignedNotice: <p>{NOTICE}</p> },
     );
 
-    expect(mocks.replace).toHaveBeenCalledWith('/');
+    expect(mocks.replace).not.toHaveBeenCalled();
     expect(text).not.toContain(CHILD);
     expect(text).not.toContain(NOTICE);
+    expect(text).toContain('로그인이 필요한 페이지입니다');
   });
 
   it('안내가 있어도 조회 실패는 어디로도 보내지 않고 재시도를 준다', async () => {

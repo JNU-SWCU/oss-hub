@@ -261,11 +261,12 @@ describe('설정 화면', () => {
     },
   );
 
-  it('비로그인 사용자는 랜딩으로 보내고 설정을 열지 않는다', async () => {
+  it('비로그인 사용자는 리다이렉트하지 않고 로그인 안내를 보여준다(QA46)', async () => {
     await render({ status: 'anonymous' });
 
-    expect(mocks.replace).toHaveBeenCalledWith('/');
+    expect(mocks.replace).not.toHaveBeenCalled();
     expect(container.querySelector('#settings-name')).toBeNull();
+    expect(container.textContent).toContain('로그인이 필요한 페이지입니다');
   });
 
   // 회귀 방지: 조회 실패를 미배정으로 오인하면, 역할을 모르는 채로 프로필 폼이
