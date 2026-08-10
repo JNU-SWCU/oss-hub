@@ -28,12 +28,8 @@ const form = jest.fn().mockResolvedValue({
     dueAt: '2026-08-30T00:00:00.000Z',
     dDay: 38,
     deadlineLabel: 'D-38',
-    submissionType: 'REPOSITORY_RELEASE',
+    submissionType: 'TEXT',
     instructions: null,
-  },
-  repository: {
-    url: 'https://github.invalid/oss-hub-seed/repository-ready',
-    status: 'READY',
   },
   existingSubmission: null,
   canSubmit: true,
@@ -138,7 +134,7 @@ afterAll(async () => {
 });
 
 it('private 제출 폼은 브라우저와 공유 캐시에 저장하지 않는다', async () => {
-  // Given: applicationId와 private repository URL이 포함된 제출 폼.
+  // Given: applicationId가 포함된 제출 폼.
 
   // When
   const response = await fetch(
@@ -150,9 +146,6 @@ it('private 제출 폼은 브라우저와 공유 캐시에 저장하지 않는�
   expect(response.headers.get('cache-control')).toBe('private, no-store');
   await expect(response.json()).resolves.toMatchObject({
     applicationId: 'synthetic-application',
-    repository: {
-      url: 'https://github.invalid/oss-hub-seed/repository-ready',
-    },
   });
 });
 
@@ -360,30 +353,6 @@ it('정수가 아닌 baseRevision은 서비스 호출 전에 거절한다', asyn
   expect(response.status).toBe(400);
   await expect(response.json()).resolves.toMatchObject({ code: 'SYS_003' });
   expect(resubmit).not.toHaveBeenCalled();
-});
-
-it('2,048자를 넘는 release URL은 서비스 호출 전에 거절한다', async () => {
-  // Given
-  const body = {
-    applicationId: 'synthetic-application',
-    milestoneId: 'synthetic-milestone',
-    content: {
-      type: 'REPOSITORY_RELEASE',
-      releaseUrl: `https://github.invalid/${'a'.repeat(2_048)}`,
-    },
-  };
-
-  // When
-  const response = await fetch(`${baseUrl}/api/v1/submissions`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  // Then
-  expect(response.status).toBe(400);
-  await expect(response.json()).resolves.toMatchObject({ code: 'SYS_003' });
-  expect(create).not.toHaveBeenCalled();
 });
 
 function readGuards(
