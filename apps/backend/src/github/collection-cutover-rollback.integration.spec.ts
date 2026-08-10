@@ -38,6 +38,7 @@ const oldContributorId = 9_000_000_000_005_201n;
 const newGithubOrganizationId = 9_000_000_000_005_301n;
 const newGithubRepositoryId = 9_000_000_000_005_401n;
 const newContributorId = 9_000_000_000_005_501n;
+const newContributorUserId = 'synthetic-rollback-post-cutover-contributor';
 
 const publishedAt = new Date('2026-01-01T00:00:00.000Z');
 
@@ -211,6 +212,13 @@ describe('Collection cutover rollback data-preservation contract (ADR-006, F3 au
     // disjoint synthetic repository/org, simulating real post-cutover
     // collection cycles happening after the pre-cutover generation above
     // was published.
+    await prisma.user.create({
+      data: {
+        id: newContributorUserId,
+        githubId: newContributorId,
+        nickname: 'synthetic-post-cutover-contributor',
+      },
+    });
     const newRepository =
       await incrementalRepository.recordRepositoryObservation({
         githubOrganizationId: newGithubOrganizationId,
@@ -223,31 +231,45 @@ describe('Collection cutover rollback data-preservation contract (ADR-006, F3 au
         source: 'ORG_PROVISIONED',
         observedAt: new Date('2026-02-01T00:00:00.000Z'),
       });
-    await incrementalRepository.recordCommitFacts(newRepository.id, [
-      {
-        sha: 'synthetic-post-cutover-commit',
-        committedAt: new Date('2026-02-01T00:00:00.000Z'),
-        authorGithubId: newContributorId,
-        authorGithubLogin: 'synthetic-post-cutover-contributor',
-      },
-    ]);
-    await incrementalRepository.recordPullRequestFacts(newRepository.id, [
-      {
-        githubPullRequestId: 9_000_000_000_005_801n,
-        state: 'open',
-        createdAt: new Date('2026-02-01T00:00:00.000Z'),
-        authorGithubId: newContributorId,
-        authorGithubLogin: 'synthetic-post-cutover-contributor',
-      },
-    ]);
-    await incrementalRepository.recordReleaseFacts(newRepository.id, [
-      {
-        githubReleaseId: 9_000_000_000_005_901n,
-        publishedAt: new Date('2026-02-01T00:00:00.000Z'),
-        authorGithubId: newContributorId,
-        authorGithubLogin: 'synthetic-post-cutover-contributor',
-      },
-    ]);
+    const registeredGithubIds =
+      await incrementalRepository.listRegisteredGithubIds();
+    await incrementalRepository.recordCommitFacts(
+      newRepository.id,
+      [
+        {
+          sha: 'synthetic-post-cutover-commit',
+          committedAt: new Date('2026-02-01T00:00:00.000Z'),
+          authorGithubId: newContributorId,
+          authorGithubLogin: 'synthetic-post-cutover-contributor',
+        },
+      ],
+      registeredGithubIds,
+    );
+    await incrementalRepository.recordPullRequestFacts(
+      newRepository.id,
+      [
+        {
+          githubPullRequestId: 9_000_000_000_005_801n,
+          state: 'open',
+          createdAt: new Date('2026-02-01T00:00:00.000Z'),
+          authorGithubId: newContributorId,
+          authorGithubLogin: 'synthetic-post-cutover-contributor',
+        },
+      ],
+      registeredGithubIds,
+    );
+    await incrementalRepository.recordReleaseFacts(
+      newRepository.id,
+      [
+        {
+          githubReleaseId: 9_000_000_000_005_901n,
+          publishedAt: new Date('2026-02-01T00:00:00.000Z'),
+          authorGithubId: newContributorId,
+          authorGithubLogin: 'synthetic-post-cutover-contributor',
+        },
+      ],
+      registeredGithubIds,
+    );
     await incrementalRepository.upsertSyncCursor({
       appId: newGithubOrganizationId,
       scope: 'org:synthetic-rollback-org',
@@ -278,6 +300,7 @@ describe('Collection cutover rollback data-preservation contract (ADR-006, F3 au
       'DELETE FROM "GithubRepository" WHERE "githubOrganizationId" = $1',
       newGithubOrganizationId,
     );
+    await prisma.user.deleteMany({ where: { id: newContributorUserId } });
     await prisma.$executeRawUnsafe(
       'DELETE FROM "CanonicalCollectionLease" WHERE "appId" = $1',
       oldAppId,

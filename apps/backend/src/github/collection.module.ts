@@ -153,6 +153,7 @@ import {
           generationImportService,
           syncService,
           cutoverRepository,
+          incrementalRepository,
           () => {
             const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
             return Promise.resolve({

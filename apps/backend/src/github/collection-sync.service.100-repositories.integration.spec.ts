@@ -46,6 +46,9 @@ const ORG_LOGIN = SYNTHETIC_ORG_LOGIN;
 const SCOPE = `org:${ORG_LOGIN}`;
 const GITHUB_ORGANIZATION_ID = 9_000_000_300_002n;
 const OWNER_ID = 'synthetic-scale-suite-instance';
+const CONTRIBUTOR_IDS = Array.from({ length: 5 }, (_, index) =>
+  BigInt(9_000_000_400 + index),
+);
 
 const REPO_COUNT = 100;
 const ANCHOR = Date.parse('2026-01-01T00:00:00.000Z');
@@ -327,6 +330,14 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
 
   beforeAll(async () => {
     await prisma.$connect();
+    await prisma.user.createMany({
+      data: CONTRIBUTOR_IDS.map((githubId, index) => ({
+        id: `synthetic-scale-contributor-${index}`,
+        githubId,
+        nickname: `synthetic-contributor-${index}`,
+      })),
+      skipDuplicates: true,
+    });
     // Captured as unbound references deliberately: each is re-bound per call
     // via `.call(this, ...)` inside the mock below, since `this` varies (a
     // fresh `CollectionIncrementalRepository` per `runInTransaction` call).
@@ -345,8 +356,14 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
         this: CollectionIncrementalRepository,
         repositoryId,
         facts,
+        registeredGithubIds,
       ) {
-        const result = await originalCommit.call(this, repositoryId, facts);
+        const result = await originalCommit.call(
+          this,
+          repositoryId,
+          facts,
+          registeredGithubIds,
+        );
         commitWrites.push(result.insertedCount);
         return result;
       });
@@ -359,11 +376,13 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
         this: CollectionIncrementalRepository,
         repositoryId,
         facts,
+        registeredGithubIds,
       ) {
         const result = await originalPullRequest.call(
           this,
           repositoryId,
           facts,
+          registeredGithubIds,
         );
         pullRequestWrites.push(result.insertedCount);
         return result;
@@ -374,8 +393,14 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
         this: CollectionIncrementalRepository,
         repositoryId,
         facts,
+        registeredGithubIds,
       ) {
-        const result = await originalRelease.call(this, repositoryId, facts);
+        const result = await originalRelease.call(
+          this,
+          repositoryId,
+          facts,
+          registeredGithubIds,
+        );
         releaseWrites.push(result.insertedCount);
         return result;
       });
@@ -395,6 +420,9 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       'DELETE FROM "GithubRepository" WHERE "githubOrganizationId" = $1',
       GITHUB_ORGANIZATION_ID,
     );
+    await prisma.user.deleteMany({
+      where: { id: { startsWith: 'synthetic-scale-contributor-' } },
+    });
     await prisma.$disconnect();
   });
 
@@ -712,8 +740,17 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     // Simulated crash-then-retry: the exact same fact batch is resent as if
     // the process had died after the provider call but before the cursor
     // advanced, and the caller simply retries from scratch.
-    const first = await repository.recordCommitFacts(repoRow.id, facts);
-    const second = await repository.recordCommitFacts(repoRow.id, facts);
+    const registeredGithubIds = await repository.listRegisteredGithubIds();
+    const first = await repository.recordCommitFacts(
+      repoRow.id,
+      facts,
+      registeredGithubIds,
+    );
+    const second = await repository.recordCommitFacts(
+      repoRow.id,
+      facts,
+      registeredGithubIds,
+    );
 
     expect(first.insertedCount).toBe(0); // already recorded during the drain
     expect(second.insertedCount).toBe(0);
@@ -773,14 +810,18 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     await expect(
       repository.runInTransaction(async (repo) => {
         await repo.assertSyncLeaseValid(stale, takeoverAt);
-        await repo.recordCommitFacts(repoRow.id, [
-          {
-            sha: 'synthetic-stale-lease-write-attempt',
-            committedAt: takeoverAt,
-            authorGithubId: null,
-            authorGithubLogin: null,
-          },
-        ]);
+        await repo.recordCommitFacts(
+          repoRow.id,
+          [
+            {
+              sha: 'synthetic-stale-lease-write-attempt',
+              committedAt: takeoverAt,
+              authorGithubId: null,
+              authorGithubLogin: null,
+            },
+          ],
+          new Set(),
+        );
       }),
     ).rejects.toThrow('lease is stale');
 

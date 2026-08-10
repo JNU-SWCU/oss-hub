@@ -4,6 +4,7 @@ import type {
   AcquireCutoverLeaseInput,
   CutoverLeaseToken,
 } from '../collection-cutover.types';
+import type { RegisteredGithubIdSet } from '../collection-incremental.types';
 
 /**
  * todo 14 원자 전환 quiesce lease + 검증 보조 조회. lease 획득/해제는 `CollectionSyncLease`와
@@ -71,28 +72,43 @@ export class CollectionCutoverRepository {
 
   async countCommitFactsForRepositories(
     repositoryIds: readonly string[],
+    registeredGithubIds: RegisteredGithubIdSet,
   ): Promise<number> {
-    if (repositoryIds.length === 0) return 0;
-    return this.db.collectionCommitFact.count({
-      where: { repositoryId: { in: [...repositoryIds] } },
-    });
+    if (repositoryIds.length === 0 || registeredGithubIds.size === 0) return 0;
+    const rows = await this.db.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint AS "count"
+      FROM "CollectionCommitFact" f
+      WHERE f."repositoryId" = ANY(${[...repositoryIds]})
+        AND f."authorGithubId" = ANY(${[...registeredGithubIds]})
+    `;
+    return Number(rows[0]?.count ?? 0n);
   }
 
   async countPullRequestFactsForRepositories(
     repositoryIds: readonly string[],
+    registeredGithubIds: RegisteredGithubIdSet,
   ): Promise<number> {
-    if (repositoryIds.length === 0) return 0;
-    return this.db.collectionPullRequestFact.count({
-      where: { repositoryId: { in: [...repositoryIds] } },
-    });
+    if (repositoryIds.length === 0 || registeredGithubIds.size === 0) return 0;
+    const rows = await this.db.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint AS "count"
+      FROM "CollectionPullRequestFact" f
+      WHERE f."repositoryId" = ANY(${[...repositoryIds]})
+        AND f."authorGithubId" = ANY(${[...registeredGithubIds]})
+    `;
+    return Number(rows[0]?.count ?? 0n);
   }
 
   async countReleaseFactsForRepositories(
     repositoryIds: readonly string[],
+    registeredGithubIds: RegisteredGithubIdSet,
   ): Promise<number> {
-    if (repositoryIds.length === 0) return 0;
-    return this.db.collectionReleaseFact.count({
-      where: { repositoryId: { in: [...repositoryIds] } },
-    });
+    if (repositoryIds.length === 0 || registeredGithubIds.size === 0) return 0;
+    const rows = await this.db.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint AS "count"
+      FROM "CollectionReleaseFact" f
+      WHERE f."repositoryId" = ANY(${[...repositoryIds]})
+        AND f."authorGithubId" = ANY(${[...registeredGithubIds]})
+    `;
+    return Number(rows[0]?.count ?? 0n);
   }
 }

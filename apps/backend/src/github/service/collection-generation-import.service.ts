@@ -9,13 +9,16 @@ import type {
 } from '../collection-canonical.types';
 import type { CollectionCanonicalRepository } from '../repository/collection-canonical.repository';
 import type { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
-import type { CollectionStreamType } from '../collection-incremental.types';
+import type {
+  CollectionStreamType,
+  RegisteredGithubIdSet,
+} from '../collection-incremental.types';
 
 /**
  * ADR-006 조직 전체 누적·증분 수집 계약의 backfill entry point (public-admin-exposure
  * todo 8). 최신 성공 활성 generation(CanonicalOrganizationState.activeGenerationId)의
- * repository/commit/pull request/release 원장을 읽어 stable-ID facts + baseline
- * year aggregate로 1회 변환한다.
+ * repository/commit/pull request/release 원장을 읽어 stable-ID facts와
+ * `Contribution`으로 1회 변환한다.
  *
  * 이 command는 ETag·safe frontier·list order를 발명하지 않는다 — legacy generation은
  * 이 정보를 보존하지 않으므로 import된 stream은 항상 `VERIFYING`으로 남고 frontier
@@ -23,9 +26,9 @@ import type { CollectionStreamType } from '../collection-incremental.types';
  * safe frontier를 확립하고 stream을 `READY`로 승격할 수 있다.
  *
  * Idempotency는 새 코드가 아니라 기존 `CollectionIncrementalRepository`의 unique-key
- * 계약에서 나온다 — fact insert는 중복 unique key를 조용히 건너뛰고, aggregate
- * increment는 그 insert가 성공했을 때만 일어난다. 따라서 같은 generation을 여러 번
- * import해도 최종 행/집계는 동일하다.
+ * 계약에서 나온다 — fact insert는 중복 unique key를 조용히 건너뛰고, 영향받은
+ * `Contribution` 칸은 저장된 fact에서 다시 계산한다. 따라서 같은 generation을 여러 번
+ * import해도 최종 행과 집계는 동일하다.
  */
 
 const COLLECTION_STREAM_TYPES_TO_VERIFY: readonly CollectionStreamType[] = [
@@ -37,8 +40,11 @@ const COLLECTION_STREAM_TYPES_TO_VERIFY: readonly CollectionStreamType[] = [
 export interface GenerationImportRepositoryResult {
   readonly githubRepositoryId: string;
   readonly repositoryId: string;
+  readonly commitsAccepted: number;
   readonly commitsInserted: number;
+  readonly pullRequestsAccepted: number;
   readonly pullRequestsInserted: number;
+  readonly releasesAccepted: number;
   readonly releasesInserted: number;
 }
 
@@ -152,13 +158,14 @@ export class CollectionGenerationImportService {
     >,
     private readonly incrementalRepository: Pick<
       CollectionIncrementalRepository,
-      'runInTransaction'
+      'listRegisteredGithubIds' | 'runInTransaction'
     >,
     private readonly resolveGithubOrganizationId: () => Promise<bigint>,
   ) {}
 
   async importActiveGeneration(
     key: CanonicalLeaseKey,
+    registeredGithubIds?: RegisteredGithubIdSet,
   ): Promise<GenerationImportResult> {
     const snapshot =
       await this.canonicalRepository.getActiveGenerationSnapshot(key);
@@ -172,6 +179,11 @@ export class CollectionGenerationImportService {
       };
     }
 
+    // D9 — import 전체가 같은 가입자 snapshot을 공유한다. 조회 실패는 첫 저장소 write 전에
+    // 전파되어 canonical 데이터보다 개인 식별자 유입을 fail-closed 한다.
+    const identitySnapshot =
+      registeredGithubIds ??
+      (await this.incrementalRepository.listRegisteredGithubIds());
     const groups = groupSnapshotByRepository(snapshot);
     const githubOrganizationId = await this.resolveGithubOrganizationId();
     const repositories: GenerationImportRepositoryResult[] = [];
@@ -205,6 +217,7 @@ export class CollectionGenerationImportService {
               authorGithubId: commit.authorGithubId,
               authorGithubLogin: commit.authorGithubLogin,
             })),
+            identitySnapshot,
           );
           const pullRequests = await repo.recordPullRequestFacts(
             row.id,
@@ -215,6 +228,7 @@ export class CollectionGenerationImportService {
               authorGithubId: pullRequest.authorGithubId,
               authorGithubLogin: pullRequest.authorGithubLogin,
             })),
+            identitySnapshot,
           );
           const releases = await repo.recordReleaseFacts(
             row.id,
@@ -224,6 +238,7 @@ export class CollectionGenerationImportService {
               authorGithubId: release.authorGithubId,
               authorGithubLogin: release.authorGithubLogin,
             })),
+            identitySnapshot,
           );
 
           for (const streamType of COLLECTION_STREAM_TYPES_TO_VERIFY) {
@@ -242,8 +257,11 @@ export class CollectionGenerationImportService {
           return {
             githubRepositoryId: group.repository.githubRepositoryId.toString(),
             repositoryId: row.id,
+            commitsAccepted: commits.acceptedCount,
             commitsInserted: commits.insertedCount,
+            pullRequestsAccepted: pullRequests.acceptedCount,
             pullRequestsInserted: pullRequests.insertedCount,
+            releasesAccepted: releases.acceptedCount,
             releasesInserted: releases.insertedCount,
           };
         },

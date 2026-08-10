@@ -32,7 +32,7 @@ export interface AcquireCutoverLeaseInput extends CutoverLeaseKey {
  *  - POINTER_CHANGED: pin한 activeGenerationId가 재조회 사이 바뀌었다(다른 reconciliation이
  *    끼어들었다는 뜻 — quiesce가 새지 않았다면 원칙적으로 발생하지 않아야 한다).
  *  - UNVERIFIED_STREAMS: provider 재순회 이후에도 VERIFYING 상태로 남은 stream이 있다.
- *  - AGGREGATE_MISMATCH: pin된 generation의 원장 개수와 증분 facts 개수가 다르다(synthetic parity 실패).
+ *  - AGGREGATE_MISMATCH: pin된 generation 중 가입자 경계를 통과한 원장 개수와 증분 facts 개수가 다르다(synthetic parity 실패).
  */
 export type CutoverAbortReason =
   | 'NO_GENERATION'
