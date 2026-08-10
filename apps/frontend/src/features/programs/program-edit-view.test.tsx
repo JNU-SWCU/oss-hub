@@ -39,8 +39,8 @@ const editableProgram: EditableProgram = {
       id: 'milestone-canonical-id',
       name: '기획서 제출',
       dueAt: '2026-08-20T12:30:59.000Z',
-      submissionType: 'REPOSITORY_RELEASE',
-      instructions: '릴리스 태그를 제출해 주세요.',
+      submissionType: 'TEXT',
+      instructions: '최종 결과를 글로 제출해 주세요.',
     },
   ],
 };
@@ -89,7 +89,7 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('v1');
     expect(html).toContain('milestone-canonical-id');
     expect(html).toContain('기획서 제출');
-    expect(html).toContain('REPOSITORY_RELEASE');
+    expect(html).toContain('TEXT');
     expect(html).toContain('수정');
     expect(html).toContain('삭제');
     expect(html).toContain('href="/programs/program-1"');
