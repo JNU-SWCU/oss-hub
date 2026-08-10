@@ -104,10 +104,15 @@ export class CollectionRepositoryStreamResponseDto {
  * 담지 않는다" 경계를 이 필드가 의도적으로 넘는다 — 무엇이 언제 수집됐는지 저장소 단위로
  * 들여다볼 관측성이 필요해졌기 때문이다(`collection-read.port.ts`의 boundary 코멘트,
  * `apps/backend/src/github/AGENTS.md` 참고). ADMIN 가드 밖으로는 절대 재사용하지 않는다.
+ *
+ * `programName`은 이 저장소가 어느 프로그램 소속으로 편입됐는지 보여준다
+ * (`CollectionRepositoryStreamsDto`의 port 코멘트 참고). 연결이 없으면(조직 저장소
+ * 대부분, discovery로만 편입된 external 저장소) `null`이며 이는 정상이다.
  */
 export class SystemStatusCollectionStreamsResponseDto {
   constructor(
     readonly repositoryName: string,
+    readonly programName: string | null,
     readonly streams: readonly CollectionRepositoryStreamResponseDto[],
   ) {}
 }

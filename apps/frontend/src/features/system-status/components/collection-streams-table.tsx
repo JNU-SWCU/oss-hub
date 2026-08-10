@@ -192,6 +192,21 @@ export function CollectionStreamsTable({
       cellClassName: 'font-mono text-sm whitespace-nowrap',
       cell: (repo) => repo.repositoryName,
     },
+    {
+      id: 'programName',
+      header: '프로그램',
+      // 연결이 없는 저장소가 정상이다(조직 저장소 대부분, discovery로만 편입된
+      // external 저장소) — em-dash로 자연스럽게 비워 보여준다. 현재 프로덕션은
+      // `Repository` 행이 0건이라 이 열이 전부 em-dash로 보이는 게 정상이다
+      // (데이터가 생기면 채워진다).
+      cell: (repo) => (
+        <span
+          className={repo.programName ? undefined : 'text-muted-foreground'}
+        >
+          {repo.programName ?? '—'}
+        </span>
+      ),
+    },
     ...STREAM_TYPES.map(
       (streamType): DataTableColumn<CollectionStreamRepository> => ({
         id: streamType,

@@ -114,6 +114,7 @@ export class SystemStatusService {
   ): SystemStatusCollectionStreamsResponseDto {
     return new SystemStatusCollectionStreamsResponseDto(
       repository.repositoryName,
+      repository.programName,
       repository.streams.map(
         (stream) =>
           new CollectionRepositoryStreamResponseDto(

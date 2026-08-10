@@ -233,6 +233,7 @@ describe('SystemStatusService', () => {
     const detail: readonly CollectionRepositoryStreamsDto[] = [
       {
         repositoryName: 'JNU-SWCU/alpha',
+        programName: '오픈소스 입문 프로그램',
         streams: [
           {
             streamType: 'COMMIT',
@@ -265,6 +266,7 @@ describe('SystemStatusService', () => {
     expect(result.collectionStreams).toEqual([
       {
         repositoryName: 'JNU-SWCU/alpha',
+        programName: '오픈소스 입문 프로그램',
         streams: [
           {
             streamType: 'COMMIT',

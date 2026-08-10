@@ -220,8 +220,20 @@ export type CollectionRepositoryStreamDetailDto = {
   readonly lastErrorAt: Date | null;
 };
 
+/**
+ * 저장소↔프로그램 연결 노출 — `GithubRepository`(수집 모델)에는 programId가
+ * 없다. 프로비저닝 모델 `Repository`가 `programId`와 `githubRepositoryId`
+ * (unique, `GithubRepository.githubRepositoryId`와 같은 GitHub 숫자 id)를
+ * 들고 있다 — DB FK는 아니고 같은 값을 각자 unique 컬럼으로 든 경유 조인이다.
+ * `program-activity.service.ts`/`program-activity-summary.service.ts`/
+ * `programs.repository.ts`가 이미 이 관례를 쓴다. 이 경로로 들어오지 않은
+ * 저장소(조직 저장소 대부분, discovery로만 편입된 external 저장소)는 매칭되는
+ * `Repository` 행이 없으므로 `programName`이 `null`인 것이 정상이다 — 오류가
+ * 아니다.
+ */
 export type CollectionRepositoryStreamsDto = {
   readonly repositoryName: string;
+  readonly programName: string | null;
   readonly streams: readonly CollectionRepositoryStreamDetailDto[];
 };
 

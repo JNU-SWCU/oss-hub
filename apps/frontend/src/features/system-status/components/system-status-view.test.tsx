@@ -268,6 +268,7 @@ describe('SystemStatusView', () => {
       collectionStreams: [
         {
           repositoryName: 'jnu-oss/example',
+          programName: null,
           streams: [
             {
               streamType: 'COMMIT',
@@ -319,9 +320,16 @@ describe('SystemStatusView', () => {
       // 0을 그냥 0으로 보여주지 않는다 — 왜 0인지, 무엇을 하면 채워지는지가
       // 화면에서 읽혀야 한다는 이 화면의 핵심 요구사항.
       expect(html).toContain('매시 정각 자동으로 실행되고 있습니다');
+      // 대상을 채우는 두 경로(신청 승인 / 관리자 수동 탐색) 모두 설명해야
+      // 한다 — 탐색만 유일한 경로인 것처럼 안내하면 신청 승인 경로로 이미
+      // 채워진 경우도 잘못 안내하게 된다.
       expect(html).toContain(
-        '관리자가 학생별로 GitHub 계정을 한 명씩 지정해 실행',
+        '학생이 프로그램 신청에서 「이미 쓰던 저장소를 연결합니다」를 선택',
       );
+      // 신청 화면 라디오 라벨(program-apply-views.tsx) 그대로 써야 한다 —
+      // 내부 열거값 `OWN`을 노출하면 관리자가 무슨 뜻인지 알 수 없다.
+      expect(html).not.toContain('>OWN<');
+      expect(html).toContain('관리자가 학생별로 저장소 탐색을 실행');
       // "왜 0인지"의 원인은 시스템이 알 수 없는 사실이라 단정하지 않는다 —
       // 관측 가능한 사실(대상 0개, 그래서 매시 수집도 처리할 저장소 없이
       // 끝남)만 문구에 남는다.
