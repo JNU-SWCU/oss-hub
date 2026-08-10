@@ -163,7 +163,8 @@ export function AuditLogView(props: AuditLogViewProps) {
         title="감사 로그"
         description={
           <span className="break-keep">
-            역할 요청 변경 이력을 행위자, 액션, 기간으로 조회합니다.
+            역할·계정 변경, 프로그램 보관·복구, 수집 실행, 신청 승인·반려 등
+            관리 작업 이력을 행위자, 액션, 기간으로 조회합니다.
           </span>
         }
       />
