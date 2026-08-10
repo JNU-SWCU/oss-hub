@@ -129,8 +129,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
         '2026-07-30T16:20:00.000Z',
         'CHANGES_REQUESTED',
         {
-          comment:
-            '실행 환경과 변경 내역을 보완해 다시 올려 주세요.',
+          comment: '실행 환경과 변경 내역을 보완해 다시 올려 주세요.',
           reviewedAt: '2026-07-31T02:40:00.000Z',
         },
       ),
@@ -149,8 +148,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
         '2026-07-29T14:10:00.000Z',
         'CHANGES_REQUESTED',
         {
-          comment:
-            '재현 순서와 테스트 결과를 보완해 다시 올려 주세요.',
+          comment: '재현 순서와 테스트 결과를 보완해 다시 올려 주세요.',
           reviewedAt: '2026-07-30T05:05:00.000Z',
         },
       ),
@@ -214,7 +212,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
        *
        * 한계: 로컬 검토의 학생 페르소나는 이 프로그램에 들어갈 길이 없어 화면으로는
        * 잘 보이지 않는다. 학생 화면에서 눈으로 볼 수 있는 것은 승인(캡스톤 기획서)과
-        * 보완 요청(최종 결과 요약·예선 결과물)이고, 검토 대기는 보완 요청 항목을 다시
+       * 보완 요청(최종 결과 요약·예선 결과물)이고, 검토 대기는 보완 요청 항목을 다시
        * 제출해 보면 그 자리에서 바뀐다.
        */
       viewerSubmission: submittedViewer(
@@ -266,7 +264,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       submissionType: 'TEXT',
       viewerSubmission: NOT_SUBMITTED_VIEWER,
       /*
-        * 글 제출 칸을 하나 더 둬 파일과 글 본문을 각각 로컬 검토로 확인한다.
+       * 글 제출 칸을 하나 더 둬 파일과 글 본문을 각각 로컬 검토로 확인한다.
        *
        * 선택 서류에 위 회고 메모와 같은 제출 팀 수를 둔 것은 필터 두 개의 수를
        * 건드리지 않기 위해서다: 「필수 서류 미제출」은 여전히 2팀(필수는 계획서·서약서
@@ -511,8 +509,8 @@ function collectionRevisionFor(state: CollectionCellStateSeed): number {
 /**
  * 학생이 낸 **본문**. 파일 제출에는 없다(`null`) — 파일은 칸의 `file`이 담당한다.
  *
-  * 이 값이 없으면 로컬 검토에서 판정 패널이 언제나 파일만 보여 주고 글 내용을
-  * 못 보고 판정하는 결함이 화면에 재현되지 않는다.
+ * 이 값이 없으면 로컬 검토에서 판정 패널이 언제나 파일만 보여 주고 글 내용을
+ * 못 보고 판정하는 결함이 화면에 재현되지 않는다.
  *
  * 글은 **여러 줄로** 적는다. 줄바꿈을 보존하는지, 길어졌을 때 패널 안에서 스크롤되는지가
  * 눈으로 확인할 자리이고, 한 줄짜리 시드로는 둘 다 확인되지 않는다.
