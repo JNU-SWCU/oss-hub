@@ -29,6 +29,8 @@ export enum ApplicationsErrorCode {
   OWN_REPOSITORY_URL_REQUIRED = 'APP_022',
   /** 프로비저닝이 완료된 승인은 되돌릴 수 없다. */
   APPLICATION_REVERT_BLOCKED = 'APP_023',
+  /** 신청 항목이 길이 상한을 넘었다 — 「올바르지 않다」와 갈라야 무엇을 줄일지 안다. */
+  ANSWER_TOO_LONG = 'APP_024',
 }
 
 export const APPLICATIONS_ERROR_CODES: Record<
@@ -110,6 +112,11 @@ export const APPLICATIONS_ERROR_CODES: Record<
     code: ApplicationsErrorCode.INVALID_ANSWERS,
     status: 400,
     message: '신청 항목이 올바르지 않습니다.',
+  },
+  [ApplicationsErrorCode.ANSWER_TOO_LONG]: {
+    code: ApplicationsErrorCode.ANSWER_TOO_LONG,
+    status: 400,
+    message: '제목은 200자, 지원 동기는 10,000자를 넘을 수 없습니다.',
   },
   [ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH]: {
     code: ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH,

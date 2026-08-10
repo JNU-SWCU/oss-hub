@@ -148,9 +148,14 @@ export class ApplicationsService {
     const answersResult = normalizeAndValidateApplicationAnswers(
       input.answers,
       applicantName,
+      'enforce-length',
     );
     if (!answersResult.ok) {
-      throw this.error(ApplicationsErrorCode.INVALID_ANSWERS);
+      throw this.error(
+        answersResult.reason === 'TOO_LONG'
+          ? ApplicationsErrorCode.ANSWER_TOO_LONG
+          : ApplicationsErrorCode.INVALID_ANSWERS,
+      );
     }
 
     // 팀 이름은 공개 아카이브의 표시명으로 흘러간다(`public-project-response.dto.ts`).

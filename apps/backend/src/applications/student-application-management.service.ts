@@ -80,9 +80,14 @@ export class StudentApplicationManagementService {
     const answers = normalizeAndValidateApplicationAnswers(
       input.answers,
       this.resolveApplicantName(context.application),
+      'enforce-length',
     );
     if (!answers.ok) {
-      throw this.error(ApplicationsErrorCode.INVALID_ANSWERS);
+      throw this.error(
+        answers.reason === 'TOO_LONG'
+          ? ApplicationsErrorCode.ANSWER_TOO_LONG
+          : ApplicationsErrorCode.INVALID_ANSWERS,
+      );
     }
     const result = await this.repository.updatePendingApplication({
       programId,
@@ -173,9 +178,12 @@ export class StudentApplicationManagementService {
     application: OwnedStudentApplication,
     editable: boolean,
   ): StudentApplicationView {
+    // ⚠ 읽기라 길이를 재지 않는다 — 재면 상한이 생기기 전에 저장된 긴 신청서를
+    //   학생이 **열지도 못한다**(고치라고 만든 상한이 고칠 길을 막는다).
     const answers = normalizeAndValidateApplicationAnswers(
       application.answers,
       this.resolveApplicantName(application),
+      'skip-length',
     );
     if (!answers.ok) {
       throw this.error(ApplicationsErrorCode.INVALID_ANSWERS);

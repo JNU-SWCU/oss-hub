@@ -1,3 +1,4 @@
+import { APPLICATION_ANSWER_MAX_LENGTHS } from './application-answer-limits';
 import type { ProblemDetail } from '@/lib/api-client';
 import type { ProgramTeam } from './api';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
@@ -114,6 +115,21 @@ export function validateApplyForm(
   return {
     ...(!values.title.trim() ? { title: '제목을 입력해 주세요.' } : {}),
     ...(!values.summary.trim() ? { summary: '요약을 입력해 주세요.' } : {}),
+    /*
+     * 입력칸의 `maxLength` 는 **새로 치는 글자**만 막는다 — 상한이 생기기 전에 저장된
+     * 긴 신청서를 수정 화면에 불러오면 그 값은 그대로 남아, 손대지 않고 저장해도 400 이 난다.
+     * 그때 무엇을 줄여야 하는지 여기서 말해 준다.
+     */
+    ...(values.title.trim().length > APPLICATION_ANSWER_MAX_LENGTHS.title
+      ? {
+          title: `제목은 ${APPLICATION_ANSWER_MAX_LENGTHS.title.toLocaleString('ko-KR')}자를 넘을 수 없습니다.`,
+        }
+      : {}),
+    ...(values.summary.trim().length > APPLICATION_ANSWER_MAX_LENGTHS.summary
+      ? {
+          summary: `요약은 ${APPLICATION_ANSWER_MAX_LENGTHS.summary.toLocaleString('ko-KR')}자를 넘을 수 없습니다.`,
+        }
+      : {}),
     ...(mode === 'create' &&
     values.repositoryConnectionMode === 'own' &&
     !values.repositoryUrl.trim()
