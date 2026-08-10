@@ -92,14 +92,16 @@ function localReviewFetch(
 
 /**
  * 불러오기가 여러 단계로 이어져 있어(`Promise.all` 뒤에 내 신청서 조회가 한 번 더 온다)
- * 한 번의 flush로는 끝까지 가지 않는다. 남은 마이크로태스크가 없을 때까지 넉넉히 돈다.
+ * 한 번의 flush로는 끝까지 가지 않는다.
+ *
+ * ⚠ 고정 횟수로 마이크로태스크를 돌리지 않는다 — 단계가 하나 늘면 **화면이 멀쩡한데도**
+ * 단언이 골격 상태에서 돌아 엉뚱하게 실패한다. 저장소 관례대로(`milestone-document-list`
+ * 등) 보고 싶은 상태가 될 때까지 기다린다.
  */
-async function settle(): Promise<void> {
-  for (let index = 0; index < 10; index += 1) {
-    await act(async () => {
-      await Promise.resolve();
-    });
-  }
+async function settleUntil(assert: () => void): Promise<void> {
+  await vi.waitFor(() => {
+    assert();
+  });
 }
 
 describe('반려된 신청의 사유가 신청 상세 화면에 도달한다', () => {
@@ -132,7 +134,9 @@ describe('반려된 신청의 사유가 신청 상세 화면에 도달한다', (
     await act(async () => {
       root.render(<ProgramApplyPage programId={PROGRAM_ID} teamId={null} />);
     });
-    await settle();
+    await settleUntil(() => {
+      expect(container.textContent ?? '').toContain('반려 사유');
+    });
 
     // Then: 라벨만이 아니라 사유 본문이 통째로 보인다.
     const text = container.textContent ?? '';
@@ -152,7 +156,11 @@ describe('반려된 신청의 사유가 신청 상세 화면에 도달한다', (
     await act(async () => {
       root.render(<ProgramApplyPage programId={PROGRAM_ID} teamId={null} />);
     });
-    await settle();
+    await settleUntil(() => {
+      expect(container.textContent ?? '').toContain(
+        '수정할 수 없는 신청입니다',
+      );
+    });
 
     // Then: 신청 양식으로 갈렸다면 사유 상자는 애초에 그려지지 않는다.
     // 막힌 화면에 도착했다는 것과, 양식 화면이 아니라는 것을 각각 고정한다.
