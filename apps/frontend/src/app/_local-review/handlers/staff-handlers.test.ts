@@ -102,7 +102,7 @@ describe('staff local review handlers', () => {
     expect(plan).toBeNull();
   });
 
-  it('기초 스터디 신청 집계는 대시보드 카드(전체 3·제출 1·승인 1·반려 1)와 같다', () => {
+  it('기초 스터디 신청 집계는 대시보드 카드(전체 4·제출 1·승인 2·반려 1)와 같다', () => {
     // Given / When
     const page = bodyOf<ApplicationListPage>(
       resolve(
@@ -115,9 +115,9 @@ describe('staff local review handlers', () => {
     // Then
     const counted = (status: string) =>
       page.items.filter((item) => item.status === status).length;
-    expect(page.totalItems).toBe(3);
+    expect(page.totalItems).toBe(4);
     expect(counted('SUBMITTED')).toBe(1);
-    expect(counted('APPROVED')).toBe(1);
+    expect(counted('APPROVED')).toBe(2);
     expect(counted('REJECTED')).toBe(1);
   });
 
