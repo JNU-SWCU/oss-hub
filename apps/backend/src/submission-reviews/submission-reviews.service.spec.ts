@@ -244,11 +244,8 @@ describe('SubmissionReviewsService.publishRepository', () => {
     expect(repositories.publish).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ['프로그램이 아직 진행 중이면', new Date('2026-08-01T00:00:00.000Z')],
-    ['프로그램 종료일이 없으면', null],
-  ] as const)('%s GitHub 호출을 막는다', async (_label, programEndAt) => {
-    // Given: endAt이 아직 지나지 않았거나 설정되지 않았다.
+  it('프로그램이 아직 진행 중이면 GitHub 호출을 막는다', async () => {
+    // Given: endAt이 아직 지나지 않았다.
     const { repository, repositories } = reviewDependencies();
     repository.findPublishEligibility.mockResolvedValue({
       repositoryId: 'repository-1',
@@ -256,7 +253,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
       provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
       requiredMilestonesApproved: true,
       isRepositoryPublicationPlanned: true,
-      programEndAt,
+      programEndAt: new Date('2026-08-01T00:00:00.000Z'),
     });
     const service = new SubmissionReviewsService(repository, repositories);
 

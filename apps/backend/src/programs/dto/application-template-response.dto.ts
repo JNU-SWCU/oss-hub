@@ -27,6 +27,7 @@ export class ApplicationTemplateResponseDto {
   readonly version: number;
   readonly name: string;
   readonly participation: ProgramParticipation;
+  readonly teamSize: ProgramTemplate['teamSize'];
   readonly fields: readonly ApplicationFieldResponseDto[];
 
   private constructor(template: ProgramTemplate) {
@@ -34,6 +35,7 @@ export class ApplicationTemplateResponseDto {
     this.version = template.version;
     this.name = template.name;
     this.participation = template.participation;
+    this.teamSize = template.teamSize;
     this.fields = template.fields.map((field) =>
       ApplicationFieldResponseDto.from(field),
     );

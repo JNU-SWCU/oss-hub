@@ -359,11 +359,6 @@ export class SubmissionsService {
     if (hasProgramDeadlinePassed(milestone.dueAt, now))
       return 'MILESTONE_CLOSED';
     if (
-      milestone.submissionType === MilestoneSubmissionType.FILE &&
-      milestone.programEndAt === null
-    )
-      return 'FILE_UPLOAD_UNAVAILABLE';
-    if (
       milestone.submissionType === MilestoneSubmissionType.REPOSITORY_RELEASE &&
       !application.repositoryUrl
     ) {
@@ -384,11 +379,6 @@ export class SubmissionsService {
       throw this.error(SubmissionsErrorCode.MILESTONE_CLOSED);
     if (input.content.type !== milestone.submissionType)
       throw this.error(SubmissionsErrorCode.CONTENT_TYPE_MISMATCH);
-    if (
-      milestone.submissionType === MilestoneSubmissionType.FILE &&
-      milestone.programEndAt === null
-    )
-      throw this.error(SubmissionsErrorCode.FILE_RETENTION_UNAVAILABLE);
     if (!application.repositoryUrl) {
       if (
         milestone.submissionType === MilestoneSubmissionType.REPOSITORY_RELEASE

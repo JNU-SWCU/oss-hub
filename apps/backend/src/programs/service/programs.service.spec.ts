@@ -19,10 +19,13 @@ const publicProgram = {
   description: '프로그램 설명',
   applicationStartAt: new Date('2026-07-01T00:00:00+09:00'),
   applicationEndAt: new Date('2026-08-31T23:59:59+09:00'),
+  startAt: new Date('2026-09-01T00:00:00+09:00'),
+  endAt: new Date('2026-12-31T00:00:00+09:00'),
   milestones: [
     {
       id: 'today',
       name: '오늘 제출',
+      startAt: new Date('2026-07-01T00:00:00+09:00'),
       dueAt: new Date('2026-07-21T23:59:59+09:00'),
       instructions: '설명',
       submissionType: 'FILE',
@@ -30,6 +33,7 @@ const publicProgram = {
     {
       id: 'overdue',
       name: '지난 제출',
+      startAt: new Date('2026-07-01T00:00:00+09:00'),
       dueAt: new Date('2026-07-20T23:59:59+09:00'),
       instructions: null,
       submissionType: 'TEXT',

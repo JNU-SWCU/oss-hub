@@ -12,28 +12,20 @@ import {
 } from '../../../test/program-editor-service-fixtures';
 
 describe('ProgramEditorService update validation', () => {
-  it('rejects changing to a team template without a complete team range', async () => {
+  it('defaults a missing team range to the category 1..1 contract', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findEditableProgramForUpdate.mockResolvedValue(editableProgram);
+    store.updateProgram.mockResolvedValue(editableProgram);
 
-    const exception = await expectDomainException(
-      service.updateProgram(101n, 'program-1', {
-        ...updateInput,
-        teamMinSize: null,
-        teamMaxSize: null,
-      }),
-    );
+    await service.updateProgram(101n, 'program-1', {
+      ...updateInput,
+      teamMinSize: null,
+      teamMaxSize: null,
+    });
 
-    expect(exception.errorCode).toBe(
-      PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
+    expect(store.updateProgram.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ teamMinSize: 1, teamMaxSize: 1 }),
     );
-    expect(exception.extensions.fieldErrors).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ field: 'teamMinSize' }),
-        expect.objectContaining({ field: 'teamMaxSize' }),
-      ]),
-    );
-    expect(store.updateProgram.mock.calls).toHaveLength(0);
   });
 
   it('rejects a reversed application period with the exact editor period contract', async () => {
@@ -102,9 +94,10 @@ describe('ProgramEditorService update validation', () => {
     expect(store.updateProgram.mock.calls).toHaveLength(0);
   });
 
-  it('rejects an equal application period with the exact editor period contract', async () => {
+  it('allows an equal application boundary before the operating period', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findEditableProgramForUpdate.mockResolvedValue(editableProgram);
+    store.updateProgram.mockResolvedValue(editableProgram);
 
     await expect(
       service.updateProgram(101n, 'program-1', {
@@ -112,14 +105,8 @@ describe('ProgramEditorService update validation', () => {
         applicationStartAt: '2026-08-01T00:00:00.000Z',
         applicationEndAt: '2026-08-01T00:00:00.000Z',
       }),
-    ).rejects.toMatchObject<Partial<DomainException>>({
-      errorCode:
-        PROGRAM_ERROR_CODES[ProgramErrorCode.INVALID_APPLICATION_PERIOD],
-    });
-    expect(
-      PROGRAM_ERROR_CODES[ProgramErrorCode.INVALID_APPLICATION_PERIOD].status,
-    ).toBe(422);
-    expect(store.updateProgram.mock.calls).toHaveLength(0);
+    ).resolves.toBeDefined();
+    expect(store.updateProgram.mock.calls).toHaveLength(1);
   });
 
   it('rejects category changes after applications exist before writing updates', async () => {
@@ -221,11 +208,13 @@ describe('ProgramEditorService update validation', () => {
         applicationEndAt: '2026-08-20T00:00:00.000Z',
       }),
     ).rejects.toMatchObject<Partial<DomainException>>({
-      errorCode:
-        PROGRAM_ERROR_CODES[ProgramErrorCode.MILESTONE_BEFORE_APPLICATION_END],
+      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
+      extensions: {
+        fieldErrors: [expect.objectContaining({ field: 'startAt' })],
+      },
     });
   });
-  it('allows a legacy program without an end date to set one', async () => {
+  it('기존 종료일이 있는 프로그램의 종료일 변경을 허용한다', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findEditableProgramForUpdate.mockResolvedValue(editableProgram);
     store.updateProgram.mockResolvedValue({

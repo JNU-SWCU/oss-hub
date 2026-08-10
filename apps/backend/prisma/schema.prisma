@@ -59,6 +59,8 @@ model User {
   uploadedFiles                          SubmissionFile[]
   reviews                                Review[]
   uploadedMilestoneDocumentTemplateFiles MilestoneDocumentTemplateFile[]
+  programAuthoringUploads                ProgramAuthoringUpload[]
+  programCreateRequests                  ProgramCreateRequest[]
   milestoneDocumentSubmissions           MilestoneDocumentSubmission[]
   milestoneDocumentReviewHistories       MilestoneDocumentReviewHistory[]
   boardPosts                             BoardPost[]
@@ -157,8 +159,7 @@ enum ProgramCategory {
   CORPORATE_INTERNSHIP
 }
 
-/// 기간·팀 인원 CHECK 3건은 Prisma로 표현할 수 없어 마이그레이션 SQL에 둔다(#164).
-/// NULL 피연산자는 CHECK를 통과하므로 개인형 프로그램의 nullable 인원 필드는 유지된다.
+/// 기간·팀 인원 CHECK는 Prisma로 표현할 수 없어 마이그레이션 SQL에 둔다(#164, #739).
 enum ProgramLifecycle {
   PUBLISHED
   ARCHIVED
@@ -177,12 +178,12 @@ model Program {
 
   applicationStartAt DateTime
   applicationEndAt   DateTime
-  /// null = 미종료; 공개 적격성 판정은 endAt 경과가 필요하다(#264).
-  endAt              DateTime?
+  startAt            DateTime @default(dbgenerated("'0001-01-01 00:00:00'::timestamp without time zone"))
+  endAt              DateTime @default(dbgenerated("'9999-12-31 23:59:59.999'::timestamp without time zone"))
 
-  /// 개인형 프로그램은 둘 다 null이다(#109 계약 잠금).
-  teamMinSize Int?
-  teamMaxSize Int?
+  /// 모든 유형이 1..1에서 시작하며 작성자가 유효한 범위로 편집할 수 있다(#739).
+  teamMinSize Int @default(1)
+  teamMaxSize Int @default(1)
 
   description String
 
@@ -194,11 +195,12 @@ model Program {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  milestones   Milestone[]
-  applications Application[]
-  teams        Team[]
-  repositories Repository[]
-  boardPosts   BoardPost[]
+  milestones    Milestone[]
+  applications  Application[]
+  teams         Team[]
+  repositories  Repository[]
+  boardPosts    BoardPost[]
+  createRequest ProgramCreateRequest?
 }
 
 /// 제출물 유형 — #113 Submission·#115 제출 API가 정확히 이 값 이름을 사용한다.
@@ -214,6 +216,7 @@ model Milestone {
   program   Program @relation(fields: [programId], references: [id])
 
   name           String
+  startAt        DateTime                @default(dbgenerated("'0001-01-01 00:00:00'::timestamp without time zone"))
   dueAt          DateTime
   submissionType MilestoneSubmissionType
   instructions   String?
@@ -229,6 +232,71 @@ model Milestone {
   documents       MilestoneDocument[]
 
   @@index([programId])
+}
+
+enum ProgramAuthoringUploadLifecycle {
+  PENDING
+  ATTACHED
+  DELETE_PENDING
+  DELETED
+}
+
+/// 최종 Program 작성 전에 교직원이 올린 임시 양식 파일. storageKey는 서버가 생성한다.
+model ProgramAuthoringUpload {
+  id String @id @default(cuid())
+
+  actorId String
+  actor   User   @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  storageKey       String @unique @db.VarChar(512)
+  originalFileName String @db.VarChar(255)
+  mimeType         String @db.VarChar(127)
+  sizeBytes        Int
+  sha256           String @db.VarChar(64)
+
+  lifecycle  ProgramAuthoringUploadLifecycle @default(PENDING)
+  expiresAt  DateTime
+  attachedAt DateTime?
+
+  deleteClaimedAt      DateTime?
+  deleteClaimExpiresAt DateTime?
+  deleteClaimOwner     String?   @db.VarChar(128)
+  deleteAttemptCount   Int       @default(0)
+  nextDeleteAttemptAt  DateTime?
+  lastDeleteError      String?   @db.VarChar(64)
+  deletedAt            DateTime?
+
+  createRequestActorId String?
+  createRequestId      String?
+  createRequest        ProgramCreateRequest? @relation(fields: [createRequestActorId, createRequestId], references: [actorId, id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([actorId, lifecycle, expiresAt])
+  @@index([lifecycle, nextDeleteAttemptAt, deleteClaimExpiresAt])
+}
+
+/// actor별 idempotency key가 같은 최종 작성 재시도를 원 Program에 연결한다.
+model ProgramCreateRequest {
+  id String @id @default(cuid())
+
+  actorId String
+  actor   User   @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  idempotencyKey String @db.VarChar(128)
+  payloadHash    String @db.VarChar(64)
+
+  programId String  @unique
+  program   Program @relation(fields: [programId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  uploads ProgramAuthoringUpload[]
+
+  @@unique([actorId, idempotencyKey])
+  @@unique([actorId, id])
+  @@index([actorId, createdAt])
 }
 
 enum ApplicationStatus {

@@ -18,6 +18,7 @@ export const updateInput: UpdateProgramRequestDto = {
   category: ProgramCategory.OSS_CONTEST,
   applicationStartAt: '2026-08-01T00:00:00.000Z',
   applicationEndAt: '2026-08-15T00:00:00.000Z',
+  startAt: '2026-08-16T00:00:00.000Z',
   endAt: '2026-08-31T00:00:00.000Z',
   repositoryProvisioningEnabled: true,
   description: '  updated overview  ',
@@ -27,6 +28,7 @@ export const updateInput: UpdateProgramRequestDto = {
 
 export const milestoneInput: UpsertMilestoneRequestDto = {
   name: '  Final  ',
+  startAt: '2026-08-16T00:00:00.000Z',
   dueAt: '2026-08-20T00:00:00.000Z',
   submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
   instructions: '  tag v1.0.0  ',
@@ -50,6 +52,7 @@ export const editableProgram = {
   },
   applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
   applicationEndAt: new Date('2026-08-10T00:00:00.000Z'),
+  startAt: new Date('2026-08-16T00:00:00.000Z'),
   endAt: '2026-08-31T00:00:00.000Z',
   repositoryProvisioningEnabled: false,
   description: 'overview',
@@ -57,13 +60,14 @@ export const editableProgram = {
     {
       id: 'milestone-1',
       name: 'Existing',
+      startAt: new Date('2026-08-16T00:00:00.000Z'),
       dueAt: new Date('2026-08-20T00:00:00.000Z'),
       submissionType: MilestoneSubmissionType.FILE,
       instructions: null,
     },
   ],
-  teamMinSize: null,
-  teamMaxSize: null,
+  teamMinSize: 1,
+  teamMaxSize: 1,
 } as const;
 
 export function createProgramEditorServiceHarness(): {
@@ -102,9 +106,10 @@ export function createProgramEditorServiceHarness(): {
   };
 }
 
-export function teamInputFor(
-  category: ProgramCategory,
-): Pick<UpdateProgramRequestDto, 'teamMinSize' | 'teamMaxSize'> {
+export function teamInputFor(category: ProgramCategory): {
+  readonly teamMinSize: number;
+  readonly teamMaxSize: number;
+} {
   switch (category) {
     case ProgramCategory.OSS_CONTEST:
     case ProgramCategory.CAPSTONE:
@@ -114,6 +119,6 @@ export function teamInputFor(
     case ProgramCategory.BASIC:
     case ProgramCategory.SW_VALUE_SPREAD:
     case ProgramCategory.CORPORATE_INTERNSHIP:
-      return { teamMinSize: null, teamMaxSize: null };
+      return { teamMinSize: 1, teamMaxSize: 1 };
   }
 }

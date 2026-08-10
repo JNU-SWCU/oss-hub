@@ -16,6 +16,7 @@ export type ProgramAuthority = {
 export type ProgramMilestoneView = {
   readonly id: string;
   readonly name: string;
+  readonly startAt: Date;
   readonly dueAt: Date;
   readonly submissionType: MilestoneSubmissionType;
   readonly instructions: string | null;
@@ -42,9 +43,10 @@ export type EditableProgramView = {
   readonly categoryLocked: ProgramCategoryLockState;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
-  readonly endAt?: string | null;
-  readonly teamMinSize: number | null;
-  readonly teamMaxSize: number | null;
+  readonly startAt: Date;
+  readonly endAt: string;
+  readonly teamMinSize: number;
+  readonly teamMaxSize: number;
   readonly repositoryProvisioningEnabled: boolean;
   readonly description: string;
   readonly milestones: readonly ProgramMilestoneView[];
@@ -52,14 +54,14 @@ export type EditableProgramView = {
 
 export type ProgramSchedule = {
   readonly id: string;
-  readonly applicationEndAt: Date;
-  readonly endAt?: Date | null;
+  readonly startAt: Date;
+  readonly endAt: Date;
 };
 
 export type ProgramMilestoneTarget = ProgramMilestoneView & {
   readonly programId: string;
-  readonly applicationEndAt: Date;
-  readonly endAt?: Date | null;
+  readonly programStartAt: Date;
+  readonly endAt: Date;
 };
 
 export type ProgramMilestoneDeleteTarget = {
@@ -86,15 +88,17 @@ export type ProgramUpdateInput = {
   readonly liveFileExpiresAt: Date | null;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
-  readonly endAt: Date | null;
-  readonly teamMinSize: number | null;
-  readonly teamMaxSize: number | null;
+  readonly startAt: Date;
+  readonly endAt: Date;
+  readonly teamMinSize: number;
+  readonly teamMaxSize: number;
   readonly repositoryProvisioningEnabled: boolean;
   readonly description: string;
 };
 
 export type ProgramMilestoneInput = {
   readonly name: string;
+  readonly startAt: Date;
   readonly dueAt: Date;
   readonly submissionType: MilestoneSubmissionType;
   readonly instructions: string | null;

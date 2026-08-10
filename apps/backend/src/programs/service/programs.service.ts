@@ -9,6 +9,10 @@ import type {
 import { programDeadline } from '../program-deadline';
 import type { ProgramListQuery } from '../program-list-query';
 import { PROGRAM_ERROR_CODES } from '../program-error-code';
+import {
+  getProgramTemplate,
+  PROGRAM_PARTICIPATION,
+} from '../program-template.registry';
 import type { ProgramViewer } from './program-viewer.service';
 import {
   ProgramsRepository,
@@ -63,7 +67,10 @@ const STUDENT_APPLICATION_STATUS_NOTE: Readonly<
 };
 
 function isTeamProgram(item: ProgramListRecord): boolean {
-  return item.teamMinSize !== null && item.teamMaxSize !== null;
+  return (
+    getProgramTemplate(item.category).participation ===
+    PROGRAM_PARTICIPATION.TEAM
+  );
 }
 
 function noteWithTeamIcon(
@@ -190,6 +197,10 @@ export class ProgramsService {
           startsAt: program.applicationStartAt.toISOString(),
           endsAt: program.applicationEndAt.toISOString(),
         },
+        operatingPeriod: {
+          startsAt: program.startAt.toISOString(),
+          endsAt: program.endAt.toISOString(),
+        },
         viewer: {
           role: viewer.role,
           applicationStatus: studentApplication?.status ?? null,
@@ -202,6 +213,7 @@ export class ProgramsService {
           return {
             id: milestone.id,
             name: milestone.name,
+            startAt: milestone.startAt.toISOString(),
             dueAt: milestone.dueAt.toISOString(),
             dDay: deadline.dDay,
             deadlineLabel: deadline.label,

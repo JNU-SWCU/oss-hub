@@ -91,6 +91,7 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
         applicationTemplateVersion: input.applicationTemplateVersion,
         applicationStartAt: input.applicationStartAt,
         applicationEndAt: input.applicationEndAt,
+        startAt: input.startAt,
         endAt: input.endAt,
         teamMinSize: input.teamMinSize,
         teamMaxSize: input.teamMaxSize,
@@ -109,7 +110,7 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     if (!locked) return null;
     return this.transaction.program.findUnique({
       where: { id: programId },
-      select: { id: true, applicationEndAt: true, endAt: true },
+      select: { id: true, startAt: true, endAt: true },
     });
   }
 
@@ -136,14 +137,14 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     const milestone = await this.transaction.milestone.findUnique({
       where: { id: milestoneId },
       include: {
-        program: { select: { applicationEndAt: true, endAt: true } },
+        program: { select: { startAt: true, endAt: true } },
       },
     });
     if (milestone === null || milestone.programId !== programId) return null;
     return {
       ...toMilestoneView(milestone),
       programId: milestone.programId,
-      applicationEndAt: milestone.program.applicationEndAt,
+      programStartAt: milestone.program.startAt,
       endAt: milestone.program.endAt,
     };
   }
@@ -155,6 +156,7 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
       where: { id: input.milestoneId },
       data: {
         name: input.name,
+        startAt: input.startAt,
         dueAt: input.dueAt,
         submissionType: input.submissionType,
         instructions: input.instructions,
@@ -304,7 +306,8 @@ function toEditableProgramView(program: ProgramRecord): EditableProgramView {
     categoryLocked: toCategoryLockState(program._count),
     applicationStartAt: program.applicationStartAt,
     applicationEndAt: program.applicationEndAt,
-    endAt: program.endAt?.toISOString() ?? null,
+    startAt: program.startAt,
+    endAt: program.endAt.toISOString(),
     teamMinSize: program.teamMinSize,
     teamMaxSize: program.teamMaxSize,
     repositoryProvisioningEnabled: program.repositoryProvisioningEnabled,
@@ -332,6 +335,7 @@ function toMilestoneView(milestone: MilestoneRecord): ProgramMilestoneView {
   return {
     id: milestone.id,
     name: milestone.name,
+    startAt: milestone.startAt,
     dueAt: milestone.dueAt,
     submissionType: milestone.submissionType,
     instructions: milestone.instructions,

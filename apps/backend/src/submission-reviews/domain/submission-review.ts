@@ -97,7 +97,7 @@ export interface RepositoryPublishEligibility {
   readonly provisionStatus: RepositoryProvisionJobStatus | null;
   readonly requiredMilestonesApproved: boolean;
   readonly isRepositoryPublicationPlanned: boolean;
-  readonly programEndAt: Date | null;
+  readonly programEndAt: Date;
 }
 
 export interface RepositoryPublishResult {
@@ -128,9 +128,7 @@ export function publishBlockedReasons(
     ...(eligibility.isRepositoryPublicationPlanned
       ? []
       : [PUBLISH_BLOCKED_REASONS.REPOSITORY_PUBLICATION_NOT_PLANNED]),
-    // endAt === null 은 "종료일 미설정"이 아니라 "미종료"다(schema.prisma, #264).
-    ...(eligibility.programEndAt !== null &&
-    eligibility.programEndAt.getTime() <= now.getTime()
+    ...(eligibility.programEndAt.getTime() <= now.getTime()
       ? []
       : [PUBLISH_BLOCKED_REASONS.PROGRAM_NOT_ENDED]),
     ...(eligibility.requiredMilestonesApproved

@@ -22,7 +22,7 @@ export interface SubmissionFileUploadAuthorization {
   readonly applicationApproved: boolean;
   readonly submissionType: MilestoneSubmissionType;
   readonly dueAt: Date;
-  readonly programEndAt: Date | null;
+  readonly programEndAt: Date;
   readonly resubmissionStatus: SubmissionStatus | null;
   readonly currentRevision: number | null;
 }
@@ -221,7 +221,7 @@ export class SubmissionFilesRepository {
   createPending(input: CreatePendingSubmissionFileInput) {
     return this.prisma.$transaction(async (transaction) => {
       const programs = await transaction.$queryRaw<
-        readonly { endAt: Date | null }[]
+        readonly { endAt: Date }[]
       >(Prisma.sql`
         SELECT program."endAt"
         FROM "Program" AS program
@@ -230,8 +230,8 @@ export class SubmissionFilesRepository {
         WHERE application."id" = ${input.applicationId}
         FOR UPDATE OF program
       `);
-      const programEndAt = programs[0]?.endAt;
-      if (programEndAt == null) {
+      const program = programs[0];
+      if (!program) {
         throw new SubmissionFileRetentionUnavailableError();
       }
 
@@ -246,7 +246,7 @@ export class SubmissionFilesRepository {
           sizeBytes: input.sizeBytes,
           lifecycle: SubmissionFileLifecycle.PENDING,
           pendingExpiresAt: input.pendingExpiresAt,
-          expiresAt: addOneCalendarYear(programEndAt),
+          expiresAt: addOneCalendarYear(program.endAt),
         },
         select: {
           id: true,

@@ -19,6 +19,11 @@ describe('program-template.registry', () => {
         'title',
         'summary',
       ]);
+      expect(template.teamSize).toEqual({
+        defaultMin: 1,
+        defaultMax: 1,
+        editable: true,
+      });
     }
   });
 
