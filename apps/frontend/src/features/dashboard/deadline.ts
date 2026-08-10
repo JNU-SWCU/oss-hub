@@ -24,3 +24,20 @@ export function formatDashboardDeadline(
   if (difference === 0) return 'D-Day';
   return difference > 0 ? `D-${difference}` : `D+${Math.abs(difference)}`;
 }
+
+const seoulDateTimeFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Seoul',
+  month: 'numeric',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+export function formatDashboardDeadlineAbsolute(dueAt: string): string {
+  const parts = seoulDateTimeFormatter.formatToParts(new Date(dueAt));
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value;
+
+  return `${part('month')}월 ${part('day')}일 ${part('hour')}:${part('minute')} 마감`;
+}
