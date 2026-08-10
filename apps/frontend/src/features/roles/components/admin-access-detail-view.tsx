@@ -12,7 +12,6 @@ import {
 } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 
 import {
   fetchAdminAccessHistory,
@@ -53,6 +52,7 @@ import {
 } from './admin-access-mutation-actions';
 import { AdminAccessMutationConfirmDialog } from './admin-access-mutation-confirm-dialog';
 import { AdminAccessMutationRejectDialog } from './admin-access-mutation-reject-dialog';
+import { AdminAccessProfileSection } from './admin-access-profile-section';
 
 type AdminAccessDetailState =
   | { readonly kind: 'loading' }
@@ -483,17 +483,18 @@ function AdminAccessDetailContent({
   historyLoading,
   onRoleRequestPageChange,
   onLoginHistoryPageChange,
+  onProfileSaved,
 }: AdminAccessDetailData & {
   readonly mutation: AdminAccessDetailMutationController;
   readonly layoutContext: AdminAccessDetailLayoutContext;
   readonly historyLoading: boolean;
   readonly onRoleRequestPageChange: (page: number) => void;
   readonly onLoginHistoryPageChange: (page: number) => void;
+  readonly onProfileSaved: () => void;
 }) {
   const Root = detailRootTag(layoutContext);
   const isOverlay = layoutContext === 'overlay';
   const heading = detailHeadingTags(layoutContext);
-  const SectionHeading = heading.section;
   const confirmDialog =
     mutation.confirmAction && mutation.confirmAction !== 'REJECT'
       ? {
@@ -578,41 +579,13 @@ function AdminAccessDetailContent({
               aria-labelledby="admin-access-profile"
               className="grid gap-3"
             >
-              <SectionHeading
-                id="admin-access-profile"
-                className="font-heading text-lg font-semibold"
-              >
-                프로필
-              </SectionHeading>
-              {!detail.profile.isComplete ? (
-                <p className="text-sm text-destructive">
-                  프로필 미완성 — 교직원 승인·부여 불가
-                </p>
-              ) : null}
-              {/*
-                오버레이에서는 2열로 쪼개지 않는다 — `sm:`은 뷰포트 기준이라
-                768px·1280px에서도 켜지는데, 실제 렌더 폭은 400px 남짓이라
-                한 열이 200px 아래로 눌린다.
-              */}
-              <dl
-                className={cn(
-                  'grid gap-2 text-sm sm:grid-cols-2',
-                  isOverlay && 'sm:grid-cols-1',
-                )}
-              >
-                <div>
-                  <dt className="text-muted-foreground">이름</dt>
-                  <dd>{detail.profile.name ?? '미등록'}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">학번</dt>
-                  <dd>{detail.profile.studentId ?? '미등록'}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">학과</dt>
-                  <dd>{detail.profile.department ?? '미등록'}</dd>
-                </div>
-              </dl>
+              <AdminAccessProfileSection
+                userId={detail.id}
+                profile={detail.profile}
+                headingTag={heading.section}
+                isOverlay={isOverlay}
+                onSaved={onProfileSaved}
+              />
             </section>
             <RoleRequestHistorySection
               items={history.roleRequests.items}
@@ -684,6 +657,7 @@ export function AdminAccessDetailContentForState({
   historyLoading = false,
   onRoleRequestPageChange = () => {},
   onLoginHistoryPageChange = () => {},
+  onProfileSaved = () => {},
 }: {
   readonly state: AdminAccessDetailState;
   readonly onRetry: () => void;
@@ -692,6 +666,7 @@ export function AdminAccessDetailContentForState({
   readonly historyLoading?: boolean;
   readonly onRoleRequestPageChange?: (page: number) => void;
   readonly onLoginHistoryPageChange?: (page: number) => void;
+  readonly onProfileSaved?: () => void;
 }) {
   if (state.kind === 'loading') {
     return <LoadingState layoutContext={layoutContext} />;
@@ -711,6 +686,7 @@ export function AdminAccessDetailContentForState({
       historyLoading={historyLoading}
       onRoleRequestPageChange={onRoleRequestPageChange}
       onLoginHistoryPageChange={onLoginHistoryPageChange}
+      onProfileSaved={onProfileSaved}
     />
   );
 }
@@ -896,6 +872,18 @@ export function AdminAccessDetailView({
     onReasonChange: setRejectReason,
   };
 
+  // 프로필 저장은 CAS가 없는 단순 PATCH라 접근 변경 흐름의 conflict projection이
+  // 적용되지 않는다 — 성공하면 늘 `retry()`로 상세 전체(이름·학번·학과·isComplete)를
+  // 다시 가져온다.
+  const handleProfileSaved = () => {
+    if (state.kind === 'ready') {
+      setMutationSuccess(
+        `${state.detail.githubLogin}님의 프로필을 저장했습니다.`,
+      );
+    }
+    retry();
+  };
+
   return (
     <AdminAccessDetailContentForState
       state={state}
@@ -905,6 +893,7 @@ export function AdminAccessDetailView({
       historyLoading={historyLoading}
       onRoleRequestPageChange={(page) => void changeRoleRequestPage(page)}
       onLoginHistoryPageChange={(page) => void changeLoginHistoryPage(page)}
+      onProfileSaved={handleProfileSaved}
     />
   );
 }

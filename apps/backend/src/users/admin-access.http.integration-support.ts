@@ -15,6 +15,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AdminAccessController } from './admin-access.controller';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
+import { AdminProfileRepository } from './admin-profile.repository';
+import { AdminProfileService } from './admin-profile.service';
 
 const sessionSecret = new Uint8Array(32).fill(17);
 export const ADMIN_ACCESS_ALLOWED_ORIGIN = 'http://frontend.test';
@@ -37,6 +39,8 @@ export class AdminAccessHttpHarness {
       providers: [
         AdminAccessService,
         AdminAccessRepository,
+        AdminProfileService,
+        AdminProfileRepository,
         AuditLogService,
         AuditLogRepository,
         SessionGuard,

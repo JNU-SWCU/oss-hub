@@ -19,6 +19,7 @@ const ACTION_BADGE_VARIANTS = {
   APPLICATION_APPROVED: 'approved',
   APPLICATION_REJECTED: 'rejected',
   APPLICATION_REVERTED: 'closed',
+  USER_PROFILE_UPDATED: 'closed',
 } as const satisfies Readonly<Record<AuditLogAction, ActionBadgeVariant>>;
 
 function isAuditLogAction(action: string): action is AuditLogAction {

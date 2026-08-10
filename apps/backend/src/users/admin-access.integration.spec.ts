@@ -127,7 +127,14 @@ describe('Admin access real PostgreSQL transactions', () => {
       where: { id: target.id },
       data: { role: Role.STAFF },
     });
-    const controller = new AdminAccessController(service);
+    // 이 테스트는 patchAccess만 호출한다 — profile 서비스는 실제로 쓰이지 않으므로
+    // 실행되면 실패하는 스텁만 채워 생성자 계약을 맞춘다.
+    const profileService = {
+      patchProfile: () => {
+        throw new Error('patchProfile should not be called in this spec');
+      },
+    };
+    const controller = new AdminAccessController(service, profileService);
     const request = {
       sessionGithubId: actor.githubId,
     } as Pick<AuthenticatedRequest, 'sessionGithubId'>;

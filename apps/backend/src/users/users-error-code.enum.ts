@@ -8,6 +8,7 @@ export enum UsersErrorCode {
   STUDENT_ID_NEEDS_DEPARTMENT = 'USR_005',
   ACCOUNT_ALREADY_DEACTIVATED = 'USR_006',
   LAST_ACTIVE_ADMIN = 'USR_007',
+  STUDENT_ID_TAKEN_BY_ADMIN = 'USR_008',
 }
 
 export const USERS_ERROR_CODES: Record<UsersErrorCode, ErrorCode> = {
@@ -48,5 +49,13 @@ export const USERS_ERROR_CODES: Record<UsersErrorCode, ErrorCode> = {
     code: UsersErrorCode.LAST_ACTIVE_ADMIN,
     status: 409,
     message: '마지막 활성 관리자는 계정을 비활성화할 수 없습니다.',
+  },
+  // 자기 학번을 스스로 바꾸는 USR_004(STUDENT_ID_TAKEN)와 원인은 같지만 문맥이 다르다 —
+  // 관리자가 남의 프로필을 고치다 충돌한 것이라 화면에서 서로 다른 안내가 필요해 코드를
+  // 분리했다(관리자 수정 화면은 이 코드만 보고 "다른 사용자가 사용 중" 문구를 고른다).
+  [UsersErrorCode.STUDENT_ID_TAKEN_BY_ADMIN]: {
+    code: UsersErrorCode.STUDENT_ID_TAKEN_BY_ADMIN,
+    status: 409,
+    message: '이미 다른 사용자가 사용 중인 학번이라 수정할 수 없습니다.',
   },
 };

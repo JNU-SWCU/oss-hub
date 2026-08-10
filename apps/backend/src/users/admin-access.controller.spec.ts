@@ -12,11 +12,13 @@ import { SessionGuard } from '../auth/session.guard';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
 import { AdminAccessController } from './admin-access.controller';
 import { AdminAccessService } from './admin-access.service';
+import type { AdminProfileService } from './admin-profile.service';
 import {
   AdminAccessHistoryRequestDto,
   AdminAccessListRequestDto,
 } from './dto/admin-access-query.dto';
 import type { PatchAdminAccessRequestDto } from './dto/patch-admin-access.dto';
+import type { PatchAdminUserProfileRequestDto } from './dto/patch-admin-user-profile.dto';
 
 const REQUEST: Pick<AuthenticatedRequest, 'sessionGithubId'> = {
   sessionGithubId: 9_131_400_001n,
@@ -32,6 +34,12 @@ describe('AdminAccessController routes', () => {
       'patchAccess',
       RequestMethod.PATCH,
       ':id/access',
+      [SessionGuard, OriginGuard],
+    ],
+    [
+      'patchProfile',
+      RequestMethod.PATCH,
+      ':id/profile',
       [SessionGuard, OriginGuard],
     ],
   ] as const)(
@@ -68,7 +76,8 @@ describe('AdminAccessController delegation', () => {
     async (sort, direction) => {
       // Given
       const service = serviceHarness();
-      const controller = new AdminAccessController(service);
+      const profileService = profileServiceHarness();
+      const controller = new AdminAccessController(service, profileService);
       const query = Object.assign(new AdminAccessListRequestDto(), {
         sort,
         direction,
@@ -91,7 +100,8 @@ describe('AdminAccessController delegation', () => {
   it('passes independent history pages to the service', async () => {
     // Given
     const service = serviceHarness();
-    const controller = new AdminAccessController(service);
+    const profileService = profileServiceHarness();
+    const controller = new AdminAccessController(service, profileService);
     const query = Object.assign(new AdminAccessHistoryRequestDto(), {
       roleRequestPage: 2,
       roleRequestLimit: 5,
@@ -116,7 +126,8 @@ describe('AdminAccessController delegation', () => {
   it('passes the parsed CAS command to PATCH /users/:id/access', async () => {
     // Given
     const service = serviceHarness();
-    const controller = new AdminAccessController(service);
+    const profileService = profileServiceHarness();
+    const controller = new AdminAccessController(service, profileService);
     const command = {
       expectedRole: Role.STUDENT,
       desiredRole: Role.STAFF,
@@ -137,12 +148,38 @@ describe('AdminAccessController delegation', () => {
     );
   });
 
+  it('passes the parsed command to PATCH /users/:id/profile', async () => {
+    // Given
+    const service = serviceHarness();
+    const profileService = profileServiceHarness();
+    const controller = new AdminAccessController(service, profileService);
+    const command = {
+      name: '테스트관리자',
+      studentId: '260001',
+      department: '컴퓨터공학과',
+    } as const;
+    const body = {
+      toCommand: () => command,
+    } as PatchAdminUserProfileRequestDto;
+
+    // When
+    await controller.patchProfile(REQUEST, 'target-user', body);
+
+    // Then
+    expect(profileService.patchProfile).toHaveBeenCalledWith(
+      REQUEST.sessionGithubId,
+      'target-user',
+      command,
+    );
+  });
+
   it.each(['get', 'getHistory', 'patchAccess'] as const)(
     '%s rejects an invalid user id before service delegation',
     async (method) => {
       // Given
       const service = serviceHarness();
-      const controller = new AdminAccessController(service);
+      const profileService = profileServiceHarness();
+      const controller = new AdminAccessController(service, profileService);
       const query = new AdminAccessHistoryRequestDto();
       const body = {
         toCommand: jest.fn(),
@@ -163,6 +200,25 @@ describe('AdminAccessController delegation', () => {
       expect(service[method]).not.toHaveBeenCalled();
     },
   );
+
+  it('patchProfile rejects an invalid user id before service delegation', async () => {
+    // Given
+    const service = serviceHarness();
+    const profileService = profileServiceHarness();
+    const controller = new AdminAccessController(service, profileService);
+    const body = {
+      toCommand: jest.fn(),
+    } as unknown as PatchAdminUserProfileRequestDto;
+
+    // When
+    const operation = controller.patchProfile(REQUEST, 'invalid id', body);
+
+    // Then
+    await expect(operation).rejects.toMatchObject({
+      errorCode: { code: RolesErrorCode.INVALID_USER_ID, status: 400 },
+    });
+    expect(profileService.patchProfile).not.toHaveBeenCalled();
+  });
 });
 
 function serviceHarness() {
@@ -185,6 +241,17 @@ function serviceHarness() {
     AdminAccessService,
     'list' | 'facets' | 'get' | 'getHistory' | 'patchAccess'
   >;
+}
+
+function profileServiceHarness() {
+  return {
+    patchProfile: jest.fn().mockResolvedValue({
+      id: 'target-user',
+      name: null,
+      studentId: null,
+      department: null,
+    }),
+  } satisfies Pick<AdminProfileService, 'patchProfile'>;
 }
 
 function emptyFacets() {
