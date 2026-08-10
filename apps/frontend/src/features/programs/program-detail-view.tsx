@@ -137,6 +137,7 @@ export function ProgramFactBar({
     readonly key: string;
     readonly k: string;
     readonly v: string;
+    readonly caption?: string;
   }[] = [
     { key: 'organizer', k: '주관', v: program.organizer },
     {
@@ -173,10 +174,14 @@ export function ProgramFactBar({
       const numerator = overview.fullySubmittedParticipantCount ?? 0;
       const rate =
         denominator > 0 ? Math.round((numerator / denominator) * 100) : 0;
+      // QA47 — "제출률"만으로는 마일스톤 카드(1/1)·매트릭스(2/3)와 다른
+      // 숫자가 나오는 이유를 알 수 없었다. 이 값은 "현재 마일스톤" 기준
+      // 완주율이라는 측정 범위를 라벨과 캡션에 명시한다.
       items.push({
         key: 'submission-rate',
-        k: '제출률',
+        k: '이번 마일스톤 완주율',
         v: `${rate}% (${numerator}/${denominator})`,
+        caption: '현재 마일스톤 필수 서류를 모두 제출한 참여자 기준',
       });
     }
   }
@@ -189,6 +194,9 @@ export function ProgramFactBar({
         <div key={item.key} className="grid gap-0.5">
           <dt className="text-xs text-muted-foreground">{item.k}</dt>
           <dd className="text-sm font-bold tabular-nums">{item.v}</dd>
+          {item.caption !== undefined ? (
+            <p className="text-xs text-muted-foreground">{item.caption}</p>
+          ) : null}
         </div>
       ))}
     </dl>
