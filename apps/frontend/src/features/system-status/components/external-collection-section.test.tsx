@@ -90,15 +90,35 @@ describe('ExternalCollectionSection', () => {
     return container.textContent ?? '';
   }
 
-  it('탐색된 저장소가 0개면 파이프라인은 정상 실행 중이지만 탐색이 안 됐다는 사실을 그대로 설명한다', async () => {
+  it('탐색된 저장소가 0개면 파이프라인은 정상 실행 중이지만 대상이 없다는 사실과 채워지는 두 경로를 그대로 설명한다', async () => {
     await renderSection(noRepositoriesDiscovered);
     expect(sectionText()).toContain(
       '탐색된 학생 개인 GitHub 저장소가 아직 없습니다',
     );
     expect(sectionText()).toContain('매시 정각 자동으로 실행되고 있습니다');
+    // 대상을 채우는 두 경로(신청 승인 / 관리자 수동 탐색) 모두 설명해야 한다 —
+    // 탐색만 유일한 경로인 것처럼 안내하면 신청 승인 경로로 이미 채워진 경우도
+    // 잘못 안내하게 된다.
     expect(sectionText()).toContain(
-      '관리자가 학생별로 GitHub 계정을 한 명씩 지정해 실행',
+      '학생이 프로그램 신청에서 「이미 쓰던 저장소를 연결합니다」를 선택',
     );
+    // 신청 화면에서 학생이 실제로 보는 라디오 라벨(program-apply-views.tsx)을
+    // 그대로 써야 한다 — 내부 열거값 `OWN`을 그대로 노출하면 관리자가 무슨
+    // 뜻인지 알 수 없다.
+    expect(sectionText()).not.toContain('OWN');
+    // 신청 승인 경로는 프로그램의 「신청 승인 시 GitHub 저장소 자동 생성」이
+    // 꺼져 있으면 동작하지 않는다(applications.service.ts, 코드 리뷰 Major ①) —
+    // 이 전제조건을 빠뜨리면 "OWN으로 신청해 승인까지 받았는데 왜 안 잡히지"를
+    // 관리자가 이 화면만 보고는 풀 수 없다. 스키마 필드명이 아니라 프로그램
+    // 편집 화면의 체크박스 라벨(program-edit-basic-form.tsx) 그대로 써야 한다.
+    expect(sectionText()).toContain(
+      '「신청 승인 시 GitHub 저장소 자동 생성」이 꺼져 있으면 이 경로는 동작하지 않습니다',
+    );
+    expect(sectionText()).not.toContain('repositoryProvisioningEnabled');
+    expect(sectionText()).toContain('관리자가 학생별로 저장소 탐색을 실행');
+    expect(sectionText()).toContain('현재 수집 대상 저장소가 0개라');
+    // "왜 0인지"의 원인은 코드가 구분할 수 없는 사실이라 단정하지 않는다.
+    expect(sectionText()).not.toContain('탐색을 실행한 학생이 없어');
     // 빈 상태에서는 의미 없는 0값 카드를 보여주지 않는다.
     expect(sectionText()).not.toContain('누적 수집 활동');
   });

@@ -192,6 +192,24 @@ export function CollectionStreamsTable({
       cellClassName: 'font-mono text-sm whitespace-nowrap',
       cell: (repo) => repo.repositoryName,
     },
+    {
+      id: 'programName',
+      header: '프로그램',
+      // 이 표는 org 저장소만 담는다(getIncrementalStatusStreams가
+      // PRESENT_REPOSITORY로 고정 스코프) — 학생 개인(external) 저장소는 행
+      // 자체로 여기 나타나지 않는다. 연결이 없는 게 정상인 경우는 org 저장소
+      // 중 신청 승인 경로를 거치지 않은(관리자가 직접 만든) 저장소뿐이다 —
+      // em-dash로 자연스럽게 비워 보여준다. 현재 프로덕션은 `Repository` 행이
+      // 0건이라 이 열이 전부 em-dash로 보이는 게 정상이다(데이터가 생기면
+      // 채워진다).
+      cell: (repo) => (
+        <span
+          className={repo.programName ? undefined : 'text-muted-foreground'}
+        >
+          {repo.programName ?? '—'}
+        </span>
+      ),
+    },
     ...STREAM_TYPES.map(
       (streamType): DataTableColumn<CollectionStreamRepository> => ({
         id: streamType,

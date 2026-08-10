@@ -25,6 +25,7 @@ describe('system status api', () => {
     const collectionStreams = [
       {
         repositoryName: 'jnu-oss/repo-a',
+        programName: '오픈소스 입문 프로그램',
         streams: [
           {
             streamType: 'COMMIT',
@@ -169,6 +170,7 @@ describe('system status api', () => {
     const collectionStreams = [
       {
         repositoryName: 'jnu-oss/repo-a',
+        programName: null,
         streams: [],
       },
     ];
