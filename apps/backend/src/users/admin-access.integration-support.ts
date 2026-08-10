@@ -218,6 +218,119 @@ export class PausingRevocationAdminAccessRepository implements AdminAccessReposi
   }
 }
 
+/**
+ * TOCTOU 재검증 경쟁을 재현하기 위해 뮤테이션 트랜잭션을 두 지점에서 멈춰 세운다.
+ *
+ * `onFirstActorRead`는 잠금 이전의 unlocked 첫 actor 읽기 "직후"에, `onAfterLock`은
+ * `lockActiveAdmins()` "직후"에 걸린다 — 재검증(두 번째 actor 읽기)은 절대 멈추지 않는다.
+ * 두 훅이 각각 가리키는 것은 재검증이 막아야 하는 경쟁의 시작 지점과, 잠금이 실제로
+ * 걸린 뒤의 경쟁이다.
+ */
+class PausingActorRevalidationTransactionStore implements AdminAccessTransactionStore {
+  private actorReadCount = 0;
+
+  constructor(
+    private readonly store: AdminAccessTransactionStore,
+    private readonly hooks: {
+      readonly onFirstActorRead?: () => Promise<void>;
+      readonly onAfterLock?: () => Promise<void>;
+    },
+  ) {}
+
+  get auditLogWriter() {
+    return this.store.auditLogWriter;
+  }
+
+  async findActorByGithubId(
+    githubId: bigint,
+  ): Promise<AdminAccessActor | null> {
+    const actor = await this.store.findActorByGithubId(githubId);
+    this.actorReadCount += 1;
+    if (this.actorReadCount === 1 && this.hooks.onFirstActorRead) {
+      await this.hooks.onFirstActorRead();
+    }
+    return actor;
+  }
+
+  async lockActiveAdmins(): Promise<number> {
+    const count = await this.store.lockActiveAdmins();
+    if (this.hooks.onAfterLock) {
+      await this.hooks.onAfterLock();
+    }
+    return count;
+  }
+
+  findUserForUpdate(userId: string): Promise<AdminAccessUserRecord | null> {
+    return this.store.findUserForUpdate(userId);
+  }
+
+  compareAndSwapAccess(input: AdminAccessUserUpdate): Promise<boolean> {
+    return this.store.compareAndSwapAccess(input);
+  }
+
+  decidePendingRequest(
+    input: AdminAccessPendingDecisionUpdate,
+  ): Promise<boolean> {
+    return this.store.decidePendingRequest(input);
+  }
+
+  insertRevokedRequest(
+    input: AdminAccessRevokedRequestInsert,
+  ): Promise<AdminAccessInsertedRequest> {
+    return this.store.insertRevokedRequest(input);
+  }
+}
+
+export class PausingActorRevalidationAdminAccessRepository implements AdminAccessRepositoryPort {
+  constructor(
+    private readonly repository: AdminAccessRepositoryPort,
+    private readonly hooks: {
+      readonly onFirstActorRead?: () => Promise<void>;
+      readonly onAfterLock?: () => Promise<void>;
+    },
+  ) {}
+
+  withTransaction<T>(
+    operation: (store: AdminAccessTransactionStore) => Promise<T>,
+  ): Promise<T> {
+    return this.repository.withTransaction((store) =>
+      operation(
+        new PausingActorRevalidationTransactionStore(store, this.hooks),
+      ),
+    );
+  }
+
+  findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
+    return this.repository.findActorByGithubId(githubId);
+  }
+
+  list(query: AdminAccessListQuery): Promise<AdminAccessUserPageRecord> {
+    return this.repository.list(query);
+  }
+
+  facets(query: AdminAccessListQuery): Promise<AdminAccessFacets> {
+    return this.repository.facets(query);
+  }
+
+  findById(userId: string): Promise<AdminAccessUserDetailRecord | null> {
+    return this.repository.findById(userId);
+  }
+
+  listRoleRequestHistory(
+    userId: string,
+    page: { readonly page: number; readonly limit: number },
+  ): Promise<AdminAccessRoleRequestHistoryPage> {
+    return this.repository.listRoleRequestHistory(userId, page);
+  }
+
+  listLoginHistory(
+    userId: string,
+    page: { readonly page: number; readonly limit: number },
+  ): Promise<AdminAccessLoginHistoryPage> {
+    return this.repository.listLoginHistory(userId, page);
+  }
+}
+
 class DecisionFailureTransactionStore implements AdminAccessTransactionStore {
   constructor(private readonly store: AdminAccessTransactionStore) {}
 
