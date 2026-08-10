@@ -28,6 +28,28 @@ async function runDriver(source) {
   return { exitCode, stderr, stdout };
 }
 
+// Runs the fixture's dev command once so the timed run below does not pay
+// pnpm's cold start, and returns how long that cost. `pnpm dev` in a project
+// pnpm has not seen also triggers an implicit `pnpm install`; the fixture's
+// .npmrc disables that, and this warm-up absorbs whatever start-up cost is left.
+async function warmUpDevCommand(cwd) {
+  const startedAt = Date.now();
+  const warmup = spawn('pnpm', ['dev'], {
+    cwd,
+    env: { ...process.env, CARD_GRID_WARMUP: '1' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let output = '';
+  warmup.stdout.on('data', (chunk) => {
+    output += chunk.toString();
+  });
+  warmup.stderr.on('data', (chunk) => {
+    output += chunk.toString();
+  });
+  await once(warmup, 'close');
+  return { elapsed: Date.now() - startedAt, output };
+}
+
 afterEach(async () => {
   await Promise.all(
     temporaryDirectories
@@ -44,9 +66,14 @@ test('cancels readiness work and preserves logs when the child exits first', asy
     path.join(cwd, 'package.json'),
     JSON.stringify({ scripts: { dev: 'node exit-before-readiness.mjs' } }),
   );
+  await writeFile(path.join(cwd, '.npmrc'), 'verify-deps-before-run=false\n');
   await writeFile(
     path.join(cwd, 'exit-before-readiness.mjs'),
     `import { createServer } from 'node:net';
+    if (process.env.CARD_GRID_WARMUP === '1') {
+      console.error('WARMUP_READY');
+      process.exit(0);
+    }
     for (let index = 0; index < 30; index += 1) {
       console.error(\`DIAGNOSTIC_\${String(index).padStart(2, '0')}\`);
     }
@@ -61,6 +88,17 @@ test('cancels readiness work and preserves logs when the child exits first', asy
     server.listen(port, '127.0.0.1');
     `,
   );
+  // And: the dev command is known to reach its own code, so the timed run below
+  // can only fail on the cancellation and log behaviour under test.
+  const warmup = await warmUpDevCommand(cwd);
+  expect(warmup.output).toContain('WARMUP_READY');
+
+  // The readiness budget is a multiple of the start-up cost just measured on
+  // this machine, not a constant — a loaded machine widens the deadline instead
+  // of losing the race to it. The clamp keeps a pathological warm-up inside the
+  // test timeout.
+  const readinessBudget = Math.min(15_000, Math.max(4_000, warmup.elapsed * 6));
+
   const driver = `
     import { startServer } from ${JSON.stringify(runtimeUrl.href)};
     let rejectedAt;
@@ -76,8 +114,8 @@ test('cancels readiness work and preserves logs when the child exits first', asy
       await startServer({
         cwd: ${JSON.stringify(cwd)},
         env: process.env,
-        totalDeadline: now + 3_000,
-        workDeadline: now + 2_000,
+        totalDeadline: now + ${readinessBudget + 5_000},
+        workDeadline: now + ${readinessBudget},
       });
     } catch (error) {
       rejectedAt = Date.now();
@@ -105,11 +143,15 @@ test('cancels readiness work and preserves logs when the child exits first', asy
   const [exitCode] = await once(child, 'close');
   const quiescence = stderr.match(/QUIESCENT_AFTER (\d+)/);
 
-  // Then: cancellation is prompt, diagnostics survive, and no rejection leaks.
+  // Then: the observed exit — not a deadline miss — is what ended the wait, so
+  // the assertions below describe cancellation rather than a lost startup race.
   expect(exitCode).toBe(0);
+  expect(stderr).not.toContain('deadline exceeded');
+  expect(stderr).toContain('child exited with 23');
+
+  // And: cancellation is prompt, diagnostics survive, and no rejection leaks.
   expect(quiescence).not.toBeNull();
   expect(Number(quiescence?.[1])).toBeLessThan(250);
-  expect(stderr).toContain('child exited with 23');
   expect(stderr).toContain('PROBE_ACCEPTED');
   expect(stderr).toContain('DETERMINISTIC_STARTUP_FAILURE');
   expect(stderr).toContain('DIAGNOSTIC_29');
@@ -117,7 +159,7 @@ test('cancels readiness work and preserves logs when the child exits first', asy
   expect(stderr).toContain('LOG_TAIL_LENGTH 20');
   expect(stderr).not.toContain('UNHANDLED_REJECTION');
   expect(stdout).toBe('');
-});
+}, 40_000);
 
 test('cancels the shutdown timeout when SIGTERM stops the child', async () => {
   // Given: a detached child with the default SIGTERM behavior.
@@ -145,7 +187,13 @@ test('cancels the shutdown timeout when SIGTERM stops the child', async () => {
       await once(child, 'spawn');
       const startedAt = Date.now();
       try {
-        await stopServer(child, Date.now() + 7_000, 100);
+        // The grace has to outlast the child's own exit by a wide margin: this
+        // asserts the *unused* branch, so a loaded machine must not be able to
+        // turn a healthy SIGTERM exit into an escalation. It also sharpens the
+        // quiescence bound below — a grace timer that survived the observed
+        // exit now shows up as ~2s of lingering work rather than ~100ms, which
+        // is under the threshold and would go unnoticed.
+        await stopServer(child, Date.now() + 7_000, 2_000);
       } catch (error) {
         console.error('STOP_ERROR', error?.code ?? error);
       }
