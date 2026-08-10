@@ -44,6 +44,7 @@ describe('StudentDashboardView', () => {
     expect(html).toContain('참여 중');
     expect(html).toContain('미제출');
     expect(html).toContain('D-3');
+    expect(html).toContain('7월 26일 23:59 마감');
     expect(html).toContain('프로그램 상세');
     expect(html).toContain('제출 체크리스트');
   });
