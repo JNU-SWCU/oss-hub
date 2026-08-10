@@ -4,6 +4,7 @@ import {
   ACCESS_AUDIT_EVENT_KINDS,
   ACCESS_AUDIT_SCHEMA_VERSION,
 } from '../audit-log/audit-log-metadata';
+import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.enum';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from './domain/admin-access';
 import { AdminAccessService } from './admin-access.service';
@@ -13,6 +14,7 @@ import {
   InMemoryAdminAccessRepository,
   PENDING_REQUEST,
   accessUser,
+  adminActor,
   auditLogHarness,
 } from './admin-access.service.spec-support';
 
@@ -403,6 +405,88 @@ describe('AdminAccessService mutation', () => {
         },
       },
     });
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('re-validates the actor after locking active admins, not before', async () => {
+    // Given — TOCTOU 재검증이 lockActiveAdmins() *뒤*에 일어나는지 호출 순서로 증명한다.
+    const repository = new InMemoryAdminAccessRepository();
+    const service = new AdminAccessService(
+      repository,
+      auditLogHarness().service,
+    );
+
+    // When
+    await service.patchAccess(ADMIN_GITHUB_ID, 'target', {
+      expectedRole: Role.STUDENT,
+      desiredRole: Role.STAFF,
+      expectedAccountStatus: AccountStatus.ACTIVE,
+      desiredAccountStatus: AccountStatus.ACTIVE,
+      expectedPendingRequest: null,
+    });
+
+    // Then — 두 번째 find-actor가 lock-active-admins 다음에 온다.
+    const lockIndex = repository.operations.indexOf('lock-active-admins');
+    expect(lockIndex).toBeGreaterThan(-1);
+    expect(
+      repository.operations.filter((op) => op === 'find-actor'),
+    ).toHaveLength(2);
+    expect(repository.operations.indexOf('find-actor', lockIndex + 1)).toBe(
+      lockIndex + 1,
+    );
+  });
+
+  it('rejects the mutation when the actor is demoted between the unlocked read and the lock', async () => {
+    // Given — lockActiveAdmins()가 도는 순간 강등이 커밋된 경쟁을 흉내 낸다.
+    const repository = new InMemoryAdminAccessRepository();
+    repository.actorAfterLock = adminActor({ role: Role.STAFF });
+    const audit = auditLogHarness();
+    const service = new AdminAccessService(repository, audit.service);
+
+    // When / Then
+    await expect(
+      service.patchAccess(ADMIN_GITHUB_ID, 'target', {
+        expectedRole: Role.STUDENT,
+        desiredRole: Role.STAFF,
+        expectedAccountStatus: AccountStatus.ACTIVE,
+        desiredAccountStatus: AccountStatus.ACTIVE,
+        expectedPendingRequest: null,
+      }),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: RolesErrorCode.ADMIN_ONLY,
+        status: 403,
+      },
+    });
+    expect(repository.userUpdates).toEqual([]);
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('rejects the mutation when the actor is deactivated between the unlocked read and the lock', async () => {
+    // Given
+    const repository = new InMemoryAdminAccessRepository();
+    repository.actorAfterLock = adminActor({
+      accountStatus: AccountStatus.DEACTIVATED,
+    });
+    const audit = auditLogHarness();
+    const service = new AdminAccessService(repository, audit.service);
+
+    // When / Then
+    await expect(
+      service.patchAccess(ADMIN_GITHUB_ID, 'target', {
+        expectedRole: Role.STUDENT,
+        desiredRole: Role.STAFF,
+        expectedAccountStatus: AccountStatus.ACTIVE,
+        desiredAccountStatus: AccountStatus.ACTIVE,
+        expectedPendingRequest: null,
+      }),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED].code,
+        status: 401,
+      },
+    });
+    expect(repository.userUpdates).toEqual([]);
     expect(audit.record).not.toHaveBeenCalled();
   });
 });
