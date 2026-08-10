@@ -142,6 +142,18 @@ export class ProgramTeamsService {
           throw this.error(TeamsErrorCode.TEAM_FULL);
         }
 
+        // #164 패턴: 팀 행을 FOR UPDATE로 잠근 뒤 정원·잠금 판정을 다시 읽어
+        // 확정한다. 위의 findTeamByJoinCodeDigest 스냅샷은 잠금 전이라 동시
+        // 합류 경합 아래 stale할 수 있으므로, 실제 삽입 여부는 이 재조회
+        // 값만 근거로 삼는다.
+        const locked = await store.lockTeamForJoin(team.id);
+        if (locked.hasApplication) {
+          throw this.error(TeamsErrorCode.TEAM_LOCKED_AFTER_APPLICATION);
+        }
+        if (locked.memberCount >= program.teamMaxSize) {
+          throw this.error(TeamsErrorCode.TEAM_FULL);
+        }
+
         await store.addMember(team.id, programId, student.id);
       });
     } catch (error) {
