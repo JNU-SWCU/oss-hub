@@ -24,8 +24,19 @@ function backendLimits(): Readonly<Record<string, number>> {
       'application-answers.validator.ts에서 APPLICATION_ANSWER_MAX_LENGTHS 선언을 찾지 못했다',
     );
   }
-  const end = source.indexOf('}', start);
-  const body = source.slice(start + declaration.length, end);
+  // ⚠ 첫 `}` 로 끊으면 안 된다 — 객체 안 주석에 `}` 가 들어 있으면 거기서 잘리고,
+  //   그 주석이 옛 값을 `key: number,` 꼴로 적어 두면 **낡은 숫자를 읽고 통과**한다.
+  //   닫는 표식(`} as const;`)까지 잡고, 주석은 먼저 걷어 낸다.
+  const end = source.indexOf('} as const;', start);
+  if (end === -1) {
+    throw new Error(
+      'APPLICATION_ANSWER_MAX_LENGTHS 의 닫는 `} as const;` 를 찾지 못했다',
+    );
+  }
+  const body = source
+    .slice(start + declaration.length, end)
+    .replaceAll(/\/\*[\s\S]*?\*\//g, '')
+    .replaceAll(/\/\/.*$/gm, '');
   const limits: Record<string, number> = {};
   for (const [, key, digits] of body.matchAll(/(\w+)\s*:\s*([\d_]+)\s*,/g)) {
     limits[key] = Number(digits.replaceAll('_', ''));

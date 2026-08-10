@@ -116,7 +116,7 @@ export const APPLICATIONS_ERROR_CODES: Record<
   [ApplicationsErrorCode.ANSWER_TOO_LONG]: {
     code: ApplicationsErrorCode.ANSWER_TOO_LONG,
     status: 400,
-    message: '제목은 200자, 지원 동기는 10,000자를 넘을 수 없습니다.',
+    message: '신청 항목이 너무 깁니다.',
   },
   [ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH]: {
     code: ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH,

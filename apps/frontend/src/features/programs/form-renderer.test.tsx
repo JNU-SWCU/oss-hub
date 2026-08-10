@@ -66,7 +66,7 @@ describe('FormRenderer', () => {
       .split('<')
       .find((chunk) => chunk.includes('name="applicantName"'));
     expect(tag).toBeDefined();
-    expect(tag).not.toContain('maxLength');
+    expect(tag).not.toMatch(/maxlength/i);
   });
 
   it('edit mode keeps auto fields read-only and enables text fields', () => {

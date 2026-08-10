@@ -24,6 +24,8 @@ export const APPLICATION_ANSWER_MAX_LENGTHS = {
   summary: 10_000,
 } as const;
 
+export type ApplicationAnswerKey = keyof typeof APPLICATION_ANSWER_MAX_LENGTHS;
+
 export type ApplicationAnswers = {
   readonly applicantName: string;
   readonly title: string;
@@ -36,7 +38,7 @@ export type ApplicationAnswersValidationFailure = {
     'INVALID_SHAPE' | 'UNKNOWN_KEYS' | 'MISSING_REQUIRED' | 'TOO_LONG';
   readonly unknownKeys?: readonly string[];
   readonly missingKeys?: readonly string[];
-  readonly tooLongKeys?: readonly (keyof typeof APPLICATION_ANSWER_MAX_LENGTHS)[];
+  readonly tooLongKeys?: readonly ApplicationAnswerKey[];
 };
 
 /**
@@ -47,6 +49,23 @@ export type ApplicationAnswersValidationFailure = {
  *   고치라고 만든 상한이 고칠 길을 막는 셈이라, 읽기는 길이를 재지 않는다.
  */
 export type ApplicationAnswersLengthMode = 'enforce-length' | 'skip-length';
+
+/**
+ * 학생 화면에 실제로 보이는 라벨(`program-template.registry.ts`와 같은 말).
+ * ⚠ 「지원 동기」처럼 화면에 없는 말로 안내하면 학생은 무엇을 줄일지 못 찾는다.
+ */
+const APPLICATION_ANSWER_LABELS = {
+  title: '제목',
+  summary: '요약',
+} as const satisfies Readonly<Record<ApplicationAnswerKey, string>>;
+
+/** 넘친 칸마다의 안내. 숫자는 상한 상수에서 온다 — 문구에 베껴 적으면 갈라진다. */
+export function applicationAnswerTooLongMessage(
+  key: ApplicationAnswerKey,
+): string {
+  const limit = APPLICATION_ANSWER_MAX_LENGTHS[key];
+  return `${APPLICATION_ANSWER_LABELS[key]}은(는) ${limit.toLocaleString('ko-KR')}자를 넘을 수 없습니다.`;
+}
 
 export type ApplicationAnswersValidationSuccess = {
   readonly ok: true;
@@ -114,7 +133,7 @@ export function normalizeAndValidateApplicationAnswers(
     const tooLongKeys = (
       Object.keys(
         APPLICATION_ANSWER_MAX_LENGTHS,
-      ) as readonly (keyof typeof APPLICATION_ANSWER_MAX_LENGTHS)[]
+      ) as readonly ApplicationAnswerKey[]
     ).filter(
       (key) => answers[key].length > APPLICATION_ANSWER_MAX_LENGTHS[key],
     );

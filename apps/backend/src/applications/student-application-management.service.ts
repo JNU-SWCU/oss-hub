@@ -3,6 +3,7 @@ import { ApplicationStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import {
   checkApplicationTemplateVersion,
+  applicationAnswerTooLongMessage,
   normalizeAndValidateApplicationAnswers,
   type ApplicationAnswers,
 } from '../programs/application-answers.validator';
@@ -83,11 +84,19 @@ export class StudentApplicationManagementService {
       'enforce-length',
     );
     if (!answers.ok) {
-      throw this.error(
-        answers.reason === 'TOO_LONG'
-          ? ApplicationsErrorCode.ANSWER_TOO_LONG
-          : ApplicationsErrorCode.INVALID_ANSWERS,
-      );
+      // 넘친 칸을 그대로 실어 보낸다 — 하나의 뭉뚱그린 문구만 주면 학생이 무엇을 줄일지 모른다.
+      if (answers.reason === 'TOO_LONG')
+        throw new DomainException(
+          APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.ANSWER_TOO_LONG],
+          {
+            fieldErrors: (answers.tooLongKeys ?? []).map((key) => ({
+              field: key,
+              code: ApplicationsErrorCode.ANSWER_TOO_LONG,
+              message: applicationAnswerTooLongMessage(key),
+            })),
+          },
+        );
+      throw this.error(ApplicationsErrorCode.INVALID_ANSWERS);
     }
     const result = await this.repository.updatePendingApplication({
       programId,

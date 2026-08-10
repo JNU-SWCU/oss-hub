@@ -23,12 +23,11 @@ function values(
 
 describe('신청 항목 길이 상한', () => {
   it.each(['title', 'summary'] as const)(
-    '%s 입력칸이 서버와 같은 상한을 안다',
+    '%s 는 상한을 숫자로 돌려준다',
     (key) => {
-      // 화면이 서버보다 느슨하면 학생은 제출 순간에야 400 을 만난다.
-      expect(applicationAnswerMaxLength(key)).toBe(
-        APPLICATION_ANSWER_MAX_LENGTHS[key],
-      );
+      // 서버와 값이 같은지는 drift 테스트가 본다(백엔드 소스를 직접 읽는다).
+      // 여기서는 "조회가 되긴 하는가"만 본다.
+      expect(applicationAnswerMaxLength(key)).toBeGreaterThan(0);
     },
   );
 

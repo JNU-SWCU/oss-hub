@@ -14,6 +14,7 @@ import { DomainException } from '../common/error-code';
 import type { ProblemDetailExtensions } from '../common/error-code';
 import {
   checkApplicationTemplateVersion,
+  applicationAnswerTooLongMessage,
   normalizeAndValidateApplicationAnswers,
 } from '../programs/application-answers.validator';
 import {
@@ -151,11 +152,19 @@ export class ApplicationsService {
       'enforce-length',
     );
     if (!answersResult.ok) {
-      throw this.error(
-        answersResult.reason === 'TOO_LONG'
-          ? ApplicationsErrorCode.ANSWER_TOO_LONG
-          : ApplicationsErrorCode.INVALID_ANSWERS,
-      );
+      // 넘친 칸을 그대로 실어 보낸다 — 하나의 뭉뚱그린 문구만 주면 학생이 무엇을 줄일지 모른다.
+      if (answersResult.reason === 'TOO_LONG')
+        throw new DomainException(
+          APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.ANSWER_TOO_LONG],
+          {
+            fieldErrors: (answersResult.tooLongKeys ?? []).map((key) => ({
+              field: key,
+              code: ApplicationsErrorCode.ANSWER_TOO_LONG,
+              message: applicationAnswerTooLongMessage(key),
+            })),
+          },
+        );
+      throw this.error(ApplicationsErrorCode.INVALID_ANSWERS);
     }
 
     // 팀 이름은 공개 아카이브의 표시명으로 흘러간다(`public-project-response.dto.ts`).
