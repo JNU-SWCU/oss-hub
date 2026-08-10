@@ -117,7 +117,12 @@ const PROGRAM_OVERVIEW_BASES: Readonly<
     boardPostCount: 0,
     participantCount: 3,
     teamCount: 0,
-    connectedRepositoryCount: 1,
+    // 교직원 대시보드 카드의 `activity.repositories` 와 같은 수여야 한다 — 백엔드에서
+    // 앞의 것은 프로그램에 걸린 저장소 링크 수이고 이것은 `Repository.count({programId})`
+    // 라 앞의 것이 이것을 넘을 수 없다. 카드가 2인데 여기가 1이면 실제 서버가 만들 수 없는
+    // 상태를 두 교직원 화면이 서로 다르게 보여 준다. 공개 전환 신청이 늘며 저장소도 하나
+    // 늘었다(#753).
+    connectedRepositoryCount: 2,
     // 신청 전 상태라 두 서류 모두 미제출이다(student-program-fixtures.ts BASIC_MILESTONES).
     studentDocumentsCompleted: 0,
     studentDocumentsTotal: 2,
