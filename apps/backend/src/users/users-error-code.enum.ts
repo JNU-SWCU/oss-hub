@@ -9,6 +9,7 @@ export enum UsersErrorCode {
   ACCOUNT_ALREADY_DEACTIVATED = 'USR_006',
   LAST_ACTIVE_ADMIN = 'USR_007',
   STUDENT_ID_TAKEN_BY_ADMIN = 'USR_008',
+  PROFILE_UPDATE_CONFLICT = 'USR_009',
 }
 
 export const USERS_ERROR_CODES: Record<UsersErrorCode, ErrorCode> = {
@@ -57,5 +58,14 @@ export const USERS_ERROR_CODES: Record<UsersErrorCode, ErrorCode> = {
     code: UsersErrorCode.STUDENT_ID_TAKEN_BY_ADMIN,
     status: 409,
     message: '이미 다른 사용자가 사용 중인 학번이라 수정할 수 없습니다.',
+  },
+  // 서로 다른 필드를 고치는 두 관리자가 같은 사용자 행에서 Postgres 직렬화
+  // 충돌(P2034)로 부딪힌 뒤 재시도까지 모두 소진했을 때만 나온다 — 데이터는
+  // 그대로고 다시 시도하면 대개 성공한다(`prisma-serialization-retry.ts`).
+  [UsersErrorCode.PROFILE_UPDATE_CONFLICT]: {
+    code: UsersErrorCode.PROFILE_UPDATE_CONFLICT,
+    status: 409,
+    message:
+      '다른 관리자가 동시에 같은 사용자의 프로필을 수정하고 있어 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.',
   },
 };

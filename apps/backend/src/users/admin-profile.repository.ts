@@ -1,12 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
+import { DomainException } from '../common/error-code';
+import { withSerializationRetry } from '../common/prisma-serialization-retry';
 import {
   COMPATIBLE_PROFILE_SELECT,
   resolveCompatibleProfile,
 } from '../profiles/profile-compatibility';
 import { upsertCompatibleProfile } from '../profiles/profile-compatibility.repository';
 import { PrismaService } from '../prisma/prisma.service';
+import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.enum';
 import type {
   AdminProfileApplyOutcome,
   AdminProfileLegacyFields,
@@ -104,14 +107,29 @@ export class AdminProfileRepository implements AdminProfileRepositoryPort {
    * write 사이에 다른 트랜잭션이 끼어들어 감사 로그의 before 스냅샷이 stale해지는
    * 창을 닫는다. `applications.repository.ts`가 같은 read-then-write 위험에 이미
    * 같은 방식으로 대응한 전례를 따른다.
+   *
+   * `RepeatableRead`는 같은 행을 건드리는 동시 트랜잭션끼리 Postgres 직렬화
+   * 충돌(P2034)을 낼 수 있다 — 서로 다른 필드를 고치는 두 관리자가 그 예다.
+   * `withSerializationRetry`가 트랜잭션 전체(before 재조회 포함)를 다시 돌려
+   * 흡수하고, 그래도 안 되면 원시 Prisma 에러 대신 409
+   * `PROFILE_UPDATE_CONFLICT`로 바꿔 던진다.
    */
   withTransaction<T>(
     operation: (store: AdminProfileTransactionStore) => Promise<T>,
   ): Promise<T> {
-    return this.prisma.$transaction(
-      (transaction) =>
-        operation(new PrismaAdminProfileTransactionStore(transaction)),
-      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    return withSerializationRetry(
+      () =>
+        this.prisma.$transaction(
+          (transaction) =>
+            operation(new PrismaAdminProfileTransactionStore(transaction)),
+          { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+        ),
+      {
+        onExhausted: () =>
+          new DomainException(
+            USERS_ERROR_CODES[UsersErrorCode.PROFILE_UPDATE_CONFLICT],
+          ),
+      },
     );
   }
 }
