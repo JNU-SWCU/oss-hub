@@ -322,7 +322,11 @@ describe('SystemStatusView', () => {
       expect(html).toContain(
         '관리자가 학생별로 GitHub 계정을 한 명씩 지정해 실행',
       );
-      expect(html).toContain('탐색을 실행한 학생이 없어 수집 대상이 0개');
+      // "왜 0인지"의 원인은 시스템이 알 수 없는 사실이라 단정하지 않는다 —
+      // 관측 가능한 사실(대상 0개, 그래서 매시 수집도 처리할 저장소 없이
+      // 끝남)만 문구에 남는다.
+      expect(html).toContain('현재 수집 대상 저장소가 0개라');
+      expect(html).not.toContain('탐색을 실행한 학생이 없어');
     });
 
     it('org가 EMPTY 상태여도 external 섹션은 계속 렌더링한다(서로 독립된 파이프라인)', () => {
