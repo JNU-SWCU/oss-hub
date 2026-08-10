@@ -308,4 +308,35 @@ describe('AdminAccessView — 읽기 전용 접근 목록 화면', () => {
     expect(html).toContain('검색 결과가 없습니다');
     expect(html).toContain('필터 초기화');
   });
+
+  it('요청함 탭에서 필터 없이 0건이면 대기 없음 안내를 표시하고 필터 초기화는 없다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessView
+        {...baseViewProps}
+        items={[]}
+        total={0}
+        pendingRequest="PENDING"
+      />,
+    );
+
+    expect(html).toContain('승인 대기 중인 요청이 없습니다');
+    expect(html).not.toContain('검색 결과가 없습니다');
+    expect(html).not.toContain('필터 초기화');
+  });
+
+  it('요청함 탭이라도 검색어 필터가 걸려 있으면 기존 검색 실패 안내를 유지한다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessView
+        {...baseViewProps}
+        items={[]}
+        total={0}
+        pendingRequest="PENDING"
+        query="없음"
+      />,
+    );
+
+    expect(html).toContain('검색 결과가 없습니다');
+    expect(html).toContain('필터 초기화');
+    expect(html).not.toContain('승인 대기 중인 요청이 없습니다');
+  });
 });
