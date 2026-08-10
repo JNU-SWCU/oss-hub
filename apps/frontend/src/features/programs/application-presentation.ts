@@ -131,8 +131,9 @@ function isRevertBlockedDecisionError(problem: {
  *
  * 두 화면이 규칙을 공유한다 — 상세 화면은 신청이 하나뿐이라 `applicationId` 가 없고,
  * 목록 화면은 한 화면에 여러 행이 있어 행마다 갈라야 한다.
- * ⚠ 목록에서 판정에 **성공**하면 그 버튼이 사라진다(「승인」이 「되돌리기」로 바뀐다).
- * 그때는 돌려줄 대상이 없으므로 확인창이 Radix 기본 복귀에 맡긴다.
+ * ⚠ 판정에 **성공**하면 그 버튼이 사라진다(「승인」이 「되돌리기」로 바뀐다). 그때
+ * 어디로 돌려줄지는 `application-decision-focus.ts` 가 같은 규칙으로 정한다 —
+ * 같은 행의 **새 버튼**이고, 그것은 재조회가 끝난 뒤에야 생긴다([#767]).
  */
 export function applicationDecisionTriggerId(
   action: ApplicationDecisionAction,

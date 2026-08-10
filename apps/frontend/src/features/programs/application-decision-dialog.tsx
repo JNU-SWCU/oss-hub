@@ -57,11 +57,10 @@ export function ApplicationDecisionDialog({
   /**
    * 창을 연 버튼의 id. 닫힐 때 그리로 포커스를 돌려준다(`submission-dialog.tsx`와 같은 규칙).
    *
-   * ⚠ **취소·Escape 로 닫을 때만 실제로 돌아간다.** 판정에 성공하거나 낡은 상태로
-   *   실패해 화면이 창을 **스스로** 닫는 경우에는 그 순간 버튼이 아직 `disabled` 이거나
-   *   (성공 뒤에는) 아예 다른 버튼으로 바뀌어 있어서 포커스가 `<body>` 로 떨어진다.
-   *   Radix 기본 복귀도 같은 버튼을 향하므로 결과가 같다. 어디로 보낼지는 결정이 필요해
-   *   따로 뗐다([#767](https://github.com/JNU-SWCU/oss-hub/issues/767)).
+   * ⚠ **취소·Escape 로 닫을 때의 자리다.** 화면이 창을 **스스로** 닫는 경우(판정 성공·
+   *   낡은 상태)에는 그 순간 이 버튼이 아직 `disabled` 이고, 성공 뒤에는 아예 다른
+   *   버튼으로 바뀐다(「승인」→「되돌리기」). 그때의 복귀는 재조회가 끝나는 시점을 아는
+   *   화면 쪽이 맡는다(`application-decision-focus.ts`, [#767]).
    */
   readonly returnFocusId: string;
   readonly onReasonChange: (value: string) => void;
@@ -103,11 +102,17 @@ export function ApplicationDecisionDialog({
            *   제일 길다). 형제 창들과 같은 규칙(`submission-dialog`·`program-type-modal`).
            */
           className="fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl bg-background p-6 shadow-lg outline-none *:min-w-0"
+          /*
+           * ⚠ Radix 기본 복귀를 **언제나** 막는다 — 그것은 창이 열릴 때 포커스를 갖고
+           *   있던 노드를 향하는데, 판정에 성공하면 그 버튼은 이미 DOM 에서 사라진
+           *   뒤다(「승인」→「되돌리기」). 사라진 노드에 포커스를 주면 포커스는 문서
+           *   맨 앞에 남고, 재조회 뒤에 화면이 옮겨 둔 포커스까지 덮어쓴다([#767]).
+           *   이 복귀는 `setTimeout` 안에서 늦게 일어나므로 순서를 가정할 수 없다.
+           *   버튼이 없거나 `disabled` 면 아무것도 안 하고 화면 쪽 복귀에 맡긴다.
+           */
           onCloseAutoFocus={(event) => {
-            const returnTarget = document.getElementById(returnFocusId);
-            if (!(returnTarget instanceof HTMLElement)) return;
             event.preventDefault();
-            returnTarget.focus();
+            document.getElementById(returnFocusId)?.focus();
           }}
         >
           <AlertDialog.Title asChild>
