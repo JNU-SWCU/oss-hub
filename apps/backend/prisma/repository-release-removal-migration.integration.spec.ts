@@ -190,9 +190,7 @@ it.each(['DELETE_PENDING', 'DELETED'] as const)(
 it.each([
   [
     'missing',
-    [
-      'ALTER TABLE "Review" DROP CONSTRAINT "Review_submissionRevisionId_fkey"',
-    ],
+    ['ALTER TABLE "Review" DROP CONSTRAINT "Review_submissionRevisionId_fkey"'],
   ],
   [
     'unvalidated',
@@ -231,31 +229,34 @@ it.each([
       'ALTER TABLE "Review" RENAME CONSTRAINT "Review_submissionRevisionId_fkey" TO "Review_submissionRevisionId_renamed_fkey"',
     ],
   ],
-] as const)('aborts a %s expected foreign key before mutation', async (_case, statements) => {
-  await resetReleaseRemovalFixture(prisma, SCHEMA);
-  await inReleaseRemovalFixtureSchema(prisma, SCHEMA, async (transaction) => {
-    for (const statement of statements) {
-      await transaction.$executeRawUnsafe(statement);
-    }
-  });
-  const before = await inReleaseRemovalFixtureSchema(
-    prisma,
-    SCHEMA,
-    readReleaseRemovalSnapshot,
-  );
-
-  await expect(
-    inReleaseRemovalFixtureSchema(
+] as const)(
+  'aborts a %s expected foreign key before mutation',
+  async (_case, statements) => {
+    await resetReleaseRemovalFixture(prisma, SCHEMA);
+    await inReleaseRemovalFixtureSchema(prisma, SCHEMA, async (transaction) => {
+      for (const statement of statements) {
+        await transaction.$executeRawUnsafe(statement);
+      }
+    });
+    const before = await inReleaseRemovalFixtureSchema(
       prisma,
       SCHEMA,
-      executeReleaseRemovalMigration,
-    ),
-  ).rejects.toThrow(/foreign key contract/);
+      readReleaseRemovalSnapshot,
+    );
 
-  await expect(
-    inReleaseRemovalFixtureSchema(prisma, SCHEMA, readReleaseRemovalSnapshot),
-  ).resolves.toEqual(before);
-});
+    await expect(
+      inReleaseRemovalFixtureSchema(
+        prisma,
+        SCHEMA,
+        executeReleaseRemovalMigration,
+      ),
+    ).rejects.toThrow(/foreign key contract/);
+
+    await expect(
+      inReleaseRemovalFixtureSchema(prisma, SCHEMA, readReleaseRemovalSnapshot),
+    ).resolves.toEqual(before);
+  },
+);
 
 it('fresh deploy has the final enum and rerun records no additional migration', async () => {
   await expect(
