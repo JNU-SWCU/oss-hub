@@ -443,18 +443,27 @@ export class CollectionSyncService {
       }
       try {
         attemptedRepositoryCount += 1;
-        const counts = await this.syncRepository(
+        await this.syncRepository(
           runtime,
           lease,
           repository,
           identitySnapshot,
           deadline,
+          (streamType, insertedCount) => {
+            insertedFactCount += insertedCount;
+            switch (streamType) {
+              case 'COMMIT':
+                insertedCommitCount += insertedCount;
+                break;
+              case 'PULL_REQUEST':
+                insertedPullRequestCount += insertedCount;
+                break;
+              case 'RELEASE':
+                insertedReleaseCount += insertedCount;
+                break;
+            }
+          },
         );
-        insertedFactCount +=
-          counts.commitCount + counts.pullRequestCount + counts.releaseCount;
-        insertedCommitCount += counts.commitCount;
-        insertedPullRequestCount += counts.pullRequestCount;
-        insertedReleaseCount += counts.releaseCount;
         // 성공하면 실패 이력을 지우고 다음 정기 차례로 되돌린다.
         await this.incrementalRepository.recordRepositorySuccess(
           repository.githubRepositoryId,
@@ -758,9 +767,9 @@ export class CollectionSyncService {
   }
 
   /**
-   * 저장소 하나가 이번 run에서 새로 적재한 fact 수를 stream별로 반환한다(#511 성공 로그
-   * 집계, 시스템 상태 관측성 2단계의 sweep-history per-stream count 둘 다 이 반환값을
-   * 쓴다) — 합산 총계가 필요한 호출자는 세 값을 더한다.
+   * 저장소 하나의 stream을 차례로 동기화하고, 각 stream이 성공한 즉시 새 fact 수를
+   * 보고한다. 세 stream을 모두 마친 뒤 한꺼번에 반환하면 앞 stream의 checkpoint가
+   * 커밋된 뒤 다음 stream이 실패했을 때 실제 적재 건수가 sweep history에서 사라진다.
    */
   private async syncRepository(
     runtime: CollectionSyncRuntime,
@@ -768,11 +777,11 @@ export class CollectionSyncService {
     repository: CollectionRepositoryRow,
     registeredGithubIds: RegisteredGithubIdSet,
     deadline: number,
-  ): Promise<{
-    commitCount: number;
-    pullRequestCount: number;
-    releaseCount: number;
-  }> {
+    onStreamInserted: (
+      streamType: CollectionStreamType,
+      insertedCount: number,
+    ) => void,
+  ): Promise<void> {
     const [owner, name] = splitNameWithOwner(repository.nameWithOwner);
     // 팀원 목록은 저장소당 한 번만 읽어 세 stream이 공유한다. 커밋은 이 목록으로 **취득
     // 범위**를 좁히고(author-scoped GraphQL), PR·릴리스는 author 인자가 없어 전량 받은 뒤
@@ -827,6 +836,7 @@ export class CollectionSyncService {
           };
         },
       );
+    onStreamInserted('COMMIT', commitCount);
     const pullRequestCount = await this.trackStreamOutcome(
       lease,
       repository.id,
@@ -843,6 +853,7 @@ export class CollectionSyncService {
           deadline,
         ),
     );
+    onStreamInserted('PULL_REQUEST', pullRequestCount);
     const releaseCount = await this.trackStreamOutcome(
       lease,
       repository.id,
@@ -859,7 +870,7 @@ export class CollectionSyncService {
           deadline,
         ),
     );
-    return { commitCount, pullRequestCount, releaseCount };
+    onStreamInserted('RELEASE', releaseCount);
   }
 
   /**

@@ -17,8 +17,8 @@ import type {
 /**
  * ADR-006 조직 전체 누적·증분 수집 계약의 backfill entry point (public-admin-exposure
  * todo 8). 최신 성공 활성 generation(CanonicalOrganizationState.activeGenerationId)의
- * repository/commit/pull request/release 원장을 읽어 stable-ID facts + baseline
- * year aggregate로 1회 변환한다.
+ * repository/commit/pull request/release 원장을 읽어 stable-ID facts와
+ * `Contribution`으로 1회 변환한다.
  *
  * 이 command는 ETag·safe frontier·list order를 발명하지 않는다 — legacy generation은
  * 이 정보를 보존하지 않으므로 import된 stream은 항상 `VERIFYING`으로 남고 frontier
@@ -26,9 +26,9 @@ import type {
  * safe frontier를 확립하고 stream을 `READY`로 승격할 수 있다.
  *
  * Idempotency는 새 코드가 아니라 기존 `CollectionIncrementalRepository`의 unique-key
- * 계약에서 나온다 — fact insert는 중복 unique key를 조용히 건너뛰고, aggregate
- * increment는 그 insert가 성공했을 때만 일어난다. 따라서 같은 generation을 여러 번
- * import해도 최종 행/집계는 동일하다.
+ * 계약에서 나온다 — fact insert는 중복 unique key를 조용히 건너뛰고, 영향받은
+ * `Contribution` 칸은 저장된 fact에서 다시 계산한다. 따라서 같은 generation을 여러 번
+ * import해도 최종 행과 집계는 동일하다.
  */
 
 const COLLECTION_STREAM_TYPES_TO_VERIFY: readonly CollectionStreamType[] = [

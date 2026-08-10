@@ -474,7 +474,7 @@ export class CollectionIncrementalRepository {
   }
 
   /**
-   * `Contribution`(ADR-010 §4) 재계산 — 옛 연도 집계 **옆에** 더한다.
+   * `Contribution`(ADR-010 §4) 재계산.
    *
    * 가입자만 적재한다(§5). `githubId ∈ User` 를 만족하는 사람만 행을 만들고,
    * 이번 배치가 건드린 가입자 칸만 다시 계산한다. 기존 미가입자 행의 일괄 정리는

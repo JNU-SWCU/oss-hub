@@ -2737,6 +2737,30 @@ describe('CollectionSyncService — 시스템 상태 관측성 2단계: sweep-hi
     });
   });
 
+  it('앞 stream 적재 뒤 다음 stream이 실패해도 이미 커밋된 건수를 이력에 남긴다', async () => {
+    const { db, box, client } = seedRepositoryWithOneOfEachStream();
+    client.listNewPullRequests.mockRejectedValue(
+      new Error('synthetic pull request failure'),
+    );
+    const now = new Date('2026-08-01T12:00:00.000Z');
+    const service = createService(db, client, { now: () => now });
+
+    const result = await service.run('owner-1');
+
+    expect(result.insertedFactCount).toBe(1);
+    const rows = [...box.store.sweepHistory.values()];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      insertedCommitCount: 1,
+      insertedPullRequestCount: 0,
+      insertedReleaseCount: 0,
+      attemptedRepositoryCount: 1,
+      processedRepositoryCount: 0,
+      failedRepositoryCount: 1,
+      cycleCompleted: true,
+    });
+  });
+
   it('진행 중이던 사이클(커서가 이미 어느 저장소까지 진행함)에서는 그 cycleStartedAt을 그대로 이어 기록한다', async () => {
     const { db, box, client } = seedRepositoryWithOneOfEachStream();
     // 이 저장소(githubRepositoryId=100n)보다 작은 lastGithubRepositoryId를 남겨
