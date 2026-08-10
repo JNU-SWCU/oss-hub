@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, apiPath, type ProblemDetail } from '@/lib/api-client';
 import type {
   SystemStatus,
+  SystemStatusData,
   SystemStatusViewState,
   TriggerNotice,
 } from '../types';
@@ -57,9 +58,16 @@ const baseStatus: SystemStatus = {
   oldestRetryPendingAt: null,
   lastCycleStartedAt: '2026-07-25T10:55:00.000Z',
   lastCycleCompletedAt: '2026-07-25T11:00:00.000Z',
+  nextCycleAt: null,
   currentRunStatus: 'IDLE',
   safeReason: null,
 };
+
+const baseCollectionStreams: SystemStatusData['collectionStreams'] = [];
+
+function statusData(status: SystemStatus): SystemStatusData {
+  return { status, collectionStreams: baseCollectionStreams };
+}
 
 function problem(code: string): ProblemDetail {
   return {
@@ -88,7 +96,7 @@ describe('SystemStatusScreen', () => {
     document.body.append(container);
     root = createRoot(container);
     captured.props = null;
-    api.fetchSystemStatus.mockReset().mockResolvedValue(baseStatus);
+    api.fetchSystemStatus.mockReset().mockResolvedValue(statusData(baseStatus));
     api.triggerCollection.mockReset();
   });
 
@@ -110,8 +118,10 @@ describe('SystemStatusScreen', () => {
         runId: 'run-1',
       });
       api.fetchSystemStatus
-        .mockResolvedValueOnce(baseStatus)
-        .mockResolvedValueOnce({ ...baseStatus, trackedRepositoryCount: 9 });
+        .mockResolvedValueOnce(statusData(baseStatus))
+        .mockResolvedValueOnce(
+          statusData({ ...baseStatus, trackedRepositoryCount: 9 }),
+        );
       await renderScreen();
 
       await act(async () => {

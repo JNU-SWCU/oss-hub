@@ -13,6 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { formatRelativeTime } from '../format-relative-time';
 import type {
   CollectionHealth,
   CurrentRunStatus,
@@ -21,6 +22,7 @@ import type {
   SystemStatusViewState,
   TriggerNotice,
 } from '../types';
+import { CollectionStreamsTable } from './collection-streams-table';
 
 interface SystemStatusViewProps {
   readonly state: SystemStatusViewState;
@@ -263,6 +265,15 @@ function CollectionStatusCard({ status }: { readonly status: SystemStatus }) {
               {formatTimestamp(status.lastCycleCompletedAt)}
             </dd>
           </div>
+          {status.nextCycleAt ? (
+            <div>
+              <dt className="text-muted-foreground">다음 주기 예상</dt>
+              <dd className="mt-1 font-medium">
+                {formatRelativeTime(status.nextCycleAt, new Date())} (
+                {formatTimestamp(status.nextCycleAt)})
+              </dd>
+            </div>
+          ) : null}
         </dl>
       </CardContent>
     </Card>
@@ -357,7 +368,7 @@ export function SystemStatusView({
   if (state.kind === 'loading') return <LoadingState />;
   if (state.kind === 'error') return <ErrorState onRetry={onRetry} />;
 
-  const { status } = state;
+  const { status, collectionStreams } = state;
   const isEmpty = status.health === 'EMPTY';
   // 이미 실행 중인 사이클에 두 번째 트리거를 보내 봐야 lease가 거절한다 — 요청을
   // 보내기 전에 막아 관리자가 실패 응답을 받고서야 알게 되는 상황을 없앤다.
@@ -403,13 +414,16 @@ export function SystemStatusView({
           description={NO_TRACKED_REPOSITORIES_ACTION}
         />
       ) : (
-        <section aria-label="시스템 상태 요약">
-          <CardGrid>
-            <CollectionStatusCard status={status} />
-            <StreamProgressCard status={status} />
-            <DataFreshnessCard status={status} />
-          </CardGrid>
-        </section>
+        <>
+          <section aria-label="시스템 상태 요약">
+            <CardGrid>
+              <CollectionStatusCard status={status} />
+              <StreamProgressCard status={status} />
+              <DataFreshnessCard status={status} />
+            </CardGrid>
+          </section>
+          <CollectionStreamsTable repositories={collectionStreams} />
+        </>
       )}
 
       {/* 정상일 때는 붙이지 않는다 — 문제가 없을 때 읽어야 할 안내가 아니다. */}

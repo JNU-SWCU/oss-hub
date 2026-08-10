@@ -27,8 +27,8 @@ export function SystemStatusScreen() {
     setState({ kind: 'loading' });
 
     fetchSystemStatus()
-      .then((status) => {
-        if (active) setState({ kind: 'success', status });
+      .then(({ status, collectionStreams }) => {
+        if (active) setState({ kind: 'success', status, collectionStreams });
       })
       .catch(() => {
         if (active) setState({ kind: 'error' });
@@ -43,8 +43,8 @@ export function SystemStatusScreen() {
   // 쓰면 방금 띄운 성공 배너까지 로딩 화면에 가려진다. 최신 상태만 조용히 다시 받는다.
   const refreshQuietly = useCallback(async () => {
     try {
-      const status = await fetchSystemStatus();
-      setState({ kind: 'success', status });
+      const { status, collectionStreams } = await fetchSystemStatus();
+      setState({ kind: 'success', status, collectionStreams });
     } catch {
       // 트리거 자체는 성공했다 — 새로고침 실패로 전체 화면을 오류로 접지 않는다.
     }
