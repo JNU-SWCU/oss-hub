@@ -26,6 +26,8 @@ export { ListPanel, ListRow } from './list-panel';
 export { SectionHeading } from './section-heading';
 export type { SectionHeadingProps } from './section-heading';
 export { PageBody } from './page-body';
+export { PaginationNav } from './pagination-nav';
+export type { PaginationNavProps } from './pagination-nav';
 export {
   signupPrimaryClassName,
   SignupEyebrow,

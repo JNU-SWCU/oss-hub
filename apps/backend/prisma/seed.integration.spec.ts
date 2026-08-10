@@ -584,6 +584,23 @@ describe('seed profile=oss-hub contract (integration)', () => {
         seedId('oss-hub', 'milestone', 'live-beta'),
         seedId('oss-hub', 'milestone', 'release-complete'),
       ]);
+      expect(
+        program.milestones.find(
+          ({ id }) => id === seedId('oss-hub', 'milestone', 'live-beta'),
+        ),
+      ).toMatchObject({
+        startAt: new Date('2026-08-27T00:00:00+09:00'),
+        dueAt: new Date('2026-08-31T00:00:00+09:00'),
+      });
+      for (const milestone of program.milestones) {
+        expect(milestone.startAt.getTime()).toBeGreaterThanOrEqual(
+          program.startAt.getTime(),
+        );
+        expect(milestone.startAt.getTime()).toBeLessThan(
+          milestone.dueAt.getTime(),
+        );
+        expect(milestone.dueAt.getTime()).toBeLessThan(program.endAt.getTime());
+      }
       expect(team.leaderId).toBe(configuredUsers[0]?.id);
       expect(team.members.map(({ id, userId }) => ({ id, userId }))).toEqual(
         configuredUsers.map((user) => ({

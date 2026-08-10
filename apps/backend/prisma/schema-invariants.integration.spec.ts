@@ -46,8 +46,8 @@ async function createProgram(
   overrides: Readonly<{
     applicationStartAt?: Date;
     applicationEndAt?: Date;
-    teamMinSize?: number | null;
-    teamMaxSize?: number | null;
+    teamMinSize?: number;
+    teamMaxSize?: number;
   }> = {},
 ): Promise<void> {
   await prisma.program.create({
@@ -62,6 +62,8 @@ async function createProgram(
         overrides.applicationStartAt ?? new Date('2026-08-01T00:00:00Z'),
       applicationEndAt:
         overrides.applicationEndAt ?? new Date('2026-08-02T00:00:00Z'),
+      startAt: new Date('2026-08-02T00:00:00Z'),
+      endAt: new Date('2026-09-01T00:00:00Z'),
       teamMinSize: overrides.teamMinSize,
       teamMaxSize: overrides.teamMaxSize,
       description: 'synthetic-description',

@@ -123,8 +123,8 @@ it('returns field errors for an invalid application period through the API Probl
 it('returns field errors for an invalid team range through the API ProblemDetail contract', async () => {
   const response = await patchProgram({
     ...updateInput,
-    teamMinSize: null,
-    teamMaxSize: null,
+    teamMinSize: 4,
+    teamMaxSize: 2,
   });
 
   expect(response.status).toBe(400);

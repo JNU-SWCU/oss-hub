@@ -122,11 +122,14 @@ export class ProgramsRepository {
         description: true,
         applicationStartAt: true,
         applicationEndAt: true,
+        startAt: true,
+        endAt: true,
         milestones: {
           orderBy: [{ dueAt: 'asc' as const }, { createdAt: 'asc' as const }],
           select: {
             id: true,
             name: true,
+            startAt: true,
             dueAt: true,
             instructions: true,
             submissionType: true,
@@ -316,9 +319,10 @@ export class ProgramsRepository {
     readonly applicationTemplateVersion: number;
     readonly applicationStartAt: Date;
     readonly applicationEndAt: Date;
+    readonly startAt: Date;
     readonly endAt: Date;
-    readonly teamMinSize: number | null;
-    readonly teamMaxSize: number | null;
+    readonly teamMinSize: number;
+    readonly teamMaxSize: number;
     readonly description: string;
   }) {
     return this.prisma.program.create({ data });

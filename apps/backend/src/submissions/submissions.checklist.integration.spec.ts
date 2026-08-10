@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
 import {
+  offsetDays,
   prisma as seedPrisma,
   seedGithubId,
   seedId,
@@ -109,7 +110,7 @@ describe('SubmissionsService checklist/resubmission integration', () => {
           id: FILE_METADATA_MILESTONE_ID,
           programId: MILESTONES_PROGRAM_ID,
           name: '합성 파일 메타데이터 제출',
-          dueAt: new Date('2027-01-01T00:00:00.000Z'),
+          dueAt: offsetDays(90),
           submissionType: MilestoneSubmissionType.FILE,
         },
       ],

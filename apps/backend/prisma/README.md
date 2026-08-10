@@ -79,11 +79,12 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `pr
   온보딩 미완료로 남는다(정책을 완화하지 않는다).
   트래킹 화면을 실데이터로 채우기 위해 다음도 함께 만든다:
   - Milestone 7개로 팀 Notion "📅 Schedule" DB의 실제 프로젝트 일정을 그대로 표현한다(고정
-    ISO 날짜, Asia/Seoul 자정 기준 — `offsetDays` 상대 날짜가 아니다) — `AWS Staging`
+    ISO 날짜, Asia/Seoul 자정 기준 — `offsetDays` 상대 날짜가 아니다). 각 마일스톤의 시작과
+    마감은 각각 `Milestone.startAt`·`Milestone.dueAt`에 저장한다 — `AWS Staging`
     (2026-08-08) → `Intake 기능 동결`(2026-08-08) → `Intake Gate`(2026-08-15) → `구현 마감`
-    (2026-08-21) → `Full-loop Dry-run`(2026-08-24) → `Full-loop Live Beta`(마감 2026-08-31,
-    실사용 검증은 2026-08-27~29 — 스키마가 기간 필드를 지원하지 않아 `dueAt`은 검증 종료일로
-    두고 시작일은 `instructions`에 남긴다) → `Release Complete`(2026-08-31).
+    (2026-08-21) → `Full-loop Dry-run`(2026-08-24) → `Full-loop Live Beta`(시작 2026-08-27,
+    마감 2026-08-31) → `Release Complete`(2026-08-31). 별도 시작일이 문서화되지 않은 고정 일정은
+    프로그램 시작일을 `startAt`으로 사용한다.
   - Submission — `AWS Staging`은 팀장이 staging 배포 릴리즈 링크를 제출하고 합성 STAFF 계정
     (`auth` profile의 `staff-approved`)이 승인 리뷰를 남긴 상태, `Intake 기능 동결`은 다른
     팀원이 기능 동결 요약을 제출하고 아직 리뷰 대기 중인 상태다. 나머지 5개는 마감 전이라

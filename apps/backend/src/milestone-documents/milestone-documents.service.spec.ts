@@ -231,7 +231,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: true,
-        programEndAt: null,
+        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
         repositoryUrl: null,
       }),
       findSubmittedSummaries: jest.fn().mockResolvedValue([
@@ -273,7 +273,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: true,
-        programEndAt: null,
+        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
         repositoryUrl: null,
       }),
       findSubmittedSummaries: jest.fn().mockResolvedValue([
@@ -1139,7 +1139,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: false,
-        programEndAt: null,
+        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
         repositoryUrl: null,
       }),
     });
@@ -1178,7 +1178,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: true,
-        programEndAt: null,
+        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
         repositoryUrl: null,
       }),
       upsertSubmission: jest.fn().mockResolvedValue({
@@ -1232,7 +1232,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: true,
-        programEndAt: null,
+        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
         repositoryUrl: null,
       }),
       upsertSubmission: jest.fn().mockResolvedValue({
@@ -1298,7 +1298,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: true,
-        programEndAt: null,
+        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
         repositoryUrl: null,
       }),
     });
@@ -1338,7 +1338,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: true,
-        programEndAt: null,
+        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
         repositoryUrl: 'https://github.invalid/team/oss-team-04',
       }),
     });
@@ -1381,7 +1381,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: true,
-        programEndAt: null,
+        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
         repositoryUrl: null,
       }),
       upsertSubmission: jest
@@ -1422,7 +1422,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: true,
-        programEndAt: null,
+        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
         repositoryUrl: null,
       }),
       upsertSubmission: jest
@@ -1468,7 +1468,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: true,
-        programEndAt: null,
+        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
         repositoryUrl: null,
       }),
       findLatestReview: jest.fn().mockResolvedValue(latestReview),

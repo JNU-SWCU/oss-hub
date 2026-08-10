@@ -133,10 +133,6 @@ export class SubmissionFilesService {
     ) {
       throw this.error(SubmissionsErrorCode.MILESTONE_CLOSED);
     }
-    if (authorization.programEndAt === null) {
-      throw this.error(SubmissionsErrorCode.FILE_RETENTION_UNAVAILABLE);
-    }
-
     const objectKey = createSubmissionFileObjectKey();
     const originalName = sanitizeSubmissionFileOriginalName(file.originalname);
     const pendingInput: CreatePendingSubmissionFileInput = {

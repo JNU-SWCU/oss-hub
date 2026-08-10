@@ -22,8 +22,8 @@ export interface TeamProgramRecord {
   readonly category: ProgramCategory;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
-  readonly teamMinSize: number | null;
-  readonly teamMaxSize: number | null;
+  readonly teamMinSize: number;
+  readonly teamMaxSize: number;
 }
 
 export interface TeamMembershipRecord {
@@ -57,8 +57,8 @@ export interface TeamDetailRecord {
   readonly name: string;
   readonly leaderId: string;
   readonly programId: string;
-  readonly teamMinSize: number | null;
-  readonly teamMaxSize: number | null;
+  readonly teamMinSize: number;
+  readonly teamMaxSize: number;
   readonly hasApplication: boolean;
   readonly members: readonly {
     readonly userId: string;
