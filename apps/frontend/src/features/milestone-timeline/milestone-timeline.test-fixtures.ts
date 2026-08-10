@@ -24,10 +24,10 @@ export const response = {
   applicationMode: 'TEAM',
   items: [
     {
-      milestoneId: 'release',
-      name: '릴리즈 제출',
+      milestoneId: 'summary',
+      name: '결과 요약 제출',
       dueAt: '2026-08-03T23:59:59+09:00',
-      submissionType: 'REPOSITORY_RELEASE',
+      submissionType: 'TEXT',
       submission: submission('APPROVED'),
     },
     {
