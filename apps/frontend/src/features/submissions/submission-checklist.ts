@@ -113,7 +113,7 @@ export type ResubmissionFailure =
   | { readonly kind: 'stale' }
   | {
       readonly kind: 'field';
-      readonly field: 'file' | 'text' | 'releaseUrl';
+      readonly field: 'file' | 'text';
       readonly message: string;
     }
   | { readonly kind: 'alert'; readonly message: string };
@@ -156,18 +156,10 @@ export function resubmissionFailure(
   submissionType: SubmissionType,
 ): ResubmissionFailure {
   if (problem.status === 409) return { kind: 'stale' };
-  if (problem.code === 'SUB_009') {
-    return { kind: 'field', field: 'releaseUrl', message: problem.detail };
-  }
   if (problem.code === 'SUB_011') {
     return {
       kind: 'field',
-      field:
-        submissionType === 'TEXT'
-          ? 'text'
-          : submissionType === 'FILE'
-            ? 'file'
-            : 'releaseUrl',
+      field: submissionType === 'TEXT' ? 'text' : 'file',
       message: problem.detail,
     };
   }
@@ -183,11 +175,6 @@ export function resubmissionContent(
   switch (submissionType) {
     case 'TEXT':
       return { type: 'TEXT', text: input.text.trim() };
-    case 'REPOSITORY_RELEASE':
-      return {
-        type: 'REPOSITORY_RELEASE',
-        releaseUrl: input.releaseUrl.trim(),
-      };
     case 'FILE':
       return fileId ? { type: 'FILE', fileId } : null;
     default: {
