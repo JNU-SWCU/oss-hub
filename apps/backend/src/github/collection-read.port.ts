@@ -1,6 +1,7 @@
 import type {
   CollectionRepositoryPresence,
   CollectionRepositoryVisibility,
+  CollectionStreamType,
 } from './collection-incremental.types';
 import type { PrismaService } from '../prisma/prisma.service';
 import { PublicRankingRepository } from './repository/public-ranking.repository';
@@ -158,6 +159,13 @@ export type CollectionPublicRankingMetricsDto = {
  * `readyStreamCount`/`backfillingStreamCount`/`partialStreamCount`는 서로 배타적이며 합은
  * 항상 `trackedRepositoryCount * 3`(commit/PR/release)이다 — 아직 stream row 자체가
  * 생성되지 않은 저장소(신규 등록 직후)도 `partialStreamCount`에 포함한다.
+ *
+ * 2026-08 owner 결정 — 위 "repository 이름을 절대 포함하지 않는다"는 이 스냅샷(조직 전체
+ * 집계) 한정 경계였다. ADMIN 전용 system-status 화면에 한해, 무엇이 언제 수집됐는지
+ * 개별 저장소 단위로 들여다볼 수 있어야 한다는 관측성 요구가 이 경계와 부딪혀 owner가
+ * 경계를 옮기기로 했다 — `getIncrementalStatusStreams`(아래)가 그 새 경계다. 이 스냅샷
+ * 메서드 자체는 여전히 repository 이름을 포함하지 않는다(집계는 집계로 남는다); 이름
+ * 노출이 필요한 상세 조회만 별도 메서드로 분리했다.
  */
 export type CollectionIncrementalStatusSnapshotDto = {
   readonly trackedRepositoryCount: number;
@@ -184,6 +192,37 @@ export type CollectionIncrementalStatusSnapshotDto = {
   readonly failingRepositoryCount: number;
   /** 마지막으로 어떤 저장소든 수집에 성공한 시각. 이게 멈추면 전체가 멈춘 것이다. */
   readonly lastRepositorySuccessAt: Date | null;
+};
+
+/**
+ * 2026-08 owner 결정(위 `CollectionIncrementalStatusSnapshotDto` 참고) — ADMIN 전용
+ * system-status 화면이 저장소·stream 단위 상세를 보여줄 수 있도록 새로 연 경계. `bucket`은
+ * `getIncrementalStatusSnapshot`의 집계와 같은 분류를 stream 하나 단위로 반복한다:
+ * `lastErrorCode`가 있으면(재시도 대기) status를 덮어써 `RETRY_PENDING`이 최우선이고
+ * (system-status의 `decide()`가 retryPending을 partial/backfilling보다 먼저 보는 것과
+ * 같은 우선순위), 그다음 `READY`/`BACKFILLING`, 나머지(PENDING·VERIFYING·아직 생성되지
+ * 않은 stream row)는 `PARTIAL`이다.
+ */
+export const COLLECTION_STREAM_DETAIL_BUCKETS = [
+  'READY',
+  'BACKFILLING',
+  'PARTIAL',
+  'RETRY_PENDING',
+] as const;
+export type CollectionStreamDetailBucketDto =
+  (typeof COLLECTION_STREAM_DETAIL_BUCKETS)[number];
+
+export type CollectionRepositoryStreamDetailDto = {
+  readonly streamType: CollectionStreamType;
+  readonly bucket: CollectionStreamDetailBucketDto;
+  readonly lastSuccessAt: Date | null;
+  readonly lastErrorCode: string | null;
+  readonly lastErrorAt: Date | null;
+};
+
+export type CollectionRepositoryStreamsDto = {
+  readonly repositoryName: string;
+  readonly streams: readonly CollectionRepositoryStreamDetailDto[];
 };
 
 export interface CollectionReadPort {
@@ -229,6 +268,16 @@ export interface CollectionReadPort {
   getPublicRankingDataAsOf(): Promise<Date | null>;
   /** todo 12 — 조직 전체 증분 collection의 per-repo/stream 진행 상황 집계(system-status source). */
   getIncrementalStatusSnapshot(): Promise<CollectionIncrementalStatusSnapshotDto>;
+  /**
+   * 2026-08 owner 결정 — ADMIN 전용 system-status 화면의 저장소·stream 단위 상세
+   * (`CollectionRepositoryStreamDetailDto` 참고). 추적 중인(=`getIncrementalStatusSnapshot`의
+   * `trackedRepositoryCount`와 같은 조건) 저장소 전체를 repositoryName 오름차순으로,
+   * 저장소마다 COMMIT/PULL_REQUEST/RELEASE 3개 stream을 고정 순서로 반환한다 — stream row가
+   * 아직 생성되지 않은 조합도 PARTIAL bucket으로 채워 나온다.
+   */
+  getIncrementalStatusStreams(): Promise<
+    readonly CollectionRepositoryStreamsDto[]
+  >;
   /** todo 16 — 공개 프로젝트 상세/프로필 배치 지표(연도 무관 lifetime 누적). */
   getRepositoryCumulativeMetrics(
     query: CollectionRepositoryCumulativeMetricsQueryDto,
@@ -237,6 +286,16 @@ export interface CollectionReadPort {
   getContributorCumulativeMetrics(
     query: CollectionContributorCumulativeMetricsQueryDto,
   ): Promise<readonly CollectionContributorCumulativeMetricsDto[]>;
+  /**
+   * ADR-003 DEC-42 — system-status(github 모듈 밖)는 실제 배선된 cron 표현식
+   * (`collection-scheduler.service.ts`의 `COLLECTION_CRON_EXPRESSION`, concrete 구현)을
+   * 직접 import할 수 없다(boundary lint). 다음 수집 사이클 예정 시각 계산을 이 포트
+   * 뒤로 옮겨, cron 표현식과 `CronTime` 사용을 github 모듈 안(`collection-read.service.ts`)
+   * 에만 알게 한다. `from` 이후 다음 발생 시각을 Asia/Seoul 기준으로 계산하고, 표현식이
+   * 유효하지 않으면(운영 실수) `null`을 반환한다 — 이 계산 실패가 나머지 system-status
+   * 응답을 막아서는 안 된다.
+   */
+  getNextScheduledCycleAt(from: Date): Promise<Date | null>;
 }
 
 /**

@@ -41,6 +41,12 @@ export type SystemStatusSafeReasonResponseDto =
  * 이름·visibility·raw payload·collection lease/frontier 같은 물리 스키마는 절대 포함하지
  * 않는다(count/checkpoint 시각만). health/safeReason 해석은 `SystemStatusService.decide`
  * 책임이다.
+ *
+ * 2026-08 owner 결정 — "repository 이름을 절대 포함하지 않는다"는 이 집계 object 한정
+ * 경계로 남는다. 저장소 단위 상세가 필요해져 그 경계를 옮긴 곳은 이 DTO가 아니라 아래
+ * `SystemStatusResponseDto`의 형제 필드 `collectionStreams`다 — 집계는 여전히 집계로만
+ * 읽힌다. `nextCycleAt`은 새 필드지만 cron 표현식에서 계산한 시각일 뿐 물리 스키마가
+ * 아니라 이 경계와 무관하다.
  */
 export class CollectionSystemStatusResponseDto {
   constructor(
@@ -55,6 +61,7 @@ export class CollectionSystemStatusResponseDto {
     readonly oldestRetryPendingAt: string | null,
     readonly lastCycleStartedAt: string | null,
     readonly lastCycleCompletedAt: string | null,
+    readonly nextCycleAt: string | null,
     readonly currentRunStatus: CurrentRunStatusResponseDto,
     readonly safeReason: SystemStatusSafeReasonResponseDto | null,
   ) {}
@@ -64,9 +71,51 @@ export class RepositoryProvisioningSystemStatusResponseDto {
   constructor(readonly finalFailureCount: number) {}
 }
 
+export const COLLECTION_STREAM_BUCKET_VALUES = [
+  'READY',
+  'BACKFILLING',
+  'PARTIAL',
+  'RETRY_PENDING',
+] as const;
+export type CollectionStreamBucketResponseDto =
+  (typeof COLLECTION_STREAM_BUCKET_VALUES)[number];
+
+export const COLLECTION_STREAM_TYPE_VALUES = [
+  'COMMIT',
+  'PULL_REQUEST',
+  'RELEASE',
+] as const;
+export type CollectionStreamTypeResponseDto =
+  (typeof COLLECTION_STREAM_TYPE_VALUES)[number];
+
+export class CollectionRepositoryStreamResponseDto {
+  constructor(
+    readonly streamType: CollectionStreamTypeResponseDto,
+    readonly bucket: CollectionStreamBucketResponseDto,
+    readonly lastSuccessAt: string | null,
+    readonly lastErrorCode: string | null,
+    readonly lastErrorAt: string | null,
+  ) {}
+}
+
+/**
+ * 2026-08 owner 결정 — ADMIN 전용 system-status 화면에 한해 저장소 이름과 stream별 상세를
+ * 노출한다. `CollectionSystemStatusResponseDto`(조직 전체 집계)가 지켜온 "repository 이름을
+ * 담지 않는다" 경계를 이 필드가 의도적으로 넘는다 — 무엇이 언제 수집됐는지 저장소 단위로
+ * 들여다볼 관측성이 필요해졌기 때문이다(`collection-read.port.ts`의 boundary 코멘트,
+ * `apps/backend/src/github/AGENTS.md` 참고). ADMIN 가드 밖으로는 절대 재사용하지 않는다.
+ */
+export class SystemStatusCollectionStreamsResponseDto {
+  constructor(
+    readonly repositoryName: string,
+    readonly streams: readonly CollectionRepositoryStreamResponseDto[],
+  ) {}
+}
+
 export class SystemStatusResponseDto {
   constructor(
     readonly collection: CollectionSystemStatusResponseDto,
     readonly repositoryProvisioning: RepositoryProvisioningSystemStatusResponseDto,
+    readonly collectionStreams: readonly SystemStatusCollectionStreamsResponseDto[],
   ) {}
 }

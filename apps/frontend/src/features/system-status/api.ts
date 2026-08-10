@@ -1,9 +1,15 @@
 import { apiClient } from '@/lib/api-client';
-import type { SystemStatus, SystemStatusResponse } from './types';
+import type { SystemStatusData, SystemStatusResponse } from './types';
 
-export async function fetchSystemStatus(): Promise<SystemStatus> {
+export async function fetchSystemStatus(): Promise<SystemStatusData> {
   const response = await apiClient<SystemStatusResponse>('system-status');
-  return response.collection;
+  return {
+    status: response.collection,
+    // 배포 window에는 아직 collectionStreams를 안 주는 구버전 백엔드와 섞일 수
+    // 있다 — 그 응답을 undefined 그대로 넘기면 표 쪽 `[...repositories].sort()`가
+    // 던진다. 여기서 빈 배열로 정규화해 그 실패를 이 경계 하나로 막는다.
+    collectionStreams: response.collectionStreams ?? [],
+  };
 }
 
 export interface CollectionTriggerResult {
