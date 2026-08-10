@@ -127,9 +127,10 @@ describe('ProgramApplicationDetailPage', () => {
   }
 
   beforeEach(() => {
-    // ⚠ 포커스가 문서 맨 앞인 상태에서 시작한다 — 앞 테스트가 남긴 (이미 문서에서
-    //   떨어져 나간) 노드가 `activeElement` 로 남아 있으면 Radix 의 기본 복귀가 그 죽은
-    //   노드를 향해 **아무 일도 안 하고**, 그러면 복귀 규칙을 검사한 것이 아니게 된다.
+    // ⚠ 포커스가 문서 맨 앞인 상태에서 시작한다 — 앞 테스트가 문서에 **붙인 채로** 남긴
+    //   요소가 포커스를 쥐고 있으면, 「비어 있을 때만 옮긴다」 가드가 그 요소 때문에 갈려
+    //   복귀 규칙을 검사한 것이 아니게 된다. (떨어져 나간 노드는 happy-dom 이 스스로
+    //   `body` 로 되돌리므로 그쪽은 걱정할 것이 없다 — 실측으로 확인했다.)
     (document.activeElement as HTMLElement | null)?.blur();
     container = document.createElement('div');
     document.body.append(container);
