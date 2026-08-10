@@ -50,17 +50,40 @@ describe('system status api', () => {
         ],
       },
     ];
+    const collectionActivity = [
+      {
+        sweepFinishedAt: '2026-07-25T10:00:00.000Z',
+        cycleStartedAt: '2026-07-25T09:55:00.000Z',
+        scope: 'ORG',
+        insertedCommitCount: 12,
+        insertedPullRequestCount: 3,
+        insertedReleaseCount: 1,
+        attemptedRepositoryCount: 8,
+        processedRepositoryCount: 8,
+        failedRepositoryCount: 0,
+        cycleCompleted: true,
+        stoppedForBudget: false,
+      },
+    ];
     const request = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ collection: dto, collectionStreams }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
+      new Response(
+        JSON.stringify({
+          collection: dto,
+          collectionStreams,
+          collectionActivity,
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
     );
     vi.stubGlobal('fetch', request);
 
     await expect(fetchSystemStatus()).resolves.toEqual({
       status: dto,
       collectionStreams,
+      collectionActivity,
     });
     expect(request).toHaveBeenCalledWith(apiPath('system-status'), undefined);
   });
@@ -94,6 +117,47 @@ describe('system status api', () => {
     await expect(fetchSystemStatus()).resolves.toEqual({
       status: dto,
       collectionStreams: [],
+      collectionActivity: [],
+    });
+  });
+
+  it('collectionActivity가 없는 구계약 응답도 빈 배열로 정규화한다(2단계 배포 window 혼재 대비)', async () => {
+    const dto = {
+      health: 'NORMAL',
+      dataAsOf: '2026-07-25T10:01:00.000Z',
+      trackedRepositoryCount: 2,
+      readyStreamCount: 6,
+      backfillingStreamCount: 0,
+      partialStreamCount: 0,
+      retryPendingStreamCount: 0,
+      oldestReadyCheckpointAt: '2026-07-25T09:00:00.000Z',
+      oldestRetryPendingAt: null,
+      lastCycleStartedAt: '2026-07-25T09:55:00.000Z',
+      lastCycleCompletedAt: '2026-07-25T10:01:00.000Z',
+      nextCycleAt: null,
+      currentRunStatus: 'IDLE',
+      safeReason: null,
+    };
+    const collectionStreams = [
+      {
+        repositoryName: 'jnu-oss/repo-a',
+        streams: [],
+      },
+    ];
+    const request = vi.fn().mockResolvedValue(
+      // collectionStreams는 이미 보내는(1단계 배포 완료) 구버전 백엔드 응답 —
+      // collectionActivity 필드만 없다.
+      new Response(JSON.stringify({ collection: dto, collectionStreams }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    vi.stubGlobal('fetch', request);
+
+    await expect(fetchSystemStatus()).resolves.toEqual({
+      status: dto,
+      collectionStreams,
+      collectionActivity: [],
     });
   });
 

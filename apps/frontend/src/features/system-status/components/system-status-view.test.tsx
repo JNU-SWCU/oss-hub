@@ -2,6 +2,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type {
+  CollectionActivityEntry,
   CollectionStreamRepository,
   SystemStatus,
   TriggerNotice,
@@ -27,9 +28,9 @@ const normal: SystemStatus = {
 
 /**
  * 이 파일의 `render` 두 번째 인자는 실제 컴포넌트 prop 타입(`SystemStatusViewState`)이
- * 아니라 테스트 편의용 느슨한 타입이다 — success 상태에 `collectionStreams`를 매번
- * 적지 않아도 되도록 기본값([])을 채워 넣는다. 표를 직접 검증하는 테스트만
- * `collectionStreams`를 명시적으로 준다.
+ * 아니라 테스트 편의용 느슨한 타입이다 — success 상태에 `collectionStreams`·
+ * `collectionActivity`를 매번 적지 않아도 되도록 기본값([])을 채워 넣는다. 각각을
+ * 직접 검증하는 테스트만 해당 필드를 명시적으로 준다.
  */
 type LooseViewState =
   | { readonly kind: 'loading' }
@@ -38,6 +39,7 @@ type LooseViewState =
       readonly kind: 'success';
       readonly status: SystemStatus;
       readonly collectionStreams?: readonly CollectionStreamRepository[];
+      readonly collectionActivity?: readonly CollectionActivityEntry[];
     };
 
 function render(
@@ -49,7 +51,11 @@ function render(
 ): string {
   const resolvedState =
     state.kind === 'success'
-      ? { ...state, collectionStreams: state.collectionStreams ?? [] }
+      ? {
+          ...state,
+          collectionStreams: state.collectionStreams ?? [],
+          collectionActivity: state.collectionActivity ?? [],
+        }
       : state;
   return renderToStaticMarkup(
     <SystemStatusView
@@ -264,6 +270,33 @@ describe('SystemStatusView', () => {
     });
     expect(html).toContain('aria-label="수집 대상 상세"');
     expect(html).toContain('jnu-oss/example');
+  });
+
+  it('「수집 대상 상세」 표 아래에 「최근 수집 활동」 피드 section을 렌더링한다', () => {
+    const html = render({
+      kind: 'success',
+      status: normal,
+      collectionActivity: [
+        {
+          sweepFinishedAt: '2026-08-10T09:00:00.000Z',
+          cycleStartedAt: '2026-08-10T08:55:00.000Z',
+          scope: 'ORG',
+          insertedCommitCount: 12,
+          insertedPullRequestCount: 3,
+          insertedReleaseCount: 1,
+          attemptedRepositoryCount: 8,
+          processedRepositoryCount: 8,
+          failedRepositoryCount: 0,
+          cycleCompleted: true,
+          stoppedForBudget: false,
+        },
+      ],
+    });
+    const streamsIndex = html.indexOf('aria-label="수집 대상 상세"');
+    const activityIndex = html.indexOf('aria-label="최근 수집 활동"');
+    expect(streamsIndex).toBeGreaterThan(-1);
+    expect(activityIndex).toBeGreaterThan(streamsIndex);
+    expect(html).toContain('커밋 12');
   });
 
   it('error 상태의 재시도 버튼이 전달된 handler를 호출한다', () => {

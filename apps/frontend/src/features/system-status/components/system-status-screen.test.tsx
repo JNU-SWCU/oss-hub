@@ -64,9 +64,14 @@ const baseStatus: SystemStatus = {
 };
 
 const baseCollectionStreams: SystemStatusData['collectionStreams'] = [];
+const baseCollectionActivity: SystemStatusData['collectionActivity'] = [];
 
 function statusData(status: SystemStatus): SystemStatusData {
-  return { status, collectionStreams: baseCollectionStreams };
+  return {
+    status,
+    collectionStreams: baseCollectionStreams,
+    collectionActivity: baseCollectionActivity,
+  };
 }
 
 function problem(code: string): ProblemDetail {
