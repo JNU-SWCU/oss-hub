@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsDateString,
@@ -155,6 +156,7 @@ export class ProgramAuthoringRequestDto {
   declare readonly description: string;
 
   @IsArray()
+  @ArrayMinSize(1)
   @ArrayMaxSize(50)
   @AtMostDocuments(100)
   @ValidateNested({ each: true })
