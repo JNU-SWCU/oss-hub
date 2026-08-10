@@ -5,6 +5,7 @@ import { useMemo, type ReactNode } from 'react';
 import type { NavItem } from '@/components';
 import { PUBLIC_MENU } from './public-menus';
 import { ProductShell } from './product-shell';
+import { ADMIN_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
 import { ShellNav } from './shell-nav';
 import { COSMOS_GROUND_PATHS, PRE_MEMBER_PATHS } from './signup-routes';
 import { SessionRoleProvider } from './session-role-context';
@@ -41,7 +42,7 @@ export function AppFrame({
 }) {
   const pathname = usePathname();
   const session = useSessionRole();
-  const { status, isProfileComplete } = session;
+  const { status, role, isProfileComplete } = session;
   const onCosmosGround = COSMOS_GROUND_PATHS.has(pathname);
   const preMember = PRE_MEMBER_PATHS.has(pathname);
 
@@ -52,8 +53,26 @@ export function AppFrame({
         base.push(DASHBOARD_NAV_ITEM);
       }
     }
+    // QA54 — 좌측 사이드바(AppSidebar)는 `hidden min-[900px]:flex`라 900px 미만에서
+    // 아예 숨는데, 관리자·역할 메뉴는 그 사이드바에만 있어서 좁은 화면에서는 닿을
+    // 방법이 없었다. 세션 역할이 정해지면 그 메뉴를 상단 nav에도 넣되, 이미 있는
+    // 항목과 href가 겹치면 건너뛰어(대시보드 중복 방지) 새로 붙는 항목만
+    // `belowSidebarBreakpointOnly`로 표시한다 — ≥900px에서는 사이드바가 이미 같은
+    // 링크를 보여주므로 상단 nav 쪽만 숨긴다.
+    if (status === 'assigned' && isProfileComplete && role) {
+      const roleMenu =
+        role === 'ADMIN'
+          ? ADMIN_MENU
+          : role === 'STAFF'
+            ? STAFF_MENU
+            : STUDENT_MENU;
+      for (const item of roleMenu) {
+        if (base.some((existing) => existing.href === item.href)) continue;
+        base.push({ ...item, belowSidebarBreakpointOnly: true });
+      }
+    }
     return base;
-  }, [items, status, isProfileComplete]);
+  }, [items, status, isProfileComplete, role]);
 
   if (preMember) {
     return (
