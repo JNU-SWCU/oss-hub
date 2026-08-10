@@ -64,7 +64,7 @@ describe('ProgramApplicationsController', () => {
       teamName: null,
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: true,
-      repositoryConnectionMode: RepositoryConnectionMode.NEW,
+      repositoryConnectionMode: null,
       repositoryUrl: null,
     });
     expect(response).toEqual({
