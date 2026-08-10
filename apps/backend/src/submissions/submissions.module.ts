@@ -57,6 +57,6 @@ import { SubmissionsService } from './submissions.service';
     SubmissionMatrixRepository,
     SubmissionMatrixService,
   ],
-  exports: [SUBMISSION_DASHBOARD_SUMMARY_PORT],
+  exports: [SUBMISSION_DASHBOARD_SUMMARY_PORT, SUBMISSION_FILE_STORAGE],
 })
 export class SubmissionsModule {}
