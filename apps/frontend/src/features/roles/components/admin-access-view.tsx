@@ -157,6 +157,16 @@ function SortableColumnHeader({
 
 export function AdminAccessView(props: AdminAccessViewProps) {
   const lastPage = Math.max(1, Math.ceil(props.total / props.limit));
+  // 요청함(pendingRequest === 'PENDING') 탭은 화면 전환일 뿐 필터가 아니다 —
+  // 그 탭에서 0건은 "검색 실패"가 아니라 "대기 없음"이라는 별개의 사실이다.
+  const hasActiveFilters =
+    props.query.trim() !== '' ||
+    props.role !== '' ||
+    props.accountStatus !== '';
+  const isPendingInboxEmpty =
+    props.items.length === 0 &&
+    !hasActiveFilters &&
+    props.pendingRequest === 'PENDING';
 
   const columns: DataTableColumn<AdminAccessListItem>[] = [
     {
@@ -386,18 +396,22 @@ export function AdminAccessView(props: AdminAccessViewProps) {
           isLoading={props.isLoading}
           loadingSlot="접근 목록을 불러오는 중…"
           emptyState={
-            <EmptyState
-              title="검색 결과가 없습니다"
-              action={
-                <Button
-                  className="h-11"
-                  variant="outline"
-                  onClick={props.onResetFilters}
-                >
-                  필터 초기화
-                </Button>
-              }
-            />
+            isPendingInboxEmpty ? (
+              <EmptyState title="승인 대기 중인 요청이 없습니다" />
+            ) : (
+              <EmptyState
+                title="검색 결과가 없습니다"
+                action={
+                  <Button
+                    className="h-11"
+                    variant="outline"
+                    onClick={props.onResetFilters}
+                  >
+                    필터 초기화
+                  </Button>
+                }
+              />
+            )
           }
         />
       </div>
