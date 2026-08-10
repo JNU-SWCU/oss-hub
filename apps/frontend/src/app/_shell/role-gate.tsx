@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { AccessDenied } from './access-denied';
+import { LoginRequiredNotice } from './login-required-notice';
 import { onboardingPathFor } from './onboarding-route';
 import { SessionError } from './session-error';
 import { SessionRoleProvider } from './session-role-context';
@@ -27,8 +28,12 @@ export function roleGateRedirectPath(state: SessionRoleState): string | null {
     // 확인되지 않은 상태에서 화면을 열게 된다. 실패는 실패로 드러내고 재시도한다.
     case 'error':
       return null;
+    // 비로그인도 더 이상 조용히 리다이렉트하지 않는다(QA46). 안내 없이 랜딩으로
+    // 밀어내면 사용자는 왜 튕겼는지 알 수 없어 같은 시도를 반복한다 — 권한 불일치를
+    // `AccessDenied`로 돌린 것과 같은 이유다. `RoleGate`가 이 자리에 로그인 안내
+    // (`LoginRequiredNotice`)를 그대로 띄운다.
     case 'anonymous':
-      return '/';
+      return null;
     case 'unassigned':
       return onboardingPathFor(state.roleRequestStatus);
     // 권한 불일치는 더 이상 리다이렉트하지 않는다. 조용히 되돌리면 사용자는
@@ -102,7 +107,7 @@ export function shouldOpenForUnassigned(
 
 /**
  * 클라이언트 사이드 역할 게이트 (#136 최소 요구 4).
- * - 비로그인: 로그인 유도(랜딩 `/`)로 이동.
+ * - 비로그인: 이동하지 않고 로그인 안내(`LoginRequiredNotice`)를 그 자리에 띄운다(QA46).
  * - 로그인했지만 역할 미확정: `/onboarding/role`(#107)로 이동.
  * - 역할은 확정됐지만 `allow`에 없음: 이동하지 않고 접근 권한 안내를 띄운다.
  * 서버 사이드 강화(middleware)는 이 티켓 범위 밖이다.
@@ -154,6 +159,8 @@ export function RoleGate({
   let content: ReactNode;
   if (status === 'error') {
     content = <SessionError onRetry={retry} />;
+  } else if (status === 'anonymous') {
+    content = <LoginRequiredNotice />;
   } else if (
     // 프로필 미완료는 권한 문제가 아니라 남은 단계다 — 접근 거부 안내를 띄우면
     // 사용자는 자기 화면에서 쫓겨난 것으로 읽는다. 위 리다이렉트에 맡긴다.

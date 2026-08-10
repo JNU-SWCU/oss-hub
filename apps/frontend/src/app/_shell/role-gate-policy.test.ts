@@ -42,8 +42,10 @@ describe('roleGateRedirectPath', () => {
     expect(roleGateRedirectPath(state({ status: 'loading' }))).toBeNull();
   });
 
-  it('비로그인은 랜딩으로 보낸다', () => {
-    expect(roleGateRedirectPath(state({ status: 'anonymous' }))).toBe('/');
+  // 비로그인도 더 이상 리다이렉트하지 않는다(QA46) — `RoleGate`가 이 자리에
+  // 로그인 안내(`LoginRequiredNotice`)를 그대로 띄운다.
+  it('비로그인은 어디로도 리다이렉트하지 않는다', () => {
+    expect(roleGateRedirectPath(state({ status: 'anonymous' }))).toBeNull();
   });
 
   // 권한 불일치를 조용히 되돌리면 사용자는 왜 다른 화면이 떠 있는지 모른 채
