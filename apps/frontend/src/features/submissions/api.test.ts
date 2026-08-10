@@ -3,9 +3,11 @@ import { apiPath } from '@/lib/api-client';
 import {
   createResubmission,
   createSubmission,
+  downloadMilestoneDocumentCurrentFile,
   getSubmissionChecklist,
   getSubmissionForm,
   getSubmissionMatrix,
+  listMilestoneDocumentCurrentFiles,
   uploadSubmissionFile,
 } from './api';
 
@@ -21,6 +23,41 @@ function jsonResponse(value: unknown, status = 201): Response {
 }
 
 describe('submissions api', () => {
+  it('마일스톤 서류 목록과 현재 파일 endpoint에서 식별자를 모두 인코딩한다', async () => {
+    // Given
+    const listResponse = jsonResponse([], 200);
+    const fileResponse = new Response('current', {
+      status: 200,
+      headers: {
+        'Content-Disposition':
+          'attachment; filename="current.pdf"; filename*=UTF-8\'\'current.pdf',
+      },
+    });
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(listResponse)
+      .mockResolvedValueOnce(fileResponse);
+    vi.stubGlobal('fetch', request);
+
+    // When
+    await listMilestoneDocumentCurrentFiles('milestone/1');
+    await downloadMilestoneDocumentCurrentFile('milestone/1', 'document/1');
+
+    // Then
+    expect(request).toHaveBeenNthCalledWith(
+      1,
+      apiPath('milestones/milestone%2F1/documents'),
+      undefined,
+    );
+    expect(request).toHaveBeenNthCalledWith(
+      2,
+      apiPath(
+        'milestones/milestone%2F1/documents/document%2F1/submissions/current/file',
+      ),
+      undefined,
+    );
+  });
+
   it('파일과 식별자를 FormData로 보내고 Content-Type을 직접 설정하지 않는다', async () => {
     const uploaded = {
       fileId: 'file-1',

@@ -41,6 +41,7 @@ import {
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.enum';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
+import { milestoneDocumentAttachmentDisposition } from './milestone-document-attachment-disposition';
 import {
   type MilestoneDocumentFileUpload,
   MilestoneDocumentFilesService,
@@ -172,7 +173,7 @@ export class MilestoneDocumentsController {
     }
     response.setHeader(
       'Content-Disposition',
-      attachmentDisposition(archive.fileName),
+      milestoneDocumentAttachmentDisposition(archive.fileName),
     );
     /*
      * 응답이 끊기면 압축도 끊는다. Nest의 Express 어댑터는 `stream.pipe(response)`만 하고,
@@ -277,7 +278,7 @@ export class MilestoneDocumentsController {
     response.setHeader('Content-Length', String(file.contentLength));
     response.setHeader(
       'Content-Disposition',
-      attachmentDisposition(file.fileName),
+      milestoneDocumentAttachmentDisposition(file.fileName),
     );
     return new StreamableFile(file.body);
   }
@@ -304,7 +305,7 @@ export class MilestoneDocumentsController {
     response.setHeader('Content-Length', String(file.contentLength));
     response.setHeader(
       'Content-Disposition',
-      attachmentDisposition(file.fileName),
+      milestoneDocumentAttachmentDisposition(file.fileName),
     );
     return new StreamableFile(file.body);
   }
@@ -408,37 +409,4 @@ function respondWithArchiveFailure(error: Error, response: Response): void {
       instance: response.req.path,
       code: errorCode.code,
     });
-}
-
-function attachmentDisposition(fileName: string): string {
-  const fallback = asciiFallbackFileName(fileName);
-  return `attachment; filename="${fallback}"; filename*=UTF-8''${rfc5987(fileName)}`;
-}
-
-function asciiFallbackFileName(fileName: string): string {
-  const fallback = [...fileName]
-    .map((character) => {
-      const code = character.charCodeAt(0);
-      if (
-        code < 0x20 ||
-        code > 0x7e ||
-        character === '"' ||
-        character === '\\' ||
-        character === '/' ||
-        character === ';'
-      ) {
-        return '_';
-      }
-      return character;
-    })
-    .join('')
-    .trim();
-  return fallback.length > 0 ? fallback : 'file';
-}
-
-function rfc5987(value: string): string {
-  return encodeURIComponent(value).replace(
-    /[!'()*]/g,
-    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
-  );
 }

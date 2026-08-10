@@ -10,6 +10,9 @@ import {
   MilestoneDocumentsController,
 } from './milestone-documents.controller';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
+import { MilestoneDocumentCurrentFileController } from './milestone-document-current-file.controller';
+import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
+import { MilestoneDocumentCurrentFileService } from './milestone-document-current-file.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
@@ -23,10 +26,16 @@ import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard'
  */
 @Module({
   imports: [AuthModule],
-  controllers: [MilestoneDocumentsController, MilestoneDocumentFilesController],
+  controllers: [
+    MilestoneDocumentsController,
+    MilestoneDocumentFilesController,
+    MilestoneDocumentCurrentFileController,
+  ],
   providers: [
     MilestoneDocumentsService,
     MilestoneDocumentsRepository,
+    MilestoneDocumentCurrentFileRepository,
+    MilestoneDocumentCurrentFileService,
     MilestoneDocumentFilesService,
     MilestoneDocumentReviewsService,
     MilestoneDocumentArchiveService,
@@ -38,6 +47,10 @@ import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard'
       useExisting: S3SubmissionFileStorage,
     },
   ],
-  exports: [MilestoneDocumentsService],
+  exports: [
+    MilestoneDocumentsService,
+    MilestoneDocumentFilesService,
+    MilestoneDocumentCurrentFileService,
+  ],
 })
 export class MilestoneDocumentsModule {}

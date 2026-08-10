@@ -7,6 +7,9 @@ import {
   MilestoneDocumentsController,
 } from './milestone-documents.controller';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
+import { MilestoneDocumentCurrentFileController } from './milestone-document-current-file.controller';
+import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
+import { MilestoneDocumentCurrentFileService } from './milestone-document-current-file.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsModule } from './milestone-documents.module';
@@ -22,10 +25,10 @@ import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard'
  */
 describe('MilestoneDocumentsModule', () => {
   const getMetadataArray = (key: string): unknown[] => {
-    const metadata = Reflect.getMetadata(
+    const metadata: unknown = Reflect.getMetadata(
       key,
       MilestoneDocumentsModule,
-    ) as unknown;
+    );
     expect(Array.isArray(metadata)).toBe(true);
     return Array.isArray(metadata) ? metadata : [];
   };
@@ -37,6 +40,7 @@ describe('MilestoneDocumentsModule', () => {
       expect.arrayContaining([
         MilestoneDocumentsController,
         MilestoneDocumentFilesController,
+        MilestoneDocumentCurrentFileController,
       ]),
     );
   });
@@ -48,6 +52,8 @@ describe('MilestoneDocumentsModule', () => {
       expect.arrayContaining([
         MilestoneDocumentsService,
         MilestoneDocumentsRepository,
+        MilestoneDocumentCurrentFileRepository,
+        MilestoneDocumentCurrentFileService,
         MilestoneDocumentFilesService,
         MilestoneDocumentReviewsService,
         // 일괄 내려받기(ZIP)도 같은 컨트롤러가 생성자에서 요구한다 — 빠지면 부트스트랩 DI가
@@ -64,9 +70,13 @@ describe('MilestoneDocumentsModule', () => {
     );
   });
 
-  it('MilestoneDocumentsService만 다른 모듈에 노출한다', () => {
+  it('E2E composition에 필요한 document services만 다른 모듈에 노출한다', () => {
     const exports = getMetadataArray(MODULE_METADATA.EXPORTS);
 
-    expect(exports).toEqual([MilestoneDocumentsService]);
+    expect(exports).toEqual([
+      MilestoneDocumentsService,
+      MilestoneDocumentFilesService,
+      MilestoneDocumentCurrentFileService,
+    ]);
   });
 });
