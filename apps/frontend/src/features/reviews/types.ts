@@ -19,9 +19,27 @@ export interface SubmissionRevisionFile {
   readonly downloadUrl: string;
 }
 
+/**
+ * 백엔드 제출 본문 계약(`apps/backend/src/submissions/domain/submission-content.ts`)과
+ * 한 벌이다. 서버는 이 두 형태 중 하나를 그대로 전달한다.
+ */
+export interface SubmissionTextContent {
+  readonly type: 'TEXT';
+  readonly text: string;
+}
+
+export interface SubmissionFileContent {
+  readonly type: 'FILE';
+  readonly fileId: string;
+}
+
+export type SubmissionRevisionContent =
+  | SubmissionTextContent
+  | SubmissionFileContent;
+
 export interface SubmissionRevision {
   readonly number: number;
-  readonly content: unknown;
+  readonly content: SubmissionRevisionContent;
   readonly comment: string | null;
   readonly submittedAt: string;
   readonly files: readonly SubmissionRevisionFile[];

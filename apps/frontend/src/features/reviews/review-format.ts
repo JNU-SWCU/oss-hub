@@ -62,9 +62,42 @@ export function formatReviewDate(value: string): string {
   }).format(new Date(value));
 }
 
+/**
+ * 서버 계약은 `{type:'TEXT', text}` | `{type:'FILE', fileId}`뿐이지만, 네트워크를
+ * 건너온 값은 컴파일 타임 타입을 보장하지 않는다. 그래서 여기서는 `unknown`으로
+ * 다시 좁혀 검증한다 — 예전에는 여기서 걸러지지 않은 값이 그대로
+ * `JSON.stringify`로 화면에 새 나갔다(교직원이 raw JSON을 보던 결함).
+ */
 export function revisionContent(revision: SubmissionRevision): string {
-  if (typeof revision.content === 'string') return revision.content;
-  return JSON.stringify(revision.content, null, 2) ?? '제출 내용이 없습니다.';
+  const content: unknown = revision.content;
+  if (typeof content === 'string') return content;
+  if (isTextContent(content)) return content.text;
+  if (isFileContent(content)) return '';
+  return '제출 내용을 표시할 수 없습니다.';
+}
+
+/** FILE 유형인데 첨부가 비어 있는지 — RevisionCard가 '파일 제출' 안내로 대신할지 판단하는 근거. */
+export function isFileOnlyRevision(revision: SubmissionRevision): boolean {
+  return isFileContent(revision.content);
+}
+
+function isTextContent(
+  value: unknown,
+): value is { readonly type: 'TEXT'; readonly text: string } {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    'type' in value &&
+    value.type === 'TEXT' &&
+    'text' in value &&
+    typeof value.text === 'string'
+  );
+}
+
+function isFileContent(value: unknown): value is { readonly type: 'FILE' } {
+  return (
+    !!value && typeof value === 'object' && 'type' in value && value.type === 'FILE'
+  );
 }
 
 export function revisionLinks(revision: SubmissionRevision): readonly string[] {
