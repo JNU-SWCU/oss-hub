@@ -2,6 +2,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { ConsentsRepository } from '../consents/consents.repository';
 import { ConsentsService } from '../consents/consents.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { CollectionCutoverRepository } from './repository/collection-cutover.repository';
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
 import { RepositoryOwnEnrollmentService } from './service/repository-own-enrollment.service';
 
@@ -12,6 +13,7 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const enrollment = new CollectionIncrementalRepository(prisma);
+const cutover = new CollectionCutoverRepository(prisma);
 const REPOSITORY_IDS = [
   9_000_000_730_001n,
   9_000_000_730_002n,
@@ -71,7 +73,7 @@ describe('external repository enrollment integration', () => {
     });
   });
 
-  it('기존 external PRIVATE·ABSENT 행을 현재 공개 관찰로 복구한다', async () => {
+  it('기존 external PRIVATE·ABSENT 행을 복구하되 기존 fact·Contribution은 보존한다', async () => {
     await prisma.user.create({
       data: {
         id: MEMBER_USER_ID,
@@ -224,26 +226,45 @@ describe('external repository enrollment integration', () => {
         authorGithubId: MEMBER_GITHUB_ID,
         sha: 'synthetic-member-commit',
       },
+      {
+        authorGithubId: OUTSIDER_GITHUB_ID,
+        sha: 'synthetic-outsider-commit',
+      },
+      {
+        authorGithubId: null,
+        sha: 'synthetic-unresolved-commit',
+      },
     ]);
     await expect(
       Promise.all([
         prisma.collectionPullRequestFact.findMany({
           where: { repositoryId: repository.id },
+          orderBy: { githubPullRequestId: 'asc' },
           select: { authorGithubId: true },
         }),
         prisma.collectionReleaseFact.findMany({
           where: { repositoryId: repository.id },
+          orderBy: { githubReleaseId: 'asc' },
           select: { authorGithubId: true },
         }),
         prisma.contribution.findMany({
           where: { repositoryId: repository.id },
+          orderBy: { githubId: 'asc' },
           select: { githubId: true },
         }),
       ]),
     ).resolves.toEqual([
-      [{ authorGithubId: MEMBER_GITHUB_ID }],
-      [{ authorGithubId: MEMBER_GITHUB_ID }],
-      [{ githubId: MEMBER_GITHUB_ID }],
+      [
+        { authorGithubId: MEMBER_GITHUB_ID },
+        { authorGithubId: OUTSIDER_GITHUB_ID },
+        { authorGithubId: null },
+      ],
+      [
+        { authorGithubId: MEMBER_GITHUB_ID },
+        { authorGithubId: OUTSIDER_GITHUB_ID },
+        { authorGithubId: null },
+      ],
+      [{ githubId: MEMBER_GITHUB_ID }, { githubId: OUTSIDER_GITHUB_ID }],
     ]);
   });
 
@@ -282,6 +303,107 @@ describe('external repository enrollment integration', () => {
       visibility: 'PRIVATE',
       presence: 'PRESENT',
     });
+  });
+
+  it('external snapshot 뒤 org로 승격된 저장소의 기존 fact를 정리하지 않는다', async () => {
+    const repository = await prisma.githubRepository.create({
+      data: {
+        githubRepositoryId: REPOSITORY_IDS[2],
+        nameWithOwner: 'synthetic-student/promoted-repo',
+        defaultBranch: 'main',
+        archived: false,
+        source: 'EXTERNAL_PUBLIC',
+        visibility: 'PUBLIC',
+        presence: 'PRESENT',
+      },
+    });
+    await prisma.collectionCommitFact.create({
+      data: {
+        repositoryId: repository.id,
+        sha: 'synthetic-promoted-commit',
+        committedAt: OBSERVED_AT,
+        authorGithubId: OUTSIDER_GITHUB_ID,
+        authorGithubLogin: 'synthetic-outsider',
+      },
+    });
+    await prisma.collectionPullRequestFact.create({
+      data: {
+        repositoryId: repository.id,
+        githubPullRequestId: 9_000_000_730_501n,
+        state: 'MERGED',
+        createdAt: OBSERVED_AT,
+        authorGithubId: OUTSIDER_GITHUB_ID,
+        authorGithubLogin: 'synthetic-outsider',
+      },
+    });
+    await prisma.collectionReleaseFact.create({
+      data: {
+        repositoryId: repository.id,
+        githubReleaseId: 9_000_000_730_502n,
+        publishedAt: OBSERVED_AT,
+        authorGithubId: OUTSIDER_GITHUB_ID,
+        authorGithubLogin: 'synthetic-outsider',
+      },
+    });
+    await prisma.contribution.create({
+      data: {
+        repositoryId: repository.id,
+        githubId: OUTSIDER_GITHUB_ID,
+        date: OBSERVED_AT,
+        commitCount: 1,
+        pullRequestCount: 1,
+        releaseCount: 1,
+      },
+    });
+
+    await prisma.githubRepository.update({
+      where: { id: repository.id },
+      data: {
+        githubOrganizationId: 9_000_000_730_099n,
+        source: 'ORG_PROVISIONED',
+      },
+    });
+    await expect(
+      enrollment.enrollExternalRepository({
+        githubRepositoryId: REPOSITORY_IDS[2],
+        nameWithOwner: 'synthetic-student/promoted-repo',
+        defaultBranch: 'main',
+        archived: false,
+        observedAt: OBSERVED_AT,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      Promise.all([
+        prisma.collectionCommitFact.count({
+          where: { repositoryId: repository.id },
+        }),
+        prisma.collectionPullRequestFact.count({
+          where: { repositoryId: repository.id },
+        }),
+        prisma.collectionReleaseFact.count({
+          where: { repositoryId: repository.id },
+        }),
+        prisma.contribution.count({
+          where: { repositoryId: repository.id },
+        }),
+      ]),
+    ).resolves.toEqual([1, 1, 1, 1]);
+    await expect(
+      Promise.all([
+        cutover.countCommitFactsForRepositories(
+          [repository.id],
+          new Set([MEMBER_GITHUB_ID]),
+        ),
+        cutover.countPullRequestFactsForRepositories(
+          [repository.id],
+          new Set([MEMBER_GITHUB_ID]),
+        ),
+        cutover.countReleaseFactsForRepositories(
+          [repository.id],
+          new Set([MEMBER_GITHUB_ID]),
+        ),
+      ]),
+    ).resolves.toEqual([0, 0, 0]);
   });
 
   it('동일 id 동시 편입이 unique 오류 없이 한 행으로 수렴한다', async () => {

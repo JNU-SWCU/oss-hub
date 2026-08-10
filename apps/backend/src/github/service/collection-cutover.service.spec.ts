@@ -5,6 +5,7 @@ import type {
   CanonicalLeaseKey,
 } from '../collection-canonical.types';
 import type { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
+import type { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import type { CutoverLeaseToken } from '../collection-cutover.types';
 import type {
   CollectionGenerationImportService,
@@ -23,6 +24,7 @@ import type {
  */
 
 const KEY: CanonicalLeaseKey = { appId: 1n, organizationLogin: 'jnu-swcu' };
+const REGISTERED_GITHUB_IDS = new Set([1n]);
 
 const LEASE_TOKEN: CutoverLeaseToken = {
   appId: 1n,
@@ -52,8 +54,8 @@ const snapshot = (
       githubRepositoryId: 101n,
       sha: 'a'.repeat(40),
       committedAt: new Date('2026-07-30T00:00:00.000Z'),
-      authorGithubId: null,
-      authorGithubLogin: null,
+      authorGithubId: 1n,
+      authorGithubLogin: 'synthetic-registered',
     },
   ],
   pullRequests: [],
@@ -71,8 +73,11 @@ const importResult = (
     {
       githubRepositoryId: '101',
       repositoryId: 'repo-1',
+      commitsAccepted: 1,
       commitsInserted: 1,
+      pullRequestsAccepted: 0,
       pullRequestsInserted: 0,
+      releasesAccepted: 0,
       releasesInserted: 0,
     },
   ],
@@ -114,6 +119,10 @@ interface Collaborators {
       | 'countReleaseFactsForRepositories'
     >
   >;
+  identityRepository: Pick<
+    CollectionIncrementalRepository,
+    'listRegisteredGithubIds'
+  > & { listRegisteredGithubIds: jest.Mock };
 }
 
 const createCollaborators = (): Collaborators => ({
@@ -132,6 +141,9 @@ const createCollaborators = (): Collaborators => ({
     countPullRequestFactsForRepositories: jest.fn().mockResolvedValue(0),
     countReleaseFactsForRepositories: jest.fn().mockResolvedValue(0),
   },
+  identityRepository: {
+    listRegisteredGithubIds: jest.fn().mockResolvedValue(REGISTERED_GITHUB_IDS),
+  },
 });
 
 const serviceFor = (collaborators: Collaborators): CollectionCutoverService =>
@@ -140,6 +152,7 @@ const serviceFor = (collaborators: Collaborators): CollectionCutoverService =>
     collaborators.generationImportService,
     collaborators.syncService,
     collaborators.cutoverRepository as unknown as CollectionCutoverRepository,
+    collaborators.identityRepository,
     () => Promise.resolve(KEY),
     () => new Date('2026-08-01T00:00:00.000Z'),
     () => 'cutover-run-1',
@@ -259,6 +272,52 @@ describe('CollectionCutoverService — runCutover', () => {
     });
   });
 
+  it('COMPLETED: 작성자 귀속이 없는 canonical fact는 신규 fact parity에서 제외한다', async () => {
+    const collaborators = createCollaborators();
+    collaborators.canonicalRepository.getActiveGenerationSnapshot.mockResolvedValue(
+      snapshot({
+        commits: [
+          {
+            githubRepositoryId: 101n,
+            sha: 'anonymous'.padEnd(40, '0'),
+            committedAt: new Date('2026-07-30T00:00:00.000Z'),
+            authorGithubId: null,
+            authorGithubLogin: null,
+          },
+        ],
+      }),
+    );
+    collaborators.cutoverRepository.countCommitFactsForRepositories.mockResolvedValue(
+      0,
+    );
+    collaborators.generationImportService.importActiveGeneration.mockResolvedValue(
+      importResult({
+        repositories: [
+          {
+            githubRepositoryId: '101',
+            repositoryId: 'repo-1',
+            commitsAccepted: 0,
+            commitsInserted: 0,
+            pullRequestsAccepted: 0,
+            pullRequestsInserted: 0,
+            releasesAccepted: 0,
+            releasesInserted: 0,
+          },
+        ],
+      }),
+    );
+
+    await expect(
+      serviceFor(collaborators).runCutover('cli:owner-1'),
+    ).resolves.toMatchObject({
+      status: 'COMPLETED',
+      comparison: {
+        oldCommitCount: 0,
+        newCommitCount: 0,
+      },
+    });
+  });
+
   it('COMPLETED: 모든 단계가 통과하면 비교 결과와 함께 완료를 반환하고 lease를 해제한다', async () => {
     const collaborators = createCollaborators();
 
@@ -280,6 +339,15 @@ describe('CollectionCutoverService — runCutover', () => {
       },
     });
     expect(collaborators.syncService.run).not.toHaveBeenCalled();
+    expect(
+      collaborators.identityRepository.listRegisteredGithubIds,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      collaborators.generationImportService.importActiveGeneration,
+    ).toHaveBeenCalledWith(KEY, REGISTERED_GITHUB_IDS);
+    expect(
+      collaborators.cutoverRepository.countCommitFactsForRepositories,
+    ).toHaveBeenCalledWith(['repo-1'], REGISTERED_GITHUB_IDS);
     expect(collaborators.cutoverRepository.releaseLease).toHaveBeenCalledWith(
       LEASE_TOKEN,
       expect.any(Date),
@@ -296,7 +364,11 @@ describe('CollectionCutoverService — runCutover', () => {
 
     expect(result.status).toBe('COMPLETED');
     expect(collaborators.syncService.run).toHaveBeenCalledTimes(1);
-    expect(collaborators.syncService.run).toHaveBeenCalledWith('cli:owner-1');
+    expect(collaborators.syncService.run).toHaveBeenCalledWith(
+      'cli:owner-1',
+      undefined,
+      REGISTERED_GITHUB_IDS,
+    );
   });
 
   it('lease 해제 자체가 실패해도 결과를 그대로 반환한다(예외를 삼킨다)', async () => {

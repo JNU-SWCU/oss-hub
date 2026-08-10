@@ -71,18 +71,22 @@ describe('Contribution 재계산 (실 Postgres)', () => {
 
   it('KST 자정 경계를 사이에 둔 두 커밋이 서로 다른 날짜 칸으로 간다', async () => {
     // 둘 다 UTC 로는 2026-03-15 지만 KST 로는 하루가 갈린다.
-    await repository.recordCommitFacts(REPO_ID, [
-      {
-        sha: 'before-kst-midnight',
-        committedAt: new Date('2026-03-15T14:30:00.000Z'),
-        authorGithubId: MEMBER,
-      },
-      {
-        sha: 'after-kst-midnight',
-        committedAt: new Date('2026-03-15T15:30:00.000Z'),
-        authorGithubId: MEMBER,
-      },
-    ]);
+    await repository.recordCommitFacts(
+      REPO_ID,
+      [
+        {
+          sha: 'before-kst-midnight',
+          committedAt: new Date('2026-03-15T14:30:00.000Z'),
+          authorGithubId: MEMBER,
+        },
+        {
+          sha: 'after-kst-midnight',
+          committedAt: new Date('2026-03-15T15:30:00.000Z'),
+          authorGithubId: MEMBER,
+        },
+      ],
+      await repository.listRegisteredGithubIds(),
+    );
 
     const rows = await prisma.contribution.findMany({
       where: { repositoryId: REPO_ID },
@@ -97,18 +101,22 @@ describe('Contribution 재계산 (실 Postgres)', () => {
   });
 
   it('미가입자 기여는 행이 만들어지지 않는다', async () => {
-    await repository.recordCommitFacts(REPO_ID, [
-      {
-        sha: 'by-member',
-        committedAt: new Date('2026-03-15T01:00:00.000Z'),
-        authorGithubId: MEMBER,
-      },
-      {
-        sha: 'by-stranger',
-        committedAt: new Date('2026-03-15T01:00:00.000Z'),
-        authorGithubId: STRANGER,
-      },
-    ]);
+    await repository.recordCommitFacts(
+      REPO_ID,
+      [
+        {
+          sha: 'by-member',
+          committedAt: new Date('2026-03-15T01:00:00.000Z'),
+          authorGithubId: MEMBER,
+        },
+        {
+          sha: 'by-stranger',
+          committedAt: new Date('2026-03-15T01:00:00.000Z'),
+          authorGithubId: STRANGER,
+        },
+      ],
+      await repository.listRegisteredGithubIds(),
+    );
 
     const rows = await prisma.contribution.findMany({
       where: { repositoryId: REPO_ID },
@@ -133,7 +141,8 @@ describe('Contribution 재계산 (실 Postgres)', () => {
       },
     ];
 
-    await repository.recordCommitFacts(REPO_ID, batch);
+    const registeredGithubIds = await repository.listRegisteredGithubIds();
+    await repository.recordCommitFacts(REPO_ID, batch, registeredGithubIds);
     const first = await prisma.contribution.findMany({
       where: { repositoryId: REPO_ID },
       select: { githubId: true, date: true, commitCount: true },
@@ -141,7 +150,7 @@ describe('Contribution 재계산 (실 Postgres)', () => {
 
     // 같은 배치를 다시 넣는다. fact 는 skipDuplicates 라 늘지 않고,
     // 집계는 COUNT 재계산이라 같은 값이어야 한다.
-    await repository.recordCommitFacts(REPO_ID, batch);
+    await repository.recordCommitFacts(REPO_ID, batch, registeredGithubIds);
     const second = await prisma.contribution.findMany({
       where: { repositoryId: REPO_ID },
       select: { githubId: true, date: true, commitCount: true },
@@ -152,13 +161,18 @@ describe('Contribution 재계산 (실 Postgres)', () => {
   });
 
   it('상류에서 fact 가 사라지면 그 칸도 사라진다 — 0 인 행을 남기지 않는다', async () => {
-    await repository.recordCommitFacts(REPO_ID, [
-      {
-        sha: 'will-disappear',
-        committedAt: new Date('2026-03-15T01:00:00.000Z'),
-        authorGithubId: MEMBER,
-      },
-    ]);
+    const registeredGithubIds = await repository.listRegisteredGithubIds();
+    await repository.recordCommitFacts(
+      REPO_ID,
+      [
+        {
+          sha: 'will-disappear',
+          committedAt: new Date('2026-03-15T01:00:00.000Z'),
+          authorGithubId: MEMBER,
+        },
+      ],
+      registeredGithubIds,
+    );
     expect(
       await prisma.contribution.count({ where: { repositoryId: REPO_ID } }),
     ).toBe(1);
@@ -168,23 +182,31 @@ describe('Contribution 재계산 (실 Postgres)', () => {
       where: { repositoryId: REPO_ID },
     });
     // 같은 칸을 다시 건드리는 재계산이 돌면 0 인 행이 아니라 행 자체가 없어야 한다.
-    await repository.recordCommitFacts(REPO_ID, [
-      {
-        sha: 'will-disappear',
-        committedAt: new Date('2026-03-15T01:00:00.000Z'),
-        authorGithubId: MEMBER,
-      },
-    ]);
+    await repository.recordCommitFacts(
+      REPO_ID,
+      [
+        {
+          sha: 'will-disappear',
+          committedAt: new Date('2026-03-15T01:00:00.000Z'),
+          authorGithubId: MEMBER,
+        },
+      ],
+      registeredGithubIds,
+    );
     await prisma.collectionCommitFact.deleteMany({
       where: { repositoryId: REPO_ID },
     });
-    await repository.recordCommitFacts(REPO_ID, [
-      {
-        sha: 'unrelated-same-day',
-        committedAt: new Date('2026-03-15T03:00:00.000Z'),
-        authorGithubId: MEMBER,
-      },
-    ]);
+    await repository.recordCommitFacts(
+      REPO_ID,
+      [
+        {
+          sha: 'unrelated-same-day',
+          committedAt: new Date('2026-03-15T03:00:00.000Z'),
+          authorGithubId: MEMBER,
+        },
+      ],
+      registeredGithubIds,
+    );
 
     const rows = await prisma.contribution.findMany({
       where: { repositoryId: REPO_ID },
@@ -215,7 +237,11 @@ describe('Contribution 재계산 (실 Postgres)', () => {
       logged as unknown as PrismaService,
     );
 
-    await loggedRepository.recordCommitFacts(REPO_ID, facts);
+    await loggedRepository.recordCommitFacts(
+      REPO_ID,
+      facts,
+      await loggedRepository.listRegisteredGithubIds(),
+    );
     await logged.$disconnect();
 
     const rows = await prisma.contribution.count({
