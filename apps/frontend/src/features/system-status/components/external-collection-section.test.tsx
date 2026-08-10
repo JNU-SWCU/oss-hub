@@ -106,6 +106,15 @@ describe('ExternalCollectionSection', () => {
     // 그대로 써야 한다 — 내부 열거값 `OWN`을 그대로 노출하면 관리자가 무슨
     // 뜻인지 알 수 없다.
     expect(sectionText()).not.toContain('OWN');
+    // 신청 승인 경로는 프로그램의 「신청 승인 시 GitHub 저장소 자동 생성」이
+    // 꺼져 있으면 동작하지 않는다(applications.service.ts, 코드 리뷰 Major ①) —
+    // 이 전제조건을 빠뜨리면 "OWN으로 신청해 승인까지 받았는데 왜 안 잡히지"를
+    // 관리자가 이 화면만 보고는 풀 수 없다. 스키마 필드명이 아니라 프로그램
+    // 편집 화면의 체크박스 라벨(program-edit-basic-form.tsx) 그대로 써야 한다.
+    expect(sectionText()).toContain(
+      '「신청 승인 시 GitHub 저장소 자동 생성」이 꺼져 있으면 이 경로는 동작하지 않습니다',
+    );
+    expect(sectionText()).not.toContain('repositoryProvisioningEnabled');
     expect(sectionText()).toContain('관리자가 학생별로 저장소 탐색을 실행');
     expect(sectionText()).toContain('현재 수집 대상 저장소가 0개라');
     // "왜 0인지"의 원인은 코드가 구분할 수 없는 사실이라 단정하지 않는다.

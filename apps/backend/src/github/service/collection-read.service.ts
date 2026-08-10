@@ -789,8 +789,11 @@ export class CollectionReadService implements CollectionReadPort {
    * `Repository`(programId 보유) 조회 1번 + `Program` 조회 1번, 저장소 개수와 무관하게
    * 쿼리 2개 고정이다(N+1 금지 — `audit-log.repository.ts`의 `resolveProgramNames`와 같은
    * 원칙, 그 파일은 감사 로그 전용이라 재사용하지 않고 이 서비스 안에서 새로 구현한다).
-   * 매칭되는 `Repository` 행이 없는 저장소(조직 저장소 대부분, discovery로만 편입된
-   * external 저장소)는 맵에 없다 — 호출자가 `null`로 접는다.
+   *
+   * 호출자(`getIncrementalStatusStreams`)가 이미 `PRESENT_REPOSITORY`(org 저장소만)로
+   * 걸러진 id만 넘긴다 — external 저장소 id는 이 함수에 아예 들어오지 않는다. 그래서
+   * 여기서 맵에 없는 id는 org 저장소 중 매칭되는 `Repository` 행이 없는 경우(예: 신청
+   * 승인 경로를 거치지 않고 관리자가 직접 만든 저장소)뿐이다 — 호출자가 `null`로 접는다.
    */
   private async resolveProgramNamesByRepositoryId(
     githubRepositoryIds: readonly bigint[],

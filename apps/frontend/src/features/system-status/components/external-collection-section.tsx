@@ -15,6 +15,16 @@ import type { ExternalCollectionStatus } from '../types';
  * 자동으로 정해지지 않는다. **이 대상은 두 경로로만 채워진다**:
  *   ① 학생이 프로그램 신청에서 개인 저장소를 OWN 모드로 연결하고 그 신청이
  *      승인되는 경로 — 승인 시점에 `RepositoryProvisionWorker`가 편입한다.
+ *      단, 프로그램의 `repositoryProvisioningEnabled`(관리자 화면 라벨은
+ *      "신청 승인 시 GitHub 저장소 자동 생성")가 꺼져 있으면
+ *      `applications.service.ts`가 OWN/NEW 구분 없이 편입 자체를 건너뛴다
+ *      (outbox 이벤트도 job도 안 만든다, `repository-provision.worker.ts`도
+ *      같은 조건을 `FEATURE_DISABLED`로 한 번 더 막는다) — 이 옵션이 꺼진
+ *      프로그램에서는 학생이 OWN을 골라 신청하고 승인까지 받아도 ①로는
+ *      채워지지 않는다. 그런데 학생용 신청 화면(`program-apply-views.tsx`)의
+ *      OWN 선택지는 이 플래그와 무관하게 항상 보인다 — 그래서 문구에 이
+ *      전제조건을 반드시 적어야 한다, 안 그러면 "OWN으로 신청해 승인까지
+ *      받았는데 왜 안 잡히지"를 관리자가 이 화면만 보고는 풀 수 없다.
  *   ② 관리자가 학생별로 저장소 탐색(discovery)을 수동 실행하는 경로.
  * 두 경로는 코드상 같은 편입 함수(`enrollExternalRepository`)를 호출해 같은
  * `source`값으로 저장되므로 결과 행만 보고는 어느 경로로 들어왔는지 구분할 수
@@ -32,7 +42,7 @@ import type { ExternalCollectionStatus } from '../types';
  */
 const EXTERNAL_EMPTY_TITLE = '탐색된 학생 개인 GitHub 저장소가 아직 없습니다';
 const EXTERNAL_EMPTY_DESCRIPTION =
-  '학생 개인 공개 GitHub 저장소를 읽어 오는 수집 파이프라인은 조직 수집과 함께 매시 정각 자동으로 실행되고 있습니다. 이 파이프라인이 처리할 저장소 목록은 두 경로로 채워집니다 — 학생이 프로그램 신청에서 「이미 쓰던 저장소를 연결합니다」를 선택해 저장소 주소를 입력하고 그 신청이 승인되거나, 관리자가 학생별로 저장소 탐색을 실행하는 경우입니다. 현재 수집 대상 저장소가 0개라 매시 수집도 처리할 저장소 없이 끝나고 있습니다. 위 두 경로 중 하나로 저장소가 등록되면 다음 수집 주기부터 값이 채워집니다.';
+  '학생 개인 공개 GitHub 저장소를 읽어 오는 수집 파이프라인은 조직 수집과 함께 매시 정각 자동으로 실행되고 있습니다. 이 파이프라인이 처리할 저장소 목록은 두 경로로 채워집니다 — 학생이 프로그램 신청에서 「이미 쓰던 저장소를 연결합니다」를 선택해 저장소 주소를 입력하고 그 신청이 승인되거나(단, 프로그램 설정의 「신청 승인 시 GitHub 저장소 자동 생성」이 꺼져 있으면 이 경로는 동작하지 않습니다), 관리자가 학생별로 저장소 탐색을 실행하는 경우입니다. 현재 수집 대상 저장소가 0개라 매시 수집도 처리할 저장소 없이 끝나고 있습니다. 위 두 경로 중 하나로 저장소가 등록되면 다음 수집 주기부터 값이 채워집니다.';
 
 const DATE_TIME_FORMAT = new Intl.DateTimeFormat('ko-KR', {
   dateStyle: 'medium',

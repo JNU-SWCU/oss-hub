@@ -226,10 +226,17 @@ export type CollectionRepositoryStreamDetailDto = {
  * (unique, `GithubRepository.githubRepositoryId`와 같은 GitHub 숫자 id)를
  * 들고 있다 — DB FK는 아니고 같은 값을 각자 unique 컬럼으로 든 경유 조인이다.
  * `program-activity.service.ts`/`program-activity-summary.service.ts`/
- * `programs.repository.ts`가 이미 이 관례를 쓴다. 이 경로로 들어오지 않은
- * 저장소(조직 저장소 대부분, discovery로만 편입된 external 저장소)는 매칭되는
- * `Repository` 행이 없으므로 `programName`이 `null`인 것이 정상이다 — 오류가
- * 아니다.
+ * `programs.repository.ts`가 이미 이 관례를 쓴다.
+ *
+ * 이 필드는 `getIncrementalStatusStreams`가 채우는데, 그 메서드는 애초에
+ * `PRESENT_REPOSITORY`(org 저장소, `source: 'ORG_PROVISIONED'`)로 대상을
+ * 고정한다 — external 저장소(`source: 'EXTERNAL_PUBLIC'`)는 이 DTO의 행
+ * 자체로 나타나지 않는다(org sweep·external sweep은 서로의 source를 건드리지
+ * 않아 전환 경로가 없다). 그래서 `programName`이 `null`인 org 저장소는 "매칭
+ * 되는 `Repository` 행이 없다"(예: 신청 승인 경로를 거치지 않고 관리자가
+ * 직접 만든 저장소)는 뜻이지만, external 저장소가 이 표에 아예 안 보이는
+ * 것은 "행은 있는데 값이 없다"가 아니라 "행 자체가 없다" — 원인이 다르다.
+ * 이 필드 하나로는 학생 개인(external) 저장소의 프로그램 소속을 알 수 없다.
  */
 export type CollectionRepositoryStreamsDto = {
   readonly repositoryName: string;

@@ -46,9 +46,10 @@ export interface CollectionStreamRepository {
   /**
    * 이 저장소가 어느 프로그램 소속으로 편입됐는지(백엔드 `Repository.programId`
    * 경유 조인, `collection-read.port.ts`의 `CollectionRepositoryStreamsDto` 참고).
-   * 연결이 없으면(조직 저장소 대부분, 관리자 discovery로만 편입된 external
-   * 저장소) `null`이며 이는 정상이다 — "알 수 없음" 같은 오류 문구로 보여주지
-   * 않는다.
+   * 이 필드가 붙는 저장소는 애초에 org 저장소뿐이다 — 학생 개인(external)
+   * 저장소는 이 목록에 행 자체로 나타나지 않는다. 연결이 없으면(org 저장소 중
+   * 신청 승인 경로를 거치지 않고 관리자가 직접 만든 경우) `null`이며 이는
+   * 정상이다 — "알 수 없음" 같은 오류 문구로 보여주지 않는다.
    */
   readonly programName: string | null;
   readonly streams: readonly CollectionStreamDetail[];
