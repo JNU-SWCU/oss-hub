@@ -318,8 +318,12 @@ describe('SystemStatusView', () => {
       expect(html).toContain('aria-label="외부 저장소 수집"');
       expect(html).toContain('탐색된 학생 개인 GitHub 저장소가 아직 없습니다');
       // 0을 그냥 0으로 보여주지 않는다 — 왜 0인지, 무엇을 하면 채워지는지가
-      // 화면에서 읽혀야 한다는 이 화면의 핵심 요구사항.
-      expect(html).toContain('매시 정각 자동으로 실행되고 있습니다');
+      // 화면에서 읽혀야 한다는 이 화면의 핵심 요구사항. 이 fixture는
+      // `lastSweep: null`(emptyExternalCollection)이라 sweep이 한 번도 끝난
+      // 적이 없다는 뜻이다 — "매시 정각 자동으로 실행되고 있다"고 단정하면
+      // 안 된다(QA57).
+      expect(html).not.toContain('매시 정각 자동으로 실행되고 있습니다');
+      expect(html).toContain('단 한 번도 완료된 적이 없습니다');
       // 대상을 채우는 두 경로(신청 승인 / 관리자 수동 탐색) 모두 설명해야
       // 한다 — 탐색만 유일한 경로인 것처럼 안내하면 신청 승인 경로로 이미
       // 채워진 경우도 잘못 안내하게 된다.
