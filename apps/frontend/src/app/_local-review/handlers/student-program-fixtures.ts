@@ -42,6 +42,7 @@ const CAPSTONE_BASE = {
   category: 'CAPSTONE',
   description:
     '로컬 검토용 합성 프로그램입니다. 팀 저장소 운영과 마일스톤 제출 화면을 확인하기 위한 데이터이며 실제 모집·참여자와 무관합니다.',
+  repositoryProvisioningEnabled: true,
   applicationPeriod: {
     startsAt: '2026-07-01T00:00:00.000+09:00',
     endsAt: '2026-07-15T23:59:59.000+09:00',
@@ -55,6 +56,7 @@ const CONTEST_BASE = {
   category: 'OSS_CONTEST',
   description:
     '로컬 검토용 합성 경진대회입니다. 예선·본선 제출 화면 구성 확인 외의 의미는 없습니다.',
+  repositoryProvisioningEnabled: true,
   applicationPeriod: {
     startsAt: '2026-07-01T00:00:00.000+09:00',
     endsAt: '2026-07-10T23:59:59.000+09:00',
@@ -74,6 +76,7 @@ const BASIC_BASE = {
   category: 'BASIC',
   description:
     '신청 전 상태를 검토하기 위한 합성 개인형 프로그램입니다. 팀 구성 없이 바로 신청할 수 있습니다.',
+  repositoryProvisioningEnabled: false,
   applicationPeriod: {
     startsAt: '2026-01-01T00:00:00.000+09:00',
     endsAt: '2026-12-31T23:59:59.000+09:00',
@@ -98,6 +101,7 @@ const SW_VALUE_BASE = {
   category: 'SW_VALUE_SPREAD',
   description:
     '반려된 신청 상태를 검토하기 위한 합성 개인형 프로그램입니다. 신청 상세에서 반려 사유가 어떻게 보이는지 확인할 수 있습니다.',
+  repositoryProvisioningEnabled: false,
   applicationPeriod: {
     startsAt: '2026-01-01T00:00:00.000+09:00',
     endsAt: '2026-06-30T23:59:59.000+09:00',

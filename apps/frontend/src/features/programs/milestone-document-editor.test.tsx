@@ -88,20 +88,10 @@ function deferred<T>(): {
   return { promise, resolve, reject };
 }
 
-/**
- * 제출 방식 `<select>`의 **여는 태그만** 잘라 낸다.
- *
- * ⚠ `html.includes('disabled')`로 보면 안 된다 — 이 select의 Tailwind 클래스 목록에
- * `disabled:cursor-not-allowed` 같은 이름이 들어 있어, 잠금을 통째로 지워도 그 단언은
- * 그대로 통과한다. 실제로 렌더된 boolean 속성(`disabled=""`)을 태그 안에서 찾는다.
- */
-function submissionTypeSelectTag(html: string): string {
-  // `Select` 래퍼가 data-slot·class를 먼저 붙이므로 id가 태그 첫 속성이 아니다.
-  const idAt = html.indexOf(
-    'id="milestone-milestone-1-document-submission-type"',
-  );
-  if (idAt < 0) throw new Error('제출 방식 select를 찾지 못했습니다.');
-  const start = html.lastIndexOf('<select', idAt);
+function submissionTypeRadioTag(html: string, type: 'file' | 'text'): string {
+  const idAt = html.indexOf(`id="milestone-milestone-1-document-${type}"`);
+  if (idAt < 0) throw new Error('제출 방식 radio를 찾지 못했습니다.');
+  const start = html.lastIndexOf('<input', idAt);
   return html.slice(start, html.indexOf('>', idAt) + 1);
 }
 
@@ -239,7 +229,8 @@ describe('받을 서류 섹션의 렌더 계약', () => {
     expect(html).toContain('서류명을 입력해 주세요.');
     // 제출이 없는 항목은 선택이 열려 있어야 한다 — 잠금이 기본이 되면 아무도 못 고친다.
     expect(html).not.toContain('제출 방식은 바꿀 수 없습니다');
-    expect(submissionTypeSelectTag(html)).not.toContain('disabled=""');
+    expect(submissionTypeRadioTag(html, 'file')).not.toContain('disabled=""');
+    expect(submissionTypeRadioTag(html, 'text')).not.toContain('disabled=""');
   });
 
   // 백엔드가 409(MSD_016)로 막는 조건을 화면이 미리 알린다. 눌러 본 뒤 실패로 알게
@@ -257,7 +248,8 @@ describe('받을 서류 섹션의 렌더 계약', () => {
     expect(html).toContain(
       '이미 제출된 서류가 있어 제출 방식은 바꿀 수 없습니다',
     );
-    expect(submissionTypeSelectTag(html)).toContain('disabled=""');
+    expect(submissionTypeRadioTag(html, 'file')).toContain('disabled=""');
+    expect(submissionTypeRadioTag(html, 'text')).toContain('disabled=""');
     // 이름·필수 여부는 제출이 있어도 고칠 수 있다(백엔드가 그 요청은 통과시킨다).
     expect(html).toContain('서류명 *');
     expect(html).toContain('필수 제출');
@@ -391,19 +383,16 @@ describe('받을 서류 섹션의 동작', () => {
     });
   }
 
-  /**
-   * ⚠ `container.textContent`나 class 문자열로 잠금을 보지 않는다 — 이 select의 Tailwind
-   * 클래스에 `disabled:cursor-not-allowed`가 들어 있어, 잠금을 지워도 「disabled가 있다」는
-   * 단언은 그대로 통과한다. 실제 DOM 속성을 본다.
-   */
-  function submissionTypeSelect(): HTMLSelectElement {
-    const select = container.querySelector(
-      '#milestone-milestone-1-document-submission-type',
+  function submissionTypeRadios(): readonly HTMLInputElement[] {
+    const radios = Array.from(
+      container.querySelectorAll<HTMLInputElement>(
+        'input[name="milestone-milestone-1-document-submission-type"]',
+      ),
     );
-    if (!(select instanceof HTMLSelectElement)) {
-      throw new TypeError('제출 방식 select를 찾지 못했습니다.');
+    if (radios.length !== 2) {
+      throw new TypeError('제출 방식 radio 두 개를 찾지 못했습니다.');
     }
-    return select;
+    return radios;
   }
 
   it('접힌 카드는 목록을 불러오지 않고, 펼칠 때 한 번 불러온다', async () => {
@@ -513,11 +502,7 @@ describe('받을 서류 섹션의 동작', () => {
     await render(true);
     await click('수정');
 
-    const select = container.querySelector(
-      '#milestone-milestone-1-document-submission-type',
-    );
-    expect(select).toBeInstanceOf(HTMLSelectElement);
-    expect((select as HTMLSelectElement).disabled).toBe(true);
+    expect(submissionTypeRadios().every((radio) => radio.disabled)).toBe(true);
     expect(container.textContent).toContain(
       '이미 제출된 서류가 있어 제출 방식은 바꿀 수 없습니다',
     );
@@ -534,10 +519,7 @@ describe('받을 서류 섹션의 동작', () => {
     await render(true);
     await click('수정');
 
-    const select = container.querySelector(
-      '#milestone-milestone-1-document-submission-type',
-    );
-    expect((select as HTMLSelectElement).disabled).toBe(false);
+    expect(submissionTypeRadios().every((radio) => !radio.disabled)).toBe(true);
     expect(container.textContent).not.toContain('제출 방식은 바꿀 수 없습니다');
   });
 
@@ -567,7 +549,7 @@ describe('받을 서류 섹션의 동작', () => {
 
     await click('수정');
 
-    expect(submissionTypeSelect().disabled).toBe(true);
+    expect(submissionTypeRadios().every((radio) => radio.disabled)).toBe(true);
     expect(container.textContent).toContain(
       '이미 제출된 서류가 있어 제출 방식은 바꿀 수 없습니다',
     );
@@ -597,7 +579,7 @@ describe('받을 서류 섹션의 동작', () => {
     // 두 번째 행(계획서)의 「수정」 — 첫 행은 제출이 없어 잠기지 않는 항목이다.
     await clickEditAt(1);
 
-    expect(submissionTypeSelect().disabled).toBe(true);
+    expect(submissionTypeRadios().every((radio) => radio.disabled)).toBe(true);
   });
 
   it('첫 항목의 「위로」와 마지막 항목의 「아래로」는 잠겨 있다', async () => {

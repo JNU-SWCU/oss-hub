@@ -208,8 +208,8 @@ interface ProgramApplyFormViewProps {
 
 /**
  * GitHub 저장소 연결 섹션 — 계정 연동 안내(읽기전용) + 연결 방식 라디오(2택).
- * `own`을 고르면 조건부 repo URL 입력이 카드 안에 나타난다. 새 신청서 작성
- * (`create`)에서만 보인다 — 수정 화면 범위 밖(program-apply-flow.validateApplyForm 참고).
+ * `own`을 고르면 조건부 repo URL 입력이 카드 안에 나타난다. 저장소 발급을 켠
+ * 프로그램의 새 신청서 작성에서만 보인다.
  */
 function RepositoryConnectionSection({
   githubHandle,
@@ -247,14 +247,14 @@ function RepositoryConnectionSection({
               checked={repositoryConnectionMode === 'new'}
               onChange={() => onModeChange('new')}
             />
-            <span className="font-medium">새 저장소를 만들어 받습니다</span>
+            <span className="font-medium">새 저장소 발급받기</span>
             <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
               기본
             </span>
           </span>
           <span className="pl-6 text-xs text-muted-foreground">
-            승인되면 JNU-SWCU 조직에 팀 저장소가 자동으로 생성되고, 내 GitHub
-            계정이 초대됩니다
+            승인되면 운영 조직에 비공개 저장소가 생성되고 내 GitHub 계정이
+            초대됩니다
           </span>
         </label>
         <label className="flex cursor-pointer flex-col gap-1 rounded-control border border-border px-4 py-3 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
@@ -266,10 +266,13 @@ function RepositoryConnectionSection({
               checked={repositoryConnectionMode === 'own'}
               onChange={() => onModeChange('own')}
             />
-            <span className="font-medium">이미 쓰던 저장소를 연결합니다</span>
+            <span className="font-medium">내 저장소 연결하기</span>
           </span>
           <span className="pl-6 text-xs text-muted-foreground">
             진행 중인 프로젝트가 있다면 그 repo를 그대로 프로그램에 연결합니다
+          </span>
+          <span className="pl-6 text-xs font-medium text-foreground">
+            외부 저장소는 공개 저장소만 연결
           </span>
           {repositoryConnectionMode === 'own' ? (
             <Input
@@ -445,23 +448,25 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
           />
           {errors.title ? <FieldError>{errors.title}</FieldError> : null}
           {errors.summary ? <FieldError>{errors.summary}</FieldError> : null}
-          <Field orientation="horizontal">
-            <input
-              id="repository-publication-planned"
-              type="checkbox"
-              checked={values.isRepositoryPublicationPlanned}
-              disabled={mode === 'edit'}
-              onChange={(event) =>
-                onTogglePublicationPlanned(event.target.checked)
-              }
-            />
-            <FieldLabel htmlFor="repository-publication-planned">
-              {mode === 'edit'
-                ? '제출 시 선택한 저장소 공개 예정 여부'
-                : '선정 시 저장소를 공개할 예정입니다'}
-            </FieldLabel>
-          </Field>
-          {mode === 'create' ? (
+          {mode === 'edit' || program.repositoryProvisioningEnabled ? (
+            <Field orientation="horizontal">
+              <input
+                id="repository-publication-planned"
+                type="checkbox"
+                checked={values.isRepositoryPublicationPlanned}
+                disabled={mode === 'edit'}
+                onChange={(event) =>
+                  onTogglePublicationPlanned(event.target.checked)
+                }
+              />
+              <FieldLabel htmlFor="repository-publication-planned">
+                {mode === 'edit'
+                  ? '제출 시 선택한 저장소 공개 예정 여부'
+                  : '선정 시 저장소를 공개할 예정입니다'}
+              </FieldLabel>
+            </Field>
+          ) : null}
+          {mode === 'create' && program.repositoryProvisioningEnabled ? (
             <RepositoryConnectionSection
               githubHandle={githubHandle}
               repositoryConnectionMode={values.repositoryConnectionMode}

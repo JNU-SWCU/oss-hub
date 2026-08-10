@@ -14,6 +14,7 @@ const program: ProgramDetail = {
   organizer: '합성 주관',
   category: 'BASIC',
   description: '설명',
+  repositoryProvisioningEnabled: true,
   applicationPeriod: {
     startsAt: '2026-07-01T00:00:00.000Z',
     endsAt: '2026-07-31T23:59:59.000Z',
@@ -111,10 +112,33 @@ describe('ProgramApply views', () => {
 
     expect(html).toContain('@synthetic-student');
     expect(html).toContain('계정에 연결된 GitHub');
-    expect(html).toContain('새 저장소를 만들어 받습니다');
-    expect(html).toContain('이미 쓰던 저장소를 연결합니다');
+    expect(html).toContain('새 저장소 발급받기');
+    expect(html).toContain('내 저장소 연결하기');
+    expect(html).toContain('외부 저장소는 공개 저장소만 연결');
     expect(html).toContain('개인정보 수집·이용 동의');
     expect(html).toContain('약관 보기');
+  });
+
+  it('저장소 발급을 사용하지 않는 프로그램에서는 연결 방식을 표시하지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramApplyFormView
+        program={{ ...program, repositoryProvisioningEnabled: false }}
+        template={template}
+        applicantName="합성 학생"
+        githubHandle="synthetic-student"
+        values={baseValues}
+        errors={{}}
+        serverError={null}
+        mode="create"
+        canManage={false}
+        confirmation={null}
+        submitting={false}
+        {...handlers}
+      />,
+    );
+
+    expect(html).not.toContain('새 저장소 발급받기');
+    expect(html).not.toContain('내 저장소 연결하기');
   });
 
   it('저장소를 직접 연결하면 URL 입력을 함께 보여준다', () => {
@@ -231,7 +255,7 @@ describe('ProgramApply views', () => {
       />,
     );
 
-    expect(html).not.toContain('새 저장소를 만들어 받습니다');
+    expect(html).not.toContain('새 저장소 발급받기');
     expect(html).not.toContain('개인정보 수집·이용 동의');
   });
 

@@ -11,14 +11,6 @@ import {
 import { StatusBadge } from '@/components';
 import { Button } from '@/components/ui/button';
 import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-} from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
-import {
   createMilestoneDocument,
   deleteMilestoneDocument,
   listMilestoneDocuments,
@@ -37,7 +29,6 @@ import {
   planMilestoneDocumentOrder,
   removeMilestoneDocumentFromList,
   sortMilestoneDocuments,
-  SUBMISSION_TYPE_CHOICES,
   SUBMISSION_TYPE_LOCKED_MESSAGE,
   submissionTypeLabel,
   toMilestoneDocumentForm,
@@ -47,6 +38,7 @@ import {
   type MilestoneDocumentEditor,
   type MilestoneDocumentField,
 } from './milestone-document-editor-flow';
+import { ProgramRequirementEditor } from './program-requirement-editor';
 
 export type MilestoneDocumentEditorState =
   | { readonly kind: 'loading' }
@@ -639,11 +631,6 @@ function MilestoneDocumentForm({
   ) => void;
   readonly onSave: (event: React.FormEvent<HTMLFormElement>) => void;
 }) {
-  const nameId = `milestone-${milestoneId}-document-name`;
-  const requiredId = `milestone-${milestoneId}-document-required`;
-  const typeId = `milestone-${milestoneId}-document-submission-type`;
-  const typeLockId = `${typeId}-locked`;
-
   return (
     <form
       className="grid gap-3 rounded-card border border-border p-3"
@@ -652,57 +639,18 @@ function MilestoneDocumentForm({
       <p className="text-small font-bold">
         {editor.mode === 'create' ? '서류 추가' : '서류 수정'}
       </p>
-      <Field>
-        <FieldLabel htmlFor={nameId}>서류명 *</FieldLabel>
-        <Input
-          id={nameId}
-          value={editor.form.name}
-          onChange={(event) => onFieldChange('name', event.target.value)}
-        />
-        <FieldError>{editor.errors.name}</FieldError>
-      </Field>
-      <Field orientation="horizontal">
-        <input
-          id={requiredId}
-          type="checkbox"
-          checked={editor.form.required}
-          onChange={(event) => onFieldChange('required', event.target.checked)}
-        />
-        <FieldLabel htmlFor={requiredId}>
-          필수 제출 — 끄면 선택 제출이 됩니다
-        </FieldLabel>
-      </Field>
-      <Field>
-        <FieldLabel htmlFor={typeId}>제출 방식</FieldLabel>
-        {/*
-         * 제출이 이미 들어온 항목은 선택을 잠근다 — 서버도 409(MSD_016)로 막지만,
-         * 눌러 본 뒤에 실패로 알게 하면 왜 안 되는지가 남지 않는다. 이름·필수 여부는
-         * 제출이 있어도 고칠 수 있으므로 이 필드만 잠근다.
-         */}
-        <Select
-          id={typeId}
-          value={editor.form.submissionType}
-          disabled={editor.submissionTypeLocked}
-          aria-describedby={
-            editor.submissionTypeLocked ? typeLockId : undefined
-          }
-          onChange={(event) =>
-            onFieldChange('submissionType', event.target.value)
-          }
-        >
-          {SUBMISSION_TYPE_CHOICES.map((choice) => (
-            <option key={choice.value} value={choice.value}>
-              {choice.label}
-            </option>
-          ))}
-        </Select>
-        {editor.submissionTypeLocked ? (
-          <FieldDescription id={typeLockId}>
-            {SUBMISSION_TYPE_LOCKED_MESSAGE}
-          </FieldDescription>
-        ) : null}
-      </Field>
-      <FieldError>{editor.errors.general}</FieldError>
+      <ProgramRequirementEditor
+        idPrefix={`milestone-${milestoneId}-document`}
+        value={editor.form}
+        typeLocked={editor.submissionTypeLocked}
+        typeLockDescription={SUBMISSION_TYPE_LOCKED_MESSAGE}
+        errors={{ name: editor.errors.name, general: editor.errors.general }}
+        onNameChange={(name) => onFieldChange('name', name)}
+        onRequiredChange={(required) => onFieldChange('required', required)}
+        onTypeChange={(submissionType) =>
+          onFieldChange('submissionType', submissionType)
+        }
+      />
       <div className="flex justify-end gap-2">
         <Button
           type="button"

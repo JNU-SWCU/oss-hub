@@ -233,6 +233,31 @@ describe('createApplication', () => {
     );
     expect(result).toEqual(response);
   });
+
+  it('저장소 발급이 꺼진 프로그램은 mode와 URL을 null로 보낸다', async () => {
+    vi.mocked(apiClient).mockResolvedValue({ id: 'app-disabled' });
+
+    await createApplication('program-1', {
+      answers: { title: '제목', summary: '요약' },
+      applicationTemplateVersion: 1,
+      isRepositoryPublicationPlanned: false,
+      repositoryConnectionMode: null,
+      repositoryUrl: '',
+    });
+
+    expect(apiClient).toHaveBeenCalledWith(
+      'programs/program-1/applications',
+      expect.objectContaining({
+        body: JSON.stringify({
+          answers: { title: '제목', summary: '요약' },
+          applicationTemplateVersion: 1,
+          isRepositoryPublicationPlanned: false,
+          repositoryConnectionMode: null,
+          repositoryUrl: null,
+        }),
+      }),
+    );
+  });
 });
 
 describe('decideApplication', () => {

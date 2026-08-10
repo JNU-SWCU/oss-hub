@@ -111,6 +111,7 @@ export function resolveApplyBlockedReason(
 export function validateApplyForm(
   values: ProgramApplyFormValues,
   mode: 'create' | 'edit' = 'create',
+  repositoryProvisioningEnabled = true,
 ): ProgramApplyFormErrors {
   return {
     ...(!values.title.trim() ? { title: '제목을 입력해 주세요.' } : {}),
@@ -131,6 +132,7 @@ export function validateApplyForm(
         }
       : {}),
     ...(mode === 'create' &&
+    repositoryProvisioningEnabled &&
     values.repositoryConnectionMode === 'own' &&
     !values.repositoryUrl.trim()
       ? {

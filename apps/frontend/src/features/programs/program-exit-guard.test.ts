@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { installProgramExitGuard } from './program-exit-guard';
 
-function createHarness(confirmExit = vi.fn(() => true)) {
+function createHarness(
+  confirmExit = vi.fn(() => true),
+  onConfirmedExit = vi.fn(),
+) {
   let popStateListener: (() => void) | null = null;
   const pushSentinel = vi.fn();
   const back = vi.fn();
@@ -10,6 +13,7 @@ function createHarness(confirmExit = vi.fn(() => true)) {
     pushSentinel,
     back,
     confirmExit,
+    onConfirmedExit,
     navigate,
     subscribePopState: (listener) => {
       popStateListener = listener;
@@ -24,6 +28,7 @@ function createHarness(confirmExit = vi.fn(() => true)) {
     back,
     navigate,
     confirmExit,
+    onConfirmedExit,
     dispatchPopState: () => popStateListener?.(),
     hasListener: () => popStateListener !== null,
   };
@@ -98,6 +103,26 @@ describe('program exit guard history lifecycle', () => {
     expect(harness.guard.isDirty()).toBe(true);
     expect(harness.pushSentinel).toHaveBeenCalledTimes(2);
     expect(harness.back).not.toHaveBeenCalled();
+    expect(harness.onConfirmedExit).not.toHaveBeenCalled();
+  });
+
+  it('내부 이동 확인을 수락할 때만 복구 상태를 폐기한다', () => {
+    // Given
+    const rejected = createHarness(vi.fn(() => false));
+    rejected.guard.setDirty(true);
+    const accepted = createHarness(vi.fn(() => true));
+    accepted.guard.setDirty(true);
+
+    // When
+    rejected.guard.requestNavigate('/programs');
+    accepted.guard.requestNavigate('/programs');
+    accepted.dispatchPopState();
+
+    // Then
+    expect(rejected.onConfirmedExit).not.toHaveBeenCalled();
+    expect(rejected.navigate).not.toHaveBeenCalled();
+    expect(accepted.onConfirmedExit).toHaveBeenCalledTimes(1);
+    expect(accepted.navigate).toHaveBeenCalledWith('/programs');
   });
 
   it('컴포넌트 이탈 시 활성 sentinel을 접은 뒤 listener를 제거한다', () => {

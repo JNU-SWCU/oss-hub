@@ -12,6 +12,7 @@ interface ProgramExitGuardDependencies {
   readonly pushSentinel: () => void;
   readonly back: () => void;
   readonly confirmExit: () => boolean;
+  readonly onConfirmedExit?: () => void;
   readonly navigate: (path: string) => void;
   readonly subscribePopState: (listener: () => void) => () => void;
 }
@@ -62,7 +63,12 @@ export function installProgramExitGuard(
     }
   };
 
-  const confirmIfDirty = (): boolean => !dirty || dependencies.confirmExit();
+  const confirmIfDirty = (): boolean => {
+    if (!dirty) return true;
+    if (!dependencies.confirmExit()) return false;
+    dependencies.onConfirmedExit?.();
+    return true;
+  };
 
   const handlePopState = () => {
     if (disposed) return;
@@ -81,6 +87,7 @@ export function installProgramExitGuard(
       return;
     }
 
+    dependencies.onConfirmedExit?.();
     dirty = false;
     dependencies.back();
   };

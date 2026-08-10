@@ -29,6 +29,7 @@ const editableProgram: EditableProgram = {
   applicationEndAt: '2026-08-15T09:30:59.000Z',
   endAt: '2026-08-31T09:30:59.000Z',
   repositoryProvisioningEnabled: false,
+  notifyOnDeadline: false,
   description: 'overview',
   teamMinSize: 2,
   teamMaxSize: 4,
@@ -51,6 +52,7 @@ describe('ProgramEditPage save payload', () => {
       endAt: editableProgram.endAt,
       teamMinSize: 2,
       teamMaxSize: 4,
+      notifyOnDeadline: false,
     });
   });
 

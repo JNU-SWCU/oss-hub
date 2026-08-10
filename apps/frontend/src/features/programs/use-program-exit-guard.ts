@@ -8,9 +8,14 @@ import {
   type ProgramExitGuard,
 } from './program-exit-guard';
 
-export function useProgramExitGuard(dirty: boolean) {
+export function useProgramExitGuard(
+  dirty: boolean,
+  onConfirmedExit?: () => void,
+) {
   const router = useRouter();
   const exitGuard = useRef<ProgramExitGuard | null>(null);
+  const confirmedExitRef = useRef(onConfirmedExit);
+  confirmedExitRef.current = onConfirmedExit;
 
   useEffect(() => {
     const guard = installProgramExitGuard({
@@ -18,6 +23,7 @@ export function useProgramExitGuard(dirty: boolean) {
         window.history.pushState(null, '', window.location.href),
       back: () => window.history.back(),
       confirmExit: () => window.confirm(UNSAVED_PROGRAM_MESSAGE),
+      onConfirmedExit: () => confirmedExitRef.current?.(),
       navigate: (path) => router.push(path),
       subscribePopState: (listener) => {
         window.addEventListener('popstate', listener);
@@ -79,8 +85,11 @@ export function useProgramExitGuard(dirty: boolean) {
 
   return {
     leavePage: () => {
-      if (!exitGuard.current) router.back();
-      else exitGuard.current.requestLeave();
+      if (!exitGuard.current) {
+        router.back();
+        return true;
+      }
+      return exitGuard.current.requestLeave();
     },
     completeAndNavigate: (path: string) => {
       if (!exitGuard.current) router.push(path);

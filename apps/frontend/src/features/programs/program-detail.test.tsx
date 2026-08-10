@@ -181,6 +181,7 @@ const programWithoutMilestones: ProgramDetail = {
   organizer: '운영기관',
   category: 'OSS_CONTEST',
   description: '프로그램 설명',
+  repositoryProvisioningEnabled: true,
   applicationPeriod: {
     startsAt: '2026-07-01T00:00:00+09:00',
     endsAt: '2026-08-31T23:59:59+09:00',
