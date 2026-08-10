@@ -112,7 +112,7 @@ describe('AppFrame', () => {
     expect(html).not.toContain('>대시보드<');
   });
 
-  it('/programs 에서 로그인해도 좌측에 역할 메뉴를 섞지 않는다', () => {
+  it('/programs 에서 로그인해도 좌측 사이드바에는 역할 메뉴를 섞지 않는다', () => {
     const html = render('/programs', {
       status: 'assigned',
       role: 'STUDENT',
@@ -120,7 +120,56 @@ describe('AppFrame', () => {
     });
     expect(html).toContain('프로그램 메뉴');
     expect(html).toContain('>대시보드<'); // top nav
-    expect(html).not.toContain('내 저장소');
+    // 상단 nav에는 역할 메뉴가 900px 미만 전용으로 섞이지만(QA54), 좌측
+    // 사이드바(현재 섹션 컨텍스트)에는 여전히 섞지 않는다.
+    const sidebar =
+      html.match(/data-slot="app-sidebar"[\s\S]*?<\/aside>/)?.[0] ?? '';
+    expect(sidebar).not.toContain('내 저장소');
+  });
+
+  it('ADMIN 세션은 900px 미만에서만 보이는 역할 메뉴를 상단 내비에 붙인다', () => {
+    const html = render('/dashboard', {
+      status: 'assigned',
+      role: 'ADMIN',
+      isProfileComplete: true,
+    });
+    for (const [label, href] of [
+      ['접근 목록', '/admin/access'],
+      ['감사 로그', '/admin/audit-log'],
+      ['시스템 상태', '/admin/system-status'],
+    ] as const) {
+      expect(html, label).toContain(`>${label}<`);
+      // hamburger·inline 두 리스트 모두에 `min-[900px]:hidden`이 붙어야
+      // ≥900px에서는 이미 있는 좌측 사이드바와 중복되지 않는다.
+      const occurrences =
+        html.split(`<li class="min-[900px]:hidden"><a href="${href}"`).length -
+        1;
+      expect(occurrences, label).toBe(2);
+    }
+  });
+
+  it('비로그인·게스트 세션은 상단 내비에 역할 메뉴를 붙이지 않는다', () => {
+    const html = render('/programs', {
+      status: 'anonymous',
+      role: null,
+      isProfileComplete: false,
+    });
+    expect(html).not.toContain('min-[900px]:hidden');
+  });
+
+  it('상단 내비에서 역할 메뉴가 기존 항목과 href가 겹치면 하나만 남는다', () => {
+    const html = render('/dashboard', {
+      status: 'assigned',
+      role: 'ADMIN',
+      isProfileComplete: true,
+    });
+    // 대시보드(공통) 항목과 ADMIN_MENU의 관리 콘솔이 둘 다 /dashboard라
+    // 중복 없이 하나만 남아야 한다.
+    const navItemsList =
+      html.match(/data-slot="nav-bar-items"[\s\S]*?<\/ul>/)?.[0] ?? '';
+    const dashboardOccurrences =
+      navItemsList.split('href="/dashboard"').length - 1;
+    expect(dashboardOccurrences).toBe(1);
   });
 
   it('본문을 SkipLink 목적지(#main-content)로 감싼다', () => {
