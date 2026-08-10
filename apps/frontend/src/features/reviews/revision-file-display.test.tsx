@@ -30,6 +30,10 @@ describe('RevisionCard file display', () => {
     // Then
     expect(html).not.toContain('report.pdf');
     expect(html).not.toContain(CURRENT_FILE_DOWNLOAD_URL);
+    // QA48 — FILE 유형인데 첨부까지 없으면 raw JSON 대신 짧은 안내를 보여준다.
+    expect(html).toContain('파일 제출');
+    expect(html).not.toContain('"type"');
+    expect(html).not.toContain('"fileId"');
   });
 
   it('renders each attached file name, size, and download link', () => {
