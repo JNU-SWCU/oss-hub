@@ -4,11 +4,13 @@ export interface AuditLogRecord {
   readonly action: string;
   readonly targetType: string;
   readonly targetId: string;
-  // 사람이 읽을 수 있는 대상 라벨. schemaVersion 2 행은 대상의 GitHub 로그인,
-  // 과거(v1·legacy) 행과 REPOSITORY_PUBLISHED(schemaVersion 1, 별개의 sibling
-  // 타입)는 `targetType / targetId` 폴백이다. 백엔드가 이벤트 시점 스냅샷으로
-  // 이미 계산해 내려주는 라벨이며, 화면은 이 필드만 쓰고 raw metadata는 파싱
-  // 단계에서 버린다(parser.ts).
+  // 사람이 읽을 수 있는 대상 라벨. ACCESS_AUDIT schemaVersion 2 행은 대상의 GitHub
+  // 로그인, PROGRAM_LIFECYCLE schemaVersion 2 행은 프로그램 이름 스냅샷, 스냅샷이
+  // 없는 PROGRAM 대상 행은 백엔드가 join으로 찾은 현재 이름이다. 그 밖(과거
+  // v1·legacy 행, REPOSITORY_PUBLISHED처럼 스냅샷이 없는 종류, join도 실패한 경우)은
+  // `targetType / targetId` 폴백이다. 백엔드가 이벤트 시점 스냅샷·join으로 이미 계산해
+  // 내려주는 라벨이며, 화면은 이 필드만 쓰고 raw metadata는 파싱 단계에서 버린다
+  // (parser.ts).
   readonly target: string;
   readonly occurredAt: string;
 }

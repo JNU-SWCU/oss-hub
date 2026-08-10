@@ -16,10 +16,10 @@ function baseItem(
     lifecycle: ProgramLifecycle.PUBLISHED,
     applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
     applicationEndAt: new Date('2026-08-01T00:00:00.000Z'),
-    endAt: null,
+    endAt: new Date('2026-12-31T00:00:00.000Z'),
     description: '설명',
-    teamMinSize: null,
-    teamMaxSize: null,
+    teamMinSize: 1,
+    teamMaxSize: 1,
     ...overrides,
   };
 }

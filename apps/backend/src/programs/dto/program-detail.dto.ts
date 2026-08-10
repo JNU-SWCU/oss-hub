@@ -22,6 +22,7 @@ export interface ApplicationSubmissionSummaryResponseDto {
 export interface ProgramMilestoneResponseDto {
   readonly id: string;
   readonly name: string;
+  readonly startAt: string;
   readonly dueAt: string;
   readonly dDay: number;
   readonly deadlineLabel: string;
@@ -38,6 +39,10 @@ export interface ProgramDetailResponseDto {
   readonly category: ProgramCategory;
   readonly description: string;
   readonly applicationPeriod: {
+    readonly startsAt: string;
+    readonly endsAt: string;
+  };
+  readonly operatingPeriod: {
     readonly startsAt: string;
     readonly endsAt: string;
   };

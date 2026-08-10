@@ -138,11 +138,7 @@ export class ProgramTeamsService {
         if (team.hasApplication) {
           throw this.error(TeamsErrorCode.TEAM_LOCKED_AFTER_APPLICATION);
         }
-        // teamMaxSize == null means unlimited capacity.
-        if (
-          program.teamMaxSize != null &&
-          team.memberCount >= program.teamMaxSize
-        ) {
+        if (team.memberCount >= program.teamMaxSize) {
           throw this.error(TeamsErrorCode.TEAM_FULL);
         }
 
@@ -239,7 +235,6 @@ export class ProgramTeamsService {
       name: detail.name,
       memberCount: detail.members.length,
       minMembers: detail.teamMinSize,
-      // null maxMembers means unlimited capacity.
       maxMembers: detail.teamMaxSize,
       locked: detail.hasApplication,
       isLeader: detail.leaderId === viewerUserId,

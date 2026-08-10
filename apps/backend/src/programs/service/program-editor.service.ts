@@ -17,10 +17,7 @@ import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
 } from '../program-error-code.enum';
-import {
-  getProgramTemplate,
-  PROGRAM_PARTICIPATION,
-} from '../program-template.registry';
+import { getProgramTemplate } from '../program-template.registry';
 
 export type {
   ProgramEditorRepositoryPort,
@@ -60,16 +57,24 @@ const INVALID_PROGRAM_END_FIELD_ERROR = {
     'Program end must be after the application period and every milestone.',
 } as const;
 
-const PROGRAM_END_REQUIRED_FIELD_ERROR = {
-  field: 'endAt',
-  code: 'REQUIRED',
-  message: 'Program end is required before milestones can be edited.',
-} as const;
-
 const MILESTONE_AFTER_PROGRAM_END_FIELD_ERROR = {
   field: 'dueAt',
   code: 'INVALID_MILESTONE_PERIOD',
   message: 'Milestone due date must be before program end.',
+} as const;
+
+const INVALID_PROGRAM_START_FIELD_ERROR = {
+  field: 'startAt',
+  code: 'INVALID_PROGRAM_START',
+  message:
+    'Program start must be after applications close and before Program end.',
+} as const;
+
+const INVALID_MILESTONE_START_FIELD_ERROR = {
+  field: 'startAt',
+  code: 'INVALID_MILESTONE_PERIOD',
+  message:
+    'Milestone start must be within the Program and before its due date.',
 } as const;
 
 @Injectable()
@@ -102,19 +107,20 @@ export class ProgramEditorService {
       const description = input.description.trim();
       const applicationStartAt = new Date(input.applicationStartAt);
       const applicationEndAt = new Date(input.applicationEndAt);
+      const startAt = new Date(input.startAt ?? existing.startAt.toISOString());
       const requestedEndAt =
-        input.endAt === undefined ? (existing.endAt ?? null) : input.endAt;
-      const endAt = requestedEndAt === null ? null : new Date(requestedEndAt);
+        input.endAt === undefined ? existing.endAt : input.endAt;
+      const endAt =
+        requestedEndAt === null
+          ? new Date(Number.NaN)
+          : new Date(requestedEndAt);
       const liveFileExpiresAt =
-        endAt !== null &&
-        (existing.endAt === null ||
-          existing.endAt === undefined ||
-          endAt.getTime() !== new Date(existing.endAt).getTime())
+        endAt.getTime() !== new Date(existing.endAt).getTime()
           ? addOneCalendarYear(endAt)
           : null;
       const categoryChanged = existing.category !== input.category;
       const template = getProgramTemplate(input.category);
-      const teamSize = teamSizeForTemplate(input, template.participation);
+      const teamSize = teamSizeForTemplate(input, template.teamSize);
       // Preserve template binding when category is unchanged so past Application.answers
       // keep a stable validation baseline (even if the registry later bumps versions).
       const applicationTemplateKey = categoryChanged
@@ -165,16 +171,21 @@ export class ProgramEditorService {
           fieldErrors: INVALID_APPLICATION_PERIOD_FIELD_ERRORS,
         });
       }
-      if (existing.endAt !== null && endAt === null) {
+      if (!Number.isFinite(startAt.getTime()) || startAt < applicationEndAt) {
+        this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+          fieldErrors: [INVALID_PROGRAM_START_FIELD_ERROR],
+        });
+      }
+      if (!Number.isFinite(endAt.getTime()) || startAt >= endAt) {
         this.fail(ProgramErrorCode.VALIDATION_ERROR, {
           fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
         });
       }
       if (
-        endAt !== null &&
-        (!Number.isFinite(endAt.getTime()) ||
-          endAt <= applicationEndAt ||
-          existing.milestones.some((milestone) => milestone.dueAt >= endAt))
+        existing.milestones.some(
+          (milestone) =>
+            milestone.startAt < startAt || milestone.dueAt >= endAt,
+        )
       ) {
         this.fail(ProgramErrorCode.VALIDATION_ERROR, {
           fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
@@ -209,6 +220,7 @@ export class ProgramEditorService {
         applicationTemplateVersion,
         applicationStartAt,
         applicationEndAt,
+        startAt,
         endAt,
         liveFileExpiresAt,
         teamMinSize: teamSize.teamMinSize,
@@ -231,11 +243,7 @@ export class ProgramEditorService {
       if (program === null) this.fail(ProgramErrorCode.PROGRAM_NOT_FOUND);
       return store.createMilestone({
         programId,
-        ...this.milestoneData(
-          input,
-          program.applicationEndAt,
-          program.endAt ?? null,
-        ),
+        ...this.milestoneData(input, program.startAt, program.endAt),
       });
     });
   }
@@ -251,11 +259,7 @@ export class ProgramEditorService {
       if (milestone === null) this.fail(ProgramErrorCode.MILESTONE_NOT_FOUND);
       return store.updateMilestone({
         milestoneId,
-        ...this.milestoneData(
-          input,
-          milestone.applicationEndAt,
-          milestone.endAt ?? null,
-        ),
+        ...this.milestoneData(input, milestone.programStartAt, milestone.endAt),
       });
     });
   }
@@ -294,10 +298,11 @@ export class ProgramEditorService {
 
   private milestoneData(
     input: UpsertMilestoneRequestDto,
-    applicationEndAt: Date,
-    endAt: Date | null,
+    programStartAt: Date,
+    endAt: Date,
   ): ProgramMilestoneInput {
     const name = input.name.trim();
+    const startAt = input.startAt ? new Date(input.startAt) : programStartAt;
     const dueAt = new Date(input.dueAt);
     const milestoneFieldErrors: {
       field: string;
@@ -318,17 +323,21 @@ export class ProgramEditorService {
         message: '유효한 마감일을 입력해 주세요.',
       });
     }
+    if (Number.isNaN(startAt.getTime())) {
+      milestoneFieldErrors.push({
+        field: 'startAt',
+        code: 'REQUIRED',
+        message: '유효한 시작일을 입력해 주세요.',
+      });
+    }
     if (milestoneFieldErrors.length > 0) {
       this.fail(ProgramErrorCode.VALIDATION_ERROR, {
         fieldErrors: milestoneFieldErrors,
       });
     }
-    if (dueAt <= applicationEndAt) {
-      this.fail(ProgramErrorCode.MILESTONE_BEFORE_APPLICATION_END);
-    }
-    if (endAt === null) {
+    if (startAt < programStartAt || startAt >= dueAt) {
       this.fail(ProgramErrorCode.VALIDATION_ERROR, {
-        fieldErrors: [PROGRAM_END_REQUIRED_FIELD_ERROR],
+        fieldErrors: [INVALID_MILESTONE_START_FIELD_ERROR],
       });
     }
     if (dueAt >= endAt) {
@@ -339,6 +348,7 @@ export class ProgramEditorService {
     const instructions = input.instructions?.trim() || null;
     return {
       name,
+      startAt,
       dueAt,
       submissionType: input.submissionType,
       instructions,
@@ -372,25 +382,22 @@ function validPeriod(startAt: Date, endAt: Date): boolean {
   return (
     !Number.isNaN(startAt.getTime()) &&
     !Number.isNaN(endAt.getTime()) &&
-    endAt > startAt
+    endAt >= startAt
   );
 }
 
 function teamSizeForTemplate(
   input: Pick<UpdateProgramRequestDto, 'teamMinSize' | 'teamMaxSize'>,
-  participation: string,
+  defaults: {
+    readonly defaultMin: number;
+    readonly defaultMax: number;
+  },
 ): {
-  readonly teamMinSize: number | null;
-  readonly teamMaxSize: number | null;
+  readonly teamMinSize: number;
+  readonly teamMaxSize: number;
 } | null {
-  if (participation === PROGRAM_PARTICIPATION.INDIVIDUAL) {
-    return { teamMinSize: null, teamMaxSize: null };
-  }
-  const min = input.teamMinSize;
-  const max = input.teamMaxSize;
-  if (min === null || min === undefined || max === null || max === undefined) {
-    return null;
-  }
+  const min = input.teamMinSize ?? defaults.defaultMin;
+  const max = input.teamMaxSize ?? defaults.defaultMax;
   if (min < 1 || min > max) return null;
   return { teamMinSize: min, teamMaxSize: max };
 }

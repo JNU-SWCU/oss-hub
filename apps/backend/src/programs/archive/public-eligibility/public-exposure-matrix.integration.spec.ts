@@ -314,6 +314,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         applicationTemplateVersion: 1,
         applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
         applicationEndAt: new Date('2026-02-01T00:00:00.000Z'),
+        startAt: new Date('2026-02-02T00:00:00.000Z'),
         endAt: new Date('2026-05-15T00:00:00.000Z'),
         description: 'synthetic-description — program already ended',
       },
@@ -328,7 +329,8 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         applicationTemplateVersion: 1,
         applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
         applicationEndAt: new Date('2026-02-01T00:00:00.000Z'),
-        endAt: null,
+        startAt: new Date('2026-02-02T00:00:00.000Z'),
+        endAt: new Date('2027-05-15T00:00:00.000Z'),
         description: 'synthetic-description — program never ended',
       },
     });

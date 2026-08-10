@@ -295,9 +295,9 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
 });
 
 describe('MilestoneDocumentsRepository.createPendingFile', () => {
-  it('프로그램 종료일이 없으면 MilestoneDocumentFileRetentionUnavailableError를 던진다', async () => {
-    // Given: FOR UPDATE 조회 결과에 endAt이 없다(연결된 Program이 없거나 미설정).
-    const queryRaw = jest.fn().mockResolvedValue([{ endAt: null }]);
+  it('잠글 프로그램 행이 없으면 MilestoneDocumentFileRetentionUnavailableError를 던진다', async () => {
+    // Given: 연결된 Program이 없어 FOR UPDATE 조회 결과가 비어 있다.
+    const queryRaw = jest.fn().mockResolvedValue([]);
     const create = jest.fn();
     const prisma = {
       $transaction: jest.fn((callback: (tx: unknown) => unknown) =>

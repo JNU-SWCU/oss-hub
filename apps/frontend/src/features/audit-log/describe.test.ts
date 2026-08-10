@@ -29,17 +29,17 @@ describe('describeAuditLog', () => {
     );
   });
 
-  it('target이 GitHub 로그인 스냅샷이면 target 조각을 isHandle=true로 표시한다', () => {
+  it('target이 GitHub 로그인 스냅샷이면 target 조각을 variant=handle로 표시한다', () => {
     const { sentence } = describeAuditLog(BASE_RECORD);
     const targetSegment = sentence.find((segment) => segment.kind === 'target');
     expect(targetSegment).toMatchObject({
       kind: 'target',
       value: 'synthetic-target-login',
-      isHandle: true,
+      variant: 'handle',
     });
   });
 
-  it('target이 legacy 폴백(`targetType / targetId`)이면 isHandle=false, value는 targetId만 담는다', () => {
+  it('target이 legacy 폴백(`targetType / targetId`)이면 variant=fallback, value는 targetId만 담는다', () => {
     const legacyRecord: AuditLogRecord = {
       ...BASE_RECORD,
       id: 'audit-legacy',
@@ -52,7 +52,7 @@ describe('describeAuditLog', () => {
     expect(targetSegment).toMatchObject({
       kind: 'target',
       value: 'request-legacy',
-      isHandle: false,
+      variant: 'fallback',
     });
     // '님' 존칭이 코드체 폴백 값 뒤에 붙지 않고, targetType 한국어 라벨로 서술한다.
     expect(sentenceText(legacyRecord)).toBe(
@@ -73,6 +73,68 @@ describe('describeAuditLog', () => {
 
     expect(sentenceText(record)).toBe(
       'synthetic-staff님이 저장소 repository-synthetic-1을(를) 공개로 전환했습니다',
+    );
+  });
+
+  it('PROGRAM_ARCHIVED 폴백 target(이름을 모름)은 targetId를 코드체로 서술한다', () => {
+    const record: AuditLogRecord = {
+      id: 'audit-program-archived-fallback',
+      actor: 'synthetic-staff',
+      action: 'PROGRAM_ARCHIVED',
+      targetType: 'PROGRAM',
+      targetId: 'program-synthetic-1',
+      target: 'PROGRAM / program-synthetic-1',
+      occurredAt: '2026-07-24T04:30:00.000Z',
+    };
+
+    const { sentence } = describeAuditLog(record);
+    const targetSegment = sentence.find((segment) => segment.kind === 'target');
+    expect(targetSegment).toMatchObject({
+      kind: 'target',
+      value: 'program-synthetic-1',
+      variant: 'fallback',
+    });
+    expect(sentenceText(record)).toBe(
+      'synthetic-staff님이 프로그램 program-synthetic-1을(를) 보관했습니다',
+    );
+  });
+
+  it('PROGRAM_ARCHIVED가 이름 스냅샷/join으로 찾은 이름을 받으면 이름을 "@" 없이 서술한다', () => {
+    const record: AuditLogRecord = {
+      id: 'audit-program-archived-name',
+      actor: 'synthetic-staff',
+      action: 'PROGRAM_ARCHIVED',
+      targetType: 'PROGRAM',
+      targetId: 'program-synthetic-2',
+      target: '합성 프로그램 이름',
+      occurredAt: '2026-07-24T04:31:00.000Z',
+    };
+
+    const { sentence } = describeAuditLog(record);
+    const targetSegment = sentence.find((segment) => segment.kind === 'target');
+    expect(targetSegment).toMatchObject({
+      kind: 'target',
+      value: '합성 프로그램 이름',
+      variant: 'name',
+    });
+    expect(sentenceText(record)).toBe(
+      'synthetic-staff님이 프로그램 합성 프로그램 이름을(를) 보관했습니다',
+    );
+  });
+
+  it('PROGRAM_RESTORED가 이름을 받으면 이름으로 서술한다', () => {
+    const record: AuditLogRecord = {
+      id: 'audit-program-restored-name',
+      actor: 'synthetic-staff',
+      action: 'PROGRAM_RESTORED',
+      targetType: 'PROGRAM',
+      targetId: 'program-synthetic-3',
+      target: '합성 프로그램 이름',
+      occurredAt: '2026-07-24T04:32:00.000Z',
+    };
+
+    expect(sentenceText(record)).toBe(
+      'synthetic-staff님이 프로그램 합성 프로그램 이름을(를) 복구했습니다',
     );
   });
 

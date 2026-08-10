@@ -15,9 +15,10 @@ describe('ProgramEditorService milestones', () => {
     store.findMilestoneForUpdate.mockResolvedValue({
       id: 'milestone-canonical-id',
       programId: 'program-1',
-      applicationEndAt: new Date('2026-08-15T00:00:00.000Z'),
+      programStartAt: new Date('2026-08-16T00:00:00.000Z'),
       endAt: new Date('2026-08-31T00:00:00.000Z'),
       name: 'Same',
+      startAt: new Date('2026-08-16T00:00:00.000Z'),
       dueAt: new Date('2026-08-20T00:00:00.000Z'),
       submissionType: MilestoneSubmissionType.FILE,
       instructions: null,
@@ -25,6 +26,7 @@ describe('ProgramEditorService milestones', () => {
     store.updateMilestone.mockResolvedValue({
       id: 'milestone-canonical-id',
       name: 'Final',
+      startAt: new Date('2026-08-16T00:00:00.000Z'),
       dueAt: new Date('2026-08-20T00:00:00.000Z'),
       submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
       instructions: 'tag v1.0.0',
@@ -38,10 +40,65 @@ describe('ProgramEditorService milestones', () => {
     expect(store.updateMilestone.mock.calls[0]?.[0]).toEqual({
       milestoneId: 'milestone-canonical-id',
       name: 'Same',
+      startAt: new Date('2026-08-16T00:00:00.000Z'),
       dueAt: new Date('2026-08-20T00:00:00.000Z'),
       submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
       instructions: 'tag v1.0.0',
     });
+  });
+
+  it.each([
+    [
+      'before the Program',
+      '2026-08-15T23:59:59.999Z',
+      '2026-08-20T00:00:00.000Z',
+    ],
+    ['equal to dueAt', '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'],
+    ['after dueAt', '2026-08-21T00:00:00.000Z', '2026-08-20T00:00:00.000Z'],
+  ])(
+    'rejects a milestone start %s without writing',
+    async (_case, startAt, dueAt) => {
+      const { service, store } = createProgramEditorServiceHarness();
+      store.findProgramScheduleForMilestoneCreate.mockResolvedValue({
+        id: 'program-1',
+        startAt: new Date('2026-08-16T00:00:00.000Z'),
+        endAt: new Date('2026-08-31T00:00:00.000Z'),
+      });
+
+      await expect(
+        service.createMilestone(101n, 'program-1', {
+          ...milestoneInput,
+          startAt,
+          dueAt,
+        }),
+      ).rejects.toMatchObject<Partial<DomainException>>({
+        errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
+      });
+      expect(store.createMilestone.mock.calls).toHaveLength(0);
+    },
+  );
+
+  it.each([
+    ['equal to Program end', '2026-08-31T00:00:00.000Z'],
+    ['after Program end', '2026-09-01T00:00:00.000Z'],
+  ])('rejects a milestone dueAt %s without writing', async (_case, dueAt) => {
+    const { service, store } = createProgramEditorServiceHarness();
+    store.findProgramScheduleForMilestoneCreate.mockResolvedValue({
+      id: 'program-1',
+      startAt: new Date('2026-08-16T00:00:00.000Z'),
+      endAt: new Date('2026-08-31T00:00:00.000Z'),
+    });
+
+    await expect(
+      service.createMilestone(101n, 'program-1', {
+        ...milestoneInput,
+        startAt: '2026-08-20T00:00:00.000Z',
+        dueAt,
+      }),
+    ).rejects.toMatchObject<Partial<DomainException>>({
+      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
+    });
+    expect(store.createMilestone.mock.calls).toHaveLength(0);
   });
 
   it('rejects milestone deletion when submissions exist', async () => {

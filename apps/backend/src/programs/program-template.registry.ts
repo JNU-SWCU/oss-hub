@@ -53,6 +53,11 @@ export interface ProgramTemplate {
   readonly version: number;
   readonly name: string;
   readonly participation: ProgramParticipation;
+  readonly teamSize: {
+    readonly defaultMin: number;
+    readonly defaultMax: number;
+    readonly editable: boolean;
+  };
   readonly fields: readonly FieldDef[];
 }
 
@@ -66,6 +71,7 @@ function template(
     version: 1,
     name,
     participation,
+    teamSize: { defaultMin: 1, defaultMax: 1, editable: true },
     fields: V1_APPLICATION_FIELDS,
   };
 }

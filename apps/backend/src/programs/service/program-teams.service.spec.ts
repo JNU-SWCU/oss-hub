@@ -158,13 +158,13 @@ describe('ProgramTeamsService', () => {
     );
   });
 
-  it('teamMaxSize 가 null 인 프로그램에서도 1인 팀을 생성한다', async () => {
+  it('BASIC 1..1 프로그램에서도 1인 팀을 생성한다', async () => {
     const { service, createTeamWithLeader } = buildService({
       program: {
         ...TEAM_PROGRAM,
         category: ProgramCategory.BASIC,
-        teamMinSize: null,
-        teamMaxSize: null,
+        teamMinSize: 1,
+        teamMaxSize: 1,
       },
     });
 
@@ -225,11 +225,11 @@ describe('ProgramTeamsService', () => {
     expect(result).not.toHaveProperty('joinCode');
   });
 
-  it('teamMaxSize 가 null 이면 정원 무제한으로 제3자 합류를 허용한다', async () => {
-    const unlimitedDetail: TeamDetailRecord = {
+  it('정원 미만이면 제3자 합류를 허용한다', async () => {
+    const availableDetail: TeamDetailRecord = {
       ...DETAIL,
-      teamMinSize: null,
-      teamMaxSize: null,
+      teamMinSize: 1,
+      teamMaxSize: 13,
       leaderId: 'leader-id',
       members: [
         {
@@ -248,10 +248,10 @@ describe('ProgramTeamsService', () => {
       program: {
         ...TEAM_PROGRAM,
         category: ProgramCategory.BASIC,
-        teamMinSize: null,
-        teamMaxSize: null,
+        teamMinSize: 1,
+        teamMaxSize: 13,
       },
-      detail: unlimitedDetail,
+      detail: availableDetail,
     });
     findTeamByJoinCodeDigest.mockResolvedValue({
       id: 'synthetic-team',
@@ -269,7 +269,7 @@ describe('ProgramTeamsService', () => {
       PROGRAM_ID,
       STUDENT.id,
     );
-    expect(result.maxMembers).toBeNull();
+    expect(result.maxMembers).toBe(13);
     expect(result.memberCount).toBe(2);
   });
 
@@ -378,25 +378,25 @@ describe('ProgramTeamsService', () => {
     expect(result).not.toHaveProperty('joinCode');
   });
 
-  it('teamMaxSize 가 null 인 팀 조회는 maxMembers null 로 성공한다', async () => {
+  it('BASIC 팀 조회도 universal 1..1 범위를 반환한다', async () => {
     const { service } = buildService({
       program: {
         ...TEAM_PROGRAM,
         category: ProgramCategory.BASIC,
-        teamMinSize: null,
-        teamMaxSize: null,
+        teamMinSize: 1,
+        teamMaxSize: 1,
       },
       detail: {
         ...DETAIL,
-        teamMinSize: null,
-        teamMaxSize: null,
+        teamMinSize: 1,
+        teamMaxSize: 1,
       },
     });
 
     const result = await service.getMe(GITHUB_ID, PROGRAM_ID);
 
-    expect(result.maxMembers).toBeNull();
-    expect(result.minMembers).toBeNull();
+    expect(result.maxMembers).toBe(1);
+    expect(result.minMembers).toBe(1);
     expect(result.id).toBe('synthetic-team');
   });
 

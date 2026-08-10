@@ -18,7 +18,7 @@ export interface TeamContextRecord {
   readonly teamId: string;
   readonly programId: string;
   readonly leaderId: string;
-  readonly teamMaxSize: number | null;
+  readonly teamMaxSize: number;
 }
 
 /** 초대 검색 결과 후보 — 공개해도 되는 필드만 담는다(학번·이메일·연락처 제외). */
@@ -225,58 +225,65 @@ export class TeamInvitationsRepository {
 
   /**
    * 수락 트랜잭션 — 팀 행을 `FOR UPDATE`로 잠가 같은 팀에 대한 동시 수락 사이의
-   * 정원 초과 경합을 직렬화한다(#164 패턴). 초대 상태 전이는 `updateMany`의
-   * WHERE status=PENDING 재평가로 동시 수락을 원자적으로 막는다.
+   * 정원 초과 경합을 직렬화한다(#164 패턴). 잠금 뒤 상태 재조회와 `updateMany`의
+   * WHERE status=PENDING 재평가로 동시 수락·거절 경합을 원자적으로 막는다.
    */
   async withAcceptTransaction(
     invitationId: string,
     inviteeId: string,
     now: Date = new Date(),
   ): Promise<AcceptInvitationOutcome> {
-    return this.prisma.$transaction(async (tx) => {
-      const invitation = await tx.teamInvitation.findUnique({
-        where: { id: invitationId },
-        select: {
-          id: true,
-          teamId: true,
-          programId: true,
-          inviteeId: true,
-          team: { select: { program: { select: { teamMaxSize: true } } } },
-        },
-      });
-      if (!invitation) return { kind: 'not-found' };
-      if (invitation.inviteeId !== inviteeId) return { kind: 'forbidden' };
-
-      await tx.$queryRaw<LockedTeamRow[]>(
-        Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${invitation.teamId} FOR UPDATE`,
-      );
-
-      const updated = await tx.teamInvitation.updateMany({
-        where: { id: invitationId, status: TeamInvitationStatus.PENDING },
-        data: { status: TeamInvitationStatus.ACCEPTED, respondedAt: now },
-      });
-      if (updated.count === 0) return { kind: 'not-pending' };
-
-      const existingMembership = await tx.teamMember.findUnique({
-        where: {
-          programId_userId: {
-            programId: invitation.programId,
-            userId: inviteeId,
+    const acceptance = this.prisma.$transaction<AcceptInvitationOutcome>(
+      async (tx) => {
+        const invitation = await tx.teamInvitation.findUnique({
+          where: { id: invitationId },
+          select: {
+            id: true,
+            teamId: true,
+            programId: true,
+            inviteeId: true,
+            team: { select: { program: { select: { teamMaxSize: true } } } },
           },
-        },
-        select: { userId: true },
-      });
-      if (existingMembership) return { kind: 'already-in-team' };
+        });
+        if (!invitation) return { kind: 'not-found' };
+        if (invitation.inviteeId !== inviteeId) return { kind: 'forbidden' };
 
-      const maxSize = invitation.team.program.teamMaxSize;
-      if (maxSize != null) {
+        await tx.$queryRaw<LockedTeamRow[]>(
+          Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${invitation.teamId} FOR UPDATE`,
+        );
+
+        const currentInvitation = await tx.teamInvitation.findUnique({
+          where: { id: invitationId },
+          select: { status: true },
+        });
+        if (!currentInvitation) return { kind: 'not-found' };
+        if (currentInvitation.status !== TeamInvitationStatus.PENDING) {
+          return { kind: 'not-pending' };
+        }
+
+        const existingMembership = await tx.teamMember.findUnique({
+          where: {
+            programId_userId: {
+              programId: invitation.programId,
+              userId: inviteeId,
+            },
+          },
+          select: { userId: true },
+        });
+        if (existingMembership) return { kind: 'already-in-team' };
+
+        const maxSize = invitation.team.program.teamMaxSize;
         const memberCount = await tx.teamMember.count({
           where: { teamId: invitation.teamId },
         });
         if (memberCount >= maxSize) return { kind: 'team-full' };
-      }
 
-      try {
+        const updated = await tx.teamInvitation.updateMany({
+          where: { id: invitationId, status: TeamInvitationStatus.PENDING },
+          data: { status: TeamInvitationStatus.ACCEPTED, respondedAt: now },
+        });
+        if (updated.count === 0) return { kind: 'not-pending' };
+
         await tx.teamMember.create({
           data: {
             teamId: invitation.teamId,
@@ -284,21 +291,24 @@ export class TeamInvitationsRepository {
             userId: inviteeId,
           },
         });
-      } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === 'P2002'
-        ) {
-          return { kind: 'already-in-team' };
-        }
-        throw error;
-      }
 
-      return {
-        kind: 'ok',
-        teamId: invitation.teamId,
-        programId: invitation.programId,
-      };
-    });
+        return {
+          kind: 'ok',
+          teamId: invitation.teamId,
+          programId: invitation.programId,
+        };
+      },
+    );
+    try {
+      return await acceptance;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        return { kind: 'already-in-team' };
+      }
+      throw error;
+    }
   }
 }

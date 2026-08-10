@@ -121,14 +121,6 @@ describe('CollectionStreamsTable', () => {
     );
   }
 
-  function toggleButton(): HTMLButtonElement {
-    const button = [...container.querySelectorAll('button')].find((el) =>
-      el.textContent?.includes('문제만 보기'),
-    );
-    if (!button) throw new Error('토글 버튼을 찾지 못했다');
-    return button as HTMLButtonElement;
-  }
-
   it('저장소 한 줄에 커밋·PR·릴리즈·문제 열을 표시한다', async () => {
     await renderTable([beta]);
     expect(tableText()).toContain('jnu-oss/beta');
@@ -174,41 +166,62 @@ describe('CollectionStreamsTable', () => {
     expect(tableText()).toContain('부분');
   });
 
-  it('「문제만 보기」 토글은 문제 저장소만 남기고 카운트를 함께 보여준다', async () => {
+  it('「문제만 보기」 토글이 없다 — 요약 텍스트로 문제 건수를 계속 보여준다', async () => {
     await renderTable([beta, gamma, delta, alpha]);
-    const button = toggleButton();
-    expect(button.textContent).toContain('문제 3 / 전체 4');
-    expect(button.getAttribute('aria-pressed')).toBe('false');
+    expect(
+      [...container.querySelectorAll('button')].some((el) =>
+        el.textContent?.includes('문제만 보기'),
+      ),
+    ).toBe(false);
+    expect(tableText()).toContain('문제 3 / 전체 4');
+    // 토글이 없으니 모든 저장소가 (페이지 안에서) 항상 보인다.
     expect(tableText()).toContain('jnu-oss/beta');
-
-    await act(async () => {
-      button.click();
-    });
-
-    expect(toggleButton().getAttribute('aria-pressed')).toBe('true');
-    expect(repositoryRows()).toEqual([
-      'jnu-oss/alpha',
-      'jnu-oss/delta',
-      'jnu-oss/gamma',
-    ]);
-    expect(tableText()).not.toContain('jnu-oss/beta');
-
-    await act(async () => {
-      toggleButton().click();
-    });
-
-    expect(toggleButton().getAttribute('aria-pressed')).toBe('false');
-    expect(tableText()).toContain('jnu-oss/beta');
+    expect(tableText()).toContain('jnu-oss/alpha');
   });
 
-  it('모두 정상이면 표는 그대로 보이고 토글은 「문제 0」을 표시한다', async () => {
+  it('모두 정상이면 표는 그대로 보이고 요약은 「문제 0」을 표시한다', async () => {
     await renderTable([beta]);
-    expect(toggleButton().textContent).toContain('문제 0 / 전체 1');
+    expect(tableText()).toContain('문제 0 / 전체 1');
     expect(tableText()).toContain('jnu-oss/beta');
   });
 
   it('저장소가 없으면 빈 상태 문구를 보여준다', async () => {
     await renderTable([]);
-    expect(tableText()).toContain('문제가 있는 저장소가 없습니다.');
+    expect(tableText()).toContain('수집 대상 저장소가 없습니다.');
+  });
+
+  it('저장소가 pageSize(10)를 넘으면 문제 저장소가 페이지를 넘기지 않아도 첫 페이지에서 보인다', async () => {
+    // 정상 저장소 12개(healthy1~12, 알파벳/사전순으로 문제 저장소보다 뒤에 옴) +
+    // 문제 저장소 1개(alpha). 토글 없이 pagination만으로도 문제 저장소가
+    // 3페이지가 아니라 1페이지에 보여야 한다(회귀 방지 — 이게 이 작업의 핵심 요구).
+    const healthyRepos: CollectionStreamRepository[] = Array.from(
+      { length: 12 },
+      (_, i) => ({
+        repositoryName: `jnu-oss/healthy-${String(i + 1).padStart(2, '0')}`,
+        streams: [
+          {
+            streamType: 'COMMIT',
+            bucket: 'READY',
+            lastSuccessAt: '2026-08-10T09:00:00.000Z',
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+        ],
+      }),
+    );
+
+    await renderTable([...healthyRepos, alpha]);
+
+    expect(tableText()).toContain('문제 1 / 전체 13');
+    // 문제 저장소 alpha가 정렬로 맨 앞에 오고, 페이지 크기(10) 안에 들어와
+    // 토글 없이도 첫 페이지에서 곧바로 보인다.
+    expect(repositoryRows()[0]).toBe('jnu-oss/alpha');
+    expect(tableText()).toContain('jnu-oss/alpha');
+
+    // pagination nav도 함께 뜬다 — 13개를 10개씩 나누면 2페이지.
+    const nav = container.querySelector('nav');
+    expect(nav).not.toBeNull();
+    expect(nav?.getAttribute('aria-label')).toBe('수집 대상 상세 페이지');
+    expect(container.textContent).toContain('1 / 2');
   });
 });

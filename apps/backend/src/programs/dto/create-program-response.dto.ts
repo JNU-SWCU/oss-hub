@@ -13,7 +13,7 @@ export class CreateProgramResponseDto {
     this.category = program.category;
     this.applicationTemplateKey = program.applicationTemplateKey;
     this.applicationTemplateVersion = program.applicationTemplateVersion;
-    this.endAt = program.endAt!.toISOString();
+    this.endAt = program.endAt.toISOString();
     this.detailUrl = `/programs/${program.id}`;
   }
 

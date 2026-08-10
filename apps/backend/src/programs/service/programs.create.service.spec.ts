@@ -15,6 +15,7 @@ const input: CreateProgramRequestDto = {
   category: ProgramCategory.OSS_CONTEST,
   applicationStartAt: '2026-08-01T00:00:00+09:00',
   applicationEndAt: '2026-08-15T23:59:59+09:00',
+  startAt: '2026-08-16T00:00:00+09:00',
   endAt: '2027-02-01T00:00:00+09:00',
   teamMinSize: 2,
   teamMaxSize: 4,
@@ -23,7 +24,17 @@ const input: CreateProgramRequestDto = {
 
 describe('ProgramsService', () => {
   const findUnique = jest.fn();
-  const create = jest.fn();
+  const create = jest.fn(
+    (request: {
+      readonly data: {
+        readonly teamMinSize: number;
+        readonly teamMaxSize: number;
+      };
+    }) => {
+      void request;
+      return Promise.resolve({ id: 'program' });
+    },
+  );
   const prisma = {
     user: { findUnique },
     program: { create },
@@ -54,6 +65,7 @@ describe('ProgramsService', () => {
         applicationTemplateVersion: 1,
         applicationStartAt: new Date('2026-08-01T00:00:00+09:00'),
         applicationEndAt: new Date('2026-08-15T23:59:59+09:00'),
+        startAt: new Date('2026-08-16T00:00:00+09:00'),
         endAt: new Date('2027-02-01T00:00:00+09:00'),
         teamMinSize: 2,
         teamMaxSize: 4,
@@ -61,7 +73,7 @@ describe('ProgramsService', () => {
     });
   });
 
-  it('stores null team sizes for an individual template', async () => {
+  it('stores an editable team range for an individual template', async () => {
     findUnique.mockResolvedValue({
       role: Role.ADMIN,
       accountStatus: AccountStatus.ACTIVE,
@@ -85,11 +97,76 @@ describe('ProgramsService', () => {
         applicationTemplateVersion: 1,
         applicationStartAt: new Date('2026-08-01T00:00:00+09:00'),
         applicationEndAt: new Date('2026-08-15T23:59:59+09:00'),
+        startAt: new Date('2026-08-16T00:00:00+09:00'),
         endAt: new Date('2027-02-01T00:00:00+09:00'),
-        teamMinSize: null,
-        teamMaxSize: null,
+        teamMinSize: 2,
+        teamMaxSize: 4,
       },
     });
+  });
+
+  it.each(Object.values(ProgramCategory))(
+    'defaults %s to the editable 1..1 range',
+    async (category) => {
+      findUnique.mockResolvedValue({
+        role: Role.STAFF,
+        accountStatus: AccountStatus.ACTIVE,
+      });
+      create.mockResolvedValue({ id: 'program-default-range' });
+
+      await service.create(101n, {
+        ...input,
+        category,
+        teamMinSize: undefined,
+        teamMaxSize: undefined,
+      });
+
+      const request = create.mock.calls.at(-1)?.[0];
+      expect(request?.data.teamMinSize).toBe(1);
+      expect(request?.data.teamMaxSize).toBe(1);
+    },
+  );
+
+  it('allows applicationEndAt to equal the operating start', async () => {
+    findUnique.mockResolvedValue({
+      role: Role.STAFF,
+      accountStatus: AccountStatus.ACTIVE,
+    });
+    create.mockResolvedValue({ id: 'program-equal-boundary' });
+
+    await expect(
+      service.create(101n, {
+        ...input,
+        startAt: input.applicationEndAt,
+      }),
+    ).resolves.toEqual({ id: 'program-equal-boundary' });
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [
+      'application end after program start',
+      '2026-08-15T23:59:58+09:00',
+      input.endAt,
+    ],
+    ['program start equal to program end', input.endAt, input.endAt],
+    [
+      'program start after program end',
+      '2027-02-02T00:00:00+09:00',
+      input.endAt,
+    ],
+  ])('rejects %s before a program is stored', async (_case, startAt, endAt) => {
+    findUnique.mockResolvedValue({
+      role: Role.STAFF,
+      accountStatus: AccountStatus.ACTIVE,
+    });
+
+    await expect(
+      service.create(101n, { ...input, startAt, endAt }),
+    ).rejects.toMatchObject<Partial<DomainException>>({
+      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
+    });
+    expect(create).not.toHaveBeenCalled();
   });
 
   it('rejects a reversed team range before a program is stored', async () => {

@@ -7,10 +7,7 @@ import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
 } from '../program-error-code.enum';
-import {
-  getProgramTemplate,
-  PROGRAM_PARTICIPATION,
-} from '../program-template.registry';
+import { getProgramTemplate } from '../program-template.registry';
 
 const INVALID_END_AT_FIELD_ERROR = {
   field: 'endAt',
@@ -39,26 +36,31 @@ export class ProgramCreationService {
     const description = input.description.trim();
     const applicationStartAt = new Date(input.applicationStartAt);
     const applicationEndAt = new Date(input.applicationEndAt);
+    const startAt = new Date(input.startAt ?? input.applicationEndAt);
     const endAt = new Date(input.endAt);
     const template = getProgramTemplate(input.category);
-    const hasValidDates =
+    const teamMinSize = input.teamMinSize ?? template.teamSize.defaultMin;
+    const teamMaxSize = input.teamMaxSize ?? template.teamSize.defaultMax;
+    const hasValidApplicationPeriod =
       !Number.isNaN(applicationStartAt.getTime()) &&
       !Number.isNaN(applicationEndAt.getTime()) &&
       applicationEndAt >= applicationStartAt;
+    const hasValidProgramPeriod =
+      !Number.isNaN(startAt.getTime()) &&
+      !Number.isNaN(endAt.getTime()) &&
+      startAt >= applicationEndAt &&
+      endAt > startAt;
     const hasValidTeamSize =
-      template.participation === PROGRAM_PARTICIPATION.INDIVIDUAL ||
-      (input.teamMinSize !== null &&
-        input.teamMinSize !== undefined &&
-        input.teamMaxSize !== null &&
-        input.teamMaxSize !== undefined &&
-        input.teamMinSize >= 1 &&
-        input.teamMinSize <= input.teamMaxSize);
+      Number.isInteger(teamMinSize) &&
+      Number.isInteger(teamMaxSize) &&
+      teamMinSize >= 1 &&
+      teamMinSize <= teamMaxSize;
 
     if (
       !name ||
       !organizer ||
       !description ||
-      !hasValidDates ||
+      !hasValidApplicationPeriod ||
       !hasValidTeamSize
     ) {
       throw new DomainException(
@@ -69,7 +71,7 @@ export class ProgramCreationService {
     if (
       typeof input.endAt !== 'string' ||
       !Number.isFinite(endAt.getTime()) ||
-      endAt <= applicationEndAt
+      !hasValidProgramPeriod
     ) {
       throw new DomainException(
         PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
@@ -85,15 +87,10 @@ export class ProgramCreationService {
       applicationTemplateVersion: template.version,
       applicationStartAt,
       applicationEndAt,
+      startAt,
       endAt,
-      teamMinSize:
-        template.participation === PROGRAM_PARTICIPATION.TEAM
-          ? (input.teamMinSize ?? null)
-          : null,
-      teamMaxSize:
-        template.participation === PROGRAM_PARTICIPATION.TEAM
-          ? (input.teamMaxSize ?? null)
-          : null,
+      teamMinSize,
+      teamMaxSize,
       description,
     });
   }

@@ -75,11 +75,9 @@ export class TeamInvitationsService {
     if (alreadyInTeam) {
       throw this.error(TeamInvitationErrorCode.INVITEE_ALREADY_IN_TEAM);
     }
-    if (team.teamMaxSize != null) {
-      const memberCount = await this.repository.countTeamMembers(teamId);
-      if (memberCount >= team.teamMaxSize) {
-        throw this.error(TeamInvitationErrorCode.TEAM_FULL);
-      }
+    const memberCount = await this.repository.countTeamMembers(teamId);
+    if (memberCount >= team.teamMaxSize) {
+      throw this.error(TeamInvitationErrorCode.TEAM_FULL);
     }
 
     try {

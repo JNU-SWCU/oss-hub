@@ -56,7 +56,7 @@ describe('ProgramEditorRepository locking', () => {
     expect(transaction.milestone.findUnique).toHaveBeenNthCalledWith(2, {
       where: { id: 'milestone-1' },
       include: {
-        program: { select: { applicationEndAt: true, endAt: true } },
+        program: { select: { startAt: true, endAt: true } },
       },
     });
   });

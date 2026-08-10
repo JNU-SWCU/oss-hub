@@ -51,6 +51,10 @@ async function upsertProgram(
   },
 ) {
   const { id, ...rest } = params;
+  const startAt = rest.applicationEndAt;
+  const endAt = new Date(startAt.getTime() + 365 * 24 * 60 * 60 * 1_000);
+  const teamMinSize = rest.teamMinSize ?? 1;
+  const teamMaxSize = rest.teamMaxSize ?? 1;
   return upsertTracked(
     stats,
     'Program',
@@ -63,8 +67,10 @@ async function upsertProgram(
           category: rest.category,
           applicationStartAt: rest.applicationStartAt,
           applicationEndAt: rest.applicationEndAt,
-          teamMinSize: rest.teamMinSize ?? null,
-          teamMaxSize: rest.teamMaxSize ?? null,
+          startAt,
+          endAt,
+          teamMinSize,
+          teamMaxSize,
           repositoryProvisioningEnabled:
             rest.repositoryProvisioningEnabled ?? false,
         },
@@ -78,8 +84,10 @@ async function upsertProgram(
           category: rest.category,
           applicationStartAt: rest.applicationStartAt,
           applicationEndAt: rest.applicationEndAt,
-          teamMinSize: rest.teamMinSize ?? null,
-          teamMaxSize: rest.teamMaxSize ?? null,
+          startAt,
+          endAt,
+          teamMinSize,
+          teamMaxSize,
           repositoryProvisioningEnabled:
             rest.repositoryProvisioningEnabled ?? false,
         },

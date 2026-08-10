@@ -17,7 +17,11 @@ import {
 } from './types';
 import { resolveAuditLogActionBadge } from './audit-log-action';
 import { AuditLogSentence } from './audit-log-sentence';
-import { describeAuditLog, describeTargetType } from './describe';
+import {
+  describeAuditLog,
+  describeTargetType,
+  isFallbackTarget,
+} from './describe';
 
 export interface AuditLogViewProps {
   readonly records: readonly AuditLogRecord[];
@@ -115,7 +119,15 @@ export function AuditLogView(props: AuditLogViewProps) {
               </StatusBadge>
               <span>{describeTargetType(record.targetType)}</span>
               <span aria-hidden="true">·</span>
-              <span className="font-mono text-xs">{record.targetId}</span>
+              {/* 다른 targetType(ROLE_REQUEST 등)은 문장에 이미 핸들이 나오므로
+                  이 자리에는 그대로 targetId를 codeblock으로 남겨 원본 참조값을
+                  유지한다 — PROGRAM만 이름 스냅샷/join이 있어 cuid 대신 이름을
+                  보여줄 수 있다. */}
+              {record.targetType === 'PROGRAM' && !isFallbackTarget(record) ? (
+                <span className="text-xs">{record.target}</span>
+              ) : (
+                <span className="font-mono text-xs">{record.targetId}</span>
+              )}
             </p>
           </div>
         );
