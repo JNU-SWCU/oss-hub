@@ -85,7 +85,7 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `pr
     (2026-08-21) → `Full-loop Dry-run`(2026-08-24) → `Full-loop Live Beta`(시작 2026-08-27,
     마감 2026-08-31) → `Release Complete`(2026-08-31). 별도 시작일이 문서화되지 않은 고정 일정은
     프로그램 시작일을 `startAt`으로 사용한다.
-  - Submission — `AWS Staging`은 팀장이 staging 배포 릴리즈 링크를 제출하고 합성 STAFF 계정
+  - Submission — `AWS Staging`은 팀장이 staging 배포 결과를 TEXT로 제출하고 합성 STAFF 계정
     (`auth` profile의 `staff-approved`)이 승인 리뷰를 남긴 상태, `Intake 기능 동결`은 다른
     팀원이 기능 동결 요약을 제출하고 아직 리뷰 대기 중인 상태다. 나머지 5개는 마감 전이라
     제출이 없다.
