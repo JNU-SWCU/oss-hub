@@ -40,6 +40,16 @@ export interface TeamByDigestRecord {
   readonly hasApplication: boolean;
 }
 
+/**
+ * `lockTeamForJoin`이 팀 행을 `FOR UPDATE`로 잠근 뒤 다시 읽은 값 — 잠금 전
+ * `findTeamByJoinCodeDigest`의 스냅샷은 동시 합류 경합 아래 stale할 수 있으므로,
+ * 실제 정원·잠금 판정은 이 값만 근거로 삼는다.
+ */
+export interface TeamJoinLockRecord {
+  readonly memberCount: number;
+  readonly hasApplication: boolean;
+}
+
 export interface CreateTeamRecordInput {
   readonly programId: string;
   readonly name: string;
@@ -110,6 +120,13 @@ export interface ProgramTeamsJoinStore {
     programId: string,
     joinCodeDigest: string,
   ): Promise<TeamByDigestRecord | null>;
+  /**
+   * 팀 행을 `FOR UPDATE`로 잠근 뒤 정원·신청 잠금 판정에 쓰는 값을 다시 읽는다
+   * (#164 패턴 — `team-invitations.repository.ts`의 `withAcceptTransaction`과
+   * 동일한 잠금 SQL). 같은 팀에 대한 동시 합류를 이 잠금으로 직렬화해, 잠금 뒤
+   * 재조회한 값만으로 정원 초과 여부를 최종 판정한다.
+   */
+  lockTeamForJoin(teamId: string): Promise<TeamJoinLockRecord>;
   addMember(teamId: string, programId: string, userId: string): Promise<void>;
 }
 
@@ -273,8 +290,12 @@ export class ProgramTeamsRepository {
 
 type TeamsTx = Pick<
   Prisma.TransactionClient,
-  'team' | 'teamMember' | 'application'
+  'team' | 'teamMember' | 'application' | '$queryRaw'
 >;
+
+interface LockedTeamRow {
+  readonly id: string;
+}
 
 class PrismaProgramTeamsCreateStore implements ProgramTeamsCreateStore {
   constructor(private readonly tx: TeamsTx) {}
@@ -370,6 +391,26 @@ class PrismaProgramTeamsJoinStore implements ProgramTeamsJoinStore {
       memberCount: team._count.members,
       hasApplication: team.applications.length > 0,
     };
+  }
+
+  /**
+   * `withAcceptTransaction`(team-invitations.repository.ts)과 같은 `FOR UPDATE`
+   * SQL로 팀 행을 잠근다. 잠근 뒤에야 정원·신청 잠금 판정에 쓸 값을 다시 읽어,
+   * 잠금 전 스냅샷(`findTeamByJoinCodeDigest`)이 아니라 이 값만으로 최종
+   * 판정하게 한다 — 같은 팀에 몰리는 동시 합류 요청을 이 잠금으로 직렬화한다.
+   */
+  async lockTeamForJoin(teamId: string): Promise<TeamJoinLockRecord> {
+    await this.tx.$queryRaw<LockedTeamRow[]>(
+      Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`,
+    );
+    const [memberCount, application] = await Promise.all([
+      this.tx.teamMember.count({ where: { teamId } }),
+      this.tx.application.findFirst({
+        where: { teamId },
+        select: { id: true },
+      }),
+    ]);
+    return { memberCount, hasApplication: application !== null };
   }
 
   async addMember(

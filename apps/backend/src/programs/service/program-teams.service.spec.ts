@@ -70,6 +70,12 @@ function buildService(overrides: {
     memberCount: 1,
     hasApplication: false,
   });
+  // lockTeamForJoin 은 기본적으로 pre-lock 스냅샷(findTeamByJoinCodeDigest)과
+  // 같은 값을 재확인해 준다고 가정한다 — 경합을 시뮬레이션하는 테스트만 다른
+  // 값으로 override 한다.
+  const lockTeamForJoin = jest
+    .fn()
+    .mockResolvedValue({ memberCount: 1, hasApplication: false });
 
   const createStore: ProgramTeamsCreateStore = {
     findMembershipByProgramUser: findMembership,
@@ -80,6 +86,7 @@ function buildService(overrides: {
   const joinStore: ProgramTeamsJoinStore = {
     findMembershipByProgramUser: findMembership,
     findTeamByJoinCodeDigest,
+    lockTeamForJoin,
     addMember,
     ...overrides.joinStore,
   };
@@ -122,6 +129,7 @@ function buildService(overrides: {
     addMember,
     findMembership,
     findTeamByJoinCodeDigest,
+    lockTeamForJoin,
   };
 }
 
@@ -199,7 +207,8 @@ describe('ProgramTeamsService', () => {
   });
 
   it('참여코드로 합류한다', async () => {
-    const { service, addMember, findTeamByJoinCodeDigest } = buildService({});
+    const { service, addMember, findTeamByJoinCodeDigest, lockTeamForJoin } =
+      buildService({});
     const joinCode = 'ABCD1234XY';
     findTeamByJoinCodeDigest.mockResolvedValue({
       id: 'synthetic-team',
@@ -216,6 +225,7 @@ describe('ProgramTeamsService', () => {
       PROGRAM_ID,
       computeJoinCodeDigest(joinCode, JOIN_CODE_SECRET),
     );
+    expect(lockTeamForJoin).toHaveBeenCalledWith('synthetic-team');
     expect(addMember).toHaveBeenCalledWith(
       'synthetic-team',
       PROGRAM_ID,
@@ -223,6 +233,57 @@ describe('ProgramTeamsService', () => {
     );
     expect(result.id).toBe('synthetic-team');
     expect(result).not.toHaveProperty('joinCode');
+  });
+
+  it('잠금 전 스냅샷엔 여유가 있어도, 잠근 뒤 재조회에서 정원이 찼으면 409(#164 패턴)', async () => {
+    const { service, addMember, findTeamByJoinCodeDigest, lockTeamForJoin } =
+      buildService({});
+    findTeamByJoinCodeDigest.mockResolvedValue({
+      id: 'synthetic-team',
+      programId: PROGRAM_ID,
+      name: '오픈소스팀',
+      leaderId: 'leader-id',
+      memberCount: 1,
+      hasApplication: false,
+    });
+    // 동시 합류 경합으로 잠금 뒤 재조회한 값이 이미 정원을 채운 상태를 시뮬레이션한다.
+    lockTeamForJoin.mockResolvedValue({
+      memberCount: 4,
+      hasApplication: false,
+    });
+
+    try {
+      await service.join(GITHUB_ID, PROGRAM_ID, 'CODE', NOW);
+      throw new Error('expected throw');
+    } catch (error) {
+      expectCode(error, TeamsErrorCode.TEAM_FULL);
+    }
+    expect(addMember).not.toHaveBeenCalled();
+  });
+
+  it('잠금 전 스냅샷엔 신청이 없어도, 잠근 뒤 재조회에서 신청이 있으면 409 locked', async () => {
+    const { service, addMember, findTeamByJoinCodeDigest, lockTeamForJoin } =
+      buildService({});
+    findTeamByJoinCodeDigest.mockResolvedValue({
+      id: 'synthetic-team',
+      programId: PROGRAM_ID,
+      name: '오픈소스팀',
+      leaderId: 'leader-id',
+      memberCount: 1,
+      hasApplication: false,
+    });
+    lockTeamForJoin.mockResolvedValue({
+      memberCount: 1,
+      hasApplication: true,
+    });
+
+    try {
+      await service.join(GITHUB_ID, PROGRAM_ID, 'CODE', NOW);
+      throw new Error('expected throw');
+    } catch (error) {
+      expectCode(error, TeamsErrorCode.TEAM_LOCKED_AFTER_APPLICATION);
+    }
+    expect(addMember).not.toHaveBeenCalled();
   });
 
   it('정원 미만이면 제3자 합류를 허용한다', async () => {
