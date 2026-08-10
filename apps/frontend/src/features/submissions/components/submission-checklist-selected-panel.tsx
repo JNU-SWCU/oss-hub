@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { studentProgramSubmissionHref } from '@/lib/program-route';
+import { MilestoneDocumentCurrentFiles } from '../milestone-document-current-files';
 import {
   CHECKLIST_STATUS_LABELS,
   CHECKLIST_STATUS_VARIANTS,
@@ -210,7 +211,10 @@ function PanelCard({
           </StatusBadge>
         </div>
       </CardHeader>
-      <CardContent className="grid gap-5 break-keep">{children}</CardContent>
+      <CardContent className="grid gap-5 break-keep">
+        {children}
+        <MilestoneDocumentCurrentFiles milestoneId={item.milestoneId} />
+      </CardContent>
     </Card>
   );
 }

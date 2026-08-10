@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiError, apiClient } from './api-client';
+import { ApiError, apiClient, apiFileClient } from './api-client';
 
 describe('apiClient', () => {
   afterEach(() => {
@@ -87,5 +87,59 @@ describe('apiClient', () => {
       expect(error).toBeInstanceOf(ApiError);
       expect((error as ApiError).problem).toEqual(problem);
     }
+  });
+});
+
+describe('apiFileClient', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('binary body와 RFC 5987 파일명을 함께 반환한다', async () => {
+    // Given
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('current-bytes', {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition':
+            'attachment; filename="current.pdf"; filename*=UTF-8\'\'%ED%98%84%EC%9E%AC.pdf',
+        },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    // When
+    const result = await apiFileClient('current/file');
+
+    // Then
+    await expect(result.blob.text()).resolves.toBe('current-bytes');
+    expect(result.fileName).toBe('현재.pdf');
+  });
+
+  it('ProblemDetail 실패를 JSON API와 같은 ApiError로 변환한다', async () => {
+    // Given
+    const problem = {
+      type: 'about:blank',
+      title: 'Not Found',
+      status: 404,
+      detail: '제출된 파일을 찾을 수 없습니다.',
+      instance: '/current/file',
+      code: 'MSD_020',
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(problem), {
+          status: 404,
+          headers: { 'Content-Type': 'application/problem+json' },
+        }),
+      ),
+    );
+
+    // When / Then
+    await expect(apiFileClient('current/file')).rejects.toMatchObject({
+      problem,
+    });
   });
 });

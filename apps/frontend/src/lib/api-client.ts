@@ -16,6 +16,11 @@ export interface ProblemDetailFieldError {
   readonly message: string;
 }
 
+export interface ApiFileDownload {
+  readonly blob: Blob;
+  readonly fileName: string;
+}
+
 export class ApiError extends Error {
   constructor(public readonly problem: ProblemDetail) {
     super(problem.detail || problem.title);
@@ -83,4 +88,53 @@ export async function apiClient<T>(
     : createUnexpectedProblem(response, target);
 
   throw new ApiError(problem);
+}
+
+export async function apiFileClient(
+  path: string,
+  init?: RequestInit,
+): Promise<ApiFileDownload> {
+  const target = apiPath(path);
+  const response = await fetch(target, init);
+  if (!response.ok) {
+    const body: unknown = await response.json().catch(() => undefined);
+    throw new ApiError(
+      isProblemDetail(body) ? body : createUnexpectedProblem(response, target),
+    );
+  }
+
+  return {
+    blob: await response.blob(),
+    fileName: contentDispositionFileName(
+      response.headers.get('content-disposition'),
+    ),
+  };
+}
+
+function contentDispositionFileName(header: string | null): string {
+  if (header === null) return 'file';
+  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(header)?.at(1);
+  if (encoded !== undefined) {
+    try {
+      return safeDownloadFileName(decodeURIComponent(encoded));
+    } catch (error: unknown) {
+      if (!(error instanceof URIError)) throw error;
+    }
+  }
+  const fallback = /filename="([^"]*)"/i.exec(header)?.at(1) ?? 'file';
+  return safeDownloadFileName(fallback);
+}
+
+function safeDownloadFileName(value: string): string {
+  const baseName = value.replaceAll('\\', '/').split('/').at(-1) ?? '';
+  const sanitized = [...baseName]
+    .filter((character) => {
+      const code = character.charCodeAt(0);
+      return code > 0x1f && code !== 0x7f;
+    })
+    .join('')
+    .trim();
+  return sanitized.length > 0 && sanitized !== '.' && sanitized !== '..'
+    ? sanitized
+    : 'file';
 }

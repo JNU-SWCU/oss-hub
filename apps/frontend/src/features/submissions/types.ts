@@ -92,6 +92,15 @@ export interface SubmissionChecklist {
   readonly items: readonly SubmissionChecklistItem[];
 }
 
+export interface MilestoneDocumentCurrentFileItem {
+  readonly id: string;
+  readonly name: string;
+  readonly submissionType: SubmissionType;
+  readonly viewerSubmission?: {
+    readonly submitted: boolean;
+  };
+}
+
 export interface CreatedResubmission {
   readonly submissionId: string;
   readonly revision: number;

@@ -374,6 +374,7 @@ describe('SubmissionChecklistView 선택 패널', () => {
     expect(html).toContain('검토 시각');
     expect(html).toContain('판정');
     expect(html).toContain('승인');
+    expect(html).toContain('data-testid="milestone-document-current-files"');
     expect(html).not.toMatch(/revision/i);
   });
 
