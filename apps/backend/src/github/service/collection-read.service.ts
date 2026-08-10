@@ -740,6 +740,7 @@ export class CollectionReadService implements CollectionReadPort {
       where: PRESENT_REPOSITORY,
       orderBy: { nameWithOwner: 'asc' },
       select: {
+        githubRepositoryId: true,
         nameWithOwner: true,
         streams: {
           select: {
@@ -752,6 +753,10 @@ export class CollectionReadService implements CollectionReadPort {
         },
       },
     });
+
+    const programNameById = await this.resolveProgramNamesByRepositoryId(
+      repositories.map((repository) => repository.githubRepositoryId),
+    );
 
     return repositories.map((repository) => {
       const byType = new Map(
@@ -771,8 +776,50 @@ export class CollectionReadService implements CollectionReadPort {
             lastErrorAt: row?.lastErrorAt ?? null,
           };
         });
-      return { repositoryName: repository.nameWithOwner, streams };
+      return {
+        repositoryName: repository.nameWithOwner,
+        programName: programNameById.get(repository.githubRepositoryId) ?? null,
+        streams,
+      };
     });
+  }
+
+  /**
+   * `CollectionRepositoryStreamsDto.programName`(위 port 코멘트 참고)의 batched 구현.
+   * `Repository`(programId 보유) 조회 1번 + `Program` 조회 1번, 저장소 개수와 무관하게
+   * 쿼리 2개 고정이다(N+1 금지 — `audit-log.repository.ts`의 `resolveProgramNames`와 같은
+   * 원칙, 그 파일은 감사 로그 전용이라 재사용하지 않고 이 서비스 안에서 새로 구현한다).
+   * 매칭되는 `Repository` 행이 없는 저장소(조직 저장소 대부분, discovery로만 편입된
+   * external 저장소)는 맵에 없다 — 호출자가 `null`로 접는다.
+   */
+  private async resolveProgramNamesByRepositoryId(
+    githubRepositoryIds: readonly bigint[],
+  ): Promise<ReadonlyMap<bigint, string>> {
+    if (githubRepositoryIds.length === 0) return new Map();
+
+    const links = await this.prisma.repository.findMany({
+      where: { githubRepositoryId: { in: [...githubRepositoryIds] } },
+      select: { githubRepositoryId: true, programId: true },
+    });
+    if (links.length === 0) return new Map();
+
+    const programIds = [...new Set(links.map((link) => link.programId))];
+    const programs = await this.prisma.program.findMany({
+      where: { id: { in: programIds } },
+      select: { id: true, name: true },
+    });
+    const nameByProgramId = new Map(
+      programs.map((program) => [program.id, program.name]),
+    );
+
+    const programNameById = new Map<bigint, string>();
+    for (const link of links) {
+      const name = nameByProgramId.get(link.programId);
+      if (name !== undefined) {
+        programNameById.set(link.githubRepositoryId, name);
+      }
+    }
+    return programNameById;
   }
 
   /**

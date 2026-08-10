@@ -113,6 +113,8 @@ const SYSTEM_STATUS_FIXTURE = {
   collectionStreams: [
     {
       repositoryName: 'jnu-oss/broken-stream-repo',
+      // 프로그램 연결 없음(discovery로만 편입된 경우를 흉내낸다) — 표에서 em-dash로 보인다.
+      programName: null,
       streams: [
         {
           streamType: 'COMMIT',
@@ -139,6 +141,8 @@ const SYSTEM_STATUS_FIXTURE = {
     },
     {
       repositoryName: 'jnu-oss/healthy-repo',
+      // 프로그램 신청 OWN 경로로 편입된 경우를 흉내낸다 — 표에 이름이 그대로 보인다.
+      programName: '오픈소스 입문 프로그램',
       streams: [
         {
           streamType: 'COMMIT',
@@ -165,6 +169,8 @@ const SYSTEM_STATUS_FIXTURE = {
     },
     {
       repositoryName: 'jnu-oss/new-repo-backfilling',
+      // 프로그램 연결 없음 — 조직 저장소 대부분이 이 경우다.
+      programName: null,
       streams: [
         {
           streamType: 'COMMIT',

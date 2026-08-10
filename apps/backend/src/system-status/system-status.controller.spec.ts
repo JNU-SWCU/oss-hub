@@ -29,6 +29,7 @@ describe('SystemStatusController', () => {
       collectionStreams: [
         {
           repositoryName: 'JNU-SWCU/alpha',
+          programName: null,
           streams: [
             {
               streamType: 'COMMIT' as const,

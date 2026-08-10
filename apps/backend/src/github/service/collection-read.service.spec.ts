@@ -24,6 +24,7 @@ interface MockPrisma {
   };
   contribution: { findMany: jest.Mock };
   repository: { findMany: jest.Mock };
+  program: { findMany: jest.Mock };
   user: { findMany: jest.Mock };
   collectionRepositoryStream: {
     groupBy: jest.Mock;
@@ -47,9 +48,13 @@ const createDb = (): MockPrisma => ({
   contribution: {
     findMany: jest.fn().mockResolvedValue([]),
   },
-  // 프로비저닝 테이블 — 조직 밖 저장소의 "신청에 연결됨" 증명원.
-  // 기본은 "연결된 것 없음"이라 EXTERNAL_PUBLIC 은 걸러진다.
+  // 프로비저닝 테이블 — 조직 밖 저장소의 "신청에 연결됨" 증명원이자
+  // (저장소 → 프로그램) 배치 조인의 첫 단계. 기본은 "연결된 것 없음"이라
+  // EXTERNAL_PUBLIC은 걸러지고 programName도 null로 접힌다.
   repository: { findMany: jest.fn().mockResolvedValue([]) },
+  // (저장소 → 프로그램) 배치 조인의 두 번째 단계. 기본값은 빈 목록이며 각
+  // 테스트가 필요한 만큼 채운다.
+  program: { findMany: jest.fn().mockResolvedValue([]) },
   // 표시명 원본. 기본값은 빈 목록이며 각 테스트가 필요한 만큼 채운다.
   user: {
     findMany: jest.fn().mockResolvedValue([]),
@@ -1147,6 +1152,7 @@ describe('CollectionReadService — getIncrementalStatusStreams', () => {
     const db = createDb();
     db.githubRepository.findMany.mockResolvedValue([
       {
+        githubRepositoryId: 301n,
         nameWithOwner: 'JNU-SWCU/alpha',
         streams: [
           {
@@ -1166,6 +1172,8 @@ describe('CollectionReadService — getIncrementalStatusStreams', () => {
     expect(result).toEqual([
       {
         repositoryName: 'JNU-SWCU/alpha',
+        // Repository↔Program 연결이 없으므로(기본 mock) null — 정상 상태다.
+        programName: null,
         streams: [
           {
             streamType: 'COMMIT',
@@ -1191,6 +1199,46 @@ describe('CollectionReadService — getIncrementalStatusStreams', () => {
         ],
       },
     ]);
+  });
+
+  /**
+   * 저장소↔프로그램 연결 노출 — `GithubRepository.githubRepositoryId`로
+   * `Repository.programId`를 거쳐 `Program.name`을 채운다(위 port 코멘트 참고).
+   * 연결이 있는 저장소와 없는 저장소를 같은 배치에 섞어, 있는 쪽만 채워지고
+   * 없는 쪽은 null로 남는지 함께 확인한다.
+   */
+  it('githubRepositoryId → Repository.programId → Program.name 경유로 programName을 채운다', async () => {
+    const db = createDb();
+    db.githubRepository.findMany.mockResolvedValue([
+      {
+        githubRepositoryId: 301n,
+        nameWithOwner: 'JNU-SWCU/alpha',
+        streams: [],
+      },
+      { githubRepositoryId: 302n, nameWithOwner: 'JNU-SWCU/beta', streams: [] },
+    ]);
+    db.repository.findMany.mockResolvedValue([
+      { githubRepositoryId: 301n, programId: 'program-1' },
+    ]);
+    db.program.findMany.mockResolvedValue([
+      { id: 'program-1', name: '오픈소스 입문 프로그램' },
+    ]);
+
+    const result = await serviceFor(db).getIncrementalStatusStreams();
+
+    expect(
+      result.map((repo) => [repo.repositoryName, repo.programName]),
+    ).toEqual([
+      ['JNU-SWCU/alpha', '오픈소스 입문 프로그램'],
+      ['JNU-SWCU/beta', null],
+    ]);
+    // 저장소 개수와 무관하게 배치 조회 1번씩 — N+1이 아니다.
+    expect(db.repository.findMany).toHaveBeenCalledTimes(1);
+    expect(db.program.findMany).toHaveBeenCalledTimes(1);
+    expect(db.repository.findMany).toHaveBeenCalledWith({
+      where: { githubRepositoryId: { in: [301n, 302n] } },
+      select: { githubRepositoryId: true, programId: true },
+    });
   });
 
   it('lastErrorCode가 있으면 status가 READY여도 RETRY_PENDING이 우선한다(집계 쪽과 같은 우선순위)', async () => {
