@@ -3,6 +3,14 @@ import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuthModule } from '../auth/auth.module';
 import { CollectionModule } from '../github/collection.module';
 import { RepositoriesModule } from '../github/repositories.module';
+import { SubmissionsModule } from '../submissions/submissions.module';
+import { ProgramAuthoringController } from './controller/program-authoring.controller';
+import { ProgramAuthoringRepository } from './program-authoring.repository';
+import { ProgramAuthoringService } from './program-authoring.service';
+import { ProgramAuthoringUploadMaintenanceScheduler } from './program-authoring-upload-maintenance.scheduler';
+import { ProgramAuthoringUploadMaintenanceService } from './program-authoring-upload-maintenance.service';
+import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
+import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import { ApplicationTemplatesController } from './controller/application-templates.controller';
 import { MilestonesController } from './controller/milestones.controller';
 import { ProgramCreationService } from './service/program-creation.service';
@@ -28,10 +36,17 @@ import { ProgramsService } from './service/programs.service';
 import { StudentDashboardService } from './service/student-dashboard.service';
 
 @Module({
-  imports: [AuthModule, AuditLogModule, CollectionModule, RepositoriesModule],
+  imports: [
+    AuthModule,
+    AuditLogModule,
+    CollectionModule,
+    RepositoriesModule,
+    SubmissionsModule,
+  ],
   controllers: [
     // static sibling first — programs/application-templates before programs/:id
     ApplicationTemplatesController,
+    ProgramAuthoringController,
     ProgramsController,
     StudentDashboardController,
     ProgramEditorController,
@@ -42,6 +57,12 @@ import { StudentDashboardService } from './service/student-dashboard.service';
     ProgramsService,
     ProgramsRepository,
     ProgramCreationService,
+    ProgramAuthoringRepository,
+    ProgramAuthoringService,
+    ProgramAuthoringUploadRepository,
+    ProgramAuthoringUploadService,
+    ProgramAuthoringUploadMaintenanceService,
+    ProgramAuthoringUploadMaintenanceScheduler,
     ProgramActivitySummaryRepository,
     ProgramActivitySummaryService,
     {
@@ -58,6 +79,11 @@ import { StudentDashboardService } from './service/student-dashboard.service';
     ProgramTeamsRepository,
     ProgramTeamsStaffGuard,
   ],
-  exports: [PROGRAM_ACTIVITY_SUMMARY_PORT],
+  exports: [
+    PROGRAM_ACTIVITY_SUMMARY_PORT,
+    ProgramAuthoringService,
+    ProgramAuthoringUploadService,
+    ProgramAuthoringUploadMaintenanceService,
+  ],
 })
 export class ProgramsModule {}
