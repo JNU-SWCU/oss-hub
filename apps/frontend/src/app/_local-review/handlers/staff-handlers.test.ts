@@ -13,6 +13,7 @@ import {
   type LocalReviewResponsePlan,
 } from '../handler-kit';
 import { STAFF_HANDLERS } from './staff-handlers';
+import { STAFF_PROGRAM_FIXTURES } from './staff-program-fixtures';
 
 /**
  * 교직원 대시보드 픽스처(`STAFF_DASHBOARD_FIXTURE`)가 카드에서 바로 연결하는
@@ -102,7 +103,7 @@ describe('staff local review handlers', () => {
     expect(plan).toBeNull();
   });
 
-  it('기초 스터디 신청 집계는 대시보드 카드(전체 3·제출 1·승인 1·반려 1)와 같다', () => {
+  it('기초 스터디 신청 집계는 대시보드 카드(전체 4·제출 1·승인 2·반려 1)와 같다', () => {
     // Given / When
     const page = bodyOf<ApplicationListPage>(
       resolve(
@@ -115,11 +116,35 @@ describe('staff local review handlers', () => {
     // Then
     const counted = (status: string) =>
       page.items.filter((item) => item.status === status).length;
-    expect(page.totalItems).toBe(3);
+    expect(page.totalItems).toBe(4);
     expect(counted('SUBMITTED')).toBe(1);
-    expect(counted('APPROVED')).toBe(1);
+    expect(counted('APPROVED')).toBe(2);
     expect(counted('REJECTED')).toBe(1);
   });
+
+  it.each(STAFF_PROGRAM_FIXTURES.map((fixture) => fixture.program.id))(
+    '%s 의 신청 건수 표기는 실제 신청 목록과 같다',
+    (programId) => {
+      // Given: 편집 화면이 읽는 프로그램(유형 잠금 안내가 이 숫자를 그대로 말한다).
+      const program = bodyOf<EditableProgram>(
+        resolve('GET', `programs/${programId}/edit`),
+      );
+
+      // When: 같은 프로그램의 신청자 목록을 센다.
+      const page = bodyOf<ApplicationListPage>(
+        resolve(
+          'GET',
+          `programs/${programId}/applications`,
+          'page=1&pageSize=20&search=&status=all',
+        ),
+      );
+
+      // Then: 「신청 N건이 있어 유형을 바꿀 수 없습니다」가 목록과 다른 수를 말하면
+      // 교직원은 화면 둘 중 어느 쪽을 믿어야 할지 알 수 없다.
+      expect(program.applicationCount).toBe(page.totalItems);
+      expect(program.categoryLocked.applicationCount).toBe(page.totalItems);
+    },
+  );
 
   it('신청자 목록은 상태·검색 질의를 반영하고 mode는 무시한다', () => {
     // Given / When

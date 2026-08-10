@@ -94,33 +94,35 @@ const STAFF_DASHBOARD_FIXTURE = {
         endsAt: '2026-08-15T23:59:59.000Z',
       },
       applications: {
-        total: 3,
+        total: 4,
         submitted: 1,
         // 승인 대기는 제출됐지만 아직 판정이 안 난 건수다. 합계·제출·승인·반려와
         // 앞뒤가 맞아야 교직원 대시보드의 요약 숫자가 서로 어긋나지 않는다.
         pendingApproval: 1,
-        approved: 1,
+        approved: 2,
         rejected: 1,
       },
       applicantsPath: '/programs/program-basic-study/applicants',
       // 교직원 대시보드가 신청 현황만이 아니라 활동·제출 요약까지 한 화면에서
       // 보여주게 바뀌었다. 셋이 서로 앞뒤가 맞아야 검토자가 화면의 숫자를
-      // 의심하지 않는다 — 승인 1건이 곧 제출 대상 1명이다.
+      // 의심하지 않는다 — 승인 2건이 곧 제출 대상 2명이다.
       activity: {
-        repositories: 1,
+        repositories: 2,
         commits: 24,
         pullRequests: 5,
         releases: 1,
         lastActivityAt: '2026-07-30T09:00:00.000Z',
         dataAsOf: '2026-07-31T00:00:00.000Z',
       },
+      // 칸별 건수는 제출 현황 표(`staff-program-fixtures.ts`의 BASIC_MATRIX_ROWS)를
+      // 그대로 센 값이다 — 카드에서 바로 넘어오는 화면이라 어긋나면 검토 노이즈가 된다.
       submissions: {
-        approvedApplications: 1,
+        approvedApplications: 2,
         milestones: 2,
-        total: 2,
-        notSubmitted: 1,
+        total: 4,
+        notSubmitted: 0,
         submitted: 1,
-        approved: 0,
+        approved: 3,
         changesRequested: 0,
         rejected: 0,
       },
@@ -151,9 +153,11 @@ const STAFF_DASHBOARD_FIXTURE = {
         lastActivityAt: null,
         dataAsOf: '2026-07-31T00:00:00.000Z',
       },
+      // 마일스톤은 승인된 신청이 없어도 프로그램에 있는 만큼 센다(backend
+      // `submission-dashboard-summary.service.ts`). 제출 칸은 승인 0건이라 0이다.
       submissions: {
         approvedApplications: 0,
-        milestones: 0,
+        milestones: 3,
         total: 0,
         notSubmitted: 0,
         submitted: 0,
