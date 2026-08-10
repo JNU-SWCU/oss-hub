@@ -17,7 +17,7 @@ function context(overrides?: Partial<ReviewContext>): ReviewContext {
     milestone: { id: 'milestone-final', name: '최종 제출' },
     currentRevision: {
       number: 2,
-      content: { repositoryUrl: 'https://example.com/repository' },
+      content: { type: 'TEXT', text: 'https://example.com/repository' },
       comment: '수정했습니다.',
       submittedAt: '2026-09-27T01:00:00.000Z',
       files: [],
@@ -95,6 +95,9 @@ describe('SubmissionReviewView', () => {
     expect(html).toContain('판정 저장');
     expect(html).toContain('제출 링크');
     expect(html).toContain('href="https://example.com/repository"');
+    // QA48 — 제출 본문이 그대로 문서로 보여야 하고, raw JSON은 새 나가면 안 된다.
+    expect(html).toContain('제출 내용');
+    expect(html).not.toContain('"type"');
   });
 
   // #354 — 검토 화면은 교직원과 학생이 함께 보는 흐름이라 내부 데이터 용어
@@ -163,7 +166,7 @@ describe('SubmissionReviewView', () => {
       repository: null,
       currentRevision: {
         number: 2,
-        content: {},
+        content: { type: 'TEXT', text: '승인 대상 본문' },
         comment: null,
         submittedAt: '2026-09-27T01:00:00.000Z',
         files: [],
@@ -192,7 +195,7 @@ describe('SubmissionReviewView', () => {
       repository: null,
       currentRevision: {
         number: 2,
-        content: {},
+        content: { type: 'TEXT', text: '보완 요청 대상 본문' },
         comment: null,
         submittedAt: '2026-09-27T01:00:00.000Z',
         files: [],
