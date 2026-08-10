@@ -24,6 +24,7 @@ import type {
 } from '../types';
 import { CollectionActivityFeed } from './collection-activity-feed';
 import { CollectionStreamsTable } from './collection-streams-table';
+import { ExternalCollectionSection } from './external-collection-section';
 
 interface SystemStatusViewProps {
   readonly state: SystemStatusViewState;
@@ -369,7 +370,8 @@ export function SystemStatusView({
   if (state.kind === 'loading') return <LoadingState />;
   if (state.kind === 'error') return <ErrorState onRetry={onRetry} />;
 
-  const { status, collectionStreams, collectionActivity } = state;
+  const { status, collectionStreams, collectionActivity, externalCollection } =
+    state;
   const isEmpty = status.health === 'EMPTY';
   // 이미 실행 중인 사이클에 두 번째 트리거를 보내 봐야 lease가 거절한다 — 요청을
   // 보내기 전에 막아 관리자가 실패 응답을 받고서야 알게 되는 상황을 없앤다.
@@ -427,6 +429,10 @@ export function SystemStatusView({
           <CollectionActivityFeed entries={collectionActivity} />
         </>
       )}
+
+      {/* org 수집이 EMPTY여도 external은 독립된 파이프라인이라 항상 보여준다 —
+          org에 저장소가 없다고 external 수집 현황까지 감춰서는 안 된다. */}
+      <ExternalCollectionSection status={externalCollection} />
 
       {/* 정상일 때는 붙이지 않는다 — 문제가 없을 때 읽어야 할 안내가 아니다. */}
       {status.health === 'NORMAL' ? null : <CollectionAppGuide />}

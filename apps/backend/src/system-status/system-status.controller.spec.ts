@@ -55,6 +55,13 @@ describe('SystemStatusController', () => {
           stoppedForBudget: false,
         },
       ],
+      externalCollection: {
+        trackedRepositoryCount: 0,
+        lastSweep: null,
+        cumulativeCommitCount: 0,
+        cumulativePullRequestCount: 0,
+        cumulativeReleaseCount: 0,
+      },
     };
     const getStatus = jest.fn<
       ReturnType<SystemStatusService['getStatus']>,

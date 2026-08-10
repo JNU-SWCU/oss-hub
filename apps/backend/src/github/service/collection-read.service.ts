@@ -15,6 +15,7 @@ import type {
   CollectionContributorCumulativeMetricsQueryDto,
   CollectionContributorMetricsDto,
   CollectionContributorMetricsQueryDto,
+  CollectionExternalCollectionStatusDto,
   CollectionPublicRankingMetricsDto,
   CollectionPublicRankingMetricsQueryDto,
   CollectionIncrementalStatusSnapshotDto,
@@ -44,6 +45,23 @@ const PRESENT_REPOSITORY = {
   presence: 'PRESENT',
   source: 'ORG_PROVISIONED',
 } as const;
+
+/**
+ * 시스템 상태 3단계 — `PRESENT_REPOSITORY`의 external 대응. 절대 위 상수 대신
+ * 재사용하지 않는다(그러면 org 집계에 학생 개인 저장소가 섞여 든다) — `source`만
+ * 다른 새 상수로 분리한다.
+ */
+const PRESENT_EXTERNAL_REPOSITORY = {
+  presence: 'PRESENT',
+  source: 'EXTERNAL_PUBLIC',
+} as const;
+
+/**
+ * external sweep의 고정 scope 값. `collection-sync.service.ts`의 `EXTERNAL_SCOPE`와
+ * 동일한 리터럴이다(그쪽은 export하지 않아 여기서 별도로 고정한다 — org sweep의
+ * scope는 조직 로그인마다 달라 하나로 고정할 수 없지만 external은 상수 하나다).
+ */
+const EXTERNAL_SWEEP_SCOPE = 'external';
 
 /**
  * 2026-08 owner 결정 — `getIncrementalStatusStreams`가 stream 하나를 4개 bucket 중
@@ -797,5 +815,57 @@ export class CollectionReadService implements CollectionReadPort {
       cycleCompleted: row.cycleCompleted,
       stoppedForBudget: row.stoppedForBudget,
     }));
+  }
+
+  /**
+   * 시스템 상태 3단계 — external(학생 개인 공개 저장소) 수집 현황
+   * (`CollectionExternalCollectionStatusDto` 참고). `trackedRepositoryCount`는
+   * `PRESENT_EXTERNAL_REPOSITORY`(org 집계가 쓰는 `PRESENT_REPOSITORY`와 분리된
+   * 상수)로 센다. 누적 활동량은 `Contribution`을 저장소별로 다시 훑지 않고
+   * `CollectionSweepHistory`의 scope `"external"` 행을 합산한다(위 port 코멘트에
+   * 근거 설명).
+   */
+  async getExternalCollectionStatus(): Promise<CollectionExternalCollectionStatusDto> {
+    const [trackedRepositoryCount, lastSweepRow, sweepTotals] =
+      await Promise.all([
+        this.prisma.githubRepository.count({
+          where: PRESENT_EXTERNAL_REPOSITORY,
+        }),
+        this.prisma.collectionSweepHistory.findFirst({
+          where: { scope: EXTERNAL_SWEEP_SCOPE },
+          orderBy: { sweepFinishedAt: 'desc' },
+        }),
+        this.prisma.collectionSweepHistory.aggregate({
+          where: { scope: EXTERNAL_SWEEP_SCOPE },
+          _sum: {
+            insertedCommitCount: true,
+            insertedPullRequestCount: true,
+            insertedReleaseCount: true,
+          },
+        }),
+      ]);
+
+    return {
+      trackedRepositoryCount,
+      lastSweep: lastSweepRow
+        ? {
+            sweepFinishedAt: lastSweepRow.sweepFinishedAt,
+            cycleStartedAt: lastSweepRow.cycleStartedAt,
+            scope: lastSweepRow.scope,
+            insertedCommitCount: lastSweepRow.insertedCommitCount,
+            insertedPullRequestCount: lastSweepRow.insertedPullRequestCount,
+            insertedReleaseCount: lastSweepRow.insertedReleaseCount,
+            attemptedRepositoryCount: lastSweepRow.attemptedRepositoryCount,
+            processedRepositoryCount: lastSweepRow.processedRepositoryCount,
+            failedRepositoryCount: lastSweepRow.failedRepositoryCount,
+            cycleCompleted: lastSweepRow.cycleCompleted,
+            stoppedForBudget: lastSweepRow.stoppedForBudget,
+          }
+        : null,
+      cumulativeCommitCount: sweepTotals._sum.insertedCommitCount ?? 0,
+      cumulativePullRequestCount:
+        sweepTotals._sum.insertedPullRequestCount ?? 0,
+      cumulativeReleaseCount: sweepTotals._sum.insertedReleaseCount ?? 0,
+    };
   }
 }

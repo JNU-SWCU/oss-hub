@@ -1,6 +1,7 @@
 import { ForbiddenException } from '@nestjs/common';
 import { AccountStatus, Role } from '@prisma/client';
 import type {
+  CollectionExternalCollectionStatusDto,
   CollectionIncrementalStatusSnapshotDto,
   CollectionRepositoryStreamsDto,
   CollectionSweepActivityDto,
@@ -32,12 +33,26 @@ function snapshot(
   };
 }
 
+function externalStatus(
+  overrides: Partial<CollectionExternalCollectionStatusDto> = {},
+): CollectionExternalCollectionStatusDto {
+  return {
+    trackedRepositoryCount: 0,
+    lastSweep: null,
+    cumulativeCommitCount: 0,
+    cumulativePullRequestCount: 0,
+    cumulativeReleaseCount: 0,
+    ...overrides,
+  };
+}
+
 describe('SystemStatusService', () => {
   const findActor = jest.fn();
   const getIncrementalStatusSnapshot = jest.fn();
   const getIncrementalStatusStreams = jest.fn();
   const getNextScheduledCycleAt = jest.fn();
   const getRecentSweepActivity = jest.fn();
+  const getExternalCollectionStatus = jest.fn();
   const countFinalProvisionFailures = jest.fn();
   const service = new SystemStatusService(
     {
@@ -49,6 +64,7 @@ describe('SystemStatusService', () => {
       getIncrementalStatusStreams,
       getNextScheduledCycleAt,
       getRecentSweepActivity,
+      getExternalCollectionStatus,
     } as unknown as ConstructorParameters<typeof SystemStatusService>[1],
     () => NOW,
   );
@@ -64,6 +80,7 @@ describe('SystemStatusService', () => {
       .mockReset()
       .mockResolvedValue(new Date('2026-07-25T20:30:00.000Z'));
     getRecentSweepActivity.mockReset().mockResolvedValue([]);
+    getExternalCollectionStatus.mockReset().mockResolvedValue(externalStatus());
     countFinalProvisionFailures.mockReset().mockResolvedValue(2);
   });
 
@@ -90,12 +107,20 @@ describe('SystemStatusService', () => {
       },
       collectionStreams: [],
       collectionActivity: [],
+      externalCollection: {
+        trackedRepositoryCount: 0,
+        lastSweep: null,
+        cumulativeCommitCount: 0,
+        cumulativePullRequestCount: 0,
+        cumulativeReleaseCount: 0,
+      },
     });
     expect(findActor).toHaveBeenCalledWith(ACTOR_ID);
     expect(getIncrementalStatusSnapshot).toHaveBeenCalledTimes(1);
     expect(getIncrementalStatusStreams).toHaveBeenCalledTimes(1);
     expect(getNextScheduledCycleAt).toHaveBeenCalledWith(NOW);
     expect(getRecentSweepActivity).toHaveBeenCalledWith(20);
+    expect(getExternalCollectionStatus).toHaveBeenCalledTimes(1);
     expect(countFinalProvisionFailures).toHaveBeenCalledTimes(1);
   });
 
@@ -115,6 +140,7 @@ describe('SystemStatusService', () => {
     expect(getIncrementalStatusStreams).not.toHaveBeenCalled();
     expect(getNextScheduledCycleAt).not.toHaveBeenCalled();
     expect(getRecentSweepActivity).not.toHaveBeenCalled();
+    expect(getExternalCollectionStatus).not.toHaveBeenCalled();
     expect(countFinalProvisionFailures).not.toHaveBeenCalled();
   });
 
@@ -348,6 +374,70 @@ describe('SystemStatusService', () => {
 
       expect(result.collection.nextCycleAt).toBeNull();
       expect(result.collection.health).toBe('NORMAL');
+    });
+  });
+
+  describe('externalCollection', () => {
+    it('탐색된 external 저장소가 없으면 lastSweep은 null이고 나머지 값도 0이다', async () => {
+      getExternalCollectionStatus.mockResolvedValue(externalStatus());
+
+      const result = await service.getStatus(ACTOR_ID);
+
+      expect(result.externalCollection).toEqual({
+        trackedRepositoryCount: 0,
+        lastSweep: null,
+        cumulativeCommitCount: 0,
+        cumulativePullRequestCount: 0,
+        cumulativeReleaseCount: 0,
+      });
+    });
+
+    it('port 값을 Date -> ISO 변환해 externalCollection으로 옮긴다(org 지표와 별개 필드)', async () => {
+      getExternalCollectionStatus.mockResolvedValue(
+        externalStatus({
+          trackedRepositoryCount: 3,
+          lastSweep: {
+            sweepFinishedAt: new Date('2026-07-25T10:00:00.000Z'),
+            cycleStartedAt: new Date('2026-07-25T09:55:00.000Z'),
+            scope: 'external',
+            insertedCommitCount: 5,
+            insertedPullRequestCount: 2,
+            insertedReleaseCount: 0,
+            attemptedRepositoryCount: 3,
+            processedRepositoryCount: 3,
+            failedRepositoryCount: 0,
+            cycleCompleted: true,
+            stoppedForBudget: false,
+          },
+          cumulativeCommitCount: 42,
+          cumulativePullRequestCount: 7,
+          cumulativeReleaseCount: 1,
+        }),
+      );
+
+      const result = await service.getStatus(ACTOR_ID);
+
+      expect(result.externalCollection).toEqual({
+        trackedRepositoryCount: 3,
+        lastSweep: {
+          sweepFinishedAt: '2026-07-25T10:00:00.000Z',
+          cycleStartedAt: '2026-07-25T09:55:00.000Z',
+          scope: 'external',
+          insertedCommitCount: 5,
+          insertedPullRequestCount: 2,
+          insertedReleaseCount: 0,
+          attemptedRepositoryCount: 3,
+          processedRepositoryCount: 3,
+          failedRepositoryCount: 0,
+          cycleCompleted: true,
+          stoppedForBudget: false,
+        },
+        cumulativeCommitCount: 42,
+        cumulativePullRequestCount: 7,
+        cumulativeReleaseCount: 1,
+      });
+      // external 값이 무엇이든 org 집계(`collection`)는 스냅샷 fixture 값 그대로다.
+      expect(result.collection.trackedRepositoryCount).toBe(2);
     });
   });
 });

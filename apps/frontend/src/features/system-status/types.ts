@@ -65,17 +65,35 @@ export interface CollectionActivityEntry {
   readonly stoppedForBudget: boolean;
 }
 
+/**
+ * 시스템 상태 3단계 — org sweep과 별개인 external(학생 개인 공개 GitHub 저장소)
+ * 수집 현황. `lastSweep`이 `null`이면 external sweep이 아직 한 번도 끝나지 않은
+ * 것이다 — sweep 자체는 매시 자동 실행되므로 이 값이 계속 `null`이면 스케줄러가
+ * 아예 안 도는 것이지 대상이 없어서가 아니다(백엔드
+ * `SystemStatusExternalCollectionResponseDto`와 동일한 계약).
+ */
+export interface ExternalCollectionStatus {
+  readonly trackedRepositoryCount: number;
+  readonly lastSweep: CollectionActivityEntry | null;
+  readonly cumulativeCommitCount: number;
+  readonly cumulativePullRequestCount: number;
+  readonly cumulativeReleaseCount: number;
+}
+
 export interface SystemStatusResponse {
   readonly collection: SystemStatus;
   readonly collectionStreams: readonly CollectionStreamRepository[];
   /** 배포 window에는 구버전 백엔드가 이 필드 자체를 보내지 않을 수 있다. */
   readonly collectionActivity?: readonly CollectionActivityEntry[];
+  /** collectionActivity와 같은 배포 window 문제 — 구버전 백엔드는 이 필드를 보내지 않는다. */
+  readonly externalCollection?: ExternalCollectionStatus;
 }
 
 export interface SystemStatusData {
   readonly status: SystemStatus;
   readonly collectionStreams: readonly CollectionStreamRepository[];
   readonly collectionActivity: readonly CollectionActivityEntry[];
+  readonly externalCollection: ExternalCollectionStatus;
 }
 
 export type SystemStatusViewState =
@@ -86,6 +104,7 @@ export type SystemStatusViewState =
       readonly status: SystemStatus;
       readonly collectionStreams: readonly CollectionStreamRepository[];
       readonly collectionActivity: readonly CollectionActivityEntry[];
+      readonly externalCollection: ExternalCollectionStatus;
     };
 
 export type TriggerNotice =
