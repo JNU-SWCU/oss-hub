@@ -19,12 +19,22 @@ import type { AuditLogListQueryRequestDto } from './dto/audit-log-query.dto';
 // 이미 2026-08-01(admin-access-audit.ts)부터 모든 새 행이 스냅샷을 남기므로 스냅샷 없는
 // 새 legacy 행이 더 늘지 않고, 과거 legacy 행은 ADR-007(명시적 fallback 계약)이 금지하는
 // "조회 시점에 현재 User 테이블을 다시 조회해 과거 사실을 재구성"에 정확히 해당한다.
-// PROGRAM/REPOSITORY/APPLICATION의 join은 성격이 다르다 — User 신원(로그인·개명)이 아니라
-// 엔티티 이름(프로그램/저장소/신청) 표시일 뿐이고, ADR-007이 실제로 금지하는 사례(과거
-// GitHub 로그인 재구성)와 달리 "지금 이름이 다르면 지금 이름을 보여준다"는 오차가
-// 감사 목적(누가 무엇을 했는가 추적)을 해치지 않는다. 이 판단은 PROGRAM(기존)에 이미
-// 적용된 전례를 따른 것이며, 다르게 보는 시각이 있다면 ADR-007을 개정해 REPOSITORY/
-// APPLICATION까지 범위를 명시하는 편이 이 파일에 예외를 흩뿌리는 것보다 낫다.
+// PROGRAM/REPOSITORY의 join은 성격이 다르다 — User 신원(로그인·개명)이 아니라 엔티티
+// (프로그램/저장소) 이름 표시일 뿐이고, ADR-007이 실제로 금지하는 사례(과거 GitHub
+// 로그인 재구성)와 달리 "지금 이름이 다르면 지금 이름을 보여준다"는 오차가 감사 목적
+// (누가 무엇을 했는가 추적)을 해치지 않는다. 이 판단은 PROGRAM(기존)에 이미 적용된
+// 전례를 REPOSITORY까지 넓힌 것이며, 다르게 보는 시각이 있다면 ADR-007을 개정해 범위를
+// 명시하는 편이 이 파일에 예외를 흩뿌리는 것보다 낫다.
+//
+// APPLICATION의 join(resolveApplicationLabels)은 **프로그램 이름만** 가져온다 —
+// 신청자(applicant)는 User이고 그 로그인은 사람 신원이라 ADR-007이 금지하는 대상 그
+// 자체다. 한때 이 join이 `applicant.nickname`(=GitHub 로그인)까지 같이 읽어 라벨에
+// 합성한 적이 있었는데(#790 리뷰 지적), 이는 "조회 시점에 현재 User 테이블을 다시
+// 조회해 과거 사실을 재구성"하는 행위와 정확히 같다 — 신청자가 그 뒤 로그인을 바꾸면
+// 판정 당시 존재하지도 않았던 이름이 과거 행에 붙어 원장의 역사를 왜곡한다. 그래서
+// v1(스냅샷 없는) 행은 프로그램 이름만 join하고 로그인은 절대 채우지 않는다 — v2
+// 스냅샷 행만 작성 시점 로그인을 담을 자격이 있다(그건 그 시점의 사실이니까).
+// resolveApplicationLabels의 select에 applicant를 다시 넣기 전에 이 주석을 먼저 보라.
 const PROGRAM_TARGET_TYPE = 'PROGRAM';
 const REPOSITORY_TARGET_TYPE = 'REPOSITORY';
 const APPLICATION_TARGET_TYPE = 'APPLICATION';
@@ -220,7 +230,10 @@ export class AuditLogRepository implements AuditLogRepositoryPort {
   }
 
   // resolveProgramNames와 같은 이유(N+1 방지)로 APPLICATION 대상 행만 배치 조회한다.
-  // 라벨은 프로그램 이름 + 신청자 로그인을 합성한 문자열이다(composeApplicationTargetLabel).
+  // v2 스냅샷과 달리 이 join은 **프로그램 이름만** 라벨로 쓴다 — applicant(신청자)는
+  // User이고 그 로그인은 사람 신원이라 여기서 읽으면 ADR-007이 금지하는 "조회 시점에
+  // 현재 User 테이블을 다시 조회해 과거 사실을 재구성"에 해당한다(파일 상단 주석
+  // 참고). select에 applicant를 넣지 않는다 — 안 쓰는 게 아니라 애초에 안 읽는다.
   private async resolveApplicationLabels(
     logs: readonly PrismaAuditLog[],
     evidenceByLog: readonly AuditLogMetadataEvidence[],
@@ -242,16 +255,12 @@ export class AuditLogRepository implements AuditLogRepositoryPort {
       select: {
         id: true,
         program: { select: { name: true } },
-        applicant: { select: { nickname: true } },
       },
     });
     return new Map(
       applications.map((application) => [
         application.id,
-        composeApplicationTargetLabel(
-          application.program.name,
-          application.applicant.nickname,
-        ),
+        application.program.name,
       ]),
     );
   }

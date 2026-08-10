@@ -546,12 +546,11 @@ describe('AuditLogRepository', () => {
     ]);
   });
 
-  it('APPLICATION_APPROVED가 스냅샷 없는(v1) metadata면 targetId를 join해 합성 라벨을 target으로 쓴다', async () => {
+  it('APPLICATION_APPROVED가 스냅샷 없는(v1) metadata면 targetId를 join해 프로그램 이름만 target으로 쓴다', async () => {
     const applicationFindMany = jest.fn().mockResolvedValue([
       {
         id: 'application-legacy',
         program: { name: '현재 프로그램 이름' },
-        applicant: { nickname: 'current-applicant-login' },
       },
     ]);
     const prisma = {
@@ -580,14 +579,59 @@ describe('AuditLogRepository', () => {
       select: {
         id: true,
         program: { select: { name: true } },
-        applicant: { select: { nickname: true } },
       },
     });
     expect(result.items).toEqual([
       expect.objectContaining({
-        target: '현재 프로그램 이름 · @current-applicant-login',
+        target: '현재 프로그램 이름',
       }),
     ]);
+  });
+
+  it('v1 APPLICATION join select는 applicant를 절대 요청하지 않고, 신청자 로그인이 있어도 라벨에 새지 않는다(ADR-007)', async () => {
+    // applicant를 select에 넣지 않았는데도 Prisma mock이 실수로 돌려주는 상황을 가정해
+    // resolveApplicationLabels가 그 값을 라벨 합성에 쓰지 않는다는 것까지 확인한다.
+    const applicationFindMany = jest
+      .fn<Promise<unknown>, [Prisma.ApplicationFindManyArgs]>()
+      .mockResolvedValue([
+        {
+          id: 'application-legacy',
+          program: { name: '현재 프로그램 이름' },
+          applicant: { nickname: 'should-never-appear-in-label' },
+        },
+      ]);
+    const prisma = {
+      auditLog: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'audit-application-v1',
+            actor: { nickname: 'synthetic-staff' },
+            action: 'APPLICATION_APPROVED',
+            targetType: 'APPLICATION',
+            targetId: 'application-legacy',
+            metadata: LEGACY_APPLICATION_DECISION_V1_METADATA,
+            occurredAt: new Date('2026-07-24T03:00:00.000Z'),
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(1),
+      },
+      application: { findMany: applicationFindMany },
+    } as unknown as PrismaService;
+    const repository = new AuditLogRepository(prisma);
+
+    const result = await repository.list({ page: 1, limit: 20 });
+
+    expect(applicationFindMany.mock.calls[0]?.[0].select).not.toHaveProperty(
+      'applicant',
+    );
+    expect(result.items).toEqual([
+      expect.objectContaining({ target: '현재 프로그램 이름' }),
+    ]);
+    expect(
+      result.items.some((item) =>
+        item.target.includes('should-never-appear-in-label'),
+      ),
+    ).toBe(false);
   });
 
   it('join으로도 신청을 찾지 못하면 cuid 폴백을 유지한다(APPLICATION)', async () => {
@@ -632,7 +676,6 @@ describe('AuditLogRepository', () => {
       {
         id: 'application-a',
         program: { name: '프로그램 A' },
-        applicant: { nickname: 'applicant-a' },
       },
     ]);
     const prisma = {
@@ -670,7 +713,7 @@ describe('AuditLogRepository', () => {
     expect(applicationFindMany).toHaveBeenCalledTimes(1);
     expect(result.items).toEqual([
       expect.objectContaining({ target: 'org/repo-a' }),
-      expect.objectContaining({ target: '프로그램 A · @applicant-a' }),
+      expect.objectContaining({ target: '프로그램 A' }),
     ]);
   });
 
