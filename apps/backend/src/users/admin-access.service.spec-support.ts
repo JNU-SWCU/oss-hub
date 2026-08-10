@@ -86,6 +86,7 @@ export class InMemoryAdminAccessRepository
   }
 
   findActorByGithubId(): Promise<AdminAccessActor | null> {
+    this.operations.push('find-actor');
     return Promise.resolve(this.actor);
   }
 

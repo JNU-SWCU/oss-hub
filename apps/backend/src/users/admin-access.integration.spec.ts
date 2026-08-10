@@ -74,12 +74,16 @@ describe('Admin access real PostgreSQL transactions', () => {
     const rejected = results.find(
       (result): result is PromiseRejectedResult => result.status === 'rejected',
     );
-    expect(rejected?.reason).toMatchObject({
-      errorCode: {
-        code: RolesErrorCode.LAST_ACTIVE_ADMIN_REQUIRED,
-        status: 409,
-      },
-    });
+    // 진 쪽의 거부 이유는 어느 쪽이 잠금을 먼저 잡았는지에 달려 있고, 둘 다 옳다.
+    // 대상만 강등된 경우에는 "마지막 활성 관리자"(ROL_018)이고, 하필 actor 본인이 먼저
+    // 강등된 경우에는 잠금 뒤 재검증이 "더 이상 관리자가 아니다"(ROL_004)로 먼저 막는다(#687).
+    const rejection = rejected?.reason as
+      | { readonly errorCode: { readonly code: string } }
+      | undefined;
+    expect([
+      RolesErrorCode.LAST_ACTIVE_ADMIN_REQUIRED,
+      RolesErrorCode.ADMIN_ONLY,
+    ]).toContain(rejection?.errorCode.code);
     await expect(
       prisma.user.count({
         where: { role: Role.ADMIN, accountStatus: AccountStatus.ACTIVE },

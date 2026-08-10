@@ -47,10 +47,18 @@ export async function mutateAdminAccess(
 ): Promise<AdminAccessMutationResult> {
   try {
     return await dependencies.repository.withTransaction(async (store) => {
+      // actor 권한은 **잠금을 잡은 뒤에** 읽는다(#687). 잠금 전에 읽으면 그 사이에 다른
+      // 트랜잭션이 actor를 강등·비활성화하고 커밋해도 낡은 스냅샷으로 승인·회수·비활성화가
+      // 끝까지 진행된다. `lockActiveAdmins`가 돌아온 뒤에는 활성 ADMIN 행이 전부
+      // `FOR UPDATE`로 고정돼 있어 이 트랜잭션이 커밋할 때까지 아무도 바꿀 수 없다.
+      //
+      // actor 행을 먼저 잠그지 않는 이유는 잠금 순서다 — 활성 ADMIN 집합이 먼저이고 개별
+      // 대상 행이 그다음이다(`account-deactivation.service.ts`가 같은 순서를 지킨다).
+      // actor를 먼저 잠그면 그 순서가 뒤집혀 두 관리자가 서로를 동시에 정리할 때 교착한다.
+      const activeAdminCount = await store.lockActiveAdmins();
       const actor = requireActiveAdmin(
         await store.findActorByGithubId(input.actorGithubId),
       );
-      const activeAdminCount = await store.lockActiveAdmins();
       const before = await store.findUserForUpdate(input.userId);
       if (!before) {
         throw roleError(RolesErrorCode.USER_NOT_FOUND);
