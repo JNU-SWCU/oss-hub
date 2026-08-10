@@ -1,6 +1,7 @@
 import {
   AccountStatus,
   ApplicationStatus,
+  ProgramLifecycle,
   Role,
   RoleRequestStatus,
 } from '@prisma/client';
@@ -10,9 +11,12 @@ import {
   createAccessAuditMetadata,
   createApplicationDecisionAuditMetadata,
   createCollectionTriggerAuditMetadata,
+  createProgramLifecycleAuditMetadata,
   createSubmissionFileCleanupAuditMetadata,
   InvalidAuditLogMetadataError,
   parseAuditLogMetadata,
+  PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION,
+  PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION_V1,
 } from './audit-log-metadata';
 
 const STATE = {
@@ -132,6 +136,47 @@ describe('createAccessAuditMetadata', () => {
       displayName: null,
       githubLogin: 'synthetic-target',
     });
+  });
+});
+
+describe('createProgramLifecycleAuditMetadata / parseAuditLogMetadata — PROGRAM_LIFECYCLE', () => {
+  it('현재 스키마 버전(schemaVersion 2)으로 프로그램 이름 스냅샷을 도장 찍는다', () => {
+    const metadata = createProgramLifecycleAuditMetadata({
+      programName: '합성 프로그램 이름',
+      before: { lifecycle: ProgramLifecycle.PUBLISHED },
+      after: { lifecycle: ProgramLifecycle.ARCHIVED },
+    });
+
+    expect(metadata.schemaVersion).toBe(PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION);
+    expect(parseAuditLogMetadata(metadata)).toEqual({
+      legacy: false,
+      metadata,
+    });
+  });
+
+  it('schemaVersion 1(이름 스냅샷 없음) 과거 metadata를 여전히 허용한다', () => {
+    const legacyV1Metadata = {
+      schemaVersion: PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION_V1,
+      before: { lifecycle: ProgramLifecycle.PUBLISHED },
+      after: { lifecycle: ProgramLifecycle.ARCHIVED },
+    } as const;
+
+    expect(parseAuditLogMetadata(legacyV1Metadata)).toEqual({
+      legacy: false,
+      metadata: legacyV1Metadata,
+    });
+  });
+
+  it('schemaVersion 2인데 programName이 없으면 거부한다', () => {
+    const malformed = {
+      schemaVersion: PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION,
+      before: { lifecycle: ProgramLifecycle.PUBLISHED },
+      after: { lifecycle: ProgramLifecycle.ARCHIVED },
+    };
+
+    expect(() => parseAuditLogMetadata(malformed)).toThrow(
+      InvalidAuditLogMetadataError,
+    );
   });
 });
 

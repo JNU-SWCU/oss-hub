@@ -40,7 +40,7 @@ export class ProgramLifecycleService {
     return this.prisma.$transaction(async (transaction) => {
       const program = await transaction.program.findUnique({
         where: { id: programId },
-        select: { id: true, lifecycle: true },
+        select: { id: true, name: true, lifecycle: true },
       });
       if (!program) {
         throw new DomainException(
@@ -62,6 +62,7 @@ export class ProgramLifecycleService {
             targetType: 'PROGRAM',
             targetId: programId,
             metadata: createProgramLifecycleAuditMetadata({
+              programName: program.name,
               before: { lifecycle: program.lifecycle },
               after: { lifecycle },
             }),
