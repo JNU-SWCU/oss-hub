@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { MilestoneSubmissionType, Prisma, Role } from '@prisma/client';
 import { DomainException } from '../common/error-code';
-import { isLinkedRepositoryReleaseUrl } from '../submissions/submission-release-url';
 import { buildMilestoneDocumentCollectionPage } from './domain/milestone-document-collection-page';
 import type { MilestoneDocumentCollectionQuery } from './domain/milestone-document-collection-query';
 import type { MilestoneDocumentContentInput } from './domain/milestone-document-content';
@@ -370,25 +369,6 @@ export class MilestoneDocumentsService {
         break;
       case MilestoneSubmissionType.TEXT:
         submissionContent = { type: content.type, text: content.text };
-        break;
-      case MilestoneSubmissionType.REPOSITORY_RELEASE:
-        if (application.repositoryUrl === null) {
-          throw this.error(MilestoneDocumentsErrorCode.REPOSITORY_NOT_READY);
-        }
-        if (
-          !isLinkedRepositoryReleaseUrl(
-            application.repositoryUrl,
-            content.releaseUrl,
-          )
-        ) {
-          throw this.error(
-            MilestoneDocumentsErrorCode.RELEASE_URL_NOT_LINKED_REPOSITORY,
-          );
-        }
-        submissionContent = {
-          type: content.type,
-          releaseUrl: content.releaseUrl,
-        };
         break;
     }
 

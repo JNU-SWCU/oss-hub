@@ -232,7 +232,6 @@ describe('MilestoneDocumentsService.listForViewer', () => {
         applicationId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
-        repositoryUrl: null,
       }),
       findSubmittedSummaries: jest.fn().mockResolvedValue([
         {
@@ -274,7 +273,6 @@ describe('MilestoneDocumentsService.listForViewer', () => {
         applicationId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
-        repositoryUrl: null,
       }),
       findSubmittedSummaries: jest.fn().mockResolvedValue([
         {
@@ -1140,7 +1138,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         applicationId: syntheticApplicationId,
         approved: false,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
-        repositoryUrl: null,
       }),
     });
     const service = new MilestoneDocumentsService(repository);
@@ -1179,7 +1176,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         applicationId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
-        repositoryUrl: null,
       }),
       upsertSubmission: jest.fn().mockResolvedValue({
         id: 'cuid-synthetic-submission',
@@ -1233,7 +1229,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         applicationId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
-        repositoryUrl: null,
       }),
       upsertSubmission: jest.fn().mockResolvedValue({
         id: 'cuid-synthetic-submission',
@@ -1281,89 +1276,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     ]);
   });
 
-  it('REPOSITORY_RELEASE 제출은 연결된 저장소가 없으면 REPOSITORY_NOT_READY로 거부한다', async () => {
-    // Given
-    const { repository } = buildRepository({
-      findActiveUser: jest
-        .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
-      findDocumentContext: jest.fn().mockResolvedValue({
-        id: syntheticDocumentId,
-        milestoneId: syntheticMilestoneId,
-        programId: syntheticProgramId,
-        dueAt: now,
-        required: true,
-        submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
-      }),
-      findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
-        approved: true,
-        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
-        repositoryUrl: null,
-      }),
-    });
-    const service = new MilestoneDocumentsService(repository);
-
-    // When / Then
-    await expect(
-      service.submit(
-        1n,
-        syntheticMilestoneId,
-        syntheticDocumentId,
-        {
-          type: MilestoneSubmissionType.REPOSITORY_RELEASE,
-          releaseUrl: 'https://github.invalid/team/repo/releases/tag/v1',
-        },
-        now,
-      ),
-    ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.REPOSITORY_NOT_READY },
-    });
-  });
-
-  it('REPOSITORY_RELEASE 제출은 연결된 저장소와 무관한 URL이면 RELEASE_URL_NOT_LINKED_REPOSITORY로 거부한다', async () => {
-    // Given
-    const { repository } = buildRepository({
-      findActiveUser: jest
-        .fn()
-        .mockResolvedValue({ id: syntheticUserId, role: Role.STUDENT }),
-      findDocumentContext: jest.fn().mockResolvedValue({
-        id: syntheticDocumentId,
-        milestoneId: syntheticMilestoneId,
-        programId: syntheticProgramId,
-        dueAt: now,
-        required: true,
-        submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
-      }),
-      findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
-        approved: true,
-        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
-        repositoryUrl: 'https://github.invalid/team/oss-team-04',
-      }),
-    });
-    const service = new MilestoneDocumentsService(repository);
-
-    // When / Then
-    await expect(
-      service.submit(
-        1n,
-        syntheticMilestoneId,
-        syntheticDocumentId,
-        {
-          type: MilestoneSubmissionType.REPOSITORY_RELEASE,
-          releaseUrl:
-            'https://github.invalid/other-team/other-repo/releases/tag/v1',
-        },
-        now,
-      ),
-    ).rejects.toMatchObject({
-      errorCode: {
-        code: MilestoneDocumentsErrorCode.RELEASE_URL_NOT_LINKED_REPOSITORY,
-      },
-    });
-  });
-
   it('pending 파일이 만료·소유자 불일치로 붙지 않으면 PENDING_FILE_NOT_FOUND로 변환한다', async () => {
     // Given
     const { repository } = buildRepository({
@@ -1382,7 +1294,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         applicationId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
-        repositoryUrl: null,
       }),
       upsertSubmission: jest
         .fn()
@@ -1423,7 +1334,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         applicationId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
-        repositoryUrl: null,
       }),
       upsertSubmission: jest
         .fn()
@@ -1469,7 +1379,6 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
         applicationId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
-        repositoryUrl: null,
       }),
       findLatestReview: jest.fn().mockResolvedValue(latestReview),
       upsertSubmission: jest.fn().mockResolvedValue({
@@ -1854,42 +1763,6 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       content: null,
       status: SubmissionStatus.SUBMITTED,
       review: null,
-    });
-  });
-
-  it('릴리스 제출은 URL을 칸에 그대로 싣는다', async () => {
-    // Given: 파일이 아닌 제출도 교직원이 **무엇을 보고** 승인·반려하는지가 있어야 한다.
-    const { repository } = collectionRepository({
-      findSubmissionsForCollection: jest.fn().mockResolvedValue([
-        {
-          milestoneDocumentId: secondDocumentId,
-          applicationId: syntheticApplicationId,
-          submittedAt: new Date('2026-09-17T10:00:00.000Z'),
-          status: SubmissionStatus.SUBMITTED,
-          content: {
-            type: 'REPOSITORY_RELEASE',
-            releaseUrl:
-              'https://github.com/synthetic-org/synthetic-repo/releases/tag/v1.0.0',
-          },
-          file: null,
-          review: null,
-        },
-      ]),
-    });
-    const service = new MilestoneDocumentsService(repository);
-
-    // When
-    const result = await service.collectForStaff(
-      syntheticMilestoneId,
-      collectionQuery(),
-      now,
-    );
-
-    // Then
-    expect(result.rows[0]?.cells[1]?.content).toEqual({
-      type: MilestoneSubmissionType.REPOSITORY_RELEASE,
-      releaseUrl:
-        'https://github.com/synthetic-org/synthetic-repo/releases/tag/v1.0.0',
     });
   });
 
