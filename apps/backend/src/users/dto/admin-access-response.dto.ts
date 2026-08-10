@@ -7,6 +7,7 @@ import type {
   AdminAccessUserDetail,
   AdminAccessUserPage,
 } from '../domain/admin-access';
+import type { AdminProfileUpdateResult } from '../domain/admin-profile';
 
 export { AdminAccessUserHistoryResponseDto } from './admin-access-history-response.dto';
 
@@ -131,6 +132,26 @@ export class AdminAccessMutationResponseDto {
     result: AdminAccessMutationResult,
   ): AdminAccessMutationResponseDto {
     return new AdminAccessMutationResponseDto(result);
+  }
+}
+
+// CAS를 쓰지 않는 결정이라 이 응답에는 버전 필드가 없다 — 저장 직후 최신 값을
+// 그대로 돌려주고, 화면은 이 응답으로만 표시값을 갱신한다.
+export class AdminProfileUpdateResponseDto {
+  readonly id: string;
+  readonly name: string | null;
+  readonly studentId: string | null;
+  readonly department: string | null;
+
+  private constructor(result: AdminProfileUpdateResult) {
+    this.id = result.id;
+    this.name = result.name;
+    this.studentId = result.studentId;
+    this.department = result.department;
+  }
+
+  static from(result: AdminProfileUpdateResult): AdminProfileUpdateResponseDto {
+    return new AdminProfileUpdateResponseDto(result);
   }
 }
 

@@ -5,6 +5,8 @@ import { ConsentsModule } from '../consents/consents.module';
 import { AdminAccessController } from './admin-access.controller';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
+import { AdminProfileRepository } from './admin-profile.repository';
+import { AdminProfileService } from './admin-profile.service';
 import { AccountDeactivationController } from './account-deactivation.controller';
 import { AccountDeactivationRepository } from './account-deactivation.repository';
 import { AccountDeactivationService } from './account-deactivation.service';
@@ -25,6 +27,8 @@ import { UsersService } from './users.service';
     AccountDeactivationService,
     AdminAccessRepository,
     AdminAccessService,
+    AdminProfileRepository,
+    AdminProfileService,
     UserDisplayNameRepository,
     UsersRepository,
     UsersService,

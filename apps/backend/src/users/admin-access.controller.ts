@@ -18,17 +18,20 @@ import {
   RolesErrorCode,
 } from '../roles/roles-error-code.enum';
 import { AdminAccessService } from './admin-access.service';
+import { AdminProfileService } from './admin-profile.service';
 import {
   AdminAccessHistoryRequestDto,
   AdminAccessListRequestDto,
 } from './dto/admin-access-query.dto';
 import { PatchAdminAccessRequestDto } from './dto/patch-admin-access.dto';
+import { PatchAdminUserProfileRequestDto } from './dto/patch-admin-user-profile.dto';
 import {
   AdminAccessFacetsResponseDto,
   AdminAccessMutationResponseDto,
   AdminAccessUserDetailResponseDto,
   AdminAccessUserHistoryResponseDto,
   AdminAccessUserPageResponseDto,
+  AdminProfileUpdateResponseDto,
 } from './dto/admin-access-response.dto';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
@@ -42,6 +45,8 @@ export class AdminAccessController {
       AdminAccessService,
       'list' | 'facets' | 'get' | 'getHistory' | 'patchAccess'
     >,
+    @Inject(AdminProfileService)
+    private readonly profileService: Pick<AdminProfileService, 'patchProfile'>,
   ) {}
 
   @Get('access')
@@ -109,6 +114,23 @@ export class AdminAccessController {
     requireValidUserId(id);
     return AdminAccessMutationResponseDto.from(
       await this.service.patchAccess(
+        request.sessionGithubId,
+        id,
+        body.toCommand(),
+      ),
+    );
+  }
+
+  @Patch(':id/profile')
+  @UseGuards(SessionGuard, OriginGuard)
+  async patchProfile(
+    @Req() request: SessionIdentity,
+    @Param('id') id: string,
+    @Body() body: PatchAdminUserProfileRequestDto,
+  ): Promise<AdminProfileUpdateResponseDto> {
+    requireValidUserId(id);
+    return AdminProfileUpdateResponseDto.from(
+      await this.profileService.patchProfile(
         request.sessionGithubId,
         id,
         body.toCommand(),

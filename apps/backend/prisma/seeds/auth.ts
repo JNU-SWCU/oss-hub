@@ -54,8 +54,9 @@ async function setProfile(
     await prisma.user.update({ where: { id: userId }, data: profile });
     return;
   }
+  // 시드는 항상 세 필드를 전부 채워 넣는다 — 부분 갱신 없이 매번 전체 값을 쓴다.
   await prisma.$transaction((transaction) =>
-    upsertCompatibleProfile(transaction, userId, profile),
+    upsertCompatibleProfile(transaction, userId, profile, profile),
   );
 }
 

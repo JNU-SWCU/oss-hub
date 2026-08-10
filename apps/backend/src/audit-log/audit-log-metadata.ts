@@ -275,13 +275,60 @@ export function createApplicationDecisionAuditMetadata(
   return { schemaVersion: APPLICATION_DECISION_AUDIT_SCHEMA_VERSION, ...input };
 }
 
+/**
+ * PR13 — 관리자가 다른 사용자의 프로필(이름·학번·학과)을 대신 고친 기록.
+ *
+ * 이 기능의 요지가 "PII 교정의 책임 추적"이라 다른 action들과 달리 **바뀐 값 자체를
+ * 담는다**(`changes`) — 반려 사유를 일부러 빼는 `ApplicationDecisionAuditMetadata`와는
+ * 정반대 결정이다. `AuditLog` 조회(`GET /audit-logs`)는 이미 `ADMIN`만 허용하므로
+ * (`AuditLogService.list`), 관리자 화면에 어차피 노출되는 학번·학과를 감사 기록에서만
+ * 가리는 것은 의미가 없다. 바뀌지 않은 항목은 `changes`에 아예 넣지 않는다.
+ */
+export const USER_PROFILE_AUDIT_SCHEMA_VERSION = 1 as const;
+
+export const USER_PROFILE_AUDIT_ACTIONS = {
+  PROFILE_UPDATED: 'USER_PROFILE_UPDATED',
+} as const;
+
+export type UserProfileAuditAction =
+  (typeof USER_PROFILE_AUDIT_ACTIONS)[keyof typeof USER_PROFILE_AUDIT_ACTIONS];
+
+export const USER_PROFILE_AUDIT_FIELDS = {
+  NAME: 'name',
+  STUDENT_ID: 'studentId',
+  DEPARTMENT: 'department',
+} as const;
+
+export type UserProfileAuditFieldName =
+  (typeof USER_PROFILE_AUDIT_FIELDS)[keyof typeof USER_PROFILE_AUDIT_FIELDS];
+
+export type UserProfileAuditFieldChange = {
+  readonly field: UserProfileAuditFieldName;
+  readonly before: string | null;
+  readonly after: string | null;
+};
+
+export type UserProfileAuditMetadata = {
+  readonly schemaVersion: typeof USER_PROFILE_AUDIT_SCHEMA_VERSION;
+  readonly actor: AuditActorSnapshot;
+  readonly target: AuditTargetSnapshot;
+  readonly changes: readonly UserProfileAuditFieldChange[];
+};
+
+export function createUserProfileAuditMetadata(
+  input: Omit<UserProfileAuditMetadata, 'schemaVersion'>,
+): UserProfileAuditMetadata {
+  return { schemaVersion: USER_PROFILE_AUDIT_SCHEMA_VERSION, ...input };
+}
+
 export type AuditLogMetadata =
   | AccessAuditMetadata
   | RepositoryPublishAuditMetadata
   | ProgramLifecycleAuditMetadata
   | CollectionTriggerAuditMetadata
   | SubmissionFileCleanupAuditMetadata
-  | ApplicationDecisionAuditMetadata;
+  | ApplicationDecisionAuditMetadata
+  | UserProfileAuditMetadata;
 
 /**
  * #621 — 조회 응답 관문. `GET /audit-logs`가 응답에 실을 metadata 필드를 종류별로 여기서
@@ -330,13 +377,18 @@ export type ProgramLifecycleAuditMetadataView =
       readonly schemaVersion: typeof PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION;
     });
 
+// 세 필드 모두 조회 응답에 그대로 나간다 — `GET /audit-logs`는 이미 ADMIN 전용이고,
+// 이 기능의 요지가 "무엇이 바뀌었는지" 그 자체이므로 가릴 이유가 없다.
+export type UserProfileAuditMetadataView = UserProfileAuditMetadata;
+
 export type AuditLogMetadataView =
   | AccessAuditMetadataView
   | RepositoryPublishAuditMetadata
   | ProgramLifecycleAuditMetadataView
   | CollectionTriggerAuditMetadataView
   | SubmissionFileCleanupAuditMetadata
-  | ApplicationDecisionAuditMetadata;
+  | ApplicationDecisionAuditMetadata
+  | UserProfileAuditMetadataView;
 
 function toAuditPersonSnapshotView(
   snapshot: AuditPersonSnapshot,
@@ -425,6 +477,21 @@ function toApplicationDecisionAuditMetadataView(
   };
 }
 
+function toUserProfileAuditMetadataView(
+  metadata: UserProfileAuditMetadata,
+): UserProfileAuditMetadataView {
+  return {
+    schemaVersion: metadata.schemaVersion,
+    actor: toAuditPersonSnapshotView(metadata.actor),
+    target: toAuditPersonSnapshotView(metadata.target),
+    changes: metadata.changes.map((change) => ({
+      field: change.field,
+      before: change.before,
+      after: change.after,
+    })),
+  };
+}
+
 export type AuditLogMetadataEvidence =
   | { readonly legacy: true; readonly metadata: null }
   | { readonly legacy: false; readonly metadata: AuditLogMetadataView };
@@ -491,7 +558,36 @@ export function parseAuditLogMetadata(
       metadata: toApplicationDecisionAuditMetadataView(value),
     };
   }
+  if (isUserProfileAuditMetadata(value)) {
+    return { legacy: false, metadata: toUserProfileAuditMetadataView(value) };
+  }
   throw new InvalidAuditLogMetadataError();
+}
+
+function isUserProfileAuditMetadata(
+  value: unknown,
+): value is UserProfileAuditMetadata {
+  return (
+    isJsonObject(value) &&
+    value.schemaVersion === USER_PROFILE_AUDIT_SCHEMA_VERSION &&
+    isAuditPersonSnapshot(value.actor) &&
+    isAuditPersonSnapshot(value.target) &&
+    Array.isArray(value.changes) &&
+    value.changes.every(isUserProfileAuditFieldChange)
+  );
+}
+
+function isUserProfileAuditFieldChange(
+  value: unknown,
+): value is UserProfileAuditFieldChange {
+  return (
+    isJsonObject(value) &&
+    (value.field === USER_PROFILE_AUDIT_FIELDS.NAME ||
+      value.field === USER_PROFILE_AUDIT_FIELDS.STUDENT_ID ||
+      value.field === USER_PROFILE_AUDIT_FIELDS.DEPARTMENT) &&
+    (typeof value.before === 'string' || value.before === null) &&
+    (typeof value.after === 'string' || value.after === null)
+  );
 }
 
 function isCollectionTriggerAuditMetadata(

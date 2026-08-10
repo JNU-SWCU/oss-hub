@@ -285,6 +285,20 @@ const SENTENCE_TEMPLATES: Readonly<Record<AuditLogAction, SentenceTemplate>> = {
           targetSegment(record),
           text('님의 신청 판정을 취소했습니다'),
         ],
+  USER_PROFILE_UPDATED: (record) =>
+    isFallbackTarget(record)
+      ? [
+          actorSegment(record),
+          text(`님이 ${targetTypeLabel(record)} `),
+          fallbackTargetSegment(record),
+          text('의 프로필을 수정했습니다'),
+        ]
+      : [
+          actorSegment(record),
+          text('님이 '),
+          targetSegment(record),
+          text('님의 프로필을 수정했습니다'),
+        ],
 };
 
 function isKnownAction(action: string): action is AuditLogAction {
@@ -300,7 +314,7 @@ function autoTargetSegment(record: AuditLogRecord): AuditLogSentenceSegment {
     : { kind: 'target', value: record.target, variant: 'handle' };
 }
 
-// 등록된 14종 action 밖의 값(과거 스키마 변경 이전 행 등)도 화면이 문장 없이 raw
+// 등록된 15종 action 밖의 값(과거 스키마 변경 이전 행 등)도 화면이 문장 없이 raw
 // 데이터만 던지지 않도록 최소한의 문장을 만든다. affordance를 상태 추측으로 숨기지
 // 않는다는 원칙(docs/rules/frontend.md)과 같은 맥락 — 모르는 값도 감춘 채 지나가지
 // 않고, 원본 action 문자열을 그대로 보여준다.

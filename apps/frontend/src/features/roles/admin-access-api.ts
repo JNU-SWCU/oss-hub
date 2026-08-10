@@ -533,3 +533,60 @@ export async function patchAdminAccess(
   );
   return parseAdminAccessMutationResponse(value);
 }
+
+/**
+ * `PATCH /users/:id/profile` — 관리자가 다른 사용자의 이름·학번·학과를 대신 고친다
+ * (admin-profile.service.ts, admin-profile-mutation.service.ts). CAS 접근 변경
+ * (`patchAdminAccess`)과 달리 낙관적 잠금이 없는 단순 부분 갱신이라 `expected*` 필드가
+ * 없다 — 요청 바디는 `admin-profile-edit-policy.ts`가 만드는 변경분만 담는다.
+ */
+export interface AdminProfileUpdateCommand {
+  readonly name?: string;
+  readonly studentId?: string;
+  readonly department?: string;
+}
+
+export interface AdminProfileUpdateResponse {
+  readonly id: string;
+  readonly name: string | null;
+  readonly studentId: string | null;
+  readonly department: string | null;
+}
+
+function isAdminProfileUpdateResponse(
+  value: unknown,
+): value is AdminProfileUpdateResponse {
+  return (
+    isRecord(value) &&
+    isNonEmptyString(value.id) &&
+    (value.name === null || typeof value.name === 'string') &&
+    (value.studentId === null || typeof value.studentId === 'string') &&
+    (value.department === null || typeof value.department === 'string')
+  );
+}
+
+export function parseAdminProfileUpdateResponse(
+  value: unknown,
+): AdminProfileUpdateResponse {
+  if (!isAdminProfileUpdateResponse(value)) {
+    throw new AdminAccessResponseError();
+  }
+  return value;
+}
+
+export async function patchAdminUserProfile(
+  id: string,
+  command: AdminProfileUpdateCommand,
+  signal?: AbortSignal,
+): Promise<AdminProfileUpdateResponse> {
+  const value = await apiClient<unknown>(
+    `users/${encodeURIComponent(id)}/profile`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(command),
+      ...(signal ? { signal } : {}),
+    },
+  );
+  return parseAdminProfileUpdateResponse(value);
+}
