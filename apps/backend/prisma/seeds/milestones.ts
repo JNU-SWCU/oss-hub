@@ -420,7 +420,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     id: approvedId,
     name: 'seed-milestone-submission-approved',
     dueAt: offsetDays(8),
-    submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
+    submissionType: MilestoneSubmissionType.TEXT,
   });
   await createSubmissionScenario(stats, {
     scenarioId: 'submission-approved',

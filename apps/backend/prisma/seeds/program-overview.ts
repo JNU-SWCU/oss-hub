@@ -451,7 +451,7 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     id: milestoneIds.m2,
     name: '주제 선정 · 저장소 연결',
     dueAt: offsetDays(-20),
-    submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
+    submissionType: MilestoneSubmissionType.TEXT,
     instructions: '팀 저장소를 만들고 프로그램에 연결합니다.',
   });
   await upsertMilestone(stats, {
