@@ -67,9 +67,29 @@ export function toAdminAccessDecisionKind(
   }
 }
 
+/**
+ * 자기 자신에게 ADMIN을 부여하는 전이인가 — 관리자 승격은 **다른 사람이** 해야 한다(#687).
+ *
+ * 경합 창을 닫는 것(잠금 뒤 actor 재검증)과는 별개의 구멍이다. 그쪽은 "권한을 잃은 직후에도
+ * 작업이 완주된다"를 막고, 이쪽은 그 창으로 들어온 요청이 하필 **자기 권한을 되살리는**
+ * 모양일 때 남는 마지막 한 수를 막는다. 두 가드는 서로를 대체하지 않는다.
+ */
+function grantsAdminToSelf(
+  actor: AdminAccessActor,
+  before: AdminAccessUserRecord,
+  command: AdminAccessMutationCommand,
+): boolean {
+  return (
+    actor.id === before.id &&
+    command.desiredRole === Role.ADMIN &&
+    before.role !== Role.ADMIN
+  );
+}
+
 export function enforceAdminAccessGuards(
   actor: AdminAccessActor,
   before: AdminAccessUserRecord,
+  command: AdminAccessMutationCommand,
   outcome: {
     readonly requiresCompleteProfile: boolean;
     readonly requiresSelfDeactivationGuard: boolean;
@@ -77,6 +97,9 @@ export function enforceAdminAccessGuards(
   },
   activeAdminCount: number | null,
 ): void {
+  if (grantsAdminToSelf(actor, before, command)) {
+    throw roleError(RolesErrorCode.ADMIN_ONLY);
+  }
   if (outcome.requiresSelfDeactivationGuard && actor.id === before.id) {
     throw roleError(RolesErrorCode.SELF_DEACTIVATION_FORBIDDEN);
   }

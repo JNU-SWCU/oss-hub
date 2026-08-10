@@ -87,6 +87,7 @@ export async function mutateAdminAccess(
       enforceAdminAccessGuards(
         actor,
         before,
+        input.command,
         transition.outcome,
         activeAdminCount,
       );

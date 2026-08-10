@@ -123,6 +123,57 @@ describe('AdminAccessService mutation guards', () => {
     },
   );
 
+  it('actor가 자기 자신에게 ADMIN을 부여하는 요청은 ROL_004/403으로 거부된다', async () => {
+    // Given — 경합으로 STAFF가 된 관리자가 자기 권한을 되살리려는 모양이다(#687).
+    const repository = new InMemoryAdminAccessRepository();
+    repository.actor = adminActor();
+    repository.target = accessUser({
+      id: 'admin',
+      githubId: ADMIN_GITHUB_ID,
+      role: Role.STAFF,
+    });
+    const audit = auditLogHarness();
+    const service = new AdminAccessService(repository, audit.service);
+
+    // When / Then
+    await expect(
+      service.patchAccess(ADMIN_GITHUB_ID, 'admin', {
+        expectedRole: Role.STAFF,
+        desiredRole: Role.ADMIN,
+        expectedAccountStatus: AccountStatus.ACTIVE,
+        desiredAccountStatus: AccountStatus.ACTIVE,
+        expectedPendingRequest: null,
+      }),
+    ).rejects.toMatchObject({
+      errorCode: { code: RolesErrorCode.ADMIN_ONLY, status: 403 },
+    });
+    expect(repository.userUpdates).toEqual([]);
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('다른 사람을 ADMIN으로 올리는 것은 그대로 허용된다', async () => {
+    // Given — 자기 승격 가드가 관리자 임명 자체를 막아 버리면 운영이 멈춘다.
+    const repository = new InMemoryAdminAccessRepository();
+    repository.actor = adminActor();
+    repository.target = accessUser({ role: Role.STAFF });
+    const service = new AdminAccessService(
+      repository,
+      auditLogHarness().service,
+    );
+
+    // When
+    const result = await service.patchAccess(ADMIN_GITHUB_ID, 'target', {
+      expectedRole: Role.STAFF,
+      desiredRole: Role.ADMIN,
+      expectedAccountStatus: AccountStatus.ACTIVE,
+      desiredAccountStatus: AccountStatus.ACTIVE,
+      expectedPendingRequest: null,
+    });
+
+    // Then
+    expect(result.role).toBe(Role.ADMIN);
+  });
+
   it('requires a complete profile before approving a pending staff request', async () => {
     // Given
     const repository = new InMemoryAdminAccessRepository();
