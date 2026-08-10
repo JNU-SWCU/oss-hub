@@ -329,10 +329,12 @@ describe('ProgramFactBar', () => {
     expect(html).toContain('연결된 저장소');
     expect(html).toContain('내 제출');
     expect(html).toContain('2 / 5 서류');
-    expect(html).not.toContain('제출률');
+    expect(html).not.toContain('이번 마일스톤 완주율');
   });
 
-  it('교직원에게는 내 제출 대신 참여자 기준 제출률을 보여준다', () => {
+  // QA47 — "제출률"만으로는 마일스톤 카드·매트릭스와 다른 숫자가 나오는
+  // 이유를 알 수 없었다. 라벨과 캡션으로 측정 범위(현재 마일스톤)를 명시한다.
+  it('교직원에게는 내 제출 대신 이번 마일스톤 완주율과 측정 기준 캡션을 보여준다', () => {
     const html = renderToStaticMarkup(
       <ProgramFactBar
         program={programWithoutMilestones}
@@ -344,8 +346,9 @@ describe('ProgramFactBar', () => {
         }}
       />,
     );
-    expect(html).toContain('제출률');
+    expect(html).toContain('이번 마일스톤 완주율');
     expect(html).toContain('30% (3/10)');
+    expect(html).toContain('현재 마일스톤 필수 서류를 모두 제출한 참여자 기준');
     expect(html).not.toContain('내 제출');
   });
 });
