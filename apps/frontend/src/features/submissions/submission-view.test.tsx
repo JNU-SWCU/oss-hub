@@ -21,7 +21,6 @@ const baseData: SubmissionFormData = {
     submissionType: 'TEXT',
     instructions: '최종 보고 내용을 입력하세요.',
   },
-  repository: null,
   existingSubmission: null,
   canSubmit: true,
   blockedReason: null,
@@ -29,18 +28,16 @@ const baseData: SubmissionFormData = {
 
 const handlers = {
   onTextChange: vi.fn(),
-  onReleaseUrlChange: vi.fn(),
   onFileChange: vi.fn(),
   onCommentChange: vi.fn(),
   onSubmit: vi.fn(),
-  onReload: vi.fn(),
 };
 
 function render(data: SubmissionFormData, file: File | null = null): string {
   return renderToStaticMarkup(
     <SubmissionFormView
       data={data}
-      input={{ file, text: '', releaseUrl: '' }}
+      input={{ file, text: '' }}
       comment=""
       errors={{}}
       serverError={null}
@@ -72,25 +69,6 @@ describe('SubmissionFormView', () => {
     expect(html).toContain('aria-required="true"');
     expect(html).toContain('제출하기');
     expect(html).not.toContain('Ticket #115');
-  });
-
-  it('연결 저장소가 준비된 경우 릴리스 URL 입력을 표시한다', () => {
-    // Given
-    const repositoryUrl = 'https://github.com/JNU-SWCU/synthetic-repository';
-
-    // When
-    const html = render({
-      ...baseData,
-      milestone: {
-        ...baseData.milestone,
-        submissionType: 'REPOSITORY_RELEASE',
-      },
-      repository: { url: repositoryUrl, status: 'READY' },
-    });
-
-    // Then
-    expect(html).toContain('id="release-url"');
-    expect(html).toContain(`${repositoryUrl}/releases/tag/v1.0.0`);
   });
 
   it('FILE 마일스톤은 접근 가능한 파일 선택과 제한 안내를 표시한다', () => {
@@ -205,28 +183,6 @@ describe('SubmissionFormView', () => {
     expect(html).toContain('다른 제출 방법을 문의');
     // 옛 문구는 원인도 문의처도 없이 "지원하지 않습니다"로 끝났다.
     expect(html).not.toContain('파일 제출은 현재 지원하지 않습니다');
-  });
-
-  // #354 — GitHub 경험이 적은 학생이 어떤 주소를 넣어야 하는지 알 수 있어야 한다.
-  it('저장소 태그·릴리스 입력은 용어를 풀어 쓰고 주소 제약을 함께 알려준다', () => {
-    // Given
-    const releaseData: SubmissionFormData = {
-      ...baseData,
-      milestone: {
-        ...baseData.milestone,
-        submissionType: 'REPOSITORY_RELEASE',
-      },
-    };
-
-    // When
-    const html = render(releaseData);
-
-    // Then
-    expect(html).toContain('GitHub 태그 또는 릴리스 주소');
-    expect(html).toContain('제출할 버전을 고정해 공개한 기록');
-    expect(html).toContain('전체 주소만 제출할 수 있습니다');
-    // 옛 label은 풀이 없이 "태그 또는 릴리스 URL"만 보여줬다.
-    expect(html).not.toContain('>태그 또는 릴리스 URL');
   });
 });
 

@@ -8,8 +8,6 @@ export const SubmissionsErrorCode = {
   SUBMISSION_ALREADY_EXISTS: 'SUB_005',
   MILESTONE_CLOSED: 'SUB_006',
   CONTENT_TYPE_MISMATCH: 'SUB_007',
-  REPOSITORY_NOT_READY: 'SUB_008',
-  RELEASE_URL_NOT_LINKED_REPOSITORY: 'SUB_009',
   FILE_SUBMISSION_UNAVAILABLE: 'SUB_010',
   CONTENT_REQUIRED: 'SUB_011',
   SUBMISSION_NOT_FOUND: 'SUB_012',
@@ -66,16 +64,6 @@ export const SUBMISSIONS_ERROR_CODES: Readonly<
     code: SubmissionsErrorCode.CONTENT_TYPE_MISMATCH,
     status: 422,
     message: '마일스톤에 지정된 제출 유형과 내용 유형이 다릅니다.',
-  },
-  [SubmissionsErrorCode.REPOSITORY_NOT_READY]: {
-    code: SubmissionsErrorCode.REPOSITORY_NOT_READY,
-    status: 409,
-    message: '연결된 저장소가 아직 준비되지 않았습니다.',
-  },
-  [SubmissionsErrorCode.RELEASE_URL_NOT_LINKED_REPOSITORY]: {
-    code: SubmissionsErrorCode.RELEASE_URL_NOT_LINKED_REPOSITORY,
-    status: 422,
-    message: '연결된 저장소의 태그 또는 릴리스 URL을 입력해 주세요.',
   },
   [SubmissionsErrorCode.FILE_SUBMISSION_UNAVAILABLE]: {
     code: SubmissionsErrorCode.FILE_SUBMISSION_UNAVAILABLE,

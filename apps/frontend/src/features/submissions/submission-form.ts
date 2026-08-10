@@ -24,13 +24,11 @@ const SUBMISSION_FILE_TYPES: Readonly<Record<string, readonly string[]>> = {
 export interface SubmissionFormInput {
   readonly file: File | null;
   readonly text: string;
-  readonly releaseUrl: string;
 }
 
 export interface SubmissionFormErrors {
   readonly file?: string;
   readonly text?: string;
-  readonly releaseUrl?: string;
 }
 
 export type SubmissionFileValidation =
@@ -122,19 +120,6 @@ export function validateSubmissionContent(
     }
     case 'TEXT':
       return input.text.trim() ? {} : { text: '제출 내용을 입력해 주세요.' };
-    case 'REPOSITORY_RELEASE': {
-      if (!URL.canParse(input.releaseUrl)) {
-        return {
-          releaseUrl: '태그 또는 릴리스의 전체 주소를 입력해 주세요.',
-        };
-      }
-      const protocol = new URL(input.releaseUrl).protocol;
-      return protocol === 'http:' || protocol === 'https:'
-        ? {}
-        : {
-            releaseUrl: '태그 또는 릴리스의 전체 주소를 입력해 주세요.',
-          };
-    }
     default: {
       const exhaustiveType: never = submissionType;
       return exhaustiveType;

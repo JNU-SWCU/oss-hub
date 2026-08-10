@@ -67,7 +67,7 @@ const budget = documentFixture('b', 2, {
 });
 const pledge = documentFixture('c', 3, {
   name: '서약서',
-  submissionType: 'REPOSITORY_RELEASE',
+  submissionType: 'TEXT',
   hasTemplateFile: true,
 });
 
@@ -164,8 +164,7 @@ describe('받을 서류 섹션의 렌더 계약', () => {
 
     expect(html).toContain('파일');
     expect(html).toContain('글로 작성');
-    expect(html).toContain('GitHub 릴리스');
-    for (const rawEnum of ['>FILE<', '>TEXT<', '>REPOSITORY_RELEASE<']) {
+    for (const rawEnum of ['>FILE<', '>TEXT<']) {
       expect(html).not.toContain(rawEnum);
     }
   });

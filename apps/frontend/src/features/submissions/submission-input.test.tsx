@@ -16,13 +16,11 @@ function FileInputHarness() {
   return (
     <SubmissionInput
       submissionType="FILE"
-      repositoryUrl={null}
-      input={{ file, text: '', releaseUrl: '' }}
+      input={{ file, text: '' }}
       errors={{}}
       file={file}
       fileError={null}
       onTextChange={() => {}}
-      onReleaseUrlChange={() => {}}
       onFileChange={setFile}
     />
   );

@@ -1,10 +1,7 @@
-export type SubmissionType = 'FILE' | 'TEXT' | 'REPOSITORY_RELEASE';
+export type SubmissionType = 'FILE' | 'TEXT';
 
 export type SubmissionBlockedReason =
-  | 'SUBMISSION_ALREADY_EXISTS'
-  | 'MILESTONE_CLOSED'
-  | 'REPOSITORY_NOT_READY'
-  | 'FILE_UPLOAD_UNAVAILABLE';
+  'SUBMISSION_ALREADY_EXISTS' | 'MILESTONE_CLOSED' | 'FILE_UPLOAD_UNAVAILABLE';
 
 export interface SubmissionFormData {
   readonly applicationId: string;
@@ -18,10 +15,6 @@ export interface SubmissionFormData {
     readonly submissionType: SubmissionType;
     readonly instructions: string | null;
   };
-  readonly repository: {
-    readonly url: string;
-    readonly status: 'READY';
-  } | null;
   readonly existingSubmission: {
     readonly id: string;
     readonly status:
@@ -37,20 +30,11 @@ export type TextSubmissionContent = {
   readonly text: string;
 };
 
-export type RepositoryReleaseSubmissionContent = {
-  readonly type: 'REPOSITORY_RELEASE';
-  readonly releaseUrl: string;
-};
-
 export type CreateSubmissionContent =
-  | { readonly type: 'FILE'; readonly fileId: string }
-  | TextSubmissionContent
-  | RepositoryReleaseSubmissionContent;
+  { readonly type: 'FILE'; readonly fileId: string } | TextSubmissionContent;
 
 export type ResubmissionContent =
-  | { readonly type: 'FILE'; readonly fileId: string }
-  | TextSubmissionContent
-  | RepositoryReleaseSubmissionContent;
+  { readonly type: 'FILE'; readonly fileId: string } | TextSubmissionContent;
 
 export interface SubmissionFileMetadata {
   readonly fileId: string;

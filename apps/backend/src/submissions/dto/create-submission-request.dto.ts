@@ -25,11 +25,6 @@ export class SubmissionContentRequestDto {
   @IsString()
   @MaxLength(10_000)
   declare readonly text?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(2_048)
-  declare readonly releaseUrl?: string;
 }
 
 export class CreateSubmissionRequestDto {

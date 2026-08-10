@@ -133,7 +133,7 @@ export type MilestoneDocumentArchiveOmission =
    * 학생에게 다시 올리라고 하면 되는 건이다.
    */
   | 'FILE_UNAVAILABLE'
-  /** 글·저장소 릴리스 제출인데 본문을 읽을 수 없다(계약상 없어야 하는 상태). */
+  /** 글 제출인데 본문을 읽을 수 없다(계약상 없어야 하는 상태). */
   | 'CONTENT_UNAVAILABLE';
 
 /** 현황표의 한 칸 — (팀, 서류) 하나. 미제출도 칸이 비지 않는다. */
@@ -159,7 +159,7 @@ export interface MilestoneDocumentArchivePlan {
   /** 스토리지에서 흘려 보낼 바이트 합계. */
   readonly storedBytes: number;
   /**
-   * 그 자리에서 만들어 담는 바이트 합계(글·저장소 릴리스 본문).
+   * 그 자리에서 만들어 담는 바이트 합계(글 본문).
    *
    * 파일과 갈라 세지만 **상한 판단에는 둘을 더한다** — 글 제출은 한 건이 최대 10,000자라
    * 작아 보여도 (팀 수 × 서류 수)만큼 쌓이면 수백 MB가 된다. 파일만 세면 글로만 이루어진
@@ -274,7 +274,7 @@ function submittedState(
  * 이 (팀, 서류) 칸을 ZIP에 담을 수 있는가, 담는다면 무엇으로.
  *
  * **저장된 값이 스스로 무엇인지 말하는 것을 따른다** — 파일 첨부가 살아 있으면 파일,
- * 아니면 글·릴리스 본문. 서류 항목의 `submissionType`을 근거로 삼지 않는 이유는
+ * 아니면 글 본문. 서류 항목의 `submissionType`을 근거로 삼지 않는 이유는
  * `milestone-document-content.ts`에 적힌 것과 같다(둘이 어긋나는 날, 실제로 낸 것이 아닌
  * 것을 담게 된다).
  */
@@ -315,10 +315,7 @@ function buildEntry(input: {
       documentName: document.name,
     })}`,
     modifiedAt: submission.submittedAt,
-    body:
-      content.type === MilestoneSubmissionType.TEXT
-        ? content.text
-        : content.releaseUrl,
+    body: content.text,
   };
 }
 

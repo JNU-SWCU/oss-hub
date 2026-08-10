@@ -126,30 +126,6 @@ describe('buildMilestoneDocumentArchivePlan', () => {
     ]);
   });
 
-  it('저장소 릴리스 제출은 URL을 `.txt`로 담는다', () => {
-    const result = plan({
-      documents: [
-        document({
-          submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
-        }),
-      ],
-      submissions: [
-        fileSubmission({
-          file: null,
-          content: {
-            type: 'REPOSITORY_RELEASE',
-            releaseUrl: 'https://example.invalid/r/v1',
-          },
-        }),
-      ],
-    });
-
-    expect(result.entries[0]).toMatchObject({
-      kind: 'INLINE_TEXT',
-      body: 'https://example.invalid/r/v1',
-    });
-  });
-
   it('한 장도 안 낸 팀은 폴더를 만들지 않지만 현황표에는 미제출로 남는다', () => {
     const result = plan({
       teams: [

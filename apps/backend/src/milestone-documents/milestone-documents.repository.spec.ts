@@ -418,7 +418,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     };
   }
 
-  it('attachFile이 없으면(TEXT/REPOSITORY_RELEASE) 파일 붙이기를 건너뛴다', async () => {
+  it('attachFile이 없으면(TEXT) 파일 붙이기를 건너뛴다', async () => {
     // Given
     const { prisma, fileUpdateMany } = transactionPrisma({});
     const repository = new MilestoneDocumentsRepository(prisma);
@@ -1432,8 +1432,8 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     });
   });
 
-  it('글·릴리스 제출의 본문을 칸 재료에 함께 싣는다 — 파일만 주면 2가지 방식이 깜깜이가 된다', async () => {
-    // Given: TEXT·REPOSITORY_RELEASE 서류는 첨부가 없다. content를 읽지 않으면 교직원이
+  it('글 제출의 본문을 칸 재료에 함께 싣는다', async () => {
+    // Given: TEXT 서류는 첨부가 없다. content를 읽지 않으면 교직원이
     // 제출 내용을 한 글자도 보지 못한 채 승인·반려하게 된다.
     const findMany = jest.fn().mockResolvedValue([
       {
@@ -1582,8 +1582,8 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
     expect(call.select.files.take).toBe(1);
   });
 
-  it('붙은 첨부가 없으면 file은 null이다 — 글·릴리스 제출은 본문으로 담는다', async () => {
-    // Given: TEXT·REPOSITORY_RELEASE 제출은 첨부가 없고 content만 있다.
+  it('붙은 첨부가 없으면 file은 null이다 — 글 제출은 본문으로 담는다', async () => {
+    // Given: TEXT 제출은 첨부가 없고 content만 있다.
     const findMany = jest.fn().mockResolvedValue([
       {
         milestoneDocumentId: syntheticDocumentId,

@@ -28,7 +28,7 @@ describe('ProgramEditorService milestones', () => {
       name: 'Final',
       startAt: new Date('2026-08-16T00:00:00.000Z'),
       dueAt: new Date('2026-08-20T00:00:00.000Z'),
-      submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
+      submissionType: MilestoneSubmissionType.TEXT,
       instructions: 'tag v1.0.0',
     });
 
@@ -42,7 +42,7 @@ describe('ProgramEditorService milestones', () => {
       name: 'Same',
       startAt: new Date('2026-08-16T00:00:00.000Z'),
       dueAt: new Date('2026-08-20T00:00:00.000Z'),
-      submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
+      submissionType: MilestoneSubmissionType.TEXT,
       instructions: 'tag v1.0.0',
     });
   });

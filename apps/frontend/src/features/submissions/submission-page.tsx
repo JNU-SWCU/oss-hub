@@ -34,7 +34,6 @@ type SubmissionPageState =
 const EMPTY_INPUT: SubmissionFormInput = {
   file: null,
   text: '',
-  releaseUrl: '',
 };
 
 export function SubmissionPage({
@@ -145,20 +144,11 @@ export function SubmissionPage({
         await load();
       } else if (
         error instanceof ApiError &&
-        error.problem.code === 'SUB_009'
-      ) {
-        setErrors({ releaseUrl: error.problem.detail });
-      } else if (
-        error instanceof ApiError &&
         error.problem.code === 'SUB_011'
       ) {
-        setErrors(
-          data.milestone.submissionType === 'TEXT'
-            ? { text: error.problem.detail }
-            : data.milestone.submissionType === 'FILE'
-              ? {}
-              : { releaseUrl: error.problem.detail },
-        );
+        if (data.milestone.submissionType === 'TEXT') {
+          setErrors({ text: error.problem.detail });
+        }
         if (data.milestone.submissionType === 'FILE') {
           setFileError(error.problem.detail);
         }
@@ -217,9 +207,6 @@ export function SubmissionPage({
       fileError={fileError}
       submissionPhase={submissionPhase}
       onTextChange={(text) => setInput((previous) => ({ ...previous, text }))}
-      onReleaseUrlChange={(releaseUrl) =>
-        setInput((previous) => ({ ...previous, releaseUrl }))
-      }
       onFileChange={(nextFile) => {
         setFile(nextFile);
         setInput((previous) => ({ ...previous, file: nextFile }));
@@ -228,7 +215,6 @@ export function SubmissionPage({
       }}
       onCommentChange={setComment}
       onSubmit={() => void submit(state.data)}
-      onReload={() => void load()}
       onCancel={onCancel}
     />
   );

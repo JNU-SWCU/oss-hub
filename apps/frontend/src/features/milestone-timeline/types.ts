@@ -1,5 +1,5 @@
 export type ApplicationMode = 'PERSONAL' | 'TEAM';
-export type SubmissionType = 'TEXT' | 'FILE' | 'REPOSITORY_RELEASE';
+export type SubmissionType = 'TEXT' | 'FILE';
 export type SubmittedStatus =
   'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
 export type TimelineStatus = SubmittedStatus | 'NOT_SUBMITTED';

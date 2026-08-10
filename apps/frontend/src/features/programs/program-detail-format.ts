@@ -21,7 +21,6 @@ const SUBMISSION_LABELS = {
 const TYPE_LABELS = {
   FILE: '파일',
   TEXT: '텍스트',
-  REPOSITORY_RELEASE: '저장소 릴리스',
 } as const satisfies Readonly<Record<SubmissionType, string>>;
 
 const DATE_FORMAT = new Intl.DateTimeFormat('ko-KR', {
