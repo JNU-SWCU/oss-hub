@@ -450,31 +450,35 @@ nav는 조회 실패에서 종전대로 링크를 숨긴다(`role-home-link.tsx`
 #### 서류 현황 표
 
 교직원·관리자 서류 현황 매트릭스의 정보 구조다.
-셀·통계·필터의 **화면 표기**는 아래 3종·4종·3종이고, 저장 enum·코드 라벨과는 매핑표로 대응한다.
+
+**QA49 변경** — 이전에는 셀 상태를 `제출함` / `지각` / `미제출` 3종으로 접어, 승인·보완 요청·반려가 모두
+`제출함`으로 뭉개져 실제 판정 상태가 가려졌다. 이 화면이 답해야 하는 질문은 "냈나"뿐 아니라
+"최신 판정이 무엇인가"이기도 하므로, 셀은 이제 최신 판정 상태를 그대로 구분해 보여준다.
 
 | 구분 | 규약 |
 | --- | --- |
-| 셀 상태 3종 | `제출함` / `지각` / `미제출` |
+| 셀 상태 6종 | `미제출` / `검토 대기` / `지각 제출` / `승인` / `보완 요청` / `반려` |
 | 빈칸 | 칸에 값이 없으면 곧 `미제출`이다 |
 | 통계 4종 | 서류 칸 · 빈 칸 · 한 장도 안 낸 팀 · 지각 제출 |
 | 빠른 필터 3종 | 전체 · 빈 칸 있는 팀 · 한 장도 안 낸 팀. 이와 별도로 마일스톤 탭을 둔다 |
 | 행 진입 | 행에서 해당 제출물 검토 화면으로 들어간다 |
 
-**라벨 매핑** — 코드 원본은 `apps/frontend/src/features/submissions/matrix.ts`의 `MATRIX_STATUS_LABELS`와 `isLateSubmission()`이다.
-화면 3종은 저장 상태 enum을 접어 보여 주며, 코드 문자열(`제출 전` 등)을 그대로 쓰지 않는다.
+**라벨 매핑** — 코드 원본은 `apps/frontend/src/features/submissions/matrix.ts`의 `MATRIX_CELL_DISPLAY_LABELS`와
+`isLateSubmission()`이다. 화면 표기는 저장 상태 enum을 그대로 옮기되, 코드 문자열(`제출 전` 등)을 그대로 쓰지 않는다.
 
-| 코드 (`MatrixCellStatus` / 판정) | `MATRIX_STATUS_LABELS` (코드 라벨) | 화면 표기 |
-| --- | --- | --- |
-| `NOT_SUBMITTED` | 제출 전 | `미제출` (빈칸과 동일) |
-| `SUBMITTED` | 제출됨 | `제출함` |
-| `APPROVED` | 승인 | `제출함` |
-| `CHANGES_REQUESTED` | 보완 필요 | `제출함` |
-| `REJECTED` | 최종 반려 | `제출함` |
-| 제출됨 셀 + `isLateSubmission(cell, milestone) === true` | (상태 라벨 위에 겹침) | `지각` |
+| 코드 (`MatrixCellStatus` / 판정) | 화면 표기 |
+| --- | --- |
+| `NOT_SUBMITTED` | `미제출` (빈칸과 동일) |
+| `SUBMITTED` (마감 전 제출) | `검토 대기` |
+| `SUBMITTED` + `isLateSubmission(cell, milestone) === true` | `지각 제출` |
+| `APPROVED` | `승인` |
+| `CHANGES_REQUESTED` | `보완 요청` |
+| `REJECTED` | `반려` |
 
-`지각`은 별도 저장 enum이 아니다.
-`isLateSubmission()`이 `submittedAt > milestone.dueAt`일 때 참이 되며, 이미 제출된 셀(`NOT_SUBMITTED`가 아니고 `submittedAt`이 있음)에만 적용한다.
-학생 화면의 `내 제출물`은 같은 제출 데이터를 개인 관점으로 보여 주며, 교직원 매트릭스 3종 표기를 그대로 복제할 필요는 없다.
+지각 판정은 검토 전(`SUBMITTED`) 셀에만 적용한다.
+`isLateSubmission()`이 `submittedAt > milestone.dueAt`일 때 참이 되며, 이미 검토를 거친 승인·보완 요청·반려
+셀은 지각 여부를 다시 덧붙이지 않고 판정 상태만 보여준다 — 제출 시각이 궁금하면 행의 「열어 보기」로 들어가 확인한다.
+학생 화면의 `내 제출물`은 같은 제출 데이터를 개인 관점으로 보여 주며, 교직원 매트릭스 표기를 그대로 복제할 필요는 없다.
 
 #### 게시판
 

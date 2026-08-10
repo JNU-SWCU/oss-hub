@@ -37,7 +37,9 @@ describe('AdminAccessService mutation guards', () => {
       },
     });
     expect(repository.operations).toEqual([
+      'find-actor',
       'lock-active-admins',
+      'find-actor',
       'find-user-for-update',
     ]);
     expect(repository.userUpdates).toEqual([]);

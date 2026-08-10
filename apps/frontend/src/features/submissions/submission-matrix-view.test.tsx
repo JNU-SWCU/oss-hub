@@ -125,7 +125,7 @@ function render(overrides: Partial<SubmissionMatrixViewProps> = {}): string {
 }
 
 describe('SubmissionMatrixView', () => {
-  it('개인·팀 행을 같은 매트릭스에 표시하고 셀을 화면 3종으로 접는다', () => {
+  it('개인·팀 행을 같은 매트릭스에 표시하고 셀에 최신 판정 상태를 보여준다(QA49)', () => {
     // Given / When
     const html = render();
 
@@ -137,14 +137,17 @@ describe('SubmissionMatrixView', () => {
     // Then — 열: 마일스톤 이름 + Asia/Seoul 마감일.
     expect(html).toContain('기획서');
     expect(html).toContain('9월 10일 마감');
-    // Then — 셀은 저장 enum 5종이 아니라 화면 3종으로 접혀 나온다.
-    // 이 표에서 묻는 것은 검토 단계가 아니라 제출 여부다(design.md §서류 현황 표).
-    expect(html).toContain('제출함');
+    // Then — 셀은 저장 상태를 접지 않고 화면 라벨로 그대로 보여준다.
+    // 예전에는 승인·보완 요청·반려가 모두 "제출함"으로 뭉개졌다(design.md §서류 현황 표).
     expect(html).toContain('미제출');
-    // 검토 단계 문자열은 이 화면에 노출되지 않는다 — 「열어 보기」로 들어가 본다.
+    expect(html).toContain('승인');
+    expect(html).toContain('보완 요청');
+    expect(html).toContain('반려');
+    expect(html).toContain('검토 대기');
+    // Then — 코드 원본 문자열(제출 전 등)은 이 화면에 그대로 노출되지 않는다.
+    expect(html).not.toContain('제출 전');
     expect(html).not.toContain('보완 필요');
     expect(html).not.toContain('최종 반려');
-    expect(html).not.toContain('제출 전');
   });
 
   it('NOT_SUBMITTED 셀은 dueAt 파생 보조 표시(OVERDUE/D-n)를 붙인다', () => {
@@ -183,12 +186,15 @@ describe('SubmissionMatrixView', () => {
     expect(html).toContain('08.19 10:00');
   });
 
-  it('마감(dueAt) 이후 제출된 셀은 "지각" 배지를 덧붙인다', () => {
+  it('마감(dueAt) 이후 제출됐고 아직 검토 전인 셀은 "지각 제출"로 표시한다', () => {
     // Given — 기획서 마감은 09/10, 픽스처 submittedAt은 08/19(마감 전) → 지각 아님.
+    // (통계 스트립이 항상 "지각 제출" 라벨을 하나 렌더하므로, 등장 횟수로 배지 유무를 가른다.)
+    const occurrences = (html: string) => html.split('지각 제출').length - 1;
     const html = render();
-    expect(html).not.toContain('>지각<');
+    expect(occurrences(html)).toBe(1);
 
     // When — 마감을 제출 시각보다 이전으로 옮겨 지각 상태를 만든다.
+    // 기획서(milestones-overdue) 칸은 개인 행이 APPROVED, 팀 행이 SUBMITTED다.
     const lateData: SubmissionMatrixPage = {
       ...matrixData,
       milestones: matrixData.milestones.map((milestone) =>
@@ -199,8 +205,10 @@ describe('SubmissionMatrixView', () => {
     };
     const lateHtml = render({ data: lateData });
 
-    // Then
-    expect(lateHtml).toContain('>지각<');
+    // Then — 검토 전(SUBMITTED) 셀 배지가 더해져 "지각 제출"이 한 번 더 나온다.
+    expect(occurrences(lateHtml)).toBe(2);
+    // 이미 검토를 거친 승인 셀은 지각 여부를 다시 덧붙이지 않고 판정만 보여준다.
+    expect(lateHtml).toContain('>승인<');
   });
 
   it('현재 페이지 로드분을 기준으로 서류 칸 요약 4종을 보여준다', () => {

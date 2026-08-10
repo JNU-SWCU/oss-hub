@@ -6,6 +6,7 @@ import {
   formatSubmittedAt,
   isLateSubmission,
   isMatrixFilterActive,
+  matrixCellDisplay,
   matrixEmptyKind,
   matrixPageStats,
   matrixRowHasEmptyCell,
@@ -207,6 +208,74 @@ describe('isLateSubmission', () => {
       reviewUrl: null,
     };
     expect(isLateSubmission(empty, milestone)).toBe(false);
+  });
+});
+
+describe('matrixCellDisplay', () => {
+  const milestone: MatrixMilestone = {
+    id: 'milestone-plan',
+    name: '기획서',
+    dueAt: '2026-08-19T23:59:59+09:00',
+  };
+  const notSubmitted: MatrixCell = {
+    milestoneId: 'milestone-plan',
+    submissionId: null,
+    revision: null,
+    status: 'NOT_SUBMITTED',
+    submittedAt: null,
+    reviewUrl: null,
+  };
+
+  it('저장 상태를 접지 않고 화면 값으로 그대로 옮긴다(QA49)', () => {
+    expect(matrixCellDisplay(notSubmitted, milestone)).toBe('NOT_SUBMITTED');
+    expect(
+      matrixCellDisplay({ ...submittedCell, status: 'APPROVED' }, milestone),
+    ).toBe('APPROVED');
+    expect(
+      matrixCellDisplay(
+        { ...submittedCell, status: 'CHANGES_REQUESTED' },
+        milestone,
+      ),
+    ).toBe('CHANGES_REQUESTED');
+    expect(
+      matrixCellDisplay({ ...submittedCell, status: 'REJECTED' }, milestone),
+    ).toBe('REJECTED');
+  });
+
+  it('검토 전(SUBMITTED) 셀만 마감 초과 여부로 지각 제출을 가른다', () => {
+    // Given — 마감 전 제출 → 검토 대기.
+    expect(
+      matrixCellDisplay(
+        {
+          ...submittedCell,
+          status: 'SUBMITTED',
+          submittedAt: '2026-08-19T10:00:00+09:00',
+        },
+        milestone,
+      ),
+    ).toBe('SUBMITTED');
+
+    // Given — 마감 후 제출 → 지각 제출.
+    expect(
+      matrixCellDisplay(
+        {
+          ...submittedCell,
+          status: 'SUBMITTED',
+          submittedAt: '2026-08-20T00:00:01+09:00',
+        },
+        milestone,
+      ),
+    ).toBe('LATE');
+  });
+
+  it('이미 검토를 거친 승인·반려는 지각 여부와 무관하게 판정 그대로 보여준다', () => {
+    // Given — 마감 후 제출됐지만 이미 승인된 셀.
+    const lateApproved: MatrixCell = {
+      ...submittedCell,
+      status: 'APPROVED',
+      submittedAt: '2026-08-20T00:00:01+09:00',
+    };
+    expect(matrixCellDisplay(lateApproved, milestone)).toBe('APPROVED');
   });
 });
 
