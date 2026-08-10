@@ -193,6 +193,7 @@ export class ProgramsService {
         organizer: program.organizer,
         category: program.category,
         description: program.description,
+        repositoryProvisioningEnabled: program.repositoryProvisioningEnabled,
         applicationPeriod: {
           startsAt: program.applicationStartAt.toISOString(),
           endsAt: program.applicationEndAt.toISOString(),

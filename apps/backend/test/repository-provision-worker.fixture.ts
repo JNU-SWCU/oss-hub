@@ -114,9 +114,11 @@ export function githubClientMock(): jest.Mocked<
     | 'createRepository'
     | 'ensureCollaborator'
     | 'findPublicRepository'
+    | 'organization'
   >
 > {
   return {
+    organization: 'synthetic-org',
     findRepository: jest.fn().mockResolvedValue(null),
     createRepository: jest.fn().mockResolvedValue({
       githubRepositoryId: PROVISION_REPOSITORY.githubRepositoryId,

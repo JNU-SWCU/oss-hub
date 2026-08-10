@@ -73,10 +73,12 @@ const github = {
 } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
 const auditLogService = new AuditLogService(new AuditLogRepository(prisma));
 const repositoriesRepository = new RepositoriesRepository(prisma);
+const organizationConfig = { requireOrganization: () => 'synthetic-org' };
 const repositoriesService = new RepositoriesService(
   repositoriesRepository,
   github,
   auditLogService,
+  organizationConfig,
 );
 const submissionReviewsService = new SubmissionReviewsService(
   new SubmissionReviewsRepository(prisma),

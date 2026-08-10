@@ -8,6 +8,6 @@ export interface CreateApplicationInput {
   readonly teamName: string | null;
   readonly applicationTemplateVersion: number;
   readonly isRepositoryPublicationPlanned: boolean;
-  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  readonly repositoryConnectionMode: RepositoryConnectionMode | null;
   readonly repositoryUrl: string | null;
 }

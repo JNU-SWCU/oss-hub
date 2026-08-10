@@ -46,10 +46,12 @@ const github = {
 } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
 const auditLog = new AuditLogService(new AuditLogRepository(prisma));
 const repositoriesRepository = new RepositoriesRepository(prisma);
+const organizationConfig = { requireOrganization: () => 'synthetic-org' };
 const repositories = new RepositoriesService(
   repositoriesRepository,
   github,
   auditLog,
+  organizationConfig,
 );
 const service = new SubmissionReviewsService(
   new SubmissionReviewsRepository(prisma),
@@ -375,6 +377,7 @@ describe('SubmissionReviewsService integration', () => {
       barrierRepository,
       github,
       auditLog,
+      organizationConfig,
     );
     const publishedAt = new Date('2026-07-31T00:00:00.000Z');
     github.publishRepository.mockResolvedValue({

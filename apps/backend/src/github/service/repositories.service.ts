@@ -12,6 +12,8 @@ import {
   deriveRepositoryFullName,
 } from '../../audit-log/audit-log-metadata';
 import type { GithubAppClient } from '../github-app.client';
+import type { GithubOperationsConfig } from '../github-operations.config';
+import { parseGithubRepositoryUrl } from '../../common/github-repository-url';
 import {
   RepositoriesRepository,
   RepositoryPublishStateError,
@@ -53,6 +55,10 @@ export class RepositoriesService {
     >,
     private readonly github: Pick<GithubAppClient, 'publishRepository'>,
     private readonly auditLog: Pick<AuditLogService, 'record'>,
+    private readonly organizationConfig: Pick<
+      GithubOperationsConfig,
+      'requireOrganization'
+    >,
   ) {}
   async getMyRepositories(githubId: bigint): Promise<readonly MyRepository[]> {
     const jobs = await this.repository.listOwnedProvisionJobs(githubId);
@@ -76,6 +82,7 @@ export class RepositoriesService {
           job.repository.name,
           job.repository.url,
           job.application.repositoryConnectionMode,
+          this.organizationConfig.requireOrganization(),
         )
       ) {
         throw new RepositoryProvisionStateError();
@@ -182,13 +189,14 @@ function isValidSucceededRepositoryIdentity(
   name: string,
   url: string,
   connectionMode: RepositoryConnectionMode,
+  organization: string,
 ): boolean {
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(name)) {
     return false;
   }
   // OWN은 학생이 준 외부 URL을 그대로 쓴다. NEW만 조직 불변식을 강제한다.
   if (connectionMode === RepositoryConnectionMode.OWN) {
-    return url.length > 0;
+    return parseGithubRepositoryUrl(url) !== null;
   }
-  return url === `https://github.com/JNU-SWCU/${name}`;
+  return url === `https://github.com/${organization}/${name}`;
 }

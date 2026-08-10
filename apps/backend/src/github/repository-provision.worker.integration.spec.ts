@@ -65,6 +65,7 @@ type ProvisionGithubClient = jest.Mocked<
     | 'createRepository'
     | 'ensureCollaborator'
     | 'findPublicRepository'
+    | 'organization'
   >
 >;
 
@@ -406,6 +407,7 @@ function ownEnrollment(): RepositoryOwnEnrollmentService {
 
 function githubClient(): ProvisionGithubClient {
   return {
+    organization: 'synthetic-org',
     findRepository: jest.fn().mockResolvedValue(null),
     createRepository: jest.fn((name: string, description: string) =>
       Promise.resolve(repositoryMetadata(name, description)),

@@ -25,12 +25,14 @@ export enum ApplicationsErrorCode {
   PROGRAM_ARCHIVED = 'APP_020',
   /** SUBMITTED 등 판정 전이 아닌 상태에 REVERT를 시도. */
   APPLICATION_REVERT_INVALID_STATUS = 'APP_021',
-  /** OWN 연결인데 repositoryUrl이 없거나 https URL이 아닐 때. */
+  /** OWN 연결인데 repositoryUrl이 정확한 GitHub 저장소 URL이 아닐 때. */
   OWN_REPOSITORY_URL_REQUIRED = 'APP_022',
   /** 프로비저닝이 완료된 승인은 되돌릴 수 없다. */
   APPLICATION_REVERT_BLOCKED = 'APP_023',
   /** 신청 항목이 길이 상한을 넘었다 — 「올바르지 않다」와 갈라야 무엇을 줄일지 안다. */
   ANSWER_TOO_LONG = 'APP_024',
+  REPOSITORY_CONNECTION_MODE_REQUIRED = 'APP_025',
+  REPOSITORY_CONNECTION_MODE_FORBIDDEN = 'APP_026',
 }
 
 export const APPLICATIONS_ERROR_CODES: Record<
@@ -96,12 +98,27 @@ export const APPLICATIONS_ERROR_CODES: Record<
   [ApplicationsErrorCode.OWN_REPOSITORY_URL_REQUIRED]: {
     code: ApplicationsErrorCode.OWN_REPOSITORY_URL_REQUIRED,
     status: 400,
-    message: '자체 저장소 연결에는 유효한 https repositoryUrl이 필요합니다.',
+    message: '자체 저장소 연결에는 유효한 GitHub repositoryUrl이 필요합니다.',
   },
   [ApplicationsErrorCode.APPLICATION_REVERT_BLOCKED]: {
     code: ApplicationsErrorCode.APPLICATION_REVERT_BLOCKED,
     status: 409,
     message: '저장소 프로비저닝이 완료된 승인은 되돌릴 수 없습니다.',
+  },
+  [ApplicationsErrorCode.ANSWER_TOO_LONG]: {
+    code: ApplicationsErrorCode.ANSWER_TOO_LONG,
+    status: 400,
+    message: '신청 항목이 너무 깁니다.',
+  },
+  [ApplicationsErrorCode.REPOSITORY_CONNECTION_MODE_REQUIRED]: {
+    code: ApplicationsErrorCode.REPOSITORY_CONNECTION_MODE_REQUIRED,
+    status: 400,
+    message: '저장소 발급 방식을 선택해 주세요.',
+  },
+  [ApplicationsErrorCode.REPOSITORY_CONNECTION_MODE_FORBIDDEN]: {
+    code: ApplicationsErrorCode.REPOSITORY_CONNECTION_MODE_FORBIDDEN,
+    status: 400,
+    message: '저장소 발급을 사용하지 않는 프로그램입니다.',
   },
   [ApplicationsErrorCode.TEAM_MEMBERSHIP_REQUIRED]: {
     code: ApplicationsErrorCode.TEAM_MEMBERSHIP_REQUIRED,
@@ -112,11 +129,6 @@ export const APPLICATIONS_ERROR_CODES: Record<
     code: ApplicationsErrorCode.INVALID_ANSWERS,
     status: 400,
     message: '신청 항목이 올바르지 않습니다.',
-  },
-  [ApplicationsErrorCode.ANSWER_TOO_LONG]: {
-    code: ApplicationsErrorCode.ANSWER_TOO_LONG,
-    status: 400,
-    message: '신청 항목이 너무 깁니다.',
   },
   [ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH]: {
     code: ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH,

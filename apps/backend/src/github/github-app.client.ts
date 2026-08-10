@@ -43,6 +43,10 @@ export class GithubAppClient {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
+  get organization(): string {
+    return this.tokenProvider.organization;
+  }
+
   async findRepository(name: string): Promise<GithubRepositoryMetadata | null> {
     const response = await this.request(this.repositoryPath(name));
     if (response.status === 404) {

@@ -21,7 +21,7 @@ function dto(body: Record<string, unknown>): CreateApplicationRequestDto {
  * - NEW + url 있음 → 400
  * - OWN + url 없음 → 400
  * - OWN + 유효 url → 성공
- * - 두 필드 미지정 → NEW + null
+ * - 두 필드 미지정 → null + null (Program 설정은 service가 판정)
  */
 describe('CreateApplicationRequestDto.toInput', () => {
   it('구 클라이언트가 필드를 생략하면 true 로 기본 설정한다', () => {
@@ -53,14 +53,14 @@ describe('CreateApplicationRequestDto.toInput', () => {
     expect(body.toInput().isRepositoryPublicationPlanned).toBe(false);
   });
 
-  it('두 필드 미지정(구 클라이언트)은 NEW + null 로 정규화한다', () => {
+  it('두 필드 미지정은 mode/url 모두 null 로 정규화한다', () => {
     const body = Object.assign(new CreateApplicationRequestDto(), {
       answers: { title: '제목', summary: '요약' },
       applicationTemplateVersion: 1,
     });
 
     expect(body.toInput()).toMatchObject({
-      repositoryConnectionMode: RepositoryConnectionMode.NEW,
+      repositoryConnectionMode: null,
       repositoryUrl: null,
     });
   });
@@ -161,13 +161,13 @@ describe('CreateApplicationRequestDto validation — repository connection', () 
     expect(errors).toHaveLength(0);
   });
 
-  it('두 필드 미지정(구 클라이언트) → 통과 후 NEW + null', async () => {
+  it('두 필드 미지정 → 통과 후 null + null', async () => {
     const body = dto({});
     const errors = await validate(body);
     expect(errors).toHaveLength(0);
     expect(body.toInput()).toEqual(
       expect.objectContaining({
-        repositoryConnectionMode: RepositoryConnectionMode.NEW,
+        repositoryConnectionMode: null,
         repositoryUrl: null,
       }),
     );
@@ -180,6 +180,26 @@ describe('CreateApplicationRequestDto validation — repository connection', () 
         repositoryUrl: 'not-a-url',
       }),
     );
+    expect(errors.some((error) => error.property === 'repositoryUrl')).toBe(
+      true,
+    );
+  });
+
+  it.each([
+    'https://user@github.com/synthetic-org/repository',
+    'https://user:secret@github.com/synthetic-org/repository',
+    'https://github.com/synthetic-org/repository?tab=readme',
+    'https://github.com/synthetic-org/repository#readme',
+    'https://github.com/synthetic-org/repository/issues',
+    'https://github.com/synthetic-org/repository.git',
+  ])('OWN + 경계 밖 GitHub URL을 거부한다: %s', async (repositoryUrl) => {
+    const errors = await validate(
+      dto({
+        repositoryConnectionMode: RepositoryConnectionMode.OWN,
+        repositoryUrl,
+      }),
+    );
+
     expect(errors.some((error) => error.property === 'repositoryUrl')).toBe(
       true,
     );

@@ -84,6 +84,7 @@ type ProvisionGithubClient = jest.Mocked<
     | 'createRepository'
     | 'ensureCollaborator'
     | 'findPublicRepository'
+    | 'organization'
   >
 >;
 
@@ -411,6 +412,7 @@ function githubClient(): ProvisionGithubClient {
     createRepository: jest.fn(),
     ensureCollaborator: jest.fn(),
     findPublicRepository: jest.fn().mockResolvedValue(null),
+    organization: 'synthetic-own-chain-org',
   };
 }
 
