@@ -623,6 +623,41 @@ describe('ProgramApplicationDetailPage', () => {
     expect(document.activeElement).toBe(getButton('되돌리기'));
   });
 
+  it('재조회까지 실패해 신청이 그대로면 누르던 그 버튼으로 돌아온다', async () => {
+    // Given: 409 로 실패하고 최신 상태를 다시 읽는 것마저 실패한다 — 화면은 그대로다.
+    // ⚠ 이때 「승인」으로 보내면 교직원은 자기가 **반려**를 누르던 중이었다는 것을 잃는다.
+    getApplicationDetailMock.mockResolvedValueOnce(submitted);
+    decideApplicationMock.mockRejectedValue(
+      new ApiError(problem(409, 'APP_002')),
+    );
+    getApplicationDetailMock.mockRejectedValueOnce(new Error('synthetic'));
+    await mount();
+
+    // When: 반려를 확정한다.
+    await act(async () => getButton('반려').click());
+    const textarea = document.querySelector('textarea');
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      throw new TypeError('반려 사유 입력칸이 없다');
+    }
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        'value',
+      )?.set;
+      setter?.call(textarea, '합성 반려 사유');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => getButton('반려 확정').click());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await flushCloseAutoFocus();
+
+    // Then: 승인이 아니라 반려로 돌아온다.
+    expect(container.textContent).toContain('최신 상태 확인 실패');
+    expect(document.activeElement).toBe(getButton('반려'));
+  });
+
   it('자동 생성이 꺼져 있어도 저장소 작업 상태를 목록과 같이 말한다', async () => {
     // 교직원이 나중에 스위치를 끄면 이미 만들어진 저장소의 상태가 남는다.
     // 「꺼짐」으로 덮으면 목록이 "확인 필요"로 경고하는 신청이 상세에서 조용해진다.
