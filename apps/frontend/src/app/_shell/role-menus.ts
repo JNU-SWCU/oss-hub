@@ -20,6 +20,7 @@ export const ADMIN_MENU: NavItem[] = [
   // 입구 URL은 회원 공통 `/dashboard`. 본문만 세션 역할(ADMIN)로 갈린다.
   // `/admin/access` 물리 경로·모달 intercept는 deep link로 당분간 유지한다.
   { label: '관리 콘솔', href: '/dashboard' },
+  { label: '접근 목록', href: '/admin/access' },
   { label: '감사 로그', href: '/admin/audit-log' },
   { label: '시스템 상태', href: '/admin/system-status' },
 ];
