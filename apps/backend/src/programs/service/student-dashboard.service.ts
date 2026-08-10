@@ -71,8 +71,13 @@ function isSafeProgramId(value: string): boolean {
  * 반려된 학생을 프로그램 상세로 보내면 상태도 사유도 없는 소개 문서 앞에 세우게 된다(#733).
  *
  * 규칙을 "APPROVED가 아니면 `/apply`"로 적는다 — frontend 검증기(`features/dashboard/api.ts`)가
- * 이 접미사를 **글자 그대로 대조**하며 어긋난 항목을 통째로 버리므로, 두 곳은 한 벌로 움직여야
- * 한다. 같은 문장으로 적어 두면 상태가 하나 늘어도 양쪽이 같은 쪽으로 갈려 어긋나지 않는다.
+ * 이 접미사를 **글자 그대로 대조**하므로 두 곳은 한 벌로 움직여야 한다. 같은 문장으로 적어
+ * 두면 상태가 하나 늘어도 양쪽이 같은 쪽으로 갈려 어긋나지 않는다.
+ *
+ * ⚠ 어긋나면 **그 항목 하나만 빠지는 것이 아니다.** 검증기는 `items.every(...)`가 거짓이면
+ * 던지고(`api.ts` 의 `parseStudentDashboard`), 로더가 그것을 잡아 `status: 'error'` 로 바꾼다
+ * (`load-student-dashboard.ts`). 화면은 카드 목록 대신 「대시보드를 불러오지 못했습니다」 오류와
+ * 재시도 버튼을 그린다 — 반려 한 건이 어긋나면 승인된 프로그램과 마일스톤까지 **전부** 사라진다.
  */
 function detailUrlFor(status: ApplicationStatus, programId: string): string {
   const program = `/programs/${encodeURIComponent(programId)}`;

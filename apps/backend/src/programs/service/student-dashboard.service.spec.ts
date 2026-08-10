@@ -129,8 +129,8 @@ describe('StudentDashboardService', () => {
    * 프로그램 상세로 가는 것을 아무도 잡지 못했다(#733).
    *
    * frontend 검증기(`features/dashboard/api.ts`)가 같은 규칙을 반대편에서 **글자 그대로**
-   * 강제한다 — 한쪽만 바뀌면 어긋난 항목이 통째로 버려져 대시보드가 빈다. 그래서 세 상태를
-   * 전부 고정한다. 하나만 고정하면 나머지가 조용히 갈릴 수 있다.
+   * 강제한다 — 한쪽만 바뀌면 검증기가 던져서 그 학생의 대시보드가 통째로 오류 화면이 된다.
+   * 그래서 세 상태를 전부 고정한다. 하나만 고정하면 나머지가 조용히 갈릴 수 있다.
    */
   it.each([
     [ApplicationStatus.SUBMITTED, '/programs/program-1/apply'],

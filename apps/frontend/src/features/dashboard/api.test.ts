@@ -33,8 +33,8 @@ describe('fetchStudentDashboard', () => {
   /**
    * 판정이 끝나지 않았거나(`SUBMITTED`) 반려된(`REJECTED`) 신청은 신청서 화면으로 간다.
    * 서버(`programs/service/student-dashboard.service.ts`의 `detailUrlFor`)와 한 벌인
-   * 규칙이라, 여기가 좁으면 서버가 옳은 주소를 보내도 항목이 통째로 버려져 대시보드가
-   * 빈다 — `REJECTED`가 빠져 있던 동안이 정확히 그 상태였다(#733).
+   * 규칙이라, 여기가 좁으면 서버가 옳은 주소를 보내도 `parseStudentDashboard` 가 던져서
+   * 그 학생의 대시보드가 통째로 오류 화면이 된다(#733).
    */
   it.each(['SUBMITTED', 'REJECTED'] as const)(
     'accepts a %s application detail URL pointing to its apply form',
