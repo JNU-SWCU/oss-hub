@@ -2,7 +2,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { AccountStatus, Role } from '@prisma/client';
 import type {
   CollectionIncrementalStatusSnapshotDto,
-  CollectionReadPort,
+  CollectionRepositoryStreamsDto,
 } from '../github/collection-read.port';
 import { SystemStatusRepository } from './system-status.repository';
 import { SystemStatusService } from './system-status.service';
@@ -34,13 +34,19 @@ function snapshot(
 describe('SystemStatusService', () => {
   const findActor = jest.fn();
   const getIncrementalStatusSnapshot = jest.fn();
+  const getIncrementalStatusStreams = jest.fn();
+  const getNextScheduledCycleAt = jest.fn();
   const countFinalProvisionFailures = jest.fn();
   const service = new SystemStatusService(
     {
       findActor,
       countFinalProvisionFailures,
     } as unknown as SystemStatusRepository,
-    { getIncrementalStatusSnapshot } as unknown as CollectionReadPort,
+    {
+      getIncrementalStatusSnapshot,
+      getIncrementalStatusStreams,
+      getNextScheduledCycleAt,
+    } as unknown as ConstructorParameters<typeof SystemStatusService>[1],
     () => NOW,
   );
 
@@ -50,6 +56,10 @@ describe('SystemStatusService', () => {
       accountStatus: AccountStatus.ACTIVE,
     });
     getIncrementalStatusSnapshot.mockReset().mockResolvedValue(snapshot());
+    getIncrementalStatusStreams.mockReset().mockResolvedValue([]);
+    getNextScheduledCycleAt
+      .mockReset()
+      .mockResolvedValue(new Date('2026-07-25T20:30:00.000Z'));
     countFinalProvisionFailures.mockReset().mockResolvedValue(2);
   });
 
@@ -67,15 +77,19 @@ describe('SystemStatusService', () => {
         oldestRetryPendingAt: null,
         lastCycleStartedAt: '2026-07-25T10:55:00.000Z',
         lastCycleCompletedAt: '2026-07-25T11:00:00.000Z',
+        nextCycleAt: '2026-07-25T20:30:00.000Z',
         currentRunStatus: 'IDLE',
         safeReason: null,
       },
       repositoryProvisioning: {
         finalFailureCount: 2,
       },
+      collectionStreams: [],
     });
     expect(findActor).toHaveBeenCalledWith(ACTOR_ID);
     expect(getIncrementalStatusSnapshot).toHaveBeenCalledTimes(1);
+    expect(getIncrementalStatusStreams).toHaveBeenCalledTimes(1);
+    expect(getNextScheduledCycleAt).toHaveBeenCalledWith(NOW);
     expect(countFinalProvisionFailures).toHaveBeenCalledTimes(1);
   });
 
@@ -92,6 +106,8 @@ describe('SystemStatusService', () => {
       ForbiddenException,
     );
     expect(getIncrementalStatusSnapshot).not.toHaveBeenCalled();
+    expect(getIncrementalStatusStreams).not.toHaveBeenCalled();
+    expect(getNextScheduledCycleAt).not.toHaveBeenCalled();
     expect(countFinalProvisionFailures).not.toHaveBeenCalled();
   });
 
@@ -177,6 +193,91 @@ describe('SystemStatusService', () => {
     );
     await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
       collection: { currentRunStatus: 'IDLE' },
+    });
+  });
+
+  it('저장소별 stream 상세를 repositoryName·streamType 순서 그대로 응답 DTO로 옮긴다', async () => {
+    const detail: readonly CollectionRepositoryStreamsDto[] = [
+      {
+        repositoryName: 'JNU-SWCU/alpha',
+        streams: [
+          {
+            streamType: 'COMMIT',
+            bucket: 'READY',
+            lastSuccessAt: new Date('2026-07-25T10:00:00.000Z'),
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+          {
+            streamType: 'PULL_REQUEST',
+            bucket: 'RETRY_PENDING',
+            lastSuccessAt: null,
+            lastErrorCode: 'COL_RATE_LIMITED',
+            lastErrorAt: new Date('2026-07-25T09:00:00.000Z'),
+          },
+          {
+            streamType: 'RELEASE',
+            bucket: 'PARTIAL',
+            lastSuccessAt: null,
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+        ],
+      },
+    ];
+    getIncrementalStatusStreams.mockResolvedValue(detail);
+
+    const result = await service.getStatus(ACTOR_ID);
+
+    expect(result.collectionStreams).toEqual([
+      {
+        repositoryName: 'JNU-SWCU/alpha',
+        streams: [
+          {
+            streamType: 'COMMIT',
+            bucket: 'READY',
+            lastSuccessAt: '2026-07-25T10:00:00.000Z',
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+          {
+            streamType: 'PULL_REQUEST',
+            bucket: 'RETRY_PENDING',
+            lastSuccessAt: null,
+            lastErrorCode: 'COL_RATE_LIMITED',
+            lastErrorAt: '2026-07-25T09:00:00.000Z',
+          },
+          {
+            streamType: 'RELEASE',
+            bucket: 'PARTIAL',
+            lastSuccessAt: null,
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+        ],
+      },
+    ]);
+  });
+
+  describe('nextCycleAt', () => {
+    it('port가 반환한 Date를 clock 시각으로 조회해 ISO 문자열로 옮긴다', async () => {
+      getNextScheduledCycleAt.mockResolvedValue(
+        new Date('2026-07-25T20:30:00.000Z'),
+      );
+
+      const result = await service.getStatus(ACTOR_ID);
+
+      expect(getNextScheduledCycleAt).toHaveBeenCalledWith(NOW);
+      expect(result.collection.nextCycleAt).toBe('2026-07-25T20:30:00.000Z');
+    });
+
+    it('port가 null을 반환하면(cron 표현식 계산 불가) nextCycleAt만 null이고 나머지 응답은 그대로다', async () => {
+      getNextScheduledCycleAt.mockResolvedValue(null);
+
+      const result = await service.getStatus(ACTOR_ID);
+
+      expect(result.collection.nextCycleAt).toBeNull();
+      expect(result.collection.health).toBe('NORMAL');
     });
   });
 });

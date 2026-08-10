@@ -60,6 +60,8 @@ function serviceWith(
         failingRepositoryCount: 0,
         lastRepositorySuccessAt: null,
       }),
+    getIncrementalStatusStreams: () => Promise.resolve([]),
+    getNextScheduledCycleAt: () => Promise.resolve(null),
   };
   return new PublicEligibilityService(collection);
 }

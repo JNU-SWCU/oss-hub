@@ -1,3 +1,4 @@
+import { CronTime } from 'cron';
 import { CollectionReadService } from './collection-read.service';
 import { PublicRankingRepository } from '../repository/public-ranking.repository';
 import type { CollectionCanonicalRepository } from '../repository/collection-canonical.repository';
@@ -1104,6 +1105,232 @@ describe('CollectionReadService — getIncrementalStatusSnapshot', () => {
 });
 
 /**
+ * 2026-08 owner 결정 — `getIncrementalStatusStreams`. `getIncrementalStatusSnapshot`과 같은
+ * `PRESENT_REPOSITORY` 조건·bucket 우선순위(재시도 대기 > backfilling/ready > partial)를
+ * stream 단위로 반복한다는 계약을 검증한다. 집계 parity 테스트는 aggregate 쪽 groupBy/count
+ * mock이 아니라 이 메서드가 읽는 `githubRepository.findMany`의 `streams` 관계만으로 같은
+ * bucket 카운트가 나오는지 손으로 합산해 확인한다 — 두 메서드가 서로 다른 질의 경로를 쓰므로
+ * "같은 fixture → 같은 합"이 실제로 코드 경로 두 개를 모두 통과했다는 뜻이 된다.
+ */
+describe('CollectionReadService — getIncrementalStatusStreams', () => {
+  it('추적 저장소가 없으면 빈 배열을 반환한다', async () => {
+    const db = createDb();
+
+    const result = await serviceFor(db).getIncrementalStatusStreams();
+
+    expect(result).toEqual([]);
+    expect(db.githubRepository.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { presence: 'PRESENT', source: 'ORG_PROVISIONED' },
+        orderBy: { nameWithOwner: 'asc' },
+      }),
+    );
+  });
+
+  it('아직 생성되지 않은 stream row는 PARTIAL로 채워 COMMIT/PULL_REQUEST/RELEASE 순서를 보장한다', async () => {
+    const db = createDb();
+    db.githubRepository.findMany.mockResolvedValue([
+      {
+        nameWithOwner: 'JNU-SWCU/alpha',
+        streams: [
+          {
+            streamType: 'COMMIT',
+            status: 'READY',
+            lastRunAt: new Date('2026-07-25T10:00:00.000Z'),
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+          // PULL_REQUEST/RELEASE row가 아직 없다 — 저장소가 막 등록된 경우.
+        ],
+      },
+    ]);
+
+    const result = await serviceFor(db).getIncrementalStatusStreams();
+
+    expect(result).toEqual([
+      {
+        repositoryName: 'JNU-SWCU/alpha',
+        streams: [
+          {
+            streamType: 'COMMIT',
+            bucket: 'READY',
+            lastSuccessAt: new Date('2026-07-25T10:00:00.000Z'),
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+          {
+            streamType: 'PULL_REQUEST',
+            bucket: 'PARTIAL',
+            lastSuccessAt: null,
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+          {
+            streamType: 'RELEASE',
+            bucket: 'PARTIAL',
+            lastSuccessAt: null,
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('lastErrorCode가 있으면 status가 READY여도 RETRY_PENDING이 우선한다(집계 쪽과 같은 우선순위)', async () => {
+    const db = createDb();
+    db.githubRepository.findMany.mockResolvedValue([
+      {
+        nameWithOwner: 'JNU-SWCU/alpha',
+        streams: [
+          {
+            streamType: 'COMMIT',
+            status: 'READY',
+            lastRunAt: new Date('2026-07-25T10:00:00.000Z'),
+            lastErrorCode: 'COL_RATE_LIMITED',
+            lastErrorAt: new Date('2026-07-25T09:00:00.000Z'),
+          },
+        ],
+      },
+    ]);
+
+    const result = await serviceFor(db).getIncrementalStatusStreams();
+
+    expect(result[0]?.streams[0]).toEqual({
+      streamType: 'COMMIT',
+      bucket: 'RETRY_PENDING',
+      lastSuccessAt: new Date('2026-07-25T10:00:00.000Z'),
+      lastErrorCode: 'COL_RATE_LIMITED',
+      lastErrorAt: new Date('2026-07-25T09:00:00.000Z'),
+    });
+  });
+
+  it('BACKFILLING 상태 stream은 BACKFILLING bucket으로 통과시킨다', async () => {
+    const db = createDb();
+    db.githubRepository.findMany.mockResolvedValue([
+      {
+        nameWithOwner: 'JNU-SWCU/alpha',
+        streams: [
+          {
+            streamType: 'COMMIT',
+            status: 'BACKFILLING',
+            lastRunAt: null,
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+        ],
+      },
+    ]);
+
+    const result = await serviceFor(db).getIncrementalStatusStreams();
+
+    expect(result[0]?.streams[0]?.bucket).toBe('BACKFILLING');
+  });
+
+  it('bucket 합계가 getIncrementalStatusSnapshot의 집계 카운트와 정확히 일치한다(동일 fixture, 에러 없음)', async () => {
+    // 집계 쪽 partialStreamCount(status 기반)와 retryPendingStreamCount(lastErrorCode
+    // 기반)는 서로 배타적이지 않다 — 한 stream이 PENDING이면서 동시에 lastErrorCode를
+    // 가질 수 있어(위 RETRY_PENDING-우선순위 테스트 참고) 그 경우 집계는 그 stream을
+    // partial과 retryPending 양쪽에 동시에 센다. 반면 per-stream bucket 분류는 stream당
+    // bucket을 정확히 하나만 고른다(RETRY_PENDING이 최우선). 그래서 "bucket 합 == 집계
+    // count" parity는 lastErrorCode가 전혀 없는(RETRY_PENDING이 0인) fixture에서만
+    // 깨끗하게 성립한다 — 이 테스트가 그 경우를 고정한다. 겹치는 경우의 우선순위
+    // 자체는 위 "RETRY_PENDING이 우선한다" 테스트가 별도로 고정한다.
+    //
+    // 2개 저장소 × 3 stream = 6개. ready 4, backfilling 1, partial(PENDING, 에러 없음) 1.
+    const streamsFixture = {
+      groupBy: [
+        { status: 'READY', _count: { _all: 4 } },
+        { status: 'BACKFILLING', _count: { _all: 1 } },
+        { status: 'PENDING', _count: { _all: 1 } },
+      ],
+      retryPendingCount: 0,
+    };
+
+    const snapshotDb = createDb();
+    snapshotDb.githubRepository.count.mockResolvedValue(2);
+    snapshotDb.collectionRepositoryStream.groupBy.mockResolvedValue(
+      streamsFixture.groupBy,
+    );
+    snapshotDb.collectionRepositoryStream.count.mockResolvedValue(
+      streamsFixture.retryPendingCount,
+    );
+    const snapshot =
+      await serviceFor(snapshotDb).getIncrementalStatusSnapshot();
+
+    // 같은 분포를 만드는 저장소별 stream 상세 — 2개 저장소, 총 6 stream:
+    // READY 4, BACKFILLING 1, PENDING(에러 없음) 1. 어떤 stream도 lastErrorCode가
+    // 없으므로 RETRY_PENDING으로 재분류될 stream이 없다.
+    const streamsDb = createDb();
+    streamsDb.githubRepository.findMany.mockResolvedValue([
+      {
+        nameWithOwner: 'JNU-SWCU/alpha',
+        streams: [
+          {
+            streamType: 'COMMIT',
+            status: 'READY',
+            lastRunAt: null,
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+          {
+            streamType: 'PULL_REQUEST',
+            status: 'READY',
+            lastRunAt: null,
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+          {
+            streamType: 'RELEASE',
+            status: 'BACKFILLING',
+            lastRunAt: null,
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+        ],
+      },
+      {
+        nameWithOwner: 'JNU-SWCU/beta',
+        streams: [
+          {
+            streamType: 'COMMIT',
+            status: 'READY',
+            lastRunAt: null,
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+          {
+            streamType: 'PULL_REQUEST',
+            status: 'READY',
+            lastRunAt: null,
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+          {
+            streamType: 'RELEASE',
+            status: 'PENDING',
+            lastRunAt: null,
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+        ],
+      },
+    ]);
+    const detail = await serviceFor(streamsDb).getIncrementalStatusStreams();
+
+    const allStreams = detail.flatMap((repository) => repository.streams);
+    const countOf = (bucket: string): number =>
+      allStreams.filter((stream) => stream.bucket === bucket).length;
+
+    expect(countOf('READY')).toBe(snapshot.readyStreamCount);
+    expect(countOf('BACKFILLING')).toBe(snapshot.backfillingStreamCount);
+    expect(countOf('RETRY_PENDING')).toBe(snapshot.retryPendingStreamCount);
+    expect(countOf('PARTIAL')).toBe(snapshot.partialStreamCount);
+    expect(allStreams).toHaveLength(6);
+  });
+});
+
+/**
  * 큐 건강 지표 (ADR-010 §6·§10).
  *
  * 이번 사고는 "멈췄는데 아무도 몰랐다"였다. 스트림 상태만 보면 저장소 하나가
@@ -1199,5 +1426,49 @@ describe('CollectionReadService — 조직 밖 저장소는 연결이 증명될 
     const call = db.repository.findMany.mock.calls[0] as
       [{ where: { githubRepositoryId: { in: bigint[] } } }] | undefined;
     expect(call?.[0].where.githubRepositoryId.in).toEqual([1n, 2n]);
+  });
+});
+
+/**
+ * ADR-003 DEC-42 — `system-status.service.spec.ts`에 있던 cron 계산 테스트를 그대로
+ * 옮겼다(구현이 이 서비스로 이관됐으므로). `COLLECTION_CRON_EXPRESSION`은 process.env를
+ * 거쳐 모듈 로드 시 고정되므로 여기서 값을 바꿔가며 주입할 수는 없다 — 대신 실제 배선된
+ * 표현식(기본값 `'0 0 * * * *'`, 매시 정각)을 기준으로 `getNextDateFrom`이 손으로 계산
+ * 가능한 다음 발생 시각을 내는지, 그리고 `from`이 그대로 전달되는지를 검증한다.
+ */
+describe('CollectionReadService — getNextScheduledCycleAt', () => {
+  it('배선된 cron 표현식을 from 이후 Asia/Seoul 기준으로 평가해 다음 발생 시각을 반환한다', async () => {
+    // from = UTC 2026-07-25T12:34:56 = KST 21:34:56. 기본 표현식(매시 정각)의 다음
+    // 발생은 KST 22:00:00 = UTC 13:00:00.
+    const from = new Date('2026-07-25T12:34:56.000Z');
+
+    const result = await serviceFor(createDb()).getNextScheduledCycleAt(from);
+
+    expect(result).toEqual(new Date('2026-07-25T13:00:00.000Z'));
+  });
+
+  it('정확히 정시(경계)에도 다음 시간 정각을 반환한다', async () => {
+    const from = new Date('2026-07-25T12:00:00.000Z');
+
+    const result = await serviceFor(createDb()).getNextScheduledCycleAt(from);
+
+    expect(result).toEqual(new Date('2026-07-25T13:00:00.000Z'));
+  });
+
+  it('계산이 실패하면(운영 실수로 배선된 표현식이 깨진 경우) null을 반환하고 던지지 않는다', async () => {
+    // 배선된 표현식 자체는 process.env로 모듈 로드 시 고정돼 여기서 바꿀 수 없으므로,
+    // try/catch → null 폴백 자체를 CronTime 계산 실패로 재현한다.
+    const spy = jest
+      .spyOn(CronTime.prototype, 'getNextDateFrom')
+      .mockImplementation(() => {
+        throw new Error('boom');
+      });
+
+    const result = await serviceFor(createDb()).getNextScheduledCycleAt(
+      new Date('2026-07-25T12:00:00.000Z'),
+    );
+
+    expect(result).toBeNull();
+    spy.mockRestore();
   });
 });
