@@ -34,7 +34,6 @@ const SEOUL_DAY_FORMAT = new Intl.DateTimeFormat('en-CA', {
 const SUBMISSION_GUIDES = {
   TEXT: '본문 텍스트',
   FILE: 'PDF·HWP·이미지·압축 파일',
-  REPOSITORY_RELEASE: 'GitHub Release URL',
 } as const satisfies Readonly<Record<SubmissionType, string>>;
 
 // features/programs·#116 체크리스트와 동일한 한국어 라벨.
@@ -68,7 +67,7 @@ function parseApplicationMode(value: unknown): ApplicationMode {
 }
 
 function parseSubmissionType(value: unknown): SubmissionType {
-  if (value === 'TEXT' || value === 'FILE' || value === 'REPOSITORY_RELEASE') {
+  if (value === 'TEXT' || value === 'FILE') {
     return value;
   }
   return invalidResponse();
