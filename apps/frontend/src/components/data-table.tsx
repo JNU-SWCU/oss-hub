@@ -88,9 +88,15 @@ function DataTable<TRow>({
   const totalPages = pageSize
     ? Math.max(1, Math.ceil(data.length / pageSize))
     : 1;
-  // 데이터가 줄어 이전에 보던 페이지가 더는 없을 수 있다(예: 필터링) — state를
-  // 따로 되돌리지 않고 렌더 시점에 범위 안으로 눌러 담는다.
+  // 데이터가 줄어 이전에 보던 페이지가 더는 없을 수 있다(예: 필터링). 렌더
+  // 시점에 범위 안으로 눌러 담는 것과 별개로, state 자체도 아래 effect로
+  // 눌러 담긴 값을 따라가게 한다 — 그래야 데이터가 다시 늘어나도(regrow)
+  // state에 남아있던 예전 페이지로 튀지 않고 축소 시점에 눌린 페이지를
+  // 유지한다.
   const currentPage = Math.min(Math.max(page, 1), totalPages);
+  React.useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
   const pageRows = pageSize
     ? data.slice((currentPage - 1) * pageSize, currentPage * pageSize)
     : data;

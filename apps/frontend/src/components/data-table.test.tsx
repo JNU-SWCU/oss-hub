@@ -268,4 +268,65 @@ describe('DataTable pagination', () => {
 
     expect(paginationNav()).toBeNull();
   });
+
+  // QA61 — 데이터가 줄어 페이지 state를 렌더 시점에 눌러 담은 뒤 데이터가 다시
+  // 늘어나면(regrow), 눌러 담기 전 페이지 state가 그대로 남아 있어 엉뚱한
+  // 페이지로 튀었다. state 자체가 축소 시점에 눌린 페이지를 따라가야 한다.
+  it('데이터가 줄었다 다시 늘어나도 축소 시점에 눌린 페이지를 유지한다(페이지가 튀지 않는다)', async () => {
+    const shrunkRows = manyRows.slice(0, 15); // pageSize 10 → 2페이지
+
+    await act(async () => {
+      root.render(
+        <DataTable
+          columns={columns}
+          data={manyRows}
+          rowKey={(row) => row.id}
+          pageSize={10}
+          paginationLabel="테스트 표 페이지"
+        />,
+      );
+    });
+
+    await act(async () => {
+      findButton('다음').click();
+    });
+    await act(async () => {
+      findButton('다음').click();
+    });
+    expect(container.textContent).toContain('3 / 3');
+
+    // 데이터가 2페이지 분량으로 줄어든다 — 렌더 시점 클램프로 2페이지에 눌린다.
+    await act(async () => {
+      root.render(
+        <DataTable
+          columns={columns}
+          data={shrunkRows}
+          rowKey={(row) => row.id}
+          pageSize={10}
+          paginationLabel="테스트 표 페이지"
+        />,
+      );
+    });
+    expect(container.textContent).toContain('2 / 2');
+
+    // 데이터가 원래대로(3페이지) 다시 늘어난다 — state가 3페이지였던 걸
+    // 기억하고 있으면 "3 / 3"으로 튀어야 하지만, 축소 시점에 state 자체가
+    // 2로 눌렸으므로 "2 / 3"이어야 한다.
+    await act(async () => {
+      root.render(
+        <DataTable
+          columns={columns}
+          data={manyRows}
+          rowKey={(row) => row.id}
+          pageSize={10}
+          paginationLabel="테스트 표 페이지"
+        />,
+      );
+    });
+    expect(container.textContent).toContain('2 / 3');
+    expect(container.textContent).not.toContain('3 / 3');
+    expect(bodyRowNames()).toEqual(
+      manyRows.slice(10, 20).map((row) => row.name),
+    );
+  });
 });
