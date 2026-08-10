@@ -1,47 +1,23 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
-  type Prisma,
   AccountStatus,
   ApplicationStatus,
+  type Prisma,
   Role,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-
-export interface UpcomingMilestone {
-  readonly id: string;
-  readonly programId: string;
-  readonly programName: string;
-  readonly milestoneName: string;
-  readonly dueAt: Date;
-}
-
-export interface MissingSubmitter {
-  readonly id: string;
-  readonly nickname: string;
-  readonly notificationEmail: string | null;
-  readonly notifyEnabled: boolean;
-  /**
-   * 미제출 집계에는 남기되 본인 발송 대상에서는 빼기 위해 함께 읽는다.
-   * 비활성 계정은 로그인 자체가 막혀(auth.service) 제출할 수 없으므로 리마인더 수신자가 될 수 없다.
-   */
-  readonly accountStatus: AccountStatus;
-}
-export interface DigestRecipient {
-  readonly id: string;
-  readonly notificationEmail: string;
-}
+import type {
+  DeadlineProgramSource,
+  DeadlineRecipientSource,
+  DeadlineWindow,
+} from './deadline-digest-eligibility';
 
 export type DigestNotificationStatus = 'SENT' | 'FAILED';
 
 export interface DeadlineDigestRepositoryPort {
-  findUpcomingDeadlineMilestones(
-    from: Date,
-    to: Date,
-  ): Promise<UpcomingMilestone[]>;
-  findStaffRecipients(): Promise<DigestRecipient[]>;
-  findMissingSubmitters(
-    milestones: readonly UpcomingMilestone[],
-  ): Promise<ReadonlyMap<string, MissingSubmitter[]>>;
+  findAutomaticProgramIds(window: DeadlineWindow): Promise<readonly string[]>;
+  findDeadlineProgram(programId: string): Promise<DeadlineProgramSource | null>;
+  findActiveStaffOrAdmin(githubId: bigint): Promise<boolean>;
   claimNotification(
     userId: string,
     idempotencyKey: string,
@@ -54,134 +30,107 @@ export interface DeadlineDigestRepositoryPort {
   ): Promise<void>;
 }
 
+const deadlineRecipientSelect = {
+  id: true,
+  nickname: true,
+  notificationEmail: true,
+  notifyEnabled: true,
+  accountStatus: true,
+} satisfies Prisma.UserSelect;
+
 @Injectable()
 export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  async findUpcomingDeadlineMilestones(
-    from: Date,
-    to: Date,
-  ): Promise<UpcomingMilestone[]> {
-    const rows = await this.prisma.milestone.findMany({
+  async findAutomaticProgramIds(
+    window: DeadlineWindow,
+  ): Promise<readonly string[]> {
+    const programs = await this.prisma.program.findMany({
       where: {
-        dueAt: { gte: from, lte: to },
-        program: { notifyOnDeadline: true },
-      },
-      select: {
-        id: true,
-        programId: true,
-        name: true,
-        dueAt: true,
-        program: { select: { name: true } },
-      },
-      orderBy: { dueAt: 'asc' },
-    });
-    return rows.map((row) => ({
-      id: row.id,
-      programId: row.programId,
-      programName: row.program.name,
-      milestoneName: row.name,
-      dueAt: row.dueAt,
-    }));
-  }
-  async findMissingSubmitters(
-    milestones: readonly UpcomingMilestone[],
-  ): Promise<ReadonlyMap<string, MissingSubmitter[]>> {
-    const missingByMilestone = new Map(
-      milestones.map((milestone) => [milestone.id, [] as MissingSubmitter[]]),
-    );
-    if (milestones.length === 0) {
-      return missingByMilestone;
-    }
-
-    const rows = await this.prisma.application.findMany({
-      where: {
-        status: ApplicationStatus.APPROVED,
-        programId: {
-          in: [...new Set(milestones.map((milestone) => milestone.programId))],
-        },
-      },
-      select: {
-        programId: true,
-        applicant: {
-          select: {
-            id: true,
-            nickname: true,
-            notificationEmail: true,
-            notifyEnabled: true,
-            accountStatus: true,
+        notifyOnDeadline: true,
+        milestones: {
+          some: {
+            dueAt: { gte: window.from, lte: window.to },
+            documents: { some: { required: true } },
           },
         },
-        team: {
+      },
+      select: { id: true },
+      orderBy: { id: 'asc' },
+    });
+    return programs.map((program) => program.id);
+  }
+
+  async findDeadlineProgram(
+    programId: string,
+  ): Promise<DeadlineProgramSource | null> {
+    const program = await this.prisma.program.findUnique({
+      where: { id: programId },
+      select: {
+        id: true,
+        name: true,
+        notifyOnDeadline: true,
+        milestones: {
           select: {
-            members: {
+            id: true,
+            name: true,
+            dueAt: true,
+            documents: {
+              select: { id: true, required: true },
+              orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+            },
+          },
+          orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
+        },
+        applications: {
+          where: { status: ApplicationStatus.APPROVED },
+          select: {
+            id: true,
+            applicant: { select: deadlineRecipientSelect },
+            team: {
               select: {
-                user: {
-                  select: {
-                    id: true,
-                    nickname: true,
-                    notificationEmail: true,
-                    notifyEnabled: true,
-                    accountStatus: true,
-                  },
+                members: {
+                  select: { user: { select: deadlineRecipientSelect } },
+                  orderBy: { userId: 'asc' },
                 },
               },
             },
+            milestoneDocumentSubmissions: {
+              select: { milestoneDocumentId: true },
+              orderBy: { milestoneDocumentId: 'asc' },
+            },
           },
-        },
-        submissions: {
-          where: {
-            milestoneId: { in: milestones.map((milestone) => milestone.id) },
-          },
-          select: { milestoneId: true },
+          orderBy: { id: 'asc' },
         },
       },
     });
-
-    for (const milestone of milestones) {
-      const missingSubmitters = missingByMilestone.get(milestone.id);
-      if (!missingSubmitters) {
-        continue;
-      }
-      for (const application of rows) {
-        if (
-          application.programId !== milestone.programId ||
-          application.submissions.some(
-            (submission) => submission.milestoneId === milestone.id,
-          )
-        ) {
-          continue;
-        }
-        if (application.team) {
-          missingSubmitters.push(
-            ...application.team.members.map((member) => member.user),
-          );
-        } else {
-          missingSubmitters.push(application.applicant);
-        }
-      }
-    }
-
-    return missingByMilestone;
+    if (program === null) return null;
+    return {
+      id: program.id,
+      name: program.name,
+      notifyOnDeadline: program.notifyOnDeadline,
+      milestones: program.milestones,
+      applications: program.applications.map((application) => ({
+        id: application.id,
+        applicant: application.applicant,
+        members: application.team.members.map(
+          (member): DeadlineRecipientSource => member.user,
+        ),
+        submittedDocumentIds: application.milestoneDocumentSubmissions.map(
+          (submission) => submission.milestoneDocumentId,
+        ),
+      })),
+    };
   }
 
-  async findStaffRecipients(): Promise<DigestRecipient[]> {
-    // 발송 대상은 STAFF·ADMIN 교직원만. 설정 API 자체는 역할 무관(#156).
-    // 비활성 계정 제외: 이 요약 메일에는 미제출자 GitHub 핸들이 들어간다.
-    // 로그인이 막힌 계정(auth.service.ts)에 그 명단을 계속 보낼 이유가 없다.
-    const rows = await this.prisma.user.findMany({
-      where: {
-        role: { in: [Role.STAFF, Role.ADMIN] },
-        accountStatus: AccountStatus.ACTIVE,
-        notifyEnabled: true,
-        notificationEmail: { not: null },
-      },
-      select: { id: true, notificationEmail: true },
+  async findActiveStaffOrAdmin(githubId: bigint): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { githubId },
+      select: { role: true, accountStatus: true },
     });
-    return rows.flatMap((row) =>
-      row.notificationEmail
-        ? [{ id: row.id, notificationEmail: row.notificationEmail }]
-        : [],
+    return (
+      user?.accountStatus === AccountStatus.ACTIVE &&
+      (user.role === Role.STAFF || user.role === Role.ADMIN)
     );
   }
 
@@ -202,7 +151,7 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
         },
       });
       return true;
-    } catch (error) {
+    } catch (error: unknown) {
       if (
         typeof error === 'object' &&
         error !== null &&
@@ -229,12 +178,13 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
       },
     });
   }
-  async findFailedNotifications(): Promise<
-    Array<{
+
+  findFailedNotifications(): Promise<
+    readonly {
       readonly id: string;
       readonly createdAt: Date;
       readonly payload: Prisma.JsonValue;
-    }>
+    }[]
   > {
     return this.prisma.notification.findMany({
       where: { type: 'DEADLINE_DIGEST', status: 'FAILED' },

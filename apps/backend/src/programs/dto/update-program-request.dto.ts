@@ -38,6 +38,9 @@ export class UpdateProgramRequestDto {
   @IsBoolean()
   declare repositoryProvisioningEnabled: boolean;
 
+  @IsBoolean()
+  declare notifyOnDeadline: boolean;
+
   @IsString()
   @IsNotEmpty()
   declare description: string;

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { DeadlineDigestFailuresController } from './deadline-digest-failures.controller';
+import { DeadlineDigestController } from './deadline-digest.controller';
 import { DeadlineDigestFailuresService } from './deadline-digest-failures.service';
 import { DeadlineDigestRepository } from './deadline-digest.repository';
 import { DeadlineDigestScheduler } from './deadline-digest.scheduler';
@@ -23,6 +24,7 @@ import { ApplicationDecisionNotificationsService } from './application-decision-
     ApplicationDecisionNotificationsController,
     NotificationSettingsController,
     DeadlineDigestFailuresController,
+    DeadlineDigestController,
   ],
   providers: [
     ApplicationDecisionNotificationsRepository,

@@ -21,6 +21,7 @@ export const updateInput: UpdateProgramRequestDto = {
   startAt: '2026-08-16T00:00:00.000Z',
   endAt: '2026-08-31T00:00:00.000Z',
   repositoryProvisioningEnabled: true,
+  notifyOnDeadline: true,
   description: '  updated overview  ',
   teamMinSize: 2,
   teamMaxSize: 4,
@@ -55,6 +56,7 @@ export const editableProgram = {
   startAt: new Date('2026-08-16T00:00:00.000Z'),
   endAt: '2026-08-31T00:00:00.000Z',
   repositoryProvisioningEnabled: false,
+  notifyOnDeadline: false,
   description: 'overview',
   milestones: [
     {

@@ -1,245 +1,240 @@
 import { AccountStatus } from '@prisma/client';
+import { DomainException } from '../common/error-code';
+import type { DeadlineProgramSource } from './deadline-digest-eligibility';
 import { DeadlineDigestService } from './deadline-digest.service';
 import type { DeadlineDigestRepositoryPort } from './deadline-digest.repository';
 import type { MailSender } from './mail-sender.port';
 
-describe('DeadlineDigestService', () => {
-  const findUpcomingDeadlineMilestones = jest.fn();
-  const findStaffRecipients = jest.fn();
-  const findMissingSubmitters = jest.fn();
-  const claimNotification = jest.fn();
-  const completeNotification = jest.fn();
-  const send: jest.MockedFunction<MailSender['send']> = jest.fn();
-  const repository = {
-    findUpcomingDeadlineMilestones,
-    findStaffRecipients,
-    findMissingSubmitters,
-    claimNotification,
-    completeNotification,
-  } as unknown as DeadlineDigestRepositoryPort;
-  const mailSender: MailSender = { send };
-  const service = new DeadlineDigestService(repository, mailSender, {
-    FRONTEND_URL: 'https://oss.example',
-  });
+const NOW = new Date('2026-08-14T00:00:00.000Z');
 
-  const milestone = {
-    id: 'm1',
-    programId: 'p1',
-    programName: '전국 디지털 경진대회',
-    milestoneName: '최종 제출',
-    dueAt: new Date('2026-08-15T00:00:00.000Z'),
-  };
-  const now = new Date('2026-08-14T00:00:00.000Z');
-
-  beforeEach(() => {
-    findUpcomingDeadlineMilestones.mockReset();
-    findStaffRecipients.mockReset();
-    claimNotification.mockReset().mockResolvedValue(true);
-    completeNotification.mockReset().mockResolvedValue(undefined);
-    findMissingSubmitters.mockReset().mockResolvedValue(new Map());
-    send.mockReset().mockResolvedValue(undefined);
-  });
-
-  it('마감 임박 마일스톤이 없으면 수신자 조회·발송을 하지 않는다', async () => {
-    findUpcomingDeadlineMilestones.mockResolvedValue([]);
-
-    await service.sendDeadlineDigests(now);
-
-    expect(findStaffRecipients).not.toHaveBeenCalled();
-    expect(send).not.toHaveBeenCalled();
-    expect(claimNotification).not.toHaveBeenCalled();
-  });
-
-  it('잘못된 FRONTEND_URL이면 claim이나 발송 전에 실패한다', async () => {
-    findUpcomingDeadlineMilestones.mockResolvedValue([milestone]);
-    const malformedService = new DeadlineDigestService(repository, mailSender, {
-      FRONTEND_URL: 'javascript:alert(1)',
-    });
-
-    await expect(malformedService.sendDeadlineDigests(now)).rejects.toThrow(
-      'FRONTEND_URL must be an HTTP(S) origin.',
-    );
-
-    expect(claimNotification).not.toHaveBeenCalled();
-    expect(send).not.toHaveBeenCalled();
-  });
-
-  it('마감 임박 마일스톤이 있으면 각 교직원 수신자에게 발송하고 SENT를 기록한다', async () => {
-    findUpcomingDeadlineMilestones.mockResolvedValue([milestone]);
-    findStaffRecipients.mockResolvedValue([
-      { id: 's1', notificationEmail: 'a@example.com' },
-      { id: 's2', notificationEmail: 'b@example.com' },
-    ]);
-
-    await service.sendDeadlineDigests(now);
-
-    expect(send).toHaveBeenCalledTimes(2);
-    expect(send).toHaveBeenCalledWith(
-      expect.objectContaining({ to: 'a@example.com' }),
-    );
-    expect(completeNotification).toHaveBeenCalledWith(
-      'deadline-digest:2026-08-14:s1',
-      'SENT',
-      expect.any(Object),
-    );
-    const firstMessage = send.mock.calls[0]?.[0];
-    expect(firstMessage).toBeDefined();
-    expect(firstMessage).toHaveProperty('html');
-    expect(firstMessage?.body).toContain('전국 디지털 경진대회');
-    expect(completeNotification).toHaveBeenCalledWith(
-      'deadline-digest:2026-08-14:s2',
-      'SENT',
-      expect.any(Object),
-    );
-  });
-  it('미제출 동의 학생에게 마일스톤별 중복 없이 한 번만 발송하고 현지 시각을 표기한다', async () => {
-    findUpcomingDeadlineMilestones.mockResolvedValue([milestone]);
-    findStaffRecipients.mockResolvedValue([
-      { id: 's1', notificationEmail: 'staff@example.com' },
-    ]);
-    findMissingSubmitters.mockResolvedValue(
-      new Map([
-        [
-          'm1',
-          [
-            {
-              id: 'student-1',
-              nickname: '미제출학생',
-              notificationEmail: 'student@example.com',
-              notifyEnabled: true,
-              accountStatus: AccountStatus.ACTIVE,
-            },
-            {
-              id: 'student-1',
-              nickname: '미제출학생',
-              notificationEmail: 'student@example.com',
-              notifyEnabled: true,
-              accountStatus: AccountStatus.ACTIVE,
-            },
-            {
-              id: 'student-2',
-              nickname: '수신거부학생',
-              notificationEmail: 'opt-out@example.com',
-              notifyEnabled: false,
-              accountStatus: AccountStatus.ACTIVE,
-            },
-            {
-              // 알림을 켜 두었지만 계정이 비활성 — 리마인더 대상이 아니다(QA41).
-              id: 'student-3',
-              nickname: '비활성학생',
-              notificationEmail: 'deactivated@example.com',
-              notifyEnabled: true,
-              accountStatus: AccountStatus.DEACTIVATED,
-            },
-            {
-              id: 'student-4',
-              nickname: '이메일없는학생',
-              notificationEmail: null,
-              notifyEnabled: true,
-              accountStatus: AccountStatus.ACTIVE,
-            },
-          ],
-        ],
-      ]),
-    );
-
-    await service.sendDeadlineDigests(now);
-
-    expect(send).toHaveBeenCalledTimes(2);
-
-    const sentTo = (address: string): string | undefined =>
-      send.mock.calls
-        .map(([message]) => message)
-        .find((message) => message.to === address)?.body;
-
-    // 비활성 학생도 집계에는 남는다 — 명단에서 지우면 교직원이 미제출 건을 놓친다.
-    // 대신 비활성 계정에만 표시를 붙인다. 수신 거부는 계정 상태가 아니므로 표시하지 않고,
-    // 활성 계정에 표시가 붙으면 표시 자체가 뜻을 잃으므로 이 문자열 전체로 고정한다.
-    expect(sentTo('staff@example.com')).toContain(
-      '미제출자: 미제출학생, 미제출학생, 수신거부학생, 비활성학생 (비활성)',
-    );
-    // 수신 거부는 비활성이 아니다 — 둘을 같은 표시로 묶지 않는다.
-    expect(sentTo('staff@example.com')).not.toContain('수신거부학생 (비활성)');
-    expect(sentTo('student@example.com')).toContain(
-      '2026. 08. 15. 09:00 (Asia/Seoul)',
-    );
-    expect(sentTo('opt-out@example.com')).toBeUndefined();
-    // 그러나 본인에게는 보내지 않는다 — 로그인이 막혀 제출할 수 없는 계정이다(QA41).
-    expect(sentTo('deactivated@example.com')).toBeUndefined();
-  });
-
-  it('한 학생의 마감 임박 마일스톤을 정렬해 한 통의 multipart digest에 모두 담는다', async () => {
-    const laterMilestone = {
-      id: 'm2',
-      programId: 'p2',
-      programName: '두 번째 합성 프로그램',
-      milestoneName: '두 번째 중간 제출',
-      dueAt: new Date('2026-08-15T06:00:00.000Z'),
-    };
-    const student = {
+function source(
+  users: DeadlineProgramSource['applications'][number]['members'] = [
+    {
       id: 'student-1',
-      nickname: '미제출학생',
-      notificationEmail: 'student@example.com',
+      nickname: '학생 1',
+      notificationEmail: 'student-1@example.com',
       notifyEnabled: true,
       accountStatus: AccountStatus.ACTIVE,
-    };
-    findUpcomingDeadlineMilestones.mockResolvedValue([
-      laterMilestone,
-      milestone,
-    ]);
-    findStaffRecipients.mockResolvedValue([]);
-    findMissingSubmitters.mockResolvedValue(
-      new Map([
-        ['m1', [student]],
-        ['m2', [student]],
-      ]),
-    );
+    },
+  ],
+): DeadlineProgramSource {
+  const applicant = users[0];
+  if (applicant === undefined)
+    throw new TypeError('Missing applicant fixture.');
+  return {
+    id: 'program-1',
+    name: '합성 프로그램',
+    notifyOnDeadline: true,
+    milestones: [
+      {
+        id: 'milestone-1',
+        name: '최종 제출',
+        dueAt: new Date('2026-08-14T12:00:00.000Z'),
+        documents: [{ id: 'required-1', required: true }],
+      },
+    ],
+    applications: [
+      {
+        id: 'application-1',
+        applicant,
+        members: users,
+        submittedDocumentIds: [],
+      },
+    ],
+  };
+}
 
-    await service.sendDeadlineDigests(now);
+function setup() {
+  const findAutomaticProgramIds: jest.MockedFunction<
+    DeadlineDigestRepositoryPort['findAutomaticProgramIds']
+  > = jest.fn().mockResolvedValue(['program-1']);
+  const findDeadlineProgram: jest.MockedFunction<
+    DeadlineDigestRepositoryPort['findDeadlineProgram']
+  > = jest.fn().mockResolvedValue(source());
+  const findActiveStaffOrAdmin: jest.MockedFunction<
+    DeadlineDigestRepositoryPort['findActiveStaffOrAdmin']
+  > = jest.fn().mockResolvedValue(true);
+  const claimNotification: jest.MockedFunction<
+    DeadlineDigestRepositoryPort['claimNotification']
+  > = jest.fn().mockResolvedValue(true);
+  const completeNotification: jest.MockedFunction<
+    DeadlineDigestRepositoryPort['completeNotification']
+  > = jest.fn().mockResolvedValue(undefined);
+  const repository: jest.Mocked<DeadlineDigestRepositoryPort> = {
+    findAutomaticProgramIds,
+    findDeadlineProgram,
+    findActiveStaffOrAdmin,
+    claimNotification,
+    completeNotification,
+  };
+  const send: jest.MockedFunction<MailSender['send']> = jest
+    .fn()
+    .mockResolvedValue(undefined);
+  return {
+    repository,
+    findDeadlineProgram,
+    findActiveStaffOrAdmin,
+    claimNotification,
+    completeNotification,
+    send,
+    service: new DeadlineDigestService(
+      repository,
+      { send },
+      {
+        FRONTEND_URL: 'https://oss.example',
+      },
+    ),
+  };
+}
 
-    expect(send).toHaveBeenCalledTimes(1);
-    const message = send.mock.calls[0]?.[0];
-    expect(message).toBeDefined();
-    for (const content of [message?.body, message?.html]) {
-      expect(content).toContain('전국 디지털 경진대회');
-      expect(content).toContain('최종 제출');
-      expect(content).toContain('2026. 08. 15. 09:00 (Asia/Seoul)');
-      expect(content).toContain('두 번째 합성 프로그램');
-      expect(content).toContain('두 번째 중간 제출');
-      expect(content).toContain('2026. 08. 15. 15:00 (Asia/Seoul)');
-      expect(content).toContain(
-        'https://oss.example/programs/p1/submissions?milestoneId=m1',
-      );
-      expect(content).toContain(
-        'https://oss.example/programs/p2/submissions?milestoneId=m2',
-      );
-      expect(content?.indexOf('전국 디지털 경진대회')).toBeLessThan(
-        content?.indexOf('두 번째 합성 프로그램') ?? -1,
-      );
-    }
-    expect(message?.subject).toContain('마감 임박 제출 2건');
-    expect(claimNotification).toHaveBeenCalledTimes(1);
-    expect(completeNotification).toHaveBeenCalledWith(
-      'deadline-digest:2026-08-14:student-1',
-      'SENT',
-      { milestoneCount: 2 },
-    );
+describe('DeadlineDigestService Program preview and send', () => {
+  it('returns count-only preview metadata without recipient or eligibility identities', async () => {
+    // Given
+    const { service } = setup();
+
+    // When
+    const preview = await service.previewProgram(101n, 'program-1', NOW);
+
+    // Then
+    expect(preview).toMatchObject({
+      applicationCount: 1,
+      milestoneCount: 1,
+      recipientCount: 1,
+      inactiveCount: 0,
+      optedOutCount: 0,
+      noEmailCount: 0,
+      previewedAt: NOW.toISOString(),
+      expiresAt: new Date(NOW.getTime() + 10 * 60 * 1000).toISOString(),
+    });
+    expect(preview.previewVersion).toMatch(/^[a-f0-9]{64}$/u);
+    expect(JSON.stringify(preview)).not.toContain('student-1');
+    expect(JSON.stringify(preview)).not.toContain('example.com');
+    expect(JSON.stringify(preview)).not.toContain('milestone-1');
   });
 
-  it('발송이 실패하면 FAILED를 기록하고 다음 수신자로 계속한다', async () => {
-    const providerDetail =
-      'SMTP rejected leaked-recipient@example.test token=synthetic-provider-token';
-    findUpcomingDeadlineMilestones.mockResolvedValue([milestone]);
-    findStaffRecipients.mockResolvedValue([
-      { id: 's1', notificationEmail: 'a@example.com' },
-      { id: 's2', notificationEmail: 'b@example.com' },
-    ]);
-    send.mockRejectedValueOnce(new Error(providerDetail));
+  it('recomputes the matching preview, sends multipart mail, and claims the Program-recipient daily key', async () => {
+    // Given
+    const { claimNotification, send, service } = setup();
+    const preview = await service.previewProgram(101n, 'program-1', NOW);
 
-    await service.sendDeadlineDigests(now);
+    // When
+    const result = await service.sendProgramFromPreview(
+      101n,
+      'program-1',
+      {
+        previewedAt: preview.previewedAt,
+        previewVersion: preview.previewVersion,
+      },
+      new Date(NOW.getTime() + 60_000),
+    );
 
+    // Then
+    expect(result).toMatchObject({
+      sentCount: 1,
+      duplicateCount: 0,
+      failedCount: 0,
+    });
+    expect(claimNotification).toHaveBeenCalledWith(
+      'student-1',
+      'deadline-digest:2026-08-14:program-1:student-1',
+      { milestoneCount: 1 },
+    );
+    const sentMail = send.mock.calls[0]?.[0];
+    expect(sentMail?.to).toBe('student-1@example.com');
+    expect(sentMail?.body).toContain('합성 프로그램');
+    expect(sentMail?.html).toContain('합성 프로그램');
+  });
+
+  it('rejects a preview after ten minutes or when canonical eligibility changed', async () => {
+    // Given
+    const { claimNotification, findDeadlineProgram, send, service } = setup();
+    const preview = await service.previewProgram(101n, 'program-1', NOW);
+
+    // When / Then: exactly ten minutes remains valid; after it is stale.
+    claimNotification.mockResolvedValue(false);
+    await expect(
+      service.sendProgramFromPreview(
+        101n,
+        'program-1',
+        preview,
+        new Date(NOW.getTime() + 10 * 60 * 1000),
+      ),
+    ).resolves.toMatchObject({ duplicateCount: 1 });
+    await expect(
+      service.sendProgramFromPreview(
+        101n,
+        'program-1',
+        preview,
+        new Date(NOW.getTime() + 10 * 60 * 1000 + 1),
+      ),
+    ).rejects.toMatchObject({ errorCode: { status: 409 } });
+
+    findDeadlineProgram.mockResolvedValue({
+      ...source(),
+      milestones: source().milestones.map((milestone) => ({
+        ...milestone,
+        dueAt: new Date('2026-08-14T13:00:00.000Z'),
+      })),
+    });
+    await expect(
+      service.sendProgramFromPreview(
+        101n,
+        'program-1',
+        preview,
+        new Date(NOW.getTime() + 60_000),
+      ),
+    ).rejects.toMatchObject({ errorCode: { status: 409 } });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 before reading Program eligibility for a student caller', async () => {
+    // Given
+    const { findActiveStaffOrAdmin, findDeadlineProgram, service } = setup();
+    findActiveStaffOrAdmin.mockResolvedValue(false);
+
+    // When
+    const result = service.previewProgram(202n, 'program-1', NOW);
+
+    // Then
+    await expect(result).rejects.toBeInstanceOf(DomainException);
+    await expect(result).rejects.toMatchObject({ errorCode: { status: 403 } });
+    expect(findDeadlineProgram).not.toHaveBeenCalled();
+  });
+});
+
+describe('DeadlineDigestService delivery isolation and automatic sharing', () => {
+  it('shares Program eligibility with automatic delivery and continues after one SMTP failure', async () => {
+    // Given
+    const recipients = [
+      {
+        id: 'student-1',
+        nickname: '학생 1',
+        notificationEmail: 'student-1@example.com',
+        notifyEnabled: true,
+        accountStatus: AccountStatus.ACTIVE,
+      },
+      {
+        id: 'student-2',
+        nickname: '학생 2',
+        notificationEmail: 'student-2@example.com',
+        notifyEnabled: true,
+        accountStatus: AccountStatus.ACTIVE,
+      },
+    ];
+    const { completeNotification, findDeadlineProgram, send, service } =
+      setup();
+    findDeadlineProgram.mockResolvedValue(source(recipients));
+    send.mockRejectedValueOnce(
+      new Error('SMTP leaked-recipient@example.test token=provider-secret'),
+    );
+
+    // When
+    await service.sendDeadlineDigests(NOW);
+
+    // Then
+    expect(send).toHaveBeenCalledTimes(2);
     expect(completeNotification).toHaveBeenCalledWith(
-      'deadline-digest:2026-08-14:s1',
+      'deadline-digest:2026-08-14:program-1:student-1',
       'FAILED',
       {
         milestoneCount: 1,
@@ -248,29 +243,12 @@ describe('DeadlineDigestService', () => {
       },
     );
     expect(completeNotification).toHaveBeenCalledWith(
-      'deadline-digest:2026-08-14:s2',
+      'deadline-digest:2026-08-14:program-1:student-2',
       'SENT',
-      expect.any(Object),
+      { milestoneCount: 1 },
     );
     expect(JSON.stringify(completeNotification.mock.calls)).not.toContain(
-      providerDetail,
-    );
-  });
-  it('same-day claimed digest is not sent again', async () => {
-    findUpcomingDeadlineMilestones.mockResolvedValue([milestone]);
-    findStaffRecipients.mockResolvedValue([
-      { id: 's1', notificationEmail: 'a@example.com' },
-    ]);
-    claimNotification.mockResolvedValue(false);
-
-    await service.sendDeadlineDigests(now);
-
-    expect(send).not.toHaveBeenCalled();
-    expect(completeNotification).not.toHaveBeenCalled();
-    expect(claimNotification).toHaveBeenCalledWith(
-      's1',
-      'deadline-digest:2026-08-14:s1',
-      { milestoneCount: 1 },
+      'provider-secret',
     );
   });
 });

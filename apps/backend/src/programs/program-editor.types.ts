@@ -48,6 +48,7 @@ export type EditableProgramView = {
   readonly teamMinSize: number;
   readonly teamMaxSize: number;
   readonly repositoryProvisioningEnabled: boolean;
+  readonly notifyOnDeadline: boolean;
   readonly description: string;
   readonly milestones: readonly ProgramMilestoneView[];
 };
@@ -93,6 +94,7 @@ export type ProgramUpdateInput = {
   readonly teamMinSize: number;
   readonly teamMaxSize: number;
   readonly repositoryProvisioningEnabled: boolean;
+  readonly notifyOnDeadline: boolean;
   readonly description: string;
 };
 

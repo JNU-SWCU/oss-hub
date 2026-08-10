@@ -23,6 +23,7 @@ describe('ProgramEditorRepository updates', () => {
         teamMinSize: 2,
         teamMaxSize: 4,
         repositoryProvisioningEnabled: false,
+        notifyOnDeadline: true,
         description: 'overview',
         _count: { applications: 0, teams: 0 },
         milestones: [],
@@ -56,6 +57,7 @@ describe('ProgramEditorRepository updates', () => {
         teamMinSize: 2,
         teamMaxSize: 4,
         repositoryProvisioningEnabled: false,
+        notifyOnDeadline: true,
         description: 'overview',
       }),
     );
@@ -64,6 +66,7 @@ describe('ProgramEditorRepository updates', () => {
     expect(update.mock.calls[0]?.[0].data).toMatchObject({
       teamMinSize: 2,
       teamMaxSize: 4,
+      notifyOnDeadline: true,
     });
     expect(updateMany).toHaveBeenCalledWith({
       where: {
