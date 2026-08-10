@@ -393,7 +393,6 @@ function StudentDocumentRow({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [text, setText] = useState('');
-  const [releaseUrl, setReleaseUrl] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const viewerSubmission = document.viewerSubmission;
@@ -447,7 +446,6 @@ function StudentDocumentRow({
         });
         setEditing(false);
         setText('');
-        setReleaseUrl('');
       } catch (submitError: unknown) {
         /*
          * 내는 사이에 교직원 판정이 먼저 커밋된 경우(409 MSD_024)만 목록을 다시 부른다.
@@ -579,29 +577,6 @@ function StudentDocumentRow({
             value={text}
             onChange={(event) => setText(event.target.value)}
             placeholder="제출 내용"
-            className="min-w-0 flex-1"
-          />
-          <Button type="submit" size="sm" disabled={submitting}>
-            제출
-          </Button>
-        </form>
-      ) : null}
-      {canSubmit &&
-      editing &&
-      document.submissionType === 'REPOSITORY_RELEASE' ? (
-        <form
-          className="flex flex-wrap items-center gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const value = releaseUrl.trim();
-            if (value.length === 0) return;
-            void finish({ type: 'REPOSITORY_RELEASE', releaseUrl: value });
-          }}
-        >
-          <Input
-            value={releaseUrl}
-            onChange={(event) => setReleaseUrl(event.target.value)}
-            placeholder="릴리스 URL"
             className="min-w-0 flex-1"
           />
           <Button type="submit" size="sm" disabled={submitting}>

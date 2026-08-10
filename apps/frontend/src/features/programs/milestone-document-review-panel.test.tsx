@@ -152,16 +152,15 @@ describe('판정 패널의 파일', () => {
     expect(html).toContain(`href="${fileHref}"`);
   });
 
-  // TEXT·저장소 릴리스 제출과 보존 기한이 지난 첨부는 내려받을 것이 없다.
+  // TEXT 제출과 보존 기한이 지난 첨부는 내려받을 것이 없다.
   it('첨부가 없으면 내려받기를 그리지 않는다', () => {
     expect(render()).not.toContain('내려받기');
   });
 });
 
 /**
- * 제출 방식 세 가지 중 **둘**(글·저장소 릴리스)이 이 패널에 통째로 없던 것이 원래 결함이다.
- * 교직원은 내용을 한 글자도 못 본 채 승인·반려를 눌렀다. 아래 셋은 그 세 방식이 각각
- * 무엇으로 보이는지를 고정한다.
+ * 글 제출이 이 패널에 없던 것이 원래 결함이다. 교직원은 내용을 한 글자도 못 본 채
+ * 승인·반려를 눌렀다. 아래 테스트는 글 제출이 보이는지를 고정한다.
  */
 describe('판정 패널의 제출 내용', () => {
   const longText = ['첫 줄입니다.', '', '  들여쓴 둘째 줄.', '마지막 줄.'].join(
@@ -198,31 +197,13 @@ describe('판정 패널의 제출 내용', () => {
     expect(tag).toContain('tabindex="0"');
   });
 
-  it('릴리스 제출은 주소를 새 탭 링크로 준다', () => {
-    const releaseUrl =
-      'https://github.com/JNU-SWCU/synthetic-basic-study-01/releases/tag/v1.0.0';
-    const html = render({
-      cell: cell({ content: { type: 'REPOSITORY_RELEASE', releaseUrl } }),
-    });
-    const tag = tagWithTestId(html, 'milestone-document-submitted-release');
-
-    expect(html).toContain('제출한 릴리스 주소');
-    // 주소를 그대로 적는다 — 어느 저장소의 어느 태그인지가 판정의 근거다.
-    expect(html).toContain(releaseUrl);
-    expect(tag).toContain(`href="${releaseUrl}"`);
-    // 같은 탭에서 나가면 표와 적어 두던 사유가 함께 사라진다.
-    expect(tag).toContain('target="_blank"');
-    expect(tag).toContain('rel="noopener noreferrer"');
-  });
-
-  it('파일 제출에는 글도 링크도 만들지 않는다', () => {
+  it('파일 제출에는 글을 만들지 않는다', () => {
     const html = render({
       cell: cell({ file: { name: '기획서-가팀.pdf', sizeBytes: 2048 } }),
       fileHref: milestoneDocumentSubmissionFileHref('m1', 'd1', 'a1'),
     });
 
     expect(html).not.toContain('제출한 글');
-    expect(html).not.toContain('제출한 릴리스 주소');
     expect(html).toContain('기획서-가팀.pdf');
   });
 });
