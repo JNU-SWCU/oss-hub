@@ -21,9 +21,10 @@ import type {
  * 상태라, 바깥을 잘못 눌러 창이 닫히면 적던 글이 사라진다. 손으로 만들었던 옛 창도
  * 바깥 클릭으로 닫히지 않았으므로 동작이 바뀌지 않는다([#734]).
  *
- * ⚠ `Portal`을 쓰지 않는다 — 두 화면의 기존 테스트가 렌더 컨테이너 안에서 이 창의
- * 내용을 찾는다. 위치 지정은 어차피 `fixed`라 Portal 유무로 달라지지 않고,
- * 포커스 가둠·`aria-hidden`·스크롤 잠금은 Portal 없이도 그대로 걸린다.
+ * ⚠ `Portal`을 쓴다 — 창이 페이지 DOM 안에 있으면 **창이 열린 뒤에** 삽입되는 형제
+ * (예: 화면 위쪽 알림)가 Radix가 걸어 둔 `aria-hidden` 밖에 남아, 읽어 주는 도구가
+ * 창 뒤 경고를 함께 훑는다([#734] 리뷰가 실측). 그래서 두 화면의 테스트도 렌더
+ * 컨테이너가 아니라 `document` 기준으로 창 내용을 찾는다.
  */
 export function ApplicationDecisionDialog({
   action,
@@ -57,11 +58,10 @@ export function ApplicationDecisionDialog({
   /**
    * 창을 연 버튼의 id. 닫힐 때 그리로 포커스를 돌려준다(`submission-dialog.tsx`와 같은 규칙).
    *
-   * ⚠ **취소·Escape 로 닫을 때만 실제로 돌아간다.** 판정에 성공하거나 낡은 상태로
-   *   실패해 화면이 창을 **스스로** 닫는 경우에는 그 순간 버튼이 아직 `disabled` 이거나
-   *   (성공 뒤에는) 아예 다른 버튼으로 바뀌어 있어서 포커스가 `<body>` 로 떨어진다.
-   *   Radix 기본 복귀도 같은 버튼을 향하므로 결과가 같다. 어디로 보낼지는 결정이 필요해
-   *   따로 뗐다([#767](https://github.com/JNU-SWCU/oss-hub/issues/767)).
+   * ⚠ **취소·Escape 로 닫을 때의 자리다.** 화면이 창을 **스스로** 닫는 경우(판정 성공·
+   *   낡은 상태)에는 그 순간 이 버튼이 아직 `disabled` 이고, 성공 뒤에는 아예 다른
+   *   버튼으로 바뀐다(「승인」→「되돌리기」). 그때의 복귀는 재조회가 끝나는 시점을 아는
+   *   화면 쪽이 맡는다(`application-decision-focus.ts`, [#767]).
    */
   readonly returnFocusId: string;
   readonly onReasonChange: (value: string) => void;
@@ -103,11 +103,18 @@ export function ApplicationDecisionDialog({
            *   제일 길다). 형제 창들과 같은 규칙(`submission-dialog`·`program-type-modal`).
            */
           className="fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl bg-background p-6 shadow-lg outline-none *:min-w-0"
-          onCloseAutoFocus={(event) => {
-            const returnTarget = document.getElementById(returnFocusId);
-            if (!(returnTarget instanceof HTMLElement)) return;
-            event.preventDefault();
-            returnTarget.focus();
+          /*
+           * 취소·Escape 로 닫을 때 창을 연 버튼으로 돌려준다. 버튼이 없거나(판정 성공
+           * 뒤) `disabled` 면 **아무것도 안 하고** 화면 쪽 복귀에 맡긴다([#767]) —
+           * 그때의 새 버튼은 재조회가 끝난 뒤에야 생기고, 이 복귀는 Radix 안의
+           * `setTimeout` 에서 뒤늦게 일어나 순서를 가정할 수 없다.
+           *
+           * `event.preventDefault()` 를 부르지 않는다 — Radix 의 modal `Dialog.Content`
+           * 가 이미 **언제나** 막고 자기 `Trigger` 로만 돌려주는데, 이 창은 화면이 직접
+           * 마운트해 `Trigger` 가 없다. 변이로 죽은 코드임을 확인했다.
+           */
+          onCloseAutoFocus={() => {
+            document.getElementById(returnFocusId)?.focus();
           }}
         >
           <AlertDialog.Title asChild>

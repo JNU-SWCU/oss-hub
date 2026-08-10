@@ -10,7 +10,10 @@ import {
   ApplicationListRequestEpoch,
   ProgramApplicantsPage,
 } from './program-applicants-page';
-import { staleApplicationDecisionTitle } from './application-presentation';
+import {
+  applicationDecisionTriggerId,
+  staleApplicationDecisionTitle,
+} from './application-presentation';
 import { programApplicationDetailHref } from '@/lib/program-route';
 import type {
   ApplicationListItem,
@@ -190,6 +193,16 @@ function queryButton(name: string): HTMLButtonElement | undefined {
   ) as HTMLButtonElement | undefined;
 }
 
+/**
+ * Radix 는 확인창이 닫힐 때의 포커스 복귀를 `setTimeout` 안에서 뒤늦게 한다.
+ * 그걸 흘려보내지 않으면 화면이 옮겨 둔 포커스가 살아남는지 확인할 수 없다([#767]).
+ */
+async function flushCloseAutoFocus(): Promise<void> {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
 function deferred<T>(): {
   readonly promise: Promise<T>;
   readonly resolve: (value: T) => void;
@@ -325,6 +338,11 @@ describe('program applicants revert action', () => {
   let root: Root;
 
   beforeEach(() => {
+    // ⚠ 포커스가 문서 맨 앞인 상태에서 시작한다 — 앞 테스트가 문서에 **붙인 채로** 남긴
+    //   요소가 포커스를 쥐고 있으면, 「비어 있을 때만 옮긴다」 가드가 그 요소 때문에 갈려
+    //   복귀 규칙을 검사한 것이 아니게 된다. (떨어져 나간 노드는 happy-dom 이 스스로
+    //   `body` 로 되돌리므로 그쪽은 걱정할 것이 없다 — 실측으로 확인했다.)
+    (document.activeElement as HTMLElement | null)?.blur();
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -685,5 +703,215 @@ describe('program applicants revert action', () => {
     expect(container.textContent).not.toContain('\u202E');
     expect(container.textContent).toContain('계정이름');
     expect(container.textContent).toContain('@login1');
+  });
+
+  it('판정에 성공해 확인창이 스스로 닫히면 그 행의 새 버튼으로 포커스가 간다', async () => {
+    // Given: 제출됨 행이 **둘** 있다.
+    // ⚠ 행이 하나뿐이면 아무 행의 버튼이나 잡아도 통과한다 — 그래서 둘째 행으로 연다.
+    // ⚠ 성공하면 「승인」이 **사라지고** 「되돌리기」가 생긴다. 새 버튼은 **재조회가
+    //   끝난 뒤에야** DOM 에 생기므로 창이 닫히는 순간에는 찾을 수 없다([#767]).
+    const second: ApplicationListItem = { ...personal, id: 'app-personal-2' };
+    listProgramApplicationsMock
+      .mockResolvedValueOnce(applicationPage([personal, second]))
+      .mockResolvedValueOnce(
+        applicationPage([personal, { ...second, status: 'APPROVED' }]),
+      );
+    decideApplicationMock.mockResolvedValue({
+      applicationId: second.id,
+      status: 'APPROVED',
+    });
+    await act(async () => {
+      root.render(<ProgramApplicantsPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const approveButtons = Array.from(
+      document.querySelectorAll('button'),
+    ).filter((button) => button.textContent?.trim() === '승인');
+    expect(approveButtons).toHaveLength(2);
+
+    // When: 둘째 행을 승인한다.
+    await act(async () => approveButtons[1]!.click());
+    await act(async () => getButton('승인 확정').click());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await flushCloseAutoFocus();
+
+    // Then: 문서 맨 앞이 아니라 **그 행**의 새 버튼에 있다.
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+    expect((document.activeElement as HTMLElement | null)?.id).toBe(
+      applicationDecisionTriggerId('REVERT', second.id),
+    );
+  });
+
+  it('재조회를 기다리는 사이 사용자가 다른 곳을 잡았으면 포커스를 뺏지 않는다', async () => {
+    // ⚠ 확인창은 재조회를 **기다리기 전에** 닫힌다 — 그 사이 화면은 이미 조작할 수 있다.
+    // 재조회가 느리면 사용자는 그동안 다른 칸으로 옮겨 간다. 늦게 도착한 예약이 그걸
+    // 뺏으면 이 PR 이 고치려는 것과 **같은 고장을 반대 방향으로** 만든다.
+    const second: ApplicationListItem = { ...personal, id: 'app-personal-2' };
+    const reload = deferred<ApplicationListPage>();
+    listProgramApplicationsMock
+      .mockResolvedValueOnce(applicationPage([personal, second]))
+      .mockReturnValueOnce(reload.promise);
+    decideApplicationMock.mockResolvedValue({
+      applicationId: second.id,
+      status: 'APPROVED',
+    });
+    await act(async () => {
+      root.render(<ProgramApplicantsPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const approveButtons = Array.from(
+      document.querySelectorAll('button'),
+    ).filter((button) => button.textContent?.trim() === '승인');
+
+    // When: 둘째 행을 승인하고, 재조회가 아직 안 끝난 사이에 다른 칸을 잡는다.
+    await act(async () => approveButtons[1]!.click());
+    await act(async () => getButton('승인 확정').click());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+
+    const elsewhere = document.createElement('input');
+    document.body.append(elsewhere);
+    elsewhere.focus();
+    expect(document.activeElement).toBe(elsewhere);
+
+    await act(async () => {
+      reload.resolve(
+        applicationPage([personal, { ...second, status: 'APPROVED' }]),
+      );
+      await Promise.resolve();
+    });
+    await flushCloseAutoFocus();
+
+    // Then: 사용자가 잡은 자리가 그대로다.
+    expect(document.activeElement).toBe(elsewhere);
+    elsewhere.remove();
+  });
+
+  it('되돌리기에 성공하면 그 행에 다시 생긴 승인 버튼으로 포커스가 간다', async () => {
+    // 판정마다 무엇이 남는지가 다르다 — 승인 한 갈래만 고치면 되돌리기는 그대로 튕긴다.
+    listProgramApplicationsMock
+      .mockResolvedValueOnce(applicationPage([personal, rejected]))
+      .mockResolvedValueOnce(
+        applicationPage([
+          personal,
+          { ...rejected, status: 'SUBMITTED', rejectionReason: null },
+        ]),
+      );
+    decideApplicationMock.mockResolvedValue({
+      applicationId: rejected.id,
+      status: 'SUBMITTED',
+    });
+    await act(async () => {
+      root.render(<ProgramApplicantsPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => getButton('되돌리기').click());
+    await act(async () => getButton('되돌리기 확정').click());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await flushCloseAutoFocus();
+
+    expect((document.activeElement as HTMLElement | null)?.id).toBe(
+      applicationDecisionTriggerId('APPROVE', rejected.id),
+    );
+  });
+
+  it('낡은 상태(409)로 창이 닫혀도 포커스가 문서 맨 앞으로 떨어지지 않는다', async () => {
+    // 다른 운영자가 먼저 판정한 경우다. 창을 닫는 시점에는 그 버튼이 아직 `disabled`
+    // 라 포커스를 못 받고, 재조회가 끝나면 아예 다른 버튼이 되어 있다.
+    listProgramApplicationsMock
+      .mockResolvedValueOnce(applicationPage([personal]))
+      .mockResolvedValueOnce(
+        applicationPage([{ ...personal, status: 'APPROVED' }]),
+      );
+    decideApplicationMock.mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: 'conflict',
+        status: 409,
+        detail: 'stale',
+        instance: 'urn:test:applications:app-personal',
+        code: 'APP_002',
+      }),
+    );
+    await act(async () => {
+      root.render(<ProgramApplicantsPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => getButton('승인').click());
+    await act(async () => getButton('승인 확정').click());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await flushCloseAutoFocus();
+
+    expect(document.activeElement).not.toBe(document.body);
+    expect((document.activeElement as HTMLElement | null)?.id).toBe(
+      applicationDecisionTriggerId('REVERT', personal.id),
+    );
+  });
+
+  it('재조회까지 실패해 행이 그대로면 누르던 그 버튼으로 돌아온다', async () => {
+    // Given: 409 로 실패하고 최신 상태를 다시 읽는 것마저 실패한다 — 행은 그대로다.
+    // ⚠ 이때 「승인」으로 보내면 교직원은 자기가 **반려**를 누르던 중이었다는 것을 잃는다.
+    listProgramApplicationsMock
+      .mockResolvedValueOnce(applicationPage([personal]))
+      .mockRejectedValueOnce(new Error('synthetic reload failure'));
+    decideApplicationMock.mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: 'conflict',
+        status: 409,
+        detail: 'stale',
+        instance: 'urn:test:applications:app-personal',
+        code: 'APP_002',
+      }),
+    );
+    await act(async () => {
+      root.render(<ProgramApplicantsPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // When: 반려를 확정한다.
+    await act(async () => getButton('반려').click());
+    const textarea = document.querySelector('textarea');
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      throw new TypeError('반려 사유 입력칸이 없다');
+    }
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        'value',
+      )?.set;
+      setter?.call(textarea, '합성 반려 사유');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => getButton('반려 확정').click());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await flushCloseAutoFocus();
+
+    // Then: 승인이 아니라 반려로 돌아온다.
+    expect((document.activeElement as HTMLElement | null)?.id).toBe(
+      applicationDecisionTriggerId('REJECT', personal.id),
+    );
   });
 });
