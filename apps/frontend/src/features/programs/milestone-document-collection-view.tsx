@@ -77,6 +77,7 @@ const SCROLL_HINT_ID = 'milestone-document-collection-scroll-hint';
  * 정작 이 문단이 막으려던 오해(걸러 놓은 팀만 담긴다는 오독)가 긴 문장에 묻힌다.
  */
 const ARCHIVE_HINT_ID = 'milestone-document-collection-archive-hint';
+const DOWNLOAD_BEHAVIOR_HINT_ID = 'milestone-document-download-behavior-hint';
 const ARCHIVE_GROUPING_ID = 'milestone-document-collection-archive-grouping';
 
 const FILTER_BUTTON_BASE =
@@ -216,9 +217,9 @@ function DocumentHeader({
             milestoneId,
             document.id,
           )}
-          aria-label={`${document.name} 전체 내려받기(ZIP)`}
-          title={`${document.name} 전체 내려받기(ZIP)`}
-          aria-describedby={ARCHIVE_HINT_ID}
+          aria-label={`${document.name} 서류별 내려받기(ZIP)`}
+          title={`${document.name} 서류별 내려받기(ZIP)`}
+          aria-describedby={`${ARCHIVE_HINT_ID} ${DOWNLOAD_BEHAVIOR_HINT_ID}`}
         >
           <DocumentArchiveIcon />
         </a>
@@ -318,6 +319,8 @@ function CollectionCellContent({
             documentId,
             applicationId,
           )}
+          aria-label={`${teamName} ${documentName} 개별 파일 내려받기: ${cell.file.name}`}
+          aria-describedby={DOWNLOAD_BEHAVIOR_HINT_ID}
           title={cell.file.name}
           className="block max-w-56 truncate text-small font-medium underline underline-offset-2 hover:opacity-80"
         >
@@ -418,9 +421,9 @@ function CollectionArchiveControls({
               milestoneId,
               archiveGrouping,
             )}
-            aria-describedby={ARCHIVE_HINT_ID}
+            aria-describedby={`${ARCHIVE_HINT_ID} ${DOWNLOAD_BEHAVIOR_HINT_ID}`}
           >
-            전체 내려받기(ZIP)
+            마일스톤 전체 내려받기(ZIP)
           </a>
         </Button>
         {/*
@@ -457,6 +460,13 @@ function CollectionArchiveControls({
         className="text-small text-muted-foreground break-keep"
       >
         빠른 필터·페이지와 무관하게 이 마일스톤의 전체 팀을 담습니다.
+      </p>
+      <p
+        id={DOWNLOAD_BEHAVIOR_HINT_ID}
+        className="text-small text-muted-foreground break-keep"
+      >
+        진행 상태와 완료 여부는 브라우저에서 확인합니다. 요청이 실패하면 오류
+        응답을 파일로 저장하지 않고 안내 화면을 엽니다.
       </p>
     </div>
   );

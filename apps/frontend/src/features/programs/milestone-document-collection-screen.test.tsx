@@ -284,6 +284,28 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
     expect(container.textContent).toContain('가팀');
   });
 
+  it('필터와 페이지를 바꿔도 전체 ZIP 요청은 바뀌지 않는다', async () => {
+    getMilestoneDocumentCollectionMock.mockResolvedValue(
+      collection([row('a', '가팀')], { total: 47 }),
+    );
+
+    await render();
+    const initialHref = archiveHref();
+
+    await click('필수 서류 미제출');
+    expect(archiveHref()).toBe(initialHref);
+
+    await click('다음');
+    expect(archiveHref()).toBe(initialHref);
+
+    expect(getMilestoneDocumentCollectionMock).toHaveBeenLastCalledWith(
+      'milestone-1',
+      { page: 2, pageSize: 20, filter: 'HAS_MISSING' },
+    );
+    const archiveUrl = new URL(initialHref, 'https://example.test');
+    expect([...archiveUrl.searchParams.keys()]).toEqual(['groupBy']);
+  });
+
   it('실패한 조건을 다시 시도해 성공하면 그 조건의 표가 선다', async () => {
     getMilestoneDocumentCollectionMock.mockResolvedValueOnce(
       collection([row('a', '가팀')]),
