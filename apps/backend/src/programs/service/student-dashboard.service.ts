@@ -59,6 +59,26 @@ function isSafeProgramId(value: string): boolean {
   );
 }
 
+/**
+ * 카드의 「신청 상세」가 보낼 곳. **상태별로 학생이 알아야 할 것이 실제로 있는 화면**을 준다.
+ *
+ * `APPROVED`만 프로그램 상세(`/programs/{id}`)로 보낸다 — 판정이 끝나고 참여가 시작된
+ * 뒤의 관심사는 신청서가 아니라 일정이기 때문이다.
+ *
+ * 그 밖(`SUBMITTED`·`REJECTED`)은 신청서 화면(`/programs/{id}/apply`)이다. 판정 전에는
+ * 자기가 낸 답을, 판정 뒤에는 **반려 사유**를 그곳에서만 볼 수 있다. 사유가 실려 오는
+ * 응답은 `GET programs/{id}/applications/me` 하나뿐이고 그 응답을 읽는 화면도 그 하나뿐이라,
+ * 반려된 학생을 프로그램 상세로 보내면 상태도 사유도 없는 소개 문서 앞에 세우게 된다(#733).
+ *
+ * 규칙을 "APPROVED가 아니면 `/apply`"로 적는다 — frontend 검증기(`features/dashboard/api.ts`)가
+ * 이 접미사를 **글자 그대로 대조**하며 어긋난 항목을 통째로 버리므로, 두 곳은 한 벌로 움직여야
+ * 한다. 같은 문장으로 적어 두면 상태가 하나 늘어도 양쪽이 같은 쪽으로 갈려 어긋나지 않는다.
+ */
+function detailUrlFor(status: ApplicationStatus, programId: string): string {
+  const program = `/programs/${encodeURIComponent(programId)}`;
+  return status === ApplicationStatus.APPROVED ? program : `${program}/apply`;
+}
+
 @Injectable()
 export class StudentDashboardService {
   constructor(
@@ -199,10 +219,7 @@ export class StudentDashboardService {
         displayName,
         applicationStatus: application.status,
         nextMilestone,
-        detailUrl:
-          application.status === ApplicationStatus.SUBMITTED
-            ? `/programs/${encodeURIComponent(application.program.id)}/apply`
-            : `/programs/${encodeURIComponent(application.program.id)}`,
+        detailUrl: detailUrlFor(application.status, application.program.id),
         checklistUrl: `/programs/${encodeURIComponent(application.program.id)}/submissions`,
         repository,
       });

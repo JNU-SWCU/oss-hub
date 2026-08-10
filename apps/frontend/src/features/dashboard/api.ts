@@ -156,10 +156,14 @@ function isDashboardItem(value: unknown): value is DashboardItem {
     isApplicationStatus(applicationStatus) &&
     (nextMilestone === null || isMilestone(nextMilestone)) &&
     (applicationStatus === 'APPROVED' || nextMilestone === null) &&
+    // 서버(`programs/service/student-dashboard.service.ts`의 `detailUrlFor`)와 **한 벌**인
+    // 규칙이다. `APPROVED`만 프로그램 상세로 가고 나머지(`SUBMITTED`·`REJECTED`)는 신청서
+    // 화면으로 간다 — 반려 사유가 실려 오는 화면이 그곳뿐이기 때문이다(#733).
+    // 여기가 서버보다 좁으면 어긋난 항목이 통째로 버려져 대시보드가 빈다.
     isProgramPath(
       value.detailUrl,
       programId,
-      applicationStatus === 'SUBMITTED' ? '/apply' : '',
+      applicationStatus === 'APPROVED' ? '' : '/apply',
     ) &&
     isProgramPath(value.checklistUrl, programId, '/submissions') &&
     (value.repository === null || isRepository(value.repository)) &&
