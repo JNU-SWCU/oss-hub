@@ -78,8 +78,7 @@ describe('Admin access real PostgreSQL transactions', () => {
     // 대상만 강등된 경우에는 "마지막 활성 관리자"(ROL_018)이고, 하필 actor 본인이 먼저
     // 강등된 경우에는 잠금 뒤 재검증이 "더 이상 관리자가 아니다"(ROL_004)로 먼저 막는다(#687).
     const rejection = rejected?.reason as
-      | { readonly errorCode: { readonly code: string } }
-      | undefined;
+      { readonly errorCode: { readonly code: string } } | undefined;
     expect([
       RolesErrorCode.LAST_ACTIVE_ADMIN_REQUIRED,
       RolesErrorCode.ADMIN_ONLY,

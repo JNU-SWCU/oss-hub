@@ -45,7 +45,9 @@ export async function mutateAdminUserProfile(
   return dependencies.repository.withTransaction(async (store) => {
     // 잠금 먼저, 판정은 그다음이다. 순서가 뒤집히면 잠기지 않은 낡은 값으로 판정하게 된다.
     await store.lockActiveAdmins();
-    const actor = requireActiveAdmin(await store.findActor(input.actorGithubId));
+    const actor = requireActiveAdmin(
+      await store.findActor(input.actorGithubId),
+    );
     const before = await store.findTarget(input.userId);
     if (!before) {
       throw roleError(RolesErrorCode.USER_NOT_FOUND);

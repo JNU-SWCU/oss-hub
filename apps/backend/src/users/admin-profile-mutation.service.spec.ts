@@ -82,7 +82,7 @@ describe('mutateAdminUserProfile', () => {
         { repository, auditLog: audit.service },
         {
           actorGithubId: ACTOR_GITHUB_ID,
-            userId: 'target',
+          userId: 'target',
           command: { studentId: '259999' },
         },
       ),
@@ -108,7 +108,7 @@ describe('mutateAdminUserProfile', () => {
         { repository, auditLog: audit.service },
         {
           actorGithubId: ACTOR_GITHUB_ID,
-            userId: 'target',
+          userId: 'target',
           command: { studentId: '260001' },
         },
       ),
@@ -131,7 +131,7 @@ describe('mutateAdminUserProfile', () => {
         { repository, auditLog: audit.service },
         {
           actorGithubId: ACTOR_GITHUB_ID,
-            userId: 'target',
+          userId: 'target',
           command: { studentId: 'not-a-student-id' },
         },
       ),
@@ -299,7 +299,7 @@ describe('mutateAdminUserProfile', () => {
         { repository, auditLog: audit.service },
         {
           actorGithubId: ACTOR_GITHUB_ID,
-            userId: 'missing',
+          userId: 'missing',
           command: { name: '이름' },
         },
       ),

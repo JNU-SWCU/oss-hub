@@ -50,147 +50,159 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-it('권한 변경: actor를 강등하는 트랜잭션과 겹치면 ROL_004로 거부하고 아무것도 쓰지 않는다', async () => {
-  // Given — 강등이 먼저 행을 잡고 커밋을 미룬다. 권한 변경은 그 뒤에 들어와 잠금에 막힌다.
-  const actor = await createUser('reject-actor', Role.ADMIN);
-  const target = await createUser('reject-target', Role.STUDENT);
-  const demotion = startHeldDemotion(actor.id);
-  await demotion.applied;
+it(
+  '권한 변경: actor를 강등하는 트랜잭션과 겹치면 ROL_004로 거부하고 아무것도 쓰지 않는다',
+  async () => {
+    // Given — 강등이 먼저 행을 잡고 커밋을 미룬다. 권한 변경은 그 뒤에 들어와 잠금에 막힌다.
+    const actor = await createUser('reject-actor', Role.ADMIN);
+    const target = await createUser('reject-target', Role.STUDENT);
+    const demotion = startHeldDemotion(actor.id);
+    await demotion.applied;
 
-  const mutationBackend = backendPid();
-  const service = new AdminAccessService(
-    new AdminAccessRepository(pidCapturingPrisma(mutationBackend.capture)),
-    auditLog,
-  );
-
-  // When
-  const mutation = service.patchAccess(actor.githubId, target.id, {
-    expectedRole: Role.STUDENT,
-    desiredRole: Role.STAFF,
-    expectedAccountStatus: AccountStatus.ACTIVE,
-    desiredAccountStatus: AccountStatus.ACTIVE,
-    expectedPendingRequest: null,
-  });
-  // 두 트랜잭션이 같은 행에서 실제로 겹쳤다는 증거를 먼저 잡는다.
-  await waitUntilBlockedBy(
-    await mutationBackend.pid,
-    await demotion.pid,
-    '권한 변경이 강등에 막힌 상태',
-  );
-  demotion.commit();
-  await demotion.done;
-
-  // Then
-  await expect(mutation).rejects.toMatchObject({
-    errorCode: { code: RolesErrorCode.ADMIN_ONLY, status: 403 },
-  });
-  await expect(
-    prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
-  ).resolves.toMatchObject({
-    role: Role.STUDENT,
-    accountStatus: AccountStatus.ACTIVE,
-  });
-  await expect(
-    prisma.auditLog.count({ where: { targetId: target.id } }),
-  ).resolves.toBe(0);
-}, BLOCKING_OBSERVATION_TIMEOUT_MS);
-
-it('권한 변경: actor를 읽은 뒤에는 actor 행이 잠겨 있어 강등이 끼어들지 못한다', async () => {
-  // Given
-  const actor = await createUser('pinned-actor', Role.ADMIN);
-  const target = await createUser('pinned-target', Role.STUDENT);
-  const reachedActorRead = deferred();
-  const releaseMutation = deferred();
-  const mutationBackend = backendPid();
-  const service = new AdminAccessService(
-    new PausingActorReadAdminAccessRepository(
+    const mutationBackend = backendPid();
+    const service = new AdminAccessService(
       new AdminAccessRepository(pidCapturingPrisma(mutationBackend.capture)),
-      async () => {
-        reachedActorRead.resolve();
-        await releaseMutation.promise;
-      },
-    ),
-    auditLog,
-  );
-
-  // When
-  const mutation = service.patchAccess(actor.githubId, target.id, {
-    expectedRole: Role.STUDENT,
-    desiredRole: Role.STAFF,
-    expectedAccountStatus: AccountStatus.ACTIVE,
-    desiredAccountStatus: AccountStatus.ACTIVE,
-    expectedPendingRequest: null,
-  });
-  await reachedActorRead.promise;
-  const demotion = startHeldDemotion(actor.id);
-
-  // Then — 판정이 끝난 뒤 들어온 강등은 이 트랜잭션에 막혀 있어야 한다. 막히지 않는다면
-  // 판정이 잠기지 않은 값 위에서 이뤄졌다는 뜻이고, 그게 #687의 창이다.
-  try {
-    await waitUntilBlockedBy(
-      await demotion.pid,
-      await mutationBackend.pid,
-      '강등이 진행 중인 권한 변경에 막힌 상태',
+      auditLog,
     );
-  } finally {
-    // 관측에 실패해도 두 트랜잭션을 반드시 풀어 준다 — 붙잡은 채로 끝나면 스펙이
-    // 실패하는 대신 교착해 버려서 무엇이 잘못됐는지 아무도 읽을 수 없다.
-    releaseMutation.resolve();
-    demotion.commit();
-  }
-  await expect(mutation).resolves.toMatchObject({ role: Role.STAFF });
-  await demotion.done;
-  await expect(
-    prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
-  ).resolves.toMatchObject({ role: Role.STAFF });
-}, BLOCKING_OBSERVATION_TIMEOUT_MS);
 
-it('프로필 대리 수정: actor를 읽은 뒤에는 actor 행이 잠겨 있어 강등이 끼어들지 못한다', async () => {
-  // Given
-  const actor = await createUser('profile-actor', Role.ADMIN);
-  const target = await createUser('profile-target', Role.STUDENT);
-  const reachedActorRead = deferred();
-  const releaseMutation = deferred();
-  const mutationBackend = backendPid();
-  const service = new AdminProfileService(
-    new PausingActorReadAdminProfileRepository(
-      new AdminProfileRepository(pidCapturingPrisma(mutationBackend.capture)),
-      async () => {
-        reachedActorRead.resolve();
-        await releaseMutation.promise;
-      },
-    ),
-    auditLog,
-  );
-
-  // When
-  const mutation = service.patchProfile(actor.githubId, target.id, {
-    name: '합성 새 이름',
-  });
-  await reachedActorRead.promise;
-  const demotion = startHeldDemotion(actor.id);
-
-  // Then
-  try {
+    // When
+    const mutation = service.patchAccess(actor.githubId, target.id, {
+      expectedRole: Role.STUDENT,
+      desiredRole: Role.STAFF,
+      expectedAccountStatus: AccountStatus.ACTIVE,
+      desiredAccountStatus: AccountStatus.ACTIVE,
+      expectedPendingRequest: null,
+    });
+    // 두 트랜잭션이 같은 행에서 실제로 겹쳤다는 증거를 먼저 잡는다.
     await waitUntilBlockedBy(
-      await demotion.pid,
       await mutationBackend.pid,
-      '강등이 진행 중인 프로필 수정에 막힌 상태',
+      await demotion.pid,
+      '권한 변경이 강등에 막힌 상태',
     );
-  } finally {
-    releaseMutation.resolve();
     demotion.commit();
-  }
-  await expect(mutation).resolves.toMatchObject({ name: '합성 새 이름' });
-  await demotion.done;
-  await expect(
-    prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
-  ).resolves.toMatchObject({ name: '합성 새 이름' });
-  // 강등은 막혔던 것이지 사라진 것이 아니다 — 프로필 수정이 커밋된 뒤에 이어서 반영된다.
-  await expect(
-    prisma.user.findUniqueOrThrow({ where: { id: actor.id } }),
-  ).resolves.toMatchObject({ role: Role.STAFF });
-}, BLOCKING_OBSERVATION_TIMEOUT_MS);
+    await demotion.done;
+
+    // Then
+    await expect(mutation).rejects.toMatchObject({
+      errorCode: { code: RolesErrorCode.ADMIN_ONLY, status: 403 },
+    });
+    await expect(
+      prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
+    ).resolves.toMatchObject({
+      role: Role.STUDENT,
+      accountStatus: AccountStatus.ACTIVE,
+    });
+    await expect(
+      prisma.auditLog.count({ where: { targetId: target.id } }),
+    ).resolves.toBe(0);
+  },
+  BLOCKING_OBSERVATION_TIMEOUT_MS,
+);
+
+it(
+  '권한 변경: actor를 읽은 뒤에는 actor 행이 잠겨 있어 강등이 끼어들지 못한다',
+  async () => {
+    // Given
+    const actor = await createUser('pinned-actor', Role.ADMIN);
+    const target = await createUser('pinned-target', Role.STUDENT);
+    const reachedActorRead = deferred();
+    const releaseMutation = deferred();
+    const mutationBackend = backendPid();
+    const service = new AdminAccessService(
+      new PausingActorReadAdminAccessRepository(
+        new AdminAccessRepository(pidCapturingPrisma(mutationBackend.capture)),
+        async () => {
+          reachedActorRead.resolve();
+          await releaseMutation.promise;
+        },
+      ),
+      auditLog,
+    );
+
+    // When
+    const mutation = service.patchAccess(actor.githubId, target.id, {
+      expectedRole: Role.STUDENT,
+      desiredRole: Role.STAFF,
+      expectedAccountStatus: AccountStatus.ACTIVE,
+      desiredAccountStatus: AccountStatus.ACTIVE,
+      expectedPendingRequest: null,
+    });
+    await reachedActorRead.promise;
+    const demotion = startHeldDemotion(actor.id);
+
+    // Then — 판정이 끝난 뒤 들어온 강등은 이 트랜잭션에 막혀 있어야 한다. 막히지 않는다면
+    // 판정이 잠기지 않은 값 위에서 이뤄졌다는 뜻이고, 그게 #687의 창이다.
+    try {
+      await waitUntilBlockedBy(
+        await demotion.pid,
+        await mutationBackend.pid,
+        '강등이 진행 중인 권한 변경에 막힌 상태',
+      );
+    } finally {
+      // 관측에 실패해도 두 트랜잭션을 반드시 풀어 준다 — 붙잡은 채로 끝나면 스펙이
+      // 실패하는 대신 교착해 버려서 무엇이 잘못됐는지 아무도 읽을 수 없다.
+      releaseMutation.resolve();
+      demotion.commit();
+    }
+    await expect(mutation).resolves.toMatchObject({ role: Role.STAFF });
+    await demotion.done;
+    await expect(
+      prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
+    ).resolves.toMatchObject({ role: Role.STAFF });
+  },
+  BLOCKING_OBSERVATION_TIMEOUT_MS,
+);
+
+it(
+  '프로필 대리 수정: actor를 읽은 뒤에는 actor 행이 잠겨 있어 강등이 끼어들지 못한다',
+  async () => {
+    // Given
+    const actor = await createUser('profile-actor', Role.ADMIN);
+    const target = await createUser('profile-target', Role.STUDENT);
+    const reachedActorRead = deferred();
+    const releaseMutation = deferred();
+    const mutationBackend = backendPid();
+    const service = new AdminProfileService(
+      new PausingActorReadAdminProfileRepository(
+        new AdminProfileRepository(pidCapturingPrisma(mutationBackend.capture)),
+        async () => {
+          reachedActorRead.resolve();
+          await releaseMutation.promise;
+        },
+      ),
+      auditLog,
+    );
+
+    // When
+    const mutation = service.patchProfile(actor.githubId, target.id, {
+      name: '합성 새 이름',
+    });
+    await reachedActorRead.promise;
+    const demotion = startHeldDemotion(actor.id);
+
+    // Then
+    try {
+      await waitUntilBlockedBy(
+        await demotion.pid,
+        await mutationBackend.pid,
+        '강등이 진행 중인 프로필 수정에 막힌 상태',
+      );
+    } finally {
+      releaseMutation.resolve();
+      demotion.commit();
+    }
+    await expect(mutation).resolves.toMatchObject({ name: '합성 새 이름' });
+    await demotion.done;
+    await expect(
+      prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
+    ).resolves.toMatchObject({ name: '합성 새 이름' });
+    // 강등은 막혔던 것이지 사라진 것이 아니다 — 프로필 수정이 커밋된 뒤에 이어서 반영된다.
+    await expect(
+      prisma.user.findUniqueOrThrow({ where: { id: actor.id } }),
+    ).resolves.toMatchObject({ role: Role.STAFF });
+  },
+  BLOCKING_OBSERVATION_TIMEOUT_MS,
+);
 
 function createUser(label: string, role: Role) {
   sequence += 1;

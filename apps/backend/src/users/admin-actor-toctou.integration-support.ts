@@ -77,9 +77,7 @@ class PausingActorReadAccessStore implements AdminAccessTransactionStore {
   }
 }
 
-export class PausingActorReadAdminAccessRepository
-  implements AdminAccessRepositoryPort
-{
+export class PausingActorReadAdminAccessRepository implements AdminAccessRepositoryPort {
   constructor(
     private readonly repository: AdminAccessRepositoryPort,
     private readonly onActorRead: ActorReadPause,
@@ -164,9 +162,7 @@ class PausingActorReadProfileStore implements AdminProfileTransactionStore {
   }
 }
 
-export class PausingActorReadAdminProfileRepository
-  implements AdminProfileRepositoryPort
-{
+export class PausingActorReadAdminProfileRepository implements AdminProfileRepositoryPort {
   constructor(
     private readonly repository: AdminProfileRepositoryPort,
     private readonly onActorRead: ActorReadPause,
