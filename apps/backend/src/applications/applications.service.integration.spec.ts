@@ -196,6 +196,8 @@ describe('ApplicationsService integration', () => {
         description: 'synthetic-description',
         teamMinSize: 2,
         teamMaxSize: 4,
+        // 저장소 연결 게이트(APP_026)를 지나 min-size 검사에 도달하도록 활성화한다.
+        repositoryProvisioningEnabled: true,
       },
     });
 

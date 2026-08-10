@@ -24,11 +24,22 @@ export class GithubOperationsConfig {
     ),
   ) {}
 
-  requireCredentials(): GithubAppCredentials {
+  requireOrganization(): string {
     const organization = configValue(this.runtimeConfig.GITHUB_APP_ORG);
+    if (organization === null) {
+      throw new GithubOperationsError(
+        GITHUB_OPERATIONS_ERROR_CODES.CONFIGURATION,
+        false,
+      );
+    }
+    return organization;
+  }
+
+  requireCredentials(): GithubAppCredentials {
+    const organization = this.requireOrganization();
     const appId = configValue(this.runtimeConfig.GITHUB_OPERATIONS_APP_ID);
     const privateKey = this.resolvePrivateKey();
-    if (organization === null || appId === null || privateKey === null) {
+    if (appId === null || privateKey === null) {
       throw new GithubOperationsError(
         GITHUB_OPERATIONS_ERROR_CODES.CONFIGURATION,
         false,

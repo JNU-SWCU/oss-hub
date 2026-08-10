@@ -31,6 +31,7 @@ const editableProgram: EditableProgram = {
   applicationEndAt: '2026-08-15T09:30:59.000Z',
   endAt: '2026-08-31T09:30:59.000Z',
   repositoryProvisioningEnabled: true,
+  notifyOnDeadline: true,
   description: '프로그램 설명',
   teamMinSize: 2,
   teamMaxSize: 4,

@@ -87,6 +87,7 @@ const BASIC_PROGRAM = {
   // 종료일은 신청 종료일과 모든 마일스톤 마감 이후여야 저장이 통과한다.
   endAt: '2026-07-31T14:59:59.000Z',
   repositoryProvisioningEnabled: true,
+  notifyOnDeadline: false,
   description:
     '로컬 검토용 합성 프로그램입니다. 실제 모집이나 실제 참여자와 무관합니다.',
   teamMinSize: null,
@@ -324,6 +325,7 @@ const CAPSTONE_PROGRAM = {
   applicationEndAt: '2026-12-31T14:59:59.000Z',
   endAt: '2027-01-31T14:59:59.000Z',
   repositoryProvisioningEnabled: true,
+  notifyOnDeadline: true,
   description:
     '로컬 검토용 합성 프로그램입니다. 승인된 신청이 없는 상태를 확인합니다.',
   teamMinSize: 2,
@@ -370,6 +372,7 @@ const CONTEST_PROGRAM = {
   applicationEndAt: '2026-11-30T14:59:59.000Z',
   endAt: '2026-12-31T14:59:59.000Z',
   repositoryProvisioningEnabled: true,
+  notifyOnDeadline: true,
   description:
     '로컬 검토용 합성 경진대회입니다. 팀형 신청·제출 화면을 확인합니다.',
   teamMinSize: 2,
@@ -546,6 +549,7 @@ const CREATED_PROGRAM = {
   applicationEndAt: '2026-08-31T14:59:59.000Z',
   endAt: '2026-12-31T14:59:59.000Z',
   repositoryProvisioningEnabled: false,
+  notifyOnDeadline: false,
   description:
     '방금 등록한 프로그램 자리입니다. 로컬 검토용 합성 데이터이며 입력값은 저장되지 않습니다.',
   teamMinSize: null,

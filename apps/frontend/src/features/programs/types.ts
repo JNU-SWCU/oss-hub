@@ -302,6 +302,7 @@ export interface ProgramDetail {
   readonly organizer: string;
   readonly category: ProgramCategory;
   readonly description: string;
+  readonly repositoryProvisioningEnabled: boolean;
   readonly applicationPeriod: {
     readonly startsAt: string;
     readonly endsAt: string;

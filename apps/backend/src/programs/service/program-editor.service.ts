@@ -226,6 +226,7 @@ export class ProgramEditorService {
         teamMinSize: teamSize.teamMinSize,
         teamMaxSize: teamSize.teamMaxSize,
         repositoryProvisioningEnabled: input.repositoryProvisioningEnabled,
+        notifyOnDeadline: input.notifyOnDeadline,
         description,
       });
     });

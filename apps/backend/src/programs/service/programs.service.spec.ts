@@ -17,6 +17,7 @@ const publicProgram = {
   category: ProgramCategory.OSS_CONTEST,
   lifecycle: 'PUBLISHED' as const,
   description: '프로그램 설명',
+  repositoryProvisioningEnabled: true,
   applicationStartAt: new Date('2026-07-01T00:00:00+09:00'),
   applicationEndAt: new Date('2026-08-31T23:59:59+09:00'),
   startAt: new Date('2026-09-01T00:00:00+09:00'),
@@ -71,6 +72,7 @@ describe('ProgramsService detail', () => {
     expect(findFirst).not.toHaveBeenCalled();
     expect(findMany).not.toHaveBeenCalled();
     expect(detail.viewer).toEqual({ role: null, applicationStatus: null });
+    expect(detail.repositoryProvisioningEnabled).toBe(true);
     expect(detail.milestones[0]?.viewerSubmissionStatus).toBeNull();
     expect(detail.milestones[0]?.deadlineLabel).toBe('오늘 마감');
     expect(detail.milestones[1]?.deadlineLabel).toBe('마감 지남');

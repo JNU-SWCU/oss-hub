@@ -120,6 +120,7 @@ export class ProgramsRepository {
         organizer: true,
         category: true,
         description: true,
+        repositoryProvisioningEnabled: true,
         applicationStartAt: true,
         applicationEndAt: true,
         startAt: true,

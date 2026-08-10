@@ -3,7 +3,6 @@ import { ApplicationStatus, RepositoryInvitationStatus } from '@prisma/client';
 import {
   COLLABORATOR_OUTCOMES,
   type GithubAppClient,
-  type GithubPublicRepositoryMetadata,
 } from './github-app.client';
 import type { RepositoryOwnEnrollmentService } from './service/repository-own-enrollment.service';
 import type { RepositoryProvisionJobRepository } from './repository/repository-provision-job.repository';
@@ -29,6 +28,7 @@ import {
 import {
   findOrCreateGithubRepository,
   resolveOwnGithubRepository,
+  type OwnGithubRepositoryResolution,
 } from './repository-provision.github';
 import {
   buildRepositoryNames,
@@ -51,7 +51,7 @@ export type RepositoryProvisionResult =
 
 interface PreparedRepository {
   readonly repository: ProvisionedRepository;
-  readonly ownMetadata: GithubPublicRepositoryMetadata | null;
+  readonly ownResolution: OwnGithubRepositoryResolution | null;
 }
 
 export class RepositoryProvisionWorker {
@@ -69,6 +69,7 @@ export class RepositoryProvisionWorker {
       | 'createRepository'
       | 'ensureCollaborator'
       | 'findPublicRepository'
+      | 'organization'
     >,
     /**
      * OWN 저장소를 수집 큐에 편입한다. 프로비저닝과 수집은 별개 모델(`Repository`
@@ -112,30 +113,30 @@ export class RepositoryProvisionWorker {
               workerId,
               now,
             )
-          : { repository: context.repository, ownMetadata: null };
+          : { repository: context.repository, ownResolution: null };
       const repository = prepared.repository;
-      // OWN은 조직 밖 저장소라 초대 권한이 없다 — 초대 단계를 통째로 건너뛴다.
       if (connectionMode === 'OWN') {
         const completedAt = now();
-        const metadata =
-          prepared.ownMetadata ??
+        const resolution =
+          prepared.ownResolution ??
           (await resolveOwnGithubRepository(this.github, repositoryUrl ?? ''));
+        const metadata = resolution.repository;
         if (metadata.githubRepositoryId !== repository.githubRepositoryId) {
           throw finalProvisionFailure(
             PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
           );
         }
-        // 조직 인벤토리는 이 저장소를 못 본다. 여기서 수집 큐에 넣지 않으면
-        // 학생이 자기 저장소에서 아무리 활동해도 화면에 영영 안 나온다
-        // (ADR-009 §3, ADR-010 §5·§6).
-        await this.collectionEnrollment.enrollExternalRepository({
-          applicantGithubId: context.applicantGithubId,
-          githubRepositoryId: repository.githubRepositoryId,
-          nameWithOwner: metadata.nameWithOwner,
-          defaultBranch: metadata.defaultBranch,
-          archived: metadata.archived,
-          observedAt: completedAt,
-        });
+        if (resolution.kind === 'EXTERNAL') {
+          const externalRepository = resolution.repository;
+          await this.collectionEnrollment.enrollExternalRepository({
+            applicantGithubId: context.applicantGithubId,
+            githubRepositoryId: repository.githubRepositoryId,
+            nameWithOwner: externalRepository.nameWithOwner,
+            defaultBranch: externalRepository.defaultBranch,
+            archived: externalRepository.archived,
+            observedAt: completedAt,
+          });
+        }
         await this.state.completeJob(
           job.id,
           workerId,
@@ -266,7 +267,7 @@ export class RepositoryProvisionWorker {
     now: () => Date,
   ): Promise<PreparedRepository> {
     await this.jobs.renewLease(jobId, workerId, now());
-    const ownMetadata =
+    const ownResolution =
       connectionMode === 'OWN'
         ? await resolveOwnGithubRepository(
             this.github,
@@ -275,7 +276,7 @@ export class RepositoryProvisionWorker {
           )
         : null;
     const metadata =
-      ownMetadata ??
+      ownResolution?.repository ??
       (await findOrCreateGithubRepository(
         this.github,
         buildRepositoryNames({
@@ -294,7 +295,7 @@ export class RepositoryProvisionWorker {
       teamId: context.teamId,
       metadata,
     });
-    return { repository, ownMetadata };
+    return { repository, ownResolution };
   }
 
   private async processInvitations(

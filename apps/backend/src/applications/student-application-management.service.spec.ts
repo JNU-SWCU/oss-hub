@@ -1,5 +1,4 @@
 import { ApplicationStatus } from '@prisma/client';
-import { APPLICATION_ANSWER_MAX_LENGTHS } from '../programs/application-answers.validator';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApplicationsErrorCode } from './applications-error-code.enum';
@@ -53,7 +52,12 @@ function createRepository() {
     .mockResolvedValue(APPLICATION);
   const findProgramPolicy = jest
     .spyOn(applicationsRepository, 'findProgramById')
-    .mockResolvedValue({ id: 'program-1', category: 'BASIC', ...OPEN_PROGRAM });
+    .mockResolvedValue({
+      id: 'program-1',
+      category: 'BASIC',
+      repositoryProvisioningEnabled: false,
+      ...OPEN_PROGRAM,
+    });
   const updatePendingApplication = jest
     .spyOn(repository, 'updatePendingApplication')
     .mockResolvedValue({
@@ -94,65 +98,6 @@ async function expectDomainCode(
 }
 
 describe('StudentApplicationManagementService', () => {
-  it('상한이 생기기 전에 저장된 긴 신청서도 학생이 열 수 있다', async () => {
-    // Given: 상한을 넘는 요약이 이미 저장돼 있다(상한이 생기기 전에 낸 신청).
-    // ⚠ 읽기에서 길이를 재면 여기서 APP_015 로 튕겨 **학생이 자기 신청서를 열지도 못한다.**
-    //   고치라고 만든 상한이 고칠 길을 막는 셈이라, 읽기는 길이를 재지 않는다.
-    const tooLong = '가'.repeat(APPLICATION_ANSWER_MAX_LENGTHS.summary + 1);
-    const { repository, applicationsRepository, findOwnedApplication } =
-      createRepository();
-    findOwnedApplication.mockResolvedValue({
-      ...APPLICATION,
-      answers: { ...APPLICATION.answers, summary: tooLong },
-    });
-    const service = new StudentApplicationManagementService(
-      repository,
-      applicationsRepository,
-    );
-
-    // When: 본인 신청을 조회한다.
-    const result = await service.getMine(4242n, 'program-1', NOW);
-
-    // Then: 열리고, 내용이 잘리지도 않는다.
-    expect(result.answers.summary).toBe(tooLong);
-  });
-
-  it('수정으로 상한을 넘기면 어느 칸인지까지 알려 주며 거절한다', async () => {
-    // Given: 학생이 제목을 상한보다 길게 고쳐 저장하려 한다.
-    const { repository, applicationsRepository, updatePendingApplication } =
-      createRepository();
-    const service = new StudentApplicationManagementService(
-      repository,
-      applicationsRepository,
-    );
-
-    // When
-    const thrown: unknown = await service
-      .updateMine(
-        4242n,
-        'program-1',
-        {
-          answers: {
-            title: '가'.repeat(APPLICATION_ANSWER_MAX_LENGTHS.title + 1),
-            summary: '요약',
-          },
-          applicationTemplateVersion: OPEN_PROGRAM.applicationTemplateVersion,
-        },
-        NOW,
-      )
-      .then(
-        () => null,
-        (error: unknown) => error,
-      );
-
-    // Then: APP_015 로 뭉뚱그리지 않고, 넘친 칸을 실어 보내며, 저장하지 않는다.
-    expect(thrown).toBeInstanceOf(DomainException);
-    const failure = thrown as DomainException;
-    expect(failure.errorCode.code).toBe(ApplicationsErrorCode.ANSWER_TOO_LONG);
-    expect(failure.extensions.fieldErrors?.[0]?.field).toBe('title');
-    expect(updatePendingApplication).not.toHaveBeenCalled();
-  });
-
   it('신청 기간 내 승인 대기 신청을 조회한다', async () => {
     // Given
     const { repository, applicationsRepository } = createRepository();

@@ -16,6 +16,7 @@ import {
   type ProgramEditForm,
 } from './program-edit-flow';
 import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
+import { ProgramDeadlineControl } from './program-deadline-control';
 
 interface ProgramEditBasicFormProps {
   readonly program: EditableProgram;
@@ -219,6 +220,14 @@ export function ProgramEditBasicForm({
               신청 승인 시 GitHub 저장소 자동 생성
             </FieldLabel>
           </Field>
+          <ProgramDeadlineControl
+            enabled={form.notifyOnDeadline}
+            persistedEnabled={program.notifyOnDeadline}
+            programId={program.id}
+            onEnabledChange={(enabled) =>
+              onFieldChange('notifyOnDeadline', enabled)
+            }
+          />
           <FieldError>{errors.general}</FieldError>
           <div className="flex justify-between gap-2">
             <Button asChild type="button" variant="outline">

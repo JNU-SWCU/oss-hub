@@ -111,6 +111,7 @@ export interface ApplyProgramRecord {
   readonly applicationTemplateVersion: number;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
+  readonly repositoryProvisioningEnabled: boolean;
 }
 
 export interface CreateTeamForApplicationInput {
@@ -614,6 +615,7 @@ export class ApplicationsRepository {
         applicationTemplateVersion: true,
         applicationStartAt: true,
         applicationEndAt: true,
+        repositoryProvisioningEnabled: true,
       },
     });
   }

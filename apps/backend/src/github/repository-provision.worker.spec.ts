@@ -167,6 +167,56 @@ describe('RepositoryProvisionWorker success', () => {
 });
 
 describe('RepositoryProvisionWorker OWN connection', () => {
+  it('설정 조직 OWN 저장소는 App 접근으로 확인하고 외부 편입하지 않는다', async () => {
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    const repositoryUrl =
+      'https://github.com/synthetic-org/synthetic-existing-repo';
+    state.loadContext.mockResolvedValue(
+      ownProvisionContext({
+        eventPayload: {
+          applicationId: 'synthetic-application-id',
+          programId: 'synthetic-program-id',
+          teamId: null,
+          requestedAt: PROVISION_NOW.toISOString(),
+          collaboratorGithubLogins: ['synthetic-student'],
+          repositoryConnectionMode: 'OWN',
+          repositoryUrl,
+        },
+      }),
+    );
+    const provisioned = {
+      ...OWN_PROVISION_REPOSITORY,
+      name: 'synthetic-existing-repo',
+      url: repositoryUrl,
+      visibility: 'PRIVATE' as const,
+    };
+    state.recordRepository.mockResolvedValue(provisioned);
+    const github = githubClientMock();
+    github.findRepository.mockResolvedValue({
+      githubRepositoryId: provisioned.githubRepositoryId,
+      name: provisioned.name,
+      url: repositoryUrl,
+      visibility: 'PRIVATE',
+      description: null,
+    });
+    const enrollExternalRepository = jest.fn();
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository,
+    });
+
+    const result = await worker.runNext('worker-org-own', PROVISION_NOW);
+
+    expect(result).toEqual({
+      kind: 'SUCCEEDED',
+      jobId: 'synthetic-job-id',
+      repositoryId: provisioned.id,
+    });
+    expect(github.findRepository).toHaveBeenCalledWith(provisioned.name);
+    expect(github.findPublicRepository).not.toHaveBeenCalled();
+    expect(enrollExternalRepository).not.toHaveBeenCalled();
+  });
+
   it('OWN 승인은 저장소를 만들지 않고 학생 URL을 그대로 기록한다', async () => {
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();

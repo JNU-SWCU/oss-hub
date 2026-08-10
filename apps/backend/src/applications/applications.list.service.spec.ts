@@ -27,6 +27,7 @@ const OPEN_PROGRAM: ApplyProgramRecord = {
   applicationTemplateVersion: 1,
   applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
   applicationEndAt: new Date('2026-07-31T23:59:59.000Z'),
+  repositoryProvisioningEnabled: false,
 };
 
 const EMPTY_PAGE: ApplicationListPage = {

@@ -17,6 +17,7 @@ const CAPSTONE_DETAIL = {
   category: 'CAPSTONE',
   description:
     '학생이 팀 프로젝트를 오픈소스 저장소로 운영하고, 마일스톤별 산출물과 활동 기록을 제출하는 합성 검토용 프로그램입니다.',
+  repositoryProvisioningEnabled: true,
   applicationPeriod: {
     startsAt: '2026-07-01T00:00:00.000+09:00',
     endsAt: '2026-07-15T23:59:59.000+09:00',
@@ -66,6 +67,7 @@ const CONTEST_DETAIL = {
   category: 'OSS_CONTEST',
   description:
     '팀별 저장소에서 개발 과정을 기록하고 예선·본선 결과물을 제출하는 합성 검토용 경진대회입니다.',
+  repositoryProvisioningEnabled: true,
   applicationPeriod: {
     startsAt: '2026-07-01T00:00:00.000+09:00',
     endsAt: '2026-07-10T23:59:59.000+09:00',

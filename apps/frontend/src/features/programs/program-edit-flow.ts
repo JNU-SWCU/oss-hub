@@ -25,6 +25,7 @@ export interface ProgramEditForm {
   readonly originalEndAt: string | null;
   readonly milestoneDueAts: readonly string[];
   readonly repositoryProvisioningEnabled: boolean;
+  readonly notifyOnDeadline: boolean;
   readonly description: string;
   readonly teamMinSize: string;
   readonly teamMaxSize: string;
@@ -100,6 +101,7 @@ export function toProgramEditForm(program: EditableProgram): ProgramEditForm {
     originalEndAt: program.endAt,
     milestoneDueAts: program.milestones.map((milestone) => milestone.dueAt),
     repositoryProvisioningEnabled: program.repositoryProvisioningEnabled,
+    notifyOnDeadline: program.notifyOnDeadline,
     description: program.description,
     teamMinSize: program.teamMinSize?.toString() ?? '',
     teamMaxSize: program.teamMaxSize?.toString() ?? '',
@@ -174,6 +176,7 @@ export function buildProgramEditInput(
     applicationEndAt,
     endAt,
     repositoryProvisioningEnabled: form.repositoryProvisioningEnabled,
+    notifyOnDeadline: form.notifyOnDeadline,
     description: form.description.trim(),
     teamMinSize: requiresTeam ? Number(form.teamMinSize) : null,
     teamMaxSize: requiresTeam ? Number(form.teamMaxSize) : null,

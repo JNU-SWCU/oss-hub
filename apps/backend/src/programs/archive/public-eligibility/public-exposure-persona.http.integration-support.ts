@@ -91,6 +91,7 @@ export class PublicExposurePersonaHttpHarness {
       repositoriesRepository,
       github,
       auditLogService,
+      { requireOrganization: () => 'synthetic-org' },
     );
     const submissionReviewsService = new SubmissionReviewsService(
       new SubmissionReviewsRepository(this.prisma),

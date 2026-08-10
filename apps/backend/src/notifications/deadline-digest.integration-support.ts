@@ -31,7 +31,7 @@ export class IsolatingMailSender implements MailSender {
 
   send(mail: DeadlineDigestMail): Promise<void> {
     this.attempted.push(mail);
-    return mail.to === 'staff-on@example.com'
+    return mail.to === 'student-missing@example.com'
       ? Promise.reject(
           new Error(
             'SMTP rejected leaked-recipient@example.test token=synthetic-provider-token',
@@ -50,8 +50,8 @@ export function createDeadlineDigestIntegrationHarness() {
     await prisma.notification.deleteMany({
       where: { userId: { in: DIGEST_USER_IDS } },
     });
-    await prisma.submission.deleteMany({
-      where: { id: DIGEST_FIXTURE.submission },
+    await prisma.milestoneDocumentSubmission.deleteMany({
+      where: { id: DIGEST_FIXTURE.documentSubmission },
     });
     await prisma.application.deleteMany({
       where: { id: { in: DIGEST_APPLICATION_FIXTURES.map(([id]) => id) } },
@@ -66,6 +66,13 @@ export function createDeadlineDigestIntegrationHarness() {
     await prisma.team.deleteMany({
       where: {
         id: { in: DIGEST_APPLICATION_FIXTURES.map(([id]) => `${id}-team`) },
+      },
+    });
+    await prisma.milestoneDocument.deleteMany({
+      where: {
+        id: {
+          in: [DIGEST_FIXTURE.notifyDocument, DIGEST_FIXTURE.silentDocument],
+        },
       },
     });
     await prisma.milestone.deleteMany({
@@ -122,6 +129,26 @@ export function createDeadlineDigestIntegrationHarness() {
         submissionType: MilestoneSubmissionType.TEXT,
       })),
     });
+    await prisma.milestoneDocument.createMany({
+      data: [
+        {
+          id: DIGEST_FIXTURE.notifyDocument,
+          milestoneId: DIGEST_FIXTURE.notifyMilestone,
+          name: `synthetic ${DIGEST_FIXTURE.notifyDocument}`,
+          required: true,
+          sortOrder: 1,
+          submissionType: MilestoneSubmissionType.TEXT,
+        },
+        {
+          id: DIGEST_FIXTURE.silentDocument,
+          milestoneId: DIGEST_FIXTURE.silentMilestone,
+          name: `synthetic ${DIGEST_FIXTURE.silentDocument}`,
+          required: true,
+          sortOrder: 1,
+          submissionType: MilestoneSubmissionType.TEXT,
+        },
+      ],
+    });
     await prisma.user.createMany({
       data: DIGEST_USER_FIXTURES.map(
         ([
@@ -170,11 +197,12 @@ export function createDeadlineDigestIntegrationHarness() {
         status: ApplicationStatus.APPROVED,
       })),
     });
-    await prisma.submission.create({
+    await prisma.milestoneDocumentSubmission.create({
       data: {
-        id: DIGEST_FIXTURE.submission,
+        id: DIGEST_FIXTURE.documentSubmission,
         applicationId: DIGEST_FIXTURE.submittedApplication,
-        milestoneId: DIGEST_FIXTURE.notifyMilestone,
+        milestoneDocumentId: DIGEST_FIXTURE.notifyDocument,
+        submittedById: DIGEST_FIXTURE.studentSubmitted,
       },
     });
   }

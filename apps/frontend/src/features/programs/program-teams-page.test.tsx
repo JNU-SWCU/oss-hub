@@ -33,6 +33,7 @@ const program: ProgramDetail = {
   organizer: '합성 주관',
   category: 'OSS_CONTEST',
   description: '설명',
+  repositoryProvisioningEnabled: true,
   applicationPeriod: {
     startsAt: '2026-07-01T00:00:00.000Z',
     endsAt: '2026-07-31T23:59:59.000Z',

@@ -12,6 +12,7 @@ import {
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { DomainException } from '../common/error-code';
 import type { ProblemDetailExtensions } from '../common/error-code';
+import { parseGithubRepositoryUrl } from '../common/github-repository-url';
 import {
   checkApplicationTemplateVersion,
   applicationAnswerTooLongMessage,
@@ -98,13 +99,6 @@ function isProvisioningCompleted(
   return status === RepositoryProvisionJobStatus.SUCCEEDED;
 }
 
-function isHttpsUrl(value: string): boolean {
-  if (value.length === 0 || !URL.canParse(value)) {
-    return false;
-  }
-  return new URL(value).protocol === 'https:';
-}
-
 @Injectable()
 export class ApplicationsService {
   private readonly logger = new Logger(ApplicationsService.name);
@@ -136,6 +130,11 @@ export class ApplicationsService {
     if (now < program.applicationStartAt || now > program.applicationEndAt) {
       throw this.error(ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED);
     }
+
+    const repositoryConnection = this.resolveRepositoryConnection(
+      program.repositoryProvisioningEnabled,
+      input,
+    );
 
     const versionCheck = checkApplicationTemplateVersion(
       input.applicationTemplateVersion,
@@ -245,8 +244,8 @@ export class ApplicationsService {
           answers: answersResult.answers,
           applicationTemplateVersion: program.applicationTemplateVersion,
           isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
-          repositoryConnectionMode: input.repositoryConnectionMode,
-          repositoryUrl: input.repositoryUrl,
+          repositoryConnectionMode: repositoryConnection.mode,
+          repositoryUrl: repositoryConnection.url,
         });
       });
     } catch (error) {
@@ -259,6 +258,44 @@ export class ApplicationsService {
       }
       throw error;
     }
+  }
+
+  private resolveRepositoryConnection(
+    enabled: boolean,
+    input: CreateApplicationInput,
+  ): {
+    readonly mode: RepositoryConnectionMode;
+    readonly url: string | null;
+  } {
+    if (!enabled) {
+      if (
+        input.repositoryConnectionMode !== null ||
+        input.repositoryUrl !== null
+      ) {
+        throw this.error(
+          ApplicationsErrorCode.REPOSITORY_CONNECTION_MODE_FORBIDDEN,
+        );
+      }
+      return { mode: RepositoryConnectionMode.NEW, url: null };
+    }
+    if (input.repositoryConnectionMode === null) {
+      throw this.error(
+        ApplicationsErrorCode.REPOSITORY_CONNECTION_MODE_REQUIRED,
+      );
+    }
+    if (input.repositoryConnectionMode === RepositoryConnectionMode.NEW) {
+      return { mode: RepositoryConnectionMode.NEW, url: null };
+    }
+    if (
+      input.repositoryUrl === null ||
+      parseGithubRepositoryUrl(input.repositoryUrl) === null
+    ) {
+      throw this.error(ApplicationsErrorCode.OWN_REPOSITORY_URL_REQUIRED);
+    }
+    return {
+      mode: input.repositoryConnectionMode,
+      url: input.repositoryUrl,
+    };
   }
 
   async listForProgram(
@@ -514,12 +551,11 @@ export class ApplicationsService {
             extensions,
           );
         }
-        // D4 가드 ②: OWN인데 repositoryUrl 없거나 https가 아니면 400.
         if (
           application.repositoryConnectionMode ===
             RepositoryConnectionMode.OWN &&
           (application.repositoryUrl === null ||
-            !isHttpsUrl(application.repositoryUrl))
+            parseGithubRepositoryUrl(application.repositoryUrl) === null)
         ) {
           throw this.error(ApplicationsErrorCode.OWN_REPOSITORY_URL_REQUIRED);
         }

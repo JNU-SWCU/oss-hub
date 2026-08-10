@@ -96,6 +96,7 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
         teamMinSize: input.teamMinSize,
         teamMaxSize: input.teamMaxSize,
         repositoryProvisioningEnabled: input.repositoryProvisioningEnabled,
+        notifyOnDeadline: input.notifyOnDeadline,
         description: input.description,
       },
       include: editableProgramInclude,
@@ -311,6 +312,7 @@ function toEditableProgramView(program: ProgramRecord): EditableProgramView {
     teamMinSize: program.teamMinSize,
     teamMaxSize: program.teamMaxSize,
     repositoryProvisioningEnabled: program.repositoryProvisioningEnabled,
+    notifyOnDeadline: program.notifyOnDeadline,
     description: program.description,
     milestones: program.milestones.map(toMilestoneView),
   };

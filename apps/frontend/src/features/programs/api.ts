@@ -121,6 +121,7 @@ export interface EditableProgram {
   readonly applicationEndAt: string;
   readonly endAt: string | null;
   readonly repositoryProvisioningEnabled: boolean;
+  readonly notifyOnDeadline: boolean;
   readonly description: string;
   readonly teamMinSize: number | null;
   readonly teamMaxSize: number | null;
@@ -130,6 +131,7 @@ export interface EditableProgram {
 export type UpdateProgramInput = Omit<CreateProgramInput, 'endAt'> & {
   readonly endAt: string | null;
   readonly repositoryProvisioningEnabled: boolean;
+  readonly notifyOnDeadline: boolean;
 };
 
 export interface UpsertMilestoneInput {
@@ -278,8 +280,8 @@ export interface CreateApplicationInput {
   };
   readonly applicationTemplateVersion: number;
   readonly isRepositoryPublicationPlanned: boolean;
-  /** 폼 값 — wire 전송 시 `NEW`/`OWN`으로 매핑한다. */
-  readonly repositoryConnectionMode: CreateApplicationRepositoryConnectionMode;
+  /** 폼 값 — wire 전송 시 `NEW`/`OWN`, 발급 비활성은 null로 매핑한다. */
+  readonly repositoryConnectionMode: CreateApplicationRepositoryConnectionMode | null;
   /**
    * 폼 값. `own`이면 trim 한 URL을 보내고, `new`이면 빈 문자열이어도 wire에는
    * `null`을 넣는다(백엔드가 빈 문자열을 400으로 거절한다).
@@ -296,10 +298,11 @@ export interface CreatedApplication {
   readonly isRepositoryPublicationPlanned: boolean;
 }
 
-/** 폼 `new`/`own` → 신청 생성 API `NEW`/`OWN`. 응답 쪽 `mapParticipation`과 같은 경계. */
+/** 폼 `new`/`own`/null → 신청 생성 API `NEW`/`OWN`/null. */
 function mapRepositoryConnectionModeForApi(
-  mode: CreateApplicationRepositoryConnectionMode,
-): 'NEW' | 'OWN' {
+  mode: CreateApplicationRepositoryConnectionMode | null,
+): 'NEW' | 'OWN' | null {
+  if (mode === null) return null;
   return mode === 'own' ? 'OWN' : 'NEW';
 }
 

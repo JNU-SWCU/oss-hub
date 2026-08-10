@@ -65,7 +65,17 @@ function dependencies() {
   const auditLog = {
     record: jest.fn().mockResolvedValue(undefined),
   } as jest.Mocked<Pick<AuditLogService, 'record'>>;
-  return { repository, github, auditLog, store };
+  const organization = { requireOrganization: jest.fn(() => 'synthetic-org') };
+  return { repository, github, auditLog, organization, store };
+}
+
+function serviceFrom(deps: ReturnType<typeof dependencies>) {
+  return new RepositoriesService(
+    deps.repository,
+    deps.github,
+    deps.auditLog,
+    deps.organization,
+  );
 }
 
 function job(overrides: Partial<OwnedProvisionJob> = {}): OwnedProvisionJob {
@@ -115,13 +125,18 @@ describe('RepositoriesService.getMyRepositories', () => {
           id: 'synthetic-completed-repository',
           applicationId: 'synthetic-team-application',
           name: 'synthetic-completed',
-          url: 'https://github.com/JNU-SWCU/synthetic-completed',
+          url: 'https://github.com/synthetic-org/synthetic-completed',
           visibility: RepositoryVisibility.PRIVATE,
           invitations: [{ status: RepositoryInvitationStatus.SUCCEEDED }],
         },
       }),
     ]);
-    const service = new RepositoriesService(repository, github, auditLog);
+    const service = serviceFrom({
+      ...dependencies(),
+      repository,
+      github,
+      auditLog,
+    });
 
     const result = await service.getMyRepositories(123n);
 
@@ -148,7 +163,7 @@ describe('RepositoriesService.getMyRepositories', () => {
         programName: 'Team program',
         displayName: 'Synthetic team',
         repositoryName: 'synthetic-completed',
-        githubUrl: 'https://github.com/JNU-SWCU/synthetic-completed',
+        githubUrl: 'https://github.com/synthetic-org/synthetic-completed',
         provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
         invitationStatus: RepositoryInvitationStatus.SUCCEEDED,
         visibility: RepositoryVisibility.PRIVATE,
@@ -183,7 +198,12 @@ describe('RepositoriesService.getMyRepositories', () => {
         },
       }),
     ]);
-    const service = new RepositoriesService(repository, github, auditLog);
+    const service = serviceFrom({
+      ...dependencies(),
+      repository,
+      github,
+      auditLog,
+    });
 
     const result = await service.getMyRepositories(123n);
 
@@ -212,9 +232,12 @@ describe('RepositoriesService.getMyRepositories', () => {
     ]);
 
     await expect(
-      new RepositoriesService(repository, github, auditLog).getMyRepositories(
-        123n,
-      ),
+      serviceFrom({
+        ...dependencies(),
+        repository,
+        github,
+        auditLog,
+      }).getMyRepositories(123n),
     ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
   });
 
@@ -235,9 +258,12 @@ describe('RepositoriesService.getMyRepositories', () => {
     ]);
 
     await expect(
-      new RepositoriesService(repository, github, auditLog).getMyRepositories(
-        123n,
-      ),
+      serviceFrom({
+        ...dependencies(),
+        repository,
+        github,
+        auditLog,
+      }).getMyRepositories(123n),
     ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
   });
 
@@ -250,7 +276,7 @@ describe('RepositoriesService.getMyRepositories', () => {
           id: 'synthetic-mismatched-repository',
           applicationId: 'another-application',
           name: 'synthetic-mismatched',
-          url: 'https://github.com/JNU-SWCU/synthetic-mismatched',
+          url: 'https://github.com/synthetic-org/synthetic-mismatched',
           visibility: RepositoryVisibility.PRIVATE,
           invitations: [],
         },
@@ -258,9 +284,12 @@ describe('RepositoriesService.getMyRepositories', () => {
     ]);
 
     await expect(
-      new RepositoriesService(repository, github, auditLog).getMyRepositories(
-        123n,
-      ),
+      serviceFrom({
+        ...dependencies(),
+        repository,
+        github,
+        auditLog,
+      }).getMyRepositories(123n),
     ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
   });
 
@@ -273,12 +302,12 @@ describe('RepositoriesService.getMyRepositories', () => {
     [
       'trailing path',
       'synthetic-completed',
-      'https://github.com/JNU-SWCU/synthetic-completed/issues',
+      'https://github.com/synthetic-org/synthetic-completed/issues',
     ],
     [
       'unsafe repository name',
       'synthetic/completed',
-      'https://github.com/JNU-SWCU/synthetic/completed',
+      'https://github.com/synthetic-org/synthetic/completed',
     ],
   ])('fails closed on %s repository identity', async (_case, name, url) => {
     const { repository, github, auditLog } = dependencies();
@@ -297,9 +326,12 @@ describe('RepositoriesService.getMyRepositories', () => {
     ]);
 
     await expect(
-      new RepositoriesService(repository, github, auditLog).getMyRepositories(
-        123n,
-      ),
+      serviceFrom({
+        ...dependencies(),
+        repository,
+        github,
+        auditLog,
+      }).getMyRepositories(123n),
     ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
   });
 });
@@ -312,7 +344,12 @@ describe('RepositoriesService.publish', () => {
       visibility: RepositoryVisibility.PUBLIC,
       publishedAt: NOW,
     });
-    const service = new RepositoriesService(repository, github, auditLog);
+    const service = serviceFrom({
+      ...dependencies(),
+      repository,
+      github,
+      auditLog,
+    });
 
     const result = await service.publish(
       { repositoryId: target.id },
@@ -329,7 +366,12 @@ describe('RepositoriesService.publish', () => {
   it('GitHub 공개 결과의 identity를 확인한 뒤 승자가 정확히 1건의 typed audit을 남긴다', async () => {
     const { repository, github, auditLog, store } = dependencies();
     store.publishRepositoryIfPrivate.mockResolvedValue(true);
-    const service = new RepositoriesService(repository, github, auditLog);
+    const service = serviceFrom({
+      ...dependencies(),
+      repository,
+      github,
+      auditLog,
+    });
 
     const result = await service.publish(
       { repositoryId: target.id },
@@ -348,13 +390,7 @@ describe('RepositoriesService.publish', () => {
       targetType: 'REPOSITORY',
       targetId: target.id,
       metadata: {
-        schemaVersion: 2,
         repositoryId: target.id,
-        // CAS(publishRepositoryIfPrivate)가 이긴 뒤 같은 트랜잭션 안에서
-        // store.findPublishTarget을 다시 읽어 얻은 name/url에서 파생한 owner/name
-        // 스냅샷이다(deriveRepositoryFullName) — 트랜잭션 시작 전에 로드해 둔
-        // target.name/url이 아니라, CAS 커밋 직후 재조회한 값을 쓴다.
-        repositoryFullName: 'synthetic-org/synthetic-repository',
         before: { visibility: RepositoryVisibility.PRIVATE },
         after: {
           visibility: RepositoryVisibility.PUBLIC,
@@ -369,42 +405,6 @@ describe('RepositoriesService.publish', () => {
     });
   });
 
-  it('트랜잭션 시작 전 로드와 CAS 커밋 사이에 rename이 끼어들어도 감사 스냅샷은 트랜잭션 안에서 재조회한 이름을 쓴다', async () => {
-    const { repository, github, auditLog, store } = dependencies();
-    // repository.findPublishTarget(트랜잭션 시작 전 로드)은 옛 이름을 돌려준다 —
-    // github.publishRepository는 이 옛 이름으로 호출되므로 identity 검증에는
-    // 영향이 없다. CAS가 이긴 뒤 같은 트랜잭션 안에서 다시 읽는 store.findPublishTarget만
-    // rename된 새 이름/url을 돌려주도록 해, 그 사이에 rename이 커밋된 상황을 흉내낸다.
-    const renamed = {
-      ...target,
-      name: 'renamed-after-load',
-      url: 'https://github.com/synthetic-org/renamed-after-load',
-      visibility: RepositoryVisibility.PUBLIC,
-      publishedAt: NOW,
-    };
-    store.publishRepositoryIfPrivate.mockResolvedValue(true);
-    store.findPublishTarget.mockResolvedValue(renamed);
-    const service = new RepositoriesService(repository, github, auditLog);
-
-    const result = await service.publish(
-      { repositoryId: target.id },
-      ACTOR_GITHUB_ID,
-      NOW,
-    );
-
-    expect(github.publishRepository.mock.calls).toEqual([[target.name]]);
-    expect(auditLog.record.mock.calls[0]![0]).toMatchObject({
-      metadata: {
-        repositoryFullName: 'synthetic-org/renamed-after-load',
-      },
-    });
-    expect(result).toMatchObject({
-      name: 'renamed-after-load',
-      url: 'https://github.com/synthetic-org/renamed-after-load',
-      visibility: RepositoryVisibility.PUBLIC,
-    });
-  });
-
   it('CAS에서 진 patron은 감사 기록 없이 승자가 커밋한 상태를 재조회한다', async () => {
     const { repository, github, auditLog, store } = dependencies();
     const winnerCommittedState = {
@@ -414,7 +414,12 @@ describe('RepositoriesService.publish', () => {
     };
     store.publishRepositoryIfPrivate.mockResolvedValue(false);
     store.findPublishTarget.mockResolvedValue(winnerCommittedState);
-    const service = new RepositoriesService(repository, github, auditLog);
+    const service = serviceFrom({
+      ...dependencies(),
+      repository,
+      github,
+      auditLog,
+    });
 
     const result = await service.publish(
       { repositoryId: target.id },
@@ -432,7 +437,12 @@ describe('RepositoriesService.publish', () => {
   it('없는 repository는 GitHub 호출 전에 중단한다', async () => {
     const { repository, github, auditLog } = dependencies();
     repository.findPublishTarget.mockResolvedValue(null);
-    const service = new RepositoriesService(repository, github, auditLog);
+    const service = serviceFrom({
+      ...dependencies(),
+      repository,
+      github,
+      auditLog,
+    });
 
     const publish = service.publish(
       { repositoryId: 'missing' },

@@ -9,6 +9,7 @@ const publicDetail: ProgramDetail = {
   organizer: '합성 운영기관',
   category: 'OSS_CONTEST',
   description: '합성 설명',
+  repositoryProvisioningEnabled: true,
   applicationPeriod: {
     startsAt: '2026-08-01T00:00:00+09:00',
     endsAt: '2026-08-15T23:59:59+09:00',

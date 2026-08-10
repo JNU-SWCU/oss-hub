@@ -69,13 +69,19 @@ import { RepositoryOwnEnrollmentService } from './service/repository-own-enrollm
     },
     {
       provide: RepositoriesService,
-      inject: [RepositoriesRepository, GithubAppClient, AuditLogService],
+      inject: [
+        RepositoriesRepository,
+        GithubAppClient,
+        AuditLogService,
+        GithubOperationsConfig,
+      ],
       useFactory: (
         repository: RepositoriesRepository,
         github: GithubAppClient,
         auditLog: AuditLogService,
+        config: GithubOperationsConfig,
       ): RepositoriesService =>
-        new RepositoriesService(repository, github, auditLog),
+        new RepositoriesService(repository, github, auditLog, config),
     },
     {
       provide: REPOSITORIES_READ_PORT,
