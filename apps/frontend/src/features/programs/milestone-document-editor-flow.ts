@@ -31,12 +31,9 @@ export function submissionTypeLabel(type: SubmissionType): string {
 export const SUBMISSION_TYPE_CHOICES: readonly {
   readonly value: SubmissionType;
   readonly label: string;
-}[] = (
-  [
-    'FILE',
-    'TEXT',
-  ] as const satisfies readonly SubmissionType[]
-).map((value) => ({ value, label: SUBMISSION_TYPE_LABELS[value] }));
+}[] = (['FILE', 'TEXT'] as const satisfies readonly SubmissionType[]).map(
+  (value) => ({ value, label: SUBMISSION_TYPE_LABELS[value] }),
+);
 
 export function toSubmissionType(value: string): SubmissionType {
   switch (value) {

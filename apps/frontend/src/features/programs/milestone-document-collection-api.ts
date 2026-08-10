@@ -84,8 +84,10 @@ export interface MilestoneDocumentCollectionReview {
  * 「못 보고 승인」과 같은 사고라서 서버가 자르지 않기로 한 것이고, 잘린 뒤를 읽을 단건
  * 조회도 없다. 화면은 그 전문을 담을 자리를 마련해야 한다(패널의 스크롤 영역).
  */
-export type MilestoneDocumentCollectionContent =
-  { readonly type: 'TEXT'; readonly text: string };
+export type MilestoneDocumentCollectionContent = {
+  readonly type: 'TEXT';
+  readonly text: string;
+};
 
 /**
  * 표의 칸 — 미제출도 칸이 비지 않고 `isSubmitted: false`로 채워져 온다.
@@ -129,7 +131,7 @@ export interface MilestoneDocumentCollectionCell {
    * 글로 낸 제출의 본문. FILE 제출이거나 미제출이면 `null`이다.
    *
    * ⚠ **판정 화면은 이 값을 반드시 그려야 한다.** 이것을 그리지 않으면 제출 방식 세 가지
-    * 중 글이 교직원에게 통째로 안 보이고, 그는 내용을 한 글자도 못 본 채
+   * 중 글이 교직원에게 통째로 안 보이고, 그는 내용을 한 글자도 못 본 채
    * 승인·반려를 누른다.
    */
   readonly content: MilestoneDocumentCollectionContent | null;
