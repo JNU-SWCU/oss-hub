@@ -67,6 +67,11 @@ async function prepareFixtureProject(body) {
       console.error('WARMUP_READY');
       process.exit(0);
     }
+    // startServer detaches the dev command into its own process group, so
+    // killing the driver does not reap it. If a run dies before stopServer gets
+    // to it, this is what keeps a listening fixture from outliving the suite —
+    // it fires well after the widest budget the clamp above allows.
+    setTimeout(() => process.exit(0), 25_000);
     ${body}`,
   );
   const warmup = await warmUpDevCommand(cwd);
