@@ -50,6 +50,34 @@ async function warmUpDevCommand(cwd) {
   return { elapsed: Date.now() - startedAt, output };
 }
 
+// Builds a fixture pnpm project whose `dev` script runs `body`, warms that
+// command up, and hands back a readiness budget scaled to the start-up cost
+// measured on this machine rather than a constant.
+async function prepareFixtureProject(body) {
+  const cwd = await mkdtemp(path.join(tmpdir(), 'card-grid-runner-'));
+  temporaryDirectories.push(cwd);
+  await writeFile(
+    path.join(cwd, 'package.json'),
+    JSON.stringify({ scripts: { dev: 'node dev-command.mjs' } }),
+  );
+  await writeFile(path.join(cwd, '.npmrc'), 'verify-deps-before-run=false\n');
+  await writeFile(
+    path.join(cwd, 'dev-command.mjs'),
+    `if (process.env.CARD_GRID_WARMUP === '1') {
+      console.error('WARMUP_READY');
+      process.exit(0);
+    }
+    ${body}`,
+  );
+  const warmup = await warmUpDevCommand(cwd);
+  return {
+    cwd,
+    // The clamp keeps a pathological warm-up inside the test timeout.
+    readinessBudget: Math.min(15_000, Math.max(4_000, warmup.elapsed * 6)),
+    warmup,
+  };
+}
+
 afterEach(async () => {
   await Promise.all(
     temporaryDirectories
@@ -60,20 +88,8 @@ afterEach(async () => {
 
 test('cancels readiness work and preserves logs when the child exits first', async () => {
   // Given: a dev command that logs a diagnostic and exits before serving HTTP.
-  const cwd = await mkdtemp(path.join(tmpdir(), 'card-grid-runner-'));
-  temporaryDirectories.push(cwd);
-  await writeFile(
-    path.join(cwd, 'package.json'),
-    JSON.stringify({ scripts: { dev: 'node exit-before-readiness.mjs' } }),
-  );
-  await writeFile(path.join(cwd, '.npmrc'), 'verify-deps-before-run=false\n');
-  await writeFile(
-    path.join(cwd, 'exit-before-readiness.mjs'),
-    `import { createServer } from 'node:net';
-    if (process.env.CARD_GRID_WARMUP === '1') {
-      console.error('WARMUP_READY');
-      process.exit(0);
-    }
+  const { cwd, readinessBudget, warmup } = await prepareFixtureProject(
+    `const { createServer } = await import('node:net');
     for (let index = 0; index < 30; index += 1) {
       console.error(\`DIAGNOSTIC_\${String(index).padStart(2, '0')}\`);
     }
@@ -90,14 +106,7 @@ test('cancels readiness work and preserves logs when the child exits first', asy
   );
   // And: the dev command is known to reach its own code, so the timed run below
   // can only fail on the cancellation and log behaviour under test.
-  const warmup = await warmUpDevCommand(cwd);
   expect(warmup.output).toContain('WARMUP_READY');
-
-  // The readiness budget is a multiple of the start-up cost just measured on
-  // this machine, not a constant — a loaded machine widens the deadline instead
-  // of losing the race to it. The clamp keeps a pathological warm-up inside the
-  // test timeout.
-  const readinessBudget = Math.min(15_000, Math.max(4_000, warmup.elapsed * 6));
 
   const driver = `
     import { startServer } from ${JSON.stringify(runtimeUrl.href)};
