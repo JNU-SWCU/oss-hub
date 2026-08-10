@@ -106,7 +106,6 @@ describe('AdminProfileRepository P2034 직렬화 충돌 재시도 (QA58)', () =>
         { repository, auditLog },
         {
           actorGithubId: actorA.githubId,
-          actor: { name: actorA.name, githubLogin: 'synthetic-admin-a' },
           userId,
           command: { name: '이름 A' },
         },
@@ -115,7 +114,6 @@ describe('AdminProfileRepository P2034 직렬화 충돌 재시도 (QA58)', () =>
         { repository, auditLog },
         {
           actorGithubId: actorB.githubId,
-          actor: { name: actorB.name, githubLogin: 'synthetic-admin-b' },
           userId,
           command: { department: '학과 B' },
         },

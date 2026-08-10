@@ -12,6 +12,10 @@ import {
   resolveAdminAccessTransition,
 } from './admin-access-transition-table';
 import type { AdminAccessActor } from './admin-access.repository.types';
+import {
+  ADMIN_ACCESS_REQUEST_DECISIONS,
+  type AdminAccessMutationCommand,
+} from './domain/admin-access';
 import { UsersErrorCode } from './users-error-code.enum';
 
 /**
@@ -212,7 +216,13 @@ describe('admin access read profile completeness', () => {
     // When / Then
     expect(approval.outcome.requiresCompleteProfile).toBe(true);
     expect(() =>
-      enforceAdminAccessGuards(actor(), before, approval.outcome, 2),
+      enforceAdminAccessGuards(
+        actor(),
+        before,
+        approveStaffCommand(),
+        approval.outcome,
+        2,
+      ),
     ).not.toThrow();
   });
 
@@ -246,6 +256,7 @@ describe('admin access read profile completeness', () => {
         enforceAdminAccessGuards(
           actor(),
           before,
+          approveStaffCommand(),
           approveStaffTransition().outcome,
           2,
         ),
@@ -270,7 +281,13 @@ describe('admin access read profile completeness', () => {
     // When
     let thrown: unknown;
     try {
-      enforceAdminAccessGuards(actor(), before, approval.outcome, 2);
+      enforceAdminAccessGuards(
+        actor(),
+        before,
+        approveStaffCommand(),
+        approval.outcome,
+        2,
+      );
     } catch (error) {
       thrown = error;
     }
@@ -301,6 +318,20 @@ function approveStaffTransition() {
     throw new Error('Expected the staff approval transition to be allowed');
   }
   return { outcome: transition.outcome };
+}
+
+function approveStaffCommand(): AdminAccessMutationCommand {
+  return {
+    expectedRole: null,
+    desiredRole: Role.STAFF,
+    expectedAccountStatus: AccountStatus.ACTIVE,
+    desiredAccountStatus: AccountStatus.ACTIVE,
+    expectedPendingRequest: {
+      id: 'request-pending',
+      status: RoleRequestStatus.PENDING,
+    },
+    requestDecision: { decision: ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE },
+  };
 }
 
 function actor(): AdminAccessActor {

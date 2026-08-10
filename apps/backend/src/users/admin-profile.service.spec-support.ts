@@ -1,4 +1,6 @@
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
+import { adminActor } from './admin-access.service.spec-support';
+import type { AdminAccessActor } from './admin-access.repository.types';
 import type {
   AdminProfileApplyOutcome,
   AdminProfileLegacyFields,
@@ -30,7 +32,10 @@ export class InMemoryAdminProfileRepository
   implements AdminProfileRepositoryPort, AdminProfileTransactionStore
 {
   readonly auditLogWriter = {} as AuditLogTransactionWriter;
+  actor: AdminAccessActor | null = adminActor();
   target: AdminProfileTargetRecord | null = profileTarget();
+  /** 호출 순서 기록 — actor 조회가 잠금 **뒤에** 있는지 단언하는 데 쓴다(#687). */
+  operations: string[] = [];
   applyOutcome: AdminProfileApplyOutcome = 'applied';
   legacyFieldsApplied: AdminProfileLegacyFields[] = [];
   profileFieldsApplied: AdminProfileWriteFields[] = [];
@@ -43,7 +48,18 @@ export class InMemoryAdminProfileRepository
     return operation(this);
   }
 
+  lockActiveAdmins(): Promise<void> {
+    this.operations.push('lock-active-admins');
+    return Promise.resolve();
+  }
+
+  findActor(): Promise<AdminAccessActor | null> {
+    this.operations.push('find-actor');
+    return Promise.resolve(this.actor);
+  }
+
   findTarget(): Promise<AdminProfileTargetRecord | null> {
+    this.operations.push('find-target');
     return Promise.resolve(this.target);
   }
 
