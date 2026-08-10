@@ -187,7 +187,13 @@ test('cancels the shutdown timeout when SIGTERM stops the child', async () => {
       await once(child, 'spawn');
       const startedAt = Date.now();
       try {
-        await stopServer(child, Date.now() + 7_000, 100);
+        // The grace has to outlast the child's own exit by a wide margin: this
+        // asserts the *unused* branch, so a loaded machine must not be able to
+        // turn a healthy SIGTERM exit into an escalation. It also sharpens the
+        // quiescence bound below — a grace timer that survived the observed
+        // exit now shows up as ~2s of lingering work rather than ~100ms, which
+        // is under the threshold and would go unnoticed.
+        await stopServer(child, Date.now() + 7_000, 2_000);
       } catch (error) {
         console.error('STOP_ERROR', error?.code ?? error);
       }
