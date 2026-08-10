@@ -9,7 +9,10 @@ import type {
 } from '../collection-canonical.types';
 import type { CollectionCanonicalRepository } from '../repository/collection-canonical.repository';
 import type { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
-import type { CollectionStreamType } from '../collection-incremental.types';
+import type {
+  CollectionStreamType,
+  RegisteredGithubIdSet,
+} from '../collection-incremental.types';
 
 /**
  * ADR-006 조직 전체 누적·증분 수집 계약의 backfill entry point (public-admin-exposure
@@ -155,13 +158,14 @@ export class CollectionGenerationImportService {
     >,
     private readonly incrementalRepository: Pick<
       CollectionIncrementalRepository,
-      'runInTransaction'
+      'listRegisteredGithubIds' | 'runInTransaction'
     >,
     private readonly resolveGithubOrganizationId: () => Promise<bigint>,
   ) {}
 
   async importActiveGeneration(
     key: CanonicalLeaseKey,
+    registeredGithubIds?: RegisteredGithubIdSet,
   ): Promise<GenerationImportResult> {
     const snapshot =
       await this.canonicalRepository.getActiveGenerationSnapshot(key);
@@ -175,6 +179,11 @@ export class CollectionGenerationImportService {
       };
     }
 
+    // D9 — import 전체가 같은 가입자 snapshot을 공유한다. 조회 실패는 첫 저장소 write 전에
+    // 전파되어 canonical 데이터보다 개인 식별자 유입을 fail-closed 한다.
+    const identitySnapshot =
+      registeredGithubIds ??
+      (await this.incrementalRepository.listRegisteredGithubIds());
     const groups = groupSnapshotByRepository(snapshot);
     const githubOrganizationId = await this.resolveGithubOrganizationId();
     const repositories: GenerationImportRepositoryResult[] = [];
@@ -208,6 +217,7 @@ export class CollectionGenerationImportService {
               authorGithubId: commit.authorGithubId,
               authorGithubLogin: commit.authorGithubLogin,
             })),
+            identitySnapshot,
           );
           const pullRequests = await repo.recordPullRequestFacts(
             row.id,
@@ -218,6 +228,7 @@ export class CollectionGenerationImportService {
               authorGithubId: pullRequest.authorGithubId,
               authorGithubLogin: pullRequest.authorGithubLogin,
             })),
+            identitySnapshot,
           );
           const releases = await repo.recordReleaseFacts(
             row.id,
@@ -227,6 +238,7 @@ export class CollectionGenerationImportService {
               authorGithubId: release.authorGithubId,
               authorGithubLogin: release.authorGithubLogin,
             })),
+            identitySnapshot,
           );
 
           for (const streamType of COLLECTION_STREAM_TYPES_TO_VERIFY) {

@@ -127,9 +127,11 @@ const applyUpdate = (existing: Row, update: Row): Row => {
 interface FailureControl {
   failCommitShas: Set<string>;
   failPullRequestIds: Set<bigint>;
-  failExternalFactCleanup: boolean;
   /** 시스템 상태 관측성 2단계 — sweep-history 쓰기를 강제로 실패시켜 best-effort 경로를 검증한다. */
   failSweepHistoryWrite: boolean;
+  failRegisteredGithubIdsLookup: boolean;
+  registeredGithubIds: Set<bigint>;
+  registeredGithubIdsLookupCount: number;
 }
 
 const repoKey = (repoId: bigint): string => String(repoId);
@@ -345,11 +347,15 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
     // 기본은 "요청된 사람은 모두 가입자". 가입자 필터 자체는
     // collection-incremental.repository.spec.ts 의 전용 describe 가 검증한다.
     user: {
-      findMany: ({
-        where,
-      }: {
-        where: { githubId: { in: readonly bigint[] } };
-      }) => where.githubId.in.map((githubId) => ({ githubId })),
+      findMany: jest.fn(() => {
+        control.registeredGithubIdsLookupCount += 1;
+        if (control.failRegisteredGithubIdsLookup) {
+          throw new Error('synthetic registered github id lookup failure');
+        }
+        return [...control.registeredGithubIds].map((githubId) => ({
+          githubId,
+        }));
+      }),
     },
     collectionRepositoryStream: {
       upsert: ({
@@ -411,12 +417,7 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
     // 집합 재계산 SQL. 실제 SQL 동작은 통합 스펙이 검증하고,
     // 여기서는 "칸 수와 무관하게 한 번만 돈다"는 계약만 본다.
     $executeRaw: (query: TemplateStringsArray): number => {
-      if (
-        control.failExternalFactCleanup &&
-        query.join('').includes('DELETE FROM "CollectionCommitFact"')
-      ) {
-        throw new Error('synthetic external fact cleanup failure');
-      }
+      void query;
       box.store.recomputeCalls += 1;
       return 1;
     },
@@ -573,8 +574,10 @@ function createFakeDb(): {
   const control: FailureControl = {
     failCommitShas: new Set(),
     failPullRequestIds: new Set(),
-    failExternalFactCleanup: false,
     failSweepHistoryWrite: false,
+    failRegisteredGithubIdsLookup: false,
+    registeredGithubIds: new Set([1n, 11n, 22n, 33n, 98n, 99n]),
+    registeredGithubIdsLookupCount: 0,
   };
   const box = { store: emptyStore() };
   const db = makeFacade(box, control) as PrismaService;
@@ -944,8 +947,8 @@ describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
     expect(box.store.recomputeCalls).toBeGreaterThan(0);
   });
 
-  it('외부 저장소 404를 완전 관찰해 정리 실패와 무관하게 ABSENT로 회수하고 stream을 실행하지 않는다', async () => {
-    const { db, box, control } = createFakeDb();
+  it('외부 저장소 404를 완전 관찰하면 기존 fact를 지우지 않고 ABSENT로 회수하며 stream을 실행하지 않는다', async () => {
+    const { db, box } = createFakeDb();
     box.store.repositories.set(repoKey(555n), {
       id: 'repo-external-missing',
       githubOrganizationId: null,
@@ -963,8 +966,6 @@ describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
       new CollectionAppClientError('NOT_FOUND'),
     );
     quietStreams(client);
-    control.failExternalFactCleanup = true;
-
     const result = await createServiceWithExternal(db, client).runExternal(
       'owner-1',
     );
@@ -1224,6 +1225,22 @@ describe('CollectionSyncService — READY repository conditional polling', () =>
 });
 
 describe('CollectionSyncService — fenced transactions and lease safety', () => {
+  it('가입자 스냅샷 조회가 실패하면 inventory와 fact write 전에 run을 실패시킨다', async () => {
+    const { db, box, control } = createFakeDb();
+    control.failRegisteredGithubIdsLookup = true;
+    const client = createClient([providerRepository()]);
+
+    const result = await createService(db, client).run('owner-1');
+
+    expect(result.status).toBe('FAILED');
+    expect(control.registeredGithubIdsLookupCount).toBe(1);
+    expect(client.listInstallationRepositories).not.toHaveBeenCalled();
+    expect(box.store.repositories.size).toBe(0);
+    expect(box.store.commitFacts.size).toBe(0);
+    expect(box.store.pullRequestFacts.size).toBe(0);
+    expect(box.store.releaseFacts.size).toBe(0);
+  });
+
   it('중간 실패는 frontier 를 건드리지 않지만 스윕을 세우지도 않는다 — 실패는 백오프로 되돌아온다', async () => {
     const { db, box, control } = createFakeDb();
     const client = createClient([providerRepository()]);
@@ -1347,7 +1364,7 @@ describe('CollectionSyncService — no automatic publish', () => {
 
 describe('CollectionSyncService — durable cursor draining a mixed fixture across budget-limited runs', () => {
   it('drains a 100-repository fixture fairly across multiple runs via the durable continuation cursor, never restarting at repo 1', async () => {
-    const { db } = createFakeDb();
+    const { db, control } = createFakeDb();
     const repositories = Array.from({ length: 100 }, (_, i) =>
       providerRepository({
         id: String(1000 + i),
@@ -1372,7 +1389,7 @@ describe('CollectionSyncService — durable cursor draining a mixed fixture acro
         processedOrder.push(repoName);
         processedThisRun += 1;
         return Promise.resolve({
-          commits: [],
+          commits: [commit({ sha: `sha-${repoName}` })],
           disconnectedFullScan: true,
           fingerprint: fingerprint('/repos/o/r/commits'),
         });
@@ -1420,6 +1437,8 @@ describe('CollectionSyncService — durable cursor draining a mixed fixture acro
     // never restarted at repo 1 mid-drain — every repo processed exactly once.
     expect(new Set(processedOrder).size).toBe(100);
     expect(runs).toBeGreaterThan(1);
+    // D9 — 가입자 identity snapshot은 저장소나 fact마다 다시 묻지 않고 run당 한 번만 읽는다.
+    expect(control.registeredGithubIdsLookupCount).toBe(runs);
     stopAfter = Number.MAX_SAFE_INTEGER;
   });
 });
@@ -2288,6 +2307,46 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터(ADR-00
     expect(box.store.pullRequestFacts.size).toBe(1);
   });
 
+  it('run snapshot 뒤 가입한 팀원은 처리 표식에서 빼 다음 run에 과거 PR을 백필한다', async () => {
+    const { db, box, control } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: MEMBER_ID, nickname: 'alice' },
+    ]);
+    const davePullRequest = pullRequest({
+      id: '420',
+      createdAt: '2026-06-01T00:00:00.000Z',
+      authorLogin: 'dave',
+      authorGithubId: '44',
+    });
+    const client = createClient([repository]);
+    client.listNewPullRequests.mockImplementation(
+      servePullRequests([davePullRequest]),
+    );
+    client.listInstallationRepositories.mockImplementationOnce(() => {
+      // 가입자 snapshot은 이미 고정됐지만 inventory 뒤 팀 조회 전 User+TeamMember가 생긴다.
+      box.store.teamMembers.set('joined-after-snapshot', {
+        id: 'joined-after-snapshot',
+        teamId: 'team-1',
+        createdAt: new Date(Date.UTC(2026, 5, 1)),
+        user: { githubId: 44n, nickname: 'dave' },
+      });
+      return Promise.resolve([repository]);
+    });
+
+    const service = createService(db, client);
+    await service.run('owner-1');
+    expect(storedPullRequestLogins(box)).toEqual([]);
+
+    // 다음 run의 snapshot에는 dave가 들어온다. 첫 run 표식에서 dave를 제외했다면
+    // 팀원 집합 변화로 판정해 tie를 한 번 무시하고 과거 PR을 다시 받는다.
+    control.registeredGithubIds.add(44n);
+    await service.run('owner-1');
+
+    expect(client.listNewPullRequests.mock.calls[1]?.[2]).toBeNull();
+    expect(storedPullRequestLogins(box)).toEqual(['dave']);
+  });
+
   it('기존 READY PR stream의 null 팀원 표식을 한 번 repair하고 다음 sweep은 증분으로 돌아간다', async () => {
     const { db, box } = createFakeDb();
     const repository = providerRepository();
@@ -2432,7 +2491,7 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터(ADR-00
     );
   });
 
-  it('팀을 특정할 수 없는 저장소는 종전대로 작성자를 가리지 않고 적재한다', async () => {
+  it('팀을 특정할 수 없는 저장소는 provider 전량을 읽되 중앙 writer가 가입자만 적재한다', async () => {
     const { db, box } = createFakeDb();
     const repository = providerRepository();
     // 소유 `Repository` 행이 아예 없다 — `listRepositoryTeamMembers`가 null을 준다.
@@ -2443,6 +2502,11 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터(ADR-00
           id: '401',
           authorLogin: 'outsider',
           authorGithubId: OUTSIDER_ID,
+        }),
+        pullRequest({
+          id: '402',
+          authorLogin: 'unregistered-outsider',
+          authorGithubId: '999',
         }),
       ],
       newFrontier: { createdAt: '2026-08-01T00:00:00.000Z', id: '401' },
@@ -2461,12 +2525,18 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터(ADR-00
           authorLogin: 'outsider',
           authorGithubId: OUTSIDER_ID,
         }),
+        release({
+          id: '602',
+          authorLogin: 'unregistered-outsider',
+          authorGithubId: '999',
+        }),
       ],
       fingerprint: fingerprint('/repos/o/r/releases'),
     });
 
     await createService(db, client).run('owner-1');
 
+    // `99`는 이 fake의 가입자 snapshot에 있고 `999`는 없다.
     expect(storedPullRequestLogins(box)).toEqual(['outsider']);
     expect(storedReleaseLogins(box)).toEqual(['outsider']);
   });

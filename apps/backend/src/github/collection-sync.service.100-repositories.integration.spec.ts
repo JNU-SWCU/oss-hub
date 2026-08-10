@@ -356,8 +356,14 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
         this: CollectionIncrementalRepository,
         repositoryId,
         facts,
+        registeredGithubIds,
       ) {
-        const result = await originalCommit.call(this, repositoryId, facts);
+        const result = await originalCommit.call(
+          this,
+          repositoryId,
+          facts,
+          registeredGithubIds,
+        );
         commitWrites.push(result.insertedCount);
         return result;
       });
@@ -370,11 +376,13 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
         this: CollectionIncrementalRepository,
         repositoryId,
         facts,
+        registeredGithubIds,
       ) {
         const result = await originalPullRequest.call(
           this,
           repositoryId,
           facts,
+          registeredGithubIds,
         );
         pullRequestWrites.push(result.insertedCount);
         return result;
@@ -385,8 +393,14 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
         this: CollectionIncrementalRepository,
         repositoryId,
         facts,
+        registeredGithubIds,
       ) {
-        const result = await originalRelease.call(this, repositoryId, facts);
+        const result = await originalRelease.call(
+          this,
+          repositoryId,
+          facts,
+          registeredGithubIds,
+        );
         releaseWrites.push(result.insertedCount);
         return result;
       });
@@ -726,8 +740,17 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     // Simulated crash-then-retry: the exact same fact batch is resent as if
     // the process had died after the provider call but before the cursor
     // advanced, and the caller simply retries from scratch.
-    const first = await repository.recordCommitFacts(repoRow.id, facts);
-    const second = await repository.recordCommitFacts(repoRow.id, facts);
+    const registeredGithubIds = await repository.listRegisteredGithubIds();
+    const first = await repository.recordCommitFacts(
+      repoRow.id,
+      facts,
+      registeredGithubIds,
+    );
+    const second = await repository.recordCommitFacts(
+      repoRow.id,
+      facts,
+      registeredGithubIds,
+    );
 
     expect(first.insertedCount).toBe(0); // already recorded during the drain
     expect(second.insertedCount).toBe(0);
@@ -787,14 +810,18 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     await expect(
       repository.runInTransaction(async (repo) => {
         await repo.assertSyncLeaseValid(stale, takeoverAt);
-        await repo.recordCommitFacts(repoRow.id, [
-          {
-            sha: 'synthetic-stale-lease-write-attempt',
-            committedAt: takeoverAt,
-            authorGithubId: null,
-            authorGithubLogin: null,
-          },
-        ]);
+        await repo.recordCommitFacts(
+          repoRow.id,
+          [
+            {
+              sha: 'synthetic-stale-lease-write-attempt',
+              committedAt: takeoverAt,
+              authorGithubId: null,
+              authorGithubLogin: null,
+            },
+          ],
+          new Set(),
+        );
       }),
     ).rejects.toThrow('lease is stale');
 

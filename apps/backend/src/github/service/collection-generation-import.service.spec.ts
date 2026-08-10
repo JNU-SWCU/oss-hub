@@ -106,6 +106,9 @@ const applyUpdate = (existing: Row, update: Row): Row => {
 
 interface FailureControl {
   failReleaseId: bigint | null;
+  failRegisteredGithubIdsLookup: boolean;
+  registeredGithubIds: Set<bigint>;
+  registeredGithubIdsLookupCount: number;
 }
 
 function makeFacade(box: { store: Store }, control: FailureControl): unknown {
@@ -249,14 +252,18 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
         return { count: n };
       },
     },
-    // 기본은 "요청된 사람은 모두 가입자". 가입자 필터 자체는
-    // collection-incremental.repository.spec.ts 의 전용 describe 가 검증한다.
+    // generation 전체가 공유하는 가입자 스냅샷. 저장소·stream 수와 무관하게
+    // import 시작 때 한 번만 읽는 계약을 아래 테스트에서 고정한다.
     user: {
-      findMany: ({
-        where,
-      }: {
-        where: { githubId: { in: readonly bigint[] } };
-      }) => where.githubId.in.map((githubId) => ({ githubId })),
+      findMany: () => {
+        control.registeredGithubIdsLookupCount += 1;
+        if (control.failRegisteredGithubIdsLookup) {
+          throw new Error('synthetic registered github id lookup failure');
+        }
+        return [...control.registeredGithubIds].map((githubId) => ({
+          githubId,
+        }));
+      },
     },
     collectionRepositoryStream: {
       upsert: ({ where, create, update }: StreamUpsertArgs): Row => {
@@ -294,7 +301,12 @@ function createFakeDb(): {
   box: { store: Store };
   control: FailureControl;
 } {
-  const control: FailureControl = { failReleaseId: null };
+  const control: FailureControl = {
+    failReleaseId: null,
+    failRegisteredGithubIdsLookup: false,
+    registeredGithubIds: new Set([1n, 2n]),
+    registeredGithubIdsLookupCount: 0,
+  };
   const box = { store: emptyStore() };
   const db = makeFacade(box, control) as PrismaService;
   return { db, box, control };
@@ -415,7 +427,7 @@ describe('CollectionGenerationImportService — public-admin-exposure todo 8', (
   });
 
   it('is idempotent — re-running against the same generation yields identical digest and no duplicate rows', async () => {
-    const { db, box } = createFakeDb();
+    const { db, box, control } = createFakeDb();
     const canonical = canonicalRepositoryStub(generationSnapshot('forward'));
     const service = new CollectionGenerationImportService(
       canonical,
@@ -454,6 +466,31 @@ describe('CollectionGenerationImportService — public-admin-exposure todo 8', (
         0,
       ),
     ).toBe(2);
+    // 저장소 2개 × stream 3개여도 가입자 목록은 import 한 번당 한 번뿐이다.
+    expect(control.registeredGithubIdsLookupCount).toBe(2);
+  });
+
+  it('cutover가 넘긴 가입자 snapshot을 그대로 쓰고 live User를 다시 조회하지 않는다', async () => {
+    const { db, box, control } = createFakeDb();
+    const service = new CollectionGenerationImportService(
+      canonicalRepositoryStub(generationSnapshot('forward')),
+      new CollectionIncrementalRepository(db),
+      () => Promise.resolve(999n),
+    );
+
+    const result = await service.importActiveGeneration(
+      { appId: 1n, organizationLogin: 'org' },
+      new Set([1n]),
+    );
+
+    expect(control.registeredGithubIdsLookupCount).toBe(0);
+    expect(box.store.commitFacts.size).toBe(1);
+    expect(
+      result.repositories.reduce(
+        (sum, repository) => sum + repository.commitsAccepted,
+        0,
+      ),
+    ).toBe(1);
   });
 
   it('produces the same digest regardless of the source snapshot row order', async () => {
@@ -480,7 +517,7 @@ describe('CollectionGenerationImportService — public-admin-exposure todo 8', (
   });
 
   it('공개·비공개 저장소를 모두 들여오되 귀속 없는 커밋은 사람 축 테이블에 남기지 않는다', async () => {
-    const { db, box } = createFakeDb();
+    const { db, box, control } = createFakeDb();
     const service = new CollectionGenerationImportService(
       canonicalRepositoryStub(generationSnapshot('forward')),
       new CollectionIncrementalRepository(db),
@@ -507,6 +544,27 @@ describe('CollectionGenerationImportService — public-admin-exposure todo 8', (
     // 실제 행 내용은 실 Postgres 통합 스펙이 본다.
     // 여기서는 귀속 있는 활동에 대해서만 재계산이 시작되는지 본다.
     expect(box.store.recomputeCalls).toBeGreaterThan(0);
+    expect(control.registeredGithubIdsLookupCount).toBe(1);
+  });
+
+  it('가입자 스냅샷 조회가 실패하면 저장소나 fact를 쓰기 전에 중단한다', async () => {
+    const { db, box, control } = createFakeDb();
+    control.failRegisteredGithubIdsLookup = true;
+    const service = new CollectionGenerationImportService(
+      canonicalRepositoryStub(generationSnapshot('forward')),
+      new CollectionIncrementalRepository(db),
+      () => Promise.resolve(999n),
+    );
+
+    await expect(
+      service.importActiveGeneration({ appId: 1n, organizationLogin: 'org' }),
+    ).rejects.toThrow('synthetic registered github id lookup failure');
+
+    expect(control.registeredGithubIdsLookupCount).toBe(1);
+    expect(box.store.repositories.size).toBe(0);
+    expect(box.store.commitFacts.size).toBe(0);
+    expect(box.store.pullRequestFacts.size).toBe(0);
+    expect(box.store.releaseFacts.size).toBe(0);
   });
 
   it('leaves every imported stream VERIFYING with no invented frontier', async () => {

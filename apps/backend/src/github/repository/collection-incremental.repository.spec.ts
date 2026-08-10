@@ -111,6 +111,7 @@ const createDb = (): MockDb => {
 
 const repositoryFor = (db: MockDb): CollectionIncrementalRepository =>
   new CollectionIncrementalRepository(db as unknown as PrismaService);
+const DEFAULT_REGISTERED_GITHUB_IDS = new Set([1n, 2n, 42n, 99n]);
 
 /**
  * `where` 절을 얕은 동등 비교 + `{ notIn }` 연산자만 지원하는 최소 Prisma 흉내로
@@ -184,6 +185,23 @@ describe('asiaSeoulYear', () => {
 });
 
 describe('CollectionIncrementalRepository — repository identity', () => {
+  it('가입자 GitHub ID를 한 번에 읽어 불변 집합으로 돌려준다', async () => {
+    const db = createDb();
+    db.user.findMany.mockResolvedValue([
+      { githubId: 2n },
+      { githubId: 1n },
+      { githubId: 2n },
+    ]);
+
+    const result = await repositoryFor(db).listRegisteredGithubIds();
+
+    expect(result).toEqual(new Set([1n, 2n]));
+    expect(db.user.findMany).toHaveBeenCalledTimes(1);
+    expect(db.user.findMany).toHaveBeenCalledWith({
+      select: { githubId: true },
+    });
+  });
+
   it('githubRepositoryId 단일 unique key로 upsert한다(github repository id는 전역 유일)', async () => {
     const db = createDb();
     db.githubRepository.upsert.mockResolvedValue({ id: 'repo-1' });
@@ -296,14 +314,18 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
     const db = createDb();
     db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
 
-    const result = await repositoryFor(db).recordCommitFacts('repo-1', [
-      {
-        sha: 'abc',
-        committedAt: new Date('2026-03-01T00:00:00.000Z'),
-        authorGithubId: 99n,
-        authorGithubLogin: 'octocat',
-      },
-    ]);
+    const result = await repositoryFor(db).recordCommitFacts(
+      'repo-1',
+      [
+        {
+          sha: 'abc',
+          committedAt: new Date('2026-03-01T00:00:00.000Z'),
+          authorGithubId: 99n,
+          authorGithubLogin: 'octocat',
+        },
+      ],
+      DEFAULT_REGISTERED_GITHUB_IDS,
+    );
 
     expect(result.insertedCount).toBe(1);
     expect(db.collectionCommitFact.createMany).toHaveBeenCalledWith({
@@ -320,10 +342,34 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
     });
   });
 
+  it('Contribution 재계산은 run snapshot을 다시 live User JOIN으로 바꾸지 않는다', async () => {
+    const db = createDb();
+
+    await repositoryFor(db).recordCommitFacts(
+      'repo-1',
+      [
+        {
+          sha: 'snapshot-member',
+          committedAt: new Date('2026-03-01T00:00:00.000Z'),
+          authorGithubId: 99n,
+        },
+      ],
+      new Set([99n]),
+    );
+
+    const [sql] = db.$executeRaw.mock.calls[0] as [readonly string[]];
+    expect(sql.join('')).not.toContain('JOIN "User"');
+    expect(sql.join('')).toContain('f."githubId" = ANY(');
+  });
+
   it('빈 배열은 DB를 건드리지 않고 0을 반환한다', async () => {
     const db = createDb();
 
-    const result = await repositoryFor(db).recordCommitFacts('repo-1', []);
+    const result = await repositoryFor(db).recordCommitFacts(
+      'repo-1',
+      [],
+      DEFAULT_REGISTERED_GITHUB_IDS,
+    );
 
     expect(result).toEqual({ acceptedCount: 0, insertedCount: 0 });
     expect(db.collectionCommitFact.createMany).not.toHaveBeenCalled();
@@ -336,13 +382,17 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
     db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
     db.collectionCommitFact.count.mockResolvedValue(5);
 
-    await repositoryFor(db).recordCommitFacts('repo-1', [
-      {
-        sha: 'retry',
-        committedAt: new Date('2026-03-01T00:00:00.000Z'),
-        authorGithubId: 1n,
-      },
-    ]);
+    await repositoryFor(db).recordCommitFacts(
+      'repo-1',
+      [
+        {
+          sha: 'retry',
+          committedAt: new Date('2026-03-01T00:00:00.000Z'),
+          authorGithubId: 1n,
+        },
+      ],
+      DEFAULT_REGISTERED_GITHUB_IDS,
+    );
 
     // 삽입 개수(1)가 아니라 fact 테이블 실제 COUNT(5)로 덮어쓴다 —
     // 중복 재시도에도 값이 불변인 이유다.
@@ -369,20 +419,24 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
         ),
     );
 
-    await repositoryFor(db).recordCommitFacts('repo-1', [
-      {
-        sha: 'a',
-        committedAt: new Date('2026-03-01T00:00:00.000Z'),
-        authorGithubId: 1n,
-        authorGithubLogin: 'alice',
-      },
-      {
-        sha: 'b',
-        committedAt: new Date('2026-03-02T00:00:00.000Z'),
-        authorGithubId: 2n,
-        authorGithubLogin: 'bob',
-      },
-    ]);
+    await repositoryFor(db).recordCommitFacts(
+      'repo-1',
+      [
+        {
+          sha: 'a',
+          committedAt: new Date('2026-03-01T00:00:00.000Z'),
+          authorGithubId: 1n,
+          authorGithubLogin: 'alice',
+        },
+        {
+          sha: 'b',
+          committedAt: new Date('2026-03-02T00:00:00.000Z'),
+          authorGithubId: 2n,
+          authorGithubLogin: 'bob',
+        },
+      ],
+      DEFAULT_REGISTERED_GITHUB_IDS,
+    );
 
     // 날짜 입자라 (사람, 날짜) 조합마다 한 칸씩 — 두 사람이 서로 다른 날에 하나씩.
     expect(db.$executeRaw).toHaveBeenCalledTimes(1);
@@ -397,9 +451,11 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
     db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
     db.collectionCommitFact.count.mockResolvedValue(1);
 
-    await repositoryFor(db).recordCommitFacts('repo-1', [
-      { sha: 'anon', committedAt: new Date('2026-03-01T00:00:00.000Z') },
-    ]);
+    await repositoryFor(db).recordCommitFacts(
+      'repo-1',
+      [{ sha: 'anon', committedAt: new Date('2026-03-01T00:00:00.000Z') }],
+      DEFAULT_REGISTERED_GITHUB_IDS,
+    );
 
     // 귀속 대상 칸이 하나도 없으므로 재계산이 시작되지 않는다.
     expect(db.contribution.deleteMany).not.toHaveBeenCalled();
@@ -412,20 +468,24 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
     // 각 날짜 칸에 1건씩 있다고 본다 — 0이면 그 칸은 삭제 경로로 간다.
     db.collectionCommitFact.count.mockResolvedValue(1);
 
-    await repositoryFor(db).recordCommitFacts('repo-1', [
-      // KST 2025-12-31 23:30 -> 2025-12-31
-      {
-        sha: 'y2025',
-        committedAt: new Date('2025-12-31T14:30:00.000Z'),
-        authorGithubId: 1n,
-      },
-      // KST 2026-01-01 00:30 -> 2026-01-01
-      {
-        sha: 'y2026',
-        committedAt: new Date('2025-12-31T15:30:00.000Z'),
-        authorGithubId: 1n,
-      },
-    ]);
+    await repositoryFor(db).recordCommitFacts(
+      'repo-1',
+      [
+        // KST 2025-12-31 23:30 -> 2025-12-31
+        {
+          sha: 'y2025',
+          committedAt: new Date('2025-12-31T14:30:00.000Z'),
+          authorGithubId: 1n,
+        },
+        // KST 2026-01-01 00:30 -> 2026-01-01
+        {
+          sha: 'y2026',
+          committedAt: new Date('2025-12-31T15:30:00.000Z'),
+          authorGithubId: 1n,
+        },
+      ],
+      DEFAULT_REGISTERED_GITHUB_IDS,
+    );
 
     // UTC 로는 같은 날이지만 KST 로는 해가 갈린다. 경계 해석이 한 곳에 있으므로
     // 두 칸이 각각 만들어진다.
@@ -443,15 +503,19 @@ describe('CollectionIncrementalRepository — pull request facts (parity)', () =
     db.collectionPullRequestFact.createMany.mockResolvedValue({ count: 1 });
     db.collectionPullRequestFact.count.mockResolvedValue(3);
 
-    const result = await repositoryFor(db).recordPullRequestFacts('repo-1', [
-      {
-        githubPullRequestId: 7n,
-        state: 'MERGED',
-        createdAt: new Date('2026-05-01T00:00:00.000Z'),
-        authorGithubId: 42n,
-        authorGithubLogin: 'octocat',
-      },
-    ]);
+    const result = await repositoryFor(db).recordPullRequestFacts(
+      'repo-1',
+      [
+        {
+          githubPullRequestId: 7n,
+          state: 'MERGED',
+          createdAt: new Date('2026-05-01T00:00:00.000Z'),
+          authorGithubId: 42n,
+          authorGithubLogin: 'octocat',
+        },
+      ],
+      DEFAULT_REGISTERED_GITHUB_IDS,
+    );
 
     expect(result.insertedCount).toBe(1);
     expect(db.collectionPullRequestFact.createMany).toHaveBeenCalledWith({
@@ -474,7 +538,11 @@ describe('CollectionIncrementalRepository — pull request facts (parity)', () =
   it('빈 배열은 DB를 건드리지 않는다', async () => {
     const db = createDb();
 
-    const result = await repositoryFor(db).recordPullRequestFacts('repo-1', []);
+    const result = await repositoryFor(db).recordPullRequestFacts(
+      'repo-1',
+      [],
+      DEFAULT_REGISTERED_GITHUB_IDS,
+    );
 
     expect(result).toEqual({ acceptedCount: 0, insertedCount: 0 });
     expect(db.collectionPullRequestFact.createMany).not.toHaveBeenCalled();
@@ -487,14 +555,18 @@ describe('CollectionIncrementalRepository — release facts (parity)', () => {
     db.collectionReleaseFact.createMany.mockResolvedValue({ count: 1 });
     db.collectionReleaseFact.count.mockResolvedValue(2);
 
-    const result = await repositoryFor(db).recordReleaseFacts('repo-1', [
-      {
-        githubReleaseId: 9n,
-        publishedAt: new Date('2026-06-01T00:00:00.000Z'),
-        authorGithubId: 42n,
-        authorGithubLogin: 'octocat',
-      },
-    ]);
+    const result = await repositoryFor(db).recordReleaseFacts(
+      'repo-1',
+      [
+        {
+          githubReleaseId: 9n,
+          publishedAt: new Date('2026-06-01T00:00:00.000Z'),
+          authorGithubId: 42n,
+          authorGithubLogin: 'octocat',
+        },
+      ],
+      DEFAULT_REGISTERED_GITHUB_IDS,
+    );
 
     expect(result.insertedCount).toBe(1);
     expect(db.collectionReleaseFact.createMany).toHaveBeenCalledWith({
@@ -516,7 +588,11 @@ describe('CollectionIncrementalRepository — release facts (parity)', () => {
   it('빈 배열은 DB를 건드리지 않는다', async () => {
     const db = createDb();
 
-    const result = await repositoryFor(db).recordReleaseFacts('repo-1', []);
+    const result = await repositoryFor(db).recordReleaseFacts(
+      'repo-1',
+      [],
+      DEFAULT_REGISTERED_GITHUB_IDS,
+    );
 
     expect(result).toEqual({ acceptedCount: 0, insertedCount: 0 });
     expect(db.collectionReleaseFact.createMany).not.toHaveBeenCalled();
@@ -1121,31 +1197,31 @@ describe('CollectionIncrementalRepository — #546 stream 오류 표시', () => 
 describe('CollectionIncrementalRepository — 가입자만 적재한다', () => {
   it('ORG 저장소도 가입하지 않았거나 작성자를 모르는 기여는 행을 만들지 않는다', async () => {
     const db = createDb();
-    db.githubRepository.findUnique.mockResolvedValue({
-      source: 'ORG_PROVISIONED',
-    });
     db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
     db.collectionCommitFact.count.mockResolvedValue(1);
-    // 1n 만 가입자다.
-    db.user.findMany.mockResolvedValue([{ githubId: 1n }]);
+    const registeredGithubIds = new Set([1n]);
 
-    await repositoryFor(db).recordCommitFacts('repo-1', [
-      {
-        sha: 'by-member',
-        committedAt: new Date('2026-03-01T00:00:00.000Z'),
-        authorGithubId: 1n,
-      },
-      {
-        sha: 'by-stranger',
-        committedAt: new Date('2026-03-01T00:00:00.000Z'),
-        authorGithubId: 999n,
-      },
-      {
-        sha: 'by-unknown',
-        committedAt: new Date('2026-03-01T00:00:00.000Z'),
-        authorGithubId: null,
-      },
-    ]);
+    await repositoryFor(db).recordCommitFacts(
+      'repo-1',
+      [
+        {
+          sha: 'by-member',
+          committedAt: new Date('2026-03-01T00:00:00.000Z'),
+          authorGithubId: 1n,
+        },
+        {
+          sha: 'by-stranger',
+          committedAt: new Date('2026-03-01T00:00:00.000Z'),
+          authorGithubId: 999n,
+        },
+        {
+          sha: 'by-unknown',
+          committedAt: new Date('2026-03-01T00:00:00.000Z'),
+          authorGithubId: null,
+        },
+      ],
+      registeredGithubIds,
+    );
 
     expect(db.$executeRaw).toHaveBeenCalledTimes(1);
     expect(db.collectionCommitFact.createMany).toHaveBeenCalledWith({
@@ -1163,37 +1239,42 @@ describe('CollectionIncrementalRepository — 가입자만 적재한다', () => 
 
   it('external PR·release 원본도 가입자 작성분만 적재한다', async () => {
     const db = createDb();
-    db.githubRepository.findUnique.mockResolvedValue({
-      source: 'EXTERNAL_PUBLIC',
-    });
-    db.user.findMany.mockResolvedValue([{ githubId: 1n }]);
+    const registeredGithubIds = new Set([1n]);
 
-    await repositoryFor(db).recordPullRequestFacts('repo-1', [
-      {
-        githubPullRequestId: 10n,
-        state: 'OPEN',
-        createdAt: new Date('2026-03-01T00:00:00.000Z'),
-        authorGithubId: 1n,
-      },
-      {
-        githubPullRequestId: 11n,
-        state: 'OPEN',
-        createdAt: new Date('2026-03-01T00:00:00.000Z'),
-        authorGithubId: 999n,
-      },
-    ]);
-    await repositoryFor(db).recordReleaseFacts('repo-1', [
-      {
-        githubReleaseId: 20n,
-        publishedAt: new Date('2026-03-01T00:00:00.000Z'),
-        authorGithubId: 1n,
-      },
-      {
-        githubReleaseId: 21n,
-        publishedAt: new Date('2026-03-01T00:00:00.000Z'),
-        authorGithubId: 999n,
-      },
-    ]);
+    await repositoryFor(db).recordPullRequestFacts(
+      'repo-1',
+      [
+        {
+          githubPullRequestId: 10n,
+          state: 'OPEN',
+          createdAt: new Date('2026-03-01T00:00:00.000Z'),
+          authorGithubId: 1n,
+        },
+        {
+          githubPullRequestId: 11n,
+          state: 'OPEN',
+          createdAt: new Date('2026-03-01T00:00:00.000Z'),
+          authorGithubId: 999n,
+        },
+      ],
+      registeredGithubIds,
+    );
+    await repositoryFor(db).recordReleaseFacts(
+      'repo-1',
+      [
+        {
+          githubReleaseId: 20n,
+          publishedAt: new Date('2026-03-01T00:00:00.000Z'),
+          authorGithubId: 1n,
+        },
+        {
+          githubReleaseId: 21n,
+          publishedAt: new Date('2026-03-01T00:00:00.000Z'),
+          authorGithubId: 999n,
+        },
+      ],
+      registeredGithubIds,
+    );
 
     expect(db.collectionPullRequestFact.createMany).toHaveBeenCalledWith({
       data: [expect.objectContaining({ githubPullRequestId: 10n })],
@@ -1209,15 +1290,19 @@ describe('CollectionIncrementalRepository — 가입자만 적재한다', () => 
     const db = createDb();
     db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
     db.collectionCommitFact.count.mockResolvedValue(1);
-    db.user.findMany.mockResolvedValue([]);
+    const registeredGithubIds = new Set<bigint>();
 
-    await repositoryFor(db).recordCommitFacts('repo-1', [
-      {
-        sha: 'by-stranger',
-        committedAt: new Date('2026-03-01T00:00:00.000Z'),
-        authorGithubId: 999n,
-      },
-    ]);
+    await repositoryFor(db).recordCommitFacts(
+      'repo-1',
+      [
+        {
+          sha: 'by-stranger',
+          committedAt: new Date('2026-03-01T00:00:00.000Z'),
+          authorGithubId: 999n,
+        },
+      ],
+      registeredGithubIds,
+    );
 
     expect(db.collectionCommitFact.createMany).not.toHaveBeenCalled();
     expect(db.$executeRaw).not.toHaveBeenCalled();
@@ -1230,13 +1315,17 @@ describe('CollectionIncrementalRepository — 가입자만 적재한다', () => 
     // force-push 로 커밋이 사라져 COUNT 가 0이 됐다.
     db.collectionCommitFact.count.mockResolvedValue(0);
 
-    await repositoryFor(db).recordCommitFacts('repo-1', [
-      {
-        sha: 'gone',
-        committedAt: new Date('2026-03-01T00:00:00.000Z'),
-        authorGithubId: 1n,
-      },
-    ]);
+    await repositoryFor(db).recordCommitFacts(
+      'repo-1',
+      [
+        {
+          sha: 'gone',
+          committedAt: new Date('2026-03-01T00:00:00.000Z'),
+          authorGithubId: 1n,
+        },
+      ],
+      new Set([1n]),
+    );
 
     // 0 인 행을 남기면 "활동 없음"과 "0건으로 관측됨"이 구분되지 않는다.
     expect(db.$executeRaw).toHaveBeenCalledTimes(1);

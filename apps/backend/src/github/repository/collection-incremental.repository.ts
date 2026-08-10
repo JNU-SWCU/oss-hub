@@ -10,6 +10,7 @@ import type {
   RecordFactsResult,
   RecordRepositoryObservationInput,
   RecordSweepHistoryInput,
+  RegisteredGithubIdSet,
   ReleaseFactInput,
   RepositorySource,
   RepositoryTeamMemberAccount,
@@ -205,9 +206,10 @@ export class CollectionIncrementalRepository {
   async recordCommitFacts(
     repositoryId: string,
     facts: readonly CommitFactInput[],
+    registeredGithubIds: RegisteredGithubIdSet,
   ): Promise<RecordFactsResult> {
     if (facts.length === 0) return { acceptedCount: 0, insertedCount: 0 };
-    const acceptedFacts = await this.onlyRegisteredFacts(facts);
+    const acceptedFacts = this.onlyRegisteredFacts(facts, registeredGithubIds);
     if (acceptedFacts.length === 0) {
       return { acceptedCount: 0, insertedCount: 0 };
     }
@@ -237,9 +239,10 @@ export class CollectionIncrementalRepository {
   async recordPullRequestFacts(
     repositoryId: string,
     facts: readonly PullRequestFactInput[],
+    registeredGithubIds: RegisteredGithubIdSet,
   ): Promise<RecordFactsResult> {
     if (facts.length === 0) return { acceptedCount: 0, insertedCount: 0 };
-    const acceptedFacts = await this.onlyRegisteredFacts(facts);
+    const acceptedFacts = this.onlyRegisteredFacts(facts, registeredGithubIds);
     if (acceptedFacts.length === 0) {
       return { acceptedCount: 0, insertedCount: 0 };
     }
@@ -270,9 +273,10 @@ export class CollectionIncrementalRepository {
   async recordReleaseFacts(
     repositoryId: string,
     facts: readonly ReleaseFactInput[],
+    registeredGithubIds: RegisteredGithubIdSet,
   ): Promise<RecordFactsResult> {
     if (facts.length === 0) return { acceptedCount: 0, insertedCount: 0 };
-    const acceptedFacts = await this.onlyRegisteredFacts(facts);
+    const acceptedFacts = this.onlyRegisteredFacts(facts, registeredGithubIds);
     if (acceptedFacts.length === 0) {
       return { acceptedCount: 0, insertedCount: 0 };
     }
@@ -299,26 +303,21 @@ export class CollectionIncrementalRepository {
     return { acceptedCount: acceptedFacts.length, insertedCount };
   }
 
-  private async onlyRegisteredFacts<
+  async listRegisteredGithubIds(): Promise<RegisteredGithubIdSet> {
+    const users = await this.db.user.findMany({ select: { githubId: true } });
+    return new Set(users.map((user) => user.githubId));
+  }
+
+  private onlyRegisteredFacts<
     T extends { readonly authorGithubId?: bigint | null },
-  >(facts: readonly T[]): Promise<readonly T[]> {
-    const candidateIds = [
-      ...new Set(
-        facts.flatMap((fact) =>
-          typeof fact.authorGithubId === 'bigint' ? [fact.authorGithubId] : [],
-        ),
-      ),
-    ];
-    if (candidateIds.length === 0) return [];
-    const registered = await this.db.user.findMany({
-      where: { githubId: { in: candidateIds } },
-      select: { githubId: true },
-    });
-    const allowed = new Set(registered.map((user) => user.githubId));
+  >(
+    facts: readonly T[],
+    registeredGithubIds: RegisteredGithubIdSet,
+  ): readonly T[] {
     return facts.filter(
       (fact) =>
         typeof fact.authorGithubId === 'bigint' &&
-        allowed.has(fact.authorGithubId),
+        registeredGithubIds.has(fact.authorGithubId),
     );
   }
 
@@ -383,69 +382,7 @@ export class CollectionIncrementalRepository {
       },
     });
     if (updated.count === 0) return false;
-    await this.purgeUnregisteredExternalFactsInTransaction(
-      input.githubRepositoryId,
-    );
     return true;
-  }
-
-  /**
-   * 외부 저장소에 남은 비가입자 원본 fact를 독립 트랜잭션으로 정리한다.
-   *
-   * PRIVATE/ABSENT 공개 회수는 이 정리보다 먼저 별도 커밋되어야 한다. 정리 SQL이
-   * 실패해도 공개 상태가 되살아나지 않도록 수집 서비스가 회수 뒤 best-effort로 호출한다.
-   */
-  async purgeUnregisteredExternalFacts(
-    githubRepositoryId: bigint,
-  ): Promise<void> {
-    await this.runInTransaction((repo) =>
-      repo.purgeUnregisteredExternalFactsInTransaction(githubRepositoryId),
-    );
-  }
-
-  private async purgeUnregisteredExternalFactsInTransaction(
-    githubRepositoryId: bigint,
-  ): Promise<void> {
-    await this.db.$executeRaw`
-      DELETE FROM "CollectionCommitFact" f
-      USING "GithubRepository" r
-      WHERE r."id" = f."repositoryId"
-        AND r."githubRepositoryId" = ${githubRepositoryId}
-        AND r."source" = 'EXTERNAL_PUBLIC'::"RepositorySource"
-        AND NOT EXISTS (
-          SELECT 1 FROM "User" u WHERE u."githubId" = f."authorGithubId"
-        )
-    `;
-    await this.db.$executeRaw`
-      DELETE FROM "CollectionPullRequestFact" f
-      USING "GithubRepository" r
-      WHERE r."id" = f."repositoryId"
-        AND r."githubRepositoryId" = ${githubRepositoryId}
-        AND r."source" = 'EXTERNAL_PUBLIC'::"RepositorySource"
-        AND NOT EXISTS (
-          SELECT 1 FROM "User" u WHERE u."githubId" = f."authorGithubId"
-        )
-    `;
-    await this.db.$executeRaw`
-      DELETE FROM "CollectionReleaseFact" f
-      USING "GithubRepository" r
-      WHERE r."id" = f."repositoryId"
-        AND r."githubRepositoryId" = ${githubRepositoryId}
-        AND r."source" = 'EXTERNAL_PUBLIC'::"RepositorySource"
-        AND NOT EXISTS (
-          SELECT 1 FROM "User" u WHERE u."githubId" = f."authorGithubId"
-        )
-    `;
-    await this.db.$executeRaw`
-      DELETE FROM "Contribution" c
-      USING "GithubRepository" r
-      WHERE r."id" = c."repositoryId"
-        AND r."githubRepositoryId" = ${githubRepositoryId}
-        AND r."source" = 'EXTERNAL_PUBLIC'::"RepositorySource"
-        AND NOT EXISTS (
-          SELECT 1 FROM "User" u WHERE u."githubId" = c."githubId"
-        )
-    `;
   }
 
   async refreshExternalRepositoryObservation(input: {
@@ -473,14 +410,6 @@ export class CollectionIncrementalRepository {
     const current = await this.db.githubRepository.findUnique({
       where: { githubRepositoryId: input.githubRepositoryId },
     });
-    if (
-      current?.source === 'EXTERNAL_PUBLIC' &&
-      current.visibility === 'PUBLIC'
-    ) {
-      await this.purgeUnregisteredExternalFactsInTransaction(
-        input.githubRepositoryId,
-      );
-    }
     return current?.source === 'EXTERNAL_PUBLIC' ? current : null;
   }
 
@@ -585,9 +514,10 @@ export class CollectionIncrementalRepository {
       where: { repositoryId, githubId: { in: githubIds }, date: { in: dates } },
     });
 
-    // fact 테이블에서 (사람, 날짜)별 합계를 만들어 한 번에 넣는다.
-    // `User` INNER JOIN 이 가입자 필터이며, 세 fact 를 UNION ALL 로 모아
-    // 한 번만 그룹핑한다. 전량 재계산이므로 누적이 아니라 그대로 덮어쓴다.
+    // fact 테이블에서 (사람, 날짜)별 합계를 만들어 한 번에 넣는다. githubIds는 이 run/import가
+    // 시작할 때 고정한 가입자 snapshot을 이미 통과한 acceptedFacts에서만 왔다. 여기서 live
+    // User를 다시 JOIN하면 도중의 가입/상태 변화로 fact와 Contribution의 기준이 갈라진다.
+    // 세 fact 를 UNION ALL 로 모아 한 번만 그룹핑하며, 누적이 아니라 그대로 덮어쓴다.
     await this.db.$executeRaw`
       INSERT INTO "Contribution" (
         "repositoryId", "githubId", "date",
@@ -623,7 +553,6 @@ export class CollectionIncrementalRepository {
           FROM "CollectionReleaseFact"
          WHERE "repositoryId" = ${repositoryId} AND "authorGithubId" IS NOT NULL
       ) AS f
-      JOIN "User" u ON u."githubId" = f."githubId"
       WHERE f."githubId" = ANY(${githubIds})
         AND f."day" = ANY(${dates.map((date) => date.toISOString().slice(0, 10))}::date[])
       GROUP BY f."repositoryId", f."githubId", f."day"

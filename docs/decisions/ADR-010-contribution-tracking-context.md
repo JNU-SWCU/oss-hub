@@ -210,7 +210,7 @@ webhook 기반 실시간을 만들지 않는다(`ADR-006` 이벤트 최소주의
 
 ## Changelog
 
-- 2026-08-10: 신규 fact writer의 `githubId ∈ User` 경계를 ORG/EXTERNAL source-neutral로 통일해 팀 미특정 조직 저장소에서도 미가입자·작성자 불명 신원을 적재하지 않게 했다. 기존 레거시 행은 삭제하지 않고 별도 데이터 마이그레이션으로 추적하며, cutover parity도 canonical 입력과 기존 fact 양쪽에서 같은 가입자 경계를 통과한 원장 수를 비교한다.
+- 2026-08-10: 신규 fact writer의 `githubId ∈ User` 경계를 ORG/EXTERNAL source-neutral로 통일해 팀 미특정 조직 저장소에서도 미가입자·작성자 불명 신원을 적재하지 않게 했다. 가입자 집합은 D9대로 run/import 시작 때 한 번 고정하고 조회 실패는 첫 write 전에 전파한다. 팀원 목록·PR 백필 fingerprint도 같은 run snapshot으로 좁혀 도중 가입 계정의 과거 PR이 누락되지 않게 했고, cutover는 import·provider 검증·fact parity 전체에서 하나의 가입자 snapshot을 공유한다. 기존 레거시 행은 runtime에서 삭제하지 않고 별도 승인 데이터 마이그레이션으로 추적한다.
 - 2026-08-10: #730의 신청 연결 DB 증명으로 프로그램 화면의 OWN 저장소 제외 충돌이 해결된 현재 상태를 반영했다.
 - 2026-08-10: 외부 저장소 공개 회수를 지연시키던 랭킹·프로젝트·공개 프로필 cache를 제거하고, 동시 요청 single-flight만 유지했다.
 - 2026-08-10: §11에 `OWN` 대체 acceptance(통제된 저장소 1개 관통)와 그 실행 결과를 기록하고, 랭킹 읽기의 연결 심층 방어 부재를 Follow-up으로 남겼다.

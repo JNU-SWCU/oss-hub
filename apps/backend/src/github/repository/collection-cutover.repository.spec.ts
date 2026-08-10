@@ -139,33 +139,43 @@ describe('CollectionCutoverRepository — aggregate 비교 보조 조회', () =>
     const db = createDb();
 
     await expect(
-      repositoryFor(db).countCommitFactsForRepositories([]),
+      repositoryFor(db).countCommitFactsForRepositories([], new Set([1n])),
     ).resolves.toBe(0);
     expect(db.$queryRaw).not.toHaveBeenCalled();
   });
 
-  it('countCommitFactsForRepositories는 주어진 repository의 가입자 fact만 센다', async () => {
+  it('countCommitFactsForRepositories는 cutover 시작 때 고정한 가입자 fact만 센다', async () => {
     const db = createDb();
     db.$queryRaw.mockResolvedValue([{ count: 5n }]);
 
     await expect(
-      repositoryFor(db).countCommitFactsForRepositories(['repo-1', 'repo-2']),
+      repositoryFor(db).countCommitFactsForRepositories(
+        ['repo-1', 'repo-2'],
+        new Set([1n, 2n]),
+      ),
     ).resolves.toBe(5);
-    const [sql, repositoryIds] = db.$queryRaw.mock.calls[0] as [
-      readonly string[],
-      readonly string[],
-    ];
-    expect(sql.join('')).toContain(
-      'JOIN "User" u ON u."githubId" = f."authorGithubId"',
-    );
+    const [sql, repositoryIds, registeredGithubIds] = db.$queryRaw.mock
+      .calls[0] as [readonly string[], readonly string[], readonly bigint[]];
+    expect(sql.join('')).not.toContain('JOIN "User"');
+    expect(sql.join('')).toContain('f."authorGithubId" = ANY(');
     expect(repositoryIds).toEqual(['repo-1', 'repo-2']);
+    expect(registeredGithubIds).toEqual([1n, 2n]);
+  });
+
+  it('가입자 snapshot이 비었으면 DB를 건드리지 않고 0을 반환한다', async () => {
+    const db = createDb();
+
+    await expect(
+      repositoryFor(db).countCommitFactsForRepositories(['repo-1'], new Set()),
+    ).resolves.toBe(0);
+    expect(db.$queryRaw).not.toHaveBeenCalled();
   });
 
   it('countPullRequestFactsForRepositories는 빈 배열이면 DB를 건드리지 않고 0을 반환한다', async () => {
     const db = createDb();
 
     await expect(
-      repositoryFor(db).countPullRequestFactsForRepositories([]),
+      repositoryFor(db).countPullRequestFactsForRepositories([], new Set([1n])),
     ).resolves.toBe(0);
     expect(db.$queryRaw).not.toHaveBeenCalled();
   });
@@ -174,7 +184,7 @@ describe('CollectionCutoverRepository — aggregate 비교 보조 조회', () =>
     const db = createDb();
 
     await expect(
-      repositoryFor(db).countReleaseFactsForRepositories([]),
+      repositoryFor(db).countReleaseFactsForRepositories([], new Set([1n])),
     ).resolves.toBe(0);
     expect(db.$queryRaw).not.toHaveBeenCalled();
   });

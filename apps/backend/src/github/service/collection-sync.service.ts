@@ -15,6 +15,7 @@ import type {
   CollectionRepositoryRow,
   CollectionStreamType,
   RecordSweepHistoryInput,
+  RegisteredGithubIdSet,
   RepositorySource,
   RepositoryTeamMemberAccount,
 } from '../collection-incremental.types';
@@ -89,10 +90,10 @@ type SyncRepository = Pick<
   | 'recordCommitFacts'
   | 'recordPullRequestFacts'
   | 'recordReleaseFacts'
+  | 'listRegisteredGithubIds'
   | 'recordRepositoryObservation'
   | 'refreshExternalRepositoryObservation'
   | 'markExternalRepositoryUnavailable'
-  | 'purgeUnregisteredExternalFacts'
   | 'recordRepositoryFailure'
   | 'recordRepositorySuccess'
   | 'markAbsentRepositories'
@@ -217,7 +218,11 @@ export class CollectionSyncService {
    * 만든다 — 관리자 수동 트리거가 202로 돌려준 runId와 lease에 박히는 내부 runId가 서로
    * 달라 완료·실패를 조회할 수 없던 문제를 이 한 인자로 닫는다.
    */
-  async run(ownerId: string, runId?: string): Promise<CollectionSyncRunResult> {
+  async run(
+    ownerId: string,
+    runId?: string,
+    registeredGithubIds?: RegisteredGithubIdSet,
+  ): Promise<CollectionSyncRunResult> {
     const runtime = await this.runtimeFactory();
     const githubOrganizationId = await this.resolveGithubOrganizationId();
     return this.runSweep({
@@ -226,6 +231,7 @@ export class CollectionSyncService {
       appId: BigInt(runtime.appId),
       ownerId,
       runId,
+      registeredGithubIds,
       runtime,
       discoverInventory: (lease, deadline) =>
         this.syncOrgInventory(runtime, lease, githubOrganizationId, deadline),
@@ -268,6 +274,7 @@ export class CollectionSyncService {
     appId: bigint;
     ownerId: string;
     runId?: string;
+    registeredGithubIds?: RegisteredGithubIdSet;
     runtime: CollectionSyncRuntime;
     discoverInventory: (
       lease: SyncLeaseToken,
@@ -278,7 +285,14 @@ export class CollectionSyncService {
     // caller-provided `discoverInventory` closure (`syncOrgInventory` /
     // `syncExternalInventory`). It's still a required field on `params` so
     // every call site stays explicit about which sweep it's running.
-    const { scope, appId, ownerId, runtime, discoverInventory } = params;
+    const {
+      scope,
+      appId,
+      ownerId,
+      runtime,
+      discoverInventory,
+      registeredGithubIds,
+    } = params;
     const key = { appId, scope };
     const runId = params.runId ?? this.createRunId();
     const acquiredAt = this.now();
@@ -303,7 +317,14 @@ export class CollectionSyncService {
 
     try {
       return await this.withHeartbeat(lease, () =>
-        this.syncSweep(runtime, lease, key, runId, discoverInventory),
+        this.syncSweep(
+          runtime,
+          lease,
+          key,
+          runId,
+          discoverInventory,
+          registeredGithubIds,
+        ),
       );
     } catch (error) {
       this.logger.error({
@@ -336,8 +357,16 @@ export class CollectionSyncService {
       lease: SyncLeaseToken,
       deadline: number,
     ) => Promise<SweepInventory>,
+    registeredGithubIds?: RegisteredGithubIdSet,
   ): Promise<CollectionSyncRunResult> {
     const deadline = this.now().getTime() + RUN_DEADLINE_MS;
+
+    // D9 — identity는 Customer/Supplier 경계다. 저장소나 fact마다 다시 묻지 않고
+    // run 시작 시 한 번 고정한다. 조회 실패는 inventory/fact write 전에 전파되어
+    // 개인 데이터 적재보다 수집 지연 쪽으로 fail-closed 한다.
+    const identitySnapshot =
+      registeredGithubIds ??
+      (await this.incrementalRepository.listRegisteredGithubIds());
 
     const inventory = await discoverInventory(lease, deadline);
 
@@ -418,6 +447,7 @@ export class CollectionSyncService {
           runtime,
           lease,
           repository,
+          identitySnapshot,
           deadline,
         );
         insertedFactCount +=
@@ -454,9 +484,6 @@ export class CollectionSyncService {
               observedAt,
             );
           });
-          await this.purgeExternalFactsBestEffort(
-            repository.githubRepositoryId,
-          );
         }
         lastError = error instanceof Error ? error.name : 'UnknownError';
         failedRepositoryCount += 1;
@@ -688,7 +715,6 @@ export class CollectionSyncService {
               observedAt,
             );
           });
-          await this.purgeExternalFactsBestEffort(current.githubRepositoryId);
           continue;
         }
         complete = false;
@@ -707,7 +733,6 @@ export class CollectionSyncService {
             observedAt,
           );
         });
-        await this.purgeExternalFactsBestEffort(current.githubRepositoryId);
         continue;
       }
 
@@ -726,34 +751,10 @@ export class CollectionSyncService {
       );
       if (refreshed?.visibility === 'PUBLIC') {
         repositories.push(refreshed);
-      } else if (refreshed?.visibility === 'PRIVATE') {
-        await this.purgeExternalFactsBestEffort(current.githubRepositoryId);
       }
     }
 
     return { complete, repositories };
-  }
-
-  /**
-   * 공개 회수 뒤의 레거시 원본 정리는 best-effort다.
-   *
-   * PRIVATE/ABSENT 관찰과 같은 트랜잭션에 두면 정리 SQL 한 건의 실패가 공개 회수까지
-   * rollback하는 fail-open이 된다. 회수는 먼저 확정하고, 정리 실패는 다음 sweep에서
-   * 재시도할 수 있도록 기록만 남긴다.
-   */
-  private async purgeExternalFactsBestEffort(
-    githubRepositoryId: bigint,
-  ): Promise<void> {
-    try {
-      await this.incrementalRepository.purgeUnregisteredExternalFacts(
-        githubRepositoryId,
-      );
-    } catch (error) {
-      this.logger.warn({
-        event: 'collection.sync.external_fact_cleanup_failed',
-        errorName: error instanceof Error ? error.name : 'UnknownError',
-      });
-    }
   }
 
   /**
@@ -765,6 +766,7 @@ export class CollectionSyncService {
     runtime: CollectionSyncRuntime,
     lease: SyncLeaseToken,
     repository: CollectionRepositoryRow,
+    registeredGithubIds: RegisteredGithubIdSet,
     deadline: number,
   ): Promise<{
     commitCount: number;
@@ -800,15 +802,26 @@ export class CollectionSyncService {
             await this.incrementalRepository.listRepositoryTeamMembers(
               repository.githubRepositoryId,
             );
+          // TeamMember/User 관계도 run 시작 뒤 바뀔 수 있다. 이 run의 User snapshot에
+          // 없던 계정까지 fingerprint에 넣으면 fact는 거르면서 "백필 완료"만 기록해
+          // 다음 run이 과거 PR을 영구히 건너뛴다. 세 stream과 fingerprint 모두 같은
+          // snapshot으로 좁힌 목록을 공유한다.
+          const registeredMembers =
+            members === null
+              ? null
+              : members.filter((member) =>
+                  registeredGithubIds.has(member.githubId),
+                );
           return {
-            teamMembers: members,
+            teamMembers: registeredMembers,
             insertedCount: await this.syncCommitStream(
               runtime,
               lease,
               repository,
               owner,
               name,
-              members,
+              registeredMembers,
+              registeredGithubIds,
               deadline,
             ),
           };
@@ -826,6 +839,7 @@ export class CollectionSyncService {
           owner,
           name,
           teamMembers,
+          registeredGithubIds,
           deadline,
         ),
     );
@@ -841,6 +855,7 @@ export class CollectionSyncService {
           owner,
           name,
           teamMembers,
+          registeredGithubIds,
           deadline,
         ),
     );
@@ -919,6 +934,7 @@ export class CollectionSyncService {
     owner: string,
     name: string,
     teamMembers: readonly RepositoryTeamMemberAccount[] | null,
+    registeredGithubIds: RegisteredGithubIdSet,
     deadline: number,
   ): Promise<number> {
     const defaultBranch = repository.defaultBranch;
@@ -943,6 +959,7 @@ export class CollectionSyncService {
         name,
         defaultBranch,
         teamMembers,
+        registeredGithubIds,
         deadline,
       );
     }
@@ -967,6 +984,7 @@ export class CollectionSyncService {
         lease,
         repository.id,
         result.commits,
+        registeredGithubIds,
         result.commits[0]?.sha ?? null,
         requestFingerprintKey(result.fingerprint),
         null,
@@ -1001,6 +1019,7 @@ export class CollectionSyncService {
       lease,
       repository.id,
       result.commits,
+      registeredGithubIds,
       headSha,
       requestFingerprintKey(result.fingerprint),
       probe.etag,
@@ -1035,6 +1054,7 @@ export class CollectionSyncService {
     name: string,
     defaultBranch: string,
     members: readonly RepositoryTeamMemberAccount[],
+    registeredGithubIds: RegisteredGithubIdSet,
     deadline: number,
   ): Promise<number> {
     const bySha = new Map<string, CollectionCommit>();
@@ -1078,6 +1098,7 @@ export class CollectionSyncService {
       lease,
       repository.id,
       teamCommits,
+      registeredGithubIds,
       null,
       TEAM_SCOPED_COMMIT_FINGERPRINT,
       null,
@@ -1122,6 +1143,7 @@ export class CollectionSyncService {
     lease: SyncLeaseToken,
     repositoryId: string,
     commits: readonly CollectionCommit[],
+    registeredGithubIds: RegisteredGithubIdSet,
     headSha: string | null,
     requestFingerprint: string,
     etag: string | null,
@@ -1139,6 +1161,7 @@ export class CollectionSyncService {
               : BigInt(commit.authorGithubId),
           authorGithubLogin: commit.authorLogin,
         })),
+        registeredGithubIds,
       );
       await repo.upsertStreamFrontier({
         repositoryId,
@@ -1180,6 +1203,7 @@ export class CollectionSyncService {
     owner: string,
     name: string,
     teamMembers: readonly RepositoryTeamMemberAccount[] | null,
+    registeredGithubIds: RegisteredGithubIdSet,
     deadline: number,
   ): Promise<number> {
     const existing = await this.incrementalRepository.getStreamFrontier(
@@ -1215,6 +1239,7 @@ export class CollectionSyncService {
       lease,
       repository.id,
       this.onlyTeamAuthored(result.pullRequests, teamMembers),
+      registeredGithubIds,
       result.newFrontier,
       requestFingerprintKey(result.fingerprint),
       teamMembershipFrontier,
@@ -1248,6 +1273,7 @@ export class CollectionSyncService {
     lease: SyncLeaseToken,
     repositoryId: string,
     pullRequests: readonly CollectionPullRequest[],
+    registeredGithubIds: RegisteredGithubIdSet,
     newFrontier: { createdAt: string; id: string } | null,
     requestFingerprint: string,
     teamMembershipFrontier: string | null,
@@ -1266,6 +1292,7 @@ export class CollectionSyncService {
               : BigInt(pullRequest.authorGithubId),
           authorGithubLogin: pullRequest.authorLogin,
         })),
+        registeredGithubIds,
       );
       await repo.upsertStreamFrontier({
         repositoryId,
@@ -1301,6 +1328,7 @@ export class CollectionSyncService {
     owner: string,
     name: string,
     teamMembers: readonly RepositoryTeamMemberAccount[] | null,
+    registeredGithubIds: RegisteredGithubIdSet,
     deadline: number,
   ): Promise<number> {
     const existing = await this.incrementalRepository.getStreamFrontier(
@@ -1324,6 +1352,7 @@ export class CollectionSyncService {
       lease,
       repository.id,
       this.onlyTeamAuthored(listing.releases, teamMembers),
+      registeredGithubIds,
       probe.frontier ? probe.frontier.probe : null,
       requestFingerprintKey(probe.fingerprint),
       probe.etag,
@@ -1334,6 +1363,7 @@ export class CollectionSyncService {
     lease: SyncLeaseToken,
     repositoryId: string,
     releases: readonly CollectionRelease[],
+    registeredGithubIds: RegisteredGithubIdSet,
     frontierProbe: string | null,
     requestFingerprint: string,
     etag: string | null,
@@ -1351,6 +1381,7 @@ export class CollectionSyncService {
               : BigInt(release.authorGithubId),
           authorGithubLogin: release.authorLogin,
         })),
+        registeredGithubIds,
       );
       await repo.upsertStreamFrontier({
         repositoryId,

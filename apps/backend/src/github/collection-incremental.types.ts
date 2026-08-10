@@ -109,6 +109,9 @@ export interface ReleaseFactInput {
   authorGithubLogin?: string | null;
 }
 
+/** D9 — 한 collection run/import가 시작할 때 한 번 고정하는 가입자 GitHub id snapshot. */
+export type RegisteredGithubIdSet = ReadonlySet<bigint>;
+
 /**
  * fact writer 결과.
  *

@@ -3,6 +3,8 @@ import { Logger } from '@nestjs/common';
 import type { CollectionCanonicalRepository } from '../repository/collection-canonical.repository';
 import type { CanonicalLeaseKey } from '../collection-canonical.types';
 import type { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
+import type { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
+import type { RegisteredGithubIdSet } from '../collection-incremental.types';
 import type {
   CutoverAggregateComparison,
   CutoverLeaseToken,
@@ -38,6 +40,10 @@ export class CollectionCutoverService {
     >,
     private readonly syncService: Pick<CollectionSyncService, 'run'>,
     private readonly cutoverRepository: CollectionCutoverRepository,
+    private readonly identityRepository: Pick<
+      CollectionIncrementalRepository,
+      'listRegisteredGithubIds'
+    >,
     private readonly resolveKey: () => Promise<CanonicalLeaseKey>,
     private readonly now: () => Date = () => new Date(),
     private readonly createRunId: () => string = randomUUID,
@@ -94,8 +100,15 @@ export class CollectionCutoverService {
       return { status: 'ABORTED', reason: 'NO_GENERATION', generationId: null };
     }
 
+    // import, provider 검증, parity 비교가 도중의 가입 변화에 서로 다른 답을 내지 않도록
+    // cutover 전체가 하나의 D9 사람축 snapshot을 공유한다.
+    const registeredGithubIds =
+      await this.identityRepository.listRegisteredGithubIds();
     const importResult =
-      await this.generationImportService.importActiveGeneration(key);
+      await this.generationImportService.importActiveGeneration(
+        key,
+        registeredGithubIds,
+      );
     if (!importResult.imported || importResult.generationId !== before.runId) {
       return {
         status: 'ABORTED',
@@ -116,7 +129,10 @@ export class CollectionCutoverService {
       };
     }
 
-    const syncPasses = await this.verifyAllStreams(ownerId);
+    const syncPasses = await this.verifyAllStreams(
+      ownerId,
+      registeredGithubIds,
+    );
     const verifiedStreamCount =
       await this.cutoverRepository.countVerifyingStreams();
     if (verifiedStreamCount > 0) {
@@ -127,7 +143,10 @@ export class CollectionCutoverService {
       };
     }
 
-    const comparison = await this.compareAggregates(importResult);
+    const comparison = await this.compareAggregates(
+      importResult,
+      registeredGithubIds,
+    );
     if (!aggregatesMatch(comparison)) {
       return {
         status: 'ABORTED',
@@ -151,13 +170,20 @@ export class CollectionCutoverService {
    * 나눠 완주한다(`cycleCompleted`) — 안전 상한(MAX_SYNC_PASSES) 안에서 완주하거나 더 이상
    * 진행되지 않을 때까지(FAILED/SKIPPED) 반복한다.
    */
-  private async verifyAllStreams(ownerId: string): Promise<number> {
+  private async verifyAllStreams(
+    ownerId: string,
+    registeredGithubIds: RegisteredGithubIdSet,
+  ): Promise<number> {
     let passes = 0;
     for (; passes < MAX_SYNC_PASSES; passes += 1) {
       const remainingBefore =
         await this.cutoverRepository.countVerifyingStreams();
       if (remainingBefore === 0) break;
-      const result = await this.syncService.run(ownerId);
+      const result = await this.syncService.run(
+        ownerId,
+        undefined,
+        registeredGithubIds,
+      );
       if (result.status !== 'COMPLETED') break;
       if (result.cycleCompleted) {
         passes += 1;
@@ -167,24 +193,34 @@ export class CollectionCutoverService {
     return passes;
   }
 
-  private async compareAggregates(importResult: {
-    repositories: readonly {
-      repositoryId: string;
-      commitsAccepted: number;
-      pullRequestsAccepted: number;
-      releasesAccepted: number;
-    }[];
-  }): Promise<CutoverAggregateComparison> {
+  private async compareAggregates(
+    importResult: {
+      repositories: readonly {
+        repositoryId: string;
+        commitsAccepted: number;
+        pullRequestsAccepted: number;
+        releasesAccepted: number;
+      }[];
+    },
+    registeredGithubIds: RegisteredGithubIdSet,
+  ): Promise<CutoverAggregateComparison> {
     const repositoryIds = importResult.repositories.map(
       (repository) => repository.repositoryId,
     );
     const [newCommitCount, newPullRequestCount, newReleaseCount] =
       await Promise.all([
-        this.cutoverRepository.countCommitFactsForRepositories(repositoryIds),
+        this.cutoverRepository.countCommitFactsForRepositories(
+          repositoryIds,
+          registeredGithubIds,
+        ),
         this.cutoverRepository.countPullRequestFactsForRepositories(
           repositoryIds,
+          registeredGithubIds,
         ),
-        this.cutoverRepository.countReleaseFactsForRepositories(repositoryIds),
+        this.cutoverRepository.countReleaseFactsForRepositories(
+          repositoryIds,
+          registeredGithubIds,
+        ),
       ]);
     return {
       oldCommitCount: importResult.repositories.reduce(

@@ -67,6 +67,7 @@ async function main(): Promise<void> {
       generationImportService,
       syncService,
       cutoverRepository,
+      incrementalRepository,
       () =>
         Promise.resolve({
           appId: BigInt(config.appId),
