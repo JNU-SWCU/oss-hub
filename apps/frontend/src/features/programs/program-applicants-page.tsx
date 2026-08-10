@@ -28,6 +28,7 @@ import {
   type ApplicationDecisionInput,
 } from './api';
 import { ApplicationDecisionDialog } from './application-decision-dialog';
+import { useApplicationDecisionFocusReturn } from './application-decision-focus';
 import {
   APPLICATION_STATUS_BADGE,
   APPLICATION_STATUS_LABELS,
@@ -140,6 +141,12 @@ export function ProgramApplicantsPage({
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const requestEpoch = useRef(new ApplicationListRequestEpoch());
   const pollAttempts = useRef(0);
+  /**
+   * 확인창이 **스스로** 닫힌 뒤 그 행의 판정 버튼으로 포커스를 돌려준다([#767]).
+   * ⚠ 재조회가 끝난 **뒤에** 불러야 한다 — 승인에 성공하면 그 행의 새 버튼
+   *   (「되돌리기」)은 재조회 결과가 그려진 뒤에야 생긴다.
+   */
+  const requestDecisionFocusReturn = useApplicationDecisionFocusReturn();
 
   const applicationParams = useCallback(
     () => ({ page, pageSize: PAGE_SIZE, search, status }),
@@ -244,6 +251,7 @@ export function ProgramApplicantsPage({
           ? { action: 'REJECT', reason }
           : { action: 'REVERT' };
     const decidingId = dialog.applicationId;
+    const decidedAction = dialog.action;
     setBusyApplicationId(decidingId);
     setNotice(null);
     // FN4: 재시도할 때 이전 실패 안내를 먼저 지운다 — 안 지우면 「처리 중…」과
@@ -273,6 +281,7 @@ export function ProgramApplicantsPage({
           message: '목록을 다시 조회해 최신 상태를 확인해 주세요.',
         });
       }
+      requestDecisionFocusReturn(decidedAction, decidingId);
     } catch (error: unknown) {
       const staleTitle = staleApplicationDecisionTitle(error);
       if (staleTitle !== null) {
@@ -292,6 +301,7 @@ export function ProgramApplicantsPage({
             message: '현재 상태를 유지했습니다. 다시 시도해 주세요.',
           });
         }
+        requestDecisionFocusReturn(decidedAction, decidingId);
       } else
         // 확인창은 열린 채로 둔다(적어 둔 사유를 잃지 않게) — 그래서 안내도 창 안에 그린다.
         setDecisionError(
@@ -304,7 +314,7 @@ export function ProgramApplicantsPage({
         current === decidingId ? null : current,
       );
     }
-  }, [dialog, rejectionReason, reloadApplications]);
+  }, [dialog, rejectionReason, reloadApplications, requestDecisionFocusReturn]);
 
   const columns = useMemo<DataTableColumn<ApplicationListItem>[]>(
     () => [

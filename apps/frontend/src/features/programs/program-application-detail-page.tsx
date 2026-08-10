@@ -19,6 +19,7 @@ import {
   type ApplicationDecisionInput,
 } from './api';
 import { ApplicationDecisionDialog } from './application-decision-dialog';
+import { useApplicationDecisionFocusReturn } from './application-decision-focus';
 import {
   APPLICATION_STATUS_BADGE,
   APPLICATION_STATUS_LABELS,
@@ -145,6 +146,12 @@ export function ProgramApplicationDetailPage({
    */
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const cancelled = useRef(false);
+  /**
+   * 확인창이 **스스로** 닫힌 뒤 판정 버튼으로 포커스를 돌려준다([#767]).
+   * ⚠ 재조회가 끝난 **뒤에** 불러야 한다 — 승인에 성공하면 새 버튼(「되돌리기」)은
+   *   재조회 결과가 그려진 뒤에야 생긴다. 목록 화면과 같은 규칙을 쓴다.
+   */
+  const requestDecisionFocusReturn = useApplicationDecisionFocusReturn();
 
   const openDecisionDialog = useCallback(
     (action: ApplicationDecisionAction): void => {
@@ -210,6 +217,7 @@ export function ProgramApplicationDetailPage({
         : dialogAction === 'REJECT'
           ? { action: 'REJECT', reason }
           : { action: 'REVERT' };
+    const decidedAction = dialogAction;
     setBusy(true);
     setNotice(null);
     setDecisionError(null);
@@ -236,6 +244,7 @@ export function ProgramApplicationDetailPage({
           message: '이 화면을 다시 불러와 최신 상태를 확인해 주세요.',
         });
       }
+      requestDecisionFocusReturn(decidedAction);
     } catch (error: unknown) {
       const staleTitle = staleApplicationDecisionTitle(error);
       if (staleTitle !== null) {
@@ -266,6 +275,7 @@ export function ProgramApplicationDetailPage({
             });
           }
         }
+        requestDecisionFocusReturn(decidedAction);
       } else
         // 확인창은 열린 채로 둔다(적어 둔 사유를 잃지 않게) — 그래서 안내도 창 안에 그린다.
         setDecisionError(
@@ -274,7 +284,13 @@ export function ProgramApplicationDetailPage({
     } finally {
       setBusy(false);
     }
-  }, [applicationId, dialogAction, rejectionReason, reload]);
+  }, [
+    applicationId,
+    dialogAction,
+    rejectionReason,
+    reload,
+    requestDecisionFocusReturn,
+  ]);
 
   if (loadState.kind === 'loading') return <DetailSkeleton />;
 
