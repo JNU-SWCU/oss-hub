@@ -1,3 +1,4 @@
+import { APPLICATION_ANSWER_MAX_LENGTHS } from '../programs/application-answers.validator';
 import {
   ApplicationStatus,
   ProgramCategory,
@@ -329,6 +330,40 @@ describe('ApplicationsService.create', () => {
     ).rejects.toMatchObject({
       errorCode: { code: ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH },
     });
+  });
+
+  it('answers 가 길이 상한을 넘으면 APP_015 가 아니라 APP_024 로, 넘친 칸까지 알려 준다', async () => {
+    // ⚠ 「올바르지 않다」로 뭉뚱그리면 학생은 무엇을 줄여야 하는지 모른다.
+    const { service } = buildService({});
+
+    const thrown: unknown = await service
+      .create(
+        GITHUB_ID,
+        PROGRAM_ID,
+        {
+          ...DEFAULT_INPUT,
+          answers: {
+            title: '가'.repeat(APPLICATION_ANSWER_MAX_LENGTHS.title + 1),
+            summary: '요약',
+          },
+        },
+        NOW,
+      )
+      .then(
+        () => null,
+        (error: unknown) => error,
+      );
+
+    expect(thrown).toBeInstanceOf(DomainException);
+    const failure = thrown as DomainException;
+    expect(failure.errorCode.code).toBe(ApplicationsErrorCode.ANSWER_TOO_LONG);
+    const fieldErrors = failure.extensions.fieldErrors ?? [];
+    expect(fieldErrors).toHaveLength(1);
+    expect(fieldErrors[0]?.field).toBe('title');
+    // 문구가 상한을 담고 있어야 학생이 얼마나 줄일지 안다.
+    expect(fieldErrors[0]?.message).toContain(
+      APPLICATION_ANSWER_MAX_LENGTHS.title.toLocaleString('ko-KR'),
+    );
   });
 
   it('answers 누락·알 수 없는 키면 APP_015', async () => {

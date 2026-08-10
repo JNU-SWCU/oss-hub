@@ -1,4 +1,5 @@
-import type { ProblemDetail } from '@/lib/api-client';
+import { APPLICATION_ANSWER_MAX_LENGTHS } from './application-answer-limits';
+import type { ProblemDetail, ProblemDetailFieldError } from '@/lib/api-client';
 import type { ProgramTeam } from './api';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
 
@@ -114,6 +115,21 @@ export function validateApplyForm(
   return {
     ...(!values.title.trim() ? { title: '제목을 입력해 주세요.' } : {}),
     ...(!values.summary.trim() ? { summary: '요약을 입력해 주세요.' } : {}),
+    /*
+     * 입력칸의 `maxLength` 는 **새로 치는 글자**만 막는다 — 상한이 생기기 전에 저장된
+     * 긴 신청서를 수정 화면에 불러오면 그 값은 그대로 남아, 손대지 않고 저장해도 400 이 난다.
+     * 그때 무엇을 줄여야 하는지 여기서 말해 준다.
+     */
+    ...(values.title.trim().length > APPLICATION_ANSWER_MAX_LENGTHS.title
+      ? {
+          title: `제목은 ${APPLICATION_ANSWER_MAX_LENGTHS.title.toLocaleString('ko-KR')}자를 넘을 수 없습니다.`,
+        }
+      : {}),
+    ...(values.summary.trim().length > APPLICATION_ANSWER_MAX_LENGTHS.summary
+      ? {
+          summary: `요약은 ${APPLICATION_ANSWER_MAX_LENGTHS.summary.toLocaleString('ko-KR')}자를 넘을 수 없습니다.`,
+        }
+      : {}),
     ...(mode === 'create' &&
     values.repositoryConnectionMode === 'own' &&
     !values.repositoryUrl.trim()
@@ -151,6 +167,47 @@ export function applyActionFailureMessage(action: ProgramApplyAction): string {
   }
 }
 
+/**
+ * 서버가 실어 보낸 칸별 오류를 그 입력칸으로 옮긴다.
+ *
+ * ⚠ 옮기지 않으면 「신청 항목이 너무 깁니다」 배너 하나만 뜨고 **어느 칸을 얼마나 줄일지**
+ *   학생이 알 수 없다. 서버가 애써 실어 보낸 정보를 화면이 버리는 셈이다.
+ *   (`program-edit-flow.ts` 의 `mapProblemFieldErrors` 와 같은 방식이다.)
+ */
+export function mapApplyProblemFieldErrors(
+  fieldErrors: readonly ProblemDetailFieldError[] | undefined,
+): ProgramApplyFormErrors {
+  const errors: { title?: string; summary?: string } = {};
+  for (const fieldError of fieldErrors ?? []) {
+    if (fieldError.field === 'title') errors.title = fieldError.message;
+    if (fieldError.field === 'summary') errors.summary = fieldError.message;
+  }
+  return errors;
+}
+
+/**
+ * 제출 실패를 「어느 칸에 붙일 것」과 「배너로 띄울 것」으로 가른다.
+ *
+ * 서버가 칸을 짚어 줬으면 배너는 띄우지 않는다 — 같은 말을 두 군데서 하면
+ * 학생이 어느 쪽을 따라야 할지 헷갈린다.
+ */
+export function resolveApplySubmitFailure(
+  problem: ProblemDetail,
+  action: ProgramApplyAction,
+): {
+  readonly fieldErrors: ProgramApplyFormErrors;
+  readonly serverError: string | null;
+} {
+  const fieldErrors = mapApplyProblemFieldErrors(problem.fieldErrors);
+  return {
+    fieldErrors,
+    serverError:
+      Object.keys(fieldErrors).length > 0
+        ? null
+        : mapCreateApplicationError(problem, action),
+  };
+}
+
 export function mapCreateApplicationError(
   problem: ProblemDetail,
   action: ProgramApplyAction = 'submit',
@@ -166,6 +223,10 @@ export function mapCreateApplicationError(
       return '팀 최소 인원을 충족한 뒤 신청해 주세요.';
     case 'APP_015':
       return '신청 항목을 확인해 주세요.';
+    case 'APP_024':
+      // 칸별 안내는 `mapApplyProblemFieldErrors` 가 그 칸으로 옮긴다.
+      // 여기 문구는 칸을 하나도 못 옮겼을 때의 마지막 안전망이다.
+      return '신청 항목이 너무 깁니다. 제목과 요약 길이를 줄여 주세요.';
     case 'APP_016':
       return '신청 양식이 갱신되었습니다. 페이지를 새로고침해 주세요.';
     case 'APP_008':
