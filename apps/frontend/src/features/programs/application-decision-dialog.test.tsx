@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act, useState } from 'react';
+import { act, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -64,6 +64,58 @@ function Harness({
   );
 }
 
+/**
+ * 판정이 저장되어 창이 **스스로** 닫힌 뒤를 줄여 놓은 것 — 창을 연 버튼은 사라지고
+ * (「승인」→「되돌리기」) 화면이 그 새 버튼으로 포커스를 옮긴다([#767]).
+ */
+function SelfClosingHarness() {
+  const [decided, setDecided] = useState(false);
+  const triggerId = applicationDecisionTriggerId('APPROVE');
+
+  useEffect(() => {
+    if (decided) document.getElementById('after-decision')?.focus();
+  }, [decided]);
+
+  return (
+    <>
+      {decided ? (
+        <button id="after-decision" type="button">
+          되돌리기
+        </button>
+      ) : (
+        <button id={triggerId} type="button">
+          승인
+        </button>
+      )}
+      {decided ? null : (
+        <ApplicationDecisionDialog
+          action="APPROVE"
+          repositoryProvisioningEnabled={false}
+          repositoryConnectionMode="NEW"
+          reason=""
+          reasonError={false}
+          busy={false}
+          errorMessage={null}
+          returnFocusId={triggerId}
+          onReasonChange={() => {}}
+          onCancel={() => {}}
+          onConfirm={() => setDecided(true)}
+        />
+      )}
+    </>
+  );
+}
+
+/**
+ * Radix 는 창이 닫힐 때의 포커스 복귀를 `setTimeout` 안에서 뒤늦게 한다.
+ * 그걸 흘려보내지 않으면 「덮어쓰지 않는다」를 확인할 수 없다.
+ */
+async function flushCloseAutoFocus(): Promise<void> {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
 function getButton(name: string): HTMLButtonElement {
   const button = Array.from(document.querySelectorAll('button')).find(
     (candidate) => candidate.textContent?.trim() === name,
@@ -98,6 +150,10 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
       consoleErrors.push(args);
     });
+    // ⚠ 포커스가 문서 맨 앞인 상태에서 시작한다 — 앞 테스트가 남긴 (이미 문서에서
+    //   떨어져 나간) 노드가 `activeElement` 로 남아 있으면 Radix 의 기본 복귀가 그 죽은
+    //   노드를 향해 **아무 일도 안 하고**, 그러면 복귀 규칙을 검사한 것이 아니게 된다.
+    (document.activeElement as HTMLElement | null)?.blur();
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -273,6 +329,25 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     // Then
     expect(dialog()).toBeNull();
     expect(document.activeElement).toBe(trigger);
+  });
+
+  it('창을 연 버튼이 사라진 채 닫히면 화면이 옮겨 둔 포커스를 덮지 않는다', async () => {
+    // Given: 판정이 저장되어 「승인」이 「되돌리기」로 바뀌고, 화면이 그 새 버튼으로
+    //   포커스를 옮겼다.
+    // ⚠ Radix 기본 복귀는 **창이 열릴 때** 포커스를 갖고 있던 자리를 향한다 — 그 자리는
+    //   이미 사라졌으므로 복귀는 포커스를 문서 맨 앞으로 떨어뜨리고, 화면이 옮겨 둔
+    //   포커스까지 덮어쓴다. 그 복귀는 `setTimeout` 안에서 뒤늦게 일어난다([#767]).
+    await act(async () => root.render(<SelfClosingHarness />));
+    await act(async () => getButton('승인 확정').click());
+    expect(dialog()).toBeNull();
+    const replacement = getButton('되돌리기');
+    expect(document.activeElement).toBe(replacement);
+
+    // When: 창이 미뤄 둔 포커스 복귀가 뒤늦게 일어난다.
+    await flushCloseAutoFocus();
+
+    // Then: 새 버튼에 그대로 있다.
+    expect(document.activeElement).toBe(replacement);
   });
 
   it('저장하는 중에는 Escape 로 닫히지 않는다', async () => {

@@ -98,6 +98,16 @@ function queryButton(name: string): HTMLButtonElement | undefined {
   ) as HTMLButtonElement | undefined;
 }
 
+/**
+ * Radix 는 확인창이 닫힐 때의 포커스 복귀를 `setTimeout` 안에서 뒤늦게 한다.
+ * 그걸 흘려보내지 않으면 화면이 옮겨 둔 포커스가 살아남는지 확인할 수 없다([#767]).
+ */
+async function flushCloseAutoFocus(): Promise<void> {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
 describe('ProgramApplicationDetailPage', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -117,6 +127,10 @@ describe('ProgramApplicationDetailPage', () => {
   }
 
   beforeEach(() => {
+    // ⚠ 포커스가 문서 맨 앞인 상태에서 시작한다 — 앞 테스트가 남긴 (이미 문서에서
+    //   떨어져 나간) 노드가 `activeElement` 로 남아 있으면 Radix 의 기본 복귀가 그 죽은
+    //   노드를 향해 **아무 일도 안 하고**, 그러면 복귀 규칙을 검사한 것이 아니게 된다.
+    (document.activeElement as HTMLElement | null)?.blur();
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -538,6 +552,75 @@ describe('ProgramApplicationDetailPage', () => {
     // Then: 문서 맨 앞이 아니라 그 버튼으로 돌아온다.
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
+  });
+
+  it('판정에 성공해 확인창이 스스로 닫히면 그 자리의 새 버튼으로 포커스가 간다', async () => {
+    // Given: 승인 확인창이 열려 있다.
+    // ⚠ 성공하면 「승인」이 **사라지고** 「되돌리기」가 생긴다 — 창을 연 버튼으로는
+    //   돌아갈 수 없고, 새 버튼은 **재조회가 끝난 뒤에야** DOM 에 생긴다([#767]).
+    getApplicationDetailMock.mockResolvedValueOnce(submitted);
+    decideApplicationMock.mockResolvedValue({
+      applicationId: 'app-1',
+      status: 'APPROVED',
+    });
+    getApplicationDetailMock.mockResolvedValueOnce({
+      ...submitted,
+      status: 'APPROVED',
+    });
+    await mount();
+    await act(async () => getButton('승인').click());
+
+    // When: 승인을 확정한다.
+    await act(async () => getButton('승인 확정').click());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await flushCloseAutoFocus();
+
+    // Then: 문서 맨 앞이 아니라 그 자리를 이어받은 버튼에 있다.
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(document.activeElement).toBe(getButton('되돌리기'));
+  });
+
+  it('되돌리기에 성공하면 다시 생긴 승인 버튼으로 포커스가 간다', async () => {
+    // 판정마다 무엇이 남는지가 다르다 — 승인 한 갈래만 고치면 되돌리기는 그대로 튕긴다.
+    getApplicationDetailMock.mockResolvedValueOnce(rejected);
+    decideApplicationMock.mockResolvedValue({
+      applicationId: 'app-1',
+      status: 'SUBMITTED',
+    });
+    getApplicationDetailMock.mockResolvedValueOnce(submitted);
+    await mount();
+    await act(async () => getButton('되돌리기').click());
+
+    await act(async () => getButton('되돌리기 확정').click());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await flushCloseAutoFocus();
+
+    expect(document.activeElement).toBe(getButton('승인'));
+  });
+
+  it('낡은 상태(409)로 창이 닫혀도 포커스가 문서 맨 앞으로 떨어지지 않는다', async () => {
+    // 다른 운영자가 먼저 판정한 경우다. 창을 닫는 시점에는 그 버튼이 아직 `disabled`
+    // 라 포커스를 못 받고, 재조회가 끝나면 아예 다른 버튼이 되어 있다.
+    getApplicationDetailMock.mockResolvedValueOnce(submitted);
+    decideApplicationMock.mockRejectedValue(
+      new ApiError(problem(409, 'APP_002')),
+    );
+    getApplicationDetailMock.mockResolvedValueOnce(rejected);
+    await mount();
+    await act(async () => getButton('승인').click());
+
+    await act(async () => getButton('승인 확정').click());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await flushCloseAutoFocus();
+
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement).toBe(getButton('되돌리기'));
   });
 
   it('자동 생성이 꺼져 있어도 저장소 작업 상태를 목록과 같이 말한다', async () => {
