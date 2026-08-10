@@ -126,7 +126,13 @@ export interface ProgramScopeSidebarGroup {
   readonly items: readonly ProgramScopeSidebarItem[];
 }
 
-export type ProgramScopeViewerRole = 'STUDENT' | 'STAFF' | 'ADMIN';
+/**
+ * `GUEST`는 세션 조회가 안 끝났거나(loading) 아예 비회원(anonymous)·미배정
+ * (unassigned)·프로필 미완료인 뷰어다. 참여 팀·서류 현황·게시판 같은 회원 전용
+ * 데이터를 볼 근거가 없어 STAFF 골격으로 낮추던 과거 방식(참여 팀·서류 현황·게시판이
+ * 그대로 노출됨) 대신, `programScopeSidebarGroups`가 공개 개요 항목 하나만 돌려준다.
+ */
+export type ProgramScopeViewerRole = 'GUEST' | 'STUDENT' | 'STAFF' | 'ADMIN';
 
 export interface ProgramScopeMilestoneDocsSummary {
   readonly milestoneId: string;
@@ -159,6 +165,10 @@ export interface ProgramScopeSidebarInput {
  * docs/design.md §업무 화면 내비게이션 › 프로그램 스코프 좌측 패널 그대로 — g2 부모 라벨·자식 유무는 역할로 갈린다.
  * hrefs는 `programHref` 접미사(`/teams`, `/status`, `/mydocs`, `/board`)로 만든다 —
  * 해당 라우트가 아직 없다면 이 함수 하나만 고치면 된다(docs/design.md §업무 화면 내비게이션 › 프로그램 스코프 좌측 패널).
+ *
+ * `GUEST`는 예외다 — 참여 팀·서류 현황·게시판 전부 회원 전용 데이터라 근거 없이 보여줄
+ * 수 없다(QA46). 개요 그룹의 "프로그램 개요" 항목 하나만 돌려주고 나머지 두 그룹은
+ * 아예 만들지 않는다.
  */
 export function programScopeSidebarGroups(
   input: ProgramScopeSidebarInput,
@@ -171,6 +181,23 @@ export function programScopeSidebarGroups(
     viewerDocuments,
     milestoneDocuments = [],
   } = input;
+
+  if (viewerRole === 'GUEST') {
+    return [
+      {
+        label: '프로그램',
+        items: [
+          {
+            label: '프로그램 개요',
+            href: programHref(programId),
+            icon: 'home',
+            depth: 0,
+          },
+        ],
+      },
+    ];
+  }
+
   const isStaffView = viewerRole !== 'STUDENT';
 
   const overviewGroup: ProgramScopeSidebarGroup = {
