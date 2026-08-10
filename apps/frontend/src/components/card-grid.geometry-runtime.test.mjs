@@ -175,6 +175,73 @@ test('cancels readiness work and preserves logs when the child exits first', asy
   expect(stdout).toBe('');
 }, 40_000);
 
+test('returns a usable server once the dev command answers the probe', async () => {
+  // Given: a dev command that actually serves the readiness URL.
+  const { cwd, readinessBudget, warmup } = await prepareFixtureProject(
+    `const { createServer } = await import('node:http');
+    const portIndex = process.argv.indexOf('--port');
+    const port = Number(process.argv[portIndex + 1]);
+    createServer((request, response) => {
+      response.writeHead(200, { 'content-type': 'text/plain' });
+      response.end('ok');
+    }).listen(port, '127.0.0.1');
+    `,
+  );
+  expect(warmup.output).toContain('WARMUP_READY');
+
+  // The watchdog is what makes a hang legible: dropping the readiness
+  // cancellation leaves `exited` pending forever on this path, so startServer
+  // never returns. Without it that shows up as a suite timeout with no clue.
+  const driver = `
+    import { get } from 'node:http';
+    import { startServer, stopServer } from ${JSON.stringify(runtimeUrl.href)};
+    process.on('unhandledRejection', (error) => {
+      console.error('UNHANDLED_REJECTION', error);
+      process.exitCode = 70;
+    });
+    const watchdog = setTimeout(() => {
+      console.error('STARTSERVER_NEVER_RETURNED');
+      process.exit(9);
+    }, ${readinessBudget});
+    const now = Date.now();
+    const server = await startServer({
+      cwd: ${JSON.stringify(cwd)},
+      env: process.env,
+      totalDeadline: now + ${readinessBudget + 5_000},
+      workDeadline: now + ${readinessBudget},
+    });
+    clearTimeout(watchdog);
+    console.error('SERVER_READY_ON_ATTEMPT', server.attempt);
+    console.error('SERVER_PORT_IS_NUMBER', Number.isInteger(server.port));
+    const status = await new Promise((resolve) => {
+      get(
+        \`http://127.0.0.1:\${server.port}/programs?status=recruiting\`,
+        (response) => {
+          response.resume();
+          resolve(response.statusCode);
+        },
+      ).once('error', () => resolve(0));
+    });
+    console.error('SERVED_STATUS', status);
+    await stopServer(server.child, Date.now() + 5_000, 2_000);
+    console.error('SERVER_STOPPED');
+  `;
+
+  // When: the probe succeeds and startServer hands the running server back.
+  const { exitCode, stderr, stdout } = await runDriver(driver);
+
+  // Then: the call returns, the handle points at the live server, and the
+  // process settles without leaking the readiness work it no longer needs.
+  expect(stderr).not.toContain('STARTSERVER_NEVER_RETURNED');
+  expect(exitCode).toBe(0);
+  expect(stderr).toContain('SERVER_READY_ON_ATTEMPT 1');
+  expect(stderr).toContain('SERVER_PORT_IS_NUMBER true');
+  expect(stderr).toContain('SERVED_STATUS 200');
+  expect(stderr).toContain('SERVER_STOPPED');
+  expect(stderr).not.toContain('UNHANDLED_REJECTION');
+  expect(stdout).toBe('');
+}, 40_000);
+
 test('cancels the shutdown timeout when SIGTERM stops the child', async () => {
   // Given: a detached child with the default SIGTERM behavior.
   const driver = `
