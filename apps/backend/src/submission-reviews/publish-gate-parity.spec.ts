@@ -124,17 +124,6 @@ const SCENARIOS = [
     }),
   },
   {
-    label: '프로그램 종료일이 설정되지 않았다(스키마상 "미종료")',
-    reason: PUBLISH_BLOCKED_REASONS.PROGRAM_NOT_ENDED,
-    errorCode: SubmissionReviewsErrorCode.PROGRAM_NOT_ENDED,
-    breakRow: (_repository: ReviewRepository, application: ReviewApplication) =>
-      void (application.program.endAt = null),
-    breakEligibility: (eligibility: RepositoryPublishEligibility) => ({
-      ...eligibility,
-      programEndAt: null,
-    }),
-  },
-  {
     label: '필수 마일스톤이 아직 승인되지 않았다',
     reason: PUBLISH_BLOCKED_REASONS.REQUIRED_MILESTONES_NOT_APPROVED,
     errorCode: SubmissionReviewsErrorCode.REQUIRED_MILESTONES_NOT_APPROVED,
@@ -277,7 +266,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
       provisionStatus: RepositoryProvisionJobStatus.PROCESSING,
       requiredMilestonesApproved: false,
       isRepositoryPublicationPlanned: false,
-      programEndAt: null,
+      programEndAt: new Date('2026-12-31T00:00:00.000Z'),
     });
 
     // When: 화면이 판정하고 교직원이 공개 버튼을 누른다.

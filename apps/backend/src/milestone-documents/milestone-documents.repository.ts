@@ -62,7 +62,7 @@ export interface MilestoneDocumentContext {
 export interface StudentApplicationContext {
   readonly applicationId: string;
   readonly approved: boolean;
-  readonly programEndAt: Date | null;
+  readonly programEndAt: Date;
   readonly repositoryUrl: string | null;
 }
 
@@ -1085,7 +1085,7 @@ export class MilestoneDocumentsRepository {
   ): Promise<CreatedPendingMilestoneDocumentFile> {
     return this.prisma.$transaction(async (transaction) => {
       const programs = await transaction.$queryRaw<
-        readonly { endAt: Date | null }[]
+        readonly { endAt: Date }[]
       >(Prisma.sql`
         SELECT program."endAt"
         FROM "Program" AS program
@@ -1094,8 +1094,8 @@ export class MilestoneDocumentsRepository {
         WHERE application."id" = ${input.applicationId}
         FOR UPDATE OF program
       `);
-      const programEndAt = programs[0]?.endAt;
-      if (programEndAt == null) {
+      const program = programs[0];
+      if (!program) {
         throw new MilestoneDocumentFileRetentionUnavailableError();
       }
 
@@ -1110,7 +1110,7 @@ export class MilestoneDocumentsRepository {
           sizeBytes: input.sizeBytes,
           lifecycle: SubmissionFileLifecycle.PENDING,
           pendingExpiresAt: input.pendingExpiresAt,
-          expiresAt: addOneCalendarYear(programEndAt),
+          expiresAt: addOneCalendarYear(program.endAt),
         },
         select: {
           id: true,

@@ -47,7 +47,7 @@ export interface SubmissionMilestone {
   readonly dueAt: Date;
   readonly submissionType: MilestoneSubmissionType;
   readonly instructions: string | null;
-  readonly programEndAt: Date | null;
+  readonly programEndAt: Date;
 }
 
 export interface SubmissionApplication {
@@ -266,7 +266,7 @@ class PrismaSubmissionsStore implements SubmissionsStore {
 
   async lockProgramEndAt(programId: string): Promise<Date | null> {
     const programs = await this.database.$queryRaw<
-      readonly { endAt: Date | null }[]
+      readonly { endAt: Date }[]
     >(Prisma.sql`
       SELECT "endAt"
       FROM "Program"

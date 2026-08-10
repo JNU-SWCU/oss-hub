@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
 import {
+  offsetDays,
   prisma as seedPrisma,
   seedGithubId,
   seedId,
@@ -133,7 +134,7 @@ describe('SubmissionsService integration', () => {
           id: RELEASE_MILESTONE_ID,
           programId: REPOSITORY_PROGRAM_ID,
           name: '합성 릴리스 제출',
-          dueAt: new Date('2026-08-30T00:00:00.000Z'),
+          dueAt: offsetDays(-2),
           submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
         },
       ],
@@ -480,40 +481,6 @@ describe('SubmissionsService integration', () => {
     ]);
   });
 
-  it('FILE 유형은 프로그램 종료 시각이 없으면 fail-closed 한다', async () => {
-    // Given: seed 기본값과 무관하게 종료 시각이 비어 있는 프로그램을 강제한다.
-    await prisma.program.update({
-      where: { id: MILESTONES_PROGRAM_ID },
-      data: { endAt: null },
-    });
-    // When
-    const form = await service.form(
-      seedGithubId(PERSONAL_USER_ID),
-      MILESTONES_PROGRAM_ID,
-      FILE_MILESTONE_ID,
-      NOW,
-    );
-    const submission = service.create(
-      seedGithubId(PERSONAL_USER_ID),
-      {
-        applicationId: PERSONAL_APPLICATION_ID,
-        milestoneId: FILE_MILESTONE_ID,
-        content: { type: MilestoneSubmissionType.FILE, fileId: 'file-id' },
-        comment: null,
-      },
-      NOW,
-    );
-
-    // Then
-    expect(form).toMatchObject({
-      canSubmit: false,
-      blockedReason: 'FILE_UPLOAD_UNAVAILABLE',
-    });
-    await expect(submission).rejects.toMatchObject({
-      errorCode: { code: SubmissionsErrorCode.FILE_RETENTION_UNAVAILABLE },
-    });
-  });
-
   it('PENDING 파일에 업로드 만료와 보존 만료를 함께 저장한다', async () => {
     const programEndAt = new Date('2027-01-01T00:00:00.000Z');
     await prisma.program.update({
@@ -569,7 +536,7 @@ describe('SubmissionsService integration', () => {
       });
       await prisma.program.update({
         where: { id: MILESTONES_PROGRAM_ID },
-        data: { endAt: null },
+        data: { endAt: new Date('2026-12-08T00:00:00.000Z') },
       });
     }
   });

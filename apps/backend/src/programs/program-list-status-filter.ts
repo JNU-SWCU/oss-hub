@@ -8,7 +8,7 @@ import type { ProgramListQueryStatus } from './program-list-query';
  * 공개 모수(universe) = PUBLISHED | ARCHIVED
  * 배타 우선순위 (첫 매치 승, CASE와 동일):
  *   1. ARCHIVED                         → ended
- *   2. endAt 있음 && endAt < now        → ended
+ *   2. endAt < now                       → ended
  *   3. applicationStartAt > now         → upcoming
  *   4. applicationEndAt >= now          → recruiting
  *   5. 그 외                            → in_progress
@@ -23,7 +23,7 @@ export type ProgramListStatusInput = {
   readonly lifecycle: ProgramLifecycle;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
-  readonly endAt: Date | null;
+  readonly endAt: Date;
 };
 
 /** 기간 해석 순수 함수 — SQL CASE / Prisma where 와 동일 우선순위. 저장하지 않는다. */
@@ -32,7 +32,7 @@ export function deriveProgramListStatus(
   now: Date,
 ): ProgramListDerivedStatus {
   if (program.lifecycle === ProgramLifecycle.ARCHIVED) return 'ended';
-  if (program.endAt !== null && program.endAt < now) return 'ended';
+  if (program.endAt < now) return 'ended';
   if (program.applicationStartAt > now) return 'upcoming';
   if (program.applicationEndAt >= now) return 'recruiting';
   return 'in_progress';
@@ -55,7 +55,7 @@ export function programListSortRank(
 }
 
 const notDateEnded = (now: Date): Prisma.ProgramWhereInput => ({
-  OR: [{ endAt: null }, { endAt: { gte: now } }],
+  endAt: { gte: now },
 });
 
 export function programListPrismaWhere(
@@ -73,7 +73,7 @@ export function programListPrismaWhere(
         { lifecycle: ProgramLifecycle.ARCHIVED },
         {
           lifecycle: ProgramLifecycle.PUBLISHED,
-          endAt: { not: null, lt: now },
+          endAt: { lt: now },
         },
       ],
     },
@@ -105,7 +105,7 @@ export function programListStatusCaseSql(now: Date): Prisma.Sql {
   return Prisma.sql`
     CASE
       WHEN p."lifecycle" = 'ARCHIVED' THEN 'ended'
-      WHEN p."endAt" IS NOT NULL AND p."endAt" < ${now} THEN 'ended'
+      WHEN p."endAt" < ${now} THEN 'ended'
       WHEN p."applicationStartAt" > ${now} THEN 'upcoming'
       WHEN p."applicationEndAt" >= ${now} THEN 'recruiting'
       ELSE 'in_progress'

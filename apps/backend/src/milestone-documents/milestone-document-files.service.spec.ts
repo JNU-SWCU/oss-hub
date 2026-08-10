@@ -234,7 +234,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: false,
-        programEndAt: null,
+        programEndAt: new Date('2026-12-19T00:00:00.000Z'),
         repositoryUrl: null,
       }),
     });
@@ -253,7 +253,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     });
   });
 
-  it('프로그램 종료일 미설정으로 보관 기한 계산이 불가하면 FILE_RETENTION_UNAVAILABLE로 변환한다', async () => {
+  it('잠근 프로그램 행이 없어 보관 기한 계산이 불가하면 FILE_RETENTION_UNAVAILABLE로 변환한다', async () => {
     // Given
     const { repository } = buildRepository({
       createPendingFile: jest

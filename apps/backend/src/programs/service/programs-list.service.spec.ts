@@ -44,7 +44,7 @@ describe('deriveProgramListStatus (period interpretation)', () => {
         program: baseProgram({
           applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
           applicationEndAt: new Date('2026-09-01T00:00:00.000Z'),
-          endAt: null,
+          endAt: new Date('2026-12-01T00:00:00.000Z'),
         }),
         expected: 'upcoming',
       },
@@ -53,7 +53,7 @@ describe('deriveProgramListStatus (period interpretation)', () => {
         program: baseProgram({
           applicationStartAt: new Date('2026-06-01T00:00:00.000Z'),
           applicationEndAt: new Date('2026-08-01T00:00:00.000Z'),
-          endAt: null,
+          endAt: new Date('2026-12-01T00:00:00.000Z'),
         }),
         expected: 'recruiting',
       },
@@ -88,7 +88,7 @@ describe('deriveProgramListStatus (period interpretation)', () => {
         baseProgram({
           applicationStartAt: NOW,
           applicationEndAt: new Date('2026-08-01T00:00:00.000Z'),
-          endAt: null,
+          endAt: new Date('2026-12-01T00:00:00.000Z'),
         }),
         NOW,
       ),
@@ -99,7 +99,7 @@ describe('deriveProgramListStatus (period interpretation)', () => {
         baseProgram({
           applicationStartAt: new Date('2026-06-01T00:00:00.000Z'),
           applicationEndAt: NOW,
-          endAt: null,
+          endAt: new Date('2026-12-01T00:00:00.000Z'),
         }),
         NOW,
       ),
@@ -118,13 +118,13 @@ describe('deriveProgramListStatus (period interpretation)', () => {
     ).toBe('in_progress');
   });
 
-  it('never ends when endAt is null (U3)', () => {
+  it('remains in progress before its required endAt (U3)', () => {
     expect(
       deriveProgramListStatus(
         baseProgram({
           applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
           applicationEndAt: new Date('2026-02-01T00:00:00.000Z'),
-          endAt: null,
+          endAt: new Date('2026-12-01T00:00:00.000Z'),
         }),
         NOW,
       ),
@@ -135,7 +135,7 @@ describe('deriveProgramListStatus (period interpretation)', () => {
     // seed:repositories:program 회귀 — 접수창 열림 ∩ endAt 과거
     const program = baseProgram({
       applicationStartAt: new Date('2026-06-25T00:00:00.000Z'),
-      applicationEndAt: new Date('2026-09-13T00:00:00.000Z'),
+      applicationEndAt: new Date('2026-06-30T00:00:00.000Z'),
       endAt: new Date('2026-07-01T00:00:00.000Z'),
     });
     expect(deriveProgramListStatus(program, NOW)).toBe('ended');
@@ -146,7 +146,7 @@ describe('deriveProgramListStatus (period interpretation)', () => {
       lifecycle: ProgramLifecycle.ARCHIVED,
       applicationStartAt: new Date('2026-06-01T00:00:00.000Z'),
       applicationEndAt: new Date('2026-09-01T00:00:00.000Z'),
-      endAt: null,
+      endAt: new Date('2026-12-01T00:00:00.000Z'),
     });
     expect(deriveProgramListStatus(archived, NOW)).toBe('ended');
     expect(programListSortRank('ended')).toBe(3);
@@ -189,7 +189,7 @@ describe('ProgramsRepository list', () => {
       lifecycle: ProgramLifecycle.PUBLISHED,
       applicationStartAt: { lte: now },
       applicationEndAt: { gte: now },
-      OR: [{ endAt: null }, { endAt: { gte: now } }],
+      endAt: { gte: now },
       name: { contains: 'contest', mode: 'insensitive' },
     };
     const rawQuery = queryRaw.mock.calls[0]?.[0];
@@ -237,7 +237,7 @@ describe('ProgramsRepository list', () => {
         lifecycle: ProgramLifecycle.PUBLISHED,
         applicationStartAt: { lte: now },
         applicationEndAt: { lt: now },
-        OR: [{ endAt: null }, { endAt: { gte: now } }],
+        endAt: { gte: now },
       },
     });
   });
@@ -257,7 +257,7 @@ describe('ProgramsRepository list', () => {
       where: {
         lifecycle: ProgramLifecycle.PUBLISHED,
         applicationStartAt: { gt: now },
-        OR: [{ endAt: null }, { endAt: { gte: now } }],
+        endAt: { gte: now },
       },
     });
   });
@@ -279,7 +279,7 @@ describe('ProgramsRepository list', () => {
           { lifecycle: ProgramLifecycle.ARCHIVED },
           {
             lifecycle: ProgramLifecycle.PUBLISHED,
-            endAt: { not: null, lt: now },
+            endAt: { lt: now },
           },
         ],
       },
@@ -480,10 +480,10 @@ function listRecord(
     lifecycle: ProgramLifecycle.PUBLISHED,
     applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
     applicationEndAt: new Date('2026-08-01T00:00:00.000Z'),
-    endAt: null,
+    endAt: new Date('2026-12-31T00:00:00.000Z'),
     description: '설명',
-    teamMinSize: null,
-    teamMaxSize: null,
+    teamMinSize: 1,
+    teamMaxSize: 1,
     ...overrides,
   };
 }
@@ -599,6 +599,37 @@ describe('ProgramsService list', () => {
 
     expect(page.items[0]).toMatchObject({
       note: { text: '축하합니다, 참가가 확정되었습니다', icon: 'team' },
+    });
+  });
+
+  it('BASIC 개인 참여는 1..1 범위여도 팀 아이콘을 붙이지 않는다', async () => {
+    const items = [
+      listRecord({
+        id: 'individual-program',
+        category: 'BASIC',
+        teamMinSize: 1,
+        teamMaxSize: 1,
+      }),
+    ];
+    const repository = {
+      listPrograms: jest.fn().mockResolvedValue([items, 1]),
+      findViewerApplicationStatuses: jest
+        .fn()
+        .mockResolvedValue(
+          new Map([['individual-program', ApplicationStatus.APPROVED]]),
+        ),
+    };
+    const service = new ProgramsService(
+      repository as unknown as ProgramsRepository,
+    );
+
+    const page = await service.list(
+      { page: 1, pageSize: 20, search: '', status: 'all' },
+      { githubId: 1n, userId: 'student-1', role: Role.STUDENT },
+    );
+
+    expect(page.items[0]?.note).toEqual({
+      text: '축하합니다, 참가가 확정되었습니다',
     });
   });
 
@@ -733,14 +764,14 @@ describe('status-counts consistency with list totalItems filters', () => {
       lifecycle: ProgramLifecycle.PUBLISHED,
       applicationStartAt: { lte: now },
       applicationEndAt: { gte: now },
-      OR: [{ endAt: null }, { endAt: { gte: now } }],
+      endAt: { gte: now },
     });
     expect(programListPrismaWhere('ended', now)).toEqual({
       OR: [
         { lifecycle: ProgramLifecycle.ARCHIVED },
         {
           lifecycle: ProgramLifecycle.PUBLISHED,
-          endAt: { not: null, lt: now },
+          endAt: { lt: now },
         },
       ],
     });
