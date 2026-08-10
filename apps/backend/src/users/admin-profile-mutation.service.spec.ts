@@ -7,7 +7,6 @@ import {
 } from './admin-profile.service.spec-support';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.enum';
 
-const ACTOR = { name: '합성 관리자', githubLogin: 'synthetic-admin' } as const;
 const ACTOR_GITHUB_ID = 9_131_500_001n;
 
 describe('mutateAdminUserProfile', () => {
@@ -26,7 +25,6 @@ describe('mutateAdminUserProfile', () => {
       { repository, auditLog: audit.service },
       {
         actorGithubId: ACTOR_GITHUB_ID,
-        actor: ACTOR,
         userId: 'target',
         command: { studentId: '250099' },
       },
@@ -84,8 +82,7 @@ describe('mutateAdminUserProfile', () => {
         { repository, auditLog: audit.service },
         {
           actorGithubId: ACTOR_GITHUB_ID,
-          actor: ACTOR,
-          userId: 'target',
+            userId: 'target',
           command: { studentId: '259999' },
         },
       ),
@@ -111,8 +108,7 @@ describe('mutateAdminUserProfile', () => {
         { repository, auditLog: audit.service },
         {
           actorGithubId: ACTOR_GITHUB_ID,
-          actor: ACTOR,
-          userId: 'target',
+            userId: 'target',
           command: { studentId: '260001' },
         },
       ),
@@ -135,8 +131,7 @@ describe('mutateAdminUserProfile', () => {
         { repository, auditLog: audit.service },
         {
           actorGithubId: ACTOR_GITHUB_ID,
-          actor: ACTOR,
-          userId: 'target',
+            userId: 'target',
           command: { studentId: 'not-a-student-id' },
         },
       ),
@@ -161,7 +156,6 @@ describe('mutateAdminUserProfile', () => {
       { repository, auditLog: audit.service },
       {
         actorGithubId: ACTOR_GITHUB_ID,
-        actor: ACTOR,
         userId: 'target',
         command: { studentId: '260002', department: '전자공학과' },
       },
@@ -194,7 +188,6 @@ describe('mutateAdminUserProfile', () => {
       { repository, auditLog: audit.service },
       {
         actorGithubId: ACTOR_GITHUB_ID,
-        actor: ACTOR,
         userId: 'target',
         command: { name: '새 이름' },
       },
@@ -226,7 +219,6 @@ describe('mutateAdminUserProfile', () => {
       { repository, auditLog: audit.service },
       {
         actorGithubId: ACTOR_GITHUB_ID,
-        actor: ACTOR,
         userId: 'target',
         command: { name: '기존 이름' },
       },
@@ -252,7 +244,6 @@ describe('mutateAdminUserProfile', () => {
       { repository, auditLog: audit.service },
       {
         actorGithubId: ACTOR_GITHUB_ID,
-        actor: ACTOR,
         userId: 'target',
         command: { name: '새 이름' },
       },
@@ -282,7 +273,6 @@ describe('mutateAdminUserProfile', () => {
       { repository, auditLog: audit.service },
       {
         actorGithubId: ACTOR_GITHUB_ID,
-        actor: ACTOR,
         userId: 'target',
         command: { department: '전자공학과' },
       },
@@ -309,8 +299,7 @@ describe('mutateAdminUserProfile', () => {
         { repository, auditLog: audit.service },
         {
           actorGithubId: ACTOR_GITHUB_ID,
-          actor: ACTOR,
-          userId: 'missing',
+            userId: 'missing',
           command: { name: '이름' },
         },
       ),

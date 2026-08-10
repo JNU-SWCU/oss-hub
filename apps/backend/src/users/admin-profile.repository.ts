@@ -7,6 +7,11 @@ import {
 } from '../profiles/profile-compatibility';
 import { upsertCompatibleProfile } from '../profiles/profile-compatibility.repository';
 import { PrismaService } from '../prisma/prisma.service';
+import type { AdminAccessActor } from './admin-access.repository.types';
+import {
+  findAdminActorByGithubId,
+  lockActiveAdminRows,
+} from './admin-actor-locks';
 import type {
   AdminProfileApplyOutcome,
   AdminProfileLegacyFields,
@@ -40,6 +45,14 @@ class PrismaAdminProfileTransactionStore implements AdminProfileTransactionStore
 
   get auditLogWriter(): AuditLogTransactionWriter {
     return this.transaction;
+  }
+
+  async lockActiveAdmins(): Promise<void> {
+    await lockActiveAdminRows(this.transaction);
+  }
+
+  findActor(githubId: bigint): Promise<AdminAccessActor | null> {
+    return findAdminActorByGithubId(this.transaction, githubId);
   }
 
   async findTarget(userId: string): Promise<AdminProfileTargetRecord | null> {
@@ -104,6 +117,11 @@ export class AdminProfileRepository implements AdminProfileRepositoryPort {
    * write 사이에 다른 트랜잭션이 끼어들어 감사 로그의 before 스냅샷이 stale해지는
    * 창을 닫는다. `applications.repository.ts`가 같은 read-then-write 위험에 이미
    * 같은 방식으로 대응한 전례를 따른다.
+   *
+   * actor 권한 검증도 이 트랜잭션 **안에서** 한다(#687). 첫 문장이 `lockActiveAdmins`이므로
+   * 스냅샷도 그 시점에 잡힌다 — 그 전에 커밋된 강등은 그대로 보여 `ROL_004`로 거부되고,
+   * 잠금을 기다리는 동안 커밋된 강등은 `RepeatableRead`가 직렬화 실패로 트랜잭션을
+   * 통째로 되돌린다. 어느 쪽이든 낡은 권한으로 쓰기가 완주되지는 않는다.
    */
   withTransaction<T>(
     operation: (store: AdminProfileTransactionStore) => Promise<T>,
