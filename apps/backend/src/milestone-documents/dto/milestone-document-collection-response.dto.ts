@@ -73,7 +73,7 @@ export interface MilestoneDocumentCollectionCellResponseDto {
   readonly revision: number | null;
   readonly file: MilestoneDocumentCollectionFileResponseDto | null;
   /**
-   * 학생이 낸 **본문** — TEXT·REPOSITORY_RELEASE 제출일 때만 채워진다. FILE 제출이거나
+   * 학생이 낸 **본문** — TEXT 제출일 때만 채워진다. FILE 제출이거나
    * 미제출이면 null이다(파일은 위 `file`이 담당한다).
    *
    * 이게 없으면 교직원은 3가지 제출 방식 중 2가지를 **내용을 한 글자도 보지 못한 채**
@@ -231,7 +231,7 @@ function toCell(
       review: null,
     };
   }
-  // file은 FILE 유형에만 붙는다 — TEXT/REPOSITORY_RELEASE 제출은 첨부 없이 content만 갖는다.
+  // file은 FILE 유형에만 붙는다 — TEXT 제출은 첨부 없이 content만 갖는다.
   const file =
     document.submissionType === MilestoneSubmissionType.FILE &&
     submission.file !== null
