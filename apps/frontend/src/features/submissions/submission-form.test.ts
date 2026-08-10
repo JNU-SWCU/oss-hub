@@ -195,5 +195,4 @@ describe('validateSubmissionContent', () => {
     expect(errors).toEqual({ text: '제출 내용을 입력해 주세요.' });
     expect(input.text).toBe('   ');
   });
-
 });

@@ -1,9 +1,7 @@
 export type SubmissionType = 'FILE' | 'TEXT';
 
 export type SubmissionBlockedReason =
-  | 'SUBMISSION_ALREADY_EXISTS'
-  | 'MILESTONE_CLOSED'
-  | 'FILE_UPLOAD_UNAVAILABLE';
+  'SUBMISSION_ALREADY_EXISTS' | 'MILESTONE_CLOSED' | 'FILE_UPLOAD_UNAVAILABLE';
 
 export interface SubmissionFormData {
   readonly applicationId: string;
@@ -33,12 +31,10 @@ export type TextSubmissionContent = {
 };
 
 export type CreateSubmissionContent =
-  | { readonly type: 'FILE'; readonly fileId: string }
-  | TextSubmissionContent;
+  { readonly type: 'FILE'; readonly fileId: string } | TextSubmissionContent;
 
 export type ResubmissionContent =
-  | { readonly type: 'FILE'; readonly fileId: string }
-  | TextSubmissionContent;
+  { readonly type: 'FILE'; readonly fileId: string } | TextSubmissionContent;
 
 export interface SubmissionFileMetadata {
   readonly fileId: string;

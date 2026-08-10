@@ -259,11 +259,7 @@ describe('resubmissionContent', () => {
 
   it('FILE uses the uploaded file id for resubmission content', () => {
     expect(
-      resubmissionContent(
-        'FILE',
-        { file: null, text: '' },
-        'file-1',
-      ),
+      resubmissionContent('FILE', { file: null, text: '' }, 'file-1'),
     ).toEqual({ type: 'FILE', fileId: 'file-1' });
   });
 });

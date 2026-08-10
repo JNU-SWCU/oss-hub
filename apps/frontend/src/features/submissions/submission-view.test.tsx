@@ -184,7 +184,6 @@ describe('SubmissionFormView', () => {
     // 옛 문구는 원인도 문의처도 없이 "지원하지 않습니다"로 끝났다.
     expect(html).not.toContain('파일 제출은 현재 지원하지 않습니다');
   });
-
 });
 
 describe('SubmissionLoading', () => {
