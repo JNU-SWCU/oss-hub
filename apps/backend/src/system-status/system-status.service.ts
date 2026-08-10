@@ -4,11 +4,14 @@ import {
   COLLECTION_READ_PORT,
   type CollectionIncrementalStatusSnapshotDto,
   type CollectionReadPort,
+  type CollectionRepositoryStreamsDto,
 } from '../github/collection-read.port';
 import { SystemStatusRepository } from './system-status.repository';
 import {
+  CollectionRepositoryStreamResponseDto,
   CollectionSystemStatusResponseDto,
   RepositoryProvisioningSystemStatusResponseDto,
+  SystemStatusCollectionStreamsResponseDto,
   SystemStatusResponseDto,
   type CollectionHealthResponseDto,
   type CurrentRunStatusResponseDto,
@@ -47,10 +50,13 @@ export class SystemStatusService {
       throw new ForbiddenException('Active administrator access is required');
     }
 
-    const [snapshot, finalFailureCount] = await Promise.all([
-      this.collection.getIncrementalStatusSnapshot(),
-      this.repository.countFinalProvisionFailures(),
-    ]);
+    const [snapshot, finalFailureCount, streams, nextCycleAt] =
+      await Promise.all([
+        this.collection.getIncrementalStatusSnapshot(),
+        this.repository.countFinalProvisionFailures(),
+        this.collection.getIncrementalStatusStreams(),
+        this.collection.getNextScheduledCycleAt(this.clock()),
+      ]);
     const decision = this.decide(snapshot);
     return new SystemStatusResponseDto(
       new CollectionSystemStatusResponseDto(
@@ -65,10 +71,30 @@ export class SystemStatusService {
         snapshot.oldestRetryPendingAt?.toISOString() ?? null,
         snapshot.lastCycleStartedAt?.toISOString() ?? null,
         snapshot.lastCycleCompletedAt?.toISOString() ?? null,
+        nextCycleAt?.toISOString() ?? null,
         this.currentRunStatus(snapshot),
         decision.reason,
       ),
       new RepositoryProvisioningSystemStatusResponseDto(finalFailureCount),
+      streams.map((repository) => this.toStreamsResponse(repository)),
+    );
+  }
+
+  private toStreamsResponse(
+    repository: CollectionRepositoryStreamsDto,
+  ): SystemStatusCollectionStreamsResponseDto {
+    return new SystemStatusCollectionStreamsResponseDto(
+      repository.repositoryName,
+      repository.streams.map(
+        (stream) =>
+          new CollectionRepositoryStreamResponseDto(
+            stream.streamType,
+            stream.bucket,
+            stream.lastSuccessAt?.toISOString() ?? null,
+            stream.lastErrorCode,
+            stream.lastErrorAt?.toISOString() ?? null,
+          ),
+      ),
     );
   }
 

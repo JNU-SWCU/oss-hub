@@ -68,6 +68,8 @@ export function setupRankingService(): {
         failingRepositoryCount: 0,
         lastRepositorySuccessAt: null,
       }),
+    getIncrementalStatusStreams: () => Promise.resolve([]),
+    getNextScheduledCycleAt: () => Promise.resolve(null),
   } satisfies CollectionReadPort;
 
   const findByGithubIds = jest.fn<

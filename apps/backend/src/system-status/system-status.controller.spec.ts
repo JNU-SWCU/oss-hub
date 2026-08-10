@@ -19,12 +19,27 @@ describe('SystemStatusController', () => {
         oldestRetryPendingAt: null,
         lastCycleStartedAt: '2026-07-25T10:55:00.000Z',
         lastCycleCompletedAt: '2026-07-25T11:00:00.000Z',
+        nextCycleAt: '2026-07-25T20:30:00.000Z',
         currentRunStatus: 'IDLE' as const,
         safeReason: null,
       },
       repositoryProvisioning: {
         finalFailureCount: 0,
       },
+      collectionStreams: [
+        {
+          repositoryName: 'JNU-SWCU/alpha',
+          streams: [
+            {
+              streamType: 'COMMIT' as const,
+              bucket: 'READY' as const,
+              lastSuccessAt: '2026-07-25T10:00:00.000Z',
+              lastErrorCode: null,
+              lastErrorAt: null,
+            },
+          ],
+        },
+      ],
     };
     const getStatus = jest.fn<
       ReturnType<SystemStatusService['getStatus']>,

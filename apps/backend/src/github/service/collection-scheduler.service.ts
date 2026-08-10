@@ -21,8 +21,12 @@ export const DEFAULT_COLLECTION_CRON_EXPRESSION = '0 0 * * * *';
  * Nest `@Cron` evaluates its expression argument when the class is declared,
  * before DI can inject RUNTIME_CONFIG. 전역 provider와 같은 process snapshot을
  * 사용하되 credential 검증은 기존 reconciliation factory에서 지연한다.
+ *
+ * `system-status`의 `nextCycleAt` 계산이 실제로 배선된 cron 표현식을 그대로 써야
+ * 다음 사이클 예측이 어긋나지 않으므로 이 상수를 그대로 export한다 — 별도 값을
+ * 다시 계산하지 않는다.
  */
-const collectionCronExpression =
+export const COLLECTION_CRON_EXPRESSION =
   PROCESS_RUNTIME_CONFIG.COLLECTION_CRON_EXPRESSION?.trim() ||
   DEFAULT_COLLECTION_CRON_EXPRESSION;
 
@@ -44,7 +48,7 @@ export class CollectionSchedulerService {
     private readonly cutover: CollectionCutoverRepository,
   ) {}
 
-  @Cron(collectionCronExpression, {
+  @Cron(COLLECTION_CRON_EXPRESSION, {
     name: COLLECTION_CRON_JOB_NAME,
     timeZone: 'Asia/Seoul',
     waitForCompletion: true,
