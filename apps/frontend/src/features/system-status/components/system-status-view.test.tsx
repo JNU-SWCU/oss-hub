@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type {
   CollectionActivityEntry,
   CollectionStreamRepository,
+  ExternalCollectionStatus,
   SystemStatus,
   TriggerNotice,
 } from '../types';
@@ -26,11 +27,19 @@ const normal: SystemStatus = {
   safeReason: null,
 };
 
+const emptyExternalCollection: ExternalCollectionStatus = {
+  trackedRepositoryCount: 0,
+  lastSweep: null,
+  cumulativeCommitCount: 0,
+  cumulativePullRequestCount: 0,
+  cumulativeReleaseCount: 0,
+};
+
 /**
  * 이 파일의 `render` 두 번째 인자는 실제 컴포넌트 prop 타입(`SystemStatusViewState`)이
  * 아니라 테스트 편의용 느슨한 타입이다 — success 상태에 `collectionStreams`·
- * `collectionActivity`를 매번 적지 않아도 되도록 기본값([])을 채워 넣는다. 각각을
- * 직접 검증하는 테스트만 해당 필드를 명시적으로 준다.
+ * `collectionActivity`·`externalCollection`을 매번 적지 않아도 되도록 기본값을
+ * 채워 넣는다. 각각을 직접 검증하는 테스트만 해당 필드를 명시적으로 준다.
  */
 type LooseViewState =
   | { readonly kind: 'loading' }
@@ -40,6 +49,7 @@ type LooseViewState =
       readonly status: SystemStatus;
       readonly collectionStreams?: readonly CollectionStreamRepository[];
       readonly collectionActivity?: readonly CollectionActivityEntry[];
+      readonly externalCollection?: ExternalCollectionStatus;
     };
 
 function render(
@@ -55,6 +65,8 @@ function render(
           ...state,
           collectionStreams: state.collectionStreams ?? [],
           collectionActivity: state.collectionActivity ?? [],
+          externalCollection:
+            state.externalCollection ?? emptyExternalCollection,
         }
       : state;
   return renderToStaticMarkup(
@@ -297,6 +309,90 @@ describe('SystemStatusView', () => {
     expect(streamsIndex).toBeGreaterThan(-1);
     expect(activityIndex).toBeGreaterThan(streamsIndex);
     expect(html).toContain('커밋 12');
+  });
+
+  describe('외부 저장소 수집 section', () => {
+    it('탐색된 external 저장소가 0개면 이유와 다음 행동을 설명하는 빈 상태를 보여준다', () => {
+      const html = render({ kind: 'success', status: normal });
+      expect(html).toContain('aria-label="외부 저장소 수집"');
+      expect(html).toContain('탐색된 학생 개인 GitHub 저장소가 아직 없습니다');
+      // 0을 그냥 0으로 보여주지 않는다 — 왜 0인지, 무엇을 하면 채워지는지가
+      // 화면에서 읽혀야 한다는 이 화면의 핵심 요구사항.
+      expect(html).toContain('매시 정각 자동으로 실행되고 있습니다');
+      expect(html).toContain(
+        '관리자가 학생별로 GitHub 계정을 한 명씩 지정해 실행',
+      );
+      // "왜 0인지"의 원인은 시스템이 알 수 없는 사실이라 단정하지 않는다 —
+      // 관측 가능한 사실(대상 0개, 그래서 매시 수집도 처리할 저장소 없이
+      // 끝남)만 문구에 남는다.
+      expect(html).toContain('현재 수집 대상 저장소가 0개라');
+      expect(html).not.toContain('탐색을 실행한 학생이 없어');
+    });
+
+    it('org가 EMPTY 상태여도 external 섹션은 계속 렌더링한다(서로 독립된 파이프라인)', () => {
+      const html = render({
+        kind: 'success',
+        status: {
+          ...normal,
+          health: 'EMPTY',
+          safeReason: 'NO_TRACKED_REPOSITORIES',
+        },
+      });
+      expect(html).toContain('aria-label="외부 저장소 수집"');
+    });
+
+    it('탐색된 external 저장소가 있으면 추적 수·누적 활동·최근 sweep 처리 결과를 표시한다', () => {
+      const html = render({
+        kind: 'success',
+        status: normal,
+        externalCollection: {
+          trackedRepositoryCount: 5,
+          lastSweep: {
+            sweepFinishedAt: '2026-08-10T09:00:00.000Z',
+            cycleStartedAt: '2026-08-10T08:55:00.000Z',
+            scope: 'external',
+            insertedCommitCount: 4,
+            insertedPullRequestCount: 1,
+            insertedReleaseCount: 0,
+            attemptedRepositoryCount: 5,
+            processedRepositoryCount: 5,
+            failedRepositoryCount: 0,
+            cycleCompleted: true,
+            stoppedForBudget: false,
+          },
+          cumulativeCommitCount: 40,
+          cumulativePullRequestCount: 6,
+          cumulativeReleaseCount: 2,
+        },
+      });
+      expect(html).toContain('5개 추적 중');
+      expect(html).toContain('5개');
+      expect(html).toContain('커밋 40');
+      expect(html).toContain('PR 6');
+      expect(html).toContain('릴리즈 2');
+      expect(html).toContain('저장소 5/5');
+      expect(html).not.toContain(
+        '탐색된 학생 개인 GitHub 저장소가 아직 없습니다',
+      );
+    });
+
+    it('org 요약 카드의 추적 저장소 수는 external 값과 섞이지 않는다', () => {
+      const html = render({
+        kind: 'success',
+        status: { ...normal, trackedRepositoryCount: 2 },
+        externalCollection: {
+          trackedRepositoryCount: 5,
+          lastSweep: null,
+          cumulativeCommitCount: 0,
+          cumulativePullRequestCount: 0,
+          cumulativeReleaseCount: 0,
+        },
+      });
+      // org "Stream 진행 상황" 카드는 여전히 org의 2개를 보여준다 — external의
+      // 5개로 덮어써지지 않는다.
+      expect(html).toContain('추적 저장소 2개 × commit·PR·release 3종 stream');
+      expect(html).toContain('5개 추적 중');
+    });
   });
 
   it('error 상태의 재시도 버튼이 전달된 handler를 호출한다', () => {

@@ -65,12 +65,20 @@ const baseStatus: SystemStatus = {
 
 const baseCollectionStreams: SystemStatusData['collectionStreams'] = [];
 const baseCollectionActivity: SystemStatusData['collectionActivity'] = [];
+const baseExternalCollection: SystemStatusData['externalCollection'] = {
+  trackedRepositoryCount: 0,
+  lastSweep: null,
+  cumulativeCommitCount: 0,
+  cumulativePullRequestCount: 0,
+  cumulativeReleaseCount: 0,
+};
 
 function statusData(status: SystemStatus): SystemStatusData {
   return {
     status,
     collectionStreams: baseCollectionStreams,
     collectionActivity: baseCollectionActivity,
+    externalCollection: baseExternalCollection,
   };
 }
 

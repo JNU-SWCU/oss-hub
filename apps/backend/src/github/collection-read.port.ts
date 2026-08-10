@@ -243,6 +243,31 @@ export type CollectionSweepActivityDto = {
   readonly stoppedForBudget: boolean;
 };
 
+/**
+ * 시스템 상태 3단계 — org sweep과 별개인 external(학생 개인 공개 저장소,
+ * `source: 'EXTERNAL_PUBLIC'`) 수집 현황.
+ *
+ * `trackedRepositoryCount`가 0이어도 sweep 파이프라인 자체는 정상 작동 중일 수
+ * 있다는 점이 이 DTO의 핵심이다 — `CollectionSchedulerService.handleCron()`이
+ * org sweep과 함께 external sweep(`collection-sync.service.ts`의
+ * `runExternal`, scope 고정값 `"external"`)도 매시 자동 실행하지만, `EXTERNAL_PUBLIC`
+ * 행을 만드는 저장소 발견(discovery, `collection-external-discovery.service.ts`)은
+ * 관리자가 학생별로 수동 실행해야 하는 별개 단계다. 대상이 0건이면 sweep이 정상
+ * 실행되어도 수집할 것이 없을 뿐이다 — `lastSweep`이 그 구분을 드러낸다.
+ *
+ * `cumulativeCommitCount`/`cumulativePullRequestCount`/`cumulativeReleaseCount`는
+ * `CollectionSweepHistory`의 scope `"external"` 행을 합산한 값이다. `Contribution`을
+ * 저장소별로 다시 훑는 대신 이미 기록된 sweep 결과를 더하는 저렴한 방식을 택했다 —
+ * sweep 이력이 보관되는 기간을 넘어서면 그 이전 활동은 반영되지 않는다.
+ */
+export type CollectionExternalCollectionStatusDto = {
+  readonly trackedRepositoryCount: number;
+  readonly lastSweep: CollectionSweepActivityDto | null;
+  readonly cumulativeCommitCount: number;
+  readonly cumulativePullRequestCount: number;
+  readonly cumulativeReleaseCount: number;
+};
+
 export interface CollectionReadPort {
   findRepositoryActivity(
     query: CollectionRepositoryActivityQueryDto,
@@ -322,6 +347,11 @@ export interface CollectionReadPort {
   getRecentSweepActivity(
     limit: number,
   ): Promise<readonly CollectionSweepActivityDto[]>;
+  /**
+   * 시스템 상태 3단계 — external(학생 개인 공개 저장소) 수집 현황
+   * (`CollectionExternalCollectionStatusDto` 참고).
+   */
+  getExternalCollectionStatus(): Promise<CollectionExternalCollectionStatusDto>;
 }
 
 /**

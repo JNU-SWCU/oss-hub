@@ -134,11 +134,29 @@ export class SystemStatusCollectionActivityResponseDto {
   ) {}
 }
 
+/**
+ * 시스템 상태 3단계 — org sweep과 별개인 external(학생 개인 공개 저장소) 수집
+ * 현황. `lastSweep`이 `null`이면 external sweep이 아직 한 번도 끝나지 않은
+ * 것이다(collection-read.port.ts의 `CollectionExternalCollectionStatusDto`
+ * 참고) — sweep 자체는 매시 자동 실행되므로 이 값이 계속 `null`이면 스케줄러가
+ * 아예 안 도는 것이지 대상이 없어서가 아니다.
+ */
+export class SystemStatusExternalCollectionResponseDto {
+  constructor(
+    readonly trackedRepositoryCount: number,
+    readonly lastSweep: SystemStatusCollectionActivityResponseDto | null,
+    readonly cumulativeCommitCount: number,
+    readonly cumulativePullRequestCount: number,
+    readonly cumulativeReleaseCount: number,
+  ) {}
+}
+
 export class SystemStatusResponseDto {
   constructor(
     readonly collection: CollectionSystemStatusResponseDto,
     readonly repositoryProvisioning: RepositoryProvisioningSystemStatusResponseDto,
     readonly collectionStreams: readonly SystemStatusCollectionStreamsResponseDto[],
     readonly collectionActivity: readonly SystemStatusCollectionActivityResponseDto[],
+    readonly externalCollection: SystemStatusExternalCollectionResponseDto,
   ) {}
 }

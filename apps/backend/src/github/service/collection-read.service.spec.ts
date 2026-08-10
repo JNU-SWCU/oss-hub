@@ -31,7 +31,11 @@ interface MockPrisma {
     aggregate: jest.Mock;
   };
   collectionSyncCursor: { findFirst: jest.Mock };
-  collectionSweepHistory: { findMany: jest.Mock };
+  collectionSweepHistory: {
+    findMany: jest.Mock;
+    findFirst: jest.Mock;
+    aggregate: jest.Mock;
+  };
 }
 
 const createDb = (): MockPrisma => ({
@@ -63,6 +67,14 @@ const createDb = (): MockPrisma => ({
   },
   collectionSweepHistory: {
     findMany: jest.fn().mockResolvedValue([]),
+    findFirst: jest.fn().mockResolvedValue(null),
+    aggregate: jest.fn().mockResolvedValue({
+      _sum: {
+        insertedCommitCount: null,
+        insertedPullRequestCount: null,
+        insertedReleaseCount: null,
+      },
+    }),
   },
 });
 
@@ -1543,5 +1555,96 @@ describe('CollectionReadService — getRecentSweepActivity', () => {
         stoppedForBudget: true,
       },
     ]);
+  });
+});
+
+/**
+ * 시스템 상태 3단계 — `getExternalCollectionStatus`. `getIncrementalStatusSnapshot`이
+ * 쓰는 `PRESENT_REPOSITORY`(`source: 'ORG_PROVISIONED'`)와 절대 섞이지 않는 별도
+ * 상수(`source: 'EXTERNAL_PUBLIC'`)로 대상을 센다는 계약과, 누적 활동량이
+ * `CollectionSweepHistory`의 scope `"external"` 합산이라는 계약을 검증한다.
+ */
+describe('CollectionReadService — getExternalCollectionStatus', () => {
+  it('external 저장소가 없으면 트래킹 카운트 0·lastSweep null·누적 0을 반환한다', async () => {
+    const db = createDb();
+
+    const result = await serviceFor(db).getExternalCollectionStatus();
+
+    expect(result).toEqual({
+      trackedRepositoryCount: 0,
+      lastSweep: null,
+      cumulativeCommitCount: 0,
+      cumulativePullRequestCount: 0,
+      cumulativeReleaseCount: 0,
+    });
+    expect(db.githubRepository.count).toHaveBeenCalledWith({
+      where: { presence: 'PRESENT', source: 'EXTERNAL_PUBLIC' },
+    });
+    expect(db.collectionSweepHistory.findFirst).toHaveBeenCalledWith({
+      where: { scope: 'external' },
+      orderBy: { sweepFinishedAt: 'desc' },
+    });
+    expect(db.collectionSweepHistory.aggregate).toHaveBeenCalledWith({
+      where: { scope: 'external' },
+      _sum: {
+        insertedCommitCount: true,
+        insertedPullRequestCount: true,
+        insertedReleaseCount: true,
+      },
+    });
+  });
+
+  it('가장 최근 external sweep 행과 scope 합산 누적치를 반환한다', async () => {
+    const db = createDb();
+    db.githubRepository.count.mockResolvedValue(4);
+    const lastSweep = {
+      sweepFinishedAt: new Date('2026-08-01T10:00:00.000Z'),
+      cycleStartedAt: new Date('2026-08-01T09:55:00.000Z'),
+      scope: 'external',
+      insertedCommitCount: 0,
+      insertedPullRequestCount: 0,
+      insertedReleaseCount: 0,
+      attemptedRepositoryCount: 0,
+      processedRepositoryCount: 0,
+      failedRepositoryCount: 0,
+      cycleCompleted: true,
+      stoppedForBudget: false,
+    };
+    db.collectionSweepHistory.findFirst.mockResolvedValue(lastSweep);
+    db.collectionSweepHistory.aggregate.mockResolvedValue({
+      _sum: {
+        insertedCommitCount: 12,
+        insertedPullRequestCount: 3,
+        insertedReleaseCount: 1,
+      },
+    });
+
+    const result = await serviceFor(db).getExternalCollectionStatus();
+
+    expect(result).toEqual({
+      trackedRepositoryCount: 4,
+      lastSweep,
+      cumulativeCommitCount: 12,
+      cumulativePullRequestCount: 3,
+      cumulativeReleaseCount: 1,
+    });
+  });
+
+  it('org 저장소와 external 저장소가 같은 fixture에 섞여 있어도 서로 다른 source where로 세어 org 집계를 오염시키지 않는다', async () => {
+    const db = createDb();
+    db.githubRepository.count.mockImplementation(
+      ({ where }: { where: { source: string } }) => {
+        if (where.source === 'ORG_PROVISIONED') return Promise.resolve(5);
+        if (where.source === 'EXTERNAL_PUBLIC') return Promise.resolve(2);
+        throw new Error(`unexpected source ${where.source}`);
+      },
+    );
+    const service = serviceFor(db);
+
+    const orgSnapshot = await service.getIncrementalStatusSnapshot();
+    const externalStatus = await service.getExternalCollectionStatus();
+
+    expect(orgSnapshot.trackedRepositoryCount).toBe(5);
+    expect(externalStatus.trackedRepositoryCount).toBe(2);
   });
 });

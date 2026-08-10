@@ -2,6 +2,7 @@ import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { AccountStatus, Role } from '@prisma/client';
 import {
   COLLECTION_READ_PORT,
+  type CollectionExternalCollectionStatusDto,
   type CollectionIncrementalStatusSnapshotDto,
   type CollectionReadPort,
   type CollectionRepositoryStreamsDto,
@@ -14,6 +15,7 @@ import {
   RepositoryProvisioningSystemStatusResponseDto,
   SystemStatusCollectionActivityResponseDto,
   SystemStatusCollectionStreamsResponseDto,
+  SystemStatusExternalCollectionResponseDto,
   SystemStatusResponseDto,
   type CollectionHealthResponseDto,
   type CurrentRunStatusResponseDto,
@@ -55,14 +57,21 @@ export class SystemStatusService {
       throw new ForbiddenException('Active administrator access is required');
     }
 
-    const [snapshot, finalFailureCount, streams, nextCycleAt, activity] =
-      await Promise.all([
-        this.collection.getIncrementalStatusSnapshot(),
-        this.repository.countFinalProvisionFailures(),
-        this.collection.getIncrementalStatusStreams(),
-        this.collection.getNextScheduledCycleAt(this.clock()),
-        this.collection.getRecentSweepActivity(RECENT_SWEEP_ACTIVITY_LIMIT),
-      ]);
+    const [
+      snapshot,
+      finalFailureCount,
+      streams,
+      nextCycleAt,
+      activity,
+      externalStatus,
+    ] = await Promise.all([
+      this.collection.getIncrementalStatusSnapshot(),
+      this.repository.countFinalProvisionFailures(),
+      this.collection.getIncrementalStatusStreams(),
+      this.collection.getNextScheduledCycleAt(this.clock()),
+      this.collection.getRecentSweepActivity(RECENT_SWEEP_ACTIVITY_LIMIT),
+      this.collection.getExternalCollectionStatus(),
+    ]);
     const decision = this.decide(snapshot);
     return new SystemStatusResponseDto(
       new CollectionSystemStatusResponseDto(
@@ -84,6 +93,19 @@ export class SystemStatusService {
       new RepositoryProvisioningSystemStatusResponseDto(finalFailureCount),
       streams.map((repository) => this.toStreamsResponse(repository)),
       activity.map((sweep) => this.toActivityResponse(sweep)),
+      this.toExternalCollectionResponse(externalStatus),
+    );
+  }
+
+  private toExternalCollectionResponse(
+    status: CollectionExternalCollectionStatusDto,
+  ): SystemStatusExternalCollectionResponseDto {
+    return new SystemStatusExternalCollectionResponseDto(
+      status.trackedRepositoryCount,
+      status.lastSweep ? this.toActivityResponse(status.lastSweep) : null,
+      status.cumulativeCommitCount,
+      status.cumulativePullRequestCount,
+      status.cumulativeReleaseCount,
     );
   }
 
