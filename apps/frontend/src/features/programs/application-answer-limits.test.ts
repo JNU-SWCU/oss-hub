@@ -4,7 +4,12 @@ import {
   APPLICATION_ANSWER_MAX_LENGTHS,
   applicationAnswerMaxLength,
 } from './application-answer-limits';
-import { validateApplyForm } from './program-apply-flow';
+import {
+  mapApplyProblemFieldErrors,
+  mapCreateApplicationError,
+  resolveApplySubmitFailure,
+  validateApplyForm,
+} from './program-apply-flow';
 import type { ProgramApplyFormValues } from './program-apply-flow';
 
 function values(
@@ -64,4 +69,104 @@ describe('신청 항목 길이 상한', () => {
       expect(errors[key]).toBeUndefined();
     },
   );
+});
+
+describe('서버가 보낸 칸별 안내를 그 칸으로 옮긴다', () => {
+  it('title·summary 오류를 각 입력칸 오류로 옮긴다', () => {
+    // ⚠ 안 옮기면 배너 하나만 뜨고 어느 칸을 줄일지 학생이 모른다.
+    const mapped = mapApplyProblemFieldErrors([
+      { field: 'title', code: 'APP_024', message: '제목은 200자를…' },
+      { field: 'summary', code: 'APP_024', message: '요약은 10,000자를…' },
+    ]);
+
+    expect(mapped).toEqual({
+      title: '제목은 200자를…',
+      summary: '요약은 10,000자를…',
+    });
+  });
+
+  it('모르는 칸은 옮기지 않는다', () => {
+    // 화면에 없는 칸을 옮기면 아무 데도 안 붙어 조용히 사라진다.
+    expect(
+      mapApplyProblemFieldErrors([
+        { field: 'applicantName', code: 'APP_024', message: '…' },
+      ]),
+    ).toEqual({});
+  });
+
+  it('칸 정보가 없으면 빈 결과를 준다 — 그때는 배너가 맡는다', () => {
+    expect(mapApplyProblemFieldErrors(undefined)).toEqual({});
+  });
+
+  it('APP_024 배너 문구는 두 칸을 모두 짚는 마지막 안전망이다', () => {
+    // 칸을 하나도 못 옮겼을 때만 쓰인다.
+    const message = mapCreateApplicationError({
+      type: 'about:blank',
+      title: 'bad request',
+      status: 400,
+      detail: '신청 항목이 너무 깁니다.',
+      instance: 'urn:test',
+      code: 'APP_024',
+    });
+
+    expect(message).toContain('제목');
+    expect(message).toContain('요약');
+  });
+});
+
+describe('상한 값 자체', () => {
+  it('제품 결정으로 정한 값이다 — 바꾸려면 이 테스트도 함께 고쳐야 한다', () => {
+    // drift 테스트는 「양쪽이 같은가」만 본다. 둘을 함께 바꾸면 거기선 안 걸린다.
+    // 200·10,000 은 「어떻게 될지 모르니 최대한 길게」라는 결정으로 고른 값이다.
+    expect(APPLICATION_ANSWER_MAX_LENGTHS).toEqual({
+      title: 200,
+      summary: 10_000,
+    });
+  });
+});
+
+describe('제출 실패를 칸과 배너로 가른다', () => {
+  const problem = (
+    fieldErrors?: readonly { field: string; code: string; message: string }[],
+  ) => ({
+    type: 'about:blank',
+    title: 'bad request',
+    status: 400,
+    detail: '신청 항목이 너무 깁니다.',
+    instance: 'urn:test',
+    code: 'APP_024',
+    ...(fieldErrors ? { fieldErrors } : {}),
+  });
+
+  it('서버가 칸을 짚어 주면 그 칸에 붙이고 배너는 띄우지 않는다', () => {
+    // 같은 말을 배너와 칸 두 군데서 하면 학생이 어느 쪽을 따라야 할지 헷갈린다.
+    const resolved = resolveApplySubmitFailure(
+      problem([
+        { field: 'title', code: 'APP_024', message: '제목은 200자를…' },
+      ]),
+      'submit',
+    );
+
+    expect(resolved.fieldErrors).toEqual({ title: '제목은 200자를…' });
+    expect(resolved.serverError).toBeNull();
+  });
+
+  it('칸을 하나도 못 짚으면 배너로 알린다 — 조용히 사라지지 않는다', () => {
+    const resolved = resolveApplySubmitFailure(problem(), 'submit');
+
+    expect(resolved.fieldErrors).toEqual({});
+    expect(resolved.serverError).toBeTruthy();
+    expect(resolved.serverError).toContain('제목');
+  });
+
+  it('화면에 없는 칸만 왔으면 배너로 넘긴다', () => {
+    // 옮길 데가 없는데 배너까지 비우면 학생은 아무 안내도 못 받는다.
+    const resolved = resolveApplySubmitFailure(
+      problem([{ field: 'applicantName', code: 'APP_024', message: '…' }]),
+      'submit',
+    );
+
+    expect(resolved.fieldErrors).toEqual({});
+    expect(resolved.serverError).toBeTruthy();
+  });
 });
