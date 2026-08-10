@@ -1,9 +1,11 @@
 import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
+import { CronTime } from 'cron';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CollectionCanonicalRepository } from '../repository/collection-canonical.repository';
 import { PublicRankingRepository } from '../repository/public-ranking.repository';
 import { asiaSeoulYear } from '../repository/collection-incremental.repository';
+import { COLLECTION_CRON_EXPRESSION } from './collection-scheduler.service';
 import {
   COLLECTION_STREAM_TYPES,
   type CollectionStreamStatus,
@@ -752,5 +754,21 @@ export class CollectionReadService implements CollectionReadPort {
         });
       return { repositoryName: repository.nameWithOwner, streams };
     });
+  }
+
+  /**
+   * ADR-003 DEC-42 — 다음 수집 사이클 예정 시각 계산은 실제 배선된 cron 표현식
+   * (`COLLECTION_CRON_EXPRESSION`, `collection-scheduler.service.ts`와 같은 모듈)을 읽어야
+   * 하므로 이 서비스 안에 둔다. `from` 이후 Asia/Seoul 기준 다음 발생 시각을 계산하고,
+   * 표현식이 유효하지 않으면(운영 실수) 계산을 포기하고 `null`을 반환한다 — 이 실패가
+   * 나머지 system-status 응답을 막아서는 안 된다.
+   */
+  getNextScheduledCycleAt(from: Date): Promise<Date | null> {
+    try {
+      const cronTime = new CronTime(COLLECTION_CRON_EXPRESSION, 'Asia/Seoul');
+      return Promise.resolve(cronTime.getNextDateFrom(from).toJSDate());
+    } catch {
+      return Promise.resolve(null);
+    }
   }
 }

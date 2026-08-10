@@ -61,6 +61,7 @@ function serviceWith(
         lastRepositorySuccessAt: null,
       }),
     getIncrementalStatusStreams: () => Promise.resolve([]),
+    getNextScheduledCycleAt: () => Promise.resolve(null),
   };
   return new PublicEligibilityService(collection);
 }

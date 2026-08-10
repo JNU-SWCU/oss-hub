@@ -61,6 +61,7 @@ function collectionReadPort(
         lastRepositorySuccessAt: null,
       }),
     getIncrementalStatusStreams: () => Promise.resolve([]),
+    getNextScheduledCycleAt: () => Promise.resolve(null),
   };
 }
 

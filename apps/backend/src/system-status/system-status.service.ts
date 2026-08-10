@@ -1,6 +1,5 @@
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { AccountStatus, Role } from '@prisma/client';
-import { CronTime } from 'cron';
 import {
   COLLECTION_READ_PORT,
   type CollectionIncrementalStatusSnapshotDto,
@@ -21,14 +20,6 @@ import {
 const STALE_AFTER_MS = 90 * 60 * 1000;
 export const SYSTEM_STATUS_CLOCK = Symbol('SYSTEM_STATUS_CLOCK');
 export type SystemStatusClock = () => Date;
-/** collection cron 표현식 — `getIncrementalStatusStreams`가 아니라 별도 DI 토큰인 이유는
- * 테스트가 `SYSTEM_STATUS_CLOCK`처럼 임의의 표현식(또는 잘못된 표현식)을 주입해
- * `nextCycleAt` 파생 로직을 실제 cron job 등록·process.env 없이 검증할 수 있어야 하기
- * 때문이다. 운영 배선(`system-status.module.ts`)은 실제로 등록된 표현식
- * (`collection-scheduler.service.ts`의 `COLLECTION_CRON_EXPRESSION`)을 그대로 넘긴다. */
-export const SYSTEM_STATUS_COLLECTION_CRON_EXPRESSION = Symbol(
-  'SYSTEM_STATUS_COLLECTION_CRON_EXPRESSION',
-);
 
 interface StatusDecision {
   health: CollectionHealthResponseDto;
@@ -48,8 +39,6 @@ export class SystemStatusService {
     @Inject(COLLECTION_READ_PORT)
     private readonly collection: CollectionReadPort,
     @Inject(SYSTEM_STATUS_CLOCK) private readonly clock: SystemStatusClock,
-    @Inject(SYSTEM_STATUS_COLLECTION_CRON_EXPRESSION)
-    private readonly collectionCronExpression: string,
   ) {}
 
   async getStatus(actorGithubId: bigint): Promise<SystemStatusResponseDto> {
@@ -61,11 +50,13 @@ export class SystemStatusService {
       throw new ForbiddenException('Active administrator access is required');
     }
 
-    const [snapshot, finalFailureCount, streams] = await Promise.all([
-      this.collection.getIncrementalStatusSnapshot(),
-      this.repository.countFinalProvisionFailures(),
-      this.collection.getIncrementalStatusStreams(),
-    ]);
+    const [snapshot, finalFailureCount, streams, nextCycleAt] =
+      await Promise.all([
+        this.collection.getIncrementalStatusSnapshot(),
+        this.repository.countFinalProvisionFailures(),
+        this.collection.getIncrementalStatusStreams(),
+        this.collection.getNextScheduledCycleAt(this.clock()),
+      ]);
     const decision = this.decide(snapshot);
     return new SystemStatusResponseDto(
       new CollectionSystemStatusResponseDto(
@@ -80,7 +71,7 @@ export class SystemStatusService {
         snapshot.oldestRetryPendingAt?.toISOString() ?? null,
         snapshot.lastCycleStartedAt?.toISOString() ?? null,
         snapshot.lastCycleCompletedAt?.toISOString() ?? null,
-        this.nextCycleAt(),
+        nextCycleAt?.toISOString() ?? null,
         this.currentRunStatus(snapshot),
         decision.reason,
       ),
@@ -105,24 +96,6 @@ export class SystemStatusService {
           ),
       ),
     );
-  }
-
-  /**
-   * 다음 사이클 시작 예정 시각 — 배선된 cron 표현식(`collectionCronExpression`)을
-   * `getStatus` 호출 시점(`this.clock()`)부터 Asia/Seoul 기준으로 평가한다. 표현식이
-   * 유효하지 않으면(운영 실수로 잘못된 값이 들어간 경우) 계산을 포기하고 `null`을
-   * 반환한다 — 이 계산 실패가 나머지 system-status 응답을 막아서는 안 된다.
-   */
-  private nextCycleAt(): string | null {
-    try {
-      const cronTime = new CronTime(
-        this.collectionCronExpression,
-        'Asia/Seoul',
-      );
-      return cronTime.getNextDateFrom(this.clock()).toJSDate().toISOString();
-    } catch {
-      return null;
-    }
   }
 
   /**

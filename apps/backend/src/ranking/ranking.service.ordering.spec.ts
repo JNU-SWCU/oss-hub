@@ -92,6 +92,7 @@ describe('RankingService deterministic ordering', () => {
           lastRepositorySuccessAt: null,
         }),
       getIncrementalStatusStreams: () => Promise.resolve([]),
+      getNextScheduledCycleAt: () => Promise.resolve(null),
     } satisfies CollectionReadPort;
     const displayNameRepository = {
       findByGithubIds: () => Promise.resolve([]),

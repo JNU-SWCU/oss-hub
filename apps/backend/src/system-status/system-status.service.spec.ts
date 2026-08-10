@@ -9,8 +9,6 @@ import { SystemStatusService } from './system-status.service';
 
 const NOW = new Date('2026-07-25T12:00:00.000Z');
 const ACTOR_ID = 133n;
-/** 매일 KST 05:30:00 — 손으로 계산 가능한 다음 발생 시각을 갖도록 고른 고정 표현식. */
-const DAILY_0530_KST_CRON = '0 30 5 * * *';
 
 function snapshot(
   overrides: Partial<CollectionIncrementalStatusSnapshotDto> = {},
@@ -37,6 +35,7 @@ describe('SystemStatusService', () => {
   const findActor = jest.fn();
   const getIncrementalStatusSnapshot = jest.fn();
   const getIncrementalStatusStreams = jest.fn();
+  const getNextScheduledCycleAt = jest.fn();
   const countFinalProvisionFailures = jest.fn();
   const service = new SystemStatusService(
     {
@@ -46,9 +45,9 @@ describe('SystemStatusService', () => {
     {
       getIncrementalStatusSnapshot,
       getIncrementalStatusStreams,
+      getNextScheduledCycleAt,
     } as unknown as ConstructorParameters<typeof SystemStatusService>[1],
     () => NOW,
-    DAILY_0530_KST_CRON,
   );
 
   beforeEach(() => {
@@ -58,6 +57,9 @@ describe('SystemStatusService', () => {
     });
     getIncrementalStatusSnapshot.mockReset().mockResolvedValue(snapshot());
     getIncrementalStatusStreams.mockReset().mockResolvedValue([]);
+    getNextScheduledCycleAt
+      .mockReset()
+      .mockResolvedValue(new Date('2026-07-25T20:30:00.000Z'));
     countFinalProvisionFailures.mockReset().mockResolvedValue(2);
   });
 
@@ -87,6 +89,7 @@ describe('SystemStatusService', () => {
     expect(findActor).toHaveBeenCalledWith(ACTOR_ID);
     expect(getIncrementalStatusSnapshot).toHaveBeenCalledTimes(1);
     expect(getIncrementalStatusStreams).toHaveBeenCalledTimes(1);
+    expect(getNextScheduledCycleAt).toHaveBeenCalledWith(NOW);
     expect(countFinalProvisionFailures).toHaveBeenCalledTimes(1);
   });
 
@@ -104,6 +107,7 @@ describe('SystemStatusService', () => {
     );
     expect(getIncrementalStatusSnapshot).not.toHaveBeenCalled();
     expect(getIncrementalStatusStreams).not.toHaveBeenCalled();
+    expect(getNextScheduledCycleAt).not.toHaveBeenCalled();
     expect(countFinalProvisionFailures).not.toHaveBeenCalled();
   });
 
@@ -256,28 +260,21 @@ describe('SystemStatusService', () => {
   });
 
   describe('nextCycleAt', () => {
-    it('배선된 cron 표현식과 clock으로 다음 사이클 시작 시각을 Asia/Seoul 기준으로 계산한다', async () => {
+    it('port가 반환한 Date를 clock 시각으로 조회해 ISO 문자열로 옮긴다', async () => {
+      getNextScheduledCycleAt.mockResolvedValue(
+        new Date('2026-07-25T20:30:00.000Z'),
+      );
+
       const result = await service.getStatus(ACTOR_ID);
-      // NOW = 2026-07-25T12:00:00.000Z = KST 2026-07-25 21:00:00.
-      // '0 30 5 * * *'(매일 KST 05:30:00)의 다음 발생은 다음 날 05:30 KST = 전날 20:30 UTC.
+
+      expect(getNextScheduledCycleAt).toHaveBeenCalledWith(NOW);
       expect(result.collection.nextCycleAt).toBe('2026-07-25T20:30:00.000Z');
     });
 
-    it('cron 표현식이 유효하지 않으면 nextCycleAt만 null이고 나머지 응답은 그대로다', async () => {
-      const invalidCronService = new SystemStatusService(
-        {
-          findActor,
-          countFinalProvisionFailures,
-        } as unknown as SystemStatusRepository,
-        {
-          getIncrementalStatusSnapshot,
-          getIncrementalStatusStreams,
-        } as unknown as ConstructorParameters<typeof SystemStatusService>[1],
-        () => NOW,
-        'not-a-valid-cron-expression',
-      );
+    it('port가 null을 반환하면(cron 표현식 계산 불가) nextCycleAt만 null이고 나머지 응답은 그대로다', async () => {
+      getNextScheduledCycleAt.mockResolvedValue(null);
 
-      const result = await invalidCronService.getStatus(ACTOR_ID);
+      const result = await service.getStatus(ACTOR_ID);
 
       expect(result.collection.nextCycleAt).toBeNull();
       expect(result.collection.health).toBe('NORMAL');

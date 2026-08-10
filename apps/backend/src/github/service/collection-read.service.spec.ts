@@ -1,3 +1,4 @@
+import { CronTime } from 'cron';
 import { CollectionReadService } from './collection-read.service';
 import { PublicRankingRepository } from '../repository/public-ranking.repository';
 import type { CollectionCanonicalRepository } from '../repository/collection-canonical.repository';
@@ -1425,5 +1426,49 @@ describe('CollectionReadService — 조직 밖 저장소는 연결이 증명될 
     const call = db.repository.findMany.mock.calls[0] as
       [{ where: { githubRepositoryId: { in: bigint[] } } }] | undefined;
     expect(call?.[0].where.githubRepositoryId.in).toEqual([1n, 2n]);
+  });
+});
+
+/**
+ * ADR-003 DEC-42 — `system-status.service.spec.ts`에 있던 cron 계산 테스트를 그대로
+ * 옮겼다(구현이 이 서비스로 이관됐으므로). `COLLECTION_CRON_EXPRESSION`은 process.env를
+ * 거쳐 모듈 로드 시 고정되므로 여기서 값을 바꿔가며 주입할 수는 없다 — 대신 실제 배선된
+ * 표현식(기본값 `'0 0 * * * *'`, 매시 정각)을 기준으로 `getNextDateFrom`이 손으로 계산
+ * 가능한 다음 발생 시각을 내는지, 그리고 `from`이 그대로 전달되는지를 검증한다.
+ */
+describe('CollectionReadService — getNextScheduledCycleAt', () => {
+  it('배선된 cron 표현식을 from 이후 Asia/Seoul 기준으로 평가해 다음 발생 시각을 반환한다', async () => {
+    // from = UTC 2026-07-25T12:34:56 = KST 21:34:56. 기본 표현식(매시 정각)의 다음
+    // 발생은 KST 22:00:00 = UTC 13:00:00.
+    const from = new Date('2026-07-25T12:34:56.000Z');
+
+    const result = await serviceFor(createDb()).getNextScheduledCycleAt(from);
+
+    expect(result).toEqual(new Date('2026-07-25T13:00:00.000Z'));
+  });
+
+  it('정확히 정시(경계)에도 다음 시간 정각을 반환한다', async () => {
+    const from = new Date('2026-07-25T12:00:00.000Z');
+
+    const result = await serviceFor(createDb()).getNextScheduledCycleAt(from);
+
+    expect(result).toEqual(new Date('2026-07-25T13:00:00.000Z'));
+  });
+
+  it('계산이 실패하면(운영 실수로 배선된 표현식이 깨진 경우) null을 반환하고 던지지 않는다', async () => {
+    // 배선된 표현식 자체는 process.env로 모듈 로드 시 고정돼 여기서 바꿀 수 없으므로,
+    // try/catch → null 폴백 자체를 CronTime 계산 실패로 재현한다.
+    const spy = jest
+      .spyOn(CronTime.prototype, 'getNextDateFrom')
+      .mockImplementation(() => {
+        throw new Error('boom');
+      });
+
+    const result = await serviceFor(createDb()).getNextScheduledCycleAt(
+      new Date('2026-07-25T12:00:00.000Z'),
+    );
+
+    expect(result).toBeNull();
+    spy.mockRestore();
   });
 });

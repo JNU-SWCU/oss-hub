@@ -286,6 +286,16 @@ export interface CollectionReadPort {
   getContributorCumulativeMetrics(
     query: CollectionContributorCumulativeMetricsQueryDto,
   ): Promise<readonly CollectionContributorCumulativeMetricsDto[]>;
+  /**
+   * ADR-003 DEC-42 — system-status(github 모듈 밖)는 실제 배선된 cron 표현식
+   * (`collection-scheduler.service.ts`의 `COLLECTION_CRON_EXPRESSION`, concrete 구현)을
+   * 직접 import할 수 없다(boundary lint). 다음 수집 사이클 예정 시각 계산을 이 포트
+   * 뒤로 옮겨, cron 표현식과 `CronTime` 사용을 github 모듈 안(`collection-read.service.ts`)
+   * 에만 알게 한다. `from` 이후 다음 발생 시각을 Asia/Seoul 기준으로 계산하고, 표현식이
+   * 유효하지 않으면(운영 실수) `null`을 반환한다 — 이 계산 실패가 나머지 system-status
+   * 응답을 막아서는 안 된다.
+   */
+  getNextScheduledCycleAt(from: Date): Promise<Date | null>;
 }
 
 /**
