@@ -46,14 +46,36 @@ export interface CollectionStreamRepository {
   readonly streams: readonly CollectionStreamDetail[];
 }
 
+/**
+ * 수집 sweep 한 번의 활동 요약(2단계). `scope`는 백엔드 원값을 그대로 담는다 —
+ * 알려진 값(`ORG`, `EXTERNAL`)은 화면에서 한국어로 옮기고, 그 외 값은 원문을
+ * monospace로 보여준다(collection-streams-table의 에러코드 fallback과 같은 원칙).
+ */
+export interface CollectionActivityEntry {
+  readonly sweepFinishedAt: string;
+  readonly cycleStartedAt: string | null;
+  readonly scope: string;
+  readonly insertedCommitCount: number;
+  readonly insertedPullRequestCount: number;
+  readonly insertedReleaseCount: number;
+  readonly attemptedRepositoryCount: number;
+  readonly processedRepositoryCount: number;
+  readonly failedRepositoryCount: number;
+  readonly cycleCompleted: boolean;
+  readonly stoppedForBudget: boolean;
+}
+
 export interface SystemStatusResponse {
   readonly collection: SystemStatus;
   readonly collectionStreams: readonly CollectionStreamRepository[];
+  /** 배포 window에는 구버전 백엔드가 이 필드 자체를 보내지 않을 수 있다. */
+  readonly collectionActivity?: readonly CollectionActivityEntry[];
 }
 
 export interface SystemStatusData {
   readonly status: SystemStatus;
   readonly collectionStreams: readonly CollectionStreamRepository[];
+  readonly collectionActivity: readonly CollectionActivityEntry[];
 }
 
 export type SystemStatusViewState =
@@ -63,6 +85,7 @@ export type SystemStatusViewState =
       readonly kind: 'success';
       readonly status: SystemStatus;
       readonly collectionStreams: readonly CollectionStreamRepository[];
+      readonly collectionActivity: readonly CollectionActivityEntry[];
     };
 
 export type TriggerNotice =

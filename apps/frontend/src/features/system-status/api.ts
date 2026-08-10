@@ -9,6 +9,9 @@ export async function fetchSystemStatus(): Promise<SystemStatusData> {
     // 있다 — 그 응답을 undefined 그대로 넘기면 표 쪽 `[...repositories].sort()`가
     // 던진다. 여기서 빈 배열로 정규화해 그 실패를 이 경계 하나로 막는다.
     collectionStreams: response.collectionStreams ?? [],
+    // collectionActivity도 같은 배포 window 문제를 겪는다(2단계) — 구버전
+    // 백엔드는 이 필드 자체를 보내지 않는다.
+    collectionActivity: response.collectionActivity ?? [],
   };
 }
 

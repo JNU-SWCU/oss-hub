@@ -22,6 +22,7 @@ import type {
   SystemStatusViewState,
   TriggerNotice,
 } from '../types';
+import { CollectionActivityFeed } from './collection-activity-feed';
 import { CollectionStreamsTable } from './collection-streams-table';
 
 interface SystemStatusViewProps {
@@ -368,7 +369,7 @@ export function SystemStatusView({
   if (state.kind === 'loading') return <LoadingState />;
   if (state.kind === 'error') return <ErrorState onRetry={onRetry} />;
 
-  const { status, collectionStreams } = state;
+  const { status, collectionStreams, collectionActivity } = state;
   const isEmpty = status.health === 'EMPTY';
   // 이미 실행 중인 사이클에 두 번째 트리거를 보내 봐야 lease가 거절한다 — 요청을
   // 보내기 전에 막아 관리자가 실패 응답을 받고서야 알게 되는 상황을 없앤다.
@@ -423,6 +424,7 @@ export function SystemStatusView({
             </CardGrid>
           </section>
           <CollectionStreamsTable repositories={collectionStreams} />
+          <CollectionActivityFeed entries={collectionActivity} />
         </>
       )}
 

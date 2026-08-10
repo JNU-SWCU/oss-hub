@@ -183,6 +183,63 @@ const SYSTEM_STATUS_FIXTURE = {
       ],
     },
   ],
+  // 최근 수집 활동(2단계) — sweepFinishedAt desc. 완료/예산 중단/실패 포함/신규
+  // 0건 케이스를 하나씩 섞어 「최근 수집 활동」 피드의 배지·건수·빈 케이스를
+  // 로컬 검토에서 눈으로 확인할 수 있게 한다.
+  collectionActivity: [
+    {
+      sweepFinishedAt: '2026-07-31T00:00:00.000Z',
+      cycleStartedAt: '2026-07-30T23:55:00.000Z',
+      scope: 'org:jnu-swcu',
+      insertedCommitCount: 14,
+      insertedPullRequestCount: 4,
+      insertedReleaseCount: 0,
+      attemptedRepositoryCount: 12,
+      processedRepositoryCount: 9,
+      failedRepositoryCount: 1,
+      cycleCompleted: false,
+      stoppedForBudget: false,
+    },
+    {
+      sweepFinishedAt: '2026-07-30T18:00:00.000Z',
+      cycleStartedAt: '2026-07-30T17:40:00.000Z',
+      scope: 'org:jnu-swcu',
+      insertedCommitCount: 22,
+      insertedPullRequestCount: 6,
+      insertedReleaseCount: 2,
+      attemptedRepositoryCount: 12,
+      processedRepositoryCount: 12,
+      failedRepositoryCount: 0,
+      cycleCompleted: true,
+      stoppedForBudget: false,
+    },
+    {
+      sweepFinishedAt: '2026-07-30T12:00:00.000Z',
+      cycleStartedAt: '2026-07-30T11:00:00.000Z',
+      scope: 'external',
+      insertedCommitCount: 3,
+      insertedPullRequestCount: 0,
+      insertedReleaseCount: 0,
+      attemptedRepositoryCount: 20,
+      processedRepositoryCount: 7,
+      failedRepositoryCount: 0,
+      cycleCompleted: false,
+      stoppedForBudget: true,
+    },
+    {
+      sweepFinishedAt: '2026-07-30T06:00:00.000Z',
+      cycleStartedAt: '2026-07-30T05:45:00.000Z',
+      scope: 'org:jnu-swcu',
+      insertedCommitCount: 0,
+      insertedPullRequestCount: 0,
+      insertedReleaseCount: 0,
+      attemptedRepositoryCount: 12,
+      processedRepositoryCount: 12,
+      failedRepositoryCount: 0,
+      cycleCompleted: true,
+      stoppedForBudget: false,
+    },
+  ],
 } as const satisfies SystemStatusResponse;
 
 /** 기간 필터는 한국 날짜 선택기의 `YYYY-MM-DD`라 ISO 앞 10자리와 비교한다. */
