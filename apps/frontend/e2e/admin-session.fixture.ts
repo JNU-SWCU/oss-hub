@@ -35,8 +35,11 @@ function isExpectedResourceStatusError(
   return match !== null && expectedStatuses.has(Number(match[1]));
 }
 
-// Chrome의 "Failed to load resource" 콘솔 메시지는 본문에 URL을 담지 않는다.
-// 어떤 요청이 실패했는지 알 수 없으면 위 단언이 깨져도 원인을 좁힐 수 없으므로,
+// Chrome의 "Failed to load resource" 콘솔 메시지는 본문(text())에 URL을 담지
+// 않지만, message.location().url에는 실려 온다 — 아래에서 이 값을 텍스트에
+// 덧붙여 기록한다. 다만 이 리소스가 페이지의 request/response 이벤트를 거치지
+// 않는 경우(예: 브라우저 프로세스가 자체적으로 쏘는 /favicon.ico 프로브)가
+// 있어, 그때는 failedResponses에 대응 항목이 없다. 그런 상황까지 대비해
 // 응답을 따로 받아 URL과 status를 짝지어 둔다.
 interface FailedResponse {
   readonly status: number;
@@ -99,7 +102,10 @@ async function createAuthenticatedPage(
       message.type() === 'error' &&
       !isExpectedResourceStatusError(message.text(), expectedResourceStatuses)
     ) {
-      consoleErrors.push(message.text());
+      const locationUrl = message.location().url;
+      consoleErrors.push(
+        locationUrl ? `${message.text()} [${locationUrl}]` : message.text(),
+      );
     }
   });
   page.on('pageerror', (error) => {
