@@ -123,6 +123,27 @@ describe('StudentDashboardService', () => {
     );
   });
 
+  /**
+   * 카드가 학생을 **어디로 보내는지**. 이 단언이 없는 동안 `detailUrl`은 아무 곳이나
+   * 가리켜도 모든 테스트가 초록불이었고, 그래서 반려된 학생이 사유도 신청 상태도 없는
+   * 프로그램 상세로 가는 것을 아무도 잡지 못했다(#733).
+   *
+   * frontend 검증기(`features/dashboard/api.ts`)가 같은 규칙을 반대편에서 **글자 그대로**
+   * 강제한다 — 한쪽만 바뀌면 어긋난 항목이 통째로 버려져 대시보드가 빈다. 그래서 세 상태를
+   * 전부 고정한다. 하나만 고정하면 나머지가 조용히 갈릴 수 있다.
+   */
+  it.each([
+    [ApplicationStatus.SUBMITTED, '/programs/program-1/apply'],
+    [ApplicationStatus.REJECTED, '/programs/program-1/apply'],
+    [ApplicationStatus.APPROVED, '/programs/program-1'],
+  ])('points a %s application at %s', async (status, detailUrl) => {
+    findMany.mockResolvedValue([application({ status })]);
+
+    const [item] = await service.getStudentDashboard(101n);
+
+    expect(item?.detailUrl).toBe(detailUrl);
+  });
+
   it('keeps nextMilestone null for applications that are not approved', async () => {
     findMany.mockResolvedValue([
       application({ status: ApplicationStatus.SUBMITTED }),
