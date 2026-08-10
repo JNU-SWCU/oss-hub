@@ -121,8 +121,6 @@ function toSubmissionType(value: string): SubmissionType {
       return 'FILE';
     case 'TEXT':
       return 'TEXT';
-    case 'REPOSITORY_RELEASE':
-      return 'REPOSITORY_RELEASE';
     default:
       return 'TEXT';
   }

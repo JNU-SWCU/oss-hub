@@ -119,18 +119,17 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
     {
       id: 'synthetic-document-revision',
       milestoneId: 'milestones-revision',
-      name: '최종 릴리스',
+      name: '최종 결과 요약',
       required: true,
       sortOrder: 1,
-      submissionType: 'REPOSITORY_RELEASE',
+      submissionType: 'TEXT',
       // `viewerSubmissionStatus: 'CHANGES_REQUESTED'`와 같은 값 — 학생 화면의 경고 톤
       // 사유 상자와 「다시 낼 수 있다」가 함께 보이는 자리다.
       viewerSubmission: submittedViewer(
         '2026-07-30T16:20:00.000Z',
         'CHANGES_REQUESTED',
         {
-          comment:
-            '릴리스 태그가 v0.9.0-rc로 되어 있습니다. 정식 태그를 붙인 뒤 주소를 다시 올려 주세요.',
+          comment: '실행 환경과 변경 내역을 보완해 다시 올려 주세요.',
           reviewedAt: '2026-07-31T02:40:00.000Z',
         },
       ),
@@ -144,13 +143,12 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       name: '예선 결과물',
       required: true,
       sortOrder: 1,
-      submissionType: 'REPOSITORY_RELEASE',
+      submissionType: 'TEXT',
       viewerSubmission: submittedViewer(
         '2026-07-29T14:10:00.000Z',
         'CHANGES_REQUESTED',
         {
-          comment:
-            '제출한 주소가 저장소 목록에 없는 저장소를 가리킵니다. 연결된 저장소의 릴리스로 다시 올려 주세요.',
+          comment: '재현 순서와 테스트 결과를 보완해 다시 올려 주세요.',
           reviewedAt: '2026-07-30T05:05:00.000Z',
         },
       ),
@@ -214,7 +212,7 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
        *
        * 한계: 로컬 검토의 학생 페르소나는 이 프로그램에 들어갈 길이 없어 화면으로는
        * 잘 보이지 않는다. 학생 화면에서 눈으로 볼 수 있는 것은 승인(캡스톤 기획서)과
-       * 보완 요청(최종 릴리스·예선 결과물)이고, 검토 대기는 보완 요청 항목을 다시
+       * 보완 요청(최종 결과 요약·예선 결과물)이고, 검토 대기는 보완 요청 항목을 다시
        * 제출해 보면 그 자리에서 바뀐다.
        */
       viewerSubmission: submittedViewer(
@@ -258,17 +256,15 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       teamSubmissionCount: { submitted: 2, total: 3 },
     },
     {
-      id: 'synthetic-document-orientation-release',
+      id: 'synthetic-document-orientation-summary',
       milestoneId: 'milestone-basic-orientation',
-      name: '합성 사전 릴리스',
+      name: '합성 사전 요약',
       required: false,
       sortOrder: 4,
-      submissionType: 'REPOSITORY_RELEASE',
+      submissionType: 'TEXT',
       viewerSubmission: NOT_SUBMITTED_VIEWER,
       /*
-       * 이 열이 있어야 **제출 방식 세 가지가 한 표에 다 선다**(파일 · 글 · 릴리스).
-       * 판정 패널이 파일만 보여 주던 결함은 나머지 둘이 화면에 없으면 로컬 검토로
-       * 확인할 길이 없다 — 검토자가 세 방식의 패널을 나란히 열어 봐야 한다.
+       * 글 제출 칸을 하나 더 둬 파일과 글 본문을 각각 로컬 검토로 확인한다.
        *
        * 선택 서류에 위 회고 메모와 같은 제출 팀 수를 둔 것은 필터 두 개의 수를
        * 건드리지 않기 위해서다: 「필수 서류 미제출」은 여전히 2팀(필수는 계획서·서약서
@@ -289,12 +285,12 @@ const MILESTONE_DOCUMENT_FIXTURES: Readonly<
       teamSubmissionCount: { submitted: 1, total: 3 },
     },
     {
-      id: 'synthetic-document-final-release',
+      id: 'synthetic-document-final-summary',
       milestoneId: 'milestone-basic-final',
-      name: '합성 릴리스 주소',
+      name: '합성 결과 요약',
       required: false,
       sortOrder: 2,
-      submissionType: 'REPOSITORY_RELEASE',
+      submissionType: 'TEXT',
       viewerSubmission: NOT_SUBMITTED_VIEWER,
       teamSubmissionCount: { submitted: 0, total: 3 },
     },
@@ -513,8 +509,8 @@ function collectionRevisionFor(state: CollectionCellStateSeed): number {
 /**
  * 학생이 낸 **본문**. 파일 제출에는 없다(`null`) — 파일은 칸의 `file`이 담당한다.
  *
- * 이 값이 없으면 로컬 검토에서 판정 패널이 언제나 파일만 보여 주고, 「글·릴리스는
- * 내용을 못 보고 판정한다」는 결함이 화면에 재현되지 않는다.
+ * 이 값이 없으면 로컬 검토에서 판정 패널이 언제나 파일만 보여 주고 글 내용을
+ * 못 보고 판정하는 결함이 화면에 재현되지 않는다.
  *
  * 글은 **여러 줄로** 적는다. 줄바꿈을 보존하는지, 길어졌을 때 패널 안에서 스크롤되는지가
  * 눈으로 확인할 자리이고, 한 줄짜리 시드로는 둘 다 확인되지 않는다.
@@ -551,11 +547,6 @@ function collectionContentFor(
               `${line + 1}. 합성 회고 문장입니다. 판정 화면이 원문을 자르지 않고 그대로 보여 주는지 확인합니다.`,
           ),
         ].join('\n'),
-      };
-    case 'REPOSITORY_RELEASE':
-      return {
-        type: 'REPOSITORY_RELEASE',
-        releaseUrl: `https://github.com/JNU-SWCU/synthetic-basic-study-0${teamNumber}/releases/tag/v0.${teamNumber}.0`,
       };
   }
 }

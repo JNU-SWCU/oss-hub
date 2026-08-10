@@ -207,7 +207,6 @@ model Program {
 enum MilestoneSubmissionType {
   FILE
   TEXT
-  REPOSITORY_RELEASE
 }
 
 model Milestone {
@@ -643,8 +642,8 @@ model MilestoneDocumentTemplateFile {
 
 /// (서류 항목 × 신청/팀)당 제출 상태·시각. 행이 존재하지 않으면 "미제출"이다(status enum에
 /// NOT_SUBMITTED를 두지 않는다 — DTO 계층이 없음을 'NOT_SUBMITTED' sentinel로 표현하는 기존
-/// viewerSubmissionStatus 관례를 따른다). FILE 유형은 files로, TEXT/REPOSITORY_RELEASE 유형은
-/// content Json으로 응답을 담는다.
+/// viewerSubmissionStatus 관례를 따른다). FILE 유형은 files로, TEXT 유형은 content Json으로
+/// 응답을 담는다.
 model MilestoneDocumentSubmission {
   id String @id @default(cuid())
 

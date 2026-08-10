@@ -34,7 +34,6 @@ export interface SubmissionChecklistViewProps {
   readonly submitting: boolean;
   readonly submissionPhase: 'uploading' | 'creating' | null;
   readonly onTextChange: (value: string) => void;
-  readonly onReleaseUrlChange: (value: string) => void;
   readonly onFileChange: (file: File | null) => void;
   readonly onCommentChange: (value: string) => void;
   readonly onResubmit: () => void;

@@ -57,11 +57,7 @@ const SUBMISSION_FILE_NOT_FOUND_CODE = 'MSD_020';
 const INVALID_REQUEST_CODE = 'MSD_019';
 const REVIEW_COMMENT_REQUIRED_CODE = 'MSD_021';
 
-const SUBMISSION_TYPES: readonly SubmissionType[] = [
-  'FILE',
-  'TEXT',
-  'REPOSITORY_RELEASE',
-];
+const SUBMISSION_TYPES: readonly SubmissionType[] = ['FILE', 'TEXT'];
 
 const COLLECTION_FILTERS: readonly MilestoneDocumentCollectionFilter[] = [
   'ALL',

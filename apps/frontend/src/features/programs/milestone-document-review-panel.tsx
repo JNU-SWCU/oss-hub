@@ -86,35 +86,6 @@ function SubmittedText({ text }: { readonly text: string }): ReactElement {
 }
 
 /**
- * 저장소 릴리스 주소. 눌러서 바로 확인할 수 있어야 판정에 뜻이 있다.
- *
- * 새 탭으로 여는 것은 **판정하던 자리를 잃지 않기 위해서**다 — 같은 탭에서 나가면 표와
- * 적어 두던 사유가 함께 사라진다. `rel`은 그 새 탭이 이 화면을 되짚지 못하게 막는다.
- * 주소는 자르지 않고 그대로 적는다: 어느 저장소의 어느 태그인지가 판정의 근거다.
- */
-function SubmittedRelease({
-  releaseUrl,
-}: {
-  readonly releaseUrl: string;
-}): ReactElement {
-  return (
-    <div className="grid gap-1">
-      <h4 className={CONTENT_HEADING}>제출한 릴리스 주소</h4>
-      <a
-        data-testid="milestone-document-submitted-release"
-        href={releaseUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-small break-all text-primary underline underline-offset-4"
-      >
-        {releaseUrl}
-      </a>
-      <p className="text-small text-muted-foreground">새 탭에서 열립니다.</p>
-    </div>
-  );
-}
-
-/**
  * 제출은 있는데 **보여 줄 것이 하나도 없는** 칸. 파일도 본문도 없을 때다 —
  * 첨부의 보존 기한이 지났거나(FILE 유형인데 `file`이 비어 온다) 저장된 본문을 읽지
  * 못한 경우다.
@@ -136,9 +107,9 @@ function NothingToShow(): ReactElement {
 }
 
 /**
- * 판정하기 전에 **무엇을 판정하는지** 보여 주는 자리. 제출 방식 세 가지가 여기서 갈린다.
+ * 판정하기 전에 **무엇을 판정하는지** 보여 주는 자리.
  *
- * ⚠ 이 부분을 지우면 파일 제출만 눈에 보이고 **글·릴리스 제출은 통째로 안 보인다** —
+ * ⚠ 이 부분을 지우면 파일 제출만 눈에 보이고 글 제출은 통째로 안 보인다 —
  * 교직원이 내용을 한 글자도 못 본 채 승인·반려를 누르게 된다. 그것이 이 화면의 원래
  * 결함이었다.
  */
@@ -156,11 +127,7 @@ function SubmittedContent({
   const hasFile = cell.file !== null && fileHref !== null;
 
   if (content !== null) {
-    return content.type === 'TEXT' ? (
-      <SubmittedText text={content.text} />
-    ) : (
-      <SubmittedRelease releaseUrl={content.releaseUrl} />
-    );
+    return <SubmittedText text={content.text} />;
   }
   if (hasFile) return null;
   return <NothingToShow />;

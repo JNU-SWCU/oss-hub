@@ -36,7 +36,6 @@ type ChecklistPageState =
 const EMPTY_INPUT: SubmissionFormInput = {
   file: null,
   text: '',
-  releaseUrl: '',
 };
 
 const STALE_NOTICE =
@@ -254,9 +253,6 @@ export function SubmissionChecklistPage({
       onRefresh={() => void refresh()}
       submissionPhase={submissionPhase}
       onTextChange={(text) => setInput((previous) => ({ ...previous, text }))}
-      onReleaseUrlChange={(releaseUrl) =>
-        setInput((previous) => ({ ...previous, releaseUrl }))
-      }
       onFileChange={(file) => {
         setInput((previous) => ({ ...previous, file }));
         setFileError(null);

@@ -1,9 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  ApplicationStatus,
-  MilestoneSubmissionType,
-  SubmissionStatus,
-} from '@prisma/client';
+import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import { addOneCalendarYear } from '../common/add-one-calendar-year';
 import { DomainException } from '../common/error-code';
 import {
@@ -22,7 +18,6 @@ import type {
   SubmissionChecklistResponseDto,
   SubmissionFormResponseDto,
 } from './dto/submission-response.dto';
-import { isLinkedRepositoryReleaseUrl } from './submission-release-url';
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
@@ -76,12 +71,6 @@ export class SubmissionsService {
         submissionType: milestone.submissionType,
         instructions: milestone.instructions,
       },
-      repository:
-        milestone.submissionType ===
-          MilestoneSubmissionType.REPOSITORY_RELEASE &&
-        application.repositoryUrl
-          ? { url: application.repositoryUrl, status: 'READY' }
-          : null,
       existingSubmission: application.existingSubmission
         ? {
             ...application.existingSubmission,
@@ -315,20 +304,6 @@ export class SubmissionsService {
     }
     if (input.content.type !== target.submissionType)
       throw this.error(SubmissionsErrorCode.CONTENT_TYPE_MISMATCH);
-    if (input.content.type === MilestoneSubmissionType.REPOSITORY_RELEASE) {
-      if (!target.repositoryUrl)
-        throw this.error(SubmissionsErrorCode.REPOSITORY_NOT_READY);
-      if (
-        !isLinkedRepositoryReleaseUrl(
-          target.repositoryUrl,
-          input.content.releaseUrl,
-        )
-      ) {
-        throw this.error(
-          SubmissionsErrorCode.RELEASE_URL_NOT_LINKED_REPOSITORY,
-        );
-      }
-    }
   }
 
   private async requireStudent(
@@ -358,12 +333,6 @@ export class SubmissionsService {
     if (application.existingSubmission) return 'SUBMISSION_ALREADY_EXISTS';
     if (hasProgramDeadlinePassed(milestone.dueAt, now))
       return 'MILESTONE_CLOSED';
-    if (
-      milestone.submissionType === MilestoneSubmissionType.REPOSITORY_RELEASE &&
-      !application.repositoryUrl
-    ) {
-      return 'REPOSITORY_NOT_READY';
-    }
     return null;
   }
 
@@ -379,23 +348,6 @@ export class SubmissionsService {
       throw this.error(SubmissionsErrorCode.MILESTONE_CLOSED);
     if (input.content.type !== milestone.submissionType)
       throw this.error(SubmissionsErrorCode.CONTENT_TYPE_MISMATCH);
-    if (!application.repositoryUrl) {
-      if (
-        milestone.submissionType === MilestoneSubmissionType.REPOSITORY_RELEASE
-      ) {
-        throw this.error(SubmissionsErrorCode.REPOSITORY_NOT_READY);
-      }
-      return;
-    }
-    if (
-      input.content.type === MilestoneSubmissionType.REPOSITORY_RELEASE &&
-      !isLinkedRepositoryReleaseUrl(
-        application.repositoryUrl,
-        input.content.releaseUrl,
-      )
-    ) {
-      throw this.error(SubmissionsErrorCode.RELEASE_URL_NOT_LINKED_REPOSITORY);
-    }
   }
 
   private error(code: SubmissionsErrorCode): DomainException {

@@ -235,7 +235,7 @@ export async function seedOssHub(
       name: 'AWS Staging',
       startAt: PROGRAM_START_AT,
       dueAt: kstMidnight('2026-08-08'),
-      submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
+      submissionType: MilestoneSubmissionType.TEXT,
       instructions:
         '승인된 AWS 구조에 staging 환경을 배포하고 HTTPS·헬스체크·롤백 절차를 검증합니다.',
     },
@@ -288,7 +288,7 @@ export async function seedOssHub(
       name: 'Release Complete',
       startAt: PROGRAM_START_AT,
       dueAt: kstMidnight('2026-08-31'),
-      submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
+      submissionType: MilestoneSubmissionType.TEXT,
       instructions:
         '릴리스 체크리스트·운영 문서·복구 연습·최종 QA를 모두 완료합니다.',
     },
@@ -382,7 +382,7 @@ export async function seedOssHub(
     );
   }
 
-  // aws-staging: 팀장이 staging 배포 릴리즈 링크를 제출, STAFF가 승인 리뷰를 남긴 상태.
+  // aws-staging: 팀장이 staging 배포 결과를 제출하고 STAFF가 승인 리뷰를 남긴 상태.
   const awsStagingSubmissionId = seedId('oss-hub', 'submission', 'aws-staging');
   await upsertTracked(
     stats,
@@ -423,10 +423,10 @@ export async function seedOssHub(
           id: awsStagingRevisionId,
           submissionId: awsStagingSubmissionId,
           revision: 1,
-          submissionType: MilestoneSubmissionType.REPOSITORY_RELEASE,
+          submissionType: MilestoneSubmissionType.TEXT,
           content: {
-            type: MilestoneSubmissionType.REPOSITORY_RELEASE,
-            releaseUrl: `${OSS_HUB_REPOSITORY_URL}/releases/tag/seed-aws-staging`,
+            type: MilestoneSubmissionType.TEXT,
+            text: 'staging 배포와 HTTPS·헬스체크·롤백 절차 검증을 완료했습니다 (seed fixture).',
           },
           submittedById: users[0]!.id,
         },

@@ -14,7 +14,7 @@ describe('milestone timeline parser', () => {
       'overdue',
       'text',
       'file',
-      'release',
+      'summary',
       'rejected',
       'missing',
       'text-missing',

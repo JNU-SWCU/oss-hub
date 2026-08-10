@@ -202,7 +202,7 @@ describe('이름 한 칸의 길이 자르기', () => {
     expect(result.length).toBeLessThanOrEqual(MAX_FILE_SYSTEM_NAME_LENGTH);
   });
 
-  it('글·릴리스 제출의 .txt 이름도 같은 길이로 자른다', () => {
+  it('글 제출의 .txt 이름도 같은 길이로 자른다', () => {
     // Given: 파일 제출과 이름 규칙을 공유하므로 길이 방어도 같이 걸려야 한다.
     const result = milestoneDocumentTextEntryFileName({
       teamName: '가'.repeat(100),

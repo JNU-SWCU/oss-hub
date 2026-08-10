@@ -214,18 +214,6 @@ describe('resubmissionFailure', () => {
     },
   );
 
-  it('SUB_009는 releaseUrl field 오류다', () => {
-    const failure = resubmissionFailure(
-      problem({ status: 422, code: 'SUB_009', detail: '저장소 밖 URL' }),
-      'REPOSITORY_RELEASE',
-    );
-    expect(failure).toEqual({
-      kind: 'field',
-      field: 'releaseUrl',
-      message: '저장소 밖 URL',
-    });
-  });
-
   it('SUB_011은 제출 유형에 맞는 field로 돌아간다', () => {
     const failure = resubmissionFailure(
       problem({ status: 422, code: 'SUB_011', detail: '내용 필요' }),
@@ -265,31 +253,13 @@ describe('resubmissionContent', () => {
       resubmissionContent('TEXT', {
         file: null,
         text: '  보완 내용  ',
-        releaseUrl: '',
       }),
     ).toEqual({ type: 'TEXT', text: '보완 내용' });
   });
 
-  it('REPOSITORY_RELEASE는 releaseUrl을 보낸다', () => {
-    expect(
-      resubmissionContent('REPOSITORY_RELEASE', {
-        file: null,
-        text: '',
-        releaseUrl: 'https://github.com/JNU-SWCU/synthetic/releases/tag/v2 ',
-      }),
-    ).toEqual({
-      type: 'REPOSITORY_RELEASE',
-      releaseUrl: 'https://github.com/JNU-SWCU/synthetic/releases/tag/v2',
-    });
-  });
-
   it('FILE uses the uploaded file id for resubmission content', () => {
     expect(
-      resubmissionContent(
-        'FILE',
-        { file: null, text: '', releaseUrl: '' },
-        'file-1',
-      ),
+      resubmissionContent('FILE', { file: null, text: '' }, 'file-1'),
     ).toEqual({ type: 'FILE', fileId: 'file-1' });
   });
 });
@@ -318,7 +288,7 @@ describe('submitResubmissionRevision', () => {
       milestoneId: 'milestone-file',
       submission: { id: 'submission-1', currentRevision: 3 },
       submissionType: 'FILE',
-      input: { file, text: '', releaseUrl: '' },
+      input: { file, text: '' },
       comment: 'updated file',
       cache,
       uploadSubmissionFile,
@@ -366,7 +336,7 @@ describe('submitResubmissionRevision', () => {
       milestoneId: 'milestone-file',
       submission: { id: 'submission-1', currentRevision: 3 },
       submissionType: 'FILE' as const,
-      input: { file, text: '', releaseUrl: '' },
+      input: { file, text: '' },
       comment: 'updated file',
       cache,
       uploadSubmissionFile,

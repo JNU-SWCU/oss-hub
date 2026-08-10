@@ -16,7 +16,7 @@ const DOCUMENT_IDS = [
   'synthetic-document-orientation-plan',
   'synthetic-document-orientation-pledge',
   'synthetic-document-orientation-note',
-  'synthetic-document-orientation-release',
+  'synthetic-document-orientation-summary',
 ];
 
 function resolve(

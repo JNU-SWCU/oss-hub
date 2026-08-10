@@ -60,7 +60,7 @@ function render(
       checklist={input}
       selectedMilestoneId={selectedMilestoneId}
       now={NOW}
-      input={{ file: null, text: '', releaseUrl: '' }}
+      input={{ file: null, text: '' }}
       comment=""
       errors={{}}
       fileError={null}
@@ -70,7 +70,6 @@ function render(
       submitting={false}
       submissionPhase={null}
       onTextChange={vi.fn()}
-      onReleaseUrlChange={vi.fn()}
       onFileChange={vi.fn()}
       onCommentChange={vi.fn()}
       onResubmit={vi.fn()}

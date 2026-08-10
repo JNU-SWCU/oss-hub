@@ -18,7 +18,6 @@
 | `submission-file-cleanup.service.ts` / `.scheduler.ts` | 만료된 파일 정리(매시 cron) — `SubmissionFileCleanupService.runDue()` |
 | `submission-file-cleanup-failures.controller.ts` / `.service.ts` | 재시도를 소진해 멈춘 정리 대상의 관리자 전용 조회(`GET /submission-files/cleanup/failures`, #545) |
 | `submission-matrix.service.ts` | 교직원 제출 현황 매트릭스(#124) |
-| `submission-release-url.ts` | 저장소 릴리스 URL이 신청 시 연결된 저장소와 일치하는지 검증(`isLinkedRepositoryReleaseUrl`) |
 | `submissions-error-code.enum.ts` | `SUB_*` 코드 레지스트리 |
 
 ## Subdirectories
@@ -31,7 +30,7 @@
 
 ## For AI Agents
 
-- 제출 타입은 마일스톤의 `submissionType`과 정확히 일치해야 한다(`CONTENT_TYPE_MISMATCH`) — `REPOSITORY_RELEASE`는 신청에 연결된 저장소가 있어야 하고(`REPOSITORY_NOT_READY`), `FILE`은 프로그램 종료일이 설정돼야 한다(`FILE_RETENTION_UNAVAILABLE`, 만료일을 `programEndAt + 1년`으로 계산).
+- 제출 타입은 마일스톤의 `submissionType`과 정확히 일치해야 한다(`CONTENT_TYPE_MISMATCH`) — `FILE`은 프로그램 종료일이 설정돼야 한다(`FILE_RETENTION_UNAVAILABLE`, 만료일을 `programEndAt + 1년`으로 계산).
 - `CHANGES_REQUESTED` 보완 재제출은 마감 후에도 허용한다(#116). 그 외 제출물 교체는 마감 전이고 최종 반려가 아닐 때만 허용한다 — 최초 제출과 재제출의 검증 로직(`assertSubmittable` vs `assertResubmittable`)을 혼용하지 않는다.
 - `submission-reviews/` 모듈이 이 모듈을 참조하지 않고 별도 트랜잭션으로 `SubmissionStatus`를 전환한다(ADR-003) — 검토 승인/반려 로직을 이 모듈에 추가하지 않는다.
 

@@ -63,7 +63,6 @@ export interface StudentApplicationContext {
   readonly applicationId: string;
   readonly approved: boolean;
   readonly programEndAt: Date;
-  readonly repositoryUrl: string | null;
 }
 
 export interface MilestoneDocumentSubmissionSummary {
@@ -109,8 +108,8 @@ export interface MilestoneDocumentCollectionSubmission {
    * 학생이 낸 응답 본문 그대로(`MilestoneDocumentSubmission.content`). FILE 제출이면 저장 자체가
    * `JsonNull`이라 여기도 null이다 — 파일은 위 `file`이 담당한다.
    *
-   * 왜 싣는가: 이 값이 없으면 TEXT·REPOSITORY_RELEASE 서류는 교직원이 **내용을 한 글자도 보지
-   * 못한 채** 승인·반려하게 된다(3가지 제출 방식 중 2가지가 깜깜이였다). 해석은 도메인
+   * 왜 싣는가: 이 값이 없으면 TEXT 서류는 교직원이 **내용을 한 글자도 보지
+   * 못한 채** 승인·반려하게 된다. 해석은 도메인
    * (`domain/milestone-document-content.ts`)이 하고 여기서는 저장된 모양을 그대로 나른다.
    */
   readonly content: Prisma.JsonValue | null;
@@ -243,7 +242,7 @@ export interface UpsertMilestoneDocumentSubmissionInput {
    * 규칙(어떤 판정이면 막는가)은 서비스가 들고 있고 여기서는 기대값 재확인만 한다.
    */
   readonly expectedLatestReviewId: string | null;
-  /** FILE 유형이면 Prisma.JsonNull(파일은 files 관계로 붙는다), TEXT/REPOSITORY_RELEASE면 응답 본문. */
+  /** FILE 유형이면 Prisma.JsonNull(파일은 files 관계로 붙는다), TEXT면 응답 본문. */
   readonly content: Prisma.InputJsonValue | typeof Prisma.JsonNull;
   /** FILE 유형 제출일 때만 채운다 — pending 상태로 업로드해 둔 파일을 이 제출에 붙인다. */
   readonly attachFile: {
@@ -778,7 +777,6 @@ export class MilestoneDocumentsRepository {
         id: true,
         status: true,
         program: { select: { endAt: true } },
-        repository: { select: { url: true } },
       },
     });
     if (application === null) return null;
@@ -786,7 +784,6 @@ export class MilestoneDocumentsRepository {
       applicationId: application.id,
       approved: application.status === ApplicationStatus.APPROVED,
       programEndAt: application.program.endAt,
-      repositoryUrl: application.repository?.url ?? null,
     };
   }
 

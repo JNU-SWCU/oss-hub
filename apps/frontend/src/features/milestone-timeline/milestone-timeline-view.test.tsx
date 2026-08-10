@@ -34,7 +34,7 @@ describe('milestone timeline loader and view', () => {
       'overdue',
       'text',
       'file',
-      'release',
+      'summary',
       'rejected',
       'missing',
       'text-missing',

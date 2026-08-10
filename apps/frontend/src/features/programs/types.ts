@@ -6,7 +6,7 @@ export type ApplicationStatus = 'SUBMITTED' | 'APPROVED' | 'REJECTED';
 export type ApplicationDecisionAction = 'APPROVE' | 'REJECT' | 'REVERT';
 export type SubmissionStatus =
   'NOT_SUBMITTED' | 'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
-export type SubmissionType = 'FILE' | 'TEXT' | 'REPOSITORY_RELEASE';
+export type SubmissionType = 'FILE' | 'TEXT';
 
 export const PROGRAM_PARTICIPATION_TYPES = ['individual', 'team'] as const;
 export type ProgramParticipation = (typeof PROGRAM_PARTICIPATION_TYPES)[number];

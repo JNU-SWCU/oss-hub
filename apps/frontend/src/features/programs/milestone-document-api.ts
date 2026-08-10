@@ -84,8 +84,7 @@ export interface MilestoneDocumentSubmission {
 
 export type MilestoneDocumentSubmissionContent =
   | { readonly type: 'FILE'; readonly fileId: string }
-  | { readonly type: 'TEXT'; readonly text: string }
-  | { readonly type: 'REPOSITORY_RELEASE'; readonly releaseUrl: string };
+  | { readonly type: 'TEXT'; readonly text: string };
 
 function documentsPath(milestoneId: string): string {
   return `milestones/${encodeURIComponent(milestoneId)}/documents`;
