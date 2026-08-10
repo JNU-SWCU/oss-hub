@@ -43,7 +43,6 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
       applicationId: syntheticApplicationId,
       approved: true,
       programEndAt: new Date('2026-12-19T00:00:00.000Z'),
-      repositoryUrl: null,
     }),
     createPendingFile: jest.fn().mockResolvedValue({
       id: 'cuid-synthetic-pending-file',
@@ -235,7 +234,6 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         applicationId: syntheticApplicationId,
         approved: false,
         programEndAt: new Date('2026-12-19T00:00:00.000Z'),
-        repositoryUrl: null,
       }),
     });
     const service = new MilestoneDocumentFilesService(

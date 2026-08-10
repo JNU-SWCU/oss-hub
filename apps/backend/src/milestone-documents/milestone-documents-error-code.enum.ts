@@ -18,8 +18,6 @@ export const MilestoneDocumentsErrorCode = {
   PENDING_FILE_NOT_FOUND: 'MSD_014',
   TEMPLATE_NOT_FOUND: 'MSD_015',
   DOCUMENT_HAS_SUBMISSIONS: 'MSD_016',
-  RELEASE_URL_NOT_LINKED_REPOSITORY: 'MSD_017',
-  REPOSITORY_NOT_READY: 'MSD_018',
   INVALID_REQUEST: 'MSD_019',
   SUBMISSION_FILE_NOT_FOUND: 'MSD_020',
   REVIEW_COMMENT_REQUIRED: 'MSD_021',
@@ -116,16 +114,6 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     status: 409,
     message:
       '제출된 서류가 있는 항목은 삭제하거나 제출 방식을 바꿀 수 없습니다.',
-  },
-  [MilestoneDocumentsErrorCode.RELEASE_URL_NOT_LINKED_REPOSITORY]: {
-    code: MilestoneDocumentsErrorCode.RELEASE_URL_NOT_LINKED_REPOSITORY,
-    status: 422,
-    message: '연결된 저장소의 태그 또는 릴리스 URL을 입력해 주세요.',
-  },
-  [MilestoneDocumentsErrorCode.REPOSITORY_NOT_READY]: {
-    code: MilestoneDocumentsErrorCode.REPOSITORY_NOT_READY,
-    status: 409,
-    message: '연결된 저장소가 아직 준비되지 않았습니다.',
   },
   [MilestoneDocumentsErrorCode.INVALID_REQUEST]: {
     code: MilestoneDocumentsErrorCode.INVALID_REQUEST,
