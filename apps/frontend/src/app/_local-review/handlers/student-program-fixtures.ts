@@ -133,12 +133,12 @@ const CAPSTONE_MILESTONES = [
   },
   {
     id: 'milestones-revision',
-    name: '최종 릴리스',
+    name: '최종 결과 요약',
     dueAt: '2026-08-10T23:59:59.000+09:00',
     dDay: 10,
     deadlineLabel: 'D-10',
-    description: '연결된 저장소의 최종 릴리스와 변경 내역을 확인합니다.',
-    submissionType: 'REPOSITORY_RELEASE',
+    description: '최종 결과와 변경 내역을 글로 정리합니다.',
+    submissionType: 'TEXT',
     viewerSubmissionStatus: 'CHANGES_REQUESTED',
     applicationSubmissionSummary: null,
   },
@@ -152,7 +152,7 @@ const CONTEST_MILESTONES = [
     dDay: -11,
     deadlineLabel: '마감 지남',
     description: '예선 심사용 구현 결과와 실행 방법을 제출합니다.',
-    submissionType: 'REPOSITORY_RELEASE',
+    submissionType: 'TEXT',
     viewerSubmissionStatus: 'CHANGES_REQUESTED',
     applicationSubmissionSummary: null,
   },
@@ -480,9 +480,9 @@ export const PROGRAM_CHECKLISTS: Readonly<Record<string, SubmissionChecklist>> =
         },
         {
           milestoneId: 'milestones-revision',
-          name: '최종 릴리스',
+          name: '최종 결과 요약',
           dueAt: '2026-08-10T23:59:59.000+09:00',
-          submissionType: 'REPOSITORY_RELEASE',
+          submissionType: 'TEXT',
           submission: {
             id: 'submission-revision',
             status: 'CHANGES_REQUESTED',
@@ -490,7 +490,7 @@ export const PROGRAM_CHECKLISTS: Readonly<Record<string, SubmissionChecklist>> =
             currentRevision: 1,
             lastReviewedAt: '2026-07-30T16:20:00.000+09:00',
             reviewComment:
-              '릴리스 노트에 실행 환경과 변경 내역을 추가해 주세요.',
+              '실행 환경과 변경 내역을 추가해 주세요.',
             canResubmit: true,
             // 본문만 낸 제출이라 첨부는 없다.
             file: null,
@@ -506,7 +506,7 @@ export const PROGRAM_CHECKLISTS: Readonly<Record<string, SubmissionChecklist>> =
           milestoneId: 'milestones-overdue',
           name: '예선 결과물',
           dueAt: '2026-07-20T23:59:59.000+09:00',
-          submissionType: 'REPOSITORY_RELEASE',
+          submissionType: 'TEXT',
           submission: {
             id: 'submission-contest-revision',
             status: 'CHANGES_REQUESTED',
@@ -514,7 +514,7 @@ export const PROGRAM_CHECKLISTS: Readonly<Record<string, SubmissionChecklist>> =
             currentRevision: 2,
             lastReviewedAt: '2026-07-29T14:10:00.000+09:00',
             reviewComment:
-              '재현 순서와 테스트 결과를 릴리스 노트에 보완해 주세요.',
+              '재현 순서와 테스트 결과를 보완해 주세요.',
             canResubmit: true,
             // 본문만 낸 제출이라 첨부는 없다.
             file: null,
@@ -554,7 +554,6 @@ export const SUBMISSION_FORMS: Readonly<Record<string, SubmissionFormData>> = {
       submissionType: 'FILE',
       instructions: LOCAL_REVIEW_TEXT_INSTRUCTIONS,
     },
-    repository: null,
     existingSubmission: {
       id: 'submission-approved',
       status: 'APPROVED',
@@ -568,16 +567,12 @@ export const SUBMISSION_FORMS: Readonly<Record<string, SubmissionFormData>> = {
     applicationMode: 'PERSONAL',
     milestone: {
       id: 'milestones-revision',
-      name: '최종 릴리스',
+      name: '최종 결과 요약',
       dueAt: '2026-08-10T23:59:59.000+09:00',
       dDay: 10,
       deadlineLabel: 'D-10',
-      submissionType: 'REPOSITORY_RELEASE',
+      submissionType: 'TEXT',
       instructions: LOCAL_REVIEW_TEXT_INSTRUCTIONS,
-    },
-    repository: {
-      url: 'https://github.com/JNU-SWCU/synthetic-capstone-archive',
-      status: 'READY',
     },
     existingSubmission: {
       id: 'submission-revision',
@@ -597,12 +592,8 @@ export const SUBMISSION_FORMS: Readonly<Record<string, SubmissionFormData>> = {
       dueAt: '2026-07-20T23:59:59.000+09:00',
       dDay: -11,
       deadlineLabel: '마감 지남',
-      submissionType: 'REPOSITORY_RELEASE',
+      submissionType: 'TEXT',
       instructions: LOCAL_REVIEW_TEXT_INSTRUCTIONS,
-    },
-    repository: {
-      url: 'https://github.com/JNU-SWCU/synthetic-contest-archive',
-      status: 'READY',
     },
     existingSubmission: {
       id: 'submission-contest-revision',
@@ -625,7 +616,6 @@ export const SUBMISSION_FORMS: Readonly<Record<string, SubmissionFormData>> = {
       submissionType: 'TEXT',
       instructions: LOCAL_REVIEW_TEXT_INSTRUCTIONS,
     },
-    repository: null,
     existingSubmission: null,
     canSubmit: true,
     blockedReason: null,
@@ -643,7 +633,6 @@ export const SUBMISSION_FORMS: Readonly<Record<string, SubmissionFormData>> = {
       instructions:
         '[로컬 검토용] 파일 제출 안내만 확인합니다. 로컬 검토 환경에서는 실제 업로드와 저장을 실행하지 않습니다.',
     },
-    repository: null,
     existingSubmission: null,
     canSubmit: false,
     blockedReason: 'FILE_UPLOAD_UNAVAILABLE',

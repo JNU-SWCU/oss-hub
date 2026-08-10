@@ -68,7 +68,7 @@ const BASIC_MILESTONES = [
     id: 'milestone-basic-final',
     name: '합성 최종 실습 결과',
     dueAt: '2026-06-30T14:59:59.000Z',
-    submissionType: 'REPOSITORY_RELEASE',
+    submissionType: 'TEXT',
     instructions: null,
   },
 ] as const satisfies readonly EditableMilestone[];
@@ -237,9 +237,9 @@ const CAPSTONE_MILESTONES = [
   },
   {
     id: 'milestones-revision',
-    name: '최종 릴리스',
+    name: '최종 결과 요약',
     dueAt: '2026-08-10T14:59:59.000Z',
-    submissionType: 'REPOSITORY_RELEASE',
+    submissionType: 'TEXT',
     instructions: null,
   },
 ] as const satisfies readonly EditableMilestone[];
@@ -278,7 +278,7 @@ const CONTEST_MILESTONES = [
     id: 'milestones-overdue',
     name: '예선 결과물',
     dueAt: '2026-07-20T14:59:59.000Z',
-    submissionType: 'REPOSITORY_RELEASE',
+    submissionType: 'TEXT',
     instructions: '[로컬 검토용] 합성 안내 문구입니다.',
   },
   {
@@ -655,11 +655,10 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
     currentRevision: {
       number: 1,
       content: {
-        type: 'REPOSITORY_RELEASE',
-        releaseUrl:
-          'https://github.com/JNU-SWCU/synthetic-basic-study-01/releases/tag/v0.1.0',
+        type: 'TEXT',
+        text: '최종 실습 결과와 실행 환경을 정리한 합성 제출입니다.',
       },
-      comment: '합성 릴리스 노트를 첨부했습니다.',
+      comment: '합성 결과 요약을 첨부했습니다.',
       submittedAt: '2026-06-29T09:30:00.000Z',
       // 본문만 낸 제출이라 첨부는 없다.
       files: [],
@@ -689,11 +688,10 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
     currentRevision: {
       number: 2,
       content: {
-        type: 'REPOSITORY_RELEASE',
-        releaseUrl:
-          'https://github.com/JNU-SWCU/synthetic-contest-01/releases/tag/v0.2.0',
+        type: 'TEXT',
+        text: '예선 결과물의 재현 순서와 테스트 결과를 정리한 합성 제출입니다.',
       },
-      comment: '재현 순서를 릴리스 노트에 추가했습니다.',
+      comment: '재현 순서를 결과 요약에 추가했습니다.',
       submittedAt: '2026-07-19T12:00:00.000Z',
       // 본문만 낸 제출이라 첨부는 없다.
       files: [],
@@ -708,9 +706,8 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
       {
         number: 1,
         content: {
-          type: 'REPOSITORY_RELEASE',
-          releaseUrl:
-            'https://github.com/JNU-SWCU/synthetic-contest-01/releases/tag/v0.1.0',
+          type: 'TEXT',
+          text: '예선 결과물의 최초 합성 제출입니다.',
         },
         comment: null,
         submittedAt: '2026-07-18T11:00:00.000Z',
@@ -749,9 +746,8 @@ export const STAFF_REVIEW_CONTEXTS: Readonly<Record<string, ReviewContext>> = {
     currentRevision: {
       number: 1,
       content: {
-        type: 'REPOSITORY_RELEASE',
-        releaseUrl:
-          'https://github.com/JNU-SWCU/synthetic-contest-02/releases/tag/v1.0.0',
+        type: 'TEXT',
+        text: '예선 결과물의 승인된 합성 제출입니다.',
       },
       comment: null,
       submittedAt: '2026-07-18T02:30:00.000Z',

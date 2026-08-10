@@ -297,7 +297,6 @@ const updateProgramHandler: LocalReviewHandler = (context) => {
 const SUBMISSION_TYPES: readonly SubmissionType[] = [
   'FILE',
   'TEXT',
-  'REPOSITORY_RELEASE',
 ];
 
 /**
