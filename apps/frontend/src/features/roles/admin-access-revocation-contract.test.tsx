@@ -61,21 +61,29 @@ describe('isAdminAccessRoleDowngrade — 목표 등급이 현재보다 낮은지
 });
 
 describe('adminAccessRoleChangeDialogDescription — 강등/부여에 따라 다른 문구를 만든다', () => {
-  it('강등(ADMIN → STAFF)이면 "회수하고 전환" 문구를 쓴다', () => {
+  it('강등(ADMIN → STAFF)이면 "전환" 문구를 쓴다', () => {
     expect(
       adminAccessRoleChangeDialogDescription('ADMIN', 'STAFF', 'octocat'),
-    ).toBe('octocat님의 관리자 권한을 회수하고 교직원으로 전환합니다.');
+    ).toBe(
+      'octocat님의 관리자 역할을 교직원으로 전환합니다. 관리자 권한은 즉시 사라집니다.',
+    );
   });
 
-  it('강등(STAFF → STUDENT)이면 "회수하고 전환" 문구를 쓴다', () => {
+  it('강등(STAFF → STUDENT)이면 "전환" 문구를 쓴다', () => {
     expect(
       adminAccessRoleChangeDialogDescription('STAFF', 'STUDENT', 'octocat'),
-    ).toBe('octocat님의 교직원 권한을 회수하고 학생으로 전환합니다.');
-    // 옛 REVOKE 문구("역할을 비웁니다")나 강등을 "학생으로 강등"처럼
-    // 노골적으로 표현하지 않는다 — 새 설계는 회수/전환 어휘로 통일한다.
+    ).toBe(
+      'octocat님의 교직원 역할을 학생으로 전환합니다. 교직원 권한은 즉시 사라집니다.',
+    );
+    // #765: 직접 강등은 REVOKED 이력을 남기지 않으므로 시스템이 실제로 하지
+    // 않는 일을 자칭하는 "회수" 어휘나 옛 REVOKE 문구("역할을 비웁니다")를
+    // 쓰지 않는다 — 새 설계는 전환/변경 어휘로 통일한다.
     expect(
       adminAccessRoleChangeDialogDescription('STAFF', 'STUDENT', 'octocat'),
     ).not.toContain('역할을 비웁니다');
+    expect(
+      adminAccessRoleChangeDialogDescription('STAFF', 'STUDENT', 'octocat'),
+    ).not.toContain('회수');
   });
 
   it('승격(STUDENT → STAFF)이면 "부여" 문구를 쓴다', () => {
@@ -143,7 +151,7 @@ function mutation(
 }
 
 describe('상세 화면의 역할 변경 확인 다이얼로그 — SET_ROLE_* 액션별 문구', () => {
-  it('STAFF → SET_ROLE_STUDENT는 강등 다이얼로그(회수 확정, destructive)를 띄운다', () => {
+  it('STAFF → SET_ROLE_STUDENT는 강등 다이얼로그(권한 변경, 전환 문구)를 띄운다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{
@@ -156,11 +164,15 @@ describe('상세 화면의 역할 변경 확인 다이얼로그 — SET_ROLE_* �
       />,
     );
 
-    expect(html).toContain('권한 회수');
+    // #765: 강등도 승격과 같은 「권한 변경」/「변경 확정」 문구를 쓴다 — 직접
+    // 강등은 REVOKED 이력을 남기지 않아 "회수"를 자칭할 근거가 없다.
+    expect(html).toContain('권한 변경');
     expect(html).toContain(
-      'octocat님의 교직원 권한을 회수하고 학생으로 전환합니다.',
+      'octocat님의 교직원 역할을 학생으로 전환합니다. 교직원 권한은 즉시 사라집니다.',
     );
-    expect(html).toContain('회수 확정');
+    expect(html).toContain('변경 확정');
+    expect(html).not.toContain('권한 회수');
+    expect(html).not.toContain('회수 확정');
   });
 
   it('STUDENT → SET_ROLE_STAFF는 부여 다이얼로그(변경 확정, non-destructive)를 띄운다', () => {

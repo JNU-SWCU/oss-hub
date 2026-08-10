@@ -167,14 +167,18 @@ function mutationDialogCopy(
   if (isSetRoleAction(action)) {
     const target = roleForAction(action);
     const destructive = isAdminAccessRoleDowngrade(detail.role, target);
+    // #765: 강등도 승격과 같은 「권한 변경」/「변경 확정」 문구를 쓴다 — 직접
+    // 강등은 REVOKED 이력을 남기지 않아 "회수"를 자칭할 근거가 없다
+    // (admin-access-revocation.ts 참고). 파괴적 스타일(destructive)만 유지해
+    // 되돌리기 어려운 변경이라는 신호는 남긴다.
     return {
-      title: destructive ? '권한 회수' : '권한 변경',
+      title: '권한 변경',
       description: adminAccessRoleChangeDialogDescription(
         detail.role,
         target,
         detail.githubLogin,
       ),
-      confirmLabel: destructive ? '회수 확정' : '변경 확정',
+      confirmLabel: '변경 확정',
       destructive,
     };
   }
