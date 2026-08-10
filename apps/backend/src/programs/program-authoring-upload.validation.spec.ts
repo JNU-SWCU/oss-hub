@@ -78,7 +78,15 @@ describe('validateProgramAuthoringUpload', () => {
   });
 
   it.each([
-    ['an empty file', file({ name: 'empty.pdf', mimeType: 'application/pdf', signature: Buffer.alloc(0), actualSize: 0 })],
+    [
+      'an empty file',
+      file({
+        name: 'empty.pdf',
+        mimeType: 'application/pdf',
+        signature: Buffer.alloc(0),
+        actualSize: 0,
+      }),
+    ],
     [
       'a declared/actual size mismatch',
       file({

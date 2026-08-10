@@ -55,9 +55,7 @@ describe('ProgramAuthoringUploadMaintenanceService', () => {
       leaseExpiresAt: new Date('2026-08-10T00:10:00.000Z'),
       limit: 100,
     });
-    expect(storage.delete).toHaveBeenCalledWith(
-      'program-authoring/server-key',
-    );
+    expect(storage.delete).toHaveBeenCalledWith('program-authoring/server-key');
     expect(repository.markDeleted).toHaveBeenCalledWith(
       'upload-id',
       'unique-claim-owner',
@@ -89,9 +87,7 @@ describe('ProgramAuthoringUploadMaintenanceService', () => {
         id: 'upload-id',
         claimOwner: 'unique-claim-owner',
         attemptCount: priorAttempts + 1,
-        nextAttemptAt: new Date(
-          NOW.getTime() + delayHours * 60 * 60 * 1_000,
-        ),
+        nextAttemptAt: new Date(NOW.getTime() + delayHours * 60 * 60 * 1_000),
         errorCode: 'STORAGE_DELETE_FAILED',
       });
     },

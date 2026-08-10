@@ -102,9 +102,11 @@ describe('ProgramAuthoringUploadService', () => {
       const { repository, service } = setup();
 
       // When / Then
-      await expect(service.upload(actorId, uploadFile())).rejects.toMatchObject({
-        code: PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.INVALID_ACTOR,
-      });
+      await expect(service.upload(actorId, uploadFile())).rejects.toMatchObject(
+        {
+          code: PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.INVALID_ACTOR,
+        },
+      );
       expect(repository.createPending).not.toHaveBeenCalled();
     },
   );
@@ -125,9 +127,9 @@ describe('ProgramAuthoringUploadService', () => {
       message: PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.STORAGE_UNAVAILABLE,
     });
     expect(repository.createPending).toHaveBeenCalledTimes(1);
-    await expect(failure.catch((error: unknown) => JSON.stringify(error))).resolves.not.toContain(
-      'credential',
-    );
+    await expect(
+      failure.catch((error: unknown) => JSON.stringify(error)),
+    ).resolves.not.toContain('credential');
   });
 
   it.each(['QUEUED', 'IDEMPOTENT'] as const)(
@@ -138,7 +140,9 @@ describe('ProgramAuthoringUploadService', () => {
       repository.requestDelete.mockResolvedValueOnce({ kind });
 
       // When / Then
-      await expect(service.delete(ACTOR_ID, 'upload-id')).resolves.toBeUndefined();
+      await expect(
+        service.delete(ACTOR_ID, 'upload-id'),
+      ).resolves.toBeUndefined();
       expect(storage.delete).not.toHaveBeenCalled();
     },
   );
