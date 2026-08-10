@@ -153,9 +153,11 @@ const STAFF_DASHBOARD_FIXTURE = {
         lastActivityAt: null,
         dataAsOf: '2026-07-31T00:00:00.000Z',
       },
+      // 마일스톤은 승인된 신청이 없어도 프로그램에 있는 만큼 센다(backend
+      // `submission-dashboard-summary.service.ts`). 제출 칸은 승인 0건이라 0이다.
       submissions: {
         approvedApplications: 0,
-        milestones: 0,
+        milestones: 3,
         total: 0,
         notSubmitted: 0,
         submitted: 0,

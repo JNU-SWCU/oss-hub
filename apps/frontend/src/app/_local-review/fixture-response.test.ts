@@ -7,10 +7,16 @@ import {
   parseLandingArchivePage,
   parseLandingProgramPage,
 } from '@/features/landing/landing-overview';
+import type {
+  StaffDashboardApplicationCounts,
+  StaffDashboardSubmissionSummary,
+  StaffDashboardSummary,
+} from '@/features/programs/types';
 import {
   resetLocalReviewFixtureState,
   resolveLocalReviewResponse,
 } from './fixture-response';
+import { STAFF_PROGRAM_FIXTURES } from './handlers/staff-program-fixtures';
 import {
   createLocalReviewActivation,
   type LocalReviewFixtureId,
@@ -63,6 +69,48 @@ function jsonBody(
   if (plan.kind !== 'json') throw new Error('expected a json fixture plan');
   expect(plan.status).toBe(200);
   return plan.body;
+}
+
+/**
+ * 교직원 대시보드 카드가 적어야 할 집계를 카드가 링크하는 픽스처에서 다시 센다.
+ * 세는 방법은 backend와 같다 — 승인 대기는 제출 건수 그대로(`staff-dashboard.service.ts`),
+ * 제출 칸은 승인된 신청 × 마일스톤이고 마일스톤은 프로그램의 전부다
+ * (`submission-dashboard-summary.service.ts`).
+ */
+function staffCardCounts(programId: string): {
+  readonly applications: StaffDashboardApplicationCounts;
+  readonly submissions: StaffDashboardSubmissionSummary;
+} {
+  const fixture = STAFF_PROGRAM_FIXTURES.find(
+    (candidate) => candidate.program.id === programId,
+  );
+  if (fixture === undefined) {
+    throw new Error(`대시보드 카드가 없는 프로그램을 가리킨다: ${programId}`);
+  }
+  const applications = (status: string) =>
+    fixture.applications.filter((item) => item.status === status).length;
+  const cells = fixture.matrixRows.flatMap((row) => row.cells);
+  const cellsWith = (status: string) =>
+    cells.filter((cell) => cell.status === status).length;
+  return {
+    applications: {
+      total: fixture.applications.length,
+      submitted: applications('SUBMITTED'),
+      pendingApproval: applications('SUBMITTED'),
+      approved: applications('APPROVED'),
+      rejected: applications('REJECTED'),
+    },
+    submissions: {
+      approvedApplications: fixture.matrixRows.length,
+      milestones: fixture.program.milestones.length,
+      total: fixture.matrixRows.length * fixture.program.milestones.length,
+      notSubmitted: cellsWith('NOT_SUBMITTED'),
+      submitted: cellsWith('SUBMITTED'),
+      approved: cellsWith('APPROVED'),
+      changesRequested: cellsWith('CHANGES_REQUESTED'),
+      rejected: cellsWith('REJECTED'),
+    },
+  };
 }
 
 describe('local review fixture responses', () => {
@@ -392,6 +440,33 @@ describe('local review fixture responses', () => {
       kind: 'json',
       body: { notifyEnabled: true },
     });
+  });
+
+  it('교직원 대시보드 카드의 집계는 카드에서 넘어가는 화면과 같은 값이다', () => {
+    // Given: 교직원 대시보드 요약.
+    const summary = jsonBody(
+      resolveLocalReviewResponse({
+        fixture: 'staff',
+        method: 'GET',
+        path: 'dashboard/staff/summary',
+        searchParams: new URLSearchParams(),
+      }),
+    ) as StaffDashboardSummary;
+
+    // When: 카드가 링크하는 신청자 목록·제출 현황 픽스처에서 같은 값을 다시 센다.
+    const printed = summary.programs.map((program) => ({
+      id: program.id,
+      applications: program.applications,
+      submissions: program.submissions,
+    }));
+    const counted = summary.programs.map((program) => ({
+      id: program.id,
+      ...staffCardCounts(program.id),
+    }));
+
+    // Then: 카드를 누르면 바로 이 숫자들의 출처 화면으로 넘어간다 — 어긋나면
+    // 검토자가 화면의 숫자를 의심하게 되고, 그 자체가 검토 노이즈가 된다.
+    expect(printed).toEqual(counted);
   });
 
   it.each(['/', '/programs', '/archive'] as const)(
