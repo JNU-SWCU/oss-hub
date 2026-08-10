@@ -60,7 +60,6 @@ const REVIEW_COMMENT_REQUIRED_CODE = 'MSD_021';
 const SUBMISSION_TYPES: readonly SubmissionType[] = [
   'FILE',
   'TEXT',
-  'REPOSITORY_RELEASE',
 ];
 
 const COLLECTION_FILTERS: readonly MilestoneDocumentCollectionFilter[] = [
