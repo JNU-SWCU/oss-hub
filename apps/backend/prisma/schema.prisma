@@ -46,15 +46,15 @@ model User {
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
-  roleRequests                           RoleRequest[]                   @relation("RoleRequestUser")
-  decidedRoleRequests                    RoleRequest[]                   @relation("RoleRequestDecidedBy")
+  roleRequests                           RoleRequest[]                    @relation("RoleRequestUser")
+  decidedRoleRequests                    RoleRequest[]                    @relation("RoleRequestDecidedBy")
   consents                               Consent[]
-  applications                           Application[]                   @relation("ApplicationApplicant")
-  processedApplications                  Application[]                   @relation("ApplicationProcessedBy")
-  ledTeams                               Team[]                          @relation("TeamLeader")
+  applications                           Application[]                    @relation("ApplicationApplicant")
+  processedApplications                  Application[]                    @relation("ApplicationProcessedBy")
+  ledTeams                               Team[]                           @relation("TeamLeader")
   teamMemberships                        TeamMember[]
-  sentTeamInvitations                    TeamInvitation[]                @relation("TeamInvitationInvitedBy")
-  receivedTeamInvitations                TeamInvitation[]                @relation("TeamInvitationInvitee")
+  sentTeamInvitations                    TeamInvitation[]                 @relation("TeamInvitationInvitedBy")
+  receivedTeamInvitations                TeamInvitation[]                 @relation("TeamInvitationInvitee")
   submissionRevisions                    SubmissionRevision[]
   uploadedFiles                          SubmissionFile[]
   reviews                                Review[]
@@ -611,7 +611,7 @@ model MilestoneDocumentSubmission {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  files SubmissionFile[]
+  files           SubmissionFile[]
   /// 판정 이력 — 제출 하나에 여러 건이 쌓인다(모델 주석 참고). 이름이 복수 목록인 것은
   /// 「지금의 판정」이 아니라 **이력 전체**가 여기 달리기 때문이다.
   reviewHistories MilestoneDocumentReviewHistory[]
@@ -1320,4 +1320,33 @@ model CollectionCutoverLease {
   updatedAt DateTime @updatedAt
 
   @@id([appId, scope])
+}
+
+/// 시스템 상태 관측성 2단계 — sweep 1회(예산 중단으로 사이클을 여러 sweep에 걸쳐 나눠 처리할 수 있어
+/// 사이클이 아니라 sweep이 행 단위다) 종료 시점의 활동 이력을 append-only로 남긴다. `data-modeling.md`
+/// §4의 두 모델링 축(user↔repository, repository↔history) 중 어디에도 정확히 들어맞지 않지만,
+/// `CollectionSyncCursor`(같은 appId+scope 프로세스 키, 같은 운영 bookkeeping 목적)가 이미 그 축 밖에서
+/// 인정된 선례라 같은 예외로 취급한다. repository 이름은 담지 않는다(집계 전용 — `collection-read.port.ts`
+/// 경계 코멘트 참고).
+model CollectionSweepHistory {
+  id String @id @default(cuid())
+
+  appId BigInt
+  scope String
+
+  sweepFinishedAt DateTime
+  cycleStartedAt  DateTime?
+
+  insertedCommitCount      Int
+  insertedPullRequestCount Int
+  insertedReleaseCount     Int
+
+  attemptedRepositoryCount Int
+  processedRepositoryCount Int
+  failedRepositoryCount    Int
+
+  cycleCompleted   Boolean
+  stoppedForBudget Boolean
+
+  @@index([sweepFinishedAt])
 }

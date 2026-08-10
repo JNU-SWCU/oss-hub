@@ -5,18 +5,23 @@ import {
   type CollectionIncrementalStatusSnapshotDto,
   type CollectionReadPort,
   type CollectionRepositoryStreamsDto,
+  type CollectionSweepActivityDto,
 } from '../github/collection-read.port';
 import { SystemStatusRepository } from './system-status.repository';
 import {
   CollectionRepositoryStreamResponseDto,
   CollectionSystemStatusResponseDto,
   RepositoryProvisioningSystemStatusResponseDto,
+  SystemStatusCollectionActivityResponseDto,
   SystemStatusCollectionStreamsResponseDto,
   SystemStatusResponseDto,
   type CollectionHealthResponseDto,
   type CurrentRunStatusResponseDto,
   type SystemStatusSafeReasonResponseDto,
 } from './dto/system-status-response.dto';
+
+/** 시스템 상태 관측성 2단계 — `collectionActivity`가 노출하는 최근 sweep 건수 상한. */
+const RECENT_SWEEP_ACTIVITY_LIMIT = 20;
 const STALE_AFTER_MS = 90 * 60 * 1000;
 export const SYSTEM_STATUS_CLOCK = Symbol('SYSTEM_STATUS_CLOCK');
 export type SystemStatusClock = () => Date;
@@ -50,12 +55,13 @@ export class SystemStatusService {
       throw new ForbiddenException('Active administrator access is required');
     }
 
-    const [snapshot, finalFailureCount, streams, nextCycleAt] =
+    const [snapshot, finalFailureCount, streams, nextCycleAt, activity] =
       await Promise.all([
         this.collection.getIncrementalStatusSnapshot(),
         this.repository.countFinalProvisionFailures(),
         this.collection.getIncrementalStatusStreams(),
         this.collection.getNextScheduledCycleAt(this.clock()),
+        this.collection.getRecentSweepActivity(RECENT_SWEEP_ACTIVITY_LIMIT),
       ]);
     const decision = this.decide(snapshot);
     return new SystemStatusResponseDto(
@@ -77,6 +83,7 @@ export class SystemStatusService {
       ),
       new RepositoryProvisioningSystemStatusResponseDto(finalFailureCount),
       streams.map((repository) => this.toStreamsResponse(repository)),
+      activity.map((sweep) => this.toActivityResponse(sweep)),
     );
   }
 
@@ -95,6 +102,24 @@ export class SystemStatusService {
             stream.lastErrorAt?.toISOString() ?? null,
           ),
       ),
+    );
+  }
+
+  private toActivityResponse(
+    sweep: CollectionSweepActivityDto,
+  ): SystemStatusCollectionActivityResponseDto {
+    return new SystemStatusCollectionActivityResponseDto(
+      sweep.sweepFinishedAt.toISOString(),
+      sweep.cycleStartedAt?.toISOString() ?? null,
+      sweep.scope,
+      sweep.insertedCommitCount,
+      sweep.insertedPullRequestCount,
+      sweep.insertedReleaseCount,
+      sweep.attemptedRepositoryCount,
+      sweep.processedRepositoryCount,
+      sweep.failedRepositoryCount,
+      sweep.cycleCompleted,
+      sweep.stoppedForBudget,
     );
   }
 

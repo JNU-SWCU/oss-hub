@@ -31,6 +31,7 @@ interface MockPrisma {
     aggregate: jest.Mock;
   };
   collectionSyncCursor: { findFirst: jest.Mock };
+  collectionSweepHistory: { findMany: jest.Mock };
 }
 
 const createDb = (): MockPrisma => ({
@@ -59,6 +60,9 @@ const createDb = (): MockPrisma => ({
   },
   collectionSyncCursor: {
     findFirst: jest.fn().mockResolvedValue(null),
+  },
+  collectionSweepHistory: {
+    findMany: jest.fn().mockResolvedValue([]),
   },
 });
 
@@ -1470,5 +1474,74 @@ describe('CollectionReadService — getNextScheduledCycleAt', () => {
 
     expect(result).toBeNull();
     spy.mockRestore();
+  });
+});
+
+describe('CollectionReadService — getRecentSweepActivity', () => {
+  it('최근 순으로 sweepFinishedAt desc 정렬해 limit 만큼 조회하고 행을 DTO로 옮긴다', async () => {
+    const db = createDb();
+    db.collectionSweepHistory.findMany.mockResolvedValue([
+      {
+        sweepFinishedAt: new Date('2026-08-01T12:00:00.000Z'),
+        cycleStartedAt: new Date('2026-08-01T11:00:00.000Z'),
+        scope: 'org:jnu-swcu',
+        insertedCommitCount: 3,
+        insertedPullRequestCount: 1,
+        insertedReleaseCount: 0,
+        attemptedRepositoryCount: 2,
+        processedRepositoryCount: 2,
+        failedRepositoryCount: 0,
+        cycleCompleted: true,
+        stoppedForBudget: false,
+      },
+      {
+        sweepFinishedAt: new Date('2026-08-01T10:00:00.000Z'),
+        cycleStartedAt: null,
+        scope: 'external',
+        insertedCommitCount: 0,
+        insertedPullRequestCount: 0,
+        insertedReleaseCount: 0,
+        attemptedRepositoryCount: 1,
+        processedRepositoryCount: 0,
+        failedRepositoryCount: 1,
+        cycleCompleted: false,
+        stoppedForBudget: true,
+      },
+    ]);
+
+    const result = await serviceFor(db).getRecentSweepActivity(20);
+
+    expect(db.collectionSweepHistory.findMany).toHaveBeenCalledWith({
+      orderBy: { sweepFinishedAt: 'desc' },
+      take: 20,
+    });
+    expect(result).toEqual([
+      {
+        sweepFinishedAt: new Date('2026-08-01T12:00:00.000Z'),
+        cycleStartedAt: new Date('2026-08-01T11:00:00.000Z'),
+        scope: 'org:jnu-swcu',
+        insertedCommitCount: 3,
+        insertedPullRequestCount: 1,
+        insertedReleaseCount: 0,
+        attemptedRepositoryCount: 2,
+        processedRepositoryCount: 2,
+        failedRepositoryCount: 0,
+        cycleCompleted: true,
+        stoppedForBudget: false,
+      },
+      {
+        sweepFinishedAt: new Date('2026-08-01T10:00:00.000Z'),
+        cycleStartedAt: null,
+        scope: 'external',
+        insertedCommitCount: 0,
+        insertedPullRequestCount: 0,
+        insertedReleaseCount: 0,
+        attemptedRepositoryCount: 1,
+        processedRepositoryCount: 0,
+        failedRepositoryCount: 1,
+        cycleCompleted: false,
+        stoppedForBudget: true,
+      },
+    ]);
   });
 });

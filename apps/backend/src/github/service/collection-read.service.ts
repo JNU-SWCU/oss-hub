@@ -31,6 +31,7 @@ import type {
   CollectionRepositoryStreamsDto,
   CollectionStatusSnapshotDto,
   CollectionStreamDetailBucketDto,
+  CollectionSweepActivityDto,
 } from '../collection-read.port';
 
 /**
@@ -770,5 +771,31 @@ export class CollectionReadService implements CollectionReadPort {
     } catch {
       return Promise.resolve(null);
     }
+  }
+
+  /**
+   * 시스템 상태 관측성 2단계 — 최근 sweep 활동 이력을 `sweepFinishedAt` 내림차순으로
+   * 최대 `limit`건 반환한다. repository 이름은 담지 않는다(집계 전용).
+   */
+  async getRecentSweepActivity(
+    limit: number,
+  ): Promise<readonly CollectionSweepActivityDto[]> {
+    const rows = await this.prisma.collectionSweepHistory.findMany({
+      orderBy: { sweepFinishedAt: 'desc' },
+      take: limit,
+    });
+    return rows.map((row) => ({
+      sweepFinishedAt: row.sweepFinishedAt,
+      cycleStartedAt: row.cycleStartedAt,
+      scope: row.scope,
+      insertedCommitCount: row.insertedCommitCount,
+      insertedPullRequestCount: row.insertedPullRequestCount,
+      insertedReleaseCount: row.insertedReleaseCount,
+      attemptedRepositoryCount: row.attemptedRepositoryCount,
+      processedRepositoryCount: row.processedRepositoryCount,
+      failedRepositoryCount: row.failedRepositoryCount,
+      cycleCompleted: row.cycleCompleted,
+      stoppedForBudget: row.stoppedForBudget,
+    }));
   }
 }

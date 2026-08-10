@@ -62,6 +62,7 @@ function serviceWith(
       }),
     getIncrementalStatusStreams: () => Promise.resolve([]),
     getNextScheduledCycleAt: () => Promise.resolve(null),
+    getRecentSweepActivity: () => Promise.resolve([]),
   };
   return new PublicEligibilityService(collection);
 }
