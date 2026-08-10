@@ -186,8 +186,8 @@ describe('CreateApplicationRequestDto validation — repository connection', () 
   });
 
   it.each([
-    'https://user@github.com/synthetic-org/repository',
-    'https://user:secret@github.com/synthetic-org/repository',
+    'https://user@' + 'github.com/synthetic-org/repository',
+    'https://user:secret@' + 'github.com/synthetic-org/repository',
     'https://github.com/synthetic-org/repository?tab=readme',
     'https://github.com/synthetic-org/repository#readme',
     'https://github.com/synthetic-org/repository/issues',

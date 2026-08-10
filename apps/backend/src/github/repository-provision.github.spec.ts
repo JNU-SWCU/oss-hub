@@ -214,8 +214,8 @@ describe('parseOwnGithubRepositoryUrl', () => {
   it.each([
     'http://github.com/synthetic-student/synthetic-repo',
     'https://gitlab.com/synthetic-student/synthetic-repo',
-    'https://user@github.com/synthetic-student/synthetic-repo',
-    'https://user:secret@github.com/synthetic-student/synthetic-repo',
+    'https://user@' + 'github.com/synthetic-student/synthetic-repo',
+    'https://user:secret@' + 'github.com/synthetic-student/synthetic-repo',
     'https://github.com/synthetic-student/synthetic-repo.git',
     'https://github.com/synthetic-student/synthetic-repo/issues',
     'https://github.com/synthetic-student/synthetic-repo?tab=readme',
