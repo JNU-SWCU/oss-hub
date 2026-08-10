@@ -5,6 +5,13 @@ import { cn } from '@/lib/utils';
 export interface NavItem {
   label: string;
   href: string;
+  /**
+   * true면 ≥900px에서는 이 항목을 숨긴다. 그 폭에서는 왼쪽 사이드바(`AppSidebar`)가
+   * 이미 같은 링크를 보여주므로 상단 nav에 또 두면 같은 목적지가 두 벌 뜬다.
+   * 900px 미만은 사이드바가 아예 숨는 구간이라(`hidden min-[900px]:flex`) 여기서만
+   * 유일한 도달 경로가 된다(QA54 — 900px 미만에서 관리자·역할 메뉴가 아예 도달 불가였다).
+   */
+  belowSidebarBreakpointOnly?: boolean;
 }
 
 interface NavBarProps extends Omit<React.ComponentProps<'nav'>, 'children'> {
@@ -142,7 +149,14 @@ function NavBar({
           className="absolute top-full left-0 z-50 mt-1 w-52 overflow-hidden rounded-lg border border-border bg-background py-1 shadow-lg"
         >
           {items.map((item) => (
-            <li key={item.href}>
+            <li
+              key={item.href}
+              className={
+                item.belowSidebarBreakpointOnly
+                  ? 'min-[900px]:hidden'
+                  : undefined
+              }
+            >
               <LinkComponent
                 href={item.href}
                 // `w-full`이 필요하다 — 호출부(ShellNav)가 터치 타깃 확보용으로
@@ -161,7 +175,12 @@ function NavBar({
         className="hidden min-w-0 flex-1 items-center gap-0 min-[480px]:flex sm:gap-1"
       >
         {items.map((item) => (
-          <li key={item.href}>
+          <li
+            key={item.href}
+            className={
+              item.belowSidebarBreakpointOnly ? 'min-[900px]:hidden' : undefined
+            }
+          >
             <LinkComponent
               href={item.href}
               className="whitespace-nowrap rounded-md px-1 py-1.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground sm:px-2.5"

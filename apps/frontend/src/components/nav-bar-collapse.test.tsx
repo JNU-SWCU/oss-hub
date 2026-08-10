@@ -38,6 +38,47 @@ describe('NavBar 좁은 화면 메뉴 접기', () => {
     expect(itemsClass?.split(' ')).toContain('min-[480px]:flex');
   });
 
+  // QA54 — 좌측 사이드바(`AppSidebar`)는 900px 미만에서 아예 숨는다. 그 사이드바와
+  // 같은 목적지를 상단 nav에도 넣는 항목(`belowSidebarBreakpointOnly`)은 ≥900px에서
+  // 사이드바와 중복되지 않도록 접힌 메뉴·한 줄 메뉴 양쪽 모두에서 숨어야 한다.
+  it('belowSidebarBreakpointOnly 항목은 900px 이상에서 접힌 메뉴·한 줄 메뉴 양쪽 모두 숨는다', () => {
+    const items = [
+      ...ITEMS,
+      {
+        label: '접근 목록',
+        href: '/admin/access',
+        belowSidebarBreakpointOnly: true,
+      },
+    ];
+    const html = renderToStaticMarkup(
+      <NavBar
+        brand={<span>OSS Hub</span>}
+        items={items}
+        actions={<a href="/login">GitHub으로 로그인</a>}
+      />,
+    );
+
+    const menuPanel = html.match(
+      /data-slot="nav-bar-menu-items"[\s\S]*?<\/ul>/,
+    )?.[0];
+    const inlineList = html.match(
+      /data-slot="nav-bar-items"[\s\S]*?<\/ul>/,
+    )?.[0];
+
+    expect(menuPanel).toMatch(
+      /<li class="min-\[900px\]:hidden"><a href="\/admin\/access"/,
+    );
+    expect(inlineList).toMatch(
+      /<li class="min-\[900px\]:hidden"><a href="\/admin\/access"/,
+    );
+    // 플래그가 없는 기존 항목은 이 클래스를 받지 않는다.
+    for (const item of ITEMS) {
+      expect(menuPanel).toMatch(
+        new RegExp(`<li><a href="${item.href.replace('/', '\\/')}"`),
+      );
+    }
+  });
+
   it('접힌 메뉴도 같은 링크를 모두 담는다 — 좁은 화면에서 길이 끊기지 않는다', () => {
     const panel = render().match(
       /data-slot="nav-bar-menu-items"[\s\S]*?<\/ul>/,
