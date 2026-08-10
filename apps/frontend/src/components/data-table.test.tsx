@@ -1,6 +1,15 @@
+// @vitest-environment happy-dom
+
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DataTable, type DataTableColumn } from './data-table';
+
+Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
+  configurable: true,
+  value: true,
+});
 
 interface Applicant {
   id: string;
@@ -122,5 +131,141 @@ describe('DataTable', () => {
 
     expect(html).toMatch(/<th[^>]*aria-sort="ascending"[^>]*>\s*이름/);
     expect(html).not.toMatch(/<th[^>]*aria-sort="ascending"[^>]*>\s*상태/);
+  });
+});
+
+// pageSize는 opt-in이다 — 기존 호출부 9곳처럼 주지 않으면 지금 그대로 전량
+// 렌더해야 하고, 준 화면(수집 대상 상세)만 페이지가 나뉘어야 한다. 클릭
+// 상호작용을 확인해야 하므로 정적 마크업이 아니라 createRoot/act로 그린다.
+describe('DataTable pagination', () => {
+  const manyRows: Applicant[] = Array.from({ length: 25 }, (_, i) => ({
+    id: `${i + 1}`,
+    name: `신청자${i + 1}`,
+    status: '대기',
+  }));
+
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  function bodyRowNames(): string[] {
+    return [...container.querySelectorAll('tbody tr td:first-child')].map(
+      (cell) => cell.textContent ?? '',
+    );
+  }
+
+  function paginationNav(): HTMLElement | null {
+    return container.querySelector('nav');
+  }
+
+  function findButton(label: string): HTMLButtonElement {
+    const button = [...container.querySelectorAll('button')].find(
+      (el) => el.textContent === label,
+    );
+    if (!button) throw new Error(`「${label}」 버튼을 찾지 못했다`);
+    return button as HTMLButtonElement;
+  }
+
+  it('pageSize를 주지 않으면 25행이 전부 렌더되고 pagination nav도 없다', async () => {
+    await act(async () => {
+      root.render(
+        <DataTable
+          columns={columns}
+          data={manyRows}
+          rowKey={(row) => row.id}
+        />,
+      );
+    });
+
+    expect(bodyRowNames()).toHaveLength(25);
+    expect(paginationNav()).toBeNull();
+  });
+
+  it('pageSize를 주면 첫 페이지만큼만 렌더하고 페이지 라벨을 보여준다', async () => {
+    await act(async () => {
+      root.render(
+        <DataTable
+          columns={columns}
+          data={manyRows}
+          rowKey={(row) => row.id}
+          pageSize={10}
+          paginationLabel="테스트 표 페이지"
+        />,
+      );
+    });
+
+    expect(bodyRowNames()).toEqual(
+      manyRows.slice(0, 10).map((row) => row.name),
+    );
+    expect(paginationNav()?.getAttribute('aria-label')).toBe(
+      '테스트 표 페이지',
+    );
+    expect(container.textContent).toContain('1 / 3');
+  });
+
+  it('다음/이전 버튼으로 페이지를 옮기고 경계에서 버튼이 비활성화된다', async () => {
+    await act(async () => {
+      root.render(
+        <DataTable
+          columns={columns}
+          data={manyRows}
+          rowKey={(row) => row.id}
+          pageSize={10}
+          paginationLabel="테스트 표 페이지"
+        />,
+      );
+    });
+
+    expect(findButton('이전').disabled).toBe(true);
+    expect(findButton('다음').disabled).toBe(false);
+
+    await act(async () => {
+      findButton('다음').click();
+    });
+    expect(container.textContent).toContain('2 / 3');
+    expect(bodyRowNames()).toEqual(
+      manyRows.slice(10, 20).map((row) => row.name),
+    );
+    expect(findButton('이전').disabled).toBe(false);
+
+    await act(async () => {
+      findButton('다음').click();
+    });
+    expect(container.textContent).toContain('3 / 3');
+    // 25행을 10개씩 나누면 마지막 페이지는 5행만 남는다.
+    expect(bodyRowNames()).toEqual(
+      manyRows.slice(20, 25).map((row) => row.name),
+    );
+    expect(findButton('다음').disabled).toBe(true);
+
+    await act(async () => {
+      findButton('이전').click();
+    });
+    expect(container.textContent).toContain('2 / 3');
+  });
+
+  it('전체 행 수가 pageSize 이하면 pagination nav를 그리지 않는다', async () => {
+    await act(async () => {
+      root.render(
+        <DataTable
+          columns={columns}
+          data={rows}
+          rowKey={(row) => row.id}
+          pageSize={10}
+        />,
+      );
+    });
+
+    expect(paginationNav()).toBeNull();
   });
 });

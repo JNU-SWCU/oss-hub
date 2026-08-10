@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { Button } from '@/components/ui/button';
+import { PaginationNav } from '@/components/pagination-nav';
 
 interface ProgramListPaginationProps {
   readonly page: number;
@@ -7,37 +7,12 @@ interface ProgramListPaginationProps {
   readonly onPageChange: (page: number) => void;
 }
 
-function ProgramListPagination({
-  page,
-  totalPages,
-  onPageChange,
-}: ProgramListPaginationProps): ReactElement | null {
-  if (totalPages <= 1) return null;
-
-  return (
-    <nav
-      aria-label="프로그램 목록 페이지"
-      className="flex items-center justify-center gap-4"
-    >
-      <Button
-        disabled={page <= 1}
-        onClick={() => onPageChange(page - 1)}
-        variant="outline"
-      >
-        이전
-      </Button>
-      <span className="text-small text-muted-foreground">
-        {page} / {totalPages}
-      </span>
-      <Button
-        disabled={page >= totalPages}
-        onClick={() => onPageChange(page + 1)}
-        variant="outline"
-      >
-        다음
-      </Button>
-    </nav>
-  );
+// 공용 `PaginationNav`(components/pagination-nav.tsx)의 얇은 래퍼 — 이 화면 고유의
+// aria-label만 고정한다. 호출부(program-list-page 등)의 props·출력은 그대로다.
+function ProgramListPagination(
+  props: ProgramListPaginationProps,
+): ReactElement | null {
+  return <PaginationNav {...props} ariaLabel="프로그램 목록 페이지" />;
 }
 
 export { ProgramListPagination };
