@@ -103,15 +103,16 @@ export function ApplicationDecisionDialog({
            */
           className="fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl bg-background p-6 shadow-lg outline-none *:min-w-0"
           /*
-           * ⚠ Radix 기본 복귀를 **언제나** 막는다 — 그것은 창이 열릴 때 포커스를 갖고
-           *   있던 노드를 향하는데, 판정에 성공하면 그 버튼은 이미 DOM 에서 사라진
-           *   뒤다(「승인」→「되돌리기」). 사라진 노드에 포커스를 주면 포커스는 문서
-           *   맨 앞에 남고, 재조회 뒤에 화면이 옮겨 둔 포커스까지 덮어쓴다([#767]).
-           *   이 복귀는 `setTimeout` 안에서 늦게 일어나므로 순서를 가정할 수 없다.
-           *   버튼이 없거나 `disabled` 면 아무것도 안 하고 화면 쪽 복귀에 맡긴다.
+           * 취소·Escape 로 닫을 때 창을 연 버튼으로 돌려준다. 버튼이 없거나(판정 성공
+           * 뒤) `disabled` 면 **아무것도 안 하고** 화면 쪽 복귀에 맡긴다([#767]) —
+           * 그때의 새 버튼은 재조회가 끝난 뒤에야 생기고, 이 복귀는 Radix 안의
+           * `setTimeout` 에서 뒤늦게 일어나 순서를 가정할 수 없다.
+           *
+           * `event.preventDefault()` 를 부르지 않는다 — Radix 의 modal `Dialog.Content`
+           * 가 이미 **언제나** 막고 자기 `Trigger` 로만 돌려주는데, 이 창은 화면이 직접
+           * 마운트해 `Trigger` 가 없다. 변이로 죽은 코드임을 확인했다.
            */
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
+          onCloseAutoFocus={() => {
             document.getElementById(returnFocusId)?.focus();
           }}
         >

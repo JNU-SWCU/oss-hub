@@ -334,9 +334,9 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
   it('창을 연 버튼이 사라진 채 닫히면 화면이 옮겨 둔 포커스를 덮지 않는다', async () => {
     // Given: 판정이 저장되어 「승인」이 「되돌리기」로 바뀌고, 화면이 그 새 버튼으로
     //   포커스를 옮겼다.
-    // ⚠ Radix 기본 복귀는 **창이 열릴 때** 포커스를 갖고 있던 자리를 향한다 — 그 자리는
-    //   이미 사라졌으므로 복귀는 포커스를 문서 맨 앞으로 떨어뜨리고, 화면이 옮겨 둔
-    //   포커스까지 덮어쓴다. 그 복귀는 `setTimeout` 안에서 뒤늦게 일어난다([#767]).
+    // ⚠ 창이 닫힐 때의 포커스 복귀는 Radix 안의 `setTimeout` 에서 **뒤늦게** 일어난다 —
+    //   화면이 먼저 옮겨 둔 포커스를 그때 되돌려 버리면 교직원은 다시 문서 맨 앞으로
+    //   튕긴다. 그래서 늦은 복귀까지 흘려보낸 뒤에 본다([#767]).
     await act(async () => root.render(<SelfClosingHarness />));
     await act(async () => getButton('승인 확정').click());
     expect(dialog()).toBeNull();
