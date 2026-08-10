@@ -321,6 +321,12 @@ describe('MilestoneDocumentCollectionView 표', () => {
       'href="/api/v1/milestones/milestone-1/documents/d1/applications/a/file"',
     );
     expect(html).toContain(
+      'aria-label="가팀 기획서 개별 파일 내려받기: 아주-긴-파일-이름-확인용-기획서-최종본-v3.pdf"',
+    );
+    expect(html).toContain(
+      'aria-describedby="milestone-document-download-behavior-hint"',
+    );
+    expect(html).toContain(
       'title="아주-긴-파일-이름-확인용-기획서-최종본-v3.pdf"',
     );
     expect(html).toContain('truncate');
@@ -592,7 +598,7 @@ describe('MilestoneDocumentCollectionView 전체 내려받기(ZIP)', () => {
   it('기본은 팀 기준으로 묶은 ZIP 링크를 건다', () => {
     const html = render({ data: collection(documents, rows) });
 
-    expect(html).toContain('전체 내려받기(ZIP)');
+    expect(html).toContain('마일스톤 전체 내려받기(ZIP)');
     expect(html).toContain(TEAM_HREF);
     /*
      * ⚠ `download` 속성이 **없어야** 한다. 붙으면 브라우저가 응답 본문을 상태 코드와
@@ -600,7 +606,9 @@ describe('MilestoneDocumentCollectionView 전체 내려받기(ZIP)', () => {
      * 담긴 파일**을 받는다. 성공 응답은 서버의 `Content-Disposition: attachment`가
      * 그대로 내려받게 하므로 속성 없이도 정상 동선은 똑같다.
      */
-    expect(html).not.toContain('download');
+    const [archiveLink] = /<a[^>]*archive\?groupBy=TEAM[^>]*>/.exec(html) ?? [];
+    expect(archiveLink).toBeDefined();
+    expect(archiveLink).not.toMatch(/\sdownload(?:[=\s>])/);
   });
 
   /**
@@ -650,10 +658,19 @@ describe('MilestoneDocumentCollectionView 전체 내려받기(ZIP)', () => {
     );
     // 링크가 그 문단을 가리켜, 버튼만 읽고 지나가는 사람에게도 함께 읽힌다.
     expect(html).toContain(
-      'aria-describedby="milestone-document-collection-archive-hint"',
+      'aria-describedby="milestone-document-collection-archive-hint milestone-document-download-behavior-hint"',
     );
     // 표 위 안내문과 다른 문단이다 — 한 문단에 섞이면 정반대의 두 사실이 뭉개진다.
     expect(html).toContain('id="milestone-document-collection-scroll-hint"');
+  });
+
+  it('진행·완료와 오류가 브라우저에서 어떻게 보이는지 밝힌다', () => {
+    const html = render({ data: collection(documents, rows) });
+
+    expect(html).toContain(
+      '진행 상태와 완료 여부는 브라우저에서 확인합니다. 요청이 실패하면 오류 응답을 파일로 저장하지 않고 안내 화면을 엽니다.',
+    );
+    expect(html).toContain('id="milestone-document-download-behavior-hint"');
   });
 
   /**
@@ -791,11 +808,11 @@ describe('MilestoneDocumentCollectionView 서류별 내려받기(ZIP)', () => {
    * 그 안에 있어야 한다. 열이 여러 개라 「내려받기」만 있으면 스크린리더에는 같은 이름의
    * 버튼이 열 수만큼 늘어서 무엇을 고르는지 알 수 없다.
    */
-  it('aria-label에 서류 이름이 들어간다', () => {
+  it('aria-label에 서류 이름과 서류별 ZIP임이 함께 들어간다', () => {
     const html = render({ data: collection(documents, rows) });
 
-    expect(html).toContain('aria-label="기획서 전체 내려받기(ZIP)"');
-    expect(html).toContain('aria-label="사업계획서 전체 내려받기(ZIP)"');
+    expect(html).toContain('aria-label="기획서 서류별 내려받기(ZIP)"');
+    expect(html).toContain('aria-label="사업계획서 서류별 내려받기(ZIP)"');
   });
 
   /**
@@ -805,8 +822,10 @@ describe('MilestoneDocumentCollectionView 서류별 내려받기(ZIP)', () => {
    */
   it('download 속성을 쓰지 않는다', () => {
     const html = render({ data: collection(documents, rows) });
+    const [linkTag] = /<a[^>]*archive\?documentId=d1[^>]*>/.exec(html) ?? [];
 
-    expect(html).not.toContain('download');
+    expect(linkTag).toBeDefined();
+    expect(linkTag).not.toMatch(/\sdownload(?:[=\s>])/);
     // 표와 열 머리글이 정말 그려졌는지 — 아니면 위 단언은 아무것도 묻지 않는다.
     expect(html).toContain('archive?documentId=d1');
   });
@@ -832,7 +851,7 @@ describe('MilestoneDocumentCollectionView 서류별 내려받기(ZIP)', () => {
     const [linkTag] = /<a[^>]*archive\?documentId=d1[^>]*>/.exec(html) ?? [];
 
     expect(linkTag).toContain(
-      'aria-describedby="milestone-document-collection-archive-hint"',
+      'aria-describedby="milestone-document-collection-archive-hint milestone-document-download-behavior-hint"',
     );
     expect(html).toContain(
       '빠른 필터·페이지와 무관하게 이 마일스톤의 전체 팀을 담습니다.',
