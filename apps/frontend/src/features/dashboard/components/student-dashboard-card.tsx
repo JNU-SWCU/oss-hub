@@ -21,7 +21,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { formatDashboardDeadline } from '../deadline';
+import {
+  formatDashboardDeadline,
+  formatDashboardDeadlineAbsolute,
+} from '../deadline';
 import type {
   DashboardItem,
   DashboardRepositoryProvisionStatus,
@@ -184,8 +187,13 @@ export function StudentDashboardCard({
                 <p className="font-heading text-base font-semibold">
                   {item.nextMilestone.name}
                 </p>
-                <span className="font-heading text-lg font-bold text-primary">
-                  {formatDashboardDeadline(item.nextMilestone.dueAt, now)}
+                <span className="flex flex-col items-end gap-0.5">
+                  <span className="font-heading text-lg font-bold text-primary">
+                    {formatDashboardDeadline(item.nextMilestone.dueAt, now)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDashboardDeadlineAbsolute(item.nextMilestone.dueAt)}
+                  </span>
                 </span>
               </div>
               <p className="flex items-center gap-2 text-sm text-muted-foreground">
