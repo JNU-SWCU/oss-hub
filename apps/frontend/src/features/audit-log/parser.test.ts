@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   AUDIT_LOG_ACCESS_RECORD_FIXTURE,
+  AUDIT_LOG_APPLICATION_APPROVED_RECORD_FIXTURE,
   AUDIT_LOG_LEGACY_RECORD_FIXTURE,
   AUDIT_LOG_PAGE_RESPONSE_FIXTURE,
   AUDIT_LOG_REPOSITORY_PUBLISHED_RECORD_FIXTURE,
+  AUDIT_LOG_REPOSITORY_PUBLISHED_RESOLVED_RECORD_FIXTURE,
 } from './fixtures';
 import { AuditLogResponseError, parseAuditLogPage } from './parser';
 
@@ -148,6 +150,34 @@ describe('parseAuditLogPage', () => {
     expect(page.items[0]).toMatchObject({
       action: 'REPOSITORY_PUBLISHED',
       target: 'REPOSITORY / repository-synthetic-1',
+    });
+  });
+
+  it('REPOSITORY_PUBLISHED 행이 전체 이름(owner/name) 스냅샷을 받으면 그 라벨을 그대로 통과시킨다', () => {
+    const page = parseAuditLogPage({
+      items: [AUDIT_LOG_REPOSITORY_PUBLISHED_RESOLVED_RECORD_FIXTURE],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+
+    expect(page.items[0]).toMatchObject({
+      action: 'REPOSITORY_PUBLISHED',
+      target: 'synthetic-org/synthetic-repo',
+    });
+  });
+
+  it('APPLICATION_APPROVED 행이 합성 라벨(프로그램 이름 · @신청자) 스냅샷을 받으면 그 라벨을 그대로 통과시킨다', () => {
+    const page = parseAuditLogPage({
+      items: [AUDIT_LOG_APPLICATION_APPROVED_RECORD_FIXTURE],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+
+    expect(page.items[0]).toMatchObject({
+      action: 'APPLICATION_APPROVED',
+      target: '합성 프로그램 · @synthetic-applicant',
     });
   });
 });

@@ -45,6 +45,7 @@ function baseApplication(
     id: APPLICATION_ID,
     programId: 'synthetic-program',
     programName: '합성 프로그램',
+    applicantGithubLogin: 'synthetic-applicant-login',
     teamId: null,
     status: overrides.status ?? ApplicationStatus.SUBMITTED,
     collaboratorGithubLogins: [] as string[],
@@ -143,7 +144,9 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
         targetType: 'APPLICATION',
         targetId: APPLICATION_ID,
         metadata: {
-          schemaVersion: 1,
+          schemaVersion: 2,
+          programName: '합성 프로그램',
+          applicantGithubLogin: 'synthetic-applicant-login',
           before: { status: ApplicationStatus.SUBMITTED },
           after: { status: ApplicationStatus.APPROVED },
         },
@@ -191,7 +194,9 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
       expect.objectContaining({
         action: 'APPLICATION_REJECTED',
         metadata: {
-          schemaVersion: 1,
+          schemaVersion: 2,
+          programName: '합성 프로그램',
+          applicantGithubLogin: 'synthetic-applicant-login',
           before: { status: ApplicationStatus.SUBMITTED },
           after: { status: ApplicationStatus.REJECTED },
         },
@@ -334,7 +339,9 @@ describe('ApplicationsService.decide — REVERT', () => {
         targetType: 'APPLICATION',
         targetId: APPLICATION_ID,
         metadata: {
-          schemaVersion: 1,
+          schemaVersion: 2,
+          programName: '합성 프로그램',
+          applicantGithubLogin: 'synthetic-applicant-login',
           before: { status: ApplicationStatus.REJECTED },
           after: { status: ApplicationStatus.SUBMITTED },
         },

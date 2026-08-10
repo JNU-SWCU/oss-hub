@@ -113,7 +113,12 @@ export type AccessAuditMetadataInput = DistributiveOmit<
  * 실명·studentId·email 등 금지 필드는 담지 않는다 — actor는 `AuditLog.actorId` FK로 이미
  * 식별되므로 metadata에 다시 스냅샷하지 않는다.
  */
-export const REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION = 1 as const;
+export const REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION_V1 = 1 as const;
+// schemaVersion 2 — PROGRAM_LIFECYCLE의 programName 보강분과 같은 규약: 이벤트 시점
+// 저장소 전체 이름(owner/name) 스냅샷을 추가한다. `repositories.service.ts`가 이미
+// 로드해 둔 `name`+`url`에서 파생하므로 추가 쿼리는 없다. 조회 시점에 Repository를 다시
+// 조회해 재계산하지 않는다(rename·삭제 이후에도 원본 로그를 보존).
+export const REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION = 2 as const;
 
 export const REPOSITORY_PUBLISH_AUDIT_ACTIONS = {
   REPOSITORY_PUBLISHED: 'REPOSITORY_PUBLISHED',
@@ -126,8 +131,8 @@ export type RepositoryPublishAuditVisibilityState = {
   readonly visibility: RepositoryVisibility;
 };
 
-export type RepositoryPublishAuditMetadata = {
-  readonly schemaVersion: typeof REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION;
+type RepositoryPublishAuditMetadataBaseV1 = {
+  readonly schemaVersion: typeof REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION_V1;
   readonly repositoryId: string;
   readonly before: RepositoryPublishAuditVisibilityState;
   readonly after: RepositoryPublishAuditVisibilityState & {
@@ -135,15 +140,51 @@ export type RepositoryPublishAuditMetadata = {
   };
 };
 
+type RepositoryPublishAuditMetadataBaseV2 = {
+  readonly schemaVersion: typeof REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION;
+  readonly repositoryId: string;
+  // `owner/name` 형태의 저장소 전체 이름. NEW 연결 모드는 url이 항상
+  // `https://github.com/{owner}/{name}` 꼴이라 파싱되고, OWN 모드처럼 형태가 다른 외부
+  // url은 파싱에 실패할 수 있어 그때는 name만 남긴다(derivePublicRepositoryFullName).
+  readonly repositoryFullName: string;
+  readonly before: RepositoryPublishAuditVisibilityState;
+  readonly after: RepositoryPublishAuditVisibilityState & {
+    readonly publishedAt: string;
+  };
+};
+
+// schemaVersion 1: 이름 스냅샷이 없는 과거 행이다. 절대 다시 쓰지 않는다 —
+// append-only 원장이므로 이 버전은 읽기 호환 목적으로만 남는다.
+export type RepositoryPublishAuditMetadataV1 =
+  RepositoryPublishAuditMetadataBaseV1;
+// schemaVersion 2: 저장소 전체 이름 스냅샷을 함께 기록한다.
+export type RepositoryPublishAuditMetadataV2 =
+  RepositoryPublishAuditMetadataBaseV2;
+
+export type RepositoryPublishAuditMetadata =
+  RepositoryPublishAuditMetadataV1 | RepositoryPublishAuditMetadataV2;
+
 export type RepositoryPublishAuditMetadataInput = DistributiveOmit<
-  RepositoryPublishAuditMetadata,
+  RepositoryPublishAuditMetadataV2,
   'schemaVersion'
 >;
 
+// 새 행은 항상 최신 스키마 버전으로 쓴다.
 export function createRepositoryPublishAuditMetadata(
   input: RepositoryPublishAuditMetadataInput,
-): RepositoryPublishAuditMetadata {
+): RepositoryPublishAuditMetadataV2 {
   return { schemaVersion: REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION, ...input };
+}
+
+// NEW 연결 모드는 url이 `https://github.com/{owner}/{name}` 꼴로 저장되므로 owner를
+// 그대로 뽑아낼 수 있다. OWN 모드는 임의의 외부 url일 수 있어(형태가 강제되지 않는다)
+// 매칭에 실패하면 owner 없이 저장소 이름만 남긴다 — 그래도 cuid보다는 의미가 있다.
+const GITHUB_REPOSITORY_URL_PATTERN =
+  /^https:\/\/github\.com\/([^/\s]+)\/([^/\s]+?)\/?$/;
+
+export function deriveRepositoryFullName(name: string, url: string): string {
+  const match = GITHUB_REPOSITORY_URL_PATTERN.exec(url);
+  return match ? `${match[1]}/${match[2]}` : name;
 }
 
 export const PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION_V1 = 1 as const;
@@ -255,7 +296,14 @@ export function createSubmissionFileCleanupAuditMetadata(
  * 강제하므로(`patch-application-decision-request.dto.ts`) `action`/`after.status`에서 이미
  * 결정되는 값이라 정보량이 0이다.
  */
-export const APPLICATION_DECISION_AUDIT_SCHEMA_VERSION = 1 as const;
+export const APPLICATION_DECISION_AUDIT_SCHEMA_VERSION_V1 = 1 as const;
+// schemaVersion 2 — PROGRAM_LIFECYCLE의 programName 보강분과 같은 규약: 이벤트 시점
+// 프로그램 이름 + 신청자 GitHub 로그인 스냅샷을 추가한다. `applications.service.ts`가
+// 이미 로드해 둔 `application.programName`/`applicant.nickname`에서 가져오므로 추가
+// 쿼리는 없다. 신청자 실명(`User.name`)은 담지 않는다 — 이 라벨의 목적은 "행 하나만
+// 보고 무슨 신청인지 식별"이며 로그인만으로 충분하고, 실명은 노출 범위를 불필요하게
+// 넓힌다.
+export const APPLICATION_DECISION_AUDIT_SCHEMA_VERSION = 2 as const;
 
 export const APPLICATION_DECISION_AUDIT_ACTIONS = {
   APPLICATION_APPROVED: 'APPLICATION_APPROVED',
@@ -263,16 +311,44 @@ export const APPLICATION_DECISION_AUDIT_ACTIONS = {
   APPLICATION_REVERTED: 'APPLICATION_REVERTED',
 } as const;
 
-export type ApplicationDecisionAuditMetadata = {
-  readonly schemaVersion: typeof APPLICATION_DECISION_AUDIT_SCHEMA_VERSION;
+type ApplicationDecisionAuditMetadataBaseV1 = {
+  readonly schemaVersion: typeof APPLICATION_DECISION_AUDIT_SCHEMA_VERSION_V1;
   readonly before: { readonly status: ApplicationStatus };
   readonly after: { readonly status: ApplicationStatus };
 };
 
+type ApplicationDecisionAuditMetadataBaseV2 = {
+  readonly schemaVersion: typeof APPLICATION_DECISION_AUDIT_SCHEMA_VERSION;
+  readonly programName: string;
+  readonly applicantGithubLogin: string;
+  readonly before: { readonly status: ApplicationStatus };
+  readonly after: { readonly status: ApplicationStatus };
+};
+
+// schemaVersion 1: 이름 스냅샷이 없는 과거 행이다. 절대 다시 쓰지 않는다 —
+// append-only 원장이므로 이 버전은 읽기 호환 목적으로만 남는다.
+export type ApplicationDecisionAuditMetadataV1 =
+  ApplicationDecisionAuditMetadataBaseV1;
+// schemaVersion 2: 프로그램 이름 + 신청자 로그인 스냅샷을 함께 기록한다.
+export type ApplicationDecisionAuditMetadataV2 =
+  ApplicationDecisionAuditMetadataBaseV2;
+
+export type ApplicationDecisionAuditMetadata =
+  ApplicationDecisionAuditMetadataV1 | ApplicationDecisionAuditMetadataV2;
+
+export type ApplicationDecisionAuditMetadataInput = Omit<
+  ApplicationDecisionAuditMetadataV2,
+  'schemaVersion'
+>;
+
+// 새 행은 항상 최신 스키마 버전으로 쓴다.
 export function createApplicationDecisionAuditMetadata(
-  input: Omit<ApplicationDecisionAuditMetadata, 'schemaVersion'>,
-): ApplicationDecisionAuditMetadata {
-  return { schemaVersion: APPLICATION_DECISION_AUDIT_SCHEMA_VERSION, ...input };
+  input: ApplicationDecisionAuditMetadataInput,
+): ApplicationDecisionAuditMetadataV2 {
+  return {
+    schemaVersion: APPLICATION_DECISION_AUDIT_SCHEMA_VERSION,
+    ...input,
+  };
 }
 
 /**
@@ -368,6 +444,10 @@ export type CollectionTriggerAuditMetadataView = Omit<
   'runId'
 >;
 
+// v1(저장소 전체 이름 스냅샷 없음)은 그대로, v2는 repositoryFullName을 함께 등록한다.
+export type RepositoryPublishAuditMetadataView =
+  RepositoryPublishAuditMetadataV1 | RepositoryPublishAuditMetadataV2;
+
 // v1(이름 스냅샷 없음)은 그대로, v2는 programName을 함께 등록한다.
 export type ProgramLifecycleAuditMetadataView =
   | (Omit<ProgramLifecycleAuditMetadataV1, 'schemaVersion'> & {
@@ -377,17 +457,23 @@ export type ProgramLifecycleAuditMetadataView =
       readonly schemaVersion: typeof PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION;
     });
 
+// v1(이름 스냅샷 없음)은 그대로, v2는 programName·applicantGithubLogin을 함께
+// 등록한다. 신청자 실명은 애초에 metadata에 담지 않으므로(위 클래스 주석 참고) 여기서도
+// 가릴 것이 없다.
+export type ApplicationDecisionAuditMetadataView =
+  ApplicationDecisionAuditMetadataV1 | ApplicationDecisionAuditMetadataV2;
+
 // 세 필드 모두 조회 응답에 그대로 나간다 — `GET /audit-logs`는 이미 ADMIN 전용이고,
 // 이 기능의 요지가 "무엇이 바뀌었는지" 그 자체이므로 가릴 이유가 없다.
 export type UserProfileAuditMetadataView = UserProfileAuditMetadata;
 
 export type AuditLogMetadataView =
   | AccessAuditMetadataView
-  | RepositoryPublishAuditMetadata
+  | RepositoryPublishAuditMetadataView
   | ProgramLifecycleAuditMetadataView
   | CollectionTriggerAuditMetadataView
   | SubmissionFileCleanupAuditMetadata
-  | ApplicationDecisionAuditMetadata
+  | ApplicationDecisionAuditMetadataView
   | UserProfileAuditMetadataView;
 
 function toAuditPersonSnapshotView(
@@ -427,9 +513,8 @@ function toAccessAuditMetadataView(
 
 function toRepositoryPublishAuditMetadataView(
   metadata: RepositoryPublishAuditMetadata,
-): RepositoryPublishAuditMetadata {
-  return {
-    schemaVersion: metadata.schemaVersion,
+): RepositoryPublishAuditMetadataView {
+  const base = {
     repositoryId: metadata.repositoryId,
     before: { visibility: metadata.before.visibility },
     after: {
@@ -437,6 +522,13 @@ function toRepositoryPublishAuditMetadataView(
       publishedAt: metadata.after.publishedAt,
     },
   };
+  return metadata.schemaVersion === REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION
+    ? {
+        ...base,
+        schemaVersion: REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION,
+        repositoryFullName: metadata.repositoryFullName,
+      }
+    : { ...base, schemaVersion: REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION_V1 };
 }
 
 function toProgramLifecycleAuditMetadataView(
@@ -469,12 +561,22 @@ function toSubmissionFileCleanupAuditMetadataView(
 
 function toApplicationDecisionAuditMetadataView(
   metadata: ApplicationDecisionAuditMetadata,
-): ApplicationDecisionAuditMetadata {
-  return {
-    schemaVersion: metadata.schemaVersion,
+): ApplicationDecisionAuditMetadataView {
+  const base = {
     before: { status: metadata.before.status },
     after: { status: metadata.after.status },
   };
+  return metadata.schemaVersion === APPLICATION_DECISION_AUDIT_SCHEMA_VERSION
+    ? {
+        ...base,
+        schemaVersion: APPLICATION_DECISION_AUDIT_SCHEMA_VERSION,
+        programName: metadata.programName,
+        applicantGithubLogin: metadata.applicantGithubLogin,
+      }
+    : {
+        ...base,
+        schemaVersion: APPLICATION_DECISION_AUDIT_SCHEMA_VERSION_V1,
+      };
 }
 
 function toUserProfileAuditMetadataView(
@@ -613,15 +715,23 @@ function isSubmissionFileCleanupAuditMetadata(
 function isApplicationDecisionAuditMetadata(
   value: unknown,
 ): value is ApplicationDecisionAuditMetadata {
-  return (
-    isJsonObject(value) &&
-    value.schemaVersion === APPLICATION_DECISION_AUDIT_SCHEMA_VERSION &&
-    isApplicationDecisionState(value.before) &&
-    isApplicationDecisionState(value.after) &&
+  if (
+    !isJsonObject(value) ||
+    !isApplicationDecisionState(value.before) ||
+    !isApplicationDecisionState(value.after) ||
     // 반려 사유 원문이 섞여 들어오면 알 수 없는 스키마로 취급한다 — append-only 원장이라
     // 나중에 지울 수 없으니, 쓰기 경로가 실수로 담는 순간 여기서 막힌다.
-    !('rejectionReason' in value)
-  );
+    'rejectionReason' in value
+  ) {
+    return false;
+  }
+  if (value.schemaVersion === APPLICATION_DECISION_AUDIT_SCHEMA_VERSION) {
+    return (
+      typeof value.programName === 'string' &&
+      typeof value.applicantGithubLogin === 'string'
+    );
+  }
+  return value.schemaVersion === APPLICATION_DECISION_AUDIT_SCHEMA_VERSION_V1;
 }
 
 function isApplicationDecisionState(
@@ -637,14 +747,19 @@ function isApplicationDecisionState(
 function isRepositoryPublishAuditMetadata(
   value: unknown,
 ): value is RepositoryPublishAuditMetadata {
-  return (
-    isJsonObject(value) &&
-    value.schemaVersion === REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION &&
-    typeof value.repositoryId === 'string' &&
-    isRepositoryPublishAuditVisibilityState(value.before) &&
-    isRepositoryPublishAuditVisibilityState(value.after) &&
-    typeof (value.after as { publishedAt?: unknown }).publishedAt === 'string'
-  );
+  if (
+    !isJsonObject(value) ||
+    typeof value.repositoryId !== 'string' ||
+    !isRepositoryPublishAuditVisibilityState(value.before) ||
+    !isRepositoryPublishAuditVisibilityState(value.after) ||
+    typeof (value.after as { publishedAt?: unknown }).publishedAt !== 'string'
+  ) {
+    return false;
+  }
+  if (value.schemaVersion === REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION) {
+    return typeof value.repositoryFullName === 'string';
+  }
+  return value.schemaVersion === REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION_V1;
 }
 
 function isRepositoryPublishAuditVisibilityState(

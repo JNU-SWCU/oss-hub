@@ -66,18 +66,38 @@ export function isFallbackTarget(record: AuditLogRecord): boolean {
   return record.target === `${record.targetType} / ${record.targetId}`;
 }
 
+// 폴백이어도 메타 라인의 targetId를 아예 보여주지 않는 targetType이다. 여기 들어가려면
+// 둘 다 만족해야 한다 — (a) targetId가 사람이 읽을 대상이 아니라 기계가 생성한 실행
+// 식별자(runId 등)라 원본을 봐도 "무엇을 가리키는지" 의미가 없고, (b) 그 식별자로 실행
+// 결과·상세를 조회로 되찾을 스키마 경로가 없다(COLLECTION_SYNC_TRIGGERED의 runId는
+// CollectionSweepHistory에 남는 실행 결과와 이어줄 runId 컬럼이 그 테이블에 없어 join이
+// 불가능하다 — audit-log.repository.ts의 resolveAuditTargetLabel도 이 targetType엔 join
+// 분기가 없다).
+//
+// PROGRAM/APPLICATION/REPOSITORY/USER/ROLE_REQUEST는 넣지 않는다 — 그 대상들은 실제
+// 엔티티/사람을 가리키고, 스냅샷·join이 실패해도 targetId 자체가 원본 참조값으로서
+// 조회 가치를 유지한다(추후 join 조건이 넓어지면 되찾을 수도 있다). 새 targetType을
+// 여기 추가하려는 경우 위 (a)(b) 두 조건을 그대로 적용해 판단한다.
+export const TARGETLESS_FALLBACK_TARGET_TYPES: ReadonlySet<string> = new Set([
+  'COLLECTION_SYNC',
+]);
+
 function actorSegment(record: AuditLogRecord): AuditLogSentenceSegment {
   return { kind: 'actor', value: record.actor };
 }
 
 // GitHub 로그인 스냅샷 target에 쓴다('@' 접두로 렌더된다) — STAFF_ROLE_REQUEST_*,
-// USER_*, APPLICATION_* 처럼 대상이 사람인 action 전용이다.
+// USER_* 처럼 target이 순수 로그인 문자열 하나뿐인 action 전용이다. APPLICATION_*는
+// target이 "프로그램 이름 · @로그인" 합성 라벨이라 이 세그먼트를 쓰지 않는다
+// (nameSegment 참고).
 function targetSegment(record: AuditLogRecord): AuditLogSentenceSegment {
   return { kind: 'target', value: record.target, variant: 'handle' };
 }
 
-// 이름 스냅샷·join으로 찾은 이름 target에 쓴다. GitHub 로그인이 아니므로 '@' 접두를
-// 붙이지 않는다 — 프로그램 이름에 그대로 붙이면 "@프로그램이름"처럼 어색해진다.
+// 이름 스냅샷·join으로 찾은 이름, 또는 이미 '@'을 포함한 합성 라벨(APPLICATION_*의
+// "프로그램 이름 · @로그인") target에 쓴다. GitHub 로그인 하나만 있는 경우가 아니므로
+// '@' 접두를 자동으로 붙이지 않는다 — 프로그램 이름에 그대로 붙이면
+// "@프로그램이름"처럼 어색해지고, APPLICATION_*의 합성 라벨은 이미 '@'을 포함한다.
 function nameSegment(record: AuditLogRecord): AuditLogSentenceSegment {
   return { kind: 'target', value: record.target, variant: 'name' };
 }
@@ -195,14 +215,23 @@ const SENTENCE_TEMPLATES: Readonly<Record<AuditLogAction, SentenceTemplate>> = {
           targetSegment(record),
           text('님의 계정 상태를 변경했습니다'),
         ],
-  // REPOSITORY_PUBLISHED는 메타데이터 스키마에 이름 스냅샷이 없어 target이 항상
-  // 폴백이다(이름 분기가 존재할 수 없다) — targetId만 코드체로 보여준다.
-  REPOSITORY_PUBLISHED: (record) => [
-    actorSegment(record),
-    text('님이 저장소 '),
-    fallbackTargetSegment(record),
-    text('을(를) 공개로 전환했습니다'),
-  ],
+  // REPOSITORY_PUBLISHED는 이름 스냅샷(schemaVersion 2, owner/name 전체 이름) 또는
+  // join으로 찾은 현재 이름이 있으면 그 이름을, 없으면(과거 v1 행이면서 저장소도 이미
+  // 없으면) targetId 폴백을 보여준다. PROGRAM_ARCHIVED/RESTORED와 같은 규약이다.
+  REPOSITORY_PUBLISHED: (record) =>
+    isFallbackTarget(record)
+      ? [
+          actorSegment(record),
+          text('님이 저장소 '),
+          fallbackTargetSegment(record),
+          text('을(를) 공개로 전환했습니다'),
+        ]
+      : [
+          actorSegment(record),
+          text('님이 저장소 '),
+          nameSegment(record),
+          text('을(를) 공개로 전환했습니다'),
+        ],
   // PROGRAM_ARCHIVED/RESTORED는 이름 스냅샷(schemaVersion 2) 또는 join으로 찾은
   // 현재 이름이 있으면 그 이름을, 없으면(과거 행이면서 프로그램도 이미 없으면)
   // targetId 폴백을 보여준다. 이름은 GitHub 로그인이 아니므로 nameSegment로
@@ -243,6 +272,12 @@ const SENTENCE_TEMPLATES: Readonly<Record<AuditLogAction, SentenceTemplate>> = {
     actorSegment(record),
     text('님이 제출 파일 정리 재시도를 초기화했습니다'),
   ],
+  // APPLICATION_*는 이름 스냅샷(schemaVersion 2)/join이 있으면 target이
+  // "{프로그램 이름} · @{신청자 로그인}" 합성 라벨이다(audit-log.repository.ts의
+  // composeApplicationTargetLabel) — 이미 "@"를 스스로 포함하므로 GitHub 로그인
+  // 전용인 targetSegment('handle', 자동 '@' 접두)가 아니라 nameSegment('name', 접두
+  // 없음)로 렌더한다. target 자체가 프로그램 이름을 담고 있어 뒤따르는 문구에서
+  // "프로그램"을 다시 말하지 않는다(중복 표현 방지).
   APPLICATION_APPROVED: (record) =>
     isFallbackTarget(record)
       ? [
@@ -254,8 +289,8 @@ const SENTENCE_TEMPLATES: Readonly<Record<AuditLogAction, SentenceTemplate>> = {
       : [
           actorSegment(record),
           text('님이 '),
-          targetSegment(record),
-          text('님의 프로그램 신청을 승인했습니다'),
+          nameSegment(record),
+          text('님의 신청을 승인했습니다'),
         ],
   APPLICATION_REJECTED: (record) =>
     isFallbackTarget(record)
@@ -268,8 +303,8 @@ const SENTENCE_TEMPLATES: Readonly<Record<AuditLogAction, SentenceTemplate>> = {
       : [
           actorSegment(record),
           text('님이 '),
-          targetSegment(record),
-          text('님의 프로그램 신청을 반려했습니다'),
+          nameSegment(record),
+          text('님의 신청을 반려했습니다'),
         ],
   APPLICATION_REVERTED: (record) =>
     isFallbackTarget(record)
@@ -282,7 +317,7 @@ const SENTENCE_TEMPLATES: Readonly<Record<AuditLogAction, SentenceTemplate>> = {
       : [
           actorSegment(record),
           text('님이 '),
-          targetSegment(record),
+          nameSegment(record),
           text('님의 신청 판정을 취소했습니다'),
         ],
   USER_PROFILE_UPDATED: (record) =>

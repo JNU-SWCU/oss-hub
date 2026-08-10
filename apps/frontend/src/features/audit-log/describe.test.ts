@@ -60,7 +60,7 @@ describe('describeAuditLog', () => {
     );
   });
 
-  it('REPOSITORY_PUBLISHED는 target을 사람이 아닌 저장소로 서술한다(폴백만 가능)', () => {
+  it('REPOSITORY_PUBLISHED 폴백 target(이름을 모름)은 target을 사람이 아닌 저장소로 서술한다', () => {
     const record: AuditLogRecord = {
       id: 'audit-repository-published',
       actor: 'synthetic-staff',
@@ -73,6 +73,29 @@ describe('describeAuditLog', () => {
 
     expect(sentenceText(record)).toBe(
       'synthetic-staff님이 저장소 repository-synthetic-1을(를) 공개로 전환했습니다',
+    );
+  });
+
+  it('REPOSITORY_PUBLISHED가 전체 이름(owner/name) 스냅샷/join을 받으면 그 이름을 "@" 없이 서술한다', () => {
+    const record: AuditLogRecord = {
+      id: 'audit-repository-published-name',
+      actor: 'synthetic-staff',
+      action: 'REPOSITORY_PUBLISHED',
+      targetType: 'REPOSITORY',
+      targetId: 'repository-synthetic-2',
+      target: 'synthetic-org/synthetic-repo',
+      occurredAt: '2026-07-24T04:01:00.000Z',
+    };
+
+    const { sentence } = describeAuditLog(record);
+    const targetSegment = sentence.find((segment) => segment.kind === 'target');
+    expect(targetSegment).toMatchObject({
+      kind: 'target',
+      value: 'synthetic-org/synthetic-repo',
+      variant: 'name',
+    });
+    expect(sentenceText(record)).toBe(
+      'synthetic-staff님이 저장소 synthetic-org/synthetic-repo을(를) 공개로 전환했습니다',
     );
   });
 
@@ -172,19 +195,30 @@ describe('describeAuditLog', () => {
     );
   });
 
-  it('APPLICATION_APPROVED가 (이론상) 핸들 target을 받으면 기존 "{target}님의 프로그램 신청을 승인했습니다" 문형을 유지한다', () => {
+  // APPLICATION_APPROVED가 스냅샷/join으로 라벨을 받으면 target은 "프로그램 이름 ·
+  // @신청자 로그인" 합성 문자열이다(composeApplicationTargetLabel). 이미 '@'를
+  // 포함하므로 nameSegment(variant='name', 접두 없음)로 렌더되고, 뒤따르는 문구는
+  // 프로그램을 다시 언급하지 않는다("님의 신청을 승인했습니다").
+  it('APPLICATION_APPROVED가 합성 라벨(프로그램 이름 · @신청자)을 받으면 그 라벨을 "@" 추가 접두 없이 서술한다', () => {
     const record: AuditLogRecord = {
-      id: 'audit-application-approved-handle',
+      id: 'audit-application-approved-resolved',
       actor: 'synthetic-staff',
       action: 'APPLICATION_APPROVED',
       targetType: 'APPLICATION',
       targetId: 'application-synthetic-2',
-      target: 'synthetic-applicant-login',
+      target: '합성 프로그램 · @synthetic-applicant-login',
       occurredAt: '2026-07-24T06:05:00.000Z',
     };
 
+    const { sentence } = describeAuditLog(record);
+    const targetSegment = sentence.find((segment) => segment.kind === 'target');
+    expect(targetSegment).toMatchObject({
+      kind: 'target',
+      value: '합성 프로그램 · @synthetic-applicant-login',
+      variant: 'name',
+    });
     expect(sentenceText(record)).toBe(
-      'synthetic-staff님이 synthetic-applicant-login님의 프로그램 신청을 승인했습니다',
+      'synthetic-staff님이 합성 프로그램 · @synthetic-applicant-login님의 신청을 승인했습니다',
     );
   });
 

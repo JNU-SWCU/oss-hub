@@ -9,6 +9,7 @@ import type { AuditLogService } from '../../audit-log/audit-log.service';
 import {
   REPOSITORY_PUBLISH_AUDIT_ACTIONS,
   createRepositoryPublishAuditMetadata,
+  deriveRepositoryFullName,
 } from '../../audit-log/audit-log-metadata';
 import type { GithubAppClient } from '../github-app.client';
 import {
@@ -136,6 +137,17 @@ export class RepositoriesService {
         }
         return reloaded;
       }
+      // CAS(publishRepositoryIfPrivate)는 githubRepositoryId만 비교·잠근다 — name/url은
+      // 대상이 아니다. 메서드 시작에서 로드한 `target.name/url`은 트랜잭션 밖에서 읽은
+      // 값이라, CAS 커밋 사이에 rename이 끼어들면 감사 스냅샷에 오래된 이름이 남는다.
+      // CAS가 이겼다면 우리가 방금 그 행에 UPDATE 잠금을 쥔 것이므로, 같은 트랜잭션
+      // 안에서 다시 읽으면 동시 rename UPDATE는 우리 커밋 전까지 블록되어 안전하다.
+      const committed = await store.findPublishTarget(target.id);
+      if (committed === null) {
+        // 방금 우리가 성공적으로 UPDATE한 행이 사라질 수는 없다 — 논리적으로 도달
+        // 불가능하지만 타입상 null이 가능해 방어적으로 처리한다.
+        throw new RepositoryNotFoundError();
+      }
       await this.auditLog.record(
         {
           actorGithubId,
@@ -144,6 +156,10 @@ export class RepositoriesService {
           targetId: target.id,
           metadata: createRepositoryPublishAuditMetadata({
             repositoryId: target.id,
+            repositoryFullName: deriveRepositoryFullName(
+              committed.name,
+              committed.url,
+            ),
             before: { visibility: RepositoryVisibility.PRIVATE },
             after: {
               visibility: RepositoryVisibility.PUBLIC,
@@ -154,7 +170,7 @@ export class RepositoriesService {
         store.auditLogWriter,
       );
       return {
-        ...target,
+        ...committed,
         visibility: RepositoryVisibility.PUBLIC,
         publishedAt: now,
       };

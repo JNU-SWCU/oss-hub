@@ -280,7 +280,11 @@ describe('ApplicationsService integration', () => {
       action: 'APPLICATION_APPROVED',
     });
     expect(auditLog.metadata).toMatchObject({
-      schemaVersion: 1,
+      // #736 — 감사 로그 target 라벨이 cuid 대신 프로그램 이름·신청자 핸들을
+      // 보여줄 수 있도록 판정 시점 스냅샷을 남긴다(schemaVersion 2).
+      schemaVersion: 2,
+      programName: `program-${applicationId}`,
+      applicantGithubLogin: 'Synthetic-Applicant',
       after: { status: ApplicationStatus.APPROVED },
     });
     const notification = await prisma.notification.findFirstOrThrow({
