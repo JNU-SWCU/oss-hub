@@ -13,6 +13,23 @@ import {
 } from './audit-log-metadata';
 import { AuditLogRepository } from './audit-log.repository';
 
+// REPOSITORY_PUBLISH v1 metadata — repositoryFullName 스냅샷이 없어 join이 필요한
+// 과거 행 시나리오를 만드는 데 쓴다(PROGRAM v1 테스트와 같은 패턴).
+const LEGACY_REPOSITORY_PUBLISH_V1_METADATA = {
+  schemaVersion: 1,
+  repositoryId: 'repository-legacy',
+  before: { visibility: 'PRIVATE' },
+  after: { visibility: 'PUBLIC', publishedAt: '2026-07-24T04:00:00.000Z' },
+} as const;
+
+// APPLICATION_DECISION v1 metadata — applicantGithubLogin/programName 스냅샷이
+// 없어 join이 필요한 과거 행 시나리오를 만드는 데 쓴다.
+const LEGACY_APPLICATION_DECISION_V1_METADATA = {
+  schemaVersion: 1,
+  before: { status: 'SUBMITTED' },
+  after: { status: 'APPROVED' },
+} as const;
+
 describe('AuditLogRepository', () => {
   it('필터를 AND로 적용하고 발생 시각 최신순으로 조회한다', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
@@ -384,6 +401,276 @@ describe('AuditLogRepository', () => {
     expect(result.items).toEqual([
       expect.objectContaining({ target: '이름 A' }),
       expect.objectContaining({ target: '이름 B' }),
+    ]);
+  });
+
+  it('REPOSITORY_PUBLISHED가 schemaVersion 2(전체 이름 스냅샷) metadata면 join 없이 스냅샷 이름을 target으로 쓴다', async () => {
+    const metadata = {
+      schemaVersion: 2,
+      repositoryId: 'repository-1',
+      repositoryFullName: 'synthetic-org/synthetic-repo',
+      before: { visibility: 'PRIVATE' },
+      after: { visibility: 'PUBLIC', publishedAt: '2026-07-24T04:00:00.000Z' },
+    } as const;
+    const repositoryFindMany = jest.fn();
+    const prisma = {
+      auditLog: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'audit-repository-v2',
+            actor: { nickname: 'synthetic-staff' },
+            action: 'REPOSITORY_PUBLISHED',
+            targetType: 'REPOSITORY',
+            targetId: 'repository-1',
+            metadata,
+            occurredAt: new Date('2026-07-24T03:00:00.000Z'),
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(1),
+      },
+      repository: { findMany: repositoryFindMany },
+    } as unknown as PrismaService;
+    const repository = new AuditLogRepository(prisma);
+
+    const result = await repository.list({ page: 1, limit: 20 });
+
+    expect(repositoryFindMany).not.toHaveBeenCalled();
+    expect(result.items).toEqual([
+      expect.objectContaining({ target: 'synthetic-org/synthetic-repo' }),
+    ]);
+  });
+
+  it('REPOSITORY_PUBLISHED가 전체 이름 스냅샷 없는(v1) metadata면 targetId를 join해 owner/name을 target으로 쓴다', async () => {
+    const repositoryFindMany = jest.fn().mockResolvedValue([
+      {
+        id: 'repository-legacy',
+        name: 'synthetic-repo',
+        url: 'https://github.com/synthetic-org/synthetic-repo',
+      },
+    ]);
+    const prisma = {
+      auditLog: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'audit-repository-v1',
+            actor: { nickname: 'synthetic-staff' },
+            action: 'REPOSITORY_PUBLISHED',
+            targetType: 'REPOSITORY',
+            targetId: 'repository-legacy',
+            metadata: LEGACY_REPOSITORY_PUBLISH_V1_METADATA,
+            occurredAt: new Date('2026-07-24T03:00:00.000Z'),
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(1),
+      },
+      repository: { findMany: repositoryFindMany },
+    } as unknown as PrismaService;
+    const repository = new AuditLogRepository(prisma);
+
+    const result = await repository.list({ page: 1, limit: 20 });
+
+    expect(repositoryFindMany).toHaveBeenCalledWith({
+      where: { id: { in: ['repository-legacy'] } },
+      select: { id: true, name: true, url: true },
+    });
+    expect(result.items).toEqual([
+      expect.objectContaining({ target: 'synthetic-org/synthetic-repo' }),
+    ]);
+  });
+
+  it('join으로도 저장소를 찾지 못하면 cuid 폴백을 유지한다(REPOSITORY)', async () => {
+    const repositoryFindMany = jest.fn().mockResolvedValue([]);
+    const prisma = {
+      auditLog: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'audit-repository-missing',
+            actor: { nickname: 'synthetic-staff' },
+            action: 'REPOSITORY_PUBLISHED',
+            targetType: 'REPOSITORY',
+            targetId: 'repository-deleted-somehow',
+            metadata: LEGACY_REPOSITORY_PUBLISH_V1_METADATA,
+            occurredAt: new Date('2026-07-24T03:00:00.000Z'),
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(1),
+      },
+      repository: { findMany: repositoryFindMany },
+    } as unknown as PrismaService;
+    const repository = new AuditLogRepository(prisma);
+
+    const result = await repository.list({ page: 1, limit: 20 });
+
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        target: 'REPOSITORY / repository-deleted-somehow',
+      }),
+    ]);
+  });
+
+  it('APPLICATION_APPROVED가 schemaVersion 2(프로그램·신청자 스냅샷) metadata면 join 없이 합성 라벨을 target으로 쓴다', async () => {
+    const metadata = {
+      schemaVersion: 2,
+      programName: '스냅샷 프로그램',
+      applicantGithubLogin: 'snapshot-applicant',
+      before: { status: 'SUBMITTED' },
+      after: { status: 'APPROVED' },
+    } as const;
+    const applicationFindMany = jest.fn();
+    const prisma = {
+      auditLog: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'audit-application-v2',
+            actor: { nickname: 'synthetic-staff' },
+            action: 'APPLICATION_APPROVED',
+            targetType: 'APPLICATION',
+            targetId: 'application-1',
+            metadata,
+            occurredAt: new Date('2026-07-24T03:00:00.000Z'),
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(1),
+      },
+      application: { findMany: applicationFindMany },
+    } as unknown as PrismaService;
+    const repository = new AuditLogRepository(prisma);
+
+    const result = await repository.list({ page: 1, limit: 20 });
+
+    expect(applicationFindMany).not.toHaveBeenCalled();
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        target: '스냅샷 프로그램 · @snapshot-applicant',
+      }),
+    ]);
+  });
+
+  it('APPLICATION_APPROVED가 스냅샷 없는(v1) metadata면 targetId를 join해 합성 라벨을 target으로 쓴다', async () => {
+    const applicationFindMany = jest.fn().mockResolvedValue([
+      {
+        id: 'application-legacy',
+        program: { name: '현재 프로그램 이름' },
+        applicant: { nickname: 'current-applicant-login' },
+      },
+    ]);
+    const prisma = {
+      auditLog: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'audit-application-v1',
+            actor: { nickname: 'synthetic-staff' },
+            action: 'APPLICATION_APPROVED',
+            targetType: 'APPLICATION',
+            targetId: 'application-legacy',
+            metadata: LEGACY_APPLICATION_DECISION_V1_METADATA,
+            occurredAt: new Date('2026-07-24T03:00:00.000Z'),
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(1),
+      },
+      application: { findMany: applicationFindMany },
+    } as unknown as PrismaService;
+    const repository = new AuditLogRepository(prisma);
+
+    const result = await repository.list({ page: 1, limit: 20 });
+
+    expect(applicationFindMany).toHaveBeenCalledWith({
+      where: { id: { in: ['application-legacy'] } },
+      select: {
+        id: true,
+        program: { select: { name: true } },
+        applicant: { select: { nickname: true } },
+      },
+    });
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        target: '현재 프로그램 이름 · @current-applicant-login',
+      }),
+    ]);
+  });
+
+  it('join으로도 신청을 찾지 못하면 cuid 폴백을 유지한다(APPLICATION)', async () => {
+    const applicationFindMany = jest.fn().mockResolvedValue([]);
+    const prisma = {
+      auditLog: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'audit-application-missing',
+            actor: { nickname: 'synthetic-staff' },
+            action: 'APPLICATION_APPROVED',
+            targetType: 'APPLICATION',
+            targetId: 'application-deleted-somehow',
+            metadata: LEGACY_APPLICATION_DECISION_V1_METADATA,
+            occurredAt: new Date('2026-07-24T03:00:00.000Z'),
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(1),
+      },
+      application: { findMany: applicationFindMany },
+    } as unknown as PrismaService;
+    const repository = new AuditLogRepository(prisma);
+
+    const result = await repository.list({ page: 1, limit: 20 });
+
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        target: 'APPLICATION / application-deleted-somehow',
+      }),
+    ]);
+  });
+
+  it('한 페이지에서 이름이 필요한 REPOSITORY/APPLICATION 행이 섞여 있어도 각각 findMany를 한 번만 호출한다(N+1 방지)', async () => {
+    const repositoryFindMany = jest.fn().mockResolvedValue([
+      {
+        id: 'repository-a',
+        name: 'repo-a',
+        url: 'https://github.com/org/repo-a',
+      },
+    ]);
+    const applicationFindMany = jest.fn().mockResolvedValue([
+      {
+        id: 'application-a',
+        program: { name: '프로그램 A' },
+        applicant: { nickname: 'applicant-a' },
+      },
+    ]);
+    const prisma = {
+      auditLog: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'audit-repo-a',
+            actor: { nickname: 'synthetic-staff' },
+            action: 'REPOSITORY_PUBLISHED',
+            targetType: 'REPOSITORY',
+            targetId: 'repository-a',
+            metadata: LEGACY_REPOSITORY_PUBLISH_V1_METADATA,
+            occurredAt: new Date('2026-07-24T03:00:00.000Z'),
+          },
+          {
+            id: 'audit-app-a',
+            actor: { nickname: 'synthetic-staff' },
+            action: 'APPLICATION_APPROVED',
+            targetType: 'APPLICATION',
+            targetId: 'application-a',
+            metadata: LEGACY_APPLICATION_DECISION_V1_METADATA,
+            occurredAt: new Date('2026-07-24T03:01:00.000Z'),
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(2),
+      },
+      repository: { findMany: repositoryFindMany },
+      application: { findMany: applicationFindMany },
+    } as unknown as PrismaService;
+    const repository = new AuditLogRepository(prisma);
+
+    const result = await repository.list({ page: 1, limit: 20 });
+
+    expect(repositoryFindMany).toHaveBeenCalledTimes(1);
+    expect(applicationFindMany).toHaveBeenCalledTimes(1);
+    expect(result.items).toEqual([
+      expect.objectContaining({ target: 'org/repo-a' }),
+      expect.objectContaining({ target: '프로그램 A · @applicant-a' }),
     ]);
   });
 

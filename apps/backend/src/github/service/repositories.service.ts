@@ -9,6 +9,7 @@ import type { AuditLogService } from '../../audit-log/audit-log.service';
 import {
   REPOSITORY_PUBLISH_AUDIT_ACTIONS,
   createRepositoryPublishAuditMetadata,
+  deriveRepositoryFullName,
 } from '../../audit-log/audit-log-metadata';
 import type { GithubAppClient } from '../github-app.client';
 import {
@@ -144,6 +145,12 @@ export class RepositoriesService {
           targetId: target.id,
           metadata: createRepositoryPublishAuditMetadata({
             repositoryId: target.id,
+            // `target`은 이 메서드 시작에서 이미 name+url을 select해 로드해 뒀다
+            // (findPublishTarget) — 스냅샷을 위한 추가 쿼리는 없다.
+            repositoryFullName: deriveRepositoryFullName(
+              target.name,
+              target.url,
+            ),
             before: { visibility: RepositoryVisibility.PRIVATE },
             after: {
               visibility: RepositoryVisibility.PUBLIC,

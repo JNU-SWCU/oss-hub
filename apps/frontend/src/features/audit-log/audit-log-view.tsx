@@ -21,6 +21,7 @@ import {
   describeAuditLog,
   describeTargetType,
   isFallbackTarget,
+  TARGETLESS_FALLBACK_TARGET_TYPES,
 } from './describe';
 
 export interface AuditLogViewProps {
@@ -118,15 +119,29 @@ export function AuditLogView(props: AuditLogViewProps) {
                 {label}
               </StatusBadge>
               <span>{describeTargetType(record.targetType)}</span>
-              <span aria-hidden="true">·</span>
-              {/* 다른 targetType(ROLE_REQUEST 등)은 문장에 이미 핸들이 나오므로
-                  이 자리에는 그대로 targetId를 codeblock으로 남겨 원본 참조값을
-                  유지한다 — PROGRAM만 이름 스냅샷/join이 있어 cuid 대신 이름을
-                  보여줄 수 있다. */}
-              {record.targetType === 'PROGRAM' && !isFallbackTarget(record) ? (
-                <span className="text-xs">{record.target}</span>
-              ) : (
-                <span className="font-mono text-xs">{record.targetId}</span>
+              {/* isFallbackTarget(record)는 백엔드가 이 행의 target을 의미 있는
+                  라벨로 풀지 못했다는 뜻이다(스냅샷도 없고 join도 실패) — 그때만
+                  원본 참조값 보존 목적으로 targetId를 codeblock으로 보여준다.
+                  풀렸으면(ROLE_REQUEST/USER의 핸들, PROGRAM/REPOSITORY의 이름,
+                  APPLICATION의 합성 라벨 등 targetType 불문) 이미 문장에 나온 값을
+                  cuid 옆에 중복 노출하지 않고 그 라벨을 그대로 보여준다.
+                  TARGETLESS_FALLBACK_TARGET_TYPES(COLLECTION_SYNC 등)는 폴백이어도
+                  targetId 자체가 사람에게 의미 없는 실행 식별자이고 조회로 되찾을
+                  경로도 없어(describe.ts 주석 참고) 세그먼트 자체를(구분자 '·'
+                  포함) 생략한다 — targetType 배지와 발생 일시로 "무엇에 대한
+                  기록인지"는 여전히 알 수 있다. */}
+              {!(
+                isFallbackTarget(record) &&
+                TARGETLESS_FALLBACK_TARGET_TYPES.has(record.targetType)
+              ) && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  {!isFallbackTarget(record) ? (
+                    <span className="text-xs">{record.target}</span>
+                  ) : (
+                    <span className="font-mono text-xs">{record.targetId}</span>
+                  )}
+                </>
               )}
             </p>
           </div>

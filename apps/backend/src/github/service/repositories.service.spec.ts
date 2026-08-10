@@ -348,7 +348,11 @@ describe('RepositoriesService.publish', () => {
       targetType: 'REPOSITORY',
       targetId: target.id,
       metadata: {
+        schemaVersion: 2,
         repositoryId: target.id,
+        // findPublishTarget이 이미 불러온 target.name/url에서 파생한 owner/name
+        // 스냅샷이다 — 새 쿼리 없이 기록된다(deriveRepositoryFullName).
+        repositoryFullName: 'synthetic-org/synthetic-repository',
         before: { visibility: RepositoryVisibility.PRIVATE },
         after: {
           visibility: RepositoryVisibility.PUBLIC,

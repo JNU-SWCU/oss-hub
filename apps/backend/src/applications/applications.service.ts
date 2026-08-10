@@ -345,6 +345,10 @@ export class ApplicationsService {
             targetType: 'APPLICATION',
             targetId: applicationId,
             metadata: createApplicationDecisionAuditMetadata({
+              // application은 이 메서드 시작에서 이미 로드해 둔 값이라(findApplicationById)
+              // 스냅샷을 위한 추가 쿼리는 없다.
+              programName: application.programName,
+              applicantGithubLogin: application.applicantGithubLogin,
               before: { status: application.status },
               after: { status: plan.nextStatus },
             }),

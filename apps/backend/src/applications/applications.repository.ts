@@ -1142,6 +1142,9 @@ function toApplicationDecisionTarget(
     id: application.id,
     programId: application.programId,
     programName: application.program.name,
+    // applicant는 이미 위 include에서 select된 값이다(팀 신청 라벨 계산에도 쓰인다) —
+    // 추가 쿼리 없이 감사 로그 스냅샷에 그대로 흘려보낸다.
+    applicantGithubLogin: application.applicant.nickname,
     teamId: application.teamId,
     status: application.status,
     repositoryProvisioningEnabled:

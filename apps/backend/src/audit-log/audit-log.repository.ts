@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { type AccountStatus, type Prisma, type Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  deriveRepositoryFullName,
   parseAuditLogMetadata,
   type AuditLogMetadata,
   type AuditLogMetadataEvidence,
@@ -9,11 +10,24 @@ import {
 } from './audit-log-metadata';
 import type { AuditLogListQueryRequestDto } from './dto/audit-log-query.dto';
 
-// resolveAuditTargetLabel이 join으로 찾은 이름에 쓰는 targetType이다. Program은 하드
-// 삭제되지 않으므로(soft-delete 필드도 없다) targetId로 다시 조회하면 스냅샷이 없는
-// 과거 행도 이름을 되찾을 수 있다 — 이번 작업은 PROGRAM만 다룬다(다른 targetType은
-// 별건). 스냅샷 우선순위는 스냅샷 > join > cuid 폴백.
+// resolveAuditTargetLabel이 join으로 찾은 이름에 쓰는 targetType들이다. PROGRAM·
+// REPOSITORY·APPLICATION 모두 하드 삭제되지 않으므로(soft-delete 필드도 없다) targetId로
+// 다시 조회하면 스냅샷이 없는 과거 행도 이름을 되찾을 수 있다. 스냅샷 우선순위는
+// 스냅샷 > join > cuid 폴백.
+//
+// ROLE_REQUEST/USER(access-audit) 대상은 여기서 join하지 않는다 — 이 두 targetType은
+// 이미 2026-08-01(admin-access-audit.ts)부터 모든 새 행이 스냅샷을 남기므로 스냅샷 없는
+// 새 legacy 행이 더 늘지 않고, 과거 legacy 행은 ADR-007(명시적 fallback 계약)이 금지하는
+// "조회 시점에 현재 User 테이블을 다시 조회해 과거 사실을 재구성"에 정확히 해당한다.
+// PROGRAM/REPOSITORY/APPLICATION의 join은 성격이 다르다 — User 신원(로그인·개명)이 아니라
+// 엔티티 이름(프로그램/저장소/신청) 표시일 뿐이고, ADR-007이 실제로 금지하는 사례(과거
+// GitHub 로그인 재구성)와 달리 "지금 이름이 다르면 지금 이름을 보여준다"는 오차가
+// 감사 목적(누가 무엇을 했는가 추적)을 해치지 않는다. 이 판단은 PROGRAM(기존)에 이미
+// 적용된 전례를 따른 것이며, 다르게 보는 시각이 있다면 ADR-007을 개정해 REPOSITORY/
+// APPLICATION까지 범위를 명시하는 편이 이 파일에 예외를 흩뿌리는 것보다 낫다.
 const PROGRAM_TARGET_TYPE = 'PROGRAM';
+const REPOSITORY_TARGET_TYPE = 'REPOSITORY';
+const APPLICATION_TARGET_TYPE = 'APPLICATION';
 
 const auditLogSelect = {
   id: true,
@@ -47,9 +61,11 @@ type AuditLogRecordBase = {
   readonly targetType: string;
   readonly targetId: string;
   // 사람이 읽을 수 있는 대상 라벨. ACCESS_AUDIT schemaVersion 2 행은 대상의 이벤트
-  // 시점 GitHub 로그인, PROGRAM_LIFECYCLE schemaVersion 2 행은 이벤트 시점 프로그램
-  // 이름, 스냅샷이 없는 PROGRAM 대상 행은 join으로 찾은 현재 이름이다. 그 밖(다른
-  // targetType의 v1·legacy, 또는 join도 실패한 경우)은 `targetType / targetId` 폴백이다.
+  // 시점 GitHub 로그인, PROGRAM_LIFECYCLE/REPOSITORY_PUBLISH schemaVersion 2 행은
+  // 이벤트 시점 프로그램 이름/저장소 전체 이름, APPLICATION_DECISION schemaVersion 2
+  // 행은 "프로그램 이름 · @신청자 로그인" 합성 라벨이다. 스냅샷이 없는 PROGRAM/
+  // REPOSITORY/APPLICATION 대상 행은 join으로 찾은 현재 이름/라벨이다. 그 밖(ROLE_REQUEST/
+  // USER의 v1·legacy, 또는 join도 실패한 경우)은 `targetType / targetId` 폴백이다.
   readonly target: string;
   readonly occurredAt: Date;
 };
@@ -129,9 +145,19 @@ export class AuditLogRepository implements AuditLogRepositoryPort {
     const evidenceByLog = logs.map((log) =>
       parseAuditLogMetadata(log.metadata),
     );
-    const programNameById = await this.resolveProgramNames(logs, evidenceByLog);
+    const [programNameById, repositoryFullNameById, applicationLabelById] =
+      await Promise.all([
+        this.resolveProgramNames(logs, evidenceByLog),
+        this.resolveRepositoryNames(logs, evidenceByLog),
+        this.resolveApplicationLabels(logs, evidenceByLog),
+      ]);
+    const joinMaps: AuditTargetJoinMaps = {
+      programNameById,
+      repositoryFullNameById,
+      applicationLabelById,
+    };
     const items = logs.map((log, index) =>
-      toAuditLogRecord(log, evidenceByLog[index]!, programNameById),
+      toAuditLogRecord(log, evidenceByLog[index]!, joinMaps),
     );
     return { items, total };
   }
@@ -163,6 +189,73 @@ export class AuditLogRepository implements AuditLogRepositoryPort {
     return new Map(programs.map((program) => [program.id, program.name]));
   }
 
+  // resolveProgramNames와 같은 이유(N+1 방지)로 REPOSITORY 대상 행만 배치 조회한다.
+  // Repository도 하드 삭제되지 않으므로 join 실패는 "그 저장소 행 자체가 없다"는 뜻이다.
+  private async resolveRepositoryNames(
+    logs: readonly PrismaAuditLog[],
+    evidenceByLog: readonly AuditLogMetadataEvidence[],
+  ): Promise<ReadonlyMap<string, string>> {
+    const idsNeedingJoin = new Set<string>();
+    logs.forEach((log, index) => {
+      if (
+        log.targetType === REPOSITORY_TARGET_TYPE &&
+        !hasRepositoryFullNameSnapshot(evidenceByLog[index]!)
+      ) {
+        idsNeedingJoin.add(log.targetId);
+      }
+    });
+    if (idsNeedingJoin.size === 0) {
+      return new Map();
+    }
+    const repositories = await this.prisma.repository.findMany({
+      where: { id: { in: [...idsNeedingJoin] } },
+      select: { id: true, name: true, url: true },
+    });
+    return new Map(
+      repositories.map((repository) => [
+        repository.id,
+        deriveRepositoryFullName(repository.name, repository.url),
+      ]),
+    );
+  }
+
+  // resolveProgramNames와 같은 이유(N+1 방지)로 APPLICATION 대상 행만 배치 조회한다.
+  // 라벨은 프로그램 이름 + 신청자 로그인을 합성한 문자열이다(composeApplicationTargetLabel).
+  private async resolveApplicationLabels(
+    logs: readonly PrismaAuditLog[],
+    evidenceByLog: readonly AuditLogMetadataEvidence[],
+  ): Promise<ReadonlyMap<string, string>> {
+    const idsNeedingJoin = new Set<string>();
+    logs.forEach((log, index) => {
+      if (
+        log.targetType === APPLICATION_TARGET_TYPE &&
+        !hasApplicationDecisionSnapshot(evidenceByLog[index]!)
+      ) {
+        idsNeedingJoin.add(log.targetId);
+      }
+    });
+    if (idsNeedingJoin.size === 0) {
+      return new Map();
+    }
+    const applications = await this.prisma.application.findMany({
+      where: { id: { in: [...idsNeedingJoin] } },
+      select: {
+        id: true,
+        program: { select: { name: true } },
+        applicant: { select: { nickname: true } },
+      },
+    });
+    return new Map(
+      applications.map((application) => [
+        application.id,
+        composeApplicationTargetLabel(
+          application.program.name,
+          application.applicant.nickname,
+        ),
+      ]),
+    );
+  }
+
   async record(
     input: AuditLogRecordInput,
     writer: AuditLogTransactionWriter = this.prisma,
@@ -179,31 +272,68 @@ export class AuditLogRepository implements AuditLogRepositoryPort {
     });
     // 방금 쓴 행이므로 join 폴백이 필요 없다 — 새 쓰기 경로는 항상 최신 스키마
     // 버전(스냅샷 포함)으로 기록한다.
-    return toAuditLogRecord(
-      log,
-      parseAuditLogMetadata(log.metadata),
-      new Map(),
-    );
+    return toAuditLogRecord(log, parseAuditLogMetadata(log.metadata), {
+      programNameById: new Map(),
+      repositoryFullNameById: new Map(),
+      applicationLabelById: new Map(),
+    });
   }
+}
+
+// list()가 join으로 채운 세 targetType의 이름/라벨 맵을 한데 묶는다. 매개변수가
+// targetType 개수만큼 늘어나는 것을 막는다.
+interface AuditTargetJoinMaps {
+  readonly programNameById: ReadonlyMap<string, string>;
+  readonly repositoryFullNameById: ReadonlyMap<string, string>;
+  readonly applicationLabelById: ReadonlyMap<string, string>;
 }
 
 // schemaVersion 2 PROGRAM_LIFECYCLE metadata인지 판별한다. `'programName' in`으로
 // 좁히면 스키마 버전 숫자가 다른 metadata 종류(ACCESS_AUDIT V2도 2)와 우연히 겹쳐도
-// 안전하다 — programName 필드는 이 종류에만 존재한다.
+// 안전하다 — 다만 APPLICATION_DECISION v2도 programName 필드를 갖고 있으므로, 이 판별은
+// PROGRAM 대상 행에만 쓴다(resolveProgramNames가 targetType으로 이미 걸러 호출한다).
 function hasProgramNameSnapshot(evidence: AuditLogMetadataEvidence): boolean {
   return !evidence.legacy && 'programName' in evidence.metadata;
+}
+
+// schemaVersion 2 REPOSITORY_PUBLISH metadata인지 판별한다. repositoryFullName은 이
+// 종류에만 존재한다.
+function hasRepositoryFullNameSnapshot(
+  evidence: AuditLogMetadataEvidence,
+): boolean {
+  return !evidence.legacy && 'repositoryFullName' in evidence.metadata;
+}
+
+// schemaVersion 2 APPLICATION_DECISION metadata인지 판별한다. applicantGithubLogin은
+// 이 종류에만 존재한다(programName은 PROGRAM_LIFECYCLE v2와 겹치므로 판별에 쓰지 않는다).
+function hasApplicationDecisionSnapshot(
+  evidence: AuditLogMetadataEvidence,
+): boolean {
+  return !evidence.legacy && 'applicantGithubLogin' in evidence.metadata;
+}
+
+// APPLICATION 대상 라벨은 "프로그램 이름 · @신청자 로그인" 한 문자열로 합성한다 —
+// 프런트는 raw metadata에 접근하지 못하므로(parser.ts가 파싱 단계에서 버린다) 백엔드가
+// 미리 합쳐서 내려줘야 화면이 두 조각을 따로 조립하지 않아도 된다. 스냅샷 경로(v2
+// metadata)와 join 경로(resolveApplicationLabels) 양쪽에서 같은 함수를 써 형식이
+// 갈라지지 않게 한다.
+function composeApplicationTargetLabel(
+  programName: string,
+  applicantGithubLogin: string,
+): string {
+  return `${programName} · @${applicantGithubLogin}`;
 }
 
 function toAuditLogRecord(
   log: PrismaAuditLog,
   evidence: AuditLogMetadataEvidence,
-  programNameById: ReadonlyMap<string, string>,
+  joinMaps: AuditTargetJoinMaps,
 ): AuditLogRecord {
   const target = resolveAuditTargetLabel(
     log.targetType,
     log.targetId,
     evidence,
-    programNameById,
+    joinMaps,
   );
   if (evidence.legacy) {
     return {
@@ -234,26 +364,52 @@ function toAuditLogRecord(
   };
 }
 
-// 라벨 우선순위: 이벤트 시점 스냅샷 > (PROGRAM만) join으로 찾은 현재 이름 > cuid 폴백.
-// `'target' in`/`'programName' in`으로 판별한다 — schemaVersion 숫자는 metadata
-// 종류마다 재사용되므로(ACCESS_AUDIT V2도 2, PROGRAM_LIFECYCLE V2도 2) 숫자만으로는
-// 종류를 구분할 수 없다.
+// 라벨 우선순위: 이벤트 시점 스냅샷 > (PROGRAM/REPOSITORY/APPLICATION만) join으로 찾은
+// 현재 이름 > cuid 폴백. `'target' in`/`'programName' in`/`'repositoryFullName' in`/
+// `'applicantGithubLogin' in`으로 판별한다 — schemaVersion 숫자는 metadata 종류마다
+// 재사용되므로(ACCESS_AUDIT V2도 2, PROGRAM_LIFECYCLE V2도 2, APPLICATION_DECISION V2도
+// 2) 숫자만으로는 종류를 구분할 수 없다.
+//
+// APPLICATION_DECISION v2는 programName 필드도 가지고 있어(신청이 속한 프로그램 이름)
+// 'programName' in 검사가 PROGRAM_LIFECYCLE v2와 겹친다 — applicantGithubLogin은
+// APPLICATION_DECISION에만 있는 필드라 반드시 'programName' 검사보다 먼저 확인한다.
 function resolveAuditTargetLabel(
   targetType: string,
   targetId: string,
   evidence: AuditLogMetadataEvidence,
-  programNameById: ReadonlyMap<string, string>,
+  joinMaps: AuditTargetJoinMaps,
 ): string {
   if (!evidence.legacy && 'target' in evidence.metadata) {
     return evidence.metadata.target.githubLogin;
   }
+  if (!evidence.legacy && 'applicantGithubLogin' in evidence.metadata) {
+    return composeApplicationTargetLabel(
+      evidence.metadata.programName,
+      evidence.metadata.applicantGithubLogin,
+    );
+  }
   if (!evidence.legacy && 'programName' in evidence.metadata) {
     return evidence.metadata.programName;
   }
+  if (!evidence.legacy && 'repositoryFullName' in evidence.metadata) {
+    return evidence.metadata.repositoryFullName;
+  }
   if (targetType === PROGRAM_TARGET_TYPE) {
-    const joinedName = programNameById.get(targetId);
+    const joinedName = joinMaps.programNameById.get(targetId);
     if (joinedName) {
       return joinedName;
+    }
+  }
+  if (targetType === REPOSITORY_TARGET_TYPE) {
+    const joinedName = joinMaps.repositoryFullNameById.get(targetId);
+    if (joinedName) {
+      return joinedName;
+    }
+  }
+  if (targetType === APPLICATION_TARGET_TYPE) {
+    const joinedLabel = joinMaps.applicationLabelById.get(targetId);
+    if (joinedLabel) {
+      return joinedLabel;
     }
   }
   return `${targetType} / ${targetId}`;
