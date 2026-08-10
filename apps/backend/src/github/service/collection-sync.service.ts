@@ -14,6 +14,7 @@ import type { CollectionIncrementalRepository } from '../repository/collection-i
 import type {
   CollectionRepositoryRow,
   CollectionStreamType,
+  RecordSweepHistoryInput,
   RepositorySource,
   RepositoryTeamMemberAccount,
 } from '../collection-incremental.types';
@@ -100,6 +101,7 @@ type SyncRepository = Pick<
   | 'listRepositoryTeamMembers'
   | 'getSyncCursor'
   | 'upsertSyncCursor'
+  | 'recordSweepHistory'
   | 'acquireSyncLease'
   | 'heartbeatSyncLease'
   | 'releaseSyncLease'
@@ -348,15 +350,18 @@ export class CollectionSyncService {
         ? cursor.lastGithubRepositoryId
         : null;
 
+    let cycleStartedAt = cursor?.cycleStartedAt ?? null;
     if (startAfter === null) {
       // Fresh cycle (no cursor yet, or the previous cycle already
       // wrapped around) — stamp the start once, up front.
+      cycleStartedAt = this.now();
+      const freshCycleStartedAt = cycleStartedAt;
       await this.incrementalRepository.runInTransaction(async (repo) => {
         await repo.assertSyncLeaseValid(lease, this.now());
         await repo.upsertSyncCursor({
           appId: key.appId,
           scope: key.scope,
-          cycleStartedAt: this.now(),
+          cycleStartedAt: freshCycleStartedAt,
           cycleCompletedAt: null,
         });
       });
@@ -390,6 +395,9 @@ export class CollectionSyncService {
 
     let processedRepositoryCount = 0;
     let insertedFactCount = 0;
+    let insertedCommitCount = 0;
+    let insertedPullRequestCount = 0;
+    let insertedReleaseCount = 0;
     let stoppedForBudget = false;
     let lastError: string | null = null;
     let failedRepositoryCount = 0;
@@ -406,12 +414,17 @@ export class CollectionSyncService {
       }
       try {
         attemptedRepositoryCount += 1;
-        insertedFactCount += await this.syncRepository(
+        const counts = await this.syncRepository(
           runtime,
           lease,
           repository,
           deadline,
         );
+        insertedFactCount +=
+          counts.commitCount + counts.pullRequestCount + counts.releaseCount;
+        insertedCommitCount += counts.commitCount;
+        insertedPullRequestCount += counts.pullRequestCount;
+        insertedReleaseCount += counts.releaseCount;
         // 성공하면 실패 이력을 지우고 다음 정기 차례로 되돌린다.
         await this.incrementalRepository.recordRepositorySuccess(
           repository.githubRepositoryId,
@@ -516,6 +529,21 @@ export class CollectionSyncService {
 
     await this.incrementalRepository.releaseSyncLease(lease, this.now());
 
+    await this.recordSweepHistoryBestEffort({
+      appId: key.appId,
+      scope: key.scope,
+      sweepFinishedAt: this.now(),
+      cycleStartedAt,
+      insertedCommitCount,
+      insertedPullRequestCount,
+      insertedReleaseCount,
+      attemptedRepositoryCount,
+      processedRepositoryCount,
+      failedRepositoryCount,
+      cycleCompleted,
+      stoppedForBudget,
+    });
+
     return {
       runId,
       status: 'COMPLETED',
@@ -525,6 +553,24 @@ export class CollectionSyncService {
       stoppedForBudget,
       insertedFactCount,
     };
+  }
+
+  /**
+   * 시스템 상태 관측성 2단계 — sweep-history 기록은 bookkeeping이라 실패해도 sweep
+   * 자체(원래 결과)를 막지 않는다. `writeStreamErrorState`와 같은 best-effort 원칙이다.
+   */
+  private async recordSweepHistoryBestEffort(
+    input: RecordSweepHistoryInput,
+  ): Promise<void> {
+    try {
+      await this.incrementalRepository.recordSweepHistory(input);
+    } catch (error) {
+      this.logger.warn({
+        event: 'collection.sync.sweep_history_write_failed',
+        scope: input.scope,
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+    }
   }
 
   /**
@@ -710,13 +756,21 @@ export class CollectionSyncService {
     }
   }
 
-  /** 저장소 하나가 이번 run에서 새로 적재한 fact 수를 반환한다(#511 성공 로그 집계용). */
+  /**
+   * 저장소 하나가 이번 run에서 새로 적재한 fact 수를 stream별로 반환한다(#511 성공 로그
+   * 집계, 시스템 상태 관측성 2단계의 sweep-history per-stream count 둘 다 이 반환값을
+   * 쓴다) — 합산 총계가 필요한 호출자는 세 값을 더한다.
+   */
   private async syncRepository(
     runtime: CollectionSyncRuntime,
     lease: SyncLeaseToken,
     repository: CollectionRepositoryRow,
     deadline: number,
-  ): Promise<number> {
+  ): Promise<{
+    commitCount: number;
+    pullRequestCount: number;
+    releaseCount: number;
+  }> {
     const [owner, name] = splitNameWithOwner(repository.nameWithOwner);
     // 팀원 목록은 저장소당 한 번만 읽어 세 stream이 공유한다. 커밋은 이 목록으로 **취득
     // 범위**를 좁히고(author-scoped GraphQL), PR·릴리스는 author 인자가 없어 전량 받은 뒤
@@ -790,7 +844,7 @@ export class CollectionSyncService {
           deadline,
         ),
     );
-    return commitCount + pullRequestCount + releaseCount;
+    return { commitCount, pullRequestCount, releaseCount };
   }
 
   /**

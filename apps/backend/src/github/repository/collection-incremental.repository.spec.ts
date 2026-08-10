@@ -43,6 +43,7 @@ interface MockDb {
     findMany: jest.Mock;
   };
   collectionSyncLease: { findMany: jest.Mock };
+  collectionSweepHistory: { create: jest.Mock };
   $transaction: jest.Mock;
   $queryRawUnsafe: jest.Mock;
   $executeRawUnsafe: jest.Mock;
@@ -98,6 +99,7 @@ const createDb = (): MockDb => {
       findMany: jest.fn().mockResolvedValue([]),
     },
     collectionSyncLease: { findMany: jest.fn().mockResolvedValue([]) },
+    collectionSweepHistory: { create: jest.fn().mockResolvedValue({}) },
     $transaction: jest.fn(async (fn: (tx: MockDb) => Promise<unknown>) =>
       fn(db),
     ),
@@ -652,6 +654,42 @@ describe('CollectionIncrementalRepository — todo 10 sync cursor/inventory', ()
       where: { source: 'EXTERNAL_PUBLIC' },
     });
     expect(result).toEqual([{ id: 'ext-1' }]);
+  });
+
+  it('recordSweepHistory는 sweep 요약을 CollectionSweepHistory 행으로 그대로 기록한다', async () => {
+    const db = createDb();
+
+    await repositoryFor(db).recordSweepHistory({
+      appId: 1n,
+      scope: 'org:jnu-swcu',
+      sweepFinishedAt: new Date('2026-08-01T12:00:00.000Z'),
+      cycleStartedAt: new Date('2026-08-01T11:00:00.000Z'),
+      insertedCommitCount: 3,
+      insertedPullRequestCount: 1,
+      insertedReleaseCount: 0,
+      attemptedRepositoryCount: 2,
+      processedRepositoryCount: 2,
+      failedRepositoryCount: 0,
+      cycleCompleted: true,
+      stoppedForBudget: false,
+    });
+
+    expect(db.collectionSweepHistory.create).toHaveBeenCalledWith({
+      data: {
+        appId: 1n,
+        scope: 'org:jnu-swcu',
+        sweepFinishedAt: new Date('2026-08-01T12:00:00.000Z'),
+        cycleStartedAt: new Date('2026-08-01T11:00:00.000Z'),
+        insertedCommitCount: 3,
+        insertedPullRequestCount: 1,
+        insertedReleaseCount: 0,
+        attemptedRepositoryCount: 2,
+        processedRepositoryCount: 2,
+        failedRepositoryCount: 0,
+        cycleCompleted: true,
+        stoppedForBudget: false,
+      },
+    });
   });
 });
 

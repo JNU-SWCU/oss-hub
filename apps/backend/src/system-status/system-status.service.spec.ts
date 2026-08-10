@@ -3,6 +3,7 @@ import { AccountStatus, Role } from '@prisma/client';
 import type {
   CollectionIncrementalStatusSnapshotDto,
   CollectionRepositoryStreamsDto,
+  CollectionSweepActivityDto,
 } from '../github/collection-read.port';
 import { SystemStatusRepository } from './system-status.repository';
 import { SystemStatusService } from './system-status.service';
@@ -36,6 +37,7 @@ describe('SystemStatusService', () => {
   const getIncrementalStatusSnapshot = jest.fn();
   const getIncrementalStatusStreams = jest.fn();
   const getNextScheduledCycleAt = jest.fn();
+  const getRecentSweepActivity = jest.fn();
   const countFinalProvisionFailures = jest.fn();
   const service = new SystemStatusService(
     {
@@ -46,6 +48,7 @@ describe('SystemStatusService', () => {
       getIncrementalStatusSnapshot,
       getIncrementalStatusStreams,
       getNextScheduledCycleAt,
+      getRecentSweepActivity,
     } as unknown as ConstructorParameters<typeof SystemStatusService>[1],
     () => NOW,
   );
@@ -60,6 +63,7 @@ describe('SystemStatusService', () => {
     getNextScheduledCycleAt
       .mockReset()
       .mockResolvedValue(new Date('2026-07-25T20:30:00.000Z'));
+    getRecentSweepActivity.mockReset().mockResolvedValue([]);
     countFinalProvisionFailures.mockReset().mockResolvedValue(2);
   });
 
@@ -85,11 +89,13 @@ describe('SystemStatusService', () => {
         finalFailureCount: 2,
       },
       collectionStreams: [],
+      collectionActivity: [],
     });
     expect(findActor).toHaveBeenCalledWith(ACTOR_ID);
     expect(getIncrementalStatusSnapshot).toHaveBeenCalledTimes(1);
     expect(getIncrementalStatusStreams).toHaveBeenCalledTimes(1);
     expect(getNextScheduledCycleAt).toHaveBeenCalledWith(NOW);
+    expect(getRecentSweepActivity).toHaveBeenCalledWith(20);
     expect(countFinalProvisionFailures).toHaveBeenCalledTimes(1);
   });
 
@@ -108,6 +114,7 @@ describe('SystemStatusService', () => {
     expect(getIncrementalStatusSnapshot).not.toHaveBeenCalled();
     expect(getIncrementalStatusStreams).not.toHaveBeenCalled();
     expect(getNextScheduledCycleAt).not.toHaveBeenCalled();
+    expect(getRecentSweepActivity).not.toHaveBeenCalled();
     expect(countFinalProvisionFailures).not.toHaveBeenCalled();
   });
 
@@ -255,6 +262,69 @@ describe('SystemStatusService', () => {
             lastErrorAt: null,
           },
         ],
+      },
+    ]);
+  });
+
+  it('최근 sweep 활동 이력을 Date -> ISO 변환해 collectionActivity로 옮긴다', async () => {
+    const activity: readonly CollectionSweepActivityDto[] = [
+      {
+        sweepFinishedAt: new Date('2026-07-25T11:00:00.000Z'),
+        cycleStartedAt: new Date('2026-07-25T10:55:00.000Z'),
+        scope: 'org:JNU-SWCU',
+        insertedCommitCount: 3,
+        insertedPullRequestCount: 1,
+        insertedReleaseCount: 0,
+        attemptedRepositoryCount: 2,
+        processedRepositoryCount: 2,
+        failedRepositoryCount: 0,
+        cycleCompleted: true,
+        stoppedForBudget: false,
+      },
+      {
+        sweepFinishedAt: new Date('2026-07-25T10:00:00.000Z'),
+        cycleStartedAt: null,
+        scope: 'external',
+        insertedCommitCount: 0,
+        insertedPullRequestCount: 0,
+        insertedReleaseCount: 0,
+        attemptedRepositoryCount: 1,
+        processedRepositoryCount: 0,
+        failedRepositoryCount: 1,
+        cycleCompleted: false,
+        stoppedForBudget: true,
+      },
+    ];
+    getRecentSweepActivity.mockResolvedValue(activity);
+
+    const result = await service.getStatus(ACTOR_ID);
+
+    expect(result.collectionActivity).toEqual([
+      {
+        sweepFinishedAt: '2026-07-25T11:00:00.000Z',
+        cycleStartedAt: '2026-07-25T10:55:00.000Z',
+        scope: 'org:JNU-SWCU',
+        insertedCommitCount: 3,
+        insertedPullRequestCount: 1,
+        insertedReleaseCount: 0,
+        attemptedRepositoryCount: 2,
+        processedRepositoryCount: 2,
+        failedRepositoryCount: 0,
+        cycleCompleted: true,
+        stoppedForBudget: false,
+      },
+      {
+        sweepFinishedAt: '2026-07-25T10:00:00.000Z',
+        cycleStartedAt: null,
+        scope: 'external',
+        insertedCommitCount: 0,
+        insertedPullRequestCount: 0,
+        insertedReleaseCount: 0,
+        attemptedRepositoryCount: 1,
+        processedRepositoryCount: 0,
+        failedRepositoryCount: 1,
+        cycleCompleted: false,
+        stoppedForBudget: true,
       },
     ]);
   });
