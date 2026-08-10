@@ -225,6 +225,24 @@ export type CollectionRepositoryStreamsDto = {
   readonly streams: readonly CollectionRepositoryStreamDetailDto[];
 };
 
+/**
+ * 시스템 상태 관측성 2단계 — sweep 1회 종료 시점의 활동 이력(`CollectionSweepHistory`)
+ * 한 행의 읽기 표현. 집계 전용이다 — repository 이름을 포함하지 않는다.
+ */
+export type CollectionSweepActivityDto = {
+  readonly sweepFinishedAt: Date;
+  readonly cycleStartedAt: Date | null;
+  readonly scope: string;
+  readonly insertedCommitCount: number;
+  readonly insertedPullRequestCount: number;
+  readonly insertedReleaseCount: number;
+  readonly attemptedRepositoryCount: number;
+  readonly processedRepositoryCount: number;
+  readonly failedRepositoryCount: number;
+  readonly cycleCompleted: boolean;
+  readonly stoppedForBudget: boolean;
+};
+
 export interface CollectionReadPort {
   findRepositoryActivity(
     query: CollectionRepositoryActivityQueryDto,
@@ -296,6 +314,14 @@ export interface CollectionReadPort {
    * 응답을 막아서는 안 된다.
    */
   getNextScheduledCycleAt(from: Date): Promise<Date | null>;
+  /**
+   * 시스템 상태 관측성 2단계 — 최근 sweep 활동 이력을 `sweepFinishedAt` 내림차순으로
+   * 최대 `limit`건 반환한다 (`CollectionSweepHistory`). repository 이름은 담지 않는다
+   * (집계 전용).
+   */
+  getRecentSweepActivity(
+    limit: number,
+  ): Promise<readonly CollectionSweepActivityDto[]>;
 }
 
 /**

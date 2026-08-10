@@ -70,6 +70,7 @@ export function setupRankingService(): {
       }),
     getIncrementalStatusStreams: () => Promise.resolve([]),
     getNextScheduledCycleAt: () => Promise.resolve(null),
+    getRecentSweepActivity: () => Promise.resolve([]),
   } satisfies CollectionReadPort;
 
   const findByGithubIds = jest.fn<

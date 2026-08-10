@@ -195,6 +195,27 @@ export interface SyncCursorRow {
 }
 
 /**
+ * 시스템 상태 관측성 2단계 — sweep 1회 종료(정상 사이클 완료 또는 예산 중단) 시점의 결과를
+ * append-only로 남기는 쓰기 입력. `CollectionSweepHistory`(schema.prisma) 한 행에 그대로
+ * 대응한다 — grain은 사이클이 아니라 sweep이다(예산 중단은 한 사이클을 여러 sweep으로
+ * 나눈다). repository 이름은 담지 않는다(집계 전용).
+ */
+export interface RecordSweepHistoryInput {
+  appId: bigint;
+  scope: string;
+  sweepFinishedAt: Date;
+  cycleStartedAt: Date | null;
+  insertedCommitCount: number;
+  insertedPullRequestCount: number;
+  insertedReleaseCount: number;
+  attemptedRepositoryCount: number;
+  processedRepositoryCount: number;
+  failedRepositoryCount: number;
+  cycleCompleted: boolean;
+  stoppedForBudget: boolean;
+}
+
+/**
  * #511 — sync 실행 이력의 **프로젝션**. 이번 웨이브는 스키마 무접촉이 전제이므로 별도 run
  * 테이블을 만들지 않고 이미 있는 세 소스(`CollectionSyncLease`·`CollectionSyncCursor`·
  * `CollectionRepositoryStream`)를 합성한다.

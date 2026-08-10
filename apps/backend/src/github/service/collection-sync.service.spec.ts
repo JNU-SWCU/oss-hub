@@ -74,6 +74,11 @@ interface Store {
   owningRepositories: Map<string, Row>;
   /** `TeamMember` + join된 `User` — key는 임의의 행 id. */
   teamMembers: Map<string, Row>;
+  /**
+   * 시스템 상태 관측성 2단계 — `CollectionSweepHistory` append-only 이력. key는
+   * insert 순서를 보존하는 임의의 행 id다.
+   */
+  sweepHistory: Map<string, Row>;
 }
 
 const emptyStore = (): Store => ({
@@ -88,6 +93,7 @@ const emptyStore = (): Store => ({
   leases: new Map(),
   owningRepositories: new Map(),
   teamMembers: new Map(),
+  sweepHistory: new Map(),
 });
 
 const cloneStore = (store: Store): Store => ({
@@ -102,6 +108,7 @@ const cloneStore = (store: Store): Store => ({
   leases: new Map(store.leases),
   owningRepositories: new Map(store.owningRepositories),
   teamMembers: new Map(store.teamMembers),
+  sweepHistory: new Map(store.sweepHistory),
 });
 
 const applyUpdate = (existing: Row, update: Row): Row => {
@@ -121,6 +128,8 @@ interface FailureControl {
   failCommitShas: Set<string>;
   failPullRequestIds: Set<bigint>;
   failExternalFactCleanup: boolean;
+  /** 시스템 상태 관측성 2단계 — sweep-history 쓰기를 강제로 실패시켜 best-effort 경로를 검증한다. */
+  failSweepHistoryWrite: boolean;
 }
 
 const repoKey = (repoId: bigint): string => String(repoId);
@@ -437,6 +446,22 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
         return box.store.cursors.get(cursorKey(k.appId, k.scope)) ?? null;
       },
     },
+    // 시스템 상태 관측성 2단계 — `CollectionSweepHistory` append-only insert.
+    // `failSweepHistoryWrite`는 `recordSweepHistoryBestEffort`가 이 실패를
+    // sweep 결과 자체로 전파하지 않는지 검증하는 전용 스위치다.
+    collectionSweepHistory: {
+      create: ({ data }: { data: Row }): Row => {
+        if (control.failSweepHistoryWrite) {
+          throw new Error('synthetic sweep history write failure');
+        }
+        const row = {
+          id: `sweep-history-${box.store.sweepHistory.size + 1}`,
+          ...data,
+        };
+        box.store.sweepHistory.set(row.id, row);
+        return row;
+      },
+    },
     // The lease table only exists via raw SQL in production; this fake
     // dispatches on a stable substring of each literal statement rather than
     // actually parsing SQL — sufficient since both call sites live in this
@@ -549,6 +574,7 @@ function createFakeDb(): {
     failCommitShas: new Set(),
     failPullRequestIds: new Set(),
     failExternalFactCleanup: false,
+    failSweepHistoryWrite: false,
   };
   const box = { store: emptyStore() };
   const db = makeFacade(box, control) as PrismaService;
@@ -2537,4 +2563,159 @@ describe('CollectionSyncService — 실패 저장소 격리 (DD1)', () => {
   // 실 Postgres 통합 스펙이 검증한다 — 이 fake 는 DB 기본값 now() 를
   // 흉내내지 못해 nextRunAt 이 비어 있는 상태를 만들 수 없다.
   // src/github/contribution-recompute.integration.spec.ts 참조.
+});
+
+/**
+ * 시스템 상태 관측성 2단계 — sweep 1회 종료 시점(정상 완료·예산 중단 둘 다)의 활동
+ * 이력을 `CollectionSweepHistory`에 append-only로 남긴다. `syncRepository`의 반환값이
+ * stream별로 나뉘었다는 것과, 그 기록이 sweep 자체 결과와 독립적인 best-effort라는 것을
+ * 둘 다 검증한다.
+ */
+describe('CollectionSyncService — 시스템 상태 관측성 2단계: sweep-history 기록', () => {
+  const historyPullRequest = (
+    overrides: Partial<CollectionPullRequest> = {},
+  ): CollectionPullRequest => ({
+    id: '400',
+    number: 4,
+    state: 'open',
+    draft: false,
+    mergedAt: null,
+    createdAt: '2026-08-01T00:00:00.000Z',
+    updatedAt: '2026-08-01T00:00:00.000Z',
+    authorLogin: 'alice',
+    authorGithubId: '11',
+    htmlUrl: 'https://example.invalid/pull/4',
+    ...overrides,
+  });
+
+  const historyRelease = (
+    overrides: Partial<CollectionRelease> = {},
+  ): CollectionRelease => ({
+    id: '600',
+    tagName: 'v1.0.0',
+    name: 'v1.0.0',
+    publishedAt: '2026-08-01T00:00:00.000Z',
+    authorLogin: 'alice',
+    authorGithubId: '11',
+    htmlUrl: 'https://example.invalid/releases/v1.0.0',
+    ...overrides,
+  });
+
+  // 팀원 1명이 커밋 1건·PR 1건·릴리스 1건을 만든 저장소 하나 — 세 stream이 서로 다른
+  // 건수를 기록하면(전부 1이라 우연히 합계가 맞아떨어지는 착시를 피하기는 어렵지만) 최소한
+  // "합산이 아니라 stream별로 갈린 값"이라는 계약은 검증할 수 있다.
+  function seedRepositoryWithOneOfEachStream(): {
+    db: PrismaService;
+    box: { store: Store };
+    control: FailureControl;
+    client: ClientMock;
+  } {
+    const { db, box, control } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: 11n, nickname: 'alice' },
+    ]);
+    const client = createClient([repository]);
+    client.listDefaultBranchCommitsByAuthor.mockResolvedValue([
+      commit({ sha: 'sha-1', authorLogin: 'alice', authorGithubId: '11' }),
+    ]);
+    client.listNewPullRequests.mockResolvedValue({
+      pullRequests: [historyPullRequest()],
+      newFrontier: { createdAt: '2026-08-01T00:00:00.000Z', id: '400' },
+      fingerprint: fingerprint('/repos/o/r/pulls'),
+    });
+    client.probeLatestRelease.mockResolvedValue({
+      changed: true,
+      frontier: { probe: '600:false:2026-08-01T00:00:00.000Z' },
+      fingerprint: fingerprint('/repos/o/r/releases'),
+      etag: 'etag-release-1',
+    });
+    client.listChangedPublishedReleases.mockResolvedValue({
+      releases: [historyRelease()],
+      fingerprint: fingerprint('/repos/o/r/releases'),
+    });
+    return { db, box, control, client };
+  }
+
+  it('사이클 완료 sweep 하나가 CollectionSweepHistory에 stream별 건수·부울 결과를 정확히 남긴다', async () => {
+    const { db, box, client } = seedRepositoryWithOneOfEachStream();
+    const now = new Date('2026-08-01T12:00:00.000Z');
+    const service = createService(db, client, { now: () => now });
+
+    const result = await service.run('owner-1');
+
+    // 기존 합산 필드는 그대로다 — per-stream 분리가 외부 계약을 바꾸지 않는다.
+    expect(result.insertedFactCount).toBe(3);
+    expect(result.cycleCompleted).toBe(true);
+    expect(result.stoppedForBudget).toBe(false);
+
+    const rows = [...box.store.sweepHistory.values()];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      appId: 1n,
+      scope: 'org:synthetic-org',
+      sweepFinishedAt: now,
+      cycleStartedAt: now,
+      insertedCommitCount: 1,
+      insertedPullRequestCount: 1,
+      insertedReleaseCount: 1,
+      attemptedRepositoryCount: 1,
+      processedRepositoryCount: 1,
+      failedRepositoryCount: 0,
+      cycleCompleted: true,
+      stoppedForBudget: false,
+    });
+  });
+
+  it('진행 중이던 사이클(커서가 이미 어느 저장소까지 진행함)에서는 그 cycleStartedAt을 그대로 이어 기록한다', async () => {
+    const { db, box, client } = seedRepositoryWithOneOfEachStream();
+    // 이 저장소(githubRepositoryId=100n)보다 작은 lastGithubRepositoryId를 남겨
+    // "이미 진행 중인 사이클"을 흉내 낸다 — `startAfter`가 null이 아니어야
+    // `syncSweep`이 이걸 "새 사이클 시작"이 아니라 "이어가기"로 본다.
+    const priorCycleStartedAt = new Date('2026-07-31T09:00:00.000Z');
+    box.store.cursors.set(cursorKey(1n, 'org:synthetic-org'), {
+      appId: 1n,
+      scope: 'org:synthetic-org',
+      lastGithubRepositoryId: 50n,
+      cycleStartedAt: priorCycleStartedAt,
+      cycleCompletedAt: null,
+    });
+    const now = new Date('2026-08-01T12:00:00.000Z');
+    const service = createService(db, client, { now: () => now });
+
+    await service.run('owner-1');
+
+    const rows = [...box.store.sweepHistory.values()];
+    expect(rows[0]).toMatchObject({
+      sweepFinishedAt: now,
+      cycleStartedAt: priorCycleStartedAt,
+    });
+  });
+
+  it('sweep-history 기록이 실패해도 sweep 자체의 결과(반환값·커서 전진)는 막지 않는다', async () => {
+    const { db, box, control, client } = seedRepositoryWithOneOfEachStream();
+    control.failSweepHistoryWrite = true;
+    const warned = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
+    const service = createService(db, client);
+
+    const result = await service.run('owner-1');
+
+    // sweep 자체는 정상 완료로 끝난다 — 기록 실패가 반환값에 새지 않는다.
+    expect(result.cycleCompleted).toBe(true);
+    expect(result.processedRepositoryCount).toBe(1);
+    expect(result.insertedFactCount).toBe(3);
+    // 실패했으니 행도 안 남는다.
+    expect(box.store.sweepHistory.size).toBe(0);
+    // 하지만 조용히 삼키지는 않는다 — 구조화 로그로 남긴다.
+    const observed = warned.mock.calls
+      .map(([payload]) => payload as Record<string, unknown>)
+      .find(
+        (payload) =>
+          payload?.event === 'collection.sync.sweep_history_write_failed',
+      );
+    expect(observed).toMatchObject({ scope: 'org:synthetic-org' });
+    warned.mockRestore();
+  });
 });

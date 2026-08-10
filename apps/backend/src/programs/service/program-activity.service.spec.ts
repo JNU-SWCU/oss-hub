@@ -62,6 +62,7 @@ function collectionReadPort(
       }),
     getIncrementalStatusStreams: () => Promise.resolve([]),
     getNextScheduledCycleAt: () => Promise.resolve(null),
+    getRecentSweepActivity: () => Promise.resolve([]),
   };
 }
 

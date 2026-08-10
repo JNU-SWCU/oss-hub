@@ -40,6 +40,21 @@ describe('SystemStatusController', () => {
           ],
         },
       ],
+      collectionActivity: [
+        {
+          sweepFinishedAt: '2026-07-25T11:00:00.000Z',
+          cycleStartedAt: '2026-07-25T10:55:00.000Z',
+          scope: 'org:JNU-SWCU',
+          insertedCommitCount: 3,
+          insertedPullRequestCount: 1,
+          insertedReleaseCount: 0,
+          attemptedRepositoryCount: 2,
+          processedRepositoryCount: 2,
+          failedRepositoryCount: 0,
+          cycleCompleted: true,
+          stoppedForBudget: false,
+        },
+      ],
     };
     const getStatus = jest.fn<
       ReturnType<SystemStatusService['getStatus']>,

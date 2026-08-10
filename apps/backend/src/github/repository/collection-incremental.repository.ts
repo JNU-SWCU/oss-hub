@@ -9,6 +9,7 @@ import type {
   PullRequestFactInput,
   RecordFactsResult,
   RecordRepositoryObservationInput,
+  RecordSweepHistoryInput,
   ReleaseFactInput,
   RepositorySource,
   RepositoryTeamMemberAccount,
@@ -834,6 +835,31 @@ export class CollectionIncrementalRepository {
   ): Promise<SyncCursorRow | null> {
     return this.db.collectionSyncCursor.findUnique({
       where: { appId_scope: { appId, scope } },
+    });
+  }
+
+  /**
+   * 시스템 상태 관측성 2단계 — sweep 1회 종료 시점의 결과를 append-only로 남긴다
+   * (`CollectionSweepHistory`). 호출자(`CollectionSyncService.syncSweep`)가 best-effort로
+   * 감싸므로 여기서는 단순 insert만 한다 — 실패해도 sweep 자체를 막지 않는 책임은
+   * 호출자에 있다.
+   */
+  async recordSweepHistory(input: RecordSweepHistoryInput): Promise<void> {
+    await this.db.collectionSweepHistory.create({
+      data: {
+        appId: input.appId,
+        scope: input.scope,
+        sweepFinishedAt: input.sweepFinishedAt,
+        cycleStartedAt: input.cycleStartedAt,
+        insertedCommitCount: input.insertedCommitCount,
+        insertedPullRequestCount: input.insertedPullRequestCount,
+        insertedReleaseCount: input.insertedReleaseCount,
+        attemptedRepositoryCount: input.attemptedRepositoryCount,
+        processedRepositoryCount: input.processedRepositoryCount,
+        failedRepositoryCount: input.failedRepositoryCount,
+        cycleCompleted: input.cycleCompleted,
+        stoppedForBudget: input.stoppedForBudget,
+      },
     });
   }
 
