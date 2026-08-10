@@ -9,17 +9,20 @@ import { formatRelativeTime } from '../format-relative-time';
 import type { CollectionActivityEntry } from '../types';
 
 /**
- * `scope`는 백엔드 원값이다 — 알려진 값만 한국어로 옮기고, 목록에 없는 값은
- * `collection-streams-table.tsx`의 에러코드 fallback과 같은 원칙으로 원문을
- * monospace로 보여준다.
+ * `scope`는 백엔드 원값이다(`collection-sync.service.ts`) — org sweep은
+ * `` `org:${organizationLogin}` ``, external sweep은 고정값 `"external"`이다.
+ * 조직 로그인마다 값이 달라지므로 정확히 일치시키는 map이 아니라 접두사·고정값
+ * 판별로 분류하고, 그 외 값은 `collection-streams-table.tsx`의 에러코드
+ * fallback과 같은 원칙으로 원문을 monospace로 보여준다.
  */
-const SCOPE_LABEL: Record<string, string> = {
-  ORG: '조직',
-  EXTERNAL: '외부',
-};
+function scopeLabel(scope: string): string | null {
+  if (scope === 'external') return '외부';
+  if (scope.startsWith('org:')) return '조직';
+  return null;
+}
 
 function ScopeBadge({ scope }: { readonly scope: string }) {
-  const label = SCOPE_LABEL[scope];
+  const label = scopeLabel(scope);
   return (
     <StatusBadge variant="closed">
       {label ?? <code className="font-mono text-xs">{scope}</code>}

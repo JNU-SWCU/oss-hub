@@ -54,7 +54,7 @@ describe('system status api', () => {
       {
         sweepFinishedAt: '2026-07-25T10:00:00.000Z',
         cycleStartedAt: '2026-07-25T09:55:00.000Z',
-        scope: 'ORG',
+        scope: 'org:jnu-swcu',
         insertedCommitCount: 12,
         insertedPullRequestCount: 3,
         insertedReleaseCount: 1,

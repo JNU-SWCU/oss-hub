@@ -190,7 +190,7 @@ const SYSTEM_STATUS_FIXTURE = {
     {
       sweepFinishedAt: '2026-07-31T00:00:00.000Z',
       cycleStartedAt: '2026-07-30T23:55:00.000Z',
-      scope: 'ORG',
+      scope: 'org:jnu-swcu',
       insertedCommitCount: 14,
       insertedPullRequestCount: 4,
       insertedReleaseCount: 0,
@@ -203,7 +203,7 @@ const SYSTEM_STATUS_FIXTURE = {
     {
       sweepFinishedAt: '2026-07-30T18:00:00.000Z',
       cycleStartedAt: '2026-07-30T17:40:00.000Z',
-      scope: 'ORG',
+      scope: 'org:jnu-swcu',
       insertedCommitCount: 22,
       insertedPullRequestCount: 6,
       insertedReleaseCount: 2,
@@ -216,7 +216,7 @@ const SYSTEM_STATUS_FIXTURE = {
     {
       sweepFinishedAt: '2026-07-30T12:00:00.000Z',
       cycleStartedAt: '2026-07-30T11:00:00.000Z',
-      scope: 'EXTERNAL',
+      scope: 'external',
       insertedCommitCount: 3,
       insertedPullRequestCount: 0,
       insertedReleaseCount: 0,
@@ -229,7 +229,7 @@ const SYSTEM_STATUS_FIXTURE = {
     {
       sweepFinishedAt: '2026-07-30T06:00:00.000Z',
       cycleStartedAt: '2026-07-30T05:45:00.000Z',
-      scope: 'ORG',
+      scope: 'org:jnu-swcu',
       insertedCommitCount: 0,
       insertedPullRequestCount: 0,
       insertedReleaseCount: 0,
