@@ -191,6 +191,15 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     ).toBeVisible();
     await attachStateScreenshot(staffPage, testInfo, 'downgraded-denied');
 
+    // seed-auth-staff-revocable은 deadline-digest.spec.ts가 STAFF로 재사용하는
+    // 공유 시드다. 강등한 채로 두면 그 스펙이 운영 대시보드를 못 찾고 깨진다
+    // (describe.serial이라 스펙 간 시드 초기화가 없다). adminPage는 여전히 이
+    // 사용자의 상세 화면에 있으니 같은 세그먼트 컨트롤로 원상 복구한다.
+    await changeRole(adminPage, '교직원');
+    await expect(
+      adminPage.getByText('교직원', { exact: true }).first(),
+    ).toBeVisible();
+
     // Given: 첫 테스트에서 승인되어 여전히 STAFF인 별도 사용자(seed-auth-
     // staff-pending)로, null 회수·REVOKED 이력은 API 로만 여전히 도달할 수
     // 있는 실제 기능임을 검증한다.
