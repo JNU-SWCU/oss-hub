@@ -47,10 +47,19 @@ export async function mutateAdminAccess(
 ): Promise<AdminAccessMutationResult> {
   try {
     return await dependencies.repository.withTransaction(async (store) => {
+      requireActiveAdmin(await store.findActorByGithubId(input.actorGithubId));
+      const activeAdminCount = await store.lockActiveAdmins();
+      // 위 읽기는 잠금 이전의 unlocked read라 TOCTOU 창이 있다: 이 시점과 lockActiveAdmins()
+      // 사이에 actor가 강등/비활성화되어 커밋되면 그 사실을 놓친 채 오래된 actor로 뮤테이션이
+      // 완주할 수 있다. lockActiveAdmins()가 ADMIN+ACTIVE 행을 FOR UPDATE로 잠근 "뒤"
+      // actor를 다시 읽어 재검증하면 두 경우 모두 안전하다: (a) 강등이 이미 커밋됐다면 이
+      // 재조회가 그 커밋을 그대로 보고 requireActiveAdmin이 던진다. (b) 아직 커밋 전이라면
+      // actor 행(여전히 ADMIN+ACTIVE)이 lockActiveAdmins()에 의해 FOR UPDATE로 잠겨 있으므로
+      // 강등 트랜잭션의 UPDATE는 이 트랜잭션이 끝날 때까지 블록되고, 이 뮤테이션이 강등보다
+      // 먼저 유효하게 직렬화된다.
       const actor = requireActiveAdmin(
         await store.findActorByGithubId(input.actorGithubId),
       );
-      const activeAdminCount = await store.lockActiveAdmins();
       const before = await store.findUserForUpdate(input.userId);
       if (!before) {
         throw roleError(RolesErrorCode.USER_NOT_FOUND);

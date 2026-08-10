@@ -14,7 +14,7 @@ import {
 import {
   applyActionFailureMessage,
   EMPTY_APPLY_FORM,
-  mapCreateApplicationError,
+  resolveApplySubmitFailure,
   remainingTeamMembers,
   validateApplyForm,
   type ProgramApplyAction,
@@ -135,11 +135,14 @@ export function ProgramApplyPage({
       setConfirmation(null);
     } catch (error: unknown) {
       setConfirmation(null);
-      setServerError(
-        error instanceof ApiError
-          ? mapCreateApplicationError(error.problem, action)
-          : applyActionFailureMessage(action),
-      );
+      if (!(error instanceof ApiError)) {
+        setServerError(applyActionFailureMessage(action));
+      } else {
+        // 어느 칸에 붙일지·배너로 띄울지 판정은 `resolveApplySubmitFailure` 가 한다.
+        const failure = resolveApplySubmitFailure(error.problem, action);
+        setErrors((current) => ({ ...current, ...failure.fieldErrors }));
+        setServerError(failure.serverError);
+      }
     } finally {
       setSubmitting(false);
     }
