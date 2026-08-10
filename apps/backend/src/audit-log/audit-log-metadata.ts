@@ -146,22 +146,50 @@ export function createRepositoryPublishAuditMetadata(
   return { schemaVersion: REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION, ...input };
 }
 
-export const PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION = 1 as const;
+export const PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION_V1 = 1 as const;
+export const PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION = 2 as const;
 
 export const PROGRAM_LIFECYCLE_AUDIT_ACTIONS = {
   PROGRAM_ARCHIVED: 'PROGRAM_ARCHIVED',
   PROGRAM_RESTORED: 'PROGRAM_RESTORED',
 } as const;
 
-export type ProgramLifecycleAuditMetadata = {
-  readonly schemaVersion: typeof PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION;
+type ProgramLifecycleAuditMetadataBaseV1 = {
+  readonly schemaVersion: typeof PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION_V1;
   readonly before: { readonly lifecycle: ProgramLifecycle };
   readonly after: { readonly lifecycle: ProgramLifecycle };
 };
 
+type ProgramLifecycleAuditMetadataBaseV2 = {
+  readonly schemaVersion: typeof PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION;
+  // 이벤트 시점 프로그램 이름 스냅샷(ACCESS_AUDIT target 보강분과 같은 규약) —
+  // 감사 로그 화면이 cuid 대신 이름을 보이려면 이 값이 필요하다. 조회 시점에
+  // Program을 다시 조회해 재계산하지 않는다(개명 이후에도 원본 로그를 보존).
+  readonly programName: string;
+  readonly before: { readonly lifecycle: ProgramLifecycle };
+  readonly after: { readonly lifecycle: ProgramLifecycle };
+};
+
+// schemaVersion 1: 이름 스냅샷이 없는 과거 행이다. 절대 다시 쓰지 않는다 —
+// append-only 원장이므로 이 버전은 읽기 호환 목적으로만 남는다.
+export type ProgramLifecycleAuditMetadataV1 =
+  ProgramLifecycleAuditMetadataBaseV1;
+// schemaVersion 2: 이름 스냅샷을 함께 기록한다.
+export type ProgramLifecycleAuditMetadataV2 =
+  ProgramLifecycleAuditMetadataBaseV2;
+
+export type ProgramLifecycleAuditMetadata =
+  ProgramLifecycleAuditMetadataV1 | ProgramLifecycleAuditMetadataV2;
+
+export type ProgramLifecycleAuditMetadataInput = Omit<
+  ProgramLifecycleAuditMetadataV2,
+  'schemaVersion'
+>;
+
+// 새 행은 항상 최신 스키마 버전으로 쓴다.
 export function createProgramLifecycleAuditMetadata(
-  input: Omit<ProgramLifecycleAuditMetadata, 'schemaVersion'>,
-): ProgramLifecycleAuditMetadata {
+  input: ProgramLifecycleAuditMetadataInput,
+): ProgramLifecycleAuditMetadataV2 {
   return { schemaVersion: PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION, ...input };
 }
 
@@ -293,10 +321,19 @@ export type CollectionTriggerAuditMetadataView = Omit<
   'runId'
 >;
 
+// v1(이름 스냅샷 없음)은 그대로, v2는 programName을 함께 등록한다.
+export type ProgramLifecycleAuditMetadataView =
+  | (Omit<ProgramLifecycleAuditMetadataV1, 'schemaVersion'> & {
+      readonly schemaVersion: typeof PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION_V1;
+    })
+  | (Omit<ProgramLifecycleAuditMetadataV2, 'schemaVersion'> & {
+      readonly schemaVersion: typeof PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION;
+    });
+
 export type AuditLogMetadataView =
   | AccessAuditMetadataView
   | RepositoryPublishAuditMetadata
-  | ProgramLifecycleAuditMetadata
+  | ProgramLifecycleAuditMetadataView
   | CollectionTriggerAuditMetadataView
   | SubmissionFileCleanupAuditMetadata
   | ApplicationDecisionAuditMetadata;
@@ -352,12 +389,18 @@ function toRepositoryPublishAuditMetadataView(
 
 function toProgramLifecycleAuditMetadataView(
   metadata: ProgramLifecycleAuditMetadata,
-): ProgramLifecycleAuditMetadata {
-  return {
-    schemaVersion: metadata.schemaVersion,
+): ProgramLifecycleAuditMetadataView {
+  const base = {
     before: { lifecycle: metadata.before.lifecycle },
     after: { lifecycle: metadata.after.lifecycle },
   };
+  return metadata.schemaVersion === PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION
+    ? {
+        ...base,
+        schemaVersion: PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION,
+        programName: metadata.programName,
+      }
+    : { ...base, schemaVersion: PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION_V1 };
 }
 
 function toCollectionTriggerAuditMetadataView(
@@ -520,12 +563,17 @@ function isRepositoryPublishAuditVisibilityState(
 function isProgramLifecycleAuditMetadata(
   value: unknown,
 ): value is ProgramLifecycleAuditMetadata {
-  return (
-    isJsonObject(value) &&
-    value.schemaVersion === PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION &&
-    isProgramLifecycleState(value.before) &&
-    isProgramLifecycleState(value.after)
-  );
+  if (
+    !isJsonObject(value) ||
+    !isProgramLifecycleState(value.before) ||
+    !isProgramLifecycleState(value.after)
+  ) {
+    return false;
+  }
+  if (value.schemaVersion === PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION) {
+    return typeof value.programName === 'string';
+  }
+  return value.schemaVersion === PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION_V1;
 }
 
 function isProgramLifecycleState(

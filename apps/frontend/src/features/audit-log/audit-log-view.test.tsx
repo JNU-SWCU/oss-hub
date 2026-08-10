@@ -166,6 +166,56 @@ describe('AuditLogView', () => {
     expect(html).toContain('repository-synthetic-1');
   });
 
+  it('PROGRAM_ARCHIVED 행이 이름을 받으면 서술문과 메타 라인 모두 cuid 대신 이름을 "@" 없이 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[
+          {
+            id: 'audit-program-archived',
+            actor: 'synthetic-staff',
+            action: 'PROGRAM_ARCHIVED',
+            targetType: 'PROGRAM',
+            targetId: 'cuid-synthetic-program-1',
+            target: '합성 프로그램 이름',
+            occurredAt: '2026-07-24T04:30:00.000Z',
+          },
+        ]}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+
+    // 서술문: 이름이 보이고 '@' 접두는 붙지 않는다.
+    expect(html).toContain('합성 프로그램 이름');
+    expect(html).not.toContain('@합성 프로그램 이름');
+    // 메타 라인: 사용자가 지목한 지점 — 이름을 알면 cuid 원값 대신 이름을 보여준다.
+    expect(html).not.toContain('cuid-synthetic-program-1');
+  });
+
+  it('PROGRAM_ARCHIVED 행이 이름을 모르면(폴백) 메타 라인에 여전히 targetId(cuid)를 코드체로 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <AuditLogView
+        {...baseProps}
+        records={[
+          {
+            id: 'audit-program-archived-fallback',
+            actor: 'synthetic-staff',
+            action: 'PROGRAM_ARCHIVED',
+            targetType: 'PROGRAM',
+            targetId: 'cuid-synthetic-program-2',
+            target: 'PROGRAM / cuid-synthetic-program-2',
+            occurredAt: '2026-07-24T04:31:00.000Z',
+          },
+        ]}
+        isLoading={false}
+        errorMessage={null}
+      />,
+    );
+
+    expect(html).toContain('cuid-synthetic-program-2');
+  });
+
   it('알 수 없는 action도 원본 값을 담은 폴백 문장으로 숨기지 않고 보여준다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView
