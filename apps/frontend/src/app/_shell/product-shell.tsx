@@ -166,10 +166,11 @@ export function ProductShell({
     );
   }
 
-  // 비회원·미배정·미완료 프로필은 학생 전용 "내 제출물"을 보일 근거가 없다 — 개인 데이터
-  // 없이 안전한 "서류 현황"(STAFF 분기) 골격으로 낮춘다.
+  // 비회원·미배정·미완료 프로필은 회원 전용 데이터(참여 팀·서류 현황·게시판)를 보일
+  // 근거가 없다 — STAFF 골격으로 낮춰 그 항목들을 그대로 보여주던 과거 방식(QA46) 대신
+  // 공개 개요 항목만 남는 GUEST로 낮춘다.
   const scopeViewerRole: ProgramScopeViewerRole =
-    member && role !== null ? role : 'STAFF';
+    member && role !== null ? role : 'GUEST';
 
   const scopeGroupsRaw = programDetailId
     ? programScopeSidebarGroups({
