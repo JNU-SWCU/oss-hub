@@ -43,7 +43,7 @@ const planner = document('a', 1, { name: '계획서' });
 const budget = document('b', 2, { name: '예산서', submissionType: 'TEXT' });
 const pledge = document('c', 3, {
   name: '서약서',
-  submissionType: 'REPOSITORY_RELEASE',
+  submissionType: 'TEXT',
   required: false,
 });
 
@@ -233,14 +233,12 @@ describe('제출 방식 표기', () => {
   it('교직원 화면은 raw enum 대신 한국어 이름을 쓴다', () => {
     expect(submissionTypeLabel('FILE')).toBe('파일');
     expect(submissionTypeLabel('TEXT')).toBe('글로 작성');
-    expect(submissionTypeLabel('REPOSITORY_RELEASE')).toBe('GitHub 릴리스');
   });
 
-  it('선택지는 계약값 3개를 모두 담고 라벨에 enum을 남기지 않는다', () => {
+  it('선택지는 FILE과 TEXT만 담고 라벨에 enum을 남기지 않는다', () => {
     expect(SUBMISSION_TYPE_CHOICES.map((choice) => choice.value)).toEqual([
       'FILE',
       'TEXT',
-      'REPOSITORY_RELEASE',
     ]);
     for (const choice of SUBMISSION_TYPE_CHOICES) {
       expect(choice.label).not.toContain('_');

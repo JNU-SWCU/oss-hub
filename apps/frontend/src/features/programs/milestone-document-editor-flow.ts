@@ -14,12 +14,11 @@ import type { SubmissionType } from './types';
 
 /**
  * 제출 방식의 화면 표기. 교직원 화면은 내부 구현 용어를 쓰지 않으므로(#355)
- * `FILE`·`TEXT`·`REPOSITORY_RELEASE`를 그대로 노출하지 않는다.
+ * `FILE`·`TEXT`를 그대로 노출하지 않는다.
  */
 const SUBMISSION_TYPE_LABELS = {
   FILE: '파일',
   TEXT: '글로 작성',
-  REPOSITORY_RELEASE: 'GitHub 릴리스',
 } as const satisfies Record<SubmissionType, string>;
 
 const DEFAULT_SUBMISSION_TYPE = 'FILE' satisfies SubmissionType;
@@ -36,7 +35,6 @@ export const SUBMISSION_TYPE_CHOICES: readonly {
   [
     'FILE',
     'TEXT',
-    'REPOSITORY_RELEASE',
   ] as const satisfies readonly SubmissionType[]
 ).map((value) => ({ value, label: SUBMISSION_TYPE_LABELS[value] }));
 
@@ -46,8 +44,6 @@ export function toSubmissionType(value: string): SubmissionType {
       return 'FILE';
     case 'TEXT':
       return 'TEXT';
-    case 'REPOSITORY_RELEASE':
-      return 'REPOSITORY_RELEASE';
     default:
       return DEFAULT_SUBMISSION_TYPE;
   }
