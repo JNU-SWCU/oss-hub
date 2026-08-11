@@ -80,9 +80,9 @@ installation ID는 credential이 아니며 별도 환경변수로 고정하지 �
 
 - `GITHUB_APP_ORG`
 - `GITHUB_COLLECTION_APP_ID`
-- `GITHUB_COLLECTION_APP_PRIVATE_KEY`
+- `GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE`
 - `GITHUB_OPERATIONS_APP_ID`
-- `GITHUB_OPERATIONS_APP_PRIVATE_KEY`
+- `GITHUB_OPERATIONS_APP_PRIVATE_KEY_FILE`
 
 실제 값은 배포 환경의 승인된 secret store에만 저장한다.
 Obsidian 운영 인벤토리에는 secret store record 이름·회전 담당·참조 위치만 남기고 값을 복제하지 않는다.
