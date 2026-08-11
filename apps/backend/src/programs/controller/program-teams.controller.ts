@@ -16,6 +16,7 @@ import {
 } from '../../auth/session.guard';
 import { CreateTeamRequestDto } from '../dto/create-team-request.dto';
 import { JoinTeamRequestDto } from '../dto/join-team-request.dto';
+import { StaffTeamDetailResponseDto } from '../dto/team-detail-response.dto';
 import {
   CreateTeamResponseDto,
   ProgramTeamResponseDto,
@@ -27,11 +28,12 @@ import { ProgramTeamsService } from '../service/program-teams.service';
 type TeamSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
 /**
- * 팀 생성·합류·내 팀 조회·교직원 팀 목록 — ProgramsController 와 분리된 thin sibling.
+ * 팀 생성·합류·내 팀 조회·교직원 팀 목록/상세 — ProgramsController 와 분리된 thin sibling.
  * POST /api/v1/programs/:programId/teams
  * POST /api/v1/programs/:programId/teams/join
  * GET  /api/v1/programs/:programId/teams/me
- * GET  /api/v1/programs/:programId/teams        (교직원 전용)
+ * GET  /api/v1/programs/:programId/teams          (교직원 전용)
+ * GET  /api/v1/programs/:programId/teams/:teamId  (교직원 전용)
  */
 @Controller('programs/:programId/teams')
 export class ProgramTeamsController {
@@ -39,7 +41,7 @@ export class ProgramTeamsController {
     @Inject(ProgramTeamsService)
     private readonly service: Pick<
       ProgramTeamsService,
-      'create' | 'join' | 'getMe' | 'listForStaff'
+      'create' | 'join' | 'getMe' | 'listForStaff' | 'getForStaff'
     >,
   ) {}
 
@@ -97,6 +99,23 @@ export class ProgramTeamsController {
   ): Promise<StaffProgramTeamResponseDto[]> {
     return StaffProgramTeamResponseDto.fromAll(
       await this.service.listForStaff(programId),
+    );
+  }
+
+  /**
+   * 교직원 전용 팀 상세(#874) — 팀원·신청 상태·저장소 발급 상태를 한 요청으로 담는다.
+   * 동적 세그먼트라 위의 정적 형제(`join`, `me`, 빈 경로)보다 뒤에 선언한다
+   * (`programs.controller.ts` 정적 형제 우선 규칙과 동일).
+   * 없는 팀·다른 프로그램의 팀은 동일하게 404.
+   */
+  @Get(':teamId')
+  @UseGuards(SessionGuard, ProgramTeamsStaffGuard)
+  async detail(
+    @Param('programId') programId: string,
+    @Param('teamId') teamId: string,
+  ): Promise<StaffTeamDetailResponseDto> {
+    return StaffTeamDetailResponseDto.from(
+      await this.service.getForStaff(programId, teamId),
     );
   }
 }

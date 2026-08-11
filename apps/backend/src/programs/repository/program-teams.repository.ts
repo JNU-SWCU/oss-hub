@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
+  ApplicationStatus,
+  OutboxEventStatus,
   Prisma,
+  RepositoryProvisionJobStatus,
   Role,
   type ProgramCategory,
 } from '@prisma/client';
@@ -10,6 +13,11 @@ import {
   COMPATIBLE_PROFILE_NAME_SELECT,
   resolveCompatibleProfileName,
 } from '../../profiles/profile-compatibility';
+import type {
+  TeamApplicationView,
+  TeamRepositoryProvisioningJobStatus,
+  TeamRepositoryProvisioningSafeErrorClass,
+} from '../program-teams.types';
 
 export interface TeamStudentActor {
   readonly id: string;
@@ -91,6 +99,22 @@ export interface StaffTeamRecord {
     readonly nickname: string;
     readonly name: string | null;
   }[];
+}
+
+/**
+ * 교직원 전용 팀 상세(#874)의 한 팀 — `StaffTeamRecord`에 신청·저장소 발급 상태를
+ * 더한 모양이다. 신청이 없으면 `application: null`.
+ */
+export interface StaffTeamDetailRecord {
+  readonly id: string;
+  readonly name: string;
+  readonly leaderId: string;
+  readonly members: readonly {
+    readonly userId: string;
+    readonly nickname: string;
+    readonly name: string | null;
+  }[];
+  readonly application: TeamApplicationView | null;
 }
 
 export class TeamMembershipConflictError extends Error {
@@ -271,6 +295,96 @@ export class ProgramTeamsRepository {
     }));
   }
 
+  /**
+   * 교직원 전용 팀 상세(#874) — `listStaffTeams`와 같은 select 원칙(참여코드·저장소·
+   * 학과/연락처/이메일·studentId 금지)에 신청·저장소 발급 상태를 더한다.
+   *
+   * 저장소는 `Application`을 거쳐서만 읽는다 — `Repository.applicationId`는 필수+unique라
+   * 빠짐이 없지만, `Repository.teamId`는 nullable이라 `Team.repositories`로 조회하면
+   * 저장소가 실제로 있는데도 못 찾는 행이 생긴다. `programId`까지 함께 걸어 다른
+   * 프로그램의 teamId 는 애초에 조회되지 않게 한다(404 로 흘러간다).
+   */
+  async findStaffTeamDetail(
+    programId: string,
+    teamId: string,
+  ): Promise<StaffTeamDetailRecord | null> {
+    const team = await this.prisma.team.findFirst({
+      where: { id: teamId, programId },
+      select: {
+        id: true,
+        name: true,
+        leaderId: true,
+        members: {
+          select: {
+            userId: true,
+            user: {
+              select: {
+                nickname: true,
+                ...COMPATIBLE_PROFILE_NAME_SELECT,
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+    if (!team) return null;
+
+    const application = await this.prisma.application.findFirst({
+      where: { programId, teamId },
+      select: {
+        id: true,
+        status: true,
+        updatedAt: true,
+        repository: { select: { url: true, visibility: true } },
+        program: { select: { repositoryProvisioningEnabled: true } },
+      },
+    });
+
+    let applicationView: TeamApplicationView | null = null;
+    if (application) {
+      const [outbox, job] = await Promise.all([
+        this.prisma.outboxEvent.findUnique({
+          where: { idempotencyKey: `repository-provision:${application.id}` },
+          select: { status: true, createdAt: true },
+        }),
+        this.prisma.repositoryProvisionJob.findUnique({
+          where: { applicationId: application.id },
+          select: { status: true, updatedAt: true, lastErrorCode: true },
+        }),
+      ]);
+      applicationView = {
+        id: application.id,
+        status: application.status,
+        repository: application.repository
+          ? {
+              url: application.repository.url,
+              visibility: application.repository.visibility,
+            }
+          : null,
+        repositoryProvisioning: resolveTeamRepositoryProvisioning(
+          application.status,
+          application.program.repositoryProvisioningEnabled,
+          application.updatedAt,
+          outbox ?? undefined,
+          job ?? undefined,
+        ),
+      };
+    }
+
+    return {
+      id: team.id,
+      name: team.name,
+      leaderId: team.leaderId,
+      members: team.members.map((member) => ({
+        userId: member.userId,
+        nickname: member.user.nickname,
+        name: resolveCompatibleProfileName(member.user),
+      })),
+      application: applicationView,
+    };
+  }
+
   withCreateTransaction<T>(
     operation: (store: ProgramTeamsCreateStore) => Promise<T>,
   ): Promise<T> {
@@ -431,5 +545,145 @@ class PrismaProgramTeamsJoinStore implements ProgramTeamsJoinStore {
       }
       throw error;
     }
+  }
+}
+
+interface TeamProvisionOutbox {
+  readonly status: OutboxEventStatus;
+  readonly createdAt: Date;
+}
+
+interface TeamProvisionJob {
+  readonly status: RepositoryProvisionJobStatus;
+  readonly updatedAt: Date;
+  readonly lastErrorCode: string | null;
+}
+
+/**
+ * `applications.repository.ts`의 `resolveRepositoryProvisioning`을 로컬로 다시 구현한
+ * 것이다. import 하지 않는 이유는 파일 상단 주석과 같다(`ApplicationsModule` ↔
+ * `ProgramsModule` 순환 의존).
+ */
+function resolveTeamRepositoryProvisioning(
+  applicationStatus: ApplicationStatus,
+  enabled: boolean,
+  applicationUpdatedAt: Date,
+  outbox: TeamProvisionOutbox | undefined,
+  job: TeamProvisionJob | undefined,
+): TeamApplicationView['repositoryProvisioning'] {
+  const anomalous = (): TeamApplicationView['repositoryProvisioning'] => ({
+    enabled,
+    jobStatus: 'ANOMALOUS',
+    updatedAt: applicationUpdatedAt,
+    safeErrorClass: 'UNKNOWN',
+  });
+  if (applicationStatus !== ApplicationStatus.APPROVED) {
+    if (outbox || job) {
+      return anomalous();
+    }
+    return {
+      enabled,
+      jobStatus: enabled ? 'NOT_REQUESTED' : 'DISABLED',
+      updatedAt: applicationUpdatedAt,
+      safeErrorClass: null,
+    };
+  }
+
+  if (
+    (job && !outbox) ||
+    (job && outbox?.status !== OutboxEventStatus.PROCESSED) ||
+    (!job && outbox?.status === OutboxEventStatus.PROCESSED)
+  ) {
+    return anomalous();
+  }
+
+  if (job && outbox?.status === OutboxEventStatus.PROCESSED) {
+    const jobStatus = mapTeamProvisionJobStatus(job.status);
+    return {
+      enabled,
+      jobStatus,
+      updatedAt: job.updatedAt,
+      safeErrorClass:
+        jobStatus === 'RETRYABLE_FAILED' || jobStatus === 'FAILED'
+          ? normalizeTeamSafeErrorClass(job.lastErrorCode)
+          : null,
+    };
+  }
+
+  if (enabled && outbox) {
+    if (
+      outbox.status === OutboxEventStatus.PENDING ||
+      outbox.status === OutboxEventStatus.PROCESSING
+    ) {
+      return {
+        enabled,
+        jobStatus: 'PENDING',
+        updatedAt: outbox.createdAt,
+        safeErrorClass: null,
+      };
+    }
+    if (outbox.status === OutboxEventStatus.FAILED) {
+      return {
+        enabled,
+        jobStatus: 'FAILED',
+        updatedAt: outbox.createdAt,
+        safeErrorClass: 'UNKNOWN',
+      };
+    }
+  }
+
+  if (!outbox && !job) {
+    return {
+      enabled,
+      jobStatus: enabled ? 'ANOMALOUS' : 'DISABLED',
+      updatedAt: applicationUpdatedAt,
+      safeErrorClass: enabled ? 'UNKNOWN' : null,
+    };
+  }
+  return anomalous();
+}
+
+function mapTeamProvisionJobStatus(
+  status: RepositoryProvisionJobStatus,
+): TeamRepositoryProvisioningJobStatus {
+  switch (status) {
+    case RepositoryProvisionJobStatus.PENDING:
+      return 'PENDING';
+    case RepositoryProvisionJobStatus.PROCESSING:
+      return 'PROCESSING';
+    case RepositoryProvisionJobStatus.SUCCEEDED:
+      return 'SUCCEEDED';
+    case RepositoryProvisionJobStatus.FAILED_RETRYABLE:
+      return 'RETRYABLE_FAILED';
+    case RepositoryProvisionJobStatus.FAILED_FINAL:
+      return 'FAILED';
+  }
+}
+
+function normalizeTeamSafeErrorClass(
+  errorCode: string | null,
+): TeamRepositoryProvisioningSafeErrorClass {
+  switch (errorCode) {
+    case 'GITHUB_OPERATIONS_CONFIGURATION':
+    case 'GITHUB_OPERATIONS_INSTALLATION_NOT_FOUND':
+    case 'GITHUB_OPERATIONS_ORGANIZATION_MISMATCH':
+    case 'GITHUB_OPERATIONS_AUTHENTICATION':
+    case 'GITHUB_OPERATIONS_PERMISSION':
+      return 'AUTH';
+    case 'GITHUB_OPERATIONS_RATE_LIMITED':
+    case 'GITHUB_OPERATIONS_INVITATION_LIMIT':
+      return 'RATE_LIMIT';
+    case 'GITHUB_OPERATIONS_INVALID_INPUT':
+    case 'REPOSITORY_PROVISION_APPLICATION_NOT_APPROVED':
+    case 'REPOSITORY_PROVISION_FEATURE_DISABLED':
+    case 'REPOSITORY_PROVISION_INVALID_EVENT':
+    case 'REPOSITORY_PROVISION_REPOSITORY_MISMATCH':
+      return 'UPSTREAM_REJECTED';
+    case 'GITHUB_OPERATIONS_UPSTREAM':
+    case 'GITHUB_OPERATIONS_INVALID_RESPONSE':
+    case 'REPOSITORY_PROVISION_INTERNAL':
+    case null:
+    default:
+      return 'UNKNOWN';
   }
 }
