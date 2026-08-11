@@ -1,6 +1,8 @@
 import { SubmissionStatus } from '@prisma/client';
 import type {
   SubmissionDashboardApplicationRecord,
+  SubmissionDashboardDocumentSubmissionRecord,
+  SubmissionDashboardMilestoneDocumentRecord,
   SubmissionDashboardMilestoneRecord,
   SubmissionDashboardSubmissionRecord,
   SubmissionDashboardSummaryRepositoryPort,
@@ -14,6 +16,8 @@ class FakeSubmissionDashboardSummaryRepository implements SubmissionDashboardSum
     private readonly applications: readonly SubmissionDashboardApplicationRecord[],
     private readonly milestones: readonly SubmissionDashboardMilestoneRecord[],
     private readonly submissions: readonly SubmissionDashboardSubmissionRecord[],
+    private readonly milestoneDocuments: readonly SubmissionDashboardMilestoneDocumentRecord[] = [],
+    private readonly documentSubmissions: readonly SubmissionDashboardDocumentSubmissionRecord[] = [],
   ) {}
 
   listRecords(programIds: readonly string[]) {
@@ -22,6 +26,8 @@ class FakeSubmissionDashboardSummaryRepository implements SubmissionDashboardSum
       applications: this.applications,
       milestones: this.milestones,
       submissions: this.submissions,
+      milestoneDocuments: this.milestoneDocuments,
+      documentSubmissions: this.documentSubmissions,
     });
   }
 }
@@ -174,7 +180,185 @@ describe('SubmissionDashboardSummaryService', () => {
       },
     ]);
   });
+
+  it('서류만 받는 마일스톤도 진행으로 센다 (#820)', async () => {
+    // Given: 코드 제출이 없고 필수 서류 두 건만 있는 마일스톤. 한 팀은 둘 다 승인,
+    // 다른 팀은 한 건만 승인하고 나머지는 아직 안 냈다.
+    const repository = new FakeSubmissionDashboardSummaryRepository(
+      [
+        { id: 'team-done', programId: 'program-doc' },
+        { id: 'team-partial', programId: 'program-doc' },
+      ],
+      [{ id: 'milestone-doc', programId: 'program-doc' }],
+      [],
+      [
+        {
+          id: 'doc-1',
+          milestoneId: 'milestone-doc',
+          milestoneProgramId: 'program-doc',
+        },
+        {
+          id: 'doc-2',
+          milestoneId: 'milestone-doc',
+          milestoneProgramId: 'program-doc',
+        },
+      ],
+      [
+        documentSubmission(
+          'team-done',
+          'doc-1',
+          SubmissionStatus.APPROVED,
+          'program-doc',
+          'milestone-doc',
+        ),
+        documentSubmission(
+          'team-done',
+          'doc-2',
+          SubmissionStatus.APPROVED,
+          'program-doc',
+          'milestone-doc',
+        ),
+        documentSubmission(
+          'team-partial',
+          'doc-1',
+          SubmissionStatus.APPROVED,
+          'program-doc',
+          'milestone-doc',
+        ),
+      ],
+    );
+    const service = new SubmissionDashboardSummaryService(repository);
+
+    // When
+    const summaries = await service.listByProgram(['program-doc']);
+
+    // Then: 예전에는 Submission 행이 없어 두 칸 모두 미제출이었다.
+    expect(summaries).toEqual([
+      {
+        programId: 'program-doc',
+        approvedApplications: 2,
+        milestones: 1,
+        total: 2,
+        notSubmitted: 1,
+        submitted: 0,
+        approved: 1,
+        changesRequested: 0,
+        rejected: 0,
+      },
+    ]);
+  });
+
+  it('서류가 다 승인이어도 코드 제출이 심사 중이면 승인으로 세지 않는다', async () => {
+    // Given: 두 축이 다 쓰인 마일스톤.
+    const repository = new FakeSubmissionDashboardSummaryRepository(
+      [{ id: 'team-both', programId: 'program-both' }],
+      [{ id: 'milestone-both', programId: 'program-both' }],
+      [
+        {
+          applicationId: 'team-both',
+          applicationProgramId: 'program-both',
+          milestoneId: 'milestone-both',
+          milestoneProgramId: 'program-both',
+          status: SubmissionStatus.SUBMITTED,
+        },
+      ],
+      [
+        {
+          id: 'doc-1',
+          milestoneId: 'milestone-both',
+          milestoneProgramId: 'program-both',
+        },
+      ],
+      [
+        documentSubmission(
+          'team-both',
+          'doc-1',
+          SubmissionStatus.APPROVED,
+          'program-both',
+          'milestone-both',
+        ),
+      ],
+    );
+    const service = new SubmissionDashboardSummaryService(repository);
+
+    // When
+    const summaries = await service.listByProgram(['program-both']);
+
+    // Then: 나쁜 쪽(심사 중)이 이긴다.
+    expect(summaries[0]).toMatchObject({
+      total: 1,
+      approved: 0,
+      submitted: 1,
+      notSubmitted: 0,
+    });
+  });
+
+  it('버킷 합은 언제나 total 과 같다', async () => {
+    // Given: 두 축이 섞인 프로그램.
+    const repository = new FakeSubmissionDashboardSummaryRepository(
+      [
+        { id: 'team-1', programId: 'p' },
+        { id: 'team-2', programId: 'p' },
+      ],
+      [
+        { id: 'm-code', programId: 'p' },
+        { id: 'm-doc', programId: 'p' },
+      ],
+      [
+        {
+          applicationId: 'team-1',
+          applicationProgramId: 'p',
+          milestoneId: 'm-code',
+          milestoneProgramId: 'p',
+          status: SubmissionStatus.REJECTED,
+        },
+      ],
+      [{ id: 'd-1', milestoneId: 'm-doc', milestoneProgramId: 'p' }],
+      [
+        documentSubmission(
+          'team-2',
+          'd-1',
+          SubmissionStatus.APPROVED,
+          'p',
+          'm-doc',
+        ),
+      ],
+    );
+    const service = new SubmissionDashboardSummaryService(repository);
+
+    // When
+    const summaries = await service.listByProgram(['p']);
+    const summary = summaries[0];
+    if (summary === undefined) throw new Error('요약이 없다');
+
+    // Then: 칸을 직접 돌기 때문에 어긋날 수 없다.
+    expect(
+      summary.notSubmitted +
+        summary.submitted +
+        summary.approved +
+        summary.changesRequested +
+        summary.rejected,
+    ).toBe(summary.total);
+    expect(summary.total).toBe(4);
+  });
 });
+
+function documentSubmission(
+  applicationId: string,
+  milestoneDocumentId: string,
+  status: SubmissionStatus,
+  programId: string,
+  milestoneId: string,
+) {
+  return {
+    applicationId,
+    applicationProgramId: programId,
+    milestoneDocumentId,
+    milestoneId,
+    milestoneProgramId: programId,
+    status,
+  };
+}
 
 function emptySummary(programId: string) {
   return {
