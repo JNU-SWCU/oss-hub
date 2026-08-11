@@ -19,6 +19,8 @@ function validValues(
   return {
     name: '합성 사용자',
     studentId: '1'.repeat(6),
+    // 기본은 아직 학번이 저장되지 않은 상태 — 새로 입력하는 값이라 형식을 본다.
+    savedStudentId: '',
     departmentOption: '인공지능학부',
     otherDepartment: '',
     ...overrides,
