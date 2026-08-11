@@ -11,7 +11,10 @@
  *
  * 수신자 오버라이드(본인 점검):
  *   DIGEST_FORCE_TO=you@example.com
- *   → STAFF 조회 대신 이 주소로 1통만 보낸다(DB notify 설정 무시).
+ *   → DB를 전혀 읽지 않고 합성 학생 메일 1통만 이 주소로 보낸다(DB notify 설정 무시).
+ *
+ * 오버라이드가 없으면 `sendDeadlineDigests`(자동 경로)를 1회 실행한다 —
+ * 즉 학생 리마인더만 나가고 교직원 요약은 나가지 않는다(교직원 요약은 수동 발송 전용).
  */
 import { ConsoleLogger, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';

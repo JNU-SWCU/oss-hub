@@ -54,6 +54,13 @@ function setup() {
   const findActiveStaffOrAdmin: jest.MockedFunction<
     DeadlineDigestRepositoryPort['findActiveStaffOrAdmin']
   > = jest.fn().mockResolvedValue(true);
+  const findNotifiableStaff: jest.MockedFunction<
+    DeadlineDigestRepositoryPort['findNotifiableStaff']
+  > = jest
+    .fn()
+    .mockResolvedValue([
+      { id: 'staff-1', notificationEmail: 'staff-1@example.com' },
+    ]);
   const claimNotification: jest.MockedFunction<
     DeadlineDigestRepositoryPort['claimNotification']
   > = jest.fn().mockResolvedValue(true);
@@ -64,6 +71,7 @@ function setup() {
     findAutomaticProgramIds,
     findDeadlineProgram,
     findActiveStaffOrAdmin,
+    findNotifiableStaff,
     claimNotification,
     completeNotification,
   };
@@ -74,6 +82,7 @@ function setup() {
     repository,
     findDeadlineProgram,
     findActiveStaffOrAdmin,
+    findNotifiableStaff,
     claimNotification,
     completeNotification,
     send,
@@ -103,11 +112,13 @@ describe('DeadlineDigestService Program preview and send', () => {
       inactiveCount: 0,
       optedOutCount: 0,
       noEmailCount: 0,
+      staffRecipientCount: 1,
       previewedAt: NOW.toISOString(),
       expiresAt: new Date(NOW.getTime() + 10 * 60 * 1000).toISOString(),
     });
     expect(preview.previewVersion).toMatch(/^[a-f0-9]{64}$/u);
     expect(JSON.stringify(preview)).not.toContain('student-1');
+    expect(JSON.stringify(preview)).not.toContain('staff-1');
     expect(JSON.stringify(preview)).not.toContain('example.com');
     expect(JSON.stringify(preview)).not.toContain('milestone-1');
   });
@@ -143,6 +154,135 @@ describe('DeadlineDigestService Program preview and send', () => {
     expect(sentMail?.to).toBe('student-1@example.com');
     expect(sentMail?.body).toContain('합성 프로그램');
     expect(sentMail?.html).toContain('합성 프로그램');
+  });
+
+  it('교직원 요약을 미제출자 명단과 함께 학생과 다른 멱등 키로 보낸다', async () => {
+    // Given
+    const { claimNotification, send, service } = setup();
+    const preview = await service.previewProgram(101n, 'program-1', NOW);
+
+    // When
+    const result = await service.sendProgramFromPreview(
+      101n,
+      'program-1',
+      preview,
+      new Date(NOW.getTime() + 60_000),
+    );
+
+    // Then
+    expect(result.staffRecipientCount).toBe(1);
+    expect(claimNotification).toHaveBeenCalledWith(
+      'staff-1',
+      'deadline-digest-staff:2026-08-14:program-1:staff-1',
+      { milestoneCount: 1 },
+    );
+    const staffMail = send.mock.calls
+      .map((call) => call[0])
+      .find((mail) => mail.to === 'staff-1@example.com');
+    expect(staffMail?.body).toContain('미제출자: 학생 1');
+    expect(staffMail?.html).toContain('/staff/dashboard');
+  });
+
+  it('미제출 명단에 비활성·수신 거부·이메일 없음으로 제외된 사람도 사유와 함께 남긴다', async () => {
+    // Given
+    const { findDeadlineProgram, send, service } = setup();
+    findDeadlineProgram.mockResolvedValue(
+      source([
+        {
+          id: 'student-1',
+          nickname: '학생 1',
+          notificationEmail: 'student-1@example.com',
+          notifyEnabled: true,
+          accountStatus: AccountStatus.ACTIVE,
+        },
+        {
+          id: 'student-2',
+          nickname: '학생 2',
+          notificationEmail: 'student-2@example.com',
+          notifyEnabled: true,
+          accountStatus: AccountStatus.DEACTIVATED,
+        },
+        {
+          id: 'student-3',
+          nickname: '학생 3',
+          notificationEmail: 'student-3@example.com',
+          notifyEnabled: false,
+          accountStatus: AccountStatus.ACTIVE,
+        },
+        {
+          id: 'student-4',
+          nickname: '학생 4',
+          notificationEmail: null,
+          notifyEnabled: true,
+          accountStatus: AccountStatus.ACTIVE,
+        },
+      ]),
+    );
+    const preview = await service.previewProgram(101n, 'program-1', NOW);
+
+    // When
+    await service.sendProgramFromPreview(
+      101n,
+      'program-1',
+      preview,
+      new Date(NOW.getTime() + 60_000),
+    );
+
+    // Then
+    const staffMail = send.mock.calls
+      .map((call) => call[0])
+      .find((mail) => mail.to === 'staff-1@example.com');
+    expect(staffMail?.body).toContain(
+      '미제출자: 학생 1, 학생 2 (비활성), 학생 3 (수신 거부), 학생 4 (이메일 없음)',
+    );
+  });
+
+  it('교직원이 같은 프로그램의 팀원을 겸해도 두 통이 각자의 멱등 키로 나간다', async () => {
+    // Given: 교직원 계정 id가 학생 수신자 id와 같다.
+    const { claimNotification, findNotifiableStaff, send, service } = setup();
+    findNotifiableStaff.mockResolvedValue([
+      { id: 'student-1', notificationEmail: 'student-1@example.com' },
+    ]);
+    const preview = await service.previewProgram(101n, 'program-1', NOW);
+
+    // When
+    await service.sendProgramFromPreview(
+      101n,
+      'program-1',
+      preview,
+      new Date(NOW.getTime() + 60_000),
+    );
+
+    // Then
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(claimNotification.mock.calls.map((call) => call[1])).toEqual(
+      expect.arrayContaining([
+        'deadline-digest:2026-08-14:program-1:student-1',
+        'deadline-digest-staff:2026-08-14:program-1:student-1',
+      ]),
+    );
+  });
+
+  it('교직원 알림 설정이 바뀌어도 미리보기를 stale로 만들지 않는다', async () => {
+    // Given
+    const { findNotifiableStaff, service } = setup();
+    const preview = await service.previewProgram(101n, 'program-1', NOW);
+
+    // When: 미리보기 이후 교직원 한 명이 수신을 켰다.
+    findNotifiableStaff.mockResolvedValue([
+      { id: 'staff-1', notificationEmail: 'staff-1@example.com' },
+      { id: 'staff-2', notificationEmail: 'staff-2@example.com' },
+    ]);
+
+    // Then: 학생 발송이 409로 막히지 않고, 새 인원 수가 결과에 반영된다.
+    await expect(
+      service.sendProgramFromPreview(
+        101n,
+        'program-1',
+        preview,
+        new Date(NOW.getTime() + 60_000),
+      ),
+    ).resolves.toMatchObject({ sentCount: 1, staffRecipientCount: 2 });
   });
 
   it('rejects a preview after ten minutes or when canonical eligibility changed', async () => {
@@ -250,5 +390,22 @@ describe('DeadlineDigestService delivery isolation and automatic sharing', () =>
     expect(JSON.stringify(completeNotification.mock.calls)).not.toContain(
       'provider-secret',
     );
+  });
+
+  it('자동 발송은 교직원 요약을 만들지도 보내지도 않는다', async () => {
+    // Given
+    const { claimNotification, findNotifiableStaff, send, service } = setup();
+
+    // When
+    await service.sendDeadlineDigests(NOW);
+
+    // Then
+    expect(findNotifiableStaff).not.toHaveBeenCalled();
+    expect(send.mock.calls.map((call) => call[0].to)).toEqual([
+      'student-1@example.com',
+    ]);
+    expect(claimNotification.mock.calls.map((call) => call[1])).toEqual([
+      'deadline-digest:2026-08-14:program-1:student-1',
+    ]);
   });
 });

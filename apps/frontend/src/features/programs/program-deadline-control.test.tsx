@@ -14,6 +14,7 @@ const preview = {
   inactiveCount: 1,
   optedOutCount: 2,
   noEmailCount: 1,
+  staffRecipientCount: 2,
   previewedAt: '2026-08-14T00:00:00.000Z',
   expiresAt: '2026-08-14T00:10:00.000Z',
   previewVersion: 'a'.repeat(64),
@@ -102,6 +103,12 @@ describe('ProgramDeadlineControl', () => {
     expect(
       container.querySelector('[aria-label="대상 마일스톤 2개"]'),
     ).not.toBeNull();
+    expect(
+      container.querySelector('[aria-label="교직원 요약 수신 2명"]'),
+    ).not.toBeNull();
+    expect(container.textContent).toContain(
+      '교직원 요약은 「알림 보내기」를 눌렀을 때만',
+    );
     expect(container.textContent).not.toContain('student-');
 
     await act(async () => button('알림 보내기').click());
