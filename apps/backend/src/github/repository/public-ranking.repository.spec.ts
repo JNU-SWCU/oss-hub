@@ -106,8 +106,7 @@ describe('PublicRankingRepository — 공개 strict-read 계약', () => {
       await repositoryFor(db).findMetrics({});
 
       const repository = argsOf(db.contribution.findMany).where?.repository as
-        | Record<string, unknown>
-        | undefined;
+        Record<string, unknown> | undefined;
       const or = repository?.['OR'] as Record<string, unknown>[];
       // org 갈래에는 visibility 조건이 없다 — PRIVATE 저장소 기여도 이 조건을
       // 통과해 합산된다.
@@ -120,8 +119,7 @@ describe('PublicRankingRepository — 공개 strict-read 계약', () => {
       await repositoryFor(db).findMetrics({});
 
       const repository = argsOf(db.contribution.findMany).where?.repository as
-        | Record<string, unknown>
-        | undefined;
+        Record<string, unknown> | undefined;
       const or = repository?.['OR'] as Record<string, unknown>[];
       const externalBranch = or.find(
         (clause) => clause['source'] === 'EXTERNAL_PUBLIC',
@@ -141,8 +139,7 @@ describe('PublicRankingRepository — 공개 strict-read 계약', () => {
       await repositoryFor(db).findMetrics({});
 
       const repository = argsOf(db.contribution.findMany).where?.repository as
-        | Record<string, unknown>
-        | undefined;
+        Record<string, unknown> | undefined;
       const or = repository?.['OR'] as Record<string, unknown>[];
       expect(or).toContainEqual({
         source: 'EXTERNAL_PUBLIC',
