@@ -43,9 +43,8 @@ export function SidebarDrawer({
 
     const focusables = (): HTMLElement[] =>
       Array.from(
-        dialogRef.current?.querySelectorAll<HTMLElement>(
-          FOCUSABLE_SELECTOR,
-        ) ?? [],
+        dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ??
+          [],
       );
     focusables()[0]?.focus();
 

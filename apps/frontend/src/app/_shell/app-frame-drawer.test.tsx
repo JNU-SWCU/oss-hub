@@ -148,9 +148,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
       ['감사 로그', '/admin/audit-log'],
       ['시스템 상태', '/admin/system-status'],
     ]) {
-      const link = group?.querySelector<HTMLAnchorElement>(
-        `a[href="${href}"]`,
-      );
+      const link = group?.querySelector<HTMLAnchorElement>(`a[href="${href}"]`);
       expect(link, href).not.toBeNull();
       expect(link?.textContent, href).toContain(label);
     }
@@ -161,9 +159,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     await renderFrame('/dashboard');
     await openDrawer();
 
-    const navItemsList = container.querySelector(
-      '[data-slot="nav-bar-items"]',
-    );
+    const navItemsList = container.querySelector('[data-slot="nav-bar-items"]');
     expect(navItemsList?.querySelector('a[href="/admin/access"]')).toBeNull();
     expect(
       navItemsList?.querySelector('a[href="/admin/audit-log"]'),

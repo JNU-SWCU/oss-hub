@@ -118,9 +118,7 @@ export function ShellNav({ items, brand, actions }: ShellNavProps) {
         // 경로가 바뀌면 접힌 메뉴를 닫는다 — 셸은 유지되므로 스스로 닫히지 않는다.
         menuResetKey={pathname}
         sidebarDrawerOpen={drawer?.open}
-        onToggleSidebarDrawer={
-          drawer && hasSidebar ? drawer.toggle : undefined
-        }
+        onToggleSidebarDrawer={drawer && hasSidebar ? drawer.toggle : undefined}
         sidebarDrawerId={SIDEBAR_DRAWER_DIALOG_ID}
         // 터치 타깃은 공개 nav 링크·액션 버튼용이다. 계정 드롭다운의
         // `role=menuitem`까지 잡으면 설정(<a>)만 justify-center가 걸려

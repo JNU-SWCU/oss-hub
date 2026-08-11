@@ -16,7 +16,10 @@ import {
   type ProgramOverview,
 } from '@/features/programs/program-overview-api';
 import { AppSidebar, AppSidebarNav } from './app-sidebar';
-import { ProgramScopeSidebar, ProgramScopeSidebarNav } from './program-scope-sidebar';
+import {
+  ProgramScopeSidebar,
+  ProgramScopeSidebarNav,
+} from './program-scope-sidebar';
 import {
   programDetailIdFromPathname,
   SECTION_FACETS,
@@ -61,10 +64,7 @@ export function SidebarDrawerProvider({
   const [open, setOpen] = useState(false);
   const toggle = useCallback(() => setOpen((prev) => !prev), []);
   const close = useCallback(() => setOpen(false), []);
-  const value = useMemo(
-    () => ({ open, toggle, close }),
-    [open, toggle, close],
-  );
+  const value = useMemo(() => ({ open, toggle, close }), [open, toggle, close]);
   return (
     <SidebarDrawerContext.Provider value={value}>
       {children}
