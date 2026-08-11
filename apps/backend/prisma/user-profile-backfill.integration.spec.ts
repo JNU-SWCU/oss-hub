@@ -23,8 +23,8 @@ const userIds = [
   'test:profile-backfill:staff-without-student-id',
   'test:profile-backfill:student-without-student-id',
 ] as const;
-const completeStudentId = ['96', '00153101'].join('');
-const duplicateStudentId = ['96', '00153102'].join('');
+const completeStudentId = ['96', '0011'].join('');
+const duplicateStudentId = ['96', '0012'].join('');
 const prisma = new PrismaService();
 let existingProfileUserIds: readonly string[] = [];
 

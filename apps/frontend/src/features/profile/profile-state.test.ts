@@ -40,7 +40,8 @@ describe('profile onboarding state', () => {
   it.each([
     ['5자리', '1'.repeat(5), false],
     ['6자리', '1'.repeat(6), true],
-    ['10자리', '1'.repeat(10), true],
+    ['7자리', '1'.repeat(7), false],
+    ['10자리', '1'.repeat(10), false],
     ['11자리', '1'.repeat(11), false],
     ['문자 포함', `${'1'.repeat(5)}A`, false],
   ])('%s 학번을 계약대로 검증한다', (_name, studentId, valid) => {
@@ -128,15 +129,11 @@ describe('profile onboarding state', () => {
     );
   });
 
-  it('교직원도 학과는 필수고, 남아 있는 학번 값은 형식을 지켜야 한다', () => {
+  it('교직원은 학번은 필요 없어도 학과는 필수다', () => {
     expect(
       validateProfileForm(validValues({ departmentOption: '' }), 'STAFF')
         .department,
     ).toBe('학과를 선택하거나 입력해 주세요.');
-    expect(
-      validateProfileForm(validValues({ studentId: '12A456' }), 'STAFF')
-        .studentId,
-    ).toBe('학번은 숫자 6~10자리로 입력해 주세요.');
   });
 
   it('관리자 폼은 학번·학과가 비어도 이름만으로 요청을 만든다', () => {
@@ -214,33 +211,11 @@ describe('설정 화면 프로필 갱신', () => {
     );
   });
 
-  it('교직원이 처음 넣은 학번은 요청에 실린다', () => {
-    const values = settingsValues({
-      studentId: `  ${'2'.repeat(8)}  `,
-      savedStudentId: '',
-    });
-
-    expect(toUpdateProfileRequest(values, 'STAFF')).toEqual({
-      name: '합성 사용자',
-      studentId: '2'.repeat(8),
-      department: '인공지능학부',
-    });
-  });
-
-  it('처음 넣는 학번의 형식이 틀리면 요청을 만들지 않는다', () => {
-    const values = settingsValues({ studentId: '12A456', savedStudentId: '' });
-
-    expect(validateSettingsProfileForm(values, 'STAFF').studentId).toBe(
-      '학번은 숫자 6~10자리로 입력해 주세요.',
-    );
-    expect(toUpdateProfileRequest(values, 'STAFF')).toBeNull();
-  });
-
   it('학생은 학번을 비우면 저장할 수 없다', () => {
     const values = settingsValues({ studentId: '', savedStudentId: '' });
 
     expect(validateSettingsProfileForm(values, 'STUDENT').studentId).toBe(
-      '학번은 숫자 6~10자리로 입력해 주세요.',
+      '학번은 숫자 6자리로 입력해 주세요.',
     );
     expect(toUpdateProfileRequest(values, 'STUDENT')).toBeNull();
   });

@@ -10,7 +10,7 @@ import type {
  * 관리자 프로필 수정 폼(admin-access-profile-section.tsx)의 검증·값 변환 규칙.
  *
  * `features/profile/profile-requirements.ts`·`profile-state.ts`와 형식 규칙 자체는
- * 같지만(이름 100자, 학과 100자, 학번 숫자 6~10자리 —
+ * 같지만(이름 100자, 학과 100자, 학번 숫자 6자리 —
  * `apps/backend/src/users/dto/patch-admin-user-profile.dto.ts`가 본인 경로 DTO와
  * 같은 상수를 쓴다), feature 간 직접 의존이 금지돼 있어(eslint 경계 규칙,
  * docs/rules/frontend.md) 그 파일들을 가져다 쓸 수 없다. 관리자 경로만의 차이는
@@ -20,7 +20,7 @@ import type {
  */
 export const ADMIN_PROFILE_NAME_MAX_LENGTH = 100;
 export const ADMIN_PROFILE_DEPARTMENT_MAX_LENGTH = 100;
-export const ADMIN_PROFILE_STUDENT_ID_PATTERN = /^\d{6,10}$/;
+export const ADMIN_PROFILE_STUDENT_ID_PATTERN = /^\d{6}$/;
 
 export function isValidAdminProfileName(name: string): boolean {
   return name.trim().length > 0 && name.length <= ADMIN_PROFILE_NAME_MAX_LENGTH;
@@ -95,7 +95,7 @@ function studentIdError(studentId: string, hadValue: boolean): string | null {
   }
   return isValidAdminProfileStudentId(studentId)
     ? null
-    : '학번은 숫자 6~10자리로 입력해 주세요.';
+    : '학번은 숫자 6자리로 입력해 주세요.';
 }
 
 function departmentError(

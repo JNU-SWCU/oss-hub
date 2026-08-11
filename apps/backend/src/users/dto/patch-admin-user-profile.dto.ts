@@ -34,7 +34,7 @@ export class PatchAdminUserProfileRequestDto {
   @IsOptional()
   @Transform(trimString)
   @IsString()
-  @Matches(/^\d{6,10}$/)
+  @Matches(/^\d{6}$/, { message: '학번은 숫자 6자리로 입력해 주세요.' })
   declare readonly studentId?: string;
 
   @IsOptional()

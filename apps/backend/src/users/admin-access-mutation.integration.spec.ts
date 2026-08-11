@@ -48,7 +48,7 @@ describe('Admin access atomic request decisions', () => {
     const target = await createUser(null, 'approve-target');
     const profile = {
       name: '합성 승인 대상',
-      studentId: `${8_000_000 + sequence}`,
+      studentId: `${800_000 + sequence}`,
       department: '소프트웨어공학과',
     };
     await prisma.user.update({
