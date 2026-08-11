@@ -219,6 +219,42 @@ describe('AdminAccessController delegation', () => {
     });
     expect(profileService.patchProfile).not.toHaveBeenCalled();
   });
+
+  it.each(['get', 'getHistory', 'patchAccess', 'patchProfile'] as const)(
+    "%s rejects the reserved 'me' id even if it reaches this controller(#787)",
+    async (method) => {
+      // Given — 'me'는 세션 사용자 예약어라 관리자 대리 조회/수정 대상이 될 수 없다.
+      // 라우트 등록 순서가 UsersController를 우선하더라도, 이 검사가 이중 방어로 남는다.
+      const service = serviceHarness();
+      const profileService = profileServiceHarness();
+      const controller = new AdminAccessController(service, profileService);
+      const query = new AdminAccessHistoryRequestDto();
+      const body = {
+        toCommand: jest.fn(),
+      } as unknown as PatchAdminAccessRequestDto &
+        PatchAdminUserProfileRequestDto;
+
+      // When
+      const operation =
+        method === 'get'
+          ? controller.get(REQUEST, 'me')
+          : method === 'getHistory'
+            ? controller.getHistory(REQUEST, 'me', query)
+            : method === 'patchAccess'
+              ? controller.patchAccess(REQUEST, 'me', body)
+              : controller.patchProfile(REQUEST, 'me', body);
+
+      // Then
+      await expect(operation).rejects.toMatchObject({
+        errorCode: { code: RolesErrorCode.INVALID_USER_ID, status: 400 },
+      });
+      if (method === 'patchProfile') {
+        expect(profileService.patchProfile).not.toHaveBeenCalled();
+      } else {
+        expect(service[method]).not.toHaveBeenCalled();
+      }
+    },
+  );
 });
 
 function serviceHarness() {
