@@ -6,6 +6,7 @@ import {
 import type {
   ApplicationListItem,
   ApplicationListPage,
+  StaffTeamDetail,
   SubmissionType,
 } from '@/features/programs/types';
 import type { ReviewDecision } from '@/features/reviews/types';
@@ -30,6 +31,7 @@ import { staffProgramTeamDirectoryFor } from './program-overview-fixtures';
 import { isPublicProgramId } from './student-program-fixtures';
 import {
   CREATED_PROGRAM_ID,
+  findApplicationByTeamId,
   findStaffMilestone,
   findStaffApplication,
   findStaffProgram,
@@ -168,6 +170,44 @@ const staffProgramTeamsHandler: LocalReviewHandler = (context) => {
   return isPublicProgramId(programId)
     ? json(200, staffProgramTeamDirectoryFor(programId))
     : notFound('PRG_001', context.path);
+};
+
+/**
+ * 교직원 팀 상세(#874). 목록(`staffProgramTeamsHandler`)과 같은 팀 명단에서 하나를
+ * 꺼내고, 그 팀 id로 신청을 찾아 붙인다(`findApplicationByTeamId`) — 신청이 없으면
+ * `application: null`(아직 신청하지 않은 팀). 없는 팀·다른 프로그램의 팀은 실제
+ * 백엔드와 같은 코드(`TEAM_010`, 동일 404)로 떨어진다(`program-teams.controller.ts`
+ * 주석 참고 — 이 둘을 가려 주지 않는다).
+ */
+const staffProgramTeamDetailHandler: LocalReviewHandler = (context) => {
+  const params = matchGet(context, 'programs/:id/teams/:teamId');
+  if (staffRole(context) === null || params === null) return null;
+  const programId = params.id as string;
+  const teamId = params.teamId as string;
+  if (!isPublicProgramId(programId)) {
+    return notFound('TEAM_010', context.path);
+  }
+  const team = staffProgramTeamDirectoryFor(programId).find(
+    (candidate) => candidate.teamId === teamId,
+  );
+  if (team === undefined) return notFound('TEAM_010', context.path);
+
+  const application = findApplicationByTeamId(teamId);
+  return json(200, {
+    teamId: team.teamId,
+    name: team.name,
+    memberCount: team.memberCount,
+    members: team.members,
+    application:
+      application === null
+        ? null
+        : {
+            id: application.id,
+            status: application.status,
+            repository: application.repository,
+            repositoryProvisioning: application.repositoryProvisioning,
+          },
+  } satisfies StaffTeamDetail);
 };
 
 const programApplicationsHandler: LocalReviewHandler = (context) => {
@@ -446,6 +486,7 @@ const publishRepositoryHandler: LocalReviewHandler = (context) => {
 export const STAFF_HANDLERS: readonly LocalReviewHandler[] = [
   programEditHandler,
   staffProgramTeamsHandler,
+  staffProgramTeamDetailHandler,
   programApplicationsHandler,
   applicationDetailHandler,
   submissionMatrixHandler,

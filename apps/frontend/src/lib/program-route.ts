@@ -60,3 +60,14 @@ export function programMilestoneDocumentsHref(
 ): string {
   return `/programs/${encodeURIComponent(programId)}/milestones/${encodeURIComponent(milestoneId)}/documents`;
 }
+
+/**
+ * 교직원 전용 팀 상세(#874) — 참여 팀 목록의 팀명에서 들어가는 문맥 경로다.
+ * 좌측 패널 메뉴에는 넣지 않는다(위 `programMilestoneDocumentsHref`와 같은 원칙).
+ */
+export function programTeamDetailHref(
+  programId: string,
+  teamId: string,
+): string {
+  return `/programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}`;
+}
