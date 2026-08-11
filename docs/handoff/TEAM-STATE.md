@@ -554,4 +554,4 @@ drift 검사기는 문서 전체에서 이 형식의 표 하나만 인식한다.
 
 ## 2026-08-12 GitHub App 자격증명 계약 보강
 
-- [#879](https://github.com/JNU-SWCU/oss-hub/issues/879) 진행 중: 개인키 입력을 `*_PRIVATE_KEY_FILE` 전용으로 전환했고, Operations installation의 `app_id`를 설정 App ID와 대조해 잘못 연결된 키를 token 발급 전에 거부한다.
+- [#879](https://github.com/JNU-SWCU/oss-hub/issues/879) 진행 중: 파일 전용 입력과 Operations `app_id` 검증을 반영했고, Jenkins가 두 App을 실제 인증한 뒤 변경된 generation만 설치·재마운트·해시 대조하도록 배포 계약을 보강한다.

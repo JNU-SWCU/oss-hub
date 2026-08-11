@@ -175,6 +175,7 @@ jobs:
       - name: Jenkins 배포 계약 회귀 테스트
         if: ${{ steps.scope.outputs.jenkins == 'true' }}
         run: |
+          node --test scripts/jenkins/validate-github-app-credentials.test.mjs
           bash scripts/check-jenkinsfile.test.sh
           bash scripts/check-jenkinsfile.sh Jenkinsfile
           bash scripts/prune-deploy-backups.test.sh
